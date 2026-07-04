@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Pipeline 大产物(原始数据与中间输出不入 git,见 docs/architecture.md §2)
+tools/pipeline/data/raw/
+tools/pipeline/out/
+
+# Unity(项目创建后按需补全 Library/Temp/Logs/obj 等)
+Brushblade/Library/
+Brushblade/Temp/
+Brushblade/Logs/
+Brushblade/obj/
+Brushblade/UserSettings/
