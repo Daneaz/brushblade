@@ -49,11 +49,12 @@
 
 ### 0.4 开发环境
 
-- [ ] 引擎最终确认:Cocos Creator 3.x 继续 / 重新评估 Unity 或 Godot(详见第 16 章 v0.3)· 截止: ____________
+- [x] 引擎最终确认:**Unity(C#)**(详见第 16 章)· 完成:2026-07-04
+- [ ] **Unity 最小验证(起步第一项)**:创建 Unity LTS 空项目 → 导出 Windows 可执行 → 跑通 Steamworks SDK 集成(成就/Cloud)(第 16 章 16.1 落地要求)· 截止: ____________
 - [ ] 创建 Git 仓库(GitHub / Gitee),配 `.gitignore` + LFS · 截止: ____________
 - [ ] 定项目目录结构和模块划分(scene / battle / data / ui)· 截止: ____________
 - [ ] 搭配置表管线:Excel → JSON 的导出脚本 · 截止: ____________
-- [ ] 配 VSCode + TypeScript + ESLint · 截止: ____________
+- [ ] 配 IDE:Rider 或 VSCode + C# Dev Kit;锁定 Unity LTS 版本 · 截止: ____________
 
 ---
 
