@@ -53,8 +53,9 @@
 - [ ] **Unity 最小验证(起步第一项)**:创建 Unity LTS 空项目 → 导出 Windows 可执行 → 跑通 Steamworks SDK 集成(成就/Cloud)(第 16 章 16.1 落地要求)· 截止: ____________
 - [ ] 创建 Git 仓库(GitHub / Gitee),配 `.gitignore` + LFS · 截止: ____________
 - [ ] 定项目目录结构和模块划分(scene / battle / data / ui)· 截止: ____________
-- [ ] 搭配置表管线:Excel → JSON 的导出脚本 · 截止: ____________
+- [ ] 搭配置表管线:Python 重建(tools/pipeline/,IDS → 候选字表 → 游戏 JSON;大中间产物不入 git)· 截止: ____________
 - [ ] 配 IDE:Rider 或 VSCode + C# Dev Kit;锁定 Unity LTS 版本 · 截止: ____________
+- [ ] **i18n 预留**:文本与数据分离(字符串表),从 Unity 项目第一天执行,后补极痛(第 18 章 R13)· 截止: ____________
 
 ---
 
