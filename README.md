@@ -90,3 +90,4 @@
 
 - [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md) — 开发落地清单(海外版),按阶段勾选推进
 - [wuxing-reference.md](docs/design/wuxing-reference.md) — 五行规则规格 v1.0(生克倍率与相生触发规则的唯一来源)
+- [architecture.md](docs/architecture.md) — 代码架构 v1.0(分层 / asmdef / 数据流 / 测试策略,Unity 脚手架依据)
