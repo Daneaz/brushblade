@@ -27,6 +27,7 @@ namespace Brushblade.Data
             public List<string> Recipe { get; set; }
             public int ApCost { get; set; } = 1;
             public List<EffectDto> Effects { get; set; }
+            public string Rarity { get; set; }
         }
 
         private sealed class EffectDto
@@ -169,7 +170,7 @@ namespace Brushblade.Data
                     throw new ConfigException($"重复的字 id:{dto.Id}");
 
                 defs.Add(new CharDef(dto.Id, ParseElement(dto),
-                    dto.Recipe, dto.ApCost, ParseEffects(dto)));
+                    dto.Recipe, dto.ApCost, ParseEffects(dto), ParseRarity(dto)));
             }
 
             // fail fast 二次校验:配方引用必须已定义(完整校验在管线侧,4.9.6)
@@ -179,6 +180,15 @@ namespace Brushblade.Data
                         throw new ConfigException($"字「{def.Id}」的配方引用了未定义的「{ingredient}」");
 
             return new RecipeGraph(defs);
+        }
+
+        private static CardRarity ParseRarity(CharDto dto)
+        {
+            if (dto.Rarity == null)
+                return CardRarity.White;
+            if (!Enum.TryParse<CardRarity>(dto.Rarity, out var rarity))
+                throw new ConfigException($"字「{dto.Id}」的稀有度未知:{dto.Rarity}");
+            return rarity;
         }
 
         private static Element? ParseElement(CharDto dto)

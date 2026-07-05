@@ -38,7 +38,7 @@ namespace Brushblade.Presentation
         public static void ShowMap(string message = null)
         {
             var view = NewView("MapView");
-            view.AddComponent<MapView>().Init(_campaign, _meta, Time, StartStage, () => MetaStore.Save(_meta), message,
+            view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartStage, () => MetaStore.Save(_meta), message,
                 onOpenCollection: ShowCollection, onOpenShop: ShowShop);
         }
 
@@ -54,7 +54,7 @@ namespace Brushblade.Presentation
             if (ShopRules.EnsureShelf(_meta, pool, Time, new GameRandom(System.Environment.TickCount)))
                 MetaStore.Save(_meta);
             var view = NewView("ShopView");
-            view.AddComponent<ShopView>().Init(_meta, pool, Time, () => MetaStore.Save(_meta), () => ShowMap());
+            view.AddComponent<ShopView>().Init(_graph, _meta, pool, Time, () => MetaStore.Save(_meta), () => ShowMap());
         }
 
         /// <summary>已解锁章节的奖励池并集(F3:商城不上架未解锁章节的字)。</summary>

@@ -172,9 +172,10 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>开箱:就绪后结算奖励(墨锭入账、卡入收集),移除该箱。</summary>
+        /// <summary>开箱:就绪后结算奖励(墨锭入账、卡入收集),移除该箱。
+        /// 传入 graph 时按稀有度权重抽取并执行保底(青瓷+保底对应色阶,19.5.1);否则均匀抽取。</summary>
         public static bool TryOpen(MetaState meta, int index, ITimeSource time, GameRandom random,
-            out ChestRewards rewards)
+            out ChestRewards rewards, RecipeGraph graph = null)
         {
             rewards = default;
             var chest = meta.Chests[index];
@@ -183,9 +184,9 @@ namespace Brushblade.Core
 
             int tierIndex = (int)chest.Tier - 1;
             int ink = InkReward[tierIndex];
-            var cards = new List<string>();
-            for (int i = 0; i < CardCount[tierIndex] && chest.CardPool.Count > 0; i++)
-                cards.Add(random.Pick(chest.CardPool));
+            var cards = graph == null
+                ? DrawUniform(chest, random, CardCount[tierIndex])
+                : DrawWeighted(chest, random, CardCount[tierIndex], graph);
 
             meta.Ink += ink;
             foreach (var card in cards)
@@ -194,6 +195,99 @@ namespace Brushblade.Core
 
             rewards = new ChestRewards(ink, cards);
             return true;
+        }
+
+        // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→红;首版基准)
+        private static readonly int[][] CardRarityWeights =
+        {
+            new[] { 70, 25, 5, 0, 0, 0 },    // 素纸
+            new[] { 50, 32, 14, 4, 0, 0 },   // 竹简
+            new[] { 35, 30, 22, 10, 3, 0 },  // 青瓷
+            new[] { 22, 26, 26, 16, 8, 2 },  // 紫檀
+            new[] { 12, 20, 26, 22, 14, 6 }, // 鎏金
+            new[] { 6, 14, 22, 26, 20, 12 }, // 赤霄
+        };
+
+        /// <summary>保底稀有度(19.5.1):青瓷保底蓝、紫檀紫、鎏金橙、赤霄红;低档无保底。</summary>
+        private static readonly CardRarity?[] GuaranteedRarity =
+            { null, null, CardRarity.Blue, CardRarity.Purple, CardRarity.Orange, CardRarity.Red };
+
+        private static List<string> DrawUniform(ChestState chest, GameRandom random, int count)
+        {
+            var cards = new List<string>();
+            for (int i = 0; i < count && chest.CardPool.Count > 0; i++)
+                cards.Add(random.Pick(chest.CardPool));
+            return cards;
+        }
+
+        private static List<string> DrawWeighted(ChestState chest, GameRandom random, int count, RecipeGraph graph)
+        {
+            // 池按稀有度分组(池外/图谱外的 id 忽略)
+            var byRarity = new Dictionary<CardRarity, List<string>>();
+            foreach (var id in chest.CardPool)
+            {
+                if (!graph.TryGet(id, out var def)) continue;
+                if (!byRarity.TryGetValue(def.Rarity, out var group))
+                    byRarity[def.Rarity] = group = new List<string>();
+                group.Add(id);
+            }
+            if (byRarity.Count == 0)
+                return new List<string>();
+
+            var weights = CardRarityWeights[(int)chest.Tier - 1];
+            var cards = new List<string>();
+            for (int i = 0; i < count; i++)
+                cards.Add(DrawOne(byRarity, weights, random));
+
+            // 保底:抽取结果中无达标稀有度 → 换入一张(池中无达标时取最高可得)
+            var guaranteed = GuaranteedRarity[(int)chest.Tier - 1];
+            if (guaranteed is { } minRarity && cards.Count > 0)
+            {
+                bool satisfied = false;
+                foreach (var card in cards)
+                    if (graph.Get(card).Rarity >= minRarity) { satisfied = true; break; }
+                if (!satisfied)
+                    cards[0] = PickAtLeast(byRarity, minRarity, random);
+            }
+            return cards;
+        }
+
+        private static string DrawOne(Dictionary<CardRarity, List<string>> byRarity,
+            int[] weights, GameRandom random)
+        {
+            int total = 0;
+            foreach (var pair in byRarity)
+                total += weights[(int)pair.Key - 1];
+            if (total <= 0) // 权重全零(如低档箱只配了高稀有池):均匀兜底
+            {
+                var all = new List<string>();
+                foreach (var group in byRarity.Values) all.AddRange(group);
+                return random.Pick(all);
+            }
+
+            int roll = random.Next(total);
+            foreach (var pair in byRarity)
+            {
+                roll -= weights[(int)pair.Key - 1];
+                if (roll < 0)
+                    return random.Pick(pair.Value);
+            }
+            throw new InvalidOperationException("unreachable");
+        }
+
+        private static string PickAtLeast(Dictionary<CardRarity, List<string>> byRarity,
+            CardRarity minRarity, GameRandom random)
+        {
+            var candidates = new List<string>();
+            var best = CardRarity.White;
+            foreach (var pair in byRarity)
+                if (pair.Key > best) best = pair.Key;
+
+            var floor = minRarity <= best ? minRarity : best; // 池中无达标 → 取最高可得档
+            foreach (var pair in byRarity)
+                if (pair.Key >= floor)
+                    candidates.AddRange(pair.Value);
+            return random.Pick(candidates);
         }
     }
 }

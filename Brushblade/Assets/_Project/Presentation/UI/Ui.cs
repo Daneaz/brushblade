@@ -96,6 +96,17 @@ namespace Brushblade.Presentation
             rect.offsetMax = offsetMax;
         }
 
+        /// <summary>稀有度底色(白绿蓝紫橙红,19.3.1)。</summary>
+        public static Color RarityColor(Brushblade.Core.CardRarity rarity) => rarity switch
+        {
+            Brushblade.Core.CardRarity.Green => new Color(0.2f, 0.4f, 0.24f),
+            Brushblade.Core.CardRarity.Blue => new Color(0.2f, 0.32f, 0.52f),
+            Brushblade.Core.CardRarity.Purple => new Color(0.4f, 0.24f, 0.52f),
+            Brushblade.Core.CardRarity.Orange => new Color(0.56f, 0.36f, 0.1f),
+            Brushblade.Core.CardRarity.Red => new Color(0.56f, 0.16f, 0.16f),
+            _ => new Color(0.42f, 0.42f, 0.46f), // 白
+        };
+
         public static void Clear(Transform parent)
         {
             for (int i = parent.childCount - 1; i >= 0; i--)

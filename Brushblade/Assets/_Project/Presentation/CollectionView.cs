@@ -62,11 +62,12 @@ namespace Brushblade.Presentation
                 int level = MetaRules.CardLevel(_meta, cardId);
                 _meta.CardCopies.TryGetValue(cardId, out int copies);
                 bool inDeck = deck.Contains(cardId);
+                var rarity = _graph.Get(cardId).Rarity;
 
-                // 主卡:点击切换出阵
+                // 主卡:稀有度底色,点击切换出阵(出阵者加亮边字样)
                 Ui.TextButton(cell.transform, $"{cardId}\nLv.{level}" + (inDeck ? "\n[出阵]" : ""),
                     () => ToggleDeck(cardId),
-                    inDeck ? new Color(0.5f, 0.42f, 0.14f) : new Color(0.24f, 0.24f, 0.3f),
+                    inDeck ? Color.Lerp(Ui.RarityColor(rarity), Color.yellow, 0.25f) : Ui.RarityColor(rarity),
                     24, new Vector2(120, 92));
 
                 // 升级按钮
@@ -76,8 +77,8 @@ namespace Brushblade.Presentation
                 }
                 else
                 {
-                    int copiesNeeded = MetaRules.CopiesToUpgrade[level - 1];
-                    int inkNeeded = MetaRules.InkToUpgrade[level - 1];
+                    int copiesNeeded = MetaRules.CopiesRequired(level, rarity);
+                    int inkNeeded = MetaRules.InkRequired(level, rarity);
                     var upgrade = Ui.TextButton(cell.transform,
                         $"升级 {copies}/{copiesNeeded}\n墨锭{inkNeeded}",
                         () => Upgrade(cardId),
@@ -122,7 +123,7 @@ namespace Brushblade.Presentation
 
         private void Upgrade(string cardId)
         {
-            if (MetaRules.TryUpgradeCard(_meta, cardId))
+            if (MetaRules.TryUpgradeCard(_meta, cardId, _graph.Get(cardId).Rarity))
             {
                 _message = $"「{cardId}」升至 Lv.{MetaRules.CardLevel(_meta, cardId)}!";
                 _save();

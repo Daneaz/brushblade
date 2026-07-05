@@ -233,7 +233,7 @@ namespace Brushblade.Presentation
                     _run.PickReward(index);
                     _message = $"「{id}」入库,下一战!";
                     CancelSelection();
-                }, new Color(0.5f, 0.4f, 0.15f), 26, new Vector2(110, 88));
+                }, Ui.RarityColor(def.Rarity), 26, new Vector2(110, 88));
             }
             Ui.TextButton(_actionRow, "跳过", () =>
             {

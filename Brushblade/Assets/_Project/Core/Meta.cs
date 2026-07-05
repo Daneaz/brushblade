@@ -29,6 +29,19 @@ namespace Brushblade.Core
         /// <summary>升级墨锭成本(白卡基准)。索引 = 当前等级 − 1。</summary>
         public static readonly int[] InkToUpgrade = { 20, 50, 120, 300, 700, 1500, 3000, 6000, 12000 };
 
+        // 稀有度成本系数(索引 = rarity−1,白→红;19.3.3:越稀有需卡越少、墨锭越贵)
+        private static readonly double[] CopiesMultiplier = { 1.0, 0.7, 0.4, 0.25, 0.15, 0.1 };
+        private static readonly double[] InkMultiplier = { 1.0, 1.5, 2.0, 3.0, 4.0, 5.0 };
+
+        /// <summary>升到下一级所需同名卡(按稀有度分档:越稀有越少,向上取整,最少 1)。</summary>
+        public static int CopiesRequired(int currentLevel, CardRarity rarity)
+            => Math.Max(1, (int)Math.Ceiling(
+                CopiesToUpgrade[currentLevel - 1] * CopiesMultiplier[(int)rarity - 1]));
+
+        /// <summary>升到下一级所需墨锭(按稀有度分档:越稀有越贵)。</summary>
+        public static int InkRequired(int currentLevel, CardRarity rarity)
+            => (int)(InkToUpgrade[currentLevel - 1] * InkMultiplier[(int)rarity - 1]);
+
         /// <summary>角色等级:升到 n+1 级需 100 + 50×(n−1) 经验(19.2.1)。</summary>
         public static int CharacterLevel(int xp)
         {
@@ -82,15 +95,15 @@ namespace Brushblade.Core
             meta.CardCopies[cardId] = current + count;
         }
 
-        /// <summary>集满 + 墨锭足够 → 消耗并升 1 级;否则返回 false 不动状态。</summary>
-        public static bool TryUpgradeCard(MetaState meta, string cardId)
+        /// <summary>集满 + 墨锭足够 → 消耗并升 1 级;否则返回 false 不动状态。成本按稀有度分档。</summary>
+        public static bool TryUpgradeCard(MetaState meta, string cardId, CardRarity rarity = CardRarity.White)
         {
             int level = CardLevel(meta, cardId);
             if (level >= MaxCardLevel)
                 return false;
 
-            int copiesNeeded = CopiesToUpgrade[level - 1];
-            int inkNeeded = InkToUpgrade[level - 1];
+            int copiesNeeded = CopiesRequired(level, rarity);
+            int inkNeeded = InkRequired(level, rarity);
             meta.CardCopies.TryGetValue(cardId, out var copies);
             if (copies < copiesNeeded || meta.Ink < inkNeeded)
                 return false;

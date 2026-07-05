@@ -9,6 +9,7 @@ namespace Brushblade.Presentation
     /// <summary>每日商城页(19.6):卡位 ×4 + 宝箱位 + 墨锭广告位 + 每日广告刷新。</summary>
     public sealed class ShopView : MonoBehaviour
     {
+        private RecipeGraph _graph;
         private MetaState _meta;
         private IReadOnlyList<string> _unlockedPool;
         private ITimeSource _time;
@@ -16,9 +17,10 @@ namespace Brushblade.Presentation
         private Action _onBack;
         private string _message = "每日 0 点刷新;看广告可再刷一次货架";
 
-        public void Init(MetaState meta, IReadOnlyList<string> unlockedPool, ITimeSource time,
+        public void Init(RecipeGraph graph, MetaState meta, IReadOnlyList<string> unlockedPool, ITimeSource time,
             Action save, Action onBack)
         {
+            _graph = graph;
             _meta = meta;
             _unlockedPool = unlockedPool;
             _time = time;
@@ -51,12 +53,14 @@ namespace Brushblade.Presentation
                 int index = i;
                 string card = _meta.Shop.CardSlots[i];
                 bool sold = _meta.Shop.CardSold[i];
+                var rarity = _graph.Get(card).Rarity;
+                int price = ShopRules.CardPriceFor(rarity);
                 var button = Ui.TextButton(cardRow.transform,
-                    sold ? $"{card}\n已售" : $"{card}\n{ShopRules.CardPrice} 墨锭",
-                    () => Do(() => ShopRules.TryBuyCard(_meta, index), $"购入「{card}」!"),
-                    sold ? new Color(0.18f, 0.18f, 0.2f) : new Color(0.26f, 0.3f, 0.4f),
+                    sold ? $"{card}\n已售" : $"{card}\n{price} 墨锭",
+                    () => Do(() => ShopRules.TryBuyCard(_meta, index, rarity), $"购入「{card}」!"),
+                    sold ? new Color(0.18f, 0.18f, 0.2f) : Ui.RarityColor(rarity),
                     24, new Vector2(140, 110));
-                button.interactable = !sold && _meta.Ink >= ShopRules.CardPrice;
+                button.interactable = !sold && _meta.Ink >= price;
             }
 
             // 宝箱位 + 墨锭广告位 + 刷新

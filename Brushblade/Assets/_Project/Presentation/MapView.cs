@@ -8,6 +8,7 @@ namespace Brushblade.Presentation
     /// <summary>章节地图(19.1 外层):角色状态头 + 章节/关卡格 + 宝箱栏(19.5)。</summary>
     public sealed class MapView : MonoBehaviour
     {
+        private RecipeGraph _graph;
         private CampaignConfig _campaign;
         private MetaState _meta;
         private ITimeSource _time;
@@ -17,9 +18,10 @@ namespace Brushblade.Presentation
         private Action _onOpenShop;
         private string _message;
 
-        public void Init(CampaignConfig campaign, MetaState meta, ITimeSource time,
+        public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
             Action<int, int> onStartStage, Action save, string message, Action onOpenCollection, Action onOpenShop)
         {
+            _graph = graph;
             _onOpenShop = onOpenShop;
             _campaign = campaign;
             _meta = meta;
@@ -160,7 +162,7 @@ namespace Brushblade.Presentation
 
         private void OpenChest(int index)
         {
-            if (ChestRules.TryOpen(_meta, index, _time, new GameRandom(Environment.TickCount), out var rewards))
+            if (ChestRules.TryOpen(_meta, index, _time, new GameRandom(Environment.TickCount), out var rewards, _graph))
             {
                 _message = $"开箱:墨锭 +{rewards.Ink},字卡 {string.Join(" ", rewards.Cards)}";
                 _save();

@@ -19,8 +19,13 @@ namespace Brushblade.Core
     public static class ShopRules
     {
         public const int CardSlotCount = 4;
-        public const int CardPrice = 40;          // 首版平价;稀有度分档价随人工筛选接入
+        public const int CardPrice = 40;          // 白卡基准价
         public const int InkAdAmount = 30;        // 墨锭广告位领取量
+
+        private static readonly int[] CardPrices = { 40, 60, 100, 160, 260, 400 };
+
+        /// <summary>卡价按稀有度分档(19.6)。</summary>
+        public static int CardPriceFor(CardRarity rarity) => CardPrices[(int)rarity - 1];
 
         /// <summary>宝箱位价格(索引 = tier−1)。</summary>
         public static readonly int[] ChestPrice = { 30, 80, 200, 400, 800, 1500 };
@@ -54,12 +59,13 @@ namespace Brushblade.Core
             meta.Shop.ChestSold = false;
         }
 
-        /// <summary>购卡:未售出且墨锭足够 → 扣费、入收集、标记已售。</summary>
-        public static bool TryBuyCard(MetaState meta, int slotIndex)
+        /// <summary>购卡:未售出且墨锭足够 → 扣费(按稀有度)、入收集、标记已售。</summary>
+        public static bool TryBuyCard(MetaState meta, int slotIndex, CardRarity rarity = CardRarity.White)
         {
-            if (meta.Shop.CardSold[slotIndex] || meta.Ink < CardPrice)
+            int price = CardPriceFor(rarity);
+            if (meta.Shop.CardSold[slotIndex] || meta.Ink < price)
                 return false;
-            meta.Ink -= CardPrice;
+            meta.Ink -= price;
             MetaRules.AcquireCard(meta, meta.Shop.CardSlots[slotIndex]);
             meta.Shop.CardSold[slotIndex] = true;
             return true;
