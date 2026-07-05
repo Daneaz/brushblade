@@ -29,7 +29,7 @@ namespace Brushblade.Presentation
 
             var config = new BattleConfig
             {
-                DropTable = new[] { "木", "火", "火", "丁", "尧", "然" },
+                DropTable = new[] { "木", "火", "火", "丁", "尧", "然", "勺", "只", "土", "土" },
             };
             var enemies = new[]
             {

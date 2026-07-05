@@ -27,6 +27,15 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
             new CharDef("壁", Element.Earth, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
+            new CharDef("灼", Element.Fire, new[] { "火", "勺" },
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 8, doubleVsBurning: true) }),
+            new CharDef("勺", null),
+            new CharDef("炽", Element.Fire, new[] { "火", "只" },
+                effects: new[] { new EffectDef(EffectKind.BurnPotency, 1) }),
+            new CharDef("只", null),
+            new CharDef("堡", Element.Earth, new[] { "呆", "土" }, apCost: 2,
+                effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
+            new CharDef("呆", null),
         });
 
         private static BattleConfig Config(params string[] dropTable) => new()
@@ -205,6 +214,50 @@ namespace Brushblade.Core.Tests
             engine.Cast("壁");            // 24(土生金 ×3)
             engine.Cast("土");            // 部件直出 +3(无配方,无相生)
             Assert.That(engine.PlayerShield, Is.EqualTo(27));
+        }
+
+        // ---- 条件效果(10.3.1 灼/炽、10.3.6 堡) ----
+
+        [Test]
+        public void Zhuo_DoublesBaseValue_VsBurningTarget() // 灼:8 → 对带灼烧者 16
+        {
+            var heart = new EnemyDef("怔", Element.Heart, 100, 3); // 心系目标,排除相克干扰
+            var engine = Engine(library: new[] { "灯", "灼" }, enemies: new[] { heart });
+            engine.Cast("灯", 0);  // 6 伤 + 1 层灼烧 → 94
+            engine.Cast("灼", 0);  // 目标带灼烧:基础 8→16 → 78
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100 - 6 - 16));
+        }
+
+        [Test]
+        public void Zhuo_NormalValue_VsCleanTarget()
+        {
+            var heart = new EnemyDef("怔", Element.Heart, 100, 3);
+            var engine = Engine(library: new[] { "灼" }, enemies: new[] { heart });
+            engine.Cast("灼", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(92)); // 无灼烧,仍是 8
+        }
+
+        [Test]
+        public void Chi_RaisesBurnTick_Stackable() // 炽:每层结算 2→3;两个炽 → 4
+        {
+            var engine = Engine(library: new[] { "燃", "炽" }, enemies: new[] { MetalBoss(200) });
+            engine.Cast("燃");   // 3 层灼烧
+            engine.Cast("炽");   // 结算系数 2→3
+            engine.EndTurn();    // 3×3 = 9
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 9));
+            Assert.That(engine.Enemies[0].Burn, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Bao_ShieldSurvivesExactlyOneClear() // 堡:豁免一次全清
+        {
+            var engine = Engine(library: new[] { "堡" }, enemies: new[] { WoodMinion(hp: 200) }); // 攻 3
+            engine.Cast("堡");   // 护盾 10(呆中性+土,无相生)
+            engine.EndTurn();    // 吸收 3 → 7,豁免本次全清
+            Assert.That(engine.PlayerShield, Is.EqualTo(7));
+            engine.EndTurn();    // 吸收 3 → 4,本次全清生效
+            Assert.That(engine.PlayerShield, Is.EqualTo(0));
+            Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 两轮攻击全被盾挡
         }
 
         // ---- 胜负(3.8.4) ----

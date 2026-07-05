@@ -43,6 +43,9 @@ namespace Brushblade.Core
         private readonly List<EnemyState> _enemies = new();
 
         private ForgeState _forge;
+        private int _burnPerStack = 2;      // 灼烧每层结算伤害(10.2;炽 +1,可叠加)
+        private int _shieldNormal;          // 回合末全清的护盾
+        private int _shieldPersist;         // 豁免一次全清的护盾(堡)
 
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
@@ -64,7 +67,7 @@ namespace Brushblade.Core
         public int Turn { get; private set; }
         public int Ap { get; private set; }
         public int PlayerHp { get; private set; }
-        public int PlayerShield { get; private set; }
+        public int PlayerShield => _shieldNormal + _shieldPersist;
         public IReadOnlyList<string> Library => _forge.Library;
         public IReadOnlyList<string> Pool => _forge.Pool;
         public IReadOnlyList<string> UsedChars => _usedChars;
@@ -157,24 +160,26 @@ namespace Brushblade.Core
         {
             if (Phase != BattlePhase.PlayerTurn) return;
 
-            // 3.7 结算顺序第 1 条:灼烧(X 层 → X×2 伤害,然后 −1 层,10.2)
+            // 3.7 结算顺序第 1 条:灼烧(X 层 → X×系数 伤害,然后 −1 层;系数基础 2,炽可加,10.2)
             foreach (var enemy in _enemies)
             {
                 if (!enemy.Alive || enemy.Burn <= 0) continue;
-                enemy.Hp = Math.Max(0, enemy.Hp - enemy.Burn * 2);
+                enemy.Hp = Math.Max(0, enemy.Hp - enemy.Burn * _burnPerStack);
                 enemy.Burn -= 1;
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
-            // 敌人行动:护盾先吸收
+            // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后)
             foreach (var enemy in _enemies)
             {
                 if (!enemy.Alive) continue;
                 int damage = enemy.Def.Attack;
-                int absorbed = Math.Min(PlayerShield, damage);
-                PlayerShield -= absorbed;
-                PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
+                int fromNormal = Math.Min(_shieldNormal, damage);
+                _shieldNormal -= fromNormal;
+                int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
+                _shieldPersist -= fromPersist;
+                PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
             }
             if (PlayerHp <= 0)
             {
@@ -182,8 +187,9 @@ namespace Brushblade.Core
                 return;
             }
 
-            // 护盾全清:清算点在敌方行动结束后(10.2;「堡」类豁免随条件效果扩展实现)
-            PlayerShield = 0;
+            // 护盾全清:清算点在敌方行动结束后(10.2);豁免桶挺过本次,降级为普通桶
+            _shieldNormal = _shieldPersist;
+            _shieldPersist = 0;
 
             StartTurn();
         }
@@ -213,12 +219,12 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        DamageEnemy(_enemies[targetIndex], effect.Value, recipeElements, attacker);
+                        DamageEnemy(_enemies[targetIndex], BaseValue(effect, _enemies[targetIndex]), recipeElements, attacker);
                         break;
                     case EffectKind.DamageAll:
                         foreach (var enemy in _enemies)
                             if (enemy.Alive)
-                                DamageEnemy(enemy, effect.Value, recipeElements, attacker);
+                                DamageEnemy(enemy, BaseValue(effect, enemy), recipeElements, attacker);
                         break;
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
@@ -230,10 +236,21 @@ namespace Brushblade.Core
                                 enemy.Burn += effect.Value;
                         break;
                     case EffectKind.Shield:
-                        PlayerShield += WuxingResolver.ResolveEffect(effect.Value, recipeElements);
+                        int shield = WuxingResolver.ResolveEffect(effect.Value, recipeElements);
+                        if (effect.PersistOnce) _shieldPersist += shield;
+                        else _shieldNormal += shield;
+                        break;
+                    case EffectKind.BurnPotency:
+                        _burnPerStack += effect.Value;
                         break;
                 }
             }
+        }
+
+        /// <summary>条件基础值:灼类效果对带灼烧目标翻倍(10.3.1),再进生克结算。</summary>
+        private static int BaseValue(EffectDef effect, EnemyState target)
+        {
+            return effect.DoubleVsBurning && target.Burn > 0 ? effect.Value * 2 : effect.Value;
         }
 
         private void DamageEnemy(EnemyState enemy, int baseValue,

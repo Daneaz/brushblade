@@ -33,6 +33,8 @@ namespace Brushblade.Data
         {
             public string Kind { get; set; }
             public int Value { get; set; }
+            public bool DoubleVsBurning { get; set; }
+            public bool PersistOnce { get; set; }
         }
 
         /// <summary>解析字表 JSON;结构非法/属性名未知/原料缺失/重复 id 抛 ConfigException。</summary>
@@ -90,7 +92,8 @@ namespace Brushblade.Data
             {
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
-                effects.Add(new EffectDef(kind, effect.Value));
+                effects.Add(new EffectDef(kind, effect.Value,
+                    effect.DoubleVsBurning, effect.PersistOnce));
             }
             return effects;
         }
