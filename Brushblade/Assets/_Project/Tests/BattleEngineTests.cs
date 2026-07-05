@@ -257,6 +257,43 @@ namespace Brushblade.Core.Tests
             Assert.That(BattleEngine.NeedsTarget(new CharDef("木", Element.Wood)), Is.True);
         }
 
+        // ---- 丢弃(3.8.2 防卡手;免 AP) ----
+
+        [Test]
+        public void Discard_FromLibrary_RemovesPermanently_NoApCost()
+        {
+            var engine = Engine(library: new[] { "焚", "灯" });
+            var error = engine.Discard("灯");
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Library, Is.EquivalentTo(new[] { "焚" }));
+            Assert.That(engine.UsedChars, Is.Empty); // 丢弃≠使用,不回归
+            Assert.That(engine.Ap, Is.EqualTo(3));   // 免 AP
+        }
+
+        [Test]
+        public void Discard_FromPool_RemovesOneInstance()
+        {
+            var engine = Engine(pool: new[] { "火", "火" }, config: Config("丁"));
+            var error = engine.Discard("火");
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Pool.Count(x => x == "火"), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Discard_NotPresent_Rejected()
+        {
+            var engine = Engine();
+            Assert.That(engine.Discard("焚"), Is.EqualTo(BattleError.NotCastable));
+        }
+
+        [Test]
+        public void Discard_AfterBattleOver_Rejected()
+        {
+            var engine = Engine(library: new[] { "焚", "灯" }, enemies: new[] { WoodMinion() });
+            engine.Cast("焚"); // 清场获胜
+            Assert.That(engine.Discard("灯"), Is.EqualTo(BattleError.BattleOver));
+        }
+
         // ---- 条件效果(10.3.1 灼/炽、10.3.6 堡) ----
 
         [Test]

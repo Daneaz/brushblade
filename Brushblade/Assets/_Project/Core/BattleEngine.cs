@@ -151,6 +151,28 @@ namespace Brushblade.Core
             return BattleError.None;
         }
 
+        /// <summary>丢弃(3.8.2 防卡手):从字库或部件池移除,免 AP;字库丢弃本关不回归。</summary>
+        public BattleError Discard(string charId)
+        {
+            if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
+
+            if (_forge.Library.Contains(charId))
+            {
+                var library = new List<string>(_forge.Library);
+                library.Remove(charId);
+                _forge = new ForgeState(library, _forge.Pool);
+                return BattleError.None;
+            }
+            if (_forge.Pool.Contains(charId))
+            {
+                var pool = new List<string>(_forge.Pool);
+                pool.Remove(charId);
+                _forge = new ForgeState(_forge.Library, pool);
+                return BattleError.None;
+            }
+            return BattleError.NotCastable;
+        }
+
         /// <summary>兜底一击(4.5 第二层防卡手地板):无效果的部件/字出手时的弱效果,永不 brick。</summary>
         private static readonly EffectDef[] FallbackEffects = { new(EffectKind.DamageSingle, 3) };
 

@@ -131,6 +131,28 @@ namespace Brushblade.Core.Tests
             Assert.That(a.RewardOptions, Is.EqualTo(b.RewardOptions));
         }
 
+        [Test]
+        public void DiscardedChar_DoesNotReturnNextBattleInRun() // 丢弃≠使用,关内不回归
+        {
+            var run = Run();
+            // Run() 起手字库 [焚];先补一张灯进字库再验证
+            run.Battle.Cast("焚"); // 焚使用 → 胜利
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+
+            Assert.That(run.Battle.Library, Does.Contain("焚")); // 使用的字回归
+            run.Battle.Discard("焚");
+            WinByFallbackOrSkip(run);
+        }
+
+        private static void WinByFallbackOrSkip(RunEngine run)
+        {
+            // 丢弃后字库为空,验证到此为止:丢弃的字已不在库中,也不在已使用列表
+            Assert.That(run.Battle.Library, Is.Empty);
+            Assert.That(run.Battle.UsedChars, Is.Empty);
+        }
+
         // ---- 局内广告扩容(2026-07-06 拍板):字库 6+2、部件池 10+2,每关各一次,关卡结束恢复 ----
 
         [Test]

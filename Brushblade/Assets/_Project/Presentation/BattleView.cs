@@ -202,6 +202,7 @@ namespace Brushblade.Presentation
                     new Color(0.55f, 0.3f, 0.15f));
                 if (inLibrary && !def.IsLeaf)
                     Ui.TextButton(_actionRow, "拆", () => OnDismantle(def.Id), new Color(0.3f, 0.35f, 0.5f));
+                Ui.TextButton(_actionRow, "丢弃", () => OnDiscard(def.Id), new Color(0.42f, 0.24f, 0.24f));
                 Ui.TextButton(_actionRow, "取消", CancelSelection, new Color(0.3f, 0.3f, 0.3f));
             }
             Ui.TextButton(_actionRow, "结束回合", OnEndTurn, new Color(0.45f, 0.2f, 0.35f), 26, new Vector2(150, 64));
@@ -297,6 +298,13 @@ namespace Brushblade.Presentation
         {
             var error = Battle.Cast(charId, target);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
+            CancelSelection();
+        }
+
+        private void OnDiscard(string charId)
+        {
+            var error = Battle.Discard(charId);
+            _message = error == BattleError.None ? $"丢弃「{charId}」(免 AP)" : Describe(error);
             CancelSelection();
         }
 
