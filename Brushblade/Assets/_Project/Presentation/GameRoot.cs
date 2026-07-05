@@ -27,6 +27,10 @@ namespace Brushblade.Presentation
                 File.ReadAllText(Path.Combine(configDir, "enemies.json")), _graph);
             _meta = MetaStore.Load();
 
+            // 初始收集 = 火系初始卡组(19.3.4;人工筛选后替换,当前原型为灯)
+            if (_meta.OwnedCards.Count == 0)
+                MetaRules.AcquireCard(_meta, "灯");
+
             ShowMap();
         }
 
@@ -45,7 +49,7 @@ namespace Brushblade.Presentation
                 PlayerMaxHp = MetaRules.MaxHpFor(level), // 19.2.1 生命成长
             };
             var run = new RunEngine(_graph, _campaign.BuildRunConfig(chapter, stage), battleConfig,
-                startingLibrary: new[] { "灯" }, startingPool: new[] { "木", "木" },
+                startingLibrary: MetaRules.StartingLibrary(_meta), startingPool: new[] { "木", "木" },
                 seed: System.Environment.TickCount, cardLevels: _meta.CardLevels);
 
             var view = NewView("BattleView");

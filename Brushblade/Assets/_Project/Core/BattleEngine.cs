@@ -149,10 +149,17 @@ namespace Brushblade.Core
             return BattleError.None;
         }
 
+        /// <summary>兜底一击(4.5 第二层防卡手地板):无效果的部件/字出手时的弱效果,永不 brick。</summary>
+        private static readonly EffectDef[] FallbackEffects = { new(EffectKind.DamageSingle, 3) };
+
+        /// <summary>该字的实际出字效果:无效果者用兜底一击。</summary>
+        private static IReadOnlyList<EffectDef> EffectsOf(CharDef def) =>
+            def.Effects.Count > 0 ? def.Effects : FallbackEffects;
+
         /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式)。</summary>
         public static bool NeedsTarget(CharDef def)
         {
-            foreach (var effect in def.Effects)
+            foreach (var effect in EffectsOf(def))
                 if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle)
                     return true;
             return false;
@@ -218,7 +225,7 @@ namespace Brushblade.Core
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
 
-            foreach (var effect in def.Effects)
+            foreach (var effect in EffectsOf(def))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
                 switch (effect.Kind)

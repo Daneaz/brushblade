@@ -183,9 +183,9 @@ namespace Brushblade.Presentation
             {
                 var def = _graph.Get(_selectedChar);
                 bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
-                if (def.Effects.Count > 0)
-                    Ui.TextButton(_actionRow, inLibrary ? "出字" : "直出", () => OnCastPressed(def),
-                        new Color(0.55f, 0.3f, 0.15f));
+                string castLabel = def.Effects.Count > 0 ? (inLibrary ? "出字" : "直出") : "兜底一击";
+                Ui.TextButton(_actionRow, castLabel, () => OnCastPressed(def),
+                    new Color(0.55f, 0.3f, 0.15f));
                 if (inLibrary && !def.IsLeaf)
                     Ui.TextButton(_actionRow, "拆", () => OnDismantle(def.Id), new Color(0.3f, 0.35f, 0.5f));
                 Ui.TextButton(_actionRow, "取消", CancelSelection, new Color(0.3f, 0.3f, 0.3f));
@@ -244,22 +244,20 @@ namespace Brushblade.Presentation
             _selectedChar = charId;
             _targeting = false;
             var def = _graph.Get(charId);
-            _message = def.Effects.Count > 0 ? $"「{charId}」:出字({def.ApCost} AP)或拆(1 AP)" : $"「{charId}」是材料字,可拆或用于合成";
+            _message = def.Effects.Count > 0
+                ? $"「{charId}」:出字({def.ApCost} AP)或拆(1 AP)"
+                : $"「{charId}」是材料字:兜底一击({def.ApCost} AP)/ 拆 / 用于合成";
             Refresh();
         }
 
         private void OnPoolCharClicked(string charId)
         {
             var def = _graph.Get(charId);
-            if (def.Effects.Count == 0)
-            {
-                _message = $"部件「{charId}」无直出效果,等待合成";
-                Refresh();
-                return;
-            }
             _selectedChar = charId;
             _targeting = false;
-            _message = $"部件「{charId}」可直出(1 AP)";
+            _message = def.Effects.Count > 0
+                ? $"部件「{charId}」可直出(1 AP)"
+                : $"部件「{charId}」可兜底一击(1 AP,弱伤害)或等待合成";
             Refresh();
         }
 

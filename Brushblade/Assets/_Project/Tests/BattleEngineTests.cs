@@ -216,6 +216,47 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerShield, Is.EqualTo(27));
         }
 
+        // ---- 兜底出字(4.5 第二层「防卡手地板,永不 brick」):无效果的部件/字均可打出弱一击 ----
+
+        [Test]
+        public void Fallback_ComponentWithoutEffects_CastsWeakHit()
+        {
+            var engine = Engine(pool: new[] { "木" }, enemies: new[] { new EnemyDef("怔", Element.Heart, 100, 3) },
+                config: Config("丁"));
+            var error = engine.Cast("木", 0);
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(97)); // 兜底单体 3(心系目标无生克)
+            Assert.That(engine.Pool, Does.Not.Contain("木"));   // 部件被消耗
+        }
+
+        [Test]
+        public void Fallback_AppliesWuxing() // 木 vs 土怪:木克土 ×1.5 → floor(4.5)=4
+        {
+            var engine = Engine(pool: new[] { "木" },
+                enemies: new[] { new EnemyDef("夯", Element.Earth, 100, 3) }, config: Config("丁"));
+            engine.Cast("木", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(96));
+        }
+
+        [Test]
+        public void Fallback_MaterialCharInLibrary_Castable() // 林(无效果材料字)也能兜底出手
+        {
+            var engine = Engine(library: new[] { "林" },
+                enemies: new[] { new EnemyDef("怔", Element.Heart, 100, 3) });
+            var error = engine.Cast("林", 0);
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(97));
+            Assert.That(engine.UsedChars, Does.Contain("林")); // 字出手后进已使用
+        }
+
+        [Test]
+        public void Fallback_NeedsTarget()
+        {
+            var engine = Engine(library: new[] { "林" });
+            Assert.That(engine.Cast("林"), Is.EqualTo(BattleError.InvalidTarget));
+            Assert.That(BattleEngine.NeedsTarget(new CharDef("木", Element.Wood)), Is.True);
+        }
+
         // ---- 条件效果(10.3.1 灼/炽、10.3.6 堡) ----
 
         [Test]

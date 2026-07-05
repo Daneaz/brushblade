@@ -148,6 +148,61 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 63));
         }
 
+        // ---- 收集与出阵卡组(19.3.4) ----
+
+        [Test]
+        public void AcquireCard_FirstTimeOwns_RepeatBecomesCopies()
+        {
+            var meta = new MetaState();
+            MetaRules.AcquireCard(meta, "炎");
+            Assert.That(meta.OwnedCards, Does.Contain("炎"));
+            Assert.That(meta.CardCopies.ContainsKey("炎"), Is.False.Or.EqualTo(false)); // 首张不是重复卡
+            MetaRules.AcquireCard(meta, "炎");
+            MetaRules.AcquireCard(meta, "炎");
+            Assert.That(meta.CardCopies["炎"], Is.EqualTo(2));
+            Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "炎" })); // 不重复入收集
+        }
+
+        [Test]
+        public void TrySetDeck_ValidatesOwnershipSizeAndDuplicates()
+        {
+            var meta = new MetaState();
+            MetaRules.AcquireCard(meta, "灯");
+            MetaRules.AcquireCard(meta, "炎");
+
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎" }), Is.True);
+            Assert.That(meta.Deck, Is.EqualTo(new[] { "灯", "炎" }));
+
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "焚" }), Is.False);            // 未收集
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "灯" }), Is.False);       // 重复
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "灯", "炎", "灯" }), Is.False); // 超上限
+            Assert.That(meta.Deck, Is.EqualTo(new[] { "灯", "炎" })); // 失败不动状态
+        }
+
+        [Test]
+        public void StartingLibrary_AutoFills_ByHighestLevel()
+        {
+            var meta = new MetaState();
+            MetaRules.AcquireCard(meta, "灯");
+            MetaRules.AcquireCard(meta, "炎");
+            MetaRules.AcquireCard(meta, "烧");
+            meta.CardLevels["烧"] = 5;
+            meta.CardLevels["炎"] = 3;
+            MetaRules.TrySetDeck(meta, new[] { "灯" });
+
+            var library = MetaRules.StartingLibrary(meta);
+            Assert.That(library[0], Is.EqualTo("灯"));                  // 卡组优先
+            Assert.That(library, Is.EquivalentTo(new[] { "灯", "烧", "炎" })); // 等级高者先补
+        }
+
+        [Test]
+        public void StartingLibrary_EmptyDeck_UsesOwnedCards()
+        {
+            var meta = new MetaState();
+            MetaRules.AcquireCard(meta, "灯");
+            Assert.That(MetaRules.StartingLibrary(meta), Is.EqualTo(new[] { "灯" }));
+        }
+
         [Test]
         public void RunEngine_ForwardsCardLevels_ToBattles()
         {
