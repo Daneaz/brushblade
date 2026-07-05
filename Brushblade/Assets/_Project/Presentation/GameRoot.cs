@@ -15,6 +15,7 @@ namespace Brushblade.Presentation
         private static RecipeGraph _graph;
         private static CampaignConfig _campaign;
         private static MetaState _meta;
+        private static readonly ITimeSource Time = new RealTimeSource();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
@@ -34,10 +35,10 @@ namespace Brushblade.Presentation
             ShowMap();
         }
 
-        public static void ShowMap()
+        public static void ShowMap(string message = null)
         {
             var view = NewView("MapView");
-            view.AddComponent<MapView>().Init(_campaign, _meta, StartStage);
+            view.AddComponent<MapView>().Init(_campaign, _meta, Time, StartStage, () => MetaStore.Save(_meta), message);
         }
 
         private static void StartStage(int chapter, int stage)
@@ -59,13 +60,26 @@ namespace Brushblade.Presentation
 
         private static void OnRunEnded(int chapter, int stage, bool won)
         {
+            string message = null;
             if (won)
             {
                 bool firstClear = MetaRules.ApplyStageCleared(_meta, chapter, stage);
-                _meta.Ink += firstClear ? 50 : 15; // 首版基准;宝箱系统接入后由宝箱承载主产出
+                _meta.Ink += firstClear ? 50 : 15;
+
+                // 掉宝箱(19.5.3):档位随角色等级,Boss 关首通 +1 档;箱位满/当日达上限折算墨锭
+                bool bossBonus = firstClear && _campaign.Chapters[chapter].Stages[stage].Boss;
+                var tier = ChestRules.RollTier(MetaRules.CharacterLevel(_meta.CharacterXp),
+                    new GameRandom(System.Environment.TickCount), bossBonus);
+                if (ChestRules.TryAwardChest(_meta, tier, _campaign.Chapters[chapter].RewardPool, Time))
+                    message = $"获得{ChestRules.TierName(tier)}!在箱位中开启它";
+                else
+                {
+                    _meta.Ink += 30;
+                    message = "箱位已满或今日宝箱达上限,折算 30 墨锭";
+                }
             }
             MetaStore.Save(_meta);
-            ShowMap();
+            ShowMap(message);
         }
 
         private static GameObject NewView(string name)
