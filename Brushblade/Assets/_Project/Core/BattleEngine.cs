@@ -43,16 +43,19 @@ namespace Brushblade.Core
         private readonly List<EnemyState> _enemies = new();
 
         private ForgeState _forge;
+        private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
         private int _burnPerStack = 2;      // 灼烧每层结算伤害(10.2;炽 +1,可叠加)
         private int _shieldNormal;          // 回合末全清的护盾
         private int _shieldPersist;         // 豁免一次全清的护盾(堡)
 
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
-            IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null)
+            IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null,
+            IReadOnlyDictionary<string, int> cardLevels = null)
         {
             _graph = graph;
             _config = config;
+            _cardLevels = cardLevels;
             _random = new GameRandom(seed);
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
@@ -213,44 +216,46 @@ namespace Brushblade.Core
         {
             var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
+            int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
 
             foreach (var effect in def.Effects)
             {
+                int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        DamageEnemy(_enemies[targetIndex], BaseValue(effect, _enemies[targetIndex]), recipeElements, attacker);
+                        DamageEnemy(_enemies[targetIndex], BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker);
                         break;
                     case EffectKind.DamageAll:
                         foreach (var enemy in _enemies)
                             if (enemy.Alive)
-                                DamageEnemy(enemy, BaseValue(effect, enemy), recipeElements, attacker);
+                                DamageEnemy(enemy, BaseValue(effect, value, enemy), recipeElements, attacker);
                         break;
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
-                            _enemies[targetIndex].Burn += effect.Value;
+                            _enemies[targetIndex].Burn += value;
                         break;
                     case EffectKind.BurnAll:
                         foreach (var enemy in _enemies)
                             if (enemy.Alive)
-                                enemy.Burn += effect.Value;
+                                enemy.Burn += value;
                         break;
                     case EffectKind.Shield:
-                        int shield = WuxingResolver.ResolveEffect(effect.Value, recipeElements);
+                        int shield = WuxingResolver.ResolveEffect(value, recipeElements);
                         if (effect.PersistOnce) _shieldPersist += shield;
                         else _shieldNormal += shield;
                         break;
                     case EffectKind.BurnPotency:
-                        _burnPerStack += effect.Value;
+                        _burnPerStack += value;
                         break;
                 }
             }
         }
 
         /// <summary>条件基础值:灼类效果对带灼烧目标翻倍(10.3.1),再进生克结算。</summary>
-        private static int BaseValue(EffectDef effect, EnemyState target)
+        private static int BaseValue(EffectDef effect, int scaledValue, EnemyState target)
         {
-            return effect.DoubleVsBurning && target.Burn > 0 ? effect.Value * 2 : effect.Value;
+            return effect.DoubleVsBurning && target.Burn > 0 ? scaledValue * 2 : scaledValue;
         }
 
         private void DamageEnemy(EnemyState enemy, int baseValue,

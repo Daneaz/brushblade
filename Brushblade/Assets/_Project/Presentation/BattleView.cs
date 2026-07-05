@@ -11,6 +11,7 @@ namespace Brushblade.Presentation
     {
         private RecipeGraph _graph;
         private RunEngine _run;
+        private System.Action<bool> _onRunEnded;
 
         private BattleEngine Battle => _run.Battle;
 
@@ -28,10 +29,11 @@ namespace Brushblade.Presentation
         private Transform _actionRow;
         private Text _messageLabel;
 
-        public void Init(RecipeGraph graph, RunEngine run)
+        public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded)
         {
             _graph = graph;
             _run = run;
+            _onRunEnded = onRunEnded;
             BuildSkeleton();
             Refresh();
         }
@@ -229,10 +231,10 @@ namespace Brushblade.Presentation
         private void DrawRunEnd()
         {
             bool won = _run.Phase == RunPhase.RunWon;
-            Ui.Label(_actionRow, won ? "连战通关——字正天下!" : "败北", 40);
-            Ui.TextButton(_actionRow, "再来一局", BattleBootstrap.Restart,
+            Ui.Label(_actionRow, won ? "关卡通过——字正!" : "败北", 40);
+            Ui.TextButton(_actionRow, "返回地图", () => _onRunEnded(won),
                 new Color(0.2f, 0.4f, 0.25f), 26, new Vector2(170, 70));
-            _message = won ? "阶段 1 连战格式验证完成。" : "死亡即结算,这就是肉鸽。";
+            _message = won ? "通关结算:经验与墨锭入账。" : "死亡即结算,回地图重整旗鼓。";
         }
 
         // ---- 交互 ----

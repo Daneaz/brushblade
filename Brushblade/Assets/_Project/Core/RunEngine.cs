@@ -31,14 +31,17 @@ namespace Brushblade.Core
         private readonly RunConfig _runConfig;
         private readonly BattleConfig _battleConfig;
         private readonly GameRandom _random;
+        private readonly IReadOnlyDictionary<string, int> _cardLevels;
         private readonly List<string> _rewardOptions = new();
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
-            IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed)
+            IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
+            IReadOnlyDictionary<string, int> cardLevels = null)
         {
             _graph = graph;
             _runConfig = runConfig;
             _battleConfig = battleConfig;
+            _cardLevels = cardLevels;
             _random = new GameRandom(seed);
             Phase = RunPhase.InBattle;
             BattleIndex = 0;
@@ -115,7 +118,7 @@ namespace Brushblade.Core
         private BattleEngine NewBattle(IReadOnlyList<string> library, IReadOnlyList<string> pool, int? startingHp)
         {
             return new BattleEngine(_graph, _battleConfig, library, pool,
-                _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp);
+                _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels);
         }
     }
 }

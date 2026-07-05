@@ -1,0 +1,106 @@
+using System;
+using System.Collections.Generic;
+
+namespace Brushblade.Core
+{
+    /// <summary>局外养成状态(第 19 章):角色经验/墨锭/卡等级/关卡进度。可序列化为存档。</summary>
+    public sealed class MetaState
+    {
+        public int CharacterXp { get; set; }
+        public int Ink { get; set; }                                    // 墨锭
+        public Dictionary<string, int> CardLevels { get; set; } = new();  // 缺省 1 级
+        public Dictionary<string, int> CardCopies { get; set; } = new();  // 待消耗重复卡
+        public List<int> ClearedStages { get; set; } = new();             // 每章已通关数
+    }
+
+    /// <summary>养成规则(19.2/19.3 首版基准)。纯函数,状态进出。</summary>
+    public static class MetaRules
+    {
+        public const int MaxCardLevel = 10;
+
+        /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。</summary>
+        public static readonly int[] CopiesToUpgrade = { 2, 4, 10, 20, 40, 80, 150, 300, 500 };
+
+        /// <summary>升级墨锭成本(白卡基准)。索引 = 当前等级 − 1。</summary>
+        public static readonly int[] InkToUpgrade = { 20, 50, 120, 300, 700, 1500, 3000, 6000, 12000 };
+
+        /// <summary>角色等级:升到 n+1 级需 100 + 50×(n−1) 经验(19.2.1)。</summary>
+        public static int CharacterLevel(int xp)
+        {
+            int level = 1;
+            int cost = 100;
+            while (xp >= cost)
+            {
+                xp -= cost;
+                level += 1;
+                cost += 50;
+            }
+            return level;
+        }
+
+        /// <summary>生命成长:50 + 2×(等级−1),上限 100。</summary>
+        public static int MaxHpFor(int level) => Math.Min(100, 50 + 2 * (level - 1));
+
+        /// <summary>关卡解锁:章内顺序解锁;下一章需上一章全通。</summary>
+        public static bool IsStageUnlocked(MetaState meta, CampaignConfig campaign, int chapter, int stage)
+        {
+            for (int c = 0; c < chapter; c++)
+                if (ClearedIn(meta, c) < campaign.Chapters[c].Stages.Count)
+                    return false;
+            return stage <= ClearedIn(meta, chapter);
+        }
+
+        /// <summary>通关结算:首通 +50 经验并推进进度,重复 +10。返回是否首通。</summary>
+        public static bool ApplyStageCleared(MetaState meta, int chapter, int stage)
+        {
+            bool firstClear = stage == ClearedIn(meta, chapter);
+            if (firstClear)
+            {
+                while (meta.ClearedStages.Count <= chapter)
+                    meta.ClearedStages.Add(0);
+                meta.ClearedStages[chapter] += 1;
+            }
+            meta.CharacterXp += firstClear ? 50 : 10;
+            return firstClear;
+        }
+
+        private static int ClearedIn(MetaState meta, int chapter) =>
+            chapter < meta.ClearedStages.Count ? meta.ClearedStages[chapter] : 0;
+
+        /// <summary>卡等级(缺省 1)。</summary>
+        public static int CardLevel(MetaState meta, string cardId) =>
+            meta.CardLevels.TryGetValue(cardId, out var level) ? level : 1;
+
+        public static void AddCardCopies(MetaState meta, string cardId, int count)
+        {
+            meta.CardCopies.TryGetValue(cardId, out var current);
+            meta.CardCopies[cardId] = current + count;
+        }
+
+        /// <summary>集满 + 墨锭足够 → 消耗并升 1 级;否则返回 false 不动状态。</summary>
+        public static bool TryUpgradeCard(MetaState meta, string cardId)
+        {
+            int level = CardLevel(meta, cardId);
+            if (level >= MaxCardLevel)
+                return false;
+
+            int copiesNeeded = CopiesToUpgrade[level - 1];
+            int inkNeeded = InkToUpgrade[level - 1];
+            meta.CardCopies.TryGetValue(cardId, out var copies);
+            if (copies < copiesNeeded || meta.Ink < inkNeeded)
+                return false;
+
+            meta.CardCopies[cardId] = copies - copiesNeeded;
+            meta.Ink -= inkNeeded;
+            meta.CardLevels[cardId] = level + 1;
+            return true;
+        }
+
+        /// <summary>卡等级数值系数:基础值 × (1 + 0.1 × (等级 − 1)),向下取整(19.3.2)。</summary>
+        public static int ScaleByCardLevel(int baseValue, int cardLevel)
+        {
+            if (cardLevel <= 1) return baseValue;
+            return (int)Math.Floor(baseValue * (1 + 0.1 * (cardLevel - 1)));
+        }
+    }
+}

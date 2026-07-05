@@ -25,10 +25,13 @@
 ## 测试与验证(先测试后实现,TDD)
 
 ```bash
-# 管线(37 tests)
+# 管线(pytest)
 python3 -m pytest tools/pipeline/tests/ -q
 
-# Unity EditMode(Core 单元测试)
+# Core/Data 单元测试(首选,不依赖编辑器锁,毫秒级;用 Unity 自带 dotnet SDK)
+cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet test --nologo -v q
+
+# Unity EditMode(集成验证;编辑器开着时会因项目锁失败,让用户在 Test Runner 里跑)
 /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/MacOS/Unity \
   -batchmode -projectPath Brushblade -runTests -testPlatform EditMode \
   -testResults /tmp/results.xml -logFile /tmp/unity_test.log
