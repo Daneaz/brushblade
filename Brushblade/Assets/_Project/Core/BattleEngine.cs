@@ -182,6 +182,9 @@ namespace Brushblade.Core
                 return;
             }
 
+            // 护盾全清:清算点在敌方行动结束后(10.2;「堡」类豁免随条件效果扩展实现)
+            PlayerShield = 0;
+
             StartTurn();
         }
 

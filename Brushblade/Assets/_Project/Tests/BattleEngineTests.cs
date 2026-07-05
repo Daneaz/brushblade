@@ -13,7 +13,8 @@ namespace Brushblade.Core.Tests
             new CharDef("木", Element.Wood),
             new CharDef("火", Element.Fire,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }), // 部件直出(10.3.1)
-            new CharDef("土", Element.Earth),
+            new CharDef("土", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.Shield, 3) }), // 部件直出(10.3.6)
             new CharDef("辟", Element.Metal),
             new CharDef("林", Element.Wood, new[] { "木", "木" }),
             new CharDef("灯", Element.Fire, new[] { "火", "丁" },
@@ -186,15 +187,24 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst()
+        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_ThenClears() // 10.2:敌方行动后全清
         {
             var engine = Engine(library: new[] { "壁" }, enemies: new[] { MetalBoss() }); // 攻 5
             engine.Cast("壁"); // 护盾 24
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(50));
-            Assert.That(engine.PlayerShield, Is.EqualTo(19));
+            Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 24 盾吸收攻 5,不掉血
+            Assert.That(engine.PlayerShield, Is.EqualTo(0)); // 剩余 19 在敌方行动后全清
             Assert.That(engine.Turn, Is.EqualTo(2));
             Assert.That(engine.Ap, Is.EqualTo(3)); // AP 不跨回合保留,重置为 3
+        }
+
+        [Test]
+        public void Shield_StacksWithinTurn() // 同回合多次筑盾累加
+        {
+            var engine = Engine(library: new[] { "壁" }, pool: new[] { "土" }, enemies: new[] { MetalBoss() });
+            engine.Cast("壁");            // 24(土生金 ×3)
+            engine.Cast("土");            // 部件直出 +3(无配方,无相生)
+            Assert.That(engine.PlayerShield, Is.EqualTo(27));
         }
 
         // ---- 胜负(3.8.4) ----
