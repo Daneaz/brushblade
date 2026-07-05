@@ -1,0 +1,25 @@
+{
+    "name": "Brushblade.Core.Tests",
+    "rootNamespace": "Brushblade.Core.Tests",
+    "references": [
+        "Brushblade.Core",
+        "Brushblade.Data",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
