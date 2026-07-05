@@ -5,12 +5,14 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>战斗界面:每次操作后整体重绘(原型期够用)。交互:
-    /// 点字库字 → 出字/拆;点部件 → 直出;可合成列表一键合;单体效果进入选目标模式。</summary>
+    /// <summary>连战界面:战斗 → 结算 → 三选一奖励 → 下一战。每次操作后整体重绘(原型期够用)。
+    /// 战斗内交互:点字库字 → 出字/拆;点部件 → 直出;可合成列表一键合;单体效果进入选目标模式。</summary>
     public sealed class BattleView : MonoBehaviour
     {
         private RecipeGraph _graph;
-        private BattleEngine _engine;
+        private RunEngine _run;
+
+        private BattleEngine Battle => _run.Battle;
 
         // 交互状态
         private string _selectedChar;   // 当前选中的字/部件
@@ -26,10 +28,10 @@ namespace Brushblade.Presentation
         private Transform _actionRow;
         private Text _messageLabel;
 
-        public void Init(RecipeGraph graph, BattleEngine engine)
+        public void Init(RecipeGraph graph, RunEngine run)
         {
             _graph = graph;
-            _engine = engine;
+            _run = run;
             BuildSkeleton();
             Refresh();
         }
@@ -70,27 +72,37 @@ namespace Brushblade.Presentation
             Ui.Clear(_suggestRow);
             Ui.Clear(_actionRow);
 
-            DrawEnemies();
-            DrawStatus();
-            if (_engine.Phase == BattlePhase.PlayerTurn)
+            switch (_run.Phase)
             {
-                DrawLibrary();
-                DrawPool();
-                DrawSuggest();
-                DrawActions();
-            }
-            else
-            {
-                DrawBattleEnd();
+                case RunPhase.InBattle when Battle.Phase == BattlePhase.PlayerTurn:
+                    DrawEnemies();
+                    DrawStatus();
+                    DrawLibrary();
+                    DrawPool();
+                    DrawSuggest();
+                    DrawActions();
+                    break;
+                case RunPhase.InBattle: // 本场已分胜负,等待结算
+                    DrawEnemies();
+                    DrawStatus();
+                    DrawBattleSettle();
+                    break;
+                case RunPhase.Reward:
+                    DrawStatus();
+                    DrawReward();
+                    break;
+                default:
+                    DrawRunEnd();
+                    break;
             }
             _messageLabel.text = _message;
         }
 
         private void DrawEnemies()
         {
-            for (int i = 0; i < _engine.Enemies.Count; i++)
+            for (int i = 0; i < Battle.Enemies.Count; i++)
             {
-                var enemy = _engine.Enemies[i];
+                var enemy = Battle.Enemies[i];
                 var text = new StringBuilder();
                 text.Append(enemy.Def.Id).Append('\n')
                     .Append(ElementName(enemy.Def.Element)).Append('\n')
@@ -110,16 +122,16 @@ namespace Brushblade.Presentation
         private void DrawStatus()
         {
             Ui.Label(_statusRow,
-                $"回合 {_engine.Turn}    AP {_engine.Ap}/3    HP {_engine.PlayerHp}/50" +
-                (_engine.PlayerShield > 0 ? $"    护盾 {_engine.PlayerShield}" : ""), 26);
+                $"战斗 {_run.BattleIndex + 1}    回合 {Battle.Turn}    AP {Battle.Ap}/3    HP {Battle.PlayerHp}/50" +
+                (Battle.PlayerShield > 0 ? $"    护盾 {Battle.PlayerShield}" : ""), 26);
         }
 
         private void DrawLibrary()
         {
             Ui.Label(_libraryRow, "字库", 22);
-            if (_engine.Library.Count == 0)
+            if (Battle.Library.Count == 0)
                 Ui.Label(_libraryRow, "(空)", 22);
-            foreach (var id in _engine.Library)
+            foreach (var id in Battle.Library)
             {
                 string charId = id;
                 var def = _graph.Get(charId);
@@ -132,8 +144,8 @@ namespace Brushblade.Presentation
 
         private void DrawPool()
         {
-            Ui.Label(_poolRow, $"部件池 {_engine.Pool.Count}/12", 22);
-            foreach (var id in _engine.Pool)
+            Ui.Label(_poolRow, $"部件池 {Battle.Pool.Count}/12", 22);
+            foreach (var id in Battle.Pool)
             {
                 string charId = id;
                 bool selected = _selectedChar == charId && !_targeting;
@@ -145,7 +157,7 @@ namespace Brushblade.Presentation
 
         private void DrawSuggest()
         {
-            var suggest = ForgeEngine.Suggest(_graph, _engine.Pool, _engine.Library);
+            var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library);
             Ui.Label(_suggestRow, "可合成", 22);
             if (suggest.Composable.Count == 0)
                 Ui.Label(_suggestRow, "(无)", 22);
@@ -168,7 +180,7 @@ namespace Brushblade.Presentation
             else if (_selectedChar != null)
             {
                 var def = _graph.Get(_selectedChar);
-                bool inLibrary = System.Linq.Enumerable.Contains(_engine.Library, _selectedChar);
+                bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
                 if (def.Effects.Count > 0)
                     Ui.TextButton(_actionRow, inLibrary ? "出字" : "直出", () => OnCastPressed(def),
                         new Color(0.55f, 0.3f, 0.15f));
@@ -179,13 +191,48 @@ namespace Brushblade.Presentation
             Ui.TextButton(_actionRow, "结束回合", OnEndTurn, new Color(0.45f, 0.2f, 0.35f), 26, new Vector2(150, 64));
         }
 
-        private void DrawBattleEnd()
+        private void DrawBattleSettle()
         {
-            bool won = _engine.Phase == BattlePhase.Won;
-            Ui.Label(_actionRow, won ? "字正——胜利!" : "败北", 40);
+            bool won = Battle.Phase == BattlePhase.Won;
+            Ui.Label(_actionRow, won ? "本场胜利!" : "败北……", 36);
+            Ui.TextButton(_actionRow, "结算", () =>
+            {
+                _run.AdvanceAfterBattle();
+                _message = _run.Phase == RunPhase.Reward ? "战利品:三选一(可跳过)" : "";
+                Refresh();
+            }, new Color(0.2f, 0.4f, 0.25f), 26, new Vector2(150, 70));
+        }
+
+        private void DrawReward()
+        {
+            Ui.Label(_actionRow, "选一个字入库:", 26);
+            for (int i = 0; i < _run.RewardOptions.Count; i++)
+            {
+                int index = i;
+                var id = _run.RewardOptions[i];
+                var def = _graph.Get(id);
+                Ui.TextButton(_actionRow, $"{id}\n{def.ApCost}AP", () =>
+                {
+                    _run.PickReward(index);
+                    _message = $"「{id}」入库,下一战!";
+                    CancelSelection();
+                }, new Color(0.5f, 0.4f, 0.15f), 26, new Vector2(110, 88));
+            }
+            Ui.TextButton(_actionRow, "跳过", () =>
+            {
+                _run.SkipReward();
+                _message = "轻装上阵,下一战!";
+                CancelSelection();
+            }, new Color(0.3f, 0.3f, 0.3f));
+        }
+
+        private void DrawRunEnd()
+        {
+            bool won = _run.Phase == RunPhase.RunWon;
+            Ui.Label(_actionRow, won ? "连战通关——字正天下!" : "败北", 40);
             Ui.TextButton(_actionRow, "再来一局", BattleBootstrap.Restart,
                 new Color(0.2f, 0.4f, 0.25f), 26, new Vector2(170, 70));
-            _message = won ? "错字已被正,再来一局?" : "死亡即结算,这就是肉鸽。";
+            _message = won ? "阶段 1 连战格式验证完成。" : "死亡即结算,这就是肉鸽。";
         }
 
         // ---- 交互 ----
@@ -234,29 +281,29 @@ namespace Brushblade.Presentation
 
         private void ExecuteCast(string charId, int target)
         {
-            var error = _engine.Cast(charId, target);
+            var error = Battle.Cast(charId, target);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             CancelSelection();
         }
 
         private void OnDismantle(string charId)
         {
-            var error = _engine.Dismantle(charId);
+            var error = Battle.Dismantle(charId);
             _message = error == BattleError.None ? $"拆「{charId}」" : Describe(error);
             CancelSelection();
         }
 
         private void OnCompose(string charId)
         {
-            var error = _engine.Compose(charId);
+            var error = Battle.Compose(charId);
             _message = error == BattleError.None ? $"合出「{charId}」!" : Describe(error);
             CancelSelection();
         }
 
         private void OnEndTurn()
         {
-            _engine.EndTurn();
-            _message = _engine.Phase == BattlePhase.PlayerTurn ? $"回合 {_engine.Turn}:+3 AP,部件掉落" : "";
+            Battle.EndTurn();
+            _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+3 AP,部件掉落" : "";
             CancelSelection();
         }
 
@@ -273,7 +320,7 @@ namespace Brushblade.Presentation
             BattleError.NotCastable => "此字当前不可出",
             BattleError.InvalidTarget => "目标无效",
             BattleError.BattleOver => "战斗已结束",
-            BattleError.ForgeFailed => _engine.LastForgeError switch
+            BattleError.ForgeFailed => Battle.LastForgeError switch
             {
                 ForgeError.PoolWouldOverflow => "部件池放不下,拆解取消",
                 ForgeError.MissingIngredients => "原料不足",

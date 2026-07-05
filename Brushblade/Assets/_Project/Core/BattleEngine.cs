@@ -49,7 +49,7 @@ namespace Brushblade.Core
 
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
-            IReadOnlyList<EnemyDef> enemies, int seed)
+            IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null)
         {
             _graph = graph;
             _config = config;
@@ -58,7 +58,7 @@ namespace Brushblade.Core
             foreach (var def in enemies)
                 _enemies.Add(new EnemyState(def));
 
-            PlayerHp = config.PlayerMaxHp;
+            PlayerHp = startingHp ?? config.PlayerMaxHp;
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
         }

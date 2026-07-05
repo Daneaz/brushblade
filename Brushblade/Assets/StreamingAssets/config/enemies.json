@@ -1,0 +1,17 @@
+{
+  "enemies": [
+    { "id": "错字鬼", "element": "Wood", "maxHp": 10, "attack": 3 },
+    { "id": "缺笔妖", "element": "Metal", "maxHp": 8, "attack": 2 },
+    { "id": "标点小妖", "element": "Heart", "maxHp": 6, "attack": 2 },
+    { "id": "叠字怪", "element": "Wood", "maxHp": 14, "attack": 4 },
+    { "id": "夯土妖", "element": "Earth", "maxHp": 12, "attack": 2 },
+    { "id": "排山倒海·残篇", "element": "Water", "maxHp": 40, "attack": 6 }
+  ],
+  "encounters": [
+    [ "错字鬼", "错字鬼" ],
+    [ "缺笔妖", "标点小妖", "错字鬼" ],
+    [ "叠字怪", "夯土妖" ],
+    [ "排山倒海·残篇" ]
+  ],
+  "rewardPool": [ "灯", "炎", "烧", "燃", "灼", "炽", "焱", "焚", "圭", "壁", "堡" ]
+}

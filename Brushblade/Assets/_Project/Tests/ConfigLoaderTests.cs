@@ -89,6 +89,56 @@ namespace Brushblade.Core.Tests
             Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph("not json"));
         }
 
+        // ---- 连战配置(enemies.json → RunConfig) ----
+
+        private static RecipeGraph MiniGraph() => ConfigLoader.LoadGraph(
+            @"{ ""chars"": [ { ""id"": ""灯"", ""element"": ""Fire"" } ] }");
+
+        [Test]
+        public void LoadRunConfig_ParsesEnemiesEncountersRewards()
+        {
+            var run = ConfigLoader.LoadRunConfig(@"{
+                ""enemies"": [ { ""id"": ""错字鬼"", ""element"": ""Wood"", ""maxHp"": 10, ""attack"": 3 } ],
+                ""encounters"": [ [ ""错字鬼"", ""错字鬼"" ] ],
+                ""rewardPool"": [ ""灯"" ]
+            }", MiniGraph());
+            Assert.That(run.Encounters.Count, Is.EqualTo(1));
+            Assert.That(run.Encounters[0].Count, Is.EqualTo(2));
+            Assert.That(run.Encounters[0][0].Element, Is.EqualTo(Element.Wood));
+            Assert.That(run.Encounters[0][0].MaxHp, Is.EqualTo(10));
+            Assert.That(run.RewardPool, Is.EqualTo(new[] { "灯" }));
+        }
+
+        [Test]
+        public void LoadRunConfig_EncounterReferencesUnknownEnemy_Throws()
+        {
+            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadRunConfig(@"{
+                ""enemies"": [],
+                ""encounters"": [ [ ""不存在"" ] ],
+                ""rewardPool"": []
+            }", MiniGraph()));
+            Assert.That(ex.Message, Does.Contain("不存在"));
+        }
+
+        [Test]
+        public void LoadRunConfig_RewardNotInGraph_Throws()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadRunConfig(@"{
+                ""enemies"": [], ""encounters"": [], ""rewardPool"": [ ""龘"" ]
+            }", MiniGraph()));
+        }
+
+        [Test]
+        public void ShippedEnemiesJson_LoadsAgainstShippedChars() // 实船双表交叉守卫
+        {
+            var graph = ConfigLoader.LoadGraph(File.ReadAllText(
+                Path.Combine(Application.streamingAssetsPath, "config/chars.json")));
+            var run = ConfigLoader.LoadRunConfig(File.ReadAllText(
+                Path.Combine(Application.streamingAssetsPath, "config/enemies.json")), graph);
+            Assert.That(run.Encounters.Count, Is.InRange(3, 5)); // 阶段 1 格式:3~5 场(17.2)
+            Assert.That(run.RewardPool, Is.Not.Empty);
+        }
+
         // ---- 实际配置表:StreamingAssets/config/chars.json 必须永远可加载 ----
 
         [Test]
