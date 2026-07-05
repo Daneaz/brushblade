@@ -15,6 +15,10 @@ __pycache__/
 tools/pipeline/data/raw/
 tools/pipeline/out/
 
+# dotnet 测试工装构建产物
+tools/coretests/bin/
+tools/coretests/obj/
+
 # Unity(项目创建后按需补全 Library/Temp/Logs/obj 等)
 Brushblade/Library/
 Brushblade/Temp/

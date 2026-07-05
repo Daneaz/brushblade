@@ -26,13 +26,12 @@ namespace Brushblade.Presentation
 
             string configDir = Path.Combine(Application.streamingAssetsPath, "config");
             var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
-            var runConfig = ConfigLoader.LoadRunConfig(
+            var campaign = ConfigLoader.LoadCampaign(
                 File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
 
-            var battleConfig = new BattleConfig
-            {
-                DropTable = new[] { "木", "火", "火", "丁", "尧", "然", "勺", "只", "土", "土" },
-            };
+            // 临时:固定第 1 章第 1 关;章节地图 UI 随 Meta 循环接入
+            var runConfig = campaign.BuildRunConfig(0, 0);
+            var battleConfig = new BattleConfig { DropTable = campaign.DropTable };
             var run = new RunEngine(graph, runConfig, battleConfig,
                 startingLibrary: new[] { "灯" }, startingPool: new[] { "木", "木" },
                 seed: System.Environment.TickCount);

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Unity 外跑 Core/Data 单元测试的工装:链接 Unity 工程源码,LangVersion 锁 9 与 Unity 对齐。
+       用法:tools/coretests$ dotnet test(dotnet 可用 Unity 自带 SDK,见 CLAUDE.md)。
+       注意:ConfigLoaderTests.cs 含 UnityEngine 依赖(streamingAssetsPath),只在 Unity Test Runner 跑。 -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../Brushblade/Assets/_Project/Core/**/*.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Data/**/*.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Tests/**/*.cs"
+             Exclude="../../Brushblade/Assets/_Project/Tests/ConfigLoaderTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>

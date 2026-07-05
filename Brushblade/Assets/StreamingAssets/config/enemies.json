@@ -1,17 +1,46 @@
 {
   "enemies": [
-    { "id": "错字鬼", "element": "Wood", "maxHp": 10, "attack": 3 },
-    { "id": "缺笔妖", "element": "Metal", "maxHp": 8, "attack": 2 },
-    { "id": "标点小妖", "element": "Heart", "maxHp": 6, "attack": 2 },
-    { "id": "叠字怪", "element": "Wood", "maxHp": 14, "attack": 4 },
-    { "id": "夯土妖", "element": "Earth", "maxHp": 12, "attack": 2 },
-    { "id": "排山倒海·残篇", "element": "Water", "maxHp": 40, "attack": 6 }
+    { "id": "错字鬼", "element": "Wood", "maxHp": 12, "attack": 4 },
+    { "id": "缺笔妖", "element": "Metal", "maxHp": 10, "attack": 3 },
+    { "id": "标点小妖", "element": "Heart", "maxHp": 8, "attack": 2 },
+    { "id": "叠字怪", "element": "Wood", "maxHp": 16, "attack": 5 },
+    { "id": "夯土妖", "element": "Earth", "maxHp": 14, "attack": 3 },
+    { "id": "排山倒海·残篇", "element": "Water", "maxHp": 45, "attack": 7 }
   ],
-  "encounters": [
-    [ "错字鬼", "错字鬼" ],
-    [ "缺笔妖", "标点小妖", "错字鬼" ],
-    [ "叠字怪", "夯土妖" ],
-    [ "排山倒海·残篇" ]
-  ],
-  "rewardPool": [ "灯", "炎", "烧", "燃", "灼", "炽", "焱", "焚", "圭", "壁", "堡" ]
+  "dropTable": [ "木", "火", "丁", "尧", "然", "勺", "只", "土" ],
+  "chapters": [
+    {
+      "name": "蒙学", "enemyScale": 1.0,
+      "stages": [
+        { "encounters": [ [ "错字鬼" ], [ "错字鬼", "错字鬼" ] ] },
+        { "encounters": [ [ "缺笔妖" ], [ "错字鬼", "标点小妖" ] ] },
+        { "encounters": [ [ "标点小妖", "错字鬼" ], [ "缺笔妖", "缺笔妖" ] ] },
+        { "encounters": [ [ "叠字怪" ], [ "夯土妖", "标点小妖" ] ] },
+        { "encounters": [ [ "错字鬼", "缺笔妖" ], [ "排山倒海·残篇" ] ], "boss": true }
+      ],
+      "rewardPool": [ "灯", "烧", "燃", "圭", "壁" ]
+    },
+    {
+      "name": "字林", "enemyScale": 1.5,
+      "stages": [
+        { "encounters": [ [ "错字鬼", "错字鬼" ], [ "缺笔妖", "标点小妖" ] ] },
+        { "encounters": [ [ "叠字怪" ], [ "错字鬼", "错字鬼", "标点小妖" ] ] },
+        { "encounters": [ [ "夯土妖", "缺笔妖" ], [ "叠字怪", "标点小妖" ] ] },
+        { "encounters": [ [ "叠字怪", "夯土妖" ], [ "缺笔妖", "缺笔妖", "错字鬼" ] ] },
+        { "encounters": [ [ "叠字怪", "标点小妖" ], [ "排山倒海·残篇" ] ], "boss": true }
+      ],
+      "rewardPool": [ "灯", "烧", "燃", "炎", "灼", "圭", "壁", "堡" ]
+    },
+    {
+      "name": "词渊", "enemyScale": 2.0,
+      "stages": [
+        { "encounters": [ [ "叠字怪", "错字鬼" ], [ "夯土妖", "标点小妖", "错字鬼" ] ] },
+        { "encounters": [ [ "缺笔妖", "缺笔妖" ], [ "叠字怪", "叠字怪" ] ] },
+        { "encounters": [ [ "夯土妖", "夯土妖" ], [ "叠字怪", "标点小妖", "缺笔妖" ] ] },
+        { "encounters": [ [ "叠字怪", "夯土妖", "标点小妖" ], [ "错字鬼", "错字鬼", "缺笔妖" ] ] },
+        { "encounters": [ [ "叠字怪", "夯土妖" ], [ "排山倒海·残篇" ] ], "boss": true }
+      ],
+      "rewardPool": [ "炎", "灼", "炽", "焱", "燚", "焚", "壁", "堡" ]
+    }
+  ]
 }

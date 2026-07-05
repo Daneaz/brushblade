@@ -37,38 +37,93 @@ namespace Brushblade.Data
             public bool PersistOnce { get; set; }
         }
 
-        private sealed class RunFileDto
+        private sealed class CampaignFileDto
         {
             public List<EnemyDto> Enemies { get; set; }
-            public List<List<string>> Encounters { get; set; }
+            public List<string> DropTable { get; set; }
+            public List<ChapterDto> Chapters { get; set; }
+        }
+
+        private sealed class ChapterDto
+        {
+            public string Name { get; set; }
+            public float EnemyScale { get; set; } = 1f;
+            public List<StageDto> Stages { get; set; }
             public List<string> RewardPool { get; set; }
         }
 
-        private sealed class EnemyDto
+        private sealed class StageDto
         {
-            public string Id { get; set; }
-            public string Element { get; set; }
-            public int MaxHp { get; set; }
-            public int Attack { get; set; }
+            public List<List<string>> Encounters { get; set; }
+            public bool Boss { get; set; }
         }
 
-        /// <summary>解析敌人/遭遇/奖励池 JSON 为 RunConfig;引用未定义敌人或图谱外奖励字抛 ConfigException。</summary>
-        public static RunConfig LoadRunConfig(string json, RecipeGraph graph)
+        /// <summary>解析章节战役 JSON(enemies/dropTable/chapters)为 CampaignConfig。</summary>
+        public static CampaignConfig LoadCampaign(string json, RecipeGraph graph)
         {
-            RunFileDto file;
+            CampaignFileDto file;
             try
             {
-                file = JsonConvert.DeserializeObject<RunFileDto>(json);
+                file = JsonConvert.DeserializeObject<CampaignFileDto>(json);
             }
             catch (JsonException e)
             {
-                throw new ConfigException($"敌人表 JSON 解析失败:{e.Message}", e);
+                throw new ConfigException($"战役 JSON 解析失败:{e.Message}", e);
             }
-            if (file?.Enemies == null || file.Encounters == null || file.RewardPool == null)
-                throw new ConfigException("敌人表 JSON 缺少 enemies / encounters / rewardPool");
+            if (file?.Enemies == null || file.DropTable == null || file.Chapters == null)
+                throw new ConfigException("战役 JSON 缺少 enemies / dropTable / chapters");
+            if (file.Chapters.Count == 0)
+                throw new ConfigException("战役至少需要一个章节");
 
+            var enemyDefs = ParseEnemies(file.Enemies);
+
+            foreach (var component in file.DropTable)
+                if (!graph.TryGet(component, out _))
+                    throw new ConfigException($"掉落表引用了字表中不存在的部件:{component}");
+
+            var chapters = new List<ChapterDef>();
+            foreach (var chapterDto in file.Chapters)
+            {
+                if (chapterDto.Stages == null || chapterDto.Stages.Count == 0)
+                    throw new ConfigException($"章节「{chapterDto.Name}」没有关卡");
+                foreach (var reward in chapterDto.RewardPool ?? new List<string>())
+                    if (!graph.TryGet(reward, out _))
+                        throw new ConfigException($"章节「{chapterDto.Name}」奖励池引用了不存在的字:{reward}");
+
+                var stages = new List<StageDef>();
+                foreach (var stageDto in chapterDto.Stages)
+                {
+                    var encounters = new List<IReadOnlyList<EnemyDef>>();
+                    foreach (var encounter in stageDto.Encounters ?? new List<List<string>>())
+                    {
+                        var group = new List<EnemyDef>();
+                        foreach (var id in encounter)
+                        {
+                            if (!enemyDefs.TryGetValue(id, out var def))
+                                throw new ConfigException($"遭遇引用了未定义的敌人:{id}");
+                            group.Add(def);
+                        }
+                        encounters.Add(group);
+                    }
+                    stages.Add(new StageDef { Encounters = encounters, Boss = stageDto.Boss });
+                }
+
+                chapters.Add(new ChapterDef
+                {
+                    Name = chapterDto.Name,
+                    EnemyScale = chapterDto.EnemyScale,
+                    Stages = stages,
+                    RewardPool = chapterDto.RewardPool ?? new List<string>(),
+                });
+            }
+
+            return new CampaignConfig { Chapters = chapters, DropTable = file.DropTable };
+        }
+
+        private static Dictionary<string, EnemyDef> ParseEnemies(List<EnemyDto> enemies)
+        {
             var enemyDefs = new Dictionary<string, EnemyDef>();
-            foreach (var dto in file.Enemies)
+            foreach (var dto in enemies)
             {
                 if (string.IsNullOrEmpty(dto.Id))
                     throw new ConfigException("存在缺少 id 的敌人条目");
@@ -78,25 +133,15 @@ namespace Brushblade.Data
                     throw new ConfigException($"敌人「{dto.Id}」的属性未知:{dto.Element}");
                 enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack);
             }
+            return enemyDefs;
+        }
 
-            var encounters = new List<IReadOnlyList<EnemyDef>>();
-            foreach (var encounter in file.Encounters)
-            {
-                var group = new List<EnemyDef>();
-                foreach (var id in encounter)
-                {
-                    if (!enemyDefs.TryGetValue(id, out var def))
-                        throw new ConfigException($"遭遇引用了未定义的敌人:{id}");
-                    group.Add(def);
-                }
-                encounters.Add(group);
-            }
-
-            foreach (var reward in file.RewardPool)
-                if (!graph.TryGet(reward, out _))
-                    throw new ConfigException($"奖励池引用了字表中不存在的字:{reward}");
-
-            return new RunConfig { Encounters = encounters, RewardPool = file.RewardPool };
+        private sealed class EnemyDto
+        {
+            public string Id { get; set; }
+            public string Element { get; set; }
+            public int MaxHp { get; set; }
+            public int Attack { get; set; }
         }
 
         /// <summary>解析字表 JSON;结构非法/属性名未知/原料缺失/重复 id 抛 ConfigException。</summary>

@@ -89,54 +89,23 @@ namespace Brushblade.Core.Tests
             Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph("not json"));
         }
 
-        // ---- 连战配置(enemies.json → RunConfig) ----
-
-        private static RecipeGraph MiniGraph() => ConfigLoader.LoadGraph(
-            @"{ ""chars"": [ { ""id"": ""灯"", ""element"": ""Fire"" } ] }");
+        // ---- 战役配置实船守卫(嵌入式解析测试见 CampaignTests,纯 C# 可在工装跑) ----
 
         [Test]
-        public void LoadRunConfig_ParsesEnemiesEncountersRewards()
-        {
-            var run = ConfigLoader.LoadRunConfig(@"{
-                ""enemies"": [ { ""id"": ""错字鬼"", ""element"": ""Wood"", ""maxHp"": 10, ""attack"": 3 } ],
-                ""encounters"": [ [ ""错字鬼"", ""错字鬼"" ] ],
-                ""rewardPool"": [ ""灯"" ]
-            }", MiniGraph());
-            Assert.That(run.Encounters.Count, Is.EqualTo(1));
-            Assert.That(run.Encounters[0].Count, Is.EqualTo(2));
-            Assert.That(run.Encounters[0][0].Element, Is.EqualTo(Element.Wood));
-            Assert.That(run.Encounters[0][0].MaxHp, Is.EqualTo(10));
-            Assert.That(run.RewardPool, Is.EqualTo(new[] { "灯" }));
-        }
-
-        [Test]
-        public void LoadRunConfig_EncounterReferencesUnknownEnemy_Throws()
-        {
-            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadRunConfig(@"{
-                ""enemies"": [],
-                ""encounters"": [ [ ""不存在"" ] ],
-                ""rewardPool"": []
-            }", MiniGraph()));
-            Assert.That(ex.Message, Does.Contain("不存在"));
-        }
-
-        [Test]
-        public void LoadRunConfig_RewardNotInGraph_Throws()
-        {
-            Assert.Throws<ConfigException>(() => ConfigLoader.LoadRunConfig(@"{
-                ""enemies"": [], ""encounters"": [], ""rewardPool"": [ ""龘"" ]
-            }", MiniGraph()));
-        }
-
-        [Test]
-        public void ShippedEnemiesJson_LoadsAgainstShippedChars() // 实船双表交叉守卫
+        public void ShippedCampaignJson_LoadsAgainstShippedChars() // 实船双表交叉守卫
         {
             var graph = ConfigLoader.LoadGraph(File.ReadAllText(
                 Path.Combine(Application.streamingAssetsPath, "config/chars.json")));
-            var run = ConfigLoader.LoadRunConfig(File.ReadAllText(
+            var campaign = ConfigLoader.LoadCampaign(File.ReadAllText(
                 Path.Combine(Application.streamingAssetsPath, "config/enemies.json")), graph);
-            Assert.That(run.Encounters.Count, Is.InRange(3, 5)); // 阶段 1 格式:3~5 场(17.2)
-            Assert.That(run.RewardPool, Is.Not.Empty);
+            Assert.That(campaign.Chapters.Count, Is.EqualTo(3));          // 首发 3 章(17 章 v0.5)
+            foreach (var chapter in campaign.Chapters)
+            {
+                Assert.That(chapter.Stages.Count, Is.EqualTo(5));         // 每章 5 关
+                Assert.That(chapter.Stages[4].Boss, Is.True);             // 章末 Boss 关
+                Assert.That(chapter.RewardPool, Is.Not.Empty);            // 字池分章投放(F3)
+            }
+            Assert.That(campaign.DropTable, Is.Not.Empty);
         }
 
         // ---- 实际配置表:StreamingAssets/config/chars.json 必须永远可加载 ----
