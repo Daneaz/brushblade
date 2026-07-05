@@ -12,6 +12,8 @@ namespace Brushblade.Presentation
         private RecipeGraph _graph;
         private RunEngine _run;
         private System.Action<bool> _onRunEnded;
+        private Juice _juice;
+        private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
 
         private BattleEngine Battle => _run.Battle;
 
@@ -35,7 +37,16 @@ namespace Brushblade.Presentation
             _run = run;
             _onRunEnded = onRunEnded;
             BuildSkeleton();
+            _juice = gameObject.AddComponent<Juice>();
+            _juice.Init((RectTransform)transform);
             Refresh();
+        }
+
+        /// <summary>动作结算后播放打击感(需在 Refresh 重建敌人格之后调用)。</summary>
+        private void PlayJuice()
+        {
+            _juice.Play(Battle.LastEvents,
+                i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null);
         }
 
         private void BuildSkeleton()
@@ -102,6 +113,7 @@ namespace Brushblade.Presentation
 
         private void DrawEnemies()
         {
+            _enemyRects.Clear();
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
                 var enemy = Battle.Enemies[i];
@@ -118,6 +130,7 @@ namespace Brushblade.Presentation
                 var button = Ui.TextButton(_enemyRow, text.ToString(), () => OnEnemyClicked(index),
                     color, 24, new Vector2(180, 150));
                 button.interactable = enemy.Alive;
+                _enemyRects.Add((RectTransform)button.transform);
             }
         }
 
@@ -299,6 +312,8 @@ namespace Brushblade.Presentation
             var error = Battle.Cast(charId, target);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             CancelSelection();
+            if (error == BattleError.None)
+                PlayJuice();
         }
 
         private void OnDiscard(string charId)
@@ -327,6 +342,7 @@ namespace Brushblade.Presentation
             Battle.EndTurn();
             _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+3 AP,部件掉落" : "";
             CancelSelection();
+            PlayJuice();
         }
 
         private void CancelSelection()

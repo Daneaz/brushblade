@@ -33,6 +33,31 @@ namespace Brushblade.Core
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
     }
 
+    /// <summary>结算事件(供表现层做打击感,13.3;架构:表现监听 Core 事件,不反向驱动)。</summary>
+    public enum BattleEventKind
+    {
+        Damage,      // 我方对敌伤害(TargetIndex = 敌人下标)
+        Burn,        // 施加灼烧层数
+        Shield,      // 获得护盾(TargetIndex = −1 玩家)
+        BurnTick,    // 回合末灼烧结算伤害
+        EnemyDied,   // 敌人被消灭
+        EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分)
+    }
+
+    public readonly struct BattleEvent
+    {
+        public BattleEventKind Kind { get; }
+        public int TargetIndex { get; }  // 敌人下标;玩家侧为 −1
+        public int Amount { get; }
+
+        public BattleEvent(BattleEventKind kind, int targetIndex, int amount)
+        {
+            Kind = kind;
+            TargetIndex = targetIndex;
+            Amount = amount;
+        }
+    }
+
     /// <summary>战斗状态机(第 3 章 3.5 回合流程 / 3.7 结算顺序)。</summary>
     public sealed class BattleEngine
     {
@@ -78,6 +103,11 @@ namespace Brushblade.Core
         public IReadOnlyList<string> UsedChars => _usedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public ForgeError LastForgeError { get; private set; }
+
+        private readonly List<BattleEvent> _events = new();
+
+        /// <summary>最近一次动作(Cast/EndTurn)产生的结算事件,动作开始时清空。</summary>
+        public IReadOnlyList<BattleEvent> LastEvents => _events;
 
         /// <summary>拆(1 AP)。</summary>
         public BattleError Dismantle(string charId)
@@ -129,6 +159,7 @@ namespace Brushblade.Core
                 (targetIndex < 0 || targetIndex >= _enemies.Count || !_enemies[targetIndex].Alive))
                 return BattleError.InvalidTarget;
 
+            _events.Clear();
             Ap -= def.ApCost;
 
             // 出字后移出可用区:字进"已使用",部件从池中消耗(3.8.1)
@@ -193,13 +224,19 @@ namespace Brushblade.Core
         public void EndTurn()
         {
             if (Phase != BattlePhase.PlayerTurn) return;
+            _events.Clear();
 
             // 3.7 结算顺序第 1 条:灼烧(X 层 → X×系数 伤害,然后 −1 层;系数基础 2,炽可加,10.2)
-            foreach (var enemy in _enemies)
+            for (int i = 0; i < _enemies.Count; i++)
             {
+                var enemy = _enemies[i];
                 if (!enemy.Alive || enemy.Burn <= 0) continue;
-                enemy.Hp = Math.Max(0, enemy.Hp - enemy.Burn * _burnPerStack);
+                int tick = enemy.Burn * _burnPerStack;
+                enemy.Hp = Math.Max(0, enemy.Hp - tick);
                 enemy.Burn -= 1;
+                _events.Add(new BattleEvent(BattleEventKind.BurnTick, i, tick));
+                if (!enemy.Alive)
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyDied, i, 0));
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
@@ -214,6 +251,7 @@ namespace Brushblade.Core
                 int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
                 _shieldPersist -= fromPersist;
                 PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
+                _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, -1, damage));
             }
             if (PlayerHp <= 0)
             {
@@ -255,26 +293,33 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        DamageEnemy(_enemies[targetIndex], BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker);
+                        DamageEnemy(targetIndex, BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker);
                         break;
                     case EffectKind.DamageAll:
-                        foreach (var enemy in _enemies)
-                            if (enemy.Alive)
-                                DamageEnemy(enemy, BaseValue(effect, value, enemy), recipeElements, attacker);
+                        for (int i = 0; i < _enemies.Count; i++)
+                            if (_enemies[i].Alive)
+                                DamageEnemy(i, BaseValue(effect, value, _enemies[i]), recipeElements, attacker);
                         break;
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
+                        {
                             _enemies[targetIndex].Burn += value;
+                            _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, value));
+                        }
                         break;
                     case EffectKind.BurnAll:
-                        foreach (var enemy in _enemies)
-                            if (enemy.Alive)
-                                enemy.Burn += value;
+                        for (int i = 0; i < _enemies.Count; i++)
+                            if (_enemies[i].Alive)
+                            {
+                                _enemies[i].Burn += value;
+                                _events.Add(new BattleEvent(BattleEventKind.Burn, i, value));
+                            }
                         break;
                     case EffectKind.Shield:
                         int shield = WuxingResolver.ResolveEffect(value, recipeElements);
                         if (effect.PersistOnce) _shieldPersist += shield;
                         else _shieldNormal += shield;
+                        _events.Add(new BattleEvent(BattleEventKind.Shield, -1, shield));
                         break;
                     case EffectKind.BurnPotency:
                         _burnPerStack += value;
@@ -289,11 +334,15 @@ namespace Brushblade.Core
             return effect.DoubleVsBurning && target.Burn > 0 ? scaledValue * 2 : scaledValue;
         }
 
-        private void DamageEnemy(EnemyState enemy, int baseValue,
+        private void DamageEnemy(int enemyIndex, int baseValue,
             IReadOnlyCollection<Element> recipeElements, Element attacker)
         {
+            var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Def.Element);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
+            if (!enemy.Alive)
+                _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
         }
 
         private void CheckWin()

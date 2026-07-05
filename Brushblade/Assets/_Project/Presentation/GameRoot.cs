@@ -131,7 +131,7 @@ namespace Brushblade.Presentation
         {
             if (Camera.main == null)
             {
-                var cameraGo = new GameObject("Main Camera", typeof(Camera));
+                var cameraGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
                 cameraGo.tag = "MainCamera";
                 var camera = cameraGo.GetComponent<Camera>();
                 camera.clearFlags = CameraClearFlags.SolidColor;
