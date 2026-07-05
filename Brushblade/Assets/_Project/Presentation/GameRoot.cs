@@ -66,17 +66,14 @@ namespace Brushblade.Presentation
                 bool firstClear = MetaRules.ApplyStageCleared(_meta, chapter, stage);
                 _meta.Ink += firstClear ? 50 : 15;
 
-                // 掉宝箱(19.5.3):档位随角色等级,Boss 关首通 +1 档;箱位满/当日达上限折算墨锭
+                // 掉宝箱(19.5.3):档位随角色等级,Boss 关首通 +1 档;箱位满/当日达上限不掉箱、无折算
                 bool bossBonus = firstClear && _campaign.Chapters[chapter].Stages[stage].Boss;
                 var tier = ChestRules.RollTier(MetaRules.CharacterLevel(_meta.CharacterXp),
                     new GameRandom(System.Environment.TickCount), bossBonus);
                 if (ChestRules.TryAwardChest(_meta, tier, _campaign.Chapters[chapter].RewardPool, Time))
                     message = $"获得{ChestRules.TierName(tier)}!在箱位中开启它";
                 else
-                {
-                    _meta.Ink += 30;
-                    message = "箱位已满或今日宝箱达上限,折算 30 墨锭";
-                }
+                    message = "箱位已满或今日宝箱达上限,本次未获得宝箱";
             }
             MetaStore.Save(_meta);
             ShowMap(message);
