@@ -1,0 +1,25 @@
+{
+  "chars": [
+    { "id": "木", "element": "Wood" },
+    { "id": "火", "element": "Fire",
+      "effects": [ { "kind": "DamageSingle", "value": 4 } ] },
+    { "id": "丁" },
+    { "id": "尧" },
+    { "id": "然" },
+    { "id": "林", "element": "Wood", "recipe": [ "木", "木" ] },
+    { "id": "灯", "element": "Fire", "recipe": [ "火", "丁" ],
+      "effects": [ { "kind": "DamageSingle", "value": 6 }, { "kind": "BurnSingle", "value": 1 } ] },
+    { "id": "炎", "element": "Fire", "recipe": [ "火", "火" ],
+      "effects": [ { "kind": "DamageSingle", "value": 12 }, { "kind": "BurnSingle", "value": 2 } ] },
+    { "id": "烧", "element": "Fire", "recipe": [ "火", "尧" ],
+      "effects": [ { "kind": "DamageAll", "value": 5 }, { "kind": "BurnAll", "value": 1 } ] },
+    { "id": "燃", "element": "Fire", "recipe": [ "火", "然" ],
+      "effects": [ { "kind": "BurnAll", "value": 3 } ] },
+    { "id": "焱", "element": "Fire", "recipe": [ "火", "火", "火" ], "apCost": 2,
+      "effects": [ { "kind": "DamageAll", "value": 14 } ] },
+    { "id": "燚", "element": "Fire", "recipe": [ "焱", "火" ], "apCost": 2,
+      "effects": [ { "kind": "DamageAll", "value": 22 }, { "kind": "BurnAll", "value": 3 } ] },
+    { "id": "焚", "element": "Fire", "recipe": [ "林", "火" ], "apCost": 2,
+      "effects": [ { "kind": "DamageAll", "value": 18 }, { "kind": "BurnAll", "value": 1 } ] }
+  ]
+}

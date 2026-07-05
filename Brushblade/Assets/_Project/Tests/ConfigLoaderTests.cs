@@ -1,0 +1,94 @@
+using System.IO;
+using System.Linq;
+using Brushblade.Core;
+using Brushblade.Data;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Brushblade.Core.Tests
+{
+    /// <summary>配置加载:JSON → RecipeGraph,非法数据 fail fast(architecture §3)。</summary>
+    public class ConfigLoaderTests
+    {
+        [Test]
+        public void LoadGraph_ParsesCharWithAllFields()
+        {
+            var graph = ConfigLoader.LoadGraph(@"{
+                ""chars"": [
+                    { ""id"": ""火"", ""element"": ""Fire"",
+                      ""effects"": [ { ""kind"": ""DamageSingle"", ""value"": 4 } ] },
+                    { ""id"": ""林"", ""element"": ""Wood"", ""recipe"": [ ""木"", ""木"" ] },
+                    { ""id"": ""木"", ""element"": ""Wood"" }
+                ]
+            }");
+            var fire = graph.Get("火");
+            Assert.That(fire.Element, Is.EqualTo(Element.Fire));
+            Assert.That(fire.IsLeaf, Is.True);
+            Assert.That(fire.ApCost, Is.EqualTo(1)); // 缺省 1
+            Assert.That(fire.Effects.Single().Kind, Is.EqualTo(EffectKind.DamageSingle));
+            Assert.That(fire.Effects.Single().Value, Is.EqualTo(4));
+            Assert.That(graph.Get("林").Recipe, Is.EqualTo(new[] { "木", "木" }));
+        }
+
+        [Test]
+        public void LoadGraph_MissingElement_IsNeutral()
+        {
+            var graph = ConfigLoader.LoadGraph(@"{ ""chars"": [ { ""id"": ""丁"" } ] }");
+            Assert.That(graph.Get("丁").Element, Is.Null);
+        }
+
+        [Test]
+        public void LoadGraph_UnknownElement_Throws()
+        {
+            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""謎"", ""element"": ""Void"" } ] }"));
+            Assert.That(ex.Message, Does.Contain("謎"));
+        }
+
+        [Test]
+        public void LoadGraph_UnknownEffectKind_Throws()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""火"", ""effects"": [ { ""kind"": ""Explode"", ""value"": 1 } ] } ] }"));
+        }
+
+        [Test]
+        public void LoadGraph_RecipeReferencesUndefinedChar_Throws() // fail fast 二次校验
+        {
+            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""林"", ""recipe"": [ ""木"", ""木"" ] } ] }"));
+            Assert.That(ex.Message, Does.Contain("木"));
+        }
+
+        [Test]
+        public void LoadGraph_DuplicateId_Throws()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""火"" }, { ""id"": ""火"" } ] }"));
+        }
+
+        [Test]
+        public void LoadGraph_MalformedJson_Throws()
+        {
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph("not json"));
+        }
+
+        // ---- 实际配置表:StreamingAssets/config/chars.json 必须永远可加载 ----
+
+        [Test]
+        public void ShippedCharsJson_LoadsAndSupportsFireLoopExample() // 第 3 章 3.9 战例
+        {
+            var json = File.ReadAllText(
+                Path.Combine(Application.streamingAssetsPath, "config/chars.json"));
+            var graph = ConfigLoader.LoadGraph(json);
+
+            // 焚 = 林+火,配方属性 {木,火} 构成木生火 → ×3
+            Assert.That(graph.Get("焚").ApCost, Is.EqualTo(2));
+            Assert.That(WuxingResolver.ShengMultiplier(graph.RecipeElements("焚")), Is.EqualTo(3));
+
+            // 升阶链存在:火 → 炎 → 焱 → 燚
+            foreach (var id in new[] { "火", "炎", "焱", "燚" })
+                Assert.That(graph.TryGet(id, out _), Is.True, id);
+        }
+    }
+}
