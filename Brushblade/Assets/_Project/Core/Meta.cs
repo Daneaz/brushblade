@@ -14,6 +14,7 @@ namespace Brushblade.Core
         public List<string> Deck { get; set; } = new();                   // 出阵卡组(≤4,19.3.4)
         public List<int> ClearedStages { get; set; } = new();             // 每章已通关数
         public List<ChestState> Chests { get; set; } = new();             // 箱位队列(≤4,19.5.2)
+        public ShopState Shop { get; set; } = new();                      // 每日商城(19.6)
     }
 
     /// <summary>养成规则(19.2/19.3 首版基准)。纯函数,状态进出。</summary>

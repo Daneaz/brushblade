@@ -14,11 +14,13 @@ namespace Brushblade.Presentation
         private Action<int, int> _onStartStage;
         private Action _save;
         private Action _onOpenCollection;
+        private Action _onOpenShop;
         private string _message;
 
         public void Init(CampaignConfig campaign, MetaState meta, ITimeSource time,
-            Action<int, int> onStartStage, Action save, string message, Action onOpenCollection)
+            Action<int, int> onStartStage, Action save, string message, Action onOpenCollection, Action onOpenShop)
         {
+            _onOpenShop = onOpenShop;
             _campaign = campaign;
             _meta = meta;
             _time = time;
@@ -57,6 +59,8 @@ namespace Brushblade.Presentation
                 (string.IsNullOrEmpty(_message) ? "" : $"\n{_message}"), 26);
             Ui.TextButton(headerRow.transform, "收集/卡组", () => _onOpenCollection(),
                 new Color(0.28f, 0.3f, 0.42f), 22, new Vector2(140, 56));
+            Ui.TextButton(headerRow.transform, "商城", () => _onOpenShop(),
+                new Color(0.42f, 0.3f, 0.28f), 22, new Vector2(100, 56));
 
             // 章节区
             for (int c = 0; c < _campaign.Chapters.Count; c++)

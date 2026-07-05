@@ -39,13 +39,36 @@ namespace Brushblade.Presentation
         {
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_campaign, _meta, Time, StartStage, () => MetaStore.Save(_meta), message,
-                onOpenCollection: ShowCollection);
+                onOpenCollection: ShowCollection, onOpenShop: ShowShop);
         }
 
         private static void ShowCollection()
         {
             var view = NewView("CollectionView");
             view.AddComponent<CollectionView>().Init(_graph, _meta, () => MetaStore.Save(_meta), () => ShowMap());
+        }
+
+        private static void ShowShop()
+        {
+            var pool = UnlockedRewardPool();
+            if (ShopRules.EnsureShelf(_meta, pool, Time, new GameRandom(System.Environment.TickCount)))
+                MetaStore.Save(_meta);
+            var view = NewView("ShopView");
+            view.AddComponent<ShopView>().Init(_meta, pool, Time, () => MetaStore.Save(_meta), () => ShowMap());
+        }
+
+        /// <summary>已解锁章节的奖励池并集(F3:商城不上架未解锁章节的字)。</summary>
+        private static System.Collections.Generic.List<string> UnlockedRewardPool()
+        {
+            var pool = new System.Collections.Generic.List<string>();
+            for (int c = 0; c < _campaign.Chapters.Count; c++)
+            {
+                if (!MetaRules.IsStageUnlocked(_meta, _campaign, c, 0)) break;
+                foreach (var card in _campaign.Chapters[c].RewardPool)
+                    if (!pool.Contains(card))
+                        pool.Add(card);
+            }
+            return pool;
         }
 
         private static void StartStage(int chapter, int stage)
