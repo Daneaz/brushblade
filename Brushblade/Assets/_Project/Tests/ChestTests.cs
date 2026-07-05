@@ -43,19 +43,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void AwardChest_DailyLimit8_ResetsNextDay()
+        public void AwardChest_NoDailyLimit() // 2026-07-05 拍板:取消每日上限,节奏只由箱位与计时约束
         {
             var time = new FakeTime();
             var meta = new MetaState();
-            for (int i = 0; i < ChestRules.DailyDropLimit; i++)
+            for (int i = 0; i < 20; i++)
             {
                 Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time), Is.True);
-                meta.Chests.Clear(); // 腾出箱位,单测每日计数
+                meta.Chests.Clear(); // 腾出箱位
             }
-            Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time), Is.False);
-
-            time.NowUnixSeconds += 86400; // 次日重置
-            Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time), Is.True);
         }
 
         // ---- 档位随角色等级(19.5.3) ----

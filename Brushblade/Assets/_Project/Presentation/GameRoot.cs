@@ -38,7 +38,14 @@ namespace Brushblade.Presentation
         public static void ShowMap(string message = null)
         {
             var view = NewView("MapView");
-            view.AddComponent<MapView>().Init(_campaign, _meta, Time, StartStage, () => MetaStore.Save(_meta), message);
+            view.AddComponent<MapView>().Init(_campaign, _meta, Time, StartStage, () => MetaStore.Save(_meta), message,
+                onOpenCollection: ShowCollection);
+        }
+
+        private static void ShowCollection()
+        {
+            var view = NewView("CollectionView");
+            view.AddComponent<CollectionView>().Init(_graph, _meta, () => MetaStore.Save(_meta), () => ShowMap());
         }
 
         private static void StartStage(int chapter, int stage)

@@ -46,8 +46,7 @@ namespace Brushblade.Core
 
     public static class ChestRules
     {
-        public const int SlotLimit = 4;        // 箱位数(19.5.2)
-        public const int DailyDropLimit = 8;   // 每日胜利掉箱上限(19.5.3,节奏阀)
+        public const int SlotLimit = 4; // 箱位数(19.5.2);节奏阀 = 箱位 + 计时,无每日上限(2026-07-05 拍板)
 
         /// <summary>各级开启时长(秒):5m/30m/2h/4h/8h/12h。索引 = tier−1。</summary>
         public static readonly long[] DurationSeconds = { 300, 1800, 7200, 14400, 28800, 43200 };
@@ -108,21 +107,14 @@ namespace Brushblade.Core
             return (ChestTier)Math.Min(tier, 6);
         }
 
-        /// <summary>胜利掉箱:箱位满或当日达上限返回 false(由调用方折算墨锭补偿)。</summary>
+        /// <summary>胜利掉箱:箱位满返回 false(不掉箱、无折算)。</summary>
         public static bool TryAwardChest(MetaState meta, ChestTier tier,
             IReadOnlyList<string> cardPool, ITimeSource time)
         {
-            long today = time.NowUnixSeconds / 86400;
-            if (meta.ChestDropDayStamp != today)
-            {
-                meta.ChestDropDayStamp = today;
-                meta.ChestDropsToday = 0;
-            }
-            if (meta.Chests.Count >= SlotLimit || meta.ChestDropsToday >= DailyDropLimit)
+            if (meta.Chests.Count >= SlotLimit)
                 return false;
 
             meta.Chests.Add(new ChestState { Tier = tier, CardPool = new List<string>(cardPool) });
-            meta.ChestDropsToday += 1;
             return true;
         }
 

@@ -13,16 +13,18 @@ namespace Brushblade.Presentation
         private ITimeSource _time;
         private Action<int, int> _onStartStage;
         private Action _save;
+        private Action _onOpenCollection;
         private string _message;
 
         public void Init(CampaignConfig campaign, MetaState meta, ITimeSource time,
-            Action<int, int> onStartStage, Action save, string message)
+            Action<int, int> onStartStage, Action save, string message, Action onOpenCollection)
         {
             _campaign = campaign;
             _meta = meta;
             _time = time;
             _onStartStage = onStartStage;
             _save = save;
+            _onOpenCollection = onOpenCollection;
             _message = message ?? "";
             Rebuild();
             InvokeRepeating(nameof(Tick), 1f, 1f); // 倒计时刷新
@@ -48,10 +50,13 @@ namespace Brushblade.Presentation
             int level = MetaRules.CharacterLevel(_meta.CharacterXp);
             var header = Ui.Panel(transform, "Header");
             Ui.Anchor((RectTransform)header.transform, new Vector2(0, 0.9f), Vector2.one, Vector2.zero, Vector2.zero);
-            var headerLabel = Ui.Label(header.transform,
+            var headerRow = Ui.Row(header.transform, "HeaderRow", 24);
+            Ui.Stretch((RectTransform)headerRow.transform);
+            Ui.Label(headerRow.transform,
                 $"正字者 Lv.{level}    经验 {_meta.CharacterXp}    HP 上限 {MetaRules.MaxHpFor(level)}    墨锭 {_meta.Ink}" +
                 (string.IsNullOrEmpty(_message) ? "" : $"\n{_message}"), 26);
-            Ui.Stretch(headerLabel.rectTransform);
+            Ui.TextButton(headerRow.transform, "收集/卡组", () => _onOpenCollection(),
+                new Color(0.28f, 0.3f, 0.42f), 22, new Vector2(140, 56));
 
             // 章节区
             for (int c = 0; c < _campaign.Chapters.Count; c++)
@@ -94,7 +99,7 @@ namespace Brushblade.Presentation
             var bar = Ui.Row(transform, "Chests", 16);
             Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 0.02f), new Vector2(1, 0.26f), Vector2.zero, Vector2.zero);
 
-            Ui.Label(bar.transform, $"宝箱\n{_meta.Chests.Count}/{ChestRules.SlotLimit}\n今日 {_meta.ChestDropsToday}/{ChestRules.DailyDropLimit}", 20);
+            Ui.Label(bar.transform, $"宝箱\n{_meta.Chests.Count}/{ChestRules.SlotLimit}", 20);
 
             for (int i = 0; i < _meta.Chests.Count; i++)
             {
