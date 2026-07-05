@@ -4,7 +4,8 @@
     "references": [
         "Brushblade.Core",
         "Brushblade.Data",
-        "Brushblade.Platform"
+        "Brushblade.Platform",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

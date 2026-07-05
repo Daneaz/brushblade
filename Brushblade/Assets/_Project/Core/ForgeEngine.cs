@@ -95,37 +95,46 @@ namespace Brushblade.Core
             return ForgeResult.Ok(new ForgeState(library, pool));
         }
 
-        /// <summary>合:池中含配方全部原料 → 消耗原料,字入字库。</summary>
+        /// <summary>合:消耗配方全部原料 → 字入字库。原料优先取部件池,池中没有则消耗字库中的
+        /// 低阶字(4.2.3「原料可以是更低阶的汉字」,3.9 战例:合林 → 合焚)。</summary>
         public static ForgeResult TryCompose(string charId, RecipeGraph graph, ForgeState state, int libraryCapacity)
         {
             if (!graph.TryGet(charId, out var def))
                 return ForgeResult.Fail(ForgeError.UnknownChar, state);
-            if (state.Library.Count >= libraryCapacity)
-                return ForgeResult.Fail(ForgeError.LibraryFull, state);
 
             var pool = new List<string>(state.Pool);
+            var library = new List<string>(state.Library);
             foreach (var ingredient in def.Recipe)
             {
-                if (!pool.Remove(ingredient))
-                    return ForgeResult.Fail(ForgeError.MissingIngredients, state);
+                if (pool.Remove(ingredient)) continue;
+                if (library.Remove(ingredient)) continue;
+                return ForgeResult.Fail(ForgeError.MissingIngredients, state);
             }
 
-            var library = new List<string>(state.Library) { charId };
+            // 容量在消耗原料之后判定:用字库中的字升阶不占新位
+            if (library.Count >= libraryCapacity)
+                return ForgeResult.Fail(ForgeError.LibraryFull, state);
+
+            library.Add(charId);
             return ForgeResult.Ok(new ForgeState(library, pool));
         }
 
-        /// <summary>提示:可合成的字 + 差一个原料的字。</summary>
-        public static SuggestResult Suggest(RecipeGraph graph, IReadOnlyList<string> pool)
+        /// <summary>提示:可合成的字 + 差一个原料的字。原料 = 部件池 + 字库低阶字(3.9 战例语义)。</summary>
+        public static SuggestResult Suggest(RecipeGraph graph, IReadOnlyList<string> pool, IReadOnlyList<string> library)
         {
             var composable = new List<string>();
             var nearMisses = new List<NearMiss>();
+
+            var available = new List<string>(pool.Count + library.Count);
+            available.AddRange(pool);
+            available.AddRange(library);
 
             foreach (var def in graph.All)
             {
                 if (def.IsLeaf)
                     continue;
 
-                var remaining = new List<string>(pool);
+                var remaining = new List<string>(available);
                 var missing = new List<string>();
                 foreach (var ingredient in def.Recipe)
                 {

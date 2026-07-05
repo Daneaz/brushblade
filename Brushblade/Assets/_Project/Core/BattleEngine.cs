@@ -117,11 +117,7 @@ namespace Brushblade.Core
             if (Ap < def.ApCost) return BattleError.NotEnoughAp;
 
             // 单体效果需要有效的存活目标
-            bool needsTarget = false;
-            foreach (var effect in def.Effects)
-                if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle)
-                    needsTarget = true;
-            if (needsTarget &&
+            if (NeedsTarget(def) &&
                 (targetIndex < 0 || targetIndex >= _enemies.Count || !_enemies[targetIndex].Alive))
                 return BattleError.InvalidTarget;
 
@@ -145,6 +141,15 @@ namespace Brushblade.Core
             ApplyEffects(def, targetIndex);
             CheckWin();
             return BattleError.None;
+        }
+
+        /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式)。</summary>
+        public static bool NeedsTarget(CharDef def)
+        {
+            foreach (var effect in def.Effects)
+                if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle)
+                    return true;
+            return false;
         }
 
         /// <summary>结束回合:灼烧结算 → 胜负检查 → 敌人行动 → 胜负检查 → 下回合开始(3.5/3.7)。</summary>

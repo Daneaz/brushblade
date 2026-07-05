@@ -113,19 +113,37 @@ namespace Brushblade.Core.Tests
             Assert.That(result.Error, Is.EqualTo(ForgeError.UnknownChar));
         }
 
+        [Test]
+        public void Compose_IngredientConsumedFromLibrary() // 3.9 战例:合林(入字库)→ 合焚(消耗字库的林)
+        {
+            var result = ForgeEngine.TryCompose("焚", Graph(), State(new[] { "林" }, new[] { "火" }), 8);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Library, Is.EquivalentTo(new[] { "焚" }));
+            Assert.That(result.State.Pool, Is.Empty);
+        }
+
+        [Test]
+        public void Compose_PoolPreferredOverLibrary() // 池中有同名原料时不动字库
+        {
+            var result = ForgeEngine.TryCompose("焚", Graph(), State(new[] { "林" }, new[] { "林", "火" }), 8);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Library, Is.EquivalentTo(new[] { "林", "焚" }));
+            Assert.That(result.State.Pool, Is.Empty);
+        }
+
         // ---- 提示(Suggest,第 4 章 4.7) ----
 
         [Test]
         public void Suggest_ListsFullySatisfiedRecipes()
         {
-            var suggest = ForgeEngine.Suggest(Graph(), new[] { "木", "木", "火" });
+            var suggest = ForgeEngine.Suggest(Graph(), new[] { "木", "木", "火" }, Array.Empty<string>());
             Assert.That(suggest.Composable, Is.EquivalentTo(new[] { "林" }));
         }
 
         [Test]
         public void Suggest_NearMiss_MissingExactlyOne() // "还差一个『林』即可合『焚』"
         {
-            var suggest = ForgeEngine.Suggest(Graph(), new[] { "木", "木", "火" });
+            var suggest = ForgeEngine.Suggest(Graph(), new[] { "木", "木", "火" }, Array.Empty<string>());
             var byChar = suggest.NearMisses.ToDictionary(n => n.CharId, n => n.MissingIngredient);
             Assert.That(byChar["焚"], Is.EqualTo("林"));
             Assert.That(byChar["炎"], Is.EqualTo("火")); // 有火×1,还差一个火
@@ -134,7 +152,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Suggest_MissingTwo_NotListed()
         {
-            var suggest = ForgeEngine.Suggest(Graph(), new[] { "丁" });
+            var suggest = ForgeEngine.Suggest(Graph(), new[] { "丁" }, Array.Empty<string>());
             Assert.That(suggest.Composable, Is.Empty);
             var chars = suggest.NearMisses.Select(n => n.CharId);
             Assert.That(chars, Does.Contain("灯"));      // 差一个火
@@ -144,7 +162,21 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Suggest_EmptyPool_NothingComposable()
         {
-            var suggest = ForgeEngine.Suggest(Graph(), Array.Empty<string>());
+            var suggest = ForgeEngine.Suggest(Graph(), Array.Empty<string>(), Array.Empty<string>());
+            Assert.That(suggest.Composable, Is.Empty);
+        }
+
+        [Test]
+        public void Suggest_SeesLibraryIngredients() // 字库有林、池有火 → 焚应显示为可合成
+        {
+            var suggest = ForgeEngine.Suggest(Graph(), new[] { "火" }, new[] { "林" });
+            Assert.That(suggest.Composable, Does.Contain("焚"));
+        }
+
+        [Test]
+        public void Suggest_DoesNotCountCharAsItsOwnIngredient() // 字库的林不该让"林"自己显示可合成
+        {
+            var suggest = ForgeEngine.Suggest(Graph(), Array.Empty<string>(), new[] { "林" });
             Assert.That(suggest.Composable, Is.Empty);
         }
     }

@@ -1,0 +1,298 @@
+using System.Text;
+using Brushblade.Core;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Brushblade.Presentation
+{
+    /// <summary>战斗界面:每次操作后整体重绘(原型期够用)。交互:
+    /// 点字库字 → 出字/拆;点部件 → 直出;可合成列表一键合;单体效果进入选目标模式。</summary>
+    public sealed class BattleView : MonoBehaviour
+    {
+        private RecipeGraph _graph;
+        private BattleEngine _engine;
+
+        // 交互状态
+        private string _selectedChar;   // 当前选中的字/部件
+        private bool _targeting;        // 等待点击敌人
+        private string _message = "点击字库中的字开始行动";
+
+        // 容器
+        private Transform _enemyRow;
+        private Transform _statusRow;
+        private Transform _libraryRow;
+        private Transform _poolRow;
+        private Transform _suggestRow;
+        private Transform _actionRow;
+        private Text _messageLabel;
+
+        public void Init(RecipeGraph graph, BattleEngine engine)
+        {
+            _graph = graph;
+            _engine = engine;
+            BuildSkeleton();
+            Refresh();
+        }
+
+        private void BuildSkeleton()
+        {
+            var root = (RectTransform)transform;
+            Ui.Stretch(root);
+
+            _enemyRow = MakeSection("Enemies", 0.66f, 0.94f);
+            _statusRow = MakeSection("Status", 0.56f, 0.66f);
+            _suggestRow = MakeSection("Suggest", 0.44f, 0.55f);
+            _actionRow = MakeSection("Actions", 0.33f, 0.44f);
+            _libraryRow = MakeSection("Library", 0.18f, 0.32f);
+            _poolRow = MakeSection("Pool", 0.04f, 0.17f);
+
+            var messageGo = Ui.Panel(transform, "Message");
+            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.94f), Vector2.one, Vector2.zero, Vector2.zero);
+            _messageLabel = Ui.Label(messageGo.transform, "", 24);
+            Ui.Stretch(_messageLabel.rectTransform);
+        }
+
+        private Transform MakeSection(string name, float yMin, float yMax)
+        {
+            var go = Ui.Row(transform, name);
+            Ui.Anchor((RectTransform)go.transform, new Vector2(0, yMin), new Vector2(1, yMax), Vector2.zero, Vector2.zero);
+            return go.transform;
+        }
+
+        // ---- 渲染 ----
+
+        private void Refresh()
+        {
+            Ui.Clear(_enemyRow);
+            Ui.Clear(_statusRow);
+            Ui.Clear(_libraryRow);
+            Ui.Clear(_poolRow);
+            Ui.Clear(_suggestRow);
+            Ui.Clear(_actionRow);
+
+            DrawEnemies();
+            DrawStatus();
+            if (_engine.Phase == BattlePhase.PlayerTurn)
+            {
+                DrawLibrary();
+                DrawPool();
+                DrawSuggest();
+                DrawActions();
+            }
+            else
+            {
+                DrawBattleEnd();
+            }
+            _messageLabel.text = _message;
+        }
+
+        private void DrawEnemies()
+        {
+            for (int i = 0; i < _engine.Enemies.Count; i++)
+            {
+                var enemy = _engine.Enemies[i];
+                var text = new StringBuilder();
+                text.Append(enemy.Def.Id).Append('\n')
+                    .Append(ElementName(enemy.Def.Element)).Append('\n')
+                    .Append(enemy.Alive ? $"HP {enemy.Hp}/{enemy.Def.MaxHp}" : "已正")
+                    .Append(enemy.Burn > 0 ? $"\n灼烧 {enemy.Burn}" : "");
+
+                int index = i;
+                var color = enemy.Alive
+                    ? (_targeting ? new Color(0.6f, 0.25f, 0.2f) : new Color(0.35f, 0.2f, 0.2f))
+                    : new Color(0.15f, 0.15f, 0.15f);
+                var button = Ui.TextButton(_enemyRow, text.ToString(), () => OnEnemyClicked(index),
+                    color, 24, new Vector2(180, 150));
+                button.interactable = enemy.Alive;
+            }
+        }
+
+        private void DrawStatus()
+        {
+            Ui.Label(_statusRow,
+                $"回合 {_engine.Turn}    AP {_engine.Ap}/3    HP {_engine.PlayerHp}/50" +
+                (_engine.PlayerShield > 0 ? $"    护盾 {_engine.PlayerShield}" : ""), 26);
+        }
+
+        private void DrawLibrary()
+        {
+            Ui.Label(_libraryRow, "字库", 22);
+            if (_engine.Library.Count == 0)
+                Ui.Label(_libraryRow, "(空)", 22);
+            foreach (var id in _engine.Library)
+            {
+                string charId = id;
+                var def = _graph.Get(charId);
+                bool selected = _selectedChar == charId && !_targeting;
+                Ui.TextButton(_libraryRow, $"{charId}\n{def.ApCost}AP", () => OnLibraryCharClicked(charId),
+                    selected ? new Color(0.5f, 0.45f, 0.15f) : new Color(0.22f, 0.22f, 0.28f),
+                    26, new Vector2(96, 88));
+            }
+        }
+
+        private void DrawPool()
+        {
+            Ui.Label(_poolRow, $"部件池 {_engine.Pool.Count}/12", 22);
+            foreach (var id in _engine.Pool)
+            {
+                string charId = id;
+                bool selected = _selectedChar == charId && !_targeting;
+                Ui.TextButton(_poolRow, charId, () => OnPoolCharClicked(charId),
+                    selected ? new Color(0.5f, 0.45f, 0.15f) : new Color(0.2f, 0.28f, 0.2f),
+                    26, new Vector2(72, 64));
+            }
+        }
+
+        private void DrawSuggest()
+        {
+            var suggest = ForgeEngine.Suggest(_graph, _engine.Pool, _engine.Library);
+            Ui.Label(_suggestRow, "可合成", 22);
+            if (suggest.Composable.Count == 0)
+                Ui.Label(_suggestRow, "(无)", 22);
+            foreach (var id in suggest.Composable)
+            {
+                string charId = id;
+                Ui.TextButton(_suggestRow, $"合 {charId}", () => OnCompose(charId),
+                    new Color(0.2f, 0.32f, 0.42f), 24, new Vector2(110, 56));
+            }
+            foreach (var miss in suggest.NearMisses)
+                Ui.Label(_suggestRow, $"差「{miss.MissingIngredient}」可合「{miss.CharId}」", 20);
+        }
+
+        private void DrawActions()
+        {
+            if (_targeting)
+            {
+                Ui.TextButton(_actionRow, "取消", CancelSelection, new Color(0.3f, 0.3f, 0.3f));
+            }
+            else if (_selectedChar != null)
+            {
+                var def = _graph.Get(_selectedChar);
+                bool inLibrary = System.Linq.Enumerable.Contains(_engine.Library, _selectedChar);
+                if (def.Effects.Count > 0)
+                    Ui.TextButton(_actionRow, inLibrary ? "出字" : "直出", () => OnCastPressed(def),
+                        new Color(0.55f, 0.3f, 0.15f));
+                if (inLibrary && !def.IsLeaf)
+                    Ui.TextButton(_actionRow, "拆", () => OnDismantle(def.Id), new Color(0.3f, 0.35f, 0.5f));
+                Ui.TextButton(_actionRow, "取消", CancelSelection, new Color(0.3f, 0.3f, 0.3f));
+            }
+            Ui.TextButton(_actionRow, "结束回合", OnEndTurn, new Color(0.45f, 0.2f, 0.35f), 26, new Vector2(150, 64));
+        }
+
+        private void DrawBattleEnd()
+        {
+            bool won = _engine.Phase == BattlePhase.Won;
+            Ui.Label(_actionRow, won ? "字正——胜利!" : "败北", 40);
+            Ui.TextButton(_actionRow, "再来一局", BattleBootstrap.Restart,
+                new Color(0.2f, 0.4f, 0.25f), 26, new Vector2(170, 70));
+            _message = won ? "错字已被正,再来一局?" : "死亡即结算,这就是肉鸽。";
+        }
+
+        // ---- 交互 ----
+
+        private void OnLibraryCharClicked(string charId)
+        {
+            _selectedChar = charId;
+            _targeting = false;
+            var def = _graph.Get(charId);
+            _message = def.Effects.Count > 0 ? $"「{charId}」:出字({def.ApCost} AP)或拆(1 AP)" : $"「{charId}」是材料字,可拆或用于合成";
+            Refresh();
+        }
+
+        private void OnPoolCharClicked(string charId)
+        {
+            var def = _graph.Get(charId);
+            if (def.Effects.Count == 0)
+            {
+                _message = $"部件「{charId}」无直出效果,等待合成";
+                Refresh();
+                return;
+            }
+            _selectedChar = charId;
+            _targeting = false;
+            _message = $"部件「{charId}」可直出(1 AP)";
+            Refresh();
+        }
+
+        private void OnCastPressed(CharDef def)
+        {
+            if (BattleEngine.NeedsTarget(def))
+            {
+                _targeting = true;
+                _message = $"「{def.Id}」:点击目标敌人";
+                Refresh();
+                return;
+            }
+            ExecuteCast(def.Id, -1);
+        }
+
+        private void OnEnemyClicked(int index)
+        {
+            if (_targeting && _selectedChar != null)
+                ExecuteCast(_selectedChar, index);
+        }
+
+        private void ExecuteCast(string charId, int target)
+        {
+            var error = _engine.Cast(charId, target);
+            _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
+            CancelSelection();
+        }
+
+        private void OnDismantle(string charId)
+        {
+            var error = _engine.Dismantle(charId);
+            _message = error == BattleError.None ? $"拆「{charId}」" : Describe(error);
+            CancelSelection();
+        }
+
+        private void OnCompose(string charId)
+        {
+            var error = _engine.Compose(charId);
+            _message = error == BattleError.None ? $"合出「{charId}」!" : Describe(error);
+            CancelSelection();
+        }
+
+        private void OnEndTurn()
+        {
+            _engine.EndTurn();
+            _message = _engine.Phase == BattlePhase.PlayerTurn ? $"回合 {_engine.Turn}:+3 AP,部件掉落" : "";
+            CancelSelection();
+        }
+
+        private void CancelSelection()
+        {
+            _selectedChar = null;
+            _targeting = false;
+            Refresh();
+        }
+
+        private string Describe(BattleError error) => error switch
+        {
+            BattleError.NotEnoughAp => "AP 不足",
+            BattleError.NotCastable => "此字当前不可出",
+            BattleError.InvalidTarget => "目标无效",
+            BattleError.BattleOver => "战斗已结束",
+            BattleError.ForgeFailed => _engine.LastForgeError switch
+            {
+                ForgeError.PoolWouldOverflow => "部件池放不下,拆解取消",
+                ForgeError.MissingIngredients => "原料不足",
+                ForgeError.LibraryFull => "字库已满",
+                ForgeError.NotDismantlable => "独体字不可拆",
+                _ => "操作被拒",
+            },
+            _ => "",
+        };
+
+        private static string ElementName(Element element) => element switch
+        {
+            Element.Wood => "木",
+            Element.Fire => "火",
+            Element.Earth => "土",
+            Element.Metal => "金",
+            Element.Water => "水",
+            Element.Heart => "心",
+            _ => "?",
+        };
+    }
+}
