@@ -55,6 +55,28 @@ namespace Brushblade.Core
         /// <summary>奖励阶段的三选一选项(字 id)。</summary>
         public IReadOnlyList<string> RewardOptions => _rewardOptions;
 
+        public bool LibraryExpanded { get; private set; }
+        public bool PoolExpanded { get; private set; }
+
+        /// <summary>局内广告扩容:字库 +2,每关一次,关内跨场有效(2026-07-06 拍板)。
+        /// 关卡结束自然恢复:每关的 BattleConfig 由外层新建。</summary>
+        public bool TryExpandLibrary()
+        {
+            if (LibraryExpanded) return false;
+            _battleConfig.LibraryCapacity += 2;
+            LibraryExpanded = true;
+            return true;
+        }
+
+        /// <summary>局内广告扩容:部件池 +2,每关一次。</summary>
+        public bool TryExpandPool()
+        {
+            if (PoolExpanded) return false;
+            _battleConfig.PoolCapacity += 2;
+            PoolExpanded = true;
+            return true;
+        }
+
         /// <summary>战斗分出胜负后由视图调用:胜 → 奖励/通关,负 → 结算 run。</summary>
         public void AdvanceAfterBattle()
         {

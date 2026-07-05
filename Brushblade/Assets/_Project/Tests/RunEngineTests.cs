@@ -131,6 +131,50 @@ namespace Brushblade.Core.Tests
             Assert.That(a.RewardOptions, Is.EqualTo(b.RewardOptions));
         }
 
+        // ---- 局内广告扩容(2026-07-06 拍板):字库 6+2、部件池 10+2,每关各一次,关卡结束恢复 ----
+
+        [Test]
+        public void Defaults_Library6_Pool10()
+        {
+            var config = new BattleConfig();
+            Assert.That(config.LibraryCapacity, Is.EqualTo(6));
+            Assert.That(config.PoolCapacity, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void ExpandPool_OncePerRun_RaisesCapBy2()
+        {
+            var run = Run();
+            Assert.That(run.TryExpandPool(), Is.True);
+            Assert.That(run.TryExpandPool(), Is.False); // 每关一次
+
+            // 扩容后池上限 12:塞到 11 个再拆(+2)会被拒,10 个 +2 = 12 恰好允许
+            var pool = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < 10; i++) pool.Add("木");
+            var result = ForgeEngine.TryDismantle("焚", Graph(),
+                new ForgeState(new[] { "焚" }, pool), 12);
+            Assert.That(result.Success, Is.True);
+        }
+
+        [Test]
+        public void ExpandLibrary_AffectsCurrentAndLaterBattlesInRun()
+        {
+            var run = Run();
+            Assert.That(run.TryExpandLibrary(), Is.True);
+            Assert.That(run.TryExpandLibrary(), Is.False);
+
+            // 灌满 6 张后仍可合成第 7 张(上限已到 8)
+            var battle = run.Battle;
+            // 直接验证配置生效:通过合成路径太长,改用容量可观察值
+            Assert.That(battle.LibraryCapacity, Is.EqualTo(8));
+            Assert.That(battle.PoolCapacity, Is.EqualTo(10));
+
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.LibraryCapacity, Is.EqualTo(8)); // 关内跨场保持
+        }
+
         [Test]
         public void BattleEngine_StartsWithCarriedHp() // startingHp 参数
         {

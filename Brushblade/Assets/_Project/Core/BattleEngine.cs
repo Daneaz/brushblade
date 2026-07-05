@@ -26,8 +26,8 @@ namespace Brushblade.Core
     {
         public int PlayerMaxHp { get; set; } = 50;
         public int ApPerTurn { get; set; } = 3;
-        public int LibraryCapacity { get; set; } = 8;
-        public int PoolCapacity { get; set; } = 12;
+        public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
+        public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 2;
         /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
@@ -73,6 +73,8 @@ namespace Brushblade.Core
         public int PlayerShield => _shieldNormal + _shieldPersist;
         public IReadOnlyList<string> Library => _forge.Library;
         public IReadOnlyList<string> Pool => _forge.Pool;
+        public int LibraryCapacity => _config.LibraryCapacity;
+        public int PoolCapacity => _config.PoolCapacity;
         public IReadOnlyList<string> UsedChars => _usedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public ForgeError LastForgeError { get; private set; }

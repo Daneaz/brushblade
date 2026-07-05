@@ -67,11 +67,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void TurnStart_DropsStopAtPoolCapacity() // 池满则不掉
+        public void TurnStart_DropsStopAtPoolCapacity() // 池满则不掉;基准 10(2026-07-06 拍板)
         {
-            var pool = Enumerable.Repeat("木", 11).ToArray();
+            var pool = Enumerable.Repeat("木", 9).ToArray();
             var engine = Engine(pool: pool);
-            Assert.That(engine.Pool.Count, Is.EqualTo(12)); // 11 + 1,第二个不掉
+            Assert.That(engine.Pool.Count, Is.EqualTo(10)); // 9 + 1,第二个不掉
         }
 
         [Test]

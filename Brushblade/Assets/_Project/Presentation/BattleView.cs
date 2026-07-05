@@ -130,7 +130,14 @@ namespace Brushblade.Presentation
 
         private void DrawLibrary()
         {
-            Ui.Label(_libraryRow, "字库", 22);
+            Ui.Label(_libraryRow, $"字库 {Battle.Library.Count}/{Battle.LibraryCapacity}", 22);
+            if (!_run.LibraryExpanded)
+                Ui.TextButton(_libraryRow, "广告+2", () => // 原型:点击即生效,SDK 后接
+                {
+                    _run.TryExpandLibrary();
+                    _message = "字库上限 +2(本关有效)";
+                    Refresh();
+                }, new Color(0.2f, 0.38f, 0.3f), 18, new Vector2(80, 44));
             if (Battle.Library.Count == 0)
                 Ui.Label(_libraryRow, "(空)", 22);
             foreach (var id in Battle.Library)
@@ -146,7 +153,14 @@ namespace Brushblade.Presentation
 
         private void DrawPool()
         {
-            Ui.Label(_poolRow, $"部件池 {Battle.Pool.Count}/12", 22);
+            Ui.Label(_poolRow, $"部件池 {Battle.Pool.Count}/{Battle.PoolCapacity}", 22);
+            if (!_run.PoolExpanded)
+                Ui.TextButton(_poolRow, "广告+2", () => // 原型:点击即生效,SDK 后接
+                {
+                    _run.TryExpandPool();
+                    _message = "部件池上限 +2(本关有效)";
+                    Refresh();
+                }, new Color(0.2f, 0.38f, 0.3f), 18, new Vector2(80, 44));
             foreach (var id in Battle.Pool)
             {
                 string charId = id;
