@@ -40,7 +40,8 @@ namespace Brushblade.Core
                         ? enemy
                         : new EnemyDef(enemy.Id, enemy.Element,
                             (int)Math.Ceiling(enemy.MaxHp * chapter.EnemyScale),
-                            (int)Math.Ceiling(enemy.Attack * chapter.EnemyScale)));
+                            (int)Math.Ceiling(enemy.Attack * chapter.EnemyScale),
+                            enemy.Ability));
                 encounters.Add(group);
             }
 

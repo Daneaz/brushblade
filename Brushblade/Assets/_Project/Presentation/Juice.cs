@@ -57,6 +57,9 @@ namespace Brushblade.Presentation
                         playerHit = true;
                         Popup($"-{e.Amount}", new Color(1f, 0.3f, 0.3f), null);
                         break;
+                    case BattleEventKind.EnemySplit:
+                        Popup("分裂!", new Color(0.7f, 1f, 0.5f), enemyAnchor(e.TargetIndex));
+                        break;
                 }
             }
 

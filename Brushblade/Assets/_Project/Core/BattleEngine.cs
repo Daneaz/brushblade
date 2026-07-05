@@ -42,6 +42,7 @@ namespace Brushblade.Core
         BurnTick,    // 回合末灼烧结算伤害
         EnemyDied,   // 敌人被消灭
         EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分)
+        EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
     }
 
     public readonly struct BattleEvent
@@ -241,17 +242,30 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
-            // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后)
+            // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力
             foreach (var enemy in _enemies)
             {
                 if (!enemy.Alive) continue;
-                int damage = enemy.Def.Attack;
+                int damage = enemy.Attack;
                 int fromNormal = Math.Min(_shieldNormal, damage);
                 _shieldNormal -= fromNormal;
                 int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
                 _shieldPersist -= fromPersist;
                 PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
                 _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, -1, damage));
+
+                // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)
+                if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.RegrowProgress < 3)
+                {
+                    enemy.RegrowProgress += 1;
+                    enemy.Attack += 2;
+                    enemy.Hp = Math.Min(enemy.Def.MaxHp, enemy.Hp + 3);
+                    if (enemy.RegrowProgress == 3)
+                    {
+                        enemy.Attack *= 2;
+                        enemy.Hp = enemy.Def.MaxHp;
+                    }
+                }
             }
             if (PlayerHp <= 0)
             {
@@ -296,7 +310,8 @@ namespace Brushblade.Core
                         DamageEnemy(targetIndex, BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker);
                         break;
                     case EffectKind.DamageAll:
-                        for (int i = 0; i < _enemies.Count; i++)
+                        int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE
+                        for (int i = 0; i < aoeCount; i++)
                             if (_enemies[i].Alive)
                                 DamageEnemy(i, BaseValue(effect, value, _enemies[i]), recipeElements, attacker);
                         break;
@@ -342,7 +357,26 @@ namespace Brushblade.Core
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
             if (!enemy.Alive)
+            {
                 _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
+                return;
+            }
+
+            // 叠字怪:首次受击存活 → 分裂成两个半血(8.3;场上 <4 时)
+            if (enemy.Def.Ability == EnemyAbility.Split && !enemy.HasSplit && _enemies.Count < 4)
+            {
+                int half = (enemy.Hp + 1) / 2;
+                enemy.Hp = half;
+                enemy.HasSplit = true;
+                var clone = new EnemyState(enemy.Def)
+                {
+                    Hp = half,
+                    Attack = enemy.Attack,
+                    HasSplit = true,
+                };
+                _enemies.Add(clone);
+                _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
+            }
         }
 
         private void CheckWin()

@@ -132,7 +132,10 @@ namespace Brushblade.Data
                     throw new ConfigException($"重复的敌人 id:{dto.Id}");
                 if (!Enum.TryParse<Element>(dto.Element, out var element))
                     throw new ConfigException($"敌人「{dto.Id}」的属性未知:{dto.Element}");
-                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack);
+                var ability = EnemyAbility.None;
+                if (dto.Ability != null && !Enum.TryParse(dto.Ability, out ability))
+                    throw new ConfigException($"敌人「{dto.Id}」的能力未知:{dto.Ability}");
+                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability);
             }
             return enemyDefs;
         }
@@ -143,6 +146,7 @@ namespace Brushblade.Data
             public string Element { get; set; }
             public int MaxHp { get; set; }
             public int Attack { get; set; }
+            public string Ability { get; set; }
         }
 
         /// <summary>解析字表 JSON;结构非法/属性名未知/原料缺失/重复 id 抛 ConfigException。</summary>

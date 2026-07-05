@@ -119,9 +119,13 @@ namespace Brushblade.Presentation
                 var enemy = Battle.Enemies[i];
                 var text = new StringBuilder();
                 text.Append(enemy.Def.Id).Append('\n')
-                    .Append(ElementName(enemy.Def.Element)).Append('\n')
+                    .Append(ElementName(enemy.Def.Element)).Append(" 攻").Append(enemy.Attack).Append('\n')
                     .Append(enemy.Alive ? $"HP {enemy.Hp}/{enemy.Def.MaxHp}" : "已正")
-                    .Append(enemy.Burn > 0 ? $"\n灼烧 {enemy.Burn}" : "");
+                    .Append(enemy.Burn > 0 ? $"\n灼烧 {enemy.Burn}" : "")
+                    .Append(enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive
+                        ? (enemy.RegrowProgress >= 3 ? "\n已补全!" : $"\n补全 {enemy.RegrowProgress}/3") : "")
+                    .Append(enemy.Def.Ability == EnemyAbility.Split && enemy.Alive && !enemy.HasSplit
+                        ? "\n受击分裂" : "");
 
                 int index = i;
                 var color = enemy.Alive
