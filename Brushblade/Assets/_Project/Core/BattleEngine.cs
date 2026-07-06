@@ -43,6 +43,7 @@ namespace Brushblade.Core
         EnemyDied,   // 敌人被消灭
         EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分)
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
+        BossPhase,   // 成语 Boss 进入新阶段(Amount = 新阶段下标)
     }
 
     public readonly struct BattleEvent
@@ -237,7 +238,7 @@ namespace Brushblade.Core
                 enemy.Burn -= 1;
                 _events.Add(new BattleEvent(BattleEventKind.BurnTick, i, tick));
                 if (!enemy.Alive)
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyDied, i, 0));
+                    ResolveDefeat(i);
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
@@ -353,12 +354,14 @@ namespace Brushblade.Core
             IReadOnlyCollection<Element> recipeElements, Element attacker)
         {
             var enemy = _enemies[enemyIndex];
-            int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Def.Element);
+            int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
+            if (enemy.DamageTaken != 1f)
+                damage = (int)Math.Floor(damage * enemy.DamageTaken); // 「山」类承伤减免
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
             if (!enemy.Alive)
             {
-                _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
+                ResolveDefeat(enemyIndex);
                 return;
             }
 
@@ -377,6 +380,19 @@ namespace Brushblade.Core
                 _enemies.Add(clone);
                 _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
             }
+        }
+
+        /// <summary>血量归零的结算:成语 Boss 还有下一阶段则换阶段(8.5,溢出伤害不带入),否则死亡。</summary>
+        private void ResolveDefeat(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (enemy.IsBoss && enemy.PhaseIndex < enemy.Def.Phases.Count - 1)
+            {
+                enemy.EnterPhase(enemy.PhaseIndex + 1);
+                _events.Add(new BattleEvent(BattleEventKind.BossPhase, enemyIndex, enemy.PhaseIndex));
+                return;
+            }
+            _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
         }
 
         private void CheckWin()

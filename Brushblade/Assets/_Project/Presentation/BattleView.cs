@@ -118,9 +118,10 @@ namespace Brushblade.Presentation
             {
                 var enemy = Battle.Enemies[i];
                 var text = new StringBuilder();
-                text.Append(enemy.Def.Id).Append('\n')
-                    .Append(ElementName(enemy.Def.Element)).Append(" 攻").Append(enemy.Attack).Append('\n')
-                    .Append(enemy.Alive ? $"HP {enemy.Hp}/{enemy.Def.MaxHp}" : "已正")
+                text.Append(BossTitle(enemy)).Append('\n')
+                    .Append(ElementName(enemy.Element)).Append(" 攻").Append(enemy.Attack)
+                    .Append(enemy.DamageTaken < 1f ? " 坚壁" : "").Append('\n')
+                    .Append(enemy.Alive ? $"HP {enemy.Hp}/{enemy.MaxHp}" : "已正")
                     .Append(enemy.Burn > 0 ? $"\n灼烧 {enemy.Burn}" : "")
                     .Append(enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive
                         ? (enemy.RegrowProgress >= 3 ? "\n已补全!" : $"\n补全 {enemy.RegrowProgress}/3") : "")
@@ -315,9 +316,20 @@ namespace Brushblade.Presentation
         {
             var error = Battle.Cast(charId, target);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
+            AppendBossPhaseMessage();
             CancelSelection();
             if (error == BattleError.None)
                 PlayJuice();
+        }
+
+        private void AppendBossPhaseMessage()
+        {
+            foreach (var e in Battle.LastEvents)
+                if (e.Kind == BattleEventKind.BossPhase)
+                {
+                    var enemy = Battle.Enemies[e.TargetIndex];
+                    _message += $"  破阶!「{enemy.Def.Phases[e.Amount].Char}」现身——{ElementName(enemy.Element)}系";
+                }
         }
 
         private void OnDiscard(string charId)
@@ -354,6 +366,17 @@ namespace Brushblade.Presentation
             _selectedChar = null;
             _targeting = false;
             Refresh();
+        }
+
+        /// <summary>成语 Boss 显示当前阶段字:排【山】倒海;普通怪显示名字。</summary>
+        private static string BossTitle(EnemyState enemy)
+        {
+            if (!enemy.IsBoss)
+                return enemy.Def.Id;
+            var title = new StringBuilder();
+            for (int i = 0; i < enemy.Def.Phases.Count; i++)
+                title.Append(i == enemy.PhaseIndex ? $"【{enemy.Def.Phases[i].Char}】" : enemy.Def.Phases[i].Char);
+            return title.ToString();
         }
 
         private string Describe(BattleError error) => error switch

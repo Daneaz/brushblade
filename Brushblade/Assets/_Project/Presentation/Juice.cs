@@ -60,6 +60,10 @@ namespace Brushblade.Presentation
                     case BattleEventKind.EnemySplit:
                         Popup("分裂!", new Color(0.7f, 1f, 0.5f), enemyAnchor(e.TargetIndex));
                         break;
+                    case BattleEventKind.BossPhase:
+                        Popup("破阶!", new Color(1f, 0.9f, 0.4f), enemyAnchor(e.TargetIndex));
+                        _audio.PlayOneShot(_thudClip, 1f);
+                        break;
                 }
             }
 

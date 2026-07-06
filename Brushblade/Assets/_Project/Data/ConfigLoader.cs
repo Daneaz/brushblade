@@ -135,7 +135,21 @@ namespace Brushblade.Data
                 var ability = EnemyAbility.None;
                 if (dto.Ability != null && !Enum.TryParse(dto.Ability, out ability))
                     throw new ConfigException($"敌人「{dto.Id}」的能力未知:{dto.Ability}");
-                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability);
+
+                List<BossPhaseDef> phases = null;
+                if (dto.Phases != null && dto.Phases.Count > 0)
+                {
+                    phases = new List<BossPhaseDef>();
+                    foreach (var phase in dto.Phases)
+                    {
+                        if (string.IsNullOrEmpty(phase.Char) || phase.MaxHp <= 0)
+                            throw new ConfigException($"Boss「{dto.Id}」存在非法阶段(char/maxHp)");
+                        if (!Enum.TryParse<Element>(phase.Element, out var phaseElement))
+                            throw new ConfigException($"Boss「{dto.Id}」阶段「{phase.Char}」属性未知:{phase.Element}");
+                        phases.Add(new BossPhaseDef(phase.Char, phaseElement, phase.MaxHp, phase.Attack, phase.DamageTaken));
+                    }
+                }
+                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases);
             }
             return enemyDefs;
         }
@@ -147,6 +161,16 @@ namespace Brushblade.Data
             public int MaxHp { get; set; }
             public int Attack { get; set; }
             public string Ability { get; set; }
+            public List<PhaseDto> Phases { get; set; }
+        }
+
+        private sealed class PhaseDto
+        {
+            public string Char { get; set; }
+            public string Element { get; set; }
+            public int MaxHp { get; set; }
+            public int Attack { get; set; }
+            public float DamageTaken { get; set; } = 1f;
         }
 
         /// <summary>解析字表 JSON;结构非法/属性名未知/原料缺失/重复 id 抛 ConfigException。</summary>

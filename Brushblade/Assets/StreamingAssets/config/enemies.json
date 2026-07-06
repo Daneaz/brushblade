@@ -5,7 +5,12 @@
     { "id": "标点小妖", "element": "Heart", "maxHp": 8, "attack": 2 },
     { "id": "叠字怪", "element": "Wood", "maxHp": 16, "attack": 5, "ability": "Split" },
     { "id": "夯土妖", "element": "Earth", "maxHp": 14, "attack": 3 },
-    { "id": "排山倒海·残篇", "element": "Water", "maxHp": 45, "attack": 7 }
+    { "id": "排山倒海", "element": "Water", "maxHp": 12, "attack": 6, "phases": [
+      { "char": "排", "element": "Metal", "maxHp": 12, "attack": 6 },
+      { "char": "山", "element": "Earth", "maxHp": 15, "attack": 4, "damageTaken": 0.5 },
+      { "char": "倒", "element": "Wood", "maxHp": 12, "attack": 8 },
+      { "char": "海", "element": "Water", "maxHp": 16, "attack": 10 }
+    ] }
   ],
   "dropTable": [ "木", "火", "丁", "尧", "然", "勺", "只", "土" ],
   "chapters": [
@@ -16,7 +21,7 @@
         { "encounters": [ [ "缺笔妖" ], [ "错字鬼", "标点小妖" ] ] },
         { "encounters": [ [ "标点小妖", "错字鬼" ], [ "缺笔妖", "缺笔妖" ] ] },
         { "encounters": [ [ "叠字怪" ], [ "夯土妖", "标点小妖" ] ] },
-        { "encounters": [ [ "错字鬼", "缺笔妖" ], [ "排山倒海·残篇" ] ], "boss": true }
+        { "encounters": [ [ "错字鬼", "缺笔妖" ], [ "排山倒海" ] ], "boss": true }
       ],
       "rewardPool": [ "灯", "烧", "燃", "圭", "壁" ]
     },
@@ -27,7 +32,7 @@
         { "encounters": [ [ "叠字怪" ], [ "错字鬼", "错字鬼", "标点小妖" ] ] },
         { "encounters": [ [ "夯土妖", "缺笔妖" ], [ "叠字怪", "标点小妖" ] ] },
         { "encounters": [ [ "叠字怪", "夯土妖" ], [ "缺笔妖", "缺笔妖", "错字鬼" ] ] },
-        { "encounters": [ [ "叠字怪", "标点小妖" ], [ "排山倒海·残篇" ] ], "boss": true }
+        { "encounters": [ [ "叠字怪", "标点小妖" ], [ "排山倒海" ] ], "boss": true }
       ],
       "rewardPool": [ "灯", "烧", "燃", "炎", "灼", "圭", "壁", "堡" ]
     },
@@ -38,7 +43,7 @@
         { "encounters": [ [ "缺笔妖", "缺笔妖" ], [ "叠字怪", "叠字怪" ] ] },
         { "encounters": [ [ "夯土妖", "夯土妖" ], [ "叠字怪", "标点小妖", "缺笔妖" ] ] },
         { "encounters": [ [ "叠字怪", "夯土妖", "标点小妖" ], [ "错字鬼", "错字鬼", "缺笔妖" ] ] },
-        { "encounters": [ [ "叠字怪", "夯土妖" ], [ "排山倒海·残篇" ] ], "boss": true }
+        { "encounters": [ [ "叠字怪", "夯土妖" ], [ "排山倒海" ] ], "boss": true }
       ],
       "rewardPool": [ "炎", "灼", "炽", "焱", "燚", "焚", "壁", "堡" ]
     }

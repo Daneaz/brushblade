@@ -36,16 +36,29 @@ namespace Brushblade.Core
             {
                 var group = new List<EnemyDef>();
                 foreach (var enemy in encounter)
-                    group.Add(chapter.EnemyScale == 1f
-                        ? enemy
-                        : new EnemyDef(enemy.Id, enemy.Element,
-                            (int)Math.Ceiling(enemy.MaxHp * chapter.EnemyScale),
-                            (int)Math.Ceiling(enemy.Attack * chapter.EnemyScale),
-                            enemy.Ability));
+                    group.Add(chapter.EnemyScale == 1f ? enemy : Scale(enemy, chapter.EnemyScale));
                 encounters.Add(group);
             }
 
             return new RunConfig { Encounters = encounters, RewardPool = chapter.RewardPool };
+        }
+
+        private static EnemyDef Scale(EnemyDef enemy, float scale)
+        {
+            List<BossPhaseDef> phases = null;
+            if (enemy.Phases.Count > 0)
+            {
+                phases = new List<BossPhaseDef>();
+                foreach (var phase in enemy.Phases)
+                    phases.Add(new BossPhaseDef(phase.Char, phase.Element,
+                        (int)Math.Ceiling(phase.MaxHp * scale),
+                        (int)Math.Ceiling(phase.Attack * scale),
+                        phase.DamageTaken)); // 承伤系数不缩放
+            }
+            return new EnemyDef(enemy.Id, enemy.Element,
+                (int)Math.Ceiling(enemy.MaxHp * scale),
+                (int)Math.Ceiling(enemy.Attack * scale),
+                enemy.Ability, phases);
         }
     }
 }
