@@ -51,6 +51,7 @@ namespace Brushblade.Data
             public float EnemyScale { get; set; } = 1f;
             public List<StageDto> Stages { get; set; }
             public List<string> RewardPool { get; set; }
+            public List<string> BossPool { get; set; }
         }
 
         private sealed class StageDto
@@ -91,6 +92,14 @@ namespace Brushblade.Data
                     if (!graph.TryGet(reward, out _))
                         throw new ConfigException($"章节「{chapterDto.Name}」奖励池引用了不存在的字:{reward}");
 
+                var bossPool = new List<EnemyDef>();
+                foreach (var id in chapterDto.BossPool ?? new List<string>())
+                {
+                    if (!enemyDefs.TryGetValue(id, out var def))
+                        throw new ConfigException($"章节「{chapterDto.Name}」Boss 池引用了未定义的敌人:{id}");
+                    bossPool.Add(def);
+                }
+
                 var stages = new List<StageDef>();
                 foreach (var stageDto in chapterDto.Stages)
                 {
@@ -100,6 +109,13 @@ namespace Brushblade.Data
                         var group = new List<EnemyDef>();
                         foreach (var id in encounter)
                         {
+                            if (id == "$Boss")
+                            {
+                                if (bossPool.Count == 0)
+                                    throw new ConfigException($"章节「{chapterDto.Name}」使用了 $Boss 占位但未配置 bossPool");
+                                group.Add(CampaignConfig.BossPlaceholder);
+                                continue;
+                            }
                             if (!enemyDefs.TryGetValue(id, out var def))
                                 throw new ConfigException($"遭遇引用了未定义的敌人:{id}");
                             group.Add(def);
@@ -115,6 +131,7 @@ namespace Brushblade.Data
                     EnemyScale = chapterDto.EnemyScale,
                     Stages = stages,
                     RewardPool = chapterDto.RewardPool ?? new List<string>(),
+                    BossPool = bossPool,
                 });
             }
 

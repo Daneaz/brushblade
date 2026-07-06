@@ -126,7 +126,8 @@ namespace Brushblade.Presentation
                     .Append(enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive
                         ? (enemy.RegrowProgress >= 3 ? "\n已补全!" : $"\n补全 {enemy.RegrowProgress}/3") : "")
                     .Append(enemy.Def.Ability == EnemyAbility.Split && enemy.Alive && !enemy.HasSplit
-                        ? "\n受击分裂" : "");
+                        ? "\n受击分裂" : "")
+                    .Append(enemy.Def.Ability == EnemyAbility.Buff && enemy.Alive ? "\n增益辅助" : "");
 
                 int index = i;
                 var color = enemy.Alive

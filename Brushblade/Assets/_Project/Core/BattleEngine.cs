@@ -44,6 +44,7 @@ namespace Brushblade.Core
         EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分)
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
         BossPhase,   // 成语 Boss 进入新阶段(Amount = 新阶段下标)
+        EnemyBuff,   // 被标点小妖加攻(TargetIndex = 被加成的敌人)
     }
 
     public readonly struct BattleEvent
@@ -243,10 +244,24 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
+            // 敌方辅助先行动:标点小妖给其他存活字怪加攻,当回合生效、与站位无关(8.3)
+            foreach (var enemy in _enemies)
+            {
+                if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff) continue;
+                for (int j = 0; j < _enemies.Count; j++)
+                {
+                    var other = _enemies[j];
+                    if (!other.Alive || other == enemy) continue;
+                    other.Attack += enemy.Attack;
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, enemy.Attack));
+                }
+            }
+
             // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力
             foreach (var enemy in _enemies)
             {
-                if (!enemy.Alive) continue;
+                if (!enemy.Alive || enemy.Def.Ability == EnemyAbility.Buff) continue;
+
                 int damage = enemy.Attack;
                 int fromNormal = Math.Min(_shieldNormal, damage);
                 _shieldNormal -= fromNormal;

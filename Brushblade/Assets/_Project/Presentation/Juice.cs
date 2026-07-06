@@ -64,6 +64,9 @@ namespace Brushblade.Presentation
                         Popup("破阶!", new Color(1f, 0.9f, 0.4f), enemyAnchor(e.TargetIndex));
                         _audio.PlayOneShot(_thudClip, 1f);
                         break;
+                    case BattleEventKind.EnemyBuff:
+                        Popup($"攻+{e.Amount}", new Color(1f, 0.5f, 0.7f), enemyAnchor(e.TargetIndex), small: true);
+                        break;
                 }
             }
 

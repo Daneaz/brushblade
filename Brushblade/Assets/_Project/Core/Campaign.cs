@@ -10,33 +10,49 @@ namespace Brushblade.Core
         public bool Boss { get; set; }
     }
 
-    /// <summary>章节:逐章加难(EnemyScale,F2)+ 字池分章投放(RewardPool,F3)。</summary>
+    /// <summary>章节:逐章加难(EnemyScale,F2)+ 字池分章投放(RewardPool,F3)+ Boss 池(8.5.3)。</summary>
     public sealed class ChapterDef
     {
         public string Name { get; set; }
         public float EnemyScale { get; set; } = 1f;
         public IReadOnlyList<StageDef> Stages { get; set; }
         public IReadOnlyList<string> RewardPool { get; set; }
+
+        /// <summary>Boss 候选池:遭遇中的占位符(BossPlaceholder)在装配时从此池随机抽取。</summary>
+        public IReadOnlyList<EnemyDef> BossPool { get; set; } = System.Array.Empty<EnemyDef>();
     }
 
     /// <summary>整个战役内容:章节列表 + 全局掉落表(F1 调平载体)。</summary>
     public sealed class CampaignConfig
     {
+        /// <summary>遭遇中的 Boss 占位(配置里写 "$Boss"),装配时从章 BossPool 抽取。</summary>
+        public static readonly EnemyDef BossPlaceholder = new("$Boss", Element.Heart, 1, 0);
+
         public IReadOnlyList<ChapterDef> Chapters { get; set; }
         public IReadOnlyList<string> DropTable { get; set; }
 
-        /// <summary>把某章某关装配成 RunEngine 可用的 RunConfig(敌人数值按章缩放,向上取整)。</summary>
-        public RunConfig BuildRunConfig(int chapterIndex, int stageIndex)
+        /// <summary>把某章某关装配成 RunEngine 可用的 RunConfig(敌人数值按章缩放,向上取整;
+        /// Boss 占位符从章 BossPool 抽取,random 为 null 时取首个)。</summary>
+        public RunConfig BuildRunConfig(int chapterIndex, int stageIndex, GameRandom random = null)
         {
             var chapter = Chapters[chapterIndex];
             var stage = chapter.Stages[stageIndex];
 
+            EnemyDef resolvedBoss = null; // 同一关内多处占位符解析为同一 Boss
             var encounters = new List<IReadOnlyList<EnemyDef>>();
             foreach (var encounter in stage.Encounters)
             {
                 var group = new List<EnemyDef>();
                 foreach (var enemy in encounter)
-                    group.Add(chapter.EnemyScale == 1f ? enemy : Scale(enemy, chapter.EnemyScale));
+                {
+                    var actual = enemy;
+                    if (ReferenceEquals(enemy, BossPlaceholder))
+                    {
+                        resolvedBoss ??= chapter.BossPool[random?.Next(chapter.BossPool.Count) ?? 0];
+                        actual = resolvedBoss;
+                    }
+                    group.Add(chapter.EnemyScale == 1f ? actual : Scale(actual, chapter.EnemyScale));
+                }
                 encounters.Add(group);
             }
 

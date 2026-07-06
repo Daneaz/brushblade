@@ -79,7 +79,8 @@ namespace Brushblade.Presentation
                 DropTable = _campaign.DropTable,
                 PlayerMaxHp = MetaRules.MaxHpFor(level), // 19.2.1 生命成长
             };
-            var run = new RunEngine(_graph, _campaign.BuildRunConfig(chapter, stage), battleConfig,
+            var run = new RunEngine(_graph,
+                _campaign.BuildRunConfig(chapter, stage, new GameRandom(System.Environment.TickCount)), battleConfig,
                 startingLibrary: MetaRules.StartingLibrary(_meta), startingPool: new[] { "木", "木" },
                 seed: System.Environment.TickCount, cardLevels: _meta.CardLevels);
 
