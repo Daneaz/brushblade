@@ -122,7 +122,8 @@ namespace Brushblade.Presentation
                 var enemy = Battle.Enemies[i];
                 var text = new StringBuilder();
                 text.Append(BossTitle(enemy)).Append('\n')
-                    .Append(ElementName(enemy.Element)).Append(" 攻").Append(enemy.Attack)
+                    .Append(enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?")
+                    .Append(" 攻").Append(enemy.Attack)
                     .Append(enemy.DamageTaken < 1f ? " 坚壁" : "").Append('\n')
                     .Append(enemy.Alive ? $"HP {enemy.Hp}/{enemy.MaxHp}" : "已正")
                     .Append(enemy.Burn > 0 ? $"\n灼烧 {enemy.Burn}" : "")

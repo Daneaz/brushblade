@@ -67,6 +67,9 @@ namespace Brushblade.Presentation
                     case BattleEventKind.EnemyBuff:
                         Popup($"攻+{e.Amount}", new Color(1f, 0.5f, 0.7f), enemyAnchor(e.TargetIndex), small: true);
                         break;
+                    case BattleEventKind.EnemyRevealed:
+                        Popup("现形!", new Color(0.6f, 0.9f, 1f), enemyAnchor(e.TargetIndex));
+                        break;
                 }
             }
 

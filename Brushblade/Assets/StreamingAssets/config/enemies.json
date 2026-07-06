@@ -34,6 +34,21 @@
       "attack": 3
     },
     {
+      "id": "通假字",
+      "element": "Wood",
+      "maxHp": 14,
+      "attack": 4,
+      "ability": "Disguise",
+      "disguiseElement": "Metal"
+    },
+    {
+      "id": "生僻字",
+      "element": "Earth",
+      "maxHp": 22,
+      "attack": 2,
+      "ability": "Obscure"
+    },
+    {
       "id": "排山倒海",
       "element": "Water",
       "maxHp": 12,
@@ -259,7 +274,7 @@
               "缺笔妖"
             ],
             [
-              "叠字怪",
+              "生僻字",
               "标点小妖"
             ]
           ]
@@ -317,7 +332,7 @@
               "错字鬼"
             ],
             [
-              "夯土妖",
+              "通假字",
               "标点小妖",
               "错字鬼"
             ]
@@ -338,8 +353,8 @@
         {
           "encounters": [
             [
-              "夯土妖",
-              "夯土妖"
+              "通假字",
+              "生僻字"
             ],
             [
               "叠字怪",

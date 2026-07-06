@@ -200,6 +200,13 @@ namespace Brushblade.Data
                 if (dto.Ability != null && !Enum.TryParse(dto.Ability, out ability))
                     throw new ConfigException($"敌人「{dto.Id}」的能力未知:{dto.Ability}");
 
+                var disguise = Element.Heart;
+                if (ability == EnemyAbility.Disguise)
+                {
+                    if (dto.DisguiseElement == null || !Enum.TryParse(dto.DisguiseElement, out disguise))
+                        throw new ConfigException($"通假字「{dto.Id}」缺少或非法的 disguiseElement:{dto.DisguiseElement}");
+                }
+
                 List<BossPhaseDef> phases = null;
                 if (dto.Phases != null && dto.Phases.Count > 0)
                 {
@@ -213,7 +220,7 @@ namespace Brushblade.Data
                         phases.Add(new BossPhaseDef(phase.Char, phaseElement, phase.MaxHp, phase.Attack, phase.DamageTaken));
                     }
                 }
-                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases);
+                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases, disguise);
             }
             return enemyDefs;
         }
@@ -226,6 +233,7 @@ namespace Brushblade.Data
             public int Attack { get; set; }
             public string Ability { get; set; }
             public List<PhaseDto> Phases { get; set; }
+            public string DisguiseElement { get; set; }
         }
 
         private sealed class PhaseDto

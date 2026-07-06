@@ -45,6 +45,7 @@ namespace Brushblade.Core
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
         BossPhase,   // 成语 Boss 进入新阶段(Amount = 新阶段下标)
         EnemyBuff,   // 被标点小妖加攻(TargetIndex = 被加成的敌人)
+        EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
     }
 
     public readonly struct BattleEvent
@@ -258,8 +259,9 @@ namespace Brushblade.Core
             }
 
             // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力
-            foreach (var enemy in _enemies)
+            for (int i = 0; i < _enemies.Count; i++)
             {
+                var enemy = _enemies[i];
                 if (!enemy.Alive || enemy.Def.Ability == EnemyAbility.Buff) continue;
 
                 int damage = enemy.Attack;
@@ -269,6 +271,13 @@ namespace Brushblade.Core
                 _shieldPersist -= fromPersist;
                 PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
                 _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, -1, damage));
+
+                // 通假字:首次行动后现形(8.3)
+                if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
+                {
+                    enemy.ApparentElement = enemy.Element;
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, i, 0));
+                }
 
                 // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)
                 if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.RegrowProgress < 3)
@@ -374,6 +383,15 @@ namespace Brushblade.Core
                 damage = (int)Math.Floor(damage * enemy.DamageTaken); // 「山」类承伤减免
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
+
+            // 生僻字:受击两次后被"读懂"(8.3)
+            enemy.HitsTaken += 1;
+            if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
+            {
+                enemy.ApparentElement = enemy.Element;
+                _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, enemyIndex, 0));
+            }
+
             if (!enemy.Alive)
             {
                 ResolveDefeat(enemyIndex);
