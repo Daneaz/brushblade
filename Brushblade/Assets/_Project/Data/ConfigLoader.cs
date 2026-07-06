@@ -43,6 +43,24 @@ namespace Brushblade.Data
             public List<EnemyDto> Enemies { get; set; }
             public List<string> DropTable { get; set; }
             public List<ChapterDto> Chapters { get; set; }
+            public List<EventDto> Events { get; set; }
+            public int EventChance { get; set; }
+        }
+
+        private sealed class EventDto
+        {
+            public string Id { get; set; }
+            public string Text { get; set; }
+            public List<EventOptionDto> Options { get; set; }
+        }
+
+        private sealed class EventOptionDto
+        {
+            public string Label { get; set; }
+            public int HpDelta { get; set; }
+            public int Ink { get; set; }
+            public string GainChar { get; set; }
+            public List<string> GainComponents { get; set; }
         }
 
         private sealed class ChapterDto
@@ -135,7 +153,36 @@ namespace Brushblade.Data
                 });
             }
 
-            return new CampaignConfig { Chapters = chapters, DropTable = file.DropTable };
+            var events = new List<EventDef>();
+            foreach (var eventDto in file.Events ?? new List<EventDto>())
+            {
+                var options = new List<EventOption>();
+                foreach (var optionDto in eventDto.Options ?? new List<EventOptionDto>())
+                {
+                    if (optionDto.GainChar != null && !graph.TryGet(optionDto.GainChar, out _))
+                        throw new ConfigException($"奇遇「{eventDto.Id}」选项引用了不存在的字:{optionDto.GainChar}");
+                    foreach (var component in optionDto.GainComponents ?? new List<string>())
+                        if (!graph.TryGet(component, out _))
+                            throw new ConfigException($"奇遇「{eventDto.Id}」选项引用了不存在的部件:{component}");
+                    options.Add(new EventOption
+                    {
+                        Label = optionDto.Label,
+                        HpDelta = optionDto.HpDelta,
+                        Ink = optionDto.Ink,
+                        GainChar = optionDto.GainChar,
+                        GainComponents = optionDto.GainComponents ?? new List<string>(),
+                    });
+                }
+                events.Add(new EventDef { Id = eventDto.Id, Text = eventDto.Text, Options = options });
+            }
+
+            return new CampaignConfig
+            {
+                Chapters = chapters,
+                DropTable = file.DropTable,
+                Events = events,
+                EventChancePercent = file.EventChance,
+            };
         }
 
         private static Dictionary<string, EnemyDef> ParseEnemies(List<EnemyDto> enemies)

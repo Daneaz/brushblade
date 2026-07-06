@@ -1,63 +1,467 @@
 {
   "enemies": [
-    { "id": "错字鬼", "element": "Wood", "maxHp": 12, "attack": 4 },
-    { "id": "缺笔妖", "element": "Metal", "maxHp": 10, "attack": 3, "ability": "Regrow" },
-    { "id": "标点小妖", "element": "Heart", "maxHp": 8, "attack": 1, "ability": "Buff" },
-    { "id": "叠字怪", "element": "Wood", "maxHp": 16, "attack": 5, "ability": "Split" },
-    { "id": "夯土妖", "element": "Earth", "maxHp": 14, "attack": 3 },
-    { "id": "排山倒海", "element": "Water", "maxHp": 12, "attack": 6, "phases": [
-      { "char": "排", "element": "Metal", "maxHp": 12, "attack": 6 },
-      { "char": "山", "element": "Earth", "maxHp": 15, "attack": 4, "damageTaken": 0.5 },
-      { "char": "倒", "element": "Wood", "maxHp": 12, "attack": 8 },
-      { "char": "海", "element": "Water", "maxHp": 16, "attack": 10 }
-    ] },
-    { "id": "翻江倒海", "element": "Water", "maxHp": 12, "attack": 7, "phases": [
-      { "char": "翻", "element": "Wood", "maxHp": 12, "attack": 7 },
-      { "char": "江", "element": "Water", "maxHp": 14, "attack": 5, "damageTaken": 0.75 },
-      { "char": "倒", "element": "Wood", "maxHp": 12, "attack": 8 },
-      { "char": "海", "element": "Water", "maxHp": 16, "attack": 10 }
-    ] },
-    { "id": "雷霆万钧", "element": "Metal", "maxHp": 10, "attack": 8, "phases": [
-      { "char": "雷", "element": "Metal", "maxHp": 10, "attack": 8 },
-      { "char": "霆", "element": "Metal", "maxHp": 12, "attack": 9 },
-      { "char": "万", "element": "Heart", "maxHp": 14, "attack": 6 },
-      { "char": "钧", "element": "Metal", "maxHp": 16, "attack": 11, "damageTaken": 0.75 }
-    ] }
+    {
+      "id": "错字鬼",
+      "element": "Wood",
+      "maxHp": 12,
+      "attack": 4
+    },
+    {
+      "id": "缺笔妖",
+      "element": "Metal",
+      "maxHp": 10,
+      "attack": 3,
+      "ability": "Regrow"
+    },
+    {
+      "id": "标点小妖",
+      "element": "Heart",
+      "maxHp": 8,
+      "attack": 1,
+      "ability": "Buff"
+    },
+    {
+      "id": "叠字怪",
+      "element": "Wood",
+      "maxHp": 16,
+      "attack": 5,
+      "ability": "Split"
+    },
+    {
+      "id": "夯土妖",
+      "element": "Earth",
+      "maxHp": 14,
+      "attack": 3
+    },
+    {
+      "id": "排山倒海",
+      "element": "Water",
+      "maxHp": 12,
+      "attack": 6,
+      "phases": [
+        {
+          "char": "排",
+          "element": "Metal",
+          "maxHp": 12,
+          "attack": 6
+        },
+        {
+          "char": "山",
+          "element": "Earth",
+          "maxHp": 15,
+          "attack": 4,
+          "damageTaken": 0.5
+        },
+        {
+          "char": "倒",
+          "element": "Wood",
+          "maxHp": 12,
+          "attack": 8
+        },
+        {
+          "char": "海",
+          "element": "Water",
+          "maxHp": 16,
+          "attack": 10
+        }
+      ]
+    },
+    {
+      "id": "翻江倒海",
+      "element": "Water",
+      "maxHp": 12,
+      "attack": 7,
+      "phases": [
+        {
+          "char": "翻",
+          "element": "Wood",
+          "maxHp": 12,
+          "attack": 7
+        },
+        {
+          "char": "江",
+          "element": "Water",
+          "maxHp": 14,
+          "attack": 5,
+          "damageTaken": 0.75
+        },
+        {
+          "char": "倒",
+          "element": "Wood",
+          "maxHp": 12,
+          "attack": 8
+        },
+        {
+          "char": "海",
+          "element": "Water",
+          "maxHp": 16,
+          "attack": 10
+        }
+      ]
+    },
+    {
+      "id": "雷霆万钧",
+      "element": "Metal",
+      "maxHp": 10,
+      "attack": 8,
+      "phases": [
+        {
+          "char": "雷",
+          "element": "Metal",
+          "maxHp": 10,
+          "attack": 8
+        },
+        {
+          "char": "霆",
+          "element": "Metal",
+          "maxHp": 12,
+          "attack": 9
+        },
+        {
+          "char": "万",
+          "element": "Heart",
+          "maxHp": 14,
+          "attack": 6
+        },
+        {
+          "char": "钧",
+          "element": "Metal",
+          "maxHp": 16,
+          "attack": 11,
+          "damageTaken": 0.75
+        }
+      ]
+    }
   ],
-  "dropTable": [ "木", "火", "丁", "尧", "然", "勺", "只", "土" ],
+  "dropTable": [
+    "木",
+    "火",
+    "丁",
+    "尧",
+    "然",
+    "勺",
+    "只",
+    "土"
+  ],
   "chapters": [
     {
-      "name": "蒙学", "enemyScale": 1.0, "bossPool": [ "排山倒海", "翻江倒海", "雷霆万钧" ],
-      "stages": [
-        { "encounters": [ [ "错字鬼" ], [ "错字鬼", "错字鬼" ] ] },
-        { "encounters": [ [ "缺笔妖" ], [ "错字鬼", "标点小妖" ] ] },
-        { "encounters": [ [ "标点小妖", "错字鬼" ], [ "缺笔妖", "缺笔妖" ] ] },
-        { "encounters": [ [ "叠字怪" ], [ "夯土妖", "标点小妖" ] ] },
-        { "encounters": [ [ "错字鬼", "缺笔妖" ], [ "$Boss" ] ], "boss": true }
+      "name": "蒙学",
+      "enemyScale": 1.0,
+      "bossPool": [
+        "排山倒海",
+        "翻江倒海",
+        "雷霆万钧"
       ],
-      "rewardPool": [ "灯", "烧", "燃", "圭", "壁" ]
+      "stages": [
+        {
+          "encounters": [
+            [
+              "错字鬼"
+            ],
+            [
+              "错字鬼",
+              "错字鬼"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "缺笔妖"
+            ],
+            [
+              "错字鬼",
+              "标点小妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "标点小妖",
+              "错字鬼"
+            ],
+            [
+              "缺笔妖",
+              "缺笔妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "叠字怪"
+            ],
+            [
+              "夯土妖",
+              "标点小妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "错字鬼",
+              "缺笔妖"
+            ],
+            [
+              "$Boss"
+            ]
+          ],
+          "boss": true
+        }
+      ],
+      "rewardPool": [
+        "灯",
+        "烧",
+        "燃",
+        "圭",
+        "壁"
+      ]
     },
     {
-      "name": "字林", "enemyScale": 1.5, "bossPool": [ "排山倒海", "翻江倒海", "雷霆万钧" ],
-      "stages": [
-        { "encounters": [ [ "错字鬼", "错字鬼" ], [ "缺笔妖", "标点小妖" ] ] },
-        { "encounters": [ [ "叠字怪" ], [ "错字鬼", "错字鬼", "标点小妖" ] ] },
-        { "encounters": [ [ "夯土妖", "缺笔妖" ], [ "叠字怪", "标点小妖" ] ] },
-        { "encounters": [ [ "叠字怪", "夯土妖" ], [ "缺笔妖", "缺笔妖", "错字鬼" ] ] },
-        { "encounters": [ [ "叠字怪", "标点小妖" ], [ "$Boss" ] ], "boss": true }
+      "name": "字林",
+      "enemyScale": 1.5,
+      "bossPool": [
+        "排山倒海",
+        "翻江倒海",
+        "雷霆万钧"
       ],
-      "rewardPool": [ "灯", "烧", "燃", "炎", "灼", "圭", "壁", "堡" ]
+      "stages": [
+        {
+          "encounters": [
+            [
+              "错字鬼",
+              "错字鬼"
+            ],
+            [
+              "缺笔妖",
+              "标点小妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "叠字怪"
+            ],
+            [
+              "错字鬼",
+              "错字鬼",
+              "标点小妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "夯土妖",
+              "缺笔妖"
+            ],
+            [
+              "叠字怪",
+              "标点小妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "叠字怪",
+              "夯土妖"
+            ],
+            [
+              "缺笔妖",
+              "缺笔妖",
+              "错字鬼"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "叠字怪",
+              "标点小妖"
+            ],
+            [
+              "$Boss"
+            ]
+          ],
+          "boss": true
+        }
+      ],
+      "rewardPool": [
+        "灯",
+        "烧",
+        "燃",
+        "炎",
+        "灼",
+        "圭",
+        "壁",
+        "堡"
+      ]
     },
     {
-      "name": "词渊", "enemyScale": 2.0, "bossPool": [ "排山倒海", "翻江倒海", "雷霆万钧" ],
-      "stages": [
-        { "encounters": [ [ "叠字怪", "错字鬼" ], [ "夯土妖", "标点小妖", "错字鬼" ] ] },
-        { "encounters": [ [ "缺笔妖", "缺笔妖" ], [ "叠字怪", "叠字怪" ] ] },
-        { "encounters": [ [ "夯土妖", "夯土妖" ], [ "叠字怪", "标点小妖", "缺笔妖" ] ] },
-        { "encounters": [ [ "叠字怪", "夯土妖", "标点小妖" ], [ "错字鬼", "错字鬼", "缺笔妖" ] ] },
-        { "encounters": [ [ "叠字怪", "夯土妖" ], [ "$Boss" ] ], "boss": true }
+      "name": "词渊",
+      "enemyScale": 2.0,
+      "bossPool": [
+        "排山倒海",
+        "翻江倒海",
+        "雷霆万钧"
       ],
-      "rewardPool": [ "炎", "灼", "炽", "焱", "燚", "焚", "壁", "堡" ]
+      "stages": [
+        {
+          "encounters": [
+            [
+              "叠字怪",
+              "错字鬼"
+            ],
+            [
+              "夯土妖",
+              "标点小妖",
+              "错字鬼"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "缺笔妖",
+              "缺笔妖"
+            ],
+            [
+              "叠字怪",
+              "叠字怪"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "夯土妖",
+              "夯土妖"
+            ],
+            [
+              "叠字怪",
+              "标点小妖",
+              "缺笔妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "叠字怪",
+              "夯土妖",
+              "标点小妖"
+            ],
+            [
+              "错字鬼",
+              "错字鬼",
+              "缺笔妖"
+            ]
+          ]
+        },
+        {
+          "encounters": [
+            [
+              "叠字怪",
+              "夯土妖"
+            ],
+            [
+              "$Boss"
+            ]
+          ],
+          "boss": true
+        }
+      ],
+      "rewardPool": [
+        "炎",
+        "灼",
+        "炽",
+        "焱",
+        "燚",
+        "焚",
+        "壁",
+        "堡"
+      ]
+    }
+  ],
+  "eventChance": 40,
+  "events": [
+    {
+      "id": "测字先生",
+      "text": "路边测字先生托起罗盘:『客官,抽一字,卜一卦。』",
+      "options": [
+        {
+          "label": "求字(得「炎」)",
+          "gainChar": "炎"
+        },
+        {
+          "label": "求财(墨锭 +40)",
+          "ink": 40
+        },
+        {
+          "label": "拱手离开"
+        }
+      ]
+    },
+    {
+      "id": "墨池",
+      "text": "一泓漆黑墨池泛着微光。传说浸墨可锻字,却伤元气。",
+      "options": [
+        {
+          "label": "浸染字库(HP −6,得「焱」)",
+          "hpDelta": -6,
+          "gainChar": "焱"
+        },
+        {
+          "label": "取墨而归(墨锭 +30)",
+          "ink": 30
+        },
+        {
+          "label": "绕道而行"
+        }
+      ]
+    },
+    {
+      "id": "废稿堆",
+      "text": "你撞见自己历次失败留下的废稿。废稿也是稿。",
+      "options": [
+        {
+          "label": "翻找部件(得 木·木·火)",
+          "gainComponents": [
+            "木",
+            "木",
+            "火"
+          ]
+        },
+        {
+          "label": "静心重读(HP +8)",
+          "hpDelta": 8
+        },
+        {
+          "label": "转身离去"
+        }
+      ]
+    },
+    {
+      "id": "书院",
+      "text": "山间书院灯火未熄,先生愿留你半日。",
+      "options": [
+        {
+          "label": "休整(HP +15)",
+          "hpDelta": 15
+        },
+        {
+          "label": "进修(得「灼」)",
+          "gainChar": "灼"
+        },
+        {
+          "label": "帮抄书换钱(墨锭 +20)",
+          "ink": 20
+        }
+      ]
     }
   ]
 }

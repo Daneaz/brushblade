@@ -104,6 +104,9 @@ namespace Brushblade.Presentation
                     DrawStatus();
                     DrawReward();
                     break;
+                case RunPhase.Event:
+                    DrawEvent();
+                    break;
                 default:
                     DrawRunEnd();
                     break;
@@ -260,6 +263,24 @@ namespace Brushblade.Presentation
                 _message = "轻装上阵,下一战!";
                 CancelSelection();
             }, new Color(0.3f, 0.3f, 0.3f));
+        }
+
+        private void DrawEvent() // 奇遇(9.6):短情境 + 选择
+        {
+            var evt = _run.CurrentEvent;
+            Ui.Label(_enemyRow, $"奇遇 · {evt.Id}", 34);
+            Ui.Label(_statusRow, evt.Text, 24);
+            for (int i = 0; i < evt.Options.Count; i++)
+            {
+                int index = i;
+                var option = evt.Options[i];
+                Ui.TextButton(_actionRow, option.Label, () =>
+                {
+                    _run.ChooseEventOption(index);
+                    _message = $"{evt.Id}:{option.Label}";
+                    CancelSelection();
+                }, new Color(0.3f, 0.32f, 0.44f), 22, new Vector2(240, 72));
+            }
         }
 
         private void DrawRunEnd()

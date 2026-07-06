@@ -7,6 +7,7 @@ namespace Brushblade.Core
     {
         InBattle,
         Reward,   // 战斗胜利,三选一奖励(9.5)
+        Event,    // 奇遇:短情境 + 选择(9.6)
         RunWon,
         RunLost,
     }
@@ -19,6 +20,12 @@ namespace Brushblade.Core
 
         /// <summary>战后三选一的奖励字池。</summary>
         public IReadOnlyList<string> RewardPool { get; set; }
+
+        /// <summary>奇遇事件池(9.6);空则无奇遇。</summary>
+        public IReadOnlyList<EventDef> EventPool { get; set; } = System.Array.Empty<EventDef>();
+
+        /// <summary>两场战斗之间触发奇遇的概率(百分比,0~100)。</summary>
+        public int EventChancePercent { get; set; }
     }
 
     /// <summary>连战状态机:战斗 → 奖励 → 下一战。
@@ -33,6 +40,11 @@ namespace Brushblade.Core
         private readonly GameRandom _random;
         private readonly IReadOnlyDictionary<string, int> _cardLevels;
         private readonly List<string> _rewardOptions = new();
+
+        // 战斗之间的携带状态(奖励与奇遇的作用对象)
+        private List<string> _carriedLibrary;
+        private List<string> _carriedPool;
+        private int _carriedHp;
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
@@ -57,6 +69,31 @@ namespace Brushblade.Core
 
         public bool LibraryExpanded { get; private set; }
         public bool PoolExpanded { get; private set; }
+
+        /// <summary>当前奇遇(Phase == Event 时非空)。</summary>
+        public EventDef CurrentEvent { get; private set; }
+
+        /// <summary>奇遇累积的墨锭(run 结束由外层入账)。</summary>
+        public int EarnedInk { get; private set; }
+
+        /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。</summary>
+        public void ChooseEventOption(int index)
+        {
+            if (Phase != RunPhase.Event) return;
+            var option = CurrentEvent.Options[index];
+
+            if (option.GainChar != null)
+                _carriedLibrary.Add(option.GainChar);
+            _carriedPool.AddRange(option.GainComponents);
+            EarnedInk += option.Ink;
+            if (option.HpDelta > 0)
+                _carriedHp = Math.Min(_battleConfig.PlayerMaxHp, _carriedHp + option.HpDelta);
+            else if (option.HpDelta < 0)
+                _carriedHp = Math.Max(1, _carriedHp + option.HpDelta);
+
+            CurrentEvent = null;
+            BeginNextBattle();
+        }
 
         /// <summary>局内广告扩容:字库 +2,每关一次,关内跨场有效(2026-07-06 拍板)。
         /// 关卡结束自然恢复:每关的 BattleConfig 由外层新建。</summary>
@@ -95,22 +132,41 @@ namespace Brushblade.Core
                 return;
             }
 
+            // 捕获携带状态:出过的字回归字库(3.8.1),池与 HP 延续
+            _carriedLibrary = new List<string>(Battle.Library);
+            _carriedLibrary.AddRange(Battle.UsedChars);
+            _carriedPool = new List<string>(Battle.Pool);
+            _carriedHp = Battle.PlayerHp;
+
             RollRewardOptions();
             Phase = RunPhase.Reward;
         }
 
-        /// <summary>选取奖励(下标),进入下一战。</summary>
+        /// <summary>选取奖励(下标),进入奇遇或下一战。</summary>
         public void PickReward(int index)
         {
             if (Phase != RunPhase.Reward) return;
-            StartNextBattle(_rewardOptions[index]);
+            _carriedLibrary.Add(_rewardOptions[index]);
+            ProceedAfterReward();
         }
 
-        /// <summary>放弃奖励,直接进入下一战。</summary>
+        /// <summary>放弃奖励,进入奇遇或下一战。</summary>
         public void SkipReward()
         {
             if (Phase != RunPhase.Reward) return;
-            StartNextBattle(null);
+            ProceedAfterReward();
+        }
+
+        /// <summary>奖励结算后:按概率触发奇遇(9.6),否则直接下一战。</summary>
+        private void ProceedAfterReward()
+        {
+            if (_runConfig.EventPool.Count > 0 && _random.Next(100) < _runConfig.EventChancePercent)
+            {
+                CurrentEvent = _runConfig.EventPool[_random.Next(_runConfig.EventPool.Count)];
+                Phase = RunPhase.Event;
+                return;
+            }
+            BeginNextBattle();
         }
 
         private void RollRewardOptions()
@@ -125,15 +181,10 @@ namespace Brushblade.Core
             }
         }
 
-        private void StartNextBattle(string rewardChar)
+        private void BeginNextBattle()
         {
-            // 出过的字回归字库(3.8.1)+ 奖励入库;部件池与 HP 跨战斗保留
-            var library = new List<string>(Battle.Library);
-            library.AddRange(Battle.UsedChars);
-            if (rewardChar != null) library.Add(rewardChar);
-
             BattleIndex += 1;
-            Battle = NewBattle(library, Battle.Pool, Battle.PlayerHp);
+            Battle = NewBattle(_carriedLibrary, _carriedPool, _carriedHp);
             Phase = RunPhase.InBattle;
         }
 

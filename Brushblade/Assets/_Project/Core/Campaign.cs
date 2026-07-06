@@ -31,6 +31,10 @@ namespace Brushblade.Core
         public IReadOnlyList<ChapterDef> Chapters { get; set; }
         public IReadOnlyList<string> DropTable { get; set; }
 
+        /// <summary>奇遇事件池与触发概率(9.6,全战役共用)。</summary>
+        public IReadOnlyList<EventDef> Events { get; set; } = System.Array.Empty<EventDef>();
+        public int EventChancePercent { get; set; }
+
         /// <summary>把某章某关装配成 RunEngine 可用的 RunConfig(敌人数值按章缩放,向上取整;
         /// Boss 占位符从章 BossPool 抽取,random 为 null 时取首个)。</summary>
         public RunConfig BuildRunConfig(int chapterIndex, int stageIndex, GameRandom random = null)
@@ -56,7 +60,13 @@ namespace Brushblade.Core
                 encounters.Add(group);
             }
 
-            return new RunConfig { Encounters = encounters, RewardPool = chapter.RewardPool };
+            return new RunConfig
+            {
+                Encounters = encounters,
+                RewardPool = chapter.RewardPool,
+                EventPool = Events,
+                EventChancePercent = EventChancePercent,
+            };
         }
 
         private static EnemyDef Scale(EnemyDef enemy, float scale)

@@ -86,12 +86,13 @@ namespace Brushblade.Presentation
 
             var view = NewView("BattleView");
             view.AddComponent<BattleView>().Init(_graph, run,
-                won => OnRunEnded(chapter, stage, won));
+                won => OnRunEnded(chapter, stage, won, run.EarnedInk));
         }
 
-        private static void OnRunEnded(int chapter, int stage, bool won)
+        private static void OnRunEnded(int chapter, int stage, bool won, int eventInk)
         {
             string message = null;
+            _meta.Ink += eventInk; // 奇遇所得墨锭(胜负均入账)
             if (won)
             {
                 bool firstClear = MetaRules.ApplyStageCleared(_meta, chapter, stage);
