@@ -12,14 +12,17 @@ namespace Brushblade.Presentation
 
         public static MetaState Load()
         {
-            return File.Exists(SavePath)
-                ? SaveSerializer.FromJson(File.ReadAllText(SavePath))
+            if (!File.Exists(SavePath))
+                return new MetaState();
+            // 验签失败(篡改/旧明文/损坏)一律回全新状态(19.9)
+            return SaveGuard.TryOpen(File.ReadAllText(SavePath), out var payload)
+                ? SaveSerializer.FromJson(payload)
                 : new MetaState();
         }
 
         public static void Save(MetaState meta)
         {
-            File.WriteAllText(SavePath, SaveSerializer.ToJson(meta));
+            File.WriteAllText(SavePath, SaveGuard.Seal(SaveSerializer.ToJson(meta)));
         }
     }
 }

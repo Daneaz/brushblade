@@ -15,12 +15,15 @@ namespace Brushblade.Presentation
         private static RecipeGraph _graph;
         private static CampaignConfig _campaign;
         private static MetaState _meta;
-        private static readonly ITimeSource Time = new RealTimeSource();
+        private static readonly SyncedTimeSource Time = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
             EnsureSceneInfrastructure();
+
+            // 启动校时(19.9):失败则本会话退化为设备时间
+            new GameObject("TimeSync").AddComponent<TimeSyncFetcher>().Begin(Time);
 
             string configDir = Path.Combine(Application.streamingAssetsPath, "config");
             _graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
