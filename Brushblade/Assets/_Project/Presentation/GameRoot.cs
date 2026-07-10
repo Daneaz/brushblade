@@ -124,6 +124,13 @@ namespace Brushblade.Presentation
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1600, 900);
 
+            // 全屏黑底:不依赖场景相机设置,保证白字可读
+            var backgroundGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            backgroundGo.transform.SetParent(canvasGo.transform, false);
+            backgroundGo.GetComponent<Image>().color = Color.black;
+            backgroundGo.GetComponent<Image>().raycastTarget = false;
+            Ui.Stretch((RectTransform)backgroundGo.transform);
+
             var viewGo = new GameObject(name, typeof(RectTransform));
             viewGo.transform.SetParent(canvasGo.transform, false);
             return viewGo;
@@ -135,10 +142,11 @@ namespace Brushblade.Presentation
             {
                 var cameraGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
                 cameraGo.tag = "MainCamera";
-                var camera = cameraGo.GetComponent<Camera>();
-                camera.clearFlags = CameraClearFlags.SolidColor;
-                camera.backgroundColor = new Color(0.09f, 0.09f, 0.11f);
             }
+            // 无论相机来自场景还是代码,统一纯黑背景(白字可读性)
+            var main = Camera.main;
+            main.clearFlags = CameraClearFlags.SolidColor;
+            main.backgroundColor = Color.black;
             if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
                 new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
