@@ -28,8 +28,10 @@ namespace Brushblade.Presentation
         private Transform _libraryRow;
         private Transform _poolRow;
         private Transform _suggestRow;
+        private Transform _hintColumn;   // 差一提示(分组行,点击展开)
         private Transform _actionRow;
         private Text _messageLabel;
+        private string _expandedHint;    // 当前展开的差一类别(缺的部件 id;null = 全收起)
 
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded)
         {
@@ -54,12 +56,23 @@ namespace Brushblade.Presentation
             var root = (RectTransform)transform;
             Ui.Stretch(root);
 
-            _enemyRow = MakeSection("Enemies", 0.66f, 0.94f);
-            _statusRow = MakeSection("Status", 0.56f, 0.66f);
-            _suggestRow = MakeSection("Suggest", 0.44f, 0.55f);
-            _actionRow = MakeSection("Actions", 0.33f, 0.44f);
-            _libraryRow = MakeSection("Library", 0.18f, 0.32f);
-            _poolRow = MakeSection("Pool", 0.04f, 0.17f);
+            _enemyRow = MakeSection("Enemies", 0.68f, 0.94f);
+            _statusRow = MakeSection("Status", 0.61f, 0.68f);
+            _suggestRow = MakeSection("Suggest", 0.53f, 0.61f);
+
+            // 差一提示列:纵向,最多 5 行
+            var hintGo = Ui.Panel(transform, "Hints");
+            Ui.Anchor((RectTransform)hintGo.transform, new Vector2(0.02f, 0.36f), new Vector2(0.98f, 0.53f), Vector2.zero, Vector2.zero);
+            var hintLayout = hintGo.AddComponent<VerticalLayoutGroup>();
+            hintLayout.spacing = 2;
+            hintLayout.childAlignment = TextAnchor.UpperLeft;
+            hintLayout.childForceExpandWidth = false;
+            hintLayout.childForceExpandHeight = false;
+            _hintColumn = hintGo.transform;
+
+            _actionRow = MakeSection("Actions", 0.27f, 0.36f);
+            _libraryRow = MakeSection("Library", 0.14f, 0.27f);
+            _poolRow = MakeSection("Pool", 0.02f, 0.14f);
 
             var messageGo = Ui.Panel(transform, "Message");
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.94f), Vector2.one, Vector2.zero, Vector2.zero);
@@ -83,6 +96,7 @@ namespace Brushblade.Presentation
             Ui.Clear(_libraryRow);
             Ui.Clear(_poolRow);
             Ui.Clear(_suggestRow);
+            Ui.Clear(_hintColumn);
             Ui.Clear(_actionRow);
 
             switch (_run.Phase)
@@ -206,8 +220,50 @@ namespace Brushblade.Presentation
                 Ui.TextButton(_suggestRow, $"合 {charId}", () => OnCompose(charId),
                     new Color(0.2f, 0.32f, 0.42f), 24, new Vector2(110, 56));
             }
-            foreach (var miss in suggest.NearMisses)
-                Ui.Label(_suggestRow, $"差「{miss.MissingIngredient}」可合「{miss.CharId}」", 20);
+
+            DrawNearMissHints(suggest.NearMisses);
+        }
+
+        /// <summary>差一提示:按缺的部件分组,最多 5 行;点击展开该类别(手风琴)。</summary>
+        private void DrawNearMissHints(System.Collections.Generic.IReadOnlyList<NearMiss> nearMisses)
+        {
+            var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
+            foreach (var miss in nearMisses)
+            {
+                if (!groups.TryGetValue(miss.MissingIngredient, out var chars))
+                    groups[miss.MissingIngredient] = chars = new System.Collections.Generic.List<string>();
+                chars.Add(miss.CharId);
+            }
+            if (groups.Count == 0) return;
+
+            // 可合数量降序,取前 5 类
+            var ordered = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.List<string>>>(groups);
+            ordered.Sort((a, b) => b.Value.Count.CompareTo(a.Value.Count));
+
+            int shown = 0;
+            foreach (var group in ordered)
+            {
+                if (shown >= 5)
+                {
+                    Ui.Label(_hintColumn, $"…还有 {ordered.Count - 5} 类", 16, TextAnchor.MiddleLeft);
+                    break;
+                }
+                shown += 1;
+                string ingredient = group.Key;
+                bool expanded = _expandedHint == ingredient;
+                var chars = group.Value.Count <= 10
+                    ? string.Join("·", group.Value)
+                    : string.Join("·", group.Value.GetRange(0, 10)) + $"…等{group.Value.Count}字";
+                string label = expanded
+                    ? $"差「{ingredient}」→ {chars}"
+                    : $"差「{ingredient}」可合 {group.Value.Count} 字 ▸";
+                Ui.TextButton(_hintColumn, label, () =>
+                {
+                    _expandedHint = expanded ? null : ingredient; // 手风琴:再点收起
+                    Refresh();
+                }, expanded ? new Color(0.22f, 0.28f, 0.34f) : new Color(0.16f, 0.18f, 0.22f),
+                    18, new Vector2(expanded ? 560 : 240, 26));
+            }
         }
 
         private void DrawActions()
