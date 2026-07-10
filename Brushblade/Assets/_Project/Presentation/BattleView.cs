@@ -20,6 +20,7 @@ namespace Brushblade.Presentation
         // 交互状态
         private string _selectedChar;   // 当前选中的字/部件
         private bool _targeting;        // 等待点击敌人
+        private float _exitArmedUntil;  // 退出二次确认窗口(unscaled 时间戳)
         private string _message = "点击字库中的字开始行动";
 
         // 容器
@@ -163,8 +164,19 @@ namespace Brushblade.Presentation
             Ui.Label(_statusRow,
                 $"战斗 {_run.BattleIndex + 1}    回合 {Battle.Turn}    AP {Battle.Ap}/3    HP {Battle.PlayerHp}/50" +
                 (Battle.PlayerShield > 0 ? $"    护盾 {Battle.PlayerShield}" : ""), 26);
-            Ui.TextButton(_statusRow, "退出关卡", () => _onRunEnded(false),
-                new Color(0.32f, 0.2f, 0.2f), 18, new Vector2(100, 40));
+            // 退出:二次确认(2.5 秒内再点才执行,防误触)
+            bool exitArmed = Time.unscaledTime < _exitArmedUntil;
+            Ui.TextButton(_statusRow, exitArmed ? "确认退出?" : "退出关卡", () =>
+            {
+                if (Time.unscaledTime < _exitArmedUntil)
+                {
+                    _onRunEnded(false);
+                    return;
+                }
+                _exitArmedUntil = Time.unscaledTime + 2.5f;
+                _message = "再点一次「确认退出?」放弃本关(进度不推进,奇遇墨锭保留)";
+                Refresh();
+            }, exitArmed ? new Color(0.6f, 0.2f, 0.2f) : new Color(0.32f, 0.2f, 0.2f), 18, new Vector2(100, 40));
         }
 
         private void DrawLibrary()

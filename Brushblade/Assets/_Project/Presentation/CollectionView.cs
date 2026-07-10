@@ -8,10 +8,13 @@ namespace Brushblade.Presentation
     /// <summary>收集与出阵卡组页(19.3):卡等级/重复卡/墨锭升级 + 出阵选择(≤4)。</summary>
     public sealed class CollectionView : MonoBehaviour
     {
+        private const int CardsPerPage = 12; // 2 行 × 6
+
         private RecipeGraph _graph;
         private MetaState _meta;
         private Action _onBack;
         private Action _save;
+        private int _page;
         private string _message = "点击卡片加入/移出出阵卡组;集满重复卡后可升级";
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
@@ -28,11 +31,24 @@ namespace Brushblade.Presentation
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
-            // 头部:墨锭 / 卡组状态 / 返回
+            // 头部:墨锭 / 卡组状态 / 分页 / 返回
+            int pageCount = Mathf.Max(1, (_meta.OwnedCards.Count + CardsPerPage - 1) / CardsPerPage);
+            _page = Mathf.Clamp(_page, 0, pageCount - 1);
+
             var header = Ui.Row(transform, "Header", 24);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0, 0.88f), Vector2.one, Vector2.zero, Vector2.zero);
             Ui.Label(header.transform,
                 $"收集 {_meta.OwnedCards.Count} 张    出阵 {CurrentDeck().Count}/{MetaRules.DeckLimit}    墨锭 {_meta.Ink}", 26);
+            if (pageCount > 1)
+            {
+                var prev = Ui.TextButton(header.transform, "◀", () => { _page--; Rebuild(); },
+                    new Color(0.3f, 0.3f, 0.36f), 22, new Vector2(52, 52));
+                prev.interactable = _page > 0;
+                Ui.Label(header.transform, $"{_page + 1}/{pageCount}", 22);
+                var next = Ui.TextButton(header.transform, "▶", () => { _page++; Rebuild(); },
+                    new Color(0.3f, 0.3f, 0.36f), 22, new Vector2(52, 52));
+                next.interactable = _page < pageCount - 1;
+            }
             Ui.TextButton(header.transform, "返回地图", () => _onBack(), new Color(0.3f, 0.3f, 0.3f), 22, new Vector2(130, 56));
 
             // 消息行
@@ -41,12 +57,15 @@ namespace Brushblade.Presentation
             var messageLabel = Ui.Label(messageGo.transform, _message, 22);
             Ui.Stretch(messageLabel.rectTransform);
 
-            // 卡格(网格:每行 6 张)
+            // 卡格(每页 12 张:2 行 × 6)
             var deck = CurrentDeck();
-            for (int i = 0; i < _meta.OwnedCards.Count; i++)
+            int start = _page * CardsPerPage;
+            int end = Mathf.Min(start + CardsPerPage, _meta.OwnedCards.Count);
+            for (int i = start; i < end; i++)
             {
                 string cardId = _meta.OwnedCards[i];
-                int row = i / 6, col = i % 6;
+                int slot = i - start;
+                int row = slot / 6, col = slot % 6;
                 float y = 0.76f - row * 0.24f;
 
                 var cell = Ui.Panel(transform, $"Card_{cardId}");
@@ -98,22 +117,23 @@ namespace Brushblade.Presentation
 
         private void ToggleDeck(string cardId)
         {
+            string summary = CharInfo.Summary(_graph.Get(cardId), _graph);
             var deck = new System.Collections.Generic.List<string>(_meta.Deck);
             if (deck.Contains(cardId))
             {
                 deck.Remove(cardId);
-                _message = $"「{cardId}」移出出阵卡组";
+                _message = $"{summary}\n已移出出阵卡组";
             }
             else if (deck.Count >= MetaRules.DeckLimit)
             {
-                _message = $"出阵卡组已满({MetaRules.DeckLimit} 张),先移出一张";
+                _message = $"{summary}\n出阵卡组已满({MetaRules.DeckLimit} 张),先移出一张";
                 Rebuild();
                 return;
             }
             else
             {
                 deck.Add(cardId);
-                _message = $"「{cardId}」加入出阵卡组";
+                _message = $"{summary}\n已加入出阵卡组";
             }
 
             if (MetaRules.TrySetDeck(_meta, deck))
