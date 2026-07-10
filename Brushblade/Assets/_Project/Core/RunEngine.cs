@@ -48,8 +48,9 @@ namespace Brushblade.Core
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
-            IReadOnlyDictionary<string, int> cardLevels = null)
+            IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0)
         {
+            _startingInk = startingInk;
             _graph = graph;
             _runConfig = runConfig;
             _battleConfig = battleConfig;
@@ -73,19 +74,27 @@ namespace Brushblade.Core
         /// <summary>当前奇遇(Phase == Event 时非空)。</summary>
         public EventDef CurrentEvent { get; private set; }
 
-        /// <summary>奇遇累积的墨锭(run 结束由外层入账)。</summary>
+        /// <summary>奇遇累积的墨锭净变化(可为负 = 字摊消费;run 结束由外层入账)。</summary>
         public int EarnedInk { get; private set; }
 
-        /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。</summary>
-        public void ChooseEventOption(int index)
+        private readonly int _startingInk;
+
+        /// <summary>当前可支配墨锭(入场余额 + 关内净变化),字摊消费的预算。</summary>
+        public int AvailableInk => _startingInk + EarnedInk;
+
+        /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。
+        /// 需要消费(InkCost)且余额不足时返回 false,停留在事件中。</summary>
+        public bool ChooseEventOption(int index)
         {
-            if (Phase != RunPhase.Event) return;
+            if (Phase != RunPhase.Event) return false;
             var option = CurrentEvent.Options[index];
+            if (option.InkCost > AvailableInk)
+                return false; // 买不起,换个选项
 
             if (option.GainChar != null)
                 _carriedLibrary.Add(option.GainChar);
             _carriedPool.AddRange(option.GainComponents);
-            EarnedInk += option.Ink;
+            EarnedInk += option.Ink - option.InkCost;
             if (option.HpDelta > 0)
                 _carriedHp = Math.Min(_battleConfig.PlayerMaxHp, _carriedHp + option.HpDelta);
             else if (option.HpDelta < 0)
@@ -93,6 +102,7 @@ namespace Brushblade.Core
 
             CurrentEvent = null;
             BeginNextBattle();
+            return true;
         }
 
         /// <summary>局内广告扩容:字库 +2,每关一次,关内跨场有效(2026-07-06 拍板)。

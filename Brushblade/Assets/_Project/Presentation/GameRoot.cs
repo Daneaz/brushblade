@@ -82,7 +82,8 @@ namespace Brushblade.Presentation
             var run = new RunEngine(_graph,
                 _campaign.BuildRunConfig(chapter, stage, new GameRandom(System.Environment.TickCount)), battleConfig,
                 startingLibrary: MetaRules.StartingLibrary(_meta), startingPool: new[] { "木", "木" },
-                seed: System.Environment.TickCount, cardLevels: _meta.CardLevels);
+                seed: System.Environment.TickCount, cardLevels: _meta.CardLevels,
+                startingInk: _meta.Ink); // 字摊消费预算(9.3.2)
 
             var view = NewView("BattleView");
             view.AddComponent<BattleView>().Init(_graph, run,

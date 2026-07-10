@@ -324,21 +324,26 @@ namespace Brushblade.Presentation
             }, new Color(0.3f, 0.3f, 0.3f));
         }
 
-        private void DrawEvent() // 奇遇(9.6):短情境 + 选择
+        private void DrawEvent() // 奇遇(9.6):短情境 + 选择;字摊类消费显示预算
         {
             var evt = _run.CurrentEvent;
             Ui.Label(_enemyRow, $"奇遇 · {evt.Id}", 34);
-            Ui.Label(_statusRow, evt.Text, 24);
+            Ui.Label(_statusRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 24);
             for (int i = 0; i < evt.Options.Count; i++)
             {
                 int index = i;
                 var option = evt.Options[i];
-                Ui.TextButton(_actionRow, option.Label, () =>
+                bool affordable = option.InkCost <= _run.AvailableInk;
+                var button = Ui.TextButton(_actionRow, option.Label, () =>
                 {
-                    _run.ChooseEventOption(index);
-                    _message = $"{evt.Id}:{option.Label}";
+                    if (_run.ChooseEventOption(index))
+                        _message = $"{evt.Id}:{option.Label}";
+                    else
+                        _message = "墨锭不足,换个选择";
                     CancelSelection();
-                }, new Color(0.3f, 0.32f, 0.44f), 22, new Vector2(240, 72));
+                }, affordable ? new Color(0.3f, 0.32f, 0.44f) : new Color(0.18f, 0.18f, 0.2f),
+                    22, new Vector2(260, 72));
+                button.interactable = affordable;
             }
         }
 

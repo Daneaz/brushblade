@@ -135,6 +135,68 @@ namespace Brushblade.Core.Tests
             Assert.That(a.Phase, Is.EqualTo(b.Phase));
         }
 
+        // ---- 墨锭消费(字摊类,9.3.2) ----
+
+        private static RunConfig ShopConfig() => new()
+        {
+            Encounters = new[]
+            {
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+            },
+            RewardPool = new[] { "炎" },
+            EventPool = new[]
+            {
+                new EventDef
+                {
+                    Id = "字摊",
+                    Text = "小摊主人吆喝:好字便宜卖!",
+                    Options = new[]
+                    {
+                        new EventOption { Label = "购「炎」", InkCost = 40, GainChar = "炎" },
+                        new EventOption { Label = "离开" },
+                    },
+                },
+            },
+            EventChancePercent = 100,
+        };
+
+        private static RunEngine ShopRun(int startingInk) =>
+            new(Graph(), ShopConfig(), new BattleConfig(),
+                new[] { "焚" }, Array.Empty<string>(), seed: 7, startingInk: startingInk);
+
+        [Test]
+        public void InkCost_Spends_FromBudget()
+        {
+            var run = ShopRun(startingInk: 100);
+            WinAndSkipReward(run);
+            Assert.That(run.AvailableInk, Is.EqualTo(100));
+            Assert.That(run.ChooseEventOption(0), Is.True); // 购炎 −40
+            Assert.That(run.AvailableInk, Is.EqualTo(60));
+            Assert.That(run.EarnedInk, Is.EqualTo(-40));    // run 结束入账为负
+            Assert.That(run.Battle.Library, Does.Contain("炎"));
+        }
+
+        [Test]
+        public void InkCost_Insufficient_RejectedStaysInEvent()
+        {
+            var run = ShopRun(startingInk: 10);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.False); // 买不起
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event)); // 留在事件里换别的选
+            Assert.That(run.ChooseEventOption(1), Is.True);  // 离开
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+        }
+
+        [Test]
+        public void InkIncome_RaisesBudget_ForLaterSpending()
+        {
+            var run = Run(); // 测字先生:求财 +40
+            WinAndSkipReward(run);
+            run.ChooseEventOption(1);
+            Assert.That(run.AvailableInk, Is.EqualTo(40)); // startingInk 缺省 0 + 40
+        }
+
         // ---- 配置解析 ----
 
         [Test]
@@ -150,7 +212,7 @@ namespace Brushblade.Core.Tests
                     { ""id"": ""测字先生"", ""text"": ""先生请你抽一字。"",
                       ""options"": [
                         { ""label"": ""求字"", ""gainChar"": ""灯"" },
-                        { ""label"": ""求财"", ""ink"": 40, ""hpDelta"": -3, ""gainComponents"": [ ""火"" ] }
+                        { ""label"": ""求财"", ""ink"": 40, ""hpDelta"": -3, ""gainComponents"": [ ""火"" ], ""inkCost"": 15 }
                       ] }
                 ],
                 ""chapters"": [ { ""name"": ""蒙学"",
@@ -161,6 +223,7 @@ namespace Brushblade.Core.Tests
             Assert.That(evt.Options.Count, Is.EqualTo(2));
             Assert.That(evt.Options[0].GainChar, Is.EqualTo("灯"));
             Assert.That(evt.Options[1].Ink, Is.EqualTo(40));
+            Assert.That(evt.Options[1].InkCost, Is.EqualTo(15));
 
             // BuildRunConfig 透传事件池
             var runConfig = campaign.BuildRunConfig(0, 0);

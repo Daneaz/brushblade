@@ -59,6 +59,7 @@ namespace Brushblade.Data
             public string Label { get; set; }
             public int HpDelta { get; set; }
             public int Ink { get; set; }
+            public int InkCost { get; set; }
             public string GainChar { get; set; }
             public List<string> GainComponents { get; set; }
         }
@@ -169,6 +170,7 @@ namespace Brushblade.Data
                         Label = optionDto.Label,
                         HpDelta = optionDto.HpDelta,
                         Ink = optionDto.Ink,
+                        InkCost = optionDto.InkCost,
                         GainChar = optionDto.GainChar,
                         GainComponents = optionDto.GainComponents ?? new List<string>(),
                     });
