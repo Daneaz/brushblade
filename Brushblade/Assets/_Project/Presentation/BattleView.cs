@@ -357,21 +357,15 @@ namespace Brushblade.Presentation
         {
             _selectedChar = charId;
             _targeting = false;
-            var def = _graph.Get(charId);
-            _message = def.Effects.Count > 0
-                ? $"「{charId}」:出字({def.ApCost} AP)或拆(1 AP)"
-                : $"「{charId}」是材料字:兜底一击({def.ApCost} AP)/ 拆 / 用于合成";
+            _message = CharInfo.Summary(_graph.Get(charId), _graph);
             Refresh();
         }
 
         private void OnPoolCharClicked(string charId)
         {
-            var def = _graph.Get(charId);
             _selectedChar = charId;
             _targeting = false;
-            _message = def.Effects.Count > 0
-                ? $"部件「{charId}」可直出(1 AP)"
-                : $"部件「{charId}」可兜底一击(1 AP,弱伤害)或等待合成";
+            _message = CharInfo.Summary(_graph.Get(charId), _graph);
             Refresh();
         }
 
