@@ -26,7 +26,8 @@ namespace Brushblade.Core.Tests
             var time = new FakeTime();
             var meta = Fresh(time);
             Assert.That(meta.Shop.CardSlots.Count, Is.EqualTo(ShopRules.CardSlotCount));
-            Assert.That(meta.Shop.CardSlots, Is.All.AnyOf(Pool));
+            Assert.That(meta.Shop.CardSlots,
+                Has.All.Matches<string>(c => System.Array.IndexOf(Pool, c) >= 0)); // Unity 版 NUnit 无 AnyOf
 
             var before = new System.Collections.Generic.List<string>(meta.Shop.CardSlots);
             Assert.That(ShopRules.EnsureShelf(meta, Pool, time, new GameRandom(999)), Is.False); // 当日不重掷

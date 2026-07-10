@@ -195,7 +195,8 @@ namespace Brushblade.Core.Tests
             Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(1), out var rewards), Is.True);
             Assert.That(rewards.Ink, Is.EqualTo(15));
             Assert.That(rewards.Cards.Count, Is.EqualTo(3));
-            Assert.That(rewards.Cards, Is.All.AnyOf("灯", "炎", "烧")); // 有放回抽取,重复=升级材料
+            Assert.That(rewards.Cards, // 有放回抽取,重复=升级材料;Unity 版 NUnit 无 AnyOf
+                Has.All.Matches<string>(c => System.Array.IndexOf(Pool, c) >= 0));
             Assert.That(meta.Ink, Is.EqualTo(15));
             Assert.That(meta.Chests, Is.Empty);
             // 卡入收集:首张 owned,重复转 copies
