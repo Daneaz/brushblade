@@ -176,11 +176,29 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Cast_SingleTarget_RequiresValidTarget()
+        public void Cast_SingleTarget_RequiresValidTarget_WhenMultipleAlive()
         {
-            var engine = Engine(library: new[] { "灯" });
+            var engine = Engine(library: new[] { "灯" }, enemies: new[] { WoodMinion(), WoodMinion() });
             Assert.That(engine.Cast("灯", 5), Is.EqualTo(BattleError.InvalidTarget));
-            Assert.That(engine.Cast("灯"), Is.EqualTo(BattleError.InvalidTarget)); // 未选目标
+            Assert.That(engine.Cast("灯"), Is.EqualTo(BattleError.InvalidTarget)); // 多敌未选目标
+        }
+
+        [Test]
+        public void Cast_NoTarget_AutoTargetsSoleAliveEnemy() // 3.8.3 优化:单敌免选
+        {
+            var engine = Engine(library: new[] { "灯" }, enemies: new[] { MetalBoss(200) });
+            Assert.That(engine.Cast("灯"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 9)); // floor(6×1.5) 火克金
+        }
+
+        [Test]
+        public void Cast_AutoTarget_SkipsDeadEnemies()
+        {
+            var engine = Engine(library: new[] { "焚", "灯" },
+                enemies: new[] { WoodMinion(), MetalBoss(200) });
+            engine.Cast("焚");            // 木怪死,只剩金怪
+            Assert.That(engine.Cast("灯"), Is.EqualTo(BattleError.None)); // 免选自动锁定金怪
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(200 - 81 - 9));
         }
 
         // ---- 回合末结算(3.7:灼烧先行;10.2:X层 → X×2 伤,然后 −1) ----
@@ -250,10 +268,10 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Fallback_NeedsTarget()
+        public void Fallback_NeedsTarget_WhenMultipleAlive()
         {
-            var engine = Engine(library: new[] { "林" });
-            Assert.That(engine.Cast("林"), Is.EqualTo(BattleError.InvalidTarget));
+            var engine = Engine(library: new[] { "林" }, enemies: new[] { WoodMinion(), WoodMinion() });
+            Assert.That(engine.Cast("林"), Is.EqualTo(BattleError.InvalidTarget)); // 多敌必须选
             Assert.That(BattleEngine.NeedsTarget(new CharDef("木", Element.Wood)), Is.True);
         }
 
@@ -368,14 +386,24 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void DeadEnemy_DoesNotAttack_AndIsInvalidTarget()
+        public void DeadEnemy_DoesNotAttack_CorpseClickRedirectsToSoleAlive()
         {
             var engine = Engine(library: new[] { "焚", "灯" },
                 enemies: new[] { WoodMinion(), MetalBoss(200) });
             engine.Cast("焚"); // 木怪(12)死于 54,金怪 200-81=119
-            Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.InvalidTarget)); // 尸体不可选
+            Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.None)); // 点尸体 → 自动转向唯一存活
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(119 - 9));
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(45)); // 只有金怪(攻5)打了一下
+        }
+
+        [Test]
+        public void Corpse_InvalidTarget_WhenMultipleAlive()
+        {
+            var engine = Engine(library: new[] { "灯", "灯" },
+                enemies: new[] { WoodMinion(hp: 4), MetalBoss(200), MetalBoss(200) });
+            engine.Cast("灯", 0); // 6 伤击杀 4 血木怪
+            Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.InvalidTarget)); // 两个存活,点尸体无效
         }
     }
 }

@@ -163,6 +163,8 @@ namespace Brushblade.Presentation
             Ui.Label(_statusRow,
                 $"战斗 {_run.BattleIndex + 1}    回合 {Battle.Turn}    AP {Battle.Ap}/3    HP {Battle.PlayerHp}/50" +
                 (Battle.PlayerShield > 0 ? $"    护盾 {Battle.PlayerShield}" : ""), 26);
+            Ui.TextButton(_statusRow, "退出关卡", () => _onRunEnded(false),
+                new Color(0.32f, 0.2f, 0.2f), 18, new Vector2(100, 40));
         }
 
         private void DrawLibrary()
@@ -375,14 +377,22 @@ namespace Brushblade.Presentation
 
         private void OnCastPressed(CharDef def)
         {
-            if (BattleEngine.NeedsTarget(def))
+            if (BattleEngine.NeedsTarget(def) && AliveEnemyCount() > 1)
             {
                 _targeting = true;
                 _message = $"「{def.Id}」:点击目标敌人";
                 Refresh();
                 return;
             }
-            ExecuteCast(def.Id, -1);
+            ExecuteCast(def.Id, -1); // 单敌免选:引擎自动锁定唯一存活目标
+        }
+
+        private int AliveEnemyCount()
+        {
+            int count = 0;
+            foreach (var enemy in Battle.Enemies)
+                if (enemy.Alive) count++;
+            return count;
         }
 
         private void OnEnemyClicked(int index)

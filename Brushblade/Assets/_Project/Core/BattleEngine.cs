@@ -158,10 +158,21 @@ namespace Brushblade.Core
             if (!fromLibrary && !fromPool) return BattleError.NotCastable;
             if (Ap < def.ApCost) return BattleError.NotEnoughAp;
 
-            // 单体效果需要有效的存活目标
+            // 单体效果需要有效的存活目标;未指定且场上仅一个存活敌人时自动锁定(3.8.3 单敌免选)
             if (NeedsTarget(def) &&
                 (targetIndex < 0 || targetIndex >= _enemies.Count || !_enemies[targetIndex].Alive))
-                return BattleError.InvalidTarget;
+            {
+                int soleAlive = -1;
+                for (int i = 0; i < _enemies.Count; i++)
+                {
+                    if (!_enemies[i].Alive) continue;
+                    if (soleAlive >= 0) { soleAlive = -1; break; } // 多于一个存活
+                    soleAlive = i;
+                }
+                if (soleAlive < 0)
+                    return BattleError.InvalidTarget;
+                targetIndex = soleAlive;
+            }
 
             _events.Clear();
             Ap -= def.ApCost;
