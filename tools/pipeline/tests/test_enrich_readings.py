@@ -43,3 +43,7 @@ def test_readings_map_builds_and_skips_missing():
     assert m["灯"] == ("dēng", "置烛用以照明的器具")
     assert m["焚"][0] == "fén"
     assert "燚" not in m
+
+
+def test_short_gloss_strips_stray_question_marks():
+    assert short_gloss("木 初生的芦苇?。") == "初生的芦苇"

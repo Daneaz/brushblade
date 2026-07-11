@@ -93,3 +93,18 @@ def test_relation_ke():
 
 def test_relation_heart():
     assert relation_label(("土", "心")) == "心+土"
+
+
+def test_displayable_basic_cjk():
+    from report_pool_candidates import is_displayable
+    assert is_displayable("火") is True
+
+
+def test_displayable_rejects_ext_b():
+    from report_pool_candidates import is_displayable
+    assert is_displayable("𣏹") is False
+
+
+def test_displayable_rejects_ext_a():
+    from report_pool_candidates import is_displayable
+    assert is_displayable("㷋") is False

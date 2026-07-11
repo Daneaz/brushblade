@@ -71,6 +71,12 @@ COMMON_RADICALS = set("亻宀艹氵忄扌辶灬冫刂钅礻衤犭饣阝廴彳口
 STACK_CHARS = set("林森炎焱炏淼沝垚圭鑫屾砳磊惢昍吅")
 
 
+def is_displayable(ch):
+    """候选主字是否落在 CJK 基本区(U+4E00–9FFF):扩展A/B区多数设备无字形,
+    显示为问号/豆腐,游戏字体也渲染不了,直接从筛选表剔除。"""
+    return 0x4E00 <= ord(ch) <= 0x9FFF
+
+
 def gb_level(ch):
     """GB2312 常用度:1=一级常用,2=二级次常用,0=不在 GB2312。"""
     try:
@@ -136,7 +142,9 @@ def build_report(element, candidates, readings, today):
     """单系筛选表 markdown。表A一级字按部件变体分节;表B二级字剔除冷僻部件;表C叠字族。"""
     cfg = ELEMENTS[element]
     parts = cfg["parts"]
-    pool = [c for c in candidates if element in c["attrs"]]
+    pool = [c for c in candidates if element in c["attrs"] and is_displayable(c["char"])]
+    undisplayable = sum(1 for c in candidates
+                        if element in c["attrs"] and not is_displayable(c["char"]))
     tier1 = sorted((c for c in pool if gb_level(c["char"]) == 1),
                    key=lambda c: (c["complexity"], c["ids"]))
     tier2_all = [c for c in pool if gb_level(c["char"]) == 2]
@@ -149,6 +157,7 @@ def build_report(element, candidates, readings, today):
 
 > 状态:待筛选 | 生成:{today},`tools/pipeline/report_pool_candidates.py`(cjkvi-ids 一层拆解 + 新华字典拼音/释义,发行前需换有授权字典源)
 > 首发仅火系(19.3);本表为后续版本开{element}系池的预备材料,筛法同火系表。
+> 已剔除 CJK 基本区外的字 {undisplayable} 个(多数设备无字形,游戏字体渲染不了)。⚠️ 编辑本表请保存为 UTF-8。
 
 ## 怎么筛
 
@@ -250,7 +259,7 @@ def build_multi_report(candidates, readings, today):
         if len(attrs) < 2:
             continue
         familiar = all(not _exotic(l) for l in cand["leaves"])
-        if gb_level(cand["char"]) == 0 and not familiar:
+        if not is_displayable(cand["char"]) or (gb_level(cand["char"]) == 0 and not familiar):
             skipped += 1
             continue
         if len(attrs) >= 3:
@@ -268,7 +277,8 @@ def build_multi_report(candidates, readings, today):
 > 双属性字 = 跨属性组合技的天然载体:**相生对配方自带效果 ×3**(wuxing-reference §乘数),
 > 相克对是第 6 章组合技(焦土/披坚执锐/破土而出/水来土掩…)的候选字库。
 > 建议稀有度仅按结构参考;组合技定位通常 ≥蓝,终稿你定。
-> 属性识别含叠字族(焚=林+火 → 木火);生僻字只收部件全熟悉的(另有 {skipped} 个含冷僻部件的未列)。
+> 属性识别含叠字族(焚=林+火 → 木火);已剔除基本区外无字形字与含冷僻部件的生僻字共 {skipped} 个。
+> ⚠️ 编辑本表请保存为 UTF-8。
 
 ## 第一部分 · 相生五对(配方 ×3,优先筛)
 """]

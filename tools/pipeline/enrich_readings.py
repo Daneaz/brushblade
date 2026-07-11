@@ -32,6 +32,7 @@ def short_gloss(explanation):
         body = re.sub(r"^\S\s+", "", text)
         gloss = re.split(r"[。;,\n]|\s{2,}", body, maxsplit=1)[0]
     gloss = gloss.strip().strip("\"“”「」")
+    gloss = gloss.replace("?", "").replace("?", "")  # 数据源夹带的乱码问号
     return gloss[:_GLOSS_MAX]
 
 

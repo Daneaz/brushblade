@@ -1,0 +1,5 @@
+# 统一 UTF-8,防编辑器按内容猜成 GBK 转码
+root = true
+
+[*]
+charset = utf-8
