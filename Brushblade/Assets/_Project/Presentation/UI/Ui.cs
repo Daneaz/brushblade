@@ -15,7 +15,10 @@ namespace Brushblade.Presentation
             get
             {
                 if (_font != null) return _font;
-                foreach (var name in new[] { "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Hiragino Sans GB" })
+                // 覆盖 iOS/macOS(PingFang)、Windows(YaHei)、Android(Noto/Droid);
+                // 真机若仍缺字形,则内嵌开源 CJK 字体子集(移动端适配 TODO)
+                foreach (var name in new[] { "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
+                    "Noto Sans SC", "Source Han Sans SC", "Droid Sans Fallback", "Hiragino Sans GB" })
                 {
                     _font = UnityEngine.Font.CreateDynamicFontFromOSFont(name, 28);
                     if (_font != null) return _font;

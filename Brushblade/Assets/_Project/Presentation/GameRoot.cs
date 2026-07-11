@@ -20,6 +20,13 @@ namespace Brushblade.Presentation
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
+            // 横屏 only(2026-07-11 拍板):运行时兜底,与 ProjectSettings 双保险
+            Screen.autorotateToPortrait = false;
+            Screen.autorotateToPortraitUpsideDown = false;
+            Screen.autorotateToLandscapeLeft = true;
+            Screen.autorotateToLandscapeRight = true;
+            Application.targetFrameRate = 60; // 移动端默认可能锁 30,点按反馈要跟手
+
             EnsureSceneInfrastructure();
 
             // 启动校时(19.9):失败则本会话退化为设备时间
@@ -131,6 +138,7 @@ namespace Brushblade.Presentation
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1600, 900);
+            scaler.matchWidthOrHeight = 1f; // 横屏按高度匹配:20:9 长条屏不放大纵向占位
 
             // 全屏黑底:不依赖场景相机设置,保证白字可读
             var backgroundGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
@@ -139,8 +147,13 @@ namespace Brushblade.Presentation
             backgroundGo.GetComponent<Image>().raycastTarget = false;
             Ui.Stretch((RectTransform)backgroundGo.transform);
 
+            // 安全区容器:内容避开刘海/挖孔,黑底仍全屏
+            var safeGo = new GameObject("SafeArea", typeof(RectTransform));
+            safeGo.transform.SetParent(canvasGo.transform, false);
+            safeGo.AddComponent<SafeAreaFitter>();
+
             var viewGo = new GameObject(name, typeof(RectTransform));
-            viewGo.transform.SetParent(canvasGo.transform, false);
+            viewGo.transform.SetParent(safeGo.transform, false);
             return viewGo;
         }
 
