@@ -3,15 +3,18 @@ using Brushblade.Core;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>字卡简述:从定义机械生成(属性/稀有度/AP/效果/配方/相生)。
-    /// 拼音与释义(4.2.2)待管线数据接入后追加。</summary>
+    /// <summary>字卡简述:从定义机械生成(拼音/释义/属性/稀有度/AP/效果/配方/相生)。</summary>
     public static class CharInfo
     {
         public static string Summary(CharDef def, RecipeGraph graph)
         {
             var text = new StringBuilder();
-            text.Append('「').Append(def.Id).Append('」')
-                .Append(RarityName(def.Rarity)).Append('·')
+            text.Append('「').Append(def.Id).Append('」');
+            if (def.Pinyin != null)
+                text.Append(def.Pinyin).Append(' ');
+            if (!string.IsNullOrEmpty(def.Gloss))
+                text.Append(def.Gloss).Append('|');
+            text.Append(RarityName(def.Rarity)).Append('·')
                 .Append(def.Element is { } element ? ElementName(element) + "系" : "中性")
                 .Append('·').Append(def.ApCost).Append("AP");
 

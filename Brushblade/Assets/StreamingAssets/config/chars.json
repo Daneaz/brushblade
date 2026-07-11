@@ -1,41 +1,311 @@
 {
   "chars": [
-    { "id": "木", "element": "Wood" },
-    { "id": "火", "element": "Fire",
-      "effects": [ { "kind": "DamageSingle", "value": 4 } ] },
-    { "id": "丁" },
-    { "id": "尧" },
-    { "id": "然" },
-    { "id": "勺" },
-    { "id": "只" },
-    { "id": "呆" },
-    { "id": "辟", "element": "Metal" },
-    { "id": "土", "element": "Earth",
-      "effects": [ { "kind": "Shield", "value": 3 } ] },
-    { "id": "圭", "rarity": "White", "element": "Earth", "recipe": [ "土", "土" ],
-      "effects": [ { "kind": "Shield", "value": 6 } ] },
-    { "id": "壁", "rarity": "Blue", "element": "Earth", "recipe": [ "辟", "土" ],
-      "effects": [ { "kind": "Shield", "value": 8 } ] },
-    { "id": "堡", "rarity": "Purple", "element": "Earth", "recipe": [ "呆", "土" ], "apCost": 2,
-      "effects": [ { "kind": "Shield", "value": 10, "persistOnce": true } ] },
-    { "id": "灼", "rarity": "Blue", "element": "Fire", "recipe": [ "火", "勺" ],
-      "effects": [ { "kind": "DamageSingle", "value": 8, "doubleVsBurning": true } ] },
-    { "id": "炽", "rarity": "Purple", "element": "Fire", "recipe": [ "火", "只" ],
-      "effects": [ { "kind": "BurnPotency", "value": 1 } ] },
-    { "id": "林", "element": "Wood", "recipe": [ "木", "木" ] },
-    { "id": "灯", "rarity": "White", "element": "Fire", "recipe": [ "火", "丁" ],
-      "effects": [ { "kind": "DamageSingle", "value": 6 }, { "kind": "BurnSingle", "value": 1 } ] },
-    { "id": "炎", "rarity": "Green", "element": "Fire", "recipe": [ "火", "火" ],
-      "effects": [ { "kind": "DamageSingle", "value": 12 }, { "kind": "BurnSingle", "value": 2 } ] },
-    { "id": "烧", "rarity": "Green", "element": "Fire", "recipe": [ "火", "尧" ],
-      "effects": [ { "kind": "DamageAll", "value": 5 }, { "kind": "BurnAll", "value": 1 } ] },
-    { "id": "燃", "rarity": "Green", "element": "Fire", "recipe": [ "火", "然" ],
-      "effects": [ { "kind": "BurnAll", "value": 3 } ] },
-    { "id": "焱", "rarity": "Orange", "element": "Fire", "recipe": [ "火", "火", "火" ], "apCost": 2,
-      "effects": [ { "kind": "DamageAll", "value": 14 } ] },
-    { "id": "燚", "rarity": "Red", "element": "Fire", "recipe": [ "焱", "火" ], "apCost": 2,
-      "effects": [ { "kind": "DamageAll", "value": 22 }, { "kind": "BurnAll", "value": 3 } ] },
-    { "id": "焚", "rarity": "Purple", "element": "Fire", "recipe": [ "林", "火" ], "apCost": 2,
-      "effects": [ { "kind": "DamageAll", "value": 18 }, { "kind": "BurnAll", "value": 1 } ] }
+    {
+      "id": "木",
+      "element": "Wood",
+      "pinyin": "mù",
+      "gloss": "树木"
+    },
+    {
+      "id": "火",
+      "element": "Fire",
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 4
+        }
+      ],
+      "pinyin": "huǒ",
+      "gloss": "物体燃烧所发的光、焰和热"
+    },
+    {
+      "id": "丁",
+      "pinyin": "dīng",
+      "gloss": "钉子"
+    },
+    {
+      "id": "尧",
+      "pinyin": "yáo",
+      "gloss": "高"
+    },
+    {
+      "id": "然",
+      "pinyin": "rán",
+      "gloss": "燃烧"
+    },
+    {
+      "id": "勺",
+      "pinyin": "sháo",
+      "gloss": "古代舀酒器"
+    },
+    {
+      "id": "只",
+      "pinyin": "zhī",
+      "gloss": "鸟一只"
+    },
+    {
+      "id": "呆",
+      "pinyin": "dāi",
+      "gloss": "痴"
+    },
+    {
+      "id": "辟",
+      "element": "Metal",
+      "pinyin": "pì",
+      "gloss": "法律,法度"
+    },
+    {
+      "id": "土",
+      "element": "Earth",
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 3
+        }
+      ],
+      "pinyin": "tǔ",
+      "gloss": "泥土,土壤"
+    },
+    {
+      "id": "圭",
+      "rarity": "White",
+      "element": "Earth",
+      "recipe": [
+        "土",
+        "土"
+      ],
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 6
+        }
+      ],
+      "pinyin": "guī",
+      "gloss": "古玉器名"
+    },
+    {
+      "id": "壁",
+      "rarity": "Blue",
+      "element": "Earth",
+      "recipe": [
+        "辟",
+        "土"
+      ],
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 8
+        }
+      ],
+      "pinyin": "bì",
+      "gloss": "墙壁"
+    },
+    {
+      "id": "堡",
+      "rarity": "Purple",
+      "element": "Earth",
+      "recipe": [
+        "呆",
+        "土"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 10,
+          "persistOnce": true
+        }
+      ],
+      "pinyin": "bǎo",
+      "gloss": "土筑的小城"
+    },
+    {
+      "id": "灼",
+      "rarity": "Blue",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "勺"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 8,
+          "doubleVsBurning": true
+        }
+      ],
+      "pinyin": "zhuó",
+      "gloss": "烧,灸"
+    },
+    {
+      "id": "炽",
+      "rarity": "Purple",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "只"
+      ],
+      "effects": [
+        {
+          "kind": "BurnPotency",
+          "value": 1
+        }
+      ],
+      "pinyin": "chì",
+      "gloss": "火旺"
+    },
+    {
+      "id": "林",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "木"
+      ],
+      "pinyin": "lín",
+      "gloss": "丛聚的树木或竹子"
+    },
+    {
+      "id": "灯",
+      "rarity": "White",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "丁"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        },
+        {
+          "kind": "BurnSingle",
+          "value": 1
+        }
+      ],
+      "pinyin": "dēng",
+      "gloss": "置烛用以照明的器具"
+    },
+    {
+      "id": "炎",
+      "rarity": "Green",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "火"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 12
+        },
+        {
+          "kind": "BurnSingle",
+          "value": 2
+        }
+      ],
+      "pinyin": "yán",
+      "gloss": "火苗升腾"
+    },
+    {
+      "id": "烧",
+      "rarity": "Green",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "尧"
+      ],
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 5
+        },
+        {
+          "kind": "BurnAll",
+          "value": 1
+        }
+      ],
+      "pinyin": "shāo",
+      "gloss": "使物着火"
+    },
+    {
+      "id": "燃",
+      "rarity": "Green",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "然"
+      ],
+      "effects": [
+        {
+          "kind": "BurnAll",
+          "value": 3
+        }
+      ],
+      "pinyin": "rán",
+      "gloss": "燃烧"
+    },
+    {
+      "id": "焱",
+      "rarity": "Orange",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "火",
+        "火"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 14
+        }
+      ],
+      "pinyin": "yàn",
+      "gloss": "火花、光华"
+    },
+    {
+      "id": "燚",
+      "rarity": "Red",
+      "element": "Fire",
+      "recipe": [
+        "焱",
+        "火"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 22
+        },
+        {
+          "kind": "BurnAll",
+          "value": 3
+        }
+      ],
+      "pinyin": "yì",
+      "gloss": "火燃烧的样子"
+    },
+    {
+      "id": "焚",
+      "rarity": "Purple",
+      "element": "Fire",
+      "recipe": [
+        "林",
+        "火"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 18
+        },
+        {
+          "kind": "BurnAll",
+          "value": 1
+        }
+      ],
+      "pinyin": "fén",
+      "gloss": "烧山"
+    }
   ]
 }

@@ -28,6 +28,8 @@ namespace Brushblade.Data
             public int ApCost { get; set; } = 1;
             public List<EffectDto> Effects { get; set; }
             public string Rarity { get; set; }
+            public string Pinyin { get; set; }
+            public string Gloss { get; set; }
         }
 
         private sealed class EffectDto
@@ -272,7 +274,7 @@ namespace Brushblade.Data
                     throw new ConfigException($"重复的字 id:{dto.Id}");
 
                 defs.Add(new CharDef(dto.Id, ParseElement(dto),
-                    dto.Recipe, dto.ApCost, ParseEffects(dto), ParseRarity(dto)));
+                    dto.Recipe, dto.ApCost, ParseEffects(dto), ParseRarity(dto), dto.Pinyin, dto.Gloss));
             }
 
             // fail fast 二次校验:配方引用必须已定义(完整校验在管线侧,4.9.6)

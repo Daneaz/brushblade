@@ -35,10 +35,17 @@ namespace Brushblade.Core
         /// <summary>出字效果;部件的"单独出战"弱效果也在此(第 4 章 4.2.1)。</summary>
         public IReadOnlyList<EffectDef> Effects { get; }
 
+        /// <summary>拼音(11.2.4 点查安全网);可缺省。</summary>
+        public string Pinyin { get; }
+
+        /// <summary>短释义(11.2.4);可缺省。</summary>
+        public string Gloss { get; }
+
         public bool IsLeaf => Recipe.Count == 0;
 
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
-            int apCost = 1, IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White)
+            int apCost = 1, IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
+            string pinyin = null, string gloss = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Element = element;
@@ -46,6 +53,8 @@ namespace Brushblade.Core
             ApCost = apCost;
             Effects = effects ?? Array.Empty<EffectDef>();
             Rarity = rarity;
+            Pinyin = pinyin;
+            Gloss = gloss;
         }
     }
 }
