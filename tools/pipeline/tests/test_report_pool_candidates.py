@@ -60,3 +60,36 @@ def test_droppable_partner_is_white():
 
 def test_plain_partner_is_green():
     assert suggest_rarity(_cand(["火", "会"]), ["火", "灬"]) == "绿"
+
+
+# ---- 多属性字(跨属性组合,第 6 章) ----
+
+from report_pool_candidates import extended_attrs, relation_label
+
+
+def test_extended_attrs_resolves_stack_chars():
+    assert extended_attrs(["氵", "林"]) == ["木", "水"]
+
+
+def test_extended_attrs_plain_parts():
+    assert extended_attrs(["火", "土"]) == ["火", "土"]
+
+
+def test_extended_attrs_dedup_and_ignore_neutral():
+    assert extended_attrs(["火", "灬", "口"]) == ["火"]
+
+
+def test_relation_sheng():
+    assert relation_label(("木", "火")) == "木生火"
+
+
+def test_relation_sheng_reversed_input():
+    assert relation_label(("木", "水")) == "水生木"
+
+
+def test_relation_ke():
+    assert relation_label(("木", "土")) == "木克土"
+
+
+def test_relation_heart():
+    assert relation_label(("土", "心")) == "心+土"

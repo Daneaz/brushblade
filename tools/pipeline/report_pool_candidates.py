@@ -187,6 +187,117 @@ def build_report(element, candidates, readings, today):
     return "\n".join(out)
 
 
+# ---- 多属性字(跨属性组合,第 6 章) ----
+
+# 叠字族自身的属性(部件表之外):焚=林+火 → 木火,淋=氵+林 → 水木
+STACK_ATTR = {"林": "木", "森": "木", "炎": "火", "焱": "火", "炏": "火",
+              "淼": "水", "沝": "水", "垚": "土", "圭": "土",
+              "磊": "土", "砳": "土", "屾": "土", "鑫": "金", "惢": "心"}
+
+_ATTR_ORDER = {a: i for i, a in enumerate("木火土金水心")}
+_SHENG = {("木", "火"), ("火", "土"), ("土", "金"), ("金", "水"), ("水", "木")}
+_KE = {("木", "土"), ("土", "水"), ("水", "火"), ("火", "金"), ("金", "木")}
+
+
+def extended_attrs(leaves):
+    """叶子 → 去重属性(部件表 + 叠字族),按相生环顺序排;识别双属性字用。"""
+    from filter_chars import ATTR_MAP
+    attrs = {ATTR_MAP.get(l) or STACK_ATTR.get(l) for l in leaves} - {None}
+    return sorted(attrs, key=_ATTR_ORDER.get)
+
+
+def relation_label(pair):
+    """属性对 → 生克关系标签:相生「木生火」/相克「木克土」/含心「心+木」。"""
+    a, b = pair
+    if "心" in pair:
+        return "心+" + (b if a == "心" else a)
+    for x, y in ((a, b), (b, a)):
+        if (x, y) in _SHENG:
+            return f"{x}生{y}"
+        if (x, y) in _KE:
+            return f"{x}克{y}"
+    return f"{a}+{b}"
+
+
+_MULTI_HEAD = ("| 字 | 拼音 | 释义 | 配方(一步合成) | 属性组合 | 常用度 | 建议稀有度 | 选用 | 备注 |\n"
+               "|---|---|---|---|---|---|---|---|---|")
+
+_ALL_IN_GAME = set().union(*(cfg["in_game"] for cfg in ELEMENTS.values()))
+
+
+def _multi_row(cand, attrs, readings):
+    ch = cand["char"]
+    pinyin, gloss = readings.get(ch, ("—", ""))
+    level = {1: "一级", 2: "二级", 0: "生僻"}[gb_level(ch)]
+    flags = []
+    if ch in _ALL_IN_GAME:
+        flags.append("**已在字表**")
+    drops = [l for l in cand["leaves"] if l in DROPS]
+    if drops:
+        flags.append("部件可刷:" + " ".join(drops))
+    return (f"| {ch} | {pinyin} | {gloss} | {' + '.join(cand['leaves'])} | {'/'.join(attrs)} "
+            f"| {level} | {suggest_rarity(cand, [])} | | {';'.join(flags)} |")
+
+
+def build_multi_report(candidates, readings, today):
+    """多属性字筛选表:按生克关系分节(相生五对→相克五对→含心),常用优先、
+    生僻字只收部件全熟悉的。"""
+    groups = {}
+    tri = []
+    skipped = 0
+    for cand in candidates:
+        attrs = extended_attrs(cand["leaves"])
+        if len(attrs) < 2:
+            continue
+        familiar = all(not _exotic(l) for l in cand["leaves"])
+        if gb_level(cand["char"]) == 0 and not familiar:
+            skipped += 1
+            continue
+        if len(attrs) >= 3:
+            tri.append((cand, attrs))
+        else:
+            groups.setdefault(tuple(attrs), []).append((cand, attrs))
+
+    def sort_key(item):
+        cand, _ = item
+        return ({1: 0, 2: 1, 0: 2}[gb_level(cand["char"])], cand["complexity"], cand["ids"])
+
+    out = [f"""# 多属性字候选筛选表(跨属性组合,第 6 章)
+
+> 状态:待筛选 | 生成:{today},`tools/pipeline/report_pool_candidates.py 多属性`
+> 双属性字 = 跨属性组合技的天然载体:**相生对配方自带效果 ×3**(wuxing-reference §乘数),
+> 相克对是第 6 章组合技(焦土/披坚执锐/破土而出/水来土掩…)的候选字库。
+> 建议稀有度仅按结构参考;组合技定位通常 ≥蓝,终稿你定。
+> 属性识别含叠字族(焚=林+火 → 木火);生僻字只收部件全熟悉的(另有 {skipped} 个含冷僻部件的未列)。
+
+## 第一部分 · 相生五对(配方 ×3,优先筛)
+"""]
+    sheng_order = [("木", "火"), ("火", "土"), ("土", "金"), ("金", "水"), ("水", "木")]
+    ke_order = [("木", "土"), ("土", "水"), ("水", "火"), ("火", "金"), ("金", "木")]
+
+    def emit(pair_list):
+        for pair in pair_list:
+            key = tuple(sorted(pair, key=_ATTR_ORDER.get))
+            items = sorted(groups.pop(key, []), key=sort_key)
+            if not items:
+                continue
+            out.append(f"\n### {relation_label(pair)}({len(items)} 个)\n")
+            out.append(_MULTI_HEAD)
+            out.extend(_multi_row(c, a, readings) for c, a in items)
+
+    emit(sheng_order)
+    out.append("\n## 第二部分 · 相克五对(组合技候选)\n")
+    emit(ke_order)
+    out.append("\n## 第三部分 · 含心组合(心系中立,宜控制/辅助向)\n")
+    emit([("心", x) for x in "木火土金水"])
+    if tri:
+        out.append(f"\n## 第四部分 · 三属性及以上({len(tri)} 个)\n")
+        out.append(_MULTI_HEAD)
+        out.extend(_multi_row(c, a, readings) for c, a in sorted(tri, key=sort_key))
+    out.append("")
+    return "\n".join(out)
+
+
 def main(elements):
     candidates = json.load(open(ROOT / "out/candidates.json"))["candidates"]
     readings = readings_map(json.load(open(ROOT / "data/raw/xinhua_word.json")))
@@ -194,8 +305,12 @@ def main(elements):
     today = datetime.date.today().isoformat()
     docs = ROOT.parent.parent / "docs/design"
     for element in elements:
-        text = build_report(element, candidates, readings, today)
-        path = docs / f"{element}系卡池候选筛选表.md"
+        if element == "多属性":
+            text = build_multi_report(candidates, readings, today)
+            path = docs / "多属性字候选筛选表.md"
+        else:
+            text = build_report(element, candidates, readings, today)
+            path = docs / f"{element}系卡池候选筛选表.md"
         path.write_text(text)
         print("写入", path.name, f"({len(text.splitlines())} 行)")
 
