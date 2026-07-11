@@ -88,9 +88,13 @@ namespace Brushblade.Presentation
                 seed: System.Environment.TickCount, cardLevels: _meta.CardLevels,
                 startingInk: _meta.Ink); // 字摊消费预算(9.3.2)
 
+            // 新手引导(11.2):1-1 未通关时启用剧本节拍;通关即永久关闭
+            bool firstStageUncleared = _meta.ClearedStages.Count == 0 || _meta.ClearedStages[0] == 0;
+            var tutorial = chapter == 0 && stage == 0 && firstStageUncleared ? new Tutorial() : null;
+
             var view = NewView("BattleView");
             view.AddComponent<BattleView>().Init(_graph, run,
-                won => OnRunEnded(chapter, stage, won, run.EarnedInk));
+                won => OnRunEnded(chapter, stage, won, run.EarnedInk), tutorial);
         }
 
         private static void OnRunEnded(int chapter, int stage, bool won, int eventInk)

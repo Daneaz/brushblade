@@ -34,11 +34,15 @@ namespace Brushblade.Presentation
         private Text _messageLabel;
         private string _expandedHint;    // 当前展开的差一类别(缺的部件 id;null = 全收起)
 
-        public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded)
+        private Tutorial _tutorial;      // 新手引导(11.2);null = 不引导
+
+        public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
+            Tutorial tutorial = null)
         {
             _graph = graph;
             _run = run;
             _onRunEnded = onRunEnded;
+            _tutorial = tutorial;
             BuildSkeleton();
             _juice = gameObject.AddComponent<Juice>();
             _juice.Init((RectTransform)transform);
@@ -126,8 +130,30 @@ namespace Brushblade.Presentation
                     DrawRunEnd();
                     break;
             }
+            DrawTutorialHint();
             _messageLabel.text = _message;
         }
+
+        /// <summary>引导横幅:一步一句话(11.2.5),金色置顶于提示列。</summary>
+        private void DrawTutorialHint()
+        {
+            if (_tutorial == null || _tutorial.Done) return;
+            var hint = Ui.Label(_hintColumn, "◈ " + TutorialText(_tutorial.Step), 26);
+            hint.color = new Color(1f, 0.84f, 0.35f);
+            hint.transform.SetAsFirstSibling();
+        }
+
+        private static string TutorialText(TutorialStep step) => step switch
+        {
+            TutorialStep.CastLamp => "点字库的【灯】,出字就是攻击!",
+            TutorialStep.EndTurn => "AP 用完了?点【结束回合】,小心字怪反击",
+            TutorialStep.PickReward => "清掉字怪!战后三选一,挑个字入库",
+            TutorialStep.DismantleLamp => "选中【灯】点【拆】——拆出部件『火』『丁』",
+            TutorialStep.ComposeForest => "两个『木』能拼字:点提示里的【合 林】",
+            TutorialStep.ComposeBurn => "『林』+『火』——点【合 焚】,拼出大杀器!",
+            TutorialStep.CastBurn => "打出【焚】,一击清场!",
+            _ => "",
+        };
 
         private void DrawEnemies()
         {
@@ -324,6 +350,7 @@ namespace Brushblade.Presentation
                 Ui.TextButton(_actionRow, $"{id}\n{def.ApCost}AP", () =>
                 {
                     _run.PickReward(index);
+                    _tutorial?.Notify(TutorialAction.PickReward);
                     _message = $"「{id}」入库,下一战!";
                     CancelSelection();
                 }, Ui.RarityColor(def.Rarity), 26, new Vector2(110, 88));
@@ -331,6 +358,7 @@ namespace Brushblade.Presentation
             Ui.TextButton(_actionRow, "跳过", () =>
             {
                 _run.SkipReward();
+                _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成"三选一"节拍,引导不卡死
                 _message = "轻装上阵,下一战!";
                 CancelSelection();
             }, new Color(0.3f, 0.3f, 0.3f));
@@ -415,6 +443,8 @@ namespace Brushblade.Presentation
         private void ExecuteCast(string charId, int target)
         {
             var error = Battle.Cast(charId, target);
+            if (error == BattleError.None)
+                _tutorial?.Notify(TutorialAction.Cast, charId);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             AppendBossPhaseMessage();
             CancelSelection();
@@ -442,6 +472,8 @@ namespace Brushblade.Presentation
         private void OnDismantle(string charId)
         {
             var error = Battle.Dismantle(charId);
+            if (error == BattleError.None)
+                _tutorial?.Notify(TutorialAction.Dismantle, charId);
             _message = error == BattleError.None ? $"拆「{charId}」" : Describe(error);
             CancelSelection();
         }
@@ -449,6 +481,8 @@ namespace Brushblade.Presentation
         private void OnCompose(string charId)
         {
             var error = Battle.Compose(charId);
+            if (error == BattleError.None)
+                _tutorial?.Notify(TutorialAction.Compose, charId);
             _message = error == BattleError.None ? $"合出「{charId}」!" : Describe(error);
             CancelSelection();
         }
@@ -456,6 +490,7 @@ namespace Brushblade.Presentation
         private void OnEndTurn()
         {
             Battle.EndTurn();
+            _tutorial?.Notify(TutorialAction.EndTurn);
             _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+3 AP,部件掉落" : "";
             CancelSelection();
             PlayJuice();
