@@ -18,6 +18,8 @@ tools/pipeline/out/
 # dotnet 测试工装构建产物
 tools/coretests/bin/
 tools/coretests/obj/
+tools/balance/bin/
+tools/balance/obj/
 
 # Unity(项目创建后按需补全 Library/Temp/Logs/obj 等)
 Brushblade/Library/

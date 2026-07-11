@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 难度仿真工装(F1 调平):链接 Core/Data 源码,无头跑满章节量化难度曲线。
+       用法:tools/balance$ dotnet run -c Release(dotnet 用 Unity 自带 SDK,见 CLAUDE.md)。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Core/**/*.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Data/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>
