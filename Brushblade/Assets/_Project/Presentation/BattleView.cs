@@ -146,7 +146,7 @@ namespace Brushblade.Presentation
         private static string TutorialText(TutorialStep step) => step switch
         {
             TutorialStep.CastLamp => "点字库的【灯】,出字就是攻击!",
-            TutorialStep.EndTurn => "AP 用完了?点【结束回合】,小心字怪反击",
+            TutorialStep.EndTurn => "点【结束回合】(AP 耗尽会自动结束)——小心字怪反击",
             TutorialStep.PickReward => "清掉字怪!战后三选一,挑个字入库",
             TutorialStep.DismantleLamp => "选中【灯】点【拆】——拆出部件『火』『丁』",
             TutorialStep.ComposeForest => "两个『木』能拼字:点提示里的【合 林】",
@@ -449,7 +449,31 @@ namespace Brushblade.Presentation
             AppendBossPhaseMessage();
             CancelSelection();
             if (error == BattleError.None)
+            {
                 PlayJuice();
+                MaybeAutoEndTurn();
+            }
+        }
+
+        private float _autoEndDueAt; // AP 耗尽后自动结束回合的时点;每次动作重置,给连续丢弃留手
+
+        /// <summary>AP 耗尽自动结束回合:留短缓冲看清结算;免 AP 丢弃会顺延缓冲。</summary>
+        private void MaybeAutoEndTurn()
+        {
+            if (_run.Phase != RunPhase.InBattle || Battle.Phase != BattlePhase.PlayerTurn || Battle.Ap != 0)
+                return;
+            _autoEndDueAt = Time.unscaledTime + 0.45f;
+            StartCoroutine(AutoEndTurn());
+        }
+
+        private System.Collections.IEnumerator AutoEndTurn()
+        {
+            while (Time.unscaledTime < _autoEndDueAt)
+                yield return null;
+            if (_run.Phase != RunPhase.InBattle || Battle.Phase != BattlePhase.PlayerTurn || Battle.Ap != 0)
+                yield break; // 期间局面已变(胜负已分/新回合)则作罢
+            OnEndTurn();
+            _messageLabel.text = "AP 耗尽,自动结束回合 · " + _message;
         }
 
         private void AppendBossPhaseMessage()
@@ -467,6 +491,8 @@ namespace Brushblade.Presentation
             var error = Battle.Discard(charId);
             _message = error == BattleError.None ? $"丢弃「{charId}」(免 AP)" : Describe(error);
             CancelSelection();
+            if (error == BattleError.None)
+                MaybeAutoEndTurn(); // 0 AP 时的丢弃:顺延自动结束缓冲,可连续丢
         }
 
         private void OnDismantle(string charId)
@@ -476,6 +502,8 @@ namespace Brushblade.Presentation
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
             _message = error == BattleError.None ? $"拆「{charId}」" : Describe(error);
             CancelSelection();
+            if (error == BattleError.None)
+                MaybeAutoEndTurn();
         }
 
         private void OnCompose(string charId)
@@ -485,6 +513,8 @@ namespace Brushblade.Presentation
                 _tutorial?.Notify(TutorialAction.Compose, charId);
             _message = error == BattleError.None ? $"合出「{charId}」!" : Describe(error);
             CancelSelection();
+            if (error == BattleError.None)
+                MaybeAutoEndTurn();
         }
 
         private void OnEndTurn()
