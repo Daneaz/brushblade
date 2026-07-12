@@ -38,6 +38,8 @@ namespace Brushblade.Presentation
         private Transform _actionRow;
         private Text _messageLabel;
         private string _expandedHint;    // 当前展开的差一类别(缺的部件 id;null = 全收起)
+        private string _hintBucket;      // 三级目录一级选中的五行桶(金木水火土心/中性;null = 收起)
+        private string _hintCharFocus;   // 三级目录二级选中的字(null = 未选)
 
         private Tutorial _tutorial;      // 新手引导(11.2);null = 不引导
 
@@ -371,7 +373,7 @@ namespace Brushblade.Presentation
             DrawNearMissHints(suggest.NearMisses);
         }
 
-        /// <summary>差一提示:按缺的部件分组,最多 5 行;点击展开该类别(手风琴)。</summary>
+        /// <summary>差一提示:≤5 类维持分组手风琴;超出改为五行三级目录(属性→字→差什么),玩家主动查。</summary>
         private void DrawNearMissHints(System.Collections.Generic.IReadOnlyList<NearMiss> nearMisses)
         {
             var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
@@ -382,20 +384,18 @@ namespace Brushblade.Presentation
                 chars.Add(miss.CharId);
             }
             if (groups.Count == 0) return;
+            if (groups.Count > 5)
+            {
+                DrawHintDirectory(nearMisses);
+                return;
+            }
 
-            // 可合数量降序,取前 5 类
+            // 可合数量降序
             var ordered = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.List<string>>>(groups);
             ordered.Sort((a, b) => b.Value.Count.CompareTo(a.Value.Count));
 
-            int shown = 0;
             foreach (var group in ordered)
             {
-                if (shown >= 5)
-                {
-                    Ui.Label(_hintColumn, $"…还有 {ordered.Count - 5} 类", 16, TextAnchor.MiddleLeft);
-                    break;
-                }
-                shown += 1;
                 string ingredient = group.Key;
                 bool expanded = _expandedHint == ingredient;
                 var chars = group.Value.Count <= 10
@@ -412,6 +412,83 @@ namespace Brushblade.Presentation
                     14, new Vector2(expanded ? 560 : 240, 26));
             }
         }
+
+        private static readonly string[] HintBucketOrder = { "金", "木", "水", "火", "土", "心", "中性" };
+
+        /// <summary>三级目录:一级五行属性(按目标字属性分桶)→二级该系可合的字→三级差什么部件。</summary>
+        private void DrawHintDirectory(System.Collections.Generic.IReadOnlyList<NearMiss> nearMisses)
+        {
+            // 分桶:目标字的五行属性(心/中性单列,避免丢字)
+            var buckets = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<NearMiss>>();
+            foreach (var miss in nearMisses)
+            {
+                var element = _graph.Get(miss.CharId).Element;
+                string key = element is { } e ? ElementName(e) : "中性";
+                if (!buckets.TryGetValue(key, out var list))
+                    buckets[key] = list = new System.Collections.Generic.List<NearMiss>();
+                list.Add(miss);
+            }
+
+            // 一级:属性胶囊(带可合数),点选/再点收起
+            var level1 = Ui.Row(_hintColumn, "HintElements", 6);
+            Ui.ThemedLabel(level1.transform, $"差一可合 {nearMisses.Count} 字·按五行查:", 14, Theme.TextDim);
+            foreach (var key in HintBucketOrder)
+            {
+                if (!buckets.TryGetValue(key, out var list)) continue;
+                bool selected = _hintBucket == key;
+                var element = ElementByName(key);
+                Ui.RoundButton(level1.transform, $"{key} {list.Count}", () =>
+                {
+                    _hintBucket = selected ? null : key;
+                    _hintCharFocus = null;
+                    Refresh();
+                }, selected ? Theme.ElementColor(element) : Theme.ElementSoft(element),
+                    selected ? Color.white : Theme.ElementSoftFg(element), 14, new Vector2(58, 30), 8);
+            }
+
+            if (_hintBucket == null || !buckets.TryGetValue(_hintBucket, out var bucketChars)) return;
+
+            // 二级:该系可合的字(每行 12,最多两行,超出计数)
+            const int perRow = 12, maxShown = 24;
+            Transform row = null;
+            NearMiss? focused = null;
+            for (int i = 0; i < bucketChars.Count && i < maxShown; i++)
+            {
+                if (i % perRow == 0) row = Ui.Row(_hintColumn, $"HintChars{i / perRow}", 4).transform;
+                var miss = bucketChars[i];
+                bool focus = _hintCharFocus == miss.CharId;
+                if (focus) focused = miss;
+                var def = _graph.Get(miss.CharId);
+                Ui.RoundButton(row, miss.CharId, () =>
+                {
+                    _hintCharFocus = focus ? null : miss.CharId;
+                    Refresh();
+                }, focus ? Theme.Ink : Theme.CardWhite,
+                    focus ? Color.white : Theme.ElementColor(def.Element), 15, new Vector2(34, 30), 8);
+            }
+            if (bucketChars.Count > maxShown)
+                Ui.ThemedLabel(_hintColumn, $"…共 {bucketChars.Count} 字", 13, Theme.TextDim);
+
+            // 三级:差什么
+            if (focused is { } target)
+            {
+                var def = _graph.Get(target.CharId);
+                Ui.ThemedLabel(_hintColumn,
+                    $"「{target.CharId}」= {string.Join("+", def.Recipe)},差「{target.MissingIngredient}」",
+                    14, Theme.TextMain);
+            }
+        }
+
+        private static Element? ElementByName(string name) => name switch
+        {
+            "金" => Element.Metal,
+            "木" => Element.Wood,
+            "水" => Element.Water,
+            "火" => Element.Fire,
+            "土" => Element.Earth,
+            "心" => Element.Heart,
+            _ => null,
+        };
 
         private void DrawActions()
         {
