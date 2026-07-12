@@ -142,7 +142,7 @@ namespace Brushblade.Presentation
             scaler.referenceResolution = new Vector2(1600, 900);
             scaler.matchWidthOrHeight = 1f; // 横屏按高度匹配:20:9 长条屏不放大纵向占位
 
-            // 全屏黑底:不依赖场景相机设置,保证白字可读
+            // 全屏宣纸底:不依赖场景相机设置(设计板主题)
             var backgroundGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
             backgroundGo.transform.SetParent(canvasGo.transform, false);
             backgroundGo.GetComponent<Image>().color = Theme.Paper;

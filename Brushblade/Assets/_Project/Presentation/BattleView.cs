@@ -203,7 +203,7 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(hpStack.transform, $"护盾 {Battle.PlayerShield}", 12, Theme.Jade);
             }
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
-            Ui.ThemedLabel(apStack.transform, "墨力", 12, Theme.TextDim);
+            Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
             var pips = Ui.Row(apStack.transform, "Pips", 12);
             for (int i = 0; i < 3; i++)
             {
@@ -304,7 +304,7 @@ namespace Brushblade.Presentation
                 string charId = id;
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} 墨力", selected,
+                Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected,
                     () => OnLibraryCharClicked(charId), new Vector2(82, 104));
             }
         }
@@ -450,7 +450,7 @@ namespace Brushblade.Presentation
                 int index = i;
                 var id = _run.RewardOptions[i];
                 var def = _graph.Get(id);
-                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} 墨力", false, () =>
+                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} AP", false, () =>
                 {
                     _run.PickReward(index);
                     _tutorial?.Notify(TutorialAction.PickReward);

@@ -22,6 +22,7 @@ BASE = (
 )
 
 _STRING_RE = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+_CHAR_RE = re.compile(r"'(?:[^'\\\n]|\\.)'")
 
 
 def json_chars(path: Path) -> set:
@@ -43,7 +44,10 @@ def json_chars(path: Path) -> set:
 def code_chars(root: Path) -> set:
     out: set = set()
     for cs in root.rglob("*.cs"):
-        for lit in _STRING_RE.findall(cs.read_text(encoding="utf-8")):
+        text = cs.read_text(encoding="utf-8")
+        for lit in _STRING_RE.findall(text):
+            out.update(lit[1:-1])
+        for lit in _CHAR_RE.findall(text):
             out.update(lit[1:-1])
     return out
 

@@ -83,7 +83,7 @@ namespace Brushblade.Presentation
                 bool inDeck = deck.Contains(cardId);
                 var def = _graph.Get(cardId);
 
-                // 主卡:GlyphTile;出阵者用粉色描环表达(selected 环颜色改为粉——用 chip 叠加)
+                // 主卡:GlyphTile;出阵者:GlyphTile 墨色选中环 + 粉色『出阵』chip
                 var badges = Ui.Row(cell.transform, "Badges", 6);
                 Ui.Chip(badges.transform, $"Lv.{level}", Theme.Ink, Color.white, 13);
                 if (inDeck)

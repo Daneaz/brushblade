@@ -40,14 +40,14 @@ namespace Brushblade.Presentation
                     case BattleEventKind.BurnTick:
                         maxHit = Mathf.Max(maxHit, e.Amount);
                         Popup($"-{e.Amount}", e.Kind == BattleEventKind.Damage
-                            ? new Color(1f, 0.55f, 0.25f) : new Color(1f, 0.35f, 0.15f), enemyAnchor(e.TargetIndex));
+                            ? Theme.Cinnabar : Theme.ShopNav, enemyAnchor(e.TargetIndex));
                         Punch(enemyAnchor(e.TargetIndex));
                         break;
                     case BattleEventKind.Burn:
-                        Popup($"灼+{e.Amount}", new Color(1f, 0.75f, 0.3f), enemyAnchor(e.TargetIndex), small: true);
+                        Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
                         break;
                     case BattleEventKind.Shield:
-                        Popup($"盾+{e.Amount}", new Color(0.5f, 0.75f, 1f), null);
+                        Popup($"盾+{e.Amount}", Theme.SplitBlue, null);
                         _audio.PlayOneShot(_shieldClip, 0.7f);
                         break;
                     case BattleEventKind.EnemyDied:
@@ -55,20 +55,20 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.EnemyAttack:
                         playerHit = true;
-                        Popup($"-{e.Amount}", new Color(1f, 0.3f, 0.3f), null);
+                        Popup($"-{e.Amount}", Theme.Cinnabar, null);
                         break;
                     case BattleEventKind.EnemySplit:
-                        Popup("分裂!", new Color(0.7f, 1f, 0.5f), enemyAnchor(e.TargetIndex));
+                        Popup("分裂!", Theme.Jade, enemyAnchor(e.TargetIndex));
                         break;
                     case BattleEventKind.BossPhase:
-                        Popup("破阶!", new Color(1f, 0.9f, 0.4f), enemyAnchor(e.TargetIndex));
+                        Popup("破阶!", Theme.GoldBorder, enemyAnchor(e.TargetIndex));
                         _audio.PlayOneShot(_thudClip, 1f);
                         break;
                     case BattleEventKind.EnemyBuff:
-                        Popup($"攻+{e.Amount}", new Color(1f, 0.5f, 0.7f), enemyAnchor(e.TargetIndex), small: true);
+                        Popup($"攻+{e.Amount}", Theme.InkSoft, enemyAnchor(e.TargetIndex), small: true);
                         break;
                     case BattleEventKind.EnemyRevealed:
-                        Popup("现形!", new Color(0.6f, 0.9f, 1f), enemyAnchor(e.TargetIndex));
+                        Popup("现形!", Theme.SplitBlue, enemyAnchor(e.TargetIndex));
                         break;
                 }
             }

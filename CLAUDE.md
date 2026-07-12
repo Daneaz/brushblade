@@ -26,7 +26,7 @@
 
 ```bash
 # 管线(pytest)
-python3 -m pytest tools/pipeline/tests/ -q
+python3 -m pytest tools/pipeline/tests/ tools/fonts/tests/ -q
 
 # Core/Data 单元测试(首选,不依赖编辑器锁,毫秒级;用 Unity 自带 dotnet SDK)
 cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet test --nologo -v q
