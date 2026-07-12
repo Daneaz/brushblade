@@ -149,7 +149,7 @@ namespace Brushblade.Presentation
             backgroundGo.GetComponent<Image>().raycastTarget = false;
             Ui.Stretch((RectTransform)backgroundGo.transform);
 
-            // 安全区容器:内容避开刘海/挖孔,黑底仍全屏
+            // 安全区容器:内容避开刘海/挖孔,宣纸底仍全屏
             var safeGo = new GameObject("SafeArea", typeof(RectTransform));
             safeGo.transform.SetParent(canvasGo.transform, false);
             safeGo.AddComponent<SafeAreaFitter>();

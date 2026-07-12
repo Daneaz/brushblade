@@ -51,7 +51,7 @@ namespace Brushblade.Presentation
                         _audio.PlayOneShot(_shieldClip, 0.7f);
                         break;
                     case BattleEventKind.EnemyDied:
-                        Popup("正!", Color.white, enemyAnchor(e.TargetIndex));
+                        Popup("正!", Theme.Ink, enemyAnchor(e.TargetIndex));
                         break;
                     case BattleEventKind.EnemyAttack:
                         playerHit = true;
