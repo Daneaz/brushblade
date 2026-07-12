@@ -143,7 +143,7 @@ namespace Brushblade.Presentation
             // 全屏黑底:不依赖场景相机设置,保证白字可读
             var backgroundGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
             backgroundGo.transform.SetParent(canvasGo.transform, false);
-            backgroundGo.GetComponent<Image>().color = Color.black;
+            backgroundGo.GetComponent<Image>().color = Theme.Paper;
             backgroundGo.GetComponent<Image>().raycastTarget = false;
             Ui.Stretch((RectTransform)backgroundGo.transform);
 
@@ -164,10 +164,10 @@ namespace Brushblade.Presentation
                 var cameraGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
                 cameraGo.tag = "MainCamera";
             }
-            // 无论相机来自场景还是代码,统一纯黑背景(白字可读性)
+            // 无论相机来自场景还是代码,统一宣纸底(设计板主题)
             var main = Camera.main;
             main.clearFlags = CameraClearFlags.SolidColor;
-            main.backgroundColor = Color.black;
+            main.backgroundColor = Theme.Paper;
             if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
                 new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
