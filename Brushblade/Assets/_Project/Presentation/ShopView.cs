@@ -34,63 +34,73 @@ namespace Brushblade.Presentation
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
-            // 头部
+            // 顶栏:标题 | 墨锭 + 返回
             var header = Ui.Row(transform, "Header", 24);
-            Ui.Anchor((RectTransform)header.transform, new Vector2(0, 0.86f), Vector2.one, Vector2.zero, Vector2.zero);
-            Ui.Label(header.transform, $"每日商城    墨锭 {_meta.Ink}", 28);
-            Ui.TextButton(header.transform, "返回地图", () => _onBack(), new Color(0.3f, 0.3f, 0.3f), 22, new Vector2(130, 56));
+            Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
+            Ui.ThemedLabel(header.transform, "每日商城", 34, Theme.TextMain, Theme.TitleFont);
+            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 24);
+            Ui.PillButton(header.transform, "返回地图", () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
 
+            // 消息行
             var messageGo = Ui.Panel(transform, "Message");
-            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.78f), new Vector2(1, 0.86f), Vector2.zero, Vector2.zero);
-            var messageLabel = Ui.Label(messageGo.transform, _message, 22);
+            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.8f), new Vector2(1, 0.88f), Vector2.zero, Vector2.zero);
+            var messageLabel = Ui.ThemedLabel(messageGo.transform, _message, 20, Theme.TextDim);
             Ui.Stretch(messageLabel.rectTransform);
 
-            // 卡位 ×4
-            var cardRow = Ui.Row(transform, "Cards", 16);
-            Ui.Anchor((RectTransform)cardRow.transform, new Vector2(0, 0.5f), new Vector2(1, 0.76f), Vector2.zero, Vector2.zero);
+            // 货架卡位 ×4:字牌 + 价格按钮
+            var cardRow = Ui.Row(transform, "Cards", 20);
+            Ui.Anchor((RectTransform)cardRow.transform, new Vector2(0, 0.44f), new Vector2(1, 0.78f), Vector2.zero, Vector2.zero);
             for (int i = 0; i < _meta.Shop.CardSlots.Count; i++)
             {
                 int index = i;
                 string card = _meta.Shop.CardSlots[i];
                 bool sold = _meta.Shop.CardSold[i];
-                var rarity = _graph.Get(card).Rarity;
-                int price = ShopRules.CardPriceFor(rarity);
-                var button = Ui.TextButton(cardRow.transform,
-                    sold ? $"{card}\n已售" : $"{card}\n{price} 墨锭",
-                    () => Do(() => ShopRules.TryBuyCard(_meta, index, rarity), $"购入「{card}」!"),
-                    sold ? new Color(0.18f, 0.18f, 0.2f) : Ui.RarityColor(rarity),
-                    24, new Vector2(140, 110));
-                button.interactable = !sold && _meta.Ink >= price;
+                var def = _graph.Get(card);
+                int price = ShopRules.CardPriceFor(def.Rarity);
+                bool affordable = !sold && _meta.Ink >= price;
+
+                var cell = Ui.VStack(cardRow.transform, $"Slot{i}", 8);
+                Ui.GlyphTile(cell.transform, def, sold ? "已售" : "", false, null, new Vector2(130, 150));
+                var buy = Ui.RoundButton(cell.transform, sold ? "已售" : price.ToString(),
+                    () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), $"购入「{card}」!"),
+                    sold ? Theme.LockedBg : Theme.Ink, sold ? Theme.LockGray : Color.white,
+                    18, new Vector2(130, 42));
+                buy.interactable = affordable;
             }
 
-            // 宝箱位 + 墨锭广告位 + 刷新
+            // 特殊行:宝箱位 + 看广告领墨锭 + 看广告刷新
             var bottomRow = Ui.Row(transform, "Bottom", 24);
-            Ui.Anchor((RectTransform)bottomRow.transform, new Vector2(0, 0.2f), new Vector2(1, 0.46f), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)bottomRow.transform, new Vector2(0, 0.06f), new Vector2(1, 0.4f), Vector2.zero, Vector2.zero);
 
             int chestPrice = ShopRules.ChestPrice[(int)_meta.Shop.ChestSlot - 1];
             string chestName = ChestRules.TierName(_meta.Shop.ChestSlot);
-            var chestButton = Ui.TextButton(bottomRow.transform,
-                _meta.Shop.ChestSold ? $"{chestName}\n已售" : $"{chestName}\n{chestPrice} 墨锭",
+            var chestCell = Ui.VStack(bottomRow.transform, "Chest", 8);
+            var chestCard = Ui.CardPanel(chestCell.transform, "ChestCard");
+            var chestCardElement = chestCard.gameObject.AddComponent<LayoutElement>();
+            chestCardElement.preferredWidth = 170;
+            chestCardElement.preferredHeight = 100;
+            var chestLabel = Ui.ThemedLabel(chestCard.transform, chestName, 24,
+                Theme.RarityColor((Brushblade.Core.CardRarity)(int)_meta.Shop.ChestSlot), Theme.TitleFont);
+            Ui.Stretch(chestLabel.rectTransform);
+            var chestBuy = Ui.RoundButton(chestCell.transform, _meta.Shop.ChestSold ? "已售" : chestPrice.ToString(),
                 () => Do(() => ShopRules.TryBuyChest(_meta, _unlockedPool, _time), $"{chestName}入箱位!"),
-                _meta.Shop.ChestSold ? new Color(0.18f, 0.18f, 0.2f) : new Color(0.4f, 0.32f, 0.16f),
-                24, new Vector2(170, 110));
-            chestButton.interactable = !_meta.Shop.ChestSold && _meta.Ink >= chestPrice
+                _meta.Shop.ChestSold ? Theme.LockedBg : Theme.Ink,
+                _meta.Shop.ChestSold ? Theme.LockGray : Color.white, 18, new Vector2(170, 42));
+            chestBuy.interactable = !_meta.Shop.ChestSold && _meta.Ink >= chestPrice
                 && _meta.Chests.Count < ChestRules.SlotLimit;
 
-            var inkAdButton = Ui.TextButton(bottomRow.transform,
-                _meta.Shop.InkAdClaimed ? "墨锭已领" : $"看广告领\n{ShopRules.InkAdAmount} 墨锭",
+            var inkAd = Ui.AdBadge(bottomRow.transform,
+                _meta.Shop.InkAdClaimed ? "墨锭已领" : $"看广告领 {ShopRules.InkAdAmount}",
                 () => Do(() => ShopRules.TryClaimInkAd(_meta), "墨锭到账!"), // 原型:点击即生效,SDK 后接
-                _meta.Shop.InkAdClaimed ? new Color(0.18f, 0.18f, 0.2f) : new Color(0.2f, 0.38f, 0.3f),
-                22, new Vector2(150, 110));
-            inkAdButton.interactable = !_meta.Shop.InkAdClaimed;
+                new Vector2(170, 64));
+            inkAd.interactable = !_meta.Shop.InkAdClaimed;
 
-            var refreshButton = Ui.TextButton(bottomRow.transform,
-                _meta.Shop.AdRefreshUsed ? "今日已刷新" : "看广告\n刷新货架",
+            var refresh = Ui.AdBadge(bottomRow.transform,
+                _meta.Shop.AdRefreshUsed ? "今日已刷新" : "看广告刷新货架",
                 () => Do(() => ShopRules.TryAdRefresh(_meta, _unlockedPool,
                     new GameRandom(Environment.TickCount)), "货架焕然一新!"),
-                _meta.Shop.AdRefreshUsed ? new Color(0.18f, 0.18f, 0.2f) : new Color(0.3f, 0.28f, 0.42f),
-                22, new Vector2(150, 110));
-            refreshButton.interactable = !_meta.Shop.AdRefreshUsed;
+                new Vector2(190, 64));
+            refresh.interactable = !_meta.Shop.AdRefreshUsed;
         }
 
         private void Do(Func<bool> action, string successMessage)
