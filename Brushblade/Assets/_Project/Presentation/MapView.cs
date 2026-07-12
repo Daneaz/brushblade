@@ -74,8 +74,18 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(header.transform,
                 $"经验 {_meta.CharacterXp}    HP 上限 {MetaRules.MaxHpFor(level)}", 20, Theme.TextDim);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
-            Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
+            var collectionButton = Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
                 Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);
+            if (AnyCardUpgradable()) // 可升级红点导航
+            {
+                var dot = Ui.Panel(collectionButton.transform, "Dot");
+                var dotImage = dot.AddComponent<Image>();
+                dotImage.sprite = Theme.Circle;
+                dotImage.color = Theme.Cinnabar;
+                dotImage.raycastTarget = false;
+                Ui.Anchor((RectTransform)dot.transform, Vector2.one, Vector2.one,
+                    new Vector2(-16, -16), new Vector2(-4, -4));
+            }
             Ui.RoundButton(header.transform, "商城", () => _onOpenShop(),
                 Theme.ShopNav, Color.white, 20, new Vector2(100, 50), 12);
 
@@ -209,6 +219,14 @@ namespace Brushblade.Presentation
             slotElement.preferredHeight = 150;
             var label = Ui.ThemedLabel(slot.transform, "空位", 16, Theme.LockGray);
             Ui.Stretch(label.rectTransform);
+        }
+
+        private bool AnyCardUpgradable()
+        {
+            foreach (var id in _meta.OwnedCards)
+                if (MetaRules.CanUpgradeCard(_meta, id, _graph.Get(id).Rarity))
+                    return true;
+            return false;
         }
 
         private bool AnyChestTiming()

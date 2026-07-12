@@ -34,11 +34,27 @@ namespace Brushblade.Presentation
             int pageCount = Mathf.Max(1, (_meta.OwnedCards.Count + CardsPerPage - 1) / CardsPerPage);
             _page = Mathf.Clamp(_page, 0, pageCount - 1);
 
+            // 可升级导航:可升级卡稳定排前,头部计数
+            var ordered = new System.Collections.Generic.List<string>(_meta.OwnedCards.Count);
+            int upgradable = 0;
+            foreach (var id in _meta.OwnedCards)
+                if (MetaRules.CanUpgradeCard(_meta, id, _graph.Get(id).Rarity))
+                {
+                    ordered.Insert(upgradable, id);
+                    upgradable++;
+                }
+                else
+                {
+                    ordered.Add(id);
+                }
+
             var header = Ui.Row(transform, "Header", 20);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
             Ui.ThemedLabel(header.transform, "卡组", 34, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(header.transform,
                 $"收集 {_meta.OwnedCards.Count} 张    出阵 {CurrentDeck().Count}/{MetaRules.DeckLimit}", 22, Theme.TextDim);
+            if (upgradable > 0)
+                Ui.Chip(header.transform, $"可升 {upgradable}", Theme.Cinnabar, Color.white, 15);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
             if (pageCount > 1)
             {
@@ -60,10 +76,10 @@ namespace Brushblade.Presentation
             // 卡格(每页 12 张:2 行 × 6):出阵粉环 + Lv 角标 + 升级脚注
             var deck = CurrentDeck();
             int start = _page * CardsPerPage;
-            int end = Mathf.Min(start + CardsPerPage, _meta.OwnedCards.Count);
+            int end = Mathf.Min(start + CardsPerPage, ordered.Count);
             for (int i = start; i < end; i++)
             {
-                string cardId = _meta.OwnedCards[i];
+                string cardId = ordered[i];
                 int slot = i - start;
                 int row = slot / 6, col = slot % 6;
                 float y = 0.78f - row * 0.38f;

@@ -95,6 +95,16 @@ namespace Brushblade.Core
             meta.CardCopies[cardId] = current + count;
         }
 
+        /// <summary>纯判定:当前重复卡与墨锭是否足以升级(UI 红点/排序用),不动状态。</summary>
+        public static bool CanUpgradeCard(MetaState meta, string cardId, CardRarity rarity = CardRarity.White)
+        {
+            int level = CardLevel(meta, cardId);
+            meta.CardCopies.TryGetValue(cardId, out var copies);
+            return level < MaxCardLevel
+                && copies >= CopiesRequired(level, rarity)
+                && meta.Ink >= InkRequired(level, rarity);
+        }
+
         /// <summary>集满 + 墨锭足够 → 消耗并升 1 级;否则返回 false 不动状态。成本按稀有度分档。</summary>
         public static bool TryUpgradeCard(MetaState meta, string cardId, CardRarity rarity = CardRarity.White)
         {

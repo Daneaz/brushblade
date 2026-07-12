@@ -502,17 +502,27 @@ namespace Brushblade.Presentation
 
         private void OnLibraryCharClicked(string charId)
         {
+            if (_selectedChar == charId && !_targeting)
+            {
+                OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
+                return;
+            }
             _selectedChar = charId;
             _targeting = false;
-            _message = CharInfo.Summary(_graph.Get(charId), _graph);
+            _message = CharInfo.Summary(_graph.Get(charId), _graph) + "|再点即出";
             Refresh();
         }
 
         private void OnPoolCharClicked(string charId)
         {
+            if (_selectedChar == charId && !_targeting)
+            {
+                OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
+                return;
+            }
             _selectedChar = charId;
             _targeting = false;
-            _message = CharInfo.Summary(_graph.Get(charId), _graph);
+            _message = CharInfo.Summary(_graph.Get(charId), _graph) + "|直出:部件不入库直接打出|再点即出";
             Refresh();
         }
 

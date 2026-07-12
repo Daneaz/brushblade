@@ -91,6 +91,25 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void CanUpgradeCard_ChecksWithoutMutating()
+        {
+            var meta = new MetaState { Ink = 100 };
+            MetaRules.AddCardCopies(meta, "焚", 3);
+            Assert.That(MetaRules.CanUpgradeCard(meta, "焚"), Is.True);
+            Assert.That(meta.Ink, Is.EqualTo(100)); // 只判定不消耗
+            Assert.That(meta.CardCopies["焚"], Is.EqualTo(3));
+
+            Assert.That(MetaRules.CanUpgradeCard(new MetaState { Ink = 1000 }, "焚"), Is.False); // 无重复卡
+            var poor = new MetaState { Ink = 5 };
+            MetaRules.AddCardCopies(poor, "焚", 10);
+            Assert.That(MetaRules.CanUpgradeCard(poor, "焚"), Is.False); // 墨锭不足
+            var maxed = new MetaState { Ink = 99999 };
+            maxed.CardLevels["焚"] = MetaRules.MaxCardLevel;
+            MetaRules.AddCardCopies(maxed, "焚", 999);
+            Assert.That(MetaRules.CanUpgradeCard(maxed, "焚"), Is.False); // 满级
+        }
+
+        [Test]
         public void UpgradeCard_InsufficientCopies_Fails()
         {
             var meta = new MetaState { Ink = 1000 };
