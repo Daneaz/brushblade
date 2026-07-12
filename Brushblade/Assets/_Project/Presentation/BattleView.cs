@@ -108,8 +108,23 @@ namespace Brushblade.Presentation
 
         // ---- 渲染 ----
 
+        // 字牌位置登记(charId→当前 RectTransform):过渡动效的起终点;每次重绘重新登记
+        private readonly System.Collections.Generic.Dictionary<string, RectTransform> _tileRects = new();
+
+        private bool TryGetTilePos(string charId, out Vector3 pos)
+        {
+            if (_tileRects.TryGetValue(charId, out var rect) && rect != null)
+            {
+                pos = rect.position;
+                return true;
+            }
+            pos = default;
+            return false;
+        }
+
         private void Refresh()
         {
+            _tileRects.Clear();
             Ui.Clear(_topLeft);
             Ui.Clear(_topRight);
             Ui.Clear(_enemyRow);
@@ -304,8 +319,9 @@ namespace Brushblade.Presentation
                 string charId = id;
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected,
+                var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected,
                     () => OnLibraryCharClicked(charId), new Vector2(82, 104));
+                _tileRects[charId] = (RectTransform)tile.transform;
             }
         }
 
@@ -324,10 +340,11 @@ namespace Brushblade.Presentation
                 string charId = id;
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                Ui.RoundButton(_poolRow, charId, () => OnPoolCharClicked(charId),
+                var tile = Ui.RoundButton(_poolRow, charId, () => OnPoolCharClicked(charId),
                     selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     selected ? Color.white : Theme.ElementSoftFg(def.Element),
                     22, new Vector2(56, 56), 12);
+                _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
             }
         }
 
@@ -554,6 +571,7 @@ namespace Brushblade.Presentation
 
         private void ExecuteCast(string charId, int target)
         {
+            bool hasFrom = TryGetTilePos(charId, out var fromPos); // 起点须在重绘销毁字牌前捕获
             var error = Battle.Cast(charId, target);
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Cast, charId);
@@ -562,9 +580,26 @@ namespace Brushblade.Presentation
             CancelSelection();
             if (error == BattleError.None)
             {
-                PlayJuice();
+                // 飞牌到首个受击敌人,到达才播结算表现;事件快照防连点串场
+                var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
+                var toRect = CastTargetRect(events);
+                if (hasFrom && toRect != null)
+                    _juice.FlyGlyph(charId, Theme.ElementColor(_graph.Get(charId).Element), fromPos, toRect.position,
+                        () => _juice.Play(events, i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null));
+                else
+                    PlayJuice(); // 无伤害目标(纯护盾等)或起点缺失:即时表现
                 MaybeAutoEndTurn();
             }
+        }
+
+        /// <summary>出字动效终点:第一个受击/受灼敌人格;没有则 null。</summary>
+        private RectTransform CastTargetRect(System.Collections.Generic.IReadOnlyList<BattleEvent> events)
+        {
+            foreach (var e in events)
+                if ((e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.Burn)
+                    && e.TargetIndex >= 0 && e.TargetIndex < _enemyRects.Count)
+                    return _enemyRects[e.TargetIndex];
+            return null;
         }
 
         private float _autoEndDueAt; // AP 耗尽后自动结束回合的时点;每次动作重置,给连续丢弃留手
@@ -609,24 +644,50 @@ namespace Brushblade.Presentation
 
         private void OnDismantle(string charId)
         {
+            bool hasFrom = TryGetTilePos(charId, out var fromPos);
+            var recipe = _graph.Get(charId).Recipe;
             var error = Battle.Dismantle(charId);
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
             _message = error == BattleError.None ? $"拆「{charId}」" : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
+            {
+                if (hasFrom) // 部件从原字牌位置散落到池中新位(重绘后已登记)
+                    foreach (var part in recipe)
+                    {
+                        if (!_tileRects.TryGetValue(part, out var partTile) || partTile == null) continue;
+                        var target = partTile;
+                        _juice.FlyGlyph(part, Theme.ElementColor(_graph.Get(part).Element), fromPos, target.position,
+                            () => _juice.PopTile(target));
+                    }
                 MaybeAutoEndTurn();
+            }
         }
 
         private void OnCompose(string charId)
         {
+            // 起点须在重绘销毁部件牌前捕获
+            var partsFrom = new System.Collections.Generic.List<(string glyph, Vector3 pos)>();
+            foreach (var part in _graph.Get(charId).Recipe)
+                if (TryGetTilePos(part, out var pos))
+                    partsFrom.Add((part, pos));
             var error = Battle.Compose(charId);
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Compose, charId);
             _message = error == BattleError.None ? $"合出「{charId}」!" : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
+            {
+                if (_tileRects.TryGetValue(charId, out var resultTile) && resultTile != null && partsFrom.Count > 0)
+                {
+                    int arrived = 0; // 闭包共享:全部到齐才弹跳
+                    foreach (var (glyph, pos) in partsFrom)
+                        _juice.FlyGlyph(glyph, Theme.ElementColor(_graph.Get(glyph).Element), pos, resultTile.position,
+                            () => { if (++arrived == partsFrom.Count) _juice.PopTile(resultTile); });
+                }
                 MaybeAutoEndTurn();
+            }
         }
 
         private void OnEndTurn()

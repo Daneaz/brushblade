@@ -88,6 +88,64 @@ namespace Brushblade.Presentation
             }
         }
 
+        // ---- 过渡动效:飞牌 / 字牌弹跳(整屏重绘后补播,纯浮层不碰逻辑) ----
+
+        /// <summary>幽灵字牌从 from 飞到 to(世界坐标),到达后销毁并回调。出字/合成/拆解的过渡表现。</summary>
+        public void FlyGlyph(string glyph, Color color, Vector3 from, Vector3 to, Action onArrive = null)
+        {
+            var go = new GameObject("FlyGlyph", typeof(RectTransform));
+            go.transform.SetParent(_shakeTarget, false);
+            var rect = (RectTransform)go.transform;
+            rect.sizeDelta = new Vector2(56, 56);
+            rect.position = from;
+
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.color = color;
+            image.raycastTarget = false;
+
+            var label = new GameObject("Glyph", typeof(RectTransform)).AddComponent<Text>();
+            label.transform.SetParent(go.transform, false);
+            label.font = Theme.TitleFont;
+            label.fontSize = 26;
+            label.fontStyle = FontStyle.Bold;
+            label.text = glyph;
+            label.color = Color.white;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            label.raycastTarget = false;
+            Ui.Stretch(label.rectTransform);
+
+            StartCoroutine(FlyRoutine(rect, from, to, onArrive));
+        }
+
+        private static IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to, Action onArrive)
+        {
+            float t = 0f;
+            const float duration = 0.22f;
+            while (t < duration && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / duration);
+                float eased = k * k; // ease-in:蓄力后加速砸向目标
+                rect.position = Vector3.Lerp(from, to, eased);
+                rect.localScale = Vector3.one * (1f + 0.2f * Mathf.Sin(k * Mathf.PI));
+                yield return null;
+            }
+            if (rect != null)
+                UnityEngine.Object.Destroy(rect.gameObject);
+            onArrive?.Invoke();
+        }
+
+        /// <summary>字牌到位弹跳(合成结果/拆出部件落位)。目标可能已被重绘销毁,全程判空。</summary>
+        public void PopTile(RectTransform target)
+        {
+            if (target != null)
+                StartCoroutine(PunchRoutine(target));
+        }
+
         // ---- 震屏 ----
 
         private IEnumerator Shake(float amplitude)
