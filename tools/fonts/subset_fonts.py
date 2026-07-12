@@ -17,7 +17,7 @@ RAW = Path(__file__).parent / "raw"
 # 基线字符:ASCII + 常用 CJK 标点/符号 + 拼音带调字母(CharInfo/GlyphTile 用)
 BASE = (
     "".join(chr(c) for c in range(0x20, 0x7F))
-    + "、。·「」『』【】《》…—×✓✗◀▶◈♥⛨◆？！：；，（）"
+    + "、。·「」『』【】《》…—×✓◀▶♥◆？！：；，（）"
     + "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü"
 )
 

@@ -138,7 +138,7 @@ namespace Brushblade.Presentation
         private void DrawTutorialHint()
         {
             if (_tutorial == null || _tutorial.Done) return;
-            var hint = Ui.Label(_hintColumn, "◈ " + TutorialText(_tutorial.Step), 26);
+            var hint = Ui.Label(_hintColumn, "◆ " + TutorialText(_tutorial.Step), 26);
             hint.color = new Color(1f, 0.84f, 0.35f);
             hint.transform.SetAsFirstSibling();
         }
@@ -296,7 +296,7 @@ namespace Brushblade.Presentation
                     : string.Join("·", group.Value.GetRange(0, 10)) + $"…等{group.Value.Count}字";
                 string label = expanded
                     ? $"差「{ingredient}」→ {chars}"
-                    : $"差「{ingredient}」可合 {group.Value.Count} 字 ▸";
+                    : $"差「{ingredient}」可合 {group.Value.Count} 字 ▶";
                 Ui.TextButton(_hintColumn, label, () =>
                 {
                     _expandedHint = expanded ? null : ingredient; // 手风琴:再点收起
