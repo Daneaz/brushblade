@@ -18,6 +18,10 @@ namespace Brushblade.Presentation
         private Action _onOpenShop;
         private string _message;
 
+        // 计时中箱位的倒计时/加速价标签引用:Tick 只改文本不重建,避免按钮每秒被销毁点不中
+        private readonly System.Collections.Generic.List<(int index, Text countdown, Text skipCost)> _countdowns = new();
+        private GameObject _resultPanel; // 开箱结果面板;打开期间禁止整页重建
+
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
             Action<int, int> onStartStage, Action save, string message, Action onOpenCollection, Action onOpenShop)
         {
@@ -36,12 +40,24 @@ namespace Brushblade.Presentation
 
         private void Tick()
         {
-            foreach (var chest in _meta.Chests)
-                if (chest.Timing && !ChestRules.IsReady(chest, _time))
+            // 计时中:只更新倒计时与加速价文本;跃迁到就绪才整页重建(结果面板打开时押后到关闭)
+            bool becameReady = false;
+            foreach (var (index, countdown, skipCost) in _countdowns)
+            {
+                if (index >= _meta.Chests.Count) continue;
+                var chest = _meta.Chests[index];
+                if (!chest.Timing) continue;
+                if (ChestRules.IsReady(chest, _time))
                 {
-                    Rebuild();
-                    return;
+                    becameReady = true;
+                    continue;
                 }
+                long remaining = ChestRules.RemainingSeconds(chest, _time);
+                if (countdown != null) countdown.text = Format(remaining);
+                if (skipCost != null) skipCost.text = $"{ChestRules.InkCostToSkip(remaining)}墨";
+            }
+            if (becameReady && _resultPanel == null)
+                Rebuild();
         }
 
         private void Rebuild()
@@ -120,6 +136,7 @@ namespace Brushblade.Presentation
 
         private void DrawChestBar()
         {
+            _countdowns.Clear(); // 旧标签随 Ui.Clear 已销毁,重建时重新登记
             var bar = Ui.Row(transform, "Chests", 18);
             Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 0.02f), new Vector2(1, 0.24f), Vector2.zero, Vector2.zero);
 
@@ -168,7 +185,7 @@ namespace Brushblade.Presentation
                 else
                 {
                     long remaining = ChestRules.RemainingSeconds(chest, _time);
-                    Ui.ThemedLabel(stack.transform, Format(remaining), 15, Theme.TextDim);
+                    var countdown = Ui.ThemedLabel(stack.transform, Format(remaining), 15, Theme.TextDim);
                     var mini = Ui.Row(stack.transform, "Mini", 5);
                     if (!chest.AdUsed)
                     {
@@ -176,9 +193,10 @@ namespace Brushblade.Presentation
                         Ui.AdBadge(mini.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
                             () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(74, 34));
                     }
-                    Ui.RoundButton(mini.transform, $"{ChestRules.InkCostToSkip(remaining)}墨",
+                    var skip = Ui.RoundButton(mini.transform, $"{ChestRules.InkCostToSkip(remaining)}墨",
                         () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time)),
                         Theme.Gold, Theme.GoldText, 14, new Vector2(70, 34));
+                    _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
                 }
             }
         }
