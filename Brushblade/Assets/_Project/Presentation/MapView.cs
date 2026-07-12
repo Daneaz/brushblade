@@ -221,12 +221,96 @@ namespace Brushblade.Presentation
 
         private void OpenChest(int index)
         {
+            string tierName = ChestRules.TierName(_meta.Chests[index].Tier);
+            var ownedBefore = new System.Collections.Generic.HashSet<string>(_meta.OwnedCards);
             if (ChestRules.TryOpen(_meta, index, _time, new GameRandom(Environment.TickCount), out var rewards, _graph))
             {
-                _message = $"开箱:墨锭 +{rewards.Ink},字卡 {string.Join(" ", rewards.Cards)}";
                 _save();
+                _message = "";
+                Rebuild();
+                ShowChestResult(tierName, rewards, ownedBefore);
+                return;
             }
             Rebuild();
+        }
+
+        // ---- 开箱结果面板:逐张翻卡,新卡标「新!」,重复卡显示升级进度 ----
+
+        private void ShowChestResult(string tierName, ChestRewards rewards,
+            System.Collections.Generic.HashSet<string> ownedBefore)
+        {
+            var scrim = Ui.Panel(transform, "ChestResult");
+            _resultPanel = scrim;
+            var scrimImage = scrim.AddComponent<Image>();
+            scrimImage.color = Theme.Scrim; // raycastTarget 默认 true:挡住底下所有点击
+            Ui.Stretch((RectTransform)scrim.transform);
+
+            var card = Ui.CardPanel(scrim.transform, "Panel");
+            Ui.Anchor((RectTransform)card.transform, new Vector2(0.16f, 0.16f), new Vector2(0.84f, 0.84f), Vector2.zero, Vector2.zero);
+            var stack = Ui.VStack(card.transform, "Stack", 14);
+            Ui.Stretch((RectTransform)stack.transform);
+
+            Ui.ThemedLabel(stack.transform, $"「{tierName}」开启!", 28, Theme.TextMain, Theme.TitleFont);
+            Ui.IngotLabel(stack.transform, $"+{rewards.Ink}", 22);
+
+            // 字卡:每行最多 8 张(赤霄 16 张两行),先隐藏再逐张弹出
+            var tiles = new System.Collections.Generic.List<GameObject>();
+            var seen = new System.Collections.Generic.HashSet<string>(ownedBefore);
+            Transform row = null;
+            for (int i = 0; i < rewards.Cards.Count; i++)
+            {
+                if (i % 8 == 0) row = Ui.Row(stack.transform, $"CardRow{i / 8}", 10).transform;
+                string cardId = rewards.Cards[i];
+                var def = _graph.Get(cardId);
+                bool isNew = seen.Add(cardId);
+
+                var cell = Ui.VStack(row, $"Reward_{cardId}_{i}", 4);
+                Ui.GlyphTile(cell.transform, def, "", false, null, new Vector2(76, 96));
+                if (isNew)
+                {
+                    Ui.Chip(cell.transform, "新!", Theme.ExitPink, Color.white, 12);
+                }
+                else
+                {
+                    int level = MetaRules.CardLevel(_meta, cardId);
+                    _meta.CardCopies.TryGetValue(cardId, out int copies);
+                    string progress = level >= MetaRules.MaxCardLevel
+                        ? "满级"
+                        : $"升级 {copies}/{MetaRules.CopiesRequired(level, def.Rarity)}";
+                    Ui.Chip(cell.transform, progress, Theme.AdGreenBg, Theme.UpgradeText, 12);
+                }
+                cell.SetActive(false);
+                tiles.Add(cell);
+            }
+
+            Ui.PillButton(stack.transform, "收下", () =>
+            {
+                Destroy(_resultPanel);
+                _resultPanel = null;
+                Rebuild(); // 面板期间押后的就绪跃迁在此补上
+            }, Theme.Cinnabar, Color.white, 20, new Vector2(180, 50));
+
+            StartCoroutine(RevealTiles(tiles));
+        }
+
+        private System.Collections.IEnumerator RevealTiles(System.Collections.Generic.List<GameObject> tiles)
+        {
+            foreach (var tile in tiles)
+            {
+                if (tile == null) yield break; // 面板已被「收下」关闭
+                tile.SetActive(true);
+                var rect = (RectTransform)tile.transform;
+                float t = 0;
+                while (t < 0.12f)
+                {
+                    if (rect == null) yield break;
+                    t += Time.unscaledDeltaTime;
+                    rect.localScale = Vector3.one * Mathf.Lerp(0.5f, 1f, t / 0.12f);
+                    yield return null;
+                }
+                if (rect != null) rect.localScale = Vector3.one;
+                yield return new WaitForSecondsRealtime(0.08f);
+            }
         }
 
         private void Do(Func<bool> action)

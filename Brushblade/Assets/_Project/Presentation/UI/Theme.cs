@@ -36,6 +36,7 @@ namespace Brushblade.Presentation
         public static readonly Color SplitBlue = new(0.098f, 0.311f, 0.506f);   // 「拆」按钮
         public static readonly Color UpgradeText = new(0.107f, 0.333f, 0.173f);
         public static readonly Color Shadow = new(0.088f, 0.105f, 0.132f, 0.08f);
+        public static readonly Color Scrim = new(0.088f, 0.105f, 0.132f, 0.55f);  // 模态遮罩
 
         public static Color RarityColor(CardRarity rarity) => rarity switch
         {
