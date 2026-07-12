@@ -334,7 +334,6 @@ namespace Brushblade.Presentation
         private void DrawSuggest()
         {
             var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library);
-            if (_selectedChar != null || _targeting) return; // 选中态由 DrawActions 占用内容区
             if (suggest.Composable.Count == 0)
                 Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
             foreach (var id in suggest.Composable)
