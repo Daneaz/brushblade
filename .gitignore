@@ -15,6 +15,9 @@ __pycache__/
 tools/pipeline/data/raw/
 tools/pipeline/out/
 
+# 字体原始文件(google/fonts, OFL, 体积大不入 git)
+tools/fonts/raw/
+
 # dotnet 测试工装构建产物
 tools/coretests/bin/
 tools/coretests/obj/
