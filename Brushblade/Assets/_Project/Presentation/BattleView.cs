@@ -397,7 +397,7 @@ namespace Brushblade.Presentation
             }
 
             // 一级:属性胶囊竖排(带可合数),点选/再点收起
-            Ui.ThemedLabel(_hintColumn, $"差一可合 {nearMisses.Count} 字", 14, Theme.TextDim);
+            Ui.ThemedLabel(_hintColumn, "配字表", 16, Theme.TextDim, Theme.TitleFont);
             foreach (var key in HintBucketOrder)
             {
                 if (!buckets.TryGetValue(key, out var list)) continue;
