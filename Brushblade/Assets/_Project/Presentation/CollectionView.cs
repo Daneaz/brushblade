@@ -31,33 +31,33 @@ namespace Brushblade.Presentation
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
-            // 头部:墨锭 / 卡组状态 / 分页 / 返回
             int pageCount = Mathf.Max(1, (_meta.OwnedCards.Count + CardsPerPage - 1) / CardsPerPage);
             _page = Mathf.Clamp(_page, 0, pageCount - 1);
 
-            var header = Ui.Row(transform, "Header", 24);
-            Ui.Anchor((RectTransform)header.transform, new Vector2(0, 0.88f), Vector2.one, Vector2.zero, Vector2.zero);
-            Ui.Label(header.transform,
-                $"收集 {_meta.OwnedCards.Count} 张    出阵 {CurrentDeck().Count}/{MetaRules.DeckLimit}    墨锭 {_meta.Ink}", 26);
+            var header = Ui.Row(transform, "Header", 20);
+            Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
+            Ui.ThemedLabel(header.transform, "卡组", 34, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(header.transform,
+                $"收集 {_meta.OwnedCards.Count} 张    出阵 {CurrentDeck().Count}/{MetaRules.DeckLimit}", 22, Theme.TextDim);
+            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
             if (pageCount > 1)
             {
-                var prev = Ui.TextButton(header.transform, "◀", () => { _page--; Rebuild(); },
-                    new Color(0.3f, 0.3f, 0.36f), 22, new Vector2(52, 52));
+                var prev = Ui.RoundButton(header.transform, "◀", () => { _page--; Rebuild(); },
+                    Theme.InkSoft, Color.white, 20, new Vector2(48, 48));
                 prev.interactable = _page > 0;
-                Ui.Label(header.transform, $"{_page + 1}/{pageCount}", 22);
-                var next = Ui.TextButton(header.transform, "▶", () => { _page++; Rebuild(); },
-                    new Color(0.3f, 0.3f, 0.36f), 22, new Vector2(52, 52));
+                Ui.ThemedLabel(header.transform, $"{_page + 1}/{pageCount}", 20, Theme.TextDim);
+                var next = Ui.RoundButton(header.transform, "▶", () => { _page++; Rebuild(); },
+                    Theme.InkSoft, Color.white, 20, new Vector2(48, 48));
                 next.interactable = _page < pageCount - 1;
             }
-            Ui.TextButton(header.transform, "返回地图", () => _onBack(), new Color(0.3f, 0.3f, 0.3f), 22, new Vector2(130, 56));
+            Ui.PillButton(header.transform, "返回地图", () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
 
-            // 消息行
             var messageGo = Ui.Panel(transform, "Message");
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.8f), new Vector2(1, 0.88f), Vector2.zero, Vector2.zero);
-            var messageLabel = Ui.Label(messageGo.transform, _message, 22);
+            var messageLabel = Ui.ThemedLabel(messageGo.transform, _message, 19, Theme.TextDim);
             Ui.Stretch(messageLabel.rectTransform);
 
-            // 卡格(每页 12 张:2 行 × 6)
+            // 卡格(每页 12 张:2 行 × 6):出阵粉环 + Lv 角标 + 升级脚注
             var deck = CurrentDeck();
             int start = _page * CardsPerPage;
             int end = Mathf.Min(start + CardsPerPage, _meta.OwnedCards.Count);
@@ -66,14 +66,14 @@ namespace Brushblade.Presentation
                 string cardId = _meta.OwnedCards[i];
                 int slot = i - start;
                 int row = slot / 6, col = slot % 6;
-                float y = 0.76f - row * 0.24f;
+                float y = 0.78f - row * 0.38f;
 
                 var cell = Ui.Panel(transform, $"Card_{cardId}");
                 Ui.Anchor((RectTransform)cell.transform,
-                    new Vector2(0.02f + col * 0.16f, y - 0.2f), new Vector2(0.02f + col * 0.16f + 0.15f, y),
+                    new Vector2(0.02f + col * 0.16f, y - 0.34f), new Vector2(0.02f + col * 0.16f + 0.15f, y),
                     Vector2.zero, Vector2.zero);
                 var layout = cell.AddComponent<VerticalLayoutGroup>();
-                layout.spacing = 4;
+                layout.spacing = 5;
                 layout.childAlignment = TextAnchor.MiddleCenter;
                 layout.childForceExpandWidth = false;
                 layout.childForceExpandHeight = false;
@@ -81,30 +81,31 @@ namespace Brushblade.Presentation
                 int level = MetaRules.CardLevel(_meta, cardId);
                 _meta.CardCopies.TryGetValue(cardId, out int copies);
                 bool inDeck = deck.Contains(cardId);
-                var rarity = _graph.Get(cardId).Rarity;
+                var def = _graph.Get(cardId);
 
-                // 主卡:稀有度底色,点击切换出阵(出阵者加亮边字样)
-                Ui.TextButton(cell.transform, $"{cardId}\nLv.{level}" + (inDeck ? "\n[出阵]" : ""),
-                    () => ToggleDeck(cardId),
-                    inDeck ? Color.Lerp(Ui.RarityColor(rarity), Color.yellow, 0.25f) : Ui.RarityColor(rarity),
-                    24, new Vector2(120, 92));
+                // 主卡:GlyphTile;出阵者用粉色描环表达(selected 环颜色改为粉——用 chip 叠加)
+                var badges = Ui.Row(cell.transform, "Badges", 6);
+                Ui.Chip(badges.transform, $"Lv.{level}", Theme.Ink, Color.white, 13);
+                if (inDeck)
+                    Ui.Chip(badges.transform, "出阵", Theme.ExitPink, Color.white, 13);
+                Ui.GlyphTile(cell.transform, def, "", inDeck, () => ToggleDeck(cardId),
+                    new Vector2(118, 128));
 
-                // 升级按钮
                 if (level >= MetaRules.MaxCardLevel)
                 {
-                    Ui.Label(cell.transform, "满级", 18);
+                    Ui.ThemedLabel(cell.transform, "满级", 15, Theme.UpgradeText);
                 }
                 else
                 {
-                    int copiesNeeded = MetaRules.CopiesRequired(level, rarity);
-                    int inkNeeded = MetaRules.InkRequired(level, rarity);
-                    var upgrade = Ui.TextButton(cell.transform,
-                        $"升级 {copies}/{copiesNeeded}\n墨锭{inkNeeded}",
+                    int copiesNeeded = MetaRules.CopiesRequired(level, def.Rarity);
+                    int inkNeeded = MetaRules.InkRequired(level, def.Rarity);
+                    bool can = copies >= copiesNeeded && _meta.Ink >= inkNeeded;
+                    var upgrade = Ui.RoundButton(cell.transform,
+                        $"升级 {copies}/{copiesNeeded} · {inkNeeded}墨",
                         () => Upgrade(cardId),
-                        copies >= copiesNeeded && _meta.Ink >= inkNeeded
-                            ? new Color(0.2f, 0.42f, 0.3f) : new Color(0.22f, 0.26f, 0.24f),
-                        18, new Vector2(120, 52));
-                    upgrade.interactable = copies >= copiesNeeded && _meta.Ink >= inkNeeded;
+                        can ? Theme.Jade : Theme.AdGreenBg,
+                        can ? Color.white : Theme.UpgradeText, 14, new Vector2(118, 36));
+                    upgrade.interactable = can;
                 }
             }
         }
