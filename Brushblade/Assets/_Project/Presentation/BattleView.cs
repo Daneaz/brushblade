@@ -34,11 +34,10 @@ namespace Brushblade.Presentation
         private Transform _libraryRow;
         private Transform _poolRow;
         private Transform _suggestRow;
-        private Transform _hintColumn;   // 差一提示(分组行,点击展开)
+        private Transform _hintColumn;   // 差字面板(屏幕左侧竖排,五行三级目录)
         private Transform _actionRow;
         private Text _messageLabel;
-        private string _expandedHint;    // 当前展开的差一类别(缺的部件 id;null = 全收起)
-        private string _hintBucket;      // 三级目录一级选中的五行桶(金木水火土心/中性;null = 收起)
+        private string _hintBucket;      // 差字目录一级选中的五行桶(金木水火土心/中性;null = 收起)
         private string _hintCharFocus;   // 三级目录二级选中的字(null = 未选)
 
         private Tutorial _tutorial;      // 新手引导(11.2);null = 不引导
@@ -85,15 +84,20 @@ namespace Brushblade.Presentation
 
             _enemyRow = MakeSection("Enemies", 0.62f, 0.885f);
 
-            // 拆合台白卡
+            // 拆合台白卡:第一行内容(配方/拆字),第二行动作
             var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.CardWhite, 20);
             Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.14f, 0.37f), new Vector2(0.86f, 0.61f), Vector2.zero, Vector2.zero);
-            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 4);
+            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 6);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
             _suggestRow = Ui.Row(workbenchStack.transform, "Content", 10).transform;
             _actionRow = Ui.Row(workbenchStack.transform, "Actions", 8).transform;
-            _hintColumn = Ui.VStack(workbenchStack.transform, "Hints", 2).transform;
+
+            // 差字面板:屏幕最左侧,上下居中,五行三级目录
+            var hintGo = Ui.VStack(transform, "HintPanel", 4);
+            Ui.Anchor((RectTransform)hintGo.transform, new Vector2(0.002f, 0.16f), new Vector2(0.135f, 0.84f), Vector2.zero, Vector2.zero);
+            hintGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            _hintColumn = hintGo.transform;
 
             _statusRow = MakeSection("EndTurn", 0.3f, 0.37f);
             _libraryRow = MakeSection("Library", 0.16f, 0.3f);
@@ -172,11 +176,11 @@ namespace Brushblade.Presentation
             _messageLabel.text = _message;
         }
 
-        /// <summary>引导横幅:一步一句话(11.2.5),金色置顶于提示列。</summary>
+        /// <summary>引导横幅:一步一句话(11.2.5),金色置于结束回合行(屏幕中部显眼)。</summary>
         private void DrawTutorialHint()
         {
             if (_tutorial == null || _tutorial.Done) return;
-            var hint = Ui.Label(_hintColumn, "◆ " + TutorialText(_tutorial.Step), 26);
+            var hint = Ui.Label(_statusRow, "◆ " + TutorialText(_tutorial.Step), 26);
             hint.color = Theme.GoldBorder;
             hint.transform.SetAsFirstSibling();
         }
@@ -353,6 +357,8 @@ namespace Brushblade.Presentation
         private void DrawSuggest()
         {
             var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library);
+            DrawNearMissHints(suggest.NearMisses); // 左侧差字面板:选中与否都显示
+            if (_selectedChar != null || _targeting) return; // 选中态:拆合台交给拆字+动作两行
             if (suggest.Composable.Count == 0)
                 Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
             foreach (var id in suggest.Composable)
@@ -370,54 +376,15 @@ namespace Brushblade.Presentation
                 Ui.RoundButton(combo.transform, charId, () => OnCompose(charId),
                     Theme.Ink, Color.white, 17, new Vector2(40, 40), 8);
             }
-            DrawNearMissHints(suggest.NearMisses);
-        }
-
-        /// <summary>差一提示:≤5 类维持分组手风琴;超出改为五行三级目录(属性→字→差什么),玩家主动查。</summary>
-        private void DrawNearMissHints(System.Collections.Generic.IReadOnlyList<NearMiss> nearMisses)
-        {
-            var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
-            foreach (var miss in nearMisses)
-            {
-                if (!groups.TryGetValue(miss.MissingIngredient, out var chars))
-                    groups[miss.MissingIngredient] = chars = new System.Collections.Generic.List<string>();
-                chars.Add(miss.CharId);
-            }
-            if (groups.Count == 0) return;
-            if (groups.Count > 5)
-            {
-                DrawHintDirectory(nearMisses);
-                return;
-            }
-
-            // 可合数量降序
-            var ordered = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.List<string>>>(groups);
-            ordered.Sort((a, b) => b.Value.Count.CompareTo(a.Value.Count));
-
-            foreach (var group in ordered)
-            {
-                string ingredient = group.Key;
-                bool expanded = _expandedHint == ingredient;
-                var chars = group.Value.Count <= 10
-                    ? string.Join("·", group.Value)
-                    : string.Join("·", group.Value.GetRange(0, 10)) + $"…等{group.Value.Count}字";
-                string label = expanded
-                    ? $"差「{ingredient}」→ {chars}"
-                    : $"差「{ingredient}」可合 {group.Value.Count} 字 ▶";
-                Ui.RoundButton(_hintColumn, label, () =>
-                {
-                    _expandedHint = expanded ? null : ingredient; // 手风琴:再点收起
-                    Refresh();
-                }, expanded ? Theme.PaperDim : Theme.LockedBg, Theme.TextDim,
-                    14, new Vector2(expanded ? 560 : 240, 26));
-            }
         }
 
         private static readonly string[] HintBucketOrder = { "金", "木", "水", "火", "土", "心", "中性" };
 
-        /// <summary>三级目录:一级五行属性(按目标字属性分桶)→二级该系可合的字→三级差什么部件。</summary>
-        private void DrawHintDirectory(System.Collections.Generic.IReadOnlyList<NearMiss> nearMisses)
+        /// <summary>差字面板(屏幕左侧竖排):统一五行三级目录——属性→字→差什么,玩家主动查。</summary>
+        private void DrawNearMissHints(System.Collections.Generic.IReadOnlyList<NearMiss> nearMisses)
         {
+            if (nearMisses.Count == 0) return;
+
             // 分桶:目标字的五行属性(心/中性单列,避免丢字)
             var buckets = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<NearMiss>>();
             foreach (var miss in nearMisses)
@@ -429,27 +396,26 @@ namespace Brushblade.Presentation
                 list.Add(miss);
             }
 
-            // 一级:属性胶囊(带可合数),点选/再点收起
-            var level1 = Ui.Row(_hintColumn, "HintElements", 6);
-            Ui.ThemedLabel(level1.transform, $"差一可合 {nearMisses.Count} 字·按五行查:", 14, Theme.TextDim);
+            // 一级:属性胶囊竖排(带可合数),点选/再点收起
+            Ui.ThemedLabel(_hintColumn, $"差一可合 {nearMisses.Count} 字", 14, Theme.TextDim);
             foreach (var key in HintBucketOrder)
             {
                 if (!buckets.TryGetValue(key, out var list)) continue;
                 bool selected = _hintBucket == key;
                 var element = ElementByName(key);
-                Ui.RoundButton(level1.transform, $"{key} {list.Count}", () =>
+                Ui.RoundButton(_hintColumn, $"{key} {list.Count}", () =>
                 {
                     _hintBucket = selected ? null : key;
                     _hintCharFocus = null;
                     Refresh();
                 }, selected ? Theme.ElementColor(element) : Theme.ElementSoft(element),
-                    selected ? Color.white : Theme.ElementSoftFg(element), 14, new Vector2(58, 30), 8);
+                    selected ? Color.white : Theme.ElementSoftFg(element), 14, new Vector2(96, 30), 8);
             }
 
             if (_hintBucket == null || !buckets.TryGetValue(_hintBucket, out var bucketChars)) return;
 
-            // 二级:该系可合的字(每行 12,最多两行,超出计数)
-            const int perRow = 12, maxShown = 24;
+            // 二级:该系可合的字(窄栏每行 4,最多四行,超出计数)
+            const int perRow = 4, maxShown = 16;
             Transform row = null;
             NearMiss? focused = null;
             for (int i = 0; i < bucketChars.Count && i < maxShown; i++)
@@ -492,30 +458,37 @@ namespace Brushblade.Presentation
 
         private void DrawActions()
         {
+            if (_selectedChar == null) return;
+            var def = _graph.Get(_selectedChar);
+
+            // 第一行(拆字):选中字 → 部件拆解
+            Ui.RoundButton(_suggestRow, def.Id, null, Theme.Ink, Color.white, 22, new Vector2(52, 52), 12);
+            if (!def.IsLeaf)
+            {
+                Ui.ThemedLabel(_suggestRow, "→", 16, Theme.TextDim);
+                foreach (var part in def.Recipe)
+                    Ui.RoundButton(_suggestRow, part, null,
+                        Theme.ElementColor(_graph.Get(part).Element), Color.white, 16, new Vector2(38, 38), 8);
+            }
+            else
+            {
+                Ui.ThemedLabel(_suggestRow, "(独体字,不可拆)", 14, Theme.TextDim);
+            }
+
+            // 第二行(动作)
             if (_targeting)
             {
                 Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人", 16, Theme.TextMain);
                 Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 15, new Vector2(84, 40));
+                return;
             }
-            else if (_selectedChar != null)
-            {
-                var def = _graph.Get(_selectedChar);
-                Ui.RoundButton(_actionRow, def.Id, null, Theme.Ink, Color.white, 22, new Vector2(52, 52), 12);
-                if (!def.IsLeaf)
-                {
-                    Ui.ThemedLabel(_actionRow, "→", 16, Theme.TextDim);
-                    foreach (var part in def.Recipe)
-                        Ui.RoundButton(_actionRow, part, null,
-                            Theme.ElementColor(_graph.Get(part).Element), Color.white, 16, new Vector2(38, 38), 8);
-                }
-                bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
-                string castLabel = def.Effects.Count > 0 ? (inLibrary ? "出字" : "直出") : "兜底一击";
-                Ui.RoundButton(_actionRow, castLabel, () => OnCastPressed(def), Theme.Cinnabar, Color.white, 16, new Vector2(90, 44));
-                if (inLibrary && !def.IsLeaf)
-                    Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 16, new Vector2(60, 44));
-                Ui.RoundButton(_actionRow, "丢弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 16, new Vector2(72, 44));
-                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(72, 44));
-            }
+            bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
+            string castLabel = def.Effects.Count > 0 ? (inLibrary ? "出字" : "直出") : "兜底一击";
+            Ui.RoundButton(_actionRow, castLabel, () => OnCastPressed(def), Theme.Cinnabar, Color.white, 16, new Vector2(90, 44));
+            if (inLibrary && !def.IsLeaf)
+                Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 16, new Vector2(60, 44));
+            Ui.RoundButton(_actionRow, "丢弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 16, new Vector2(72, 44));
+            Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(72, 44));
         }
 
         private void DrawEndTurn()
