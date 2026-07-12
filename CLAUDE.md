@@ -1,6 +1,6 @@
 # CLAUDE.md — 《字·斗》(Brushblade)
 
-汉字拆合肉鸽卡牌,Unity 单机,Steam 优先 + 海外移动端,Premium 买断制。中文沟通。
+汉字拆合养成卡牌(局内肉鸽),Unity,海外移动优先(iOS+Google Play),F2P + 奖励式广告 + 单一月订阅(第14章 v0.6)。中文沟通。
 
 ## 架构(详见 docs/architecture.md,硬规则勿破)
 
@@ -8,7 +8,7 @@
 - **Core 与 Data 禁止引用 UnityEngine**(asmdef 已设 `noEngineReferences: true`)——拆合/战斗/生克/跑图全是纯 C#。
 - 随机性一律走 Core 内带种子的 RNG,禁用 `UnityEngine.Random`。
 - 玩家可见 UI 文案走字符串表,禁止硬编码;字形/拼音/释义是游戏数据(配置表),不进字符串表。
-- 纯单机:无服务端、无账号、无内购、无广告。
+- 轻服务端:仅校时/存档校验(19.9);变现=奖励式广告+单一月订阅,无强制广告、无货币直购(第14章)。
 
 ## 规则的唯一来源
 
