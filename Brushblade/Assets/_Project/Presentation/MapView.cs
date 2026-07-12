@@ -50,32 +50,47 @@ namespace Brushblade.Presentation
             var root = (RectTransform)transform;
             Ui.Stretch(root);
 
-            // 角色状态头 + 消息
+            // 角色状态头
             int level = MetaRules.CharacterLevel(_meta.CharacterXp);
-            var header = Ui.Panel(transform, "Header");
-            Ui.Anchor((RectTransform)header.transform, new Vector2(0, 0.9f), Vector2.one, Vector2.zero, Vector2.zero);
-            var headerRow = Ui.Row(header.transform, "HeaderRow", 24);
-            Ui.Stretch((RectTransform)headerRow.transform);
-            Ui.Label(headerRow.transform,
-                $"正字者 Lv.{level}    经验 {_meta.CharacterXp}    HP 上限 {MetaRules.MaxHpFor(level)}    墨锭 {_meta.Ink}" +
-                (string.IsNullOrEmpty(_message) ? "" : $"\n{_message}"), 26);
-            Ui.TextButton(headerRow.transform, "收集/卡组", () => _onOpenCollection(),
-                new Color(0.28f, 0.3f, 0.42f), 22, new Vector2(140, 56));
-            Ui.TextButton(headerRow.transform, "商城", () => _onOpenShop(),
-                new Color(0.42f, 0.3f, 0.28f), 22, new Vector2(100, 56));
+            var header = Ui.Row(transform, "Header", 22);
+            Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.9f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
+            Ui.ThemedLabel(header.transform, $"正字者 Lv.{level}", 28, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(header.transform,
+                $"经验 {_meta.CharacterXp}    HP 上限 {MetaRules.MaxHpFor(level)}", 20, Theme.TextDim);
+            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
+            Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
+                Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);
+            Ui.RoundButton(header.transform, "商城", () => _onOpenShop(),
+                Theme.ShopNav, Color.white, 20, new Vector2(100, 50), 12);
+
+            // 消息横幅(绿胶囊,有内容才显示)
+            if (!string.IsNullOrEmpty(_message))
+            {
+                var banner = Ui.Row(transform, "Banner");
+                Ui.Anchor((RectTransform)banner.transform, new Vector2(0.25f, 0.845f), new Vector2(0.75f, 0.9f), Vector2.zero, Vector2.zero);
+                var pill = Ui.CardPanel(banner.transform, "Pill", Theme.AdGreenBg, 24);
+                var pillElement = pill.gameObject.AddComponent<LayoutElement>();
+                pillElement.preferredWidth = 560;
+                pillElement.preferredHeight = 40;
+                var text = Ui.ThemedLabel(pill.transform, _message, 17, Theme.AdGreenText);
+                Ui.Stretch(text.rectTransform);
+            }
 
             // 章节区
             for (int c = 0; c < _campaign.Chapters.Count; c++)
             {
                 var chapter = _campaign.Chapters[c];
-                float top = 0.88f - c * 0.2f;
+                float top = 0.84f - c * 0.19f;
 
                 var titleGo = Ui.Panel(transform, $"ChapterTitle{c}");
                 Ui.Anchor((RectTransform)titleGo.transform, new Vector2(0, top - 0.045f), new Vector2(1, top), Vector2.zero, Vector2.zero);
-                Ui.Label(titleGo.transform, $"第{ChineseNumber(c + 1)}章 · {chapter.Name}(难度 ×{chapter.EnemyScale:0.#})", 24);
+                var title = Ui.ThemedLabel(titleGo.transform,
+                    $"第{Ui.ChineseNumber(c + 1)}章 · {chapter.Name}  (难度 ×{chapter.EnemyScale:0.#})",
+                    21, Theme.TextMain, Theme.TitleFont);
+                Ui.Stretch(title.rectTransform);
 
-                var row = Ui.Row(transform, $"Chapter{c}", 12);
-                Ui.Anchor((RectTransform)row.transform, new Vector2(0, top - 0.15f), new Vector2(1, top - 0.045f), Vector2.zero, Vector2.zero);
+                var row = Ui.Row(transform, $"Chapter{c}", 14);
+                Ui.Anchor((RectTransform)row.transform, new Vector2(0, top - 0.14f), new Vector2(1, top - 0.045f), Vector2.zero, Vector2.zero);
 
                 for (int s = 0; s < chapter.Stages.Count; s++)
                 {
@@ -85,12 +100,15 @@ namespace Brushblade.Presentation
                     bool boss = chapter.Stages[s].Boss;
 
                     string label = (boss ? "Boss" : $"关{s + 1}") + (cleared ? "\n✓" : unlocked ? "" : "\n锁");
-                    var color = cleared ? new Color(0.2f, 0.4f, 0.25f)
-                        : unlocked ? (boss ? new Color(0.55f, 0.25f, 0.2f) : new Color(0.5f, 0.4f, 0.15f))
-                        : new Color(0.2f, 0.2f, 0.22f);
+                    var bg = cleared ? Theme.DoneGreen
+                        : unlocked ? (boss ? Theme.Cinnabar : Theme.Gold)
+                        : Theme.LockedBg;
+                    var fg = cleared ? Color.white
+                        : unlocked ? (boss ? Color.white : Theme.GoldText)
+                        : Theme.LockGray;
 
-                    var button = Ui.TextButton(row.transform, label,
-                        () => _onStartStage(chapterIndex, stageIndex), color, 22, new Vector2(100, 76));
+                    var button = Ui.RoundButton(row.transform, label,
+                        () => _onStartStage(chapterIndex, stageIndex), bg, fg, 19, new Vector2(96, 78), 14);
                     button.interactable = unlocked;
                 }
             }
@@ -102,54 +120,77 @@ namespace Brushblade.Presentation
 
         private void DrawChestBar()
         {
-            var bar = Ui.Row(transform, "Chests", 16);
-            Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 0.02f), new Vector2(1, 0.26f), Vector2.zero, Vector2.zero);
+            var bar = Ui.Row(transform, "Chests", 18);
+            Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 0.02f), new Vector2(1, 0.24f), Vector2.zero, Vector2.zero);
 
-            Ui.Label(bar.transform, $"宝箱\n{_meta.Chests.Count}/{ChestRules.SlotLimit}", 20);
+            Ui.ThemedLabel(bar.transform, $"箱位\n{_meta.Chests.Count}/{ChestRules.SlotLimit}", 18, Theme.TextDim, Theme.TitleFont);
 
-            for (int i = 0; i < _meta.Chests.Count; i++)
+            for (int i = 0; i < ChestRules.SlotLimit; i++)
             {
+                if (i >= _meta.Chests.Count) { DrawEmptySlot(bar.transform); continue; }
                 int index = i;
                 var chest = _meta.Chests[i];
-                var cell = Ui.Panel(bar.transform, $"Chest{i}");
-                var layout = cell.AddComponent<VerticalLayoutGroup>();
-                layout.spacing = 4;
-                layout.childAlignment = TextAnchor.MiddleCenter;
-                layout.childForceExpandWidth = false;
-                layout.childForceExpandHeight = false;
+                bool ready = chest.Timing && ChestRules.IsReady(chest, _time);
 
-                string name = ChestRules.TierName(chest.Tier);
+                var card = Ui.CardPanel(bar.transform, $"Chest{i}", Theme.CardWhite, 14);
+                var cardElement = card.gameObject.AddComponent<LayoutElement>();
+                cardElement.preferredWidth = 168;
+                cardElement.preferredHeight = 150;
+                var stack = Ui.VStack(card.transform, "Stack", 5);
+                Ui.Stretch((RectTransform)stack.transform);
+
+                // 箱型图标:档位色圆角块 + 档位首字(两套形状按档位色区分;19.5.1 六档)
+                var iconRow = Ui.Row(stack.transform, "Icon", 0);
+                var icon = Ui.CardPanel(iconRow.transform, "Body",
+                    Theme.RarityColor((Brushblade.Core.CardRarity)(int)chest.Tier), 10);
+                var iconElement = icon.gameObject.AddComponent<LayoutElement>();
+                iconElement.preferredWidth = 52;
+                iconElement.preferredHeight = 40;
+                var iconGlyph = Ui.ThemedLabel(icon.transform, ChestRules.TierName(chest.Tier).Substring(0, 1),
+                    22, Color.white, Theme.TitleFont);
+                Ui.Stretch(iconGlyph.rectTransform);
+
+                Ui.ThemedLabel(stack.transform, ChestRules.TierName(chest.Tier), 17, Theme.TextMain, Theme.TitleFont);
+
                 if (!chest.Timing)
                 {
                     bool anotherTiming = AnyChestTiming();
-                    var button = Ui.TextButton(cell.transform, $"{name}\n开始开启",
+                    var start = Ui.RoundButton(stack.transform, "开始开启",
                         () => Do(() => ChestRules.TryStartOpening(_meta, index, _time)),
-                        new Color(0.3f, 0.3f, 0.38f), 20, new Vector2(150, 76));
-                    button.interactable = !anotherTiming;
+                        Theme.InkSoft, Color.white, 15, new Vector2(140, 36));
+                    start.interactable = !anotherTiming;
                 }
-                else if (ChestRules.IsReady(chest, _time))
+                else if (ready)
                 {
-                    Ui.TextButton(cell.transform, $"{name}\n开箱!", () => OpenChest(index),
-                        new Color(0.55f, 0.42f, 0.12f), 20, new Vector2(150, 76));
+                    Ui.RoundButton(stack.transform, "开箱!", () => OpenChest(index),
+                        Theme.Gold, Theme.GoldText, 16, new Vector2(140, 36));
                 }
                 else
                 {
                     long remaining = ChestRules.RemainingSeconds(chest, _time);
-                    Ui.TextButton(cell.transform, $"{name}\n{Format(remaining)}", null,
-                        new Color(0.25f, 0.28f, 0.34f), 20, new Vector2(150, 56));
-                    var mini = Ui.Row(cell.transform, "Mini", 4);
+                    Ui.ThemedLabel(stack.transform, Format(remaining), 15, Theme.TextDim);
+                    var mini = Ui.Row(stack.transform, "Mini", 5);
                     if (!chest.AdUsed)
                     {
                         long cut = ChestRules.AdReductionSeconds[(int)chest.Tier - 1];
-                        Ui.TextButton(mini.transform, $"广告-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
-                            () => Do(() => ChestRules.TryApplyAdBoost(chest)),
-                            new Color(0.2f, 0.38f, 0.3f), 18, new Vector2(96, 40));
+                        Ui.AdBadge(mini.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
+                            () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(74, 34));
                     }
-                    Ui.TextButton(mini.transform, $"墨锭{ChestRules.InkCostToSkip(remaining)}",
+                    Ui.RoundButton(mini.transform, $"{ChestRules.InkCostToSkip(remaining)}墨",
                         () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time)),
-                        new Color(0.4f, 0.32f, 0.16f), 18, new Vector2(84, 40));
+                        Theme.Gold, Theme.GoldText, 14, new Vector2(70, 34));
                 }
             }
+        }
+
+        private void DrawEmptySlot(Transform parent)
+        {
+            var slot = Ui.CardPanel(parent, "Empty", Theme.LockedBg, 14);
+            var slotElement = slot.gameObject.AddComponent<LayoutElement>();
+            slotElement.preferredWidth = 168;
+            slotElement.preferredHeight = 150;
+            var label = Ui.ThemedLabel(slot.transform, "空位", 16, Theme.LockGray);
+            Ui.Stretch(label.rectTransform);
         }
 
         private bool AnyChestTiming()
@@ -179,10 +220,5 @@ namespace Brushblade.Presentation
 
         private static string Format(long seconds) =>
             seconds >= 3600 ? $"{seconds / 3600}:{seconds % 3600 / 60:00}:{seconds % 60:00}" : $"{seconds / 60}:{seconds % 60:00}";
-
-        private static string ChineseNumber(int n) => n switch
-        {
-            1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五", _ => n.ToString(),
-        };
     }
 }
