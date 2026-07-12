@@ -102,21 +102,41 @@ namespace Brushblade.Presentation
                 Ui.Stretch(text.rectTransform);
             }
 
-            // 章节区
+            // 章节区:滚动容器(章节增多不破版),初始聚焦进行中的章节
+            var scrollGo = Ui.Panel(transform, "ChapterScroll");
+            Ui.Anchor((RectTransform)scrollGo.transform, new Vector2(0.02f, 0.26f), new Vector2(0.98f, 0.84f), Vector2.zero, Vector2.zero);
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scrollGo.AddComponent<RectMask2D>();
+            var contentGo = Ui.Panel(scrollGo.transform, "Content");
+            var content = (RectTransform)contentGo.transform;
+            content.anchorMin = new Vector2(0, 1);
+            content.anchorMax = Vector2.one;
+            content.pivot = new Vector2(0.5f, 1);
+            content.offsetMin = Vector2.zero;
+            content.offsetMax = Vector2.zero;
+            var contentLayout = contentGo.AddComponent<VerticalLayoutGroup>();
+            contentLayout.spacing = 12;
+            contentLayout.childAlignment = TextAnchor.UpperCenter;
+            contentLayout.childForceExpandWidth = true;
+            contentLayout.childForceExpandHeight = false;
+            contentGo.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.content = content;
+            scroll.viewport = (RectTransform)scrollGo.transform;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.scrollSensitivity = 30;
+
+            int focusChapter = -1; // 第一个有已解锁未通关关卡的章节
             for (int c = 0; c < _campaign.Chapters.Count; c++)
             {
                 var chapter = _campaign.Chapters[c];
-                float top = 0.84f - c * 0.19f;
 
-                var titleGo = Ui.Panel(transform, $"ChapterTitle{c}");
-                Ui.Anchor((RectTransform)titleGo.transform, new Vector2(0, top - 0.045f), new Vector2(1, top), Vector2.zero, Vector2.zero);
-                var title = Ui.ThemedLabel(titleGo.transform,
+                var title = Ui.ThemedLabel(contentGo.transform,
                     $"第{Ui.ChineseNumber(c + 1)}章 · {chapter.Name}  (难度 ×{chapter.EnemyScale:0.#})",
                     21, Theme.TextMain, Theme.TitleFont);
-                Ui.Stretch(title.rectTransform);
+                title.gameObject.name = $"ChapterTitle{c}";
 
-                var row = Ui.Row(transform, $"Chapter{c}", 14);
-                Ui.Anchor((RectTransform)row.transform, new Vector2(0, top - 0.14f), new Vector2(1, top - 0.045f), Vector2.zero, Vector2.zero);
+                var row = Ui.Row(contentGo.transform, $"Chapter{c}", 14);
 
                 for (int s = 0; s < chapter.Stages.Count; s++)
                 {
@@ -136,10 +156,24 @@ namespace Brushblade.Presentation
                     var button = Ui.RoundButton(row.transform, label,
                         () => _onStartStage(chapterIndex, stageIndex), bg, fg, 19, new Vector2(96, 78), 14);
                     button.interactable = unlocked;
+
+                    if (focusChapter < 0 && unlocked && !cleared)
+                        focusChapter = c;
                 }
             }
+            StartCoroutine(FocusChapter(scroll, Mathf.Max(0, focusChapter), _campaign.Chapters.Count));
 
             DrawChestBar();
+        }
+
+        /// <summary>布局完成后把滚动定位到进行中的章节(内容未超出视口时无感)。</summary>
+        private System.Collections.IEnumerator FocusChapter(ScrollRect scroll, int chapter, int chapterCount)
+        {
+            yield return null; // 等一帧布局
+            if (scroll == null) yield break;
+            Canvas.ForceUpdateCanvases();
+            float t = chapterCount <= 1 ? 0f : chapter / (float)(chapterCount - 1);
+            scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - t);
         }
 
         // ---- 宝箱栏(19.5) ----
