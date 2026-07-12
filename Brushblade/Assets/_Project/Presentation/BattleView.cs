@@ -23,9 +23,14 @@ namespace Brushblade.Presentation
         private float _exitArmedUntil;  // 退出二次确认窗口(unscaled 时间戳)
         private string _message = "点击字库中的字开始行动";
 
+        private string _title;          // 关卡标题(顶栏,可选)
+        // Battle.PlayerMaxHp 在 Core 引擎里不存在(仅 BattleConfig 有);禁止改 Core,由 GameRoot 经 Init 透传
+        private int _playerMaxHp = 50;
+
         // 容器
         private Transform _enemyRow;
-        private Transform _statusRow;
+        private Transform _topLeft, _topRight, _bottomRow;
+        private Transform _statusRow;    // 语义:结束回合行
         private Transform _libraryRow;
         private Transform _poolRow;
         private Transform _suggestRow;
@@ -37,12 +42,14 @@ namespace Brushblade.Presentation
         private Tutorial _tutorial;      // 新手引导(11.2);null = 不引导
 
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
-            Tutorial tutorial = null)
+            Tutorial tutorial = null, string title = null, int playerMaxHp = 50)
         {
             _graph = graph;
             _run = run;
             _onRunEnded = onRunEnded;
             _tutorial = tutorial;
+            _title = title ?? "";
+            _playerMaxHp = playerMaxHp;
             BuildSkeleton();
             _juice = gameObject.AddComponent<Juice>();
             _juice.Init((RectTransform)transform);
@@ -61,28 +68,35 @@ namespace Brushblade.Presentation
             var root = (RectTransform)transform;
             Ui.Stretch(root);
 
-            _enemyRow = MakeSection("Enemies", 0.68f, 0.94f);
-            _statusRow = MakeSection("Status", 0.61f, 0.68f);
-            _suggestRow = MakeSection("Suggest", 0.53f, 0.61f);
-
-            // 差一提示列:纵向,最多 5 行
-            var hintGo = Ui.Panel(transform, "Hints");
-            Ui.Anchor((RectTransform)hintGo.transform, new Vector2(0.02f, 0.36f), new Vector2(0.98f, 0.53f), Vector2.zero, Vector2.zero);
-            var hintLayout = hintGo.AddComponent<VerticalLayoutGroup>();
-            hintLayout.spacing = 2;
-            hintLayout.childAlignment = TextAnchor.UpperLeft;
-            hintLayout.childForceExpandWidth = false;
-            hintLayout.childForceExpandHeight = false;
-            _hintColumn = hintGo.transform;
-
-            _actionRow = MakeSection("Actions", 0.27f, 0.36f);
-            _libraryRow = MakeSection("Library", 0.14f, 0.27f);
-            _poolRow = MakeSection("Pool", 0.02f, 0.14f);
+            // 顶栏:标题 | 墨锭 · 回合 · 退出
+            var topBar = Ui.Panel(transform, "TopBar");
+            Ui.Anchor((RectTransform)topBar.transform, new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
+            _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
+            Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.4f, 1), Vector2.zero, Vector2.zero);
+            _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
+            Ui.Anchor((RectTransform)_topRight, new Vector2(0.4f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
             var messageGo = Ui.Panel(transform, "Message");
-            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.94f), Vector2.one, Vector2.zero, Vector2.zero);
-            _messageLabel = Ui.Label(messageGo.transform, "", 24);
+            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.885f), new Vector2(0.98f, 0.94f), Vector2.zero, Vector2.zero);
+            _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
+
+            _enemyRow = MakeSection("Enemies", 0.62f, 0.885f);
+
+            // 拆合台白卡
+            var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.CardWhite, 20);
+            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.14f, 0.37f), new Vector2(0.86f, 0.61f), Vector2.zero, Vector2.zero);
+            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 4);
+            Ui.Stretch((RectTransform)workbenchStack.transform);
+            Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
+            _suggestRow = Ui.Row(workbenchStack.transform, "Content", 10).transform;
+            _actionRow = Ui.Row(workbenchStack.transform, "Actions", 8).transform;
+            _hintColumn = Ui.VStack(workbenchStack.transform, "Hints", 2).transform;
+
+            _statusRow = MakeSection("EndTurn", 0.3f, 0.37f);
+            _libraryRow = MakeSection("Library", 0.16f, 0.3f);
+            _poolRow = MakeSection("Pool", 0.065f, 0.16f);
+            _bottomRow = MakeSection("PlayerStats", 0f, 0.065f);
         }
 
         private Transform MakeSection(string name, float yMin, float yMax)
@@ -96,31 +110,38 @@ namespace Brushblade.Presentation
 
         private void Refresh()
         {
+            Ui.Clear(_topLeft);
+            Ui.Clear(_topRight);
             Ui.Clear(_enemyRow);
+            Ui.Clear(_suggestRow);
+            Ui.Clear(_actionRow);
+            Ui.Clear(_hintColumn);
             Ui.Clear(_statusRow);
             Ui.Clear(_libraryRow);
             Ui.Clear(_poolRow);
-            Ui.Clear(_suggestRow);
-            Ui.Clear(_hintColumn);
-            Ui.Clear(_actionRow);
+            Ui.Clear(_bottomRow);
 
             switch (_run.Phase)
             {
                 case RunPhase.InBattle when Battle.Phase == BattlePhase.PlayerTurn:
                     DrawEnemies();
-                    DrawStatus();
+                    DrawTopBar();
+                    DrawPlayerStats();
                     DrawLibrary();
                     DrawPool();
                     DrawSuggest();
                     DrawActions();
+                    DrawEndTurn();
                     break;
                 case RunPhase.InBattle: // 本场已分胜负,等待结算
                     DrawEnemies();
-                    DrawStatus();
+                    DrawTopBar();
+                    DrawPlayerStats();
                     DrawBattleSettle();
                     break;
                 case RunPhase.Reward:
-                    DrawStatus();
+                    DrawTopBar();
+                    DrawPlayerStats();
                     DrawReward();
                     break;
                 case RunPhase.Event:
@@ -139,7 +160,7 @@ namespace Brushblade.Presentation
         {
             if (_tutorial == null || _tutorial.Done) return;
             var hint = Ui.Label(_hintColumn, "◆ " + TutorialText(_tutorial.Step), 26);
-            hint.color = new Color(1f, 0.84f, 0.35f);
+            hint.color = Theme.GoldBorder;
             hint.transform.SetAsFirstSibling();
         }
 
@@ -155,112 +176,182 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
+        private void DrawTopBar()
+        {
+            Ui.ThemedLabel(_topLeft, string.IsNullOrEmpty(_title) ? $"战斗 {_run.BattleIndex + 1}" : $"{_title} · 战斗 {_run.BattleIndex + 1}",
+                20, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
+            Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
+            Ui.ThemedLabel(_topRight, $"回合 {Battle.Turn}", 18, Theme.TextDim);
+            bool exitArmed = Time.unscaledTime < _exitArmedUntil;
+            Ui.PillButton(_topRight, exitArmed ? "确认退出?" : "退出关卡", () =>
+            {
+                if (Time.unscaledTime < _exitArmedUntil) { _onRunEnded(false); return; }
+                _exitArmedUntil = Time.unscaledTime + 2.5f;
+                _message = "再点一次「确认退出?」放弃本关(进度不推进,奇遇墨锭保留)";
+                Refresh();
+            }, exitArmed ? Theme.Cinnabar : Theme.ExitPink, Color.white, 15, new Vector2(110, 38));
+        }
+
+        private void DrawPlayerStats()
+        {
+            var hpStack = Ui.VStack(_bottomRow, "Hp", 3);
+            Ui.ThemedLabel(hpStack.transform, $"HP {Battle.PlayerHp}/{_playerMaxHp}", 14, Theme.TextDim);
+            Ui.Bar(hpStack.transform, Battle.PlayerHp / (float)_playerMaxHp, Theme.Cinnabar, new Vector2(260, 13));
+            if (Battle.PlayerShield > 0)
+            {
+                Ui.Bar(hpStack.transform, Mathf.Clamp01(Battle.PlayerShield / 30f), Theme.Jade, new Vector2(260, 7));
+                Ui.ThemedLabel(hpStack.transform, $"护盾 {Battle.PlayerShield}", 12, Theme.Jade);
+            }
+            var apStack = Ui.VStack(_bottomRow, "Ap", 4);
+            Ui.ThemedLabel(apStack.transform, "墨力", 12, Theme.TextDim);
+            var pips = Ui.Row(apStack.transform, "Pips", 12);
+            for (int i = 0; i < 3; i++)
+            {
+                var pip = Ui.Panel(pips.transform, $"Pip{i}");
+                var image = pip.AddComponent<Image>();
+                image.sprite = Theme.Rounded(10);
+                image.type = Image.Type.Sliced;
+                image.color = i < Battle.Ap ? Theme.Gold : Theme.PaperDim;
+                pip.transform.localRotation = Quaternion.Euler(0, 0, 45);
+                var element = pip.AddComponent<LayoutElement>();
+                element.preferredWidth = 18;
+                element.preferredHeight = 18;
+            }
+        }
+
         private void DrawEnemies()
         {
             _enemyRects.Clear();
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
                 var enemy = Battle.Enemies[i];
-                var text = new StringBuilder();
-                text.Append(BossTitle(enemy)).Append('\n')
-                    .Append(enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?")
-                    .Append(" 攻").Append(enemy.Attack)
-                    .Append(enemy.DamageTaken < 1f ? " 坚壁" : "").Append('\n')
-                    .Append(enemy.Alive ? $"HP {enemy.Hp}/{enemy.MaxHp}" : "已正")
-                    .Append(enemy.Burn > 0 ? $"\n灼烧 {enemy.Burn}" : "")
-                    .Append(enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive
-                        ? (enemy.RegrowProgress >= 3 ? "\n已补全!" : $"\n补全 {enemy.RegrowProgress}/3") : "")
-                    .Append(enemy.Def.Ability == EnemyAbility.Split && enemy.Alive && !enemy.HasSplit
-                        ? "\n受击分裂" : "")
-                    .Append(enemy.Def.Ability == EnemyAbility.Buff && enemy.Alive ? "\n增益辅助" : "");
-
                 int index = i;
-                var color = enemy.Alive
-                    ? (_targeting ? new Color(0.6f, 0.25f, 0.2f) : new Color(0.35f, 0.2f, 0.2f))
-                    : new Color(0.15f, 0.15f, 0.15f);
-                var button = Ui.TextButton(_enemyRow, text.ToString(), () => OnEnemyClicked(index),
-                    color, 24, new Vector2(180, 150));
-                button.interactable = enemy.Alive;
-                _enemyRects.Add((RectTransform)button.transform);
-            }
-        }
 
-        private void DrawStatus()
-        {
-            Ui.Label(_statusRow,
-                $"战斗 {_run.BattleIndex + 1}    回合 {Battle.Turn}    AP {Battle.Ap}/3    HP {Battle.PlayerHp}/50" +
-                (Battle.PlayerShield > 0 ? $"    护盾 {Battle.PlayerShield}" : ""), 26);
-            // 退出:二次确认(2.5 秒内再点才执行,防误触)
-            bool exitArmed = Time.unscaledTime < _exitArmedUntil;
-            Ui.TextButton(_statusRow, exitArmed ? "确认退出?" : "退出关卡", () =>
-            {
-                if (Time.unscaledTime < _exitArmedUntil)
+                var cell = Ui.Panel(_enemyRow, $"Enemy{i}");
+                var cellElement = cell.AddComponent<LayoutElement>();
+                cellElement.preferredWidth = 168;
+                cellElement.preferredHeight = 208;
+
+                var circle = Ui.Panel(cell.transform, "Portrait");
+                var circleImage = circle.AddComponent<Image>();
+                circleImage.sprite = Theme.Circle;
+                circleImage.color = enemy.Alive
+                    ? Theme.ElementColor(enemy.ApparentElement)
+                    : Theme.LockedBg;
+                Ui.Anchor((RectTransform)circle.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(-52, -104), new Vector2(52, 0));
+                if (_targeting && enemy.Alive)
                 {
-                    _onRunEnded(false);
-                    return;
+                    var outline = circle.AddComponent<Outline>();
+                    outline.effectColor = Theme.Ink;
+                    outline.effectDistance = new Vector2(3, 3);
                 }
-                _exitArmedUntil = Time.unscaledTime + 2.5f;
-                _message = "再点一次「确认退出?」放弃本关(进度不推进,奇遇墨锭保留)";
-                Refresh();
-            }, exitArmed ? new Color(0.6f, 0.2f, 0.2f) : new Color(0.32f, 0.2f, 0.2f), 18, new Vector2(100, 40));
+                var glyph = Ui.ThemedLabel(circle.transform,
+                    enemy.IsBoss ? enemy.Def.Phases[enemy.PhaseIndex].Char : enemy.Def.Id.Substring(0, 1),
+                    44, Color.white, Theme.TitleFont);
+                Ui.Stretch(glyph.rectTransform);
+
+                var info = Ui.VStack(cell.transform, "Info", 3);
+                Ui.Anchor((RectTransform)info.transform, new Vector2(0, 0), new Vector2(1, 1),
+                    Vector2.zero, new Vector2(0, -106));
+                Ui.ThemedLabel(info.transform, BossTitle(enemy), 17, Theme.TextMain, Theme.TitleFont);
+                var chips = Ui.Row(info.transform, "Chips", 5);
+                Ui.Chip(chips.transform, enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?",
+                    Theme.ElementColor(enemy.ApparentElement), Color.white, 12);
+                Ui.Chip(chips.transform, $"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain, 12);
+                if (enemy.DamageTaken < 1f) Ui.Chip(chips.transform, "坚壁", Theme.InkSoft, Color.white, 12);
+                if (enemy.Burn > 0) Ui.Chip(chips.transform, $"灼烧 {enemy.Burn}", Theme.Cinnabar, Color.white, 12);
+                if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive)
+                    Ui.Chip(chips.transform, enemy.RegrowProgress >= 3 ? "已补全!" : $"补全 {enemy.RegrowProgress}/3",
+                        Theme.Jade, Color.white, 12);
+                if (enemy.Def.Ability == EnemyAbility.Split && enemy.Alive && !enemy.HasSplit)
+                    Ui.Chip(chips.transform, "受击分裂", Theme.InkSoft, Color.white, 12);
+                if (enemy.Def.Ability == EnemyAbility.Buff && enemy.Alive)
+                    Ui.Chip(chips.transform, "增益辅助", Theme.InkSoft, Color.white, 12);
+
+                if (enemy.Alive)
+                {
+                    Ui.Bar(info.transform, enemy.Hp / (float)enemy.MaxHp, Theme.Cinnabar, new Vector2(140, 9));
+                    Ui.ThemedLabel(info.transform, $"{enemy.Hp} / {enemy.MaxHp}", 12, Theme.TextDim);
+                }
+                else
+                {
+                    Ui.ThemedLabel(info.transform, "已正", 14, Theme.LockGray);
+                }
+
+                var button = cell.AddComponent<Button>();
+                button.targetGraphic = circleImage;
+                button.onClick.AddListener(() => OnEnemyClicked(index));
+                button.interactable = enemy.Alive;
+                _enemyRects.Add((RectTransform)circle.transform);
+            }
         }
 
         private void DrawLibrary()
         {
-            Ui.Label(_libraryRow, $"字库 {Battle.Library.Count}/{Battle.LibraryCapacity}", 22);
+            Ui.ThemedLabel(_libraryRow, $"字库 {Battle.Library.Count}/{Battle.LibraryCapacity}", 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.LibraryExpanded)
-                Ui.TextButton(_libraryRow, "广告+2", () => // 原型:点击即生效,SDK 后接
+                Ui.AdBadge(_libraryRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandLibrary();
                     _message = "字库上限 +2(本关有效)";
                     Refresh();
-                }, new Color(0.2f, 0.38f, 0.3f), 18, new Vector2(80, 44));
+                }, new Vector2(64, 38));
             if (Battle.Library.Count == 0)
-                Ui.Label(_libraryRow, "(空)", 22);
+                Ui.ThemedLabel(_libraryRow, "(空)", 16, Theme.TextDim);
             foreach (var id in Battle.Library)
             {
                 string charId = id;
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                Ui.TextButton(_libraryRow, $"{charId}\n{def.ApCost}AP", () => OnLibraryCharClicked(charId),
-                    selected ? new Color(0.5f, 0.45f, 0.15f) : new Color(0.22f, 0.22f, 0.28f),
-                    26, new Vector2(96, 88));
+                Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} 墨力", selected,
+                    () => OnLibraryCharClicked(charId), new Vector2(82, 104));
             }
         }
 
         private void DrawPool()
         {
-            Ui.Label(_poolRow, $"部件池 {Battle.Pool.Count}/{Battle.PoolCapacity}", 22);
+            Ui.ThemedLabel(_poolRow, $"部件池 {Battle.Pool.Count}/{Battle.PoolCapacity}", 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.PoolExpanded)
-                Ui.TextButton(_poolRow, "广告+2", () => // 原型:点击即生效,SDK 后接
+                Ui.AdBadge(_poolRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandPool();
                     _message = "部件池上限 +2(本关有效)";
                     Refresh();
-                }, new Color(0.2f, 0.38f, 0.3f), 18, new Vector2(80, 44));
+                }, new Vector2(64, 38));
             foreach (var id in Battle.Pool)
             {
                 string charId = id;
+                var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                Ui.TextButton(_poolRow, charId, () => OnPoolCharClicked(charId),
-                    selected ? new Color(0.5f, 0.45f, 0.15f) : new Color(0.2f, 0.28f, 0.2f),
-                    26, new Vector2(72, 64));
+                Ui.RoundButton(_poolRow, charId, () => OnPoolCharClicked(charId),
+                    selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
+                    selected ? Color.white : Theme.ElementSoftFg(def.Element),
+                    22, new Vector2(56, 56), 12);
             }
         }
 
         private void DrawSuggest()
         {
             var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library);
-            Ui.Label(_suggestRow, "可合成", 22);
+            if (_selectedChar != null || _targeting) return; // 选中态由 DrawActions 占用内容区
             if (suggest.Composable.Count == 0)
-                Ui.Label(_suggestRow, "(无)", 22);
+                Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
             foreach (var id in suggest.Composable)
             {
                 string charId = id;
-                Ui.TextButton(_suggestRow, $"合 {charId}", () => OnCompose(charId),
-                    new Color(0.2f, 0.32f, 0.42f), 24, new Vector2(110, 56));
+                var def = _graph.Get(charId);
+                var combo = Ui.Row(_suggestRow, $"Combo_{charId}", 4);
+                foreach (var part in def.Recipe)
+                {
+                    var partDef = _graph.Get(part);
+                    Ui.RoundButton(combo.transform, part, null,
+                        Theme.ElementColor(partDef.Element), Color.white, 15, new Vector2(34, 34), 8);
+                }
+                Ui.ThemedLabel(combo.transform, "=", 14, Theme.TextDim);
+                Ui.RoundButton(combo.transform, charId, () => OnCompose(charId),
+                    Theme.Ink, Color.white, 17, new Vector2(40, 40), 8);
             }
-
             DrawNearMissHints(suggest.NearMisses);
         }
 
@@ -297,12 +388,12 @@ namespace Brushblade.Presentation
                 string label = expanded
                     ? $"差「{ingredient}」→ {chars}"
                     : $"差「{ingredient}」可合 {group.Value.Count} 字 ▶";
-                Ui.TextButton(_hintColumn, label, () =>
+                Ui.RoundButton(_hintColumn, label, () =>
                 {
                     _expandedHint = expanded ? null : ingredient; // 手风琴:再点收起
                     Refresh();
-                }, expanded ? new Color(0.22f, 0.28f, 0.34f) : new Color(0.16f, 0.18f, 0.22f),
-                    18, new Vector2(expanded ? 560 : 240, 26));
+                }, expanded ? Theme.PaperDim : Theme.LockedBg, Theme.TextDim,
+                    14, new Vector2(expanded ? 560 : 240, 26));
             }
         }
 
@@ -310,79 +401,91 @@ namespace Brushblade.Presentation
         {
             if (_targeting)
             {
-                Ui.TextButton(_actionRow, "取消", CancelSelection, new Color(0.3f, 0.3f, 0.3f));
+                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人", 16, Theme.TextMain);
+                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 15, new Vector2(84, 40));
             }
             else if (_selectedChar != null)
             {
                 var def = _graph.Get(_selectedChar);
+                Ui.RoundButton(_actionRow, def.Id, null, Theme.Ink, Color.white, 22, new Vector2(52, 52), 12);
+                if (!def.IsLeaf)
+                {
+                    Ui.ThemedLabel(_actionRow, "→", 16, Theme.TextDim);
+                    foreach (var part in def.Recipe)
+                        Ui.RoundButton(_actionRow, part, null,
+                            Theme.ElementColor(_graph.Get(part).Element), Color.white, 16, new Vector2(38, 38), 8);
+                }
                 bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
                 string castLabel = def.Effects.Count > 0 ? (inLibrary ? "出字" : "直出") : "兜底一击";
-                Ui.TextButton(_actionRow, castLabel, () => OnCastPressed(def),
-                    new Color(0.55f, 0.3f, 0.15f));
+                Ui.RoundButton(_actionRow, castLabel, () => OnCastPressed(def), Theme.Cinnabar, Color.white, 16, new Vector2(90, 44));
                 if (inLibrary && !def.IsLeaf)
-                    Ui.TextButton(_actionRow, "拆", () => OnDismantle(def.Id), new Color(0.3f, 0.35f, 0.5f));
-                Ui.TextButton(_actionRow, "丢弃", () => OnDiscard(def.Id), new Color(0.42f, 0.24f, 0.24f));
-                Ui.TextButton(_actionRow, "取消", CancelSelection, new Color(0.3f, 0.3f, 0.3f));
+                    Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 16, new Vector2(60, 44));
+                Ui.RoundButton(_actionRow, "丢弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 16, new Vector2(72, 44));
+                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(72, 44));
             }
-            Ui.TextButton(_actionRow, "结束回合", OnEndTurn, new Color(0.45f, 0.2f, 0.35f), 26, new Vector2(150, 64));
+        }
+
+        private void DrawEndTurn()
+        {
+            Ui.PillButton(_statusRow, "结束回合", OnEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
         }
 
         private void DrawBattleSettle()
         {
             bool won = Battle.Phase == BattlePhase.Won;
-            Ui.Label(_actionRow, won ? "本场胜利!" : "败北……", 36);
-            Ui.TextButton(_actionRow, "结算", () =>
+            Ui.ThemedLabel(_actionRow, won ? "本场胜利!" : "败北……", 36, Theme.TextMain, Theme.TitleFont);
+            Ui.PillButton(_actionRow, "结算", () =>
             {
                 _run.AdvanceAfterBattle();
                 _message = _run.Phase == RunPhase.Reward ? "战利品:三选一(可跳过)" : "";
                 Refresh();
-            }, new Color(0.2f, 0.4f, 0.25f), 26, new Vector2(150, 70));
+            }, Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
         private void DrawReward()
         {
-            Ui.Label(_actionRow, "选一个字入库:", 26);
+            Ui.ThemedLabel(_actionRow, "选一个字入库:", 22, Theme.TextMain, Theme.TitleFont);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.RewardOptions[i];
                 var def = _graph.Get(id);
-                Ui.TextButton(_actionRow, $"{id}\n{def.ApCost}AP", () =>
+                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} 墨力", false, () =>
                 {
                     _run.PickReward(index);
                     _tutorial?.Notify(TutorialAction.PickReward);
                     _message = $"「{id}」入库,下一战!";
                     CancelSelection();
-                }, Ui.RarityColor(def.Rarity), 26, new Vector2(110, 88));
+                });
             }
-            Ui.TextButton(_actionRow, "跳过", () =>
+            Ui.RoundButton(_actionRow, "跳过", () =>
             {
                 _run.SkipReward();
                 _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成"三选一"节拍,引导不卡死
                 _message = "轻装上阵,下一战!";
                 CancelSelection();
-            }, new Color(0.3f, 0.3f, 0.3f));
+            }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(80, 44));
         }
 
         private void DrawEvent() // 奇遇(9.6):短情境 + 选择;字摊类消费显示预算
         {
             var evt = _run.CurrentEvent;
-            Ui.Label(_enemyRow, $"奇遇 · {evt.Id}", 34);
-            Ui.Label(_statusRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 24);
+            Ui.ThemedLabel(_enemyRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_statusRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 18, Theme.TextDim);
             for (int i = 0; i < evt.Options.Count; i++)
             {
                 int index = i;
                 var option = evt.Options[i];
                 bool affordable = option.InkCost <= _run.AvailableInk;
-                var button = Ui.TextButton(_actionRow, option.Label, () =>
+                var button = Ui.RoundButton(_actionRow, option.Label, () =>
                 {
                     if (_run.ChooseEventOption(index))
                         _message = $"{evt.Id}:{option.Label}";
                     else
                         _message = "墨锭不足,换个选择";
                     CancelSelection();
-                }, affordable ? new Color(0.3f, 0.32f, 0.44f) : new Color(0.18f, 0.18f, 0.2f),
-                    22, new Vector2(260, 72));
+                }, affordable ? Theme.InkSoft : Theme.LockedBg,
+                    affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
             }
         }
@@ -390,9 +493,9 @@ namespace Brushblade.Presentation
         private void DrawRunEnd()
         {
             bool won = _run.Phase == RunPhase.RunWon;
-            Ui.Label(_actionRow, won ? "关卡通过——字正!" : "败北", 40);
-            Ui.TextButton(_actionRow, "返回地图", () => _onRunEnded(won),
-                new Color(0.2f, 0.4f, 0.25f), 26, new Vector2(170, 70));
+            Ui.ThemedLabel(_actionRow, won ? "关卡通过——字正!" : "败北", 40, Theme.TextMain, Theme.TitleFont);
+            Ui.PillButton(_actionRow, "返回地图", () => _onRunEnded(won),
+                Theme.Jade, Color.white, 26, new Vector2(170, 70));
             _message = won ? "通关结算:经验与墨锭入账。" : "死亡即结算,回地图重整旗鼓。";
         }
 

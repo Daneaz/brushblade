@@ -101,7 +101,9 @@ namespace Brushblade.Presentation
 
             var view = NewView("BattleView");
             view.AddComponent<BattleView>().Init(_graph, run,
-                won => OnRunEnded(chapter, stage, won, run.EarnedInk), tutorial);
+                won => OnRunEnded(chapter, stage, won, run.EarnedInk), tutorial,
+                $"第{Ui.ChineseNumber(chapter + 1)}章 · {_campaign.Chapters[chapter].Name}",
+                MetaRules.MaxHpFor(level));
         }
 
         private static void OnRunEnded(int chapter, int stage, bool won, int eventInk)
