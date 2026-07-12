@@ -69,7 +69,8 @@ namespace Brushblade.Core
             };
         }
 
-        private static EnemyDef Scale(EnemyDef enemy, float scale)
+        /// <summary>敌人数值缩放(HP/攻击向上取整,承伤系数不缩放);无尽深度缩放复用(20.4)。</summary>
+        public static EnemyDef Scale(EnemyDef enemy, float scale)
         {
             List<BossPhaseDef> phases = null;
             if (enemy.Phases.Count > 0)

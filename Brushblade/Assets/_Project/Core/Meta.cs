@@ -15,6 +15,9 @@ namespace Brushblade.Core
         public List<int> ClearedStages { get; set; } = new();             // 每章已通关数
         public List<ChestState> Chests { get; set; } = new();             // 箱位队列(≤4,19.5.2)
         public ShopState Shop { get; set; } = new();                      // 每日商城(19.6)
+        public int BestDepth { get; set; }                                // 无尽最高层数(20.5)
+        public List<string> BandMilestones { get; set; } = new();         // 已领首破奖励的层段(20.3)
+        public EndlessSaveState Endless { get; set; }                     // 断点续爬快照;null=无进行中登塔(20.6)
     }
 
     /// <summary>养成规则(19.2/19.3 首版基准)。纯函数,状态进出。</summary>
