@@ -5,14 +5,14 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>章节地图(19.1 外层):角色状态头 + 章节/关卡格 + 宝箱栏(19.5)。</summary>
+    /// <summary>主界面(20.2 无尽外层):角色状态头 + 无尽书塔面板 + 宝箱栏(19.5)。</summary>
     public sealed class MapView : MonoBehaviour
     {
         private RecipeGraph _graph;
         private CampaignConfig _campaign;
         private MetaState _meta;
         private ITimeSource _time;
-        private Action<int, int> _onStartStage;
+        private Action _onStartTower;
         private Action _save;
         private Action _onOpenCollection;
         private Action _onOpenShop;
@@ -23,14 +23,14 @@ namespace Brushblade.Presentation
         private GameObject _resultPanel; // 开箱结果面板;打开期间禁止整页重建
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
-            Action<int, int> onStartStage, Action save, string message, Action onOpenCollection, Action onOpenShop)
+            Action onStartTower, Action save, string message, Action onOpenCollection, Action onOpenShop)
         {
             _graph = graph;
             _onOpenShop = onOpenShop;
             _campaign = campaign;
             _meta = meta;
             _time = time;
-            _onStartStage = onStartStage;
+            _onStartTower = onStartTower;
             _save = save;
             _onOpenCollection = onOpenCollection;
             _message = message ?? "";
@@ -102,78 +102,41 @@ namespace Brushblade.Presentation
                 Ui.Stretch(text.rectTransform);
             }
 
-            // 章节区:滚动容器(章节增多不破版),初始聚焦进行中的章节
-            var scrollGo = Ui.Panel(transform, "ChapterScroll");
-            Ui.Anchor((RectTransform)scrollGo.transform, new Vector2(0.02f, 0.26f), new Vector2(0.98f, 0.84f), Vector2.zero, Vector2.zero);
-            var scroll = scrollGo.AddComponent<ScrollRect>();
-            scrollGo.AddComponent<RectMask2D>();
-            var contentGo = Ui.Panel(scrollGo.transform, "Content");
-            var content = (RectTransform)contentGo.transform;
-            content.anchorMin = new Vector2(0, 1);
-            content.anchorMax = Vector2.one;
-            content.pivot = new Vector2(0.5f, 1);
-            content.offsetMin = Vector2.zero;
-            content.offsetMax = Vector2.zero;
-            var contentLayout = contentGo.AddComponent<VerticalLayoutGroup>();
-            contentLayout.spacing = 12;
-            contentLayout.childAlignment = TextAnchor.UpperCenter;
-            contentLayout.childForceExpandWidth = true;
-            contentLayout.childForceExpandHeight = false;
-            contentGo.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            scroll.content = content;
-            scroll.viewport = (RectTransform)scrollGo.transform;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.scrollSensitivity = 30;
+            // 无尽书塔面板(20.2):段位/最高层 + 层段进度 + 登塔/续爬
+            var endless = _campaign.Endless;
+            var tower = Ui.CardPanel(transform, "Tower");
+            Ui.Anchor((RectTransform)tower.transform, new Vector2(0.2f, 0.27f), new Vector2(0.8f, 0.84f), Vector2.zero, Vector2.zero);
+            var stack = Ui.VStack(tower.transform, "Stack", 14);
+            Ui.Stretch((RectTransform)stack.transform);
 
-            int focusChapter = -1; // 第一个有已解锁未通关关卡的章节
-            for (int c = 0; c < _campaign.Chapters.Count; c++)
+            Ui.ThemedLabel(stack.transform, "无尽书塔", 32, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform,
+                $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层",
+                20, Theme.TextDim);
+
+            // 层段进度:已踏入亮色,未至灰色
+            var bands = Ui.Row(stack.transform, "Bands", 10);
+            foreach (var band in endless.Bands)
             {
-                var chapter = _campaign.Chapters[c];
-
-                var title = Ui.ThemedLabel(contentGo.transform,
-                    $"第{Ui.ChineseNumber(c + 1)}章 · {chapter.Name}  (难度 ×{chapter.EnemyScale:0.#})",
-                    21, Theme.TextMain, Theme.TitleFont);
-                title.gameObject.name = $"ChapterTitle{c}";
-
-                var row = Ui.Row(contentGo.transform, $"Chapter{c}", 14);
-
-                for (int s = 0; s < chapter.Stages.Count; s++)
-                {
-                    int chapterIndex = c, stageIndex = s;
-                    bool unlocked = MetaRules.IsStageUnlocked(_meta, _campaign, c, s);
-                    bool cleared = c < _meta.ClearedStages.Count && s < _meta.ClearedStages[c];
-                    bool boss = chapter.Stages[s].Boss;
-
-                    string label = (boss ? "Boss" : $"关{s + 1}") + (cleared ? "\n✓" : unlocked ? "" : "\n锁");
-                    var bg = cleared ? Theme.DoneGreen
-                        : unlocked ? (boss ? Theme.Cinnabar : Theme.Gold)
-                        : Theme.LockedBg;
-                    var fg = cleared ? Color.white
-                        : unlocked ? (boss ? Color.white : Theme.GoldText)
-                        : Theme.LockGray;
-
-                    var button = Ui.RoundButton(row.transform, label,
-                        () => _onStartStage(chapterIndex, stageIndex), bg, fg, 19, new Vector2(96, 78), 14);
-                    button.interactable = unlocked;
-
-                    if (focusChapter < 0 && unlocked && !cleared)
-                        focusChapter = c;
-                }
+                bool reached = band.FromDepth == 1 || _meta.BestDepth >= band.FromDepth;
+                Ui.Chip(bands.transform, $"{band.Name} {band.FromDepth}层起",
+                    reached ? Theme.InkSoft : Theme.LockedBg,
+                    reached ? Color.white : Theme.LockGray, 15);
             }
-            StartCoroutine(FocusChapter(scroll, Mathf.Max(0, focusChapter), _campaign.Chapters.Count));
+
+            var snapshot = _meta.Endless;
+            string label = snapshot == null
+                ? "登 塔"
+                : $"继续 · 「{endless.BandFor(snapshot.Depth).Name}」第 {snapshot.Depth} 层";
+            Ui.PillButton(stack.transform, label, () => _onStartTower(),
+                Theme.Cinnabar, Color.white, 24, new Vector2(300, 62));
+            if (snapshot != null)
+                Ui.ThemedLabel(stack.transform,
+                    $"进行中:HP {snapshot.PlayerHp} · 滚存墨锭 {snapshot.EarnedInk}", 16, Theme.TextDim);
+            else
+                Ui.ThemedLabel(stack.transform, "每 5 层一位 Boss,战胜后可收官或深入", 16, Theme.TextDim);
 
             DrawChestBar();
-        }
-
-        /// <summary>布局完成后把滚动定位到进行中的章节(内容未超出视口时无感)。</summary>
-        private System.Collections.IEnumerator FocusChapter(ScrollRect scroll, int chapter, int chapterCount)
-        {
-            yield return null; // 等一帧布局
-            if (scroll == null) yield break;
-            Canvas.ForceUpdateCanvases();
-            float t = chapterCount <= 1 ? 0f : chapter / (float)(chapterCount - 1);
-            scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - t);
         }
 
         // ---- 宝箱栏(19.5) ----

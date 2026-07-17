@@ -42,12 +42,20 @@ namespace Brushblade.Presentation
 
         private Tutorial _tutorial;      // 新手引导(11.2);null = 不引导
 
+        private System.Action _onNewFloor;   // 连战推进到新一场时回调(无尽断点快照,20.6)
+        private System.Action _onExit;       // 中途退出(无尽=挂起);null 时退化为认输
+        private int _lastBattleIndex;
+
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
-            Tutorial tutorial = null, string title = null, int playerMaxHp = 50)
+            Tutorial tutorial = null, string title = null, int playerMaxHp = 50,
+            System.Action onNewFloor = null, System.Action onExit = null)
         {
             _graph = graph;
             _run = run;
             _onRunEnded = onRunEnded;
+            _onNewFloor = onNewFloor;
+            _onExit = onExit;
+            _lastBattleIndex = run.BattleIndex;
             _tutorial = tutorial;
             _title = title ?? "";
             _playerMaxHp = playerMaxHp;
@@ -130,6 +138,11 @@ namespace Brushblade.Presentation
 
         private void Refresh()
         {
+            if (_run.Phase == RunPhase.InBattle && _run.BattleIndex != _lastBattleIndex)
+            {
+                _lastBattleIndex = _run.BattleIndex;
+                _onNewFloor?.Invoke(); // 新一场开打:携带态已就位,供外层快照
+            }
             _tileRects.Clear();
             Ui.Clear(_topLeft);
             Ui.Clear(_topRight);
@@ -204,11 +217,19 @@ namespace Brushblade.Presentation
             Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
             Ui.ThemedLabel(_topRight, $"回合 {Battle.Turn}", 18, Theme.TextDim);
             bool exitArmed = Time.unscaledTime < _exitArmedUntil;
-            Ui.PillButton(_topRight, exitArmed ? "确认退出?" : "退出关卡", () =>
+            bool suspend = _onExit != null; // 无尽:退出=挂起(断点续爬,20.6);否则=放弃
+            Ui.PillButton(_topRight, exitArmed ? (suspend ? "确认挂起?" : "确认退出?") : "退出", () =>
             {
-                if (Time.unscaledTime < _exitArmedUntil) { _onRunEnded(false); return; }
+                if (Time.unscaledTime < _exitArmedUntil)
+                {
+                    if (suspend) _onExit();
+                    else _onRunEnded(false);
+                    return;
+                }
                 _exitArmedUntil = Time.unscaledTime + 2.5f;
-                _message = "再点一次「确认退出?」放弃本关(进度不推进,奇遇墨锭保留)";
+                _message = suspend
+                    ? "再点一次「确认挂起?」暂停登塔(下次从本层继续)"
+                    : "再点一次「确认退出?」放弃本关(进度不推进,奇遇墨锭保留)";
                 Refresh();
             }, exitArmed ? Theme.Cinnabar : Theme.ExitPink, Color.white, 15, new Vector2(110, 38));
         }
@@ -559,10 +580,14 @@ namespace Brushblade.Presentation
         private void DrawRunEnd()
         {
             bool won = _run.Phase == RunPhase.RunWon;
-            Ui.ThemedLabel(_actionRow, won ? "关卡通过——字正!" : "败北", 40, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_actionRow, "返回地图", () => _onRunEnded(won),
-                Theme.Jade, Color.white, 26, new Vector2(170, 70));
-            _message = won ? "通关结算:经验与墨锭入账。" : "死亡即结算,回地图重整旗鼓。";
+            bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
+            Ui.ThemedLabel(_actionRow, won ? (tower ? "本段告捷——字正!" : "关卡通过——字正!") : "败北",
+                40, Theme.TextMain, Theme.TitleFont);
+            Ui.PillButton(_actionRow, won && tower ? "前往安全层" : tower ? "结算" : "返回地图",
+                () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
+            _message = won
+                ? (tower ? "Boss 已破,安全层可收官或深入。" : "通关结算:经验与墨锭入账。")
+                : (tower ? "卒……墨锭半额结算,纪录保留。" : "死亡即结算,回地图重整旗鼓。");
         }
 
         // ---- 交互 ----

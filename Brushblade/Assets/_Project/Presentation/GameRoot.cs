@@ -48,7 +48,7 @@ namespace Brushblade.Presentation
         public static void ShowMap(string message = null)
         {
             var view = NewView("MapView");
-            view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartStage, () => MetaStore.Save(_meta), message,
+            view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
                 onOpenCollection: ShowCollection, onOpenShop: ShowShop);
         }
 
@@ -67,62 +67,171 @@ namespace Brushblade.Presentation
             view.AddComponent<ShopView>().Init(_graph, _meta, pool, Time, () => MetaStore.Save(_meta), () => ShowMap());
         }
 
-        /// <summary>已解锁章节的奖励池并集(F3:商城不上架未解锁章节的字)。</summary>
+        /// <summary>已踏入层段的字池并集(F3 分层段投放:商城不上架未解锁层段的字,20.8)。</summary>
         private static System.Collections.Generic.List<string> UnlockedRewardPool()
         {
             var pool = new System.Collections.Generic.List<string>();
-            for (int c = 0; c < _campaign.Chapters.Count; c++)
+            foreach (var band in _campaign.Endless.Bands)
             {
-                if (!MetaRules.IsStageUnlocked(_meta, _campaign, c, 0)) break;
-                foreach (var card in _campaign.Chapters[c].RewardPool)
+                if (band.FromDepth > 1 && _meta.BestDepth < band.FromDepth) break;
+                foreach (var card in band.RewardPool)
                     if (!pool.Contains(card))
                         pool.Add(card);
             }
             return pool;
         }
 
-        private static void StartStage(int chapter, int stage)
-        {
-            int level = MetaRules.CharacterLevel(_meta.CharacterXp);
-            var battleConfig = new BattleConfig
-            {
-                DropTable = _campaign.DropTable,
-                PlayerMaxHp = MetaRules.MaxHpFor(level), // 19.2.1 生命成长
-            };
-            var run = new RunEngine(_graph,
-                _campaign.BuildRunConfig(chapter, stage, new GameRandom(System.Environment.TickCount)), battleConfig,
-                startingLibrary: MetaRules.StartingLibrary(_meta), startingPool: new[] { "木", "木" },
-                seed: System.Environment.TickCount, cardLevels: _meta.CardLevels,
-                startingInk: _meta.Ink); // 字摊消费预算(9.3.2)
+        // ---- 无尽塔流程(第 20 章):登塔/续爬 → 逐段连战 → 安全层抉择 → 结算 ----
 
-            // 新手引导(11.2):1-1 未通关时启用剧本节拍;通关即永久关闭
-            bool firstStageUncleared = _meta.ClearedStages.Count == 0 || _meta.ClearedStages[0] == 0;
-            var tutorial = chapter == 0 && stage == 0 && firstStageUncleared ? new Tutorial() : null;
+        private static void StartTower()
+        {
+            var snapshot = _meta.Endless;
+            bool firstTower = _meta.BestDepth == 0 && snapshot == null;
+            if (snapshot == null)
+            {
+                int level = MetaRules.CharacterLevel(_meta.CharacterXp);
+                _meta.Endless = new EndlessSaveState
+                {
+                    Depth = 1,
+                    PlayerHp = MetaRules.MaxHpFor(level),
+                    Seed = System.Environment.TickCount,
+                    Library = new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta)),
+                    Pool = new System.Collections.Generic.List<string> { "木", "木" },
+                };
+                MetaStore.Save(_meta);
+            }
+            StartSegment(firstTower);
+        }
+
+        private static void StartSegment(bool firstTower)
+        {
+            var endless = _campaign.Endless;
+            var snapshot = _meta.Endless;
+            int fromDepth = snapshot.Depth;
+            var band = endless.BandFor(fromDepth);
+            int segmentEnd = (fromDepth - 1) / endless.BossEvery * endless.BossEvery + endless.BossEvery;
+
+            // 层段首破里程碑(20.3):层段边界都是段首,踏入即发,断点重入不重复
+            if (EndlessRules.TryAwardMilestone(_meta, band))
+                MetaStore.Save(_meta);
+
+            var runConfig = firstTower && fromDepth <= 1
+                ? EndlessGenerator.BuildFirstTowerSegment(endless, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent)
+                : EndlessGenerator.BuildSegment(endless, fromDepth, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent);
+
+            int maxHp = MetaRules.MaxHpFor(MetaRules.CharacterLevel(_meta.CharacterXp));
+            var battleConfig = new BattleConfig { DropTable = _campaign.DropTable, PlayerMaxHp = maxHp };
+            var run = new RunEngine(_graph, runConfig, battleConfig,
+                snapshot.Library, snapshot.Pool,
+                seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,
+                startingInk: _meta.Ink + snapshot.EarnedInk, // 字摊预算 = 库存 + 塔内滚存
+                startingHp: snapshot.PlayerHp);
+            if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
+            if (snapshot.PoolExpanded) run.TryExpandPool();
+
+            var tutorial = firstTower && fromDepth <= 1 ? new Tutorial() : null;
+            int baseInk = snapshot.EarnedInk; // 段前滚存
 
             var view = NewView("BattleView");
             view.AddComponent<BattleView>().Init(_graph, run,
-                won => OnRunEnded(chapter, stage, won, run.EarnedInk), tutorial,
-                $"第{Ui.ChineseNumber(chapter + 1)}章 · {_campaign.Chapters[chapter].Name}",
-                MetaRules.MaxHpFor(level));
+                won => OnSegmentEnded(run, fromDepth, segmentEnd, baseInk, won),
+                tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
+                onNewFloor: () => OnFloorAdvanced(run, fromDepth, baseInk),
+                onExit: () => ShowMap("登塔已挂起,随时回来继续"));
         }
 
-        private static void OnRunEnded(int chapter, int stage, bool won, int eventInk)
+        /// <summary>新一层开打:层粒度断点快照(20.6)+ 层经验 + 层段首破里程碑(20.3)。</summary>
+        private static void OnFloorAdvanced(RunEngine run, int fromDepth, int baseInk)
         {
-            string message = null;
-            _meta.Ink += eventInk; // 奇遇所得墨锭(胜负均入账)
-            if (won)
-            {
-                bool firstClear = MetaRules.ApplyStageCleared(_meta, chapter, stage);
-                _meta.Ink += firstClear ? 50 : 15;
+            var endless = _campaign.Endless;
+            int depth = fromDepth + run.BattleIndex;
+            _meta.CharacterXp += EndlessRules.XpFor(endless, depth - 1); // 刚打完的层
 
-                // 掉宝箱(19.5.3):档位随角色等级,Boss 关首通 +1 档;箱位满/当日达上限不掉箱、无折算
-                bool bossBonus = firstClear && _campaign.Chapters[chapter].Stages[stage].Boss;
-                var tier = ChestRules.RollTier(MetaRules.CharacterLevel(_meta.CharacterXp),
-                    new GameRandom(System.Environment.TickCount), bossBonus);
-                if (ChestRules.TryAwardChest(_meta, tier, _campaign.Chapters[chapter].RewardPool, Time))
-                    message = $"获得{ChestRules.TierName(tier)}!在箱位中开启它";
+            var snapshot = _meta.Endless;
+            snapshot.Depth = depth;
+            snapshot.PlayerHp = run.Battle.PlayerHp;
+            snapshot.Library = new System.Collections.Generic.List<string>(run.Battle.Library);
+            snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
+            snapshot.EarnedInk = baseInk + run.EarnedInk;
+            snapshot.LibraryExpanded = run.LibraryExpanded;
+            snapshot.PoolExpanded = run.PoolExpanded;
+            MetaStore.Save(_meta);
+        }
+
+        private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int baseInk, bool won)
+        {
+            var endless = _campaign.Endless;
+            int totalEarned = baseInk + run.EarnedInk;
+            if (!won)
+            {
+                int clearedDepth = fromDepth + run.BattleIndex - 1;
+                SettleTower(died: true, clearedDepth, totalEarned);
+                return;
+            }
+
+            // Boss 层告捷:经验 + 纪录 + 快照推进到下一段首层(安全层挂起点)
+            _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
+            EndlessRules.UpdateBest(_meta, segmentEnd);
+            var snapshot = _meta.Endless;
+            snapshot.Depth = segmentEnd + 1;
+            snapshot.PlayerHp = run.Battle.PlayerHp;
+            var library = new System.Collections.Generic.List<string>(run.Battle.Library);
+            library.AddRange(run.Battle.UsedChars); // 出过的字回归(3.8.1)
+            snapshot.Library = library;
+            snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
+            snapshot.EarnedInk = totalEarned;
+            snapshot.LibraryExpanded = false; // 段内广告扩容一段一次,过段恢复
+            snapshot.PoolExpanded = false;
+            MetaStore.Save(_meta);
+            ShowSafeLayer(segmentEnd, totalEarned);
+        }
+
+        /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择。</summary>
+        private static void ShowSafeLayer(int depth, int totalEarned)
+        {
+            var endless = _campaign.Endless;
+            var nextBand = endless.BandFor(depth + 1);
+            var view = NewView("SafeLayerView");
+            Ui.Stretch((RectTransform)view.transform);
+
+            var card = Ui.CardPanel(view.transform, "Panel");
+            Ui.Anchor((RectTransform)card.transform, new Vector2(0.24f, 0.18f), new Vector2(0.76f, 0.82f), Vector2.zero, Vector2.zero);
+            var stack = Ui.VStack(card.transform, "Stack", 16);
+            Ui.Stretch((RectTransform)stack.transform);
+
+            Ui.ThemedLabel(stack.transform, $"安全层 · 第 {depth} 层告捷", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform,
+                $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层", 18, Theme.TextDim);
+            Ui.IngotLabel(stack.transform, $"滚存 {totalEarned}", 20);
+            Ui.ThemedLabel(stack.transform,
+                $"继续:滚存收益带入更深层,阵亡墨锭减半、宝箱退回本层\n撤退:立即全额结算(宝箱按第 {depth} 层档位)", 16, Theme.TextDim);
+
+            Ui.PillButton(stack.transform, $"深入「{nextBand.Name}」第 {depth + 1}~{depth + endless.BossEvery} 层",
+                () => StartSegment(firstTower: false), Theme.Cinnabar, Color.white, 20, new Vector2(340, 58));
+            Ui.PillButton(stack.transform, "收官撤退(全额结算)",
+                () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 20, new Vector2(340, 58));
+        }
+
+        /// <summary>塔结算(20.5):撤退全额/阵亡半额;宝箱按结算层(阵亡退回最后安全层)。</summary>
+        private static void SettleTower(bool died, int clearedDepth, int totalEarned)
+        {
+            var endless = _campaign.Endless;
+            _meta.Endless = null;
+            EndlessRules.UpdateBest(_meta, clearedDepth);
+            int ink = EndlessRules.SettleInk(totalEarned, died);
+            _meta.Ink += ink;
+            int chestDepth = died ? clearedDepth / endless.BossEvery * endless.BossEvery : clearedDepth;
+
+            string message = died
+                ? $"卒于第 {clearedDepth + 1} 层……墨锭 {ink}(半额)入账"
+                : $"第 {clearedDepth} 层收官!墨锭 {ink} 入账";
+            if (chestDepth >= endless.BossEvery)
+            {
+                var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
+                if (ChestRules.TryAwardChest(_meta, tier, endless.BandFor(chestDepth).RewardPool, Time))
+                    message += $",获得{ChestRules.TierName(tier)}";
                 else
-                    message = "箱位已满或今日宝箱达上限,本次未获得宝箱";
+                    message += ",箱位已满未获宝箱";
             }
             MetaStore.Save(_meta);
             ShowMap(message);

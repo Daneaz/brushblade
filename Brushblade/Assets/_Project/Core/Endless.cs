@@ -165,6 +165,17 @@ namespace Brushblade.Core
         public static int XpFor(EndlessConfig config, int depth) =>
             config.IsBossDepth(depth) ? 50 : 10;
 
+        /// <summary>书法段位称号(11.3.2 并入 20.3):按最高层数分档。</summary>
+        public static string RankTitle(int bestDepth) => bestDepth switch
+        {
+            < 10 => "白丁",
+            < 25 => "学童",
+            < 50 => "秀才",
+            < 75 => "举人",
+            < 100 => "进士",
+            _ => "翰林",
+        };
+
         public static void UpdateBest(MetaState meta, int depth) =>
             meta.BestDepth = Math.Max(meta.BestDepth, depth);
 

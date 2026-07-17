@@ -190,6 +190,18 @@ namespace Brushblade.Core.Tests
         // ---- 结算与里程碑 ----
 
         [Test]
+        public void RankTitle_ByBestDepth() // 书法段位(11.3.2 → 20.3)
+        {
+            Assert.That(EndlessRules.RankTitle(0), Is.EqualTo("白丁"));
+            Assert.That(EndlessRules.RankTitle(9), Is.EqualTo("白丁"));
+            Assert.That(EndlessRules.RankTitle(10), Is.EqualTo("学童"));
+            Assert.That(EndlessRules.RankTitle(25), Is.EqualTo("秀才"));
+            Assert.That(EndlessRules.RankTitle(50), Is.EqualTo("举人"));
+            Assert.That(EndlessRules.RankTitle(75), Is.EqualTo("进士"));
+            Assert.That(EndlessRules.RankTitle(120), Is.EqualTo("翰林"));
+        }
+
+        [Test]
         public void Retreat_SettlesFullInk()
         {
             Assert.That(EndlessRules.SettleInk(120, died: false), Is.EqualTo(120));
