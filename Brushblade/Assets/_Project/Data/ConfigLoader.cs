@@ -47,6 +47,25 @@ namespace Brushblade.Data
             public List<ChapterDto> Chapters { get; set; }
             public List<EventDto> Events { get; set; }
             public int EventChance { get; set; }
+            public EndlessDto Endless { get; set; }
+        }
+
+        private sealed class EndlessDto
+        {
+            public int BossEvery { get; set; } = 5;
+            public float ScalePerDepth { get; set; } = 0.10f;
+            public float BossScaleBonus { get; set; } = 1.25f;
+            public List<BandDto> Bands { get; set; }
+        }
+
+        private sealed class BandDto
+        {
+            public string Name { get; set; }
+            public int FromDepth { get; set; }
+            public List<string> EnemyPool { get; set; }
+            public List<string> BossPool { get; set; }
+            public List<string> RewardPool { get; set; }
+            public int MilestoneInk { get; set; }
         }
 
         private sealed class EventDto
@@ -186,6 +205,70 @@ namespace Brushblade.Data
                 DropTable = file.DropTable,
                 Events = events,
                 EventChancePercent = file.EventChance,
+                Endless = ParseEndless(file.Endless, enemyDefs, graph),
+            };
+        }
+
+        /// <summary>解析无尽层段(20.3);无 endless 段返回 null。</summary>
+        private static EndlessConfig ParseEndless(EndlessDto dto,
+            Dictionary<string, EnemyDef> enemyDefs, RecipeGraph graph)
+        {
+            if (dto == null)
+                return null;
+            if (dto.Bands == null || dto.Bands.Count == 0)
+                throw new ConfigException("endless 段缺少 bands");
+
+            int previousFrom = 0;
+            var bands = new List<BandDef>();
+            foreach (var bandDto in dto.Bands)
+            {
+                if (bandDto.FromDepth <= previousFrom)
+                    throw new ConfigException($"层段「{bandDto.Name}」fromDepth 必须严格递增");
+                previousFrom = bandDto.FromDepth;
+
+                var enemyPool = new List<EnemyDef>();
+                foreach (var id in bandDto.EnemyPool ?? new List<string>())
+                {
+                    if (!enemyDefs.TryGetValue(id, out var def))
+                        throw new ConfigException($"层段「{bandDto.Name}」杂兵池引用了未定义的敌人:{id}");
+                    enemyPool.Add(def);
+                }
+                if (enemyPool.Count == 0)
+                    throw new ConfigException($"层段「{bandDto.Name}」杂兵池为空");
+
+                var bossPool = new List<EnemyDef>();
+                foreach (var id in bandDto.BossPool ?? new List<string>())
+                {
+                    if (!enemyDefs.TryGetValue(id, out var def))
+                        throw new ConfigException($"层段「{bandDto.Name}」Boss 池引用了未定义的敌人:{id}");
+                    bossPool.Add(def);
+                }
+                if (bossPool.Count == 0)
+                    throw new ConfigException($"层段「{bandDto.Name}」Boss 池为空");
+
+                foreach (var reward in bandDto.RewardPool ?? new List<string>())
+                    if (!graph.TryGet(reward, out _))
+                        throw new ConfigException($"层段「{bandDto.Name}」字池引用了不存在的字:{reward}");
+
+                bands.Add(new BandDef
+                {
+                    Name = bandDto.Name,
+                    FromDepth = bandDto.FromDepth,
+                    EnemyPool = enemyPool,
+                    BossPool = bossPool,
+                    RewardPool = bandDto.RewardPool ?? new List<string>(),
+                    MilestoneInk = bandDto.MilestoneInk,
+                });
+            }
+            if (bands[0].FromDepth != 1)
+                throw new ConfigException("首个层段的 fromDepth 必须为 1");
+
+            return new EndlessConfig
+            {
+                Bands = bands,
+                BossEvery = dto.BossEvery,
+                ScalePerDepth = dto.ScalePerDepth,
+                BossScaleBonus = dto.BossScaleBonus,
             };
         }
 

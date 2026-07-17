@@ -117,6 +117,76 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        // ---- 段组装(20.2/20.6 断点续爬) ----
+
+        [Test]
+        public void Segment_From1_FiveFloors_LastIsBoss()
+        {
+            var run = EndlessGenerator.BuildSegment(Config(), fromDepth: 1, seed: 42);
+            Assert.That(run.Encounters.Count, Is.EqualTo(5));
+            Assert.That(run.Encounters[4].Count, Is.EqualTo(1));
+            Assert.That(run.Encounters[4][0].Id, Is.EqualTo("排山倒海"));
+        }
+
+        [Test]
+        public void Segment_ResumeMidSegment_MatchesOriginalFloors()
+        {
+            // 断点续爬核心性质:从第 3 层恢复,第 3~5 层编成与整段生成时一致
+            var full = EndlessGenerator.BuildSegment(Config(), fromDepth: 1, seed: 42);
+            var resumed = EndlessGenerator.BuildSegment(Config(), fromDepth: 3, seed: 42);
+            Assert.That(resumed.Encounters.Count, Is.EqualTo(3));
+            for (int i = 0; i < 3; i++)
+                Assert.That(resumed.Encounters[i].Select(e => e.Id),
+                    Is.EqualTo(full.Encounters[i + 2].Select(e => e.Id)));
+        }
+
+        [Test]
+        public void Segment_RewardPool_FromBand()
+        {
+            var run = EndlessGenerator.BuildSegment(Config(), fromDepth: 11, seed: 42);
+            Assert.That(run.RewardPool, Is.EqualTo(new[] { "灼", "炽" }));
+        }
+
+        [Test]
+        public void Segment_ScriptedOpening_FirstThreeFloorsFixed() // 20.10 初次登入剧本化
+        {
+            var run = EndlessGenerator.BuildFirstTowerSegment(Config(), seed: 42);
+            Assert.That(run.Encounters[0].Select(e => e.Id), Is.EqualTo(new[] { "错字鬼" }));
+            Assert.That(run.Encounters[1].Select(e => e.Id), Is.EqualTo(new[] { "错字鬼", "错字鬼" }));
+            Assert.That(run.Encounters[2].Count, Is.EqualTo(2)); // 第 3 层双敌
+            Assert.That(run.Encounters[4][0].Id, Is.EqualTo("排山倒海")); // 第 5 层仍是 Boss
+        }
+
+        [Test]
+        public void RunEngine_StartingHp_AppliedToFirstBattle() // 断点续爬恢复血量(20.6)
+        {
+            var graph = new RecipeGraph(new[] { new CharDef("灯", Element.Fire) });
+            var runConfig = EndlessGenerator.BuildSegment(Config(), fromDepth: 3, seed: 42);
+            var engine = new RunEngine(graph, runConfig, new BattleConfig(),
+                startingLibrary: new[] { "灯" }, startingPool: new string[0], seed: 1,
+                startingHp: 21);
+            Assert.That(engine.Battle.PlayerHp, Is.EqualTo(21));
+        }
+
+        // ---- 宝箱档位与经验(20.8) ----
+
+        [Test]
+        public void ChestTier_GrowsWithDepth()
+        {
+            var random = new GameRandom(1);
+            Assert.That(EndlessRules.ChestTierFor(1, random), Is.AnyOf(ChestTier.Paper, ChestTier.Bamboo));
+            Assert.That(EndlessRules.ChestTierFor(12, random), Is.AnyOf(ChestTier.Celadon, ChestTier.Rosewood));
+            Assert.That(EndlessRules.ChestTierFor(60, random), Is.AnyOf(ChestTier.Gilded, ChestTier.Crimson));
+        }
+
+        [Test]
+        public void Xp_TenPerFloor_FiftyOnBoss()
+        {
+            var config = Config();
+            Assert.That(EndlessRules.XpFor(config, 3), Is.EqualTo(10));
+            Assert.That(EndlessRules.XpFor(config, 5), Is.EqualTo(50));
+        }
+
         // ---- 结算与里程碑 ----
 
         [Test]

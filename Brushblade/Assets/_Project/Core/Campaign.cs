@@ -33,6 +33,9 @@ namespace Brushblade.Core
 
         /// <summary>奇遇事件池与触发概率(9.6,全战役共用)。</summary>
         public IReadOnlyList<EventDef> Events { get; set; } = System.Array.Empty<EventDef>();
+
+        /// <summary>无尽模式配置(20.3);旧配置无 endless 段时为 null。</summary>
+        public EndlessConfig Endless { get; set; }
         public int EventChancePercent { get; set; }
 
         /// <summary>把某章某关装配成 RunEngine 可用的 RunConfig(敌人数值按章缩放,向上取整;

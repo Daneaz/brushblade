@@ -47,6 +47,53 @@ namespace Brushblade.Core
     /// <summary>遭遇生成(20.4):带种子按深度组队,同种子同编成。</summary>
     public static class EndlessGenerator
     {
+        /// <summary>组装一段连战(20.2):fromDepth 至段末 Boss 层;逐层独立随机流,
+        /// 断点续爬从段中恢复时后续层编成与整段生成一致(20.6)。</summary>
+        public static RunConfig BuildSegment(EndlessConfig config, int fromDepth, int seed,
+            IReadOnlyList<EventDef> events = null, int eventChancePercent = 0)
+        {
+            int segmentEnd = ((fromDepth - 1) / config.BossEvery + 1) * config.BossEvery;
+            var encounters = new List<IReadOnlyList<EnemyDef>>();
+            for (int depth = fromDepth; depth <= segmentEnd; depth++)
+                encounters.Add(BuildFloor(config, depth, FloorRandom(seed, depth)));
+
+            return new RunConfig
+            {
+                Encounters = encounters,
+                RewardPool = config.BandFor(fromDepth).RewardPool,
+                EventPool = events ?? Array.Empty<EventDef>(),
+                EventChancePercent = eventChancePercent,
+            };
+        }
+
+        /// <summary>层专属随机流:同 (塔种子, 深度) 永远同编成。</summary>
+        public static GameRandom FloorRandom(int seed, int depth) =>
+            new(unchecked(seed * 31 + depth * 7919));
+
+        /// <summary>首塔剧本段(20.10 初次登入剧本化):前 3 层固定编成保证引导七拍可达成
+        /// (第 1 层单敌教出字,第 2 层双敌供焚清场),4~5 层回归随机与 Boss。</summary>
+        public static RunConfig BuildFirstTowerSegment(EndlessConfig config, int seed,
+            IReadOnlyList<EventDef> events = null, int eventChancePercent = 0)
+        {
+            var segment = BuildSegment(config, 1, seed, events, eventChancePercent);
+            var pool = config.Bands[0].EnemyPool;
+            var lead = pool[0];
+            var scripted = new List<IReadOnlyList<EnemyDef>>(segment.Encounters);
+            scripted[0] = Scaled(config, 1, lead);
+            scripted[1] = Scaled(config, 2, lead, lead);
+            scripted[2] = Scaled(config, 3, pool[1 % pool.Count], pool[2 % pool.Count]);
+            segment.Encounters = scripted;
+            return segment;
+        }
+
+        private static IReadOnlyList<EnemyDef> Scaled(EndlessConfig config, int depth, params EnemyDef[] enemies)
+        {
+            var floor = new List<EnemyDef>();
+            foreach (var enemy in enemies)
+                floor.Add(CampaignConfig.Scale(enemy, config.ScaleFor(depth)));
+            return floor;
+        }
+
         /// <summary>敌人数量:第 1 层单敌,每 4 层 +1,上限 4;Boss 层只出 Boss。</summary>
         public static IReadOnlyList<EnemyDef> BuildFloor(EndlessConfig config, int depth, GameRandom random)
         {
@@ -98,6 +145,25 @@ namespace Brushblade.Core
     public static class EndlessRules
     {
         public static int SettleInk(int earned, bool died) => died ? earned / 2 : earned;
+
+        /// <summary>结算宝箱档位=f(结算层数)(20.8):区间内两档随机取一。</summary>
+        public static ChestTier ChestTierFor(int depth, GameRandom random)
+        {
+            var (low, high) = depth switch
+            {
+                < 5 => (ChestTier.Paper, ChestTier.Bamboo),
+                < 10 => (ChestTier.Bamboo, ChestTier.Celadon),
+                < 20 => (ChestTier.Celadon, ChestTier.Rosewood),
+                < 35 => (ChestTier.Rosewood, ChestTier.Gilded),
+                < 50 => (ChestTier.Gilded, ChestTier.Gilded),
+                _ => (ChestTier.Gilded, ChestTier.Crimson),
+            };
+            return random.Next(2) == 0 ? low : high;
+        }
+
+        /// <summary>角色经验(20.8):每层 10,Boss 层 50。</summary>
+        public static int XpFor(EndlessConfig config, int depth) =>
+            config.IsBossDepth(depth) ? 50 : 10;
 
         public static void UpdateBest(MetaState meta, int depth) =>
             meta.BestDepth = Math.Max(meta.BestDepth, depth);

@@ -48,7 +48,8 @@ namespace Brushblade.Core
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
-            IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0)
+            IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
+            int? startingHp = null)
         {
             _startingInk = startingInk;
             _graph = graph;
@@ -58,7 +59,7 @@ namespace Brushblade.Core
             _random = new GameRandom(seed);
             Phase = RunPhase.InBattle;
             BattleIndex = 0;
-            Battle = NewBattle(startingLibrary, startingPool, startingHp: null);
+            Battle = NewBattle(startingLibrary, startingPool, startingHp); // 断点续爬恢复血量(20.6)
         }
 
         public RunPhase Phase { get; private set; }
