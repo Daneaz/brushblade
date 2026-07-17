@@ -561,7 +561,7 @@
   "endless": {
     "bossEvery": 5,
     "scalePerDepth": 0.1,
-    "bossScaleBonus": 1.25,
+    "bossScaleBonus": 1.0,
     "bands": [
       {
         "name": "字林",

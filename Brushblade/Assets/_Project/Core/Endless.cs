@@ -20,7 +20,7 @@ namespace Brushblade.Core
         public IReadOnlyList<BandDef> Bands { get; set; }
         public int BossEvery { get; set; } = 5;
         public float ScalePerDepth { get; set; } = 0.10f;
-        public float BossScaleBonus { get; set; } = 1.25f;
+        public float BossScaleBonus { get; set; } = 1f;
 
         /// <summary>该深度所在层段(FromDepth 升序,取最后一个不超过 depth 的)。</summary>
         public BandDef BandFor(int depth)
@@ -36,11 +36,14 @@ namespace Brushblade.Core
 
         public bool IsBossDepth(int depth) => depth % BossEvery == 0;
 
-        /// <summary>数值缩放:1 + ScalePerDepth × (depth − 1),Boss 层追加 ×BossScaleBonus。</summary>
+        /// <summary>数值缩放(2026-07-17 仿真校准):杂兵 1 + k×(depth−1);
+        /// Boss 层滞后 1 + k×(depth−BossEvery)——四阶段 Boss@1.0 ≈ 杂兵@2.0 难度,
+        /// 首 Boss 必须回到 1.0 否则第 5 层即全员墙(仿真实证)。</summary>
         public float ScaleFor(int depth)
         {
-            float scale = 1f + ScalePerDepth * (depth - 1);
-            return IsBossDepth(depth) ? scale * BossScaleBonus : scale;
+            if (IsBossDepth(depth))
+                return (1f + ScalePerDepth * (depth - BossEvery)) * BossScaleBonus;
+            return 1f + ScalePerDepth * (depth - 1);
         }
     }
 

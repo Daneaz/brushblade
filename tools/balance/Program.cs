@@ -7,12 +7,13 @@ using Brushblade.Data;
 
 namespace Brushblade.Balance
 {
-    /// <summary>难度仿真(F1 调平):贪心机器人无头跑满 3 章 × 5 关 × N 种子,
-    /// 量化每关胜率/回合数/剩余血——机器人弱于人类,数据当"难度地板"读。</summary>
+    /// <summary>无尽难度仿真(20.4 校准):贪心机器人永不撤退一路深入,量「卒于第几层」分布。
+    /// 机器人弱于人类,数据当难度地板读;关卡制已废止(v0.7),旧关卡口径删除。</summary>
     public static class Program
     {
-        private const int Seeds = 500;
+        private const int Seeds = 300;
         private const int StallTurns = 60;
+        private const int DepthCap = 300;
 
         public static void Main()
         {
@@ -20,28 +21,24 @@ namespace Brushblade.Balance
                 "../../../../../Brushblade/Assets/StreamingAssets/config");
             var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
             var campaign = ConfigLoader.LoadCampaign(File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
-
-            var newbie = new Profile("新手(灯,1级,HP50)",
-                library: new[] { "灯" }, cardLevels: new Dictionary<string, int>(), maxHp: MetaRules.MaxHpFor(1));
+            var endless = campaign.Endless ?? throw new InvalidOperationException("enemies.json 缺少 endless 段");
 
             var fireCards = new[] { "灯", "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚" };
-            var veteran = new Profile("养成(焚炽灼燚,卡5级,HP68)",
-                library: new[] { "焚", "炽", "灼", "燚" },
-                cardLevels: fireCards.ToDictionary(c => c, _ => 5), maxHp: MetaRules.MaxHpFor(10));
-
-            var early = new Profile("小成长(灼炎烧灯,卡3级,HP54)",
-                library: new[] { "灼", "炎", "烧", "灯" },
-                cardLevels: fireCards.ToDictionary(c => c, _ => 3), maxHp: MetaRules.MaxHpFor(3));
-
-            foreach (var profile in new[] { newbie, early, veteran })
+            var profiles = new[]
             {
-                Console.WriteLine($"\n## {profile.Name} × {Seeds} 种子\n");
-                Console.WriteLine("| 关卡 | 胜率 | 均回合(胜) | 均剩血%(胜) | 均阵亡场次(负) | 焚均成型回合 |");
-                Console.WriteLine("|---|---|---|---|---|---|");
-                for (int c = 0; c < campaign.Chapters.Count; c++)
-                    for (int s = 0; s < campaign.Chapters[c].Stages.Count; s++)
-                        SimulateStage(graph, campaign, c, s, profile);
-            }
+                new Profile("新手(灯,1级,HP50)", new[] { "灯" },
+                    new Dictionary<string, int>(), MetaRules.MaxHpFor(1)),
+                new Profile("小成长(灼炎烧灯,卡3级,HP54)", new[] { "灼", "炎", "烧", "灯" },
+                    fireCards.ToDictionary(c => c, _ => 3), MetaRules.MaxHpFor(3)),
+                new Profile("养成(焚炽灼燚,卡5级,HP68)", new[] { "焚", "炽", "灼", "燚" },
+                    fireCards.ToDictionary(c => c, _ => 5), MetaRules.MaxHpFor(10)),
+            };
+
+            Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
+            Console.WriteLine("| 画像 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) |");
+            Console.WriteLine("|---|---|---|---|---|---|---|---|");
+            foreach (var profile in profiles)
+                SimulateProfile(graph, campaign, endless, profile);
         }
 
         private sealed class Profile
@@ -54,65 +51,73 @@ namespace Brushblade.Balance
             { Name = name; Library = library; CardLevels = cardLevels; MaxHp = maxHp; }
         }
 
-        private static void SimulateStage(RecipeGraph graph, CampaignConfig campaign, int chapter, int stage, Profile profile)
+        private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
+            EndlessConfig endless, Profile profile)
         {
-            int wins = 0, stalls = 0;
-            long winTurns = 0, winHp = 0, lostAtBattle = 0, fenTurnSum = 0;
-            int losses = 0, fenRuns = 0;
+            var deaths = new List<int>();
+            foreach (int seed in Enumerable.Range(0, Seeds))
+                deaths.Add(ClimbUntilDeath(graph, campaign, endless, profile, seed));
 
-            for (int seed = 0; seed < Seeds; seed++)
+            deaths.Sort();
+            double avg = deaths.Average();
+            int p50 = deaths[deaths.Count / 2];
+            int p90 = deaths[(int)(deaths.Count * 0.9)];
+            string Reach(int band) => $"{deaths.Count(d => d >= band) * 100 / deaths.Count}%";
+            Console.WriteLine($"| {profile.Name} | {avg:F1} | {p50} | {p90} | {deaths[^1]} " +
+                              $"| {Reach(11)} | {Reach(26)} | {Reach(51)} |");
+        }
+
+        /// <summary>一路深入直到阵亡,返回卒层(= 阵亡所在层)。</summary>
+        private static int ClimbUntilDeath(RecipeGraph graph, CampaignConfig campaign,
+            EndlessConfig endless, Profile profile, int seed)
+        {
+            int towerSeed = seed * 7919 + 17;
+            int fromDepth = 1;
+            IReadOnlyList<string> library = profile.Library;
+            IReadOnlyList<string> pool = new[] { "木", "木" };
+            int hp = profile.MaxHp;
+
+            while (fromDepth <= DepthCap)
             {
+                var runConfig = EndlessGenerator.BuildSegment(endless, fromDepth, towerSeed,
+                    campaign.Events, campaign.EventChancePercent);
                 var battleConfig = new BattleConfig { DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp };
-                var run = new RunEngine(graph,
-                    campaign.BuildRunConfig(chapter, stage, new GameRandom(seed * 7919 + 17)),
-                    battleConfig, profile.Library, new[] { "木", "木" }, seed, profile.CardLevels);
+                var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
+                    seed: unchecked(towerSeed * 17 + fromDepth), cardLevels: profile.CardLevels,
+                    startingHp: hp);
 
-                int totalTurns = 0, firstFenTurn = -1;
                 while (run.Phase == RunPhase.InBattle || run.Phase == RunPhase.Reward || run.Phase == RunPhase.Event)
                 {
                     if (run.Phase == RunPhase.Reward) { PickBestReward(graph, run); continue; }
                     if (run.Phase == RunPhase.Event) { ChooseBestEvent(run); continue; }
 
                     var battle = run.Battle;
-                    int turnsThisBattle = 0;
-                    while (battle.Phase == BattlePhase.PlayerTurn)
-                    {
-                        PlayTurn(graph, battle, totalTurns + turnsThisBattle + 1, ref firstFenTurn);
-                        turnsThisBattle++;
-                        if (turnsThisBattle > StallTurns) break;
-                    }
-                    totalTurns += turnsThisBattle;
-                    if (turnsThisBattle > StallTurns) { stalls++; break; }
+                    int turns = 0;
+                    while (battle.Phase == BattlePhase.PlayerTurn && turns++ <= StallTurns)
+                        PlayTurn(graph, battle);
+                    if (turns > StallTurns)
+                        return fromDepth + run.BattleIndex; // 僵局计为卒于当前层
                     run.AdvanceAfterBattle();
                 }
 
-                if (run.Phase == RunPhase.RunWon)
-                {
-                    wins++;
-                    winTurns += totalTurns;
-                    winHp += run.Battle.PlayerHp * 100 / profile.MaxHp;
-                }
-                else
-                {
-                    losses++;
-                    lostAtBattle += run.BattleIndex + 1;
-                }
-                if (firstFenTurn > 0) { fenRuns++; fenTurnSum += firstFenTurn; }
-            }
+                if (run.Phase != RunPhase.RunWon)
+                    return fromDepth + run.BattleIndex;
 
-            string stageName = $"{chapter + 1}-{stage + 1}";
-            string winRate = $"{wins * 100 / Seeds}%" + (stalls > 0 ? $"(僵{stalls})" : "");
-            string avgTurns = wins > 0 ? (winTurns / (double)wins).ToString("F1") : "—";
-            string avgHp = wins > 0 ? $"{winHp / wins}%" : "—";
-            string avgLost = losses > 0 ? (lostAtBattle / (double)losses).ToString("F1") : "—";
-            string fen = fenRuns > 0 ? (fenTurnSum / (double)fenRuns).ToString("F1") : "—";
-            Console.WriteLine($"| {stageName} | {winRate} | {avgTurns} | {avgHp} | {avgLost} | {fen} |");
+                // 安全层:永不撤退,携带状态深入下一段(同 GameRoot.OnSegmentEnded)
+                var carried = new List<string>(run.Battle.Library);
+                carried.AddRange(run.Battle.UsedChars);
+                library = carried;
+                pool = new List<string>(run.Battle.Pool);
+                hp = run.Battle.PlayerHp;
+                fromDepth += endless.BossEvery;
+            }
+            return DepthCap;
         }
 
-        /// <summary>贪心回合:留 1 AP 出字的前提下优先合成更强的字,然后按威力出字,末了结束回合。</summary>
-        private static void PlayTurn(RecipeGraph graph, BattleEngine battle, int turnNo, ref int firstFenTurn)
+        // ---- 贪心机器人(与关卡制版同策略) ----
+
+        private static void PlayTurn(RecipeGraph graph, BattleEngine battle)
         {
-            // 合成:目标威力要高于手上最强,且合完还出得起字
             while (battle.Ap >= 2)
             {
                 var suggest = ForgeEngine.Suggest(graph, battle.Pool, battle.Library);
@@ -127,15 +132,12 @@ namespace Brushblade.Balance
 
                 if (battle.Compose(best) == BattleError.ForgeFailed)
                 {
-                    // 字库满:丢最弱的一个再试一次
                     var weakest = battle.Library.OrderBy(id => Power(graph, id)).FirstOrDefault();
                     if (weakest == null || battle.Discard(weakest) != BattleError.None) break;
                     if (battle.Compose(best) != BattleError.None) break;
                 }
-                if (best == "焚" && firstFenTurn < 0) firstFenTurn = turnNo;
             }
 
-            // 出字:威力降序,单体优先打残血
             while (battle.Phase == BattlePhase.PlayerTurn && battle.Ap > 0)
             {
                 string pick = null;
@@ -168,7 +170,6 @@ namespace Brushblade.Balance
             return best;
         }
 
-        /// <summary>粗略威力:伤害/灼烧数值求和(AOE ×1.5),无效果按兜底 3;仅用于机器人排序。</summary>
         private static int Power(RecipeGraph graph, string id)
         {
             if (!graph.TryGet(id, out var def)) return 0;
@@ -189,7 +190,6 @@ namespace Brushblade.Balance
             return sum;
         }
 
-        /// <summary>目标:最低血的存活敌人(能补刀就补刀)。</summary>
         private static int PickTarget(BattleEngine battle)
         {
             int pick = -1, pickHp = int.MaxValue;
@@ -213,7 +213,6 @@ namespace Brushblade.Balance
             run.PickReward(best);
         }
 
-        /// <summary>奇遇:按粗略收益挑最优且付得起的选项(收益 = 墨锭 + 血×2 + 得字5 + 部件数 − 消费)。</summary>
         private static void ChooseBestEvent(RunEngine run)
         {
             var options = run.CurrentEvent.Options;
@@ -222,7 +221,7 @@ namespace Brushblade.Balance
                 + options[i].GainComponents.Count - options[i].InkCost);
             foreach (int i in order)
                 if (run.ChooseEventOption(i)) return;
-            run.ChooseEventOption(0); // 理论不可达:事件至少有免费选项
+            run.ChooseEventOption(0);
         }
     }
 }

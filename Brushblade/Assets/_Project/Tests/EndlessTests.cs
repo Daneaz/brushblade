@@ -57,11 +57,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Scale_BossFloorGetsBonus()
+        public void Scale_BossFloors_LagBehindTrash() // Boss 滞后缩放:仿真校准(2026-07-17)
         {
             var config = Config();
-            // 第 5 层:1.4 × 1.25 = 1.75
-            Assert.That(config.ScaleFor(5), Is.EqualTo(1.75f).Within(0.001f));
+            // Boss@1.0 ≈ 杂兵@2.0 难度(关卡制实测),故 Boss 层 scale = 1 + k×(depth−5)
+            Assert.That(config.ScaleFor(5), Is.EqualTo(1f).Within(0.001f));
+            Assert.That(config.ScaleFor(10), Is.EqualTo(1.5f).Within(0.001f));
+            Assert.That(config.ScaleFor(15), Is.EqualTo(2f).Within(0.001f));
         }
 
         // ---- 遭遇生成 ----
@@ -104,7 +106,7 @@ namespace Brushblade.Core.Tests
             var floor = EndlessGenerator.BuildFloor(Config(), 5, new GameRandom(7));
             Assert.That(floor.Count, Is.EqualTo(1));
             Assert.That(floor[0].Id, Is.EqualTo("排山倒海"));
-            Assert.That(floor[0].MaxHp, Is.EqualTo(21)); // ceil(12 × 1.75)
+            Assert.That(floor[0].MaxHp, Is.EqualTo(12)); // 第 5 层 Boss scale 1.0(滞后缩放)
         }
 
         [Test]
