@@ -99,9 +99,10 @@ namespace Brushblade.Presentation
             _enemyRow = MakeSection("Enemies", 0.62f, 0.885f);
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
+            // 加宽拆合台(2026-07-19 iOS 反馈:合成行拥挤,触控目标要大)
             var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.PaperCard, 20);
-            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.14f, 0.37f), new Vector2(0.86f, 0.61f), Vector2.zero, Vector2.zero);
-            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 6);
+            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.08f, 0.37f), new Vector2(0.92f, 0.61f), Vector2.zero, Vector2.zero);
+            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
             _suggestRow = Ui.Row(workbenchStack.transform, "Content", 10).transform;
@@ -430,16 +431,16 @@ namespace Brushblade.Presentation
             {
                 string charId = id;
                 var def = _graph.Get(charId);
-                var combo = Ui.Row(_suggestRow, $"Combo_{charId}", 4);
+                var combo = Ui.Row(_suggestRow, $"Combo_{charId}", 6); // 触控:组间距/主按钮加大(2026-07-19 iOS 反馈)
                 foreach (var part in def.Recipe)
                 {
                     var partDef = _graph.Get(part);
                     Ui.RoundButton(combo.transform, part, null,
-                        Theme.ElementColor(partDef.Element), Color.white, 15, new Vector2(34, 34), 8);
+                        Theme.ElementColor(partDef.Element), Color.white, 15, new Vector2(36, 36), 8);
                 }
                 Ui.ThemedLabel(combo.transform, "=", 14, Theme.TextDim);
-                Ui.RoundButton(combo.transform, charId, () => OnCompose(charId),
-                    Theme.Ink, Color.white, 17, new Vector2(40, 40), 8);
+                Ui.RoundButton(combo.transform, $"合{charId}", () => OnCompose(charId),
+                    Theme.Ink, Color.white, 18, new Vector2(76, 50), 10);
             }
         }
 
@@ -474,7 +475,7 @@ namespace Brushblade.Presentation
                     _hintCharFocus = null;
                     Refresh();
                 }, selected ? Theme.ElementColor(element) : Theme.ElementSoft(element),
-                    selected ? Color.white : Theme.ElementSoftFg(element), 14, new Vector2(96, 30), 8);
+                    selected ? Color.white : Theme.ElementSoftFg(element), 14, new Vector2(100, 36), 8);
             }
 
             if (_hintBucket == null || !buckets.TryGetValue(_hintBucket, out var bucketChars)) return;
@@ -495,7 +496,7 @@ namespace Brushblade.Presentation
                     _hintCharFocus = focus ? null : miss.CharId;
                     Refresh();
                 }, focus ? Theme.Ink : Theme.CardWhite,
-                    focus ? Color.white : Theme.ElementColor(def.Element), 15, new Vector2(34, 30), 8);
+                    focus ? Color.white : Theme.ElementColor(def.Element), 15, new Vector2(38, 36), 8);
             }
             if (bucketChars.Count > maxShown)
                 Ui.ThemedLabel(_hintColumn, $"…共 {bucketChars.Count} 字", 13, Theme.TextDim);
@@ -544,16 +545,17 @@ namespace Brushblade.Presentation
             if (_targeting)
             {
                 Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人", 16, Theme.TextMain);
-                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 15, new Vector2(84, 40));
+                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(88, 50));
                 return;
             }
             bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
             string castLabel = def.Effects.Count > 0 ? (inLibrary ? "出字" : "直出") : "兜底一击";
-            Ui.RoundButton(_actionRow, castLabel, () => OnCastPressed(def), Theme.Cinnabar, Color.white, 16, new Vector2(90, 44));
+            // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性)
+            Ui.RoundButton(_actionRow, castLabel, () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(110, 52));
             if (inLibrary && !def.IsLeaf)
-                Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 16, new Vector2(60, 44));
-            Ui.RoundButton(_actionRow, "丢弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 16, new Vector2(72, 44));
-            Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(72, 44));
+                Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
+            Ui.RoundButton(_actionRow, "丢弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(88, 52));
+            Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 17, new Vector2(84, 52));
         }
 
         private void DrawEndTurn()
@@ -666,13 +668,14 @@ namespace Brushblade.Presentation
             {
                 int index = i;
                 var option = evt.Options[i];
-                bool affordable = option.InkCost <= _run.AvailableInk;
+                bool affordable = option.InkCost <= _run.AvailableInk
+                    && option.ComponentCost <= _run.CarriedPool.Count;
                 var button = Ui.RoundButton(_actionRow, option.Label, () =>
                 {
                     if (_run.ChooseEventOption(index))
                         _message = $"{evt.Id}:{option.Label}";
                     else
-                        _message = "墨锭不足或字库已满,换个选择";
+                        _message = "付不起或字库已满,换个选择";
                     CancelSelection();
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));

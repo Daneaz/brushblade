@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Brushblade.Core
@@ -60,7 +61,8 @@ namespace Brushblade.Core
         }
     }
 
-    /// <summary>战斗中的字怪状态。成语 Boss 的当前阶段覆盖属性/攻击/上限。</summary>
+    /// <summary>战斗中的字怪状态。成语 Boss 为一条总血池,按血量阈值切换阶段
+    /// (2026-07-19 拍板:阈值带种子浮动,同一 Boss 每次体验不同;原独立血量四连战废止)。</summary>
     public sealed class EnemyState
     {
         public EnemyDef Def { get; }
@@ -81,11 +83,23 @@ namespace Brushblade.Core
         public bool Alive => Hp > 0;
         public bool IsBoss => Def.Phases.Count > 0;
 
-        internal EnemyState(EnemyDef def)
+        /// <summary>血量阈值(降序):Hp ≤ [i] 即进入阶段 i+1。阶段血量占比为基准,±浮动。</summary>
+        internal int[] PhaseBounds { get; private set; } = Array.Empty<int>();
+
+        internal EnemyState(EnemyDef def) : this(def, 0, null) { }
+
+        internal EnemyState(EnemyDef def, int phaseJitterPercent, GameRandom random)
         {
             Def = def;
             if (def.Phases.Count > 0)
-                EnterPhase(0);
+            {
+                int total = 0;
+                foreach (var phase in def.Phases) total += phase.MaxHp;
+                Hp = total;
+                MaxHp = total;
+                PhaseBounds = RollPhaseBounds(def.Phases, total, phaseJitterPercent, random);
+                ApplyPhaseStats(0);
+            }
             else
             {
                 Hp = def.MaxHp;
@@ -101,17 +115,39 @@ namespace Brushblade.Core
             }
         }
 
-        internal void EnterPhase(int index)
+        /// <summary>换阶段:属性/攻击/承伤切换、灼烧清零;血量连续不重置。</summary>
+        internal void ApplyPhaseStats(int index)
         {
             var phase = Def.Phases[index];
             PhaseIndex = index;
-            Hp = phase.MaxHp;
-            MaxHp = phase.MaxHp;
             Element = phase.Element;
             ApparentElement = phase.Element; // Boss 阶段属性明示
             Attack = phase.Attack;
             DamageTaken = phase.DamageTaken;
             Burn = 0; // 新字新体,灼烧清零
+        }
+
+        private static int[] RollPhaseBounds(IReadOnlyList<BossPhaseDef> phases, int total,
+            int jitterPercent, GameRandom random)
+        {
+            var bounds = new int[phases.Count - 1];
+            int cumulative = 0;
+            int previous = total;
+            for (int i = 0; i < bounds.Length; i++)
+            {
+                cumulative += phases[i].MaxHp;
+                int bound = total - cumulative;
+                if (random != null && jitterPercent > 0)
+                {
+                    int span = total * jitterPercent / 100;
+                    bound += random.Next(2 * span + 1) - span; // ±span 均匀浮动
+                }
+                bound = Math.Min(bound, previous - 1);         // 保持严格降序
+                bound = Math.Max(bound, bounds.Length - i);    // 给后续阶段留至少 1 血
+                bounds[i] = bound;
+                previous = bound;
+            }
+            return bounds;
         }
     }
 }

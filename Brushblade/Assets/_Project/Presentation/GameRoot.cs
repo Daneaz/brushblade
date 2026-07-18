@@ -213,7 +213,8 @@ namespace Brushblade.Presentation
             return index;
         }
 
-        /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择。</summary>
+        /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择;
+        /// 休整(2026-07-19 拍板):可用出阵列表调整字库(应对下一段敌情)。</summary>
         private static void ShowSafeLayer(int depth, int totalEarned, string chestNote = null)
         {
             var endless = _campaign.Endless;
@@ -226,23 +227,71 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)view.transform);
 
             var card = Ui.CardPanel(view.transform, "Panel");
-            Ui.Anchor((RectTransform)card.transform, new Vector2(0.24f, 0.18f), new Vector2(0.76f, 0.82f), Vector2.zero, Vector2.zero);
-            var stack = Ui.VStack(card.transform, "Stack", 16);
+            Ui.Anchor((RectTransform)card.transform, new Vector2(0.16f, 0.08f), new Vector2(0.84f, 0.92f), Vector2.zero, Vector2.zero);
+            var stack = Ui.VStack(card.transform, "Stack", 10);
             Ui.Stretch((RectTransform)stack.transform);
 
-            Ui.ThemedLabel(stack.transform, $"安全层 · 第 {depth} 层告捷", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, $"安全层 · 第 {depth} 层告捷", 28, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack.transform,
-                $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层", 18, Theme.TextDim);
-            Ui.IngotLabel(stack.transform, $"滚存 {totalEarned}", 20);
+                $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层", 16, Theme.TextDim);
+            Ui.IngotLabel(stack.transform, $"滚存 {totalEarned}", 18);
             if (chestNote != null)
-                Ui.ThemedLabel(stack.transform, $"◆ 破关战利:{chestNote}", 20, Theme.GoldBorder, Theme.TitleFont);
-            Ui.ThemedLabel(stack.transform,
-                "继续:滚存收益带入更深层,阵亡墨锭减半\n撤退:立即全额结算墨锭", 16, Theme.TextDim);
+                Ui.ThemedLabel(stack.transform, $"◆ 破关战利:{chestNote}", 18, Theme.GoldBorder, Theme.TitleFont);
 
+            DrawRest(stack.transform, depth, totalEarned, chestNote);
+
+            Ui.ThemedLabel(stack.transform,
+                "继续:滚存收益带入更深层,阵亡墨锭减半;撤退:立即全额结算墨锭", 14, Theme.TextDim);
             Ui.PillButton(stack.transform, $"深入「{nextBand.Name}」第 {depth + 1}~{depth + endless.BossEvery} 层",
-                () => StartSegment(firstTower: false), Theme.Cinnabar, Color.white, 20, new Vector2(340, 58));
+                () => StartSegment(firstTower: false), Theme.Cinnabar, Color.white, 19, new Vector2(340, 52));
             Ui.PillButton(stack.transform, "收官撤退(全额结算)",
-                () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 20, new Vector2(340, 58));
+                () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 19, new Vector2(340, 52));
+        }
+
+        /// <summary>休整区:字库(点移出)+ 备选出阵列表(点加入),即时写快照。</summary>
+        private static void DrawRest(Transform parent, int depth, int totalEarned, string chestNote)
+        {
+            var snapshot = _meta.Endless;
+            if (snapshot == null) return;
+            int libraryCap = MetaRules.StartingLibrarySize + (snapshot.LibraryExpanded ? 2 : 0);
+
+            Ui.ThemedLabel(parent, $"休整 · 字库 {snapshot.Library.Count}/{libraryCap}(点字移出)", 15, Theme.TextDim, Theme.TitleFont);
+            var libraryRow = Ui.Row(parent, "RestLibrary", 6);
+            foreach (var id in snapshot.Library)
+            {
+                string charId = id;
+                var def = _graph.Get(charId);
+                Ui.RoundButton(libraryRow.transform, charId, () =>
+                {
+                    snapshot.Library.Remove(charId);
+                    MetaStore.Save(_meta);
+                    ShowSafeLayer(depth, totalEarned, chestNote);
+                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
+            }
+
+            // 备选 = 出阵列表(未设则用收集)中不在字库的字
+            var roster = _meta.Deck.Count > 0 ? _meta.Deck : _meta.OwnedCards;
+            var reserve = new System.Collections.Generic.List<string>();
+            foreach (var id in roster)
+                if (!snapshot.Library.Contains(id))
+                    reserve.Add(id);
+            if (reserve.Count == 0) return;
+
+            Ui.ThemedLabel(parent, "备选(出阵列表,点字加入)", 15, Theme.TextDim, Theme.TitleFont);
+            var reserveRow = Ui.Row(parent, "RestReserve", 6);
+            foreach (var id in reserve)
+            {
+                string charId = id;
+                var def = _graph.Get(charId);
+                var button = Ui.RoundButton(reserveRow.transform, charId, () =>
+                {
+                    if (snapshot.Library.Count >= libraryCap) return;
+                    snapshot.Library.Add(charId);
+                    MetaStore.Save(_meta);
+                    ShowSafeLayer(depth, totalEarned, chestNote);
+                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
+                button.interactable = snapshot.Library.Count < libraryCap;
+            }
         }
 
         /// <summary>塔结算(20.5):撤退全额/阵亡半额;宝箱已随每个 Boss 层即时发放,结算不再发。</summary>

@@ -52,7 +52,7 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
             Ui.ThemedLabel(header.transform, "卡组", 34, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(header.transform,
-                $"收集 {_meta.OwnedCards.Count} 张    出阵 {CurrentDeck().Count}/{MetaRules.DeckLimit}", 22, Theme.TextDim);
+                $"收集 {_meta.OwnedCards.Count} 张    出阵 {_meta.Deck.Count}/{MetaRules.DeckLimit}", 22, Theme.TextDim);
             if (upgradable > 0)
                 Ui.Chip(header.transform, $"可升 {upgradable}", Theme.Cinnabar, Color.white, 15);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
@@ -142,22 +142,24 @@ namespace Brushblade.Presentation
             if (deck.Contains(cardId))
             {
                 deck.Remove(cardId);
-                _message = $"{summary}\n已移出出阵卡组(空位按等级自动补齐)";
-            }
-            else if (deck.Count >= MetaRules.DeckLimit)
-            {
-                _message = $"{summary}\n出阵卡组已满({MetaRules.DeckLimit} 张),先移出一张";
-                Rebuild();
-                return;
+                MetaRules.TrySetDeck(_meta, deck, _graph);
+                _save();
+                _message = $"{summary}\n已移出出阵列表(不足 6 时按等级自动补齐)";
             }
             else
             {
                 deck.Add(cardId);
-                _message = $"{summary}\n已加入出阵卡组(下次登塔生效)";
+                if (MetaRules.TrySetDeck(_meta, deck, _graph))
+                {
+                    _save();
+                    _message = $"{summary}\n已加入出阵列表(下次登塔生效)";
+                }
+                else
+                {
+                    _message = $"{summary}\n出阵受限:共 {MetaRules.DeckLimit} 字、" +
+                        $"每属性至多 {MetaRules.DeckPerElementLimit}、至多 {MetaRules.DeckElementLimit} 种属性";
+                }
             }
-
-            if (MetaRules.TrySetDeck(_meta, deck))
-                _save();
             Rebuild();
         }
 

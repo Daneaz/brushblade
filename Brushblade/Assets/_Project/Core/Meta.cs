@@ -24,7 +24,10 @@ namespace Brushblade.Core
     public static class MetaRules
     {
         public const int MaxCardLevel = 10;
-        public const int DeckLimit = 4; // 出阵卡组上限(19.3.4)
+        public const int DeckLimit = 15;          // 出阵列表上限(2026-07-19 拍板:5×3,后续可调)
+        public const int DeckPerElementLimit = 5; // 每属性最多 5 字
+        public const int DeckElementLimit = 3;    // 最多 3 种属性
+        public const int StartingLibrarySize = 6; // 起手字库 = 字库基础容量
 
         /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。</summary>
         public static readonly int[] CopiesToUpgrade = { 2, 4, 10, 20, 40, 80, 150, 300, 500 };
@@ -138,41 +141,64 @@ namespace Brushblade.Core
             AddCardCopies(meta, cardId, 1);
         }
 
-        /// <summary>设置出阵卡组:≤DeckLimit、全部已收集、无重复,否则 false 不动状态。</summary>
-        public static bool TrySetDeck(MetaState meta, IReadOnlyList<string> cards)
+        /// <summary>设置出阵列表(2026-07-19 拍板):≤15 字、每属性≤5、≤3 种属性、
+        /// 全部已收集、无重复,否则 false 不动状态。无属性字计作心系一类。</summary>
+        public static bool TrySetDeck(MetaState meta, IReadOnlyList<string> cards, RecipeGraph graph)
         {
             if (cards.Count > DeckLimit)
                 return false;
             var seen = new HashSet<string>();
+            var perElement = new Dictionary<Element, int>();
             foreach (var card in cards)
+            {
                 if (!meta.OwnedCards.Contains(card) || !seen.Add(card))
                     return false;
+                var element = graph.Get(card).Element ?? Element.Heart;
+                perElement.TryGetValue(element, out var count);
+                perElement[element] = count + 1;
+                if (perElement[element] > DeckPerElementLimit || perElement.Count > DeckElementLimit)
+                    return false;
+            }
 
             meta.Deck.Clear();
             meta.Deck.AddRange(cards);
             return true;
         }
 
-        /// <summary>每关起手字库:卡组有效条目 + 按等级最高从收集自动补齐至上限(19.3.4)。</summary>
+        /// <summary>登塔起手字库:出阵列表按等级取前 6(字库基础容量);
+        /// 列表不足 6 再从收集按等级补齐(19.3.4 v0.7)。</summary>
         public static IReadOnlyList<string> StartingLibrary(MetaState meta)
         {
-            var library = new List<string>();
+            var roster = new List<string>();
             foreach (var card in meta.Deck)
-                if (meta.OwnedCards.Contains(card) && !library.Contains(card))
-                    library.Add(card);
+                if (meta.OwnedCards.Contains(card) && !roster.Contains(card))
+                    roster.Add(card);
+            SortByLevelDesc(meta, roster);
+
+            var library = new List<string>();
+            foreach (var card in roster)
+            {
+                if (library.Count >= StartingLibrarySize) break;
+                library.Add(card);
+            }
 
             var fillers = new List<string>(meta.OwnedCards);
-            fillers.Sort((a, b) =>
+            SortByLevelDesc(meta, fillers);
+            foreach (var card in fillers)
+            {
+                if (library.Count >= StartingLibrarySize) break;
+                if (!library.Contains(card)) library.Add(card);
+            }
+            return library;
+        }
+
+        private static void SortByLevelDesc(MetaState meta, List<string> cards)
+        {
+            cards.Sort((a, b) =>
             {
                 int byLevel = CardLevel(meta, b).CompareTo(CardLevel(meta, a));
                 return byLevel != 0 ? byLevel : string.CompareOrdinal(a, b);
             });
-            foreach (var card in fillers)
-            {
-                if (library.Count >= DeckLimit) break;
-                if (!library.Contains(card)) library.Add(card);
-            }
-            return library;
         }
 
         /// <summary>卡等级数值系数:基础值 × (1 + 0.1 × (等级 − 1)),向上取整(19.3.2;

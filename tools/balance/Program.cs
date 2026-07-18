@@ -240,7 +240,7 @@ namespace Brushblade.Balance
             var options = run.CurrentEvent.Options;
             var order = Enumerable.Range(0, options.Count).OrderByDescending(i =>
                 options[i].Ink + options[i].HpDelta * 2 + (options[i].GainChar != null ? 5 : 0)
-                + options[i].GainComponents.Count - options[i].InkCost);
+                + options[i].GainComponents.Count - options[i].InkCost - options[i].ComponentCost);
             foreach (int i in order)
                 if (run.ChooseEventOption(i)) return;
             run.ChooseEventOption(0);

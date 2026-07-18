@@ -481,23 +481,20 @@
     },
     {
       "id": "字摊",
-      "text": "路旁小摊,摊主捻须:『好字便宜卖,过时不候。』",
+      "text": "路旁小摊,摊主捻须:『以物易物,童叟无欺。』",
       "options": [
         {
-          "label": "购「烧」(墨锭 40)",
-          "inkCost": 40,
+          "label": "三部件换「烧」",
+          "componentCost": 3,
           "gainChar": "烧"
         },
         {
-          "label": "购部件 火·土(墨锭 20)",
-          "inkCost": 20,
-          "gainComponents": [
-            "火",
-            "土"
-          ]
+          "label": "两部件换「钉」",
+          "componentCost": 2,
+          "gainChar": "钉"
         },
         {
-          "label": "只看不买"
+          "label": "只看不换"
         }
       ]
     },

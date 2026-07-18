@@ -184,36 +184,86 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "炎" })); // 不重复入收集
         }
 
-        [Test]
-        public void TrySetDeck_ValidatesOwnershipSizeAndDuplicates()
+        // 出阵列表(2026-07-19 拍板):≤15 字、每属性≤5、≤3 种属性
+        private static RecipeGraph DeckGraph() => new(new[]
+        {
+            new CharDef("灯", Element.Fire), new CharDef("炎", Element.Fire),
+            new CharDef("烧", Element.Fire), new CharDef("燃", Element.Fire),
+            new CharDef("灼", Element.Fire), new CharDef("炽", Element.Fire),
+            new CharDef("林", Element.Wood), new CharDef("杜", Element.Wood),
+            new CharDef("汀", Element.Water), new CharDef("钉", Element.Metal),
+            new CharDef("圭", Element.Earth), new CharDef("焚", Element.Fire),
+        });
+
+        private static MetaState OwnAll(params string[] cards)
         {
             var meta = new MetaState();
-            MetaRules.AcquireCard(meta, "灯");
-            MetaRules.AcquireCard(meta, "炎");
+            foreach (var card in cards) MetaRules.AcquireCard(meta, card);
+            return meta;
+        }
 
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎" }), Is.True);
+        [Test]
+        public void TrySetDeck_ValidatesOwnershipAndDuplicates()
+        {
+            var graph = DeckGraph();
+            var meta = OwnAll("灯", "炎");
+
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎" }, graph), Is.True);
             Assert.That(meta.Deck, Is.EqualTo(new[] { "灯", "炎" }));
 
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "焚" }), Is.False);            // 未收集
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "灯" }), Is.False);       // 重复
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "灯", "炎", "灯" }), Is.False); // 超上限
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "焚" }, graph), Is.False);      // 未收集
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "灯" }, graph), Is.False); // 重复
             Assert.That(meta.Deck, Is.EqualTo(new[] { "灯", "炎" })); // 失败不动状态
         }
 
         [Test]
-        public void StartingLibrary_AutoFills_ByHighestLevel()
+        public void TrySetDeck_PerElementLimitFive()
         {
-            var meta = new MetaState();
-            MetaRules.AcquireCard(meta, "灯");
-            MetaRules.AcquireCard(meta, "炎");
-            MetaRules.AcquireCard(meta, "烧");
+            var graph = DeckGraph();
+            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "炽");
+            // 六张火:超「每属性最多 5」
+            Assert.That(MetaRules.TrySetDeck(meta,
+                new[] { "灯", "炎", "烧", "燃", "灼", "炽" }, graph), Is.False);
+            Assert.That(MetaRules.TrySetDeck(meta,
+                new[] { "灯", "炎", "烧", "燃", "灼" }, graph), Is.True);
+        }
+
+        [Test]
+        public void TrySetDeck_ElementKindsLimitThree()
+        {
+            var graph = DeckGraph();
+            var meta = OwnAll("灯", "林", "汀", "钉", "圭");
+            // 火木水金四种属性:超「最多 3 种」
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "林", "汀", "钉" }, graph), Is.False);
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "林", "汀" }, graph), Is.True);
+        }
+
+        [Test]
+        public void StartingLibrary_TakesTopSixByLevel_FromRoster()
+        {
+            var graph = DeckGraph();
+            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "林", "杜", "圭");
             meta.CardLevels["烧"] = 5;
             meta.CardLevels["炎"] = 3;
-            MetaRules.TrySetDeck(meta, new[] { "灯" });
+            meta.CardLevels["燃"] = 1;
+            meta.CardLevels["圭"] = 9; // 不在出阵列表,不该带出
+            MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼", "林", "杜" }, graph);
 
             var library = MetaRules.StartingLibrary(meta);
-            Assert.That(library[0], Is.EqualTo("灯"));                  // 卡组优先
-            Assert.That(library, Is.EquivalentTo(new[] { "灯", "烧", "炎" })); // 等级高者先补
+            Assert.That(library.Count, Is.EqualTo(6)); // 起手 = 字库容量 6
+            Assert.That(library, Does.Contain("烧").And.Contain("炎")); // 等级高者优先
+            Assert.That(library, Does.Not.Contain("圭")); // 列表外不带出(列表足 6 时)
+        }
+
+        [Test]
+        public void StartingLibrary_RosterShort_FillsFromOwned()
+        {
+            var graph = DeckGraph();
+            var meta = OwnAll("灯", "烧");
+            meta.CardLevels["烧"] = 5;
+            MetaRules.TrySetDeck(meta, new[] { "灯" }, graph);
+            var library = MetaRules.StartingLibrary(meta);
+            Assert.That(library, Is.EquivalentTo(new[] { "灯", "烧" })); // 列表不足按等级补齐
         }
 
         [Test]

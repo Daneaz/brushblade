@@ -197,6 +197,56 @@ namespace Brushblade.Core.Tests
             Assert.That(run.AvailableInk, Is.EqualTo(40)); // startingInk 缺省 0 + 40
         }
 
+        // ---- 部件抵价(字摊以物易物,2026-07-19:墨锭买一次性品废止) ----
+
+        private static RunConfig BarterConfig() => new()
+        {
+            Encounters = new[]
+            {
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+            },
+            RewardPool = new[] { "炎" },
+            EventPool = new[]
+            {
+                new EventDef
+                {
+                    Id = "字摊",
+                    Text = "摊主捻须:以物易物,童叟无欺。",
+                    Options = new[]
+                    {
+                        new EventOption { Label = "两部件换「炎」", ComponentCost = 2, GainChar = "炎" },
+                        new EventOption { Label = "只看不买" },
+                    },
+                },
+            },
+            EventChancePercent = 100,
+        };
+
+        private static RunEngine BarterRun(string[] pool) =>
+            new(Graph(), BarterConfig(), new BattleConfig { DropTable = Array.Empty<string>() },
+                new[] { "焚" }, pool, seed: 7);
+
+        [Test]
+        public void ComponentCost_ConsumesFromPool_GrantsChar()
+        {
+            var run = BarterRun(new[] { "木", "木", "火" });
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.True); // 消耗最先入池的两个部件
+            Assert.That(run.Battle.Library, Does.Contain("炎"));
+            Assert.That(run.Battle.Pool, Is.EquivalentTo(new[] { "火" })); // 木×2 已抵价
+        }
+
+        [Test]
+        public void ComponentCost_Insufficient_RejectedStaysInEvent()
+        {
+            var run = BarterRun(new[] { "木" });
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.False); // 部件不够,换不起
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            Assert.That(run.ChooseEventOption(1), Is.True);
+        }
+
         // ---- 配置解析 ----
 
         [Test]
@@ -212,7 +262,7 @@ namespace Brushblade.Core.Tests
                     { ""id"": ""测字先生"", ""text"": ""先生请你抽一字。"",
                       ""options"": [
                         { ""label"": ""求字"", ""gainChar"": ""灯"" },
-                        { ""label"": ""求财"", ""ink"": 40, ""hpDelta"": -3, ""gainComponents"": [ ""火"" ], ""inkCost"": 15 }
+                        { ""label"": ""求财"", ""ink"": 40, ""hpDelta"": -3, ""gainComponents"": [ ""火"" ], ""inkCost"": 15, ""componentCost"": 2 }
                       ] }
                 ],
                 ""chapters"": [ { ""name"": ""蒙学"",
@@ -224,6 +274,7 @@ namespace Brushblade.Core.Tests
             Assert.That(evt.Options[0].GainChar, Is.EqualTo("灯"));
             Assert.That(evt.Options[1].Ink, Is.EqualTo(40));
             Assert.That(evt.Options[1].InkCost, Is.EqualTo(15));
+            Assert.That(evt.Options[1].ComponentCost, Is.EqualTo(2));
 
             // BuildRunConfig 透传事件池
             var runConfig = campaign.BuildRunConfig(0, 0);

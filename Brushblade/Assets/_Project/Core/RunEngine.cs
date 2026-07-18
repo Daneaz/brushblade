@@ -103,13 +103,16 @@ namespace Brushblade.Core
         public int AvailableInk => _startingInk + EarnedInk;
 
         /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。
-        /// 需要消费(InkCost)且余额不足时返回 false,停留在事件中。</summary>
+        /// 消费(InkCost/ComponentCost)付不起时返回 false,停留在事件中。</summary>
         public bool ChooseEventOption(int index)
         {
             if (Phase != RunPhase.Event) return false;
             var option = CurrentEvent.Options[index];
             if (option.InkCost > AvailableInk)
                 return false; // 买不起,换个选项
+            if (option.ComponentCost > _carriedPool.Count)
+                return false; // 部件不够,换不起
+            _carriedPool.RemoveRange(0, option.ComponentCost); // 以物易物:最先入池的部件抵价
 
             if (option.GainChar != null)
             {

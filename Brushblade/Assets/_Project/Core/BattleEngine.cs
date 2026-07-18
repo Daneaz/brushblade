@@ -29,6 +29,7 @@ namespace Brushblade.Core
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 3; // 2→3(2026-07-19 拍板:出字即消耗,拆合再生产提速)
+        public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
     }
@@ -87,7 +88,7 @@ namespace Brushblade.Core
             _random = new GameRandom(seed);
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
-                _enemies.Add(new EnemyState(def));
+                _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
             Phase = BattlePhase.PlayerTurn;
@@ -249,6 +250,8 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.BurnTick, i, tick));
                 if (!enemy.Alive)
                     ResolveDefeat(i);
+                else
+                    CheckBossPhase(i);
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
@@ -405,6 +408,7 @@ namespace Brushblade.Core
                 ResolveDefeat(enemyIndex);
                 return;
             }
+            CheckBossPhase(enemyIndex);
 
             // 叠字怪:首次受击存活 → 分裂成两个半血(8.3;场上 <4 时)
             if (enemy.Def.Ability == EnemyAbility.Split && !enemy.HasSplit && _enemies.Count < 4)
@@ -423,17 +427,21 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>血量归零的结算:成语 Boss 还有下一阶段则换阶段(8.5,溢出伤害不带入),否则死亡。</summary>
         private void ResolveDefeat(int enemyIndex)
         {
-            var enemy = _enemies[enemyIndex];
-            if (enemy.IsBoss && enemy.PhaseIndex < enemy.Def.Phases.Count - 1)
-            {
-                enemy.EnterPhase(enemy.PhaseIndex + 1);
-                _events.Add(new BattleEvent(BattleEventKind.BossPhase, enemyIndex, enemy.PhaseIndex));
-                return;
-            }
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
+        }
+
+        /// <summary>Boss 血池换阶(8.5 v0.7):跨过阈值即切阶段(一击可连跨多阶),血量连续不重置。</summary>
+        private void CheckBossPhase(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.IsBoss) return;
+            while (enemy.PhaseIndex < enemy.Def.Phases.Count - 1 && enemy.Hp <= enemy.PhaseBounds[enemy.PhaseIndex])
+            {
+                enemy.ApplyPhaseStats(enemy.PhaseIndex + 1);
+                _events.Add(new BattleEvent(BattleEventKind.BossPhase, enemyIndex, enemy.PhaseIndex));
+            }
         }
 
         private void CheckWin()

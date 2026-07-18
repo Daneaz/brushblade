@@ -26,46 +26,92 @@ namespace Brushblade.Core.Tests
                 new BossPhaseDef("海", Element.Water, 16, 10),
             });
 
-        private static BattleEngine Engine() =>
-            new(Graph(), new BattleConfig { DropTable = new[] { "火" } }, new[] { "燃" },
-                new[] { "火", "火", "火", "火", "火", "火" },
-                new[] { PaiShanDaoHai() }, seed: 1);
+        // 血池 Boss(2026-07-19 拍板):总血 55 = 12+15+12+16;
+        // 无浮动时阈值 43/28/16(hp ≤ 阈值即进下一阶段),血量连续不重置
+        private static BattleEngine Engine(int jitter = 0, int seed = 1) =>
+            new(Graph(), new BattleConfig { DropTable = new[] { "火" }, BossPhaseJitterPercent = jitter },
+                new[] { "燃" }, new[] { "火", "火", "火", "火", "火", "火" },
+                new[] { PaiShanDaoHai() }, seed);
 
         [Test]
-        public void Boss_StartsInFirstPhase()
+        public void Boss_StartsInFirstPhase_WithPooledHp()
         {
             var boss = Engine().Enemies[0];
             Assert.That(boss.IsBoss, Is.True);
             Assert.That(boss.PhaseIndex, Is.EqualTo(0));
             Assert.That(boss.Element, Is.EqualTo(Element.Metal)); // 「排」金
-            Assert.That(boss.Hp, Is.EqualTo(12));
+            Assert.That(boss.Hp, Is.EqualTo(55));                 // 一条总血
+            Assert.That(boss.MaxHp, Is.EqualTo(55));
             Assert.That(boss.Attack, Is.EqualTo(6));
         }
 
         [Test]
-        public void PhaseKill_AdvancesToNextPhase_NotDeath()
+        public void CrossThreshold_SwitchesPhase_HpContinues()
         {
             var engine = Engine();
-            engine.Cast("火", 0); // 火 vs 金(排)×1.5 = 15 ≥ 12 → 进「山」
+            engine.Cast("火", 0); // 火 vs 金(排)×1.5 = 15 → 55-15=40 ≤ 43 → 进「山」
 
             var boss = engine.Enemies[0];
             Assert.That(boss.Alive, Is.True);
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
             Assert.That(boss.PhaseIndex, Is.EqualTo(1));
             Assert.That(boss.Element, Is.EqualTo(Element.Earth)); // 「山」土
-            Assert.That(boss.Hp, Is.EqualTo(15));                 // 溢出伤害不带入
+            Assert.That(boss.Hp, Is.EqualTo(40));                 // 血量连续,不重置
             Assert.That(boss.Attack, Is.EqualTo(4));
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossPhase && e.Amount == 1), Is.True);
+        }
+
+        [Test]
+        public void BigHit_CanCrossMultipleThresholds()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("炮", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 20) }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { DropTable = System.Array.Empty<string>(), BossPhaseJitterPercent = 0 },
+                new[] { "炮" }, Array.Empty<string>(), new[] { PaiShanDaoHai() }, seed: 1);
+            engine.Cast("炮", 0); // 火 vs 金 ×1.5 = 30 → 55-30=25 ≤ 43 且 ≤ 28 → 连跨两阶进「倒」
+            var boss = engine.Enemies[0];
+            Assert.That(boss.PhaseIndex, Is.EqualTo(2));
+            Assert.That(boss.Element, Is.EqualTo(Element.Wood));
+            Assert.That(boss.Hp, Is.EqualTo(25));
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.BossPhase), Is.EqualTo(2));
         }
 
         [Test]
         public void ShanPhase_HalvesDamageTaken()
         {
             var engine = Engine();
-            engine.Cast("火", 0);  // 破「排」进「山」
+            engine.Cast("火", 0);  // 40 血进「山」
             engine.EndTurn();
             engine.Cast("火", 0);  // 火 vs 土:1.0 → 10 × 0.5 = 5
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(15 - 5));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(40 - 5));
+        }
+
+        [Test]
+        public void Thresholds_JitteredBySeed_VaryAcrossSeeds()
+        {
+            // 浮动 30%:同一 Boss 不同种子,单发 15 伤(至 40 血)后阶段应有差异
+            var outcomes = new System.Collections.Generic.HashSet<int>();
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                var engine = Engine(jitter: 30, seed: seed);
+                engine.Cast("火", 0);
+                outcomes.Add(engine.Enemies[0].PhaseIndex);
+            }
+            Assert.That(outcomes.Count, Is.GreaterThan(1)); // 有的已换阶,有的还没
+        }
+
+        [Test]
+        public void Thresholds_SameSeed_Deterministic()
+        {
+            var a = Engine(jitter: 30, seed: 7);
+            var b = Engine(jitter: 30, seed: 7);
+            a.Cast("火", 0);
+            b.Cast("火", 0);
+            Assert.That(a.Enemies[0].PhaseIndex, Is.EqualTo(b.Enemies[0].PhaseIndex));
+            Assert.That(a.Enemies[0].Hp, Is.EqualTo(b.Enemies[0].Hp));
         }
 
         [Test]
@@ -74,7 +120,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine();
             engine.Cast("燃");     // 挂 3 层灼烧
             Assert.That(engine.Enemies[0].Burn, Is.EqualTo(3));
-            engine.Cast("火", 0);  // 破「排」→ 换阶段,新字新体
+            engine.Cast("火", 0);  // 跨阈值换阶段,新字新体
             Assert.That(engine.Enemies[0].Burn, Is.EqualTo(0));
         }
 
