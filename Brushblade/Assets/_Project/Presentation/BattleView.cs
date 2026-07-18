@@ -46,7 +46,9 @@ namespace Brushblade.Presentation
         private System.Action _onExit;       // 中途退出(无尽=挂起);null 时退化为认输
         private System.Action _onExpanded;   // 广告扩容后回调(即时落盘,防挂起丢失)
         private int _lastBattleIndex;
-        private int _pendingRewardIndex = -1; // 满库替换:已选中待替换入库的奖励下标(3.8.1)
+        private int _pendingRewardIndex = -1;   // 满库替换:已选中待替换入库的奖励下标(3.8.1)
+        private int _previewRewardIndex = -1;   // 字奖励预览:首点看简述,再点确认(新手友好)
+        private int _previewComponentIndex = -1; // 部件奖励预览:同上
 
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
             Tutorial tutorial = null, string title = null, int playerMaxHp = 50,
@@ -566,28 +568,41 @@ namespace Brushblade.Presentation
             Ui.PillButton(_actionRow, "结算", () =>
             {
                 _run.AdvanceAfterBattle();
-                _message = _run.Phase == RunPhase.Reward ? "战利品:三选一(可跳过)" : "";
+                _pendingRewardIndex = -1;
+                _previewRewardIndex = -1;
+                _previewComponentIndex = -1;
+                _message = _run.Phase == RunPhase.Reward ? "战利品:字和部件各可取 2(点一下看效果,再点确认)" : "";
                 Refresh();
             }, Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
         private void DrawReward() // 战利品双排 5 选 2(2026-07-19 拍板):字 + 固定五行部件
         {
-            // 部件排(结束回合行位置):五行基础部件按属性色
+            // 部件排(结束回合行位置):五行基础部件按属性色;首点预览,再点确认
             Ui.ThemedLabel(_statusRow, $"部件·选 {_run.ComponentPicksLeft}", 18, Theme.TextDim, Theme.TitleFont);
             for (int i = 0; i < _run.ComponentOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.ComponentOptions[i];
                 var def = _graph.Get(id);
+                bool previewing = index == _previewComponentIndex;
                 var button = Ui.RoundButton(_statusRow, id, () =>
                 {
+                    if (_previewComponentIndex != index)
+                    {
+                        _previewComponentIndex = index;
+                        _message = CharInfo.Summary(def, _graph) + "|再点确认入池";
+                        Refresh();
+                        return;
+                    }
+                    _previewComponentIndex = -1;
                     if (_run.PickRewardComponent(index))
                         _message = _run.Phase == RunPhase.Reward ? $"部件「{id}」入池" : $"部件「{id}」入池,下一战!";
                     else
                         _message = "部件池已满,收不下";
                     CancelSelection();
-                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
+                }, previewing ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
+                    previewing ? Color.white : Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
                 button.interactable = _run.ComponentPicksLeft > 0;
             }
 
@@ -599,8 +614,17 @@ namespace Brushblade.Presentation
                 int index = i;
                 var id = _run.RewardOptions[i];
                 var def = _graph.Get(id);
-                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} AP", index == _pendingRewardIndex, () =>
+                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} AP",
+                    index == _pendingRewardIndex || index == _previewRewardIndex, () =>
                 {
+                    if (_pendingRewardIndex < 0 && _previewRewardIndex != index)
+                    {
+                        _previewRewardIndex = index; // 首点预览效果(如出牌),再点确认
+                        _message = CharInfo.Summary(def, _graph) + "|再点确认入库";
+                        Refresh();
+                        return;
+                    }
+                    _previewRewardIndex = -1;
                     if (_run.PickReward(index))
                     {
                         _pendingRewardIndex = -1;
@@ -624,6 +648,8 @@ namespace Brushblade.Presentation
             Ui.RoundButton(_actionRow, "下一战", () =>
             {
                 _pendingRewardIndex = -1;
+                _previewRewardIndex = -1;
+                _previewComponentIndex = -1;
                 _run.SkipReward();
                 _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成战利品节拍,引导不卡死
                 _message = "开拔,下一战!";

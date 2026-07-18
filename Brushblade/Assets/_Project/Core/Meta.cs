@@ -175,11 +175,12 @@ namespace Brushblade.Core
             return library;
         }
 
-        /// <summary>卡等级数值系数:基础值 × (1 + 0.1 × (等级 − 1)),向下取整(19.3.2)。</summary>
+        /// <summary>卡等级数值系数:基础值 × (1 + 0.1 × (等级 − 1)),向上取整(19.3.2;
+        /// 2026-07-19 floor→ceiling:低数值字升 1 级即 +1,升级可感)。</summary>
         public static int ScaleByCardLevel(int baseValue, int cardLevel)
         {
             if (cardLevel <= 1) return baseValue;
-            return (int)Math.Floor(baseValue * (1 + 0.1 * (cardLevel - 1)));
+            return (int)Math.Ceiling(baseValue * (1 + 0.1 * (cardLevel - 1)));
         }
     }
 }

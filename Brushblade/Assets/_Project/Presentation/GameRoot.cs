@@ -183,9 +183,13 @@ namespace Brushblade.Presentation
                 return;
             }
 
-            // Boss 层告捷:经验 + 纪录 + 快照推进到下一段首层(安全层挂起点)
+            // Boss 层告捷:经验 + 纪录 + 即发宝箱(2026-07-19 拍板,原「结算发箱」废止)
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
             EndlessRules.UpdateBest(_meta, segmentEnd);
+            var tier = EndlessRules.ChestTierFor(segmentEnd, new GameRandom(System.Environment.TickCount));
+            string chestNote = ChestRules.TryAwardChest(_meta, tier, endless.BandFor(segmentEnd).RewardPool, Time)
+                ? $"获得{ChestRules.TierName(tier)}!"
+                : "箱位已满,宝箱与你擦肩……";
             var snapshot = _meta.Endless;
             snapshot.Depth = segmentEnd + 1;
             snapshot.PlayerHp = run.Battle.PlayerHp;
@@ -195,7 +199,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;
             MetaStore.Save(_meta);
-            ShowSafeLayer(segmentEnd, totalEarned);
+            ShowSafeLayer(segmentEnd, totalEarned, chestNote);
         }
 
         /// <summary>该深度所在层段的下标(背景色板索引)。</summary>
@@ -210,7 +214,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择。</summary>
-        private static void ShowSafeLayer(int depth, int totalEarned)
+        private static void ShowSafeLayer(int depth, int totalEarned, string chestNote = null)
         {
             var endless = _campaign.Endless;
             var nextBand = endless.BandFor(depth + 1);
@@ -230,8 +234,10 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform,
                 $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层", 18, Theme.TextDim);
             Ui.IngotLabel(stack.transform, $"滚存 {totalEarned}", 20);
+            if (chestNote != null)
+                Ui.ThemedLabel(stack.transform, $"◆ 破关战利:{chestNote}", 20, Theme.GoldBorder, Theme.TitleFont);
             Ui.ThemedLabel(stack.transform,
-                $"继续:滚存收益带入更深层,阵亡墨锭减半、宝箱退回本层\n撤退:立即全额结算(宝箱按第 {depth} 层档位)", 16, Theme.TextDim);
+                "继续:滚存收益带入更深层,阵亡墨锭减半\n撤退:立即全额结算墨锭", 16, Theme.TextDim);
 
             Ui.PillButton(stack.transform, $"深入「{nextBand.Name}」第 {depth + 1}~{depth + endless.BossEvery} 层",
                 () => StartSegment(firstTower: false), Theme.Cinnabar, Color.white, 20, new Vector2(340, 58));
@@ -239,27 +245,17 @@ namespace Brushblade.Presentation
                 () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 20, new Vector2(340, 58));
         }
 
-        /// <summary>塔结算(20.5):撤退全额/阵亡半额;宝箱按结算层(阵亡退回最后安全层)。</summary>
+        /// <summary>塔结算(20.5):撤退全额/阵亡半额;宝箱已随每个 Boss 层即时发放,结算不再发。</summary>
         private static void SettleTower(bool died, int clearedDepth, int totalEarned)
         {
-            var endless = _campaign.Endless;
             _meta.Endless = null;
             EndlessRules.UpdateBest(_meta, clearedDepth);
             int ink = EndlessRules.SettleInk(totalEarned, died);
             _meta.Ink += ink;
-            int chestDepth = died ? clearedDepth / endless.BossEvery * endless.BossEvery : clearedDepth;
 
             string message = died
                 ? $"卒于第 {clearedDepth + 1} 层……墨锭 {ink}(半额)入账"
                 : $"第 {clearedDepth} 层收官!墨锭 {ink} 入账";
-            if (chestDepth >= endless.BossEvery)
-            {
-                var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
-                if (ChestRules.TryAwardChest(_meta, tier, endless.BandFor(chestDepth).RewardPool, Time))
-                    message += $",获得{ChestRules.TierName(tier)}";
-                else
-                    message += ",箱位已满未获宝箱";
-            }
             MetaStore.Save(_meta);
             ShowMap(message);
         }

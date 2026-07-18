@@ -138,9 +138,11 @@ namespace Brushblade.Core.Tests
         }
 
         [TestCase(10, 1, 10)]
-        [TestCase(18, 3, 21)]   // 18 × 1.2 = 21.6 → 21
-        [TestCase(18, 10, 34)]  // 18 × 1.9 = 34.2 → 34
-        public void ScaleByCardLevel_TenPercentPerLevel_Floored(int baseValue, int level, int expected)
+        [TestCase(18, 3, 22)]   // 18 × 1.2 = 21.6 → 22(向上取整)
+        [TestCase(18, 10, 35)]  // 18 × 1.9 = 34.2 → 35
+        [TestCase(6, 2, 7)]     // 低数值字升 1 级即 +1 可感(2026-07-19:floor 吞增幅的修正)
+        [TestCase(3, 2, 4)]
+        public void ScaleByCardLevel_TenPercentPerLevel_Ceiled(int baseValue, int level, int expected)
         {
             Assert.That(MetaRules.ScaleByCardLevel(baseValue, level), Is.EqualTo(expected));
         }
@@ -163,8 +165,8 @@ namespace Brushblade.Core.Tests
                 new[] { new EnemyDef("怔", Element.Heart, 200, 3) }, seed: 1,
                 cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["焚"] = 3 });
             engine.Cast("焚");
-            // 基础 18 → 3 级 ×1.2 = 21 → 木生火 ×3 = 63
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 63));
+            // 基础 18 → 3 级 ×1.2 = 21.6 → 向上取整 22 → 木生火 ×3 = 66
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 66));
         }
 
         // ---- 收集与出阵卡组(19.3.4) ----

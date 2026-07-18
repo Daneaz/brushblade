@@ -318,6 +318,181 @@
       ],
       "pinyin": "fén",
       "gloss": "烧山"
+    },
+    {
+      "id": "钉",
+      "element": "Metal",
+      "recipe": [
+        "金",
+        "丁"
+      ],
+      "rarity": "White",
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 7
+        }
+      ],
+      "pinyin": "dīng",
+      "gloss": "金属制成的可贯穿物体的细棍"
+    },
+    {
+      "id": "钓",
+      "element": "Metal",
+      "recipe": [
+        "金",
+        "勺"
+      ],
+      "rarity": "Green",
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 10
+        }
+      ],
+      "pinyin": "diào",
+      "gloss": "用饵诱鱼上钩"
+    },
+    {
+      "id": "铙",
+      "element": "Metal",
+      "recipe": [
+        "金",
+        "尧"
+      ],
+      "rarity": "Green",
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 6
+        }
+      ],
+      "pinyin": "náo",
+      "gloss": "古代铜制打击乐器"
+    },
+    {
+      "id": "鑫",
+      "element": "Metal",
+      "recipe": [
+        "金",
+        "金",
+        "金"
+      ],
+      "apCost": 2,
+      "rarity": "Orange",
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 30
+        }
+      ],
+      "pinyin": "xīn",
+      "gloss": "财富兴盛"
+    },
+    {
+      "id": "杓",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "勺"
+      ],
+      "rarity": "White",
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        }
+      ],
+      "pinyin": "sháo",
+      "gloss": "舀取东西的器具"
+    },
+    {
+      "id": "杜",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "土"
+      ],
+      "rarity": "Green",
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 7
+        }
+      ],
+      "pinyin": "dù",
+      "gloss": "杜梨;堵塞,阻挡"
+    },
+    {
+      "id": "森",
+      "element": "Wood",
+      "recipe": [
+        "林",
+        "木"
+      ],
+      "apCost": 2,
+      "rarity": "Purple",
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 16
+        }
+      ],
+      "pinyin": "sēn",
+      "gloss": "树木丛生繁密"
+    },
+    {
+      "id": "汀",
+      "element": "Water",
+      "recipe": [
+        "水",
+        "丁"
+      ],
+      "rarity": "White",
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        }
+      ],
+      "pinyin": "tīng",
+      "gloss": "水边平地"
+    },
+    {
+      "id": "沐",
+      "element": "Water",
+      "recipe": [
+        "水",
+        "木"
+      ],
+      "rarity": "Green",
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 6
+        }
+      ],
+      "pinyin": "mù",
+      "gloss": "洗头发;润泽"
+    },
+    {
+      "id": "淼",
+      "element": "Water",
+      "recipe": [
+        "水",
+        "水",
+        "水"
+      ],
+      "apCost": 2,
+      "rarity": "Orange",
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 15
+        }
+      ],
+      "pinyin": "miǎo",
+      "gloss": "水势浩大的样子"
     }
   ]
 }
