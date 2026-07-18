@@ -15,7 +15,7 @@ namespace Brushblade.Presentation
         private Action _onBack;
         private Action _save;
         private int _page;
-        private string _message = "点击卡片加入/移出出阵卡组;集满重复卡后可升级";
+        private string _message = "点击卡片加入/移出出阵卡组(「补齐」为按等级自动上阵);集满重复卡后可升级";
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -96,15 +96,18 @@ namespace Brushblade.Presentation
 
                 int level = MetaRules.CardLevel(_meta, cardId);
                 _meta.CardCopies.TryGetValue(cardId, out int copies);
-                bool inDeck = deck.Contains(cardId);
+                bool pinned = _meta.Deck.Contains(cardId);   // 自选出阵(入档)
+                bool inDeck = deck.Contains(cardId);         // 实际出阵(自选 + 自动补齐)
                 var def = _graph.Get(cardId);
 
-                // 主卡:GlyphTile;出阵者:GlyphTile 墨色选中环 + 粉色『出阵』chip
+                // 主卡:GlyphTile;自选出阵:选中环 + 粉色『出阵』chip;自动补齐:淡色『补齐』chip
                 var badges = Ui.Row(cell.transform, "Badges", 6);
                 Ui.Chip(badges.transform, $"Lv.{level}", Theme.Ink, Color.white, 13);
-                if (inDeck)
+                if (pinned)
                     Ui.Chip(badges.transform, "出阵", Theme.ExitPink, Color.white, 13);
-                Ui.GlyphTile(cell.transform, def, "", inDeck, () => ToggleDeck(cardId),
+                else if (inDeck)
+                    Ui.Chip(badges.transform, "补齐", Theme.LockGray, Color.white, 13);
+                Ui.GlyphTile(cell.transform, def, "", pinned, () => ToggleDeck(cardId),
                     new Vector2(118, 128));
 
                 if (level >= MetaRules.MaxCardLevel)
@@ -139,7 +142,7 @@ namespace Brushblade.Presentation
             if (deck.Contains(cardId))
             {
                 deck.Remove(cardId);
-                _message = $"{summary}\n已移出出阵卡组";
+                _message = $"{summary}\n已移出出阵卡组(空位按等级自动补齐)";
             }
             else if (deck.Count >= MetaRules.DeckLimit)
             {
@@ -150,7 +153,7 @@ namespace Brushblade.Presentation
             else
             {
                 deck.Add(cardId);
-                _message = $"{summary}\n已加入出阵卡组";
+                _message = $"{summary}\n已加入出阵卡组(下次登塔生效)";
             }
 
             if (MetaRules.TrySetDeck(_meta, deck))

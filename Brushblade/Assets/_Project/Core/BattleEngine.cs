@@ -136,7 +136,9 @@ namespace Brushblade.Core
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (Ap < 1) return BattleError.NotEnoughAp;
 
-            var result = ForgeEngine.TryCompose(charId, _graph, _forge, _config.LibraryCapacity);
+            // 出过的字战后回归字库(3.8.1),占用容量额度——否则回归合并后会超上限
+            var result = ForgeEngine.TryCompose(charId, _graph, _forge,
+                Math.Max(0, _config.LibraryCapacity - _usedChars.Count));
             if (!result.Success)
             {
                 LastForgeError = result.Error;

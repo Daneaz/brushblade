@@ -44,17 +44,21 @@ namespace Brushblade.Presentation
 
         private System.Action _onNewFloor;   // 连战推进到新一场时回调(无尽断点快照,20.6)
         private System.Action _onExit;       // 中途退出(无尽=挂起);null 时退化为认输
+        private System.Action _onExpanded;   // 广告扩容后回调(即时落盘,防挂起丢失)
         private int _lastBattleIndex;
+        private int _pendingRewardIndex = -1; // 满库替换:已选中待替换入库的奖励下标(3.8.1)
 
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
             Tutorial tutorial = null, string title = null, int playerMaxHp = 50,
-            System.Action onNewFloor = null, System.Action onExit = null)
+            System.Action onNewFloor = null, System.Action onExit = null,
+            System.Action onExpanded = null)
         {
             _graph = graph;
             _run = run;
             _onRunEnded = onRunEnded;
             _onNewFloor = onNewFloor;
             _onExit = onExit;
+            _onExpanded = onExpanded;
             _lastBattleIndex = run.BattleIndex;
             _tutorial = tutorial;
             _title = title ?? "";
@@ -331,24 +335,52 @@ namespace Brushblade.Presentation
 
         private void DrawLibrary()
         {
-            Ui.ThemedLabel(_libraryRow, $"字库 {Battle.Library.Count}/{Battle.LibraryCapacity}", 16, Theme.TextDim, Theme.TitleFont);
+            // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
+            bool rewardPhase = _run.Phase == RunPhase.Reward;
+            var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
+            Ui.ThemedLabel(_libraryRow, $"字库 {library.Count}/{Battle.LibraryCapacity}", 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.LibraryExpanded)
                 Ui.AdBadge(_libraryRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandLibrary();
-                    _message = "字库上限 +2(本关有效)";
+                    _onExpanded?.Invoke();
+                    _message = "字库上限 +2(本次登塔有效)";
                     Refresh();
                 }, new Vector2(64, 38));
-            if (Battle.Library.Count == 0)
+            if (library.Count == 0)
                 Ui.ThemedLabel(_libraryRow, "(空)", 16, Theme.TextDim);
-            foreach (var id in Battle.Library)
+            for (int i = 0; i < library.Count; i++)
             {
-                string charId = id;
+                int index = i;
+                string charId = library[i];
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected,
-                    () => OnLibraryCharClicked(charId), new Vector2(82, 104));
+                    () =>
+                    {
+                        if (rewardPhase) OnRewardLibraryClicked(index, charId);
+                        else OnLibraryCharClicked(charId);
+                    }, new Vector2(82, 104));
                 _tileRects[charId] = (RectTransform)tile.transform;
+            }
+        }
+
+        /// <summary>奖励页点字库:替换模式换掉该字,否则看简述。</summary>
+        private void OnRewardLibraryClicked(int index, string charId)
+        {
+            if (_pendingRewardIndex < 0)
+            {
+                _message = CharInfo.Summary(_graph.Get(charId), _graph);
+                Refresh();
+                return;
+            }
+            string picked = _run.RewardOptions[_pendingRewardIndex];
+            if (_run.PickRewardReplacing(_pendingRewardIndex, index))
+            {
+                _pendingRewardIndex = -1;
+                _tutorial?.Notify(TutorialAction.PickReward);
+                _message = $"「{picked}」替换「{charId}」入库,下一战!";
+                CancelSelection();
             }
         }
 
@@ -359,7 +391,8 @@ namespace Brushblade.Presentation
                 Ui.AdBadge(_poolRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandPool();
-                    _message = "部件池上限 +2(本关有效)";
+                    _onExpanded?.Invoke();
+                    _message = "部件池上限 +2(本次登塔有效)";
                     Refresh();
                 }, new Vector2(64, 38));
             foreach (var id in Battle.Pool)
@@ -531,22 +564,32 @@ namespace Brushblade.Presentation
 
         private void DrawReward()
         {
-            Ui.ThemedLabel(_actionRow, "选一个字入库:", 22, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_actionRow, _pendingRewardIndex >= 0 ? "点字库中一张替换:" : "选一个字入库:",
+                22, Theme.TextMain, Theme.TitleFont);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.RewardOptions[i];
                 var def = _graph.Get(id);
-                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} AP", false, () =>
+                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} AP", index == _pendingRewardIndex, () =>
                 {
-                    _run.PickReward(index);
-                    _tutorial?.Notify(TutorialAction.PickReward);
-                    _message = $"「{id}」入库,下一战!";
-                    CancelSelection();
+                    if (_run.PickReward(index))
+                    {
+                        _pendingRewardIndex = -1;
+                        _tutorial?.Notify(TutorialAction.PickReward);
+                        _message = $"「{id}」入库,下一战!";
+                        CancelSelection();
+                        return;
+                    }
+                    // 字库已满(3.8.1):选中奖励进入替换模式,点字库一张换掉或跳过
+                    _pendingRewardIndex = index;
+                    _message = $"字库已满:点下方字库中一张替换「{id}」,或跳过";
+                    Refresh();
                 });
             }
             Ui.RoundButton(_actionRow, "跳过", () =>
             {
+                _pendingRewardIndex = -1;
                 _run.SkipReward();
                 _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成"三选一"节拍,引导不卡死
                 _message = "轻装上阵,下一战!";
@@ -569,7 +612,7 @@ namespace Brushblade.Presentation
                     if (_run.ChooseEventOption(index))
                         _message = $"{evt.Id}:{option.Label}";
                     else
-                        _message = "墨锭不足,换个选择";
+                        _message = "墨锭不足或字库已满,换个选择";
                     CancelSelection();
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));

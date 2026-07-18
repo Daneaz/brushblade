@@ -140,7 +140,18 @@ namespace Brushblade.Presentation
                 won => OnSegmentEnded(run, fromDepth, segmentEnd, baseInk, won),
                 tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
                 onNewFloor: () => OnFloorAdvanced(run, fromDepth, baseInk),
-                onExit: () => ShowMap("登塔已挂起,随时回来继续"));
+                onExit: () => ShowMap("登塔已挂起,随时回来继续"),
+                onExpanded: () => OnExpanded(run));
+        }
+
+        /// <summary>广告扩容即时落盘:挂起/杀进程也不丢已看广告换来的容量。</summary>
+        private static void OnExpanded(RunEngine run)
+        {
+            var snapshot = _meta.Endless;
+            if (snapshot == null) return;
+            snapshot.LibraryExpanded = run.LibraryExpanded;
+            snapshot.PoolExpanded = run.PoolExpanded;
+            MetaStore.Save(_meta);
         }
 
         /// <summary>新一层开打:层粒度断点快照(20.6)+ 层经验 + 层段首破里程碑(20.3)。</summary>
@@ -183,8 +194,8 @@ namespace Brushblade.Presentation
             snapshot.Library = library;
             snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
             snapshot.EarnedInk = totalEarned;
-            snapshot.LibraryExpanded = false; // 段内广告扩容一段一次,过段恢复
-            snapshot.PoolExpanded = false;
+            snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
+            snapshot.PoolExpanded = run.PoolExpanded;
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned);
         }

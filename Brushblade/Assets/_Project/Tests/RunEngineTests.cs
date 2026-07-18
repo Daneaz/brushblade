@@ -205,5 +205,125 @@ namespace Brushblade.Core.Tests
                 new[] { Weak() }, seed: 1, startingHp: 33);
             Assert.That(engine.PlayerHp, Is.EqualTo(33));
         }
+
+        // ---- 字库容量全链路(3.8.1:满库须替换或不要;修无尽塔字库超上限)----
+
+        private static RunEngine RunWith(BattleConfig battleConfig, string[] library,
+            RunConfig config = null, string[] pool = null, int seed = 7) =>
+            new(Graph(), config ?? TwoBattles(), battleConfig,
+                library, pool ?? Array.Empty<string>(), seed);
+
+        [Test]
+        public void PickReward_BelowCapacity_ReturnsTrue()
+        {
+            var run = Run();
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.PickReward(0), Is.True);
+        }
+
+        [Test]
+        public void PickReward_AtCapacity_Rejected_StaysInReward()
+        {
+            var run = RunWith(new BattleConfig { LibraryCapacity = 2, DropTable = new[] { "木" } },
+                new[] { "焚", "灯" });
+            WinCurrentBattle(run); // 焚进已使用
+            run.AdvanceAfterBattle();
+            // 回归后字库 [灯,焚] = 2,已满
+            Assert.That(run.CarriedLibrary, Is.EquivalentTo(new[] { "灯", "焚" }));
+            Assert.That(run.PickReward(0), Is.False);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward)); // 停在奖励页等替换/跳过
+        }
+
+        [Test]
+        public void PickRewardReplacing_SwapsAndProceeds()
+        {
+            var run = RunWith(new BattleConfig { LibraryCapacity = 2, DropTable = new[] { "木" } },
+                new[] { "焚", "灯" });
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+
+            int replaceIndex = -1; // 替换掉「灯」
+            for (int i = 0; i < run.CarriedLibrary.Count; i++)
+                if (run.CarriedLibrary[i] == "灯") replaceIndex = i;
+            var picked = run.RewardOptions[0];
+
+            Assert.That(run.PickRewardReplacing(0, replaceIndex), Is.True);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Library.Count, Is.EqualTo(2)); // 不超上限
+            Assert.That(run.Battle.Library, Does.Contain(picked));
+            Assert.That(run.Battle.Library, Does.Not.Contain("灯")); // 被替换的字永久移除
+        }
+
+        [Test]
+        public void SkipReward_AtCapacity_StillWorks() // 「选择不要」
+        {
+            var run = RunWith(new BattleConfig { LibraryCapacity = 2, DropTable = new[] { "木" } },
+                new[] { "焚", "灯" });
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Library.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void EventGainChar_AtCapacity_Rejected()
+        {
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+                RewardPool = new[] { "灯" },
+                EventChancePercent = 100,
+                EventPool = new[] { new EventDef { Id = "字摊", Text = "…", Options = new[]
+                {
+                    new EventOption { Label = "得灯", GainChar = "灯" },
+                    new EventOption { Label = "离开" },
+                } } },
+            };
+            var run = RunWith(new BattleConfig { LibraryCapacity = 1, DropTable = new[] { "木" } },
+                new[] { "焚" }, config);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward(); // 100% 进奇遇
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            Assert.That(run.ChooseEventOption(0), Is.False); // 字库已满,收不下
+            Assert.That(run.ChooseEventOption(1), Is.True);  // 离开可选
+            Assert.That(run.Battle.Library, Is.EquivalentTo(new[] { "焚" }));
+        }
+
+        [Test]
+        public void EventGainComponents_ClampedAtPoolCapacity()
+        {
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+                RewardPool = new[] { "灯" },
+                EventChancePercent = 100,
+                EventPool = new[] { new EventDef { Id = "废稿堆", Text = "…", Options = new[]
+                {
+                    new EventOption { Label = "拾取", GainComponents = new[] { "火", "火" } },
+                } } },
+            };
+            var run = RunWith(new BattleConfig { PoolCapacity = 2, DropTable = new[] { "木" } },
+                new[] { "焚" }, config, pool: new[] { "木", "木" }); // 池已满
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.ChooseEventOption(0), Is.True); // 池满则不入(同「池满则不掉」)
+            Assert.That(run.Battle.Pool.Count, Is.LessThanOrEqualTo(2));
+        }
+
+        [Test]
+        public void Compose_CountsUsedChars_TowardLibraryCapacity() // 出过的字战后回归,占容量(堵回归溢出)
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { LibraryCapacity = 1, DropTable = new[] { "木" } },
+                new[] { "灯" }, new[] { "木", "木" }, new[] { Strong() }, seed: 1);
+            Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.None)); // 灯进已使用
+            var error = engine.Compose("林"); // 库虽空,但灯将回归:0 个可用位
+            Assert.That(error, Is.EqualTo(BattleError.ForgeFailed));
+            Assert.That(engine.LastForgeError, Is.EqualTo(ForgeError.LibraryFull));
+        }
     }
 }

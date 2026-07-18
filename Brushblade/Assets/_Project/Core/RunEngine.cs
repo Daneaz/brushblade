@@ -69,6 +69,9 @@ namespace Brushblade.Core
         /// <summary>奖励阶段的三选一选项(字 id)。</summary>
         public IReadOnlyList<string> RewardOptions => _rewardOptions;
 
+        /// <summary>战斗间携带的字库(出过的字已回归;Reward/Event 阶段有效)。</summary>
+        public IReadOnlyList<string> CarriedLibrary => _carriedLibrary;
+
         public bool LibraryExpanded { get; private set; }
         public bool PoolExpanded { get; private set; }
 
@@ -93,8 +96,14 @@ namespace Brushblade.Core
                 return false; // 买不起,换个选项
 
             if (option.GainChar != null)
+            {
+                if (_carriedLibrary.Count >= _battleConfig.LibraryCapacity)
+                    return false; // 字库已满,收不下(3.8.1「选择不要」,换个选项)
                 _carriedLibrary.Add(option.GainChar);
-            _carriedPool.AddRange(option.GainComponents);
+            }
+            foreach (var component in option.GainComponents)
+                if (_carriedPool.Count < _battleConfig.PoolCapacity)
+                    _carriedPool.Add(component); // 池满则不入(同 3.8.2「池满则不掉」)
             EarnedInk += option.Ink - option.InkCost;
             if (option.HpDelta > 0)
                 _carriedHp = Math.Min(_battleConfig.PlayerMaxHp, _carriedHp + option.HpDelta);
@@ -106,8 +115,8 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>局内广告扩容:字库 +2,每关一次,关内跨场有效(2026-07-06 拍板)。
-        /// 关卡结束自然恢复:每关的 BattleConfig 由外层新建。</summary>
+        /// <summary>局内广告扩容:字库 +2,一局一次,跨场有效(2026-07-06 拍板)。
+        /// 无尽塔 = 整次登塔一次:跨段由外层快照恢复,塔结算随快照清除。</summary>
         public bool TryExpandLibrary()
         {
             if (LibraryExpanded) return false;
@@ -116,7 +125,7 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>局内广告扩容:部件池 +2,每关一次。</summary>
+        /// <summary>局内广告扩容:部件池 +2,一局一次(同上)。</summary>
         public bool TryExpandPool()
         {
             if (PoolExpanded) return false;
@@ -153,12 +162,26 @@ namespace Brushblade.Core
             Phase = RunPhase.Reward;
         }
 
-        /// <summary>选取奖励(下标),进入奇遇或下一战。</summary>
-        public void PickReward(int index)
+        /// <summary>选取奖励(下标),进入奇遇或下一战。字库已满返回 false,
+        /// 停留在奖励页等替换(PickRewardReplacing)或跳过(3.8.1)。</summary>
+        public bool PickReward(int index)
         {
-            if (Phase != RunPhase.Reward) return;
+            if (Phase != RunPhase.Reward) return false;
+            if (_carriedLibrary.Count >= _battleConfig.LibraryCapacity)
+                return false;
             _carriedLibrary.Add(_rewardOptions[index]);
             ProceedAfterReward();
+            return true;
+        }
+
+        /// <summary>满库替换:奖励字换掉字库中一张(被换的字永久移除,3.8.1)。</summary>
+        public bool PickRewardReplacing(int index, int replaceIndex)
+        {
+            if (Phase != RunPhase.Reward) return false;
+            if (replaceIndex < 0 || replaceIndex >= _carriedLibrary.Count) return false;
+            _carriedLibrary[replaceIndex] = _rewardOptions[index];
+            ProceedAfterReward();
+            return true;
         }
 
         /// <summary>放弃奖励,进入奇遇或下一战。</summary>
