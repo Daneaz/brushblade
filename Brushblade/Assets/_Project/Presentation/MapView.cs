@@ -102,10 +102,23 @@ namespace Brushblade.Presentation
                 Ui.Stretch(text.rectTransform);
             }
 
-            // 无尽书塔面板(20.2):段位/最高层 + 层段进度 + 登塔/续爬
+            // 无尽书塔面板(20.2):段位/最高层 + 层段进度 + 登塔/续爬;
+            // 薄宣纸半透卡融背景,内衬当前进度层段的巨字水印
             var endless = _campaign.Endless;
-            var tower = Ui.CardPanel(transform, "Tower");
+            var tower = Ui.CardPanel(transform, "Tower", Theme.PaperCard, 20);
             Ui.Anchor((RectTransform)tower.transform, new Vector2(0.2f, 0.27f), new Vector2(0.8f, 0.84f), Vector2.zero, Vector2.zero);
+
+            int depthNow = _meta.Endless?.Depth ?? Mathf.Max(1, _meta.BestDepth + 1);
+            int bandIndex = 0;
+            for (int i = 0; i < endless.Bands.Count; i++)
+                if (endless.Bands[i].FromDepth <= depthNow)
+                    bandIndex = i;
+            var bandName = endless.Bands[bandIndex].Name;
+            var mark = Ui.Label(tower.transform, bandName.Substring(bandName.Length - 1), 300);
+            mark.color = Theme.BandWatermark(bandIndex);
+            mark.raycastTarget = false;
+            Ui.Stretch(mark.rectTransform);
+
             var stack = Ui.VStack(tower.transform, "Stack", 14);
             Ui.Stretch((RectTransform)stack.transform);
 
