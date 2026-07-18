@@ -180,6 +180,8 @@ namespace Brushblade.Presentation
                 case RunPhase.Reward:
                     DrawTopBar();
                     DrawPlayerStats();
+                    DrawLibrary(); // 携带字库:满库替换的操作对象
+                    DrawPool();    // 携带部件池:部件奖励入池可见
                     DrawReward();
                     break;
                 case RunPhase.Event:
@@ -209,7 +211,7 @@ namespace Brushblade.Presentation
             TutorialStep.ComposeBurn => "『林』+『火』——点【合 焚】,拼出大杀器!",
             TutorialStep.EndTurn => "点【结束回合】(AP 耗尽会自动结束)——小心字怪反击",
             TutorialStep.CastBurn => "打出【焚】,一击清场!",
-            TutorialStep.PickReward => "战后三选一,挑个字入库——出过的字不回来,靠拆合再生产",
+            TutorialStep.PickReward => "战利品:字和部件各挑 2 个——出过的字不回来,靠拆合再生产",
             _ => "",
         };
 
@@ -378,14 +380,17 @@ namespace Brushblade.Presentation
             {
                 _pendingRewardIndex = -1;
                 _tutorial?.Notify(TutorialAction.PickReward);
-                _message = $"「{picked}」替换「{charId}」入库,下一战!";
+                _message = $"「{picked}」替换「{charId}」入库" + (_run.Phase == RunPhase.Reward ? "" : ",下一战!");
                 CancelSelection();
             }
         }
 
         private void DrawPool()
         {
-            Ui.ThemedLabel(_poolRow, $"部件池 {Battle.Pool.Count}/{Battle.PoolCapacity}", 16, Theme.TextDim, Theme.TitleFont);
+            // 奖励页显示携带池(部件奖励入池即时可见)
+            bool rewardPhase = _run.Phase == RunPhase.Reward;
+            var poolChars = rewardPhase ? _run.CarriedPool : Battle.Pool;
+            Ui.ThemedLabel(_poolRow, $"部件池 {poolChars.Count}/{Battle.PoolCapacity}", 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.PoolExpanded)
                 Ui.AdBadge(_poolRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
@@ -394,12 +399,17 @@ namespace Brushblade.Presentation
                     _message = "部件池上限 +2(本次登塔有效)";
                     Refresh();
                 }, new Vector2(64, 38));
-            foreach (var id in Battle.Pool)
+            foreach (var id in poolChars)
             {
                 string charId = id;
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                var tile = Ui.RoundButton(_poolRow, charId, () => OnPoolCharClicked(charId),
+                var tile = Ui.RoundButton(_poolRow, charId,
+                    () =>
+                    {
+                        if (rewardPhase) { _message = CharInfo.Summary(_graph.Get(charId), _graph); Refresh(); }
+                        else OnPoolCharClicked(charId);
+                    },
                     selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     selected ? Color.white : Theme.ElementSoftFg(def.Element),
                     22, new Vector2(56, 56), 12);
@@ -561,9 +571,28 @@ namespace Brushblade.Presentation
             }, Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
-        private void DrawReward()
+        private void DrawReward() // 战利品双排 5 选 2(2026-07-19 拍板):字 + 固定五行部件
         {
-            Ui.ThemedLabel(_actionRow, _pendingRewardIndex >= 0 ? "点字库中一张替换:" : "选一个字入库:",
+            // 部件排(结束回合行位置):五行基础部件按属性色
+            Ui.ThemedLabel(_statusRow, $"部件·选 {_run.ComponentPicksLeft}", 18, Theme.TextDim, Theme.TitleFont);
+            for (int i = 0; i < _run.ComponentOptions.Count; i++)
+            {
+                int index = i;
+                var id = _run.ComponentOptions[i];
+                var def = _graph.Get(id);
+                var button = Ui.RoundButton(_statusRow, id, () =>
+                {
+                    if (_run.PickRewardComponent(index))
+                        _message = _run.Phase == RunPhase.Reward ? $"部件「{id}」入池" : $"部件「{id}」入池,下一战!";
+                    else
+                        _message = "部件池已满,收不下";
+                    CancelSelection();
+                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
+                button.interactable = _run.ComponentPicksLeft > 0;
+            }
+
+            // 字排
+            Ui.ThemedLabel(_actionRow, _pendingRewardIndex >= 0 ? "点字库中一张替换:" : $"字·选 {_run.CharPicksLeft}:",
                 22, Theme.TextMain, Theme.TitleFont);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
@@ -576,24 +605,30 @@ namespace Brushblade.Presentation
                     {
                         _pendingRewardIndex = -1;
                         _tutorial?.Notify(TutorialAction.PickReward);
-                        _message = $"「{id}」入库,下一战!";
+                        _message = _run.Phase == RunPhase.Reward ? $"「{id}」入库" : $"「{id}」入库,下一战!";
                         CancelSelection();
+                        return;
+                    }
+                    if (_run.CharPicksLeft == 0)
+                    {
+                        _message = "字的战利品额度已用完";
+                        Refresh();
                         return;
                     }
                     // 字库已满(3.8.1):选中奖励进入替换模式,点字库一张换掉或跳过
                     _pendingRewardIndex = index;
-                    _message = $"字库已满:点下方字库中一张替换「{id}」,或跳过";
+                    _message = $"字库已满:点下方字库中一张替换「{id}」,或直接开拔";
                     Refresh();
                 });
             }
-            Ui.RoundButton(_actionRow, "跳过", () =>
+            Ui.RoundButton(_actionRow, "下一战", () =>
             {
                 _pendingRewardIndex = -1;
                 _run.SkipReward();
-                _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成"三选一"节拍,引导不卡死
-                _message = "轻装上阵,下一战!";
+                _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成战利品节拍,引导不卡死
+                _message = "开拔,下一战!";
                 CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(80, 44));
+            }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(96, 44));
         }
 
         private void DrawEvent() // 奇遇(9.6):短情境 + 选择;字摊类消费显示预算

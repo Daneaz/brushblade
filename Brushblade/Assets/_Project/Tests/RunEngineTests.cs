@@ -76,6 +76,7 @@ namespace Brushblade.Core.Tests
             var picked = run.RewardOptions[lampIndex];
 
             run.PickReward(lampIndex);
+            run.SkipReward(); // 拿一件即开拔(5 选 2 可不取满)
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.BattleIndex, Is.EqualTo(1));
             Assert.That(run.Battle.Library, Does.Not.Contain("焚")); // 出字即消耗,不回归
@@ -101,10 +102,11 @@ namespace Brushblade.Core.Tests
             var run = Run();
             WinCurrentBattle(run);
             run.AdvanceAfterBattle();
-            int fenIndex = -1; // 焚已消耗,末战需从奖励再拿一张(池仅 3 字,三选一必含焚)
+            int fenIndex = -1; // 焚已消耗,末战需从奖励再拿一张(池仅 3 字,候选必含焚)
             for (int i = 0; i < run.RewardOptions.Count; i++)
                 if (run.RewardOptions[i] == "焚") fenIndex = i;
             run.PickReward(fenIndex);
+            run.SkipReward();
             WinCurrentBattle(run); // 第二战即最后一战
             run.AdvanceAfterBattle();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon));
@@ -137,11 +139,72 @@ namespace Brushblade.Core.Tests
         // ---- 局内广告扩容(2026-07-06 拍板):字库 6+2、部件池 10+2,一局各一次 ----
 
         [Test]
-        public void Defaults_Library6_Pool10()
+        public void Defaults_Library6_Pool10_Drops3()
         {
             var config = new BattleConfig();
             Assert.That(config.LibraryCapacity, Is.EqualTo(6));
             Assert.That(config.PoolCapacity, Is.EqualTo(10));
+            Assert.That(config.DropsPerTurn, Is.EqualTo(3)); // 2→3(2026-07-19:出字即消耗,再生产提速)
+        }
+
+        // ---- 战利品双排 5 选 2(2026-07-19 拍板):字池抽 5 选 2 + 固定五行部件 5 选 2 ----
+
+        private static RunConfig SixCharPool() => new()
+        {
+            Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+            RewardPool = new[] { "灯", "焚", "林", "木", "火", "丁" },
+        };
+
+        private static bool PickComponent(RunEngine run, string id)
+        {
+            for (int i = 0; i < run.ComponentOptions.Count; i++)
+                if (run.ComponentOptions[i] == id) return run.PickRewardComponent(i);
+            return false;
+        }
+
+        [Test]
+        public void Reward_RollsFiveChars_AndFiveFixedComponents()
+        {
+            var run = Run(SixCharPool());
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.RewardOptions.Count, Is.EqualTo(5));
+            Assert.That(run.ComponentOptions, Is.EquivalentTo(new[] { "金", "木", "水", "火", "土" }));
+            Assert.That(run.CharPicksLeft, Is.EqualTo(2));
+            Assert.That(run.ComponentPicksLeft, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void PickTwoCharsAndTwoComponents_AutoProceeds()
+        {
+            var run = Run(SixCharPool());
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+
+            var first = run.RewardOptions[0];
+            Assert.That(run.PickReward(0), Is.True);
+            var second = run.RewardOptions[0];
+            Assert.That(run.PickReward(0), Is.True);
+            Assert.That(run.PickReward(0), Is.False); // 字额度用完
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward)); // 部件额度未用,尚未开拔
+
+            Assert.That(PickComponent(run, "木"), Is.True);
+            Assert.That(PickComponent(run, "火"), Is.True);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle)); // 双排取满自动开拔
+            Assert.That(run.Battle.Library, Does.Contain(first).And.Contain(second));
+            Assert.That(run.Battle.Pool, Does.Contain("木").And.Contain("火"));
+        }
+
+        [Test]
+        public void PickRewardComponent_PoolFull_Rejected()
+        {
+            var run = RunWith(new BattleConfig { PoolCapacity = 2, DropTable = new[] { "木" } },
+                new[] { "焚" }, SixCharPool(), pool: new[] { "木", "木" }); // 池已满
+            WinCurrentBattle(run); // 焚 AOE 取胜,池未动
+            run.AdvanceAfterBattle();
+            Assert.That(PickComponent(run, "火"), Is.False); // 池满不收
+            run.SkipReward();
+            Assert.That(run.Battle.Pool.Count, Is.LessThanOrEqualTo(2));
         }
 
         [Test]
@@ -233,6 +296,7 @@ namespace Brushblade.Core.Tests
             var picked = run.RewardOptions[0];
 
             Assert.That(run.PickRewardReplacing(0, 0), Is.True); // 换掉「灯」
+            run.SkipReward();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Library, Is.EquivalentTo(new[] { picked })); // 不超上限
             Assert.That(run.Battle.Library, Does.Not.Contain("灯")); // 被替换的字永久移除

@@ -202,13 +202,37 @@ namespace Brushblade.Balance
 
         private static void PickBestReward(RecipeGraph graph, RunEngine run)
         {
-            int best = 0, bestPower = -1;
-            for (int i = 0; i < run.RewardOptions.Count; i++)
+            // 字 5 选 2:按威力取;满库替换最弱库存,不占优则不换
+            while (run.Phase == RunPhase.Reward && run.CharPicksLeft > 0 && run.RewardOptions.Count > 0)
             {
-                int power = Power(graph, run.RewardOptions[i]);
-                if (power > bestPower) { bestPower = power; best = i; }
+                int best = 0, bestPower = -1;
+                for (int i = 0; i < run.RewardOptions.Count; i++)
+                {
+                    int power = Power(graph, run.RewardOptions[i]);
+                    if (power > bestPower) { bestPower = power; best = i; }
+                }
+                if (run.PickReward(best)) continue;
+
+                int weakest = 0, weakestPower = int.MaxValue;
+                for (int i = 0; i < run.CarriedLibrary.Count; i++)
+                {
+                    int power = Power(graph, run.CarriedLibrary[i]);
+                    if (power < weakestPower) { weakestPower = power; weakest = i; }
+                }
+                if (bestPower <= weakestPower || !run.PickRewardReplacing(best, weakest))
+                    break;
             }
-            run.PickReward(best);
+            // 部件 5 选 2:优先拿拆合链原料(木/火),池满即止
+            while (run.Phase == RunPhase.Reward && run.ComponentPicksLeft > 0 && run.ComponentOptions.Count > 0)
+            {
+                int pick = 0;
+                for (int i = 0; i < run.ComponentOptions.Count; i++)
+                    if (run.ComponentOptions[i] == "木" || run.ComponentOptions[i] == "火") { pick = i; break; }
+                if (!run.PickRewardComponent(pick))
+                    break;
+            }
+            if (run.Phase == RunPhase.Reward)
+                run.SkipReward();
         }
 
         private static void ChooseBestEvent(RunEngine run)

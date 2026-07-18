@@ -28,7 +28,7 @@ namespace Brushblade.Core
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
-        public int DropsPerTurn { get; set; } = 2;
+        public int DropsPerTurn { get; set; } = 3; // 2→3(2026-07-19 拍板:出字即消耗,拆合再生产提速)
         /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
     }

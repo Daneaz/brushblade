@@ -7,6 +7,18 @@
       "gloss": "树木"
     },
     {
+      "id": "金",
+      "element": "Metal",
+      "pinyin": "jīn",
+      "gloss": "五行之金,兵刃之属"
+    },
+    {
+      "id": "水",
+      "element": "Water",
+      "pinyin": "shuǐ",
+      "gloss": "五行之水,润下之德"
+    },
+    {
       "id": "火",
       "element": "Fire",
       "effects": [
