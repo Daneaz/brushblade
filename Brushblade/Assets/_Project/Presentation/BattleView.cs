@@ -92,8 +92,8 @@ namespace Brushblade.Presentation
 
             _enemyRow = MakeSection("Enemies", 0.62f, 0.885f);
 
-            // 拆合台白卡:第一行内容(配方/拆字),第二行动作
-            var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.CardWhite, 20);
+            // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
+            var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.PaperCard, 20);
             Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.14f, 0.37f), new Vector2(0.86f, 0.61f), Vector2.zero, Vector2.zero);
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 6);
             Ui.Stretch((RectTransform)workbenchStack.transform);

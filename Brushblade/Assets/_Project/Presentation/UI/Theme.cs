@@ -55,6 +55,9 @@ namespace Brushblade.Presentation
             Color.Lerp(Paper, BandInk(bandIndex),
                 Mathf.Min(0.22f, 0.09f + 0.035f * segmentInBand));
 
+        /// <summary>薄宣纸卡(拆合台等浮层):半透白,透出层段染色自动同调,水印隐约可见。</summary>
+        public static readonly Color PaperCard = new(1f, 0.995f, 0.975f, 0.62f);
+
         /// <summary>层段巨字水印色(背景大字,近乎透明的墨痕)。</summary>
         public static Color BandWatermark(int bandIndex)
         {
