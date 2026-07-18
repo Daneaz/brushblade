@@ -189,9 +189,7 @@ namespace Brushblade.Presentation
             var snapshot = _meta.Endless;
             snapshot.Depth = segmentEnd + 1;
             snapshot.PlayerHp = run.Battle.PlayerHp;
-            var library = new System.Collections.Generic.List<string>(run.Battle.Library);
-            library.AddRange(run.Battle.UsedChars); // 出过的字回归(3.8.1)
-            snapshot.Library = library;
+            snapshot.Library = new System.Collections.Generic.List<string>(run.Battle.Library); // 出字即消耗,无回归(v0.7)
             snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
             snapshot.EarnedInk = totalEarned;
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除

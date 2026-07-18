@@ -62,10 +62,10 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PickReward_AddsChar_CarriesStateIntoNextBattle()
+        public void PickReward_AddsChar_CastCharConsumed()
         {
             var run = Run();
-            WinCurrentBattle(run); // 焚进入"已使用"
+            WinCurrentBattle(run); // 焚出手即消耗(v0.7 拍板,无回归)
             int hpAfterBattle = run.Battle.PlayerHp;
             run.AdvanceAfterBattle();
 
@@ -78,10 +78,10 @@ namespace Brushblade.Core.Tests
             run.PickReward(lampIndex);
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.BattleIndex, Is.EqualTo(1));
-            Assert.That(run.Battle.Library, Does.Contain("焚"));    // 出过的字回归字库(3.8.1)
-            Assert.That(run.Battle.Library, Does.Contain(picked));  // 奖励入库
+            Assert.That(run.Battle.Library, Does.Not.Contain("焚")); // 出字即消耗,不回归
+            Assert.That(run.Battle.Library, Does.Contain(picked));   // 奖励入库
             Assert.That(run.Battle.PlayerHp, Is.EqualTo(hpAfterBattle)); // HP 跨战斗保留
-            Assert.That(run.Battle.Pool, Does.Contain("木"));       // 部件池保留(3.8.2)+ 新回合掉落
+            Assert.That(run.Battle.Pool, Does.Contain("木"));        // 部件池保留(3.8.2)+ 新回合掉落
         }
 
         [Test]
@@ -92,7 +92,7 @@ namespace Brushblade.Core.Tests
             run.AdvanceAfterBattle();
             run.SkipReward();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
-            Assert.That(run.Battle.Library, Is.EquivalentTo(new[] { "焚" }));
+            Assert.That(run.Battle.Library, Is.Empty); // 焚已消耗,跳过奖励则空库(兜底出部件仍可战)
         }
 
         [Test]
@@ -101,7 +101,10 @@ namespace Brushblade.Core.Tests
             var run = Run();
             WinCurrentBattle(run);
             run.AdvanceAfterBattle();
-            run.SkipReward();
+            int fenIndex = -1; // 焚已消耗,末战需从奖励再拿一张(池仅 3 字,三选一必含焚)
+            for (int i = 0; i < run.RewardOptions.Count; i++)
+                if (run.RewardOptions[i] == "焚") fenIndex = i;
+            run.PickReward(fenIndex);
             WinCurrentBattle(run); // 第二战即最后一战
             run.AdvanceAfterBattle();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon));
@@ -131,29 +134,7 @@ namespace Brushblade.Core.Tests
             Assert.That(a.RewardOptions, Is.EqualTo(b.RewardOptions));
         }
 
-        [Test]
-        public void DiscardedChar_DoesNotReturnNextBattleInRun() // 丢弃≠使用,关内不回归
-        {
-            var run = Run();
-            // Run() 起手字库 [焚];先补一张灯进字库再验证
-            run.Battle.Cast("焚"); // 焚使用 → 胜利
-            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
-            run.AdvanceAfterBattle();
-            run.SkipReward();
-
-            Assert.That(run.Battle.Library, Does.Contain("焚")); // 使用的字回归
-            run.Battle.Discard("焚");
-            WinByFallbackOrSkip(run);
-        }
-
-        private static void WinByFallbackOrSkip(RunEngine run)
-        {
-            // 丢弃后字库为空,验证到此为止:丢弃的字已不在库中,也不在已使用列表
-            Assert.That(run.Battle.Library, Is.Empty);
-            Assert.That(run.Battle.UsedChars, Is.Empty);
-        }
-
-        // ---- 局内广告扩容(2026-07-06 拍板):字库 6+2、部件池 10+2,每关各一次,关卡结束恢复 ----
+        // ---- 局内广告扩容(2026-07-06 拍板):字库 6+2、部件池 10+2,一局各一次 ----
 
         [Test]
         public void Defaults_Library6_Pool10()
@@ -222,15 +203,22 @@ namespace Brushblade.Core.Tests
             Assert.That(run.PickReward(0), Is.True);
         }
 
+        /// <summary>池部件直出取胜:字库原封不动,便于构造满库场景。</summary>
+        private static void WinByPoolCast(RunEngine run)
+        {
+            var error = run.Battle.Cast("火"); // 单敌免选,火胜弱怪
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
         [Test]
         public void PickReward_AtCapacity_Rejected_StaysInReward()
         {
-            var run = RunWith(new BattleConfig { LibraryCapacity = 2, DropTable = new[] { "木" } },
-                new[] { "焚", "灯" });
-            WinCurrentBattle(run); // 焚进已使用
+            var run = RunWith(new BattleConfig { LibraryCapacity = 1, DropTable = new[] { "木" } },
+                new[] { "灯" }, pool: new[] { "火" });
+            WinByPoolCast(run); // 字库 [灯] 未动 = 满(上限 1)
             run.AdvanceAfterBattle();
-            // 回归后字库 [灯,焚] = 2,已满
-            Assert.That(run.CarriedLibrary, Is.EquivalentTo(new[] { "灯", "焚" }));
+            Assert.That(run.CarriedLibrary, Is.EquivalentTo(new[] { "灯" }));
             Assert.That(run.PickReward(0), Is.False);
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward)); // 停在奖励页等替换/跳过
         }
@@ -238,33 +226,28 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PickRewardReplacing_SwapsAndProceeds()
         {
-            var run = RunWith(new BattleConfig { LibraryCapacity = 2, DropTable = new[] { "木" } },
-                new[] { "焚", "灯" });
-            WinCurrentBattle(run);
+            var run = RunWith(new BattleConfig { LibraryCapacity = 1, DropTable = new[] { "木" } },
+                new[] { "灯" }, pool: new[] { "火" });
+            WinByPoolCast(run);
             run.AdvanceAfterBattle();
-
-            int replaceIndex = -1; // 替换掉「灯」
-            for (int i = 0; i < run.CarriedLibrary.Count; i++)
-                if (run.CarriedLibrary[i] == "灯") replaceIndex = i;
             var picked = run.RewardOptions[0];
 
-            Assert.That(run.PickRewardReplacing(0, replaceIndex), Is.True);
+            Assert.That(run.PickRewardReplacing(0, 0), Is.True); // 换掉「灯」
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
-            Assert.That(run.Battle.Library.Count, Is.EqualTo(2)); // 不超上限
-            Assert.That(run.Battle.Library, Does.Contain(picked));
+            Assert.That(run.Battle.Library, Is.EquivalentTo(new[] { picked })); // 不超上限
             Assert.That(run.Battle.Library, Does.Not.Contain("灯")); // 被替换的字永久移除
         }
 
         [Test]
         public void SkipReward_AtCapacity_StillWorks() // 「选择不要」
         {
-            var run = RunWith(new BattleConfig { LibraryCapacity = 2, DropTable = new[] { "木" } },
-                new[] { "焚", "灯" });
-            WinCurrentBattle(run);
+            var run = RunWith(new BattleConfig { LibraryCapacity = 1, DropTable = new[] { "木" } },
+                new[] { "灯" }, pool: new[] { "火" });
+            WinByPoolCast(run);
             run.AdvanceAfterBattle();
             run.SkipReward();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
-            Assert.That(run.Battle.Library.Count, Is.EqualTo(2));
+            Assert.That(run.Battle.Library, Is.EquivalentTo(new[] { "灯" }));
         }
 
         [Test]
@@ -282,14 +265,14 @@ namespace Brushblade.Core.Tests
                 } } },
             };
             var run = RunWith(new BattleConfig { LibraryCapacity = 1, DropTable = new[] { "木" } },
-                new[] { "焚" }, config);
-            WinCurrentBattle(run);
+                new[] { "灯" }, config, pool: new[] { "火" });
+            WinByPoolCast(run); // 字库 [灯] 未动 = 满
             run.AdvanceAfterBattle();
             run.SkipReward(); // 100% 进奇遇
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
             Assert.That(run.ChooseEventOption(0), Is.False); // 字库已满,收不下
             Assert.That(run.ChooseEventOption(1), Is.True);  // 离开可选
-            Assert.That(run.Battle.Library, Is.EquivalentTo(new[] { "焚" }));
+            Assert.That(run.Battle.Library, Is.EquivalentTo(new[] { "灯" }));
         }
 
         [Test]
@@ -315,15 +298,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Compose_CountsUsedChars_TowardLibraryCapacity() // 出过的字战后回归,占容量(堵回归溢出)
+        public void Compose_AfterCast_FreesLibrarySlot() // 出字即消耗(v0.7):出手后容量位释放
         {
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { LibraryCapacity = 1, DropTable = new[] { "木" } },
                 new[] { "灯" }, new[] { "木", "木" }, new[] { Strong() }, seed: 1);
-            Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.None)); // 灯进已使用
-            var error = engine.Compose("林"); // 库虽空,但灯将回归:0 个可用位
-            Assert.That(error, Is.EqualTo(BattleError.ForgeFailed));
-            Assert.That(engine.LastForgeError, Is.EqualTo(ForgeError.LibraryFull));
+            Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.None)); // 灯消耗,库空
+            Assert.That(engine.Compose("林"), Is.EqualTo(BattleError.None)); // 空位可再合
+            Assert.That(engine.Library, Is.EquivalentTo(new[] { "林" }));
         }
     }
 }

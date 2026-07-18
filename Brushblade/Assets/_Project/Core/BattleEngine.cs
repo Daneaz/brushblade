@@ -68,7 +68,6 @@ namespace Brushblade.Core
         private readonly RecipeGraph _graph;
         private readonly BattleConfig _config;
         private readonly GameRandom _random;
-        private readonly List<string> _usedChars = new();
         private readonly List<EnemyState> _enemies = new();
 
         private ForgeState _forge;
@@ -104,7 +103,6 @@ namespace Brushblade.Core
         public IReadOnlyList<string> Pool => _forge.Pool;
         public int LibraryCapacity => _config.LibraryCapacity;
         public int PoolCapacity => _config.PoolCapacity;
-        public IReadOnlyList<string> UsedChars => _usedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public ForgeError LastForgeError { get; private set; }
 
@@ -136,9 +134,7 @@ namespace Brushblade.Core
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (Ap < 1) return BattleError.NotEnoughAp;
 
-            // 出过的字战后回归字库(3.8.1),占用容量额度——否则回归合并后会超上限
-            var result = ForgeEngine.TryCompose(charId, _graph, _forge,
-                Math.Max(0, _config.LibraryCapacity - _usedChars.Count));
+            var result = ForgeEngine.TryCompose(charId, _graph, _forge, _config.LibraryCapacity);
             if (!result.Success)
             {
                 LastForgeError = result.Error;
@@ -179,13 +175,12 @@ namespace Brushblade.Core
             _events.Clear();
             Ap -= def.ApCost;
 
-            // 出字后移出可用区:字进"已使用",部件从池中消耗(3.8.1)
+            // 出字即消耗(3.8.1 v0.7 拍板,无回归):字从库移除,部件从池中消耗
             if (fromLibrary)
             {
                 var library = new List<string>(_forge.Library);
                 library.Remove(charId);
                 _forge = new ForgeState(library, _forge.Pool);
-                _usedChars.Add(charId);
             }
             else
             {

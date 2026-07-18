@@ -1,15 +1,15 @@
 namespace Brushblade.Core
 {
-    /// <summary>引导节拍(11.2.2 分层教学,首局剧本:3.9 焚连招)。</summary>
+    /// <summary>引导节拍(11.2.2 分层教学,首局剧本:3.9 焚连招)。
+    /// v0.7 出字即消耗(无回归),连招一战内闭环:拆合链 3 AP → 敌反击 → 焚清场。</summary>
     public enum TutorialStep
     {
-        CastLamp,       // 出【灯】= 攻击
-        EndTurn,        // 结束回合,看敌人反击
-        PickReward,     // 战后三选一
         DismantleLamp,  // 拆【灯】得 火+丁
         ComposeForest,  // 木+木 合【林】
         ComposeBurn,    // 林+火 合【焚】
+        EndTurn,        // AP 用尽结束回合,看敌人反击
         CastBurn,       // 打出【焚】清场
+        PickReward,     // 战后三选一
         Done,
     }
 
@@ -27,13 +27,12 @@ namespace Brushblade.Core
     {
         private static readonly (TutorialStep step, TutorialAction action, string charId)[] Script =
         {
-            (TutorialStep.CastLamp, TutorialAction.Cast, "灯"),
-            (TutorialStep.EndTurn, TutorialAction.EndTurn, null),
-            (TutorialStep.PickReward, TutorialAction.PickReward, null),
             (TutorialStep.DismantleLamp, TutorialAction.Dismantle, "灯"),
             (TutorialStep.ComposeForest, TutorialAction.Compose, "林"),
             (TutorialStep.ComposeBurn, TutorialAction.Compose, "焚"),
+            (TutorialStep.EndTurn, TutorialAction.EndTurn, null),
             (TutorialStep.CastBurn, TutorialAction.Cast, "焚"),
+            (TutorialStep.PickReward, TutorialAction.PickReward, null),
         };
 
         private int _index;

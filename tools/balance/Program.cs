@@ -103,10 +103,8 @@ namespace Brushblade.Balance
                 if (run.Phase != RunPhase.RunWon)
                     return fromDepth + run.BattleIndex;
 
-                // 安全层:永不撤退,携带状态深入下一段(同 GameRoot.OnSegmentEnded)
-                var carried = new List<string>(run.Battle.Library);
-                carried.AddRange(run.Battle.UsedChars);
-                library = carried;
+                // 安全层:永不撤退,携带状态深入下一段(同 GameRoot.OnSegmentEnded;出字即消耗无回归 v0.7)
+                library = new List<string>(run.Battle.Library);
                 pool = new List<string>(run.Battle.Pool);
                 hp = run.Battle.PlayerHp;
                 fromDepth += endless.BossEvery;

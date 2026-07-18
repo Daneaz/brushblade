@@ -204,13 +204,12 @@ namespace Brushblade.Presentation
 
         private static string TutorialText(TutorialStep step) => step switch
         {
-            TutorialStep.CastLamp => "点字库的【灯】,出字就是攻击!",
-            TutorialStep.EndTurn => "点【结束回合】(AP 耗尽会自动结束)——小心字怪反击",
-            TutorialStep.PickReward => "清掉字怪!战后三选一,挑个字入库",
             TutorialStep.DismantleLamp => "选中【灯】点【拆】——拆出部件『火』『丁』",
             TutorialStep.ComposeForest => "两个『木』能拼字:点提示里的【合 林】",
             TutorialStep.ComposeBurn => "『林』+『火』——点【合 焚】,拼出大杀器!",
+            TutorialStep.EndTurn => "点【结束回合】(AP 耗尽会自动结束)——小心字怪反击",
             TutorialStep.CastBurn => "打出【焚】,一击清场!",
+            TutorialStep.PickReward => "战后三选一,挑个字入库——出过的字不回来,靠拆合再生产",
             _ => "",
         };
 

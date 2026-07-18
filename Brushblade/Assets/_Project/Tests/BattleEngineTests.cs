@@ -147,12 +147,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Cast_UsedCharLeavesLibrary_NotReusable() // 3.8.1
+        public void Cast_CharConsumed_NotReusable() // 3.8.1 v0.7:出字即消耗
         {
             var engine = Engine(library: new[] { "焚" }, enemies: new[] { MetalBoss(500) });
             engine.Cast("焚");
             engine.EndTurn(); // 回到玩家回合,AP 重置
-            Assert.That(engine.UsedChars, Does.Contain("焚"));
+            Assert.That(engine.Library, Does.Not.Contain("焚"));
             Assert.That(engine.Cast("焚"), Is.EqualTo(BattleError.NotCastable));
         }
 
@@ -264,7 +264,7 @@ namespace Brushblade.Core.Tests
             var error = engine.Cast("林", 0);
             Assert.That(error, Is.EqualTo(BattleError.None));
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(97));
-            Assert.That(engine.UsedChars, Does.Contain("林")); // 字出手后进已使用
+            Assert.That(engine.Library, Does.Not.Contain("林")); // 出手即消耗
         }
 
         [Test]
@@ -284,8 +284,7 @@ namespace Brushblade.Core.Tests
             var error = engine.Discard("灯");
             Assert.That(error, Is.EqualTo(BattleError.None));
             Assert.That(engine.Library, Is.EquivalentTo(new[] { "焚" }));
-            Assert.That(engine.UsedChars, Is.Empty); // 丢弃≠使用,不回归
-            Assert.That(engine.Ap, Is.EqualTo(3));   // 免 AP
+            Assert.That(engine.Ap, Is.EqualTo(3)); // 免 AP
         }
 
         [Test]

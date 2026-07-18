@@ -29,7 +29,7 @@ namespace Brushblade.Core
     }
 
     /// <summary>连战状态机:战斗 → 奖励 → 下一战。
-    /// 跨战斗规则:HP 保留(第 9 章)、部件池保留(3.8.2)、出过的字战后回归字库(3.8.1)。</summary>
+    /// 跨战斗规则:HP 保留(第 9 章)、部件池保留(3.8.2)、出字即消耗不回归(3.8.1 v0.7 拍板)。</summary>
     public sealed class RunEngine
     {
         private const int RewardChoices = 3;
@@ -152,9 +152,8 @@ namespace Brushblade.Core
                 return;
             }
 
-            // 捕获携带状态:出过的字回归字库(3.8.1),池与 HP 延续
+            // 捕获携带状态:出过的字已消耗不回归(v0.7),池与 HP 延续
             _carriedLibrary = new List<string>(Battle.Library);
-            _carriedLibrary.AddRange(Battle.UsedChars);
             _carriedPool = new List<string>(Battle.Pool);
             _carriedHp = Battle.PlayerHp;
 

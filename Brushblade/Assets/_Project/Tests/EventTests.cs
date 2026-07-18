@@ -83,7 +83,7 @@ namespace Brushblade.Core.Tests
             run.ChooseEventOption(0); // 求字:得炎
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Library, Does.Contain("炎"));
-            Assert.That(run.Battle.Library, Does.Contain("焚")); // 原有的字仍在
+            Assert.That(run.Battle.Library, Does.Not.Contain("焚")); // 出字即消耗(v0.7)
         }
 
         [Test]
@@ -119,8 +119,8 @@ namespace Brushblade.Core.Tests
         {
             var run = Run();
             WinAndSkipReward(run);
-            run.ChooseEventOption(1);
-            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None)); // 赢最后一战
+            run.ChooseEventOption(0); // 求字:得炎(焚已消耗,末战用炎)
+            Assert.That(run.Battle.Cast("炎"), Is.EqualTo(BattleError.None)); // 赢最后一战
             run.AdvanceAfterBattle();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon)); // 直接通关,无奇遇
         }
