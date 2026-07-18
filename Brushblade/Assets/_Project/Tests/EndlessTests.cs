@@ -97,7 +97,7 @@ namespace Brushblade.Core.Tests
             var floor = EndlessGenerator.BuildFloor(Config(), 11, new GameRandom(7));
             // scale=2.0:错字鬼 24/8,标点 16/2,生僻字 44/4——全部翻倍
             foreach (var enemy in floor)
-                Assert.That(enemy.MaxHp, Is.AnyOf(24, 16, 44));
+                Assert.That(enemy.MaxHp, Is.EqualTo(24).Or.EqualTo(16).Or.EqualTo(44));
         }
 
         [Test]
@@ -176,9 +176,12 @@ namespace Brushblade.Core.Tests
         public void ChestTier_GrowsWithDepth()
         {
             var random = new GameRandom(1);
-            Assert.That(EndlessRules.ChestTierFor(1, random), Is.AnyOf(ChestTier.Paper, ChestTier.Bamboo));
-            Assert.That(EndlessRules.ChestTierFor(12, random), Is.AnyOf(ChestTier.Celadon, ChestTier.Rosewood));
-            Assert.That(EndlessRules.ChestTierFor(60, random), Is.AnyOf(ChestTier.Gilded, ChestTier.Crimson));
+            Assert.That(EndlessRules.ChestTierFor(1, random),
+                Is.EqualTo(ChestTier.Paper).Or.EqualTo(ChestTier.Bamboo));
+            Assert.That(EndlessRules.ChestTierFor(12, random),
+                Is.EqualTo(ChestTier.Celadon).Or.EqualTo(ChestTier.Rosewood));
+            Assert.That(EndlessRules.ChestTierFor(60, random),
+                Is.EqualTo(ChestTier.Gilded).Or.EqualTo(ChestTier.Crimson));
         }
 
         [Test]

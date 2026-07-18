@@ -38,6 +38,9 @@ cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Conten
 ```
 
 - Core/Data 每个模块:先写失败测试再实现;Presentation 不强求自动化测试。
+- ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
+  NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
+  集合子集用 `Has.All.Matches<T>`。
 - 提交信息用 conventional commits(feat/fix/docs/chore + 范围)。
 
 ## 当前阶段
