@@ -38,6 +38,31 @@ namespace Brushblade.Presentation
         public static readonly Color Shadow = new(0.088f, 0.105f, 0.132f, 0.08f);
         public static readonly Color Scrim = new(0.088f, 0.105f, 0.132f, 0.55f);  // 模态遮罩
 
+        // 层段背景基色(20.2 每段换景):字林竹绿/词渊黛蓝/文山赭石/墨海墨青
+        private static readonly Color[] BandInks =
+        {
+            new(0.42f, 0.58f, 0.38f),
+            new(0.36f, 0.48f, 0.64f),
+            new(0.66f, 0.52f, 0.34f),
+            new(0.28f, 0.32f, 0.42f),
+        };
+
+        private static Color BandInk(int bandIndex) =>
+            BandInks[Mathf.Min(bandIndex, BandInks.Length - 1)];
+
+        /// <summary>层段宣纸底:随层段换基色,同层段内逐段(每 5 层)加深——进新段有体感。</summary>
+        public static Color BandPaper(int bandIndex, int segmentInBand) =>
+            Color.Lerp(Paper, BandInk(bandIndex),
+                Mathf.Min(0.22f, 0.09f + 0.035f * segmentInBand));
+
+        /// <summary>层段巨字水印色(背景大字,近乎透明的墨痕)。</summary>
+        public static Color BandWatermark(int bandIndex)
+        {
+            var ink = BandInk(bandIndex) * 0.55f;
+            ink.a = 0.10f;
+            return ink;
+        }
+
         public static Color RarityColor(CardRarity rarity) => rarity switch
         {
             CardRarity.Green => new Color(0.181f, 0.621f, 0.323f),

@@ -132,7 +132,10 @@ namespace Brushblade.Presentation
             var tutorial = firstTower && fromDepth <= 1 ? new Tutorial() : null;
             int baseInk = snapshot.EarnedInk; // 段前滚存
 
-            var view = NewView("BattleView");
+            // 每段换景(20.2):层段基色 + 段内逐段加深 + 巨字水印(林/渊/山/海)
+            int bandIndex = BandIndexFor(fromDepth);
+            var paper = Theme.BandPaper(bandIndex, (fromDepth - band.FromDepth) / endless.BossEvery);
+            var view = NewView("BattleView", paper, band.Name.Substring(band.Name.Length - 1), bandIndex);
             view.AddComponent<BattleView>().Init(_graph, run,
                 won => OnSegmentEnded(run, fromDepth, segmentEnd, baseInk, won),
                 tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
@@ -186,12 +189,27 @@ namespace Brushblade.Presentation
             ShowSafeLayer(segmentEnd, totalEarned);
         }
 
+        /// <summary>该深度所在层段的下标(背景色板索引)。</summary>
+        private static int BandIndexFor(int depth)
+        {
+            var bands = _campaign.Endless.Bands;
+            int index = 0;
+            for (int i = 0; i < bands.Count; i++)
+                if (bands[i].FromDepth <= depth)
+                    index = i;
+            return index;
+        }
+
         /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择。</summary>
         private static void ShowSafeLayer(int depth, int totalEarned)
         {
             var endless = _campaign.Endless;
             var nextBand = endless.BandFor(depth + 1);
-            var view = NewView("SafeLayerView");
+            var band = endless.BandFor(depth);
+            int bandIndex = BandIndexFor(depth);
+            var view = NewView("SafeLayerView",
+                Theme.BandPaper(bandIndex, (depth - band.FromDepth) / endless.BossEvery),
+                band.Name.Substring(band.Name.Length - 1), bandIndex);
             Ui.Stretch((RectTransform)view.transform);
 
             var card = Ui.CardPanel(view.transform, "Panel");
@@ -237,7 +255,7 @@ namespace Brushblade.Presentation
             ShowMap(message);
         }
 
-        private static GameObject NewView(string name)
+        private static GameObject NewView(string name, Color? paper = null, string watermark = null, int bandIndex = 0)
         {
             if (_viewRoot != null) Object.Destroy(_viewRoot);
             _viewRoot = new GameObject("ViewRoot");
@@ -251,12 +269,21 @@ namespace Brushblade.Presentation
             scaler.referenceResolution = new Vector2(1600, 900);
             scaler.matchWidthOrHeight = 1f; // 横屏按高度匹配:20:9 长条屏不放大纵向占位
 
-            // 全屏宣纸底:不依赖场景相机设置(设计板主题)
+            // 全屏宣纸底:不依赖场景相机设置;层段可染色(20.2 每段换景)
             var backgroundGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
             backgroundGo.transform.SetParent(canvasGo.transform, false);
-            backgroundGo.GetComponent<Image>().color = Theme.Paper;
+            backgroundGo.GetComponent<Image>().color = paper ?? Theme.Paper;
             backgroundGo.GetComponent<Image>().raycastTarget = false;
             Ui.Stretch((RectTransform)backgroundGo.transform);
+
+            // 层段巨字水印(林/渊/山/海):近乎透明的墨痕,进新层段的第一体感
+            if (watermark != null)
+            {
+                var mark = Ui.Label(canvasGo.transform, watermark, 520);
+                mark.color = Theme.BandWatermark(bandIndex);
+                mark.raycastTarget = false;
+                Ui.Stretch(mark.rectTransform);
+            }
 
             // 安全区容器:内容避开刘海/挖孔,宣纸底仍全屏
             var safeGo = new GameObject("SafeArea", typeof(RectTransform));
