@@ -674,7 +674,63 @@
           "燚",
           "焚"
         ],
-        "milestoneInk": 1000
+        "milestoneInk": 1000,
+        "idiomBosses": [
+          {
+            "chars": "刀山火海",
+            "elements": [
+              "Metal",
+              "Earth",
+              "Fire",
+              "Water"
+            ]
+          },
+          {
+            "chars": "山崩海啸",
+            "elements": [
+              "Earth",
+              "Earth",
+              "Water",
+              "Heart"
+            ]
+          },
+          {
+            "chars": "冰天雪地",
+            "elements": [
+              "Water",
+              "Heart",
+              "Heart",
+              "Earth"
+            ]
+          },
+          {
+            "chars": "烈火干柴",
+            "elements": [
+              "Fire",
+              "Fire",
+              "Heart",
+              "Wood"
+            ]
+          },
+          {
+            "chars": "飞沙走石",
+            "elements": [
+              "Heart",
+              "Water",
+              "Earth",
+              "Earth"
+            ]
+          },
+          {
+            "chars": "气吞山河",
+            "elements": [
+              "Heart",
+              "Heart",
+              "Earth",
+              "Water"
+            ]
+          }
+        ]
       }
     ]
   }

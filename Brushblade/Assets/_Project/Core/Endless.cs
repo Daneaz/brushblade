@@ -10,8 +10,16 @@ namespace Brushblade.Core
         public int FromDepth { get; set; }
         public IReadOnlyList<EnemyDef> EnemyPool { get; set; }
         public IReadOnlyList<EnemyDef> BossPool { get; set; }
+        public IReadOnlyList<IdiomBossDef> IdiomBossPool { get; set; } = System.Array.Empty<IdiomBossDef>();
         public IReadOnlyList<string> RewardPool { get; set; }
         public int MilestoneInk { get; set; }
+    }
+
+    /// <summary>成语 Boss 定义(20.7):四字成语 → 四阶段,逐字属性由配置指定。</summary>
+    public sealed class IdiomBossDef
+    {
+        public string Chars { get; set; }
+        public IReadOnlyList<Element> Elements { get; set; }
     }
 
     /// <summary>无尽模式配置(20.2/20.4):5 层一段第 5 层 Boss,深度线性缩放。</summary>
@@ -89,6 +97,20 @@ namespace Brushblade.Core
             return segment;
         }
 
+        /// <summary>成语 → 四阶段 Boss(20.7):数值模板对齐排山倒海——
+        /// 首字均衡(12/6)、次字坚壁(15/4,承伤 0.5)、三字强攻(12/8)、末字狂攻(16/10)。</summary>
+        public static EnemyDef BuildIdiomBoss(IdiomBossDef idiom)
+        {
+            var phases = new List<BossPhaseDef>
+            {
+                new(idiom.Chars[0].ToString(), idiom.Elements[0], 12, 6),
+                new(idiom.Chars[1].ToString(), idiom.Elements[1], 15, 4, 0.5f),
+                new(idiom.Chars[2].ToString(), idiom.Elements[2], 12, 8),
+                new(idiom.Chars[3].ToString(), idiom.Elements[3], 16, 10),
+            };
+            return new EnemyDef(idiom.Chars, idiom.Elements[0], 12, 6, EnemyAbility.None, phases);
+        }
+
         private static IReadOnlyList<EnemyDef> Scaled(EndlessConfig config, int depth, params EnemyDef[] enemies)
         {
             var floor = new List<EnemyDef>();
@@ -106,7 +128,11 @@ namespace Brushblade.Core
 
             if (config.IsBossDepth(depth))
             {
-                var boss = band.BossPool[random.Next(band.BossPool.Count)];
+                int total = band.BossPool.Count + band.IdiomBossPool.Count;
+                int pick = random.Next(total);
+                var boss = pick < band.BossPool.Count
+                    ? band.BossPool[pick]
+                    : BuildIdiomBoss(band.IdiomBossPool[pick - band.BossPool.Count]);
                 floor.Add(CampaignConfig.Scale(boss, scale));
                 return floor;
             }

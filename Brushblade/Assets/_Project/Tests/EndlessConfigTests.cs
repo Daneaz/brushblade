@@ -53,6 +53,26 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void ParsesIdiomBosses()
+        {
+            var json = BaseJson.Replace(@"""bossPool"": [ ""排山倒海"" ], ""rewardPool""",
+                @"""bossPool"": [ ""排山倒海"" ], ""idiomBosses"": [ { ""chars"": ""刀山火海"", ""elements"": [ ""Metal"", ""Earth"", ""Fire"", ""Water"" ] } ], ""rewardPool""");
+            var campaign = ConfigLoader.LoadCampaign(json, Graph());
+            var idioms = campaign.Endless.Bands[0].IdiomBossPool;
+            Assert.That(idioms.Count, Is.EqualTo(1));
+            Assert.That(idioms[0].Chars, Is.EqualTo("刀山火海"));
+            Assert.That(idioms[0].Elements[2], Is.EqualTo(Element.Fire));
+        }
+
+        [Test]
+        public void IdiomBoss_WrongLength_Throws()
+        {
+            var json = BaseJson.Replace(@"""bossPool"": [ ""排山倒海"" ], ""rewardPool""",
+                @"""bossPool"": [ ""排山倒海"" ], ""idiomBosses"": [ { ""chars"": ""刀山火"", ""elements"": [ ""Metal"", ""Earth"", ""Fire"" ] } ], ""rewardPool""");
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadCampaign(json, Graph()));
+        }
+
+        [Test]
         public void Band_UnknownEnemy_Throws()
         {
             var json = BaseJson.Replace(@"""enemyPool"": [ ""错字鬼"" ]", @"""enemyPool"": [ ""不存在"" ]");

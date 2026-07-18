@@ -189,6 +189,43 @@ namespace Brushblade.Core.Tests
             Assert.That(EndlessRules.XpFor(config, 5), Is.EqualTo(50));
         }
 
+        // ---- 成语 Boss 生成(20.7) ----
+
+        private static IdiomBossDef Idiom() => new()
+        {
+            Chars = "刀山火海",
+            Elements = new[] { Element.Metal, Element.Earth, Element.Fire, Element.Water },
+        };
+
+        [Test]
+        public void IdiomBoss_FourPhases_FromTemplate()
+        {
+            var boss = EndlessGenerator.BuildIdiomBoss(Idiom());
+            Assert.That(boss.Id, Is.EqualTo("刀山火海"));
+            Assert.That(boss.Phases.Count, Is.EqualTo(4));
+            Assert.That(boss.Phases[0].Char, Is.EqualTo("刀"));
+            Assert.That(boss.Phases[0].Element, Is.EqualTo(Element.Metal));
+            Assert.That(boss.Phases[1].DamageTaken, Is.EqualTo(0.5f)); // 第二字坚壁
+            Assert.That(boss.Phases[3].Attack, Is.EqualTo(10));        // 末字狂攻
+            Assert.That(boss.Phases[3].Element, Is.EqualTo(Element.Water));
+        }
+
+        [Test]
+        public void BossFloor_DrawsFromIdiomPoolToo()
+        {
+            var config = Config();
+            ((BandDef)config.Bands[0]).IdiomBossPool = new[] { Idiom() };
+            bool sawIdiom = false, sawFixed = false;
+            for (int seed = 0; seed < 40; seed++)
+            {
+                var floor = EndlessGenerator.BuildFloor(config, 5, new GameRandom(seed));
+                if (floor[0].Id == "刀山火海") sawIdiom = true;
+                if (floor[0].Id == "排山倒海") sawFixed = true;
+            }
+            Assert.That(sawIdiom, Is.True);
+            Assert.That(sawFixed, Is.True);
+        }
+
         // ---- 结算与里程碑 ----
 
         [Test]

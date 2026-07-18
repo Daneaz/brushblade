@@ -64,8 +64,15 @@ namespace Brushblade.Data
             public int FromDepth { get; set; }
             public List<string> EnemyPool { get; set; }
             public List<string> BossPool { get; set; }
+            public List<IdiomBossDto> IdiomBosses { get; set; }
             public List<string> RewardPool { get; set; }
             public int MilestoneInk { get; set; }
+        }
+
+        private sealed class IdiomBossDto
+        {
+            public string Chars { get; set; }
+            public List<string> Elements { get; set; }
         }
 
         private sealed class EventDto
@@ -250,12 +257,29 @@ namespace Brushblade.Data
                     if (!graph.TryGet(reward, out _))
                         throw new ConfigException($"层段「{bandDto.Name}」字池引用了不存在的字:{reward}");
 
+                var idiomBosses = new List<IdiomBossDef>();
+                foreach (var idiomDto in bandDto.IdiomBosses ?? new List<IdiomBossDto>())
+                {
+                    if (idiomDto.Chars == null || idiomDto.Chars.Length != 4 ||
+                        idiomDto.Elements == null || idiomDto.Elements.Count != 4)
+                        throw new ConfigException($"层段「{bandDto.Name}」成语 Boss「{idiomDto.Chars}」需恰好四字四属性");
+                    var elements = new List<Element>();
+                    foreach (var name in idiomDto.Elements)
+                    {
+                        if (!Enum.TryParse<Element>(name, out var element))
+                            throw new ConfigException($"成语 Boss「{idiomDto.Chars}」属性未知:{name}");
+                        elements.Add(element);
+                    }
+                    idiomBosses.Add(new IdiomBossDef { Chars = idiomDto.Chars, Elements = elements });
+                }
+
                 bands.Add(new BandDef
                 {
                     Name = bandDto.Name,
                     FromDepth = bandDto.FromDepth,
                     EnemyPool = enemyPool,
                     BossPool = bossPool,
+                    IdiomBossPool = idiomBosses,
                     RewardPool = bandDto.RewardPool ?? new List<string>(),
                     MilestoneInk = bandDto.MilestoneInk,
                 });
