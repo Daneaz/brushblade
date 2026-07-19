@@ -604,7 +604,7 @@ namespace Brushblade.Presentation
                 _pendingRewardIndex = -1;
                 _previewRewardIndex = -1;
                 _previewComponentIndex = -1;
-                _message = _run.Phase == RunPhase.Reward ? "战利品:字和部件各可取 2(点一下看效果,再点确认)" : "";
+                _message = _run.Phase == RunPhase.Reward ? "战利品:字和部件各可取 1(点一下看效果,再点确认)" : "";
                 Refresh();
             }, Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }

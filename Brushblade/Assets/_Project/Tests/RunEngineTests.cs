@@ -150,6 +150,7 @@ namespace Brushblade.Core.Tests
         // ---- 战利品双排 5 选 1(2026-07-19 拍板):字池抽 5 选 1 + 固定五行部件 5 选 1;
         //      Boss 层无战利品页(告捷即发宝箱,奖励保持不动) ----
 
+        /// <summary>池含 3 个字 + 3 个部件:部件不作为字奖励(2026-07-20),故字排只出 3 个。</summary>
         private static RunConfig SixCharPool() => new()
         {
             Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
@@ -164,12 +165,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Reward_RollsFiveChars_AndFiveFixedComponents()
+        public void Reward_RollsCharsFromPool_AndFiveFixedComponents()
         {
             var run = Run(SixCharPool());
             WinCurrentBattle(run);
             run.AdvanceAfterBattle();
-            Assert.That(run.RewardOptions.Count, Is.EqualTo(5));
+            Assert.That(run.RewardOptions, Is.EquivalentTo(new[] { "灯", "焚", "林" })); // 部件不入字排
             Assert.That(run.ComponentOptions, Is.EquivalentTo(new[] { "金", "木", "水", "火", "土" }));
             Assert.That(run.CharPicksLeft, Is.EqualTo(1));
             Assert.That(run.ComponentPicksLeft, Is.EqualTo(1));
@@ -192,6 +193,88 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle)); // 双排取满自动开拔
             Assert.That(run.Battle.Library, Does.Contain(first));
             Assert.That(run.Battle.Pool, Does.Contain("木"));
+        }
+
+        // ---- 字奖励按稀有度加权(2026-07-20 拍板:绿 80% / 蓝 15% / 紫 5%) ----
+
+        /// <summary>稀有度测试图谱:每档 3 个字,配方都是 木+木(合法即可,战斗不用)。</summary>
+        private static RecipeGraph RarityGraph()
+        {
+            var defs = new System.Collections.Generic.List<CharDef>
+            {
+                new("木", Element.Wood),
+                new("火", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
+                new("焚", Element.Fire, new[] { "木", "火" }, apCost: 2,
+                    effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+            };
+            foreach (var (prefix, rarity) in new[]
+                     { ("绿", CardRarity.Green), ("蓝", CardRarity.Blue), ("紫", CardRarity.Purple) })
+                for (int i = 1; i <= 3; i++)
+                    defs.Add(new CharDef($"{prefix}{i}", Element.Wood, new[] { "木", "木" }, rarity: rarity));
+            return new RecipeGraph(defs);
+        }
+
+        private static readonly string[] RarityPool =
+            { "绿1", "绿2", "绿3", "蓝1", "蓝2", "蓝3", "紫1", "紫2", "紫3" };
+
+        private static RunEngine RarityRun(int seed, string[] pool = null) => new(RarityGraph(),
+            new RunConfig
+            {
+                Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+                RewardPool = pool ?? RarityPool,
+            },
+            new BattleConfig { DropTable = new[] { "木" } },
+            startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: seed);
+
+        [Test]
+        public void Reward_RarityWeights_GreenDominatesBlueBeatsPurple()
+        {
+            int green = 0, blue = 0, purple = 0;
+            for (int seed = 0; seed < 400; seed++)
+            {
+                var run = RarityRun(seed);
+                WinCurrentBattle(run);
+                run.AdvanceAfterBattle();
+                switch (run.RewardOptions[0][0]) // 首个抽出的字:每次都是全新加权抽取
+                {
+                    case '绿': green++; break;
+                    case '蓝': blue++; break;
+                    case '紫': purple++; break;
+                }
+            }
+            Assert.That(green + blue + purple, Is.EqualTo(400));
+            Assert.That(green, Is.GreaterThan(blue));   // 80% vs 15%
+            Assert.That(blue, Is.GreaterThan(purple));  // 15% vs 5%
+            Assert.That(green, Is.GreaterThan(240));    // 期望 320,留足抽样余量
+            Assert.That(purple, Is.LessThan(80));       // 期望 20
+        }
+
+        [Test]
+        public void Reward_OnlyDrawsFromGivenPool() // 池 = 出阵列表,外面的字不该冒出来
+        {
+            var run = RarityRun(seed: 3, pool: new[] { "蓝1", "蓝2" });
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.RewardOptions, Is.EquivalentTo(new[] { "蓝1", "蓝2" })); // 池小于 5 则全给,不重复
+        }
+
+        [Test]
+        public void Reward_SkipsComponents() // 部件不是奖励字(靠每回合掉落)
+        {
+            var run = RarityRun(seed: 5, pool: new[] { "木", "火", "绿1" });
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.RewardOptions, Is.EqualTo(new[] { "绿1" }));
+        }
+
+        [Test]
+        public void Reward_DeterministicBySeed_WithRarityWeights()
+        {
+            var a = RarityRun(seed: 42);
+            var b = RarityRun(seed: 42);
+            WinCurrentBattle(a); a.AdvanceAfterBattle();
+            WinCurrentBattle(b); b.AdvanceAfterBattle();
+            Assert.That(a.RewardOptions, Is.EqualTo(b.RewardOptions));
         }
 
         [Test]

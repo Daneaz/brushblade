@@ -135,6 +135,9 @@ namespace Brushblade.Presentation
             var runConfig = firstTower && fromDepth <= 1
                 ? EndlessGenerator.BuildFirstTowerSegment(endless, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent)
                 : EndlessGenerator.BuildSegment(endless, fromDepth, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent);
+            // 战利品的字只出自出阵列表(2026-07-20 拍板):补的是自己带上来的弹药,
+            // 抽取按稀有度加权(绿 80/蓝 15/紫 5,见 RunEngine.RewardRarityWeights)
+            runConfig.RewardPool = _meta.Deck;
 
             int maxHp = MetaRules.MaxHpFor(MetaRules.CharacterLevel(_meta.CharacterXp));
             var battleConfig = new BattleConfig

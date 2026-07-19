@@ -278,16 +278,76 @@ namespace Brushblade.Core
             BeginNextBattle();
         }
 
+        /// <summary>字奖励的稀有度权重(2026-07-20 拍板):绿 80% / 蓝 15% / 紫 5%;
+        /// 白(部件)与橙红不参与。索引 = rarity − 1。</summary>
+        private static readonly int[] RewardRarityWeights = { 0, 80, 15, 5, 0, 0 };
+
+        /// <summary>固定遍历顺序:保证同种子同结果(不依赖字典插入顺序)。</summary>
+        private static readonly CardRarity[] RarityOrder =
+        {
+            CardRarity.White, CardRarity.Green, CardRarity.Blue,
+            CardRarity.Purple, CardRarity.Orange, CardRarity.Red,
+        };
+
         private void RollRewardOptions()
         {
             _rewardOptions.Clear();
-            var pool = new List<string>(_runConfig.RewardPool);
-            for (int i = 0; i < RewardOptionCount && pool.Count > 0; i++)
+
+            // 候选按稀有度分组:部件不是奖励字(靠每回合掉落),重复项只留一份
+            var byRarity = new Dictionary<CardRarity, List<string>>();
+            foreach (var id in _runConfig.RewardPool)
             {
-                int pick = _random.Next(pool.Count);
-                _rewardOptions.Add(pool[pick]);
-                pool.RemoveAt(pick);
+                if (!_graph.TryGet(id, out var def) || def.IsLeaf)
+                    continue;
+                if (!byRarity.TryGetValue(def.Rarity, out var group))
+                    byRarity[def.Rarity] = group = new List<string>();
+                if (!group.Contains(id))
+                    group.Add(id);
             }
+
+            for (int i = 0; i < RewardOptionCount; i++)
+            {
+                var pick = DrawWeightedReward(byRarity);
+                if (pick == null) break; // 候选枯竭
+                _rewardOptions.Add(pick);
+            }
+        }
+
+        /// <summary>按稀有度权重抽一个并从候选中移除;权重全零(池里只有白/橙红)则均匀兜底。</summary>
+        private string DrawWeightedReward(Dictionary<CardRarity, List<string>> byRarity)
+        {
+            int total = 0;
+            foreach (var rarity in RarityOrder)
+                if (byRarity.TryGetValue(rarity, out var group) && group.Count > 0)
+                    total += RewardRarityWeights[(int)rarity - 1];
+
+            if (total <= 0)
+            {
+                var all = new List<string>();
+                foreach (var rarity in RarityOrder)
+                    if (byRarity.TryGetValue(rarity, out var group))
+                        all.AddRange(group);
+                if (all.Count == 0) return null;
+                var fallback = all[_random.Next(all.Count)];
+                foreach (var group in byRarity.Values) group.Remove(fallback);
+                return fallback;
+            }
+
+            int roll = _random.Next(total);
+            foreach (var rarity in RarityOrder)
+            {
+                if (!byRarity.TryGetValue(rarity, out var group) || group.Count == 0)
+                    continue;
+                roll -= RewardRarityWeights[(int)rarity - 1];
+                if (roll < 0)
+                {
+                    int index = _random.Next(group.Count);
+                    var pick = group[index];
+                    group.RemoveAt(index);
+                    return pick;
+                }
+            }
+            return null;
         }
 
         private void BeginNextBattle()
