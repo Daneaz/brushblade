@@ -631,10 +631,15 @@ namespace Brushblade.Presentation
                     }
                     _previewComponentIndex = -1;
                     if (_run.PickRewardComponent(index))
+                    {
                         _message = _run.Phase == RunPhase.Reward ? $"部件「{id}」入池" : $"部件「{id}」入池,下一战!";
-                    else
-                        _message = "部件池已满,收不下";
+                        CancelSelection();
+                        return;
+                    }
                     CancelSelection();
+                    ShowAlert("部件池已满",
+                        $"部件池 {_run.CarriedPool.Count}/{Battle.PoolCapacity},「{id}」收不下。\n" +
+                        "拿去合字或丢弃腾位置,也可以直接开拔。");
                 }, previewing ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     previewing ? Color.white : Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
                 button.interactable = _run.ComponentPicksLeft > 0;
@@ -669,14 +674,17 @@ namespace Brushblade.Presentation
                     }
                     if (_run.CharPicksLeft == 0)
                     {
-                        _message = "字的战利品额度已用完";
                         Refresh();
+                        ShowAlert("额度已用完", "本次战利品的字只能取 1 个。\n部件那一排还可以再挑。");
                         return;
                     }
                     // 字库已满(3.8.1):选中奖励进入替换模式,点字库一张换掉或跳过
                     _pendingRewardIndex = index;
                     _message = $"字库已满:点下方字库中一张替换「{id}」,或直接开拔";
                     Refresh();
+                    ShowAlert("字库已满",
+                        $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity},「{id}」放不进去。\n" +
+                        "关掉本窗后,点下方字库中的一张即可用它替换(被换的字永久失去),或直接开拔。");
                 });
             }
             Ui.RoundButton(_actionRow, "下一战", () =>
@@ -743,12 +751,17 @@ namespace Brushblade.Presentation
                     }
                     int inkBefore = _run.AvailableInk;
                     if (_run.ChooseEventOption(index))
+                    {
                         _message = option.InkChancePercent > 0 // 赌注:按墨锭变化播报输赢
                             ? (_run.AvailableInk > inkBefore ? $"手气极佳!+{option.Ink} 墨锭" : "输了……愿赌服输")
                             : $"{evt.Id}:{option.Label}";
-                    else
-                        _message = "付不起或字库已满,换个选择";
+                        CancelSelection();
+                        return;
+                    }
                     CancelSelection();
+                    ShowAlert("这个选不了", option.InkCost > _run.AvailableInk
+                        ? $"「{option.Label}」需要 {option.InkCost} 墨锭,你只有 {_run.AvailableInk}。"
+                        : $"字库已满({_run.CarriedLibrary.Count}/{Battle.LibraryCapacity}),这个奖励收不下。\n换个选项吧。");
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
@@ -780,11 +793,16 @@ namespace Brushblade.Presentation
                         return;
                     }
                     if (_run.ChooseEventOption(_pendingEventOption, null, choice))
+                    {
                         _message = $"成交!得「{charId}」";
-                    else
-                        _message = "字库已满,收不下";
+                        ResetEventSelection();
+                        CancelSelection();
+                        return;
+                    }
                     ResetEventSelection();
                     CancelSelection();
+                    ShowAlert("字库已满",
+                        $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity},「{charId}」收不下。");
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
                     26, new Vector2(64, 64), 12);
             }
@@ -815,7 +833,11 @@ namespace Brushblade.Presentation
                             CancelSelection();
                             return;
                         }
-                        _message = "字库已满,收不下——先取消,腾出位置再来"; // 先验后扣,部件未损
+                        Refresh();
+                        ShowAlert("字库已满", // 先验后扣,部件未损
+                            $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity},换来的字放不下。\n" +
+                            "点「取消」退出交易,腾出位置再来——你的部件一个没少。");
+                        return;
                     }
                     Refresh();
                 }, picked ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
@@ -1050,6 +1072,13 @@ namespace Brushblade.Presentation
         {
             if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Modal(transform, title, body, buttons);
+        }
+
+        /// <summary>单按钮告知弹窗:资源被拒类(库满/池满/额度用尽/付不起)统一走这里。</summary>
+        private void ShowAlert(string title, string body)
+        {
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = Ui.Alert(transform, title, body);
         }
 
         /// <summary>被拒操作弹窗:AP 不够附「结束回合」快捷钮;拆合失败给原因。

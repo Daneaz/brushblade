@@ -292,7 +292,9 @@ namespace Brushblade.Presentation
                     reserve.Add(id);
             if (reserve.Count == 0) return;
 
-            Ui.ThemedLabel(parent, "备选(出阵列表,点字加入)", 15, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(parent, snapshot.Library.Count >= libraryCap
+                ? "备选(字库已满——先点上方的字移出,才能换新的进来)"
+                : "备选(出阵列表,点字加入)", 15, Theme.TextDim, Theme.TitleFont);
             var reserveRow = Ui.Row(parent, "RestReserve", 6);
             foreach (var id in reserve)
             {

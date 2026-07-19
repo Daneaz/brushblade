@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>收集与出阵卡组页(19.3):卡等级/重复卡/墨锭升级 + 出阵选择(≤4)。</summary>
+    /// <summary>收集与出阵卡组页(19.3):卡等级/重复卡/墨锭升级 + 出阵选择(5~15 字)。</summary>
     public sealed class CollectionView : MonoBehaviour
     {
         private const int CardsPerPage = 12; // 2 行 × 6
@@ -14,6 +14,7 @@ namespace Brushblade.Presentation
         private MetaState _meta;
         private Action _onBack;
         private Action _save;
+        private GameObject _modal; // 当前告知弹窗(同屏仅一个)
         private int _page;
         private string _message = "点击卡片加入/移出出阵卡组(只有出阵的字才会上场);集满重复卡后可升级";
 
@@ -129,48 +130,59 @@ namespace Brushblade.Presentation
         {
             string summary = CharInfo.Summary(_graph.Get(cardId), _graph);
             var deck = new System.Collections.Generic.List<string>(_meta.Deck);
-            if (deck.Contains(cardId))
+            bool removing = deck.Contains(cardId);
+            if (removing) deck.Remove(cardId);
+            else deck.Add(cardId);
+
+            if (MetaRules.TrySetDeck(_meta, deck, _graph))
             {
-                deck.Remove(cardId);
-                if (MetaRules.TrySetDeck(_meta, deck, _graph))
-                {
-                    _save();
-                    _message = $"{summary}\n已移出出阵列表(未出阵的字不上场)";
-                }
-                else
-                {
-                    _message = $"{summary}\n出阵不能少于 {MetaRules.DeckMinimum} 字——先加别的字再移出";
-                }
+                _save();
+                _message = summary + (removing
+                    ? "\n已移出出阵列表(未出阵的字不上场)"
+                    : "\n已加入出阵列表(下次登塔生效)");
+                Rebuild();
+                return;
             }
-            else
-            {
-                deck.Add(cardId);
-                if (MetaRules.TrySetDeck(_meta, deck, _graph))
-                {
-                    _save();
-                    _message = $"{summary}\n已加入出阵列表(下次登塔生效)";
-                }
-                else
-                {
-                    _message = $"{summary}\n出阵受限:{MetaRules.DeckMinimum}~{MetaRules.DeckLimit} 字、" +
-                        $"每属性至多 {MetaRules.DeckPerElementLimit} 字";
-                }
-            }
+
+            _message = summary;
             Rebuild();
+            ShowAlert("出阵受限", removing
+                ? $"出阵不能少于 {MetaRules.DeckMinimum} 字。\n先把别的字加进来,再移出这一张。"
+                : $"「{cardId}」加不进来。\n出阵列表:{MetaRules.DeckMinimum}~{MetaRules.DeckLimit} 字," +
+                  $"每属性至多 {MetaRules.DeckPerElementLimit} 字。");
         }
 
         private void Upgrade(string cardId)
         {
-            if (MetaRules.TryUpgradeCard(_meta, cardId, _graph.Get(cardId).Rarity))
+            var def = _graph.Get(cardId);
+            if (MetaRules.TryUpgradeCard(_meta, cardId, def.Rarity))
             {
                 _message = $"「{cardId}」升至 Lv.{MetaRules.CardLevel(_meta, cardId)}!";
                 _save();
+                Rebuild();
+                return;
             }
-            else
-            {
-                _message = "重复卡或墨锭不足";
-            }
+
+            int level = MetaRules.CardLevel(_meta, cardId);
             Rebuild();
+            if (level >= MetaRules.MaxCardLevel)
+            {
+                ShowAlert("已满级", $"「{cardId}」已是 Lv.{MetaRules.MaxCardLevel},无法再升。");
+                return;
+            }
+            _meta.CardCopies.TryGetValue(cardId, out int copies);
+            int copiesNeeded = MetaRules.CopiesRequired(level, def.Rarity);
+            int inkNeeded = MetaRules.InkRequired(level, def.Rarity);
+            ShowAlert("升级条件不足",
+                $"「{cardId}」升到 Lv.{level + 1} 需要:\n" +
+                $"重复卡 {copies}/{copiesNeeded} · 墨锭 {_meta.Ink}/{inkNeeded}");
+        }
+
+        /// <summary>被拒提示统一弹窗(2026-07-19);须在 Rebuild 之后调用——Rebuild 会清空根节点。</summary>
+        private void ShowAlert(string title, string body)
+        {
+            if (_modal != null) Destroy(_modal);
+            _modal = Ui.Alert(transform, title, body);
         }
     }
 }

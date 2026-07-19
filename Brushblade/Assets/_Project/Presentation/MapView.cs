@@ -21,6 +21,7 @@ namespace Brushblade.Presentation
         // 计时中箱位的倒计时/加速价标签引用:Tick 只改文本不重建,避免按钮每秒被销毁点不中
         private readonly System.Collections.Generic.List<(int index, Text countdown, Text skipCost)> _countdowns = new();
         private GameObject _resultPanel; // 开箱结果面板;打开期间禁止整页重建
+        private GameObject _modal;       // 当前告知弹窗(同屏仅一个)
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
             Action onStartTower, Action save, string message, Action onOpenCollection, Action onOpenShop)
@@ -214,7 +215,9 @@ namespace Brushblade.Presentation
                             () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(74, 34));
                     }
                     var skip = Ui.RoundButton(mini.transform, $"{ChestRules.InkCostToSkip(remaining)}墨",
-                        () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time)),
+                        () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), "墨锭不足",
+                            $"立即开启需要 {ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time))} 墨锭," +
+                            $"你有 {_meta.Ink}。\n可以看广告缩短,或等倒计时走完。"),
                         Theme.Gold, Theme.GoldText, 14, new Vector2(70, 34));
                     _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
                 }
@@ -341,11 +344,24 @@ namespace Brushblade.Presentation
             }
         }
 
-        private void Do(Func<bool> action)
+        private void Do(Func<bool> action, string failTitle = null, string failBody = null)
         {
             if (action())
+            {
                 _save();
+                Rebuild();
+                return;
+            }
             Rebuild();
+            if (failTitle != null) // 无原因可给的(按钮已 disable 拦住)保持静默
+                ShowAlert(failTitle, failBody);
+        }
+
+        /// <summary>被拒提示统一弹窗(2026-07-19);须在 Rebuild 之后调用——Rebuild 会清空根节点。</summary>
+        private void ShowAlert(string title, string body)
+        {
+            if (_modal != null) Destroy(_modal);
+            _modal = Ui.Alert(transform, title, body);
         }
 
         private static string Format(long seconds) =>

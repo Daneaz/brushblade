@@ -16,6 +16,7 @@ namespace Brushblade.Presentation
         private ITimeSource _time;
         private Action _save;
         private Action _onBack;
+        private GameObject _modal; // 当前告知弹窗(同屏仅一个)
         private string _message = "每日 0 点刷新;看广告可再刷一次货架";
 
         public void Init(RecipeGraph graph, MetaState meta, IReadOnlyList<string> cardPool,
@@ -64,7 +65,8 @@ namespace Brushblade.Presentation
                 var cell = Ui.VStack(cardRow.transform, $"Slot{i}", 8);
                 Ui.GlyphTile(cell.transform, def, sold ? "已售" : "", false, null, new Vector2(130, 150));
                 var buy = Ui.RoundButton(cell.transform, sold ? "已售" : price.ToString(),
-                    () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), $"购入「{card}」!"),
+                    () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), $"购入「{card}」!",
+                        "买不起", $"「{card}」售价 {price} 墨锭,你有 {_meta.Ink}。"),
                     sold ? Theme.LockedBg : Theme.Ink, sold ? Theme.LockGray : Color.white,
                     18, new Vector2(130, 42));
                 buy.interactable = affordable;
@@ -85,7 +87,11 @@ namespace Brushblade.Presentation
                 Theme.RarityColor((Brushblade.Core.CardRarity)(int)_meta.Shop.ChestSlot), Theme.TitleFont);
             Ui.Stretch(chestLabel.rectTransform);
             var chestBuy = Ui.RoundButton(chestCell.transform, _meta.Shop.ChestSold ? "已售" : chestPrice.ToString(),
-                () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time), $"{chestName}入箱位!"),
+                () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time), $"{chestName}入箱位!",
+                    "买不下",
+                    _meta.Chests.Count >= ChestRules.SlotLimit
+                        ? $"箱位已满({ChestRules.SlotLimit}/{ChestRules.SlotLimit})。\n先开掉一只再来。"
+                        : $"{chestName}售价 {chestPrice} 墨锭,你有 {_meta.Ink}。"),
                 _meta.Shop.ChestSold ? Theme.LockedBg : Theme.Ink,
                 _meta.Shop.ChestSold ? Theme.LockGray : Color.white, 18, new Vector2(170, 42));
             chestBuy.interactable = !_meta.Shop.ChestSold && _meta.Ink >= chestPrice
@@ -93,30 +99,39 @@ namespace Brushblade.Presentation
 
             var inkAd = Ui.AdBadge(bottomRow.transform,
                 _meta.Shop.InkAdClaimed ? "墨锭已领" : $"看广告领 {ShopRules.InkAdAmount}",
-                () => Do(() => ShopRules.TryClaimInkAd(_meta), "墨锭到账!"), // 原型:点击即生效,SDK 后接
+                () => Do(() => ShopRules.TryClaimInkAd(_meta), "墨锭到账!", // 原型:点击即生效,SDK 后接
+                    "今日已领", "墨锭广告位每日一次,明日 0 点重置。"),
                 new Vector2(170, 64));
             inkAd.interactable = !_meta.Shop.InkAdClaimed;
 
             var refresh = Ui.AdBadge(bottomRow.transform,
                 _meta.Shop.AdRefreshUsed ? "今日已刷新" : "看广告刷新货架",
                 () => Do(() => ShopRules.TryAdRefresh(_meta, _cardPool,
-                    new GameRandom(Environment.TickCount)), "货架焕然一新!"),
+                    new GameRandom(Environment.TickCount)), "货架焕然一新!",
+                    "今日已刷新", "广告刷新每日一次,明日 0 点重置。"),
                 new Vector2(190, 64));
             refresh.interactable = !_meta.Shop.AdRefreshUsed;
         }
 
-        private void Do(Func<bool> action, string successMessage)
+        /// <summary>执行一笔交易:成功走消息条,失败弹窗给具体原因(2026-07-19 提示统一弹窗)。</summary>
+        private void Do(Func<bool> action, string successMessage, string failTitle = null, string failBody = null)
         {
             if (action())
             {
                 _message = successMessage;
                 _save();
-            }
-            else
-            {
-                _message = "无法完成:墨锭不足或箱位已满";
+                Rebuild();
+                return;
             }
             Rebuild();
+            ShowAlert(failTitle ?? "无法完成", failBody ?? "条件不满足,换个试试。");
+        }
+
+        /// <summary>被拒提示统一弹窗;须在 Rebuild 之后调用——Rebuild 会清空根节点。</summary>
+        private void ShowAlert(string title, string body)
+        {
+            if (_modal != null) Destroy(_modal);
+            _modal = Ui.Alert(transform, title, body);
         }
     }
 }
