@@ -29,6 +29,7 @@ namespace Brushblade.Presentation
 
         // 容器
         private Transform _enemyRow;
+        private Transform _summonRow;    // 我方前排召唤物:夹在敌我血条之间
         private Transform _topLeft, _topRight, _bottomRow;
         private Transform _statusRow;    // 语义:结束回合行
         private Transform _libraryRow;
@@ -98,12 +99,17 @@ namespace Brushblade.Presentation
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
-            _enemyRow = MakeSection("Enemies", 0.62f, 0.885f);
+            // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
+            // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
+            // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
+            _enemyRow = MakeSection("Enemies", 0.641f, 0.884f);  // 219px ≥ 208
+            _summonRow = MakeSection("Summons", 0.573f, 0.641f); // 61px:40 方块 + 血攻标签
+            _bottomRow = MakeSection("PlayerStats", 0.505f, 0.573f);
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
-            // 拆合台:左缘避开配字表(0.135 宽),右侧尽量宽(2026-07-19 反馈:曾与配字表重叠)
+            // 2026-07-20 移到最下面;左缘仍避开配字表(0.135 宽,2026-07-19 反馈:曾重叠)
             var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.PaperCard, 20);
-            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.145f, 0.37f), new Vector2(0.92f, 0.61f), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.145f, 0.012f), new Vector2(0.92f, 0.230f), Vector2.zero, Vector2.zero);
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
@@ -116,10 +122,9 @@ namespace Brushblade.Presentation
             hintGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             _hintColumn = hintGo.transform;
 
-            _statusRow = MakeSection("EndTurn", 0.3f, 0.37f);
-            _libraryRow = MakeSection("Library", 0.16f, 0.3f);
-            _poolRow = MakeSection("Pool", 0.065f, 0.16f);
-            _bottomRow = MakeSection("PlayerStats", 0f, 0.065f);
+            _libraryRow = MakeSection("Library", 0.368f, 0.505f); // 123px ≥ 118 字牌
+            _poolRow = MakeSection("Pool", 0.300f, 0.368f);       // 61px ≥ 56 部件钮
+            _statusRow = MakeSection("EndTurn", 0.230f, 0.300f);  // 63px:结束回合钮/奖励页部件排
         }
 
         private Transform MakeSection(string name, float yMin, float yMax)
@@ -163,12 +168,14 @@ namespace Brushblade.Presentation
             Ui.Clear(_libraryRow);
             Ui.Clear(_poolRow);
             Ui.Clear(_bottomRow);
+            Ui.Clear(_summonRow);
 
             switch (_run.Phase)
             {
                 case RunPhase.InBattle when Battle.Phase == BattlePhase.PlayerTurn:
                     DrawEnemies();
                     DrawTopBar();
+                    DrawSummons();
                     DrawPlayerStats();
                     DrawLibrary();
                     DrawPool();
@@ -179,6 +186,7 @@ namespace Brushblade.Presentation
                 case RunPhase.InBattle: // 本场已分胜负,等待结算
                     DrawEnemies();
                     DrawTopBar();
+                    DrawSummons();
                     DrawPlayerStats();
                     DrawBattleSettle();
                     break;
@@ -250,25 +258,6 @@ namespace Brushblade.Presentation
                 Ui.Bar(hpStack.transform, Mathf.Clamp01(Battle.PlayerShield / 30f), Theme.Jade, new Vector2(260, 7));
                 Ui.ThemedLabel(hpStack.transform, $"护盾 {Battle.PlayerShield}", 12, Theme.Jade);
             }
-            // 我方召唤物(木系):前排树,替玩家承伤并反击——展示在玩家侧(2026-07-19 反馈)
-            bool anySummon = false;
-            int summonIndex = 0;
-            foreach (var summon in Battle.Summons)
-            {
-                summonIndex++;
-                if (!summon.Alive) continue;
-                if (!anySummon)
-                {
-                    Ui.ThemedLabel(_bottomRow, "前排", 13, Theme.TextDim, Theme.TitleFont);
-                    anySummon = true;
-                }
-                var cell = Ui.VStack(_bottomRow, $"Summon{summonIndex}", 1);
-                Ui.RoundButton(cell.transform, summon.Char, null,
-                    Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    19, new Vector2(40, 40), 10);
-                Ui.ThemedLabel(cell.transform, $"血{summon.Hp} 攻{summon.Attack}", 11, Theme.TextDim);
-            }
-
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
             var pips = Ui.Row(apStack.transform, "Pips", 12);
@@ -283,6 +272,29 @@ namespace Brushblade.Presentation
                 var element = pip.AddComponent<LayoutElement>();
                 element.preferredWidth = 18;
                 element.preferredHeight = 18;
+            }
+        }
+
+        /// <summary>我方前排召唤物(木系):替玩家承伤并反击。独占一排,夹在敌我血条之间
+        /// 形成三排对立(2026-07-20 拍板);无召唤物时该排留空,布局不跳动。</summary>
+        private void DrawSummons()
+        {
+            bool any = false;
+            int index = 0;
+            foreach (var summon in Battle.Summons)
+            {
+                index++;
+                if (!summon.Alive) continue;
+                if (!any)
+                {
+                    Ui.ThemedLabel(_summonRow, "前排", 13, Theme.TextDim, Theme.TitleFont);
+                    any = true;
+                }
+                var cell = Ui.VStack(_summonRow, $"Summon{index}", 1);
+                Ui.RoundButton(cell.transform, summon.Char, null,
+                    Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
+                    19, new Vector2(40, 40), 10);
+                Ui.ThemedLabel(cell.transform, $"血{summon.Hp} 攻{summon.Attack}", 11, Theme.TextDim);
             }
         }
 
