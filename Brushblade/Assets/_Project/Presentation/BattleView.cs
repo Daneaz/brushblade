@@ -21,6 +21,7 @@ namespace Brushblade.Presentation
         private string _selectedChar;   // 当前选中的字/部件
         private bool _targeting;        // 等待点击敌人
         private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
+        private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
         private string _message = "点击字库中的字开始行动";
 
         private string _title;          // 关卡标题(顶栏,可选)
@@ -169,6 +170,8 @@ namespace Brushblade.Presentation
             Ui.Clear(_poolRow);
             Ui.Clear(_bottomRow);
             Ui.Clear(_summonRow);
+            if (_run.Phase != RunPhase.Reward && _rewardModal != null)
+                Destroy(_rewardModal); // 离开战利品阶段:弹窗不能留在战斗界面上
 
             switch (_run.Phase)
             {
@@ -392,30 +395,18 @@ namespace Brushblade.Presentation
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected,
                     () =>
                     {
-                        if (rewardPhase) OnRewardLibraryClicked(index, charId);
+                        if (rewardPhase) OnRewardLibraryClicked(charId);
                         else OnLibraryCharClicked(charId);
                     }, new Vector2(82, 104));
                 _tileRects[charId] = (RectTransform)tile.transform;
             }
         }
 
-        /// <summary>奖励页点字库:替换模式换掉该字,否则看简述。</summary>
-        private void OnRewardLibraryClicked(int index, string charId)
+        /// <summary>奖励页点字库:看简述(替换已改在战利品弹窗内完成,2026-07-20)。</summary>
+        private void OnRewardLibraryClicked(string charId)
         {
-            if (_pendingRewardIndex < 0)
-            {
-                _message = CharInfo.Summary(_graph.Get(charId), _graph);
-                Refresh();
-                return;
-            }
-            string picked = _run.RewardOptions[_pendingRewardIndex];
-            if (_run.PickRewardReplacing(_pendingRewardIndex, index))
-            {
-                _pendingRewardIndex = -1;
-                _tutorial?.Notify(TutorialAction.PickReward);
-                _message = $"「{picked}」替换「{charId}」入库" + (_run.Phase == RunPhase.Reward ? "" : ",下一战!");
-                CancelSelection();
-            }
+            _message = CharInfo.Summary(_graph.Get(charId), _graph);
+            Refresh();
         }
 
         private void DrawPool()
@@ -616,98 +607,160 @@ namespace Brushblade.Presentation
                 _pendingRewardIndex = -1;
                 _previewRewardIndex = -1;
                 _previewComponentIndex = -1;
-                _message = _run.Phase == RunPhase.Reward ? "战利品:字和部件各可取 1(点一下看效果,再点确认)" : "";
+                _rewardCharSkipped = false; // 上一场的「不要字」不能带进这一场
+                _message = "";
                 Refresh();
             }, Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
-        private void DrawReward() // 战利品双排 5 选 1(2026-07-19 拍板):字 + 固定五行部件;Boss 层走宝箱
-        {
-            // 部件排(结束回合行位置):五行基础部件按属性色;首点预览,再点确认
-            Ui.ThemedLabel(_statusRow, $"部件·选 {_run.ComponentPicksLeft}", 18, Theme.TextDim, Theme.TitleFont);
-            for (int i = 0; i < _run.ComponentOptions.Count; i++)
-            {
-                int index = i;
-                var id = _run.ComponentOptions[i];
-                var def = _graph.Get(id);
-                bool previewing = index == _previewComponentIndex;
-                var button = Ui.RoundButton(_statusRow, id, () =>
-                {
-                    if (_previewComponentIndex != index)
-                    {
-                        _previewComponentIndex = index;
-                        _message = CharInfo.Summary(def, _graph) + "|再点确认入池";
-                        Refresh();
-                        return;
-                    }
-                    _previewComponentIndex = -1;
-                    if (_run.PickRewardComponent(index))
-                    {
-                        _message = _run.Phase == RunPhase.Reward ? $"部件「{id}」入池" : $"部件「{id}」入池,下一战!";
-                        CancelSelection();
-                        return;
-                    }
-                    CancelSelection();
-                    ShowAlert("部件池已满",
-                        $"部件池 {_run.CarriedPool.Count}/{Battle.PoolCapacity},「{id}」收不下。\n" +
-                        "拿去合字或丢弃腾位置,也可以直接开拔。");
-                }, previewing ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
-                    previewing ? Color.white : Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
-                button.interactable = _run.ComponentPicksLeft > 0;
-            }
+        private bool _rewardCharSkipped; // 玩家放弃了字这一步(引擎侧额度仍在,收尾时补 SkipReward)
 
-            // 字排
-            Ui.ThemedLabel(_actionRow, _pendingRewardIndex >= 0 ? "点字库中一张替换:" : $"字·选 {_run.CharPicksLeft}:",
-                22, Theme.TextMain, Theme.TitleFont);
+        /// <summary>战利品弹窗(2026-07-20 拍板):两步式——先选 1 个字,再选 1 个部件。
+        /// 字库满时就地转入「换掉哪一个」子步;满/额度用尽的提示写在窗内,不再套第二层弹窗。</summary>
+        private void DrawReward()
+        {
+            if (_rewardModal != null) Destroy(_rewardModal);
+
+            bool pickingChar = !_rewardCharSkipped
+                && _run.CharPicksLeft > 0 && _run.RewardOptions.Count > 0;
+            if (_pendingRewardIndex >= 0)
+                DrawRewardReplaceStep();
+            else if (pickingChar)
+                DrawRewardCharStep();
+            else
+                DrawRewardComponentStep();
+        }
+
+        private void DrawRewardCharStep()
+        {
+            _rewardModal = Ui.ModalShell(transform, "战利品 · 选 1 个字",
+                new Vector2(340, 165), dismissable: false, out var content);
+            var preview = _previewRewardIndex >= 0
+                ? CharInfo.Summary(_graph.Get(_run.RewardOptions[_previewRewardIndex]), _graph) + "|再点一次收下"
+                : $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity} · 点一下看效果,再点收下";
+            Ui.ThemedLabel(content, preview, 16, Theme.TextDim);
+
+            var row = Ui.Row(content, "Options", 10);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.RewardOptions[i];
                 var def = _graph.Get(id);
-                Ui.GlyphTile(_actionRow, def, $"{def.ApCost} AP",
-                    index == _pendingRewardIndex || index == _previewRewardIndex, () =>
+                Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", index == _previewRewardIndex, () =>
                 {
-                    if (_pendingRewardIndex < 0 && _previewRewardIndex != index)
+                    if (_previewRewardIndex != index)
                     {
-                        _previewRewardIndex = index; // 首点预览效果(如出牌),再点确认
-                        _message = CharInfo.Summary(def, _graph) + "|再点确认入库";
+                        _previewRewardIndex = index; // 首点预览效果,再点确认
                         Refresh();
                         return;
                     }
                     _previewRewardIndex = -1;
                     if (_run.PickReward(index))
                     {
-                        _pendingRewardIndex = -1;
                         _tutorial?.Notify(TutorialAction.PickReward);
-                        _message = _run.Phase == RunPhase.Reward ? $"「{id}」入库" : $"「{id}」入库,下一战!";
-                        CancelSelection();
+                        _message = $"「{id}」入库";
+                        CancelSelection(); // 额度归零 → 下次 Refresh 自动走到部件步
                         return;
                     }
-                    if (_run.CharPicksLeft == 0)
-                    {
-                        Refresh();
-                        ShowAlert("额度已用完", "本次战利品的字只能取 1 个。\n部件那一排还可以再挑。");
-                        return;
-                    }
-                    // 字库已满(3.8.1):选中奖励进入替换模式,点字库一张换掉或跳过
-                    _pendingRewardIndex = index;
-                    _message = $"字库已满:点下方字库中一张替换「{id}」,或直接开拔";
+                    _pendingRewardIndex = index; // 字库已满(3.8.1):转入替换子步
                     Refresh();
-                    ShowAlert("字库已满",
-                        $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity},「{id}」放不进去。\n" +
-                        "关掉本窗后,点下方字库中的一张即可用它替换(被换的字永久失去),或直接开拔。");
                 });
             }
-            Ui.RoundButton(_actionRow, "下一战", () =>
+
+            Ui.RoundButton(content, "不要字,去选部件", () =>
+            {
+                _previewRewardIndex = -1;
+                _rewardCharSkipped = true;
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
+        }
+
+        private void DrawRewardReplaceStep()
+        {
+            var incoming = _run.RewardOptions[_pendingRewardIndex];
+            _rewardModal = Ui.ModalShell(transform,
+                $"字库已满 · 用「{incoming}」换掉哪一个?",
+                new Vector2(360, 165), dismissable: false, out var content);
+            Ui.ThemedLabel(content,
+                $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity}——被换掉的字永久失去", 16, Theme.TextDim);
+
+            var row = Ui.Row(content, "Library", 8);
+            for (int i = 0; i < _run.CarriedLibrary.Count; i++)
+            {
+                int replaceIndex = i;
+                var def = _graph.Get(_run.CarriedLibrary[i]);
+                Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", false, () =>
+                {
+                    string dropped = _run.CarriedLibrary[replaceIndex];
+                    if (_run.PickRewardReplacing(_pendingRewardIndex, replaceIndex))
+                    {
+                        _pendingRewardIndex = -1;
+                        _tutorial?.Notify(TutorialAction.PickReward);
+                        _message = $"「{incoming}」替换「{dropped}」入库";
+                        CancelSelection();
+                    }
+                }, new Vector2(74, 96));
+            }
+
+            Ui.RoundButton(content, "算了,不换", () =>
             {
                 _pendingRewardIndex = -1;
-                _previewRewardIndex = -1;
-                _previewComponentIndex = -1;
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(150, 46));
+        }
+
+        private void DrawRewardComponentStep()
+        {
+            _rewardModal = Ui.ModalShell(transform, "战利品 · 选 1 个部件",
+                new Vector2(320, 150), dismissable: false, out var content);
+            bool poolFull = _run.CarriedPool.Count >= Battle.PoolCapacity;
+            string note = poolFull
+                ? $"部件池已满 {_run.CarriedPool.Count}/{Battle.PoolCapacity}——收不下了,直接开拔吧"
+                : $"部件池 {_run.CarriedPool.Count}/{Battle.PoolCapacity} · 点一下看效果,再点收下";
+            Ui.ThemedLabel(content, _previewComponentIndex >= 0 && !poolFull
+                ? CharInfo.Summary(_graph.Get(_run.ComponentOptions[_previewComponentIndex]), _graph) + "|再点一次收下"
+                : note, 16, poolFull ? Theme.Cinnabar : Theme.TextDim);
+
+            var row = Ui.Row(content, "Options", 10);
+            for (int i = 0; i < _run.ComponentOptions.Count; i++)
+            {
+                int index = i;
+                var id = _run.ComponentOptions[i];
+                var def = _graph.Get(id);
+                bool previewing = index == _previewComponentIndex;
+                var button = Ui.RoundButton(row.transform, id, () =>
+                {
+                    if (_previewComponentIndex != index)
+                    {
+                        _previewComponentIndex = index;
+                        Refresh();
+                        return;
+                    }
+                    _previewComponentIndex = -1;
+                    if (_run.PickRewardComponent(index))
+                        _message = $"部件「{id}」入池";
+                    FinishRewards($"部件「{id}」入池,下一战!");
+                }, previewing ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
+                    previewing ? Color.white : Theme.ElementSoftFg(def.Element), 24, new Vector2(64, 64), 12);
+                button.interactable = !poolFull;
+            }
+
+            Ui.RoundButton(content, "开拔,下一战", () => FinishRewards("开拔,下一战!"),
+                Theme.Cinnabar, Color.white, 18, new Vector2(190, 48));
+        }
+
+        /// <summary>战利品收尾:字步被跳过时引擎侧额度还在,补一次 SkipReward 才会开拔。</summary>
+        private void FinishRewards(string message)
+        {
+            _previewRewardIndex = -1;
+            _previewComponentIndex = -1;
+            _pendingRewardIndex = -1;
+            _rewardCharSkipped = false;
+            if (_run.Phase == RunPhase.Reward)
                 _run.SkipReward();
-                _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成战利品节拍,引导不卡死
-                _message = "开拔,下一战!";
-                CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(96, 44));
+            _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
+            _message = message;
+            CancelSelection();
         }
 
         private int _pendingEventOption = -1; // 部件抵价/任选字:待成交的选项下标

@@ -133,8 +133,10 @@ namespace Brushblade.Presentation
 
         /// <summary>模态弹窗(2026-07-19 拍板:提示统一弹窗):墨色遮罩 + 宣纸卡 + 按钮行。
         /// 点按钮或遮罩即关闭(按钮先关再执行动作);返回根节点供外部提前销毁。</summary>
-        public static GameObject Modal(Transform root, string title, string body,
-            params (string label, Action onClick, Color bg, Color fg)[] buttons)
+        /// <summary>模态外壳:墨遮罩 + 宣纸卡 + 标题,返回内容容器供调用方自由填充。
+        /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。</summary>
+        public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
+            bool dismissable, out Transform content)
         {
             var overlay = new GameObject("Modal", typeof(RectTransform), typeof(Image));
             overlay.transform.SetParent(root, false);
@@ -143,17 +145,26 @@ namespace Brushblade.Presentation
             Stretch((RectTransform)overlay.transform);
             var maskButton = overlay.AddComponent<Button>();
             maskButton.targetGraphic = mask;
-            maskButton.onClick.AddListener(() => UnityEngine.Object.Destroy(overlay));
+            if (dismissable)
+                maskButton.onClick.AddListener(() => UnityEngine.Object.Destroy(overlay));
 
             var card = CardPanel(overlay.transform, "Dialog");
             Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-310, -150), new Vector2(310, 150));
+                -halfSize, halfSize);
 
-            var stack = VStack(card.transform, "Stack", 14);
+            var stack = VStack(card.transform, "Stack", 12);
             Stretch((RectTransform)stack.transform);
             ThemedLabel(stack.transform, title, 24, Theme.TextMain, Theme.TitleFont);
-            ThemedLabel(stack.transform, body, 17, Theme.TextDim);
-            var row = Row(stack.transform, "Buttons", 14);
+            content = stack.transform;
+            return overlay;
+        }
+
+        public static GameObject Modal(Transform root, string title, string body,
+            params (string label, Action onClick, Color bg, Color fg)[] buttons)
+        {
+            var overlay = ModalShell(root, title, new Vector2(310, 150), dismissable: true, out var stack);
+            ThemedLabel(stack, body, 17, Theme.TextDim);
+            var row = Row(stack, "Buttons", 14);
             foreach (var (label, onClick, bg, fg) in buttons)
             {
                 var action = onClick;
