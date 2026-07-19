@@ -237,8 +237,8 @@ namespace Brushblade.Presentation
             return index;
         }
 
-        /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择;
-        /// 休整(2026-07-19 拍板):可用出阵列表调整字库(应对下一段敌情)。</summary>
+        /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择。
+        /// 塔内休整(段间调整字库)已废止(2026-07-20 拍板):字库只在登塔前定,塔内靠拆合与战利品经营。</summary>
         private static void ShowSafeLayer(int depth, int totalEarned, string chestNote = null)
         {
             var endless = _campaign.Endless;
@@ -262,77 +262,12 @@ namespace Brushblade.Presentation
             if (chestNote != null)
                 Ui.ThemedLabel(stack.transform, $"◆ 破关战利:{chestNote}", 18, Theme.GoldBorder, Theme.TitleFont);
 
-            DrawRest(stack.transform, depth, totalEarned, chestNote);
-
             Ui.ThemedLabel(stack.transform,
                 "继续:滚存收益带入更深层,阵亡墨锭减半;撤退:立即全额结算墨锭", 14, Theme.TextDim);
             Ui.PillButton(stack.transform, $"深入「{nextBand.Name}」第 {depth + 1}~{depth + endless.BossEvery} 层",
                 () => StartSegment(firstTower: false), Theme.Cinnabar, Color.white, 19, new Vector2(340, 52));
             Ui.PillButton(stack.transform, "收官撤退(全额结算)",
                 () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 19, new Vector2(340, 52));
-        }
-
-        /// <summary>休整区:字库(点移出)+ 备选出阵列表(点加入),即时写快照。</summary>
-        private static void DrawRest(Transform parent, int depth, int totalEarned, string chestNote)
-        {
-            var snapshot = _meta.Endless;
-            if (snapshot == null) return;
-            int libraryCap = MetaRules.StartingLibrarySize + (snapshot.LibraryExpanded ? 2 : 0);
-
-            // 休整 = 重挑下一段带哪些字上路(2026-07-19):出字即消耗,这里补齐/换阵
-            bool understaffed = snapshot.Library.Count < MetaRules.DeckMinimum;
-            Ui.ThemedLabel(parent, understaffed
-                    ? $"休整 · 字库 {snapshot.Library.Count}/{libraryCap}——不足 {MetaRules.DeckMinimum} 字,从备选补上再走"
-                    : $"休整 · 字库 {snapshot.Library.Count}/{libraryCap}(点字移出,点备选加入)",
-                15, understaffed ? Theme.Cinnabar : Theme.TextDim, Theme.TitleFont);
-            var libraryRow = Ui.Row(parent, "RestLibrary", 6);
-            foreach (var id in snapshot.Library)
-            {
-                string charId = id;
-                var def = _graph.Get(charId);
-                Ui.RoundButton(libraryRow.transform, charId, () =>
-                {
-                    snapshot.Library.Remove(charId);
-                    MetaStore.Save(_meta);
-                    ShowSafeLayer(depth, totalEarned, chestNote);
-                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
-            }
-
-            // 备选 = 已收集的全部字(2026-07-19 修:此前只列登塔前的出阵列表,
-            // 塔内新开箱得到的字换不上——而换阵正是休整的意义)。部件靠掉落,不占字库位。
-            var reserve = new System.Collections.Generic.List<string>();
-            foreach (var id in _meta.OwnedCards)
-                if (!snapshot.Library.Contains(id) && _graph.TryGet(id, out var owned) && !owned.IsLeaf)
-                    reserve.Add(id);
-            reserve.Sort((a, b) =>
-            {
-                int byLevel = MetaRules.CardLevel(_meta, b).CompareTo(MetaRules.CardLevel(_meta, a));
-                return byLevel != 0 ? byLevel : string.CompareOrdinal(a, b);
-            });
-            if (reserve.Count == 0) return;
-
-            Ui.ThemedLabel(parent, snapshot.Library.Count >= libraryCap
-                ? "备选(字库已满——先点上方的字移出,才能换新的进来)"
-                : "备选(已收集的字,点字加入)", 15, Theme.TextDim, Theme.TitleFont);
-            const int perRow = 8; // 收集全量最多 15 字,安全层卡片放不下一行
-            for (int start = 0; start < reserve.Count; start += perRow)
-            {
-                var reserveRow = Ui.Row(parent, $"RestReserve{start}", 6);
-                int end = Mathf.Min(start + perRow, reserve.Count);
-                for (int i = start; i < end; i++)
-                {
-                    string charId = reserve[i];
-                    var def = _graph.Get(charId);
-                    var button = Ui.RoundButton(reserveRow.transform, charId, () =>
-                    {
-                        if (snapshot.Library.Count >= libraryCap) return;
-                        snapshot.Library.Add(charId);
-                        MetaStore.Save(_meta);
-                        ShowSafeLayer(depth, totalEarned, chestNote);
-                    }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
-                    button.interactable = snapshot.Library.Count < libraryCap;
-                }
-            }
         }
 
         /// <summary>塔结算(20.5):撤退全额/阵亡与弃塔半额;宝箱已随每个 Boss 层即时发放,结算不再发。</summary>
