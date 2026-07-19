@@ -122,7 +122,8 @@ namespace Brushblade.Core.Tests
             run.ChooseEventOption(0); // 求字:得炎(焚已消耗,末战用炎)
             Assert.That(run.Battle.Cast("炎"), Is.EqualTo(BattleError.None)); // 赢最后一战
             run.AdvanceAfterBattle();
-            Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon)); // 直接通关,无奇遇
+            run.SkipReward();                                    // 段末战利品(2026-07-20)
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon)); // 通关结算,不再触发奇遇
         }
 
         [Test]

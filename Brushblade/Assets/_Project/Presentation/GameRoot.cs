@@ -220,8 +220,9 @@ namespace Brushblade.Presentation
             var snapshot = _meta.Endless;
             snapshot.Depth = segmentEnd + 1;
             snapshot.PlayerHp = run.Battle.PlayerHp;
-            snapshot.Library = new System.Collections.Generic.List<string>(run.Battle.Library); // 出字即消耗,无回归(v0.7)
-            snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
+            // 用携带态而非 Battle:Boss 层战利品(2026-07-20)加在携带态上,读 Battle 会把它丢掉
+            snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary); // 出字即消耗,无回归(v0.7)
+            snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);
             snapshot.EarnedInk = totalEarned;
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;

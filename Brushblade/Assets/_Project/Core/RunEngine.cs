@@ -82,10 +82,10 @@ namespace Brushblade.Core
         public int CharPicksLeft { get; private set; }
         public int ComponentPicksLeft { get; private set; }
 
-        /// <summary>战斗间携带的字库(Reward/Event 阶段有效)。</summary>
+        /// <summary>战斗间携带的字库(Reward/Event/RunWon 阶段有效;段末快照的数据源)。</summary>
         public IReadOnlyList<string> CarriedLibrary => _carriedLibrary;
 
-        /// <summary>战斗间携带的部件池(Reward/Event 阶段有效)。</summary>
+        /// <summary>战斗间携带的部件池(同上)。</summary>
         public IReadOnlyList<string> CarriedPool => _carriedPool;
 
         public bool LibraryExpanded { get; private set; }
@@ -192,12 +192,7 @@ namespace Brushblade.Core
             }
             if (Battle.Phase != BattlePhase.Won) return;
 
-            if (BattleIndex >= _runConfig.Encounters.Count - 1)
-            {
-                Phase = RunPhase.RunWon;
-                return;
-            }
-
+            // 段末(Boss 层)同样发战利品(2026-07-20 拍板),取完才结算 → 见 ProceedAfterReward
             // 捕获携带状态:出过的字已消耗不回归(v0.7),池与 HP 延续
             _carriedLibrary = new List<string>(Battle.Library);
             _carriedPool = new List<string>(Battle.Pool);
@@ -266,9 +261,14 @@ namespace Brushblade.Core
             ProceedAfterReward();
         }
 
-        /// <summary>奖励结算后:按概率触发奇遇(9.6),否则直接下一战。</summary>
+        /// <summary>奖励结算后:段末直接通关(不再走奇遇),否则按概率触发奇遇(9.6)或下一战。</summary>
         private void ProceedAfterReward()
         {
+            if (BattleIndex >= _runConfig.Encounters.Count - 1)
+            {
+                Phase = RunPhase.RunWon; // Boss 层战利品取完 → 交给外层结算并进安全层
+                return;
+            }
             if (_runConfig.EventPool.Count > 0 && _random.Next(100) < _runConfig.EventChancePercent)
             {
                 CurrentEvent = _runConfig.EventPool[_random.Next(_runConfig.EventPool.Count)];

@@ -96,8 +96,9 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Library, Is.Empty); // 焚已消耗,跳过奖励则空库(兜底出部件仍可战)
         }
 
+        /// <summary>段末(Boss 层)也发战利品(2026-07-20 拍板),取完才结算。</summary>
         [Test]
-        public void WinLastBattle_RunWon_NoRewardPhase()
+        public void WinLastBattle_EntersReward_ThenRunWon()
         {
             var run = Run();
             WinCurrentBattle(run);
@@ -107,8 +108,32 @@ namespace Brushblade.Core.Tests
                 if (run.RewardOptions[i] == "焚") fenIndex = i;
             run.PickReward(fenIndex);
             run.SkipReward();
+
             WinCurrentBattle(run); // 第二战即最后一战
             run.AdvanceAfterBattle();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward)); // 先给战利品
+            Assert.That(run.RewardOptions, Is.Not.Empty);
+
+            var picked = run.RewardOptions[0];
+            Assert.That(run.PickReward(0), Is.True);
+            Assert.That(run.CarriedLibrary, Does.Contain(picked)); // 取到的字进携带态,供外层写快照
+            run.SkipReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon)); // 取完才结算
+        }
+
+        [Test]
+        public void LastBattleReward_SkippedEntirely_StillRunWon()
+        {
+            var run = Run();
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            for (int i = 0; i < run.RewardOptions.Count; i++)
+                if (run.RewardOptions[i] == "焚") run.PickReward(i); // 末战还得靠焚清场
+            run.SkipReward();
+
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward(); // 段末战利品一件不取,也要能结算
             Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon));
         }
 
