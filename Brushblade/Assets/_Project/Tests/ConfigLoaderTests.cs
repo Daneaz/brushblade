@@ -161,11 +161,11 @@ namespace Brushblade.Core.Tests
                 new BattleConfig
                 {
                     DropTable = campaign.DropTable,
-                    UnlockedChars = new[] { "鍂", "林", "沝", "炎", "圭" }, // 初始收集
+                    UnlockedChars = new[] { "鍂", "林", "沝", "炎", "圭" }, // 初始出阵列表
                 },
                 new[] { "炎" }, new[] { "火", "火" }, floorOne, seed: 7);
 
-            Assert.That(battle.Compose("焱"), Is.EqualTo(BattleError.ForgeFailed)); // 未收集,合不出
+            Assert.That(battle.Compose("焱"), Is.EqualTo(BattleError.ForgeFailed)); // 不在出阵,合不出
             Assert.That(battle.Dismantle("炎"), Is.EqualTo(BattleError.None));
             Assert.That(battle.Compose("炎"), Is.EqualTo(BattleError.None));
             Assert.That(battle.Cast("炎"), Is.EqualTo(BattleError.None));

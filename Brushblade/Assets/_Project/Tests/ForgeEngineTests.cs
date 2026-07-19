@@ -180,7 +180,7 @@ namespace Brushblade.Core.Tests
             Assert.That(suggest.Composable, Is.Empty);
         }
 
-        // ---- 只能合已收集的字(2026-07-19 拍板:未开箱得到就合不出来) ----
+        // ---- 只能合出阵列表里的字(2026-07-20 拍板;注入源见 GameRoot.UnlockedChars) ----
 
         [Test]
         public void TryCompose_NotUnlocked_Rejected()

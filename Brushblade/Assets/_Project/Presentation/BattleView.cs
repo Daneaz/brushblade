@@ -1117,7 +1117,7 @@ namespace Brushblade.Presentation
                 ForgeError.PoolWouldOverflow => "部件池放不下,拆解取消",
                 ForgeError.MissingIngredients => "原料不足",
                 ForgeError.LibraryFull => "字库已满",
-                ForgeError.NotUnlocked => "尚未收集此字——开宝箱得到后才能合",
+                ForgeError.NotUnlocked => "此字不在出阵列表——登塔前在收集页编入才能合",
                 ForgeError.NotDismantlable => "独体字不可拆",
                 _ => "操作被拒",
             },

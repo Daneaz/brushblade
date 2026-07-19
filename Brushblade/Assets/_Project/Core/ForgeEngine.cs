@@ -26,7 +26,7 @@ namespace Brushblade.Core
         MissingIngredients,// 池中原料不足,无法锻造
         LibraryFull,       // 字库已满
         UnknownChar,       // 图谱中无此字
-        NotUnlocked,       // 尚未收集此字(2026-07-19:只能合已收集的字)
+        NotUnlocked,       // 此字不在可合成集(2026-07-20:只能合出阵列表里的字)
     }
 
     public readonly struct ForgeResult
@@ -98,7 +98,8 @@ namespace Brushblade.Core
 
         /// <summary>合:消耗配方全部原料 → 字入字库。原料优先取部件池,池中没有则消耗字库中的
         /// 低阶字(4.2.3「原料可以是更低阶的汉字」,3.9 战例:合林 → 合焚)。
-        /// unlockedChars 非空时只能合其中的字(2026-07-19 拍板:没收集到就合不出来);null = 不限。</summary>
+        /// unlockedChars 非空时只能合其中的字(2026-07-20 拍板:注入出阵列表,没编入就合不出来);
+        /// null = 不限。</summary>
         public static ForgeResult TryCompose(string charId, RecipeGraph graph, ForgeState state, int libraryCapacity,
             IReadOnlyCollection<string> unlockedChars = null)
         {

@@ -33,8 +33,8 @@ namespace Brushblade.Core
         /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
 
-        /// <summary>可合成的字集合 = 玩家已收集(2026-07-19 拍板:没收集到就合不出来);
-        /// null = 不限(工装与旧调用)。</summary>
+        /// <summary>可合成的字集合 = 玩家的出阵列表(2026-07-20 拍板:没编入出阵就合不出来,
+        /// 与战利品同源);null = 不限(工装与旧调用)。</summary>
         public IReadOnlyCollection<string> UnlockedChars { get; set; }
     }
 
@@ -114,7 +114,7 @@ namespace Brushblade.Core
         public int LibraryCapacity => _config.LibraryCapacity;
         public int PoolCapacity => _config.PoolCapacity;
 
-        /// <summary>可合成字集(已收集);null = 不限。表现层的拆合台提示按此过滤。</summary>
+        /// <summary>可合成字集(= 出阵列表);null = 不限。表现层的拆合台提示按此过滤。</summary>
         public IReadOnlyCollection<string> UnlockedChars => _config.UnlockedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public IReadOnlyList<SummonState> Summons => _summons;
