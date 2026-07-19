@@ -131,6 +131,41 @@ namespace Brushblade.Presentation
             return image;
         }
 
+        /// <summary>模态弹窗(2026-07-19 拍板:提示统一弹窗):墨色遮罩 + 宣纸卡 + 按钮行。
+        /// 点按钮或遮罩即关闭(按钮先关再执行动作);返回根节点供外部提前销毁。</summary>
+        public static GameObject Modal(Transform root, string title, string body,
+            params (string label, Action onClick, Color bg, Color fg)[] buttons)
+        {
+            var overlay = new GameObject("Modal", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(root, false);
+            var mask = overlay.GetComponent<Image>();
+            mask.color = new Color(0.12f, 0.10f, 0.08f, 0.55f); // 墨色半透遮罩
+            Stretch((RectTransform)overlay.transform);
+            var maskButton = overlay.AddComponent<Button>();
+            maskButton.targetGraphic = mask;
+            maskButton.onClick.AddListener(() => UnityEngine.Object.Destroy(overlay));
+
+            var card = CardPanel(overlay.transform, "Dialog");
+            Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(-310, -150), new Vector2(310, 150));
+
+            var stack = VStack(card.transform, "Stack", 14);
+            Stretch((RectTransform)stack.transform);
+            ThemedLabel(stack.transform, title, 24, Theme.TextMain, Theme.TitleFont);
+            ThemedLabel(stack.transform, body, 17, Theme.TextDim);
+            var row = Row(stack.transform, "Buttons", 14);
+            foreach (var (label, onClick, bg, fg) in buttons)
+            {
+                var action = onClick;
+                PillButton(row.transform, label, () =>
+                {
+                    UnityEngine.Object.Destroy(overlay);
+                    action?.Invoke();
+                }, bg, fg, 18, new Vector2(150, 52));
+            }
+            return overlay;
+        }
+
         public static Button RoundButton(Transform parent, string text, Action onClick,
             Color bg, Color fg, int fontSize = 22, Vector2? size = null, int radius = 10)
         {

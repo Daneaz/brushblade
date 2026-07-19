@@ -20,7 +20,7 @@ namespace Brushblade.Presentation
         // 交互状态
         private string _selectedChar;   // 当前选中的字/部件
         private bool _targeting;        // 等待点击敌人
-        private float _exitArmedUntil;  // 退出二次确认窗口(unscaled 时间戳)
+        private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
         private string _message = "点击字库中的字开始行动";
 
         private string _title;          // 关卡标题(顶栏,可选)
@@ -226,36 +226,20 @@ namespace Brushblade.Presentation
                 20, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
             Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
             Ui.ThemedLabel(_topRight, $"回合 {Battle.Turn}", 18, Theme.TextDim);
-            bool exitArmed = Time.unscaledTime < _exitArmedUntil;
             bool suspend = _onExit != null; // 无尽:退出可挂起/弃塔(2026-07-19);否则=认输
-            if (suspend && exitArmed)
+            Ui.PillButton(_topRight, "退出", () => // 统一弹窗确认(2026-07-19 拍板)
             {
-                // 二段确认展开:挂起(断点续爬) / 弃塔(阵亡待遇半额) / 继续
-                Ui.PillButton(_topRight, "挂起离塔", () => _onExit(),
-                    Theme.Cinnabar, Color.white, 15, new Vector2(104, 38));
-                Ui.PillButton(_topRight, "弃塔(半额)", () => _onAbandon?.Invoke(),
-                    Theme.InkSoft, Color.white, 15, new Vector2(108, 38));
-                Ui.PillButton(_topRight, "继续", () =>
-                {
-                    _exitArmedUntil = 0;
-                    _message = "";
-                    Refresh();
-                }, Theme.LockedBg, Theme.TextMain, 15, new Vector2(64, 38));
-                return;
-            }
-            Ui.PillButton(_topRight, exitArmed ? "确认退出?" : "退出", () =>
-            {
-                if (!suspend && Time.unscaledTime < _exitArmedUntil)
-                {
-                    _onRunEnded(false);
-                    return;
-                }
-                _exitArmedUntil = Time.unscaledTime + 2.5f;
-                _message = suspend
-                    ? "挂起:下次从本层继续 · 弃塔:墨锭半额结算,纪录保留"
-                    : "再点一次「确认退出?」放弃本关(进度不推进,奇遇墨锭保留)";
-                Refresh();
-            }, exitArmed ? Theme.Cinnabar : Theme.ExitPink, Color.white, 15, new Vector2(110, 38));
+                if (suspend)
+                    ShowModal("离 塔",
+                        "挂起:保留进度,下次从本层继续\n弃塔:墨锭半额结算,层数纪录保留",
+                        ("挂起离塔", _onExit, Theme.Cinnabar, Color.white),
+                        ("弃塔(半额)", () => _onAbandon?.Invoke(), Theme.InkSoft, Color.white),
+                        ("继续战斗", null, Theme.LockedBg, Theme.TextMain));
+                else
+                    ShowModal("退出战斗?", "放弃本关:进度不推进,奇遇墨锭保留",
+                        ("确认退出", () => _onRunEnded(false), Theme.Cinnabar, Color.white),
+                        ("继续战斗", null, Theme.LockedBg, Theme.TextMain));
+            }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
         }
 
         private void DrawPlayerStats()
@@ -861,6 +845,8 @@ namespace Brushblade.Presentation
             var error = Battle.Cast(charId, target);
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Cast, charId);
+            else
+                MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             AppendBossPhaseMessage();
             CancelSelection();
@@ -935,6 +921,8 @@ namespace Brushblade.Presentation
             var error = Battle.Dismantle(charId);
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
+            else
+                MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? $"拆「{charId}」" : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
@@ -961,6 +949,8 @@ namespace Brushblade.Presentation
             var error = Battle.Compose(charId);
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Compose, charId);
+            else
+                MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? $"合出「{charId}」!" : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
@@ -1001,6 +991,28 @@ namespace Brushblade.Presentation
             for (int i = 0; i < enemy.Def.Phases.Count; i++)
                 title.Append(i == enemy.PhaseIndex ? $"【{enemy.Def.Phases[i].Char}】" : enemy.Def.Phases[i].Char);
             return title.ToString();
+        }
+
+        /// <summary>模态弹窗(提示统一弹窗,2026-07-19 拍板);同屏仅一个。</summary>
+        private void ShowModal(string title, string body,
+            params (string label, System.Action onClick, Color bg, Color fg)[] buttons)
+        {
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = Ui.Modal(transform, title, body, buttons);
+        }
+
+        /// <summary>被拒操作弹窗:AP 不够附「结束回合」快捷钮;拆合失败给原因。
+        /// 误点类(点尸体/不可出)保持消息条,不打断。</summary>
+        private void MaybeModalError(BattleError error, string charId, int neededAp)
+        {
+            if (error == BattleError.NotEnoughAp)
+                ShowModal("AP 不够",
+                    $"「{charId}」需要 {neededAp} AP,本回合仅剩 {Battle.Ap} AP。\n结束回合可回满 3 AP 并掉落新部件。",
+                    ("结束回合", OnEndTurn, Theme.Cinnabar, Color.white),
+                    ("再想想", null, Theme.LockedBg, Theme.TextMain));
+            else if (error == BattleError.ForgeFailed)
+                ShowModal("操作被拒", Describe(error),
+                    ("知道了", null, Theme.LockedBg, Theme.TextMain));
         }
 
         private string Describe(BattleError error) => error switch
