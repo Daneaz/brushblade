@@ -10,13 +10,25 @@
       "id": "金",
       "element": "Metal",
       "pinyin": "jīn",
-      "gloss": "五行之金,兵刃之属"
+      "gloss": "五行之金,兵刃之属",
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 4
+        }
+      ]
     },
     {
       "id": "水",
       "element": "Water",
       "pinyin": "shuǐ",
-      "gloss": "五行之水,润下之德"
+      "gloss": "五行之水,润下之德",
+      "effects": [
+        {
+          "kind": "HealSelf",
+          "value": 3
+        }
+      ]
     },
     {
       "id": "火",
@@ -90,6 +102,10 @@
         {
           "kind": "Shield",
           "value": 6
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 4
         }
       ],
       "pinyin": "guī",
@@ -107,6 +123,10 @@
         {
           "kind": "Shield",
           "value": 8
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 5
         }
       ],
       "pinyin": "bì",
@@ -126,6 +146,10 @@
           "kind": "Shield",
           "value": 10,
           "persistOnce": true
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 6
         }
       ],
       "pinyin": "bǎo",
@@ -174,7 +198,16 @@
         "木"
       ],
       "pinyin": "lín",
-      "gloss": "丛聚的树木或竹子"
+      "gloss": "丛聚的树木或竹子",
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 6,
+          "count": 2,
+          "attack": 2,
+          "summonChar": "木"
+        }
+      ]
     },
     {
       "id": "灯",
@@ -434,8 +467,11 @@
       "rarity": "Purple",
       "effects": [
         {
-          "kind": "DamageAll",
-          "value": 16
+          "kind": "Summon",
+          "value": 12,
+          "count": 2,
+          "attack": 4,
+          "summonChar": "木"
         }
       ],
       "pinyin": "sēn",
@@ -451,12 +487,12 @@
       "rarity": "White",
       "effects": [
         {
-          "kind": "DamageSingle",
+          "kind": "HealSelf",
           "value": 6
         }
       ],
       "pinyin": "tīng",
-      "gloss": "水边平地"
+      "gloss": "水边平地;小憩回血"
     },
     {
       "id": "沐",
@@ -468,8 +504,8 @@
       "rarity": "Green",
       "effects": [
         {
-          "kind": "Shield",
-          "value": 6
+          "kind": "HealSelf",
+          "value": 10
         }
       ],
       "pinyin": "mù",
@@ -487,8 +523,12 @@
       "rarity": "Orange",
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 16
+        },
+        {
           "kind": "DamageAll",
-          "value": 15
+          "value": 8
         }
       ],
       "pinyin": "miǎo",

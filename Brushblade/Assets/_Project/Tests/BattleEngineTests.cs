@@ -404,5 +404,94 @@ namespace Brushblade.Core.Tests
             engine.Cast("灯", 0); // 6 伤击杀 4 血木怪
             Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.InvalidTarget)); // 两个存活,点尸体无效
         }
+
+        // ---- 五系特色(2026-07-19 拍板):水主治疗 / 木主召唤(前排抗伤+反击) / 土盾附攻 ----
+
+        private static RecipeGraph IdentityGraph() => new(new[]
+        {
+            new CharDef("沐", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 10) }),
+            new CharDef("林", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 2, summonAttack: 2, summonChar: "木") }),
+            new CharDef("木", Element.Wood),
+        });
+
+        private static BattleEngine IdentityEngine(string[] library, EnemyDef[] enemies, int? startingHp = null) =>
+            new(IdentityGraph(), new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                library, System.Array.Empty<string>(), enemies, seed: 1, startingHp: startingHp);
+
+        [Test]
+        public void HealSelf_HealsPlayer_CapsAtMaxHp()
+        {
+            var engine = IdentityEngine(new[] { "沐", "沐" },
+                new[] { new EnemyDef("怔", Element.Heart, 100, 3) }, startingHp: 35);
+            engine.Cast("沐");
+            Assert.That(engine.PlayerHp, Is.EqualTo(45)); // +10
+            engine.Cast("沐");
+            Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 封顶不溢出
+        }
+
+        [Test]
+        public void Summon_SpawnsTrees_ThatTankAndFightBack()
+        {
+            var engine = IdentityEngine(new[] { "林" },
+                new[] { new EnemyDef("怔", Element.Heart, 100, 5) });
+            engine.Cast("林");
+            Assert.That(engine.Summons.Count, Is.EqualTo(2));
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(6));
+            Assert.That(engine.Summons[0].Char, Is.EqualTo("木"));
+
+            int hpBefore = engine.PlayerHp;
+            engine.EndTurn();
+            // 树反击:2×2 伤(木 vs 心 1.0);敌攻 5 打在首棵树上,玩家无伤
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100 - 4));
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(1)); // 6 - 5
+            Assert.That(engine.PlayerHp, Is.EqualTo(hpBefore));
+        }
+
+        [Test]
+        public void Summon_DeadTree_NextAttackHitsPlayer()
+        {
+            var engine = IdentityEngine(new[] { "林" },
+                new[] { new EnemyDef("怔", Element.Heart, 100, 8) });
+            engine.Cast("林");
+            engine.EndTurn(); // 敌攻 8:树 6 血阵亡(不溢出)
+            Assert.That(engine.Summons[0].Alive, Is.False);
+            Assert.That(engine.PlayerHp, Is.EqualTo(50));
+            engine.EndTurn(); // 第二棵树 6 血也被 8 攻击倒
+            engine.EndTurn(); // 无树,打到玩家
+            Assert.That(engine.PlayerHp, Is.EqualTo(50 - 8));
+        }
+
+        [Test]
+        public void Summon_CapsAtFourAlive()
+        {
+            var engine = IdentityEngine(new[] { "林", "林", "林" },
+                new[] { new EnemyDef("怔", Element.Heart, 100, 0) });
+            engine.Cast("林");
+            engine.Cast("林");
+            engine.Cast("林"); // 第三张只补到上限
+            int alive = 0;
+            foreach (var summon in engine.Summons)
+                if (summon.Alive) alive++;
+            Assert.That(alive, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void LoadGraph_ParsesHealAndSummon()
+        {
+            var graph = Brushblade.Data.ConfigLoader.LoadGraph(@"{ ""chars"": [
+                { ""id"": ""木"" },
+                { ""id"": ""沐"", ""element"": ""Water"", ""effects"": [ { ""kind"": ""HealSelf"", ""value"": 10 } ] },
+                { ""id"": ""林"", ""element"": ""Wood"", ""effects"": [
+                    { ""kind"": ""Summon"", ""value"": 6, ""count"": 2, ""attack"": 2, ""summonChar"": ""木"" } ] }
+            ] }");
+            var summon = graph.Get("林").Effects[0];
+            Assert.That(summon.Kind, Is.EqualTo(EffectKind.Summon));
+            Assert.That(summon.SummonCount, Is.EqualTo(2));
+            Assert.That(summon.SummonAttack, Is.EqualTo(2));
+            Assert.That(summon.SummonChar, Is.EqualTo("木"));
+            Assert.That(graph.Get("沐").Effects[0].Kind, Is.EqualTo(EffectKind.HealSelf));
+        }
     }
 }

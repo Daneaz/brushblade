@@ -61,6 +61,26 @@ namespace Brushblade.Core
         }
     }
 
+    /// <summary>玩家侧召唤物(木系,2026-07-19 拍板):顶前排替玩家承伤,回合末反击。</summary>
+    public sealed class SummonState
+    {
+        public string Char { get; }
+        public Element Element { get; }
+        public int Hp { get; internal set; }
+        public int MaxHp { get; }
+        public int Attack { get; }
+        public bool Alive => Hp > 0;
+
+        internal SummonState(string summonChar, Element element, int hp, int attack)
+        {
+            Char = summonChar;
+            Element = element;
+            Hp = hp;
+            MaxHp = hp;
+            Attack = attack;
+        }
+    }
+
     /// <summary>战斗中的字怪状态。成语 Boss 为一条总血池,按血量阈值切换阶段
     /// (2026-07-19 拍板:阈值带种子浮动,同一 Boss 每次体验不同;原独立血量四连战废止)。</summary>
     public sealed class EnemyState

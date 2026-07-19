@@ -45,6 +45,9 @@ namespace Brushblade.Core
         EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分)
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
         BossPhase,   // 成语 Boss 进入新阶段(Amount = 新阶段下标)
+        Heal,        // 治疗自身(Amount = 实际回复量,2026-07-19)
+        Summon,      // 召唤前排单位(Amount = 血量)
+        SummonHit,   // 召唤物替玩家承伤(Amount = 伤害)
         EnemyBuff,   // 被标点小妖加攻(TargetIndex = 被加成的敌人)
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
     }
@@ -70,6 +73,8 @@ namespace Brushblade.Core
         private readonly BattleConfig _config;
         private readonly GameRandom _random;
         private readonly List<EnemyState> _enemies = new();
+        private readonly List<SummonState> _summons = new();
+        private const int SummonCap = 4; // 场上存活召唤物上限(2026-07-19)
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
@@ -105,6 +110,7 @@ namespace Brushblade.Core
         public int LibraryCapacity => _config.LibraryCapacity;
         public int PoolCapacity => _config.PoolCapacity;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
+        public IReadOnlyList<SummonState> Summons => _summons;
         public ForgeError LastForgeError { get; private set; }
 
         private readonly List<BattleEvent> _events = new();
@@ -256,6 +262,19 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
+            // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克
+            foreach (var summon in _summons)
+            {
+                if (!summon.Alive) continue;
+                int target = -1;
+                for (int i = 0; i < _enemies.Count; i++)
+                    if (_enemies[i].Alive) { target = i; break; }
+                if (target < 0) break;
+                DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+            }
+            CheckWin();
+            if (Phase != BattlePhase.PlayerTurn) return;
+
             // 敌方辅助先行动:标点小妖给其他存活字怪加攻,当回合生效、与站位无关(8.3)
             foreach (var enemy in _enemies)
             {
@@ -276,12 +295,21 @@ namespace Brushblade.Core
                 if (!enemy.Alive || enemy.Def.Ability == EnemyAbility.Buff) continue;
 
                 int damage = enemy.Attack;
-                int fromNormal = Math.Min(_shieldNormal, damage);
-                _shieldNormal -= fromNormal;
-                int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
-                _shieldPersist -= fromPersist;
-                PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
-                _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, -1, damage));
+                var tank = FirstAliveSummon(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
+                if (tank != null)
+                {
+                    tank.Hp = Math.Max(0, tank.Hp - damage);
+                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, -1, damage));
+                }
+                else
+                {
+                    int fromNormal = Math.Min(_shieldNormal, damage);
+                    _shieldNormal -= fromNormal;
+                    int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
+                    _shieldPersist -= fromPersist;
+                    PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, -1, damage));
+                }
 
                 // 通假字:首次行动后现形(8.3)
                 if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
@@ -375,8 +403,38 @@ namespace Brushblade.Core
                     case EffectKind.BurnPotency:
                         _burnPerStack += value;
                         break;
+                    case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板);走生克(相生组合可增益)
+                        int heal = WuxingResolver.ResolveEffect(value, recipeElements);
+                        int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, heal);
+                        PlayerHp += healed;
+                        _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+                        break;
+                    case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
+                        for (int n = 0; n < effect.SummonCount; n++)
+                        {
+                            if (AliveSummons() >= SummonCap) break;
+                            _summons.Add(new SummonState(effect.SummonChar, attacker, value,
+                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)));
+                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value));
+                        }
+                        break;
                 }
             }
+        }
+
+        private int AliveSummons()
+        {
+            int alive = 0;
+            foreach (var summon in _summons)
+                if (summon.Alive) alive++;
+            return alive;
+        }
+
+        private SummonState FirstAliveSummon()
+        {
+            foreach (var summon in _summons)
+                if (summon.Alive) return summon;
+            return null;
         }
 
         /// <summary>条件基础值:灼类效果对带灼烧目标翻倍(10.3.1),再进生克结算。</summary>

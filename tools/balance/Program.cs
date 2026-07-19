@@ -183,6 +183,8 @@ namespace Brushblade.Balance
                     case EffectKind.BurnAll: sum += e.Value * 3; break;
                     case EffectKind.Shield: sum += e.Value / 2; break;
                     case EffectKind.BurnPotency: sum += e.Value * 2; break;
+                    case EffectKind.HealSelf: sum += e.Value / 2; break;
+                    case EffectKind.Summon: sum += (e.Value + e.SummonAttack * 3) * e.SummonCount / 2; break;
                 }
             }
             return sum;

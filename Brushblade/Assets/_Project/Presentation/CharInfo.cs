@@ -47,6 +47,8 @@ namespace Brushblade.Presentation
                     EffectKind.BurnAll => $"全体灼烧+{e.Value}",
                     EffectKind.Shield => $"护盾{e.Value}" + (e.PersistOnce ? "(豁免一次回合末清空)" : ""),
                     EffectKind.BurnPotency => $"本场灼烧每层结算+{e.Value}",
+                    EffectKind.HealSelf => $"治疗{e.Value}",
+                    EffectKind.Summon => $"召{e.SummonCount}×「{e.SummonChar}」(血{e.Value}攻{e.SummonAttack},顶前排)",
                     _ => e.Kind.ToString(),
                 });
             }

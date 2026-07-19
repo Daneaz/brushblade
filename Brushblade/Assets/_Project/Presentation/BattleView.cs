@@ -335,6 +335,21 @@ namespace Brushblade.Presentation
                 button.interactable = enemy.Alive;
                 _enemyRects.Add((RectTransform)circle.transform);
             }
+
+            // 玩家侧召唤物(木系,2026-07-19):前排树,替玩家承伤并反击
+            int summonIndex = 0;
+            foreach (var summon in Battle.Summons)
+            {
+                summonIndex++;
+                if (!summon.Alive) continue;
+                var cell = Ui.VStack(_enemyRow, $"Summon{summonIndex}", 3);
+                var layoutElement = cell.AddComponent<LayoutElement>();
+                layoutElement.preferredWidth = 72;
+                Ui.RoundButton(cell.transform, summon.Char, null,
+                    Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
+                    26, new Vector2(60, 60), 14);
+                Ui.ThemedLabel(cell.transform, $"血{summon.Hp} 攻{summon.Attack}", 13, Theme.TextDim); // Noto 子集无饰符,纯文字
+            }
         }
 
         private void DrawLibrary()

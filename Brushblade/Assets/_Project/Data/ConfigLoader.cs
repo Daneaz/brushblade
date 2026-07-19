@@ -38,6 +38,9 @@ namespace Brushblade.Data
             public int Value { get; set; }
             public bool DoubleVsBurning { get; set; }
             public bool PersistOnce { get; set; }
+            public int Count { get; set; } = 1;        // 召唤:召几个
+            public int Attack { get; set; }            // 召唤:攻击力
+            public string SummonChar { get; set; } = "木"; // 召唤:显示字
         }
 
         private sealed class CampaignFileDto
@@ -423,7 +426,8 @@ namespace Brushblade.Data
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
                 effects.Add(new EffectDef(kind, effect.Value,
-                    effect.DoubleVsBurning, effect.PersistOnce));
+                    effect.DoubleVsBurning, effect.PersistOnce,
+                    effect.Count, effect.Attack, effect.SummonChar));
             }
             return effects;
         }
