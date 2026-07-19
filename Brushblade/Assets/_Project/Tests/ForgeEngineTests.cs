@@ -179,5 +179,51 @@ namespace Brushblade.Core.Tests
             var suggest = ForgeEngine.Suggest(Graph(), Array.Empty<string>(), new[] { "林" });
             Assert.That(suggest.Composable, Is.Empty);
         }
+
+        // ---- 只能合已收集的字(2026-07-19 拍板:未开箱得到就合不出来) ----
+
+        [Test]
+        public void TryCompose_NotUnlocked_Rejected()
+        {
+            var state = State(Array.Empty<string>(), new[] { "火", "火" });
+            var result = ForgeEngine.TryCompose("炎", Graph(), state, 6, unlockedChars: new[] { "林" });
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.NotUnlocked));
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "火", "火" })); // 失败不动状态
+        }
+
+        [Test]
+        public void TryCompose_Unlocked_Succeeds()
+        {
+            var state = State(Array.Empty<string>(), new[] { "火", "火" });
+            var result = ForgeEngine.TryCompose("炎", Graph(), state, 6, unlockedChars: new[] { "炎" });
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Library, Is.EquivalentTo(new[] { "炎" }));
+        }
+
+        [Test]
+        public void TryCompose_NullUnlocked_NoRestriction() // 缺省不限(工装与旧调用)
+        {
+            var state = State(Array.Empty<string>(), new[] { "火", "火" });
+            Assert.That(ForgeEngine.TryCompose("炎", Graph(), state, 6).Success, Is.True);
+        }
+
+        [Test]
+        public void Suggest_HidesLockedChars() // 合不出来的字不该出现在拆合台
+        {
+            var suggest = ForgeEngine.Suggest(Graph(), new[] { "木", "木", "火" },
+                Array.Empty<string>(), unlockedChars: new[] { "焚" });
+            Assert.That(suggest.Composable, Is.Empty);                          // 林未收集
+            Assert.That(suggest.NearMisses.Select(n => n.CharId), Does.Not.Contain("炎"));
+        }
+
+        [Test]
+        public void Suggest_KeepsUnlockedChars()
+        {
+            var suggest = ForgeEngine.Suggest(Graph(), new[] { "木", "木", "火" },
+                Array.Empty<string>(), unlockedChars: new[] { "林", "炎" });
+            Assert.That(suggest.Composable, Is.EquivalentTo(new[] { "林" }));
+            Assert.That(suggest.NearMisses.Select(n => n.CharId), Does.Contain("炎"));
+        }
     }
 }

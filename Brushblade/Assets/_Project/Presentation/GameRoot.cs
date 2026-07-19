@@ -133,7 +133,12 @@ namespace Brushblade.Presentation
                 : EndlessGenerator.BuildSegment(endless, fromDepth, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent);
 
             int maxHp = MetaRules.MaxHpFor(MetaRules.CharacterLevel(_meta.CharacterXp));
-            var battleConfig = new BattleConfig { DropTable = _campaign.DropTable, PlayerMaxHp = maxHp };
+            var battleConfig = new BattleConfig
+            {
+                DropTable = _campaign.DropTable,
+                PlayerMaxHp = maxHp,
+                UnlockedChars = _meta.OwnedCards, // 只能合已收集的字(2026-07-19)
+            };
             var run = new RunEngine(_graph, runConfig, battleConfig,
                 snapshot.Library, snapshot.Pool,
                 seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,

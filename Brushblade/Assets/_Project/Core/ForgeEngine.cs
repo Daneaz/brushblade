@@ -26,6 +26,7 @@ namespace Brushblade.Core
         MissingIngredients,// 池中原料不足,无法锻造
         LibraryFull,       // 字库已满
         UnknownChar,       // 图谱中无此字
+        NotUnlocked,       // 尚未收集此字(2026-07-19:只能合已收集的字)
     }
 
     public readonly struct ForgeResult
@@ -96,11 +97,15 @@ namespace Brushblade.Core
         }
 
         /// <summary>合:消耗配方全部原料 → 字入字库。原料优先取部件池,池中没有则消耗字库中的
-        /// 低阶字(4.2.3「原料可以是更低阶的汉字」,3.9 战例:合林 → 合焚)。</summary>
-        public static ForgeResult TryCompose(string charId, RecipeGraph graph, ForgeState state, int libraryCapacity)
+        /// 低阶字(4.2.3「原料可以是更低阶的汉字」,3.9 战例:合林 → 合焚)。
+        /// unlockedChars 非空时只能合其中的字(2026-07-19 拍板:没收集到就合不出来);null = 不限。</summary>
+        public static ForgeResult TryCompose(string charId, RecipeGraph graph, ForgeState state, int libraryCapacity,
+            IReadOnlyCollection<string> unlockedChars = null)
         {
             if (!graph.TryGet(charId, out var def))
                 return ForgeResult.Fail(ForgeError.UnknownChar, state);
+            if (unlockedChars != null && !unlockedChars.Contains(charId))
+                return ForgeResult.Fail(ForgeError.NotUnlocked, state);
 
             var pool = new List<string>(state.Pool);
             var library = new List<string>(state.Library);
@@ -119,8 +124,10 @@ namespace Brushblade.Core
             return ForgeResult.Ok(new ForgeState(library, pool));
         }
 
-        /// <summary>提示:可合成的字 + 差一个原料的字。原料 = 部件池 + 字库低阶字(3.9 战例语义)。</summary>
-        public static SuggestResult Suggest(RecipeGraph graph, IReadOnlyList<string> pool, IReadOnlyList<string> library)
+        /// <summary>提示:可合成的字 + 差一个原料的字。原料 = 部件池 + 字库低阶字(3.9 战例语义)。
+        /// unlockedChars 非空时只提示其中的字——合不出来的不该出现在拆合台(2026-07-19)。</summary>
+        public static SuggestResult Suggest(RecipeGraph graph, IReadOnlyList<string> pool, IReadOnlyList<string> library,
+            IReadOnlyCollection<string> unlockedChars = null)
         {
             var composable = new List<string>();
             var nearMisses = new List<NearMiss>();
@@ -132,6 +139,8 @@ namespace Brushblade.Core
             foreach (var def in graph.All)
             {
                 if (def.IsLeaf)
+                    continue;
+                if (unlockedChars != null && !unlockedChars.Contains(def.Id))
                     continue;
 
                 var remaining = new List<string>(available);

@@ -28,10 +28,14 @@ namespace Brushblade.Core
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
-        public int DropsPerTurn { get; set; } = 3; // 2→3(2026-07-19 拍板:出字即消耗,拆合再生产提速)
+        public int DropsPerTurn { get; set; } = 2; // 3→2(2026-07-19 二次拍板)
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
+
+        /// <summary>可合成的字集合 = 玩家已收集(2026-07-19 拍板:没收集到就合不出来);
+        /// null = 不限(工装与旧调用)。</summary>
+        public IReadOnlyCollection<string> UnlockedChars { get; set; }
     }
 
     /// <summary>结算事件(供表现层做打击感,13.3;架构:表现监听 Core 事件,不反向驱动)。</summary>
@@ -109,6 +113,9 @@ namespace Brushblade.Core
         public IReadOnlyList<string> Pool => _forge.Pool;
         public int LibraryCapacity => _config.LibraryCapacity;
         public int PoolCapacity => _config.PoolCapacity;
+
+        /// <summary>可合成字集(已收集);null = 不限。表现层的拆合台提示按此过滤。</summary>
+        public IReadOnlyCollection<string> UnlockedChars => _config.UnlockedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public IReadOnlyList<SummonState> Summons => _summons;
         public ForgeError LastForgeError { get; private set; }
@@ -141,7 +148,8 @@ namespace Brushblade.Core
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (Ap < 1) return BattleError.NotEnoughAp;
 
-            var result = ForgeEngine.TryCompose(charId, _graph, _forge, _config.LibraryCapacity);
+            var result = ForgeEngine.TryCompose(charId, _graph, _forge, _config.LibraryCapacity,
+                _config.UnlockedChars);
             if (!result.Success)
             {
                 LastForgeError = result.Error;

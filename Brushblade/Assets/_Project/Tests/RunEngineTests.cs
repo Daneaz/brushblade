@@ -139,12 +139,12 @@ namespace Brushblade.Core.Tests
         // ---- 局内广告扩容(2026-07-06 拍板):字库 6+2、部件池 10+2,一局各一次 ----
 
         [Test]
-        public void Defaults_Library6_Pool10_Drops3()
+        public void Defaults_Library6_Pool10_Drops2()
         {
             var config = new BattleConfig();
             Assert.That(config.LibraryCapacity, Is.EqualTo(6));
             Assert.That(config.PoolCapacity, Is.EqualTo(10));
-            Assert.That(config.DropsPerTurn, Is.EqualTo(3)); // 2→3(2026-07-19:出字即消耗,再生产提速)
+            Assert.That(config.DropsPerTurn, Is.EqualTo(2)); // 3→2(2026-07-19 二次拍板)
         }
 
         // ---- 战利品双排 5 选 1(2026-07-19 拍板):字池抽 5 选 1 + 固定五行部件 5 选 1;

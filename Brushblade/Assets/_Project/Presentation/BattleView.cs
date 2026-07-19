@@ -213,9 +213,7 @@ namespace Brushblade.Presentation
         {
             TutorialStep.DismantleFlame => "选中【炎】点【拆】——拆出两个部件『火』",
             TutorialStep.RecomposeFlame => "两个『火』能拼回去:点提示里的【合 炎】——拆与合互为表里",
-            TutorialStep.ComposeBlaze => "『炎』+『火』——点【合 焱】,拼出大杀器!",
-            TutorialStep.EndTurn => "点【结束回合】(AP 耗尽会自动结束)——小心字怪反击",
-            TutorialStep.CastBlaze => "打出【焱】,一击清场!",
+            TutorialStep.CastFlame => "选中【炎】点【出】——伤害 + 灼烧,回合末灼烧补刀收场",
             TutorialStep.PickReward => "战利品:字和部件各挑 1 个——出过的字不回来,靠拆合再生产",
             _ => "",
         };
@@ -442,7 +440,8 @@ namespace Brushblade.Presentation
 
         private void DrawSuggest()
         {
-            var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library);
+            // 只提示已收集的字:合不出来的不该出现在拆合台(2026-07-19)
+            var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library, Battle.UnlockedChars);
             DrawNearMissHints(suggest.NearMisses); // 左侧差字面板:选中与否都显示
             if (_selectedChar != null || _targeting) return; // 选中态:拆合台交给拆字+动作两行
             if (suggest.Composable.Count == 0)
@@ -1106,6 +1105,7 @@ namespace Brushblade.Presentation
                 ForgeError.PoolWouldOverflow => "部件池放不下,拆解取消",
                 ForgeError.MissingIngredients => "原料不足",
                 ForgeError.LibraryFull => "字库已满",
+                ForgeError.NotUnlocked => "尚未收集此字——开宝箱得到后才能合",
                 ForgeError.NotDismantlable => "独体字不可拆",
                 _ => "操作被拒",
             },

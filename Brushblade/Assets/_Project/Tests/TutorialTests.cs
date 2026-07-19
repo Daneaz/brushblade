@@ -3,8 +3,8 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>新手引导步骤机(11.2):首局剧本节拍 拆炎→合炎→合焱→结束回合→出焱→三选一。
-    /// v0.7 出字即消耗(无回归),连招一战内闭环;首发字库仅五行叠字系。</summary>
+    /// <summary>新手引导步骤机(11.2):首局剧本节拍 拆炎→合炎→出炎→三选一。
+    /// 2026-07-19「只能合已收集的字」后,升阶字合不出来,首局改为用【炎】演示拆/合/出。</summary>
     public class TutorialTests
     {
         [Test]
@@ -38,14 +38,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EndTurnStep_IgnoresCharId()
+        public void RecomposeFlame_AdvancesToCastFlame()
         {
             var tutorial = new Tutorial();
             tutorial.Notify(TutorialAction.Dismantle, "炎");
             tutorial.Notify(TutorialAction.Compose, "炎");
-            tutorial.Notify(TutorialAction.Compose, "焱");
-            tutorial.Notify(TutorialAction.EndTurn);
-            Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.CastBlaze));
+            Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.CastFlame));
         }
 
         [Test]
@@ -54,9 +52,7 @@ namespace Brushblade.Core.Tests
             var tutorial = new Tutorial();
             tutorial.Notify(TutorialAction.Dismantle, "炎");
             tutorial.Notify(TutorialAction.Compose, "炎");
-            tutorial.Notify(TutorialAction.Compose, "焱");
-            tutorial.Notify(TutorialAction.EndTurn);
-            tutorial.Notify(TutorialAction.Cast, "焱");
+            tutorial.Notify(TutorialAction.Cast, "炎");
             tutorial.Notify(TutorialAction.PickReward);
             Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.Done));
             Assert.That(tutorial.Done, Is.True);
@@ -72,14 +68,51 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void EndTurnMidway_DoesNotDerail() // AP 用尽结束回合不该打断节拍
+        {
+            var tutorial = new Tutorial();
+            tutorial.Notify(TutorialAction.Dismantle, "炎");
+            tutorial.Notify(TutorialAction.EndTurn);
+            Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.RecomposeFlame));
+        }
+
+        /// <summary>首局剧本必须真能打通(否则新手卡死):字库仅【炎】+ 池两个火,
+        /// 3 AP 走完 拆→合→出,靠回合末灼烧补刀取胜。实船数值守卫见 ConfigLoaderTests。</summary>
+        [Test]
+        public void FirstTowerScript_IsActuallyCompletable()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("火", Element.Fire),
+                new CharDef("炎", Element.Fire, new[] { "火", "火" }, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 12),
+                    new EffectDef(EffectKind.BurnSingle, 2),
+                }),
+            });
+            var config = new BattleConfig
+            {
+                DropTable = new[] { "火" },
+                UnlockedChars = new[] { "炎" },       // 只收集了炎——升阶字合不出来
+            };
+            var battle = new BattleEngine(graph, config, new[] { "炎" }, new[] { "火", "火" },
+                new[] { new EnemyDef("错字鬼", Element.Wood, 14, 4) }, seed: 7);
+
+            Assert.That(battle.Dismantle("炎"), Is.EqualTo(BattleError.None)); // 1 AP
+            Assert.That(battle.Compose("炎"), Is.EqualTo(BattleError.None));   // 2 AP
+            Assert.That(battle.Cast("炎"), Is.EqualTo(BattleError.None));      // 3 AP
+            Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn));     // 12 伤打不死 14 血
+            battle.EndTurn();                                                  // 灼烧补刀先于敌人行动
+            Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
+        [Test]
         public void NotifyAfterDone_StaysDone()
         {
             var tutorial = new Tutorial();
             tutorial.Notify(TutorialAction.Dismantle, "炎");
             tutorial.Notify(TutorialAction.Compose, "炎");
-            tutorial.Notify(TutorialAction.Compose, "焱");
-            tutorial.Notify(TutorialAction.EndTurn);
-            tutorial.Notify(TutorialAction.Cast, "焱");
+            tutorial.Notify(TutorialAction.Cast, "炎");
             tutorial.Notify(TutorialAction.PickReward);
             tutorial.Notify(TutorialAction.Cast, "炎");
             Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.Done));

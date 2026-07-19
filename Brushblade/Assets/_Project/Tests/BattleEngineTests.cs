@@ -58,12 +58,12 @@ namespace Brushblade.Core.Tests
         // ---- 回合开始(3.5 步骤 1) ----
 
         [Test]
-        public void TurnStart_GrantsApAndDropsThreeComponents()
+        public void TurnStart_GrantsApAndDropsTwoComponents()
         {
             var engine = Engine();
             Assert.That(engine.Turn, Is.EqualTo(1));
             Assert.That(engine.Ap, Is.EqualTo(3));
-            Assert.That(engine.Pool, Is.EquivalentTo(new[] { "木", "木", "木" })); // 掉落表只有木;3/回合(2026-07-19)
+            Assert.That(engine.Pool, Is.EquivalentTo(new[] { "木", "木" })); // 掉落表只有木;2/回合(2026-07-19)
         }
 
         [Test]
