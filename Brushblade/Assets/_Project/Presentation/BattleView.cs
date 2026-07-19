@@ -101,9 +101,9 @@ namespace Brushblade.Presentation
             _enemyRow = MakeSection("Enemies", 0.62f, 0.885f);
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
-            // 加宽拆合台(2026-07-19 iOS 反馈:合成行拥挤,触控目标要大)
+            // 拆合台:左缘避开配字表(0.135 宽),右侧尽量宽(2026-07-19 反馈:曾与配字表重叠)
             var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.PaperCard, 20);
-            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.08f, 0.37f), new Vector2(0.92f, 0.61f), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.145f, 0.37f), new Vector2(0.92f, 0.61f), Vector2.zero, Vector2.zero);
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
@@ -268,6 +268,25 @@ namespace Brushblade.Presentation
                 Ui.Bar(hpStack.transform, Mathf.Clamp01(Battle.PlayerShield / 30f), Theme.Jade, new Vector2(260, 7));
                 Ui.ThemedLabel(hpStack.transform, $"护盾 {Battle.PlayerShield}", 12, Theme.Jade);
             }
+            // 我方召唤物(木系):前排树,替玩家承伤并反击——展示在玩家侧(2026-07-19 反馈)
+            bool anySummon = false;
+            int summonIndex = 0;
+            foreach (var summon in Battle.Summons)
+            {
+                summonIndex++;
+                if (!summon.Alive) continue;
+                if (!anySummon)
+                {
+                    Ui.ThemedLabel(_bottomRow, "前排", 13, Theme.TextDim, Theme.TitleFont);
+                    anySummon = true;
+                }
+                var cell = Ui.VStack(_bottomRow, $"Summon{summonIndex}", 1);
+                Ui.RoundButton(cell.transform, summon.Char, null,
+                    Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
+                    19, new Vector2(40, 40), 10);
+                Ui.ThemedLabel(cell.transform, $"血{summon.Hp} 攻{summon.Attack}", 11, Theme.TextDim);
+            }
+
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
             var pips = Ui.Row(apStack.transform, "Pips", 12);
@@ -352,20 +371,6 @@ namespace Brushblade.Presentation
                 _enemyRects.Add((RectTransform)circle.transform);
             }
 
-            // 玩家侧召唤物(木系,2026-07-19):前排树,替玩家承伤并反击
-            int summonIndex = 0;
-            foreach (var summon in Battle.Summons)
-            {
-                summonIndex++;
-                if (!summon.Alive) continue;
-                var cell = Ui.VStack(_enemyRow, $"Summon{summonIndex}", 3);
-                var layoutElement = cell.AddComponent<LayoutElement>();
-                layoutElement.preferredWidth = 72;
-                Ui.RoundButton(cell.transform, summon.Char, null,
-                    Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    26, new Vector2(60, 60), 14);
-                Ui.ThemedLabel(cell.transform, $"血{summon.Hp} 攻{summon.Attack}", 13, Theme.TextDim); // Noto 子集无饰符,纯文字
-            }
         }
 
         private void DrawLibrary()
@@ -458,11 +463,22 @@ namespace Brushblade.Presentation
             if (_selectedChar != null || _targeting) return; // 选中态:拆合台交给拆字+动作两行
             if (suggest.Composable.Count == 0)
                 Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
+            // 可合成项每行 4 个自动换行(2026-07-19 反馈:过多时横排溢出被配字表遮盖)
+            const int CombosPerRow = 4;
+            var comboStack = Ui.VStack(_suggestRow, "ComboRows", 4);
+            Transform currentRow = null;
+            int inRow = CombosPerRow;
             foreach (var id in suggest.Composable)
             {
+                if (inRow >= CombosPerRow)
+                {
+                    currentRow = Ui.Row(comboStack.transform, $"ComboRow{inRow}", 14).transform;
+                    inRow = 0;
+                }
+                inRow++;
                 string charId = id;
                 var def = _graph.Get(charId);
-                var combo = Ui.Row(_suggestRow, $"Combo_{charId}", 6); // 触控:组间距/主按钮加大(2026-07-19 iOS 反馈)
+                var combo = Ui.Row(currentRow, $"Combo_{charId}", 6); // 触控:组间距/主按钮加大
                 foreach (var part in def.Recipe)
                 {
                     var partDef = _graph.Get(part);
