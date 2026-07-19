@@ -66,6 +66,9 @@ namespace Brushblade.Presentation
         private static void ShowShop()
         {
             var cardPool = ShopCardPool();
+            // 旧货架可能还摆着部件(2026-07-19 下架):作废重摆,不必等跨日
+            if (_meta.Shop.CardSlots.Exists(id => _graph.TryGet(id, out var def) && def.IsLeaf))
+                _meta.Shop.DayStamp = -1;
             if (ShopRules.EnsureShelf(_meta, cardPool, Time, new GameRandom(System.Environment.TickCount)))
                 MetaStore.Save(_meta);
             var view = NewView("ShopView");
@@ -73,12 +76,13 @@ namespace Brushblade.Presentation
                 () => MetaStore.Save(_meta), () => ShowMap());
         }
 
-        /// <summary>商城卡位池 = 部件 + 已拥有的字(2026-07-19 拍板:未拥有的字只能开宝箱)。</summary>
+        /// <summary>商城卡位池 = 已拥有的字(2026-07-19:部件每回合白掉,上架无意义已下架;
+        /// 未拥有的字只能开宝箱)。买重复卡用于升级。</summary>
         private static System.Collections.Generic.List<string> ShopCardPool()
         {
-            var pool = new System.Collections.Generic.List<string>(RunEngine.ComponentRewardChoices);
+            var pool = new System.Collections.Generic.List<string>();
             foreach (var card in _meta.OwnedCards)
-                if (!pool.Contains(card))
+                if (_graph.TryGet(card, out var def) && !def.IsLeaf && !pool.Contains(card))
                     pool.Add(card);
             return pool;
         }
@@ -275,7 +279,12 @@ namespace Brushblade.Presentation
             if (snapshot == null) return;
             int libraryCap = MetaRules.StartingLibrarySize + (snapshot.LibraryExpanded ? 2 : 0);
 
-            Ui.ThemedLabel(parent, $"休整 · 字库 {snapshot.Library.Count}/{libraryCap}(点字移出)", 15, Theme.TextDim, Theme.TitleFont);
+            // 休整 = 重挑下一段带哪些字上路(2026-07-19):出字即消耗,这里补齐/换阵
+            bool understaffed = snapshot.Library.Count < MetaRules.DeckMinimum;
+            Ui.ThemedLabel(parent, understaffed
+                    ? $"休整 · 字库 {snapshot.Library.Count}/{libraryCap}——不足 {MetaRules.DeckMinimum} 字,从备选补上再走"
+                    : $"休整 · 字库 {snapshot.Library.Count}/{libraryCap}(点字移出,点备选加入)",
+                15, understaffed ? Theme.Cinnabar : Theme.TextDim, Theme.TitleFont);
             var libraryRow = Ui.Row(parent, "RestLibrary", 6);
             foreach (var id in snapshot.Library)
             {
@@ -289,30 +298,40 @@ namespace Brushblade.Presentation
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
             }
 
-            // 备选 = 出阵列表中不在字库的字(补齐已废止:未出阵的字不上场,2026-07-19)
-            var roster = _meta.Deck;
+            // 备选 = 已收集的全部字(2026-07-19 修:此前只列登塔前的出阵列表,
+            // 塔内新开箱得到的字换不上——而换阵正是休整的意义)。部件靠掉落,不占字库位。
             var reserve = new System.Collections.Generic.List<string>();
-            foreach (var id in roster)
-                if (!snapshot.Library.Contains(id))
+            foreach (var id in _meta.OwnedCards)
+                if (!snapshot.Library.Contains(id) && _graph.TryGet(id, out var owned) && !owned.IsLeaf)
                     reserve.Add(id);
+            reserve.Sort((a, b) =>
+            {
+                int byLevel = MetaRules.CardLevel(_meta, b).CompareTo(MetaRules.CardLevel(_meta, a));
+                return byLevel != 0 ? byLevel : string.CompareOrdinal(a, b);
+            });
             if (reserve.Count == 0) return;
 
             Ui.ThemedLabel(parent, snapshot.Library.Count >= libraryCap
                 ? "备选(字库已满——先点上方的字移出,才能换新的进来)"
-                : "备选(出阵列表,点字加入)", 15, Theme.TextDim, Theme.TitleFont);
-            var reserveRow = Ui.Row(parent, "RestReserve", 6);
-            foreach (var id in reserve)
+                : "备选(已收集的字,点字加入)", 15, Theme.TextDim, Theme.TitleFont);
+            const int perRow = 8; // 收集全量最多 15 字,安全层卡片放不下一行
+            for (int start = 0; start < reserve.Count; start += perRow)
             {
-                string charId = id;
-                var def = _graph.Get(charId);
-                var button = Ui.RoundButton(reserveRow.transform, charId, () =>
+                var reserveRow = Ui.Row(parent, $"RestReserve{start}", 6);
+                int end = Mathf.Min(start + perRow, reserve.Count);
+                for (int i = start; i < end; i++)
                 {
-                    if (snapshot.Library.Count >= libraryCap) return;
-                    snapshot.Library.Add(charId);
-                    MetaStore.Save(_meta);
-                    ShowSafeLayer(depth, totalEarned, chestNote);
-                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
-                button.interactable = snapshot.Library.Count < libraryCap;
+                    string charId = reserve[i];
+                    var def = _graph.Get(charId);
+                    var button = Ui.RoundButton(reserveRow.transform, charId, () =>
+                    {
+                        if (snapshot.Library.Count >= libraryCap) return;
+                        snapshot.Library.Add(charId);
+                        MetaStore.Save(_meta);
+                        ShowSafeLayer(depth, totalEarned, chestNote);
+                    }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
+                    button.interactable = snapshot.Library.Count < libraryCap;
+                }
             }
         }
 
