@@ -470,10 +470,9 @@ namespace Brushblade.Presentation
                         Theme.ElementColor(partDef.Element), Color.white, 15, new Vector2(36, 36), 8);
                 }
                 Ui.ThemedLabel(combo.transform, "=", 14, Theme.TextDim);
-                // 「合 字」:间隙 + 结果字放大并按属性着色,墨底上跳色(2026-07-19 反馈:要视觉冲击)
-                string elementHex = ColorUtility.ToHtmlStringRGB(Theme.ElementColor(def.Element));
-                Ui.RoundButton(combo.transform, $"合 <color=#{elementHex}><size=27><b>{charId}</b></size></color>",
-                    () => OnCompose(charId), Theme.Ink, Color.white, 17, new Vector2(92, 54), 12);
+                // 结果字牌:白底 + 属性色大字,点击即合(2026-07-19 反馈:去「合」字)
+                Ui.RoundButton(combo.transform, $"<b>{charId}</b>", () => OnCompose(charId),
+                    Color.white, Theme.ElementColor(def.Element), 30, new Vector2(60, 54), 12);
             }
         }
 
