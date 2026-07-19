@@ -103,16 +103,30 @@ namespace Brushblade.Core
         public int AvailableInk => _startingInk + EarnedInk;
 
         /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。
-        /// 消费(InkCost/ComponentCost)付不起时返回 false,停留在事件中。</summary>
-        public bool ChooseEventOption(int index)
+        /// 消费付不起时返回 false,停留在事件中。部件抵价(ComponentCost)须由玩家指定
+        /// 不要的部件下标(数量吻合、无重复、不越界,2026-07-19)。</summary>
+        public bool ChooseEventOption(int index, IReadOnlyList<int> discardPoolIndices = null)
         {
             if (Phase != RunPhase.Event) return false;
             var option = CurrentEvent.Options[index];
             if (option.InkCost > AvailableInk)
                 return false; // 买不起,换个选项
-            if (option.ComponentCost > _carriedPool.Count)
-                return false; // 部件不够,换不起
-            _carriedPool.RemoveRange(0, option.ComponentCost); // 以物易物:最先入池的部件抵价
+            if (option.ComponentCost > 0)
+            {
+                if (option.ComponentCost > _carriedPool.Count)
+                    return false; // 池总量不够,换不起
+                if (discardPoolIndices == null || discardPoolIndices.Count != option.ComponentCost)
+                    return false; // 须选够指定数量
+                var picks = new List<int>(discardPoolIndices);
+                picks.Sort();
+                for (int i = 0; i < picks.Count; i++)
+                {
+                    if (picks[i] < 0 || picks[i] >= _carriedPool.Count) return false; // 越界
+                    if (i > 0 && picks[i] == picks[i - 1]) return false;              // 重复
+                }
+                for (int i = picks.Count - 1; i >= 0; i--) // 从后往前删,下标不漂移
+                    _carriedPool.RemoveAt(picks[i]);
+            }
 
             if (option.GainChar != null)
             {

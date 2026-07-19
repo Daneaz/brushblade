@@ -228,13 +228,27 @@ namespace Brushblade.Core.Tests
                 new[] { "焚" }, pool, seed: 7);
 
         [Test]
-        public void ComponentCost_ConsumesFromPool_GrantsChar()
+        public void ComponentCost_PlayerPicksComponents_ToDiscard()
+        {
+            var run = BarterRun(new[] { "木", "火", "木" });
+            WinAndSkipReward(run);
+            // 玩家自选不要的部件(下标 1、2 = 火与第二个木),而非自动扣最早的
+            Assert.That(run.ChooseEventOption(0, new[] { 1, 2 }), Is.True);
+            Assert.That(run.Battle.Library, Does.Contain("炎"));
+            Assert.That(run.Battle.Pool, Is.EquivalentTo(new[] { "木" })); // 首位的木保留
+        }
+
+        [Test]
+        public void ComponentCost_WrongPickCountOrDuplicates_Rejected()
         {
             var run = BarterRun(new[] { "木", "木", "火" });
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0), Is.True); // 消耗最先入池的两个部件
-            Assert.That(run.Battle.Library, Does.Contain("炎"));
-            Assert.That(run.Battle.Pool, Is.EquivalentTo(new[] { "火" })); // 木×2 已抵价
+            Assert.That(run.ChooseEventOption(0), Is.False);                 // 未选部件
+            Assert.That(run.ChooseEventOption(0, new[] { 0 }), Is.False);    // 数量不够
+            Assert.That(run.ChooseEventOption(0, new[] { 1, 1 }), Is.False); // 重复下标
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 9 }), Is.False); // 越界
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            Assert.That(run.CarriedPool.Count, Is.EqualTo(3)); // 失败不动池
         }
 
         [Test]
@@ -242,7 +256,7 @@ namespace Brushblade.Core.Tests
         {
             var run = BarterRun(new[] { "木" });
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0), Is.False); // 部件不够,换不起
+            Assert.That(run.ChooseEventOption(0, new[] { 0 }), Is.False); // 池总量不够,换不起
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
             Assert.That(run.ChooseEventOption(1), Is.True);
         }

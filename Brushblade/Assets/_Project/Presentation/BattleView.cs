@@ -690,11 +690,32 @@ namespace Brushblade.Presentation
             }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(96, 44));
         }
 
-        private void DrawEvent() // 奇遇(9.6):短情境 + 选择;字摊类消费显示预算
+        private int _pendingEventOption = -1; // 部件抵价:待付款的选项下标(选件模式)
+        private readonly System.Collections.Generic.List<int> _eventPicks = new(); // 已点选的池下标
+
+        private void DrawEvent() // 奇遇(9.6):短情境 + 选择;部件抵价由玩家自选不要的部件(2026-07-19)
         {
             var evt = _run.CurrentEvent;
             Ui.ThemedLabel(_enemyRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(_statusRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 18, Theme.TextDim);
+
+            if (_pendingEventOption >= 0)
+            {
+                var pending = evt.Options[_pendingEventOption];
+                Ui.ThemedLabel(_actionRow,
+                    $"{pending.Label}:点 {pending.ComponentCost} 个不要的部件({_eventPicks.Count}/{pending.ComponentCost})",
+                    20, Theme.TextMain, Theme.TitleFont);
+                Ui.RoundButton(_actionRow, "取消", () =>
+                {
+                    _pendingEventOption = -1;
+                    _eventPicks.Clear();
+                    _message = "";
+                    Refresh();
+                }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(84, 48));
+                DrawEventPoolPicker(pending);
+                return;
+            }
+
             for (int i = 0; i < evt.Options.Count; i++)
             {
                 int index = i;
@@ -703,6 +724,14 @@ namespace Brushblade.Presentation
                     && option.ComponentCost <= _run.CarriedPool.Count;
                 var button = Ui.RoundButton(_actionRow, option.Label, () =>
                 {
+                    if (option.ComponentCost > 0)
+                    {
+                        _pendingEventOption = index; // 进入选件模式
+                        _eventPicks.Clear();
+                        _message = $"以物易物:点 {option.ComponentCost} 个不要的部件抵价";
+                        Refresh();
+                        return;
+                    }
                     if (_run.ChooseEventOption(index))
                         _message = $"{evt.Id}:{option.Label}";
                     else
@@ -711,6 +740,35 @@ namespace Brushblade.Presentation
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
+            }
+        }
+
+        /// <summary>抵价选件:携带池平铺,点选高亮,凑够数自动成交。</summary>
+        private void DrawEventPoolPicker(EventOption option)
+        {
+            Ui.ThemedLabel(_poolRow, "部件池", 16, Theme.TextDim, Theme.TitleFont);
+            for (int i = 0; i < _run.CarriedPool.Count; i++)
+            {
+                int index = i;
+                string charId = _run.CarriedPool[i];
+                var def = _graph.Get(charId);
+                bool picked = _eventPicks.Contains(index);
+                Ui.RoundButton(_poolRow, charId, () =>
+                {
+                    if (picked) _eventPicks.Remove(index);
+                    else _eventPicks.Add(index);
+                    if (_eventPicks.Count == option.ComponentCost
+                        && _run.ChooseEventOption(_pendingEventOption, _eventPicks.ToArray()))
+                    {
+                        _pendingEventOption = -1;
+                        _eventPicks.Clear();
+                        _message = $"成交!{option.Label}";
+                        CancelSelection();
+                        return;
+                    }
+                    Refresh();
+                }, picked ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
+                    picked ? Color.white : Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
             }
         }
 

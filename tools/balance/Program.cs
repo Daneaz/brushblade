@@ -244,7 +244,11 @@ namespace Brushblade.Balance
                 options[i].Ink + options[i].HpDelta * 2 + (options[i].GainChar != null ? 5 : 0)
                 + options[i].GainComponents.Count - options[i].InkCost - options[i].ComponentCost);
             foreach (int i in order)
-                if (run.ChooseEventOption(i)) return;
+            {
+                var picks = options[i].ComponentCost > 0
+                    ? Enumerable.Range(0, options[i].ComponentCost).ToArray() : null; // 机器人:抵价取前 N 个
+                if (run.ChooseEventOption(i, picks)) return;
+            }
             run.ChooseEventOption(0);
         }
     }
