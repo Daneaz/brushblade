@@ -44,6 +44,7 @@ namespace Brushblade.Presentation
 
         private System.Action _onNewFloor;   // 连战推进到新一场时回调(无尽断点快照,20.6)
         private System.Action _onExit;       // 中途退出(无尽=挂起);null 时退化为认输
+        private System.Action _onAbandon;    // 弃塔:阵亡待遇半额结算(2026-07-19,与挂起并列选项)
         private System.Action _onExpanded;   // 广告扩容后回调(即时落盘,防挂起丢失)
         private int _lastBattleIndex;
         private int _pendingRewardIndex = -1;   // 满库替换:已选中待替换入库的奖励下标(3.8.1)
@@ -53,13 +54,14 @@ namespace Brushblade.Presentation
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
             Tutorial tutorial = null, string title = null, int playerMaxHp = 50,
             System.Action onNewFloor = null, System.Action onExit = null,
-            System.Action onExpanded = null)
+            System.Action onExpanded = null, System.Action onAbandon = null)
         {
             _graph = graph;
             _run = run;
             _onRunEnded = onRunEnded;
             _onNewFloor = onNewFloor;
             _onExit = onExit;
+            _onAbandon = onAbandon;
             _onExpanded = onExpanded;
             _lastBattleIndex = run.BattleIndex;
             _tutorial = tutorial;
@@ -225,18 +227,32 @@ namespace Brushblade.Presentation
             Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
             Ui.ThemedLabel(_topRight, $"回合 {Battle.Turn}", 18, Theme.TextDim);
             bool exitArmed = Time.unscaledTime < _exitArmedUntil;
-            bool suspend = _onExit != null; // 无尽:退出=挂起(断点续爬,20.6);否则=放弃
-            Ui.PillButton(_topRight, exitArmed ? (suspend ? "确认挂起?" : "确认退出?") : "退出", () =>
+            bool suspend = _onExit != null; // 无尽:退出可挂起/弃塔(2026-07-19);否则=认输
+            if (suspend && exitArmed)
             {
-                if (Time.unscaledTime < _exitArmedUntil)
+                // 二段确认展开:挂起(断点续爬) / 弃塔(阵亡待遇半额) / 继续
+                Ui.PillButton(_topRight, "挂起离塔", () => _onExit(),
+                    Theme.Cinnabar, Color.white, 15, new Vector2(104, 38));
+                Ui.PillButton(_topRight, "弃塔(半额)", () => _onAbandon?.Invoke(),
+                    Theme.InkSoft, Color.white, 15, new Vector2(108, 38));
+                Ui.PillButton(_topRight, "继续", () =>
                 {
-                    if (suspend) _onExit();
-                    else _onRunEnded(false);
+                    _exitArmedUntil = 0;
+                    _message = "";
+                    Refresh();
+                }, Theme.LockedBg, Theme.TextMain, 15, new Vector2(64, 38));
+                return;
+            }
+            Ui.PillButton(_topRight, exitArmed ? "确认退出?" : "退出", () =>
+            {
+                if (!suspend && Time.unscaledTime < _exitArmedUntil)
+                {
+                    _onRunEnded(false);
                     return;
                 }
                 _exitArmedUntil = Time.unscaledTime + 2.5f;
                 _message = suspend
-                    ? "再点一次「确认挂起?」暂停登塔(下次从本层继续)"
+                    ? "挂起:下次从本层继续 · 弃塔:墨锭半额结算,纪录保留"
                     : "再点一次「确认退出?」放弃本关(进度不推进,奇遇墨锭保留)";
                 Refresh();
             }, exitArmed ? Theme.Cinnabar : Theme.ExitPink, Color.white, 15, new Vector2(110, 38));

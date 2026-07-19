@@ -141,7 +141,9 @@ namespace Brushblade.Presentation
                 tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
                 onNewFloor: () => OnFloorAdvanced(run, fromDepth, baseInk),
                 onExit: () => ShowMap("登塔已挂起,随时回来继续"),
-                onExpanded: () => OnExpanded(run));
+                onExpanded: () => OnExpanded(run),
+                onAbandon: () => SettleTower(died: true, // 弃塔=阵亡待遇:半额结算,防绕过安全层撤退决策
+                    fromDepth + run.BattleIndex - 1, baseInk + run.EarnedInk, abandoned: true));
         }
 
         /// <summary>广告扩容即时落盘:挂起/杀进程也不丢已看广告换来的容量。</summary>
@@ -294,17 +296,19 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>塔结算(20.5):撤退全额/阵亡半额;宝箱已随每个 Boss 层即时发放,结算不再发。</summary>
-        private static void SettleTower(bool died, int clearedDepth, int totalEarned)
+        /// <summary>塔结算(20.5):撤退全额/阵亡与弃塔半额;宝箱已随每个 Boss 层即时发放,结算不再发。</summary>
+        private static void SettleTower(bool died, int clearedDepth, int totalEarned, bool abandoned = false)
         {
             _meta.Endless = null;
             EndlessRules.UpdateBest(_meta, clearedDepth);
             int ink = EndlessRules.SettleInk(totalEarned, died);
             _meta.Ink += ink;
 
-            string message = died
-                ? $"卒于第 {clearedDepth + 1} 层……墨锭 {ink}(半额)入账"
-                : $"第 {clearedDepth} 层收官!墨锭 {ink} 入账";
+            string message = abandoned
+                ? $"于第 {clearedDepth + 1} 层弃塔……墨锭 {ink}(半额)入账,纪录保留"
+                : died
+                    ? $"卒于第 {clearedDepth + 1} 层……墨锭 {ink}(半额)入账"
+                    : $"第 {clearedDepth} 层收官!墨锭 {ink} 入账";
             MetaStore.Save(_meta);
             ShowMap(message);
         }
