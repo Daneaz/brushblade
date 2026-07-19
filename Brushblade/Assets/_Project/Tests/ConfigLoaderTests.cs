@@ -111,19 +111,36 @@ namespace Brushblade.Core.Tests
         // ---- 实际配置表:StreamingAssets/config/chars.json 必须永远可加载 ----
 
         [Test]
-        public void ShippedCharsJson_LoadsAndSupportsFireLoopExample() // 第 3 章 3.9 战例
+        public void ShippedCharsJson_LoadsFiveElementLadders() // 首发字库:5 系 × 2/3/4 叠
         {
             var json = File.ReadAllText(
                 Path.Combine(Application.streamingAssetsPath, "config/chars.json"));
             var graph = ConfigLoader.LoadGraph(json);
 
-            // 焚 = 林+火,配方属性 {木,火} 构成木生火 → ×3
-            Assert.That(graph.Get("焚").ApCost, Is.EqualTo(2));
-            Assert.That(WuxingResolver.ShengMultiplier(graph.RecipeElements("焚")), Is.EqualTo(3));
+            // 每系升阶链存在:部件 → 2叠 → 3叠 → 4叠(四金/四木为 PUA 显示代理)
+            var ladders = new[]
+            {
+                new[] { "金", "鍂", "鑫", "" },
+                new[] { "木", "林", "森", "" },
+                new[] { "水", "沝", "淼", "㵘" },
+                new[] { "火", "炎", "焱", "燚" },
+                new[] { "土", "圭", "垚", "㙓" },
+            };
+            // 稀有度阶梯(2026-07-19 拍板):部件白 / 2叠绿 / 3叠蓝 / 4叠紫
+            var rarities = new[] { CardRarity.White, CardRarity.Green, CardRarity.Blue, CardRarity.Purple };
+            foreach (var ladder in ladders)
+                for (int i = 0; i < ladder.Length; i++)
+                {
+                    Assert.That(graph.TryGet(ladder[i], out var def), Is.True, ladder[i]);
+                    Assert.That(def.Rarity, Is.EqualTo(rarities[i]), ladder[i]);
+                    if (i == 0) continue;
+                    // 链式配方:上一阶 + 部件
+                    Assert.That(def.Recipe, Is.EqualTo(new[] { ladder[i - 1], ladder[0] }));
+                }
 
-            // 升阶链存在:火 → 炎 → 焱 → 燚
-            foreach (var id in new[] { "火", "炎", "焱", "燚" })
-                Assert.That(graph.TryGet(id, out _), Is.True, id);
+            // 3/4 叠为高阶字:出字 2 AP
+            Assert.That(graph.Get("焱").ApCost, Is.EqualTo(2));
+            Assert.That(graph.Get("燚").ApCost, Is.EqualTo(2));
         }
     }
 }

@@ -13,6 +13,9 @@ namespace Brushblade.Core
         public int ComponentCost { get; set; }                // 部件抵价(以物易物;池内不足不可选,2026-07-19)
         public string GainChar { get; set; }                  // 获得字入关内字库
         public IReadOnlyList<string> GainComponents { get; set; } = Array.Empty<string>(); // 部件入池
+        public int RandomComponents { get; set; }             // 随机部件个数(五行均匀掷,2026-07-19)
+        public IReadOnlyList<string> GainCharChoices { get; set; } = Array.Empty<string>(); // 任选一字入库(字摊)
+        public int InkChancePercent { get; set; }             // >0 = Ink 按此概率发放(赌注;成本照付)
     }
 
     /// <summary>奇遇事件(9.6:短情境 + 2~4 选择,run 内非战斗节点)。</summary>

@@ -18,7 +18,7 @@ namespace Brushblade.Core
         /// <summary>每场遭遇的敌人列表。</summary>
         public IReadOnlyList<IReadOnlyList<EnemyDef>> Encounters { get; set; }
 
-        /// <summary>战后字奖励池(抽 5 选 2)。</summary>
+        /// <summary>战后字奖励池(抽 5 选 1)。</summary>
         public IReadOnlyList<string> RewardPool { get; set; }
 
         /// <summary>奇遇事件池(9.6);空则无奇遇。</summary>
@@ -32,10 +32,10 @@ namespace Brushblade.Core
     /// 跨战斗规则:HP 保留(第 9 章)、部件池保留(3.8.2)、出字即消耗不回归(3.8.1 v0.7 拍板)。</summary>
     public sealed class RunEngine
     {
-        private const int RewardOptionCount = 5; // 战利品字候选数(5 选 2,2026-07-19 拍板)
-        private const int RewardPicks = 2;       // 字/部件各自的可取数
+        private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 1,2026-07-19 拍板)
+        private const int RewardPicks = 1;       // 字/部件各自的可取数(Boss 层奖励走宝箱,不经此)
 
-        /// <summary>部件奖励固定候选:五行基础部件(5 选 2)。</summary>
+        /// <summary>部件奖励固定候选:五行基础部件(5 选 1)。</summary>
         public static readonly IReadOnlyList<string> ComponentRewardChoices =
             new[] { "金", "木", "水", "火", "土" };
 
@@ -104,13 +104,26 @@ namespace Brushblade.Core
 
         /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。
         /// 消费付不起时返回 false,停留在事件中。部件抵价(ComponentCost)须由玩家指定
-        /// 不要的部件下标(数量吻合、无重复、不越界,2026-07-19)。</summary>
-        public bool ChooseEventOption(int index, IReadOnlyList<int> discardPoolIndices = null)
+        /// 不要的部件下标(数量吻合、无重复、不越界,2026-07-19)。
+        /// 任选字(GainCharChoices)须给 charChoiceIndex。全部先验后扣:拒绝不动任何状态。</summary>
+        public bool ChooseEventOption(int index, IReadOnlyList<int> discardPoolIndices = null,
+            int charChoiceIndex = -1)
         {
             if (Phase != RunPhase.Event) return false;
             var option = CurrentEvent.Options[index];
             if (option.InkCost > AvailableInk)
                 return false; // 买不起,换个选项
+
+            string gainChar = option.GainChar;
+            if (option.GainCharChoices.Count > 0)
+            {
+                if (charChoiceIndex < 0 || charChoiceIndex >= option.GainCharChoices.Count)
+                    return false; // 任选字须指定选哪一个
+                gainChar = option.GainCharChoices[charChoiceIndex];
+            }
+            if (gainChar != null && _carriedLibrary.Count >= _battleConfig.LibraryCapacity)
+                return false; // 字库已满,收不下(3.8.1「选择不要」;先验后扣,部件不受损)
+
             if (option.ComponentCost > 0)
             {
                 if (option.ComponentCost > _carriedPool.Count)
@@ -128,16 +141,16 @@ namespace Brushblade.Core
                     _carriedPool.RemoveAt(picks[i]);
             }
 
-            if (option.GainChar != null)
-            {
-                if (_carriedLibrary.Count >= _battleConfig.LibraryCapacity)
-                    return false; // 字库已满,收不下(3.8.1「选择不要」,换个选项)
-                _carriedLibrary.Add(option.GainChar);
-            }
+            if (gainChar != null)
+                _carriedLibrary.Add(gainChar);
             foreach (var component in option.GainComponents)
                 if (_carriedPool.Count < _battleConfig.PoolCapacity)
                     _carriedPool.Add(component); // 池满则不入(同 3.8.2「池满则不掉」)
-            EarnedInk += option.Ink - option.InkCost;
+            for (int i = 0; i < option.RandomComponents; i++)
+                if (_carriedPool.Count < _battleConfig.PoolCapacity)
+                    _carriedPool.Add(ComponentRewardChoices[_random.Next(ComponentRewardChoices.Count)]);
+            bool inkWon = option.InkChancePercent <= 0 || _random.Next(100) < option.InkChancePercent;
+            EarnedInk += (inkWon ? option.Ink : 0) - option.InkCost;
             if (option.HpDelta > 0)
                 _carriedHp = Math.Min(_battleConfig.PlayerMaxHp, _carriedHp + option.HpDelta);
             else if (option.HpDelta < 0)

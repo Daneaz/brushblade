@@ -94,6 +94,9 @@ namespace Brushblade.Data
             public int ComponentCost { get; set; }
             public string GainChar { get; set; }
             public List<string> GainComponents { get; set; }
+            public int RandomComponents { get; set; }
+            public List<string> GainCharChoices { get; set; }
+            public int InkChancePercent { get; set; }
         }
 
         private sealed class ChapterDto
@@ -197,6 +200,9 @@ namespace Brushblade.Data
                     foreach (var component in optionDto.GainComponents ?? new List<string>())
                         if (!graph.TryGet(component, out _))
                             throw new ConfigException($"奇遇「{eventDto.Id}」选项引用了不存在的部件:{component}");
+                    foreach (var choice in optionDto.GainCharChoices ?? new List<string>())
+                        if (!graph.TryGet(choice, out _))
+                            throw new ConfigException($"奇遇「{eventDto.Id}」任选字引用了不存在的字:{choice}");
                     options.Add(new EventOption
                     {
                         Label = optionDto.Label,
@@ -206,6 +212,9 @@ namespace Brushblade.Data
                         ComponentCost = optionDto.ComponentCost,
                         GainChar = optionDto.GainChar,
                         GainComponents = optionDto.GainComponents ?? new List<string>(),
+                        RandomComponents = optionDto.RandomComponents,
+                        GainCharChoices = optionDto.GainCharChoices ?? new List<string>(),
+                        InkChancePercent = optionDto.InkChancePercent,
                     });
                 }
                 events.Add(new EventDef { Id = eventDto.Id, Text = eventDto.Text, Options = options });

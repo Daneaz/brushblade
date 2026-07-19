@@ -211,12 +211,12 @@ namespace Brushblade.Presentation
 
         private static string TutorialText(TutorialStep step) => step switch
         {
-            TutorialStep.DismantleLamp => "选中【灯】点【拆】——拆出部件『火』『丁』",
-            TutorialStep.ComposeForest => "两个『木』能拼字:点提示里的【合 林】",
-            TutorialStep.ComposeBurn => "『林』+『火』——点【合 焚】,拼出大杀器!",
+            TutorialStep.DismantleFlame => "选中【炎】点【拆】——拆出两个部件『火』",
+            TutorialStep.RecomposeFlame => "两个『火』能拼回去:点提示里的【合 炎】——拆与合互为表里",
+            TutorialStep.ComposeBlaze => "『炎』+『火』——点【合 焱】,拼出大杀器!",
             TutorialStep.EndTurn => "点【结束回合】(AP 耗尽会自动结束)——小心字怪反击",
-            TutorialStep.CastBurn => "打出【焚】,一击清场!",
-            TutorialStep.PickReward => "战利品:字和部件各挑 2 个——出过的字不回来,靠拆合再生产",
+            TutorialStep.CastBlaze => "打出【焱】,一击清场!",
+            TutorialStep.PickReward => "战利品:字和部件各挑 1 个——出过的字不回来,靠拆合再生产",
             _ => "",
         };
 
@@ -610,7 +610,7 @@ namespace Brushblade.Presentation
             }, Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
-        private void DrawReward() // 战利品双排 5 选 2(2026-07-19 拍板):字 + 固定五行部件
+        private void DrawReward() // 战利品双排 5 选 1(2026-07-19 拍板):字 + 固定五行部件;Boss 层走宝箱
         {
             // 部件排(结束回合行位置):五行基础部件按属性色;首点预览,再点确认
             Ui.ThemedLabel(_statusRow, $"部件·选 {_run.ComponentPicksLeft}", 18, Theme.TextDim, Theme.TitleFont);
@@ -691,10 +691,11 @@ namespace Brushblade.Presentation
             }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(96, 44));
         }
 
-        private int _pendingEventOption = -1; // 部件抵价:待付款的选项下标(选件模式)
+        private int _pendingEventOption = -1; // 部件抵价/任选字:待成交的选项下标
+        private int _pendingCharChoice = -1;  // 任选字:已选中的字下标(-1 = 未选)
         private readonly System.Collections.Generic.List<int> _eventPicks = new(); // 已点选的池下标
 
-        private void DrawEvent() // 奇遇(9.6):短情境 + 选择;部件抵价由玩家自选不要的部件(2026-07-19)
+        private void DrawEvent() // 奇遇(9.6):短情境 + 选择;部件抵价/任选字由玩家点选(2026-07-19)
         {
             var evt = _run.CurrentEvent;
             Ui.ThemedLabel(_enemyRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
@@ -703,17 +704,21 @@ namespace Brushblade.Presentation
             if (_pendingEventOption >= 0)
             {
                 var pending = evt.Options[_pendingEventOption];
-                Ui.ThemedLabel(_actionRow,
-                    $"{pending.Label}:点 {pending.ComponentCost} 个不要的部件({_eventPicks.Count}/{pending.ComponentCost})",
+                bool needCharChoice = pending.GainCharChoices.Count > 0 && _pendingCharChoice < 0;
+                Ui.ThemedLabel(_actionRow, needCharChoice
+                        ? $"{pending.Label}:先点想要的字"
+                        : $"{pending.Label}:点 {pending.ComponentCost} 个不要的部件({_eventPicks.Count}/{pending.ComponentCost})",
                     20, Theme.TextMain, Theme.TitleFont);
                 Ui.RoundButton(_actionRow, "取消", () =>
                 {
-                    _pendingEventOption = -1;
-                    _eventPicks.Clear();
+                    ResetEventSelection();
                     _message = "";
                     Refresh();
                 }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(84, 48));
-                DrawEventPoolPicker(pending);
+                if (needCharChoice)
+                    DrawEventCharChoices(pending);
+                else
+                    DrawEventPoolPicker(pending);
                 return;
             }
 
@@ -725,22 +730,63 @@ namespace Brushblade.Presentation
                     && option.ComponentCost <= _run.CarriedPool.Count;
                 var button = Ui.RoundButton(_actionRow, option.Label, () =>
                 {
-                    if (option.ComponentCost > 0)
+                    if (option.ComponentCost > 0 || option.GainCharChoices.Count > 0)
                     {
-                        _pendingEventOption = index; // 进入选件模式
+                        _pendingEventOption = index; // 进入选件/选字模式
+                        _pendingCharChoice = -1;
                         _eventPicks.Clear();
-                        _message = $"以物易物:点 {option.ComponentCost} 个不要的部件抵价";
+                        _message = option.GainCharChoices.Count > 0
+                            ? "先点想要的字"
+                            : $"以物易物:点 {option.ComponentCost} 个不要的部件抵价";
                         Refresh();
                         return;
                     }
+                    int inkBefore = _run.AvailableInk;
                     if (_run.ChooseEventOption(index))
-                        _message = $"{evt.Id}:{option.Label}";
+                        _message = option.InkChancePercent > 0 // 赌注:按墨锭变化播报输赢
+                            ? (_run.AvailableInk > inkBefore ? $"手气极佳!+{option.Ink} 墨锭" : "输了……愿赌服输")
+                            : $"{evt.Id}:{option.Label}";
                     else
                         _message = "付不起或字库已满,换个选择";
                     CancelSelection();
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
+            }
+        }
+
+        private void ResetEventSelection()
+        {
+            _pendingEventOption = -1;
+            _pendingCharChoice = -1;
+            _eventPicks.Clear();
+        }
+
+        /// <summary>任选字:候选平铺(元素色字牌),点选即定;无部件成本则当场成交。</summary>
+        private void DrawEventCharChoices(EventOption option)
+        {
+            for (int i = 0; i < option.GainCharChoices.Count; i++)
+            {
+                int choice = i;
+                string charId = option.GainCharChoices[i];
+                var def = _graph.Get(charId);
+                Ui.RoundButton(_poolRow, charId, () =>
+                {
+                    _pendingCharChoice = choice;
+                    if (option.ComponentCost > 0)
+                    {
+                        _message = $"要「{charId}」:点 {option.ComponentCost} 个不要的部件抵价";
+                        Refresh();
+                        return;
+                    }
+                    if (_run.ChooseEventOption(_pendingEventOption, null, choice))
+                        _message = $"成交!得「{charId}」";
+                    else
+                        _message = "字库已满,收不下";
+                    ResetEventSelection();
+                    CancelSelection();
+                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
+                    26, new Vector2(64, 64), 12);
             }
         }
 
@@ -758,14 +804,18 @@ namespace Brushblade.Presentation
                 {
                     if (picked) _eventPicks.Remove(index);
                     else _eventPicks.Add(index);
-                    if (_eventPicks.Count == option.ComponentCost
-                        && _run.ChooseEventOption(_pendingEventOption, _eventPicks.ToArray()))
+                    if (_eventPicks.Count == option.ComponentCost)
                     {
-                        _pendingEventOption = -1;
-                        _eventPicks.Clear();
-                        _message = $"成交!{option.Label}";
-                        CancelSelection();
-                        return;
+                        if (_run.ChooseEventOption(_pendingEventOption, _eventPicks.ToArray(), _pendingCharChoice))
+                        {
+                            string gained = _pendingCharChoice >= 0
+                                ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
+                            _message = gained != null ? $"成交!得「{gained}」" : $"成交!{option.Label}";
+                            ResetEventSelection();
+                            CancelSelection();
+                            return;
+                        }
+                        _message = "字库已满,收不下——先取消,腾出位置再来"; // 先验后扣,部件未损
                     }
                     Refresh();
                 }, picked ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),

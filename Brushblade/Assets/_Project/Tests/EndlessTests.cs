@@ -69,11 +69,14 @@ namespace Brushblade.Core.Tests
         // ---- 遭遇生成 ----
 
         [Test]
-        public void Floor1_SingleEnemy_FromBandPool()
+        public void Floor1_SingleEnemy_NeverSupport() // 辅助型不单独成场(2026-07-19)
         {
-            var floor = EndlessGenerator.BuildFloor(Config(), 1, new GameRandom(7));
-            Assert.That(floor.Count, Is.EqualTo(1));
-            Assert.That(new[] { "错字鬼", "标点小妖" }, Does.Contain(floor[0].Id));
+            for (int seed = 0; seed < 30; seed++)
+            {
+                var floor = EndlessGenerator.BuildFloor(Config(), 1, new GameRandom(seed));
+                Assert.That(floor.Count, Is.EqualTo(1));
+                Assert.That(floor[0].Id, Is.EqualTo("错字鬼")); // 池中唯一非辅助
+            }
         }
 
         [Test]
@@ -117,6 +120,18 @@ namespace Brushblade.Core.Tests
                 var floor = EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(seed));
                 Assert.That(floor.Count(e => e.Ability == EnemyAbility.Buff), Is.LessThanOrEqualTo(1));
             }
+        }
+
+        [Test]
+        public void EveryFloor_HasAtLeastOneNonSupport() // 全辅助场零威胁,禁止出现
+        {
+            foreach (int depth in new[] { 1, 2, 3, 4, 6, 7, 8, 9, 12, 99 })
+                for (int seed = 0; seed < 20; seed++)
+                {
+                    var floor = EndlessGenerator.BuildFloor(Config(), depth, new GameRandom(seed));
+                    Assert.That(floor.Any(e => e.Ability != EnemyAbility.Buff), Is.True,
+                        $"depth={depth} seed={seed} 全是辅助型");
+                }
         }
 
         // ---- 段组装(20.2/20.6 断点续爬) ----

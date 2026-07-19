@@ -19,6 +19,18 @@ def test_charset_covers_code_literals():
         assert not missing, f"代码文案缺字: {missing}"
 
 
+def test_stacked_pua_glyphs_are_synthesized():
+    """四叠字(四木 U+E625、四金代理 U+E626)Noto 无字形,由部件字形 2×2 拼合生成。"""
+    from fontTools.ttLib import TTFont
+    for name in ("NotoSerifSC-Subset.ttf", "NotoSansSC-Subset.ttf"):
+        font = TTFont(subset_fonts.OUT_DIR / name)
+        cmap = font.getBestCmap()
+        for code in subset_fonts.STACKED:
+            assert code in cmap, f"{name} 缺 U+{code:04X}"
+            glyph = font["glyf"][cmap[code]]
+            assert glyph.isComposite() and len(glyph.components) == 4
+
+
 def test_subset_fonts_cover_charset():
     """子集产物的 cmap 必须覆盖 charset(动态字体缺字显示为空,这是安全网)。"""
     from fontTools.ttLib import TTFont

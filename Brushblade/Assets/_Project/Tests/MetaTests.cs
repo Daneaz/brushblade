@@ -184,7 +184,7 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "炎" })); // 不重复入收集
         }
 
-        // 出阵列表(2026-07-19 拍板):≤15 字、每属性≤5、≤3 种属性
+        // 出阵列表(2026-07-19 拍板):5~15 字、每属性≤5;属性种类不限(3 系上限已废止)
         private static RecipeGraph DeckGraph() => new(new[]
         {
             new CharDef("灯", Element.Fire), new CharDef("炎", Element.Fire),
@@ -206,14 +206,19 @@ namespace Brushblade.Core.Tests
         public void TrySetDeck_ValidatesOwnershipAndDuplicates()
         {
             var graph = DeckGraph();
-            var meta = OwnAll("灯", "炎");
+            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "焚");
+            var baseline = new[] { "灯", "炎", "烧", "燃", "灼" };
 
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎" }, graph), Is.True);
-            Assert.That(meta.Deck, Is.EqualTo(new[] { "灯", "炎" }));
+            Assert.That(MetaRules.TrySetDeck(meta, baseline, graph), Is.True);
+            Assert.That(meta.Deck, Is.EqualTo(baseline));
 
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "焚" }, graph), Is.False);      // 未收集
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "灯" }, graph), Is.False); // 重复
-            Assert.That(meta.Deck, Is.EqualTo(new[] { "灯", "炎" })); // 失败不动状态
+            // 未收集
+            Assert.That(MetaRules.TrySetDeck(meta,
+                new[] { "灯", "炎", "烧", "燃", "杜" }, graph), Is.False);
+            // 重复
+            Assert.That(MetaRules.TrySetDeck(meta,
+                new[] { "灯", "灯", "烧", "燃", "灼" }, graph), Is.False);
+            Assert.That(meta.Deck, Is.EqualTo(baseline)); // 失败不动状态
         }
 
         [Test]
@@ -229,13 +234,23 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void TrySetDeck_ElementKindsLimitThree()
+        public void TrySetDeck_MinimumFive() // 2026-07-19 拍板:出阵不得少于 5 字
+        {
+            var graph = DeckGraph();
+            var meta = OwnAll("灯", "炎", "烧", "燃", "灼");
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃" }, graph), Is.False);
+            Assert.That(MetaRules.TrySetDeck(meta, System.Array.Empty<string>(), graph), Is.False);
+            Assert.That(meta.Deck, Is.Empty); // 失败不动状态
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼" }, graph), Is.True);
+        }
+
+        [Test]
+        public void TrySetDeck_AllFiveElements_Allowed() // 3 系上限废止(2026-07-19)
         {
             var graph = DeckGraph();
             var meta = OwnAll("灯", "林", "汀", "钉", "圭");
-            // 火木水金四种属性:超「最多 3 种」
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "林", "汀", "钉" }, graph), Is.False);
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "林", "汀" }, graph), Is.True);
+            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "林", "汀", "钉", "圭" }, graph), Is.True);
+            Assert.That(meta.Deck.Count, Is.EqualTo(5));
         }
 
         [Test]
@@ -256,22 +271,24 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void StartingLibrary_RosterShort_FillsFromOwned()
+        public void StartingLibrary_DeckOnly_NoAutoFill() // 补齐废止(2026-07-19):出阵没选就不上场
         {
             var graph = DeckGraph();
-            var meta = OwnAll("灯", "烧");
-            meta.CardLevels["烧"] = 5;
-            MetaRules.TrySetDeck(meta, new[] { "灯" }, graph);
+            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "圭");
+            meta.CardLevels["圭"] = 9; // 等级最高但没出阵,仍不该带出
+            MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼" }, graph);
+
             var library = MetaRules.StartingLibrary(meta);
-            Assert.That(library, Is.EquivalentTo(new[] { "灯", "烧" })); // 列表不足按等级补齐
+            Assert.That(library.Count, Is.EqualTo(5)); // 出阵几张就带几张,不补到 6
+            Assert.That(library, Does.Not.Contain("圭"));
         }
 
         [Test]
-        public void StartingLibrary_EmptyDeck_UsesOwnedCards()
+        public void StartingLibrary_EmptyDeck_EmptyLibrary()
         {
             var meta = new MetaState();
             MetaRules.AcquireCard(meta, "灯");
-            Assert.That(MetaRules.StartingLibrary(meta), Is.EqualTo(new[] { "灯" }));
+            Assert.That(MetaRules.StartingLibrary(meta), Is.Empty);
         }
 
         [Test]
@@ -322,6 +339,62 @@ namespace Brushblade.Core.Tests
             Assert.That(meta, Is.Not.Null);
             Assert.That(meta.CharacterXp, Is.EqualTo(0));
             Assert.That(MetaRules.CardLevel(meta, "焚"), Is.EqualTo(1));
+        }
+
+        // ---- 字表裁剪后的存档清洗(旧存档引用已下架字不得崩溃) ----
+
+        [Test]
+        public void PruneUnknownCards_RemovesRetiredIdsEverywhere()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("火", Element.Fire),
+                new CharDef("炎", Element.Fire, new[] { "火", "火" }),
+            });
+            var meta = new MetaState();
+            meta.OwnedCards.AddRange(new[] { "炎", "灯" });
+            meta.Deck.AddRange(new[] { "炎", "灯" });
+            meta.CardLevels["灯"] = 3;
+            meta.CardCopies["灯"] = 5;
+            meta.CardLevels["炎"] = 2;
+            meta.Shop.CardSlots.AddRange(new[] { "灯", "炎" });
+            meta.Shop.CardSold.AddRange(new[] { false, true });
+            meta.Chests.Add(new ChestState { CardPool = { "灯" } });
+            meta.Chests.Add(new ChestState { CardPool = { "灯", "炎" } });
+            meta.Endless = new EndlessSaveState
+            {
+                Library = { "炎", "灯", "火" },
+                Pool = { "火", "丁" },
+            };
+
+            MetaRules.PruneUnknownCards(meta, graph);
+
+            Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "炎" }));
+            Assert.That(meta.Deck, Is.EqualTo(new[] { "炎" }));
+            Assert.That(meta.CardLevels.ContainsKey("灯"), Is.False);
+            Assert.That(meta.CardLevels["炎"], Is.EqualTo(2));
+            Assert.That(meta.CardCopies.ContainsKey("灯"), Is.False);
+            Assert.That(meta.Shop.DayStamp, Is.EqualTo(-1)); // 货架含下架字 → 整架作废重摆
+            Assert.That(meta.Chests.Count, Is.EqualTo(1));   // 奖池清空的箱子一并移除
+            Assert.That(meta.Chests[0].CardPool, Is.EqualTo(new[] { "炎" }));
+            Assert.That(meta.Endless.Library, Is.EqualTo(new[] { "炎", "火" }));
+            Assert.That(meta.Endless.Pool, Is.EqualTo(new[] { "火" }));
+        }
+
+        [Test]
+        public void PruneUnknownCards_CleanState_Untouched()
+        {
+            var graph = new RecipeGraph(new[] { new CharDef("火", Element.Fire) });
+            var meta = new MetaState();
+            meta.OwnedCards.Add("火");
+            meta.Shop.DayStamp = 7;
+            meta.Shop.CardSlots.Add("火");
+            meta.Shop.CardSold.Add(false);
+
+            MetaRules.PruneUnknownCards(meta, graph);
+
+            Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "火" }));
+            Assert.That(meta.Shop.DayStamp, Is.EqualTo(7));
         }
     }
 }

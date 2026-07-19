@@ -1,14 +1,14 @@
 namespace Brushblade.Core
 {
-    /// <summary>引导节拍(11.2.2 分层教学,首局剧本:3.9 焚连招)。
-    /// v0.7 出字即消耗(无回归),连招一战内闭环:拆合链 3 AP → 敌反击 → 焚清场。</summary>
+    /// <summary>引导节拍(11.2.2 分层教学,首局剧本:3.9 拆合链战例)。
+    /// v0.7 出字即消耗(无回归),连招一战内闭环:拆合链 3 AP → 敌反击 → 焱清场。</summary>
     public enum TutorialStep
     {
-        DismantleLamp,  // 拆【灯】得 火+丁
-        ComposeForest,  // 木+木 合【林】
-        ComposeBurn,    // 林+火 合【焚】
+        DismantleFlame, // 拆【炎】得 火+火
+        RecomposeFlame, // 火+火 合回【炎】——拆与合互为表里
+        ComposeBlaze,   // 炎+火 合【焱】——升阶
         EndTurn,        // AP 用尽结束回合,看敌人反击
-        CastBurn,       // 打出【焚】清场
+        CastBlaze,      // 打出【焱】清场
         PickReward,     // 战后三选一
         Done,
     }
@@ -27,11 +27,11 @@ namespace Brushblade.Core
     {
         private static readonly (TutorialStep step, TutorialAction action, string charId)[] Script =
         {
-            (TutorialStep.DismantleLamp, TutorialAction.Dismantle, "灯"),
-            (TutorialStep.ComposeForest, TutorialAction.Compose, "林"),
-            (TutorialStep.ComposeBurn, TutorialAction.Compose, "焚"),
+            (TutorialStep.DismantleFlame, TutorialAction.Dismantle, "炎"),
+            (TutorialStep.RecomposeFlame, TutorialAction.Compose, "炎"),
+            (TutorialStep.ComposeBlaze, TutorialAction.Compose, "焱"),
             (TutorialStep.EndTurn, TutorialAction.EndTurn, null),
-            (TutorialStep.CastBurn, TutorialAction.Cast, "焚"),
+            (TutorialStep.CastBlaze, TutorialAction.Cast, "焱"),
             (TutorialStep.PickReward, TutorialAction.PickReward, null),
         };
 

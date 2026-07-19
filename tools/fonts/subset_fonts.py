@@ -21,6 +21,11 @@ BASE = (
     + "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü"
 )
 
+# 四叠字合成:Noto 无字形的叠字用部件字形 2×2 拼合生成(OFL 允许衍生)。
+# 四木未编码,用业界惯用 PUA U+E625;四金真身 𨰻 U+28C3B 在 Ext-B,
+# UGUI Text 不支持增补平面代理对 → 用 U+E626 作 BMP 显示代理。值 = 部件字。
+STACKED = {0xE625: "木", 0xE626: "金"}
+
 _STRING_RE = re.compile(r'"(?:[^"\\\n]|\\.)*"')
 _CHAR_RE = re.compile(r"'(?:[^'\\\n]|\\.)'")
 
@@ -61,6 +66,46 @@ def charset() -> set:
     return {c for c in chars if c == " " or not c.isspace()}
 
 
+def add_stacked_glyphs(font):
+    """为 STACKED 里的码位合成 2×2 叠字复合字形(部件半缩放,平铺原字形包围盒)。"""
+    from fontTools.pens.boundsPen import BoundsPen
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    cmap = font.getBestCmap()
+    glyph_set = font.getGlyphSet()
+    order = font.getGlyphOrder()
+    for code, base_char in STACKED.items():
+        if code in cmap:
+            continue
+        base_name = cmap.get(ord(base_char))
+        if base_name is None:
+            raise SystemExit(f"叠字部件「{base_char}」不在子集中,无法合成 U+{code:04X}")
+
+        bounds = BoundsPen(glyph_set)
+        glyph_set[base_name].draw(bounds)
+        x_min, y_min, x_max, y_max = bounds.bounds
+        half_w = (x_max - x_min) / 2
+        half_h = (y_max - y_min) / 2
+
+        pen = TTGlyphPen(glyph_set)
+        for col in (0, 1):
+            for row in (0, 1):
+                pen.addComponent(base_name, (0.5, 0, 0, 0.5,
+                    x_min / 2 + col * half_w, y_min / 2 + row * half_h))
+
+        name = f"uni{code:04X}"
+        order.append(name)
+        font.setGlyphOrder(order)
+        font["glyf"][name] = pen.glyph()
+        font["hmtx"][name] = (font["hmtx"][base_name][0], int(x_min))
+        if "vmtx" in font:
+            font["vmtx"][name] = font["vmtx"][base_name]
+        font["maxp"].numGlyphs = len(order)
+        for table in font["cmap"].tables:
+            if table.isUnicode():
+                table.cmap[code] = name
+
+
 def main():
     from fontTools import subset
     from fontTools.ttLib import TTFont
@@ -82,6 +127,7 @@ def main():
         subsetter = subset.Subsetter(options)
         subsetter.populate(text=text)
         subsetter.subset(font)
+        add_stacked_glyphs(font)
         font.save(OUT_DIR / out_name)
         print(f"{out_name}: {(OUT_DIR / out_name).stat().st_size / 1024:.0f} KB, "
               f"{len(text)} chars")

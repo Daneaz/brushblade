@@ -15,7 +15,7 @@ namespace Brushblade.Presentation
         private Action _onBack;
         private Action _save;
         private int _page;
-        private string _message = "点击卡片加入/移出出阵卡组(「补齐」为按等级自动上阵);集满重复卡后可升级";
+        private string _message = "点击卡片加入/移出出阵卡组(只有出阵的字才会上场);集满重复卡后可升级";
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -74,7 +74,6 @@ namespace Brushblade.Presentation
             Ui.Stretch(messageLabel.rectTransform);
 
             // 卡格(每页 12 张:2 行 × 6):出阵粉环 + Lv 角标 + 升级脚注
-            var deck = CurrentDeck();
             int start = _page * CardsPerPage;
             int end = Mathf.Min(start + CardsPerPage, ordered.Count);
             for (int i = start; i < end; i++)
@@ -96,17 +95,14 @@ namespace Brushblade.Presentation
 
                 int level = MetaRules.CardLevel(_meta, cardId);
                 _meta.CardCopies.TryGetValue(cardId, out int copies);
-                bool pinned = _meta.Deck.Contains(cardId);   // 自选出阵(入档)
-                bool inDeck = deck.Contains(cardId);         // 实际出阵(自选 + 自动补齐)
+                bool pinned = _meta.Deck.Contains(cardId);   // 自选出阵(入档;补齐已废止,2026-07-19)
                 var def = _graph.Get(cardId);
 
-                // 主卡:GlyphTile;自选出阵:选中环 + 粉色『出阵』chip;自动补齐:淡色『补齐』chip
+                // 主卡:GlyphTile;自选出阵:选中环 + 粉色『出阵』chip
                 var badges = Ui.Row(cell.transform, "Badges", 6);
                 Ui.Chip(badges.transform, $"Lv.{level}", Theme.Ink, Color.white, 13);
                 if (pinned)
                     Ui.Chip(badges.transform, "出阵", Theme.ExitPink, Color.white, 13);
-                else if (inDeck)
-                    Ui.Chip(badges.transform, "补齐", Theme.LockGray, Color.white, 13);
                 Ui.GlyphTile(cell.transform, def, "", pinned, () => ToggleDeck(cardId),
                     new Vector2(118, 128));
 
@@ -129,12 +125,6 @@ namespace Brushblade.Presentation
             }
         }
 
-        private System.Collections.Generic.List<string> CurrentDeck()
-        {
-            // 显示用:卡组未满时按 StartingLibrary 的自动补齐口径展示实际出阵
-            return new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta));
-        }
-
         private void ToggleDeck(string cardId)
         {
             string summary = CharInfo.Summary(_graph.Get(cardId), _graph);
@@ -142,9 +132,15 @@ namespace Brushblade.Presentation
             if (deck.Contains(cardId))
             {
                 deck.Remove(cardId);
-                MetaRules.TrySetDeck(_meta, deck, _graph);
-                _save();
-                _message = $"{summary}\n已移出出阵列表(不足 6 时按等级自动补齐)";
+                if (MetaRules.TrySetDeck(_meta, deck, _graph))
+                {
+                    _save();
+                    _message = $"{summary}\n已移出出阵列表(未出阵的字不上场)";
+                }
+                else
+                {
+                    _message = $"{summary}\n出阵不能少于 {MetaRules.DeckMinimum} 字——先加别的字再移出";
+                }
             }
             else
             {
@@ -156,8 +152,8 @@ namespace Brushblade.Presentation
                 }
                 else
                 {
-                    _message = $"{summary}\n出阵受限:共 {MetaRules.DeckLimit} 字、" +
-                        $"每属性至多 {MetaRules.DeckPerElementLimit}、至多 {MetaRules.DeckElementLimit} 种属性";
+                    _message = $"{summary}\n出阵受限:{MetaRules.DeckMinimum}~{MetaRules.DeckLimit} 字、" +
+                        $"每属性至多 {MetaRules.DeckPerElementLimit} 字";
                 }
             }
             Rebuild();

@@ -25,8 +25,8 @@ namespace Brushblade.Core
     {
         public const int MaxCardLevel = 10;
         public const int DeckLimit = 15;          // 出阵列表上限(2026-07-19 拍板:5×3,后续可调)
-        public const int DeckPerElementLimit = 5; // 每属性最多 5 字
-        public const int DeckElementLimit = 3;    // 最多 3 种属性
+        public const int DeckMinimum = 5;         // 出阵下限(2026-07-19:起手不得少于 5 字)
+        public const int DeckPerElementLimit = 5; // 每属性最多 5 字(属性种类不限,3 系上限已废止)
         public const int StartingLibrarySize = 6; // 起手字库 = 字库基础容量
 
         /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。</summary>
@@ -141,11 +141,11 @@ namespace Brushblade.Core
             AddCardCopies(meta, cardId, 1);
         }
 
-        /// <summary>设置出阵列表(2026-07-19 拍板):≤15 字、每属性≤5、≤3 种属性、
-        /// 全部已收集、无重复,否则 false 不动状态。无属性字计作心系一类。</summary>
+        /// <summary>设置出阵列表(2026-07-19 拍板):5~15 字、每属性≤5、全部已收集、无重复,
+        /// 否则 false 不动状态。属性种类不限(3 系上限已废止)。无属性字计作心系一类。</summary>
         public static bool TrySetDeck(MetaState meta, IReadOnlyList<string> cards, RecipeGraph graph)
         {
-            if (cards.Count > DeckLimit)
+            if (cards.Count > DeckLimit || cards.Count < DeckMinimum)
                 return false;
             var seen = new HashSet<string>();
             var perElement = new Dictionary<Element, int>();
@@ -156,7 +156,7 @@ namespace Brushblade.Core
                 var element = graph.Get(card).Element ?? Element.Heart;
                 perElement.TryGetValue(element, out var count);
                 perElement[element] = count + 1;
-                if (perElement[element] > DeckPerElementLimit || perElement.Count > DeckElementLimit)
+                if (perElement[element] > DeckPerElementLimit)
                     return false;
             }
 
@@ -165,8 +165,8 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>登塔起手字库:出阵列表按等级取前 6(字库基础容量);
-        /// 列表不足 6 再从收集按等级补齐(19.3.4 v0.7)。</summary>
+        /// <summary>登塔起手字库:出阵列表按等级取前 6(字库基础容量)。
+        /// 只带自选出阵的字——自动补齐已废止(2026-07-19 拍板:没选就不上场)。</summary>
         public static IReadOnlyList<string> StartingLibrary(MetaState meta)
         {
             var roster = new List<string>();
@@ -181,14 +181,6 @@ namespace Brushblade.Core
                 if (library.Count >= StartingLibrarySize) break;
                 library.Add(card);
             }
-
-            var fillers = new List<string>(meta.OwnedCards);
-            SortByLevelDesc(meta, fillers);
-            foreach (var card in fillers)
-            {
-                if (library.Count >= StartingLibrarySize) break;
-                if (!library.Contains(card)) library.Add(card);
-            }
             return library;
         }
 
@@ -199,6 +191,45 @@ namespace Brushblade.Core
                 int byLevel = CardLevel(meta, b).CompareTo(CardLevel(meta, a));
                 return byLevel != 0 ? byLevel : string.CompareOrdinal(a, b);
             });
+        }
+
+        /// <summary>字表裁剪后的存档清洗:移除一切引用已下架字的条目,防启动崩溃。
+        /// 货架含下架字 → 整架作废(DayStamp 重置触发重摆);奖池清空的宝箱一并移除。</summary>
+        public static void PruneUnknownCards(MetaState meta, RecipeGraph graph)
+        {
+            bool Known(string id) => graph.TryGet(id, out _);
+
+            meta.OwnedCards.RemoveAll(id => !Known(id));
+            meta.Deck.RemoveAll(id => !Known(id));
+            RemoveUnknownKeys(meta.CardLevels, Known);
+            RemoveUnknownKeys(meta.CardCopies, Known);
+
+            if (meta.Shop.CardSlots.Exists(id => !Known(id)))
+            {
+                meta.Shop.CardSlots.Clear();
+                meta.Shop.CardSold.Clear();
+                meta.Shop.DayStamp = -1;
+            }
+
+            foreach (var chest in meta.Chests)
+                chest.CardPool.RemoveAll(id => !Known(id));
+            meta.Chests.RemoveAll(chest => chest.CardPool.Count == 0);
+
+            if (meta.Endless != null)
+            {
+                meta.Endless.Library.RemoveAll(id => !Known(id));
+                meta.Endless.Pool.RemoveAll(id => !Known(id));
+            }
+        }
+
+        private static void RemoveUnknownKeys(Dictionary<string, int> map, Func<string, bool> known)
+        {
+            var stale = new List<string>();
+            foreach (var key in map.Keys)
+                if (!known(key))
+                    stale.Add(key);
+            foreach (var key in stale)
+                map.Remove(key);
         }
 
         /// <summary>卡等级数值系数:基础值 × (1 + 0.1 × (等级 − 1)),向上取整(19.3.2;

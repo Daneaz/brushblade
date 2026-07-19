@@ -1,12 +1,6 @@
 {
   "chars": [
     {
-      "id": "木",
-      "element": "Wood",
-      "pinyin": "mù",
-      "gloss": "树木"
-    },
-    {
       "id": "金",
       "element": "Metal",
       "pinyin": "jīn",
@@ -17,6 +11,12 @@
           "value": 4
         }
       ]
+    },
+    {
+      "id": "木",
+      "element": "Wood",
+      "pinyin": "mù",
+      "gloss": "树木"
     },
     {
       "id": "水",
@@ -33,172 +33,88 @@
     {
       "id": "火",
       "element": "Fire",
+      "pinyin": "huǒ",
+      "gloss": "物体燃烧所发的光、焰和热",
       "effects": [
         {
           "kind": "DamageSingle",
           "value": 4
         }
-      ],
-      "pinyin": "huǒ",
-      "gloss": "物体燃烧所发的光、焰和热"
-    },
-    {
-      "id": "丁",
-      "pinyin": "dīng",
-      "gloss": "钉子"
-    },
-    {
-      "id": "尧",
-      "pinyin": "yáo",
-      "gloss": "高"
-    },
-    {
-      "id": "然",
-      "pinyin": "rán",
-      "gloss": "燃烧"
-    },
-    {
-      "id": "勺",
-      "pinyin": "sháo",
-      "gloss": "古代舀酒器"
-    },
-    {
-      "id": "只",
-      "pinyin": "zhī",
-      "gloss": "鸟一只"
-    },
-    {
-      "id": "呆",
-      "pinyin": "dāi",
-      "gloss": "痴"
-    },
-    {
-      "id": "辟",
-      "element": "Metal",
-      "pinyin": "pì",
-      "gloss": "法律,法度"
+      ]
     },
     {
       "id": "土",
       "element": "Earth",
+      "pinyin": "tǔ",
+      "gloss": "泥土,土壤",
       "effects": [
         {
           "kind": "Shield",
           "value": 3
         }
-      ],
-      "pinyin": "tǔ",
-      "gloss": "泥土,土壤"
+      ]
     },
     {
-      "id": "圭",
-      "rarity": "White",
-      "element": "Earth",
+      "id": "鍂",
+      "rarity": "Green",
+      "element": "Metal",
       "recipe": [
-        "土",
-        "土"
+        "金",
+        "金"
       ],
       "effects": [
         {
-          "kind": "Shield",
-          "value": 6
-        },
-        {
           "kind": "DamageSingle",
-          "value": 4
+          "value": 14
         }
       ],
-      "pinyin": "guī",
-      "gloss": "古玉器名"
+      "pinyin": "piān",
+      "gloss": "古乐器名,形似铃"
     },
     {
-      "id": "壁",
+      "id": "鑫",
       "rarity": "Blue",
-      "element": "Earth",
+      "element": "Metal",
       "recipe": [
-        "辟",
-        "土"
-      ],
-      "effects": [
-        {
-          "kind": "Shield",
-          "value": 8
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 5
-        }
-      ],
-      "pinyin": "bì",
-      "gloss": "墙壁"
-    },
-    {
-      "id": "堡",
-      "rarity": "Purple",
-      "element": "Earth",
-      "recipe": [
-        "呆",
-        "土"
+        "鍂",
+        "金"
       ],
       "apCost": 2,
       "effects": [
         {
-          "kind": "Shield",
-          "value": 10,
-          "persistOnce": true
-        },
+          "kind": "DamageSingle",
+          "value": 30
+        }
+      ],
+      "pinyin": "xīn",
+      "gloss": "财富兴盛"
+    },
+    {
+      "id": "",
+      "rarity": "Purple",
+      "element": "Metal",
+      "recipe": [
+        "鑫",
+        "金"
+      ],
+      "apCost": 2,
+      "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 45
         }
       ],
       "pinyin": "bǎo",
-      "gloss": "土筑的小城"
-    },
-    {
-      "id": "灼",
-      "rarity": "Blue",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "勺"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 8,
-          "doubleVsBurning": true
-        }
-      ],
-      "pinyin": "zhuó",
-      "gloss": "烧,灸"
-    },
-    {
-      "id": "炽",
-      "rarity": "Purple",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "只"
-      ],
-      "effects": [
-        {
-          "kind": "BurnPotency",
-          "value": 1
-        }
-      ],
-      "pinyin": "chì",
-      "gloss": "火旺"
+      "gloss": "「宝」的古字,四金聚宝"
     },
     {
       "id": "林",
+      "rarity": "Green",
       "element": "Wood",
       "recipe": [
         "木",
         "木"
       ],
-      "pinyin": "lín",
-      "gloss": "丛聚的树木或竹子",
       "effects": [
         {
           "kind": "Summon",
@@ -207,28 +123,112 @@
           "attack": 2,
           "summonChar": "木"
         }
-      ]
+      ],
+      "pinyin": "lín",
+      "gloss": "丛聚的树木或竹子"
     },
     {
-      "id": "灯",
-      "rarity": "White",
-      "element": "Fire",
+      "id": "森",
+      "rarity": "Blue",
+      "element": "Wood",
       "recipe": [
-        "火",
-        "丁"
+        "林",
+        "木"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 12,
+          "count": 2,
+          "attack": 4,
+          "summonChar": "木"
+        }
+      ],
+      "pinyin": "sēn",
+      "gloss": "树木丛生繁密"
+    },
+    {
+      "id": "",
+      "rarity": "Purple",
+      "element": "Wood",
+      "recipe": [
+        "森",
+        "木"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 10,
+          "count": 4,
+          "attack": 4,
+          "summonChar": "木"
+        }
+      ],
+      "pinyin": "péng",
+      "gloss": "四木相聚,林海无边"
+    },
+    {
+      "id": "沝",
+      "rarity": "Green",
+      "element": "Water",
+      "recipe": [
+        "水",
+        "水"
       ],
       "effects": [
         {
-          "kind": "DamageSingle",
-          "value": 6
-        },
-        {
-          "kind": "BurnSingle",
-          "value": 1
+          "kind": "HealSelf",
+          "value": 10
         }
       ],
-      "pinyin": "dēng",
-      "gloss": "置烛用以照明的器具"
+      "pinyin": "zhuǐ",
+      "gloss": "二水汇流"
+    },
+    {
+      "id": "淼",
+      "rarity": "Blue",
+      "element": "Water",
+      "recipe": [
+        "沝",
+        "水"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "HealSelf",
+          "value": 16
+        },
+        {
+          "kind": "DamageAll",
+          "value": 8
+        }
+      ],
+      "pinyin": "miǎo",
+      "gloss": "水势浩大的样子"
+    },
+    {
+      "id": "㵘",
+      "rarity": "Purple",
+      "element": "Water",
+      "recipe": [
+        "淼",
+        "水"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "HealSelf",
+          "value": 24
+        },
+        {
+          "kind": "DamageAll",
+          "value": 14
+        }
+      ],
+      "pinyin": "màn",
+      "gloss": "大水漫溢"
     },
     {
       "id": "炎",
@@ -252,50 +252,11 @@
       "gloss": "火苗升腾"
     },
     {
-      "id": "烧",
-      "rarity": "Green",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "尧"
-      ],
-      "effects": [
-        {
-          "kind": "DamageAll",
-          "value": 5
-        },
-        {
-          "kind": "BurnAll",
-          "value": 1
-        }
-      ],
-      "pinyin": "shāo",
-      "gloss": "使物着火"
-    },
-    {
-      "id": "燃",
-      "rarity": "Green",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "然"
-      ],
-      "effects": [
-        {
-          "kind": "BurnAll",
-          "value": 3
-        }
-      ],
-      "pinyin": "rán",
-      "gloss": "燃烧"
-    },
-    {
       "id": "焱",
-      "rarity": "Orange",
+      "rarity": "Blue",
       "element": "Fire",
       "recipe": [
-        "火",
-        "火",
+        "炎",
         "火"
       ],
       "apCost": 2,
@@ -310,7 +271,7 @@
     },
     {
       "id": "燚",
-      "rarity": "Red",
+      "rarity": "Purple",
       "element": "Fire",
       "recipe": [
         "焱",
@@ -331,208 +292,70 @@
       "gloss": "火燃烧的样子"
     },
     {
-      "id": "焚",
-      "rarity": "Purple",
-      "element": "Fire",
-      "recipe": [
-        "林",
-        "火"
-      ],
-      "apCost": 2,
-      "effects": [
-        {
-          "kind": "DamageAll",
-          "value": 18
-        },
-        {
-          "kind": "BurnAll",
-          "value": 1
-        }
-      ],
-      "pinyin": "fén",
-      "gloss": "烧山"
-    },
-    {
-      "id": "钉",
-      "element": "Metal",
-      "recipe": [
-        "金",
-        "丁"
-      ],
-      "rarity": "White",
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 7
-        }
-      ],
-      "pinyin": "dīng",
-      "gloss": "金属制成的可贯穿物体的细棍"
-    },
-    {
-      "id": "钓",
-      "element": "Metal",
-      "recipe": [
-        "金",
-        "勺"
-      ],
+      "id": "圭",
       "rarity": "Green",
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 10
-        }
-      ],
-      "pinyin": "diào",
-      "gloss": "用饵诱鱼上钩"
-    },
-    {
-      "id": "铙",
-      "element": "Metal",
+      "element": "Earth",
       "recipe": [
-        "金",
-        "尧"
-      ],
-      "rarity": "Green",
-      "effects": [
-        {
-          "kind": "DamageAll",
-          "value": 6
-        }
-      ],
-      "pinyin": "náo",
-      "gloss": "古代铜制打击乐器"
-    },
-    {
-      "id": "鑫",
-      "element": "Metal",
-      "recipe": [
-        "金",
-        "金",
-        "金"
-      ],
-      "apCost": 2,
-      "rarity": "Orange",
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 30
-        }
-      ],
-      "pinyin": "xīn",
-      "gloss": "财富兴盛"
-    },
-    {
-      "id": "杓",
-      "element": "Wood",
-      "recipe": [
-        "木",
-        "勺"
-      ],
-      "rarity": "White",
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 6
-        }
-      ],
-      "pinyin": "sháo",
-      "gloss": "舀取东西的器具"
-    },
-    {
-      "id": "杜",
-      "element": "Wood",
-      "recipe": [
-        "木",
+        "土",
         "土"
       ],
-      "rarity": "Green",
       "effects": [
         {
           "kind": "Shield",
-          "value": 7
-        }
-      ],
-      "pinyin": "dù",
-      "gloss": "杜梨;堵塞,阻挡"
-    },
-    {
-      "id": "森",
-      "element": "Wood",
-      "recipe": [
-        "林",
-        "木"
-      ],
-      "apCost": 2,
-      "rarity": "Purple",
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 12,
-          "count": 2,
-          "attack": 4,
-          "summonChar": "木"
-        }
-      ],
-      "pinyin": "sēn",
-      "gloss": "树木丛生繁密"
-    },
-    {
-      "id": "汀",
-      "element": "Water",
-      "recipe": [
-        "水",
-        "丁"
-      ],
-      "rarity": "White",
-      "effects": [
-        {
-          "kind": "HealSelf",
           "value": 6
-        }
-      ],
-      "pinyin": "tīng",
-      "gloss": "水边平地;小憩回血"
-    },
-    {
-      "id": "沐",
-      "element": "Water",
-      "recipe": [
-        "水",
-        "木"
-      ],
-      "rarity": "Green",
-      "effects": [
-        {
-          "kind": "HealSelf",
-          "value": 10
-        }
-      ],
-      "pinyin": "mù",
-      "gloss": "洗头发;润泽"
-    },
-    {
-      "id": "淼",
-      "element": "Water",
-      "recipe": [
-        "水",
-        "水",
-        "水"
-      ],
-      "apCost": 2,
-      "rarity": "Orange",
-      "effects": [
-        {
-          "kind": "HealSelf",
-          "value": 16
         },
         {
-          "kind": "DamageAll",
+          "kind": "DamageSingle",
+          "value": 4
+        }
+      ],
+      "pinyin": "guī",
+      "gloss": "古玉器名"
+    },
+    {
+      "id": "垚",
+      "rarity": "Blue",
+      "element": "Earth",
+      "recipe": [
+        "圭",
+        "土"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 14
+        },
+        {
+          "kind": "DamageSingle",
           "value": 8
         }
       ],
-      "pinyin": "miǎo",
-      "gloss": "水势浩大的样子"
+      "pinyin": "yáo",
+      "gloss": "山高土厚"
+    },
+    {
+      "id": "㙓",
+      "rarity": "Purple",
+      "element": "Earth",
+      "recipe": [
+        "垚",
+        "土"
+      ],
+      "apCost": 2,
+      "effects": [
+        {
+          "kind": "Shield",
+          "value": 20,
+          "persistOnce": true
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 12
+        }
+      ],
+      "pinyin": "kuí",
+      "gloss": "土地广袤"
     }
   ]
 }

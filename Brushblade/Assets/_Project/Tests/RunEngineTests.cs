@@ -76,7 +76,7 @@ namespace Brushblade.Core.Tests
             var picked = run.RewardOptions[lampIndex];
 
             run.PickReward(lampIndex);
-            run.SkipReward(); // 拿一件即开拔(5 选 2 可不取满)
+            run.SkipReward(); // 字已取,放弃部件额度即开拔(可不取满)
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.BattleIndex, Is.EqualTo(1));
             Assert.That(run.Battle.Library, Does.Not.Contain("焚")); // 出字即消耗,不回归
@@ -147,7 +147,8 @@ namespace Brushblade.Core.Tests
             Assert.That(config.DropsPerTurn, Is.EqualTo(3)); // 2→3(2026-07-19:出字即消耗,再生产提速)
         }
 
-        // ---- 战利品双排 5 选 2(2026-07-19 拍板):字池抽 5 选 2 + 固定五行部件 5 选 2 ----
+        // ---- 战利品双排 5 选 1(2026-07-19 拍板):字池抽 5 选 1 + 固定五行部件 5 选 1;
+        //      Boss 层无战利品页(告捷即发宝箱,奖励保持不动) ----
 
         private static RunConfig SixCharPool() => new()
         {
@@ -170,12 +171,12 @@ namespace Brushblade.Core.Tests
             run.AdvanceAfterBattle();
             Assert.That(run.RewardOptions.Count, Is.EqualTo(5));
             Assert.That(run.ComponentOptions, Is.EquivalentTo(new[] { "金", "木", "水", "火", "土" }));
-            Assert.That(run.CharPicksLeft, Is.EqualTo(2));
-            Assert.That(run.ComponentPicksLeft, Is.EqualTo(2));
+            Assert.That(run.CharPicksLeft, Is.EqualTo(1));
+            Assert.That(run.ComponentPicksLeft, Is.EqualTo(1));
         }
 
         [Test]
-        public void PickTwoCharsAndTwoComponents_AutoProceeds()
+        public void PickOneCharAndOneComponent_AutoProceeds()
         {
             var run = Run(SixCharPool());
             WinCurrentBattle(run);
@@ -183,16 +184,14 @@ namespace Brushblade.Core.Tests
 
             var first = run.RewardOptions[0];
             Assert.That(run.PickReward(0), Is.True);
-            var second = run.RewardOptions[0];
-            Assert.That(run.PickReward(0), Is.True);
-            Assert.That(run.PickReward(0), Is.False); // 字额度用完
+            Assert.That(run.PickReward(0), Is.False); // 字额度用完(5 选 1)
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward)); // 部件额度未用,尚未开拔
 
             Assert.That(PickComponent(run, "木"), Is.True);
-            Assert.That(PickComponent(run, "火"), Is.True);
+            Assert.That(PickComponent(run, "火"), Is.False); // 部件额度用完
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle)); // 双排取满自动开拔
-            Assert.That(run.Battle.Library, Does.Contain(first).And.Contain(second));
-            Assert.That(run.Battle.Pool, Does.Contain("木").And.Contain("火"));
+            Assert.That(run.Battle.Library, Does.Contain(first));
+            Assert.That(run.Battle.Pool, Does.Contain("木"));
         }
 
         [Test]

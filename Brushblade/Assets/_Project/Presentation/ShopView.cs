@@ -11,18 +11,20 @@ namespace Brushblade.Presentation
     {
         private RecipeGraph _graph;
         private MetaState _meta;
-        private IReadOnlyList<string> _unlockedPool;
+        private IReadOnlyList<string> _cardPool;  // 卡位池:部件 + 已拥有的字
+        private IReadOnlyList<string> _chestPool; // 宝箱池:全部可收集字(未拥有的字只出宝箱)
         private ITimeSource _time;
         private Action _save;
         private Action _onBack;
         private string _message = "每日 0 点刷新;看广告可再刷一次货架";
 
-        public void Init(RecipeGraph graph, MetaState meta, IReadOnlyList<string> unlockedPool, ITimeSource time,
-            Action save, Action onBack)
+        public void Init(RecipeGraph graph, MetaState meta, IReadOnlyList<string> cardPool,
+            IReadOnlyList<string> chestPool, ITimeSource time, Action save, Action onBack)
         {
             _graph = graph;
             _meta = meta;
-            _unlockedPool = unlockedPool;
+            _cardPool = cardPool;
+            _chestPool = chestPool;
             _time = time;
             _save = save;
             _onBack = onBack;
@@ -83,7 +85,7 @@ namespace Brushblade.Presentation
                 Theme.RarityColor((Brushblade.Core.CardRarity)(int)_meta.Shop.ChestSlot), Theme.TitleFont);
             Ui.Stretch(chestLabel.rectTransform);
             var chestBuy = Ui.RoundButton(chestCell.transform, _meta.Shop.ChestSold ? "已售" : chestPrice.ToString(),
-                () => Do(() => ShopRules.TryBuyChest(_meta, _unlockedPool, _time), $"{chestName}入箱位!"),
+                () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time), $"{chestName}入箱位!"),
                 _meta.Shop.ChestSold ? Theme.LockedBg : Theme.Ink,
                 _meta.Shop.ChestSold ? Theme.LockGray : Color.white, 18, new Vector2(170, 42));
             chestBuy.interactable = !_meta.Shop.ChestSold && _meta.Ink >= chestPrice
@@ -97,7 +99,7 @@ namespace Brushblade.Presentation
 
             var refresh = Ui.AdBadge(bottomRow.transform,
                 _meta.Shop.AdRefreshUsed ? "今日已刷新" : "看广告刷新货架",
-                () => Do(() => ShopRules.TryAdRefresh(_meta, _unlockedPool,
+                () => Do(() => ShopRules.TryAdRefresh(_meta, _cardPool,
                     new GameRandom(Environment.TickCount)), "货架焕然一新!"),
                 new Vector2(190, 64));
             refresh.interactable = !_meta.Shop.AdRefreshUsed;

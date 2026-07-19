@@ -261,6 +261,117 @@ namespace Brushblade.Core.Tests
             Assert.That(run.ChooseEventOption(1), Is.True);
         }
 
+        // ---- 新后果(2026-07-19 拍板):随机部件 / 任选字 / 概率赌注 ----
+
+        private static RunConfig OneOptionConfig(params EventOption[] options) => new()
+        {
+            Encounters = new[]
+            {
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+            },
+            RewardPool = new[] { "炎" },
+            EventPool = new[] { new EventDef { Id = "e", Text = "t", Options = options } },
+            EventChancePercent = 100,
+        };
+
+        [Test]
+        public void RandomComponents_DrawsFromFiveElements_IntoPool()
+        {
+            var run = new RunEngine(Graph(),
+                OneOptionConfig(new EventOption { Label = "求墨", RandomComponents = 2 }),
+                new BattleConfig { DropTable = Array.Empty<string>() },
+                new[] { "焚" }, Array.Empty<string>(), seed: 7);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(run.Battle.Pool.Count, Is.EqualTo(2));
+            Assert.That(run.Battle.Pool, Has.All.Matches<string>(
+                c => RunEngine.ComponentRewardChoices.Contains(c)));
+        }
+
+        [Test]
+        public void RandomComponents_PoolFull_DoesNotOverfill()
+        {
+            var run = new RunEngine(Graph(),
+                OneOptionConfig(new EventOption { Label = "求墨", RandomComponents = 3 }),
+                new BattleConfig { PoolCapacity = 2, DropTable = Array.Empty<string>() },
+                new[] { "焚" }, new[] { "木" }, seed: 7);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(run.Battle.Pool.Count, Is.EqualTo(2)); // 满即止
+        }
+
+        [Test]
+        public void GainCharChoices_PlayerPicksOne()
+        {
+            var run = new RunEngine(Graph(),
+                OneOptionConfig(new EventOption
+                {
+                    Label = "换字",
+                    ComponentCost = 2,
+                    GainCharChoices = new[] { "林", "炎" },
+                }),
+                new BattleConfig { DropTable = Array.Empty<string>() },
+                new[] { "焚" }, new[] { "木", "火" }, seed: 7);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }), Is.False);                     // 未指定选哪个字
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 9), Is.False); // 越界
+            Assert.That(run.CarriedPool.Count, Is.EqualTo(2)); // 失败不动池
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 1), Is.True);
+            Assert.That(run.Battle.Library, Does.Contain("炎"));
+            Assert.That(run.Battle.Library, Does.Not.Contain("林"));
+            Assert.That(run.Battle.Pool, Is.Empty); // 两部件已抵价
+        }
+
+        [Test]
+        public void GainChar_LibraryFull_RejectedWithoutConsumingComponents()
+        {
+            // 容量 1,焚出手后剩炎占满;换字应整体拒绝,部件不受损(修正:先验后扣)
+            var run = new RunEngine(Graph(),
+                OneOptionConfig(
+                    new EventOption { Label = "换林", ComponentCost = 2, GainChar = "林" },
+                    new EventOption { Label = "离开" }),
+                new BattleConfig { LibraryCapacity = 1, DropTable = Array.Empty<string>() },
+                new[] { "焚", "炎" }, new[] { "木", "火" }, seed: 7);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }), Is.False);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            Assert.That(run.CarriedPool.Count, Is.EqualTo(2)); // 部件完好
+        }
+
+        [Test]
+        public void InkGamble_Chance100_AlwaysPays()
+        {
+            var run = new RunEngine(Graph(),
+                OneOptionConfig(new EventOption
+                { Label = "对赌", InkCost = 30, Ink = 100, InkChancePercent = 100 }),
+                new BattleConfig { DropTable = Array.Empty<string>() },
+                new[] { "焚" }, Array.Empty<string>(), seed: 7, startingInk: 30);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(run.EarnedInk, Is.EqualTo(70)); // −30 + 100
+        }
+
+        [Test]
+        public void InkGamble_BothOutcomesOccur_AcrossSeeds()
+        {
+            bool won = false, lost = false;
+            for (int seed = 0; seed < 40 && !(won && lost); seed++)
+            {
+                var run = new RunEngine(Graph(),
+                    OneOptionConfig(new EventOption
+                    { Label = "对赌", InkCost = 30, Ink = 100, InkChancePercent = 50 }),
+                    new BattleConfig { DropTable = Array.Empty<string>() },
+                    new[] { "焚" }, Array.Empty<string>(), seed, startingInk: 30);
+                WinAndSkipReward(run);
+                Assert.That(run.ChooseEventOption(0), Is.True);
+                if (run.EarnedInk == 70) won = true;
+                else if (run.EarnedInk == -30) lost = true;
+                else Assert.Fail($"意外的 EarnedInk:{run.EarnedInk}");
+            }
+            Assert.That(won && lost, Is.True, "40 个种子应同时出现赢与输");
+        }
+
         // ---- 配置解析 ----
 
         [Test]
@@ -294,6 +405,43 @@ namespace Brushblade.Core.Tests
             var runConfig = campaign.BuildRunConfig(0, 0);
             Assert.That(runConfig.EventPool.Count, Is.EqualTo(1));
             Assert.That(runConfig.EventChancePercent, Is.EqualTo(40));
+        }
+
+        [Test]
+        public void LoadCampaign_ParsesNewConsequences()
+        {
+            var graph = ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""灯"" }, { ""id"": ""火"" } ] }");
+            var campaign = ConfigLoader.LoadCampaign(@"{
+                ""enemies"": [], ""dropTable"": [],
+                ""events"": [
+                    { ""id"": ""x"", ""text"": ""t"",
+                      ""options"": [
+                        { ""label"": ""求墨"", ""randomComponents"": 2 },
+                        { ""label"": ""换字"", ""componentCost"": 2, ""gainCharChoices"": [ ""灯"", ""火"" ] },
+                        { ""label"": ""对赌"", ""inkCost"": 30, ""ink"": 100, ""inkChancePercent"": 50 }
+                      ] }
+                ],
+                ""chapters"": [ { ""name"": ""y"",
+                    ""stages"": [ { ""encounters"": [] } ], ""rewardPool"": [] } ]
+            }", graph);
+            var options = campaign.Events.Single().Options;
+            Assert.That(options[0].RandomComponents, Is.EqualTo(2));
+            Assert.That(options[1].GainCharChoices, Is.EqualTo(new[] { "灯", "火" }));
+            Assert.That(options[2].InkChancePercent, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void LoadCampaign_EventGainCharChoiceNotInGraph_Throws()
+        {
+            var graph = ConfigLoader.LoadGraph(@"{ ""chars"": [ { ""id"": ""灯"" } ] }");
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadCampaign(@"{
+                ""enemies"": [], ""dropTable"": [],
+                ""events"": [ { ""id"": ""x"", ""text"": ""t"",
+                    ""options"": [ { ""label"": ""a"", ""gainCharChoices"": [ ""灯"", ""龘"" ] } ] } ],
+                ""chapters"": [ { ""name"": ""y"",
+                    ""stages"": [ { ""encounters"": [] } ], ""rewardPool"": [] } ]
+            }", graph));
         }
 
         [Test]

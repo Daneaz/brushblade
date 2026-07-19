@@ -37,10 +37,15 @@ namespace Brushblade.Presentation
             _campaign = ConfigLoader.LoadCampaign(
                 File.ReadAllText(Path.Combine(configDir, "enemies.json")), _graph);
             _meta = MetaStore.Load();
+            MetaRules.PruneUnknownCards(_meta, _graph); // 字表裁剪后清洗旧存档引用
 
-            // 初始收集 = 火系初始卡组(19.3.4;人工筛选后替换,当前原型为灯)
-            if (_meta.OwnedCards.Count == 0)
-                MetaRules.AcquireCard(_meta, "灯");
+            // 初始收集保底 = 五系 2 叠字各一张(2026-07-19 拍板;缺哪张补哪张,教程依赖 炎)
+            foreach (var card in new[] { "鍂", "林", "沝", "炎", "圭" })
+                if (!_meta.OwnedCards.Contains(card))
+                    MetaRules.AcquireCard(_meta, card);
+            // 出阵不足下限 → 播默认五系(补齐已废止,空出阵 = 空手登塔)
+            if (_meta.Deck.Count < MetaRules.DeckMinimum)
+                MetaRules.TrySetDeck(_meta, new[] { "炎", "鍂", "沝", "林", "圭" }, _graph);
 
             ShowMap();
         }
@@ -60,24 +65,32 @@ namespace Brushblade.Presentation
 
         private static void ShowShop()
         {
-            var pool = UnlockedRewardPool();
-            if (ShopRules.EnsureShelf(_meta, pool, Time, new GameRandom(System.Environment.TickCount)))
+            var cardPool = ShopCardPool();
+            if (ShopRules.EnsureShelf(_meta, cardPool, Time, new GameRandom(System.Environment.TickCount)))
                 MetaStore.Save(_meta);
             var view = NewView("ShopView");
-            view.AddComponent<ShopView>().Init(_graph, _meta, pool, Time, () => MetaStore.Save(_meta), () => ShowMap());
+            view.AddComponent<ShopView>().Init(_graph, _meta, cardPool, ChestCardPool(), Time,
+                () => MetaStore.Save(_meta), () => ShowMap());
         }
 
-        /// <summary>已踏入层段的字池并集(F3 分层段投放:商城不上架未解锁层段的字,20.8)。</summary>
-        private static System.Collections.Generic.List<string> UnlockedRewardPool()
+        /// <summary>商城卡位池 = 部件 + 已拥有的字(2026-07-19 拍板:未拥有的字只能开宝箱)。</summary>
+        private static System.Collections.Generic.List<string> ShopCardPool()
+        {
+            var pool = new System.Collections.Generic.List<string>(RunEngine.ComponentRewardChoices);
+            foreach (var card in _meta.OwnedCards)
+                if (!pool.Contains(card))
+                    pool.Add(card);
+            return pool;
+        }
+
+        /// <summary>宝箱卡池 = 全部可收集字(带配方的 15 字):3/4 叠唯一收集渠道,
+        /// 箱级越高稀有度权重越偏高阶(ChestRules.CardRarityWeights + 保底)。</summary>
+        private static System.Collections.Generic.List<string> ChestCardPool()
         {
             var pool = new System.Collections.Generic.List<string>();
-            foreach (var band in _campaign.Endless.Bands)
-            {
-                if (band.FromDepth > 1 && _meta.BestDepth < band.FromDepth) break;
-                foreach (var card in band.RewardPool)
-                    if (!pool.Contains(card))
-                        pool.Add(card);
-            }
+            foreach (var def in _graph.All)
+                if (!def.IsLeaf)
+                    pool.Add(def.Id);
             return pool;
         }
 
@@ -96,7 +109,7 @@ namespace Brushblade.Presentation
                     PlayerHp = MetaRules.MaxHpFor(level),
                     Seed = System.Environment.TickCount,
                     Library = new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta)),
-                    Pool = new System.Collections.Generic.List<string> { "木", "木" },
+                    Pool = new System.Collections.Generic.List<string> { "火", "火" }, // 教程连招原料:拆炎→合炎→合焱
                 };
                 MetaStore.Save(_meta);
             }
@@ -189,7 +202,7 @@ namespace Brushblade.Presentation
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
             EndlessRules.UpdateBest(_meta, segmentEnd);
             var tier = EndlessRules.ChestTierFor(segmentEnd, new GameRandom(System.Environment.TickCount));
-            string chestNote = ChestRules.TryAwardChest(_meta, tier, endless.BandFor(segmentEnd).RewardPool, Time)
+            string chestNote = ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time)
                 ? $"获得{ChestRules.TierName(tier)}!"
                 : "箱位已满,宝箱与你擦肩……";
             var snapshot = _meta.Endless;
@@ -271,8 +284,8 @@ namespace Brushblade.Presentation
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 20, new Vector2(46, 46), 10);
             }
 
-            // 备选 = 出阵列表(未设则用收集)中不在字库的字
-            var roster = _meta.Deck.Count > 0 ? _meta.Deck : _meta.OwnedCards;
+            // 备选 = 出阵列表中不在字库的字(补齐已废止:未出阵的字不上场,2026-07-19)
+            var roster = _meta.Deck;
             var reserve = new System.Collections.Generic.List<string>();
             foreach (var id in roster)
                 if (!snapshot.Library.Contains(id))

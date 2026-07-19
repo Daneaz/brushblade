@@ -137,7 +137,8 @@ namespace Brushblade.Core
                 return floor;
             }
 
-            // 辅助型(Buff)每场最多 1 只:被占用后从非辅助子池抽
+            // 辅助型(Buff)每场最多 1 只,且不单独成场(2026-07-19:标点小妖自己不打人,
+            // 全辅助场零威胁)——首位强制从非辅助子池抽,保证场上至少 1 只能打的
             var nonSupport = new List<EnemyDef>();
             foreach (var enemy in band.EnemyPool)
                 if (enemy.Ability != EnemyAbility.Buff)
@@ -147,7 +148,7 @@ namespace Brushblade.Core
             bool hasSupport = false;
             for (int i = 0; i < count; i++)
             {
-                var pool = hasSupport && nonSupport.Count > 0 ? nonSupport : band.EnemyPool;
+                var pool = (i == 0 || hasSupport) && nonSupport.Count > 0 ? nonSupport : band.EnemyPool;
                 var pick = pool[random.Next(pool.Count)];
                 if (pick.Ability == EnemyAbility.Buff)
                     hasSupport = true;
