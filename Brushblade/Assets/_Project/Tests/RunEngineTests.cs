@@ -302,6 +302,39 @@ namespace Brushblade.Core.Tests
             Assert.That(a.RewardOptions, Is.EqualTo(b.RewardOptions));
         }
 
+        // ---- 池满替换部件(2026-07-20 拍板:字与部件都要能替换,不能只能放弃) ----
+
+        [Test]
+        public void PickRewardComponentReplacing_SwapsPoolSlot()
+        {
+            var run = RunWith(new BattleConfig { PoolCapacity = 2, DropTable = new[] { "木" } },
+                new[] { "焚" }, SixCharPool(), pool: new[] { "木", "丁" }); // 池已满
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+
+            int fireIndex = run.ComponentOptions.ToList().IndexOf("火");
+            Assert.That(run.PickRewardComponent(fireIndex), Is.False);          // 满池,常规取用被拒
+            Assert.That(run.PickRewardComponentReplacing(fireIndex, 1), Is.True); // 换掉「丁」
+            Assert.That(run.CarriedPool, Is.EquivalentTo(new[] { "木", "火" }));
+            Assert.That(run.ComponentPicksLeft, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void PickRewardComponentReplacing_ValidatesIndexAndQuota()
+        {
+            var run = RunWith(new BattleConfig { PoolCapacity = 2, DropTable = new[] { "木" } },
+                new[] { "焚" }, SixCharPool(), pool: new[] { "木", "丁" });
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+
+            Assert.That(run.PickRewardComponentReplacing(0, -1), Is.False); // 越界
+            Assert.That(run.PickRewardComponentReplacing(0, 9), Is.False);
+            Assert.That(run.CarriedPool, Is.EquivalentTo(new[] { "木", "丁" })); // 失败不动状态
+
+            Assert.That(run.PickRewardComponentReplacing(0, 0), Is.True);
+            Assert.That(run.PickRewardComponentReplacing(0, 0), Is.False); // 额度已用尽
+        }
+
         [Test]
         public void PickRewardComponent_PoolFull_Rejected()
         {

@@ -232,13 +232,26 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>取一个部件奖励(下标):入携带池。额度用尽或池满返回 false。</summary>
+        /// <summary>取一个部件奖励(下标):入携带池。额度用尽或池满返回 false——
+        /// 满池时用替换(PickRewardComponentReplacing)或跳过。</summary>
         public bool PickRewardComponent(int index)
         {
             if (Phase != RunPhase.Reward || ComponentPicksLeft == 0) return false;
             if (_carriedPool.Count >= _battleConfig.PoolCapacity)
                 return false;
             _carriedPool.Add(_componentOptions[index]);
+            _componentOptions.RemoveAt(index);
+            ComponentPicksLeft -= 1;
+            MaybeFinishRewards();
+            return true;
+        }
+
+        /// <summary>满池替换:奖励部件换掉池中一个(被换的永久移除,2026-07-20)。</summary>
+        public bool PickRewardComponentReplacing(int index, int replaceIndex)
+        {
+            if (Phase != RunPhase.Reward || ComponentPicksLeft == 0) return false;
+            if (replaceIndex < 0 || replaceIndex >= _carriedPool.Count) return false;
+            _carriedPool[replaceIndex] = _componentOptions[index];
             _componentOptions.RemoveAt(index);
             ComponentPicksLeft -= 1;
             MaybeFinishRewards();

@@ -164,7 +164,8 @@ namespace Brushblade.Presentation
             view.AddComponent<BattleView>().Init(_graph, run,
                 won => OnSegmentEnded(run, fromDepth, segmentEnd, baseInk, won),
                 tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
-                onNewFloor: () => OnFloorAdvanced(run, fromDepth, baseInk),
+                onNewFloor: () => OnFloorAdvanced(run, baseInk),
+                onFloorCleared: () => OnFloorCleared(run, fromDepth, baseInk),
                 onExit: () => ShowMap("登塔已挂起,随时回来继续"),
                 onExpanded: () => OnExpanded(run),
                 onAbandon: () => SettleTower(died: true, // 弃塔=阵亡待遇:半额结算,防绕过安全层撤退决策
@@ -181,15 +182,29 @@ namespace Brushblade.Presentation
             MetaStore.Save(_meta);
         }
 
-        /// <summary>新一层开打:层粒度断点快照(20.6)+ 层经验 + 层段首破里程碑(20.3)。</summary>
-        private static void OnFloorAdvanced(RunEngine run, int fromDepth, int baseInk)
+        /// <summary>本层战利品取完:立即记账落盘(2026-07-20 拍板)——此前要等下一层开打才写快照,
+        /// 在战利品/奇遇页挂起会丢掉本层收益。段末(RunWon)交给 OnSegmentEnded 统一结算。</summary>
+        private static void OnFloorCleared(RunEngine run, int fromDepth, int baseInk)
         {
-            var endless = _campaign.Endless;
-            int depth = fromDepth + run.BattleIndex;
-            _meta.CharacterXp += EndlessRules.XpFor(endless, depth - 1); // 刚打完的层
-
             var snapshot = _meta.Endless;
-            snapshot.Depth = depth;
+            if (snapshot == null || run.Phase == RunPhase.RunWon) return;
+
+            int cleared = fromDepth + run.BattleIndex; // 刚打完的层
+            if (snapshot.Depth <= cleared)             // 幂等:同一层只记一次账
+            {
+                _meta.CharacterXp += EndlessRules.XpFor(_campaign.Endless, cleared);
+                snapshot.Depth = cleared + 1;          // 推进后挂起不会重打本层(也就刷不出重复战利品)
+            }
+            WriteCarriedSnapshot(run, snapshot, baseInk);
+            MetaStore.Save(_meta);
+        }
+
+        /// <summary>新一层开打:刷新携带态(奇遇结果与新回合掉落)。
+        /// 层经验与 Depth 推进已在 OnFloorCleared 记过账,这里不再重复。</summary>
+        private static void OnFloorAdvanced(RunEngine run, int baseInk)
+        {
+            var snapshot = _meta.Endless;
+            if (snapshot == null) return;
             snapshot.PlayerHp = run.Battle.PlayerHp;
             snapshot.Library = new System.Collections.Generic.List<string>(run.Battle.Library);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
@@ -197,6 +212,17 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             MetaStore.Save(_meta);
+        }
+
+        /// <summary>写入战斗之间的携带态(战利品已并入其中)。</summary>
+        private static void WriteCarriedSnapshot(RunEngine run, EndlessSaveState snapshot, int baseInk)
+        {
+            snapshot.PlayerHp = run.Battle.PlayerHp;
+            snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary);
+            snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);
+            snapshot.EarnedInk = baseInk + run.EarnedInk;
+            snapshot.LibraryExpanded = run.LibraryExpanded;
+            snapshot.PoolExpanded = run.PoolExpanded;
         }
 
         private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int baseInk, bool won)
