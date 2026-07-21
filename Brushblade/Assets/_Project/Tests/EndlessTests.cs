@@ -222,6 +222,24 @@ namespace Brushblade.Core.Tests
             Assert.That(EndlessRules.XpFor(config, 5), Is.EqualTo(50));
         }
 
+        [Test]
+        public void FloorInk_TwoPerFloor_FivePerBoss_DoublesEveryTenFloors()
+        {
+            var config = Config();
+            // 1~10 层:普通 2 / Boss 5
+            Assert.That(EndlessRules.FloorInk(config, 1), Is.EqualTo(2));
+            Assert.That(EndlessRules.FloorInk(config, 5), Is.EqualTo(5));   // Boss
+            Assert.That(EndlessRules.FloorInk(config, 9), Is.EqualTo(2));
+            Assert.That(EndlessRules.FloorInk(config, 10), Is.EqualTo(5));  // Boss,仍是第一档
+            // 11~20 层:翻倍
+            Assert.That(EndlessRules.FloorInk(config, 11), Is.EqualTo(4));
+            Assert.That(EndlessRules.FloorInk(config, 15), Is.EqualTo(10)); // Boss
+            Assert.That(EndlessRules.FloorInk(config, 20), Is.EqualTo(10)); // Boss,仍是第二档
+            // 21~30 层:再翻倍
+            Assert.That(EndlessRules.FloorInk(config, 21), Is.EqualTo(8));
+            Assert.That(EndlessRules.FloorInk(config, 25), Is.EqualTo(20)); // Boss
+        }
+
         // ---- 成语 Boss 生成(20.7) ----
 
         private static IdiomBossDef Idiom() => new()

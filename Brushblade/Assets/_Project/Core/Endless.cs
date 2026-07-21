@@ -191,6 +191,15 @@ namespace Brushblade.Core
             return random.Next(10) == 0 ? high : low;
         }
 
+        /// <summary>层清算墨锭(2026-07-21):普通层 2、Boss 层 5,每 10 层翻倍。
+        /// 计入本次登塔的滚存(不直接进账户),塔结算时随 SettleInk 一并入账。</summary>
+        public static int FloorInk(EndlessConfig config, int depth)
+        {
+            int tier = (depth - 1) / 10;                  // 1~10 档 0,11~20 档 1……
+            int baseInk = config.IsBossDepth(depth) ? 5 : 2;
+            return baseInk << tier;
+        }
+
         /// <summary>角色经验(20.8):每层 10,Boss 层 50。</summary>
         public static int XpFor(EndlessConfig config, int depth) =>
             config.IsBossDepth(depth) ? 50 : 10;

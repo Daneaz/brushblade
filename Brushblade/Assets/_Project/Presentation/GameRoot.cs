@@ -165,7 +165,7 @@ namespace Brushblade.Presentation
                 won => OnSegmentEnded(run, fromDepth, segmentEnd, baseInk, won),
                 tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
                 onNewFloor: () => OnFloorAdvanced(run, baseInk),
-                onFloorCleared: () => OnFloorCleared(run, fromDepth, baseInk),
+                onFloorCleared: () => baseInk = OnFloorCleared(run, fromDepth, baseInk),
                 onExit: () => ShowMap("登塔已挂起,随时回来继续"),
                 onExpanded: () => OnExpanded(run),
                 onAbandon: () => SettleTower(died: true, // 弃塔=阵亡待遇:半额结算,防绕过安全层撤退决策
@@ -184,19 +184,23 @@ namespace Brushblade.Presentation
 
         /// <summary>本层战利品取完:立即记账落盘(2026-07-20 拍板)——此前要等下一层开打才写快照,
         /// 在战利品/奇遇页挂起会丢掉本层收益。段末(RunWon)交给 OnSegmentEnded 统一结算。</summary>
-        private static void OnFloorCleared(RunEngine run, int fromDepth, int baseInk)
+        /// <returns>累加本层墨锭后的段前滚存(调用方回写,供后续层与结算使用)。</returns>
+        private static int OnFloorCleared(RunEngine run, int fromDepth, int baseInk)
         {
             var snapshot = _meta.Endless;
-            if (snapshot == null || run.Phase == RunPhase.RunWon) return;
+            if (snapshot == null || run.Phase == RunPhase.RunWon) return baseInk;
 
             int cleared = fromDepth + run.BattleIndex; // 刚打完的层
             if (snapshot.Depth <= cleared)             // 幂等:同一层只记一次账
             {
                 _meta.CharacterXp += EndlessRules.XpFor(_campaign.Endless, cleared);
+                // 层墨锭进塔内滚存而非账户(2026-07-21):塔结算时才入账,阵亡随 SettleInk 减半
+                baseInk += EndlessRules.FloorInk(_campaign.Endless, cleared);
                 snapshot.Depth = cleared + 1;          // 推进后挂起不会重打本层(也就刷不出重复战利品)
             }
             WriteCarriedSnapshot(run, snapshot, baseInk);
             MetaStore.Save(_meta);
+            return baseInk;
         }
 
         /// <summary>新一层开打:刷新携带态(奇遇结果与新回合掉落)。
@@ -238,6 +242,7 @@ namespace Brushblade.Presentation
 
             // Boss 层告捷:经验 + 纪录 + 即发宝箱(2026-07-19 拍板,原「结算发箱」废止)
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
+            totalEarned += EndlessRules.FloorInk(endless, segmentEnd); // Boss 层墨锭(层清算走 OnFloorCleared,段末不经手)
             EndlessRules.UpdateBest(_meta, segmentEnd);
             var tier = EndlessRules.ChestTierFor(segmentEnd, new GameRandom(System.Environment.TickCount));
             string chestNote = ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time)
