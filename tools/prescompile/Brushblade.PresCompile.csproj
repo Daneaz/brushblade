@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Presentation 离线编译校验:链接四层全部源码,只编译不运行,在打开 Unity 前
+       抓语法/符号错误(工装 coretests 只含 Core/Data,盖不到 Presentation)。
+       用法:tools/prescompile$ dotnet build(dotnet 用 Unity 自带 SDK,见 CLAUDE.md)。
+
+       前提:Brushblade/Library/ScriptAssemblies/ 需存在(Unity 至少打开过本工程一次),
+       UnityEngine.UI 与 TextMeshPro 的程序集从那里取;引擎模块取自 Unity 安装目录。
+       产物无用,只看退出码与 error CS。 -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>PresCompileCheck</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <UnityManaged>/Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/Managed</UnityManaged>
+    <ProjectAsm>$(MSBuildThisFileDirectory)../../Brushblade/Library/ScriptAssemblies</ProjectAsm>
+    <Src>$(MSBuildThisFileDirectory)../../Brushblade/Assets/_Project</Src>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(Src)/Core/**/*.cs" />
+    <Compile Include="$(Src)/Data/**/*.cs" />
+    <Compile Include="$(Src)/Platform/**/*.cs" />
+    <Compile Include="$(Src)/Presentation/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <UnityDll Include="$(UnityManaged)/UnityEngine/*.dll" />
+    <UnityDll Include="$(ProjectAsm)/UnityEngine.UI.dll" />
+    <UnityDll Include="$(ProjectAsm)/Unity.TextMeshPro.dll" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- 项目级 ItemGroup 不支持 item batching,故在 target 里直接塞进解析后的引用表 -->
+  <Target Name="AddUnityRefs" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <ReferencePath Include="@(UnityDll)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

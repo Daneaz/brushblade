@@ -31,13 +31,19 @@ python3 -m pytest tools/pipeline/tests/ tools/fonts/tests/ -q
 # Core/Data 单元测试(首选,不依赖编辑器锁,毫秒级;用 Unity 自带 dotnet SDK)
 cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet test --nologo -v q
 
+# Presentation 离线编译(改完 Presentation 必跑;coretests 盖不到这一层)
+cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet build --nologo -v q
+
 # Unity EditMode(集成验证;编辑器开着时会因项目锁失败,让用户在 Test Runner 里跑)
 /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/MacOS/Unity \
   -batchmode -projectPath Brushblade -runTests -testPlatform EditMode \
   -testResults /tmp/results.xml -logFile /tmp/unity_test.log
 ```
 
-- Core/Data 每个模块:先写失败测试再实现;Presentation 不强求自动化测试。
+- Core/Data 每个模块:先写失败测试再实现;Presentation 不强求自动化测试,**但改完必须过离线编译**
+  ——工装只编译 Core/Data,Presentation 的编译错会一路漏到用户打开 Unity 才炸(已发生过两次)。
+  离线编译依赖 `Brushblade/Library/ScriptAssemblies/`(Unity 至少打开过本工程一次)。
+  只看 `error CS`,`warning MSB3245` 是 Unity 程序集自带的无关引用,忽略。
 - ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
   NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
   集合子集用 `Has.All.Matches<T>`。
