@@ -340,6 +340,52 @@ namespace Brushblade.Core.Tests
             Assert.That(run.CarriedPool.Count, Is.EqualTo(2)); // 部件完好
         }
 
+        /// <summary>满库时指定替换目标即可成交(2026-07-22,复用战利品的满库替换)。</summary>
+        private static RunEngine FullLibraryBarterRun() =>
+            new(Graph(),
+                OneOptionConfig(
+                    new EventOption { Label = "换林", ComponentCost = 2, GainChar = "林" },
+                    new EventOption { Label = "离开" }),
+                new BattleConfig { LibraryCapacity = 1, DropTable = Array.Empty<string>() },
+                new[] { "焚", "炎" }, new[] { "木", "火" }, seed: 7);
+
+        [Test]
+        public void GainChar_LibraryFull_ReplaceIndexGiven_Succeeds()
+        {
+            var run = FullLibraryBarterRun();
+            WinAndSkipReward(run); // 焚出手后字库只剩炎(容量 1,已满)
+            Assert.That(run.CarriedLibrary, Is.EqualTo(new[] { "炎" }));
+
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, replaceLibraryIndex: 0), Is.True);
+            Assert.That(run.Battle.Library, Is.EqualTo(new[] { "林" })); // 炎被换掉
+            Assert.That(run.Battle.Pool, Is.Empty);                     // 两部件已抵价
+        }
+
+        [Test]
+        public void GainChar_LibraryFull_ReplaceIndexOutOfRange_RejectedIntact()
+        {
+            var run = FullLibraryBarterRun();
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, replaceLibraryIndex: 5), Is.False);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            Assert.That(run.CarriedPool.Count, Is.EqualTo(2)); // 先验后扣:部件完好
+            Assert.That(run.CarriedLibrary, Is.EqualTo(new[] { "炎" }));
+        }
+
+        [Test]
+        public void GainChar_LibraryNotFull_ReplaceIndexIgnored() // 不满时照常入库,不顶替
+        {
+            var run = new RunEngine(Graph(),
+                OneOptionConfig(
+                    new EventOption { Label = "换林", ComponentCost = 2, GainChar = "林" },
+                    new EventOption { Label = "离开" }),
+                new BattleConfig { LibraryCapacity = 5, DropTable = Array.Empty<string>() },
+                new[] { "焚", "炎" }, new[] { "木", "火" }, seed: 7);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, replaceLibraryIndex: 0), Is.True);
+            Assert.That(run.Battle.Library, Does.Contain("炎").And.Contain("林")); // 炎还在
+        }
+
         [Test]
         public void InkGamble_Chance100_AlwaysPays()
         {

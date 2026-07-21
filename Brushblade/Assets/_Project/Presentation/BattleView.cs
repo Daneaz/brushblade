@@ -936,6 +936,11 @@ namespace Brushblade.Presentation
             if (_pendingEventOption >= 0)
             {
                 var pending = evt.Options[_pendingEventOption];
+                if (_eventReplacing) // 字与部件都备齐,只差「换掉哪一张」(2026-07-22)
+                {
+                    DrawEventReplaceStep(pending);
+                    return;
+                }
                 bool needCharChoice = pending.GainCharChoices.Count > 0 && _pendingCharChoice < 0;
                 Ui.ThemedLabel(_actionRow, needCharChoice
                         ? $"{pending.Label}:先点想要的字"
@@ -993,10 +998,51 @@ namespace Brushblade.Presentation
             }
         }
 
+        private bool _eventReplacing; // 字摊交易已备齐但字库满:等玩家选换掉哪一张
+
+        /// <summary>字摊满库替换(2026-07-22):与战利品同一口径——被换掉的字永久失去。
+        /// 此时字与部件都已选定,只补一个替换目标即可成交;取消则部件一个不少。</summary>
+        private void DrawEventReplaceStep(EventOption option)
+        {
+            string incoming = _pendingCharChoice >= 0
+                ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
+            Ui.ThemedLabel(_actionRow, $"字库已满 · 用「{incoming}」换掉哪一个?",
+                20, Theme.TextMain, Theme.TitleFont);
+            Ui.RoundButton(_actionRow, "算了,不换", () =>
+            {
+                ResetEventSelection();
+                _message = "交易取消,部件一个没少";
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(120, 48));
+
+            Ui.ThemedLabel(_poolRow,
+                $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity}——被换掉的字永久失去",
+                15, Theme.TextDim);
+            for (int i = 0; i < _run.CarriedLibrary.Count; i++)
+            {
+                int replaceIndex = i;
+                var def = _graph.Get(_run.CarriedLibrary[i]);
+                Ui.GlyphTile(_poolRow, def, $"{def.ApCost} AP", false, () =>
+                {
+                    string dropped = _run.CarriedLibrary[replaceIndex];
+                    var picks = _eventPicks.Count > 0 ? _eventPicks.ToArray() : null;
+                    if (_run.ChooseEventOption(_pendingEventOption, picks, _pendingCharChoice, replaceIndex))
+                    {
+                        _message = $"成交!「{incoming}」替换「{dropped}」";
+                        ResetEventSelection();
+                        CancelSelection();
+                        return;
+                    }
+                    Refresh();
+                }, new Vector2(74, 96));
+            }
+        }
+
         private void ResetEventSelection()
         {
             _pendingEventOption = -1;
             _pendingCharChoice = -1;
+            _eventReplacing = false;
             _eventPicks.Clear();
         }
 
@@ -1053,10 +1099,16 @@ namespace Brushblade.Presentation
                         CancelSelection();
                         return;
                     }
+                    if (_run.CarriedLibrary.Count >= Battle.LibraryCapacity)
+                    {
+                        _eventReplacing = true; // 满库不再是死路:转入「换掉哪一张」
+                        _message = $"字库已满:选一个换成「{charId}」";
+                        Refresh();
+                        return;
+                    }
                     ResetEventSelection();
                     CancelSelection();
-                    ShowAlert("字库已满",
-                        $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity},「{charId}」收不下。");
+                    ShowAlert("换不了", $"「{charId}」这笔交易没能成立。");
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
                     26, new Vector2(64, 64), 12);
             }
@@ -1087,10 +1139,9 @@ namespace Brushblade.Presentation
                             CancelSelection();
                             return;
                         }
+                        if (_run.CarriedLibrary.Count >= Battle.LibraryCapacity)
+                            _eventReplacing = true; // 满库转入「换掉哪一张」(先验后扣,部件未损)
                         Refresh();
-                        ShowAlert("字库已满", // 先验后扣,部件未损
-                            $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity},换来的字放不下。\n" +
-                            "点「取消」退出交易,腾出位置再来——你的部件一个没少。");
                         return;
                     }
                     Refresh();

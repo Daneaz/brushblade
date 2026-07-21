@@ -112,7 +112,7 @@ namespace Brushblade.Core
         /// 不要的部件下标(数量吻合、无重复、不越界,2026-07-19)。
         /// 任选字(GainCharChoices)须给 charChoiceIndex。全部先验后扣:拒绝不动任何状态。</summary>
         public bool ChooseEventOption(int index, IReadOnlyList<int> discardPoolIndices = null,
-            int charChoiceIndex = -1)
+            int charChoiceIndex = -1, int replaceLibraryIndex = -1)
         {
             if (Phase != RunPhase.Event) return false;
             var option = CurrentEvent.Options[index];
@@ -129,8 +129,11 @@ namespace Brushblade.Core
             if (gainChar != null && _battleConfig.UnlockedChars != null
                 && !_battleConfig.UnlockedChars.Contains(gainChar))
                 return false; // 不在出阵列表(2026-07-20:字摊与战利品/合成同源,没编入就换不到)
-            if (gainChar != null && _carriedLibrary.Count >= _battleConfig.LibraryCapacity)
-                return false; // 字库已满,收不下(3.8.1「选择不要」;先验后扣,部件不受损)
+            // 字库满:须指定换掉哪一张(2026-07-22,与战利品 PickRewardReplacing 同一口径);
+            // 未指定则拒绝,由表现层转入「换掉哪一个」子步。先验后扣,部件不受损。
+            bool replacing = gainChar != null && _carriedLibrary.Count >= _battleConfig.LibraryCapacity;
+            if (replacing && (replaceLibraryIndex < 0 || replaceLibraryIndex >= _carriedLibrary.Count))
+                return false;
 
             if (option.ComponentCost > 0)
             {
@@ -150,7 +153,10 @@ namespace Brushblade.Core
             }
 
             if (gainChar != null)
-                _carriedLibrary.Add(gainChar);
+            {
+                if (replacing) _carriedLibrary[replaceLibraryIndex] = gainChar; // 被换的字永久移除
+                else _carriedLibrary.Add(gainChar);
+            }
             foreach (var component in option.GainComponents)
                 if (_carriedPool.Count < _battleConfig.PoolCapacity)
                     _carriedPool.Add(component); // 池满则不入(同 3.8.2「池满则不掉」)
