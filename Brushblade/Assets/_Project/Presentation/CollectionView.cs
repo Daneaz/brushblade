@@ -169,14 +169,29 @@ namespace Brushblade.Presentation
             int copiesNeeded = MetaRules.CopiesRequired(level, def.Rarity);
             int inkNeeded = MetaRules.InkRequired(level, def.Rarity);
 
+            // 自建而非走 Ui.Modal:要在正文里放卡面(2026-07-22),Modal 只接纯文本
             if (_modal != null) Destroy(_modal);
-            _modal = Ui.Modal(transform, $"升级「{cardId}」",
-                $"Lv.{level} → Lv.{level + 1}\n\n" +
-                $"{CharInfo.EffectsText(def, level)}\n↓\n{CharInfo.EffectsText(def, level + 1)}\n\n" +
+            var overlay = Ui.ModalShell(transform, $"升级「{cardId}」",
+                new Vector2(340, 275), dismissable: true, out var stack);
+            _modal = overlay;
+
+            Ui.GlyphTile(stack, def, $"{def.ApCost}AP", false, null, new Vector2(118, 142));
+            Ui.ThemedLabel(stack, $"Lv.{level} → Lv.{level + 1}", 21, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack,
+                $"{CharInfo.EffectsText(def, level)}\n↓\n{CharInfo.EffectsText(def, level + 1)}",
+                17, Theme.TextDim);
+            Ui.ThemedLabel(stack,
                 $"消耗:重复卡 {copiesNeeded}(有 {copies}) · 墨锭 {inkNeeded}(有 {_meta.Ink})",
-                new Vector2(330, 210),
-                ("确认升级", () => Upgrade(cardId), Theme.Jade, Color.white),
-                ("再想想", null, Theme.LockedBg, Theme.TextMain));
+                16, Theme.TextDim);
+
+            var buttons = Ui.Row(stack, "Buttons", 14);
+            Ui.PillButton(buttons.transform, "确认升级", () =>
+            {
+                Destroy(overlay); // 先关弹窗:Upgrade 会 Rebuild 清根,顺序反了会留残影
+                Upgrade(cardId);
+            }, Theme.Jade, Color.white, 18, new Vector2(150, 52));
+            Ui.PillButton(buttons.transform, "再想想", () => Destroy(overlay),
+                Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 52));
         }
 
         private void Upgrade(string cardId)
