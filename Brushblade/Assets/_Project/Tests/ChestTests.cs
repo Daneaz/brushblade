@@ -96,6 +96,28 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void StartOpening_AllowedWhilePreviousChestIsReadyButUncollected()
+        {
+            var time = new FakeTime();
+            var meta = new MetaState();
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time); // 30 分钟
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
+
+            Assert.That(ChestRules.TryStartOpening(meta, 0, time), Is.True);
+            time.NowUnixSeconds += 1800;
+            Assert.That(ChestRules.IsReady(meta.Chests[0], time), Is.True); // 就绪但没领
+
+            // 占位的是「正在计时」而非「已就绪待领」:下一只该能开始计时
+            Assert.That(ChestRules.TryStartOpening(meta, 1, time), Is.True);
+            Assert.That(ChestRules.IsReady(meta.Chests[0], time), Is.True); // 前一只仍就绪可领
+            Assert.That(ChestRules.RemainingSeconds(meta.Chests[1], time), Is.EqualTo(1800));
+
+            // 对已就绪的箱再点「开始」要被拒,否则会把它的计时重置掉
+            Assert.That(ChestRules.TryStartOpening(meta, 0, time), Is.False);
+            Assert.That(ChestRules.IsReady(meta.Chests[0], time), Is.True);
+        }
+
+        [Test]
         public void Chest_ReadyAfterDuration()
         {
             var time = new FakeTime();

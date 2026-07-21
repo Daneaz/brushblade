@@ -118,11 +118,15 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>开始计时:同一时间仅允许一只箱计时。</summary>
+        /// <summary>开始计时:同一时间仅允许一只箱**正在**计时。已就绪待领的箱不占位
+        /// (2026-07-21:此前它也算占位,导致领之前后面的箱开不了计时,而 UI 的
+        /// AnyChestTiming 已按「正在计时」判定,按钮亮着却点不动)。</summary>
         public static bool TryStartOpening(MetaState meta, int index, ITimeSource time)
         {
+            if (meta.Chests[index].Timing)
+                return false; // 自己已在计时/已就绪,不重置进度
             foreach (var chest in meta.Chests)
-                if (chest.Timing)
+                if (chest.Timing && !IsReady(chest, time))
                     return false;
             meta.Chests[index].StartedAtUnix = time.NowUnixSeconds;
             return true;
