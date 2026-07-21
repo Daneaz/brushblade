@@ -283,10 +283,12 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
-            // 敌方辅助先行动:标点小妖给其他存活字怪加攻,当回合生效、与站位无关(8.3)
+            // 敌方辅助先行动:标点小妖给其他存活字怪加攻,与站位无关(8.3)。
+            // 加成本场累计、回合末不回滚;场上只剩自己时改为亲自出手(2026-07-22)
             foreach (var enemy in _enemies)
             {
                 if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff) continue;
+                if (!HasOtherAliveEnemy(enemy)) continue; // 无人可加 → 交给下面的行动循环
                 for (int j = 0; j < _enemies.Count; j++)
                 {
                     var other = _enemies[j];
@@ -300,7 +302,9 @@ namespace Brushblade.Core
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.Def.Ability == EnemyAbility.Buff) continue;
+                if (!enemy.Alive) continue;
+                if (enemy.Def.Ability == EnemyAbility.Buff && HasOtherAliveEnemy(enemy))
+                    continue; // 已用加攻代替出手;独自在场时照常攻击
 
                 int damage = enemy.Attack;
                 var tank = FirstAliveSummon(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
@@ -428,6 +432,14 @@ namespace Brushblade.Core
                         break;
                 }
             }
+        }
+
+        /// <summary>场上除 self 外还有存活敌人吗(辅助型据此决定加攻还是出手)。</summary>
+        private bool HasOtherAliveEnemy(EnemyState self)
+        {
+            foreach (var enemy in _enemies)
+                if (enemy != self && enemy.Alive) return true;
+            return false;
         }
 
         private int AliveSummons()

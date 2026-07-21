@@ -37,12 +37,31 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Buffer_Alone_DoesNothing()
+        public void Buffer_Alone_AttacksPlayer() // 2026-07-22:无人可加就亲自出手,不再空过
         {
             var engine = Engine(Buffer());
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(50));
-            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyAttack), Is.False);
+            Assert.That(engine.PlayerHp, Is.EqualTo(50 - 1));
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.False);
+        }
+
+        [Test]
+        public void Buffer_LastOneStanding_SwitchesToAttack() // 同伴被清光后改为出手
+        {
+            var engine = Engine(Buffer(), new EnemyDef("枯", Element.Wood, 4, 3));
+            engine.Cast("火", 1); // 杀掉同伴
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50 - 1));
+        }
+
+        [Test]
+        public void Buff_AccumulatesAcrossTurns_WithinBattle() // 本关生效:逐回合累加,回合末不回滚
+        {
+            var engine = Engine(Buffer(), Ghost());
+            engine.EndTurn();
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(5)); // 4 + 1
+            engine.EndTurn();
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6)); // 再 + 1,不回滚
         }
 
         [Test]

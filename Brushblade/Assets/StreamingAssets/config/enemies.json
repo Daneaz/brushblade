@@ -17,7 +17,7 @@
       "id": "标点小妖",
       "element": "Heart",
       "maxHp": 10,
-      "attack": 1,
+      "attack": 2,
       "ability": "Buff"
     },
     {
