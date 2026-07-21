@@ -493,5 +493,22 @@ namespace Brushblade.Core.Tests
             Assert.That(summon.SummonChar, Is.EqualTo("木"));
             Assert.That(graph.Get("沐").Effects[0].Kind, Is.EqualTo(EffectKind.HealSelf));
         }
+
+        [Test]
+        public void CardLevel_ScalesActualDamage() // 探针:等级是否真的进了结算
+        {
+            var enemy = new EnemyDef("木桩", Element.Heart, 500, 0);
+            var lv1 = new BattleEngine(Graph(), Config(), new[] { "灼" }, Array.Empty<string>(),
+                new[] { enemy }, seed: 1);
+            var lv3 = new BattleEngine(Graph(), Config(), new[] { "灼" }, Array.Empty<string>(),
+                new[] { enemy }, seed: 1, cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["灼"] = 3 });
+
+            lv1.Cast("灼", 0);
+            lv3.Cast("灼", 0);
+            int dmg1 = 500 - lv1.Enemies[0].Hp;
+            int dmg3 = 500 - lv3.Enemies[0].Hp;
+            TestContext.WriteLine($"Lv1={dmg1} Lv3={dmg3}");
+            Assert.That(dmg3, Is.GreaterThan(dmg1));
+        }
     }
 }

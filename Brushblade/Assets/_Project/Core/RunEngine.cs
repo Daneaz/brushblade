@@ -72,6 +72,10 @@ namespace Brushblade.Core
         public int BattleIndex { get; private set; }
         public BattleEngine Battle { get; private set; }
 
+        /// <summary>局内 UI 显示等级化数值用(19.3.2);未记录则 1 级。</summary>
+        public int CardLevel(string cardId) =>
+            _cardLevels != null && _cardLevels.TryGetValue(cardId, out var level) ? level : 1;
+
         /// <summary>奖励阶段的字候选(已取走的即时移除)。</summary>
         public IReadOnlyList<string> RewardOptions => _rewardOptions;
 

@@ -160,9 +160,14 @@ namespace Brushblade.Presentation
         }
 
         public static GameObject Modal(Transform root, string title, string body,
+            params (string label, Action onClick, Color bg, Color fg)[] buttons) =>
+            Modal(root, title, body, new Vector2(310, 150), buttons);
+
+        /// <summary>指定尺寸的弹窗:正文多行时放大(如升级 preview 的前后对比)。</summary>
+        public static GameObject Modal(Transform root, string title, string body, Vector2 halfSize,
             params (string label, Action onClick, Color bg, Color fg)[] buttons)
         {
-            var overlay = ModalShell(root, title, new Vector2(310, 150), dismissable: true, out var stack);
+            var overlay = ModalShell(root, title, halfSize, dismissable: true, out var stack);
             ThemedLabel(stack, body, 17, Theme.TextDim);
             var row = Row(stack, "Buttons", 14);
             foreach (var (label, onClick, bg, fg) in buttons)

@@ -16,7 +16,7 @@ namespace Brushblade.Presentation
         private Action _save;
         private GameObject _modal; // 当前告知弹窗(同屏仅一个)
         private int _page;
-        private string _message = "点击卡片加入/移出出阵卡组(只有出阵的字才会上场);集满重复卡后可升级";
+        private string _message = "点字卡看能力;「出阵」按钮编入卡组(只有出阵的字才会上场);集满重复卡后可升级";
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -104,8 +104,11 @@ namespace Brushblade.Presentation
                 Ui.Chip(badges.transform, $"Lv.{level}", Theme.Ink, Color.white, 13);
                 if (pinned)
                     Ui.Chip(badges.transform, "出阵", Theme.ExitPink, Color.white, 13);
-                Ui.GlyphTile(cell.transform, def, "", pinned, () => ToggleDeck(cardId),
-                    new Vector2(118, 128));
+                Ui.GlyphTile(cell.transform, def, "", pinned, () => ShowDetail(cardId),
+                    new Vector2(118, 112)); // 点字卡 = 看能力;出阵改走下方独立按钮(2026-07-20)
+                Ui.RoundButton(cell.transform, pinned ? "卸下" : "出阵", () => ToggleDeck(cardId),
+                    pinned ? Theme.LockedBg : Theme.ExitPink,
+                    pinned ? Theme.TextMain : Color.white, 14, new Vector2(118, 32));
 
                 if (level >= MetaRules.MaxCardLevel)
                 {
@@ -118,7 +121,7 @@ namespace Brushblade.Presentation
                     bool can = copies >= copiesNeeded && _meta.Ink >= inkNeeded;
                     var upgrade = Ui.RoundButton(cell.transform,
                         $"升级 {copies}/{copiesNeeded} · {inkNeeded}墨",
-                        () => Upgrade(cardId),
+                        () => ShowUpgradePreview(cardId),
                         can ? Theme.Jade : Theme.AdGreenBg,
                         can ? Color.white : Theme.UpgradeText, 14, new Vector2(118, 36));
                     upgrade.interactable = can;
@@ -128,7 +131,6 @@ namespace Brushblade.Presentation
 
         private void ToggleDeck(string cardId)
         {
-            string summary = CharInfo.Summary(_graph.Get(cardId), _graph);
             var deck = new System.Collections.Generic.List<string>(_meta.Deck);
             bool removing = deck.Contains(cardId);
             if (removing) deck.Remove(cardId);
@@ -137,14 +139,13 @@ namespace Brushblade.Presentation
             if (MetaRules.TrySetDeck(_meta, deck, _graph))
             {
                 _save();
-                _message = summary + (removing
-                    ? "\n已移出出阵列表(未出阵的字不上场)"
-                    : "\n已加入出阵列表(下次登塔生效)");
+                _message = $"「{cardId}」" + (removing
+                    ? "已移出出阵列表(未出阵的字不上场)"
+                    : "已加入出阵列表(下次登塔生效)");
                 Rebuild();
                 return;
             }
 
-            _message = summary;
             Rebuild();
             ShowAlert("出阵受限", removing
                 ? $"出阵不能少于 {MetaRules.DeckMinimum} 字。\n先把别的字加进来,再移出这一张。"
@@ -152,12 +153,39 @@ namespace Brushblade.Presentation
                   $"每属性至多 {MetaRules.DeckPerElementLimit} 字。");
         }
 
+        /// <summary>点字卡:只看不改状态(拼音/释义/属性/配方/当前等级效果)。</summary>
+        private void ShowDetail(string cardId)
+        {
+            if (_modal != null) Destroy(_modal);
+            _modal = CharPreview.Show(transform, _graph.Get(cardId), _graph, MetaRules.CardLevel(_meta, cardId));
+        }
+
+        /// <summary>升级前 preview:前后两级效果对比 + 消耗,确认才扣(2026-07-20)。</summary>
+        private void ShowUpgradePreview(string cardId)
+        {
+            var def = _graph.Get(cardId);
+            int level = MetaRules.CardLevel(_meta, cardId);
+            _meta.CardCopies.TryGetValue(cardId, out int copies);
+            int copiesNeeded = MetaRules.CopiesRequired(level, def.Rarity);
+            int inkNeeded = MetaRules.InkRequired(level, def.Rarity);
+
+            if (_modal != null) Destroy(_modal);
+            _modal = Ui.Modal(transform, $"升级「{cardId}」",
+                $"Lv.{level} → Lv.{level + 1}\n\n" +
+                $"{CharInfo.EffectsText(def, level)}\n↓\n{CharInfo.EffectsText(def, level + 1)}\n\n" +
+                $"消耗:重复卡 {copiesNeeded}(有 {copies}) · 墨锭 {inkNeeded}(有 {_meta.Ink})",
+                new Vector2(330, 210),
+                ("确认升级", () => Upgrade(cardId), Theme.Jade, Color.white),
+                ("再想想", null, Theme.LockedBg, Theme.TextMain));
+        }
+
         private void Upgrade(string cardId)
         {
             var def = _graph.Get(cardId);
             if (MetaRules.TryUpgradeCard(_meta, cardId, def.Rarity))
             {
-                _message = $"「{cardId}」升至 Lv.{MetaRules.CardLevel(_meta, cardId)}!";
+                int newLevel = MetaRules.CardLevel(_meta, cardId);
+                _message = $"「{cardId}」升至 Lv.{newLevel}!\n" + CharInfo.Summary(def, _graph, newLevel);
                 _save();
                 Rebuild();
                 return;

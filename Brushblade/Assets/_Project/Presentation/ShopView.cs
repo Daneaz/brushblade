@@ -63,7 +63,8 @@ namespace Brushblade.Presentation
                 bool affordable = !sold && _meta.Ink >= price;
 
                 var cell = Ui.VStack(cardRow.transform, $"Slot{i}", 8);
-                Ui.GlyphTile(cell.transform, def, sold ? "已售" : "", false, null, new Vector2(130, 150));
+                Ui.GlyphTile(cell.transform, def, sold ? "已售" : "", false,
+                    () => ShowPreview(def), new Vector2(130, 150)); // 点卡看详情(2026-07-21)
                 var buy = Ui.RoundButton(cell.transform, sold ? "已售" : price.ToString(),
                     () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), $"购入「{card}」!",
                         "买不起", $"「{card}」售价 {price} 墨锭,你有 {_meta.Ink}。"),
@@ -125,6 +126,13 @@ namespace Brushblade.Presentation
             }
             Rebuild();
             ShowAlert(failTitle ?? "无法完成", failBody ?? "条件不满足,换个试试。");
+        }
+
+        /// <summary>点货架字卡:看详情(商城卡未拥有,按 1 级基础值展示)。</summary>
+        private void ShowPreview(Brushblade.Core.CharDef def)
+        {
+            if (_modal != null) Destroy(_modal);
+            _modal = CharPreview.Show(transform, def, _graph, MetaRules.CardLevel(_meta, def.Id));
         }
 
         /// <summary>被拒提示统一弹窗;须在 Rebuild 之后调用——Rebuild 会清空根节点。</summary>

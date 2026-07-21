@@ -32,7 +32,8 @@ namespace Brushblade.Presentation
         private Transform _enemyRow;
         private Transform _summonRow;    // 我方前排召唤物:夹在敌我血条之间
         private Transform _topLeft, _topRight, _bottomRow;
-        private Transform _statusRow;    // 语义:结束回合行
+        private Transform _statusRow;    // 教程提示/奇遇文案(结束回合钮 2026-07-21 已移出)
+        private Transform _endTurnRow;   // 结束回合钮:屏幕右缘垂直居中(2026-07-21)
         private Transform _libraryRow;
         private Transform _poolRow;
         private Transform _suggestRow;
@@ -92,6 +93,20 @@ namespace Brushblade.Presentation
             var root = (RectTransform)transform;
             Ui.Stretch(root);
 
+            // 空白处点击 = 取消选中(2026-07-21):全屏透明层,最先建 → 在最底层,
+            // 内容层带 Image 的元素会先拦下射线,只有真正的空白落到这里
+            var backdrop = Ui.Panel(transform, "Backdrop");
+            Ui.Stretch((RectTransform)backdrop.transform);
+            var backdropImage = backdrop.AddComponent<Image>();
+            backdropImage.color = new Color(0, 0, 0, 0);
+            var backdropButton = backdrop.AddComponent<Button>();
+            backdropButton.transition = Selectable.Transition.None;
+            backdropButton.targetGraphic = backdropImage;
+            backdropButton.onClick.AddListener(() =>
+            {
+                if (_selectedChar != null || _targeting) CancelSelection();
+            });
+
             // 顶栏:标题 | 墨锭 · 回合 · 退出
             var topBar = Ui.Panel(transform, "TopBar");
             Ui.Anchor((RectTransform)topBar.transform, new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
@@ -130,7 +145,14 @@ namespace Brushblade.Presentation
 
             _libraryRow = MakeSection("Library", 0.368f, 0.505f); // 123px ≥ 118 字牌
             _poolRow = MakeSection("Pool", 0.300f, 0.368f);       // 61px ≥ 56 部件钮
-            _statusRow = MakeSection("EndTurn", 0.230f, 0.300f);  // 63px:结束回合钮/奖励页部件排
+            _statusRow = MakeSection("Status", 0.230f, 0.300f);  // 63px:教程提示/奇遇文案
+
+            // 结束回合钮:屏幕右缘垂直居中(2026-07-21,右手拇指位)。字库满员 8 张 ×118
+            // 居中最宽到 x≈1300(1600 基准),这里从 1376 起,不压字牌行
+            var endTurnGo = Ui.Row(transform, "EndTurn");
+            Ui.Anchor((RectTransform)endTurnGo.transform,
+                new Vector2(0.86f, 0.44f), new Vector2(0.99f, 0.56f), Vector2.zero, Vector2.zero);
+            _endTurnRow = endTurnGo.transform;
         }
 
         private Transform MakeSection(string name, float yMin, float yMax)
@@ -176,6 +198,7 @@ namespace Brushblade.Presentation
             Ui.Clear(_actionRow);
             Ui.Clear(_hintColumn);
             Ui.Clear(_statusRow);
+            Ui.Clear(_endTurnRow);
             Ui.Clear(_libraryRow);
             Ui.Clear(_poolRow);
             Ui.Clear(_bottomRow);
@@ -218,6 +241,8 @@ namespace Brushblade.Presentation
                     break;
             }
             DrawTutorialHint();
+            // 长按 preview 置顶(2026-07-21):补发的点击会重建战利品弹窗,不置顶就把 preview 盖住了
+            if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
         }
 
@@ -402,20 +427,36 @@ namespace Brushblade.Presentation
                 string charId = library[i];
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected,
-                    () =>
-                    {
-                        if (rewardPhase) OnRewardLibraryClicked(charId);
-                        else OnLibraryCharClicked(charId);
-                    }, new Vector2(82, 104));
+                System.Action tap = () =>
+                {
+                    if (rewardPhase) OnRewardLibraryClicked(charId);
+                    else OnLibraryCharClicked(charId);
+                };
+                var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
+                    new Vector2(82, 104));
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId), tap);
                 _tileRects[charId] = (RectTransform)tile.transform;
             }
+        }
+
+        /// <summary>消息条简述(2026-07-21):只给 AP 与等级化效果;拼音/释义/配方走长按 preview。</summary>
+        private string Brief(string charId)
+        {
+            var def = _graph.Get(charId);
+            return $"「{charId}」{def.ApCost}AP · {CharInfo.EffectsText(def, _run.CardLevel(charId))}";
+        }
+
+        /// <summary>长按看详情:preview 只读,不动选中态。</summary>
+        private void ShowCharPreview(string charId)
+        {
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = CharPreview.Show(transform, _graph.Get(charId), _graph, _run.CardLevel(charId));
         }
 
         /// <summary>奖励页点字库:看简述(替换已改在战利品弹窗内完成,2026-07-20)。</summary>
         private void OnRewardLibraryClicked(string charId)
         {
-            _message = CharInfo.Summary(_graph.Get(charId), _graph);
+            _message = Brief(charId);
             Refresh();
         }
 
@@ -438,15 +479,16 @@ namespace Brushblade.Presentation
                 string charId = id;
                 var def = _graph.Get(charId);
                 bool selected = _selectedChar == charId && !_targeting;
-                var tile = Ui.RoundButton(_poolRow, charId,
-                    () =>
-                    {
-                        if (rewardPhase) { _message = CharInfo.Summary(_graph.Get(charId), _graph); Refresh(); }
-                        else OnPoolCharClicked(charId);
-                    },
+                System.Action tap = () =>
+                {
+                    if (rewardPhase) { _message = Brief(charId); Refresh(); }
+                    else OnPoolCharClicked(charId);
+                };
+                var tile = Ui.RoundButton(_poolRow, charId, tap,
                     selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     selected ? Color.white : Theme.ElementSoftFg(def.Element),
                     22, new Vector2(56, 56), 12);
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId), tap);
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
             }
         }
@@ -604,23 +646,84 @@ namespace Brushblade.Presentation
 
         private void DrawEndTurn()
         {
-            Ui.PillButton(_statusRow, "结束回合", OnEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
+            Ui.PillButton(_endTurnRow, "结束回合", ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
+        }
+
+        /// <summary>还有 AP 时先确认,避免误触把这回合的 AP 作废(2026-07-21)。
+        /// AP 耗尽的自动结束与「AP 不够」弹窗里的快捷钮直连 OnEndTurn,不重复确认。</summary>
+        private void ConfirmEndTurn()
+        {
+            if (Battle.Ap <= 0)
+            {
+                OnEndTurn();
+                return;
+            }
+            ShowModal("还有 AP 没用",
+                $"本回合还剩 {Battle.Ap} AP,结束后作废。\n确定结束回合?",
+                ("结束回合", OnEndTurn, Theme.Cinnabar, Color.white),
+                ("再想想", null, Theme.LockedBg, Theme.TextMain));
         }
 
         private void DrawBattleSettle()
         {
-            bool won = Battle.Phase == BattlePhase.Won;
-            Ui.ThemedLabel(_actionRow, won ? "本场胜利!" : "败北……", 36, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_actionRow, "结算", () =>
+            if (Battle.Phase == BattlePhase.Won)
             {
-                _run.AdvanceAfterBattle();
-                _pendingRewardIndex = -1;
-                _previewRewardIndex = -1;
-                _previewComponentIndex = -1;
-                _rewardCharSkipped = false; // 上一场的「不要字」不能带进这一场
-                _message = "";
-                Refresh();
-            }, Theme.Jade, Color.white, 26, new Vector2(150, 70));
+                ShowVictoryBanner(); // 过关提示走屏幕中央横幅,自动推进(2026-07-21)
+                return;
+            }
+            Ui.ThemedLabel(_actionRow, "败北……", 36, Theme.TextMain, Theme.TitleFont);
+            Ui.PillButton(_actionRow, "结算", AdvanceAfterSettle,
+                Theme.Jade, Color.white, 26, new Vector2(150, 70));
+        }
+
+        private bool _bannerRunning; // 横幅协程已起:Refresh 会反复走到这里,防重复
+
+        /// <summary>过关提示(2026-07-21):屏幕中央大字,停留后淡出并自动进战利品。
+        /// Boss 层加大加朱砂色、多停留一会儿。</summary>
+        private void ShowVictoryBanner()
+        {
+            if (_bannerRunning) return;
+            _bannerRunning = true;
+
+            bool boss = false;
+            foreach (var enemy in Battle.Enemies)
+                if (enemy.IsBoss) { boss = true; break; }
+
+            var banner = Ui.Panel(transform, "VictoryBanner");
+            Ui.Anchor((RectTransform)banner.transform,
+                new Vector2(0, 0.40f), new Vector2(1, 0.64f), Vector2.zero, Vector2.zero);
+            var group = banner.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false; // 只是提示,不拦点击
+            var label = Ui.ThemedLabel(banner.transform, boss ? "B O S S  已 破" : "本 层 告 捷",
+                boss ? 76 : 46, boss ? Theme.Cinnabar : Theme.TextMain, Theme.TitleFont);
+            Ui.Stretch(label.rectTransform);
+            StartCoroutine(VictoryBannerRoutine(banner, group, boss ? 1.8f : 1.2f));
+        }
+
+        private System.Collections.IEnumerator VictoryBannerRoutine(GameObject banner, CanvasGroup group, float hold)
+        {
+            for (float t = 0; t < hold; t += Time.unscaledDeltaTime)
+                yield return null;
+            const float fade = 0.3f;
+            for (float t = 0; t < fade; t += Time.unscaledDeltaTime)
+            {
+                group.alpha = 1f - t / fade;
+                yield return null;
+            }
+            Destroy(banner);
+            AdvanceAfterSettle();
+        }
+
+        private void AdvanceAfterSettle()
+        {
+            _bannerRunning = false;
+            _run.AdvanceAfterBattle();
+            _pendingRewardIndex = -1;
+            _previewRewardIndex = -1;
+            _previewComponentIndex = -1;
+            _rewardCharSkipped = false; // 上一场的「不要字」不能带进这一场
+            _message = "";
+            Refresh();
         }
 
         private bool _rewardCharSkipped;      // 玩家放弃了字这一步(引擎侧额度仍在,收尾时补 SkipReward)
@@ -649,7 +752,7 @@ namespace Brushblade.Presentation
             _rewardModal = Ui.ModalShell(transform, "战利品 · 选 1 个字",
                 new Vector2(340, 165), dismissable: false, out var content);
             var preview = _previewRewardIndex >= 0
-                ? CharInfo.Summary(_graph.Get(_run.RewardOptions[_previewRewardIndex]), _graph) + "|再点一次收下"
+                ? Brief(_run.RewardOptions[_previewRewardIndex]) + "|再点一次收下"
                 : $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity} · 点一下看效果,再点收下";
             Ui.ThemedLabel(content, preview, 16, Theme.TextDim);
 
@@ -659,7 +762,7 @@ namespace Brushblade.Presentation
                 int index = i;
                 var id = _run.RewardOptions[i];
                 var def = _graph.Get(id);
-                Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", index == _previewRewardIndex, () =>
+                System.Action tap = () =>
                 {
                     if (_previewRewardIndex != index)
                     {
@@ -677,7 +780,10 @@ namespace Brushblade.Presentation
                     }
                     _pendingRewardIndex = index; // 字库已满(3.8.1):转入替换子步
                     Refresh();
-                });
+                };
+                var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP",
+                    index == _previewRewardIndex, tap);
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id), tap);
             }
 
             Ui.RoundButton(content, "不要字,去选部件", () =>
@@ -731,7 +837,7 @@ namespace Brushblade.Presentation
                 ? $"部件池已满 {_run.CarriedPool.Count}/{Battle.PoolCapacity}——选一个会进入替换"
                 : $"部件池 {_run.CarriedPool.Count}/{Battle.PoolCapacity} · 点一下看效果,再点收下";
             Ui.ThemedLabel(content, _previewComponentIndex >= 0
-                ? CharInfo.Summary(_graph.Get(_run.ComponentOptions[_previewComponentIndex]), _graph)
+                ? Brief(_run.ComponentOptions[_previewComponentIndex])
                   + (poolFull ? "|再点一次去挑替换目标" : "|再点一次收下")
                 : note, 16, poolFull ? Theme.Cinnabar : Theme.TextDim);
 
@@ -1013,7 +1119,7 @@ namespace Brushblade.Presentation
             }
             _selectedChar = charId;
             _targeting = false;
-            _message = CharInfo.Summary(_graph.Get(charId), _graph) + "|再点即出";
+            _message = Brief(charId) + "|再点即出";
             Refresh();
         }
 
@@ -1026,7 +1132,7 @@ namespace Brushblade.Presentation
             }
             _selectedChar = charId;
             _targeting = false;
-            _message = CharInfo.Summary(_graph.Get(charId), _graph) + "|直出:部件不入库直接打出|再点即出";
+            _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
             Refresh();
         }
 
