@@ -239,7 +239,7 @@ namespace Brushblade.Presentation
             // Boss 层告捷:经验 + 纪录 + 即发宝箱(2026-07-19 拍板,原「结算发箱」废止)
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
             EndlessRules.UpdateBest(_meta, segmentEnd);
-            var tier = EndlessRules.ChestTierFor(segmentEnd);
+            var tier = EndlessRules.ChestTierFor(segmentEnd, new GameRandom(System.Environment.TickCount));
             string chestNote = ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time)
                 ? $"获得{ChestRules.TierName(tier)}!"
                 : "箱位已满,宝箱与你擦肩……";

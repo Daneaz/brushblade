@@ -141,11 +141,26 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void CrimsonChest_GuaranteesAtLeastOneRed() // 赤霄保底 1 红
+        public void CrimsonChest_GuaranteesAtLeastOnePurplePlus() // 保底钳到紫(首发仅绿蓝紫)
         {
             var graph = MixedGraph();
-            OpenChest(ChestTier.Crimson, graph, 7, out var rewards);
-            Assert.That(rewards.Cards, Does.Contain("燚"));
+            for (int seed = 0; seed < 50; seed++)
+            {
+                OpenChest(ChestTier.Crimson, graph, seed, out var rewards);
+                bool hasPurplePlus = rewards.Cards.Any(c => graph.Get(c).Rarity >= CardRarity.Purple);
+                Assert.That(hasPurplePlus, Is.True, $"seed={seed}");
+            }
+        }
+
+        [Test]
+        public void HighTierChests_NeverDropWhite() // 首发三档:白权重 0
+        {
+            var graph = MixedGraph();
+            for (int seed = 0; seed < 50; seed++)
+            {
+                OpenChest(ChestTier.Gilded, graph, seed, out var rewards);
+                Assert.That(rewards.Cards, Does.Not.Contain("灯"), $"seed={seed}");
+            }
         }
 
         [Test]

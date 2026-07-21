@@ -197,20 +197,21 @@ namespace Brushblade.Core
             return true;
         }
 
-        // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→红;首版基准)
+        // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→红)
+        // 首发仅绿/蓝/紫三档,白/橙/红列留 0 待扩展;绿蓝紫三列合计 100 = 实际出卡百分比。
         private static readonly int[][] CardRarityWeights =
         {
-            new[] { 70, 25, 5, 0, 0, 0 },    // 素纸
-            new[] { 50, 32, 14, 4, 0, 0 },   // 竹简
-            new[] { 35, 30, 22, 10, 3, 0 },  // 青瓷
-            new[] { 22, 26, 26, 16, 8, 2 },  // 紫檀
-            new[] { 12, 20, 26, 22, 14, 6 }, // 鎏金
-            new[] { 6, 14, 22, 26, 20, 12 }, // 赤霄
+            new[] { 0, 92, 8, 0, 0, 0 },   // 素纸
+            new[] { 0, 85, 14, 1, 0, 0 },  // 竹简
+            new[] { 0, 76, 22, 2, 0, 0 },  // 青瓷
+            new[] { 0, 68, 28, 4, 0, 0 },  // 紫檀
+            new[] { 0, 58, 34, 8, 0, 0 },  // 鎏金
+            new[] { 0, 48, 38, 14, 0, 0 }, // 赤霄
         };
 
-        /// <summary>保底稀有度(19.5.1):青瓷保底蓝、紫檀紫、鎏金橙、赤霄红;低档无保底。</summary>
+        /// <summary>保底稀有度:青瓷保底蓝,紫檀及以上保底紫(首发仅到紫,原橙/红保底钳到紫)。</summary>
         private static readonly CardRarity?[] GuaranteedRarity =
-            { null, null, CardRarity.Blue, CardRarity.Purple, CardRarity.Orange, CardRarity.Red };
+            { null, null, CardRarity.Blue, CardRarity.Purple, CardRarity.Purple, CardRarity.Purple };
 
         private static List<string> DrawUniform(ChestState chest, GameRandom random, int count)
         {

@@ -188,15 +188,30 @@ namespace Brushblade.Core.Tests
         // ---- 宝箱档位与经验(20.8) ----
 
         [Test]
-        public void ChestTier_GrowsWithDepth()
+        public void ChestTier_GrowsWithDepth() // 区间内只出低档或高一档
         {
             var random = new GameRandom(1);
-            Assert.That(EndlessRules.ChestTierFor(1, random),
-                Is.EqualTo(ChestTier.Paper).Or.EqualTo(ChestTier.Bamboo));
-            Assert.That(EndlessRules.ChestTierFor(12, random),
-                Is.EqualTo(ChestTier.Celadon).Or.EqualTo(ChestTier.Rosewood));
-            Assert.That(EndlessRules.ChestTierFor(60, random),
-                Is.EqualTo(ChestTier.Gilded).Or.EqualTo(ChestTier.Crimson));
+            for (int i = 0; i < 200; i++)
+            {
+                Assert.That(EndlessRules.ChestTierFor(1, random),
+                    Is.EqualTo(ChestTier.Paper).Or.EqualTo(ChestTier.Bamboo));
+                Assert.That(EndlessRules.ChestTierFor(12, random),
+                    Is.EqualTo(ChestTier.Celadon).Or.EqualTo(ChestTier.Rosewood));
+                Assert.That(EndlessRules.ChestTierFor(40, random), Is.EqualTo(ChestTier.Gilded));
+                Assert.That(EndlessRules.ChestTierFor(60, random),
+                    Is.EqualTo(ChestTier.Gilded).Or.EqualTo(ChestTier.Crimson));
+            }
+        }
+
+        [Test]
+        public void ChestTier_HigherTierIsTenPercent() // 90:10(2026-07-20 拍板)
+        {
+            var random = new GameRandom(7);
+            int high = 0;
+            for (int i = 0; i < 2000; i++)
+                if (EndlessRules.ChestTierFor(60, random) == ChestTier.Crimson)
+                    high++;
+            Assert.That(high, Is.InRange(150, 250)); // 期望 200/2000
         }
 
         [Test]

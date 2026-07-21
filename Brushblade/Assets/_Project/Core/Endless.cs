@@ -176,7 +176,7 @@ namespace Brushblade.Core
     {
         public static int SettleInk(int earned, bool died) => died ? earned / 2 : earned;
 
-        /// <summary>结算宝箱档位=f(结算层数)(20.8):区间内两档随机取一。</summary>
+        /// <summary>宝箱档位=f(层数)(20.8):区间内低档 90% / 高一档 10%(2026-07-20 拍板)。</summary>
         public static ChestTier ChestTierFor(int depth, GameRandom random)
         {
             var (low, high) = depth switch
@@ -188,7 +188,7 @@ namespace Brushblade.Core
                 < 50 => (ChestTier.Gilded, ChestTier.Gilded),
                 _ => (ChestTier.Gilded, ChestTier.Crimson),
             };
-            return random.Next(2) == 0 ? low : high;
+            return random.Next(10) == 0 ? high : low;
         }
 
         /// <summary>角色经验(20.8):每层 10,Boss 层 50。</summary>
