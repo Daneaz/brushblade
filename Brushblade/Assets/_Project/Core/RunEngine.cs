@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -121,6 +122,9 @@ namespace Brushblade.Core
                     return false; // 任选字须指定选哪一个
                 gainChar = option.GainCharChoices[charChoiceIndex];
             }
+            if (gainChar != null && _battleConfig.UnlockedChars != null
+                && !_battleConfig.UnlockedChars.Contains(gainChar))
+                return false; // 不在出阵列表(2026-07-20:字摊与战利品/合成同源,没编入就换不到)
             if (gainChar != null && _carriedLibrary.Count >= _battleConfig.LibraryCapacity)
                 return false; // 字库已满,收不下(3.8.1「选择不要」;先验后扣,部件不受损)
 

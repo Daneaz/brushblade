@@ -457,5 +457,80 @@ namespace Brushblade.Core.Tests
                     ""stages"": [ { ""encounters"": [] } ], ""rewardPool"": [] } ]
             }", graph));
         }
+
+        // ---- 字摊口径:换来的字也须在出阵列表(2026-07-20;与战利品/合成同源) ----
+
+        private static RunEngine StallRun(params string[] unlocked) =>
+            new(Graph(), StallConfig(), new BattleConfig
+            {
+                DropTable = Array.Empty<string>(),
+                UnlockedChars = unlocked.Length > 0 ? unlocked : null,
+            }, new[] { "焚" }, new[] { "木", "火" }, seed: 7);
+
+        private static RunConfig StallConfig() => new()
+        {
+            Encounters = new[]
+            {
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+            },
+            RewardPool = new[] { "炎" },
+            EventPool = new[]
+            {
+                new EventDef
+                {
+                    Id = "字摊",
+                    Text = "以物易物。",
+                    Options = new[]
+                    {
+                        new EventOption
+                        {
+                            Label = "两部件换字(任选)", ComponentCost = 2,
+                            GainCharChoices = new[] { "炎", "林" },
+                        },
+                        new EventOption { Label = "只看不换" },
+                    },
+                },
+            },
+            EventChancePercent = 100,
+        };
+
+        [Test]
+        public void Stall_RejectsCharOutsideDeck_AndKeepsComponents()
+        {
+            var run = StallRun("林"); // 出阵只有林,炎换不到
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 0), Is.False);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));       // 停留在事件
+            Assert.That(run.CarriedPool, Is.EquivalentTo(new[] { "木", "火" })); // 先验后扣:部件不损
+        }
+
+        [Test]
+        public void Stall_AllowsCharInsideDeck()
+        {
+            var run = StallRun("炎", "林");
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 0), Is.True);
+            Assert.That(run.Battle.Library, Does.Contain("炎"));
+        }
+
+        [Test]
+        public void FixedGift_AlsoDeckGated() // 守卫是全局的:单字奇遇(测字先生等)同受出阵列表约束
+        {
+            var run = new RunEngine(Graph(), Config(100),
+                new BattleConfig { UnlockedChars = new[] { "林" } },
+                new[] { "焚" }, Array.Empty<string>(), seed: 7);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.False); // 「求字」得炎,炎不在出阵列表
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+        }
+
+        [Test]
+        public void Stall_UnlockedCharsNull_KeepsUnrestricted() // 工装与旧调用不受影响
+        {
+            var run = StallRun();
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 0), Is.True);
+        }
     }
 }

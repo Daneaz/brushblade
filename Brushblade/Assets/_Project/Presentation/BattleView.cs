@@ -849,7 +849,8 @@ namespace Brushblade.Presentation
                 int index = i;
                 var option = evt.Options[i];
                 bool affordable = option.InkCost <= _run.AvailableInk
-                    && option.ComponentCost <= _run.CarriedPool.Count;
+                    && option.ComponentCost <= _run.CarriedPool.Count
+                    && AnyGainable(option); // 给的字都不在出阵列表 → 整个选项置灰(2026-07-20)
                 var button = Ui.RoundButton(_actionRow, option.Label, () =>
                 {
                     if (option.ComponentCost > 0 || option.GainCharChoices.Count > 0)
@@ -889,6 +890,28 @@ namespace Brushblade.Presentation
             _eventPicks.Clear();
         }
 
+        /// <summary>选项是否还有能入手的字:不给字的选项(纯墨锭/血量)恒为 true。</summary>
+        private bool AnyGainable(EventOption option)
+        {
+            if (option.GainCharChoices.Count > 0)
+            {
+                foreach (var id in option.GainCharChoices)
+                    if (CanGain(id)) return true;
+                return false;
+            }
+            return option.GainChar == null || CanGain(option.GainChar);
+        }
+
+        /// <summary>此字能否入手:出阵列表之外的字换到也不能合、口径与战利品一致(RunEngine 会拒)。</summary>
+        private bool CanGain(string charId)
+        {
+            var unlocked = Battle.UnlockedChars;
+            if (unlocked == null) return true;
+            foreach (var id in unlocked)
+                if (id == charId) return true;
+            return false;
+        }
+
         /// <summary>任选字:候选平铺(元素色字牌),点选即定;无部件成本则当场成交。</summary>
         private void DrawEventCharChoices(EventOption option)
         {
@@ -897,6 +920,13 @@ namespace Brushblade.Presentation
                 int choice = i;
                 string charId = option.GainCharChoices[i];
                 var def = _graph.Get(charId);
+                if (!CanGain(charId)) // 不在出阵列表:换到也白换,直接置灰(2026-07-20)
+                {
+                    var locked = Ui.RoundButton(_poolRow, charId, null,
+                        Theme.LockedBg, Theme.TextDim, 26, new Vector2(64, 64), 12);
+                    locked.interactable = false;
+                    continue;
+                }
                 Ui.RoundButton(_poolRow, charId, () =>
                 {
                     _pendingCharChoice = choice;
