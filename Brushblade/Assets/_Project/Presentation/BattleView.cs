@@ -689,13 +689,17 @@ namespace Brushblade.Presentation
             foreach (var enemy in Battle.Enemies)
                 if (enemy.IsBoss) { boss = true; break; }
 
+            // 墨色横带压暗底下的血条/字牌:大字与背景分层,不再糊在一起(2026-07-21)
             var banner = Ui.Panel(transform, "VictoryBanner");
             Ui.Anchor((RectTransform)banner.transform,
-                new Vector2(0, 0.40f), new Vector2(1, 0.64f), Vector2.zero, Vector2.zero);
+                new Vector2(0, boss ? 0.42f : 0.45f), new Vector2(1, boss ? 0.62f : 0.59f),
+                Vector2.zero, Vector2.zero);
+            var scrim = banner.AddComponent<Image>();
+            scrim.color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, boss ? 0.88f : 0.8f);
             var group = banner.AddComponent<CanvasGroup>();
             group.blocksRaycasts = false; // 只是提示,不拦点击
             var label = Ui.ThemedLabel(banner.transform, boss ? "B O S S  已 破" : "本 层 告 捷",
-                boss ? 76 : 46, boss ? Theme.Cinnabar : Theme.TextMain, Theme.TitleFont);
+                boss ? 72 : 44, boss ? Theme.Gold : Theme.CardWhite, Theme.TitleFont);
             Ui.Stretch(label.rectTransform);
             StartCoroutine(VictoryBannerRoutine(banner, group, boss ? 1.8f : 1.2f));
         }
