@@ -988,10 +988,23 @@ namespace Brushblade.Presentation
                         CancelSelection();
                         return;
                     }
+                    // 固定赠字的奇遇满库同样转替换子步(2026-07-22),与字摊一致;
+                    // 买不起是另一回事(Core 先查 InkCost),那种情况不进替换
+                    if (option.InkCost <= _run.AvailableInk && option.GainChar != null
+                        && _run.CarriedLibrary.Count >= Battle.LibraryCapacity)
+                    {
+                        _pendingEventOption = index;
+                        _pendingCharChoice = -1;
+                        _eventPicks.Clear();
+                        _eventReplacing = true;
+                        _message = $"字库已满:选一个换成「{option.GainChar}」";
+                        Refresh();
+                        return;
+                    }
                     CancelSelection();
                     ShowAlert("这个选不了", option.InkCost > _run.AvailableInk
                         ? $"「{option.Label}」需要 {option.InkCost} 墨锭,你只有 {_run.AvailableInk}。"
-                        : $"字库已满({_run.CarriedLibrary.Count}/{Battle.LibraryCapacity}),这个奖励收不下。\n换个选项吧。");
+                        : $"「{option.Label}」这笔交易没能成立。");
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
