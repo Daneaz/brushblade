@@ -55,6 +55,20 @@ namespace Brushblade.Core.Tests
                 enemies ?? new[] { MetalBoss() }, seed);
         }
 
+        // ---- 构造与初始化 ----
+
+        [Test]
+        public void Constructor_InjectsInitialShield() // 段初始护盾注入(B)
+        {
+            var engine = new BattleEngine(Graph(), Config(),
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { MetalBoss() }, seed: 42, startingHp: null, cardLevels: null,
+                startingNormalShield: 5, startingPersistShield: 2);
+            Assert.That(engine.ShieldNormal, Is.EqualTo(5));
+            Assert.That(engine.ShieldPersist, Is.EqualTo(2));
+            Assert.That(engine.PlayerShield, Is.EqualTo(7));
+        }
+
         // ---- 回合开始(3.5 步骤 1) ----
 
         [Test]

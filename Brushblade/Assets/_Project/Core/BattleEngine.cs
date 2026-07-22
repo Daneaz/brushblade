@@ -89,7 +89,8 @@ namespace Brushblade.Core
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
             IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null,
-            IReadOnlyDictionary<string, int> cardLevels = null)
+            IReadOnlyDictionary<string, int> cardLevels = null,
+            int startingNormalShield = 0, int startingPersistShield = 0)
         {
             _graph = graph;
             _config = config;
@@ -100,6 +101,8 @@ namespace Brushblade.Core
                 _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
+            _shieldNormal = startingNormalShield;
+            _shieldPersist = startingPersistShield;
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
         }
@@ -109,6 +112,8 @@ namespace Brushblade.Core
         public int Ap { get; private set; }
         public int PlayerHp { get; private set; }
         public int PlayerShield => _shieldNormal + _shieldPersist;
+        public int ShieldNormal => _shieldNormal;
+        public int ShieldPersist => _shieldPersist;
         public IReadOnlyList<string> Library => _forge.Library;
         public IReadOnlyList<string> Pool => _forge.Pool;
         public int LibraryCapacity => _config.LibraryCapacity;
