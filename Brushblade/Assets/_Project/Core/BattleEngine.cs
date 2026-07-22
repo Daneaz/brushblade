@@ -110,6 +110,7 @@ namespace Brushblade.Core
         public BattlePhase Phase { get; private set; }
         public int Turn { get; private set; }
         public int Ap { get; private set; }
+        public int ApPerTurn => _config.ApPerTurn;   // 每回合 AP 上限(UI 满格数 / 提示文案用;一气技能会抬高)
         public int PlayerHp { get; private set; }
         public int PlayerShield => _shieldNormal + _shieldPersist;
         public int ShieldNormal => _shieldNormal;

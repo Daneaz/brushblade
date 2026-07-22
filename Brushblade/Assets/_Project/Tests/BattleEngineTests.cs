@@ -94,6 +94,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void ApPerTurn_ReflectsConfig_AndSeedsStartingAp() // 一气 +AP 后 UI 满格数联动:每回合上限透传
+        {
+            var config = Config();
+            config.ApPerTurn = 4;
+            var engine = new BattleEngine(Graph(), config,
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { MetalBoss() }, seed: 42);
+            Assert.That(engine.ApPerTurn, Is.EqualTo(4));
+            Assert.That(engine.Ap, Is.EqualTo(4)); // 起始满格 = 每回合上限
+        }
+
+        [Test]
         public void TurnStart_DropsStopAtPoolCapacity() // 池满则不掉;基准 10(2026-07-06 拍板)
         {
             var pool = Enumerable.Repeat("木", 9).ToArray();

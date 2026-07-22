@@ -312,7 +312,7 @@ namespace Brushblade.Presentation
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
             var pips = Ui.Row(apStack.transform, "Pips", 12);
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < Battle.ApPerTurn; i++)
             {
                 var pip = Ui.Panel(pips.transform, $"Pip{i}");
                 var image = pip.AddComponent<Image>();
@@ -1391,7 +1391,7 @@ namespace Brushblade.Presentation
         {
             Battle.EndTurn();
             _tutorial?.Notify(TutorialAction.EndTurn);
-            _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+3 AP,部件掉落" : "";
+            _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,部件掉落" : "";
             CancelSelection();
             PlayJuice();
         }
@@ -1435,7 +1435,7 @@ namespace Brushblade.Presentation
         {
             if (error == BattleError.NotEnoughAp)
                 ShowModal("AP 不够",
-                    $"「{charId}」需要 {neededAp} AP,本回合仅剩 {Battle.Ap} AP。\n结束回合可回满 3 AP 并掉落新部件。",
+                    $"「{charId}」需要 {neededAp} AP,本回合仅剩 {Battle.Ap} AP。\n结束回合可回满 {Battle.ApPerTurn} AP 并掉落新部件。",
                     ("结束回合", OnEndTurn, Theme.Cinnabar, Color.white),
                     ("再想想", null, Theme.LockedBg, Theme.TextMain));
             else if (error == BattleError.ForgeFailed)
