@@ -1026,35 +1026,32 @@ namespace Brushblade.Presentation
 
         private bool _eventReplacing; // 字摊交易已备齐但字库满:等玩家选换掉哪一张
 
-        /// <summary>字摊满库替换(2026-07-22):与战利品同一口径——被换掉的字永久失去。
-        /// 此时字与部件都已选定,只补一个替换目标即可成交;取消则部件一个不少。</summary>
+        /// <summary>字摊满库替换(2026-07-22):走模态弹窗、字牌每行 4 个换行铺开(此前塞在
+        /// 拆合台一行里挤成一团)。字与部件都已选定,只补一个替换目标即成交;取消则部件不少。</summary>
         private void DrawEventReplaceStep(EventOption option)
         {
             string incoming = _pendingCharChoice >= 0
                 ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
-            Ui.ThemedLabel(_actionRow, $"字库已满 · 用「{incoming}」换掉哪一个?",
-                20, Theme.TextMain, Theme.TitleFont);
-            Ui.RoundButton(_actionRow, "算了,不换", () =>
-            {
-                ResetEventSelection();
-                _message = "交易取消,部件一个没少";
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(120, 48));
 
-            Ui.ThemedLabel(_poolRow,
-                $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity}——被换掉的字永久失去",
-                15, Theme.TextDim);
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = Ui.ModalShell(transform, $"字库已满 · 用「{incoming}」换掉哪一张?",
+                new Vector2(360, 240), dismissable: false, out var stack);
+            Ui.ThemedLabel(stack, "被换掉的字永久失去", 15, Theme.TextDim);
+
+            Transform row = null;
             for (int i = 0; i < _run.CarriedLibrary.Count; i++)
             {
+                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
                 int replaceIndex = i;
                 var def = _graph.Get(_run.CarriedLibrary[i]);
-                Ui.GlyphTile(_poolRow, def, $"{def.ApCost} AP", false, () =>
+                Ui.GlyphTile(row, def, $"{def.ApCost} AP", false, () =>
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     var picks = _eventPicks.Count > 0 ? _eventPicks.ToArray() : null;
                     if (_run.ChooseEventOption(_pendingEventOption, picks, _pendingCharChoice, replaceIndex))
                     {
                         _message = $"成交!「{incoming}」替换「{dropped}」";
+                        if (_modal != null) Object.Destroy(_modal);
                         ResetEventSelection();
                         CancelSelection();
                         return;
@@ -1062,6 +1059,14 @@ namespace Brushblade.Presentation
                     Refresh();
                 }, new Vector2(74, 96));
             }
+
+            Ui.PillButton(stack, "算了,不换", () =>
+            {
+                if (_modal != null) Object.Destroy(_modal);
+                ResetEventSelection();
+                _message = "交易取消,部件一个没少";
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
         }
 
         private void ResetEventSelection()
