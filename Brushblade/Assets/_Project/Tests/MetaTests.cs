@@ -330,6 +330,17 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.IsStageUnlocked(restored, TwoChapters(), 0, 1), Is.True);
         }
 
+        [Test]
+        public void Save_RoundTrips_PerkLevels()
+        {
+            var meta = new MetaState();
+            meta.PerkLevels["yangyuan"] = 3;
+            meta.PerkLevels["yiqi"] = 1;
+            var restored = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
+            Assert.That(PerkRules.PerkLevel(restored, "yangyuan"), Is.EqualTo(3));
+            Assert.That(PerkRules.PerkLevel(restored, "yiqi"), Is.EqualTo(1));
+        }
+
         [TestCase(null)]
         [TestCase("")]
         [TestCase("not json{{")]
