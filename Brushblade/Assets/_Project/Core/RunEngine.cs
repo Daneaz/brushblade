@@ -46,6 +46,7 @@ namespace Brushblade.Core
         private readonly GameRandom _random;
         private readonly IReadOnlyDictionary<string, int> _cardLevels;
         private readonly List<string> _rewardOptions = new();
+        private readonly List<string> _defeatedEnemyIds = new();
 
         // 战斗之间的携带状态(奖励与奇遇的作用对象)
         private List<string> _carriedLibrary;
@@ -71,6 +72,9 @@ namespace Brushblade.Core
         public RunPhase Phase { get; private set; }
         public int BattleIndex { get; private set; }
         public BattleEngine Battle { get; private set; }
+
+        /// <summary>本段打赢过的敌人 id(图鉴解锁源;外层写进 MetaState)。</summary>
+        public IReadOnlyList<string> DefeatedEnemyIds => _defeatedEnemyIds;
 
         /// <summary>局内 UI 显示等级化数值用(19.3.2);未记录则 1 级。</summary>
         public int CardLevel(string cardId) =>
@@ -205,6 +209,11 @@ namespace Brushblade.Core
                 return;
             }
             if (Battle.Phase != BattlePhase.Won) return;
+
+            // 图鉴解锁(2026-07-22):打赢才记,外层负责同步进 MetaState
+            foreach (var enemy in Battle.Enemies)
+                if (!_defeatedEnemyIds.Contains(enemy.Def.Id))
+                    _defeatedEnemyIds.Add(enemy.Def.Id);
 
             // 段末(Boss 层)同样发战利品(2026-07-20 拍板),取完才结算 → 见 ProceedAfterReward
             // 捕获携带状态:出过的字已消耗不回归(v0.7),池与 HP 延续

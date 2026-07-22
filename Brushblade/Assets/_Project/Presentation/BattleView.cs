@@ -115,6 +115,19 @@ namespace Brushblade.Presentation
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.4f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
+            // 五行速查常驻(2026-07-22):挂在消息行两端(那里通常是空白),点开看环图
+            var keGo = Ui.Row(transform, "WuxingKe");
+            Ui.Anchor((RectTransform)keGo.transform,
+                new Vector2(0.004f, 0.886f), new Vector2(0.056f, 0.938f), Vector2.zero, Vector2.zero);
+            Ui.RoundButton(keGo.transform, "克", () => ShowChart(WuxingChart.ShowKe),
+                Theme.Cinnabar, Color.white, 18, new Vector2(46, 42), 12);
+
+            var shengGo = Ui.Row(transform, "WuxingSheng");
+            Ui.Anchor((RectTransform)shengGo.transform,
+                new Vector2(0.944f, 0.886f), new Vector2(0.996f, 0.938f), Vector2.zero, Vector2.zero);
+            Ui.RoundButton(shengGo.transform, "生", () => ShowChart(WuxingChart.ShowSheng),
+                Theme.Jade, Color.white, 18, new Vector2(46, 42), 12);
+
             var messageGo = Ui.Panel(transform, "Message");
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.885f), new Vector2(0.98f, 0.94f), Vector2.zero, Vector2.zero);
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
@@ -1224,10 +1237,22 @@ namespace Brushblade.Presentation
             return count;
         }
 
+        private void ShowChart(System.Func<Transform, GameObject> chart)
+        {
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = chart(transform);
+        }
+
         private void OnEnemyClicked(int index)
         {
             if (_targeting && _selectedChar != null)
+            {
                 ExecuteCast(_selectedChar, index);
+                return;
+            }
+            // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def);
         }
 
         private void ExecuteCast(string charId, int target)

@@ -18,6 +18,8 @@ namespace Brushblade.Core
         public int BestDepth { get; set; }                                // 无尽最高层数(20.5)
         public List<string> BandMilestones { get; set; } = new();         // 已领首破奖励的层段(20.3)
         public EndlessSaveState Endless { get; set; }                     // 断点续爬快照;null=无进行中登塔(20.6)
+        public List<string> DefeatedEnemies { get; set; } = new();        // 图鉴已解锁(击败即入)
+        public List<string> ClaimedBestiary { get; set; } = new();        // 图鉴已查阅领赏(主动点开才发)
     }
 
     /// <summary>养成规则(19.2/19.3 首版基准)。纯函数,状态进出。</summary>

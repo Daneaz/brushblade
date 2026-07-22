@@ -51,6 +51,13 @@ namespace Brushblade.Presentation
             ShowMap();
         }
 
+        /// <summary>把本段打赢的敌人同步进图鉴(RecordDefeat 自身幂等,可重复调用)。</summary>
+        private static void SyncBestiary(RunEngine run)
+        {
+            foreach (var id in run.DefeatedEnemyIds)
+                BestiaryRules.RecordDefeat(_meta, id);
+        }
+
         /// <summary>保底落盘:切后台/退出时由 SaveOnSuspend 调用(引导未完成则无档可存)。</summary>
         public static void SaveNow()
         {
@@ -61,13 +68,19 @@ namespace Brushblade.Presentation
         {
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
-                onOpenCollection: ShowCollection, onOpenShop: ShowShop);
+                onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary);
         }
 
         private static void ShowCollection()
         {
             var view = NewView("CollectionView");
             view.AddComponent<CollectionView>().Init(_graph, _meta, () => MetaStore.Save(_meta), () => ShowMap());
+        }
+
+        private static void ShowBestiary()
+        {
+            var view = NewView("BestiaryView");
+            view.AddComponent<BestiaryView>().Init(_campaign, _meta, () => MetaStore.Save(_meta), () => ShowMap());
         }
 
         private static void ShowShop()
@@ -201,6 +214,7 @@ namespace Brushblade.Presentation
             var snapshot = _meta.Endless;
             if (snapshot == null || run.Phase == RunPhase.RunWon) return baseInk;
 
+            SyncBestiary(run);
             int cleared = fromDepth + run.BattleIndex; // 刚打完的层
             if (snapshot.Depth <= cleared)             // 幂等:同一层只记一次账
             {
@@ -252,6 +266,7 @@ namespace Brushblade.Presentation
             }
 
             // Boss 层告捷:经验 + 纪录 + 即发宝箱(2026-07-19 拍板,原「结算发箱」废止)
+            SyncBestiary(run); // Boss 层走 RunWon,不经过 OnFloorCleared
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
             totalEarned += EndlessRules.FloorInk(endless, segmentEnd); // Boss 层墨锭(层清算走 OnFloorCleared,段末不经手)
             EndlessRules.UpdateBest(_meta, segmentEnd);

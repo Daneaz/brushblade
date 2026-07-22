@@ -16,6 +16,7 @@ namespace Brushblade.Presentation
         private Action _save;
         private Action _onOpenCollection;
         private Action _onOpenShop;
+        private Action _onOpenBestiary;
         private string _message;
 
         // 计时中箱位的倒计时/加速价标签引用:Tick 只改文本不重建,避免按钮每秒被销毁点不中
@@ -24,7 +25,8 @@ namespace Brushblade.Presentation
         private GameObject _modal;       // 当前告知弹窗(同屏仅一个)
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
-            Action onStartTower, Action save, string message, Action onOpenCollection, Action onOpenShop)
+            Action onStartTower, Action save, string message, Action onOpenCollection, Action onOpenShop,
+            Action onOpenBestiary)
         {
             _graph = graph;
             _onOpenShop = onOpenShop;
@@ -34,6 +36,7 @@ namespace Brushblade.Presentation
             _onStartTower = onStartTower;
             _save = save;
             _onOpenCollection = onOpenCollection;
+            _onOpenBestiary = onOpenBestiary;
             _message = message ?? "";
             Rebuild();
             InvokeRepeating(nameof(Tick), 1f, 1f); // 倒计时刷新
@@ -78,15 +81,11 @@ namespace Brushblade.Presentation
             var collectionButton = Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
                 Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);
             if (AnyCardUpgradable()) // 可升级红点导航
-            {
-                var dot = Ui.Panel(collectionButton.transform, "Dot");
-                var dotImage = dot.AddComponent<Image>();
-                dotImage.sprite = Theme.Circle;
-                dotImage.color = Theme.Cinnabar;
-                dotImage.raycastTarget = false;
-                Ui.Anchor((RectTransform)dot.transform, Vector2.one, Vector2.one,
-                    new Vector2(-16, -16), new Vector2(-4, -4));
-            }
+                RedDot(collectionButton.transform);
+            var bestiaryButton = Ui.RoundButton(header.transform, "图鉴", () => _onOpenBestiary(),
+                Theme.InkSoft, Color.white, 20, new Vector2(100, 50), 12);
+            if (BestiaryRules.HasUnclaimed(_meta)) // 有已解锁未查阅的条目 → 红点(赏钱待领)
+                RedDot(bestiaryButton.transform);
             Ui.RoundButton(header.transform, "商城", () => _onOpenShop(),
                 Theme.ShopNav, Color.white, 20, new Vector2(100, 50), 12);
 
@@ -232,6 +231,18 @@ namespace Brushblade.Presentation
             slotElement.preferredHeight = 150;
             var label = Ui.ThemedLabel(slot.transform, "空位", 16, Theme.LockGray);
             Ui.Stretch(label.rectTransform);
+        }
+
+        /// <summary>导航红点:钉在按钮右上角,不拦点击。</summary>
+        private static void RedDot(Transform button)
+        {
+            var dot = Ui.Panel(button, "Dot");
+            var dotImage = dot.AddComponent<Image>();
+            dotImage.sprite = Theme.Circle;
+            dotImage.color = Theme.Cinnabar;
+            dotImage.raycastTarget = false;
+            Ui.Anchor((RectTransform)dot.transform, Vector2.one, Vector2.one,
+                new Vector2(-16, -16), new Vector2(-4, -4));
         }
 
         private bool AnyCardUpgradable()
