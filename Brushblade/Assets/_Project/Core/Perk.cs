@@ -65,5 +65,25 @@ namespace Brushblade.Core
         public static int InkBonus(MetaState meta)     => BonusOf(meta, PerkEffect.Ink);
         public static int LibraryBonus(MetaState meta) => BonusOf(meta, PerkEffect.Library);
         public static int ShieldBonus(MetaState meta)  => BonusOf(meta, PerkEffect.Shield);
+
+        public static bool CanUpgradePerk(MetaState meta, string id)
+        {
+            var def = Get(id);
+            int lvl = PerkLevel(meta, id);
+            if (lvl >= def.MaxLevel) return false;                                    // 已满
+            if (lvl == 0 && MetaRules.CharacterLevel(meta.CharacterXp) < def.UnlockLevel)
+                return false;                                                          // 初解锁角色等级不足
+            return meta.Ink >= def.InkCosts[lvl];                                      // 墨锭足够
+        }
+
+        public static bool TryUpgradePerk(MetaState meta, string id)
+        {
+            if (!CanUpgradePerk(meta, id)) return false;
+            var def = Get(id);
+            int lvl = PerkLevel(meta, id);
+            meta.Ink -= def.InkCosts[lvl];
+            meta.PerkLevels[id] = lvl + 1;
+            return true;
+        }
     }
 }
