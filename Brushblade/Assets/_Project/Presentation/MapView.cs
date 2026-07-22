@@ -64,8 +64,22 @@ namespace Brushblade.Presentation
                 Rebuild();
         }
 
+        /// <summary>宝箱卡池 = 全部可收集字(带配方的字);与 GameRoot.ChestCardPool 同逻辑。</summary>
+        private System.Collections.Generic.List<string> ChestCardPool()
+        {
+            var pool = new System.Collections.Generic.List<string>();
+            foreach (var def in _graph.All)
+                if (!def.IsLeaf)
+                    pool.Add(def.Id);
+            return pool;
+        }
+
         private void Rebuild()
         {
+            // 暂存箱补进空出的箱位(2026-07-22):开箱腾位后 OpenChest→Rebuild 会走到这里
+            if (ChestRules.DrainPendingChests(_meta, ChestCardPool(), _time) > 0)
+                _save();
+
             Ui.Clear(transform);
             var root = (RectTransform)transform;
             Ui.Stretch(root);
@@ -161,6 +175,8 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 0.02f), new Vector2(1, 0.24f), Vector2.zero, Vector2.zero);
 
             Ui.ThemedLabel(bar.transform, $"箱位\n{_meta.Chests.Count}/{ChestRules.SlotLimit}", 18, Theme.TextDim, Theme.TitleFont);
+            if (_meta.PendingChests.Count > 0) // 暂存箱等腾位(2026-07-22)
+                Ui.Chip(bar.transform, $"暂存 {_meta.PendingChests.Count}·开箱腾位", Theme.Cinnabar, Color.white, 13);
 
             for (int i = 0; i < ChestRules.SlotLimit; i++)
             {

@@ -118,6 +118,21 @@ namespace Brushblade.Core
             return true;
         }
 
+        /// <summary>把暂存箱(结算时箱位满而挂起的)先进先出补进空出的箱位;返回入位数量
+        /// (2026-07-22:一场爬塔唯一宝箱不能凭空蒸发,满位则暂存,开箱腾位后由此入位)。</summary>
+        public static int DrainPendingChests(MetaState meta, IReadOnlyList<string> cardPool, ITimeSource time)
+        {
+            int drained = 0;
+            while (meta.PendingChests.Count > 0 && meta.Chests.Count < SlotLimit)
+            {
+                var tier = meta.PendingChests[0];
+                meta.PendingChests.RemoveAt(0);
+                TryAwardChest(meta, tier, cardPool, time); // 有空位必成功
+                drained++;
+            }
+            return drained;
+        }
+
         /// <summary>开始计时:同一时间仅允许一只箱**正在**计时。已就绪待领的箱不占位
         /// (2026-07-21:此前它也算占位,导致领之前后面的箱开不了计时,而 UI 的
         /// AnyChestTiming 已按「正在计时」判定,按钮亮着却点不动)。</summary>

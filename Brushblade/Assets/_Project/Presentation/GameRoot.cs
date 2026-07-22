@@ -341,9 +341,13 @@ namespace Brushblade.Presentation
             if (chestDepth > 0)
             {
                 var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
-                chestNote = ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time)
-                    ? $"获得{ChestRules.TierName(tier)}(第 {chestDepth} 层 Boss 战利)"
-                    : "箱位已满,宝箱与你擦肩……";
+                if (ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time))
+                    chestNote = $"获得{ChestRules.TierName(tier)}(第 {chestDepth} 层 Boss 战利)";
+                else
+                {
+                    _meta.PendingChests.Add(tier); // 满位不丢:暂存,回地图开箱腾位后自动入位
+                    chestNote = $"{ChestRules.TierName(tier)}暂存——箱位已满,开掉一只即可领取";
+                }
             }
 
             string headline = abandoned

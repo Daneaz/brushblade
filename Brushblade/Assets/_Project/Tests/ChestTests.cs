@@ -43,6 +43,41 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void DrainPending_FillsFreedSlots_KeepsRest()
+        {
+            var time = new FakeTime();
+            var meta = new MetaState();
+            for (int i = 0; i < ChestRules.SlotLimit; i++) // 4 位全满
+                ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
+            meta.PendingChests.Add(ChestTier.Gilded);
+            meta.PendingChests.Add(ChestTier.Crimson);
+
+            Assert.That(ChestRules.DrainPendingChests(meta, Pool, time), Is.EqualTo(0)); // 无空位,不动
+            Assert.That(meta.PendingChests.Count, Is.EqualTo(2));
+
+            meta.Chests.RemoveAt(0); // 开掉一只腾位
+            Assert.That(ChestRules.DrainPendingChests(meta, Pool, time), Is.EqualTo(1)); // 入一只
+            Assert.That(meta.Chests.Count, Is.EqualTo(ChestRules.SlotLimit));
+            Assert.That(meta.PendingChests, Is.EqualTo(new[] { ChestTier.Crimson })); // 先进先出,鎏金已入
+        }
+
+        [Test]
+        public void DrainPending_Empty_NoOp()
+        {
+            var meta = new MetaState();
+            Assert.That(ChestRules.DrainPendingChests(meta, Pool, new FakeTime()), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void PendingChests_SurviveSaveRoundTrip()
+        {
+            var meta = new MetaState();
+            meta.PendingChests.Add(ChestTier.Rosewood);
+            var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
+            Assert.That(restored.PendingChests, Is.EqualTo(new[] { ChestTier.Rosewood }));
+        }
+
+        [Test]
         public void AwardChest_NoDailyLimit() // 2026-07-05 拍板:取消每日上限,节奏只由箱位与计时约束
         {
             var time = new FakeTime();
