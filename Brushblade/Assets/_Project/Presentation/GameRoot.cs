@@ -265,16 +265,14 @@ namespace Brushblade.Presentation
                 return;
             }
 
-            // Boss 层告捷:经验 + 纪录 + 即发宝箱(2026-07-19 拍板,原「结算发箱」废止)
+            // Boss 层告捷:经验 + 纪录;宝箱改为整次爬塔结算时按最高 Boss 层发一个(2026-07-22),
+            // 此处只记录已破的最高 Boss 层
             SyncBestiary(run); // Boss 层走 RunWon,不经过 OnFloorCleared
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
             totalEarned += EndlessRules.FloorInk(endless, segmentEnd); // Boss 层墨锭(层清算走 OnFloorCleared,段末不经手)
             EndlessRules.UpdateBest(_meta, segmentEnd);
-            var tier = EndlessRules.ChestTierFor(segmentEnd, new GameRandom(System.Environment.TickCount));
-            string chestNote = ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time)
-                ? $"获得{ChestRules.TierName(tier)}!"
-                : "箱位已满,宝箱与你擦肩……";
             var snapshot = _meta.Endless;
+            snapshot.TopBossDepth = segmentEnd; // 逐段递增,即本次已破最高 Boss 层
             snapshot.Depth = segmentEnd + 1;
             snapshot.PlayerHp = run.Battle.PlayerHp;
             // 用携带态而非 Battle:Boss 层战利品(2026-07-20)加在携带态上,读 Battle 会把它丢掉
@@ -284,7 +282,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;
             MetaStore.Save(_meta);
-            ShowSafeLayer(segmentEnd, totalEarned, chestNote);
+            ShowSafeLayer(segmentEnd, totalEarned);
         }
 
         /// <summary>该深度所在层段的下标(背景色板索引)。</summary>
@@ -300,7 +298,7 @@ namespace Brushblade.Presentation
 
         /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择。
         /// 塔内休整(段间调整字库)已废止(2026-07-20 拍板):字库只在登塔前定,塔内靠拆合与战利品经营。</summary>
-        private static void ShowSafeLayer(int depth, int totalEarned, string chestNote = null)
+        private static void ShowSafeLayer(int depth, int totalEarned)
         {
             var endless = _campaign.Endless;
             var nextBand = endless.BandFor(depth + 1);
@@ -320,9 +318,6 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform,
                 $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层", 16, Theme.TextDim);
             Ui.IngotLabel(stack.transform, $"滚存 {totalEarned}", 18);
-            if (chestNote != null)
-                Ui.ThemedLabel(stack.transform, $"◆ 破关战利:{chestNote}", 18, Theme.GoldBorder, Theme.TitleFont);
-
             Ui.ThemedLabel(stack.transform,
                 "继续:滚存收益带入更深层,阵亡墨锭减半;撤退:立即全额结算墨锭", 14, Theme.TextDim);
             Ui.PillButton(stack.transform, $"深入「{nextBand.Name}」第 {depth + 1}~{depth + endless.BossEvery} 层",
@@ -331,21 +326,52 @@ namespace Brushblade.Presentation
                 () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 19, new Vector2(340, 52));
         }
 
-        /// <summary>塔结算(20.5):撤退全额/阵亡与弃塔半额;宝箱已随每个 Boss 层即时发放,结算不再发。</summary>
+        /// <summary>塔结算(20.5):墨锭撤退全额/阵亡与弃塔半额;宝箱一场一个,按本次最高
+        /// Boss 层档位发(2026-07-22 拍板,原「每 Boss 层即发」废止),阵亡照发不降档,
+        /// 一个 Boss 都没破则无箱。结算弹窗与墨锭一并呈现。</summary>
         private static void SettleTower(bool died, int clearedDepth, int totalEarned, bool abandoned = false)
         {
+            int chestDepth = EndlessRules.SettleChestDepth(_meta.Endless?.TopBossDepth ?? 0);
             _meta.Endless = null;
             EndlessRules.UpdateBest(_meta, clearedDepth);
             int ink = EndlessRules.SettleInk(totalEarned, died);
             _meta.Ink += ink;
 
-            string message = abandoned
+            string chestNote = null;
+            if (chestDepth > 0)
+            {
+                var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
+                chestNote = ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time)
+                    ? $"获得{ChestRules.TierName(tier)}(第 {chestDepth} 层 Boss 战利)"
+                    : "箱位已满,宝箱与你擦肩……";
+            }
+
+            string headline = abandoned
                 ? $"于第 {clearedDepth + 1} 层弃塔……墨锭 {ink}(半额)入账,纪录保留"
                 : died
                     ? $"卒于第 {clearedDepth + 1} 层……墨锭 {ink}(半额)入账"
                     : $"第 {clearedDepth} 层收官!墨锭 {ink} 入账";
             MetaStore.Save(_meta);
-            ShowMap(message);
+            ShowTowerSettle(headline, ink, chestNote);
+        }
+
+        /// <summary>塔结算弹窗(2026-07-22):墨锭 + 宝箱一并呈现,确认后回地图。</summary>
+        private static void ShowTowerSettle(string headline, int ink, string chestNote)
+        {
+            var view = NewView("TowerSettleView");
+            Ui.Stretch((RectTransform)view.transform);
+            var card = Ui.CardPanel(view.transform, "Panel");
+            Ui.Anchor((RectTransform)card.transform, new Vector2(0.22f, 0.2f), new Vector2(0.78f, 0.8f), Vector2.zero, Vector2.zero);
+            var stack = Ui.VStack(card.transform, "Stack", 14);
+            Ui.Stretch((RectTransform)stack.transform);
+
+            Ui.ThemedLabel(stack.transform, "登 塔 结 算", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, headline, 17, Theme.TextDim);
+            Ui.IngotLabel(stack.transform, ink.ToString(), 24);
+            Ui.ThemedLabel(stack.transform,
+                chestNote ?? "本次未破 Boss,无宝箱", 18,
+                chestNote != null ? Theme.GoldBorder : Theme.TextDim, Theme.TitleFont);
+            Ui.PillButton(stack.transform, "回到地图", () => ShowMap(), Theme.Cinnabar, Color.white, 20, new Vector2(280, 56));
         }
 
         private static GameObject NewView(string name, Color? paper = null, string watermark = null, int bandIndex = 0)

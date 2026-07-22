@@ -169,6 +169,7 @@ namespace Brushblade.Core
         public int Seed { get; set; }
         public bool LibraryExpanded { get; set; }
         public bool PoolExpanded { get; set; }
+        public int TopBossDepth { get; set; } // 本次爬塔已破的最高 Boss 层(0=未破);结算宝箱档位据此(2026-07-22)
     }
 
     /// <summary>结算与里程碑(20.5/20.3):撤退全额、阵亡半额;首破奖励一次性、永远全额。</summary>
@@ -190,6 +191,11 @@ namespace Brushblade.Core
             };
             return random.Next(10) == 0 ? high : low;
         }
+
+        /// <summary>结算宝箱依据层(2026-07-22):一场爬塔一个箱,按本次已破最高 Boss 层
+        /// 定档;返回 0 表示一个 Boss 都没破 → 不发箱。阵亡/弃塔照发不降档(与墨锭减半无关),
+        /// 故本函数不看死亡标志——档位只由 topBossDepth 决定。</summary>
+        public static int SettleChestDepth(int topBossDepth) => topBossDepth > 0 ? topBossDepth : 0;
 
         /// <summary>层清算墨锭(2026-07-21):普通层 2、Boss 层 5,每 10 层翻倍。
         /// 计入本次登塔的滚存(不直接进账户),塔结算时随 SettleInk 一并入账。</summary>

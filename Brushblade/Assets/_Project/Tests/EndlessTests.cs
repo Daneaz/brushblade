@@ -223,6 +223,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SettleChestDepth_ZeroBoss_NoChest_NonzeroUsesTopBoss()
+        {
+            Assert.That(EndlessRules.SettleChestDepth(0), Is.EqualTo(0));   // 一个 Boss 都没破 → 不发
+            Assert.That(EndlessRules.SettleChestDepth(15), Is.EqualTo(15)); // 按本次最高 Boss 层
+            // 死亡不降档:函数不接受 died,故档位与结束方式无关(阵亡照发)
+        }
+
+        [Test]
         public void FloorInk_TwoPerFloor_FivePerBoss_DoublesEveryTenFloors()
         {
             var config = Config();
@@ -324,6 +332,7 @@ namespace Brushblade.Core.Tests
                     Library = new List<string> { "焚", "灯" },
                     Pool = new List<string> { "木", "火" },
                     LibraryExpanded = true,
+                    TopBossDepth = 10,
                 },
             };
             meta.BandMilestones.Add("词渊");
@@ -335,6 +344,7 @@ namespace Brushblade.Core.Tests
             Assert.That(restored.Endless.Depth, Is.EqualTo(13));
             Assert.That(restored.Endless.Library, Is.EqualTo(new[] { "焚", "灯" }));
             Assert.That(restored.Endless.LibraryExpanded, Is.True);
+            Assert.That(restored.Endless.TopBossDepth, Is.EqualTo(10)); // 结算宝箱档位据此(2026-07-22)
         }
 
         [Test]

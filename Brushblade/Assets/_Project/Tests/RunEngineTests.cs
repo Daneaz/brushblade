@@ -173,7 +173,7 @@ namespace Brushblade.Core.Tests
         }
 
         // ---- 战利品双排 5 选 1(2026-07-19 拍板):字池抽 5 选 1 + 固定五行部件 5 选 1;
-        //      Boss 层无战利品页(告捷即发宝箱,奖励保持不动) ----
+        //      Boss 层同样发战利品(2026-07-20) ----
 
         /// <summary>池含 3 个字 + 3 个部件:部件不作为字奖励(2026-07-20),故字排只出 3 个。</summary>
         private static RunConfig SixCharPool() => new()
