@@ -170,6 +170,8 @@ namespace Brushblade.Core
         public bool LibraryExpanded { get; set; }
         public bool PoolExpanded { get; set; }
         public int TopBossDepth { get; set; } // 本次爬塔已破的最高 Boss 层(0=未破);结算宝箱档位据此(2026-07-22)
+        public int NormalShield { get; set; }   // 段内持久护盾(断点续爬恢复)
+        public int PersistShield { get; set; }   // 堡型护盾(跨段保留)
     }
 
     /// <summary>结算与里程碑(20.5/20.3):撤退全额、阵亡半额;首破奖励一次性、永远全额。</summary>

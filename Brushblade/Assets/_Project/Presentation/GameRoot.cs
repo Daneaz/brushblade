@@ -134,6 +134,7 @@ namespace Brushblade.Presentation
                     Seed = System.Environment.TickCount,
                     Library = new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta)),
                     Pool = new System.Collections.Generic.List<string> { "火", "火" }, // 教程连招原料:拆炎→合炎→合焱
+                    // NormalShield 默认 0;技能系统 A 会在首段填入金汤护盾
                 };
                 MetaStore.Save(_meta);
             }
@@ -170,7 +171,9 @@ namespace Brushblade.Presentation
                 snapshot.Library, snapshot.Pool,
                 seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,
                 startingInk: _meta.Ink + snapshot.EarnedInk, // 字摊预算 = 库存 + 塔内滚存
-                startingHp: snapshot.PlayerHp);
+                startingHp: snapshot.PlayerHp,
+                startingNormalShield: snapshot.NormalShield,
+                startingPersistShield: snapshot.PersistShield);
             if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
             if (snapshot.PoolExpanded) run.TryExpandPool();
 
@@ -252,6 +255,8 @@ namespace Brushblade.Presentation
             snapshot.EarnedInk = baseInk + run.EarnedInk;
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
+            snapshot.NormalShield = run.CarriedNormalShield;
+            snapshot.PersistShield = run.CarriedPersistShield;
         }
 
         private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int baseInk, bool won)
@@ -281,6 +286,9 @@ namespace Brushblade.Presentation
             snapshot.EarnedInk = totalEarned;
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;
+            // 段末:普通护盾清零(下一段段首重置;技能系统 A 会在此填入金汤护盾),堡型跨段保留
+            snapshot.NormalShield = 0;
+            snapshot.PersistShield = run.CarriedPersistShield;
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned);
         }
