@@ -174,6 +174,7 @@ namespace Brushblade.Presentation
                 PlayerMaxHp = maxHp,
                 UnlockedChars = _meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
                 ApPerTurn = 3 + PerkRules.ApBonus(_meta), // 一气
+                LibraryCapacity = MetaRules.StartingLibrarySize + PerkRules.LibraryBonus(_meta), // 博闻:字库容量上限 +1/级(与起手数量同源;广告 +2 在其上叠加)
             };
             var run = new RunEngine(_graph, runConfig, battleConfig,
                 snapshot.Library, snapshot.Pool,
