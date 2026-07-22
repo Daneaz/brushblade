@@ -17,6 +17,7 @@ namespace Brushblade.Presentation
         private Action _onOpenCollection;
         private Action _onOpenShop;
         private Action _onOpenBestiary;
+        private Action _onOpenPerks;
         private string _message;
 
         // 计时中箱位的倒计时/加速价标签引用:Tick 只改文本不重建,避免按钮每秒被销毁点不中
@@ -26,7 +27,7 @@ namespace Brushblade.Presentation
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
             Action onStartTower, Action save, string message, Action onOpenCollection, Action onOpenShop,
-            Action onOpenBestiary)
+            Action onOpenBestiary, Action onOpenPerks)
         {
             _graph = graph;
             _onOpenShop = onOpenShop;
@@ -37,6 +38,7 @@ namespace Brushblade.Presentation
             _save = save;
             _onOpenCollection = onOpenCollection;
             _onOpenBestiary = onOpenBestiary;
+            _onOpenPerks = onOpenPerks;
             _message = message ?? "";
             Rebuild();
             InvokeRepeating(nameof(Tick), 1f, 1f); // 倒计时刷新
@@ -100,6 +102,8 @@ namespace Brushblade.Presentation
                 Theme.InkSoft, Color.white, 20, new Vector2(100, 50), 12);
             if (BestiaryRules.HasUnclaimed(_meta)) // 有已解锁未查阅的条目 → 红点(赏钱待领)
                 RedDot(bestiaryButton.transform);
+            Ui.RoundButton(header.transform, "技能", () => _onOpenPerks(),
+                Theme.InkSoft, Color.white, 20, new Vector2(100, 50), 12);
             Ui.RoundButton(header.transform, "商城", () => _onOpenShop(),
                 Theme.ShopNav, Color.white, 20, new Vector2(100, 50), 12);
 

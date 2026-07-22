@@ -68,7 +68,7 @@ namespace Brushblade.Presentation
         {
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
-                onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary);
+                onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary, onOpenPerks: ShowPerks);
         }
 
         private static void ShowCollection()
@@ -81,6 +81,12 @@ namespace Brushblade.Presentation
         {
             var view = NewView("BestiaryView");
             view.AddComponent<BestiaryView>().Init(_campaign, _meta, () => MetaStore.Save(_meta), () => ShowMap());
+        }
+
+        private static void ShowPerks()
+        {
+            var view = NewView("PerkView");
+            view.AddComponent<PerkView>().Init(_meta, () => MetaStore.Save(_meta), () => ShowMap());
         }
 
         private static void ShowShop()
