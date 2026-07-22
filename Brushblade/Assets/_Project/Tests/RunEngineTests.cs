@@ -542,5 +542,22 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Compose("林"), Is.EqualTo(BattleError.None)); // 空位可再合
             Assert.That(engine.Library, Is.EquivalentTo(new[] { "林" }));
         }
+
+        [Test]
+        public void Shield_CarriesToNextBattle() // 段内持久:护盾跨层保留
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: null,
+                startingNormalShield: 5);
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(5));
+            WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,护盾不变)
+            run.AdvanceAfterBattle();
+            run.SkipReward();                 // 进入第二场
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(5)); // 护盾跨场保留
+            Assert.That(run.CarriedNormalShield, Is.EqualTo(5));
+        }
     }
 }

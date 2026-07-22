@@ -52,11 +52,13 @@ namespace Brushblade.Core
         private List<string> _carriedLibrary;
         private List<string> _carriedPool;
         private int _carriedHp;
+        private int _carriedNormalShield;
+        private int _carriedPersistShield;
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
             IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
-            int? startingHp = null)
+            int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0)
         {
             _startingInk = startingInk;
             _graph = graph;
@@ -66,6 +68,8 @@ namespace Brushblade.Core
             _random = new GameRandom(seed);
             Phase = RunPhase.InBattle;
             BattleIndex = 0;
+            _carriedNormalShield = startingNormalShield;
+            _carriedPersistShield = startingPersistShield;
             Battle = NewBattle(startingLibrary, startingPool, startingHp); // 断点续爬恢复血量(20.6)
         }
 
@@ -96,6 +100,9 @@ namespace Brushblade.Core
 
         /// <summary>战斗间携带的部件池(同上)。</summary>
         public IReadOnlyList<string> CarriedPool => _carriedPool;
+
+        public int CarriedNormalShield => _carriedNormalShield;
+        public int CarriedPersistShield => _carriedPersistShield;
 
         public bool LibraryExpanded { get; private set; }
         public bool PoolExpanded { get; private set; }
@@ -220,6 +227,8 @@ namespace Brushblade.Core
             _carriedLibrary = new List<string>(Battle.Library);
             _carriedPool = new List<string>(Battle.Pool);
             _carriedHp = Battle.PlayerHp;
+            _carriedNormalShield = Battle.ShieldNormal;
+            _carriedPersistShield = Battle.ShieldPersist;
 
             RollRewardOptions();
             _componentOptions.Clear();
@@ -396,7 +405,8 @@ namespace Brushblade.Core
         private BattleEngine NewBattle(IReadOnlyList<string> library, IReadOnlyList<string> pool, int? startingHp)
         {
             return new BattleEngine(_graph, _battleConfig, library, pool,
-                _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels);
+                _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels,
+                _carriedNormalShield, _carriedPersistShield);
         }
     }
 }
