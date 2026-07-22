@@ -9,6 +9,7 @@ namespace Brushblade.Core
         public int CharacterXp { get; set; }
         public int Ink { get; set; }                                    // 墨锭
         public Dictionary<string, int> CardLevels { get; set; } = new();  // 缺省 1 级
+        public Dictionary<string, int> PerkLevels { get; set; } = new();  // 技能 id → 等级;缺省 0=未解锁
         public Dictionary<string, int> CardCopies { get; set; } = new();  // 待消耗重复卡
         public List<string> OwnedCards { get; set; } = new();             // 收集(首次获得即入)
         public List<string> Deck { get; set; } = new();                   // 出阵卡组(≤4,19.3.4)
