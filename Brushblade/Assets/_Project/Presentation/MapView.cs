@@ -90,7 +90,7 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.9f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
             Ui.ThemedLabel(header.transform, $"正字者 Lv.{level}", 28, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(header.transform,
-                $"经验 {_meta.CharacterXp}    HP 上限 {MetaRules.MaxHpFor(level)}", 20, Theme.TextDim);
+                $"经验 {_meta.CharacterXp}    HP 上限 {MetaRules.MaxHpFor(level) + PerkRules.HpBonus(_meta)}", 20, Theme.TextDim);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
             var collectionButton = Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
                 Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);

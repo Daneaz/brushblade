@@ -179,10 +179,11 @@ namespace Brushblade.Core
                     roster.Add(card);
             SortByLevelDesc(meta, roster);
 
+            int capacity = StartingLibrarySize + PerkRules.LibraryBonus(meta); // 博闻:+1 格/级
             var library = new List<string>();
             foreach (var card in roster)
             {
-                if (library.Count >= StartingLibrarySize) break;
+                if (library.Count >= capacity) break;
                 library.Add(card);
             }
             return library;

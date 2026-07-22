@@ -130,11 +130,11 @@ namespace Brushblade.Presentation
                 _meta.Endless = new EndlessSaveState
                 {
                     Depth = 1,
-                    PlayerHp = MetaRules.MaxHpFor(level),
+                    PlayerHp = MetaRules.MaxHpFor(level) + PerkRules.HpBonus(_meta),
                     Seed = System.Environment.TickCount,
                     Library = new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta)),
                     Pool = new System.Collections.Generic.List<string> { "火", "火" }, // 教程连招原料:拆炎→合炎→合焱
-                    // NormalShield 默认 0;技能系统 A 会在首段填入金汤护盾
+                    NormalShield = PerkRules.ShieldBonus(_meta), // 金汤:首段段首护盾
                 };
                 MetaStore.Save(_meta);
             }
@@ -160,17 +160,19 @@ namespace Brushblade.Presentation
             // 抽取按稀有度加权(绿 80/蓝 15/紫 5,见 RunEngine.RewardRarityWeights)
             runConfig.RewardPool = _meta.Deck;
 
-            int maxHp = MetaRules.MaxHpFor(MetaRules.CharacterLevel(_meta.CharacterXp));
+            int maxHp = MetaRules.MaxHpFor(MetaRules.CharacterLevel(_meta.CharacterXp))
+                + PerkRules.HpBonus(_meta);
             var battleConfig = new BattleConfig
             {
                 DropTable = _campaign.DropTable,
                 PlayerMaxHp = maxHp,
                 UnlockedChars = _meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
+                ApPerTurn = 3 + PerkRules.ApBonus(_meta), // 一气
             };
             var run = new RunEngine(_graph, runConfig, battleConfig,
                 snapshot.Library, snapshot.Pool,
                 seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,
-                startingInk: _meta.Ink + snapshot.EarnedInk, // 字摊预算 = 库存 + 塔内滚存
+                startingInk: _meta.Ink + snapshot.EarnedInk + PerkRules.InkBonus(_meta), // 字摊预算 = 库存 + 塔内滚存 + 润笔
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
                 startingPersistShield: snapshot.PersistShield);
@@ -286,8 +288,8 @@ namespace Brushblade.Presentation
             snapshot.EarnedInk = totalEarned;
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;
-            // 段末:普通护盾清零(下一段段首重置;技能系统 A 会在此填入金汤护盾),堡型跨段保留
-            snapshot.NormalShield = 0;
+            // 段末:普通护盾重置为金汤(下一段段首生效,每段一次),堡型跨段保留
+            snapshot.NormalShield = PerkRules.ShieldBonus(_meta);
             snapshot.PersistShield = run.CarriedPersistShield;
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned);
