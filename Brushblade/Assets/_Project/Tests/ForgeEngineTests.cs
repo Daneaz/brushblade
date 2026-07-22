@@ -17,6 +17,8 @@ namespace Brushblade.Core.Tests
             new CharDef("炎", Element.Fire, new[] { "火", "火" }),
             new CharDef("灯", Element.Fire, new[] { "火", "丁" }),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }),
+            new CharDef("森", Element.Wood, new[] { "林", "木" }),   // 三叠:字(林)+部件(木)
+            new CharDef("䨺", Element.Wood, new[] { "森", "林" }),   // 合成图测试字:两字原料,用于库满分支
         });
 
         private static ForgeState State(string[] library, string[] pool) => new(library, pool);
@@ -40,18 +42,47 @@ namespace Brushblade.Core.Tests
         // ---- 拆(Dismantle) ----
 
         [Test]
-        public void Dismantle_ReturnsAllIngredientsToPool_Lossless()
+        public void Dismantle_CharsToLibrary_LeavesToPool() // 2026-07-22:字回库、部件回池
         {
-            var result = ForgeEngine.TryDismantle("焚", Graph(), State(new[] { "焚" }, Array.Empty<string>()), 12);
+            // 森 = 林(可合成字)+ 木(部件) → 林 回字库、木 回部件池
+            var result = ForgeEngine.TryDismantle("森", Graph(), State(new[] { "森" }, Array.Empty<string>()), 12, 6);
             Assert.That(result.Success, Is.True);
-            Assert.That(result.State.Library, Is.Empty);
-            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "林", "火" }));
+            Assert.That(result.State.Library, Is.EquivalentTo(new[] { "林" }));
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "木" }));
+        }
+
+        [Test]
+        public void Dismantle_Fen_LinToLibrary_HuoToPool() // 焚=林+火:林回库、火回池
+        {
+            var result = ForgeEngine.TryDismantle("焚", Graph(), State(new[] { "焚" }, Array.Empty<string>()), 12, 6);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Library, Is.EquivalentTo(new[] { "林" }));
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "火" }));
+        }
+
+        [Test]
+        public void Dismantle_LibraryWouldOverflow_Rejected() // 字原料放不回字库则整体失败
+        {
+            // 䨺 = 森 + 林,两个字原料;拆掉 䨺 腾 1 位,净 +1;库容 2 且已有 1 张 → 溢出
+            var result = ForgeEngine.TryDismantle("䨺", Graph(),
+                State(new[] { "䨺", "炎" }, Array.Empty<string>()), 12, libraryCapacity: 2);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.LibraryFull));
+        }
+
+        [Test]
+        public void Dismantle_ThenCompose_RoundTrips() // 拆完能合回去(274c7e0 珍视的自洽性)
+        {
+            var dismantled = ForgeEngine.TryDismantle("森", Graph(), State(new[] { "森" }, Array.Empty<string>()), 12, 6);
+            var recomposed = ForgeEngine.TryCompose("森", Graph(), dismantled.State, 6);
+            Assert.That(recomposed.Success, Is.True);
+            Assert.That(recomposed.State.Library, Does.Contain("森"));
         }
 
         [Test]
         public void Dismantle_LeafComponent_Rejected()
         {
-            var result = ForgeEngine.TryDismantle("火", Graph(), State(new[] { "火" }, Array.Empty<string>()), 12);
+            var result = ForgeEngine.TryDismantle("火", Graph(), State(new[] { "火" }, Array.Empty<string>()), 12, 6);
             Assert.That(result.Success, Is.False);
             Assert.That(result.Error, Is.EqualTo(ForgeError.NotDismantlable));
         }
@@ -59,15 +90,15 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Dismantle_CharNotInLibrary_Rejected()
         {
-            var result = ForgeEngine.TryDismantle("焚", Graph(), State(Array.Empty<string>(), Array.Empty<string>()), 12);
+            var result = ForgeEngine.TryDismantle("焚", Graph(), State(Array.Empty<string>(), Array.Empty<string>()), 12, 6);
             Assert.That(result.Error, Is.EqualTo(ForgeError.NotInLibrary));
         }
 
         [Test]
-        public void Dismantle_PoolWouldOverflow_Rejected() // demo 修正:poolMax guard
+        public void Dismantle_PoolWouldOverflow_Rejected() // 部件放不回池则失败(焚只回 1 个部件:火)
         {
-            var pool = Enumerable.Repeat("木", 11).ToArray(); // 11 + 2 > 12
-            var result = ForgeEngine.TryDismantle("焚", Graph(), State(new[] { "焚" }, pool), 12);
+            var pool = Enumerable.Repeat("木", 12).ToArray(); // 12 + 1(火)> 12
+            var result = ForgeEngine.TryDismantle("焚", Graph(), State(new[] { "焚" }, pool), 12, 6);
             Assert.That(result.Error, Is.EqualTo(ForgeError.PoolWouldOverflow));
         }
 

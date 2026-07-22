@@ -385,11 +385,11 @@ namespace Brushblade.Core.Tests
             Assert.That(run.TryExpandPool(), Is.True);
             Assert.That(run.TryExpandPool(), Is.False); // 每关一次
 
-            // 扩容后池上限 12:塞到 11 个再拆(+2)会被拒,10 个 +2 = 12 恰好允许
+            // 扩容后池上限 12;焚拆解只有部件『火』回池(林回库),11 个 +1 = 12 恰好允许
             var pool = new System.Collections.Generic.List<string>();
-            for (int i = 0; i < 10; i++) pool.Add("木");
+            for (int i = 0; i < 11; i++) pool.Add("木");
             var result = ForgeEngine.TryDismantle("焚", Graph(),
-                new ForgeState(new[] { "焚" }, pool), 12);
+                new ForgeState(new[] { "焚" }, pool), 12, 8);
             Assert.That(result.Success, Is.True);
         }
 

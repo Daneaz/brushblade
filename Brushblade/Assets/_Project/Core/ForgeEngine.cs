@@ -78,7 +78,11 @@ namespace Brushblade.Core
     public static class ForgeEngine
     {
         /// <summary>拆:字库中的字 → 配方全部原料入池(无损返还)。</summary>
-        public static ForgeResult TryDismantle(string charId, RecipeGraph graph, ForgeState state, int poolCapacity)
+        /// <summary>拆:配方原料按性质归位——部件(叶子)回部件池,可合成字回字库
+        /// (2026-07-22 拍板:如森=林+木,林回库、木回池;原「全进池」废止)。
+        /// 任一去处放不下则整体失败,不动状态(先验后扣)。</summary>
+        public static ForgeResult TryDismantle(string charId, RecipeGraph graph, ForgeState state,
+            int poolCapacity, int libraryCapacity)
         {
             if (!graph.TryGet(charId, out var def))
                 return ForgeResult.Fail(ForgeError.UnknownChar, state);
@@ -86,13 +90,23 @@ namespace Brushblade.Core
                 return ForgeResult.Fail(ForgeError.NotDismantlable, state);
             if (!state.Library.Contains(charId))
                 return ForgeResult.Fail(ForgeError.NotInLibrary, state);
-            if (state.Pool.Count + def.Recipe.Count > poolCapacity)
+
+            var toPool = new List<string>();
+            var toLibrary = new List<string>();
+            foreach (var ingredient in def.Recipe)
+                (graph.TryGet(ingredient, out var idef) && !idef.IsLeaf ? toLibrary : toPool).Add(ingredient);
+
+            if (state.Pool.Count + toPool.Count > poolCapacity)
                 return ForgeResult.Fail(ForgeError.PoolWouldOverflow, state);
+            // 父字先移除腾出 1 位,故字库容量按 −1 判定
+            if (state.Library.Count - 1 + toLibrary.Count > libraryCapacity)
+                return ForgeResult.Fail(ForgeError.LibraryFull, state);
 
             var library = new List<string>(state.Library);
             library.Remove(charId);
+            library.AddRange(toLibrary);
             var pool = new List<string>(state.Pool);
-            pool.AddRange(def.Recipe);
+            pool.AddRange(toPool);
             return ForgeResult.Ok(new ForgeState(library, pool));
         }
 

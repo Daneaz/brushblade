@@ -131,7 +131,7 @@ namespace Brushblade.Core
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (Ap < 1) return BattleError.NotEnoughAp;
 
-            var result = ForgeEngine.TryDismantle(charId, _graph, _forge, _config.PoolCapacity);
+            var result = ForgeEngine.TryDismantle(charId, _graph, _forge, _config.PoolCapacity, _config.LibraryCapacity);
             if (!result.Success)
             {
                 LastForgeError = result.Error;

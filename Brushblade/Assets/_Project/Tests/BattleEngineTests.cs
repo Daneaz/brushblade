@@ -92,8 +92,8 @@ namespace Brushblade.Core.Tests
             var error = engine.Dismantle("焚");
             Assert.That(error, Is.EqualTo(BattleError.None));
             Assert.That(engine.Ap, Is.EqualTo(2));
-            Assert.That(engine.Library, Is.Empty);
-            Assert.That(engine.Pool, Does.Contain("林").And.Contain("火"));
+            Assert.That(engine.Library, Is.EquivalentTo(new[] { "林" })); // 字回库(2026-07-22)
+            Assert.That(engine.Pool, Does.Contain("火").And.Not.Contain("林")); // 部件回池
         }
 
         [Test]
