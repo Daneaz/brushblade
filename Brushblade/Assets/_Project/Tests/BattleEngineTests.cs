@@ -69,6 +69,19 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerShield, Is.EqualTo(7));
         }
 
+        [Test]
+        public void Shield_PersistsThroughEnemyTurn() // 段内持久:普通护盾不再回合末全清
+        {
+            // 单敌攻击 3;玩家不出手,EndTurn 后敌方攻击被护盾吸收
+            var engine = new BattleEngine(Graph(), Config(),
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { WoodMinion(hp: 100) }, seed: 42, startingHp: 50, cardLevels: null,
+                startingNormalShield: 5);
+            engine.EndTurn();                 // 敌方攻击 3,护盾吸收
+            Assert.That(engine.PlayerShield, Is.EqualTo(2)); // 旧逻辑会清 0;段内持久剩 2
+            Assert.That(engine.PlayerHp, Is.EqualTo(50));    // 护盾垫住,血未掉
+        }
+
         // ---- 回合开始(3.5 步骤 1) ----
 
         [Test]
@@ -228,13 +241,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_ThenClears() // 10.2:敌方行动后全清
+        public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_ShieldPersists() // 护盾段内持久,不再回合末全清
         {
             var engine = Engine(library: new[] { "壁" }, enemies: new[] { MetalBoss() }); // 攻 5
             engine.Cast("壁"); // 护盾 24
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 24 盾吸收攻 5,不掉血
-            Assert.That(engine.PlayerShield, Is.EqualTo(0)); // 剩余 19 在敌方行动后全清
+            Assert.That(engine.PlayerShield, Is.EqualTo(19)); // 护盾段内持久,剩余 19
             Assert.That(engine.Turn, Is.EqualTo(2));
             Assert.That(engine.Ap, Is.EqualTo(3)); // AP 不跨回合保留,重置为 3
         }
@@ -358,14 +371,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Bao_ShieldSurvivesExactlyOneClear() // 堡:豁免一次全清
+        public void Bao_ShieldPersistsThroughTurns() // 堡:护盾段内持久,多轮保留
         {
             var engine = Engine(library: new[] { "堡" }, enemies: new[] { WoodMinion(hp: 200) }); // 攻 3
             engine.Cast("堡");   // 护盾 10(呆中性+土,无相生)
-            engine.EndTurn();    // 吸收 3 → 7,豁免本次全清
+            engine.EndTurn();    // 吸收 3 → 7,护盾段内持久
             Assert.That(engine.PlayerShield, Is.EqualTo(7));
-            engine.EndTurn();    // 吸收 3 → 4,本次全清生效
-            Assert.That(engine.PlayerShield, Is.EqualTo(0));
+            engine.EndTurn();    // 吸收 3 → 4,护盾继续持久
+            Assert.That(engine.PlayerShield, Is.EqualTo(4));
             Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 两轮攻击全被盾挡
         }
 

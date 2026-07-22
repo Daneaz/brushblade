@@ -354,10 +354,6 @@ namespace Brushblade.Core
                 return;
             }
 
-            // 护盾全清:清算点在敌方行动结束后(10.2);豁免桶挺过本次,降级为普通桶
-            _shieldNormal = _shieldPersist;
-            _shieldPersist = 0;
-
             StartTurn();
         }
 
