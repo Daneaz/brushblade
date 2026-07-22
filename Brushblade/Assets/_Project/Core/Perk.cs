@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Brushblade.Core
 {
     /// <summary>技能效果类别(第 A 章:等级被动技能系统)。</summary>
-    public enum PerkEffect { MaxHp, Ink, Shield, Library, Ap }
+    public enum PerkEffect { MaxHp, Shield, Library, Ap }
 
     /// <summary>单条技能定义:效果 = 等级 × PerLevelValue;角色等级只 gate 初解锁(0→1)。</summary>
     public sealed class PerkDef
@@ -31,7 +31,6 @@ namespace Brushblade.Core
         public static readonly IReadOnlyList<PerkDef> All = new[]
         {
             new PerkDef("yangyuan", "养元", PerkEffect.MaxHp,  10, 2, new[] { 200, 400, 700, 1100, 1600, 2200 }),
-            new PerkDef("runbi",    "润笔", PerkEffect.Ink,    50, 3, new[] { 200, 400, 700, 1100 }),
             new PerkDef("jintang",  "金汤", PerkEffect.Shield,  4, 4, new[] { 400, 700, 1100, 1600, 2200 }),
             new PerkDef("bowen",    "博闻", PerkEffect.Library,  1, 6, new[] { 600, 1200, 2000 }),
             new PerkDef("yiqi",     "一气", PerkEffect.Ap,       1, 6, new[] { 1500, 4000 }), // 上限 2:平衡硬线
@@ -62,7 +61,6 @@ namespace Brushblade.Core
 
         public static int ApBonus(MetaState meta)      => BonusOf(meta, PerkEffect.Ap);
         public static int HpBonus(MetaState meta)      => BonusOf(meta, PerkEffect.MaxHp);
-        public static int InkBonus(MetaState meta)     => BonusOf(meta, PerkEffect.Ink);
         public static int LibraryBonus(MetaState meta) => BonusOf(meta, PerkEffect.Library);
         public static int ShieldBonus(MetaState meta)  => BonusOf(meta, PerkEffect.Shield);
 

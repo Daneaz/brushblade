@@ -172,7 +172,7 @@ namespace Brushblade.Presentation
             var run = new RunEngine(_graph, runConfig, battleConfig,
                 snapshot.Library, snapshot.Pool,
                 seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,
-                startingInk: _meta.Ink + snapshot.EarnedInk + PerkRules.InkBonus(_meta), // 字摊预算 = 库存 + 塔内滚存 + 润笔
+                startingInk: _meta.Ink + snapshot.EarnedInk, // 字摊预算 = 库存 + 塔内滚存
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
                 startingPersistShield: snapshot.PersistShield);
