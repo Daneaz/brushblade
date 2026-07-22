@@ -31,6 +31,7 @@ namespace Brushblade.Presentation
 
             // 启动校时(19.9):失败则本会话退化为设备时间
             new GameObject("TimeSync").AddComponent<TimeSyncFetcher>().Begin(Time);
+            new GameObject("SaveOnSuspend").AddComponent<SaveOnSuspend>(); // 切后台保底落盘
 
             string configDir = Path.Combine(Application.streamingAssetsPath, "config");
             _graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
@@ -48,6 +49,12 @@ namespace Brushblade.Presentation
                 MetaRules.TrySetDeck(_meta, new[] { "炎", "鍂", "沝", "林", "圭" }, _graph);
 
             ShowMap();
+        }
+
+        /// <summary>保底落盘:切后台/退出时由 SaveOnSuspend 调用(引导未完成则无档可存)。</summary>
+        public static void SaveNow()
+        {
+            if (_meta != null) MetaStore.Save(_meta);
         }
 
         public static void ShowMap(string message = null)
@@ -166,7 +173,11 @@ namespace Brushblade.Presentation
                 tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
                 onNewFloor: () => OnFloorAdvanced(run, baseInk),
                 onFloorCleared: () => baseInk = OnFloorCleared(run, fromDepth, baseInk),
-                onExit: () => ShowMap("登塔已挂起,随时回来继续"),
+                onExit: () => // 挂起离塔:此前只切视图不落盘,靠上一次写盘兜底(2026-07-22 补)
+                {
+                    SaveNow();
+                    ShowMap("登塔已挂起,随时回来继续");
+                },
                 onExpanded: () => OnExpanded(run),
                 onAbandon: () => SettleTower(died: true, // 弃塔=阵亡待遇:半额结算,防绕过安全层撤退决策
                     fromDepth + run.BattleIndex - 1, baseInk + run.EarnedInk, abandoned: true));

@@ -347,6 +347,37 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Pool.Count, Is.LessThanOrEqualTo(2));
         }
 
+        /// <summary>挂起续爬后广告扩容仍在(2026-07-22 排查):标志过存档、重放要真的把容量抬回来。
+        /// 标志 round-trip 与「扩容影响当前战斗」各有测试,这里把两半串成端到端,锁住恢复口径。</summary>
+        [Test]
+        public void ExpandFlags_SurviveSaveRoundTrip_AndRestoreCapacity()
+        {
+            var run = Run();
+            run.TryExpandLibrary();
+            run.TryExpandPool();
+
+            // 模拟 OnExpanded 落盘 + 挂起后重新读档
+            var meta = new MetaState
+            {
+                Endless = new EndlessSaveState
+                {
+                    Depth = 3, PlayerHp = 30, Seed = 42,
+                    LibraryExpanded = run.LibraryExpanded,
+                    PoolExpanded = run.PoolExpanded,
+                },
+            };
+            var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
+
+            // 模拟 StartSegment:新 run(容量回落到基准)后重放扩容
+            var resumed = Run();
+            Assert.That(resumed.Battle.LibraryCapacity, Is.EqualTo(6)); // 重放前是基准值
+            if (restored.Endless.LibraryExpanded) resumed.TryExpandLibrary();
+            if (restored.Endless.PoolExpanded) resumed.TryExpandPool();
+
+            Assert.That(resumed.Battle.LibraryCapacity, Is.EqualTo(8));
+            Assert.That(resumed.Battle.PoolCapacity, Is.EqualTo(12));
+        }
+
         [Test]
         public void ExpandPool_OncePerRun_RaisesCapBy2()
         {

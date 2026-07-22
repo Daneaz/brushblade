@@ -20,9 +20,24 @@ namespace Brushblade.Presentation
                 : new MetaState();
         }
 
+        /// <summary>原子落盘(2026-07-22):先写临时文件并 fsync,再整体替换。
+        /// 直接 WriteAllText 有两个移动端风险——数据只到 OS 缓存,被系统回收进程时最近一次
+        /// 保存丢失;写一半被杀则存档残缺,Load 验签失败会退回全新状态(等于清档)。</summary>
         public static void Save(MetaState meta)
         {
-            File.WriteAllText(SavePath, SaveGuard.Seal(SaveSerializer.ToJson(meta)));
+            string payload = SaveGuard.Seal(SaveSerializer.ToJson(meta));
+            string temp = SavePath + ".tmp";
+            using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write))
+            using (var writer = new StreamWriter(stream))
+            {
+                writer.Write(payload);
+                writer.Flush();
+                stream.Flush(true); // true = 连同 OS 缓冲一起刷到存储介质
+            }
+            if (File.Exists(SavePath))
+                File.Replace(temp, SavePath, null); // 原子替换(Unix 下即 rename)
+            else
+                File.Move(temp, SavePath);
         }
     }
 }
