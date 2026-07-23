@@ -12,6 +12,7 @@ namespace Brushblade.Presentation
         private MetaState _meta;
         private System.Action _save;
         private System.Action _onBack;
+        private GameObject _modal;
 
         public void Init(MetaState meta, System.Action save, System.Action onBack)
         {
@@ -53,13 +54,23 @@ namespace Brushblade.Presentation
             int level = PerkRules.PerkLevel(_meta, def.Id);
             var cell = Ui.VStack(parent, def.Id, 6);
 
-            PerkTile(cell.transform, def, level);
+            // 牌可点/长按看详情(短按也开,牌本身无其它点击动作)
+            var tile = PerkTile(cell.transform, def, level, TileSize);
+            var tileButton = tile.AddComponent<Button>();
+            tileButton.targetGraphic = tile.GetComponent<Image>();
+            tileButton.onClick.AddListener(() => ShowDetail(def));
+            HoldToPreview.Attach(tile, () => ShowDetail(def), null);
 
-            if (level >= def.MaxLevel) return; // 满级不再出升级按钮(牌面已显「已满」)
+            if (level >= def.MaxLevel)
+            {
+                Ui.ThemedLabel(cell.transform, "满级", 15, Theme.UpgradeText);
+                return;
+            }
 
             bool gated = level == 0 && charLevel < def.UnlockLevel;
+            int cost = def.InkCosts[level];
             string label = gated ? $"需角色 {def.UnlockLevel} 级"
-                                  : (level == 0 ? "解锁" : "升级");
+                                  : (level == 0 ? $"解锁 · {cost}墨" : $"升级 · {cost}墨");
             var button = Ui.PillButton(cell.transform, label, () =>
             {
                 if (PerkRules.TryUpgradePerk(_meta, def.Id))
@@ -71,8 +82,20 @@ namespace Brushblade.Presentation
             button.interactable = !gated;
         }
 
-        /// <summary>技能牌:圆角方牌 + 主题色淡染底 + 主题色两字名 + 等级/下一级。参考字库牌与怪牌。</summary>
-        private void PerkTile(Transform parent, PerkDef def, int level)
+        private void ShowDetail(PerkDef def)
+        {
+            if (_modal != null) Destroy(_modal);
+            int level = PerkRules.PerkLevel(_meta, def.Id);
+            var overlay = Ui.ModalShell(transform, "技能", new Vector2(330, 260), dismissable: true, out var stack);
+            PerkTile(stack, def, level, new Vector2(150, 150));
+            Ui.ThemedLabel(stack, PerkInfo.Detail(def, level), 17, Theme.TextDim);
+            Ui.PillButton(stack, "知道了", () => Destroy(overlay),
+                Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 48));
+            _modal = overlay;
+        }
+
+        /// <summary>技能牌:圆角方牌 + 主题色淡染底 + 两字名 + 当前等级 + 效果短语。参考字库牌与怪牌。</summary>
+        private static GameObject PerkTile(Transform parent, PerkDef def, int level, Vector2 size)
         {
             Color theme = PerkColor(def.Effect);
 
@@ -82,8 +105,8 @@ namespace Brushblade.Presentation
             frame.type = Image.Type.Sliced;
             frame.color = Theme.Shadow;
             var element = go.AddComponent<LayoutElement>();
-            element.preferredWidth = TileSize.x;
-            element.preferredHeight = TileSize.y;
+            element.preferredWidth = size.x;
+            element.preferredHeight = size.y;
 
             var inner = Ui.Panel(go.transform, "Face");
             var face = inner.AddComponent<Image>();
@@ -96,13 +119,12 @@ namespace Brushblade.Presentation
             var name = Ui.ThemedLabel(inner.transform, def.Name, 40, theme, Theme.TitleFont);
             Ui.Anchor(name.rectTransform, new Vector2(0, 0.5f), new Vector2(1, 0.9f), Vector2.zero, Vector2.zero);
 
-            var lv = Ui.ThemedLabel(inner.transform, $"Lv{level}/{def.MaxLevel}", 16, Theme.TextMain);
+            var lv = Ui.ThemedLabel(inner.transform, $"Lv{level}", 16, Theme.TextMain);
             Ui.Anchor(lv.rectTransform, new Vector2(0, 0.28f), new Vector2(1, 0.5f), Vector2.zero, Vector2.zero);
 
-            string next = level >= def.MaxLevel ? "已满"
-                : $"+{def.PerLevelValue} · {def.InkCosts[level]}墨";
-            var nextLabel = Ui.ThemedLabel(inner.transform, next, 13, Theme.TextDim);
-            Ui.Anchor(nextLabel.rectTransform, new Vector2(0, 0.05f), new Vector2(1, 0.26f), Vector2.zero, Vector2.zero);
+            var effect = Ui.ThemedLabel(inner.transform, PerkInfo.ShortEffect(def), 14, Theme.TextDim);
+            Ui.Anchor(effect.rectTransform, new Vector2(0, 0.05f), new Vector2(1, 0.26f), Vector2.zero, Vector2.zero);
+            return go;
         }
 
         private static Color PerkColor(PerkEffect effect) => effect switch
