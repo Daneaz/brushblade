@@ -21,7 +21,7 @@ namespace Brushblade.Presentation
             return overlay;
         }
 
-        /// <summary>怪牌:五行色底 + 名字 + 血攻;Boss 描金边。未解锁时打码。</summary>
+        /// <summary>怪牌:战斗同款圆形字头像(五行实色 + 白字代表字)+ 名字 + 血攻;Boss 描金边。未解锁时打码。</summary>
         public static GameObject Tile(Transform parent, EnemyDef def, Vector2 size, bool locked = false)
         {
             var go = Ui.Panel(parent, $"Enemy_{def.Id}");
@@ -37,20 +37,28 @@ namespace Brushblade.Presentation
             var face = inner.AddComponent<Image>();
             face.sprite = Theme.Rounded(12);
             face.type = Image.Type.Sliced;
-            face.color = locked ? Theme.LockedBg : Theme.ElementSoft(def.Element);
+            face.color = Theme.CardWhite;
             Ui.Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
                 new Vector2(3f, 3f), new Vector2(-3f, -3f));
 
-            var name = Ui.ThemedLabel(inner.transform, locked ? "?" : def.Id,
-                Mathf.RoundToInt(size.y * 0.2f),
-                locked ? Theme.LockGray : Theme.ElementSoftFg(def.Element), Theme.TitleFont);
-            Ui.Anchor(name.rectTransform, new Vector2(0, 0.34f), new Vector2(1, 0.92f),
+            float diameter = size.y * 0.5f;
+            var portrait = Ui.CircleGlyph(inner.transform,
+                locked ? "?" : EnemyInfo.FaceChar(def, 0),
+                locked ? Theme.LockedBg : Theme.ElementColor(def.Element),
+                locked ? Theme.LockGray : Color.white, diameter);
+            Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(-diameter / 2f, -diameter - 8f), new Vector2(diameter / 2f, -8f));
+
+            var name = Ui.ThemedLabel(inner.transform, locked ? "" : def.Id,
+                Mathf.RoundToInt(size.y * 0.15f),
+                locked ? Theme.LockGray : Theme.TextMain, Theme.TitleFont);
+            Ui.Anchor(name.rectTransform, new Vector2(0, 0.2f), new Vector2(1, 0.4f),
                 Vector2.zero, Vector2.zero);
 
             var stats = Ui.ThemedLabel(inner.transform,
                 locked ? "未遇" : $"血{def.MaxHp} 攻{def.Attack}", 13,
                 locked ? Theme.LockGray : Theme.TextDim);
-            Ui.Anchor(stats.rectTransform, new Vector2(0, 0.06f), new Vector2(1, 0.32f),
+            Ui.Anchor(stats.rectTransform, new Vector2(0, 0.04f), new Vector2(1, 0.2f),
                 Vector2.zero, Vector2.zero);
             return go;
         }

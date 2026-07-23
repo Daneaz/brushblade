@@ -308,6 +308,21 @@ namespace Brushblade.Presentation
             return button;
         }
 
+        /// <summary>圆形字头像:实色圆底 + 居中单字。战斗怪物与图鉴怪牌共用,保证形象一致。</summary>
+        public static GameObject CircleGlyph(Transform parent, string face, Color faceColor, Color glyphColor, float diameter)
+        {
+            var go = Panel(parent, "Portrait");
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Circle;
+            image.color = faceColor;
+            var element = go.AddComponent<LayoutElement>();
+            element.preferredWidth = diameter;
+            element.preferredHeight = diameter;
+            var glyph = ThemedLabel(go.transform, face, Mathf.RoundToInt(diameter * 0.44f), glyphColor, Theme.TitleFont);
+            Stretch(glyph.rectTransform);
+            return go;
+        }
+
         /// <summary>奖励式广告位:绿边圆角 + 播放三角 + 绿字。</summary>
         public static Button AdBadge(Transform parent, string text, Action onClick, Vector2? size = null)
         {

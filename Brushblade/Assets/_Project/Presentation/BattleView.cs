@@ -362,12 +362,11 @@ namespace Brushblade.Presentation
                 cellElement.preferredWidth = 168;
                 cellElement.preferredHeight = 208;
 
-                var circle = Ui.Panel(cell.transform, "Portrait");
-                var circleImage = circle.AddComponent<Image>();
-                circleImage.sprite = Theme.Circle;
-                circleImage.color = enemy.Alive
-                    ? Theme.ElementColor(enemy.ApparentElement)
-                    : Theme.LockedBg;
+                var circle = Ui.CircleGlyph(cell.transform,
+                    EnemyInfo.FaceChar(enemy.Def, enemy.PhaseIndex),
+                    enemy.Alive ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
+                    Color.white, 104);
+                var circleImage = circle.GetComponent<Image>();
                 Ui.Anchor((RectTransform)circle.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                     new Vector2(-52, -104), new Vector2(52, 0));
                 if (_targeting && enemy.Alive)
@@ -376,10 +375,6 @@ namespace Brushblade.Presentation
                     outline.effectColor = Theme.Ink;
                     outline.effectDistance = new Vector2(3, 3);
                 }
-                var glyph = Ui.ThemedLabel(circle.transform,
-                    enemy.IsBoss ? enemy.Def.Phases[enemy.PhaseIndex].Char : enemy.Def.Id.Substring(0, 1),
-                    44, Color.white, Theme.TitleFont);
-                Ui.Stretch(glyph.rectTransform);
 
                 var info = Ui.VStack(cell.transform, "Info", 3);
                 Ui.Anchor((RectTransform)info.transform, new Vector2(0, 0), new Vector2(1, 1),

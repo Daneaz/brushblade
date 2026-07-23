@@ -6,6 +6,10 @@ namespace Brushblade.Presentation
     /// <summary>敌人简述:从定义机械生成(属性/血攻/能力/Boss 阶段)。战斗页与图鉴共用。</summary>
     public static class EnemyInfo
     {
+        /// <summary>怪的代表字(圆形头像用):Boss 取当前阶段字,小怪取名字首字。战斗与图鉴共用。</summary>
+        public static string FaceChar(EnemyDef def, int phaseIndex) =>
+            def.Phases.Count > 0 ? def.Phases[phaseIndex].Char : def.Id.Substring(0, 1);
+
         public static string Detail(EnemyDef def)
         {
             var text = new StringBuilder();
