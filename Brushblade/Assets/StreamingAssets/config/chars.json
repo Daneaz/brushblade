@@ -263,7 +263,11 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 14
+          "value": 12
+        },
+        {
+          "kind": "BurnAll",
+          "value": 2
         }
       ],
       "pinyin": "yàn",
