@@ -151,6 +151,101 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(RunPhase.RunLost));
         }
 
+        // ---- 广告复活(2026-07-24):续战 + 补给注入当前战斗 ----
+
+        private static RunEngine LostRun(int seed = 7) // 打到败北态(RunPhase 仍 InBattle)
+        {
+            var run = Run(new RunConfig
+            {
+                Encounters = new[] { new[] { Strong() } },
+                RewardPool = new[] { "灯", "焚", "林" },
+            }, seed);
+            run.Battle.EndTurn();
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Lost));
+            return run;
+        }
+
+        [Test]
+        public void ReviveAvailable_WhenLost_AndNotYetUsed()
+        {
+            var run = LostRun();
+            Assert.That(run.ReviveAvailable, Is.True);
+        }
+
+        [Test]
+        public void TryRevive_RestoresBattle_EntersRevivingWithPicks()
+        {
+            var run = LostRun();
+            Assert.That(run.TryRevive(), Is.True);
+            Assert.That(run.Revived, Is.True);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reviving));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn)); // 满血续战
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(50));
+            Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(2));
+            Assert.That(run.ReviveComponentPicksLeft, Is.EqualTo(3));
+            Assert.That(run.ReviveAvailable, Is.False); // 一次性
+        }
+
+        [Test]
+        public void PickReviveReward_WritesIntoLiveBattle_NotCarried()
+        {
+            var run = LostRun();
+            run.TryRevive();
+            string charPick = run.RewardOptions[0];
+            Assert.That(run.PickReviveChar(0), Is.True);
+            Assert.That(run.Battle.Library, Does.Contain(charPick)); // 注入当前战斗
+            Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(1));
+
+            string compPick = run.ComponentOptions[0];
+            Assert.That(run.PickReviveComponent(0), Is.True);
+            Assert.That(run.Battle.Pool, Does.Contain(compPick));
+            Assert.That(run.ReviveComponentPicksLeft, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ReviveReward_PicksExhausted_ResumesBattle()
+        {
+            var run = LostRun();
+            run.TryRevive();
+            run.PickReviveChar(0);
+            run.PickReviveChar(0);                 // 2 次字额度用尽
+            run.PickReviveComponent(0);
+            run.PickReviveComponent(0);
+            run.PickReviveComponent(0);            // 3 次部件额度用尽 → 收尾
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+        }
+
+        [Test]
+        public void SkipReviveReward_ResumesBattleImmediately()
+        {
+            var run = LostRun();
+            run.TryRevive();
+            run.SkipReviveReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+        }
+
+        [Test]
+        public void Revive_OnlyOncePerRun()
+        {
+            var run = LostRun();
+            run.TryRevive();
+            run.SkipReviveReward();
+            run.Battle.EndTurn(); // 又被 Strong 打死
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Lost));
+            Assert.That(run.ReviveAvailable, Is.False);
+            Assert.That(run.TryRevive(), Is.False);
+        }
+
+        [Test]
+        public void MarkRevived_BlocksLaterRevive() // 断点续爬恢复:防重进本层二次复活
+        {
+            var run = LostRun();
+            run.MarkRevived();
+            Assert.That(run.ReviveAvailable, Is.False);
+            Assert.That(run.TryRevive(), Is.False);
+        }
+
         [Test]
         public void RewardOptions_DeterministicBySeed()
         {

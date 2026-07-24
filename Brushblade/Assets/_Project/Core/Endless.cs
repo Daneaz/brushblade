@@ -169,6 +169,7 @@ namespace Brushblade.Core
         public int Seed { get; set; }
         public bool LibraryExpanded { get; set; }
         public bool PoolExpanded { get; set; }
+        public bool Revived { get; set; }        // 本次登塔已用过广告复活(一次性;2026-07-24)
         public int TopBossDepth { get; set; } // 本次爬塔已破的最高 Boss 层(0=未破);结算宝箱档位据此(2026-07-22)
         public int NormalShield { get; set; }   // 段内持久护盾(断点续爬恢复)
         public int PersistShield { get; set; }   // 堡型护盾(跨段保留)

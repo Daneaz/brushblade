@@ -240,6 +240,35 @@ namespace Brushblade.Core
             return BattleError.NotCastable;
         }
 
+        /// <summary>广告复活(2026-07-24):败北态满血续战。HP 回满 → 回到玩家回合(刷 AP)。
+        /// StartTurn 只 +Turn/刷 AP/部件掉落,无对玩家的 DoT,故复活瞬间不会被二次归零。
+        /// 补给(字/部件)由 RunEngine 复活流程经 GrantLibraryChar/GrantPoolComponent 注入。</summary>
+        public void Revive()
+        {
+            if (Phase != BattlePhase.Lost) return;
+            PlayerHp = _config.PlayerMaxHp;
+            Phase = BattlePhase.PlayerTurn;
+            StartTurn();
+        }
+
+        /// <summary>复活补给:把一个字加入当前战斗字库;满库返回 false 不入(守容量上限)。</summary>
+        public bool GrantLibraryChar(string charId)
+        {
+            if (_forge.Library.Count >= _config.LibraryCapacity) return false;
+            var library = new List<string>(_forge.Library) { charId };
+            _forge = new ForgeState(library, _forge.Pool);
+            return true;
+        }
+
+        /// <summary>复活补给:把一个部件加入当前战斗部件池;满池返回 false 不入(守容量上限)。</summary>
+        public bool GrantPoolComponent(string componentId)
+        {
+            if (_forge.Pool.Count >= _config.PoolCapacity) return false;
+            var pool = new List<string>(_forge.Pool) { componentId };
+            _forge = new ForgeState(_forge.Library, pool);
+            return true;
+        }
+
         /// <summary>兜底一击(4.5 第二层防卡手地板):无效果的部件/字出手时的弱效果,永不 brick。</summary>
         private static readonly EffectDef[] FallbackEffects = { new(EffectKind.DamageSingle, 3) };
 

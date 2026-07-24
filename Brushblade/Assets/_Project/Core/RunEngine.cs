@@ -10,6 +10,7 @@ namespace Brushblade.Core
         Reward,   // 战斗胜利,三选一奖励(9.5)
         Event,    // 奇遇:短情境 + 选择(9.6)
         EventOverflow, // 奇遇给的部件超上限:逐个替换/跳过(2026-07-24)
+        Reviving, // 看广告复活:补给注入当前战斗(2026-07-24)
         RunWon,
         RunLost,
     }
@@ -246,6 +247,78 @@ namespace Brushblade.Core
             _battleConfig.PoolCapacity += 2;
             PoolExpanded = true;
             return true;
+        }
+
+        // ---- 广告复活(2026-07-24):整次登塔一次,满血续战 + 补给注入当前战斗 ----
+
+        private const int ReviveCharPicks = 2;      // 复活补给:选字次数(用户给的范围取上限)
+        private const int ReviveComponentPicks = 3; // 复活补给:选部件次数
+
+        /// <summary>本次登塔是否已用过复活(一次性;进快照,断点续爬恢复,GameRoot 处理)。</summary>
+        public bool Revived { get; private set; }
+
+        /// <summary>复活补给剩余选字/选部件次数(Reviving 阶段有效)。</summary>
+        public int ReviveCharPicksLeft { get; private set; }
+        public int ReviveComponentPicksLeft { get; private set; }
+
+        /// <summary>可复活:当前战斗已败北且本次登塔未用过复活。</summary>
+        public bool ReviveAvailable => Battle.Phase == BattlePhase.Lost && !Revived;
+
+        /// <summary>看广告复活:满血续战(接着打这一场),并进入 Reviving 补给阶段。</summary>
+        public bool TryRevive()
+        {
+            if (!ReviveAvailable) return false;
+            Revived = true;
+            Battle.Revive(); // HP 回满 + 回到玩家回合
+            RollRewardOptions();
+            _componentOptions.Clear();
+            _componentOptions.AddRange(ComponentRewardChoices);
+            ReviveCharPicksLeft = ReviveCharPicks;
+            ReviveComponentPicksLeft = ReviveComponentPicks;
+            Phase = RunPhase.Reviving;
+            return true;
+        }
+
+        /// <summary>复活补给取一字:直接注入当前战斗字库(非携带快照)。满库或额度尽返回 false。</summary>
+        public bool PickReviveChar(int index)
+        {
+            if (Phase != RunPhase.Reviving || ReviveCharPicksLeft == 0) return false;
+            if (index < 0 || index >= _rewardOptions.Count) return false;
+            if (!Battle.GrantLibraryChar(_rewardOptions[index])) return false; // 满库不入
+            _rewardOptions.RemoveAt(index);
+            ReviveCharPicksLeft -= 1;
+            MaybeFinishRevive();
+            return true;
+        }
+
+        /// <summary>复活补给取一部件:直接注入当前战斗部件池。满池或额度尽返回 false。</summary>
+        public bool PickReviveComponent(int index)
+        {
+            if (Phase != RunPhase.Reviving || ReviveComponentPicksLeft == 0) return false;
+            if (index < 0 || index >= _componentOptions.Count) return false;
+            if (!Battle.GrantPoolComponent(_componentOptions[index])) return false; // 满池不入
+            _componentOptions.RemoveAt(index);
+            ReviveComponentPicksLeft -= 1;
+            MaybeFinishRevive();
+            return true;
+        }
+
+        /// <summary>放弃剩余复活补给,直接接着打。</summary>
+        public void SkipReviveReward()
+        {
+            if (Phase != RunPhase.Reviving) return;
+            Phase = RunPhase.InBattle;
+        }
+
+        /// <summary>断点续爬恢复:标记本次登塔已复活过(防重进本层二次复活)。</summary>
+        public void MarkRevived() => Revived = true;
+
+        private void MaybeFinishRevive()
+        {
+            bool charsDone = ReviveCharPicksLeft == 0 || _rewardOptions.Count == 0;
+            bool componentsDone = ReviveComponentPicksLeft == 0 || _componentOptions.Count == 0;
+            if (charsDone && componentsDone)
+                Phase = RunPhase.InBattle; // 补给取尽,接着打这一场
         }
 
         /// <summary>战斗分出胜负后由视图调用:胜 → 奖励/通关,负 → 结算 run。</summary>

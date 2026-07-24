@@ -217,8 +217,8 @@ namespace Brushblade.Presentation
             Ui.Clear(_poolRow);
             Ui.Clear(_bottomRow);
             Ui.Clear(_summonRow);
-            if (_run.Phase != RunPhase.Reward && _rewardModal != null)
-                Destroy(_rewardModal); // 离开战利品阶段:弹窗不能留在战斗界面上
+            if (_run.Phase != RunPhase.Reward && _run.Phase != RunPhase.Reviving && _rewardModal != null)
+                Destroy(_rewardModal); // 离开战利品/复活阶段:弹窗不能留在战斗界面上
 
             switch (_run.Phase)
             {
@@ -246,6 +246,13 @@ namespace Brushblade.Presentation
                     DrawLibrary(); // 携带字库:满库替换的操作对象
                     DrawPool();    // 携带部件池:部件奖励入池可见
                     DrawReward();
+                    break;
+                case RunPhase.Reviving:
+                    DrawTopBar();
+                    DrawPlayerStats();
+                    DrawLibrary(); // 复活补给注入当前战斗字库,即时可见
+                    DrawPool();
+                    DrawReviveReward();
                     break;
                 case RunPhase.Event:
                     DrawEvent();
@@ -686,6 +693,18 @@ namespace Brushblade.Presentation
                 return;
             }
             Ui.ThemedLabel(_actionRow, "败北……", 36, Theme.TextMain, Theme.TitleFont);
+            // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
+            if (_onExit != null && _run.ReviveAvailable)
+                Ui.AdBadge(_actionRow, "看广告复活", () =>
+                {
+                    _previewRewardIndex = -1;
+                    _previewComponentIndex = -1;
+                    _reviveCharSkipped = false;
+                    _run.TryRevive();
+                    _onExpanded?.Invoke(); // 即时落盘:防「刚看完广告就挂起」白看
+                    _message = "满血复活!挑几样补给,接着打";
+                    Refresh();
+                }, new Vector2(160, 60));
             Ui.PillButton(_actionRow, "结算", AdvanceAfterSettle,
                 Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
@@ -935,6 +954,87 @@ namespace Brushblade.Presentation
             _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
             _message = message; // 落盘由 Refresh 的阶段转换统一触发,不在各分支里各调一次
             CancelSelection();
+        }
+
+        // ---- 复活补给(2026-07-24):以战利品展示方式给字/部件,直接注入当前战斗 ----
+
+        private bool _reviveCharSkipped; // 玩家在复活选字步点了「去选部件」
+
+        private void DrawReviveReward()
+        {
+            if (_rewardModal != null) Destroy(_rewardModal);
+            bool pickingChar = !_reviveCharSkipped && _run.ReviveCharPicksLeft > 0
+                && _run.RewardOptions.Count > 0 && Battle.Library.Count < Battle.LibraryCapacity;
+            if (pickingChar) DrawReviveCharStep();
+            else DrawReviveComponentStep();
+        }
+
+        private void DrawReviveCharStep()
+        {
+            _rewardModal = Ui.ModalShell(transform, $"复活补给 · 选字(还剩 {_run.ReviveCharPicksLeft})",
+                new Vector2(340, 165), dismissable: false, out var content);
+            Ui.ThemedLabel(content, _previewRewardIndex >= 0
+                ? Brief(_run.RewardOptions[_previewRewardIndex]) + "|再点一次收下"
+                : $"字库 {Battle.Library.Count}/{Battle.LibraryCapacity} · 点一下看效果,再点收下", 16, Theme.TextDim);
+
+            var row = Ui.Row(content, "Options", 10);
+            for (int i = 0; i < _run.RewardOptions.Count; i++)
+            {
+                int index = i;
+                var id = _run.RewardOptions[i];
+                var def = _graph.Get(id);
+                System.Action tap = () =>
+                {
+                    if (_previewRewardIndex != index) { _previewRewardIndex = index; Refresh(); return; }
+                    _previewRewardIndex = -1;
+                    if (_run.PickReviveChar(index)) _message = $"「{id}」入库";
+                    Refresh();
+                };
+                var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", index == _previewRewardIndex, tap);
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id), tap);
+            }
+
+            Ui.RoundButton(content, "够了,去选部件", () =>
+            {
+                _previewRewardIndex = -1;
+                _reviveCharSkipped = true;
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
+        }
+
+        private void DrawReviveComponentStep()
+        {
+            _rewardModal = Ui.ModalShell(transform, $"复活补给 · 选部件(还剩 {_run.ReviveComponentPicksLeft})",
+                new Vector2(320, 150), dismissable: false, out var content);
+            Ui.ThemedLabel(content, _previewComponentIndex >= 0
+                ? Brief(_run.ComponentOptions[_previewComponentIndex]) + "|再点一次收下"
+                : $"部件池 {Battle.Pool.Count}/{Battle.PoolCapacity} · 点一下看效果,再点收下", 16, Theme.TextDim);
+
+            var row = Ui.Row(content, "Options", 10);
+            for (int i = 0; i < _run.ComponentOptions.Count; i++)
+            {
+                int index = i;
+                var id = _run.ComponentOptions[i];
+                var def = _graph.Get(id);
+                bool previewing = index == _previewComponentIndex;
+                Ui.RoundButton(row.transform, id, () =>
+                {
+                    if (_previewComponentIndex != index) { _previewComponentIndex = index; Refresh(); return; }
+                    _previewComponentIndex = -1;
+                    if (_run.PickReviveComponent(index)) _message = $"部件「{id}」入池";
+                    Refresh();
+                }, previewing ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
+                    previewing ? Color.white : Theme.ElementSoftFg(def.Element), 24, new Vector2(64, 64), 12);
+            }
+
+            Ui.RoundButton(content, "够了,接着打!", () =>
+            {
+                _previewComponentIndex = -1;
+                _reviveCharSkipped = false;
+                _run.SkipReviveReward();
+                _message = "重整旗鼓,再战!";
+                CancelSelection();
+            }, Theme.Cinnabar, Color.white, 18, new Vector2(190, 48));
         }
 
         private int _pendingEventOption = -1; // 部件抵价/任选字:待成交的选项下标

@@ -423,6 +423,54 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerHp, Is.EqualTo(0)); // 不为负
         }
 
+        // ---- 广告复活(2026-07-24):满血续战 + 补给注入当前战斗 ----
+
+        [Test]
+        public void Revive_RestoresFullHp_AndGivesPlayerTurn()
+        {
+            var engine = Engine(enemies: new[] { new EnemyDef("讹影", Element.Heart, 100, 60) });
+            engine.EndTurn(); // 打到败北
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+
+            engine.Revive();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50));            // 回满
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.Ap, Is.EqualTo(engine.ApPerTurn));   // 刷了 AP,接着打
+        }
+
+        [Test]
+        public void Revive_OnlyFromLost() // 非败北态无效(幂等守卫)
+        {
+            var engine = Engine();
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            engine.Revive();
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn)); // 未被复活逻辑扰动
+            Assert.That(engine.PlayerHp, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void GrantLibraryChar_AddsWhenRoom_RespectsCapacity()
+        {
+            var engine = new BattleEngine(Graph(), new BattleConfig { LibraryCapacity = 2, DropTable = Array.Empty<string>() },
+                Array.Empty<string>(), Array.Empty<string>(), new[] { MetalBoss() }, seed: 42);
+            Assert.That(engine.GrantLibraryChar("焚"), Is.True);
+            Assert.That(engine.GrantLibraryChar("灯"), Is.True);
+            Assert.That(engine.Library, Is.EquivalentTo(new[] { "焚", "灯" }));
+            Assert.That(engine.GrantLibraryChar("燃"), Is.False); // 满了,不入
+            Assert.That(engine.Library.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void GrantPoolComponent_AddsWhenRoom_RespectsCapacity()
+        {
+            var engine = new BattleEngine(Graph(), new BattleConfig { PoolCapacity = 2, DropTable = Array.Empty<string>() },
+                Array.Empty<string>(), Array.Empty<string>(), new[] { MetalBoss() }, seed: 42);
+            Assert.That(engine.GrantPoolComponent("火"), Is.True);
+            Assert.That(engine.GrantPoolComponent("土"), Is.True);
+            Assert.That(engine.GrantPoolComponent("木"), Is.False); // 满池不入
+            Assert.That(engine.Pool.Count, Is.EqualTo(2));
+        }
+
         [Test]
         public void DeadEnemy_DoesNotAttack_CorpseClickRedirectsToSoleAlive()
         {
