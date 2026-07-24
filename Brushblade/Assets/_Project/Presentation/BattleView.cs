@@ -16,7 +16,18 @@ namespace Brushblade.Presentation
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
         private readonly System.Collections.Generic.List<RectTransform> _summonRects = new(); // 存活召唤物本体(反击飞牌起点)
         private readonly System.Collections.Generic.HashSet<int> _dyingEnemies = new(); // 死亡动画进行中的怪:重绘时维持着色,置灰交给死亡节拍(2026-07-25)
-        private bool _awaitingAnim; // 结算动画未落幕:挡住结算 UI/胜负标语,待 onComplete 放行(2026-07-24)
+        private int _animsInFlight; // 在播的打击动画数;>0 = 锁输入 + 血条画在出手前值(2026-07-25),归零才放行重绘
+        private bool Animating => _animsInFlight > 0;
+
+        // 出手前血量:动画期间血条画在此值,每记命中钳向终值(触达才掉血,2026-07-25)。
+        // 玩家(单一)与敌人(全绘不跳过、事件带下标)做逐记掉血;召唤物血条保持当前值(命中反馈已足)。
+        private int _animPlayerHp;
+        private int _animTankHp; // 顶前排召唤(首个存活)出手前血:SummonHit 触达才逐记降(其余召唤不单独降)
+        private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
+        // 血条 fill/label 引用:命中回调据此就地推进,不整屏重绘(重绘会毁掉进行中动画的锚点)
+        private (RectTransform fill, UnityEngine.UI.Text label) _playerHpBar;
+        private (RectTransform fill, UnityEngine.UI.Text label) _tankHpBar;
+        private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyHpBars = new();
 
         private BattleEngine Battle => _run.Battle;
 
@@ -96,20 +107,90 @@ namespace Brushblade.Presentation
             return deaths;
         }
 
-        /// <summary>播放打击感:先把本次死亡的怪登记为「死亡动画进行中」(重绘保持着色),
-        /// 须在 Refresh 重建敌人格之前调用登记、之后才让动画置灰。</summary>
+        /// <summary>播放打击感:登记死亡怪(重绘保持着色)+ 计数在播动画(锁输入、血条画在出手前值)。
+        /// 须在 Refresh 之前 BeginAnim,Play 回调 OnAnimDone 归零才放行。</summary>
         private void PlayAnimated(System.Collections.Generic.IReadOnlyList<BattleEvent> events,
             System.Collections.Generic.List<int> deaths)
         {
-            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths));
+            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact);
         }
 
-        /// <summary>结算动画落幕:本次死亡的怪转为正式置灰,放行结算 UI/胜负标语(第4项)。</summary>
+        /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
+        private void BeginAnim() => _animsInFlight++;
+
+        /// <summary>动画落幕:计数 -1,死亡怪转正式置灰;全部落幕才重绘(放行输入/结算 UI/胜负标语)。</summary>
         private void OnAnimDone(System.Collections.Generic.List<int> deaths)
         {
-            _awaitingAnim = false;
+            _animsInFlight = System.Math.Max(0, _animsInFlight - 1);
             _dyingEnemies.ExceptWith(deaths); // 动画已把它们置灰,后续重绘照常画灰
-            Refresh();
+            if (!Animating) Refresh();         // 期间不重绘:锁输入,血条 fill/label 引用不被毁
+        }
+
+        /// <summary>出手前记下玩家/敌人血量:动画期间血条画在此值,每记命中钳向终值(触达才掉血)。</summary>
+        private void SnapshotPreHp()
+        {
+            _animPlayerHp = Battle.PlayerHp;
+            _animTankHp = FirstAliveSummon()?.Hp ?? 0;
+            _animEnemyHp.Clear();
+            foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
+        }
+
+        /// <summary>顶前排召唤(首个存活);无则 null。SummonHit 承伤者与画序第 0 个召唤同源。</summary>
+        private Brushblade.Core.SummonState FirstAliveSummon()
+        {
+            foreach (var s in Battle.Summons)
+                if (s.Alive) return s;
+            return null;
+        }
+
+        /// <summary>一记命中触达:把对应血条从出手前值推向终值,钳到终值(治护盾双扣/回弹)。</summary>
+        private void OnImpact(BattleEvent e)
+        {
+            switch (e.Kind)
+            {
+                case BattleEventKind.Damage:
+                case BattleEventKind.BurnTick:
+                    if (e.TargetIndex < 0 || e.TargetIndex >= _enemyHpBars.Count
+                        || e.TargetIndex >= _animEnemyHp.Count || e.TargetIndex >= Battle.Enemies.Count) break;
+                    if (_enemyHpBars[e.TargetIndex].fill == null) break;
+                    var enemy = Battle.Enemies[e.TargetIndex];
+                    _animEnemyHp[e.TargetIndex] = System.Math.Max(enemy.Hp, _animEnemyHp[e.TargetIndex] - e.Amount);
+                    SetHpBar(_enemyHpBars[e.TargetIndex], _animEnemyHp[e.TargetIndex], enemy.MaxHp);
+                    break;
+                case BattleEventKind.EnemyAttack: // Amount 含被护盾吸收部分,故钳到玩家终值不多扣
+                    if (_playerHpBar.fill == null) break;
+                    _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - e.Amount);
+                    SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
+                    break;
+                case BattleEventKind.SummonHit: // 敌人打召唤:顶前排承伤者血条逐记降
+                    if (_tankHpBar.fill == null) break;
+                    var tank = FirstAliveSummon();
+                    if (tank == null) break;
+                    _animTankHp = System.Math.Max(tank.Hp, _animTankHp - e.Amount);
+                    SetHpBar(_tankHpBar, _animTankHp, tank.MaxHp);
+                    break;
+            }
+        }
+
+        /// <summary>血条 + 血值叠加其上(带深色描边保对比度);返回 fill/label 供命中回调就地推进。</summary>
+        private (RectTransform fill, UnityEngine.UI.Text label) HpBar(Transform parent, int hp, int maxHp, Vector2 size)
+        {
+            var bar = Ui.Bar(parent, hp / (float)maxHp, Theme.Cinnabar, size);
+            var fill = (RectTransform)bar.transform.Find("Fill");
+            var label = Ui.ThemedLabel(bar.transform, $"{hp}/{maxHp}", Mathf.Clamp((int)(size.y * 0.7f), 10, 13),
+                Color.white, Theme.TitleFont);
+            Ui.Stretch(label.rectTransform);
+            var outline = label.gameObject.AddComponent<Outline>(); // 深色描边:浅底/满色底都读得清
+            outline.effectColor = Theme.Ink;
+            outline.effectDistance = new Vector2(1.2f, 1.2f);
+            return (fill, label);
+        }
+
+        private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
+        {
+            if (bar.fill != null)
+                Ui.Anchor(bar.fill, Vector2.zero, new Vector2(Mathf.Clamp01(hp / (float)maxHp), 1), Vector2.zero, Vector2.zero);
+            if (bar.label != null) bar.label.text = $"{hp}/{maxHp}";
         }
 
         private void BuildSkeleton()
@@ -161,8 +242,8 @@ namespace Brushblade.Presentation
             // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
             // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
             _enemyRow = MakeSection("Enemies", 0.648f, 0.884f);  // 212px ≥ 208
-            _summonRow = MakeSection("Summons", 0.573f, 0.648f); // 67px:44 方块 + 血条 + 血攻数值行
-            _bottomRow = MakeSection("PlayerStats", 0.505f, 0.573f);
+            _summonRow = MakeSection("Summons", 0.560f, 0.648f); // 79px:50 方块 + 血条(血值上条) + 攻力行
+            _bottomRow = MakeSection("PlayerStats", 0.505f, 0.560f); // 50px:HP/AP 横排(血值上条后省一行)
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
             // 2026-07-20 移到最下面;左缘仍避开配字表(0.135 宽,2026-07-19 反馈:曾重叠)
@@ -250,6 +331,11 @@ namespace Brushblade.Presentation
                     DrawTopBar();
                     DrawSummons();
                     DrawPlayerStats();
+                    if (Animating) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
+                    {
+                        Ui.ThemedLabel(_statusRow, "结算中……", 20, Theme.TextDim, Theme.TitleFont);
+                        break;
+                    }
                     DrawLibrary();
                     DrawPool();
                     DrawSuggest();
@@ -261,7 +347,7 @@ namespace Brushblade.Presentation
                     DrawTopBar();
                     DrawSummons();
                     DrawPlayerStats();
-                    if (!_awaitingAnim) DrawBattleSettle(); // 动画未落幕先不出结算/标语(第4项)
+                    if (!Animating) DrawBattleSettle(); // 动画未落幕先不出结算/标语(第4项)
                     break;
                 case RunPhase.Reward:
                     DrawTopBar();
@@ -336,8 +422,9 @@ namespace Brushblade.Presentation
         private void DrawPlayerStats()
         {
             var hpStack = Ui.VStack(_bottomRow, "Hp", 3);
-            Ui.ThemedLabel(hpStack.transform, $"HP {Battle.PlayerHp}/{_playerMaxHp}", 14, Theme.TextDim);
-            Ui.Bar(hpStack.transform, Battle.PlayerHp / (float)_playerMaxHp, Theme.Cinnabar, new Vector2(260, 13));
+            // 血值上条(2026-07-25);动画期间画在出手前值,敌人攻击触达才逐记掉血
+            _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
+                _playerMaxHp, new Vector2(260, 20));
             if (Battle.PlayerShield > 0)
             {
                 Ui.Bar(hpStack.transform, Mathf.Clamp01(Battle.PlayerShield / 30f), Theme.Jade, new Vector2(260, 7));
@@ -365,27 +452,30 @@ namespace Brushblade.Presentation
         private void DrawSummons()
         {
             _summonRects.Clear(); // 与存活召唤物同序,反击飞牌逐记按序号取起点
+            _tankHpBar = default;
             int index = 0;
             foreach (var summon in Battle.Summons)
             {
                 index++;
                 if (!summon.Alive) continue;
+                bool isTank = _summonRects.Count == 0; // 首个存活 = 顶前排承伤者
                 var cell = Ui.VStack(_summonRow, $"Summon{index}", 1);
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, null,
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     23, new Vector2(50, 50), 12);
                 _summonRects.Add((RectTransform)glyph.transform);
-                // 血值叠加在血条上(2026-07-25):省一行纵向空间给放大的形象;攻力附于其后
-                var bar = Ui.Bar(cell.transform, summon.Hp / (float)summon.MaxHp, Theme.Cinnabar, new Vector2(54, 16));
-                var hpLabel = Ui.ThemedLabel(bar.transform, $"{summon.Hp}/{summon.MaxHp} 攻{summon.Attack}",
-                    10, Color.white, Theme.TitleFont);
-                Ui.Stretch(hpLabel.rectTransform);
+                // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。坦克动画期间画出手前值,SummonHit 触达才降
+                int shownHp = isTank && Animating ? _animTankHp : summon.Hp;
+                var bar = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
+                if (isTank) _tankHpBar = bar;
+                Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
             }
         }
 
         private void DrawEnemies()
         {
             _enemyRects.Clear();
+            _enemyHpBars.Clear();
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
                 var enemy = Battle.Enemies[i];
@@ -433,18 +523,17 @@ namespace Brushblade.Presentation
                 if (enemy.Def.Ability == EnemyAbility.Scorch && enemy.Alive)
                     Ui.Chip(chips.transform, "受击加攻", Theme.Cinnabar, Color.white, 12);
 
-                if (enemy.Alive)
+                // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
+                // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。
+                if (showAlive)
                 {
-                    Ui.Bar(info.transform, enemy.Hp / (float)enemy.MaxHp, Theme.Cinnabar, new Vector2(140, 9));
-                    Ui.ThemedLabel(info.transform, $"{enemy.Hp} / {enemy.MaxHp}", 12, Theme.TextDim);
-                }
-                else if (dying)
-                {
-                    // 濒死:着色挨打中,血条/已正都不画,等死亡节拍置灰 + 正字
+                    int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
+                    _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(140, 16)));
                 }
                 else
                 {
                     Ui.ThemedLabel(info.transform, "已正", 14, Theme.LockGray);
+                    _enemyHpBars.Add((null, null));
                 }
 
                 var button = cell.AddComponent<Button>();
@@ -1428,6 +1517,7 @@ namespace Brushblade.Presentation
         private void ExecuteCast(string charId, int target)
         {
             bool hasFrom = TryGetTilePos(charId, out var fromPos); // 起点须在重绘销毁字牌前捕获
+            SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
             var error = Battle.Cast(charId, target);
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Cast, charId);
@@ -1435,10 +1525,9 @@ namespace Brushblade.Presentation
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             AppendBossPhaseMessage();
-            // 出牌可能击杀收场:结算 UI/标语等飞牌+结算动画播完(第4项),须在 CancelSelection 重绘前置位
-            _awaitingAnim = error == BattleError.None && Battle.Phase != BattlePhase.PlayerTurn;
             var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
+            if (error == BattleError.None) BeginAnim(); // 锁输入 + 血条改画出手前值,须在重绘前置位
             CancelSelection();
             if (error == BattleError.None)
             {
@@ -1477,7 +1566,8 @@ namespace Brushblade.Presentation
 
         private System.Collections.IEnumerator AutoEndTurn()
         {
-            while (Time.unscaledTime < _autoEndDueAt)
+            // 等缓冲到点「且」出牌动画播完:与结算串行,免两段动画重叠(输入锁/血条引用错乱)
+            while (Time.unscaledTime < _autoEndDueAt || Animating)
                 yield return null;
             if (_run.Phase != RunPhase.InBattle || Battle.Phase != BattlePhase.PlayerTurn || Battle.Ap != 0)
                 yield break; // 期间局面已变(胜负已分/新回合)则作罢
@@ -1558,12 +1648,13 @@ namespace Brushblade.Presentation
 
         private void OnEndTurn()
         {
+            SnapshotPreHp(); // 出手前血量:敌方攻击触达才逐记扣血
             Battle.EndTurn();
             _tutorial?.Notify(TutorialAction.EndTurn);
             _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,部件掉落" : "";
-            _awaitingAnim = Battle.Phase != BattlePhase.PlayerTurn; // 本回合分了胜负 → 结算 UI 等动画
             var deaths = DeathsThisAction();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
+            BeginAnim(); // 锁输入:召唤/敌方行动期间不许出字,须在重绘前置位
             CancelSelection();
             PlayAnimated(Battle.LastEvents, deaths);
         }

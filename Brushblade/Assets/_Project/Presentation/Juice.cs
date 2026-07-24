@@ -43,13 +43,13 @@ namespace Brushblade.Presentation
         /// 所有动效落幕后调用(战斗结束标语等它,2026-07-24)。
         /// 召唤反击逐个顺序播、伤害与「正!」分节拍(2026-07-24):此前同帧齐发相互重叠、只见一次。</summary>
         public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor = null, Action onComplete = null)
+            Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null)
         {
-            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete));
+            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact));
         }
 
         private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor, Action onComplete)
+            Func<int, RectTransform> summonAnchor, Action onComplete, Action<BattleEvent> onImpact)
         {
             // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
@@ -77,7 +77,7 @@ namespace Brushblade.Presentation
 
             // 死亡结算收拢到伤害之后成排播(顺序节拍:①DoT ②召唤 ③死亡置灰+正 ④敌人反击 ⑤胜利标语)。
             var deaths = new List<int>();
-            yield return ApplyBatch(preRest, enemyAnchor, summonAnchor, deaths);      // ① DoT 先结算
+            yield return ApplyBatch(preRest, enemyAnchor, summonAnchor, deaths, onImpact);      // ① DoT 先结算
             for (int k = 0; k < strikes.Count; k++)                                    // ② 召唤物逐个行动+结算
             {
                 var from = summonAnchor?.Invoke(k);
@@ -87,7 +87,7 @@ namespace Brushblade.Presentation
                     FlyGlyph("木", Theme.ElementColor(Element.Wood), from.position, toRect.position);
                     yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
                 }
-                yield return ApplyBatch(strikes[k].effects, enemyAnchor, summonAnchor, deaths);
+                yield return ApplyBatch(strikes[k].effects, enemyAnchor, summonAnchor, deaths, onImpact);
                 yield return new WaitForSecondsRealtime(StrikeGap);
             }
             if (deaths.Count > 0)
@@ -102,15 +102,16 @@ namespace Brushblade.Presentation
                 ScreenFlash(0.16f, Color.white);       // 致命全屏微闪
                 yield return new WaitForSecondsRealtime(DeathBeat);
             }
-            yield return ApplyBatch(postRest, enemyAnchor, summonAnchor, deaths);       // 敌人反击(带打击动效)
+            yield return ApplyBatch(postRest, enemyAnchor, summonAnchor, deaths, onImpact); // 敌人反击(带打击动效)
 
             yield return new WaitForSecondsRealtime(TailGap);
             onComplete?.Invoke();                                                       // ⑤ 关卡胜利标语(外层)
         }
 
-        /// <summary>结算一批事件的表现;怪物死亡不在此播,收集进 deaths 交死亡节拍统一结算。</summary>
+        /// <summary>结算一批事件的表现;怪物死亡不在此播,收集进 deaths 交死亡节拍统一结算。
+        /// onImpact 在每记伤害触达时回调外层(据此逐记推进血条:触达才掉血)。</summary>
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor, List<int> deaths)
+            Func<int, RectTransform> summonAnchor, List<int> deaths, Action<BattleEvent> onImpact)
         {
             foreach (var e in events)
             {
@@ -127,6 +128,7 @@ namespace Brushblade.Presentation
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         HitReact(enemyAnchor(e.TargetIndex));
                         HitFx(e.Amount);
+                        onImpact?.Invoke(e); // 触达才掉血
                         yield return new WaitForSecondsRealtime(HitStop); // 命中顿帧
                         break;
                     case BattleEventKind.EnemyDied:
@@ -139,6 +141,7 @@ namespace Brushblade.Presentation
                         HitReact(tank);
                         _audio.PlayOneShot(_thudClip, 0.7f);
                         StartCoroutine(Shake(7f));
+                        onImpact?.Invoke(e); // 触达才扣召唤血
                         yield return new WaitForSecondsRealtime(EnemyHitGap);
                         break;
                     case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
@@ -147,6 +150,7 @@ namespace Brushblade.Presentation
                         _audio.PlayOneShot(_thudClip, 0.8f);
                         StartCoroutine(Shake(10f));
                         ScreenFlash(0.14f, Theme.Cinnabar);
+                        onImpact?.Invoke(e); // 触达才扣玩家血
                         yield return new WaitForSecondsRealtime(EnemyHitGap); // 多敌人攻击错开,不同帧齐震齐响
                         break;
                     case BattleEventKind.Burn:
