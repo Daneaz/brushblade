@@ -291,7 +291,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RandomComponents_PoolFull_DoesNotOverfill()
+        public void RandomComponents_PoolFull_EntersOverflow()
         {
             var run = new RunEngine(Graph(),
                 OneOptionConfig(new EventOption { Label = "求墨", RandomComponents = 3 }),
@@ -299,7 +299,11 @@ namespace Brushblade.Core.Tests
                 new[] { "焚" }, new[] { "木" }, seed: 7);
             WinAndSkipReward(run);
             Assert.That(run.ChooseEventOption(0), Is.True);
-            Assert.That(run.Battle.Pool.Count, Is.EqualTo(2)); // 满即止
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.EventOverflow)); // 满池不再静默丢
+            Assert.That(run.CarriedPool.Count, Is.EqualTo(2));          // 空位先填满
+            Assert.That(run.PendingOverflow.Count, Is.EqualTo(2));      // 余下待玩家决议
+            Assert.That(run.PendingOverflow, Has.All.Matches<string>(
+                c => RunEngine.ComponentRewardChoices.Contains(c)));
         }
 
         [Test]
@@ -417,6 +421,113 @@ namespace Brushblade.Core.Tests
                 else Assert.Fail($"意外的 EarnedInk:{run.EarnedInk}");
             }
             Assert.That(won && lost, Is.True, "40 个种子应同时出现赢与输");
+        }
+
+        // ---- 部件超上限:可替换 / 跳过(2026-07-24) ----
+
+        private static RunEngine OverflowRun(int startingPoolCount, int gain, int cap = 12) =>
+            new(Graph(),
+                OverflowConfig(gain),
+                new BattleConfig { PoolCapacity = cap, DropTable = Array.Empty<string>() },
+                new[] { "焚" }, Enumerable.Repeat("木", startingPoolCount).ToArray(), seed: 7);
+
+        private static RunConfig OverflowConfig(int gainCount) => new()
+        {
+            Encounters = new[]
+            {
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+                new[] { new EnemyDef("枯", Element.Wood, 4, 2) },
+            },
+            RewardPool = new[] { "炎" },
+            EventPool = new[]
+            {
+                new EventDef
+                {
+                    Id = "废稿堆",
+                    Text = "翻找旧稿。",
+                    Options = new[]
+                    {
+                        new EventOption { Label = "翻找", GainComponents = Enumerable.Repeat("火", gainCount).ToArray() },
+                    },
+                },
+            },
+            EventChancePercent = 100,
+        };
+
+        [Test]
+        public void Overflow_FillsEmptyThenPendsRemainder()
+        {
+            var run = OverflowRun(startingPoolCount: 10, gain: 3); // 10 + 前 2 装满 12,第 3 溢出
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.EventOverflow));
+            Assert.That(run.CarriedPool.Count, Is.EqualTo(12));
+            Assert.That(run.CarriedPool.Count(c => c == "火"), Is.EqualTo(2));
+            Assert.That(run.PendingOverflow, Is.EqualTo(new[] { "火" }));
+        }
+
+        [Test]
+        public void Overflow_Replace_SwapsChosenPoolItem_ThenAdvances()
+        {
+            var run = OverflowRun(startingPoolCount: 10, gain: 3);
+            WinAndSkipReward(run);
+            run.ChooseEventOption(0);
+            Assert.That(run.ResolveOverflowReplace(0), Is.True); // 换掉首位的木
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Pool.Count, Is.EqualTo(12));
+            Assert.That(run.Battle.Pool.Count(c => c == "火"), Is.EqualTo(3)); // 溢出项换进来
+        }
+
+        [Test]
+        public void Overflow_Skip_DropsIt_ThenAdvances()
+        {
+            var run = OverflowRun(startingPoolCount: 10, gain: 3);
+            WinAndSkipReward(run);
+            run.ChooseEventOption(0);
+            run.ResolveOverflowSkip();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Pool.Count, Is.EqualTo(12));
+            Assert.That(run.Battle.Pool.Count(c => c == "火"), Is.EqualTo(2)); // 第 3 个被丢
+        }
+
+        [Test]
+        public void Overflow_MultipleItems_ResolvedOneByOne()
+        {
+            var run = OverflowRun(startingPoolCount: 11, gain: 3); // 1 装下,2 溢出
+            WinAndSkipReward(run);
+            run.ChooseEventOption(0);
+            Assert.That(run.PendingOverflow.Count, Is.EqualTo(2));
+            Assert.That(run.ResolveOverflowReplace(0), Is.True);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.EventOverflow)); // 还剩一个待决
+            Assert.That(run.PendingOverflow.Count, Is.EqualTo(1));
+            run.ResolveOverflowSkip();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Pool.Count, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void Overflow_Replace_OutOfRange_Rejected_StaysPending()
+        {
+            var run = OverflowRun(startingPoolCount: 10, gain: 3);
+            WinAndSkipReward(run);
+            run.ChooseEventOption(0);
+            Assert.That(run.ResolveOverflowReplace(-1), Is.False);
+            Assert.That(run.ResolveOverflowReplace(99), Is.False);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.EventOverflow)); // 仍在决议
+            // 决议完成后再调则无效(已离开溢出阶段)
+            run.ResolveOverflowSkip();
+            Assert.That(run.ResolveOverflowReplace(0), Is.False);
+        }
+
+        [Test]
+        public void Overflow_NoOverflow_TakesNormalPath() // 不满则直接入池、进下一战(回归)
+        {
+            var run = OverflowRun(startingPoolCount: 5, gain: 3);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Pool.Count, Is.EqualTo(8));
+            Assert.That(run.PendingOverflow, Is.Empty);
         }
 
         // ---- 配置解析 ----

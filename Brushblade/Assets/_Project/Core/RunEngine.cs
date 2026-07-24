@@ -9,6 +9,7 @@ namespace Brushblade.Core
         InBattle,
         Reward,   // 战斗胜利,三选一奖励(9.5)
         Event,    // 奇遇:短情境 + 选择(9.6)
+        EventOverflow, // 奇遇给的部件超上限:逐个替换/跳过(2026-07-24)
         RunWon,
         RunLost,
     }
@@ -171,12 +172,16 @@ namespace Brushblade.Core
                 if (replacing) _carriedLibrary[replaceLibraryIndex] = gainChar; // 被换的字永久移除
                 else _carriedLibrary.Add(gainChar);
             }
-            foreach (var component in option.GainComponents)
-                if (_carriedPool.Count < _battleConfig.PoolCapacity)
-                    _carriedPool.Add(component); // 池满则不入(同 3.8.2「池满则不掉」)
+            // 入池部件:确定项(原序)+ 随机项(只掷一次,防重掷抖动/破种子)。
+            // 空位先填,填不下的进溢出队列交玩家决议(替换/跳过,2026-07-24)——不再静默丢。
+            var incoming = new List<string>(option.GainComponents);
             for (int i = 0; i < option.RandomComponents; i++)
+                incoming.Add(ComponentRewardChoices[_random.Next(ComponentRewardChoices.Count)]);
+            foreach (var component in incoming)
                 if (_carriedPool.Count < _battleConfig.PoolCapacity)
-                    _carriedPool.Add(ComponentRewardChoices[_random.Next(ComponentRewardChoices.Count)]);
+                    _carriedPool.Add(component);
+                else
+                    _pendingOverflow.Add(component);
             bool inkWon = option.InkChancePercent <= 0 || _random.Next(100) < option.InkChancePercent;
             EarnedInk += (inkWon ? option.Ink : 0) - option.InkCost;
             if (option.HpDelta > 0)
@@ -185,8 +190,43 @@ namespace Brushblade.Core
                 _carriedHp = Math.Max(1, _carriedHp + option.HpDelta);
 
             CurrentEvent = null;
+            if (_pendingOverflow.Count > 0)
+            {
+                Phase = RunPhase.EventOverflow; // 部件超上限:停下让玩家逐个替换/跳过
+                return true;
+            }
             BeginNextBattle();
             return true;
+        }
+
+        /// <summary>奇遇部件溢出待决议项(队首为当前项;EventOverflow 阶段有效,2026-07-24)。</summary>
+        public IReadOnlyList<string> PendingOverflow => _pendingOverflow;
+
+        private readonly List<string> _pendingOverflow = new();
+
+        /// <summary>溢出决议:用队首溢出项换掉池中指定一个(被换的永久移除)。队空则进下一战。</summary>
+        public bool ResolveOverflowReplace(int poolIndex)
+        {
+            if (Phase != RunPhase.EventOverflow) return false;
+            if (poolIndex < 0 || poolIndex >= _carriedPool.Count) return false;
+            _carriedPool[poolIndex] = _pendingOverflow[0];
+            _pendingOverflow.RemoveAt(0);
+            FinishOverflowIfDone();
+            return true;
+        }
+
+        /// <summary>溢出决议:丢弃队首溢出项。队空则进下一战。</summary>
+        public void ResolveOverflowSkip()
+        {
+            if (Phase != RunPhase.EventOverflow) return;
+            _pendingOverflow.RemoveAt(0);
+            FinishOverflowIfDone();
+        }
+
+        private void FinishOverflowIfDone()
+        {
+            if (_pendingOverflow.Count == 0)
+                BeginNextBattle();
         }
 
         /// <summary>局内广告扩容:字库 +2,一局一次,跨场有效(2026-07-06 拍板)。

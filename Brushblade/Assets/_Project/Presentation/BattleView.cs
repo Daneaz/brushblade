@@ -250,6 +250,9 @@ namespace Brushblade.Presentation
                 case RunPhase.Event:
                     DrawEvent();
                     break;
+                case RunPhase.EventOverflow:
+                    DrawEventOverflowStep();
+                    break;
                 default:
                     DrawRunEnd();
                     break;
@@ -1176,6 +1179,40 @@ namespace Brushblade.Presentation
                     Refresh();
                 }, picked ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     picked ? Color.white : Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
+            }
+        }
+
+        /// <summary>部件超上限(2026-07-24):逐个决议——用当前溢出部件换掉池中一个,或跳过不要。</summary>
+        private void DrawEventOverflowStep()
+        {
+            var overflow = _run.PendingOverflow;
+            if (overflow.Count == 0) return; // 决议完成的过渡帧
+            string incoming = overflow[0];
+            Ui.ThemedLabel(_enemyRow, "部件已满", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_statusRow,
+                $"用「{incoming}」换掉池中一个(永久失去),或跳过不要。还剩 {overflow.Count} 个待决。",
+                18, Theme.TextDim);
+
+            Ui.PillButton(_actionRow, $"跳过「{incoming}」", () =>
+            {
+                _run.ResolveOverflowSkip();
+                _message = $"弃「{incoming}」";
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(160, 56));
+
+            Ui.ThemedLabel(_poolRow, "部件池(点一个换掉)", 16, Theme.TextDim, Theme.TitleFont);
+            for (int i = 0; i < _run.CarriedPool.Count; i++)
+            {
+                int index = i;
+                var def = _graph.Get(_run.CarriedPool[i]);
+                Ui.RoundButton(_poolRow, def.Id, () =>
+                {
+                    string dropped = _run.CarriedPool[index];
+                    _run.ResolveOverflowReplace(index);
+                    _message = $"「{incoming}」换掉「{dropped}」";
+                    Refresh();
+                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
+                    22, new Vector2(56, 56), 12);
             }
         }
 
