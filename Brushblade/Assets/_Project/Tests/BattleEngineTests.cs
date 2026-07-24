@@ -540,6 +540,21 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Minion_DamageTaken_ReducesDamage() // 小怪级承伤减免(墨渍):非成语怪也可承伤打折
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("击", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
+                new[] { "击" }, Array.Empty<string>(),
+                new[] { new EnemyDef("湿", Element.Water, 100, 0, damageTaken: 0.5f) }, seed: 1);
+            engine.Cast("击");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(95)); // floor(10 × 1.0(心) × 0.5)=5
+        }
+
+        [Test]
         public void Summon_TankHit_EarthReducedByWuxing() // 木反克土:召唤顶前排受 ×0.5
         {
             var engine = TankEngine(new EnemyDef("垚", Element.Earth, 100, 6));

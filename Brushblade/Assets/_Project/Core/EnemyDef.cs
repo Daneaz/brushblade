@@ -48,9 +48,12 @@ namespace Brushblade.Core
         /// <summary>通假字的伪装属性(Ability == Disguise 时有效)。</summary>
         public Element DisguiseElement { get; }
 
+        /// <summary>承伤系数(&lt;1 即减伤;小怪级如墨渍。Boss 走阶段级 BossPhaseDef.DamageTaken)。</summary>
+        public float DamageTaken { get; }
+
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
-            Element disguiseElement = Element.Heart)
+            Element disguiseElement = Element.Heart, float damageTaken = 1f)
         {
             Id = id;
             Element = element;
@@ -59,6 +62,7 @@ namespace Brushblade.Core
             Ability = ability;
             Phases = phases ?? System.Array.Empty<BossPhaseDef>();
             DisguiseElement = disguiseElement;
+            DamageTaken = damageTaken;
         }
     }
 
@@ -127,6 +131,7 @@ namespace Brushblade.Core
                 MaxHp = def.MaxHp;
                 Element = def.Element;
                 Attack = def.Attack;
+                DamageTaken = def.DamageTaken; // 小怪级承伤减免(墨渍)
                 ApparentElement = def.Ability switch
                 {
                     EnemyAbility.Disguise => def.DisguiseElement, // 伪装

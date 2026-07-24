@@ -88,7 +88,7 @@ namespace Brushblade.Core
             return new EnemyDef(enemy.Id, enemy.Element,
                 (int)Math.Ceiling(enemy.MaxHp * scale),
                 (int)Math.Ceiling(enemy.Attack * scale),
-                enemy.Ability, phases, enemy.DisguiseElement);
+                enemy.Ability, phases, enemy.DisguiseElement, enemy.DamageTaken); // 承伤系数不缩放
         }
     }
 }

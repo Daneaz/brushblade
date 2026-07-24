@@ -16,6 +16,8 @@ namespace Brushblade.Presentation
             text.Append(def.Phases.Count > 0 ? "成语 Boss·四阶段" : "小怪").Append('\n');
             text.Append(CharInfo.ElementName(def.Element)).Append("系 · 血 ")
                 .Append(def.MaxHp).Append(" · 攻 ").Append(def.Attack).Append('\n');
+            if (def.Phases.Count == 0 && def.DamageTaken < 1f)
+                text.Append("承伤 ×").Append(def.DamageTaken).Append("(被克制可破)\n");
             text.Append(AbilityText(def));
 
             if (def.Phases.Count > 0)

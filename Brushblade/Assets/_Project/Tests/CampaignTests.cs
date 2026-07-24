@@ -92,6 +92,26 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void LoadCampaign_ParsesMinionDamageTaken() // 小怪级承伤减免解析(墨渍)
+        {
+            var json = ValidJson.Replace(
+                @"{ ""id"": ""错字鬼"", ""element"": ""Wood"", ""maxHp"": 12, ""attack"": 4 }",
+                @"{ ""id"": ""错字鬼"", ""element"": ""Wood"", ""maxHp"": 12, ""attack"": 4, ""damageTaken"": 0.7 }");
+            var campaign = ConfigLoader.LoadCampaign(json, MiniGraph());
+            var enemy = campaign.Chapters[0].Stages[0].Encounters[0][0];
+            Assert.That(enemy.DamageTaken, Is.EqualTo(0.7f).Within(1e-6));
+        }
+
+        [Test]
+        public void Scale_PreservesDamageTaken() // 缩放不得丢承伤系数(端游无尽全走 Scale)
+        {
+            var scaled = CampaignConfig.Scale(
+                new EnemyDef("墨渍", Element.Water, 14, 3, damageTaken: 0.7f), 2f);
+            Assert.That(scaled.DamageTaken, Is.EqualTo(0.7f).Within(1e-6));
+            Assert.That(scaled.MaxHp, Is.EqualTo(28)); // 14×2 缩放照常
+        }
+
+        [Test]
         public void LoadCampaign_UnknownEnemyInStage_Throws()
         {
             var json = ValidJson.Replace(@"[ ""错字鬼"", ""错字鬼"" ]", @"[ ""不存在"" ]");

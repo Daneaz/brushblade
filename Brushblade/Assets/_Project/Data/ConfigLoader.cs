@@ -345,7 +345,7 @@ namespace Brushblade.Data
                         phases.Add(new BossPhaseDef(phase.Char, phaseElement, phase.MaxHp, phase.Attack, phase.DamageTaken));
                     }
                 }
-                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases, disguise);
+                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases, disguise, dto.DamageTaken);
             }
             return enemyDefs;
         }
@@ -359,6 +359,7 @@ namespace Brushblade.Data
             public string Ability { get; set; }
             public List<PhaseDto> Phases { get; set; }
             public string DisguiseElement { get; set; }
+            public float DamageTaken { get; set; } = 1f;
         }
 
         private sealed class PhaseDto
