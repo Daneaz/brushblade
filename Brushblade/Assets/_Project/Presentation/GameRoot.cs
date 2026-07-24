@@ -15,6 +15,7 @@ namespace Brushblade.Presentation
         private static RecipeGraph _graph;
         private static CampaignConfig _campaign;
         private static MetaState _meta;
+        private static int _committedEventInk; // 本段已即时结进账户的字摊/奇遇净额;防重复入账(2026-07-24)
         private static readonly SyncedTimeSource Time = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -151,6 +152,7 @@ namespace Brushblade.Presentation
         {
             var endless = _campaign.Endless;
             var snapshot = _meta.Endless;
+            _committedEventInk = 0; // 新段新 RunEngine,字摊净额从 0 重新累计
             int fromDepth = snapshot.Depth;
             var band = endless.BandFor(fromDepth);
             int segmentEnd = (fromDepth - 1) / endless.BossEvery * endless.BossEvery + endless.BossEvery;
@@ -179,7 +181,8 @@ namespace Brushblade.Presentation
             var run = new RunEngine(_graph, runConfig, battleConfig,
                 snapshot.Library, snapshot.Pool,
                 seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,
-                startingInk: _meta.Ink + snapshot.EarnedInk, // 字摊预算 = 库存 + 塔内滚存
+                startingInk: _meta.Ink, // 字摊/赌博预算 = 账户库存(Option A,2026-07-24):
+                // 塔内爬塔滚存不进预算,字摊消费即时结进账户、不随阵亡减半,滚存只留纯爬塔
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
                 startingPersistShield: snapshot.PersistShield,
@@ -206,8 +209,11 @@ namespace Brushblade.Presentation
                     ShowMap("登塔已挂起,随时回来继续");
                 },
                 onExpanded: () => OnExpanded(run),
-                onAbandon: () => SettleTower(died: true, // 弃塔=阵亡待遇:半额结算,防绕过安全层撤退决策
-                    fromDepth + run.BattleIndex - 1, baseInk + run.EarnedInk, abandoned: true));
+                onAbandon: () => // 弃塔=阵亡待遇:爬塔半额结算,防绕过安全层撤退决策;字摊净额已即时入账
+                {
+                    CommitEventInk(run);
+                    SettleTower(died: true, fromDepth + run.BattleIndex - 1, baseInk, abandoned: true);
+                });
         }
 
         /// <summary>广告扩容即时落盘:挂起/杀进程也不丢已看广告换来的容量。</summary>
@@ -219,6 +225,15 @@ namespace Brushblade.Presentation
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
             MetaStore.Save(_meta);
+        }
+
+        /// <summary>字摊/赌博净额即时结进账户(Option A,2026-07-24):按本段累计净额与已结额的差值入账,
+        /// 全额不减半、结构上不可能让账户变负(RunEngine 已卡消费不超预算)。每个存档点调用,断点续爬不丢也不重复。</summary>
+        private static void CommitEventInk(RunEngine run)
+        {
+            int delta = run.EarnedInk - _committedEventInk;
+            if (delta != 0) _meta.Ink += delta;
+            _committedEventInk = run.EarnedInk;
         }
 
         /// <summary>本层战利品取完:立即记账落盘(2026-07-20 拍板)——此前要等下一层开打才写快照,
@@ -234,10 +249,11 @@ namespace Brushblade.Presentation
             if (snapshot.Depth <= cleared)             // 幂等:同一层只记一次账
             {
                 _meta.CharacterXp += EndlessRules.XpFor(_campaign.Endless, cleared);
-                // 层墨锭进塔内滚存而非账户(2026-07-21):塔结算时才入账,阵亡随 SettleInk 减半
+                // 爬塔层墨锭进塔内滚存而非账户(2026-07-21):塔结算时才入账,阵亡随 SettleInk 减半
                 baseInk += EndlessRules.FloorInk(_campaign.Endless, cleared);
                 snapshot.Depth = cleared + 1;          // 推进后挂起不会重打本层(也就刷不出重复战利品)
             }
+            CommitEventInk(run); // 字摊/赌博净额即时结进账户,与爬塔滚存分离
             WriteCarriedSnapshot(run, snapshot, baseInk);
             MetaStore.Save(_meta);
             return baseInk;
@@ -249,23 +265,24 @@ namespace Brushblade.Presentation
         {
             var snapshot = _meta.Endless;
             if (snapshot == null) return;
+            CommitEventInk(run); // 字摊/赌博净额即时结进账户,与爬塔滚存分离
             snapshot.PlayerHp = run.Battle.PlayerHp;
             snapshot.Library = new System.Collections.Generic.List<string>(run.Battle.Library);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
-            snapshot.EarnedInk = baseInk + run.EarnedInk;
+            snapshot.EarnedInk = baseInk; // 滚存只留纯爬塔累加(字摊已即时入账)
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
             MetaStore.Save(_meta);
         }
 
-        /// <summary>写入战斗之间的携带态(战利品已并入其中)。</summary>
+        /// <summary>写入战斗之间的携带态(战利品已并入其中)。字摊净额的提交由调用方负责。</summary>
         private static void WriteCarriedSnapshot(RunEngine run, EndlessSaveState snapshot, int baseInk)
         {
             snapshot.PlayerHp = run.Battle.PlayerHp;
             snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);
-            snapshot.EarnedInk = baseInk + run.EarnedInk;
+            snapshot.EarnedInk = baseInk; // 滚存只留纯爬塔累加(字摊已即时入账)
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
@@ -276,7 +293,8 @@ namespace Brushblade.Presentation
         private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int baseInk, bool won)
         {
             var endless = _campaign.Endless;
-            int totalEarned = baseInk + run.EarnedInk;
+            CommitEventInk(run);       // 字摊/赌博净额即时结进账户,不进滚存、不随阵亡减半
+            int totalEarned = baseInk; // 滚存 = 纯爬塔累加
             if (!won)
             {
                 int clearedDepth = fromDepth + run.BattleIndex - 1;
