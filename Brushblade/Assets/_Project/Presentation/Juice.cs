@@ -132,15 +132,17 @@ namespace Brushblade.Presentation
                     case BattleEventKind.EnemyDied:
                         deaths.Add(e.TargetIndex); // 攒到死亡节拍统一置灰+正,不与伤害同帧
                         break;
-                    case BattleEventKind.SummonHit: // 敌人打召唤物:飘伤害 + 召唤物受击反应(TargetIndex=-1,顶前排=首个召唤)
-                        var tank = summonAnchor?.Invoke(0);
+                    case BattleEventKind.SummonHit: // 敌人打召唤物:攻击者下扑 + 飘伤害 + 召唤物受击反应(TargetIndex=攻击者)
+                        var tank = summonAnchor?.Invoke(0); // 顶前排=首个召唤
+                        Lunge(enemyAnchor(e.TargetIndex));
                         Popup($"-{e.Amount}", Theme.Cinnabar, tank);
                         HitReact(tank);
                         _audio.PlayOneShot(_thudClip, 0.7f);
                         StartCoroutine(Shake(7f));
                         yield return new WaitForSecondsRealtime(EnemyHitGap);
                         break;
-                    case BattleEventKind.EnemyAttack: // 敌人打我方:飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
+                    case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
+                        Lunge(enemyAnchor(e.TargetIndex));
                         Popup($"-{e.Amount}", Theme.Cinnabar, null);
                         _audio.PlayOneShot(_thudClip, 0.8f);
                         StartCoroutine(Shake(10f));
@@ -204,6 +206,28 @@ namespace Brushblade.Presentation
             }
             if (target != null) target.localScale = Vector3.one;
             if (image != null) image.color = original;
+        }
+
+        /// <summary>敌人攻击下扑:攻击者头像向下(我方召唤/玩家所在)猛冲一记再收回,增强"撞过来"的打击感。</summary>
+        private void Lunge(RectTransform attacker)
+        {
+            if (attacker != null) StartCoroutine(LungeRoutine(attacker));
+        }
+
+        private static IEnumerator LungeRoutine(RectTransform attacker)
+        {
+            Vector2 home = attacker.anchoredPosition;
+            float t = 0f;
+            const float duration = 0.18f;
+            const float reach = 34f;
+            while (t < duration && attacker != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float off = Mathf.Sin(t / duration * Mathf.PI) * reach; // 冲出去再收回(峰值在中点)
+                attacker.anchoredPosition = home + new Vector2(0f, -off); // 我方在下,向下撞
+                yield return null;
+            }
+            if (attacker != null) attacker.anchoredPosition = home;
         }
 
         /// <summary>击杀一记后坐:头像被打退一下再归位(下一次重绘会把它画成已正)。</summary>

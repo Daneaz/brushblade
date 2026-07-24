@@ -373,11 +373,13 @@ namespace Brushblade.Presentation
                 var cell = Ui.VStack(_summonRow, $"Summon{index}", 1);
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, null,
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    20, new Vector2(44, 44), 10);
+                    23, new Vector2(50, 50), 12);
                 _summonRects.Add((RectTransform)glyph.transform);
-                // 血条 + 血值 + 攻:血值以数字附注(2026-07-25),攻血合一行省纵向空间
-                Ui.Bar(cell.transform, summon.Hp / (float)summon.MaxHp, Theme.Cinnabar, new Vector2(44, 6));
-                Ui.ThemedLabel(cell.transform, $"{summon.Hp}/{summon.MaxHp} 攻{summon.Attack}", 11, Theme.TextDim);
+                // 血值叠加在血条上(2026-07-25):省一行纵向空间给放大的形象;攻力附于其后
+                var bar = Ui.Bar(cell.transform, summon.Hp / (float)summon.MaxHp, Theme.Cinnabar, new Vector2(54, 16));
+                var hpLabel = Ui.ThemedLabel(bar.transform, $"{summon.Hp}/{summon.MaxHp} 攻{summon.Attack}",
+                    10, Color.white, Theme.TitleFont);
+                Ui.Stretch(hpLabel.rectTransform);
             }
         }
 

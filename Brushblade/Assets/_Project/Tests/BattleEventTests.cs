@@ -76,6 +76,7 @@ namespace Brushblade.Core.Tests
 
             var attack = engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
             Assert.That(attack.Amount, Is.EqualTo(5));
+            Assert.That(attack.TargetIndex, Is.EqualTo(0)); // 攻击者敌人下标(驱动冲刺动效)
         }
 
         [Test]

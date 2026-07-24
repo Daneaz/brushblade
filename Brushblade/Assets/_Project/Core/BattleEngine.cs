@@ -46,12 +46,12 @@ namespace Brushblade.Core
         Shield,      // 获得护盾(TargetIndex = −1 玩家)
         BurnTick,    // 回合末灼烧结算伤害
         EnemyDied,   // 敌人被消灭
-        EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分)
+        EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
         BossPhase,   // 成语 Boss 进入新阶段(Amount = 新阶段下标)
         Heal,        // 治疗自身(Amount = 实际回复量,2026-07-19)
         Summon,      // 召唤前排单位(Amount = 血量)
-        SummonHit,   // 召唤物替玩家承伤(Amount = 伤害)
+        SummonHit,   // 召唤物替玩家承伤(Amount = 伤害;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         SummonAttack,     // 召唤物反击敌人(TargetIndex = 敌人下标;仅驱动动效,伤害走 Damage)
         SummonCapReached, // 召唤已达上限,本次被拦(仅提示,无实体)
         EnemyBuff,   // 被标点小妖加攻(TargetIndex = 被加成的敌人)
@@ -352,7 +352,7 @@ namespace Brushblade.Core
                     // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
                     int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), enemy.Element, tank.Element);
                     tank.Hp = Math.Max(0, tank.Hp - taken);
-                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, -1, taken));
+                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, i, taken));
                 }
                 else
                 {
@@ -361,7 +361,7 @@ namespace Brushblade.Core
                     int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
                     _shieldPersist -= fromPersist;
                     PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, -1, damage));
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, i, damage));
                 }
 
                 // 通假字:首次行动后现形(8.3)

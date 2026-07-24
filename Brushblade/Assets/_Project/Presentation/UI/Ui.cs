@@ -228,7 +228,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>进度条:PaperDim 底 + 填充色,圆角胶囊。</summary>
-        public static void Bar(Transform parent, float frac, Color fill, Vector2 size)
+        public static GameObject Bar(Transform parent, float frac, Color fill, Vector2 size)
         {
             var back = Panel(parent, "Bar");
             var backImage = back.AddComponent<Image>();
@@ -246,6 +246,7 @@ namespace Brushblade.Presentation
             frontImage.color = fill;
             Anchor((RectTransform)front.transform, Vector2.zero,
                 new Vector2(Mathf.Clamp01(frac), 1), Vector2.zero, Vector2.zero);
+            return back; // 调用方可在其上叠加文本(如召唤物血值)
         }
 
         /// <summary>墨锭图标 + 文本(gold=true 用于价格标签)。</summary>
