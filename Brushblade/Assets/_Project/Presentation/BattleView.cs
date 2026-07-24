@@ -265,7 +265,7 @@ namespace Brushblade.Presentation
                     break;
             }
             DrawTutorialHint();
-            // 长按 preview 置顶(2026-07-21):补发的点击会重建战利品弹窗,不置顶就把 preview 盖住了
+            // 长按 preview 置顶:重绘后 preview 须盖在战斗 UI 之上
             if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
         }
@@ -455,7 +455,7 @@ namespace Brushblade.Presentation
                 };
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
                     new Vector2(82, 104));
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId), tap);
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
                 _tileRects[charId] = (RectTransform)tile.transform;
             }
         }
@@ -509,7 +509,7 @@ namespace Brushblade.Presentation
                     selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     selected ? Color.white : Theme.ElementSoftFg(def.Element),
                     22, new Vector2(56, 56), 12);
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId), tap);
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
             }
         }
@@ -820,7 +820,7 @@ namespace Brushblade.Presentation
                 };
                 var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP",
                     index == _previewRewardIndex, tap);
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id), tap);
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
             Ui.RoundButton(content, "不要字,去选部件", () =>
@@ -991,7 +991,7 @@ namespace Brushblade.Presentation
                     Refresh();
                 };
                 var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", index == _previewRewardIndex, tap);
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id), tap);
+                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
             Ui.RoundButton(content, "够了,去选部件", () =>

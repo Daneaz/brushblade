@@ -59,7 +59,7 @@ namespace Brushblade.Presentation
             var tileButton = tile.AddComponent<Button>();
             tileButton.targetGraphic = tile.GetComponent<Image>();
             tileButton.onClick.AddListener(() => ShowDetail(def));
-            HoldToPreview.Attach(tile, () => ShowDetail(def), null);
+            HoldToPreview.Attach(tile, () => ShowDetail(def));
 
             if (level >= def.MaxLevel)
             {
