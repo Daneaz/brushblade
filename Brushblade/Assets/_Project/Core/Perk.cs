@@ -31,7 +31,7 @@ namespace Brushblade.Core
         public static readonly IReadOnlyList<PerkDef> All = new[]
         {
             new PerkDef("yangyuan", "养元", PerkEffect.MaxHp,  10, 2, new[] { 200, 400, 700, 1100, 1600, 2200 }),
-            new PerkDef("jintang",  "金汤", PerkEffect.Shield,  4, 4, new[] { 400, 700, 1100, 1600, 2200 }),
+            new PerkDef("jintang",  "金汤", PerkEffect.Shield,  2, 4, new[] { 400, 700, 1100, 1600, 2200 }),
             new PerkDef("bowen",    "博闻", PerkEffect.Library,  1, 6, new[] { 600, 1200, 2000 }),
             new PerkDef("yiqi",     "一气", PerkEffect.Ap,       1, 6, new[] { 1500, 4000 }), // 上限 2:平衡硬线
         };

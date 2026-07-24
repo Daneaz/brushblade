@@ -54,11 +54,13 @@ namespace Brushblade.Core
         private int _carriedHp;
         private int _carriedNormalShield;
         private int _carriedPersistShield;
+        private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
             IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
-            int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0)
+            int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
+            int perFloorNormalShield = 0)
         {
             _startingInk = startingInk;
             _graph = graph;
@@ -70,6 +72,7 @@ namespace Brushblade.Core
             BattleIndex = 0;
             _carriedNormalShield = startingNormalShield;
             _carriedPersistShield = startingPersistShield;
+            _perFloorNormalShield = perFloorNormalShield;
             Battle = NewBattle(startingLibrary, startingPool, startingHp); // 断点续爬恢复血量(20.6)
         }
 
@@ -398,6 +401,7 @@ namespace Brushblade.Core
         private void BeginNextBattle()
         {
             BattleIndex += 1;
+            _carriedNormalShield += _perFloorNormalShield; // 金汤每关补盾,叠加上关剩余
             Battle = NewBattle(_carriedLibrary, _carriedPool, _carriedHp);
             Phase = RunPhase.InBattle;
         }

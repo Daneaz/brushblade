@@ -36,7 +36,7 @@ namespace Brushblade.Presentation
         private static string Category(PerkDef def) => def.Effect switch
         {
             PerkEffect.MaxHp => "起始生命上限",
-            PerkEffect.Shield => "段初护盾",
+            PerkEffect.Shield => "每关护盾",
             PerkEffect.Library => "字库容量",
             PerkEffect.Ap => "每回合行动点",
             _ => "",
@@ -45,7 +45,7 @@ namespace Brushblade.Presentation
         private static string Action(PerkDef def) => def.Effect switch
         {
             PerkEffect.MaxHp => "提升登塔时的最大生命上限。",
-            PerkEffect.Shield => "每段战斗开局附带护盾。",
+            PerkEffect.Shield => "每关开战附带护盾(叠加上关剩余)。",
             PerkEffect.Library => "提升字库可持有字数上限。",
             PerkEffect.Ap => "提升每回合可用行动点(AP)上限。",
             _ => "",

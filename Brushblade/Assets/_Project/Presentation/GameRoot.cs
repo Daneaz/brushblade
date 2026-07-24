@@ -182,7 +182,8 @@ namespace Brushblade.Presentation
                 startingInk: _meta.Ink + snapshot.EarnedInk, // 字摊预算 = 库存 + 塔内滚存
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
-                startingPersistShield: snapshot.PersistShield);
+                startingPersistShield: snapshot.PersistShield,
+                perFloorNormalShield: PerkRules.ShieldBonus(_meta)); // 金汤:每关开战补盾(段首由 NormalShield 注入)
             if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
             if (snapshot.PoolExpanded) run.TryExpandPool();
 
@@ -295,7 +296,7 @@ namespace Brushblade.Presentation
             snapshot.EarnedInk = totalEarned;
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;
-            // 段末:普通护盾重置为金汤(下一段段首生效,每段一次),堡型跨段保留
+            // 段末:普通护盾重置为金汤(下一段段首注入;段内每关另补,见 RunEngine),堡型跨段保留
             snapshot.NormalShield = PerkRules.ShieldBonus(_meta);
             snapshot.PersistShield = run.CarriedPersistShield;
             MetaStore.Save(_meta);

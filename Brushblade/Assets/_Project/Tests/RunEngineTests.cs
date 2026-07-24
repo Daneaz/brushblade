@@ -559,5 +559,20 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.PlayerShield, Is.EqualTo(5)); // 护盾跨场保留
             Assert.That(run.CarriedNormalShield, Is.EqualTo(5));
         }
+
+        [Test]
+        public void Shield_PerFloor_AddsEachBattle() // 金汤每关补盾:叠加上关剩余
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: null,
+                startingNormalShield: 5, startingPersistShield: 0, perFloorNormalShield: 2);
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(5)); // 第 1 关:段首注入,不重复加
+            WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,护盾不变)
+            run.AdvanceAfterBattle();
+            run.SkipReward();                 // 进入第二关
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(7)); // 上关剩 5 + 每关 2
+        }
     }
 }
