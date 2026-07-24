@@ -555,6 +555,39 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Scorch_GainsAttackOnSurvivingHit() // 焦痕自燃:每次被击中且存活,攻 +2
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("击", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 5) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
+                new[] { "击", "击" }, Array.Empty<string>(),
+                new[] { new EnemyDef("焦", Element.Fire, 100, 4, EnemyAbility.Scorch) }, seed: 1);
+            engine.Cast("击"); // 命中存活:攻 4→6
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(6));
+            engine.Cast("击"); // 再命中:攻 6→8
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void Scorch_KillingBlow_NoAttackGain() // 一击秒杀不加攻(已死)
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("击", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 5) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
+                new[] { "击" }, Array.Empty<string>(),
+                new[] { new EnemyDef("焦", Element.Fire, 3, 4, EnemyAbility.Scorch) }, seed: 1);
+            engine.Cast("击"); // 5 伤秒杀 3 血
+            Assert.That(engine.Enemies[0].Alive, Is.False);
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(4)); // 未加攻
+        }
+
+        [Test]
         public void Summon_TankHit_EarthReducedByWuxing() // 木反克土:召唤顶前排受 ×0.5
         {
             var engine = TankEngine(new EnemyDef("垚", Element.Earth, 100, 6));

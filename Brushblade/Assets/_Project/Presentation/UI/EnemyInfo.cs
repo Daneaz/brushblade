@@ -45,6 +45,7 @@ namespace Brushblade.Presentation
                 + "落单则亲自出手——优先击杀目标",
             EnemyAbility.Disguise => $"通假:伪装成{CharInfo.ElementName(def.DisguiseElement)}系,首次行动后现形",
             EnemyAbility.Obscure => "生僻:属性隐藏,受击两次后被「读懂」现形",
+            EnemyAbility.Scorch => "自燃:每次受击存活,攻 +2(越磨越烫,宜速杀)",
             _ => "无特殊能力",
         };
     }

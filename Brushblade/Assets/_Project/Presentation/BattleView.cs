@@ -394,6 +394,8 @@ namespace Brushblade.Presentation
                     Ui.Chip(chips.transform, "受击分裂", Theme.InkSoft, Color.white, 12);
                 if (enemy.Def.Ability == EnemyAbility.Buff && enemy.Alive)
                     Ui.Chip(chips.transform, "增益辅助", Theme.InkSoft, Color.white, 12);
+                if (enemy.Def.Ability == EnemyAbility.Scorch && enemy.Alive)
+                    Ui.Chip(chips.transform, "受击加攻", Theme.Cinnabar, Color.white, 12);
 
                 if (enemy.Alive)
                 {

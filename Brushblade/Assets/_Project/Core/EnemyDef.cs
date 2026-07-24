@@ -13,6 +13,7 @@ namespace Brushblade.Core
                 // 优先级目标);场上只剩自己时改为亲自攻击(2026-07-22)
         Disguise, // 通假字:伪装成 DisguiseElement,首次行动后现形(信息隐藏)
         Obscure,  // 生僻字:属性隐藏("?"),受击两次后被"读懂"
+        Scorch,   // 焦痕:每次被击中且存活,攻 +2(越磨越烫,宜速杀)
     }
 
     /// <summary>成语 Boss 的单个阶段(8.5:四字成语,四个字 = 四个阶段)。</summary>

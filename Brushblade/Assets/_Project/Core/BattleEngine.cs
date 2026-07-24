@@ -81,6 +81,7 @@ namespace Brushblade.Core
         private readonly List<EnemyState> _enemies = new();
         private readonly List<SummonState> _summons = new();
         private const int SummonCap = 4; // 场上存活召唤物上限(2026-07-19)
+        private const int ScorchGain = 2; // 焦痕受击存活的加攻量
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
@@ -498,6 +499,13 @@ namespace Brushblade.Core
                 return;
             }
             CheckBossPhase(enemyIndex);
+
+            // 焦痕:受击存活即自燃加攻(越磨越烫,宜速杀)
+            if (enemy.Def.Ability == EnemyAbility.Scorch)
+            {
+                enemy.Attack += ScorchGain;
+                _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
+            }
 
             // 叠字怪:首次受击存活 → 分裂成两个半血(8.3;场上 <4 时)
             if (enemy.Def.Ability == EnemyAbility.Split && !enemy.HasSplit && _enemies.Count < 4)
