@@ -15,6 +15,7 @@ namespace Brushblade.Presentation
         private Juice _juice;
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
         private readonly System.Collections.Generic.List<RectTransform> _summonRects = new(); // 存活召唤物本体(反击飞牌起点)
+        private readonly System.Collections.Generic.HashSet<int> _dyingEnemies = new(); // 死亡动画进行中的怪:重绘时维持着色,置灰交给死亡节拍(2026-07-25)
         private bool _awaitingAnim; // 结算动画未落幕:挡住结算 UI/胜负标语,待 onComplete 放行(2026-07-24)
 
         private BattleEngine Battle => _run.Battle;
@@ -83,19 +84,31 @@ namespace Brushblade.Presentation
             Refresh();
         }
 
-        /// <summary>动作结算后播放打击感(需在 Refresh 重建敌人格之后调用)。</summary>
-        private void PlayJuice()
-        {
-            _juice.Play(Battle.LastEvents, EnemyAnchor, SummonAnchor, OnAnimDone);
-        }
-
         private RectTransform EnemyAnchor(int i) => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null;
         private RectTransform SummonAnchor(int k) => k >= 0 && k < _summonRects.Count ? _summonRects[k] : null;
 
-        /// <summary>结算动画落幕:放行结算 UI/胜负标语(第 4 项,2026-07-24)。</summary>
-        private void OnAnimDone()
+        /// <summary>本次结算里死亡的怪(下标取自 LastEvents 的 EnemyDied)。</summary>
+        private System.Collections.Generic.List<int> DeathsThisAction()
+        {
+            var deaths = new System.Collections.Generic.List<int>();
+            foreach (var e in Battle.LastEvents)
+                if (e.Kind == BattleEventKind.EnemyDied) deaths.Add(e.TargetIndex);
+            return deaths;
+        }
+
+        /// <summary>播放打击感:先把本次死亡的怪登记为「死亡动画进行中」(重绘保持着色),
+        /// 须在 Refresh 重建敌人格之前调用登记、之后才让动画置灰。</summary>
+        private void PlayAnimated(System.Collections.Generic.IReadOnlyList<BattleEvent> events,
+            System.Collections.Generic.List<int> deaths)
+        {
+            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths));
+        }
+
+        /// <summary>结算动画落幕:本次死亡的怪转为正式置灰,放行结算 UI/胜负标语(第4项)。</summary>
+        private void OnAnimDone(System.Collections.Generic.List<int> deaths)
         {
             _awaitingAnim = false;
+            _dyingEnemies.ExceptWith(deaths); // 动画已把它们置灰,后续重绘照常画灰
             Refresh();
         }
 
@@ -147,8 +160,8 @@ namespace Brushblade.Presentation
             // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
             // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
             // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
-            _enemyRow = MakeSection("Enemies", 0.641f, 0.884f);  // 219px ≥ 208
-            _summonRow = MakeSection("Summons", 0.573f, 0.641f); // 61px:40 方块 + 血攻标签
+            _enemyRow = MakeSection("Enemies", 0.648f, 0.884f);  // 212px ≥ 208
+            _summonRow = MakeSection("Summons", 0.573f, 0.648f); // 67px:44 方块 + 血条 + 血攻数值行
             _bottomRow = MakeSection("PlayerStats", 0.505f, 0.573f);
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
@@ -360,11 +373,11 @@ namespace Brushblade.Presentation
                 var cell = Ui.VStack(_summonRow, $"Summon{index}", 1);
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, null,
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    19, new Vector2(40, 40), 10);
+                    20, new Vector2(44, 44), 10);
                 _summonRects.Add((RectTransform)glyph.transform);
-                // 血量改血条(2026-07-24):与敌方形象一致,攻击力仍以数字附注
-                Ui.Bar(cell.transform, summon.Hp / (float)summon.MaxHp, Theme.Cinnabar, new Vector2(40, 6));
-                Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
+                // 血条 + 血值 + 攻:血值以数字附注(2026-07-25),攻血合一行省纵向空间
+                Ui.Bar(cell.transform, summon.Hp / (float)summon.MaxHp, Theme.Cinnabar, new Vector2(44, 6));
+                Ui.ThemedLabel(cell.transform, $"{summon.Hp}/{summon.MaxHp} 攻{summon.Attack}", 11, Theme.TextDim);
             }
         }
 
@@ -375,6 +388,9 @@ namespace Brushblade.Presentation
             {
                 var enemy = Battle.Enemies[i];
                 int index = i;
+                // 死亡动画进行中的怪:重绘时仍保持着色挨打,置灰交给死亡节拍(GreyOut),别在重绘时就变灰
+                bool dying = _dyingEnemies.Contains(index);
+                bool showAlive = enemy.Alive || dying;
 
                 var cell = Ui.Panel(_enemyRow, $"Enemy{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
@@ -383,7 +399,7 @@ namespace Brushblade.Presentation
 
                 var circle = Ui.CircleGlyph(cell.transform,
                     EnemyInfo.FaceChar(enemy.Def, enemy.PhaseIndex),
-                    enemy.Alive ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
+                    showAlive ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
                     Color.white, 104);
                 var circleImage = circle.GetComponent<Image>();
                 Ui.Anchor((RectTransform)circle.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -419,6 +435,10 @@ namespace Brushblade.Presentation
                 {
                     Ui.Bar(info.transform, enemy.Hp / (float)enemy.MaxHp, Theme.Cinnabar, new Vector2(140, 9));
                     Ui.ThemedLabel(info.transform, $"{enemy.Hp} / {enemy.MaxHp}", 12, Theme.TextDim);
+                }
+                else if (dying)
+                {
+                    // 濒死:着色挨打中,血条/已正都不画,等死亡节拍置灰 + 正字
                 }
                 else
                 {
@@ -1415,6 +1435,8 @@ namespace Brushblade.Presentation
             AppendBossPhaseMessage();
             // 出牌可能击杀收场:结算 UI/标语等飞牌+结算动画播完(第4项),须在 CancelSelection 重绘前置位
             _awaitingAnim = error == BattleError.None && Battle.Phase != BattlePhase.PlayerTurn;
+            var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
+            _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
             CancelSelection();
             if (error == BattleError.None)
             {
@@ -1423,9 +1445,9 @@ namespace Brushblade.Presentation
                 var toRect = CastTargetRect(events);
                 if (hasFrom && toRect != null)
                     _juice.FlyGlyph(charId, Theme.ElementColor(_graph.Get(charId).Element), fromPos, toRect.position,
-                        () => _juice.Play(events, EnemyAnchor, SummonAnchor, OnAnimDone));
+                        () => PlayAnimated(events, deaths));
                 else
-                    PlayJuice(); // 无伤害目标(纯护盾等)或起点缺失:即时表现
+                    PlayAnimated(events, deaths); // 无伤害目标(纯护盾等)或起点缺失:即时表现
                 MaybeAutoEndTurn();
             }
         }
@@ -1538,8 +1560,10 @@ namespace Brushblade.Presentation
             _tutorial?.Notify(TutorialAction.EndTurn);
             _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,部件掉落" : "";
             _awaitingAnim = Battle.Phase != BattlePhase.PlayerTurn; // 本回合分了胜负 → 结算 UI 等动画
+            var deaths = DeathsThisAction();
+            _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
             CancelSelection();
-            PlayJuice();
+            PlayAnimated(Battle.LastEvents, deaths);
         }
 
         private void CancelSelection()

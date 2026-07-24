@@ -75,8 +75,10 @@ namespace Brushblade.Presentation
             while (i < events.Count)
                 postRest.Add(events[i++]);
 
-            yield return ApplyBatch(preRest, enemyAnchor);
-            for (int k = 0; k < strikes.Count; k++)
+            // 死亡结算收拢到伤害之后成排播(顺序节拍:①DoT ②召唤 ③死亡置灰+正 ④敌人反击 ⑤胜利标语)。
+            var deaths = new List<int>();
+            yield return ApplyBatch(preRest, enemyAnchor, summonAnchor, deaths);      // ① DoT 先结算
+            for (int k = 0; k < strikes.Count; k++)                                    // ② 召唤物逐个行动+结算
             {
                 var from = summonAnchor?.Invoke(k);
                 var toRect = enemyAnchor(strikes[k].target);
@@ -85,17 +87,30 @@ namespace Brushblade.Presentation
                     FlyGlyph("木", Theme.ElementColor(Element.Wood), from.position, toRect.position);
                     yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
                 }
-                yield return ApplyBatch(strikes[k].effects, enemyAnchor);
+                yield return ApplyBatch(strikes[k].effects, enemyAnchor, summonAnchor, deaths);
                 yield return new WaitForSecondsRealtime(StrikeGap);
             }
-            yield return ApplyBatch(postRest, enemyAnchor);
+            if (deaths.Count > 0)
+                yield return new WaitForSecondsRealtime(DeathBeat); // 与伤害拉开一拍,兼让末次受击白闪先复原再置灰
+            foreach (int target in deaths)                                             // ③④ 怪物死亡:置灰 + 正字,成排逐个
+            {
+                var t = enemyAnchor(target);
+                Popup("正!", Theme.Ink, t);
+                GreyOut(t);                            // 本体此刻才置灰(此前保持着色挨打)
+                Knockback(t);                          // 一记后坐
+                _audio.PlayOneShot(_killClip, 0.9f);   // 下行收束音
+                ScreenFlash(0.16f, Color.white);       // 致命全屏微闪
+                yield return new WaitForSecondsRealtime(DeathBeat);
+            }
+            yield return ApplyBatch(postRest, enemyAnchor, summonAnchor, deaths);       // 敌人反击(带打击动效)
 
             yield return new WaitForSecondsRealtime(TailGap);
-            onComplete?.Invoke();
+            onComplete?.Invoke();                                                       // ⑤ 关卡胜利标语(外层)
         }
 
-        /// <summary>结算一批事件的表现,内联节拍:先飘伤害/震怪,怪物死亡隔一拍再飘「正!」,不与伤害同帧。</summary>
-        private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor)
+        /// <summary>结算一批事件的表现;怪物死亡不在此播,收集进 deaths 交死亡节拍统一结算。</summary>
+        private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
+            Func<int, RectTransform> summonAnchor, List<int> deaths)
         {
             foreach (var e in events)
             {
@@ -114,25 +129,30 @@ namespace Brushblade.Presentation
                         HitFx(e.Amount);
                         yield return new WaitForSecondsRealtime(HitStop); // 命中顿帧
                         break;
+                    case BattleEventKind.EnemyDied:
+                        deaths.Add(e.TargetIndex); // 攒到死亡节拍统一置灰+正,不与伤害同帧
+                        break;
+                    case BattleEventKind.SummonHit: // 敌人打召唤物:飘伤害 + 召唤物受击反应(TargetIndex=-1,顶前排=首个召唤)
+                        var tank = summonAnchor?.Invoke(0);
+                        Popup($"-{e.Amount}", Theme.Cinnabar, tank);
+                        HitReact(tank);
+                        _audio.PlayOneShot(_thudClip, 0.7f);
+                        StartCoroutine(Shake(7f));
+                        yield return new WaitForSecondsRealtime(EnemyHitGap);
+                        break;
+                    case BattleEventKind.EnemyAttack: // 敌人打我方:飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
+                        Popup($"-{e.Amount}", Theme.Cinnabar, null);
+                        _audio.PlayOneShot(_thudClip, 0.8f);
+                        StartCoroutine(Shake(10f));
+                        ScreenFlash(0.14f, Theme.Cinnabar);
+                        yield return new WaitForSecondsRealtime(EnemyHitGap); // 多敌人攻击错开,不同帧齐震齐响
+                        break;
                     case BattleEventKind.Burn:
                         Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
                         break;
                     case BattleEventKind.Shield:
                         Popup($"盾+{e.Amount}", Theme.SplitBlue, null);
                         _audio.PlayOneShot(_shieldClip, 0.7f);
-                        break;
-                    case BattleEventKind.EnemyDied:
-                        yield return new WaitForSecondsRealtime(DeathBeat); // 先痛后毙:与伤害分节拍
-                        Popup("正!", Theme.Ink, enemyAnchor(e.TargetIndex));
-                        Knockback(enemyAnchor(e.TargetIndex)); // 一记后坐
-                        _audio.PlayOneShot(_killClip, 0.9f);   // 下行收束音
-                        ScreenFlash(0.16f);                    // 致命全屏微闪
-                        break;
-                    case BattleEventKind.EnemyAttack:
-                        Popup($"-{e.Amount}", Theme.Cinnabar, null);
-                        _audio.PlayOneShot(_thudClip, 0.8f);
-                        StartCoroutine(Shake(10f));
-                        yield return new WaitForSecondsRealtime(EnemyHitGap); // 多敌人攻击错开,不同帧齐震齐响
                         break;
                     case BattleEventKind.EnemySplit:
                         Popup("分裂!", Theme.Jade, enemyAnchor(e.TargetIndex));
@@ -158,7 +178,7 @@ namespace Brushblade.Presentation
             _audio.PlayOneShot(amount >= 30 ? _thudClip : _hitClip, 0.9f);
             _audio.pitch = 1f;
             StartCoroutine(Shake(Mathf.Clamp(4f + amount * 0.35f, 4f, 26f)));
-            if (amount >= 40) ScreenFlash(0.12f); // 大伤害:一记全屏微闪
+            if (amount >= 40) ScreenFlash(0.12f, Color.white); // 大伤害:一记全屏微闪
         }
 
         /// <summary>受击反应:更狠的缩放冲击 + 头像白闪一下(比 Punch 更强,专供敌人挨打)。</summary>
@@ -207,8 +227,8 @@ namespace Brushblade.Presentation
             if (target != null) target.anchoredPosition = origin;
         }
 
-        /// <summary>全屏微闪:大伤害/致命的一记白光,快速淡出。</summary>
-        private void ScreenFlash(float alpha)
+        /// <summary>全屏微闪:大伤害/致命一记白光、我方受击朱砂屏缘,快速淡出。</summary>
+        private void ScreenFlash(float alpha, Color color)
         {
             var go = new GameObject("Flash", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
@@ -217,7 +237,7 @@ namespace Brushblade.Presentation
             rect.anchorMax = Vector2.one;
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             var image = go.AddComponent<Image>();
-            image.color = new Color(1f, 1f, 1f, alpha);
+            image.color = new Color(color.r, color.g, color.b, alpha);
             image.raycastTarget = false;
             StartCoroutine(FlashRoutine(rect, image, alpha));
         }
@@ -236,6 +256,29 @@ namespace Brushblade.Presentation
             }
             if (rect != null)
                 UnityEngine.Object.Destroy(rect.gameObject);
+        }
+
+        /// <summary>怪物本体置灰:死亡节拍里把头像圆从当前色渐变到锁定灰(此前保持着色挨打)。</summary>
+        private void GreyOut(RectTransform target)
+        {
+            if (target != null) StartCoroutine(GreyRoutine(target));
+        }
+
+        private static IEnumerator GreyRoutine(RectTransform target)
+        {
+            var image = target.GetComponent<Image>();
+            if (image == null) yield break;
+            Color from = image.color;
+            Color to = Theme.LockedBg;
+            float t = 0f;
+            const float duration = 0.2f;
+            while (t < duration && target != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                image.color = Color.Lerp(from, to, t / duration);
+                yield return null;
+            }
+            if (target != null) image.color = to;
         }
 
         // ---- 过渡动效:飞牌 / 字牌弹跳(整屏重绘后补播,纯浮层不碰逻辑) ----
