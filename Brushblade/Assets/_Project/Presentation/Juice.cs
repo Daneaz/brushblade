@@ -7,52 +7,112 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>打击感最小集(13.3):震屏 + 受击弹跳 + 伤害飘字 + 程序合成音效。
+    /// <summary>打击感(13.3):有序时间线播放战斗事件——飞牌、伤害飘字(随伤害缩放)、受击白闪+缩放冲击、
+    /// 命中顿帧、震屏、全屏微闪、击杀后坐、程序合成音效;播完回调供结算标语等待。
     /// 消费 BattleEngine.LastEvents,不反向驱动逻辑。</summary>
     public sealed class Juice : MonoBehaviour
     {
         private RectTransform _shakeTarget;
+        private Vector2 _shakeHome; // 震屏基准位:并发震屏都以此复位,避免读实时位置累积漂移
         private AudioSource _audio;
         private AudioClip _hitClip;
         private AudioClip _thudClip;
         private AudioClip _shieldClip;
+        private AudioClip _killClip;
 
         public void Init(RectTransform shakeTarget)
         {
             _shakeTarget = shakeTarget;
+            _shakeHome = shakeTarget.anchoredPosition;
             _audio = gameObject.AddComponent<AudioSource>();
             _hitClip = Synth(0.07f, 190f, noise: 0.7f);   // 命中:脆
             _thudClip = Synth(0.12f, 90f, noise: 0.4f);   // 重击/受击:闷
             _shieldClip = Synth(0.1f, 320f, noise: 0.1f); // 护盾:润
+            _killClip = SynthSweep(0.18f, 260f, 90f, noise: 0.25f); // 击杀:下行收束
         }
 
-        /// <summary>播放一次动作的全部结算表现。enemyAnchor(i) 返回敌人格的 RectTransform(可为 null);
-        /// summonAnchor 为我方召唤排,召唤反击飞牌从此起飞(可为 null)。</summary>
-        public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            RectTransform summonAnchor = null)
-        {
-            int maxHit = 0;
-            bool playerHit = false;
+        private const float FlyDuration = 0.22f; // 飞牌全程(与 FlyRoutine 一致)
+        private const float StrikeGap = 0.16f;   // 召唤反击一记与下一记之间的间隔
+        private const float DeathBeat = 0.18f;   // 伤害飘字到「正!」之间的节拍(先痛后毙)
+        private const float TailGap = 0.24f;     // 末次打击到「播完回调」的收尾停顿
+        private const float HitStop = 0.05f;     // 命中顿帧:冲击瞬间极短定格再继续
+        private const float EnemyHitGap = 0.14f; // 敌人逐个出手之间的间隔(错开震屏/音效,分开感受每记)
 
+        /// <summary>播放一次动作的全部结算表现,全程有序、播完回调。enemyAnchor(i) 返回敌人本体圆
+        /// (可为 null);summonAnchor(k) 返回第 k 记召唤反击的发起召唤物(可为 null);onComplete 在
+        /// 所有动效落幕后调用(战斗结束标语等它,2026-07-24)。
+        /// 召唤反击逐个顺序播、伤害与「正!」分节拍(2026-07-24):此前同帧齐发相互重叠、只见一次。</summary>
+        public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
+            Func<int, RectTransform> summonAnchor = null, Action onComplete = null)
+        {
+            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete));
+        }
+
+        private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
+            Func<int, RectTransform> summonAnchor, Action onComplete)
+        {
+            // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
+            // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
+            Canvas.ForceUpdateCanvases();
+
+            // 拆出召唤反击段:灼烧等在前(preRest)、召唤反击逐记(strikes)、敌人行动在后(postRest)。
+            // 每记召唤 = SummonAttack + 紧随的伤害/击杀事件(BattleEngine 出招即紧接 DamageEnemy)。
+            int i = 0;
+            var preRest = new List<BattleEvent>();
+            while (i < events.Count && events[i].Kind != BattleEventKind.SummonAttack)
+                preRest.Add(events[i++]);
+            var strikes = new List<(int target, List<BattleEvent> effects)>();
+            while (i < events.Count && events[i].Kind == BattleEventKind.SummonAttack)
+            {
+                int target = events[i++].TargetIndex;
+                var effects = new List<BattleEvent>();
+                while (i < events.Count && (events[i].Kind == BattleEventKind.Damage
+                    || events[i].Kind == BattleEventKind.EnemyDied))
+                    effects.Add(events[i++]);
+                strikes.Add((target, effects));
+            }
+            var postRest = new List<BattleEvent>();
+            while (i < events.Count)
+                postRest.Add(events[i++]);
+
+            yield return ApplyBatch(preRest, enemyAnchor);
+            for (int k = 0; k < strikes.Count; k++)
+            {
+                var from = summonAnchor?.Invoke(k);
+                var toRect = enemyAnchor(strikes[k].target);
+                if (from != null && toRect != null)
+                {
+                    FlyGlyph("木", Theme.ElementColor(Element.Wood), from.position, toRect.position);
+                    yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
+                }
+                yield return ApplyBatch(strikes[k].effects, enemyAnchor);
+                yield return new WaitForSecondsRealtime(StrikeGap);
+            }
+            yield return ApplyBatch(postRest, enemyAnchor);
+
+            yield return new WaitForSecondsRealtime(TailGap);
+            onComplete?.Invoke();
+        }
+
+        /// <summary>结算一批事件的表现,内联节拍:先飘伤害/震怪,怪物死亡隔一拍再飘「正!」,不与伤害同帧。</summary>
+        private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor)
+        {
             foreach (var e in events)
             {
                 switch (e.Kind)
                 {
-                    case BattleEventKind.SummonAttack:
-                        var toRect = enemyAnchor(e.TargetIndex);
-                        if (summonAnchor != null && toRect != null)
-                            FlyGlyph("木", Theme.ElementColor(Element.Wood),
-                                summonAnchor.position, toRect.position);
-                        break;
                     case BattleEventKind.SummonCapReached:
                         Popup("前排已满", Theme.InkSoft, null);
                         break;
                     case BattleEventKind.Damage:
                     case BattleEventKind.BurnTick:
-                        maxHit = Mathf.Max(maxHit, e.Amount);
+                        // 伤害数字随伤害量放大(轻重分明);受击白闪 + 更狠缩放冲击
                         Popup($"-{e.Amount}", e.Kind == BattleEventKind.Damage
-                            ? Theme.Cinnabar : Theme.ShopNav, enemyAnchor(e.TargetIndex));
-                        Punch(enemyAnchor(e.TargetIndex));
+                            ? Theme.Cinnabar : Theme.ShopNav, enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        HitReact(enemyAnchor(e.TargetIndex));
+                        HitFx(e.Amount);
+                        yield return new WaitForSecondsRealtime(HitStop); // 命中顿帧
                         break;
                     case BattleEventKind.Burn:
                         Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
@@ -62,11 +122,17 @@ namespace Brushblade.Presentation
                         _audio.PlayOneShot(_shieldClip, 0.7f);
                         break;
                     case BattleEventKind.EnemyDied:
+                        yield return new WaitForSecondsRealtime(DeathBeat); // 先痛后毙:与伤害分节拍
                         Popup("正!", Theme.Ink, enemyAnchor(e.TargetIndex));
+                        Knockback(enemyAnchor(e.TargetIndex)); // 一记后坐
+                        _audio.PlayOneShot(_killClip, 0.9f);   // 下行收束音
+                        ScreenFlash(0.16f);                    // 致命全屏微闪
                         break;
                     case BattleEventKind.EnemyAttack:
-                        playerHit = true;
                         Popup($"-{e.Amount}", Theme.Cinnabar, null);
+                        _audio.PlayOneShot(_thudClip, 0.8f);
+                        StartCoroutine(Shake(10f));
+                        yield return new WaitForSecondsRealtime(EnemyHitGap); // 多敌人攻击错开,不同帧齐震齐响
                         break;
                     case BattleEventKind.EnemySplit:
                         Popup("分裂!", Theme.Jade, enemyAnchor(e.TargetIndex));
@@ -83,20 +149,93 @@ namespace Brushblade.Presentation
                         break;
                 }
             }
+        }
 
-            if (maxHit > 0)
+        /// <summary>一记命中的音效 + 震屏(伤害越高音调越低、震屏越大,封顶);大伤害叠全屏微闪。</summary>
+        private void HitFx(int amount)
+        {
+            _audio.pitch = Mathf.Clamp(1.3f - amount / 80f, 0.6f, 1.3f);
+            _audio.PlayOneShot(amount >= 30 ? _thudClip : _hitClip, 0.9f);
+            _audio.pitch = 1f;
+            StartCoroutine(Shake(Mathf.Clamp(4f + amount * 0.35f, 4f, 26f)));
+            if (amount >= 40) ScreenFlash(0.12f); // 大伤害:一记全屏微闪
+        }
+
+        /// <summary>受击反应:更狠的缩放冲击 + 头像白闪一下(比 Punch 更强,专供敌人挨打)。</summary>
+        private void HitReact(RectTransform target)
+        {
+            if (target != null) StartCoroutine(HitReactRoutine(target));
+        }
+
+        private IEnumerator HitReactRoutine(RectTransform target)
+        {
+            var image = target.GetComponent<Image>();
+            Color original = image != null ? image.color : Color.white;
+            float t = 0f;
+            const float duration = 0.16f;
+            while (t < duration && target != null)
             {
-                // 伤害越高音调越低、震屏越大(封顶)
-                _audio.pitch = Mathf.Clamp(1.3f - maxHit / 80f, 0.6f, 1.3f);
-                _audio.PlayOneShot(maxHit >= 30 ? _thudClip : _hitClip, 0.9f);
-                _audio.pitch = 1f;
-                StartCoroutine(Shake(Mathf.Clamp(4f + maxHit * 0.35f, 4f, 26f)));
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float k = t / duration;
+                float s = 1f + 0.28f * Mathf.Sin((1f - k) * Mathf.PI); // 更狠冲击
+                target.localScale = new Vector3(s, s, 1f);
+                if (image != null) image.color = Color.Lerp(Color.white, original, k); // 白闪 → 复原
+                yield return null;
             }
-            if (playerHit)
+            if (target != null) target.localScale = Vector3.one;
+            if (image != null) image.color = original;
+        }
+
+        /// <summary>击杀一记后坐:头像被打退一下再归位(下一次重绘会把它画成已正)。</summary>
+        private void Knockback(RectTransform target)
+        {
+            if (target != null) StartCoroutine(KnockbackRoutine(target));
+        }
+
+        private static IEnumerator KnockbackRoutine(RectTransform target)
+        {
+            Vector2 origin = target.anchoredPosition;
+            float t = 0f;
+            const float duration = 0.18f;
+            while (t < duration && target != null)
             {
-                _audio.PlayOneShot(_thudClip, 0.8f);
-                StartCoroutine(Shake(10f));
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float decay = 1f - t / duration;
+                target.anchoredPosition = origin + new Vector2(0, 20f) * decay; // 向上弹退
+                yield return null;
             }
+            if (target != null) target.anchoredPosition = origin;
+        }
+
+        /// <summary>全屏微闪:大伤害/致命的一记白光,快速淡出。</summary>
+        private void ScreenFlash(float alpha)
+        {
+            var go = new GameObject("Flash", typeof(RectTransform));
+            go.transform.SetParent(_shakeTarget, false);
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var image = go.AddComponent<Image>();
+            image.color = new Color(1f, 1f, 1f, alpha);
+            image.raycastTarget = false;
+            StartCoroutine(FlashRoutine(rect, image, alpha));
+        }
+
+        private static IEnumerator FlashRoutine(RectTransform rect, Image image, float alpha)
+        {
+            float t = 0f;
+            const float duration = 0.12f;
+            while (t < duration && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                var c = image.color;
+                c.a = alpha * (1f - t / duration);
+                image.color = c;
+                yield return null;
+            }
+            if (rect != null)
+                UnityEngine.Object.Destroy(rect.gameObject);
         }
 
         // ---- 过渡动效:飞牌 / 字牌弹跳(整屏重绘后补播,纯浮层不碰逻辑) ----
@@ -161,26 +300,20 @@ namespace Brushblade.Presentation
 
         private IEnumerator Shake(float amplitude)
         {
-            var origin = _shakeTarget.anchoredPosition;
+            // 以固定 home 为基准(不读实时位置):多个 Shake 并发时不会把彼此的偏移当原点累积
             float t = 0f;
             const float duration = 0.22f;
             while (t < duration)
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
                 float decay = 1f - t / duration;
-                _shakeTarget.anchoredPosition = origin + UnityEngine.Random.insideUnitCircle * (amplitude * decay);
+                _shakeTarget.anchoredPosition = _shakeHome + UnityEngine.Random.insideUnitCircle * (amplitude * decay);
                 yield return null;
             }
-            _shakeTarget.anchoredPosition = origin;
+            _shakeTarget.anchoredPosition = _shakeHome;
         }
 
-        // ---- 受击弹跳(以缩放冲击代替命中停顿,回合制 UI 更合适) ----
-
-        private void Punch(RectTransform target)
-        {
-            if (target != null)
-                StartCoroutine(PunchRoutine(target));
-        }
+        // ---- 字牌落位弹跳(PopTile 用;敌人受击改走更强的 HitReact) ----
 
         private IEnumerator PunchRoutine(RectTransform target)
         {
@@ -199,7 +332,7 @@ namespace Brushblade.Presentation
 
         // ---- 伤害飘字 ----
 
-        private void Popup(string text, Color color, RectTransform anchor, bool small = false)
+        private void Popup(string text, Color color, RectTransform anchor, bool small = false, float sizeScale = 1f)
         {
             var go = new GameObject("Popup", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
@@ -217,7 +350,7 @@ namespace Brushblade.Presentation
 
             var label = go.AddComponent<Text>();
             label.font = Ui.Font;
-            label.fontSize = small ? 26 : 36;
+            label.fontSize = Mathf.RoundToInt((small ? 26 : 36) * sizeScale); // 伤害越高字越大
             label.fontStyle = FontStyle.Bold;
             label.text = text;
             label.color = color;
@@ -263,6 +396,29 @@ namespace Brushblade.Presentation
                 data[i] = (tone * (1f - noise) + hiss * noise) * envelope * 0.8f;
             }
             var clip = AudioClip.Create($"synth_{baseFreq}", samples, 1, rate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        /// <summary>频率下扫的合成音(击杀收束):相位累积以支持变频。</summary>
+        private static AudioClip SynthSweep(float duration, float startFreq, float endFreq, float noise)
+        {
+            const int rate = 44100;
+            int samples = (int)(rate * duration);
+            var data = new float[samples];
+            var random = new System.Random(12345);
+            double phase = 0;
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / rate;
+                float freq = Mathf.Lerp(startFreq, endFreq, t / duration);
+                phase += 2 * Math.PI * freq / rate;
+                float envelope = Mathf.Exp(-t * 18f);
+                float tone = (float)Math.Sin(phase);
+                float hiss = (float)(random.NextDouble() * 2 - 1);
+                data[i] = (tone * (1f - noise) + hiss * noise) * envelope * 0.8f;
+            }
+            var clip = AudioClip.Create("synth_sweep", samples, 1, rate, false);
             clip.SetData(data, 0);
             return clip;
         }

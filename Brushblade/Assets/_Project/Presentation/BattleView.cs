@@ -14,6 +14,8 @@ namespace Brushblade.Presentation
         private System.Action<bool> _onRunEnded;
         private Juice _juice;
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
+        private readonly System.Collections.Generic.List<RectTransform> _summonRects = new(); // 存活召唤物本体(反击飞牌起点)
+        private bool _awaitingAnim; // 结算动画未落幕:挡住结算 UI/胜负标语,待 onComplete 放行(2026-07-24)
 
         private BattleEngine Battle => _run.Battle;
 
@@ -84,9 +86,17 @@ namespace Brushblade.Presentation
         /// <summary>动作结算后播放打击感(需在 Refresh 重建敌人格之后调用)。</summary>
         private void PlayJuice()
         {
-            _juice.Play(Battle.LastEvents,
-                i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null,
-                (RectTransform)_summonRow);
+            _juice.Play(Battle.LastEvents, EnemyAnchor, SummonAnchor, OnAnimDone);
+        }
+
+        private RectTransform EnemyAnchor(int i) => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null;
+        private RectTransform SummonAnchor(int k) => k >= 0 && k < _summonRects.Count ? _summonRects[k] : null;
+
+        /// <summary>结算动画落幕:放行结算 UI/胜负标语(第 4 项,2026-07-24)。</summary>
+        private void OnAnimDone()
+        {
+            _awaitingAnim = false;
+            Refresh();
         }
 
         private void BuildSkeleton()
@@ -238,7 +248,7 @@ namespace Brushblade.Presentation
                     DrawTopBar();
                     DrawSummons();
                     DrawPlayerStats();
-                    DrawBattleSettle();
+                    if (!_awaitingAnim) DrawBattleSettle(); // 动画未落幕先不出结算/标语(第4项)
                     break;
                 case RunPhase.Reward:
                     DrawTopBar();
@@ -341,22 +351,20 @@ namespace Brushblade.Presentation
         /// 形成三排对立(2026-07-20 拍板);无召唤物时该排留空,布局不跳动。</summary>
         private void DrawSummons()
         {
-            bool any = false;
+            _summonRects.Clear(); // 与存活召唤物同序,反击飞牌逐记按序号取起点
             int index = 0;
             foreach (var summon in Battle.Summons)
             {
                 index++;
                 if (!summon.Alive) continue;
-                if (!any)
-                {
-                    Ui.ThemedLabel(_summonRow, "前排", 13, Theme.TextDim, Theme.TitleFont);
-                    any = true;
-                }
                 var cell = Ui.VStack(_summonRow, $"Summon{index}", 1);
-                Ui.RoundButton(cell.transform, summon.Char, null,
+                var glyph = Ui.RoundButton(cell.transform, summon.Char, null,
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     19, new Vector2(40, 40), 10);
-                Ui.ThemedLabel(cell.transform, $"血{summon.Hp} 攻{summon.Attack}", 11, Theme.TextDim);
+                _summonRects.Add((RectTransform)glyph.transform);
+                // 血量改血条(2026-07-24):与敌方形象一致,攻击力仍以数字附注
+                Ui.Bar(cell.transform, summon.Hp / (float)summon.MaxHp, Theme.Cinnabar, new Vector2(40, 6));
+                Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
             }
         }
 
@@ -1405,6 +1413,8 @@ namespace Brushblade.Presentation
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             AppendBossPhaseMessage();
+            // 出牌可能击杀收场:结算 UI/标语等飞牌+结算动画播完(第4项),须在 CancelSelection 重绘前置位
+            _awaitingAnim = error == BattleError.None && Battle.Phase != BattlePhase.PlayerTurn;
             CancelSelection();
             if (error == BattleError.None)
             {
@@ -1413,8 +1423,7 @@ namespace Brushblade.Presentation
                 var toRect = CastTargetRect(events);
                 if (hasFrom && toRect != null)
                     _juice.FlyGlyph(charId, Theme.ElementColor(_graph.Get(charId).Element), fromPos, toRect.position,
-                        () => _juice.Play(events, i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null,
-                            (RectTransform)_summonRow));
+                        () => _juice.Play(events, EnemyAnchor, SummonAnchor, OnAnimDone));
                 else
                     PlayJuice(); // 无伤害目标(纯护盾等)或起点缺失:即时表现
                 MaybeAutoEndTurn();
@@ -1528,6 +1537,7 @@ namespace Brushblade.Presentation
             Battle.EndTurn();
             _tutorial?.Notify(TutorialAction.EndTurn);
             _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,部件掉落" : "";
+            _awaitingAnim = Battle.Phase != BattlePhase.PlayerTurn; // 本回合分了胜负 → 结算 UI 等动画
             CancelSelection();
             PlayJuice();
         }
