@@ -85,7 +85,8 @@ namespace Brushblade.Presentation
         private void PlayJuice()
         {
             _juice.Play(Battle.LastEvents,
-                i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null);
+                i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null,
+                (RectTransform)_summonRow);
         }
 
         private void BuildSkeleton()
@@ -1273,7 +1274,8 @@ namespace Brushblade.Presentation
                 var toRect = CastTargetRect(events);
                 if (hasFrom && toRect != null)
                     _juice.FlyGlyph(charId, Theme.ElementColor(_graph.Get(charId).Element), fromPos, toRect.position,
-                        () => _juice.Play(events, i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null));
+                        () => _juice.Play(events, i => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null,
+                            (RectTransform)_summonRow));
                 else
                     PlayJuice(); // 无伤害目标(纯护盾等)或起点缺失:即时表现
                 MaybeAutoEndTurn();

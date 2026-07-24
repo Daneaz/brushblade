@@ -26,8 +26,10 @@ namespace Brushblade.Presentation
             _shieldClip = Synth(0.1f, 320f, noise: 0.1f); // 护盾:润
         }
 
-        /// <summary>播放一次动作的全部结算表现。enemyAnchor(i) 返回敌人格的 RectTransform(可为 null)。</summary>
-        public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor)
+        /// <summary>播放一次动作的全部结算表现。enemyAnchor(i) 返回敌人格的 RectTransform(可为 null);
+        /// summonAnchor 为我方召唤排,召唤反击飞牌从此起飞(可为 null)。</summary>
+        public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
+            RectTransform summonAnchor = null)
         {
             int maxHit = 0;
             bool playerHit = false;
@@ -36,6 +38,15 @@ namespace Brushblade.Presentation
             {
                 switch (e.Kind)
                 {
+                    case BattleEventKind.SummonAttack:
+                        var toRect = enemyAnchor(e.TargetIndex);
+                        if (summonAnchor != null && toRect != null)
+                            FlyGlyph("木", Theme.ElementColor(Element.Wood),
+                                summonAnchor.position, toRect.position);
+                        break;
+                    case BattleEventKind.SummonCapReached:
+                        Popup("前排已满", Theme.InkSoft, null);
+                        break;
                     case BattleEventKind.Damage:
                     case BattleEventKind.BurnTick:
                         maxHit = Mathf.Max(maxHit, e.Amount);

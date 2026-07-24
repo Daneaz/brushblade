@@ -516,6 +516,38 @@ namespace Brushblade.Core.Tests
             Assert.That(alive, Is.EqualTo(4));
         }
 
+        private static BattleEngine TankEngine(EnemyDef enemy)
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("林", Element.Wood, effects: new[]
+                {
+                    new EffectDef(EffectKind.Summon, 20, summonCount: 1, summonAttack: 0, summonChar: "木"),
+                }),
+            });
+            return new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "林" }, Array.Empty<string>(), new[] { enemy }, seed: 1);
+        }
+
+        [Test]
+        public void Summon_TankHit_MetalAmplifiedByWuxing() // 金克木:召唤顶前排受 ×1.5(修复:此前原样吃伤)
+        {
+            var engine = TankEngine(new EnemyDef("锈", Element.Metal, 100, 6));
+            engine.Cast("林");
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(11)); // 20 - floor(6×1.5)=9
+        }
+
+        [Test]
+        public void Summon_TankHit_EarthReducedByWuxing() // 木反克土:召唤顶前排受 ×0.5
+        {
+            var engine = TankEngine(new EnemyDef("垚", Element.Earth, 100, 6));
+            engine.Cast("林");
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(17)); // 20 - floor(6×0.5)=3
+        }
+
         [Test]
         public void LoadGraph_ParsesHealAndSummon()
         {

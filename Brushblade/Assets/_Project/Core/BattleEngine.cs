@@ -52,6 +52,8 @@ namespace Brushblade.Core
         Heal,        // 治疗自身(Amount = 实际回复量,2026-07-19)
         Summon,      // 召唤前排单位(Amount = 血量)
         SummonHit,   // 召唤物替玩家承伤(Amount = 伤害)
+        SummonAttack,     // 召唤物反击敌人(TargetIndex = 敌人下标;仅驱动动效,伤害走 Damage)
+        SummonCapReached, // 召唤已达上限,本次被拦(仅提示,无实体)
         EnemyBuff,   // 被标点小妖加攻(TargetIndex = 被加成的敌人)
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
     }
@@ -284,6 +286,7 @@ namespace Brushblade.Core
                 for (int i = 0; i < _enemies.Count; i++)
                     if (_enemies[i].Alive) { target = i; break; }
                 if (target < 0) break;
+                _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack));
                 DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
             }
             CheckWin();
@@ -316,8 +319,10 @@ namespace Brushblade.Core
                 var tank = FirstAliveSummon(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
                 if (tank != null)
                 {
-                    tank.Hp = Math.Max(0, tank.Hp - damage);
-                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, -1, damage));
+                    // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
+                    int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), enemy.Element, tank.Element);
+                    tank.Hp = Math.Max(0, tank.Hp - taken);
+                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, -1, taken));
                 }
                 else
                 {
@@ -426,7 +431,11 @@ namespace Brushblade.Core
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
-                            if (AliveSummons() >= SummonCap) break;
+                            if (AliveSummons() >= SummonCap)
+                            {
+                                _events.Add(new BattleEvent(BattleEventKind.SummonCapReached, -1, 0));
+                                break;
+                            }
                             _summons.Add(new SummonState(effect.SummonChar, attacker, value,
                                 MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)));
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value));
