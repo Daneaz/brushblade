@@ -64,14 +64,16 @@ namespace Brushblade.Core
         public BattleEventKind Kind { get; }
         public int TargetIndex { get; }  // 敌人下标;玩家侧为 −1
         public int Amount { get; }
-        public int SecondIndex { get; }  // 关联召唤物下标(SummonAttack=发起者 / SummonHit=承伤者;其余 −1)
+        public int SecondIndex { get; }  // 关联召唤物下标(SummonAttack=发起者 / SummonHit=承伤者 / Summon=被顶替槽位;其余 −1)
+        public int Absorbed { get; }     // EnemyAttack:Amount 中被护盾吃掉的部分(其余 = 实际掉血);别的事件 0
 
-        public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1)
+        public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1, int absorbed = 0)
         {
             Kind = kind;
             TargetIndex = targetIndex;
             Amount = amount;
             SecondIndex = secondIndex;
+            Absorbed = absorbed;
         }
     }
 
@@ -380,8 +382,9 @@ namespace Brushblade.Core
                     _shieldNormal -= fromNormal;
                     int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
                     _shieldPersist -= fromPersist;
-                    PlayerHp = Math.Max(0, PlayerHp - (damage - fromNormal - fromPersist));
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, i, damage));
+                    int absorbed = fromNormal + fromPersist;
+                    PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, i, damage, -1, absorbed));
                 }
 
                 // 通假字:首次行动后现形(8.3)

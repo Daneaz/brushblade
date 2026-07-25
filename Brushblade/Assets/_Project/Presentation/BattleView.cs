@@ -24,9 +24,11 @@ namespace Brushblade.Presentation
 
         // 出手前血量:动画期间血条画在此值,每记命中钳向终值(触达才掉血,2026-07-25)。
         private int _animPlayerHp;
+        private int _animShield;    // 出手前护盾:与血条同理,敌方一记打来时按吸收量逐记降(2026-07-25)
         private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
         // 血条 fill/label 引用:命中回调据此就地推进,不整屏重绘(重绘会毁掉进行中动画的锚点)
         private (RectTransform fill, UnityEngine.UI.Text label) _playerHpBar;
+        private (RectTransform fill, UnityEngine.UI.Text label) _playerShieldBar;
         private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyHpBars = new();
 
         private BattleEngine Battle => _run.Battle;
@@ -130,6 +132,7 @@ namespace Brushblade.Presentation
         private void SnapshotPreHp()
         {
             _animPlayerHp = Battle.PlayerHp;
+            _animShield = Battle.PlayerShield;
             _summonAnimHp.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
                 if (Battle.Summons[i].Alive) _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
@@ -151,10 +154,16 @@ namespace Brushblade.Presentation
                     _animEnemyHp[e.TargetIndex] = System.Math.Max(enemy.Hp, _animEnemyHp[e.TargetIndex] - e.Amount);
                     SetHpBar(_enemyHpBars[e.TargetIndex], _animEnemyHp[e.TargetIndex], enemy.MaxHp);
                     break;
-                case BattleEventKind.EnemyAttack: // Amount 含被护盾吸收部分,故钳到玩家终值不多扣
+                case BattleEventKind.EnemyAttack: // Amount 分账:Absorbed 走护盾条,余量才掉血,各自钳到终值
+                    _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
+                    SetShieldBar(_animShield);
                     if (_playerHpBar.fill == null) break;
-                    _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - e.Amount);
+                    _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - (e.Amount - e.Absorbed));
                     SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
+                    break;
+                case BattleEventKind.Shield: // 筑盾触达才涨,与掉盾同一条推进(不整屏重绘)
+                    _animShield = System.Math.Min(Battle.PlayerShield, _animShield + e.Amount);
+                    SetShieldBar(_animShield);
                     break;
                 case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
                     int si = e.SecondIndex;
@@ -178,6 +187,17 @@ namespace Brushblade.Presentation
             outline.effectColor = Theme.Ink;
             outline.effectDistance = new Vector2(1.2f, 1.2f);
             return (fill, label);
+        }
+
+        private const float ShieldBarFull = 30f; // 护盾条满格基准值(无上限概念,取常见量级)
+
+        /// <summary>护盾条就地推进(条未画出时静默跳过,如出手前后都无盾)。</summary>
+        private void SetShieldBar(int shield)
+        {
+            if (_playerShieldBar.fill != null)
+                Ui.Anchor(_playerShieldBar.fill, Vector2.zero, new Vector2(Mathf.Clamp01(shield / ShieldBarFull), 1),
+                    Vector2.zero, Vector2.zero);
+            if (_playerShieldBar.label != null) _playerShieldBar.label.text = $"护盾 {shield}";
         }
 
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
@@ -419,10 +439,15 @@ namespace Brushblade.Presentation
             // 血值上条(2026-07-25);动画期间画在出手前值,敌人攻击触达才逐记掉血
             _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
                 _playerMaxHp, new Vector2(260, 20));
-            if (Battle.PlayerShield > 0)
+            // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
+            // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动
+            int shownShield = Animating ? _animShield : Battle.PlayerShield;
+            _playerShieldBar = (null, null);
+            if (shownShield > 0 || (Animating && Battle.PlayerShield > 0))
             {
-                Ui.Bar(hpStack.transform, Mathf.Clamp01(Battle.PlayerShield / 30f), Theme.Jade, new Vector2(260, 7));
-                Ui.ThemedLabel(hpStack.transform, $"护盾 {Battle.PlayerShield}", 12, Theme.Jade);
+                var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull), Theme.Jade, new Vector2(260, 7));
+                _playerShieldBar = ((RectTransform)shieldBar.transform.Find("Fill"),
+                    Ui.ThemedLabel(hpStack.transform, $"护盾 {shownShield}", 12, Theme.Jade));
             }
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);

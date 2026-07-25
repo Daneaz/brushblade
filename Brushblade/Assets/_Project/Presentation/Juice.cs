@@ -160,7 +160,11 @@ namespace Brushblade.Presentation
                     case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
                         if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
                         Lunge(enemyAnchor(e.TargetIndex));
-                        Popup($"-{e.Amount}", Theme.Cinnabar, null);
+                        // 飘字分账(2026-07-25):护盾吃掉多少、血实掉多少分开写,与两条同步
+                        int hpLoss = e.Amount - e.Absorbed;
+                        if (e.Absorbed <= 0) Popup($"-{e.Amount}", Theme.Cinnabar, null);
+                        else if (hpLoss <= 0) Popup($"盾-{e.Absorbed}", Theme.SplitBlue, null);
+                        else Popup($"盾-{e.Absorbed} 血-{hpLoss}", Theme.Cinnabar, null, small: true);
                         _audio.PlayOneShot(_thudClip, 0.8f);
                         StartCoroutine(Shake(10f));
                         ScreenFlash(0.14f, Theme.Cinnabar);
@@ -173,6 +177,7 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Shield:
                         Popup($"盾+{e.Amount}", Theme.SplitBlue, null);
                         _audio.PlayOneShot(_shieldClip, 0.7f);
+                        onImpact?.Invoke(e); // 触达才涨护盾条
                         break;
                     case BattleEventKind.EnemySplit:
                         Popup("分裂!", Theme.Jade, enemyAnchor(e.TargetIndex));

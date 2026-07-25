@@ -265,6 +265,39 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void EnemyAttack_CarriesShieldAbsorbedPortion() // 事件分账:盾吸多少/血掉多少,表现层据此双条扣减
+        {
+            var engine = new BattleEngine(Graph(), Config(),
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { new EnemyDef("怔", Element.Heart, 100, 8) }, seed: 42, startingHp: 50, cardLevels: null,
+                startingNormalShield: 5);
+            engine.EndTurn(); // 攻 8:盾吃 5,血掉 3
+            var hit = engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
+            Assert.That(hit.Amount, Is.EqualTo(8));
+            Assert.That(hit.Absorbed, Is.EqualTo(5));
+            Assert.That(engine.PlayerHp, Is.EqualTo(47));
+        }
+
+        [Test]
+        public void EnemyAttack_NoShield_AbsorbedIsZero()
+        {
+            var engine = Engine(enemies: new[] { new EnemyDef("怔", Element.Heart, 100, 8) });
+            engine.EndTurn();
+            Assert.That(engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack).Absorbed, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void EnemyAttack_FullyAbsorbed_AbsorbedEqualsDamage()
+        {
+            var engine = Engine(library: new[] { "壁" }, enemies: new[] { MetalBoss() }); // 攻 5
+            engine.Cast("壁");  // 护盾 24
+            engine.EndTurn();
+            var hit = engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
+            Assert.That(hit.Absorbed, Is.EqualTo(5));
+            Assert.That(hit.Amount, Is.EqualTo(5));
+        }
+
+        [Test]
         public void Shield_StacksWithinTurn() // 同回合多次筑盾累加
         {
             var engine = Engine(library: new[] { "壁" }, pool: new[] { "土" }, enemies: new[] { MetalBoss() });
