@@ -33,8 +33,7 @@ namespace Brushblade.Presentation
 
         private const float FlyDuration = 0.24f; // 飞牌全程(与 FlyRoutine 一致)
         private const float StepGap = 0.42f;     // 一记结算与下一记之间的间隔(串行看得清的关键;DoT/召唤/敌方通用)
-        private const float DeathBeat = 0.3f;    // 伤害飘字到「正!」/逐个死亡之间的节拍
-        private const float PhaseGap = 0.4f;     // 阶段之间的停顿(DoT → 召唤 → 死亡 → 敌方)
+        private const float PhaseGap = 0.4f;     // 阶段之间的停顿(DoT → 召唤 → 敌方)
         private const float TailGap = 0.3f;      // 末次打击到「播完回调」的收尾停顿
 
         /// <summary>播放一次动作的全部结算表现,全程有序、播完回调。enemyAnchor(i) 返回敌人本体圆
@@ -74,11 +73,10 @@ namespace Brushblade.Presentation
             while (i < events.Count)
                 postRest.Add(events[i++]);
 
-            // 分三阶段串行、阶段间留停顿(顺序节拍:①DoT ②召唤 ③死亡置灰+正 ④敌人反击 ⑤胜利标语)。
-            // 每记结算之间的间隔在 ApplyBatch 内(StepGap),此处只管阶段边界的停顿(PhaseGap)。
-            var deaths = new List<int>();
-            yield return ApplyBatch(preRest, enemyAnchor, summonAnchor, deaths, onImpact);      // ① DoT 逐记结算
-            if (preRest.Count > 0 && (strikes.Count > 0 || postRest.Count > 0 || deaths.Count > 0))
+            // 三阶段串行、阶段间留停顿(①DoT ②召唤 ③敌人反击 → ④胜利标语)。每记间隔在 ApplyBatch 内(StepGap),
+            // 此处只管阶段边界(PhaseGap)。受击致死者由 ApplyBatch 内联即时置灰+正(与致死伤害同帧,不再攒到统一节拍)。
+            yield return ApplyBatch(preRest, enemyAnchor, summonAnchor, onImpact);      // ① DoT / 全体伤害
+            if (preRest.Count > 0 && (strikes.Count > 0 || postRest.Count > 0))
                 yield return new WaitForSecondsRealtime(PhaseGap);
             for (int k = 0; k < strikes.Count; k++)                                    // ② 召唤物逐个行动+结算
             {
@@ -89,38 +87,31 @@ namespace Brushblade.Presentation
                     FlyGlyph("木", Theme.ElementColor(Element.Wood), from.position, toRect.position);
                     yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
                 }
-                yield return ApplyBatch(strikes[k].effects, enemyAnchor, summonAnchor, deaths, onImpact); // 内含 StepGap
+                yield return ApplyBatch(strikes[k].effects, enemyAnchor, summonAnchor, onImpact); // 内含 StepGap
             }
-            if (strikes.Count > 0 && (postRest.Count > 0 || deaths.Count > 0))
+            if (strikes.Count > 0 && postRest.Count > 0)
                 yield return new WaitForSecondsRealtime(PhaseGap);
-            if (deaths.Count > 0)
-                yield return new WaitForSecondsRealtime(DeathBeat); // 与伤害拉开一拍,兼让末次受击白闪先复原再置灰
-            foreach (int target in deaths)                                             // ③④ 怪物死亡:置灰 + 正字,成排逐个
-            {
-                var t = enemyAnchor(target);
-                Popup("正!", Theme.Ink, t);
-                GreyOut(t);                            // 本体此刻才置灰(此前保持着色挨打)
-                Knockback(t);                          // 一记后坐
-                _audio.PlayOneShot(_killClip, 0.9f);   // 下行收束音
-                ScreenFlash(0.16f, Color.white);       // 致命全屏微闪
-                yield return new WaitForSecondsRealtime(DeathBeat);
-            }
-            if (deaths.Count > 0 && postRest.Count > 0)
-                yield return new WaitForSecondsRealtime(PhaseGap);
-            yield return ApplyBatch(postRest, enemyAnchor, summonAnchor, deaths, onImpact); // ④ 敌人逐记反击
+            yield return ApplyBatch(postRest, enemyAnchor, summonAnchor, onImpact);     // ③ 敌人逐记反击
 
             yield return new WaitForSecondsRealtime(TailGap);
-            onComplete?.Invoke();                                                       // ⑤ 关卡胜利标语(外层)
+            onComplete?.Invoke();                                                       // ④ 关卡胜利标语(外层)
         }
 
-        /// <summary>结算一批事件的表现;怪物死亡不在此播,收集进 deaths 交死亡节拍统一结算。
-        /// onImpact 在每记伤害触达时回调外层(据此逐记推进血条:触达才掉血)。</summary>
+        /// <summary>结算一批事件的表现。受击致死者(紧随伤害的 EnemyDied)当帧内联:飘「正!」+ 立刻置灰,
+        /// 与致死伤害同帧、分别显示。onImpact 在每记伤害触达时回调外层(触达才掉血)。
+        /// 并行组(Damage 同帧齐出)组末停一拍;串行单位(DoT/敌攻/SummonHit)在下一记前才停一拍,好让致死伤害与正同帧。</summary>
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor, List<int> deaths, Action<BattleEvent> onImpact)
+            Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact)
         {
-            bool anyParallel = false; // 全体攻击:一批里多个 Damage 同帧齐出(并行),组末只停一拍
-            foreach (var e in events)
+            bool anyParallel = false;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
+            bool serialPending = false; // 上一记串行单位已出,下一记串行单位前先停一拍
+            for (int idx = 0; idx < events.Count; idx++)
             {
+                var e = events[idx];
+                // 这记伤害是否当场打死目标(紧随的 EnemyDied 同目标):是则跳过白闪,交给死亡置灰(免抢同一 Image)
+                bool kills = (e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.BurnTick)
+                    && idx + 1 < events.Count && events[idx + 1].Kind == BattleEventKind.EnemyDied
+                    && events[idx + 1].TargetIndex == e.TargetIndex;
                 switch (e.Kind)
                 {
                     case BattleEventKind.SummonCapReached:
@@ -129,23 +120,30 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
                         Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
-                        HitReact(enemyAnchor(e.TargetIndex));
+                        if (!kills) HitReact(enemyAnchor(e.TargetIndex)); // 致死不白闪,让位给置灰
                         HitFx(e.Amount);
                         onImpact?.Invoke(e);
                         anyParallel = true;
                         break;
                     case BattleEventKind.BurnTick: // 火系 DoT:串行 + 火焰视觉
+                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap); // 与上一记 DoT 拉开
                         Popup($"-{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         FlameBurst(enemyAnchor(e.TargetIndex));
                         HitFx(e.Amount);
                         onImpact?.Invoke(e);
-                        yield return new WaitForSecondsRealtime(StepGap); // DoT 逐记拉开
+                        serialPending = true;
                         break;
-                    case BattleEventKind.EnemyDied:
-                        deaths.Add(e.TargetIndex); // 攒到死亡节拍统一置灰+正,不与伤害同帧
+                    case BattleEventKind.EnemyDied: // 受击致死:与刚才那记伤害同帧,飘「正!」+ 立刻置灰(分别显示)
+                        var dead = enemyAnchor(e.TargetIndex);
+                        Popup("正!", Theme.Ink, dead);
+                        GreyOut(dead);                       // 立刻置灰
+                        Knockback(dead);                     // 一记后坐
+                        _audio.PlayOneShot(_killClip, 0.9f); // 下行收束音
+                        ScreenFlash(0.16f, Color.white);     // 致命全屏微闪
                         break;
                     case BattleEventKind.SummonHit: // 敌人打召唤物:攻击者下扑 + 飘伤害 + 召唤物受击反应(TargetIndex=攻击者)
+                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
                         var tank = summonAnchor?.Invoke(0); // 顶前排=首个召唤
                         Lunge(enemyAnchor(e.TargetIndex));
                         Popup($"-{e.Amount}", Theme.Cinnabar, tank);
@@ -153,16 +151,17 @@ namespace Brushblade.Presentation
                         _audio.PlayOneShot(_thudClip, 0.7f);
                         StartCoroutine(Shake(7f));
                         onImpact?.Invoke(e); // 触达才扣召唤血
-                        yield return new WaitForSecondsRealtime(StepGap);
+                        serialPending = true;
                         break;
                     case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
+                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
                         Lunge(enemyAnchor(e.TargetIndex));
                         Popup($"-{e.Amount}", Theme.Cinnabar, null);
                         _audio.PlayOneShot(_thudClip, 0.8f);
                         StartCoroutine(Shake(10f));
                         ScreenFlash(0.14f, Theme.Cinnabar);
                         onImpact?.Invoke(e); // 触达才扣玩家血
-                        yield return new WaitForSecondsRealtime(StepGap); // 敌人逐记拉开:串行看得清
+                        serialPending = true;
                         break;
                     case BattleEventKind.Burn:
                         Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
