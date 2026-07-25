@@ -54,7 +54,6 @@ namespace Brushblade.Core
         Summon,      // 召唤前排单位(Amount = 血量;SecondIndex = 被顶替的槽位,新增则 −1)
         SummonHit,   // 召唤物替玩家承伤(Amount = 伤害;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         SummonAttack,     // 召唤物反击敌人(TargetIndex = 敌人下标;仅驱动动效,伤害走 Damage)
-        SummonCapReached, // 召唤已达上限,本次被拦(仅提示,无实体)
         EnemyBuff,   // 被标点小妖加攻(TargetIndex = 被加成的敌人)
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
     }
@@ -204,8 +203,9 @@ namespace Brushblade.Core
                 targetIndex = soleAlive;
             }
 
-            // 前排满员强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「已满,是否替换?」
-            if (!replaceSummon && IsSummonBlocked(def)) return BattleError.SummonCapFull;
+            // 前排放不下就强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「是否替换?」。
+            // 不只看满员——3/4 时召 2 只同样溢出,也得先问过玩家
+            if (!replaceSummon && SummonReplaceCountOf(def) > 0) return BattleError.SummonCapFull;
 
             _events.Clear();
             Ap -= def.ApCost;
@@ -287,13 +287,11 @@ namespace Brushblade.Core
         private static IReadOnlyList<EffectDef> EffectsOf(CharDef def) =>
             def.Effects.Count > 0 ? def.Effects : FallbackEffects;
 
-        /// <summary>该字会召唤,且前排已满 —— 出字须先确认替换。</summary>
-        private bool IsSummonBlocked(CharDef def)
+        /// <summary>此刻出这张字会顶掉最前的几只(0 = 空位够,直接进场);UI 弹窗文案与阻断判定共用。</summary>
+        public int SummonReplaceCountOf(CharDef def)
         {
-            if (AliveSummons() < SummonCap) return false;
-            foreach (var effect in EffectsOf(def))
-                if (effect.Kind == EffectKind.Summon) return true;
-            return false;
+            int count = SummonCountOf(def);
+            return count <= 0 ? 0 : Math.Max(0, AliveSummons() + count - SummonCap);
         }
 
         /// <summary>这张字一次会召出几只(多条召唤效果累加,封顶到前排上限)。
@@ -503,11 +501,7 @@ namespace Brushblade.Core
                                 _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value));
                                 continue;
                             }
-                            if (!replaceSummon) // 未确认替换:满员只提示(Cast 已在满员时拒出,此处仅拦「部分溢出」)
-                            {
-                                _events.Add(new BattleEvent(BattleEventKind.SummonCapReached, -1, 0));
-                                break;
-                            }
+                            if (!replaceSummon) break; // 溢出已在 Cast 拒出,走不到这;留作越界兜底
                             int slot = NextAliveSummonIndex(replaceCursor);
                             if (slot < 0) break;
                             replaceCursor = slot + 1;

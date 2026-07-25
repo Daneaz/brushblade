@@ -118,9 +118,6 @@ namespace Brushblade.Presentation
                     && events[idx + 1].TargetIndex == e.TargetIndex;
                 switch (e.Kind)
                 {
-                    case BattleEventKind.SummonCapReached:
-                        Popup("前排已满", Theme.InkSoft, null);
-                        break;
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
                         Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));

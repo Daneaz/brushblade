@@ -697,14 +697,56 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Cast_SummonBelowCap_NotBlocked_PartialFillStillCaps() // 未满不拦:3/4 时召 2 只只进 1
+        public void Cast_SummonOverflowsCap_IsBlocked() // 未满但放不下也拦:3/4 时召 2 只会溢出 1
         {
             var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "丙" });
             for (int i = 0; i < 3; i++) engine.Cast("甲");
 
+            Assert.That(engine.Cast("丙"), Is.EqualTo(BattleError.SummonCapFull));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(3)); // 一只都没进
+        }
+
+        [Test]
+        public void Cast_SummonExactlyFits_NotBlocked() // 刚好填满不拦
+        {
+            var engine = ReplaceEngine(new[] { "甲", "甲", "丙" });
+            for (int i = 0; i < 2; i++) engine.Cast("甲");
+
             Assert.That(engine.Cast("丙"), Is.EqualTo(BattleError.None));
             Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
-            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.SummonCapReached), Is.EqualTo(1));
+            Assert.That(engine.Summons[0].Char, Is.EqualTo("A")); // 有空位就不该顶谁
+        }
+
+        [Test]
+        public void Cast_SummonOverflow_ReplaceMode_FillsGapThenReplacesFromFirst() // 3/4 召 2:先占空位,溢出的才顶最前
+        {
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "丙" });
+            for (int i = 0; i < 3; i++) engine.Cast("甲");
+
+            engine.Cast("丙", replaceSummon: true);
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
+            Assert.That(engine.Summons[3].Char, Is.EqualTo("C")); // 第 1 只填空位
+            Assert.That(engine.Summons[0].Char, Is.EqualTo("C")); // 第 2 只顶掉最前
+            Assert.That(engine.Summons[1].Char, Is.EqualTo("A")); // 其余不动
+            Assert.That(engine.Summons[2].Char, Is.EqualTo("A"));
+        }
+
+        [Test]
+        public void SummonReplaceCountOf_CountsOnlyTheOverflow() // 弹窗文案「顶掉最前 N 只」的 N
+        {
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "丙" });
+            var bing = new RecipeGraph(new[]
+            {
+                new CharDef("丙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 2, summonAttack: 0, summonChar: "C") }),
+                new CharDef("戊", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 5) }),
+            });
+            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(0)); // 0/4:空位够
+            engine.Cast("甲");
+            engine.Cast("甲");
+            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(0)); // 2/4:刚好填满
+            engine.Cast("甲");
+            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(1)); // 3/4:溢出 1
+            Assert.That(engine.SummonReplaceCountOf(bing.Get("戊")), Is.EqualTo(0)); // 不召唤的字永远 0
         }
 
         [Test]

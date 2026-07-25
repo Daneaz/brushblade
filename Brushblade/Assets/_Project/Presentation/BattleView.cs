@@ -1539,10 +1539,11 @@ namespace Brushblade.Presentation
             var error = Battle.Cast(charId, target, replaceSummon);
             if (error == BattleError.SummonCapFull) // 前排满员强阻断:AP/字都没动,确认替换才重出
             {
-                int replaceCount = Battle.SummonCountOf(_graph.Get(charId)); // 召几只就从最前起顶几只
-                ShowModal("前排已满",
-                    $"召唤物已达上限 {Battle.SummonCapacity}/{Battle.SummonCapacity}。\n"
-                    + $"「{charId}」召 {replaceCount} 只,会从最前起顶掉 {replaceCount} 只。",
+                var def = _graph.Get(charId);
+                int replaceCount = Battle.SummonReplaceCountOf(def); // 空位不够的那部分才顶人
+                ShowModal("前排放不下",
+                    $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{charId}」召 {Battle.SummonCountOf(def)} 只。\n"
+                    + $"将从最前起顶掉 {replaceCount} 只。",
                     ($"替换最前 {replaceCount} 只", () => ExecuteCast(charId, target, replaceSummon: true), Theme.Cinnabar, Color.white),
                     ("取消", null, Theme.LockedBg, Theme.TextMain));
                 _message = "前排已满,出字待确认";
