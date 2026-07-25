@@ -118,6 +118,7 @@ namespace Brushblade.Presentation
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, List<int> deaths, Action<BattleEvent> onImpact)
         {
+            bool anyParallel = false; // 全体攻击:一批里多个 Damage 同帧齐出(并行),组末只停一拍
             foreach (var e in events)
             {
                 switch (e.Kind)
@@ -125,16 +126,21 @@ namespace Brushblade.Presentation
                     case BattleEventKind.SummonCapReached:
                         Popup("前排已满", Theme.InkSoft, null);
                         break;
-                    case BattleEventKind.Damage:
-                    case BattleEventKind.BurnTick:
-                        // 伤害数字随伤害量放大(轻重分明);受击白闪 + 更狠缩放冲击
-                        Popup($"-{e.Amount}", e.Kind == BattleEventKind.Damage
-                            ? Theme.Cinnabar : Theme.ShopNav, enemyAnchor(e.TargetIndex),
+                    case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
+                        Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         HitReact(enemyAnchor(e.TargetIndex));
                         HitFx(e.Amount);
-                        onImpact?.Invoke(e); // 触达才掉血
-                        yield return new WaitForSecondsRealtime(StepGap); // 逐记拉开间隔:串行看得清
+                        onImpact?.Invoke(e);
+                        anyParallel = true;
+                        break;
+                    case BattleEventKind.BurnTick: // 火系 DoT:串行 + 火焰视觉
+                        Popup($"-{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        FlameBurst(enemyAnchor(e.TargetIndex));
+                        HitFx(e.Amount);
+                        onImpact?.Invoke(e);
+                        yield return new WaitForSecondsRealtime(StepGap); // DoT 逐记拉开
                         break;
                     case BattleEventKind.EnemyDied:
                         deaths.Add(e.TargetIndex); // 攒到死亡节拍统一置灰+正,不与伤害同帧
@@ -180,6 +186,8 @@ namespace Brushblade.Presentation
                         break;
                 }
             }
+            if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
+                yield return new WaitForSecondsRealtime(StepGap);
         }
 
         /// <summary>一记命中的音效 + 震屏(伤害越高音调越低、震屏越大,封顶);大伤害叠全屏微闪。</summary>
@@ -312,6 +320,55 @@ namespace Brushblade.Presentation
                 yield return null;
             }
             if (target != null) image.color = to;
+        }
+
+        // 火焰色阶(黄 → 橙 → 红):火系 DoT 火苗
+        private static readonly Color[] FlamePalette =
+        {
+            new Color(1f, 0.85f, 0.3f), new Color(1f, 0.6f, 0.12f), new Color(0.95f, 0.35f, 0.1f),
+        };
+
+        /// <summary>火系 DoT 火焰:怪物本体窜起几簇火苗,上升摇曳收缩淡出(程序生成,无资产)。</summary>
+        private void FlameBurst(RectTransform target)
+        {
+            if (target == null) return;
+            for (int n = 0; n < 5; n++)
+            {
+                var go = new GameObject("Ember", typeof(RectTransform));
+                go.transform.SetParent(_shakeTarget, false);
+                var rect = (RectTransform)go.transform;
+                rect.sizeDelta = new Vector2(UnityEngine.Random.Range(9f, 16f), UnityEngine.Random.Range(14f, 26f));
+                rect.position = target.position;
+                rect.anchoredPosition += new Vector2(UnityEngine.Random.Range(-24f, 24f), UnityEngine.Random.Range(-18f, 10f));
+                var image = go.AddComponent<Image>();
+                image.sprite = Theme.Rounded(8);
+                image.type = Image.Type.Sliced;
+                image.color = FlamePalette[UnityEngine.Random.Range(0, FlamePalette.Length)];
+                image.raycastTarget = false;
+                StartCoroutine(EmberRoutine(rect, image));
+            }
+        }
+
+        private static IEnumerator EmberRoutine(RectTransform rect, Image image)
+        {
+            Vector2 start = rect.anchoredPosition;
+            Color from = image.color;
+            float duration = UnityEngine.Random.Range(0.4f, 0.62f);
+            float sway = UnityEngine.Random.Range(3f, 7f);
+            float t = 0f;
+            while (t < duration && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float k = t / duration;
+                rect.anchoredPosition = start + new Vector2(Mathf.Sin(k * 9f) * sway, 62f * k); // 上升 + 左右摇曳
+                rect.localScale = Vector3.one * (1f - 0.55f * k);                                // 越升越小
+                var c = from;
+                c.a = 1f - k * k; // 尾段快速熄灭
+                image.color = c;
+                yield return null;
+            }
+            if (rect != null)
+                UnityEngine.Object.Destroy(rect.gameObject);
         }
 
         // ---- 过渡动效:飞牌 / 字牌弹跳(整屏重绘后补播,纯浮层不碰逻辑) ----
