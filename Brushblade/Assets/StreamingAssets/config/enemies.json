@@ -487,8 +487,8 @@
       "text": "路旁小摊,摊主捻须:『以物易物,童叟无欺。』",
       "options": [
         {
-          "label": "三部件换 3 叠字(任选)",
-          "componentCost": 3,
+          "label": "一部件换 3 叠字(任选)",
+          "componentCost": 1,
           "gainCharChoices": [
             "鑫",
             "森",
@@ -498,8 +498,7 @@
           ]
         },
         {
-          "label": "两部件换 2 叠字(任选)",
-          "componentCost": 2,
+          "label": "白拿 2 叠字(任选)",
           "gainCharChoices": [
             "鍂",
             "林",
