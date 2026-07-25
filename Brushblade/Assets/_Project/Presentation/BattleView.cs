@@ -23,6 +23,9 @@ namespace Brushblade.Presentation
         // 玩家(单一)与敌人(全绘不跳过、事件带下标)做逐记掉血;召唤物血条保持当前值(命中反馈已足)。
         private int _animPlayerHp;
         private int _animTankHp; // 顶前排召唤(首个存活)出手前血:SummonHit 触达才逐记降(其余召唤不单独降)
+        // 出手前存活的召唤物(按引用):动画期间照常画出,本回合被打死的也可见(挨打后我方回合开始才清理)
+        private readonly System.Collections.Generic.HashSet<Brushblade.Core.SummonState> _preAliveSummons = new();
+        private Brushblade.Core.SummonState _tankSummon; // 顶前排承伤者(画序第 0 个召唤)
         private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
         // 血条 fill/label 引用:命中回调据此就地推进,不整屏重绘(重绘会毁掉进行中动画的锚点)
         private (RectTransform fill, UnityEngine.UI.Text label) _playerHpBar;
@@ -131,6 +134,9 @@ namespace Brushblade.Presentation
         {
             _animPlayerHp = Battle.PlayerHp;
             _animTankHp = FirstAliveSummon()?.Hp ?? 0;
+            _preAliveSummons.Clear();
+            foreach (var s in Battle.Summons)
+                if (s.Alive) _preAliveSummons.Add(s); // 本回合被打死的仍画得出(挨打可见),他回合的旧尸不画
             _animEnemyHp.Clear();
             foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
         }
@@ -162,12 +168,10 @@ namespace Brushblade.Presentation
                     _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - e.Amount);
                     SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
                     break;
-                case BattleEventKind.SummonHit: // 敌人打召唤:顶前排承伤者血条逐记降
-                    if (_tankHpBar.fill == null) break;
-                    var tank = FirstAliveSummon();
-                    if (tank == null) break;
-                    _animTankHp = System.Math.Max(tank.Hp, _animTankHp - e.Amount);
-                    SetHpBar(_tankHpBar, _animTankHp, tank.MaxHp);
+                case BattleEventKind.SummonHit: // 敌人打召唤:顶前排承伤者(画序第 0 个)血条逐记降,钳到其终值(死了钳到 0)
+                    if (_tankHpBar.fill == null || _tankSummon == null) break;
+                    _animTankHp = System.Math.Max(_tankSummon.Hp, _animTankHp - e.Amount);
+                    SetHpBar(_tankHpBar, _animTankHp, _tankSummon.MaxHp);
                     break;
             }
         }
@@ -451,15 +455,18 @@ namespace Brushblade.Presentation
         /// 形成三排对立(2026-07-20 拍板);无召唤物时该排留空,布局不跳动。</summary>
         private void DrawSummons()
         {
-            _summonRects.Clear(); // 与存活召唤物同序,反击飞牌逐记按序号取起点
+            _summonRects.Clear(); // 与画出的召唤物同序,反击飞牌逐记按序号取起点
             _tankHpBar = default;
+            _tankSummon = null;
             int index = 0;
             foreach (var summon in Battle.Summons)
             {
                 index++;
-                if (!summon.Alive) continue;
-                bool isTank = _summonRects.Count == 0; // 首个存活 = 顶前排承伤者
+                // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
+                if (!summon.Alive && !(Animating && _preAliveSummons.Contains(summon))) continue;
+                bool isTank = _summonRects.Count == 0; // 画序第 0 个 = 顶前排承伤者
                 var cell = Ui.VStack(_summonRow, $"Summon{index}", 1);
+                // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, null,
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     23, new Vector2(50, 50), 12);
@@ -467,7 +474,7 @@ namespace Brushblade.Presentation
                 // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。坦克动画期间画出手前值,SummonHit 触达才降
                 int shownHp = isTank && Animating ? _animTankHp : summon.Hp;
                 var bar = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
-                if (isTank) _tankHpBar = bar;
+                if (isTank) { _tankHpBar = bar; _tankSummon = summon; }
                 Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
             }
         }
