@@ -296,6 +296,16 @@ namespace Brushblade.Core
             return false;
         }
 
+        /// <summary>这张字一次会召出几只(多条召唤效果累加,封顶到前排上限)。
+        /// 满员替换时即「从最前一只起顶掉几只」,供 UI 文案用。</summary>
+        public int SummonCountOf(CharDef def)
+        {
+            int count = 0;
+            foreach (var effect in EffectsOf(def))
+                if (effect.Kind == EffectKind.Summon) count += effect.SummonCount;
+            return Math.Min(count, SummonCap);
+        }
+
         /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式)。</summary>
         public static bool NeedsTarget(CharDef def)
         {

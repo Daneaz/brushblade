@@ -662,6 +662,28 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SummonCountOf_SumsAcrossEffects_CapsAtSummonCapacity() // UI 文案「顶掉最前 N 只」的 N
+        {
+            var engine = ReplaceEngine(new[] { "甲" });
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("甲", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "A") }),
+                new CharDef("丙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 2, summonAttack: 0, summonChar: "C") }),
+                new CharDef("丁", Element.Wood, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageAll, 5),
+                    new EffectDef(EffectKind.Summon, 5, summonCount: 3, summonAttack: 0, summonChar: "D"),
+                    new EffectDef(EffectKind.Summon, 5, summonCount: 3, summonAttack: 0, summonChar: "D"),
+                }),
+                new CharDef("戊", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 5) }),
+            });
+            Assert.That(engine.SummonCountOf(graph.Get("甲")), Is.EqualTo(1));
+            Assert.That(engine.SummonCountOf(graph.Get("丙")), Is.EqualTo(2));
+            Assert.That(engine.SummonCountOf(graph.Get("丁")), Is.EqualTo(4)); // 3+3 封顶到上限 4
+            Assert.That(engine.SummonCountOf(graph.Get("戊")), Is.EqualTo(0)); // 不召唤
+        }
+
+        [Test]
         public void Cast_SummonAtCap_ReplaceMode_MultiSummon_AdvancesFromFirst() // 一次召 2:顶掉最前两只,不重复顶自己
         {
             var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "丙" });
