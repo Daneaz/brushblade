@@ -509,8 +509,9 @@ namespace Brushblade.Core
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
-            if (enemy.DamageTaken != 1f)
-                damage = (int)Math.Floor(damage * enemy.DamageTaken); // 「山」类承伤减免
+            // 承伤减免(坚壁/「山」类)遇属性克制失效:被克(×1.5)直接按克制结算,不再乘减免
+            if (enemy.DamageTaken != 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) < 1.5f)
+                damage = (int)Math.Floor(damage * enemy.DamageTaken);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
 

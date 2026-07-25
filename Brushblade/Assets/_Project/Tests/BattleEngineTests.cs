@@ -603,6 +603,36 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Fortify_BrokenByElementCounter() // 坚壁遇属性克制失效:被克(×1.5)按克制结算,不再乘承伤减免
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("斫", Element.Wood, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
+                new[] { "斫" }, Array.Empty<string>(),
+                new[] { new EnemyDef("垒", Element.Earth, 100, 0, damageTaken: 0.75f) }, seed: 1);
+            engine.Cast("斫"); // 木克土 ×1.5,坚壁失效:floor(10 × 1.5)=15,而非 floor(10 × 1.5 × 0.75)=11
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(85));
+        }
+
+        [Test]
+        public void Fortify_AppliesWhenCountered() // 坚壁只被「克制」打穿:自己被克(×0.5)时减免照常生效
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("涓", Element.Water, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
+                new[] { "涓" }, Array.Empty<string>(),
+                new[] { new EnemyDef("垒", Element.Earth, 100, 0, damageTaken: 0.5f) }, seed: 1);
+            engine.Cast("涓"); // 土克水:水打土被克 ×0.5,坚壁仍生效:floor(10 × 0.5 × 0.5)=2
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(98));
+        }
+
+        [Test]
         public void Scorch_GainsAttackOnSurvivingHit() // 焦痕自燃:每次被击中且存活,攻 +2
         {
             var graph = new RecipeGraph(new[]
