@@ -19,6 +19,7 @@ namespace Brushblade.Core
         NotCastable,   // 字不在字库(且不是池中可直出的部件)
         InvalidTarget,
         ForgeFailed,   // 拆/合被拆合引擎拒绝(细节见 LastForgeError)
+        SummonCapFull, // 前排召唤已满(2026-07-25 强阻断):不吃 AP、不消耗字,由 UI 确认后带 replaceSummon 重出
     }
 
     /// <summary>战斗规则参数(基准值来自第 10 章 10.1)。</summary>
@@ -50,7 +51,7 @@ namespace Brushblade.Core
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
         BossPhase,   // 成语 Boss 进入新阶段(Amount = 新阶段下标)
         Heal,        // 治疗自身(Amount = 实际回复量,2026-07-19)
-        Summon,      // 召唤前排单位(Amount = 血量)
+        Summon,      // 召唤前排单位(Amount = 血量;SecondIndex = 被顶替的槽位,新增则 −1)
         SummonHit,   // 召唤物替玩家承伤(Amount = 伤害;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         SummonAttack,     // 召唤物反击敌人(TargetIndex = 敌人下标;仅驱动动效,伤害走 Damage)
         SummonCapReached, // 召唤已达上限,本次被拦(仅提示,无实体)
@@ -129,6 +130,8 @@ namespace Brushblade.Core
         public IReadOnlyCollection<string> UnlockedChars => _config.UnlockedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public IReadOnlyList<SummonState> Summons => _summons;
+        public int SummonCapacity => SummonCap;
+        public int AliveSummonCount => AliveSummons();
         public ForgeError LastForgeError { get; private set; }
 
         private readonly List<BattleEvent> _events = new();
@@ -171,8 +174,9 @@ namespace Brushblade.Core
             return BattleError.None;
         }
 
-        /// <summary>出字(ApCost):字库中的字,或池中可直出的部件(4.5 第二层,防卡手地板)。</summary>
-        public BattleError Cast(string charId, int targetIndex = -1)
+        /// <summary>出字(ApCost):字库中的字,或池中可直出的部件(4.5 第二层,防卡手地板)。
+        /// replaceSummon:前排满员时顶掉最前的召唤物入场(UI 弹窗确认后才置位),否则满员直接拒出。</summary>
+        public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -198,6 +202,9 @@ namespace Brushblade.Core
                 targetIndex = soleAlive;
             }
 
+            // 前排满员强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「已满,是否替换?」
+            if (!replaceSummon && IsSummonBlocked(def)) return BattleError.SummonCapFull;
+
             _events.Clear();
             Ap -= def.ApCost;
 
@@ -215,7 +222,7 @@ namespace Brushblade.Core
                 _forge = new ForgeState(_forge.Library, pool);
             }
 
-            ApplyEffects(def, targetIndex);
+            ApplyEffects(def, targetIndex, replaceSummon);
             CheckWin();
             return BattleError.None;
         }
@@ -277,6 +284,15 @@ namespace Brushblade.Core
         /// <summary>该字的实际出字效果:无效果者用兜底一击。</summary>
         private static IReadOnlyList<EffectDef> EffectsOf(CharDef def) =>
             def.Effects.Count > 0 ? def.Effects : FallbackEffects;
+
+        /// <summary>该字会召唤,且前排已满 —— 出字须先确认替换。</summary>
+        private bool IsSummonBlocked(CharDef def)
+        {
+            if (AliveSummons() < SummonCap) return false;
+            foreach (var effect in EffectsOf(def))
+                if (effect.Kind == EffectKind.Summon) return true;
+            return false;
+        }
 
         /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式)。</summary>
         public static bool NeedsTarget(CharDef def)
@@ -412,11 +428,12 @@ namespace Brushblade.Core
             }
         }
 
-        private void ApplyEffects(CharDef def, int targetIndex)
+        private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false)
         {
             var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
+            int replaceCursor = 0; // 替换从最前一只起,逐只后移:一次召多只不会顶掉刚进场的自己
 
             foreach (var effect in EffectsOf(def))
             {
@@ -465,14 +482,24 @@ namespace Brushblade.Core
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
-                            if (AliveSummons() >= SummonCap)
+                            var newborn = new SummonState(effect.SummonChar, attacker, value,
+                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel));
+                            if (AliveSummons() < SummonCap)
+                            {
+                                _summons.Add(newborn);
+                                _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value));
+                                continue;
+                            }
+                            if (!replaceSummon) // 未确认替换:满员只提示(Cast 已在满员时拒出,此处仅拦「部分溢出」)
                             {
                                 _events.Add(new BattleEvent(BattleEventKind.SummonCapReached, -1, 0));
                                 break;
                             }
-                            _summons.Add(new SummonState(effect.SummonChar, attacker, value,
-                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)));
-                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value));
+                            int slot = NextAliveSummonIndex(replaceCursor);
+                            if (slot < 0) break;
+                            replaceCursor = slot + 1;
+                            _summons[slot] = newborn; // 原地顶替:下标稳定,表现层血条引用不错位
+                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
                         break;
                 }
@@ -495,9 +522,11 @@ namespace Brushblade.Core
             return alive;
         }
 
-        private int FirstAliveSummonIndex()
+        private int FirstAliveSummonIndex() => NextAliveSummonIndex(0);
+
+        private int NextAliveSummonIndex(int from)
         {
-            for (int s = 0; s < _summons.Count; s++)
+            for (int s = from; s < _summons.Count; s++)
                 if (_summons[s].Alive) return s;
             return -1;
         }

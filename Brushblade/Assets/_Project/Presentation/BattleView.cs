@@ -1507,11 +1507,21 @@ namespace Brushblade.Presentation
             _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def);
         }
 
-        private void ExecuteCast(string charId, int target)
+        private void ExecuteCast(string charId, int target, bool replaceSummon = false)
         {
             bool hasFrom = TryGetTilePos(charId, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var error = Battle.Cast(charId, target);
+            var error = Battle.Cast(charId, target, replaceSummon);
+            if (error == BattleError.SummonCapFull) // 前排满员强阻断:AP/字都没动,确认替换才重出
+            {
+                ShowModal("前排已满",
+                    $"召唤物已达上限 {Battle.SummonCapacity}/{Battle.SummonCapacity}。\n替换会顶掉最前的一只。",
+                    ("替换最前一只", () => ExecuteCast(charId, target, replaceSummon: true), Theme.Cinnabar, Color.white),
+                    ("取消", null, Theme.LockedBg, Theme.TextMain));
+                _message = "前排已满,出字待确认";
+                CancelSelection();
+                return;
+            }
             if (error == BattleError.None)
                 _tutorial?.Notify(TutorialAction.Cast, charId);
             else
@@ -1520,6 +1530,7 @@ namespace Brushblade.Presentation
             AppendBossPhaseMessage();
             var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
+            if (error == BattleError.None) DropReplacedSummonSnapshots(); // 被顶替的槽位:改画新召唤物,别停在旧血量
             if (error == BattleError.None) BeginAnim(); // 锁输入 + 血条改画出手前值,须在重绘前置位
             CancelSelection();
             if (error == BattleError.None)
@@ -1534,6 +1545,15 @@ namespace Brushblade.Presentation
                     PlayAnimated(events, deaths); // 无伤害目标(纯护盾等)或起点缺失:即时表现
                 MaybeAutoEndTurn();
             }
+        }
+
+        /// <summary>召唤替换(Summon 事件带被顶替槽位):抹掉该槽的出手前血量快照,
+        /// 让动画期间就画新召唤物的满血,不残留旧值(旧值配新上限会显示成半血)。</summary>
+        private void DropReplacedSummonSnapshots()
+        {
+            foreach (var e in Battle.LastEvents)
+                if (e.Kind == BattleEventKind.Summon && e.SecondIndex >= 0)
+                    _summonAnimHp.Remove(e.SecondIndex);
         }
 
         /// <summary>出字动效终点:第一个受击/受灼敌人格;没有则 null。</summary>

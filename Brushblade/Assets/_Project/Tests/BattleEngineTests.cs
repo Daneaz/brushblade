@@ -581,12 +581,85 @@ namespace Brushblade.Core.Tests
             var engine = IdentityEngine(new[] { "林", "林", "林" },
                 new[] { new EnemyDef("怔", Element.Heart, 100, 0) });
             engine.Cast("林");
-            engine.Cast("林");
-            engine.Cast("林"); // 第三张只补到上限
+            engine.Cast("林"); // 已满 4
             int alive = 0;
             foreach (var summon in engine.Summons)
                 if (summon.Alive) alive++;
             Assert.That(alive, Is.EqualTo(4));
+        }
+
+        // ---- 前排满员强阻断(2026-07-25):不吃 AP/不消耗字,由 UI 弹窗确认后走替换 ----
+
+        /// <summary>可区分的召唤源:甲召 1 只「A」10 血,乙召 1 只「B」20 血,丙召 2 只「C」。</summary>
+        private static BattleEngine ReplaceEngine(string[] library) => new(
+            new RecipeGraph(new[]
+            {
+                new CharDef("甲", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "A") }),
+                new CharDef("乙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 20, summonCount: 1, summonAttack: 0, summonChar: "B") }),
+                new CharDef("丙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 2, summonAttack: 0, summonChar: "C") }),
+            }),
+            new BattleConfig { PlayerMaxHp = 50, ApPerTurn = 9, LibraryCapacity = 9 },
+            library, Array.Empty<string>(),
+            new[] { new EnemyDef("怔", Element.Heart, 100, 0) }, seed: 1);
+
+        [Test]
+        public void Cast_SummonAtCap_IsBlocked_KeepsApAndChar()
+        {
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "乙" });
+            for (int i = 0; i < 4; i++) engine.Cast("甲");
+            int apBefore = engine.Ap;
+
+            Assert.That(engine.Cast("乙"), Is.EqualTo(BattleError.SummonCapFull));
+            Assert.That(engine.Ap, Is.EqualTo(apBefore));   // 强阻断:AP 不吃
+            Assert.That(engine.Library, Contains.Item("乙")); // 字不消耗
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Cast_SummonAtCap_ReplaceMode_ReplacesFirstSlot()
+        {
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "乙" });
+            for (int i = 0; i < 4; i++) engine.Cast("甲");
+
+            Assert.That(engine.Cast("乙", replaceSummon: true), Is.EqualTo(BattleError.None));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(4)); // 不超编
+            Assert.That(engine.Summons[0].Char, Is.EqualTo("B"));
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(20));   // 新召唤满血入场
+            Assert.That(engine.Summons[1].Char, Is.EqualTo("A")); // 其余不动
+        }
+
+        [Test]
+        public void Cast_SummonAtCap_ReplaceMode_MultiSummon_AdvancesFromFirst() // 一次召 2:顶掉最前两只,不重复顶自己
+        {
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "丙" });
+            for (int i = 0; i < 4; i++) engine.Cast("甲");
+
+            engine.Cast("丙", replaceSummon: true);
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
+            Assert.That(engine.Summons[0].Char, Is.EqualTo("C"));
+            Assert.That(engine.Summons[1].Char, Is.EqualTo("C"));
+            Assert.That(engine.Summons[2].Char, Is.EqualTo("A"));
+        }
+
+        [Test]
+        public void Cast_SummonBelowCap_NotBlocked_PartialFillStillCaps() // 未满不拦:3/4 时召 2 只只进 1
+        {
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "丙" });
+            for (int i = 0; i < 3; i++) engine.Cast("甲");
+
+            Assert.That(engine.Cast("丙"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.SummonCapReached), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Cast_NonSummonChar_NeverBlockedByCap() // 满员只拦召唤字,伤害/护盾字照出
+        {
+            var engine = IdentityEngine(new[] { "林", "林", "沐" },
+                new[] { new EnemyDef("怔", Element.Heart, 100, 0) }, startingHp: 30);
+            engine.Cast("林");
+            engine.Cast("林"); // 满 4
+            Assert.That(engine.Cast("沐"), Is.EqualTo(BattleError.None));
         }
 
         private static BattleEngine TankEngine(EnemyDef enemy)
