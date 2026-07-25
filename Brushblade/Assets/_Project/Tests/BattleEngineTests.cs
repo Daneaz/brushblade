@@ -551,6 +551,31 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SummonHit_CarriesTargetSummonIndex() // 承伤者下标随坦克前移:0 号阵亡后打 1 号(动效定位用)
+        {
+            var engine = IdentityEngine(new[] { "林" },
+                new[] { new EnemyDef("怔", Element.Heart, 100, 8) });
+            engine.Cast("林");  // 召 2 棵树(各 6 血)
+            engine.EndTurn();   // 敌攻 8 → 0 号树阵亡
+            Assert.That(engine.LastEvents.Single(e => e.Kind == BattleEventKind.SummonHit).SecondIndex, Is.EqualTo(0));
+            engine.EndTurn();   // 顶前排前移到 1 号树承伤
+            Assert.That(engine.LastEvents.Single(e => e.Kind == BattleEventKind.SummonHit).SecondIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SummonAttack_CarriesSourceSummonIndex() // 发起者下标:飞牌起点定位用
+        {
+            var engine = IdentityEngine(new[] { "林" },
+                new[] { new EnemyDef("怔", Element.Heart, 100, 0) });
+            engine.Cast("林"); // 召 2 棵树
+            engine.EndTurn();  // 两棵树各反击一次
+            var attacks = engine.LastEvents.Where(e => e.Kind == BattleEventKind.SummonAttack).ToList();
+            Assert.That(attacks.Count, Is.EqualTo(2));
+            Assert.That(attacks[0].SecondIndex, Is.EqualTo(0));
+            Assert.That(attacks[1].SecondIndex, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Summon_CapsAtFourAlive()
         {
             var engine = IdentityEngine(new[] { "林", "林", "林" },

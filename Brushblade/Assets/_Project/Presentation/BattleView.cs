@@ -14,22 +14,19 @@ namespace Brushblade.Presentation
         private System.Action<bool> _onRunEnded;
         private Juice _juice;
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
-        private readonly System.Collections.Generic.List<RectTransform> _summonRects = new(); // 存活召唤物本体(反击飞牌起点)
+        // 召唤物本体/血条按 _summons 下标索引(事件带 SecondIndex 定位承伤/发起者;死后仍在动画期可见)
+        private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonRectByCore = new();
+        private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonBarByCore = new();
+        private readonly System.Collections.Generic.Dictionary<int, int> _summonAnimHp = new(); // 出手前血(下标→值);SummonHit 触达按承伤者下标逐记降
         private readonly System.Collections.Generic.HashSet<int> _dyingEnemies = new(); // 死亡动画进行中的怪:重绘时维持着色,置灰交给死亡节拍(2026-07-25)
         private int _animsInFlight; // 在播的打击动画数;>0 = 锁输入 + 血条画在出手前值(2026-07-25),归零才放行重绘
         private bool Animating => _animsInFlight > 0;
 
         // 出手前血量:动画期间血条画在此值,每记命中钳向终值(触达才掉血,2026-07-25)。
-        // 玩家(单一)与敌人(全绘不跳过、事件带下标)做逐记掉血;召唤物血条保持当前值(命中反馈已足)。
         private int _animPlayerHp;
-        private int _animTankHp; // 顶前排召唤(首个存活)出手前血:SummonHit 触达才逐记降(其余召唤不单独降)
-        // 出手前存活的召唤物(按引用):动画期间照常画出,本回合被打死的也可见(挨打后我方回合开始才清理)
-        private readonly System.Collections.Generic.HashSet<Brushblade.Core.SummonState> _preAliveSummons = new();
-        private Brushblade.Core.SummonState _tankSummon; // 顶前排承伤者(画序第 0 个召唤)
         private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
         // 血条 fill/label 引用:命中回调据此就地推进,不整屏重绘(重绘会毁掉进行中动画的锚点)
         private (RectTransform fill, UnityEngine.UI.Text label) _playerHpBar;
-        private (RectTransform fill, UnityEngine.UI.Text label) _tankHpBar;
         private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyHpBars = new();
 
         private BattleEngine Battle => _run.Battle;
@@ -99,7 +96,7 @@ namespace Brushblade.Presentation
         }
 
         private RectTransform EnemyAnchor(int i) => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null;
-        private RectTransform SummonAnchor(int k) => k >= 0 && k < _summonRects.Count ? _summonRects[k] : null;
+        private RectTransform SummonAnchor(int coreIndex) => _summonRectByCore.TryGetValue(coreIndex, out var r) ? r : null;
 
         /// <summary>本次结算里死亡的怪(下标取自 LastEvents 的 EnemyDied)。</summary>
         private System.Collections.Generic.List<int> DeathsThisAction()
@@ -133,20 +130,11 @@ namespace Brushblade.Presentation
         private void SnapshotPreHp()
         {
             _animPlayerHp = Battle.PlayerHp;
-            _animTankHp = FirstAliveSummon()?.Hp ?? 0;
-            _preAliveSummons.Clear();
-            foreach (var s in Battle.Summons)
-                if (s.Alive) _preAliveSummons.Add(s); // 本回合被打死的仍画得出(挨打可见),他回合的旧尸不画
+            _summonAnimHp.Clear();
+            for (int i = 0; i < Battle.Summons.Count; i++)
+                if (Battle.Summons[i].Alive) _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
             _animEnemyHp.Clear();
             foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
-        }
-
-        /// <summary>顶前排召唤(首个存活);无则 null。SummonHit 承伤者与画序第 0 个召唤同源。</summary>
-        private Brushblade.Core.SummonState FirstAliveSummon()
-        {
-            foreach (var s in Battle.Summons)
-                if (s.Alive) return s;
-            return null;
         }
 
         /// <summary>一记命中触达:把对应血条从出手前值推向终值,钳到终值(治护盾双扣/回弹)。</summary>
@@ -168,10 +156,12 @@ namespace Brushblade.Presentation
                     _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - e.Amount);
                     SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
                     break;
-                case BattleEventKind.SummonHit: // 敌人打召唤:顶前排承伤者(画序第 0 个)血条逐记降,钳到其终值(死了钳到 0)
-                    if (_tankHpBar.fill == null || _tankSummon == null) break;
-                    _animTankHp = System.Math.Max(_tankSummon.Hp, _animTankHp - e.Amount);
-                    SetHpBar(_tankHpBar, _animTankHp, _tankSummon.MaxHp);
+                case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
+                    int si = e.SecondIndex;
+                    if (si < 0 || si >= Battle.Summons.Count || !_summonAnimHp.ContainsKey(si)
+                        || !_summonBarByCore.TryGetValue(si, out var sbar) || sbar.fill == null) break;
+                    _summonAnimHp[si] = System.Math.Max(Battle.Summons[si].Hp, _summonAnimHp[si] - e.Amount);
+                    SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     break;
             }
         }
@@ -455,26 +445,22 @@ namespace Brushblade.Presentation
         /// 形成三排对立(2026-07-20 拍板);无召唤物时该排留空,布局不跳动。</summary>
         private void DrawSummons()
         {
-            _summonRects.Clear(); // 与画出的召唤物同序,反击飞牌逐记按序号取起点
-            _tankHpBar = default;
-            _tankSummon = null;
-            int index = 0;
-            foreach (var summon in Battle.Summons)
+            _summonRectByCore.Clear();
+            _summonBarByCore.Clear();
+            for (int i = 0; i < Battle.Summons.Count; i++)
             {
-                index++;
+                var summon = Battle.Summons[i];
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
-                if (!summon.Alive && !(Animating && _preAliveSummons.Contains(summon))) continue;
-                bool isTank = _summonRects.Count == 0; // 画序第 0 个 = 顶前排承伤者
-                var cell = Ui.VStack(_summonRow, $"Summon{index}", 1);
+                if (!summon.Alive && !(Animating && _summonAnimHp.ContainsKey(i))) continue;
+                var cell = Ui.VStack(_summonRow, $"Summon{i}", 1);
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, null,
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     23, new Vector2(50, 50), 12);
-                _summonRects.Add((RectTransform)glyph.transform);
-                // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。坦克动画期间画出手前值,SummonHit 触达才降
-                int shownHp = isTank && Animating ? _animTankHp : summon.Hp;
-                var bar = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
-                if (isTank) { _tankHpBar = bar; _tankSummon = summon; }
+                _summonRectByCore[i] = (RectTransform)glyph.transform;
+                // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。动画期间画出手前值,SummonHit 触达才降
+                int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
+                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
                 Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
             }
         }

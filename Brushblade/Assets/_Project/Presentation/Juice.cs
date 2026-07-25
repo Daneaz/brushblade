@@ -59,15 +59,17 @@ namespace Brushblade.Presentation
             var preRest = new List<BattleEvent>();
             while (i < events.Count && events[i].Kind != BattleEventKind.SummonAttack)
                 preRest.Add(events[i++]);
-            var strikes = new List<(int target, List<BattleEvent> effects)>();
+            var strikes = new List<(int target, int source, List<BattleEvent> effects)>();
             while (i < events.Count && events[i].Kind == BattleEventKind.SummonAttack)
             {
-                int target = events[i++].TargetIndex;
+                int target = events[i].TargetIndex;   // 受击敌人(飞牌终点)
+                int source = events[i].SecondIndex;   // 发起召唤物(飞牌起点)
+                i++;
                 var effects = new List<BattleEvent>();
                 while (i < events.Count && (events[i].Kind == BattleEventKind.Damage
                     || events[i].Kind == BattleEventKind.EnemyDied))
                     effects.Add(events[i++]);
-                strikes.Add((target, effects));
+                strikes.Add((target, source, effects));
             }
             var postRest = new List<BattleEvent>();
             while (i < events.Count)
@@ -80,7 +82,7 @@ namespace Brushblade.Presentation
                 yield return new WaitForSecondsRealtime(PhaseGap);
             for (int k = 0; k < strikes.Count; k++)                                    // ② 召唤物逐个行动+结算
             {
-                var from = summonAnchor?.Invoke(k);
+                var from = summonAnchor?.Invoke(strikes[k].source);
                 var toRect = enemyAnchor(strikes[k].target);
                 if (from != null && toRect != null)
                 {
@@ -144,9 +146,9 @@ namespace Brushblade.Presentation
                         _audio.PlayOneShot(_killClip, 0.9f); // 下行收束音
                         ScreenFlash(0.16f, Color.white);     // 致命全屏微闪
                         break;
-                    case BattleEventKind.SummonHit: // 敌人打召唤物:攻击者下扑 + 飘伤害 + 召唤物受击反应(TargetIndex=攻击者)
+                    case BattleEventKind.SummonHit: // 敌人打召唤物:攻击者(TargetIndex)下扑 + 飘伤害在承伤召唤(SecondIndex)身上
                         if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
-                        var tank = summonAnchor?.Invoke(0); // 顶前排=首个召唤
+                        var tank = summonAnchor?.Invoke(e.SecondIndex); // 承伤者(坦克死后前移到下一个)
                         Lunge(enemyAnchor(e.TargetIndex));
                         Popup($"-{e.Amount}", Theme.Cinnabar, tank);
                         HitReact(tank);

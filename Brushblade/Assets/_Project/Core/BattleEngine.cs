@@ -63,12 +63,14 @@ namespace Brushblade.Core
         public BattleEventKind Kind { get; }
         public int TargetIndex { get; }  // 敌人下标;玩家侧为 −1
         public int Amount { get; }
+        public int SecondIndex { get; }  // 关联召唤物下标(SummonAttack=发起者 / SummonHit=承伤者;其余 −1)
 
-        public BattleEvent(BattleEventKind kind, int targetIndex, int amount)
+        public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1)
         {
             Kind = kind;
             TargetIndex = targetIndex;
             Amount = amount;
+            SecondIndex = secondIndex;
         }
     }
 
@@ -309,14 +311,15 @@ namespace Brushblade.Core
             if (Phase != BattlePhase.PlayerTurn) return;
 
             // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克
-            foreach (var summon in _summons)
+            for (int s = 0; s < _summons.Count; s++)
             {
+                var summon = _summons[s];
                 if (!summon.Alive) continue;
                 int target = -1;
                 for (int i = 0; i < _enemies.Count; i++)
                     if (_enemies[i].Alive) { target = i; break; }
                 if (target < 0) break;
-                _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack));
+                _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, s)); // 发起者下标 s
                 DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
             }
             CheckWin();
@@ -346,13 +349,14 @@ namespace Brushblade.Core
                     continue; // 已用加攻代替出手;独自在场时照常攻击
 
                 int damage = enemy.Attack;
-                var tank = FirstAliveSummon(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
-                if (tank != null)
+                int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
+                if (tankIdx >= 0)
                 {
+                    var tank = _summons[tankIdx];
                     // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
                     int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), enemy.Element, tank.Element);
                     tank.Hp = Math.Max(0, tank.Hp - taken);
-                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, i, taken));
+                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, i, taken, tankIdx)); // 承伤者下标
                 }
                 else
                 {
@@ -491,11 +495,11 @@ namespace Brushblade.Core
             return alive;
         }
 
-        private SummonState FirstAliveSummon()
+        private int FirstAliveSummonIndex()
         {
-            foreach (var summon in _summons)
-                if (summon.Alive) return summon;
-            return null;
+            for (int s = 0; s < _summons.Count; s++)
+                if (_summons[s].Alive) return s;
+            return -1;
         }
 
         /// <summary>条件基础值:灼类效果对带灼烧目标翻倍(10.3.1),再进生克结算。</summary>
