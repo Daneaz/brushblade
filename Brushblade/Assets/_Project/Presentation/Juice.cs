@@ -92,6 +92,8 @@ namespace Brushblade.Presentation
             if (strikes.Count > 0 && postRest.Count > 0)
                 yield return new WaitForSecondsRealtime(PhaseGap);
             yield return ApplyBatch(postRest, enemyAnchor, summonAnchor, onImpact);     // ③ 敌人逐记反击
+            if (postRest.Count > 0)
+                yield return new WaitForSecondsRealtime(PhaseGap); // 敌方行动收尾多停一拍:看清末记掉血(如召唤物被打死 HP 归 0)再回合
 
             yield return new WaitForSecondsRealtime(TailGap);
             onComplete?.Invoke();                                                       // ④ 关卡胜利标语(外层)
