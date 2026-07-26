@@ -11,7 +11,7 @@ namespace Brushblade.Core
         Split,  // 叠字怪:首次受击存活后分裂成两个半血(场上敌人 <4 时)
         Buff,   // 标点小妖:有同伴时每回合给其他存活字怪攻击 +Attack(本场累计不回滚,
                 // 优先级目标);场上只剩自己时改为亲自攻击(2026-07-22)
-        Disguise, // 通假字:伪装成 DisguiseElement,首次行动后现形(信息隐藏)
+        Disguise, // 通假字:真身与伪装每次遭遇现摇(必不相同),首次行动后现形(信息隐藏)
         Obscure,  // 生僻字:属性隐藏("?"),受击两次后被"读懂"
         Scorch,   // 焦痕:每次被击中且存活,攻 +2(越磨越烫,宜速杀)
     }
@@ -46,15 +46,12 @@ namespace Brushblade.Core
         public EnemyAbility Ability { get; }
         public IReadOnlyList<BossPhaseDef> Phases { get; }
 
-        /// <summary>通假字的伪装属性(Ability == Disguise 时有效)。</summary>
-        public Element DisguiseElement { get; }
-
         /// <summary>承伤系数(&lt;1 即减伤;小怪级如墨渍。Boss 走阶段级 BossPhaseDef.DamageTaken)。</summary>
         public float DamageTaken { get; }
 
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
-            Element disguiseElement = Element.Heart, float damageTaken = 1f)
+            float damageTaken = 1f)
         {
             Id = id;
             Element = element;
@@ -62,7 +59,6 @@ namespace Brushblade.Core
             Attack = attack;
             Ability = ability;
             Phases = phases ?? System.Array.Empty<BossPhaseDef>();
-            DisguiseElement = disguiseElement;
             DamageTaken = damageTaken;
         }
     }
@@ -112,6 +108,10 @@ namespace Brushblade.Core
         /// <summary>血量阈值(降序):Hp ≤ [i] 即进入阶段 i+1。阶段血量占比为基准,±浮动。</summary>
         internal int[] PhaseBounds { get; private set; } = Array.Empty<int>();
 
+        /// <summary>参与生克的五行(不含「心」);通假字的真身/伪装都从这里摇。</summary>
+        private static readonly Element[] Wuxing =
+            { Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water };
+
         internal EnemyState(EnemyDef def) : this(def, 0, null) { }
 
         internal EnemyState(EnemyDef def, int phaseJitterPercent, GameRandom random)
@@ -133,12 +133,19 @@ namespace Brushblade.Core
                 Element = def.Element;
                 Attack = def.Attack;
                 DamageTaken = def.DamageTaken; // 小怪级承伤减免(墨渍)
-                ApparentElement = def.Ability switch
+                if (def.Ability == EnemyAbility.Disguise && random != null)
                 {
-                    EnemyAbility.Disguise => def.DisguiseElement, // 伪装
-                    EnemyAbility.Obscure => null,                 // 隐藏
-                    _ => def.Element,
-                };
+                    // 通假字(2026-07-26):真身与伪装每次遭遇都现摇,配置里的 element 对它不作数。
+                    // 两者必不相同(撞车了伪装就没意义),且都不取「心」(心不参与生克,骗不到人)
+                    Element = Wuxing[random.Next(Wuxing.Length)];
+                    int fake = random.Next(Wuxing.Length - 1);
+                    if (fake >= Array.IndexOf(Wuxing, Element)) fake++; // 跳过真身那一格:均匀且必不撞车
+                    ApparentElement = Wuxing[fake];
+                }
+                else
+                {
+                    ApparentElement = def.Ability == EnemyAbility.Obscure ? null : def.Element; // 生僻字:属性隐藏
+                }
             }
         }
 

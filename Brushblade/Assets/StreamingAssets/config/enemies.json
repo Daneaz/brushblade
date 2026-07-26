@@ -38,8 +38,7 @@
       "element": "Wood",
       "maxHp": 14,
       "attack": 4,
-      "ability": "Disguise",
-      "disguiseElement": "Metal"
+      "ability": "Disguise"
     },
     {
       "id": "生僻字",

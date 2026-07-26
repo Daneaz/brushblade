@@ -14,40 +14,75 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
         });
 
-        // 真身木,伪装成金(骗玩家用火打:期待 ×1.5 实得 ×1.0)
-        private static EnemyDef TongJia() => new("通假字", Element.Wood, 20, 3,
-            EnemyAbility.Disguise, disguiseElement: Element.Metal);
+        // 真身与伪装每次遭遇都随机(2026-07-26);配置里的 element 对通假字不作数
+        private static EnemyDef TongJia() => new("通假字", Element.Wood, 20, 3, EnemyAbility.Disguise);
 
         private static EnemyDef ShengPi() => new("生僻字", Element.Earth, 24, 2, EnemyAbility.Obscure);
 
-        private static BattleEngine Engine(EnemyDef enemy) =>
+        private static BattleEngine Engine(EnemyDef enemy, int seed = 1) =>
             new(Graph(), new BattleConfig(), Array.Empty<string>(),
-                new[] { "火", "火", "火" }, new[] { enemy }, seed: 1);
+                new[] { "火", "火", "火" }, new[] { enemy }, seed);
+
+        private static readonly Element[] FiveElements =
+            { Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water };
 
         // ---- 通假字 ----
 
         [Test]
-        public void Disguise_ShowsFakeElement_Initially()
+        public void Disguise_FakeDiffersFromTrue_BothInFiveElements()
         {
-            var enemy = Engine(TongJia()).Enemies[0];
-            Assert.That(enemy.ApparentElement, Is.EqualTo(Element.Metal)); // 看起来是金
-            Assert.That(enemy.Element, Is.EqualTo(Element.Wood));          // 真身是木
+            for (int seed = 0; seed < 40; seed++) // 遍历种子:任何一次都不能露馅或滚出「心」
+            {
+                var enemy = Engine(TongJia(), seed).Enemies[0];
+                Assert.That(enemy.ApparentElement, Is.Not.EqualTo(enemy.Element),
+                    $"seed {seed}:伪装与真身撞车,伪装就失去意义");
+                Assert.That(FiveElements, Has.Member(enemy.Element));
+                Assert.That(FiveElements, Has.Member(enemy.ApparentElement.Value)); // 心不参与生克,不可当真身/伪装
+            }
+        }
+
+        [Test]
+        public void Disguise_TrueElementVariesAcrossSeeds() // 真身不能是伪随机的常数
+        {
+            var seen = new System.Collections.Generic.HashSet<Element>();
+            for (int seed = 0; seed < 40; seed++) seen.Add(Engine(TongJia(), seed).Enemies[0].Element);
+            Assert.That(seen.Count, Is.GreaterThan(1));
+        }
+
+        [Test]
+        public void Disguise_FakeElementVariesAcrossSeeds()
+        {
+            var seen = new System.Collections.Generic.HashSet<Element?>();
+            for (int seed = 0; seed < 40; seed++) seen.Add(Engine(TongJia(), seed).Enemies[0].ApparentElement);
+            Assert.That(seen.Count, Is.GreaterThan(1));
+        }
+
+        [Test]
+        public void Disguise_SameSeedIsReproducible() // 带种子的 RNG:同种子同结果
+        {
+            var a = Engine(TongJia(), 7).Enemies[0];
+            var b = Engine(TongJia(), 7).Enemies[0];
+            Assert.That(a.Element, Is.EqualTo(b.Element));
+            Assert.That(a.ApparentElement, Is.EqualTo(b.ApparentElement));
         }
 
         [Test]
         public void Disguise_DamageUsesTrueElement()
         {
             var engine = Engine(TongJia());
-            engine.Cast("火", 0); // 火 vs 真木 = 1.0 → 10(若按伪装的金算会是 15)
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(20 - 10));
+            var enemy = engine.Enemies[0];
+            int expected = (int)System.Math.Floor(10 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
+            engine.Cast("火", 0); // 走真身结算,不看伪装
+            Assert.That(enemy.Hp, Is.EqualTo(20 - expected));
         }
 
         [Test]
         public void Disguise_RevealsAfterFirstAction()
         {
             var engine = Engine(TongJia());
+            var trueElement = engine.Enemies[0].Element;
             engine.EndTurn(); // 它行动了 → 现形
-            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(Element.Wood));
+            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(trueElement));
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyRevealed), Is.True);
         }
 
@@ -110,34 +145,19 @@ namespace Brushblade.Core.Tests
         // ---- 配置解析 ----
 
         [Test]
-        public void LoadCampaign_ParsesDisguiseElement()
+        public void LoadCampaign_DisguiseNeedsNoElement() // 属性改为运行时随机,配置不再需要 disguiseElement
         {
             var graph = Brushblade.Data.ConfigLoader.LoadGraph(@"{ ""chars"": [ { ""id"": ""灯"" } ] }");
             var campaign = Brushblade.Data.ConfigLoader.LoadCampaign(@"{
                 ""enemies"": [
-                    { ""id"": ""通假字"", ""element"": ""Wood"", ""maxHp"": 20, ""attack"": 3,
-                      ""ability"": ""Disguise"", ""disguiseElement"": ""Metal"" }
+                    { ""id"": ""通假字"", ""element"": ""Wood"", ""maxHp"": 20, ""attack"": 3, ""ability"": ""Disguise"" }
                 ],
                 ""dropTable"": [],
                 ""chapters"": [ { ""name"": ""词渊"",
                     ""stages"": [ { ""encounters"": [ [ ""通假字"" ] ] } ], ""rewardPool"": [] } ]
             }", graph);
             var enemy = campaign.Chapters[0].Stages[0].Encounters[0][0];
-            Assert.That(enemy.DisguiseElement, Is.EqualTo(Element.Metal));
-        }
-
-        [Test]
-        public void LoadCampaign_DisguiseWithoutElement_Throws()
-        {
-            var graph = Brushblade.Data.ConfigLoader.LoadGraph(@"{ ""chars"": [ { ""id"": ""灯"" } ] }");
-            Assert.Throws<Brushblade.Data.ConfigException>(() => Brushblade.Data.ConfigLoader.LoadCampaign(@"{
-                ""enemies"": [
-                    { ""id"": ""通假字"", ""element"": ""Wood"", ""maxHp"": 20, ""attack"": 3, ""ability"": ""Disguise"" }
-                ],
-                ""dropTable"": [],
-                ""chapters"": [ { ""name"": ""x"",
-                    ""stages"": [ { ""encounters"": [] } ], ""rewardPool"": [] } ]
-            }", graph));
+            Assert.That(enemy.Ability, Is.EqualTo(EnemyAbility.Disguise));
         }
     }
 }

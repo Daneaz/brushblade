@@ -43,7 +43,7 @@ namespace Brushblade.Presentation
             EnemyAbility.Split => "叠字:首次受击存活则分裂成两个半血(场上不足 4 只时)",
             EnemyAbility.Buff => $"标点:有同伴时每回合给其他怪攻 +{def.Attack}(本场累计不回滚);"
                 + "落单则亲自出手——优先击杀目标",
-            EnemyAbility.Disguise => $"通假:伪装成{CharInfo.ElementName(def.DisguiseElement)}系,首次行动后现形",
+            EnemyAbility.Disguise => "通假:属性是假的,首次行动后才露真身",
             EnemyAbility.Obscure => "生僻:属性隐藏,受击两次后被「读懂」现形",
             EnemyAbility.Scorch => "自燃:每次受击存活,攻 +2(越磨越烫,宜速杀)",
             _ => "无特殊能力",
