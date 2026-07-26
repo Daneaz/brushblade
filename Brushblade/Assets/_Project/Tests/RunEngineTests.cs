@@ -14,7 +14,7 @@ namespace Brushblade.Core.Tests
             new CharDef("火", Element.Fire,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
             new CharDef("林", Element.Wood, new[] { "木", "木" }),
-            new CharDef("焚", Element.Fire, new[] { "林", "火" }, apCost: 2,
+            new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
                 effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
             new CharDef("灯", Element.Fire, new[] { "火", "丁" },
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 6), new EffectDef(EffectKind.BurnSingle, 1) }),
@@ -324,7 +324,7 @@ namespace Brushblade.Core.Tests
             {
                 new("木", Element.Wood),
                 new("火", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
-                new("焚", Element.Fire, new[] { "木", "火" }, apCost: 2,
+                new("焚", Element.Fire, new[] { "木", "火" }, rarity: CardRarity.Purple,
                     effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
             };
             foreach (var (prefix, rarity) in new[]

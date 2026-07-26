@@ -157,7 +157,7 @@ namespace Brushblade.Core.Tests
                 new CharDef("木", Element.Wood),
                 new CharDef("火", Element.Fire),
                 new CharDef("林", Element.Wood, new[] { "木", "木" }),
-                new CharDef("焚", Element.Fire, new[] { "林", "火" }, apCost: 2,
+                new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
                     effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
             });
             var engine = new BattleEngine(graph, new BattleConfig(),

@@ -26,7 +26,7 @@ namespace Brushblade.Core
         /// <summary>配方原料(可为部件或更低阶的字);部件为空数组。</summary>
         public IReadOnlyList<string> Recipe { get; }
 
-        /// <summary>出字消耗 AP:基础 1,高阶 2(第 3 章 3.3)。</summary>
+        /// <summary>出字消耗 AP:由稀有度唯一决定,见 <see cref="ApCostFor"/>(第 3 章 3.3 / 10.1)。</summary>
         public int ApCost { get; }
 
         /// <summary>稀有度(19.3.1,缺省白)。</summary>
@@ -47,14 +47,23 @@ namespace Brushblade.Core
 
         public bool IsLeaf => Recipe.Count == 0;
 
+        /// <summary>出字 AP = 稀有度的函数(2026-07-26 拍板):白/绿/蓝 1,紫/橙 2,红 3。
+        /// 唯一来源在此 —— 配置表不再逐字写 apCost,免得两处真相打架。</summary>
+        public static int ApCostFor(CardRarity rarity) => rarity switch
+        {
+            CardRarity.Purple or CardRarity.Orange => 2,
+            CardRarity.Red => 3,
+            _ => 1, // 白/绿/蓝
+        };
+
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
-            int apCost = 1, IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
+            IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
             string pinyin = null, string gloss = null, IReadOnlyList<EffectDef> attackEffects = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Element = element;
             Recipe = recipe ?? Array.Empty<string>();
-            ApCost = apCost;
+            ApCost = ApCostFor(rarity);
             Effects = effects ?? Array.Empty<EffectDef>();
             AttackEffects = attackEffects ?? Array.Empty<EffectDef>();
             Rarity = rarity;

@@ -91,7 +91,6 @@
         "鍂",
         "金"
       ],
-      "apCost": 1,
       "effects": [
         {
           "kind": "DamageSingle",
@@ -109,7 +108,6 @@
         "鑫",
         "金"
       ],
-      "apCost": 2,
       "effects": [
         {
           "kind": "DamageSingle",
@@ -147,7 +145,6 @@
         "林",
         "木"
       ],
-      "apCost": 1,
       "effects": [
         {
           "kind": "Summon",
@@ -168,7 +165,6 @@
         "森",
         "木"
       ],
-      "apCost": 2,
       "effects": [
         {
           "kind": "Summon",
@@ -206,7 +202,6 @@
         "沝",
         "水"
       ],
-      "apCost": 1,
       "effects": [
         {
           "kind": "HealSelf",
@@ -228,7 +223,6 @@
         "淼",
         "水"
       ],
-      "apCost": 2,
       "effects": [
         {
           "kind": "HealSelf",
@@ -271,7 +265,6 @@
         "炎",
         "火"
       ],
-      "apCost": 1,
       "effects": [
         {
           "kind": "DamageAll",
@@ -293,7 +286,6 @@
         "焱",
         "火"
       ],
-      "apCost": 2,
       "effects": [
         {
           "kind": "DamageAll",
@@ -336,7 +328,6 @@
         "圭",
         "土"
       ],
-      "apCost": 1,
       "effects": [
         {
           "kind": "Shield",
@@ -358,7 +349,6 @@
         "垚",
         "土"
       ],
-      "apCost": 2,
       "effects": [
         {
           "kind": "Shield",

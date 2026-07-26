@@ -23,7 +23,7 @@ namespace Brushblade.Core.Tests
             new CharDef("燃", Element.Fire, new[] { "火", "然" },
                 effects: new[] { new EffectDef(EffectKind.BurnAll, 3) }),
             new CharDef("然", null),
-            new CharDef("焚", Element.Fire, new[] { "林", "火" }, apCost: 2,
+            new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
                 effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
             new CharDef("壁", Element.Earth, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
@@ -33,7 +33,7 @@ namespace Brushblade.Core.Tests
             new CharDef("炽", Element.Fire, new[] { "火", "只" },
                 effects: new[] { new EffectDef(EffectKind.BurnPotency, 1) }),
             new CharDef("只", null),
-            new CharDef("堡", Element.Earth, new[] { "呆", "土" }, apCost: 2,
+            new CharDef("堡", Element.Earth, new[] { "呆", "土" }, rarity: CardRarity.Purple,
                 effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
             new CharDef("呆", null),
         });
@@ -151,6 +151,51 @@ namespace Brushblade.Core.Tests
             var engine = Engine(library: new[] { "焚" });
             engine.Cast("焚");
             Assert.That(engine.Ap, Is.EqualTo(1));
+        }
+
+        // ---- AP 消耗 = 稀有度的函数(2026-07-26 拍板;配置不再逐字写 apCost)----
+
+        [Test]
+        public void ApCost_DerivedFromRarity()
+        {
+            Assert.That(CharDef.ApCostFor(CardRarity.White), Is.EqualTo(1));
+            Assert.That(CharDef.ApCostFor(CardRarity.Green), Is.EqualTo(1));
+            Assert.That(CharDef.ApCostFor(CardRarity.Blue), Is.EqualTo(1));
+            Assert.That(CharDef.ApCostFor(CardRarity.Purple), Is.EqualTo(2));
+            Assert.That(CharDef.ApCostFor(CardRarity.Orange), Is.EqualTo(2));
+            Assert.That(CharDef.ApCostFor(CardRarity.Red), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void CharDef_ApCost_FollowsItsRarity() // 唯一来源:建出来就带对的 AP,无处可写错
+        {
+            Assert.That(new CharDef("甲", Element.Metal).ApCost, Is.EqualTo(1)); // 缺省白
+            Assert.That(new CharDef("乙", Element.Metal, rarity: CardRarity.Blue).ApCost, Is.EqualTo(1));
+            Assert.That(new CharDef("丙", Element.Metal, rarity: CardRarity.Purple).ApCost, Is.EqualTo(2));
+            Assert.That(new CharDef("丁", Element.Metal, rarity: CardRarity.Red).ApCost, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void LoadGraph_ApCostFromRarity_NotFromConfig() // 配置里遗留的 apCost 一律不作数
+        {
+            var graph = Brushblade.Data.ConfigLoader.LoadGraph(@"{ ""chars"": [
+                { ""id"": ""甲"", ""element"": ""Metal"", ""rarity"": ""Purple"", ""apCost"": 1 },
+                { ""id"": ""乙"", ""element"": ""Metal"", ""rarity"": ""Blue"", ""apCost"": 2 },
+                { ""id"": ""丙"", ""element"": ""Metal"" } ] }");
+            Assert.That(graph.Get("甲").ApCost, Is.EqualTo(2)); // 紫 = 2,配置写 1 也没用
+            Assert.That(graph.Get("乙").ApCost, Is.EqualTo(1)); // 蓝 = 1
+            Assert.That(graph.Get("丙").ApCost, Is.EqualTo(1)); // 无稀有度 = 白
+        }
+
+        [Test]
+        public void ShippedChars_ApCostMatchesRarity() // 首发字表:一眼看穿有没有跑偏
+        {
+            foreach (var id in new[] { "火", "炎", "焱", "燚" })
+            {
+                var def = Graph().TryGet(id, out var d) ? d : null;
+                if (def == null) continue;
+                Assert.That(def.ApCost, Is.EqualTo(CharDef.ApCostFor(def.Rarity)), $"「{id}」AP 与稀有度不符");
+            }
         }
 
         [Test]

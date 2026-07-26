@@ -25,7 +25,6 @@ namespace Brushblade.Data
             public string Id { get; set; }
             public string Element { get; set; }
             public List<string> Recipe { get; set; }
-            public int ApCost { get; set; } = 1;
             public List<EffectDto> Effects { get; set; }
             public List<EffectDto> AttackEffects { get; set; } // 拖到敌人身上出手时的替代效果(水/土)
             public string Rarity { get; set; }
@@ -389,7 +388,7 @@ namespace Brushblade.Data
                     throw new ConfigException($"重复的字 id:{dto.Id}");
 
                 defs.Add(new CharDef(dto.Id, ParseElement(dto),
-                    dto.Recipe, dto.ApCost, ParseEffects(dto, dto.Effects), ParseRarity(dto),
+                    dto.Recipe, ParseEffects(dto, dto.Effects), ParseRarity(dto),
                     dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects)));
             }
 

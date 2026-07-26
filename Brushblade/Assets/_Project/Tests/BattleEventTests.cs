@@ -17,7 +17,7 @@ namespace Brushblade.Core.Tests
             new CharDef("林", Element.Wood, new[] { "木", "木" }),
             new CharDef("燃", Element.Fire, new[] { "火", "火" },
                 effects: new[] { new EffectDef(EffectKind.BurnAll, 3) }),
-            new CharDef("焚", Element.Fire, new[] { "林", "火" }, apCost: 2,
+            new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
                 effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
             new CharDef("壁", Element.Earth, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
