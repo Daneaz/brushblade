@@ -9,7 +9,11 @@ namespace Brushblade.Presentation
     {
         private static Font _font;
 
-        /// <summary>CJK 可用的动态字体:默认字体无中文字形,从系统字体加载。</summary>
+        /// <summary>CJK 可用的动态字体:默认字体无中文字形,从系统字体加载。
+        /// ⚠️ TODO(Q22 / R15,上线前必验):系统字体全取不到时会落到 LegacyRuntime.ttf,
+        /// 那里没有 CJK 字形 —— Android 真机上中文会变豆腐块,且 PUA 叠字(四木/四金)任何
+        /// 系统字体都没有。新代码一律用 Theme.TitleFont / Theme.BodyFont(项目子集字体);
+        /// 存量用点(Juice.Popup 的战斗飘字)待迁,详见 docs/design/第18章 R15。</summary>
         public static Font Font
         {
             get
