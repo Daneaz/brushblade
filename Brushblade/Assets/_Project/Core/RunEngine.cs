@@ -75,7 +75,103 @@ namespace Brushblade.Core
             _carriedNormalShield = startingNormalShield;
             _carriedPersistShield = startingPersistShield;
             _perFloorNormalShield = perFloorNormalShield;
+            // 携带态一开始就等于开打时的状态,而不是 null:第一场打完前挂起也有东西可存,
+            // 且省掉一处 null 陷阱(AdvanceAfterBattle 会照常整体覆盖)
+            _carriedLibrary = new List<string>(startingLibrary);
+            _carriedPool = new List<string>(startingPool);
+            _carriedHp = startingHp ?? battleConfig.PlayerMaxHp;
             Battle = NewBattle(startingLibrary, startingPool, startingHp); // 断点续爬恢复血量(20.6)
+        }
+
+        /// <summary>断点存档专用构造:不开第一场,状态由 <see cref="Restore"/> 灌入。</summary>
+        private RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
+            IReadOnlyDictionary<string, int> cardLevels, int startingInk, int perFloorNormalShield,
+            GameRandom random)
+        {
+            _graph = graph;
+            _runConfig = runConfig;
+            _battleConfig = battleConfig;
+            _cardLevels = cardLevels;
+            _startingInk = startingInk;
+            _perFloorNormalShield = perFloorNormalShield;
+            _random = random;
+        }
+
+        /// <summary>战斗内断点存档(2026-07-27):连当前战斗一起摊平。</summary>
+        public RunSnapshot Capture()
+        {
+            var snapshot = new RunSnapshot
+            {
+                Phase = Phase,
+                BattleIndex = BattleIndex,
+                ClearedBattleIndex = ClearedBattleIndex,
+                RandomState = _random.State,
+                CarriedLibrary = new List<string>(_carriedLibrary),
+                CarriedPool = new List<string>(_carriedPool),
+                CarriedHp = _carriedHp,
+                CarriedNormalShield = _carriedNormalShield,
+                CarriedPersistShield = _carriedPersistShield,
+                CharPicksLeft = CharPicksLeft,
+                ComponentPicksLeft = ComponentPicksLeft,
+                RewardOptions = new List<string>(_rewardOptions),
+                ComponentOptions = new List<string>(_componentOptions),
+                CurrentEventId = CurrentEvent?.Id,
+                EarnedInk = EarnedInk,
+                LibraryExpanded = LibraryExpanded,
+                PoolExpanded = PoolExpanded,
+                Revived = Revived,
+                DefeatedEnemyIds = new List<string>(_defeatedEnemyIds),
+                Battle = Battle?.Capture(),
+            };
+            return snapshot;
+        }
+
+        /// <summary>从断点存档复原。runConfig 须由外层用同一颗 Seed 与层深重建
+        /// (层段生成是纯函数,重建结果一致),本方法只负责把可变状态灌回去。</summary>
+        public static RunEngine Restore(RunSnapshot snapshot, RecipeGraph graph, RunConfig runConfig,
+            BattleConfig battleConfig, IReadOnlyDictionary<string, int> cardLevels,
+            int startingInk = 0, int perFloorNormalShield = 0)
+        {
+            var run = new RunEngine(graph, runConfig, battleConfig, cardLevels, startingInk,
+                perFloorNormalShield, GameRandom.FromState(snapshot.RandomState))
+            {
+                Phase = snapshot.Phase,
+                BattleIndex = snapshot.BattleIndex,
+                ClearedBattleIndex = snapshot.ClearedBattleIndex,
+                _carriedLibrary = new List<string>(snapshot.CarriedLibrary),
+                _carriedPool = new List<string>(snapshot.CarriedPool),
+                _carriedHp = snapshot.CarriedHp,
+                _carriedNormalShield = snapshot.CarriedNormalShield,
+                _carriedPersistShield = snapshot.CarriedPersistShield,
+                CharPicksLeft = snapshot.CharPicksLeft,
+                ComponentPicksLeft = snapshot.ComponentPicksLeft,
+                EarnedInk = snapshot.EarnedInk,
+                LibraryExpanded = snapshot.LibraryExpanded,
+                PoolExpanded = snapshot.PoolExpanded,
+                Revived = snapshot.Revived,
+            };
+            run._rewardOptions.AddRange(snapshot.RewardOptions);
+            run._componentOptions.AddRange(snapshot.ComponentOptions);
+            run._defeatedEnemyIds.AddRange(snapshot.DefeatedEnemyIds);
+            // 扩容是构造 BattleConfig 时算进容量的,复原后要补回上限(容量本身不入快照)
+            if (snapshot.LibraryExpanded) battleConfig.LibraryCapacity += ExpandBonus;
+            if (snapshot.PoolExpanded) battleConfig.PoolCapacity += ExpandBonus;
+            foreach (var candidate in runConfig.EventPool)
+                if (candidate.Id == snapshot.CurrentEventId) run.CurrentEvent = candidate;
+            if (snapshot.Battle != null)
+                run.Battle = BattleEngine.Restore(snapshot.Battle, graph, battleConfig, cardLevels,
+                    EnemyDefsOf(runConfig));
+            return run;
+        }
+
+        /// <summary>本段所有遭遇里出现过的字怪定义(id → def),供战斗复原按 id 找回。</summary>
+        private static IReadOnlyDictionary<string, EnemyDef> EnemyDefsOf(RunConfig runConfig)
+        {
+            var map = new Dictionary<string, EnemyDef>();
+            foreach (var encounter in runConfig.Encounters)
+                foreach (var def in encounter)
+                    map[def.Id] = def;
+            return map;
         }
 
         public RunPhase Phase { get; private set; }
@@ -235,12 +331,14 @@ namespace Brushblade.Core
                 BeginNextBattle();
         }
 
+        private const int ExpandBonus = 2; // 广告扩容的容量增量(复原时也要按它补回上限)
+
         /// <summary>局内广告扩容:字库 +2,一局一次,跨场有效(2026-07-06 拍板)。
         /// 无尽塔 = 整次登塔一次:跨段由外层快照恢复,塔结算随快照清除。</summary>
         public bool TryExpandLibrary()
         {
             if (LibraryExpanded) return false;
-            _battleConfig.LibraryCapacity += 2;
+            _battleConfig.LibraryCapacity += ExpandBonus;
             LibraryExpanded = true;
             return true;
         }
@@ -249,7 +347,7 @@ namespace Brushblade.Core
         public bool TryExpandPool()
         {
             if (PoolExpanded) return false;
-            _battleConfig.PoolCapacity += 2;
+            _battleConfig.PoolCapacity += ExpandBonus;
             PoolExpanded = true;
             return true;
         }

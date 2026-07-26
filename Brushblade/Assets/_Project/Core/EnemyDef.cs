@@ -81,6 +81,24 @@ namespace Brushblade.Core
             MaxHp = hp;
             Attack = attack;
         }
+
+        /// <summary>断点存档:MaxHp 与 Hp 会脱钩(挨过打),故分开存。</summary>
+        private SummonState(string summonChar, Element element, int hp, int maxHp, int attack)
+        {
+            Char = summonChar;
+            Element = element;
+            Hp = hp;
+            MaxHp = maxHp;
+            Attack = attack;
+        }
+
+        internal SummonSnapshot Capture() => new()
+        {
+            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+        };
+
+        internal static SummonState Restore(SummonSnapshot s) =>
+            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack);
     }
 
     /// <summary>战斗中的字怪状态。成语 Boss 为一条总血池,按血量阈值切换阶段
@@ -106,13 +124,48 @@ namespace Brushblade.Core
         public bool IsBoss => Def.Phases.Count > 0;
 
         /// <summary>血量阈值(降序):Hp ≤ [i] 即进入阶段 i+1。阶段血量占比为基准,±浮动。</summary>
-        internal int[] PhaseBounds { get; private set; } = Array.Empty<int>();
+        internal int[] PhaseBounds { get; set; } = Array.Empty<int>();
 
         /// <summary>参与生克的五行(不含「心」);通假字的真身/伪装都从这里摇。</summary>
         private static readonly Element[] Wuxing =
             { Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water };
 
         internal EnemyState(EnemyDef def) : this(def, 0, null) { }
+
+        /// <summary>断点存档:摊平成 POCO(2026-07-27)。</summary>
+        internal EnemySnapshot Capture() => new()
+        {
+            DefId = Def.Id,
+            Hp = Hp,
+            MaxHp = MaxHp,
+            Element = Element,
+            ApparentElement = ApparentElement,
+            Burn = Burn,
+            Attack = Attack,
+            DamageTaken = DamageTaken,
+            PhaseIndex = PhaseIndex,
+            PhaseBounds = (int[])PhaseBounds.Clone(),
+            RegrowProgress = RegrowProgress,
+            HasSplit = HasSplit,
+            HitsTaken = HitsTaken,
+        };
+
+        /// <summary>从存档复原:全部字段照抄,不重摇任何随机量(伪装属性、Boss 阈值都是开场摇的)。</summary>
+        internal static EnemyState Restore(EnemySnapshot snapshot, EnemyDef def) => new(def)
+        {
+            Hp = snapshot.Hp,
+            MaxHp = snapshot.MaxHp,
+            Element = snapshot.Element,
+            ApparentElement = snapshot.ApparentElement,
+            Burn = snapshot.Burn,
+            Attack = snapshot.Attack,
+            DamageTaken = snapshot.DamageTaken,
+            PhaseIndex = snapshot.PhaseIndex,
+            PhaseBounds = snapshot.PhaseBounds ?? Array.Empty<int>(),
+            RegrowProgress = snapshot.RegrowProgress,
+            HasSplit = snapshot.HasSplit,
+            HitsTaken = snapshot.HitsTaken,
+        };
 
         internal EnemyState(EnemyDef def, int phaseJitterPercent, GameRandom random)
         {

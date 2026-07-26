@@ -116,6 +116,66 @@ namespace Brushblade.Core
             StartTurn();
         }
 
+        /// <summary>断点存档专用构造:不发牌、不开回合,状态全部由 <see cref="Restore"/> 灌进来。</summary>
+        private BattleEngine(RecipeGraph graph, BattleConfig config,
+            IReadOnlyDictionary<string, int> cardLevels, GameRandom random)
+        {
+            _graph = graph;
+            _config = config;
+            _cardLevels = cardLevels;
+            _random = random;
+            _forge = new ForgeState(new List<string>(), new List<string>());
+        }
+
+        /// <summary>战斗内断点存档(2026-07-27):摊平全部可变状态。
+        /// 配置侧(字表/敌表定义/卡等级)不进快照,复原时由外层照原样传回。</summary>
+        public BattleSnapshot Capture()
+        {
+            var snapshot = new BattleSnapshot
+            {
+                PlayerHp = PlayerHp,
+                Ap = Ap,
+                Turn = Turn,
+                Phase = Phase,
+                ShieldNormal = _shieldNormal,
+                ShieldPersist = _shieldPersist,
+                BurnPerStack = _burnPerStack,
+                RandomState = _random.State,
+                Library = new List<string>(_forge.Library),
+                Pool = new List<string>(_forge.Pool),
+            };
+            foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
+            foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
+            return snapshot;
+        }
+
+        /// <summary>从断点存档复原。enemyDefs:id → 定义(分裂出的克隆与本体共用一个 Def,
+        /// 所以按 id 查而不是按遭遇下标取)。</summary>
+        public static BattleEngine Restore(BattleSnapshot snapshot, RecipeGraph graph, BattleConfig config,
+            IReadOnlyDictionary<string, int> cardLevels, IReadOnlyDictionary<string, EnemyDef> enemyDefs)
+        {
+            var engine = new BattleEngine(graph, config, cardLevels, GameRandom.FromState(snapshot.RandomState))
+            {
+                PlayerHp = snapshot.PlayerHp,
+                Ap = snapshot.Ap,
+                Turn = snapshot.Turn,
+                Phase = snapshot.Phase,
+                _shieldNormal = snapshot.ShieldNormal,
+                _shieldPersist = snapshot.ShieldPersist,
+                _burnPerStack = snapshot.BurnPerStack,
+            };
+            engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
+            foreach (var enemy in snapshot.Enemies)
+            {
+                if (!enemyDefs.TryGetValue(enemy.DefId, out var def))
+                    throw new InvalidOperationException($"存档里的字怪「{enemy.DefId}」不在本层遭遇定义中");
+                engine._enemies.Add(EnemyState.Restore(enemy, def));
+            }
+            foreach (var summon in snapshot.Summons)
+                engine._summons.Add(SummonState.Restore(summon));
+            return engine;
+        }
+
         public BattlePhase Phase { get; private set; }
         public int Turn { get; private set; }
         public int Ap { get; private set; }
