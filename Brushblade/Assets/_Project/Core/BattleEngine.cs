@@ -90,8 +90,8 @@ namespace Brushblade.Core
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
         private int _burnPerStack = 2;      // 灼烧每层结算伤害(10.2;炽 +1,可叠加)
-        private int _shieldNormal;          // 段内持久的普通护盾(段末清,B 改动)
-        private int _shieldPersist;         // 跨段保留的护盾(堡,B 改动)
+        private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
+        private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
 
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,

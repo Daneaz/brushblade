@@ -319,8 +319,9 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
-            // 段末:普通护盾重置为金汤(下一段段首注入;段内每关另补,见 RunEngine),堡型跨段保留
-            snapshot.NormalShield = PerkRules.ShieldBonus(_meta);
+            // 段末护盾照常延续(2026-07-26 拍板:盾叠加本场爬塔通吃,不再 5 关一清),
+            // 与挂起快照同口径;金汤每关另补,见 RunEngine
+            snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned);
