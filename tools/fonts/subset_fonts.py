@@ -11,6 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "Brushblade/Assets/StreamingAssets/config"
 CODE_DIRS = [ROOT / "Brushblade/Assets/_Project"]
+# 测试代码不扫:测试数据里的字(天干、生僻叠字等)玩家永远看不到,
+# 打进字体只是白占体积,还会让「改个测试用例」把字体安全网弄红。
+SKIP_DIRS = {"Tests"}
 OUT_DIR = ROOT / "Brushblade/Assets/_Project/Presentation/Fonts/Resources"
 RAW = Path(__file__).parent / "raw"
 
@@ -49,6 +52,8 @@ def json_chars(path: Path) -> set:
 def code_chars(root: Path) -> set:
     out: set = set()
     for cs in root.rglob("*.cs"):
+        if SKIP_DIRS.intersection(cs.relative_to(root).parts[:-1]):
+            continue
         text = cs.read_text(encoding="utf-8")
         for lit in _STRING_RE.findall(text):
             out.update(lit[1:-1])
