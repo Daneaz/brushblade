@@ -44,7 +44,9 @@ namespace Brushblade.Presentation
             _ghost.sizeDelta = new Vector2(72, 72);
 
             var label = go.AddComponent<Text>();
-            label.font = Ui.Font;
+            // 必须用子集字体:四叠字是 PUA 码位(U+E625/E626),字形由部件 2×2 拼合而来,
+            // 只存在于我们自己生成的子集里 —— 走系统字体会拖出一个空白(与字牌、飞牌同源)
+            label.font = Theme.TitleFont;
             label.fontSize = 44;
             label.fontStyle = FontStyle.Bold;
             label.text = _glyph;
