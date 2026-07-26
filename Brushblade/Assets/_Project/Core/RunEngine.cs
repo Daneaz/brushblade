@@ -80,6 +80,11 @@ namespace Brushblade.Core
 
         public RunPhase Phase { get; private set; }
         public int BattleIndex { get; private set; }
+
+        /// <summary>最近打赢的那一层(段内下标;−1 = 一层未清)。层记账的基准 —— 战利品取完后
+        /// BattleIndex 就跳到下一层了,拿它算「刚打完第几层」会多记一层,断点快照会跳过 Boss 层
+        /// (2026-07-27 修)。走奇遇的层不跳,所以那个 bug 时有时无。</summary>
+        public int ClearedBattleIndex { get; private set; } = -1;
         public BattleEngine Battle { get; private set; }
 
         /// <summary>本段打赢过的敌人 id(图鉴解锁源;外层写进 MetaState)。</summary>
@@ -332,6 +337,8 @@ namespace Brushblade.Core
                 return;
             }
             if (Battle.Phase != BattlePhase.Won) return;
+
+            ClearedBattleIndex = BattleIndex; // 这一层已清:记账基准就地钉住,后续开下一战也不动
 
             // 图鉴解锁(2026-07-22):打赢才记,外层负责同步进 MetaState
             foreach (var enemy in Battle.Enemies)

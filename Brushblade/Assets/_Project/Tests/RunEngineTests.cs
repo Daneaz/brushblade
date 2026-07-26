@@ -61,6 +61,41 @@ namespace Brushblade.Core.Tests
             Assert.That(run.RewardOptions, Is.SubsetOf(new[] { "灯", "焚", "林" }));
         }
 
+        // ---- 层记账基准(2026-07-27):外层靠它算「刚打完第几层」并推进断点快照 ----
+
+        [Test]
+        public void ClearedBattleIndex_StaysOnFinishedFloor_AfterNextBattleBegins()
+        {
+            var run = Run();
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.ClearedBattleIndex, Is.EqualTo(0)); // 刚打完第 1 场
+
+            run.SkipReward();                                  // 取完战利品 → 直接开下一战
+            Assert.That(run.BattleIndex, Is.EqualTo(1));       // 已在第 2 场
+            Assert.That(run.ClearedBattleIndex, Is.EqualTo(0)); // 但记账基准仍是刚打完的第 1 场
+        }
+
+        [Test]
+        public void ClearedBattleIndex_Advances_OnlyAfterNextWin()
+        {
+            // 出字即消耗,备一张焚才打得过第二场
+            var run = new RunEngine(Graph(), TwoBattles(), new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: new[] { "焚", "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.ClearedBattleIndex, Is.EqualTo(1)); // 打完第 2 场才推进
+        }
+
+        [Test]
+        public void ClearedBattleIndex_StartsBeforeFirstFloor() // 一层未清时不能指向第 0 层
+        {
+            Assert.That(Run().ClearedBattleIndex, Is.EqualTo(-1));
+        }
+
         [Test]
         public void PickReward_AddsChar_CastCharConsumed()
         {

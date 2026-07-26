@@ -212,7 +212,9 @@ namespace Brushblade.Presentation
                 onAbandon: () => // 弃塔=阵亡待遇:爬塔半额结算,防绕过安全层撤退决策;字摊净额已即时入账
                 {
                     CommitEventInk(run);
-                    SettleTower(died: true, fromDepth + run.BattleIndex - 1, baseInk, abandoned: true);
+                    // 已清最深层同样看 ClearedBattleIndex:在战利品/奇遇页弃塔时
+                    // BattleIndex 还停在刚打完那层,用它减一会把这层的纪录抹掉
+                    SettleTower(died: true, fromDepth + run.ClearedBattleIndex, baseInk, abandoned: true);
                 });
         }
 
@@ -245,7 +247,10 @@ namespace Brushblade.Presentation
             if (snapshot == null || run.Phase == RunPhase.RunWon) return baseInk;
 
             SyncBestiary(run);
-            int cleared = fromDepth + run.BattleIndex; // 刚打完的层
+            // 基准用 ClearedBattleIndex 而非 BattleIndex:本回调在「离开战利品阶段」时触发,
+            // 那一刻若已开下一战,BattleIndex 早跳到下一层了 —— 用它会多记一层,
+            // 快照 Depth 越过 Boss 层,挂起再进就把整段白送(2026-07-27 修)
+            int cleared = fromDepth + run.ClearedBattleIndex; // 刚打完的层
             if (snapshot.Depth <= cleared)             // 幂等:同一层只记一次账
             {
                 _meta.CharacterXp += EndlessRules.XpFor(_campaign.Endless, cleared);
@@ -297,7 +302,7 @@ namespace Brushblade.Presentation
             int totalEarned = baseInk; // 滚存 = 纯爬塔累加
             if (!won)
             {
-                int clearedDepth = fromDepth + run.BattleIndex - 1;
+                int clearedDepth = fromDepth + run.ClearedBattleIndex; // 同上:已清最深层
                 SettleTower(died: true, clearedDepth, totalEarned);
                 return;
             }
