@@ -112,10 +112,9 @@ namespace Brushblade.Presentation
             for (int idx = 0; idx < events.Count; idx++)
             {
                 var e = events[idx];
-                // 这记伤害是否当场打死目标(紧随的 EnemyDied 同目标):是则跳过白闪,交给死亡置灰(免抢同一 Image)
+                // 这记伤害是否当场打死目标:是则跳过白闪,交给死亡置灰(免抢同一 Image)
                 bool kills = (e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.BurnTick)
-                    && idx + 1 < events.Count && events[idx + 1].Kind == BattleEventKind.EnemyDied
-                    && events[idx + 1].TargetIndex == e.TargetIndex;
+                    && KillsTarget(events, idx, e.TargetIndex);
                 switch (e.Kind)
                 {
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
@@ -193,6 +192,19 @@ namespace Brushblade.Presentation
             }
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
                 yield return new WaitForSecondsRealtime(StepGap);
+        }
+
+        /// <summary>这记伤害是否打死了目标:向后扫到下一记伤害为止,期间出现本目标的 EnemyDied 即算。
+        /// 不只看紧邻的下一条 —— 中间插了别的事件也不该误判成没打死(否则白闪与置灰抢同一 Image)。</summary>
+        private static bool KillsTarget(IReadOnlyList<BattleEvent> events, int from, int target)
+        {
+            for (int j = from + 1; j < events.Count; j++)
+            {
+                var kind = events[j].Kind;
+                if (kind == BattleEventKind.Damage || kind == BattleEventKind.BurnTick) return false; // 下一记伤害开始了
+                if (kind == BattleEventKind.EnemyDied && events[j].TargetIndex == target) return true;
+            }
+            return false;
         }
 
         /// <summary>一记命中的音效 + 震屏(伤害越高音调越低、震屏越大,封顶);大伤害叠全屏微闪。</summary>

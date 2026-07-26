@@ -71,6 +71,33 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyRevealed), Is.True);
         }
 
+        [Test]
+        public void Obscure_KillingBlow_DiedFollowsDamageImmediately()
+        {
+            // 表现层靠「EnemyDied 紧跟致死伤害」判定这记是否击杀(致死不白闪,让位给置灰)。
+            // 现形事件插在中间会打断该判定 → 白闪 + 血条瞬间归零 + 置灰错拍
+            var engine = new BattleEngine(Graph(), new BattleConfig(), Array.Empty<string>(),
+                new[] { "火", "火" }, new[] { new EnemyDef("生僻字", Element.Earth, 20, 2, EnemyAbility.Obscure) },
+                seed: 1);
+            engine.Cast("火", 0);  // 第 1 击:20 → 10,未读懂
+            engine.Cast("火", 0);  // 第 2 击:致死,同时满足「受击两次」的现形条件
+
+            var kinds = engine.LastEvents.Select(e => e.Kind).ToList();
+            int damage = kinds.IndexOf(BattleEventKind.Damage);
+            Assert.That(kinds[damage + 1], Is.EqualTo(BattleEventKind.EnemyDied));
+        }
+
+        [Test]
+        public void Obscure_KillingBlow_DoesNotReveal() // 打死了就无所谓读不读得懂
+        {
+            var engine = new BattleEngine(Graph(), new BattleConfig(), Array.Empty<string>(),
+                new[] { "火", "火" }, new[] { new EnemyDef("生僻字", Element.Earth, 20, 2, EnemyAbility.Obscure) },
+                seed: 1);
+            engine.Cast("火", 0);
+            engine.Cast("火", 0);
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyRevealed), Is.False);
+        }
+
         // ---- 常规怪不受影响 ----
 
         [Test]

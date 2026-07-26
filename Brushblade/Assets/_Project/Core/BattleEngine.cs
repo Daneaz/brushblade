@@ -555,18 +555,21 @@ namespace Brushblade.Core
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
 
-            // 生僻字:受击两次后被"读懂"(8.3)
             enemy.HitsTaken += 1;
-            if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
-            {
-                enemy.ApparentElement = enemy.Element;
-                _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, enemyIndex, 0));
-            }
 
+            // 死亡先结算:EnemyDied 必须紧跟致死伤害,表现层据此判定「这记是否击杀」
+            // (击杀不白闪、让位给置灰)。中间插任何事件都会打断判定 → 白闪抢色 + 置灰错拍
             if (!enemy.Alive)
             {
                 ResolveDefeat(enemyIndex);
                 return;
+            }
+
+            // 生僻字:受击两次后被"读懂"(8.3);打死了就无所谓读不读得懂
+            if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
+            {
+                enemy.ApparentElement = enemy.Element;
+                _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, enemyIndex, 0));
             }
             CheckBossPhase(enemyIndex);
 
