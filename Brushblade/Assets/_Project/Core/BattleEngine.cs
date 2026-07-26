@@ -54,7 +54,9 @@ namespace Brushblade.Core
         Summon,      // 召唤前排单位(Amount = 血量;SecondIndex = 被顶替的槽位,新增则 −1)
         SummonHit,   // 召唤物替玩家承伤(Amount = 伤害;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         SummonAttack,     // 召唤物反击敌人(TargetIndex = 敌人下标;仅驱动动效,伤害走 Damage)
-        EnemyBuff,   // 被标点小妖加攻(TargetIndex = 被加成的敌人)
+        EnemyTurnBegan, // 阶段分隔:此后为敌方行动(2026-07-27)。表现层据此切「召唤反击段 / 敌方段」——
+                        // 靠事件种类猜边界会被受击加攻之类的伴随事件带偏,已出过两次动画错乱
+        EnemyBuff,   // 加攻(标点小妖给同伴 / 焦痕受击自燃;TargetIndex = 被加成的敌人)
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
     }
 
@@ -356,6 +358,8 @@ namespace Brushblade.Core
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
+
+            _events.Add(new BattleEvent(BattleEventKind.EnemyTurnBegan, -1, 0)); // 召唤段到此为止,以下是敌方行动
 
             // 敌方辅助先行动:标点小妖给其他存活字怪加攻,与站位无关(8.3)。
             // 加成本场累计、回合末不回滚;场上只剩自己时改为亲自出手(2026-07-22)

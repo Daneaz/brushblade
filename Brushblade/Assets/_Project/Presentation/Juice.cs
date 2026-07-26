@@ -52,12 +52,16 @@ namespace Brushblade.Presentation
             // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
             Canvas.ForceUpdateCanvases();
+            _flashing.RemoveWhere(t => t == null); // 上一轮重绘销毁的目标不留在集合里
 
             // 拆出召唤反击段:灼烧等在前(preRest)、召唤反击逐记(strikes)、敌人行动在后(postRest)。
-            // 每记召唤 = SummonAttack + 紧随的伤害/击杀事件(BattleEngine 出招即紧接 DamageEnemy)。
+            // 边界只认两个显式信号:SummonAttack 开一记、EnemyTurnBegan 开敌方段。
+            // 一记召唤带的伴随事件不做种类白名单 —— 受击加攻/分裂/换阶都得跟着它那一记走,
+            // 早先按 Damage/EnemyDied 白名单收,遇上焦痕的加攻就断段,后续召唤全被冲进敌方段齐发。
             int i = 0;
             var preRest = new List<BattleEvent>();
-            while (i < events.Count && events[i].Kind != BattleEventKind.SummonAttack)
+            while (i < events.Count && events[i].Kind != BattleEventKind.SummonAttack
+                   && events[i].Kind != BattleEventKind.EnemyTurnBegan)
                 preRest.Add(events[i++]);
             var strikes = new List<(int target, int source, List<BattleEvent> effects)>();
             while (i < events.Count && events[i].Kind == BattleEventKind.SummonAttack)
@@ -66,11 +70,13 @@ namespace Brushblade.Presentation
                 int source = events[i].SecondIndex;   // 发起召唤物(飞牌起点)
                 i++;
                 var effects = new List<BattleEvent>();
-                while (i < events.Count && (events[i].Kind == BattleEventKind.Damage
-                    || events[i].Kind == BattleEventKind.EnemyDied))
+                while (i < events.Count && events[i].Kind != BattleEventKind.SummonAttack
+                       && events[i].Kind != BattleEventKind.EnemyTurnBegan)
                     effects.Add(events[i++]);
                 strikes.Add((target, source, effects));
             }
+            if (i < events.Count && events[i].Kind == BattleEventKind.EnemyTurnBegan)
+                i++; // 分隔符本身不播
             var postRest = new List<BattleEvent>();
             while (i < events.Count)
                 postRest.Add(events[i++]);
@@ -217,10 +223,15 @@ namespace Brushblade.Presentation
             if (amount >= 40) ScreenFlash(0.12f, Color.white); // 大伤害:一记全屏微闪
         }
 
+        // 正在白闪的目标:同一目标同帧挨多记时,后来者会把「原色」读成白闪中的颜色,
+        // 复原时就把目标刷成白的并卡在那里(直到下次重绘)。一次只许闪一个。
+        private readonly HashSet<RectTransform> _flashing = new();
+
         /// <summary>受击反应:更狠的缩放冲击 + 头像白闪一下(比 Punch 更强,专供敌人挨打)。</summary>
         private void HitReact(RectTransform target)
         {
-            if (target != null) StartCoroutine(HitReactRoutine(target));
+            if (target == null || !_flashing.Add(target)) return;
+            StartCoroutine(HitReactRoutine(target));
         }
 
         private IEnumerator HitReactRoutine(RectTransform target)
@@ -240,6 +251,7 @@ namespace Brushblade.Presentation
             }
             if (target != null) target.localScale = Vector3.one;
             if (image != null) image.color = original;
+            _flashing.Remove(target);
         }
 
         /// <summary>敌人攻击下扑:攻击者头像向下(我方召唤/玩家所在)猛冲一记再收回,增强"撞过来"的打击感。</summary>

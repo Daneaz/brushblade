@@ -753,6 +753,56 @@ namespace Brushblade.Core.Tests
             Assert.That(attacks[1].SecondIndex, Is.EqualTo(1));
         }
 
+        // 焦痕(受击存活加攻)会在每记伤害后追一条 EnemyBuff。表现层要按「每记召唤反击」逐记播,
+        // 靠事件流自身的结构切段,所以这两条契约必须由 Core 保证。
+        private static BattleEngine SummonsVsScorch()
+        {
+            var engine = IdentityEngine(new[] { "林", "林" },
+                new[] { new EnemyDef("焦痕", Element.Fire, 100, 4, EnemyAbility.Scorch) });
+            engine.Cast("林");
+            engine.Cast("林"); // 4 只召唤在场
+            return engine;
+        }
+
+        [Test]
+        public void EndTurn_EnemyTurnBegan_SeparatesSummonPhaseFromEnemyPhase()
+        {
+            var engine = SummonsVsScorch();
+            engine.EndTurn();
+            var kinds = engine.LastEvents.Select(e => e.Kind).ToList();
+
+            int split = kinds.IndexOf(BattleEventKind.EnemyTurnBegan);
+            Assert.That(kinds.Count(k => k == BattleEventKind.EnemyTurnBegan), Is.EqualTo(1));
+            Assert.That(kinds.LastIndexOf(BattleEventKind.SummonAttack), Is.LessThan(split));  // 召唤段全在前
+            Assert.That(kinds.IndexOf(BattleEventKind.SummonHit), Is.GreaterThan(split));      // 敌方段全在后
+        }
+
+        [Test]
+        public void EndTurn_EveryLivingSummonGetsItsOwnStrike() // 4 只都要出手,一只都不能少
+        {
+            var engine = SummonsVsScorch();
+            engine.EndTurn();
+            var attacks = engine.LastEvents.Where(e => e.Kind == BattleEventKind.SummonAttack).ToList();
+            Assert.That(attacks.Count, Is.EqualTo(4));
+            Assert.That(attacks.Select(e => e.SecondIndex), Is.EqualTo(new[] { 0, 1, 2, 3 }));
+        }
+
+        [Test]
+        public void EndTurn_ScorchBuff_StaysInsideItsOwnStrike() // 加攻紧跟它那记伤害,不越到下一记
+        {
+            var engine = SummonsVsScorch();
+            engine.EndTurn();
+            var kinds = engine.LastEvents.Select(e => e.Kind)
+                .TakeWhile(k => k != BattleEventKind.EnemyTurnBegan).ToList();
+            // 召唤段应为 4 组「SummonAttack, Damage, EnemyBuff」
+            for (int n = 0; n < 4; n++)
+            {
+                Assert.That(kinds[n * 3], Is.EqualTo(BattleEventKind.SummonAttack), $"第 {n + 1} 记");
+                Assert.That(kinds[n * 3 + 1], Is.EqualTo(BattleEventKind.Damage), $"第 {n + 1} 记");
+                Assert.That(kinds[n * 3 + 2], Is.EqualTo(BattleEventKind.EnemyBuff), $"第 {n + 1} 记");
+            }
+        }
+
         [Test]
         public void Summon_CapsAtFourAlive()
         {
