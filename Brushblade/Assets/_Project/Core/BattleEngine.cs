@@ -176,8 +176,10 @@ namespace Brushblade.Core
         }
 
         /// <summary>出字(ApCost):字库中的字,或池中可直出的部件(4.5 第二层,防卡手地板)。
-        /// replaceSummon:前排满员时顶掉最前的召唤物入场(UI 弹窗确认后才置位),否则满员直接拒出。</summary>
-        public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false)
+        /// replaceSummon:前排满员时顶掉最前的召唤物入场(UI 弹窗确认后才置位),否则满员直接拒出。
+        /// attackMode:把字拖到敌人身上出手(2026-07-26),水/土 改走 AttackEffects。</summary>
+        public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false,
+            bool attackMode = false)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -188,7 +190,7 @@ namespace Brushblade.Core
             if (Ap < def.ApCost) return BattleError.NotEnoughAp;
 
             // 单体效果需要有效的存活目标;未指定且场上仅一个存活敌人时自动锁定(3.8.3 单敌免选)
-            if (NeedsTarget(def) &&
+            if (NeedsTarget(def, attackMode) &&
                 (targetIndex < 0 || targetIndex >= _enemies.Count || !_enemies[targetIndex].Alive))
             {
                 int soleAlive = -1;
@@ -205,7 +207,7 @@ namespace Brushblade.Core
 
             // 前排放不下就强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「是否替换?」。
             // 不只看满员——3/4 时召 2 只同样溢出,也得先问过玩家
-            if (!replaceSummon && SummonReplaceCountOf(def) > 0) return BattleError.SummonCapFull;
+            if (!replaceSummon && SummonReplaceCountOf(def, attackMode) > 0) return BattleError.SummonCapFull;
 
             _events.Clear();
             Ap -= def.ApCost;
@@ -224,7 +226,7 @@ namespace Brushblade.Core
                 _forge = new ForgeState(_forge.Library, pool);
             }
 
-            ApplyEffects(def, targetIndex, replaceSummon);
+            ApplyEffects(def, targetIndex, replaceSummon, attackMode);
             CheckWin();
             return BattleError.None;
         }
@@ -283,31 +285,35 @@ namespace Brushblade.Core
         /// <summary>兜底一击(4.5 第二层防卡手地板):无效果的部件/字出手时的弱效果,永不 brick。</summary>
         private static readonly EffectDef[] FallbackEffects = { new(EffectKind.DamageSingle, 3) };
 
-        /// <summary>该字的实际出字效果:无效果者用兜底一击。</summary>
-        private static IReadOnlyList<EffectDef> EffectsOf(CharDef def) =>
-            def.Effects.Count > 0 ? def.Effects : FallbackEffects;
+        /// <summary>该字的实际出字效果:攻击模式下优先用 AttackEffects(水/土 的第二用法),
+        /// 没有第二用法就照常;都没有效果的用兜底一击。</summary>
+        private static IReadOnlyList<EffectDef> EffectsOf(CharDef def, bool attackMode = false)
+        {
+            if (attackMode && def.AttackEffects.Count > 0) return def.AttackEffects;
+            return def.Effects.Count > 0 ? def.Effects : FallbackEffects;
+        }
 
         /// <summary>此刻出这张字会顶掉最前的几只(0 = 空位够,直接进场);UI 弹窗文案与阻断判定共用。</summary>
-        public int SummonReplaceCountOf(CharDef def)
+        public int SummonReplaceCountOf(CharDef def, bool attackMode = false)
         {
-            int count = SummonCountOf(def);
+            int count = SummonCountOf(def, attackMode);
             return count <= 0 ? 0 : Math.Max(0, AliveSummons() + count - SummonCap);
         }
 
         /// <summary>这张字一次会召出几只(多条召唤效果累加,封顶到前排上限)。
         /// 满员替换时即「从最前一只起顶掉几只」,供 UI 文案用。</summary>
-        public int SummonCountOf(CharDef def)
+        public int SummonCountOf(CharDef def, bool attackMode = false)
         {
             int count = 0;
-            foreach (var effect in EffectsOf(def))
+            foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.Summon) count += effect.SummonCount;
             return Math.Min(count, SummonCap);
         }
 
-        /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式)。</summary>
-        public static bool NeedsTarget(CharDef def)
+        /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。</summary>
+        public static bool NeedsTarget(CharDef def, bool attackMode = false)
         {
-            foreach (var effect in EffectsOf(def))
+            foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle)
                     return true;
             return false;
@@ -439,14 +445,14 @@ namespace Brushblade.Core
             }
         }
 
-        private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false)
+        private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false)
         {
             var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
             int replaceCursor = 0; // 替换从最前一只起,逐只后移:一次召多只不会顶掉刚进场的自己
 
-            foreach (var effect in EffectsOf(def))
+            foreach (var effect in EffectsOf(def, attackMode))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
                 switch (effect.Kind)

@@ -28,6 +28,12 @@
           "kind": "HealSelf",
           "value": 3
         }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 4
+        }
       ]
     },
     {
@@ -51,6 +57,12 @@
         {
           "kind": "Shield",
           "value": 3
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 4
         }
       ]
     },

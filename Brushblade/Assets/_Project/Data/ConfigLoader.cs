@@ -27,6 +27,7 @@ namespace Brushblade.Data
             public List<string> Recipe { get; set; }
             public int ApCost { get; set; } = 1;
             public List<EffectDto> Effects { get; set; }
+            public List<EffectDto> AttackEffects { get; set; } // 拖到敌人身上出手时的替代效果(水/土)
             public string Rarity { get; set; }
             public string Pinyin { get; set; }
             public string Gloss { get; set; }
@@ -388,7 +389,8 @@ namespace Brushblade.Data
                     throw new ConfigException($"重复的字 id:{dto.Id}");
 
                 defs.Add(new CharDef(dto.Id, ParseElement(dto),
-                    dto.Recipe, dto.ApCost, ParseEffects(dto), ParseRarity(dto), dto.Pinyin, dto.Gloss));
+                    dto.Recipe, dto.ApCost, ParseEffects(dto, dto.Effects), ParseRarity(dto),
+                    dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects)));
             }
 
             // fail fast 二次校验:配方引用必须已定义(完整校验在管线侧,4.9.6)
@@ -418,12 +420,12 @@ namespace Brushblade.Data
             return element;
         }
 
-        private static IReadOnlyList<EffectDef> ParseEffects(CharDto dto)
+        private static IReadOnlyList<EffectDef> ParseEffects(CharDto dto, List<EffectDto> source)
         {
-            if (dto.Effects == null)
+            if (source == null)
                 return null;
             var effects = new List<EffectDef>();
-            foreach (var effect in dto.Effects)
+            foreach (var effect in source)
             {
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");

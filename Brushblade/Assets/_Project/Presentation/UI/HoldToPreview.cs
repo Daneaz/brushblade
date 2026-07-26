@@ -35,6 +35,9 @@ namespace Brushblade.Presentation
             _pressed = false; // 长按只看不打:抬起仅停止长按计时,不补发点击
         }
 
+        /// <summary>放弃本次长按(拖字打人时调用:拖动中不该弹详情挡住视线)。</summary>
+        public void Cancel() => _pressed = false;
+
         private void Update()
         {
             if (!_pressed || _held || Time.unscaledTime - _downAt < Threshold) return;

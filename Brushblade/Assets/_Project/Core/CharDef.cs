@@ -35,6 +35,10 @@ namespace Brushblade.Core
         /// <summary>出字效果;部件的"单独出战"弱效果也在此(第 4 章 4.2.1)。</summary>
         public IReadOnlyList<EffectDef> Effects { get; }
 
+        /// <summary>攻击模式下的替代效果(2026-07-26):把字拖到敌人身上出手时改用这套。
+        /// 空 = 该字没有第二用法,拖放与双击同效。水/土 靠它在「治疗/加盾」之外多一个攻击选项。</summary>
+        public IReadOnlyList<EffectDef> AttackEffects { get; }
+
         /// <summary>拼音(11.2.4 点查安全网);可缺省。</summary>
         public string Pinyin { get; }
 
@@ -45,13 +49,14 @@ namespace Brushblade.Core
 
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
             int apCost = 1, IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
-            string pinyin = null, string gloss = null)
+            string pinyin = null, string gloss = null, IReadOnlyList<EffectDef> attackEffects = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Element = element;
             Recipe = recipe ?? Array.Empty<string>();
             ApCost = apCost;
             Effects = effects ?? Array.Empty<EffectDef>();
+            AttackEffects = attackEffects ?? Array.Empty<EffectDef>();
             Rarity = rarity;
             Pinyin = pinyin;
             Gloss = gloss;

@@ -525,6 +525,106 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.InvalidTarget)); // 两个存活,点尸体无效
         }
 
+        // ---- 攻击模式(2026-07-26):拖到敌人身上出字 = 攻击,水/土 改用 AttackEffects ----
+
+        private static RecipeGraph DragGraph() => new(new[]
+        {
+            new CharDef("水", Element.Water, effects: new[] { new EffectDef(EffectKind.HealSelf, 3) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
+            new CharDef("土", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 3) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
+            new CharDef("火", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
+            new CharDef("沐", Element.Water, effects: new[] { new EffectDef(EffectKind.HealSelf, 10) }),
+        });
+
+        private static BattleEngine DragEngine(string[] pool, EnemyDef enemy = null, int? hp = null) =>
+            new(DragGraph(), new BattleConfig { PlayerMaxHp = 50 }, Array.Empty<string>(), pool,
+                new[] { enemy ?? new EnemyDef("怔", Element.Heart, 100, 0) }, seed: 1, startingHp: hp);
+
+        [Test]
+        public void Cast_AttackMode_WaterDealsDamageInsteadOfHealing()
+        {
+            var engine = DragEngine(new[] { "水" }, hp: 30);
+            engine.Cast("水", 0, attackMode: true);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(96)); // 水 vs 心 = ×1.0
+            Assert.That(engine.PlayerHp, Is.EqualTo(30));      // 没治疗
+        }
+
+        [Test]
+        public void Cast_AttackMode_EarthDealsDamageInsteadOfShield()
+        {
+            var engine = DragEngine(new[] { "土" });
+            engine.Cast("土", 0, attackMode: true);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(96));
+            Assert.That(engine.PlayerShield, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Cast_NormalMode_KeepsDefaultBehaviour() // 双击照旧:治疗/加盾
+        {
+            var engine = DragEngine(new[] { "水", "土" }, hp: 30);
+            engine.Cast("水", 0);
+            engine.Cast("土", 0);
+            Assert.That(engine.PlayerHp, Is.EqualTo(33));
+            Assert.That(engine.PlayerShield, Is.EqualTo(3));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void Cast_AttackMode_CharWithoutAttackEffects_UsesNormalEffects() // 全系可拖:没有专属攻击效果就照常出
+        {
+            var engine = DragEngine(new[] { "火" });
+            engine.Cast("火", 0, attackMode: true);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(96));
+        }
+
+        [Test]
+        public void Cast_AttackMode_PureHealChar_StillHeals() // 沐无攻击效果:拖过去也只能治疗,不平白造伤
+        {
+            var engine = DragEngine(new[] { "沐" }, hp: 30);
+            engine.Cast("沐", 0, attackMode: true);
+            Assert.That(engine.PlayerHp, Is.EqualTo(40));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void NeedsTarget_AttackMode_TrueForWaterAndEarth() // UI 据此判断拖放是否要落在敌人身上
+        {
+            var graph = DragGraph();
+            Assert.That(BattleEngine.NeedsTarget(graph.Get("水")), Is.False);                    // 双击:治疗,不选目标
+            Assert.That(BattleEngine.NeedsTarget(graph.Get("水"), attackMode: true), Is.True);   // 拖拽:单体攻击
+            Assert.That(BattleEngine.NeedsTarget(graph.Get("土"), attackMode: true), Is.True);
+            Assert.That(BattleEngine.NeedsTarget(graph.Get("沐"), attackMode: true), Is.False);  // 无攻击效果,仍不选目标
+        }
+
+        [Test]
+        public void LoadGraph_ParsesAttackEffects()
+        {
+            var graph = Brushblade.Data.ConfigLoader.LoadGraph(@"{ ""chars"": [
+                { ""id"": ""水"", ""element"": ""Water"",
+                  ""effects"": [ { ""kind"": ""HealSelf"", ""value"": 3 } ],
+                  ""attackEffects"": [ { ""kind"": ""DamageSingle"", ""value"": 4 } ] },
+                { ""id"": ""火"", ""element"": ""Fire"",
+                  ""effects"": [ { ""kind"": ""DamageSingle"", ""value"": 4 } ] } ] }");
+            var water = graph.Get("水");
+            Assert.That(water.Effects.Single().Kind, Is.EqualTo(EffectKind.HealSelf));
+            Assert.That(water.AttackEffects.Single().Kind, Is.EqualTo(EffectKind.DamageSingle));
+            Assert.That(water.AttackEffects.Single().Value, Is.EqualTo(4));
+            Assert.That(graph.Get("火").AttackEffects, Is.Empty); // 没写就是空,拖放与双击同效
+        }
+
+        [Test]
+        public void Cast_AttackMode_MultipleEnemies_HitsTheDroppedOne()
+        {
+            var engine = new BattleEngine(DragGraph(), new BattleConfig { PlayerMaxHp = 50 },
+                Array.Empty<string>(), new[] { "水" },
+                new[] { new EnemyDef("甲", Element.Heart, 100, 0), new EnemyDef("乙", Element.Heart, 100, 0) },
+                seed: 1);
+            engine.Cast("水", 1, attackMode: true);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100));
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(96));
+        }
+
         // ---- 五系特色(2026-07-19 拍板):水主治疗 / 木主召唤(前排抗伤+反击) / 土盾附攻 ----
 
         private static RecipeGraph IdentityGraph() => new(new[]

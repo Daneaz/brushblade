@@ -593,8 +593,37 @@ namespace Brushblade.Presentation
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
                     new Vector2(82, 104));
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
+                if (!rewardPhase) AttachDragToAttack(tile.gameObject, def);
                 _tileRects[charId] = (RectTransform)tile.transform;
             }
+        }
+
+        /// <summary>拖字打人(2026-07-26):拖到敌人身上松手 = 攻击那个敌人。
+        /// 水/土 因此在双击的治疗/加盾之外多一个攻击用法;其余字拖放 = 出字并顺手选中目标。</summary>
+        private void AttachDragToAttack(GameObject tile, CharDef def)
+        {
+            DragToAttack.Attach(tile, def.Id, Theme.ElementColor(def.Element),
+                () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
+                screenPos =>
+                {
+                    int target = EnemyIndexAt(screenPos);
+                    if (target < 0) { CancelSelection(); return; } // 没落在敌人身上:当作取消,不出字
+                    ExecuteCast(def.Id, target, attackMode: true);
+                });
+        }
+
+        /// <summary>该屏幕坐标落在哪个存活敌人格上;都没命中返回 −1。
+        /// 判定用整格(字符圆的父级)而非字符圆本身:手指落点粗,圆只有 104 宽会经常擦边落空。</summary>
+        private int EnemyIndexAt(Vector2 screenPos)
+        {
+            for (int i = 0; i < _enemyRects.Count && i < Battle.Enemies.Count; i++)
+            {
+                if (!Battle.Enemies[i].Alive || _enemyRects[i] == null) continue;
+                var hitArea = _enemyRects[i].parent as RectTransform ?? _enemyRects[i];
+                if (RectTransformUtility.RectangleContainsScreenPoint(hitArea, screenPos, null))
+                    return i;
+            }
+            return -1;
         }
 
         /// <summary>消息条简述(2026-07-21):只给 AP 与等级化效果;拼音/释义/配方走长按 preview。</summary>
@@ -647,6 +676,7 @@ namespace Brushblade.Presentation
                     selected ? Color.white : Theme.ElementSoftFg(def.Element),
                     22, new Vector2(56, 56), 12);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
+                if (!rewardPhase) AttachDragToAttack(tile.gameObject, def); // 水/土 直出的攻击用法在这一排
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
             }
         }
@@ -1532,19 +1562,20 @@ namespace Brushblade.Presentation
             _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def);
         }
 
-        private void ExecuteCast(string charId, int target, bool replaceSummon = false)
+        private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false)
         {
             bool hasFrom = TryGetTilePos(charId, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var error = Battle.Cast(charId, target, replaceSummon);
+            var error = Battle.Cast(charId, target, replaceSummon, attackMode);
             if (error == BattleError.SummonCapFull) // 前排满员强阻断:AP/字都没动,确认替换才重出
             {
                 var def = _graph.Get(charId);
-                int replaceCount = Battle.SummonReplaceCountOf(def); // 空位不够的那部分才顶人
+                int replaceCount = Battle.SummonReplaceCountOf(def, attackMode); // 空位不够的那部分才顶人
                 ShowModal("前排放不下",
-                    $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{charId}」召 {Battle.SummonCountOf(def)} 只。\n"
+                    $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{charId}」召 {Battle.SummonCountOf(def, attackMode)} 只。\n"
                     + $"将从最前起顶掉 {replaceCount} 只。",
-                    ($"替换最前 {replaceCount} 只", () => ExecuteCast(charId, target, replaceSummon: true), Theme.Cinnabar, Color.white),
+                    ($"替换最前 {replaceCount} 只",
+                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode), Theme.Cinnabar, Color.white),
                     ("取消", null, Theme.LockedBg, Theme.TextMain));
                 _message = "前排已满,出字待确认";
                 CancelSelection();
