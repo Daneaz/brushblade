@@ -59,10 +59,24 @@ namespace Brushblade.Presentation
                 BestiaryRules.RecordDefeat(_meta, id);
         }
 
-        /// <summary>保底落盘:切后台/退出时由 SaveOnSuspend 调用(引导未完成则无档可存)。</summary>
+        /// <summary>段中断点的取样器:StartSegment 期间有效,段末/结算时置空。</summary>
+        private static System.Func<InProgressRun> _captureProgress;
+
+        /// <summary>保底落盘:切后台、挂起离塔、以及每次玩家行动后都走这里(2026-07-27)。
+        /// 段中时连战斗内进度一起写 —— 挂起/杀进程都能原样接着打。</summary>
         public static void SaveNow()
         {
-            if (_meta != null) MetaStore.Save(_meta);
+            if (_meta == null) return;
+            if (_captureProgress != null && _meta.Endless != null)
+                _meta.Endless.InProgress = _captureProgress();
+            MetaStore.Save(_meta);
+        }
+
+        /// <summary>离开段中(段末告捷/阵亡/弃塔):断点作废,否则下次登塔会从旧段中间开始。</summary>
+        private static void ClearProgress()
+        {
+            _captureProgress = null;
+            if (_meta.Endless != null) _meta.Endless.InProgress = null;
         }
 
         public static void ShowMap(string message = null)
@@ -152,8 +166,10 @@ namespace Brushblade.Presentation
         {
             var endless = _campaign.Endless;
             var snapshot = _meta.Endless;
-            _committedEventInk = 0; // 新段新 RunEngine,字摊净额从 0 重新累计
-            int fromDepth = snapshot.Depth;
+            // 段中断点优先:它自带段起点与首塔标记,Depth 会随层清算前进,不能拿来重建本段
+            var resume = snapshot.InProgress;
+            _committedEventInk = resume?.CommittedEventInk ?? 0; // 不清零会把字摊净额重复入账
+            int fromDepth = resume?.FromDepth ?? snapshot.Depth;
             var band = endless.BandFor(fromDepth);
             int segmentEnd = (fromDepth - 1) / endless.BossEvery * endless.BossEvery + endless.BossEvery;
 
@@ -161,7 +177,8 @@ namespace Brushblade.Presentation
             if (EndlessRules.TryAwardMilestone(_meta, band))
                 MetaStore.Save(_meta);
 
-            var runConfig = firstTower && fromDepth <= 1
+            bool firstTowerSegment = resume?.FirstTowerSegment ?? (firstTower && fromDepth <= 1);
+            var runConfig = firstTowerSegment
                 ? EndlessGenerator.BuildFirstTowerSegment(endless, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent)
                 : EndlessGenerator.BuildSegment(endless, fromDepth, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent);
             // 战利品的字只出自出阵列表(2026-07-20 拍板):补的是自己带上来的弹药,
@@ -178,7 +195,10 @@ namespace Brushblade.Presentation
                 ApPerTurn = 3 + PerkRules.ApBonus(_meta), // 一气
                 LibraryCapacity = MetaRules.StartingLibrarySize + PerkRules.LibraryBonus(_meta), // 博闻:字库容量上限 +1/级(与起手数量同源;广告 +2 在其上叠加)
             };
-            var run = new RunEngine(_graph, runConfig, battleConfig,
+            var run = resume != null
+                ? RunEngine.Restore(resume.Run, _graph, runConfig, battleConfig, _meta.CardLevels,
+                    startingInk: _meta.Ink, perFloorNormalShield: PerkRules.ShieldBonus(_meta))
+                : new RunEngine(_graph, runConfig, battleConfig,
                 snapshot.Library, snapshot.Pool,
                 seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,
                 startingInk: _meta.Ink, // 字摊/赌博预算 = 账户库存(Option A,2026-07-24):
@@ -187,12 +207,24 @@ namespace Brushblade.Presentation
                 startingNormalShield: snapshot.NormalShield,
                 startingPersistShield: snapshot.PersistShield,
                 perFloorNormalShield: PerkRules.ShieldBonus(_meta)); // 金汤:每关开战补盾(段首由 NormalShield 注入)
-            if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
-            if (snapshot.PoolExpanded) run.TryExpandPool();
-            if (snapshot.Revived) run.MarkRevived();              // 防重进本层二次复活(2026-07-24)
+            if (resume == null) // 从断点恢复时这些已在 run 状态里,再调一次会把容量重复抬高
+            {
+                if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
+                if (snapshot.PoolExpanded) run.TryExpandPool();
+                if (snapshot.Revived) run.MarkRevived();              // 防重进本层二次复活(2026-07-24)
+            }
 
-            var tutorial = firstTower && fromDepth <= 1 ? new Tutorial() : null;
+            var tutorial = firstTowerSegment && resume == null ? new Tutorial() : null;
             int baseInk = snapshot.EarnedInk; // 段前滚存
+
+            // 段中断点的取样器:SaveNow 每次都据此把战斗内进度一并写盘
+            _captureProgress = () => new InProgressRun
+            {
+                FromDepth = fromDepth,
+                FirstTowerSegment = firstTowerSegment,
+                CommittedEventInk = _committedEventInk,
+                Run = run.Capture(),
+            };
 
             // 每段换景(20.2):层段基色 + 段内逐段加深 + 巨字水印(林/渊/山/海)
             int bandIndex = BandIndexFor(fromDepth);
@@ -209,9 +241,11 @@ namespace Brushblade.Presentation
                     ShowMap("登塔已挂起,随时回来继续");
                 },
                 onExpanded: () => OnExpanded(run),
+                onProgress: SaveNow, // 每次玩家行动后落盘:挂起/闪退都能接着打(2026-07-27)
                 onAbandon: () => // 弃塔=阵亡待遇:爬塔半额结算,防绕过安全层撤退决策;字摊净额已即时入账
                 {
                     CommitEventInk(run);
+                    ClearProgress(); // 弃塔:断点作废
                     // 已清最深层同样看 ClearedBattleIndex:在战利品/奇遇页弃塔时
                     // BattleIndex 还停在刚打完那层,用它减一会把这层的纪录抹掉
                     SettleTower(died: true, fromDepth + run.ClearedBattleIndex, baseInk, abandoned: true);
@@ -299,6 +333,7 @@ namespace Brushblade.Presentation
         {
             var endless = _campaign.Endless;
             CommitEventInk(run);       // 字摊/赌博净额即时结进账户,不进滚存、不随阵亡减半
+            ClearProgress();           // 本段已了结,断点作废
             int totalEarned = baseInk; // 滚存 = 纯爬塔累加
             if (!won)
             {

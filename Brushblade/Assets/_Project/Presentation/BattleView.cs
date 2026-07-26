@@ -64,6 +64,7 @@ namespace Brushblade.Presentation
         private System.Action _onNewFloor;      // 连战推进到新一场时回调(无尽断点快照,20.6)
         private System.Action _onFloorCleared;  // 战利品取完时回调:本层记账落盘(2026-07-20)
         private System.Action _onExit;       // 中途退出(无尽=挂起);null 时退化为认输
+        private System.Action _onProgress;   // 每次玩家行动后落盘(2026-07-27 断点续存)
         private System.Action _onAbandon;    // 弃塔:阵亡待遇半额结算(2026-07-19,与挂起并列选项)
         private System.Action _onExpanded;   // 广告扩容后回调(即时落盘,防挂起丢失)
         private int _lastBattleIndex;
@@ -74,7 +75,7 @@ namespace Brushblade.Presentation
 
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
             Tutorial tutorial = null, string title = null, int playerMaxHp = 50,
-            System.Action onNewFloor = null, System.Action onExit = null,
+            System.Action onNewFloor = null, System.Action onExit = null, System.Action onProgress = null,
             System.Action onExpanded = null, System.Action onAbandon = null,
             System.Action onFloorCleared = null)
         {
@@ -84,6 +85,7 @@ namespace Brushblade.Presentation
             _onNewFloor = onNewFloor;
             _onFloorCleared = onFloorCleared;
             _onExit = onExit;
+            _onProgress = onProgress;
             _onAbandon = onAbandon;
             _onExpanded = onExpanded;
             _lastBattleIndex = run.BattleIndex;
@@ -391,6 +393,40 @@ namespace Brushblade.Presentation
             // 长按 preview 置顶:重绘后 preview 须盖在战斗 UI 之上
             if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
+            SaveProgressIfChanged();
+        }
+
+        private string _savedFingerprint; // 上次落盘时的进度指纹
+
+        /// <summary>每次玩家行动后落盘(2026-07-27)。挂在 Refresh 末尾而不是逐个动作入口埋点:
+        /// 状态一变必然重绘,这样拆/合/出/丢/结束回合/取战利品/奇遇/复活一个都漏不掉。
+        /// 靠指纹过滤纯 UI 重绘(选中字牌、看详情),免得点一下就写一次盘。</summary>
+        private void SaveProgressIfChanged()
+        {
+            if (_onProgress == null) return;
+            string fingerprint = ProgressFingerprint();
+            if (fingerprint == _savedFingerprint) return;
+            _savedFingerprint = fingerprint;
+            _onProgress();
+        }
+
+        /// <summary>进度指纹:任何一次真实行动都会改变其中至少一项。</summary>
+        private string ProgressFingerprint()
+        {
+            var battle = Battle;
+            var sb = new StringBuilder();
+            sb.Append(_run.Phase).Append('|').Append(_run.BattleIndex).Append('|')
+              .Append(_run.CharPicksLeft).Append('|').Append(_run.ComponentPicksLeft).Append('|')
+              .Append(_run.EarnedInk).Append('|')
+              .Append(battle.Phase).Append('|').Append(battle.Turn).Append('|').Append(battle.Ap).Append('|')
+              .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append('|')
+              .Append(string.Join(",", battle.Library)).Append('|')
+              .Append(string.Join(",", battle.Pool));
+            foreach (var enemy in battle.Enemies)
+                sb.Append('|').Append(enemy.Hp).Append(',').Append(enemy.Burn).Append(',').Append(enemy.Attack);
+            foreach (var summon in battle.Summons)
+                sb.Append('|').Append(summon.Hp);
+            return sb.ToString();
         }
 
         /// <summary>引导横幅:一步一句话(11.2.5),金色置于结束回合行(屏幕中部显眼)。</summary>

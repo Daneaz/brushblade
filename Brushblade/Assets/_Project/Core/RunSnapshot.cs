@@ -51,6 +51,16 @@ namespace Brushblade.Core
         public int Attack { get; set; }
     }
 
+    /// <summary>挂在存档上的「段中断点」(2026-07-27):除了 run 自身的状态,还要记住
+    /// 重建这一段所需的上下文 —— 层段生成是纯函数,但得用同样的入参才能重建出同一段。</summary>
+    public sealed class InProgressRun
+    {
+        public int FromDepth { get; set; }          // 本段起始层;不能拿 Depth 顶替(它随层清算前进)
+        public bool FirstTowerSegment { get; set; } // 首塔特调段(BuildFirstTowerSegment)
+        public int CommittedEventInk { get; set; }  // 已即时入账的字摊净额;不存会重复入账
+        public RunSnapshot Run { get; set; }
+    }
+
     /// <summary>一段连战的完整进度(含当前战斗)。</summary>
     public sealed class RunSnapshot
     {

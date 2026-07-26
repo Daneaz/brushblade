@@ -328,6 +328,41 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void InProgress_SurvivesRealSaveFile() // 整份存档走 SaveSerializer 往返
+        {
+            var config = TwoBattles(new EnemyDef("枯", Element.Wood, 60, 3));
+            var origin = Run(config);
+            origin.Battle.Cast("炎", 0);
+
+            var meta = new MetaState
+            {
+                Endless = new EndlessSaveState
+                {
+                    Depth = 3,
+                    Seed = 999,
+                    InProgress = new InProgressRun
+                    {
+                        FromDepth = 1,
+                        FirstTowerSegment = true,
+                        CommittedEventInk = 17,
+                        Run = origin.Capture(),
+                    },
+                },
+            };
+
+            var reloaded = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
+            var resume = reloaded.Endless.InProgress;
+            Assert.That(resume, Is.Not.Null);
+            Assert.That(resume.FromDepth, Is.EqualTo(1));          // 段起点不能丢:靠它重建本段
+            Assert.That(resume.FirstTowerSegment, Is.True);
+            Assert.That(resume.CommittedEventInk, Is.EqualTo(17)); // 丢了会把字摊净额重复入账
+
+            var restored = RunEngine.Restore(resume.Run, Graph(), config, Config(), null,
+                startingInk: 50, perFloorNormalShield: 2);
+            Assert.That(Digest(restored), Is.EqualTo(Digest(origin)));
+        }
+
+        [Test]
         public void Run_SerializesThroughJson() // 走一遍真实存档路径,别在 JSON 层丢字段
         {
             var config = TwoBattles(new EnemyDef("枯", Element.Wood, 60, 3));
