@@ -79,7 +79,7 @@
         "鍂",
         "金"
       ],
-      "apCost": 2,
+      "apCost": 1,
       "effects": [
         {
           "kind": "DamageSingle",
@@ -135,7 +135,7 @@
         "林",
         "木"
       ],
-      "apCost": 2,
+      "apCost": 1,
       "effects": [
         {
           "kind": "Summon",
@@ -194,7 +194,7 @@
         "沝",
         "水"
       ],
-      "apCost": 2,
+      "apCost": 1,
       "effects": [
         {
           "kind": "HealSelf",
@@ -259,7 +259,7 @@
         "炎",
         "火"
       ],
-      "apCost": 2,
+      "apCost": 1,
       "effects": [
         {
           "kind": "DamageAll",
@@ -310,7 +310,7 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 4
+          "value": 8
         }
       ],
       "pinyin": "guī",
@@ -324,7 +324,7 @@
         "圭",
         "土"
       ],
-      "apCost": 2,
+      "apCost": 1,
       "effects": [
         {
           "kind": "Shield",
@@ -332,7 +332,7 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 8
+          "value": 16
         }
       ],
       "pinyin": "yáo",
@@ -354,8 +354,8 @@
           "persistOnce": true
         },
         {
-          "kind": "DamageSingle",
-          "value": 12
+          "kind": "DamageAll",
+          "value": 16
         }
       ],
       "pinyin": "kuí",
