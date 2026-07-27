@@ -1,0 +1,198 @@
+{
+  "canvas": 512,
+  "margin": 0.1,
+  "glyphs": [
+    {
+      "file": "enemy_cuozigui.svg",
+      "char": "错",
+      "kind": "minion",
+      "owners": [
+        "错字鬼"
+      ],
+      "weight": 500,
+      "note": "炮灰教学首怪,笔画松散欲散架"
+    },
+    {
+      "file": "enemy_quebiyao.svg",
+      "char": "缺",
+      "kind": "minion",
+      "owners": [
+        "缺笔妖"
+      ],
+      "weight": 500,
+      "note": "右半缺失,断口渗墨;L4=补全笔画"
+    },
+    {
+      "file": "enemy_biaodianxiaoyao.svg",
+      "char": "、",
+      "kind": "minion",
+      "owners": [
+        "标点小妖"
+      ],
+      "weight": 500,
+      "note": "顿号化妖,体型小一号"
+    },
+    {
+      "file": "enemy_dieziguai.svg",
+      "char": "林",
+      "kind": "minion",
+      "owners": [
+        "叠字怪"
+      ],
+      "weight": 500,
+      "note": "中缝可分离,供分裂动效"
+    },
+    {
+      "file": "enemy_hangtuyao.svg",
+      "char": "夯",
+      "kind": "minion",
+      "owners": [
+        "夯土妖"
+      ],
+      "weight": 500,
+      "note": "敦实如界碑,下盘极稳"
+    },
+    {
+      "file": "enemy_tongjiazi.svg",
+      "char": "假",
+      "kind": "minion",
+      "owners": [
+        "通假字"
+      ],
+      "weight": 500,
+      "note": "不上属性色;L4=面具"
+    },
+    {
+      "file": "enemy_shengpizi.svg",
+      "char": "龘",
+      "kind": "minion",
+      "owners": [
+        "生僻字"
+      ],
+      "weight": 500,
+      "note": "笔画繁复糊成墨块;L4=墨雾"
+    },
+    {
+      "file": "enemy_mozi.svg",
+      "char": "污",
+      "kind": "minion",
+      "owners": [
+        "墨渍"
+      ],
+      "weight": 500,
+      "note": "洇开的墨渍,松弛无骨"
+    },
+    {
+      "file": "enemy_jiaohen.svg",
+      "char": "焦",
+      "kind": "minion",
+      "owners": [
+        "焦痕"
+      ],
+      "weight": 500,
+      "note": "烧焦纸质;L4=裂缝火芯"
+    },
+    {
+      "file": "boss_paishandaohai_1_u6392.svg",
+      "char": "排",
+      "kind": "boss",
+      "owners": [
+        "排山倒海"
+      ],
+      "weight": 800,
+      "note": "阶段1·金"
+    },
+    {
+      "file": "boss_paishandaohai_2_u5c71.svg",
+      "char": "山",
+      "kind": "boss",
+      "owners": [
+        "排山倒海"
+      ],
+      "weight": 800,
+      "note": "阶段2·土"
+    },
+    {
+      "file": "boss_paishandaohai_3_u5012.svg",
+      "char": "倒",
+      "kind": "boss",
+      "owners": [
+        "排山倒海",
+        "翻江倒海"
+      ],
+      "weight": 800,
+      "note": "阶段3·木"
+    },
+    {
+      "file": "boss_paishandaohai_4_u6d77.svg",
+      "char": "海",
+      "kind": "boss",
+      "owners": [
+        "排山倒海",
+        "翻江倒海"
+      ],
+      "weight": 800,
+      "note": "阶段4·水"
+    },
+    {
+      "file": "boss_fanjiangdaohai_1_u7ffb.svg",
+      "char": "翻",
+      "kind": "boss",
+      "owners": [
+        "翻江倒海"
+      ],
+      "weight": 800,
+      "note": "阶段1·木"
+    },
+    {
+      "file": "boss_fanjiangdaohai_2_u6c5f.svg",
+      "char": "江",
+      "kind": "boss",
+      "owners": [
+        "翻江倒海"
+      ],
+      "weight": 800,
+      "note": "阶段2·水"
+    },
+    {
+      "file": "boss_leitingwanjun_1_u96f7.svg",
+      "char": "雷",
+      "kind": "boss",
+      "owners": [
+        "雷霆万钧"
+      ],
+      "weight": 800,
+      "note": "阶段1·金"
+    },
+    {
+      "file": "boss_leitingwanjun_2_u9706.svg",
+      "char": "霆",
+      "kind": "boss",
+      "owners": [
+        "雷霆万钧"
+      ],
+      "weight": 800,
+      "note": "阶段2·金"
+    },
+    {
+      "file": "boss_leitingwanjun_3_u4e07.svg",
+      "char": "万",
+      "kind": "boss",
+      "owners": [
+        "雷霆万钧"
+      ],
+      "weight": 800,
+      "note": "阶段3·心"
+    },
+    {
+      "file": "boss_leitingwanjun_4_u94a7.svg",
+      "char": "钧",
+      "kind": "boss",
+      "owners": [
+        "雷霆万钧"
+      ],
+      "weight": 800,
+      "note": "阶段4·金"
+    }
+  ]
+}
