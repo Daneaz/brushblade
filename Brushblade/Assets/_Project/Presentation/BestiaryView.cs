@@ -9,7 +9,10 @@ namespace Brushblade.Presentation
     /// <summary>怪物图鉴(2026-07-22):击败即解锁,点开条目查阅时才发赏钱(小怪 20 / Boss 50)。</summary>
     public sealed class BestiaryView : MonoBehaviour
     {
-        private const int PerPage = 10; // 2 行 × 5
+        // 2 行 × 4(2026-07-28 由 2×5 放宽):字怪形象比原先的圆形字头像吃空间,
+        // 挤在 5 列里辨认不出谁是谁 —— 少一列换更大的格子
+        private const int Columns = 4;
+        private const int PerPage = Columns * 2;
 
         private MetaState _meta;
         private List<EnemyDef> _all;
@@ -95,12 +98,14 @@ namespace Brushblade.Presentation
             {
                 var def = _all[i];
                 int slot = i - start;
-                int row = slot / 5, col = slot % 5;
+                int row = slot / Columns, col = slot % Columns;
                 float y = 0.75f - row * 0.36f;
+                const float cellWidth = 0.205f, cellStride = 0.2225f, cellLeft = 0.07f;
 
                 var cell = Ui.Panel(transform, $"Cell_{def.Id}");
                 Ui.Anchor((RectTransform)cell.transform,
-                    new Vector2(0.06f + col * 0.185f, y - 0.32f), new Vector2(0.06f + col * 0.185f + 0.17f, y),
+                    new Vector2(cellLeft + col * cellStride, y - 0.32f),
+                    new Vector2(cellLeft + col * cellStride + cellWidth, y),
                     Vector2.zero, Vector2.zero);
                 var layout = cell.AddComponent<VerticalLayoutGroup>();
                 layout.spacing = 6;
@@ -111,7 +116,7 @@ namespace Brushblade.Presentation
                 bool isUnlocked = BestiaryRules.IsUnlocked(_meta, def.Id);
                 bool claimable = isUnlocked && !BestiaryRules.IsClaimed(_meta, def.Id);
 
-                var tile = EnemyPreview.Tile(cell.transform, def, new Vector2(120, 132), !isUnlocked);
+                var tile = EnemyPreview.Tile(cell.transform, def, new Vector2(190, 210), !isUnlocked);
                 var button = tile.AddComponent<Button>();
                 button.targetGraphic = tile.GetComponent<Image>();
                 button.onClick.AddListener(() => OnEntryClicked(def));

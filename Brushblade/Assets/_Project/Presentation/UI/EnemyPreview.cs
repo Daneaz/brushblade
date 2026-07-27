@@ -11,8 +11,8 @@ namespace Brushblade.Presentation
         public static GameObject Show(Transform root, EnemyDef def, int bounty = 0)
         {
             var overlay = Ui.ModalShell(root, def.Phases.Count > 0 ? "Boss 图鉴" : "怪物图鉴",
-                new Vector2(340, 250), dismissable: true, out var stack);
-            Tile(stack, def, new Vector2(150, 150));
+                new Vector2(420, 330), dismissable: true, out var stack);
+            Tile(stack, def, new Vector2(210, 230));
             Ui.ThemedLabel(stack, EnemyInfo.Detail(def), 16, Theme.TextDim);
             if (bounty > 0)
                 Ui.ThemedLabel(stack, $"◆ 首次查阅赏 {bounty} 墨锭", 18, Theme.GoldBorder, Theme.TitleFont);
@@ -43,6 +43,7 @@ namespace Brushblade.Presentation
 
             // 有形象资产就用分层字怪(三层各自浮动),没有则回落到圆形字头像——
             // 资产分批上线,缺哪只哪只照常显示字牌,不会开天窗
+            // 形象系数比圆头像大:底稿四周留了 10% 白,同样直径下视觉体积反而更小
             float diameter = size.y * 0.5f;
             GameObject portrait = null;
             if (!locked)
@@ -50,7 +51,7 @@ namespace Brushblade.Presentation
                 string prefix = MobAssets.PrefixFor(def, 0);
                 if (MobAssets.Layer(prefix, "body") != null)
                 {
-                    diameter = size.y * 0.62f; // 形象自带留白,可比圆头像大一圈
+                    diameter = size.y * 0.66f;
                     portrait = new GameObject($"Mob_{def.Id}", typeof(RectTransform));
                     portrait.transform.SetParent(inner.transform, false);
                     var mob = portrait.AddComponent<MobView>();
@@ -67,16 +68,18 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(-diameter / 2f, -diameter - 8f), new Vector2(diameter / 2f, -8f));
 
+            // 文字区压在形象之下:形象占到 0.66 高,名字必须从 0.28 以下起,否则叠字上
             var name = Ui.ThemedLabel(inner.transform, locked ? "" : def.Id,
-                Mathf.RoundToInt(size.y * 0.15f),
+                Mathf.RoundToInt(size.y * 0.11f),
                 locked ? Theme.LockGray : Theme.TextMain, Theme.TitleFont);
-            Ui.Anchor(name.rectTransform, new Vector2(0, 0.2f), new Vector2(1, 0.4f),
+            Ui.Anchor(name.rectTransform, new Vector2(0, 0.10f), new Vector2(1, 0.28f),
                 Vector2.zero, Vector2.zero);
 
             var stats = Ui.ThemedLabel(inner.transform,
-                locked ? "未遇" : $"血{def.MaxHp} 攻{def.Attack}", 13,
+                locked ? "未遇" : $"血{def.MaxHp} 攻{def.Attack}",
+                Mathf.RoundToInt(size.y * 0.068f),
                 locked ? Theme.LockGray : Theme.TextDim);
-            Ui.Anchor(stats.rectTransform, new Vector2(0, 0.04f), new Vector2(1, 0.2f),
+            Ui.Anchor(stats.rectTransform, new Vector2(0, 0.01f), new Vector2(1, 0.10f),
                 Vector2.zero, Vector2.zero);
             return go;
         }
