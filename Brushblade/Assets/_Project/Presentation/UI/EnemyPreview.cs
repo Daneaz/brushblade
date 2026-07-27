@@ -53,7 +53,11 @@ namespace Brushblade.Presentation
                     diameter = size.y * 0.62f; // 形象自带留白,可比圆头像大一圈
                     portrait = new GameObject($"Mob_{def.Id}", typeof(RectTransform));
                     portrait.transform.SetParent(inner.transform, false);
-                    portrait.AddComponent<MobView>().Init(prefix, diameter);
+                    var mob = portrait.AddComponent<MobView>();
+                    mob.Init(prefix, diameter);
+                    // 图鉴展示机制特征:缺笔妖的残笔、通假字的面具、生僻字的墨雾、焦痕的火芯。
+                    // 战斗里这一层由实际状态驱动(MobView.SetStateAmount),这里只是静态露出
+                    mob.SetStateAmount(0.55f);
                 }
             }
             portrait ??= Ui.CircleGlyph(inner.transform,
