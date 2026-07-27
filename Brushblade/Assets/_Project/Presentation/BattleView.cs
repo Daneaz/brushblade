@@ -14,6 +14,8 @@ namespace Brushblade.Presentation
         private System.Action<bool> _onRunEnded;
         private Juice _juice;
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
+        // 分层形象(下标→MobView);没有形象资产的怪该位为 null,回落圆形字头像
+        private readonly System.Collections.Generic.List<MobView> _enemyMobs = new();
         // 召唤物本体/血条按 _summons 下标索引(事件带 SecondIndex 定位承伤/发起者;死后仍在动画期可见)
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonRectByCore = new();
         private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonBarByCore = new();
@@ -151,6 +153,9 @@ namespace Brushblade.Presentation
                 case BattleEventKind.BurnTick:
                     if (e.TargetIndex < 0 || e.TargetIndex >= _enemyHpBars.Count
                         || e.TargetIndex >= _animEnemyHp.Count || e.TargetIndex >= Battle.Enemies.Count) break;
+                    // 挨这一记的形象抖起来:主体抖、墨丝甩尾、眼睛瞪大(MobView 三层各自不同步)
+                    if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
+                        _enemyMobs[e.TargetIndex].PlayHit();
                     if (_enemyHpBars[e.TargetIndex].fill == null) break;
                     var enemy = Battle.Enemies[e.TargetIndex];
                     _animEnemyHp[e.TargetIndex] = System.Math.Max(enemy.Hp, _animEnemyHp[e.TargetIndex] - e.Amount);
@@ -250,14 +255,14 @@ namespace Brushblade.Presentation
                 Theme.Jade, Color.white, 18, new Vector2(46, 42), 12);
 
             var messageGo = Ui.Panel(transform, "Message");
-            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.885f), new Vector2(0.98f, 0.94f), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.900f), new Vector2(0.98f, 0.945f), Vector2.zero, Vector2.zero);
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
             // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
             // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
             // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
-            _enemyRow = MakeSection("Enemies", 0.648f, 0.884f);  // 212px ≥ 208
+            _enemyRow = MakeSection("Enemies", 0.648f, 0.898f);  // 225px ≥ 220(2026-07-28 随形象放大,向上吃了消息条几像素)
             _summonRow = MakeSection("Summons", 0.560f, 0.648f); // 79px:50 方块 + 血条(血值上条) + 攻力行
             _bottomRow = MakeSection("PlayerStats", 0.505f, 0.560f); // 50px:HP/AP 横排(血值上条后省一行)
 
@@ -526,9 +531,16 @@ namespace Brushblade.Presentation
             }
         }
 
+        // 敌人格尺寸(2026-07-28 随形象接入放大:圆头像 104 → 形象 150,格 168×208 → 190×220)。
+        // 形象底稿四周留了 10% 白,同直径下视觉体积比实心圆头像小,所以要给得更足
+        private const float EnemyPortrait = 150f;
+        private const float EnemyCellWidth = 190f;
+        private const float EnemyCellHeight = 220f;
+
         private void DrawEnemies()
         {
             _enemyRects.Clear();
+            _enemyMobs.Clear();
             _enemyHpBars.Clear();
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
@@ -540,26 +552,46 @@ namespace Brushblade.Presentation
 
                 var cell = Ui.Panel(_enemyRow, $"Enemy{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
-                cellElement.preferredWidth = 168;
-                cellElement.preferredHeight = 208;
+                cellElement.preferredWidth = EnemyCellWidth;
+                cellElement.preferredHeight = EnemyCellHeight;
 
-                var circle = Ui.CircleGlyph(cell.transform,
+                // 有形象就用分层字怪(Boss 按当前阶段取图),否则回落圆形字头像
+                MobView mob = null;
+                GameObject portrait = null;
+                string prefix = MobAssets.PrefixFor(enemy.Def, enemy.PhaseIndex);
+                if (MobAssets.Layer(prefix, "body") != null)
+                {
+                    // 死了也照旧画形象,只是置灰 —— 换回字头像会让尸体「跳」一下形
+                    portrait = new GameObject($"Mob{i}", typeof(RectTransform));
+                    portrait.transform.SetParent(cell.transform, false);
+                    mob = portrait.AddComponent<MobView>();
+                    mob.Init(prefix, EnemyPortrait);
+                    mob.SetStateAmount(MobAssets.StateAmountFor(enemy)); // L4 绑战斗状态
+                    if (!showAlive) mob.ApplyTint(Theme.LockedBg);
+                }
+                portrait ??= Ui.CircleGlyph(cell.transform,
                     EnemyInfo.FaceChar(enemy.Def, enemy.PhaseIndex),
                     showAlive ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
-                    Color.white, 104);
-                var circleImage = circle.GetComponent<Image>();
-                Ui.Anchor((RectTransform)circle.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                    new Vector2(-52, -104), new Vector2(52, 0));
-                if (_targeting && enemy.Alive)
+                    Color.white, EnemyPortrait);
+                _enemyMobs.Add(mob);
+                Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(-EnemyPortrait / 2f, -EnemyPortrait), new Vector2(EnemyPortrait / 2f, 0));
+                if (_targeting && enemy.Alive && mob == null)
                 {
-                    var outline = circle.AddComponent<Outline>();
+                    var outline = portrait.AddComponent<Outline>(); // 圆头像用描边示意可选中
                     outline.effectColor = Theme.Ink;
                     outline.effectDistance = new Vector2(3, 3);
                 }
 
+                // 点击区盖满整格:形象各层不吃 raycast(见 MobView),没有它整格点不动
+                var hitArea = cell.AddComponent<Image>();
+                hitArea.color = _targeting && enemy.Alive
+                    ? new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.07f) // 选目标时整格微亮,提示可点
+                    : new Color(0, 0, 0, 0);
+
                 var info = Ui.VStack(cell.transform, "Info", 3);
                 Ui.Anchor((RectTransform)info.transform, new Vector2(0, 0), new Vector2(1, 1),
-                    Vector2.zero, new Vector2(0, -106));
+                    Vector2.zero, new Vector2(0, -(EnemyPortrait + 2f)));
                 Ui.ThemedLabel(info.transform, BossTitle(enemy), 17, Theme.TextMain, Theme.TitleFont);
                 var chips = Ui.Row(info.transform, "Chips", 5);
                 Ui.Chip(chips.transform, enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?",
@@ -591,10 +623,10 @@ namespace Brushblade.Presentation
                 }
 
                 var button = cell.AddComponent<Button>();
-                button.targetGraphic = circleImage;
+                button.targetGraphic = hitArea;
                 button.onClick.AddListener(() => OnEnemyClicked(index));
                 button.interactable = enemy.Alive;
-                _enemyRects.Add((RectTransform)circle.transform);
+                _enemyRects.Add((RectTransform)portrait.transform);
             }
 
         }

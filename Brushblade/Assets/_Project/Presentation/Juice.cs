@@ -336,19 +336,34 @@ namespace Brushblade.Presentation
 
         private static IEnumerator GreyRoutine(RectTransform target)
         {
-            var image = target.GetComponent<Image>();
-            if (image == null) yield break;
-            Color from = image.color;
-            Color to = Theme.LockedBg;
+            // 取整棵子树:圆形字头像的 Image 在自己身上,分层字怪(MobView)的却在各层子节点上——
+            // 只看自己会让形象怪死了不变灰(静默失效)
+            var images = target.GetComponentsInChildren<Image>(true);
+            if (images.Length == 0) yield break;
+            var from = new Color[images.Length];
+            for (int i = 0; i < images.Length; i++) from[i] = images[i].color;
+
             float t = 0f;
             const float duration = 0.2f;
             while (t < duration && target != null)
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
-                image.color = Color.Lerp(from, to, t / duration);
+                for (int i = 0; i < images.Length; i++)
+                    if (images[i] != null) images[i].color = GreyOf(from[i], t / duration);
                 yield return null;
             }
-            if (target != null) image.color = to;
+            if (target == null) yield break;
+            for (int i = 0; i < images.Length; i++)
+                if (images[i] != null) images[i].color = GreyOf(from[i], 1f);
+        }
+
+        /// <summary>置灰色:只推 RGB,alpha 保持各层原值——状态层(L4)的 alpha 编码着战斗状态,
+        /// 一并拉到 1 会让墨雾/火芯在死亡瞬间突然全显。</summary>
+        private static Color GreyOf(Color from, float amount)
+        {
+            var grey = Color.Lerp(from, Theme.LockedBg, Mathf.Clamp01(amount));
+            grey.a = from.a;
+            return grey;
         }
 
         // 火焰色阶(黄 → 橙 → 红):火系 DoT 火苗

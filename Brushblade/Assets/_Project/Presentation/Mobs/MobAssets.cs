@@ -71,5 +71,20 @@ namespace Brushblade.Presentation
         /// <summary>这只怪有没有形象资产(至少有主体层)。</summary>
         public static bool Has(EnemyDef def, int phaseIndex = 0) =>
             Layer(PrefixFor(def, phaseIndex), "body") != null;
+
+        /// <summary>L4 状态层的强度 = 该怪的战斗状态(《敌人形象关键词包》§2)。
+        /// 这四只的机制本来就有状态字段,配一张层就把「颜色 = 状态」兑现了。</summary>
+        public static float StateAmountFor(EnemyState enemy) => enemy.Def.Ability switch
+        {
+            // 缺笔妖:残笔随补全进度长回来(0→3),补满即实
+            EnemyAbility.Regrow => Mathf.Clamp01(enemy.RegrowProgress / 3f),
+            // 通假字:面具戴着 = 还没现形;首次行动后真身与伪装一致,面具落下
+            EnemyAbility.Disguise => enemy.ApparentElement != enemy.Element ? 1f : 0f,
+            // 生僻字:墨雾罩着 = 还没被读懂(受击 2 次后 ApparentElement 才有值)
+            EnemyAbility.Obscure => enemy.ApparentElement == null ? 1f : 0f,
+            // 焦痕:越磨越烫,火芯随攻击力增长越来越亮(每次受击 +2,四次烧到顶)
+            EnemyAbility.Scorch => Mathf.Clamp01((enemy.Attack - enemy.Def.Attack) / 8f),
+            _ => 0f,
+        };
     }
 }

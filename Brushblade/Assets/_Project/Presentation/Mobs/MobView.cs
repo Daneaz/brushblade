@@ -70,6 +70,17 @@ namespace Brushblade.Presentation
         /// <summary>受击:主体抖、墨丝甩尾、眼睛瞪大——三层不同步才有层次。</summary>
         public void PlayHit() => _hitTimer = HitDuration;
 
+        /// <summary>整只染色(死亡置灰用)。alpha 保持各层原值 —— 状态层的 alpha 编码着战斗状态。</summary>
+        public void ApplyTint(Color tint)
+        {
+            foreach (var image in GetComponentsInChildren<Image>(true))
+            {
+                var color = tint;
+                color.a = image.color.a;
+                image.color = color;
+            }
+        }
+
         private void Update()
         {
             float t = Time.time + _phase;
