@@ -29,6 +29,8 @@ from fontTools.ttLib import TTFont
 ROOT = Path(__file__).resolve().parents[2]
 RAW_FONT = Path(__file__).parent / "raw" / "NotoSerifSC[wght].ttf"
 OUT_DIR = ROOT / "docs/design/glyph-refs"
+SVG_DIR = OUT_DIR / "svg"   # 矢量底稿(给 Claude Design:它读 path 数据)
+PNG_DIR = OUT_DIR / "png"   # 位图底稿(给只吃位图的出图工具/ControlNet)
 
 CANVAS = 512        # 画布边长(§2 交付规范:512×512)
 MARGIN = 0.10       # 四周留白 10% —— 受击位移 ±11px 不出框(§2 构图约束 3)
@@ -252,14 +254,13 @@ def _export_png(tasks):
     if shutil.which("rsvg-convert") is None:
         print("跳过 PNG:未找到 rsvg-convert(macOS: brew install librsvg)")
         return
-    png_dir = OUT_DIR / "png"
-    png_dir.mkdir(exist_ok=True)
+    PNG_DIR.mkdir(parents=True, exist_ok=True)
     for task in tasks:
         subprocess.run(
             ["rsvg-convert", "-w", str(CANVAS), "-h", str(CANVAS),
-             str(OUT_DIR / task.filename), "-o", str(png_dir / task.filename.replace(".svg", ".png"))],
+             str(SVG_DIR / task.filename), "-o", str(PNG_DIR / task.filename.replace(".svg", ".png"))],
             check=True)
-    print(f"PNG {len(tasks)} 张 → {png_dir.relative_to(ROOT)}")
+    print(f"PNG {len(tasks)} 张 → {PNG_DIR.relative_to(ROOT)}")
 
 
 def main():
@@ -275,10 +276,10 @@ def main():
         return
 
     tasks = render_plan()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    SVG_DIR.mkdir(parents=True, exist_ok=True)
     manifest = []
     for task in tasks:
-        (OUT_DIR / task.filename).write_text(render_svg(task.char, task.weight), encoding="utf-8")
+        (SVG_DIR / task.filename).write_text(render_svg(task.char, task.weight), encoding="utf-8")
         manifest.append({
             "file": task.filename,
             "char": task.char,
