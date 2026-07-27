@@ -359,24 +359,10 @@ namespace Brushblade.Core.Tests
 
             var restored = RunEngine.Restore(resume.Run, Graph(), config, Config(), null,
                 startingInk: 50, perFloorNormalShield: 2);
-            Assert.That(Digest(restored), Is.EqualTo(Digest(origin)));
-        }
+            Assert.That(Digest(restored), Is.EqualTo(Digest(origin)), "读档瞬间就该一致");
 
-        [Test]
-        public void Run_SerializesThroughJson() // 走一遍真实存档路径,别在 JSON 层丢字段
-        {
-            var config = TwoBattles(new EnemyDef("枯", Element.Wood, 60, 3));
-            var a = Run(config);
-            a.Battle.Cast("炎", 0);
-
-            string json = Newtonsoft.Json.JsonConvert.SerializeObject(a.Capture());
-            var revived = Newtonsoft.Json.JsonConvert.DeserializeObject<RunSnapshot>(json);
-            var b = RunEngine.Restore(revived, Graph(), config, Config(), null,
-                startingInk: 50, perFloorNormalShield: 2);
-
-            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
-            foreach (var r in new[] { a, b }) { r.Battle.EndTurn(); r.Battle.Cast("炎", 0); }
-            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
+            foreach (var r in new[] { origin, restored }) { r.Battle.EndTurn(); r.Battle.Cast("炎", 0); }
+            Assert.That(Digest(restored), Is.EqualTo(Digest(origin)), "接着打也要一致");
         }
     }
 }

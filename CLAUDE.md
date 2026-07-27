@@ -47,6 +47,11 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 - ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
   NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
   集合子集用 `Has.All.Matches<T>`。
+- ⚠️ 测试代码**禁止直接引用 Newtonsoft**(`JsonConvert` 等):Tests asmdef 是
+  `overrideReferences: true` 且只放行 `nunit.framework.dll`,而工装 csproj 有 Newtonsoft
+  的 PackageReference —— 又一个工装绿≠编辑器绿(已犯过)。要测序列化就走 `Data.SaveSerializer`
+  / `Data.ConfigLoader` 这些真实入口,顺带把真实路径也覆盖了。
+  同理:测试只能用 Tests asmdef references 列出的程序集(Core / Data)。
 - 提交信息用 conventional commits(feat/fix/docs/chore + 范围)。
 
 ## 当前阶段

@@ -42,19 +42,6 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void State_RoundTripsThroughSerialization() // state 要能塞进 JSON 存档
-        {
-            var random = new GameRandom(123);
-            Take(random, 5);
-            uint state = random.State;
-            string json = Newtonsoft.Json.JsonConvert.SerializeObject(new { State = state });
-            uint restored = Newtonsoft.Json.JsonConvert.DeserializeObject<Holder>(json).State;
-            Assert.That(GameRandom.FromState(restored).Next(1000), Is.EqualTo(GameRandom.FromState(state).Next(1000)));
-        }
-
-        private sealed class Holder { public uint State { get; set; } }
-
-        [Test]
         public void Next_StaysInRange()
         {
             var random = new GameRandom(9);
