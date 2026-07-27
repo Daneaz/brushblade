@@ -1,16 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-<title>错字鬼 · L3 wisp</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><g>
+
 <defs>
-<filter id="wRough" x="-40%" y="-40%" width="180%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="33" result="n"></feTurbulence><feDisplacementMap in="SourceGraphic" in2="n" scale="9"></feDisplacementMap><feGaussianBlur stdDeviation="0.5"></feGaussianBlur></filter>
-<radialGradient id="aura" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#348F4F" stop-opacity="0.5"></stop><stop offset="1" stop-color="#348F4F" stop-opacity="0"></stop></radialGradient>
+<filter id="L2_wRough" x="-40%" y="-40%" width="180%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="33" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="9" /><feGaussianBlur stdDeviation="0.5" /></filter>
+<radialGradient id="L2_aura" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#348F4F" stop-opacity="0.5" /><stop offset="1" stop-color="#348F4F" stop-opacity="0" /></radialGradient>
 </defs>
 
-<ellipse cx="452" cy="470" rx="58" ry="40" fill="url(#aura)"></ellipse>
-<g filter="url(#wRough)" fill="none" stroke-linecap="round">
-<path d="M424 468 q26 6 40 -4 q11 -8 14 -20" stroke="#3D4E69" stroke-width="5" opacity="0.75"></path>
-<path d="M426 466 q22 4 34 -5 q9 -6 12 -16" stroke="#348F4F" stroke-width="2.4" opacity="0.6"></path>
-<path d="M418 480 q30 12 52 4 q14 -5 20 -15" stroke="#3D4E69" stroke-width="3.2" opacity="0.5"></path>
-<path d="M430 456 q18 -2 26 -12" stroke="#3D4E69" stroke-width="2.2" opacity="0.4"></path>
+<ellipse cx="452" cy="470" rx="58" ry="40" fill="url(#L2_aura)" />
+<g filter="url(#L2_wRough)" fill="none" stroke-linecap="round">
+<path d="M424 468 q26 6 40 -4 q11 -8 14 -20" stroke="#3D4E69" stroke-width="5" opacity="0.75" />
+<path d="M426 466 q22 4 34 -5 q9 -6 12 -16" stroke="#348F4F" stroke-width="2.4" opacity="0.6" />
+<path d="M418 480 q30 12 52 4 q14 -5 20 -15" stroke="#3D4E69" stroke-width="3.2" opacity="0.5" />
+<path d="M430 456 q18 -2 26 -12" stroke="#3D4E69" stroke-width="2.2" opacity="0.4" />
 </g>
-<g filter="url(#wRough)"><circle cx="480" cy="443" r="2.6" fill="#348F4F" opacity="0.65"></circle><circle cx="492" cy="466" r="2" fill="#3D4E69" opacity="0.4"></circle></g>
+<g filter="url(#L2_wRough)"><circle cx="480" cy="443" r="2.6" fill="#348F4F" opacity="0.65" /><circle cx="492" cy="466" r="2" fill="#3D4E69" opacity="0.4" /></g>
+</g>
 </svg>

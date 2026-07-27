@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><g><defs>
+<filter id="L1_rg" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.042" numOctaves="3" seed="7" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="7" /></filter>
+<filter id="L1_rs" x="-25%" y="-25%" width="150%" height="150%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="13" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="12" /><feGaussianBlur stdDeviation="0.6" /></filter>
+<filter id="L1_pa"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="11" /><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.7 0.7 0.7 0 -0.15" /></filter>
+<filter id="L1_pb"><feTurbulence type="fractalNoise" baseFrequency="0.016 0.011" numOctaves="2" seed="29" /><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.2 1.2 1.2 0 -1.15" /></filter>
+<mask id="L1_sm"><rect width="512" height="512" fill="#9a9a9a" /><rect width="512" height="512" filter="url(#L1_pa)" /></mask>
+<mask id="L1_wt"><rect width="512" height="512" fill="#000" /><rect width="512" height="512" filter="url(#L1_pb)" /></mask>
+<radialGradient id="L1_iris" cx="0.5" cy="0.4" r="0.6"><stop offset="0" stop-color="#c07dcf" /><stop offset="0.6" stop-color="#9750A7" /><stop offset="1" stop-color="#5a2d66" /></radialGradient>
+<radialGradient id="L1_aura" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#9750A7" stop-opacity="0.5" /><stop offset="1" stop-color="#9750A7" stop-opacity="0" /></radialGradient>
+</defs><g transform="rotate(0 256 256)" filter="url(#L1_rs)"><g><ellipse cx="200" cy="200" rx="10" ry="12" fill="#111622" /><circle cx="200.5" cy="200.5" r="6.2" fill="url(#L1_iris)" /><circle cx="200.5" cy="200.5" r="2.4" fill="#111622" /><circle cx="196.5" cy="195.2" r="1.9" fill="#F6F1E7" opacity="0.9" /></g><g><ellipse cx="305" cy="200" rx="10" ry="12" fill="#111622" /><circle cx="305.5" cy="200.5" r="6.2" fill="url(#L1_iris)" /><circle cx="305.5" cy="200.5" r="2.4" fill="#111622" /><circle cx="301.5" cy="195.2" r="1.9" fill="#F6F1E7" opacity="0.9" /></g></g></g>
+</svg>
