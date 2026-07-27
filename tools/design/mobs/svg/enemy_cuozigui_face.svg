@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<title>错字鬼 · L2 face</title>
+<defs>
+<filter id="fRough" x="-40%" y="-40%" width="180%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves="2" seed="21" result="n"></feTurbulence><feDisplacementMap in="SourceGraphic" in2="n" scale="5"></feDisplacementMap><feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<radialGradient id="iris" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#5cc47a"></stop><stop offset="0.6" stop-color="#348F4F"></stop><stop offset="1" stop-color="#1f5a30"></stop></radialGradient>
+</defs>
+<g transform="rotate(-2.3 256 258)" filter="url(#fRough)">
+<g><ellipse cx="302" cy="308" rx="11" ry="12.5" fill="#111622"></ellipse><circle cx="303.5" cy="309.5" r="6.2" fill="url(#iris)"></circle><circle cx="303.5" cy="309.5" r="2.4" fill="#111622"></circle><circle cx="300" cy="304.5" r="1.9" fill="#F6F1E7" opacity="0.9"></circle></g>
+<g><ellipse cx="359" cy="303" rx="9.5" ry="11" fill="#111622"></ellipse><circle cx="357.5" cy="302" r="5.3" fill="url(#iris)"></circle><circle cx="357.5" cy="302" r="2" fill="#111622"></circle><circle cx="361" cy="305.5" r="1.6" fill="#F6F1E7" opacity="0.9"></circle></g>
+</g>
+</svg>

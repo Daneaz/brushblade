@@ -41,8 +41,22 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
                 new Vector2(3f, 3f), new Vector2(-3f, -3f));
 
+            // 有形象资产就用分层字怪(三层各自浮动),没有则回落到圆形字头像——
+            // 资产分批上线,缺哪只哪只照常显示字牌,不会开天窗
             float diameter = size.y * 0.5f;
-            var portrait = Ui.CircleGlyph(inner.transform,
+            GameObject portrait = null;
+            if (!locked)
+            {
+                string prefix = MobAssets.PrefixFor(def, 0);
+                if (MobAssets.Layer(prefix, "body") != null)
+                {
+                    diameter = size.y * 0.62f; // 形象自带留白,可比圆头像大一圈
+                    portrait = new GameObject($"Mob_{def.Id}", typeof(RectTransform));
+                    portrait.transform.SetParent(inner.transform, false);
+                    portrait.AddComponent<MobView>().Init(prefix, diameter);
+                }
+            }
+            portrait ??= Ui.CircleGlyph(inner.transform,
                 locked ? "?" : EnemyInfo.FaceChar(def, 0),
                 locked ? Theme.LockedBg : Theme.ElementColor(def.Element),
                 locked ? Theme.LockGray : Color.white, diameter);
