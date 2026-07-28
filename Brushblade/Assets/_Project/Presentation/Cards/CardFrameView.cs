@@ -15,6 +15,7 @@ namespace Brushblade.Presentation
         private const float BreathePeriod = 4.3f;  // 紫:边缘辉光呼吸
         private const float FlowPeriod = 3.1f;     // 橙:金边流光
         private const float TwinklePeriod = 2.7f;  // 红:星芒明灭
+        private const float PlayablePeriod = 2.9f; // 通用:可出手呼吸
 
         // 六系签名动效周期(§4.1)。金/土 刻意最慢:金是「瞬时、间隔长」,土是「几乎不动」
         private static float PeriodOf(Element? element) => element switch
@@ -22,7 +23,7 @@ namespace Brushblade.Presentation
             Element.Fire => 3.7f,
             Element.Water => 4.3f,
             Element.Wood => 5.9f,
-            Element.Metal => 6.7f,
+            Element.Metal => 5.1f,
             Element.Earth => 5.3f,
             Element.Heart => 4.9f,
             _ => 5f,
@@ -55,9 +56,17 @@ namespace Brushblade.Presentation
         private Vector2 _size;
         private float _phase;       // 每张牌随机起相
         private float _alphaCeil;
+        private float _alphaScale = 1f;
         private Color _frameBase;
-        private bool _playable = true;  // false = AP 不足:去饱和 + 属性动效停(§4.4)
-        private bool _frameApplied = true;
+        /// <summary>出手状态三态。**Untracked 是关键的一档**:呼吸曾因「全屏都在闪」被砍,
+        /// 病根不在呼吸本身,而在只有战斗调 SetPlayable、别处所有牌都默认「可出手」——
+        /// 卡组同屏 12 张全在胀缩。分出「没人告诉过我」这一档,呼吸就只发生在真正需要
+        /// 表达可否出手的地方(战斗字库),其余界面一律安静。</summary>
+        private enum Playability { Untracked, Playable, Blocked }
+
+        private Playability _play = Playability.Untracked;
+        private Playability _frameApplied = Playability.Untracked;
+        private RectTransform _self;
 
         /// <summary>低于这个 alpha 变化量就不写回 —— UI 的 color 每写一次就标脏一次 Canvas。</summary>
         private const float AlphaEpsilon = 0.004f;
@@ -68,6 +77,7 @@ namespace Brushblade.Presentation
         public void Init(CardRarity rarity, Element? element, Vector2 size,
             Transform moteParent, Image frame, Image glow, bool selected)
         {
+            _self = (RectTransform)transform;
             _rarity = rarity;
             _element = element;
             _size = size;
@@ -89,6 +99,7 @@ namespace Brushblade.Presentation
             var sprite = CardFrames.Element(element);
             var (count, alpha) = VolumeOf(rarity);
             _alphaCeil = alpha;
+            _alphaScale = MoteAlphaScale(element);
             if (sprite == null || moteParent == null) return;
 
             _motes = new RectTransform[count];
@@ -102,6 +113,8 @@ namespace Brushblade.Presentation
                 rect.sizeDelta = new Vector2(side, side);
                 // 木要从根部往上长,缩放得绕底边转:pivot 落到底,anchoredPosition 随之指的是根部
                 if (element == Element.Wood) rect.pivot = new Vector2(0.5f, 0f);
+                // 锋光斜着划才像「斩」;角度恒定,在此设一次,不进每帧
+                if (element == Element.Metal) rect.localRotation = Quaternion.Euler(0f, 0f, -11f);
                 var image = go.GetComponent<Image>();
                 image.sprite = sprite;
                 image.preserveAspect = true;
@@ -112,49 +125,73 @@ namespace Brushblade.Presentation
             }
         }
 
+        /// <summary>锋光专用冷钢色 `#5B6B7A`。**「亮银」在白牌面上是做不到的** —— UI 走 alpha 混合,
+        /// 比纸更亮的颜色叠上去等于没叠(银灰 `#8A97A3` 对牌面只有 2.84:1,实测)。
+        /// 金的辨识只能来自比纸**暗**的冷钢,「一线高光」改由元件自身的镂空刀芯衬出来。
+        /// 顺带解决金土难分:原来的橄榄灰 `#6B6449` 与土只差 ΔE 25.4,换冷钢后拉到 50.0。</summary>
+        private static readonly Color SteelEdge = new(0.357f, 0.420f, 0.478f);
+
         /// <summary>元件染色(白底元件 × 这个色 = 最终色)。用**鲜色板** ElementColor 而非
         /// 字色板 GlyphColor —— 后者是为过 WCAG 4.5:1 特意加深去彩的,染出来属性色被洗掉一半;
         /// 元件是图不是字,不背对比度这条约束,它要的恰恰是「一眼认出是哪一系」。
-        /// 金是唯一例外,而且正是当初逼出加深色板的那个字色:`#B3A382` 对浅牌面只有 2.48:1,
-        /// 那道锋光淡到等于没做。金改用加深版冷灰,既看得见,又与土的红褐拉得开(ΔE 22.7)。</summary>
-        private static Color MoteColor(Element? element) => element == Element.Metal
-            ? Theme.GlyphColor(element)
-            : Theme.ElementColor(element);
+        /// 金是例外,走 <see cref="SteelEdge"/>:鲜色板的 `#B3A382` 对浅牌面只有 2.48:1,
+        /// 那道锋光会淡到等于没做 —— 这正是当初逼出加深字色板的同一个字色。</summary>
+        private static Color MoteColor(Element? element) =>
+            element == Element.Metal ? SteelEdge : Theme.ElementColor(element);
+
+        /// <summary>属性层的额外音量。金/土 实测「几乎看不见」,各补一档,其余系不动:
+        /// 金只在两成周期里出场、且是一条细线;土刻意不动、原本体量又是六系最小。
+        /// 补的是**透明度**不是幅度 —— 土的性格是静,让它动起来就不是土了。</summary>
+        private static float MoteAlphaScale(Element? element) => element switch
+        {
+            Element.Metal => 1.5f,
+            Element.Earth => 1.35f,
+            _ => 1f,
+        };
 
         /// <summary>元件相对牌宽的尺寸:锋光要长、尘石要小,其余居中。</summary>
         private static float MoteScaleOf(Element? element) => element switch
         {
-            Element.Metal => 0.46f,
-            Element.Earth => 0.24f,
+            Element.Metal => 0.54f,
+            Element.Earth => 0.36f,
             Element.Wood => 0.28f,
             _ => 0.26f,
         };
 
-        /// <summary>AP 够不够出这张(§4.4)。不够:去饱和压暗 + 属性动效停,明确表达「用不了」。</summary>
-        public void SetPlayable(bool playable) => _playable = playable;
+        /// <summary>AP 够不够出这张(§4.4)。够:极轻微呼吸,提示「这张能打」;
+        /// 不够:去饱和压暗 + 属性动效停。不调这个方法的界面两样都不做。</summary>
+        public void SetPlayable(bool playable) =>
+            _play = playable ? Playability.Playable : Playability.Blocked;
 
         private void Update()
         {
             float t = Time.time + _phase;
             float attention = _focused == null || _focused == this ? 1f : UnfocusedAttention;
-            float gate = _playable ? attention : 0f;
+            float gate = _play == Playability.Blocked ? 0f : attention;
 
-            DriveFrame();
+            DriveFrame(t);
             DriveGlow(t, gate);
             DriveMotes(t, gate);
         }
 
-        /// <summary>通用层(§4.4):AP 不足去饱和压暗。
-        /// 原本还有「可出手 ±1.5% 呼吸」,试玩后砍掉 —— 它作用在**每个界面的每张牌**上
-        /// (SetPlayable 只有战斗在调,别处一律默认可出手),卡组同屏 12 张各自随机相位地胀缩,
-        /// 合起来就是「全屏都在闪」;而且缩放 UI Text 会让字形每帧重采样,自带一层抖动。</summary>
-        private void DriveFrame()
+        /// <summary>通用层(§4.4):可出手呼吸 + AP 不足去饱和压暗。
+        /// 呼吸只作用在**明确报过可出手**的牌上(见 <see cref="Playability"/>):
+        /// 曾经因为「全屏都在闪」砍过一次,病根是别处的牌也默认在呼吸,不是呼吸本身。</summary>
+        private void DriveFrame(float t)
         {
-            // 框色只在可出手状态翻转时写一次 —— 每帧无条件赋 color 会把整块 Canvas 每帧标脏
-            if (_frame == null || _playable == _frameApplied) return;
-            _frameApplied = _playable;
+            if (_play == Playability.Playable)
+            {
+                float breathe = 1f + 0.015f * Mathf.Sin(t * Mathf.PI * 2f / PlayablePeriod);
+                _self.localScale = new Vector3(breathe, breathe, 1f);
+            }
+            // 框色只在出手状态翻转时写一次 —— 每帧无条件赋 color 会把整块 Canvas 每帧标脏
+            if (_frame == null || _play == _frameApplied) return;
+            _frameApplied = _play;
+            if (_play != Playability.Playable) _self.localScale = Vector3.one;
             // 去饱和不能动 alpha:框素材自带牌面底色,压 alpha 会把牌变透明
-            _frame.color = _playable ? _frameBase : Color.Lerp(_frameBase, Theme.LockedBg, 0.62f);
+            _frame.color = _play == Playability.Blocked
+                ? Color.Lerp(_frameBase, Theme.LockedBg, 0.62f)
+                : _frameBase;
         }
 
         /// <summary>材质光效层(§4.2):四档各跑各的。位移幅度都压在牌内 —— 不裁剪,就不会溢到邻牌上。</summary>
@@ -236,17 +273,21 @@ namespace Brushblade.Presentation
 
                     case Element.Metal: // 瞬时:一道锋光快速掠过底栏,间隔长、持续短
                     {
-                        const float window = 0.13f;
+                        const float window = 0.20f;
                         if (u > window) { SetMote(i, Vector2.zero, 0f); continue; }
                         float v = u / window;
-                        pos = new Vector2(Mathf.Lerp(-0.22f, 0.22f, v) * _size.x, -0.42f * _size.y + stagger);
+                        pos = new Vector2(Mathf.Lerp(-0.20f, 0.20f, v) * _size.x, -0.40f * _size.y + stagger);
                         alpha = Mathf.Sin(v * Mathf.PI);
                         break;
                     }
 
-                    case Element.Earth: // 几乎不动:定在角上,只有明暗里的重量感
-                        pos = new Vector2(side * 0.34f * _size.x, -0.38f * _size.y + stagger);
-                        alpha = 0.82f + 0.18f * Mathf.Sin(u * Mathf.PI * 2f);
+                    // 土刻意不动,但「不动」不等于「看不见」—— 它是同屏 8 张里的视觉锚点。
+                    // 体量给到六系最大,再补一点沉降的起伏(±1.2% 牌高):有重量,不飘
+                    case Element.Earth:
+                        // 错层走横向:体量放大后,纵向错层会把上面那颗石头顶进字带(实测)
+                        pos = new Vector2(side * (0.30f + i / 2 * 0.05f) * _size.x,
+                            (-0.355f + 0.012f * Mathf.Sin(u * Mathf.PI * 2f)) * _size.y);
+                        alpha = 0.86f + 0.14f * Mathf.Sin(u * Mathf.PI * 2f);
                         break;
 
                     // 心是全书唯一贴着字跑的系,也是唯一的例外:§4.1 的签名动作就是「字形双影错位」,
@@ -274,7 +315,7 @@ namespace Brushblade.Presentation
                 if (!skipScale) _motes[i].localScale = Vector3.one;
                 _motes[i].anchoredPosition = pos;
                 var color = _moteImages[i].color;
-                float target = alpha * _alphaCeil * gate;
+                float target = Mathf.Clamp01(alpha * _alphaCeil * _alphaScale * gate);
                 if (Mathf.Abs(target - color.a) < AlphaEpsilon) return;
                 color.a = target;
                 _moteImages[i].color = color;

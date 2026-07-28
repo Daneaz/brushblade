@@ -1,16 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="m_edge" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"></stop>
-      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="1"></stop>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"></stop>
-    </linearGradient>
-    <filter id="m_soft" x="-30%" y="-60%" width="160%" height="220%">
-      <feGaussianBlur stdDeviation="1.6"></feGaussianBlur>
+    <filter id="m_halo" x="-20%" y="-120%" width="140%" height="340%">
+      <feGaussianBlur stdDeviation="3.4"></feGaussianBlur>
     </filter>
   </defs>
-  <!-- 锋光:细长高光条,两端收尖,不拖尾 -->
-  <path d="M2 64 C 40 59.5 88 59.5 126 64 C 88 68.5 40 68.5 2 64 Z" fill="url(#m_edge)"></path>
-  <path d="M10 64 C 44 61 84 61 118 64 C 84 67 44 67 10 64 Z"
-        fill="url(#m_edge)" filter="url(#m_soft)"></path>
+  <!-- 元件一律白底,形状全交给 alpha(Image.color 是相乘,白底才染得出属性色) -->
+
+  <!-- 锋晕:极淡的一层,给刀光一点体量 -->
+  <path d="M4 64 C 42 50 86 50 124 64 C 86 78 42 78 4 64 Z"
+        fill="#FFFFFF" fill-opacity="0.16" filter="url(#m_halo)"></path>
+
+  <!-- 刀身:双刃实、中间镂空 —— 白纸上做不出「比纸更亮」,
+       「一线高光」只能靠两侧压暗、中间留白衬出来 -->
+  <path fill="#FFFFFF" fill-opacity="0.95" fill-rule="evenodd"
+        d="M2 64 C 40 53.5 88 53.5 126 64 C 88 74.5 40 74.5 2 64 Z
+           M24 64 C 52 59.6 76 59.6 104 64 C 76 68.4 52 68.4 24 64 Z"></path>
+
+  <!-- 高光芯:留一点点,不是全空,免得小尺寸下断成两条 -->
+  <path d="M24 64 C 52 59.6 76 59.6 104 64 C 76 68.4 52 68.4 24 64 Z"
+        fill="#FFFFFF" fill-opacity="0.14"></path>
+
+  <!-- 两端收尖处的飞白断口:枯笔,不拖尾 -->
+  <g fill="#FFFFFF" fill-opacity="0.8">
+    <circle cx="10" cy="64" r="1.6"></circle>
+    <circle cx="118" cy="64" r="1.6"></circle>
+  </g>
 </svg>
