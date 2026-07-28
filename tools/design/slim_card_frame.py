@@ -24,8 +24,11 @@ ASSETS = ROOT / "docs/design/card-refs/assets"
 W, H = 192, 240
 
 
-def slim_purple(svg: str, k: float) -> str:
-    """紫檀框:木框内挖 + 描金线 + 五层木纹 + 四角螺钿,全部按 k 内移。"""
+def slim_purple(svg: str, k: float, corner_k: float = None) -> str:
+    """紫檀框:木框内挖 + 描金线 + 五层木纹 + 四角螺钿,全部按 k 内移。
+    corner_k 单独控制螺钿大小 —— 边框收到很细时,钿点按同一系数会缩到看不见,
+    而它正是紫檀这档的工艺记忆点,值得留住(位置仍跟边框走,不会溢出)。"""
+    corner_k = corner_k if corner_k is not None else k
     ix, iy = round(24 * k), round(26 * k)
     gx, gy = round(22 * k), round(24 * k)
     lx, ly = 24 * k + 0.5, 26 * k + 0.5
@@ -46,7 +49,7 @@ def slim_purple(svg: str, k: float) -> str:
 
     # 四角螺钿:圆心与半径同步内移缩小,否则细边框压不住原尺寸的钿点
     def corner(match, cx_expr, cy_expr):
-        radius = round(float(match.group(1)) * k, 1)
+        radius = round(float(match.group(1)) * corner_k, 1)
         return f'cx="{cx_expr}" cy="{cy_expr}" r="{radius}"'
 
     cx, cy = round(13 * k, 1), round(14 * k, 1)
@@ -81,18 +84,19 @@ def slim_white(svg: str, k: float) -> str:
     return svg
 
 
-HANDLERS = {
-    "card_purple_frame.svg": slim_purple,
-    "card_purple_glow.svg": slim_glow,
-    "card_white_frame.svg": slim_white,
-}
-
-
 def main():
     parser = argparse.ArgumentParser(description="字牌边框瘦身")
-    parser.add_argument("--k", type=float, default=0.62,
-                        help="收窄系数(1.0=原稿;0.62 → 边框占牌宽 7.8%%)")
+    parser.add_argument("--k", type=float, default=0.48,
+                        help="收窄系数(1.0=原稿;0.48 → 边框占牌宽 6.2%%)")
+    parser.add_argument("--corner", type=float, default=0.62,
+                        help="螺钿单独系数(默认 0.62:边框再细也留住紫檀的工艺记忆点)")
     args = parser.parse_args()
+
+    handlers = {
+        "card_purple_frame.svg": lambda s, k: slim_purple(s, k, args.corner),
+        "card_purple_glow.svg": slim_glow,
+        "card_white_frame.svg": slim_white,
+    }
 
     if not ORIGINAL.exists():
         print(f"缺少原稿目录 {ORIGINAL.relative_to(ROOT)}", file=sys.stderr)
@@ -100,7 +104,7 @@ def main():
 
     ASSETS.mkdir(parents=True, exist_ok=True)
     count = 0
-    for name, handler in HANDLERS.items():
+    for name, handler in handlers.items():
         source = ORIGINAL / name
         if not source.exists():
             continue

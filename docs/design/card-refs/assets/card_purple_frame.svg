@@ -29,44 +29,44 @@
       <stop offset="1" stop-color="#743f52" stop-opacity="0.08"></stop>
     </linearGradient>
     <clipPath id="rB">
-      <path clip-rule="evenodd" d="M0 14 Q0 0 14 0 H178 Q192 0 192 14 V226 Q192 240 178 240 H14 Q0 240 0 226 Z M15 16 V224 H177 V16 Z"></path>
+      <path clip-rule="evenodd" d="M0 14 Q0 0 14 0 H178 Q192 0 192 14 V226 Q192 240 178 240 H14 Q0 240 0 226 Z M12 12 V228 H180 V12 Z"></path>
     </clipPath>
   </defs>
   <rect x="0" y="0" width="192" height="240" rx="12" fill="#FCF9F5"></rect>
   
-  <path fill="url(#wB)" fill-rule="evenodd" clip-rule="evenodd" d="M0 14 Q0 0 14 0 H178 Q192 0 192 14 V226 Q192 240 178 240 H14 Q0 240 0 226 Z M15 16 V224 H177 V16 Z"></path>
+  <path fill="url(#wB)" fill-rule="evenodd" clip-rule="evenodd" d="M0 14 Q0 0 14 0 H178 Q192 0 192 14 V226 Q192 240 178 240 H14 Q0 240 0 226 Z M12 12 V228 H180 V12 Z"></path>
   
   <g clip-path="url(#rB)" fill="none" stroke="#2c1830" stroke-opacity="0.22" stroke-width="0.55">
-    <rect x="1.9" y="1.9" width="188.2" height="236.2" rx="12"></rect>
-    <rect x="4.3" y="4.3" width="183.4" height="231.4" rx="11"></rect>
-    <rect x="6.8" y="6.8" width="178.4" height="226.4" rx="10"></rect>
-    <rect x="9.3" y="9.3" width="173.4" height="221.4" rx="9"></rect>
-    <rect x="11.8" y="11.8" width="168.4" height="216.4" rx="8"></rect>
+    <rect x="1.4" y="1.4" width="189.2" height="237.2" rx="12"></rect>
+    <rect x="3.4" y="3.4" width="185.2" height="233.2" rx="11"></rect>
+    <rect x="5.3" y="5.3" width="181.4" height="229.4" rx="10"></rect>
+    <rect x="7.2" y="7.2" width="177.6" height="225.6" rx="9"></rect>
+    <rect x="9.1" y="9.1" width="173.8" height="221.8" rx="8"></rect>
   </g>
   
   <g fill="none">
-    <rect x="15.379999999999999" y="16.62" width="161.24" height="206.76" rx="7" stroke="#a5789a" stroke-width="1" stroke-opacity="0.5"></rect>
+    <rect x="12.02" y="12.98" width="167.96" height="214.04" rx="7" stroke="#a5789a" stroke-width="1" stroke-opacity="0.5"></rect>
     <rect x="1.4" y="1.4" width="189.2" height="237.2" rx="12.5" stroke="#281628" stroke-width="1.4" stroke-opacity="0.55"></rect>
   </g>
   
-  <rect x="15" y="16" width="162" height="208" rx="7" fill="url(#wV)"></rect>
-  <rect x="15" y="16" width="162" height="208" rx="7" fill="url(#wH)"></rect>
+  <rect x="12" y="12" width="168" height="216" rx="7" fill="url(#wV)"></rect>
+  <rect x="12" y="12" width="168" height="216" rx="7" fill="url(#wH)"></rect>
   
-  <rect x="14" y="15" width="164" height="210" rx="6" fill="none" stroke="#c8a24a" stroke-width="1" stroke-opacity="0.82"></rect>
+  <rect x="11" y="12" width="170" height="216" rx="6" fill="none" stroke="#c8a24a" stroke-width="1" stroke-opacity="0.82"></rect>
   <rect x="4.5" y="4.5" width="183" height="231" rx="10" fill="none" stroke="#c8a24a" stroke-width="0.5" stroke-opacity="0.4"></rect>
   
   <g>
     <g fill="#2a1730" fill-opacity="0.7">
-      <circle cx="8.1" cy="8.7" r="4.0"></circle><circle cx="183.9" cy="8.7" r="4.0"></circle>
-      <circle cx="8.1" cy="231.3" r="4.0"></circle><circle cx="183.9" cy="231.3" r="4.0"></circle>
+      <circle cx="6.2" cy="6.7" r="4.0"></circle><circle cx="185.8" cy="6.7" r="4.0"></circle>
+      <circle cx="6.2" cy="233.3" r="4.0"></circle><circle cx="185.8" cy="233.3" r="4.0"></circle>
     </g>
     <g fill="url(#pB)">
-      <circle cx="8.1" cy="8.7" r="3.1"></circle><circle cx="183.9" cy="8.7" r="3.1"></circle>
-      <circle cx="8.1" cy="231.3" r="3.1"></circle><circle cx="183.9" cy="231.3" r="3.1"></circle>
+      <circle cx="6.2" cy="6.7" r="3.1"></circle><circle cx="185.8" cy="6.7" r="3.1"></circle>
+      <circle cx="6.2" cy="233.3" r="3.1"></circle><circle cx="185.8" cy="233.3" r="3.1"></circle>
     </g>
     <g fill="#ffffff" fill-opacity="0.85">
-      <circle cx="7.1" cy="7.7" r="1"></circle><circle cx="182.9" cy="7.7" r="1"></circle>
-      <circle cx="7.1" cy="230.3" r="1"></circle><circle cx="182.9" cy="230.3" r="1"></circle>
+      <circle cx="5.5" cy="6.0" r="1"></circle><circle cx="185.0" cy="6.0" r="1"></circle>
+      <circle cx="5.5" cy="232.5" r="1"></circle><circle cx="185.0" cy="232.5" r="1"></circle>
     </g>
   </g>
 </svg>

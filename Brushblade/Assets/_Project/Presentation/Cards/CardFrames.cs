@@ -24,12 +24,13 @@ namespace Brushblade.Presentation
 
         /// <summary>各档的 9-slice border(左/下/右/上,基准画布像素)与内容区缩进(占牌宽比例)。
         /// border 要盖住圆角(rx=12)与边框装饰,否则拉伸会把四角拉花。
-        /// 2026-07-28 随边框瘦身下调(试玩反馈「边太厚、笨重」):
-        /// 紫檀内挖 24→15px(12.5%→7.8% 牌宽),见 tools/design/slim_card_frame.py。</summary>
+        /// 2026-07-28 随边框瘦身两度下调(试玩反馈「边太厚、笨重」):
+        /// 紫檀内挖 24→12px(12.5%→6.2% 牌宽),见 tools/design/slim_card_frame.py。
+        /// border 取 13 略大于边框:圆角 rx=12 必须完整落在不拉伸区,否则四角会被拉花。</summary>
         private static readonly Dictionary<CardRarity, (Vector4 border, float insetX, float insetY)> Metrics = new()
         {
-            { CardRarity.White, (new Vector4(14, 14, 14, 14), 0.055f, 0.048f) },
-            { CardRarity.Purple, (new Vector4(15, 16, 15, 16), 0.095f, 0.085f) },
+            { CardRarity.White, (new Vector4(13, 13, 13, 13), 0.045f, 0.040f) },
+            { CardRarity.Purple, (new Vector4(13, 13, 13, 13), 0.075f, 0.068f) },
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new();
