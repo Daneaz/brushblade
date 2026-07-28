@@ -105,13 +105,13 @@ namespace Brushblade.Presentation
                 if (pinned)
                     Ui.Chip(badges.transform, "出阵", Theme.ExitPink, Color.white, 13);
                 // 点字卡 = 看能力;出阵改走下方独立按钮(2026-07-20)。
-                // 尺寸 118×112 → 150×188(2026-07-28):原先是**横**的,而稀有度框素材是 192×240 的竖版,
-                // 9-slice 把竖框硬拉成横向,框内那个长方形留白就跟着变形了
+                // 尺寸 118×112 → 152×190(2026-07-28):原先是**横**的,而稀有度框素材是 192×240 的竖版,
+                // 比例不合会把框内那个长方形留白拉变形;152:190 = 0.8,正好贴素材
                 Ui.GlyphTile(cell.transform, def, "", pinned, () => ShowDetail(cardId),
-                    new Vector2(150, 188));
+                    new Vector2(152, 190));
                 Ui.RoundButton(cell.transform, pinned ? "卸下" : "出阵", () => ToggleDeck(cardId),
                     pinned ? Theme.LockedBg : Theme.ExitPink,
-                    pinned ? Theme.TextMain : Color.white, 14, new Vector2(150, 32));
+                    pinned ? Theme.TextMain : Color.white, 14, new Vector2(152, 32));
 
                 if (level >= MetaRules.MaxCardLevel)
                 {

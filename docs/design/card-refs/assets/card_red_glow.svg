@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="240" viewBox="0 0 192 240">
+  
+  
+  <defs>
+    <radialGradient id="r_spark" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff3da" stop-opacity="0.95"></stop>
+      <stop offset="0.5" stop-color="#ffd9a0" stop-opacity="0.35"></stop>
+      <stop offset="1" stop-color="#ffd9a0" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+  
+  <g id="stars" stroke="#fff3da" stroke-linecap="round" fill="none">
+    <g transform="translate(48 5)"><circle r="5" fill="url(#r_spark)" stroke="none"></circle><path d="M0 -4.6 V4.6 M-4.6 0 H4.6" stroke-width="1"></path><path d="M0 -2 V2 M-2 0 H2" stroke-width="1.7"></path></g>
+    <g transform="translate(187 74)"><circle r="4.4" fill="url(#r_spark)" stroke="none"></circle><path d="M0 -4 V4 M-4 0 H4" stroke-width="0.9"></path></g>
+    <g transform="translate(140 235)"><circle r="5" fill="url(#r_spark)" stroke="none"></circle><path d="M0 -4.6 V4.6 M-4.6 0 H4.6" stroke-width="1"></path><path d="M0 -2 V2 M-2 0 H2" stroke-width="1.7"></path></g>
+    <g transform="translate(5 160)"><circle r="4" fill="url(#r_spark)" stroke="none"></circle><path d="M0 -3.6 V3.6 M-3.6 0 H3.6" stroke-width="0.9"></path></g>
+    <g transform="translate(177 216)"><circle r="3.4" fill="url(#r_spark)" stroke="none"></circle><path d="M0 -3 V3 M-3 0 H3" stroke-width="0.8"></path></g>
+  </g>
+  
+  <g fill="#ffd9a0">
+    <circle cx="14" cy="196" r="1.2" fill-opacity="0.8"></circle>
+    <circle cx="6" cy="120" r="0.9" fill-opacity="0.6"></circle>
+    <circle cx="12" cy="58" r="1.1" fill-opacity="0.75"></circle>
+    <circle cx="180" cy="176" r="1.2" fill-opacity="0.8"></circle>
+    <circle cx="186" cy="104" r="0.9" fill-opacity="0.6"></circle>
+    <circle cx="178" cy="42" r="1" fill-opacity="0.7"></circle>
+    <circle cx="82" cy="234" r="1.1" fill-opacity="0.7"></circle>
+    <circle cx="120" cy="7" r="0.9" fill-opacity="0.65"></circle>
+  </g>
+</svg>

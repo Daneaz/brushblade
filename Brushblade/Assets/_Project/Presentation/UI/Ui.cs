@@ -283,16 +283,16 @@ namespace Brushblade.Presentation
             element.preferredWidth = s.x;
             element.preferredHeight = s.y;
 
-            // 有稀有度框素材就用 9-slice 框,否则回落纯色圆角(素材可一级一级地上)
+            // 有稀有度框素材就整张按比例缩放,否则回落纯色圆角(素材可一级一级地上)。
+            // 不用 9-slice:这批框的**边中段也有花**(回纹带、点线刻度、星芒),9-slice 会把中段拉花;
+            // 而牌面恒定 0.8 竖版比例时,等比缩放与「9-slice + 边框同比缩放」逐像素等价,徒增切角风险。
             var frameSprite = CardFrames.Frame(def.Rarity);
             var inner = Panel(go.transform, "Face");
             var face = inner.AddComponent<Image>();
             if (frameSprite != null)
             {
                 face.sprite = frameSprite;
-                face.type = Image.Type.Sliced;
                 face.color = Color.white; // 素材自带牌面底色,不再染色
-                CardFrames.FitBorder(face, s.x);
             }
             else
             {
@@ -300,19 +300,18 @@ namespace Brushblade.Presentation
                 face.type = Image.Type.Sliced;
                 face.color = Theme.CardWhite;
             }
+            // 左右 2.5、上下 3.125:留边本身也得守 0.8,否则牌面被压扁、四角纹样跟着变形
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
-                new Vector2(2.5f, 2.5f), new Vector2(-2.5f, -2.5f));
+                new Vector2(2.5f, 3.125f), new Vector2(-2.5f, -3.125f));
 
-            // 光效层(蓝级以上):独立一层,后续由 CardFrameView 驱动流动/呼吸
+            // 光效层(蓝级以上):独立一层,后续由 §4 动效统一驱动扫光/呼吸
             var glowSprite = CardFrames.Glow(def.Rarity);
             if (glowSprite != null)
             {
                 var glowGo = Panel(inner.transform, "Glow");
                 var glow = glowGo.AddComponent<Image>();
                 glow.sprite = glowSprite;
-                glow.type = Image.Type.Sliced;
                 glow.raycastTarget = false;
-                CardFrames.FitBorder(glow, s.x);
                 Stretch((RectTransform)glowGo.transform);
             }
 

@@ -327,7 +327,7 @@ namespace Brushblade.Presentation
                 bool isNew = seen.Add(cardId);
 
                 var cell = Ui.VStack(row, $"Reward_{cardId}_{i}", 4);
-                Ui.GlyphTile(cell.transform, def, "", false, null, new Vector2(76, 96));
+                Ui.GlyphTile(cell.transform, def, "", false, null, new Vector2(76, 95));
                 if (isNew)
                 {
                     Ui.Chip(cell.transform, "新!", Theme.ExitPink, Color.white, 12);

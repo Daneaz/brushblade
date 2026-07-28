@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="240" viewBox="0 0 192 240">
+  
+  <defs>
+    <linearGradient id="o_gild" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b06414"></stop>
+      <stop offset="0.3" stop-color="#d4841f"></stop>
+      <stop offset="0.52" stop-color="#e99b35"></stop>
+      <stop offset="0.72" stop-color="#c9761a"></stop>
+      <stop offset="1" stop-color="#9c5510"></stop>
+    </linearGradient>
+    
+    <pattern id="o_brushH" width="7" height="3.2" patternUnits="userSpaceOnUse">
+      <path d="M0 0.8 h7 M0 2.4 h7" stroke="#8a4c0e" stroke-width="0.35" stroke-opacity="0.28" fill="none"></path>
+    </pattern>
+    <pattern id="o_brushV" width="3.2" height="7" patternUnits="userSpaceOnUse">
+      <path d="M0.8 0 v7 M2.4 0 v7" stroke="#8a4c0e" stroke-width="0.35" stroke-opacity="0.28" fill="none"></path>
+    </pattern>
+    
+    <pattern id="o_keyH" width="12" height="7" patternUnits="userSpaceOnUse">
+      <path d="M1 6 V1 H11 V6 H8 V4 H4 V6 Z" fill="none" stroke="#7a430c" stroke-width="0.8" stroke-opacity="0.6"></path>
+    </pattern>
+    <pattern id="o_keyV" width="7" height="12" patternUnits="userSpaceOnUse">
+      <path d="M6 1 H1 V11 H6 V8 H4 V4 H6 Z" fill="none" stroke="#7a430c" stroke-width="0.8" stroke-opacity="0.6"></path>
+    </pattern>
+    <clipPath id="o_ring">
+      <path clip-rule="evenodd" d="M0 12 Q0 0 12 0 H180 Q192 0 192 12 V228 Q192 240 180 240 H12 Q0 240 0 228 Z M20 14 Q14 14 14 20 V220 Q14 226 20 226 H172 Q178 226 178 220 V20 Q178 14 172 14 Z"></path>
+    </clipPath>
+    <linearGradient id="o_washV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e1791b" stop-opacity="0.09"></stop>
+      <stop offset="0.15" stop-color="#e1791b" stop-opacity="0"></stop>
+      <stop offset="0.85" stop-color="#e1791b" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#e1791b" stop-opacity="0.09"></stop>
+    </linearGradient>
+    <linearGradient id="o_washH" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e1791b" stop-opacity="0.09"></stop>
+      <stop offset="0.15" stop-color="#e1791b" stop-opacity="0"></stop>
+      <stop offset="0.85" stop-color="#e1791b" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#e1791b" stop-opacity="0.09"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="192" height="240" rx="12" fill="#FDFBF7"></rect>
+  
+  <path fill="url(#o_gild)" fill-rule="evenodd" clip-rule="evenodd" d="M0 12 Q0 0 12 0 H180 Q192 0 192 12 V228 Q192 240 180 240 H12 Q0 240 0 228 Z M20 14 Q14 14 14 20 V220 Q14 226 20 226 H172 Q178 226 178 220 V20 Q178 14 172 14 Z"></path>
+  
+  <g clip-path="url(#o_ring)">
+    <polygon points="0,0 192,0 178,14 14,14" fill="url(#o_brushH)"></polygon>
+    <polygon points="0,240 192,240 178,226 14,226" fill="url(#o_brushH)"></polygon>
+    <polygon points="0,0 14,14 14,226 0,240" fill="url(#o_brushV)"></polygon>
+    <polygon points="192,0 178,14 178,226 192,240" fill="url(#o_brushV)"></polygon>
+  </g>
+  
+  <g clip-path="url(#o_ring)">
+    <rect x="30" y="3.5" width="132" height="7" fill="url(#o_keyH)"></rect>
+    <rect x="30" y="229.5" width="132" height="7" fill="url(#o_keyH)"></rect>
+    <rect x="3.5" y="30" width="7" height="180" fill="url(#o_keyV)"></rect>
+    <rect x="181.5" y="30" width="7" height="180" fill="url(#o_keyV)"></rect>
+  </g>
+  
+  <g fill="none">
+    <rect x="1.3" y="1.3" width="189.4" height="237.4" rx="11.5" stroke="#6e3c0a" stroke-width="1.3" stroke-opacity="0.7"></rect>
+    <rect x="14.5" y="14.5" width="163" height="211" rx="5.5" stroke="#f7c877" stroke-width="1" stroke-opacity="0.85"></rect>
+    <rect x="16" y="16" width="160" height="208" rx="5" stroke="#8a4c0e" stroke-width="0.6" stroke-opacity="0.5"></rect>
+  </g>
+  
+  <g>
+    <g id="o_cloud" fill="#d4841f" stroke="#7a430c" stroke-width="0.9">
+      <path d="M3 16 Q3 3 16 3 Q24 3 24 9 Q24 13 20 13 Q22 17 18 19 Q14 21 12 18 Q10 22 6 20 Q3 18.5 3 16 Z"></path>
+    </g>
+    <use href="#o_cloud" transform="translate(192 0) scale(-1 1)"></use>
+    <use href="#o_cloud" transform="translate(0 240) scale(1 -1)"></use>
+    <use href="#o_cloud" transform="translate(192 240) scale(-1 -1)"></use>
+    <g fill="none" stroke="#f7c877" stroke-width="0.8" stroke-opacity="0.9" stroke-linecap="round">
+      <path d="M7 14 Q7 7 14 7 Q18 7 19 10"></path>
+      <path d="M185 14 Q185 7 178 7 Q174 7 173 10"></path>
+      <path d="M7 226 Q7 233 14 233 Q18 233 19 230"></path>
+      <path d="M185 226 Q185 233 178 233 Q174 233 173 230"></path>
+    </g>
+    <g fill="none" stroke="#6e3c0a" stroke-width="0.7" stroke-opacity="0.6" stroke-linecap="round">
+      <path d="M13 16 Q16 18 19 16"></path><path d="M179 16 Q176 18 173 16"></path>
+      <path d="M13 224 Q16 222 19 224"></path><path d="M179 224 Q176 222 173 224"></path>
+    </g>
+  </g>
+  
+  <rect x="14" y="14" width="164" height="212" rx="5" fill="url(#o_washV)"></rect>
+  <rect x="14" y="14" width="164" height="212" rx="5" fill="url(#o_washH)"></rect>
+</svg>

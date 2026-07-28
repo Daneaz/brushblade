@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="240" viewBox="0 0 192 240">
+  
+  <defs>
+  </defs>
+  <rect x="0" y="0" width="192" height="240" rx="12" fill="#F6FAF7"></rect>
+  
+  <rect x="9" y="9" width="174" height="222" rx="10" fill="none" stroke="#6493ae" stroke-width="10"></rect>
+  <rect x="5.5" y="5.5" width="181" height="229" rx="11.5" fill="none" stroke="#7fa8bf" stroke-width="3.4"></rect>
+  <rect x="13" y="13" width="166" height="214" rx="8" fill="none" stroke="#4c7d9b" stroke-width="2.6" stroke-opacity="0.9"></rect>
+  <rect x="3.4" y="3.4" width="185.2" height="233.2" rx="12" fill="none" stroke="#3c6884" stroke-width="1.1" stroke-opacity="0.75"></rect>
+  <rect x="14.6" y="14.6" width="162.8" height="210.8" rx="7.5" fill="none" stroke="#dcebf1" stroke-width="0.8" stroke-opacity="0.8"></rect>
+  
+  <g fill="none" stroke="#3f6d8c" stroke-linecap="round">
+    <g stroke-width="6" stroke-opacity="0.55">
+      <path d="M5 17 Q5 5 17 5"></path><path d="M175 5 Q187 5 187 17"></path>
+      <path d="M5 223 Q5 235 17 235"></path><path d="M175 235 Q187 235 187 223"></path>
+    </g>
+    <g stroke-width="2.4" stroke-opacity="0.5" stroke="#2f5876">
+      <path d="M8 18 Q8 8 18 8"></path><path d="M174 8 Q184 8 184 18"></path>
+      <path d="M8 222 Q8 232 18 232"></path><path d="M174 232 Q184 232 184 222"></path>
+    </g>
+  </g>
+  
+  <g fill="none" stroke="#26506e" stroke-width="0.55" stroke-opacity="0.55" stroke-linecap="round">
+    <path d="M6 10 l4 3 l-2 4 l5 2"></path><path d="M12 5.5 l2 4.5 l4.5 1"></path>
+    <path d="M186 10 l-4 3 l2 4 l-5 2"></path><path d="M180 5.5 l-2 4.5 l-4.5 1"></path>
+    <path d="M6 230 l4 -3 l-2 -4 l5 -2"></path><path d="M12 234.5 l2 -4.5 l4.5 -1"></path>
+    <path d="M186 230 l-4 -3 l2 -4 l-5 -2"></path><path d="M180 234.5 l-2 -4.5 l-4.5 -1"></path>
+  </g>
+  <g fill="none" stroke="#26506e" stroke-width="0.5" stroke-opacity="0.35" stroke-linecap="round">
+    <path d="M60 8.5 h18 M108 11.5 h14 M138 7.5 h12"></path>
+    <path d="M52 231.5 h14 M96 228.5 h16 M140 232.5 h11"></path>
+    <path d="M8.5 66 v16 M11.5 118 v14 M7.5 172 v12"></path>
+    <path d="M183.5 60 v14 M180.5 112 v16 M184.5 168 v13"></path>
+  </g>
+</svg>

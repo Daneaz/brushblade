@@ -659,7 +659,7 @@ namespace Brushblade.Presentation
                     else OnLibraryCharClicked(charId);
                 };
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
-                    new Vector2(82, 104));
+                    new Vector2(84, 105));
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def);
                 _tileRects[charId] = (RectTransform)tile.transform;
