@@ -5,16 +5,16 @@
     </filter>
   </defs>
   <!-- 心魔纹:不规则同心波纹,边缘虚化——不对劲的「恍惚」感 -->
-  <g fill="none" stroke="#3D4E69" stroke-linecap="round" filter="url(#h_soft)">
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" filter="url(#h_soft)">
     <path d="M64 26 C 92 26 106 46 104 66 C 102 88 84 104 62 102 C 40 100 26 82 28 62 C 30 42 44 26 64 26 Z"
-          stroke-width="6" stroke-opacity="0.5"></path>
+          stroke-width="6" stroke-opacity="0.40"></path>
     <path d="M64 44 C 82 42 92 56 90 68 C 88 80 76 88 62 86 C 48 84 40 72 42 60 C 44 50 52 45 64 44 Z"
-          stroke-width="5" stroke-opacity="0.34"></path>
+          stroke-width="5" stroke-opacity="0.27"></path>
     <path d="M62 10 C 98 12 118 38 116 66 C 114 96 88 118 58 116 C 28 114 10 86 12 58 C 14 30 34 10 62 10 Z"
-          stroke-width="4.5" stroke-opacity="0.2"></path>
+          stroke-width="4.5" stroke-opacity="0.16"></path>
   </g>
   <!-- 核:淡墨重影,两点错位 -->
-  <g fill="#111622" filter="url(#h_soft)">
+  <g fill="#FFFFFF" filter="url(#h_soft)">
     <circle cx="60" cy="62" r="9" fill-opacity="0.4"></circle>
     <circle cx="68" cy="66" r="9" fill-opacity="0.28"></circle>
   </g>
