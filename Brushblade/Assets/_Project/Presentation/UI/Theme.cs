@@ -87,6 +87,22 @@ namespace Brushblade.Presentation
             _ => NeutralPart,
         };
 
+        /// <summary>字形专用属性色(2026-07-28):比 UI 色块用的 <see cref="ElementColor"/> 加深,
+        /// 保证在白/宣纸/暖灰底上都过 WCAG 4.5:1。起因是金 #B3A382 对纯白只有 2.48,
+        /// 底色再白也够不到大字门槛 —— 那是字色本身的问题。
+        /// 金往冷灰偏、土往红褐偏是刻意的:直接加深会双双变成暗黄褐(ΔE 仅 3.2)分不开,
+        /// 而组合字「桂」的左右两半正要靠这点色差区分。</summary>
+        public static Color GlyphColor(Element? element) => element switch
+        {
+            Element.Fire => new Color(0.690f, 0.176f, 0.180f),   // #B02D2E
+            Element.Water => new Color(0.039f, 0.369f, 0.620f),  // #0A5E9E
+            Element.Wood => new Color(0.122f, 0.388f, 0.200f),   // #1F6333
+            Element.Metal => new Color(0.420f, 0.392f, 0.286f),  // #6B6449 冷灰调
+            Element.Earth => new Color(0.510f, 0.333f, 0.165f),  // #82552A 红褐调
+            Element.Heart => new Color(0.494f, 0.255f, 0.565f),  // #7E4190
+            _ => TextMain,
+        };
+
         /// <summary>属性淡底(部件池方块)。</summary>
         public static Color ElementSoft(Element? element) => element switch
         {

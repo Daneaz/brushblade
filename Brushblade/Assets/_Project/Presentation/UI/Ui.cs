@@ -283,29 +283,64 @@ namespace Brushblade.Presentation
             element.preferredWidth = s.x;
             element.preferredHeight = s.y;
 
+            // 有稀有度框素材就用 9-slice 框,否则回落纯色圆角(素材可一级一级地上)
+            var frameSprite = CardFrames.Frame(def.Rarity);
             var inner = Panel(go.transform, "Face");
             var face = inner.AddComponent<Image>();
-            face.sprite = Theme.Rounded(12);
-            face.type = Image.Type.Sliced;
-            face.color = Theme.CardWhite;
+            if (frameSprite != null)
+            {
+                face.sprite = frameSprite;
+                face.type = Image.Type.Sliced;
+                face.color = Color.white; // 素材自带牌面底色,不再染色
+                CardFrames.FitBorder(face, s.x);
+            }
+            else
+            {
+                face.sprite = Theme.Rounded(12);
+                face.type = Image.Type.Sliced;
+                face.color = Theme.CardWhite;
+            }
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
                 new Vector2(2.5f, 2.5f), new Vector2(-2.5f, -2.5f));
 
-            var strip = Panel(inner.transform, "Rarity");
+            // 光效层(蓝级以上):独立一层,后续由 CardFrameView 驱动流动/呼吸
+            var glowSprite = CardFrames.Glow(def.Rarity);
+            if (glowSprite != null)
+            {
+                var glowGo = Panel(inner.transform, "Glow");
+                var glow = glowGo.AddComponent<Image>();
+                glow.sprite = glowSprite;
+                glow.type = Image.Type.Sliced;
+                glow.raycastTarget = false;
+                CardFrames.FitBorder(glow, s.x);
+                Stretch((RectTransform)glowGo.transform);
+            }
+
+            // 内容区按各档边框厚度让位:紫檀木框比素纸厚得多,内容不缩进会压到框上
+            var (insetX, insetY) = CardFrames.ContentInset(def.Rarity);
+            var content = Panel(inner.transform, "Content");
+            Anchor((RectTransform)content.transform,
+                new Vector2(insetX, insetY), new Vector2(1f - insetX, 1f - insetY),
+                Vector2.zero, Vector2.zero);
+
+            // 顶条改属性色(2026-07-28):稀有度已由框材质表达,两套颜色各占一个通道
+            var strip = Panel(content.transform, "Element");
             var stripImage = strip.AddComponent<Image>();
-            stripImage.color = Theme.RarityColor(def.Rarity);
-            Anchor((RectTransform)strip.transform, new Vector2(0.08f, 1f), new Vector2(0.92f, 1f),
-                new Vector2(0, -6), new Vector2(0, -2));
+            stripImage.color = Theme.ElementColor(def.Element);
+            stripImage.raycastTarget = false;
+            Anchor((RectTransform)strip.transform, new Vector2(0.06f, 1f), new Vector2(0.94f, 1f),
+                new Vector2(0, -5), new Vector2(0, -1));
 
-            var glyph = ThemedLabel(inner.transform, def.Id, Mathf.RoundToInt(s.y * 0.34f),
-                Theme.ElementColor(def.Element), Theme.TitleFont);
-            Anchor(glyph.rectTransform, new Vector2(0, 0.36f), new Vector2(1, 0.9f), Vector2.zero, Vector2.zero);
+            // 字形用加深的专用色板:金系在浅底上原色只有 2.48:1,读不出来
+            var glyph = ThemedLabel(content.transform, def.Id, Mathf.RoundToInt(s.y * 0.34f),
+                Theme.GlyphColor(def.Element), Theme.TitleFont);
+            Anchor(glyph.rectTransform, new Vector2(0, 0.34f), new Vector2(1, 0.88f), Vector2.zero, Vector2.zero);
 
-            var pinyin = ThemedLabel(inner.transform, def.Pinyin ?? "", 12, Theme.TextDim);
-            Anchor(pinyin.rectTransform, new Vector2(0, 0.2f), new Vector2(1, 0.36f), Vector2.zero, Vector2.zero);
+            var pinyin = ThemedLabel(content.transform, def.Pinyin ?? "", 12, Theme.TextDim);
+            Anchor(pinyin.rectTransform, new Vector2(0, 0.18f), new Vector2(1, 0.34f), Vector2.zero, Vector2.zero);
 
-            var cost = ThemedLabel(inner.transform, costText, 13, Theme.TextDim);
-            Anchor(cost.rectTransform, new Vector2(0, 0.02f), new Vector2(1, 0.2f), Vector2.zero, Vector2.zero);
+            var cost = ThemedLabel(content.transform, costText, 13, Theme.TextDim);
+            Anchor(cost.rectTransform, new Vector2(0, 0.0f), new Vector2(1, 0.18f), Vector2.zero, Vector2.zero);
 
             var button = go.AddComponent<Button>();
             button.targetGraphic = face;

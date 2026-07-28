@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="240" viewBox="0 0 192 240">
+  
+  
+  <defs>
+    <linearGradient id="wB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4c2d4c"></stop>
+      <stop offset="0.34" stop-color="#63384f"></stop>
+      <stop offset="0.56" stop-color="#743f52"></stop>
+      <stop offset="0.75" stop-color="#54314a"></stop>
+      <stop offset="1" stop-color="#3a2338"></stop>
+    </linearGradient>
+    <radialGradient id="pB" cx="42%" cy="38%" r="62%">
+      <stop offset="0" stop-color="#ffffff"></stop>
+      <stop offset="0.4" stop-color="#f4f2ff"></stop>
+      <stop offset="0.66" stop-color="#f9ecf3"></stop>
+      <stop offset="0.85" stop-color="#eafaf0"></stop>
+      <stop offset="1" stop-color="#dbe3ee"></stop>
+    </radialGradient>
+    <linearGradient id="wV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#743f52" stop-opacity="0.08"></stop>
+      <stop offset="0.17" stop-color="#743f52" stop-opacity="0"></stop>
+      <stop offset="0.83" stop-color="#743f52" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#743f52" stop-opacity="0.08"></stop>
+    </linearGradient>
+    <linearGradient id="wH" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#743f52" stop-opacity="0.08"></stop>
+      <stop offset="0.17" stop-color="#743f52" stop-opacity="0"></stop>
+      <stop offset="0.83" stop-color="#743f52" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#743f52" stop-opacity="0.08"></stop>
+    </linearGradient>
+    <clipPath id="rB">
+      <path clip-rule="evenodd" d="M0 14 Q0 0 14 0 H178 Q192 0 192 14 V226 Q192 240 178 240 H14 Q0 240 0 226 Z M24 26 V214 H168 V26 Z"></path>
+    </clipPath>
+  </defs>
+  <rect x="0" y="0" width="192" height="240" rx="12" fill="#FCF9F5"></rect>
+  
+  <path fill="url(#wB)" fill-rule="evenodd" clip-rule="evenodd" d="M0 14 Q0 0 14 0 H178 Q192 0 192 14 V226 Q192 240 178 240 H14 Q0 240 0 226 Z M24 26 V214 H168 V26 Z"></path>
+  
+  <g clip-path="url(#rB)" fill="none" stroke="#2c1830" stroke-opacity="0.22" stroke-width="0.55">
+    <rect x="3" y="3" width="186" height="234" rx="12"></rect>
+    <rect x="7" y="7" width="178" height="226" rx="11"></rect>
+    <rect x="11" y="11" width="170" height="218" rx="10"></rect>
+    <rect x="15" y="15" width="162" height="210" rx="9"></rect>
+    <rect x="19" y="19" width="154" height="202" rx="8"></rect>
+  </g>
+  
+  <g fill="none">
+    <rect x="24.5" y="26.5" width="143" height="187" rx="7" stroke="#a5789a" stroke-width="1" stroke-opacity="0.5"></rect>
+    <rect x="1.4" y="1.4" width="189.2" height="237.2" rx="12.5" stroke="#281628" stroke-width="1.4" stroke-opacity="0.55"></rect>
+  </g>
+  
+  <rect x="24" y="26" width="144" height="188" rx="7" fill="url(#wV)"></rect>
+  <rect x="24" y="26" width="144" height="188" rx="7" fill="url(#wH)"></rect>
+  
+  <rect x="22" y="24" width="148" height="192" rx="6" fill="none" stroke="#c8a24a" stroke-width="1" stroke-opacity="0.82"></rect>
+  <rect x="4.5" y="4.5" width="183" height="231" rx="10" fill="none" stroke="#c8a24a" stroke-width="0.5" stroke-opacity="0.4"></rect>
+  
+  <g>
+    <g fill="#2a1730" fill-opacity="0.7">
+      <circle cx="13" cy="14" r="6.4"></circle><circle cx="179" cy="14" r="6.4"></circle>
+      <circle cx="13" cy="226" r="6.4"></circle><circle cx="179" cy="226" r="6.4"></circle>
+    </g>
+    <g fill="url(#pB)">
+      <circle cx="13" cy="14" r="5"></circle><circle cx="179" cy="14" r="5"></circle>
+      <circle cx="13" cy="226" r="5"></circle><circle cx="179" cy="226" r="5"></circle>
+    </g>
+    <g fill="#ffffff" fill-opacity="0.85">
+      <circle cx="11.4" cy="12.4" r="1"></circle><circle cx="177.4" cy="12.4" r="1"></circle>
+      <circle cx="11.4" cy="224.4" r="1"></circle><circle cx="177.4" cy="224.4" r="1"></circle>
+    </g>
+  </g>
+</svg>
