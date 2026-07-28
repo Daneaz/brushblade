@@ -56,6 +56,22 @@ namespace Brushblade.Presentation
         public static Sprite Glow(CardRarity rarity) =>
             Slugs.TryGetValue(rarity, out var slug) ? Load($"card_{slug}_glow") : null;
 
+        private static readonly Dictionary<Element, string> ElementSlugs = new()
+        {
+            { Core.Element.Fire, "fire" },
+            { Core.Element.Water, "water" },
+            { Core.Element.Wood, "wood" },
+            { Core.Element.Metal, "metal" },
+            { Core.Element.Earth, "earth" },
+            { Core.Element.Heart, "heart" },
+        };
+
+        /// <summary>六系属性动效元件(§4.3):墨色画的,运行时按属性色染。无元件的系不跑属性动效。</summary>
+        public static Sprite Element(Element? element) =>
+            element.HasValue && ElementSlugs.TryGetValue(element.Value, out var slug)
+                ? Load($"elem_{slug}")
+                : null;
+
         /// <summary>内容区(字/拼音/AP)相对整牌的缩进比例。</summary>
         public static (float x, float y) ContentInset(CardRarity rarity)
         {

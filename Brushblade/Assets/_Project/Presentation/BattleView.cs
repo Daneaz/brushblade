@@ -660,6 +660,10 @@ namespace Brushblade.Presentation
                 };
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
                     new Vector2(84, 105));
+                // AP 不够就去饱和压暗、属性动效停(《字牌形象关键词包》§4.4):
+                // 「用不了」要在点下去之前就看得出来,不能等弹窗告诉你
+                if (!rewardPhase)
+                    tile.GetComponent<CardFrameView>()?.SetPlayable(def.ApCost <= Battle.Ap);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def);
                 _tileRects[charId] = (RectTransform)tile.transform;

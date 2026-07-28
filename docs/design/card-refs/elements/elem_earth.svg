@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- 碎石:皴法,棱角分明 -->
+  <path d="M30 108 L22 82 L38 62 L66 58 L92 74 L98 100 L78 116 L48 118 Z"
+        fill="#111622" fill-opacity="0.72"></path>
+  <g fill="none" stroke="#3D4E69" stroke-width="2.2" stroke-opacity="0.5" stroke-linecap="round">
+    <path d="M38 100 L46 78 L64 70"></path>
+    <path d="M56 110 L70 92 L88 88"></path>
+    <path d="M30 90 L42 88"></path>
+  </g>
+  <!-- 尘粒:飞白点,抖落扬起 -->
+  <g fill="#111622">
+    <circle cx="20" cy="46" r="4.6" fill-opacity="0.6"></circle>
+    <circle cx="52" cy="28" r="3.4" fill-opacity="0.5"></circle>
+    <circle cx="88" cy="40" r="4" fill-opacity="0.55"></circle>
+    <circle cx="108" cy="18" r="2.8" fill-opacity="0.42"></circle>
+    <circle cx="70" cy="12" r="2.4" fill-opacity="0.38"></circle>
+  </g>
+</svg>

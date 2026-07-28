@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <filter id="w_soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.8"></feGaussianBlur>
+    </filter>
+  </defs>
+  <!-- 墨滴:上尖下圆,将落未落 -->
+  <path d="M64 8 C 64 8 82 40 82 54 C 82 66 74 74 64 74 C 54 74 46 66 46 54 C 46 40 64 8 64 8 Z"
+        fill="#111622" fill-opacity="0.8"></path>
+  <!-- 涟漪:墨遇水化开,外圈更淡更虚 -->
+  <g fill="none" stroke="#3D4E69" stroke-linecap="round" filter="url(#w_soft)">
+    <path d="M30 96 C 44 86 84 86 98 96" stroke-width="6" stroke-opacity="0.5"></path>
+    <path d="M16 112 C 36 98 92 98 112 112" stroke-width="5" stroke-opacity="0.28"></path>
+    <path d="M8 124 C 32 108 96 108 120 124" stroke-width="4" stroke-opacity="0.15"></path>
+  </g>
+</svg>

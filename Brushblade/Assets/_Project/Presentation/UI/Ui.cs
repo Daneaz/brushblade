@@ -304,12 +304,17 @@ namespace Brushblade.Presentation
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
                 new Vector2(2.5f, 3.125f), new Vector2(-2.5f, -3.125f));
 
-            // 光效层(蓝级以上):独立一层,后续由 §4 动效统一驱动扫光/呼吸
+            // 层序(§4.2):属性层在下、材质光效在上、字在最上 —— 字要读得清,这条压倒一切
+            var motes = Panel(inner.transform, "Motes");
+            Stretch((RectTransform)motes.transform);
+
+            // 光效层(蓝级以上):独立一层,由 CardFrameView 驱动扫光/呼吸/流光/星芒
+            Image glow = null;
             var glowSprite = CardFrames.Glow(def.Rarity);
             if (glowSprite != null)
             {
                 var glowGo = Panel(inner.transform, "Glow");
-                var glow = glowGo.AddComponent<Image>();
+                glow = glowGo.AddComponent<Image>();
                 glow.sprite = glowSprite;
                 glow.raycastTarget = false;
                 Stretch((RectTransform)glowGo.transform);
@@ -333,6 +338,10 @@ namespace Brushblade.Presentation
 
             var cost = ThemedLabel(content.transform, costText, 13, Theme.TextDim);
             Anchor(cost.rectTransform, new Vector2(0, 0.0f), new Vector2(1, 0.19f), Vector2.zero, Vector2.zero);
+
+            // 动效(§4):属性决定动什么、稀有度决定动多少。素材缺失时 Init 里自行退化为不动
+            go.AddComponent<CardFrameView>().Init(def.Rarity, def.Element,
+                new Vector2(s.x - 5f, s.y - 6.25f), motes.transform, face, glow, selected);
 
             var button = go.AddComponent<Button>();
             button.targetGraphic = face;
