@@ -15,6 +15,7 @@ namespace Brushblade.Presentation
         private const float BreathePeriod = 4.3f;  // 紫:边缘辉光呼吸
         private const float FlowPeriod = 3.1f;     // 橙:金边流光
         private const float TwinklePeriod = 2.7f;  // 红:星芒明灭
+        private const float PlayablePeriod = 2.9f; // 通用:可出手呼吸
 
         // 六系签名动效周期(§4.1)。金/土 刻意最慢:金是「瞬时、间隔长」,土是「几乎不动」
         private static float PeriodOf(Element? element) => element switch
@@ -31,12 +32,12 @@ namespace Brushblade.Presentation
         /// <summary>元件个数与透明度上限(§4.2 的「音量」)。白/绿只给一件、极淡 —— 暗示级。</summary>
         private static (int count, float alpha) VolumeOf(CardRarity rarity) => rarity switch
         {
-            CardRarity.White => (1, 0.20f),
-            CardRarity.Green => (1, 0.28f),
-            CardRarity.Blue => (2, 0.40f),
-            CardRarity.Purple => (3, 0.52f),
-            CardRarity.Orange => (3, 0.64f),
-            CardRarity.Red => (4, 0.78f),
+            CardRarity.White => (1, 0.16f),
+            CardRarity.Green => (1, 0.24f),
+            CardRarity.Blue => (2, 0.36f),
+            CardRarity.Purple => (3, 0.48f),
+            CardRarity.Orange => (3, 0.60f),
+            CardRarity.Red => (4, 0.74f),
             _ => (1, 0.2f),
         };
 
@@ -44,6 +45,7 @@ namespace Brushblade.Presentation
         private const float UnfocusedAttention = 0.32f;
         private static CardFrameView _focused; // destroy 后 Unity 的 == null 会认出来,不必手动清
 
+        private RectTransform _self;
         private Image _frame;
         private Image _glow;
         private RectTransform _glowRect;
@@ -62,9 +64,13 @@ namespace Brushblade.Presentation
         /// <summary>低于这个 alpha 变化量就不写回 —— UI 的 color 每写一次就标脏一次 Canvas。</summary>
         private const float AlphaEpsilon = 0.004f;
 
+        /// <summary>材质光效里掺多少属性色。掺多了稀有度就认不出了,三成是能看出系别的下限。</summary>
+        private const float GlowTintStrength = 0.3f;
+
         public void Init(CardRarity rarity, Element? element, Vector2 size,
             Transform moteParent, Image frame, Image glow, bool selected)
         {
+            _self = (RectTransform)transform;
             _rarity = rarity;
             _element = element;
             _size = size;
@@ -72,6 +78,13 @@ namespace Brushblade.Presentation
             _frameBase = frame != null ? frame.color : Color.white;
             _glow = glow;
             _glowRect = glow != null ? (RectTransform)glow.transform : null;
+            if (glow != null)
+            {
+                // 材质光效也带上系别:往白里掺三成属性色再乘上去。
+                // 不能直接乘属性色 —— Image.color 是**相乘**,紫檀的紫辉光乘火红只会变成一团暗泥;
+                // 掺白后亮度基本不掉,只偏色相,稀有度的形状与行为原样保留(§1 两套色系不打架)
+                _glow.color = Color.Lerp(Color.white, Theme.ElementColor(element), GlowTintStrength);
+            }
             _phase = Random.value * 10f;
             if (selected) _focused = this;
 
@@ -95,11 +108,20 @@ namespace Brushblade.Presentation
                 image.sprite = sprite;
                 image.preserveAspect = true;
                 image.raycastTarget = false;
-                image.color = Theme.GlyphColor(element); // 墨色元件运行时染属性色
+                image.color = MoteColor(element);
                 _motes[i] = rect;
                 _moteImages[i] = image;
             }
         }
+
+        /// <summary>元件染色。用**鲜色板** ElementColor 而非字色板 GlyphColor ——
+        /// 后者是为过 WCAG 4.5:1 特意加深去彩的,拿来染元件会把属性色洗没;
+        /// 元件是图不是字,不背对比度这条约束,它要的恰恰是「一眼认出是哪一系」。
+        /// 金是唯一例外:`#B3A382` 对浅牌面只有 2.48:1(当初逼出加深色板的正是这个字色),
+        /// 那道锋光会淡到等于没做。改用加深版的冷灰,既看得见,又与土的红褐拉开(实测 ΔE 22.7)。</summary>
+        private static Color MoteColor(Element? element) => element == Element.Metal
+            ? Theme.GlyphColor(element)
+            : Theme.ElementColor(element);
 
         /// <summary>元件相对牌宽的尺寸:锋光要长、尘石要小,其余居中。</summary>
         private static float MoteScaleOf(Element? element) => element switch
@@ -119,17 +141,23 @@ namespace Brushblade.Presentation
             float attention = _focused == null || _focused == this ? 1f : UnfocusedAttention;
             float gate = _playable ? attention : 0f;
 
-            DriveFrame();
+            DriveFrame(t);
             DriveGlow(t, gate);
             DriveMotes(t, gate);
         }
 
-        /// <summary>通用层(§4.4):AP 不足去饱和压暗。
-        /// 原本还有「可出手 ±1.5% 呼吸」,试玩后砍掉 —— 它作用在**每个界面的每张牌**上
-        /// (SetPlayable 只有战斗在调,别处一律默认可出手),卡组同屏 12 张各自随机相位地胀缩,
-        /// 合起来就是「全屏都在闪」;而且缩放 UI Text 会让字形每帧重采样,自带一层抖动。</summary>
-        private void DriveFrame()
+        /// <summary>通用层(§4.4):可出手时极轻微呼吸;AP 不足去饱和压暗。</summary>
+        private void DriveFrame(float t)
         {
+            if (_playable)
+            {
+                float breathe = 1f + 0.015f * Mathf.Sin(t * Mathf.PI * 2f / PlayablePeriod);
+                _self.localScale = new Vector3(breathe, breathe, 1f);
+            }
+            else
+            {
+                _self.localScale = Vector3.one;
+            }
             // 框色只在可出手状态翻转时写一次 —— 每帧无条件赋 color 会把整块 Canvas 每帧标脏
             if (_frame == null || _playable == _frameApplied) return;
             _frameApplied = _playable;
@@ -144,24 +172,25 @@ namespace Brushblade.Presentation
             float alpha = 1f, x = 0f;
             switch (_rarity)
             {
-                // 釉面反光原本是横向扫过的,实测溢到邻牌上了:光带斜跨整张牌,横向可见范围
-                // 占 88% 牌宽,再扫 ±0.21 牌宽,两侧各有约 15% 牌宽画在牌外 —— 而这一层没有裁剪。
-                // 要恢复「扫过」得给它单加一层 RectMask2D;先改成原地明灭,同样读得出釉光。
-                case CardRarity.Blue:
-                    alpha = 0.30f + 0.34f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2f / SweepPeriod));
+                case CardRarity.Blue: // 釉面反光:斜光带横向扫过,两端各留余量不出牌
+                {
+                    float u = Mathf.Repeat(t / SweepPeriod, 1f);
+                    x = Mathf.Lerp(-0.21f, 0.21f, u) * _size.x;
+                    alpha = Mathf.Sin(u * Mathf.PI); // 进出各淡一次,不是硬切
                     break;
+                }
                 case CardRarity.Purple: // 边缘辉光呼吸
-                    alpha = 0.50f + 0.30f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2f / BreathePeriod));
+                    alpha = 0.42f + 0.48f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2f / BreathePeriod));
                     break;
                 case CardRarity.Orange: // 金边流光:光条沿顶栏来回,幅度小到不出框
                 {
                     float u = Mathf.Repeat(t / FlowPeriod, 1f);
-                    x = Mathf.Sin(u * Mathf.PI * 2f) * 0.068f * _size.x; // 光条只占 69% 牌宽,这个幅度不出牌
-                    alpha = 0.62f + 0.28f * Mathf.Abs(Mathf.Cos(u * Mathf.PI * 2f));
+                    x = Mathf.Sin(u * Mathf.PI * 2f) * 0.068f * _size.x;
+                    alpha = 0.5f + 0.5f * Mathf.Abs(Mathf.Cos(u * Mathf.PI * 2f));
                     break;
                 }
                 case CardRarity.Red: // 星芒明灭
-                    alpha = 0.72f + 0.24f * Mathf.Sin(t * Mathf.PI * 2f / TwinklePeriod);
+                    alpha = 0.55f + 0.45f * Mathf.Sin(t * Mathf.PI * 2f / TwinklePeriod);
                     break;
             }
             _glowRect.anchoredPosition = new Vector2(x, 0f);
@@ -226,7 +255,7 @@ namespace Brushblade.Presentation
 
                     case Element.Earth: // 几乎不动:定在角上,只有明暗里的重量感
                         pos = new Vector2(side * 0.34f * _size.x, -0.38f * _size.y + stagger);
-                        alpha = 0.82f + 0.18f * Mathf.Sin(u * Mathf.PI * 2f);
+                        alpha = 0.62f + 0.38f * Mathf.Sin(u * Mathf.PI * 2f);
                         break;
 
                     // 心是全书唯一贴着字跑的系,也是唯一的例外:§4.1 的签名动作就是「字形双影错位」,
