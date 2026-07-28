@@ -272,7 +272,7 @@ namespace Brushblade.Presentation
         public static Button GlyphTile(Transform parent, Brushblade.Core.CharDef def, string costText,
             bool selected, Action onClick, Vector2? size = null)
         {
-            var s = size ?? new Vector2(96, 118);
+            var s = size ?? new Vector2(96, 120); // 默认对齐素材 0.8 竖版比例
             var go = new GameObject($"Tile_{def.Id}", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var ring = go.AddComponent<Image>();
@@ -323,24 +323,17 @@ namespace Brushblade.Presentation
                 new Vector2(insetX, insetY), new Vector2(1f - insetX, 1f - insetY),
                 Vector2.zero, Vector2.zero);
 
-            // 顶条改属性色(2026-07-28):稀有度已由框材质表达,两套颜色各占一个通道
-            var strip = Panel(content.transform, "Element");
-            var stripImage = strip.AddComponent<Image>();
-            stripImage.color = Theme.ElementColor(def.Element);
-            stripImage.raycastTarget = false;
-            Anchor((RectTransform)strip.transform, new Vector2(0.06f, 1f), new Vector2(0.94f, 1f),
-                new Vector2(0, -5), new Vector2(0, -1));
-
-            // 字形用加深的专用色板:金系在浅底上原色只有 2.48:1,读不出来
+            // 属性识别只靠字形颜色(2026-07-28 拍板移除顶条):字形已是加深过的属性专用色板,
+            // 再加一条色带是冗余。金系原色对浅底只有 2.48:1,故字形必走 GlyphColor 而非 ElementColor
             var glyph = ThemedLabel(content.transform, def.Id, Mathf.RoundToInt(s.y * 0.34f),
                 Theme.GlyphColor(def.Element), Theme.TitleFont);
-            Anchor(glyph.rectTransform, new Vector2(0, 0.34f), new Vector2(1, 0.88f), Vector2.zero, Vector2.zero);
+            Anchor(glyph.rectTransform, new Vector2(0, 0.36f), new Vector2(1, 0.94f), Vector2.zero, Vector2.zero);
 
             var pinyin = ThemedLabel(content.transform, def.Pinyin ?? "", 12, Theme.TextDim);
-            Anchor(pinyin.rectTransform, new Vector2(0, 0.18f), new Vector2(1, 0.34f), Vector2.zero, Vector2.zero);
+            Anchor(pinyin.rectTransform, new Vector2(0, 0.19f), new Vector2(1, 0.36f), Vector2.zero, Vector2.zero);
 
             var cost = ThemedLabel(content.transform, costText, 13, Theme.TextDim);
-            Anchor(cost.rectTransform, new Vector2(0, 0.0f), new Vector2(1, 0.18f), Vector2.zero, Vector2.zero);
+            Anchor(cost.rectTransform, new Vector2(0, 0.0f), new Vector2(1, 0.19f), Vector2.zero, Vector2.zero);
 
             var button = go.AddComponent<Button>();
             button.targetGraphic = face;

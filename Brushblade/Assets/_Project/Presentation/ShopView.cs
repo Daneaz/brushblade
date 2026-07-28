@@ -64,12 +64,12 @@ namespace Brushblade.Presentation
 
                 var cell = Ui.VStack(cardRow.transform, $"Slot{i}", 8);
                 Ui.GlyphTile(cell.transform, def, sold ? "已售" : "", false,
-                    () => ShowPreview(def), new Vector2(130, 150)); // 点卡看详情(2026-07-21)
+                    () => ShowPreview(def), new Vector2(144, 180)); // 点卡看详情(2026-07-21)
                 var buy = Ui.RoundButton(cell.transform, sold ? "已售" : price.ToString(),
                     () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), $"购入「{card}」!",
                         "买不起", $"「{card}」售价 {price} 墨锭,你有 {_meta.Ink}。"),
                     sold ? Theme.LockedBg : Theme.Ink, sold ? Theme.LockGray : Color.white,
-                    18, new Vector2(130, 42));
+                    18, new Vector2(144, 42));
                 buy.interactable = affordable;
             }
 

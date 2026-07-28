@@ -104,11 +104,14 @@ namespace Brushblade.Presentation
                 Ui.Chip(badges.transform, $"Lv.{level}", Theme.Ink, Color.white, 13);
                 if (pinned)
                     Ui.Chip(badges.transform, "出阵", Theme.ExitPink, Color.white, 13);
+                // 点字卡 = 看能力;出阵改走下方独立按钮(2026-07-20)。
+                // 尺寸 118×112 → 150×188(2026-07-28):原先是**横**的,而稀有度框素材是 192×240 的竖版,
+                // 9-slice 把竖框硬拉成横向,框内那个长方形留白就跟着变形了
                 Ui.GlyphTile(cell.transform, def, "", pinned, () => ShowDetail(cardId),
-                    new Vector2(118, 112)); // 点字卡 = 看能力;出阵改走下方独立按钮(2026-07-20)
+                    new Vector2(150, 188));
                 Ui.RoundButton(cell.transform, pinned ? "卸下" : "出阵", () => ToggleDeck(cardId),
                     pinned ? Theme.LockedBg : Theme.ExitPink,
-                    pinned ? Theme.TextMain : Color.white, 14, new Vector2(118, 32));
+                    pinned ? Theme.TextMain : Color.white, 14, new Vector2(150, 32));
 
                 if (level >= MetaRules.MaxCardLevel)
                 {
@@ -175,7 +178,7 @@ namespace Brushblade.Presentation
                 new Vector2(340, 275), dismissable: true, out var stack);
             _modal = overlay;
 
-            Ui.GlyphTile(stack, def, $"{def.ApCost}AP", false, null, new Vector2(118, 142));
+            Ui.GlyphTile(stack, def, $"{def.ApCost}AP", false, null, new Vector2(144, 180));
             Ui.ThemedLabel(stack, $"Lv.{level} → Lv.{level + 1}", 21, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack,
                 $"{CharInfo.EffectsText(def, level)}\n↓\n{CharInfo.EffectsText(def, level + 1)}",
