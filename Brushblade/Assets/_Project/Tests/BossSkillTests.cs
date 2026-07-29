@@ -239,5 +239,34 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.Ap, Is.EqualTo(1), "AP 下限为 1,玩家至少能做一件事");
         }
+
+        [Test]
+        public void Devour_KillsFrontSummon_AndDoesNotHealBoss()
+        {
+            var engine = Engine(BossSkill.Devour);
+            EndTurns(engine, 2); // 先走掉两回合普攻,免得把最前一只磨死
+            engine.Cast("林");    // 2 只 6 血,均满血
+            int full = engine.PlayerHp;
+            int bossHpBefore = engine.Enemies[0].Hp;
+
+            EndTurns(engine, 2); // 蓄力 + 吞噬
+
+            Assert.That(engine.Summons[0].Alive, Is.False, "最前一只被吞:满血 6 也照删");
+            Assert.That(engine.Summons[1].Hp, Is.EqualTo(6), "第二只不受影响");
+            Assert.That(engine.PlayerHp, Is.EqualTo(full), "吞噬不打玩家");
+            // 召唤物每回合反击 2×2=4,Boss 只会掉血,绝不因吞噬回血
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(bossHpBefore), "不回血");
+        }
+
+        [Test]
+        public void Devour_WithoutSummons_PlainAttackNotDoubled()
+        {
+            var engine = Engine(BossSkill.Devour);
+            int full = engine.PlayerHp;
+
+            EndTurns(engine, 4);
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 15), "普攻 5+5 + 吞噬空放的普攻 5(不翻倍)");
+        }
     }
 }

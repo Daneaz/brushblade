@@ -757,6 +757,23 @@ namespace Brushblade.Core
                     _apPenaltyNextTurn = 1;
                     break;
                 }
+
+                case BossSkill.Devour: // 吞噬:无视血量必杀最前一只(不回血);没得吞就普攻
+                {
+                    int front = FirstAliveSummonIndex();
+                    if (front >= 0)
+                    {
+                        var victim = _summons[front];
+                        int lost = victim.Hp;
+                        victim.Hp = 0;
+                        _events.Add(new BattleEvent(BattleEventKind.SummonHit, index, lost, front));
+                    }
+                    else
+                    {
+                        DamagePlayerDirect(index, enemy.Attack);
+                    }
+                    break;
+                }
             }
         }
 
