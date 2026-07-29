@@ -622,7 +622,9 @@ namespace Brushblade.Presentation
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
-                    Ui.Chip(chips.transform, $"⚡ 下回合:{BossSkillName(enemy.ChargingSkill)}",
+                    // 别用 emoji:⚡ 不在 Noto Serif SC 里,子集补不出来,上线渲染成空框
+                    // (test_subset_fonts_cover_charset 正是拦这个的)。预警靠朱砂底色已经够显眼
+                    Ui.Chip(chips.transform, $"蓄力 · 下回合:{BossSkillName(enemy.ChargingSkill)}",
                         Theme.Cinnabar, Color.white, 12);
                 if (enemy.Burn > 0) Ui.Chip(chips.transform, $"灼烧 {enemy.Burn}", Theme.Cinnabar, Color.white, 12);
                 if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive)
