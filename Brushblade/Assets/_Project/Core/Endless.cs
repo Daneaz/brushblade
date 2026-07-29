@@ -20,6 +20,8 @@ namespace Brushblade.Core
     {
         public string Chars { get; set; }
         public IReadOnlyList<Element> Elements { get; set; }
+        /// <summary>逐字技能(spec 2026-07-28);ConfigLoader 查表填好,空 = 全 None。</summary>
+        public IReadOnlyList<BossSkill> Skills { get; set; } = System.Array.Empty<BossSkill>();
     }
 
     /// <summary>无尽模式配置(20.2/20.4):5 层一段第 5 层 Boss,深度线性缩放。</summary>
@@ -98,15 +100,19 @@ namespace Brushblade.Core
         }
 
         /// <summary>成语 → 四阶段 Boss(20.7):数值模板对齐排山倒海——
-        /// 首字均衡(12/6)、次字坚壁(15/4,承伤 0.5)、三字强攻(12/8)、末字狂攻(16/10)。</summary>
+        /// 首字均衡(12/6)、次字坚壁(15/4,承伤 0.5)、三字强攻(12/8)、末字狂攻(16/10)。
+        /// 技能逐字取自 idiom.Skills(spec 2026-07-28),缺省为 None。</summary>
         public static EnemyDef BuildIdiomBoss(IdiomBossDef idiom)
         {
+            BossSkill SkillAt(int i) =>
+                idiom.Skills != null && i < idiom.Skills.Count ? idiom.Skills[i] : BossSkill.None;
+
             var phases = new List<BossPhaseDef>
             {
-                new(idiom.Chars[0].ToString(), idiom.Elements[0], 12, 6),
-                new(idiom.Chars[1].ToString(), idiom.Elements[1], 15, 4, 0.5f),
-                new(idiom.Chars[2].ToString(), idiom.Elements[2], 12, 8),
-                new(idiom.Chars[3].ToString(), idiom.Elements[3], 16, 10),
+                new(idiom.Chars[0].ToString(), idiom.Elements[0], 12, 6, 1f, SkillAt(0)),
+                new(idiom.Chars[1].ToString(), idiom.Elements[1], 15, 4, 0.5f, SkillAt(1)),
+                new(idiom.Chars[2].ToString(), idiom.Elements[2], 12, 8, 1f, SkillAt(2)),
+                new(idiom.Chars[3].ToString(), idiom.Elements[3], 16, 10, 1f, SkillAt(3)),
             };
             return new EnemyDef(idiom.Chars, idiom.Elements[0], 12, 6, EnemyAbility.None, phases);
         }

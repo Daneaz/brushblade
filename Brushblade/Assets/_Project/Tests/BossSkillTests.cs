@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Brushblade.Core;
+using Brushblade.Data;
 using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
@@ -310,6 +311,96 @@ namespace Brushblade.Core.Tests
                 null, Defs(SkillBoss(BossSkill.Topple)));
 
             Assert.That(restored.Ap, Is.EqualTo(2), "被削过的 AP 走既有 BattleSnapshot.Ap 存取");
+        }
+
+        // ---- 字 → 技能表(spec 2026-07-28):BuildIdiomBoss 逐字取技能 ----
+
+        [Test]
+        public void BuildIdiomBoss_UsesPerCharSkills()
+        {
+            var idiom = new IdiomBossDef
+            {
+                Chars = "刀山火海",
+                Elements = new[] { Element.Metal, Element.Earth, Element.Fire, Element.Water },
+                Skills = new[] { BossSkill.Pierce, BossSkill.Bulwark, BossSkill.Devour, BossSkill.Deluge },
+            };
+
+            var boss = EndlessGenerator.BuildIdiomBoss(idiom);
+
+            Assert.That(boss.Phases[0].Skill, Is.EqualTo(BossSkill.Pierce));
+            Assert.That(boss.Phases[1].Skill, Is.EqualTo(BossSkill.Bulwark));
+            Assert.That(boss.Phases[3].Skill, Is.EqualTo(BossSkill.Deluge));
+        }
+
+        [Test]
+        public void BuildIdiomBoss_WithoutSkills_FallsBackToNone()
+        {
+            var idiom = new IdiomBossDef
+            {
+                Chars = "刀山火海",
+                Elements = new[] { Element.Metal, Element.Earth, Element.Fire, Element.Water },
+            };
+
+            var boss = EndlessGenerator.BuildIdiomBoss(idiom);
+
+            foreach (var phase in boss.Phases)
+                Assert.That(phase.Skill, Is.EqualTo(BossSkill.None));
+        }
+
+        /// <summary>最小合法战役 JSON:一只三阶段 Boss + 字表。
+        /// 「排」「山」走字表,「槑」故意不在表里 → 应 fallback 到 None。</summary>
+        private static string CampaignJson(string phaseSkillField = "") => @"
+{
+  ""enemies"": [
+    { ""id"": ""试炼"", ""element"": ""Water"", ""maxHp"": 12, ""attack"": 6,
+      ""phases"": [
+        { ""char"": ""排"", ""element"": ""Metal"", ""maxHp"": 12, ""attack"": 6" + phaseSkillField + @" },
+        { ""char"": ""山"", ""element"": ""Earth"", ""maxHp"": 15, ""attack"": 4, ""damageTaken"": 0.5 },
+        { ""char"": ""槑"", ""element"": ""Wood"", ""maxHp"": 12, ""attack"": 8 }
+      ] }
+  ],
+  ""dropTable"": [""火""],
+  ""bossSkills"": { ""排"": ""Topple"", ""山"": ""Bulwark"" },
+  ""chapters"": [
+    { ""name"": ""测试章"", ""bossPool"": [""试炼""],
+      ""stages"": [ { ""encounters"": [[""试炼""]], ""boss"": true } ] }
+  ]
+}";
+
+        [Test]
+        public void LoadCampaign_ResolvesBossSkillsFromCharTable()
+        {
+            var config = ConfigLoader.LoadCampaign(CampaignJson(), Graph());
+            var boss = config.Chapters[0].BossPool[0];
+
+            Assert.That(boss.Phases[0].Skill, Is.EqualTo(BossSkill.Topple));  // 「排」查表
+            Assert.That(boss.Phases[1].Skill, Is.EqualTo(BossSkill.Bulwark)); // 「山」查表
+        }
+
+        [Test]
+        public void LoadCampaign_UnknownCharInPhase_FallsBackToNone()
+        {
+            var config = ConfigLoader.LoadCampaign(CampaignJson(), Graph());
+            var boss = config.Chapters[0].BossPool[0];
+
+            Assert.That(boss.Phases[2].Skill, Is.EqualTo(BossSkill.None), "「槑」不在表里,不报错只留白");
+        }
+
+        [Test]
+        public void LoadCampaign_ExplicitPhaseSkill_WinsOverTable()
+        {
+            // 「排」在字表里是 Topple,phase.skill 显式写 Deluge 应当覆盖它
+            var config = ConfigLoader.LoadCampaign(CampaignJson(@", ""skill"": ""Deluge"""), Graph());
+            var boss = config.Chapters[0].BossPool[0];
+
+            Assert.That(boss.Phases[0].Skill, Is.EqualTo(BossSkill.Deluge));
+        }
+
+        [Test]
+        public void LoadCampaign_UnknownSkillName_Throws()
+        {
+            Assert.Throws<ConfigException>(() =>
+                ConfigLoader.LoadCampaign(CampaignJson(@", ""skill"": ""不存在的技能"""), Graph()));
         }
     }
 }

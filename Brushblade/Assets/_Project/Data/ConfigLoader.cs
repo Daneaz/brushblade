@@ -51,6 +51,7 @@ namespace Brushblade.Data
             public List<EventDto> Events { get; set; }
             public int EventChance { get; set; }
             public EndlessDto Endless { get; set; }
+            public Dictionary<string, string> BossSkills { get; set; }
         }
 
         private sealed class EndlessDto
@@ -131,7 +132,8 @@ namespace Brushblade.Data
             if (file.Chapters.Count == 0)
                 throw new ConfigException("战役至少需要一个章节");
 
-            var enemyDefs = ParseEnemies(file.Enemies);
+            var bossSkills = ParseBossSkills(file.BossSkills);
+            var enemyDefs = ParseEnemies(file.Enemies, bossSkills);
 
             foreach (var component in file.DropTable)
                 if (!graph.TryGet(component, out _))
@@ -226,13 +228,14 @@ namespace Brushblade.Data
                 DropTable = file.DropTable,
                 Events = events,
                 EventChancePercent = file.EventChance,
-                Endless = ParseEndless(file.Endless, enemyDefs, graph),
+                Endless = ParseEndless(file.Endless, enemyDefs, graph, bossSkills),
             };
         }
 
         /// <summary>解析无尽层段(20.3);无 endless 段返回 null。</summary>
         private static EndlessConfig ParseEndless(EndlessDto dto,
-            Dictionary<string, EnemyDef> enemyDefs, RecipeGraph graph)
+            Dictionary<string, EnemyDef> enemyDefs, RecipeGraph graph,
+            Dictionary<string, BossSkill> bossSkills)
         {
             if (dto == null)
                 return null;
@@ -284,7 +287,13 @@ namespace Brushblade.Data
                             throw new ConfigException($"成语 Boss「{idiomDto.Chars}」属性未知:{name}");
                         elements.Add(element);
                     }
-                    idiomBosses.Add(new IdiomBossDef { Chars = idiomDto.Chars, Elements = elements });
+                    var skills = new List<BossSkill>();
+                    foreach (var c in idiomDto.Chars)
+                        skills.Add(bossSkills.TryGetValue(c.ToString(), out var s) ? s : BossSkill.None);
+                    idiomBosses.Add(new IdiomBossDef
+                    {
+                        Chars = idiomDto.Chars, Elements = elements, Skills = skills,
+                    });
                 }
 
                 bands.Add(new BandDef
@@ -310,7 +319,34 @@ namespace Brushblade.Data
             };
         }
 
-        private static Dictionary<string, EnemyDef> ParseEnemies(List<EnemyDto> enemies)
+        /// <summary>字 → Boss 技能表(spec 2026-07-28)。查不到的字一律 None,
+        /// 所以往成语库加字永远不会崩,只是没技能。</summary>
+        private static Dictionary<string, BossSkill> ParseBossSkills(Dictionary<string, string> dto)
+        {
+            var table = new Dictionary<string, BossSkill>();
+            foreach (var pair in dto ?? new Dictionary<string, string>())
+            {
+                if (!Enum.TryParse<BossSkill>(pair.Value, out var skill))
+                    throw new ConfigException($"字「{pair.Key}」的 Boss 技能未知:{pair.Value}");
+                table[pair.Key] = skill;
+            }
+            return table;
+        }
+
+        private static BossSkill SkillFor(Dictionary<string, BossSkill> table, string phaseChar,
+            string explicitSkill, string bossId)
+        {
+            if (!string.IsNullOrEmpty(explicitSkill))
+            {
+                if (!Enum.TryParse<BossSkill>(explicitSkill, out var declared))
+                    throw new ConfigException($"Boss「{bossId}」阶段「{phaseChar}」技能未知:{explicitSkill}");
+                return declared; // 显式字段优先于字表
+            }
+            return table.TryGetValue(phaseChar, out var looked) ? looked : BossSkill.None;
+        }
+
+        private static Dictionary<string, EnemyDef> ParseEnemies(List<EnemyDto> enemies,
+            Dictionary<string, BossSkill> bossSkills)
         {
             var enemyDefs = new Dictionary<string, EnemyDef>();
             foreach (var dto in enemies)
@@ -335,7 +371,8 @@ namespace Brushblade.Data
                             throw new ConfigException($"Boss「{dto.Id}」存在非法阶段(char/maxHp)");
                         if (!Enum.TryParse<Element>(phase.Element, out var phaseElement))
                             throw new ConfigException($"Boss「{dto.Id}」阶段「{phase.Char}」属性未知:{phase.Element}");
-                        phases.Add(new BossPhaseDef(phase.Char, phaseElement, phase.MaxHp, phase.Attack, phase.DamageTaken));
+                        phases.Add(new BossPhaseDef(phase.Char, phaseElement, phase.MaxHp, phase.Attack,
+                            phase.DamageTaken, SkillFor(bossSkills, phase.Char, phase.Skill, dto.Id)));
                     }
                 }
                 enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases, dto.DamageTaken);
@@ -361,6 +398,7 @@ namespace Brushblade.Data
             public int MaxHp { get; set; }
             public int Attack { get; set; }
             public float DamageTaken { get; set; } = 1f;
+            public string Skill { get; set; }
         }
 
         /// <summary>解析字表 JSON;结构非法/属性名未知/原料缺失/重复 id 抛 ConfigException。</summary>

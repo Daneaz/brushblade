@@ -173,5 +173,32 @@ namespace Brushblade.Core.Tests
                 battle.EndTurn(); // 直伤不足则灼烧补刀
             Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Won));
         }
+
+        /// <summary>实船 enemies.json 的字表接线:三只固定 Boss 与程序生成成语 Boss
+        /// 都应从 bossSkills 拿到技能(spec 5.1)。</summary>
+        [Test]
+        public void ShippedConfig_BossesGetSkillsFromCharTable()
+        {
+            var configDir = Path.Combine(Application.streamingAssetsPath, "config");
+            var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
+            var campaign = ConfigLoader.LoadCampaign(
+                File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
+
+            var paiShan = campaign.Endless.Bands[0].BossPool[0];
+            Assert.That(paiShan.Id, Is.EqualTo("排山倒海"));
+            Assert.That(paiShan.Phases[0].Skill, Is.EqualTo(BossSkill.Topple));  // 排
+            Assert.That(paiShan.Phases[1].Skill, Is.EqualTo(BossSkill.Bulwark)); // 山
+            Assert.That(paiShan.Phases[2].Skill, Is.EqualTo(BossSkill.Topple));  // 倒
+            Assert.That(paiShan.Phases[3].Skill, Is.EqualTo(BossSkill.Deluge));  // 海
+
+            // 墨海层段(最后一个 band)的成语 Boss 也要拿到技能
+            var moHai = campaign.Endless.Bands[campaign.Endless.Bands.Count - 1];
+            var daoShan = moHai.IdiomBossPool[0];
+            Assert.That(daoShan.Chars, Is.EqualTo("刀山火海"));
+            Assert.That(daoShan.Skills[0], Is.EqualTo(BossSkill.Pierce));  // 刀
+            Assert.That(daoShan.Skills[1], Is.EqualTo(BossSkill.Bulwark)); // 山
+            Assert.That(daoShan.Skills[2], Is.EqualTo(BossSkill.Devour));  // 火
+            Assert.That(daoShan.Skills[3], Is.EqualTo(BossSkill.Deluge));  // 海
+        }
     }
 }
