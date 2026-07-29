@@ -98,6 +98,7 @@ namespace Brushblade.Core
         private int _burnPerStack = 2;      // 灼烧每层结算伤害(10.2;炽 +1,可叠加)
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
+        private int _apPenaltyNextTurn; // 倾覆造成的下回合 AP 扣减(spec 4.3),消费后清零
 
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
@@ -495,7 +496,8 @@ namespace Brushblade.Core
         private void StartTurn()
         {
             Turn += 1;
-            Ap = _config.ApPerTurn;
+            Ap = Math.Max(1, _config.ApPerTurn - _apPenaltyNextTurn); // 下限 1:不出现完全不能动的回合
+            _apPenaltyNextTurn = 0;
 
             // 部件掉落:+N 随机部件,池满则不掉(第 3 章 3.5 / v0.4)
             if (_config.DropTable.Count > 0)
@@ -739,6 +741,20 @@ namespace Brushblade.Core
                     if (front >= 0)
                         DamageSummon(index, front, enemy.Attack, enemy.Element);
                     DamagePlayerDirect(index, enemy.Attack * 2);
+                    break;
+                }
+
+                case BossSkill.Topple: // 倾覆:先按常规吸伤,再把剩余护盾整个掀掉
+                {
+                    DamagePlayerDirect(index, enemy.Attack);
+                    int broken = _shieldNormal + _shieldPersist;
+                    if (broken > 0)
+                    {
+                        _shieldNormal = 0;
+                        _shieldPersist = 0;
+                        _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, broken));
+                    }
+                    _apPenaltyNextTurn = 1;
                     break;
                 }
             }

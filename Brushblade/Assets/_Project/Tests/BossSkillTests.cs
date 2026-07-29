@@ -197,5 +197,42 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 20)); // 普攻 5+5 + 贯穿 10
         }
+
+        [Test]
+        public void Topple_ClearsAllShieldAndCutsNextTurnAp()
+        {
+            var engine = Engine(BossSkill.Topple);
+            engine.Cast("盾"); // 土系护盾 20
+            Assert.That(engine.PlayerShield, Is.EqualTo(20));
+
+            EndTurns(engine, 4); // 2 普攻(吃盾)+ 蓄力 + 倾覆
+
+            Assert.That(engine.PlayerShield, Is.EqualTo(0), "剩余护盾被清空");
+            Assert.That(engine.Ap, Is.EqualTo(2), "下回合 AP 由 3 降为 2");
+        }
+
+        [Test]
+        public void ToppleApPenalty_LastsOneTurnOnly()
+        {
+            var engine = Engine(BossSkill.Topple);
+            EndTurns(engine, 4);
+            Assert.That(engine.Ap, Is.EqualTo(2));
+
+            engine.EndTurn(); // 再过一个回合
+            Assert.That(engine.Ap, Is.EqualTo(3), "惩罚只吃一回合");
+        }
+
+        [Test]
+        public void ToppleApPenalty_NeverDropsBelowOne()
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { BossPhaseJitterPercent = 0, ApPerTurn = 1 },
+                new string[0], new[] { "火", "林", "盾", "火", "林", "盾" },
+                new[] { SkillBoss(BossSkill.Topple) }, seed: 1);
+
+            EndTurns(engine, 4);
+
+            Assert.That(engine.Ap, Is.EqualTo(1), "AP 下限为 1,玩家至少能做一件事");
+        }
     }
 }
