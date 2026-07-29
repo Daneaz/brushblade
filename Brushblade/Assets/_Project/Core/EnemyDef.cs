@@ -169,6 +169,8 @@ namespace Brushblade.Core
             RegrowProgress = RegrowProgress,
             HasSplit = HasSplit,
             HitsTaken = HitsTaken,
+            ChargeCounter = ChargeCounter,
+            IsCharging = IsCharging,
         };
 
         /// <summary>从存档复原:全部字段照抄,不重摇任何随机量(伪装属性、Boss 阈值都是开场摇的)。</summary>
@@ -186,6 +188,8 @@ namespace Brushblade.Core
             RegrowProgress = snapshot.RegrowProgress,
             HasSplit = snapshot.HasSplit,
             HitsTaken = snapshot.HitsTaken,
+            ChargeCounter = snapshot.ChargeCounter,
+            IsCharging = snapshot.IsCharging,
         };
 
         internal EnemyState(EnemyDef def, int phaseJitterPercent, GameRandom random)

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Brushblade.Core;
 using NUnit.Framework;
 
@@ -267,6 +268,48 @@ namespace Brushblade.Core.Tests
             EndTurns(engine, 4);
 
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 15), "普攻 5+5 + 吞噬空放的普攻 5(不翻倍)");
+        }
+
+        // ---- 断点续爬存档(spec 2026-07-28 6.1):蓄力状态不能被读档白嫖取消 ----
+
+        private static IReadOnlyDictionary<string, EnemyDef> Defs(params EnemyDef[] defs)
+        {
+            var map = new Dictionary<string, EnemyDef>();
+            foreach (var d in defs) map[d.Id] = d;
+            return map;
+        }
+
+        [Test]
+        public void Snapshot_RoundTrips_ChargeState()
+        {
+            var engine = Engine(BossSkill.Deluge);
+            EndTurns(engine, 3); // 停在蓄力中
+            Assert.That(engine.Enemies[0].IsCharging, Is.True);
+
+            var restored = BattleEngine.Restore(engine.Capture(), Graph(),
+                new BattleConfig { BossPhaseJitterPercent = 0 },
+                null, Defs(SkillBoss(BossSkill.Deluge)));
+
+            Assert.That(restored.Enemies[0].IsCharging, Is.True, "读档不能白嫖取消大招");
+            Assert.That(restored.Enemies[0].ChargeCounter, Is.EqualTo(3));
+
+            int full = restored.PlayerHp;
+            restored.EndTurn();
+            Assert.That(restored.PlayerHp, Is.EqualTo(full - 5), "续爬后照常释放");
+        }
+
+        [Test]
+        public void Snapshot_RoundTrips_ReducedAp()
+        {
+            var engine = Engine(BossSkill.Topple);
+            EndTurns(engine, 4); // 倾覆已生效,当前回合 AP = 2
+            Assert.That(engine.Ap, Is.EqualTo(2));
+
+            var restored = BattleEngine.Restore(engine.Capture(), Graph(),
+                new BattleConfig { BossPhaseJitterPercent = 0 },
+                null, Defs(SkillBoss(BossSkill.Topple)));
+
+            Assert.That(restored.Ap, Is.EqualTo(2), "被削过的 AP 走既有 BattleSnapshot.Ap 存取");
         }
     }
 }
