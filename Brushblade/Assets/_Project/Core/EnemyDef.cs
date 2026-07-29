@@ -233,6 +233,8 @@ namespace Brushblade.Core
             Attack = phase.Attack;
             DamageTaken = phase.DamageTaken;
             Burn = 0; // 新字新体,灼烧清零
+            ChargeCounter = 0; // 同源:蓄力也归零 → 推过阈值可取消大招(spec 3.2)
+            IsCharging = false;
         }
 
         private static int[] RollPhaseBounds(IReadOnlyList<BossPhaseDef> phases, int total,

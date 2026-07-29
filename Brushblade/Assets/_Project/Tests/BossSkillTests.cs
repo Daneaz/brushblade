@@ -16,6 +16,15 @@ namespace Brushblade.Core.Tests
                 new BossPhaseDef("乙", Element.Heart, 100, 5),
             });
 
+        // 首阶段仅 15 血:总血 115、阈值 100(115−15),两发「火」即可推过 —— 专供换阶取消测试。
+        // 次阶段技能为 None:换阶后下个敌方回合必是普攻,便于断言"大招没放出来"。
+        private static EnemyDef ThinFirstPhaseBoss() => new("薄甲", Element.Heart, 15, 5,
+            phases: new[]
+            {
+                new BossPhaseDef("甲", Element.Heart, 15, 5, skill: BossSkill.Deluge),
+                new BossPhaseDef("乙", Element.Heart, 100, 5),
+            });
+
         private static RecipeGraph Graph() => new(new[]
         {
             new CharDef("火", Element.Fire,
@@ -134,6 +143,33 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0));
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 20));
+        }
+
+        [Test]
+        public void CrossingPhaseThreshold_CancelsCharge()
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { BossPhaseJitterPercent = 0 },
+                new string[0], new[] { "火", "林", "盾", "火", "林", "盾" },
+                new[] { ThinFirstPhaseBoss() }, seed: 1);
+            var boss = engine.Enemies[0];
+            Assert.That(boss.Hp, Is.EqualTo(115)); // 15 + 100
+
+            engine.Cast("火", 0); // 火 vs 心 ×1.0 = 10 → 105,仍在首阶段(阈值 100)
+            Assert.That(boss.PhaseIndex, Is.EqualTo(0));
+
+            EndTurns(engine, 3); // 敌方三回合:普攻、普攻、蓄力
+            Assert.That(boss.IsCharging, Is.True);
+
+            engine.Cast("火", 0); // 105 → 95 ≤ 100 → 换阶
+
+            Assert.That(boss.PhaseIndex, Is.EqualTo(1));
+            Assert.That(boss.IsCharging, Is.False, "换阶取消蓄力");
+            Assert.That(boss.ChargeCounter, Is.EqualTo(0));
+
+            int full = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 5), "大招没放出来,只有普攻");
         }
     }
 }
