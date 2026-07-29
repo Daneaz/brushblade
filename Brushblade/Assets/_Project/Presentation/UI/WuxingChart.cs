@@ -1,46 +1,50 @@
-using Brushblade.Core;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>五行速查(2026-07-22):战斗页常驻小图标,点开看环图。
+    /// <summary>五行速查(2026-07-22;2026-07-29 由小按钮+弹窗改为常驻环图):战斗页两角直接摆图。
+    /// 图取自 docs/design/wuxing/*.svg 的光栅稿(rsvg-convert -w 720 -h 660 → UI/Resources)。
     /// 数值口径同 WuxingResolver(docs/design/wuxing-reference.md)。</summary>
     public static class WuxingChart
     {
-        // 相克环:木克土,土克水,水克火,火克金,金克木(心不在环内)
-        private static readonly Element[] KeChain =
-            { Element.Wood, Element.Earth, Element.Water, Element.Fire, Element.Metal, Element.Wood };
+        /// <summary>环图显示尺寸(1600×900 基准),按稿子 360:330 的原比例缩。</summary>
+        private static readonly Vector2 ChartSize = new(131, 120);
 
-        // 相生环:木生火,火生土,土生金,金生水,水生木
-        private static readonly Element[] ShengChain =
-            { Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water, Element.Wood };
-
-        public static GameObject ShowKe(Transform root) => Show(root, "相 克",
-            KeChain, "克",
-            "出字属性克敌 → 伤害 ×1.5,被克 ×0.5,其余 ×1.0\n「心」不在环内,恒 ×1.0");
-
-        public static GameObject ShowSheng(Transform root) => Show(root, "相 生",
-            ShengChain, "生",
-            "配方属性去重后含相生有序对 → 效果 ×3\n多对不叠乘,只算一次");
-
-        private static GameObject Show(Transform root, string title, Element[] chain,
-            string verb, string note)
+        /// <summary>建一张带标题的环图(标题在上);整块位置由调用方 Anchor。</summary>
+        public static GameObject Mount(Transform parent, bool sheng)
         {
-            var overlay = Ui.ModalShell(root, title, new Vector2(320, 150), dismissable: true, out var stack);
+            var stack = Ui.VStack(parent, sheng ? "WuxingSheng" : "WuxingKe", 2);
+            Ui.ThemedLabel(stack.transform, sheng ? "相 生" : "相 克", 16,
+                Theme.TextMain, Theme.TitleFont);
 
-            var row = Ui.Row(stack, "Chain", 4);
-            for (int i = 0; i < chain.Length; i++)
-            {
-                if (i > 0)
-                    Ui.ThemedLabel(row.transform, verb, 14, Theme.TextDim);
-                Ui.Chip(row.transform, CharInfo.ElementName(chain[i]),
-                    Theme.ElementColor(chain[i]), Color.white, 17);
-            }
+            var chartGo = Ui.Panel(stack.transform, "Chart");
+            var image = chartGo.AddComponent<Image>();
+            image.sprite = Chart(sheng ? "wuxing_sheng" : "wuxing_ke");
+            image.preserveAspect = true;
+            image.raycastTarget = false; // 纯展示:点它等于点背景(取消选中),别把点击吃掉
+            image.enabled = image.sprite != null;
+            var element = chartGo.AddComponent<LayoutElement>();
+            element.preferredWidth = ChartSize.x;
+            element.preferredHeight = ChartSize.y;
+            return stack;
+        }
 
-            Ui.ThemedLabel(stack, note, 16, Theme.TextDim);
-            Ui.PillButton(stack, "知道了", () => Object.Destroy(overlay),
-                Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 46));
-            return overlay;
+        private static readonly Dictionary<string, Sprite> Cache = new();
+
+        /// <summary>走 Texture2D + Sprite.Create,同 MobAssets:
+        /// Resources.Load&lt;Sprite&gt; 依赖 PNG 的 textureType 导入设置,取不到会静默变空。</summary>
+        private static Sprite Chart(string key)
+        {
+            if (Cache.TryGetValue(key, out var cached)) return cached;
+            var texture = Resources.Load<Texture2D>(key);
+            var sprite = texture == null
+                ? null
+                : Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f), 100f);
+            Cache[key] = sprite;
+            return sprite;
         }
     }
 }

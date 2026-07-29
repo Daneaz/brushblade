@@ -245,18 +245,16 @@ namespace Brushblade.Presentation
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.4f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
-            // 五行速查常驻(2026-07-22):挂在消息行两端(那里通常是空白),点开看环图
-            var keGo = Ui.Row(transform, "WuxingKe");
+            // 五行速查常驻(2026-07-22;2026-07-29 改为直接摆环图,不再点开弹窗):
+            // 挂在消息行两端(那里通常是空白),向下延展 —— 敌人行居中排布,够不到这两角
+            // 纵向 0.158×900 ≈ 142px = 标题 20 + 间距 2 + 环图 120
+            var keGo = WuxingChart.Mount(transform, sheng: false);
             Ui.Anchor((RectTransform)keGo.transform,
-                new Vector2(0.004f, 0.886f), new Vector2(0.056f, 0.938f), Vector2.zero, Vector2.zero);
-            Ui.RoundButton(keGo.transform, "克", () => ShowChart(WuxingChart.ShowKe),
-                Theme.Cinnabar, Color.white, 18, new Vector2(46, 42), 12);
+                new Vector2(0.004f, 0.780f), new Vector2(0.086f, 0.938f), Vector2.zero, Vector2.zero);
 
-            var shengGo = Ui.Row(transform, "WuxingSheng");
+            var shengGo = WuxingChart.Mount(transform, sheng: true);
             Ui.Anchor((RectTransform)shengGo.transform,
-                new Vector2(0.944f, 0.886f), new Vector2(0.996f, 0.938f), Vector2.zero, Vector2.zero);
-            Ui.RoundButton(shengGo.transform, "生", () => ShowChart(WuxingChart.ShowSheng),
-                Theme.Jade, Color.white, 18, new Vector2(46, 42), 12);
+                new Vector2(0.914f, 0.780f), new Vector2(0.996f, 0.938f), Vector2.zero, Vector2.zero);
 
             var messageGo = Ui.Panel(transform, "Message");
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.900f), new Vector2(0.98f, 0.945f), Vector2.zero, Vector2.zero);
@@ -1622,12 +1620,6 @@ namespace Brushblade.Presentation
             foreach (var enemy in Battle.Enemies)
                 if (enemy.Alive) count++;
             return count;
-        }
-
-        private void ShowChart(System.Func<Transform, GameObject> chart)
-        {
-            if (_modal != null) Object.Destroy(_modal);
-            _modal = chart(transform);
         }
 
         private void OnEnemyClicked(int index)
