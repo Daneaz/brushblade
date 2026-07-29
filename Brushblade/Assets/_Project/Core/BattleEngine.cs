@@ -720,7 +720,11 @@ namespace Brushblade.Core
         }
 
         /// <summary>释放当前阶段字的技能。先发 BossSkillCast 再发各目标受击事件,
-        /// 表现层据此把大招动效与后续伤害分开播。</summary>
+        /// 表现层据此把大招动效与后续伤害分开播。
+        /// 玩家份伤害统一 Attack×2(2026-07-29 修正,Devour 空放除外):四个敌方回合里
+        /// 2 普攻 + 1 蓄力不出手 + 1 释放,若玩家份只按 Attack 结算,总投放只有 3×Attack,
+        /// 反而低于没有技能的纯普攻 Boss(4×Attack)——技能变成了减伤。抬到 ×2 后释放回合
+        /// 单独顶两个普攻的量,四回合投放追平并反超无技能 Boss。</summary>
         private void CastBossSkill(int index, EnemyState enemy)
         {
             var skill = enemy.Def.Phases[enemy.PhaseIndex].Skill;
@@ -728,14 +732,14 @@ namespace Brushblade.Core
 
             switch (skill)
             {
-                case BossSkill.Deluge: // 淹没:玩家 + 全部召唤物各挨一下
-                    DamagePlayerDirect(index, enemy.Attack);
+                case BossSkill.Deluge: // 淹没:玩家挨双倍,召唤物各挨一下(不翻倍,仍是分摊主力)
+                    DamagePlayerDirect(index, enemy.Attack * 2);
                     for (int s = 0; s < _summons.Count; s++)
                         if (_summons[s].Alive)
                             DamageSummon(index, s, enemy.Attack, enemy.Element);
                     break;
 
-                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家
+                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2,不受本次修正影响)
                 {
                     int front = FirstAliveSummonIndex();
                     if (front >= 0)
@@ -744,9 +748,9 @@ namespace Brushblade.Core
                     break;
                 }
 
-                case BossSkill.Topple: // 倾覆:先按常规吸伤,再把剩余护盾整个掀掉
+                case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉
                 {
-                    DamagePlayerDirect(index, enemy.Attack);
+                    DamagePlayerDirect(index, enemy.Attack * 2);
                     int broken = _shieldNormal + _shieldPersist;
                     if (broken > 0)
                     {
@@ -758,7 +762,7 @@ namespace Brushblade.Core
                     break;
                 }
 
-                case BossSkill.Devour: // 吞噬:无视血量必杀最前一只(不回血);没得吞就普攻
+                case BossSkill.Devour: // 吞噬:无视血量必杀最前一只(不回血);没得吞就普攻(设计明确不 ×2,唯一例外)
                 {
                     int front = FirstAliveSummonIndex();
                     if (front >= 0)

@@ -81,9 +81,12 @@ namespace Brushblade.Core.Tests
 
             engine.EndTurn(); // 敌方回合 4:释放淹没
 
-            Assert.That(engine.PlayerHp, Is.EqualTo(full - 5), "大招不被召唤物拦截");
+            // 玩家份 Attack×2(F3 修正,2026-07-29):不翻倍时四回合总投放(2 普攻+1 蓄力空转+1 释放
+            // = 3×Attack)反而低于无技能 Boss 的 4×Attack,技能变成减伤;抬到 ×2 后释放回合顶两个
+            // 普攻的量,4 回合投放 2+0+2=4×Attack 追平无技能 Boss。
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "大招不被召唤物拦截,玩家份 Attack×2");
             foreach (var summon in engine.Summons)
-                Assert.That(summon.Hp, Is.EqualTo(1)); // 6 血挨 5(心对木 ×1.0)
+                Assert.That(summon.Hp, Is.EqualTo(1)); // 6 血挨 5(心对木 ×1.0,召唤物份不翻倍)
         }
 
         [Test]
@@ -174,6 +177,54 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 5), "大招没放出来,只有普攻");
         }
 
+        // 两阶段都配 Deluge、首阶段极薄(15 血),用于验证「非蓄力状态换阶」保留 ChargeCounter(F1)。
+        // 与 ThinFirstPhaseBoss 的区别只在次阶段也有技能——上者次阶段刻意留 None,专用于「大招取消」断言。
+        private static EnemyDef ThinFirstPhaseBossBothSkilled() => new("薄甲乙", Element.Heart, 15, 5,
+            phases: new[]
+            {
+                new BossPhaseDef("甲", Element.Heart, 15, 5, skill: BossSkill.Deluge),
+                new BossPhaseDef("乙", Element.Heart, 100, 5, skill: BossSkill.Deluge),
+            });
+
+        [Test]
+        public void NonChargingPhaseCross_PreservesChargeCounter()
+        {
+            // F1:换阶只在「蓄力中」才清零 ChargeCounter/IsCharging(spec 3.2 支点机制)。
+            // 非蓄力状态下换阶(还在攒数的半路)必须保留计数——否则排山倒海式的薄阶段 Boss
+            // 一回合能打穿一个阶段,ChargeCounter 永远攒不满,技能整场放不出来。
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { BossPhaseJitterPercent = 0 },
+                new string[0], new[] { "火", "林", "盾", "火", "林", "盾" },
+                new[] { ThinFirstPhaseBossBothSkilled() }, seed: 1);
+            var boss = engine.Enemies[0];
+            Assert.That(boss.Hp, Is.EqualTo(115)); // 15 + 100,阈值 100(115 − 15)
+
+            engine.EndTurn(); // 敌方回合 1:普攻(非蓄力),ChargeCounter 0 → 1
+            Assert.That(boss.ChargeCounter, Is.EqualTo(1));
+            Assert.That(boss.IsCharging, Is.False);
+            Assert.That(boss.PhaseIndex, Is.EqualTo(0));
+
+            engine.Cast("火", 0); // 115 → 105,仍在首阶段
+            engine.Cast("火", 0); // 105 → 95 ≤ 100 → 换阶(此刻非蓄力中)
+
+            Assert.That(boss.PhaseIndex, Is.EqualTo(1), "跨过阈值,换阶");
+            Assert.That(boss.ChargeCounter, Is.EqualTo(1), "非蓄力换阶:计数保留,不清零");
+            Assert.That(boss.IsCharging, Is.False);
+
+            engine.EndTurn(); // 敌方回合 2(已在次阶段):普攻,ChargeCounter 1 → 2(接力累加,不是从 0 重来)
+            Assert.That(boss.ChargeCounter, Is.EqualTo(2));
+
+            engine.EndTurn(); // 敌方回合 3:ChargeCounter 2 → 3 ≥ ChargeEvery,进入蓄力,本回合不出手
+            Assert.That(boss.IsCharging, Is.True);
+            Assert.That(boss.ChargeCounter, Is.EqualTo(3));
+
+            int full = engine.PlayerHp;
+            engine.EndTurn(); // 敌方回合 4:释放淹没——只花了 3 个「换阶跨越」内的敌方回合,不是 3 个全新回合
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "接力攒够后正常释放,玩家份 Attack×2");
+            Assert.That(boss.IsCharging, Is.False);
+            Assert.That(boss.ChargeCounter, Is.EqualTo(0));
+        }
+
         [Test]
         public void Pierce_HitsFrontSummonAndPlayerDouble()
         {
@@ -208,10 +259,10 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerShield, Is.EqualTo(20));
             int full = engine.PlayerHp;
 
-            EndTurns(engine, 4); // 2 普攻(各吃 5 点盾,盾 20→10)+ 蓄力 + 倾覆(伤害 5)
+            EndTurns(engine, 4); // 2 普攻(各吃 5 点盾,盾 20→10)+ 蓄力 + 倾覆(伤害 Attack×2=10,F3 修正)
 
-            // 结算顺序探针:倾覆先吸伤再清盾——伤害 5 应被剩余 10 点盾全额吸收,HP 不掉。
-            // 若实现被写反(先清盾再结算伤害),这 5 点伤害会直接打进 HP,PlayerHp 会少 5。
+            // 结算顺序探针:倾覆先吸伤再清盾——伤害 10(Attack×2)应被剩余 10 点盾恰好全额吸收,HP 不掉。
+            // 若实现被写反(先清盾再结算伤害),这 10 点伤害会直接打进 HP,PlayerHp 会少 10。
             // 光看 PlayerShield 归零不足以区分两种顺序(两种顺序下盾都会清零),这条断言专门锁顺序。
             Assert.That(engine.PlayerHp, Is.EqualTo(full), "倾覆伤害应被吸盾挡下,验证先吸伤再清盾的结算顺序");
             Assert.That(engine.PlayerShield, Is.EqualTo(0), "剩余护盾被清空");
@@ -243,6 +294,26 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Topple_WithFullSummonField_StillHitsPlayer()
+        {
+            // spec 第 8 节漏测项:全程零召唤物的 Topple_ClearsAllShieldAndCutsNextTurnAp 从未
+            // 断言过"绕前排路由"(spec 3.3 总则)。这里前排召满 4 只,验证倾覆的玩家份依旧
+            // 直接命中、不被召唤物拦截,召唤物也毫发无伤(倾覆不打召唤物)。
+            var engine = Engine(BossSkill.Topple);
+            EndTurns(engine, 2); // 敌方两回合普攻(此时场上无召唤物,伤害落在玩家身上)
+            engine.Cast("林");
+            engine.Cast("林");
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(4), "前排满员");
+            int full = engine.PlayerHp;
+
+            EndTurns(engine, 2); // 蓄力 + 倾覆释放
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "倾覆玩家份不被满场召唤物拦截");
+            foreach (var summon in engine.Summons)
+                Assert.That(summon.Hp, Is.EqualTo(6), "倾覆不打召唤物,满血不掉");
+        }
+
+        [Test]
         public void Devour_KillsFrontSummon_AndDoesNotHealBoss()
         {
             var engine = Engine(BossSkill.Devour);
@@ -271,6 +342,38 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 15), "普攻 5+5 + 吞噬空放的普攻 5(不翻倍)");
         }
 
+        [Test]
+        public void BossSkillCast_PrecedesTargetHitEvents()
+        {
+            // spec 6.4:BossSkillCast 必须先于各目标受击事件发出——表现层靠这个显式顺序把大招
+            // 动效与后续伤害分开播;注释里记着靠事件种类猜边界已出过两次动画错乱,不重蹈。
+            var engine = Engine(BossSkill.Deluge);
+            EndTurns(engine, 2); // 敌方两回合普攻,场上尚无召唤物
+            engine.Cast("林");    // 2 只木召唤,充当淹没的额外受击目标
+            EndTurns(engine, 1); // 蓄力回合(不出手,本回合无相关事件)
+
+            engine.EndTurn(); // 释放淹没:应产出 BossSkillCast + 玩家/召唤物的受击事件
+
+            int castIndex = -1;
+            for (int i = 0; i < engine.LastEvents.Count; i++)
+                if (engine.LastEvents[i].Kind == BattleEventKind.BossSkillCast) { castIndex = i; break; }
+            Assert.That(castIndex, Is.GreaterThanOrEqualTo(0), "本回合应释放技能,产出 BossSkillCast");
+
+            // 只看 EnemyAttack/SummonHit——这两种才是 CastBossSkill 自己产出的"目标受击"事件。
+            // 不看 Damage:同一回合更早的召唤反击段(EndTurn 第 2 段)会先给 Boss 记一条 Damage,
+            // 那是玩家召唤物打 Boss,跟本次技能释放无关,混进来会把顺序断言带偏。
+            bool sawHitAfterCast = false;
+            for (int i = 0; i < engine.LastEvents.Count; i++)
+            {
+                var kind = engine.LastEvents[i].Kind;
+                bool isHit = kind == BattleEventKind.EnemyAttack || kind == BattleEventKind.SummonHit;
+                if (!isHit) continue;
+                Assert.That(i, Is.GreaterThan(castIndex), "受击事件必须晚于 BossSkillCast");
+                sawHitAfterCast = true;
+            }
+            Assert.That(sawHitAfterCast, Is.True, "本用例应产生至少一条受击事件(玩家份 + 召唤物份)");
+        }
+
         // ---- 断点续爬存档(spec 2026-07-28 6.1):蓄力状态不能被读档白嫖取消 ----
 
         private static IReadOnlyDictionary<string, EnemyDef> Defs(params EnemyDef[] defs)
@@ -296,7 +399,7 @@ namespace Brushblade.Core.Tests
 
             int full = restored.PlayerHp;
             restored.EndTurn();
-            Assert.That(restored.PlayerHp, Is.EqualTo(full - 5), "续爬后照常释放");
+            Assert.That(restored.PlayerHp, Is.EqualTo(full - 10), "续爬后照常释放,玩家份 Attack×2(F3 修正)");
         }
 
         [Test]

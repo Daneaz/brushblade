@@ -237,8 +237,18 @@ namespace Brushblade.Core
             Attack = phase.Attack;
             DamageTaken = phase.DamageTaken;
             Burn = 0; // 新字新体,灼烧清零
-            ChargeCounter = 0; // 同源:蓄力也归零 → 推过阈值可取消大招(spec 3.2)
-            IsCharging = false;
+
+            // 蓄力计数:只在「蓄力中」被推过阈值才清零(spec 3.2 支点机制,2026-07-29 修正)——
+            // 玩家蓄力回合抢血过阈值 = 主动取消这次大招,清零合理。
+            // 非蓄力状态下换阶(还在攒数的半路)不清:排山倒海式的薄阶段 Boss(12/15/12/16 血,
+            // 一回合就能打穿一个阶段)若无条件清零,ChargeCounter 永远攒不到 BossChargeEvery,
+            // 技能整场放不出来——坚壁阶段还额外冻结计数,两头夹死。原注释("换阶=新字新体,
+            // 蓄力同源清零")只对蓄力中那条路径成立,已按此拆开。
+            if (IsCharging)
+            {
+                ChargeCounter = 0;
+                IsCharging = false;
+            }
         }
 
         private static int[] RollPhaseBounds(IReadOnlyList<BossPhaseDef> phases, int total,
