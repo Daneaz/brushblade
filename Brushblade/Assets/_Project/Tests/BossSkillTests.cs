@@ -204,9 +204,14 @@ namespace Brushblade.Core.Tests
             var engine = Engine(BossSkill.Topple);
             engine.Cast("盾"); // 土系护盾 20
             Assert.That(engine.PlayerShield, Is.EqualTo(20));
+            int full = engine.PlayerHp;
 
-            EndTurns(engine, 4); // 2 普攻(吃盾)+ 蓄力 + 倾覆
+            EndTurns(engine, 4); // 2 普攻(各吃 5 点盾,盾 20→10)+ 蓄力 + 倾覆(伤害 5)
 
+            // 结算顺序探针:倾覆先吸伤再清盾——伤害 5 应被剩余 10 点盾全额吸收,HP 不掉。
+            // 若实现被写反(先清盾再结算伤害),这 5 点伤害会直接打进 HP,PlayerHp 会少 5。
+            // 光看 PlayerShield 归零不足以区分两种顺序(两种顺序下盾都会清零),这条断言专门锁顺序。
+            Assert.That(engine.PlayerHp, Is.EqualTo(full), "倾覆伤害应被吸盾挡下,验证先吸伤再清盾的结算顺序");
             Assert.That(engine.PlayerShield, Is.EqualTo(0), "剩余护盾被清空");
             Assert.That(engine.Ap, Is.EqualTo(2), "下回合 AP 由 3 降为 2");
         }
