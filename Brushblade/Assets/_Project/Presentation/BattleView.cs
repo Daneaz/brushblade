@@ -172,6 +172,10 @@ namespace Brushblade.Presentation
                     _animShield = System.Math.Min(Battle.PlayerShield, _animShield + e.Amount);
                     SetShieldBar(_animShield);
                     break;
+                case BattleEventKind.ShieldBroken: // 倾覆技能把剩余护盾整个掀掉:直接推到 0,不等最终重绘才归零
+                    _animShield = 0;
+                    SetShieldBar(_animShield);
+                    break;
                 case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
                     int si = e.SecondIndex;
                     if (si < 0 || si >= Battle.Summons.Count || !_summonAnimHp.ContainsKey(si)
@@ -598,6 +602,10 @@ namespace Brushblade.Presentation
                     Theme.ElementColor(enemy.ApparentElement), Color.white, 12);
                 Ui.Chip(chips.transform, $"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain, 12);
                 if (enemy.DamageTaken < 1f) Ui.Chip(chips.transform, "坚壁", Theme.InkSoft, Color.white, 12);
+                if (enemy.IsCharging && enemy.IsBoss)
+                    Ui.Chip(chips.transform,
+                        $"⚡ 下回合:{BossSkillName(enemy.Def.Phases[enemy.PhaseIndex].Skill)}",
+                        Theme.Cinnabar, Color.white, 12);
                 if (enemy.Burn > 0) Ui.Chip(chips.transform, $"灼烧 {enemy.Burn}", Theme.Cinnabar, Color.white, 12);
                 if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive)
                     Ui.Chip(chips.transform, enemy.RegrowProgress >= 3 ? "已补全!" : $"补全 {enemy.RegrowProgress}/3",
@@ -1659,6 +1667,7 @@ namespace Brushblade.Presentation
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             AppendBossPhaseMessage();
+            AppendBossSkillMessage();
             var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
             if (error == BattleError.None) DropReplacedSummonSnapshots(); // 被顶替的槽位:改画新召唤物,别停在旧血量
@@ -1729,6 +1738,28 @@ namespace Brushblade.Presentation
                 }
         }
 
+        private static string BossSkillName(BossSkill skill) => skill switch
+        {
+            BossSkill.Deluge => "淹没",
+            BossSkill.Pierce => "贯穿",
+            BossSkill.Topple => "倾覆",
+            BossSkill.Devour => "吞噬",
+            _ => "",
+        };
+
+        private void AppendBossSkillMessage()
+        {
+            foreach (var e in Battle.LastEvents)
+            {
+                if (e.Kind == BattleEventKind.BossCharging)
+                    _message += $"  蓄力中——下回合「{BossSkillName((BossSkill)e.Amount)}」";
+                else if (e.Kind == BattleEventKind.BossSkillCast)
+                    _message += $"  {BossSkillName((BossSkill)e.Amount)}!";
+                else if (e.Kind == BattleEventKind.ShieldBroken)
+                    _message += $"  护盾被掀空({e.Amount})";
+            }
+        }
+
         private void OnDiscard(string charId)
         {
             var error = Battle.Discard(charId);
@@ -1796,6 +1827,7 @@ namespace Brushblade.Presentation
             Battle.EndTurn();
             _tutorial?.Notify(TutorialAction.EndTurn);
             _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,部件掉落" : "";
+            AppendBossSkillMessage(); // 蓄力/释放/护盾被掀空都发生在敌方回合结算(EndTurn),不是出字动作里
             var deaths = DeathsThisAction();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
             BeginAnim(); // 锁输入:召唤/敌方行动期间不许出字,须在重绘前置位
