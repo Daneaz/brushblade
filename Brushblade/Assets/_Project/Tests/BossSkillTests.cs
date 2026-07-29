@@ -110,5 +110,30 @@ namespace Brushblade.Core.Tests
             Assert.That(scaled.Phases[1].Skill, Is.EqualTo(BossSkill.Deluge));
             Assert.That(scaled.Phases[1].MaxHp, Is.EqualTo(32)); // 数值照常缩放
         }
+
+        [Test]
+        public void BulwarkPhase_NeverCharges_AttacksEveryTurn()
+        {
+            var engine = Engine(BossSkill.Bulwark);
+            int full = engine.PlayerHp;
+
+            EndTurns(engine, 4);
+
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "坚壁阶段冻结计数");
+            Assert.That(engine.Enemies[0].IsCharging, Is.False);
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 20), "四回合各普攻一次");
+        }
+
+        [Test]
+        public void NoSkillPhase_NeverCharges()
+        {
+            var engine = Engine(BossSkill.None);
+            int full = engine.PlayerHp;
+
+            EndTurns(engine, 4);
+
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0));
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 20));
+        }
     }
 }
