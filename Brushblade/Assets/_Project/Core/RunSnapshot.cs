@@ -42,6 +42,7 @@ namespace Brushblade.Core
         public int HitsTaken { get; set; }
         public int ChargeCounter { get; set; }   // Boss 蓄力进度(spec 2026-07-28)
         public bool IsCharging { get; set; }     // 蓄力中:读档后要照常放大招
+        public BossSkill ChargingSkill { get; set; } // 蓄力锁定的技能:预告什么就放什么
     }
 
     public sealed class SummonSnapshot

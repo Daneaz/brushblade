@@ -70,26 +70,26 @@
         {
           "char": "排",
           "element": "Metal",
-          "maxHp": 12,
+          "maxHp": 18,
           "attack": 6
         },
         {
           "char": "山",
           "element": "Earth",
-          "maxHp": 15,
+          "maxHp": 23,
           "attack": 4,
           "damageTaken": 0.5
         },
         {
           "char": "倒",
           "element": "Wood",
-          "maxHp": 12,
+          "maxHp": 18,
           "attack": 8
         },
         {
           "char": "海",
           "element": "Water",
-          "maxHp": 16,
+          "maxHp": 24,
           "attack": 10
         }
       ]
@@ -103,26 +103,26 @@
         {
           "char": "翻",
           "element": "Wood",
-          "maxHp": 12,
+          "maxHp": 18,
           "attack": 7
         },
         {
           "char": "江",
           "element": "Water",
-          "maxHp": 14,
+          "maxHp": 21,
           "attack": 5,
           "damageTaken": 0.75
         },
         {
           "char": "倒",
           "element": "Wood",
-          "maxHp": 12,
+          "maxHp": 18,
           "attack": 8
         },
         {
           "char": "海",
           "element": "Water",
-          "maxHp": 16,
+          "maxHp": 24,
           "attack": 10
         }
       ]
@@ -136,25 +136,25 @@
         {
           "char": "雷",
           "element": "Metal",
-          "maxHp": 10,
+          "maxHp": 15,
           "attack": 8
         },
         {
           "char": "霆",
           "element": "Metal",
-          "maxHp": 12,
+          "maxHp": 18,
           "attack": 9
         },
         {
           "char": "万",
           "element": "Heart",
-          "maxHp": 14,
+          "maxHp": 21,
           "attack": 6
         },
         {
           "char": "钧",
           "element": "Metal",
-          "maxHp": 16,
+          "maxHp": 24,
           "attack": 11,
           "damageTaken": 0.75
         }

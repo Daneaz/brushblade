@@ -600,9 +600,10 @@ namespace Brushblade.Presentation
                     Theme.ElementColor(enemy.ApparentElement), Color.white, 12);
                 Ui.Chip(chips.transform, $"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain, 12);
                 if (enemy.DamageTaken < 1f) Ui.Chip(chips.transform, "坚壁", Theme.InkSoft, Color.white, 12);
+                // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
+                // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
-                    Ui.Chip(chips.transform,
-                        $"⚡ 下回合:{BossSkillName(enemy.Def.Phases[enemy.PhaseIndex].Skill)}",
+                    Ui.Chip(chips.transform, $"⚡ 下回合:{BossSkillName(enemy.ChargingSkill)}",
                         Theme.Cinnabar, Color.white, 12);
                 if (enemy.Burn > 0) Ui.Chip(chips.transform, $"灼烧 {enemy.Burn}", Theme.Cinnabar, Color.white, 12);
                 if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive)

@@ -31,7 +31,9 @@ namespace Brushblade.Core
         public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 2; // 3→2(2026-07-19 二次拍板)
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
-        public int BossChargeEvery { get; set; } = 3; // Boss 每 N 个敌方回合蓄力一次(spec 2026-07-28)
+        // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
+        // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
+        public int BossChargeEvery { get; set; } = 2;
         /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
 
@@ -702,19 +704,21 @@ namespace Brushblade.Core
             {
                 enemy.IsCharging = false;
                 enemy.ChargeCounter = 0;
-                CastBossSkill(index, enemy);
+                CastBossSkill(index, enemy, enemy.ChargingSkill);
                 return true;
             }
 
+            enemy.ChargeCounter += 1;
+
             var skill = enemy.Def.Phases[enemy.PhaseIndex].Skill;
             if (skill == BossSkill.None || skill == BossSkill.Bulwark)
-                return false; // 坚壁/无技能阶段:冻结计数,照常普攻
-
-            enemy.ChargeCounter += 1;
+                return false; // 坚壁/无技能阶段没大招可放,但照常攒数:
+                              // 冻结的话,最耗回合的坚壁段(承伤 0.5)会把节奏整个吃掉
             if (enemy.ChargeCounter < _config.BossChargeEvery)
                 return false;
 
             enemy.IsCharging = true;
+            enemy.ChargingSkill = skill; // 锁定:预告什么就放什么,期间换阶也不改写
             _events.Add(new BattleEvent(BattleEventKind.BossCharging, index, (int)skill));
             return true; // 蓄力回合不出手
         }
@@ -725,9 +729,8 @@ namespace Brushblade.Core
         /// 2 普攻 + 1 蓄力不出手 + 1 释放,若玩家份只按 Attack 结算,总投放只有 3×Attack,
         /// 反而低于没有技能的纯普攻 Boss(4×Attack)——技能变成了减伤。抬到 ×2 后释放回合
         /// 单独顶两个普攻的量,四回合投放追平并反超无技能 Boss。</summary>
-        private void CastBossSkill(int index, EnemyState enemy)
+        private void CastBossSkill(int index, EnemyState enemy, BossSkill skill)
         {
-            var skill = enemy.Def.Phases[enemy.PhaseIndex].Skill;
             _events.Add(new BattleEvent(BattleEventKind.BossSkillCast, index, (int)skill));
 
             switch (skill)

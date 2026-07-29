@@ -135,8 +135,11 @@ namespace Brushblade.Core
         public int HitsTaken { get; internal set; }      // 受击计数(生僻字"读懂"用)
         /// <summary>蓄力计数(spec 2026-07-28):满 BossChargeEvery 即进入蓄力回合。</summary>
         public int ChargeCounter { get; internal set; }
-        /// <summary>蓄力中:本回合已不出手,下个敌方回合释放当前阶段技能。</summary>
+        /// <summary>蓄力中:本回合已不出手,下个敌方回合释放 ChargingSkill。</summary>
         public bool IsCharging { get; internal set; }
+
+        /// <summary>蓄力时锁定的技能:预告什么就放什么,期间换阶也不改写(2026-07-29)。</summary>
+        public BossSkill ChargingSkill { get; internal set; }
 
         /// <summary>UI 应显示的属性:null = 未知("?");结算永远用真实 Element。</summary>
         public Element? ApparentElement { get; internal set; }
@@ -171,6 +174,7 @@ namespace Brushblade.Core
             HitsTaken = HitsTaken,
             ChargeCounter = ChargeCounter,
             IsCharging = IsCharging,
+            ChargingSkill = ChargingSkill,
         };
 
         /// <summary>从存档复原:全部字段照抄,不重摇任何随机量(伪装属性、Boss 阈值都是开场摇的)。</summary>
@@ -190,6 +194,7 @@ namespace Brushblade.Core
             HitsTaken = snapshot.HitsTaken,
             ChargeCounter = snapshot.ChargeCounter,
             IsCharging = snapshot.IsCharging,
+            ChargingSkill = snapshot.ChargingSkill,
         };
 
         internal EnemyState(EnemyDef def, int phaseJitterPercent, GameRandom random)
@@ -238,17 +243,10 @@ namespace Brushblade.Core
             DamageTaken = phase.DamageTaken;
             Burn = 0; // 新字新体,灼烧清零
 
-            // 蓄力计数:只在「蓄力中」被推过阈值才清零(spec 3.2 支点机制,2026-07-29 修正)——
-            // 玩家蓄力回合抢血过阈值 = 主动取消这次大招,清零合理。
-            // 非蓄力状态下换阶(还在攒数的半路)不清:排山倒海式的薄阶段 Boss(12/15/12/16 血,
-            // 一回合就能打穿一个阶段)若无条件清零,ChargeCounter 永远攒不到 BossChargeEvery,
-            // 技能整场放不出来——坚壁阶段还额外冻结计数,两头夹死。原注释("换阶=新字新体,
-            // 蓄力同源清零")只对蓄力中那条路径成立,已按此拆开。
-            if (IsCharging)
-            {
-                ChargeCounter = 0;
-                IsCharging = false;
-            }
+            // 蓄力完全不受换阶影响(2026-07-29)。理由见 spec 3.2:阶段血量 12~16 在玩家输出面前
+            // 只够 1~2 回合,任何"换阶打断蓄力"的写法都会让大招几乎放不出来——实测阶段血量抬到
+            // 4 倍、DPS30 依然一次不放。预告的技能在 ChargingSkill 里记着,换阶不改写它:
+            // UI 说了"下回合淹没"就得放淹没。
         }
 
         private static int[] RollPhaseBounds(IReadOnlyList<BossPhaseDef> phases, int total,
