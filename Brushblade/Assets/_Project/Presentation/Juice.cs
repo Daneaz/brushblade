@@ -19,6 +19,7 @@ namespace Brushblade.Presentation
         private AudioClip _thudClip;
         private AudioClip _shieldClip;
         private AudioClip _killClip;
+        private AudioClip _healClip;
 
         public void Init(RectTransform shakeTarget)
         {
@@ -29,6 +30,7 @@ namespace Brushblade.Presentation
             _thudClip = Synth(0.12f, 90f, noise: 0.4f);   // 重击/受击:闷
             _shieldClip = Synth(0.1f, 320f, noise: 0.1f); // 护盾:润
             _killClip = SynthSweep(0.18f, 260f, 90f, noise: 0.25f); // 击杀:下行收束
+            _healClip = SynthSweep(0.16f, 380f, 620f, noise: 0.05f); // 治疗:上行,与击杀的下行相反
         }
 
         private const float FlyDuration = 0.24f; // 飞牌全程(与 FlyRoutine 一致)
@@ -175,6 +177,26 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.Burn:
                         Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
+                        break;
+                    // 治疗:刻意**不 yield、不置 serialPending** —— 群攻与回血是同一记里的两件事,
+                    // 分开演就成了「先打完,血条才慢半拍地涨」(2026-07-29 实测)
+                    case BattleEventKind.Heal:
+                        if (e.Amount <= 0) break;
+                        Popup($"+{e.Amount}", Theme.SplitBlue, null);
+                        _audio.PlayOneShot(_healClip, 0.7f);
+                        onImpact?.Invoke(e); // 触达才涨血条
+                        break;
+                    // 缺笔妖补全:串行占一拍 —— 它是敌方回合里独立发生的事,
+                    // 与那一记攻击挤在同帧就会被当成攻击的一部分
+                    case BattleEventKind.Regrow:
+                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        Popup(e.SecondIndex >= 3
+                                ? (e.Amount > 0 ? $"补全! +{e.Amount}" : "补全!")
+                                : (e.Amount > 0 ? $"补全 {e.SecondIndex}/3 +{e.Amount}" : $"补全 {e.SecondIndex}/3"),
+                            Theme.Jade, enemyAnchor(e.TargetIndex), small: e.SecondIndex < 3);
+                        _audio.PlayOneShot(_healClip, 0.6f);
+                        onImpact?.Invoke(e); // 触达才回血
+                        serialPending = true;
                         break;
                     case BattleEventKind.Shield:
                         Popup($"盾+{e.Amount}", Theme.SplitBlue, null);
@@ -510,6 +532,86 @@ namespace Brushblade.Presentation
             }
             if (target != null)
                 target.localScale = Vector3.one;
+        }
+
+        // ---- 条上涨势(治疗 / 筑盾 / 补全)----
+
+        private const float BarPulseDuration = 0.55f;
+
+        /// <summary>血条 / 盾条上的一记「涨」:条身被同色辉光洗一遍并微微上顶,
+        /// 再从条上浮起几枚属性元件。治疗、筑盾、补全都是「涨」,共用一套动作语言,
+        /// 靠颜色与元件区分是哪一系 —— 元件直接复用字牌那批素材
+        /// (《字牌形象关键词包》§4.3 本就是这么许诺的:一个元件同时服务字牌与战斗特效)。</summary>
+        public void BarPulse(RectTransform fill, Color color, Element? element = null)
+        {
+            if (fill == null || fill.parent == null) return;
+            var bar = (RectTransform)fill.parent;
+            StartCoroutine(BarGlowRoutine(bar, color));
+            var sprite = element.HasValue ? CardFrames.Element(element) : null;
+            if (sprite == null) return;
+            // 土是**沉降**不是上浮(§4.1):尘石只抖一下就落定,别跟水一样往上飘,
+            // 何况盾条在血条下方,飘高了会糊到血条上
+            float rise = element == Element.Earth ? 0.2f : 0.75f;
+            for (int i = 0; i < 3; i++)
+                StartCoroutine(BarMoteRoutine(bar, sprite, color, i, rise));
+        }
+
+        private static IEnumerator BarGlowRoutine(RectTransform bar, Color color)
+        {
+            var go = new GameObject("BarPulse", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(bar, false);
+            go.transform.SetSiblingIndex(1); // 压在 Fill 之上、血值文本之下 —— 别糊住数字
+            var image = go.GetComponent<Image>();
+            image.sprite = Theme.Rounded(10);
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = false;
+            Ui.Stretch((RectTransform)go.transform);
+
+            float t = 0f;
+            while (t < BarPulseDuration && go != null && bar != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float u = t / BarPulseDuration;
+                var c = color;
+                c.a = Mathf.Sin(u * Mathf.PI) * 0.5f; // 进出各淡一次,不是硬切
+                image.color = c;
+                bar.localScale = new Vector3(1f, 1f + 0.16f * Mathf.Sin(u * Mathf.PI), 1f);
+                yield return null;
+            }
+            if (bar != null) bar.localScale = Vector3.one;
+            if (go != null) Destroy(go);
+        }
+
+        private static IEnumerator BarMoteRoutine(RectTransform bar, Sprite sprite, Color color, int index, float rise)
+        {
+            var go = new GameObject("BarMote", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(bar, false);
+            var rect = (RectTransform)go.transform;
+            float side = Mathf.Max(20f, bar.rect.height * 2.4f);
+            rect.sizeDelta = new Vector2(side, side);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.2f + index * 0.3f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            var image = go.GetComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+
+            // 三枚错开起跑,免得像一排整齐的图标同时弹出
+            float delay = index * 0.06f;
+            float t = -delay;
+            while (t < BarPulseDuration && go != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / BarPulseDuration);
+                var c = color;
+                c.a = Mathf.Sin(u * Mathf.PI) * 0.8f;
+                image.color = c;
+                rect.anchoredPosition = new Vector2(0f, u * side * rise); // 自条上浮起(土只抖一下)
+                float s = Mathf.Lerp(0.6f, 1.1f, u);
+                rect.localScale = new Vector3(s, s, 1f);
+                yield return null;
+            }
+            if (go != null) Destroy(go);
         }
 
         // ---- 伤害飘字 ----

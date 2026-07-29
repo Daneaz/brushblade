@@ -171,6 +171,25 @@ namespace Brushblade.Presentation
                 case BattleEventKind.Shield: // 筑盾触达才涨,与掉盾同一条推进(不整屏重绘)
                     _animShield = System.Math.Min(Battle.PlayerShield, _animShield + e.Amount);
                     SetShieldBar(_animShield);
+                    _juice.BarPulse(_playerShieldBar.fill, Theme.Jade, Element.Earth); // 土:盾条起势
+                    break;
+                case BattleEventKind.Heal: // 水系治疗:与群攻同一记里触达,血条即时上推(此前只在末次重绘才涨)
+                    if (_playerHpBar.fill == null) break;
+                    _animPlayerHp = System.Math.Min(Battle.PlayerHp, _animPlayerHp + e.Amount);
+                    SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
+                    _juice.BarPulse(_playerHpBar.fill, Theme.SplitBlue, Element.Water); // 水:血条起势
+                    break;
+                case BattleEventKind.Regrow: // 缺笔妖补全:敌人血条**上**推,钳到终值
+                    if (e.TargetIndex < 0 || e.TargetIndex >= _enemyHpBars.Count
+                        || e.TargetIndex >= _animEnemyHp.Count || e.TargetIndex >= Battle.Enemies.Count) break;
+                    if (_enemyHpBars[e.TargetIndex].fill == null) break;
+                    var regrown = Battle.Enemies[e.TargetIndex];
+                    _animEnemyHp[e.TargetIndex] =
+                        System.Math.Min(regrown.Hp, _animEnemyHp[e.TargetIndex] + e.Amount);
+                    SetHpBar(_enemyHpBars[e.TargetIndex], _animEnemyHp[e.TargetIndex], regrown.MaxHp);
+                    _juice.BarPulse(_enemyHpBars[e.TargetIndex].fill, Theme.Jade);
+                    if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
+                        _enemyMobs[e.TargetIndex].SetStateAmount(Mathf.Clamp01(e.SecondIndex / 3f)); // 状态层跟着补全长
                     break;
                 case BattleEventKind.ShieldBroken: // 倾覆技能把剩余护盾整个掀掉:直接推到 0,不等最终重绘才归零
                     _animShield = 0;

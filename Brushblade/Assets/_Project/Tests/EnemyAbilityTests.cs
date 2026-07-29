@@ -68,6 +68,59 @@ namespace Brushblade.Core.Tests
             Assert.That(enemy.Attack, Is.EqualTo(16));
         }
 
+        /// <summary>补全必须发事件。它原先是静默结算的:模型瞬时回血,表现层只在末次重绘看到结果,
+        /// 玩家看到的就是「召唤物砸上去不掉血」「还没打就满血」(2026-07-29 实测)。</summary>
+        [Test]
+        public void Regrow_EmitsEvent_WithHealAmountAndProgress()
+        {
+            var engine = Engine(Regrower(hp: 30));
+            engine.Cast("火", 0); // 先破点血,回血才有量
+            engine.EndTurn();
+
+            var regrow = FirstOfKind(engine, BattleEventKind.Regrow);
+            Assert.That(regrow.HasValue, "补全没发事件,表现层无从按节拍演");
+            Assert.That(regrow.Value.TargetIndex, Is.EqualTo(0));
+            Assert.That(regrow.Value.Amount, Is.EqualTo(3));      // 实际回血量
+            Assert.That(regrow.Value.SecondIndex, Is.EqualTo(1)); // 补全进度
+        }
+
+        /// <summary>回血被上限吃掉时,事件金额必须是**实际**回了多少(0),不是名义的 3 ——
+        /// 表现层拿它推血条,报名义值会把条推过头。</summary>
+        [Test]
+        public void Regrow_EventAmount_IsActualHeal_NotNominal()
+        {
+            var engine = Engine(Regrower(hp: 30)); // 满血,回不动
+            engine.EndTurn();
+
+            var regrow = FirstOfKind(engine, BattleEventKind.Regrow);
+            Assert.That(regrow.HasValue);
+            Assert.That(regrow.Value.Amount, Is.EqualTo(0));
+        }
+
+        /// <summary>第 3 次补全把血拉满:事件金额要覆盖这一整段,否则血条只涨 3 点就停住。</summary>
+        [Test]
+        public void Regrow_FinalStage_EventAmount_CoversFullHeal()
+        {
+            var engine = Engine(Regrower(hp: 30));
+            engine.Cast("火", 0);
+            engine.EndTurn();
+            engine.EndTurn();
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn(); // 第 3 次:血回满
+
+            var regrow = FirstOfKind(engine, BattleEventKind.Regrow);
+            Assert.That(regrow.HasValue);
+            Assert.That(regrow.Value.SecondIndex, Is.EqualTo(3));
+            Assert.That(regrow.Value.Amount, Is.EqualTo(30 - before));
+        }
+
+        private static BattleEvent? FirstOfKind(BattleEngine engine, BattleEventKind kind)
+        {
+            foreach (var e in engine.LastEvents)
+                if (e.Kind == kind) return e;
+            return null;
+        }
+
         // ---- 叠字怪:受击分裂 ----
 
         [Test]

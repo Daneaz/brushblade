@@ -64,6 +64,9 @@ namespace Brushblade.Core
         BossCharging,   // Boss 进入蓄力回合(Amount = 即将释放的 BossSkill;驱动预警 UI)
         BossSkillCast,  // Boss 释放技能(Amount = BossSkill);随后是各目标的受击事件
         ShieldBroken,   // 护盾被倾覆清空(TargetIndex = −1,Amount = 清掉的总量)
+        Regrow,      // 缺笔妖自补全(TargetIndex = 该敌人,Amount = 实际回血,SecondIndex = 补全进度 1~3)。
+                     // 原先是**静默**结算的:模型瞬时回血、表现层只在末次重绘看到结果,
+                     // 于是玩家看到的是「召唤物砸上去不掉血」「还没打就满血」(2026-07-29 实测)
     }
 
     public readonly struct BattleEvent
@@ -476,14 +479,19 @@ namespace Brushblade.Core
                 // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)
                 if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.RegrowProgress < 3)
                 {
+                    int before = enemy.Hp;
                     enemy.RegrowProgress += 1;
                     enemy.Attack += 2;
-                    enemy.Hp = Math.Min(enemy.Def.MaxHp, enemy.Hp + 3);
+                    // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
+                    // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
+                    enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 3);
                     if (enemy.RegrowProgress == 3)
                     {
                         enemy.Attack *= 2;
-                        enemy.Hp = enemy.Def.MaxHp;
+                        enemy.Hp = enemy.MaxHp;
                     }
+                    _events.Add(new BattleEvent(BattleEventKind.Regrow, i,
+                        enemy.Hp - before, enemy.RegrowProgress));
                 }
             }
             if (PlayerHp <= 0)
