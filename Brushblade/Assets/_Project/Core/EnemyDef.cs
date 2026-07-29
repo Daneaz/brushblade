@@ -16,6 +16,19 @@ namespace Brushblade.Core
         Scorch,   // 焦痕:每次被击中且存活,攻 +2(越磨越烫,宜速杀)
     }
 
+    /// <summary>Boss 阶段技能(spec 2026-07-28):蓄力一回合后释放。
+    /// Bulwark 为被动标签,行为与 None 相同(靠 DamageTaken 减伤),
+    /// 分开只为可读性——Bulwark = 设计上就该是肉墙,None = 这字还没配技能。</summary>
+    public enum BossSkill
+    {
+        None,
+        Deluge, // 淹没:玩家 + 全部召唤物各挨一下(群攻)
+        Pierce, // 贯穿:最前召唤物挨一下 + 玩家挨双倍(穿透)
+        Topple, // 倾覆:伤害 + 清空护盾 + 下回合 AP −1(剥夺)
+        Devour, // 吞噬:消灭最前召唤物(不回血);无召唤物则普攻玩家
+        Bulwark, // 坚壁:被动减伤,该阶段不蓄力
+    }
+
     /// <summary>成语 Boss 的单个阶段(8.5:四字成语,四个字 = 四个阶段)。</summary>
     public sealed class BossPhaseDef
     {
@@ -25,14 +38,18 @@ namespace Brushblade.Core
         public int Attack { get; }
         /// <summary>承伤系数(如「山」0.5 = 超高防御),向下取整。</summary>
         public float DamageTaken { get; }
+        /// <summary>该阶段的蓄力技能(spec 2026-07-28);由字表决定,None = 纯普攻。</summary>
+        public BossSkill Skill { get; }
 
-        public BossPhaseDef(string phaseChar, Element element, int maxHp, int attack, float damageTaken = 1f)
+        public BossPhaseDef(string phaseChar, Element element, int maxHp, int attack,
+            float damageTaken = 1f, BossSkill skill = BossSkill.None)
         {
             Char = phaseChar;
             Element = element;
             MaxHp = maxHp;
             Attack = attack;
             DamageTaken = damageTaken;
+            Skill = skill;
         }
     }
 
@@ -116,6 +133,10 @@ namespace Brushblade.Core
         public int RegrowProgress { get; internal set; } // 补全进度 0~3
         public bool HasSplit { get; internal set; }
         public int HitsTaken { get; internal set; }      // 受击计数(生僻字"读懂"用)
+        /// <summary>蓄力计数(spec 2026-07-28):满 BossChargeEvery 即进入蓄力回合。</summary>
+        public int ChargeCounter { get; internal set; }
+        /// <summary>蓄力中:本回合已不出手,下个敌方回合释放当前阶段技能。</summary>
+        public bool IsCharging { get; internal set; }
 
         /// <summary>UI 应显示的属性:null = 未知("?");结算永远用真实 Element。</summary>
         public Element? ApparentElement { get; internal set; }

@@ -83,7 +83,7 @@ namespace Brushblade.Core
                     phases.Add(new BossPhaseDef(phase.Char, phase.Element,
                         (int)Math.Ceiling(phase.MaxHp * scale),
                         (int)Math.Ceiling(phase.Attack * scale),
-                        phase.DamageTaken)); // 承伤系数不缩放
+                        phase.DamageTaken, phase.Skill)); // 承伤系数与技能都不缩放
             }
             return new EnemyDef(enemy.Id, enemy.Element,
                 (int)Math.Ceiling(enemy.MaxHp * scale),
