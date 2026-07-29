@@ -1667,7 +1667,8 @@ namespace Brushblade.Presentation
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
             AppendBossPhaseMessage();
-            AppendBossSkillMessage();
+            // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
+            // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
             var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
             if (error == BattleError.None) DropReplacedSummonSnapshots(); // 被顶替的槽位:改画新召唤物,别停在旧血量

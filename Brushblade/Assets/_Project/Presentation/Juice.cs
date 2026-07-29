@@ -181,6 +181,11 @@ namespace Brushblade.Presentation
                         _audio.PlayOneShot(_shieldClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨护盾条
                         break;
+                    case BattleEventKind.ShieldBroken:
+                        Popup($"盾-{e.Amount}", Theme.SplitBlue, null);
+                        _audio.PlayOneShot(_shieldClip, 0.7f);
+                        onImpact?.Invoke(e); // 触达才把护盾条推到 0(倾覆专用,BattleView.OnImpact 处理)
+                        break;
                     case BattleEventKind.EnemySplit:
                         Popup("分裂!", Theme.Jade, enemyAnchor(e.TargetIndex));
                         break;
