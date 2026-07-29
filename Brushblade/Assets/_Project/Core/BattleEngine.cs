@@ -732,6 +732,15 @@ namespace Brushblade.Core
                         if (_summons[s].Alive)
                             DamageSummon(index, s, enemy.Attack, enemy.Element);
                     break;
+
+                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家
+                {
+                    int front = FirstAliveSummonIndex();
+                    if (front >= 0)
+                        DamageSummon(index, front, enemy.Attack, enemy.Element);
+                    DamagePlayerDirect(index, enemy.Attack * 2);
+                    break;
+                }
             }
         }
 

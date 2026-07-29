@@ -171,5 +171,31 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 5), "大招没放出来,只有普攻");
         }
+
+        [Test]
+        public void Pierce_HitsFrontSummonAndPlayerDouble()
+        {
+            var engine = Engine(BossSkill.Pierce);
+            EndTurns(engine, 2); // 先走掉两回合普攻,免得把最前一只磨死
+            engine.Cast("林");    // 2 只 6 血
+            int full = engine.PlayerHp;
+
+            EndTurns(engine, 2); // 蓄力 + 释放
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "玩家挨双倍且不被拦截");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(1), "最前一只被穿:6 − 5");
+            Assert.That(engine.Summons[1].Hp, Is.EqualTo(6), "只穿一条线,第二只不受伤");
+        }
+
+        [Test]
+        public void Pierce_WithoutSummons_StillHitsPlayerDouble()
+        {
+            var engine = Engine(BossSkill.Pierce);
+            int full = engine.PlayerHp;
+
+            EndTurns(engine, 4);
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 20)); // 普攻 5+5 + 贯穿 10
+        }
     }
 }
