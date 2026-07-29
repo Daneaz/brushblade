@@ -7,6 +7,84 @@ namespace Brushblade.Core.Tests
     /// docs/superpowers/specs/2026-07-28-boss-skills-design.md</summary>
     public class BossSkillTests
     {
+        // 心属性 Boss:对木召唤物 KeMultiplier = 1.0,五行不干扰技能数值断言。
+        // 两阶段各 100 血 → 总血 200、阈值 100(jitter=0),玩家打不动就不会换阶。
+        private static EnemyDef SkillBoss(BossSkill skill) => new("试炼", Element.Heart, 100, 5,
+            phases: new[]
+            {
+                new BossPhaseDef("甲", Element.Heart, 100, 5, skill: skill),
+                new BossPhaseDef("乙", Element.Heart, 100, 5),
+            });
+
+        private static RecipeGraph Graph() => new(new[]
+        {
+            new CharDef("火", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+            new CharDef("林", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 2, summonAttack: 2, summonChar: "木") }),
+            new CharDef("盾", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
+        });
+
+        private static BattleEngine Engine(BossSkill skill) =>
+            new(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
+                new string[0], new[] { "火", "林", "盾", "火", "林", "盾" },
+                new[] { SkillBoss(skill) }, seed: 1);
+
+        /// <summary>推进 n 个敌方回合。</summary>
+        private static void EndTurns(BattleEngine engine, int n)
+        {
+            for (int i = 0; i < n; i++) engine.EndTurn();
+        }
+
+        [Test]
+        public void ChargeCycle_TwoNormalAttacks_ThenSilentChargeTurn()
+        {
+            var engine = Engine(BossSkill.Deluge);
+            int full = engine.PlayerHp;
+
+            engine.EndTurn(); // 敌方回合 1:普攻
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 5));
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(1));
+
+            engine.EndTurn(); // 敌方回合 2:普攻
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 10));
+
+            engine.EndTurn(); // 敌方回合 3:蓄力,不出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "蓄力回合 Boss 不出手");
+            Assert.That(engine.Enemies[0].IsCharging, Is.True);
+        }
+
+        [Test]
+        public void Deluge_HitsPlayerAndEverySummon()
+        {
+            // 蓄力前才召唤:否则前两回合的普攻会先把最前一只磨死,淹没就打不到两只了
+            var engine = Engine(BossSkill.Deluge);
+            EndTurns(engine, 2); // 敌方两回合普攻(此时场上无召唤物,伤害落在玩家身上)
+            engine.Cast("林");    // 2 只 6 血木召唤
+            Assert.That(engine.Summons.Count, Is.EqualTo(2));
+            int full = engine.PlayerHp;
+
+            engine.EndTurn(); // 敌方回合 3:蓄力,不出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(full), "蓄力回合 Boss 不出手");
+
+            engine.EndTurn(); // 敌方回合 4:释放淹没
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(full - 5), "大招不被召唤物拦截");
+            foreach (var summon in engine.Summons)
+                Assert.That(summon.Hp, Is.EqualTo(1)); // 6 血挨 5(心对木 ×1.0)
+        }
+
+        [Test]
+        public void ChargeCounter_ResetsAfterCast()
+        {
+            var engine = Engine(BossSkill.Deluge);
+            EndTurns(engine, 4); // 蓄力 + 释放
+
+            Assert.That(engine.Enemies[0].IsCharging, Is.False);
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0));
+        }
+
         [Test]
         public void PhaseDef_CarriesSkill_DefaultsToNone()
         {

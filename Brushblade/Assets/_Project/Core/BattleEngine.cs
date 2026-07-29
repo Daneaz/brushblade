@@ -31,6 +31,7 @@ namespace Brushblade.Core
         public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 2; // 3→2(2026-07-19 二次拍板)
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
+        public int BossChargeEvery { get; set; } = 3; // Boss 每 N 个敌方回合蓄力一次(spec 2026-07-28)
         /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
 
@@ -58,6 +59,9 @@ namespace Brushblade.Core
                         // 靠事件种类猜边界会被受击加攻之类的伴随事件带偏,已出过两次动画错乱
         EnemyBuff,   // 加攻(标点小妖给同伴 / 焦痕受击自燃;TargetIndex = 被加成的敌人)
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
+        BossCharging,   // Boss 进入蓄力回合(Amount = 即将释放的 BossSkill;驱动预警 UI)
+        BossSkillCast,  // Boss 释放技能(Amount = BossSkill);随后是各目标的受击事件
+        ShieldBroken,   // 护盾被倾覆清空(TargetIndex = −1,Amount = 清掉的总量)
     }
 
     public readonly struct BattleEvent
@@ -444,25 +448,19 @@ namespace Brushblade.Core
                 if (enemy.Def.Ability == EnemyAbility.Buff && HasOtherAliveEnemy(enemy))
                     continue; // 已用加攻代替出手;独自在场时照常攻击
 
+                if (enemy.IsBoss && ResolveBossTurn(i, enemy))
+                    continue; // 已蓄力或已放大招,本回合不走普攻
+
                 int damage = enemy.Attack;
                 int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
                 if (tankIdx >= 0)
                 {
-                    var tank = _summons[tankIdx];
                     // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
-                    int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), enemy.Element, tank.Element);
-                    tank.Hp = Math.Max(0, tank.Hp - taken);
-                    _events.Add(new BattleEvent(BattleEventKind.SummonHit, i, taken, tankIdx)); // 承伤者下标
+                    DamageSummon(i, tankIdx, damage, enemy.Element);
                 }
                 else
                 {
-                    int fromNormal = Math.Min(_shieldNormal, damage);
-                    _shieldNormal -= fromNormal;
-                    int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
-                    _shieldPersist -= fromPersist;
-                    int absorbed = fromNormal + fromPersist;
-                    PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, i, damage, -1, absorbed));
+                    DamagePlayerDirect(i, damage);
                 }
 
                 // 通假字:首次行动后现形(8.3)
@@ -670,6 +668,71 @@ namespace Brushblade.Core
         private void ResolveDefeat(int enemyIndex)
         {
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
+        }
+
+        /// <summary>对玩家造成伤害:护盾先吸收(普通桶先扣,豁免桶垫后)。
+        /// 大招走这条 = 不经召唤物顶前排(spec 3.3 总则)。</summary>
+        private void DamagePlayerDirect(int enemyIndex, int damage)
+        {
+            int fromNormal = Math.Min(_shieldNormal, damage);
+            _shieldNormal -= fromNormal;
+            int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
+            _shieldPersist -= fromPersist;
+            int absorbed = fromNormal + fromPersist;
+            PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+        }
+
+        /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则)。</summary>
+        private void DamageSummon(int enemyIndex, int summonIndex, int damage, Element attacker)
+        {
+            var summon = _summons[summonIndex];
+            int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
+            summon.Hp = Math.Max(0, summon.Hp - taken);
+            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex));
+        }
+
+        /// <summary>Boss 回合三态(spec 2026-07-28):释放 / 蓄力 / 交回普攻。
+        /// 返回 true = 本回合已处理,调用方跳过普通攻击。</summary>
+        private bool ResolveBossTurn(int index, EnemyState enemy)
+        {
+            if (enemy.IsCharging)
+            {
+                enemy.IsCharging = false;
+                enemy.ChargeCounter = 0;
+                CastBossSkill(index, enemy);
+                return true;
+            }
+
+            var skill = enemy.Def.Phases[enemy.PhaseIndex].Skill;
+            if (skill == BossSkill.None || skill == BossSkill.Bulwark)
+                return false; // 坚壁/无技能阶段:冻结计数,照常普攻
+
+            enemy.ChargeCounter += 1;
+            if (enemy.ChargeCounter < _config.BossChargeEvery)
+                return false;
+
+            enemy.IsCharging = true;
+            _events.Add(new BattleEvent(BattleEventKind.BossCharging, index, (int)skill));
+            return true; // 蓄力回合不出手
+        }
+
+        /// <summary>释放当前阶段字的技能。先发 BossSkillCast 再发各目标受击事件,
+        /// 表现层据此把大招动效与后续伤害分开播。</summary>
+        private void CastBossSkill(int index, EnemyState enemy)
+        {
+            var skill = enemy.Def.Phases[enemy.PhaseIndex].Skill;
+            _events.Add(new BattleEvent(BattleEventKind.BossSkillCast, index, (int)skill));
+
+            switch (skill)
+            {
+                case BossSkill.Deluge: // 淹没:玩家 + 全部召唤物各挨一下
+                    DamagePlayerDirect(index, enemy.Attack);
+                    for (int s = 0; s < _summons.Count; s++)
+                        if (_summons[s].Alive)
+                            DamageSummon(index, s, enemy.Attack, enemy.Element);
+                    break;
+            }
         }
 
         /// <summary>Boss 血池换阶(8.5 v0.7):跨过阈值即切阶段(一击可连跨多阶),血量连续不重置。</summary>
