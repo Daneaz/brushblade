@@ -95,6 +95,10 @@ namespace Brushblade.Presentation
             _ => InkSoft,                    // 叠字/标点/通假/生僻
         };
 
+        /// <summary>Boss 技能 chip 底色:主动技能走朱砂(威胁),坚壁走深灰蓝(防御)。</summary>
+        public static Color BossSkillChipColor(BossSkill skill) =>
+            skill == BossSkill.Bulwark ? InkSoft : Cinnabar;
+
         /// <summary>字形专用属性色(2026-07-28):比 UI 色块用的 <see cref="ElementColor"/> 加深,
         /// 保证在白/宣纸/暖灰底上都过 WCAG 4.5:1。起因是金 #B3A382 对纯白只有 2.48,
         /// 底色再白也够不到大字门槛 —— 那是字色本身的问题。

@@ -16,31 +16,50 @@ namespace Brushblade.Presentation
             public readonly int AssetPhase;  // 取形象用的形态下标
             public readonly string Detail;   // 该形态的数值 + 技能/能力说明
             public readonly Color TabColor;  // 选中态底色(该形态的五行色)
+            /// <summary>该形态的识别 chip(与战斗中同一套命名,但不带实时状态——图鉴是静态资料)。</summary>
+            public readonly IReadOnlyList<(string Text, Color Bg)> Chips;
 
-            public FormTab(string label, int assetPhase, string detail, Color tabColor)
+            public FormTab(string label, int assetPhase, string detail, Color tabColor,
+                IReadOnlyList<(string Text, Color Bg)> chips)
             {
                 Label = label;
                 AssetPhase = assetPhase;
                 Detail = detail;
                 TabColor = tabColor;
+                Chips = chips;
             }
         }
 
         /// <summary>把敌人摊成形态列表。将来精英怪多形态只需在这里多生成几个,
-        /// 渲染与交互都不用改。</summary>
+        /// 渲染与交互都不用改。chip 的判断也归这里 —— 让 Select 只负责画。</summary>
         private static List<FormTab> FormsOf(EnemyDef def)
         {
             var forms = new List<FormTab>();
             if (def.Phases.Count > 0)
             {
                 for (int i = 0; i < def.Phases.Count; i++)
-                    forms.Add(new FormTab(def.Phases[i].Char, i, EnemyInfo.PhaseDetail(def, i),
-                        Theme.ElementColor(def.Phases[i].Element)));
+                {
+                    var phase = def.Phases[i];
+                    var chips = new List<(string, Color)>();
+                    if (phase.Skill != BossSkill.None)
+                        chips.Add((EnemyInfo.BossSkillName(phase.Skill),
+                            Theme.BossSkillChipColor(phase.Skill)));
+                    if (phase.DamageTaken < 1f)
+                        chips.Add(("承伤", Theme.InkSoft));
+                    forms.Add(new FormTab(phase.Char, i, EnemyInfo.PhaseDetail(def, i),
+                        Theme.ElementColor(phase.Element), chips));
+                }
             }
             else
             {
+                var chips = new List<(string, Color)>();
+                if (def.Ability != EnemyAbility.None)
+                    chips.Add((EnemyInfo.AbilityName(def.Ability),
+                        Theme.AbilityChipColor(def.Ability)));
+                else if (def.DamageTaken < 1f)
+                    chips.Add(("承伤", Theme.InkSoft)); // 墨渍:没能力,减伤就是它的特征
                 forms.Add(new FormTab(EnemyInfo.FaceChar(def, 0), 0,
-                    EnemyInfo.MinionDetail(def), Theme.ElementColor(def.Element)));
+                    EnemyInfo.MinionDetail(def), Theme.ElementColor(def.Element), chips));
             }
             return forms;
         }
@@ -73,6 +92,12 @@ namespace Brushblade.Presentation
                 Ui.Clear(content.transform); // 只重绘内容容器:重建整窗会闪,赏钱行也会丢
                 var form = forms[index];
                 Tile(content.transform, def, new Vector2(210, 230), false, form.AssetPhase, showFooter: false);
+                if (form.Chips.Count > 0) // 无机制的怪(错字鬼/夯土妖)不画空行
+                {
+                    var chipRow = Ui.Row(content.transform, "Chips", 5);
+                    foreach (var (text, bg) in form.Chips)
+                        Ui.Chip(chipRow.transform, text, bg, Color.white, 12);
+                }
                 Ui.ThemedLabel(content.transform, form.Detail, 16, Theme.TextDim);
                 for (int i = 0; i < buttons.Count; i++)
                 {
