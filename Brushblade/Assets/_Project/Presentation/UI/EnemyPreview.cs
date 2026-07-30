@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Brushblade.Core;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,14 +8,90 @@ namespace Brushblade.Presentation
     /// <summary>敌人详情弹窗(2026-07-22):怪牌 + 属性/能力/Boss 阶段。战斗页点怪与图鉴共用。</summary>
     public static class EnemyPreview
     {
-        /// <param name="bounty">>0 时在窗内播报本次查阅领到的图鉴赏钱。</param>
+        /// <summary>详情弹窗的一个形态页。Boss 的四阶段、小怪的单形态、将来精英怪的多形态
+        /// 都归成这一种结构 —— 渲染按「形态数」驱动,不按「是不是 Boss」分叉(2026-07-30)。</summary>
+        private readonly struct FormTab
+        {
+            public readonly string Label;    // tab 上的字
+            public readonly int AssetPhase;  // 取形象用的形态下标
+            public readonly string Detail;   // 该形态的数值 + 技能/能力说明
+            public readonly Color TabColor;  // 选中态底色(该形态的五行色)
+
+            public FormTab(string label, int assetPhase, string detail, Color tabColor)
+            {
+                Label = label;
+                AssetPhase = assetPhase;
+                Detail = detail;
+                TabColor = tabColor;
+            }
+        }
+
+        /// <summary>把敌人摊成形态列表。将来精英怪多形态只需在这里多生成几个,
+        /// 渲染与交互都不用改。</summary>
+        private static List<FormTab> FormsOf(EnemyDef def)
+        {
+            var forms = new List<FormTab>();
+            if (def.Phases.Count > 0)
+            {
+                for (int i = 0; i < def.Phases.Count; i++)
+                    forms.Add(new FormTab(def.Phases[i].Char, i, EnemyInfo.PhaseDetail(def, i),
+                        Theme.ElementColor(def.Phases[i].Element)));
+            }
+            else
+            {
+                forms.Add(new FormTab(EnemyInfo.FaceChar(def, 0), 0,
+                    EnemyInfo.MinionDetail(def), Theme.ElementColor(def.Element)));
+            }
+            return forms;
+        }
+
+        /// <param name="bounty">&gt;0 时在窗内播报本次查阅领到的图鉴赏钱。</param>
         public static GameObject Show(Transform root, EnemyDef def, int bounty = 0)
         {
-            var overlay = Ui.ModalShell(root, def.Phases.Count > 0 ? "Boss 图鉴" : "怪物图鉴",
-                new Vector2(420, 330), dismissable: true, out var stack);
-            Tile(stack, def, new Vector2(210, 230));
-            Ui.ThemedLabel(stack, def.Phases.Count > 0
-                ? EnemyInfo.PhaseDetail(def, 0) : EnemyInfo.MinionDetail(def), 16, Theme.TextDim);
+            bool isBoss = def.Phases.Count > 0;
+            var forms = FormsOf(def);
+            var overlay = Ui.ModalShell(root, isBoss ? "Boss 图鉴" : "怪物图鉴",
+                new Vector2(420, isBoss ? 400 : 340), dismissable: true, out var stack);
+
+            // 标题行:Boss 附总血——四阶段是一条总血池,只看单阶段血量会误解
+            int totalHp = 0;
+            foreach (var phase in def.Phases) totalHp += phase.MaxHp;
+            Ui.ThemedLabel(stack, isBoss ? $"{def.Id} · 总血 {totalHp}" : def.Id,
+                22, Theme.TextMain, Theme.TitleFont);
+
+            // 先建 tab 行再建内容容器:VStack 按添加顺序排版,tab 必须在形象之上。
+            // 按钮稍后填充(onClick 要捕获下面的 Select)
+            var tabRow = forms.Count > 1 ? Ui.Row(stack, "Tabs", 6) : null;
+            var content = Ui.VStack(stack, "Form", 8);
+            var buttons = new List<Button>();
+
+            void Select(int index)
+            {
+                Ui.Clear(content.transform); // 只重绘内容容器:重建整窗会闪,赏钱行也会丢
+                var form = forms[index];
+                Tile(content.transform, def, new Vector2(210, 230), false, form.AssetPhase);
+                Ui.ThemedLabel(content.transform, form.Detail, 16, Theme.TextDim);
+                for (int i = 0; i < buttons.Count; i++)
+                {
+                    if (buttons[i].targetGraphic is Image image)
+                        image.color = i == index ? forms[i].TabColor : Theme.PaperDim;
+                    var label = buttons[i].GetComponentInChildren<Text>();
+                    if (label != null) label.color = i == index ? Color.white : Theme.TextMain;
+                }
+            }
+
+            if (tabRow != null)
+                for (int i = 0; i < forms.Count; i++)
+                {
+                    int index = i; // 闭包捕获:直接用 i 会让所有按钮都指向末位
+                    buttons.Add(Ui.RoundButton(tabRow.transform, forms[i].Label, () => Select(index),
+                        Theme.PaperDim, Theme.TextMain, 22, new Vector2(64, 64), 12));
+                }
+
+            Select(0); // 默认首个形态;顺带把 tab 高亮刷成初始态
+
+            if (isBoss)
+                Ui.ThemedLabel(stack, EnemyInfo.ChargeRuleText(), 14, Theme.TextDim);
             if (bounty > 0)
                 Ui.ThemedLabel(stack, $"◆ 首次查阅赏 {bounty} 墨锭", 18, Theme.GoldBorder, Theme.TitleFont);
             Ui.PillButton(stack, "知道了", () => Object.Destroy(overlay),
@@ -22,8 +99,10 @@ namespace Brushblade.Presentation
             return overlay;
         }
 
-        /// <summary>怪牌:战斗同款圆形字头像(五行实色 + 白字代表字)+ 名字 + 血攻;Boss 描金边。未解锁时打码。</summary>
-        public static GameObject Tile(Transform parent, EnemyDef def, Vector2 size, bool locked = false)
+        /// <summary>怪牌:战斗同款圆形字头像(五行实色 + 白字代表字)+ 名字 + 血攻;Boss 描金边。未解锁时打码。
+        /// phaseIndex:取形象与代表字用的形态下标(Boss 的阶段;小怪恒为 0)。</summary>
+        public static GameObject Tile(Transform parent, EnemyDef def, Vector2 size,
+            bool locked = false, int phaseIndex = 0)
         {
             var go = Ui.Panel(parent, $"Enemy_{def.Id}");
             var frame = go.AddComponent<Image>();
@@ -49,7 +128,7 @@ namespace Brushblade.Presentation
             GameObject portrait = null;
             if (!locked)
             {
-                string prefix = MobAssets.PrefixFor(def, 0);
+                string prefix = MobAssets.PrefixFor(def, phaseIndex);
                 if (MobAssets.Layer(prefix, "body") != null)
                 {
                     diameter = size.y * 0.66f;
@@ -63,7 +142,7 @@ namespace Brushblade.Presentation
                 }
             }
             portrait ??= Ui.CircleGlyph(inner.transform,
-                locked ? "?" : EnemyInfo.FaceChar(def, 0),
+                locked ? "?" : EnemyInfo.FaceChar(def, phaseIndex),
                 locked ? Theme.LockedBg : Theme.ElementColor(def.Element),
                 locked ? Theme.LockGray : Color.white, diameter);
             Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
