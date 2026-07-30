@@ -643,15 +643,15 @@ namespace Brushblade.Presentation
                     Ui.Chip(chips.transform, $"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
                         Theme.Cinnabar, Color.white, 12);
                 if (enemy.Burn > 0) Ui.Chip(chips.transform, $"灼烧 {enemy.Burn}", Theme.Cinnabar, Color.white, 12);
-                if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive)
-                    Ui.Chip(chips.transform, enemy.RegrowProgress >= 3 ? "已补全!" : $"补全 {enemy.RegrowProgress}/3",
-                        Theme.Jade, Color.white, 12);
-                if (enemy.Def.Ability == EnemyAbility.Split && enemy.Alive && !enemy.HasSplit)
-                    Ui.Chip(chips.transform, "受击分裂", Theme.InkSoft, Color.white, 12);
-                if (enemy.Def.Ability == EnemyAbility.Buff && enemy.Alive)
-                    Ui.Chip(chips.transform, "增益辅助", Theme.InkSoft, Color.white, 12);
-                if (enemy.Def.Ability == EnemyAbility.Scorch && enemy.Alive)
-                    Ui.Chip(chips.transform, "受击加攻", Theme.Cinnabar, Color.white, 12);
+                // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
+                // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
+                if (enemy.Alive)
+                {
+                    string abilityChip = EnemyInfo.AbilityChipText(enemy);
+                    if (abilityChip.Length > 0)
+                        Ui.Chip(chips.transform, abilityChip,
+                            Theme.AbilityChipColor(enemy.Def.Ability), Color.white, 12);
+                }
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。

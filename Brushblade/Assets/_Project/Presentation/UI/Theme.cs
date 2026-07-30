@@ -87,6 +87,14 @@ namespace Brushblade.Presentation
             _ => NeutralPart,
         };
 
+        /// <summary>能力 chip 底色:朱砂 = 增长的威胁,翠玉 = 恢复,深灰蓝 = 防御/辅助/信息类。</summary>
+        public static Color AbilityChipColor(EnemyAbility ability) => ability switch
+        {
+            EnemyAbility.Scorch => Cinnabar, // 越磨越烫
+            EnemyAbility.Regrow => Jade,     // 自我修复
+            _ => InkSoft,                    // 叠字/标点/通假/生僻
+        };
+
         /// <summary>字形专用属性色(2026-07-28):比 UI 色块用的 <see cref="ElementColor"/> 加深,
         /// 保证在白/宣纸/暖灰底上都过 WCAG 4.5:1。起因是金 #B3A382 对纯白只有 2.48,
         /// 底色再白也够不到大字门槛 —— 那是字色本身的问题。

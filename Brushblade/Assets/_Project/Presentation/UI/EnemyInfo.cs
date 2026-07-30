@@ -70,6 +70,22 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
+        /// <summary>战斗中的能力 chip 文案:带实时状态,机制已失效时返回空串(调用方据此不画)。
+        /// 与 <see cref="AbilityName"/> 同一套命名 —— 玩家在详情学一次,战斗中看到 chip 就懂。</summary>
+        public static string AbilityChipText(EnemyState enemy) => enemy.Def.Ability switch
+        {
+            EnemyAbility.Regrow => enemy.RegrowProgress >= 3
+                ? "缺笔 已补全!" : $"缺笔 {enemy.RegrowProgress}/3",
+            EnemyAbility.Split => enemy.HasSplit ? "" : "叠字", // 分裂过就没这威胁了
+            EnemyAbility.Buff => "标点",
+            // 通假:chip 只说「这属性不可信」,不泄真属性;现形(真伪一致)后撤掉
+            EnemyAbility.Disguise => enemy.ApparentElement == enemy.Element ? "" : "通假",
+            // 生僻:未读懂时 ApparentElement 为 null(属性显示「?」);被读懂后撤掉
+            EnemyAbility.Obscure => enemy.ApparentElement != null ? "" : "生僻",
+            EnemyAbility.Scorch => "自燃",
+            _ => "",
+        };
+
         /// <summary>减伤特性行。与 Boss 坚壁走同一条规则,措辞刻意一致——
         /// 玩家学一次就能套用到所有减伤敌人。</summary>
         public static string DamageTakenText(float damageTaken) =>
