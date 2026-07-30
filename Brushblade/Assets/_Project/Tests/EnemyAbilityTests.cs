@@ -20,6 +20,9 @@ namespace Brushblade.Core.Tests
         private static EnemyDef Regrower(int hp = 30) =>
             new("缺笔妖", Element.Metal, hp, 2, EnemyAbility.Regrow);
 
+        private static EnemyDef Plain(string id, int hp, int attack) =>
+            new(id, Element.Wood, hp, attack, EnemyAbility.None);
+
         private static EnemyDef Splitter(int hp = 16) =>
             new("叠字怪", Element.Wood, hp, 5, EnemyAbility.Split);
 
@@ -112,6 +115,54 @@ namespace Brushblade.Core.Tests
             Assert.That(regrow.HasValue);
             Assert.That(regrow.Value.SecondIndex, Is.EqualTo(3));
             Assert.That(regrow.Value.Amount, Is.EqualTo(30 - before));
+        }
+
+        /// <summary>补全必须排在**本回合全部攻击之后**(2026-07-30 试玩)。
+        /// 原先它跟在缺笔妖自己那一记攻击后头,场上还有别的怪时就成了「打到一半血突然回了」。</summary>
+        [Test]
+        public void Regrow_SettlesAfterAllAttacks_NotMidwayThroughEnemyTurn()
+        {
+            var engine = Engine(Regrower(hp: 30), Plain("木妖", hp: 20, attack: 1));
+            engine.Cast("火", 0);
+            engine.EndTurn();
+
+            int regrowAt = IndexOfKind(engine, BattleEventKind.Regrow);
+            Assert.That(regrowAt, Is.GreaterThanOrEqualTo(0), "补全没发事件");
+            int lastAttackAt = LastIndexOfKind(engine, BattleEventKind.EnemyAttack);
+            Assert.That(lastAttackAt, Is.GreaterThanOrEqualTo(0), "这一回合应当有敌方攻击");
+            Assert.That(regrowAt, Is.GreaterThan(lastAttackAt),
+                "补全必须在最后一记敌方攻击之后结算,否则玩家看到的是打到一半血就回了");
+        }
+
+        /// <summary>本回合更早的时候已经被打死的,不许再补全 —— 死了还回血就成了打不死的怪。
+        /// 补全挪到全部攻击之后独立结算,这条守卫才有意义:灼烧在敌方回合开头就把它带走,
+        /// 而补全那一趟在回合收尾才跑,中间隔着别的怪的整轮行动。</summary>
+        [Test]
+        public void Regrow_DoesNotSettle_WhenKilledEarlierInTheTurn()
+        {
+            var engine = Engine(Regrower(hp: 3), Plain("木妖", hp: 20, attack: 1));
+            engine.Cast("烧", 0);  // 挂灼烧,敌方回合开头结算
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[0].Alive, Is.False, "前置条件:灼烧该在回合开头带走它");
+            Assert.That(IndexOfKind(engine, BattleEventKind.Regrow), Is.EqualTo(-1),
+                "死了还补全就成了打不死的怪");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].RegrowProgress, Is.EqualTo(0), "进度也不该推进");
+        }
+
+        private static int IndexOfKind(BattleEngine engine, BattleEventKind kind)
+        {
+            for (int i = 0; i < engine.LastEvents.Count; i++)
+                if (engine.LastEvents[i].Kind == kind) return i;
+            return -1;
+        }
+
+        private static int LastIndexOfKind(BattleEngine engine, BattleEventKind kind)
+        {
+            for (int i = engine.LastEvents.Count - 1; i >= 0; i--)
+                if (engine.LastEvents[i].Kind == kind) return i;
+            return -1;
         }
 
         private static BattleEvent? FirstOfKind(BattleEngine engine, BattleEventKind kind)

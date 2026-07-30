@@ -476,28 +476,37 @@ namespace Brushblade.Core
                     _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, i, 0));
                 }
 
-                // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)
-                if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.RegrowProgress < 3)
-                {
-                    int before = enemy.Hp;
-                    enemy.RegrowProgress += 1;
-                    enemy.Attack += 2;
-                    // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
-                    // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
-                    enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 3);
-                    if (enemy.RegrowProgress == 3)
-                    {
-                        enemy.Attack *= 2;
-                        enemy.Hp = enemy.MaxHp;
-                    }
-                    _events.Add(new BattleEvent(BattleEventKind.Regrow, i,
-                        enemy.Hp - before, enemy.RegrowProgress));
-                }
             }
             if (PlayerHp <= 0)
             {
                 Phase = BattlePhase.Lost;
                 return;
+            }
+
+            // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)。
+            // **排在全部攻击之后**独立一趟(2026-07-30 试玩):原先它跟在缺笔妖自己那一记攻击
+            // 后头,场上还有别的怪时就成了「打到一半血突然回了」—— 玩家的心理节拍是
+            // 「我打、召唤物打、敌人打，一回合收尾时它才补」,补全得压到最后。
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                var enemy = _enemies[i];
+                // 本回合已被灼烧/召唤物打死的不许回血 —— 死了还补就成了打不死的怪
+                if (!enemy.Alive) continue;
+                if (enemy.Def.Ability != EnemyAbility.Regrow || enemy.RegrowProgress >= 3) continue;
+
+                int before = enemy.Hp;
+                enemy.RegrowProgress += 1;
+                enemy.Attack += 2;
+                // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
+                // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
+                enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 3);
+                if (enemy.RegrowProgress == 3)
+                {
+                    enemy.Attack *= 2;
+                    enemy.Hp = enemy.MaxHp;
+                }
+                _events.Add(new BattleEvent(BattleEventKind.Regrow, i,
+                    enemy.Hp - before, enemy.RegrowProgress));
             }
 
             StartTurn();
