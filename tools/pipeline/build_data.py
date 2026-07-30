@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 
 from fetch_ids import download_ids, parse_ids_text
+from decompose import build_index, decompose
 from filter_chars import filter_candidates
 from export_config import export_candidates
 
@@ -17,6 +18,10 @@ OUT_PATH = Path(__file__).parent / "out" / "candidates.json"
 def build_from_text(text, dest, max_complexity=3):
     """从 ids.txt 文本跑完整管线,返回汇总统计。"""
     entries = parse_ids_text(text)
+    index = build_index(entries)
+    for entry in entries:
+        # 用递归拆解(只拆上下左右,逐级判定)取代 IDS 一层扁平叶子,见 decompose 模块头
+        entry["leaves"] = decompose(entry["char"], index, max_complexity)
     candidates = filter_candidates(entries, max_complexity=max_complexity)
     export_candidates(candidates, dest)
     by_attr = Counter(attr for c in candidates for attr in c["attrs"])

@@ -34,3 +34,13 @@ class TestBuildFromText:
         data = json.loads(out.read_text(encoding="utf-8"))
         assert data["meta"]["count"] == 3
         assert {c["char"] for c in data["candidates"]} == {"火", "焚", "圭"}
+
+    def test_leaves_are_recursively_decomposed(self, tmp_path):
+        # 林 有条目时,焚 应递归到 木+木+火 而非停在一层的 林+火
+        text = IDS_TEXT + "U+6797\t林\t⿰木木\nU+6728\t木\t木\n"
+        out = tmp_path / "candidates.json"
+        build_from_text(text, out)
+        data = json.loads(out.read_text(encoding="utf-8"))
+        fen = next(c for c in data["candidates"] if c["char"] == "焚")
+        assert fen["leaves"] == ["木", "木", "火"]
+        assert fen["complexity"] == 3
