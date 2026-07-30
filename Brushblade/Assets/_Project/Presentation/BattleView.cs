@@ -151,15 +151,10 @@ namespace Brushblade.Presentation
             {
                 case BattleEventKind.Damage:
                 case BattleEventKind.BurnTick:
-                    if (e.TargetIndex < 0 || e.TargetIndex >= _enemyHpBars.Count
-                        || e.TargetIndex >= _animEnemyHp.Count || e.TargetIndex >= Battle.Enemies.Count) break;
                     // 挨这一记的形象抖起来:主体抖、墨丝甩尾、眼睛瞪大(MobView 三层各自不同步)
-                    if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
+                    if (e.TargetIndex >= 0 && e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
                         _enemyMobs[e.TargetIndex].PlayHit();
-                    if (_enemyHpBars[e.TargetIndex].fill == null) break;
-                    var enemy = Battle.Enemies[e.TargetIndex];
-                    _animEnemyHp[e.TargetIndex] = System.Math.Max(enemy.Hp, _animEnemyHp[e.TargetIndex] - e.Amount);
-                    SetHpBar(_enemyHpBars[e.TargetIndex], _animEnemyHp[e.TargetIndex], enemy.MaxHp);
+                    PushEnemyHp(e.TargetIndex, -e.Amount);
                     break;
                 case BattleEventKind.EnemyAttack: // Amount 分账:Absorbed 走护盾条,余量才掉血,各自钳到终值
                     _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
@@ -179,14 +174,11 @@ namespace Brushblade.Presentation
                     SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
                     _juice.BarPulse(_playerHpBar.fill, Theme.SplitBlue, Element.Water); // 水:血条起势
                     break;
-                case BattleEventKind.Regrow: // 缺笔妖补全:敌人血条**上**推,钳到终值
-                    if (e.TargetIndex < 0 || e.TargetIndex >= _enemyHpBars.Count
-                        || e.TargetIndex >= _animEnemyHp.Count || e.TargetIndex >= Battle.Enemies.Count) break;
-                    if (_enemyHpBars[e.TargetIndex].fill == null) break;
-                    var regrown = Battle.Enemies[e.TargetIndex];
-                    _animEnemyHp[e.TargetIndex] =
-                        System.Math.Min(regrown.Hp, _animEnemyHp[e.TargetIndex] + e.Amount);
-                    SetHpBar(_enemyHpBars[e.TargetIndex], _animEnemyHp[e.TargetIndex], regrown.MaxHp);
+                case BattleEventKind.EnemySplit: // 分裂:原体当场减半(Amount = 减半后的血),动画血量直接按过去
+                    SetEnemyHp(e.TargetIndex, e.Amount);
+                    break;
+                case BattleEventKind.Regrow: // 缺笔妖补全:同一条血条往**上**推
+                    if (!PushEnemyHp(e.TargetIndex, e.Amount)) break;
                     _juice.BarPulse(_enemyHpBars[e.TargetIndex].fill, Theme.Jade);
                     if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
                         _enemyMobs[e.TargetIndex].SetStateAmount(Mathf.Clamp01(e.SecondIndex / 3f)); // 状态层跟着补全长
@@ -203,6 +195,30 @@ namespace Brushblade.Presentation
                     SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     break;
             }
+        }
+
+        /// <summary>把某只怪的动画血量推进 delta(负 = 挨打,正 = 回血),只钳 [0, 当前上限]。
+        /// **不能钳到 enemy.Hp** —— 那是整段结算跑完的终值。同一段里若既挨打又回血
+        /// (缺笔妖:召唤物打完,它在回合收尾补),终值就成了一个被抬高的地板:
+        /// 最后几记伤害整个被吃掉,血条提前回满;补全把血拉满时更离谱 —— 挨一记打血条反而往上跳
+        /// (12 血挨 4 记 ×2 再补 2:逐记本该 10/8/6/4,实际演成 10/8/6/**6**;
+        /// 补全回满那回合则是 6 挨一记直接演成 **12**。2026-07-30 实测)。
+        /// 事件金额是名义值(会溢出目标剩余血),所以钳 0 与上限即可,溢出部分自然吃掉;
+        /// 与模型的任何漂移都由动画落幕后的 Refresh 兜底。返回是否真的推动了(供调用方接后续表现)。</summary>
+        private bool PushEnemyHp(int index, int delta) =>
+            index >= 0 && index < _animEnemyHp.Count && SetEnemyHp(index, _animEnemyHp[index] + delta);
+
+        /// <summary>直接把动画血量按到某个值。分裂用得着:原体在模型里当场减半却**不发伤害事件**,
+        /// 纯累加跟不上,血条会一直停在减半前(去掉终值钳位后这条才浮出来)。</summary>
+        private bool SetEnemyHp(int index, int hp)
+        {
+            if (index < 0 || index >= _enemyHpBars.Count
+                || index >= _animEnemyHp.Count || index >= Battle.Enemies.Count) return false;
+            if (_enemyHpBars[index].fill == null) return false;
+            var enemy = Battle.Enemies[index];
+            _animEnemyHp[index] = Mathf.Clamp(hp, 0, enemy.MaxHp);
+            SetHpBar(_enemyHpBars[index], _animEnemyHp[index], enemy.MaxHp);
+            return true;
         }
 
         /// <summary>血条 + 血值叠加其上(带深色描边保对比度);返回 fill/label 供命中回调就地推进。</summary>
