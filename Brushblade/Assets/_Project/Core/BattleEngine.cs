@@ -742,10 +742,11 @@ namespace Brushblade.Core
 
         /// <summary>释放当前阶段字的技能。先发 BossSkillCast 再发各目标受击事件,
         /// 表现层据此把大招动效与后续伤害分开播。
-        /// 玩家份伤害统一 Attack×2(2026-07-29 修正,Devour 空放除外):四个敌方回合里
-        /// 2 普攻 + 1 蓄力不出手 + 1 释放,若玩家份只按 Attack 结算,总投放只有 3×Attack,
-        /// 反而低于没有技能的纯普攻 Boss(4×Attack)——技能变成了减伤。抬到 ×2 后释放回合
-        /// 单独顶两个普攻的量,四回合投放追平并反超无技能 Boss。</summary>
+        /// 玩家份伤害统一 Attack×2(2026-07-29 修正,Devour 空放除外):三个敌方回合一轮里
+        /// 1 普攻 + 1 蓄力不出手 + 1 释放,若玩家份只按 Attack 结算,总投放只有 2×Attack,
+        /// 反而低于没有技能的纯普攻 Boss(3×Attack)——技能变成了减伤。抬到 ×2 后释放回合
+        /// 单独顶两个普攻的量,三回合投放追平无技能 Boss(2026-07-30 修正:原注释误记成
+        /// 「四个敌方回合里 2 普攻…」,方向刚好相反,实际节拍是 3 回合一轮,见 Finding 1)。</summary>
         private void CastBossSkill(int index, EnemyState enemy, BossSkill skill)
         {
             _events.Add(new BattleEvent(BattleEventKind.BossSkillCast, index, (int)skill));
