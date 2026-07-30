@@ -155,7 +155,9 @@ def build_report(element, candidates, readings, today):
 
     out = [f"""# {element}系卡池候选筛选表(人工筛选 · 非首发预备)
 
-> 状态:待筛选 | 生成:{today},`tools/pipeline/report_pool_candidates.py`(cjkvi-ids 一层拆解 + 新华字典拼音/释义,发行前需换有授权字典源)
+> 状态:待筛选 | 生成:{today},`tools/pipeline/report_pool_candidates.py`(cjkvi-ids 递归拆解 + 新华字典拼音/释义,发行前需换有授权字典源)
+> 配方为**递归拆解**:只拆上下左右结构,逐级判断——某级新拆出的部件里没有五行部件就回退该级
+> (森 → 木+木+木;燥 → 火+品+木,再拆「品」无五行故止步;照 → 昭+灬)。部件超 3 个也回退。
 > 首发仅火系(19.3);本表为后续版本开{element}系池的预备材料,筛法同火系表。
 > 已剔除 CJK 基本区外的字 {undisplayable} 个(多数设备无字形,游戏字体渲染不了)。⚠️ 编辑本表请保存为 UTF-8。
 
@@ -198,7 +200,7 @@ def build_report(element, candidates, readings, today):
 
 # ---- 多属性字(跨属性组合,第 6 章) ----
 
-# 叠字族自身的属性(部件表之外):焚=林+火 → 木火,淋=氵+林 → 水木
+# 叠字族自身的属性(部件表之外):递归拆解超限回退时会留下叠字部件,如 燚=炏+炏 → 火
 STACK_ATTR = {"林": "木", "森": "木", "炎": "火", "焱": "火", "炏": "火",
               "淼": "水", "沝": "水", "垚": "土", "圭": "土",
               "磊": "土", "砳": "土", "屾": "土", "鑫": "金", "惢": "心"}
@@ -277,7 +279,8 @@ def build_multi_report(candidates, readings, today):
 > 双属性字 = 跨属性组合技的天然载体:**相生对配方自带效果 ×3**(wuxing-reference §乘数),
 > 相克对是第 6 章组合技(焦土/披坚执锐/破土而出/水来土掩…)的候选字库。
 > 建议稀有度仅按结构参考;组合技定位通常 ≥蓝,终稿你定。
-> 属性识别含叠字族(焚=林+火 → 木火);已剔除基本区外无字形字与含冷僻部件的生僻字共 {skipped} 个。
+> 配方为递归拆解(只拆上下左右,某级无五行部件则回退该级),属性识别含叠字族(燚=炏+炏 → 火);
+> 已剔除基本区外无字形字与含冷僻部件的生僻字共 {skipped} 个。
 > ⚠️ 编辑本表请保存为 UTF-8。
 
 ## 第一部分 · 相生五对(配方 ×3,优先筛)
@@ -313,7 +316,7 @@ def main(elements):
     readings = readings_map(json.load(open(ROOT / "data/raw/xinhua_word.json")))
     import datetime
     today = datetime.date.today().isoformat()
-    docs = ROOT.parent.parent / "docs/design"
+    docs = ROOT.parent.parent / "docs/design/字选型"
     for element in elements:
         if element == "多属性":
             text = build_multi_report(candidates, readings, today)
