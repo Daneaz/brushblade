@@ -137,13 +137,35 @@ private readonly struct FormTab
 【贯穿】穿透前排:最前一只召唤物造 攻×1,你造 攻×2
 【倾覆】对你造 攻×2,清空你全部护盾,下回合 AP −1
 【吞噬】吞掉最前一只召唤物(无视其血量);场上无召唤物时改为对你造 攻×1
-【坚壁】承伤 ×{系数}:该阶段伤害打折,不放大招 —— 但用克制它的属性打,减免完全失效
+【坚壁】以守为攻:该阶段不放大招
 ```
 
-**【坚壁】两条都不能写死:**
+**承伤减免(`BossPhaseDef.DamageTaken`)与技能是两套独立配置,`BossSkillText` 不插值它。**
 
-1. **系数读该阶段实际的 `DamageTaken`**,不能写"减半" —— 只有排山倒海的「山」是 0.5,翻江倒海的「江」与雷霆万钧的「钧」都是 0.75。故 `BossSkillText` 需拿到阶段信息:签名取 `BossSkillText(BossSkill skill, BossPhaseDef phase)`。
-2. **必须写明"被克制时减免完全失效"**,因为实现就是这样(`BattleEngine.cs:641-643`):
+最初的设计假定「有减伤 ⇔ 技能是坚壁」(源于对齐排山倒海的数值模板:`Endless.cs BuildIdiomBoss` 的四阶段硬编码 `[1.0, 0.5, 1.0, 1.0]`,注释写"次字坚壁,承伤 0.5")—— 但这只是模板作者的巧合安排,配置本身完全解耦:`idiom.Skills` 逐字独立配置技能,`DamageTaken` 模板只固定在**第 2 位次**,而 Bulwark 技能字可能落在任意位次。实测六只成语 Boss 后发现两者对不上:
+
+| 阶段 | 技能 | DamageTaken |
+|---|---|---|
+| 翻江倒海「江」 | Deluge | 0.75(第 2 位次,非 Bulwark 也有减伤) |
+| 雷霆万钧「钧」 | Pierce | 0.75 |
+| 冰天雪地「冰」 | Bulwark | 1.0(Bulwark 落第 1 位次,无减伤) |
+| 山崩海啸「山」 | Bulwark | 1.0 |
+| 气吞山河「山」 | Bulwark | 1.0 |
+| 山崩海啸「崩」 | Deluge | 0.5(第 2 位次) |
+| 烈火干柴「火」 | Devour | 0.5 |
+| 飞沙走石「沙」 | Deluge | 0.5 |
+| 气吞山河「吞」 | Devour | 0.5 |
+
+（"只有排山倒海的「山」是 0.5"这一断言本身就预设了它是坚壁,与配置不符,是本节的事实错误——现予更正。）
+
+**修正后的做法:承伤露出从技能文案里拆出,由 `EnemyInfo.PhaseDetail` 在技能说明之后独立追加**(与小怪的 `DamageTakenText` 走同一条规则、同一句措辞):
+
+```csharp
+if (phase.DamageTaken < 1f)
+    text.Append('\n').Append(DamageTakenText(phase.DamageTaken));
+```
+
+`DamageTakenText` 必须写明"被克制时减免完全失效",因为实现就是这样(`BattleEngine.cs:641-643`):
 
 ```csharp
 // 承伤减免(坚壁/「山」类)遇属性克制失效:被克(×1.5)直接按克制结算,不再乘减免
@@ -151,7 +173,7 @@ if (enemy.DamageTaken != 1f && WuxingResolver.KeMultiplier(attacker, enemy.Eleme
     damage = (int)Math.Floor(damage * enemy.DamageTaken);
 ```
 
-这是**完全失效**而非相乘打折。这条是玩家面对坚壁阶段最该知道的事 —— 别硬磨,换克制属性。同一规则适用于所有带 `DamageTaken < 1` 的敌人(见 5.4 墨渍)。
+这是**完全失效**而非相乘打折。这条是玩家面对减伤阶段最该知道的事 —— 别硬磨,换克制属性。同一规则适用于所有带 `DamageTaken < 1` 的敌人(见 5.4 墨渍),文案措辞刻意保持一致,玩家学一次就能套用到所有减伤敌人/阶段。
 
 ### 5.2 蓄力机制脚注
 
