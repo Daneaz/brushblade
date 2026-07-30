@@ -110,6 +110,32 @@ namespace Brushblade.Core.Tests
 
         // ---- 实际配置表:StreamingAssets/config/chars.json 必须永远可加载 ----
 
+        /// <summary>绿档的水与土是一对:各自本系的防御面 + 一记单攻(第 10 章数值表)。
+        /// 钉的是**形状**不是数字 —— 沝 曾经是全表唯一只有防御面的绿档,拖上去打不动人
+        /// (2026-07-30 补齐)。数值可调,少了攻击面就是回归。</summary>
+        [Test]
+        public void ShippedCharsJson_GreenWaterAndEarth_BothDefendAndStrike()
+        {
+            var json = File.ReadAllText(
+                Path.Combine(Application.streamingAssetsPath, "config/chars.json"));
+            var graph = ConfigLoader.LoadGraph(json);
+
+            AssertHasKinds(graph, "沝", EffectKind.HealSelf, EffectKind.DamageSingle);
+            AssertHasKinds(graph, "圭", EffectKind.Shield, EffectKind.DamageSingle);
+        }
+
+        private static void AssertHasKinds(RecipeGraph graph, string id, params EffectKind[] kinds)
+        {
+            Assert.That(graph.TryGet(id, out var def), Is.True, id);
+            foreach (var kind in kinds)
+            {
+                bool found = false;
+                foreach (var effect in def.Effects)
+                    if (effect.Kind == kind) found = true;
+                Assert.That(found, Is.True, $"「{id}」缺 {kind}");
+            }
+        }
+
         [Test]
         public void ShippedCharsJson_LoadsFiveElementLadders() // 首发字库:5 系 × 2/3/4 叠
         {

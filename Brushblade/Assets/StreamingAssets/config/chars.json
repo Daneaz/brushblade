@@ -188,7 +188,11 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 10
+          "value": 8
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 6
         }
       ],
       "pinyin": "zhuǐ",
