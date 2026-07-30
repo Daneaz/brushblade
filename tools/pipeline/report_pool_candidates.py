@@ -1,7 +1,7 @@
-"""卡池候选筛选表生成(六系通用):candidates.json + 拼音释义 → docs/design 人工筛选工作表。
+"""卡池候选筛选表生成(六系通用):candidates.json + 拼音释义 → docs/design/字选型 人工筛选工作表。
 
-用法:tools/pipeline$ python3 report_pool_candidates.py [金 木 水 土 心]
-(火系首版为手工生成;默认只生成参数指定的系,不会动火系表。)
+用法:tools/pipeline$ python3 report_pool_candidates.py [火 金 木 水 土 心 多属性]
+(不带参数则六系加多属性表全量重生成。)
 """
 import json
 import sys
@@ -153,12 +153,15 @@ def build_report(element, candidates, readings, today):
     stacked = [c for c in pool
                if set(c["leaves"]) <= (set(parts) | STACK_CHARS) and gb_level(c["char"]) == 0]
 
-    out = [f"""# {element}系卡池候选筛选表(人工筛选 · 非首发预备)
+    debut = element == "火"
+    scope = ("本表是首发卡池(19.3)的筛选材料。" if debut
+             else f"首发仅火系(19.3);本表为后续版本开{element}系池的预备材料,筛法同火系表。")
+    out = [f"""# {element}系卡池候选筛选表(人工筛选{"" if debut else " · 非首发预备"})
 
 > 状态:待筛选 | 生成:{today},`tools/pipeline/report_pool_candidates.py`(cjkvi-ids 递归拆解 + 新华字典拼音/释义,发行前需换有授权字典源)
 > 配方为**递归拆解**:只拆上下左右结构,逐级判断——某级新拆出的部件里没有五行部件就回退该级
 > (森 → 木+木+木;燥 → 火+品+木,再拆「品」无五行故止步;照 → 昭+灬)。部件超 3 个也回退。
-> 首发仅火系(19.3);本表为后续版本开{element}系池的预备材料,筛法同火系表。
+> {scope}
 > 已剔除 CJK 基本区外的字 {undisplayable} 个(多数设备无字形,游戏字体渲染不了)。⚠️ 编辑本表请保存为 UTF-8。
 
 ## 怎么筛
@@ -329,4 +332,4 @@ def main(elements):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or ["金", "木", "水", "土", "心"])
+    main(sys.argv[1:] or ["火", "金", "木", "水", "土", "心", "多属性"])
