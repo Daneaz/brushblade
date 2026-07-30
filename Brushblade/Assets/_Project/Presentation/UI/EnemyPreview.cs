@@ -13,7 +13,8 @@ namespace Brushblade.Presentation
             var overlay = Ui.ModalShell(root, def.Phases.Count > 0 ? "Boss 图鉴" : "怪物图鉴",
                 new Vector2(420, 330), dismissable: true, out var stack);
             Tile(stack, def, new Vector2(210, 230));
-            Ui.ThemedLabel(stack, EnemyInfo.Detail(def), 16, Theme.TextDim);
+            Ui.ThemedLabel(stack, def.Phases.Count > 0
+                ? EnemyInfo.PhaseDetail(def, 0) : EnemyInfo.MinionDetail(def), 16, Theme.TextDim);
             if (bounty > 0)
                 Ui.ThemedLabel(stack, $"◆ 首次查阅赏 {bounty} 墨锭", 18, Theme.GoldBorder, Theme.TitleFont);
             Ui.PillButton(stack, "知道了", () => Object.Destroy(overlay),

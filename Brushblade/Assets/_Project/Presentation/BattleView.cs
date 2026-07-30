@@ -640,7 +640,7 @@ namespace Brushblade.Presentation
                 if (enemy.IsCharging && enemy.IsBoss)
                     // 别用 emoji:⚡ 不在 Noto Serif SC 里,子集补不出来,上线渲染成空框
                     // (test_subset_fonts_cover_charset 正是拦这个的)。预警靠朱砂底色已经够显眼
-                    Ui.Chip(chips.transform, $"蓄力 · 下回合:{BossSkillName(enemy.ChargingSkill)}",
+                    Ui.Chip(chips.transform, $"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
                         Theme.Cinnabar, Color.white, 12);
                 if (enemy.Burn > 0) Ui.Chip(chips.transform, $"灼烧 {enemy.Burn}", Theme.Cinnabar, Color.white, 12);
                 if (enemy.Def.Ability == EnemyAbility.Regrow && enemy.Alive)
@@ -1769,23 +1769,14 @@ namespace Brushblade.Presentation
                 }
         }
 
-        private static string BossSkillName(BossSkill skill) => skill switch
-        {
-            BossSkill.Deluge => "淹没",
-            BossSkill.Pierce => "贯穿",
-            BossSkill.Topple => "倾覆",
-            BossSkill.Devour => "吞噬",
-            _ => "",
-        };
-
         private void AppendBossSkillMessage()
         {
             foreach (var e in Battle.LastEvents)
             {
                 if (e.Kind == BattleEventKind.BossCharging)
-                    _message += $"  蓄力中——下回合「{BossSkillName((BossSkill)e.Amount)}」";
+                    _message += $"  蓄力中——下回合「{EnemyInfo.BossSkillName((BossSkill)e.Amount)}」";
                 else if (e.Kind == BattleEventKind.BossSkillCast)
-                    _message += $"  {BossSkillName((BossSkill)e.Amount)}!";
+                    _message += $"  {EnemyInfo.BossSkillName((BossSkill)e.Amount)}!";
                 else if (e.Kind == BattleEventKind.ShieldBroken)
                     _message += $"  护盾被掀空({e.Amount})";
             }
