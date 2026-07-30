@@ -634,7 +634,7 @@ namespace Brushblade.Presentation
                 Ui.Chip(chips.transform, enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?",
                     Theme.ElementColor(enemy.ApparentElement), Color.white, 12);
                 Ui.Chip(chips.transform, $"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain, 12);
-                if (enemy.DamageTaken < 1f) Ui.Chip(chips.transform, "坚壁", Theme.InkSoft, Color.white, 12);
+                if (enemy.DamageTaken < 1f) Ui.Chip(chips.transform, "承伤", Theme.InkSoft, Color.white, 12);
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
@@ -1669,7 +1669,7 @@ namespace Brushblade.Presentation
             }
             // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做
             if (_modal != null) Object.Destroy(_modal);
-            _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def);
+            _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def, phase: Battle.Enemies[index].PhaseIndex);
         }
 
         private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false)

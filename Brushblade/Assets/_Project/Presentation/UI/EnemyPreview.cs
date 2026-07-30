@@ -46,16 +46,19 @@ namespace Brushblade.Presentation
         }
 
         /// <param name="bounty">&gt;0 时在窗内播报本次查阅领到的图鉴赏钱。</param>
-        public static GameObject Show(Transform root, EnemyDef def, int bounty = 0)
+        /// <param name="phase">初始选中的形态下标(战斗中点怪要落在敌人当前阶段,而非恒为 0;
+        /// 图鉴调用不传,从第一形态看起)。越界会被钳制。</param>
+        public static GameObject Show(Transform root, EnemyDef def, int bounty = 0, int phase = 0)
         {
             bool isBoss = def.Phases.Count > 0;
             var forms = FormsOf(def);
+            phase = Mathf.Clamp(phase, 0, forms.Count - 1);
             var overlay = Ui.ModalShell(root, isBoss ? "Boss 图鉴" : "怪物图鉴",
                 new Vector2(420, isBoss ? 400 : 340), dismissable: true, out var stack);
 
             // 标题行:Boss 附总血——四阶段是一条总血池,只看单阶段血量会误解
             int totalHp = 0;
-            foreach (var phase in def.Phases) totalHp += phase.MaxHp;
+            foreach (var p in def.Phases) totalHp += p.MaxHp;
             Ui.ThemedLabel(stack, isBoss ? $"{def.Id} · 总血 {totalHp}" : def.Id,
                 22, Theme.TextMain, Theme.TitleFont);
 
@@ -69,7 +72,7 @@ namespace Brushblade.Presentation
             {
                 Ui.Clear(content.transform); // 只重绘内容容器:重建整窗会闪,赏钱行也会丢
                 var form = forms[index];
-                Tile(content.transform, def, new Vector2(210, 230), false, form.AssetPhase);
+                Tile(content.transform, def, new Vector2(210, 230), false, form.AssetPhase, showFooter: false);
                 Ui.ThemedLabel(content.transform, form.Detail, 16, Theme.TextDim);
                 for (int i = 0; i < buttons.Count; i++)
                 {
@@ -88,7 +91,7 @@ namespace Brushblade.Presentation
                         Theme.PaperDim, Theme.TextMain, 22, new Vector2(64, 64), 12));
                 }
 
-            Select(0); // 默认首个形态;顺带把 tab 高亮刷成初始态
+            Select(phase); // 默认形态(战斗中为敌人当前阶段,图鉴恒为 0);顺带把 tab 高亮刷成初始态
 
             if (isBoss)
                 Ui.ThemedLabel(stack, EnemyInfo.ChargeRuleText(), 14, Theme.TextDim);
@@ -100,9 +103,11 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>怪牌:战斗同款圆形字头像(五行实色 + 白字代表字)+ 名字 + 血攻;Boss 描金边。未解锁时打码。
-        /// phaseIndex:取形象与代表字用的形态下标(Boss 的阶段;小怪恒为 0)。</summary>
+        /// phaseIndex:取形象与代表字用的形态下标(Boss 的阶段;小怪恒为 0)。
+        /// showFooter:名字 + 血攻两行是否画出。弹窗内传 false——标题行与 PhaseDetail 已给出
+        /// 全部信息,Boss 的顶层 def.MaxHp/Attack 在弹窗里会跟阶段血攻互相矛盾(Finding 2)。</summary>
         public static GameObject Tile(Transform parent, EnemyDef def, Vector2 size,
-            bool locked = false, int phaseIndex = 0)
+            bool locked = false, int phaseIndex = 0, bool showFooter = true)
         {
             var go = Ui.Panel(parent, $"Enemy_{def.Id}");
             var frame = go.AddComponent<Image>();
@@ -143,24 +148,30 @@ namespace Brushblade.Presentation
             }
             portrait ??= Ui.CircleGlyph(inner.transform,
                 locked ? "?" : EnemyInfo.FaceChar(def, phaseIndex),
-                locked ? Theme.LockedBg : Theme.ElementColor(def.Element),
+                // 回落颜色取该形态(phaseIndex)的五行,不是恒取首阶段——否则六只成语 Boss
+                // 换字不换色,跟 tab 底色/"X系"文字互相矛盾(Finding 3)。小怪 Phases 为空,兼容取 def.Element。
+                locked ? Theme.LockedBg : Theme.ElementColor(
+                    def.Phases.Count > 0 ? def.Phases[phaseIndex].Element : def.Element),
                 locked ? Theme.LockGray : Color.white, diameter);
             Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(-diameter / 2f, -diameter - 8f), new Vector2(diameter / 2f, -8f));
 
             // 文字区压在形象之下:形象占到 0.66 高,名字必须从 0.28 以下起,否则叠字上
-            var name = Ui.ThemedLabel(inner.transform, locked ? "" : def.Id,
-                Mathf.RoundToInt(size.y * 0.11f),
-                locked ? Theme.LockGray : Theme.TextMain, Theme.TitleFont);
-            Ui.Anchor(name.rectTransform, new Vector2(0, 0.10f), new Vector2(1, 0.28f),
-                Vector2.zero, Vector2.zero);
+            if (showFooter)
+            {
+                var name = Ui.ThemedLabel(inner.transform, locked ? "" : def.Id,
+                    Mathf.RoundToInt(size.y * 0.11f),
+                    locked ? Theme.LockGray : Theme.TextMain, Theme.TitleFont);
+                Ui.Anchor(name.rectTransform, new Vector2(0, 0.10f), new Vector2(1, 0.28f),
+                    Vector2.zero, Vector2.zero);
 
-            var stats = Ui.ThemedLabel(inner.transform,
-                locked ? "未遇" : $"血{def.MaxHp} 攻{def.Attack}",
-                Mathf.RoundToInt(size.y * 0.068f),
-                locked ? Theme.LockGray : Theme.TextDim);
-            Ui.Anchor(stats.rectTransform, new Vector2(0, 0.01f), new Vector2(1, 0.10f),
-                Vector2.zero, Vector2.zero);
+                var stats = Ui.ThemedLabel(inner.transform,
+                    locked ? "未遇" : $"血{def.MaxHp} 攻{def.Attack}",
+                    Mathf.RoundToInt(size.y * 0.068f),
+                    locked ? Theme.LockGray : Theme.TextDim);
+                Ui.Anchor(stats.rectTransform, new Vector2(0, 0.01f), new Vector2(1, 0.10f),
+                    Vector2.zero, Vector2.zero);
+            }
             return go;
         }
     }

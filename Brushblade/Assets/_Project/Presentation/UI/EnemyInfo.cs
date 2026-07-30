@@ -27,21 +27,20 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
-        /// <summary>技能说明。坚壁必须读该阶段实际的 DamageTaken——「山」0.5、「江」「钧」0.75,
-        /// 写死"减半"会骗人;并写明被克制时减免完全失效(BattleEngine 就是这么结算的)。</summary>
+        /// <summary>技能说明。承伤减免(DamageTaken)是与技能解耦的独立配置,不在这里插值——
+        /// 由 <see cref="PhaseDetail"/> 在技能说明之后独立追加(见 Finding 1)。</summary>
         public static string BossSkillText(BossSkill skill, BossPhaseDef phase) => skill switch
         {
             BossSkill.Deluge => "对你造 攻×2,同时对每只召唤物造 攻×1(走五行)",
             BossSkill.Pierce => "穿透前排:最前一只召唤物造 攻×1,你造 攻×2",
             BossSkill.Topple => "对你造 攻×2,清空你全部护盾,下回合 AP −1",
             BossSkill.Devour => "吞掉最前一只召唤物(无视其血量);场上无召唤物时改为对你造 攻×1",
-            BossSkill.Bulwark => $"承伤 ×{phase.DamageTaken:0.##}:该阶段伤害打折,不放大招"
-                + " —— 但用克制它的属性打,减免完全失效",
-            _ => "本阶段无大招,只有普攻",
+            BossSkill.Bulwark => "以守为攻:该阶段不放大招",
+            _ => "",
         };
 
         public static string ChargeRuleText() =>
-            $"蓄力:每 {ChargeEvery} 个敌方回合蓄力一次,蓄力回合不出手,下回合放当前字的大招。\n"
+            $"蓄力:每 {ChargeEvery} 个敌方回合蓄力一次,蓄力回合不出手,下回合放预告的大招。\n"
             + "大招无视召唤物,直接打到你身上(护盾仍能挡)。";
 
         // ============ 小怪能力 ============
@@ -91,6 +90,10 @@ namespace Brushblade.Presentation
             else
                 text.Append('\n').Append('【').Append(BossSkillName(phase.Skill)).Append("】\n")
                     .Append(BossSkillText(phase.Skill, phase));
+            // 承伤减免与技能是两套独立配置(Finding 1):独立判断、独立追加,
+            // 不能假定「有减伤 ⇔ 技能是坚壁」——两者在配置里完全解耦。
+            if (phase.DamageTaken < 1f)
+                text.Append('\n').Append(DamageTakenText(phase.DamageTaken));
             return text.ToString();
         }
 
