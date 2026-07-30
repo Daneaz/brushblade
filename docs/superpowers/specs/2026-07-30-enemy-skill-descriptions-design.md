@@ -28,7 +28,7 @@
 | 文案精度 | **写精确数值,不写定性描述** | 跟随既有惯例(现有小怪文案就是 `攻 +2、回 3 血`),玩家能据此计算 |
 | Boss 详情结构 | **四字 tab 分阶段浏览** | 兑现「成语即 Boss、四字即四阶段」的核心设计;每阶段已有独立形象资产 |
 | tab 位置 | **紧跟成语名下方,在形象之上** | tab 是控制器,应在被控内容之前;四字横排读起来就是成语本身 |
-| 小怪详情结构 | **统一同一套分区,去掉 tab 行** | 视觉语言一致 |
+| 小怪详情结构 | **同一套视图,形态数为 1 时不画 tab 行** | 见 3.2:按「形态数」驱动而非按「是不是 Boss」分叉,为后续精英怪多形态留口子 |
 
 **文案与数值的维护耦合**:写精确数值意味着平衡改动时要同步文案。这个代价是有意接受的 —— 定性描述("造成大量伤害")会让玩家没法做决策。
 
@@ -37,6 +37,32 @@
 - **每个 Boss 的每个阶段都有独立形象资产**:`MobAssets.BossStages` 里三只 Boss 各配 4 个前缀(如 `boss_paishandaohai_1pai` … `4hai`),且 `MobAssets.PrefixFor(def, phaseIndex)` 已支持按阶段取。所以 tab 切换能真的换形象,不只是换文字。
 - `Ui.ModalShell(root, title, halfSize, dismissable, out content)` 的 `halfSize` 是**半尺寸**(现值 `(420,330)` = 840×660 实际像素),`content` 是一个 `VStack`(spacing 12),内容垂直流式排列,无需精确定位。
 - `Ui.RoundButton(parent, text, onClick, bg, fg, fontSize, size, radius)` 可直接做字 tab。
+
+### 3.2 按「形态数」驱动,不按「是不是 Boss」分叉
+
+小怪后续可能有多形态(精英怪),所以视图**不写成 Boss / 小怪两套分支**,而是统一由一个形态列表驱动:
+
+```csharp
+/// <summary>详情弹窗的一个形态页。Boss 的四阶段、小怪的单形态、
+/// 将来精英怪的多形态都归成这一种结构。</summary>
+private readonly struct FormTab
+{
+    public readonly string Label;     // tab 上的字(Boss = 阶段字,小怪 = 代表字)
+    public readonly int AssetPhase;   // 取形象用的 phaseIndex(传给 MobAssets.PrefixFor)
+    public readonly string Detail;    // 该形态的数值 + 技能/能力说明
+    public readonly Color TabColor;   // 选中态底色(该形态的五行色)
+}
+```
+
+- **Boss** → 逐 `Phases` 生成 N 个 `FormTab`
+- **小怪** → 生成 1 个 `FormTab`
+- **将来精英怪** → 只需在构造处多生成几个,渲染与交互不用改
+
+**渲染规则:`tabs.Count > 1` 才画 tab 行。** 形态数为 1 时自然退化成单页视图,不需要额外的分支代码。
+
+这个抽象比两套分支**更简洁**(一处渲染逻辑而非两处),扩展口子是顺带得到的,不是为它付的额外成本。
+
+**本次不实装任何多形态小怪** —— 精英怪、缺笔妖双形象都是后续项(见第 8 节)。这里只是不把门焊死。
 
 ## 4. 布局
 
@@ -73,7 +99,7 @@
 
 ### 4.2 小怪详情
 
-同一套分区,去掉 tab 行:
+同一套视图,形态数为 1 → 不画 tab 行(见 3.2):
 
 ```
 ┌─────────────────────────┐
@@ -111,10 +137,21 @@
 【贯穿】穿透前排:最前一只召唤物造 攻×1,你造 攻×2
 【倾覆】对你造 攻×2,清空你全部护盾,下回合 AP −1
 【吞噬】吞掉最前一只召唤物(无视其血量);场上无召唤物时改为对你造 攻×1
-【坚壁】承伤 ×{系数}:该阶段受到的伤害打折,且不放大招
+【坚壁】承伤 ×{系数}:该阶段伤害打折,不放大招 —— 但用克制它的属性打,减免完全失效
 ```
 
-**【坚壁】的系数必须读该阶段的实际 `DamageTaken`,不能写死"减半"** —— 只有排山倒海的「山」是 0.5,翻江倒海的「江」与雷霆万钧的「钧」都是 0.75。因此 `BossSkillText` 需要拿到阶段信息:签名取 `BossSkillText(BossSkill skill, BossPhaseDef phase)`,或由 `PhaseDetail` 对 `Bulwark` 单独插值。
+**【坚壁】两条都不能写死:**
+
+1. **系数读该阶段实际的 `DamageTaken`**,不能写"减半" —— 只有排山倒海的「山」是 0.5,翻江倒海的「江」与雷霆万钧的「钧」都是 0.75。故 `BossSkillText` 需拿到阶段信息:签名取 `BossSkillText(BossSkill skill, BossPhaseDef phase)`。
+2. **必须写明"被克制时减免完全失效"**,因为实现就是这样(`BattleEngine.cs:641-643`):
+
+```csharp
+// 承伤减免(坚壁/「山」类)遇属性克制失效:被克(×1.5)直接按克制结算,不再乘减免
+if (enemy.DamageTaken != 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) < 1.5f)
+    damage = (int)Math.Floor(damage * enemy.DamageTaken);
+```
+
+这是**完全失效**而非相乘打折。这条是玩家面对坚壁阶段最该知道的事 —— 别硬磨,换克制属性。同一规则适用于所有带 `DamageTaken < 1` 的敌人(见 5.4 墨渍)。
 
 ### 5.2 蓄力机制脚注
 
@@ -145,16 +182,18 @@
 ### 5.4 无能力小怪
 
 ```
-墨渍         承伤 ×0.7:所有伤害打七折 —— 被克制时仍会放大
+墨渍         承伤 ×0.7:伤害打七折 —— 但用克制它的属性打,减免完全失效
 错字鬼/夯土妖  无特殊机制 · 纯数值对拼
 ```
+
+墨渍与 Boss 的坚壁走**同一条规则**(`DamageTaken` 遇克制失效),文案措辞刻意保持一致 —— 玩家学一次就能套用到所有减伤敌人。现有的「被克制可破」措辞过于含糊(「可破」没说清是打折还是失效),一并替换。
 
 ## 6. 代码落点
 
 | 文件 | 改动 |
 |---|---|
 | `Presentation/UI/EnemyInfo.cs` | 新增 `BossSkillName` / `BossSkillText(skill, phase)` / `AbilityName` / `PhaseDetail` / `ChargeRuleText`;`AbilityText` 拆出能力名、文案按 5.3 更新 |
-| `Presentation/UI/EnemyPreview.cs` | `Show` 按怪种分叉:Boss 走分阶段 tab 视图,小怪走统一分区视图;两者共用 `Tile` |
+| `Presentation/UI/EnemyPreview.cs` | 新增 `FormTab` 结构与形态列表构造;`Show` 统一渲染(形态数 >1 才画 tab 行);点 tab 只重绘内容容器 |
 | `Presentation/BattleView.cs` | 删除私有 `BossSkillName`,改调 `EnemyInfo.BossSkillName` |
 
 `EnemyInfo.Detail(def)` 目前只有一个调用点(`EnemyPreview.cs:16`),重构安全。
@@ -182,7 +221,7 @@ cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Conten
 **实机验证清单**(自动化盖不到,必须人工过):
 
 1. 点小怪 → 详情显示能力卡片,文案与 5.3 一致
-2. 点墨渍 → 显示减伤特性行
+2. 点墨渍 → 显示减伤特性行,且措辞与 Boss 坚壁一致(都写「被克制时减免完全失效」)
 3. 点错字鬼 → 显示「无特殊机制 · 纯数值对拼」,无空白卡片
 4. 点 Boss → 四字 tab 出现,默认选中第 1 阶段
 5. **依次点四个 tab** → 形象、阶段数值、技能卡片三者同步切换
@@ -192,6 +231,7 @@ cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Conten
 ## 8. 非目标(YAGNI)
 
 - **缺笔妖双形象**(缺偏旁 → 逐步补全):用户 2026-07-30 明确指为后续项,本次不做
+- **精英怪多形态**:本次只按 3.2 留好结构口子(`FormTab` 列表 + 形态数驱动渲染),不实装任何多形态小怪,也不加精英怪配置
 - 战斗中预警 chip 加效果说明(已决定只给技能名)
 - 字符串表实装(全项目待办,不在本次范围)
 - 战斗中的技能释放动效(Boss 技能系统的既有待办)
