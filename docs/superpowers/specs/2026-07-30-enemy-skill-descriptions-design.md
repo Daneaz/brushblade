@@ -178,9 +178,12 @@ if (enemy.DamageTaken != 1f && WuxingResolver.KeMultiplier(attacker, enemy.Eleme
 ### 5.2 蓄力机制脚注
 
 ```
-蓄力:每 2 个敌方回合蓄力一次,蓄力回合不出手,下回合放当前字的大招。
+蓄力:每 2 个敌方回合蓄力一次,蓄力回合不出手,下回合放预告的大招。
 大招无视召唤物,直接打到你身上(护盾仍能挡)。
 ```
+
+（"放当前字的大招"是旧措辞,已改为"放预告的大招"——与 `BattleEngine.ResolveBossTurn` 锁定
+`ChargingSkill`"预告什么就放什么,期间换阶也不改写"的实现对齐,也是 Finding 7 的修复内容。）
 
 第二句是玩家最需要知道的 —— 它推翻了「顶个树就没事」的直觉,而那正是这套 Boss 技能系统要解决的原始问题。
 
