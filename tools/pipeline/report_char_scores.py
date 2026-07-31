@@ -193,10 +193,9 @@ def _table(records):
 
 
 def _usable(by_group, attr):
-    """某系实际能做卡的字:玩家认得 + 契合 ≥ 贴合(跨系字按契合判定归系),按分数降序。"""
+    """某系契合 ≥ 贴合的字(跨系字按契合判定归系),按分数降序。"""
     pool = [r for recs in by_group.values() for r in recs
-            if r["tier_attr"] == attr and r["tier"] in ("核心", "贴合")
-            and (H.gb_level(r["char"]) in (1, 2) or r["char"] in H.NAME_COMMON or r["in_game"])]
+            if r["tier_attr"] == attr and r["tier"] in ("核心", "贴合")]
     return sorted(pool, key=lambda r: -r["score"])
 
 
@@ -215,6 +214,8 @@ def build_report(by_group, today):
 | **成本分** | 30 | 元素成本越高越贵:1 元素 0 分,2 元素 10,3 元素 20,4 元素 30 |
 | **跨系分** | 25 | 属性数越多越难凑:单系 0 分,双系 12.5,三系 25 |
 | **契合分** | 45 | 字义与本系机制特性的贴合度:核心 45 / 贴合 30 / 沾边 15 / 无关或字义不明 0 |
+
+常用度(GB 一二级 / 生僻)**不参与打分**,只作为信息列保留。
 
 前两维是结构算出来的;**契合分是字义判断**,判定表写在 `report_char_scores.py` 的 `AFFINITY` 里,
 不服直接改那张表重跑。跨系字按**字义最贴近的那一系**判,「契合判定」列写明按哪系判的。
@@ -235,12 +236,11 @@ def build_report(by_group, today):
                   for r in sorted(recs, key=lambda r: -r["score"])[:3]) + " |"
         for name, recs in by_group.items()) + f"""
 
-## 各系实际可用度
+## 各系契合字
 
-只数**玩家认得**(GB 一二级 / 人名高频 / 游戏用字)且**契合 ≥ 贴合**的字——
-生僻字排得再高也上不了卡,这一列才是各系真正能做卡的量。跨系字按契合判定归到它偏向的那一系。
+契合 ≥ 贴合的字,跨系字按契合判定归到它偏向的那一系。常用度不参与筛选,也不参与打分。
 
-| 系 | 可用字数 | 具体是哪些 |
+| 系 | 契合字数 | 具体是哪些 |
 |---|---|---|
 """ + "\n".join(f"| {a} | {len(_usable(by_group, a))} | "
                 + ("、".join(f"{r['char']}({r['score']:g})" for r in _usable(by_group, a))
@@ -256,10 +256,7 @@ def build_report(by_group, today):
                        "所以把附录里唯一的心系扩展区候补 **𢗰**(二心,无 BMP 码点)也并进来了。\n")
         if name == "跨系":
             out.append("含 ≥2 个属性的字。跨系分拉满,但契合分要看字义偏向哪一系——"
-                       "**契合判定**列的系名就是判定依据。\n\n"
-                       "⚠️ 结构分(成本 30 + 跨系 25)能压过契合分,所以 嶘/漜 这类"
-                       "字义沾边的生僻字会排在 淡/洼 这类常用字前面。**先看常用度列再看总分**"
-                       "——生僻字排得再高也上不了卡。\n")
+                       "**契合判定**列的系名就是判定依据。\n")
         out.append(_table(recs))
     out.append("")
     return "\n".join(out)
