@@ -101,6 +101,23 @@ def split_once(char, index):
     return parts
 
 
+def expand_to_elements(char, index, _seen=()):
+    """字 → 一路拆到底的叶子表(五行部件为终点),不回退也不限部件数。
+
+    方案 A 枢纽字体系的口径:叶子全为五行元素的字才是「纯元素可达」,能进部件池体系。
+    与 decompose 的区别是不做逐级判定与复杂度回退——那是全量字体系(方案 B)的筛法。
+    """
+    if attr_of(char) or char in _seen:
+        return [char]
+    parts = split_once(char, index)
+    if not parts:
+        return [char]
+    leaves = []
+    for part in parts:
+        leaves.extend(expand_to_elements(part, index, _seen + (char,)))
+    return leaves
+
+
 def decompose(char, index, max_complexity=3):
     """字 → 递归拆解后的部件表(见模块头规则)。不可拆时返回 [char]。"""
     level = split_once(char, index)

@@ -4,7 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from decompose import parse_ids_tree, flatten_tree, build_index, split_once, decompose
+from decompose import (parse_ids_tree, flatten_tree, build_index, split_once, decompose,
+                       expand_to_elements)
 
 
 def index_of(pairs):
@@ -117,3 +118,28 @@ class TestDecompose:
         # 互相引用的畸形数据不能死循环
         idx = index_of({"甲": "⿰乙木", "乙": "⿰甲木", "木": "木"})
         assert decompose("甲", idx, max_complexity=9)
+
+
+class TestExpandToElements:
+    """方案 A(枢纽字体系)口径:一路拆到底,不逐级回退、不限部件数。"""
+
+    def test_expands_without_complexity_cap(self):
+        # 燚 全展开 4 个火,decompose 会回退,本函数不回退
+        idx = index_of({"燚": "⿱炎炎", "炎": "⿱火火", "火": "⿱八人"})
+        assert expand_to_elements("燚", idx) == ["火"] * 4
+
+    def test_element_is_terminal(self):
+        idx = index_of({"火": "⿱八人"})
+        assert expand_to_elements("火", idx) == ["火"]
+
+    def test_keeps_non_element_leaf(self):
+        # 含非五行叶子的字照样展开,由调用方判断是否"纯元素可达"
+        idx = index_of({"灯": "⿰火丁", "火": "火", "丁": "丁"})
+        assert expand_to_elements("灯", idx) == ["火", "丁"]
+
+    def test_unsplittable_char_returns_itself(self):
+        assert expand_to_elements("丁", index_of({"丁": "丁"})) == ["丁"]
+
+    def test_cycle_does_not_hang(self):
+        idx = index_of({"甲": "⿰乙木", "乙": "⿰甲木", "木": "木"})
+        assert expand_to_elements("甲", idx)
