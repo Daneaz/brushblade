@@ -31,6 +31,10 @@ NAME_COMMON = set("焱燚淼鑫垚惢沝鍂炏")
 EXTRA_READINGS = {"惢": ("suǒ", "三心为惢,心疑不定"),
                   "刲": ("kuī", "割、刺")}  # 字典源把 刲 误注为日本和字
 
+# 四木/四金没有 BMP 码点,游戏用 PUA 显示代理(字形由部件 2×2 拼合,见 tools/fonts/subset_fonts.py);
+# IDS 数据里只有真码点,两边要对得上
+PUA_ALIAS = {"": "𣛧", "": "𨰻"}
+
 
 def is_pure(leaves):
     """叶子是否全为五行元素部件(空表不算)。"""
@@ -86,6 +90,22 @@ def hub_tier(leaves):
     return len(leaves)
 
 
+def resolve_pua(char):
+    """PUA 显示代理 → 真码点(四木 U+E625 → 𣛧);其余原样返回。"""
+    return PUA_ALIAS.get(char, char)
+
+
+def in_scope(char, in_game):
+    """收录范围:CJK 基本区 + 游戏已配字形的扩展区字(㵘/㙓/𣛧/𨰻)。"""
+    return is_displayable(char) or char in in_game
+
+
+def is_stack_candidate(char, leaves):
+    """是否纯叠字(同一个部件叠 ≥2 次);兼容表意文字区排除——那是基本区同字的重复码点。"""
+    return (len(leaves) >= 2 and len(set(leaves)) == 1
+            and not 0xF900 <= ord(char) <= 0xFAFF)
+
+
 def merge_readings(dictionary, game_chars):
     """字典拼音释义 + 游戏字表覆盖:字表已拍板的字以字表为准(字典对生僻叠字有脏数据)。"""
     merged = dict(dictionary)
@@ -108,7 +128,9 @@ def downstream_index(chars, index):
 
 # ---- 报表 ----
 
-def _level_label(char):
+def _level_label(char, in_game=False):
+    if gb_level(char) == 0 and char not in NAME_COMMON and in_game:
+        return "游戏用字"  # 四叠链末端:玩家不认得但游戏已配字形在用
     return {1: "一级", 2: "二级", 0: "人名高频" if char in NAME_COMMON else "生僻"}[gb_level(char)]
 
 
@@ -121,7 +143,7 @@ def _cost_label(leaves):
 def _known(records):
     """玩家认得的字数:GB2312 一二级 + 人名高频档(5.4)。"""
     return sum(1 for r in records
-               if gb_level(r["char"]) in (1, 2) or r["char"] in NAME_COMMON)
+               if gb_level(r["char"]) in (1, 2) or r["char"] in NAME_COMMON or r["in_game"])
 
 
 def _sort_key(rec):
@@ -142,8 +164,10 @@ def _row(rec, extra=None):
         flags.append("**已在字表**")
     if rec["attrs_label"]:
         flags.append(rec["attrs_label"])
+    if rec["pua"]:
+        flags.append(f"游戏内用 PUA {rec['pua']} 显示")
     return (f"| {rec['char']} | {rec['pinyin']} | {rec['gloss']} | {' + '.join(rec['recipe'])} "
-            f"| {_cost_label(rec['leaves'])} | {_level_label(rec['char'])} "
+            f"| {_cost_label(rec['leaves'])} | {_level_label(rec['char'], rec['in_game'])} "
             f"| {rec['down_all']} / {rec['down_inner']} "
             + (f"| {extra} " if extra is not None else "")
             + f"| | {';'.join(flags)} |")
@@ -156,8 +180,8 @@ def _table(records, hub=False):
     return "\n".join([_HEAD] + [_row(r) for r in rows])
 
 
-def build_report(records, today):
-    """分类字表 markdown:枢纽字 → 六系单系 → 跨系。"""
+def build_report(records, stacks, today):
+    """分类字表 markdown:元素部件 → 枢纽字 → 六系单系 → 跨系 → 扩展区叠字候补。"""
     hubs = [r for r in records if r["group"] == "枢纽"]
     cross = [r for r in records if r["group"] == "跨系"]
     single = {a: [r for r in records if r["group"] == a] for a in "火木水金土心"}
@@ -170,14 +194,15 @@ def build_report(records, today):
 > 所以本表只收**纯元素可达字**——一路拆到底(只拆上下左右)叶子全为五行元素部件的字,
 > 共 **{len(records)}** 个(含 {len(elements)} 个元素部件本身)。这与全量字体系(方案 B)的
 > 七张卡池候选筛选表是两套并列口径:那边允许「咅」「敖」这类声旁入池,本表不允许。
-> 已剔除 CJK 基本区外的字(多数设备无字形,渲染不了);配方里的扩展区部件已换成同叶子的基本区字(垚 = 圭 + 土)。
+> 收录范围 = CJK 基本区 **+ 游戏已配字形的扩展区字**(四水 㵘、四土 㙓、四木 𣛧、四金 𨰻);
+> 其余扩展区的纯元素可达字见文末附录。配方里无字形的部件已换成同叶子的基本区字(垚 = 圭 + 土)。
 > ⚠️ 编辑本表请保存为 UTF-8。
 
 ## 怎么读
 
 - **一步配方**:该字的直接部件(IDS 一级),天然就是设计文档 D2 要的递进式(焚 = 林 + 火,不是 木+木+火)。
 - **元素成本**:一路拆到底的元素总账,按属性合并(氵/水/冫 同计为水)。
-- **组字数(全库/表内)**:该字被多少个字用作一步配方部件。**全库** = 全 CJK 基本区(含繁体、生僻);
+- **组字数(全库/表内)**:该字被多少个字用作一步配方部件。**全库** = 收录范围内的全部字(含繁体、生僻);
   **表内** = 只算本表这 {len(records)} 个纯元素可达字。差值就是设计文档 D3 说的「假希望」——
   戔 全库 23 个下游但全是繁体(淺錢賤踐),简体不可达。
 - **常用度**:GB2312 一级/二级;「人名高频」= 焱燚淼鑫垚惢 这类不在 GB 内但玩家实际认得的字(5.4)。
@@ -253,16 +278,26 @@ def build_report(records, today):
     if rest:
         out.append(f"\n### 三属性及以上({len(rest)} 个)\n")
         out.append(_table(rest))
+
+    out.append(f"\n## 附录 · 扩展区叠字候补({len(stacks)} 个)\n")
+    out.append("""主表之外、结构上现成的纯叠字(同一部件叠 ≥2 次),全在 CJK 扩展区——
+系统字体多半没有字形,要走 `tools/fonts/subset_fonts.py` 的部件拼合路子(四木/四金已经这么做了)。
+升阶链要加档或换字时先在这里找:比如水系三阶除 淼 外还有 㴇,火系三阶除 焱 外还有 㷋。
+""")
+    out.append("| 字 | 码点 | 系 | 阶 | 一步配方 | 备注 |\n|---|---|---|---|---|---|")
+    out.extend(f"| {r['char']} | U+{ord(r['char']):04X} | {r['attr']} | {len(r['leaves'])} 阶 "
+               f"| {' + '.join(r['recipe'])} | {'**已在字表**' if r['in_game'] else ''} |"
+               for r in stacks)
     out.append("")
     return "\n".join(out)
 
 
 def collect(entries, index, readings, in_game):
-    """全 CJK 基本区 → 纯元素可达字记录表(含分类、配方、下游统计)。"""
-    basic = [e["char"] for e in entries
-             if len(e["char"]) == 1 and is_displayable(e["char"])]
+    """收录范围内的纯元素可达字 → 记录表(含分类、配方、下游统计)。"""
+    scope = [e["char"] for e in entries
+             if len(e["char"]) == 1 and in_scope(e["char"], in_game)]
     pure = {}
-    for char in basic:
+    for char in scope:
         leaves = expand_to_elements(char, index)
         if is_pure(leaves):
             pure[char] = leaves
@@ -270,7 +305,7 @@ def collect(entries, index, readings, in_game):
     canon = canon_map(pure)
     down_inner = downstream_index(list(pure), index)
     down_all = defaultdict(int)
-    for char in basic:
+    for char in scope:
         for part in set(split_once(char, index) or []):
             down_all[part] += 1
 
@@ -297,10 +332,32 @@ def collect(entries, index, readings, in_game):
             "down_inner": len(down_inner.get(char, [])),
             "down_chars": sorted(down_inner.get(char, [])),
             "in_game": char in in_game,
+            "pua": next((f"U+{ord(k):04X}" for k, v in PUA_ALIAS.items() if v == char), ""),
             "attrs_label": ("/".join(attrs) if len(attrs) > 1
                             else f"{hub_tier(leaves)} 阶" if is_hub and len(leaves) > 1 else ""),
         })
     return records
+
+
+def collect_stack_candidates(entries, index, covered, in_game):
+    """主表之外的纯叠字(扩展区):升阶链的候补,字形要自制,但结构上是现成的。"""
+    out = []
+    for entry in entries:
+        char = entry["char"]
+        if len(char) != 1 or char in covered:
+            continue
+        leaves = expand_to_elements(char, index)
+        if not is_pure(leaves) or not is_stack_candidate(char, leaves):
+            continue
+        out.append({
+            "char": char,
+            "leaves": leaves,
+            "recipe": split_once(char, index) or [char],
+            "attr": attr_of(leaves[0]),
+            "in_game": char in in_game,
+            "pua": next((f"U+{ord(k):04X}" for k, v in PUA_ALIAS.items() if v == char), ""),
+        })
+    return sorted(out, key=lambda r: (ATTR_ORDER[r["attr"]], len(r["leaves"]), ord(r["char"])))
 
 
 def main():
@@ -314,8 +371,10 @@ def main():
                               game_chars)
     readings.update(EXTRA_READINGS)
 
-    records = collect(entries, index, readings, {c["id"] for c in game_chars})
-    text = build_report(records, datetime.date.today().isoformat())
+    in_game = {resolve_pua(c["id"]) for c in game_chars}
+    records = collect(entries, index, readings, in_game)
+    stacks = collect_stack_candidates(entries, index, {r["char"] for r in records}, in_game)
+    text = build_report(records, stacks, datetime.date.today().isoformat())
     path = ROOT.parent.parent / "docs/design/字选型/枢纽字体系可用字表.md"
     path.write_text(text)
     print("写入", path.name, f"({len(records)} 字,{len(text.splitlines())} 行)")

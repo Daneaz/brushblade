@@ -6,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from decompose import build_index
 from report_hub_chars import (is_pure, element_cost, canon_map, normalize_parts,
-                              classify, hub_tier, downstream_index, merge_readings)
+                              classify, hub_tier, downstream_index, merge_readings,
+                              in_scope, is_stack_candidate, resolve_pua)
 
 
 def index_of(pairs):
@@ -75,6 +76,43 @@ class TestHubTier:
     def test_tier_by_element_count(self):
         assert hub_tier(["火", "火"]) == 2
         assert hub_tier(["火", "火", "火"]) == 3
+
+
+class TestResolvePua:
+    def test_pua_proxy_maps_to_real_codepoint(self):
+        # 四木 𣛧 未编码进 BMP,游戏用 PUA U+E625 显示;IDS 数据里只有真码点
+        assert resolve_pua("\ue625") == "𣛧"
+
+    def test_normal_char_untouched(self):
+        assert resolve_pua("炎") == "炎"
+
+
+class TestInScope:
+    def test_basic_block_in(self):
+        assert in_scope("炎", set())
+
+    def test_extension_block_out_by_default(self):
+        assert not in_scope("㵘", set())
+
+    def test_extension_block_in_when_already_in_game(self):
+        # 游戏已配字形的字(㵘/㙓/𣛧/𨰻)不能因为不在基本区就被剔除
+        assert in_scope("㵘", {"㵘"})
+
+
+class TestIsStackCandidate:
+    def test_same_component_stack(self):
+        assert is_stack_candidate("㴇", ["水", "水", "水"])
+
+    def test_mixed_components_rejected(self):
+        # 叶子同属水但写法不同,不算纯叠字
+        assert not is_stack_candidate("冰", ["冫", "水"])
+
+    def test_single_leaf_rejected(self):
+        assert not is_stack_candidate("氵", ["氵"])
+
+    def test_compatibility_block_rejected(self):
+        # U+F9F4 是「林」的兼容码点,与基本区同字,不重复收
+        assert not is_stack_candidate("林", ["木", "木"])
 
 
 class TestMergeReadings:
