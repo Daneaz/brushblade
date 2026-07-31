@@ -1,10 +1,10 @@
-"""卡池候选筛选表生成:GB 常用度分级、部件变体归组、稀有度起点启发式。"""
+"""卡池候选筛选表生成:GB 常用度分级、部件变体归组、池内打分分档。"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from report_pool_candidates import gb_level, variant_of, suggest_rarity
+from report_pool_candidates import gb_level, variant_of, rate_pool
 
 
 def test_gb_level_common():
@@ -27,39 +27,32 @@ def test_variant_of_none_when_absent():
     assert variant_of(["工", "口"], ["水", "氵", "冫"]) is None
 
 
-def _cand(leaves):
-    return {"leaves": leaves, "complexity": len(leaves)}
+def _cand(char, parts1, leaves):
+    return {"char": char, "parts1": parts1, "leaves": leaves,
+            "complexity": len(leaves)}
 
 
-BASE = ["木"]  # 木系本体部件
+def test_rate_pool_ranks_by_component_reuse():
+    # 甲 的部件能组两个字、乙 的组一个、丙 的组不出 → 分数递减
+    pool = [_cand("甲", ["火"], ["火"]), _cand("乙", ["木"], ["木"]),
+            _cand("丙", ["品"], ["品"])]
+    graph = {"火": {"灯", "炎"}, "木": {"林"}}
+    rated = rate_pool(pool, graph)
+    assert rated["甲"][0] > rated["乙"][0] > rated["丙"][0]
 
 
-def test_pure_stack_two_is_green():
-    assert suggest_rarity(_cand(["木", "木"]), BASE) == "绿"
+def test_rate_pool_exposes_both_metrics():
+    pool = [_cand("燥", ["火", "喿"], ["火", "品", "木"])]
+    graph = {"火": {"灯"}, "木": {"林"}, "喿": {"噪"}}
+    _, _, effective, production = rate_pool(pool, graph)["燥"]
+    assert effective == 2          # 火/木 有效,品 组不出字
+    assert production == 3         # 火1 + 喿1 + 木1 + 品0
 
 
-def test_pure_stack_three_is_orange():
-    assert suggest_rarity(_cand(["木", "木", "木"]), BASE) == "橙"
-
-
-def test_stack_ingredient_is_purple():
-    assert suggest_rarity(_cand(["林", "火"]), ["火", "灬"]) == "紫"
-
-
-def test_three_parts_is_purple():
-    assert suggest_rarity(_cand(["木", "口", "口"]), BASE) == "紫"
-
-
-def test_exotic_leaf_is_blue():
-    assert suggest_rarity(_cand(["火", "夆"]), ["火", "灬"]) == "蓝"
-
-
-def test_droppable_partner_is_white():
-    assert suggest_rarity(_cand(["火", "丁"]), ["火", "灬"]) == "白"
-
-
-def test_plain_partner_is_green():
-    assert suggest_rarity(_cand(["火", "会"]), ["火", "灬"]) == "绿"
+def test_rate_pool_assigns_a_rarity_to_every_char():
+    pool = [_cand(c, ["火"], ["火"]) for c in "甲乙丙丁戊己庚辛"]
+    rated = rate_pool(pool, {"火": {"灯"}})
+    assert all(r[1] in "白绿蓝紫橙红" for r in rated.values())
 
 
 # ---- 多属性字(跨属性组合,第 6 章) ----

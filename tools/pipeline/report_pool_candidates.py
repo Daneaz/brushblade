@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 from enrich_readings import readings_map
+from score_chars import (build_combination_graph, char_metrics, score_pool,
+                         assign_rarity)
 
 ROOT = Path(__file__).resolve().parent
 
@@ -99,28 +101,19 @@ def _exotic(leaf):
     return gb_level(leaf) == 0 and leaf not in COMMON_RADICALS
 
 
-def suggest_rarity(cand, parts):
-    """稀有度起点(仅供参考):纯叠→绿/橙/红;吃合成字或三部件→紫;冷僻部件→蓝;
-    非本系搭子全可刷→白;其余→绿。"""
-    leaves, n = cand["leaves"], cand["complexity"]
-    if set(leaves) <= set(parts):
-        return {2: "绿", 3: "橙"}.get(n, "红")
-    if any(l in STACK_CHARS for l in leaves):
-        return "紫"
-    if n >= 3:
-        return "紫"
-    if any(_exotic(l) for l in leaves):
-        return "蓝"
-    partner = [l for l in leaves if l not in parts]
-    if partner and all(l in DROPS for l in partner):
-        return "白"
-    return "绿"
+def rate_pool(pool, graph):
+    """池内打分分档 → {字: (分数, 稀有度)};见 score_chars 模块头。"""
+    metrics = {c["char"]: char_metrics(c, graph) for c in pool}
+    scored = score_pool(metrics)
+    rarity = assign_rarity(scored)
+    return {ch: (scored[ch], rarity[ch], *metrics[ch]) for ch in scored}
 
 
-def _row(cand, element, readings):
+def _row(cand, element, readings, rated):
     ch = cand["char"]
     pinyin, gloss = readings.get(ch, ("—", ""))
     parts = ELEMENTS[element]["parts"]
+    score, rarity, effective, production = rated[ch]
     flags = []
     if ch in ELEMENTS[element]["in_game"]:
         flags.append("**已在字表**")
@@ -131,14 +124,15 @@ def _row(cand, element, readings):
     if partner_drops:
         flags.append("部件可刷:" + " ".join(partner_drops))
     return (f"| {ch} | {pinyin} | {gloss} | {' + '.join(cand['leaves'])} "
-            f"| {'/'.join(cand['attrs'])} | {suggest_rarity(cand, parts)} | | {';'.join(flags)} |")
+            f"| {'/'.join(cand['attrs'])} | {score:.1f} | {effective} | {production} "
+            f"| {rarity} | | {';'.join(flags)} |")
 
 
-_HEAD = ("| 字 | 拼音 | 释义 | 配方(一步合成) | 属性 | 建议稀有度 | 选用 | 备注 |\n"
-         "|---|---|---|---|---|---|---|---|")
+_HEAD = ("| 字 | 拼音 | 释义 | 配方(一步合成) | 属性 | 分数 | 有效部件 | 组字数 | 建议稀有度 | 选用 | 备注 |\n"
+         "|---|---|---|---|---|---|---|---|---|---|---|")
 
 
-def build_report(element, candidates, readings, today):
+def build_report(element, candidates, readings, today, graph):
     """单系筛选表 markdown。表A一级字按部件变体分节;表B二级字剔除冷僻部件;表C叠字族。"""
     cfg = ELEMENTS[element]
     parts = cfg["parts"]
@@ -152,6 +146,9 @@ def build_report(element, candidates, readings, today):
                    key=lambda c: (c["complexity"], c["ids"]))
     stacked = [c for c in pool
                if set(c["leaves"]) <= (set(parts) | STACK_CHARS) and gb_level(c["char"]) == 0]
+    # 分档只在表里实际列出的字之间做梯度:pool 里大半是不进表的生僻字,
+    # 让它们占掉白/绿档的话,表内就只剩高档了
+    rated = rate_pool(tier1 + tier2 + stacked, graph)
 
     debut = element == "火"
     scope = ("本表是首发卡池(19.3)的筛选材料。" if debut
@@ -167,8 +164,21 @@ def build_report(element, candidates, readings, today):
 ## 怎么筛
 
 1. 「选用」列填 `✅` 入池,留空不入,拿不准填 `?`。
-2. 「建议稀有度」按配方结构给起点(纯叠→绿/橙/红;吃合成字或三部件→紫;冷僻部件→蓝;搭子可刷→白),终稿你定。
+2. 「分数」按部件复用价值综合打分(见下),分数越高稀有度越高;「建议稀有度」是分数在本系内的档位,终稿你定。
 3. 池规模参考:每系 30~50 字(白 6~8 / 绿 8~12 / 蓝 8~12 / 紫 5~8 / 橙 2~4 / 红 1~2)。
+
+## 分数怎么来的
+
+两个维度各占一半,在本系候选内归一化后相加(0~100):
+
+- **有效部件**:递归配方里能和别的部件组成别的字的部件个数(重复计)。燥 = 火+品+木 → 2,「品」组不出字。
+- **组字数**:该字各层级出现过的不同部件(一级 ∪ 递归)各自能组成多少字,求和。焚 一级 林+火、二级 木+木+火 → 林/火/木 三者之和。
+
+「能组成别的字」只算一级组合(噪 = 口+喿,记在「喿」头上不记「品」),统计范围是候选表里的 GB2312 一级常用字。
+六档按 白25% 绿25% 蓝20% 紫15% 橙8% 红7% 从高分往低分切,同分同档;各系分别切档
+(火系最高分与水系差一截,统一切档火系出不了红卡)。同分块大时实际比例会偏离——
+水系有 107 个「氵+X」分数完全相同(氵 的组字数主导,搭档部件只差几个),整块落在同一档,
+绿档因此被跳过;金系同理。这是分数的真实反映,档位终稿由你人工调。
 
 ## 结构决策(筛选时顺带拍板)
 
@@ -181,22 +191,22 @@ def build_report(element, candidates, readings, today):
             continue
         out.append(f"\n### 「{part}」部({len(group)} 个)\n")
         out.append(_HEAD)
-        out.extend(_row(c, element, readings) for c in group)
+        out.extend(_row(c, element, readings, rated) for c in group)
     rest = [c for c in tier1 if variant_of(c["leaves"], parts) is None]
     if rest:
         out.append(f"\n### 其他({len(rest)} 个,属性来自多重部件)\n")
         out.append(_HEAD)
-        out.extend(_row(c, element, readings) for c in rest)
+        out.extend(_row(c, element, readings, rated) for c in rest)
 
     skipped = len(tier2_all) - len(tier2)
     out.append(f"\n## 表 B · 二级次常用字({len(tier2)} 个,选做点缀;"
                f"另有 {skipped} 个含冷僻部件的未列,要看说一声)\n")
     out.append(_HEAD)
-    out.extend(_row(c, element, readings) for c in tier2)
+    out.extend(_row(c, element, readings, rated) for c in tier2)
 
     out.append(f"\n## 表 C · 叠字族生僻字({len(stacked)} 个,结构奇观,天然高稀有度候选)\n")
     out.append(_HEAD)
-    out.extend(_row(c, element, readings) for c in stacked)
+    out.extend(_row(c, element, readings, rated) for c in stacked)
     out.append("")
     return "\n".join(out)
 
@@ -233,13 +243,13 @@ def relation_label(pair):
     return f"{a}+{b}"
 
 
-_MULTI_HEAD = ("| 字 | 拼音 | 释义 | 配方(一步合成) | 属性组合 | 常用度 | 建议稀有度 | 选用 | 备注 |\n"
-               "|---|---|---|---|---|---|---|---|---|")
+_MULTI_HEAD = ("| 字 | 拼音 | 释义 | 配方(一步合成) | 属性组合 | 常用度 | 分数 | 建议稀有度 | 选用 | 备注 |\n"
+               "|---|---|---|---|---|---|---|---|---|---|")
 
 _ALL_IN_GAME = set().union(*(cfg["in_game"] for cfg in ELEMENTS.values()))
 
 
-def _multi_row(cand, attrs, readings):
+def _multi_row(cand, attrs, readings, rated):
     ch = cand["char"]
     pinyin, gloss = readings.get(ch, ("—", ""))
     level = {1: "一级", 2: "二级", 0: "生僻"}[gb_level(ch)]
@@ -249,11 +259,12 @@ def _multi_row(cand, attrs, readings):
     drops = [l for l in cand["leaves"] if l in DROPS]
     if drops:
         flags.append("部件可刷:" + " ".join(drops))
+    score, rarity, _, _ = rated[ch]
     return (f"| {ch} | {pinyin} | {gloss} | {' + '.join(cand['leaves'])} | {'/'.join(attrs)} "
-            f"| {level} | {suggest_rarity(cand, [])} | | {';'.join(flags)} |")
+            f"| {level} | {score:.1f} | {rarity} | | {';'.join(flags)} |")
 
 
-def build_multi_report(candidates, readings, today):
+def build_multi_report(candidates, readings, today, graph):
     """多属性字筛选表:按生克关系分节(相生五对→相克五对→含心),常用优先、
     生僻字只收部件全熟悉的。"""
     groups = {}
@@ -271,6 +282,9 @@ def build_multi_report(candidates, readings, today):
             tri.append((cand, attrs))
         else:
             groups.setdefault(tuple(attrs), []).append((cand, attrs))
+
+    rated = rate_pool([c for c, _ in tri] + [c for items in groups.values() for c, _ in items],
+                      graph)
 
     def sort_key(item):
         cand, _ = item
@@ -299,7 +313,7 @@ def build_multi_report(candidates, readings, today):
                 continue
             out.append(f"\n### {relation_label(pair)}({len(items)} 个)\n")
             out.append(_MULTI_HEAD)
-            out.extend(_multi_row(c, a, readings) for c, a in items)
+            out.extend(_multi_row(c, a, readings, rated) for c, a in items)
 
     emit(sheng_order)
     out.append("\n## 第二部分 · 相克五对(组合技候选)\n")
@@ -309,7 +323,7 @@ def build_multi_report(candidates, readings, today):
     if tri:
         out.append(f"\n## 第四部分 · 三属性及以上({len(tri)} 个)\n")
         out.append(_MULTI_HEAD)
-        out.extend(_multi_row(c, a, readings) for c, a in sorted(tri, key=sort_key))
+        out.extend(_multi_row(c, a, readings, rated) for c, a in sorted(tri, key=sort_key))
     out.append("")
     return "\n".join(out)
 
@@ -317,15 +331,17 @@ def build_multi_report(candidates, readings, today):
 def main(elements):
     candidates = json.load(open(ROOT / "out/candidates.json"))["candidates"]
     readings = readings_map(json.load(open(ROOT / "data/raw/xinhua_word.json")))
+    # 组字关系只在 GB2312 一级常用字里统计——玩家认得的字才算"能组成别的字"
+    graph = build_combination_graph([c for c in candidates if gb_level(c["char"]) == 1])
     import datetime
     today = datetime.date.today().isoformat()
     docs = ROOT.parent.parent / "docs/design/字选型"
     for element in elements:
         if element == "多属性":
-            text = build_multi_report(candidates, readings, today)
+            text = build_multi_report(candidates, readings, today, graph)
             path = docs / "多属性字候选筛选表.md"
         else:
-            text = build_report(element, candidates, readings, today)
+            text = build_report(element, candidates, readings, today, graph)
             path = docs / f"{element}系卡池候选筛选表.md"
         path.write_text(text)
         print("写入", path.name, f"({len(text.splitlines())} 行)")

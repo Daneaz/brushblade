@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 
 from fetch_ids import download_ids, parse_ids_text
-from decompose import build_index, decompose
+from decompose import build_index, decompose, split_once
 from filter_chars import filter_candidates
 from export_config import export_candidates
 
@@ -21,6 +21,7 @@ def build_from_text(text, dest, max_complexity=3):
     index = build_index(entries)
     for entry in entries:
         # 用递归拆解(只拆上下左右,逐级判定)取代 IDS 一层扁平叶子,见 decompose 模块头
+        entry["parts1"] = split_once(entry["char"], index) or []  # 一级部件,打分要用
         entry["leaves"] = decompose(entry["char"], index, max_complexity)
     candidates = filter_candidates(entries, max_complexity=max_complexity)
     export_candidates(candidates, dest)
