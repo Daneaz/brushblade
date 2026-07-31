@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from report_char_scores import (cost_score, cross_score, affinity_of, affinity_score,
-                                total_score, AFFINITY)
+                                sheng_score, sheng_pairs, total_score, AFFINITY)
 
 
 class TestCostScore:
@@ -39,7 +39,8 @@ class TestAffinity:
         assert affinity_of("锬") == ("金", "核心")
 
     def test_unknown_char_has_no_affinity(self):
-        assert affinity_of("圸") is None
+        # 鈛 字典只给了读音,字义不明 → 不进判定表
+        assert affinity_of("鈛") is None
 
     def test_score_by_tier(self):
         assert affinity_score("核心") == 45
@@ -51,10 +52,30 @@ class TestAffinity:
         assert all(tier in ("核心", "贴合", "沾边") for _, tier in AFFINITY.values())
 
 
+class TestShengScore:
+    def test_sheng_pair_scores(self):
+        # 焚 = 木×2 + 火,木生火
+        assert sheng_score(["木", "木", "火"]) == 15
+
+    def test_ke_pair_scores_zero(self):
+        # 淡 = 氵 + 炎,水克火——相克不加分
+        assert sheng_score(["氵", "火", "火"]) == 0
+
+    def test_single_element_scores_zero(self):
+        assert sheng_score(["火", "火"]) == 0
+
+    def test_heart_is_neutral(self):
+        # 心中立,不参与生克
+        assert sheng_score(["忄", "木", "木"]) == 0
+
+    def test_pairs_are_named(self):
+        assert sheng_pairs(["木", "木", "火"]) == [("木", "火")]
+
+
 class TestTotalScore:
-    def test_caps_at_hundred(self):
-        # 四元素 + 三属性 + 核心契合 = 30 + 25 + 45
-        assert total_score(["火"] * 2 + ["土", "木"], "核心") == 100
+    def test_caps_at_one_fifteen(self):
+        # 四元素 + 三属性 + 核心契合 + 相生 = 30 + 25 + 45 + 15
+        assert total_score(["木", "火", "火", "土"], "核心") == 115
 
     def test_bare_element_scores_only_affinity(self):
         assert total_score(["火"], "核心") == 45
