@@ -5,7 +5,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from decompose import build_index
-from report_filler_chars import FILLER, TIERS, score_of, split_useful, tier_of, validate
+from report_filler_chars import (FILLER, SKIP, TIERS, score_of, selection_of, split_useful,
+                                 tier_of, validate)
 
 
 def index_of(pairs):
@@ -52,6 +53,21 @@ class TestValidate:
     def test_accepts_phonetic_compound(self):
         idx = index_of({"烧": "⿰火尧", "火": "火", "尧": "尧"})
         assert validate(["烧"], set(), idx) == {}
+
+
+class TestSelection:
+    def test_default_is_in(self):
+        # 这批字的存在意义就是填白绿档,默认全收
+        assert selection_of("烧") == "建议入选"
+
+    def test_abstract_word_is_out(self):
+        assert selection_of("念") == "暂不入"
+
+    def test_every_skip_has_a_reason(self):
+        assert all(SKIP.values())
+
+    def test_skips_are_all_in_the_pool(self):
+        assert set(SKIP) <= set(FILLER)
 
 
 class TestFillerTable:

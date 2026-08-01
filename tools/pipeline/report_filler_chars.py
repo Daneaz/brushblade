@@ -17,7 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import report_char_scores as S
-import report_hub_chars as H
+import report_rarity as R
 from decompose import build_index, decompose
 from enrich_readings import readings_map
 from fetch_ids import parse_ids_text
@@ -110,6 +110,20 @@ FILLER = {
     "感": ("心", "沾边"), "情": ("心", "沾边"),
 }
 
+# 建议不入的:字义抽象、做不出卡面,或与战斗无关。留在表里供终审翻案。
+SKIP = {
+    "念": "抽象心理词,不是 debuff",
+    "思": "抽象心理词,不是 debuff",
+    "意": "抽象心理词,不是 debuff",
+    "感": "抽象心理词,不是 debuff",
+    "情": "抽象心理词,不是 debuff",
+    "址": "地址,抽象无画面",
+    "圾": "只在「垃圾」里成词,字义不雅",
+    "熟": "火性但与攻击无关",
+    "照": "火性但与攻击无关",
+    "慢": "中性词,做不出控制感",
+}
+
 # 判定理由(只写不言自明之外的)
 FILLER_NOTE = {
     "燎": "燎原,7.4「星火燎原」法宝直接点名",
@@ -148,6 +162,11 @@ FILLER_NOTE = {
     "惮": "忌惮",
     "恍": "恍惚",
 }
+
+
+def selection_of(char):
+    """本期入选建议:除 SKIP 外全收——这批字的存在意义就是填白绿档。"""
+    return "暂不入" if char in SKIP else "建议入选"
 
 
 def tier_of(char):
@@ -189,22 +208,50 @@ def validate(chars, existing, index):
 
 # ---- 报表 ----
 
-_HEAD = ("| 字 | 拼音 | 释义 | 拆解 | 拆出元素 | 废料 | 分数 | **稀有度** | 判定 | 选用 |\n"
-         "|---|---|---|---|---|---|---|---|---|---|")
+_HEAD = ("| 字 | 拼音 | 释义 | 拆解 | 拆出元素 | 废料 | 分数 | **稀有度** "
+         "| 本期入选(建议) | 终审 | 判定 |\n|---|---|---|---|---|---|---|---|---|---|---|")
 
 
 def _row(rec):
     score, rarity = score_of(rec["tier"])
     note = FILLER_NOTE.get(rec["char"], "")
+    select = selection_of(rec["char"])
+    mark = "✅ 建议入选" if select == "建议入选" else f"⬜ 暂不入({SKIP[rec['char']]})"
     return (f"| {rec['char']} | {rec['pinyin']} | {rec['gloss']} | {' + '.join(rec['parts'])} "
             f"| {rec['useful']} | {rec['waste'] or '—'} | {score} | **{rarity}** "
-            f"| {rec['tier']}{f'({note})' if note else ''} | |")
+            f"| {mark} | | {rec['tier']}{f'({note})' if note else ''} |")
+
+
+def hub_rarity_counts():
+    """枢纽字体系表里建议入选的字 → {稀有度: 张数}(合并分布用)。"""
+    counts = defaultdict(int)
+    for recs in S.build_records().values():
+        for rec in recs:
+            rec["gb"] = 0
+            if S.is_card(rec) and R.selection_of(rec) in ("已在字表", "建议入选"):
+                counts[R.rarity_of(rec["score"])] += 1
+    return counts
 
 
 def build_report(by_attr, today, problems):
     total = sum(len(v) for v in by_attr.values())
     counts = {t: sum(1 for recs in by_attr.values() for r in recs if r["tier"] == t)
               for t in TIERS}
+    picked_by_rarity = defaultdict(int)
+    for recs in by_attr.values():
+        for rec in recs:
+            if selection_of(rec["char"]) == "建议入选":
+                picked_by_rarity[TIERS[rec["tier"]][1]] += 1
+    picked = sum(picked_by_rarity.values())
+    skipped = total - picked
+    hub = hub_rarity_counts()
+    hub_picked = sum(hub.values())
+    bands = ["红", "橙", "紫", "蓝", "绿", "白"]
+    merged_rows = "\n".join(
+        f"| **{b}** | {hub.get(b, 0)} | {picked_by_rarity.get(b, 0)} "
+        f"| {hub.get(b, 0) + picked_by_rarity.get(b, 0)} |" for b in bands)
+    white_green = sum(hub.get(b, 0) + picked_by_rarity.get(b, 0) for b in ("绿", "白"))
+    purple = hub.get("紫", 0) + picked_by_rarity.get("紫", 0)
     out = [f"""# 补充字池(白绿卡来源)
 
 > 生成:{today},`tools/pipeline/report_filler_chars.py`
@@ -233,9 +280,29 @@ def build_report(by_attr, today, problems):
                 for t, desc in [("核心", "字义就是这个机制本身(烧 / 垒 / 慑)"),
                                 ("贴合", "明确指向该机制(熔 / 碉 / 惶)"),
                                 ("相关", "属性对但不是机制(炉 / 坡 / 懒)"),
-                                ("沾边", "只是这一系的物件(灯 / 尘 / 念)")]) + """
+                                ("沾边", "只是这一系的物件(灯 / 尘 / 念)")]) + f"""
 
 成本、跨系、相生、横向那四维在这里都不适用:这些字合不出来,也当不了部件。
+
+## 本期入选
+
+**除 {skipped} 个字外全收**({picked} 张)——这批字的存在意义就是填白绿档,
+按档位挑挑拣拣反而会把白绿再抽空。不建议入的都是字义抽象、做不出卡面的
+(念/思/意/感/情/址/圾/熟/照/慢),理由写在行内,你可以翻案。
+「终审」列留空——`✅` 收 / `❌` 砍 / `?` 再议。
+
+### 合并后的卡池分布
+
+把本表建议入选的字,和 `字卡稀有度与入选建议.md` 里建议入选的 {hub_picked} 张合起来:
+
+| 档位 | 枢纽字体系 | 补充字池 | 合计 |
+|---|---|---|---|
+{merged_rows}
+
+**这才是要盯的数**:补充池把白绿两档从 10 张拉到 {white_green} 张,
+金字塔的底座补上了。但**紫档合计 {purple} 张仍然偏厚**——
+要砍的话砍枢纽字体系那边的紫(多是 剗/釖/戔 这类繁体叠字),
+本表的紫是 烧/剑/垒/慑 这种玩家一眼就懂的门面字,砍了可惜。
 
 ## 六系特性(判定依据)
 
