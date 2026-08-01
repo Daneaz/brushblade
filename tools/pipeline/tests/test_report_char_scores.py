@@ -5,7 +5,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from report_char_scores import (cost_score, cross_score, affinity_of, affinity_score,
-                                sheng_score, sheng_pairs, total_score, AFFINITY)
+                                sheng_score, sheng_pairs, total_score, AFFINITY,
+                                lateral_score, lateral_index, vertical_index)
 
 
 class TestCostScore:
@@ -72,9 +73,40 @@ class TestShengScore:
         assert sheng_pairs(["木", "木", "火"]) == [("木", "火")]
 
 
+def _recs(*rows):
+    """(字, 配方, 属性) → 最小记录表。"""
+    return [{"char": c, "recipe": list(r), "attrs": list(a)} for c, r, a in rows]
+
+
+class TestLateral:
+    def test_cross_element_combo_counted(self):
+        # 氵+圭=洼:圭(土)带进了水,算横向
+        recs = _recs(("圭", "土土", "土"), ("洼", "氵圭", "土水"), ("土", ["(元素,不可拆)"], "土"))
+        assert lateral_index(recs)["圭"] == {("氵 + 圭", "洼")}
+
+    def test_same_element_combo_not_lateral(self):
+        # 木+林=森 是同系升阶,不算横向
+        recs = _recs(("林", "木木", "木"), ("森", "木林", "木"))
+        assert "林" not in lateral_index(recs)
+
+    def test_same_element_combo_is_vertical(self):
+        recs = _recs(("林", "木木", "木"), ("森", "木林", "木"))
+        assert vertical_index(recs)["林"] == {("木 + 林", "森")}
+
+    def test_score_by_band(self):
+        assert lateral_score(8) == 20
+        assert lateral_score(5) == 15
+        assert lateral_score(3) == 10
+        assert lateral_score(1) == 5
+        assert lateral_score(0) == 0
+
+
 class TestTotalScore:
-    def test_caps_at_one_fifteen(self):
-        # 四元素 + 三属性 + 核心契合 + 相生 = 30 + 25 + 45 + 15
+    def test_caps_at_one_thirtyfive(self):
+        # 四元素 + 三属性 + 核心契合 + 相生 + 横向拉满 = 30 + 25 + 45 + 15 + 20
+        assert total_score(["木", "火", "火", "土"], "核心", lateral=8) == 135
+
+    def test_lateral_defaults_to_zero(self):
         assert total_score(["木", "火", "火", "土"], "核心") == 115
 
     def test_bare_element_scores_only_affinity(self):

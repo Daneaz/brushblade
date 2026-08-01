@@ -1,10 +1,11 @@
 """字卡评分表:枢纽字体系(方案 A)的 145 字 + 心系扩展候补,按六系 + 跨系分类打分。
 
-评分四维度(满分 115):
+评分五维度(满分 135):
 - **成本分 30**:元素成本越高分越高(拆合代价 = 强度上限)
 - **跨系分 25**:属性数越多分越高(跨系字要靠掠夺别系)
 - **契合分 45**:字义与本系机制特性的贴合度,人工判定(见 AFFINITY)
 - **相生分 15**:配方自带相生对 → 效果 ×3,白捡的强度
+- **横向分 20**:它能和别系部件组合出多少字(枢纽字的全部价值)
 
 前两维由结构算出,第三维是字义判断——没有数据源能替代,表在下面明写,可以直接改。
 
@@ -15,6 +16,8 @@ import datetime
 import json
 import sys
 from pathlib import Path
+
+from collections import defaultdict
 
 import report_hub_chars as H
 from decompose import build_index
@@ -169,6 +172,64 @@ def affinity_score(tier):
     return TIER_SCORE.get(tier, 0)
 
 
+# 横向组合数 → 分数(下限, 分)。枢纽字的核心价值:它能带出多少张别的卡
+LATERAL_BANDS = [(8, 20), (5, 15), (3, 10), (1, 5), (0, 0)]
+
+
+def attrs_of(char, by_char):
+    """字的属性集:元素部件查部首表,合成字查它自己的记录。"""
+    if attr_of(char):
+        return {attr_of(char)}
+    rec = by_char.get(char)
+    return set(rec["attrs"]) if rec else set()
+
+
+def lateral_index(records):
+    """{部件: {(搭档串, 合成字)}} —— 只收**跨系**组合(搭档带进了本字没有的属性)。
+
+    圭 → 木+圭=桂、氵+圭=洼、圭+刂=刲;炎 → 氵+炎=淡、钅+炎=锬。
+    同系升阶(炎→焱、林→森)不算横向,它是纵向的升阶链。
+    """
+    by_char = {r["char"]: r for r in records}
+    index = defaultdict(set)
+    for rec in records:
+        parts = rec["recipe"]
+        if len(parts) < 2 or parts[0].startswith("("):
+            continue
+        for part in set(parts):
+            if part not in by_char:
+                continue
+            partners = [p for p in parts if p != part] or [part]
+            own = attrs_of(part, by_char)
+            brought = set().union(*(attrs_of(p, by_char) for p in partners)) - own
+            if brought:
+                index[part].add((" + ".join(parts), rec["char"]))
+    return index
+
+
+def vertical_index(records):
+    """{部件: {(配方, 合成字)}} —— 同系组合,即升阶链(火+火=炎、木+林=森)。"""
+    by_char = {r["char"]: r for r in records}
+    index = defaultdict(set)
+    for rec in records:
+        parts = rec["recipe"]
+        if len(parts) < 2 or parts[0].startswith("("):
+            continue
+        for part in set(parts):
+            if part not in by_char:
+                continue
+            partners = [p for p in parts if p != part] or [part]
+            own = attrs_of(part, by_char)
+            if not set().union(*(attrs_of(p, by_char) for p in partners)) - own:
+                index[part].add((" + ".join(parts), rec["char"]))
+    return index
+
+
+def lateral_score(count):
+    """横向组合分(0~20):能横向组合出的字越多,这个部件越是构筑核心。"""
+    return next(score for floor, score in LATERAL_BANDS if count >= floor)
+
+
 def sheng_pairs(leaves):
     """字里含的相生对(木生火、火生土、土生金、金生水、水生木);心中立不参与生克。"""
     attrs = {attr_of(leaf) for leaf in leaves}
@@ -180,22 +241,27 @@ def sheng_score(leaves):
     return 15 if sheng_pairs(leaves) else 0
 
 
-def total_score(leaves, tier):
+def total_score(leaves, tier, lateral=0):
     return (cost_score(leaves) + cross_score(leaves) + affinity_score(tier)
-            + sheng_score(leaves))
+            + sheng_score(leaves) + lateral_score(lateral))
 
 
 # ---- 报表 ----
 
 _HEAD = ("| 字 | 拼音 | 释义 | 一步配方 | 元素成本 | 类型 | 常用度 | 成本分 | 跨系分 | 契合分 "
-         "| 相生分 | **总分** | 契合判定 | 选用 |"
-         "\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+         "| 相生分 | 横向分 | **总分** | 契合判定 | 选用 |"
+         "\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 
 
 def _sheng_label(leaves):
     """相生分后面缀上是哪一对,如 "(木生火)";无相生对留空。"""
     pairs = sheng_pairs(leaves)
     return "(" + "、".join(f"{a}生{b}" for a, b in pairs) + ")" if pairs else ""
+
+
+def _lateral_label(rec):
+    """横向分后面缀上组合出几个字,如 "(8 字)";组合不出留空。"""
+    return f"({len(rec['lateral'])} 字)" if rec["lateral"] else ""
 
 
 def _type_label(rec):
@@ -218,6 +284,7 @@ def _row(rec):
             f"| {cost_score(rec['leaves']):g} | {cross_score(rec['leaves']):g} "
             f"| {affinity_score(tier):g} "
             f"| {sheng_score(rec['leaves']):g}{_sheng_label(rec['leaves'])} "
+            f"| {lateral_score(len(rec['lateral'])):g}{_lateral_label(rec)} "
             f"| **{rec['score']:g}** | {judged} | {flags} |")
 
 
@@ -241,7 +308,7 @@ def build_report(by_group, today):
 > 字源:`枢纽字体系可用字表.md` 的 {total} 字(纯元素可达字 + 心系扩展区候补 𢗰)。
 > 枢纽字不再单列,归回各自的系;跨系字统一为一类。⚠️ 编辑本表请保存为 UTF-8。
 
-## 评分规则(满分 115)
+## 评分规则(满分 135)
 
 | 维度 | 满分 | 怎么算 |
 |---|---|---|
@@ -249,8 +316,10 @@ def build_report(by_group, today):
 | **跨系分** | 25 | 属性数越多越难凑:单系 0 分,双系 12.5,三系 25 |
 | **契合分** | 45 | 字义与本系机制特性的贴合度:核心 45 / 贴合 30 / 沾边 15 / 无关或字义不明 0 |
 | **相生分** | 15 | 配方自带相生对(木生火 / 火生土 / 土生金 / 金生水 / 水生木)→ +15,否则 0 |
+| **横向分** | 20 | 它能和**别系**部件组合出多少字:≥8 → 20,5~7 → 15,3~4 → 10,1~2 → 5,0 → 0 |
 
-满分 **115**。相生对的配方效果 ×3(`wuxing-reference` §乘数),是白捡的强度,所以单列加分;
+满分 **135**。横向组合是枢纽字的全部价值(圭 能带出 桂/洼/刲…),明细见
+`横向组合枢纽字表.md`;同系升阶(炎→焱)不算横向,那是纵向升阶链。相生对的配方效果 ×3(`wuxing-reference` §乘数),是白捡的强度,所以单列加分;
 相克(×1.5)不加分,心中立不参与生克。常用度(GB 一二级 / 生僻)**不参与打分**,只作为信息列保留。
 
 前两维是结构算出来的;**契合分是字义判断**,判定表写在 `report_char_scores.py` 的 `AFFINITY` 里,
@@ -319,12 +388,14 @@ def build_records():
                      attrs=[r["attr"]], group=r["attr"], down_inner=0, in_game=r["in_game"])
                 for r in stacks if r["attr"] == "心"]
 
+    lateral = lateral_index(records)
     by_group = {a: [] for a in "火木水金土心"}
     by_group["跨系"] = []
     for rec in records:
         tier_info = affinity_of(rec["char"])
         rec["tier_attr"], rec["tier"] = tier_info if tier_info else (None, None)
-        rec["score"] = total_score(rec["leaves"], rec["tier"])
+        rec["lateral"] = sorted(lateral.get(rec["char"], ()), key=lambda kv: kv[1])
+        rec["score"] = total_score(rec["leaves"], rec["tier"], len(rec["lateral"]))
         by_group["跨系" if len(rec["attrs"]) > 1 else rec["attrs"][0]].append(rec)
     return by_group
 
