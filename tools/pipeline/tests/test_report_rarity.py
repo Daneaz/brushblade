@@ -50,6 +50,6 @@ class TestSelectionOf:
         # 氵 契合贴合又是二级字,但它是部件池里的元素变体,不做成卡
         assert selection_of(_rec("氵", tier="贴合", level=2, group="元素")) == "部件·非卡"
 
-    def test_element_already_in_game_stays_a_card(self):
-        # 五行本体(金木水火土)在 chars.json 里是有效果的卡
-        assert selection_of(_rec("火", in_game=True, group="元素")) == "已在字表"
+    def test_element_stays_a_component_even_when_in_game(self):
+        # 五行本体在 chars.json 里有效果,但它同时是部件,不打分不给稀有度
+        assert selection_of(_rec("火", in_game=True, group="元素")) == "部件·非卡"

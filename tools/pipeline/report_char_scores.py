@@ -241,6 +241,11 @@ def sheng_score(leaves):
     return 15 if sheng_pairs(leaves) else 0
 
 
+def is_card(rec):
+    """元素部件是资源不是卡,不打分(2026-08-01 拍板);其余都是卡。"""
+    return rec["group"] != "元素"
+
+
 def total_score(leaves, tier, lateral=0):
     return (cost_score(leaves) + cross_score(leaves) + affinity_score(tier)
             + sheng_score(leaves) + lateral_score(lateral))
@@ -273,30 +278,31 @@ def _type_label(rec):
 def _row(rec):
     tier = rec["tier"]
     note = AFFINITY_NOTE.get(rec["char"], "")
-    if tier:
-        judged = f"{rec['tier_attr']}·{tier}" + (f"({note})" if note else "")
-    else:
-        judged = "—" + (f"({note})" if note else "")
+    judged = (f"{rec['tier_attr']}·{tier}" if tier else "—") + (f"({note})" if note else "")
     flags = "**已在字表**" if rec["in_game"] else ""
-    return (f"| {rec['char']} | {rec['pinyin']} | {rec['gloss']} | {' + '.join(rec['recipe'])} "
+    head = (f"| {rec['char']} | {rec['pinyin']} | {rec['gloss']} | {' + '.join(rec['recipe'])} "
             f"| {H._cost_label(rec['leaves'])} | {_type_label(rec)} "
-            f"| {H._level_label(rec['char'], rec['in_game'])} "
-            f"| {cost_score(rec['leaves']):g} | {cross_score(rec['leaves']):g} "
-            f"| {affinity_score(tier):g} "
-            f"| {sheng_score(rec['leaves']):g}{_sheng_label(rec['leaves'])} "
-            f"| {lateral_score(len(rec['lateral'])):g}{_lateral_label(rec)} "
-            f"| **{rec['score']:g}** | {judged} | {flags} |")
+            f"| {H._level_label(rec['char'], rec['in_game'])} ")
+    lateral = f"{lateral_score(len(rec['lateral'])):g}{_lateral_label(rec)}"
+    if rec["score"] is None:  # 元素部件:资源不是卡,不打分
+        return head + f"| — | — | — | — | {lateral} | **—** | {judged} | {flags} |"
+    return (head
+            + f"| {cost_score(rec['leaves']):g} | {cross_score(rec['leaves']):g} "
+              f"| {affinity_score(tier):g} "
+              f"| {sheng_score(rec['leaves']):g}{_sheng_label(rec['leaves'])} "
+              f"| {lateral} | **{rec['score']:g}** | {judged} | {flags} |")
 
 
 def _table(records):
-    return "\n".join([_HEAD] + [_row(r) for r in sorted(records, key=lambda r: (-r["score"],
-                                                                               r["char"]))])
+    """按分数降序;不打分的元素部件沉底。"""
+    rows = sorted(records, key=lambda r: (r["score"] is None, -(r["score"] or 0), r["char"]))
+    return "\n".join([_HEAD] + [_row(r) for r in rows])
 
 
 def _usable(by_group, attr):
     """某系契合 ≥ 贴合的字(跨系字按契合判定归系),按分数降序。"""
     pool = [r for recs in by_group.values() for r in recs
-            if r["tier_attr"] == attr and r["tier"] in ("核心", "贴合")]
+            if r["tier_attr"] == attr and r["tier"] in ("核心", "贴合") and is_card(r)]
     return sorted(pool, key=lambda r: -r["score"])
 
 
@@ -320,7 +326,10 @@ def build_report(by_group, today):
 
 满分 **135**。横向组合是枢纽字的全部价值(圭 能带出 桂/洼/刲…),明细见
 `横向组合枢纽字表.md`;同系升阶(炎→焱)不算横向,那是纵向升阶链。相生对的配方效果 ×3(`wuxing-reference` §乘数),是白捡的强度,所以单列加分;
-相克(×1.5)不加分,心中立不参与生克。常用度(GB 一二级 / 生僻)**不参与打分**,只作为信息列保留。
+相克(×1.5)不加分,心中立不参与生克。**元素部件不打分**(火灬 / 水氵冫 / 木艹竹 / 金钅刂刀戈 / 土山石 / 心忄 共 18 个):
+它们是部件池里的资源,不是卡,分数对它们没有意义——表里照列,分数列打横杠,
+只保留横向分供参考(元素当部件时能通向哪些成品,见 `横向组合枢纽字表.md`)。
+常用度(GB 一二级 / 生僻)同样**不参与打分**,只作为信息列保留。
 
 前两维是结构算出来的;**契合分是字义判断**,判定表写在 `report_char_scores.py` 的 `AFFINITY` 里,
 不服直接改那张表重跑。跨系字按**字义最贴近的那一系**判,「契合判定」列写明按哪系判的。
@@ -333,12 +342,14 @@ def build_report(by_group, today):
 
 ## 各系字数与最高分
 
-| 系 | 字数 | 榜首 |
-|---|---|---|
+| 系 | 卡(打分) | 部件(不打分) | 榜首 |
+|---|---|---|---|
 """ + "\n".join(
-        f"| {name} | {len(recs)} | " +
+        f"| {name} | {sum(1 for r in recs if is_card(r))} "
+        f"| {sum(1 for r in recs if not is_card(r))} | " +
         "、".join(f"{r['char']} {r['score']:g}"
-                  for r in sorted(recs, key=lambda r: -r["score"])[:3]) + " |"
+                  for r in sorted((x for x in recs if is_card(x)),
+                                  key=lambda r: -r["score"])[:3]) + " |"
         for name, recs in by_group.items()) + f"""
 
 ## 各系契合字
@@ -355,7 +366,10 @@ def build_report(by_group, today):
     for i, (name, recs) in enumerate(by_group.items()):
         num = "一二三四五六七"[i]
         title = f"{name}系" if name != "跨系" else "跨系字"
-        out.append(f"\n## {num} · {title}({len(recs)} 个)\n")
+        cards = sum(1 for r in recs if is_card(r))
+        parts = len(recs) - cards
+        out.append(f"\n## {num} · {title}({cards} 张卡"
+                   + (f" + {parts} 个部件" if parts else "") + ")\n")
         if name == "心":
             out.append("心系是六系里字最少的——纯元素可达的心系字只有 惢/心/忄 三个,"
                        "所以把附录里唯一的心系扩展区候补 **𢗰**(二心,无 BMP 码点)也并进来了。\n")
@@ -395,7 +409,8 @@ def build_records():
         tier_info = affinity_of(rec["char"])
         rec["tier_attr"], rec["tier"] = tier_info if tier_info else (None, None)
         rec["lateral"] = sorted(lateral.get(rec["char"], ()), key=lambda kv: kv[1])
-        rec["score"] = total_score(rec["leaves"], rec["tier"], len(rec["lateral"]))
+        rec["score"] = (total_score(rec["leaves"], rec["tier"], len(rec["lateral"]))
+                        if is_card(rec) else None)
         by_group["跨系" if len(rec["attrs"]) > 1 else rec["attrs"][0]].append(rec)
     return by_group
 
