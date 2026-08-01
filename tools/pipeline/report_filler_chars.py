@@ -26,8 +26,52 @@ from report_pool_candidates import gb_level, is_displayable
 
 ROOT = Path(__file__).resolve().parent
 
-# 档位 → (分数, 稀有度)。紫封顶:这些字合不出来,强度不该压过枢纽字体系
-TIERS = {"核心": (100, "紫"), "贴合": (75, "蓝"), "相关": (50, "绿"), "沾边": (25, "白")}
+# 一维:字义贴合六系特性的程度
+TIERS = {"核心": 100, "贴合": 75, "相关": 50, "沾边": 25}
+
+# 二维:字本身的威力感——玩家读到这个字的压迫感,与贴合度独立。
+# 「灭」贴合度只到沾边(火性但不是燃烧),威力感却拉满,两维分开才拿得住这种字。
+POWER_TIERS = {"极强": 50, "强": 35, "中": 20, "弱": 0}
+
+# (档位, 分数下限);总分 = 贴合分 + 威力分,满分 150。紫封顶——合不出来的字不该压过枢纽字体系
+RARITY_BANDS = [("紫", 135), ("蓝", 100), ("绿", 70), ("白", 0)]
+
+# 字 → 威力档。没列进来的默认「弱」(静物、中性词)。
+POWER = {
+    # 火
+    "爆": "极强", "灭": "极强", "灾": "极强", "燎": "极强",
+    "烧": "强", "燃": "强", "灼": "强", "炽": "强", "焰": "强",
+    "炸": "强", "熔": "强", "焦": "强", "烬": "强",
+    "炬": "中", "烘": "中", "焊": "中", "煎": "中", "熬": "中",
+    "烽": "中", "烫": "中", "热": "中", "烂": "中", "煌": "中",
+    # 木
+    "荆": "强", "藤": "强", "棍": "强", "棒": "强",
+    "树": "中", "蔓": "中", "苍": "中", "松": "中", "柏": "中",
+    "槐": "中", "竿": "中", "栅": "中", "架": "中",
+    # 水
+    "溺": "极强", "淹": "极强",
+    "沸": "强", "冻": "强", "涛": "强", "潮": "强", "浪": "强", "海": "强",
+    "灌": "中", "浇": "中", "溶": "中", "凝": "中", "漫": "中", "活": "中",
+    "治": "中", "冷": "中", "江": "中", "河": "中",
+    # 金
+    "戮": "极强", "剿": "极强", "劈": "极强",
+    "剑": "强", "刺": "强", "割": "强", "削": "强", "剖": "强", "锋": "强",
+    "锐": "强", "戟": "强", "铡": "强", "战": "强", "锤": "强", "锯": "强",
+    "镰": "强", "钢": "强", "铁": "强",
+    "利": "中", "剪": "中", "刮": "中", "锥": "中", "钩": "中", "钉": "中",
+    "铸": "中", "链": "中", "锁": "中", "销": "中", "针": "中",
+    # 土
+    "垒": "强", "堡": "强", "城": "强", "墙": "强", "磐": "强",
+    "峰": "强", "崖": "强", "硬": "强", "壁": "强",
+    "堤": "中", "填": "中", "塞": "中", "堆": "中", "坝": "中", "碉": "中",
+    "础": "中", "砖": "中", "岭": "中", "岸": "中", "碑": "中", "坑": "中",
+    # 心
+    "慑": "极强", "恶": "极强",
+    "恐": "强", "怖": "强", "惧": "强", "怒": "强", "恨": "强",
+    "惊": "强", "慌": "强", "惨": "强",
+    "忧": "中", "悲": "中", "悔": "中", "愧": "中", "惑": "中", "悸": "中",
+    "惮": "中", "惶": "中", "怯": "中", "憎": "中", "恍": "中",
+}
 
 # 字 → (系, 档位)。人工判定,判据是六系机制特性(见 report_char_scores.ELEMENT_TRAITS)。
 FILLER = {
@@ -174,9 +218,19 @@ def tier_of(char):
     return FILLER.get(char)
 
 
-def score_of(tier):
-    """档位 → (分数, 稀有度)。"""
-    return TIERS[tier]
+def power_of(char):
+    """字 → 威力档;没判过的默认「弱」。"""
+    return POWER.get(char, "弱")
+
+
+def total_score(tier, power):
+    """总分 = 贴合分 + 威力分(0~150)。"""
+    return TIERS[tier] + POWER_TIERS[power]
+
+
+def rarity_of(score):
+    """总分 → 稀有度;紫封顶。"""
+    return next(name for name, floor in RARITY_BANDS if score >= floor)
 
 
 def split_useful(parts):
@@ -208,17 +262,20 @@ def validate(chars, existing, index):
 
 # ---- 报表 ----
 
-_HEAD = ("| 字 | 拼音 | 释义 | 拆解 | 拆出元素 | 废料 | 分数 | **稀有度** "
-         "| 本期入选(建议) | 终审 | 判定 |\n|---|---|---|---|---|---|---|---|---|---|---|")
+_HEAD = ("| 字 | 拼音 | 释义 | 拆解 | 拆出元素 | 废料 | 贴合分 | 威力分 | **总分** | **稀有度** "
+         "| 本期入选(建议) | 终审 | 判定 |"
+         "\n|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 
 
 def _row(rec):
-    score, rarity = score_of(rec["tier"])
     note = FILLER_NOTE.get(rec["char"], "")
+    power = power_of(rec["char"])
     select = selection_of(rec["char"])
     mark = "✅ 建议入选" if select == "建议入选" else f"⬜ 暂不入({SKIP[rec['char']]})"
     return (f"| {rec['char']} | {rec['pinyin']} | {rec['gloss']} | {' + '.join(rec['parts'])} "
-            f"| {rec['useful']} | {rec['waste'] or '—'} | {score} | **{rarity}** "
+            f"| {rec['useful']} | {rec['waste'] or '—'} "
+            f"| {TIERS[rec['tier']]}({rec['tier']}) | {POWER_TIERS[power]}({power}) "
+            f"| **{rec['score']}** | **{rec['rarity']}** "
             f"| {mark} | | {rec['tier']}{f'({note})' if note else ''} |")
 
 
@@ -237,11 +294,17 @@ def build_report(by_attr, today, problems):
     total = sum(len(v) for v in by_attr.values())
     counts = {t: sum(1 for recs in by_attr.values() for r in recs if r["tier"] == t)
               for t in TIERS}
+    power_counts = {p: sum(1 for recs in by_attr.values() for r in recs
+                           if power_of(r["char"]) == p) for p in POWER_TIERS}
+    rarity_counts = {b: sum(1 for recs in by_attr.values() for r in recs
+                            if r["rarity"] == b) for b, _ in RARITY_BANDS}
+    purple_count = rarity_counts["紫"]
+    low_count = rarity_counts["绿"] + rarity_counts["白"]
     picked_by_rarity = defaultdict(int)
     for recs in by_attr.values():
         for rec in recs:
             if selection_of(rec["char"]) == "建议入选":
-                picked_by_rarity[TIERS[rec["tier"]][1]] += 1
+                picked_by_rarity[rec["rarity"]] += 1
     picked = sum(picked_by_rarity.values())
     skipped = total - picked
     hub = hub_rarity_counts()
@@ -270,19 +333,48 @@ def build_report(by_attr, today, problems):
 所以它们是**基础卡**:白绿档为主,靠字义威力感往上够到蓝紫,**紫色封顶**——
 能合成的字(炎/焱/燚)才配拿橙红,合不出来的字不该压过它们。
 
-## 评分只有一维
+## 评分两维
 
-字义贴合六系特性的程度,四档:
+### 一 · 贴合分(25~100):字义贴合六系特性的程度
 
-| 档位 | 分数 | 稀有度 | 含义 | 本表字数 |
-|---|---|---|---|---|
-""" + "\n".join(f"| **{t}** | {TIERS[t][0]} | {TIERS[t][1]} | {desc} | {counts[t]} |"
+| 档位 | 分数 | 含义 | 本表字数 |
+|---|---|---|---|
+""" + "\n".join(f"| **{t}** | {TIERS[t]} | {desc} | {counts[t]} |"
                 for t, desc in [("核心", "字义就是这个机制本身(烧 / 垒 / 慑)"),
                                 ("贴合", "明确指向该机制(熔 / 碉 / 惶)"),
                                 ("相关", "属性对但不是机制(炉 / 坡 / 懒)"),
                                 ("沾边", "只是这一系的物件(灯 / 尘 / 念)")]) + f"""
 
-成本、跨系、相生、横向那四维在这里都不适用:这些字合不出来,也当不了部件。
+### 二 · 威力分(0~50):字本身读起来有多厉害
+
+跟贴合度**互相独立**——玩家看到卡面先感受到的是字的气势,不是它属于哪条机制线。
+
+| 档位 | 分数 | 含义 | 本表字数 |
+|---|---|---|---|
+""" + "\n".join(f"| **{p}** | {POWER_TIERS[p]} | {desc} | {power_counts[p]} |"
+                for p, desc in [("极强", "毁灭、致命(灭 / 爆 / 戮 / 慑 / 溺)"),
+                                ("强", "明确的攻击性或强烈情绪(烧 / 剑 / 城 / 恐)"),
+                                ("中", "有动作感但不激烈(烘 / 填 / 钩 / 忧)"),
+                                ("弱", "静物或中性词(灯 / 桶 / 池 / 念)")]) + f"""
+
+**「灭」就是要靠两维才拿得住的字**:它的贴合度只到沾边(火性,但机制是熄火不是燃烧),
+威力感却拉满——25 + 50 = 75,从白档提到绿档。单看任何一维都会判错它。
+
+### 总分与稀有度(满分 150,紫封顶)
+
+| 稀有度 | 分数区间 | 本表字数 |
+|---|---|---|
+""" + "\n".join(
+        f"| **{name}** | {floor} ~ {RARITY_BANDS[i-1][1] - 1 if i else 150} "
+        f"| {rarity_counts[name]} |"
+        for i, (name, floor) in enumerate(RARITY_BANDS)) + f"""
+
+紫封顶是因为这些字合不出来——能合成的字(炎/焱/燚)才配拿橙红。
+成本、跨系、相生、横向那四维在这里都不适用:合不出来,也当不了部件。
+
+**档位边界是照着「这批字是白绿卡来源」这个定位切的**:紫要两维都高(核心 + 强,
+或贴合 + 极强),所以只有 {purple_count} 个;绿白两档合计 {low_count} 个,占了大半。
+边界一抬一压,分布就从「紫最厚」翻成了金字塔——这正是它该有的样子。
 
 ## 本期入选
 
@@ -318,9 +410,8 @@ def build_report(by_attr, today, problems):
         recs = by_attr.get(attr, [])
         out.append(f"\n## {'一二三四五六'[i]} · {attr}系({len(recs)} 个)"
                    f"—— {S.ELEMENT_TRAITS[attr][0]}\n")
-        order = {t: i for i, t in enumerate(TIERS)}
         out.append("\n".join([_HEAD] + [_row(r) for r in sorted(
-            recs, key=lambda r: (order[r["tier"]], r["char"]))]))
+            recs, key=lambda r: (-r["score"], r["char"]))]))
     out.append("")
     return "\n".join(out)
 
@@ -340,9 +431,11 @@ def main():
         parts = decompose(char, index)
         useful, waste = split_useful(parts)
         pinyin, gloss = readings.get(char, ("—", ""))
+        score = total_score(tier, power_of(char))
         by_attr[attr].append({"char": char, "tier": tier, "parts": parts,
                               "useful": " ".join(useful), "waste": " ".join(waste),
-                              "pinyin": pinyin, "gloss": gloss})
+                              "pinyin": pinyin, "gloss": gloss,
+                              "score": score, "rarity": rarity_of(score)})
 
     text = build_report(by_attr, datetime.date.today().isoformat(), problems)
     path = ROOT.parent.parent / "docs/design/字选型/补充字池(白绿卡).md"

@@ -5,8 +5,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from decompose import build_index
-from report_filler_chars import (FILLER, SKIP, TIERS, score_of, selection_of, split_useful,
-                                 tier_of, validate)
+from report_filler_chars import (FILLER, POWER, POWER_TIERS, RARITY_BANDS, SKIP, TIERS,
+                                 power_of, rarity_of, selection_of, split_useful, tier_of,
+                                 total_score, validate)
 
 
 def index_of(pairs):
@@ -16,15 +17,37 @@ def index_of(pairs):
 class TestTiers:
     def test_purple_is_the_ceiling(self):
         # 合不出来的字不该压过枢纽字体系,最高只到紫
-        assert {rarity for _, rarity in TIERS.values()} == {"紫", "蓝", "绿", "白"}
+        assert {name for name, _ in RARITY_BANDS} == {"紫", "蓝", "绿", "白"}
 
-    def test_score_rises_with_tier(self):
-        assert (score_of("核心")[0] > score_of("贴合")[0]
-                > score_of("相关")[0] > score_of("沾边")[0])
+    def test_fit_score_rises_with_tier(self):
+        assert TIERS["核心"] > TIERS["贴合"] > TIERS["相关"] > TIERS["沾边"]
+
+    def test_power_score_rises_with_tier(self):
+        assert (POWER_TIERS["极强"] > POWER_TIERS["强"]
+                > POWER_TIERS["中"] > POWER_TIERS["弱"])
 
     def test_lookup(self):
         assert tier_of("烧") == ("火", "核心")
         assert tier_of("炎") is None  # 炎 是纯元素可达字,归枢纽字体系表
+
+
+class TestPower:
+    def test_unjudged_char_is_weak(self):
+        assert power_of("灯") == "弱"
+
+    def test_power_lifts_a_poorly_fitting_char(self):
+        # 灭:贴合只到沾边(机制是熄火不是燃烧),但威力拉满 → 从白提到绿
+        assert power_of("灭") == "极强"
+        assert rarity_of(total_score("沾边", "极强")) == "绿"
+        assert rarity_of(total_score("沾边", "弱")) == "白"
+
+    def test_purple_needs_both_dimensions_high(self):
+        assert rarity_of(total_score("核心", "强")) == "紫"
+        assert rarity_of(total_score("核心", "中")) == "蓝"   # 贴合再好,没气势也上不了紫
+        assert rarity_of(total_score("贴合", "极强")) == "蓝"
+
+    def test_every_power_entry_is_in_the_pool(self):
+        assert set(POWER) <= set(FILLER)
 
 
 class TestSplitUseful:
