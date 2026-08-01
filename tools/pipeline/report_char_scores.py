@@ -298,7 +298,8 @@ def build_report(by_group, today):
     return "\n".join(out)
 
 
-def main():
+def build_records():
+    """全部 146 字 → 打完分的记录表,按六系 + 跨系分组(稀有度表也用这份)。"""
     sys.setrecursionlimit(10000)
     entries = parse_ids_text((ROOT / "data/raw/ids.txt").read_text(encoding="utf-8"))
     index = build_index(entries)
@@ -325,7 +326,12 @@ def main():
         rec["tier_attr"], rec["tier"] = tier_info if tier_info else (None, None)
         rec["score"] = total_score(rec["leaves"], rec["tier"])
         by_group["跨系" if len(rec["attrs"]) > 1 else rec["attrs"][0]].append(rec)
+    return by_group
 
+
+def main():
+    by_group = build_records()
+    records = [r for recs in by_group.values() for r in recs]
     text = build_report(by_group, datetime.date.today().isoformat())
     path = ROOT.parent.parent / "docs/design/字选型/字卡评分表.md"
     path.write_text(text)
