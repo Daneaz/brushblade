@@ -35,10 +35,11 @@ class TestSelectionOf:
     def test_recognizable_and_fitting_is_recommended(self):
         assert selection_of(_rec("焚", tier="核心", level=1)) == "建议入选"
 
-    def test_rare_char_not_recommended(self):
-        assert selection_of(_rec("燊", tier="核心", level=0)) == "暂不入"
+    def test_rare_char_still_recommended_when_fitting(self):
+        # 生僻不作为判据:燊(火盛)契合核心,照收
+        assert selection_of(_rec("燊", tier="核心", level=0)) == "建议入选"
 
-    def test_recognizable_but_unfitting_not_recommended(self):
+    def test_common_but_unfitting_not_recommended(self):
         # 泵 是一级常用字,但字义与土系防御无关
         assert selection_of(_rec("泵", tier=None, level=1)) == "暂不入"
 
