@@ -392,5 +392,42 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Battle.AliveSummonCount, Is.EqualTo(2));
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
+
+        [Test]
+        public void CarriedSummons_SurviveRealSaveFile() // 跨段:整份存档走 SaveSerializer 往返
+        {
+            var meta = new MetaState
+            {
+                Endless = new EndlessSaveState
+                {
+                    Depth = 6,
+                    Seed = 999,
+                    CarriedSummons = new List<SummonSnapshot>
+                    {
+                        new() { Char = "木", Element = Element.Wood, Hp = 3, MaxHp = 6, Attack = 2 },
+                    },
+                },
+            };
+
+            var reloaded = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
+            var carried = reloaded.Endless.CarriedSummons;
+            Assert.That(carried.Count, Is.EqualTo(1));
+            Assert.That(carried[0].Char, Is.EqualTo("木"));
+            Assert.That(carried[0].Element, Is.EqualTo(Element.Wood));
+            Assert.That(carried[0].Hp, Is.EqualTo(3));      // 残血跨段延续
+            Assert.That(carried[0].MaxHp, Is.EqualTo(6));
+            Assert.That(carried[0].Attack, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void LegacySave_WithoutCarriedSummons_LoadsEmpty() // 旧档没这字段:读出空场,不崩
+        {
+            var meta = Data.SaveSerializer.FromJson("{\"Endless\":{\"Depth\":3,\"Seed\":999,\"NormalShield\":5}}");
+            Assert.That(meta.Endless, Is.Not.Null);
+            Assert.That(meta.Endless.Depth, Is.EqualTo(3));
+            Assert.That(meta.Endless.NormalShield, Is.EqualTo(5));
+            Assert.That(meta.Endless.CarriedSummons, Is.Not.Null);
+            Assert.That(meta.Endless.CarriedSummons, Is.Empty);
+        }
     }
 }

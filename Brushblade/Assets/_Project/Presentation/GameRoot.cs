@@ -206,7 +206,8 @@ namespace Brushblade.Presentation
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
                 startingPersistShield: snapshot.PersistShield,
-                perFloorNormalShield: PerkRules.ShieldBonus(_meta)); // 金汤:每关开战补盾(段首由 NormalShield 注入)
+                perFloorNormalShield: PerkRules.ShieldBonus(_meta), // 金汤:每关开战补盾(段首由 NormalShield 注入)
+                startingSummons: snapshot.CarriedSummons); // 召唤物跨段延续(2026-08-03),与普通盾同口径
             if (resume == null) // 从断点恢复时这些已在 run 状态里,再调一次会把容量重复抬高
             {
                 if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
@@ -312,6 +313,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
+            snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             MetaStore.Save(_meta);
         }
 
@@ -327,6 +329,7 @@ namespace Brushblade.Presentation
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
             snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
+            snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
         }
 
         private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int baseInk, bool won)
@@ -363,6 +366,7 @@ namespace Brushblade.Presentation
             // 与挂起快照同口径;金汤每关另补,见 RunEngine
             snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
+            snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned);
         }

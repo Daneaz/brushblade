@@ -180,6 +180,8 @@ namespace Brushblade.Core
         public int TopBossDepth { get; set; } // 本次爬塔已破的最高 Boss 层(0=未破);结算宝箱档位据此(2026-07-22)
         public int NormalShield { get; set; }   // 普通护盾(断点续爬恢复;整场爬塔延续)
         public int PersistShield { get; set; }   // 堡型护盾(跨段保留)
+        /// <summary>携带召唤物(2026-08-03):与普通盾同口径,整场爬塔延续,直到死亡。</summary>
+        public List<SummonSnapshot> CarriedSummons { get; set; } = new();
 
         /// <summary>段中断点(2026-07-27):非空即「上次退出时正打到一半」,读档直接接着打。
         /// 段末结算/塔结算时清空 —— 留着会让下次登塔从旧段中间开始。</summary>
