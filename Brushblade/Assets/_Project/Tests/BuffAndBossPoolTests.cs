@@ -74,6 +74,29 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[1].Attack, Is.EqualTo(3)); // 尸体不加
         }
 
+        // ---- Freeze 补测(task 9 review finding,2026-08-03):冻结中的标点小妖不能再发放攻击加成 ----
+
+        private static RecipeGraph FreezeGraph() => new(new[]
+        {
+            new CharDef("火", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
+            new CharDef("冻", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Freeze, 1) }),
+        });
+
+        [Test]
+        public void Buffer_Frozen_DoesNotBuffOthers()
+        {
+            var engine = new BattleEngine(FreezeGraph(), new BattleConfig(),
+                new[] { "冻" }, Array.Empty<string>(), new[] { Buffer(), Ghost() }, seed: 1);
+            engine.Cast("冻", 0); // 冻结标点小妖(下标 0)
+
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(4), "冻结中的标点小妖不应发放攻击加成");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.False);
+        }
+
         // ---- Boss 池随机 ----
 
         private static CampaignConfig WithBossPool()

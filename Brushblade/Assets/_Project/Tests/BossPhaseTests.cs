@@ -183,5 +183,49 @@ namespace Brushblade.Core.Tests
             Assert.That(boss.Phases[3].Attack, Is.EqualTo(15)); // 10×1.5
             Assert.That(boss.Phases[1].DamageTaken, Is.EqualTo(0.5f)); // 承伤系数不缩放
         }
+
+        // ---- Freeze 补测(task 9 review finding,2026-08-03):冻结中的 Boss 完全不行动,
+        // 含蓄力计数与技能释放 ----
+
+        private static RecipeGraph FreezeGraph() => new(new[]
+        {
+            new CharDef("火", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+            new CharDef("冻", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Freeze, 3) }),
+        });
+
+        // 单阶段技能 Boss:BossChargeEvery 默认 2 → 正常节奏是 普攻(计数1)→蓄力(计数2)→释放。
+        // 冻 3 回合正好盖住整个周期,借此断言冻结把「蓄力计数/进入蓄力/释放大招」全部拦下。
+        private static EnemyDef SkillBoss() => new("试炼", Element.Heart, 100, 5,
+            phases: new[] { new BossPhaseDef("甲", Element.Heart, 100, 5, skill: BossSkill.Deluge) });
+
+        [Test]
+        public void Freeze_PausesBossChargeAndSkillRelease()
+        {
+            var engine = new BattleEngine(FreezeGraph(),
+                new BattleConfig { BossPhaseJitterPercent = 0 },
+                new[] { "冻" }, Array.Empty<string>(), new[] { SkillBoss() }, seed: 1);
+            engine.Cast("冻", 0);
+            int hp0 = engine.PlayerHp;
+
+            engine.EndTurn(); // 冻结回合 1:本应普攻+计数,冻结后不出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "冻结中不蓄力计数");
+            Assert.That(engine.Enemies[0].IsCharging, Is.False);
+
+            engine.EndTurn(); // 冻结回合 2:本应计数达标进入蓄力,冻结后仍不出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
+            Assert.That(engine.Enemies[0].IsCharging, Is.False, "冻结中不会进入蓄力状态");
+
+            engine.EndTurn(); // 冻结回合 3:本应释放大招,冻结后仍不出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结覆盖了整个蓄力周期,大招没放出来");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast), Is.False);
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossCharging), Is.False);
+
+            engine.EndTurn(); // 解冻后第 1 个敌方回合:恢复普攻,重新计数
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 5), "解冻后恢复普攻");
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(1));
+        }
     }
 }
