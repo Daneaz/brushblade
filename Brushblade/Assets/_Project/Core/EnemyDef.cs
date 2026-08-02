@@ -127,6 +127,8 @@ namespace Brushblade.Core
         public int MaxHp { get; internal set; }          // 当前阶段上限
         public Element Element { get; internal set; }    // 当前属性(Boss 换阶段会变)
         public int Burn { get; internal set; }
+        public int Bleed { get; internal set; }        // 每回合流血伤害(无属性)
+        public int BleedTurns { get; internal set; }   // 剩余流血回合
         public int Attack { get; internal set; }         // 当前攻击(缺笔妖会成长)
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
         public int PhaseIndex { get; internal set; }     // 成语 Boss 当前阶段(0 起)
@@ -165,6 +167,8 @@ namespace Brushblade.Core
             Element = Element,
             ApparentElement = ApparentElement,
             Burn = Burn,
+            Bleed = Bleed,
+            BleedTurns = BleedTurns,
             Attack = Attack,
             DamageTaken = DamageTaken,
             PhaseIndex = PhaseIndex,
@@ -185,6 +189,8 @@ namespace Brushblade.Core
             Element = snapshot.Element,
             ApparentElement = snapshot.ApparentElement,
             Burn = snapshot.Burn,
+            Bleed = snapshot.Bleed,
+            BleedTurns = snapshot.BleedTurns,
             Attack = snapshot.Attack,
             DamageTaken = snapshot.DamageTaken,
             PhaseIndex = snapshot.PhaseIndex,

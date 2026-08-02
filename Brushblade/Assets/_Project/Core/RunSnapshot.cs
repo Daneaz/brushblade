@@ -33,6 +33,8 @@ namespace Brushblade.Core
         public Element Element { get; set; }
         public Element? ApparentElement { get; set; } // null = 生僻字未被读懂
         public int Burn { get; set; }
+        public int Bleed { get; set; }
+        public int BleedTurns { get; set; }
         public int Attack { get; set; }
         public float DamageTaken { get; set; }
         public int PhaseIndex { get; set; }

@@ -1150,5 +1150,62 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(Engine().SummonCapacity, Is.EqualTo(6));
         }
+
+        private static RecipeGraph BleedGraph() => new(new[]
+        {
+            new CharDef("锯", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.Bleed, 3) }),
+        });
+
+        [Test]
+        public void Bleed_IgnoresElementMultipliers()
+        {
+            foreach (var element in new[] { Element.Metal, Element.Water, Element.Heart })
+            {
+                var engine = new BattleEngine(BleedGraph(), Config(), new[] { "锯" },
+                    Array.Empty<string>(), new[] { new EnemyDef("桩", element, 500, 0) }, 42);
+                engine.Cast("锯");
+                int hpBefore = engine.Enemies[0].Hp;
+
+                engine.EndTurn();
+
+                Assert.That(hpBefore - engine.Enemies[0].Hp, Is.EqualTo(3),
+                    $"流血对 {element} 应等值 3");
+            }
+        }
+
+        [Test]
+        public void Bleed_ExpiresAfterThreeTurns()
+        {
+            var engine = new BattleEngine(BleedGraph(), Config(), new[] { "锯" },
+                Array.Empty<string>(), new[] { new EnemyDef("桩", Element.Metal, 500, 0) }, 42);
+            engine.Cast("锯");
+
+            for (int i = 0; i < 3; i++) engine.EndTurn();
+            int afterExpiry = engine.Enemies[0].Hp;
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(afterExpiry), "流血到期后不再掉血");
+        }
+
+        [Test]
+        public void Bleed_SurvivesSnapshotRoundTrip() // 状态字段加进 EnemyState 必须同步进快照,否则续爬会悄悄回退
+        {
+            var enemyDef = new EnemyDef("桩", Element.Metal, 500, 0);
+            var engine = new BattleEngine(BleedGraph(), Config(), new[] { "锯" },
+                Array.Empty<string>(), new[] { enemyDef }, 42);
+            engine.Cast("锯");
+
+            var snapshot = engine.Capture();
+            var restored = BattleEngine.Restore(snapshot, BleedGraph(), Config(), null,
+                new System.Collections.Generic.Dictionary<string, EnemyDef> { ["桩"] = enemyDef });
+
+            Assert.That(restored.Enemies[0].Bleed, Is.EqualTo(3));
+            Assert.That(restored.Enemies[0].BleedTurns, Is.EqualTo(3));
+
+            int hpBefore = restored.Enemies[0].Hp;
+            restored.EndTurn();
+            Assert.That(hpBefore - restored.Enemies[0].Hp, Is.EqualTo(3), "读档后流血应继续正常结算");
+        }
     }
 }

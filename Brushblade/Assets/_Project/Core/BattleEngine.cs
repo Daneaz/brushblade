@@ -392,7 +392,8 @@ namespace Brushblade.Core
         public static bool NeedsTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
-                if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle)
+                if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle
+                    || effect.Kind == EffectKind.Bleed)
                     return true;
             return false;
         }
@@ -419,6 +420,19 @@ namespace Brushblade.Core
                     ResolveDefeat(i);
                 else
                     CheckBossPhase(i);
+            }
+            CheckWin();
+            if (Phase != BattlePhase.PlayerTurn) return;
+
+            // 流血(2026-08-03):无属性,不乘任何生克系数
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                var enemy = _enemies[i];
+                if (!enemy.Alive || enemy.BleedTurns <= 0) continue;
+                enemy.Hp = Math.Max(0, enemy.Hp - enemy.Bleed);
+                enemy.BleedTurns -= 1;
+                if (enemy.BleedTurns == 0) enemy.Bleed = 0;
+                if (!enemy.Alive) ResolveDefeat(i);
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
@@ -563,6 +577,13 @@ namespace Brushblade.Core
                         {
                             _enemies[targetIndex].Burn += value;
                             _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, value));
+                        }
+                        break;
+                    case EffectKind.Bleed:
+                        if (_enemies[targetIndex].Alive)
+                        {
+                            _enemies[targetIndex].Bleed = value;
+                            _enemies[targetIndex].BleedTurns = 3;   // 固定 3 回合
                         }
                         break;
                     case EffectKind.BurnAll:
