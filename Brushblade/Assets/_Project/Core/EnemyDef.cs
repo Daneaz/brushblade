@@ -129,6 +129,7 @@ namespace Brushblade.Core
         public int Burn { get; internal set; }
         public int Bleed { get; internal set; }        // 每回合流血伤害(无属性)
         public int BleedTurns { get; internal set; }   // 剩余流血回合
+        public int FreezeTurns { get; internal set; }  // 剩余冻结回合
         public int Attack { get; internal set; }         // 当前攻击(缺笔妖会成长)
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
         public int PhaseIndex { get; internal set; }     // 成语 Boss 当前阶段(0 起)
@@ -169,6 +170,7 @@ namespace Brushblade.Core
             Burn = Burn,
             Bleed = Bleed,
             BleedTurns = BleedTurns,
+            FreezeTurns = FreezeTurns,
             Attack = Attack,
             DamageTaken = DamageTaken,
             PhaseIndex = PhaseIndex,
@@ -191,6 +193,7 @@ namespace Brushblade.Core
             Burn = snapshot.Burn,
             Bleed = snapshot.Bleed,
             BleedTurns = snapshot.BleedTurns,
+            FreezeTurns = snapshot.FreezeTurns,
             Attack = snapshot.Attack,
             DamageTaken = snapshot.DamageTaken,
             PhaseIndex = snapshot.PhaseIndex,

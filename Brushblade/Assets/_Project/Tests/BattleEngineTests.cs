@@ -1283,5 +1283,50 @@ namespace Brushblade.Core.Tests
             restored.EndTurn();
             Assert.That(restored.PlayerHp, Is.EqualTo(hpAfterExpiry - 6), "读档后到期照样停止回复");
         }
+
+        // ---- Freeze:冻结跳过整回合(2026-08-03;藤的「束缚」也走这个 Kind) ----
+
+        private static RecipeGraph FreezeGraph() => new(new[]
+        {
+            new CharDef("冻", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Freeze, 1) }),
+        });
+
+        [Test]
+        public void Freeze_SkipsEnemyTurnThenResumes()
+        {
+            var engine = new BattleEngine(FreezeGraph(), Config(), new[] { "冻", "冻" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 6) }, 42);
+            engine.Cast("冻");
+            int hp0 = engine.PlayerHp;
+
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结回合敌人不出手");
+
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "解冻后恢复出手");
+        }
+
+        [Test]
+        public void Freeze_SurvivesSnapshotRoundTrip() // 状态字段加进 EnemyState 必须同步进快照,否则续爬会悄悄回退
+        {
+            var enemyDef = new EnemyDef("锈", Element.Metal, 500, 6);
+            var engine = new BattleEngine(FreezeGraph(), Config(), new[] { "冻", "冻" },
+                Array.Empty<string>(), new[] { enemyDef }, 42);
+            engine.Cast("冻");
+
+            var snapshot = engine.Capture();
+            var restored = BattleEngine.Restore(snapshot, FreezeGraph(), Config(), null,
+                new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
+
+            Assert.That(restored.Enemies[0].FreezeTurns, Is.EqualTo(1));
+
+            int hp0 = restored.PlayerHp;
+            restored.EndTurn();
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0), "读档后冻结回合仍不出手");
+
+            restored.EndTurn();
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6), "读档后解冻仍恢复出手");
+        }
     }
 }

@@ -14,6 +14,7 @@ namespace Brushblade.Core
         Bleed,        // 流血:每回合固定伤害,无属性、不走生克(2026-08-03)
         HealAll,        // 群体治疗:玩家 + 全部召唤物(2026-08-03)
         HealOverTime,   // 持续治疗:每回合 Value,持续 Turns 回合;TargetAll 则含召唤物
+        Freeze,       // 冻结:目标跳过 Value 个回合(2026-08-03;藤的「束缚」也走这个)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

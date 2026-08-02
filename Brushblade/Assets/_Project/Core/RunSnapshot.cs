@@ -36,6 +36,7 @@ namespace Brushblade.Core
         public int Burn { get; set; }
         public int Bleed { get; set; }
         public int BleedTurns { get; set; }
+        public int FreezeTurns { get; set; }
         public int Attack { get; set; }
         public float DamageTaken { get; set; }
         public int PhaseIndex { get; set; }

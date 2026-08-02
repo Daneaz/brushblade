@@ -398,7 +398,7 @@ namespace Brushblade.Core
         {
             foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle
-                    || effect.Kind == EffectKind.Bleed)
+                    || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze)
                     return true;
             return false;
         }
@@ -479,6 +479,7 @@ namespace Brushblade.Core
             foreach (var enemy in _enemies)
             {
                 if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff) continue;
+                if (enemy.FreezeTurns > 0) continue; // 冻结:连辅助加攻都不出手
                 if (!HasOtherAliveEnemy(enemy)) continue; // 无人可加 → 交给下面的行动循环
                 for (int j = 0; j < _enemies.Count; j++)
                 {
@@ -494,6 +495,11 @@ namespace Brushblade.Core
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive) continue;
+                if (enemy.FreezeTurns > 0)
+                {
+                    enemy.FreezeTurns -= 1;
+                    continue;   // 冻结:本回合不行动(蓄力/加攻/技能全部跳过)
+                }
                 if (enemy.Def.Ability == EnemyAbility.Buff && HasOtherAliveEnemy(enemy))
                     continue; // 已用加攻代替出手;独自在场时照常攻击
 
@@ -605,6 +611,10 @@ namespace Brushblade.Core
                             _enemies[targetIndex].Bleed = value;
                             _enemies[targetIndex].BleedTurns = 3;   // 固定 3 回合
                         }
+                        break;
+                    case EffectKind.Freeze:
+                        if (_enemies[targetIndex].Alive)
+                            _enemies[targetIndex].FreezeTurns = value;
                         break;
                     case EffectKind.BurnAll:
                         for (int i = 0; i < _enemies.Count; i++)
