@@ -80,10 +80,10 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EnemyCount_GrowsWithDepth_CapsAtFour()
+        public void EnemyCount_GrowsWithDepth_CapsAtSix()
         {
             Assert.That(EndlessGenerator.BuildFloor(Config(), 9, new GameRandom(7)).Count, Is.EqualTo(3));
-            Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count, Is.EqualTo(4));
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count, Is.EqualTo(6));
         }
 
         [Test]
@@ -356,6 +356,16 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.Ink, Is.EqualTo(200));
             Assert.That(EndlessRules.TryAwardMilestone(meta, band), Is.False);
             Assert.That(meta.Ink, Is.EqualTo(200));
+        }
+
+        [Test]
+        public void BuildFloor_EnemyCountCapsAtSix()
+        {
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count,
+                Is.EqualTo(6), "深层敌人数上限应为 6");
+            for (int depth = 1; depth <= 60; depth++)
+                Assert.That(EndlessGenerator.BuildFloor(Config(), depth, new GameRandom(7)).Count,
+                    Is.LessThanOrEqualTo(6), $"第 {depth} 层敌人数超上限");
         }
     }
 }

@@ -208,11 +208,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Split_CappedAtFourEnemies()
+        public void Split_CappedAtSixEnemies()
         {
             var engine = Engine(Splitter(), Splitter(), Splitter(), Splitter());
-            engine.Cast("烧"); // AOE 打全场:已 4 只,不再分裂
-            Assert.That(engine.Enemies.Count, Is.EqualTo(4));
+            engine.Cast("烧"); // AOE 打全场:分裂到 6 只后守卫阻挡
+            Assert.That(engine.Enemies.Count, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Split_PreexistingAtCap_NoFurtherSplit()
+        {
+            // 预先就在上限 6,AOE 命中后仍不再分裂(恢复原场景覆盖)
+            var engine = Engine(Splitter(), Splitter(), Splitter(), Splitter(), Splitter(), Splitter());
+            engine.Cast("烧"); // AOE 打 6 只叠字怪,全部活着但无人分裂
+            Assert.That(engine.Enemies.Count, Is.EqualTo(6));
         }
 
         // ---- 配置解析 ----

@@ -95,7 +95,8 @@ namespace Brushblade.Core
         private readonly GameRandom _random;
         private readonly List<EnemyState> _enemies = new();
         private readonly List<SummonState> _summons = new();
-        private const int SummonCap = 4; // 场上存活召唤物上限(2026-07-19)
+        private const int SummonCap = 6; // 场上存活召唤物上限(2026-08-03:4 → 6)
+        private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         private const int ScorchGain = 2; // 焦痕受击存活的加攻量
 
         private ForgeState _forge;
@@ -674,8 +675,8 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
             }
 
-            // 叠字怪:首次受击存活 → 分裂成两个半血(8.3;场上 <4 时)
-            if (enemy.Def.Ability == EnemyAbility.Split && !enemy.HasSplit && _enemies.Count < 4)
+            // 叠字怪:首次受击存活 → 分裂成两个半血(8.3;场上 <EnemyCap 时)
+            if (enemy.Def.Ability == EnemyAbility.Split && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
                 int half = (enemy.Hp + 1) / 2;
                 enemy.Hp = half;

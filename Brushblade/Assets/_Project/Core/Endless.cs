@@ -151,7 +151,7 @@ namespace Brushblade.Core
                 if (enemy.Ability != EnemyAbility.Buff)
                     nonSupport.Add(enemy);
 
-            int count = 1 + Math.Min(3, (depth - 1) / 4);
+            int count = 1 + Math.Min(5, (depth - 1) / 4);   // 上限 6(2026-08-03:4 → 6)
             bool hasSupport = false;
             for (int i = 0; i < count; i++)
             {

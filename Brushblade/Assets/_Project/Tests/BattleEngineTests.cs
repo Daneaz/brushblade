@@ -854,24 +854,24 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cast_SummonAtCap_IsBlocked_KeepsApAndChar()
         {
-            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "乙" });
-            for (int i = 0; i < 4; i++) engine.Cast("甲");
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "甲", "甲", "乙" });
+            for (int i = 0; i < 6; i++) engine.Cast("甲");
             int apBefore = engine.Ap;
 
             Assert.That(engine.Cast("乙"), Is.EqualTo(BattleError.SummonCapFull));
             Assert.That(engine.Ap, Is.EqualTo(apBefore));   // 强阻断:AP 不吃
             Assert.That(engine.Library, Contains.Item("乙")); // 字不消耗
-            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6));
         }
 
         [Test]
         public void Cast_SummonAtCap_ReplaceMode_ReplacesFirstSlot()
         {
-            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "乙" });
-            for (int i = 0; i < 4; i++) engine.Cast("甲");
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "甲", "甲", "乙" });
+            for (int i = 0; i < 6; i++) engine.Cast("甲");
 
             Assert.That(engine.Cast("乙", replaceSummon: true), Is.EqualTo(BattleError.None));
-            Assert.That(engine.AliveSummonCount, Is.EqualTo(4)); // 不超编
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6)); // 不超编
             Assert.That(engine.Summons[0].Char, Is.EqualTo("B"));
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(20));   // 新召唤满血入场
             Assert.That(engine.Summons[1].Char, Is.EqualTo("A")); // 其余不动
@@ -888,60 +888,60 @@ namespace Brushblade.Core.Tests
                 new CharDef("丁", Element.Wood, effects: new[]
                 {
                     new EffectDef(EffectKind.DamageAll, 5),
-                    new EffectDef(EffectKind.Summon, 5, summonCount: 3, summonAttack: 0, summonChar: "D"),
-                    new EffectDef(EffectKind.Summon, 5, summonCount: 3, summonAttack: 0, summonChar: "D"),
+                    new EffectDef(EffectKind.Summon, 5, summonCount: 4, summonAttack: 0, summonChar: "D"),
+                    new EffectDef(EffectKind.Summon, 5, summonCount: 4, summonAttack: 0, summonChar: "D"),
                 }),
                 new CharDef("戊", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 5) }),
             });
             Assert.That(engine.SummonCountOf(graph.Get("甲")), Is.EqualTo(1));
             Assert.That(engine.SummonCountOf(graph.Get("丙")), Is.EqualTo(2));
-            Assert.That(engine.SummonCountOf(graph.Get("丁")), Is.EqualTo(4)); // 3+3 封顶到上限 4
+            Assert.That(engine.SummonCountOf(graph.Get("丁")), Is.EqualTo(6)); // 4+4=8 被砍到上限 6
             Assert.That(engine.SummonCountOf(graph.Get("戊")), Is.EqualTo(0)); // 不召唤
         }
 
         [Test]
         public void Cast_SummonAtCap_ReplaceMode_MultiSummon_AdvancesFromFirst() // 一次召 2:顶掉最前两只,不重复顶自己
         {
-            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "丙" });
-            for (int i = 0; i < 4; i++) engine.Cast("甲");
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "甲", "甲", "丙" });
+            for (int i = 0; i < 6; i++) engine.Cast("甲");
 
             engine.Cast("丙", replaceSummon: true);
-            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6));
             Assert.That(engine.Summons[0].Char, Is.EqualTo("C"));
             Assert.That(engine.Summons[1].Char, Is.EqualTo("C"));
             Assert.That(engine.Summons[2].Char, Is.EqualTo("A"));
         }
 
         [Test]
-        public void Cast_SummonOverflowsCap_IsBlocked() // 未满但放不下也拦:3/4 时召 2 只会溢出 1
+        public void Cast_SummonOverflowsCap_IsBlocked() // 未满但放不下也拦:5/6 时召 2 只会溢出 1
         {
-            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "丙" });
-            for (int i = 0; i < 3; i++) engine.Cast("甲");
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "甲", "丙" });
+            for (int i = 0; i < 5; i++) engine.Cast("甲");
 
             Assert.That(engine.Cast("丙"), Is.EqualTo(BattleError.SummonCapFull));
-            Assert.That(engine.AliveSummonCount, Is.EqualTo(3)); // 一只都没进
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(5)); // 一只都没进
         }
 
         [Test]
         public void Cast_SummonExactlyFits_NotBlocked() // 刚好填满不拦
         {
-            var engine = ReplaceEngine(new[] { "甲", "甲", "丙" });
-            for (int i = 0; i < 2; i++) engine.Cast("甲");
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "丙" });
+            for (int i = 0; i < 4; i++) engine.Cast("甲");
 
             Assert.That(engine.Cast("丙"), Is.EqualTo(BattleError.None));
-            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6));
             Assert.That(engine.Summons[0].Char, Is.EqualTo("A")); // 有空位就不该顶谁
         }
 
         [Test]
-        public void Cast_SummonOverflow_ReplaceMode_FillsGapThenReplacesFromFirst() // 3/4 召 2:先占空位,溢出的才顶最前
+        public void Cast_SummonOverflow_ReplaceMode_FillsGapThenReplacesFromFirst() // 5/6 召 2:先占空位,溢出的才顶最前
         {
-            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "丙" });
-            for (int i = 0; i < 3; i++) engine.Cast("甲");
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "甲", "丙" });
+            for (int i = 0; i < 5; i++) engine.Cast("甲");
 
             engine.Cast("丙", replaceSummon: true);
-            Assert.That(engine.AliveSummonCount, Is.EqualTo(4));
-            Assert.That(engine.Summons[3].Char, Is.EqualTo("C")); // 第 1 只填空位
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6));
+            Assert.That(engine.Summons[5].Char, Is.EqualTo("C")); // 第 1 只填空位
             Assert.That(engine.Summons[0].Char, Is.EqualTo("C")); // 第 2 只顶掉最前
             Assert.That(engine.Summons[1].Char, Is.EqualTo("A")); // 其余不动
             Assert.That(engine.Summons[2].Char, Is.EqualTo("A"));
@@ -950,28 +950,32 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SummonReplaceCountOf_CountsOnlyTheOverflow() // 弹窗文案「顶掉最前 N 只」的 N
         {
-            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "丙" });
+            var engine = ReplaceEngine(new[] { "甲", "甲", "甲", "甲", "甲", "丙" });
             var bing = new RecipeGraph(new[]
             {
                 new CharDef("丙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 2, summonAttack: 0, summonChar: "C") }),
                 new CharDef("戊", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 5) }),
             });
-            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(0)); // 0/4:空位够
+            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(0)); // 0/6:空位够
             engine.Cast("甲");
             engine.Cast("甲");
-            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(0)); // 2/4:刚好填满
             engine.Cast("甲");
-            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(1)); // 3/4:溢出 1
+            engine.Cast("甲");
+            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(0)); // 4/6:刚好填满
+            engine.Cast("甲");
+            Assert.That(engine.SummonReplaceCountOf(bing.Get("丙")), Is.EqualTo(1)); // 5/6:溢出 1
             Assert.That(engine.SummonReplaceCountOf(bing.Get("戊")), Is.EqualTo(0)); // 不召唤的字永远 0
         }
 
         [Test]
         public void Cast_NonSummonChar_NeverBlockedByCap() // 满员只拦召唤字,伤害/护盾字照出
         {
-            var engine = IdentityEngine(new[] { "林", "林", "沐" },
+            var engine = IdentityEngine(new[] { "林", "林", "林", "沐" },
                 new[] { new EnemyDef("怔", Element.Heart, 100, 0) }, startingHp: 30);
             engine.Cast("林");
-            engine.Cast("林"); // 满 4
+            engine.Cast("林");
+            engine.Cast("林"); // 满 6(3×2)
+            engine.EndTurn();  // 刷新 AP,用下一回合来验证满编时非召唤字照样不拦
             Assert.That(engine.Cast("沐"), Is.EqualTo(BattleError.None));
         }
 
@@ -1117,6 +1121,12 @@ namespace Brushblade.Core.Tests
             int dmg3 = 500 - lv3.Enemies[0].Hp;
             TestContext.WriteLine($"Lv1={dmg1} Lv3={dmg3}");
             Assert.That(dmg3, Is.GreaterThan(dmg1));
+        }
+
+        [Test]
+        public void SummonCapacity_IsSix()
+        {
+            Assert.That(Engine().SummonCapacity, Is.EqualTo(6));
         }
     }
 }

@@ -778,12 +778,18 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CarriedSummons_CountTowardCap()
         {
-            var run = SummonRun(Weak(), new[] { "森", "焚", "林" });
-            Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None));
-            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
+            var run = SummonRun(Weak(), new[] { "森", "林", "焚", "林" });
+            Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None)); // 4 只
+            Assert.That(run.Battle.Cast("林"), Is.EqualTo(BattleError.None)); // +2 只 = 6 只满编
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None)); // AOE 秒敌人
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));      // 确认战斗真的赢了
+
             run.AdvanceAfterBattle();
+            Assert.That(run.CarriedSummons.Count, Is.EqualTo(6), "应当真的执行了携带逻辑");
             run.SkipReward();
 
+            // 新战斗中,检验带过来的 6 只召唤物确实占据了全部容量
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(6));
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(run.Battle.SummonCapacity));
             // 满编强阻断照旧生效:带过来的算进存活数
             Assert.That(run.Battle.Cast("林"), Is.EqualTo(BattleError.SummonCapFull));
