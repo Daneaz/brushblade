@@ -125,12 +125,12 @@ namespace Brushblade.Core.Tests
         // ---- AP 经济(3.3) ----
 
         [Test]
-        public void Dismantle_Costs1Ap_AndDelegatesToForge()
+        public void Dismantle_CostsNoAp_AndDelegatesToForge() // 拆免 AP(2026-08-03 拍板)
         {
             var engine = Engine(library: new[] { "焚" });
             var error = engine.Dismantle("焚");
             Assert.That(error, Is.EqualTo(BattleError.None));
-            Assert.That(engine.Ap, Is.EqualTo(2));
+            Assert.That(engine.Ap, Is.EqualTo(3)); // 拆不耗 AP
             Assert.That(engine.Library, Is.EquivalentTo(new[] { "林" })); // 字回库(2026-07-22)
             Assert.That(engine.Pool, Does.Contain("火").And.Not.Contain("林")); // 部件回池
         }
@@ -146,24 +146,44 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void HighTierCast_Costs2Ap()
+        public void PurpleRarityCast_Costs1Ap() // 紫字不再是「高阶」2 AP,一律 1(2026-08-03 拍板)
         {
             var engine = Engine(library: new[] { "焚" });
             engine.Cast("焚");
-            Assert.That(engine.Ap, Is.EqualTo(1));
+            Assert.That(engine.Ap, Is.EqualTo(2));
         }
 
-        // ---- AP 消耗 = 稀有度的函数(2026-07-26 拍板;配置不再逐字写 apCost)----
+        [Test]
+        public void ApCost_IsOneForEveryRarity()
+        {
+            foreach (CardRarity rarity in Enum.GetValues(typeof(CardRarity)))
+                Assert.That(CharDef.ApCostFor(rarity), Is.EqualTo(1), $"{rarity} 的 AP 应为 1");
+        }
 
         [Test]
-        public void ApCost_DerivedFromRarity()
+        public void Dismantle_CostsNoAp()
+        {
+            // 灯 = 火 + 丁,拆完部件回池
+            var engine = Engine(library: new[] { "灯" });
+            int apBefore = engine.Ap;
+
+            var error = engine.Dismantle("灯");
+
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Ap, Is.EqualTo(apBefore), "拆解不应消耗 AP");
+        }
+
+        // ---- AP 消耗一律 1,与稀有度解耦(2026-08-03 拍板;取代 07-26 的紫橙2/红3 阶梯)----
+
+        [Test]
+        public void ApCost_DerivedFromRarity() // 名字沿用,但阶梯已废:所有具名稀有度都是 1
         {
             Assert.That(CharDef.ApCostFor(CardRarity.White), Is.EqualTo(1));
             Assert.That(CharDef.ApCostFor(CardRarity.Green), Is.EqualTo(1));
             Assert.That(CharDef.ApCostFor(CardRarity.Blue), Is.EqualTo(1));
-            Assert.That(CharDef.ApCostFor(CardRarity.Purple), Is.EqualTo(2));
-            Assert.That(CharDef.ApCostFor(CardRarity.Orange), Is.EqualTo(2));
-            Assert.That(CharDef.ApCostFor(CardRarity.Red), Is.EqualTo(3));
+            Assert.That(CharDef.ApCostFor(CardRarity.Purple), Is.EqualTo(1));
+            Assert.That(CharDef.ApCostFor(CardRarity.Orange), Is.EqualTo(1));
+            Assert.That(CharDef.ApCostFor(CardRarity.Red), Is.EqualTo(1));
         }
 
         [Test]
@@ -171,20 +191,20 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(new CharDef("甲", Element.Metal).ApCost, Is.EqualTo(1)); // 缺省白
             Assert.That(new CharDef("乙", Element.Metal, rarity: CardRarity.Blue).ApCost, Is.EqualTo(1));
-            Assert.That(new CharDef("丙", Element.Metal, rarity: CardRarity.Purple).ApCost, Is.EqualTo(2));
-            Assert.That(new CharDef("丁", Element.Metal, rarity: CardRarity.Red).ApCost, Is.EqualTo(3));
+            Assert.That(new CharDef("丙", Element.Metal, rarity: CardRarity.Purple).ApCost, Is.EqualTo(1));
+            Assert.That(new CharDef("丁", Element.Metal, rarity: CardRarity.Red).ApCost, Is.EqualTo(1));
         }
 
         [Test]
         public void LoadGraph_ApCostFromRarity_NotFromConfig() // 配置里遗留的 apCost 一律不作数
         {
             var graph = Brushblade.Data.ConfigLoader.LoadGraph(@"{ ""chars"": [
-                { ""id"": ""甲"", ""element"": ""Metal"", ""rarity"": ""Purple"", ""apCost"": 1 },
+                { ""id"": ""甲"", ""element"": ""Metal"", ""rarity"": ""Purple"", ""apCost"": 2 },
                 { ""id"": ""乙"", ""element"": ""Metal"", ""rarity"": ""Blue"", ""apCost"": 2 },
                 { ""id"": ""丙"", ""element"": ""Metal"" } ] }");
-            Assert.That(graph.Get("甲").ApCost, Is.EqualTo(2)); // 紫 = 2,配置写 1 也没用
+            Assert.That(graph.Get("甲").ApCost, Is.EqualTo(1)); // 紫也是 1,配置写 2 也没用
             Assert.That(graph.Get("乙").ApCost, Is.EqualTo(1)); // 蓝 = 1
-            Assert.That(graph.Get("丙").ApCost, Is.EqualTo(1)); // 无稀有度 = 白
+            Assert.That(graph.Get("丙").ApCost, Is.EqualTo(1)); // 无稀有度 = 白 = 1
         }
 
         [Test]
@@ -201,11 +221,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Action_WithoutEnoughAp_Rejected()
         {
-            var engine = Engine(library: new[] { "焚", "灯" });
-            engine.Dismantle("灯");            // AP 3→2,池得 火+丁
-            engine.Compose("林");              // 2→1(回合开始已掉 木木)
-            Assert.That(engine.Cast("焚"), Is.EqualTo(BattleError.NotEnoughAp)); // 需 2 AP,只剩 1
-            Assert.That(engine.Cast("火", 0), Is.EqualTo(BattleError.None));     // 部件直出 1 AP
+            // 出字一律 1 AP(2026-08-03):每回合 3 AP,连出 3 张耗尽后第 4 张应被拒绝
+            var engine = Engine(library: new[] { "灯", "壁", "炽", "灼" });
+            engine.Cast("灯");  // 3→2
+            engine.Cast("壁");  // 2→1
+            engine.Cast("炽");  // 1→0
+            Assert.That(engine.Cast("灼"), Is.EqualTo(BattleError.NotEnoughAp)); // AP 耗尽
             Assert.That(engine.Ap, Is.EqualTo(0));
         }
 

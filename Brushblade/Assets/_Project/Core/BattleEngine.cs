@@ -219,11 +219,10 @@ namespace Brushblade.Core
         /// <summary>最近一次动作(Cast/EndTurn)产生的结算事件,动作开始时清空。</summary>
         public IReadOnlyList<BattleEvent> LastEvents => _events;
 
-        /// <summary>拆(1 AP)。</summary>
+        /// <summary>拆(免 AP,2026-08-03 拍板)。</summary>
         public BattleError Dismantle(string charId)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
-            if (Ap < 1) return BattleError.NotEnoughAp;
 
             var result = ForgeEngine.TryDismantle(charId, _graph, _forge, _config.PoolCapacity, _config.LibraryCapacity);
             if (!result.Success)
@@ -232,7 +231,6 @@ namespace Brushblade.Core
                 return BattleError.ForgeFailed;
             }
             _forge = result.State;
-            Ap -= 1;
             return BattleError.None;
         }
 

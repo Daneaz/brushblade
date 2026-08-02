@@ -48,14 +48,9 @@ namespace Brushblade.Core
 
         public bool IsLeaf => Recipe.Count == 0;
 
-        /// <summary>出字 AP = 稀有度的函数(2026-07-26 拍板):白/绿/蓝 1,紫/橙 2,红 3。
-        /// 唯一来源在此 —— 配置表不再逐字写 apCost,免得两处真相打架。</summary>
-        public static int ApCostFor(CardRarity rarity) => rarity switch
-        {
-            CardRarity.Purple or CardRarity.Orange => 2,
-            CardRarity.Red => 3,
-            _ => 1, // 白/绿/蓝
-        };
+        /// <summary>出字 AP:一律 1(2026-08-03 拍板,与稀有度解耦)。
+        /// 旧规则「白绿蓝1/紫橙2/红3」已作废,第10章 10.1 的 AP 表同步失效。</summary>
+        public static int ApCostFor(CardRarity rarity) => 1;
 
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
             IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,

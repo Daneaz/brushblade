@@ -164,9 +164,9 @@ namespace Brushblade.Core.Tests
                     Assert.That(def.Recipe, Is.EqualTo(new[] { ladder[i - 1], ladder[0] }));
                 }
 
-            // 3/4 叠为高阶字:出字 2 AP
-            Assert.That(graph.Get("焱").ApCost, Is.EqualTo(2));
-            Assert.That(graph.Get("燚").ApCost, Is.EqualTo(2));
+            // 出字 AP 一律 1,与稀有度解耦(2026-08-03 拍板;3/4 叠不再是 2 AP 的高阶字)
+            Assert.That(graph.Get("焱").ApCost, Is.EqualTo(1));
+            Assert.That(graph.Get("燚").ApCost, Is.EqualTo(1));
         }
 
         /// <summary>首局教程剧本(拆炎→合炎→出炎)必须能打通首层敌人,否则新手卡死。
