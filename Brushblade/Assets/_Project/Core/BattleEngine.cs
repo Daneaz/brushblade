@@ -408,7 +408,10 @@ namespace Brushblade.Core
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive || enemy.Burn <= 0) continue;
-                int tick = enemy.Burn * _burnPerStack;
+                // 灼烧属火(2026-08-03):只结算克制,不结算相生 —— 层数是平值,
+                // 相生已在施加时由 WuxingResolver 体现过
+                int tick = (int)Math.Floor(enemy.Burn * _burnPerStack
+                    * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
                 enemy.Hp = Math.Max(0, enemy.Hp - tick);
                 enemy.Burn -= 1;
                 _events.Add(new BattleEvent(BattleEventKind.BurnTick, i, tick));

@@ -314,8 +314,30 @@ namespace Brushblade.Core.Tests
             var engine = Engine(library: new[] { "燃" }, enemies: new[] { MetalBoss(200) });
             engine.Cast("燃"); // 全体 3 层灼烧
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 6)); // 3×2
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 9)); // floor(3×2×1.5),火克金
             Assert.That(engine.Enemies[0].Burn, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void BurnTick_AppliesKeMultiplierAsFire()
+        {
+            AssertBurnTick(Element.Metal, 9);   // 火克金:floor(6 × 1.5)
+            AssertBurnTick(Element.Water, 3);   // 水克火:floor(6 × 0.5)
+            AssertBurnTick(Element.Heart, 6);   // 心中立:×1.0
+        }
+
+        private static void AssertBurnTick(Element enemyElement, int expected)
+        {
+            var enemy = new EnemyDef("桩", enemyElement, 500, 0);   // 攻 0:不干扰玩家血量
+            var engine = new BattleEngine(Graph(), Config(), new[] { "燃" },
+                Array.Empty<string>(), new[] { enemy }, 42);
+
+            engine.Cast("燃");                                       // 全体 3 层灼烧
+            int hpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+
+            Assert.That(hpBefore - engine.Enemies[0].Hp, Is.EqualTo(expected),
+                $"对 {enemyElement} 的灼烧结算应为 {expected}");
         }
 
         [Test]
@@ -476,8 +498,8 @@ namespace Brushblade.Core.Tests
             var engine = Engine(library: new[] { "燃", "炽" }, enemies: new[] { MetalBoss(200) });
             engine.Cast("燃");   // 3 层灼烧
             engine.Cast("炽");   // 结算系数 2→3
-            engine.EndTurn();    // 3×3 = 9
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 9));
+            engine.EndTurn();    // floor(3×3×1.5)=13,火克金
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 13));
             Assert.That(engine.Enemies[0].Burn, Is.EqualTo(2));
         }
 
