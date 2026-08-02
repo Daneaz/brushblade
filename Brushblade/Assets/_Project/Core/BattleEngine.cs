@@ -109,7 +109,8 @@ namespace Brushblade.Core
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
             IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null,
             IReadOnlyDictionary<string, int> cardLevels = null,
-            int startingNormalShield = 0, int startingPersistShield = 0)
+            int startingNormalShield = 0, int startingPersistShield = 0,
+            IReadOnlyList<SummonSnapshot> startingSummons = null)
         {
             _graph = graph;
             _config = config;
@@ -122,6 +123,10 @@ namespace Brushblade.Core
             PlayerHp = startingHp ?? config.PlayerMaxHp;
             _shieldNormal = startingNormalShield;
             _shieldPersist = startingPersistShield;
+            // 召唤物跨战斗保留(2026-08-03):与普通盾同口径,上一层活下来的原样入场(残血不回满)
+            if (startingSummons != null)
+                foreach (var summon in startingSummons)
+                    _summons.Add(SummonState.Restore(summon));
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
         }

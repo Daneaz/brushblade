@@ -704,5 +704,92 @@ namespace Brushblade.Core.Tests
             run.SkipReward();                 // 进入第二关
             Assert.That(run.Battle.PlayerShield, Is.EqualTo(7)); // 上关剩 5 + 每关 2
         }
+
+        // ---- 召唤物跨战斗保留(2026-08-03 拍板):与普通盾同口径全程延续,直到死亡 ----
+
+        /// <summary>召唤专用字表:「林」召 2 只 1 血木偶(好打死),「森」召 4 只(打满上限),
+        /// 「焚」AOE 清场。不动上面的 Graph(),免得牵动既有用例。</summary>
+        private static RecipeGraph SummonGraph() => new(new[]
+        {
+            new CharDef("木", Element.Wood),
+            new CharDef("火", Element.Fire),
+            new CharDef("林", Element.Wood, new[] { "木", "木" },
+                effects: new[] { new EffectDef(EffectKind.Summon, 1, summonCount: 2, summonAttack: 2, summonChar: "木") }),
+            new CharDef("森", Element.Wood, new[] { "林", "木" },
+                effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 4, summonAttack: 2, summonChar: "木") }),
+            new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
+                effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+        });
+
+        private static RunEngine SummonRun(EnemyDef enemy, string[] library) =>
+            new(SummonGraph(),
+                new RunConfig
+                {
+                    Encounters = new[] { new[] { enemy }, new[] { enemy } },
+                    RewardPool = new[] { "焚" },
+                },
+                new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: library, startingPool: Array.Empty<string>(), seed: 7);
+
+        [Test]
+        public void Summons_SurviveIntoNextBattle_WithCurrentHp()
+        {
+            var run = SummonRun(Weak(), new[] { "森", "焚" });
+            Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None)); // 1 AP:4 只 6 血木偶
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None)); // 2 AP:AOE 火克木秒清
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+
+            run.AdvanceAfterBattle();                                        // 抓取携带态就在这一步
+            Assert.That(run.CarriedSummons.Count, Is.EqualTo(4));
+            run.SkipReward();                                                // 开下一层
+
+            Assert.That(run.Battle.Summons.Count, Is.EqualTo(4));
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(4));
+            var carried = run.Battle.Summons[0];
+            Assert.That(carried.Char, Is.EqualTo("木"));
+            Assert.That(carried.Element, Is.EqualTo(Element.Wood));
+            Assert.That(carried.Hp, Is.EqualTo(6));
+            Assert.That(carried.MaxHp, Is.EqualTo(6));
+            Assert.That(carried.Attack, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DeadSummons_AreNotCarried_AndSlotsRepack()
+        {
+            // 敌人 20 血:够挨一轮召唤物反击(2 只×2)还活着,好让敌方回合打死首只木偶
+            var run = SummonRun(new EnemyDef("枯", Element.Wood, 20, 2), new[] { "林", "焚" });
+            Assert.That(run.Battle.Cast("林"), Is.EqualTo(BattleError.None)); // 2 只 1 血木偶
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(2));
+
+            run.Battle.EndTurn();       // 回合末反击 → 敌方回合整次攻击由首只承受(2 伤 > 1 血)
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(1));
+
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+
+            Assert.That(run.Battle.Summons.Count, Is.EqualTo(1), "死尸不带走,槽位从 0 号重排");
+            Assert.That(run.Battle.Summons[0].Alive, Is.True);
+            Assert.That(run.Battle.Summons[0].Hp, Is.EqualTo(1), "残血原样带走,不回满");
+        }
+
+        [Test]
+        public void CarriedSummons_CountTowardCap()
+        {
+            var run = SummonRun(Weak(), new[] { "森", "焚", "林" });
+            run.Battle.Cast("森");
+            run.Battle.Cast("焚");
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(run.Battle.SummonCapacity));
+            // 满编强阻断照旧生效:带过来的算进存活数
+            Assert.That(run.Battle.Cast("林"), Is.EqualTo(BattleError.SummonCapFull));
+            // 确认替换后仍不超上限
+            Assert.That(run.Battle.Cast("林", replaceSummon: true), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(run.Battle.SummonCapacity));
+        }
     }
 }

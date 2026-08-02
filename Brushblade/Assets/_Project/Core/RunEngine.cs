@@ -56,13 +56,14 @@ namespace Brushblade.Core
         private int _carriedHp;
         private int _carriedNormalShield;
         private int _carriedPersistShield;
+        private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
         private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
             IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
             int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
-            int perFloorNormalShield = 0)
+            int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null)
         {
             _startingInk = startingInk;
             _graph = graph;
@@ -75,6 +76,7 @@ namespace Brushblade.Core
             _carriedNormalShield = startingNormalShield;
             _carriedPersistShield = startingPersistShield;
             _perFloorNormalShield = perFloorNormalShield;
+            if (startingSummons != null) _carriedSummons = new List<SummonSnapshot>(startingSummons);
             // 携带态一开始就等于开打时的状态,而不是 null:第一场打完前挂起也有东西可存,
             // 且省掉一处 null 陷阱(AdvanceAfterBattle 会照常整体覆盖)
             _carriedLibrary = new List<string>(startingLibrary);
@@ -209,6 +211,9 @@ namespace Brushblade.Core
 
         public int CarriedNormalShield => _carriedNormalShield;
         public int CarriedPersistShield => _carriedPersistShield;
+
+        /// <summary>战斗间携带的召唤物(只含存活者;整次登塔延续,见 20.6)。</summary>
+        public IReadOnlyList<SummonSnapshot> CarriedSummons => _carriedSummons;
 
         public bool LibraryExpanded { get; private set; }
         public bool PoolExpanded { get; private set; }
@@ -450,6 +455,7 @@ namespace Brushblade.Core
             _carriedHp = Battle.PlayerHp;
             _carriedNormalShield = Battle.ShieldNormal;
             _carriedPersistShield = Battle.ShieldPersist;
+            _carriedSummons = CaptureAliveSummons();
 
             RollRewardOptions();
             _componentOptions.Clear();
@@ -624,11 +630,20 @@ namespace Brushblade.Core
             Phase = RunPhase.InBattle;
         }
 
+        /// <summary>存活召唤物的携带态:死尸丢弃(槽位释放,下一场从 0 号重排),残血原样带走。</summary>
+        private List<SummonSnapshot> CaptureAliveSummons()
+        {
+            var alive = new List<SummonSnapshot>();
+            foreach (var summon in Battle.Summons)
+                if (summon.Alive) alive.Add(summon.Capture());
+            return alive;
+        }
+
         private BattleEngine NewBattle(IReadOnlyList<string> library, IReadOnlyList<string> pool, int? startingHp)
         {
             return new BattleEngine(_graph, _battleConfig, library, pool,
                 _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels,
-                _carriedNormalShield, _carriedPersistShield);
+                _carriedNormalShield, _carriedPersistShield, _carriedSummons);
         }
     }
 }
