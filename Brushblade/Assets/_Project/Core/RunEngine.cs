@@ -558,13 +558,13 @@ namespace Brushblade.Core
 
         /// <summary>字奖励的稀有度权重(2026-07-20 拍板):绿 80% / 蓝 15% / 紫 5%;
         /// 白(部件)与橙红不参与。索引 = rarity − 1。</summary>
-        private static readonly int[] RewardRarityWeights = { 0, 80, 15, 5, 0, 0 };
+        private static readonly int[] RewardRarityWeights = { 0, 80, 15, 5, 0, 0, 0 };
 
         /// <summary>固定遍历顺序:保证同种子同结果(不依赖字典插入顺序)。</summary>
         private static readonly CardRarity[] RarityOrder =
         {
             CardRarity.White, CardRarity.Green, CardRarity.Blue,
-            CardRarity.Purple, CardRarity.Orange, CardRarity.Red,
+            CardRarity.Purple, CardRarity.Orange, CardRarity.Red, CardRarity.Gold,
         };
 
         private void RollRewardOptions()

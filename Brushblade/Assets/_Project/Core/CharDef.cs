@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Brushblade.Core
 {
-    /// <summary>字卡稀有度六档(19.3.1):出厂固定,由人工筛选指定。</summary>
+    /// <summary>字卡稀有度七档(19.3.1):出厂固定,由人工筛选指定。</summary>
     public enum CardRarity
     {
         White = 1,  // 白
@@ -12,6 +12,7 @@ namespace Brushblade.Core
         Purple = 4, // 紫
         Orange = 5, // 橙
         Red = 6,    // 红
+        Gold = 7,   // 金:五系四叠字专属(2026-08-03)
     }
 
     /// <summary>可玩对象定义:部件与汉字共用(第 4 章 4.2)。部件 = 无配方的叶子。</summary>

@@ -22,7 +22,7 @@ namespace Brushblade.Core
         public const int CardPrice = 40;          // 白卡基准价
         public const int InkAdAmount = 30;        // 墨锭广告位领取量
 
-        private static readonly int[] CardPrices = { 40, 60, 100, 160, 260, 400 };
+        private static readonly int[] CardPrices = { 40, 60, 100, 160, 260, 400, 600 };
 
         /// <summary>卡价按稀有度分档(19.6)。</summary>
         public static int CardPriceFor(CardRarity rarity) => CardPrices[(int)rarity - 1];

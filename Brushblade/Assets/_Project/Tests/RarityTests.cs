@@ -177,5 +177,50 @@ namespace Brushblade.Core.Tests
             Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(3), out var rewards, graph), Is.True);
             Assert.That(rewards.Cards, Does.Contain("烧")); // 最高可得 = 绿
         }
+
+        [Test]
+        public void ChestWithGoldCards_DoesNotThrow() // 宝箱卡池含金卡时不越界
+        {
+            var graph = ConfigLoader.LoadGraph(@"{
+                ""chars"": [
+                    { ""id"": ""灯"", ""rarity"": ""White"" },
+                    { ""id"": ""烧"", ""rarity"": ""Green"" },
+                    { ""id"": ""壁"", ""rarity"": ""Blue"" },
+                    { ""id"": ""焚"", ""rarity"": ""Purple"" },
+                    { ""id"": ""焱"", ""rarity"": ""Orange"" },
+                    { ""id"": ""燚"", ""rarity"": ""Red"" },
+                    { ""id"": ""焔"", ""rarity"": ""Gold"" }
+                ]
+            }");
+            var time = new FakeTime();
+            var meta = new MetaState();
+            // 任意宝箱、包含 Gold 卡的池
+            ChestRules.TryAwardChest(meta, ChestTier.Celadon,
+                new[] { "灯", "烧", "壁", "焚", "焱", "燚", "焔" }, time);
+            ChestRules.TryStartOpening(meta, 0, time);
+            time.NowUnixSeconds += ChestRules.DurationSeconds[(int)ChestTier.Celadon - 1];
+            // 开箱不应抛异常
+            Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(42), out var rewards, graph), Is.True);
+            Assert.That(rewards.Cards.Count, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void GoldRarity_AllRarityIndexedArrays_DoNotThrow()
+        {
+            Assert.That(MetaRules.CopiesRequired(1, CardRarity.Gold), Is.GreaterThan(0));
+            Assert.That(MetaRules.InkRequired(1, CardRarity.Gold), Is.GreaterThan(0));
+            Assert.That(ShopRules.CardPriceFor(CardRarity.Gold), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void GoldRarity_IsRarestTier()
+        {
+            Assert.That(MetaRules.CopiesRequired(1, CardRarity.Gold),
+                Is.LessThanOrEqualTo(MetaRules.CopiesRequired(1, CardRarity.Red)));
+            Assert.That(MetaRules.InkRequired(1, CardRarity.Gold),
+                Is.GreaterThan(MetaRules.InkRequired(1, CardRarity.Red)));
+            Assert.That(ShopRules.CardPriceFor(CardRarity.Gold),
+                Is.GreaterThan(ShopRules.CardPriceFor(CardRarity.Red)));
+        }
     }
 }
