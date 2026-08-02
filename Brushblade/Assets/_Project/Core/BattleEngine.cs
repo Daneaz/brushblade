@@ -123,7 +123,9 @@ namespace Brushblade.Core
             PlayerHp = startingHp ?? config.PlayerMaxHp;
             _shieldNormal = startingNormalShield;
             _shieldPersist = startingPersistShield;
-            // 召唤物跨战斗保留(2026-08-03):与普通盾同口径,上一层活下来的原样入场(残血不回满)
+            // 召唤物跨战斗保留(2026-08-03):与普通盾同口径,上一层活下来的原样入场(残血不回满)。
+            // 这里不再钳制 SummonCap:来源已受上限约束——召唤侧出字时已卡死 SummonCap(Cast/
+            // SummonReplaceCountOf),存档文件那条路径也只写受约束过的携带态,不存在真实超员输入。
             if (startingSummons != null)
                 foreach (var summon in startingSummons)
                     _summons.Add(SummonState.Restore(summon));

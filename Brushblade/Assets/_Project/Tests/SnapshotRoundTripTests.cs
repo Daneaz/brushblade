@@ -387,9 +387,12 @@ namespace Brushblade.Core.Tests
             Assert.That(b.CarriedSummons[0].Attack, Is.EqualTo(2));
             Assert.That(b.CarriedSummons[0].Hp, Is.GreaterThan(0), "首只召唤物应挨过打但活着");
             Assert.That(b.CarriedSummons[0].Hp, Is.LessThan(b.CarriedSummons[0].MaxHp), "残血原样带走,不回满");
+            Assert.That(b.CarriedSummons[1].Hp, Is.EqualTo(b.CarriedSummons[1].MaxHp), "整次攻击只由首只承受,不溢出");
 
             foreach (var r in new[] { a, b }) r.SkipReward(); // 读档接着打:召唤物照样上场
             Assert.That(b.Battle.AliveSummonCount, Is.EqualTo(2));
+            Assert.That(b.Battle.Summons[0].Hp, Is.EqualTo(3), "残血原样入场,不回满");
+            Assert.That(b.Battle.Summons[0].MaxHp, Is.EqualTo(6), "MaxHp 与 Hp 脱钩");
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 

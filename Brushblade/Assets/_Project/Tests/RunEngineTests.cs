@@ -779,8 +779,8 @@ namespace Brushblade.Core.Tests
         public void CarriedSummons_CountTowardCap()
         {
             var run = SummonRun(Weak(), new[] { "森", "焚", "林" });
-            run.Battle.Cast("森");
-            run.Battle.Cast("焚");
+            Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
             run.AdvanceAfterBattle();
             run.SkipReward();
 
