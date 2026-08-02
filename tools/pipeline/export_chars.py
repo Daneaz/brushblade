@@ -24,6 +24,25 @@ STACK_RECIPES = {
     "圭": ["土", "土"], "垚": ["土", "圭"], "㙓": ["土", "垚"],
 }
 
+# Unity UGUI Text 不支持增补平面(SMP,码位 > 0xFFFF)代理对显示(第10章 10.3.0)。
+# 𣛧(木系四叠字)、𨰻(金系四叠字)因此一律用 PUA 代理码位落地(subset_fonts.py 的
+# STACKED 会为这两个码位拼合 2×2 部件字形)。
+PUA_PROXY = {"𣛧": "\ue625", "𨰻": "\ue626"}
+
+
+def _output_id(char):
+    """真实字 → 落地用 id:SMP 且有 PUA 代理的字换成代理码位,其余原样。"""
+    return PUA_PROXY.get(char, char)
+
+
+def _blocked_smp_part(recipe):
+    """配方原料里第一个「SMP 且无 PUA 代理」的部件;没有则 None。
+    UGUI Text 显示不出代理对,这类部件没法作为配方原料展示,只能让含它的字退化为叶子。"""
+    for part in recipe:
+        if len(part) == 1 and ord(part) > 0xFFFF and part not in PUA_PROXY:
+            return part
+    return None
+
 
 def recipe_for(char, index):
     """叠字取人工表,其余取 IDS 一级拆解;不可拆返回 []。"""
@@ -40,14 +59,20 @@ def build_chars(ids_text, values):
     components = set()
     for char, spec in values.items():
         recipe = recipe_for(char, index)
-        entry = {"id": char, "rarity": spec["rarity"]}
+        entry = {"id": _output_id(char), "rarity": spec["rarity"]}
         if spec.get("element"):
             entry["element"] = spec["element"]
         if recipe:
-            entry["recipe"] = recipe
-            for part in recipe:
-                if part not in ELEMENTS:
-                    components.add(part)
+            blocked = _blocked_smp_part(recipe)
+            if blocked:
+                print(f"警告:{char} 的配方含增补平面部件「{blocked}」(U+{ord(blocked):05X},"
+                      f"UGUI Text 不支持代理对显示且无 PUA 代理)—— 跳过配方,{char} 退化为"
+                      "叶子(只能靠掉落获得)")
+            else:
+                entry["recipe"] = [_output_id(part) for part in recipe]
+                for part in recipe:
+                    if part not in ELEMENTS:
+                        components.add(part)
         for optional in ("pinyin", "gloss"):
             if spec.get(optional):
                 entry[optional] = spec[optional]
@@ -57,7 +82,7 @@ def build_chars(ids_text, values):
 
     for part in sorted(components):
         if part not in values:
-            leaf = {"id": part}
+            leaf = {"id": _output_id(part)}
             attr = attr_of(part)
             if attr:
                 leaf["element"] = _ELEMENT_NAME[attr]

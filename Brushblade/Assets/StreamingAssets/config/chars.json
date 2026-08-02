@@ -293,10 +293,6 @@
       "id": "炼",
       "rarity": "Green",
       "element": "Fire",
-      "recipe": [
-        "火",
-        "𫠣"
-      ],
       "effects": [
         {
           "kind": "BurnSingle",
@@ -385,7 +381,7 @@
       ]
     },
     {
-      "id": "𣛧",
+      "id": "",
       "rarity": "Gold",
       "element": "Wood",
       "recipe": [
@@ -496,10 +492,6 @@
       "id": "杨",
       "rarity": "Green",
       "element": "Wood",
-      "recipe": [
-        "木",
-        "𠃓"
-      ],
       "effects": [
         {
           "kind": "Summon",
@@ -773,7 +765,7 @@
       ]
     },
     {
-      "id": "𨰻",
+      "id": "",
       "rarity": "Gold",
       "element": "Metal",
       "recipe": [
@@ -881,10 +873,6 @@
       "id": "戟",
       "rarity": "Blue",
       "element": "Metal",
-      "recipe": [
-        "𠦝",
-        "戈"
-      ],
       "effects": [
         {
           "kind": "DamageAll",
@@ -1144,10 +1132,6 @@
       "id": "塌",
       "rarity": "Blue",
       "element": "Earth",
-      "recipe": [
-        "土",
-        "𦐇"
-      ],
       "effects": [
         {
           "kind": "DamageAll",
@@ -1276,10 +1260,6 @@
       "id": "弗"
     },
     {
-      "id": "戈",
-      "element": "Metal"
-    },
-    {
       "id": "成"
     },
     {
@@ -1352,18 +1332,6 @@
     },
     {
       "id": "隹"
-    },
-    {
-      "id": "𠃓"
-    },
-    {
-      "id": "𠦝"
-    },
-    {
-      "id": "𦐇"
-    },
-    {
-      "id": "𫠣"
     }
   ]
 }
