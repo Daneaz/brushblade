@@ -60,6 +60,7 @@ namespace Brushblade.Core.Tests
               .Append($"|ink{r.EarnedInk}|avail{r.AvailableInk}")
               .Append($"|cl{string.Join(",", r.CarriedLibrary)}|cp{string.Join(",", r.CarriedPool)}")
               .Append($"|cns{r.CarriedNormalShield}|cps{r.CarriedPersistShield}")
+              .Append($"|cs{string.Join(",", r.CarriedSummons.Select(s => $"{s.Char}{s.Element}{s.Hp}/{s.MaxHp}atk{s.Attack}"))}")
               .Append($"|cpk{r.CharPicksLeft}|mpk{r.ComponentPicksLeft}")
               .Append($"|ro{string.Join(",", r.RewardOptions)}|co{string.Join(",", r.ComponentOptions)}")
               .Append($"|ev{r.CurrentEvent?.Id}|lx{r.LibraryExpanded}|px{r.PoolExpanded}|rv{r.Revived}")
@@ -363,6 +364,33 @@ namespace Brushblade.Core.Tests
 
             foreach (var r in new[] { origin, restored }) { r.Battle.EndTurn(); r.Battle.Cast("炎", 0); }
             Assert.That(Digest(restored), Is.EqualTo(Digest(origin)), "接着打也要一致");
+        }
+
+        [Test]
+        public void CarriedSummons_RoundTrip_AcrossFloorBreak() // 层间携带的召唤物必须原样回来
+        {
+            var def = new EnemyDef("枯", Element.Wood, 8, 3);
+            var config = TwoBattles(def);
+            var a = new RunEngine(Graph(), config, Config(), new[] { "林", "炎" }, new[] { "火" }, 3,
+                startingInk: 50, perFloorNormalShield: 2);
+            a.Battle.Cast("林");        // 召 2 只 6 血木偶
+            a.Battle.EndTurn();         // 召唤物回合末反击,随后敌方整次攻击落在首只召唤物身上:残血原样带走的前提
+            a.Battle.Cast("炎", 0);     // 收尾:火对木中立无加成,但敌方已被召唤物打残,基础伤害足以终结
+            Assert.That(a.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            a.AdvanceAfterBattle();     // 进战利品页,携带态已含 2 只召唤物
+            Assert.That(a.CarriedSummons.Count, Is.EqualTo(2));
+
+            var b = Reload(a, config);
+            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
+            Assert.That(b.CarriedSummons.Count, Is.EqualTo(2));
+            Assert.That(b.CarriedSummons[0].Char, Is.EqualTo("木"));
+            Assert.That(b.CarriedSummons[0].Attack, Is.EqualTo(2));
+            Assert.That(b.CarriedSummons[0].Hp, Is.GreaterThan(0), "首只召唤物应挨过打但活着");
+            Assert.That(b.CarriedSummons[0].Hp, Is.LessThan(b.CarriedSummons[0].MaxHp), "残血原样带走,不回满");
+
+            foreach (var r in new[] { a, b }) r.SkipReward(); // 读档接着打:召唤物照样上场
+            Assert.That(b.Battle.AliveSummonCount, Is.EqualTo(2));
+            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
     }
 }

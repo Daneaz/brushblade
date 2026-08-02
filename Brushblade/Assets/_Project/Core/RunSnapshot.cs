@@ -76,6 +76,7 @@ namespace Brushblade.Core
         public int CarriedHp { get; set; }
         public int CarriedNormalShield { get; set; }
         public int CarriedPersistShield { get; set; }
+        public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)
         public int CharPicksLeft { get; set; }
         public int ComponentPicksLeft { get; set; }
         public List<string> RewardOptions { get; set; } = new();
