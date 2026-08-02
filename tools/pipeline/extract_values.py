@@ -48,8 +48,8 @@ def _parse_effects(config, element):
     summon = re.search(r"`Summon (\d+)`\((\d+) 血/攻 (\d+)\)", config)
     if summon:
         return [{"kind": "Summon", "value": int(summon.group(2)),
-                 "summonCount": int(summon.group(1)),
-                 "summonAttack": int(summon.group(3)), "summonChar": element}]
+                 "count": int(summon.group(1)),
+                 "attack": int(summon.group(3)), "summonChar": element}]
 
     effects = []
     for kind, value in re.findall(r"`(\w+) (\d+)`", config):

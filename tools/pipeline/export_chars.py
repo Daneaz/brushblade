@@ -46,7 +46,7 @@ def build_chars(ids_text, values):
         if recipe:
             entry["recipe"] = recipe
             for part in recipe:
-                if part not in ELEMENTS and not attr_of(part):
+                if part not in ELEMENTS:
                     components.add(part)
         for optional in ("pinyin", "gloss"):
             if spec.get(optional):
@@ -57,7 +57,11 @@ def build_chars(ids_text, values):
 
     for part in sorted(components):
         if part not in values:
-            entries.append({"id": part})
+            leaf = {"id": part}
+            attr = attr_of(part)
+            if attr:
+                leaf["element"] = _ELEMENT_NAME[attr]
+            entries.append(leaf)
 
     return {"chars": entries}
 
