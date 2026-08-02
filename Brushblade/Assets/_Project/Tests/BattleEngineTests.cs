@@ -1207,5 +1207,81 @@ namespace Brushblade.Core.Tests
             restored.EndTurn();
             Assert.That(hpBefore - restored.Enemies[0].Hp, Is.EqualTo(3), "读档后流血应继续正常结算");
         }
+
+        // ---- 治疗补格(2026-08-03):群体即时(HealAll) / 持续单体或群体(HealOverTime) ----
+
+        private static RecipeGraph HealGraph() => new(new[]
+        {
+            new CharDef("木", Element.Wood),
+            new CharDef("林", Element.Wood, new[] { "木", "木" },
+                effects: new[] { new EffectDef(EffectKind.Summon, 11, summonCount: 2,
+                                               summonAttack: 5, summonChar: "木") }),
+            new CharDef("淋", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealAll, 9) }),
+            new CharDef("沐", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.HealOverTime, 3, turns: 3) }),
+        });
+
+        [Test]
+        public void HealAll_HealsPlayerAndSummons()
+        {
+            var engine = new BattleEngine(HealGraph(), Config(), new[] { "林", "淋" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 6) }, 42);
+            engine.Cast("林");                    // 召 2 只顶前排
+            engine.EndTurn();                     // 敌人打召唤物,玩家也可能掉血
+            int summonHpBefore = engine.Summons[0].Hp;
+
+            engine.Cast("淋");
+
+            Assert.That(engine.Summons[0].Hp, Is.GreaterThan(summonHpBefore),
+                "群疗应治召唤物");
+        }
+
+        [Test]
+        public void HealOverTime_HealsEachTurnThenExpires()
+        {
+            var engine = new BattleEngine(HealGraph(), Config(), new[] { "沐" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 6) }, 42);
+            engine.EndTurn();                     // 先挨一下,腾出治疗空间
+            engine.Cast("沐");
+
+            int hp0 = engine.PlayerHp;
+            engine.EndTurn();
+            int gain1 = engine.PlayerHp - hp0 + 6;   // 加回本回合挨的 6 点
+            Assert.That(gain1, Is.EqualTo(3), "第 1 回合应回复 3");
+
+            engine.EndTurn();
+            engine.EndTurn();
+            int hpAfterExpiry = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hpAfterExpiry - 6),
+                "HoT 到期后只挨打、不再回复");
+        }
+
+        [Test]
+        public void HealOverTime_SurvivesSnapshotRoundTrip() // _hots 挂在 BattleEngine 上,不在 EnemyState/SummonState 里,
+                                                              // 得单独确认 Capture/Restore 有往返(Digest() 不会自动覆盖新字段)
+        {
+            var enemyDef = new EnemyDef("锈", Element.Metal, 500, 6);
+            var engine = new BattleEngine(HealGraph(), Config(), new[] { "沐" },
+                Array.Empty<string>(), new[] { enemyDef }, 42);
+            engine.EndTurn();
+            engine.Cast("沐");
+
+            var snapshot = engine.Capture();
+            var restored = BattleEngine.Restore(snapshot, HealGraph(), Config(), null,
+                new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
+
+            int hp0 = restored.PlayerHp;
+            restored.EndTurn();
+            int gain1 = restored.PlayerHp - hp0 + 6;
+            Assert.That(gain1, Is.EqualTo(3), "读档后 HoT 应继续按回合回复");
+
+            restored.EndTurn();
+            restored.EndTurn();
+            int hpAfterExpiry = restored.PlayerHp;
+            restored.EndTurn();
+            Assert.That(restored.PlayerHp, Is.EqualTo(hpAfterExpiry - 6), "读档后到期照样停止回复");
+        }
     }
 }

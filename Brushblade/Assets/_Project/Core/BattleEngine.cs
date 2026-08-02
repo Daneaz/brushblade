@@ -95,6 +95,7 @@ namespace Brushblade.Core
         private readonly GameRandom _random;
         private readonly List<EnemyState> _enemies = new();
         private readonly List<SummonState> _summons = new();
+        private readonly List<(int Amount, int Turns, bool All)> _hots = new();
         private const int SummonCap = 6; // 场上存活召唤物上限(2026-08-03:4 → 6)
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         private const int ScorchGain = 2; // 焦痕受击存活的加攻量
@@ -164,6 +165,8 @@ namespace Brushblade.Core
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
+            foreach (var hot in _hots)
+                snapshot.Hots.Add(new HotSnapshot { Amount = hot.Amount, Turns = hot.Turns, All = hot.All });
             return snapshot;
         }
 
@@ -191,6 +194,8 @@ namespace Brushblade.Core
             }
             foreach (var summon in snapshot.Summons)
                 engine._summons.Add(SummonState.Restore(summon));
+            foreach (var hot in snapshot.Hots)
+                engine._hots.Add((hot.Amount, hot.Turns, hot.All));
             return engine;
         }
 
@@ -437,6 +442,21 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
+            // 持续治疗(2026-08-03)
+            for (int i = _hots.Count - 1; i >= 0; i--)
+            {
+                var hot = _hots[i];
+                if (hot.All) HealPlayerAndSummons(hot.Amount);
+                else
+                {
+                    int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, hot.Amount);
+                    PlayerHp += healed;
+                    _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+                }
+                _hots[i] = (hot.Amount, hot.Turns - 1, hot.All);
+                if (_hots[i].Turns <= 0) _hots.RemoveAt(i);
+            }
+
             // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克
             for (int s = 0; s < _summons.Count; s++)
             {
@@ -609,6 +629,13 @@ namespace Brushblade.Core
                         PlayerHp += healed;
                         _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
                         break;
+                    case EffectKind.HealAll:
+                        HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements));
+                        break;
+                    case EffectKind.HealOverTime:
+                        _hots.Add((WuxingResolver.ResolveEffect(value, recipeElements),
+                                   effect.Turns, effect.TargetAll));
+                        break;
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
@@ -629,6 +656,19 @@ namespace Brushblade.Core
                         }
                         break;
                 }
+            }
+        }
+
+        /// <summary>群体治疗:玩家 + 全部存活召唤物,各回 amount(玩家不超上限)。</summary>
+        private void HealPlayerAndSummons(int amount)
+        {
+            int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
+            PlayerHp += healed;
+            _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+            foreach (var summon in _summons)
+            {
+                if (!summon.Alive) continue;
+                summon.Hp = Math.Min(summon.MaxHp, summon.Hp + amount);
             }
         }
 

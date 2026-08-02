@@ -22,6 +22,7 @@ namespace Brushblade.Core
         public List<string> Pool { get; set; } = new();
         public List<EnemySnapshot> Enemies { get; set; } = new();
         public List<SummonSnapshot> Summons { get; set; } = new();
+        public List<HotSnapshot> Hots { get; set; } = new();
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>
@@ -54,6 +55,14 @@ namespace Brushblade.Core
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public int Attack { get; set; }
+    }
+
+    /// <summary>持续治疗快照(2026-08-03)。</summary>
+    public sealed class HotSnapshot
+    {
+        public int Amount { get; set; }
+        public int Turns { get; set; }
+        public bool All { get; set; }
     }
 
     /// <summary>挂在存档上的「段中断点」(2026-07-27):除了 run 自身的状态,还要记住

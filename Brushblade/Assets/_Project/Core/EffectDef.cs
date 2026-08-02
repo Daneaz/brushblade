@@ -12,6 +12,8 @@ namespace Brushblade.Core
         HealSelf,     // 治疗自身(不超上限;水系主打,2026-07-19 拍板)
         Summon,       // 召唤前排单位(Value=血量;木系主打,2026-07-19 拍板)
         Bleed,        // 流血:每回合固定伤害,无属性、不走生克(2026-08-03)
+        HealAll,        // 群体治疗:玩家 + 全部召唤物(2026-08-03)
+        HealOverTime,   // 持续治疗:每回合 Value,持续 Turns 回合;TargetAll 则含召唤物
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
@@ -35,9 +37,16 @@ namespace Brushblade.Core
         /// <summary>召唤类:召唤物显示字(林 → 木)。</summary>
         public string SummonChar { get; }
 
+        /// <summary>持续类效果的回合数(HoT 用)。</summary>
+        public int Turns { get; }
+
+        /// <summary>治疗类:true = 覆盖玩家与全部召唤物。</summary>
+        public bool TargetAll { get; }
+
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
-            int summonCount = 1, int summonAttack = 0, string summonChar = "木")
+            int summonCount = 1, int summonAttack = 0, string summonChar = "木",
+            int turns = 0, bool targetAll = false)
         {
             Kind = kind;
             Value = value;
@@ -46,6 +55,8 @@ namespace Brushblade.Core
             SummonCount = summonCount;
             SummonAttack = summonAttack;
             SummonChar = summonChar;
+            Turns = turns;
+            TargetAll = targetAll;
         }
     }
 }
