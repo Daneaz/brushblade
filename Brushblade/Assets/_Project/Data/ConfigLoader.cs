@@ -41,6 +41,8 @@ namespace Brushblade.Data
             public int Count { get; set; } = 1;        // 召唤:召几个
             public int Attack { get; set; }            // 召唤:攻击力
             public string SummonChar { get; set; } = "木"; // 召唤:显示字
+            public int Turns { get; set; }             // 持续类:回合数(HoT 用)
+            public bool TargetAll { get; set; }        // 治疗类:是否覆盖全部召唤物
         }
 
         private sealed class CampaignFileDto
@@ -468,7 +470,8 @@ namespace Brushblade.Data
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,
-                    effect.Count, effect.Attack, effect.SummonChar));
+                    effect.Count, effect.Attack, effect.SummonChar,
+                    effect.Turns, effect.TargetAll));
             }
             return effects;
         }

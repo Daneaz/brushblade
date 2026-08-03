@@ -60,12 +60,24 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_71_implementable_chars():
+def test_extract_pulls_91_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 71
+    assert len(values) == 91
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
     assert values["燚"]["rarity"] == "Gold"
     assert values["燚"]["element"] == "Fire"
+
+
+def test_extract_heal_over_time_parses_turns_and_target_all():
+    """润:群体持续治疗,turns/targetAll 要从「效果配置」列的括注里解出来。"""
+    values = extract(SPEC.read_text(encoding="utf-8"))
+    run = next(e for e in values["润"]["effects"] if e["kind"] == "HealOverTime")
+    assert run["turns"] == 2
+    assert run["targetAll"] is True
+
+    mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
+    assert mu["turns"] == 3
+    assert "targetAll" not in mu

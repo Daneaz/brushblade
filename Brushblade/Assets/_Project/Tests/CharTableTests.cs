@@ -48,5 +48,44 @@ namespace Brushblade.Core.Tests
             var aoe = RealGraph().Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll);
             Assert.That(aoe.Value, Is.EqualTo(7), "相生字必须填基础值,不是最终值");
         }
+
+        [Test]
+        public void RealConfig_P0UnlockedWordsAreLoadable()
+        {
+            var graph = RealGraph();
+            foreach (var id in new[] { "锯", "淋", "润", "沐", "滋", "冰", "冻", "溺",
+                                       "埋", "坑", "藤", "洼", "凝", "冷",
+                                       "铠", "崊", "崟", "磐", "巍", "漜" })
+                Assert.That(graph.Get(id), Is.Not.Null, $"{id} 应已收录");
+        }
+
+        [Test]
+        public void RealConfig_KaiIsDamageReductionTwenty()
+        {
+            var effect = RealGraph().Get("铠").Effects
+                .First(e => e.Kind == EffectKind.DamageReduction);
+            Assert.That(effect.Value, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void RealConfig_RunIsHealOverTimeTargetAll()
+        {
+            // 润:群体持续治疗,turns/targetAll 必须从 JSON 真正传到 EffectDef
+            // (ConfigLoader.ParseEffects 此前没接这两个字段——本测试就是防回归的)
+            var effect = RealGraph().Get("润").Effects
+                .First(e => e.Kind == EffectKind.HealOverTime);
+            Assert.That(effect.Turns, Is.EqualTo(2));
+            Assert.That(effect.TargetAll, Is.True);
+        }
+
+        [Test]
+        public void RealConfig_MuIsHealOverTimeSingleTargetThreeTurns()
+        {
+            // 沐:单体持续,turns=3、targetAll 应为 false(不含召唤物)
+            var effect = RealGraph().Get("沐").Effects
+                .First(e => e.Kind == EffectKind.HealOverTime);
+            Assert.That(effect.Turns, Is.EqualTo(3));
+            Assert.That(effect.TargetAll, Is.False);
+        }
     }
 }

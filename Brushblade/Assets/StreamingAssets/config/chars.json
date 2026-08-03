@@ -453,6 +453,21 @@
       ]
     },
     {
+      "id": "藤",
+      "rarity": "Blue",
+      "element": "Wood",
+      "recipe": [
+        "艹",
+        "滕"
+      ],
+      "effects": [
+        {
+          "kind": "Freeze",
+          "value": 1
+        }
+      ]
+    },
+    {
       "id": "柏",
       "rarity": "Blue",
       "element": "Wood",
@@ -750,6 +765,168 @@
       ]
     },
     {
+      "id": "洼",
+      "rarity": "Orange",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "圭"
+      ],
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 20
+        },
+        {
+          "kind": "Slow",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "冰",
+      "rarity": "Purple",
+      "element": "Water",
+      "recipe": [
+        "冫",
+        "水"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 15
+        },
+        {
+          "kind": "Freeze",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "冻",
+      "rarity": "Blue",
+      "element": "Water",
+      "recipe": [
+        "冫",
+        "东"
+      ],
+      "effects": [
+        {
+          "kind": "Freeze",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "溺",
+      "rarity": "Blue",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "弱"
+      ],
+      "effects": [
+        {
+          "kind": "Freeze",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "凝",
+      "rarity": "Green",
+      "element": "Water",
+      "recipe": [
+        "冫",
+        "疑"
+      ],
+      "effects": [
+        {
+          "kind": "Slow",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "冷",
+      "rarity": "White",
+      "element": "Water",
+      "recipe": [
+        "冫",
+        "令"
+      ],
+      "effects": [
+        {
+          "kind": "Slow",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "淋",
+      "rarity": "Orange",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "林"
+      ],
+      "effects": [
+        {
+          "kind": "HealAll",
+          "value": 9
+        }
+      ]
+    },
+    {
+      "id": "沐",
+      "rarity": "Purple",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "木"
+      ],
+      "effects": [
+        {
+          "kind": "HealOverTime",
+          "value": 1,
+          "turns": 3
+        }
+      ]
+    },
+    {
+      "id": "润",
+      "rarity": "Green",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "闰"
+      ],
+      "effects": [
+        {
+          "kind": "HealOverTime",
+          "value": 3,
+          "turns": 2,
+          "targetAll": true
+        }
+      ]
+    },
+    {
+      "id": "滋",
+      "rarity": "Green",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "兹"
+      ],
+      "effects": [
+        {
+          "kind": "HealOverTime",
+          "value": 3,
+          "turns": 2
+        }
+      ]
+    },
+    {
       "id": "治",
       "rarity": "Blue",
       "element": "Water",
@@ -922,6 +1099,36 @@
         {
           "kind": "DamageSingle",
           "value": 6
+        }
+      ]
+    },
+    {
+      "id": "锯",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "居"
+      ],
+      "effects": [
+        {
+          "kind": "Bleed",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "铠",
+      "rarity": "Purple",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "岂"
+      ],
+      "effects": [
+        {
+          "kind": "DamageReduction",
+          "value": 20
         }
       ]
     },
@@ -1114,6 +1321,85 @@
       ]
     },
     {
+      "id": "漜",
+      "rarity": "Red",
+      "element": "Earth",
+      "recipe": [
+        "氵",
+        "埜"
+      ],
+      "effects": [
+        {
+          "kind": "DamageReduction",
+          "value": 25
+        },
+        {
+          "kind": "Slow",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "崊",
+      "rarity": "Orange",
+      "element": "Earth",
+      "recipe": [
+        "山",
+        "林"
+      ],
+      "effects": [
+        {
+          "kind": "DamageReduction",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "id": "崟",
+      "rarity": "Purple",
+      "element": "Earth",
+      "recipe": [
+        "山",
+        "金"
+      ],
+      "effects": [
+        {
+          "kind": "DamageReduction",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "id": "磐",
+      "rarity": "Blue",
+      "element": "Earth",
+      "recipe": [
+        "般",
+        "石"
+      ],
+      "effects": [
+        {
+          "kind": "DamageReduction",
+          "value": 10
+        }
+      ]
+    },
+    {
+      "id": "巍",
+      "rarity": "White",
+      "element": "Earth",
+      "recipe": [
+        "山",
+        "魏"
+      ],
+      "effects": [
+        {
+          "kind": "DamageReduction",
+          "value": 5
+        }
+      ]
+    },
+    {
       "id": "崩",
       "rarity": "Blue",
       "element": "Earth",
@@ -1155,6 +1441,44 @@
       ]
     },
     {
+      "id": "埋",
+      "rarity": "Green",
+      "element": "Earth",
+      "recipe": [
+        "土",
+        "里"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        },
+        {
+          "kind": "Freeze",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "坑",
+      "rarity": "Green",
+      "element": "Earth",
+      "recipe": [
+        "土",
+        "亢"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        },
+        {
+          "kind": "Freeze",
+          "value": 1
+        }
+      ]
+    },
+    {
       "id": "碾",
       "rarity": "White",
       "element": "Earth",
@@ -1170,7 +1494,16 @@
       ]
     },
     {
+      "id": "东"
+    },
+    {
       "id": "乍"
+    },
+    {
+      "id": "亢"
+    },
+    {
+      "id": "令"
     },
     {
       "id": "佥"
@@ -1183,6 +1516,13 @@
     },
     {
       "id": "共"
+    },
+    {
+      "id": "兹"
+    },
+    {
+      "id": "冫",
+      "element": "Water"
     },
     {
       "id": "刀",
@@ -1229,6 +1569,9 @@
       "id": "啬"
     },
     {
+      "id": "埜"
+    },
+    {
       "id": "奄"
     },
     {
@@ -1250,6 +1593,9 @@
       "id": "尽"
     },
     {
+      "id": "居"
+    },
+    {
       "id": "展"
     },
     {
@@ -1257,7 +1603,13 @@
       "element": "Earth"
     },
     {
+      "id": "岂"
+    },
+    {
       "id": "弗"
+    },
+    {
+      "id": "弱"
     },
     {
       "id": "成"
@@ -1294,6 +1646,9 @@
       "id": "汤"
     },
     {
+      "id": "滕"
+    },
+    {
       "id": "灬",
       "element": "Fire"
     },
@@ -1302,6 +1657,9 @@
     },
     {
       "id": "然"
+    },
+    {
+      "id": "疑"
     },
     {
       "id": "白"
@@ -1317,6 +1675,9 @@
       "id": "臽"
     },
     {
+      "id": "般"
+    },
+    {
       "id": "艹",
       "element": "Wood"
     },
@@ -1327,11 +1688,20 @@
       "id": "辟"
     },
     {
+      "id": "里"
+    },
+    {
       "id": "钅",
       "element": "Metal"
     },
     {
+      "id": "闰"
+    },
+    {
       "id": "隹"
+    },
+    {
+      "id": "魏"
     }
   ]
 }

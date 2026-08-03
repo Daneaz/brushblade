@@ -61,6 +61,14 @@ namespace Brushblade.Presentation
                     EffectKind.HealSelf => $"治疗{v}",
                     EffectKind.Summon => $"召{e.SummonCount}×「{e.SummonChar}」" +
                         $"(血{v}攻{MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)},顶前排)",
+                    EffectKind.Bleed => $"流血{v}/回合(无属性)",
+                    EffectKind.HealAll => $"群体治疗{v}(含召唤物)",
+                    EffectKind.HealOverTime => e.TargetAll
+                        ? $"群体持续治疗{v}/回合,共{e.Turns}回合"
+                        : $"持续治疗{v}/回合,共{e.Turns}回合",
+                    EffectKind.Freeze => $"冻结{v}回合",
+                    EffectKind.Slow => $"减速{v}回合(半速)",
+                    EffectKind.DamageReduction => $"本段受伤−{v}%",
                     _ => e.Kind.ToString(),
                 });
             }

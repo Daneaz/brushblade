@@ -59,4 +59,12 @@ def _parse_effects(config, element):
         if kind == "Shield" and "PersistOnce" in config:
             effect["persistOnce"] = True
         effects.append(effect)
+
+    turns = re.search(r"turns (\d+)", config)
+    for effect in effects:
+        if effect["kind"] == "HealOverTime":
+            if turns:
+                effect["turns"] = int(turns.group(1))
+            if "targetAll" in config:
+                effect["targetAll"] = True
     return effects
