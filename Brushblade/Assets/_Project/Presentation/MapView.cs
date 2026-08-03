@@ -199,7 +199,7 @@ namespace Brushblade.Presentation
                 // 箱型图标:档位色圆角块 + 档位首字(两套形状按档位色区分;19.5.1 六档)
                 var iconRow = Ui.Row(stack.transform, "Icon", 0);
                 var icon = Ui.CardPanel(iconRow.transform, "Body",
-                    Theme.RarityColor((Brushblade.Core.CardRarity)(int)chest.Tier), 10);
+                    Theme.ChestColor(chest.Tier), 10);
                 var iconElement = icon.gameObject.AddComponent<LayoutElement>();
                 iconElement.preferredWidth = 52;
                 iconElement.preferredHeight = 40;

@@ -85,7 +85,7 @@ namespace Brushblade.Presentation
             chestCardElement.preferredWidth = 170;
             chestCardElement.preferredHeight = 100;
             var chestLabel = Ui.ThemedLabel(chestCard.transform, chestName, 24,
-                Theme.RarityColor((Brushblade.Core.CardRarity)(int)_meta.Shop.ChestSlot), Theme.TitleFont);
+                Theme.ChestColor(_meta.Shop.ChestSlot), Theme.TitleFont);
             Ui.Stretch(chestLabel.rectTransform);
             var chestBuy = Ui.RoundButton(chestCell.transform, _meta.Shop.ChestSold ? "已售" : chestPrice.ToString(),
                 () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time), $"{chestName}入箱位!",

@@ -82,6 +82,19 @@ namespace Brushblade.Presentation
             _ => new Color(0.632f, 0.62f, 0.594f), // 白
         };
 
+        /// <summary>宝箱配色:按匣子名取色,与卡牌稀有度**各走各的**。
+        /// 曾经是 RarityColor((CardRarity)(int)tier) —— 两个枚举都从 1 起,强转能跑,
+        /// 但卡牌换肤后 Crimson(赤霄匣)拿到橙色、名不副实,故拆出独立一张表。</summary>
+        public static Color ChestColor(ChestTier tier) => tier switch
+        {
+            ChestTier.Bamboo => new Color(0.181f, 0.621f, 0.323f),   // 竹简匣:竹绿
+            ChestTier.Celadon => new Color(0.06f, 0.455f, 0.771f),   // 青瓷匣:瓷蓝
+            ChestTier.Rosewood => new Color(0.475f, 0.269f, 0.669f), // 紫檀匣:檀紫
+            ChestTier.Gilded => new Color(0.788f, 0.663f, 0.29f),    // 鎏金匣:鎏金 #c9a94a
+            ChestTier.Crimson => new Color(0.802f, 0.151f, 0.181f),  // 赤霄匣:赤红
+            _ => new Color(0.632f, 0.62f, 0.594f),                   // 素纸匣:纸白
+        };
+
         public static Color ElementColor(Element? element) => element switch
         {
             Element.Fire => new Color(0.772f, 0.211f, 0.215f),
