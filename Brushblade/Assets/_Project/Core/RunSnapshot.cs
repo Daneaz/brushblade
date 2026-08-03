@@ -89,6 +89,7 @@ namespace Brushblade.Core
         public List<string> CarriedLibrary { get; set; } = new();
         public List<string> CarriedPool { get; set; } = new();
         public int CarriedHp { get; set; }
+        public int MaxHpBonus { get; set; } // 局内血量上限加成(奇遇累加,2026-08-04)
         public int CarriedNormalShield { get; set; }
         public int CarriedPersistShield { get; set; }
         public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)

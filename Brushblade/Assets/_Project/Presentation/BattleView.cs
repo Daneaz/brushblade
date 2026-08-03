@@ -43,8 +43,9 @@ namespace Brushblade.Presentation
         private string _message = "点击字库中的字开始行动";
 
         private string _title;          // 关卡标题(顶栏,可选)
-        // Battle.PlayerMaxHp 在 Core 引擎里不存在(仅 BattleConfig 有);禁止改 Core,由 GameRoot 经 Init 透传
+        // 局内奇遇能抬高上限(2026-08-04),故以引擎当场值为准;Init 透传的那份只作 Battle 未就绪时的兜底
         private int _playerMaxHp = 50;
+        private int PlayerMaxHp => Battle?.MaxHp ?? _playerMaxHp;
 
         // 容器
         private Transform _enemyRow;
@@ -162,7 +163,7 @@ namespace Brushblade.Presentation
                     SetShieldBar(_animShield);
                     if (_playerHpBar.fill == null) break;
                     _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - (e.Amount - e.Absorbed));
-                    SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
+                    SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
                     break;
                 case BattleEventKind.Shield: // 筑盾触达才涨,与掉盾同一条推进(不整屏重绘)
                     _animShield = System.Math.Min(Battle.PlayerShield, _animShield + e.Amount);
@@ -172,7 +173,7 @@ namespace Brushblade.Presentation
                 case BattleEventKind.Heal: // 水系治疗:与群攻同一记里触达,血条即时上推(此前只在末次重绘才涨)
                     if (_playerHpBar.fill == null) break;
                     _animPlayerHp = System.Math.Min(Battle.PlayerHp, _animPlayerHp + e.Amount);
-                    SetHpBar(_playerHpBar, _animPlayerHp, _playerMaxHp);
+                    SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
                     _juice.BarPulse(_playerHpBar.fill, Theme.SplitBlue, Element.Water); // 水:血条起势
                     break;
                 case BattleEventKind.EnemySplit: // 分裂:原体当场减半(Amount = 减半后的血),动画血量直接按过去
@@ -517,7 +518,7 @@ namespace Brushblade.Presentation
             var hpStack = Ui.VStack(_bottomRow, "Hp", 3);
             // 血值上条(2026-07-25);动画期间画在出手前值,敌人攻击触达才逐记掉血
             _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
-                _playerMaxHp, new Vector2(260, 20));
+                PlayerMaxHp, new Vector2(260, 20));
             // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
             // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动
             int shownShield = Animating ? _animShield : Battle.PlayerShield;

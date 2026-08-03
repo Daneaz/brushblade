@@ -54,6 +54,9 @@ namespace Brushblade.Core
         private List<string> _carriedLibrary;
         private List<string> _carriedPool;
         private int _carriedHp;
+        // 局内血量上限加成(2026-08-04):奇遇按当前有效上限的百分比复利累加。
+        // 局外 Meta.MaxHpFor 硬顶 100,而怪物 scale 无上限 —— 这是关内把上限顶上去的唯一手段。
+        private int _maxHpBonus;
         private int _carriedNormalShield;
         private int _carriedPersistShield;
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
@@ -115,6 +118,7 @@ namespace Brushblade.Core
                 CarriedLibrary = new List<string>(_carriedLibrary),
                 CarriedPool = new List<string>(_carriedPool),
                 CarriedHp = _carriedHp,
+                MaxHpBonus = _maxHpBonus,
                 CarriedNormalShield = _carriedNormalShield,
                 CarriedPersistShield = _carriedPersistShield,
                 CarriedSummons = new List<SummonSnapshot>(_carriedSummons),
@@ -149,6 +153,7 @@ namespace Brushblade.Core
                 _carriedLibrary = new List<string>(snapshot.CarriedLibrary),
                 _carriedPool = new List<string>(snapshot.CarriedPool),
                 _carriedHp = snapshot.CarriedHp,
+                _maxHpBonus = snapshot.MaxHpBonus,
                 _carriedNormalShield = snapshot.CarriedNormalShield,
                 _carriedPersistShield = snapshot.CarriedPersistShield,
                 _carriedSummons = new List<SummonSnapshot>(snapshot.CarriedSummons),
@@ -169,8 +174,9 @@ namespace Brushblade.Core
             foreach (var candidate in runConfig.EventPool)
                 if (candidate.Id == snapshot.CurrentEventId) run.CurrentEvent = candidate;
             if (snapshot.Battle != null)
-                run.Battle = BattleEngine.Restore(snapshot.Battle, graph, battleConfig, cardLevels,
-                    EnemyDefsOf(runConfig));
+                // 走 BattleConfigForRun():局内上限加成已从快照灌回,续爬的战斗要用抬高后的上限
+                run.Battle = BattleEngine.Restore(snapshot.Battle, graph, run.BattleConfigForRun(),
+                    cardLevels, EnemyDefsOf(runConfig));
             return run;
         }
 
@@ -302,8 +308,18 @@ namespace Brushblade.Core
                     _pendingOverflow.Add(component);
             bool inkWon = option.InkChancePercent <= 0 || _random.Next(100) < option.InkChancePercent;
             EarnedInk += (inkWon ? option.Ink : 0) - option.InkCost;
+            // 局内上限:先结算,治疗才吃得到新上限。掷空不是「无事发生」而是反向扣同样百分比。
+            if (option.MaxHpPercent != 0)
+            {
+                bool gained = option.MaxHpChancePercent <= 0
+                    || _random.Next(100) < option.MaxHpChancePercent;
+                int delta = EffectiveMaxHp * (gained ? option.MaxHpPercent : -option.MaxHpPercent) / 100;
+                _maxHpBonus += delta;
+                if (delta > 0) _carriedHp += delta;                    // 拿到的是血也是容器
+                _carriedHp = Math.Clamp(_carriedHp, 1, EffectiveMaxHp); // 扣上限时把当前血收回来
+            }
             if (option.HpDelta > 0)
-                _carriedHp = Math.Min(_battleConfig.PlayerMaxHp, _carriedHp + option.HpDelta);
+                _carriedHp = Math.Min(EffectiveMaxHp, _carriedHp + option.HpDelta);
             else if (option.HpDelta < 0)
                 _carriedHp = Math.Max(1, _carriedHp + option.HpDelta);
 
@@ -655,9 +671,16 @@ namespace Brushblade.Core
             return alive;
         }
 
+        /// <summary>本关生效的血量上限 = 局外基础 + 奇遇累加的局内加成(至少 1)。</summary>
+        public int EffectiveMaxHp => Math.Max(1, _battleConfig.PlayerMaxHp + _maxHpBonus);
+
+        /// <summary>把局内上限加成折进配置再交给战斗;无加成时原样返回,不白拷一份。</summary>
+        private BattleConfig BattleConfigForRun() =>
+            _maxHpBonus == 0 ? _battleConfig : _battleConfig.WithPlayerMaxHp(EffectiveMaxHp);
+
         private BattleEngine NewBattle(IReadOnlyList<string> library, IReadOnlyList<string> pool, int? startingHp)
         {
-            return new BattleEngine(_graph, _battleConfig, library, pool,
+            return new BattleEngine(_graph, BattleConfigForRun(), library, pool,
                 _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels,
                 _carriedNormalShield, _carriedPersistShield, _carriedSummons, _carriedDamageReductions);
         }

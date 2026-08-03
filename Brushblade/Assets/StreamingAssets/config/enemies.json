@@ -596,6 +596,59 @@
           "label": "见好就收"
         }
       ]
+    },
+    {
+      "id": "养气",
+      "text": "松下老道盘坐不动:『字有筋骨,人有气脉。静坐一刻,气自厚三分。』",
+      "options": [
+        {
+          "label": "静坐养气(血量上限 +30%)",
+          "maxHpPercent": 30
+        },
+        {
+          "label": "讨教笔法(随机部件 ×1)",
+          "randomComponents": 1
+        },
+        {
+          "label": "不扰清修"
+        }
+      ]
+    },
+    {
+      "id": "淬骨",
+      "text": "铁匠抡锤不歇:『字要淬,骨也要淬。火里走一遭,成不成看你的命。』",
+      "options": [
+        {
+          "label": "入炉淬骨(八成 上限 +30%,两成 反噬 −30%)",
+          "maxHpPercent": 30,
+          "maxHpChancePercent": 80
+        },
+        {
+          "label": "只观火候(HP +10)",
+          "hpDelta": 10
+        },
+        {
+          "label": "退开三步"
+        }
+      ]
+    },
+    {
+      "id": "换气",
+      "text": "药庐老妪伸出枯手:『一味药引,换你一口真气。』",
+      "options": [
+        {
+          "label": "以物易气(舍 1 部件,上限 +30%)",
+          "maxHpPercent": 30,
+          "componentCost": 1
+        },
+        {
+          "label": "讨碗凉茶(HP +5)",
+          "hpDelta": 5
+        },
+        {
+          "label": "谢过离开"
+        }
+      ]
     }
   ],
   "endless": {

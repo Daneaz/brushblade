@@ -87,5 +87,33 @@ namespace Brushblade.Core.Tests
             Assert.That(effect.Turns, Is.EqualTo(3));
             Assert.That(effect.TargetAll, Is.False);
         }
+
+        [Test]
+        public void RealConfig_MaxHpEvents_ReachEventOption()
+        {
+            // 养气/淬骨/换气:maxHpPercent 与 maxHpChancePercent 得真从 JSON 传到 EventOption
+            // ——ConfigLoader 漏接字段是静默失败(上限奇遇会变成什么都不做),故钉住
+            var campaign = RealCampaign();
+            var byId = campaign.Events.ToDictionary(e => e.Id);
+
+            Assert.That(byId["养气"].Options[0].MaxHpPercent, Is.EqualTo(30));
+            Assert.That(byId["养气"].Options[0].MaxHpChancePercent, Is.EqualTo(0)); // 必得
+
+            Assert.That(byId["淬骨"].Options[0].MaxHpPercent, Is.EqualTo(30));
+            Assert.That(byId["淬骨"].Options[0].MaxHpChancePercent, Is.EqualTo(80)); // 两成反噬
+
+            Assert.That(byId["换气"].Options[0].MaxHpPercent, Is.EqualTo(30));
+            Assert.That(byId["换气"].Options[0].ComponentCost, Is.EqualTo(1));
+        }
+
+        private static CampaignConfig RealCampaign()
+        {
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Brushblade")))
+                dir = dir.Parent;
+            var path = Path.Combine(dir.FullName,
+                "Brushblade/Assets/StreamingAssets/config/enemies.json");
+            return ConfigLoader.LoadCampaign(File.ReadAllText(path), RealGraph());
+        }
     }
 }

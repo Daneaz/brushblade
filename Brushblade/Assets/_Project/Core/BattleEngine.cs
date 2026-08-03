@@ -40,6 +40,15 @@ namespace Brushblade.Core
         /// <summary>可合成的字集合 = 玩家的出阵列表(2026-07-20 拍板:没编入出阵就合不出来,
         /// 与战利品同源);null = 不限(工装与旧调用)。</summary>
         public IReadOnlyCollection<string> UnlockedChars { get; set; }
+
+        /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
+        /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
+        public BattleConfig WithPlayerMaxHp(int playerMaxHp)
+        {
+            var copy = (BattleConfig)MemberwiseClone();
+            copy.PlayerMaxHp = playerMaxHp;
+            return copy;
+        }
     }
 
     /// <summary>结算事件(供表现层做打击感,13.3;架构:表现监听 Core 事件,不反向驱动)。</summary>
@@ -231,6 +240,7 @@ namespace Brushblade.Core
         public int Ap { get; private set; }
         public int ApPerTurn => _config.ApPerTurn;   // 每回合 AP 上限(UI 满格数 / 提示文案用;一气技能会抬高)
         public int PlayerHp { get; private set; }
+        public int MaxHp => _config.PlayerMaxHp;     // 本场生效的血量上限(局内奇遇可抬高,2026-08-04)
         public int PlayerShield => _shieldNormal + _shieldPersist;
         public int ShieldNormal => _shieldNormal;
         public int ShieldPersist => _shieldPersist;

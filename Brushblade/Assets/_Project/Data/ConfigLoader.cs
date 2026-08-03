@@ -100,6 +100,8 @@ namespace Brushblade.Data
             public int RandomComponents { get; set; }
             public List<string> GainCharChoices { get; set; }
             public int InkChancePercent { get; set; }
+            public int MaxHpPercent { get; set; }
+            public int MaxHpChancePercent { get; set; }
         }
 
         private sealed class ChapterDto
@@ -219,6 +221,8 @@ namespace Brushblade.Data
                         RandomComponents = optionDto.RandomComponents,
                         GainCharChoices = optionDto.GainCharChoices ?? new List<string>(),
                         InkChancePercent = optionDto.InkChancePercent,
+                        MaxHpPercent = optionDto.MaxHpPercent,
+                        MaxHpChancePercent = optionDto.MaxHpChancePercent,
                     });
                 }
                 events.Add(new EventDef { Id = eventDto.Id, Text = eventDto.Text, Options = options });
