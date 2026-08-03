@@ -682,7 +682,7 @@ namespace Brushblade.Core
                             }
                         break;
                     case EffectKind.Shield:
-                        int shield = WuxingResolver.ResolveEffect(value, recipeElements);
+                        int shield = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
                         if (effect.PersistOnce) _shieldPersist += shield;
                         else _shieldNormal += shield;
                         _events.Add(new BattleEvent(BattleEventKind.Shield, -1, shield));
@@ -691,16 +691,16 @@ namespace Brushblade.Core
                         _burnPerStack += value;
                         break;
                     case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板);走生克(相生组合可增益)
-                        int heal = WuxingResolver.ResolveEffect(value, recipeElements);
+                        int heal = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
                         int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, heal);
                         PlayerHp += healed;
                         _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
                         break;
                     case EffectKind.HealAll:
-                        HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements));
+                        HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements, attacker));
                         break;
                     case EffectKind.HealOverTime:
-                        _hots.Add((WuxingResolver.ResolveEffect(value, recipeElements),
+                        _hots.Add((WuxingResolver.ResolveEffect(value, recipeElements, attacker),
                                    effect.Turns, effect.TargetAll));
                         break;
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击

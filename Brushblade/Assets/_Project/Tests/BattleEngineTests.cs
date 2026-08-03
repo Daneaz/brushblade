@@ -26,7 +26,11 @@ namespace Brushblade.Core.Tests
             new CharDef("然", null),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
                 effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
+            // 壁(土系,辟金+土):土生金是「我生他」→ 不吃相生,盾 8
             new CharDef("壁", Element.Earth, new[] { "辟", "土" },
+                effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
+            // 锢(金系,辟金+土):土生金 = 「他生我」→ 吃相生,盾 8×3 = 24
+            new CharDef("锢", Element.Metal, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
             new CharDef("灼", Element.Fire, new[] { "火", "勺" },
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 8, doubleVsBurning: true) }),
@@ -334,11 +338,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Cast_Shield_UsesShengMultiplier() // 壁:护盾 8×3(土生金)= 24
+        public void Cast_Shield_UsesShengMultiplier() // 锢(金系,辟金+土):土生金 = 他生我,护盾 8×3 = 24
+        {
+            var engine = Engine(library: new[] { "锢" });
+            engine.Cast("锢");
+            Assert.That(engine.PlayerShield, Is.EqualTo(24));
+        }
+
+        [Test]
+        public void Cast_Shield_SelfGeneratesOther_NoTriple() // 壁(土系,同配方):土生金是「我生他」→ 不翻倍
         {
             var engine = Engine(library: new[] { "壁" });
             engine.Cast("壁");
-            Assert.That(engine.PlayerShield, Is.EqualTo(24));
+            Assert.That(engine.PlayerShield, Is.EqualTo(8));
         }
 
         [Test]
@@ -404,8 +416,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_ShieldPersists() // 护盾段内持久,不再回合末全清
         {
-            var engine = Engine(library: new[] { "壁" }, enemies: new[] { MetalBoss() }); // 攻 5
-            engine.Cast("壁"); // 护盾 24
+            var engine = Engine(library: new[] { "锢" }, enemies: new[] { MetalBoss() }); // 攻 5
+            engine.Cast("锢"); // 护盾 24
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 24 盾吸收攻 5,不掉血
             Assert.That(engine.PlayerShield, Is.EqualTo(19)); // 护盾段内持久,剩余 19
@@ -449,8 +461,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Shield_StacksWithinTurn() // 同回合多次筑盾累加
         {
-            var engine = Engine(library: new[] { "壁" }, pool: new[] { "土" }, enemies: new[] { MetalBoss() });
-            engine.Cast("壁");            // 24(土生金 ×3)
+            var engine = Engine(library: new[] { "锢" }, pool: new[] { "土" }, enemies: new[] { MetalBoss() });
+            engine.Cast("锢");            // 24(土生金 ×3)
             engine.Cast("土");            // 部件直出 +3(无配方,无相生)
             Assert.That(engine.PlayerShield, Is.EqualTo(27));
         }

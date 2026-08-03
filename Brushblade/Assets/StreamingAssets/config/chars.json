@@ -186,7 +186,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 18
         }
       ]
     },
@@ -613,11 +613,11 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 8
+          "value": 24
         },
         {
           "kind": "HealSelf",
-          "value": 8
+          "value": 24
         }
       ]
     },
@@ -873,7 +873,7 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 9
+          "value": 27
         }
       ]
     },
@@ -888,7 +888,7 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 1,
+          "value": 3,
           "turns": 3
         }
       ]
@@ -1163,12 +1163,12 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 12,
+          "value": 36,
           "persistOnce": true
         },
         {
           "kind": "DamageAll",
-          "value": 6
+          "value": 18
         }
       ]
     },
@@ -1533,7 +1533,8 @@
       "element": "Metal"
     },
     {
-      "id": "切"
+      "id": "切",
+      "element": "Metal"
     },
     {
       "id": "列"

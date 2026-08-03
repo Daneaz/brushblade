@@ -52,7 +52,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("壁");
             var shield = engine.LastEvents.Single(e => e.Kind == BattleEventKind.Shield);
             Assert.That(shield.TargetIndex, Is.EqualTo(-1));
-            Assert.That(shield.Amount, Is.EqualTo(24)); // 土生金 ×3
+            Assert.That(shield.Amount, Is.EqualTo(8)); // 壁是土系,土生金属「我生他」→ 不吃相生
         }
 
         [Test]

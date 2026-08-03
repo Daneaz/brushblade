@@ -28,7 +28,9 @@ namespace Brushblade.Presentation
 
             text.Append('|').Append(EffectsText(def, cardLevel));
 
-            if (WuxingResolver.ShengMultiplier(graph.RecipeElements(def.Id)) == 3)
+            // 相生「他生我」:要拿本字属性去比对配方原料(中性字视作心,永不成对)
+            if (WuxingResolver.ShengMultiplier(
+                    graph.RecipeElements(def.Id), def.Element ?? Element.Heart) == 3)
                 text.Append("|相生:效果×3");
 
             return text.ToString();

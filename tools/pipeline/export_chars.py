@@ -30,6 +30,13 @@ STACK_RECIPES = {
 PUA_PROXY = {"𣛧": "\ue625", "𨰻": "\ue626"}
 
 
+# 复合部件的五行属性(filter_chars.ATTR_MAP 只覆盖部首,非部首的复合部件落不到属性)。
+# 口径见 docs/design/wuxing-reference.md「复合部件的属性判定」:递归到部首取属性,
+# 多个属性部首时取能成相生的那个。相生已收紧为「他生我」,故这里只需覆盖真正撑起
+# 某条相生链的部件 —— 目前只有 切(= 七+刀,刀属金)一个,它让 沏(水系)吃到金生水。
+COMPOUND_ATTR = {"切": "金"}
+
+
 def _output_id(char):
     """真实字 → 落地用 id:SMP 且有 PUA 代理的字换成代理码位,其余原样。"""
     return PUA_PROXY.get(char, char)
@@ -83,7 +90,7 @@ def build_chars(ids_text, values):
     for part in sorted(components):
         if part not in values:
             leaf = {"id": _output_id(part)}
-            attr = attr_of(part)
+            attr = attr_of(part) or COMPOUND_ATTR.get(part)
             if attr:
                 leaf["element"] = _ELEMENT_NAME[attr]
             entries.append(leaf)

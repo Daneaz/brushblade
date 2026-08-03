@@ -36,29 +36,29 @@ namespace Brushblade.Core
             return 1.0f;
         }
 
-        /// <summary>相生倍率:配方属性去重后含相生有序对 → 3,多对不叠乘;否则 1。</summary>
-        public static int ShengMultiplier(IEnumerable<Element> recipeElements)
+        /// <summary>相生倍率「他生我」:配方原料里含生 <paramref name="self"/> 的属性 → 3,多个不叠乘;否则 1。
+        /// 本字去生原料(我生他)不算 —— 如 灶(火系,火+土)的火生土。规格见 wuxing-reference.md。</summary>
+        public static int ShengMultiplier(IEnumerable<Element> recipeElements, Element self)
         {
-            var set = new HashSet<Element>(recipeElements);
-            foreach (var mother in set)
+            foreach (var mother in recipeElements)
             {
-                if (Sheng.TryGetValue(mother, out var child) && set.Contains(child))
+                if (Sheng.TryGetValue(mother, out var child) && child == self)
                     return 3;
             }
             return 1;
         }
 
-        /// <summary>效果结算:floor(基础值 × 相生 × 相克)。</summary>
+        /// <summary>效果结算:floor(基础值 × 相生 × 相克)。<paramref name="attacker"/> 即本字属性。</summary>
         public static int ResolveEffect(int baseValue, IEnumerable<Element> recipeElements, Element attacker, Element defender)
         {
             return (int)Math.Floor(
-                baseValue * ShengMultiplier(recipeElements) * KeMultiplier(attacker, defender));
+                baseValue * ShengMultiplier(recipeElements, attacker) * KeMultiplier(attacker, defender));
         }
 
         /// <summary>无对抗目标的效果结算(护盾/治疗等):floor(基础值 × 相生)。</summary>
-        public static int ResolveEffect(int baseValue, IEnumerable<Element> recipeElements)
+        public static int ResolveEffect(int baseValue, IEnumerable<Element> recipeElements, Element self)
         {
-            return baseValue * ShengMultiplier(recipeElements);
+            return baseValue * ShengMultiplier(recipeElements, self);
         }
     }
 }
