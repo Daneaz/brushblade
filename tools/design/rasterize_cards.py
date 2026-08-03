@@ -26,7 +26,7 @@ OUT_DIR = ROOT / "Brushblade/Assets/_Project/Presentation/Cards/Resources"
 FRAME_W, FRAME_H = 192, 240   # 牌面基准画布(0.8 竖版)
 ELEM_SIZE = 128               # 属性元件基准画布
 
-TIERS = ("white", "green", "blue", "purple", "orange", "red")
+TIERS = ("white", "green", "blue", "purple", "gold", "orange", "red")
 PARTS = ("frame", "glow")
 ELEMENTS = ("fire", "water", "wood", "metal", "earth", "heart")
 

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="240" viewBox="0 0 192 240">
+  
+  
+  <defs>
+    <linearGradient id="au_band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b99a3f"></stop>
+      <stop offset="0.3" stop-color="#d8bc5e"></stop>
+      <stop offset="0.52" stop-color="#eeda87"></stop>
+      <stop offset="0.74" stop-color="#cbab4e"></stop>
+      <stop offset="1" stop-color="#a68632"></stop>
+    </linearGradient>
+    
+    <pattern id="au_sand" width="9" height="8" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="0.55" fill="#8a6d22" fill-opacity="0.5"></circle>
+      <circle cx="6.5" cy="4.5" r="0.45" fill="#fff3c4" fill-opacity="0.6"></circle>
+      <circle cx="4" cy="6.8" r="0.5" fill="#8a6d22" fill-opacity="0.4"></circle>
+      <circle cx="8" cy="1.2" r="0.4" fill="#fff3c4" fill-opacity="0.5"></circle>
+    </pattern>
+    <clipPath id="au_ring">
+      <path clip-rule="evenodd" d="M0 12 Q0 0 12 0 H180 Q192 0 192 12 V228 Q192 240 180 240 H12 Q0 240 0 228 Z M17 11 Q11 11 11 17 V223 Q11 229 17 229 H175 Q181 229 181 223 V17 Q181 11 175 11 Z"></path>
+    </clipPath>
+    <linearGradient id="au_washV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c9a94a" stop-opacity="0.08"></stop>
+      <stop offset="0.15" stop-color="#c9a94a" stop-opacity="0"></stop>
+      <stop offset="0.85" stop-color="#c9a94a" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#c9a94a" stop-opacity="0.08"></stop>
+    </linearGradient>
+    <linearGradient id="au_washH" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c9a94a" stop-opacity="0.08"></stop>
+      <stop offset="0.15" stop-color="#c9a94a" stop-opacity="0"></stop>
+      <stop offset="0.85" stop-color="#c9a94a" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#c9a94a" stop-opacity="0.08"></stop>
+    </linearGradient>
+    <radialGradient id="au_bead" cx="40%" cy="36%" r="64%">
+      <stop offset="0" stop-color="#fffbe8"></stop>
+      <stop offset="0.5" stop-color="#eeda87"></stop>
+      <stop offset="1" stop-color="#a68632"></stop>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="192" height="240" rx="12" fill="#FDFCF8"></rect>
+  
+  <path fill="url(#au_band)" fill-rule="evenodd" clip-rule="evenodd" d="M0 12 Q0 0 12 0 H180 Q192 0 192 12 V228 Q192 240 180 240 H12 Q0 240 0 228 Z M17 11 Q11 11 11 17 V223 Q11 229 17 229 H175 Q181 229 181 223 V17 Q181 11 175 11 Z"></path>
+  
+  <g clip-path="url(#au_ring)">
+    <rect x="0" y="0" width="192" height="240" fill="url(#au_sand)"></rect>
+  </g>
+  
+  <g fill="none">
+    <rect x="1.3" y="1.3" width="189.4" height="237.4" rx="11.5" stroke="#7d611e" stroke-width="1.2" stroke-opacity="0.7"></rect>
+    <rect x="11.5" y="11.5" width="169" height="217" rx="5.5" stroke="#fff3c4" stroke-width="0.9" stroke-opacity="0.9"></rect>
+    <rect x="13" y="13" width="166" height="214" rx="5" stroke="#8a6d22" stroke-width="0.55" stroke-opacity="0.55"></rect>
+  </g>
+  
+  <rect x="16" y="16" width="160" height="208" rx="4" fill="none" stroke="#a8453a" stroke-width="0.8" stroke-opacity="0.6"></rect>
+  
+  <g>
+    <g id="au_beads">
+      <circle cx="6.5" cy="17" r="2" fill="url(#au_bead)" stroke="#7d611e" stroke-width="0.4"></circle>
+      <circle cx="8.6" cy="11.4" r="2" fill="url(#au_bead)" stroke="#7d611e" stroke-width="0.4"></circle>
+      <circle cx="12.6" cy="7.6" r="2" fill="url(#au_bead)" stroke="#7d611e" stroke-width="0.4"></circle>
+      <circle cx="17.6" cy="5.8" r="2" fill="url(#au_bead)" stroke="#7d611e" stroke-width="0.4"></circle>
+    </g>
+    <use href="#au_beads" transform="translate(192 0) scale(-1 1)"></use>
+    <use href="#au_beads" transform="translate(0 240) scale(1 -1)"></use>
+    <use href="#au_beads" transform="translate(192 240) scale(-1 -1)"></use>
+  </g>
+  
+  <rect x="11" y="11" width="170" height="218" rx="5" fill="url(#au_washV)"></rect>
+  <rect x="11" y="11" width="170" height="218" rx="5" fill="url(#au_washH)"></rect>
+</svg>

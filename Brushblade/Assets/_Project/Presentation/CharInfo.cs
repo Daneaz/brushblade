@@ -86,14 +86,18 @@ namespace Brushblade.Presentation
             _ => "?",
         };
 
+        /// <summary>⚠️ 稀有度显示皮肤错位映射(2026-08-04,接入金卡素材,与 <see cref="Theme.RarityColor"/>
+        /// 同一套映射):枚举名/数值是**强度档位**(不可改),显示名走 白→绿→蓝→紫→金→橙→红 的视觉层级——
+        /// 枚举 Orange 显示"金"、枚举 Red 显示"橙"、枚举 Gold 显示"红"。刻意错位,不是 bug。</summary>
         public static string RarityName(CardRarity rarity) => rarity switch
         {
             CardRarity.White => "白",
             CardRarity.Green => "绿",
             CardRarity.Blue => "蓝",
             CardRarity.Purple => "紫",
-            CardRarity.Orange => "橙",
-            CardRarity.Red => "红",
+            CardRarity.Orange => "金",  // 强度档 Orange 显示为"金"
+            CardRarity.Red => "橙",     // 强度档 Red 显示为"橙"
+            CardRarity.Gold => "红",    // 强度档 Gold(最高)显示为"红"
             _ => "?",
         };
     }

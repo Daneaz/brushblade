@@ -11,11 +11,16 @@ namespace Brushblade.Presentation
     public sealed class CardFrameView : MonoBehaviour
     {
         // 材质光效层周期(§4.2):蓝釉光最慢,红星芒最快 —— 稀有度越高越「活」
-        private const float SweepPeriod = 6.1f;    // 蓝:釉面反光扫过
-        private const float BreathePeriod = 4.3f;  // 紫:边缘辉光呼吸
-        private const float FlowPeriod = 3.1f;     // 橙:金边流光
-        private const float TwinklePeriod = 2.7f;  // 红:星芒明灭
-        private const float PlayablePeriod = 2.9f; // 通用:可出手呼吸
+        // ⚠️ 稀有度显示皮肤错位映射(2026-08-04,接入金卡素材,与 Theme.RarityColor 等同一套映射):
+        // 枚举 Orange 现在显示"金"皮肤、枚举 Red 现在显示"橙"皮肤、新增枚举 Gold(强度最高)显示"红"皮肤。
+        // 下面周期常量按**当前显示皮肤**重新命名/追加,不是按枚举名——刻意错位,不是 bug。
+        private const float SweepPeriod = 6.1f;      // 蓝:釉面反光扫过(挂在枚举 Blue,皮肤未变)
+        private const float BreathePeriod = 4.3f;    // 紫:边缘辉光呼吸(挂在枚举 Purple,皮肤未变)
+        private const float FlowPeriod = 3.1f;       // 金:金边流光(挂在枚举 Orange,现显示"金"皮肤)
+        private const float FlowPeriodBright = 2.85f;// 橙:流光加强版(挂在枚举 Red,现显示"橙"皮肤)—— 周期比
+                                                       // 金档快、比红档星芒慢,呼应「金<橙<红」的视觉层级递增
+        private const float TwinklePeriod = 2.7f;    // 红:星芒明灭(挂在枚举 Gold,现显示"红"皮肤)
+        private const float PlayablePeriod = 2.9f;   // 通用:可出手呼吸
 
         // 六系签名动效周期(§4.1)。金/土 刻意最慢:金是「瞬时、间隔长」,土是「几乎不动」
         private static float PeriodOf(Element? element) => element switch
@@ -29,15 +34,20 @@ namespace Brushblade.Presentation
             _ => 5f,
         };
 
-        /// <summary>元件个数与透明度上限(§4.2 的「音量」)。白/绿只给一件、极淡 —— 暗示级。</summary>
+        /// <summary>元件个数与透明度上限(§4.2 的「音量」)。白/绿只给一件、极淡 —— 暗示级。
+        /// ⚠️ 稀有度显示皮肤错位映射(2026-08-04,接入金卡素材,与 Theme.RarityColor 等同一套映射):
+        /// 枚举名/数值是**强度档位**(不可改),音量按 白→绿→蓝→紫→金→橙→红 的视觉层级递增——
+        /// 枚举 Orange(显示"金")取一个介于紫、橙之间的中间值,枚举 Red(显示"橙")取原 Orange 的音量,
+        /// 新增枚举 Gold(显示"红",强度最高)取原 Red 的音量。刻意错位,不是 bug。</summary>
         private static (int count, float alpha) VolumeOf(CardRarity rarity) => rarity switch
         {
             CardRarity.White => (1, 0.20f),
             CardRarity.Green => (1, 0.28f),
             CardRarity.Blue => (2, 0.40f),
             CardRarity.Purple => (3, 0.52f),
-            CardRarity.Orange => (3, 0.64f),
-            CardRarity.Red => (4, 0.78f),
+            CardRarity.Orange => (3, 0.58f),  // 显示"金":介于 Purple(0.52) 与原 Orange 音量(0.64)之间
+            CardRarity.Red => (3, 0.64f),     // 显示"橙":原 Orange 的音量
+            CardRarity.Gold => (4, 0.78f),    // 显示"红"(强度最高):原 Red 的音量
             _ => (1, 0.2f),
         };
 
@@ -211,13 +221,27 @@ namespace Brushblade.Presentation
                     alpha = 0.50f + 0.30f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2f / BreathePeriod));
                     break;
                 case CardRarity.Orange: // 金边流光:光条沿顶栏来回,幅度小到不出框
+                                         // (枚举 Orange 现显示"金"皮肤——这条注释原本就是按皮肤写的,不用改)
                 {
                     float u = Mathf.Repeat(t / FlowPeriod, 1f);
                     x = Mathf.Sin(u * Mathf.PI * 2f) * 0.068f * _size.x; // 光条只占 69% 牌宽,这个幅度不出牌
                     alpha = 0.62f + 0.28f * Mathf.Abs(Mathf.Cos(u * Mathf.PI * 2f));
                     break;
                 }
-                case CardRarity.Red: // 星芒明灭
+                // 枚举 Red 现显示"橙"皮肤,原来这一档没有专属光效(空档)。沿用流光形态但调得比金档
+                // (Orange 分支)更快更亮:光带幅度 0.078 > 0.068,基线 alpha 0.68 > 0.62 —— 体现
+                // 「金 < 橙 < 红」的视觉层级是递增的,不是任务描述里字面的「弱于金档」
+                // (那样会让显示层级更高的"橙"看起来比"金"更暗,前后矛盾,这里改成递增更自洽)。
+                case CardRarity.Red:
+                {
+                    float u = Mathf.Repeat(t / FlowPeriodBright, 1f);
+                    x = Mathf.Sin(u * Mathf.PI * 2f) * 0.078f * _size.x;
+                    alpha = 0.68f + 0.30f * Mathf.Abs(Mathf.Cos(u * Mathf.PI * 2f));
+                    break;
+                }
+                // 枚举 Gold(强度最高)现显示"红"皮肤:把原 CardRarity.Red 的「星芒明灭」逻辑**搬到**这里
+                // (不是复制两份)——旧枚举 Red 已改挂"橙"皮肤,不再用这段效果。
+                case CardRarity.Gold:
                     alpha = 0.72f + 0.24f * Mathf.Sin(t * Mathf.PI * 2f / TwinklePeriod);
                     break;
             }
