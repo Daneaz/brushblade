@@ -1381,5 +1381,51 @@ namespace Brushblade.Core.Tests
             restored.EndTurn(); // 第 3 回合:跳过
             Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6));
         }
+
+        // ---- Freeze + Slow 组合(review finding,2026-08-03):冻结中减速节拍应原地暂停 ----
+
+        private static RecipeGraph FreezeSlowGraph() => new(new[]
+        {
+            new CharDef("冻", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Freeze, 2) }),
+            new CharDef("冷", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Slow, 4) }),
+        });
+
+        [Test]
+        public void Slow_PausesDuringFreeze_ThenResumesFromSamePoint()
+        {
+            var engine = new BattleEngine(FreezeSlowGraph(), Config(), new[] { "冷", "冻" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 6) }, 42);
+
+            engine.Cast("冷"); // 先减速,单敌免选自动锁定目标
+            int hp0 = engine.PlayerHp;
+
+            engine.EndTurn(); // 减速第 1 回合:跳过(SlowTurns 4→3,SlowActs false→true)
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
+            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(3));
+            Assert.That(engine.Enemies[0].SlowActs, Is.True);
+
+            engine.Cast("冻"); // 再冻结 2 回合,打断减速节拍
+            Assert.That(engine.Enemies[0].FreezeTurns, Is.EqualTo(2));
+
+            engine.EndTurn(); // 冻结第 1 回合:不出手,减速节拍应原地暂停(不消耗、不翻转)
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结中不出手");
+            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(3), "冻结中减速回合数不应被消耗");
+            Assert.That(engine.Enemies[0].SlowActs, Is.True, "冻结中半速开关不应被翻转");
+
+            engine.EndTurn(); // 冻结第 2 回合:仍不出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结第 2 回合仍不出手");
+            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(3), "冻结中减速回合数仍不应被消耗");
+            Assert.That(engine.Enemies[0].SlowActs, Is.True, "冻结中半速开关仍不应被翻转");
+
+            engine.EndTurn(); // 解冻:暂停点是"下一拍该行动"(SlowActs=true),应直接出手,不是重新跳过
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "解冻后应从暂停点接续,直接进入行动回合");
+            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(2));
+            Assert.That(engine.Enemies[0].SlowActs, Is.False);
+
+            engine.EndTurn(); // 接续节奏的下一拍:跳过
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "接续节奏的下一拍应跳过");
+        }
     }
 }
