@@ -57,13 +57,15 @@ namespace Brushblade.Core
         private int _carriedNormalShield;
         private int _carriedPersistShield;
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
+        private Dictionary<string, int> _carriedDamageReductions = new(); // 减伤延续(2026-08-03):段内持久,到段末才清
         private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool, int seed,
             IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
             int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
-            int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null)
+            int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
+            IReadOnlyDictionary<string, int> startingDamageReductions = null)
         {
             _startingInk = startingInk;
             _graph = graph;
@@ -77,6 +79,8 @@ namespace Brushblade.Core
             _carriedPersistShield = startingPersistShield;
             _perFloorNormalShield = perFloorNormalShield;
             if (startingSummons != null) _carriedSummons = new List<SummonSnapshot>(startingSummons);
+            if (startingDamageReductions != null)
+                _carriedDamageReductions = new Dictionary<string, int>(startingDamageReductions);
             // 携带态一开始就等于开打时的状态,而不是 null:第一场打完前挂起也有东西可存,
             // 且省掉一处 null 陷阱(AdvanceAfterBattle 会照常整体覆盖)
             _carriedLibrary = new List<string>(startingLibrary);
@@ -114,6 +118,7 @@ namespace Brushblade.Core
                 CarriedNormalShield = _carriedNormalShield,
                 CarriedPersistShield = _carriedPersistShield,
                 CarriedSummons = new List<SummonSnapshot>(_carriedSummons),
+                CarriedDamageReductions = new Dictionary<string, int>(_carriedDamageReductions),
                 CharPicksLeft = CharPicksLeft,
                 ComponentPicksLeft = ComponentPicksLeft,
                 RewardOptions = new List<string>(_rewardOptions),
@@ -147,6 +152,7 @@ namespace Brushblade.Core
                 _carriedNormalShield = snapshot.CarriedNormalShield,
                 _carriedPersistShield = snapshot.CarriedPersistShield,
                 _carriedSummons = new List<SummonSnapshot>(snapshot.CarriedSummons),
+                _carriedDamageReductions = new Dictionary<string, int>(snapshot.CarriedDamageReductions),
                 CharPicksLeft = snapshot.CharPicksLeft,
                 ComponentPicksLeft = snapshot.ComponentPicksLeft,
                 EarnedInk = snapshot.EarnedInk,
@@ -213,6 +219,9 @@ namespace Brushblade.Core
 
         public int CarriedNormalShield => _carriedNormalShield;
         public int CarriedPersistShield => _carriedPersistShield;
+
+        /// <summary>战斗间携带的减伤来源(段内持久,到段末才清)。</summary>
+        public IReadOnlyDictionary<string, int> CarriedDamageReductions => _carriedDamageReductions;
 
         /// <summary>战斗间携带的召唤物(只含存活者;整次登塔延续,见 20.2)。</summary>
         public IReadOnlyList<SummonSnapshot> CarriedSummons => _carriedSummons;
@@ -462,6 +471,7 @@ namespace Brushblade.Core
             _carriedNormalShield = Battle.ShieldNormal;
             _carriedPersistShield = Battle.ShieldPersist;
             _carriedSummons = CaptureAliveSummons();
+            _carriedDamageReductions = new Dictionary<string, int>(Battle.DamageReductions);
 
             RollRewardOptions();
             _componentOptions.Clear();
@@ -649,7 +659,7 @@ namespace Brushblade.Core
         {
             return new BattleEngine(_graph, _battleConfig, library, pool,
                 _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels,
-                _carriedNormalShield, _carriedPersistShield, _carriedSummons);
+                _carriedNormalShield, _carriedPersistShield, _carriedSummons, _carriedDamageReductions);
         }
     }
 }

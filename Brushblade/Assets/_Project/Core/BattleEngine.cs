@@ -107,12 +107,28 @@ namespace Brushblade.Core
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _apPenaltyNextTurn; // 倾覆造成的下回合 AP 扣减(spec 4.3),消费后清零
 
+        /// <summary>减伤来源:键 = 字 ID,值 = 减伤百分比。同字覆盖 = 只刷新不叠加(2026-08-03)。</summary>
+        private readonly Dictionary<string, int> _damageReductions = new();
+
+        /// <summary>所有减伤来源连乘后的承伤系数(1.0 = 无减伤;乘法叠加,天然趋近但不达 0)。</summary>
+        public float DamageReductionMultiplier
+        {
+            get
+            {
+                float multiplier = 1f;
+                foreach (var percent in _damageReductions.Values)
+                    multiplier *= 1f - percent / 100f;
+                return multiplier;
+            }
+        }
+
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
             IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null,
             IReadOnlyDictionary<string, int> cardLevels = null,
             int startingNormalShield = 0, int startingPersistShield = 0,
-            IReadOnlyList<SummonSnapshot> startingSummons = null)
+            IReadOnlyList<SummonSnapshot> startingSummons = null,
+            IReadOnlyDictionary<string, int> startingReductions = null)
         {
             _graph = graph;
             _config = config;
@@ -131,6 +147,10 @@ namespace Brushblade.Core
             if (startingSummons != null)
                 foreach (var summon in startingSummons)
                     _summons.Add(SummonState.Restore(summon));
+            // 减伤跨战斗保留(2026-08-03):与普通盾同口径,段内持久,到段末才清。
+            if (startingReductions != null)
+                foreach (var kv in startingReductions)
+                    _damageReductions[kv.Key] = kv.Value;
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
         }
@@ -162,6 +182,7 @@ namespace Brushblade.Core
                 RandomState = _random.State,
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
+                DamageReductions = new Dictionary<string, int>(_damageReductions),
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
@@ -196,6 +217,8 @@ namespace Brushblade.Core
                 engine._summons.Add(SummonState.Restore(summon));
             foreach (var hot in snapshot.Hots)
                 engine._hots.Add((hot.Amount, hot.Turns, hot.All));
+            foreach (var kv in snapshot.DamageReductions)
+                engine._damageReductions[kv.Key] = kv.Value;
             return engine;
         }
 
@@ -207,6 +230,9 @@ namespace Brushblade.Core
         public int PlayerShield => _shieldNormal + _shieldPersist;
         public int ShieldNormal => _shieldNormal;
         public int ShieldPersist => _shieldPersist;
+
+        /// <summary>减伤来源(键 = 字 ID,值 = 减伤百分比),供战斗结束时取回跨战斗延续。</summary>
+        public IReadOnlyDictionary<string, int> DamageReductions => _damageReductions;
         public IReadOnlyList<string> Library => _forge.Library;
         public IReadOnlyList<string> Pool => _forge.Pool;
         public int LibraryCapacity => _config.LibraryCapacity;
@@ -524,7 +550,7 @@ namespace Brushblade.Core
                 if (enemy.IsBoss && ResolveBossTurn(i, enemy))
                     continue; // 已蓄力或已放大招,本回合不走普攻
 
-                int damage = enemy.Attack;
+                int damage = (int)Math.Floor(enemy.Attack * DamageReductionMultiplier); // 先减伤(百分比),再护盾吸收(定量)
                 int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
                 if (tankIdx >= 0)
                 {
@@ -640,6 +666,9 @@ namespace Brushblade.Core
                             _enemies[targetIndex].SlowTurns = value;
                             _enemies[targetIndex].SlowActs = false;
                         }
+                        break;
+                    case EffectKind.DamageReduction:
+                        _damageReductions[def.Id] = value;   // 同字覆盖 = 刷新,不叠加
                         break;
                     case EffectKind.BurnAll:
                         for (int i = 0; i < _enemies.Count; i++)

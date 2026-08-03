@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
@@ -80,6 +81,66 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();                 // 敌方攻击 3,护盾吸收
             Assert.That(engine.PlayerShield, Is.EqualTo(2)); // 旧逻辑会清 0;段内持久剩 2
             Assert.That(engine.PlayerHp, Is.EqualTo(50));    // 护盾垫住,血未掉
+        }
+
+        // ---- 减伤(土系,2026-08-03):乘法叠加、同字不叠、段内持久 ----
+
+        private static RecipeGraph ArmorGraph() => new(new[]
+        {
+            new CharDef("铠", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
+            new CharDef("崟", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.DamageReduction, 15) }),
+        });
+
+        [Test]
+        public void DamageReduction_MultipliesAcrossDifferentChars()
+        {
+            var engine = new BattleEngine(ArmorGraph(), Config(), new[] { "铠", "崟" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, 42);
+            engine.Cast("铠");
+            engine.Cast("崟");
+
+            Assert.That(engine.DamageReductionMultiplier, Is.EqualTo(0.68f).Within(0.001f),
+                "0.8 × 0.85 = 0.68");
+        }
+
+        [Test]
+        public void DamageReduction_SameCharDoesNotStack()
+        {
+            var engine = new BattleEngine(ArmorGraph(), Config(), new[] { "铠", "铠" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, 42);
+            engine.Cast("铠");
+            engine.Cast("铠");
+
+            Assert.That(engine.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f),
+                "同字重复施放只刷新,不叠加");
+        }
+
+        [Test]
+        public void DamageReduction_AppliesToIncomingDamage()
+        {
+            var engine = new BattleEngine(ArmorGraph(), Config(), new[] { "铠" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, 42);
+            engine.Cast("铠");
+            int hpBefore = engine.PlayerHp;
+
+            engine.EndTurn();
+
+            Assert.That(hpBefore - engine.PlayerHp, Is.EqualTo(8), "10 伤减 20% = 8");
+        }
+
+        [Test]
+        public void DamageReduction_InjectedViaConstructor_AppliesImmediately() // 跨战斗结转的构造入口
+        {
+            var engine = new BattleEngine(ArmorGraph(), Config(), Array.Empty<string>(),
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, seed: 42,
+                startingHp: null, cardLevels: null, startingNormalShield: 0, startingPersistShield: 0,
+                startingSummons: null,
+                startingReductions: new Dictionary<string, int> { ["铠"] = 20 });
+
+            Assert.That(engine.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f));
+            Assert.That(engine.DamageReductions["铠"], Is.EqualTo(20));
         }
 
         // ---- 回合开始(3.5 步骤 1) ----

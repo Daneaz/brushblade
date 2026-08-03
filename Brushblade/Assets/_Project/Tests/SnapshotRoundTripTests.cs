@@ -29,6 +29,8 @@ namespace Brushblade.Core.Tests
             new CharDef("堡", Element.Earth, new[] { "呆", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
             new CharDef("呆", null),
+            new CharDef("铠", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
         });
 
         private static BattleConfig Config() => new()
@@ -43,6 +45,7 @@ namespace Brushblade.Core.Tests
             var sb = new StringBuilder();
             sb.Append($"hp{b.PlayerHp}|ap{b.Ap}|turn{b.Turn}|ph{b.Phase}")
               .Append($"|sn{b.ShieldNormal}|sp{b.ShieldPersist}")
+              .Append($"|dr{string.Join(",", b.DamageReductions.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}{kv.Value}"))}")
               .Append($"|lib{string.Join(",", b.Library)}|pool{string.Join(",", b.Pool)}");
             foreach (var e in b.Enemies)
                 sb.Append($"|E({e.Def.Id},{e.Hp}/{e.MaxHp},{e.Element},{e.ApparentElement},burn{e.Burn}," +
@@ -60,6 +63,7 @@ namespace Brushblade.Core.Tests
               .Append($"|ink{r.EarnedInk}|avail{r.AvailableInk}")
               .Append($"|cl{string.Join(",", r.CarriedLibrary)}|cp{string.Join(",", r.CarriedPool)}")
               .Append($"|cns{r.CarriedNormalShield}|cps{r.CarriedPersistShield}")
+              .Append($"|cdr{string.Join(",", r.CarriedDamageReductions.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}{kv.Value}"))}")
               .Append($"|cs{string.Join(",", r.CarriedSummons.Select(s => $"{s.Char}{s.Element}{s.Hp}/{s.MaxHp}atk{s.Attack}"))}")
               .Append($"|cpk{r.CharPicksLeft}|mpk{r.ComponentPicksLeft}")
               .Append($"|ro{string.Join(",", r.RewardOptions)}|co{string.Join(",", r.ComponentOptions)}")
@@ -146,6 +150,19 @@ namespace Brushblade.Core.Tests
             var b = Reload(a, def);
             Assert.That(b.ShieldNormal, Is.EqualTo(a.ShieldNormal));
             Assert.That(b.ShieldPersist, Is.EqualTo(a.ShieldPersist));
+            a.EndTurn(); b.EndTurn();
+            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
+        }
+
+        [Test]
+        public void Battle_DamageReduction_Survives() // 减伤来源(字典)存档往返
+        {
+            var def = new EnemyDef("枯", Element.Wood, 200, 5);
+            var a = Battle(new[] { def }, new[] { "铠" });
+            a.Cast("铠");
+            var b = Reload(a, def);
+            Assert.That(b.DamageReductions["铠"], Is.EqualTo(20));
+            Assert.That(b.DamageReductionMultiplier, Is.EqualTo(a.DamageReductionMultiplier).Within(0.001f));
             a.EndTurn(); b.EndTurn();
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
@@ -393,6 +410,29 @@ namespace Brushblade.Core.Tests
             Assert.That(b.Battle.AliveSummonCount, Is.EqualTo(2));
             Assert.That(b.Battle.Summons[0].Hp, Is.EqualTo(3), "残血原样入场,不回满");
             Assert.That(b.Battle.Summons[0].MaxHp, Is.EqualTo(6), "MaxHp 与 Hp 脱钩");
+            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
+        }
+
+        [Test]
+        public void CarriedDamageReductions_RoundTrip_AcrossFloorBreak() // 减伤跨战斗结转:段内持久
+        {
+            var def = new EnemyDef("枯", Element.Wood, 4, 1);
+            var config = TwoBattles(def);
+            var a = new RunEngine(Graph(), config, Config(), new[] { "铠", "炎" }, new[] { "火" }, 3,
+                startingInk: 50, perFloorNormalShield: 2);
+            a.Battle.Cast("铠");
+            a.Battle.Cast("炎", 0); // 一发清场
+            Assert.That(a.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            a.AdvanceAfterBattle();     // 打完第一场:携带态已含减伤来源
+            Assert.That(a.CarriedDamageReductions["铠"], Is.EqualTo(20));
+
+            var b = Reload(a, config);
+            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
+            Assert.That(b.CarriedDamageReductions["铠"], Is.EqualTo(20));
+
+            foreach (var r in new[] { a, b }) r.SkipReward(); // 进入第二场
+            Assert.That(a.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f), "跨战斗仍在生效");
+            Assert.That(b.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f));
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 

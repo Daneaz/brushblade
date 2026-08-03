@@ -23,6 +23,7 @@ namespace Brushblade.Core
         public List<EnemySnapshot> Enemies { get; set; } = new();
         public List<SummonSnapshot> Summons { get; set; } = new();
         public List<HotSnapshot> Hots { get; set; } = new();
+        public Dictionary<string, int> DamageReductions { get; set; } = new(); // 减伤来源(2026-08-03)
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>
@@ -91,6 +92,9 @@ namespace Brushblade.Core
         public int CarriedNormalShield { get; set; }
         public int CarriedPersistShield { get; set; }
         public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)
+
+        /// <summary>减伤跨战斗延续(2026-08-03):段内持久,段末清空。</summary>
+        public Dictionary<string, int> CarriedDamageReductions { get; set; } = new();
         public int CharPicksLeft { get; set; }
         public int ComponentPicksLeft { get; set; }
         public List<string> RewardOptions { get; set; } = new();
