@@ -35,6 +35,8 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 2, summonAttack: 2, summonChar: "木") }),
             new CharDef("盾", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
+            new CharDef("铠", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
         });
 
         private static BattleEngine Engine(BossSkill skill) =>
@@ -229,6 +231,42 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "接力攒够后正常释放,玩家份 Attack×2");
             Assert.That(boss.IsCharging, Is.False);
             Assert.That(boss.ChargeCounter, Is.EqualTo(0));
+        }
+
+        // ---- 减伤同口径吃大招(2026-08-03):不是只挡普攻 ----
+
+        [Test]
+        public void Deluge_AppliesPlayerDamageReduction() // 大招也吃减伤,不是只挡普攻
+        {
+            var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
+                new[] { "铠" }, new[] { "火", "林", "盾", "火", "林", "盾" },
+                new[] { SkillBoss(BossSkill.Deluge) }, seed: 1);
+            engine.Cast("铠"); // 20% 减伤,DamageReductionMultiplier = 0.8
+            int full = engine.PlayerHp;
+
+            engine.EndTurn(); // 敌方回合 1:普攻 5 → floor(5×0.8)=4
+            Assert.That(full - engine.PlayerHp, Is.EqualTo(4), "普攻基线未被破坏");
+
+            engine.EndTurn(); // 敌方回合 2:蓄力,不出手
+            engine.EndTurn(); // 敌方回合 3:释放淹没,玩家份 Attack×2=10 → floor(10×0.8)=8
+
+            Assert.That(full - engine.PlayerHp, Is.EqualTo(4 + 8),
+                "大招也吃减伤:玩家份 10 打折成 8,不是全额 10");
+        }
+
+        [Test]
+        public void Pierce_AppliesDamageReductionToSummonHit() // 减伤同样降低贯穿打进召唤物的那一下
+        {
+            var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
+                new[] { "铠", "林" }, new[] { "火", "盾", "火", "盾" },
+                new[] { SkillBoss(BossSkill.Pierce) }, seed: 1);
+            engine.Cast("铠");   // 20% 减伤
+            engine.EndTurn();    // 敌方回合 1:普攻(此时无召唤物,落在玩家身上)
+            engine.Cast("林");   // 2 只 6 血木召唤
+
+            EndTurns(engine, 2); // 蓄力 + 释放贯穿
+
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(2), "贯穿打进召唤物那一下也吃减伤:floor(5×0.8)=4,6−4=2");
         }
 
         [Test]

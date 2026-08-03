@@ -122,6 +122,9 @@ namespace Brushblade.Core
             }
         }
 
+        /// <summary>套减伤系数(2026-08-03):普攻与 Boss 大招同口径——「受伤 −X%」不分攻击类型。</summary>
+        private int ReducedDamage(int rawDamage) => (int)Math.Floor(rawDamage * DamageReductionMultiplier);
+
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
             IReadOnlyList<EnemyDef> enemies, int seed, int? startingHp = null,
@@ -550,7 +553,7 @@ namespace Brushblade.Core
                 if (enemy.IsBoss && ResolveBossTurn(i, enemy))
                     continue; // 已蓄力或已放大招,本回合不走普攻
 
-                int damage = (int)Math.Floor(enemy.Attack * DamageReductionMultiplier); // 先减伤(百分比),再护盾吸收(定量)
+                int damage = ReducedDamage(enemy.Attack); // 先减伤(百分比),再护盾吸收(定量)
                 int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
                 if (tankIdx >= 0)
                 {
@@ -887,25 +890,25 @@ namespace Brushblade.Core
 
             switch (skill)
             {
-                case BossSkill.Deluge: // 淹没:玩家挨双倍,召唤物各挨一下(不翻倍,仍是分摊主力)
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                case BossSkill.Deluge: // 淹没:玩家挨双倍,召唤物各挨一下(不翻倍,仍是分摊主力);减伤同口径吃(2026-08-03)
+                    DamagePlayerDirect(index, ReducedDamage(enemy.Attack * 2));
                     for (int s = 0; s < _summons.Count; s++)
                         if (_summons[s].Alive)
-                            DamageSummon(index, s, enemy.Attack, enemy.Element);
+                            DamageSummon(index, s, ReducedDamage(enemy.Attack), enemy.Element);
                     break;
 
-                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2,不受本次修正影响)
+                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2);减伤同口径吃(2026-08-03)
                 {
                     int front = FirstAliveSummonIndex();
                     if (front >= 0)
-                        DamageSummon(index, front, enemy.Attack, enemy.Element);
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                        DamageSummon(index, front, ReducedDamage(enemy.Attack), enemy.Element);
+                    DamagePlayerDirect(index, ReducedDamage(enemy.Attack * 2));
                     break;
                 }
 
-                case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉
+                case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉;减伤同口径吃(2026-08-03)
                 {
-                    DamagePlayerDirect(index, enemy.Attack * 2);
+                    DamagePlayerDirect(index, ReducedDamage(enemy.Attack * 2));
                     int broken = _shieldNormal + _shieldPersist;
                     if (broken > 0)
                     {
@@ -929,7 +932,8 @@ namespace Brushblade.Core
                     }
                     else
                     {
-                        DamagePlayerDirect(index, enemy.Attack);
+                        // 没得吞退化成普攻:走减伤同口径(2026-08-03);秒杀分支本身无数值可减,不动
+                        DamagePlayerDirect(index, ReducedDamage(enemy.Attack));
                     }
                     break;
                 }
