@@ -398,7 +398,8 @@ namespace Brushblade.Core
         {
             foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle
-                    || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze)
+                    || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
+                    || effect.Kind == EffectKind.Slow)
                     return true;
             return false;
         }
@@ -474,12 +475,28 @@ namespace Brushblade.Core
 
             _events.Add(new BattleEvent(BattleEventKind.EnemyTurnBegan, -1, 0)); // 召唤段到此为止,以下是敌方行动
 
+            // 减速节拍(2026-08-03):半速开关只在此处翻转一次,辅助循环与主行动循环都只读
+            // slowSkip[] 的结果——因为 SlowActs 是"交替"而非"递减",两处都翻转会让节奏乱套
+            // (跳一动一变成动一跳一乱飘)。冻结优先:冻结中的回合不消耗减速的节拍额度,
+            // 与主循环里"冻结判定在前"的顺序保持一致。
+            var slowSkip = new bool[_enemies.Count]; // true = 本回合因减速跳过
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                var enemy = _enemies[i];
+                if (!enemy.Alive || enemy.FreezeTurns > 0 || enemy.SlowTurns <= 0) continue;
+                enemy.SlowTurns -= 1;
+                slowSkip[i] = !enemy.SlowActs;      // 本回合是否行动,由翻转前的状态决定
+                enemy.SlowActs = !enemy.SlowActs;    // 交替:跳一回合、动一回合(为下一次翻转做准备)
+            }
+
             // 敌方辅助先行动:标点小妖给其他存活字怪加攻,与站位无关(8.3)。
             // 加成本场累计、回合末不回滚;场上只剩自己时改为亲自出手(2026-07-22)
-            foreach (var enemy in _enemies)
+            for (int i = 0; i < _enemies.Count; i++)
             {
+                var enemy = _enemies[i];
                 if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff) continue;
                 if (enemy.FreezeTurns > 0) continue; // 冻结:连辅助加攻都不出手
+                if (slowSkip[i]) continue; // 减速跳过本回合:连辅助加攻都不出手
                 if (!HasOtherAliveEnemy(enemy)) continue; // 无人可加 → 交给下面的行动循环
                 for (int j = 0; j < _enemies.Count; j++)
                 {
@@ -500,6 +517,7 @@ namespace Brushblade.Core
                     enemy.FreezeTurns -= 1;
                     continue;   // 冻结:本回合不行动(蓄力/加攻/技能全部跳过)
                 }
+                if (slowSkip[i]) continue; // 减速:本回合不行动(翻转已在上面的预处理里做过)
                 if (enemy.Def.Ability == EnemyAbility.Buff && HasOtherAliveEnemy(enemy))
                     continue; // 已用加攻代替出手;独自在场时照常攻击
 
@@ -615,6 +633,13 @@ namespace Brushblade.Core
                     case EffectKind.Freeze:
                         if (_enemies[targetIndex].Alive)
                             _enemies[targetIndex].FreezeTurns = value;
+                        break;
+                    case EffectKind.Slow:
+                        if (_enemies[targetIndex].Alive)
+                        {
+                            _enemies[targetIndex].SlowTurns = value;
+                            _enemies[targetIndex].SlowActs = false;
+                        }
                         break;
                     case EffectKind.BurnAll:
                         for (int i = 0; i < _enemies.Count; i++)

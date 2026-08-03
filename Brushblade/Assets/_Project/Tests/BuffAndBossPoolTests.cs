@@ -97,6 +97,43 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.False);
         }
 
+        // ---- Slow 补测(task 10,2026-08-03):减速跳过回合的标点小妖同样不能发放攻击加成 ----
+
+        private static RecipeGraph SlowGraph() => new(new[]
+        {
+            new CharDef("火", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
+            new CharDef("冷", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Slow, 4) }),
+        });
+
+        [Test]
+        public void Buffer_SlowSkipTurn_DoesNotBuffOthers()
+        {
+            var engine = new BattleEngine(SlowGraph(), new BattleConfig(),
+                new[] { "冷" }, Array.Empty<string>(), new[] { Buffer(), Ghost() }, seed: 1);
+            engine.Cast("冷", 0); // 减速标点小妖(下标 0),施加后第 1 回合即跳过
+
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(4), "减速跳过回合的标点小妖不应发放攻击加成");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.False);
+        }
+
+        [Test]
+        public void Buffer_SlowActTurn_StillBuffsOthers() // 跳过之后的"行动回合"应恢复正常加攻
+        {
+            var engine = new BattleEngine(SlowGraph(), new BattleConfig(),
+                new[] { "冷" }, Array.Empty<string>(), new[] { Buffer(), Ghost() }, seed: 1);
+            engine.Cast("冷", 0);
+
+            engine.EndTurn(); // 跳过
+            engine.EndTurn(); // 行动:应恢复加攻
+
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(5), "减速行动回合应恢复加攻(4+1)");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.True);
+        }
+
         // ---- Boss 池随机 ----
 
         private static CampaignConfig WithBossPool()

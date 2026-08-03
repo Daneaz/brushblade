@@ -1328,5 +1328,58 @@ namespace Brushblade.Core.Tests
             restored.EndTurn();
             Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6), "读档后解冻仍恢复出手");
         }
+
+        // ---- Slow:半速,每 2 回合才行动一次(2026-08-03) ----
+
+        private static RecipeGraph SlowGraph() => new(new[]
+        {
+            new CharDef("冷", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.Slow, 4) }),
+        });
+
+        [Test]
+        public void Slow_EnemyActsEveryOtherTurn()
+        {
+            var engine = new BattleEngine(SlowGraph(), Config(), new[] { "冷" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 6) }, 42);
+            engine.Cast("冷");
+
+            int hp0 = engine.PlayerHp;
+            engine.EndTurn();                       // 减速第 1 回合:跳过
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
+
+            engine.EndTurn();                       // 第 2 回合:行动
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
+
+            engine.EndTurn();                       // 第 3 回合:跳过
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
+        }
+
+        [Test]
+        public void Slow_SurvivesSnapshotRoundTrip_RhythmContinues() // 半速节奏读档后要接续,不能从头重来
+        {
+            var enemyDef = new EnemyDef("锈", Element.Metal, 500, 6);
+            var engine = new BattleEngine(SlowGraph(), Config(), new[] { "冷" },
+                Array.Empty<string>(), new[] { enemyDef }, 42);
+            engine.Cast("冷");
+            engine.EndTurn(); // 第 1 回合:跳过(消耗 1 点 SlowTurns,SlowActs 翻到"可行动")
+
+            var snapshot = engine.Capture();
+            Assert.That(snapshot.Enemies[0].SlowTurns, Is.EqualTo(3));
+            Assert.That(snapshot.Enemies[0].SlowActs, Is.True);
+
+            var restored = BattleEngine.Restore(snapshot, SlowGraph(), Config(), null,
+                new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
+
+            Assert.That(restored.Enemies[0].SlowTurns, Is.EqualTo(3));
+            Assert.That(restored.Enemies[0].SlowActs, Is.True);
+
+            int hp0 = restored.PlayerHp;
+            restored.EndTurn(); // 读档后第 2 回合:应接续为"行动"而不是从头跳过
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6), "读档后应接续节奏,行动而非重新跳过");
+
+            restored.EndTurn(); // 第 3 回合:跳过
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6));
+        }
     }
 }
