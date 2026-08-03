@@ -151,6 +151,7 @@ namespace Brushblade.Presentation
             {
                 case BattleEventKind.Damage:
                 case BattleEventKind.BurnTick:
+                case BattleEventKind.BleedTick:
                     // 挨这一记的形象抖起来:主体抖、墨丝甩尾、眼睛瞪大(MobView 三层各自不同步)
                     if (e.TargetIndex >= 0 && e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
                         _enemyMobs[e.TargetIndex].PlayHit();

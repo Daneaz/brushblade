@@ -49,6 +49,7 @@ namespace Brushblade.Core
         Burn,        // 施加灼烧层数
         Shield,      // 获得护盾(TargetIndex = −1 玩家)
         BurnTick,    // 回合末灼烧结算伤害
+        BleedTick,   // 回合末流血结算伤害(无属性,不走生克;2026-08-04)
         EnemyDied,   // 敌人被消灭
         EnemyAttack, // 敌方对玩家伤害(Amount = 总伤,含被护盾吸收部分;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         EnemySplit,  // 叠字怪分裂(TargetIndex = 原体下标)
@@ -464,10 +465,15 @@ namespace Brushblade.Core
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive || enemy.BleedTurns <= 0) continue;
-                enemy.Hp = Math.Max(0, enemy.Hp - enemy.Bleed);
+                int bleed = enemy.Bleed;
+                enemy.Hp = Math.Max(0, enemy.Hp - bleed);
                 enemy.BleedTurns -= 1;
                 if (enemy.BleedTurns == 0) enemy.Bleed = 0;
-                if (!enemy.Alive) ResolveDefeat(i);
+                _events.Add(new BattleEvent(BattleEventKind.BleedTick, i, bleed));
+                if (!enemy.Alive)
+                    ResolveDefeat(i);
+                else
+                    CheckBossPhase(i);
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;

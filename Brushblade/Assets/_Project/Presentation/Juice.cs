@@ -121,7 +121,8 @@ namespace Brushblade.Presentation
             {
                 var e = events[idx];
                 // 这记伤害是否当场打死目标:是则跳过白闪,交给死亡置灰(免抢同一 Image)
-                bool kills = (e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.BurnTick)
+                bool kills = (e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.BurnTick
+                        || e.Kind == BattleEventKind.BleedTick)
                     && KillsTarget(events, idx, e.TargetIndex);
                 switch (e.Kind)
                 {
@@ -138,6 +139,15 @@ namespace Brushblade.Presentation
                         Popup($"-{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         FlameBurst(enemyAnchor(e.TargetIndex));
+                        HitFx(e.Amount);
+                        onImpact?.Invoke(e);
+                        serialPending = true;
+                        break;
+                    case BattleEventKind.BleedTick: // 无属性 DoT:同样串行,但用朱砂色且不带火焰
+                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        if (!kills) HitReact(enemyAnchor(e.TargetIndex));
                         HitFx(e.Amount);
                         onImpact?.Invoke(e);
                         serialPending = true;
@@ -234,7 +244,8 @@ namespace Brushblade.Presentation
             for (int j = from + 1; j < events.Count; j++)
             {
                 var kind = events[j].Kind;
-                if (kind == BattleEventKind.Damage || kind == BattleEventKind.BurnTick) return false; // 下一记伤害开始了
+                if (kind == BattleEventKind.Damage || kind == BattleEventKind.BurnTick
+                    || kind == BattleEventKind.BleedTick) return false; // 下一记伤害开始了
                 if (kind == BattleEventKind.EnemyDied && events[j].TargetIndex == target) return true;
             }
             return false;

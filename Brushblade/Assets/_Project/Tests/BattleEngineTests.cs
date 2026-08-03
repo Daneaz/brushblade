@@ -1262,6 +1262,39 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Bleed_EmitsTickEvent() // 灼烧发 BurnTick,流血也得发 —— 否则表现层看不到,血条会无故下降
+        {
+            var engine = new BattleEngine(BleedGraph(), Config(), new[] { "锯" },
+                Array.Empty<string>(), new[] { new EnemyDef("桩", Element.Metal, 500, 0) }, 42);
+            engine.Cast("锯");
+
+            engine.EndTurn();
+
+            var tick = engine.LastEvents.Single(e => e.Kind == BattleEventKind.BleedTick);
+            Assert.That(tick.TargetIndex, Is.EqualTo(0));
+            Assert.That(tick.Amount, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Bleed_TriggersBossPhase() // 流血打过阶段阈值也要换阶段(灼烧段有 CheckBossPhase,流血段漏了)
+        {
+            // 阶段血量各 2 → 总血 4、一阶段阈值 2;流血 3 一回合即打穿
+            var boss = new EnemyDef("成语", Element.Metal, 4, 0, EnemyAbility.None, new[]
+            {
+                new BossPhaseDef("成", Element.Metal, 2, 0, 1f, BossSkill.None),
+                new BossPhaseDef("语", Element.Metal, 2, 0, 1f, BossSkill.None),
+            });
+            var engine = new BattleEngine(BleedGraph(), Config(), new[] { "锯" },
+                Array.Empty<string>(), new[] { boss }, 42);
+            engine.Cast("锯");
+
+            engine.EndTurn();
+
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossPhase),
+                "流血把 Boss 打过阶段阈值,应触发换阶段");
+        }
+
+        [Test]
         public void Bleed_SurvivesSnapshotRoundTrip() // 状态字段加进 EnemyState 必须同步进快照,否则续爬会悄悄回退
         {
             var enemyDef = new EnemyDef("桩", Element.Metal, 500, 0);
