@@ -152,16 +152,18 @@ namespace Brushblade.Core.Tests
                 new[] { "火", "炎", "焱", "燚" },
                 new[] { "土", "圭", "垚", "㙓" },
             };
-            // 稀有度阶梯(2026-07-19 拍板):部件白 / 2叠绿 / 3叠蓝 / 4叠紫
-            var rarities = new[] { CardRarity.White, CardRarity.Green, CardRarity.Blue, CardRarity.Purple };
+            // 稀有度阶梯(详表 1.2 迁移,2026-08-03):部件白 / 2叠紫 / 3叠橙 / 4叠金。
+            // AP 与稀有度解耦后此迁移不影响手感,但让四叠字坐实「压箱底」的定位。
+            var rarities = new[] { CardRarity.White, CardRarity.Purple, CardRarity.Orange, CardRarity.Gold };
             foreach (var ladder in ladders)
                 for (int i = 0; i < ladder.Length; i++)
                 {
                     Assert.That(graph.TryGet(ladder[i], out var def), Is.True, ladder[i]);
                     Assert.That(def.Rarity, Is.EqualTo(rarities[i]), ladder[i]);
                     if (i == 0) continue;
-                    // 链式配方:上一阶 + 部件
-                    Assert.That(def.Recipe, Is.EqualTo(new[] { ladder[i - 1], ladder[0] }));
+                    // 链式配方「部件在前、低阶字在后」(详表 1.5,2026-08-03 拍板):
+                    // 读作「往低阶字上再加一个部件」。10 个字的顺序已随之修正。
+                    Assert.That(def.Recipe, Is.EqualTo(new[] { ladder[0], ladder[i - 1] }));
                 }
 
             // 出字 AP 一律 1,与稀有度解耦(2026-08-03 拍板;3/4 叠不再是 2 AP 的高阶字)
