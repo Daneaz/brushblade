@@ -25,7 +25,15 @@ namespace Brushblade.Core
         public StatusPolarity Polarity { get; set; }
         public int Magnitude { get; set; }
         public int TurnsLeft { get; set; }   // -1 = 段内持久,不随回合递减
-        public string SourceId { get; set; } // 字 ID:同字去重、驱散追溯
+
+        /// <summary>来源标识,两种相反用法并存,加新状态时先想清楚要哪种(2026-08-05 M3):
+        /// 1) **去重键**——直接传字 ID(如 "铠"):同字再放视为同一来源,Apply() 覆盖刷新不叠加
+        ///    (DamageReduction 走这条)。
+        /// 2) **铸唯一序号使其可叠**——传 "字#序号"(如 "滋#7",序号取自 BattleEngine._statusSerial /
+        ///    RunSnapshot.StatusSerial):每次施放序号不同,天然绕开 Apply() 的同源覆盖,叠加而非刷新
+        ///    (HealOverTime、AttackBuff 走这条)。
+        /// 忘记铸序号、误传裸字 ID 会让本该可叠的状态静默退化成刷新——Task 4 的 Critical 就是这么踩的。</summary>
+        public string SourceId { get; set; }
         public bool TargetAll { get; set; }  // 仅 HealOverTime 用
 
         public StatusEffect Clone() => new()
@@ -62,7 +70,9 @@ namespace Brushblade.Core
         }
 
         /// <summary>施加一条。同 Kind 且同 SourceId 视为同一来源,覆盖刷新而非叠加
-        /// (口径来自 P0:同字减伤不叠加,重复施放只刷新)。SourceId 为 null 时按 Kind 去重。</summary>
+        /// (口径来自 P0:同字减伤不叠加,重复施放只刷新)。SourceId 为 null 时按 Kind 去重。
+        /// 要允许同源可叠(如 HoT/AttackBuff),调用方得给 SourceId 铸唯一序号——见
+        /// <see cref="StatusEffect.SourceId"/> 的两种用法说明。</summary>
         public void Apply(StatusEffect effect)
         {
             for (int i = 0; i < _list.Count; i++)
@@ -87,12 +97,16 @@ namespace Brushblade.Core
 
         public void Clear() => _list.Clear();
 
-        /// <summary>回合数递减,归零即移除;TurnsLeft &lt; 0 表示段内持久,不受影响。</summary>
-        public void TickTurns()
+        /// <summary>回合数递减,归零即移除;TurnsLeft &lt; 0 表示段内持久,不受影响。
+        /// <paramref name="except"/> 可选豁免一个种类不递减(冻结中 SpeedModifier 暂停用,
+        /// 2026-08-05:黑名单式豁免——新加的有限时长状态默认照常递减,不会像原先的白名单
+        /// 那样悄悄漏减)。</summary>
+        public void TickTurns(StatusKind? except = null)
         {
             for (int i = _list.Count - 1; i >= 0; i--)
             {
                 if (_list[i].TurnsLeft < 0) continue;
+                if (except.HasValue && _list[i].Kind == except.Value) continue;
                 _list[i].TurnsLeft -= 1;
                 if (_list[i].TurnsLeft <= 0) _list.RemoveAt(i);
             }

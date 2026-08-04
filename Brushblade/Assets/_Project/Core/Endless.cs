@@ -183,8 +183,13 @@ namespace Brushblade.Core
         /// <summary>携带召唤物(2026-08-03):与普通盾同口径,整场爬塔延续,直到死亡,见 20.2。</summary>
         public List<SummonSnapshot> CarriedSummons { get; set; } = new();
 
-        /// <summary>携带减伤来源(2026-08-04):与普通盾同口径,整场爬塔延续,段末清空。</summary>
-        public List<StatusEffect> CarriedDamageReductions { get; set; } = new();
+        /// <summary>携带减伤来源(2026-08-04):与普通盾同口径,整场爬塔延续,段末清空。
+        /// 字段改名自 CarriedDamageReductions(2026-08-05):原名下 JSON 形状从
+        /// Dictionary&lt;string,int&gt; 换成了 List&lt;StatusEffect&gt;,同名旧存档反序列化会
+        /// 类型不匹配抛 JsonException,被 SaveSerializer.FromJson 兜底成整份 MetaState 清空
+        /// (墨锭/卡等级/图鉴全丢)。改名后旧键变成未知键,Newtonsoft 直接忽略,
+        /// 存档降级为「减伤丢失」而非「全清」。</summary>
+        public List<StatusEffect> CarriedStatuses { get; set; } = new();
 
         /// <summary>段中断点(2026-07-27):非空即「上次退出时正打到一半」,读档直接接着打。
         /// 段末结算/塔结算时清空 —— 留着会让下次登塔从旧段中间开始。</summary>

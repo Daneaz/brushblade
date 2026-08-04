@@ -134,9 +134,10 @@ namespace Brushblade.Core
         public int MaxHp { get; internal set; }          // 当前阶段上限
         public Element Element { get; internal set; }    // 当前属性(Boss 换阶段会变)
 
-        /// <summary>Burn/Bleed/Freeze 三个减益的容器(2026-08-04:统一状态容器迁移)。
+        /// <summary>敌人身上的状态容器(2026-08-04:统一状态容器迁移),现装五种:
+        /// Burn/Bleed/Freeze/SpeedModifier 四个减益 + AttackBuff 一个增益(标点小妖加攻/焦痕自燃)。
         /// Burn 用 TurnsLeft = -1(段内持久),靠灼烧结算段自减 Magnitude;
-        /// Bleed/Freeze 用 TurnsLeft 正常回合递减。</summary>
+        /// Bleed/Freeze/SpeedModifier 用 TurnsLeft 正常回合递减。</summary>
         public StatusBag Statuses { get; } = new();
 
         /// <summary>基础速度(2026-08-04)。有效速度 = Speed + 所有 SpeedModifier 之和,下限 0。

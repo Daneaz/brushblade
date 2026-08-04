@@ -648,6 +648,36 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Revive_DoesNotGrantExtraStatusTurn() // 全分支评审 Important 3(2026-08-05)锁定测试:
+        // 状态回合递减必须排在 PlayerHp<=0 早退之前,否则玩家阵亡那回合被跳过的递减会拖到
+        // 复活后的下一回合才补,变相让状态多续一回合。玩家上限 10、敌方攻 4、流血固定 3 回合:
+        // T1 10→6、T2 6→2、T3 2→-2(阵亡)。修复后流血应在阵亡的第 3 个 EndTurn 内就已递减到期消失,
+        // 而不是拖到复活后的第 4 个 EndTurn。
+        {
+            var engine = new BattleEngine(BleedGraph(), new BattleConfig { PlayerMaxHp = 10 },
+                new[] { "锯" }, Array.Empty<string>(),
+                new[] { new EnemyDef("桩", Element.Metal, 500, 4) }, 42);
+            engine.Cast("锯"); // 施加 3 回合流血
+
+            engine.EndTurn(); // T1:10-4=6
+            Assert.That(engine.PlayerHp, Is.EqualTo(6));
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Bleed), Is.True);
+
+            engine.EndTurn(); // T2:6-4=2
+            Assert.That(engine.PlayerHp, Is.EqualTo(2));
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Bleed), Is.True);
+
+            engine.EndTurn(); // T3:2-4<0,阵亡
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Bleed), Is.False,
+                "阵亡当回合状态也要照常递减,不能拖到复活后");
+
+            engine.Revive();
+            engine.EndTurn(); // 复活后再打一回合,流血不该"复活"或多续一回合
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Bleed), Is.False);
+        }
+
+        [Test]
         public void GrantLibraryChar_AddsWhenRoom_RespectsCapacity()
         {
             var engine = new BattleEngine(Graph(), new BattleConfig { LibraryCapacity = 2, DropTable = Array.Empty<string>() },
@@ -1844,6 +1874,28 @@ namespace Brushblade.Core.Tests
 
             engine.Enemies[0].Statuses.RemoveAll(StatusPolarity.Buff);
             Assert.That(engine.Enemies[0].Attack, Is.EqualTo(after), "成长不该被驱散抹掉");
+        }
+
+        [Test]
+        public void RegrowFinalDouble_DoesNotAmplifyExternalBuff() // 全分支评审 Important 2(2026-08-05)锁定测试:
+        // 缺笔妖(攻 3)+ 标点小妖(攻 2)同场,标点小妖每回合给缺笔妖叠 AttackBuff。
+        // 第 3 回合缺笔妖补全完成触发 BaseAttack ×2 —— 只翻自己的基础值,不该连标点小妖给的
+        // 增益一起翻倍。手算:T1 BaseAttack 3→5、Buff+2;T2 BaseAttack 5→7、Buff+2(共4);
+        // T3 BaseAttack (7+2)×2=18、Buff+2(共6) → Attack = 18+6 = 24。
+        {
+            var engine = new BattleEngine(Graph(), Config(), Array.Empty<string>(), Array.Empty<string>(),
+                new[]
+                {
+                    new EnemyDef("缺笔妖", Element.Metal, 30, 3, EnemyAbility.Regrow),
+                    new EnemyDef("标点小妖", Element.Heart, 8, 2, EnemyAbility.Buff),
+                }, seed: 42);
+
+            engine.EndTurn();
+            engine.EndTurn();
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(24),
+                "补全 ×2 不应放大标点小妖给的外部增益");
         }
 
         [Test]

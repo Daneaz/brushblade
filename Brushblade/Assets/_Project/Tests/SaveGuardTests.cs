@@ -48,5 +48,24 @@ namespace Brushblade.Core.Tests
             var legacy = SaveSerializer.ToJson(new MetaState { Ink = 5 });
             Assert.That(SaveGuard.TryOpen(legacy, out _), Is.False);
         }
+
+        // ---- Critical 1 修复验证(2026-08-05):EndlessSaveState.CarriedDamageReductions 改名为
+        // CarriedStatuses,JSON 形状也从 Dictionary<string,int> 换成了 List<StatusEffect>。旧存档的
+        // 同名字段类型不匹配,原先会在 FromJson 里抛 JsonException,被兜底成 `return new MetaState()`
+        // ——整份存档(墨锭/卡等级/图鉴/Perk)清零。改名后旧键变成未知键,Newtonsoft 直接忽略。 ----
+
+        [TestCase("{\"铠\":20}")]      // 旧存档带一条减伤
+        [TestCase("{}")]              // 连空字典也不该炸
+        public void LegacyCarriedDamageReductions_DictShape_DoesNotWipeSave(string legacyDictJson)
+        {
+            var legacyJson = "{\"Ink\":12345,\"Endless\":{\"Depth\":3,\"CarriedDamageReductions\":"
+                + legacyDictJson + "}}";
+
+            var meta = SaveSerializer.FromJson(legacyJson);
+
+            Assert.That(meta.Ink, Is.EqualTo(12345), "旧键改名后不应再把整份存档清空");
+            Assert.That(meta.Endless, Is.Not.Null);
+            Assert.That(meta.Endless.Depth, Is.EqualTo(3));
+        }
     }
 }

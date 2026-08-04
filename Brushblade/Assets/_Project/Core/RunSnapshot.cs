@@ -25,7 +25,8 @@ namespace Brushblade.Core
         public List<StatusEffect> PlayerStatuses { get; set; } = new(); // HoT / 减伤(2026-08-04 统一容器)
         public string PendingDrop { get; set; } // 待决议的掉落字(DropChoice 阶段,2026-08-04)
 
-        /// <summary>HoT SourceId 自增序号(2026-08-04):不存的话续爬后计数器归零,新施加的 HoT
+        /// <summary>SourceId 自增序号(2026-08-04):HoT 与 AttackBuff 共用同一个计数器
+        /// (见 BattleEngine._statusSerial)。不存的话续爬后计数器归零,新施加的状态
         /// SourceId 可能撞上快照里恢复的条目,撞上就被意外覆盖(可叠语义失效)。</summary>
         public int StatusSerial { get; set; }
     }

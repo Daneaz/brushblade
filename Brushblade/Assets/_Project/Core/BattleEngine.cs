@@ -128,9 +128,10 @@ namespace Brushblade.Core
         /// ID,同字覆盖 = 只刷新不叠加;TurnsLeft = -1 段内持久,跨战斗携带见 RunEngine._carriedStatuses。</summary>
         private readonly StatusBag _playerStatuses = new();
 
-        /// <summary>HoT 的 SourceId 自增序号(2026-08-04):HoT 允许同字叠加(技能机制详表「滋」),
-        /// 靠每次施放给一个独一无二的 SourceId 绕开 Apply() 的同源覆盖。要进快照——续爬后计数器
-        /// 归零会与快照里恢复的条目撞号,撞上就被意外覆盖。</summary>
+        /// <summary>SourceId 自增序号(2026-08-04):HoT(技能机制详表「滋」)与 AttackBuff
+        /// (标点小妖加攻、焦痕受击自燃,Task 5 后接入)都允许同字/同源叠加,靠每次施放给一个
+        /// 独一无二的 SourceId 绕开 Apply() 的同源覆盖。要进快照——续爬后计数器归零会与快照里
+        /// 恢复的条目撞号,撞上就被意外覆盖。</summary>
         private int _statusSerial;
 
         /// <summary>所有减伤来源连乘后的承伤系数(1.0 = 无减伤;乘法叠加,天然趋近但不达 0)。</summary>
@@ -666,6 +667,29 @@ namespace Brushblade.Core
                     }
                 }
             }
+            // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
+            // (Bleed_ExpiresAfterThreeTurns 守着这条)。
+            // ⚠️ 必须排在 PlayerHp<=0 早退**之前**(2026-08-05,全分支评审 Important 3):早退会
+            // 直接 return,若递减挪到早退后面,玩家阵亡的那个 EndTurn 就整个跳过递减 —— 广告复活
+            // 满血续战后,所有状态(流血/冻结/减速/HoT)都会多续一回合
+            // (Revive_DoesNotGrantExtraStatusTurn 守着这条)。递减不依赖缺笔妖补全循环,排在
+            // 补全循环之前不影响其结果。
+            // 冻结中:Freeze 自身与流血照常倒计时(冻结只免自身行动,不免流血/解冻倒计时);
+            // 只有 SpeedModifier 暂停递减(节拍原地暂停,呼应上面 ActionMeter 累积也暂停)。
+            // 2026-08-05(全分支评审 Important 4):原先这里是"只列 Freeze/Bleed 两种"的白名单,
+            // 给 Dispel/Cleanse/Immunity/Silence 这批以后会给敌人挂有限时长状态的机制埋雷——
+            // 挂上去的新状态会被白名单漏掉,冻结中永不到期且不报错。改成黑名单:除 SpeedModifier
+            // 外统统照常递减,新加状态默认安全。
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                var enemy = _enemies[i];
+                if (!enemy.Alive) continue;
+                enemy.Statuses.TickTurns(
+                    enemy.Statuses.Has(StatusKind.Freeze) ? StatusKind.SpeedModifier : (StatusKind?)null);
+            }
+            // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
+            _playerStatuses.TickTurns();
+
             if (PlayerHp <= 0)
             {
                 Phase = BattlePhase.Lost;
@@ -691,43 +715,14 @@ namespace Brushblade.Core
                 enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 3);
                 if (enemy.RegrowProgress == 3)
                 {
+                    // ×2 只翻基础值,不翻别人给的增益(如标点小妖的 AttackBuff)——形态变化
+                    // 不放大外部增益(2026-08-05 裁定;RegrowFinalDouble_DoesNotAmplifyExternalBuff 守着)。
                     enemy.BaseAttack *= 2;
                     enemy.Hp = enemy.MaxHp;
                 }
                 _events.Add(new BattleEvent(BattleEventKind.Regrow, i,
                     enemy.Hp - before, enemy.RegrowProgress));
             }
-
-            // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
-            // (Bleed_ExpiresAfterThreeTurns 守着这条)。
-            // 冻结中:Freeze 自身与流血照常倒计时(冻结只免自身行动,不免流血/解冻倒计时);
-            // SpeedModifier 暂停递减(节拍原地暂停,呼应上面 ActionMeter 累积也暂停)。
-            // 这也是为什么这里不能对整袋状态无差别调 Statuses.TickTurns()——那个 API 不分种类
-            // 统一递减,冻结中会把 SpeedModifier 的持续也一并打没,导致解冻后节奏提前恢复满速
-            // (Slow_PausesDuringFreeze_ThenResumesFromSamePoint 就是守这条的)。
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                var enemy = _enemies[i];
-                if (!enemy.Alive) continue;
-                if (enemy.Statuses.Has(StatusKind.Freeze))
-                {
-                    var freeze = enemy.Statuses.Find(StatusKind.Freeze);
-                    freeze.TurnsLeft -= 1;
-                    if (freeze.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Freeze);
-                    var bleed = enemy.Statuses.Find(StatusKind.Bleed);
-                    if (bleed != null)
-                    {
-                        bleed.TurnsLeft -= 1;
-                        if (bleed.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Bleed);
-                    }
-                }
-                else
-                {
-                    enemy.Statuses.TickTurns(); // 未冻结:Bleed/SpeedModifier 等统一递减
-                }
-            }
-            // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
-            _playerStatuses.TickTurns();
 
             StartTurn();
         }
@@ -800,8 +795,10 @@ namespace Brushblade.Core
                         if (_enemies[targetIndex].Alive)
                             _enemies[targetIndex].Statuses.Apply(new StatusEffect
                             {
+                                // Magnitude 不赋值(2026-08-05 M1):全代码库没有任何地方读它,
+                                // 赋了反而是语义为空的垃圾值,TotalMagnitude(Freeze) 会返回它。
                                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
-                                Magnitude = value, TurnsLeft = value,
+                                TurnsLeft = value,
                             });
                         break;
                     case EffectKind.Slow:
