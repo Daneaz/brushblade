@@ -68,16 +68,30 @@ namespace Brushblade.Core.Tests
         public void StartingLibrary_GrowsWithBowen() // 博闻:起手字库 +1 格/级
         {
             // StartingLibrary 去重且要求字在 OwnedCards:备 8 个不同的已拥有出阵字,
-            // 验证截断上限 = StartingLibrarySize(5) + LibraryBonus
+            // 验证截断上限 = StartingLibrarySize(6) + LibraryBonus
             var meta = new MetaState();
             foreach (var c in new[] { "火", "木", "水", "金", "土", "心", "林", "炎" })
             {
                 meta.OwnedCards.Add(c);
                 meta.Deck.Add(c);
             }
-            Assert.That(MetaRules.StartingLibrary(meta).Count, Is.EqualTo(5)); // 默认容量
+            Assert.That(MetaRules.StartingLibrary(meta).Count, Is.EqualTo(6)); // 默认容量
             meta.PerkLevels["bowen"] = 1;
-            Assert.That(MetaRules.StartingLibrary(meta).Count, Is.EqualTo(6)); // 博闻 +1 格
+            Assert.That(MetaRules.StartingLibrary(meta).Count, Is.EqualTo(7)); // 博闻 +1 格
+        }
+
+        [Test]
+        public void LibraryCapacity_StaysOneAboveStarting_WithBowen() // 容量比起手多一格(2026-08-04);差值不被博闻吃掉
+        {
+            var meta = new MetaState();
+            foreach (var c in new[] { "火", "木", "水", "金", "土", "心", "林", "炎" })
+            {
+                meta.OwnedCards.Add(c);
+                meta.Deck.Add(c);
+            }
+            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta).Count, Is.EqualTo(1));
+            meta.PerkLevels["bowen"] = 1;
+            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta).Count, Is.EqualTo(1));
         }
     }
 }

@@ -31,7 +31,14 @@ namespace Brushblade.Core
         public const int DeckLimit = 15;          // 出阵列表上限(2026-07-19 拍板:5×3,后续可调)
         public const int DeckMinimum = 5;         // 出阵下限(2026-07-19:起手不得少于 5 字)
         public const int DeckPerElementLimit = 5; // 每属性最多 5 字(属性种类不限,3 系上限已废止)
-        public const int StartingLibrarySize = 5; // 留一格给回合掉字(2026-08-04);容量仍是 6
+        public const int StartingLibrarySize = 6; // 起手字库数量
+        // 字库容量比起手多一格,留给回合掉字(2026-08-04):否则开局即满库,第一回合必弹 DropChoice
+        public const int LibraryCapacitySlack = 1;
+
+        /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻加成。「容量比起手多一格」这个关系
+        /// 只在这一处定义——GameRoot 接线时调这个,不要在那边散写 +1。</summary>
+        public static int LibraryCapacityFor(MetaState meta) =>
+            StartingLibrarySize + LibraryCapacitySlack + PerkRules.LibraryBonus(meta);
 
         /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。</summary>
         public static readonly int[] CopiesToUpgrade = { 2, 4, 10, 20, 40, 80, 150, 300, 500 };
@@ -179,11 +186,11 @@ namespace Brushblade.Core
                     roster.Add(card);
             SortByLevelDesc(meta, roster);
 
-            int capacity = StartingLibrarySize + PerkRules.LibraryBonus(meta); // 博闻:+1 格/级
+            int startingCap = StartingLibrarySize + PerkRules.LibraryBonus(meta); // 博闻:+1 格/级(这里是起手数量上限,不吃 LibraryCapacitySlack)
             var library = new List<string>();
             foreach (var card in roster)
             {
-                if (library.Count >= capacity) break;
+                if (library.Count >= startingCap) break;
                 library.Add(card);
             }
             return library;
