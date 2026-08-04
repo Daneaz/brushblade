@@ -303,11 +303,29 @@ namespace Brushblade.Core.Tests
                 Array.Empty<string>(), new[] { enemyDef, enemyDef }, 42);
             engine.Cast("锯", 0); // 只给 0 号上流血
 
-            var restored = BattleEngine.Restore(engine.Capture(), graph, Config(), null,
+            var snapshot = engine.Capture();
+            var restored = BattleEngine.Restore(snapshot, graph, Config(), null,
                 new Dictionary<string, EnemyDef> { ["桩"] = enemyDef });
 
+            // 归属正确:状态没有串到别的敌人身上(与是否深拷贝无关,单独成立)
             Assert.That(restored.Enemies[0].Statuses.Has(StatusKind.Bleed), Is.True);
             Assert.That(restored.Enemies[1].Statuses.Has(StatusKind.Bleed), Is.False); // 没被别名共享
+
+            // 深拷贝护栏(review 2026-08-04):归属正确不等于没共享引用。下面两段任一处
+            // 退化成浅拷贝(Clone() 换成直接赋值)都会让断言失败。
+
+            // Capture() 的深拷贝:快照拍下之后,原 engine 继续推进不该污染已拍下的快照
+            engine.EndTurn(); // 原 engine 里的流血回合数递减
+            var snapshotBleed = snapshot.Enemies[0].Statuses.Find(s => s.Kind == StatusKind.Bleed);
+            Assert.That(snapshotBleed.TurnsLeft, Is.EqualTo(3),
+                "Capture() 必须深拷贝:原 engine 继续推进不该改到已拍下的快照");
+
+            // Restore() 的深拷贝:同一份快照复原两次,两份实例不该共享同一条状态对象
+            var restoredAgain = BattleEngine.Restore(snapshot, graph, Config(), null,
+                new Dictionary<string, EnemyDef> { ["桩"] = enemyDef });
+            restored.Enemies[0].Statuses.Find(StatusKind.Bleed).Magnitude = 99;
+            Assert.That(restoredAgain.Enemies[0].Statuses.Find(StatusKind.Bleed).Magnitude, Is.EqualTo(3),
+                "Restore() 必须深拷贝:两份复原实例不该共享同一条状态对象");
         }
 
         // ---- run 层 ----
