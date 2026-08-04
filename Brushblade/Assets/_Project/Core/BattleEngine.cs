@@ -615,7 +615,15 @@ namespace Brushblade.Core
                 {
                     var other = _enemies[j];
                     if (!other.Alive || other == enemy) continue;
-                    other.Attack += enemy.Attack;
+                    // 加成本场累计、回合末不回滚(既有语义)。SourceId 必须每次唯一——用回合数做
+                    // 后缀不够:场上若有两只同字标点小妖同回合各给同一目标加一次,回合数后缀会撞车
+                    // 变成互相覆盖而非累加(与 Task 4 的 HoT SourceId 教训同型)。
+                    other.Statuses.Apply(new StatusEffect
+                    {
+                        Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                        Magnitude = enemy.Attack, TurnsLeft = -1,
+                        SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
+                    });
                     _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, enemy.Attack));
                 }
             }
@@ -677,13 +685,13 @@ namespace Brushblade.Core
 
                 int before = enemy.Hp;
                 enemy.RegrowProgress += 1;
-                enemy.Attack += 2;
+                enemy.BaseAttack += 2; // 补全成长(形态变化,非增益):不可驱散
                 // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
                 // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
                 enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 3);
                 if (enemy.RegrowProgress == 3)
                 {
-                    enemy.Attack *= 2;
+                    enemy.BaseAttack *= 2;
                     enemy.Hp = enemy.MaxHp;
                 }
                 _events.Add(new BattleEvent(BattleEventKind.Regrow, i,
@@ -963,7 +971,14 @@ namespace Brushblade.Core
             // 焦痕:受击存活即自燃加攻(越磨越烫,宜速杀)
             if (enemy.Def.Ability == EnemyAbility.Scorch)
             {
-                enemy.Attack += ScorchGain;
+                // 一回合内可能连续多次命中同一目标(玩家多张牌接力打同一敌人),SourceId 必须
+                // 每次唯一,否则同回合第二次自燃会覆盖第一次而非叠加(Task 4 的 HoT 教训同型)。
+                enemy.Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                    Magnitude = ScorchGain, TurnsLeft = -1,
+                    SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
+                });
                 _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
             }
 
@@ -976,7 +991,7 @@ namespace Brushblade.Core
                 var clone = new EnemyState(enemy.Def)
                 {
                     Hp = half,
-                    Attack = enemy.Attack,
+                    BaseAttack = enemy.Attack, // 一次性快照,不是活的引用——分裂出的怪不继承驱散来源
                     HasSplit = true,
                 };
                 _enemies.Add(clone);

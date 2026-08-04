@@ -1806,5 +1806,64 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice));
             Assert.That(engine.PendingDrop, Is.EqualTo("林"));
         }
+
+        // ---- 加攻改为可驱散的 AttackBuff(2026-08-04):标点小妖/焦痕的加攻可被驱散还原;
+        // 缺笔妖的补全是形态变化,不可驱散 ----
+
+        private static BattleEngine RegrowEngine() =>
+            new(Graph(), Config(), Array.Empty<string>(), Array.Empty<string>(),
+                new[] { new EnemyDef("缺笔妖", Element.Metal, 30, 2, EnemyAbility.Regrow) }, seed: 42);
+
+        [Test]
+        public void AttackBuff_RemovableAndRestoresBaseAttack()
+        {
+            var engine = new BattleEngine(Graph(), Config(),
+                new[] { "灯" }, Array.Empty<string>(), new[] { MetalBoss() }, 42);
+            var enemy = engine.Enemies[0];
+            int baseAttack = enemy.Attack;
+
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                Magnitude = 7, TurnsLeft = -1, SourceId = "点",
+            });
+            Assert.That(enemy.Attack, Is.EqualTo(baseAttack + 7));
+
+            enemy.Statuses.RemoveAll(StatusPolarity.Buff);   // 驱散
+            Assert.That(enemy.Attack, Is.EqualTo(baseAttack), "驱散后还原到基础攻击");
+        }
+
+        [Test]
+        public void RegrowGrowth_IsNotDispellable() // 口径 5:缺笔妖补全是形态变化,不是增益
+        {
+            var engine = RegrowEngine();
+            int before = engine.Enemies[0].Attack;
+            engine.EndTurn();              // 触发一次补全成长
+            int after = engine.Enemies[0].Attack;
+            Assert.That(after, Is.GreaterThan(before));
+
+            engine.Enemies[0].Statuses.RemoveAll(StatusPolarity.Buff);
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(after), "成长不该被驱散抹掉");
+        }
+
+        [Test]
+        public void AttackBuff_SurvivesRoundTrip_WithoutDoubling()
+        {
+            var graph = Graph();
+            var enemyDef = new EnemyDef("枯", Element.Wood, 100, 5);
+            var engine = new BattleEngine(graph, Config(), new[] { "灯" },
+                Array.Empty<string>(), new[] { enemyDef }, 42);
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                Magnitude = 7, TurnsLeft = -1, SourceId = "点#1",
+            });
+            int expected = engine.Enemies[0].Attack; // 5 + 7 = 12
+
+            var restored = BattleEngine.Restore(engine.Capture(), graph, Config(), null,
+                new Dictionary<string, EnemyDef> { ["枯"] = enemyDef });
+
+            Assert.That(restored.Enemies[0].Attack, Is.EqualTo(expected)); // 不是 19
+        }
     }
 }

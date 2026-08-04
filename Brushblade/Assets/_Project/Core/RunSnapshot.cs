@@ -40,7 +40,7 @@ namespace Brushblade.Core
         public Element? ApparentElement { get; set; } // null = 生僻字未被读懂
         public List<StatusEffect> Statuses { get; set; } = new();
         public int ActionMeter { get; set; }
-        public int Attack { get; set; }
+        public int BaseAttack { get; set; }
         public float DamageTaken { get; set; }
         public int PhaseIndex { get; set; }
         public int[] PhaseBounds { get; set; }        // Boss 换阶阈值:开场摇的,重算会变

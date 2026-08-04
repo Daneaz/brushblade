@@ -146,7 +146,11 @@ namespace Brushblade.Core
         /// <summary>行动计量器:回合末累积有效速度,每满 100 行动一次。</summary>
         public int ActionMeter { get; internal set; }
 
-        public int Attack { get; internal set; }         // 当前攻击(缺笔妖会成长)
+        /// <summary>基础攻击(缺笔妖补全会直接抬高它 —— 那是形态变化不是增益,故不可驱散)。</summary>
+        public int BaseAttack { get; internal set; }
+
+        /// <summary>当前攻击 = 基础 + 所有可驱散的攻击增益。</summary>
+        public int Attack => BaseAttack + Statuses.TotalMagnitude(StatusKind.AttackBuff);
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
         public int PhaseIndex { get; internal set; }     // 成语 Boss 当前阶段(0 起)
         public int RegrowProgress { get; internal set; } // 补全进度 0~3
@@ -190,7 +194,7 @@ namespace Brushblade.Core
                 ApparentElement = ApparentElement,
                 Statuses = statuses,
                 ActionMeter = ActionMeter,
-                Attack = Attack,
+                BaseAttack = BaseAttack,
                 DamageTaken = DamageTaken,
                 PhaseIndex = PhaseIndex,
                 PhaseBounds = (int[])PhaseBounds.Clone(),
@@ -214,7 +218,7 @@ namespace Brushblade.Core
                 Element = snapshot.Element,
                 ApparentElement = snapshot.ApparentElement,
                 ActionMeter = snapshot.ActionMeter,
-                Attack = snapshot.Attack,
+                BaseAttack = snapshot.BaseAttack,
                 DamageTaken = snapshot.DamageTaken,
                 PhaseIndex = snapshot.PhaseIndex,
                 PhaseBounds = snapshot.PhaseBounds ?? Array.Empty<int>(),
@@ -246,7 +250,7 @@ namespace Brushblade.Core
                 Hp = def.MaxHp;
                 MaxHp = def.MaxHp;
                 Element = def.Element;
-                Attack = def.Attack;
+                BaseAttack = def.Attack;
                 DamageTaken = def.DamageTaken; // 小怪级承伤减免(墨渍)
                 if (def.Ability == EnemyAbility.Disguise && random != null)
                 {
@@ -271,7 +275,7 @@ namespace Brushblade.Core
             PhaseIndex = index;
             Element = phase.Element;
             ApparentElement = phase.Element; // Boss 阶段属性明示
-            Attack = phase.Attack;
+            BaseAttack = phase.Attack;
             DamageTaken = phase.DamageTaken;
             Statuses.Remove(StatusKind.Burn); // 新字新体,灼烧清零
 
