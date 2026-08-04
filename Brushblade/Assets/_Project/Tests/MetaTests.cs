@@ -272,7 +272,7 @@ namespace Brushblade.Core.Tests
             MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼", "林", "杜" }, graph);
 
             var library = MetaRules.StartingLibrary(meta);
-            Assert.That(library.Count, Is.EqualTo(6)); // 起手 = 字库基础容量 6
+            Assert.That(library.Count, Is.EqualTo(6)); // 起手 = 起手字库数量 6(字库基础容量是 6+1 缓冲=7)
             Assert.That(library, Does.Contain("烧").And.Contain("炎")); // 等级高者优先
             Assert.That(library, Does.Not.Contain("圭")); // 列表外不带出(列表足 6 时)
         }

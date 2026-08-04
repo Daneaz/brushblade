@@ -35,7 +35,9 @@ namespace Brushblade.Core
         // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
         // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
         public int BossChargeEvery { get; set; } = 2;
-        /// <summary>回合开始掉落的部件抽取池(属性权重 = 表内重复度;待设计项)。</summary>
+        /// <summary>历史遗留字段(2026-08-04):回合掉落已改为从 <see cref="UnlockedChars"/> 掉字
+        /// (见 StartTurn),此字段不再有任何读取方,只剩调用方仍在赋值。留着未删是因为跨
+        /// Core/Data/Presentation/配置校验四处引用,清理超出掉落改造本次范围。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
 
         /// <summary>可合成的字集合 = 玩家的出阵列表(2026-07-20 拍板:没编入出阵就合不出来,
@@ -386,8 +388,10 @@ namespace Brushblade.Core
         }
 
         /// <summary>广告复活(2026-07-24):败北态满血续战。HP 回满 → 回到玩家回合(刷 AP)。
-        /// StartTurn 只 +Turn/刷 AP/部件掉落,无对玩家的 DoT,故复活瞬间不会被二次归零。
-        /// 补给(字/部件)由 RunEngine 复活流程经 GrantLibraryChar/GrantPoolComponent 注入。</summary>
+        /// StartTurn 会 +Turn/刷 AP,并可能因回合掉字撞满库而把 Phase 从 PlayerTurn 改成
+        /// DropChoice(2026-08-04)——复活后不一定直接落在 PlayerTurn,调用方需按 Phase 分支处理。
+        /// StartTurn 无对玩家的 DoT,故复活瞬间不会被二次归零。
+        /// 补给(字)由 RunEngine 复活流程经 GrantLibraryChar 注入(部件补给已随掉落改造删除)。</summary>
         public void Revive()
         {
             if (Phase != BattlePhase.Lost) return;

@@ -1192,6 +1192,8 @@ namespace Brushblade.Presentation
 
         private void DrawReviveCharStep()
         {
+            if (_rewardModal != null) Destroy(_rewardModal);
+
             _rewardModal = Ui.ModalShell(transform, $"复活补给 · 选字(还剩 {_run.ReviveCharPicksLeft})",
                 new Vector2(340, 165), dismissable: false, out var content);
             Ui.ThemedLabel(content, _previewRewardIndex >= 0

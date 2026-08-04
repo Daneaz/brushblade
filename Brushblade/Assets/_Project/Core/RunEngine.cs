@@ -35,7 +35,7 @@ namespace Brushblade.Core
     /// 跨战斗规则:HP 保留(第 9 章)、部件池保留(3.8.2)、出字即消耗不回归(3.8.1 v0.7 拍板)。</summary>
     public sealed class RunEngine
     {
-        private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 1,2026-07-19 拍板)
+        private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 2,2026-08-04 起)
         private const int RewardPicks = 2;       // 普通战斗 5 选 2(2026-08-04;Boss 层奖励走宝箱,不经此)
 
         /// <summary>部件奖励固定候选:五行基础部件(奇遇 randomComponents 用;

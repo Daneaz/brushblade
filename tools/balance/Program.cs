@@ -15,6 +15,11 @@ namespace Brushblade.Balance
         private const int StallTurns = 60;
         private const int DepthCap = 300;
 
+        // 三画像共享的"火系"出阵卡组(2026-08-04):补 UnlockedChars 时用它兜底——见下方
+        // ClimbUntilDeath 里的说明。
+        private static readonly string[] FireCards =
+            { "灯", "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚" };
+
         public static void Main()
         {
             string configDir = Path.Combine(AppContext.BaseDirectory,
@@ -23,15 +28,14 @@ namespace Brushblade.Balance
             var campaign = ConfigLoader.LoadCampaign(File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
             var endless = campaign.Endless ?? throw new InvalidOperationException("enemies.json 缺少 endless 段");
 
-            var fireCards = new[] { "灯", "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚" };
             var profiles = new[]
             {
                 new Profile("新手(灯,1级,HP50)", new[] { "灯" },
                     new Dictionary<string, int>(), MetaRules.MaxHpFor(1)),
                 new Profile("小成长(灼炎烧灯,卡3级,HP54)", new[] { "灼", "炎", "烧", "灯" },
-                    fireCards.ToDictionary(c => c, _ => 3), MetaRules.MaxHpFor(3)),
+                    FireCards.ToDictionary(c => c, _ => 3), MetaRules.MaxHpFor(3)),
                 new Profile("养成(焚炽灼燚,卡5级,HP68)", new[] { "焚", "炽", "灼", "燚" },
-                    fireCards.ToDictionary(c => c, _ => 5), MetaRules.MaxHpFor(10)),
+                    FireCards.ToDictionary(c => c, _ => 5), MetaRules.MaxHpFor(10)),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
@@ -81,7 +85,19 @@ namespace Brushblade.Balance
             {
                 var runConfig = EndlessGenerator.BuildSegment(endless, fromDepth, towerSeed,
                     campaign.Events, campaign.EventChancePercent);
-                var battleConfig = new BattleConfig { DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp };
+                // UnlockedChars(2026-08-04 起也是回合掉字的抽取源,见 BattleEngine.StartTurn)。
+                // 生产侧口径是 _meta.Deck——玩家自选的出阵卡组(GameRoot.cs)。三个画像没有各自的
+                // 出阵卡组概念,只声明了起手 Library + CardLevels,而 CardLevels 已经用 FireCards
+                // 这个 9 字火系名单给两个成长画像定过级——用它顶 UnlockedChars 是同一套"这画像
+                // 已经练熟的字"口径,数量上也落在真实出阵卡组的 5~15 张区间内(Meta.DeckMinimum/
+                // DeckLimit)。注意:UnlockedChars 非空时 ForgeEngine 也会用它锁合成目标(2026-07-20
+                // 拍板),即画像现在只能合成 FireCards 里的字——比改造前"不限合成"更贴近生产,
+                // 但也是本次顺带激活的口径,如果后续要专门校准合成侧数值,这里可能要再调整。
+                var battleConfig = new BattleConfig
+                {
+                    DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp,
+                    UnlockedChars = FireCards,
+                };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
                     seed: unchecked(towerSeed * 17 + fromDepth), cardLevels: profile.CardLevels,
                     startingHp: hp);
@@ -93,8 +109,13 @@ namespace Brushblade.Balance
 
                     var battle = run.Battle;
                     int turns = 0;
-                    while (battle.Phase == BattlePhase.PlayerTurn && turns++ <= StallTurns)
+                    while (turns <= StallTurns)
+                    {
+                        if (battle.Phase == BattlePhase.DropChoice) { ResolveDropChoice(graph, battle); continue; }
+                        if (battle.Phase != BattlePhase.PlayerTurn) break;
+                        turns++;
                         PlayTurn(graph, battle);
+                    }
                     if (turns > StallTurns)
                         return fromDepth + run.BattleIndex; // 僵局计为卒于当前层
                     run.AdvanceAfterBattle();
@@ -155,6 +176,24 @@ namespace Brushblade.Balance
 
             if (battle.Phase == BattlePhase.PlayerTurn)
                 battle.EndTurn();
+        }
+
+        /// <summary>回合掉字撞满库时的决议策略:掉的字强于库中最弱则换入(ResolveDrop),
+        /// 否则跳过(SkipDrop)——与 PickBestReward 的换入判定同一套贪心口径,保持机器人在
+        /// 「战利品换入」「掉落换入」两条注入路径上的策略一致(评审建议)。</summary>
+        private static void ResolveDropChoice(RecipeGraph graph, BattleEngine battle)
+        {
+            int droppedPower = Power(graph, battle.PendingDrop);
+            int weakest = 0, weakestPower = int.MaxValue;
+            for (int i = 0; i < battle.Library.Count; i++)
+            {
+                int power = Power(graph, battle.Library[i]);
+                if (power < weakestPower) { weakestPower = power; weakest = i; }
+            }
+            if (droppedPower > weakestPower)
+                battle.ResolveDrop(weakest);
+            else
+                battle.SkipDrop();
         }
 
         private static bool IsCastableLeaf(RecipeGraph graph, string id, BattleEngine battle) =>

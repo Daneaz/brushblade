@@ -176,7 +176,8 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>登塔起手字库:出阵列表按等级取前 6(字库基础容量)。
+        /// <summary>登塔起手字库:出阵列表按等级取前 6(StartingLibrarySize,起手数量);
+        /// 字库基础容量是 6+1=7(LibraryCapacityFor,多出的 1 格是掉字缓冲),起手不占满。
         /// 只带自选出阵的字——自动补齐已废止(2026-07-19 拍板:没选就不上场)。</summary>
         public static IReadOnlyList<string> StartingLibrary(MetaState meta)
         {
