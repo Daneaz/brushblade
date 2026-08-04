@@ -38,8 +38,8 @@ namespace Brushblade.Core
         private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 1,2026-07-19 拍板)
         private const int RewardPicks = 2;       // 普通战斗 5 选 2(2026-08-04;Boss 层奖励走宝箱,不经此)
 
-        /// <summary>部件奖励固定候选:五行基础部件(复活补给与奇遇 randomComponents 用;
-        /// 2026-08-04 起战利品不再走这份候选,五行部件改为只能靠拆字获得)。</summary>
+        /// <summary>部件奖励固定候选:五行基础部件(奇遇 randomComponents 用;
+        /// 2026-08-04 起战利品与复活补给都不再走这份候选,五行部件改为只能靠拆字获得)。</summary>
         public static readonly IReadOnlyList<string> ComponentRewardChoices =
             new[] { "金", "木", "水", "火", "土" };
 
@@ -132,6 +132,8 @@ namespace Brushblade.Core
                 LibraryExpanded = LibraryExpanded,
                 PoolExpanded = PoolExpanded,
                 Revived = Revived,
+                ReviveCharPicksLeft = ReviveCharPicksLeft,
+                ReviveRoundsLeft = ReviveRoundsLeft,
                 DefeatedEnemyIds = new List<string>(_defeatedEnemyIds),
                 Battle = Battle?.Capture(),
             };
@@ -163,6 +165,8 @@ namespace Brushblade.Core
                 LibraryExpanded = snapshot.LibraryExpanded,
                 PoolExpanded = snapshot.PoolExpanded,
                 Revived = snapshot.Revived,
+                ReviveCharPicksLeft = snapshot.ReviveCharPicksLeft,
+                ReviveRoundsLeft = snapshot.ReviveRoundsLeft,
             };
             run._rewardOptions.AddRange(snapshot.RewardOptions);
             run._componentOptions.AddRange(snapshot.ComponentOptions);
@@ -208,8 +212,8 @@ namespace Brushblade.Core
         /// <summary>奖励阶段的字候选(已取走的即时移除)。</summary>
         public IReadOnlyList<string> RewardOptions => _rewardOptions;
 
-        /// <summary>部件候选(固定五行,已取走的即时移除);2026-08-04 起战利品不再填充,
-        /// 只在复活补给(Reviving)阶段有效。</summary>
+        /// <summary>部件候选(固定五行,已取走的即时移除);2026-08-04 起战利品与复活补给都
+        /// 不再填充它,当前恒为空——字段保留(不是本次改造的范围)。</summary>
         public IReadOnlyList<string> ComponentOptions => _componentOptions;
 
         private readonly List<string> _componentOptions = new();
@@ -385,15 +389,15 @@ namespace Brushblade.Core
 
         // ---- 广告复活(2026-07-24):整次登塔一次,满血续战 + 补给注入当前战斗 ----
 
-        private const int ReviveCharPicks = 2;      // 复活补给:选字次数(用户给的范围取上限)
-        private const int ReviveComponentPicks = 3; // 复活补给:选部件次数
+        private const int ReviveCharPicks = 2;   // 复活补给:每轮选字次数
+        private const int ReviveRounds = 2;      // 复活补给:重抽轮数(2026-08-04:两轮各 5 选 2 = 4 字)
 
         /// <summary>本次登塔是否已用过复活(一次性;进快照,断点续爬恢复,GameRoot 处理)。</summary>
         public bool Revived { get; private set; }
 
-        /// <summary>复活补给剩余选字/选部件次数(Reviving 阶段有效)。</summary>
+        /// <summary>复活补给本轮剩余选字次数 / 剩余重抽轮数(Reviving 阶段有效)。</summary>
         public int ReviveCharPicksLeft { get; private set; }
-        public int ReviveComponentPicksLeft { get; private set; }
+        public int ReviveRoundsLeft { get; private set; }
 
         /// <summary>可复活:当前战斗已败北且本次登塔未用过复活。</summary>
         public bool ReviveAvailable => Battle.Phase == BattlePhase.Lost && !Revived;
@@ -405,10 +409,8 @@ namespace Brushblade.Core
             Revived = true;
             Battle.Revive(); // HP 回满 + 回到玩家回合
             RollRewardOptions();
-            _componentOptions.Clear();
-            _componentOptions.AddRange(ComponentRewardChoices);
             ReviveCharPicksLeft = ReviveCharPicks;
-            ReviveComponentPicksLeft = ReviveComponentPicks;
+            ReviveRoundsLeft = ReviveRounds;
             Phase = RunPhase.Reviving;
             return true;
         }
@@ -425,18 +427,6 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>复活补给取一部件:直接注入当前战斗部件池。满池或额度尽返回 false。</summary>
-        public bool PickReviveComponent(int index)
-        {
-            if (Phase != RunPhase.Reviving || ReviveComponentPicksLeft == 0) return false;
-            if (index < 0 || index >= _componentOptions.Count) return false;
-            if (!Battle.GrantPoolComponent(_componentOptions[index])) return false; // 满池不入
-            _componentOptions.RemoveAt(index);
-            ReviveComponentPicksLeft -= 1;
-            MaybeFinishRevive();
-            return true;
-        }
-
         /// <summary>放弃剩余复活补给,直接接着打。</summary>
         public void SkipReviveReward()
         {
@@ -449,10 +439,16 @@ namespace Brushblade.Core
 
         private void MaybeFinishRevive()
         {
-            bool charsDone = ReviveCharPicksLeft == 0 || _rewardOptions.Count == 0;
-            bool componentsDone = ReviveComponentPicksLeft == 0 || _componentOptions.Count == 0;
-            if (charsDone && componentsDone)
-                Phase = RunPhase.InBattle; // 补给取尽,接着打这一场
+            if (ReviveCharPicksLeft > 0 && _rewardOptions.Count > 0) return; // 本轮还能取
+
+            ReviveRoundsLeft -= 1;
+            if (ReviveRoundsLeft > 0)
+            {
+                RollRewardOptions();                  // 下一轮:候选重新抽满
+                ReviveCharPicksLeft = ReviveCharPicks;
+                return;
+            }
+            Phase = RunPhase.InBattle; // 轮次用尽,接着打这一场
         }
 
         /// <summary>战斗分出胜负后由视图调用:胜 → 奖励/通关,负 → 结算 run。</summary>

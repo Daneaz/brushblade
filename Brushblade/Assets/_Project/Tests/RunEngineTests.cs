@@ -237,7 +237,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn)); // 满血续战
             Assert.That(run.Battle.PlayerHp, Is.EqualTo(50));
             Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(2));
-            Assert.That(run.ReviveComponentPicksLeft, Is.EqualTo(3));
+            Assert.That(run.ReviveRoundsLeft, Is.EqualTo(2));
             Assert.That(run.ReviveAvailable, Is.False); // 一次性
         }
 
@@ -250,11 +250,6 @@ namespace Brushblade.Core.Tests
             Assert.That(run.PickReviveChar(0), Is.True);
             Assert.That(run.Battle.Library, Does.Contain(charPick)); // 注入当前战斗
             Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(1));
-
-            string compPick = run.ComponentOptions[0];
-            Assert.That(run.PickReviveComponent(0), Is.True);
-            Assert.That(run.Battle.Pool, Does.Contain(compPick));
-            Assert.That(run.ReviveComponentPicksLeft, Is.EqualTo(2));
         }
 
         [Test]
@@ -263,10 +258,12 @@ namespace Brushblade.Core.Tests
             var run = LostRun();
             run.TryRevive();
             run.PickReviveChar(0);
-            run.PickReviveChar(0);                 // 2 次字额度用尽
-            run.PickReviveComponent(0);
-            run.PickReviveComponent(0);
-            run.PickReviveComponent(0);            // 3 次部件额度用尽 → 收尾
+            run.PickReviveChar(0);                 // 第一轮 2 次用尽 → 自动开第二轮
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reviving));
+            Assert.That(run.ReviveRoundsLeft, Is.EqualTo(1));
+
+            run.PickReviveChar(0);
+            run.PickReviveChar(0);                 // 第二轮 2 次用尽 → 轮次耗尽,接着打
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
         }
@@ -299,6 +296,83 @@ namespace Brushblade.Core.Tests
             run.MarkRevived();
             Assert.That(run.ReviveAvailable, Is.False);
             Assert.That(run.TryRevive(), Is.False);
+        }
+
+        [Test]
+        public void Revive_TwoRounds_YieldsFourChars()
+        {
+            var run = LostRun();
+            Assert.That(run.TryRevive(), Is.True);
+            Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(2));
+            Assert.That(run.ReviveRoundsLeft, Is.EqualTo(2));
+
+            run.PickReviveChar(0);
+            run.PickReviveChar(0);
+
+            // 第一轮取尽 → 自动开第二轮,候选重新抽满。简报断言候选数=5(RewardOptionCount 上限),
+            // 但 LostRun() 走的奖池(灯/焚/林)全图仅 3 个非叶子字,候选枯竭即停——与
+            // Reward_NormalBattle_PicksTwoChars 同一口径,这里改断言实际值 3。
+            Assert.That(run.ReviveRoundsLeft, Is.EqualTo(1));
+            Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(2));
+            Assert.That(run.RewardOptions.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ReviveRounds_SurviveRoundTrip() // 轮次丢了 = 续爬后第二轮凭空消失
+        {
+            var run = LostRun();
+            run.TryRevive();
+            run.PickReviveChar(0);
+
+            var restored = RunEngine.Restore(run.Capture(), Graph(),
+                new RunConfig
+                {
+                    Encounters = new[] { new[] { Strong() } },
+                    RewardPool = new[] { "灯", "焚", "林" },
+                },
+                new BattleConfig { DropTable = new[] { "木" } }, null, 0, 0);
+
+            Assert.That(restored.ReviveRoundsLeft, Is.EqualTo(2));
+            Assert.That(restored.ReviveCharPicksLeft, Is.EqualTo(1));
+        }
+
+        /// <summary>跨任务问题(Task 1 遗留,交给 Task 4 核实):Battle.Revive() 内部调用
+        /// StartTurn(),若字库当时已满且出阵掉字池非空,会立刻把 Battle 打进 DropChoice——
+        /// 与 RunEngine.Phase == Reviving 同时成立。这两条状态机彼此独立:Reviving 阶段结束
+        /// (无论取尽补给还是玩家 Skip)只切 RunPhase,不动 Battle;DropChoice 得靠
+        /// Battle.ResolveDrop/SkipDrop 单独解开,与 RunPhase 无关。本用例证明这条路径下 Core
+        /// 状态机不会卡死或损坏——留给 Task 5:表现层判断要不要弹「决议掉落」modal,
+        /// 必须看 Battle.Phase == DropChoice,不能只看 RunPhase(哪怕 RunPhase 已经是 Reviving)。</summary>
+        [Test]
+        public void Revive_WithFullLibrary_LeavesBattleInDropChoice_ResolvedIndependentlyOfRunPhase()
+        {
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { Strong() } },
+                RewardPool = new[] { "灯", "焚", "林" },
+            };
+            // 出阵掉字池非空 + 字库起手 5/6:第 1 回合(构造时 StartTurn 自动跑一次)掉 1 字正好填满
+            // 到 6/6,不撞库;死后 Revive() 再次 StartTurn 时库已经是满的,这次才会撞 DropChoice。
+            var battleConfig = new BattleConfig { DropTable = new[] { "木" }, UnlockedChars = new[] { "木" } };
+            var almostFullLibrary = new[] { "焚", "木", "木", "木", "木" };
+            var run = new RunEngine(Graph(), config, battleConfig,
+                startingLibrary: almostFullLibrary, startingPool: Array.Empty<string>(), seed: 7);
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn)); // 第 1 回合掉字没撞满库
+            Assert.That(run.Battle.Library.Count, Is.EqualTo(6));
+
+            run.Battle.EndTurn();
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Lost));
+
+            Assert.That(run.TryRevive(), Is.True);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reviving));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.DropChoice)); // 两条状态机同时非常态
+
+            run.SkipReviveReward(); // 满库拿不到补给,玩家放弃剩余额度
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.DropChoice)); // Battle 侧原样卡住,不受影响
+
+            Assert.That(run.Battle.ResolveDrop(0), Is.EqualTo(BattleError.None)); // 与 RunPhase 无关,能独立解开
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
         }
 
         [Test]

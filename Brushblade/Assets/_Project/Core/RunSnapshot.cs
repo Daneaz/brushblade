@@ -105,6 +105,8 @@ namespace Brushblade.Core
         public bool LibraryExpanded { get; set; }
         public bool PoolExpanded { get; set; }
         public bool Revived { get; set; }
+        public int ReviveCharPicksLeft { get; set; } // 复活补给本轮剩余选字次数(2026-08-04)
+        public int ReviveRoundsLeft { get; set; } // 复活补给剩余重抽轮数(2026-08-04)
         public List<string> DefeatedEnemyIds { get; set; } = new();
         public BattleSnapshot Battle { get; set; }
     }
