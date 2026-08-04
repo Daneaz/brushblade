@@ -74,7 +74,6 @@ namespace Brushblade.Presentation
         private RunPhase _lastPhase;    // 上一帧的阶段:用于检测「战利品阶段结束」这一次转换
         private int _pendingRewardIndex = -1;   // 满库替换:已选中待替换入库的奖励下标(3.8.1)
         private int _previewRewardIndex = -1;   // 字奖励预览:首点看简述,再点确认(新手友好)
-        private int _previewComponentIndex = -1; // 部件奖励预览:同上
 
         public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
             Tutorial tutorial = null, string title = null, int playerMaxHp = 50,
@@ -363,6 +362,13 @@ namespace Brushblade.Presentation
                 _onFloorCleared?.Invoke();
             _lastPhase = _run.Phase;
 
+            // 复活补给字选完/字库已满(2026-08-04:部件兜底步随 Core 一并删除,没有可转的下一步)
+            // 直接收尾——满库多半是 Revive() 内 StartTurn 顺带把 Battle.Phase 切进 DropChoice,
+            // 交给下面 InBattle 分支里统一的掉落弹窗接手,不能让 Reviving 停在没有出口的画面上。
+            if (_run.Phase == RunPhase.Reviving && !(_run.ReviveCharPicksLeft > 0
+                    && _run.RewardOptions.Count > 0 && Battle.Library.Count < Battle.LibraryCapacity))
+                _run.SkipReviveReward();
+
             if (_run.Phase == RunPhase.InBattle && _run.BattleIndex != _lastBattleIndex)
             {
                 _lastBattleIndex = _run.BattleIndex;
@@ -386,7 +392,8 @@ namespace Brushblade.Presentation
 
             switch (_run.Phase)
             {
-                case RunPhase.InBattle when Battle.Phase == BattlePhase.PlayerTurn:
+                case RunPhase.InBattle when Battle.Phase == BattlePhase.PlayerTurn
+                    || Battle.Phase == BattlePhase.DropChoice:
                     DrawEnemies();
                     DrawTopBar();
                     DrawSummons();
@@ -401,6 +408,8 @@ namespace Brushblade.Presentation
                     DrawSuggest();
                     DrawActions();
                     DrawEndTurn();
+                    // 回合掉字遇满库(2026-08-04):弹窗盖住操作区即可,Cast/EndTurn 已被 Core 拒绝
+                    if (Battle.Phase == BattlePhase.DropChoice) DrawDropChoiceStep();
                     break;
                 case RunPhase.InBattle: // 本场已分胜负,等待结算
                     DrawEnemies();
@@ -413,7 +422,7 @@ namespace Brushblade.Presentation
                     DrawTopBar();
                     DrawPlayerStats();
                     DrawLibrary(); // 携带字库:满库替换的操作对象
-                    DrawPool();    // 携带部件池:部件奖励入池可见
+                    DrawPool();    // 携带部件池:随战利品页一并展示当前持有
                     DrawReward();
                     break;
                 case RunPhase.Reviving:
@@ -421,7 +430,7 @@ namespace Brushblade.Presentation
                     DrawPlayerStats();
                     DrawLibrary(); // 复活补给注入当前战斗字库,即时可见
                     DrawPool();
-                    DrawReviveReward();
+                    DrawReviveCharStep(); // 走到这里时已由 Refresh 顶部的收尾检查保证还有字可选
                     break;
                 case RunPhase.Event:
                     DrawEvent();
@@ -460,7 +469,7 @@ namespace Brushblade.Presentation
             var battle = Battle;
             var sb = new StringBuilder();
             sb.Append(_run.Phase).Append('|').Append(_run.BattleIndex).Append('|')
-              .Append(_run.CharPicksLeft).Append('|').Append(_run.ComponentPicksLeft).Append('|')
+              .Append(_run.CharPicksLeft).Append('|')
               .Append(_run.EarnedInk).Append('|')
               .Append(battle.Phase).Append('|').Append(battle.Turn).Append('|').Append(battle.Ap).Append('|')
               .Append(battle.PlayerHp).Append('|').Append(battle.PlayerShield).Append('|')
@@ -487,7 +496,7 @@ namespace Brushblade.Presentation
             TutorialStep.DismantleFlame => "选中【炎】点【拆】——拆出两个部件『火』",
             TutorialStep.RecomposeFlame => "两个『火』能拼回去:点提示里的【合 炎】——拆与合互为表里",
             TutorialStep.CastFlame => "选中【炎】点【出】——伤害 + 灼烧,回合末灼烧补刀收场",
-            TutorialStep.PickReward => "战利品:字和部件各挑 1 个——出过的字不回来,靠拆合再生产",
+            TutorialStep.PickReward => "战利品:选中意的字,最多挑 2 个——出过的字不回来,靠拆合再生产",
             _ => "",
         };
 
@@ -767,7 +776,7 @@ namespace Brushblade.Presentation
 
         private void DrawPool()
         {
-            // 奖励页显示携带池(部件奖励入池即时可见)
+            // 奖励页显示携带池(部件不再随战利品入池,这里只展示当前持有,2026-08-04)
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var poolChars = rewardPhase ? _run.CarriedPool : Battle.Pool;
             Ui.ThemedLabel(_poolRow, $"部件池 {poolChars.Count}/{Battle.PoolCapacity}", 16, Theme.TextDim, Theme.TitleFont);
@@ -955,6 +964,44 @@ namespace Brushblade.Presentation
             Ui.PillButton(_endTurnRow, "结束回合", ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
         }
 
+        /// <summary>回合掉字遇满库(2026-08-04):停下让玩家选替换哪一张,或跳过这次掉落。
+        /// 结构照搬 DrawEventReplaceStep —— 同一个「满库换哪张」的心智模型。</summary>
+        private void DrawDropChoiceStep()
+        {
+            string incoming = Battle.PendingDrop;
+
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = Ui.ModalShell(transform, $"字库已满 · 用掉落的「{incoming}」换掉哪一张?",
+                new Vector2(360, 240), dismissable: false, out var stack);
+            Ui.ThemedLabel(stack, "被换掉的字永久失去", 15, Theme.TextDim);
+
+            Transform row = null;
+            for (int i = 0; i < Battle.Library.Count; i++)
+            {
+                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
+                int replaceIndex = i;
+                var def = _graph.Get(Battle.Library[i]);
+                Ui.GlyphTile(row, def, $"{def.ApCost} AP", false, () =>
+                {
+                    string dropped = Battle.Library[replaceIndex];
+                    if (Battle.ResolveDrop(replaceIndex) == BattleError.None)
+                    {
+                        _message = $"「{incoming}」替换「{dropped}」";
+                        if (_modal != null) Object.Destroy(_modal);
+                    }
+                    Refresh();
+                }, new Vector2(74, 96));
+            }
+
+            Ui.PillButton(stack, "不要,跳过", () =>
+            {
+                Battle.SkipDrop();
+                if (_modal != null) Object.Destroy(_modal);
+                _message = $"弃掉了「{incoming}」";
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
+        }
+
         /// <summary>还有 AP 时先确认,避免误触把这回合的 AP 作废(2026-07-21)。
         /// AP 耗尽的自动结束与「AP 不够」弹窗里的快捷钮直连 OnEndTurn,不重复确认。</summary>
         private void ConfirmEndTurn()
@@ -983,8 +1030,6 @@ namespace Brushblade.Presentation
                 Ui.AdBadge(_actionRow, "看广告复活", () =>
                 {
                     _previewRewardIndex = -1;
-                    _previewComponentIndex = -1;
-                    _reviveCharSkipped = false;
                     _run.TryRevive();
                     _onExpanded?.Invoke(); // 即时落盘:防「刚看完广告就挂起」白看
                     _message = "满血复活!挑几样补给,接着打";
@@ -1042,36 +1087,25 @@ namespace Brushblade.Presentation
             _run.AdvanceAfterBattle();
             _pendingRewardIndex = -1;
             _previewRewardIndex = -1;
-            _previewComponentIndex = -1;
-            _rewardCharSkipped = false; // 上一场的「不要字」不能带进这一场
             _message = "";
             Refresh();
         }
 
-        private bool _rewardCharSkipped;      // 玩家放弃了字这一步(引擎侧额度仍在,收尾时补 SkipReward)
-        private int _pendingComponentIndex = -1; // 满池替换:已选中待入池的部件下标
-
-        /// <summary>战利品弹窗(2026-07-20 拍板):两步式——先选 1 个字,再选 1 个部件。
-        /// 字库满时就地转入「换掉哪一个」子步;满/额度用尽的提示写在窗内,不再套第二层弹窗。</summary>
+        /// <summary>战利品弹窗:字库满时就地转入「换掉哪一个」子步;额度用尽(2026-08-04 起
+        /// 5 选 2)由 Core 侧 MaybeFinishRewards 自动开拔——走到这里时必然还有字可选。</summary>
         private void DrawReward()
         {
             if (_rewardModal != null) Destroy(_rewardModal);
 
-            bool pickingChar = !_rewardCharSkipped
-                && _run.CharPicksLeft > 0 && _run.RewardOptions.Count > 0;
             if (_pendingRewardIndex >= 0)
                 DrawRewardReplaceStep();
-            else if (_pendingComponentIndex >= 0)
-                DrawComponentReplaceStep();
-            else if (pickingChar)
-                DrawRewardCharStep();
             else
-                DrawRewardComponentStep();
+                DrawRewardCharStep();
         }
 
         private void DrawRewardCharStep()
         {
-            _rewardModal = Ui.ModalShell(transform, "战利品 · 选 1 个字",
+            _rewardModal = Ui.ModalShell(transform, $"战利品 · 选字(还剩 {_run.CharPicksLeft})",
                 new Vector2(340, 165), dismissable: false, out var content);
             var preview = _previewRewardIndex >= 0
                 ? Brief(_run.RewardOptions[_previewRewardIndex]) + "|再点一次收下"
@@ -1097,7 +1131,7 @@ namespace Brushblade.Presentation
                     {
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = $"「{id}」入库";
-                        CancelSelection(); // 额度归零 → 下次 Refresh 自动走到部件步
+                        CancelSelection(); // 额度归零 → 下次 Refresh 由 Core 侧自动开拔
                         return;
                     }
                     _pendingRewardIndex = index; // 字库已满(3.8.1):转入替换子步
@@ -1108,11 +1142,13 @@ namespace Brushblade.Presentation
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
-            Ui.RoundButton(content, "不要字,去选部件", () =>
+            Ui.RoundButton(content, "不要了,开拔", () =>
             {
                 _previewRewardIndex = -1;
-                _rewardCharSkipped = true;
-                Refresh();
+                _run.SkipReward();
+                _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
+                _message = "开拔,下一战!";
+                CancelSelection();
             }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
         }
 
@@ -1150,109 +1186,9 @@ namespace Brushblade.Presentation
             }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(150, 46));
         }
 
-        private void DrawRewardComponentStep()
-        {
-            _rewardModal = Ui.ModalShell(transform, "战利品 · 选 1 个部件",
-                new Vector2(320, 150), dismissable: false, out var content);
-            bool poolFull = _run.CarriedPool.Count >= Battle.PoolCapacity;
-            string note = poolFull
-                ? $"部件池已满 {_run.CarriedPool.Count}/{Battle.PoolCapacity}——选一个会进入替换"
-                : $"部件池 {_run.CarriedPool.Count}/{Battle.PoolCapacity} · 点一下看效果,再点收下";
-            Ui.ThemedLabel(content, _previewComponentIndex >= 0
-                ? Brief(_run.ComponentOptions[_previewComponentIndex])
-                  + (poolFull ? "|再点一次去挑替换目标" : "|再点一次收下")
-                : note, 16, poolFull ? Theme.Cinnabar : Theme.TextDim);
-
-            var row = Ui.Row(content, "Options", 10);
-            for (int i = 0; i < _run.ComponentOptions.Count; i++)
-            {
-                int index = i;
-                var id = _run.ComponentOptions[i];
-                var def = _graph.Get(id);
-                bool previewing = index == _previewComponentIndex;
-                Ui.RoundButton(row.transform, id, () =>
-                {
-                    if (_previewComponentIndex != index)
-                    {
-                        _previewComponentIndex = index;
-                        Refresh();
-                        return;
-                    }
-                    _previewComponentIndex = -1;
-                    if (_run.PickRewardComponent(index))
-                    {
-                        FinishRewards($"部件「{id}」入池,下一战!");
-                        return;
-                    }
-                    _pendingComponentIndex = index; // 池满(3.8.2):转入替换子步
-                    Refresh();
-                }, previewing ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
-                    previewing ? Color.white : Theme.ElementSoftFg(def.Element), 24, new Vector2(64, 64), 12);
-            }
-
-            Ui.RoundButton(content, "开拔,下一战", () => FinishRewards("开拔,下一战!"),
-                Theme.Cinnabar, Color.white, 18, new Vector2(190, 48));
-        }
-
-        private void DrawComponentReplaceStep()
-        {
-            var incoming = _run.ComponentOptions[_pendingComponentIndex];
-            _rewardModal = Ui.ModalShell(transform,
-                $"部件池已满 · 用「{incoming}」换掉哪一个?",
-                new Vector2(360, 150), dismissable: false, out var content);
-            Ui.ThemedLabel(content,
-                $"部件池 {_run.CarriedPool.Count}/{Battle.PoolCapacity}——被换掉的部件永久失去", 16, Theme.TextDim);
-
-            var row = Ui.Row(content, "Pool", 8);
-            for (int i = 0; i < _run.CarriedPool.Count; i++)
-            {
-                int replaceIndex = i;
-                string id = _run.CarriedPool[i];
-                var def = _graph.Get(id);
-                Ui.RoundButton(row.transform, id, () =>
-                {
-                    if (_run.PickRewardComponentReplacing(_pendingComponentIndex, replaceIndex))
-                    {
-                        _pendingComponentIndex = -1;
-                        FinishRewards($"「{incoming}」替换「{id}」入池,下一战!");
-                    }
-                }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
-            }
-
-            Ui.RoundButton(content, "算了,不换", () =>
-            {
-                _pendingComponentIndex = -1;
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(150, 46));
-        }
-
-        /// <summary>战利品收尾:字步被跳过时引擎侧额度还在,补一次 SkipReward 才会开拔。</summary>
-        private void FinishRewards(string message)
-        {
-            _previewRewardIndex = -1;
-            _previewComponentIndex = -1;
-            _pendingRewardIndex = -1;
-            _pendingComponentIndex = -1;
-            _rewardCharSkipped = false;
-            if (_run.Phase == RunPhase.Reward)
-                _run.SkipReward();
-            _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
-            _message = message; // 落盘由 Refresh 的阶段转换统一触发,不在各分支里各调一次
-            CancelSelection();
-        }
-
-        // ---- 复活补给(2026-07-24):以战利品展示方式给字/部件,直接注入当前战斗 ----
-
-        private bool _reviveCharSkipped; // 玩家在复活选字步点了「去选部件」
-
-        private void DrawReviveReward()
-        {
-            if (_rewardModal != null) Destroy(_rewardModal);
-            bool pickingChar = !_reviveCharSkipped && _run.ReviveCharPicksLeft > 0
-                && _run.RewardOptions.Count > 0 && Battle.Library.Count < Battle.LibraryCapacity;
-            if (pickingChar) DrawReviveCharStep();
-            else DrawReviveComponentStep();
-        }
+        // ---- 复活补给(2026-07-24):以战利品展示方式给字,直接注入当前战斗字库。
+        // 2026-08-04:部件补给随 Core 一并删除——五行部件今后只能靠拆字获得;字库满/额度尽
+        // 时不再有下一步可转,由 Refresh 顶部的收尾检查直接 SkipReviveReward ----
 
         private void DrawReviveCharStep()
         {
@@ -1279,47 +1215,13 @@ namespace Brushblade.Presentation
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
-            Ui.RoundButton(content, "够了,去选部件", () =>
-            {
-                _previewRewardIndex = -1;
-                _reviveCharSkipped = true;
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
-        }
-
-        private void DrawReviveComponentStep()
-        {
-            _rewardModal = Ui.ModalShell(transform, $"复活补给 · 选部件(还剩 {_run.ReviveComponentPicksLeft})",
-                new Vector2(320, 150), dismissable: false, out var content);
-            Ui.ThemedLabel(content, _previewComponentIndex >= 0
-                ? Brief(_run.ComponentOptions[_previewComponentIndex]) + "|再点一次收下"
-                : $"部件池 {Battle.Pool.Count}/{Battle.PoolCapacity} · 点一下看效果,再点收下", 16, Theme.TextDim);
-
-            var row = Ui.Row(content, "Options", 10);
-            for (int i = 0; i < _run.ComponentOptions.Count; i++)
-            {
-                int index = i;
-                var id = _run.ComponentOptions[i];
-                var def = _graph.Get(id);
-                bool previewing = index == _previewComponentIndex;
-                Ui.RoundButton(row.transform, id, () =>
-                {
-                    if (_previewComponentIndex != index) { _previewComponentIndex = index; Refresh(); return; }
-                    _previewComponentIndex = -1;
-                    if (_run.PickReviveComponent(index)) _message = $"部件「{id}」入池";
-                    Refresh();
-                }, previewing ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
-                    previewing ? Color.white : Theme.ElementSoftFg(def.Element), 24, new Vector2(64, 64), 12);
-            }
-
             Ui.RoundButton(content, "够了,接着打!", () =>
             {
-                _previewComponentIndex = -1;
-                _reviveCharSkipped = false;
+                _previewRewardIndex = -1;
                 _run.SkipReviveReward();
                 _message = "重整旗鼓,再战!";
                 CancelSelection();
-            }, Theme.Cinnabar, Color.white, 18, new Vector2(190, 48));
+            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
         }
 
         private int _pendingEventOption = -1; // 部件抵价/任选字:待成交的选项下标
@@ -1850,7 +1752,7 @@ namespace Brushblade.Presentation
             SnapshotPreHp(); // 出手前血量:敌方攻击触达才逐记扣血
             Battle.EndTurn();
             _tutorial?.Notify(TutorialAction.EndTurn);
-            _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,部件掉落" : "";
+            _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "";
             AppendBossSkillMessage(); // 蓄力/释放/护盾被掀空都发生在敌方回合结算(EndTurn),不是出字动作里
             var deaths = DeathsThisAction();
             _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
