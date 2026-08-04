@@ -1401,6 +1401,27 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void HealOverTime_SameCharCastTwice_Stacks() // 「滋」可叠(技能机制详表):同字连放
+                                                              // 应是两条独立倒计时,不是刷新成一条
+        {
+            var engine = new BattleEngine(HealGraph(), Config(), new[] { "沐", "沐" },
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 6) }, 42);
+            engine.EndTurn();                     // 先挨一下,腾出治疗空间
+            engine.Cast("沐");
+            engine.Cast("沐");
+
+            int hotCount = 0;
+            foreach (var s in engine.PlayerStatuses.All)
+                if (s.Kind == StatusKind.HealOverTime) hotCount++;
+            Assert.That(hotCount, Is.EqualTo(2), "同字连放不应互相覆盖");
+
+            int hp0 = engine.PlayerHp;
+            engine.EndTurn();
+            int gain = engine.PlayerHp - hp0 + 6;   // 加回本回合挨的 6 点
+            Assert.That(gain, Is.EqualTo(6), "两条各回 3,治疗量应是单条的两倍——证明确实可叠而不只是数据结构里躺了两条");
+        }
+
+        [Test]
         public void HealOverTime_SurvivesSnapshotRoundTrip() // HoT 挂在 BattleEngine._playerStatuses 上,不在 EnemyState/SummonState 里,
                                                               // 得单独确认 Capture/Restore 有往返(Digest() 不会自动覆盖新字段)
         {

@@ -24,6 +24,10 @@ namespace Brushblade.Core
         public List<SummonSnapshot> Summons { get; set; } = new();
         public List<StatusEffect> PlayerStatuses { get; set; } = new(); // HoT / 减伤(2026-08-04 统一容器)
         public string PendingDrop { get; set; } // 待决议的掉落字(DropChoice 阶段,2026-08-04)
+
+        /// <summary>HoT SourceId 自增序号(2026-08-04):不存的话续爬后计数器归零,新施加的 HoT
+        /// SourceId 可能撞上快照里恢复的条目,撞上就被意外覆盖(可叠语义失效)。</summary>
+        public int StatusSerial { get; set; }
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>

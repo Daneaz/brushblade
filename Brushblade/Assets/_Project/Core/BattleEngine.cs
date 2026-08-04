@@ -128,6 +128,11 @@ namespace Brushblade.Core
         /// ID,同字覆盖 = 只刷新不叠加;TurnsLeft = -1 段内持久,跨战斗携带见 RunEngine._carriedStatuses。</summary>
         private readonly StatusBag _playerStatuses = new();
 
+        /// <summary>HoT 的 SourceId 自增序号(2026-08-04):HoT 允许同字叠加(技能机制详表「滋」),
+        /// 靠每次施放给一个独一无二的 SourceId 绕开 Apply() 的同源覆盖。要进快照——续爬后计数器
+        /// 归零会与快照里恢复的条目撞号,撞上就被意外覆盖。</summary>
+        private int _statusSerial;
+
         /// <summary>所有减伤来源连乘后的承伤系数(1.0 = 无减伤;乘法叠加,天然趋近但不达 0)。</summary>
         public float DamageReductionMultiplier
         {
@@ -204,6 +209,7 @@ namespace Brushblade.Core
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
                 PendingDrop = _pendingDrop,
+                StatusSerial = _statusSerial,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
@@ -226,6 +232,7 @@ namespace Brushblade.Core
                 _shieldPersist = snapshot.ShieldPersist,
                 _burnPerStack = snapshot.BurnPerStack,
                 _pendingDrop = snapshot.PendingDrop,
+                _statusSerial = snapshot.StatusSerial,
             };
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
@@ -833,11 +840,16 @@ namespace Brushblade.Core
                         HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements, attacker));
                         break;
                     case EffectKind.HealOverTime:
-                        _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
+                        // 可叠(2026-08-04,技能机制详表「滋」):SourceId 用自增序号而非字 ID,
+                        // 让 Apply() 永远走新增分支——同字连放两次得到两条独立倒计时,与老代码
+                        // 无条件 List.Add 的口径一致。不能用回合数做后缀:一回合 3 AP,同一回合
+                        // 内完全可能连放两次,会被回合数误判成同一来源又变回刷新。
+                        _playerStatuses.Apply(new StatusEffect
                         {
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
                             Magnitude = WuxingResolver.ResolveEffect(value, recipeElements, attacker),
-                            TurnsLeft = effect.Turns, TargetAll = effect.TargetAll, SourceId = def.Id,
+                            TurnsLeft = effect.Turns, TargetAll = effect.TargetAll,
+                            SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
