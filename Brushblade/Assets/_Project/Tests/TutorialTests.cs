@@ -76,8 +76,11 @@ namespace Brushblade.Core.Tests
             Assert.That(tutorial.Step, Is.EqualTo(TutorialStep.RecomposeFlame));
         }
 
-        /// <summary>首局剧本必须真能打通(否则新手卡死):字库仅【炎】+ 池两个火,
-        /// 3 AP 走完 拆→合→出,靠回合末灼烧补刀取胜。实船数值守卫见 ConfigLoaderTests。</summary>
+        /// <summary>首局剧本必须真能打通(否则新手卡死):字库起始【炎】+ 池两个火,
+        /// 3 AP 走完 拆→合→出,靠回合末灼烧补刀取胜。实船数值守卫见 ConfigLoaderTests。
+        /// 掉字改造(2026-08-04):UnlockedChars=[炎] 会在构造函数的 StartTurn() 里触发开局
+        /// 掉落,实际库是两张【炎】(起始 1 张 + 开局掉 1 张)——教程脚本的拆/合/出三步只碰
+        /// 其中一张,不影响流程,但下面钉一条断言把这处隐藏状态标出来。</summary>
         [Test]
         public void FirstTowerScript_IsActuallyCompletable()
         {
@@ -97,6 +100,9 @@ namespace Brushblade.Core.Tests
             };
             var battle = new BattleEngine(graph, config, new[] { "炎" }, new[] { "火", "火" },
                 new[] { new EnemyDef("错字鬼", Element.Wood, 14, 4) }, seed: 7);
+
+            // 开局掉落已把库从 1 张炎变成 2 张(2026-08-04):钉住,别让后人以为库里只有 1 张
+            Assert.That(battle.Library, Is.EqualTo(new[] { "炎", "炎" }));
 
             Assert.That(battle.Dismantle("炎"), Is.EqualTo(BattleError.None)); // 1 AP
             Assert.That(battle.Compose("炎"), Is.EqualTo(BattleError.None));   // 2 AP

@@ -101,8 +101,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PickReward_AddsChar_CastCharConsumed()
         {
-            var run = Run();
-            WinCurrentBattle(run); // 焚出手即消耗(v0.7 拍板,无回归)
+            // 部件池起手给「木」(2026-08-04 复审修正):掉字改造后回合不再自动掉部件入池,
+            // 空池→空池的断言验证不了「部件池保留」,必须真的放东西进去才有得测
+            var run = new RunEngine(Graph(), TwoBattles(), new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: new[] { "焚" }, startingPool: new[] { "木" }, seed: 7);
+            WinCurrentBattle(run); // 焚出手即消耗(v0.7 拍板,无回归);焚走库不碰池,池里的木不受影响
             int hpAfterBattle = run.Battle.PlayerHp;
             run.AdvanceAfterBattle();
 
@@ -119,7 +122,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Library, Does.Not.Contain("焚")); // 出字即消耗,不回归
             Assert.That(run.Battle.Library, Does.Contain(picked));   // 奖励入库
             Assert.That(run.Battle.PlayerHp, Is.EqualTo(hpAfterBattle)); // HP 跨战斗保留
-            Assert.That(run.Battle.Pool, Is.Empty); // 部件池保留(3.8.2);本测试未配 UnlockedChars,回合不再掉落(2026-08-04)
+            Assert.That(run.Battle.Pool, Does.Contain("木")); // 部件池保留(3.8.2):跨战斗延续,不被清空
         }
 
         [Test]

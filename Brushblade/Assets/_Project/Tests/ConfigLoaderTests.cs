@@ -172,7 +172,12 @@ namespace Brushblade.Core.Tests
         }
 
         /// <summary>首局教程剧本(拆炎→合炎→出炎)必须能打通首层敌人,否则新手卡死。
-        /// 「只能合已收集的字」后首局只有 2 叠可用,这里守住实船数值(步骤机测试见 TutorialTests)。</summary>
+        /// 「只能合已收集的字」后首局只有 2 叠可用,这里守住实船数值(步骤机测试见 TutorialTests)。
+        /// 掉字改造(2026-08-04):UnlockedChars 非空会在构造函数的 StartTurn() 里触发开局掉落,
+        /// 库从起始的 1 张【炎】变成 2 张(炎 + 出阵表里摇中的另一字)。这里不钉死具体摇中哪个
+        /// ——那要跑真实 chars.json/enemies.json 才能算,coretests 工装够不到本测试(它引了
+        /// UnityEngine.Application,只有 Unity EditMode 能验证),只钉住「确实多掉了一张、且
+        /// 属于出阵表」这条不依赖具体随机结果的事实,免得后人被这处隐藏状态绊倒。</summary>
         [Test]
         public void ShippedConfig_FirstTowerTutorial_CanClearFloorOne()
         {
@@ -185,13 +190,19 @@ namespace Brushblade.Core.Tests
             var floorOne = segment.Encounters[0];
             Assert.That(floorOne.Count, Is.EqualTo(1)); // 首层单敌
 
+            var unlockedChars = new[] { "鍂", "林", "沝", "炎", "圭" }; // 初始出阵列表
             var battle = new BattleEngine(graph,
                 new BattleConfig
                 {
                     DropTable = campaign.DropTable,
-                    UnlockedChars = new[] { "鍂", "林", "沝", "炎", "圭" }, // 初始出阵列表
+                    UnlockedChars = unlockedChars,
                 },
                 new[] { "炎" }, new[] { "火", "火" }, floorOne, seed: 7);
+
+            // 开局掉落已把库从 1 张变成 2 张(2026-08-04):钉住「多了一张、且是出阵表里的字」,
+            // 不钉死具体摇中哪个(见上方 summary)
+            Assert.That(battle.Library.Count, Is.EqualTo(2));
+            Assert.That(battle.Library, Has.All.Matches<string>(c => unlockedChars.Contains(c)));
 
             Assert.That(battle.Compose("焱"), Is.EqualTo(BattleError.ForgeFailed)); // 不在出阵,合不出
             Assert.That(battle.Dismantle("炎"), Is.EqualTo(BattleError.None));
