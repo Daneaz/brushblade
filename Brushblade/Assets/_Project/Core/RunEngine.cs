@@ -36,9 +36,10 @@ namespace Brushblade.Core
     public sealed class RunEngine
     {
         private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 1,2026-07-19 拍板)
-        private const int RewardPicks = 1;       // 字/部件各自的可取数(Boss 层奖励走宝箱,不经此)
+        private const int RewardPicks = 2;       // 普通战斗 5 选 2(2026-08-04;Boss 层奖励走宝箱,不经此)
 
-        /// <summary>部件奖励固定候选:五行基础部件(5 选 1)。</summary>
+        /// <summary>部件奖励固定候选:五行基础部件(复活补给与奇遇 randomComponents 用;
+        /// 2026-08-04 起战利品不再走这份候选,五行部件改为只能靠拆字获得)。</summary>
         public static readonly IReadOnlyList<string> ComponentRewardChoices =
             new[] { "金", "木", "水", "火", "土" };
 
@@ -124,7 +125,6 @@ namespace Brushblade.Core
                 CarriedSummons = new List<SummonSnapshot>(_carriedSummons),
                 CarriedDamageReductions = new Dictionary<string, int>(_carriedDamageReductions),
                 CharPicksLeft = CharPicksLeft,
-                ComponentPicksLeft = ComponentPicksLeft,
                 RewardOptions = new List<string>(_rewardOptions),
                 ComponentOptions = new List<string>(_componentOptions),
                 CurrentEventId = CurrentEvent?.Id,
@@ -159,7 +159,6 @@ namespace Brushblade.Core
                 _carriedSummons = new List<SummonSnapshot>(snapshot.CarriedSummons),
                 _carriedDamageReductions = new Dictionary<string, int>(snapshot.CarriedDamageReductions),
                 CharPicksLeft = snapshot.CharPicksLeft,
-                ComponentPicksLeft = snapshot.ComponentPicksLeft,
                 EarnedInk = snapshot.EarnedInk,
                 LibraryExpanded = snapshot.LibraryExpanded,
                 PoolExpanded = snapshot.PoolExpanded,
@@ -209,13 +208,13 @@ namespace Brushblade.Core
         /// <summary>奖励阶段的字候选(已取走的即时移除)。</summary>
         public IReadOnlyList<string> RewardOptions => _rewardOptions;
 
-        /// <summary>奖励阶段的部件候选(固定五行,已取走的即时移除)。</summary>
+        /// <summary>部件候选(固定五行,已取走的即时移除);2026-08-04 起战利品不再填充,
+        /// 只在复活补给(Reviving)阶段有效。</summary>
         public IReadOnlyList<string> ComponentOptions => _componentOptions;
 
         private readonly List<string> _componentOptions = new();
 
         public int CharPicksLeft { get; private set; }
-        public int ComponentPicksLeft { get; private set; }
 
         /// <summary>战斗间携带的字库(Reward/Event/RunWon 阶段有效;段末快照的数据源)。</summary>
         public IReadOnlyList<string> CarriedLibrary => _carriedLibrary;
@@ -490,15 +489,12 @@ namespace Brushblade.Core
             _carriedDamageReductions = new Dictionary<string, int>(Battle.DamageReductions);
 
             RollRewardOptions();
-            _componentOptions.Clear();
-            _componentOptions.AddRange(ComponentRewardChoices);
             CharPicksLeft = RewardPicks;
-            ComponentPicksLeft = RewardPicks;
             Phase = RunPhase.Reward;
         }
 
         /// <summary>取一张字奖励(下标)。额度用尽或字库已满返回 false——
-        /// 满库时用替换(PickRewardReplacing)或跳过(3.8.1)。双排额度取尽自动开拔。</summary>
+        /// 满库时用替换(PickRewardReplacing)或跳过(3.8.1)。字额度取尽自动开拔。</summary>
         public bool PickReward(int index)
         {
             if (Phase != RunPhase.Reward || CharPicksLeft == 0) return false;
@@ -523,38 +519,10 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>取一个部件奖励(下标):入携带池。额度用尽或池满返回 false——
-        /// 满池时用替换(PickRewardComponentReplacing)或跳过。</summary>
-        public bool PickRewardComponent(int index)
-        {
-            if (Phase != RunPhase.Reward || ComponentPicksLeft == 0) return false;
-            if (_carriedPool.Count >= _battleConfig.PoolCapacity)
-                return false;
-            _carriedPool.Add(_componentOptions[index]);
-            _componentOptions.RemoveAt(index);
-            ComponentPicksLeft -= 1;
-            MaybeFinishRewards();
-            return true;
-        }
-
-        /// <summary>满池替换:奖励部件换掉池中一个(被换的永久移除,2026-07-20)。</summary>
-        public bool PickRewardComponentReplacing(int index, int replaceIndex)
-        {
-            if (Phase != RunPhase.Reward || ComponentPicksLeft == 0) return false;
-            if (replaceIndex < 0 || replaceIndex >= _carriedPool.Count) return false;
-            _carriedPool[replaceIndex] = _componentOptions[index];
-            _componentOptions.RemoveAt(index);
-            ComponentPicksLeft -= 1;
-            MaybeFinishRewards();
-            return true;
-        }
-
-        /// <summary>双排额度取尽(或候选枯竭)自动开拔;中途可 SkipReward 提前走。</summary>
+        /// <summary>字额度取尽(或候选枯竭)自动开拔;中途可 SkipReward 提前走。</summary>
         private void MaybeFinishRewards()
         {
-            bool charsDone = CharPicksLeft == 0 || _rewardOptions.Count == 0;
-            bool componentsDone = ComponentPicksLeft == 0 || _componentOptions.Count == 0;
-            if (charsDone && componentsDone)
+            if (CharPicksLeft == 0 || _rewardOptions.Count == 0)
                 ProceedAfterReward();
         }
 

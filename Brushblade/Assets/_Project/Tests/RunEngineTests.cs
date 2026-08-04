@@ -63,6 +63,21 @@ namespace Brushblade.Core.Tests
             Assert.That(run.RewardOptions, Is.SubsetOf(new[] { "灯", "焚", "林" }));
         }
 
+        [Test]
+        public void Reward_NormalBattle_PicksTwoChars()
+        {
+            var run = Run();
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward));
+            Assert.That(run.CharPicksLeft, Is.EqualTo(2));
+            // 简报断言候选数=5(RewardOptionCount 上限),但默认 Run() 走 TwoBattles() 的奖池,
+            // 全图仅 3 个非叶子字(灯/焚/林),候选枯竭即停——与上面
+            // Won_Advance_EntersReward_WithThreeOptionsFromPool 同一口径,这里改断言实际值 3。
+            Assert.That(run.RewardOptions.Count, Is.EqualTo(3));
+        }
+
         // ---- 层记账基准(2026-07-27):外层靠它算「刚打完第几层」并推进断点快照 ----
 
         [Test]
@@ -307,7 +322,7 @@ namespace Brushblade.Core.Tests
             Assert.That(config.DropsPerTurn, Is.EqualTo(1)); // 掉部件→掉字(2026-08-04:2→1)
         }
 
-        // ---- 战利品双排 5 选 1(2026-07-19 拍板):字池抽 5 选 1 + 固定五行部件 5 选 1;
+        // ---- 战利品字排 5 选 2(2026-08-04 拍板:部件那一路整个删掉,五行部件改为只能靠拆字获得);
         //      Boss 层同样发战利品(2026-07-20) ----
 
         /// <summary>池含 3 个字 + 3 个部件:部件不作为字奖励(2026-07-20),故字排只出 3 个。</summary>
@@ -317,27 +332,18 @@ namespace Brushblade.Core.Tests
             RewardPool = new[] { "灯", "焚", "林", "木", "火", "丁" },
         };
 
-        private static bool PickComponent(RunEngine run, string id)
-        {
-            for (int i = 0; i < run.ComponentOptions.Count; i++)
-                if (run.ComponentOptions[i] == id) return run.PickRewardComponent(i);
-            return false;
-        }
-
         [Test]
-        public void Reward_RollsCharsFromPool_AndFiveFixedComponents()
+        public void Reward_RollsCharsFromPool_SkipsLeaves()
         {
             var run = Run(SixCharPool());
             WinCurrentBattle(run);
             run.AdvanceAfterBattle();
             Assert.That(run.RewardOptions, Is.EquivalentTo(new[] { "灯", "焚", "林" })); // 部件不入字排
-            Assert.That(run.ComponentOptions, Is.EquivalentTo(new[] { "金", "木", "水", "火", "土" }));
-            Assert.That(run.CharPicksLeft, Is.EqualTo(1));
-            Assert.That(run.ComponentPicksLeft, Is.EqualTo(1));
+            Assert.That(run.CharPicksLeft, Is.EqualTo(2));
         }
 
         [Test]
-        public void PickOneCharAndOneComponent_AutoProceeds()
+        public void PickBothChars_AutoProceeds()
         {
             var run = Run(SixCharPool());
             WinCurrentBattle(run);
@@ -345,14 +351,14 @@ namespace Brushblade.Core.Tests
 
             var first = run.RewardOptions[0];
             Assert.That(run.PickReward(0), Is.True);
-            Assert.That(run.PickReward(0), Is.False); // 字额度用完(5 选 1)
-            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward)); // 部件额度未用,尚未开拔
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward)); // 还差一次额度,尚未开拔
 
-            Assert.That(PickComponent(run, "木"), Is.True);
-            Assert.That(PickComponent(run, "火"), Is.False); // 部件额度用完
-            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle)); // 双排取满自动开拔
+            var second = run.RewardOptions[0];
+            Assert.That(run.PickReward(0), Is.True);
+            Assert.That(run.PickReward(0), Is.False); // 字额度用完(5 选 2)
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle)); // 双次取满自动开拔
             Assert.That(run.Battle.Library, Does.Contain(first));
-            Assert.That(run.Battle.Pool, Does.Contain("木"));
+            Assert.That(run.Battle.Library, Does.Contain(second));
         }
 
         // ---- 字奖励按稀有度加权(2026-07-20 拍板:绿 80% / 蓝 15% / 紫 5%) ----
@@ -435,51 +441,6 @@ namespace Brushblade.Core.Tests
             WinCurrentBattle(a); a.AdvanceAfterBattle();
             WinCurrentBattle(b); b.AdvanceAfterBattle();
             Assert.That(a.RewardOptions, Is.EqualTo(b.RewardOptions));
-        }
-
-        // ---- 池满替换部件(2026-07-20 拍板:字与部件都要能替换,不能只能放弃) ----
-
-        [Test]
-        public void PickRewardComponentReplacing_SwapsPoolSlot()
-        {
-            var run = RunWith(new BattleConfig { PoolCapacity = 2, DropTable = new[] { "木" } },
-                new[] { "焚" }, SixCharPool(), pool: new[] { "木", "丁" }); // 池已满
-            WinCurrentBattle(run);
-            run.AdvanceAfterBattle();
-
-            int fireIndex = run.ComponentOptions.ToList().IndexOf("火");
-            Assert.That(run.PickRewardComponent(fireIndex), Is.False);          // 满池,常规取用被拒
-            Assert.That(run.PickRewardComponentReplacing(fireIndex, 1), Is.True); // 换掉「丁」
-            Assert.That(run.CarriedPool, Is.EquivalentTo(new[] { "木", "火" }));
-            Assert.That(run.ComponentPicksLeft, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void PickRewardComponentReplacing_ValidatesIndexAndQuota()
-        {
-            var run = RunWith(new BattleConfig { PoolCapacity = 2, DropTable = new[] { "木" } },
-                new[] { "焚" }, SixCharPool(), pool: new[] { "木", "丁" });
-            WinCurrentBattle(run);
-            run.AdvanceAfterBattle();
-
-            Assert.That(run.PickRewardComponentReplacing(0, -1), Is.False); // 越界
-            Assert.That(run.PickRewardComponentReplacing(0, 9), Is.False);
-            Assert.That(run.CarriedPool, Is.EquivalentTo(new[] { "木", "丁" })); // 失败不动状态
-
-            Assert.That(run.PickRewardComponentReplacing(0, 0), Is.True);
-            Assert.That(run.PickRewardComponentReplacing(0, 0), Is.False); // 额度已用尽
-        }
-
-        [Test]
-        public void PickRewardComponent_PoolFull_Rejected()
-        {
-            var run = RunWith(new BattleConfig { PoolCapacity = 2, DropTable = new[] { "木" } },
-                new[] { "焚" }, SixCharPool(), pool: new[] { "木", "木" }); // 池已满
-            WinCurrentBattle(run); // 焚 AOE 取胜,池未动
-            run.AdvanceAfterBattle();
-            Assert.That(PickComponent(run, "火"), Is.False); // 池满不收
-            run.SkipReward();
-            Assert.That(run.Battle.Pool.Count, Is.LessThanOrEqualTo(2));
         }
 
         /// <summary>挂起续爬后广告扩容仍在(2026-07-22 排查):标志过存档、重放要真的把容量抬回来。

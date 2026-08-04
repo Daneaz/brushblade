@@ -65,7 +65,7 @@ namespace Brushblade.Core.Tests
               .Append($"|cns{r.CarriedNormalShield}|cps{r.CarriedPersistShield}")
               .Append($"|cdr{string.Join(",", r.CarriedDamageReductions.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}{kv.Value}"))}")
               .Append($"|cs{string.Join(",", r.CarriedSummons.Select(s => $"{s.Char}{s.Element}{s.Hp}/{s.MaxHp}atk{s.Attack}"))}")
-              .Append($"|cpk{r.CharPicksLeft}|mpk{r.ComponentPicksLeft}")
+              .Append($"|cpk{r.CharPicksLeft}")
               .Append($"|ro{string.Join(",", r.RewardOptions)}|co{string.Join(",", r.ComponentOptions)}")
               .Append($"|ev{r.CurrentEvent?.Id}|lx{r.LibraryExpanded}|px{r.PoolExpanded}|rv{r.Revived}")
               .Append($"|def{string.Join(",", r.DefeatedEnemyIds)}")

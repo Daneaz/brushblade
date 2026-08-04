@@ -98,7 +98,6 @@ namespace Brushblade.Core
         /// <summary>减伤跨战斗延续(2026-08-03):段内持久,段末清空。</summary>
         public Dictionary<string, int> CarriedDamageReductions { get; set; } = new();
         public int CharPicksLeft { get; set; }
-        public int ComponentPicksLeft { get; set; }
         public List<string> RewardOptions { get; set; } = new();
         public List<string> ComponentOptions { get; set; } = new();
         public string CurrentEventId { get; set; } // 停在奇遇页挂起时非空
