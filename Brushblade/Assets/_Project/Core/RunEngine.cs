@@ -427,6 +427,19 @@ namespace Brushblade.Core
             return true;
         }
 
+        /// <summary>复活补给满库替换(2026-08-04):换掉战斗字库第 <paramref name="replaceIndex"/> 张。
+        /// 此前满库只能眼看着额度作废 —— 看了广告却一无所得,故与战利品 PickRewardReplacing 拉齐。</summary>
+        public bool PickReviveCharReplacing(int index, int replaceIndex)
+        {
+            if (Phase != RunPhase.Reviving || ReviveCharPicksLeft == 0) return false;
+            if (index < 0 || index >= _rewardOptions.Count) return false;
+            if (!Battle.ReplaceLibraryChar(replaceIndex, _rewardOptions[index])) return false;
+            _rewardOptions.RemoveAt(index);
+            ReviveCharPicksLeft -= 1;
+            MaybeFinishRevive();
+            return true;
+        }
+
         /// <summary>放弃剩余复活补给,直接接着打。</summary>
         public void SkipReviveReward()
         {

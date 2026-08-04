@@ -434,6 +434,17 @@ namespace Brushblade.Core
             return true;
         }
 
+        /// <summary>满库时的补给去处:换掉字库第 <paramref name="index"/> 张(被换的字永久移除)。
+        /// 与 ResolveDrop 同口径,但字由调用方给 —— 那个绑定的是回合掉字挂起的 _pendingDrop。</summary>
+        public bool ReplaceLibraryChar(int index, string charId)
+        {
+            if (index < 0 || index >= _forge.Library.Count) return false;
+            var library = new List<string>(_forge.Library);
+            library[index] = charId;
+            _forge = new ForgeState(library, _forge.Pool);
+            return true;
+        }
+
         /// <summary>复活补给:把一个部件加入当前战斗部件池;满池返回 false 不入(守容量上限)。</summary>
         public bool GrantPoolComponent(string componentId)
         {

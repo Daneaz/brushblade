@@ -362,11 +362,11 @@ namespace Brushblade.Presentation
                 _onFloorCleared?.Invoke();
             _lastPhase = _run.Phase;
 
-            // 复活补给字选完/字库已满(2026-08-04:部件兜底步随 Core 一并删除,没有可转的下一步)
-            // 直接收尾——满库多半是 Revive() 内 StartTurn 顺带把 Battle.Phase 切进 DropChoice,
-            // 交给下面 InBattle 分支里统一的掉落弹窗接手,不能让 Reviving 停在没有出口的画面上。
-            if (_run.Phase == RunPhase.Reviving && !(_run.ReviveCharPicksLeft > 0
-                    && _run.RewardOptions.Count > 0 && Battle.Library.Count < Battle.LibraryCapacity))
+            // 复活补给额度取尽或候选枯竭 → 收尾。
+            // 满库**不再**收尾(2026-08-04):看了广告却因满库一无所得是白看,现在转入替换子步,
+            // 与战利品 PickRewardReplacing 同口径。
+            if (_run.Phase == RunPhase.Reviving
+                && !(_run.ReviveCharPicksLeft > 0 && _run.RewardOptions.Count > 0))
                 _run.SkipReviveReward();
 
             if (_run.Phase == RunPhase.InBattle && _run.BattleIndex != _lastBattleIndex)
@@ -1187,11 +1187,14 @@ namespace Brushblade.Presentation
         }
 
         // ---- 复活补给(2026-07-24):以战利品展示方式给字,直接注入当前战斗字库。
-        // 2026-08-04:部件补给随 Core 一并删除——五行部件今后只能靠拆字获得;字库满/额度尽
-        // 时不再有下一步可转,由 Refresh 顶部的收尾检查直接 SkipReviveReward ----
+        // 2026-08-04:部件补给随 Core 一并删除——五行部件今后只能靠拆字获得;
+        // 满库转入替换子步(看了广告不该因满库一无所得),额度尽/候选枯竭才由收尾检查 SkipReviveReward ----
+
+        private int _pendingReviveIndex = -1; // 满库待替换:已选中的候选字下标(-1 = 未进替换子步)
 
         private void DrawReviveCharStep()
         {
+            if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
             if (_rewardModal != null) Destroy(_rewardModal);
 
             _rewardModal = Ui.ModalShell(transform, $"复活补给 · 选字(还剩 {_run.ReviveCharPicksLeft})",
@@ -1210,7 +1213,10 @@ namespace Brushblade.Presentation
                 {
                     if (_previewRewardIndex != index) { _previewRewardIndex = index; Refresh(); return; }
                     _previewRewardIndex = -1;
-                    if (_run.PickReviveChar(index)) _message = $"「{id}」入库";
+                    if (Battle.Library.Count >= Battle.LibraryCapacity)
+                        _pendingReviveIndex = index;             // 满库:转入「换掉哪一张」
+                    else if (_run.PickReviveChar(index))
+                        _message = $"「{id}」入库";
                     Refresh();
                 };
                 var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", index == _previewRewardIndex, tap);
@@ -1224,6 +1230,40 @@ namespace Brushblade.Presentation
                 _message = "重整旗鼓,再战!";
                 CancelSelection();
             }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
+        }
+
+        /// <summary>复活补给满库替换(2026-08-04):结构同 DrawDropChoiceStep,
+        /// 区别是换进来的字来自补给候选而非回合掉落。</summary>
+        private void DrawReviveReplaceStep()
+        {
+            string incoming = _run.RewardOptions[_pendingReviveIndex];
+
+            if (_rewardModal != null) Destroy(_rewardModal);
+            _rewardModal = Ui.ModalShell(transform, $"字库已满 · 用补给的「{incoming}」换掉哪一张?",
+                new Vector2(360, 240), dismissable: false, out var stack);
+            Ui.ThemedLabel(stack, "被换掉的字永久失去", 15, Theme.TextDim);
+
+            Transform row = null;
+            for (int i = 0; i < Battle.Library.Count; i++)
+            {
+                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
+                int replaceIndex = i;
+                var def = _graph.Get(Battle.Library[i]);
+                Ui.GlyphTile(row, def, $"{def.ApCost} AP", false, () =>
+                {
+                    string dropped = Battle.Library[replaceIndex];
+                    if (_run.PickReviveCharReplacing(_pendingReviveIndex, replaceIndex))
+                        _message = $"「{incoming}」替换「{dropped}」";
+                    _pendingReviveIndex = -1;
+                    Refresh();
+                }, new Vector2(74, 96));
+            }
+
+            Ui.PillButton(stack, "算了,换个字", () =>
+            {
+                _pendingReviveIndex = -1; // 退回候选列表,额度未动
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
         }
 
         private int _pendingEventOption = -1; // 部件抵价/任选字:待成交的选项下标

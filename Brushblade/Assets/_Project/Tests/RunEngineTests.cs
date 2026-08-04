@@ -268,6 +268,57 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
         }
 
+        // ---- 满库复活走替换(2026-08-04):此前满库时补给静默归零,广告白看 ----
+
+        /// <summary>字库塞满的败北局:复活补给无处可放,只能走替换。</summary>
+        private static RunEngine FullLibraryLostRun()
+        {
+            var run = new RunEngine(Graph(),
+                new RunConfig
+                {
+                    Encounters = new[] { new[] { Strong() } },
+                    RewardPool = new[] { "灯", "焚", "林" },
+                },
+                new BattleConfig { LibraryCapacity = 2 },
+                startingLibrary: new[] { "焚", "焚" }, // 2/2 满
+                startingPool: Array.Empty<string>(), seed: 7);
+            run.Battle.EndTurn();
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Lost));
+            run.TryRevive();
+            return run;
+        }
+
+        [Test]
+        public void PickReviveChar_FullLibrary_RejectedSoUiCanOfferReplace()
+        {
+            var run = FullLibraryLostRun();
+            Assert.That(run.PickReviveChar(0), Is.False);   // 直接取放不下
+            Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(2)); // 额度不能被吞
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reviving));
+        }
+
+        [Test]
+        public void PickReviveCharReplacing_SwapsLibrarySlot()
+        {
+            var run = FullLibraryLostRun();
+            string incoming = run.RewardOptions[0];
+
+            Assert.That(run.PickReviveCharReplacing(0, 0), Is.True);
+
+            Assert.That(run.Battle.Library[0], Is.EqualTo(incoming)); // 换进指定槽位
+            Assert.That(run.Battle.Library.Count, Is.EqualTo(2));     // 容量没被撑破
+            Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(1));
+            Assert.That(run.RewardOptions, Does.Not.Contain(incoming)); // 候选取走
+        }
+
+        [Test]
+        public void PickReviveCharReplacing_OutOfRange_Rejected()
+        {
+            var run = FullLibraryLostRun();
+            Assert.That(run.PickReviveCharReplacing(0, 9), Is.False);
+            Assert.That(run.ReviveCharPicksLeft, Is.EqualTo(2)); // 额度不受损
+        }
+
         [Test]
         public void SkipReviveReward_ResumesBattleImmediately()
         {
