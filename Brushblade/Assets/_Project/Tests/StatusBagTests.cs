@@ -22,10 +22,10 @@ namespace Brushblade.Core.Tests
         {
             var bag = new StatusBag();
             bag.Apply(Reduction("铠", 20));
-            bag.Apply(Reduction("铠", 20));   // 同字重复施放
+            bag.Apply(Reduction("铠", 30));   // 同字重复施放,不同量值
 
             Assert.That(bag.All.Count, Is.EqualTo(1));
-            Assert.That(bag.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(20));
+            Assert.That(bag.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(30), "后来者覆盖前者");
         }
 
         [Test]
@@ -73,6 +73,20 @@ namespace Brushblade.Core.Tests
             var bag = new StatusBag();
             Assert.That(bag.Find(StatusKind.Freeze), Is.Null);
             Assert.That(bag.TotalMagnitude(StatusKind.Freeze), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CopyFrom_DeepCopies_SourceMutationDoesNotLeak()
+        {
+            var source = new StatusBag();
+            source.Apply(Burn(3));
+
+            var target = new StatusBag();
+            target.CopyFrom(source.All);
+
+            source.Find(StatusKind.Burn).Magnitude = 99;   // 改源
+
+            Assert.That(target.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3), "深拷贝:改源不该影响目标");
         }
     }
 }
