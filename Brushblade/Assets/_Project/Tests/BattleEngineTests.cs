@@ -1483,17 +1483,18 @@ namespace Brushblade.Core.Tests
             var engine = new BattleEngine(SlowGraph(), Config(), new[] { "冷" },
                 Array.Empty<string>(), new[] { enemyDef }, 42);
             engine.Cast("冷");
-            engine.EndTurn(); // 第 1 回合:跳过(消耗 1 点 SlowTurns,SlowActs 翻到"可行动")
+            engine.EndTurn(); // 第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 4→3 回合)
 
             var snapshot = engine.Capture();
-            Assert.That(snapshot.Enemies[0].SlowTurns, Is.EqualTo(3));
-            Assert.That(snapshot.Enemies[0].SlowActs, Is.True);
+            Assert.That(snapshot.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(snapshot.Enemies[0].Statuses.Single(s => s.Kind == StatusKind.SpeedModifier).TurnsLeft,
+                Is.EqualTo(3));
 
             var restored = BattleEngine.Restore(snapshot, SlowGraph(), Config(), null,
                 new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
 
-            Assert.That(restored.Enemies[0].SlowTurns, Is.EqualTo(3));
-            Assert.That(restored.Enemies[0].SlowActs, Is.True);
+            Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(restored.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
 
             int hp0 = restored.PlayerHp;
             restored.EndTurn(); // 读档后第 2 回合:应接续为"行动"而不是从头跳过
@@ -1522,31 +1523,129 @@ namespace Brushblade.Core.Tests
             engine.Cast("冷"); // 先减速,单敌免选自动锁定目标
             int hp0 = engine.PlayerHp;
 
-            engine.EndTurn(); // 减速第 1 回合:跳过(SlowTurns 4→3,SlowActs false→true)
+            engine.EndTurn(); // 减速第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 4→3 回合)
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
-            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(3));
-            Assert.That(engine.Enemies[0].SlowActs, Is.True);
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
 
             engine.Cast("冻"); // 再冻结 2 回合,打断减速节拍
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
 
-            engine.EndTurn(); // 冻结第 1 回合:不出手,减速节拍应原地暂停(不消耗、不翻转)
+            engine.EndTurn(); // 冻结第 1 回合:不出手,减速节拍应原地暂停(不累积、不递减)
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结中不出手");
-            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(3), "冻结中减速回合数不应被消耗");
-            Assert.That(engine.Enemies[0].SlowActs, Is.True, "冻结中半速开关不应被翻转");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50), "冻结中计量器不应累积");
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
+                "冻结中减速回合数不应被消耗");
 
             engine.EndTurn(); // 冻结第 2 回合:仍不出手
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结第 2 回合仍不出手");
-            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(3), "冻结中减速回合数仍不应被消耗");
-            Assert.That(engine.Enemies[0].SlowActs, Is.True, "冻结中半速开关仍不应被翻转");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50), "冻结中计量器仍不应累积");
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
+                "冻结中减速回合数仍不应被消耗");
 
-            engine.EndTurn(); // 解冻:暂停点是"下一拍该行动"(SlowActs=true),应直接出手,不是重新跳过
+            engine.EndTurn(); // 解冻:暂停点是"计量器已有 50"，应直接叠加到 100 出手，不是重新从零跳过
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "解冻后应从暂停点接续,直接进入行动回合");
-            Assert.That(engine.Enemies[0].SlowTurns, Is.EqualTo(2));
-            Assert.That(engine.Enemies[0].SlowActs, Is.False);
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(2));
 
             engine.EndTurn(); // 接续节奏的下一拍:跳过
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "接续节奏的下一拍应跳过");
+        }
+
+        // ---- 行动计量器(2026-08-04):Speed 每回合累积,每满 100 行动一次 ----
+
+        /// <summary>挂了 −50 速度修正的敌人(等价于旧的半速 Slow)。</summary>
+        private static BattleEngine SlowedEngine()
+        {
+            var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
+                Array.Empty<string>(), new[] { MetalBoss() }, 42);
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 99, SourceId = "洼",
+            });
+            return engine;
+        }
+
+        /// <summary>指定基础速度的敌人(测加速与封顶)。</summary>
+        private static BattleEngine HastedEngine(int speed)
+        {
+            var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
+                Array.Empty<string>(), new[] { MetalBoss() }, 42);
+            engine.Enemies[0].Speed = speed;
+            return engine;
+        }
+
+        [Test]
+        public void Speed50_MatchesOldSlowRhythm_SkipActSkipAct()
+        {
+            // 减速敌人:攻 5,玩家 50 血。逐拍验证「跳、动、跳、动」
+            var engine = SlowedEngine();           // 见上方辅助
+            int hp0 = engine.PlayerHp;
+
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "第 1 回合:计量器 50,不足 100,跳过");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.LessThan(hp0), "第 2 回合:累到 100,行动");
+        }
+
+        [Test]
+        public void Speed200_ActsTwicePerTurn()
+        {
+            var engine = HastedEngine(speed: 200);
+            int hp0 = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(10)); // 攻 5 × 2 次
+        }
+
+        [Test]
+        public void Speed300_CappedAtTwoActions_NoCarryOver()
+        {
+            var engine = HastedEngine(speed: 300);
+            int hp0 = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(10));            // 封顶 2 次
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));     // 余额清零,不留到下回合
+        }
+
+        [Test]
+        public void SpeedModifiers_StackAdditively()
+        {
+            var engine = SlowedEngine();
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -25, TurnsLeft = 3, SourceId = "凝",
+            });
+            // 基准 100 − 50 − 25 = 25 → 每 4 回合行动一次
+            int hp0 = engine.PlayerHp;
+            engine.EndTurn(); engine.EndTurn(); engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "前 3 回合累计 75,不足 100");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.LessThan(hp0), "第 4 回合到 100");
+        }
+
+        [Test]
+        public void ActionMeter_SurvivesRoundTrip_RhythmContinues()
+        {
+            var graph = Graph();
+            var enemyDef = new EnemyDef("枯", Element.Wood, 100, 5);
+            var engine = new BattleEngine(graph, Config(), new[] { "灯" },
+                Array.Empty<string>(), new[] { enemyDef }, 42);
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 99, SourceId = "洼",
+            });
+            engine.EndTurn(); // 计量器攒到 50,未行动
+
+            var restored = BattleEngine.Restore(engine.Capture(), graph, Config(), null,
+                new Dictionary<string, EnemyDef> { ["枯"] = enemyDef });
+
+            Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(50));
+            int hp0 = restored.PlayerHp;
+            restored.EndTurn();
+            Assert.That(restored.PlayerHp, Is.LessThan(hp0), "续爬后下一回合就该行动,不从零重攒");
         }
 
         // ---- 回合掉字(2026-08-04):从出战牌组掉 1 字,满库停下决议 ----

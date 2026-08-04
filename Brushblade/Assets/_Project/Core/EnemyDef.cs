@@ -90,6 +90,12 @@ namespace Brushblade.Core
         public int Attack { get; }
         public bool Alive => Hp > 0;
 
+        /// <summary>基础速度(2026-08-04)。默认 100 = 每回合恰好一次,与旧的"固定反击一次"等价。</summary>
+        public int Speed { get; internal set; } = 100;
+
+        /// <summary>行动计量器:回合末累积速度,每满 100 行动一次(与敌人同走一套模型)。</summary>
+        public int ActionMeter { get; internal set; }
+
         internal SummonState(string summonChar, Element element, int hp, int attack)
         {
             Char = summonChar;
@@ -100,22 +106,23 @@ namespace Brushblade.Core
         }
 
         /// <summary>断点存档:MaxHp 与 Hp 会脱钩(挨过打),故分开存。</summary>
-        private SummonState(string summonChar, Element element, int hp, int maxHp, int attack)
+        private SummonState(string summonChar, Element element, int hp, int maxHp, int attack, int actionMeter)
         {
             Char = summonChar;
             Element = element;
             Hp = hp;
             MaxHp = maxHp;
             Attack = attack;
+            ActionMeter = actionMeter;
         }
 
         internal SummonSnapshot Capture() => new()
         {
-            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack, ActionMeter = ActionMeter,
         };
 
         internal static SummonState Restore(SummonSnapshot s) =>
-            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack);
+            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter);
     }
 
     /// <summary>战斗中的字怪状态。成语 Boss 为一条总血池,按血量阈值切换阶段
@@ -132,8 +139,13 @@ namespace Brushblade.Core
         /// Bleed/Freeze 用 TurnsLeft 正常回合递减。</summary>
         public StatusBag Statuses { get; } = new();
 
-        public int SlowTurns { get; internal set; }  // 剩余减速回合
-        public bool SlowActs { get; internal set; }  // 半速开关:true 表示本回合可行动
+        /// <summary>基础速度(2026-08-04)。有效速度 = Speed + 所有 SpeedModifier 之和,下限 0。
+        /// 基数用本字段而非常量 100:将来若有天生快/慢的字怪,写死 100 会让它们的修正算错。</summary>
+        public int Speed { get; set; } = 100;
+
+        /// <summary>行动计量器:回合末累积有效速度,每满 100 行动一次。</summary>
+        public int ActionMeter { get; internal set; }
+
         public int Attack { get; internal set; }         // 当前攻击(缺笔妖会成长)
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
         public int PhaseIndex { get; internal set; }     // 成语 Boss 当前阶段(0 起)
@@ -177,8 +189,7 @@ namespace Brushblade.Core
                 Element = Element,
                 ApparentElement = ApparentElement,
                 Statuses = statuses,
-                SlowTurns = SlowTurns,
-                SlowActs = SlowActs,
+                ActionMeter = ActionMeter,
                 Attack = Attack,
                 DamageTaken = DamageTaken,
                 PhaseIndex = PhaseIndex,
@@ -202,8 +213,7 @@ namespace Brushblade.Core
                 MaxHp = snapshot.MaxHp,
                 Element = snapshot.Element,
                 ApparentElement = snapshot.ApparentElement,
-                SlowTurns = snapshot.SlowTurns,
-                SlowActs = snapshot.SlowActs,
+                ActionMeter = snapshot.ActionMeter,
                 Attack = snapshot.Attack,
                 DamageTaken = snapshot.DamageTaken,
                 PhaseIndex = snapshot.PhaseIndex,

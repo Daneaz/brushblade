@@ -112,6 +112,8 @@ namespace Brushblade.Core
         private const int SummonCap = 6; // 场上存活召唤物上限(2026-08-03:4 → 6)
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         private const int ScorchGain = 2; // 焦痕受击存活的加攻量
+        private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
+        private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
@@ -523,6 +525,8 @@ namespace Brushblade.Core
             if (Phase != BattlePhase.PlayerTurn) return;
 
             // 流血(2026-08-03):无属性,不乘任何生克系数
+            // 回合数递减挪到 EndTurn 末尾统一处理(2026-08-04,见下方"状态回合递减"),
+            // 这里只读不写,避免本回合刚施加的流血被立刻多减一次。
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
@@ -531,8 +535,6 @@ namespace Brushblade.Core
                 if (bleedStatus == null || bleedStatus.TurnsLeft <= 0) continue;
                 int bleed = bleedStatus.Magnitude;
                 enemy.Hp = Math.Max(0, enemy.Hp - bleed);
-                bleedStatus.TurnsLeft -= 1;
-                if (bleedStatus.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Bleed);
                 _events.Add(new BattleEvent(BattleEventKind.BleedTick, i, bleed));
                 if (!enemy.Alive)
                     ResolveDefeat(i);
@@ -557,35 +559,46 @@ namespace Brushblade.Core
                 if (_hots[i].Turns <= 0) _hots.RemoveAt(i);
             }
 
-            // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克
+            // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克。
+            // 2026-08-04:与敌人同走行动计量器 —— 减速将来也能作用于我方召唤物。
             for (int s = 0; s < _summons.Count; s++)
             {
                 var summon = _summons[s];
                 if (!summon.Alive) continue;
-                int target = -1;
-                for (int i = 0; i < _enemies.Count; i++)
-                    if (_enemies[i].Alive) { target = i; break; }
-                if (target < 0) break;
-                _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, s)); // 发起者下标 s
-                DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+                summon.ActionMeter += summon.Speed;
+                int acts = Math.Min(summon.ActionMeter / ActionMeterThreshold, MaxActionsPerTurn);
+                summon.ActionMeter -= acts * ActionMeterThreshold;
+                if (summon.ActionMeter >= ActionMeterThreshold) summon.ActionMeter = 0;
+                for (int act = 0; act < acts; act++)
+                {
+                    if (!summon.Alive) break;          // 反伤可能在两次出手之间打死它
+                    int target = -1;
+                    for (int i = 0; i < _enemies.Count; i++)
+                        if (_enemies[i].Alive) { target = i; break; }
+                    if (target < 0) break;
+                    _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, s)); // 发起者下标 s
+                    DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+                }
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
             _events.Add(new BattleEvent(BattleEventKind.EnemyTurnBegan, -1, 0)); // 召唤段到此为止,以下是敌方行动
 
-            // 减速节拍(2026-08-03):半速开关只在此处翻转一次,辅助循环与主行动循环都只读
-            // slowSkip[] 的结果——因为 SlowActs 是"交替"而非"递减",两处都翻转会让节奏乱套
-            // (跳一动一变成动一跳一乱飘)。冻结优先:冻结中的回合不消耗减速的节拍额度,
-            // 与主循环里"冻结判定在前"的顺序保持一致。
-            var slowSkip = new bool[_enemies.Count]; // true = 本回合因减速跳过
+            // 行动计量器(2026-08-04):每回合累积有效速度,每满 100 行动一次。旧的半速开关
+            // (SlowTurns/SlowActs 交替)是 Speed 50 的特例。冻结期间不累积——保持「节拍原地
+            // 暂停」语义,与下方"状态回合递减"里冻结中 SpeedModifier 也暂停递减的处理相呼应。
+            var actionCount = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.Statuses.Has(StatusKind.Freeze) || enemy.SlowTurns <= 0) continue;
-                enemy.SlowTurns -= 1;
-                slowSkip[i] = !enemy.SlowActs;      // 本回合是否行动,由翻转前的状态决定
-                enemy.SlowActs = !enemy.SlowActs;    // 交替:跳一回合、动一回合(为下一次翻转做准备)
+                if (!enemy.Alive || enemy.Statuses.Has(StatusKind.Freeze)) continue;
+                int effective = Math.Max(0,
+                    enemy.Speed + enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier));
+                enemy.ActionMeter += effective;
+                actionCount[i] = Math.Min(enemy.ActionMeter / ActionMeterThreshold, MaxActionsPerTurn);
+                enemy.ActionMeter -= actionCount[i] * ActionMeterThreshold;
+                if (enemy.ActionMeter >= ActionMeterThreshold) enemy.ActionMeter = 0; // 封顶后不留余额
             }
 
             // 敌方辅助先行动:标点小妖给其他存活字怪加攻,与站位无关(8.3)。
@@ -594,8 +607,7 @@ namespace Brushblade.Core
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff) continue;
-                if (enemy.Statuses.Has(StatusKind.Freeze)) continue; // 冻结:连辅助加攻都不出手
-                if (slowSkip[i]) continue; // 减速跳过本回合:连辅助加攻都不出手
+                if (actionCount[i] == 0) continue; // 冻结或计量器不足:连辅助加攻都不出手
                 if (!HasOtherAliveEnemy(enemy)) continue; // 无人可加 → 交给下面的行动循环
                 for (int j = 0; j < _enemies.Count; j++)
                 {
@@ -606,44 +618,43 @@ namespace Brushblade.Core
                 }
             }
 
-            // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力
+            // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力。
+            // 按 actionCount[i] 循环——Speed 200 这类会在同一回合行动多次;每次行动前重新
+            // 检查 Alive,反伤可能在两次行动之间打死它。
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive) continue;
-                var freeze = enemy.Statuses.Find(StatusKind.Freeze);
-                if (freeze != null && freeze.TurnsLeft > 0)
-                {
-                    freeze.TurnsLeft -= 1;
-                    if (freeze.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Freeze);
-                    continue;   // 冻结:本回合不行动(蓄力/加攻/技能全部跳过)
-                }
-                if (slowSkip[i]) continue; // 减速:本回合不行动(翻转已在上面的预处理里做过)
+                if (actionCount[i] == 0) continue; // 冻结或计量器不足:本回合不行动
                 if (enemy.Def.Ability == EnemyAbility.Buff && HasOtherAliveEnemy(enemy))
                     continue; // 已用加攻代替出手;独自在场时照常攻击
 
-                if (enemy.IsBoss && ResolveBossTurn(i, enemy))
-                    continue; // 已蓄力或已放大招,本回合不走普攻
-
-                int damage = ReducedDamage(enemy.Attack); // 先减伤(百分比),再护盾吸收(定量)
-                int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
-                if (tankIdx >= 0)
+                for (int act = 0; act < actionCount[i]; act++)
                 {
-                    // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
-                    DamageSummon(i, tankIdx, damage, enemy.Element);
-                }
-                else
-                {
-                    DamagePlayerDirect(i, damage);
-                }
+                    if (!enemy.Alive) break; // 反伤可能在两次行动之间打死它
 
-                // 通假字:首次行动后现形(8.3)
-                if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
-                {
-                    enemy.ApparentElement = enemy.Element;
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, i, 0));
-                }
+                    if (enemy.IsBoss && ResolveBossTurn(i, enemy))
+                        continue; // 已蓄力或已放大招,本回合不走普攻
 
+                    int damage = ReducedDamage(enemy.Attack); // 先减伤(百分比),再护盾吸收(定量)
+                    int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
+                    if (tankIdx >= 0)
+                    {
+                        // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
+                        DamageSummon(i, tankIdx, damage, enemy.Element);
+                    }
+                    else
+                    {
+                        DamagePlayerDirect(i, damage);
+                    }
+
+                    // 通假字:首次行动后现形(8.3)
+                    if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
+                    {
+                        enemy.ApparentElement = enemy.Element;
+                        _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, i, 0));
+                    }
+                }
             }
             if (PlayerHp <= 0)
             {
@@ -675,6 +686,35 @@ namespace Brushblade.Core
                 }
                 _events.Add(new BattleEvent(BattleEventKind.Regrow, i,
                     enemy.Hp - before, enemy.RegrowProgress));
+            }
+
+            // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
+            // (Bleed_ExpiresAfterThreeTurns 守着这条)。
+            // 冻结中:Freeze 自身与流血照常倒计时(冻结只免自身行动,不免流血/解冻倒计时);
+            // SpeedModifier 暂停递减(节拍原地暂停,呼应上面 ActionMeter 累积也暂停)。
+            // 这也是为什么这里不能对整袋状态无差别调 Statuses.TickTurns()——那个 API 不分种类
+            // 统一递减,冻结中会把 SpeedModifier 的持续也一并打没,导致解冻后节奏提前恢复满速
+            // (Slow_PausesDuringFreeze_ThenResumesFromSamePoint 就是守这条的)。
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                var enemy = _enemies[i];
+                if (!enemy.Alive) continue;
+                if (enemy.Statuses.Has(StatusKind.Freeze))
+                {
+                    var freeze = enemy.Statuses.Find(StatusKind.Freeze);
+                    freeze.TurnsLeft -= 1;
+                    if (freeze.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Freeze);
+                    var bleed = enemy.Statuses.Find(StatusKind.Bleed);
+                    if (bleed != null)
+                    {
+                        bleed.TurnsLeft -= 1;
+                        if (bleed.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Bleed);
+                    }
+                }
+                else
+                {
+                    enemy.Statuses.TickTurns(); // 未冻结:Bleed/SpeedModifier 等统一递减
+                }
             }
 
             StartTurn();
@@ -755,8 +795,11 @@ namespace Brushblade.Core
                     case EffectKind.Slow:
                         if (_enemies[targetIndex].Alive)
                         {
-                            _enemies[targetIndex].SlowTurns = value;
-                            _enemies[targetIndex].SlowActs = false;
+                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            {
+                                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                                Magnitude = -50, TurnsLeft = value, SourceId = def.Id,
+                            });
                         }
                         break;
                     case EffectKind.DamageReduction:

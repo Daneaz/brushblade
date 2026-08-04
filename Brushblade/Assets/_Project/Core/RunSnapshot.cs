@@ -36,8 +36,7 @@ namespace Brushblade.Core
         public Element Element { get; set; }
         public Element? ApparentElement { get; set; } // null = 生僻字未被读懂
         public List<StatusEffect> Statuses { get; set; } = new();
-        public int SlowTurns { get; set; }
-        public bool SlowActs { get; set; }
+        public int ActionMeter { get; set; }
         public int Attack { get; set; }
         public float DamageTaken { get; set; }
         public int PhaseIndex { get; set; }
@@ -57,6 +56,7 @@ namespace Brushblade.Core
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public int Attack { get; set; }
+        public int ActionMeter { get; set; }
     }
 
     /// <summary>持续治疗快照(2026-08-03)。</summary>
