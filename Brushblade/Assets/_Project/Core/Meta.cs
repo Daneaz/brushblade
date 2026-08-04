@@ -31,7 +31,7 @@ namespace Brushblade.Core
         public const int DeckLimit = 15;          // 出阵列表上限(2026-07-19 拍板:5×3,后续可调)
         public const int DeckMinimum = 5;         // 出阵下限(2026-07-19:起手不得少于 5 字)
         public const int DeckPerElementLimit = 5; // 每属性最多 5 字(属性种类不限,3 系上限已废止)
-        public const int StartingLibrarySize = 6; // 起手字库 = 字库基础容量
+        public const int StartingLibrarySize = 5; // 留一格给回合掉字(2026-08-04);容量仍是 6
 
         /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。</summary>
         public static readonly int[] CopiesToUpgrade = { 2, 4, 10, 20, 40, 80, 150, 300, 500 };

@@ -17,6 +17,13 @@ namespace Brushblade.Core.Tests
             },
         };
 
+        [Test]
+        public void StartingLibrary_LeavesOneSlotForDrop() // 起手 = 容量则第一回合必弹决议窗
+        {
+            Assert.That(MetaRules.StartingLibrarySize, Is.EqualTo(5));
+            Assert.That(MetaRules.StartingLibrarySize, Is.LessThan(new BattleConfig().LibraryCapacity));
+        }
+
         // ---- 角色等级曲线(升到 n+1 需 100+50×(n−1)) ----
 
         [TestCase(0, 1)]
@@ -254,7 +261,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void StartingLibrary_TakesTopSixByLevel_FromRoster()
+        public void StartingLibrary_TakesTopFiveByLevel_FromRoster()
         {
             var graph = DeckGraph();
             var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "林", "杜", "圭");
@@ -265,9 +272,9 @@ namespace Brushblade.Core.Tests
             MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼", "林", "杜" }, graph);
 
             var library = MetaRules.StartingLibrary(meta);
-            Assert.That(library.Count, Is.EqualTo(6)); // 起手 = 字库容量 6
+            Assert.That(library.Count, Is.EqualTo(5)); // 起手字库 5(留一格给回合掉字)
             Assert.That(library, Does.Contain("烧").And.Contain("炎")); // 等级高者优先
-            Assert.That(library, Does.Not.Contain("圭")); // 列表外不带出(列表足 6 时)
+            Assert.That(library, Does.Not.Contain("圭")); // 列表外不带出(列表足 5 时)
         }
 
         [Test]
