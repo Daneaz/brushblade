@@ -314,7 +314,7 @@ namespace Brushblade.Core.Tests
             var error = engine.Cast("焚");
             Assert.That(error, Is.EqualTo(BattleError.None));
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 81));
-            Assert.That(engine.Enemies[0].Burn, Is.EqualTo(1)); // 附带灼烧层数为平值
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1)); // 附带灼烧层数为平值
         }
 
         [Test]
@@ -389,7 +389,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("燃"); // 全体 3 层灼烧
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 9)); // floor(3×2×1.5),火克金
-            Assert.That(engine.Enemies[0].Burn, Is.EqualTo(2));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
         }
 
         [Test]
@@ -574,7 +574,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("炽");   // 结算系数 2→3
             engine.EndTurn();    // floor(3×3×1.5)=13,火克金
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 13));
-            Assert.That(engine.Enemies[0].Burn, Is.EqualTo(2));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
         }
 
         [Test]
@@ -1232,6 +1232,19 @@ namespace Brushblade.Core.Tests
         });
 
         [Test]
+        public void Statuses_BurnAndBleed_QueryableByKind()
+        {
+            var engine = new BattleEngine(BleedGraph(), Config(), new[] { "锯" },
+                Array.Empty<string>(), new[] { new EnemyDef("桩", Element.Metal, 500, 0) }, 42);
+            engine.Cast("锯");
+
+            var bag = engine.Enemies[0].Statuses;
+            Assert.That(bag.Has(StatusKind.Bleed), Is.True);
+            Assert.That(bag.TotalMagnitude(StatusKind.Bleed), Is.EqualTo(3));
+            Assert.That(bag.Find(StatusKind.Bleed).Polarity, Is.EqualTo(StatusPolarity.Debuff));
+        }
+
+        [Test]
         public void Bleed_IgnoresElementMultipliers()
         {
             foreach (var element in new[] { Element.Metal, Element.Water, Element.Heart })
@@ -1307,8 +1320,9 @@ namespace Brushblade.Core.Tests
             var restored = BattleEngine.Restore(snapshot, BleedGraph(), Config(), null,
                 new System.Collections.Generic.Dictionary<string, EnemyDef> { ["桩"] = enemyDef });
 
-            Assert.That(restored.Enemies[0].Bleed, Is.EqualTo(3));
-            Assert.That(restored.Enemies[0].BleedTurns, Is.EqualTo(3));
+            var bleed = restored.Enemies[0].Statuses.Find(StatusKind.Bleed);
+            Assert.That(bleed.Magnitude, Is.EqualTo(3));
+            Assert.That(bleed.TurnsLeft, Is.EqualTo(3));
 
             int hpBefore = restored.Enemies[0].Hp;
             restored.EndTurn();
@@ -1426,7 +1440,7 @@ namespace Brushblade.Core.Tests
             var restored = BattleEngine.Restore(snapshot, FreezeGraph(), Config(), null,
                 new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
 
-            Assert.That(restored.Enemies[0].FreezeTurns, Is.EqualTo(1));
+            Assert.That(restored.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1));
 
             int hp0 = restored.PlayerHp;
             restored.EndTurn();
@@ -1514,7 +1528,7 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].SlowActs, Is.True);
 
             engine.Cast("冻"); // 再冻结 2 回合,打断减速节拍
-            Assert.That(engine.Enemies[0].FreezeTurns, Is.EqualTo(2));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
 
             engine.EndTurn(); // 冻结第 1 回合:不出手,减速节拍应原地暂停(不消耗、不翻转)
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结中不出手");

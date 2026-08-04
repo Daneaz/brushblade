@@ -126,10 +126,12 @@ namespace Brushblade.Core
         public int Hp { get; internal set; }
         public int MaxHp { get; internal set; }          // 当前阶段上限
         public Element Element { get; internal set; }    // 当前属性(Boss 换阶段会变)
-        public int Burn { get; internal set; }
-        public int Bleed { get; internal set; }        // 每回合流血伤害(无属性)
-        public int BleedTurns { get; internal set; }   // 剩余流血回合
-        public int FreezeTurns { get; internal set; }  // 剩余冻结回合
+
+        /// <summary>Burn/Bleed/Freeze 三个减益的容器(2026-08-04:统一状态容器迁移)。
+        /// Burn 用 TurnsLeft = -1(段内持久),靠灼烧结算段自减 Magnitude;
+        /// Bleed/Freeze 用 TurnsLeft 正常回合递减。</summary>
+        public StatusBag Statuses { get; } = new();
+
         public int SlowTurns { get; internal set; }  // 剩余减速回合
         public bool SlowActs { get; internal set; }  // 半速开关:true 表示本回合可行动
         public int Attack { get; internal set; }         // 当前攻击(缺笔妖会成长)
@@ -161,56 +163,61 @@ namespace Brushblade.Core
 
         internal EnemyState(EnemyDef def) : this(def, 0, null) { }
 
-        /// <summary>断点存档:摊平成 POCO(2026-07-27)。</summary>
-        internal EnemySnapshot Capture() => new()
+        /// <summary>断点存档:摊平成 POCO(2026-07-27)。Statuses 深拷贝——条目是引用对象,
+        /// 浅拷会让恢复后的两个敌人共享同一条状态(2026-08-04)。</summary>
+        internal EnemySnapshot Capture()
         {
-            DefId = Def.Id,
-            Hp = Hp,
-            MaxHp = MaxHp,
-            Element = Element,
-            ApparentElement = ApparentElement,
-            Burn = Burn,
-            Bleed = Bleed,
-            BleedTurns = BleedTurns,
-            FreezeTurns = FreezeTurns,
-            SlowTurns = SlowTurns,
-            SlowActs = SlowActs,
-            Attack = Attack,
-            DamageTaken = DamageTaken,
-            PhaseIndex = PhaseIndex,
-            PhaseBounds = (int[])PhaseBounds.Clone(),
-            RegrowProgress = RegrowProgress,
-            HasSplit = HasSplit,
-            HitsTaken = HitsTaken,
-            ChargeCounter = ChargeCounter,
-            IsCharging = IsCharging,
-            ChargingSkill = ChargingSkill,
-        };
+            var statuses = new List<StatusEffect>();
+            foreach (var s in Statuses.All) statuses.Add(s.Clone());
+            return new EnemySnapshot
+            {
+                DefId = Def.Id,
+                Hp = Hp,
+                MaxHp = MaxHp,
+                Element = Element,
+                ApparentElement = ApparentElement,
+                Statuses = statuses,
+                SlowTurns = SlowTurns,
+                SlowActs = SlowActs,
+                Attack = Attack,
+                DamageTaken = DamageTaken,
+                PhaseIndex = PhaseIndex,
+                PhaseBounds = (int[])PhaseBounds.Clone(),
+                RegrowProgress = RegrowProgress,
+                HasSplit = HasSplit,
+                HitsTaken = HitsTaken,
+                ChargeCounter = ChargeCounter,
+                IsCharging = IsCharging,
+                ChargingSkill = ChargingSkill,
+            };
+        }
 
-        /// <summary>从存档复原:全部字段照抄,不重摇任何随机量(伪装属性、Boss 阈值都是开场摇的)。</summary>
-        internal static EnemyState Restore(EnemySnapshot snapshot, EnemyDef def) => new(def)
+        /// <summary>从存档复原:全部字段照抄,不重摇任何随机量(伪装属性、Boss 阈值都是开场摇的)。
+        /// Statuses 走 CopyFrom 深拷贝,同样是为了不与源共享条目引用。</summary>
+        internal static EnemyState Restore(EnemySnapshot snapshot, EnemyDef def)
         {
-            Hp = snapshot.Hp,
-            MaxHp = snapshot.MaxHp,
-            Element = snapshot.Element,
-            ApparentElement = snapshot.ApparentElement,
-            Burn = snapshot.Burn,
-            Bleed = snapshot.Bleed,
-            BleedTurns = snapshot.BleedTurns,
-            FreezeTurns = snapshot.FreezeTurns,
-            SlowTurns = snapshot.SlowTurns,
-            SlowActs = snapshot.SlowActs,
-            Attack = snapshot.Attack,
-            DamageTaken = snapshot.DamageTaken,
-            PhaseIndex = snapshot.PhaseIndex,
-            PhaseBounds = snapshot.PhaseBounds ?? Array.Empty<int>(),
-            RegrowProgress = snapshot.RegrowProgress,
-            HasSplit = snapshot.HasSplit,
-            HitsTaken = snapshot.HitsTaken,
-            ChargeCounter = snapshot.ChargeCounter,
-            IsCharging = snapshot.IsCharging,
-            ChargingSkill = snapshot.ChargingSkill,
-        };
+            var state = new EnemyState(def)
+            {
+                Hp = snapshot.Hp,
+                MaxHp = snapshot.MaxHp,
+                Element = snapshot.Element,
+                ApparentElement = snapshot.ApparentElement,
+                SlowTurns = snapshot.SlowTurns,
+                SlowActs = snapshot.SlowActs,
+                Attack = snapshot.Attack,
+                DamageTaken = snapshot.DamageTaken,
+                PhaseIndex = snapshot.PhaseIndex,
+                PhaseBounds = snapshot.PhaseBounds ?? Array.Empty<int>(),
+                RegrowProgress = snapshot.RegrowProgress,
+                HasSplit = snapshot.HasSplit,
+                HitsTaken = snapshot.HitsTaken,
+                ChargeCounter = snapshot.ChargeCounter,
+                IsCharging = snapshot.IsCharging,
+                ChargingSkill = snapshot.ChargingSkill,
+            };
+            state.Statuses.CopyFrom(snapshot.Statuses ?? new List<StatusEffect>());
+            return state;
+        }
 
         internal EnemyState(EnemyDef def, int phaseJitterPercent, GameRandom random)
         {
@@ -256,7 +263,7 @@ namespace Brushblade.Core
             ApparentElement = phase.Element; // Boss 阶段属性明示
             Attack = phase.Attack;
             DamageTaken = phase.DamageTaken;
-            Burn = 0; // 新字新体,灼烧清零
+            Statuses.Remove(StatusKind.Burn); // 新字新体,灼烧清零
 
             // 蓄力完全不受换阶影响(2026-07-29)。理由见 spec 3.2:阶段血量 12~16 在玩家输出面前
             // 只够 1~2 回合,任何"换阶打断蓄力"的写法都会让大招几乎放不出来——实测阶段血量抬到

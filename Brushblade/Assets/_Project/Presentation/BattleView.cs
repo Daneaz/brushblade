@@ -476,7 +476,7 @@ namespace Brushblade.Presentation
               .Append(string.Join(",", battle.Library)).Append('|')
               .Append(string.Join(",", battle.Pool));
             foreach (var enemy in battle.Enemies)
-                sb.Append('|').Append(enemy.Hp).Append(',').Append(enemy.Burn).Append(',').Append(enemy.Attack);
+                sb.Append('|').Append(enemy.Hp).Append(',').Append(enemy.Statuses.TotalMagnitude(StatusKind.Burn)).Append(',').Append(enemy.Attack);
             foreach (var summon in battle.Summons)
                 sb.Append('|').Append(summon.Hp);
             return sb.ToString();
@@ -653,7 +653,8 @@ namespace Brushblade.Presentation
                     // (test_subset_fonts_cover_charset 正是拦这个的)。预警靠朱砂底色已经够显眼
                     Ui.Chip(chips.transform, $"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
                         Theme.Cinnabar, Color.white, 12);
-                if (enemy.Burn > 0) Ui.Chip(chips.transform, $"灼烧 {enemy.Burn}", Theme.Cinnabar, Color.white, 12);
+                int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
+                if (burnStacks > 0) Ui.Chip(chips.transform, $"灼烧 {burnStacks}", Theme.Cinnabar, Color.white, 12);
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)

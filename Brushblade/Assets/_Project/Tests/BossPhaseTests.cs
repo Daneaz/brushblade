@@ -119,9 +119,9 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine();
             engine.Cast("燃");     // 挂 3 层灼烧
-            Assert.That(engine.Enemies[0].Burn, Is.EqualTo(3));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
             engine.Cast("火", 0);  // 跨阈值换阶段,新字新体
-            Assert.That(engine.Enemies[0].Burn, Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
         }
 
         [Test]

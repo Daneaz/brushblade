@@ -503,13 +503,16 @@ namespace Brushblade.Core
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.Burn <= 0) continue;
+                if (!enemy.Alive) continue;
+                var burn = enemy.Statuses.Find(StatusKind.Burn);
+                if (burn == null || burn.Magnitude <= 0) continue;
                 // 灼烧属火(2026-08-03):只结算克制,不结算相生 —— 层数是平值,
                 // 相生已在施加时由 WuxingResolver 体现过
-                int tick = (int)Math.Floor(enemy.Burn * _burnPerStack
+                int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
                     * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
                 enemy.Hp = Math.Max(0, enemy.Hp - tick);
-                enemy.Burn -= 1;
+                burn.Magnitude -= 1;
+                if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
                 _events.Add(new BattleEvent(BattleEventKind.BurnTick, i, tick));
                 if (!enemy.Alive)
                     ResolveDefeat(i);
@@ -523,11 +526,13 @@ namespace Brushblade.Core
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.BleedTurns <= 0) continue;
-                int bleed = enemy.Bleed;
+                if (!enemy.Alive) continue;
+                var bleedStatus = enemy.Statuses.Find(StatusKind.Bleed);
+                if (bleedStatus == null || bleedStatus.TurnsLeft <= 0) continue;
+                int bleed = bleedStatus.Magnitude;
                 enemy.Hp = Math.Max(0, enemy.Hp - bleed);
-                enemy.BleedTurns -= 1;
-                if (enemy.BleedTurns == 0) enemy.Bleed = 0;
+                bleedStatus.TurnsLeft -= 1;
+                if (bleedStatus.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Bleed);
                 _events.Add(new BattleEvent(BattleEventKind.BleedTick, i, bleed));
                 if (!enemy.Alive)
                     ResolveDefeat(i);
@@ -577,7 +582,7 @@ namespace Brushblade.Core
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.FreezeTurns > 0 || enemy.SlowTurns <= 0) continue;
+                if (!enemy.Alive || enemy.Statuses.Has(StatusKind.Freeze) || enemy.SlowTurns <= 0) continue;
                 enemy.SlowTurns -= 1;
                 slowSkip[i] = !enemy.SlowActs;      // 本回合是否行动,由翻转前的状态决定
                 enemy.SlowActs = !enemy.SlowActs;    // 交替:跳一回合、动一回合(为下一次翻转做准备)
@@ -589,7 +594,7 @@ namespace Brushblade.Core
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff) continue;
-                if (enemy.FreezeTurns > 0) continue; // 冻结:连辅助加攻都不出手
+                if (enemy.Statuses.Has(StatusKind.Freeze)) continue; // 冻结:连辅助加攻都不出手
                 if (slowSkip[i]) continue; // 减速跳过本回合:连辅助加攻都不出手
                 if (!HasOtherAliveEnemy(enemy)) continue; // 无人可加 → 交给下面的行动循环
                 for (int j = 0; j < _enemies.Count; j++)
@@ -606,9 +611,11 @@ namespace Brushblade.Core
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive) continue;
-                if (enemy.FreezeTurns > 0)
+                var freeze = enemy.Statuses.Find(StatusKind.Freeze);
+                if (freeze != null && freeze.TurnsLeft > 0)
                 {
-                    enemy.FreezeTurns -= 1;
+                    freeze.TurnsLeft -= 1;
+                    if (freeze.TurnsLeft <= 0) enemy.Statuses.Remove(StatusKind.Freeze);
                     continue;   // 冻结:本回合不行动(蓄力/加攻/技能全部跳过)
                 }
                 if (slowSkip[i]) continue; // 减速:本回合不行动(翻转已在上面的预处理里做过)
@@ -723,20 +730,27 @@ namespace Brushblade.Core
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
                         {
-                            _enemies[targetIndex].Burn += value;
+                            ApplyBurn(targetIndex, value);
                             _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, value));
                         }
                         break;
                     case EffectKind.Bleed:
                         if (_enemies[targetIndex].Alive)
                         {
-                            _enemies[targetIndex].Bleed = value;
-                            _enemies[targetIndex].BleedTurns = 3;   // 固定 3 回合
+                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            {
+                                Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
+                                Magnitude = value, TurnsLeft = 3,   // 固定 3 回合
+                            });
                         }
                         break;
                     case EffectKind.Freeze:
                         if (_enemies[targetIndex].Alive)
-                            _enemies[targetIndex].FreezeTurns = value;
+                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            {
+                                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
+                                Magnitude = value, TurnsLeft = value,
+                            });
                         break;
                     case EffectKind.Slow:
                         if (_enemies[targetIndex].Alive)
@@ -752,7 +766,7 @@ namespace Brushblade.Core
                         for (int i = 0; i < _enemies.Count; i++)
                             if (_enemies[i].Alive)
                             {
-                                _enemies[i].Burn += value;
+                                ApplyBurn(i, value);
                                 _events.Add(new BattleEvent(BattleEventKind.Burn, i, value));
                             }
                         break;
@@ -801,6 +815,18 @@ namespace Brushblade.Core
             }
         }
 
+        /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。</summary>
+        private void ApplyBurn(int enemyIndex, int value)
+        {
+            var enemy = _enemies[enemyIndex];
+            int newBurn = (enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0) + value;
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = newBurn, TurnsLeft = -1,
+            });
+        }
+
         /// <summary>群体治疗:玩家 + 全部存活召唤物,各回 amount(玩家不超上限)。</summary>
         private void HealPlayerAndSummons(int amount)
         {
@@ -842,7 +868,7 @@ namespace Brushblade.Core
         /// <summary>条件基础值:灼类效果对带灼烧目标翻倍(10.3.1),再进生克结算。</summary>
         private static int BaseValue(EffectDef effect, int scaledValue, EnemyState target)
         {
-            return effect.DoubleVsBurning && target.Burn > 0 ? scaledValue * 2 : scaledValue;
+            return effect.DoubleVsBurning && target.Statuses.Has(StatusKind.Burn) ? scaledValue * 2 : scaledValue;
         }
 
         private void DamageEnemy(int enemyIndex, int baseValue,

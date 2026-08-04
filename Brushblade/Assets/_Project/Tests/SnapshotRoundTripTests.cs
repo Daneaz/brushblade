@@ -31,6 +31,8 @@ namespace Brushblade.Core.Tests
             new CharDef("呆", null),
             new CharDef("铠", Element.Metal,
                 effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
+            new CharDef("锯", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.Bleed, 3) }),
         });
 
         private static BattleConfig Config() => new()
@@ -48,7 +50,7 @@ namespace Brushblade.Core.Tests
               .Append($"|dr{string.Join(",", b.DamageReductions.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}{kv.Value}"))}")
               .Append($"|lib{string.Join(",", b.Library)}|pool{string.Join(",", b.Pool)}");
             foreach (var e in b.Enemies)
-                sb.Append($"|E({e.Def.Id},{e.Hp}/{e.MaxHp},{e.Element},{e.ApparentElement},burn{e.Burn}," +
+                sb.Append($"|E({e.Def.Id},{e.Hp}/{e.MaxHp},{e.Element},{e.ApparentElement},burn{e.Statuses.TotalMagnitude(StatusKind.Burn)}," +
                           $"atk{e.Attack},dt{e.DamageTaken},ph{e.PhaseIndex},rg{e.RegrowProgress}," +
                           $"sp{e.HasSplit},ht{e.HitsTaken})");
             foreach (var s in b.Summons)
@@ -290,6 +292,22 @@ namespace Brushblade.Core.Tests
 
             Assert.That(restored.Phase, Is.EqualTo(BattlePhase.DropChoice));
             Assert.That(restored.PendingDrop, Is.EqualTo("林"));
+        }
+
+        [Test]
+        public void EnemyStatuses_SurviveRoundTrip_AndAreNotShared()
+        {
+            var graph = Graph();
+            var enemyDef = new EnemyDef("桩", Element.Metal, 500, 0);
+            var engine = new BattleEngine(graph, Config(), new[] { "锯" },
+                Array.Empty<string>(), new[] { enemyDef, enemyDef }, 42);
+            engine.Cast("锯", 0); // 只给 0 号上流血
+
+            var restored = BattleEngine.Restore(engine.Capture(), graph, Config(), null,
+                new Dictionary<string, EnemyDef> { ["桩"] = enemyDef });
+
+            Assert.That(restored.Enemies[0].Statuses.Has(StatusKind.Bleed), Is.True);
+            Assert.That(restored.Enemies[1].Statuses.Has(StatusKind.Bleed), Is.False); // 没被别名共享
         }
 
         // ---- run 层 ----

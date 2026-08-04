@@ -35,10 +35,7 @@ namespace Brushblade.Core
         public int MaxHp { get; set; }
         public Element Element { get; set; }
         public Element? ApparentElement { get; set; } // null = 生僻字未被读懂
-        public int Burn { get; set; }
-        public int Bleed { get; set; }
-        public int BleedTurns { get; set; }
-        public int FreezeTurns { get; set; }
+        public List<StatusEffect> Statuses { get; set; } = new();
         public int SlowTurns { get; set; }
         public bool SlowActs { get; set; }
         public int Attack { get; set; }
