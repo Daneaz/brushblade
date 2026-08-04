@@ -61,7 +61,8 @@ namespace Brushblade.Core
         private int _carriedNormalShield;
         private int _carriedPersistShield;
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
-        private Dictionary<string, int> _carriedDamageReductions = new(); // 减伤延续(2026-08-03):段内持久,到段末才清
+        private List<StatusEffect> _carriedStatuses = new(); // 减伤延续(2026-08-04):段内持久,到段末才清;
+                                                               // 只承载 DamageReduction,HoT 不跨战斗
         private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
@@ -69,7 +70,7 @@ namespace Brushblade.Core
             IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
             int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
             int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
-            IReadOnlyDictionary<string, int> startingDamageReductions = null)
+            IReadOnlyList<StatusEffect> startingStatuses = null)
         {
             _startingInk = startingInk;
             _graph = graph;
@@ -83,8 +84,8 @@ namespace Brushblade.Core
             _carriedPersistShield = startingPersistShield;
             _perFloorNormalShield = perFloorNormalShield;
             if (startingSummons != null) _carriedSummons = new List<SummonSnapshot>(startingSummons);
-            if (startingDamageReductions != null)
-                _carriedDamageReductions = new Dictionary<string, int>(startingDamageReductions);
+            if (startingStatuses != null)
+                _carriedStatuses = startingStatuses.Select(s => s.Clone()).ToList();
             // 携带态一开始就等于开打时的状态,而不是 null:第一场打完前挂起也有东西可存,
             // 且省掉一处 null 陷阱(AdvanceAfterBattle 会照常整体覆盖)
             _carriedLibrary = new List<string>(startingLibrary);
@@ -123,7 +124,7 @@ namespace Brushblade.Core
                 CarriedNormalShield = _carriedNormalShield,
                 CarriedPersistShield = _carriedPersistShield,
                 CarriedSummons = new List<SummonSnapshot>(_carriedSummons),
-                CarriedDamageReductions = new Dictionary<string, int>(_carriedDamageReductions),
+                CarriedStatuses = _carriedStatuses.Select(s => s.Clone()).ToList(),
                 CharPicksLeft = CharPicksLeft,
                 RewardOptions = new List<string>(_rewardOptions),
                 ComponentOptions = new List<string>(_componentOptions),
@@ -159,7 +160,7 @@ namespace Brushblade.Core
                 _carriedNormalShield = snapshot.CarriedNormalShield,
                 _carriedPersistShield = snapshot.CarriedPersistShield,
                 _carriedSummons = new List<SummonSnapshot>(snapshot.CarriedSummons),
-                _carriedDamageReductions = new Dictionary<string, int>(snapshot.CarriedDamageReductions),
+                _carriedStatuses = snapshot.CarriedStatuses.Select(s => s.Clone()).ToList(),
                 CharPicksLeft = snapshot.CharPicksLeft,
                 EarnedInk = snapshot.EarnedInk,
                 LibraryExpanded = snapshot.LibraryExpanded,
@@ -230,7 +231,7 @@ namespace Brushblade.Core
         public int CarriedPersistShield => _carriedPersistShield;
 
         /// <summary>战斗间携带的减伤来源(段内持久,到段末才清)。</summary>
-        public IReadOnlyDictionary<string, int> CarriedDamageReductions => _carriedDamageReductions;
+        public IReadOnlyList<StatusEffect> CarriedStatuses => _carriedStatuses;
 
         /// <summary>战斗间携带的召唤物(只含存活者;整次登塔延续,见 20.2)。</summary>
         public IReadOnlyList<SummonSnapshot> CarriedSummons => _carriedSummons;
@@ -495,7 +496,11 @@ namespace Brushblade.Core
             _carriedNormalShield = Battle.ShieldNormal;
             _carriedPersistShield = Battle.ShieldPersist;
             _carriedSummons = CaptureAliveSummons();
-            _carriedDamageReductions = new Dictionary<string, int>(Battle.DamageReductions);
+            // 只取减伤:HoT 是本场限定,不随携带态跨战斗(2026-08-04)
+            _carriedStatuses = Battle.PlayerStatuses.All
+                .Where(s => s.Kind == StatusKind.DamageReduction)
+                .Select(s => s.Clone())
+                .ToList();
 
             RollRewardOptions();
             CharPicksLeft = RewardPicks;
@@ -659,7 +664,7 @@ namespace Brushblade.Core
         {
             return new BattleEngine(_graph, BattleConfigForRun(), library, pool,
                 _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels,
-                _carriedNormalShield, _carriedPersistShield, _carriedSummons, _carriedDamageReductions);
+                _carriedNormalShield, _carriedPersistShield, _carriedSummons, _carriedStatuses);
         }
     }
 }

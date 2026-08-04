@@ -806,7 +806,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f));
             WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,减伤不变)
             run.AdvanceAfterBattle();
-            Assert.That(run.CarriedDamageReductions["铠"], Is.EqualTo(20));
+            Assert.That(run.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(20));
             run.SkipReward();                 // 进入第二关
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f), "减伤跨场保留");

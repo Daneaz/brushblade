@@ -141,10 +141,14 @@ namespace Brushblade.Core.Tests
                 Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, seed: 42,
                 startingHp: null, cardLevels: null, startingNormalShield: 0, startingPersistShield: 0,
                 startingSummons: null,
-                startingReductions: new Dictionary<string, int> { ["铠"] = 20 });
+                startingStatuses: new[] { new StatusEffect
+                {
+                    Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+                    Magnitude = 20, TurnsLeft = -1, SourceId = "铠",
+                } });
 
             Assert.That(engine.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f));
-            Assert.That(engine.DamageReductions["铠"], Is.EqualTo(20));
+            Assert.That(engine.PlayerStatuses.Find(StatusKind.DamageReduction).Magnitude, Is.EqualTo(20));
         }
 
         // ---- 回合开始(3.5 步骤 1) ----
@@ -1341,7 +1345,24 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.HealAll, 9) }),
             new CharDef("沐", Element.Water,
                 effects: new[] { new EffectDef(EffectKind.HealOverTime, 3, turns: 3) }),
+            new CharDef("铠", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
         });
+
+        [Test]
+        public void PlayerStatuses_HotAndReduction_QueryableByPolarity()
+        {
+            var engine = new BattleEngine(HealGraph(), Config(), new[] { "沐", "铠" },
+                Array.Empty<string>(), new[] { WoodMinion() }, 42);
+            engine.Cast("沐");
+            engine.Cast("铠");
+
+            var buffs = 0;
+            foreach (var s in engine.PlayerStatuses.All)
+                if (s.Polarity == StatusPolarity.Buff) buffs++;
+            Assert.That(buffs, Is.EqualTo(2)); // HoT + 减伤
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(20));
+        }
 
         [Test]
         public void HealAll_HealsPlayerAndSummons()
@@ -1380,7 +1401,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void HealOverTime_SurvivesSnapshotRoundTrip() // _hots 挂在 BattleEngine 上,不在 EnemyState/SummonState 里,
+        public void HealOverTime_SurvivesSnapshotRoundTrip() // HoT 挂在 BattleEngine._playerStatuses 上,不在 EnemyState/SummonState 里,
                                                               // 得单独确认 Capture/Restore 有往返(Digest() 不会自动覆盖新字段)
         {
             var enemyDef = new EnemyDef("锈", Element.Metal, 500, 6);

@@ -47,7 +47,7 @@ namespace Brushblade.Core.Tests
             var sb = new StringBuilder();
             sb.Append($"hp{b.PlayerHp}|ap{b.Ap}|turn{b.Turn}|ph{b.Phase}")
               .Append($"|sn{b.ShieldNormal}|sp{b.ShieldPersist}")
-              .Append($"|dr{string.Join(",", b.DamageReductions.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}{kv.Value}"))}")
+              .Append($"|dr{string.Join(",", b.PlayerStatuses.All.Where(s => s.Kind == StatusKind.DamageReduction).OrderBy(s => s.SourceId).Select(s => $"{s.SourceId}{s.Magnitude}"))}")
               .Append($"|lib{string.Join(",", b.Library)}|pool{string.Join(",", b.Pool)}");
             foreach (var e in b.Enemies)
                 sb.Append($"|E({e.Def.Id},{e.Hp}/{e.MaxHp},{e.Element},{e.ApparentElement},burn{e.Statuses.TotalMagnitude(StatusKind.Burn)}," +
@@ -65,7 +65,7 @@ namespace Brushblade.Core.Tests
               .Append($"|ink{r.EarnedInk}|avail{r.AvailableInk}")
               .Append($"|cl{string.Join(",", r.CarriedLibrary)}|cp{string.Join(",", r.CarriedPool)}")
               .Append($"|cns{r.CarriedNormalShield}|cps{r.CarriedPersistShield}")
-              .Append($"|cdr{string.Join(",", r.CarriedDamageReductions.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}{kv.Value}"))}")
+              .Append($"|cdr{string.Join(",", r.CarriedStatuses.OrderBy(s => s.SourceId).Select(s => $"{s.SourceId}{s.Magnitude}"))}")
               .Append($"|cs{string.Join(",", r.CarriedSummons.Select(s => $"{s.Char}{s.Element}{s.Hp}/{s.MaxHp}atk{s.Attack}"))}")
               .Append($"|cpk{r.CharPicksLeft}")
               .Append($"|ro{string.Join(",", r.RewardOptions)}|co{string.Join(",", r.ComponentOptions)}")
@@ -162,13 +162,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Battle_DamageReduction_Survives() // 减伤来源(字典)存档往返
+        public void Battle_DamageReduction_Survives() // 减伤来源(状态容器)存档往返
         {
             var def = new EnemyDef("枯", Element.Wood, 200, 5);
             var a = Battle(new[] { def }, new[] { "铠" });
             a.Cast("铠");
             var b = Reload(a, def);
-            Assert.That(b.DamageReductions["铠"], Is.EqualTo(20));
+            Assert.That(b.PlayerStatuses.Find(StatusKind.DamageReduction).Magnitude, Is.EqualTo(20));
             Assert.That(b.DamageReductionMultiplier, Is.EqualTo(a.DamageReductionMultiplier).Within(0.001f));
             a.EndTurn(); b.EndTurn();
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
@@ -483,11 +483,11 @@ namespace Brushblade.Core.Tests
             a.Battle.Cast("炎", 0); // 一发清场
             Assert.That(a.Battle.Phase, Is.EqualTo(BattlePhase.Won));
             a.AdvanceAfterBattle();     // 打完第一场:携带态已含减伤来源
-            Assert.That(a.CarriedDamageReductions["铠"], Is.EqualTo(20));
+            Assert.That(a.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(20));
 
             var b = Reload(a, config);
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
-            Assert.That(b.CarriedDamageReductions["铠"], Is.EqualTo(20));
+            Assert.That(b.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(20));
 
             foreach (var r in new[] { a, b }) r.SkipReward(); // 进入第二场
             Assert.That(a.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f), "跨战斗仍在生效");

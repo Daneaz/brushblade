@@ -22,8 +22,7 @@ namespace Brushblade.Core
         public List<string> Pool { get; set; } = new();
         public List<EnemySnapshot> Enemies { get; set; } = new();
         public List<SummonSnapshot> Summons { get; set; } = new();
-        public List<HotSnapshot> Hots { get; set; } = new();
-        public Dictionary<string, int> DamageReductions { get; set; } = new(); // 减伤来源(2026-08-03)
+        public List<StatusEffect> PlayerStatuses { get; set; } = new(); // HoT / 减伤(2026-08-04 统一容器)
         public string PendingDrop { get; set; } // 待决议的掉落字(DropChoice 阶段,2026-08-04)
     }
 
@@ -59,14 +58,6 @@ namespace Brushblade.Core
         public int ActionMeter { get; set; }
     }
 
-    /// <summary>持续治疗快照(2026-08-03)。</summary>
-    public sealed class HotSnapshot
-    {
-        public int Amount { get; set; }
-        public int Turns { get; set; }
-        public bool All { get; set; }
-    }
-
     /// <summary>挂在存档上的「段中断点」(2026-07-27):除了 run 自身的状态,还要记住
     /// 重建这一段所需的上下文 —— 层段生成是纯函数,但得用同样的入参才能重建出同一段。</summary>
     public sealed class InProgressRun
@@ -92,8 +83,9 @@ namespace Brushblade.Core
         public int CarriedPersistShield { get; set; }
         public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)
 
-        /// <summary>减伤跨战斗延续(2026-08-03):段内持久,段末清空。</summary>
-        public Dictionary<string, int> CarriedDamageReductions { get; set; } = new();
+        /// <summary>减伤跨战斗延续(2026-08-04):段内持久,段末清空;只承载 DamageReduction,
+        /// HoT 不跨战斗(见 RunEngine.AdvanceAfterBattle 的过滤)。</summary>
+        public List<StatusEffect> CarriedStatuses { get; set; } = new();
         public int CharPicksLeft { get; set; }
         public List<string> RewardOptions { get; set; } = new();
         public List<string> ComponentOptions { get; set; } = new();

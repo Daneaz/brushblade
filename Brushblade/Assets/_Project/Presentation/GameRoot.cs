@@ -208,7 +208,7 @@ namespace Brushblade.Presentation
                 startingPersistShield: snapshot.PersistShield,
                 perFloorNormalShield: PerkRules.ShieldBonus(_meta), // 金汤:每关开战补盾(段首由 NormalShield 注入)
                 startingSummons: snapshot.CarriedSummons, // 召唤物跨段延续(2026-08-03),与普通盾同口径
-                startingDamageReductions: snapshot.CarriedDamageReductions); // 减伤跨段延续(2026-08-03),同上
+                startingStatuses: snapshot.CarriedDamageReductions); // 减伤跨段延续(2026-08-04),同上
             if (resume == null) // 从断点恢复时这些已在 run 状态里,再调一次会把容量重复抬高
             {
                 if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
@@ -331,7 +331,7 @@ namespace Brushblade.Presentation
             snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
-            snapshot.CarriedDamageReductions = new System.Collections.Generic.Dictionary<string, int>(run.CarriedDamageReductions);
+            snapshot.CarriedDamageReductions = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
         }
 
         private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int baseInk, bool won)
@@ -369,7 +369,7 @@ namespace Brushblade.Presentation
             snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
-            snapshot.CarriedDamageReductions = new System.Collections.Generic.Dictionary<string, int>(run.CarriedDamageReductions);
+            snapshot.CarriedDamageReductions = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned);
         }

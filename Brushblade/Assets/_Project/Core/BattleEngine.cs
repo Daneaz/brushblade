@@ -108,7 +108,6 @@ namespace Brushblade.Core
         private readonly GameRandom _random;
         private readonly List<EnemyState> _enemies = new();
         private readonly List<SummonState> _summons = new();
-        private readonly List<(int Amount, int Turns, bool All)> _hots = new();
         private const int SummonCap = 6; // 场上存活召唤物上限(2026-08-03:4 → 6)
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         private const int ScorchGain = 2; // 焦痕受击存活的加攻量
@@ -125,8 +124,9 @@ namespace Brushblade.Core
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
 
-        /// <summary>减伤来源:键 = 字 ID,值 = 减伤百分比。同字覆盖 = 只刷新不叠加(2026-08-03)。</summary>
-        private readonly Dictionary<string, int> _damageReductions = new();
+        /// <summary>玩家侧状态容器(HoT / 减伤,2026-08-04 统一迁入状态容器)。减伤 SourceId = 字
+        /// ID,同字覆盖 = 只刷新不叠加;TurnsLeft = -1 段内持久,跨战斗携带见 RunEngine._carriedStatuses。</summary>
+        private readonly StatusBag _playerStatuses = new();
 
         /// <summary>所有减伤来源连乘后的承伤系数(1.0 = 无减伤;乘法叠加,天然趋近但不达 0)。</summary>
         public float DamageReductionMultiplier
@@ -134,8 +134,9 @@ namespace Brushblade.Core
             get
             {
                 float multiplier = 1f;
-                foreach (var percent in _damageReductions.Values)
-                    multiplier *= 1f - percent / 100f;
+                foreach (var s in _playerStatuses.All)
+                    if (s.Kind == StatusKind.DamageReduction)
+                        multiplier *= 1f - s.Magnitude / 100f;
                 return multiplier;
             }
         }
@@ -149,7 +150,7 @@ namespace Brushblade.Core
             IReadOnlyDictionary<string, int> cardLevels = null,
             int startingNormalShield = 0, int startingPersistShield = 0,
             IReadOnlyList<SummonSnapshot> startingSummons = null,
-            IReadOnlyDictionary<string, int> startingReductions = null)
+            IReadOnlyList<StatusEffect> startingStatuses = null)
         {
             _graph = graph;
             _config = config;
@@ -168,10 +169,9 @@ namespace Brushblade.Core
             if (startingSummons != null)
                 foreach (var summon in startingSummons)
                     _summons.Add(SummonState.Restore(summon));
-            // 减伤跨战斗保留(2026-08-03):与普通盾同口径,段内持久,到段末才清。
-            if (startingReductions != null)
-                foreach (var kv in startingReductions)
-                    _damageReductions[kv.Key] = kv.Value;
+            // 减伤跨战斗保留(2026-08-04):与普通盾同口径,段内持久,到段末才清。
+            if (startingStatuses != null)
+                _playerStatuses.CopyFrom(startingStatuses);
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
         }
@@ -203,13 +203,11 @@ namespace Brushblade.Core
                 RandomState = _random.State,
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
-                DamageReductions = new Dictionary<string, int>(_damageReductions),
                 PendingDrop = _pendingDrop,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
-            foreach (var hot in _hots)
-                snapshot.Hots.Add(new HotSnapshot { Amount = hot.Amount, Turns = hot.Turns, All = hot.All });
+            foreach (var s in _playerStatuses.All) snapshot.PlayerStatuses.Add(s.Clone());
             return snapshot;
         }
 
@@ -238,10 +236,7 @@ namespace Brushblade.Core
             }
             foreach (var summon in snapshot.Summons)
                 engine._summons.Add(SummonState.Restore(summon));
-            foreach (var hot in snapshot.Hots)
-                engine._hots.Add((hot.Amount, hot.Turns, hot.All));
-            foreach (var kv in snapshot.DamageReductions)
-                engine._damageReductions[kv.Key] = kv.Value;
+            engine._playerStatuses.CopyFrom(snapshot.PlayerStatuses ?? new List<StatusEffect>());
             return engine;
         }
 
@@ -258,8 +253,8 @@ namespace Brushblade.Core
         public int ShieldNormal => _shieldNormal;
         public int ShieldPersist => _shieldPersist;
 
-        /// <summary>减伤来源(键 = 字 ID,值 = 减伤百分比),供战斗结束时取回跨战斗延续。</summary>
-        public IReadOnlyDictionary<string, int> DamageReductions => _damageReductions;
+        /// <summary>玩家侧状态容器(HoT / 减伤),供战斗结束时取回跨战斗延续(2026-08-04)。</summary>
+        public StatusBag PlayerStatuses => _playerStatuses;
         public IReadOnlyList<string> Library => _forge.Library;
         public IReadOnlyList<string> Pool => _forge.Pool;
         public int LibraryCapacity => _config.LibraryCapacity;
@@ -544,19 +539,19 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
-            // 持续治疗(2026-08-03)
-            for (int i = _hots.Count - 1; i >= 0; i--)
+            // 持续治疗(2026-08-04):回合数递减挪到 EndTurn 末尾统一处理(与 Bleed 同理,见下方
+            // "状态回合递减"),这里只结算不写 TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。
+            for (int i = _playerStatuses.All.Count - 1; i >= 0; i--)
             {
-                var hot = _hots[i];
-                if (hot.All) HealPlayerAndSummons(hot.Amount);
+                var hot = _playerStatuses.All[i];
+                if (hot.Kind != StatusKind.HealOverTime) continue;
+                if (hot.TargetAll) HealPlayerAndSummons(hot.Magnitude);
                 else
                 {
-                    int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, hot.Amount);
+                    int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, hot.Magnitude);
                     PlayerHp += healed;
                     _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
                 }
-                _hots[i] = (hot.Amount, hot.Turns - 1, hot.All);
-                if (_hots[i].Turns <= 0) _hots.RemoveAt(i);
             }
 
             // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克。
@@ -716,6 +711,8 @@ namespace Brushblade.Core
                     enemy.Statuses.TickTurns(); // 未冻结:Bleed/SpeedModifier 等统一递减
                 }
             }
+            // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
+            _playerStatuses.TickTurns();
 
             StartTurn();
         }
@@ -803,7 +800,11 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.DamageReduction:
-                        _damageReductions[def.Id] = value;   // 同字覆盖 = 刷新,不叠加
+                        _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
+                        {
+                            Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = -1, SourceId = def.Id, // 段内持久
+                        });
                         break;
                     case EffectKind.BurnAll:
                         for (int i = 0; i < _enemies.Count; i++)
@@ -832,8 +833,12 @@ namespace Brushblade.Core
                         HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements, attacker));
                         break;
                     case EffectKind.HealOverTime:
-                        _hots.Add((WuxingResolver.ResolveEffect(value, recipeElements, attacker),
-                                   effect.Turns, effect.TargetAll));
+                        _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
+                        {
+                            Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
+                            Magnitude = WuxingResolver.ResolveEffect(value, recipeElements, attacker),
+                            TurnsLeft = effect.Turns, TargetAll = effect.TargetAll, SourceId = def.Id,
+                        });
                         break;
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
