@@ -24,6 +24,7 @@ namespace Brushblade.Core
         public List<SummonSnapshot> Summons { get; set; } = new();
         public List<HotSnapshot> Hots { get; set; } = new();
         public Dictionary<string, int> DamageReductions { get; set; } = new(); // 减伤来源(2026-08-03)
+        public string PendingDrop { get; set; } // 待决议的掉落字(DropChoice 阶段,2026-08-04)
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>

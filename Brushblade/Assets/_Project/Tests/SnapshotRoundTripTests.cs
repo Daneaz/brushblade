@@ -117,14 +117,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Battle_RandomStream_DoesNotFork() // 掉落靠 RNG:存档后两边必须摇出同样的部件
+        public void Battle_RandomStream_DoesNotFork() // 掉字靠 RNG(2026-08-04:池→库):存档后两边必须摇出同样的字
         {
             var def = new EnemyDef("枯", Element.Wood, 200, 1);
-            var a = Battle(new[] { def }, new[] { "炎" });
+            var config = new BattleConfig
+            {
+                DropTable = new[] { "木", "火", "土" }, PlayerMaxHp = 60,
+                LibraryCapacity = 20, DropsPerTurn = 1, UnlockedChars = new[] { "木", "火", "土" },
+            };
+            var a = new BattleEngine(Graph(), config, new[] { "炎" }, Array.Empty<string>(), new[] { def }, seed: 42);
             a.EndTurn();
-            var b = Reload(a, def);
+            var b = BattleEngine.Restore(a.Capture(), Graph(), config, null, Defs(def));
             for (int i = 0; i < 6; i++) { a.EndTurn(); b.EndTurn(); }
-            Assert.That(b.Pool, Is.EqualTo(a.Pool));
+            Assert.That(b.Library, Is.EqualTo(a.Library));
         }
 
         [Test]
@@ -267,6 +272,24 @@ namespace Brushblade.Core.Tests
             Assert.That(a.Enemies[0].Alive, Is.False);
             var b = Reload(a, weak, tough);
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
+        }
+
+        [Test]
+        public void DropChoice_SurvivesRoundTrip() // 阶段与待决议字丢了 = 续爬后掉落凭空消失
+        {
+            var graph = Graph();
+            var enemyDef = new EnemyDef("枯", Element.Wood, 10, 2);
+            var engine = new BattleEngine(graph,
+                new BattleConfig { LibraryCapacity = 2, DropsPerTurn = 1, UnlockedChars = new[] { "林" } },
+                new[] { "炎", "炎" }, Array.Empty<string>(), new[] { enemyDef }, 42);
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice)); // 前置:确实卡在决议
+
+            var restored = BattleEngine.Restore(engine.Capture(), graph,
+                new BattleConfig { LibraryCapacity = 2, DropsPerTurn = 1, UnlockedChars = new[] { "林" } },
+                null, new Dictionary<string, EnemyDef> { ["枯"] = enemyDef });
+
+            Assert.That(restored.Phase, Is.EqualTo(BattlePhase.DropChoice));
+            Assert.That(restored.PendingDrop, Is.EqualTo("林"));
         }
 
         // ---- run 层 ----

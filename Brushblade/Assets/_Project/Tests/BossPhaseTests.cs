@@ -127,7 +127,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void FinalPhaseKill_WinsBattle()
         {
-            var engine = Engine();
+            // 掉字改造(2026-08-04):回合不再掉部件续弹药,直接给足「火」把 4 阶段(总血 55)打穿
+            var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
+                new[] { "燃" }, Enumerable.Repeat("火", 30).ToArray(), new[] { PaiShanDaoHai() }, seed: 1);
             for (int phase = 0; phase < 4; phase++)
             {
                 // 每阶段用足够的火部件打穿(每回合最多 3 次出手)

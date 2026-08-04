@@ -150,12 +150,12 @@ namespace Brushblade.Core.Tests
         // ---- 回合开始(3.5 步骤 1) ----
 
         [Test]
-        public void TurnStart_GrantsApAndDropsTwoComponents()
+        public void TurnStart_GrantsApAndDropsOneChar() // 回合掉字改造(2026-08-04):部件掉落 → 字掉落,2/回合 → 1/回合
         {
-            var engine = Engine();
+            var engine = Engine(config: new BattleConfig { UnlockedChars = new[] { "木" } });
             Assert.That(engine.Turn, Is.EqualTo(1));
             Assert.That(engine.Ap, Is.EqualTo(3));
-            Assert.That(engine.Pool, Is.EquivalentTo(new[] { "木", "木" })); // 掉落表只有木;2/回合(2026-07-19)
+            Assert.That(engine.Library, Is.EquivalentTo(new[] { "木" })); // 出战牌组只有木;1/回合
         }
 
         [Test]
@@ -171,20 +171,21 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void TurnStart_DropsStopAtPoolCapacity() // 池满则不掉;基准 10(2026-07-06 拍板)
+        public void TurnStart_DropsFillLibraryWithoutExceedingCapacity() // 掉字改造(2026-08-04):库满不再溢出;基准 6(2026-07-06 拍板)
         {
-            var pool = Enumerable.Repeat("木", 9).ToArray();
-            var engine = Engine(pool: pool);
-            Assert.That(engine.Pool.Count, Is.EqualTo(10)); // 9 + 1,第二个不掉
+            var library = Enumerable.Repeat("灯", 5).ToArray();
+            var engine = Engine(library: library, config: new BattleConfig { UnlockedChars = new[] { "木" } });
+            Assert.That(engine.Library.Count, Is.EqualTo(6)); // 5 + 1,填满不越界
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn)); // 填满当次不触发决议
         }
 
         [Test]
-        public void SameSeed_SameDrops()
+        public void SameSeed_SameDrops() // 掉字改造(2026-08-04):同种子应摇出同一个字入库
         {
-            var config = Config("木", "火", "土", "辟");
+            var config = new BattleConfig { UnlockedChars = new[] { "林", "灯", "焚" } };
             var a = Engine(config: config, seed: 7);
             var b = Engine(config: config, seed: 7);
-            Assert.That(a.Pool, Is.EqualTo(b.Pool));
+            Assert.That(a.Library, Is.EqualTo(b.Library));
         }
 
         // ---- AP 经济(3.3) ----
@@ -203,7 +204,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Compose_Costs1Ap()
         {
-            var engine = Engine(); // 回合开始掉 木×2
+            var engine = Engine(pool: new[] { "木", "木" }); // 掉字改造(2026-08-04):部件不再靠回合掉落,直接给
             var error = engine.Compose("林");
             Assert.That(error, Is.EqualTo(BattleError.None));
             Assert.That(engine.Ap, Is.EqualTo(2));
@@ -1532,6 +1533,123 @@ namespace Brushblade.Core.Tests
 
             engine.EndTurn(); // 接续节奏的下一拍:跳过
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "接续节奏的下一拍应跳过");
+        }
+
+        // ---- 回合掉字(2026-08-04):从出战牌组掉 1 字,满库停下决议 ----
+
+        /// <summary>掉落专用引擎:库位留空,牌组只有「林」以便断言掉的是什么。</summary>
+        private static BattleEngine DropEngine(int libraryCount, params string[] deck)
+        {
+            var library = new List<string>();
+            for (int i = 0; i < libraryCount; i++) library.Add("灯");
+            return new BattleEngine(Graph(),
+                new BattleConfig { LibraryCapacity = 3, DropsPerTurn = 1, UnlockedChars = deck },
+                library, Array.Empty<string>(), new[] { WoodMinion() }, 42);
+        }
+
+        private static EnemyDef Strong() => new("讹影", Element.Heart, 100, 60);
+
+        [Test]
+        public void Drop_LibraryNotFull_EntersLibraryDirectly()
+        {
+            var engine = DropEngine(libraryCount: 1, deck: "林");
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.Library, Does.Contain("林"));
+            Assert.That(engine.PendingDrop, Is.Null);
+        }
+
+        [Test]
+        public void Drop_LibraryFull_EntersDropChoice()
+        {
+            var engine = DropEngine(libraryCount: 3, deck: "林"); // 3/3 满
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice));
+            Assert.That(engine.PendingDrop, Is.EqualTo("林"));
+            Assert.That(engine.Library.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Drop_NoDeck_DoesNotDropNorSwitchPhase() // 工装与旧调用:UnlockedChars 为 null
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { LibraryCapacity = 3, DropsPerTurn = 1 },
+                new[] { "灯" }, Array.Empty<string>(), new[] { WoodMinion() }, 42);
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.PendingDrop, Is.Null);
+            Assert.That(engine.Library.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ResolveDrop_ReplacesChosenSlot()
+        {
+            var engine = DropEngine(libraryCount: 3, deck: "林");
+            Assert.That(engine.ResolveDrop(0), Is.EqualTo(BattleError.None));
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.PendingDrop, Is.Null);
+            Assert.That(engine.Library.Count, Is.EqualTo(3));
+            Assert.That(engine.Library, Does.Contain("林"));
+        }
+
+        [Test]
+        public void SkipDrop_KeepsLibraryUnchanged()
+        {
+            var engine = DropEngine(libraryCount: 3, deck: "林");
+            Assert.That(engine.SkipDrop(), Is.EqualTo(BattleError.None));
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.PendingDrop, Is.Null);
+            Assert.That(engine.Library, Does.Not.Contain("林"));
+        }
+
+        [Test]
+        public void ResolveDrop_OutOfRange_Rejected()
+        {
+            var engine = DropEngine(libraryCount: 3, deck: "林");
+            Assert.That(engine.ResolveDrop(9), Is.EqualTo(BattleError.NotCastable));
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice)); // 仍卡在决议
+        }
+
+        [Test]
+        public void DropChoice_BlocksCastAndEndTurn() // 阶段机强制决议:操作入口自动拒绝
+        {
+            var engine = DropEngine(libraryCount: 3, deck: "林");
+            Assert.That(engine.Cast("灯"), Is.EqualTo(BattleError.BattleOver));
+            engine.EndTurn();
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice)); // EndTurn 被守卫挡住
+        }
+
+        // ---- 阶段回归:StartTurn 的三个调用点都可能切进 DropChoice ----
+
+        [Test]
+        public void EndTurn_FullLibrary_EntersDropChoice_NotMistakenForBattleOver()
+        {
+            // 库位 2/3 起手,掉 1 字后满库;打完这回合的 EndTurn 末尾再掉一次 → 应进决议而非被当成战斗结束
+            var engine = DropEngine(libraryCount: 2, deck: "林");
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn)); // 首回合还有位,直接入库
+            Assert.That(engine.Library.Count, Is.EqualTo(3));
+
+            engine.EndTurn();
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice));
+            Assert.That(engine.PendingDrop, Is.EqualTo("林"));
+            Assert.That(engine.Enemies[0].Alive, Is.True); // 敌人还活着,确实不是战斗结束
+        }
+
+        [Test]
+        public void Revive_FullLibrary_EntersDropChoice() // Revive 也走 StartTurn
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { LibraryCapacity = 3, DropsPerTurn = 1, UnlockedChars = new[] { "林" } },
+                new[] { "灯", "灯", "灯" }, Array.Empty<string>(), new[] { Strong() }, 42);
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice)); // 开局就满库
+            engine.SkipDrop();
+            while (engine.Phase == BattlePhase.PlayerTurn) engine.EndTurn(); // 挨打到死
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+
+            engine.Revive();
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice));
+            Assert.That(engine.PendingDrop, Is.EqualTo("林"));
         }
     }
 }

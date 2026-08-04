@@ -9,6 +9,7 @@ namespace Brushblade.Core
         PlayerTurn,
         Won,
         Lost,
+        DropChoice, // 回合掉字遇满库:停下让玩家替换或跳过(2026-08-04)
     }
 
     public enum BattleError
@@ -29,7 +30,7 @@ namespace Brushblade.Core
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
-        public int DropsPerTurn { get; set; } = 2; // 3→2(2026-07-19 二次拍板)
+        public int DropsPerTurn { get; set; } = 1; // 回合掉字数(2026-08-04:由「掉 2 部件」改为「掉 1 字」)
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
         // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
@@ -117,6 +118,9 @@ namespace Brushblade.Core
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _apPenaltyNextTurn; // 倾覆造成的下回合 AP 扣减(spec 4.3),消费后清零
 
+        // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
+        private string _pendingDrop;
+
         /// <summary>减伤来源:键 = 字 ID,值 = 减伤百分比。同字覆盖 = 只刷新不叠加(2026-08-03)。</summary>
         private readonly Dictionary<string, int> _damageReductions = new();
 
@@ -196,6 +200,7 @@ namespace Brushblade.Core
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
                 DamageReductions = new Dictionary<string, int>(_damageReductions),
+                PendingDrop = _pendingDrop,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
@@ -218,6 +223,7 @@ namespace Brushblade.Core
                 _shieldNormal = snapshot.ShieldNormal,
                 _shieldPersist = snapshot.ShieldPersist,
                 _burnPerStack = snapshot.BurnPerStack,
+                _pendingDrop = snapshot.PendingDrop,
             };
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
@@ -241,6 +247,9 @@ namespace Brushblade.Core
         public int ApPerTurn => _config.ApPerTurn;   // 每回合 AP 上限(UI 满格数 / 提示文案用;一气技能会抬高)
         public int PlayerHp { get; private set; }
         public int MaxHp => _config.PlayerMaxHp;     // 本场生效的血量上限(局内奇遇可抬高,2026-08-04)
+
+        /// <summary>待决议的掉落字(满库时挂起);无待决议时为 null。</summary>
+        public string PendingDrop => _pendingDrop;
         public int PlayerShield => _shieldNormal + _shieldPersist;
         public int ShieldNormal => _shieldNormal;
         public int ShieldPersist => _shieldPersist;
@@ -385,6 +394,31 @@ namespace Brushblade.Core
             PlayerHp = _config.PlayerMaxHp;
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
+        }
+
+        /// <summary>掉落决议:用待决议字换掉字库第 <paramref name="replaceIndex"/> 张
+        /// (被换的字永久移除,与战利品 PickRewardReplacing 同口径)。</summary>
+        public BattleError ResolveDrop(int replaceIndex)
+        {
+            if (Phase != BattlePhase.DropChoice) return BattleError.BattleOver;
+            if (replaceIndex < 0 || replaceIndex >= _forge.Library.Count)
+                return BattleError.NotCastable;
+
+            var library = new List<string>(_forge.Library);
+            library[replaceIndex] = _pendingDrop;
+            _forge = new ForgeState(library, _forge.Pool);
+            _pendingDrop = null;
+            Phase = BattlePhase.PlayerTurn;
+            return BattleError.None;
+        }
+
+        /// <summary>掉落决议:弃掉这次掉落,字库不变。</summary>
+        public BattleError SkipDrop()
+        {
+            if (Phase != BattlePhase.DropChoice) return BattleError.BattleOver;
+            _pendingDrop = null;
+            Phase = BattlePhase.PlayerTurn;
+            return BattleError.None;
         }
 
         /// <summary>复活补给:把一个字加入当前战斗字库;满库返回 false 不入(守容量上限)。</summary>
@@ -630,13 +664,23 @@ namespace Brushblade.Core
             Ap = Math.Max(1, _config.ApPerTurn - _apPenaltyNextTurn); // 下限 1:不出现完全不能动的回合
             _apPenaltyNextTurn = 0;
 
-            // 部件掉落:+N 随机部件,池满则不掉(第 3 章 3.5 / v0.4)
-            if (_config.DropTable.Count > 0)
+            // 回合掉字(2026-08-04):从出战牌组掉 N 个字入库,满库则停下让玩家决议。
+            // 部件不再掉落 —— 五行部件只能靠拆字获得(拆免 AP 是这条的对冲)。
+            if (_config.UnlockedChars != null && _config.UnlockedChars.Count > 0)
             {
-                var pool = new List<string>(_forge.Pool);
-                for (int i = 0; i < _config.DropsPerTurn && pool.Count < _config.PoolCapacity; i++)
-                    pool.Add(_random.Pick(_config.DropTable));
-                _forge = new ForgeState(_forge.Library, pool);
+                var deck = new List<string>(_config.UnlockedChars);
+                for (int i = 0; i < _config.DropsPerTurn; i++)
+                {
+                    string pick = deck[_random.Next(deck.Count)];
+                    if (_forge.Library.Count >= _config.LibraryCapacity)
+                    {
+                        _pendingDrop = pick;
+                        Phase = BattlePhase.DropChoice;
+                        return; // 决议完才继续;剩余份额本回合作废
+                    }
+                    var library = new List<string>(_forge.Library) { pick };
+                    _forge = new ForgeState(library, _forge.Pool);
+                }
             }
         }
 
