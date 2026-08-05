@@ -1227,7 +1227,7 @@ namespace Brushblade.Core.Tests
                     new EffectDef(EffectKind.ArmorBreak, 2),
                 }),
             });
-            return new BattleEngine(graph, Config(), new[] { "碎", "碎" },
+            return new BattleEngine(graph, Config(), new[] { "碎", "碎", "碎" },
                 Array.Empty<string>(), new[] { new EnemyDef("桩", Element.Heart, 500, 0) }, 42);
         }
 
@@ -1250,14 +1250,24 @@ namespace Brushblade.Core.Tests
         public void ArmorBreak_DoesNotStack_OnlyRefreshes()
         {
             var engine = ArmorBreakEngine();
-            engine.Cast("碎", 0);
-            engine.Cast("碎", 0);
+            engine.Cast("碎", 0);   // 施加破甲(首击不吃)
+            int hp1 = engine.Enemies[0].Hp;
+
+            engine.Cast("碎", 0);   // 目标已破甲,再次施加应只刷新
+            int secondHit = hp1 - engine.Enemies[0].Hp;
+            int hp2 = engine.Enemies[0].Hp;
+
+            engine.Cast("碎", 0);   // 第三击:若第二次真的叠了层,这里承伤会继续升高
+            int thirdHit = hp2 - engine.Enemies[0].Hp;
+
+            // 两次都是 floor(4 × 1.25) = 5——叠层的话第三击会变成 floor(4 × 1.5) = 6
+            Assert.That(secondHit, Is.EqualTo(5), "承伤倍率恒 ×1.25");
+            Assert.That(thirdHit, Is.EqualTo(5), "不叠层:第三击承伤仍是 ×1.25,不会滚雪球");
 
             var bag = engine.Enemies[0].Statuses;
             int count = 0;
             foreach (var s in bag.All) if (s.Kind == StatusKind.ArmorBreak) count++;
             Assert.That(count, Is.EqualTo(1), "不叠层:只有一条");
-            Assert.That(bag.TotalMagnitude(StatusKind.ArmorBreak), Is.EqualTo(25), "恒 25,不累加");
         }
 
         [Test]

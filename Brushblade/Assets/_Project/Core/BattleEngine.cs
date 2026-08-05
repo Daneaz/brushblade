@@ -962,8 +962,10 @@ namespace Brushblade.Core
             if (taken < 1f && ignoreArmor) taken = 1f;
             // 穿甲的保底加成:无条件生效
             if (ignoreArmor) taken += PierceBonusPercent / 100f;
-            // 破甲加成:始终生效(不受克制影响),不叠层故只加一次
-            if (enemy.Statuses.Has(StatusKind.ArmorBreak)) taken += ArmorBreakPercent / 100f;
+            // 破甲加成:始终生效(不受克制影响),不叠层故只加一次。
+            // 读 Magnitude 而非常量——施加处写什么百分比,这里就吃什么(将来加「重破甲」只改施加处)。
+            var armorBreak = enemy.Statuses.Find(StatusKind.ArmorBreak);
+            if (armorBreak != null) taken += armorBreak.Magnitude / 100f;
             if (taken != 1f)
                 damage = (int)Math.Floor(damage * taken);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);

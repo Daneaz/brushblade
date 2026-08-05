@@ -54,8 +54,10 @@ namespace Brushblade.Presentation
                 int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
                 parts.Append(e.Kind switch
                 {
-                    EffectKind.DamageSingle => $"单体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : ""),
-                    EffectKind.DamageAll => $"全体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : ""),
+                    EffectKind.DamageSingle => $"单体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
+                        + (e.IgnoreArmor ? "(穿甲:无视减伤,额外+15%)" : ""),
+                    EffectKind.DamageAll => $"全体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
+                        + (e.IgnoreArmor ? "(穿甲:无视减伤,额外+15%)" : ""),
                     EffectKind.BurnSingle => $"单体灼烧+{v}",
                     EffectKind.BurnAll => $"全体灼烧+{v}",
                     EffectKind.Shield => $"护盾{v}" + (e.PersistOnce ? "(豁免一次回合末清空)" : ""),
