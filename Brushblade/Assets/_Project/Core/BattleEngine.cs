@@ -115,6 +115,8 @@ namespace Brushblade.Core
         private const int PierceBonusPercent = 15; // 穿甲的保底加成(对有无减免的目标一律生效)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
         private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
+        private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
+        private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
@@ -583,6 +585,7 @@ namespace Brushblade.Core
                     if (target < 0) break;
                     _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, s)); // 发起者下标 s
                     DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+                    ApplySummonOnHit(summon, target);
                 }
             }
             CheckWin();
@@ -905,6 +908,46 @@ namespace Brushblade.Core
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = newBurn, TurnsLeft = -1,
             });
+        }
+
+        /// <summary>召唤物出手的附带效果(2026-08-05,子项目 C):挂灼烧 / 挂诅咒。
+        /// 攻 0 的召唤物(烓/灶)照样走到这里 —— 它们的输出全靠这一步,
+        /// 所以上面的出手循环绝不能因为 Attack &lt;= 0 就提前跳过。
+        /// 挂灼烧发 BattleEventKind.Burn 事件复用既有飘字;诅咒不发事件——
+        /// 表现层直接读敌人的 Statuses 画 chip,再加个只有一处消费的事件是多余的。</summary>
+        private void ApplySummonOnHit(SummonState summon, int targetIndex)
+        {
+            var passive = summon.Passive;
+            if (passive == null) return;
+
+            if (passive.OnHitBurn > 0)
+            {
+                if (passive.OnHitBurnAll)
+                {
+                    int count = _enemies.Count; // 分裂产生的新怪不吃同一发光环(与 DamageAll 同口径)
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (!_enemies[i].Alive) continue;
+                        ApplyBurn(i, passive.OnHitBurn);
+                        _events.Add(new BattleEvent(BattleEventKind.Burn, i, passive.OnHitBurn));
+                    }
+                }
+                else if (_enemies[targetIndex].Alive)
+                {
+                    ApplyBurn(targetIndex, passive.OnHitBurn);
+                    _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, passive.OnHitBurn));
+                }
+            }
+
+            if (passive.OnHitCurse > 0 && _enemies[targetIndex].Alive)
+            {
+                _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                    Magnitude = passive.OnHitCurse, TurnsLeft = CurseTurns,
+                    SourceId = CurseSourceId,
+                });
+            }
         }
 
         /// <summary>群体治疗:玩家 + 全部存活召唤物,各回 amount(玩家不超上限)。</summary>

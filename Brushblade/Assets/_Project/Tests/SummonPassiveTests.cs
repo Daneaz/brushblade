@@ -20,6 +20,22 @@ namespace Brushblade.Core.Tests
             new CharDef("疾", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
                     passive: new SummonPassive { Speed = 150 }) }),
+            // 焰:攻 0 + 单体灼烧 2(灶)
+            new CharDef("焰", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { OnHitBurn = 2 }) }),
+            // 炬:攻 0 + 全体灼烧 3(烓)
+            new CharDef("炬", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { OnHitBurn = 3, OnHitBurnAll = true }) }),
+            // 燎:攻 5 + 单体灼烧 1(楸)
+            new CharDef("燎", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 5, summonChar: "木",
+                    passive: new SummonPassive { OnHitBurn = 1 }) }),
+            // 咒:攻 4 + 诅咒 25%(槐)
+            new CharDef("咒", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 4, summonChar: "木",
+                    passive: new SummonPassive { OnHitCurse = 25 }) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -192,6 +208,92 @@ namespace Brushblade.Core.Tests
             Assert.That(enemy.Attack, Is.EqualTo(6), "第 1 回合仍在");
             enemy.Statuses.TickTurns();
             Assert.That(enemy.Attack, Is.EqualTo(8), "第 2 回合到期,攻击力复原");
+        }
+
+        // ---- 出手附带效果 ----
+
+        [Test]
+        public void OnHitBurn_ZeroAttackSummon_StillAppliesBurn()
+        {
+            // 灶 攻 0:出手循环不能因为 Attack <= 0 提前返回,否则它一点输出都没有
+            var engine = Engine(new[] { "焰" }, new[] { Dummy(hp: 200) });
+            engine.Cast("焰");
+            engine.EndTurn(); // 召唤物出手挂灼烧;本回合的灼烧结算段排在召唤段之前,故这层还没吃 tick
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn(); // 下一次结算:灼烧照常在这里掉血
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(before), "灼烧照常在下一次结算掉血");
+        }
+
+        [Test]
+        public void OnHitBurn_SingleTarget_OnlyBurnsTheOneItHit()
+        {
+            var engine = Engine(new[] { "燎" }, new[] { Dummy(hp: 200), Dummy(hp: 200) });
+            engine.Cast("燎");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+            Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void OnHitBurnAll_BurnsEveryLivingEnemy()
+        {
+            var engine = Engine(new[] { "炬" }, new[] { Dummy(hp: 200), Dummy(hp: 200) });
+            engine.Cast("炬");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
+            Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void OnHitCurse_AppliesCurseToTarget()
+        {
+            var engine = Engine(new[] { "咒" }, new[] { new EnemyDef("靶", Element.Heart, 200, 8) });
+            engine.Cast("咒");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Curse), Is.True);
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(6)); // 8 × 0.75
+        }
+
+        [Test]
+        public void OnHitCurse_TwoCursingSummons_DoNotStack()
+        {
+            var engine = Engine(new[] { "咒", "咒" }, new[] { new EnemyDef("靶", Element.Heart, 200, 8) });
+            engine.Cast("咒");
+            engine.Cast("咒");
+            Assert.That(engine.Summons.Count, Is.EqualTo(2));
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(6), "两只都挂了,仍是 −25%");
+        }
+
+        [Test]
+        public void OnHitCurse_AlsoWeakensBossSkills()
+        {
+            // Boss 大招读的就是 enemy.Attack,诅咒自动生效——这条钉死它,免得日后有人
+            // 把大招改成读 BaseAttack 就悄悄绕过了诅咒
+            var boss = new EnemyDef("涛", Element.Heart, 500, 8,
+                phases: new[] { new BossPhaseDef("涛", Element.Heart, 500, 8, skill: BossSkill.Deluge) });
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 },
+                new[] { "咒" }, Array.Empty<string>(), new[] { boss }, seed: 1);
+            engine.Cast("咒");
+            engine.EndTurn(); // 召唤物出手挂诅咒;Boss 蓄力
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(6)); // 8 × 0.75
+
+            int hpBefore = engine.PlayerHp;
+            engine.EndTurn(); // 释放淹没:玩家份 = Attack × 2
+            Assert.That(hpBefore - engine.PlayerHp, Is.EqualTo(12), "12 = 6×2,不是未诅咒的 16");
+        }
+
+        [Test]
+        public void OnHit_NoLivingEnemy_AppliesNothing()
+        {
+            // 敌人已被打死时召唤段直接跳出,不该对尸体挂状态
+            var engine = Engine(new[] { "燎" }, new[] { Dummy(hp: 200) });
+            engine.Cast("燎");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
+                "第一回合正常挂 1 层");
         }
     }
 }
