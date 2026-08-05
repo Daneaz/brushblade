@@ -893,6 +893,15 @@ namespace Brushblade.Core
                             _summons[slot] = newborn; // 原地顶替:下标稳定,表现层血条引用不错位
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
+                        // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
+                        // 它是一次性额外血条 —— 吸完即无、不刷新、不随回合清空(召唤物本身就是
+                        // 消耗品,再加个衰减太碎)。盾是"资源",跟血/攻一样吃卡等级
+                        if (effect.SummonShield > 0)
+                        {
+                            int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);
+                            foreach (var summon in _summons)
+                                if (summon.Alive) summon.Shield += shieldGrant;
+                        }
                         break;
                 }
             }
@@ -1084,13 +1093,17 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
         }
 
-        /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则)。</summary>
+        /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则),护盾先吸收(2026-08-05)。
+        /// SummonHit 的 Amount 仍报吃到的总伤害,吸收量走第 5 个参数 —— 与 DamagePlayerDirect
+        /// 发 EnemyAttack 的口径一致,表现层才能一套逻辑画两边。</summary>
         private void DamageSummon(int enemyIndex, int summonIndex, int damage, Element attacker)
         {
             var summon = _summons[summonIndex];
             int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
-            summon.Hp = Math.Max(0, summon.Hp - taken);
-            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex));
+            int absorbed = Math.Min(summon.Shield, taken);
+            summon.Shield -= absorbed;
+            summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed));
         }
 
         /// <summary>Boss 回合三态(spec 2026-07-28):释放 / 蓄力 / 交回普攻。

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
 
@@ -36,6 +37,10 @@ namespace Brushblade.Core.Tests
             new CharDef("咒", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 4, summonChar: "木",
                     passive: new SummonPassive { OnHitCurse = 25 }) }),
+            // 盾:召 2 只 + 出字给全场召唤物各 6 盾(桂)
+            new CharDef("盾", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 2, summonAttack: 0, summonChar: "木",
+                    summonShield: 6) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -294,6 +299,57 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
                 "第一回合正常挂 1 层");
+        }
+
+        // ---- 召唤物护盾 ----
+
+        [Test]
+        public void SummonShield_AbsorbsBeforeHp()
+        {
+            // 敌人攻 4,召唤物 10 血 6 盾:第一击全被盾吃掉,血不掉
+            var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            engine.Cast("盾");
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(6));
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "血量不动");
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(2), "盾从 6 扣到 2");
+        }
+
+        [Test]
+        public void SummonShield_OnceDepleted_DoesNotRefresh()
+        {
+            var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            engine.Cast("盾");
+            engine.EndTurn(); // 盾 6 → 2
+            engine.EndTurn(); // 盾 2 → 0,溢出的 2 点进血
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0));
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(8));
+            engine.EndTurn(); // 不刷新,整 4 点进血
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "护盾不随回合补满");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void SummonShield_CoversSummonsAlreadyOnField()
+        {
+            // 先召一只无盾的素,再出盾:场上两批都该拿到 6 点
+            var engine = Engine(new[] { "素", "盾" }, new[] { Dummy() });
+            engine.Cast("素");
+            engine.Cast("盾");
+            Assert.That(engine.Summons.Count, Is.EqualTo(3));
+            foreach (var summon in engine.Summons)
+                Assert.That(summon.Shield, Is.EqualTo(6), "先在场的那只也要吃到");
+        }
+
+        [Test]
+        public void SummonHit_ReportsAbsorbedAmount()
+        {
+            var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            engine.Cast("盾");
+            engine.EndTurn();
+            var hit = engine.LastEvents.First(e => e.Kind == BattleEventKind.SummonHit);
+            Assert.That(hit.Amount, Is.EqualTo(4), "Amount 仍报吃到的总伤害");
+            Assert.That(hit.Absorbed, Is.EqualTo(4), "全被盾吸走");
         }
     }
 }
