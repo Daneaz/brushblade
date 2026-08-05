@@ -67,7 +67,7 @@ def test_extract_pulls_91_implementable_chars():
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
-    assert values["燚"]["rarity"] == "Gold"
+    assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"
 
 
