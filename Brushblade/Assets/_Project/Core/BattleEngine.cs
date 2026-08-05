@@ -941,9 +941,13 @@ namespace Brushblade.Core
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
-            // 承伤减免(坚壁/「山」类)遇属性克制失效:被克(×1.5)直接按克制结算,不再乘减免
-            if (enemy.DamageTaken != 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) < 1.5f)
-                damage = (int)Math.Floor(damage * enemy.DamageTaken);
+            float taken = enemy.DamageTaken;
+            // 减免(<1)遭属性克制失效:被克(×1.5)直接按克制结算,不再乘减免。
+            // 判断用 < 1 而非 != 1 —— 破甲会把承伤升到 1 以上,那属于加成,不该被这条连坐
+            if (taken < 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) >= 1.5f)
+                taken = 1f;
+            if (taken != 1f)
+                damage = (int)Math.Floor(damage * taken);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
 

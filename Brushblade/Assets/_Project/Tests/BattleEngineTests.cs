@@ -252,6 +252,7 @@ namespace Brushblade.Core.Tests
             Assert.That(CharDef.ApCostFor(CardRarity.Green), Is.EqualTo(1));
             Assert.That(CharDef.ApCostFor(CardRarity.Blue), Is.EqualTo(1));
             Assert.That(CharDef.ApCostFor(CardRarity.Purple), Is.EqualTo(1));
+            Assert.That(CharDef.ApCostFor(CardRarity.Gold), Is.EqualTo(1));
             Assert.That(CharDef.ApCostFor(CardRarity.Orange), Is.EqualTo(1));
             Assert.That(CharDef.ApCostFor(CardRarity.Red), Is.EqualTo(1));
         }
@@ -1175,6 +1176,40 @@ namespace Brushblade.Core.Tests
                 new[] { new EnemyDef("垒", Element.Earth, 100, 0, damageTaken: 0.5f) }, seed: 1);
             engine.Cast("涓"); // 土克水:水打土被克 ×0.5,坚壁仍生效:floor(10 × 0.5 × 0.5)=2
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(98));
+        }
+
+        // ---- 承伤结算(2026-08-05):减免遭克失效,加成始终生效 ----
+
+        [Test]
+        public void DamageTaken_AboveOne_SurvivesElementCounter()
+        {
+            // 承伤 1.25 的金系敌人,挨火系克制攻击(火克金 ×1.5):
+            // 加成不该被「减免遭克失效」那条规则连坐吃掉
+            var armored = new EnemyDef("锈", Element.Metal, 500, 0,
+                EnemyAbility.None, null, 1.25f);
+            var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
+                Array.Empty<string>(), new[] { armored }, 42);
+            int hp0 = engine.Enemies[0].Hp;
+
+            engine.Cast("灯", 0); // 灯:DamageSingle 6,火系
+
+            // floor(6 × 1.5 克制 × 1.25 加成) = 11
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(11));
+        }
+
+        [Test]
+        public void DamageTaken_BelowOne_StillLostToElementCounter() // 既有行为,不许变
+        {
+            var tough = new EnemyDef("锈", Element.Metal, 500, 0,
+                EnemyAbility.None, null, 0.5f);
+            var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
+                Array.Empty<string>(), new[] { tough }, 42);
+            int hp0 = engine.Enemies[0].Hp;
+
+            engine.Cast("灯", 0);
+
+            // 减免遭克失效:floor(6 × 1.5) = 9,不再 ×0.5
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(9));
         }
 
         [Test]
