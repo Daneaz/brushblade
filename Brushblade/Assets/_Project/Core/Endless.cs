@@ -11,7 +11,12 @@ namespace Brushblade.Core
         public IReadOnlyList<EnemyDef> EnemyPool { get; set; }
         public IReadOnlyList<EnemyDef> BossPool { get; set; }
         public IReadOnlyList<IdiomBossDef> IdiomBossPool { get; set; } = System.Array.Empty<IdiomBossDef>();
-        public IReadOnlyList<string> RewardPool { get; set; }
+
+        /// <summary>层段字奖励池。⚠️ enemies.json 里**不再配这一项**(2026-08-05 清掉死配置):
+        /// 战利品只出自出阵表(2026-07-20 拍板),GameRoot 接线时无条件覆盖为 meta.Deck,
+        /// 层段写死的那份从来没生效过。ConfigLoader 对缺失项给空列表(不是 null),别往回填。</summary>
+        public IReadOnlyList<string> RewardPool { get; set; } = System.Array.Empty<string>();
+
         public int MilestoneInk { get; set; }
     }
 

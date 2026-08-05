@@ -173,6 +173,37 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Won), "首层没能在一回合内清掉");
         }
 
+        /// <summary>层段的 rewardPool 是死配置,2026-08-05 从 enemies.json 清掉:
+        /// 战利品只出自出阵表(GameRoot 无条件覆盖为 meta.Deck)。这里守两件事——
+        /// 配置里没被填回去,且缺失项解析成**空列表而不是 null**(RollRewardOptions 直接 foreach 它)。</summary>
+        [Test]
+        public void ShippedConfig_BandRewardPools_AreEmptyNotNull()
+        {
+            var campaign = ShippedCampaign(out _);
+            foreach (var band in campaign.Endless.Bands)
+            {
+                Assert.That(band.RewardPool, Is.Not.Null, $"{band.Name}: 解析成 null 会让抽奖 NRE");
+                Assert.That(band.RewardPool, Is.Empty, $"{band.Name}: 死配置被填回来了");
+            }
+        }
+
+        [Test]
+        public void ShippedConfig_SegmentFromEmptyBandPool_StillBuilds()
+        {
+            var campaign = ShippedCampaign(out _);
+            var segment = EndlessGenerator.BuildSegment(campaign.Endless, fromDepth: 1, seed: 7);
+            Assert.That(segment.RewardPool, Is.Not.Null); // GameRoot 覆盖前必须已是空列表
+            Assert.That(segment.RewardPool, Is.Empty);
+        }
+
+        private static CampaignConfig ShippedCampaign(out RecipeGraph graph)
+        {
+            graph = RealGraph();
+            return ConfigLoader.LoadCampaign(
+                File.ReadAllText(Path.Combine(RepoRoot(),
+                    "Brushblade/Assets/StreamingAssets/config/enemies.json")), graph);
+        }
+
         private static string RepoRoot()
         {
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
