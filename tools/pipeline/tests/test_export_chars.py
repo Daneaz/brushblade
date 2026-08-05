@@ -60,10 +60,10 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_100_implementable_chars():
+def test_extract_pulls_109_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 100
+    assert len(values) == 109
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
@@ -90,3 +90,40 @@ def test_extract_ignore_armor_flag_attaches_to_damage_effect():
     for char in ("锥", "刺", "錰"):
         hit = next(e for e in values[char]["effects"] if e["kind"] == "DamageSingle")
         assert hit.get("ignoreArmor") is True, f"「{char}」应带 ignoreArmor"
+
+
+def test_summon_passive_is_extracted():
+    """召唤行的被动 token 要抽进 effects[0]['passive']。"""
+    from extract_values import _parse_effects
+    config = "`Summon 1`(20 血/攻 7)+ `SummonSpeed 150` + `Thorns 3`"
+    effects = _parse_effects(config, "木")
+    assert effects[0]["passive"] == {"speed": 150, "thorns": 3}
+
+
+def test_summon_burn_aura_all_flag():
+    config = "`Summon 1`(22 血/攻 0)+ `OnHitBurn 3` + `OnHitBurnAll`"
+    from extract_values import _parse_effects
+    effects = _parse_effects(config, "火")
+    assert effects[0]["attack"] == 0
+    assert effects[0]["passive"] == {"onHitBurn": 3, "onHitBurnAll": True}
+
+
+def test_summon_shield_is_top_level_not_passive():
+    """桂 的护盾发给全场,不是这只召唤物自带的 —— 平铺在 effect 上而非进 passive。"""
+    from extract_values import _parse_effects
+    effects = _parse_effects("`Summon 2`(22 血/攻 9)+ `SummonShield 6`", "木")
+    assert effects[0]["summonShield"] == 6
+    assert "passive" not in effects[0]
+
+
+def test_summon_without_passive_has_no_passive_key():
+    from extract_values import _parse_effects
+    effects = _parse_effects("`Summon 1`(28 血/攻 3)", "木")
+    assert "passive" not in effects[0]
+    assert "summonShield" not in effects[0]
+
+
+def test_jing_uses_manual_recipe_not_rare_ids_part():
+    """荆 的 IDS 是 ⿰茾刂,茾 是生僻字 —— 人工兜底成 艹+刂。"""
+    from export_chars import MANUAL_RECIPES
+    assert MANUAL_RECIPES["荆"] == ["艹", "刂"]

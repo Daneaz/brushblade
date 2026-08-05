@@ -51,10 +51,19 @@ def _blocked_smp_part(recipe):
     return None
 
 
+# 人工配方兜底(非叠字):IDS 拆出来的部件太生僻,字体子集与玩家辨识都是负担。
+# 荆 的 IDS 是 ⿰茾刂,茾(U+833E)基本没人认得;评分版口径就是 艹+刂,照它来。
+MANUAL_RECIPES = {
+    "荆": ["艹", "刂"],
+}
+
+
 def recipe_for(char, index):
-    """叠字取人工表,其余取 IDS 一级拆解;不可拆返回 []。"""
+    """叠字取人工表,人工兜底表次之,其余取 IDS 一级拆解;不可拆返回 []。"""
     if char in STACK_RECIPES:
         return list(STACK_RECIPES[char])
+    if char in MANUAL_RECIPES:
+        return list(MANUAL_RECIPES[char])
     return split_once(char, index) or []
 
 

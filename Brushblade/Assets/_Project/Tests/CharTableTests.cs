@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Brushblade.Core;
@@ -99,6 +101,49 @@ namespace Brushblade.Core.Tests
                 var hit = graph.Get(id).Effects.First(e => e.Kind == EffectKind.DamageSingle);
                 Assert.That(hit.IgnoreArmor, Is.True, $"「{id}」应带穿甲标记");
             }
+        }
+
+        [Test]
+        public void RealConfig_SummonPassiveChars_CarryTheirPassive()
+        {
+            // passive 若没从 JSON 传到 EffectDef,这些字照常能召唤,但被动会静默消失
+            var graph = RealGraph();
+            var expected = new Dictionary<string, Action<SummonPassive>>
+            {
+                ["烓"] = p => { Assert.That(p.OnHitBurn, Is.EqualTo(3)); Assert.That(p.OnHitBurnAll, Is.True); },
+                ["灶"] = p => { Assert.That(p.OnHitBurn, Is.EqualTo(2)); Assert.That(p.OnHitBurnAll, Is.False); },
+                ["楸"] = p => Assert.That(p.OnHitBurn, Is.EqualTo(1)),
+                ["荆"] = p => Assert.That(p.Thorns, Is.EqualTo(3)),
+                ["桃"] = p => Assert.That(p.HealAlly, Is.EqualTo(3)),
+                ["槐"] = p => Assert.That(p.OnHitCurse, Is.EqualTo(25)),
+                ["桤"] = p => Assert.That(p.Speed, Is.EqualTo(150)),
+            };
+            foreach (var pair in expected)
+            {
+                var summon = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.Summon);
+                Assert.That(summon.Passive, Is.Not.Null, $"「{pair.Key}」应带被动");
+                pair.Value(summon.Passive);
+            }
+        }
+
+        [Test]
+        public void RealConfig_GuiGrantsSummonShield()
+        {
+            var graph = RealGraph();
+            var summon = graph.Get("桂").Effects.First(e => e.Kind == EffectKind.Summon);
+            Assert.That(summon.SummonShield, Is.EqualTo(6));
+            Assert.That(summon.SummonCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void RealConfig_JiaoIsPlainTankSummon()
+        {
+            // 蕉 靠高血低攻当天然肉盾,不该被顺手加上被动
+            var graph = RealGraph();
+            var summon = graph.Get("蕉").Effects.First(e => e.Kind == EffectKind.Summon);
+            Assert.That(summon.Value, Is.EqualTo(28));
+            Assert.That(summon.SummonAttack, Is.EqualTo(3));
+            Assert.That(summon.Passive, Is.Null);
         }
 
         [Test]
