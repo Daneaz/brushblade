@@ -13,12 +13,14 @@ namespace Brushblade.Core
         HealOverTime,     // 持续治疗
         DamageReduction,  // 减伤百分比
         AttackBuff,       // 攻击加成
+        ArmorBreak,       // 破甲:承伤 +25%,不叠层(2026-08-05)
     }
 
     public enum StatusPolarity { Buff, Debuff }
 
     /// <summary>一条状态。Magnitude 按 Kind 解读:Burn=层数、Bleed/HealOverTime=每回合量、
-    /// DamageReduction=百分比、SpeedModifier=速度点数、AttackBuff=攻击加成。</summary>
+    /// DamageReduction=百分比、SpeedModifier=速度点数、AttackBuff=攻击加成、
+    /// ArmorBreak=承伤加成百分比(DamageEnemy 直接读这个字段,不再读常量)。</summary>
     public sealed class StatusEffect
     {
         public StatusKind Kind { get; set; }

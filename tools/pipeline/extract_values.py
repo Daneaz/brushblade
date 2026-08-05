@@ -56,6 +56,8 @@ def _parse_effects(config, element):
         effect = {"kind": kind, "value": int(value)}
         if kind.startswith("Damage") and "DoubleVsBurning" in config:
             effect["doubleVsBurning"] = True
+        if kind.startswith("Damage") and "ignoreArmor" in config:
+            effect["ignoreArmor"] = True
         if kind == "Shield" and "PersistOnce" in config:
             effect["persistOnce"] = True
         effects.append(effect)

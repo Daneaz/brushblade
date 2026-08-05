@@ -90,6 +90,29 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void RealConfig_PierceChars_CarryIgnoreArmorFlag()
+        {
+            // ignoreArmor 若没从 JSON 传到 EffectDef,字照常能打但穿甲效果静默消失
+            var graph = RealGraph();
+            foreach (var id in new[] { "锥", "刺", "錰" })
+            {
+                var hit = graph.Get(id).Effects.First(e => e.Kind == EffectKind.DamageSingle);
+                Assert.That(hit.IgnoreArmor, Is.True, $"「{id}」应带穿甲标记");
+            }
+        }
+
+        [Test]
+        public void RealConfig_ArmorBreakChars_CarryTwoTurns()
+        {
+            var graph = RealGraph();
+            foreach (var id in new[] { "熔", "溃", "溶", "锤", "破", "碎" })
+            {
+                var brk = graph.Get(id).Effects.First(e => e.Kind == EffectKind.ArmorBreak);
+                Assert.That(brk.Value, Is.EqualTo(2), $"「{id}」破甲应持续 2 回合");
+            }
+        }
+
+        [Test]
         public void RealConfig_MaxHpEvents_ReachEventOption()
         {
             // 养气/淬骨/换气:maxHpPercent 与 maxHpChancePercent 得真从 JSON 传到 EventOption

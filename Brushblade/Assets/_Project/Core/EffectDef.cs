@@ -17,6 +17,7 @@ namespace Brushblade.Core
         Freeze,       // 冻结:目标跳过 Value 个回合(2026-08-03;藤的「束缚」也走这个)
         Slow,         // 减速:半速,每 2 回合才行动一次,持续 Value 回合(2026-08-03)
         DamageReduction,  // 减伤:受伤 −Value%,乘法叠加、同字不叠、段内持久(2026-08-03)
+        ArmorBreak,   // 破甲:目标承伤 +25%,持续 Value 回合。不叠层,重复施加只刷新(2026-08-05)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
@@ -46,10 +47,14 @@ namespace Brushblade.Core
         /// <summary>治疗类:true = 覆盖玩家与全部召唤物。</summary>
         public bool TargetAll { get; }
 
+        /// <summary>伤害类:无视目标的承伤减免,并额外 +15% 伤害(穿甲,2026-08-05)。
+        /// 只忽略减免(&lt;1),不忽略破甲加成 —— 「无视防御」≠「无视一切修正」。</summary>
+        public bool IgnoreArmor { get; }
+
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
-            int turns = 0, bool targetAll = false)
+            int turns = 0, bool targetAll = false, bool ignoreArmor = false)
         {
             Kind = kind;
             Value = value;
@@ -60,6 +65,7 @@ namespace Brushblade.Core
             SummonChar = summonChar;
             Turns = turns;
             TargetAll = targetAll;
+            IgnoreArmor = ignoreArmor;
         }
     }
 }
