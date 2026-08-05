@@ -41,13 +41,13 @@ namespace Brushblade.Presentation
             _meta = MetaStore.Load();
             MetaRules.PruneUnknownCards(_meta, _graph); // 字表裁剪后清洗旧存档引用
 
-            // 初始收集保底 = 五系 2 叠字各一张(2026-07-19 拍板;缺哪张补哪张,教程依赖 炎)
-            foreach (var card in new[] { "鍂", "林", "沝", "炎", "圭" })
+            // 初始收集保底 = 五系各白/绿/蓝一张(2026-08-05 拍板;缺哪张补哪张,唯一来源见 MetaRules)
+            foreach (var card in MetaRules.StartingCollection)
                 if (!_meta.OwnedCards.Contains(card))
                     MetaRules.AcquireCard(_meta, card);
-            // 出阵不足下限 → 播默认五系(补齐已废止,空出阵 = 空手登塔)
+            // 出阵不足下限 → 播默认五系蓝档(补齐已废止,空出阵 = 空手登塔)
             if (_meta.Deck.Count < MetaRules.DeckMinimum)
-                MetaRules.TrySetDeck(_meta, new[] { "炎", "鍂", "沝", "林", "圭" }, _graph);
+                MetaRules.TrySetDeck(_meta, MetaRules.StartingDeck, _graph);
 
             ShowMap();
         }
@@ -154,7 +154,10 @@ namespace Brushblade.Presentation
                     PlayerHp = MetaRules.MaxHpFor(level) + PerkRules.HpBonus(_meta),
                     Seed = System.Environment.TickCount,
                     Library = new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta)),
-                    Pool = new System.Collections.Generic.List<string> { "火", "火" }, // 教程连招原料:拆炎→合炎→合焱
+                    // 初始部件从出阵表所需部件里随机(2026-08-05):拿到的部件必拼得出手里的字。
+                    // 教程不靠这个池——拆演示字本身就产出它的两个部件。
+                    Pool = new System.Collections.Generic.List<string>(MetaRules.RollStartingPool(
+                        _meta.Deck, _graph, new GameRandom(System.Environment.TickCount))),
                     NormalShield = PerkRules.ShieldBonus(_meta), // 金汤:首段段首护盾
                 };
                 MetaStore.Save(_meta);

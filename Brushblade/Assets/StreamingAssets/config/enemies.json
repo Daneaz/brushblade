@@ -456,12 +456,8 @@
       "text": "你撞见自己历次失败留下的废稿。废稿也是稿。",
       "options": [
         {
-          "label": "翻找部件(得 木·木·火)",
-          "gainComponents": [
-            "木",
-            "木",
-            "火"
-          ]
+          "label": "翻找部件(随机部件 ×3)",
+          "randomComponents": 3
         },
         {
           "label": "静心重读(HP +8)",
@@ -529,10 +525,8 @@
           "hpDelta": 20
         },
         {
-          "label": "烤字取暖(得部件 火)",
-          "gainComponents": [
-            "火"
-          ]
+          "label": "烤字取暖(随机部件 ×1)",
+          "randomComponents": 1
         },
         {
           "label": "起身赶路"
@@ -568,11 +562,8 @@
           "gainChar": "鍂"
         },
         {
-          "label": "描摹碑文(得部件 土·土)",
-          "gainComponents": [
-            "土",
-            "土"
-          ]
+          "label": "描摹碑文(随机部件 ×2)",
+          "randomComponents": 2
         },
         {
           "label": "肃然离开"

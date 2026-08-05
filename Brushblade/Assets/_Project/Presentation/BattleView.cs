@@ -493,9 +493,9 @@ namespace Brushblade.Presentation
 
         private static string TutorialText(TutorialStep step) => step switch
         {
-            TutorialStep.DismantleFlame => "选中【炎】点【拆】——拆出两个部件『火』",
-            TutorialStep.RecomposeFlame => "两个『火』能拼回去:点提示里的【合 炎】——拆与合互为表里",
-            TutorialStep.CastFlame => "选中【炎】点【出】——伤害 + 灼烧,回合末灼烧补刀收场",
+            TutorialStep.DismantleDemo => "选中【剑】点【拆】——拆出两个部件『佥』『刂』",
+            TutorialStep.RecomposeDemo => "两个部件能拼回去:点提示里的【合 剑】——拆与合互为表里",
+            TutorialStep.CastDemo => "选中【剑】点【出】——金克木,一剑斩掉这只木系字怪",
             TutorialStep.PickReward => "战利品:选中意的字,最多挑 2 个——出过的字不回来,靠拆合再生产",
             _ => "",
         };
