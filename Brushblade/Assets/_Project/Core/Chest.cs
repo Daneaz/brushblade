@@ -216,8 +216,8 @@ namespace Brushblade.Core
             return true;
         }
 
-        // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→红→金)
-        // 首发仅绿/蓝/紫三档,白/橙/红/金列留 0 待扩展;绿蓝紫三列合计 100 = 实际出卡百分比。
+        // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→绿→蓝→紫→金→橙→红)
+        // 首发仅绿/蓝/紫三档,白/金/橙/红列留 0 待扩展;绿蓝紫三列合计 100 = 实际出卡百分比。
         private static readonly int[][] CardRarityWeights =
         {
             new[] { 0, 92, 8, 0, 0, 0, 0 },   // 素纸

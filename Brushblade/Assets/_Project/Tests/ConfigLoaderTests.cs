@@ -152,9 +152,9 @@ namespace Brushblade.Core.Tests
                 new[] { "火", "炎", "焱", "燚" },
                 new[] { "土", "圭", "垚", "㙓" },
             };
-            // 稀有度阶梯(详表 1.2 迁移,2026-08-03):部件白 / 2叠紫 / 3叠橙 / 4叠金。
+            // 稀有度阶梯(详表 1.2 迁移,2026-08-03):部件白 / 2叠紫 / 3叠金 / 4叠红。
             // AP 与稀有度解耦后此迁移不影响手感,但让四叠字坐实「压箱底」的定位。
-            var rarities = new[] { CardRarity.White, CardRarity.Purple, CardRarity.Orange, CardRarity.Gold };
+            var rarities = new[] { CardRarity.White, CardRarity.Purple, CardRarity.Gold, CardRarity.Red };
             foreach (var ladder in ladders)
                 for (int i = 0; i < ladder.Length; i++)
                 {

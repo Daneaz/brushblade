@@ -35,19 +35,16 @@ namespace Brushblade.Presentation
         };
 
         /// <summary>元件个数与透明度上限(§4.2 的「音量」)。白/绿只给一件、极淡 —— 暗示级。
-        /// ⚠️ 稀有度显示皮肤错位映射(2026-08-04,接入金卡素材,与 Theme.RarityColor 等同一套映射):
-        /// 枚举名/数值是**强度档位**(不可改),音量按 白→绿→蓝→紫→金→橙→红 的视觉层级递增——
-        /// 枚举 Orange(显示"金")取一个介于紫、橙之间的中间值,枚举 Red(显示"橙")取原 Orange 的音量,
-        /// 新增枚举 Gold(显示"红",强度最高)取原 Red 的音量。刻意错位,不是 bug。</summary>
+        /// 音量按 白→绿→蓝→紫→金→橙→红 的视觉层级递增。</summary>
         private static (int count, float alpha) VolumeOf(CardRarity rarity) => rarity switch
         {
             CardRarity.White => (1, 0.20f),
             CardRarity.Green => (1, 0.28f),
             CardRarity.Blue => (2, 0.40f),
             CardRarity.Purple => (3, 0.52f),
-            CardRarity.Orange => (3, 0.58f),  // 显示"金":介于 Purple(0.52) 与原 Orange 音量(0.64)之间
-            CardRarity.Red => (3, 0.64f),     // 显示"橙":原 Orange 的音量
-            CardRarity.Gold => (4, 0.78f),    // 显示"红"(强度最高):原 Red 的音量
+            CardRarity.Gold => (3, 0.58f),    // 金:介于紫(0.52)与橙(0.64)之间
+            CardRarity.Orange => (3, 0.64f),
+            CardRarity.Red => (4, 0.78f),
             _ => (1, 0.2f),
         };
 
@@ -220,28 +217,23 @@ namespace Brushblade.Presentation
                 case CardRarity.Purple: // 边缘辉光呼吸
                     alpha = 0.50f + 0.30f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2f / BreathePeriod));
                     break;
-                case CardRarity.Orange: // 金边流光:光条沿顶栏来回,幅度小到不出框
-                                         // (枚举 Orange 现显示"金"皮肤——这条注释原本就是按皮肤写的,不用改)
+                case CardRarity.Gold: // 金边流光:光条沿顶栏来回,幅度小到不出框
                 {
                     float u = Mathf.Repeat(t / FlowPeriod, 1f);
                     x = Mathf.Sin(u * Mathf.PI * 2f) * 0.068f * _size.x; // 光条只占 69% 牌宽,这个幅度不出牌
                     alpha = 0.62f + 0.28f * Mathf.Abs(Mathf.Cos(u * Mathf.PI * 2f));
                     break;
                 }
-                // 枚举 Red 现显示"橙"皮肤,原来这一档没有专属光效(空档)。沿用流光形态但调得比金档
-                // (Orange 分支)更快更亮:光带幅度 0.078 > 0.068,基线 alpha 0.68 > 0.62 —— 体现
-                // 「金 < 橙 < 红」的视觉层级是递增的,不是任务描述里字面的「弱于金档」
-                // (那样会让显示层级更高的"橙"看起来比"金"更暗,前后矛盾,这里改成递增更自洽)。
-                case CardRarity.Red:
+                // 橙沿用流光形态,但比金档更快更亮:幅度 0.078 > 0.068,基线 alpha 0.68 > 0.62,
+                // 让「金 < 橙 < 红」的视觉层级递增。
+                case CardRarity.Orange:
                 {
                     float u = Mathf.Repeat(t / FlowPeriodBright, 1f);
                     x = Mathf.Sin(u * Mathf.PI * 2f) * 0.078f * _size.x;
                     alpha = 0.68f + 0.30f * Mathf.Abs(Mathf.Cos(u * Mathf.PI * 2f));
                     break;
                 }
-                // 枚举 Gold(强度最高)现显示"红"皮肤:把原 CardRarity.Red 的「星芒明灭」逻辑**搬到**这里
-                // (不是复制两份)——旧枚举 Red 已改挂"橙"皮肤,不再用这段效果。
-                case CardRarity.Gold:
+                case CardRarity.Red: // 星芒明灭(最高档)
                     alpha = 0.72f + 0.24f * Mathf.Sin(t * Mathf.PI * 2f / TwinklePeriod);
                     break;
             }

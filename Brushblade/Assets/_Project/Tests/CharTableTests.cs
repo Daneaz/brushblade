@@ -32,13 +32,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_FiveStackCharsAreGold()
+        public void RealConfig_FiveStackCharsAreTopRarity()
         {
             // 𣛧/𨰻 是增补平面字符,UGUI Text 不支持代理对显示,落地时换成 PUA 代理码位
             // (subset_fonts.py 的 STACKED,U+E625 = 四木、U+E626 = 四金)。
             var graph = RealGraph();
             foreach (var id in new[] { "燚", "㵘", "㙓", "\uE625", "\uE626" })
-                Assert.That(graph.Get(id).Rarity, Is.EqualTo(CardRarity.Gold), $"{id} 应为金档");
+                Assert.That(graph.Get(id).Rarity, Is.EqualTo(CardRarity.Red), $"{id} 应为红档(最高)");
         }
 
         [Test]

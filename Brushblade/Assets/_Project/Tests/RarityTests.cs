@@ -44,11 +44,11 @@ namespace Brushblade.Core.Tests
             // 白卡 1 级:2 卡 / 20 墨锭(基准)
             Assert.That(MetaRules.CopiesRequired(1, CardRarity.White), Is.EqualTo(2));
             Assert.That(MetaRules.InkRequired(1, CardRarity.White), Is.EqualTo(20));
-            // 红卡需卡 ≈ 白的 1/10(向上取整,最少 1),墨锭 ×5
+            // 红卡(最高档)需卡 ≈ 白的 1/20(向上取整,最少 1),墨锭 ×6
             Assert.That(MetaRules.CopiesRequired(1, CardRarity.Red), Is.EqualTo(1));
-            Assert.That(MetaRules.InkRequired(1, CardRarity.Red), Is.EqualTo(100));
-            // 高等级同样成立:白 9 级 500 卡 → 红 50 卡
-            Assert.That(MetaRules.CopiesRequired(9, CardRarity.Red), Is.EqualTo(50));
+            Assert.That(MetaRules.InkRequired(1, CardRarity.Red), Is.EqualTo(120));
+            // 高等级同样成立:白 9 级 500 卡 → 红 25 卡
+            Assert.That(MetaRules.CopiesRequired(9, CardRarity.Red), Is.EqualTo(25));
         }
 
         [Test]
@@ -62,9 +62,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void TryUpgradeCard_UsesRarityScaledCosts()
         {
-            var meta = new MetaState { Ink = 100 };
+            var meta = new MetaState { Ink = 120 };
             MetaRules.AddCardCopies(meta, "燚", 1);
-            // 红卡升 2 级只需 1 张重复卡 + 100 墨锭
+            // 红卡升 2 级只需 1 张重复卡 + 120 墨锭
             Assert.That(MetaRules.TryUpgradeCard(meta, "燚", CardRarity.Red), Is.True);
             Assert.That(meta.Ink, Is.EqualTo(0));
             Assert.That(MetaRules.CardLevel(meta, "燚"), Is.EqualTo(2));
@@ -76,7 +76,7 @@ namespace Brushblade.Core.Tests
         public void ShopPrice_ScalesByRarity()
         {
             Assert.That(ShopRules.CardPriceFor(CardRarity.White), Is.EqualTo(40));
-            Assert.That(ShopRules.CardPriceFor(CardRarity.Red), Is.EqualTo(400));
+            Assert.That(ShopRules.CardPriceFor(CardRarity.Red), Is.EqualTo(600));
             for (var rarity = CardRarity.White; rarity < CardRarity.Red; rarity++)
                 Assert.That(ShopRules.CardPriceFor(rarity + 1),
                     Is.GreaterThan(ShopRules.CardPriceFor(rarity)));
@@ -89,7 +89,7 @@ namespace Brushblade.Core.Tests
             var meta = new MetaState { Ink = 1000 };
             ShopRules.EnsureShelf(meta, new[] { "燚" }, new FakeTime(), new GameRandom(1)); // 货架全是红卡
             Assert.That(ShopRules.TryBuyCard(meta, 0, CardRarity.Red), Is.True);
-            Assert.That(meta.Ink, Is.EqualTo(1000 - 400));
+            Assert.That(meta.Ink, Is.EqualTo(1000 - 600));
         }
 
         // ---- 宝箱抽取:稀有度权重 + 保底(19.5.1) ----
@@ -100,7 +100,7 @@ namespace Brushblade.Core.Tests
                 { ""id"": ""烧"", ""rarity"": ""Green"" },
                 { ""id"": ""壁"", ""rarity"": ""Blue"" },
                 { ""id"": ""焚"", ""rarity"": ""Purple"" },
-                { ""id"": ""焱"", ""rarity"": ""Orange"" },
+                { ""id"": ""焱"", ""rarity"": ""Gold"" },
                 { ""id"": ""燚"", ""rarity"": ""Red"" }
             ]
         }");
@@ -179,7 +179,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ChestWithGoldCards_DoesNotThrow() // 宝箱卡池含金卡时不越界
+        public void ChestWithTopRarityCards_DoesNotThrow() // 宝箱卡池含最高档红卡时不越界
         {
             var graph = ConfigLoader.LoadGraph(@"{
                 ""chars"": [
@@ -187,14 +187,14 @@ namespace Brushblade.Core.Tests
                     { ""id"": ""烧"", ""rarity"": ""Green"" },
                     { ""id"": ""壁"", ""rarity"": ""Blue"" },
                     { ""id"": ""焚"", ""rarity"": ""Purple"" },
-                    { ""id"": ""焱"", ""rarity"": ""Orange"" },
-                    { ""id"": ""燚"", ""rarity"": ""Red"" },
-                    { ""id"": ""焔"", ""rarity"": ""Gold"" }
+                    { ""id"": ""焱"", ""rarity"": ""Gold"" },
+                    { ""id"": ""焔"", ""rarity"": ""Orange"" },
+                    { ""id"": ""燚"", ""rarity"": ""Red"" }
                 ]
             }");
             var time = new FakeTime();
             var meta = new MetaState();
-            // 任意宝箱、包含 Gold 卡的池
+            // 任意宝箱、包含最高档红卡的池
             ChestRules.TryAwardChest(meta, ChestTier.Celadon,
                 new[] { "灯", "烧", "壁", "焚", "焱", "燚", "焔" }, time);
             ChestRules.TryStartOpening(meta, 0, time);
@@ -205,22 +205,22 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void GoldRarity_AllRarityIndexedArrays_DoNotThrow()
+        public void TopRarity_AllRarityIndexedArrays_DoNotThrow()
         {
-            Assert.That(MetaRules.CopiesRequired(1, CardRarity.Gold), Is.GreaterThan(0));
-            Assert.That(MetaRules.InkRequired(1, CardRarity.Gold), Is.GreaterThan(0));
-            Assert.That(ShopRules.CardPriceFor(CardRarity.Gold), Is.GreaterThan(0));
+            Assert.That(MetaRules.CopiesRequired(1, CardRarity.Red), Is.GreaterThan(0));
+            Assert.That(MetaRules.InkRequired(1, CardRarity.Red), Is.GreaterThan(0));
+            Assert.That(ShopRules.CardPriceFor(CardRarity.Red), Is.GreaterThan(0));
         }
 
         [Test]
-        public void GoldRarity_IsRarestTier()
+        public void TopRarity_IsRarestTier() // 红(7)比次高的橙(6)更稀有更贵
         {
-            Assert.That(MetaRules.CopiesRequired(1, CardRarity.Gold),
-                Is.LessThanOrEqualTo(MetaRules.CopiesRequired(1, CardRarity.Red)));
-            Assert.That(MetaRules.InkRequired(1, CardRarity.Gold),
-                Is.GreaterThan(MetaRules.InkRequired(1, CardRarity.Red)));
-            Assert.That(ShopRules.CardPriceFor(CardRarity.Gold),
-                Is.GreaterThan(ShopRules.CardPriceFor(CardRarity.Red)));
+            Assert.That(MetaRules.CopiesRequired(1, CardRarity.Red),
+                Is.LessThanOrEqualTo(MetaRules.CopiesRequired(1, CardRarity.Orange)));
+            Assert.That(MetaRules.InkRequired(1, CardRarity.Red),
+                Is.GreaterThan(MetaRules.InkRequired(1, CardRarity.Orange)));
+            Assert.That(ShopRules.CardPriceFor(CardRarity.Red),
+                Is.GreaterThan(ShopRules.CardPriceFor(CardRarity.Orange)));
         }
     }
 }

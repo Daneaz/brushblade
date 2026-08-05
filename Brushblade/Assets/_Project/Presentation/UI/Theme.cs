@@ -66,19 +66,16 @@ namespace Brushblade.Presentation
             return ink;
         }
 
-        /// <summary>⚠️ 稀有度显示皮肤错位映射(2026-08-04,接入金卡素材):内部枚举名/数值是**强度档位**
-        /// (与战斗数值绑定,White(1) &lt; Green(2) &lt; Blue(3) &lt; Purple(4) &lt; Orange(5) &lt; Red(6) &lt; Gold(7),
-        /// 不可改),但美术侧新增金框后视觉层级要改为 白→绿→蓝→紫→**金**→橙→红——即枚举 Orange 这一档
-        /// 要显示「金」皮肤,枚举 Red 这一档要显示「橙」皮肤,新增枚举 Gold(强度最高)显示「红」皮肤。
-        /// 三处 case 的枚举名与返回色**刻意不对齐**,不是 bug,别"修正"回去。</summary>
+        /// <summary>稀有度色:枚举名 = 皮肤色 = 强度序(见 <see cref="CardRarity"/>),
+        /// 视觉层级 白→绿→蓝→紫→金→橙→红。</summary>
         public static Color RarityColor(CardRarity rarity) => rarity switch
         {
             CardRarity.Green => new Color(0.181f, 0.621f, 0.323f),
             CardRarity.Blue => new Color(0.06f, 0.455f, 0.771f),
             CardRarity.Purple => new Color(0.475f, 0.269f, 0.669f),
-            CardRarity.Orange => new Color(0.788f, 0.663f, 0.29f),  // 显示为"金" #c9a94a(强度档 Orange 的皮肤)
-            CardRarity.Red => new Color(0.883f, 0.473f, 0.106f),    // 显示为"橙"(原 Orange 色值,强度档 Red 的皮肤)
-            CardRarity.Gold => new Color(0.802f, 0.151f, 0.181f),   // 显示为"红"(原 Red 色值,强度档 Gold 的皮肤)
+            CardRarity.Gold => new Color(0.788f, 0.663f, 0.29f),    // 金 #c9a94a
+            CardRarity.Orange => new Color(0.883f, 0.473f, 0.106f), // 橙
+            CardRarity.Red => new Color(0.802f, 0.151f, 0.181f),    // 红
             _ => new Color(0.632f, 0.62f, 0.594f), // 白
         };
 
