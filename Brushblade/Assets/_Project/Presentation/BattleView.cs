@@ -576,7 +576,27 @@ namespace Brushblade.Presentation
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
                 _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
                 Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
+                if (summon.Shield > 0)
+                    Ui.ThemedLabel(cell.transform, $"盾{summon.Shield}", 11, Theme.InkSoft);
+                string passiveTag = SummonPassiveTag(summon.Passive);
+                if (passiveTag.Length > 0)
+                    Ui.ThemedLabel(cell.transform, passiveTag, 11, Theme.Cinnabar);
             }
+        }
+
+        /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
+        /// 一只召唤物只有一种被动(数据侧如此),所以取第一个非零项即可。
+        /// 禁用 emoji —— 字体子集补不出来,上线渲染成空框。</summary>
+        private static string SummonPassiveTag(SummonPassive passive)
+        {
+            if (passive == null) return "";
+            if (passive.OnHitBurn > 0)
+                return passive.OnHitBurnAll ? $"全场灼{passive.OnHitBurn}" : $"附灼{passive.OnHitBurn}";
+            if (passive.Thorns > 0) return $"反伤{passive.Thorns}";
+            if (passive.HealAlly > 0) return $"回血{passive.HealAlly}";
+            if (passive.OnHitCurse > 0) return $"诅咒{passive.OnHitCurse}";
+            if (passive.Speed > 100) return "疾";
+            return "";
         }
 
         // 敌人格尺寸(2026-07-28 随形象接入放大:圆头像 104 → 形象 150,格 168×208 → 190×220)。
@@ -655,6 +675,9 @@ namespace Brushblade.Presentation
                         Theme.Cinnabar, Color.white, 12);
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0) Ui.Chip(chips.transform, $"灼烧 {burnStacks}", Theme.Cinnabar, Color.white, 12);
+                int curse = enemy.Statuses.TotalMagnitude(StatusKind.Curse);
+                if (curse > 0)
+                    Ui.Chip(chips.transform, $"诅咒 −{curse}%", Theme.InkSoft, Color.white, 12);
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)
