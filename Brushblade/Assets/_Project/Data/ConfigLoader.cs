@@ -43,6 +43,7 @@ namespace Brushblade.Data
             public string SummonChar { get; set; } = "木"; // 召唤:显示字
             public int Turns { get; set; }             // 持续类:回合数(HoT 用)
             public bool TargetAll { get; set; }        // 治疗类:是否覆盖全部召唤物
+            public bool IgnoreArmor { get; set; }      // 穿甲:无视减免 + 15% 加成
         }
 
         private sealed class CampaignFileDto
@@ -475,7 +476,7 @@ namespace Brushblade.Data
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
-                    effect.Turns, effect.TargetAll));
+                    effect.Turns, effect.TargetAll, effect.IgnoreArmor));
             }
             return effects;
         }

@@ -1279,6 +1279,83 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.ArmorBreak), Is.False);
         }
 
+        // ---- 穿甲(2026-08-05):忽略目标减免 + 固定 +15%,后者是保底价值 ----
+
+        /// <summary>穿甲测试专用:锥 = DamageSingle 9 带 ignoreArmor;碎 = DamageSingle 4 + 破甲。</summary>
+        private static BattleEngine PierceEngine(EnemyDef enemy)
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("钅", Element.Metal),
+                new CharDef("隹", null),
+                new CharDef("石", Element.Earth),
+                new CharDef("卒", null),
+                new CharDef("锥", Element.Metal, new[] { "钅", "隹" }, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 9, ignoreArmor: true),
+                }),
+                new CharDef("碎", Element.Earth, new[] { "石", "卒" }, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 4),
+                    new EffectDef(EffectKind.ArmorBreak, 2),
+                }),
+            });
+            return new BattleEngine(graph, Config(), new[] { "锥", "碎", "锥" },
+                Array.Empty<string>(), new[] { enemy }, 42);
+        }
+
+        [Test]
+        public void IgnoreArmor_BypassesReductionAndAddsFlatBonus()
+        {
+            // 减免 0.5 的心系敌人(心不参与生克,排除克制干扰)
+            var tough = new EnemyDef("桩", Element.Heart, 500, 0, EnemyAbility.None, null, 0.5f);
+            var engine = PierceEngine(tough);
+            int hp0 = engine.Enemies[0].Hp;
+
+            engine.Cast("锥", 0);   // DamageSingle 9,ignoreArmor
+
+            // 忽略减免 → 1.0,再 +15% → floor(9 × 1.15) = 10
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void IgnoreArmor_FlatBonusAppliesToUnarmoredToo() // 口径 9 的保底价值
+        {
+            var plain = new EnemyDef("桩", Element.Heart, 500, 0);
+            var engine = PierceEngine(plain);
+            int hp0 = engine.Enemies[0].Hp;
+
+            engine.Cast("锥", 0);
+
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10), "floor(9 × 1.15) = 10");
+        }
+
+        [Test]
+        public void IgnoreArmor_StacksWithArmorBreak() // 口径 6:只忽略减免,不忽略破甲加成
+        {
+            var plain = new EnemyDef("桩", Element.Heart, 500, 0);
+            var engine = PierceEngine(plain);
+            engine.Cast("碎", 0);            // 先破甲
+            int hp1 = engine.Enemies[0].Hp;
+
+            engine.Cast("锥", 0);
+
+            // 1 + 0.15 穿甲 + 0.25 破甲 = 1.40 → floor(9 × 1.4) = 12
+            Assert.That(hp1 - engine.Enemies[0].Hp, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void NonPiercing_GetsNoFlatBonus() // 证明 15% 只属于穿甲
+        {
+            var plain = new EnemyDef("桩", Element.Heart, 500, 0);
+            var engine = PierceEngine(plain);
+            int hp0 = engine.Enemies[0].Hp;
+
+            engine.Cast("碎", 0);   // 非穿甲,DamageSingle 4
+
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(4));
+        }
+
         [Test]
         public void Scorch_GainsAttackOnSurvivingHit() // 焦痕自燃:每次被击中且存活,攻 +2
         {

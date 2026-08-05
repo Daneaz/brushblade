@@ -47,10 +47,14 @@ namespace Brushblade.Core
         /// <summary>治疗类:true = 覆盖玩家与全部召唤物。</summary>
         public bool TargetAll { get; }
 
+        /// <summary>伤害类:无视目标的承伤减免,并额外 +15% 伤害(穿甲,2026-08-05)。
+        /// 只忽略减免(&lt;1),不忽略破甲加成 —— 「无视防御」≠「无视一切修正」。</summary>
+        public bool IgnoreArmor { get; }
+
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
-            int turns = 0, bool targetAll = false)
+            int turns = 0, bool targetAll = false, bool ignoreArmor = false)
         {
             Kind = kind;
             Value = value;
@@ -61,6 +65,7 @@ namespace Brushblade.Core
             SummonChar = summonChar;
             Turns = turns;
             TargetAll = targetAll;
+            IgnoreArmor = ignoreArmor;
         }
     }
 }

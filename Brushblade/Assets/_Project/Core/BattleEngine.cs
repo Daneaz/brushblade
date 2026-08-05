@@ -112,6 +112,7 @@ namespace Brushblade.Core
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         private const int ScorchGain = 2; // 焦痕受击存活的加攻量
         private const int ArmorBreakPercent = 25; // 破甲的承伤加成(不叠层,恒定)
+        private const int PierceBonusPercent = 15; // 穿甲的保底加成(对有无减免的目标一律生效)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
         private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
 
@@ -767,13 +768,13 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        DamageEnemy(targetIndex, BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker);
+                        DamageEnemy(targetIndex, BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker, effect.IgnoreArmor);
                         break;
                     case EffectKind.DamageAll:
                         int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE
                         for (int i = 0; i < aoeCount; i++)
                             if (_enemies[i].Alive)
-                                DamageEnemy(i, BaseValue(effect, value, _enemies[i]), recipeElements, attacker);
+                                DamageEnemy(i, BaseValue(effect, value, _enemies[i]), recipeElements, attacker, effect.IgnoreArmor);
                         break;
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
@@ -948,7 +949,7 @@ namespace Brushblade.Core
         }
 
         private void DamageEnemy(int enemyIndex, int baseValue,
-            IReadOnlyCollection<Element> recipeElements, Element attacker)
+            IReadOnlyCollection<Element> recipeElements, Element attacker, bool ignoreArmor = false)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
@@ -957,6 +958,10 @@ namespace Brushblade.Core
             // 判断用 < 1 而非 != 1 —— 破甲会把承伤升到 1 以上,那属于加成,不该被这条连坐
             if (taken < 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) >= 1.5f)
                 taken = 1f;
+            // 穿甲:同样只忽略减免(<1)
+            if (taken < 1f && ignoreArmor) taken = 1f;
+            // 穿甲的保底加成:无条件生效
+            if (ignoreArmor) taken += PierceBonusPercent / 100f;
             // 破甲加成:始终生效(不受克制影响),不叠层故只加一次
             if (enemy.Statuses.Has(StatusKind.ArmorBreak)) taken += ArmorBreakPercent / 100f;
             if (taken != 1f)
