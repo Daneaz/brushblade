@@ -328,15 +328,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void HealAlly_HealsEvenWithNoLivingEnemy()
+        public void HealAlly_StillHealsOnTheTurnSummonsClearTheField()
         {
-            // 回血与出手无关:场上没有可打的目标时也照常回
-            var engine = Engine(new[] { "荫" }, new[] { new EnemyDef("靶", Element.Heart, 200, 20) });
-            engine.EndTurn();                       // 玩家挨 20 → 30
+            // 光环治疗排在出手循环**之前**,所以召唤物清场的那一拍照样回血。
+            // 这条钉的就是位置:治疗若挪到出手之后,清场触发的 CheckWin + return 会把它整个吞掉。
+            var engine = Engine(new[] { "荫", "素" }, new[] { new EnemyDef("靶", Element.Heart, 3, 20) });
+            engine.EndTurn();                       // 场上没召唤物,玩家挨 20 → 30
             Assert.That(engine.PlayerHp, Is.EqualTo(30));
-            engine.Cast("荫");
-            engine.EndTurn();                       // 回 3、再挨 20(召唤物顶),净 +3
-            Assert.That(engine.PlayerHp, Is.EqualTo(33));
+
+            engine.Cast("荫");                       // 攻 0,只负责回血
+            engine.Cast("素");                       // 攻 3,正好收掉 3 血的靶
+            engine.EndTurn();
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won), "召唤段就该清场");
+            Assert.That(engine.PlayerHp, Is.EqualTo(33), "清场那一拍的回血不能被判胜早退吞掉");
         }
 
         // ---- 反伤 ----
@@ -344,11 +349,33 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Thorns_ReflectsFlatDamage_IgnoringWuxing()
         {
-            // 靶是「心」属性,反伤本就不走生克;这里断言反弹的是平值 3 而不是任何倍数
-            var engine = Engine(new[] { "棘" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            // 敌人取金属性(而不是中立的「心」)才有判别力:召唤物是木,金克木,
+            // 反伤若误用 summon.Element 结算就会吃 0.5 的反克 → floor(3×0.5)=1 → 199。
+            // 用「心」当攻击方则恒 1.0x,反弹平值 3 → 197。
+            var engine = Engine(new[] { "棘" }, new[] { new EnemyDef("锈", Element.Metal, 200, 4) });
             engine.Cast("棘");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(197));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(197), "反伤不走生克,反弹平值 3");
+        }
+
+        [Test]
+        public void Thorns_TriggeringSplit_DoesNotOverrunTheEnemyActionBudget()
+        {
+            // 反伤是敌方行动段里**唯一**会打敌人的路径,它打破了「敌方段内 _enemies 不变」
+            // 这个从未言明的前提:叠字怪首次受击存活即分裂扩表,而 actionCount 数组是循环前
+            // 按当时敌人数预分配的 —— 循环上界若跟着 _enemies.Count 走,就会 IndexOutOfRange。
+            // 前排放个非分裂的靶,专门吃掉召唤物那记攻 0 的出手(0 伤也计受击,会提前把分裂用掉)。
+            var engine = Engine(new[] { "棘" }, new[]
+            {
+                new EnemyDef("靶", Element.Heart, 200, 4),
+                new EnemyDef("叠", Element.Heart, 200, 4, EnemyAbility.Split),
+            });
+            engine.Cast("棘");
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies.Count, Is.EqualTo(3), "叠字怪应被反伤打出分裂");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(22),
+                "只该挨两记(4+4):分裂出的新怪没有本回合的行动配额,不许当回合就出手");
         }
 
         [Test]
@@ -365,7 +392,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Thorns_StillReflectsOnTheBlowThatKillsTheSummon()
         {
-            // 荆棘扎人不看自己死没死:1 血召唤物挨致命一击,照样反弹
+            // 荆棘扎人不看自己死没死:30 血召唤物挨 40 的致命一击,照样反弹
             var engine = Engine(new[] { "棘" }, new[] { new EnemyDef("靶", Element.Heart, 200, 40) });
             engine.Cast("棘");
             engine.EndTurn();

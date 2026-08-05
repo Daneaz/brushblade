@@ -646,7 +646,13 @@ namespace Brushblade.Core
             // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力。
             // 按 actionCount[i] 循环——Speed 200 这类会在同一回合行动多次;每次行动前重新
             // 检查 Alive,反伤可能在两次行动之间打死它。
-            for (int i = 0; i < _enemies.Count; i++)
+            // 反伤可能在循环中触发分裂扩表(2026-08-05):新怪没有本回合的行动配额,
+            // 也不该当回合就出手 —— 与 ApplySummonOnHit 里"分裂产生的新怪不吃同一发光环"同口径。
+            // 上界必须取 actionCount.Length 而不是 _enemies.Count:后者每轮重新求值,
+            // 扩表后会走到没有配额的新下标上 IndexOutOfRange
+            // (Thorns_TriggeringSplit_DoesNotOverrunTheEnemyActionBudget 守着这条)
+            int acting = actionCount.Length;
+            for (int i = 0; i < acting; i++)
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive) continue;
