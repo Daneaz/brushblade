@@ -566,6 +566,15 @@ namespace Brushblade.Core
                 }
             }
 
+            // 召唤物光环治疗(2026-08-05,桃):排在出手之前、且与出手无关 —— 树结果不看有没有
+            // 敌人可打,场上清空时也照常回血。走 HealPlayerAndSummons,玩家侧不超上限
+            foreach (var healer in _summons)
+            {
+                if (!healer.Alive) continue;
+                int heal = healer.Passive?.HealAlly ?? 0;
+                if (heal > 0) HealPlayerAndSummons(heal);
+            }
+
             // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克。
             // 2026-08-04:与敌人同走行动计量器 —— 减速将来也能作用于我方召唤物。
             for (int s = 0; s < _summons.Count; s++)
@@ -700,6 +709,12 @@ namespace Brushblade.Core
                 Phase = BattlePhase.Lost;
                 return;
             }
+
+            // 反伤可能在敌方回合里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
+            // 所以这里原本没有判胜,不补的话会带着满地尸体走进缺笔妖补全和 StartTurn。
+            // 排在 Lost 早退之后 = 同归于尽时玩家阵亡优先,与既有口径一致。
+            CheckWin();
+            if (Phase != BattlePhase.PlayerTurn) return;
 
             // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)。
             // **排在全部攻击之后**独立一趟(2026-07-30 试玩):原先它跟在缺笔妖自己那一记攻击
@@ -1104,6 +1119,15 @@ namespace Brushblade.Core
             summon.Shield -= absorbed;
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed));
+
+            // 反伤(2026-08-05,荆):固定值、不走生克(与 Bleed 同口径,可预期)。
+            // 荆棘扎人不看自己死没死 —— 被打死的那一击照样反弹。
+            // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于"不走生克"。
+            // enemyIndex < 0 是保护性判断:目前所有调用方都传真实下标,留着免得日后
+            // 加了无来源伤害(环境/自伤)时这里越界。
+            int thorns = summon.Passive?.Thorns ?? 0;
+            if (thorns > 0 && enemyIndex >= 0 && _enemies[enemyIndex].Alive)
+                DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart);
         }
 
         /// <summary>Boss 回合三态(spec 2026-07-28):释放 / 蓄力 / 交回普攻。

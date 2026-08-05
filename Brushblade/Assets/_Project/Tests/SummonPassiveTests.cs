@@ -41,6 +41,14 @@ namespace Brushblade.Core.Tests
             new CharDef("盾", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 2, summonAttack: 0, summonChar: "木",
                     summonShield: 6) }),
+            // 荫:攻 0 + 每回合己方回血 3(桃)
+            new CharDef("荫", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { HealAlly = 3 }) }),
+            // 棘:攻 0 + 反伤 3(荆)
+            new CharDef("棘", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { Thorns = 3 }) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -293,12 +301,93 @@ namespace Brushblade.Core.Tests
         [Test]
         public void OnHit_NoLivingEnemy_AppliesNothing()
         {
-            // 敌人已被打死时召唤段直接跳出,不该对尸体挂状态
-            var engine = Engine(new[] { "燎" }, new[] { Dummy(hp: 200) });
-            engine.Cast("燎");
+            // 敌人在召唤物出手前已经死亡(被同回合更早出手的召唤物打死):后出手的召唤物
+            // 找不到存活目标,直接跳出,不该对尸体挂状态、也不该抛异常
+            var engine = Engine(new[] { "燎", "焰" }, new[] { Dummy(hp: 5) });
+            engine.Cast("燎"); // 攻 5,先手打死唯一的敌人
+            engine.Cast("焰"); // 攻 0 + 单体灼烧 2,轮到它出手时已经无人可打
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
-                "第一回合正常挂 1 层");
+            Assert.That(engine.Enemies[0].Alive, Is.False);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
+                "后手召唤物没有敌人可打,不该对尸体挂灼烧");
+        }
+
+        // ---- 光环治疗 ----
+
+        [Test]
+        public void HealAlly_HealsPlayerAndSummonsEachTurn()
+        {
+            var engine = Engine(new[] { "荫", "素" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            engine.Cast("荫");
+            engine.Cast("素");
+            engine.EndTurn(); // 荫(下标 0,先召先顶前排)被打 4,同时给双方回 3
+            int summonHp = engine.Summons[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(Math.Min(10, summonHp + 3 - 4)));
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "玩家满血时不溢出");
+        }
+
+        [Test]
+        public void HealAlly_HealsEvenWithNoLivingEnemy()
+        {
+            // 回血与出手无关:场上没有可打的目标时也照常回
+            var engine = Engine(new[] { "荫" }, new[] { new EnemyDef("靶", Element.Heart, 200, 20) });
+            engine.EndTurn();                       // 玩家挨 20 → 30
+            Assert.That(engine.PlayerHp, Is.EqualTo(30));
+            engine.Cast("荫");
+            engine.EndTurn();                       // 回 3、再挨 20(召唤物顶),净 +3
+            Assert.That(engine.PlayerHp, Is.EqualTo(33));
+        }
+
+        // ---- 反伤 ----
+
+        [Test]
+        public void Thorns_ReflectsFlatDamage_IgnoringWuxing()
+        {
+            // 靶是「心」属性,反伤本就不走生克;这里断言反弹的是平值 3 而不是任何倍数
+            var engine = Engine(new[] { "棘" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            engine.Cast("棘");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(197));
+        }
+
+        [Test]
+        public void Thorns_KillingLastEnemy_WinsTheBattle()
+        {
+            // 敌方回合里反伤打死最后一只敌人 —— 敌方段以前从不杀敌,所以原先这里没有判胜
+            var engine = Engine(new[] { "棘" }, new[] { new EnemyDef("靶", Element.Heart, 2, 4) });
+            engine.Cast("棘");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Alive, Is.False);
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
+        [Test]
+        public void Thorns_StillReflectsOnTheBlowThatKillsTheSummon()
+        {
+            // 荆棘扎人不看自己死没死:1 血召唤物挨致命一击,照样反弹
+            var engine = Engine(new[] { "棘" }, new[] { new EnemyDef("靶", Element.Heart, 200, 40) });
+            engine.Cast("棘");
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Alive, Is.False, "30 血挨 40 必死");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(197), "死了也扎");
+        }
+
+        [Test]
+        public void Thorns_NotTriggeredByDevour()
+        {
+            // 吞噬直接置 0 血、不经 DamageSummon —— 「无视血量必杀」的既有语义,不该被反伤蹭到
+            var boss = new EnemyDef("噬", Element.Heart, 200, 4,
+                phases: new[] { new BossPhaseDef("噬", Element.Heart, 200, 4, skill: BossSkill.Devour) });
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50, BossChargeEvery = 1 },
+                new[] { "棘" }, Array.Empty<string>(), new[] { boss }, seed: 1);
+            engine.Cast("棘");
+            engine.EndTurn(); // 蓄力
+            int hpBeforeDevour = engine.Enemies[0].Hp;
+            engine.EndTurn(); // 释放吞噬
+            Assert.That(engine.Summons[0].Alive, Is.False);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hpBeforeDevour), "吞噬不触发反伤");
         }
 
         // ---- 召唤物护盾 ----
