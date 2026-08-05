@@ -872,8 +872,11 @@ namespace Brushblade.Core
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
+                            // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些"资源"随等级涨,
+                            // 反伤/灼烧层/减攻百分比这些"节奏"保持不变,免得档位失控
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
-                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel));
+                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel),
+                                effect.Passive);
                             if (AliveSummons() < SummonCap)
                             {
                                 _summons.Add(newborn);

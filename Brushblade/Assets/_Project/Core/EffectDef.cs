@@ -51,10 +51,18 @@ namespace Brushblade.Core
         /// 只忽略减免(&lt;1),不忽略破甲加成 —— 「无视防御」≠「无视一切修正」。</summary>
         public bool IgnoreArmor { get; }
 
+        /// <summary>召唤类:召唤物被动(2026-08-05)。null = 无被动。</summary>
+        public SummonPassive Passive { get; }
+
+        /// <summary>召唤类:出字瞬间给**全场存活召唤物**各 +N 点护盾(桂 = 6)。
+        /// 不放进 Passive —— 它作用于出字时已在场的其他召唤物,不是这只召唤物自带的。</summary>
+        public int SummonShield { get; }
+
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
-            int turns = 0, bool targetAll = false, bool ignoreArmor = false)
+            int turns = 0, bool targetAll = false, bool ignoreArmor = false,
+            SummonPassive passive = null, int summonShield = 0)
         {
             Kind = kind;
             Value = value;
@@ -66,6 +74,8 @@ namespace Brushblade.Core
             Turns = turns;
             TargetAll = targetAll;
             IgnoreArmor = ignoreArmor;
+            Passive = passive;
+            SummonShield = summonShield;
         }
     }
 }

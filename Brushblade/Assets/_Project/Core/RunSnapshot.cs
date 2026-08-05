@@ -61,6 +61,12 @@ namespace Brushblade.Core
         public int MaxHp { get; set; }
         public int Attack { get; set; }
         public int ActionMeter { get; set; }
+
+        /// <summary>基础速度(2026-08-05 补接线)。老存档没有这个字段,恢复时由
+        /// SummonState.Restore 兜底回 100 —— 0 会让召唤物永远不出手。</summary>
+        public int Speed { get; set; }
+        public int Shield { get; set; }
+        public SummonPassive Passive { get; set; }
     }
 
     /// <summary>挂在存档上的「段中断点」(2026-07-27):除了 run 自身的状态,还要记住

@@ -90,23 +90,35 @@ namespace Brushblade.Core
         public int Attack { get; }
         public bool Alive => Hp > 0;
 
-        /// <summary>基础速度(2026-08-04)。默认 100 = 每回合恰好一次,与旧的"固定反击一次"等价。</summary>
+        /// <summary>基础速度(2026-08-04)。默认 100 = 每回合恰好一次,与旧的"固定反击一次"等价;
+        /// 带被动的取被动值(桤 150)。</summary>
         public int Speed { get; internal set; } = 100;
 
         /// <summary>行动计量器:回合末累积速度,每满 100 行动一次(与敌人同走一套模型)。</summary>
         public int ActionMeter { get; internal set; }
 
-        internal SummonState(string summonChar, Element element, int hp, int attack)
+        /// <summary>召唤物护盾(2026-08-05,桂):一次性额外血条,先于血量吸伤,吸完即无、
+        /// 不刷新、不随回合清空。</summary>
+        public int Shield { get; internal set; }
+
+        /// <summary>被动(2026-08-05)。null = 无被动。</summary>
+        public SummonPassive Passive { get; }
+
+        internal SummonState(string summonChar, Element element, int hp, int attack,
+            SummonPassive passive = null)
         {
             Char = summonChar;
             Element = element;
             Hp = hp;
             MaxHp = hp;
             Attack = attack;
+            Passive = passive;
+            Speed = EffectiveSpeed(passive?.Speed ?? 0);
         }
 
         /// <summary>断点存档:MaxHp 与 Hp 会脱钩(挨过打),故分开存。</summary>
-        private SummonState(string summonChar, Element element, int hp, int maxHp, int attack, int actionMeter)
+        private SummonState(string summonChar, Element element, int hp, int maxHp, int attack,
+            int actionMeter, int speed, int shield, SummonPassive passive)
         {
             Char = summonChar;
             Element = element;
@@ -114,15 +126,25 @@ namespace Brushblade.Core
             MaxHp = maxHp;
             Attack = attack;
             ActionMeter = actionMeter;
+            Shield = shield;
+            Passive = passive;
+            Speed = EffectiveSpeed(speed);
         }
 
-        internal SummonSnapshot Capture() => new()
+        /// <summary>速度兜底:0 或负数一律回 100。子项目 0 加 Speed 时漏了存档接线,
+        /// 老存档没有这个字段 → Newtonsoft 填 0 → 召唤物永远攒不满计量器,一辈子不出手。</summary>
+        private static int EffectiveSpeed(int speed) => speed > 0 ? speed : 100;
+
+        public SummonSnapshot Capture() => new()
         {
-            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack, ActionMeter = ActionMeter,
+            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+            ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
+            Passive = Passive?.Clone(),
         };
 
         internal static SummonState Restore(SummonSnapshot s) =>
-            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter);
+            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
+                s.Speed, s.Shield, s.Passive?.Clone());
     }
 
     /// <summary>战斗中的字怪状态。成语 Boss 为一条总血池,按血量阈值切换阶段
