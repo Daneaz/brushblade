@@ -190,14 +190,19 @@ namespace Brushblade.Core.Tests
             var floorOne = segment.Encounters[0];
             Assert.That(floorOne.Count, Is.EqualTo(1)); // 首层单敌
 
-            var unlockedChars = new[] { "鍂", "林", "沝", "炎", "圭" }; // 初始出阵列表
+            // 初始出阵 = 五系蓝档(2026-08-05);演示字与初始部件池都由 MetaRules 派生,
+            // 不再在这里硬编码 —— 那份清单改了这个测试要跟着动才算守住实船
+            var unlockedChars = MetaRules.StartingDeck;
+            var demo = Tutorial.DemoChar;
             var battle = new BattleEngine(graph,
                 new BattleConfig
                 {
                     DropTable = campaign.DropTable,
                     UnlockedChars = unlockedChars,
                 },
-                new[] { "炎" }, new[] { "火", "火" }, floorOne, seed: 7);
+                new[] { demo },
+                MetaRules.RollStartingPool(unlockedChars, graph, new GameRandom(7)),
+                floorOne, seed: 7);
 
             // 开局掉落已把库从 1 张变成 2 张(2026-08-04):钉住「多了一张、且是出阵表里的字」,
             // 不钉死具体摇中哪个(见上方 summary)
@@ -205,11 +210,11 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.Library, Has.All.Matches<string>(c => unlockedChars.Contains(c)));
 
             Assert.That(battle.Compose("焱"), Is.EqualTo(BattleError.ForgeFailed)); // 不在出阵,合不出
-            Assert.That(battle.Dismantle("炎"), Is.EqualTo(BattleError.None));
-            Assert.That(battle.Compose("炎"), Is.EqualTo(BattleError.None));
-            Assert.That(battle.Cast("炎"), Is.EqualTo(BattleError.None));
+            Assert.That(battle.Dismantle(demo), Is.EqualTo(BattleError.None));
+            Assert.That(battle.Compose(demo), Is.EqualTo(BattleError.None));
+            Assert.That(battle.Cast(demo), Is.EqualTo(BattleError.None));
             if (battle.Phase == BattlePhase.PlayerTurn)
-                battle.EndTurn(); // 直伤不足则灼烧补刀
+                battle.EndTurn(); // 直伤不足则由持续伤害补刀
             Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Won));
         }
 

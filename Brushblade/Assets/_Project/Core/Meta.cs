@@ -35,6 +35,58 @@ namespace Brushblade.Core
         // 字库容量比起手多一格,留给回合掉字(2026-08-04):否则开局即满库,第一回合必弹 DropChoice
         public const int LibraryCapacitySlack = 1;
 
+        /// <summary>初始收集(2026-08-05 拍板):五系 × 白/绿/蓝各一张,共 15 张 = DeckLimit。
+        /// 此前是五系 2 叠紫档字(鍂/林/沝/炎/圭)——玩家一开局就握着紫档,升阶目标感缺失。
+        /// 全部要求有配方(可拆可合),否则拆了回不来。</summary>
+        public static readonly IReadOnlyList<string> StartingCollection = new[]
+        {
+            "割", "锯", "剑", // 金:单体斩杀线(白 6 伤 / 绿 流血 / 蓝 13 伤)
+            "梅", "松", "柏", // 木:召唤线(召 6 / 12 / 16 血)
+            "冷", "润", "冻", // 水:控制与治疗(减速 / 持续治疗 / 冻结)
+            "灼", "烧", "爆", // 火:灼烧线(6 伤 / 灼烧 / 全体 7 伤)
+            "碾", "墙", "城", // 土:防御线(6 伤 / 盾 7 / 盾 10)
+        };
+
+        /// <summary>默认出阵 = 五系蓝档各一张。恰好 5 张(≥ DeckMinimum 且 ≤ StartingLibrarySize),
+        /// 所以默认出阵全部进起手字库——教程要拆的字必在手上(见 <see cref="Tutorial.DemoChar"/>)。
+        /// 其余 10 张留在收集里,玩家自行换上(出阵上限 15 格装得下全部)。</summary>
+        public static readonly IReadOnlyList<string> StartingDeck = new[]
+        {
+            "剑", "柏", "冻", "爆", "城",
+        };
+
+        /// <summary>出阵表所需的部件(2026-08-05 拍板):部件的一切来源都从这里取,
+        /// 不再是固定金木水火土——出阵表换了,能掉的部件跟着换,拿到的部件永远拼得出手里的字。
+        /// 只收叶子(部件);配方里的低阶字不算,那是靠合成得来的。</summary>
+        public static IEnumerable<string> DeckComponents(
+            IReadOnlyList<string> deck, RecipeGraph graph)
+        {
+            var seen = new List<string>();
+            foreach (var card in deck)
+            {
+                if (!graph.TryGet(card, out var def)) continue;
+                foreach (var part in def.Recipe)
+                    if (graph.TryGet(part, out var partDef) && partDef.IsLeaf && !seen.Contains(part))
+                        seen.Add(part);
+            }
+            return seen;
+        }
+
+        /// <summary>登塔初始部件池:从出阵表所需部件里随机掷 <paramref name="count"/> 个(可重复)。
+        /// 出阵表拼不出任何部件时返回空池——不回退到五行,那会把死牌塞回来。</summary>
+        public static IReadOnlyList<string> RollStartingPool(IReadOnlyList<string> deck,
+            RecipeGraph graph, GameRandom random, int count = StartingPoolSize)
+        {
+            var choices = new List<string>(DeckComponents(deck, graph));
+            var pool = new List<string>();
+            if (choices.Count == 0) return pool;
+            for (int i = 0; i < count; i++)
+                pool.Add(choices[random.Next(choices.Count)]);
+            return pool;
+        }
+
+        public const int StartingPoolSize = 2; // 登塔起手部件数(沿用旧的两个)
+
         /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻加成。「容量比起手多一格」这个关系
         /// 只在这一处定义——GameRoot 接线时调这个,不要在那边散写 +1。</summary>
         public static int LibraryCapacityFor(MetaState meta) =>

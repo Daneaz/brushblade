@@ -38,10 +38,12 @@ namespace Brushblade.Core
         private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 2,2026-08-04 起)
         private const int RewardPicks = 2;       // 普通战斗 5 选 2(2026-08-04;Boss 层奖励走宝箱,不经此)
 
-        /// <summary>部件奖励固定候选:五行基础部件(奇遇 randomComponents 用;
-        /// 2026-08-04 起战利品与复活补给都不再走这份候选,五行部件改为只能靠拆字获得)。</summary>
-        public static readonly IReadOnlyList<string> ComponentRewardChoices =
-            new[] { "金", "木", "水", "火", "土" };
+        /// <summary>奇遇随机部件的候选(2026-08-05 拍板):从**出阵表所需部件**里取,
+        /// 不再是固定的五行基础部件——出阵表换了候选跟着换,掉到的部件永远拼得出手里的字。
+        /// RewardPool 即出阵表(GameRoot 接线);空则无部件可给。</summary>
+        private IReadOnlyList<string> ComponentChoices() =>
+            new List<string>(MetaRules.DeckComponents(
+                _runConfig.RewardPool ?? Array.Empty<string>(), _graph));
 
         private readonly RecipeGraph _graph;
         private readonly RunConfig _runConfig;
@@ -303,8 +305,9 @@ namespace Brushblade.Core
             // 入池部件:确定项(原序)+ 随机项(只掷一次,防重掷抖动/破种子)。
             // 空位先填,填不下的进溢出队列交玩家决议(替换/跳过,2026-07-24)——不再静默丢。
             var incoming = new List<string>(option.GainComponents);
-            for (int i = 0; i < option.RandomComponents; i++)
-                incoming.Add(ComponentRewardChoices[_random.Next(ComponentRewardChoices.Count)]);
+            var choices = ComponentChoices();
+            for (int i = 0; i < option.RandomComponents && choices.Count > 0; i++)
+                incoming.Add(choices[_random.Next(choices.Count)]);
             foreach (var component in incoming)
                 if (_carriedPool.Count < _battleConfig.PoolCapacity)
                     _carriedPool.Add(component);

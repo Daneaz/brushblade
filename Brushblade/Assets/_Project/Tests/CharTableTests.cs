@@ -10,7 +10,8 @@ namespace Brushblade.Core.Tests
     /// 与 ConfigLoaderTests 分开:那个文件引 UnityEngine,被 dotnet 工装排除。</summary>
     public class CharTableTests
     {
-        private static RecipeGraph RealGraph()
+        /// <summary>实际出货字表;同程序集的其他测试(StartingSetupTests)也用这一份。</summary>
+        internal static RecipeGraph RealGraph()
         {
             // 从测试程序集所在目录往上找仓库根
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
