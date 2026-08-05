@@ -119,5 +119,79 @@ namespace Brushblade.Core.Tests
             Assert.That(snapshot.Passive, Is.Not.SameAs(engine.Summons[0].Passive),
                 "快照与实体共享同一条被动会让改一个连带改另一个");
         }
+
+        // ---- 诅咒:百分比减攻 ----
+
+        /// <summary>EnemyState 的构造函数是 internal,测试程序集调不到 —— 一律走引擎路径拿敌人。</summary>
+        private static EnemyState EnemyWithAttack(int baseAttack)
+        {
+            var engine = Engine(new[] { "素" }, new[] { new EnemyDef("靶", Element.Heart, 50, baseAttack) });
+            return engine.Enemies[0];
+        }
+
+        private static EnemyState CursedEnemy(int baseAttack, int cursePercent, string sourceId)
+        {
+            var enemy = EnemyWithAttack(baseAttack);
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                Magnitude = cursePercent, TurnsLeft = 2, SourceId = sourceId,
+            });
+            return enemy;
+        }
+
+        [Test]
+        public void Curse_ReducesAttackByPercent_FloorRounded()
+        {
+            Assert.That(CursedEnemy(8, 25, "诅咒").Attack, Is.EqualTo(6));  // 8 × 0.75 = 6
+            Assert.That(CursedEnemy(9, 25, "诅咒").Attack, Is.EqualTo(6));  // 9 × 0.75 = 6.75 → 6
+        }
+
+        [Test]
+        public void Curse_SameSourceRefreshesInsteadOfStacking()
+        {
+            var enemy = CursedEnemy(8, 25, "诅咒");
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                Magnitude = 25, TurnsLeft = 2, SourceId = "诅咒",
+            });
+            Assert.That(enemy.Attack, Is.EqualTo(6), "两只槐仍是 −25%,不叠成 −50%");
+        }
+
+        [Test]
+        public void Curse_AppliesAfterAttackBuff()
+        {
+            // 先加增益再乘诅咒:(4 + 4) × 0.75 = 6。反过来算是 4×0.75+4 = 7,差一点
+            var enemy = EnemyWithAttack(4);
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                Magnitude = 4, TurnsLeft = -1, SourceId = "妖#1",
+            });
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                Magnitude = 25, TurnsLeft = 2, SourceId = "诅咒",
+            });
+            Assert.That(enemy.Attack, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Curse_OverHundredPercent_ClampsToZeroNotNegative()
+        {
+            var enemy = CursedEnemy(8, 250, "诅咒");
+            Assert.That(enemy.Attack, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Curse_Expires_RestoresAttack()
+        {
+            var enemy = CursedEnemy(8, 25, "诅咒");
+            enemy.Statuses.TickTurns();
+            Assert.That(enemy.Attack, Is.EqualTo(6), "第 1 回合仍在");
+            enemy.Statuses.TickTurns();
+            Assert.That(enemy.Attack, Is.EqualTo(8), "第 2 回合到期,攻击力复原");
+        }
     }
 }

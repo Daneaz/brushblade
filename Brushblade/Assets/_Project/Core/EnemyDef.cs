@@ -172,8 +172,18 @@ namespace Brushblade.Core
         /// <summary>基础攻击(缺笔妖补全会直接抬高它 —— 那是形态变化不是增益,故不可驱散)。</summary>
         public int BaseAttack { get; internal set; }
 
-        /// <summary>当前攻击 = 基础 + 所有可驱散的攻击增益。</summary>
-        public int Attack => BaseAttack + Statuses.TotalMagnitude(StatusKind.AttackBuff);
+        /// <summary>当前攻击 = (基础 + 所有可驱散的攻击增益) × (1 − 诅咒%),向下取整、下限 0。
+        /// 顺序不可换:诅咒削的是"打出来的那一下",增益必须先加进去(2026-08-05)。
+        /// Boss 大招也读这个属性,所以诅咒自动对大招生效,不需要额外接线。</summary>
+        public int Attack
+        {
+            get
+            {
+                int raw = BaseAttack + Statuses.TotalMagnitude(StatusKind.AttackBuff);
+                int curse = Math.Min(100, Statuses.TotalMagnitude(StatusKind.Curse));
+                return curse <= 0 ? raw : Math.Max(0, (int)Math.Floor(raw * (1 - curse / 100f)));
+            }
+        }
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
         public int PhaseIndex { get; internal set; }     // 成语 Boss 当前阶段(0 起)
         public int RegrowProgress { get; internal set; } // 补全进度 0~3
