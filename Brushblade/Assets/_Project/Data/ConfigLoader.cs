@@ -44,6 +44,8 @@ namespace Brushblade.Data
             public int Turns { get; set; }             // 持续类:回合数(HoT 用)
             public bool TargetAll { get; set; }        // 治疗类:是否覆盖全部召唤物
             public bool IgnoreArmor { get; set; }      // 穿甲:无视减免 + 15% 加成
+            public SummonPassive Passive { get; set; }  // 召唤:被动(null = 无)
+            public int SummonShield { get; set; }       // 召唤:出字给全场召唤物各 +N 盾(桂)
         }
 
         private sealed class CampaignFileDto
@@ -476,7 +478,8 @@ namespace Brushblade.Data
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
-                    effect.Turns, effect.TargetAll, effect.IgnoreArmor));
+                    effect.Turns, effect.TargetAll, effect.IgnoreArmor,
+                    effect.Passive, effect.SummonShield));
             }
             return effects;
         }

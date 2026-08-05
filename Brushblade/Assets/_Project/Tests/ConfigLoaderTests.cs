@@ -244,5 +244,39 @@ namespace Brushblade.Core.Tests
             Assert.That(daoShan.Skills[2], Is.EqualTo(BossSkill.Devour));  // 火
             Assert.That(daoShan.Skills[3], Is.EqualTo(BossSkill.Deluge));  // 海
         }
+
+        [Test]
+        public void LoadGraph_ParsesSummonPassiveAndShield()
+        {
+            const string json = @"{""chars"":[
+                {""id"":""木"",""element"":""Wood""},
+                {""id"":""甲"",""element"":""Wood"",""effects"":[
+                    {""kind"":""Summon"",""value"":22,""count"":2,""attack"":9,""summonChar"":""木"",
+                     ""summonShield"":6}]},
+                {""id"":""乙"",""element"":""Wood"",""effects"":[
+                    {""kind"":""Summon"",""value"":22,""count"":1,""attack"":0,""summonChar"":""火"",
+                     ""passive"":{""onHitBurn"":3,""onHitBurnAll"":true}}]},
+                {""id"":""丙"",""element"":""Wood"",""effects"":[
+                    {""kind"":""Summon"",""value"":20,""count"":1,""attack"":7,""summonChar"":""木"",
+                     ""passive"":{""speed"":150,""thorns"":3,""healAlly"":2,""onHitCurse"":25}}]}
+            ]}";
+            var graph = ConfigLoader.LoadGraph(json);
+
+            var jia = graph.Get("甲").Effects[0];
+            Assert.That(jia.SummonShield, Is.EqualTo(6));
+            Assert.That(jia.Passive, Is.Null, "没写 passive 就该是 null");
+
+            var yi = graph.Get("乙").Effects[0];
+            Assert.That(yi.Passive, Is.Not.Null);
+            Assert.That(yi.Passive.OnHitBurn, Is.EqualTo(3));
+            Assert.That(yi.Passive.OnHitBurnAll, Is.True);
+            Assert.That(yi.SummonShield, Is.EqualTo(0));
+
+            var bing = graph.Get("丙").Effects[0];
+            Assert.That(bing.Passive.Speed, Is.EqualTo(150));
+            Assert.That(bing.Passive.Thorns, Is.EqualTo(3));
+            Assert.That(bing.Passive.HealAlly, Is.EqualTo(2));
+            Assert.That(bing.Passive.OnHitCurse, Is.EqualTo(25));
+        }
     }
 }
