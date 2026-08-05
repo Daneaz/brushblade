@@ -60,10 +60,10 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_91_implementable_chars():
+def test_extract_pulls_100_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 91
+    assert len(values) == 100
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
@@ -81,3 +81,12 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
     assert mu["turns"] == 3
     assert "targetAll" not in mu
+
+
+def test_extract_ignore_armor_flag_attaches_to_damage_effect():
+    """穿甲三字(锥/刺/錰):`ignoreArmor` 标记要落到 DamageSingle 效果的 ignoreArmor 字段上,
+    不是生成独立的效果条目 —— 否则 ConfigLoader 读不到,穿甲效果静默消失。"""
+    values = extract(SPEC.read_text(encoding="utf-8"))
+    for char in ("锥", "刺", "錰"):
+        hit = next(e for e in values[char]["effects"] if e["kind"] == "DamageSingle")
+        assert hit.get("ignoreArmor") is True, f"「{char}」应带 ignoreArmor"

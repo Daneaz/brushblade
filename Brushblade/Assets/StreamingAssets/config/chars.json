@@ -191,6 +191,25 @@
       ]
     },
     {
+      "id": "熔",
+      "rarity": "Blue",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "容"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 9
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 2
+        }
+      ]
+    },
+    {
       "id": "烬",
       "rarity": "Blue",
       "element": "Fire",
@@ -690,6 +709,25 @@
       ]
     },
     {
+      "id": "溃",
+      "rarity": "Blue",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "贵"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 9
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 2
+        }
+      ]
+    },
+    {
       "id": "洪",
       "rarity": "Blue",
       "element": "Water",
@@ -829,6 +867,25 @@
         {
           "kind": "Freeze",
           "value": 1
+        }
+      ]
+    },
+    {
+      "id": "溶",
+      "rarity": "Green",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "容"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 2
         }
       ]
     },
@@ -987,6 +1044,22 @@
       ]
     },
     {
+      "id": "錰",
+      "rarity": "Gold",
+      "element": "Metal",
+      "recipe": [
+        "金",
+        "杰"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 40,
+          "ignoreArmor": true
+        }
+      ]
+    },
+    {
       "id": "锬",
       "rarity": "Gold",
       "element": "Metal",
@@ -1047,6 +1120,41 @@
       ]
     },
     {
+      "id": "锤",
+      "rarity": "Blue",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "垂"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 9
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "刺",
+      "rarity": "Blue",
+      "element": "Metal",
+      "recipe": [
+        "朿",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 13,
+          "ignoreArmor": true
+        }
+      ]
+    },
+    {
       "id": "戟",
       "rarity": "Blue",
       "element": "Metal",
@@ -1069,6 +1177,22 @@
         {
           "kind": "DamageSingle",
           "value": 13
+        }
+      ]
+    },
+    {
+      "id": "锥",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "隹"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 9,
+          "ignoreArmor": true
         }
       ]
     },
@@ -1426,6 +1550,25 @@
       ]
     },
     {
+      "id": "破",
+      "rarity": "Green",
+      "element": "Earth",
+      "recipe": [
+        "石",
+        "皮"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 2
+        }
+      ]
+    },
+    {
       "id": "砸",
       "rarity": "Green",
       "element": "Earth",
@@ -1490,6 +1633,25 @@
         {
           "kind": "DamageSingle",
           "value": 6
+        }
+      ]
+    },
+    {
+      "id": "碎",
+      "rarity": "White",
+      "element": "Earth",
+      "recipe": [
+        "石",
+        "卒"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 4
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 2
         }
       ]
     },
@@ -1570,6 +1732,9 @@
       "id": "啬"
     },
     {
+      "id": "垂"
+    },
+    {
       "id": "埜"
     },
     {
@@ -1580,6 +1745,9 @@
     },
     {
       "id": "害"
+    },
+    {
+      "id": "容"
     },
     {
       "id": "寿"
@@ -1628,6 +1796,12 @@
       "id": "朋"
     },
     {
+      "id": "朿"
+    },
+    {
+      "id": "杰"
+    },
+    {
       "id": "某"
     },
     {
@@ -1666,6 +1840,9 @@
       "id": "白"
     },
     {
+      "id": "皮"
+    },
+    {
       "id": "石",
       "element": "Earth"
     },
@@ -1684,6 +1861,9 @@
     },
     {
       "id": "荅"
+    },
+    {
+      "id": "贵"
     },
     {
       "id": "辟"
