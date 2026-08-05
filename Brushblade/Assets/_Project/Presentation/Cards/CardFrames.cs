@@ -12,35 +12,30 @@ namespace Brushblade.Presentation
         public const float CanvasWidth = 192f;
         public const float CanvasHeight = 240f;
 
-        /// <summary>⚠️ 稀有度显示皮肤错位映射(2026-08-04,接入金卡素材,与 Theme.RarityColor /
-        /// CharInfo.RarityName 同一套映射):枚举名/数值是**强度档位**(不可改),素材 slug 走
-        /// 白→绿→蓝→紫→金→橙→红 的视觉层级——枚举 Orange 挂 "gold" 素材、枚举 Red 挂 "orange" 素材、
-        /// 新增枚举 Gold 挂 "red" 素材。刻意错位,不是 bug,别按枚举名"修正"回去。</summary>
+        /// <summary>稀有度 → 边框素材 slug(与 Theme.RarityColor / CharInfo.RarityName 同一套):
+        /// 枚举名 = 素材名 = 视觉层级 白→绿→蓝→紫→金→橙→红。</summary>
         private static readonly Dictionary<CardRarity, string> Slugs = new()
         {
             { CardRarity.White, "white" },
             { CardRarity.Green, "green" },
             { CardRarity.Blue, "blue" },
             { CardRarity.Purple, "purple" },
-            { CardRarity.Orange, "gold" },   // 强度档 Orange 挂"金"素材
-            { CardRarity.Red, "orange" },    // 强度档 Red 挂"橙"素材(原 Orange 的 slug)
-            { CardRarity.Gold, "red" },      // 强度档 Gold(最高)挂"红"素材(原 Red 的 slug)
+            { CardRarity.Gold, "gold" },
+            { CardRarity.Orange, "orange" },
+            { CardRarity.Red, "red" },
         };
 
         /// <summary>各档内容区距牌边的净空(基准画布像素)—— 取该档最内圈描边再留一点余量。
-        /// 素纸/竹青的框只是两三条细线,朱漆的暗地带 + 双金线足足吃掉 19px,内容不让位就压到框上。
-        /// ⚠️ 下表的 key 是**内部强度档位**,取值对应的却是它现在挂的那张素材(见 Slugs 的错位映射)——
-        /// Orange 现在量的是 card_gold_frame.svg 的净空、Red 量的是 card_orange_frame.svg、
-        /// Gold 量的是 card_red_frame.svg。</summary>
+        /// 素纸/竹青的框只是两三条细线,朱漆的暗地带 + 双金线足足吃掉 19px,内容不让位就压到框上。</summary>
         private static readonly Dictionary<CardRarity, float> InsetPx = new()
         {
             { CardRarity.White, 15f },   // 最内细线 12.5
             { CardRarity.Green, 14f },   // 最内细线 11.5
             { CardRarity.Blue, 17f },    // 最内细线 14.6
             { CardRarity.Purple, 15f },  // 木框内窗 12
-            { CardRarity.Orange, 19f },  // 挂"金"素材 card_gold_frame:最内朱红线 16
-            { CardRarity.Red, 19f },     // 挂"橙"素材 card_orange_frame:最内细线 16(原 Orange 的取值)
-            { CardRarity.Gold, 22f },    // 挂"红"素材 card_red_frame:最内金线 19.2(原 Red 的取值)
+            { CardRarity.Gold, 19f },    // card_gold_frame:最内朱红线 16
+            { CardRarity.Orange, 19f },  // card_orange_frame:最内细线 16
+            { CardRarity.Red, 22f },     // card_red_frame:最内金线 19.2
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new();

@@ -3,16 +3,18 @@ using System.Collections.Generic;
 
 namespace Brushblade.Core
 {
-    /// <summary>字卡稀有度七档(19.3.1):出厂固定,由人工筛选指定。</summary>
+    /// <summary>字卡稀有度七档(19.3.1):出厂固定,由人工筛选指定。
+    /// 枚举名 = 皮肤色 = 强度序,三者一致(2026-08-05 对齐);数值越大越强。
+    /// 金档插在紫之后(接入金框素材时定的视觉层级),红档为五系四叠字专属的最高档。</summary>
     public enum CardRarity
     {
         White = 1,  // 白
         Green = 2,  // 绿
         Blue = 3,   // 蓝
         Purple = 4, // 紫
-        Orange = 5, // 橙
-        Red = 6,    // 红
-        Gold = 7,   // 金:五系四叠字专属(2026-08-03)
+        Gold = 5,   // 金
+        Orange = 6, // 橙
+        Red = 7,    // 红:五系四叠字专属
     }
 
     /// <summary>可玩对象定义:部件与汉字共用(第 4 章 4.2)。部件 = 无配方的叶子。</summary>
