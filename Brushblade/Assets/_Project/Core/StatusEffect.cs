@@ -13,6 +13,7 @@ namespace Brushblade.Core
         HealOverTime,     // 持续治疗
         DamageReduction,  // 减伤百分比
         AttackBuff,       // 攻击加成
+        ArmorBreak,       // 破甲:承伤 +25%,不叠层(2026-08-05)
     }
 
     public enum StatusPolarity { Buff, Debuff }

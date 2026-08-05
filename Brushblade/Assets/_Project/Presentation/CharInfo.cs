@@ -71,6 +71,7 @@ namespace Brushblade.Presentation
                     EffectKind.Freeze => $"冻结{v}回合",
                     EffectKind.Slow => $"减速{v}回合(半速)",
                     EffectKind.DamageReduction => $"本段受伤−{v}%",
+                    EffectKind.ArmorBreak => $"破甲 {v} 回合(承伤+25%)",
                     _ => e.Kind.ToString(),
                 });
             }

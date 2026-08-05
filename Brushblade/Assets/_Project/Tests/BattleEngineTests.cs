@@ -1212,6 +1212,73 @@ namespace Brushblade.Core.Tests
             Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(9));
         }
 
+        // ---- 破甲(2026-08-05):承伤 +25%,不叠层,持续 2 回合 ----
+
+        /// <summary>破甲测试专用:碎 = DamageSingle 4 + ArmorBreak 2,打无减免的中立敌人。</summary>
+        private static BattleEngine ArmorBreakEngine()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("石", Element.Earth),
+                new CharDef("卒", null),
+                new CharDef("碎", Element.Earth, new[] { "石", "卒" }, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 4),
+                    new EffectDef(EffectKind.ArmorBreak, 2),
+                }),
+            });
+            return new BattleEngine(graph, Config(), new[] { "碎", "碎" },
+                Array.Empty<string>(), new[] { new EnemyDef("桩", Element.Heart, 500, 0) }, 42);
+        }
+
+        [Test]
+        public void ArmorBreak_RaisesDamageTakenByQuarter()
+        {
+            var engine = ArmorBreakEngine();     // 见 Step 3
+            int hp0 = engine.Enemies[0].Hp;
+
+            engine.Cast("碎", 0);                 // DamageSingle 4 + ArmorBreak 2
+            int firstHit = hp0 - engine.Enemies[0].Hp;
+            Assert.That(firstHit, Is.EqualTo(4), "第一击本身不吃破甲(破甲在伤害之后施加)");
+
+            int hp1 = engine.Enemies[0].Hp;
+            engine.Cast("碎", 0);                 // 第二张碎:目标已破甲
+            Assert.That(hp1 - engine.Enemies[0].Hp, Is.EqualTo(5), "floor(4 × 1.25) = 5");
+        }
+
+        [Test]
+        public void ArmorBreak_DoesNotStack_OnlyRefreshes()
+        {
+            var engine = ArmorBreakEngine();
+            engine.Cast("碎", 0);
+            engine.Cast("碎", 0);
+
+            var bag = engine.Enemies[0].Statuses;
+            int count = 0;
+            foreach (var s in bag.All) if (s.Kind == StatusKind.ArmorBreak) count++;
+            Assert.That(count, Is.EqualTo(1), "不叠层:只有一条");
+            Assert.That(bag.TotalMagnitude(StatusKind.ArmorBreak), Is.EqualTo(25), "恒 25,不累加");
+        }
+
+        [Test]
+        public void ArmorBreak_IsDebuffPolarity() // 为子项目 A 的 Cleanse 铺路
+        {
+            var engine = ArmorBreakEngine();
+            engine.Cast("碎", 0);
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.ArmorBreak).Polarity,
+                Is.EqualTo(StatusPolarity.Debuff));
+        }
+
+        [Test]
+        public void ArmorBreak_ExpiresAfterTwoTurns()
+        {
+            var engine = ArmorBreakEngine();
+            engine.Cast("碎", 0);
+            engine.EndTurn();
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.ArmorBreak), Is.False);
+        }
+
         [Test]
         public void Scorch_GainsAttackOnSurvivingHit() // 焦痕自燃:每次被击中且存活,攻 +2
         {

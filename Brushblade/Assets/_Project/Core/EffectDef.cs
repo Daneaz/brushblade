@@ -17,6 +17,7 @@ namespace Brushblade.Core
         Freeze,       // 冻结:目标跳过 Value 个回合(2026-08-03;藤的「束缚」也走这个)
         Slow,         // 减速:半速,每 2 回合才行动一次,持续 Value 回合(2026-08-03)
         DamageReduction,  // 减伤:受伤 −Value%,乘法叠加、同字不叠、段内持久(2026-08-03)
+        ArmorBreak,   // 破甲:目标承伤 +25%,持续 Value 回合。不叠层,重复施加只刷新(2026-08-05)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

@@ -111,6 +111,7 @@ namespace Brushblade.Core
         private const int SummonCap = 6; // 场上存活召唤物上限(2026-08-03:4 → 6)
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         private const int ScorchGain = 2; // 焦痕受击存活的加攻量
+        private const int ArmorBreakPercent = 25; // 破甲的承伤加成(不叠层,恒定)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
         private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
 
@@ -493,7 +494,7 @@ namespace Brushblade.Core
             foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
-                    || effect.Kind == EffectKind.Slow)
+                    || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak)
                     return true;
             return false;
         }
@@ -811,6 +812,16 @@ namespace Brushblade.Core
                             });
                         }
                         break;
+                    case EffectKind.ArmorBreak:
+                        _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.ArmorBreak,
+                            Polarity = StatusPolarity.Debuff,
+                            Magnitude = ArmorBreakPercent,
+                            TurnsLeft = value,
+                            SourceId = null,   // 按 Kind 去重 → 不叠层,重复施加只刷新
+                        });
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -946,6 +957,8 @@ namespace Brushblade.Core
             // 判断用 < 1 而非 != 1 —— 破甲会把承伤升到 1 以上,那属于加成,不该被这条连坐
             if (taken < 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) >= 1.5f)
                 taken = 1f;
+            // 破甲加成:始终生效(不受克制影响),不叠层故只加一次
+            if (enemy.Statuses.Has(StatusKind.ArmorBreak)) taken += ArmorBreakPercent / 100f;
             if (taken != 1f)
                 damage = (int)Math.Floor(damage * taken);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
