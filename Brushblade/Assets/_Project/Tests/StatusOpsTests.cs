@@ -84,5 +84,70 @@ namespace Brushblade.Core.Tests
             Assert.That(snapshot.PlayerStatuses.Any(s => s.Kind == StatusKind.Seal), Is.True,
                 "封字必须进快照");
         }
+
+        // ---- 玩家灼烧与 Sear ----
+
+        private static EnemyDef Searer(int attack = 3) =>
+            new("灯花", Element.Fire, 200, attack, EnemyAbility.Sear);
+
+        [Test]
+        public void Sear_AppliesBurnToPlayerOnAttack()
+        {
+            var engine = Engine(Array.Empty<string>(), new[] { Searer() });
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PlayerBurn_TicksThenDecays_AndIgnoresWuxing()
+        {
+            // 玩家没有五行属性,灼烧结算不套任何倍率:1 层 × 系数 2 = 2 伤。
+            // 灯花攻 3 → 挂灼烧那一记也打 3。第一回合:挨 3(灼烧还没结算)。
+            // 第二回合:先结算 1 层灼烧掉 2、层数降到 0,再挨 3、再挂 1 层。
+            var engine = Engine(Array.Empty<string>(), new[] { Searer() });
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(47), "第 1 回合只挨普攻 3");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(42), "第 2 回合:灼烧 2 + 普攻 3");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
+                "结算 −1 层、攻击 +1 层,净 0");
+        }
+
+        [Test]
+        public void PlayerBurn_StaysAtOneStack_DoesNotSnowball()
+        {
+            // 子项目 C 的烓因为「每回合挂 3、只减 1」净 +2 而失控。灯花挂 1 减 1,恒定 1 层。
+            var engine = Engine(Array.Empty<string>(), new[] { Searer() }, startingHp: 200,
+                config: new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200 });
+            for (int turn = 0; turn < 5; turn++) engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PlayerBurn_KillsWithoutSkippingStatusTick()
+        {
+            // 玩家被灼烧烧到 0 血时不能在灼烧段就早退——本回合的状态回合递减必须照跑,
+            // 否则广告复活满血续战后,所有状态都会多续一回合(既有约束,
+            // BattleEngine 的「状态回合递减」那段注释守着这条)。
+            // 敌人用攻 0 的靶,确保这 2 点伤害只可能来自灼烧。
+            var engine = Engine(Array.Empty<string>(), new[] { Dummy() }, startingHp: 2);
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = -1,
+            });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 2, SourceId = "倾覆",
+            });
+
+            engine.EndTurn();   // 灼烧 1 层 × 系数 2 = 2 伤,正好烧死
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(0));
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+            Assert.That(engine.PlayerStatuses.Find(StatusKind.Seal)?.TurnsLeft, Is.EqualTo(1),
+                "本回合的状态递减不能因为玩家阵亡就整个跳过");
+        }
     }
 }

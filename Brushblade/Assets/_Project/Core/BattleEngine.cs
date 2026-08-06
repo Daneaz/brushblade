@@ -115,6 +115,7 @@ namespace Brushblade.Core
         private const int PierceBonusPercent = 15; // 穿甲的保底加成(对有无减免的目标一律生效)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
         private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
+        private const int SearStacks = 1;  // 灯花每次攻击给玩家挂的灼烧层数(2026-08-06)
         private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
         private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
 
@@ -530,6 +531,20 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
+            // 玩家灼烧(2026-08-06):层数 × 系数掉血,然后 −1 层。玩家没有五行属性,
+            // 所以**不走生克** —— 敌人侧那条 KeMultiplier(Fire, enemy.Element) 不适用。
+            // 烧到 0 血也不在这里早退:统一交给下方「状态回合递减」之后的判负点,
+            // 否则本回合的状态递减会整个跳过,广告复活后所有状态多续一回合。
+            var playerBurn = _playerStatuses.Find(StatusKind.Burn);
+            if (playerBurn != null && playerBurn.Magnitude > 0)
+            {
+                int playerTick = playerBurn.Magnitude * _burnPerStack;
+                PlayerHp = Math.Max(0, PlayerHp - playerTick);
+                playerBurn.Magnitude -= 1;
+                if (playerBurn.Magnitude <= 0) _playerStatuses.Remove(StatusKind.Burn);
+                _events.Add(new BattleEvent(BattleEventKind.BurnTick, -1, playerTick)); // −1 = 玩家
+            }
+
             // 流血(2026-08-03):无属性,不乘任何生克系数
             // 回合数递减挪到 EndTurn 末尾统一处理(2026-08-04,见下方"状态回合递减"),
             // 这里只读不写,避免本回合刚施加的流血被立刻多减一次。
@@ -689,6 +704,19 @@ namespace Brushblade.Core
                     {
                         enemy.ApparentElement = enemy.Element;
                         _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, i, 0));
+                    }
+
+                    // 灯花(2026-08-06):每次攻击给玩家挂 1 层灼烧。TurnsLeft = -1 段内持久,
+                    // 靠上方的玩家灼烧结算段自减 Magnitude,不受 TickTurns 影响(与敌人侧同口径)
+                    if (enemy.Def.Ability == EnemyAbility.Sear)
+                    {
+                        int stacks = (_playerStatuses.Find(StatusKind.Burn)?.Magnitude ?? 0) + SearStacks;
+                        _playerStatuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                            Magnitude = stacks, TurnsLeft = -1,
+                        });
+                        _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
                     }
                 }
             }
