@@ -123,7 +123,6 @@ namespace Brushblade.Core
         private int _burnPerStack = 2;      // 灼烧每层结算伤害(10.2;炽 +1,可叠加)
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
-        private int _apPenaltyNextTurn; // 倾覆造成的下回合 AP 扣减(spec 4.3),消费后清零
 
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
@@ -762,8 +761,10 @@ namespace Brushblade.Core
         private void StartTurn()
         {
             Turn += 1;
-            Ap = Math.Max(1, _config.ApPerTurn - _apPenaltyNextTurn); // 下限 1:不出现完全不能动的回合
-            _apPenaltyNextTurn = 0;
+            // 封字(2026-08-06):AP 扣减从裸字段改成 StatusKind.Seal —— 这样它可被净化、
+            // 可被免疫,并且跟着 PlayerStatuses 进存档(裸字段从来没进过 BattleSnapshot,
+            // 倾覆后存档续爬会白丢惩罚)。到期移除由统一的状态回合递减负责,这里不清。
+            Ap = Math.Max(1, _config.ApPerTurn - _playerStatuses.TotalMagnitude(StatusKind.Seal));
 
             // 回合掉字(2026-08-04):从出战牌组掉 N 个字入库,满库则停下让玩家决议。
             // 部件不再掉落 —— 五行部件只能靠拆字获得(拆免 AP 是这条的对冲)。
@@ -1223,7 +1224,14 @@ namespace Brushblade.Core
                         _shieldPersist = 0;
                         _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, broken));
                     }
-                    _apPenaltyNextTurn = 1;
+                    // TurnsLeft = 2 而不是 1(2026-08-06):倾覆在敌方段挂上,而同一个 EndTurn
+                    // 的「状态回合递减」排在 StartTurn 之前 —— 填 1 会被当场减到 0 移除,
+                    // StartTurn 读到 0,效果凭空消失。填 2 才等价于「只罚下一个玩家回合」。
+                    _playerStatuses.Apply(new StatusEffect
+                    {
+                        Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
+                        Magnitude = 1, TurnsLeft = 2, SourceId = "倾覆",
+                    });
                     break;
                 }
 

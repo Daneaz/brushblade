@@ -15,6 +15,7 @@ namespace Brushblade.Core
         AttackBuff,       // 攻击加成
         ArmorBreak,       // 破甲:承伤 +25%,不叠层(2026-08-05)
         Curse,            // 诅咒:攻击 −Magnitude%,不叠层只刷新(2026-08-05)
+        Seal,             // 封字:玩家下回合 AP −Magnitude(2026-08-06,Boss 倾覆)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -22,7 +23,8 @@ namespace Brushblade.Core
     /// <summary>一条状态。Magnitude 按 Kind 解读:Burn=层数、Bleed/HealOverTime=每回合量、
     /// DamageReduction=百分比、SpeedModifier=速度点数、AttackBuff=攻击加成、
     /// ArmorBreak=承伤加成百分比(DamageEnemy 直接读这个字段,不再读常量)、
-    /// Curse=减攻百分比(EnemyState.Attack 读它)。</summary>
+    /// Curse=减攻百分比(EnemyState.Attack 读它)、
+    /// Seal=AP 扣减量(StartTurn 读它)。</summary>
     public sealed class StatusEffect
     {
         public StatusKind Kind { get; set; }
