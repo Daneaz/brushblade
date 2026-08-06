@@ -101,6 +101,19 @@ namespace Brushblade.Core
             return before - _list.Count;
         }
 
+        /// <summary>按极性从头移除至多 count 条,返回实际移除条数(计数式驱散用)。</summary>
+        public int RemoveFirst(StatusPolarity polarity, int count)
+        {
+            int removed = 0;
+            for (int i = 0; i < _list.Count && removed < count; )
+            {
+                if (_list[i].Polarity != polarity) { i++; continue; }
+                _list.RemoveAt(i);
+                removed++;
+            }
+            return removed;
+        }
+
         public void Clear() => _list.Clear();
 
         /// <summary>回合数递减,归零即移除;TurnsLeft &lt; 0 表示段内持久,不受影响。

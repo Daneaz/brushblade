@@ -17,6 +17,16 @@ namespace Brushblade.Core.Tests
             new CharDef("木", Element.Wood),
             new CharDef("素", Element.Wood,   // 无被动的基准召唤(10 血 / 攻 3)
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木") }),
+            new CharDef("扫", Element.Heart,   // 灭:纯驱散全部(单体)
+                effects: new[] { new EffectDef(EffectKind.Dispel, -1) }),
+            new CharDef("剐", Element.Heart,   // 削:伤 9 + 驱散 1 条
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 9),
+                                 new EffectDef(EffectKind.Dispel, 1) }),
+            new CharDef("荡", Element.Heart,   // 淡:全体伤 + 全体各驱散 1 条
+                effects: new[] { new EffectDef(EffectKind.DamageAll, 5),
+                                 new EffectDef(EffectKind.Dispel, 1, targetAll: true) }),
+            new CharDef("涤", Element.Heart,   // 浴:纯净化
+                effects: new[] { new EffectDef(EffectKind.Cleanse, 0) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -148,6 +158,113 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
             Assert.That(engine.PlayerStatuses.Find(StatusKind.Seal)?.TurnsLeft, Is.EqualTo(1),
                 "本回合的状态递减不能因为玩家阵亡就整个跳过");
+        }
+
+        // ---- 驱散 ----
+
+        /// <summary>给敌人挂两条可驱散的增益(与标点小妖加攻同形:AttackBuff、段内持久、可叠)。</summary>
+        private static void GiveTwoBuffs(EnemyState enemy)
+        {
+            for (int i = 0; i < 2; i++)
+                enemy.Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                    Magnitude = 3, TurnsLeft = -1, SourceId = $"妖#{i}",
+                });
+        }
+
+        [Test]
+        public void Dispel_MinusOne_RemovesEveryBuff()
+        {
+            var engine = Engine(new[] { "扫" }, new[] { Dummy() });
+            GiveTwoBuffs(engine.Enemies[0]);
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(6), "基础 0 + 两条各 3");
+            engine.Cast("扫", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Dispel_Counted_RemovesExactlyThatMany()
+        {
+            var engine = Engine(new[] { "剐" }, new[] { Dummy() });
+            GiveTwoBuffs(engine.Enemies[0]);
+            engine.Cast("剐", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(3),
+                "只清一条,剩一条");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(191), "伤害照打");
+        }
+
+        [Test]
+        public void Dispel_TargetAll_HitsEveryLivingEnemy()
+        {
+            var engine = Engine(new[] { "荡" }, new[] { Dummy(), Dummy() });
+            GiveTwoBuffs(engine.Enemies[0]);
+            GiveTwoBuffs(engine.Enemies[1]);
+            engine.Cast("荡", 0);
+            foreach (var enemy in engine.Enemies)
+                Assert.That(enemy.Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(3),
+                    "每只各清一条");
+        }
+
+        [Test]
+        public void Dispel_LeavesDebuffsAlone()
+        {
+            // 驱散只打增益。敌人身上的灼烧是减益,不该被自己的驱散字误清
+            var engine = Engine(new[] { "扫" }, new[] { Dummy() });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 4, TurnsLeft = -1,
+            });
+            GiveTwoBuffs(engine.Enemies[0]);
+            engine.Cast("扫", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Dispel_DoesNotTouchPlayerBuffs()
+        {
+            // 玩家自己的减伤/持续治疗也是 Buff 极性,但它们挂在 _playerStatuses 上,
+            // 不在驱散的作用域里
+            var engine = Engine(new[] { "扫" }, new[] { Dummy() });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+                Magnitude = 30, TurnsLeft = -1, SourceId = "铠",
+            });
+            engine.Cast("扫", 0);
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(30));
+        }
+
+        // ---- 净化 ----
+
+        [Test]
+        public void Cleanse_RemovesPlayerDebuffs_KeepsBuffs()
+        {
+            var engine = Engine(new[] { "涤" }, new[] { Dummy() });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 2, SourceId = "倾覆",
+            });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 3, TurnsLeft = -1,
+            });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+                Magnitude = 30, TurnsLeft = -1, SourceId = "铠",
+            });
+
+            engine.Cast("涤", 0);
+
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False);
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Burn), Is.False);
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(30),
+                "增益不该被净化误伤");
         }
     }
 }

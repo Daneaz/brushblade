@@ -18,6 +18,8 @@ namespace Brushblade.Core
         Slow,         // 减速:半速,每 2 回合才行动一次,持续 Value 回合(2026-08-03)
         DamageReduction,  // 减伤:受伤 −Value%,乘法叠加、同字不叠、段内持久(2026-08-03)
         ArmorBreak,   // 破甲:目标承伤 +25%,持续 Value 回合。不叠层,重复施加只刷新(2026-08-05)
+        Dispel,       // 驱散:清敌方增益。Value = 条数(−1 = 全部);TargetAll = 全体各清(2026-08-06)
+        Cleanse,      // 净化:清玩家自身全部减益(Value 不用,2026-08-06)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

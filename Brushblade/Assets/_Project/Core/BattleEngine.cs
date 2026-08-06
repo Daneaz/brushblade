@@ -80,6 +80,8 @@ namespace Brushblade.Core
         Regrow,      // 缺笔妖自补全(TargetIndex = 该敌人,Amount = 实际回血,SecondIndex = 补全进度 1~3)。
                      // 原先是**静默**结算的:模型瞬时回血、表现层只在末次重绘看到结果,
                      // 于是玩家看到的是「召唤物砸上去不掉血」「还没打就满血」(2026-07-29 实测)
+        Dispel,      // 驱散敌方增益(TargetIndex = 敌人,Amount = 移除条数;2026-08-06)
+        Cleanse,     // 净化玩家减益(TargetIndex = −1,Amount = 移除条数;2026-08-06)
     }
 
     public readonly struct BattleEvent
@@ -882,6 +884,28 @@ namespace Brushblade.Core
                             SourceId = null,   // 按 Kind 去重 → 不叠层,重复施加只刷新
                         });
                         break;
+                    case EffectKind.Dispel:
+                        // 条数用 effect.Value 而不是 value —— 驱散条数不吃卡等级(与召唤被动同口径:
+                        // 「资源」随等级涨,「节奏」不涨),而且 −1 这个哨兵值过 ScaleByCardLevel 会算歪
+                        if (effect.TargetAll)
+                        {
+                            int count = _enemies.Count; // 分裂产生的新怪不吃同一发(与 DamageAll 同口径)
+                            for (int i = 0; i < count; i++)
+                                if (_enemies[i].Alive) DispelFrom(i, effect.Value);
+                        }
+                        else if (_enemies[targetIndex].Alive)
+                        {
+                            DispelFrom(targetIndex, effect.Value);
+                        }
+                        break;
+
+                    case EffectKind.Cleanse:
+                    {
+                        int cleansed = _playerStatuses.RemoveAll(StatusPolarity.Debuff);
+                        if (cleansed > 0)
+                            _events.Add(new BattleEvent(BattleEventKind.Cleanse, -1, cleansed));
+                        break;
+                    }
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -961,6 +985,19 @@ namespace Brushblade.Core
                         break;
                 }
             }
+        }
+
+        /// <summary>驱散一名敌人的增益:count &lt; 0 清全部,否则从头清至多 count 条。
+        /// 现存的唯一靶子是 AttackBuff(标点小妖给同伴加攻、焦痕受击自燃)——两者都是
+        /// TurnsLeft = -1 的永久增益且本场累计,所以驱散是它们唯一的解法。</summary>
+        private void DispelFrom(int enemyIndex, int count)
+        {
+            var statuses = _enemies[enemyIndex].Statuses;
+            int removed = count < 0
+                ? statuses.RemoveAll(StatusPolarity.Buff)
+                : statuses.RemoveFirst(StatusPolarity.Buff, count);
+            if (removed > 0)
+                _events.Add(new BattleEvent(BattleEventKind.Dispel, enemyIndex, removed));
         }
 
         /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
