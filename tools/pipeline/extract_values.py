@@ -8,6 +8,16 @@ ELEMENT = {"火": "Fire", "木": "Wood", "水": "Water", "金": "Metal", "土": 
 RARITY = {"🟡金": "Gold", "🔴红": "Red", "🟠橙": "Orange", "🟣紫": "Purple",
           "🔵蓝": "Blue", "🟢绿": "Green", "⚪白": "White"}
 
+# 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
+# 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。
+SUMMON_PASSIVE = {
+    "SummonSpeed": "speed",
+    "Thorns": "thorns",
+    "HealAlly": "healAlly",
+    "OnHitBurn": "onHitBurn",
+    "OnHitCurse": "onHitCurse",
+}
+
 
 def extract(markdown):
     """详表全文 → {字: {element, rarity, effects}},只收标 ✅ 的字。"""
@@ -47,9 +57,23 @@ def _parse_effects(config, element):
     """「`DamageAll 30` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。"""
     summon = re.search(r"`Summon (\d+)`\((\d+) 血/攻 (\d+)\)", config)
     if summon:
-        return [{"kind": "Summon", "value": int(summon.group(2)),
-                 "count": int(summon.group(1)),
-                 "attack": int(summon.group(3)), "summonChar": element}]
+        effect = {"kind": "Summon", "value": int(summon.group(2)),
+                  "count": int(summon.group(1)),
+                  "attack": int(summon.group(3)), "summonChar": element}
+        # 桂 的护盾发给全场召唤物,不是这只自带的 —— 平铺在 effect 上,不进 passive
+        shield = re.search(r"`SummonShield (\d+)`", config)
+        if shield:
+            effect["summonShield"] = int(shield.group(1))
+        passive = {}
+        for token, field in SUMMON_PASSIVE.items():
+            found = re.search(rf"`{token} (\d+)`", config)
+            if found:
+                passive[field] = int(found.group(1))
+        if "`OnHitBurnAll`" in config:      # 无数值的布尔标记(烓)
+            passive["onHitBurnAll"] = True
+        if passive:
+            effect["passive"] = passive
+        return [effect]
 
     effects = []
     for kind, value in re.findall(r"`(\w+) (\d+)`", config):

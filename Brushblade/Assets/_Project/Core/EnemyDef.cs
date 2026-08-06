@@ -90,23 +90,35 @@ namespace Brushblade.Core
         public int Attack { get; }
         public bool Alive => Hp > 0;
 
-        /// <summary>基础速度(2026-08-04)。默认 100 = 每回合恰好一次,与旧的"固定反击一次"等价。</summary>
-        public int Speed { get; internal set; } = 100;
+        /// <summary>基础速度(2026-08-04)。默认 100 = 每回合恰好一次,与旧的"固定反击一次"等价;
+        /// 带被动的取被动值(桤 150)。两个构造函数之外无赋值点,收成只读(2026-08-06 M7)。</summary>
+        public int Speed { get; }
 
         /// <summary>行动计量器:回合末累积速度,每满 100 行动一次(与敌人同走一套模型)。</summary>
         public int ActionMeter { get; internal set; }
 
-        internal SummonState(string summonChar, Element element, int hp, int attack)
+        /// <summary>召唤物护盾(2026-08-05,桂):一次性额外血条,先于血量吸伤,吸完即无、
+        /// 不刷新、不随回合清空。</summary>
+        public int Shield { get; internal set; }
+
+        /// <summary>被动(2026-08-05)。null = 无被动。</summary>
+        public SummonPassive Passive { get; }
+
+        internal SummonState(string summonChar, Element element, int hp, int attack,
+            SummonPassive passive = null)
         {
             Char = summonChar;
             Element = element;
             Hp = hp;
             MaxHp = hp;
             Attack = attack;
+            Passive = passive;
+            Speed = EffectiveSpeed(passive?.Speed ?? 0);
         }
 
         /// <summary>断点存档:MaxHp 与 Hp 会脱钩(挨过打),故分开存。</summary>
-        private SummonState(string summonChar, Element element, int hp, int maxHp, int attack, int actionMeter)
+        private SummonState(string summonChar, Element element, int hp, int maxHp, int attack,
+            int actionMeter, int speed, int shield, SummonPassive passive)
         {
             Char = summonChar;
             Element = element;
@@ -114,15 +126,25 @@ namespace Brushblade.Core
             MaxHp = maxHp;
             Attack = attack;
             ActionMeter = actionMeter;
+            Shield = shield;
+            Passive = passive;
+            Speed = EffectiveSpeed(speed);
         }
 
-        internal SummonSnapshot Capture() => new()
+        /// <summary>速度兜底:0 或负数一律回 100。子项目 0 加 Speed 时漏了存档接线,
+        /// 老存档没有这个字段 → Newtonsoft 填 0 → 召唤物永远攒不满计量器,一辈子不出手。</summary>
+        private static int EffectiveSpeed(int speed) => speed > 0 ? speed : 100;
+
+        public SummonSnapshot Capture() => new()
         {
-            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack, ActionMeter = ActionMeter,
+            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+            ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
+            Passive = Passive?.Clone(),
         };
 
         internal static SummonState Restore(SummonSnapshot s) =>
-            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter);
+            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
+                s.Speed, s.Shield, s.Passive?.Clone());
     }
 
     /// <summary>战斗中的字怪状态。成语 Boss 为一条总血池,按血量阈值切换阶段
@@ -150,8 +172,20 @@ namespace Brushblade.Core
         /// <summary>基础攻击(缺笔妖补全会直接抬高它 —— 那是形态变化不是增益,故不可驱散)。</summary>
         public int BaseAttack { get; internal set; }
 
-        /// <summary>当前攻击 = 基础 + 所有可驱散的攻击增益。</summary>
-        public int Attack => BaseAttack + Statuses.TotalMagnitude(StatusKind.AttackBuff);
+        /// <summary>当前攻击 = (基础 + 所有可驱散的攻击增益) × (1 − 诅咒%),向下取整、下限 0。
+        /// 顺序不可换:诅咒削的是"打出来的那一下",增益必须先加进去(2026-08-05)。
+        /// Boss 大招也读这个属性,所以诅咒自动对大招生效,不需要额外接线。</summary>
+        public int Attack
+        {
+            get
+            {
+                int raw = BaseAttack + Statuses.TotalMagnitude(StatusKind.AttackBuff);
+                int curse = Math.Min(100, Statuses.TotalMagnitude(StatusKind.Curse));
+                // 整数算式(2026-08-06 M1):float 版 1 - curse/100f 在 curse=10/30 等值上有精度损耗
+                // (1 - 0.1f = 0.89999997),会把 floor 结果拉低 1。curse 已钳到 ≤100,100-curse ≥0。
+                return curse <= 0 ? raw : Math.Max(0, raw * (100 - curse) / 100);
+            }
+        }
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
         public int PhaseIndex { get; internal set; }     // 成语 Boss 当前阶段(0 起)
         public int RegrowProgress { get; internal set; } // 补全进度 0~3

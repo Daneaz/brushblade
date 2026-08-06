@@ -115,6 +115,8 @@ namespace Brushblade.Core
         private const int PierceBonusPercent = 15; // 穿甲的保底加成(对有无减免的目标一律生效)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
         private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
+        private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
+        private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
@@ -564,6 +566,15 @@ namespace Brushblade.Core
                 }
             }
 
+            // 召唤物光环治疗(2026-08-05,桃):排在出手之前、且与出手无关 —— 树结果不看有没有
+            // 敌人可打,场上清空时也照常回血。走 HealPlayerAndSummons,玩家侧不超上限
+            foreach (var healer in _summons)
+            {
+                if (!healer.Alive) continue;
+                int heal = healer.Passive?.HealAlly ?? 0;
+                if (heal > 0) HealPlayerAndSummons(heal);
+            }
+
             // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克。
             // 2026-08-04:与敌人同走行动计量器 —— 减速将来也能作用于我方召唤物。
             for (int s = 0; s < _summons.Count; s++)
@@ -582,7 +593,14 @@ namespace Brushblade.Core
                         if (_enemies[i].Alive) { target = i; break; }
                     if (target < 0) break;
                     _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, s)); // 发起者下标 s
-                    DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+                    // 攻 0 的召唤物(烓/灶)照常出手,但不再走 DamageEnemy(2026-08-06,I2/I3):
+                    // 无条件发 amount=0 的 Damage 事件会让表现层白飘 "-0"(Juice.cs 的 Damage
+                    // 分支没有 ≤0 守卫),更关键的是 DamageEnemy 把"命中"与"吃到伤害"当同一件事
+                    // (enemy.HitsTaken += 1)——焦痕会因此白送 +2 攻,叠字怪会被无条件触发分裂。
+                    // 攻 0 单位的真实输出全在 ApplySummonOnHit(灼烧/诅咒),那个依旧无条件调用。
+                    if (summon.Attack > 0)
+                        DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+                    ApplySummonOnHit(summon, target);
                 }
             }
             CheckWin();
@@ -634,7 +652,13 @@ namespace Brushblade.Core
             // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力。
             // 按 actionCount[i] 循环——Speed 200 这类会在同一回合行动多次;每次行动前重新
             // 检查 Alive,反伤可能在两次行动之间打死它。
-            for (int i = 0; i < _enemies.Count; i++)
+            // 反伤可能在循环中触发分裂扩表(2026-08-05):新怪没有本回合的行动配额,
+            // 也不该当回合就出手 —— 与 ApplySummonOnHit 里"分裂产生的新怪不吃同一发光环"同口径。
+            // 上界必须取 actionCount.Length 而不是 _enemies.Count:后者每轮重新求值,
+            // 扩表后会走到没有配额的新下标上 IndexOutOfRange
+            // (Thorns_TriggeringSplit_DoesNotOverrunTheEnemyActionBudget 守着这条)
+            int acting = actionCount.Length;
+            for (int i = 0; i < acting; i++)
             {
                 var enemy = _enemies[i];
                 if (!enemy.Alive) continue;
@@ -697,6 +721,12 @@ namespace Brushblade.Core
                 Phase = BattlePhase.Lost;
                 return;
             }
+
+            // 反伤可能在敌方回合里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
+            // 所以这里原本没有判胜,不补的话会带着满地尸体走进缺笔妖补全和 StartTurn。
+            // 排在 Lost 早退之后 = 同归于尽时玩家阵亡优先,与既有口径一致。
+            CheckWin();
+            if (Phase != BattlePhase.PlayerTurn) return;
 
             // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)。
             // **排在全部攻击之后**独立一趟(2026-07-30 试玩):原先它跟在缺笔妖自己那一记攻击
@@ -872,8 +902,11 @@ namespace Brushblade.Core
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
+                            // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些"资源"随等级涨,
+                            // 反伤/灼烧层/减攻百分比这些"节奏"保持不变,免得档位失控
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
-                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel));
+                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel),
+                                effect.Passive);
                             if (AliveSummons() < SummonCap)
                             {
                                 _summons.Add(newborn);
@@ -887,12 +920,22 @@ namespace Brushblade.Core
                             _summons[slot] = newborn; // 原地顶替:下标稳定,表现层血条引用不错位
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
+                        // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
+                        // 它是一次性额外血条 —— 吸完即无、不刷新、不随回合清空(召唤物本身就是
+                        // 消耗品,再加个衰减太碎)。盾是"资源",跟血/攻一样吃卡等级
+                        if (effect.SummonShield > 0)
+                        {
+                            int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);
+                            foreach (var summon in _summons)
+                                if (summon.Alive) summon.Shield += shieldGrant;
+                        }
                         break;
                 }
             }
         }
 
-        /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。</summary>
+        /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
+        /// 出字的灼烧字用这条:一次性施加,层数自然衰减到 0,累加是既有语义,不受光环影响。</summary>
         private void ApplyBurn(int enemyIndex, int value)
         {
             var enemy = _enemies[enemyIndex];
@@ -902,6 +945,62 @@ namespace Brushblade.Core
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = newBurn, TurnsLeft = -1,
             });
+        }
+
+        /// <summary>刷新灼烧层数到 N 层(取现有层数与 N 的较大值,而非像 ApplyBurn 那样累加,
+        /// 2026-08-06 I1):光环(烓/灶)是每回合重复施加,若复用 ApplyBurn 的累加语义,
+        /// 每回合净增长 = 挂层数 − 衰减 1 层,没有上界(烓 全体挂 3、衰减 1,净 +2,十回合后失控)。
+        /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低出字灼烧已经堆起来的更高层数。</summary>
+        private void RefreshBurn(int enemyIndex, int stacks)
+        {
+            var enemy = _enemies[enemyIndex];
+            int current = enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = Math.Max(current, stacks), TurnsLeft = -1,
+            });
+        }
+
+        /// <summary>召唤物出手的附带效果(2026-08-05,子项目 C):挂灼烧 / 挂诅咒。
+        /// 攻 0 的召唤物(烓/灶)照样走到这里 —— 它们的输出全靠这一步,
+        /// 所以上面的出手循环绝不能因为 Attack &lt;= 0 就提前跳过。
+        /// 挂灼烧发 BattleEventKind.Burn 事件复用既有飘字;诅咒不发事件——
+        /// 表现层直接读敌人的 Statuses 画 chip,再加个只有一处消费的事件是多余的。</summary>
+        private void ApplySummonOnHit(SummonState summon, int targetIndex)
+        {
+            var passive = summon.Passive;
+            if (passive == null) return;
+
+            if (passive.OnHitBurn > 0)
+            {
+                if (passive.OnHitBurnAll)
+                {
+                    // 不取快照(2026-08-06 M4):这里没有哪一步会触发分裂——分裂只在 DamageEnemy
+                    // 里判定,而这个循环体内只调 RefreshBurn,不会扩表,直接读 _enemies.Count 即可。
+                    for (int i = 0; i < _enemies.Count; i++)
+                    {
+                        if (!_enemies[i].Alive) continue;
+                        RefreshBurn(i, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
+                        _events.Add(new BattleEvent(BattleEventKind.Burn, i, passive.OnHitBurn));
+                    }
+                }
+                else if (_enemies[targetIndex].Alive)
+                {
+                    RefreshBurn(targetIndex, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
+                    _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, passive.OnHitBurn));
+                }
+            }
+
+            if (passive.OnHitCurse > 0 && _enemies[targetIndex].Alive)
+            {
+                _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
+                    Magnitude = passive.OnHitCurse, TurnsLeft = CurseTurns,
+                    SourceId = CurseSourceId,
+                });
+            }
         }
 
         /// <summary>群体治疗:玩家 + 全部存活召唤物,各回 amount(玩家不超上限)。</summary>
@@ -1038,13 +1137,24 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
         }
 
-        /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则)。</summary>
+        /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则),护盾先吸收(2026-08-05)。
+        /// SummonHit 的 Amount 仍报吃到的总伤害,吸收量走第 5 个参数 —— 与 DamagePlayerDirect
+        /// 发 EnemyAttack 的口径一致,表现层才能一套逻辑画两边。</summary>
         private void DamageSummon(int enemyIndex, int summonIndex, int damage, Element attacker)
         {
             var summon = _summons[summonIndex];
             int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
-            summon.Hp = Math.Max(0, summon.Hp - taken);
-            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex));
+            int absorbed = Math.Min(summon.Shield, taken);
+            summon.Shield -= absorbed;
+            summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed));
+
+            // 反伤(2026-08-05,荆):固定值、不走生克(与 Bleed 同口径,可预期)。
+            // 荆棘扎人不看自己死没死 —— 被打死的那一击照样反弹。
+            // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于"不走生克"。
+            int thorns = summon.Passive?.Thorns ?? 0;
+            if (thorns > 0 && _enemies[enemyIndex].Alive)
+                DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart);
         }
 
         /// <summary>Boss 回合三态(spec 2026-07-28):释放 / 蓄力 / 交回普攻。

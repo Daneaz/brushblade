@@ -385,6 +385,49 @@
       ]
     },
     {
+      "id": "烓",
+      "rarity": "Gold",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "圭"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 22,
+          "count": 1,
+          "attack": 0,
+          "summonChar": "火",
+          "passive": {
+            "onHitBurn": 3,
+            "onHitBurnAll": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "灶",
+      "rarity": "Purple",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "土"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 11,
+          "count": 1,
+          "attack": 0,
+          "summonChar": "火",
+          "passive": {
+            "onHitBurn": 2
+          }
+        }
+      ]
+    },
+    {
       "id": "煤",
       "rarity": "Purple",
       "element": "Fire",
@@ -454,6 +497,127 @@
       ]
     },
     {
+      "id": "楸",
+      "rarity": "Purple",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "秋"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 24,
+          "count": 1,
+          "attack": 6,
+          "summonChar": "木",
+          "passive": {
+            "onHitBurn": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "蕉",
+      "rarity": "Purple",
+      "element": "Wood",
+      "recipe": [
+        "艹",
+        "焦"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 28,
+          "count": 1,
+          "attack": 3,
+          "summonChar": "木"
+        }
+      ]
+    },
+    {
+      "id": "荆",
+      "rarity": "Purple",
+      "element": "Wood",
+      "recipe": [
+        "艹",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 18,
+          "count": 1,
+          "attack": 6,
+          "summonChar": "木",
+          "passive": {
+            "thorns": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "桃",
+      "rarity": "Green",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "兆"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 12,
+          "count": 1,
+          "attack": 3,
+          "summonChar": "木",
+          "passive": {
+            "healAlly": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "槐",
+      "rarity": "Green",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "鬼"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 12,
+          "count": 1,
+          "attack": 4,
+          "summonChar": "木",
+          "passive": {
+            "onHitCurse": 25
+          }
+        }
+      ]
+    },
+    {
+      "id": "桂",
+      "rarity": "Gold",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "圭"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 22,
+          "count": 2,
+          "attack": 9,
+          "summonChar": "木",
+          "summonShield": 6
+        }
+      ]
+    },
+    {
       "id": "柘",
       "rarity": "Purple",
       "element": "Wood",
@@ -468,6 +632,27 @@
           "count": 1,
           "attack": 4,
           "summonChar": "木"
+        }
+      ]
+    },
+    {
+      "id": "桤",
+      "rarity": "Purple",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "岂"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 20,
+          "count": 1,
+          "attack": 7,
+          "summonChar": "木",
+          "passive": {
+            "speed": 150
+          }
         }
       ]
     },
@@ -1674,6 +1859,9 @@
       "id": "保"
     },
     {
+      "id": "兆"
+    },
+    {
       "id": "公"
     },
     {
@@ -1805,9 +1993,6 @@
       "id": "某"
     },
     {
-      "id": "桂"
-    },
-    {
       "id": "棧"
     },
     {
@@ -1880,6 +2065,9 @@
     },
     {
       "id": "隹"
+    },
+    {
+      "id": "鬼"
     },
     {
       "id": "魏"
