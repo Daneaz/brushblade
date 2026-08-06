@@ -577,7 +577,7 @@ namespace Brushblade.Presentation
                 _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
                 Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
                 if (summon.Shield > 0)
-                    Ui.ThemedLabel(cell.transform, $"盾{summon.Shield}", 11, Theme.InkSoft);
+                    Ui.ThemedLabel(cell.transform, $"盾{summon.Shield}", 11, Theme.Jade);
                 string passiveTag = SummonPassiveTag(summon.Passive);
                 if (passiveTag.Length > 0)
                     Ui.ThemedLabel(cell.transform, passiveTag, 11, Theme.Cinnabar);
@@ -594,7 +594,7 @@ namespace Brushblade.Presentation
                 return passive.OnHitBurnAll ? $"全场灼{passive.OnHitBurn}" : $"附灼{passive.OnHitBurn}";
             if (passive.Thorns > 0) return $"反伤{passive.Thorns}";
             if (passive.HealAlly > 0) return $"回血{passive.HealAlly}";
-            if (passive.OnHitCurse > 0) return $"诅咒{passive.OnHitCurse}";
+            if (passive.OnHitCurse > 0) return $"诅咒{passive.OnHitCurse}%";
             if (passive.Speed > 100) return "疾";
             return "";
         }

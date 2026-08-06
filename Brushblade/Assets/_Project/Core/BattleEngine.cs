@@ -593,7 +593,13 @@ namespace Brushblade.Core
                         if (_enemies[i].Alive) { target = i; break; }
                     if (target < 0) break;
                     _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, s)); // 发起者下标 s
-                    DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+                    // 攻 0 的召唤物(烓/灶)照常出手,但不再走 DamageEnemy(2026-08-06,I2/I3):
+                    // 无条件发 amount=0 的 Damage 事件会让表现层白飘 "-0"(Juice.cs 的 Damage
+                    // 分支没有 ≤0 守卫),更关键的是 DamageEnemy 把"命中"与"吃到伤害"当同一件事
+                    // (enemy.HitsTaken += 1)——焦痕会因此白送 +2 攻,叠字怪会被无条件触发分裂。
+                    // 攻 0 单位的真实输出全在 ApplySummonOnHit(灼烧/诅咒),那个依旧无条件调用。
+                    if (summon.Attack > 0)
+                        DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
                     ApplySummonOnHit(summon, target);
                 }
             }
@@ -928,7 +934,8 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。</summary>
+        /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
+        /// 出字的灼烧字用这条:一次性施加,层数自然衰减到 0,累加是既有语义,不受光环影响。</summary>
         private void ApplyBurn(int enemyIndex, int value)
         {
             var enemy = _enemies[enemyIndex];
@@ -937,6 +944,21 @@ namespace Brushblade.Core
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = newBurn, TurnsLeft = -1,
+            });
+        }
+
+        /// <summary>刷新灼烧层数到 N 层(取现有层数与 N 的较大值,而非像 ApplyBurn 那样累加,
+        /// 2026-08-06 I1):光环(烓/灶)是每回合重复施加,若复用 ApplyBurn 的累加语义,
+        /// 每回合净增长 = 挂层数 − 衰减 1 层,没有上界(烓 全体挂 3、衰减 1,净 +2,十回合后失控)。
+        /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低出字灼烧已经堆起来的更高层数。</summary>
+        private void RefreshBurn(int enemyIndex, int stacks)
+        {
+            var enemy = _enemies[enemyIndex];
+            int current = enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+            enemy.Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = Math.Max(current, stacks), TurnsLeft = -1,
             });
         }
 
@@ -954,17 +976,18 @@ namespace Brushblade.Core
             {
                 if (passive.OnHitBurnAll)
                 {
-                    int count = _enemies.Count; // 分裂产生的新怪不吃同一发光环(与 DamageAll 同口径)
-                    for (int i = 0; i < count; i++)
+                    // 不取快照(2026-08-06 M4):这里没有哪一步会触发分裂——分裂只在 DamageEnemy
+                    // 里判定,而这个循环体内只调 RefreshBurn,不会扩表,直接读 _enemies.Count 即可。
+                    for (int i = 0; i < _enemies.Count; i++)
                     {
                         if (!_enemies[i].Alive) continue;
-                        ApplyBurn(i, passive.OnHitBurn);
+                        RefreshBurn(i, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
                         _events.Add(new BattleEvent(BattleEventKind.Burn, i, passive.OnHitBurn));
                     }
                 }
                 else if (_enemies[targetIndex].Alive)
                 {
-                    ApplyBurn(targetIndex, passive.OnHitBurn);
+                    RefreshBurn(targetIndex, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
                     _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, passive.OnHitBurn));
                 }
             }
@@ -1129,10 +1152,8 @@ namespace Brushblade.Core
             // 反伤(2026-08-05,荆):固定值、不走生克(与 Bleed 同口径,可预期)。
             // 荆棘扎人不看自己死没死 —— 被打死的那一击照样反弹。
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于"不走生克"。
-            // enemyIndex < 0 是保护性判断:目前所有调用方都传真实下标,留着免得日后
-            // 加了无来源伤害(环境/自伤)时这里越界。
             int thorns = summon.Passive?.Thorns ?? 0;
-            if (thorns > 0 && enemyIndex >= 0 && _enemies[enemyIndex].Alive)
+            if (thorns > 0 && _enemies[enemyIndex].Alive)
                 DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart);
         }
 

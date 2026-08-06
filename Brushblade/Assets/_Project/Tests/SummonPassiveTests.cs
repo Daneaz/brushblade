@@ -177,6 +177,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Curse_IntegerMath_AvoidsFloatPrecisionLoss()
+        {
+            // 25% 是唯一二进制精确的档位,原先的 float 版 (1 - curse/100f) 测不出精度损耗——
+            // 10%/30% 才会露馅:1 - 0.1f = 0.89999997,10 × 0.89999997 会 floor 到 8 而不是 9
+            // (2026-08-06 M1,改成整数算式 raw × (100 − curse) / 100 后精确)。
+            Assert.That(CursedEnemy(10, 10, "诅咒").Attack, Is.EqualTo(9));  // 10 × 0.9 = 9
+            Assert.That(CursedEnemy(10, 30, "诅咒").Attack, Is.EqualTo(7));  // 10 × 0.7 = 7
+        }
+
+        [Test]
         public void Curse_SameSourceRefreshesInsteadOfStacking()
         {
             var enemy = CursedEnemy(8, 25, "诅咒");
@@ -312,6 +322,61 @@ namespace Brushblade.Core.Tests
                 "后手召唤物没有敌人可打,不该对尸体挂灼烧");
         }
 
+        // ---- 光环灼烧:刷新到 N 层,不是累加(2026-08-06 I1) ----
+
+        [Test]
+        public void OnHitBurnAll_RepeatedAcrossTurns_DoesNotAccumulate()
+        {
+            // 烓(炬)连续 3 个回合出手,层数该稳定在 3,不该像 ApplyBurn 那样每回合净 +2
+            // (挂 3、衰减 1)一路涨上去 —— 这正是本轮修复要堵的失控口子。
+            var engine = Engine(new[] { "炬" }, new[] { Dummy(hp: 500) });
+            engine.Cast("炬");
+
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3), "第 1 回合刷新到 3 层");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3), "第 2 回合仍是 3,不叠成 5");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3), "第 3 回合仍是 3");
+        }
+
+        [Test]
+        public void OnHitBurn_RefreshDoesNotLowerAnExistingHigherStack()
+        {
+            // Math.Max 的下半边:出字灼烧先堆起来的高层数,光环(灶,OnHitBurn 2)不该把它削低。
+            var engine = Engine(new[] { "焰" }, new[] { Dummy(hp: 500) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 5, TurnsLeft = -1,
+            });
+            engine.Cast("焰");
+            engine.EndTurn(); // 灼烧先结算(5→4 层,-1 衰减),随后召唤物出手 RefreshBurn(2):max(4,2)=4
+
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4),
+                "光环打上去仍是 4(衰减后的已有层数),不会被削到 2");
+        }
+
+        // ---- 攻 0 召唤物出手不再走 DamageEnemy(2026-08-06 I2/I3) ----
+
+        [Test]
+        public void ZeroAttackSummon_DoesNotFeedScorchOrForceSplit()
+        {
+            // 焦痕:受击存活即 +2 攻,若攻 0 召唤物的出手仍算一次"命中",会白送敌人攻击力。
+            var scorchEnemy = new EnemyDef("焦", Element.Heart, 200, 0, EnemyAbility.Scorch);
+            var scorchEngine = Engine(new[] { "焰" }, new[] { scorchEnemy });
+            scorchEngine.Cast("焰");
+            for (int i = 0; i < 3; i++) scorchEngine.EndTurn();
+            Assert.That(scorchEngine.Enemies[0].Attack, Is.EqualTo(0), "攻 0 召唤物出手不该喂焦痕自燃");
+
+            // 叠字怪:首次受击存活即分裂,若攻 0 召唤物的出手仍算一次"命中",会无条件替敌人触发分裂。
+            var splitEnemy = new EnemyDef("叠", Element.Heart, 200, 0, EnemyAbility.Split);
+            var splitEngine = Engine(new[] { "焰" }, new[] { splitEnemy });
+            splitEngine.Cast("焰");
+            for (int i = 0; i < 3; i++) splitEngine.EndTurn();
+            Assert.That(splitEngine.Enemies.Count, Is.EqualTo(1), "攻 0 召唤物出手不该强制叠字怪分裂");
+        }
+
         // ---- 光环治疗 ----
 
         [Test]
@@ -364,7 +429,10 @@ namespace Brushblade.Core.Tests
             // 反伤是敌方行动段里**唯一**会打敌人的路径,它打破了「敌方段内 _enemies 不变」
             // 这个从未言明的前提:叠字怪首次受击存活即分裂扩表,而 actionCount 数组是循环前
             // 按当时敌人数预分配的 —— 循环上界若跟着 _enemies.Count 走,就会 IndexOutOfRange。
-            // 前排放个非分裂的靶,专门吃掉召唤物那记攻 0 的出手(0 伤也计受击,会提前把分裂用掉)。
+            // 前排放个非分裂的靶:让两只敌人同回合各行动一次,叠字怪排第二个触发分裂,好验证
+            // 扩表发生在循环中段、上界仍按 actionCount.Length 走不越界(2026-08-06 更新:I2/I3
+            // 改完后攻 0 召唤物出手不再走 DamageEnemy,靶已经吃不到那记「0 伤也计受击」了——
+            // 召唤段现在对它俩都是纯摆设,真正触发分裂的仍是敌方段的反伤,断言不受影响)。
             var engine = Engine(new[] { "棘" }, new[]
             {
                 new EnemyDef("靶", Element.Heart, 200, 4),

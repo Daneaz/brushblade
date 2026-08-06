@@ -398,6 +398,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Cast_BurnTwiceInSameTurn_StacksInsteadOfRefreshing()
+        {
+            // 出字的灼烧字用 ApplyBurn(累加),与召唤物光环的 RefreshBurn(刷新到 N 层)是两条
+            // 不同的路径(2026-08-06 I1 拍板)。这条钉死出字侧没被顺手改坏:两次施加应叠加成
+            // 6 层,而不是被当成光环那样刷新到仍是 3。
+            var engine = Engine(library: new[] { "燃", "燃" }, enemies: new[] { WoodMinion(hp: 500) });
+            engine.Cast("燃"); // 全体 3 层灼烧
+            engine.Cast("燃"); // 再 3 层,应累加成 6
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(6));
+        }
+
+        [Test]
         public void BurnTick_AppliesKeMultiplierAsFire()
         {
             AssertBurnTick(Element.Metal, 9);   // 火克金:floor(6 × 1.5)

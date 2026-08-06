@@ -91,8 +91,8 @@ namespace Brushblade.Core
         public bool Alive => Hp > 0;
 
         /// <summary>基础速度(2026-08-04)。默认 100 = 每回合恰好一次,与旧的"固定反击一次"等价;
-        /// 带被动的取被动值(桤 150)。</summary>
-        public int Speed { get; internal set; } = 100;
+        /// 带被动的取被动值(桤 150)。两个构造函数之外无赋值点,收成只读(2026-08-06 M7)。</summary>
+        public int Speed { get; }
 
         /// <summary>行动计量器:回合末累积速度,每满 100 行动一次(与敌人同走一套模型)。</summary>
         public int ActionMeter { get; internal set; }
@@ -181,7 +181,9 @@ namespace Brushblade.Core
             {
                 int raw = BaseAttack + Statuses.TotalMagnitude(StatusKind.AttackBuff);
                 int curse = Math.Min(100, Statuses.TotalMagnitude(StatusKind.Curse));
-                return curse <= 0 ? raw : Math.Max(0, (int)Math.Floor(raw * (1 - curse / 100f)));
+                // 整数算式(2026-08-06 M1):float 版 1 - curse/100f 在 curse=10/30 等值上有精度损耗
+                // (1 - 0.1f = 0.89999997),会把 floor 结果拉低 1。curse 已钳到 ≤100,100-curse ≥0。
+                return curse <= 0 ? raw : Math.Max(0, raw * (100 - curse) / 100);
             }
         }
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
