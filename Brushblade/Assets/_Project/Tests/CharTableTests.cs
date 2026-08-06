@@ -175,6 +175,21 @@ namespace Brushblade.Core.Tests
             Assert.That(byId["换气"].Options[0].ComponentCost, Is.EqualTo(1));
         }
 
+        [Test]
+        public void RealConfig_DengHuaCarriesSearAbility()
+        {
+            // ability 若没从 JSON 传到 EnemyDef,灯花照常能打但不会给玩家挂灼烧,
+            // 净化与免疫这批字就全成了死牌
+            var campaign = ConfigLoader.LoadCampaign(
+                File.ReadAllText(Path.Combine(RepoRoot(),
+                    "Brushblade/Assets/StreamingAssets/config/enemies.json")), RealGraph());
+            var dengHua = campaign.Endless.Bands
+                .SelectMany(b => b.EnemyPool)
+                .FirstOrDefault(e => e.Id == "灯花");
+            Assert.That(dengHua, Is.Not.Null, "灯花应出现在层段的敌人池里");
+            Assert.That(dengHua.Ability, Is.EqualTo(EnemyAbility.Sear));
+        }
+
         private static CampaignConfig RealCampaign()
         {
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
@@ -183,6 +198,15 @@ namespace Brushblade.Core.Tests
             var path = Path.Combine(dir.FullName,
                 "Brushblade/Assets/StreamingAssets/config/enemies.json");
             return ConfigLoader.LoadCampaign(File.ReadAllText(path), RealGraph());
+        }
+
+        private static string RepoRoot()
+        {
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Brushblade")))
+                dir = dir.Parent;
+            Assert.That(dir, Is.Not.Null, "找不到仓库根");
+            return dir.FullName;
         }
     }
 }
