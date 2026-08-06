@@ -27,6 +27,8 @@ namespace Brushblade.Core.Tests
                                  new EffectDef(EffectKind.Dispel, 1, targetAll: true) }),
             new CharDef("涤", Element.Heart,   // 浴:纯净化
                 effects: new[] { new EffectDef(EffectKind.Cleanse, 0) }),
+            new CharDef("垒", Element.Heart,   // 筑:纯护盾(锁定「免疫先于护盾消耗」用)
+                effects: new[] { new EffectDef(EffectKind.Shield, 10) }),
             new CharDef("堵", Element.Heart,   // 塞:免疫 1 次
                 effects: new[] { new EffectDef(EffectKind.Immunity, 1) }),
             new CharDef("绝", Element.Heart,   // 杜:免疫 2 次
@@ -290,10 +292,13 @@ namespace Brushblade.Core.Tests
         public void Immunity_ConsumedBeforeShield()
         {
             // 免疫是稀缺的一次性资源,让它去挡小伤而把护盾留着更亏。
-            // 护盾必须原封不动地留到免疫用完之后。
-            var engine = Engine(new[] { "堵" }, new[] { Dummy(attack: 8) });
-            engine.Cast("堵", 0);
+            // 护盾必须原封不动地留到免疫用完之后 —— 用非零护盾锁住顺序:
+            // 若实现误把护盾放在免疫之前吃,这条断言会因为护盾掉一截而变红。
+            var engine = Engine(new[] { "垒", "堵" }, new[] { Dummy(attack: 8) });
+            engine.Cast("垒");
             int shieldBefore = engine.PlayerShield;
+            Assert.That(shieldBefore, Is.GreaterThan(0), "护盾字必须先立起非零护盾,测试才有区分力");
+            engine.Cast("堵", 0);
             engine.EndTurn();
             Assert.That(engine.PlayerShield, Is.EqualTo(shieldBefore), "护盾一点没掉");
             Assert.That(engine.PlayerHp, Is.EqualTo(50));
