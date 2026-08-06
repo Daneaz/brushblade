@@ -82,6 +82,8 @@ namespace Brushblade.Core
                      // 于是玩家看到的是「召唤物砸上去不掉血」「还没打就满血」(2026-07-29 实测)
         Dispel,      // 驱散敌方增益(TargetIndex = 敌人,Amount = 移除条数;2026-08-06)
         Cleanse,     // 净化玩家减益(TargetIndex = −1,Amount = 移除条数;2026-08-06)
+        Immunity,        // 获得免疫(TargetIndex = −1,Amount = 次数;2026-08-06)
+        ImmunityBlocked, // 免疫挡下一记(TargetIndex = 攻击者敌人下标,Amount = 挡掉的伤害;2026-08-06)
     }
 
     public readonly struct BattleEvent
@@ -906,6 +908,16 @@ namespace Brushblade.Core
                             _events.Add(new BattleEvent(BattleEventKind.Cleanse, -1, cleansed));
                         break;
                     }
+                    case EffectKind.Immunity:
+                        // SourceId 用字 ID:同字再出只刷新,不无限叠层数;
+                        // 不同字之间可叠(塞 1 + 杜 2 = 3 次),因为它们是不同来源
+                        _playerStatuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.Immunity, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = -1, SourceId = def.Id,
+                        });
+                        _events.Add(new BattleEvent(BattleEventKind.Immunity, -1, value));
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1194,6 +1206,15 @@ namespace Brushblade.Core
         /// 大招走这条 = 不经召唤物顶前排(spec 3.3 总则)。</summary>
         private void DamagePlayerDirect(int enemyIndex, int damage)
         {
+            // 免疫(2026-08-06):先于护盾消耗 —— 免疫是稀缺的一次性资源,让它去挡一记小伤
+            // 而把护盾留着更亏;玩家的预期是「免疫牌打出去,下一记不管多重都不疼」。
+            // 完全挡下,不是减免。召唤物承伤走 DamageSummon,不经这里,所以免疫只保护玩家。
+            if (ConsumeImmunity())
+            {
+                _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, damage));
+                return;
+            }
+
             int fromNormal = Math.Min(_shieldNormal, damage);
             _shieldNormal -= fromNormal;
             int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
@@ -1201,6 +1222,21 @@ namespace Brushblade.Core
             int absorbed = fromNormal + fromPersist;
             PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+        }
+
+        /// <summary>消耗一层免疫;成功返回 true。袋子里可能同时有多条(不同字来源可叠),
+        /// 所以从第一条非零的扣 1,扣到 0 就移除那一条,而不是按 Kind 一把清。</summary>
+        private bool ConsumeImmunity()
+        {
+            var all = _playerStatuses.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i].Kind != StatusKind.Immunity || all[i].Magnitude <= 0) continue;
+                all[i].Magnitude -= 1;
+                if (all[i].Magnitude <= 0) _playerStatuses.RemoveEntry(all[i]);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则),护盾先吸收(2026-08-05)。

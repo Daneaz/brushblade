@@ -16,6 +16,7 @@ namespace Brushblade.Core
         ArmorBreak,       // 破甲:承伤 +25%,不叠层(2026-08-05)
         Curse,            // 诅咒:攻击 −Magnitude%,不叠层只刷新(2026-08-05)
         Seal,             // 封字:玩家下回合 AP −Magnitude(2026-08-06,Boss 倾覆)
+        Immunity,         // 免疫:完全挡下 Magnitude 次伤害(2026-08-06)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -115,6 +116,10 @@ namespace Brushblade.Core
         }
 
         public void Clear() => _list.Clear();
+
+        /// <summary>移除指定的那一条(按引用)。免疫消耗到 0 时用——袋子里可能有多条
+        /// 同 Kind 不同来源的免疫,不能用按 Kind 的 Remove 一把全清。</summary>
+        public void RemoveEntry(StatusEffect effect) => _list.Remove(effect);
 
         /// <summary>回合数递减,归零即移除;TurnsLeft &lt; 0 表示段内持久,不受影响。
         /// <paramref name="except"/> 可选豁免一个种类不递减(冻结中 SpeedModifier 暂停用,

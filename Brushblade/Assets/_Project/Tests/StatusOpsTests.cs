@@ -27,6 +27,13 @@ namespace Brushblade.Core.Tests
                                  new EffectDef(EffectKind.Dispel, 1, targetAll: true) }),
             new CharDef("涤", Element.Heart,   // 浴:纯净化
                 effects: new[] { new EffectDef(EffectKind.Cleanse, 0) }),
+            new CharDef("堵", Element.Heart,   // 塞:免疫 1 次
+                effects: new[] { new EffectDef(EffectKind.Immunity, 1) }),
+            new CharDef("绝", Element.Heart,   // 杜:免疫 2 次
+                effects: new[] { new EffectDef(EffectKind.Immunity, 2) }),
+            new CharDef("峙", Element.Heart,   // 岿:免疫 1 次 + 立即净化
+                effects: new[] { new EffectDef(EffectKind.Immunity, 1),
+                                 new EffectDef(EffectKind.Cleanse, 0) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -265,6 +272,86 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Burn), Is.False);
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(30),
                 "增益不该被净化误伤");
+        }
+
+        // ---- 免疫 ----
+
+        [Test]
+        public void Immunity_BlocksOneHitEntirely_NotPartially()
+        {
+            var engine = Engine(new[] { "堵" }, new[] { Dummy(attack: 20) });
+            engine.Cast("堵", 0);
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "整记 20 伤被完全挡下,不是减免");
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Immunity), Is.False, "一次性,用完即消");
+        }
+
+        [Test]
+        public void Immunity_ConsumedBeforeShield()
+        {
+            // 免疫是稀缺的一次性资源,让它去挡小伤而把护盾留着更亏。
+            // 护盾必须原封不动地留到免疫用完之后。
+            var engine = Engine(new[] { "堵" }, new[] { Dummy(attack: 8) });
+            engine.Cast("堵", 0);
+            int shieldBefore = engine.PlayerShield;
+            engine.EndTurn();
+            Assert.That(engine.PlayerShield, Is.EqualTo(shieldBefore), "护盾一点没掉");
+            Assert.That(engine.PlayerHp, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void Immunity_TwoChargesBlockTwoHits()
+        {
+            var engine = Engine(new[] { "绝" }, new[] { Dummy(attack: 9) });
+            engine.Cast("绝", 0);
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "第 1 记挡下");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1));
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "第 2 记也挡下");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(41), "第 3 记吃满");
+        }
+
+        [Test]
+        public void Immunity_SameCharRefreshes_DifferentCharsStack()
+        {
+            var engine = Engine(new[] { "堵", "堵", "绝" }, new[] { Dummy(attack: 5) });
+            engine.Cast("堵", 0);
+            engine.Cast("堵", 0);
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1),
+                "同字只刷新,不叠成 2");
+            engine.Cast("绝", 0);
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(3),
+                "不同字是不同来源,可叠:1 + 2");
+        }
+
+        [Test]
+        public void KuiGrantsImmunityAndCleansesAtOnce()
+        {
+            var engine = Engine(new[] { "峙" }, new[] { Dummy(attack: 20) });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 3, TurnsLeft = -1,
+            });
+            engine.Cast("峙", 0);
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Burn), Is.False, "净化那一半");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1),
+                "免疫那一半");
+        }
+
+        [Test]
+        public void Immunity_DoesNotProtectSummons()
+        {
+            // 免疫是玩家的资源。召唤物替玩家承伤走 DamageSummon,不经 DamagePlayerDirect
+            var engine = Engine(new[] { "堵", "素" }, new[] { Dummy(attack: 4) });
+            engine.Cast("素");
+            engine.Cast("堵", 0);
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(6), "召唤物照常挨打");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1),
+                "免疫没被召唤物那记消耗掉");
         }
     }
 }
