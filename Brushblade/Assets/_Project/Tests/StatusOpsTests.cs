@@ -47,6 +47,8 @@ namespace Brushblade.Core.Tests
                     executeBelowPercent: 30) }),
             new CharDef("凿", Element.Heart,   // 1 点伤害,用来把敌人精确磨到目标血线
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 1) }),
+            new CharDef("苏", Element.Heart,   // 活:复活一名阵亡召唤物
+                effects: new[] { new EffectDef(EffectKind.Revive, 1) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -405,6 +407,17 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Execute_DamageEvent_ReportsActualHpLost_NotZeroOrFaceValue()
+        {
+            // 处决把敌人直接置 0 血,但事件要报「实际抹掉的血量」(24),不是 0、
+            // 也不是字面伤害值 20 —— 报 0 会让表现层每回合飘「-0」还带白闪震屏。
+            var engine = EngineWithEnemyAt(Target(100), 24, "斩");
+            engine.Cast("斩", 0);
+            var damage = engine.LastEvents.Single(e => e.Kind == BattleEventKind.Damage);
+            Assert.That(damage.Amount, Is.EqualTo(24));
+        }
+
+        [Test]
         public void Execute_JudgesHpBeforeTheHit_NotAfter()
         {
             // 现血 26 = 26% ≥ 25%:打之前不到线,只吃普通 20 伤剩 6。
@@ -467,6 +480,89 @@ namespace Brushblade.Core.Tests
             engine.Cast("扫荡", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(8), "20 − 12");
             Assert.That(engine.Enemies[1].Hp, Is.EqualTo(44), "50 − 6");
+        }
+
+        // ---- 复活 ----
+
+        [Test]
+        public void Revive_RestoresDeadSummonToHalfHp()
+        {
+            var engine = Engine(new[] { "素", "苏" }, new[] { Dummy(attack: 40) });
+            engine.Cast("素");
+            engine.EndTurn();                         // 10 血召唤物挨 40,死透
+            Assert.That(engine.Summons[0].Alive, Is.False);
+
+            engine.Cast("苏", 0);
+            Assert.That(engine.Summons[0].Alive, Is.True);
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(5), "半血,向上取整");
+            Assert.That(engine.Summons[0].ActionMeter, Is.EqualTo(0), "重新攒节拍,不继承死前余额");
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(0), "盾不跟着复活");
+        }
+
+        [Test]
+        public void Revive_KeepsPassiveIdentity()
+        {
+            // Passive 是这只召唤物的身份,复活后必须还在
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("棘", Element.Wood,
+                    effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0,
+                        summonChar: "木", passive: new SummonPassive { Thorns = 3 }) }),
+                new CharDef("苏", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.Revive, 1) }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "棘", "苏" }, Array.Empty<string>(),
+                new[] { Dummy(attack: 40) }, seed: 1);
+            engine.Cast("棘");
+            engine.EndTurn();
+            engine.Cast("苏", 0);
+            Assert.That(engine.Summons[0].Passive, Is.Not.Null);
+            Assert.That(engine.Summons[0].Passive.Thorns, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Revive_WithNoDeadSummon_IsANoOp()
+        {
+            // 与「无敌人时出 AOE」同口径:消耗 AP 但无效果,不抛异常
+            var engine = Engine(new[] { "苏" }, new[] { Dummy() });
+            Assert.That(engine.Cast("苏", 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Summons, Is.Empty);
+        }
+
+        [Test]
+        public void Revive_RefusesWhenSummonCapIsFull()
+        {
+            // 死尸占着槽位,复活不新增条目但存活数 +1 —— 满员时必须停手,否则会变成 7 只。
+            // 构造:召满 6 只 → 敌人打死最前一只(场上多一具尸体)→ 补召 1 只回到 6 只存活
+            // → 此时出「苏」,尸体还在但已满员。
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("丛", Element.Wood,   // 一次召 6 只,正好塞满上限
+                    effects: new[] { new EffectDef(EffectKind.Summon, 4, summonCount: 6, summonChar: "木") }),
+                new CharDef("苗", Element.Wood,   // 补位用的单召
+                    effects: new[] { new EffectDef(EffectKind.Summon, 4, summonCount: 1, summonChar: "木") }),
+                new CharDef("苏", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.Revive, 1) }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = 10 },
+                new[] { "丛", "苗", "苏" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 500, 4) }, seed: 1);
+
+            engine.Cast("丛");
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6));
+            engine.EndTurn();                      // 敌人攻 4 打死最前一只(4 血)
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(5));
+            engine.Cast("苗");                      // 补回 6 只存活,场上留着那具尸体
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6));
+
+            engine.Cast("苏", 0);
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6),
+                "满员时复活必须停手,不许变成 7 只");
         }
     }
 }

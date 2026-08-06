@@ -926,6 +926,21 @@ namespace Brushblade.Core
                         });
                         _events.Add(new BattleEvent(BattleEventKind.Immunity, -1, value));
                         break;
+                    case EffectKind.Revive:
+                        for (int n = 0; n < value; n++)
+                        {
+                            // 死尸占着槽位,复活不新增条目但存活数 +1 —— 满员时停手,免得超上限
+                            if (AliveSummons() >= SummonCap) break;
+                            int slot = FirstDeadSummonIndex();
+                            if (slot < 0) break; // 没有阵亡召唤物 → 空放(与无敌人时出 AOE 同口径)
+                            var revived = _summons[slot];
+                            revived.Hp = (revived.MaxHp + 1) / 2; // 半血,向上取整
+                            revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
+                            revived.Shield = 0;                   // 盾不跟着复活
+                            // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
+                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
+                        }
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1119,6 +1134,15 @@ namespace Brushblade.Core
         }
 
         private int FirstAliveSummonIndex() => NextAliveSummonIndex(0);
+
+        /// <summary>第一具尸体的槽位;没有返回 −1。引擎从不移除阵亡召唤物
+        /// (表现层只是不画它们),所以复活直接就地救回。</summary>
+        private int FirstDeadSummonIndex()
+        {
+            for (int s = 0; s < _summons.Count; s++)
+                if (!_summons[s].Alive) return s;
+            return -1;
+        }
 
         private int NextAliveSummonIndex(int from)
         {
