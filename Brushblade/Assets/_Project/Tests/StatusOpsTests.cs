@@ -36,6 +36,17 @@ namespace Brushblade.Core.Tests
             new CharDef("峙", Element.Heart,   // 岿:免疫 1 次 + 立即净化
                 effects: new[] { new EffectDef(EffectKind.Immunity, 1),
                                  new EffectDef(EffectKind.Cleanse, 0) }),
+            new CharDef("斩", Element.Heart,   // 铡:伤 20,HP<25% 且非 Boss → 直接击杀
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 20,
+                    executeBelowPercent: 25, executeKills: true) }),
+            new CharDef("割", Element.Heart,   // 镰:伤 9,HP<30% → ×2
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 9,
+                    executeBelowPercent: 30) }),
+            new CharDef("扫荡", Element.Heart, // 剿:全体伤 6,对 HP<30% 的目标 ×2
+                effects: new[] { new EffectDef(EffectKind.DamageAll, 6,
+                    executeBelowPercent: 30) }),
+            new CharDef("凿", Element.Heart,   // 1 点伤害,用来把敌人精确磨到目标血线
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 1) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -357,6 +368,105 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(6), "召唤物照常挨打");
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1),
                 "免疫没被召唤物那记消耗掉");
+        }
+
+        // ---- 斩杀 ----
+
+        /// <summary>把首个敌人精确磨到 targetHp。`EnemyState.Hp` 的 setter 是 internal,
+        /// 测试程序集改不到,所以用一张 1 点伤害的字磨——AP 开到够大,一回合内磨完,
+        /// 期间敌人攻 0 不还手,不干扰血线。</summary>
+        private static BattleEngine EngineWithEnemyAt(EnemyDef enemy, int targetHp, params string[] cards)
+        {
+            int hits = enemy.MaxHp - targetHp;
+            var library = new List<string>(Enumerable.Repeat("凿", hits));
+            library.AddRange(cards);
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = hits + 20 },
+                library, Array.Empty<string>(), new[] { enemy }, seed: 1);
+            for (int i = 0; i < hits; i++) engine.Cast("凿", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(targetHp), "磨血辅助本身没磨准");
+            return engine;
+        }
+
+        private static EnemyDef Target(int maxHp) => new("靶", Element.Heart, maxHp, 0);
+
+        private static EnemyDef BossTarget(int maxHp) =>
+            new("覆", Element.Heart, maxHp, 0,
+                phases: new[] { new BossPhaseDef("覆", Element.Heart, maxHp, 0) });
+
+        [Test]
+        public void Execute_KillsNonBossBelowThreshold()
+        {
+            // 上限 100、现血 24 = 24% < 25% → 直接击杀
+            var engine = EngineWithEnemyAt(Target(100), 24, "斩");
+            engine.Cast("斩", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(0));
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
+        [Test]
+        public void Execute_JudgesHpBeforeTheHit_NotAfter()
+        {
+            // 现血 26 = 26% ≥ 25%:打之前不到线,只吃普通 20 伤剩 6。
+            // 若改成打之后判定,20 伤打完剩 6 = 6% 就会触发处决,结果完全不同。
+            var engine = EngineWithEnemyAt(Target(100), 26, "斩");
+            engine.Cast("斩", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(6), "普通结算,没被处决");
+        }
+
+        [Test]
+        public void Execute_DoesNotKillBoss()
+        {
+            // 上限 200、现血 40 = 20% < 25%,但 Boss 免疫处决 → 只吃普通 20 伤剩 20。
+            // 血线特意选得让「处决」与「普通伤害」的结果不同,否则测不出区别。
+            var engine = EngineWithEnemyAt(BossTarget(200), 40, "斩");
+            engine.Cast("斩", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(20), "Boss 退化成普通 20 伤");
+            Assert.That(engine.Enemies[0].Alive, Is.True);
+        }
+
+        [Test]
+        public void ExecuteBonus_DoesNotDoubleAboveThreshold()
+        {
+            // 现血 31 = 31% ≥ 30% → 普通 9 伤
+            var engine = EngineWithEnemyAt(Target(100), 31, "割");
+            engine.Cast("割", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(22));
+        }
+
+        [Test]
+        public void ExecuteBonus_DoublesDamageBelowThreshold()
+        {
+            // 现血 29 = 29% < 30% → 9 × 2 = 18
+            var engine = EngineWithEnemyAt(Target(100), 29, "割");
+            engine.Cast("割", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(11));
+        }
+
+        [Test]
+        public void ExecuteBonus_AppliesToBossToo()
+        {
+            // 免疫的只是「直接击杀」,不是「残血加伤」。现血 20/100 = 20% < 30% → 18 伤
+            var engine = EngineWithEnemyAt(BossTarget(100), 20, "割");
+            engine.Cast("割", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ExecuteBonus_TargetAll_JudgesEachEnemySeparately()
+        {
+            // 两只上限都 100:甲磨 80 下到 20(20% < 30% → 12 伤),
+            // 乙磨 50 下到 50(50% ≥ 30% → 6 伤)。共需 130 张「凿」。
+            var library = new List<string>(Enumerable.Repeat("凿", 130)) { "扫荡" };
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = 200 },
+                library, Array.Empty<string>(),
+                new[] { Target(100), Target(100) }, seed: 1);
+            for (int i = 0; i < 80; i++) engine.Cast("凿", 0);   // 甲 → 20
+            for (int i = 0; i < 50; i++) engine.Cast("凿", 1);   // 乙 → 50
+            engine.Cast("扫荡", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(8), "20 − 12");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(44), "50 − 6");
         }
     }
 }

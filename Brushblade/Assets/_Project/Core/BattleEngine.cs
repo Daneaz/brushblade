@@ -831,13 +831,21 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        DamageEnemy(targetIndex, BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker, effect.IgnoreArmor);
+                        if (TryExecuteKill(effect, targetIndex)) break; // 处决:直接击杀,不再走伤害
+                        DamageEnemy(targetIndex,
+                            ExecuteBonus(effect, targetIndex, BaseValue(effect, value, _enemies[targetIndex])),
+                            recipeElements, attacker, effect.IgnoreArmor);
                         break;
                     case EffectKind.DamageAll:
                         int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE
                         for (int i = 0; i < aoeCount; i++)
-                            if (_enemies[i].Alive)
-                                DamageEnemy(i, BaseValue(effect, value, _enemies[i]), recipeElements, attacker, effect.IgnoreArmor);
+                        {
+                            if (!_enemies[i].Alive) continue;
+                            if (TryExecuteKill(effect, i)) continue; // 斩杀对每个目标分别判定
+                            DamageEnemy(i,
+                                ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i])),
+                                recipeElements, attacker, effect.IgnoreArmor);
+                        }
                         break;
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
@@ -1124,6 +1132,34 @@ namespace Brushblade.Core
         {
             return effect.DoubleVsBurning && target.Statuses.Has(StatusKind.Burn) ? scaledValue * 2 : scaledValue;
         }
+
+        /// <summary>目标现血是否低于斩杀阈值。MaxHp 取 EnemyState.MaxHp(Boss 的**当前阶段上限**),
+        /// 不是 Def.MaxHp —— 后者对分阶段 Boss 是错的。</summary>
+        private bool BelowExecuteThreshold(EffectDef effect, int enemyIndex)
+        {
+            if (effect.ExecuteBelowPercent <= 0) return false;
+            var enemy = _enemies[enemyIndex];
+            return enemy.Alive && enemy.Hp * 100 < enemy.MaxHp * effect.ExecuteBelowPercent;
+        }
+
+        /// <summary>处决:命中阈值且非 Boss 则直接击杀,返回 true(调用方不要再走伤害)。
+        /// Boss 是一条总血池,25% 也是很大一截,一刀没掉太破坏节奏,故免疫。</summary>
+        private bool TryExecuteKill(EffectDef effect, int enemyIndex)
+        {
+            if (!effect.ExecuteKills || !BelowExecuteThreshold(effect, enemyIndex)) return false;
+            var enemy = _enemies[enemyIndex];
+            if (enemy.IsBoss) return false;
+            int lost = enemy.Hp;              // 报实际抹掉的血量,别报 0 —— 0 会让表现层飘「-0」
+            enemy.Hp = 0;
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
+            ResolveDefeat(enemyIndex);
+            return true;
+        }
+
+        /// <summary>残血加伤:命中阈值则该次基础值 ×2。**对 Boss 照常生效** ——
+        /// 免疫的只是「直接击杀」,不是「残血加伤」。</summary>
+        private int ExecuteBonus(EffectDef effect, int enemyIndex, int baseValue) =>
+            !effect.ExecuteKills && BelowExecuteThreshold(effect, enemyIndex) ? baseValue * 2 : baseValue;
 
         private void DamageEnemy(int enemyIndex, int baseValue,
             IReadOnlyCollection<Element> recipeElements, Element attacker, bool ignoreArmor = false)

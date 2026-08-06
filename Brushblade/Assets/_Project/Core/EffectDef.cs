@@ -61,11 +61,19 @@ namespace Brushblade.Core
         /// 不放进 Passive —— 它作用于出字时已在场的其他召唤物,不是这只召唤物自带的。</summary>
         public int SummonShield { get; }
 
+        /// <summary>斩杀:目标 HP 百分比低于此值时触发(0 = 不启用)。**打之前**判血——
+        /// 让玩家看着血条就能决定出哪张;打之后判定虽然更像补刀,但结果不可预期。</summary>
+        public int ExecuteBelowPercent { get; }
+
+        /// <summary>true = 命中阈值直接击杀(Boss 免疫);false = 命中阈值伤害 ×2(对 Boss 照常生效)。</summary>
+        public bool ExecuteKills { get; }
+
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
             int turns = 0, bool targetAll = false, bool ignoreArmor = false,
-            SummonPassive passive = null, int summonShield = 0)
+            SummonPassive passive = null, int summonShield = 0,
+            int executeBelowPercent = 0, bool executeKills = false)
         {
             Kind = kind;
             Value = value;
@@ -79,6 +87,8 @@ namespace Brushblade.Core
             IgnoreArmor = ignoreArmor;
             Passive = passive;
             SummonShield = summonShield;
+            ExecuteBelowPercent = executeBelowPercent;
+            ExecuteKills = executeKills;
         }
     }
 }
