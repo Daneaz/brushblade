@@ -188,6 +188,11 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Burn:
                         Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
                         break;
+                    // 免疫完全挡下一记(2026-08-06):血条护盾条都不动,只给一个「免」的表达。
+                    // 不做新动效——复用既有飘字就够,玩家看到「免」就知道那记没落到身上
+                    case BattleEventKind.ImmunityBlocked:
+                        Popup("免", Theme.Jade, enemyAnchor(e.TargetIndex));
+                        break;
                     // 治疗:刻意**不 yield、不置 serialPending** —— 群攻与回血是同一记里的两件事,
                     // 分开演就成了「先打完,血条才慢半拍地涨」(2026-07-29 实测)
                     case BattleEventKind.Heal:
