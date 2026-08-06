@@ -19,6 +19,18 @@ SUMMON_PASSIVE = {
 }
 
 
+# 无数值的效果 token(布尔标记式):通用正则 `(\w+) (\d+)` 抓不到,单独认。
+# 顺带绕开负数 —— `Dispel -1` 那个负号通用正则也认不出。
+VALUELESS_EFFECTS = {
+    "Cleanse": {"kind": "Cleanse", "value": 0},
+    "DispelAll": {"kind": "Dispel", "value": -1},
+}
+
+# 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
+# 值 = executeKills(True = 直接击杀,False = 残血加伤 ×2)
+EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
+
+
 def extract(markdown):
     """详表全文 → {字: {element, rarity, effects}},只收标 ✅ 的字。"""
     body = markdown.split("## 二 · 火系")[1].split("## 七 · 引擎扩展")[0]
@@ -77,7 +89,12 @@ def _parse_effects(config, element):
 
     effects = []
     for kind, value in re.findall(r"`(\w+) (\d+)`", config):
+        if kind in EXECUTE_TOKENS:
+            continue  # 斩杀是修饰而非效果,下面统一挂到伤害上
         effect = {"kind": kind, "value": int(value)}
+        if kind == "DispelEach":       # 全体各驱散 N 条(淡)
+            effect["kind"] = "Dispel"
+            effect["targetAll"] = True
         if kind.startswith("Damage") and "DoubleVsBurning" in config:
             effect["doubleVsBurning"] = True
         if kind.startswith("Damage") and "ignoreArmor" in config:
@@ -85,6 +102,19 @@ def _parse_effects(config, element):
         if kind == "Shield" and "PersistOnce" in config:
             effect["persistOnce"] = True
         effects.append(effect)
+
+    for token, spec in VALUELESS_EFFECTS.items():
+        if f"`{token}`" in config:
+            effects.append(dict(spec))
+
+    for token, kills in EXECUTE_TOKENS.items():
+        found = re.search(rf"`{token} (\d+)`", config)
+        if not found:
+            continue
+        for effect in effects:
+            if effect["kind"].startswith("Damage"):
+                effect["executeBelowPercent"] = int(found.group(1))
+                effect["executeKills"] = kills
 
     turns = re.search(r"turns (\d+)", config)
     for effect in effects:

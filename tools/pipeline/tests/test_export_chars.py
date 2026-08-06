@@ -60,10 +60,10 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_109_implementable_chars():
+def test_extract_pulls_123_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 109
+    assert len(values) == 123
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
@@ -127,3 +127,42 @@ def test_jing_uses_manual_recipe_not_rare_ids_part():
     """荆 的 IDS 是 ⿰茾刂,茾 是生僻字 —— 人工兜底成 艹+刂。"""
     from export_chars import MANUAL_RECIPES
     assert MANUAL_RECIPES["荆"] == ["艹", "刂"]
+
+
+def test_valueless_effect_tokens():
+    """`Cleanse` 与 `DispelAll` 是无数值标记,通用正则抓不到,要单独认。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`Cleanse`", "水") == [{"kind": "Cleanse", "value": 0}]
+    assert _parse_effects("`DispelAll`", "火") == [{"kind": "Dispel", "value": -1}]
+
+
+def test_dispel_each_becomes_target_all():
+    from extract_values import _parse_effects
+    effects = _parse_effects("`DamageAll 20` + `DispelEach 1`", "水")
+    assert effects[0] == {"kind": "DamageAll", "value": 20}
+    assert effects[1] == {"kind": "Dispel", "value": 1, "targetAll": True}
+
+
+def test_execute_tokens_attach_to_damage_not_become_effects():
+    """斩杀是伤害的修饰,不该变成独立效果。"""
+    from extract_values import _parse_effects
+    kill = _parse_effects("`DamageSingle 20` + `ExecuteKill 25`", "金")
+    assert kill == [{"kind": "DamageSingle", "value": 20,
+                     "executeBelowPercent": 25, "executeKills": True}]
+    bonus = _parse_effects("`DamageSingle 9` + `ExecuteBonus 30`", "金")
+    assert bonus == [{"kind": "DamageSingle", "value": 9,
+                      "executeBelowPercent": 30, "executeKills": False}]
+
+
+def test_dispel_all_marker_does_not_swallow_counted_dispel():
+    """`Dispel 1` 里不含 `DispelAll` 这个带反引号的整词,别误判。"""
+    from extract_values import _parse_effects
+    effects = _parse_effects("`DamageSingle 9` + `Dispel 1`", "金")
+    assert effects == [{"kind": "DamageSingle", "value": 9}, {"kind": "Dispel", "value": 1}]
+
+
+def test_manual_recipes_avoid_smp_and_rare_parts():
+    """塞 的 IDS 部件 𡨄 是增补平面(会让整字降级成叶子);湮 的 垔 生僻。"""
+    from export_chars import MANUAL_RECIPES
+    assert MANUAL_RECIPES["塞"] == ["宀", "土"]
+    assert MANUAL_RECIPES["湮"] == ["氵", "土"]

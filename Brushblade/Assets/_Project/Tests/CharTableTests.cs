@@ -190,6 +190,64 @@ namespace Brushblade.Core.Tests
             Assert.That(dengHua.Ability, Is.EqualTo(EnemyAbility.Sear));
         }
 
+        [Test]
+        public void RealConfig_ExecuteChars_CarryTheirThresholds()
+        {
+            var graph = RealGraph();
+            var zha = graph.Get("铡").Effects.First(e => e.Kind == EffectKind.DamageSingle);
+            Assert.That(zha.ExecuteBelowPercent, Is.EqualTo(25));
+            Assert.That(zha.ExecuteKills, Is.True);
+
+            var lian = graph.Get("镰").Effects.First(e => e.Kind == EffectKind.DamageSingle);
+            Assert.That(lian.ExecuteBelowPercent, Is.EqualTo(30));
+            Assert.That(lian.ExecuteKills, Is.False, "残血加伤,不是处决");
+
+            var jiao = graph.Get("剿").Effects.First(e => e.Kind == EffectKind.DamageAll);
+            Assert.That(jiao.ExecuteBelowPercent, Is.EqualTo(30));
+        }
+
+        [Test]
+        public void RealConfig_DispelChars_CarryTheirCounts()
+        {
+            var graph = RealGraph();
+            Assert.That(graph.Get("灭").Effects.First(e => e.Kind == EffectKind.Dispel).Value,
+                Is.EqualTo(-1), "灭清全部");
+            Assert.That(graph.Get("削").Effects.First(e => e.Kind == EffectKind.Dispel).Value,
+                Is.EqualTo(1), "削只清一条");
+            Assert.That(graph.Get("刮").Effects.First(e => e.Kind == EffectKind.Dispel).Value,
+                Is.EqualTo(-1), "刮清全部");
+            var dan = graph.Get("淡").Effects.First(e => e.Kind == EffectKind.Dispel);
+            Assert.That(dan.TargetAll, Is.True, "淡是全体各清一条");
+            Assert.That(dan.Value, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RealConfig_ImmunityAndCleanseAndRevive()
+        {
+            var graph = RealGraph();
+            Assert.That(graph.Get("杜").Effects.First(e => e.Kind == EffectKind.Immunity).Value,
+                Is.EqualTo(2));
+            Assert.That(graph.Get("塞").Effects.First(e => e.Kind == EffectKind.Immunity).Value,
+                Is.EqualTo(1));
+            // 岿 = 免疫 1 次 + 立即净化,两半都要在
+            var kui = graph.Get("岿").Effects;
+            Assert.That(kui.Any(e => e.Kind == EffectKind.Immunity), Is.True);
+            Assert.That(kui.Any(e => e.Kind == EffectKind.Cleanse), Is.True);
+            Assert.That(graph.Get("浴").Effects.Any(e => e.Kind == EffectKind.Cleanse), Is.True);
+            Assert.That(graph.Get("活").Effects.First(e => e.Kind == EffectKind.Revive).Value,
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RealConfig_SaiUsesManualRecipe_NotSupplementaryPlanePart()
+        {
+            // 塞 的 IDS 部件 𡨄 在增补平面,UGUI Text 显示不出代理对 ——
+            // 走 IDS 会让塞退化成不可拆的叶子(只能靠掉落获得)
+            var graph = RealGraph();
+            Assert.That(graph.Get("塞").Recipe, Is.EqualTo(new[] { "宀", "土" }));
+            Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "土" }));
+        }
+
         private static CampaignConfig RealCampaign()
         {
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
