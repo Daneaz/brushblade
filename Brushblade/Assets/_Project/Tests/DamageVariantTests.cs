@@ -55,6 +55,14 @@ namespace Brushblade.Core.Tests
             new CharDef("棘", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1, summonAttack: 0, summonChar: "木",
                     passive: new SummonPassive { Thorns = 3 }) }),
+            // 斫:10 伤 ×2 段(剁)
+            new CharDef("斫", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2) }),
+            // 斩:20 伤,HP<25% 且非 Boss 直接击杀(用来验多段与斩杀的交互)
+            new CharDef("斩", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2,
+                    executeBelowPercent: 25, executeKills: true) }),
+            // 凿(1 点伤害)在 Task 1 已加进 Graph(),这里直接用
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -674,6 +682,97 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Alive, Is.False, "Boss 被反伤打死");
             Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyDied), Is.EqualTo(1),
                 "只该有一条阵亡事件,不能因为反弹对死尸补刀而发出第二条");
+        }
+
+        // ---- 多段 ----
+
+        [Test]
+        public void MultiHit_DealsEachSegmentSeparately()
+        {
+            var engine = Engine(new[] { "斫" }, new[] { new EnemyDef("靶", Element.Heart, 200, 0) });
+            engine.Cast("斫", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(180), "10 × 2 段");
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.Damage), Is.EqualTo(2),
+                "两段各发一条伤害事件——一拍打完玩家看不出是两段");
+        }
+
+        [Test]
+        public void MultiHit_StopsWhenTargetDies()
+        {
+            // 8 血靶:第一段 10 伤就打死了,第二段该停手,不对尸体再发一条伤害事件
+            var engine = Engine(new[] { "斫" }, new[] { new EnemyDef("靶", Element.Heart, 8, 0) });
+            engine.Cast("斫", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(0));
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.Damage), Is.EqualTo(1),
+                "第一段就打死了,第二段停手");
+        }
+
+        [Test]
+        public void MultiHit_SecondSegmentCanTriggerExecute()
+        {
+            // 上限 100、磨到 30:第一段 10 伤 → 20(20% < 25%),第二段判血命中阈值 → 直接击杀。
+            // 「打之前判血」是每段各自判,所以这是真会发生的涌现
+            var library = new List<string>(Enumerable.Repeat("凿", 70)) { "斩" };
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = 200 },
+                library, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 100, 0) }, seed: 1);
+            for (int i = 0; i < 70; i++) engine.Cast("凿", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(30), "磨血辅助本身没磨准");
+
+            engine.Cast("斩", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(0), "第二段处决");
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
+        [Test]
+        public void MultiHit_EachSegmentGoesThroughArmorBreakSeparately()
+        {
+            // 破甲让承伤 +25%。两段各自过一次,所以 10→12 两次 = 24,而不是「20 整体 +25% = 25」
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("裂", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.ArmorBreak, 3) }),
+                new CharDef("斫", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2) }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "裂", "斫" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 200, 0) }, seed: 1);
+            engine.Cast("裂", 0);
+            engine.Cast("斫", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(176), "floor(10×1.25) × 2 段 = 12 × 2 = 24");
+        }
+
+        [Test]
+        public void HitCountDefaultsToOne_ExistingDamageUnchanged()
+        {
+            var engine = Engine(new[] { "凿" }, new[] { new EnemyDef("靶", Element.Heart, 200, 0) });
+            engine.Cast("凿", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(199));
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.Damage), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void HitCountZeroOrNegative_TreatedAsOne_NotADud()
+        {
+            // 构造函数守卫:hitCount ≤ 0 视为 1,不让配置写错把字变成哑弹
+            // (变异证据:把 `HitCount = hitCount <= 0 ? 1 : hitCount` 改成直接赋值,
+            // 729 条测试一条不红——补这条堵死)
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("哑", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 0) }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "哑" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 200, 0) }, seed: 1);
+            engine.Cast("哑", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(190), "hitCount: 0 当 1 打,不是哑弹");
         }
     }
 }

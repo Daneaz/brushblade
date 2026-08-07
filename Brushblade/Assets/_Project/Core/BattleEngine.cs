@@ -857,10 +857,16 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        if (TryExecuteKill(effect, targetIndex)) break; // 处决:直接击杀,不再走伤害
-                        DamageEnemy(targetIndex,
-                            ExecuteBonus(effect, targetIndex, BaseValue(effect, value, _enemies[targetIndex])),
-                            recipeElements, attacker, effect.IgnoreArmor);
+                        // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
+                        // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
+                        for (int hit = 0; hit < effect.HitCount; hit++)
+                        {
+                            if (!_enemies[targetIndex].Alive) break;
+                            if (TryExecuteKill(effect, targetIndex)) break; // 处决:击杀后无需再打
+                            DamageEnemy(targetIndex,
+                                ExecuteBonus(effect, targetIndex, BaseValue(effect, value, _enemies[targetIndex])),
+                                recipeElements, attacker, effect.IgnoreArmor);
+                        }
                         break;
                     case EffectKind.DamageAll:
                         int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE

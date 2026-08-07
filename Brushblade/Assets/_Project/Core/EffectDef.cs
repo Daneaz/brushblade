@@ -72,12 +72,18 @@ namespace Brushblade.Core
         /// <summary>true = 命中阈值直接击杀(Boss 免疫);false = 命中阈值伤害 ×2(对 Boss 照常生效)。</summary>
         public bool ExecuteKills { get; }
 
+        /// <summary>伤害分几段打(剁 = 2)。默认 1。每段完全独立:各自过生克、破甲、穿甲,
+        /// 也各自过斩杀的「打之前判血」——所以「第一段把敌人打进阈值、第二段触发处决」
+        /// 是真会发生的涌现,不是 bug。</summary>
+        public int HitCount { get; }
+
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
             int turns = 0, bool targetAll = false, bool ignoreArmor = false,
             SummonPassive passive = null, int summonShield = 0,
-            int executeBelowPercent = 0, bool executeKills = false)
+            int executeBelowPercent = 0, bool executeKills = false,
+            int hitCount = 1)
         {
             Kind = kind;
             Value = value;
@@ -93,6 +99,7 @@ namespace Brushblade.Core
             SummonShield = summonShield;
             ExecuteBelowPercent = executeBelowPercent;
             ExecuteKills = executeKills;
+            HitCount = hitCount <= 0 ? 1 : hitCount;
         }
     }
 }
