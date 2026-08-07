@@ -19,6 +19,7 @@ namespace Brushblade.Core
         Immunity,         // 免疫:完全挡下 Magnitude 次伤害(2026-08-06)
         Blind,            // 致盲:该敌人攻击的命中率 −Magnitude%(2026-08-07)
         Silence,          // 沉默:该敌人的主动机制全部哑火(2026-08-07)
+        Reflect,          // 反弹:把打到玩家的伤害按 Magnitude% 照回攻击者(2026-08-07)
     }
 
     public enum StatusPolarity { Buff, Debuff }

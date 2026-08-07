@@ -24,6 +24,7 @@ namespace Brushblade.Core
         Revive,       // 复活:救回 Value 名阵亡召唤物,各回半血(2026-08-06)
         Blind,        // 致盲:目标命中率 −Value%,持续 Turns 回合;TargetAll = 全体(2026-08-07)
         Silence,      // 沉默:目标的主动机制哑火,持续 Turns 回合(Value 不用,2026-08-07)
+        Reflect,      // 反弹:受到的伤害按 Value% 照回攻击者,持续 Turns 回合(2026-08-07)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

@@ -37,6 +37,9 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
             new CharDef("御", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Immunity, 1) }),
+            // 映:反弹 50%,2 回合(镜)
+            new CharDef("映", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Reflect, 50, turns: 2) }),
             // 凿:1 点伤害,用来精确磨血线 / 制造一次「受击存活」
             new CharDef("凿", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 1) }),
@@ -502,6 +505,84 @@ namespace Brushblade.Core.Tests
             Assert.DoesNotThrow(() => engine.Cast("禁"));
             Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Silence), Is.True,
                 "沉默真的挂上了,不是静默吞掉");
+        }
+
+        // ---- 反弹 ----
+
+        [Test]
+        public void Reflect_SendsBackHalfTheDamage()
+        {
+            var engine = Engine(new[] { "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("映", 0);
+            int enemyHpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(42), "照常挨 8");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 4), "反弹 8 的 50% = 4");
+        }
+
+        [Test]
+        public void Reflect_UsesTotalDamage_NotHpActuallyLost()
+        {
+            // 护盾吸掉的部分也照样照回去 —— 「镜」是把东西原样反射,不管你挡没挡住。
+            // 与召唤物 荆 的反伤同口径(被打死的那一击也照样扎)
+            var engine = Engine(new[] { "挡", "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("挡", 0);
+            engine.Cast("映", 0);
+            int enemyHpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "8 点全被 20 点护盾吃掉");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 4), "仍按总伤害 8 反弹 4");
+        }
+
+        [Test]
+        public void Reflect_DoesNotFireWhenImmunityBlocks()
+        {
+            // 免疫是完全挡下,压根没吃到那记伤害 —— 没吃到就没得反
+            var engine = Engine(new[] { "御", "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("御", 0);
+            engine.Cast("映", 0);
+            int enemyHpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore), "免疫挡下 → 不反弹");
+        }
+
+        [Test]
+        public void Reflect_DoesNotFireWhenAttackMisses()
+        {
+            var engine = Engine(new[] { "昏", "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("昏", 0);
+            engine.Cast("映", 0);
+            int enemyHpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore), "打空 → 不反弹");
+        }
+
+        [Test]
+        public void Reflect_KillingLastEnemy_WinsTheBattle()
+        {
+            // 反弹与召唤物反伤同型:会在敌方回合里杀敌。子项目 C 为反伤补的
+            // 「敌方段后判胜」在这里直接受益 —— 这条钉住它确实覆盖了反弹
+            var engine = Engine(new[] { "映" }, new[] { new EnemyDef("靶", Element.Heart, 4, 8) });
+            engine.Cast("映", 0);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Alive, Is.False);
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won));
+        }
+
+        [Test]
+        public void Reflect_NeedsNoExplicitTarget()
+        {
+            // 反弹是给玩家自己上的增益,不需要选目标 —— 仿前两个任务在这处抓到的洞
+            // (Dispel 漏白名单直接崩溃、Silence 白名单零判别力)。这里刻意放两个存活敌人:
+            // 若 Reflect 被错误加进 NeedsTarget 白名单,targetIndex=-1 且场上不止一个存活敌人时
+            // 「单敌免选」兜底找不到唯一目标,Cast 会静默返回 InvalidTarget、不抛异常但也不挂状态
+            // ——DoesNotThrow 抓不住这种静默吞掉,得靠后面的状态断言。只有一个敌人时「单敌免选」
+            // 会兜底补上目标,这条测试就失去判别力了。
+            var engine = Engine(new[] { "映" }, new[] { Attacker(attack: 8), Attacker(attack: 8) });
+            Assert.DoesNotThrow(() => engine.Cast("映"));
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Reflect), Is.EqualTo(50),
+                "不需要选目标,状态照样挂上");
         }
     }
 }

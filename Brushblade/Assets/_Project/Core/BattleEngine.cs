@@ -1005,6 +1005,13 @@ namespace Brushblade.Core
                             }
                         }
                         break;
+                    case EffectKind.Reflect:
+                        _playerStatuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.Reflect, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = effect.Turns, SourceId = def.Id,
+                        });
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1396,6 +1403,19 @@ namespace Brushblade.Core
             int absorbed = fromNormal + fromPersist;
             PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+
+            // 反弹(2026-08-07,镜):按**打过来的总伤害**照回去,不是按实际掉血 ——
+            // 护盾吸掉的那部分也照样反。「镜」是把东西原样反射,不管你挡没挡住,
+            // 与召唤物 荆 的反伤同口径(被打死的那一击也照样扎)。
+            // 命中判定打空与免疫完全挡下都在方法更早处 return 了,走不到这里 —— 没吃到就没得反。
+            // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」。
+            int reflect = _playerStatuses.TotalMagnitude(StatusKind.Reflect);
+            if (reflect > 0 && _enemies[enemyIndex].Alive)
+            {
+                int bounced = damage * reflect / 100;
+                if (bounced > 0)
+                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart);
+            }
             return true;
         }
 
