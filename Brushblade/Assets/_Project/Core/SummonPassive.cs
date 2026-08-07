@@ -29,10 +29,15 @@ namespace Brushblade.Core
         /// <summary>出手时给目标挂的诅咒减攻百分比。槐 = 25。</summary>
         public int OnHitCurse { get; set; }
 
+        /// <summary>被攻击时的闪避百分比(2026-08-07,柳)。与攻击者的致盲相加后
+        /// 一起从命中率里扣。</summary>
+        public int Dodge { get; set; }
+
         public SummonPassive Clone() => new()
         {
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
+            Dodge = Dodge,
         };
     }
 }

@@ -84,6 +84,7 @@ namespace Brushblade.Core
         // (与诅咒同型——表现层直接读敌人/玩家的 Statuses 画 chip,再加事件是多余的),已删除。
         // ImmunityBlocked 不在此列:它确实有消费方(Juice.cs 飘「免」字)。
         ImmunityBlocked, // 免疫挡下一记(TargetIndex = 攻击者敌人下标,Amount = 挡掉的伤害;2026-08-06)
+        Missed,      // 攻击被打空(TargetIndex = 攻击者敌人下标,SecondIndex = 被打空的召唤物下标,玩家为 −1;2026-08-07)
     }
 
     public readonly struct BattleEvent
@@ -505,7 +506,8 @@ namespace Brushblade.Core
                     // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
                     // targetIndex 停在 -1,ApplyEffects 里 _enemies[-1] 直接越界崩溃。
                     // 必须排除 TargetAll(淡):那支是全体驱散,本就不需要选目标。
-                    || (effect.Kind == EffectKind.Dispel && !effect.TargetAll))
+                    || (effect.Kind == EffectKind.Dispel && !effect.TargetAll)
+                    || (effect.Kind == EffectKind.Blind && !effect.TargetAll))
                     return true;
             return false;
         }
@@ -963,6 +965,19 @@ namespace Brushblade.Core
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
                         }
                         break;
+                    case EffectKind.Blind:
+                        // SourceId 用字 ID:同字再出只刷新,不无限叠命中惩罚
+                        if (effect.TargetAll)
+                        {
+                            int blindCount = _enemies.Count; // 分裂产生的新怪不吃同一发(与 DamageAll 同口径)
+                            for (int i = 0; i < blindCount; i++)
+                                if (_enemies[i].Alive) ApplyBlind(i, value, effect.Turns, def.Id);
+                        }
+                        else if (targetIndex >= 0 && _enemies[targetIndex].Alive)
+                        {
+                            ApplyBlind(targetIndex, value, effect.Turns, def.Id);
+                        }
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1065,6 +1080,17 @@ namespace Brushblade.Core
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = newBurn, TurnsLeft = -1,
+            });
+        }
+
+        /// <summary>给一名敌人挂致盲。TurnsLeft 直接用配置的回合数 —— 致盲是玩家在自己回合
+        /// 挂上的,不像 Boss 倾覆那样在敌方段挂(那种要 +1 才能熬过同回合的状态递减)。</summary>
+        private void ApplyBlind(int enemyIndex, int percent, int turns, string sourceId)
+        {
+            _enemies[enemyIndex].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Blind, Polarity = StatusPolarity.Debuff,
+                Magnitude = percent, TurnsLeft = turns, SourceId = sourceId,
             });
         }
 
@@ -1285,10 +1311,34 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
         }
 
+        /// <summary>命中判定(2026-08-07):命中率 = 100 − 攻击者致盲 − 目标闪避,钳到 [0,100]。
+        ///
+        /// **钳的是最终命中率,不是单项** —— 致盲 100 + 闪避 50 若只钳致盲就会算出 −50,
+        /// 而 _random.Next(100) 永远不小于负数,反而变成必中。
+        ///
+        /// **命中率 ≥ 100 时直接返回,一次随机都不摇** —— _random 的唯一既有消费方是
+        /// StartTurn 的回合掉字,无条件摇会平移掉落序列,让所有依赖种子的既有测试全红。
+        /// 既有战斗里没有任何致盲/闪避,于是走的都是这条短路,行为逐位不变。</summary>
+        private bool AttackHits(int enemyIndex, int dodgePercent)
+        {
+            int blind = _enemies[enemyIndex].Statuses.TotalMagnitude(StatusKind.Blind);
+            int hitRate = Math.Clamp(100 - blind - dodgePercent, 0, 100);
+            if (hitRate >= 100) return true;
+            return _random.Next(100) < hitRate;
+        }
+
         /// <summary>对玩家造成伤害:护盾先吸收(普通桶先扣,豁免桶垫后)。
         /// 大招走这条 = 不经召唤物顶前排(spec 3.3 总则)。</summary>
         private void DamagePlayerDirect(int enemyIndex, int damage)
         {
+            // 命中判定(2026-08-07):打空则什么都不发生 —— 免疫不消耗、护盾不掉、反弹不触发。
+            // 玩家没有闪避,只吃攻击者的致盲
+            if (!AttackHits(enemyIndex, 0))
+            {
+                _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0));
+                return;
+            }
+
             // 免疫(2026-08-06):先于护盾消耗 —— 免疫是稀缺的一次性资源,让它去挡一记小伤
             // 而把护盾留着更亏;玩家的预期是「免疫牌打出去,下一记不管多重都不疼」。
             // 完全挡下,不是减免。召唤物承伤走 DamageSummon,不经这里,所以免疫只保护玩家。
@@ -1328,6 +1378,13 @@ namespace Brushblade.Core
         private void DamageSummon(int enemyIndex, int summonIndex, int damage, Element attacker)
         {
             var summon = _summons[summonIndex];
+            // 命中判定(2026-08-07):召唤物的闪避与攻击者的致盲一起从命中率里扣
+            if (!AttackHits(enemyIndex, summon.Passive?.Dodge ?? 0))
+            {
+                _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0, summonIndex));
+                return;
+            }
+
             int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
             int absorbed = Math.Min(summon.Shield, taken);
             summon.Shield -= absorbed;

@@ -17,6 +17,7 @@ namespace Brushblade.Core
         Curse,            // 诅咒:攻击 −Magnitude%,不叠层只刷新(2026-08-05)
         Seal,             // 封字:玩家下回合 AP −Magnitude(2026-08-06,Boss 倾覆)
         Immunity,         // 免疫:完全挡下 Magnitude 次伤害(2026-08-06)
+        Blind,            // 致盲:该敌人攻击的命中率 −Magnitude%(2026-08-07)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -25,7 +26,8 @@ namespace Brushblade.Core
     /// DamageReduction=百分比、SpeedModifier=速度点数、AttackBuff=攻击加成、
     /// ArmorBreak=承伤加成百分比(DamageEnemy 直接读这个字段,不再读常量)、
     /// Curse=减攻百分比(EnemyState.Attack 读它)、
-    /// Seal=AP 扣减量(StartTurn 读它)。</summary>
+    /// Seal=AP 扣减量(StartTurn 读它)、
+    /// Blind=命中降低百分比(AttackHits 读它)。</summary>
     public sealed class StatusEffect
     {
         public StatusKind Kind { get; set; }
