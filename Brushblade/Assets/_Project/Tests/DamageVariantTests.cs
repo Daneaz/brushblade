@@ -40,6 +40,9 @@ namespace Brushblade.Core.Tests
             // 凿:1 点伤害,用来精确磨血线 / 制造一次「受击存活」
             new CharDef("凿", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 1) }),
+            // 禁:单体沉默 2 回合(锁)
+            new CharDef("禁", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Silence, 0, turns: 2) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -317,6 +320,110 @@ namespace Brushblade.Core.Tests
 
             Assert.That(fast.Library, Is.EqualTo(dropsAtSpeed100),
                 "同种子、同回合数,只有敌人出手次数不同 —— 掉落序列分叉说明命中判定偷摇了随机数");
+        }
+
+        // ---- 沉默 ----
+
+        [Test]
+        public void Silence_StopsScorchSelfBuff()
+        {
+            // 简报原版用 EndTurn 让敌人打玩家,但焦痕的触发点是「受击存活即自燃」
+            // (DamageEnemy 后段),不是回合结算——那条从没打过这只敌人,加不加沉默都一样,
+            // 零判别力(2026-08-07 控制器裁定)。这里改成真的用「凿」打它一记(1 点伤害,
+            // 打不死 200 血的靶),沉默之下不该自燃。
+            var engine = Engine(new[] { "禁", "凿" }, new[] { new EnemyDef("焦", Element.Heart, 200, 4, EnemyAbility.Scorch) });
+            engine.Cast("禁", 0);
+            int attackBefore = engine.Enemies[0].Attack;
+            engine.Cast("凿", 0);   // 受击存活,焦痕本该自燃 —— 但沉默压住了
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(attackBefore), "沉默中不自燃");
+        }
+
+        [Test]
+        public void NoSilence_ScorchGainsAttackWhenHit()
+        {
+            // 对照组(控制器要求):不沉默时受击存活确实自燃 +2(ScorchGain),
+            // 与上面一条一起把判别力钉死——两条都在断言同一处代码的两种取值。
+            var engine = Engine(new[] { "凿" }, new[] { new EnemyDef("焦", Element.Heart, 200, 4, EnemyAbility.Scorch) });
+            int attackBefore = engine.Enemies[0].Attack;
+            engine.Cast("凿", 0);
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(attackBefore + 2), "无沉默:受击存活自燃 +2");
+        }
+
+        [Test]
+        public void Silence_StopsRegrow()
+        {
+            var engine = Engine(new[] { "禁" }, new[] { new EnemyDef("缺", Element.Heart, 200, 0, EnemyAbility.Regrow) });
+            engine.Cast("禁", 0);
+            int hpBefore = engine.Enemies[0].Hp;
+            int attackBefore = engine.Enemies[0].Attack;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hpBefore), "沉默中不补全");
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(attackBefore));
+        }
+
+        [Test]
+        public void Silence_StopsSear()
+        {
+            var engine = Engine(new[] { "禁" }, new[] { new EnemyDef("灯", Element.Heart, 200, 3, EnemyAbility.Sear) });
+            engine.Cast("禁", 0);
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
+                "沉默中不挂灼烧");
+        }
+
+        [Test]
+        public void Silence_StopsSplit()
+        {
+            var engine = Engine(new[] { "禁", "凿" }, new[] { new EnemyDef("叠", Element.Heart, 200, 0, EnemyAbility.Split) });
+            engine.Cast("禁", 0);
+            engine.Cast("凿", 0);   // 受击存活,本该分裂
+            Assert.That(engine.Enemies.Count, Is.EqualTo(1), "沉默中不分裂");
+        }
+
+        [Test]
+        public void Silence_SilencedBuffMinionAttacksInstead()
+        {
+            // 标点小妖有同伴时用加攻代替出手。被沉默后加攻哑火,它就该**改为亲自攻击**,
+            // 而不是站着什么都不做 —— 沉默压的是「能力」,不是「行动」
+            var engine = Engine(new[] { "禁" }, new[]
+            {
+                new EnemyDef("标", Element.Heart, 200, 3, EnemyAbility.Buff),
+                new EnemyDef("伴", Element.Heart, 200, 0),
+            });
+            engine.Cast("禁", 0);
+            int companionAttack = engine.Enemies[1].Attack;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(companionAttack), "同伴没被加攻");
+            Assert.That(engine.PlayerHp, Is.EqualTo(47), "标点小妖改为亲自出手,打了 3");
+        }
+
+        [Test]
+        public void Silence_CancelsBossChargeAndResetsCounter()
+        {
+            var boss = new EnemyDef("覆", Element.Heart, 300, 4,
+                phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
+            var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
+            var engine = Engine(new[] { "禁" }, new[] { boss }, config);
+            engine.EndTurn();                       // Boss 进入蓄力
+            Assert.That(engine.Enemies[0].IsCharging, Is.True);
+
+            engine.Cast("禁", 0);
+            engine.EndTurn();                       // 沉默 → 蓄力取消,不放大招
+
+            Assert.That(engine.Enemies[0].IsCharging, Is.False, "蓄力被取消");
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "计数清零,解锁后从头攒");
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False, "倾覆没放出来");
+        }
+
+        [Test]
+        public void Silence_DoesNotAffectDisguiseOrObscure()
+        {
+            // 通假/生僻是信息隐藏,不是主动机制 —— 锁一下就看穿了不符合「锁」的语义
+            var engine = Engine(new[] { "禁" }, new[] { new EnemyDef("通", Element.Wood, 200, 3, EnemyAbility.Disguise) });
+            engine.Cast("禁", 0);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(engine.Enemies[0].Element),
+                "首次行动后照常现形");
         }
     }
 }

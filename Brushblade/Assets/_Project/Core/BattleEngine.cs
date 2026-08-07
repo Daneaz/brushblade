@@ -507,7 +507,8 @@ namespace Brushblade.Core
                     // targetIndex 停在 -1,ApplyEffects 里 _enemies[-1] 直接越界崩溃。
                     // 必须排除 TargetAll(淡):那支是全体驱散,本就不需要选目标。
                     || (effect.Kind == EffectKind.Dispel && !effect.TargetAll)
-                    || (effect.Kind == EffectKind.Blind && !effect.TargetAll))
+                    || (effect.Kind == EffectKind.Blind && !effect.TargetAll)
+                    || effect.Kind == EffectKind.Silence)
                     return true;
             return false;
         }
@@ -663,7 +664,7 @@ namespace Brushblade.Core
             for (int i = 0; i < _enemies.Count; i++)
             {
                 var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff) continue;
+                if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff || IsSilenced(enemy)) continue;
                 if (actionCount[i] == 0) continue; // 冻结或计量器不足:连辅助加攻都不出手
                 if (!HasOtherAliveEnemy(enemy)) continue; // 无人可加 → 交给下面的行动循环
                 for (int j = 0; j < _enemies.Count; j++)
@@ -697,8 +698,8 @@ namespace Brushblade.Core
                 var enemy = _enemies[i];
                 if (!enemy.Alive) continue;
                 if (actionCount[i] == 0) continue; // 冻结或计量器不足:本回合不行动
-                if (enemy.Def.Ability == EnemyAbility.Buff && HasOtherAliveEnemy(enemy))
-                    continue; // 已用加攻代替出手;独自在场时照常攻击
+                if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
+                    continue; // 已用加攻代替出手;独自在场时照常攻击;沉默压住加攻能力后改为亲自出手
 
                 for (int act = 0; act < actionCount[i]; act++)
                 {
@@ -737,7 +738,7 @@ namespace Brushblade.Core
                     // (实测 4 只第 6 回合单灼烧 38 伤/回合)。刷新语义下,单只与多只稳态都是 1 层。
                     // hit 门槛(2026-08-08):打空 = 攻击没落到身上,附带效果不该触发;免疫挡下
                     // 仍算命中(hit=true),灼烧照挂——免疫挡的是伤害,不是攻击本身。
-                    if (hit && enemy.Def.Ability == EnemyAbility.Sear)
+                    if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsSilenced(enemy))
                     {
                         RefreshBurn(_playerStatuses, SearStacks);
                         _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
@@ -775,7 +776,7 @@ namespace Brushblade.Core
                 var enemy = _enemies[i];
                 // 本回合已被灼烧/召唤物打死的不许回血 —— 死了还补就成了打不死的怪
                 if (!enemy.Alive) continue;
-                if (enemy.Def.Ability != EnemyAbility.Regrow || enemy.RegrowProgress >= 3) continue;
+                if (enemy.Def.Ability != EnemyAbility.Regrow || IsSilenced(enemy) || enemy.RegrowProgress >= 3) continue;
 
                 int before = enemy.Hp;
                 enemy.RegrowProgress += 1;
@@ -984,6 +985,14 @@ namespace Brushblade.Core
                             ApplyBlind(targetIndex, value, effect.Turns, def.Id);
                         }
                         break;
+                    case EffectKind.Silence:
+                        if (targetIndex >= 0 && _enemies[targetIndex].Alive)
+                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            {
+                                Kind = StatusKind.Silence, Polarity = StatusPolarity.Debuff,
+                                Magnitude = 1, TurnsLeft = effect.Turns, SourceId = def.Id,
+                            });
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1179,6 +1188,11 @@ namespace Brushblade.Core
             return false;
         }
 
+        /// <summary>该敌人是否被沉默(2026-08-07,锁)。压的是**主动机制** ——
+        /// Boss 大招、缺笔妖补全、叠字分裂、标点加攻、焦痕自燃、灯花灼身。
+        /// 通假/生僻不在其列:那两个是信息隐藏,锁一下就看穿了不符合「锁」的语义。</summary>
+        private static bool IsSilenced(EnemyState enemy) => enemy.Statuses.Has(StatusKind.Silence);
+
         private int AliveSummons()
         {
             int alive = 0;
@@ -1282,7 +1296,7 @@ namespace Brushblade.Core
             CheckBossPhase(enemyIndex);
 
             // 焦痕:受击存活即自燃加攻(越磨越烫,宜速杀)
-            if (enemy.Def.Ability == EnemyAbility.Scorch)
+            if (enemy.Def.Ability == EnemyAbility.Scorch && !IsSilenced(enemy))
             {
                 // 一回合内可能连续多次命中同一目标(玩家多张牌接力打同一敌人),SourceId 必须
                 // 每次唯一,否则同回合第二次自燃会覆盖第一次而非叠加(Task 4 的 HoT 教训同型)。
@@ -1296,7 +1310,7 @@ namespace Brushblade.Core
             }
 
             // 叠字怪:首次受击存活 → 分裂成两个半血(8.3;场上 <EnemyCap 时)
-            if (enemy.Def.Ability == EnemyAbility.Split && !enemy.HasSplit && _enemies.Count < EnemyCap)
+            if (enemy.Def.Ability == EnemyAbility.Split && !IsSilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
                 int half = (enemy.Hp + 1) / 2;
                 enemy.Hp = half;
@@ -1422,6 +1436,15 @@ namespace Brushblade.Core
         /// 返回 true = 本回合已处理,调用方跳过普通攻击。</summary>
         private bool ResolveBossTurn(int index, EnemyState enemy)
         {
+            // 沉默(2026-08-07):锁住的是「正在攒的那一下」——蓄力当场取消、计数清零,
+            // 解锁后从头攒,而不是解锁即放
+            if (IsSilenced(enemy))
+            {
+                enemy.IsCharging = false;
+                enemy.ChargeCounter = 0;
+                return false; // 交回普攻
+            }
+
             if (enemy.IsCharging)
             {
                 enemy.IsCharging = false;
