@@ -1388,7 +1388,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 20,
+          "value": 16,
           "executeBelowPercent": 25,
           "executeKills": true
         }

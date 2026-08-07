@@ -156,6 +156,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void PlayerBurn_TwoSearers_StaysAtOneStack()
+        {
+            // 2026-08-06 I1:Sear 原先走 ApplyBurn 的累加语义,单只灯花净 0(挂 1 减 1),
+            // 但 BuildFloor 是有放回抽取,同场可能出现多只灯花,N 只就净 +(N−1)/回合,
+            // 雪球失控(实测 4 只第 6 回合单灼烧 38 伤/回合)。改走 RefreshBurn(取较大值)后,
+            // 两只同时打,稳态也该恒定在 1 层。
+            var engine = Engine(Array.Empty<string>(), new[] { Searer(), Searer() }, startingHp: 200,
+                config: new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200 });
+            for (int turn = 0; turn < 5; turn++) engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+        }
+
+        [Test]
         public void PlayerBurn_KillsWithoutSkippingStatusTick()
         {
             // 玩家被灼烧烧到 0 血时不能在灼烧段就早退——本回合的状态回合递减必须照跑,
@@ -182,7 +195,63 @@ namespace Brushblade.Core.Tests
                 "本回合的状态递减不能因为玩家阵亡就整个跳过");
         }
 
+        [Test]
+        public void PlayerBurn_KillsPlayer_EvenWithHealOverTimeSameTurn()
+        {
+            // 2026-08-06 全分支终审 C2:旧代码把玩家灼烧的判负推迟到回合尾部,期间的 HoT
+            // 循环会先把血救回去。归零即死是拍板口径,持续治疗不能救。
+            var engine = Engine(Array.Empty<string>(), new[] { Dummy() }, startingHp: 2);
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = -1,
+            });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
+                Magnitude = 5, TurnsLeft = 3, SourceId = "滋#0",
+            });
+
+            engine.EndTurn(); // 灼烧 1 层 × 系数 2 = 2 伤,正好烧死;HoT 排在灼烧结算之后,不该救回
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(0));
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+        }
+
+        [Test]
+        public void PlayerBurn_KillsPlayer_EvenIfSummonWouldClearLastEnemySameTurn()
+        {
+            // 2026-08-06 全分支终审 C2:旧 bug 实测—玩家 2 血带 1 层灼烧,召唤物同回合把
+            // 最后一只敌人打死,CheckWin() 抢在玩家阵亡判负之前把 Phase 判成 Won,
+            // 结果 PlayerHp=0 却带着"胜利"结算继续爬塔。玩家 0 血时不可能判胜。
+            var engine = Engine(new[] { "素" }, new[] { Dummy(hp: 3, attack: 0) }, startingHp: 2);
+            engine.Cast("素"); // 召唤攻 3 的木,回合末反击本该同回合秒掉这只 3 血靶
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = -1,
+            });
+
+            engine.EndTurn(); // 玩家灼烧先烧死,召唤物反击这一步在修复后根本不会跑到
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(0));
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+        }
+
         // ---- 驱散 ----
+
+        [Test]
+        public void Dispel_MinusOne_WithoutExplicitTargetIndex_DoesNotThrow()
+        {
+            // 2026-08-06 全分支终审 C1:NeedsTarget 漏了 Dispel,UI 判定为"不需要选目标",
+            // targetIndex 停在默认的 -1,ApplyEffects 里 _enemies[-1] 直接越界崩溃。
+            // 场上只有一个敌人时,「单敌免选」应自动锁定它。
+            var engine = Engine(new[] { "扫" }, new[] { Dummy() });
+            GiveTwoBuffs(engine.Enemies[0]);
+            Assert.DoesNotThrow(() => engine.Cast("扫"));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0),
+                "自动锁定唯一存活敌人并清空增益");
+        }
 
         /// <summary>给敌人挂两条可驱散的增益(与标点小妖加攻同形:AttackBuff、段内持久、可叠)。</summary>
         private static void GiveTwoBuffs(EnemyState enemy)
@@ -463,6 +532,32 @@ namespace Brushblade.Core.Tests
             var engine = EngineWithEnemyAt(BossTarget(100), 20, "割");
             engine.Cast("割", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ExecuteBonus_UsesTotalBossHpPool_NotSinglePhaseDefValue()
+        {
+            // 2026-08-06 M1:BelowExecuteThreshold 的阈值判定要用 EnemyState.MaxHp(Boss 全部
+            // 阶段血量之和 = 总血池),不是 EnemyDef.MaxHp(构造时传入的单阶段数值,对分阶段
+            // Boss 是错的)。故意让两者天差地别(Def.MaxHp 传 1,真实总血池是 60+40=100)来
+            // 锁住这条——现有两条 Boss 斩杀测试都用单阶段 Boss,两者恒等,换成 Def.MaxHp 也不会红。
+            var def = new EnemyDef("覆", Element.Heart, maxHp: 1, attack: 0,
+                phases: new[]
+                {
+                    new BossPhaseDef("覆", Element.Heart, 60, 0),
+                    new BossPhaseDef("阶", Element.Heart, 40, 0),
+                });
+            int hits = 100 - 29; // 磨到 29 = 29% < 30% → 该享受 ExecuteBonus ×2
+            var library = new List<string>(Enumerable.Repeat("凿", hits)) { "割" };
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = hits + 20 },
+                library, Array.Empty<string>(), new[] { def }, seed: 1);
+            for (int i = 0; i < hits; i++) engine.Cast("凿", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(29), "磨血辅助本身没磨准");
+
+            engine.Cast("割", 0);
+
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(11), "9 × 2 = 18 伤,29 − 18 = 11");
         }
 
         [Test]

@@ -189,9 +189,13 @@ namespace Brushblade.Presentation
                         Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
                         break;
                     // 免疫完全挡下一记(2026-08-06):血条护盾条都不动,只给一个「免」的表达。
-                    // 不做新动效——复用既有飘字就够,玩家看到「免」就知道那记没落到身上
+                    // 与护盾吸伤同款(2026-08-06 M4 改):攻击者下扑(Lunge)让这记攻击在画面上
+                    // 真的发生过,飘字锚在屏幕中下(null,与 EnemyAttack/Heal/Shield 同口径)——
+                    // 原先飘在敌人头上会读成「这只敌人免疫了」,而且没有 Lunge,整记攻击等于
+                    // 在画面上凭空消失。
                     case BattleEventKind.ImmunityBlocked:
-                        Popup("免", Theme.Jade, enemyAnchor(e.TargetIndex));
+                        Lunge(enemyAnchor(e.TargetIndex));
+                        Popup("免", Theme.Jade, null);
                         break;
                     // 治疗:刻意**不 yield、不置 serialPending** —— 群攻与回血是同一记里的两件事,
                     // 分开演就成了「先打完,血条才慢半拍地涨」(2026-07-29 实测)

@@ -552,16 +552,26 @@ namespace Brushblade.Presentation
             }
             // 玩家侧状态一行小字(2026-08-06,子项目 A):封字 / 灼烧 / 免疫。
             // 禁用 emoji —— 字体子集补不出来,上线渲染成空框
-            var statusRow = Ui.Row(hpStack.transform, "PlayerStatus", 6);
+            // Row 按需创建(2026-08-06 M8):三条都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
+            GameObject statusRow = null;
             int seal = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal);
             if (seal > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"封字 −{seal}AP", Theme.InkSoft, Color.white, 12);
+            }
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"灼烧 {playerBurn}", Theme.Cinnabar, Color.white, 12);
+            }
             int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
             if (immunity > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"免疫 {immunity}", Theme.Jade, Color.white, 12);
+            }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);

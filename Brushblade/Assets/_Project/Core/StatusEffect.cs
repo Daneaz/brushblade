@@ -31,7 +31,10 @@ namespace Brushblade.Core
         public StatusKind Kind { get; set; }
         public StatusPolarity Polarity { get; set; }
         public int Magnitude { get; set; }
-        public int TurnsLeft { get; set; }   // -1 = 段内持久,不随回合递减
+        // -1 = 战内持久,不随回合递减(2026-08-06 M5 改准确:是否跨战斗延续到下一场是另一件事,
+        // 取决于 RunEngine 的携带态白名单——目前只有 DamageReduction 会被带过去,免疫/玩家灼烧/
+        // 封字等其余 TurnsLeft=-1 的状态都在每场战斗结束时丢弃,称「段内」持久并不准确)。
+        public int TurnsLeft { get; set; }
 
         /// <summary>来源标识,两种相反用法并存,加新状态时先想清楚要哪种(2026-08-05 M3):
         /// 1) **去重键**——直接传字 ID(如 "铠"):同字再放视为同一来源,Apply() 覆盖刷新不叠加
