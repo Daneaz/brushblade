@@ -43,6 +43,9 @@ namespace Brushblade.Core.Tests
             // 禁:单体沉默 2 回合(锁)
             new CharDef("禁", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Silence, 0, turns: 2) }),
+            // 冻:单体冻结 2 回合(评审 Important 1 的冻结组合测试专用)
+            new CharDef("冻", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Freeze, 2) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -364,11 +367,15 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Silence_StopsSear()
         {
+            // 评审 Important 3:原版只断言 Burn == 0,对「沉默压的是能力不是行动」没有判别力——
+            // 若沉默被误实现成「跳过整个行动」,灯花照样不挂灼烧(因为它压根没出手),这条测试
+            // 照样绿。补上 PlayerHp 断言:灯花该照常出手打人,只是灼烧这个附带效果哑火。
             var engine = Engine(new[] { "禁" }, new[] { new EnemyDef("灯", Element.Heart, 200, 3, EnemyAbility.Sear) });
             engine.Cast("禁", 0);
             engine.EndTurn();
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
                 "沉默中不挂灼烧");
+            Assert.That(engine.PlayerHp, Is.EqualTo(47), "照常出手,只是不挂灼烧");
         }
 
         [Test]
@@ -408,22 +415,93 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].IsCharging, Is.True);
 
             engine.Cast("禁", 0);
-            engine.EndTurn();                       // 沉默 → 蓄力取消,不放大招
+            int hpBefore = engine.PlayerHp;
+            engine.EndTurn();                       // 沉默 → 蓄力取消,不放大招,交回普攻
 
             Assert.That(engine.Enemies[0].IsCharging, Is.False, "蓄力被取消");
             Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "计数清零,解锁后从头攒");
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False, "倾覆没放出来");
+            // 评审 Important 3:上面三条只看了蓄力状态和倾覆的副作用(Seal),没看「沉默压的是
+            // 能力不是行动」这件事本身——若把 ResolveBossTurn 顶部的沉默短路从「交回普攻」
+            // 误改成「本回合什么都不干」，三条断言照样绿。补上普攻伤害断言堵死这条路。
+            Assert.That(engine.PlayerHp, Is.EqualTo(hpBefore - 4), "取消蓄力后交回普攻,照常打 4");
+        }
+
+        [Test]
+        public void Silence_CancelsBossChargeImmediately()
+        {
+            // 评审 Important 1(控制器裁定,2026-08-08,真洞):原实现的取消逻辑挂在
+            // ResolveBossTurn 里,只有敌人真的行动(actionCount>0)时才会跑到。这里不等
+            // EndTurn,直接在 Cast 之后当场断言——取消必须发生在「挂上沉默的那一刻」,
+            // 不能等到敌人下次行动才生效。
+            var boss = new EnemyDef("覆", Element.Heart, 300, 4,
+                phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
+            var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
+            var engine = Engine(new[] { "禁" }, new[] { boss }, config);
+            engine.EndTurn();                       // Boss 进入蓄力
+            Assert.That(engine.Enemies[0].IsCharging, Is.True);
+
+            engine.Cast("禁", 0);                    // 不 EndTurn,当场就该打断蓄力
+            Assert.That(engine.Enemies[0].IsCharging, Is.False, "蓄力当场被取消,不用等下次行动");
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "计数当场清零");
+        }
+
+        [Test]
+        public void Silence_CancelsBossChargeEvenThroughFreeze()
+        {
+            // 评审 Important 1 的复现场景:Boss 蓄力中 → 沉默 + 冻结同时压上 → 冻结期间
+            // actionCount 恒为 0,若取消逻辑挂在「行动时判」(ResolveBossTurn)就永远等不到
+            // 触发的机会 —— 沉默 2 回合早早过期,冻结 2 回合解开后 IsCharging 仍是 true,
+            // 一解冻就立刻放出倾覆(倾覆的 Seal 会挂上)。取消挂在 Cast 那一刻就不受冻结影响。
+            var boss = new EnemyDef("覆", Element.Heart, 300, 4,
+                phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
+            var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
+            var engine = Engine(new[] { "禁", "冻" }, new[] { boss }, config);
+            engine.EndTurn();                       // Boss 进入蓄力
+            Assert.That(engine.Enemies[0].IsCharging, Is.True);
+
+            engine.Cast("禁", 0);                    // 沉默 2 回合
+            engine.Cast("冻", 0);                    // 冻结 2 回合,盖住沉默的整个窗口
+            engine.EndTurn();                       // 冻结中不行动(第 1 个被挡的敌方回合)
+            engine.EndTurn();                       // 冻结中不行动(第 2 个被挡的敌方回合,沉默也在这期间到期)
+            engine.EndTurn();                       // 冻结解开,恢复行动 —— 不该立刻放技能
+
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False, "倾覆没有被放出来");
         }
 
         [Test]
         public void Silence_DoesNotAffectDisguiseOrObscure()
         {
-            // 通假/生僻是信息隐藏,不是主动机制 —— 锁一下就看穿了不符合「锁」的语义
-            var engine = Engine(new[] { "禁" }, new[] { new EnemyDef("通", Element.Wood, 200, 3, EnemyAbility.Disguise) });
-            engine.Cast("禁", 0);
-            engine.EndTurn();
-            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(engine.Enemies[0].Element),
-                "首次行动后照常现形");
+            // 通假/生僻是信息隐藏,不是主动机制 —— 锁一下就看穿了不符合「锁」的语义。
+            // 评审 Minor 1:原版名字撒谎,只测了 Disguise,Obscure 一行没碰
+            // (变异证据:给 Obscure 的现形条件误加 !IsSilenced,711 全绿)——补上后半段。
+            var disguised = Engine(new[] { "禁" }, new[] { new EnemyDef("通", Element.Wood, 200, 3, EnemyAbility.Disguise) });
+            disguised.Cast("禁", 0);
+            disguised.EndTurn();
+            Assert.That(disguised.Enemies[0].ApparentElement, Is.EqualTo(disguised.Enemies[0].Element),
+                "通假:首次行动后照常现形");
+
+            // 库里要放两张「凿」——出字即消耗(3.8.1),一张打完就从库里没了,只放一张
+            // 第二次 Cast 会静默 NotCastable,凿不出第二下
+            var obscured = Engine(new[] { "禁", "凿", "凿" }, new[] { new EnemyDef("僻", Element.Wood, 200, 0, EnemyAbility.Obscure) });
+            obscured.Cast("禁", 0);
+            obscured.Cast("凿", 0);
+            obscured.Cast("凿", 0);   // 受击两次
+            Assert.That(obscured.Enemies[0].ApparentElement, Is.EqualTo(obscured.Enemies[0].Element),
+                "生僻:受击两次后照常现形");
+        }
+
+        [Test]
+        public void Silence_NeedsNoExplicitTarget_WhenSoleEnemyAlive()
+        {
+            // 评审 Important 2:NeedsTarget 白名单漏掉 Silence 不会崩溃,而是更阴的静默吞掉——
+            // targetIndex 停在 -1,ApplyEffects 的 case Silence 里 `targetIndex >= 0` 兜底直接
+            // 跳过不挂状态,AP 扣了、字消耗了,沉默却没挂上。仿 Task 1 的
+            // Blind_NeedsNoExplicitTarget_WhenSoleEnemyAlive,不传目标下标也得能自动锁定。
+            var engine = Engine(new[] { "禁" }, new[] { Attacker() });
+            Assert.DoesNotThrow(() => engine.Cast("禁"));
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Silence), Is.True,
+                "沉默真的挂上了,不是静默吞掉");
         }
     }
 }

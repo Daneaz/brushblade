@@ -987,11 +987,23 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.Silence:
                         if (targetIndex >= 0 && _enemies[targetIndex].Alive)
+                        {
                             _enemies[targetIndex].Statuses.Apply(new StatusEffect
                             {
                                 Kind = StatusKind.Silence, Polarity = StatusPolarity.Debuff,
                                 Magnitude = 1, TurnsLeft = effect.Turns, SourceId = def.Id,
                             });
+                            // 沉默要在挂上的当下就打断蓄力(评审 Important 1,2026-08-08):
+                            // ResolveBossTurn 开头那处短路只在敌人真的行动(actionCount>0)时才跑,
+                            // 蓄力期间恰好被冻结/减速卡住不动的话,沉默会一路挂满到期都没触发,
+                            // 一解冻/解速立刻放出大招——与「锁住的是正在攒的那一下」的语义正相反。
+                            var target = _enemies[targetIndex];
+                            if (target.IsCharging)
+                            {
+                                target.IsCharging = false;
+                                target.ChargeCounter = 0;
+                            }
+                        }
                         break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
