@@ -49,6 +49,12 @@ namespace Brushblade.Core.Tests
             // 冻:单体冻结 2 回合(评审 Important 1 的冻结组合测试专用)
             new CharDef("冻", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Freeze, 2) }),
+            // 棘:攻 0 + 反伤 3(荆,借自子项目 C 的 SummonPassiveTests),用来在
+            // Reflect_DoesNotDuplicateDeathWhenBossDiesToThornsBeforePierceLands 里让
+            // Boss 在 Pierce 打召唤物那一步先被反伤打死
+            new CharDef("棘", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { Thorns = 3 }) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -583,6 +589,91 @@ namespace Brushblade.Core.Tests
             Assert.DoesNotThrow(() => engine.Cast("映"));
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Reflect), Is.EqualTo(50),
                 "不需要选目标,状态照样挂上");
+        }
+
+        [Test]
+        public void Reflect_ExpiresAfterTwoEnemyTurns()
+        {
+            // 评审 Important 1(2026-08-08):turns=2 之前零覆盖——把 ApplyEffects 里挂状态那句的
+            // TurnsLeft 写成 -1(永不过期),720 条测试一条不红,一张蓝字就此变成整场永久反伤。
+            // 口径与 Blind_ExpiresAfterItsTurns 同型:TurnsLeft 递减挪到 EndTurn 末尾(敌方攻击
+            // 之后),turns=N 覆盖第 1~N 个敌方回合,第 N+1 个才失效。
+            var engine = Engine(new[] { "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("映", 0);
+
+            // 评审 Minor 1:顺带钉住 Polarity——反弹是给自己上的增益,不是减益。误标成
+            // Debuff 会让净化(Cleanse,清玩家自身全部减益)把自己刚上的反弹清掉,
+            // 敌方驱散反而碰不到它。
+            Assert.That(engine.PlayerStatuses.Find(StatusKind.Reflect).Polarity, Is.EqualTo(StatusPolarity.Buff),
+                "反弹是增益,净化/驱散得认对边");
+
+            int enemyHp = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp - 4), "第 1 个敌方回合仍在 2 回合覆盖内,照常反弹");
+
+            enemyHp = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp - 4), "第 2 个敌方回合仍在覆盖内,照常反弹");
+
+            enemyHp = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp), "反弹到期,第 3 个敌方回合不再反弹");
+        }
+
+        [Test]
+        public void Reflect_IgnoresWuxing_BounceIsFlatRegardlessOfDefenderElement()
+        {
+            // 评审 Important 2(2026-08-08):「反弹不走生克」是 spec §3.2 明文条款,之前零覆盖——
+            // 既有 6 条反弹测试全用「心」属性敌人,心不在相克环里,DamageEnemy 传哪个 attacker
+            // 元素,KeMultiplier(attacker, Heart) 都恒 1.0,对 attacker 元素传错没有判别力
+            // (把反弹结算的 Element.Heart 改成 Element.Metal,720 条测试一条不红)。
+            // 换成金属性敌人才有判别力:与 SummonPassiveTests.Thorns_ReflectsFlatDamage_IgnoringWuxing
+            // 同型——传对(心)得平值 4;误传木(比如手滑传成攻击方/施法字自身元素)会被金
+            // 反克成 floor(4×0.5)=2;误传火会被克成 floor(4×1.5)=6,三者互不相同。
+            var engine = Engine(new[] { "映" }, new[] { new EnemyDef("锈", Element.Metal, 200, 8) });
+            engine.Cast("映", 0);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(196), "反弹不走生克,8 的 50% = 4 平值打进金属性敌人");
+        }
+
+        [Test]
+        public void Reflect_RoundingToZero_DoesNotTriggerAttackSideEffects()
+        {
+            // 评审 Important 4(2026-08-08):`bounced > 0` 守卫之前零覆盖,它挡的不是事件噪音而是
+            // 真实副作用——敌人攻 1、反弹 50% 时 bounced=0,少了这条守卫,DamageEnemy 照样会跑
+            // enemy.HitsTaken += 1,连带推进焦痕(Scorch)「受击存活即自燃加攻」的判定:
+            // 玩家带反弹站桩,每挨一记 1 点小伤就白送敌人一次加攻。
+            var engine = Engine(new[] { "映" }, new[] { new EnemyDef("焦", Element.Heart, 200, 1, EnemyAbility.Scorch) });
+            engine.Cast("映", 0);
+            int attackBefore = engine.Enemies[0].Attack;
+            int hpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hpBefore), "反弹算出 0,没有额外伤害落地");
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(attackBefore), "0 伤反弹不该被误判成受击自燃");
+        }
+
+        [Test]
+        public void Reflect_DoesNotDuplicateDeathWhenBossDiesToThornsBeforePierceLands()
+        {
+            // 评审 Important 3(2026-08-08):`_enemies[enemyIndex].Alive` 守卫之前零覆盖,而它挡的
+            // 是真实可达路径——BossSkill.Pierce 先 DamageSummon(可能触发召唤物 荆 的反伤打死
+            // Boss)再 DamagePlayerDirect,此时 enemyIndex 上已是一具尸体。少了守卫,反弹会对
+            // 死尸再补一刀,走进 DamageEnemy 触发第二次 ResolveDefeat,发出重复的 EnemyDied 事件
+            // (表现层会把死亡动效播两遍)。
+            // 3 血的 Boss:召唤物 棘(反伤 3)在 Pierce 打它那一步正好把它扎死;紧接着 Pierce
+            // 还会无条件打玩家一下,玩家带着反弹——若漏了 Alive 守卫就会对死 Boss 补刀。
+            var boss = new EnemyDef("觥", Element.Heart, 3, 4,
+                phases: new[] { new BossPhaseDef("觥", Element.Heart, 3, 4, skill: BossSkill.Pierce) });
+            var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50, BossChargeEvery = 1 };
+            var engine = Engine(new[] { "棘", "映" }, new[] { boss }, config);
+            engine.Cast("棘");                        // 召唤反伤 3(荆)
+            engine.Cast("映", 0);                     // 反弹 50%
+            engine.EndTurn();                        // Boss 蓄力
+            engine.EndTurn();                        // 释放贯穿:先打召唤物(反伤打死 3 血 Boss),
+                                                       // 再打玩家(反弹若漏 Alive 守卫会补刀死尸)
+            Assert.That(engine.Enemies[0].Alive, Is.False, "Boss 被反伤打死");
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyDied), Is.EqualTo(1),
+                "只该有一条阵亡事件,不能因为反弹对死尸补刀而发出第二条");
         }
     }
 }

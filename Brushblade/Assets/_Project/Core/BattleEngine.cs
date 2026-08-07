@@ -1409,6 +1409,9 @@ namespace Brushblade.Core
             // 与召唤物 荆 的反伤同口径(被打死的那一击也照样扎)。
             // 命中判定打空与免疫完全挡下都在方法更早处 return 了,走不到这里 —— 没吃到就没得反。
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」。
+            // 刻意不钳位(评审 Minor 2,2026-08-08):眼下字表只有「映」一个 Reflect 字,同字
+            // 再放走 SourceId 去重只刷新,多来源叠加现实不可达。日后加第二张反弹字之前,
+            // 先想清楚上限——两张 60% 同在身会反弹 120%,比挨的还多。
             int reflect = _playerStatuses.TotalMagnitude(StatusKind.Reflect);
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
