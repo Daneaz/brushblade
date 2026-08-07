@@ -46,6 +46,8 @@ namespace Brushblade.Data
             public bool IgnoreArmor { get; set; }      // 穿甲:无视减免 + 15% 加成
             public SummonPassive Passive { get; set; }  // 召唤:被动(null = 无)
             public int SummonShield { get; set; }       // 召唤:出字给全场召唤物各 +N 盾(桂)
+            public int ExecuteBelowPercent { get; set; } // 斩杀:目标 HP 低于此百分比时触发
+            public bool ExecuteKills { get; set; }       // true = 直接击杀(Boss 免疫);false = 伤害 ×2
         }
 
         private sealed class CampaignFileDto
@@ -479,7 +481,8 @@ namespace Brushblade.Data
                     effect.DoubleVsBurning, effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
                     effect.Turns, effect.TargetAll, effect.IgnoreArmor,
-                    effect.Passive, effect.SummonShield));
+                    effect.Passive, effect.SummonShield,
+                    effect.ExecuteBelowPercent, effect.ExecuteKills));
             }
             return effects;
         }

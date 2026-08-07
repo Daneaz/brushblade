@@ -80,6 +80,10 @@ namespace Brushblade.Core
         Regrow,      // 缺笔妖自补全(TargetIndex = 该敌人,Amount = 实际回血,SecondIndex = 补全进度 1~3)。
                      // 原先是**静默**结算的:模型瞬时回血、表现层只在末次重绘看到结果,
                      // 于是玩家看到的是「召唤物砸上去不掉血」「还没打就满血」(2026-07-29 实测)
+        // 2026-08-06 M2:Dispel/Cleanse/Immunity 三个事件曾经发出但全代码库没有任何读取方
+        // (与诅咒同型——表现层直接读敌人/玩家的 Statuses 画 chip,再加事件是多余的),已删除。
+        // ImmunityBlocked 不在此列:它确实有消费方(Juice.cs 飘「免」字)。
+        ImmunityBlocked, // 免疫挡下一记(TargetIndex = 攻击者敌人下标,Amount = 挡掉的伤害;2026-08-06)
     }
 
     public readonly struct BattleEvent
@@ -115,6 +119,7 @@ namespace Brushblade.Core
         private const int PierceBonusPercent = 15; // 穿甲的保底加成(对有无减免的目标一律生效)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
         private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
+        private const int SearStacks = 1;  // 灯花每次攻击给玩家挂的灼烧层数(2026-08-06)
         private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
         private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
 
@@ -123,7 +128,6 @@ namespace Brushblade.Core
         private int _burnPerStack = 2;      // 灼烧每层结算伤害(10.2;炽 +1,可叠加)
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
-        private int _apPenaltyNextTurn; // 倾覆造成的下回合 AP 扣减(spec 4.3),消费后清零
 
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
@@ -497,7 +501,11 @@ namespace Brushblade.Core
             foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
-                    || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak)
+                    || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
+                    // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
+                    // targetIndex 停在 -1,ApplyEffects 里 _enemies[-1] 直接越界崩溃。
+                    // 必须排除 TargetAll(淡):那支是全体驱散,本就不需要选目标。
+                    || (effect.Kind == EffectKind.Dispel && !effect.TargetAll))
                     return true;
             return false;
         }
@@ -530,6 +538,30 @@ namespace Brushblade.Core
             }
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
+
+            // 玩家灼烧(2026-08-06):层数 × 系数掉血,然后 −1 层。玩家没有五行属性,
+            // 所以**不走生克** —— 敌人侧那条 KeMultiplier(Fire, enemy.Element) 不适用。
+            var playerBurn = _playerStatuses.Find(StatusKind.Burn);
+            if (playerBurn != null && playerBurn.Magnitude > 0)
+            {
+                int playerTick = playerBurn.Magnitude * _burnPerStack;
+                PlayerHp = Math.Max(0, PlayerHp - playerTick);
+                playerBurn.Magnitude -= 1;
+                if (playerBurn.Magnitude <= 0) _playerStatuses.Remove(StatusKind.Burn);
+                _events.Add(new BattleEvent(BattleEventKind.BurnTick, -1, playerTick)); // −1 = 玩家
+            }
+
+            // 玩家灼烧是 EndTurn 里第一个能把 PlayerHp 归零的点,必须在这里立刻收口
+            // (2026-08-06 全分支终审 C2):归零即死,持续治疗救不回来 —— 若照旧把判负推迟到
+            // 回合尾部,中间的 HoT 循环会先把血救回去,CheckWin() 也可能被同回合的召唤物
+            // 清场抢先判成 Won(PlayerHp=0 却「胜利」,还带着 0 血过关)。
+            // 状态回合递减必须照跑(下移进 TickAllStatuses):跳过会让广告复活后所有状态多续一回合。
+            if (PlayerHp <= 0)
+            {
+                TickAllStatuses();
+                Phase = BattlePhase.Lost;
+                return;
+            }
 
             // 流血(2026-08-03):无属性,不乘任何生克系数
             // 回合数递减挪到 EndTurn 末尾统一处理(2026-08-04,见下方"状态回合递减"),
@@ -691,6 +723,17 @@ namespace Brushblade.Core
                         enemy.ApparentElement = enemy.Element;
                         _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, i, 0));
                     }
+
+                    // 灯花(2026-08-06):每次攻击给玩家挂 1 层灼烧。TurnsLeft = -1 段内持久,
+                    // 靠上方的玩家灼烧结算段自减 Magnitude,不受 TickTurns 影响(与敌人侧同口径)。
+                    // 走 RefreshBurn 刷新到 N 层而非累加(2026-08-06 I1):BuildFloor 有放回抽取,
+                    // 同场可能出现多只灯花,累加语义会导致 N 只灯花净 +(N−1)层/回合,雪球失控
+                    // (实测 4 只第 6 回合单灼烧 38 伤/回合)。刷新语义下,单只与多只稳态都是 1 层。
+                    if (enemy.Def.Ability == EnemyAbility.Sear)
+                    {
+                        RefreshBurn(_playerStatuses, SearStacks);
+                        _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
+                    }
                 }
             }
             // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
@@ -699,22 +742,9 @@ namespace Brushblade.Core
             // 直接 return,若递减挪到早退后面,玩家阵亡的那个 EndTurn 就整个跳过递减 —— 广告复活
             // 满血续战后,所有状态(流血/冻结/减速/HoT)都会多续一回合
             // (Revive_DoesNotGrantExtraStatusTurn 守着这条)。递减不依赖缺笔妖补全循环,排在
-            // 补全循环之前不影响其结果。
-            // 冻结中:Freeze 自身与流血照常倒计时(冻结只免自身行动,不免流血/解冻倒计时);
-            // 只有 SpeedModifier 暂停递减(节拍原地暂停,呼应上面 ActionMeter 累积也暂停)。
-            // 2026-08-05(全分支评审 Important 4):原先这里是"只列 Freeze/Bleed 两种"的白名单,
-            // 给 Dispel/Cleanse/Immunity/Silence 这批以后会给敌人挂有限时长状态的机制埋雷——
-            // 挂上去的新状态会被白名单漏掉,冻结中永不到期且不报错。改成黑名单:除 SpeedModifier
-            // 外统统照常递减,新加状态默认安全。
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                var enemy = _enemies[i];
-                if (!enemy.Alive) continue;
-                enemy.Statuses.TickTurns(
-                    enemy.Statuses.Has(StatusKind.Freeze) ? StatusKind.SpeedModifier : (StatusKind?)null);
-            }
-            // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
-            _playerStatuses.TickTurns();
+            // 补全循环之前不影响其结果。同一段逻辑也被玩家灼烧那个更早的判负早退复用
+            // (2026-08-06 C2),抽成 TickAllStatuses() 私有方法,不留两份实现。
+            TickAllStatuses();
 
             if (PlayerHp <= 0)
             {
@@ -759,11 +789,31 @@ namespace Brushblade.Core
             StartTurn();
         }
 
+        /// <summary>状态回合递减(2026-08-04,抽成方法见 2026-08-06 C2):敌人侧带 Freeze 豁免
+        /// (冻结中只暂停 SpeedModifier,自身与流血照常倒计时,呼应 ActionMeter 累积也暂停),
+        /// 玩家侧整袋统一递减。两个调用点共用同一份实现:回合正常收尾时用一次,
+        /// 玩家被灼烧烧死需要提前判负时也要用一次 —— 递减不能因为玩家阵亡就跳过,
+        /// 否则广告复活满血续战后所有状态都会多续一回合。</summary>
+        private void TickAllStatuses()
+        {
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                var enemy = _enemies[i];
+                if (!enemy.Alive) continue;
+                enemy.Statuses.TickTurns(
+                    enemy.Statuses.Has(StatusKind.Freeze) ? StatusKind.SpeedModifier : (StatusKind?)null);
+            }
+            // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
+            _playerStatuses.TickTurns();
+        }
+
         private void StartTurn()
         {
             Turn += 1;
-            Ap = Math.Max(1, _config.ApPerTurn - _apPenaltyNextTurn); // 下限 1:不出现完全不能动的回合
-            _apPenaltyNextTurn = 0;
+            // 封字(2026-08-06):AP 扣减从裸字段改成 StatusKind.Seal —— 这样它可被净化、
+            // 可被免疫,并且跟着 PlayerStatuses 进存档(裸字段从来没进过 BattleSnapshot,
+            // 倾覆后存档续爬会白丢惩罚)。到期移除由统一的状态回合递减负责,这里不清。
+            Ap = Math.Max(1, _config.ApPerTurn - _playerStatuses.TotalMagnitude(StatusKind.Seal));
 
             // 回合掉字(2026-08-04):从出战牌组掉 N 个字入库,满库则停下让玩家决议。
             // 部件不再掉落 —— 五行部件只能靠拆字获得(拆免 AP 是这条的对冲)。
@@ -798,13 +848,21 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        DamageEnemy(targetIndex, BaseValue(effect, value, _enemies[targetIndex]), recipeElements, attacker, effect.IgnoreArmor);
+                        if (TryExecuteKill(effect, targetIndex)) break; // 处决:直接击杀,不再走伤害
+                        DamageEnemy(targetIndex,
+                            ExecuteBonus(effect, targetIndex, BaseValue(effect, value, _enemies[targetIndex])),
+                            recipeElements, attacker, effect.IgnoreArmor);
                         break;
                     case EffectKind.DamageAll:
                         int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE
                         for (int i = 0; i < aoeCount; i++)
-                            if (_enemies[i].Alive)
-                                DamageEnemy(i, BaseValue(effect, value, _enemies[i]), recipeElements, attacker, effect.IgnoreArmor);
+                        {
+                            if (!_enemies[i].Alive) continue;
+                            if (TryExecuteKill(effect, i)) continue; // 斩杀对每个目标分别判定
+                            DamageEnemy(i,
+                                ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i])),
+                                recipeElements, attacker, effect.IgnoreArmor);
+                        }
                         break;
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
@@ -852,6 +910,58 @@ namespace Brushblade.Core
                             TurnsLeft = value,
                             SourceId = null,   // 按 Kind 去重 → 不叠层,重复施加只刷新
                         });
+                        break;
+                    case EffectKind.Dispel:
+                        // 条数用 effect.Value 而不是 value —— 驱散条数不吃卡等级(与召唤被动同口径:
+                        // 「资源」随等级涨,「节奏」不涨),而且 −1 这个哨兵值过 ScaleByCardLevel 会算歪
+                        if (effect.TargetAll)
+                        {
+                            // 与 DamageAll 那句注释不同:这里取值点在本次 ApplyEffects 调用里前面的
+                            // 伤害效果已经触发过分裂之后(如湮:DamageSingle 20 + 驱散全部)——分裂
+                            // 产生的新怪这时已经在列表里,会被这发驱散扫到。行为上无差别(克隆的
+                            // Statuses 是空袋,没有可驱散的增益),纯粹是旧注释说反了(2026-08-06 M8)。
+                            int count = _enemies.Count;
+                            for (int i = 0; i < count; i++)
+                                if (_enemies[i].Alive) DispelFrom(i, effect.Value);
+                        }
+                        // targetIndex >= 0 兜底(2026-08-06 C1):NeedsTarget 漏判时 targetIndex 会
+                        // 停在 -1,_enemies[-1] 直接越界;修好 NeedsTarget 后这条不该再触发,但留作
+                        // 双保险,免得将来又冒出一条新字踩中同类疏漏。
+                        else if (targetIndex >= 0 && _enemies[targetIndex].Alive)
+                        {
+                            DispelFrom(targetIndex, effect.Value);
+                        }
+                        break;
+
+                    case EffectKind.Cleanse:
+                        // 不发事件(2026-08-06 M2):与诅咒同口径——表现层直接读 PlayerStatuses 画 chip,
+                        // 没有任何消费方读 Cleanse 事件,发了也是死代码。
+                        _playerStatuses.RemoveAll(StatusPolarity.Debuff);
+                        break;
+                    case EffectKind.Immunity:
+                        // SourceId 用字 ID:同字再出只刷新,不无限叠层数;
+                        // 不同字之间可叠(塞 1 + 杜 2 = 3 次),因为它们是不同来源。
+                        // 不发事件(2026-08-06 M2):没有任何消费方读 Immunity 事件,理由同 Cleanse。
+                        _playerStatuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.Immunity, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = -1, SourceId = def.Id,
+                        });
+                        break;
+                    case EffectKind.Revive:
+                        for (int n = 0; n < value; n++)
+                        {
+                            // 死尸占着槽位,复活不新增条目但存活数 +1 —— 满员时停手,免得超上限
+                            if (AliveSummons() >= SummonCap) break;
+                            int slot = FirstDeadSummonIndex();
+                            if (slot < 0) break; // 没有阵亡召唤物 → 空放(与无敌人时出 AOE 同口径)
+                            var revived = _summons[slot];
+                            revived.Hp = (revived.MaxHp + 1) / 2; // 半血,向上取整
+                            revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
+                            revived.Shield = 0;                   // 盾不跟着复活
+                            // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
+                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
+                        }
                         break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
@@ -934,6 +1044,17 @@ namespace Brushblade.Core
             }
         }
 
+        /// <summary>驱散一名敌人的增益:count &lt; 0 清全部,否则从头清至多 count 条。
+        /// 现存的唯一靶子是 AttackBuff(标点小妖给同伴加攻、焦痕受击自燃)——两者都是
+        /// TurnsLeft = -1 的永久增益且本场累计,所以驱散是它们唯一的解法。
+        /// 不发事件(2026-08-06 M2):没有任何消费方读 Dispel 事件,与诅咒同口径。</summary>
+        private void DispelFrom(int enemyIndex, int count)
+        {
+            var statuses = _enemies[enemyIndex].Statuses;
+            if (count < 0) statuses.RemoveAll(StatusPolarity.Buff);
+            else statuses.RemoveFirst(StatusPolarity.Buff, count);
+        }
+
         /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
         /// 出字的灼烧字用这条:一次性施加,层数自然衰减到 0,累加是既有语义,不受光环影响。</summary>
         private void ApplyBurn(int enemyIndex, int value)
@@ -948,14 +1069,16 @@ namespace Brushblade.Core
         }
 
         /// <summary>刷新灼烧层数到 N 层(取现有层数与 N 的较大值,而非像 ApplyBurn 那样累加,
-        /// 2026-08-06 I1):光环(烓/灶)是每回合重复施加,若复用 ApplyBurn 的累加语义,
-        /// 每回合净增长 = 挂层数 − 衰减 1 层,没有上界(烓 全体挂 3、衰减 1,净 +2,十回合后失控)。
-        /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低出字灼烧已经堆起来的更高层数。</summary>
-        private void RefreshBurn(int enemyIndex, int stacks)
+        /// 2026-08-06 I1):光环式来源(烓/灶,以及玩家侧的灯花 Sear)是每回合重复施加,若复用
+        /// ApplyBurn 的累加语义,每回合净增长 = 挂层数 − 衰减 1 层,没有上界(烓 全体挂 3、衰减 1,
+        /// 净 +2,十回合后失控;灯花本身单只是净 0,但 BuildFloor 有放回抽取,同场可能出现
+        /// 多只灯花,N 只就净 +(N−1)/回合)。
+        /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低出字灼烧已经堆起来的更高层数。
+        /// 接 <see cref="StatusBag"/> 而非敌人下标——玩家侧(灯花)与敌人侧(烓/灶)共用同一份实现。</summary>
+        private static void RefreshBurn(StatusBag statuses, int stacks)
         {
-            var enemy = _enemies[enemyIndex];
-            int current = enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
-            enemy.Statuses.Apply(new StatusEffect
+            int current = statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+            statuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = Math.Max(current, stacks), TurnsLeft = -1,
@@ -981,13 +1104,13 @@ namespace Brushblade.Core
                     for (int i = 0; i < _enemies.Count; i++)
                     {
                         if (!_enemies[i].Alive) continue;
-                        RefreshBurn(i, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
+                        RefreshBurn(_enemies[i].Statuses, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
                         _events.Add(new BattleEvent(BattleEventKind.Burn, i, passive.OnHitBurn));
                     }
                 }
                 else if (_enemies[targetIndex].Alive)
                 {
-                    RefreshBurn(targetIndex, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
+                    RefreshBurn(_enemies[targetIndex].Statuses, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
                     _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, passive.OnHitBurn));
                 }
             }
@@ -1034,6 +1157,15 @@ namespace Brushblade.Core
 
         private int FirstAliveSummonIndex() => NextAliveSummonIndex(0);
 
+        /// <summary>第一具尸体的槽位;没有返回 −1。引擎从不移除阵亡召唤物
+        /// (表现层只是不画它们),所以复活直接就地救回。</summary>
+        private int FirstDeadSummonIndex()
+        {
+            for (int s = 0; s < _summons.Count; s++)
+                if (!_summons[s].Alive) return s;
+            return -1;
+        }
+
         private int NextAliveSummonIndex(int from)
         {
             for (int s = from; s < _summons.Count; s++)
@@ -1046,6 +1178,35 @@ namespace Brushblade.Core
         {
             return effect.DoubleVsBurning && target.Statuses.Has(StatusKind.Burn) ? scaledValue * 2 : scaledValue;
         }
+
+        /// <summary>目标现血是否低于斩杀阈值。MaxHp 取 EnemyState.MaxHp(Boss 的**总血池**——
+        /// 全部阶段血量之和;ApplyPhaseStats 换阶不会改它,它永远不是「当前阶段上限」),
+        /// 不是 Def.MaxHp —— 后者对分阶段 Boss 是错的(2026-08-06 M1,原注释说反了)。</summary>
+        private bool BelowExecuteThreshold(EffectDef effect, int enemyIndex)
+        {
+            if (effect.ExecuteBelowPercent <= 0) return false;
+            var enemy = _enemies[enemyIndex];
+            return enemy.Alive && enemy.Hp * 100 < enemy.MaxHp * effect.ExecuteBelowPercent;
+        }
+
+        /// <summary>处决:命中阈值且非 Boss 则直接击杀,返回 true(调用方不要再走伤害)。
+        /// Boss 是一条总血池,25% 也是很大一截,一刀没掉太破坏节奏,故免疫。</summary>
+        private bool TryExecuteKill(EffectDef effect, int enemyIndex)
+        {
+            if (!effect.ExecuteKills || !BelowExecuteThreshold(effect, enemyIndex)) return false;
+            var enemy = _enemies[enemyIndex];
+            if (enemy.IsBoss) return false;
+            int lost = enemy.Hp;              // 报实际抹掉的血量,别报 0 —— 0 会让表现层飘「-0」
+            enemy.Hp = 0;
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
+            ResolveDefeat(enemyIndex);
+            return true;
+        }
+
+        /// <summary>残血加伤:命中阈值则该次基础值 ×2。**对 Boss 照常生效** ——
+        /// 免疫的只是「直接击杀」,不是「残血加伤」。</summary>
+        private int ExecuteBonus(EffectDef effect, int enemyIndex, int baseValue) =>
+            !effect.ExecuteKills && BelowExecuteThreshold(effect, enemyIndex) ? baseValue * 2 : baseValue;
 
         private void DamageEnemy(int enemyIndex, int baseValue,
             IReadOnlyCollection<Element> recipeElements, Element attacker, bool ignoreArmor = false)
@@ -1128,6 +1289,15 @@ namespace Brushblade.Core
         /// 大招走这条 = 不经召唤物顶前排(spec 3.3 总则)。</summary>
         private void DamagePlayerDirect(int enemyIndex, int damage)
         {
+            // 免疫(2026-08-06):先于护盾消耗 —— 免疫是稀缺的一次性资源,让它去挡一记小伤
+            // 而把护盾留着更亏;玩家的预期是「免疫牌打出去,下一记不管多重都不疼」。
+            // 完全挡下,不是减免。召唤物承伤走 DamageSummon,不经这里,所以免疫只保护玩家。
+            if (ConsumeImmunity())
+            {
+                _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, damage));
+                return;
+            }
+
             int fromNormal = Math.Min(_shieldNormal, damage);
             _shieldNormal -= fromNormal;
             int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
@@ -1135,6 +1305,21 @@ namespace Brushblade.Core
             int absorbed = fromNormal + fromPersist;
             PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+        }
+
+        /// <summary>消耗一层免疫;成功返回 true。袋子里可能同时有多条(不同字来源可叠),
+        /// 所以从第一条非零的扣 1,扣到 0 就移除那一条,而不是按 Kind 一把清。</summary>
+        private bool ConsumeImmunity()
+        {
+            var all = _playerStatuses.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i].Kind != StatusKind.Immunity || all[i].Magnitude <= 0) continue;
+                all[i].Magnitude -= 1;
+                if (all[i].Magnitude <= 0) _playerStatuses.RemoveEntry(all[i]);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则),护盾先吸收(2026-08-05)。
@@ -1223,7 +1408,14 @@ namespace Brushblade.Core
                         _shieldPersist = 0;
                         _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, broken));
                     }
-                    _apPenaltyNextTurn = 1;
+                    // TurnsLeft = 2 而不是 1(2026-08-06):倾覆在敌方段挂上,而同一个 EndTurn
+                    // 的「状态回合递减」排在 StartTurn 之前 —— 填 1 会被当场减到 0 移除,
+                    // StartTurn 读到 0,效果凭空消失。填 2 才等价于「只罚下一个玩家回合」。
+                    _playerStatuses.Apply(new StatusEffect
+                    {
+                        Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
+                        Magnitude = 1, TurnsLeft = 2, SourceId = "倾覆",
+                    });
                     break;
                 }
 

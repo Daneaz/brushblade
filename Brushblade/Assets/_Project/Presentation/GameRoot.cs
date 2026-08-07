@@ -198,10 +198,27 @@ namespace Brushblade.Presentation
                 ApPerTurn = 3 + PerkRules.ApBonus(_meta), // 一气
                 LibraryCapacity = MetaRules.LibraryCapacityFor(_meta), // 起手 + 掉字缓冲 + 博闻加成(广告 +2 在其上叠加)
             };
-            var run = resume != null
-                ? RunEngine.Restore(resume.Run, _graph, runConfig, battleConfig, _meta.CardLevels,
-                    startingInk: _meta.Ink, perFloorNormalShield: PerkRules.ShieldBonus(_meta))
-                : new RunEngine(_graph, runConfig, battleConfig,
+            RunEngine run = null;
+            if (resume != null)
+            {
+                try
+                {
+                    run = RunEngine.Restore(resume.Run, _graph, runConfig, battleConfig, _meta.CardLevels,
+                        startingInk: _meta.Ink, perFloorNormalShield: PerkRules.ShieldBonus(_meta));
+                }
+                catch (System.InvalidOperationException)
+                {
+                    // 内容更新在 enemyPool 里加怪(如灯花入池,2026-08-06 C3)会让同种子的层段
+                    // 遭遇生成结果整体位移——旧的战斗中断点存档按旧顺序记录的字怪,复原时用新版本
+                    // 重放同一颗种子就对不上号,BattleEngine.Restore 会抛 InvalidOperationException。
+                    // 任何往 enemyPool 加怪的内容更新都会重演这条,所以这个兜底是长期需要的,
+                    // 不是一次性补丁:退化成从本层重开(resume = null 落入下面的 new RunEngine 分支),
+                    // 只损失当场战斗进度——段内已结算的楼层不受影响,下面用的是最近一次楼层结算
+                    // 后写回 snapshot 的值。
+                    resume = null;
+                }
+            }
+            run ??= new RunEngine(_graph, runConfig, battleConfig,
                 snapshot.Library, snapshot.Pool,
                 seed: unchecked(snapshot.Seed * 17 + fromDepth), cardLevels: _meta.CardLevels,
                 startingInk: _meta.Ink, // 字摊/赌博预算 = 账户库存(Option A,2026-07-24):

@@ -226,6 +226,21 @@
       ]
     },
     {
+      "id": "灭",
+      "rarity": "Green",
+      "element": "Fire",
+      "recipe": [
+        "一",
+        "火"
+      ],
+      "effects": [
+        {
+          "kind": "Dispel",
+          "value": -1
+        }
+      ]
+    },
+    {
       "id": "焰",
       "rarity": "Green",
       "element": "Fire",
@@ -845,6 +860,26 @@
       ]
     },
     {
+      "id": "淡",
+      "rarity": "Gold",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "炎"
+      ],
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 20
+        },
+        {
+          "kind": "Dispel",
+          "value": 1,
+          "targetAll": true
+        }
+      ]
+    },
+    {
       "id": "沝",
       "rarity": "Purple",
       "element": "Water",
@@ -860,6 +895,25 @@
         {
           "kind": "DamageSingle",
           "value": 9
+        }
+      ]
+    },
+    {
+      "id": "湮",
+      "rarity": "Purple",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "土"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 20
+        },
+        {
+          "kind": "Dispel",
+          "value": -1
         }
       ]
     },
@@ -1120,6 +1174,25 @@
       ]
     },
     {
+      "id": "澡",
+      "rarity": "Purple",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "喿"
+      ],
+      "effects": [
+        {
+          "kind": "HealSelf",
+          "value": 12
+        },
+        {
+          "kind": "Cleanse",
+          "value": 0
+        }
+      ]
+    },
+    {
       "id": "沐",
       "rarity": "Purple",
       "element": "Water",
@@ -1169,6 +1242,21 @@
       ]
     },
     {
+      "id": "活",
+      "rarity": "Blue",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "舌"
+      ],
+      "effects": [
+        {
+          "kind": "Revive",
+          "value": 1
+        }
+      ]
+    },
+    {
       "id": "治",
       "rarity": "Blue",
       "element": "Water",
@@ -1180,6 +1268,21 @@
         {
           "kind": "HealSelf",
           "value": 8
+        }
+      ]
+    },
+    {
+      "id": "浴",
+      "rarity": "Green",
+      "element": "Water",
+      "recipe": [
+        "氵",
+        "谷"
+      ],
+      "effects": [
+        {
+          "kind": "Cleanse",
+          "value": 0
         }
       ]
     },
@@ -1275,6 +1378,23 @@
       ]
     },
     {
+      "id": "铡",
+      "rarity": "Purple",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "则"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 16,
+          "executeBelowPercent": 25,
+          "executeKills": true
+        }
+      ]
+    },
+    {
       "id": "锹",
       "rarity": "Purple",
       "element": "Metal",
@@ -1366,6 +1486,23 @@
       ]
     },
     {
+      "id": "镰",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "廉"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 9,
+          "executeBelowPercent": 30,
+          "executeKills": false
+        }
+      ]
+    },
+    {
       "id": "锥",
       "rarity": "Green",
       "element": "Metal",
@@ -1378,6 +1515,61 @@
           "kind": "DamageSingle",
           "value": 9,
           "ignoreArmor": true
+        }
+      ]
+    },
+    {
+      "id": "剿",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "巢",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 6,
+          "executeBelowPercent": 30,
+          "executeKills": false
+        }
+      ]
+    },
+    {
+      "id": "削",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "肖",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 9
+        },
+        {
+          "kind": "Dispel",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "刮",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "舌",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 6
+        },
+        {
+          "kind": "Dispel",
+          "value": -1
         }
       ]
     },
@@ -1709,6 +1901,55 @@
       ]
     },
     {
+      "id": "杜",
+      "rarity": "Purple",
+      "element": "Earth",
+      "recipe": [
+        "木",
+        "土"
+      ],
+      "effects": [
+        {
+          "kind": "Immunity",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "岿",
+      "rarity": "Blue",
+      "element": "Earth",
+      "recipe": [
+        "山",
+        "归"
+      ],
+      "effects": [
+        {
+          "kind": "Immunity",
+          "value": 1
+        },
+        {
+          "kind": "Cleanse",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "塞",
+      "rarity": "Green",
+      "element": "Earth",
+      "recipe": [
+        "宀",
+        "土"
+      ],
+      "effects": [
+        {
+          "kind": "Immunity",
+          "value": 1
+        }
+      ]
+    },
+    {
       "id": "崩",
       "rarity": "Blue",
       "element": "Earth",
@@ -1841,6 +2082,9 @@
       ]
     },
     {
+      "id": "一"
+    },
+    {
       "id": "东"
     },
     {
@@ -1890,6 +2134,9 @@
       "id": "列"
     },
     {
+      "id": "则"
+    },
+    {
       "id": "勺"
     },
     {
@@ -1920,6 +2167,9 @@
       "id": "啬"
     },
     {
+      "id": "喿"
+    },
+    {
       "id": "垂"
     },
     {
@@ -1930,6 +2180,9 @@
     },
     {
       "id": "奉"
+    },
+    {
+      "id": "宀"
     },
     {
       "id": "害"
@@ -1963,10 +2216,19 @@
       "id": "岂"
     },
     {
+      "id": "巢"
+    },
+    {
+      "id": "廉"
+    },
+    {
       "id": "弗"
     },
     {
       "id": "弱"
+    },
+    {
+      "id": "归"
     },
     {
       "id": "成"
@@ -2035,7 +2297,13 @@
       "id": "秋"
     },
     {
+      "id": "肖"
+    },
+    {
       "id": "臽"
+    },
+    {
+      "id": "舌"
     },
     {
       "id": "般"
@@ -2046,6 +2314,9 @@
     },
     {
       "id": "荅"
+    },
+    {
+      "id": "谷"
     },
     {
       "id": "贵"

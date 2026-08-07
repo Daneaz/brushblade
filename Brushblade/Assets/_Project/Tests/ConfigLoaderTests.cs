@@ -278,5 +278,46 @@ namespace Brushblade.Core.Tests
             Assert.That(bing.Passive.HealAlly, Is.EqualTo(2));
             Assert.That(bing.Passive.OnHitCurse, Is.EqualTo(25));
         }
+
+        [Test]
+        public void LoadGraph_ParsesExecuteFieldsAndNewEffectKinds()
+        {
+            const string json = @"{""chars"":[
+                {""id"":""木"",""element"":""Wood""},
+                {""id"":""甲"",""element"":""Metal"",""effects"":[
+                    {""kind"":""DamageSingle"",""value"":20,
+                     ""executeBelowPercent"":25,""executeKills"":true}]},
+                {""id"":""乙"",""element"":""Metal"",""effects"":[
+                    {""kind"":""DamageSingle"",""value"":9,""executeBelowPercent"":30}]},
+                {""id"":""丙"",""element"":""Fire"",""effects"":[{""kind"":""Dispel"",""value"":-1}]},
+                {""id"":""丁"",""element"":""Water"",""effects"":[
+                    {""kind"":""DamageAll"",""value"":20},
+                    {""kind"":""Dispel"",""value"":1,""targetAll"":true}]},
+                {""id"":""戊"",""element"":""Water"",""effects"":[{""kind"":""Cleanse"",""value"":0}]},
+                {""id"":""己"",""element"":""Earth"",""effects"":[{""kind"":""Immunity"",""value"":2}]},
+                {""id"":""庚"",""element"":""Water"",""effects"":[{""kind"":""Revive"",""value"":1}]}
+            ]}";
+            var graph = ConfigLoader.LoadGraph(json);
+
+            var jia = graph.Get("甲").Effects[0];
+            Assert.That(jia.ExecuteBelowPercent, Is.EqualTo(25));
+            Assert.That(jia.ExecuteKills, Is.True);
+
+            var yi = graph.Get("乙").Effects[0];
+            Assert.That(yi.ExecuteBelowPercent, Is.EqualTo(30));
+            Assert.That(yi.ExecuteKills, Is.False, "没写就是残血加伤,不是处决");
+
+            Assert.That(graph.Get("丙").Effects[0].Kind, Is.EqualTo(EffectKind.Dispel));
+            Assert.That(graph.Get("丙").Effects[0].Value, Is.EqualTo(-1));
+
+            var ding = graph.Get("丁").Effects[1];
+            Assert.That(ding.Kind, Is.EqualTo(EffectKind.Dispel));
+            Assert.That(ding.TargetAll, Is.True);
+
+            Assert.That(graph.Get("戊").Effects[0].Kind, Is.EqualTo(EffectKind.Cleanse));
+            Assert.That(graph.Get("己").Effects[0].Kind, Is.EqualTo(EffectKind.Immunity));
+            Assert.That(graph.Get("己").Effects[0].Value, Is.EqualTo(2));
+            Assert.That(graph.Get("庚").Effects[0].Kind, Is.EqualTo(EffectKind.Revive));
+        }
     }
 }

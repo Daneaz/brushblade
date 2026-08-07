@@ -61,6 +61,7 @@ namespace Brushblade.Presentation
             EnemyAbility.Disguise => "通假",
             EnemyAbility.Obscure => "生僻",
             EnemyAbility.Scorch => "自燃",
+            EnemyAbility.Sear => "灼身",
             _ => "",
         };
 
@@ -75,6 +76,7 @@ namespace Brushblade.Presentation
             EnemyAbility.Disguise => "显示的属性是假的,首次行动后才露真身 —— 别急着按显示的属性配克制",
             EnemyAbility.Obscure => "属性隐藏,受击两次后被「读懂」现形",
             EnemyAbility.Scorch => "每次受击存活,攻 +2 —— 越磨越烫,宜速杀",
+            EnemyAbility.Sear => "每次攻击给你挂 1 层灼烧 —— 拖得越久烧得越久,备一张净化",
             _ => "",
         };
 
@@ -91,6 +93,7 @@ namespace Brushblade.Presentation
             // 生僻:未读懂时 ApparentElement 为 null(属性显示「?」);被读懂后撤掉
             EnemyAbility.Obscure => enemy.ApparentElement != null ? "" : "生僻",
             EnemyAbility.Scorch => "自燃",
+            EnemyAbility.Sear => "灼身",
             _ => "",
         };
 

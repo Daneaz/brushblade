@@ -15,6 +15,8 @@ namespace Brushblade.Core
         AttackBuff,       // 攻击加成
         ArmorBreak,       // 破甲:承伤 +25%,不叠层(2026-08-05)
         Curse,            // 诅咒:攻击 −Magnitude%,不叠层只刷新(2026-08-05)
+        Seal,             // 封字:玩家下回合 AP −Magnitude(2026-08-06,Boss 倾覆)
+        Immunity,         // 免疫:完全挡下 Magnitude 次伤害(2026-08-06)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -22,13 +24,17 @@ namespace Brushblade.Core
     /// <summary>一条状态。Magnitude 按 Kind 解读:Burn=层数、Bleed/HealOverTime=每回合量、
     /// DamageReduction=百分比、SpeedModifier=速度点数、AttackBuff=攻击加成、
     /// ArmorBreak=承伤加成百分比(DamageEnemy 直接读这个字段,不再读常量)、
-    /// Curse=减攻百分比(EnemyState.Attack 读它)。</summary>
+    /// Curse=减攻百分比(EnemyState.Attack 读它)、
+    /// Seal=AP 扣减量(StartTurn 读它)。</summary>
     public sealed class StatusEffect
     {
         public StatusKind Kind { get; set; }
         public StatusPolarity Polarity { get; set; }
         public int Magnitude { get; set; }
-        public int TurnsLeft { get; set; }   // -1 = 段内持久,不随回合递减
+        // -1 = 战内持久,不随回合递减(2026-08-06 M5 改准确:是否跨战斗延续到下一场是另一件事,
+        // 取决于 RunEngine 的携带态白名单——目前只有 DamageReduction 会被带过去,免疫/玩家灼烧/
+        // 封字等其余 TurnsLeft=-1 的状态都在每场战斗结束时丢弃,称「段内」持久并不准确)。
+        public int TurnsLeft { get; set; }
 
         /// <summary>来源标识,两种相反用法并存,加新状态时先想清楚要哪种(2026-08-05 M3):
         /// 1) **去重键**——直接传字 ID(如 "铠"):同字再放视为同一来源,Apply() 覆盖刷新不叠加
@@ -99,7 +105,24 @@ namespace Brushblade.Core
             return before - _list.Count;
         }
 
+        /// <summary>按极性从头移除至多 count 条,返回实际移除条数(计数式驱散用)。</summary>
+        public int RemoveFirst(StatusPolarity polarity, int count)
+        {
+            int removed = 0;
+            for (int i = 0; i < _list.Count && removed < count; )
+            {
+                if (_list[i].Polarity != polarity) { i++; continue; }
+                _list.RemoveAt(i);
+                removed++;
+            }
+            return removed;
+        }
+
         public void Clear() => _list.Clear();
+
+        /// <summary>移除指定的那一条(按引用)。免疫消耗到 0 时用——袋子里可能有多条
+        /// 同 Kind 不同来源的免疫,不能用按 Kind 的 Remove 一把全清。</summary>
+        public void RemoveEntry(StatusEffect effect) => _list.Remove(effect);
 
         /// <summary>回合数递减,归零即移除;TurnsLeft &lt; 0 表示段内持久,不受影响。
         /// <paramref name="except"/> 可选豁免一个种类不递减(冻结中 SpeedModifier 暂停用,

@@ -152,10 +152,22 @@ namespace Brushblade.Presentation
                 case BattleEventKind.Damage:
                 case BattleEventKind.BurnTick:
                 case BattleEventKind.BleedTick:
+                    // TargetIndex < 0 = 玩家自己在烧(2026-08-06,灯花的灼身):走玩家血条,
+                    // 与 EnemyAttack 同款推进。PushEnemyHp 对 −1 会直接返回 false,
+                    // 不加这条分支血条就一动不动、只有最终重绘才突然掉下去
+                    if (e.TargetIndex < 0)
+                    {
+                        if (_playerHpBar.fill == null) break;
+                        _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - e.Amount);
+                        SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
+                        break;
+                    }
                     // 挨这一记的形象抖起来:主体抖、墨丝甩尾、眼睛瞪大(MobView 三层各自不同步)
-                    if (e.TargetIndex >= 0 && e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
+                    if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
                         _enemyMobs[e.TargetIndex].PlayHit();
                     PushEnemyHp(e.TargetIndex, -e.Amount);
+                    break;
+                case BattleEventKind.ImmunityBlocked: // 完全挡下:血条护盾条都不动,表达交给 Juice 的飘字
                     break;
                 case BattleEventKind.EnemyAttack: // Amount 分账:Absorbed 走护盾条,余量才掉血,各自钳到终值
                     _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
@@ -538,6 +550,29 @@ namespace Brushblade.Presentation
                 _playerShieldBar = ((RectTransform)shieldBar.transform.Find("Fill"),
                     Ui.ThemedLabel(hpStack.transform, $"护盾 {shownShield}", 12, Theme.Jade));
             }
+            // 玩家侧状态一行小字(2026-08-06,子项目 A):封字 / 灼烧 / 免疫。
+            // 禁用 emoji —— 字体子集补不出来,上线渲染成空框
+            // Row 按需创建(2026-08-06 M8):三条都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
+            GameObject statusRow = null;
+            int seal = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal);
+            if (seal > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"封字 −{seal}AP", Theme.InkSoft, Color.white, 12);
+            }
+            int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
+            if (playerBurn > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"灼烧 {playerBurn}", Theme.Cinnabar, Color.white, 12);
+            }
+            int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
+            if (immunity > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"免疫 {immunity}", Theme.Jade, Color.white, 12);
+            }
+
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
             var pips = Ui.Row(apStack.transform, "Pips", 12);
