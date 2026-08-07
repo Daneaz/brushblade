@@ -709,17 +709,21 @@ namespace Brushblade.Core
 
                     int damage = ReducedDamage(enemy.Attack); // 先减伤(百分比),再护盾吸收(定量)
                     int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
+                    // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
+                    // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
+                    bool hit;
                     if (tankIdx >= 0)
                     {
                         // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
-                        DamageSummon(i, tankIdx, damage, enemy.Element);
+                        hit = DamageSummon(i, tankIdx, damage, enemy.Element);
                     }
                     else
                     {
-                        DamagePlayerDirect(i, damage);
+                        hit = DamagePlayerDirect(i, damage);
                     }
 
-                    // 通假字:首次行动后现形(8.3)
+                    // 通假字:首次行动后现形(8.3)。现形只看"敌人是否出手了",与命中判定无关——
+                    // 敌人确实动了,打空不影响这条(2026-08-08 明确:不受 hit 影响)。
                     if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
                     {
                         enemy.ApparentElement = enemy.Element;
@@ -731,7 +735,9 @@ namespace Brushblade.Core
                     // 走 RefreshBurn 刷新到 N 层而非累加(2026-08-06 I1):BuildFloor 有放回抽取,
                     // 同场可能出现多只灯花,累加语义会导致 N 只灯花净 +(N−1)层/回合,雪球失控
                     // (实测 4 只第 6 回合单灼烧 38 伤/回合)。刷新语义下,单只与多只稳态都是 1 层。
-                    if (enemy.Def.Ability == EnemyAbility.Sear)
+                    // hit 门槛(2026-08-08):打空 = 攻击没落到身上,附带效果不该触发;免疫挡下
+                    // 仍算命中(hit=true),灼烧照挂——免疫挡的是伤害,不是攻击本身。
+                    if (hit && enemy.Def.Ability == EnemyAbility.Sear)
                     {
                         RefreshBurn(_playerStatuses, SearStacks);
                         _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
@@ -1313,8 +1319,11 @@ namespace Brushblade.Core
 
         /// <summary>命中判定(2026-08-07):命中率 = 100 − 攻击者致盲 − 目标闪避,钳到 [0,100]。
         ///
-        /// **钳的是最终命中率,不是单项** —— 致盲 100 + 闪避 50 若只钳致盲就会算出 −50,
-        /// 而 _random.Next(100) 永远不小于负数,反而变成必中。
+        /// **钳的是最终命中率,不是单项**(2026-08-08 订正:原注释这里的推理是反的)。
+        /// 按当前的比较式 `_random.Next(100) < hitRate`,`Next(100)` 只吐 [0,99],负的 hitRate
+        /// 本就恒为 false = 必空,不钳也不会变成必中,和钳到 0 逐位相同 —— 钳位不是为了修正
+        /// 这一条既有比较式的行为,是**防御性**的:防日后有人把比较式改成 `<=`、或改成
+        /// `_random.Next(hitRate)` 这类写法时,负数传进去直接炸异常或产生意外行为。
         ///
         /// **命中率 ≥ 100 时直接返回,一次随机都不摇** —— _random 的唯一既有消费方是
         /// StartTurn 的回合掉字,无条件摇会平移掉落序列,让所有依赖种子的既有测试全红。
@@ -1328,15 +1337,21 @@ namespace Brushblade.Core
         }
 
         /// <summary>对玩家造成伤害:护盾先吸收(普通桶先扣,豁免桶垫后)。
-        /// 大招走这条 = 不经召唤物顶前排(spec 3.3 总则)。</summary>
-        private void DamagePlayerDirect(int enemyIndex, int damage)
+        /// 大招走这条 = 不经召唤物顶前排(spec 3.3 总则)。
+        ///
+        /// 返回值(2026-08-08):这次攻击有没有「落到身上」——只有 AttackHits 判定打空才是
+        /// false;免疫挡下算 true。反直觉但刻意:免疫挡的是「伤害」,不是「攻击是否发生」——
+        /// 攻击确实命中了,只是伤害被完全吸收。灯花(Sear)之类"出手就触发"的攻击附带效果
+        /// 靠这个返回值 gate(见攻击循环):打空 = 攻击没发生,附带效果不该触发;
+        /// 免疫挡下 = 攻击发生了,附带效果照常。</summary>
+        private bool DamagePlayerDirect(int enemyIndex, int damage)
         {
             // 命中判定(2026-08-07):打空则什么都不发生 —— 免疫不消耗、护盾不掉、反弹不触发。
             // 玩家没有闪避,只吃攻击者的致盲
             if (!AttackHits(enemyIndex, 0))
             {
                 _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0));
-                return;
+                return false;
             }
 
             // 免疫(2026-08-06):先于护盾消耗 —— 免疫是稀缺的一次性资源,让它去挡一记小伤
@@ -1345,7 +1360,7 @@ namespace Brushblade.Core
             if (ConsumeImmunity())
             {
                 _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, damage));
-                return;
+                return true;
             }
 
             int fromNormal = Math.Min(_shieldNormal, damage);
@@ -1355,6 +1370,7 @@ namespace Brushblade.Core
             int absorbed = fromNormal + fromPersist;
             PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+            return true;
         }
 
         /// <summary>消耗一层免疫;成功返回 true。袋子里可能同时有多条(不同字来源可叠),
@@ -1374,15 +1390,17 @@ namespace Brushblade.Core
 
         /// <summary>对召唤物造成伤害:走五行(与普攻打召唤同规则),护盾先吸收(2026-08-05)。
         /// SummonHit 的 Amount 仍报吃到的总伤害,吸收量走第 5 个参数 —— 与 DamagePlayerDirect
-        /// 发 EnemyAttack 的口径一致,表现层才能一套逻辑画两边。</summary>
-        private void DamageSummon(int enemyIndex, int summonIndex, int damage, Element attacker)
+        /// 发 EnemyAttack 的口径一致,表现层才能一套逻辑画两边。
+        ///
+        /// 返回值口径同 DamagePlayerDirect(2026-08-08):打空为 false,其余(含护盾吸收)为 true。</summary>
+        private bool DamageSummon(int enemyIndex, int summonIndex, int damage, Element attacker)
         {
             var summon = _summons[summonIndex];
             // 命中判定(2026-08-07):召唤物的闪避与攻击者的致盲一起从命中率里扣
             if (!AttackHits(enemyIndex, summon.Passive?.Dodge ?? 0))
             {
                 _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0, summonIndex));
-                return;
+                return false;
             }
 
             int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
@@ -1397,6 +1415,7 @@ namespace Brushblade.Core
             int thorns = summon.Passive?.Thorns ?? 0;
             if (thorns > 0 && _enemies[enemyIndex].Alive)
                 DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart);
+            return true;
         }
 
         /// <summary>Boss 回合三态(spec 2026-07-28):释放 / 蓄力 / 交回普攻。

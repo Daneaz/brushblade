@@ -26,6 +26,12 @@ namespace Brushblade.Core.Tests
             // 雾:全体致盲 100%,1 回合(烟 的极端版)
             new CharDef("雾", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Blind, 100, turns: 1, targetAll: true) }),
+            // 眩/昡:单体致盲各 60%,2 回合,数值相同但字 ID 不同(熣 的部分致盲版,用来测
+            // 「闪避需要跟非满值致盲组合才有判别力」以及「不同来源致盲可叠加」两件事)
+            new CharDef("眩", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Blind, 60, turns: 2) }),
+            new CharDef("昡", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Blind, 60, turns: 2) }),
             // 挡:护盾 20;御:免疫 1 次 —— 用来验「打空时这两样都不该被消耗」
             new CharDef("挡", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
@@ -66,23 +72,63 @@ namespace Brushblade.Core.Tests
         public void Dodge_IsCarriedOntoTheSummon()
         {
             // 闪避字段确实从 EffectDef.Passive 落到了召唤物身上;闪避真的生效由
-            // BlindPlusDodge_ClampsHitRateAtZero_NotNegative 那条做确定性断言——闪避 50% 本身
-            // 不是确定性的,这里只做接线检查,不为了凑「必空」这个名字硬加断言
+            // BlindPlusDodge_SummonTakesNothing / Dodge_NeededForDeterministicMiss_WithPartialBlind
+            // 那两条做断言——闪避 50% 本身不是确定性的,这里只做接线检查,不为了凑
+            // 「必空」这个名字硬加断言
             var engine = Engine(new[] { "闪" }, new[] { Attacker() });
             engine.Cast("闪");
             Assert.That(engine.Summons[0].Passive.Dodge, Is.EqualTo(50));
         }
 
         [Test]
-        public void BlindPlusDodge_ClampsHitRateAtZero_NotNegative()
+        public void BlindPlusDodge_SummonTakesNothing()
         {
-            // 致盲 100 + 闪避 50 = 命中率 −50。若只钳致盲不钳最终值,
-            // _random.Next(100) 永远不小于负数,反而变成**必中** —— 正是这条要拦的
+            // 名字订正(2026-08-08,评审 Important 2):原名 _ClampsHitRateAtZero_NotNegative
+            // 暗示钳位在拦一个「反而变成必中」的错误行为,但按现有比较式
+            // `_random.Next(100) < hitRate`,负的 hitRate 本就恒为 false = 必空,和钳到 0
+            // 逐位相同(评审已用变异验证:去掉钳位这条测试照样绿)。这条测试实际断言的是
+            // 「致盲 + 闪避同时命中率归零时召唤物毫发无损」,与钳位是否存在无关,改成描述
+            // 断言本身的名字。真正验证「闪避确实进了算式」的是下面
+            // Dodge_NeededForDeterministicMiss_WithPartialBlind。
             var engine = Engine(new[] { "闪", "昏" }, new[] { Attacker() });
             engine.Cast("闪");
             engine.Cast("昏", 0);
             engine.EndTurn();
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "召唤物一点没掉血");
+        }
+
+        [Test]
+        public void Dodge_NeededForDeterministicMiss_WithPartialBlind()
+        {
+            // 评审 Important 1:BlindPlusDodge_SummonTakesNothing 用的是致盲 100% ——光靠
+            // 致盲命中率就已经是 0,50 点闪避完全被掩盖,对「闪避是不是真的进了算式」没有
+            // 判别力(变异证据:把 DamageSummon 里 summon.Passive?.Dodge ?? 0 换成 0,那条
+            // 测试仍然全绿)。
+            // 这里用致盲 60%(眩)——单独作用命中率是 40(会摇,不确定);只有加上闪避 50
+            // 才让命中率归零、变成确定性必空,判别力精确落在闪避这一项上。
+            var engine = Engine(new[] { "闪", "眩" }, new[] { Attacker() });
+            engine.Cast("闪");
+            engine.Cast("眩", 0);
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10),
+                "致盲 60% + 闪避 50% = 命中率 0,召唤物一点没掉血");
+        }
+
+        [Test]
+        public void Blind_MultipleSourcesStack_ClampedHitRateStaysZero()
+        {
+            // spec §九 第 4 条(评审 Minor 2):致盲多来源合计钳到 100,不出现负命中率。
+            // 眩/昡 数值相同(各 60%)但字 ID 不同——ApplyBlind 用字 ID 做 SourceId 去重,
+            // 同字才刷新,不同字要能叠加。顺带给 AttackHits 的钳位提供一个真实的多来源场景
+            // (100 - 120 = -20,钳到 0)。
+            var engine = Engine(new[] { "眩", "昡" }, new[] { Attacker() });
+            engine.Cast("眩", 0);
+            engine.Cast("昡", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Blind), Is.EqualTo(120),
+                "两个不同来源各 60%,合计 120,不同字不刷新只叠加");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50),
+                "命中率钳到 0,必空,不会因为原始值是负数就摇出异常结果");
         }
 
         [Test]
@@ -144,9 +190,14 @@ namespace Brushblade.Core.Tests
         public void Blind_DoesNotStopToppleShieldBreak()
         {
             // 刻意的裁定:致盲让「伤害」落空,但掀盾不经 DamagePlayerDirect,打不空。
-            // 与免疫同口径(免疫也挡不住掀盾)
-            var boss = new EnemyDef("覆", Element.Heart, 300, 4,
-                phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
+            // 与免疫同口径(免疫也挡不住掀盾)。
+            // 攻击力订正(2026-08-08,评审 Minor 1):原来是 4,倾覆伤害 ReducedDamage(4×2)=8
+            // 全被 20 点护盾吃掉,命中与否 PlayerHp 都是 200——这条对「伤害是否被打空」根本
+            // 没有判别力(变异证据:删掉 DamagePlayerDirect 里打空的 return,这条仍然绿,
+            // 变红的是别的 4 条)。攻击力提到 20 后,倾覆伤害 40 > 护盾 20,命中会掉血到
+            // 200-(40-20)=180,断言 200 才真的钉住「打空」。
+            var boss = new EnemyDef("覆", Element.Heart, 300, 20,
+                phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 20, skill: BossSkill.Topple) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
             var engine = Engine(new[] { "挡", "昏" }, new[] { boss }, config);
             engine.Cast("挡", 0);
@@ -170,6 +221,39 @@ namespace Brushblade.Core.Tests
             engine.Cast("昏", 0);
             engine.EndTurn();                       // 释放吞噬
             Assert.That(engine.Summons[0].Alive, Is.False, "秒杀打不空");
+        }
+
+        [Test]
+        public void Blind_StopsSearFromBurningPlayer()
+        {
+            // 评审 Important 3:灯花(Sear)每次攻击给玩家挂 1 层灼烧,是攻击的附带效果——
+            // 打空 = 攻击根本没落到身上,附带效果不该触发。原实现里 Sear 分支在攻击循环里、
+            // DamagePlayerDirect 之外,打空 return 之后灼烧照挂,与「打空 = 什么都没发生」冲突
+            var sear = new EnemyDef("灯", Element.Heart, 200, 8, EnemyAbility.Sear);
+            var engine = Engine(new[] { "昏" }, new[] { sear });
+            engine.Cast("昏", 0);
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "致盲 100% → 攻击打空");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
+                "打空连带灼烧也不该挂——攻击根本没落到身上");
+        }
+
+        [Test]
+        public void ImmunityBlocked_StillTriggersSear()
+        {
+            // 评审 Important 3 的另一半裁定:免疫挡下的是「伤害」,不是「攻击是否发生」——
+            // 攻击确实命中了,只是被免疫完全吸收;灯花在攻击发生时就触发,不受免疫影响。
+            // 防止有人把 hit 的口径写反,连免疫分支也一起 gate 掉
+            var sear = new EnemyDef("灯", Element.Heart, 200, 8, EnemyAbility.Sear);
+            var engine = Engine(new[] { "御" }, new[] { sear });
+            engine.Cast("御", 0);
+            int hpBefore = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hpBefore), "免疫挡下伤害");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(0),
+                "免疫层数被消耗——确认真的走了免疫分支,不是刚好没受击");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.GreaterThan(0),
+                "但灼烧照挂——攻击确实发生了,免疫挡的是伤害不是攻击本身");
         }
 
         [Test]
