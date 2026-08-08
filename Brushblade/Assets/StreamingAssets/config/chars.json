@@ -176,6 +176,26 @@
       ]
     },
     {
+      "id": "熣",
+      "rarity": "Purple",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "崔"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 16
+        },
+        {
+          "kind": "Blind",
+          "value": 50,
+          "turns": 2
+        }
+      ]
+    },
+    {
       "id": "灿",
       "rarity": "Purple",
       "element": "Fire",
@@ -400,6 +420,23 @@
       ]
     },
     {
+      "id": "烟",
+      "rarity": "Green",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "因"
+      ],
+      "effects": [
+        {
+          "kind": "Blind",
+          "value": 30,
+          "turns": 1,
+          "targetAll": true
+        }
+      ]
+    },
+    {
       "id": "烓",
       "rarity": "Gold",
       "element": "Fire",
@@ -609,6 +646,27 @@
           "summonChar": "木",
           "passive": {
             "onHitCurse": 25
+          }
+        }
+      ]
+    },
+    {
+      "id": "柳",
+      "rarity": "Green",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "卯"
+      ],
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 8,
+          "count": 1,
+          "attack": 3,
+          "summonChar": "木",
+          "passive": {
+            "dodge": 50
           }
         }
       ]
@@ -1395,6 +1453,22 @@
       ]
     },
     {
+      "id": "剁",
+      "rarity": "Purple",
+      "element": "Metal",
+      "recipe": [
+        "朵",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 10,
+          "hitCount": 2
+        }
+      ]
+    },
+    {
       "id": "锹",
       "rarity": "Purple",
       "element": "Metal",
@@ -1604,6 +1678,22 @@
       ]
     },
     {
+      "id": "锁",
+      "rarity": "Blue",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "贝"
+      ],
+      "effects": [
+        {
+          "kind": "Silence",
+          "value": 0,
+          "turns": 1
+        }
+      ]
+    },
+    {
       "id": "锯",
       "rarity": "Green",
       "element": "Metal",
@@ -1630,6 +1720,22 @@
         {
           "kind": "DamageReduction",
           "value": 20
+        }
+      ]
+    },
+    {
+      "id": "镜",
+      "rarity": "Blue",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "竟"
+      ],
+      "effects": [
+        {
+          "kind": "Reflect",
+          "value": 50,
+          "turns": 2
         }
       ]
     },
@@ -2146,6 +2252,9 @@
       "id": "卒"
     },
     {
+      "id": "卯"
+    },
+    {
       "id": "厽"
     },
     {
@@ -2168,6 +2277,9 @@
     },
     {
       "id": "喿"
+    },
+    {
+      "id": "因"
     },
     {
       "id": "垂"
@@ -2216,6 +2328,9 @@
       "id": "岂"
     },
     {
+      "id": "崔"
+    },
+    {
       "id": "巢"
     },
     {
@@ -2244,6 +2359,9 @@
     },
     {
       "id": "朋"
+    },
+    {
+      "id": "朵"
     },
     {
       "id": "朿"
@@ -2297,6 +2415,9 @@
       "id": "秋"
     },
     {
+      "id": "竟"
+    },
+    {
       "id": "肖"
     },
     {
@@ -2317,6 +2438,9 @@
     },
     {
       "id": "谷"
+    },
+    {
+      "id": "贝"
     },
     {
       "id": "贵"

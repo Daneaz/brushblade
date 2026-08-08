@@ -248,6 +248,68 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "土" }));
         }
 
+        [Test]
+        public void RealConfig_BlindCharsCarryTheirPercentAndTurns()
+        {
+            var graph = RealGraph();
+            var sui = graph.Get("熣").Effects.First(e => e.Kind == EffectKind.Blind);
+            Assert.That(sui.Value, Is.EqualTo(50));
+            Assert.That(sui.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
+            Assert.That(sui.TargetAll, Is.False);
+
+            var yan = graph.Get("烟").Effects.First(e => e.Kind == EffectKind.Blind);
+            Assert.That(yan.Value, Is.EqualTo(30));
+            Assert.That(yan.Turns, Is.EqualTo(1));
+            Assert.That(yan.TargetAll, Is.True, "烟 是全体致盲");
+        }
+
+        [Test]
+        public void RealConfig_SilenceAndReflectCarryTurns()
+        {
+            var graph = RealGraph();
+            Assert.That(graph.Get("锁").Effects.First(e => e.Kind == EffectKind.Silence).Turns,
+                Is.EqualTo(1));
+            var jing = graph.Get("镜").Effects.First(e => e.Kind == EffectKind.Reflect);
+            Assert.That(jing.Value, Is.EqualTo(50));
+            Assert.That(jing.Turns, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void RealConfig_DuoIsTwoSegments()
+        {
+            var graph = RealGraph();
+            var duo = graph.Get("剁").Effects.First(e => e.Kind == EffectKind.DamageSingle);
+            Assert.That(duo.Value, Is.EqualTo(10));
+            Assert.That(duo.HitCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void RealConfig_LiuCarriesDodge()
+        {
+            var graph = RealGraph();
+            var summon = graph.Get("柳").Effects.First(e => e.Kind == EffectKind.Summon);
+            Assert.That(summon.Value, Is.EqualTo(8));
+            Assert.That(summon.SummonAttack, Is.EqualTo(3));
+            Assert.That(summon.Passive, Is.Not.Null);
+            Assert.That(summon.Passive.Dodge, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void RealConfig_SuoUsesManualRecipe_NotSupplementaryPlanePart()
+        {
+            var graph = RealGraph();
+            Assert.That(graph.Get("锁").Recipe, Is.EqualTo(new[] { "钅", "贝" }));
+        }
+
+        [Test]
+        public void RealConfig_GouIsNotInTheTable()
+        {
+            // 钩 是模型缺口(敌人无排位概念),已移出字表
+            var graph = RealGraph();
+            Assert.That(() => graph.Get("钩"), Throws.Exception,
+                "钩 不该出现在字表里");
+        }
+
         private static CampaignConfig RealCampaign()
         {
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);

@@ -60,10 +60,10 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_123_implementable_chars():
+def test_extract_pulls_129_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 123
+    assert len(values) == 129
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
