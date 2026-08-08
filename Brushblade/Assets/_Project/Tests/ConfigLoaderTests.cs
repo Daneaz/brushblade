@@ -319,5 +319,34 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("己").Effects[0].Value, Is.EqualTo(2));
             Assert.That(graph.Get("庚").Effects[0].Kind, Is.EqualTo(EffectKind.Revive));
         }
+
+        [Test]
+        public void LoadGraph_ParsesHitCountAndNewEffectKinds()
+        {
+            const string json = @"{""chars"":[
+                {""id"":""木"",""element"":""Wood""},
+                {""id"":""甲"",""element"":""Metal"",""effects"":[
+                    {""kind"":""DamageSingle"",""value"":10,""hitCount"":2}]},
+                {""id"":""乙"",""element"":""Fire"",""effects"":[
+                    {""kind"":""Blind"",""value"":30,""turns"":1,""targetAll"":true}]},
+                {""id"":""丙"",""element"":""Metal"",""effects"":[
+                    {""kind"":""Silence"",""value"":0,""turns"":1}]},
+                {""id"":""丁"",""element"":""Metal"",""effects"":[
+                    {""kind"":""Reflect"",""value"":50,""turns"":2}]},
+                {""id"":""戊"",""element"":""Wood"",""effects"":[
+                    {""kind"":""Summon"",""value"":8,""count"":1,""attack"":3,""summonChar"":""木"",
+                     ""passive"":{""dodge"":50}}]}
+            ]}";
+            var graph = ConfigLoader.LoadGraph(json);
+
+            Assert.That(graph.Get("甲").Effects[0].HitCount, Is.EqualTo(2));
+            var blind = graph.Get("乙").Effects[0];
+            Assert.That(blind.Kind, Is.EqualTo(EffectKind.Blind));
+            Assert.That(blind.Turns, Is.EqualTo(1));
+            Assert.That(blind.TargetAll, Is.True);
+            Assert.That(graph.Get("丙").Effects[0].Turns, Is.EqualTo(1));
+            Assert.That(graph.Get("丁").Effects[0].Kind, Is.EqualTo(EffectKind.Reflect));
+            Assert.That(graph.Get("戊").Effects[0].Passive.Dodge, Is.EqualTo(50));
+        }
     }
 }

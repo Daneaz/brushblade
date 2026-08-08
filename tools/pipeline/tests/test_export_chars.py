@@ -166,3 +166,33 @@ def test_manual_recipes_avoid_smp_and_rare_parts():
     from export_chars import MANUAL_RECIPES
     assert MANUAL_RECIPES["塞"] == ["宀", "土"]
     assert MANUAL_RECIPES["湮"] == ["氵", "土"]
+
+
+def test_turns_applies_to_all_duration_kinds_not_just_hot():
+    """Blind / Silence / Reflect 都要 turns —— 写死给 HealOverTime 会静默丢掉数值。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`Blind 50`(turns 2)", "火") == [
+        {"kind": "Blind", "value": 50, "turns": 2}]
+    assert _parse_effects("`Silence 0`(turns 1)", "金") == [
+        {"kind": "Silence", "value": 0, "turns": 1}]
+    assert _parse_effects("`Reflect 50`(turns 2)", "金") == [
+        {"kind": "Reflect", "value": 50, "turns": 2}]
+
+
+def test_blind_supports_target_all():
+    from extract_values import _parse_effects
+    assert _parse_effects("`Blind 30`(turns 1, targetAll)", "火") == [
+        {"kind": "Blind", "value": 30, "turns": 1, "targetAll": True}]
+
+
+def test_hit_count_token_attaches_to_damage():
+    """剁 的分段数是伤害的修饰,不是独立效果。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`DamageSingle 10` + `HitCount 2`", "金") == [
+        {"kind": "DamageSingle", "value": 10, "hitCount": 2}]
+
+
+def test_suo_uses_manual_recipe_not_supplementary_plane_part():
+    """锁 的 IDS 部件 𭕆(U+2D546)在增补平面,会让整字降级成叶子。"""
+    from export_chars import MANUAL_RECIPES
+    assert MANUAL_RECIPES["锁"] == ["钅", "贝"]

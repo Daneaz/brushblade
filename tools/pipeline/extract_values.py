@@ -30,6 +30,15 @@ VALUELESS_EFFECTS = {
 # 值 = executeKills(True = 直接击杀,False = 残血加伤 ×2)
 EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 
+# 需要 turns 的 Kind(白名单):写死给 HealOverTime 会让新加的持续类状态静默丢掉回合数。
+DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect"}
+
+# 支持 targetAll 的 Kind
+TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
+
+# 分段数是伤害的修饰,不是独立效果(与 ExecuteKill / ExecuteBonus 同处理)
+HIT_COUNT_TOKEN = "HitCount"
+
 
 def extract(markdown):
     """详表全文 → {字: {element, rarity, effects}},只收标 ✅ 的字。"""
@@ -91,6 +100,8 @@ def _parse_effects(config, element):
     for kind, value in re.findall(r"`(\w+) (\d+)`", config):
         if kind in EXECUTE_TOKENS:
             continue  # 斩杀是修饰而非效果,下面统一挂到伤害上
+        if kind == HIT_COUNT_TOKEN:
+            continue  # 分段数是修饰而非效果,下面统一挂到伤害上
         effect = {"kind": kind, "value": int(value)}
         if kind == "DispelEach":       # 全体各驱散 N 条(淡)
             effect["kind"] = "Dispel"
@@ -116,11 +127,17 @@ def _parse_effects(config, element):
                 effect["executeBelowPercent"] = int(found.group(1))
                 effect["executeKills"] = kills
 
+    hit_count = re.search(rf"`{HIT_COUNT_TOKEN} (\d+)`", config)
+    if hit_count:
+        for effect in effects:
+            if effect["kind"].startswith("Damage"):
+                effect["hitCount"] = int(hit_count.group(1))
+
     turns = re.search(r"turns (\d+)", config)
     for effect in effects:
-        if effect["kind"] == "HealOverTime":
+        if effect["kind"] in DURATION_KINDS:
             if turns:
                 effect["turns"] = int(turns.group(1))
-            if "targetAll" in config:
-                effect["targetAll"] = True
+        if effect["kind"] in TARGET_ALL_KINDS and "targetAll" in config:
+            effect["targetAll"] = True
     return effects
