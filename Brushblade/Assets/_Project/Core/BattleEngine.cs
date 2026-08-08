@@ -723,7 +723,7 @@ namespace Brushblade.Core
                         hit = DamagePlayerDirect(i, damage);
                     }
 
-                    // 通假字:首次行动后现形(8.3)。现形只看"敌人是否出手了",与命中判定无关——
+                    // 通假字:首次行动后现形(8.3)。现形只看「敌人是否出手了」,与命中判定无关——
                     // 敌人确实动了,打空不影响这条(2026-08-08 明确:不受 hit 影响)。
                     if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
                     {
@@ -1380,7 +1380,7 @@ namespace Brushblade.Core
         ///
         /// 返回值(2026-08-08):这次攻击有没有「落到身上」——只有 AttackHits 判定打空才是
         /// false;免疫挡下算 true。反直觉但刻意:免疫挡的是「伤害」,不是「攻击是否发生」——
-        /// 攻击确实命中了,只是伤害被完全吸收。灯花(Sear)之类"出手就触发"的攻击附带效果
+        /// 攻击确实命中了,只是伤害被完全吸收。灯花(Sear)之类「出手就触发」的攻击附带效果
         /// 靠这个返回值 gate(见攻击循环):打空 = 攻击没发生,附带效果不该触发;
         /// 免疫挡下 = 攻击发生了,附带效果照常。</summary>
         private bool DamagePlayerDirect(int enemyIndex, int damage)
