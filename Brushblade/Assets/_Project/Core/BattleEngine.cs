@@ -1470,6 +1470,28 @@ namespace Brushblade.Core
             int thorns = summon.Passive?.Thorns ?? 0;
             if (thorns > 0 && _enemies[enemyIndex].Alive)
                 DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart);
+
+            // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
+            // 伤害同样算「打到了我方」,DamagePlayerDirect 末尾那段反弹不该只管玩家直接挨打
+            // 的那一路,召唤物顶着承伤时玩家身上的反弹也要结算,否则「柳(闪避召唤)+ 镜」
+            // 这类组合会与全部召唤字互斥,花 1 AP 一张蓝卡零收益。
+            // 结算点排在荆的反伤**之后**,基数用 taken(过完生克、护盾吸收之前的那个值)——
+            // 召唤物承伤本来就走五行(上面 ResolveEffect 那句),所以「总伤害」在这一侧
+            // 就是 taken,与玩家侧 DamagePlayerDirect 用 damage(护盾吸收之前)同口径:
+            // 「按打过来的总伤害反,护盾吸掉的也反」。
+            // _enemies[enemyIndex].Alive 守卫必须有:荆的反伤可能先把敌人打死,此时不能
+            // 再反,否则会对死尸补刀,走进 DamageEnemy 触发第二次 ResolveDefeat,发出重复的
+            // EnemyDied 事件(与 Reflect_DoesNotDuplicateDeathWhenBossDiesToThornsBeforePierceLands
+            // 那条守的是同一类问题)。bounced > 0 守卫同样必须有:0 伤反弹会推进
+            // enemy.HitsTaken,白送生僻字现形 / 焦痕加攻 / 叠字分裂(与玩家侧同一条注释解释过)。
+            // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」,与玩家侧一致。
+            int reflect = _playerStatuses.TotalMagnitude(StatusKind.Reflect);
+            if (reflect > 0 && _enemies[enemyIndex].Alive)
+            {
+                int bounced = taken * reflect / 100;
+                if (bounced > 0)
+                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart);
+            }
             return true;
         }
 

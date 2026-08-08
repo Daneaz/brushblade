@@ -123,6 +123,13 @@ namespace Brushblade.Core.Tests
             engine.Cast("昏", 0);
             engine.EndTurn();
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "召唤物一点没掉血");
+
+            // 修复 3(Minor,2026-08-08):Missed 事件的 SecondIndex 契约——变异把 summonIndex
+            // 改成默认 -1,737 全绿存活。真实后果:Juice.cs 靠 SecondIndex >= 0 决定「空」字
+            // 飘在被闪的召唤物身上还是屏幕中下,传 -1 会让飘字跑到玩家位置,读成「玩家躲开了」。
+            var missed = engine.LastEvents.First(e => e.Kind == BattleEventKind.Missed);
+            Assert.That(missed.SecondIndex, Is.EqualTo(0),
+                "打空的是召唤物,SecondIndex 该指向被闪的那只,不是玩家(-1)");
         }
 
         [Test]
@@ -212,6 +219,13 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(1),
                 "免疫层数一点没掉");
             Assert.That(engine.PlayerShield, Is.EqualTo(shieldBefore), "护盾一点没掉");
+
+            // 修复 3(Minor,2026-08-08):顺带确认打玩家那条路径(不经召唤物)的 Missed
+            // 事件 SecondIndex 是 -1,与打召唤物那条(BlindPlusDodge_SummonTakesNothing)
+            // 的 0 形成对照。
+            var missed = engine.LastEvents.First(e => e.Kind == BattleEventKind.Missed);
+            Assert.That(missed.SecondIndex, Is.EqualTo(-1),
+                "打玩家那条路径的 SecondIndex 该是 -1,不是召唤物下标");
         }
 
         [Test]
@@ -293,6 +307,18 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "昏" }, new[] { Attacker() });
             Assert.DoesNotThrow(() => engine.Cast("昏"));
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Blind), Is.EqualTo(100));
+        }
+
+        [Test]
+        public void NeedsTarget_BlindAll_False_BlindSingle_True()
+        {
+            // 修复 2(Minor,2026-08-08):NeedsTarget 里 Blind 的 `&& !effect.TargetAll` 排除
+            // 零判别力(变异证据:去掉这半句,737 全绿存活)。真实后果:出「烟」(全体致盲)时
+            // UI 会进入选目标模式,逼玩家点一个毫无意义的目标才肯出牌。
+            // 用实际出货字表断言:NeedsTarget 是公开静态方法,不用为测试放宽可见性。
+            var graph = CharTableTests.RealGraph();
+            Assert.That(BattleEngine.NeedsTarget(graph.Get("烟")), Is.False, "全体致盲不需要选目标");
+            Assert.That(BattleEngine.NeedsTarget(graph.Get("熣")), Is.True, "单体致盲需要选目标");
         }
 
         [Test]
@@ -492,6 +518,27 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Silence_ResetsChargeCounterWhenNotYetCharging()
+        {
+            // 修复 4(Minor,2026-08-08):ResolveBossTurn 沉默短路里的 ChargeCounter = 0——
+            // 变异删掉这一行,737 全绿存活。真实行为差:Boss 计数为 1(还没进蓄力)时被沉默,
+            // 现实现在敌方回合把计数清 0(语义:沉默期间不攒力);删掉则保留 1,解锁后
+            // 早一回合放大招。BossChargeEvery=2:第一个敌方回合只攒到 1,还没进蓄力。
+            var boss = new EnemyDef("覆", Element.Heart, 300, 4,
+                phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
+            var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 2 };
+            var engine = Engine(new[] { "禁" }, new[] { boss }, config);
+            engine.EndTurn(); // 普攻,ChargeCounter → 1(未达到蓄力阈值 2),不进入蓄力
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(1));
+            Assert.That(engine.Enemies[0].IsCharging, Is.False);
+
+            engine.Cast("禁", 0);   // 沉默 2 回合
+            engine.EndTurn();      // 沉默期间的敌方回合:ResolveBossTurn 顶部短路应清零计数
+
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "沉默期间不攒力,计数清零");
+        }
+
+        [Test]
         public void Silence_DoesNotAffectDisguiseOrObscure()
         {
             // 通假/生僻是信息隐藏,不是主动机制 —— 锁一下就看穿了不符合「锁」的语义。
@@ -687,6 +734,82 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Alive, Is.False, "Boss 被反伤打死");
             Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyDied), Is.EqualTo(1),
                 "只该有一条阵亡事件,不能因为反弹对死尸补刀而发出第二条");
+        }
+
+        [Test]
+        public void Reflect_StacksWithSummonThorns_BothBounceBack()
+        {
+            // 修复 1(用户裁定,2026-08-08):反弹只结算在 DamagePlayerDirect 末尾,但敌人普攻
+            // 若场上有存活召唤物顶前排,走的是 DamageSummon,那里原先没有任何反弹代码——
+            // 「柳(闪避召唤)+ 镜」这类组合与全部召唤字互斥。用户裁定:DamageSummon 里也要
+            // 结算玩家的反弹(挡在前排的伤害同样算「打到了我方」)。
+            // 棘(荆,反伤 3)+ 映(反弹 50%)同场:敌人打召唤物应同时挨反伤与反弹。
+            var engine = Engine(new[] { "棘", "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("棘");
+            engine.Cast("映", 0);
+            int enemyHpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            // taken = 8(心对心恒 1.0x);荆反伤平值 3;反弹 = taken(8) × 50% = 4;合计 7
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 7), "反伤 3 + 反弹 4 = 7");
+
+            // 顺带钉住 EnemyDied 不重复:低血敌人构造「荆先打死」的场景 —— 荆的反伤(3)
+            // 打死 3 血的敌人后,_enemies[enemyIndex].Alive 守卫必须挡住反弹再对死尸补刀。
+            var dupEngine = Engine(new[] { "棘", "映" }, new[] { new EnemyDef("觥", Element.Heart, 3, 8) });
+            dupEngine.Cast("棘");
+            dupEngine.Cast("映", 0);
+            dupEngine.EndTurn();
+            Assert.That(dupEngine.Enemies[0].Alive, Is.False, "敌人被荆的反伤打死");
+            Assert.That(dupEngine.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyDied), Is.EqualTo(1),
+                "只该有一条阵亡事件,反弹不能对死尸补刀发出第二条");
+        }
+
+        [Test]
+        public void Reflect_OnSummonHit_UsesPostWuxingTakenAsBasis()
+        {
+            // 修复 1 测试 2:反弹基数必须是 taken(过完生克的值),不是原始 damage——召唤物
+            // 承伤本来就走五行(DamageSummon 里 WuxingResolver.ResolveEffect(damage, ...,
+            // attacker, summon.Element)),所以「总伤害」在召唤物这一侧本来就是 taken。
+            // 用非心属性的敌人(金)让 taken 与原始 damage 拉开:召唤物是木,金克木 ×1.5 ——
+            // damage=8,taken=floor(8×1.5)=12,反弹 50% = 6;若误用原始 damage,
+            // 会算成 floor(8×50%)=4,两者不同,才有判别力。
+            var engine = Engine(new[] { "素", "映" }, new[] { new EnemyDef("锈", Element.Metal, 200, 8) });
+            engine.Cast("素");
+            engine.Cast("映", 0);
+            int enemyHpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 6),
+                "taken = floor(8×1.5) = 12(金克木),反弹 50% = 6");
+        }
+
+        [Test]
+        public void Reflect_DoesNotFireWhenSummonDodgesTheAttack()
+        {
+            // 修复 1 测试 3:打空(命中判定在 DamageSummon 最开头就 return false)天然走不到
+            // 反弹那段,这里钉住这个组合场景。闪(50% 闪避)+ 昏(100% 致盲)确保命中率归零,必空。
+            var engine = Engine(new[] { "闪", "昏", "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("闪");
+            engine.Cast("昏", 0);
+            engine.Cast("映", 0);
+            int enemyHpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore), "打空,敌人一点没掉血(反弹没触发)");
+        }
+
+        [Test]
+        public void Reflect_OnSummonHit_RoundingToZero_DoesNotTriggerAttackSideEffects()
+        {
+            // 修复 1 变异验证:bounced > 0 守卫如果没有,DamageEnemy 会把 0 伤反弹也算成
+            // 一次命中,推进 enemy.HitsTaken,连带触发焦痕「受击存活即自燃」——与玩家侧
+            // Reflect_RoundingToZero_DoesNotTriggerAttackSideEffects 同型。
+            // taken = floor(1×1.0) = 1(心对心恒 1.0x),反弹 50% = 0(整数除法向下取整)。
+            var engine = Engine(new[] { "素", "映" }, new[] { new EnemyDef("焦", Element.Heart, 200, 1, EnemyAbility.Scorch) });
+            engine.Cast("素");
+            engine.Cast("映", 0);
+            int attackBefore = engine.Enemies[0].Attack;
+            int hpBefore = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hpBefore), "反弹算出 0,没有额外伤害落地");
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(attackBefore), "0 伤反弹不该被误判成受击自燃");
         }
 
         // ---- 多段 ----
