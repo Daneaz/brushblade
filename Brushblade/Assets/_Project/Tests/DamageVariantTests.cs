@@ -62,6 +62,11 @@ namespace Brushblade.Core.Tests
             new CharDef("斩", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2,
                     executeBelowPercent: 25, executeKills: true) }),
+            // 刈:10 伤 ×2 段,HP<25% → 该段伤害 ×2(evaluator Important 1:executeKills:false 的
+            // 「残血加伤」那一半此前零覆盖,只覆盖了 executeKills:true 的直接击杀那一半)
+            new CharDef("刈", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2,
+                    executeBelowPercent: 25, executeKills: false) }),
             // 凿(1 点伤害)在 Task 1 已加进 Graph(),这里直接用
         });
 
@@ -726,6 +731,31 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void MultiHit_SecondSegmentGetsExecuteBonus()
+        {
+            // 评审 Important 1:「打之前判血」的斩杀阈值有两半——executeKills: true(直接击杀)
+            // 那半已被 MultiHit_SecondSegmentCanTriggerExecute 钉住,executeKills: false(残血
+            // 加伤 ×2)那半此前零覆盖(变异证据:把伤害值提到循环外只算一次,730 条一条不红)。
+            // 上限 100、磨到 34:第一段 34% ≥ 25%,普通 10 伤 → 24;第二段重判 24% < 25%,
+            // 该段伤害 ×2 → 20 伤 → 剩 4。断言两条 Damage 事件各自的 Amount(10、20),
+            // 不只看总血量——否则「第一段 20、第二段 10」这类错序也能蒙混过关。
+            var library = new List<string>(Enumerable.Repeat("凿", 66)) { "刈" };
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = 200 },
+                library, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 100, 0) }, seed: 1);
+            for (int i = 0; i < 66; i++) engine.Cast("凿", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(34), "磨血辅助本身没磨准");
+
+            engine.Cast("刈", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(4), "10 + 20");
+            var damages = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
+            Assert.That(damages.Count, Is.EqualTo(2));
+            Assert.That(damages[0].Amount, Is.EqualTo(10), "第一段:34% 未进阈值,普通伤害");
+            Assert.That(damages[1].Amount, Is.EqualTo(20), "第二段:24% 进阈值,该段伤害 ×2");
+        }
+
+        [Test]
         public void MultiHit_EachSegmentGoesThroughArmorBreakSeparately()
         {
             // 破甲让承伤 +25%。两段各自过一次,所以 10→12 两次 = 24,而不是「20 整体 +25% = 25」
@@ -761,18 +791,26 @@ namespace Brushblade.Core.Tests
             // 构造函数守卫:hitCount ≤ 0 视为 1,不让配置写错把字变成哑弹
             // (变异证据:把 `HitCount = hitCount <= 0 ? 1 : hitCount` 改成直接赋值,
             // 729 条测试一条不红——补这条堵死)
+            //
+            // 名字撒谎修复(评审 Minor 1,2026-08-08):名字承诺 "ZeroOrNegative",原版只构造
+            // 了 hitCount: 0,负数分支没人守(变异证据:把守卫改成 `hitCount == 0 ? 1 : hitCount`
+            // ——只挡 0、放过负数——730 条全绿存活)。补上 hitCount: -1 的字,同样只该打 1 段。
             var graph = new RecipeGraph(new[]
             {
                 new CharDef("木", Element.Wood),
                 new CharDef("哑", Element.Heart,
                     effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 0) }),
+                new CharDef("闷", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: -1) }),
             });
             var engine = new BattleEngine(graph,
                 new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
-                new[] { "哑" }, Array.Empty<string>(),
+                new[] { "哑", "闷" }, Array.Empty<string>(),
                 new[] { new EnemyDef("靶", Element.Heart, 200, 0) }, seed: 1);
             engine.Cast("哑", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(190), "hitCount: 0 当 1 打,不是哑弹");
+            engine.Cast("闷", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(180), "hitCount: -1 同样当 1 打,不是哑弹");
         }
     }
 }
