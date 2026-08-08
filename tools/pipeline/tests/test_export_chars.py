@@ -206,6 +206,18 @@ def test_summon_passive_dodge_is_extracted():
          "summonChar": "木", "passive": {"dodge": 50}}]
 
 
+def test_gou_row_is_not_marked_implemented():
+    """钩(模型缺口:敌人无排位概念)不该出现在生成物里,但真正挡住它的不是这条测试的
+    姊妹守卫(CharTableTests.RealConfig_GouIsNotInTheTable)——那条守的是生成物,读的是
+    「效果配置」列有没有可解析 token;只把 ⚠ 改成 ✅ 而不填 token,extract() 一样抽不到
+    钩,那条测试依旧全绿,挡不住手滑改标记。这条测试直接读详表的标记列本身,才是真正防
+    「有人把 ⚠ 改成 ✅」的那一层。"""
+    text = SPEC.read_text(encoding="utf-8")
+    row = next(l for l in text.split("\n") if l.startswith("| 钩 |"))
+    impl_col = row.split("|")[-2].strip()
+    assert not impl_col.startswith("✅"), f"钩 是模型缺口,不该标 ✅:{row}"
+
+
 def test_turns_and_target_all_do_not_leak_to_non_duration_kinds():
     """白名单的「限制」方向:非白名单 Kind 不该拿到 turns/targetAll,伤害也不该被误挂。"""
     from extract_values import _parse_effects

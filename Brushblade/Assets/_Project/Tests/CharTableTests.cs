@@ -256,6 +256,8 @@ namespace Brushblade.Core.Tests
             Assert.That(sui.Value, Is.EqualTo(50));
             Assert.That(sui.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
             Assert.That(sui.TargetAll, Is.False);
+            Assert.That(graph.Get("熣").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(16), "16 是带致盲后的平衡值,原值 21");
 
             var yan = graph.Get("烟").Effects.First(e => e.Kind == EffectKind.Blind);
             Assert.That(yan.Value, Is.EqualTo(30));
@@ -304,7 +306,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_GouIsNotInTheTable()
         {
-            // 钩 是模型缺口(敌人无排位概念),已移出字表
+            // 钩 是模型缺口(敌人无排位概念),已移出字表。
+            // ⚠ 这条只守生成物这一层——钩 抽不出来是因为详表「效果配置」列是纯中文描述、
+            // 没有可解析 token,不是因为管线看了 ⚠/✅ 标记本身。真要挡住「有人把 ⚠ 改成 ✅」
+            // 那种手滑,得看 tools/pipeline/tests/test_export_chars.py 的
+            // test_gou_row_is_not_marked_implemented——那条直接读详表的标记列。
             var graph = RealGraph();
             Assert.That(() => graph.Get("钩"), Throws.Exception,
                 "钩 不该出现在字表里");
