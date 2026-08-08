@@ -117,6 +117,8 @@ namespace Brushblade.Presentation
         {
             bool anyParallel = false;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
             bool serialPending = false; // 上一记串行单位已出,下一记串行单位前先停一拍
+            int lastDamageTarget = int.MinValue; // 上一记 Damage 的目标:跨过分裂/加攻/现形这些伴随事件,
+                                                  // 不能只看 events[idx-1] 是否紧邻(2026-08-08 评审修复)
             for (int idx = 0; idx < events.Count; idx++)
             {
                 var e = events[idx];
@@ -127,11 +129,15 @@ namespace Brushblade.Presentation
                 switch (e.Kind)
                 {
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
-                        // 多段(2026-08-07,剁):同一目标连续两记伤害要拉开一拍,
-                        // 否则一拍打完两段,玩家看不出是两段。跨目标的全体攻击仍并行
-                        if (idx > 0 && events[idx - 1].Kind == BattleEventKind.Damage
-                            && events[idx - 1].TargetIndex == e.TargetIndex)
+                        // 多段(2026-08-07,剁;2026-08-08 评审修复):同一目标连续两记伤害要拉开一拍,
+                        // 否则一拍打完两段,玩家看不出是两段。用「上一记 Damage 的目标」而不是
+                        // 「events[idx-1] 是否紧邻」判断 —— DamageEnemy 在两记伤害之间可能插
+                        // EnemyRevealed/EnemyBuff/EnemySplit 这些伴随事件(焦痕/生僻字/叠字怪),
+                        // 紧邻判据会被这些事件打断,漏掉本该拉开的一拍。跨目标的全体攻击(DamageAll)
+                        // 各条 TargetIndex 不同,lastDamageTarget 逐个变化,仍并行不受影响
+                        if (lastDamageTarget == e.TargetIndex)
                             yield return new WaitForSecondsRealtime(StepGap);
+                        lastDamageTarget = e.TargetIndex;
                         Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         if (!kills) HitReact(enemyAnchor(e.TargetIndex)); // 致死不白闪,让位给置灰

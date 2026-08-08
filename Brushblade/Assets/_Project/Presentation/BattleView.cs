@@ -169,7 +169,9 @@ namespace Brushblade.Presentation
                     break;
                 case BattleEventKind.ImmunityBlocked: // 完全挡下:血条护盾条都不动,表达交给 Juice 的飘字
                     break;
-                case BattleEventKind.Missed: // 打空:血条护盾条都不动,表达交给 Juice 的飘字
+                // 打空:血条护盾条都不动,表达交给 Juice 的飘字。防御性占位——目前 Juice 的
+                // Missed 分支没调 onImpact,这条走不到,但显式空 case 比漏判更稳(与 ImmunityBlocked 同构)
+                case BattleEventKind.Missed:
                     break;
                 case BattleEventKind.EnemyAttack: // Amount 分账:Absorbed 走护盾条,余量才掉血,各自钳到终值
                     _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
