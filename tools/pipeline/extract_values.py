@@ -16,6 +16,7 @@ SUMMON_PASSIVE = {
     "HealAlly": "healAlly",
     "OnHitBurn": "onHitBurn",
     "OnHitCurse": "onHitCurse",
+    "Dodge": "dodge",
 }
 
 
@@ -31,6 +32,9 @@ VALUELESS_EFFECTS = {
 EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 
 # 需要 turns 的 Kind(白名单):写死给 HealOverTime 会让新加的持续类状态静默丢掉回合数。
+# 注意:下面 turns 正则是对整格「效果配置」搜一次,一格只支持一个 turns 值——若将来
+# 一行里出现两个不同回合数的持续效果(如 `Blind 50`(turns 2) + `Silence 0`(turns 1)),
+# 这里要改成按效果分段解析,现在 YAGNI。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect"}
 
 # 支持 targetAll 的 Kind

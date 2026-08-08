@@ -196,3 +196,32 @@ def test_suo_uses_manual_recipe_not_supplementary_plane_part():
     """锁 的 IDS 部件 𭕆(U+2D546)在增补平面,会让整字降级成叶子。"""
     from export_chars import MANUAL_RECIPES
     assert MANUAL_RECIPES["锁"] == ["钅", "贝"]
+
+
+def test_summon_passive_dodge_is_extracted():
+    """柳 的闪避:SUMMON_PASSIVE 缺 Dodge 会被静默丢弃,50% 闪避在引擎里凭空消失。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`Summon 1`(8 血/攻 3)+ `Dodge 50`", "木") == [
+        {"kind": "Summon", "value": 8, "count": 1, "attack": 3,
+         "summonChar": "木", "passive": {"dodge": 50}}]
+
+
+def test_turns_and_target_all_do_not_leak_to_non_duration_kinds():
+    """白名单的「限制」方向:非白名单 Kind 不该拿到 turns/targetAll,伤害也不该被误挂。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`DamageSingle 16` + `Blind 50`(turns 2)", "火") == [
+        {"kind": "DamageSingle", "value": 16},
+        {"kind": "Blind", "value": 50, "turns": 2}]
+    assert _parse_effects("`DamageAll 20` + `HealOverTime 3`(turns 2, targetAll)", "水") == [
+        {"kind": "DamageAll", "value": 20},
+        {"kind": "HealOverTime", "value": 3, "turns": 2, "targetAll": True}]
+    # Silence 在 DURATION_KINDS 里但不在 TARGET_ALL_KINDS 里——拿 turns 但不该拿 targetAll。
+    assert _parse_effects("`Silence 0`(turns 1, targetAll)", "金") == [
+        {"kind": "Silence", "value": 0, "turns": 1}]
+    # Immunity 完全不在 DURATION_KINDS 里(它的 value 是挡伤次数,不是回合数)——不该拿 turns。
+    assert _parse_effects("`Immunity 2`(turns 3)", "土") == [
+        {"kind": "Immunity", "value": 2}]
+    # HitCount 只修饰伤害效果,同行的非伤害效果(灼烧)不该被误挂。
+    assert _parse_effects("`DamageSingle 10` + `Burn 3` + `HitCount 2`", "火") == [
+        {"kind": "DamageSingle", "value": 10, "hitCount": 2},
+        {"kind": "Burn", "value": 3}]
