@@ -127,6 +127,11 @@ namespace Brushblade.Presentation
                 switch (e.Kind)
                 {
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
+                        // 多段(2026-08-07,剁):同一目标连续两记伤害要拉开一拍,
+                        // 否则一拍打完两段,玩家看不出是两段。跨目标的全体攻击仍并行
+                        if (idx > 0 && events[idx - 1].Kind == BattleEventKind.Damage
+                            && events[idx - 1].TargetIndex == e.TargetIndex)
+                            yield return new WaitForSecondsRealtime(StepGap);
                         Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         if (!kills) HitReact(enemyAnchor(e.TargetIndex)); // 致死不白闪,让位给置灰
@@ -196,6 +201,14 @@ namespace Brushblade.Presentation
                     case BattleEventKind.ImmunityBlocked:
                         Lunge(enemyAnchor(e.TargetIndex));
                         Popup("免", Theme.Jade, null);
+                        break;
+                    // 打空(2026-08-07,致盲/闪避):敌人照常下扑,但什么都没打到。
+                    // 没有反馈的话玩家只会以为敌人这回合没动。SecondIndex ≥0 = 打空的召唤物,
+                    // 飘字锚在那只召唤物身上;玩家为 −1,与 EnemyAttack/ImmunityBlocked 同口径飘屏幕中下
+                    case BattleEventKind.Missed:
+                        Lunge(enemyAnchor(e.TargetIndex));
+                        Popup("空", Theme.InkSoft, e.SecondIndex >= 0
+                            ? summonAnchor?.Invoke(e.SecondIndex) : null);
                         break;
                     // 治疗:刻意**不 yield、不置 serialPending** —— 群攻与回血是同一记里的两件事,
                     // 分开演就成了「先打完,血条才慢半拍地涨」(2026-07-29 实测)

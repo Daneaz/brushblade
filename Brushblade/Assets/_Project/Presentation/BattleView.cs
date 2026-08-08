@@ -169,6 +169,8 @@ namespace Brushblade.Presentation
                     break;
                 case BattleEventKind.ImmunityBlocked: // 完全挡下:血条护盾条都不动,表达交给 Juice 的飘字
                     break;
+                case BattleEventKind.Missed: // 打空:血条护盾条都不动,表达交给 Juice 的飘字
+                    break;
                 case BattleEventKind.EnemyAttack: // Amount 分账:Absorbed 走护盾条,余量才掉血,各自钳到终值
                     _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
                     SetShieldBar(_animShield);
@@ -572,6 +574,12 @@ namespace Brushblade.Presentation
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"免疫 {immunity}", Theme.Jade, Color.white, 12);
             }
+            int reflect = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect);
+            if (reflect > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"反弹 {reflect}%", Theme.Jade, Color.white, 12);
+            }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
@@ -630,6 +638,7 @@ namespace Brushblade.Presentation
             if (passive.Thorns > 0) return $"反伤{passive.Thorns}";
             if (passive.HealAlly > 0) return $"回血{passive.HealAlly}";
             if (passive.OnHitCurse > 0) return $"诅咒{passive.OnHitCurse}%";
+            if (passive.Dodge > 0) return $"闪避{passive.Dodge}%";
             if (passive.Speed > 100) return "疾";
             return "";
         }
@@ -710,6 +719,11 @@ namespace Brushblade.Presentation
                         Theme.Cinnabar, Color.white, 12);
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0) Ui.Chip(chips.transform, $"灼烧 {burnStacks}", Theme.Cinnabar, Color.white, 12);
+                int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
+                if (blind > 0)
+                    Ui.Chip(chips.transform, $"致盲 −{blind}%", Theme.InkSoft, Color.white, 12);
+                if (enemy.Statuses.Has(StatusKind.Silence))
+                    Ui.Chip(chips.transform, "沉默", Theme.InkSoft, Color.white, 12);
                 int curse = enemy.Statuses.TotalMagnitude(StatusKind.Curse);
                 if (curse > 0)
                     Ui.Chip(chips.transform, $"诅咒 −{curse}%", Theme.InkSoft, Color.white, 12);
