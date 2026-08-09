@@ -520,25 +520,7 @@ namespace Brushblade.Core
             _events.Clear();
 
             // 3.7 结算顺序第 1 条:灼烧(X 层 → X×系数 伤害,然后 −1 层;系数基础 2,炽可加,10.2)
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                var enemy = _enemies[i];
-                if (!enemy.Alive) continue;
-                var burn = enemy.Statuses.Find(StatusKind.Burn);
-                if (burn == null || burn.Magnitude <= 0) continue;
-                // 灼烧属火(2026-08-03):只结算克制,不结算相生 —— 层数是平值,
-                // 相生已在施加时由 WuxingResolver 体现过
-                int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
-                    * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
-                enemy.Hp = Math.Max(0, enemy.Hp - tick);
-                burn.Magnitude -= 1;
-                if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
-                _events.Add(new BattleEvent(BattleEventKind.BurnTick, i, tick));
-                if (!enemy.Alive)
-                    ResolveDefeat(i);
-                else
-                    CheckBossPhase(i);
-            }
+            for (int i = 0; i < _enemies.Count; i++) SettleBurnOn(i);
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
@@ -1108,6 +1090,29 @@ namespace Brushblade.Core
             var statuses = _enemies[enemyIndex].Statuses;
             if (count < 0) statuses.RemoveAll(StatusPolarity.Buff);
             else statuses.RemoveFirst(StatusPolarity.Buff, count);
+        }
+
+        /// <summary>对一名敌人结算一次灼烧(2026-08-09 抽出):层数 × 系数 × 克制 掉血,然后 −1 层。
+        /// 回合末逐个调用;燥 的 BurnSettleNow 也调这里 —— 不留两份实现。
+        ///
+        /// 灼烧属火(2026-08-03):只结算克制,不结算相生 —— 层数是平值,
+        /// 相生已在施加时由 WuxingResolver 体现过。</summary>
+        private void SettleBurnOn(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.Alive) return;
+            var burn = enemy.Statuses.Find(StatusKind.Burn);
+            if (burn == null || burn.Magnitude <= 0) return;
+            int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
+                * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
+            enemy.Hp = Math.Max(0, enemy.Hp - tick);
+            burn.Magnitude -= 1;
+            if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
+            _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick));
+            if (!enemy.Alive)
+                ResolveDefeat(enemyIndex);
+            else
+                CheckBossPhase(enemyIndex);
         }
 
         /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
