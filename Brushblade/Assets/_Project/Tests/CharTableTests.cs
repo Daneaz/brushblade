@@ -307,10 +307,12 @@ namespace Brushblade.Core.Tests
         public void RealConfig_MuCarriesBurnAndNoDecay()
         {
             var effects = RealGraph().Get("炑").Effects;
-            Assert.That(effects[0].Kind, Is.EqualTo(EffectKind.BurnSingle));
+            // 断全序列(而非只断前两条)——否则行尾静默多挂一个效果(如 Detonate)不会被发现
+            Assert.That(effects.Select(e => e.Kind), Is.EqualTo(new[]
+            {
+                EffectKind.BurnSingle, EffectKind.BurnNoDecay,
+            }), "多一条效果就是超模——数组顺序即结算顺序");
             Assert.That(effects[0].Value, Is.EqualTo(2));
-            Assert.That(effects[1].Kind, Is.EqualTo(EffectKind.BurnNoDecay),
-                "不灭必须排在灼烧之后——结算顺序就是数组顺序");
         }
 
         [Test]
@@ -329,19 +331,32 @@ namespace Brushblade.Core.Tests
         public void RealConfig_XiaoIsFourStacksThenDetonate()
         {
             var effects = RealGraph().Get("灱").Effects;
-            Assert.That(effects[0].Kind, Is.EqualTo(EffectKind.BurnSingle));
+            Assert.That(effects.Select(e => e.Kind), Is.EqualTo(new[]
+            {
+                EffectKind.BurnSingle, EffectKind.Detonate,
+            }), "多一条效果就是超模——数组顺序即结算顺序");
             Assert.That(effects[0].Value, Is.EqualTo(4), "4 层给引爆 20 伤的地板");
-            Assert.That(effects[1].Kind, Is.EqualTo(EffectKind.Detonate));
         }
 
         [Test]
         public void RealConfig_NewBurnCharsAddNoLeafParts()
         {
-            // 三个字的部件(火 木 喿 刀)全部已在表中,本批不该新增任何叶子
+            // 三个字的部件(火 木 喿 刀)全部已在表中,本批不该新增任何叶子——
+            // 直接断配方本身,而不是断「部件能在表里查到」:build_chars 会自动把任何
+            // 配方部件补成叶子条目写进 chars.json,查得到不代表它是本批之前就已存在的字。
             var graph = RealGraph();
-            foreach (var id in new[] { "炑", "燥", "灱" })
-                Assert.That(graph.Get(id).Recipe, Has.All.Matches<string>(p => graph.TryGet(p, out _)),
-                    $"{id} 的部件都该已在表中");
+            Assert.That(graph.Get("炑").Recipe, Is.EqualTo(new[] { "火", "木" }));
+            Assert.That(graph.Get("燥").Recipe, Is.EqualTo(new[] { "火", "喿" }));
+            Assert.That(graph.Get("灱").Recipe, Is.EqualTo(new[] { "火", "刀" }));
+        }
+
+        [Test]
+        public void RealConfig_NewBurnCharsHaveExpectedRarity()
+        {
+            var graph = RealGraph();
+            Assert.That(graph.Get("炑").Rarity, Is.EqualTo(CardRarity.Purple));
+            Assert.That(graph.Get("燥").Rarity, Is.EqualTo(CardRarity.Purple));
+            Assert.That(graph.Get("灱").Rarity, Is.EqualTo(CardRarity.Purple));
         }
 
         [Test]
