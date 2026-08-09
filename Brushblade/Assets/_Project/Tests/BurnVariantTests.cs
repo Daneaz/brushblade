@@ -20,6 +20,18 @@ namespace Brushblade.Core.Tests
             // 炽:灼烧系数 +1(与真实字表的 炽 同配置)
             new CharDef("炽", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.BurnPotency, 1) }),
+            // 燋:2 层 + 不灭(炑 的等价配置)
+            new CharDef("燋", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.BurnSingle, 2),
+                                 new EffectDef(EffectKind.BurnNoDecay, 0) }),
+            // 噤:沉默目标(自制变异验证辅助字,非规格产物)——用来在灯花闭嘴之后,
+            // 单独观察玩家自身灼烧是否还会正常衰减,不被灯花每回合的刷新掩盖
+            new CharDef("噤", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Silence, 0, turns: 3) }),
+            // 驱:驱散目标全部增益(自制变异验证辅助字,非规格产物)——用来钉住
+            // 不灭的 Polarity 必须是 Debuff,否则会被这张字清掉
+            new CharDef("驱", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Dispel, -1) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -178,6 +190,141 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Alive, Is.True);
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossPhase), Is.True,
                 "灼烧把 Boss 血量打过阶段阈值时要换阶,否则 Boss 停在旧阶段属性上继续挨打");
+        }
+
+        // ---- 不灭(炑)----
+
+        [Test]
+        public void NoDecay_StacksDoNotDrop()
+        {
+            var engine = Engine(new[] { "燋" }, new[] { Dummy() });
+            engine.Cast("燋", 0);
+            int before = engine.Enemies[0].Hp;
+
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
+                "不灭:结算后层数不掉");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4), "2 层 × 2");
+
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8), "第二回合照样 2 层 × 2");
+        }
+
+        [Test]
+        public void NoDecay_DoesNotChangeTickFormula()
+        {
+            // 不灭只挡减层,不碰伤害算式。用金属性靶子确认克制仍然生效
+            var engine = Engine(new[] { "燋" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            engine.Cast("燋", 0);
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 6), "2 × 2 × 1.5(火克金)");
+        }
+
+        [Test]
+        public void NoDecay_SameCharDoesNotStack()
+        {
+            var engine = Engine(new[] { "燋", "燋" }, new[] { Dummy() });
+            engine.Cast("燋", 0);
+            engine.Cast("燋", 0);
+            Assert.That(engine.Enemies[0].Statuses.All
+                .Count(s => s.Kind == StatusKind.BurnNoDecay), Is.EqualTo(1),
+                "同字重放只刷新,不挂两条");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4),
+                "但灼烧层数照常累加");
+        }
+
+        [Test]
+        public void NoDecay_SurvivesSaveRoundTrip()
+        {
+            // 规格 §8:不灭挂在 EnemyState.Statuses 上,走既有的 StatusBag 存档路径。
+            // 这条钉住新 StatusKind 真的跟着快照走了——漏了的话断点续爬回来层数就开始掉了
+            var engine = Engine(new[] { "燋" }, new[] { Dummy() });
+            engine.Cast("燋", 0);
+
+            // 签名(BattleEngine.cs:232):Restore(snapshot, graph, config, cardLevels, enemyDefs)
+            var restored = BattleEngine.Restore(
+                engine.Capture(),
+                Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200 },
+                new Dictionary<string, int>(),
+                new Dictionary<string, EnemyDef> { ["靶"] = Dummy() });
+
+            Assert.That(restored.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.True);
+            int before = restored.Enemies[0].Hp;
+            restored.EndTurn();
+            Assert.That(restored.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
+                "读档回来仍然不衰减");
+            Assert.That(restored.Enemies[0].Hp, Is.EqualTo(before - 4));
+        }
+
+        [Test]
+        public void NoDecay_DoesNotAffectPlayerOwnBurn()
+        {
+            // 炑 是玩家出的牌,没有理由让自己身上的灼烧也不衰减。
+            // 灯花(Sear)每次攻击给玩家挂 1 层,玩家灼烧走 _playerStatuses,是另一段结算。
+            //
+            // 期望值推演(EndTurn 顺序:敌人灼烧 → 玩家灼烧 → …… → 敌方行动):
+            // 第 1 个 EndTurn:敌人灼烧段结算 0 号(不灭,层数不掉);玩家灼烧段此时玩家
+            //   还没有灼烧(Cast 只烧了敌人),跳过;到敌方行动段,灯花攻击命中,
+            //   RefreshBurn(_playerStatuses, 1) 把玩家灼烧从 0 刷新到 max(0,1)=1。
+            //   → 断言 1:玩家灼烧 = 1。
+            // 第 2 个 EndTurn:玩家灼烧段先结算——层数 1 × 系数 2 = 2 点伤害,然后 1 层
+            //   自减到 0 被移除(这段不受敌人的 BurnNoDecay 影响,炑 挂在敌人身上,
+            //   与 _playerStatuses 无关);紧接着到敌方行动段,灯花又攻击一次,
+            //   RefreshBurn(_playerStatuses, 1) 把玩家灼烧从 0 刷新回 1。
+            //   → 断言 2:玩家灼烧仍是 1(先掉到 0 又被灯花补上,不是「因为敌人不灭而堆积」)。
+            var engine = Engine(new[] { "燋" },
+                new[] { new EnemyDef("灯", Element.Heart, 300, 0, EnemyAbility.Sear) });
+            engine.Cast("燋", 0);
+            engine.EndTurn();                       // 灯花出手 → 玩家挂 1 层
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+            engine.EndTurn();                       // 玩家灼烧结算 → 该减到 0(灯花又补 1 层)
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
+                "玩家身上的灼烧照常衰减,只是灯花每回合又补一层——不该因为敌人带不灭而堆积");
+        }
+
+        [Test]
+        public void NoDecay_PlayerBurnActuallyReachesZero_WhenSearIsSilenced()
+        {
+            // 变异验证补丁:上面那条 NoDecay_DoesNotAffectPlayerOwnBurn 有个死角——
+            // RefreshBurn 是 Math.Max(current, 1) 语义,灯花每回合都把玩家灼烧刷新回 1,
+            // 于是「误把不灭也套用到玩家灼烧那一段」这个变异,最终层数照样停在 1,
+            // 两个版本的断言 100% 撞车,测试杀不掉这处变异(已用真实变异跑过一遍验证)。
+            // 这里让灯花闭嘴,不再有人刷新玩家灼烧,才能看清「层数会不会正常掉到 0」
+            // 这件独立于灯花的事——如果不灭错误地也挡住了玩家灼烧的衰减,这里会停在 1。
+            var engine = Engine(new[] { "燋", "噤" },
+                new[] { new EnemyDef("灯", Element.Heart, 300, 0, EnemyAbility.Sear) });
+            engine.Cast("燋", 0);                    // 敌人挂 2 层灼烧 + 不灭
+            engine.EndTurn();                        // 灯花出手 → 玩家挂 1 层
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+
+            engine.Cast("噤", 0);                     // 沉默灯花,下回合它不再刷新玩家灼烧
+            engine.EndTurn();                        // 玩家灼烧独立衰减:1 − 1 = 0,被移除
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
+                "灯花闭嘴后玩家灼烧正常掉到 0——敌人身上挂着的不灭不该管到这里");
+        }
+
+        [Test]
+        public void NoDecay_SurvivesDispel_BecauseItsPolarityIsDebuff()
+        {
+            // 变异验证补丁:不灭挂的是 Polarity.Debuff(对敌人不利),而驱散(Dispel)
+            // 只清 Polarity.Buff——两者刻意错位,不灭才不会被玩家自己的驱散连带清掉。
+            // 若不灭的 Polarity 被错改成 Buff,这条会红(已用真实变异验证过)。
+            var engine = Engine(new[] { "燋", "驱" }, new[] { Dummy() });
+            engine.Cast("燋", 0);
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.True);
+
+            engine.Cast("驱", 0);
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.True,
+                "驱散清的是增益,不灭是减益,不该被清掉");
+
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
+                "驱散之后不灭仍生效,层数照样不掉");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4));
         }
     }
 }

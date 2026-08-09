@@ -1000,6 +1000,15 @@ namespace Brushblade.Core
                             Magnitude = value, TurnsLeft = effect.Turns, SourceId = def.Id,
                         });
                         break;
+                    case EffectKind.BurnNoDecay:
+                        // SourceId 用字 ID:同字再出只刷新,不挂两条
+                        if (targetIndex >= 0 && _enemies[targetIndex].Alive)
+                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            {
+                                Kind = StatusKind.BurnNoDecay, Polarity = StatusPolarity.Debuff,
+                                Magnitude = 1, TurnsLeft = -1, SourceId = def.Id,
+                            });
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1106,8 +1115,14 @@ namespace Brushblade.Core
             int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
-            burn.Magnitude -= 1;
-            if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
+            // 不灭(2026-08-09,炑):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
+            // 只挡这一步。它同时让 燥 的 BurnSettleNow 变成「免费兑现」(立即结算也不掉层),
+            // 这是规格 §4.2 那条爆发链的根
+            if (!enemy.Statuses.Has(StatusKind.BurnNoDecay))
+            {
+                burn.Magnitude -= 1;
+                if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
+            }
             _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
