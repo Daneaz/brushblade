@@ -1009,6 +1009,10 @@ namespace Brushblade.Core
                                 Magnitude = 1, TurnsLeft = -1, SourceId = def.Id,
                             });
                         break;
+                    case EffectKind.BurnSettleNow:
+                        // 复用回合末那一套(SettleBurnOn 自带存活与空层守卫),不留两份实现
+                        if (targetIndex >= 0) SettleBurnOn(targetIndex);
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {

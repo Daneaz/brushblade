@@ -32,6 +32,14 @@ namespace Brushblade.Core.Tests
             // 不灭的 Polarity 必须是 Debuff,否则会被这张字清掉
             new CharDef("驱", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Dispel, -1) }),
+            // 熇:2 层 + 系数 +1 + 立即结算(燥 的等价配置,效果顺序即结算顺序)
+            new CharDef("熇", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.BurnSingle, 2),
+                                 new EffectDef(EffectKind.BurnPotency, 1),
+                                 new EffectDef(EffectKind.BurnSettleNow, 0) }),
+            // 熯:只有立即结算,不带灼烧也不带系数(用来单独验结算逻辑)
+            new CharDef("熯", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.BurnSettleNow, 0) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -383,6 +391,109 @@ namespace Brushblade.Core.Tests
             engine.EndTurn(); // tick = 4 × 2 = 8(心属性无生克),层数正常 −1
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
                 "新一阶的灼烧照常衰减一层,没有被旧不灭续上");
+        }
+
+        // ---- 立即结算(燥)----
+
+        [Test]
+        public void SettleNow_BurnsImmediatelyWithinThePlayerTurn()
+        {
+            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy() });
+            engine.Cast("燃", 0);                    // 4 层
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("熯", 0);                    // 立即结算一次
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8), "4 层 × 2,当场掉血");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
+                "立即结算照常减一层");
+        }
+
+        [Test]
+        public void SettleNow_EatsPotencyFromTheSameCard()
+        {
+            // 熇 的三个效果按数组顺序结算:先上 2 层,再把系数抬到 3,最后立即兑现
+            var engine = Engine(new[] { "熇" }, new[] { Dummy() });
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("熇", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 6),
+                "2 层 × 系数 3(同一张牌抬的系数,立即结算就吃到了)");
+        }
+
+        [Test]
+        public void SettleNow_EmitsBurnTickEvent()
+        {
+            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy() });
+            engine.Cast("燃", 0);
+            engine.Cast("熯", 0);
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.BurnTick),
+                Is.EqualTo(1), "复用既有 BurnTick 事件,不新建事件种类");
+        }
+
+        [Test]
+        public void SettleNow_OnCleanTarget_DoesNothing()
+        {
+            var engine = Engine(new[] { "熯" }, new[] { Dummy() });
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("熯", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "没有灼烧就没得结算");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BurnTick), Is.False);
+        }
+
+        [Test]
+        public void SettleNow_WithNoDecay_IsFreeAndKeepsStacks()
+        {
+            // 规格 §3.1 点名的连锁:不灭之下立即结算不掉层 = 免费兑现
+            var engine = Engine(new[] { "燋", "熯" }, new[] { Dummy() });
+            engine.Cast("燋", 0);                    // 2 层 + 不灭
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("熯", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4), "2 层 × 2");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
+                "不灭之下立即结算也不掉层");
+        }
+
+        [Test]
+        public void SettleNow_WithoutExplicitTarget_DoesNothingSafely()
+        {
+            // 熯 只有 BurnSettleNow,不在 NeedsTarget 白名单里(它不像 BurnSingle/Dispel
+            // 那样在 Cast 里享受「单敌免选/强制选目标」),所以不传目标时 targetIndex 落在
+            // 默认值 -1。case 里的 `if (targetIndex >= 0)` 守卫必须挡住这一步——
+            // 去掉它会在这里让 SettleBurnOn(-1) 越界崩溃(2026-08-06 C1 同款教训)。
+            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy() });
+            engine.Cast("燃", 0);
+            int before = engine.Enemies[0].Hp;
+            var error = engine.Cast("熯"); // 不传目标,targetIndex 停在默认 -1
+            Assert.That(error, Is.EqualTo(BattleError.None), "不该报错,只是不结算");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "没解析到目标,不结算,不崩溃");
+        }
+
+        [Test]
+        public void SettleNow_TargetsTheCorrectEnemy_NotHardcodedToZero()
+        {
+            // 立即结算复用 SettleBurnOn,但这里独立验证「立即结算」这条调用路径本身传的
+            // targetIndex 没被写死——多个敌人时只结算被点中的那个,不能把 1 号身上算出的
+            // 伤害/事件飘到 0 号头上。此前所有 SettleNow_* 测试都只摆一个敌人在下标 0,
+            // 写死成 0 的变异在那些用例里全都撞车看不出来
+            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy(), Dummy() });
+            engine.Cast("燃", 1);                     // 只给 1 号挂灼烧
+            int before0 = engine.Enemies[0].Hp;
+            int before1 = engine.Enemies[1].Hp;
+            engine.Cast("熯", 1);                     // 立即结算 1 号
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0), "0 号没有灼烧,不该被扣血");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 8), "1 号 4 层 × 2 当场掉血");
+            var ticks = engine.LastEvents.Where(e => e.Kind == BattleEventKind.BurnTick).ToList();
+            Assert.That(ticks.Count, Is.EqualTo(1));
+            Assert.That(ticks[0].TargetIndex, Is.EqualTo(1), "事件要带对目标下标,不能写死成 0");
+        }
+
+        [Test]
+        public void SettleNow_CanKillAndWin()
+        {
+            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy(hp: 8) });
+            engine.Cast("燃", 0);
+            engine.Cast("熯", 0);
+            Assert.That(engine.Enemies[0].Alive, Is.False);
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won),
+                "玩家回合内也能靠灼烧结算杀敌并判胜");
         }
     }
 }

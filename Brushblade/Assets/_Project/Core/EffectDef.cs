@@ -26,6 +26,7 @@ namespace Brushblade.Core
         Silence,      // 沉默:目标的主动机制哑火,持续 Turns 回合(Value 不用,2026-08-07)
         Reflect,      // 反弹:受到的伤害按 Value% 照回攻击者,持续 Turns 回合(2026-08-07)
         BurnNoDecay,  // 不灭:目标灼烧本场不衰减(Value 不用,2026-08-09)
+        BurnSettleNow, // 立即结算一次灼烧(与回合末同公式;Value 不用,2026-08-09)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
