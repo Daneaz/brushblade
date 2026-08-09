@@ -454,16 +454,32 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SettleNow_WithoutExplicitTarget_DoesNothingSafely()
         {
-            // 熯 只有 BurnSettleNow,不在 NeedsTarget 白名单里(它不像 BurnSingle/Dispel
+            // 熯 只有 BurnSettleNow,现在不在 NeedsTarget 白名单里(它不像 BurnSingle/Dispel
             // 那样在 Cast 里享受「单敌免选/强制选目标」),所以不传目标时 targetIndex 落在
             // 默认值 -1。case 里的 `if (targetIndex >= 0)` 守卫必须挡住这一步——
-            // 去掉它会在这里让 SettleBurnOn(-1) 越界崩溃(2026-08-06 C1 同款教训)。
-            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy() });
+            // 去掉它会让 SettleBurnOn(-1) 越界崩溃(2026-08-06 C1 同款教训)。
+            //
+            // 控制器裁定(评审 Important 2):按计划 Task 4 会把 BurnSettleNow 等三个新
+            // Kind 加进 NeedsTarget 白名单——加进去之后,场上两只存活敌人时不再有
+            // 「单敌免选」的自动锁定,targetIndex 仍然停在 -1,但 Cast 会在锁定目标那一步
+            // 先返回 BattleError.InvalidTarget,不会走到这个 case。也就是说:
+            //   现在 :NeedsTarget(熯) = false → 不自动锁定 → targetIndex = -1
+            //         → 这个 case 里的守卫挡住 → 返回 BattleError.None,不结算
+            //   Task 4 后:NeedsTarget(熯) = true → 两只存活、没有唯一目标可锁
+            //         → Cast 提前返回 BattleError.InvalidTarget,这个 case 根本不会跑
+            // 两种情况下 Cast 的返回码不同,所以这条**不断言返回码**——两边都成立的
+            // 不变量只有「没解析到目标就不结算、也不崩溃」,只断这一条,Task 4 落地后
+            // 不用回来改这条测试。
+            var engine = Engine(new[] { "燃", "燃", "熯" }, new[] { Dummy(), Dummy() });
             engine.Cast("燃", 0);
-            int before = engine.Enemies[0].Hp;
-            var error = engine.Cast("熯"); // 不传目标,targetIndex 停在默认 -1
-            Assert.That(error, Is.EqualTo(BattleError.None), "不该报错,只是不结算");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "没解析到目标,不结算,不崩溃");
+            engine.Cast("燃", 1);                    // 两只都挂灼烧,且都存活 → 没有单敌免选
+            int before0 = engine.Enemies[0].Hp;
+            int before1 = engine.Enemies[1].Hp;
+            engine.Cast("熯"); // 不传目标
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0), "没解析到目标,0 号不结算");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1), "没解析到目标,1 号也不结算");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4));
+            Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4));
         }
 
         [Test]
@@ -472,13 +488,20 @@ namespace Brushblade.Core.Tests
             // 立即结算复用 SettleBurnOn,但这里独立验证「立即结算」这条调用路径本身传的
             // targetIndex 没被写死——多个敌人时只结算被点中的那个,不能把 1 号身上算出的
             // 伤害/事件飘到 0 号头上。此前所有 SettleNow_* 测试都只摆一个敌人在下标 0,
-            // 写死成 0 的变异在那些用例里全都撞车看不出来
-            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy(), Dummy() });
-            engine.Cast("燃", 1);                     // 只给 1 号挂灼烧
+            // 写死成 0 的变异在那些用例里全都撞车看不出来。
+            // 评审 Important 1:0 号原来是干净靶子——若把「单体立即结算」错写成
+            // 「for 循环结算全体」,SettleBurnOn(0) 因 0 号没灼烧而空转,血量/层数/事件数/
+            // 事件下标逐项撞车,这条测不出来。两只都挂灼烧才能把「单体」和「全体」分开:
+            // 只结算 1 号时,0 号的灼烧必须原封不动。
+            var engine = Engine(new[] { "燃", "燃", "熯" }, new[] { Dummy(), Dummy() });
+            engine.Cast("燃", 0);                     // 0 号 4 层
+            engine.Cast("燃", 1);                     // 1 号 4 层
             int before0 = engine.Enemies[0].Hp;
             int before1 = engine.Enemies[1].Hp;
             engine.Cast("熯", 1);                     // 立即结算 1 号
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0), "0 号没有灼烧,不该被扣血");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0), "0 号没被点中,不该被扣血");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4),
+                "0 号没被点中,层数也不该动——若立即结算被写成全体,这里会掉到 3");
             Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 8), "1 号 4 层 × 2 当场掉血");
             var ticks = engine.LastEvents.Where(e => e.Kind == BattleEventKind.BurnTick).ToList();
             Assert.That(ticks.Count, Is.EqualTo(1));
@@ -494,6 +517,11 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Alive, Is.False);
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won),
                 "玩家回合内也能靠灼烧结算杀敌并判胜");
+            // 评审 Minor 1(Task 1 I1 在新路径上的复现):Alive/Phase 都不经过 ResolveDefeat——
+            // Phase 由外层 CheckWin() 单独判,Alive 只是血量归零的副产物。补事件断言才堵住
+            // 「玩家回合内立即结算杀敌时漏调 ResolveDefeat」这个洞。
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyDied), Is.True,
+                "玩家回合内烧死也要发 EnemyDied —— Phase 与 Alive 都不经过 ResolveDefeat");
         }
     }
 }

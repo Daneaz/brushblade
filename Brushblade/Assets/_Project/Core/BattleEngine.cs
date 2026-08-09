@@ -1106,7 +1106,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>对一名敌人结算一次灼烧(2026-08-09 抽出):层数 × 系数 × 克制 掉血,然后 −1 层。
-        /// 回合末逐个调用;燥 的 BurnSettleNow(Task 3)将复用这里 —— 不留两份实现。
+        /// 回合末逐个调用;燥 的 BurnSettleNow(Task 3)复用这里 —— 不留两份实现。
         ///
         /// 灼烧属火(2026-08-03):只结算克制,不结算相生 —— 层数是平值,
         /// 相生已在施加时由 WuxingResolver 体现过。</summary>
@@ -1120,8 +1120,8 @@ namespace Brushblade.Core
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
             // 不灭(2026-08-09,炑):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
-            // 只挡这一步。Task 3 的 BurnSettleNow 落地后,它会同时变成「免费兑现」
-            // (立即结算也不掉层)——这是规格 §4.2 那条爆发链的根
+            // 只挡这一步。Task 3 的 BurnSettleNow 同样复用这里,所以「免费兑现」
+            // (立即结算也不掉层)也一并生效——这是规格 §4.2 那条爆发链的根
             if (!enemy.Statuses.Has(StatusKind.BurnNoDecay))
             {
                 burn.Magnitude -= 1;
