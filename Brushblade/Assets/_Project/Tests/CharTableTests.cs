@@ -304,6 +304,47 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void RealConfig_MuCarriesBurnAndNoDecay()
+        {
+            var effects = RealGraph().Get("炑").Effects;
+            Assert.That(effects[0].Kind, Is.EqualTo(EffectKind.BurnSingle));
+            Assert.That(effects[0].Value, Is.EqualTo(2));
+            Assert.That(effects[1].Kind, Is.EqualTo(EffectKind.BurnNoDecay),
+                "不灭必须排在灼烧之后——结算顺序就是数组顺序");
+        }
+
+        [Test]
+        public void RealConfig_ZaoSettlesAfterRaisingPotency()
+        {
+            var effects = RealGraph().Get("燥").Effects;
+            Assert.That(effects.Select(e => e.Kind), Is.EqualTo(new[]
+            {
+                EffectKind.BurnSingle, EffectKind.BurnPotency, EffectKind.BurnSettleNow,
+            }), "顺序错了立即结算就吃不到自己抬的系数");
+            Assert.That(effects[0].Value, Is.EqualTo(2));
+            Assert.That(effects[1].Value, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RealConfig_XiaoIsFourStacksThenDetonate()
+        {
+            var effects = RealGraph().Get("灱").Effects;
+            Assert.That(effects[0].Kind, Is.EqualTo(EffectKind.BurnSingle));
+            Assert.That(effects[0].Value, Is.EqualTo(4), "4 层给引爆 20 伤的地板");
+            Assert.That(effects[1].Kind, Is.EqualTo(EffectKind.Detonate));
+        }
+
+        [Test]
+        public void RealConfig_NewBurnCharsAddNoLeafParts()
+        {
+            // 三个字的部件(火 木 喿 刀)全部已在表中,本批不该新增任何叶子
+            var graph = RealGraph();
+            foreach (var id in new[] { "炑", "燥", "灱" })
+                Assert.That(graph.Get(id).Recipe, Has.All.Matches<string>(p => graph.TryGet(p, out _)),
+                    $"{id} 的部件都该已在表中");
+        }
+
+        [Test]
         public void RealConfig_GouIsNotInTheTable()
         {
             // 钩 是模型缺口(敌人无排位概念),已移出字表。

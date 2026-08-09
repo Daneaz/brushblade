@@ -60,10 +60,13 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_129_implementable_chars():
-    """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。"""
+def test_extract_pulls_132_implementable_chars():
+    """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。
+
+    2026-08-09:129 → 132,火系 DOT 三分化(炑/燥/灱)落地。
+    """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 129
+    assert len(values) == 132
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
@@ -127,6 +130,45 @@ def test_jing_uses_manual_recipe_not_rare_ids_part():
     """荆 的 IDS 是 ⿰茾刂,茾 是生僻字 —— 人工兜底成 艹+刂。"""
     from export_chars import MANUAL_RECIPES
     assert MANUAL_RECIPES["荆"] == ["艹", "刂"]
+
+
+def test_burn_no_decay_is_extracted_after_the_valued_effect():
+    """炑:不灭是无数值标记,且必须排在 BurnSingle 之后(结算顺序 = 数组顺序)。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`BurnSingle 2` + `BurnNoDecay`", "火") == [
+        {"kind": "BurnSingle", "value": 2},
+        {"kind": "BurnNoDecay", "value": 0}]
+
+
+def test_burn_settle_now_keeps_potency_before_it():
+    """燥:立即结算必须排在 BurnPotency 之后,否则兑现的那一下吃不到 +1 系数。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`BurnSingle 2` + `BurnPotency 1` + `BurnSettleNow`", "火") == [
+        {"kind": "BurnSingle", "value": 2},
+        {"kind": "BurnPotency", "value": 1},
+        {"kind": "BurnSettleNow", "value": 0}]
+
+
+def test_detonate_is_extracted_after_its_own_burn():
+    """灱:自带 4 层先加,再引爆。"""
+    from extract_values import _parse_effects
+    assert _parse_effects("`BurnSingle 4` + `Detonate`", "火") == [
+        {"kind": "BurnSingle", "value": 4},
+        {"kind": "Detonate", "value": 0}]
+
+
+def test_new_valueless_tokens_do_not_leak_into_unrelated_rows():
+    """负向:没写这些 token 的行不该凭空多出效果。
+
+    只写正向断言的话,把 VALUELESS_EFFECTS 的匹配条件删成恒真都没有测试会红
+    ——子项目 D 的教训(白名单方向性覆盖)。
+    """
+    from extract_values import _parse_effects
+    assert _parse_effects("`DamageSingle 16`", "火") == [
+        {"kind": "DamageSingle", "value": 16}]
+    assert _parse_effects("`BurnSingle 2` + `DamageSingle 3`", "火") == [
+        {"kind": "BurnSingle", "value": 2},
+        {"kind": "DamageSingle", "value": 3}]
 
 
 def test_valueless_effect_tokens():

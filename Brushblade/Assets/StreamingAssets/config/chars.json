@@ -291,6 +291,29 @@
       ]
     },
     {
+      "id": "燥",
+      "rarity": "Purple",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "喿"
+      ],
+      "effects": [
+        {
+          "kind": "BurnSingle",
+          "value": 2
+        },
+        {
+          "kind": "BurnPotency",
+          "value": 1
+        },
+        {
+          "kind": "BurnSettleNow",
+          "value": 0
+        }
+      ]
+    },
+    {
       "id": "蒸",
       "rarity": "Purple",
       "element": "Fire",
@@ -306,6 +329,44 @@
         {
           "kind": "DamageSingle",
           "value": 3
+        }
+      ]
+    },
+    {
+      "id": "炑",
+      "rarity": "Purple",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "木"
+      ],
+      "effects": [
+        {
+          "kind": "BurnSingle",
+          "value": 2
+        },
+        {
+          "kind": "BurnNoDecay",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "灱",
+      "rarity": "Purple",
+      "element": "Fire",
+      "recipe": [
+        "火",
+        "刀"
+      ],
+      "effects": [
+        {
+          "kind": "BurnSingle",
+          "value": 4
+        },
+        {
+          "kind": "Detonate",
+          "value": 0
         }
       ]
     },

@@ -22,9 +22,14 @@ SUMMON_PASSIVE = {
 
 # 无数值的效果 token(布尔标记式):通用正则 `(\w+) (\d+)` 抓不到,单独认。
 # 顺带绕开负数 —— `Dispel -1` 那个负号通用正则也认不出。
+# ⚠ 追加顺序即结算顺序:若同一行出现两个无数值 token,谁先在这个 dict 里出现谁先被追加。
+# 本批(BurnNoDecay/BurnSettleNow/Detonate)每行最多命中一个,不受影响。
 VALUELESS_EFFECTS = {
     "Cleanse": {"kind": "Cleanse", "value": 0},
     "DispelAll": {"kind": "Dispel", "value": -1},
+    "BurnNoDecay": {"kind": "BurnNoDecay", "value": 0},
+    "BurnSettleNow": {"kind": "BurnSettleNow", "value": 0},
+    "Detonate": {"kind": "Detonate", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
