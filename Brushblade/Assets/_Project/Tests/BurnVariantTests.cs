@@ -201,6 +201,12 @@ namespace Brushblade.Core.Tests
             engine.Cast("燋", 0);
             int before = engine.Enemies[0].Hp;
 
+            // 评审 Important 2:不灭必须是段内持久(TurnsLeft < 0),不能是有限回合数——
+            // 若被改成 TurnsLeft = 2 之类的有限值,恰好能撑过下面这两次 EndTurn 才过期,
+            // 后面的层数/HP 断言全部撞车看不出来,得直接钉这个字段
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.BurnNoDecay).TurnsLeft,
+                Is.LessThan(0), "段内持久,不吃回合递减");
+
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
                 "不灭:结算后层数不掉");
@@ -282,7 +288,8 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
             engine.EndTurn();                       // 玩家灼烧结算 → 该减到 0(灯花又补 1 层)
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
-                "玩家身上的灼烧照常衰减,只是灯花每回合又补一层——不该因为敌人带不灭而堆积");
+                "本条只钉灯花刷新的稳态 = 1;『衰减这一步真的跑了』由 " +
+                "NoDecay_PlayerBurnActuallyReachesZero_WhenSearIsSilenced 守,别删那条");
         }
 
         [Test]
@@ -325,6 +332,57 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
                 "驱散之后不灭仍生效,层数照样不掉");
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4));
+        }
+
+        [Test]
+        public void NoDecay_IsolatedPerEnemy_DoesNotLeakToOtherEnemies()
+        {
+            // 评审 Important 1:此前所有不灭测试都是单敌人场景(NoDecay_SameCharDoesNotStack
+            // 那条是两张牌打同一只怪,还是单敌人),没有一条能区分「查自己的 StatusBag」
+            // 和「查全场任意一只」。3 怪混战很常见——这个洞会让「单体延长」变成
+            // 「全体永久 DOT」,数值崩盘级,而当时的回归测试一声不吭
+            var engine = Engine(new[] { "燋", "燃" }, new[] { Dummy(), Dummy() });
+            engine.Cast("燋", 0); // 0 号:2 层 + 不灭
+            engine.Cast("燃", 1); // 1 号:4 层,无不灭
+
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
+                "0 号带不灭,层数不掉");
+            Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
+                "1 号没不灭,照常掉 1 层——不能被 0 号的不灭连带保护");
+        }
+
+        [Test]
+        public void NoDecay_ClearedOnBossPhaseChange()
+        {
+            // 评审 Important 3(控制器裁定):Boss 换阶「新字新体」,不灭是挂在旧躯壳那份
+            // 灼烧上的属性,躯壳换了没道理留着——否则一张 炑 就能买断整场 Boss 战,
+            // 规格 §4.2 标成爆发链根的不灭就失去了「只延长一次」的边界
+            var boss = new EnemyDef("靶", Element.Heart, 0, 0, phases: new[]
+            {
+                new BossPhaseDef("靶一阶", Element.Heart, 3, 0),
+                new BossPhaseDef("靶二阶", Element.Heart, 10, 0),
+            });
+            var config = new BattleConfig
+            {
+                DropTable = new[] { "木" }, PlayerMaxHp = 200, BossPhaseJitterPercent = 0,
+            };
+            var engine = Engine(new[] { "燋", "燃" }, new[] { boss }, config);
+
+            engine.Cast("燋", 0); // 2 层 + 不灭;心属性无生克:tick = 2 × 2 = 4
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(13), "总血 = 3 + 10");
+
+            engine.EndTurn(); // 13 − 4 = 9,≤ 10(下一阶预算)→ 换阶,旧灼烧 + 不灭一起清零
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossPhase), Is.True,
+                "先确认真的换阶了,不然下面的断言没有意义");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.False,
+                "新字新体:不灭跟着旧灼烧一起清掉,不能带进下一阶");
+
+            // 新一阶重新挂一次纯灼烧(不带不灭),验证衰减恢复正常——不是被旧不灭悄悄续上
+            engine.Cast("燃", 0); // 4 层
+            engine.EndTurn(); // tick = 4 × 2 = 8(心属性无生克),层数正常 −1
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
+                "新一阶的灼烧照常衰减一层,没有被旧不灭续上");
         }
     }
 }

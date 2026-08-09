@@ -1116,8 +1116,8 @@ namespace Brushblade.Core
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
             // 不灭(2026-08-09,炑):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
-            // 只挡这一步。它同时让 燥 的 BurnSettleNow 变成「免费兑现」(立即结算也不掉层),
-            // 这是规格 §4.2 那条爆发链的根
+            // 只挡这一步。Task 3 的 BurnSettleNow 落地后,它会同时变成「免费兑现」
+            // (立即结算也不掉层)——这是规格 §4.2 那条爆发链的根
             if (!enemy.Statuses.Has(StatusKind.BurnNoDecay))
             {
                 burn.Magnitude -= 1;

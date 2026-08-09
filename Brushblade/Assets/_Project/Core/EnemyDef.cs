@@ -314,6 +314,9 @@ namespace Brushblade.Core
             BaseAttack = phase.Attack;
             DamageTaken = phase.DamageTaken;
             Statuses.Remove(StatusKind.Burn); // 新字新体,灼烧清零
+            // 新字新体:连同不灭一起清,否则一张 炑 买断整场 Boss 战——不灭是挂在旧躯壳
+            // 那份灼烧上的属性,躯壳换了它没道理留着(2026-08-09,评审裁定,与灼烧同口径)
+            Statuses.Remove(StatusKind.BurnNoDecay);
 
             // 蓄力完全不受换阶影响(2026-07-29)。理由见 spec 3.2:阶段血量 12~16 在玩家输出面前
             // 只够 1~2 回合,任何"换阶打断蓄力"的写法都会让大招几乎放不出来——实测阶段血量抬到
