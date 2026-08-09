@@ -634,6 +634,11 @@ namespace Brushblade.Core.Tests
             engine.Cast("煸", 0);
             Assert.That(engine.Enemies[0].Alive, Is.False);
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won));
+            // 评审 Important 1(第三次点名同一个洞):Alive/Phase 都不经过 ResolveDefeat——
+            // Phase 由外层 CheckWin() 单独判,Alive 只是血量归零的副产物。补事件断言才堵住
+            // 「引爆击杀时漏调 ResolveDefeat」这个洞:死亡动画/掉落飘字全靠这条事件驱动。
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyDied), Is.True,
+                "引爆击杀也要发 EnemyDied —— Phase 与 Alive 都不经过 ResolveDefeat");
         }
 
         [Test]
@@ -657,6 +662,54 @@ namespace Brushblade.Core.Tests
             // ——三个真实字都自带 BurnSingle,靠 BurnSingle 那条就已经进白名单了
             Assert.That(BattleEngine.NeedsTarget(Graph().Get("煸")), Is.True,
                 "纯引爆是单体效果,UI 必须让玩家选目标;漏进白名单会让 targetIndex 停在 -1");
+
+            // 评审 Minor 1:光有上面这句纯静态断言,名字里的「多敌人在场」从没真的摆过敌人、
+            // 跑过 Cast——补一段真正的行为断言,把白名单判定与 Cast 的早退逻辑串起来:
+            // 两只都存活、没有「单敌免选」时,不传目标应该被 Cast 拦在 InvalidTarget,
+            // 不结算也不掉血。
+            var engine = Engine(new[] { "燃", "燃", "煸" }, new[] { Dummy(), Dummy() });
+            engine.Cast("燃", 0);
+            engine.Cast("燃", 1);
+            int before0 = engine.Enemies[0].Hp;
+            int before1 = engine.Enemies[1].Hp;
+            var error = engine.Cast("煸"); // 不传目标
+            Assert.That(error, Is.EqualTo(BattleError.InvalidTarget));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0));
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1));
+        }
+
+        [Test]
+        public void Detonate_FloorsFractionalDamage_NotRounds()
+        {
+            // 评审 Important 2:SettleBurnOn 的同款 Math.Floor 有 Burn_UsesCurrentBurnPerStack_
+            // AndFloors_NotRounds 守着,但引爆这边此前 13 条测试的 N(N+1)/2 × 系数 全部凑巧是
+            // 偶数,乘 1.5 永远整除,Math.Floor 从没真正生效过——统一取整口径时这条会静默漏改。
+            // 2 层 × 系数 3 × 1.5(火克金) = 2×3/2 × 3 × 1.5 = 13.5 → 向下取整 13,
+            // Math.Round/Ceiling 会给 14,在这里可分辨。
+            var engine = Engine(new[] { "燋", "炽", "煸" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            engine.Cast("燋", 0);   // 2 层(带 BurnNoDecay,但引爆的层数取自当前 Magnitude,
+                                    // 不受衰减挡板影响,这里不干扰算式)
+            engine.Cast("炽");      // 系数 2 → 3(全局字段,不需要选目标)
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("煸", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 13),
+                "floor(13.5) = 13;若用 Math.Round/Ceiling 会是 14");
+        }
+
+        [Test]
+        public void Detonate_IgnoresDamageTaken_TotalStaysFullNotHalved()
+        {
+            // 评审 Minor 2:引爆走 enemy.Hp 直改、绕开 DamageEnemy,是「只改兑现时机、不改
+            // 总量」这条设计口径的必要条件——若误走 DamageEnemy 就会再吃一次 DamageTaken,
+            // 承伤 0.5 的敌人身上引爆总伤会变成慢烧总量的一半,当场破坏这条设计承诺。
+            // 4 层引爆 = floor(4×5/2 × 2 × 1.0) = 20,承伤系数 0.5 不应该参与这个算式。
+            var engine = Engine(new[] { "燃", "煸" },
+                new[] { new EnemyDef("墨", Element.Heart, 300, 0, damageTaken: 0.5f) });
+            engine.Cast("燃", 0);
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("煸", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 20),
+                "承伤系数不该参与引爆算式,若误走 DamageEnemy 会变成 10");
         }
 
         [Test]
