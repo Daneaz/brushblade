@@ -85,6 +85,7 @@ namespace Brushblade.Core
         // ImmunityBlocked 不在此列:它确实有消费方(Juice.cs 飘「免」字)。
         ImmunityBlocked, // 免疫挡下一记(TargetIndex = 攻击者敌人下标,Amount = 挡掉的伤害;2026-08-06)
         Missed,      // 攻击被打空(TargetIndex = 攻击者敌人下标,SecondIndex = 被打空的召唤物下标,玩家为 −1;2026-08-07)
+        Detonate,    // 灼烧引爆(TargetIndex = 被引爆的敌人,Amount = 引爆伤害;2026-08-09)
     }
 
     public readonly struct BattleEvent
@@ -508,7 +509,10 @@ namespace Brushblade.Core
                     // 必须排除 TargetAll(淡):那支是全体驱散,本就不需要选目标。
                     || (effect.Kind == EffectKind.Dispel && !effect.TargetAll)
                     || (effect.Kind == EffectKind.Blind && !effect.TargetAll)
-                    || effect.Kind == EffectKind.Silence)
+                    || effect.Kind == EffectKind.Silence
+                    || effect.Kind == EffectKind.BurnNoDecay
+                    || effect.Kind == EffectKind.BurnSettleNow
+                    || effect.Kind == EffectKind.Detonate)
                     return true;
             return false;
         }
@@ -1013,6 +1017,9 @@ namespace Brushblade.Core
                         // 复用回合末那一套(SettleBurnOn 自带存活与空层守卫),不留两份实现
                         if (targetIndex >= 0) SettleBurnOn(targetIndex);
                         break;
+                    case EffectKind.Detonate:
+                        if (targetIndex >= 0) Detonate(targetIndex);
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1128,6 +1135,32 @@ namespace Brushblade.Core
                 if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
             }
             _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick));
+            if (!enemy.Alive)
+                ResolveDefeat(enemyIndex);
+            else
+                CheckBossPhase(enemyIndex);
+        }
+
+        /// <summary>引爆(2026-08-09,灱):把剩余层数的**全部未来伤害**一次打出,然后清空层数。
+        ///
+        /// N 层正常烧完是 N + (N−1) + … + 1 = N(N+1)/2 个「层·回合」,所以总量口径就是那个和
+        /// 乘系数 —— **只改兑现时机,不改总量**。价值在抢杀,以及防止敌人被别的牌提前打死
+        /// 而浪费层数。
+        ///
+        /// 与回合末结算同口径:属火、只算克制不算相生。
+        /// 清的是灼烧层数,**不动 BurnNoDecay** —— 之后重新点燃仍然不衰减。</summary>
+        private void Detonate(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.Alive) return;
+            var burn = enemy.Statuses.Find(StatusKind.Burn);
+            if (burn == null || burn.Magnitude <= 0) return;
+            int stacks = burn.Magnitude;
+            int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * _burnPerStack
+                * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
+            enemy.Statuses.Remove(StatusKind.Burn);
+            enemy.Hp = Math.Max(0, enemy.Hp - damage);
+            _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
