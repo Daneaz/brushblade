@@ -1093,7 +1093,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>对一名敌人结算一次灼烧(2026-08-09 抽出):层数 × 系数 × 克制 掉血,然后 −1 层。
-        /// 回合末逐个调用;燥 的 BurnSettleNow 也调这里 —— 不留两份实现。
+        /// 回合末逐个调用;燥 的 BurnSettleNow(Task 3)将复用这里 —— 不留两份实现。
         ///
         /// 灼烧属火(2026-08-03):只结算克制,不结算相生 —— 层数是平值,
         /// 相生已在施加时由 WuxingResolver 体现过。</summary>
