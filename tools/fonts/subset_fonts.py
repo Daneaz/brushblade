@@ -125,7 +125,11 @@ def main():
         ("NotoSansSC[wght].ttf", 500, "NotoSansSC-Subset.ttf"),
     ]
     for src, weight, out_name in jobs:
-        font = TTFont(RAW / src)
+        # recalcTimestamp=False:默认会把 head.modified 写成当前时间,于是**字符集一个没变
+        # 也照样产出 760KB 的二进制 diff** —— 「字体到底变没变」从 diff 里看不出来,
+        # 真加了字的那次和纯重跑的那次长得一模一样。钉成源字体的时间戳后,
+        # 同样的输入必得同样的字节。
+        font = TTFont(RAW / src, recalcTimestamp=False)
         if "fvar" in font:
             instantiateVariableFont(font, {"wght": weight}, inplace=True)
         options = subset.Options(layout_features="*", name_IDs="*")
