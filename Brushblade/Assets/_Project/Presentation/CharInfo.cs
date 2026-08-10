@@ -49,7 +49,13 @@ namespace Brushblade.Presentation
             var parts = new StringBuilder();
             for (int i = 0; i < def.Effects.Count; i++)
             {
-                if (i > 0) parts.Append(',');
+                // 分隔符是分号,不是逗号(2026-08-10 还债):效果内部本来就带逗号
+                // ——Reflect 的「伤害,N回合」、HealOverTime 的「/回合,共N回合」、
+                // Summon 的「(血X攻Y,顶前排)」、穿甲的「(穿甲:无视减伤,额外+15%)」——
+                // 分隔符与内容同为 U+002C 时,多效果字会被读成比实际更多的段。
+                // 分号的层级严格强于逗号(顿号反而更弱,当结构分隔符会把层级弄反),
+                // 所以各分支内部照常写逗号即可,不必再逐个改文案。
+                if (i > 0) parts.Append(';');
                 var e = def.Effects[i];
                 int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
                 parts.Append(e.Kind switch
@@ -84,9 +90,8 @@ namespace Brushblade.Presentation
                     EffectKind.Cleanse => "净化自身全部减益",
                     EffectKind.Immunity => $"免疫{v}次伤害",
                     EffectKind.Revive => $"复活{v}名召唤物(各回半血)",
-                    // 2026-08-10 复核修:内部原来用逗号分隔百分比与回合数,与效果间的逗号分隔符撞在
-                    // 一起——熣(DamageSingle + Blind)会被读成三段。改成空格,与 ArmorBreak 的
-                    // 「破甲 {v} 回合」同款,不再用逗号
+                    // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
+                    // 「破甲 {v} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
                     EffectKind.Blind => e.TargetAll
                         ? $"全体致盲−{v}% {e.Turns}回合"
                         : $"致盲−{v}% {e.Turns}回合",
