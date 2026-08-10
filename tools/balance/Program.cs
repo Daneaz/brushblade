@@ -17,8 +17,13 @@ namespace Brushblade.Balance
 
         // 三画像共享的"火系"出阵卡组(2026-08-04):补 UnlockedChars 时用它兜底——见下方
         // ClimbUntilDeath 里的说明。
+        // 2026-08-10(task-6 二轮):追加 炑/燥/灱——此前这三个新字不在这张表里,导致回合掉字
+        // (StartTurn 只从 UnlockedChars 抽)、合成(Compose 同样锁 UnlockedChars)都摸不到它们,
+        // 仿真对火系 DOT 三分化完全没有判别力(见 task-6-report.md 第二节)。燃/炽 已经在表里,
+        // 不用重复加。真实游戏的战利品池 = 玩家出阵列表(enemies.json 的 endless.rewardPool
+        // 是 v0.7 前的废弃字段,不该填),所以这里直接扩这张"画像出阵表",不动游戏配置。
         private static readonly string[] FireCards =
-            { "灯", "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚" };
+            { "灯", "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱" };
 
         public static void Main()
         {
