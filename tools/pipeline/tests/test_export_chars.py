@@ -64,13 +64,15 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_132_implementable_chars():
+def test_extract_pulls_128_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。
 
     2026-08-09:129 → 132,火系 DOT 三分化(炑/燥/灱)落地。
+    2026-08-10:132 → 128,炼/杨/戟/塌 因配方缺口移出字表(见
+    test_no_playable_char_is_uncraftable)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 132
+    assert len(values) == 128
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
@@ -301,29 +303,24 @@ def test_shipped_chars_json_is_regenerable_from_spec():
     assert rebuilt == shipped, "chars.json 与详表不同步 —— 跑 python3 tools/pipeline/export_chars.py"
 
 
-# 详表里的字但生成不出配方 —— 这些字玩家永远拿不到,见下面那条测试。
-# 全部因为 IDS 的一侧部件在增补平面(_blocked_smp_part 跳过整条配方,只 print 一行警告):
-#   炼 ⿰火𫠣(U+2B823) 杨 ⿰木𠃓(U+200D3) 戟 ⿰𠦝(U+2099D)戈 塌 ⿰土𦐇(U+26407)
-# 修法是照 荆/塞/湮/锁 的先例往 MANUAL_RECIPES 补一条,但选哪个部件是内容决定(要义通、
-# 零新部件),待拍板。在此之前这 4 个字钉在这里,防止再多。
-KNOWN_UNCRAFTABLE = {"炼", "杨", "戟", "塌"}
-
-
-def test_no_playable_char_is_uncraftable_beyond_the_known_four():
-    """详表里的字必须生成出配方,否则玩家永远拿不到它。
+def test_no_playable_char_is_uncraftable():
+    """详表里标 ✅ 的字必须生成出配方,否则玩家永远拿不到它。
 
     没有 recipe 的字在引擎里 IsLeaf == true,而 RunEngine.RollRewardOptions 明确
     `if (... || def.IsLeaf) continue;` —— 叶子永不进奖励池;宝箱/商城的候选池同样
     是奖励池的快照。于是这种字既不能合成、也发不出来,躺在字表里纯占位。
     唯一的信号是 build_chars 里一行 print 警告,数据构建的 stdout 没人看 —— 等于无声。
 
-    用 == 而不是 <=:多一个字要红(挡住新的),修好一个也要红(逼着更新这张表)。
+    2026-08-10 首次断言时有 4 个违例(炼/杨/戟/塌,IDS 各有一侧部件落在增补平面,
+    `_blocked_smp_part` 跳过整条配方),用户裁定先移出字表 —— 详表里已标 ⚠,
+    `extract()` 抽不到,故这里期望空集。日后补 `MANUAL_RECIPES` 换部件即可复活。
     """
     rebuilt = build_chars(IDS.read_text(encoding="utf-8"),
                           extract(SPEC.read_text(encoding="utf-8")))
-    # rarity 只有详表里的字才有(叶子部件条目只有 id/element),132 个字与 effects 完全同集
+    # rarity 只有详表里的字才有(叶子部件条目只有 id/element),与 effects 完全同集
     uncraftable = {c["id"] for c in rebuilt["chars"]
                    if c.get("rarity") and not c.get("recipe")}
-    assert uncraftable == KNOWN_UNCRAFTABLE, (
-        f"新增了拿不到的字: {sorted(uncraftable - KNOWN_UNCRAFTABLE)};"
-        f" 已修好的: {sorted(KNOWN_UNCRAFTABLE - uncraftable)}")
+    assert uncraftable == set(), (
+        f"这些字配方生成失败,玩家永远拿不到: {sorted(uncraftable)} —— "
+        "多半是 IDS 部件落在增补平面,补 export_chars.MANUAL_RECIPES 换部件,"
+        "或在详表里标 ⚠ 移出字表")

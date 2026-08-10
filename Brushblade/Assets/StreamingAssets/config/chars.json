@@ -405,21 +405,6 @@
       ]
     },
     {
-      "id": "炼",
-      "rarity": "Green",
-      "element": "Fire",
-      "effects": [
-        {
-          "kind": "BurnSingle",
-          "value": 1
-        },
-        {
-          "kind": "BurnPotency",
-          "value": 1
-        }
-      ]
-    },
-    {
       "id": "焦",
       "rarity": "White",
       "element": "Fire",
@@ -837,20 +822,6 @@
           "value": 12,
           "count": 1,
           "attack": 3,
-          "summonChar": "木"
-        }
-      ]
-    },
-    {
-      "id": "杨",
-      "rarity": "Green",
-      "element": "Wood",
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 8,
-          "count": 1,
-          "attack": 5,
           "summonChar": "木"
         }
       ]
@@ -1595,17 +1566,6 @@
       ]
     },
     {
-      "id": "戟",
-      "rarity": "Blue",
-      "element": "Metal",
-      "effects": [
-        {
-          "kind": "DamageAll",
-          "value": 7
-        }
-      ]
-    },
-    {
       "id": "剑",
       "rarity": "Blue",
       "element": "Metal",
@@ -2124,17 +2084,6 @@
         "山",
         "朋"
       ],
-      "effects": [
-        {
-          "kind": "DamageAll",
-          "value": 7
-        }
-      ]
-    },
-    {
-      "id": "塌",
-      "rarity": "Blue",
-      "element": "Earth",
       "effects": [
         {
           "kind": "DamageAll",
