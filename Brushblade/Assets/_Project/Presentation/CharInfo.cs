@@ -75,16 +75,21 @@ namespace Brushblade.Presentation
                     EffectKind.DamageReduction => $"本段受伤−{v}%",
                     EffectKind.ArmorBreak => $"破甲 {v} 回合(承伤+25%)",
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
-                    // 用 e.Value 而不是 v,否则 −1(全部)这个哨兵值被 ScaleByCardLevel 一乘会变样
+                    // 用 e.Value 而不是 v:真正的约束是正数条数不能被 ScaleByCardLevel 缩放
+                    // (Lv.10 系数 1.9,「驱散 2 条」会被算成 ceil(2×1.9)=4 条,与 Core 实际驱散数不符;
+                    // −1 哨兵同样不缩放只是顺带受益,不是单独的理由)
                     EffectKind.Dispel => e.Value < 0
                         ? (e.TargetAll ? "全体驱散全部增益" : "驱散全部增益")
                         : (e.TargetAll ? $"全体驱散{e.Value}条增益" : $"驱散{e.Value}条增益"),
                     EffectKind.Cleanse => "净化自身全部减益",
                     EffectKind.Immunity => $"免疫{v}次伤害",
                     EffectKind.Revive => $"复活{v}名召唤物(各回半血)",
+                    // 2026-08-10 复核修:内部原来用逗号分隔百分比与回合数,与效果间的逗号分隔符撞在
+                    // 一起——熣(DamageSingle + Blind)会被读成三段。改成空格,与 ArmorBreak 的
+                    // 「破甲 {v} 回合」同款,不再用逗号
                     EffectKind.Blind => e.TargetAll
-                        ? $"全体致盲−{v}%,{e.Turns}回合"
-                        : $"致盲−{v}%,{e.Turns}回合",
+                        ? $"全体致盲−{v}% {e.Turns}回合"
+                        : $"致盲−{v}% {e.Turns}回合",
                     EffectKind.Silence => $"沉默{e.Turns}回合",
                     EffectKind.Reflect => $"反弹{v}%伤害,{e.Turns}回合",
                     EffectKind.BurnNoDecay => "灼烧不衰减(本场)",

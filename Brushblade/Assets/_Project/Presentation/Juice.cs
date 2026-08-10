@@ -155,12 +155,17 @@ namespace Brushblade.Presentation
                         serialPending = true;
                         break;
                     // 引爆(2026-08-09,灱):把剩余灼烧层数一次性全打出来再清空,不是一记普通 DoT tick,
-                    // 给一记比 BurnTick(走 HitFx,震屏上限 26)更重的震屏,读出「抢杀爆发」的分量。
-                    // 不碰 lastDamageTarget —— 那是 Damage 分帧用的状态,Detonate 不是 Damage 事件。
+                    // 给一记比 BurnTick 更重的震屏,读出「抢杀爆发」的分量——不调 HitFx(它自带的震屏
+                    // 上限 26,比这里这条更轻),改成内联 HitFx 的音效/闪光两件事(2026-08-10 复核补):
+                    // 打击音 + amount≥40 全屏微闪照抄 HitFx,震屏单用下面这条更重的,避免叠两次。
                     case BattleEventKind.Detonate:
                         Popup($"爆 {e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        _audio.pitch = Mathf.Clamp(1.3f - e.Amount / 80f, 0.6f, 1.3f);
+                        _audio.PlayOneShot(e.Amount >= 30 ? _thudClip : _hitClip, 0.9f);
+                        _audio.pitch = 1f;
                         StartCoroutine(Shake(Mathf.Clamp(10f + e.Amount * 0.4f, 10f, 30f)));
+                        if (e.Amount >= 40) ScreenFlash(0.12f, Color.white);
                         onImpact?.Invoke(e);
                         break;
                     case BattleEventKind.BleedTick: // 无属性 DoT:同样串行,但用朱砂色且不带火焰
