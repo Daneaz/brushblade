@@ -74,6 +74,19 @@ namespace Brushblade.Presentation
                     EffectKind.Slow => $"减速{v}回合(半速)",
                     EffectKind.DamageReduction => $"本段受伤−{v}%",
                     EffectKind.ArmorBreak => $"破甲 {v} 回合(承伤+25%)",
+                    // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
+                    // 用 e.Value 而不是 v,否则 −1(全部)这个哨兵值被 ScaleByCardLevel 一乘会变样
+                    EffectKind.Dispel => e.Value < 0
+                        ? (e.TargetAll ? "全体驱散全部增益" : "驱散全部增益")
+                        : (e.TargetAll ? $"全体驱散{e.Value}条增益" : $"驱散{e.Value}条增益"),
+                    EffectKind.Cleanse => "净化自身全部减益",
+                    EffectKind.Immunity => $"免疫{v}次伤害",
+                    EffectKind.Revive => $"复活{v}名召唤物(各回半血)",
+                    EffectKind.Blind => e.TargetAll
+                        ? $"全体致盲−{v}%,{e.Turns}回合"
+                        : $"致盲−{v}%,{e.Turns}回合",
+                    EffectKind.Silence => $"沉默{e.Turns}回合",
+                    EffectKind.Reflect => $"反弹{v}%伤害,{e.Turns}回合",
                     _ => e.Kind.ToString(),
                 });
             }
