@@ -1,6 +1,9 @@
 """字表导出:配方生成、叠字链人工兜底、数值抽取。"""
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -8,6 +11,9 @@ from export_chars import STACK_RECIPES, build_chars
 from extract_values import extract
 
 SPEC = Path(__file__).resolve().parents[3] / "docs/design/字选型/技能机制详表.md"
+IDS = Path(__file__).resolve().parent.parent / "data" / "raw" / "ids.txt"
+CHARS_JSON = (Path(__file__).resolve().parents[3]
+              / "Brushblade/Assets/StreamingAssets/config/chars.json")
 
 # 内联小词表(格式同 ids.txt:codepoint \t 字 \t IDS)
 MINI_IDS = "\n".join([
@@ -279,3 +285,19 @@ def test_turns_and_target_all_do_not_leak_to_non_duration_kinds():
     assert _parse_effects("`DamageSingle 10` + `Burn 3` + `HitCount 2`", "火") == [
         {"kind": "DamageSingle", "value": 10, "hitCount": 2},
         {"kind": "Burn", "value": 3}]
+
+
+@pytest.mark.skipif(not IDS.exists(),
+                    reason="data/raw/ids.txt 不入 git,新克隆的仓库跑不了这条")
+def test_shipped_chars_json_is_regenerable_from_spec():
+    """出货的 chars.json 必须等于「拿当前详表重跑一遍管线」的结果。
+
+    本文件其余测试喂的都是手打字符串,证明的是「**如果**详表这么写,解析器能解对」;
+    没有一条碰过游戏真正加载的 chars.json。于是两种事故全程无声:
+    改了详表忘跑 export_chars.py(游戏里没生效),或手改 chars.json 图省事
+    (下次谁跑一次管线就被静默冲掉)。这条是唯一的网。
+    """
+    rebuilt = build_chars(IDS.read_text(encoding="utf-8"),
+                          extract(SPEC.read_text(encoding="utf-8")))
+    shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
+    assert rebuilt == shipped, "chars.json 与详表不同步 —— 跑 python3 tools/pipeline/export_chars.py"
