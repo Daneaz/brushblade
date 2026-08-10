@@ -12,7 +12,11 @@ __pycache__/
 .pytest_cache/
 
 # Pipeline 大产物(原始数据与中间输出不入 git,见 docs/architecture.md §2)
-tools/pipeline/data/raw/
+# 例外:ids.txt 入 git —— test_shipped_chars_json_is_regenerable_from_spec 要靠它
+# 重跑管线比对出货字表,不入库这条测试在新克隆的仓库/CI 上只能 skip(2026-08-10)。
+# 数据源 cjkvi-ids(GPL 系,基于 CHISE IDS DB),仓库转公开前需在 NOTICE 署源。
+tools/pipeline/data/raw/*
+!tools/pipeline/data/raw/ids.txt
 tools/pipeline/out/
 
 # 字体原始文件(google/fonts, OFL, 体积大不入 git)

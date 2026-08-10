@@ -3,8 +3,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from export_chars import STACK_RECIPES, build_chars
@@ -287,8 +285,6 @@ def test_turns_and_target_all_do_not_leak_to_non_duration_kinds():
         {"kind": "Burn", "value": 3}]
 
 
-@pytest.mark.skipif(not IDS.exists(),
-                    reason="data/raw/ids.txt 不入 git,新克隆的仓库跑不了这条")
 def test_shipped_chars_json_is_regenerable_from_spec():
     """出货的 chars.json 必须等于「拿当前详表重跑一遍管线」的结果。
 
@@ -296,6 +292,8 @@ def test_shipped_chars_json_is_regenerable_from_spec():
     没有一条碰过游戏真正加载的 chars.json。于是两种事故全程无声:
     改了详表忘跑 export_chars.py(游戏里没生效),或手改 chars.json 图省事
     (下次谁跑一次管线就被静默冲掉)。这条是唯一的网。
+
+    ids.txt 为此破例入 git(.gitignore 有说明)——同目录的 xinhua_*.json 仍不入。
     """
     rebuilt = build_chars(IDS.read_text(encoding="utf-8"),
                           extract(SPEC.read_text(encoding="utf-8")))
