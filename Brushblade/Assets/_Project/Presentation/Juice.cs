@@ -154,6 +154,15 @@ namespace Brushblade.Presentation
                         onImpact?.Invoke(e);
                         serialPending = true;
                         break;
+                    // 引爆(2026-08-09,灱):把剩余灼烧层数一次性全打出来再清空,不是一记普通 DoT tick,
+                    // 给一记比 BurnTick(走 HitFx,震屏上限 26)更重的震屏,读出「抢杀爆发」的分量。
+                    // 不碰 lastDamageTarget —— 那是 Damage 分帧用的状态,Detonate 不是 Damage 事件。
+                    case BattleEventKind.Detonate:
+                        Popup($"爆 {e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        StartCoroutine(Shake(Mathf.Clamp(10f + e.Amount * 0.4f, 10f, 30f)));
+                        onImpact?.Invoke(e);
+                        break;
                     case BattleEventKind.BleedTick: // 无属性 DoT:同样串行,但用朱砂色且不带火焰
                         if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
                         Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),

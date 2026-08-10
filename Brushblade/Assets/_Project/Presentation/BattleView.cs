@@ -152,6 +152,8 @@ namespace Brushblade.Presentation
                 case BattleEventKind.Damage:
                 case BattleEventKind.BurnTick:
                 case BattleEventKind.BleedTick:
+                case BattleEventKind.Detonate: // 引爆(2026-08-09,灱):Amount 是实打的伤害,同口径推血条——
+                                                // 不接这条,血条会一动不动到本段动画收尾才突然跳,是这段注释说的老毛病
                     // TargetIndex < 0 = 玩家自己在烧(2026-08-06,灯花的灼身):走玩家血条,
                     // 与 EnemyAttack 同款推进。PushEnemyHp 对 −1 会直接返回 false,
                     // 不加这条分支血条就一动不动、只有最终重绘才突然掉下去
@@ -721,6 +723,9 @@ namespace Brushblade.Presentation
                         Theme.Cinnabar, Color.white, 12);
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0) Ui.Chip(chips.transform, $"灼烧 {burnStacks}", Theme.Cinnabar, Color.white, 12);
+                // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系;2 字,不加长这行已溢出的 chip 格
+                if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
+                    Ui.Chip(chips.transform, "不灭", Theme.Cinnabar, Color.white, 12);
                 int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
                 if (blind > 0)
                     Ui.Chip(chips.transform, $"致盲 −{blind}%", Theme.InkSoft, Color.white, 12);

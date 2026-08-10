@@ -87,6 +87,9 @@ namespace Brushblade.Presentation
                         : $"致盲−{v}%,{e.Turns}回合",
                     EffectKind.Silence => $"沉默{e.Turns}回合",
                     EffectKind.Reflect => $"反弹{v}%伤害,{e.Turns}回合",
+                    EffectKind.BurnNoDecay => "灼烧不衰减(本场)",
+                    EffectKind.BurnSettleNow => "立即结算一次灼烧",
+                    EffectKind.Detonate => "引爆灼烧(全额兑现并清空)",
                     _ => e.Kind.ToString(),
                 });
             }
