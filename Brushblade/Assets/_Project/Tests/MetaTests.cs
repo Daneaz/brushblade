@@ -154,6 +154,28 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.ScaleByCardLevel(baseValue, level), Is.EqualTo(expected));
         }
 
+        [TestCase(1, 100)]   // 1 级 = 基准,伤害与引入攻击力之前逐字节相同
+        [TestCase(2, 102)]
+        [TestCase(11, 120)]
+        [TestCase(25, 148)]
+        [TestCase(26, 150)]  // 与 MaxHpFor 同在 26 级触顶
+        [TestCase(40, 150)]  // 封顶后不再涨
+        public void AttackFor_GrowsTwoPerLevel_CapsAt150(int level, int expected)
+        {
+            Assert.That(MetaRules.AttackFor(level), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void AttackFor_CapsAtSameLevelAsMaxHp()
+        {
+            // 两条角色属性曲线刻意同形同封顶级(19.2.1),口径一致才好记也好平衡。
+            // 分开写死会在改了一条忘了另一条时静默漂移,这条守住它们的耦合。
+            Assert.That(MetaRules.AttackFor(26), Is.EqualTo(150));
+            Assert.That(MetaRules.MaxHpFor(26), Is.EqualTo(100));
+            Assert.That(MetaRules.AttackFor(25), Is.LessThan(150));
+            Assert.That(MetaRules.MaxHpFor(25), Is.LessThan(100));
+        }
+
         // ---- 卡等级进战斗:等级系数先作用于基础值,再走生克 ----
 
         [Test]
