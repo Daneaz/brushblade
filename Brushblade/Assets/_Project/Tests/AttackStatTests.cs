@@ -23,6 +23,11 @@ namespace Brushblade.CoreTests
                 effects: new[] { new EffectDef(EffectKind.HealSelf, 9) }),
             new CharDef("戊", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Freeze, 2) }),
+            new CharDef("己", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Bleed, 4) }),
+            new CharDef("庚", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Summon, 20, summonCount: 1,
+                    summonAttack: 6, summonChar: "木") }),
         });
 
         private static EnemyDef Dummy(int hp = 500) => new("怔", Element.Heart, hp, 0);
@@ -125,6 +130,59 @@ namespace Brushblade.CoreTests
             var freeze = engine.Enemies[0].Statuses.Find(StatusKind.Freeze);
             Assert.That(freeze, Is.Not.Null);
             Assert.That(freeze.TurnsLeft, Is.EqualTo(2), "回合数不吃攻击力");
+        }
+
+        // ---- 流血:施加时吃 ATK ----
+
+        [Test]
+        public void HigherAttack_ScalesBleedAtApplyTime()
+        {
+            var engine = Battle(150, "己");
+            engine.Cast("己", 0);
+            var bleed = engine.Enemies[0].Statuses.Find(StatusKind.Bleed);
+            Assert.That(bleed, Is.Not.Null);
+            Assert.That(bleed.Magnitude, Is.EqualTo(6), "4 × 150 ÷ 100 = 6");
+        }
+
+        [Test]
+        public void Bleed_DoesNotRetroactivelyScale()
+        {
+            // 出牌时快照:挂上之后再抬攻击力,已挂的流血不变。
+            // 没有这条,把 ScaleByAttack 挪到流血结算处(实时读)也不会有测试红。
+            var engine = Battle(BattleConfig.AttackBaseline, "己");
+            engine.Cast("己", 0);
+            engine.ApplyPlayerAttackBuff(100);
+            var bleed = engine.Enemies[0].Statuses.Find(StatusKind.Bleed);
+            Assert.That(bleed.Magnitude, Is.EqualTo(4), "已挂的流血不回溯");
+        }
+
+        // ---- 召唤物:创建时吃 ATK ----
+
+        [Test]
+        public void HigherAttack_ScalesSummonAttackAtBirth()
+        {
+            var engine = Battle(150, "庚");
+            engine.Cast("庚");
+            Assert.That(engine.Summons.Count, Is.EqualTo(1));
+            Assert.That(engine.Summons[0].Attack, Is.EqualTo(9), "6 × 150 ÷ 100 = 9");
+        }
+
+        [Test]
+        public void SummonHp_DoesNotScaleWithAttack()
+        {
+            // 召唤物的**血量**是防御资源,不吃攻击力;只有它的攻击力吃。
+            var engine = Battle(150, "庚");
+            engine.Cast("庚");
+            Assert.That(engine.Summons[0].MaxHp, Is.EqualTo(20), "召唤物血量不吃攻击力");
+        }
+
+        [Test]
+        public void ExistingSummon_DoesNotRetroactivelyScale()
+        {
+            var engine = Battle(BattleConfig.AttackBaseline, "庚");
+            engine.Cast("庚");
+            engine.ApplyPlayerAttackBuff(100);
+            Assert.That(engine.Summons[0].Attack, Is.EqualTo(6), "已在场的召唤物不回溯");
         }
 
         // ---- 快照 ----

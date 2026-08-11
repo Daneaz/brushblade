@@ -923,7 +923,8 @@ namespace Brushblade.Core
                             _enemies[targetIndex].Statuses.Apply(new StatusEffect
                             {
                                 Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
-                                Magnitude = value, TurnsLeft = 3,   // 固定 3 回合
+                                // 出牌时吃攻击力:Magnitude 本来就是施加时定死的,套上即为快照语义
+                                Magnitude = ScaleByAttack(value), TurnsLeft = 3,   // 固定 3 回合
                             });
                         }
                         break;
@@ -1116,8 +1117,11 @@ namespace Brushblade.Core
                         {
                             // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些"资源"随等级涨,
                             // 反伤/灼烧层/减攻百分比这些"节奏"保持不变,免得档位失控
+                            // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
+                            // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
+                            // 之后再抬攻击力,已在场的这只不变
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
-                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel),
+                                ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
                             if (AliveSummons() < SummonCap)
                             {
