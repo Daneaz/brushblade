@@ -1,0 +1,145 @@
+using System;
+using Brushblade.Core;
+using NUnit.Framework;
+
+namespace Brushblade.CoreTests
+{
+    /// <summary>玩家攻击力(19.2.1 角色属性)进入伤害链路。
+    ///
+    /// 测试字一律用 <see cref="Element.Heart"/> 且不给配方:心对全属性生克都是 1.0x,
+    /// 又没有配方就不会触发相生 ×3 —— 于是断言里看到的数字就是 ATK 缩放本身,
+    /// 不掺生克。用五行属性的字会让 ×1.5/×3 混进来,算错了也看不出是哪一层的错。</summary>
+    public sealed class AttackStatTests
+    {
+        private static RecipeGraph Graph() => new(new[]
+        {
+            new CharDef("甲", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 20) }),
+            new CharDef("乙", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageAll, 10) }),
+            new CharDef("丙", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Shield, 7) }),
+            new CharDef("丁", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.HealSelf, 9) }),
+            new CharDef("戊", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Freeze, 2) }),
+        });
+
+        private static EnemyDef Dummy(int hp = 500) => new("怔", Element.Heart, hp, 0);
+
+        private static BattleEngine Battle(int attack, params string[] library) =>
+            new(Graph(), new BattleConfig { PlayerAttack = attack, PlayerMaxHp = 100 },
+                library, Array.Empty<string>(), new[] { Dummy() }, seed: 1);
+
+        // ---- 恒等性硬线 ----
+
+        [Test]
+        public void BaselineAttack_LeavesDamageByteIdentical()
+        {
+            // 这条是整个子项目的地基:基准值下伤害必须与引入攻击力之前一模一样。
+            // 它红了意味着 792 条现有断言里会有一批跟着红,实现方向就是错的。
+            var engine = Battle(BattleConfig.AttackBaseline, "甲");
+            engine.Cast("甲", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 20));
+        }
+
+        [Test]
+        public void DefaultConfig_AttackIsBaseline()
+        {
+            Assert.That(new BattleConfig().PlayerAttack, Is.EqualTo(BattleConfig.AttackBaseline));
+            Assert.That(BattleConfig.AttackBaseline, Is.EqualTo(100));
+        }
+
+        // ---- 直接伤害吃 ATK ----
+
+        [Test]
+        public void HigherAttack_ScalesSingleTargetDamage()
+        {
+            var engine = Battle(150, "甲");
+            engine.Cast("甲", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 30), "20 × 150 ÷ 100 = 30");
+        }
+
+        [Test]
+        public void HigherAttack_ScalesAoeDamage()
+        {
+            var engine = Battle(150, "乙");
+            engine.Cast("乙");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 15), "10 × 150 ÷ 100 = 15");
+        }
+
+        [Test]
+        public void IntegerDivision_TruncatesSmallValues()
+        {
+            // 已知副作用(spec 第十节):整数除会吃掉低数值字的加成。
+            // 20 × 102 ÷ 100 = 20(不是 20.4 也不是 21)。
+            // 写成测试是为了让它成为**有意的行为**而不是某天被人当 bug「修」掉 ——
+            // 真解法是 E-b5 抬高字表数值量级,不是在这里改成 ceil。
+            var engine = Battle(102, "甲");
+            engine.Cast("甲", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 20));
+        }
+
+        // ---- 局内增益 ----
+
+        [Test]
+        public void InCombatAttackBuff_AddsToConfigAttack()
+        {
+            var engine = Battle(BattleConfig.AttackBaseline, "甲");
+            engine.ApplyPlayerAttackBuff(50);
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(150));
+            engine.Cast("甲", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 30));
+        }
+
+        // ---- 负向:不该吃的没吃 ----
+
+        [Test]
+        public void HighAttack_DoesNotScaleShield()
+        {
+            // 只写正向断言的话,把护盾也乘上 ATK 不会有任何测试发现 ——
+            // 子项目 D 的白名单方向性教训,同一类漏洞换了个形状。
+            var engine = Battle(150, "丙");
+            engine.Cast("丙");
+            Assert.That(engine.PlayerShield, Is.EqualTo(7), "护盾不吃攻击力");
+        }
+
+        [Test]
+        public void HighAttack_DoesNotScaleHeal()
+        {
+            // PlayerHp 是 { get; private set; },不能用对象初始化器设 ——
+            // 起始血量只能走构造参数 startingHp
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { PlayerAttack = 150, PlayerMaxHp = 100 },
+                new[] { "丁" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
+                startingHp: 50);
+            engine.Cast("丁");
+            Assert.That(engine.PlayerHp, Is.EqualTo(59), "治疗不吃攻击力");
+        }
+
+        [Test]
+        public void HighAttack_DoesNotScaleFreezeTurns()
+        {
+            var engine = Battle(150, "戊");
+            engine.Cast("戊", 0);
+            var freeze = engine.Enemies[0].Statuses.Find(StatusKind.Freeze);
+            Assert.That(freeze, Is.Not.Null);
+            Assert.That(freeze.TurnsLeft, Is.EqualTo(2), "回合数不吃攻击力");
+        }
+
+        // ---- 快照 ----
+
+        [Test]
+        public void AttackBuff_SurvivesSnapshotRoundTrip()
+        {
+            var engine = Battle(BattleConfig.AttackBaseline, "甲");
+            engine.ApplyPlayerAttackBuff(50);
+            var defs = new System.Collections.Generic.Dictionary<string, EnemyDef> { ["怔"] = Dummy() };
+            var restored = BattleEngine.Restore(engine.Capture(), Graph(),
+                new BattleConfig { PlayerAttack = BattleConfig.AttackBaseline, PlayerMaxHp = 100 },
+                null, defs);
+            Assert.That(restored.EffectiveAttack, Is.EqualTo(150),
+                "局内增益存在 PlayerStatuses 里,快照本来就在存 —— 零新增字段");
+        }
+    }
+}
