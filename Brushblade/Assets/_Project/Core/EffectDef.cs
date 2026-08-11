@@ -28,6 +28,9 @@ namespace Brushblade.Core
         BurnNoDecay,  // 不灭:目标灼烧本场不衰减(Value 不用,2026-08-09)
         BurnSettleNow, // 立即结算一次灼烧(与回合末同公式;Value 不用,2026-08-09)
         Detonate,     // 引爆:把目标剩余灼烧层数的全部未来伤害一次打出并清空(Value 不用,2026-08-09)
+        Empower,      // 本场攻击力 +Value(剡;可叠加,2026-08-12)
+        Morale,       // 战意 +Value 层,每层 +10 攻击,上限 5 层(战/戮;本场持久,2026-08-12)
+        ApBoost,      // 本场每回合 AP 上限 +Value(利;可叠加,2026-08-12)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

@@ -133,6 +133,8 @@ namespace Brushblade.Core
         private const int SearStacks = 1;  // 灯花每次攻击给玩家挂的灼烧层数(2026-08-06)
         private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
         private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
+        private const int MoralePerStack = 10;  // 战意每层的攻击加成(2026-08-12)
+        private const int MoraleMaxStacks = 5;  // 战意层数上限:满层 +50 攻击,刚好追平剡单张的量
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
@@ -153,13 +155,17 @@ namespace Brushblade.Core
         /// 恢复的条目撞号,撞上就被意外覆盖。</summary>
         private int _statusSerial;
 
-        /// <summary>本场生效的玩家攻击力 = 角色属性(config)+ 局内增益。
+        /// <summary>本场生效的玩家攻击力 = 角色属性(config)+ 局内增益 + 战意。
         /// 局内增益复用 <see cref="StatusKind.AttackBuff"/> —— 敌人侧的标点小妖加攻、
         /// 焦痕受击自燃早就在用同一个 Kind,不新增枚举值。
+        /// 战意(2026-08-12,战/戮)单开一个 Kind:它的 Magnitude 是**层数**不是加成值,
+        /// 混进 AttackBuff 会既丢掉层数上限又让 +1 层被当成 +1 攻击。
         /// 钳到 ≥0 与 <see cref="EnemyState.Attack"/> 同口径:负攻击力会打出负伤害,
         /// 等于给敌人回血,且全程无声。</summary>
         public int EffectiveAttack =>
-            Math.Max(0, _config.PlayerAttack + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff));
+            Math.Max(0, _config.PlayerAttack
+                + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff)
+                + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePerStack);
 
         /// <summary>按玩家攻击力缩放一个输出值。**整数除**:
         /// <c>EffectiveAttack == AttackBaseline</c> 时 <c>value * 100 / 100 == value</c>,逐字节恒等。
@@ -303,7 +309,10 @@ namespace Brushblade.Core
         public BattlePhase Phase { get; private set; }
         public int Turn { get; private set; }
         public int Ap { get; private set; }
-        public int ApPerTurn => _config.ApPerTurn;   // 每回合 AP 上限(UI 满格数 / 提示文案用;一气技能会抬高)
+        /// <summary>每回合 AP 上限(UI 满格数 / 提示文案用;一气技能与局内的 利 都会抬高)。
+        /// 必须与 <see cref="StartTurn"/> 那句同源:只改一边会出现「UI 画 3 格但实际有 4 AP」。
+        /// 这里不减封字 —— 封字是**下回合**的临时扣减,不是上限本身。</summary>
+        public int ApPerTurn => _config.ApPerTurn + _playerStatuses.TotalMagnitude(StatusKind.ApBoost);
         public int PlayerHp { get; private set; }
         public int MaxHp => _config.PlayerMaxHp;     // 本场生效的血量上限(局内奇遇可抬高,2026-08-04)
 
@@ -850,7 +859,9 @@ namespace Brushblade.Core
             // 封字(2026-08-06):AP 扣减从裸字段改成 StatusKind.Seal —— 这样它可被净化、
             // 可被免疫,并且跟着 PlayerStatuses 进存档(裸字段从来没进过 BattleSnapshot,
             // 倾覆后存档续爬会白丢惩罚)。到期移除由统一的状态回合递减负责,这里不清。
-            Ap = Math.Max(1, _config.ApPerTurn - _playerStatuses.TotalMagnitude(StatusKind.Seal));
+            // 顺序:先加 ApBoost(利,2026-08-12)再减封字,最后才钳保底 —— 反过来
+            // (先钳后加)会让重封字下的 利 白白多给一点 AP。
+            Ap = Math.Max(1, ApPerTurn - _playerStatuses.TotalMagnitude(StatusKind.Seal));
 
             // 回合掉字(2026-08-04):从出战牌组掉 N 个字入库,满库则停下让玩家决议。
             // 部件不再掉落 —— 五行部件只能靠拆字获得(拆免 AP 是这条的对冲)。
@@ -1066,6 +1077,30 @@ namespace Brushblade.Core
                     case EffectKind.Detonate:
                         if (targetIndex >= 0) Detonate(targetIndex);
                         break;
+                    case EffectKind.Empower:
+                        // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
+                        // SourceId 铸唯一序号(用法 2)才能叠 —— 传裸字 ID 会让第二张剡
+                        // 覆盖第一张,静默退化成刷新。
+                        _playerStatuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = -1,
+                            SourceId = $"{def.Id}#{_statusSerial++}",
+                        });
+                        break;
+                    case EffectKind.Morale:
+                        // 战/戮(2026-08-12):战意是一条**带上限的计数器**,战与戮往同一条上加。
+                        // 所以既不能铸唯一序号(各挂各的会绕开上限),也不能走 Apply() 的
+                        // 同源覆盖(那是刷新,出两张战还是 3 层)—— 只能就地累加再钳。
+                        AddPlayerCounter(StatusKind.Morale, value, MoraleMaxStacks);
+                        break;
+                    case EffectKind.ApBoost:
+                        // 利(2026-08-12):AP 是「节奏/经济」不是「资源」,与驱散条数、
+                        // 召唤被动同口径**不吃卡等级** —— 用 effect.Value 而不是 value:
+                        // Lv.10 系数 1.9 会把 +1 AP 算成 ceil(1×1.9) = 2,每回合翻倍的是
+                        // 整个出牌预算,不是一条效果的数值。
+                        AddPlayerCounter(StatusKind.ApBoost, effect.Value, int.MaxValue);
+                        break;
                     case EffectKind.DamageReduction:
                         _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
                         {
@@ -1148,6 +1183,27 @@ namespace Brushblade.Core
                         break;
                 }
             }
+        }
+
+        /// <summary>玩家侧的「累加型计数器」状态(战意 / AP 上限加成,2026-08-12):
+        /// 全场只有一条,重复施加往上加并钳到 cap,而不是新挂一条也不是刷新。
+        ///
+        /// 不能复用 <see cref="StatusBag.Apply"/> 的任一既有语义:铸唯一序号会各挂各的、
+        /// 让 TotalMagnitude 绕开上限;裸字 ID 去重则是覆盖刷新(出两张战还是 3 层)。
+        /// SourceId 留 null:按 Kind 唯一,驱散/净化照常按极性认它。</summary>
+        private void AddPlayerCounter(StatusKind kind, int amount, int cap)
+        {
+            var existing = _playerStatuses.Find(kind);
+            if (existing != null)
+            {
+                existing.Magnitude = Math.Min(existing.Magnitude + amount, cap);
+                return;
+            }
+            _playerStatuses.Apply(new StatusEffect
+            {
+                Kind = kind, Polarity = StatusPolarity.Buff,
+                Magnitude = Math.Min(amount, cap), TurnsLeft = -1, SourceId = null,
+            });
         }
 
         /// <summary>驱散一名敌人的增益:count &lt; 0 清全部,否则从头清至多 count 条。

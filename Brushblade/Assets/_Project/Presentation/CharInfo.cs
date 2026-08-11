@@ -100,6 +100,13 @@ namespace Brushblade.Presentation
                     EffectKind.BurnNoDecay => "灼烧不衰减(本场)",
                     EffectKind.BurnSettleNow => "立即结算一次灼烧",
                     EffectKind.Detonate => "引爆灼烧(全额兑现并清空)",
+                    // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
+                    // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
+                    EffectKind.Empower => $"本场攻击+{v}",
+                    EffectKind.Morale => $"战意+{v}层(每层攻击+10,上限 5 层)",
+                    // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
+                    // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
+                    EffectKind.ApBoost => $"本场每回合 AP 上限+{e.Value}",
                     _ => e.Kind.ToString(),
                 });
             }

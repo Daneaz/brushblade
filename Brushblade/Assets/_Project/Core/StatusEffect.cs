@@ -21,6 +21,8 @@ namespace Brushblade.Core
         Silence,          // 沉默:该敌人的主动机制全部哑火(2026-08-07)
         Reflect,          // 反弹:把打到玩家的伤害按 Magnitude% 照回攻击者(2026-08-07)
         BurnNoDecay,      // 不灭:该敌人身上的灼烧层数不再每回合衰减(2026-08-09,炑)
+        Morale,           // 战意:Magnitude = **层数**(不是攻击加成值),每层 +10 攻击,上限 5 层(2026-08-12)
+        ApBoost,          // 玩家每回合 AP 上限加成(2026-08-12,利)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -30,7 +32,9 @@ namespace Brushblade.Core
     /// ArmorBreak=承伤加成百分比(DamageEnemy 直接读这个字段,不再读常量)、
     /// Curse=减攻百分比(EnemyState.Attack 读它)、
     /// Seal=AP 扣减量(StartTurn 读它)、
-    /// Blind=命中降低百分比(AttackHits 读它)。</summary>
+    /// Blind=命中降低百分比(AttackHits 读它)、
+    /// Morale=战意层数(EffectiveAttack 乘 MoralePerStack 才是攻击加成)、
+    /// ApBoost=每回合 AP 上限加成(StartTurn 与 ApPerTurn 两侧都读它)。</summary>
     public sealed class StatusEffect
     {
         public StatusKind Kind { get; set; }

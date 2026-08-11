@@ -1598,6 +1598,25 @@
       ]
     },
     {
+      "id": "戮",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "羽",
+        "戈"
+      ],
+      "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 9
+        },
+        {
+          "kind": "Morale",
+          "value": 1
+        }
+      ]
+    },
+    {
       "id": "锥",
       "rarity": "Green",
       "element": "Metal",
@@ -1757,6 +1776,51 @@
           "kind": "Reflect",
           "value": 50,
           "turns": 2
+        }
+      ]
+    },
+    {
+      "id": "剡",
+      "rarity": "Gold",
+      "element": "Metal",
+      "recipe": [
+        "炎",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "Empower",
+          "value": 50
+        }
+      ]
+    },
+    {
+      "id": "战",
+      "rarity": "White",
+      "element": "Metal",
+      "recipe": [
+        "占",
+        "戈"
+      ],
+      "effects": [
+        {
+          "kind": "Morale",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "id": "利",
+      "rarity": "White",
+      "element": "Metal",
+      "recipe": [
+        "禾",
+        "刂"
+      ],
+      "effects": [
+        {
+          "kind": "ApBoost",
+          "value": 1
         }
       ]
     },
@@ -2262,6 +2326,9 @@
       "id": "卒"
     },
     {
+      "id": "占"
+    },
+    {
       "id": "卯"
     },
     {
@@ -2356,6 +2423,10 @@
       "id": "归"
     },
     {
+      "id": "戈",
+      "element": "Metal"
+    },
+    {
       "id": "成"
     },
     {
@@ -2422,10 +2493,16 @@
       "element": "Earth"
     },
     {
+      "id": "禾"
+    },
+    {
       "id": "秋"
     },
     {
       "id": "竟"
+    },
+    {
+      "id": "羽"
     },
     {
       "id": "肖"
