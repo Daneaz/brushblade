@@ -27,6 +27,15 @@ namespace Brushblade.Core
     public sealed class BattleConfig
     {
         public int PlayerMaxHp { get; set; } = 50;
+
+        /// <summary>攻击力基准。<see cref="PlayerAttack"/> 等于此值时,
+        /// 伤害与引入攻击力之前**逐字节相同** —— 这是 E-b1 的验收硬线。</summary>
+        public const int AttackBaseline = 100;
+
+        /// <summary>玩家攻击力(19.2.1 角色属性)。由 GameRoot 按
+        /// <c>MetaRules.AttackFor(角色等级)</c> 注入;工装与测试不给就取基准值。</summary>
+        public int PlayerAttack { get; set; } = AttackBaseline;
+
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
@@ -143,6 +152,39 @@ namespace Brushblade.Core
         /// 独一无二的 SourceId 绕开 Apply() 的同源覆盖。要进快照——续爬后计数器归零会与快照里
         /// 恢复的条目撞号,撞上就被意外覆盖。</summary>
         private int _statusSerial;
+
+        /// <summary>本场生效的玩家攻击力 = 角色属性(config)+ 局内增益。
+        /// 局内增益复用 <see cref="StatusKind.AttackBuff"/> —— 敌人侧的标点小妖加攻、
+        /// 焦痕受击自燃早就在用同一个 Kind,不新增枚举值。
+        /// 钳到 ≥0 与 <see cref="EnemyState.Attack"/> 同口径:负攻击力会打出负伤害,
+        /// 等于给敌人回血,且全程无声。</summary>
+        public int EffectiveAttack =>
+            Math.Max(0, _config.PlayerAttack + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff));
+
+        /// <summary>按玩家攻击力缩放一个输出值。**整数除**:
+        /// <c>EffectiveAttack == AttackBaseline</c> 时 <c>value * 100 / 100 == value</c>,逐字节恒等。
+        ///
+        /// 刻意不用 <c>ceil</c>:<c>ceil(7 × 1.02) = 8</c> 等于 +14%,低数值字反而超额收益,
+        /// 方向是错的。低数值字在攻击成长前期没反应是已知副作用,
+        /// 真解法是 E-b5 抬高字表数值量级(见 spec 第十节)。</summary>
+        private int ScaleByAttack(int value) => value * EffectiveAttack / BattleConfig.AttackBaseline;
+
+        /// <summary>给玩家挂一层攻击增益。E-b3 的 剡/战意 会走正规的效果分支,
+        /// 在那之前这是局内改变攻击力的唯一入口,现阶段只有测试在用。
+        ///
+        /// internal 而非 public(2026-08-11 用户裁定):它只为测试存在,不该出现在生产 API 面上。
+        /// 见同目录 AssemblyInfo.cs 的 InternalsVisibleTo。
+        /// SourceId 每次唯一(同 HoT / 焦痕自燃的做法):Apply() 会按 SourceId 覆盖同源条目,
+        /// 不给唯一 id 的话第二次挂增益会覆盖第一次而不是叠加。</summary>
+        internal void ApplyPlayerAttackBuff(int amount)
+        {
+            _playerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                Magnitude = amount, TurnsLeft = -1,
+                SourceId = $"debug-atk#{_statusSerial++}",
+            });
+        }
 
         /// <summary>所有减伤来源连乘后的承伤系数(1.0 = 无减伤;乘法叠加,天然趋近但不达 0)。</summary>
         public float DamageReductionMultiplier
@@ -849,8 +891,11 @@ namespace Brushblade.Core
                         {
                             if (!_enemies[targetIndex].Alive) break;
                             if (TryExecuteKill(effect, targetIndex)) break; // 处决:击杀后无需再打
+                            // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
+                            // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
                             DamageEnemy(targetIndex,
-                                ExecuteBonus(effect, targetIndex, BaseValue(effect, value, _enemies[targetIndex])),
+                                ScaleByAttack(ExecuteBonus(effect, targetIndex,
+                                    BaseValue(effect, value, _enemies[targetIndex]))),
                                 recipeElements, attacker, effect.IgnoreArmor);
                         }
                         break;
@@ -861,7 +906,7 @@ namespace Brushblade.Core
                             if (!_enemies[i].Alive) continue;
                             if (TryExecuteKill(effect, i)) continue; // 斩杀对每个目标分别判定
                             DamageEnemy(i,
-                                ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i])),
+                                ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
                                 recipeElements, attacker, effect.IgnoreArmor);
                         }
                         break;
@@ -878,7 +923,8 @@ namespace Brushblade.Core
                             _enemies[targetIndex].Statuses.Apply(new StatusEffect
                             {
                                 Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
-                                Magnitude = value, TurnsLeft = 3,   // 固定 3 回合
+                                // 出牌时吃攻击力:Magnitude 本来就是施加时定死的,套上即为快照语义
+                                Magnitude = ScaleByAttack(value), TurnsLeft = 3,   // 固定 3 回合
                             });
                         }
                         break;
@@ -1071,8 +1117,11 @@ namespace Brushblade.Core
                         {
                             // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些"资源"随等级涨,
                             // 反伤/灼烧层/减攻百分比这些"节奏"保持不变,免得档位失控
+                            // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
+                            // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
+                            // 之后再抬攻击力,已在场的这只不变
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
-                                MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel),
+                                ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
                             if (AliveSummons() < SummonCap)
                             {
@@ -1123,7 +1172,12 @@ namespace Brushblade.Core
             if (!enemy.Alive) return;
             var burn = enemy.Statuses.Find(StatusKind.Burn);
             if (burn == null || burn.Magnitude <= 0) return;
+            // 攻击力**结算时读**,回溯生效 —— 与炽/BurnPotency 同口径:每层伤害从来不是
+            // 出牌时冻结的量,它是 _burnPerStack 这个全局标量。层数(Magnitude)不吃攻击力。
+            // 不复用 ScaleByAttack:那是整数除(早截断),这里要插进既有的浮点式子里晚截断,
+            // 才能在基准值下保住逐字节恒等
             int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
+                * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
             // 不灭(2026-08-09,炑):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
@@ -1156,7 +1210,10 @@ namespace Brushblade.Core
             var burn = enemy.Statuses.Find(StatusKind.Burn);
             if (burn == null || burn.Magnitude <= 0) return;
             int stacks = burn.Magnitude;
+            // 与 SettleBurnOn 同口径吃攻击力:引爆是把剩余层数一次性兑现,
+            // 每层伤害用的是同一个量,不能只有一边吃
             int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * _burnPerStack
+                * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);

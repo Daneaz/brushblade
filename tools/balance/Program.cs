@@ -35,12 +35,14 @@ namespace Brushblade.Balance
 
             var profiles = new[]
             {
-                new Profile("新手(灯,1级,HP50)", new[] { "灯" },
-                    new Dictionary<string, int>(), MetaRules.MaxHpFor(1)),
-                new Profile("小成长(灼炎烧灯,卡3级,HP54)", new[] { "灼", "炎", "烧", "灯" },
-                    FireCards.ToDictionary(c => c, _ => 3), MetaRules.MaxHpFor(3)),
-                new Profile("养成(焚炽灼燚,卡5级,HP68)", new[] { "焚", "炽", "灼", "燚" },
-                    FireCards.ToDictionary(c => c, _ => 5), MetaRules.MaxHpFor(10)),
+                // 攻击力与生命取同一个角色等级(2026-08-11 E-b1):画像的等级此前只体现在血量上,
+                // 攻击力恒为基准 —— 那会让 E-b5 重平衡看不见攻击成长这一整条轴
+                new Profile("新手(灯,1级,HP50,ATK100)", new[] { "灯" },
+                    new Dictionary<string, int>(), MetaRules.MaxHpFor(1), MetaRules.AttackFor(1)),
+                new Profile("小成长(灼炎烧灯,卡3级,HP54,ATK104)", new[] { "灼", "炎", "烧", "灯" },
+                    FireCards.ToDictionary(c => c, _ => 3), MetaRules.MaxHpFor(3), MetaRules.AttackFor(3)),
+                new Profile("养成(焚炽灼燚,卡5级,HP68,ATK118)", new[] { "焚", "炽", "灼", "燚" },
+                    FireCards.ToDictionary(c => c, _ => 5), MetaRules.MaxHpFor(10), MetaRules.AttackFor(10)),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
@@ -56,8 +58,10 @@ namespace Brushblade.Balance
             public IReadOnlyList<string> Library;
             public Dictionary<string, int> CardLevels;
             public int MaxHp;
-            public Profile(string name, IReadOnlyList<string> library, Dictionary<string, int> cardLevels, int maxHp)
-            { Name = name; Library = library; CardLevels = cardLevels; MaxHp = maxHp; }
+            public int Attack;
+            public Profile(string name, IReadOnlyList<string> library, Dictionary<string, int> cardLevels,
+                int maxHp, int attack)
+            { Name = name; Library = library; CardLevels = cardLevels; MaxHp = maxHp; Attack = attack; }
         }
 
         private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
@@ -101,6 +105,7 @@ namespace Brushblade.Balance
                 var battleConfig = new BattleConfig
                 {
                     DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp,
+                    PlayerAttack = profile.Attack,
                     UnlockedChars = FireCards,
                 };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,

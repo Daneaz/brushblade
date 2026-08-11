@@ -128,6 +128,11 @@ namespace Brushblade.Core
         /// <summary>生命成长:50 + 2×(等级−1),上限 100。</summary>
         public static int MaxHpFor(int level) => Math.Min(100, 50 + 2 * (level - 1));
 
+        /// <summary>攻击成长:100 + 2×(等级−1),上限 150(19.2.1 角色属性)。
+        /// 与 <see cref="MaxHpFor"/> 同形同封顶级(26 级)——两条角色属性曲线口径一致。
+        /// 基准 100:<c>伤害 = 值 × ATK ÷ 100</c>,1 级时恒等于引入攻击力之前。</summary>
+        public static int AttackFor(int level) => Math.Min(150, 100 + 2 * (level - 1));
+
         /// <summary>关卡解锁:章内顺序解锁;下一章需上一章全通。</summary>
         public static bool IsStageUnlocked(MetaState meta, CampaignConfig campaign, int chapter, int stage)
         {
