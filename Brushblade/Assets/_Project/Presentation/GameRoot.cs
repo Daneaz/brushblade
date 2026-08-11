@@ -188,12 +188,15 @@ namespace Brushblade.Presentation
             // 抽取按稀有度加权(绿 80/蓝 15/紫 5,见 RunEngine.RewardRarityWeights)
             runConfig.RewardPool = _meta.Deck;
 
-            int maxHp = MetaRules.MaxHpFor(MetaRules.CharacterLevel(_meta.CharacterXp))
-                + PerkRules.HpBonus(_meta);
+            int characterLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
+            int maxHp = MetaRules.MaxHpFor(characterLevel) + PerkRules.HpBonus(_meta);
             var battleConfig = new BattleConfig
             {
                 DropTable = _campaign.DropTable,
                 PlayerMaxHp = maxHp,
+                // 攻击力与生命同为角色属性(19.2.1),同一条链注入。
+                // 「被动技能加攻击」的口子将来在这里 + 一个 Bonus 项,与 HpBonus 并排
+                PlayerAttack = MetaRules.AttackFor(characterLevel),
                 UnlockedChars = _meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
                 ApPerTurn = 3 + PerkRules.ApBonus(_meta), // 一气
                 LibraryCapacity = MetaRules.LibraryCapacityFor(_meta), // 起手 + 掉字缓冲 + 博闻加成(广告 +2 在其上叠加)
