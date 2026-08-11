@@ -28,6 +28,10 @@ namespace Brushblade.CoreTests
             new CharDef("庚", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 20, summonCount: 1,
                     summonAttack: 6, summonChar: "木") }),
+            new CharDef("辛", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.BurnSingle, 3) }),
+            new CharDef("壬", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
         });
 
         private static EnemyDef Dummy(int hp = 500) => new("怔", Element.Heart, hp, 0);
@@ -198,6 +202,63 @@ namespace Brushblade.CoreTests
                 null, defs);
             Assert.That(restored.EffectiveAttack, Is.EqualTo(150),
                 "局内增益存在 PlayerStatuses 里,快照本来就在存 —— 零新增字段");
+        }
+
+        // ---- 灼烧:结算时读,回溯生效(与炽同款口径)----
+
+        [Test]
+        public void BaselineAttack_LeavesBurnTickIdentical()
+        {
+            // 恒等性硬线在灼烧这条链上的对应物。
+            // 3 层 × 每层 2 = 6,与引入攻击力之前一致
+            var engine = Battle(BattleConfig.AttackBaseline, "辛");
+            engine.Cast("辛", 0);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 6));
+        }
+
+        [Test]
+        public void HigherAttack_ScalesBurnTick()
+        {
+            var engine = Battle(150, "辛");
+            engine.Cast("辛", 0);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 9), "floor(3 × 2 × 1.5) = 9");
+        }
+
+        [Test]
+        public void Burn_RetroactivelyScalesWithAttack()
+        {
+            // 与流血/召唤物**相反**:灼烧回溯。先挂满层再抬攻击力,已挂的层照样变强。
+            // 这不是不一致,是沿用炽/BurnPotency 已确立的口径 —— 每层伤害本来就是
+            // _burnPerStack 这个全局标量,从来不是出牌时冻结的量。
+            var engine = Battle(BattleConfig.AttackBaseline, "辛");
+            engine.Cast("辛", 0);
+            engine.ApplyPlayerAttackBuff(50);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 9), "已挂的层吃新攻击力");
+        }
+
+        [Test]
+        public void BurnStackCount_DoesNotScaleWithAttack()
+        {
+            // 只放大每层伤害,不放大层数(spec 第三节)。
+            // 层数被放大的话总伤害会按 N(N+1)/2 平方级膨胀,那是另一回事。
+            var engine = Battle(150, "辛");
+            engine.Cast("辛", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn),
+                Is.EqualTo(3), "层数不吃攻击力");
+        }
+
+        [Test]
+        public void HigherAttack_ScalesDetonate()
+        {
+            // 引爆 = N(N+1)/2 × 每层伤害,同口径吃攻击力。
+            // 3 层:3×4/2 = 6 → 6 × 2 = 12 → ×1.5 = 18
+            var engine = Battle(150, "辛", "壬");
+            engine.Cast("辛", 0);
+            engine.Cast("壬", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 18));
         }
     }
 }

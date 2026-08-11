@@ -1172,7 +1172,12 @@ namespace Brushblade.Core
             if (!enemy.Alive) return;
             var burn = enemy.Statuses.Find(StatusKind.Burn);
             if (burn == null || burn.Magnitude <= 0) return;
+            // 攻击力**结算时读**,回溯生效 —— 与炽/BurnPotency 同口径:每层伤害从来不是
+            // 出牌时冻结的量,它是 _burnPerStack 这个全局标量。层数(Magnitude)不吃攻击力。
+            // 不复用 ScaleByAttack:那是整数除(早截断),这里要插进既有的浮点式子里晚截断,
+            // 才能在基准值下保住逐字节恒等
             int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
+                * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
             // 不灭(2026-08-09,炑):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
@@ -1205,7 +1210,10 @@ namespace Brushblade.Core
             var burn = enemy.Statuses.Find(StatusKind.Burn);
             if (burn == null || burn.Magnitude <= 0) return;
             int stacks = burn.Magnitude;
+            // 与 SettleBurnOn 同口径吃攻击力:引爆是把剩余层数一次性兑现,
+            // 每层伤害用的是同一个量,不能只有一边吃
             int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * _burnPerStack
+                * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
