@@ -588,6 +588,21 @@ namespace Brushblade.Presentation
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"反弹 {reflect}%", Theme.Jade, Color.white, 12);
             }
+            // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
+            // 而战斗界面不显示攻击力 —— 不出 chip 的话这三个字打出去毫无反馈。
+            // ApBoost(利)不用 chip:下方 AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
+            int attackBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff);
+            if (attackBuff > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"攻击 +{attackBuff}", Theme.Gold, Color.white, 12);
+            }
+            int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
+            if (morale > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"战意 {morale} 层", Theme.Gold, Color.white, 12);
+            }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
