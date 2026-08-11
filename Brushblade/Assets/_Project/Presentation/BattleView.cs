@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using Brushblade.Core;
 using UnityEngine;
@@ -318,8 +319,11 @@ namespace Brushblade.Presentation
             // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
             // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
             // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
-            _enemyRow = MakeSection("Enemies", 0.648f, 0.898f);  // 225px ≥ 220(2026-07-28 随形象放大,向上吃了消息条几像素)
-            _summonRow = MakeSection("Summons", 0.560f, 0.648f); // 79px:50 方块 + 血条(血值上条) + 攻力行
+            _enemyRow = MakeSection("Enemies", 0.640f, 0.898f);  // 232px = 格高 232(2026-08-11 为 chip 第二行向下吃 7px)
+            // ⚠ 72px 装不下召唤物格:方块 50 + 血条 15 + 攻力行 ≈ 80,带「盾」或被动标签是 94/108。
+            // 这不是本次改动造成的 —— 原 79px 同样装不下(旧注释只算了三项的标称值,漏了行高与可选行),
+            // 本次是让既有溢出再多 3.5px/边。HorizontalLayoutGroup 居中溢出,视觉上是上下各多探出一点。
+            _summonRow = MakeSection("Summons", 0.560f, 0.640f); // 72px(原 79px,见上)
             _bottomRow = MakeSection("PlayerStats", 0.505f, 0.560f); // 50px:HP/AP 横排(血值上条后省一行)
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
@@ -648,10 +652,26 @@ namespace Brushblade.Presentation
         }
 
         // 敌人格尺寸(2026-07-28 随形象接入放大:圆头像 104 → 形象 150,格 168×208 → 190×220)。
-        // 形象底稿四周留了 10% 白,同直径下视觉体积比实心圆头像小,所以要给得更足
+        // 形象底稿四周留了 10% 白,同直径下视觉体积比实心圆头像小,所以要给得更足。
+        // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80);
+        // 形象保持 150 不动,12px 由敌人区锚点向下吃 7px + 区内原有 5px 余量凑齐(用户拍板)
         private const float EnemyPortrait = 150f;
         private const float EnemyCellWidth = 190f;
-        private const float EnemyCellHeight = 220f;
+        private const float EnemyCellHeight = 232f;
+
+        // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
+        // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
+        // 「水 攻15 承伤 灼烧9 不灭 致盲−50% 沉默」从 3 行降到 2 行,
+        // 且两行只多要 17px 而不是 27px —— 这是 12px 预算能成立的前提。
+        // 上限 2 行:3 行要再吃 22px,敌人区没有;超出的按列表顺序从尾部丢,末尾补「+N」。
+        private const int ChipFontSize = 11;
+        private const int ChipPadX = 12;
+        private const int ChipPadY = 8;
+        private const float ChipSpacing = 4f;
+        private const float ChipLineSpacing = 3f;
+        private const int ChipMaxLines = 2;
+        // 左右各留 2px:贴着格宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行
+        private const float ChipAreaWidth = EnemyCellWidth - 4f;
 
         private void DrawEnemies()
         {
@@ -709,40 +729,47 @@ namespace Brushblade.Presentation
                 Ui.Anchor((RectTransform)info.transform, new Vector2(0, 0), new Vector2(1, 1),
                     Vector2.zero, new Vector2(0, -(EnemyPortrait + 2f)));
                 Ui.ThemedLabel(info.transform, BossTitle(enemy), 17, Theme.TextMain, Theme.TitleFont);
-                var chips = Ui.Row(info.transform, "Chips", 5);
-                Ui.Chip(chips.transform, enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?",
-                    Theme.ElementColor(enemy.ApparentElement), Color.white, 12);
-                Ui.Chip(chips.transform, $"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain, 12);
-                if (enemy.DamageTaken < 1f) Ui.Chip(chips.transform, "承伤", Theme.InkSoft, Color.white, 12);
+                // chip 攒成列表再交给 ChipFlow 分行 —— 它要先看全部文字才能决定在哪断行。
+                // 列表顺序即优先级:装不下 ChipMaxLines 行时从**尾部**丢弃,末尾补「+N」,
+                // 所以越靠前的越保得住。完整信息仍在敌人详情弹窗里。
+                var chipSpecs = new List<Ui.ChipSpec>
+                {
+                    new(enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?",
+                        Theme.ElementColor(enemy.ApparentElement), Color.white),
+                    new($"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain),
+                };
+                if (enemy.DamageTaken < 1f) chipSpecs.Add(new("承伤", Theme.InkSoft, Color.white));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
                     // 别用 emoji:⚡ 不在 Noto Serif SC 里,子集补不出来,上线渲染成空框
                     // (test_subset_fonts_cover_charset 正是拦这个的)。预警靠朱砂底色已经够显眼
-                    Ui.Chip(chips.transform, $"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
-                        Theme.Cinnabar, Color.white, 12);
+                    chipSpecs.Add(new($"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
+                        Theme.Cinnabar, Color.white));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
-                if (burnStacks > 0) Ui.Chip(chips.transform, $"灼烧 {burnStacks}", Theme.Cinnabar, Color.white, 12);
-                // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系;2 字,不加长这行已溢出的 chip 格
+                if (burnStacks > 0) chipSpecs.Add(new($"灼烧 {burnStacks}", Theme.Cinnabar, Color.white));
+                // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系
                 if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
-                    Ui.Chip(chips.transform, "不灭", Theme.Cinnabar, Color.white, 12);
+                    chipSpecs.Add(new("不灭", Theme.Cinnabar, Color.white));
                 int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
                 if (blind > 0)
-                    Ui.Chip(chips.transform, $"致盲 −{blind}%", Theme.InkSoft, Color.white, 12);
+                    chipSpecs.Add(new($"致盲 −{blind}%", Theme.InkSoft, Color.white));
                 if (enemy.Statuses.Has(StatusKind.Silence))
-                    Ui.Chip(chips.transform, "沉默", Theme.InkSoft, Color.white, 12);
+                    chipSpecs.Add(new("沉默", Theme.InkSoft, Color.white));
                 int curse = enemy.Statuses.TotalMagnitude(StatusKind.Curse);
                 if (curse > 0)
-                    Ui.Chip(chips.transform, $"诅咒 −{curse}%", Theme.InkSoft, Color.white, 12);
+                    chipSpecs.Add(new($"诅咒 −{curse}%", Theme.InkSoft, Color.white));
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)
                 {
                     string abilityChip = EnemyInfo.AbilityChipText(enemy);
                     if (abilityChip.Length > 0)
-                        Ui.Chip(chips.transform, abilityChip,
-                            Theme.AbilityChipColor(enemy.Def.Ability), Color.white, 12);
+                        chipSpecs.Add(new(abilityChip,
+                            Theme.AbilityChipColor(enemy.Def.Ability), Color.white));
                 }
+                Ui.ChipFlow(info.transform, "Chips", chipSpecs, ChipAreaWidth, ChipFontSize,
+                    ChipMaxLines, ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。

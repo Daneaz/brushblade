@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -215,8 +216,10 @@ namespace Brushblade.Presentation
             Color bg, Color fg, int fontSize = 22, Vector2? size = null) =>
             RoundButton(parent, text, onClick, bg, fg, fontSize, size, 24);
 
-        /// <summary>胶囊小标签(宽度按 CJK 字宽估算)。</summary>
-        public static GameObject Chip(Transform parent, string text, Color bg, Color fg, int fontSize = 14)
+        /// <summary>胶囊小标签(宽度按 CJK 字宽估算)。padX/padY 只给挤不下的地方调窄用
+        /// (敌人格 chip 行),默认值即原尺寸,其余 20 多个调用点不受影响。</summary>
+        public static GameObject Chip(Transform parent, string text, Color bg, Color fg,
+            int fontSize = 14, int padX = ChipPadX, int padY = ChipPadY)
         {
             var go = Panel(parent, "Chip");
             var image = go.AddComponent<Image>();
@@ -226,9 +229,129 @@ namespace Brushblade.Presentation
             var label = ThemedLabel(go.transform, text, fontSize, fg);
             Stretch(label.rectTransform);
             var element = go.AddComponent<LayoutElement>();
-            element.preferredWidth = text.Length * fontSize + 18;
-            element.preferredHeight = fontSize + 12;
+            element.preferredWidth = ChipWidth(text, fontSize, padX);
+            element.preferredHeight = ChipHeight(fontSize, padY);
             return go;
+        }
+
+        public const int ChipPadX = 18;
+        public const int ChipPadY = 12;
+
+        /// <summary>chip 尺寸是文本的纯函数 —— <see cref="ChipFlow"/> 要在建对象之前就把行排好,
+        /// 靠的就是这两个函数,不需要任何测量或等一帧布局。</summary>
+        public static float ChipWidth(string text, int fontSize, int padX = ChipPadX) =>
+            text.Length * fontSize + padX;
+
+        public static float ChipHeight(int fontSize, int padY = ChipPadY) => fontSize + padY;
+
+        /// <summary>一个待排的 chip:文字与配色。<see cref="ChipFlow"/> 要先看全部文字才能分行,
+        /// 所以调用方先攒成 spec 列表,而不是逐个 <see cref="Chip"/> 直接建对象。</summary>
+        public readonly struct ChipSpec
+        {
+            public readonly string Text;
+            public readonly Color Bg;
+            public readonly Color Fg;
+            /// <summary>这是 ChipFlow 自己补的「+N」计数,不是调用方给的真 chip ——
+            /// 它用更紧的内边距(<see cref="ChipCountPadX"/>)。靠标记而不是认文本前缀:
+            /// 「+N」长得像普通 chip,靠字符串猜迟早会误伤真 chip。</summary>
+            internal readonly bool IsCount;
+
+            public ChipSpec(string text, Color bg, Color fg) : this(text, bg, fg, false) { }
+
+            internal ChipSpec(string text, Color bg, Color fg, bool isCount)
+            {
+                Text = text;
+                Bg = bg;
+                Fg = fg;
+                IsCount = isCount;
+            }
+        }
+
+        /// <summary>可换行的胶囊区:外层 VStack,每行一个 Row。装不下 <paramref name="maxLines"/> 行时
+        /// 从尾部丢弃,并在末尾补一个「+N」说明还有几个没显示。
+        ///
+        /// 为什么要它:HorizontalLayoutGroup 装不下时会把整行**等比压扁**,于是一个 chip 溢出会让
+        /// 同行每个 chip 都跟着糊(敌人格加「不灭」后实测压 ~14%)。宽度是文本纯函数
+        /// (见 <see cref="ChipWidth"/>),所以分行可以在建对象之前算完,不必测量也不用等一帧。</summary>
+        public static GameObject ChipFlow(Transform parent, string name, IReadOnlyList<ChipSpec> chips,
+            float width, int fontSize, int maxLines,
+            int padX = ChipPadX, int padY = ChipPadY, float spacing = 5f, float lineSpacing = 3f)
+        {
+            var stack = VStack(parent, name, lineSpacing);
+            var lines = PackChips(chips, chips.Count, null, width, maxLines, fontSize, padX, spacing);
+            if (lines.Count > maxLines)
+            {
+                // 需要截断。**计数优先于多显示一个 chip** —— 「+N」的全部意义就是让玩家知道
+                // 有东西被藏了,若为了多塞一个真 chip 而丢掉计数,等于实现成了「静默丢弃」。
+                // 所以先在「带计数」的前提下找最大的 take,找不到才退到不带。
+                lines = null;
+                for (int take = chips.Count - 1; take >= 0 && lines == null; take--)
+                {
+                    var trial = PackChips(chips, take, $"+{chips.Count - take}",
+                        width, maxLines, fontSize, padX, spacing);
+                    if (trial.Count <= maxLines) lines = trial;
+                }
+                // 带计数怎么排都超行(末行被一个近满宽的 chip 占住)才走这里
+                for (int take = chips.Count - 1; take >= 0 && lines == null; take--)
+                {
+                    var trial = PackChips(chips, take, null, width, maxLines, fontSize, padX, spacing);
+                    if (trial.Count <= maxLines) lines = trial;
+                }
+                lines ??= new List<List<ChipSpec>>();
+            }
+            foreach (var line in lines)
+            {
+                var row = Row(stack.transform, "Line", spacing);
+                foreach (var chip in line)
+                    Chip(row.transform, chip.Text, chip.Bg, chip.Fg, fontSize,
+                        chip.IsCount ? ChipCountPadX : padX, padY);
+            }
+            return stack;
+        }
+
+        /// <summary>「+N」计数 chip 的内边距:比普通 chip 紧得多。它是标记不是标签,
+        /// 而按普通内边距它要占 ~34px —— 差不多一个真 chip 的宽,会把自己想报告的东西挤掉
+        /// (实测 Boss 那格:蓄力 155 + 计数 34 超宽,收到 26 才排得进同一行)。</summary>
+        public const int ChipCountPadX = 4;
+
+        /// <summary>贪心装行:放不下就另起一行。单个宽过 width 的 chip 自成一行并横向溢出 ——
+        /// 截断它比让玩家读半个词更糟,交由调用方用足够的 width 保证不发生。
+        ///
+        /// extra(「+N」)非空时,**末行要预先给它留位**:否则会排出「前面都塞满、计数被挤到
+        /// 下一行」,外层只能再砍一个真 chip,砍到最后计数反而永远显示不出来。</summary>
+        private static List<List<ChipSpec>> PackChips(IReadOnlyList<ChipSpec> chips, int take,
+            string extra, float width, int maxLines, int fontSize, int padX, float spacing)
+        {
+            var lines = new List<List<ChipSpec>>();
+            var current = new List<ChipSpec>();
+            float x = 0f;
+            float reserve = extra == null ? 0f : spacing + ChipWidth(extra, fontSize, ChipCountPadX);
+
+            void Place(ChipSpec chip, float w, bool isExtra)
+            {
+                float limit = !isExtra && reserve > 0f && lines.Count == maxLines - 1
+                    ? width - reserve
+                    : width;
+                if (current.Count > 0 && x + spacing + w > limit)
+                {
+                    lines.Add(current);
+                    current = new List<ChipSpec>();
+                    x = w;
+                }
+                else
+                {
+                    x += current.Count == 0 ? w : spacing + w;
+                }
+                current.Add(chip);
+            }
+
+            for (int i = 0; i < take; i++)
+                Place(chips[i], ChipWidth(chips[i].Text, fontSize, padX), false);
+            if (extra != null)
+                Place(new ChipSpec(extra, Theme.PaperDim, Theme.TextMain, isCount: true),
+                    ChipWidth(extra, fontSize, ChipCountPadX), true);
+            if (current.Count > 0) lines.Add(current);
+            return lines;
         }
 
         /// <summary>进度条:PaperDim 底 + 填充色,圆角胶囊。</summary>
