@@ -32,6 +32,20 @@ namespace Brushblade.CoreTests
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 3) }),
             new CharDef("壬", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
+            new CharDef("癸", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.BurnPotency, 4) }),
+            new CharDef("子", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Reflect, 30, turns: 2) }),
+            new CharDef("丑", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Immunity, 3) }),
+            new CharDef("寅", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.HealOverTime, 8, turns: 3) }),
+            new CharDef("卯", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Slow, 4) }),
+            new CharDef("辰", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Blind, 40, turns: 2) }),
+            new CharDef("巳", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Silence, 0, turns: 3) }),
         });
 
         private static EnemyDef Dummy(int hp = 500) => new("怔", Element.Heart, hp, 0);
@@ -259,6 +273,112 @@ namespace Brushblade.CoreTests
             engine.Cast("辛", 0);
             engine.Cast("壬", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 18));
+        }
+
+        // ---- 负向补齐(E-b1 终审 M1):增益/控制类的量一律不吃 ATK ----
+
+        [Test]
+        public void HighAttack_DoesNotScaleBurnPotency()
+        {
+            // 这条是负向里最要紧的一条。炽抬的是 _burnPerStack 这个**乘数**,
+            // 而灼烧结算已经在乘 ATK 了 —— 给 `_burnPerStack += value` 也套上 ScaleByAttack,
+            // 火系爆发就变成 ATK 的平方级增长,而现有 819 条断言一条都不会红。
+            var baseline = Battle(BattleConfig.AttackBaseline, "癸");
+            baseline.Cast("癸");
+            var buffed = Battle(150, "癸");
+            buffed.Cast("癸");
+            Assert.That(buffed.Capture().BurnPerStack, Is.EqualTo(2 + 4),
+                "炽的每层加成是乘数不是输出,不吃攻击力");
+            Assert.That(buffed.Capture().BurnPerStack,
+                Is.EqualTo(baseline.Capture().BurnPerStack), "与 ATK=100 时完全相同");
+        }
+
+        [Test]
+        public void BurnPotency_DoesNotCompoundWithAttackOnBurnTick()
+        {
+            // 上一条的端到端对照:炽 +4 → 每层 6,3 层在 ATK=150 下结算。
+            // floor(3 × 6 × 1.5) = 27 是**线性**结果;若炽也吃了 ATK(每层变 2+6=8),
+            // 这里会是 floor(3 × 8 × 1.5) = 36 —— 差额就是那一层平方。
+            var engine = Battle(150, "癸", "辛");
+            engine.Cast("癸");
+            engine.Cast("辛", 0);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 27), "只乘一次 ATK,不平方");
+        }
+
+        [Test]
+        public void HighAttack_DoesNotScaleReflect()
+        {
+            // 反弹是百分比,乘 ATK 等于把「照原样反射」变成「反射得比挨的还多」。
+            var engine = Battle(150, "子");
+            engine.Cast("子");
+            var reflect = engine.PlayerStatuses.Find(StatusKind.Reflect);
+            Assert.That(reflect, Is.Not.Null);
+            Assert.That(reflect.Magnitude, Is.EqualTo(30), "反弹百分比不吃攻击力");
+            Assert.That(reflect.TurnsLeft, Is.EqualTo(2), "持续回合数不吃攻击力");
+        }
+
+        [Test]
+        public void HighAttack_DoesNotScaleImmunityCharges()
+        {
+            // 免疫的 Magnitude 是**次数**,不是量 —— 乘 ATK 就是凭空发稀缺资源。
+            var engine = Battle(150, "丑");
+            engine.Cast("丑");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity),
+                Is.EqualTo(3), "免疫次数不吃攻击力");
+        }
+
+        [Test]
+        public void HighAttack_DoesNotScaleHealOverTime()
+        {
+            // 与 HealSelf 同理:治疗是防御资源。HoT 每回合量走生克但不走 ATK。
+            var engine = Battle(150, "寅");
+            engine.Cast("寅");
+            var hot = engine.PlayerStatuses.Find(StatusKind.HealOverTime);
+            Assert.That(hot, Is.Not.Null);
+            Assert.That(hot.Magnitude, Is.EqualTo(8), "持续治疗每回合量不吃攻击力");
+            Assert.That(hot.TurnsLeft, Is.EqualTo(3), "持续回合数不吃攻击力");
+        }
+
+        [Test]
+        public void HighAttack_DoesNotScaleSlowAndSilenceTurns()
+        {
+            // 控制时长是「节奏」,不是「资源」—— 与召唤被动同口径,不随任何成长轴变长。
+            var engine = Battle(150, "卯", "巳");
+            engine.Cast("卯", 0);
+            engine.Cast("巳", 0);
+            var slow = engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier);
+            Assert.That(slow, Is.Not.Null);
+            Assert.That(slow.TurnsLeft, Is.EqualTo(4), "减速回合数不吃攻击力");
+            Assert.That(slow.Magnitude, Is.EqualTo(-50), "减速幅度是常量,不吃攻击力");
+            var silence = engine.Enemies[0].Statuses.Find(StatusKind.Silence);
+            Assert.That(silence, Is.Not.Null);
+            Assert.That(silence.TurnsLeft, Is.EqualTo(3), "沉默回合数不吃攻击力");
+        }
+
+        [Test]
+        public void HighAttack_DoesNotScaleBlind()
+        {
+            var engine = Battle(150, "辰");
+            engine.Cast("辰", 0);
+            var blind = engine.Enemies[0].Statuses.Find(StatusKind.Blind);
+            Assert.That(blind, Is.Not.Null);
+            Assert.That(blind.Magnitude, Is.EqualTo(40), "命中惩罚百分比不吃攻击力");
+            Assert.That(blind.TurnsLeft, Is.EqualTo(2), "致盲回合数不吃攻击力");
+        }
+
+        // ---- 钳位(E-b1 终审 M2):EffectiveAttack 的 Math.Max(0, ...) ----
+
+        [Test]
+        public void DeepNegativeAttackBuff_ClampsEffectiveAttackToZeroNotNegative()
+        {
+            // Math.Max(0, ...) 此前零覆盖。去掉它:EffectiveAttack = 100 − 500 = −400,
+            // ScaleByAttack(20) = −80,DamageEnemy 收到负数 → 敌人**回血**,而且全程无声。
+            var engine = Battle(BattleConfig.AttackBaseline, "甲");
+            engine.ApplyPlayerAttackBuff(-500);
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(0), "攻击力钳到 0,不会为负");
+            engine.Cast("甲", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500), "伤害为 0,不是负数(不给敌人回血)");
         }
     }
 }
