@@ -21,7 +21,14 @@ namespace Brushblade.Trace
     ///
     /// 用法:
     ///   dotnet run -c Release -- --out out/baseline.txt
-    ///   dotnet run -c Release -- --compare out/baseline.txt out/after.txt --scale 10</summary>
+    ///   dotnet run -c Release -- --out out/strict.txt --seeds 0-15 --max-depth 30 --flat-scale
+    ///   dotnet run -c Release -- --compare out/baseline.txt out/after.txt --scale 10
+    ///
+    /// 两条基线各管一件事:
+    /// - <c>--flat-scale</c> 的那条是**严格恒等基线**(网 1 的判据本体),深度缩放压平后
+    ///   精确 ×10 在任意深度成立;
+    /// - 不带 <c>--flat-scale</c> 的那条是**生产口径基线**,带着真实的深度缩放,
+    ///   用来看 T1 之后真实难度曲线偏了多少(缩放里的 ceil 天生不与 ×10 交换,见下)。</summary>
     public static class Program
     {
         // ---- 钉死的采样参数(改动即等于换尺子,baseline 必须重跑)----
@@ -69,6 +76,7 @@ namespace Brushblade.Trace
             int maxDepth = int.Parse(Take(args, "--max-depth", 1)?[0]
                                      ?? DefaultDepthCap.ToString(CultureInfo.InvariantCulture),
                                      CultureInfo.InvariantCulture);
+            bool flatScale = args.Contains("--flat-scale");
 
             string configDir = Path.Combine(ToolDir, "../../Brushblade/Assets/StreamingAssets/config");
             string charsJson = File.ReadAllText(Path.Combine(configDir, "chars.json"));
@@ -76,6 +84,20 @@ namespace Brushblade.Trace
             var graph = ConfigLoader.LoadGraph(charsJson);
             var campaign = ConfigLoader.LoadCampaign(enemiesJson, graph);
             var endless = campaign.Endless ?? throw new InvalidOperationException("enemies.json 缺少 endless 段");
+
+            // --flat-scale:把深度缩放压平成恒 1.0。
+            // ⚠ 这不是「让数据更好看」,是网 1 能不能成立的前提。CampaignConfig.Scale 走
+            // (int)Math.Ceiling(base × scale),而 ceil(10a·s) ≠ 10·ceil(a·s) —— 实测本仓库
+            // 19 个敌人基础值 × 30 层里有 63% 的组合不满足。缩放一开,depth ≥ 2 的敌人血量/攻击
+            // 就不是精确 ×10,轨迹的骨架会跟着结构性发散(某只怪早一回合死),
+            // 而那种发散与「T1 改错了」长得一模一样。
+            // 压平之后 scale 恒 1.0 → ceil 是恒等 → 精确 ×10 在**任意深度**成立,
+            // 于是能在整段爬塔(含 Boss、含深层段)上跑严格恒等判据,而不是只在第 1 层。
+            if (flatScale)
+            {
+                endless.ScalePerDepth = 0f;
+                endless.BossScaleBonus = 1f;
+            }
 
             // 三档画像**全部落在基准切片上**(ATK = AttackFor(1) = 100、卡等级全 1):
             // 只有这条切片上「量级 ×10 = 行为不变」才成立(spec §10.2 的盲区声明)。
@@ -105,6 +127,8 @@ namespace Brushblade.Trace
                 rec.Comment("V seed depth eventId optionIndex");
                 rec.Comment("Z seed deathDepth reason");
                 rec.Comment($"seeds = {string.Join(",", seeds)}  maxDepth = {maxDepth}  stallTurns = {StallTurns}");
+                rec.Comment($"flatScale = {flatScale}  scalePerDepth = {endless.ScalePerDepth}  " +
+                            $"bossScaleBonus = {endless.BossScaleBonus}");
                 rec.Comment($"attack = {MetaRules.AttackFor(1)}(基准 {BattleConfig.AttackBaseline})  cardLevels = 全 1");
                 foreach (var p in profiles)
                     rec.Comment($"profile {p.Name}: hp={p.MaxHp} startDepth={p.StartDepth} " +
