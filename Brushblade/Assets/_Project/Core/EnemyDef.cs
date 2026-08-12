@@ -18,7 +18,7 @@ namespace Brushblade.Core
     }
 
     /// <summary>Boss 阶段技能(spec 2026-07-28):蓄力一回合后释放。
-    /// Bulwark 为被动标签,行为与 None 相同(靠 DamageTaken 减伤),
+    /// Bulwark 为被动标签,行为与 None 相同(靠 <see cref="BossPhaseDef.Defense"/> 的高护甲吃伤),
     /// 分开只为可读性——Bulwark = 设计上就该是肉墙,None = 这字还没配技能。</summary>
     public enum BossSkill
     {
@@ -27,7 +27,7 @@ namespace Brushblade.Core
         Pierce, // 贯穿:最前召唤物挨一下 + 玩家挨双倍(穿透)
         Topple, // 倾覆:伤害 + 清空护盾 + 下回合 AP −1(剥夺)
         Devour, // 吞噬:消灭最前召唤物(不回血);无召唤物则普攻玩家
-        Bulwark, // 坚壁:被动减伤,该阶段不蓄力
+        Bulwark, // 坚壁:被动高护甲,该阶段不蓄力
     }
 
     /// <summary>成语 Boss 的单个阶段(8.5:四字成语,四个字 = 四个阶段)。</summary>
@@ -37,22 +37,20 @@ namespace Brushblade.Core
         public Element Element { get; }
         public int MaxHp { get; }
         public int Attack { get; }
-        /// <summary>承伤系数(如「山」0.5 = 超高防御),向下取整。</summary>
-        public float DamageTaken { get; }
-        /// <summary>该阶段的护甲**点数**(2026-08-12,E-b4 T2)。每记挥击减这么多,
-        /// 与承伤系数并存过渡;T3 删乘法层后它是守方唯一的一层。T2 全表为 0。</summary>
+        /// <summary>该阶段的护甲**点数**(2026-08-12,E-b4)。每记挥击减这么多,下钳 0。
+        /// T3 起它是**守方唯一的一层**:承伤系数(乘法减伤)已删除,守方侧没有任何乘数。
+        /// 坚壁「山」= 60、翻江倒海「江」/ 雷霆万钧「钧」= 30。</summary>
         public int Defense { get; }
         /// <summary>该阶段的蓄力技能(spec 2026-07-28);由字表决定,None = 纯普攻。</summary>
         public BossSkill Skill { get; }
 
         public BossPhaseDef(string phaseChar, Element element, int maxHp, int attack,
-            float damageTaken = 1f, BossSkill skill = BossSkill.None, int defense = 0)
+            BossSkill skill = BossSkill.None, int defense = 0)
         {
             Char = phaseChar;
             Element = element;
             MaxHp = maxHp;
             Attack = attack;
-            DamageTaken = damageTaken;
             Skill = skill;
             Defense = defense;
         }
@@ -68,16 +66,14 @@ namespace Brushblade.Core
         public EnemyAbility Ability { get; }
         public IReadOnlyList<BossPhaseDef> Phases { get; }
 
-        /// <summary>承伤系数(&lt;1 即减伤;小怪级如墨渍。Boss 走阶段级 BossPhaseDef.DamageTaken)。</summary>
-        public float DamageTaken { get; }
-
-        /// <summary>护甲**点数**(2026-08-12,E-b4 T2):小怪级。Boss 走阶段级
-        /// <see cref="BossPhaseDef.Defense"/>。T2 全表为 0(接线不配值),T3 才写入映射。</summary>
+        /// <summary>护甲**点数**(2026-08-12,E-b4):小怪级。Boss 走阶段级
+        /// <see cref="BossPhaseDef.Defense"/>。全 13 只小怪里只有墨渍带甲(20)——
+        /// 「带甲怪不成群」是 AOE 保护的配置口径,守卫测试 RealConfig_ArmoredEnemiesAreRare。</summary>
         public int Defense { get; }
 
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
-            float damageTaken = 1f, int defense = 0)
+            int defense = 0)
         {
             Id = id;
             Element = element;
@@ -85,7 +81,6 @@ namespace Brushblade.Core
             Attack = attack;
             Ability = ability;
             Phases = phases ?? System.Array.Empty<BossPhaseDef>();
-            DamageTaken = damageTaken;
             Defense = defense;
         }
     }
@@ -211,9 +206,7 @@ namespace Brushblade.Core
                 return Math.Max(0, BaseAttack * percent / 100);
             }
         }
-        public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
-
-        /// <summary>护甲**点数**(2026-08-12,E-b4 T2):每记挥击从伤害里减这么多,下钳 0。
+        /// <summary>护甲**点数**(2026-08-12,E-b4):每记挥击从伤害里减这么多,下钳 0。
         ///
         /// ⚠ **硬约束:战斗中永不被写**(spec §4.5.3)。它是不可变的基础属性,所以刻意做成
         /// **计算属性**而不是带 internal setter 的字段 —— 类型系统兜住,不靠人记得。
@@ -269,7 +262,6 @@ namespace Brushblade.Core
                 Statuses = statuses,
                 ActionMeter = ActionMeter,
                 BaseAttack = BaseAttack,
-                DamageTaken = DamageTaken,
                 PhaseIndex = PhaseIndex,
                 PhaseBounds = (int[])PhaseBounds.Clone(),
                 RegrowProgress = RegrowProgress,
@@ -293,7 +285,6 @@ namespace Brushblade.Core
                 ApparentElement = snapshot.ApparentElement,
                 ActionMeter = snapshot.ActionMeter,
                 BaseAttack = snapshot.BaseAttack,
-                DamageTaken = snapshot.DamageTaken,
                 PhaseIndex = snapshot.PhaseIndex,
                 PhaseBounds = snapshot.PhaseBounds ?? Array.Empty<int>(),
                 RegrowProgress = snapshot.RegrowProgress,
@@ -325,7 +316,6 @@ namespace Brushblade.Core
                 MaxHp = def.MaxHp;
                 Element = def.Element;
                 BaseAttack = def.Attack;
-                DamageTaken = def.DamageTaken; // 小怪级承伤减免(墨渍)
                 if (def.Ability == EnemyAbility.Disguise && random != null)
                 {
                     // 通假字(2026-07-26):真身与伪装每次遭遇都现摇,配置里的 element 对它不作数。
@@ -342,7 +332,8 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>换阶段:属性/攻击/承伤切换、灼烧清零;血量连续不重置。</summary>
+        /// <summary>换阶段:属性/攻击切换、灼烧清零;血量连续不重置。
+        /// 护甲不在这里赋值 —— <see cref="Defense"/> 是读 PhaseIndex 的计算属性(§4.5.3:战中永不被写)。</summary>
         internal void ApplyPhaseStats(int index)
         {
             var phase = Def.Phases[index];
@@ -350,7 +341,6 @@ namespace Brushblade.Core
             Element = phase.Element;
             ApparentElement = phase.Element; // Boss 阶段属性明示
             BaseAttack = phase.Attack;
-            DamageTaken = phase.DamageTaken;
             Statuses.Remove(StatusKind.Burn); // 新字新体,灼烧清零
             // 新字新体:连同不灭一起清,否则一张 炑 买断整场 Boss 战——不灭是挂在旧躯壳
             // 那份灼烧上的属性,躯壳换了它没道理留着(2026-08-09,评审裁定,与灼烧同口径)

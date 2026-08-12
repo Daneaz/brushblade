@@ -16,8 +16,12 @@ namespace Brushblade.Core
         HealOverTime,   // 持续治疗:每回合 Value,持续 Turns 回合;TargetAll 则含召唤物
         Freeze,       // 冻结:目标跳过 Value 个回合(2026-08-03;藤的「束缚」也走这个)
         Slow,         // 减速:半速,每 2 回合才行动一次,持续 Value 回合(2026-08-03)
-        DamageReduction,  // 减伤:受伤 −Value%,乘法叠加、同字不叠、段内持久(2026-08-03)
-        ArmorBreak,   // 破甲:目标承伤 +25%,持续 Value 回合。不叠层,重复施加只刷新(2026-08-05)
+        DefenseBuff,  // 护甲增益:自身护甲 +Value **点**,同字不叠、段内持久
+                      // (2026-08-03 起名 DamageReduction 走乘法减伤,2026-08-12 E-b4 T3 改点数并改名。
+                      //  EffectKind 只从 chars.json 按**名字**解析、从不进存档,故可以就地改名)
+        ArmorBreak,   // 破甲:目标护甲 −Value **点**,本场持久、可叠加
+                      // (2026-08-05 曾实现为「承伤 +25%,持续 Value 回合」——那是引擎里还没有护甲
+                      //  点数时的代偿;2026-08-12 E-b4 T3 复原成第 10 章 :56 的原始设计)
         Dispel,       // 驱散:清敌方增益。Value = 条数(−1 = 全部);TargetAll = 全体各清(2026-08-06)
         Cleanse,      // 净化:清玩家自身全部减益(Value 不用,2026-08-06)
         Immunity,     // 免疫:完全挡下 Value 次伤害,先于护盾消耗(2026-08-06)
@@ -61,16 +65,17 @@ namespace Brushblade.Core
         /// <summary>治疗类:true = 覆盖玩家与全部召唤物。</summary>
         public bool TargetAll { get; }
 
-        /// <summary>伤害类:无视目标的承伤减免,并额外 +15% 伤害(穿甲,2026-08-05)。
-        /// 只忽略减免(&lt;1),不忽略破甲加成 —— 「无视防御」≠「无视一切修正」。</summary>
-        public bool IgnoreArmor { get; }
-
         /// <summary>伤害类:本次攻击的穿透**点数**(2026-08-12,E-b4 T2)。
         /// 进 <c>EffectiveEnemyDefense</c> 的减数,与目标身上的破甲从同一个基础护甲里一起减
         /// (合并相减、不嵌套、不重复扣),外层 <c>max(0, …)</c> 保证穿过头只是归零、绝不倒贴增伤。
         ///
         /// **只作用于这一次结算**,不留状态;要「本场持续的穿透」走
-        /// <see cref="StatusKind.PierceBuff"/>。T2 全表为 0(接线不配值),T3 才写入 3 个穿甲字。</summary>
+        /// <see cref="StatusKind.PierceBuff"/>。
+        ///
+        /// 2026-08-12 E-b4 T3:三个穿甲字(錰 30 / 刺 15 / 锥 10)迁到这里,原先的 bool
+        /// <c>IgnoreArmor</c> 删除。旧标记做两件事 ——「无视承伤减免」由穿透点数接管,
+        /// 「无条件 +15% 伤害」是与防御无关的常量乘数,已**固化进这三个字的基础值**
+        /// (400→460 / 130→150 / 90→105),对无甲目标一分不差,模型少一个常量。</summary>
         public int Pierce { get; }
 
         /// <summary>召唤类:召唤物被动(2026-08-05)。null = 无被动。</summary>
@@ -87,7 +92,7 @@ namespace Brushblade.Core
         /// <summary>true = 命中阈值直接击杀(Boss 免疫);false = 命中阈值伤害 ×2(对 Boss 照常生效)。</summary>
         public bool ExecuteKills { get; }
 
-        /// <summary>伤害分几段打(剁 = 2)。默认 1。每段完全独立:各自过生克、破甲、穿甲,
+        /// <summary>伤害分几段打(剁 = 2)。默认 1。每段完全独立:各自过生克、各自减一次护甲,
         /// 也各自过斩杀的「打之前判血」——所以「第一段把敌人打进阈值、第二段触发处决」
         /// 是真会发生的涌现,不是 bug。</summary>
         public int HitCount { get; }
@@ -95,7 +100,7 @@ namespace Brushblade.Core
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
-            int turns = 0, bool targetAll = false, bool ignoreArmor = false,
+            int turns = 0, bool targetAll = false,
             SummonPassive passive = null, int summonShield = 0,
             int executeBelowPercent = 0, bool executeKills = false,
             int hitCount = 1, int pierce = 0)
@@ -109,7 +114,6 @@ namespace Brushblade.Core
             SummonChar = summonChar;
             Turns = turns;
             TargetAll = targetAll;
-            IgnoreArmor = ignoreArmor;
             Passive = passive;
             SummonShield = summonShield;
             ExecuteBelowPercent = executeBelowPercent;

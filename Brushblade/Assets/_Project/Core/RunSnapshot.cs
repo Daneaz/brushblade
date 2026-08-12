@@ -42,6 +42,9 @@ namespace Brushblade.Core
         public List<StatusEffect> Statuses { get; set; } = new();
         public int ActionMeter { get; set; }
         public int BaseAttack { get; set; }
+        // ⚠ 承伤系数已随乘法减伤层删除(2026-08-12,E-b4 T3):本字段从此**无人读写**。
+        // 留着不动是给 T6 的存档迁移一并处理 —— 那一刀会把整个登塔快照随 Endless → EndlessV2
+        // 作废,字段跟着消失,零风险。在那之前删它没有收益(敌人护甲是不可变属性,按 DefId 查回)。
         public float DamageTaken { get; set; }
         public int PhaseIndex { get; set; }
         public int[] PhaseBounds { get; set; }        // Boss 换阶阈值:开场摇的,重算会变
@@ -94,7 +97,7 @@ namespace Brushblade.Core
         public int CarriedPersistShield { get; set; }
         public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)
 
-        /// <summary>减伤跨战斗延续(2026-08-04):段内持久,段末清空;只承载 DamageReduction,
+        /// <summary>护甲增益跨战斗延续(2026-08-04):段内持久,段末清空;只承载 DefenseBuff,
         /// HoT 不跨战斗(见 RunEngine.AdvanceAfterBattle 的过滤)。</summary>
         public List<StatusEffect> CarriedStatuses { get; set; } = new();
         public int CharPicksLeft { get; set; }
