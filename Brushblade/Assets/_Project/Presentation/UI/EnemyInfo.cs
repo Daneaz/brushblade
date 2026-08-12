@@ -104,7 +104,7 @@ namespace Brushblade.Presentation
         /// 减法对乘法透明,克制的加成原封不动落到血条,与无甲时完全相同。
         /// 反过来要告诉玩家的是护甲怎么削:破甲(本场)与穿透(本次)。</summary>
         public static string DefenseText(int defense) =>
-            $"护甲 {defense}:每记挥击减 {defense} 点伤害 —— 用破甲削掉它,或用带穿透的字绕过";
+            $"护甲 {defense}:每次受到的伤害减 {defense} 点 —— 用破甲削掉它,或用带穿透的字绕过";
 
         // ============ 形态详情 ============
 
