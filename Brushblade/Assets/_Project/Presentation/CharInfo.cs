@@ -107,6 +107,9 @@ namespace Brushblade.Presentation
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
                     // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
                     EffectKind.ApBoost => $"本场每回合 AP 上限+{e.Value}",
+                    // 倍率读常量而不是写死「×1.5」:E-b5 重平衡会改那个常量,写死了卡面就会骗人
+                    EffectKind.CritBuff =>
+                        $"本场暴击率+{v}%(暴击伤害×{BattleConfig.CritMultiplierPercent / 100f:0.##})",
                     _ => e.Kind.ToString(),
                 });
             }

@@ -138,10 +138,15 @@ namespace Brushblade.Presentation
                         if (lastDamageTarget == e.TargetIndex)
                             yield return new WaitForSecondsRealtime(StepGap);
                         lastDamageTarget = e.TargetIndex;
-                        Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
-                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        // 暴击(2026-08-12,E-b2):飘「暴」+ 放大一档 + 更重的震屏。
+                        // 数值上暴击只是 ×1.5,与相克 ×1.5 长得一模一样 —— 玩家能不能读出
+                        // 「这记暴了」全靠这里的表达,不能靠数字大小
+                        Popup(e.Crit ? $"暴 {e.Amount}" : $"-{e.Amount}", Theme.Cinnabar,
+                            enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp((e.Crit ? 1.35f : 1f) + e.Amount / 50f,
+                                1f, e.Crit ? 2.4f : 1.9f));
                         if (!kills) HitReact(enemyAnchor(e.TargetIndex)); // 致死不白闪,让位给置灰
-                        HitFx(e.Amount);
+                        HitFx(e.Amount, e.Crit);
                         onImpact?.Invoke(e);
                         anyParallel = true;
                         break;
@@ -293,14 +298,18 @@ namespace Brushblade.Presentation
             return false;
         }
 
-        /// <summary>一记命中的音效 + 震屏(伤害越高音调越低、震屏越大,封顶);大伤害叠全屏微闪。</summary>
-        private void HitFx(int amount)
+        /// <summary>一记命中的音效 + 震屏(伤害越高音调越低、震屏越大,封顶);大伤害叠全屏微闪。
+        /// crit(2026-08-12,E-b2):暴击整体重一档 —— 闷响、更大的震屏、更低的全屏闪阈值。
+        /// 默认 false 让 DoT 那几个调用点一个字都不用改。</summary>
+        private void HitFx(int amount, bool crit = false)
         {
             _audio.pitch = Mathf.Clamp(1.3f - amount / 80f, 0.6f, 1.3f);
-            _audio.PlayOneShot(amount >= 30 ? _thudClip : _hitClip, 0.9f);
+            _audio.PlayOneShot(amount >= 30 || crit ? _thudClip : _hitClip, 0.9f);
             _audio.pitch = 1f;
-            StartCoroutine(Shake(Mathf.Clamp(4f + amount * 0.35f, 4f, 26f)));
-            if (amount >= 40) ScreenFlash(0.12f, Color.white); // 大伤害:一记全屏微闪
+            StartCoroutine(Shake(crit
+                ? Mathf.Clamp(10f + amount * 0.5f, 10f, 34f)
+                : Mathf.Clamp(4f + amount * 0.35f, 4f, 26f)));
+            if (amount >= (crit ? 20 : 40)) ScreenFlash(0.12f, Color.white); // 大伤害:一记全屏微闪
         }
 
         // 正在白闪的目标:同一目标同帧挨多记时,后来者会把「原色」读成白闪中的颜色,
