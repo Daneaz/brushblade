@@ -36,6 +36,20 @@ namespace Brushblade.Core
         /// <c>MetaRules.AttackFor(角色等级)</c> 注入;工装与测试不给就取基准值。</summary>
         public int PlayerAttack { get; set; } = AttackBaseline;
 
+        /// <summary>暴击伤害倍率(百分比)。150 = ×1.5(2026-08-12 用户裁定;E-b5 重平衡时再调)。
+        /// 做成常量而不是配置字段:它只有一个取值来源,做成字段就要进快照或靠 config 传,
+        /// 是给单次使用造抽象。</summary>
+        public const int CritMultiplierPercent = 150;
+
+        /// <summary>玩家暴击率(百分点,19.2.1 角色属性)。**基准恒 0** —— 2026-08-12 用户裁定:
+        /// 暴击**不随角色等级成长**,只靠字(锋)与将来的养成技能给,所以 MetaRules 没有对应的
+        /// CritFor 曲线,GameRoot 也不注入。
+        ///
+        /// 默认 0 是 E-b2 的验收硬线:<see cref="BattleEngine.RollCrit"/> 在 ≤0 时直接短路,
+        /// 一次随机都不摇 → 随机流逐位不变 → 伤害与引入暴击之前逐字节相同。
+        /// 留这个字段是给将来的被动技能注入用,与 <see cref="PlayerAttack"/> 并排。</summary>
+        public int PlayerCritChance { get; set; }
+
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
@@ -105,13 +119,22 @@ namespace Brushblade.Core
         public int SecondIndex { get; }  // 关联召唤物下标(SummonAttack=发起者 / SummonHit=承伤者 / Summon=被顶替槽位;其余 −1)
         public int Absorbed { get; }     // EnemyAttack:Amount 中被护盾吃掉的部分(其余 = 实际掉血);别的事件 0
 
-        public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1, int absorbed = 0)
+        /// <summary>Damage 事件专用:这一记是不是暴击(2026-08-12,E-b2);其余事件恒 false。
+        /// 刻意**不新增 BattleEventKind.Crit** —— 单独发一条暴击事件会逼表现层做事件配对
+        /// (「刚才那条 Damage 是不是这条 Crit 的」),而这套代码库已经在配对判据上栽过两次
+        /// (EnemyDied 必须紧跟致死伤害、lastDamageTarget 不能只看紧邻)。
+        /// 暴击是那一记伤害的**属性**,就该长在那条事件上。</summary>
+        public bool Crit { get; }
+
+        public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
+            int absorbed = 0, bool crit = false)
         {
             Kind = kind;
             TargetIndex = targetIndex;
             Amount = amount;
             SecondIndex = secondIndex;
             Absorbed = absorbed;
+            Crit = crit;
         }
     }
 
@@ -174,6 +197,36 @@ namespace Brushblade.Core
         /// 方向是错的。低数值字在攻击成长前期没反应是已知副作用,
         /// 真解法是 E-b5 抬高字表数值量级(见 spec 第十节)。</summary>
         private int ScaleByAttack(int value) => value * EffectiveAttack / BattleConfig.AttackBaseline;
+
+        /// <summary>本场生效的暴击率(百分点)= 角色属性(config)+ 局内增益(锋),钳到 [0,100]。
+        ///
+        /// 单开 <see cref="StatusKind.CritBuff"/> 而不复用 AttackBuff:攻击加成与暴击率是两个
+        /// 语义,挤进同一个 Kind 会让 TotalMagnitude(AttackBuff) 同时被两边读到。
+        ///
+        /// 上钳到 100 而不是放任溢出:100 以上摇不出更多暴击,但钳住才能让 <see cref="RollCrit"/>
+        /// 的 ≥100 短路成为一条**必然到达**的路径(锋 叠满时靠它省掉摇点)。
+        /// 下钳到 0 是防御性的,理由同 <see cref="AttackHits"/> 那条钳位。</summary>
+        public int EffectiveCrit =>
+            Math.Clamp(_config.PlayerCritChance + _playerStatuses.TotalMagnitude(StatusKind.CritBuff), 0, 100);
+
+        /// <summary>一次暴击判定。**两端都短路,一次随机都不摇**。
+        ///
+        /// 下端(≤0)是 E-b2 的恒等性硬线:_random 的既有消费方只有回合掉字、
+        /// <see cref="AttackHits"/>、EnemyState 构造时的 Boss 阈值浮动 —— 无条件摇会平移整条流,
+        /// 让所有依赖种子的既有测试全红(与 AttackHits 的 hitRate ≥ 100 是同一个坑、同一个解法)。
+        /// **E-b2 不得新增第四个无条件消费方。**
+        ///
+        /// 上端(≥100)对称处理:必暴时摇不摇结果都一样,不摇能让「暴击叠满」的玩法路径
+        /// 同样不扰动随机流,也让测试可以在不注入 RNG 的前提下断言必暴。
+        ///
+        /// 比较式抄 AttackHits:Next(100) 吐 [0,99],chance = 1 即 1%、99 即 99%,无偏。</summary>
+        private bool RollCrit()
+        {
+            int chance = EffectiveCrit;
+            if (chance <= 0) return false;
+            if (chance >= 100) return true;
+            return _random.Next(100) < chance;
+        }
 
         /// <summary>给玩家挂一层攻击增益。E-b3 的 剡/战意 会走正规的效果分支,
         /// 在那之前这是局内改变攻击力的唯一入口,现阶段只有测试在用。
@@ -904,10 +957,13 @@ namespace Brushblade.Core
                             if (TryExecuteKill(effect, targetIndex)) break; // 处决:击杀后无需再打
                             // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
                             // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
+                            // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
+                            // 目标死了 / 被处决了都不该白摇一次,否则「这一发消耗几个随机数」
+                            // 会取决于目标的血量,复现与调试都会变成噩梦
                             DamageEnemy(targetIndex,
                                 ScaleByAttack(ExecuteBonus(effect, targetIndex,
                                     BaseValue(effect, value, _enemies[targetIndex]))),
-                                recipeElements, attacker, effect.IgnoreArmor);
+                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit());
                         }
                         break;
                     case EffectKind.DamageAll:
@@ -916,9 +972,10 @@ namespace Brushblade.Core
                         {
                             if (!_enemies[i].Alive) continue;
                             if (TryExecuteKill(effect, i)) continue; // 斩杀对每个目标分别判定
+                            // 暴击逐个目标独立摇(2026-08-12),同样排在存活/处决两条守卫之后
                             DamageEnemy(i,
                                 ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
-                                recipeElements, attacker, effect.IgnoreArmor);
+                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit());
                         }
                         break;
                     case EffectKind.BurnSingle:
@@ -1093,6 +1150,19 @@ namespace Brushblade.Core
                         // 所以既不能铸唯一序号(各挂各的会绕开上限),也不能走 Apply() 的
                         // 同源覆盖(那是刷新,出两张战还是 3 层)—— 只能就地累加再钳。
                         AddPlayerCounter(StatusKind.Morale, value, MoraleMaxStacks);
+                        break;
+                    case EffectKind.CritBuff:
+                        // 锋(2026-08-12,E-b2):本场暴击率 +Value 个百分点。
+                        // 与 剡 的 Empower 同款:SourceId 铸唯一序号(用法 2)才能叠 ——
+                        // 传裸字 ID 会让第二张锋覆盖第一张,静默退化成刷新。
+                        // 不在这里钳上限,由 EffectiveCrit 的 Clamp 统一负责:钳在施加处的话
+                        // 「90 + 20」会被存成 100,后来驱散掉一条反而看不出原本该剩多少。
+                        _playerStatuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = -1,
+                            SourceId = $"{def.Id}#{_statusSerial++}",
+                        });
                         break;
                     case EffectKind.ApBoost:
                         // 利(2026-08-12):AP 是「节奏/经济」不是「资源」,与驱散条数、
@@ -1449,8 +1519,18 @@ namespace Brushblade.Core
         private int ExecuteBonus(EffectDef effect, int enemyIndex, int baseValue) =>
             !effect.ExecuteKills && BelowExecuteThreshold(effect, enemyIndex) ? baseValue * 2 : baseValue;
 
+        /// <summary>对敌人结算一记伤害。
+        ///
+        /// <paramref name="crit"/> 默认 false 是刻意的(2026-08-12,E-b2):本方法有 6 个调用点,
+        /// 只有出牌那两记(DamageSingle / DamageAll)该暴击,另外 4 个 —— 召唤物反击、
+        /// DamagePlayerDirect 的镜反弹、DamageSummon 的荆反伤与镜反弹 —— 都不是「玩家的一次挥击」。
+        /// 所以暴击判定**绝不能写进本方法内部**(那样 6 条全会暴),只能由调用点显式传进来;
+        /// 默认 false 让另外 4 个调用点一个字都不用改,这本身也是恒等性的一部分。
+        /// 「吃不吃暴击」不存在白名单数据结构,纯粹取决于哪些调用点传了 true ——
+        /// 守它的只有 CritStatTests 里那批 FullCrit_DoesNotCrit* 负向测试。</summary>
         private void DamageEnemy(int enemyIndex, int baseValue,
-            IReadOnlyCollection<Element> recipeElements, Element attacker, bool ignoreArmor = false)
+            IReadOnlyCollection<Element> recipeElements, Element attacker, bool ignoreArmor = false,
+            bool crit = false)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
@@ -1469,8 +1549,19 @@ namespace Brushblade.Core
             if (armorBreak != null) taken += armorBreak.Magnitude / 100f;
             if (taken != 1f)
                 damage = (int)Math.Floor(damage * taken);
+            // 暴击排在**最末**(2026-08-12,E-b2):它是「这一记最终打出去的伤害翻倍」,
+            // 不是某一层的基础值加成。放最后同时把截断损失压到最小 —— 放在 ScaleByAttack 旁边
+            // (生克之前)的话,相生 ×3 会把整数除丢掉的那部分放大三倍(基础 5 → 暴击 7 → ×3 = 21,
+            // 而正解是 22)。
+            // 走**整数除**而不是折进上面那个浮点 taken(`taken *= 1.5f`),两条理由:
+            // (1) taken 这条链里已有不精确项(PierceBonusPercent / 100f = 0.15f 二进制不可表示),
+            //     再乘一个系数会把既有误差抬进整数位 —— EnemyState.Attack 的诅咒算式就因为
+            //     1 − 0.1f = 0.89999997 被 floor 拉低过 1 点(2026-08-06 M1),同一个坑不该再踩;
+            // (2) 口径一致:E-b1 已裁定直接伤害这条链走整数除(ScaleByAttack),浮点晚截断只留给
+            //     灼烧那条既有的浮点式子。暴击落在直接伤害链上,就跟直接伤害的口径。
+            if (crit) damage = damage * BattleConfig.CritMultiplierPercent / 100;
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
-            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage));
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit));
 
             enemy.HitsTaken += 1;
 

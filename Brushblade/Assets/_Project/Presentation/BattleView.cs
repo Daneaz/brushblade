@@ -603,6 +603,14 @@ namespace Brushblade.Presentation
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"战意 {morale} 层", Theme.Gold, Color.white, 12);
             }
+            // 暴击率(2026-08-12,锋):同理 —— 战斗界面不显示暴击率,不出 chip 的话
+            // 出了锋只能靠飘字里偶尔冒出的「暴」倒推。读 EffectiveCrit(已钳到 100)
+            // 而不是状态总量:叠 6 张锋时玩家该看到的是 100 不是 120
+            if (Battle.EffectiveCrit > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"暴击 {Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12);
+            }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);

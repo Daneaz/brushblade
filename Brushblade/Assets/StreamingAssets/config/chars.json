@@ -1825,6 +1825,21 @@
       ]
     },
     {
+      "id": "锋",
+      "rarity": "White",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "丰"
+      ],
+      "effects": [
+        {
+          "kind": "CritBuff",
+          "value": 20
+        }
+      ]
+    },
+    {
       "id": "㙓",
       "rarity": "Red",
       "element": "Earth",
@@ -2266,6 +2281,9 @@
     },
     {
       "id": "东"
+    },
+    {
+      "id": "丰"
     },
     {
       "id": "乍"

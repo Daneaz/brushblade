@@ -3,7 +3,14 @@ using System.Collections.Generic;
 namespace Brushblade.Core
 {
     /// <summary>状态种类(2026-08-04)。护盾不在此列——它是资源不是状态,
-    /// 有独立吸伤顺序与跨段规则,驱散/净化本就不该碰它。</summary>
+    /// 有独立吸伤顺序与跨段规则,驱散/净化本就不该碰它。
+    ///
+    /// ⚠ **新值一律追加在末尾**(2026-08-12,E-b2):StatusEffect 随
+    /// EndlessSaveState.CarriedStatuses / BattleSnapshot.PlayerStatuses 进 JSON,
+    /// 而 SaveSerializer 没有注册 StringEnumConverter —— Newtonsoft 默认把枚举
+    /// 序列化成**整数**。在中间插值会让所有旧存档里的状态整体错位(减伤变成破甲之类),
+    /// 而且是静默的:单元测试全都建新对象,没有一条读旧 JSON 字节。
+    /// 序号由 CritStatTests.StatusKindOrdinals_AreLockedForSaveCompatibility 锁住。</summary>
     public enum StatusKind
     {
         Burn,             // 灼烧层数
@@ -23,6 +30,7 @@ namespace Brushblade.Core
         BurnNoDecay,      // 不灭:该敌人身上的灼烧层数不再每回合衰减(2026-08-09,炑)
         Morale,           // 战意:Magnitude = **层数**(不是攻击加成值),每层 +10 攻击,上限 5 层(2026-08-12)
         ApBoost,          // 玩家每回合 AP 上限加成(2026-08-12,利)
+        CritBuff,         // 玩家暴击率加成(百分点,2026-08-12,锋)
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -34,7 +42,8 @@ namespace Brushblade.Core
     /// Seal=AP 扣减量(StartTurn 读它)、
     /// Blind=命中降低百分比(AttackHits 读它)、
     /// Morale=战意层数(EffectiveAttack 乘 MoralePerStack 才是攻击加成)、
-    /// ApBoost=每回合 AP 上限加成(StartTurn 与 ApPerTurn 两侧都读它)。</summary>
+    /// ApBoost=每回合 AP 上限加成(StartTurn 与 ApPerTurn 两侧都读它)、
+    /// CritBuff=暴击率加成的百分点(EffectiveCrit 读它)。</summary>
     public sealed class StatusEffect
     {
         public StatusKind Kind { get; set; }
