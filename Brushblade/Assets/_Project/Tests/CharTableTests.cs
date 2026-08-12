@@ -63,11 +63,28 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_KaiIsDamageReductionTwenty()
+        public void RealConfig_KaiIsDefenseTwelve()
         {
             var effect = RealGraph().Get("铠").Effects
-                .First(e => e.Kind == EffectKind.DamageReduction);
-            Assert.That(effect.Value, Is.EqualTo(20));
+                .First(e => e.Kind == EffectKind.DefenseBuff);
+            Assert.That(effect.Value, Is.EqualTo(12));
+        }
+
+        /// <summary>6 个护甲字的点数(spec §6.2 的折算表:旧减伤% × 0.6)。
+        /// 逐字钉住而不是只钉 铠 —— 折算表是设计裁定,漏改一个字不会有别的测试红。</summary>
+        [Test]
+        public void RealConfig_DefenseChars_CarryTheirPoints()
+        {
+            var graph = RealGraph();
+            var expected = new Dictionary<string, int>
+            {
+                ["巍"] = 3, ["磐"] = 6, ["崟"] = 9, ["铠"] = 12, ["崊"] = 12, ["漜"] = 15,
+            };
+            foreach (var pair in expected)
+            {
+                var buff = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.DefenseBuff);
+                Assert.That(buff.Value, Is.EqualTo(pair.Value), $"「{pair.Key}」护甲点数");
+            }
         }
 
         [Test]
@@ -92,14 +109,22 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_PierceChars_CarryIgnoreArmorFlag()
+        public void RealConfig_PierceChars_CarryPiercePoints()
         {
-            // ignoreArmor 若没从 JSON 传到 EffectDef,字照常能打但穿甲效果静默消失
+            // pierce 若没从 JSON 传到 EffectDef,字照常能打但穿透效果静默消失
+            // (2026-08-12,E-b4 T3:旧的 ignoreArmor 布尔标记换成点数)。
+            // 基础值同时钉住:旧「穿甲无条件 +15%」已固化进基础值(400→460 / 130→150 / 90→105),
+            // 那是**精确等价变换**,漏做的话对无甲目标的收益会静默缩水 15%。
             var graph = RealGraph();
-            foreach (var id in new[] { "锥", "刺", "錰" })
+            var expected = new Dictionary<string, (int Damage, int Pierce)>
             {
-                var hit = graph.Get(id).Effects.First(e => e.Kind == EffectKind.DamageSingle);
-                Assert.That(hit.IgnoreArmor, Is.True, $"「{id}」应带穿甲标记");
+                ["锥"] = (105, 10), ["刺"] = (150, 15), ["錰"] = (460, 30),
+            };
+            foreach (var pair in expected)
+            {
+                var hit = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.DamageSingle);
+                Assert.That(hit.Value, Is.EqualTo(pair.Value.Damage), $"「{pair.Key}」基础值(含固化的 +15%)");
+                Assert.That(hit.Pierce, Is.EqualTo(pair.Value.Pierce), $"「{pair.Key}」穿透点数");
             }
         }
 
@@ -147,13 +172,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_ArmorBreakChars_CarryTwoTurns()
+        public void RealConfig_ArmorBreakChars_CarryTheirPoints()
         {
+            // ⚠ 语义反转(2026-08-12,E-b4 T3):value 从**回合数**(全部 6 字 = 2)
+            // 变成**削减的护甲点数**。档位依据是战例二「三张蓝档削光坚壁 Boss(60)」。
             var graph = RealGraph();
-            foreach (var id in new[] { "熔", "溃", "溶", "锤", "破", "碎" })
+            var expected = new Dictionary<string, int>
             {
-                var brk = graph.Get(id).Effects.First(e => e.Kind == EffectKind.ArmorBreak);
-                Assert.That(brk.Value, Is.EqualTo(2), $"「{id}」破甲应持续 2 回合");
+                ["碎"] = 10, ["溶"] = 15, ["破"] = 15, ["熔"] = 20, ["溃"] = 20, ["锤"] = 20,
+            };
+            foreach (var pair in expected)
+            {
+                var brk = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.ArmorBreak);
+                Assert.That(brk.Value, Is.EqualTo(pair.Value), $"「{pair.Key}」破甲削减点数");
             }
         }
 

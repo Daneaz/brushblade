@@ -13,7 +13,7 @@ namespace Brushblade.Core.Tests
 
         private static StatusEffect Reduction(string sourceId, int percent) => new()
         {
-            Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+            Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
             Magnitude = percent, TurnsLeft = -1, SourceId = sourceId,
         };
 
@@ -25,7 +25,7 @@ namespace Brushblade.Core.Tests
             bag.Apply(Reduction("铠", 30));   // 同字重复施放,不同量值
 
             Assert.That(bag.All.Count, Is.EqualTo(1));
-            Assert.That(bag.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(30), "后来者覆盖前者");
+            Assert.That(bag.TotalMagnitude(StatusKind.DefenseBuff), Is.EqualTo(30), "后来者覆盖前者");
         }
 
         [Test]
@@ -36,7 +36,7 @@ namespace Brushblade.Core.Tests
             bag.Apply(Reduction("崟", 15));
 
             Assert.That(bag.All.Count, Is.EqualTo(2));
-            Assert.That(bag.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(35));
+            Assert.That(bag.TotalMagnitude(StatusKind.DefenseBuff), Is.EqualTo(35));
         }
 
         [Test]
@@ -52,7 +52,7 @@ namespace Brushblade.Core.Tests
             bag.TickTurns();
 
             Assert.That(bag.Has(StatusKind.Bleed), Is.False);          // 到期移除
-            Assert.That(bag.Has(StatusKind.DamageReduction), Is.True); // -1 不递减
+            Assert.That(bag.Has(StatusKind.DefenseBuff), Is.True); // -1 不递减
         }
 
         [Test]
@@ -64,7 +64,7 @@ namespace Brushblade.Core.Tests
 
             Assert.That(bag.RemoveAll(StatusPolarity.Debuff), Is.EqualTo(1)); // 返回移除条数
             Assert.That(bag.Has(StatusKind.Burn), Is.False);
-            Assert.That(bag.Has(StatusKind.DamageReduction), Is.True);
+            Assert.That(bag.Has(StatusKind.DefenseBuff), Is.True);
         }
 
         [Test]

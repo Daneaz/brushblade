@@ -42,10 +42,10 @@ namespace Brushblade.CoreTests
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 3) }),
             new CharDef("壬", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
-            // 癸 = 基础 6:乘法顺序专用,数字不能随手改(见 CritLandsAfterArmorBreakFloor)
+            // 癸 = 基础 6:乘法顺序专用,数字不能随手改(见 CritLandsAfterAttackScalingFloor)
             new CharDef("癸", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 6) }),
-            // 子 = 破甲 2 回合(锤):在暴击与取整之间夹一个非 1 的承伤系数
+            // 子 = 破甲 2 **点**(2026-08-12,E-b4 T3:value 从回合数变成削减的护甲点数)
             new CharDef("子", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.ArmorBreak, 2) }),
             // 丑 = 10 伤 ×2 段(剁)
@@ -195,22 +195,25 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void CritLandsAfterArmorBreakFloor()
+        public void CritLandsAfterAttackScalingFloor()
         {
-            // **守乘法顺序的唯一一条**。生克全 1.0x 的测试字上,暴击放在生克之前还是之后
-            // 结果完全一样,其余测试全绿也守不住顺序;必须在暴击与取整之间夹一个非 1 的系数。
+            // **守乘法顺序的唯一一条**。生克全 1.0x 的测试字上,暴击放在哪一步结果都一样,
+            // 其余测试全绿也守不住顺序;必须在暴击与一次**截断**之间夹一个非 1 的系数。
             //
-            // 基础值必须是 6 —— 它是同时分得开两种变异的那个值:
-            //   本设计(暴击在最末、整数除):floor(6 × 1.25) = 7 → 7 × 150 ÷ 100 = 10
-            //   变异 ① 暴击挪到生克之前:   6 × 150 ÷ 100 = 9 → floor(9 × 1.25) = 11
-            //   变异 ② 暴击折进 taken 浮点:taken = 1.25 × 1.5 = 1.875 → floor(6 × 1.875) = 11
-            // 换成基础 5 只分得开变异 ①(9 / 8 / 9),换成 7 只分得开变异 ②(12 / 12 / 13)。
+            // ⚠ 2026-08-12(E-b4 T3):原先夹的是破甲的承伤 ×1.25 —— 那条乘法层已随点数护甲
+            // 一起删除(守方侧从此没有任何乘数)。改夹 ScaleByAttack 的整数除,它同样是
+            // 「非 1 系数 + 截断」,三组数字与原设计完全同构:
+            //   本设计(暴击在最末、整数除):6 × 125 ÷ 100 = 7 → 7 × 150 ÷ 100 = 10
+            //   变异 ① 暴击挪到 ScaleByAttack 之前:6 × 150 ÷ 100 = 9 → 9 × 125 ÷ 100 = 11
+            //   变异 ② 暴击折进浮点一起算:        floor(6 × 1.25 × 1.5) = floor(11.25) = 11
+            // 基础值必须是 6,系数必须是 125 —— 换成别的会有一种变异分不开。
             // **这条测试的数字不能随手改。**
-            var engine = Battle(100, "子", "癸");
-            engine.Cast("子", 0);
+            var engine = Battle(
+                new BattleConfig { PlayerCritChance = 100, PlayerAttack = 125, PlayerMaxHp = 100 },
+                new[] { Dummy() }, "癸");
             engine.Cast("癸", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 10),
-                "floor(6 × 1.25) = 7,再 × 150 ÷ 100 = 10(不是 11)");
+                "6 × 125 ÷ 100 = 7,再 × 150 ÷ 100 = 10(不是 11)");
         }
 
         // ---- 覆盖面:单体 / 群体 / 多段 ----
@@ -453,9 +456,10 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void FullCrit_DoesNotScaleBurnStacksOrArmorBreakTurns()
+        public void FullCrit_DoesNotScaleBurnStacksOrArmorBreakPoints()
         {
-            // 层数与回合数不是伤害,乘 1.5 是另一回事。
+            // 层数与护甲削减点数都不是伤害,乘 1.5 是另一回事。
+            // (2026-08-12,E-b4 T3:破甲的 value 从回合数变成点数,负向口径不变)
             var engine = Battle(100, "辛", "子");
             engine.Cast("辛", 0);
             engine.Cast("子", 0);
@@ -463,7 +467,8 @@ namespace Brushblade.CoreTests
                 Is.EqualTo(3), "灼烧层数不吃暴击");
             var armorBreak = engine.Enemies[0].Statuses.Find(StatusKind.ArmorBreak);
             Assert.That(armorBreak, Is.Not.Null);
-            Assert.That(armorBreak.TurnsLeft, Is.EqualTo(2), "破甲回合数不吃暴击");
+            Assert.That(armorBreak.Magnitude, Is.EqualTo(2), "破甲削减点数不吃暴击");
+            Assert.That(armorBreak.TurnsLeft, Is.EqualTo(-1), "破甲本场持久");
         }
 
         // ---- 快照:目标是零新增字段 ----
@@ -493,7 +498,10 @@ namespace Brushblade.CoreTests
             // 这条测试就是那道防线:**新枚举值一律追加在末尾**,改动这里的任何一个数字
             // 都等于宣布旧存档作废。
             Assert.That((int)StatusKind.Burn, Is.EqualTo(0));
-            Assert.That((int)StatusKind.DamageReduction, Is.EqualTo(5));
+            // 序号 5 是**废弃占位**(2026-08-12,E-b4 T3):乘法减伤层删除后它没有载体了,
+            // 但**不能删也不能复用** —— 删了 6 以后全部前移,复用则单位从百分点变成点数
+            // 而序号不变,两条都是静默存档损坏。新载体是末尾的 DefenseBuff(18)。
+            Assert.That((int)StatusKind.ObsoleteDamageReduction, Is.EqualTo(5), "废弃占位,占着不许动");
             Assert.That((int)StatusKind.AttackBuff, Is.EqualTo(6));
             Assert.That((int)StatusKind.ArmorBreak, Is.EqualTo(7));
             Assert.That((int)StatusKind.Immunity, Is.EqualTo(10));

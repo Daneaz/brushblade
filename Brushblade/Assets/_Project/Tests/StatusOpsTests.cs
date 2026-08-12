@@ -326,11 +326,11 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "扫" }, new[] { Dummy() });
             engine.PlayerStatuses.Apply(new StatusEffect
             {
-                Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+                Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
                 Magnitude = 30, TurnsLeft = -1, SourceId = "铠",
             });
             engine.Cast("扫", 0);
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(30));
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff), Is.EqualTo(30));
         }
 
         // ---- 净化 ----
@@ -351,7 +351,7 @@ namespace Brushblade.Core.Tests
             });
             engine.PlayerStatuses.Apply(new StatusEffect
             {
-                Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+                Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
                 Magnitude = 30, TurnsLeft = -1, SourceId = "铠",
             });
 
@@ -359,7 +359,7 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False);
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Burn), Is.False);
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(30),
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff), Is.EqualTo(30),
                 "增益不该被净化误伤");
         }
 

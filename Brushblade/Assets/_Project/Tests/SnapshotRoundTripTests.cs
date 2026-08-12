@@ -30,7 +30,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
             new CharDef("呆", null),
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12) }),
             new CharDef("锯", Element.Metal,
                 effects: new[] { new EffectDef(EffectKind.Bleed, 3) }),
         });
@@ -47,11 +47,11 @@ namespace Brushblade.Core.Tests
             var sb = new StringBuilder();
             sb.Append($"hp{b.PlayerHp}|ap{b.Ap}|turn{b.Turn}|ph{b.Phase}")
               .Append($"|sn{b.ShieldNormal}|sp{b.ShieldPersist}")
-              .Append($"|dr{string.Join(",", b.PlayerStatuses.All.Where(s => s.Kind == StatusKind.DamageReduction).OrderBy(s => s.SourceId).Select(s => $"{s.SourceId}{s.Magnitude}"))}")
+              .Append($"|def{string.Join(",", b.PlayerStatuses.All.Where(s => s.Kind == StatusKind.DefenseBuff).OrderBy(s => s.SourceId).Select(s => $"{s.SourceId}{s.Magnitude}"))}")
               .Append($"|lib{string.Join(",", b.Library)}|pool{string.Join(",", b.Pool)}");
             foreach (var e in b.Enemies)
                 sb.Append($"|E({e.Def.Id},{e.Hp}/{e.MaxHp},{e.Element},{e.ApparentElement},burn{e.Statuses.TotalMagnitude(StatusKind.Burn)}," +
-                          $"atk{e.Attack},dt{e.DamageTaken},ph{e.PhaseIndex},rg{e.RegrowProgress}," +
+                          $"atk{e.Attack},def{e.Defense},ab{e.Statuses.TotalMagnitude(StatusKind.ArmorBreak)},ph{e.PhaseIndex},rg{e.RegrowProgress}," +
                           $"sp{e.HasSplit},ht{e.HitsTaken})");
             foreach (var s in b.Summons)
                 sb.Append($"|S({s.Char},{s.Element},{s.Hp}/{s.MaxHp},atk{s.Attack})");
@@ -162,14 +162,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Battle_DamageReduction_Survives() // 减伤来源(状态容器)存档往返
+        public void Battle_DefenseBuff_Survives() // 护甲增益来源(状态容器)存档往返
         {
             var def = new EnemyDef("枯", Element.Wood, 200, 5);
             var a = Battle(new[] { def }, new[] { "铠" });
             a.Cast("铠");
             var b = Reload(a, def);
-            Assert.That(b.PlayerStatuses.Find(StatusKind.DamageReduction).Magnitude, Is.EqualTo(20));
-            Assert.That(b.DamageReductionMultiplier, Is.EqualTo(a.DamageReductionMultiplier).Within(0.001f));
+            Assert.That(b.PlayerStatuses.Find(StatusKind.DefenseBuff).Magnitude, Is.EqualTo(12));
+            Assert.That(b.EffectivePlayerDefense, Is.EqualTo(a.EffectivePlayerDefense));
             a.EndTurn(); b.EndTurn();
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
@@ -252,7 +252,7 @@ namespace Brushblade.Core.Tests
             var boss = new EnemyDef("排山倒海", Element.Water, 12, 6, phases: new[]
             {
                 new BossPhaseDef("排", Element.Metal, 12, 6),
-                new BossPhaseDef("山", Element.Earth, 15, 4, damageTaken: 0.5f),
+                new BossPhaseDef("山", Element.Earth, 15, 4, defense: 60),
                 new BossPhaseDef("倒", Element.Wood, 12, 8),
             });
             var a = Battle(new[] { boss }, new[] { "炎" }, seed: 5);
@@ -473,7 +473,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void CarriedDamageReductions_RoundTrip_AcrossFloorBreak() // 减伤跨战斗结转:段内持久
+        public void CarriedDefenseBuffs_RoundTrip_AcrossFloorBreak() // 护甲增益跨战斗结转:段内持久
         {
             var def = new EnemyDef("枯", Element.Wood, 4, 1);
             var config = TwoBattles(def);
@@ -482,16 +482,16 @@ namespace Brushblade.Core.Tests
             a.Battle.Cast("铠");
             a.Battle.Cast("炎", 0); // 一发清场
             Assert.That(a.Battle.Phase, Is.EqualTo(BattlePhase.Won));
-            a.AdvanceAfterBattle();     // 打完第一场:携带态已含减伤来源
-            Assert.That(a.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(20));
+            a.AdvanceAfterBattle();     // 打完第一场:携带态已含护甲增益来源
+            Assert.That(a.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(12));
 
             var b = Reload(a, config);
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
-            Assert.That(b.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(20));
+            Assert.That(b.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(12));
 
             foreach (var r in new[] { a, b }) r.SkipReward(); // 进入第二场
-            Assert.That(a.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f), "跨战斗仍在生效");
-            Assert.That(b.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f));
+            Assert.That(a.Battle.EffectivePlayerDefense, Is.EqualTo(12), "跨战斗仍在生效");
+            Assert.That(b.Battle.EffectivePlayerDefense, Is.EqualTo(12));
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 

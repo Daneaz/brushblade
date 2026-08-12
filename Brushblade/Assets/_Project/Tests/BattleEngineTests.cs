@@ -48,6 +48,22 @@ namespace Brushblade.Core.Tests
             DropTable = dropTable.Length > 0 ? dropTable : new[] { "木" },
         };
 
+        /// <summary>生克 × 护甲的对照专用:斫 = 木系 100 伤(木克土 ×1.5)、
+        /// 涓 = 水系 100 伤(土克水 ×0.5)、砸 = 心系 100 伤(中性 ×1.0)。
+        /// 三张同基础值,只有属性不同 —— 差额就是生克的贡献。</summary>
+        private static BattleEngine CounterEngine(EnemyDef enemy)
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("斫", Element.Wood, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
+                new CharDef("涓", Element.Water, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
+                new CharDef("砸", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
+            });
+            return new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
+                new[] { "斫", "涓", "砸" }, Array.Empty<string>(), new[] { enemy }, seed: 1);
+        }
+
         private static EnemyDef MetalBoss(int hp = 200) => new("锈", Element.Metal, hp, 5);
         private static EnemyDef WoodMinion(int hp = 12) => new("枯", Element.Wood, hp, 3);
 
@@ -87,55 +103,56 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerHp, Is.EqualTo(50));    // 护盾垫住,血未掉
         }
 
-        // ---- 减伤(土系,2026-08-03):乘法叠加、同字不叠、段内持久 ----
+        // ---- 护甲增益(土系,2026-08-03 起为减伤%;2026-08-12 E-b4 T3 改点数):
+        //      **加法**叠加、同字不叠、段内持久 ----
 
         private static RecipeGraph ArmorGraph() => new(new[]
         {
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12) }),
             new CharDef("崟", Element.Earth,
-                effects: new[] { new EffectDef(EffectKind.DamageReduction, 15) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 9) }),
         });
 
         [Test]
-        public void DamageReduction_MultipliesAcrossDifferentChars()
+        public void DefenseBuff_AddsAcrossDifferentChars()
         {
             var engine = new BattleEngine(ArmorGraph(), Config(), new[] { "铠", "崟" },
                 Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, 42);
             engine.Cast("铠");
             engine.Cast("崟");
 
-            Assert.That(engine.DamageReductionMultiplier, Is.EqualTo(0.68f).Within(0.001f),
-                "0.8 × 0.85 = 0.68");
+            Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(21),
+                "点数是加法叠加:12 + 9 = 21(旧乘法层是 0.8 × 0.85 = 0.68)");
         }
 
         [Test]
-        public void DamageReduction_SameCharDoesNotStack()
+        public void DefenseBuff_SameCharDoesNotStack()
         {
             var engine = new BattleEngine(ArmorGraph(), Config(), new[] { "铠", "铠" },
                 Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, 42);
             engine.Cast("铠");
             engine.Cast("铠");
 
-            Assert.That(engine.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f),
+            Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(12),
                 "同字重复施放只刷新,不叠加");
         }
 
         [Test]
-        public void DamageReduction_AppliesToIncomingDamage()
+        public void DefenseBuff_AppliesToIncomingDamage()
         {
             var engine = new BattleEngine(ArmorGraph(), Config(), new[] { "铠" },
-                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, 42);
+                Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 50, 30) }, 42);
             engine.Cast("铠");
             int hpBefore = engine.PlayerHp;
 
             engine.EndTurn();
 
-            Assert.That(hpBefore - engine.PlayerHp, Is.EqualTo(8), "10 伤减 20% = 8");
+            Assert.That(hpBefore - engine.PlayerHp, Is.EqualTo(18), "30 伤减 12 点护甲 = 18");
         }
 
         [Test]
-        public void DamageReduction_InjectedViaConstructor_AppliesImmediately() // 跨战斗结转的构造入口
+        public void DefenseBuff_InjectedViaConstructor_AppliesImmediately() // 跨战斗结转的构造入口
         {
             var engine = new BattleEngine(ArmorGraph(), Config(), Array.Empty<string>(),
                 Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, seed: 42,
@@ -143,12 +160,12 @@ namespace Brushblade.Core.Tests
                 startingSummons: null,
                 startingStatuses: new[] { new StatusEffect
                 {
-                    Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
-                    Magnitude = 20, TurnsLeft = -1, SourceId = "铠",
+                    Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
+                    Magnitude = 12, TurnsLeft = -1, SourceId = "铠",
                 } });
 
-            Assert.That(engine.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f));
-            Assert.That(engine.PlayerStatuses.Find(StatusKind.DamageReduction).Magnitude, Is.EqualTo(20));
+            Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(12));
+            Assert.That(engine.PlayerStatuses.Find(StatusKind.DefenseBuff).Magnitude, Is.EqualTo(12));
         }
 
         // ---- 回合开始(3.5 步骤 1) ----
@@ -1149,140 +1166,139 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Minion_DamageTaken_ReducesDamage() // 小怪级承伤减免(墨渍):非成语怪也可承伤打折
+        public void Minion_Defense_ReducesDamage() // 小怪级护甲(墨渍):非成语怪也可带甲
         {
             var graph = new RecipeGraph(new[]
             {
                 new CharDef("木", Element.Wood),
-                new CharDef("击", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+                new CharDef("击", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
             });
             var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
                 new[] { "击" }, Array.Empty<string>(),
-                new[] { new EnemyDef("湿", Element.Water, 100, 0, damageTaken: 0.5f) }, seed: 1);
+                new[] { new EnemyDef("湿", Element.Water, 1000, 0, defense: 50) }, seed: 1);
             engine.Cast("击");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(95)); // floor(10 × 1.0(心) × 0.5)=5
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(950)); // 100 × 1.0(心) − 50 = 50
         }
 
+        /// <summary>护甲那条减法排在生克**之后**:木克土 ×1.5 先乘完,护甲最后减一次。
+        /// 反过来(先减 DEF 再乘生克)会得到 floor((100−30)×1.5) = 105,同一件护甲对不同
+        /// 属性的攻击者厚度不同,无从解释(spec §4.1)。</summary>
         [Test]
-        public void Fortify_BrokenByElementCounter() // 坚壁遇属性克制失效:被克(×1.5)按克制结算,不再乘承伤减免
+        public void Defense_SubtractsAfterElementMultiplier()
         {
-            var graph = new RecipeGraph(new[]
+            var engine = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0, defense: 30));
+            engine.Cast("斫"); // 木克土 ×1.5:floor(100 × 1.5) − 30 = 120
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(880));
+        }
+
+        /// <summary>攻方被克(×0.5)时护甲照常只减一次,减的还是同一个 30 点 ——
+        /// 点数是平的,不随生克倍率伸缩(与上一条互为对照)。</summary>
+        [Test]
+        public void Defense_IsFlat_WhenAttackerIsCountered()
+        {
+            var engine = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0, defense: 30));
+            engine.Cast("涓"); // 土克水 ×0.5:floor(100 × 0.5) − 30 = 20
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(980));
+        }
+
+        // ---- 护甲与生克的关系(2026-08-12,E-b4 T3:替代旧的「减免遭克失效」补丁)----
+
+        /// <summary>**减法对乘法是透明的**(spec §4.3)。旧乘法层会按比例抽走克制的收益
+        /// (100×1.5×0.5 = 75,而无甲时 100×1.5 = 150),所以当年打了一条「减免遭克制失效」
+        /// 的补丁。点数制下那条补丁**不需要存在**:克制多打出来的 50 点原封不动落到血条上,
+        /// 与无甲时**完全相同**。
+        ///
+        /// 这条断言比它替代的两条更强:它守的是一条恒等式,而不是某个具体数字。</summary>
+        [Test]
+        public void Defense_DoesNotEatCounterBonus()
+        {
+            int ArmoredHit(string card, int defense)
             {
-                new CharDef("木", Element.Wood),
-                new CharDef("斫", Element.Wood, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
-            });
-            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
-                new[] { "斫" }, Array.Empty<string>(),
-                new[] { new EnemyDef("垒", Element.Earth, 100, 0, damageTaken: 0.75f) }, seed: 1);
-            engine.Cast("斫"); // 木克土 ×1.5,坚壁失效:floor(10 × 1.5)=15,而非 floor(10 × 1.5 × 0.75)=11
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(85));
+                var engine = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0, defense: defense));
+                int hp0 = engine.Enemies[0].Hp;
+                engine.Cast(card);
+                return hp0 - engine.Enemies[0].Hp;
+            }
+
+            // 斫 = 木,克土 ×1.5;砸 = 心,中性 ×1.0。同一个 100 基础值。
+            int bareNeutral = ArmoredHit("砸", 0);
+            int bareCounter = ArmoredHit("斫", 0);
+            int armoredNeutral = ArmoredHit("砸", 30);
+            int armoredCounter = ArmoredHit("斫", 30);
+
+            Assert.That(bareNeutral, Is.EqualTo(100));
+            Assert.That(bareCounter, Is.EqualTo(150));
+            Assert.That(armoredNeutral, Is.EqualTo(70));
+            Assert.That(armoredCounter, Is.EqualTo(120));
+            Assert.That(armoredCounter - armoredNeutral, Is.EqualTo(bareCounter - bareNeutral),
+                "克制带来的净收益(+50)与无甲时完全相同 —— 打对属性的奖励不被护甲侵蚀");
         }
 
-        [Test]
-        public void Fortify_AppliesWhenCountered() // 坚壁只被「克制」打穿:自己被克(×0.5)时减免照常生效
-        {
-            var graph = new RecipeGraph(new[]
-            {
-                new CharDef("木", Element.Wood),
-                new CharDef("涓", Element.Water, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
-            });
-            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" } },
-                new[] { "涓" }, Array.Empty<string>(),
-                new[] { new EnemyDef("垒", Element.Earth, 100, 0, damageTaken: 0.5f) }, seed: 1);
-            engine.Cast("涓"); // 土克水:水打土被克 ×0.5,坚壁仍生效:floor(10 × 0.5 × 0.5)=2
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(98));
-        }
+        // ---- 破甲(2026-08-05 曾是「承伤 +25%,不叠层,2 回合」;
+        //      2026-08-12 E-b4 T3 复原成「削目标护甲 N 点,本场持久、可叠加」)----
 
-        // ---- 承伤结算(2026-08-05):减免遭克失效,加成始终生效 ----
-
-        [Test]
-        public void DamageTaken_AboveOne_SurvivesElementCounter()
-        {
-            // 承伤 1.25 的金系敌人,挨火系克制攻击(火克金 ×1.5):
-            // 加成不该被「减免遭克失效」那条规则连坐吃掉
-            var armored = new EnemyDef("锈", Element.Metal, 500, 0,
-                EnemyAbility.None, null, 1.25f);
-            var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
-                Array.Empty<string>(), new[] { armored }, 42);
-            int hp0 = engine.Enemies[0].Hp;
-
-            engine.Cast("灯", 0); // 灯:DamageSingle 6,火系
-
-            // floor(6 × 1.5 克制 × 1.25 加成) = 11
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(11));
-        }
-
-        [Test]
-        public void DamageTaken_BelowOne_StillLostToElementCounter() // 既有行为,不许变
-        {
-            var tough = new EnemyDef("锈", Element.Metal, 500, 0,
-                EnemyAbility.None, null, 0.5f);
-            var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
-                Array.Empty<string>(), new[] { tough }, 42);
-            int hp0 = engine.Enemies[0].Hp;
-
-            engine.Cast("灯", 0);
-
-            // 减免遭克失效:floor(6 × 1.5) = 9,不再 ×0.5
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(9));
-        }
-
-        // ---- 破甲(2026-08-05):承伤 +25%,不叠层,持续 2 回合 ----
-
-        /// <summary>破甲测试专用:碎 = DamageSingle 4 + ArmorBreak 2,打无减免的中立敌人。</summary>
-        private static BattleEngine ArmorBreakEngine()
+        /// <summary>破甲测试专用:碎 = DamageSingle 40 + ArmorBreak 10、锤 = DamageSingle 90 +
+        /// ArmorBreak 20(与真实字表同值),打中立(心)敌人以排除生克干扰。</summary>
+        private static BattleEngine ArmorBreakEngine(int enemyDefense = 0)
         {
             var graph = new RecipeGraph(new[]
             {
                 new CharDef("石", Element.Earth),
                 new CharDef("卒", null),
+                new CharDef("钅", Element.Metal),
+                new CharDef("垂", null),
                 new CharDef("碎", Element.Earth, new[] { "石", "卒" }, effects: new[]
                 {
-                    new EffectDef(EffectKind.DamageSingle, 4),
-                    new EffectDef(EffectKind.ArmorBreak, 2),
+                    new EffectDef(EffectKind.DamageSingle, 40),
+                    new EffectDef(EffectKind.ArmorBreak, 10),
+                }),
+                new CharDef("锤", Element.Metal, new[] { "钅", "垂" }, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 90),
+                    new EffectDef(EffectKind.ArmorBreak, 20),
                 }),
             });
-            return new BattleEngine(graph, Config(), new[] { "碎", "碎", "碎" },
-                Array.Empty<string>(), new[] { new EnemyDef("桩", Element.Heart, 500, 0) }, 42);
+            return new BattleEngine(graph, Config(), new[] { "碎", "锤", "碎", "碎" },
+                Array.Empty<string>(),
+                new[] { new EnemyDef("桩", Element.Heart, 1000, 0, defense: enemyDefense) }, 42);
         }
 
         [Test]
-        public void ArmorBreak_RaisesDamageTakenByQuarter()
+        public void ArmorBreak_ReducesEffectiveDefense()
         {
-            var engine = ArmorBreakEngine();     // 见 Step 3
+            var engine = ArmorBreakEngine(enemyDefense: 30);
             int hp0 = engine.Enemies[0].Hp;
 
-            engine.Cast("碎", 0);                 // DamageSingle 4 + ArmorBreak 2
-            int firstHit = hp0 - engine.Enemies[0].Hp;
-            Assert.That(firstHit, Is.EqualTo(4), "第一击本身不吃破甲(破甲在伤害之后施加)");
+            engine.Cast("碎", 0);                 // DamageSingle 40 + ArmorBreak 10
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10),
+                "第一击本身不吃自己的破甲(破甲在伤害之后施加):40 − 30 = 10");
 
             int hp1 = engine.Enemies[0].Hp;
-            engine.Cast("碎", 0);                 // 第二张碎:目标已破甲
-            Assert.That(hp1 - engine.Enemies[0].Hp, Is.EqualTo(5), "floor(4 × 1.25) = 5");
+            engine.Cast("碎", 0);                 // 目标已被削 10 点甲
+            Assert.That(hp1 - engine.Enemies[0].Hp, Is.EqualTo(20), "40 − (30 − 10) = 20");
         }
 
+        /// <summary>T3-V1(spec §4.5.2):破甲**必须可叠**。不叠只刷新的话六个破甲字互相排斥
+        /// —— 先出削 20 的再出削 10 的会**变弱** —— 而战例二的「三张接力削光坚壁 Boss」
+        /// 整套玩法就建立在叠加上。</summary>
         [Test]
-        public void ArmorBreak_DoesNotStack_OnlyRefreshes()
+        public void ArmorBreak_StacksAcrossChars()
         {
-            var engine = ArmorBreakEngine();
-            engine.Cast("碎", 0);   // 施加破甲(首击不吃)
-            int hp1 = engine.Enemies[0].Hp;
+            var engine = ArmorBreakEngine(enemyDefense: 50);
 
-            engine.Cast("碎", 0);   // 目标已破甲,再次施加应只刷新
-            int secondHit = hp1 - engine.Enemies[0].Hp;
-            int hp2 = engine.Enemies[0].Hp;
-
-            engine.Cast("碎", 0);   // 第三击:若第二次真的叠了层,这里承伤会继续升高
-            int thirdHit = hp2 - engine.Enemies[0].Hp;
-
-            // 两次都是 floor(4 × 1.25) = 5——叠层的话第三击会变成 floor(4 × 1.5) = 6
-            Assert.That(secondHit, Is.EqualTo(5), "承伤倍率恒 ×1.25");
-            Assert.That(thirdHit, Is.EqualTo(5), "不叠层:第三击承伤仍是 ×1.25,不会滚雪球");
-
+            engine.Cast("碎", 0);   // 削 10
+            engine.Cast("锤", 0);   // 再削 20 → 合计 30
             var bag = engine.Enemies[0].Statuses;
-            int count = 0;
-            foreach (var s in bag.All) if (s.Kind == StatusKind.ArmorBreak) count++;
-            Assert.That(count, Is.EqualTo(1), "不叠层:只有一条");
+            Assert.That(bag.TotalMagnitude(StatusKind.ArmorBreak), Is.EqualTo(30),
+                "碎(10)+ 锤(20)= 目标护甲 −30");
+            int entries = 0;
+            foreach (var e in bag.All) if (e.Kind == StatusKind.ArmorBreak) entries++;
+            Assert.That(entries, Is.EqualTo(2), "两条独立条目,不是互相覆盖的一条");
+
+            int hp = engine.Enemies[0].Hp;
+            engine.Cast("碎", 0);
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(20),
+                "40 − (50 − 30) = 20;若退回「只刷新」则只削 20,打出 40 − 30 = 10");
         }
 
         [Test]
@@ -1294,20 +1310,25 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(StatusPolarity.Debuff));
         }
 
+        /// <summary>T3-V2(spec §4.5.2):破甲**本场持久**,依据第 10 章 :56「破甲永久降护甲」。
+        /// 这条测试是 ArmorBreak_ExpiresAfterTwoTurns 的**语义反转**(2026-08-12)——
+        /// 名字与断言方向都反过来了,不是回归。</summary>
         [Test]
-        public void ArmorBreak_ExpiresAfterTwoTurns()
+        public void ArmorBreak_PersistsForTheWholeBattle()
         {
-            var engine = ArmorBreakEngine();
+            var engine = ArmorBreakEngine(enemyDefense: 30);
             engine.Cast("碎", 0);
-            engine.EndTurn();
-            engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.ArmorBreak), Is.False);
+            for (int i = 0; i < 5; i++) engine.EndTurn();
+
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.ArmorBreak),
+                Is.EqualTo(10), "过 5 个回合仍在,且量值不衰减");
         }
 
-        // ---- 穿甲(2026-08-05):忽略目标减免 + 固定 +15%,后者是保底价值 ----
+        // ---- 穿透(2026-08-12,E-b4 T3:替代旧的「穿甲 = 无视减免 + 15%」布尔标记)----
 
-        /// <summary>穿甲测试专用:锥 = DamageSingle 9 带 ignoreArmor;碎 = DamageSingle 4 + 破甲。</summary>
-        private static BattleEngine PierceEngine(EnemyDef enemy)
+        /// <summary>穿透测试专用:锥 = DamageSingle 105 / pierce 10(旧值 90,+15% 已固化进基础值);
+        /// 碎 = DamageSingle 40 + ArmorBreak 10;錰 = DamageSingle 100 / pierce 30(取整数便于对账)。</summary>
+        private static BattleEngine PierceEngine(EnemyDef enemy, int zuanPierce = 30)
         {
             var graph = new RecipeGraph(new[]
             {
@@ -1317,68 +1338,75 @@ namespace Brushblade.Core.Tests
                 new CharDef("卒", null),
                 new CharDef("锥", Element.Metal, new[] { "钅", "隹" }, effects: new[]
                 {
-                    new EffectDef(EffectKind.DamageSingle, 9, ignoreArmor: true),
+                    new EffectDef(EffectKind.DamageSingle, 105, pierce: 10),
+                }),
+                new CharDef("錰", Element.Heart, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 100, pierce: zuanPierce),
                 }),
                 new CharDef("碎", Element.Earth, new[] { "石", "卒" }, effects: new[]
                 {
-                    new EffectDef(EffectKind.DamageSingle, 4),
-                    new EffectDef(EffectKind.ArmorBreak, 2),
+                    new EffectDef(EffectKind.DamageSingle, 40),
+                    new EffectDef(EffectKind.ArmorBreak, 10),
                 }),
             });
-            return new BattleEngine(graph, Config(), new[] { "锥", "碎", "锥" },
+            return new BattleEngine(graph, Config(), new[] { "锥", "碎", "錰", "錰" },
                 Array.Empty<string>(), new[] { enemy }, 42);
         }
 
         [Test]
-        public void IgnoreArmor_BypassesReductionAndAddsFlatBonus()
+        public void Pierce_ReducesEffectiveDefense()
         {
-            // 减免 0.5 的心系敌人(心不参与生克,排除克制干扰)
-            var tough = new EnemyDef("桩", Element.Heart, 500, 0, EnemyAbility.None, null, 0.5f);
-            var engine = PierceEngine(tough);
+            // 心系敌人(心不参与生克,排除克制干扰),护甲 30
+            var armored = new EnemyDef("桩", Element.Heart, 1000, 0, defense: 30);
+            var engine = PierceEngine(armored);
             int hp0 = engine.Enemies[0].Hp;
 
-            engine.Cast("锥", 0);   // DamageSingle 9,ignoreArmor
+            engine.Cast("锥", 0);   // DamageSingle 105,穿透 10
 
-            // 忽略减免 → 1.0,再 +15% → floor(9 × 1.15) = 10
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10));
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(85), "105 − max(0, 30 − 10) = 85");
+        }
+
+        /// <summary>T3-V3(裁定 4.1.2):破甲与穿透**从同一个基础护甲里减**,一个 max(0,…)。
+        /// 不嵌套、不重复扣、削过头不倒贴 —— 「DEF 20 + 破甲 20 + 穿透 30」与「DEF 20 + 破甲 50」
+        /// 打出同一个数,都是满额 100 而不是 100+30。</summary>
+        [Test]
+        public void ArmorBreak_AndPierce_DoNotDoubleCount_NorOverflow()
+        {
+            var engine = PierceEngine(new EnemyDef("桩", Element.Heart, 1000, 0, defense: 20));
+            engine.Cast("碎", 0);   // 破甲 10(碎 的量),先垫一层
+            engine.Enemies[0].Statuses.Apply(new StatusEffect  // 再补 10 → 破甲合计 20
+            {
+                Kind = StatusKind.ArmorBreak, Polarity = StatusPolarity.Debuff,
+                Magnitude = 10, TurnsLeft = -1, SourceId = "补#1",
+            });
+            int hp0 = engine.Enemies[0].Hp;
+            engine.Cast("錰", 0);   // 基础 100,穿透 30
+            int withBoth = hp0 - engine.Enemies[0].Hp;
+            Assert.That(withBoth, Is.EqualTo(100), "护甲 20 − 破甲 20 − 穿透 30 → 钳到 0,打满 100(不是 130)");
+
+            // 对照组:破甲直接给 50、无穿透 —— 与上面同一个数
+            var other = PierceEngine(new EnemyDef("桩", Element.Heart, 1000, 0, defense: 20), zuanPierce: 0);
+            other.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.ArmorBreak, Polarity = StatusPolarity.Debuff,
+                Magnitude = 50, TurnsLeft = -1, SourceId = "补#1",
+            });
+            int hp1 = other.Enemies[0].Hp;
+            other.Cast("錰", 0);
+            Assert.That(hp1 - other.Enemies[0].Hp, Is.EqualTo(withBoth), "两种写法完全等价");
         }
 
         [Test]
-        public void IgnoreArmor_FlatBonusAppliesToUnarmoredToo() // 口径 9 的保底价值
+        public void NonPiercing_DoesNotBypassDefense() // 证明穿透只属于带 pierce 的字
         {
-            var plain = new EnemyDef("桩", Element.Heart, 500, 0);
-            var engine = PierceEngine(plain);
+            var armored = new EnemyDef("桩", Element.Heart, 1000, 0, defense: 30);
+            var engine = PierceEngine(armored);
             int hp0 = engine.Enemies[0].Hp;
 
-            engine.Cast("锥", 0);
+            engine.Cast("碎", 0);   // 无穿透,DamageSingle 40
 
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10), "floor(9 × 1.15) = 10");
-        }
-
-        [Test]
-        public void IgnoreArmor_StacksWithArmorBreak() // 口径 6:只忽略减免,不忽略破甲加成
-        {
-            var plain = new EnemyDef("桩", Element.Heart, 500, 0);
-            var engine = PierceEngine(plain);
-            engine.Cast("碎", 0);            // 先破甲
-            int hp1 = engine.Enemies[0].Hp;
-
-            engine.Cast("锥", 0);
-
-            // 1 + 0.15 穿甲 + 0.25 破甲 = 1.40 → floor(9 × 1.4) = 12
-            Assert.That(hp1 - engine.Enemies[0].Hp, Is.EqualTo(12));
-        }
-
-        [Test]
-        public void NonPiercing_GetsNoFlatBonus() // 证明 15% 只属于穿甲
-        {
-            var plain = new EnemyDef("桩", Element.Heart, 500, 0);
-            var engine = PierceEngine(plain);
-            int hp0 = engine.Enemies[0].Hp;
-
-            engine.Cast("碎", 0);   // 非穿甲,DamageSingle 4
-
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(4));
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10), "40 − 30 = 10");
         }
 
         [Test]
@@ -1533,8 +1561,8 @@ namespace Brushblade.Core.Tests
             // 阶段血量各 2 → 总血 4、一阶段阈值 2;流血 3 一回合即打穿
             var boss = new EnemyDef("成语", Element.Metal, 4, 0, EnemyAbility.None, new[]
             {
-                new BossPhaseDef("成", Element.Metal, 2, 0, 1f, BossSkill.None),
-                new BossPhaseDef("语", Element.Metal, 2, 0, 1f, BossSkill.None),
+                new BossPhaseDef("成", Element.Metal, 2, 0),
+                new BossPhaseDef("语", Element.Metal, 2, 0),
             });
             var engine = new BattleEngine(BleedGraph(), Config(), new[] { "锯" },
                 Array.Empty<string>(), new[] { boss }, 42);
@@ -1580,11 +1608,11 @@ namespace Brushblade.Core.Tests
             new CharDef("沐", Element.Water,
                 effects: new[] { new EffectDef(EffectKind.HealOverTime, 3, turns: 3) }),
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12) }),
         });
 
         [Test]
-        public void PlayerStatuses_HotAndReduction_QueryableByPolarity()
+        public void PlayerStatuses_HotAndDefenseBuff_QueryableByPolarity()
         {
             var engine = new BattleEngine(HealGraph(), Config(), new[] { "沐", "铠" },
                 Array.Empty<string>(), new[] { WoodMinion() }, 42);
@@ -1594,8 +1622,8 @@ namespace Brushblade.Core.Tests
             var buffs = 0;
             foreach (var s in engine.PlayerStatuses.All)
                 if (s.Polarity == StatusPolarity.Buff) buffs++;
-            Assert.That(buffs, Is.EqualTo(2)); // HoT + 减伤
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DamageReduction), Is.EqualTo(20));
+            Assert.That(buffs, Is.EqualTo(2)); // HoT + 护甲增益
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff), Is.EqualTo(12));
         }
 
         [Test]

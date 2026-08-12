@@ -878,10 +878,9 @@ namespace Brushblade.Core.Tests
             Assert.That(damages[1].Amount, Is.EqualTo(20), "第二段:24% 进阈值,该段伤害 ×2");
         }
 
-        [Test]
-        public void MultiHit_EachSegmentGoesThroughArmorBreakSeparately()
+        /// <summary>多段字的破甲专用图:裂 = 破甲 3 点、斫 = 10 伤 ×2 段。</summary>
+        private static BattleEngine MultiHitArmorEngine(int enemyDefense)
         {
-            // 破甲让承伤 +25%。两段各自过一次,所以 10→12 两次 = 24,而不是「20 整体 +25% = 25」
             var graph = new RecipeGraph(new[]
             {
                 new CharDef("木", Element.Wood),
@@ -890,14 +889,25 @@ namespace Brushblade.Core.Tests
                 new CharDef("斫", Element.Heart,
                     effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2) }),
             });
-            var engine = new BattleEngine(graph,
+            return new BattleEngine(graph,
                 new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
                 new[] { "裂", "斫" }, Array.Empty<string>(),
-                new[] { new EnemyDef("靶", Element.Heart, 200, 0) }, seed: 1);
-            engine.Cast("裂", 0);
-            engine.Cast("斫", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(176), "floor(10×1.25) × 2 段 = 12 × 2 = 24");
+                new[] { new EnemyDef("靶", Element.Heart, 200, 0, defense: enemyDefense) }, seed: 1);
         }
+
+        /// <summary>⚠ 语义仍成立但含义变了(2026-08-12,E-b4 T3,spec §4.4 末尾):
+        /// 旧口径是「每段各享一次承伤 +25%」,新口径是「每段各按同一个有效护甲结算」。
+        /// 破甲是目标身上的持续状态,两段之间不会变化,所以「每段独立」在破甲这条上是
+        /// **平凡成立**的 —— 真正要守的是「每段各扣一次护甲」,见下面那条。</summary>
+        [Test]
+        public void MultiHit_EachSegmentGoesThroughArmorBreakSeparately()
+        {
+            var engine = MultiHitArmorEngine(enemyDefense: 4);
+            engine.Cast("裂", 0);   // 破甲 3 → 有效护甲 4 − 3 = 1
+            engine.Cast("斫", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(182), "(10 − 1) × 2 段 = 18");
+        }
+
 
         [Test]
         public void HitCountDefaultsToOne_ExistingDamageUnchanged()
