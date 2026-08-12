@@ -21,7 +21,7 @@ namespace Brushblade.Core.Tests
             phases: new[]
             {
                 new BossPhaseDef("排", Element.Metal, 12, 6),
-                new BossPhaseDef("山", Element.Earth, 15, 4, damageTaken: 0.5f),
+                new BossPhaseDef("山", Element.Earth, 15, 4, defense: 6),
                 new BossPhaseDef("倒", Element.Wood, 12, 8),
                 new BossPhaseDef("海", Element.Water, 16, 10),
             });
@@ -80,13 +80,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ShanPhase_HalvesDamageTaken()
+        public void ShanPhase_HasHeavyArmor()
         {
             var engine = Engine();
             engine.Cast("火", 0);  // 40 血进「山」
             engine.EndTurn();
-            engine.Cast("火", 0);  // 火 vs 土:1.0 → 10 × 0.5 = 5
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(40 - 5));
+            engine.Cast("火", 0);  // 火 vs 土:1.0 → 10 − 护甲 6 = 4
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(40 - 4));
         }
 
         [Test]
@@ -151,7 +151,7 @@ namespace Brushblade.Core.Tests
                 ""enemies"": [
                     { ""id"": ""排山倒海"", ""element"": ""Water"", ""maxHp"": 12, ""attack"": 6, ""phases"": [
                         { ""char"": ""排"", ""element"": ""Metal"", ""maxHp"": 12, ""attack"": 6 },
-                        { ""char"": ""山"", ""element"": ""Earth"", ""maxHp"": 15, ""attack"": 4, ""damageTaken"": 0.5 }
+                        { ""char"": ""山"", ""element"": ""Earth"", ""maxHp"": 15, ""attack"": 4, ""defense"": 60 }
                     ] }
                 ],
                 ""dropTable"": [],
@@ -161,7 +161,7 @@ namespace Brushblade.Core.Tests
             var boss = campaign.Chapters[0].Stages[0].Encounters[0][0];
             Assert.That(boss.Phases.Count, Is.EqualTo(2));
             Assert.That(boss.Phases[0].Char, Is.EqualTo("排"));
-            Assert.That(boss.Phases[1].DamageTaken, Is.EqualTo(0.5f));
+            Assert.That(boss.Phases[1].Defense, Is.EqualTo(60), "阶段级护甲要从 JSON 传到 BossPhaseDef");
         }
 
         [Test]
@@ -183,7 +183,8 @@ namespace Brushblade.Core.Tests
             var boss = campaign.BuildRunConfig(0, 0).Encounters[0][0];
             Assert.That(boss.Phases[0].MaxHp, Is.EqualTo(18));  // 12×1.5
             Assert.That(boss.Phases[3].Attack, Is.EqualTo(15)); // 10×1.5
-            Assert.That(boss.Phases[1].DamageTaken, Is.EqualTo(0.5f)); // 承伤系数不缩放
+            // 护甲**半速**缩放(裁定 11):defScale = 1 + (1.5−1)/2 = 1.25 → ceil(6×1.25) = 8
+            Assert.That(boss.Phases[1].Defense, Is.EqualTo(8));
         }
 
         // ---- Freeze 补测(task 9 review finding,2026-08-03):冻结中的 Boss 完全不行动,

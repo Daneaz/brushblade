@@ -52,7 +52,7 @@
       "element": "Water",
       "maxHp": 140,
       "attack": 30,
-      "damageTaken": 0.7
+      "defense": 20
     },
     {
       "id": "焦痕",
@@ -79,7 +79,7 @@
           "element": "Earth",
           "maxHp": 230,
           "attack": 40,
-          "damageTaken": 0.5
+          "defense": 60
         },
         {
           "char": "倒",
@@ -112,7 +112,7 @@
           "element": "Water",
           "maxHp": 210,
           "attack": 50,
-          "damageTaken": 0.75
+          "defense": 30
         },
         {
           "char": "倒",
@@ -157,7 +157,7 @@
           "element": "Metal",
           "maxHp": 240,
           "attack": 110,
-          "damageTaken": 0.75
+          "defense": 30
         }
       ]
     }

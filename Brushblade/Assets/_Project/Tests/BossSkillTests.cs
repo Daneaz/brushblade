@@ -35,8 +35,10 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 2, summonAttack: 2, summonChar: "木") }),
             new CharDef("盾", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Shield, 20) }),
+            // 护甲 2 点(测试本地值,真实字表是 12):这里的 Boss 攻击力只有 5,
+            // 拿 12 会把普攻直接归零,断言看不出「大招也吃护甲」这件事
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 2) }),
         });
 
         private static BattleEngine Engine(BossSkill skill) =>
@@ -236,37 +238,41 @@ namespace Brushblade.Core.Tests
         // ---- 减伤同口径吃大招(2026-08-03):不是只挡普攻 ----
 
         [Test]
-        public void Deluge_AppliesPlayerDamageReduction() // 大招也吃减伤,不是只挡普攻
+        public void Deluge_AppliesPlayerDefense() // 大招也吃护甲,不是只挡普攻
         {
             var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
                 new[] { "铠" }, new[] { "火", "林", "盾", "火", "林", "盾" },
                 new[] { SkillBoss(BossSkill.Deluge) }, seed: 1);
-            engine.Cast("铠"); // 20% 减伤,DamageReductionMultiplier = 0.8
+            engine.Cast("铠"); // 护甲 +2
             int full = engine.PlayerHp;
 
-            engine.EndTurn(); // 敌方回合 1:普攻 5 → floor(5×0.8)=4
-            Assert.That(full - engine.PlayerHp, Is.EqualTo(4), "普攻基线未被破坏");
+            engine.EndTurn(); // 敌方回合 1:普攻 5 → 5 − 2 = 3
+            Assert.That(full - engine.PlayerHp, Is.EqualTo(3), "普攻基线未被破坏");
 
             engine.EndTurn(); // 敌方回合 2:蓄力,不出手
-            engine.EndTurn(); // 敌方回合 3:释放淹没,玩家份 Attack×2=10 → floor(10×0.8)=8
+            engine.EndTurn(); // 敌方回合 3:释放淹没,玩家份 Attack×2=10 → 10 − 2 = 8
 
-            Assert.That(full - engine.PlayerHp, Is.EqualTo(4 + 8),
-                "大招也吃减伤:玩家份 10 打折成 8,不是全额 10");
+            Assert.That(full - engine.PlayerHp, Is.EqualTo(3 + 8),
+                "大招也吃护甲:玩家份 10 减 2 点,不是全额 10");
         }
 
+        /// <summary>召唤物**不借用玩家的护甲**(spec §4.2:召唤物没有 DEF)。
+        /// ⚠ 语义变化(2026-08-12,E-b4 T3):旧的乘法减伤是「玩家受伤 −X%」,套在 Boss 大招的
+        /// **整条伤害**上,连打进召唤物的那一下也一起打折;点数护甲是「玩家这层皮多厚」,
+        /// 挡不到召唤物身上。这条测试从此守的是**负向**口径 —— 贯穿打进召唤物那一下是全额。</summary>
         [Test]
-        public void Pierce_AppliesDamageReductionToSummonHit() // 减伤同样降低贯穿打进召唤物的那一下
+        public void Pierce_SummonHit_DoesNotUsePlayerDefense()
         {
             var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
                 new[] { "铠", "林" }, new[] { "火", "盾", "火", "盾" },
                 new[] { SkillBoss(BossSkill.Pierce) }, seed: 1);
-            engine.Cast("铠");   // 20% 减伤
+            engine.Cast("铠");   // 护甲 +2(只保护玩家)
             engine.EndTurn();    // 敌方回合 1:普攻(此时无召唤物,落在玩家身上)
             engine.Cast("林");   // 2 只 6 血木召唤
 
             EndTurns(engine, 2); // 蓄力 + 释放贯穿
 
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(2), "贯穿打进召唤物那一下也吃减伤:floor(5×0.8)=4,6−4=2");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(1), "召唤物挨全额 5,不吃玩家的 2 点护甲:6−5=1");
         }
 
         [Test]
@@ -503,7 +509,7 @@ namespace Brushblade.Core.Tests
     { ""id"": ""试炼"", ""element"": ""Water"", ""maxHp"": 12, ""attack"": 6,
       ""phases"": [
         { ""char"": ""排"", ""element"": ""Metal"", ""maxHp"": 12, ""attack"": 6" + phaseSkillField + @" },
-        { ""char"": ""山"", ""element"": ""Earth"", ""maxHp"": 15, ""attack"": 4, ""damageTaken"": 0.5 },
+        { ""char"": ""山"", ""element"": ""Earth"", ""maxHp"": 15, ""attack"": 4, ""defense"": 60 },
         { ""char"": ""槑"", ""element"": ""Wood"", ""maxHp"": 12, ""attack"": 8 }
       ] }
   ],

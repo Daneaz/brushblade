@@ -225,7 +225,7 @@
         },
         {
           "kind": "ArmorBreak",
-          "value": 2
+          "value": 20
         }
       ]
     },
@@ -1052,7 +1052,7 @@
         },
         {
           "kind": "ArmorBreak",
-          "value": 2
+          "value": 20
         }
       ]
     },
@@ -1214,7 +1214,7 @@
         },
         {
           "kind": "ArmorBreak",
-          "value": 2
+          "value": 15
         }
       ]
     },
@@ -1432,8 +1432,8 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 400,
-          "ignoreArmor": true
+          "value": 460,
+          "pierce": 30
         }
       ]
     },
@@ -1545,7 +1545,7 @@
         },
         {
           "kind": "ArmorBreak",
-          "value": 2
+          "value": 20
         }
       ]
     },
@@ -1560,8 +1560,8 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 130,
-          "ignoreArmor": true
+          "value": 150,
+          "pierce": 15
         }
       ]
     },
@@ -1627,8 +1627,8 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 90,
-          "ignoreArmor": true
+          "value": 105,
+          "pierce": 10
         }
       ]
     },
@@ -1758,8 +1758,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageReduction",
-          "value": 20
+          "kind": "DefenseBuff",
+          "value": 12
         }
       ]
     },
@@ -2037,8 +2037,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageReduction",
-          "value": 25
+          "kind": "DefenseBuff",
+          "value": 15
         },
         {
           "kind": "Slow",
@@ -2056,8 +2056,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageReduction",
-          "value": 20
+          "kind": "DefenseBuff",
+          "value": 12
         }
       ]
     },
@@ -2071,8 +2071,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageReduction",
-          "value": 15
+          "kind": "DefenseBuff",
+          "value": 9
         }
       ]
     },
@@ -2086,8 +2086,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageReduction",
-          "value": 10
+          "kind": "DefenseBuff",
+          "value": 6
         }
       ]
     },
@@ -2101,8 +2101,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageReduction",
-          "value": 5
+          "kind": "DefenseBuff",
+          "value": 3
         }
       ]
     },
@@ -2185,7 +2185,7 @@
         },
         {
           "kind": "ArmorBreak",
-          "value": 2
+          "value": 15
         }
       ]
     },
@@ -2272,7 +2272,7 @@
         },
         {
           "kind": "ArmorBreak",
-          "value": 2
+          "value": 10
         }
       ]
     },

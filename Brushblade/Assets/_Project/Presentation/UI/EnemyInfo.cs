@@ -29,17 +29,17 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
-        /// <summary>技能说明。承伤减免(DamageTaken)是与技能解耦的独立配置,不在这里插值——
+        /// <summary>技能说明。护甲(Defense)是与技能解耦的独立配置,不在这里插值——
         /// 由 <see cref="PhaseDetail"/> 在技能说明之后独立追加(见 Finding 1)。
-        /// 不吃 phase 参数(Finding 3):五个分支全部只依赖 skill 本身,承伤行已由 PhaseDetail 独立追加。</summary>
+        /// 不吃 phase 参数(Finding 3):五个分支全部只依赖 skill 本身,护甲行已由 PhaseDetail 独立追加。</summary>
         public static string BossSkillText(BossSkill skill) => skill switch
         {
             BossSkill.Deluge => "对你造 攻×2,同时对每只召唤物造 攻×1(走五行)",
             BossSkill.Pierce => "穿透前排:最前一只召唤物造 攻×1,你造 攻×2",
             BossSkill.Topple => "对你造 攻×2,清空你全部护盾,下回合 AP −1",
             BossSkill.Devour => "吞掉最前一只召唤物(无视其血量);场上无召唤物时改为对你造 攻×1",
-            // 「以守为攻」是旧措辞:坚壁可能落在 DamageTaken == 1.0 的位次(见 spec 5.1),
-            // 那时没有任何减伤机制支撑这句话。改成只陈述事实,不暗示存在减伤(Finding 4)。
+            // 「以守为攻」是旧措辞:坚壁可能落在 Defense == 0 的位次(见 spec 5.1),
+            // 那时没有任何防御机制支撑这句话。改成只陈述事实,不暗示存在减伤(Finding 4)。
             BossSkill.Bulwark => "该阶段不放大招",
             _ => "",
         };
@@ -97,10 +97,14 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
-        /// <summary>减伤特性行。与 Boss 坚壁走同一条规则,措辞刻意一致——
-        /// 玩家学一次就能套用到所有减伤敌人。</summary>
-        public static string DamageTakenText(float damageTaken) =>
-            $"承伤 ×{damageTaken:0.##}:伤害打折 —— 但用克制它的属性打,减免完全失效";
+        /// <summary>护甲特性行(2026-08-12,E-b4 T3:口径从承伤系数换成点数)。与 Boss 坚壁走
+        /// 同一条规则,措辞刻意一致 —— 玩家学一次就能套用到所有带甲敌人。
+        ///
+        /// 不再提「用克制它的属性打减免完全失效」:那条补丁随乘法层一起没了,而且**没必要** ——
+        /// 减法对乘法透明,克制的加成原封不动落到血条,与无甲时完全相同。
+        /// 反过来要告诉玩家的是护甲怎么削:破甲(本场)与穿透(本次)。</summary>
+        public static string DefenseText(int defense) =>
+            $"护甲 {defense}:每次受到的伤害减 {defense} 点 —— 用破甲削掉它,或用带穿透的字绕过";
 
         // ============ 形态详情 ============
 
@@ -117,10 +121,10 @@ namespace Brushblade.Presentation
             else
                 text.Append('\n').Append('【').Append(BossSkillName(phase.Skill)).Append("】\n")
                     .Append(BossSkillText(phase.Skill));
-            // 承伤减免与技能是两套独立配置(Finding 1):独立判断、独立追加,
-            // 不能假定「有减伤 ⇔ 技能是坚壁」——两者在配置里完全解耦。
-            if (phase.DamageTaken < 1f)
-                text.Append('\n').Append(DamageTakenText(phase.DamageTaken));
+            // 护甲与技能是两套独立配置(Finding 1):独立判断、独立追加,
+            // 不能假定「有护甲 ⇔ 技能是坚壁」——两者在配置里完全解耦。
+            if (phase.Defense > 0)
+                text.Append('\n').Append(DefenseText(phase.Defense));
             return text.ToString();
         }
 
@@ -136,7 +140,7 @@ namespace Brushblade.Presentation
             _ => CharInfo.ElementName(def.Element) + "系",
         };
 
-        /// <summary>小怪单形态:属性血攻 + 能力 / 减伤 / 无机制(三者互斥)。</summary>
+        /// <summary>小怪单形态:属性血攻 + 能力 / 护甲 / 无机制(三者互斥)。</summary>
         public static string MinionDetail(EnemyDef def)
         {
             var text = new StringBuilder();
@@ -145,8 +149,8 @@ namespace Brushblade.Presentation
             if (def.Ability != EnemyAbility.None)
                 text.Append('\n').Append('【').Append(AbilityName(def.Ability)).Append("】\n")
                     .Append(AbilityText(def));
-            else if (def.DamageTaken < 1f)
-                text.Append('\n').Append(DamageTakenText(def.DamageTaken));
+            else if (def.Defense > 0)
+                text.Append('\n').Append(DefenseText(def.Defense));
             else
                 text.Append("\n无特殊机制 · 纯数值对拼");
             return text.ToString();

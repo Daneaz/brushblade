@@ -72,11 +72,10 @@ namespace Brushblade.Core
             };
         }
 
-        /// <summary>敌人数值缩放(HP/攻击按 <see cref="Scaled"/>,承伤系数不缩放);无尽深度缩放复用(20.4)。
+        /// <summary>敌人数值缩放(HP/攻击按 <see cref="Scaled"/>);无尽深度缩放复用(20.4)。
         ///
-        /// 护甲点数(2026-08-12,E-b4 T2)**原样带过、暂不缩放** —— T2 全表为 0,缩不缩放都一样;
-        /// 但不带过就会被静默丢成 0,而那种漏接在 T3 配值之后才会显形。
-        /// T3 按裁定 11 改成半速缩放 <c>1 + (scale−1)/2</c>。</summary>
+        /// **护甲按 scale 的一半增长**(2026-08-12,E-b4 裁定 11,见 <see cref="ScaledDefense"/>);
+        /// 技能不缩放。</summary>
         public static EnemyDef Scale(EnemyDef enemy, float scale)
         {
             List<BossPhaseDef> phases = null;
@@ -86,12 +85,29 @@ namespace Brushblade.Core
                 foreach (var phase in enemy.Phases)
                     phases.Add(new BossPhaseDef(phase.Char, phase.Element,
                         Scaled(phase.MaxHp, scale), Scaled(phase.Attack, scale),
-                        phase.DamageTaken, phase.Skill, phase.Defense)); // 承伤系数与技能都不缩放
+                        phase.Skill, ScaledDefense(phase.Defense, scale)));
             }
             return new EnemyDef(enemy.Id, enemy.Element,
                 Scaled(enemy.MaxHp, scale), Scaled(enemy.Attack, scale),
-                enemy.Ability, phases, enemy.DamageTaken, enemy.Defense); // 承伤系数不缩放
+                enemy.Ability, phases, ScaledDefense(enemy.Defense, scale));
         }
+
+        /// <summary>护甲点数的深度缩放:**半速**(2026-08-12,E-b4 裁定 11)。
+        ///
+        /// 不缩放不行 —— 100 层的坚壁 Boss 血量 ×11 而护甲还是 60,占玩家单击的比例趋近 0,
+        /// 护甲形同虚设。同速也不行 —— 点数减法对小数值是**开关**不是削减,同速会让深层的
+        /// 低伤字全部归零,玩家在深层只剩几张高伤字可用,字库多样性被护甲单方面掐死。
+        /// 于是取一半:<c>defScale = 1 + (scale − 1) / 2</c>。
+        ///
+        /// 判据(spec §6.3.2,守卫测试 LowestTierChar_StillDentsArmoredMobAtDepth20):
+        /// 深度 20(scale 2.9 → defScale 1.95)时,字表最低伤害档的字打墨渍仍要有非零输出。
+        /// 同速缩放会让它归零 —— 那条测试对这个变异有判别力,不是装饰性断言。
+        ///
+        /// 这里用 <c>Ceiling</c> 而不是 <see cref="Scaled"/> 的 <c>Round</c>:护甲不是血量量纲,
+        /// 没有「量级 ×10 要与缩放交换」的约束,而向上取整保证 defScale &gt; 1 时护甲至少涨 1 点
+        /// (DEF 1 的怪不会因为 Round 在深度 20 还是 1 点)。</summary>
+        private static int ScaledDefense(int defense, float scale) =>
+            (int)Math.Ceiling(defense * (1f + (scale - 1f) / 2f));
 
         /// <summary>一个血量量纲的数乘 scale 后落回整数。
         ///

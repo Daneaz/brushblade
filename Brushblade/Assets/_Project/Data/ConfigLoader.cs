@@ -43,7 +43,7 @@ namespace Brushblade.Data
             public string SummonChar { get; set; } = "木"; // 召唤:显示字
             public int Turns { get; set; }             // 持续类:回合数(HoT 用)
             public bool TargetAll { get; set; }        // 治疗类:是否覆盖全部召唤物
-            public bool IgnoreArmor { get; set; }      // 穿甲:无视减免 + 15% 加成
+            public int Pierce { get; set; }            // 穿透:本次攻击视目标护甲少 N 点(2026-08-12,E-b4)
             public SummonPassive Passive { get; set; }  // 召唤:被动(null = 无)
             public int SummonShield { get; set; }       // 召唤:出字给全场召唤物各 +N 盾(桂)
             public int ExecuteBelowPercent { get; set; } // 斩杀:目标 HP 低于此百分比时触发
@@ -384,10 +384,10 @@ namespace Brushblade.Data
                         if (!Enum.TryParse<Element>(phase.Element, out var phaseElement))
                             throw new ConfigException($"Boss「{dto.Id}」阶段「{phase.Char}」属性未知:{phase.Element}");
                         phases.Add(new BossPhaseDef(phase.Char, phaseElement, phase.MaxHp, phase.Attack,
-                            phase.DamageTaken, SkillFor(bossSkills, phase.Char, phase.Skill, dto.Id)));
+                            SkillFor(bossSkills, phase.Char, phase.Skill, dto.Id), phase.Defense));
                     }
                 }
-                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases, dto.DamageTaken);
+                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases, dto.Defense);
             }
             return enemyDefs;
         }
@@ -400,7 +400,7 @@ namespace Brushblade.Data
             public int Attack { get; set; }
             public string Ability { get; set; }
             public List<PhaseDto> Phases { get; set; }
-            public float DamageTaken { get; set; } = 1f;
+            public int Defense { get; set; }   // 护甲点数(2026-08-12,E-b4;缺省 0 = 无甲)
         }
 
         private sealed class PhaseDto
@@ -409,7 +409,7 @@ namespace Brushblade.Data
             public string Element { get; set; }
             public int MaxHp { get; set; }
             public int Attack { get; set; }
-            public float DamageTaken { get; set; } = 1f;
+            public int Defense { get; set; }   // 该阶段的护甲点数(2026-08-12,E-b4)
             public string Skill { get; set; }
         }
 
@@ -481,10 +481,10 @@ namespace Brushblade.Data
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
-                    effect.Turns, effect.TargetAll, effect.IgnoreArmor,
+                    effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
-                    effect.HitCount));
+                    effect.HitCount, effect.Pierce));
             }
             return effects;
         }

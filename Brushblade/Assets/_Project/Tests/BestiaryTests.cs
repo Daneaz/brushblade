@@ -12,7 +12,7 @@ namespace Brushblade.Core.Tests
             EnemyAbility.None, new[]
             {
                 new BossPhaseDef("排", Element.Water, 12, 6),
-                new BossPhaseDef("山", Element.Earth, 15, 4, 0.5f),
+                new BossPhaseDef("山", Element.Earth, 15, 4, defense: 60),
                 new BossPhaseDef("倒", Element.Metal, 12, 8),
                 new BossPhaseDef("海", Element.Water, 16, 10),
             });

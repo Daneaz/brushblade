@@ -134,23 +134,29 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void LoadCampaign_ParsesMinionDamageTaken() // 小怪级承伤减免解析(墨渍)
+        public void LoadCampaign_ParsesMinionDefense() // 小怪级护甲点数解析(墨渍)
         {
             var json = ValidJson.Replace(
                 @"{ ""id"": ""错字鬼"", ""element"": ""Wood"", ""maxHp"": 12, ""attack"": 4 }",
-                @"{ ""id"": ""错字鬼"", ""element"": ""Wood"", ""maxHp"": 12, ""attack"": 4, ""damageTaken"": 0.7 }");
+                @"{ ""id"": ""错字鬼"", ""element"": ""Wood"", ""maxHp"": 12, ""attack"": 4, ""defense"": 20 }");
             var campaign = ConfigLoader.LoadCampaign(json, MiniGraph());
             var enemy = campaign.Chapters[0].Stages[0].Encounters[0][0];
-            Assert.That(enemy.DamageTaken, Is.EqualTo(0.7f).Within(1e-6));
+            Assert.That(enemy.Defense, Is.EqualTo(20));
         }
 
+        /// <summary>⚠ **语义反转**(2026-08-12,E-b4 T3,裁定 11):原名 Scale_PreservesDamageTaken,
+        /// 守的是「承伤系数不缩放」(它是比例,缩放会溢出)。点数护甲必须缩放 —— 不缩放的话
+        /// 100 层的坚壁 Boss 血量 ×11 而护甲还是 60,占玩家单击的比例趋近 0,护甲形同虚设。
+        /// 但**同速**也不行:点数减法对小数值是开关不是削减,同速会让深层的低伤字全部归零。
+        /// 于是取一半。测试名与断言方向都反过来了,不是回归。</summary>
         [Test]
-        public void Scale_PreservesDamageTaken() // 缩放不得丢承伤系数(端游无尽全走 Scale)
+        public void Scale_ScalesDefenseAtHalfRate()
         {
             var scaled = CampaignConfig.Scale(
-                new EnemyDef("墨渍", Element.Water, 14, 3, damageTaken: 0.7f), 2f);
-            Assert.That(scaled.DamageTaken, Is.EqualTo(0.7f).Within(1e-6));
-            Assert.That(scaled.MaxHp, Is.EqualTo(28)); // 14×2 缩放照常
+                new EnemyDef("墨渍", Element.Water, 140, 30, defense: 20), 2f);
+            Assert.That(scaled.Defense, Is.EqualTo(30),
+                "scale 2.0 → defScale = 1 + (2−1)/2 = 1.5 → ceil(20×1.5) = 30(同速会是 40)");
+            Assert.That(scaled.MaxHp, Is.EqualTo(280)); // 140×2 血量照常全速
         }
 
         [Test]

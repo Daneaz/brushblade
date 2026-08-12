@@ -173,8 +173,6 @@ namespace Brushblade.Core
         // = 固定 +2,而敌人平均攻击 ≈ 4,取 50% 恰好保住平均值,同时修掉「加给攻 2 的怪是 +100%、
         // 加给攻 8 的怪只有 +25%」这个 4 倍偏差。
         private const int PunctuationBuffPercent = 50;
-        private const int ArmorBreakPercent = 25; // 破甲的承伤加成(不叠层,恒定)
-        private const int PierceBonusPercent = 15; // 穿甲的保底加成(对有无减免的目标一律生效)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
         private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
         private const int SearStacks = 1;  // 灯花每次攻击给玩家挂的灼烧层数(2026-08-06)
@@ -270,23 +268,7 @@ namespace Brushblade.Core
             });
         }
 
-        /// <summary>所有减伤来源连乘后的承伤系数(1.0 = 无减伤;乘法叠加,天然趋近但不达 0)。</summary>
-        public float DamageReductionMultiplier
-        {
-            get
-            {
-                float multiplier = 1f;
-                foreach (var s in _playerStatuses.All)
-                    if (s.Kind == StatusKind.DamageReduction)
-                        multiplier *= 1f - s.Magnitude / 100f;
-                return multiplier;
-            }
-        }
-
-        /// <summary>套减伤系数(2026-08-03):普攻与 Boss 大招同口径——「受伤 −X%」不分攻击类型。</summary>
-        private int ReducedDamage(int rawDamage) => (int)Math.Floor(rawDamage * DamageReductionMultiplier);
-
-        /// <summary>这一记挥击面对的敌人有效护甲(点数,2026-08-12,E-b4 T2)。
+        /// <summary>这一记挥击面对的敌人有效护甲(点数,2026-08-12,E-b4)。
         ///
         /// <c>max(0, 基础护甲 − 破甲总量 − 穿透总量)</c> —— **一个钳位,两项都从同一个基础护甲里减**
         /// (spec §4.1.2)。护甲只有一层厚度:破甲削掉的与穿透穿过的合起来算,不嵌套、不重复扣;
@@ -295,15 +277,12 @@ namespace Brushblade.Core
         /// <paramref name="pierce"/> = 本次效果自带的穿透(<see cref="EffectDef.Pierce"/>),
         /// 再加上玩家身上本场持续的 <see cref="StatusKind.PierceBuff"/>。
         ///
-        /// ⚠ **T3 必须在这里补上破甲那一项**:
-        /// <c>− enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)</c>,与穿透并列(合并相减)。
-        /// T2 刻意不接,因为此刻 <see cref="StatusKind.ArmorBreak"/> 的 Magnitude 还是**承伤百分点**
-        /// (上面那段乘法层正在读它),把百分点当点数减是量纲错误,而且 T2 无法验证它 ——
-        /// 任何测试只要给敌人挂破甲,就会同时吃到乘法层的 +25%,断言里分不出哪一层的贡献。
-        /// 裁定 9 把 Magnitude 改成削减点数、乘法层删除,都是 T3 的同一刀,那时这一项才有量纲。
-        /// 玩家侧不受此限(见 <see cref="EffectivePlayerDefense"/>):玩家身上的破甲没有第二个读取方。</summary>
+        /// 破甲(2026-08-12,T3 接入)是**目标身上**的持续状态,穿透是**攻击者**的本次视角 ——
+        /// 两者削的是同一层厚度,故相加后一起减。破甲可叠、本场持久,所以读 TotalMagnitude
+        /// 而不是 Find():多张破甲字接力削光一个坚壁 Boss 是它的设计玩法(战例二)。</summary>
         private int EffectiveEnemyDefense(EnemyState enemy, int pierce) => Math.Max(0,
             enemy.Defense
+            - enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)
             - (pierce + _playerStatuses.TotalMagnitude(StatusKind.PierceBuff)));
 
         /// <summary>玩家挨一记时的有效护甲(点数,2026-08-12,E-b4 T2)= 角色属性 + 局内护甲增益
@@ -855,7 +834,7 @@ namespace Brushblade.Core
                     if (enemy.IsBoss && ResolveBossTurn(i, enemy))
                         continue; // 已蓄力或已放大招,本回合不走普攻
 
-                    int damage = ReducedDamage(enemy.Attack); // 先减伤(百分比),再护盾吸收(定量)
+                    int damage = enemy.Attack; // 减护甲(点数)在 DamagePlayerDirect 里,护盾吸收再在其后
                     int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
                     // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
                     // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
@@ -1021,7 +1000,7 @@ namespace Brushblade.Core
                             DamageEnemy(targetIndex,
                                 ScaleByAttack(ExecuteBonus(effect, targetIndex,
                                     BaseValue(effect, value, _enemies[targetIndex]))),
-                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit(),
+                                recipeElements, attacker, crit: RollCrit(),
                                 pierce: effect.Pierce); // 多段:每段各减一次护甲(裁定 4)
                         }
                         break;
@@ -1037,7 +1016,7 @@ namespace Brushblade.Core
                             // 那条战术分工的具体形状;代价靠配置口径(带甲怪不成群)兜
                             DamageEnemy(i,
                                 ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
-                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit(),
+                                recipeElements, attacker, crit: RollCrit(),
                                 pierce: effect.Pierce);
                         }
                         break;
@@ -1080,13 +1059,18 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.ArmorBreak:
+                        // 破甲 = 削目标护甲 Value **点**(2026-08-12,E-b4 T3 复原原始设计)。
+                        // TurnsLeft = -1:**本场持久**,依据第 10 章 :56「破甲永久降护甲」。
+                        // SourceId 铸唯一序号 → **可叠加**:不叠只刷新的话六个破甲字互相排斥,
+                        // 先出削 20 的再出削 10 的会变弱,而战例二的「三张接力削光坚壁 Boss」
+                        // 整套玩法就建立在叠加上。上限由 EffectiveEnemyDefense 的 max(0,…) 天然给出。
                         _enemies[targetIndex].Statuses.Apply(new StatusEffect
                         {
                             Kind = StatusKind.ArmorBreak,
                             Polarity = StatusPolarity.Debuff,
-                            Magnitude = ArmorBreakPercent,
-                            TurnsLeft = value,
-                            SourceId = null,   // 按 Kind 去重 → 不叠层,重复施加只刷新
+                            Magnitude = value,
+                            TurnsLeft = -1,
+                            SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
                     case EffectKind.Dispel:
@@ -1234,10 +1218,12 @@ namespace Brushblade.Core
                         // 整个出牌预算,不是一条效果的数值。
                         AddPlayerCounter(StatusKind.ApBoost, effect.Value, int.MaxValue);
                         break;
-                    case EffectKind.DamageReduction:
-                        _playerStatuses.Apply(new StatusEffect  // 同字覆盖 = 刷新,不叠加(SourceId 去重)
+                    case EffectKind.DefenseBuff:
+                        // 护甲 +Value **点**(2026-08-12,E-b4 T3):多字**加法**叠加(旧乘法层是
+                        // 连乘,天然趋近但不达 0;点数是直接相加),同字仍按 SourceId 覆盖 = 只刷新。
+                        _playerStatuses.Apply(new StatusEffect
                         {
-                            Kind = StatusKind.DamageReduction, Polarity = StatusPolarity.Buff,
+                            Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1, SourceId = def.Id, // 段内持久
                         });
                         break;
@@ -1599,36 +1585,28 @@ namespace Brushblade.Core
         /// 不是我方发起的挥击,再让对方的皮厚度挡一次是错位(与 DOT 不吃护甲同一条道理)。
         /// 默认 false = 吃护甲,所以漏传的后果是「多挡了一次」而不是「静默穿透」。</summary>
         private void DamageEnemy(int enemyIndex, int baseValue,
-            IReadOnlyCollection<Element> recipeElements, Element attacker, bool ignoreArmor = false,
+            IReadOnlyCollection<Element> recipeElements, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
-            float taken = enemy.DamageTaken;
-            // 减免(<1)遭属性克制失效:被克(×1.5)直接按克制结算,不再乘减免。
-            // 判断用 < 1 而非 != 1 —— 破甲会把承伤升到 1 以上,那属于加成,不该被这条连坐
-            if (taken < 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) >= 1.5f)
-                taken = 1f;
-            // 穿甲:同样只忽略减免(<1)
-            if (taken < 1f && ignoreArmor) taken = 1f;
-            // 穿甲的保底加成:无条件生效
-            if (ignoreArmor) taken += PierceBonusPercent / 100f;
-            // 破甲加成:始终生效(不受克制影响),不叠层故只加一次。
-            // 读 Magnitude 而非常量——施加处写什么百分比,这里就吃什么(将来加「重破甲」只改施加处)。
-            var armorBreak = enemy.Statuses.Find(StatusKind.ArmorBreak);
-            if (armorBreak != null) taken += armorBreak.Magnitude / 100f;
-            if (taken != 1f)
-                damage = (int)Math.Floor(damage * taken);
+            // 2026-08-12(E-b4 T3):这里原先有一整段乘法减伤 —— 承伤系数 enemy.DamageTaken、
+            // 「减免遭克制失效」的补丁、穿甲的「只忽略减免 + 无条件 +15%」、破甲的「承伤 +25%」。
+            // 四个乘数全部删除,守方侧从此没有任何乘数,只剩下面那一句点数减法(spec §4.1)。
+            //
+            // 那条「减免遭克制失效」的补丁**不需要替代品**:它当年存在是因为乘法层会按比例
+            // 抽走克制的收益(100×1.5×0.5 = 75,而无甲时 100×1.5 = 150)。减法对乘法是透明的 ——
+            // 基础 100 对 DEF 30 的敌人:不克制打 70,克制 ×1.5 打 120,净收益 +50,
+            // **与无甲时完全相同**。打对属性的奖励天然不被护甲侵蚀(spec §4.3),
+            // 守卫测试 Defense_DoesNotEatCounterBonus。
             // 暴击排在**最末**(2026-08-12,E-b2):它是「这一记最终打出去的伤害翻倍」,
             // 不是某一层的基础值加成。放最后同时把截断损失压到最小 —— 放在 ScaleByAttack 旁边
             // (生克之前)的话,相生 ×3 会把整数除丢掉的那部分放大三倍(基础 5 → 暴击 7 → ×3 = 21,
             // 而正解是 22)。
-            // 走**整数除**而不是折进上面那个浮点 taken(`taken *= 1.5f`),两条理由:
-            // (1) taken 这条链里已有不精确项(PierceBonusPercent / 100f = 0.15f 二进制不可表示),
-            //     再乘一个系数会把既有误差抬进整数位 —— EnemyState.Attack 的诅咒算式就因为
-            //     1 − 0.1f = 0.89999997 被 floor 拉低过 1 点(2026-08-06 M1),同一个坑不该再踩;
-            // (2) 口径一致:E-b1 已裁定直接伤害这条链走整数除(ScaleByAttack),浮点晚截断只留给
-            //     灼烧那条既有的浮点式子。暴击落在直接伤害链上,就跟直接伤害的口径。
+            // 走**整数除**而不是浮点乘(`damage *= 1.5f`):口径一致 —— E-b1 已裁定直接伤害
+            // 这条链走整数除(ScaleByAttack),浮点晚截断只留给灼烧那条既有的浮点式子。
+            // 浮点系数在这条链上出过事:EnemyState.Attack 的诅咒算式因为 1 − 0.1f = 0.89999997
+            // 被 floor 拉低过 1 点(2026-08-06 M1)。暴击落在直接伤害链上,就跟直接伤害的口径。
             if (crit) damage = damage * BattleConfig.CritMultiplierPercent / 100;
             // 点数护甲(2026-08-12,E-b4 T2):**全部乘法算完之后,最后减**。
             // 结算式 = floor(基础 × 生克 × 暴击) − max(0, 护甲 − 破甲 − 穿透)。
@@ -1901,25 +1879,27 @@ namespace Brushblade.Core
 
             switch (skill)
             {
-                case BossSkill.Deluge: // 淹没:玩家挨双倍,召唤物各挨一下(不翻倍,仍是分摊主力);减伤同口径吃(2026-08-03)
-                    DamagePlayerDirect(index, ReducedDamage(enemy.Attack * 2));
+                case BossSkill.Deluge: // 淹没:玩家挨双倍,召唤物各挨一下(不翻倍,仍是分摊主力)
+                    // 2026-08-12(E-b4 T3):不再套乘法减伤 —— 玩家份的点数护甲在
+                    // DamagePlayerDirect 里减,召唤物份**不减**(召唤物没有护甲,也不借玩家的,spec §4.2)
+                    DamagePlayerDirect(index, enemy.Attack * 2);
                     for (int s = 0; s < _summons.Count; s++)
                         if (_summons[s].Alive)
-                            DamageSummon(index, s, ReducedDamage(enemy.Attack), enemy.Element);
+                            DamageSummon(index, s, enemy.Attack, enemy.Element);
                     break;
 
-                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2);减伤同口径吃(2026-08-03)
+                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
                 {
                     int front = FirstAliveSummonIndex();
                     if (front >= 0)
-                        DamageSummon(index, front, ReducedDamage(enemy.Attack), enemy.Element);
-                    DamagePlayerDirect(index, ReducedDamage(enemy.Attack * 2));
+                        DamageSummon(index, front, enemy.Attack, enemy.Element);
+                    DamagePlayerDirect(index, enemy.Attack * 2);
                     break;
                 }
 
-                case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉;减伤同口径吃(2026-08-03)
+                case BossSkill.Topple: // 倾覆:先按常规吸伤(玩家挨双倍),再把剩余护盾整个掀掉
                 {
-                    DamagePlayerDirect(index, ReducedDamage(enemy.Attack * 2));
+                    DamagePlayerDirect(index, enemy.Attack * 2);
                     int broken = _shieldNormal + _shieldPersist;
                     if (broken > 0)
                     {
@@ -1950,8 +1930,8 @@ namespace Brushblade.Core
                     }
                     else
                     {
-                        // 没得吞退化成普攻:走减伤同口径(2026-08-03);秒杀分支本身无数值可减,不动
-                        DamagePlayerDirect(index, ReducedDamage(enemy.Attack));
+                        // 没得吞退化成普攻:与普攻同口径过点数护甲;秒杀分支本身无数值可减,不动
+                        DamagePlayerDirect(index, enemy.Attack);
                     }
                     break;
                 }

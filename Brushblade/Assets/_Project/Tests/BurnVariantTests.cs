@@ -697,19 +697,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Detonate_IgnoresDamageTaken_TotalStaysFullNotHalved()
+        public void Detonate_IgnoresDefense_TotalStaysFullNotReduced()
         {
             // 评审 Minor 2:引爆走 enemy.Hp 直改、绕开 DamageEnemy,是「只改兑现时机、不改
-            // 总量」这条设计口径的必要条件——若误走 DamageEnemy 就会再吃一次 DamageTaken,
-            // 承伤 0.5 的敌人身上引爆总伤会变成慢烧总量的一半,当场破坏这条设计承诺。
-            // 4 层引爆 = floor(4×5/2 × 2 × 1.0) = 20,承伤系数 0.5 不应该参与这个算式。
+            // 总量」这条设计口径的必要条件——若误走 DamageEnemy 就会再减一次护甲,
+            // 带甲敌人身上引爆总伤会缩水,当场破坏这条设计承诺。
+            // 4 层引爆 = floor(4×5/2 × 20 × 1.0) = 200,护甲 100 不应该参与这个算式
+            // (2026-08-12,E-b4 T3:承伤系数换成点数护甲,负向口径不变 —— spec §4.2 的 DOT 清单)。
             var engine = Engine(new[] { "燃", "煸" },
-                new[] { new EnemyDef("墨", Element.Heart, 3000, 0, damageTaken: 0.5f) });
+                new[] { new EnemyDef("墨", Element.Heart, 3000, 0, defense: 100) });
             engine.Cast("燃", 0);
             int before = engine.Enemies[0].Hp;
             engine.Cast("煸", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 200),
-                "承伤系数不该参与引爆算式,若误走 DamageEnemy 会变成 10");
+                "护甲不该参与引爆算式,若误走 DamageEnemy 会变成 100");
         }
 
         [Test]

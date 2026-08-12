@@ -761,7 +761,7 @@ namespace Brushblade.Presentation
                         Theme.ElementColor(enemy.ApparentElement), Color.white),
                     new($"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain),
                 };
-                if (enemy.DamageTaken < 1f) chipSpecs.Add(new("承伤", Theme.InkSoft, Color.white));
+                if (enemy.Defense > 0) chipSpecs.Add(new($"护甲 {enemy.Defense}", Theme.InkSoft, Color.white));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)

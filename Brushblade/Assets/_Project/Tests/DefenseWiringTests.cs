@@ -58,7 +58,8 @@ namespace Brushblade.CoreTests
             new CharDef("寅", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 100,
                     executeBelowPercent: 25, executeKills: true) }),
-            // 卯 = 破甲(锤):T2 只用它验「护甲点数永不被写」,不验数值
+            // 卯 = 破甲 2 点(锤 的形状;T3 起 value 就是削减点数)。这里只用它验
+            // 「护甲点数永不被写」,破甲的数值/叠加/持久由 BattleEngineTests 那组守
             new CharDef("卯", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.ArmorBreak, 2) }),
         });
@@ -393,8 +394,8 @@ namespace Brushblade.CoreTests
             // 不是护甲被写 —— PhaseIndex 早就在快照里,所以仍然零新增字段。
             var boss = new EnemyDef("成语", Element.Heart, 1, 0, EnemyAbility.None, new[]
             {
-                new BossPhaseDef("甲", Element.Heart, 500, 0, 1f, BossSkill.None, defense: 20),
-                new BossPhaseDef("山", Element.Heart, 500, 0, 1f, BossSkill.Bulwark, defense: 60),
+                new BossPhaseDef("甲", Element.Heart, 500, 0, BossSkill.None, defense: 20),
+                new BossPhaseDef("山", Element.Heart, 500, 0, BossSkill.Bulwark, defense: 60),
             });
             var engine = Battle(new[] { boss }, "甲");
             Assert.That(engine.Enemies[0].Defense, Is.EqualTo(20), "首阶段的护甲");

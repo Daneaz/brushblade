@@ -105,9 +105,9 @@ namespace Brushblade.Core
         }
 
         /// <summary>成语 → 四阶段 Boss(20.7):数值模板对齐排山倒海——
-        /// 首字均衡(180/60)、次字坚壁(230/40,承伤 0.5)、三字强攻(180/80)、末字狂攻(240/100)。
+        /// 首字均衡(180/60)、次字坚壁(230/40,护甲 60)、三字强攻(180/80)、末字狂攻(240/100)。
         /// ⚠ 这四组数是 enemies.json 里排山倒海的副本(硬编码),2026-08-12 随全表量级 ×10 一同抬起;
-        /// 承伤系数是比值,不动。
+        /// 坚壁那阶段的承伤系数 0.5 同日随乘法层退场,换成护甲 60(E-b4 T3,与 enemies.json 的山同值)。
         /// 血量在 2026-07-29 随三只固定 Boss 一同 ×1.5:原数值下战斗只有 2~3 个敌方回合,
         /// Boss 撑不到放出大招。技能逐字取自 idiom.Skills(spec 2026-07-28),缺省为 None。</summary>
         public static EnemyDef BuildIdiomBoss(IdiomBossDef idiom)
@@ -117,10 +117,10 @@ namespace Brushblade.Core
 
             var phases = new List<BossPhaseDef>
             {
-                new(idiom.Chars[0].ToString(), idiom.Elements[0], 180, 60, 1f, SkillAt(0)),
-                new(idiom.Chars[1].ToString(), idiom.Elements[1], 230, 40, 0.5f, SkillAt(1)),
-                new(idiom.Chars[2].ToString(), idiom.Elements[2], 180, 80, 1f, SkillAt(2)),
-                new(idiom.Chars[3].ToString(), idiom.Elements[3], 240, 100, 1f, SkillAt(3)),
+                new(idiom.Chars[0].ToString(), idiom.Elements[0], 180, 60, SkillAt(0)),
+                new(idiom.Chars[1].ToString(), idiom.Elements[1], 230, 40, SkillAt(1), defense: 60),
+                new(idiom.Chars[2].ToString(), idiom.Elements[2], 180, 80, SkillAt(2)),
+                new(idiom.Chars[3].ToString(), idiom.Elements[3], 240, 100, SkillAt(3)),
             };
             return new EnemyDef(idiom.Chars, idiom.Elements[0], 180, 60, EnemyAbility.None, phases);
         }

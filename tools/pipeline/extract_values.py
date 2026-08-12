@@ -48,6 +48,11 @@ TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
 # 分段数是伤害的修饰,不是独立效果(与 ExecuteKill / ExecuteBonus 同处理)
 HIT_COUNT_TOKEN = "HitCount"
 
+# 穿透点数同样是伤害的修饰(2026-08-12,E-b4 T3:替代原先的布尔标记 ignoreArmor)。
+# 不挂白名单会被通用正则 `(\w+) (\d+)` 当成一条独立效果 kind=Pierce 落进 chars.json,
+# 而 EffectKind 里没有这个值 —— ConfigLoader 会在加载期直接抛 ConfigException。
+PIERCE_TOKEN = "Pierce"
+
 
 def extract(markdown):
     """详表全文 → {字: {element, rarity, effects}},只收标 ✅ 的字。"""
@@ -111,14 +116,14 @@ def _parse_effects(config, element):
             continue  # 斩杀是修饰而非效果,下面统一挂到伤害上
         if kind == HIT_COUNT_TOKEN:
             continue  # 分段数是修饰而非效果,下面统一挂到伤害上
+        if kind == PIERCE_TOKEN:
+            continue  # 穿透点数是修饰而非效果,下面统一挂到伤害上
         effect = {"kind": kind, "value": int(value)}
         if kind == "DispelEach":       # 全体各驱散 N 条(淡)
             effect["kind"] = "Dispel"
             effect["targetAll"] = True
         if kind.startswith("Damage") and "DoubleVsBurning" in config:
             effect["doubleVsBurning"] = True
-        if kind.startswith("Damage") and "ignoreArmor" in config:
-            effect["ignoreArmor"] = True
         if kind == "Shield" and "PersistOnce" in config:
             effect["persistOnce"] = True
         effects.append(effect)
@@ -141,6 +146,12 @@ def _parse_effects(config, element):
         for effect in effects:
             if effect["kind"].startswith("Damage"):
                 effect["hitCount"] = int(hit_count.group(1))
+
+    pierce = re.search(rf"`{PIERCE_TOKEN} (\d+)`", config)
+    if pierce:
+        for effect in effects:
+            if effect["kind"].startswith("Damage"):
+                effect["pierce"] = int(pierce.group(1))
 
     turns = re.search(r"turns (\d+)", config)
     for effect in effects:

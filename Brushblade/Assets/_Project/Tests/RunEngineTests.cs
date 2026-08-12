@@ -20,7 +20,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 6), new EffectDef(EffectKind.BurnSingle, 1) }),
             new CharDef("丁", null),
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageReduction, 20) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12) }),
         });
 
         private static EnemyDef Weak(int hp = 4) => new("枯", Element.Wood, hp, 2);
@@ -797,19 +797,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void DamageReduction_CarriesToNextBattle() // 段内持久:减伤跨层保留(与护盾同口径)
+        public void DefenseBuff_CarriesToNextBattle() // 段内持久:护甲增益跨层保留(与护盾同口径)
         {
             var run = new RunEngine(Graph(), TwoBattles(),
                 new BattleConfig { DropTable = new[] { "木" } },
                 startingLibrary: new[] { "焚", "铠" }, startingPool: Array.Empty<string>(), seed: 7);
             run.Battle.Cast("铠");
-            Assert.That(run.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f));
-            WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,减伤不变)
+            Assert.That(run.Battle.EffectivePlayerDefense, Is.EqualTo(12));
+            WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,护甲增益不变)
             run.AdvanceAfterBattle();
-            Assert.That(run.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(20));
+            Assert.That(run.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(12));
             run.SkipReward();                 // 进入第二关
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
-            Assert.That(run.Battle.DamageReductionMultiplier, Is.EqualTo(0.8f).Within(0.001f), "减伤跨场保留");
+            Assert.That(run.Battle.EffectivePlayerDefense, Is.EqualTo(12), "护甲增益跨场保留");
         }
 
         // ---- 召唤物跨战斗保留(2026-08-03 拍板):与普通盾同口径全程延续,直到死亡 ----

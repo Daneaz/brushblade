@@ -63,8 +63,8 @@ namespace Brushblade.Core
         private int _carriedNormalShield;
         private int _carriedPersistShield;
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
-        private List<StatusEffect> _carriedStatuses = new(); // 减伤延续(2026-08-04):段内持久,到段末才清;
-                                                               // 只承载 DamageReduction,HoT 不跨战斗
+        private List<StatusEffect> _carriedStatuses = new(); // 护甲增益延续(2026-08-04):段内持久,到段末才清;
+                                                               // 只承载 DefenseBuff,HoT 不跨战斗
         private readonly int _perFloorNormalShield; // 金汤:每关开战补的护盾(叠加上关剩余)
 
         public RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,
@@ -499,9 +499,10 @@ namespace Brushblade.Core
             _carriedNormalShield = Battle.ShieldNormal;
             _carriedPersistShield = Battle.ShieldPersist;
             _carriedSummons = CaptureAliveSummons();
-            // 只取减伤:HoT 是本场限定,不随携带态跨战斗(2026-08-04)
+            // 只取护甲增益:HoT 是本场限定,不随携带态跨战斗(2026-08-04;
+            // 2026-08-12 E-b4 T3 随乘法减伤退场,载体从 DamageReduction 换成 DefenseBuff)
             _carriedStatuses = Battle.PlayerStatuses.All
-                .Where(s => s.Kind == StatusKind.DamageReduction)
+                .Where(s => s.Kind == StatusKind.DefenseBuff)
                 .Select(s => s.Clone())
                 .ToList();
 

@@ -18,10 +18,16 @@ namespace Brushblade.Core
         Freeze,           // 冻结:跳过行动
         SpeedModifier,    // 速度增减(点数,可正可负)
         HealOverTime,     // 持续治疗
-        DamageReduction,  // 减伤百分比
+        ObsoleteDamageReduction, // ⚠ 废弃占位,序号 5,**不得删除、不得复用**(2026-08-12,E-b4 T3)。
+                          // 原为「减伤百分比」的乘法层,已随点数护甲上线删除,载体换成末尾的
+                          // DefenseBuff(18)。不就地改名复用是刻意的:单位从**百分点**变成**点数**
+                          // 而序号不变,正是静默存档损坏的那一类 —— 旧存档里的「5, 20」会被读成
+                          // 「护甲 +20 点」而不是「减伤 20%」。删掉它则 6 以后全部前移,更糟。
         AttackBuff,       // 攻击加成:**百分点,敌我一致**(2026-08-12 统一;敌人 = BaseAttack 的百分比,
                           // 玩家 = 以 AttackBaseline 100 为基准的百分点)。量级 ×10 时它是比值,永不跟着乘
-        ArmorBreak,       // 破甲:承伤 +25%,不叠层(2026-08-05)
+        ArmorBreak,       // 破甲:目标护甲 −Magnitude **点**,本场持久(TurnsLeft = -1)、**可叠加**
+                          // (2026-08-05 曾是「承伤 +25%,不叠层」的乘法代偿;2026-08-12 E-b4 T3 复原。
+                          //  名字与序号 7 一动不动 —— 语义变了但载体是同一条,存档安全)
         Curse,            // 诅咒:攻击 −Magnitude%,不叠层只刷新(2026-08-05)
         Seal,             // 封字:玩家下回合 AP −Magnitude(2026-08-06,Boss 倾覆)
         Immunity,         // 免疫:完全挡下 Magnitude 次伤害(2026-08-06)
@@ -39,12 +45,12 @@ namespace Brushblade.Core
     public enum StatusPolarity { Buff, Debuff }
 
     /// <summary>一条状态。Magnitude 按 Kind 解读:Burn=层数、Bleed/HealOverTime=每回合量、
-    /// DamageReduction=百分比、SpeedModifier=速度点数、
+    /// SpeedModifier=速度点数、
     /// AttackBuff=攻击加成的**百分点,敌我同一单位**(2026-08-12 统一:
     ///   <see cref="StatusKind.AttackBuff"/> 的注释是这条的出处;
     ///   敌人侧 EnemyState.Attack 拿它乘 BaseAttack,玩家侧 EffectiveAttack 拿它加在基准 100 上,
     ///   两边都是比值 —— 量级 ×10 只乘数量,比值一律不乘)、
-    /// ArmorBreak=承伤加成百分比(DamageEnemy 直接读这个字段,不再读常量)、
+    /// ArmorBreak=**削减的护甲点数**(EffectiveEnemyDefense / EffectivePlayerDefense 的减数)、
     /// Curse=减攻百分比,与 AttackBuff **同一根轴**,EnemyState.Attack 里直接相减(±50% 精确相消)、
     /// Seal=AP 扣减量(StartTurn 读它)、
     /// Blind=命中降低百分比(AttackHits 读它)、
@@ -63,16 +69,16 @@ namespace Brushblade.Core
         public StatusPolarity Polarity { get; set; }
         public int Magnitude { get; set; }
         // -1 = 战内持久,不随回合递减(2026-08-06 M5 改准确:是否跨战斗延续到下一场是另一件事,
-        // 取决于 RunEngine 的携带态白名单——目前只有 DamageReduction 会被带过去,免疫/玩家灼烧/
+        // 取决于 RunEngine 的携带态白名单——目前只有 DefenseBuff 会被带过去,免疫/玩家灼烧/
         // 封字等其余 TurnsLeft=-1 的状态都在每场战斗结束时丢弃,称「段内」持久并不准确)。
         public int TurnsLeft { get; set; }
 
         /// <summary>来源标识,两种相反用法并存,加新状态时先想清楚要哪种(2026-08-05 M3):
         /// 1) **去重键**——直接传字 ID(如 "铠"):同字再放视为同一来源,Apply() 覆盖刷新不叠加
-        ///    (DamageReduction 走这条)。
+        ///    (DefenseBuff 走这条)。
         /// 2) **铸唯一序号使其可叠**——传 "字#序号"(如 "滋#7",序号取自 BattleEngine._statusSerial /
         ///    RunSnapshot.StatusSerial):每次施放序号不同,天然绕开 Apply() 的同源覆盖,叠加而非刷新
-        ///    (HealOverTime、AttackBuff 走这条)。
+        ///    (HealOverTime、AttackBuff、ArmorBreak 走这条)。
         /// 忘记铸序号、误传裸字 ID 会让本该可叠的状态静默退化成刷新——Task 4 的 Critical 就是这么踩的。</summary>
         public string SourceId { get; set; }
         public bool TargetAll { get; set; }  // 仅 HealOverTime 用
