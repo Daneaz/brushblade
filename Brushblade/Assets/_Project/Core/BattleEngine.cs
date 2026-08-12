@@ -56,6 +56,18 @@ namespace Brushblade.Core
         /// 留这个字段是给将来的被动技能注入用,与 <see cref="PlayerAttack"/> 并排。</summary>
         public int PlayerCritChance { get; set; }
 
+        /// <summary>玩家护甲**点数**(19.2.1 角色属性,2026-08-12,E-b4 T2)。
+        /// 敌人每记挥击从伤害里减这么多,下钳 0。
+        ///
+        /// **基准恒 0** 是 T2 的验收硬线:<c>max(0, x − max(0, 0 − 0)) == x</c> ——
+        /// 点数层全场为 0 时逐字节恒等,于是「把点数层接进去」这一步不需要改任何既有断言。
+        ///
+        /// ⚠ **战斗中永不被写**(spec §4.5.3),与 <see cref="EnemyState.Defense"/> 同一条硬约束:
+        /// 局内的增(DefenseBuff)/ 减(ArmorBreak)全部走 <c>_playerStatuses</c>,
+        /// 而它本来就进 BattleSnapshot.PlayerStatuses —— 零新增快照字段。
+        /// T3 起由 GameRoot 按 <c>MetaRules.DefenseFor(角色等级)</c> 注入,与 <see cref="PlayerAttack"/> 并排。</summary>
+        public int PlayerDefense { get; set; }
+
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
@@ -273,6 +285,38 @@ namespace Brushblade.Core
 
         /// <summary>套减伤系数(2026-08-03):普攻与 Boss 大招同口径——「受伤 −X%」不分攻击类型。</summary>
         private int ReducedDamage(int rawDamage) => (int)Math.Floor(rawDamage * DamageReductionMultiplier);
+
+        /// <summary>这一记挥击面对的敌人有效护甲(点数,2026-08-12,E-b4 T2)。
+        ///
+        /// <c>max(0, 基础护甲 − 破甲总量 − 穿透总量)</c> —— **一个钳位,两项都从同一个基础护甲里减**
+        /// (spec §4.1.2)。护甲只有一层厚度:破甲削掉的与穿透穿过的合起来算,不嵌套、不重复扣;
+        /// 外层 <c>max(0, …)</c> 保证削过头只是归零,绝不倒贴成增伤。
+        ///
+        /// <paramref name="pierce"/> = 本次效果自带的穿透(<see cref="EffectDef.Pierce"/>),
+        /// 再加上玩家身上本场持续的 <see cref="StatusKind.PierceBuff"/>。
+        ///
+        /// ⚠ **T3 必须在这里补上破甲那一项**:
+        /// <c>− enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)</c>,与穿透并列(合并相减)。
+        /// T2 刻意不接,因为此刻 <see cref="StatusKind.ArmorBreak"/> 的 Magnitude 还是**承伤百分点**
+        /// (上面那段乘法层正在读它),把百分点当点数减是量纲错误,而且 T2 无法验证它 ——
+        /// 任何测试只要给敌人挂破甲,就会同时吃到乘法层的 +25%,断言里分不出哪一层的贡献。
+        /// 裁定 9 把 Magnitude 改成削减点数、乘法层删除,都是 T3 的同一刀,那时这一项才有量纲。
+        /// 玩家侧不受此限(见 <see cref="EffectivePlayerDefense"/>):玩家身上的破甲没有第二个读取方。</summary>
+        private int EffectiveEnemyDefense(EnemyState enemy, int pierce) => Math.Max(0,
+            enemy.Defense
+            - (pierce + _playerStatuses.TotalMagnitude(StatusKind.PierceBuff)));
+
+        /// <summary>玩家挨一记时的有效护甲(点数,2026-08-12,E-b4 T2)= 角色属性 + 局内护甲增益
+        /// − 身上的破甲,下钳 0。与 <see cref="EffectiveAttack"/> / <see cref="EffectiveCrit"/> 同形:
+        /// **基础值来自 config(战中不可变),变动量全在 <c>_playerStatuses</c> 里**。
+        ///
+        /// 敌人没有穿透通道(<see cref="EffectDef.Pierce"/> 是出字效果的字段),但破甲这条通道
+        /// 本批就打通:第八章配「敌人破甲」时给玩家挂 <see cref="StatusKind.ArmorBreak"/> 即可,
+        /// 引擎侧不需要再改(spec §4.5.4)。</summary>
+        public int EffectivePlayerDefense => Math.Max(0,
+            _config.PlayerDefense
+            + _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff)
+            - _playerStatuses.TotalMagnitude(StatusKind.ArmorBreak));
 
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
@@ -977,7 +1021,8 @@ namespace Brushblade.Core
                             DamageEnemy(targetIndex,
                                 ScaleByAttack(ExecuteBonus(effect, targetIndex,
                                     BaseValue(effect, value, _enemies[targetIndex]))),
-                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit());
+                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit(),
+                                pierce: effect.Pierce); // 多段:每段各减一次护甲(裁定 4)
                         }
                         break;
                     case EffectKind.DamageAll:
@@ -987,9 +1032,13 @@ namespace Brushblade.Core
                             if (!_enemies[i].Alive) continue;
                             if (TryExecuteKill(effect, i)) continue; // 斩杀对每个目标分别判定
                             // 暴击逐个目标独立摇(2026-08-12),同样排在存活/处决两条守卫之后
+                            // AOE:逐目标各减各自的护甲(spec §4.4(a)),不是总量只减一次 ——
+                            // 「把总量摊成多份」对点数甲天然有惩罚,这正是「AOE 清杂兵、单体破装甲」
+                            // 那条战术分工的具体形状;代价靠配置口径(带甲怪不成群)兜
                             DamageEnemy(i,
                                 ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
-                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit());
+                                recipeElements, attacker, effect.IgnoreArmor, crit: RollCrit(),
+                                pierce: effect.Pierce);
                         }
                         break;
                     case EffectKind.BurnSingle:
@@ -1541,10 +1590,17 @@ namespace Brushblade.Core
         /// 所以暴击判定**绝不能写进本方法内部**(那样 6 条全会暴),只能由调用点显式传进来;
         /// 默认 false 让另外 4 个调用点一个字都不用改,这本身也是恒等性的一部分。
         /// 「吃不吃暴击」不存在白名单数据结构,纯粹取决于哪些调用点传了 true ——
-        /// 守它的只有 CritStatTests 里那批 FullCrit_DoesNotCrit* 负向测试。</summary>
+        /// 守它的只有 CritStatTests 里那批 FullCrit_DoesNotCrit* 负向测试。
+        ///
+        /// <paramref name="bypassDefense"/> 同款(2026-08-12,E-b4 T2),但**名单不同**:
+        /// 点数护甲挡的是「一次挥击」,所以出牌那两记、以及召唤物出手都照常吃敌人的护甲
+        /// (spec §4.2),只有 3 个**回敬**类调用点不吃 —— DamagePlayerDirect 的镜反弹、
+        /// DamageSummon 的荆反伤与镜反弹。理由:它们是把已经落到我方身上的伤害原样折返,
+        /// 不是我方发起的挥击,再让对方的皮厚度挡一次是错位(与 DOT 不吃护甲同一条道理)。
+        /// 默认 false = 吃护甲,所以漏传的后果是「多挡了一次」而不是「静默穿透」。</summary>
         private void DamageEnemy(int enemyIndex, int baseValue,
             IReadOnlyCollection<Element> recipeElements, Element attacker, bool ignoreArmor = false,
-            bool crit = false)
+            bool crit = false, int pierce = 0, bool bypassDefense = false)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
@@ -1574,6 +1630,21 @@ namespace Brushblade.Core
             // (2) 口径一致:E-b1 已裁定直接伤害这条链走整数除(ScaleByAttack),浮点晚截断只留给
             //     灼烧那条既有的浮点式子。暴击落在直接伤害链上,就跟直接伤害的口径。
             if (crit) damage = damage * BattleConfig.CritMultiplierPercent / 100;
+            // 点数护甲(2026-08-12,E-b4 T2):**全部乘法算完之后,最后减**。
+            // 结算式 = floor(基础 × 生克 × 暴击) − max(0, 护甲 − 破甲 − 穿透)。
+            //
+            // ⚠ 这一句的**位置**是规格,不是随手放的(spec §4.1):
+            // 乘法描述「这一击有多重」,点数描述「这层皮有多厚」。放到暴击**之前**就等价于
+            // 「暴击时护甲变薄」(暴击会把护甲的削减也放大 1.5 倍);放到生克之前同理 ——
+            // 克制方 ×1.5 会连带放大护甲,同一件护甲对不同属性的攻击者厚度不同,无从解释。
+            // 守卫测试 Order_CritBeforeDefense。⚠ 这条搬错**今天不会有任何测试变红**
+            // (T2 全场护甲为 0),所以只能靠那条显式构造非 0 护甲的测试兜。
+            //
+            // 下钳 0 不下钳 1(裁定 10):堆甲把小怪普攻打到 0 是防御流应得的兑现,
+            // 且 max(1, …) 会让穿透在残局失去意义。多段与 AOE 天然每记各减一次 ——
+            // 本方法就是「一记」的粒度,每段/每目标各调一次。
+            if (!bypassDefense)
+                damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce));
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit));
 
@@ -1668,6 +1739,14 @@ namespace Brushblade.Core
                 return false;
             }
 
+            // 点数护甲(2026-08-12,E-b4 T2):**先减护甲,再走免疫 / 护盾 / 血量**(spec §4.1)。
+            // 位置口径:护甲决定这一记有多少真正落到身上,护盾是把落下来的那部分吃掉的资源 ——
+            // 两者是「厚度」与「缓冲」的关系,顺序反过来会让护盾替护甲挡掉本就不该进来的伤害。
+            // 免疫排在护甲之后不特判「已经减到 0」:免疫挡的是这一记攻击,不是这一记的数值。
+            // 下钳 0(裁定 10),下方的反弹因此按**实际打过来的伤害**折返,与「护盾吸掉的也照样反」
+            // 同口径 —— 反的是落到我身上的量,不是敌人名义上的攻击力。
+            damage = Math.Max(0, damage - EffectivePlayerDefense);
+
             // 免疫(2026-08-06):先于护盾消耗 —— 免疫是稀缺的一次性资源,让它去挡一记小伤
             // 而把护盾留着更亏;玩家的预期是「免疫牌打出去,下一记不管多重都不疼」。
             // 完全挡下,不是减免。召唤物承伤走 DamageSummon,不经这里,所以免疫只保护玩家。
@@ -1698,7 +1777,8 @@ namespace Brushblade.Core
             {
                 int bounced = damage * reflect / 100;
                 if (bounced > 0)
-                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart);
+                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
+                        bypassDefense: true); // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
             }
             return true;
         }
@@ -1744,7 +1824,8 @@ namespace Brushblade.Core
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于"不走生克"。
             int thorns = summon.Passive?.Thorns ?? 0;
             if (thorns > 0 && _enemies[enemyIndex].Alive)
-                DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart);
+                DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart,
+                    bypassDefense: true); // 荆的反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
             // 伤害同样算「打到了我方」,DamagePlayerDirect 末尾那段反弹不该只管玩家直接挨打
@@ -1765,7 +1846,8 @@ namespace Brushblade.Core
             {
                 int bounced = taken * reflect / 100;
                 if (bounced > 0)
-                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart);
+                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
+                        bypassDefense: true); // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
             }
             return true;
         }

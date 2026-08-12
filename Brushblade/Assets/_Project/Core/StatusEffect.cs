@@ -32,6 +32,8 @@ namespace Brushblade.Core
         Morale,           // 战意:Magnitude = **层数**(不是攻击加成值),每层 +10 攻击,上限 5 层(2026-08-12)
         ApBoost,          // 玩家每回合 AP 上限加成(2026-08-12,利)
         CritBuff,         // 玩家暴击率加成(百分点,2026-08-12,锋)
+        DefenseBuff,      // 玩家护甲加成(**点数**,2026-08-12,E-b4 T2):进 EffectiveDefense 的加数
+        PierceBuff,       // 玩家穿透加成(点数,2026-08-12,E-b4 T2):进 EffectiveDefense 的减数,本场持续
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -48,7 +50,13 @@ namespace Brushblade.Core
     /// Blind=命中降低百分比(AttackHits 读它)、
     /// Morale=战意层数(EffectiveAttack 乘 MoralePerStack 才是攻击加成)、
     /// ApBoost=每回合 AP 上限加成(StartTurn 与 ApPerTurn 两侧都读它)、
-    /// CritBuff=暴击率加成的百分点(EffectiveCrit 读它)。</summary>
+    /// CritBuff=暴击率加成的百分点(EffectiveCrit 读它)、
+    /// DefenseBuff=护甲**点数**(EffectivePlayerDefense 的加数)、
+    /// PierceBuff=穿透点数(EffectiveEnemyDefense 的减数)。
+    ///
+    /// ⚠ 护甲这一层的**变动量一律走状态**(2026-08-12,E-b4 §4.5.3):基础护甲是不可变属性
+    /// (BattleConfig.PlayerDefense / EnemyState.Defense),增(DefenseBuff)、减(ArmorBreak)、
+    /// 穿(PierceBuff)全部是本类的条目 —— StatusBag 本来就进快照,这是「零新增快照字段」的全部依据。</summary>
     public sealed class StatusEffect
     {
         public StatusKind Kind { get; set; }

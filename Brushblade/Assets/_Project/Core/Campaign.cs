@@ -72,7 +72,11 @@ namespace Brushblade.Core
             };
         }
 
-        /// <summary>敌人数值缩放(HP/攻击按 <see cref="Scaled"/>,承伤系数不缩放);无尽深度缩放复用(20.4)。</summary>
+        /// <summary>敌人数值缩放(HP/攻击按 <see cref="Scaled"/>,承伤系数不缩放);无尽深度缩放复用(20.4)。
+        ///
+        /// 护甲点数(2026-08-12,E-b4 T2)**原样带过、暂不缩放** —— T2 全表为 0,缩不缩放都一样;
+        /// 但不带过就会被静默丢成 0,而那种漏接在 T3 配值之后才会显形。
+        /// T3 按裁定 11 改成半速缩放 <c>1 + (scale−1)/2</c>。</summary>
         public static EnemyDef Scale(EnemyDef enemy, float scale)
         {
             List<BossPhaseDef> phases = null;
@@ -82,11 +86,11 @@ namespace Brushblade.Core
                 foreach (var phase in enemy.Phases)
                     phases.Add(new BossPhaseDef(phase.Char, phase.Element,
                         Scaled(phase.MaxHp, scale), Scaled(phase.Attack, scale),
-                        phase.DamageTaken, phase.Skill)); // 承伤系数与技能都不缩放
+                        phase.DamageTaken, phase.Skill, phase.Defense)); // 承伤系数与技能都不缩放
             }
             return new EnemyDef(enemy.Id, enemy.Element,
                 Scaled(enemy.MaxHp, scale), Scaled(enemy.Attack, scale),
-                enemy.Ability, phases, enemy.DamageTaken); // 承伤系数不缩放
+                enemy.Ability, phases, enemy.DamageTaken, enemy.Defense); // 承伤系数不缩放
         }
 
         /// <summary>一个血量量纲的数乘 scale 后落回整数。

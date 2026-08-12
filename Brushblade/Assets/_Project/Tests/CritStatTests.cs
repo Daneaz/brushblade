@@ -501,6 +501,11 @@ namespace Brushblade.CoreTests
             Assert.That((int)StatusKind.Morale, Is.EqualTo(15));
             Assert.That((int)StatusKind.ApBoost, Is.EqualTo(16));
             Assert.That((int)StatusKind.CritBuff, Is.EqualTo(17), "新值必须追加在末尾");
+            // E-b4 T2(2026-08-12):点数护甲的两条通道,按落地顺序接在 CritBuff 之后。
+            // spec 曾把 18/19 预留给 DodgeBuff/PierceBuff,但 DodgeBuff 是 T4 的活、比这两个晚到 ——
+            // spec 自己写明「序号跟着实际合流顺序走,锁值测试写实际值」,于是 DodgeBuff 顺延到 20。
+            Assert.That((int)StatusKind.DefenseBuff, Is.EqualTo(18), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.PierceBuff, Is.EqualTo(19), "新值必须追加在末尾");
         }
     }
 }

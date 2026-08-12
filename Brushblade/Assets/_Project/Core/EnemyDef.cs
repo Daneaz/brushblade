@@ -39,11 +39,14 @@ namespace Brushblade.Core
         public int Attack { get; }
         /// <summary>承伤系数(如「山」0.5 = 超高防御),向下取整。</summary>
         public float DamageTaken { get; }
+        /// <summary>该阶段的护甲**点数**(2026-08-12,E-b4 T2)。每记挥击减这么多,
+        /// 与承伤系数并存过渡;T3 删乘法层后它是守方唯一的一层。T2 全表为 0。</summary>
+        public int Defense { get; }
         /// <summary>该阶段的蓄力技能(spec 2026-07-28);由字表决定,None = 纯普攻。</summary>
         public BossSkill Skill { get; }
 
         public BossPhaseDef(string phaseChar, Element element, int maxHp, int attack,
-            float damageTaken = 1f, BossSkill skill = BossSkill.None)
+            float damageTaken = 1f, BossSkill skill = BossSkill.None, int defense = 0)
         {
             Char = phaseChar;
             Element = element;
@@ -51,6 +54,7 @@ namespace Brushblade.Core
             Attack = attack;
             DamageTaken = damageTaken;
             Skill = skill;
+            Defense = defense;
         }
     }
 
@@ -67,9 +71,13 @@ namespace Brushblade.Core
         /// <summary>承伤系数(&lt;1 即减伤;小怪级如墨渍。Boss 走阶段级 BossPhaseDef.DamageTaken)。</summary>
         public float DamageTaken { get; }
 
+        /// <summary>护甲**点数**(2026-08-12,E-b4 T2):小怪级。Boss 走阶段级
+        /// <see cref="BossPhaseDef.Defense"/>。T2 全表为 0(接线不配值),T3 才写入映射。</summary>
+        public int Defense { get; }
+
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
-            float damageTaken = 1f)
+            float damageTaken = 1f, int defense = 0)
         {
             Id = id;
             Element = element;
@@ -78,6 +86,7 @@ namespace Brushblade.Core
             Ability = ability;
             Phases = phases ?? System.Array.Empty<BossPhaseDef>();
             DamageTaken = damageTaken;
+            Defense = defense;
         }
     }
 
@@ -203,6 +212,20 @@ namespace Brushblade.Core
             }
         }
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)
+
+        /// <summary>护甲**点数**(2026-08-12,E-b4 T2):每记挥击从伤害里减这么多,下钳 0。
+        ///
+        /// ⚠ **硬约束:战斗中永不被写**(spec §4.5.3)。它是不可变的基础属性,所以刻意做成
+        /// **计算属性**而不是带 internal setter 的字段 —— 类型系统兜住,不靠人记得。
+        /// 一切对护甲的改变(增 DefenseBuff / 减 ArmorBreak / 穿 PierceBuff)全部是
+        /// <see cref="Statuses"/> 里的条目,而 StatusBag 本来就进快照。
+        /// **这是「零新增快照字段」的全部依据**:给它加 setter 会让敌人护甲变成战中可变状态,
+        /// 必须补一个 EnemySnapshot 字段,而漏补是静默的(RunSnapshot.cs:9 那条警告说的就是这种事)。
+        ///
+        /// Boss 换阶段时读数会变,但那是 <see cref="PhaseIndex"/> 变了、不是本属性被写 ——
+        /// PhaseIndex 早就在快照里,复原后自然读回同一个值。
+        /// 守卫测试:<c>Defense_IsNeverMutatedDuringBattle</c>。</summary>
+        public int Defense => Def.Phases.Count > 0 ? Def.Phases[PhaseIndex].Defense : Def.Defense;
         public int PhaseIndex { get; internal set; }     // 成语 Boss 当前阶段(0 起)
         public int RegrowProgress { get; internal set; } // 补全进度 0~3
         public bool HasSplit { get; internal set; }
