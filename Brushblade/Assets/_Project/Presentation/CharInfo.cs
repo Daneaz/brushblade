@@ -61,9 +61,9 @@ namespace Brushblade.Presentation
                 parts.Append(e.Kind switch
                 {
                     EffectKind.DamageSingle => $"单体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
-                        + (e.IgnoreArmor ? "(穿甲:无视减伤,额外+15%)" : ""),
+                        + PierceText(e),
                     EffectKind.DamageAll => $"全体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
-                        + (e.IgnoreArmor ? "(穿甲:无视减伤,额外+15%)" : ""),
+                        + PierceText(e),
                     EffectKind.BurnSingle => $"单体灼烧+{v}",
                     EffectKind.BurnAll => $"全体灼烧+{v}",
                     EffectKind.Shield => $"护盾{v}" + (e.PersistOnce ? "(豁免一次回合末清空)" : ""),
@@ -78,8 +78,8 @@ namespace Brushblade.Presentation
                         : $"持续治疗{v}/回合,共{e.Turns}回合",
                     EffectKind.Freeze => $"冻结{v}回合",
                     EffectKind.Slow => $"减速{v}回合(半速)",
-                    EffectKind.DamageReduction => $"本段受伤−{v}%",
-                    EffectKind.ArmorBreak => $"破甲 {v} 回合(承伤+25%)",
+                    EffectKind.DefenseBuff => $"本段护甲 +{v}",
+                    EffectKind.ArmorBreak => $"破甲 {v}(本场削目标护甲)",
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
                     // 用 e.Value 而不是 v:真正的约束是正数条数不能被 ScaleByCardLevel 缩放
                     // (Lv.10 系数 1.9,「驱散 2 条」会被算成 ceil(2×1.9)=4 条,与 Core 实际驱散数不符;
@@ -115,6 +115,13 @@ namespace Brushblade.Presentation
             }
             return parts.ToString();
         }
+
+        /// <summary>穿透后缀(2026-08-12,E-b4 T3)。口径从「穿甲:无视减伤,额外 +15%」换成
+        /// 点数 —— 旧的 +15% 已固化进这三个字的基础值,卡面上的伤害数字自己涨了,
+        /// 后缀只剩下真正与防御有关的那一半。破甲与穿透的一句话区分见 spec 第七节:
+        /// 破甲削的是目标的甲(削掉就一直是削掉的、队友蹭得到),穿透只是这一击的视角。</summary>
+        private static string PierceText(EffectDef e) =>
+            e.Pierce > 0 ? $"(穿透 {e.Pierce}:本次无视 {e.Pierce} 点护甲)" : "";
 
         public static string ElementName(Element element) => element switch
         {
