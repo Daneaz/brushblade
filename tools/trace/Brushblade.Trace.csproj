@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 黄金轨迹工装(E-b4+E-b5 的 T0,spec §10.2「网 1」):链接 Core/Data 源码,
+       无头跑固定种子的无尽爬塔,把战斗轨迹落成可逐字节比对的文本文件。
+       用法见 Program.cs 类注释(dotnet 用 Unity 自带 SDK,见 CLAUDE.md)。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- 不变文化:轨迹里任何一处数字格式化都不许受宿主 locale 影响 -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="TraceRecorder.cs" />
+    <Compile Include="TraceCompare.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Core/**/*.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Data/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>
