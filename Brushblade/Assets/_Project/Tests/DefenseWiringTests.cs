@@ -299,6 +299,10 @@ namespace Brushblade.CoreTests
             int before = engine.PlayerHp;
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(before), "打出 0,不是负伤害倒着回血");
+            // 血量那条断言单独守不住钳位:负伤害会先被护盾吸收段吃掉 ——
+            // Math.Min(护盾, −40) = −40,护盾反而**凭空涨 40**,血量看上去纹丝不动。
+            // 玩家侧的 max(0, …) 真正的观测点在这里。
+            Assert.That(engine.PlayerShield, Is.EqualTo(0), "更不能凭空长出护盾");
         }
 
         [Test]
