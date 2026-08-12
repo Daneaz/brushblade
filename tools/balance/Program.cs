@@ -22,8 +22,12 @@ namespace Brushblade.Balance
         // 仿真对火系 DOT 三分化完全没有判别力(见 task-6-report.md 第二节)。燃/炽 已经在表里,
         // 不用重复加。真实游戏的战利品池 = 玩家出阵列表(enemies.json 的 endless.rewardPool
         // 是 v0.7 前的废弃字段,不该填),所以这里直接扩这张"画像出阵表",不动游戏配置。
+        // ⚠ 2026-08-12:原表里的「灯」是个幽灵 —— ids.txt 有它的拆解,但《技能机制详表》
+        // 里根本没有它这一行,管线从没产出过它,进不了 RecipeGraph。而它当时正是「新手」
+        // 画像的**唯一**起手字,于是那一档量的是空手打(只能靠回合掉部件 + 兜底一击),
+        // 与画像名声称的东西无关。换成 灼(白档,单攻 60,对灼烧目标翻倍)。
         private static readonly string[] FireCards =
-            { "灯", "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱" };
+            { "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱" };
 
         public static void Main()
         {
@@ -37,9 +41,9 @@ namespace Brushblade.Balance
             {
                 // 攻击力与生命取同一个角色等级(2026-08-11 E-b1):画像的等级此前只体现在血量上,
                 // 攻击力恒为基准 —— 那会让 E-b5 重平衡看不见攻击成长这一整条轴
-                new Profile("新手(灯,1级,HP500,ATK100)", new[] { "灯" },
+                new Profile("新手(灼,1级,HP500,ATK100)", new[] { "灼" },
                     new Dictionary<string, int>(), MetaRules.MaxHpFor(1), MetaRules.AttackFor(1)),
-                new Profile("小成长(灼炎烧灯,卡3级,HP540,ATK104)", new[] { "灼", "炎", "烧", "灯" },
+                new Profile("小成长(灼炎烧燃,卡3级,HP540,ATK104)", new[] { "灼", "炎", "烧", "燃" },
                     FireCards.ToDictionary(c => c, _ => 3), MetaRules.MaxHpFor(3), MetaRules.AttackFor(3)),
                 new Profile("养成(焚炽灼燚,卡5级,HP680,ATK118)", new[] { "焚", "炽", "灼", "燚" },
                     FireCards.ToDictionary(c => c, _ => 5), MetaRules.MaxHpFor(10), MetaRules.AttackFor(10)),

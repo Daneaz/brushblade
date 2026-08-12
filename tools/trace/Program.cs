@@ -39,8 +39,11 @@ namespace Brushblade.Trace
 
         /// <summary>出阵表 = 可合成集 + 回合掉字的抽取源。**钉死的副本**,不与
         /// <c>tools/balance</c> 的 FireCards 共享(见类注释)。</summary>
+        /// ⚠ 2026-08-12:原表里的「灯」是幽灵字 —— ids.txt 有拆解但《技能机制详表》没有它,
+        /// 管线从没产出过,进不了 RecipeGraph。而它是「基准1级」画像的唯一起手字,那一档
+        /// 因此是空手打。已移除;基准画像改用 灼(白档,单攻 60)。
         private static readonly string[] FireCards =
-            { "灯", "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱" };
+            { "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱" };
 
         /// <summary>杂食出阵表:纯火系打不出护盾/治疗/召唤/流血这几路事件,量级 ×10
         /// 在那些路径上就没有观测点。这张表专门为**事件种类覆盖**而配。
@@ -105,7 +108,7 @@ namespace Brushblade.Trace
             // 耐久档能爬得更深,深层档直接空降到 26 层去够到「文山」段与成语 Boss。
             var profiles = new[]
             {
-                new Profile("基准1级", new[] { "灯" }, MetaRules.MaxHpFor(1), 1, FireCards),
+                new Profile("基准1级", new[] { "灼" }, MetaRules.MaxHpFor(1), 1, FireCards),
                 new Profile("基准耐久", new[] { "焚", "炽", "灼", "燚" }, MetaRules.MaxHpFor(26), 1, FireCards),
                 new Profile("基准深层", new[] { "焚", "炽", "灼", "燚" }, MetaRules.MaxHpFor(26), 26, FireCards),
                 new Profile("基准杂食", new[] { "塔", "治", "森", "锯", "冰", "淼" },

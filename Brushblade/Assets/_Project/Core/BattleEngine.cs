@@ -26,6 +26,12 @@ namespace Brushblade.Core
     /// <summary>战斗规则参数(基准值来自第 10 章 10.1)。</summary>
     public sealed class BattleConfig
     {
+        /// ⚠ 缺省 50 是**旧量级**的遗留,与 <c>MetaRules.MaxHpFor(1) = 500</c> 差一个数量级
+        /// (2026-08-12 T1 量级 ×10 时刻意没跟着抬)。生产侧 <c>GameRoot</c> 与两个工装
+        /// 都显式注入,缺省只服务测试夹具 —— 那些夹具的怪攻也还是旧量级的合成值,与 50 自洽,
+        /// 一起抬会把约 25 条断言变成 500−5=495 这种非机械改动。
+        /// 走缺省 + 新量级敌人的话玩家一回合暴毙,是**响亮**的失败不是静默的,所以留着。
+        /// T3 配值时会连同夹具一起重做。
         public int PlayerMaxHp { get; set; } = 50;
 
         /// <summary>攻击力基准。<see cref="PlayerAttack"/> 等于此值时,
