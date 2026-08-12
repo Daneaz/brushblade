@@ -179,9 +179,19 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Curse_IntegerMath_AvoidsFloatPrecisionLoss()
         {
-            // 25% 是唯一二进制精确的档位,原先的 float 版 (1 - curse/100f) 测不出精度损耗——
-            // 10%/30% 才会露馅:1 - 0.1f = 0.89999997,10 × 0.89999997 会 floor 到 8 而不是 9
-            // (2026-08-06 M1,改成整数算式 raw × (100 − curse) / 100 后精确)。
+            // ⚠ 2026-08-12 订正:这条测试原本用 10%/30%,是**纸老虎** —— 把实现改回
+            // float 版 (1 - curse/100f) 它照样绿。2026-08-06 M1 那条注释举的例子
+            // 「1 - 0.1f = 0.89999997,10 × 它会 floor 到 8」在 .NET 8 上不成立:
+            // 1 - 0.1f 落在 0.9f 上,10 × 0.9f 的乘法又舍回恰好 9.0f,整数/float/double
+            // 三者同为 9。30% 同理三者同为 7。
+            //
+            // 穷举出的真分歧点是**大 curse**:80% 时整数算式给 2,float 与 double 都给 1。
+            // 换成它,把 float 与 double 两种误写一并罩住。
+            Assert.That(CursedEnemy(10, 80, "诅咒").Attack, Is.EqualTo(2),
+                "整数 10×20/100 = 2;float/double 的 10×(1−0.8) 会 floor 到 1");
+            Assert.That(CursedEnemy(20, 80, "诅咒").Attack, Is.EqualTo(4),
+                "整数 20×20/100 = 4;浮点同样 floor 到 3");
+            // 保留两条不分歧的档位当回归基线:它们不证明整数算式必要,但证明它没算错
             Assert.That(CursedEnemy(10, 10, "诅咒").Attack, Is.EqualTo(9));  // 10 × 0.9 = 9
             Assert.That(CursedEnemy(10, 30, "诅咒").Attack, Is.EqualTo(7));  // 10 × 0.7 = 7
         }
@@ -199,21 +209,23 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Curse_AppliesAfterAttackBuff()
+        public void Curse_ShareOneAxisWithAttackBuff() // 原名 Curse_AppliesAfterAttackBuff
         {
-            // 先加增益再乘诅咒:(4 + 4) × 0.75 = 6。反过来算是 4×0.75+4 = 7,差一点
+            // 2026-08-12(E-b4 T0.5)**刻意的语义变化**:AttackBuff 从加数改成百分点后,
+            // 与 Curse 落在同一根轴上直接加减,「先加再乘」这个顺序问题本身消失了(加法可交换)。
+            // 旧口径:(4 + 4) × 0.75 = 6;新口径:4 × (100 + 50 − 25) ÷ 100 = 5。
             var enemy = EnemyWithAttack(4);
             enemy.Statuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
-                Magnitude = 4, TurnsLeft = -1, SourceId = "妖#1",
+                Magnitude = 50, TurnsLeft = -1, SourceId = "妖#1",
             });
             enemy.Statuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
                 Magnitude = 25, TurnsLeft = 2, SourceId = "诅咒",
             });
-            Assert.That(enemy.Attack, Is.EqualTo(6));
+            Assert.That(enemy.Attack, Is.EqualTo(5), "4 × (100 + 50 − 25) ÷ 100 = 5");
         }
 
         [Test]
@@ -367,7 +379,11 @@ namespace Brushblade.Core.Tests
             var scorchEngine = Engine(new[] { "焰" }, new[] { scorchEnemy });
             scorchEngine.Cast("焰");
             for (int i = 0; i < 3; i++) scorchEngine.EndTurn();
-            Assert.That(scorchEngine.Enemies[0].Attack, Is.EqualTo(0), "攻 0 召唤物出手不该喂焦痕自燃");
+            // 断 AttackBuff 而不是断 Attack:自燃改成百分点后(2026-08-12),攻 0 的怪加多少
+            // 百分比都还是 0,断 Attack 会静默退化成一条永远为真的断言。
+            Assert.That(scorchEngine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0),
+                "攻 0 召唤物出手不该喂焦痕自燃");
+            Assert.That(scorchEngine.Enemies[0].Attack, Is.EqualTo(0));
 
             // 叠字怪:首次受击存活即分裂,若攻 0 召唤物的出手仍算一次"命中",会无条件替敌人触发分裂。
             var splitEnemy = new EnemyDef("叠", Element.Heart, 200, 0, EnemyAbility.Split);

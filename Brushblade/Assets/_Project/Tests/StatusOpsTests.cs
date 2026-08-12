@@ -253,26 +253,29 @@ namespace Brushblade.Core.Tests
                 "自动锁定唯一存活敌人并清空增益");
         }
 
-        /// <summary>给敌人挂两条可驱散的增益(与标点小妖加攻同形:AttackBuff、段内持久、可叠)。</summary>
+        /// <summary>给敌人挂两条可驱散的增益(与标点小妖加攻同形:AttackBuff、段内持久、可叠)。
+        /// Magnitude 是**百分点**(2026-08-12 敌我单位统一后),取 50 与标点小妖实际发放的量一致。</summary>
         private static void GiveTwoBuffs(EnemyState enemy)
         {
             for (int i = 0; i < 2; i++)
                 enemy.Statuses.Apply(new StatusEffect
                 {
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
-                    Magnitude = 3, TurnsLeft = -1, SourceId = $"妖#{i}",
+                    Magnitude = 50, TurnsLeft = -1, SourceId = $"妖#{i}",
                 });
         }
 
         [Test]
         public void Dispel_MinusOne_RemovesEveryBuff()
         {
-            var engine = Engine(new[] { "扫" }, new[] { Dummy() });
+            // 靶子必须有非 0 基础攻击:AttackBuff 是比值,攻 0 的敌人加多少百分比都还是 0,
+            // 攻击力这两条断言就废了(只剩 TotalMagnitude 一条在守)。
+            var engine = Engine(new[] { "扫" }, new[] { Dummy(attack: 8) });
             GiveTwoBuffs(engine.Enemies[0]);
-            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(6), "基础 0 + 两条各 3");
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(16), "8 × (100 + 50 + 50) ÷ 100");
             engine.Cast("扫", 0);
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0));
-            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(8), "驱散后回到基础攻击");
         }
 
         [Test]
@@ -281,7 +284,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "剐" }, new[] { Dummy() });
             GiveTwoBuffs(engine.Enemies[0]);
             engine.Cast("剐", 0);
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(3),
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(50),
                 "只清一条,剩一条");
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(191), "伤害照打");
         }
@@ -294,7 +297,7 @@ namespace Brushblade.Core.Tests
             GiveTwoBuffs(engine.Enemies[1]);
             engine.Cast("荡", 0);
             foreach (var enemy in engine.Enemies)
-                Assert.That(enemy.Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(3),
+                Assert.That(enemy.Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(50),
                     "每只各清一条");
         }
 

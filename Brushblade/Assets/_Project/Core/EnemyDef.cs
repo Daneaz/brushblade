@@ -9,11 +9,11 @@ namespace Brushblade.Core
         None,
         Regrow, // 缺笔妖:每敌方回合自补全(攻+2/回3血),第 3 次补全完成(攻×2、血回满)
         Split,  // 叠字怪:首次受击存活后分裂成两个半血(场上敌人 <4 时)
-        Buff,   // 标点小妖:有同伴时每回合给其他存活字怪攻击 +Attack(本场累计不回滚,
+        Buff,   // 标点小妖:有同伴时每回合给其他存活字怪攻击 +50%(本场累计不回滚,
                 // 优先级目标);场上只剩自己时改为亲自攻击(2026-07-22)
         Disguise, // 通假字:真身与伪装每次遭遇现摇(必不相同),首次行动后现形(信息隐藏)
         Obscure,  // 生僻字:属性隐藏("?"),受击两次后被"读懂"
-        Scorch,   // 焦痕:每次被击中且存活,攻 +2(越磨越烫,宜速杀)
+        Scorch,   // 焦痕:每次被击中且存活,攻 +50%(基础攻 4 时即 +2,越磨越烫,宜速杀)
         Sear,     // 灯花:每次攻击给玩家挂 1 层灼烧(2026-08-06;玩家侧减益的来源之一)
     }
 
@@ -173,18 +173,33 @@ namespace Brushblade.Core
         /// <summary>基础攻击(缺笔妖补全会直接抬高它 —— 那是形态变化不是增益,故不可驱散)。</summary>
         public int BaseAttack { get; internal set; }
 
-        /// <summary>当前攻击 = (基础 + 所有可驱散的攻击增益) × (1 − 诅咒%),向下取整、下限 0。
-        /// 顺序不可换:诅咒削的是"打出来的那一下",增益必须先加进去(2026-08-05)。
-        /// Boss 大招也读这个属性,所以诅咒自动对大招生效,不需要额外接线。</summary>
+        /// <summary>当前攻击 = 基础攻击 × (100 + 攻击增益% − 诅咒%) ÷ 100,向下取整、下限 0。
+        ///
+        /// AttackBuff 与 Curse 都是**百分点**,同一根轴上直接加减(2026-08-12,E-b4 T0.5)——
+        /// 与玩家侧 <c>BattleEngine.EffectiveAttack</c> 同形,敌我两侧的 AttackBuff 从此是同一个单位。
+        /// 这是为量级 ×10 铺路:规则只剩「数量乘、比值永不乘」,乘的只有 BaseAttack 一处,
+        /// 不需要「敌人的加攻乘、玩家的不乘」这种迟早被忘掉的特例。
+        /// 代价是**刻意的语义变化**:+50% 与 −50% 从此精确相消,不再是旧式子那种
+        /// (基础 + 加数) × (1 − 诅咒%) 的乘法交互。
+        ///
+        /// **钳的是最终值,不是单项** —— 与 <c>BattleEngine.AttackHits</c> 那条钳位同型
+        /// (那段 2026-08-08 订正过一次,原注释的推理是反的)。旧写法把诅咒单项钳到 ≤100,
+        /// 换到加减轴上就成了「诅咒 120% 被削成 100%,+50% 的增益反而净赚」。
+        /// 净百分比转负由 <c>Math.Max(0, …)</c> 兜住,与旧式子在「诅咒 ≥100 且无增益」时同样得 0。
+        ///
+        /// 整数算式(2026-08-06 M1 起的纪律):必须是 <c>BaseAttack × percent ÷ 100</c>,
+        /// 不许写成 <c>BaseAttack × (1 + (percent − 100) / 100f)</c> 这类浮点 —— 会把 floor 拉低 1 点。
+        /// ⚠ M1 当年举的 curse = 10 / 30 这组例子在 .NET 8 上其实测不出差别(乘法那步又舍了回来),
+        /// 真正的分歧点见 AttackBuffUnitTests.IntegerMath_HasNoFloatPrecisionLoss,别拿旧例子做变异检查。
+        /// Boss 大招也读这个属性,所以诅咒/加攻自动对大招生效,不需要额外接线。</summary>
         public int Attack
         {
             get
             {
-                int raw = BaseAttack + Statuses.TotalMagnitude(StatusKind.AttackBuff);
-                int curse = Math.Min(100, Statuses.TotalMagnitude(StatusKind.Curse));
-                // 整数算式(2026-08-06 M1):float 版 1 - curse/100f 在 curse=10/30 等值上有精度损耗
-                // (1 - 0.1f = 0.89999997),会把 floor 结果拉低 1。curse 已钳到 ≤100,100-curse ≥0。
-                return curse <= 0 ? raw : Math.Max(0, raw * (100 - curse) / 100);
+                int percent = 100
+                    + Statuses.TotalMagnitude(StatusKind.AttackBuff)
+                    - Statuses.TotalMagnitude(StatusKind.Curse);
+                return Math.Max(0, BaseAttack * percent / 100);
             }
         }
         public float DamageTaken { get; internal set; } = 1f; // 承伤系数(「山」阶段 0.5)

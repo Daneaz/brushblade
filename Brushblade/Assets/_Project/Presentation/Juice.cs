@@ -273,7 +273,9 @@ namespace Brushblade.Presentation
                         _audio.PlayOneShot(_thudClip, 1f);
                         break;
                     case BattleEventKind.EnemyBuff:
-                        Popup($"攻+{e.Amount}", Theme.InkSoft, enemyAnchor(e.TargetIndex), small: true);
+                        // Amount 是百分点(2026-08-12 敌我 AttackBuff 单位统一),飘「攻+50%」
+                        // 而不是「攻+50」—— 后者会被读成加了 50 点攻击。
+                        Popup($"攻+{e.Amount}%", Theme.InkSoft, enemyAnchor(e.TargetIndex), small: true);
                         break;
                     case BattleEventKind.EnemyRevealed:
                         Popup("现形!", Theme.SplitBlue, enemyAnchor(e.TargetIndex));
