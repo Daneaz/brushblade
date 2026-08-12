@@ -16,7 +16,8 @@
 | 日期 | 修订 |
 |---|---|
 | 2026-08-12(初稿) | 调研三个 DEF 模型方案(A 推倒重来 / B 两层并存 / C 半迁移),**推荐 B**;把数值决策整体推给 E-b5;子项目名为「命中/闪避/DEF」 |
-| **2026-08-12(本次)** | 按用户裁定**全面重写**:① DEF 模型改采 **方案 A**(统一点数制),B/C 降级为「已否决方案」(第十六节保留其实测数字);② **E-b4 与 E-b5 合并为一个子项目**(折算率取决于字表量级,分开做等于拿即将作废的数字重写 40 条测试);③ 玩家攻击**永远必中**、敌人无闪避 → **「命中」不再是玩家属性,子项目更名为「闪避/DEF」**;④ 恒等性硬线**主动放弃**,改用第十节的四张安全网;⑤ 数值量级、迁移映射、成长曲线、存档迁移全部在本批定死,不再有「待 E-b5」 |
+| **2026-08-12(第二稿)** | 按用户裁定**全面重写**:① DEF 模型改采 **方案 A**(统一点数制),B/C 降级为「已否决方案」(第十六节保留其实测数字);② **E-b4 与 E-b5 合并为一个子项目**(折算率取决于字表量级,分开做等于拿即将作废的数字重写 40 条测试);③ 玩家攻击**永远必中**、敌人无闪避 → **「命中」不再是玩家属性,子项目更名为「闪避/DEF」**;④ 恒等性硬线**主动放弃**,改用第十节的四张安全网;⑤ 数值量级、迁移映射、成长曲线、存档迁移全部在本批定死,不再有「待 E-b5」 |
+| **2026-08-12(第三稿,本次)** | 四条待拍板全部裁定,`⚠ 待用户拍板` 一节清空。其中一条**改动了机制设计**:① **破甲不改名,改回原始设计** —— `ArmorBreak` 从「承伤 +25%」变回「削减 DEF 点数」,「易伤 `Vulnerable`」的改名方案作废;连带**守方侧的乘法层彻底清空**(第四、七节重写,6 字数值重定);② 堆甲**允许**把小怪普攻打到 0,对冲交给第八章(新增第 4.6 节的接口要求);③ 敌人 DEF **半速缩放**,并给出有判别力的可执行判据 T3-V4(它把墨渍的 DEF 从折算值 25 压到 20);④ 存档断点**直接丢弃不补发** |
 
 **文件改名**:`2026-08-12-战斗属性模型-Eb4-命中闪避DEF-design.md` → 本文件。
 
@@ -55,6 +56,15 @@
 | 6 | **`锐` 与新部件 `兑` 随这批入表** | 第十二节 |
 | 7 | **DEF / 闪避成长曲线在这批里定**(参考 `MaxHpFor`/`AttackFor`,封顶级 26) | 第九节 |
 | 8 | **暴击不随等级成长**(E-b2 的裁定;属性轴口径:HP/ATK 随等级长,暴击不长) | 第九节 |
+| **9** | **破甲改回原始设计 = 削减 DEF 点数**,不改名。用户原话:「破甲的设计初衷就是扣 DEF,只是那时候没有 DEF 的概念。本质上是一个东西。」 | 第 4.5、七、6.5 节 |
+| **10** | **堆甲允许把小怪普攻打到 0**,不加 `max(1,…)` 保底;对冲手段(敌人破甲 / 真伤)是第八章的活 | 第 4.6 节 |
+| **11** | **敌人 DEF 半速缩放**(HP/ATK 缩放率的一半) | 第 6.3 节 |
+| **12** | **存档断点直接丢弃,不补发结算宝箱** | 第十一节 |
+
+裁定 9 的分量最重:它不是命名问题,而是**否掉了「守方侧还留一层乘数」这件事**。
+`ArmorBreak = 承伤 +25%` 是 2026-08-05 那次「承伤与护甲」子项目为了绕开「引擎里没有 DEF」
+而做的**代偿实现**;DEF 回来了,代偿就该退场。连带结果:守方侧只剩点数 DEF 一层,**零乘数**
+(第 4.1 节),`ArmorBreakPercent` 常量删除,方案 A 的「模型唯一」比第二稿更彻底。
 
 ---
 
@@ -65,7 +75,7 @@
 - 全字表 / 敌表 / 玩家血量 **数值量级 ×10**
 - 防御统一为**点数制 DEF**(玩家 + 敌人),删除乘法减伤层与承伤系数
 - **穿透**(`Pierce`)作为伤害侧属性;穿甲(`IgnoreArmor`)并入穿透
-- 破甲(`ArmorBreak`,承伤 +25%)改名为**易伤**(`Vulnerable`),从防御层移到增伤侧
+- 破甲(`ArmorBreak`)**语义复原为削减 DEF 点数**(名字与枚举序号都不动),6 字重定值
 - **闪避**成为玩家侧真属性(敌人无闪避);`SummonPassive.Dodge` 并入同一条通道
 - `MetaRules.DefenseFor` / `DodgeFor` 成长曲线
 - `锐`(穿透增益)+ 新部件 `兑` 入表
@@ -79,7 +89,8 @@
 | 玩家攻击的命中判定、`PlayerHit` 属性、敌人 `Dodge` 属性 | 裁定 3:玩家必中。加了就是死属性 |
 | 暴击 | E-b2(并行);本批只负责与它的合流顺序(第十五节) |
 | `锋` | 随 E-b2 |
-| **破甲 = 削减 DEF 点数** 的机制 | 名字留位,本批不实现 —— 没有任何字要用它(第七节) |
+| **裂甲**(每回合护甲 −1 的 DOT 式削甲)与 `刮` / `削` 的字表重设计 | 技术上已可实现,但装甲怪够多之前体验不到增量。记为 E-c 候选(第 6.5.3 节) |
+| **补装甲怪、敌人破甲 / 真伤** | 第八章的活。本批交付接口要求(第 4.6.2 节),并把「敌人给玩家挂破甲」的通道打通 |
 | 敌人侧 ATK 重构 | E-b1 已裁定不做 |
 | `钩`(拉后排到前排) | 模型缺口,与本步无关 |
 | `CombatStats` 容器抽取 | 本批之后 `BattleConfig` 上会有 HP/ATK/暴击/DEF/闪避五个平铺字段。抽容器是纯机械重构,单独一个 chore,不塞进这批(这批已经够大) |
@@ -93,28 +104,78 @@
 ```
 玩家打敌人:
   effect.Value
-  → ScaleByCardLevel(卡等级)                    既有
-  → ScaleByAttack(玩家 ATK / 100)                E-b1
-  → ExecuteBonus / DoubleVsBurning(条件翻倍)     既有
-  → WuxingResolver.ResolveEffect(生相 ×3 / 相克 ×1.5 / ×0.5)   既有
-  → × 易伤(Vulnerable,+25%)                    【原 ArmorBreak,改名,留在乘法侧】
-  → × 暴击倍率                                   E-b2(并行,乘在最末)
+  → ScaleByCardLevel(卡等级)                     既有
+  → ScaleByAttack((PlayerAttack + Empower + Morale×10) / 100)
+                                                 E-b1 + E-b3-a  ← 剡 / 战意在这里
+  → ExecuteBonus / DoubleVsBurning(条件翻倍)      既有
+  → WuxingResolver.ResolveEffect(相生 ×3 / 相克 ×1.5 / ×0.5)   既有
+  → × 暴击倍率                                    E-b2(并行,乘在最末)
   → floor(...)
-  → − max(0, 敌人DEF − 本次穿透)                 【新:点数层】
+  → − EffectiveDefense(敌人)                     【点数层,唯一的守方层】
   → max(0, ...)
+
+其中:
+  EffectiveDefense(敌人) = max(0,
+        EnemyState.Defense                                  ← 不可变基础属性
+      − enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak) ← 破甲(持续、可叠、本场)
+      − (effect.Pierce + _playerStatuses.TotalMagnitude(StatusKind.PierceBuff)))  ← 穿透(本次)
 ```
 
 ```
 敌人打玩家:
   enemy.Attack
-  → − max(0, 玩家DEF)                            【新:点数层。敌人无穿透】
+  → − EffectiveDefense(玩家)                     【点数层。敌人无穿透,但可以有破甲】
   → max(0, ...)
-  → 免疫 → 护盾 → HP                             既有,不动
+  → 免疫 → 护盾 → HP                              既有,不动
+
+  EffectiveDefense(玩家) = max(0,
+        _config.PlayerDefense                                   ← 角色属性
+      + _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff)   ← 局内护甲增益(土系字)
+      − _playerStatuses.TotalMagnitude(StatusKind.ArmorBreak))   ← 敌人的破甲(第 4.6 节)
 ```
 
-**顺序是硬规格:所有乘法先算完,点数最后减。** 理由:乘法层描述「这一击有多重」,点数层描述
+**守方侧只有一层,而且是纯点数、零乘数。** 第二稿还留着一个「易伤 ×1.25」,裁定 9 之后连它
+也没有了 —— `DamageTaken`(承伤系数)、`DamageReductionMultiplier`(乘法减伤)、
+`ArmorBreakPercent`(承伤 +25%)、`PierceBonusPercent`(穿甲 +15%)**四个乘数全部删除**。
+`DoubleVsBurning` / `ExecuteBonus` / 生克 / 暴击都留着,但它们是**攻方**的条件倍率,不是防御层。
+
+**顺序是硬规格:所有乘法先算完,点数最后减。** 理由:乘法描述「这一击有多重」,点数描述
 「这层皮有多厚」。反过来(先减 DEF 再乘生克)会让 DEF 被生克倍率放大 —— 克制方 ×1.5 会连带
-把 DEF 的削减也放大 1.5 倍,同一件护甲对不同属性的攻击者厚度不同,无从解释。
+把 DEF 的削减也放大 1.5 倍,同一件护甲对不同属性的攻击者厚度不同,无从解释。同理暴击必须
+乘在减 DEF **之前**,否则等价于「暴击时护甲变薄」。
+
+### 4.1.1 三条增减益在式子里的位置(裁定 9 的连带检查)
+
+| 机制 | 字 | 作用侧 | 落点 | 载体 |
+|---|---|---|---|---|
+| **攻击加成** | 剡(`Empower 50`)、战/戮(`Morale`) | 攻方,**乘** | `ScaleByAttack` 的分子,最早 | `StatusKind.AttackBuff` / `Morale`(玩家身上) |
+| **穿透** | 锐(`PierceBuff`)、錰/刺/锥(`effect.Pierce`) | 守方,**减** | `EffectiveDefense` 的减数,**本次有效** | `EffectDef.Pierce` + `StatusKind.PierceBuff`(玩家身上) |
+| **破甲** | 熔/溃/溶/锤/破/碎(`ArmorBreak`) | 守方,**减** | `EffectiveDefense` 的减数,**本场持续** | `StatusKind.ArmorBreak`(**目标身上**) |
+
+**攻击加成与后两者不可换位**:ATK 放大的是基础值,在生克之前;穿透/破甲削的是目标厚度,在
+生克之后。中间隔着 `floor` 与生克乘数,顺序颠倒会得到完全不同的数。
+
+### 4.1.2 【裁定】穿透与破甲同时存在:合并相减,不重复扣
+
+`EffectiveDefense = max(0, 基础DEF − 破甲总量 − 穿透总量)` —— **一个 `max(0,…)`,两项都从同一个
+基础 DEF 里减。**
+
+**不写成「分别作用」的理由不是它算错了,而是它多余。** 两种写法在数学上完全等价:
+
+| | `max(0, max(0, D−B) − P)`(分别) | `max(0, D−B−P)`(合并) |
+|---|---|---|
+| `D−B ≥ 0` | `max(0, D−B−P)` | `max(0, D−B−P)` ✓ 同 |
+| `D−B < 0` | `max(0, 0−P) = 0` | `D−B−P < 0` → `0` ✓ 同 |
+
+既然等价,取**少一次钳位**的写法:将来加第三个削减源(比如裂甲,见 6.5.3)时,合并式只是
+再减一项,分别式则要决定新的嵌套顺序 —— 那是一个没有正确答案的问题。
+
+**语义上的说法**:护甲只有一层厚度。破甲削掉 20、穿透再穿 30,合起来是穿透了 50 的厚度,
+**不是「穿透去穿那 20 点已经被削掉的甲」**。所以两者相加而非相乘、更非嵌套。
+
+**溢出不倒贴**:`max(0, …)` 保证削过头只是归零,绝不变成增伤。守卫测试
+`ArmorBreak_AndPierce_DoNotDoubleCount_NorOverflow`:DEF 20 + 破甲 20 + 穿透 30,基础 100
+→ 打出 **100**(不是 100+30),且与「DEF 20 + 破甲 50」结果相同。
 
 ### 4.2 什么吃 DEF、什么不吃
 
@@ -180,14 +241,20 @@ if (taken < 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) >= 1.5f) 
 
 **不加代码闸,改用配置口径约束**:
 
-> **DEF > 0 的敌人只能是「装甲 / 坚壁」定位,且不成群出现。** 全部 13 只字怪里带 DEF 的只有
-> 墨渍 1 只(DEF 25),其余 12 只 DEF = 0;Boss 的 DEF 挂在阶段上,而 Boss 永远单只。
+> **DEF > 0 的敌人只能是「装甲 / 坚壁」定位,且不成群出现 —— 同一次遭遇里带甲怪不超过 1 只。**
+> 本批交付时全部 13 只字怪里带 DEF 的只有墨渍 1 只(DEF 20),其余 12 只 DEF = 0;
+> Boss 的 DEF 挂在阶段上,而 Boss 永远单只。
 
-代价量化:一场 3 只怪的遭遇里最多 1 只带 DEF → AOE 的额外损失是 25,而 AOE 字 ×10 后基础值
-50~300,损失率 8%~50%(打低阶 AOE 时才痛)。这在可接受区间,而且它就是「AOE 清杂兵、
+代价量化:一场 3 只怪的遭遇里最多 1 只带 DEF → AOE 的额外损失是 20,而 AOE 字 ×10 后基础值
+50~300,损失率 7%~40%(打低阶 AOE 时才痛)。这在可接受区间,而且它就是「AOE 清杂兵、
 单体破装甲」这条战术分工的具体形状。
 
 **这条口径要有守卫**,否则日后加怪时没人记得 —— 见第 10.4 节的 `RealConfig_ArmoredEnemiesAreRare`。
+
+⚠ 与第 4.6.2 节**不矛盾**:那里要求第八章**增加带甲怪的总数**(让破甲/穿透两条金系轴活起来),
+本节约束的是**同一次遭遇里的并发数**。总数变多而并发数封顶 1,两条一起才是完整口径 ——
+第八章落地时 `RealConfig_ArmoredEnemiesAreRare` 要相应从「全表不超过 1 只」改成
+「任一 `enemyPool` 抽样的遭遇里不超过 1 只」。
 
 **不选的方案**:「AOE 只扣一次 DEF」(破坏「逐目标各扣各的」这条直觉,而且会让 AOE 变成
 破装甲的最优解,与设计意图相反)、「AOE 的 DEF 减半」(凭空的第三个系数)。
@@ -206,6 +273,136 @@ if (taken < 1f && WuxingResolver.KeMultiplier(attacker, enemy.Element) >= 1.5f) 
 独立收益,不追求完全拉平。
 
 全表目前只有 `剁` 一个多段字,规则先写下来供日后扩表用。
+
+⚠ 破甲变成削 DEF 之后,`MultiHit_EachSegmentGoesThroughArmorBreakSeparately` 这条既有测试的
+**语义仍然成立但含义变了**:今天它守「每段各享一次 +25% 承伤」,之后守「每段各按同一个
+`EffectiveDefense` 结算」。破甲是**目标身上的持续状态**,两段之间不会变化,所以「每段独立」
+在破甲这条上是平凡成立的;真正需要新测的是「每段各扣一次 DEF」(4.4(b))。
+
+---
+
+## 4.5 【裁定 9】破甲 = 削减 DEF 点数(改回原始设计)
+
+### 4.5.1 为什么这不是改名,是复原
+
+`docs/design/第10章-战斗数值框架.md` 的 v0.4 稿早就把破甲写成点数削减,而且写得很具体:
+
+| 出处 | 原文 | 本批的处置 |
+|---|---|---|
+| `:56` 10.2 资源表 | 「护甲 X = 每次伤害 −X(最低 0);**破甲永久降护甲**」 | ✅ **采纳为原始设计**,不再当 v0.4 旧稿 |
+| `:137` 10.5 战例二 | 锋(破 5)+ 削(破 3)+ 刮(破 2)→ Boss 护甲 10 → 0,下一回合收割 | ✅ **采纳**,它是本节数值档位的标定依据(6.5) |
+
+2026-08-05「承伤与护甲」子项目把破甲实现成「承伤 +25%」,不是因为那样更好,而是因为
+**当时引擎里没有护甲点数可扣**。那是一次代偿,而且代偿得很合理 —— 没有 DEF 的世界里,
+「破甲」唯一能落地的形状就是乘法增伤。
+
+现在 DEF 回来了。**代偿退场,原始设计上线。** 名字一个字不改,序号 7 一动不动。
+
+### 4.5.2 语义变更清单
+
+| 项 | 今天 | 本批之后 |
+|---|---|---|
+| `EffectKind.ArmorBreak` 的 `Value` | **回合数**(全部 6 字 = 2) | **削减的 DEF 点数**(见 6.5) |
+| `ArmorBreakPercent = 25` 常量 | 施加时写进 `Magnitude` | **删除** |
+| `StatusKind.ArmorBreak` 的 `Magnitude` | 承伤加成百分比 | **削减的 DEF 点数** |
+| 持续时间 | 2 回合(`TurnsLeft = value`) | **本场持久**(`TurnsLeft = -1`),依据 `:56`「永久降护甲」 |
+| 叠加 | 不叠层,重复施加只刷新(`SourceId = null`) | **可叠加**,`SourceId` 铸唯一序号(与 `HealOverTime`/`AttackBuff` 同款) |
+| 极性 | `Debuff` | **不变** |
+| 枚举名与序号 | `ArmorBreak` = 7 | **不变**(存档安全) |
+| 结算位置 | 乘法层,`taken += 25%` | 点数层,`EffectiveDefense` 的减数 |
+
+**「可叠加」是必须的,不是可选的**:不叠只刷新的话,六个破甲字互相排斥 —— 先出削 20 的
+再出削 10 的会**变弱**。而战例二的整套玩法(三张接力削光)要求叠加。上限由 `max(0, …)`
+天然给出:削到 0 就到底,不会有负护甲。
+
+**「本场持久」的连带后果**:`ArmorBreak_ExpiresAfterTwoTurns` 这条既有测试**语义反转**为
+`ArmorBreak_PersistsForTheWholeBattle`。这是本批第二条语义反转的测试(第一条是 6.3 的
+`Scale_PreservesDamageTaken` → `Scale_ScalesDefense`),两条都单独点名以免评审时误判成回归。
+
+### 4.5.3 【硬约束】点数层只放属性,变动量一律走状态
+
+这是本 spec 自己发现的坑 —— 「破甲改成削 DEF 点数」的天真实现是让 `EnemyState.Defense` 可变,
+那会**逼出一个新的 `EnemySnapshot` 字段**(敌人 DEF 变成战中可变状态,和今天的 `DamageTaken`
+一样必须进快照)。规避办法写成硬约束:
+
+> **`EnemyState.Defense` / `BattleConfig.PlayerDefense` 在战斗中永不被写。** 它们是不可变的
+> 基础属性,由 `EnemyDef`(按 `DefId` 查回)与 `BattleConfig`(由 `GameRoot` 注入)提供。
+> **一切对护甲的改变 —— 增(`DefenseBuff`)、减(`ArmorBreak`)、临时穿透(`PierceBuff`)——
+> 全部是 `StatusBag` 里的条目**,而 `StatusBag` 本来就进 `BattleSnapshot.PlayerStatuses` /
+> `EnemySnapshot.Statuses`。
+
+**结果:零新增快照字段,且净删一个**(`EnemySnapshot.DamageTaken`)。分层成立性的逐条验证:
+
+| 数据 | 战中会变吗 | 存在哪 | 新快照字段? |
+|---|---|---|---|
+| 敌人基础 DEF | ❌ 永不 | `EnemyDef.Defense`,`Restore` 按 `DefId` 查回 | ❌ |
+| 敌人身上的破甲 | ✅ 会 | `EnemyState.Statuses`(已在存) | ❌ |
+| 玩家基础 DEF | ❌ 永不 | `BattleConfig.PlayerDefense`,`Restore` 本就接收 config | ❌ |
+| 玩家的护甲增益 / 挨的破甲 | ✅ 会 | `_playerStatuses`(已在存) | ❌ |
+| 本次攻击的穿透 | ✅ 会(逐次) | `EffectDef.Pierce`(配置,不变)+ `_playerStatuses` 的 `PierceBuff` | ❌ |
+
+**这条硬约束要写进 `EnemyState.Defense` 的 XML 注释里**,否则日后有人为了实现「护甲自然恢复」
+之类的东西顺手给它加个 setter,快照会静默漏字段(`RunSnapshot.cs:9` 那条警告说的就是这种事)。
+
+### 4.5.4 破甲也能打在玩家身上
+
+`EffectiveDefense(玩家)` 里减的是**玩家身上**的 `ArmorBreak` 总量。今天没有任何敌人会施加它,
+但第 4.6 节的第八章接口要求会用到这条通道 —— **本批把通道打通,不出敌人**。
+
+极性口径自洽:`DefenseBuff` 是 `Buff`、`ArmorBreak` 是 `Debuff` → 净化(`Cleanse`)能洗掉玩家
+身上的破甲,驱散(`Dispel`)能洗掉敌人身上的护甲增益。既有的 `StatusOpsTests` 两条断言原样成立。
+
+---
+
+## 4.6 【裁定 10】堆甲可以把伤害打到 0 —— 以及对第八章的接口要求
+
+`伤害 = max(0, 基础×生克 − EffectiveDefense)`,**不加 `max(1, …)` 保底**。
+
+| | 理由 |
+|---|---|
+| 一致性 | 与既有伤害路径的 `max(0, …)` 口径相同,不为堆甲另开第三种下钳规则 |
+| 设计意图 | 土系「铁乌龟」构筑成立,是防御流应得的幻想兑现 |
+| 为什么不用 `max(1,…)` | 它会让**穿透在残局失去意义**(反正保底 1 点),而穿透是金系两条轴之一 |
+
+### 4.6.1 这条裁定制造的缺口
+
+铁乌龟一旦成立,就必须有东西能捅破它,否则玩家在某个层段会进入**无限续航**的退化局
+(打不死我 → 我慢慢磨 → 塔没有上限 → 局永远不结束)。
+
+同时,点数制还有一个对称的缺口:**破甲与穿透两条金系轴,只在有甲的敌人面前才有意义。**
+全塔今天只有 1 只小怪 + 3 个 Boss 阶段带甲(第 6.3 节),意味着 6 个破甲字 + 3 个穿甲字 +
+`锐` 一共 10 个字,大部分时间里只发挥它们的伤害部分。
+
+**两个缺口指向同一件事:敌人侧要补。** 那是第八章(字怪)的活,不在本批范围。本批的交付是
+**把接口要求写清楚**,作为 T8 的一份产出交给下一个子项目。
+
+### 4.6.2 对第八章的接口要求
+
+**(a) 装甲怪的密度**(让破甲/穿透不是死轴)
+
+| 层段 | 今天 | 要求 |
+|---|---|---|
+| 字林(1~10) | 0 只 | ≥ 1 只轻甲(DEF 8~12) |
+| 词渊(11~25) | 墨渍 1 只 | ≥ 2 只(DEF 15~20) |
+| 文山(26~50) | 墨渍 1 只 | ≥ 3 只(DEF 20~30) |
+| 墨海(51+) | 墨渍 1 只 | ≥ 3 只(DEF 25~35) |
+
+- 目标:**任一层段的一次遭遇里出现至少一只带甲怪的概率 ≥ 30%**
+- ⚠ 约束不变:**同一次遭遇里带甲怪不超过 1 只**(第 4.4(a) 的 AOE 保护),这是 `BuildFloor`
+  的生成约束或 `enemyPool` 的配比约束,由第八章选实现方式
+
+**(b) 对冲铁乌龟的手段**
+
+| 手段 | 实现 | 分布要求 |
+|---|---|---|
+| **敌人破甲** | 给玩家挂 `StatusKind.ArmorBreak`(削玩家 DEF)。**通道本批已打通**(4.5.4),第八章只需配敌人技能 | 词渊起 ≥ 1 只,文山/墨海各 ≥ 1 只 |
+| **真伤** | ⚠ **不要新开「真伤」伤害类型**。最省的实现是复用 `EffectDef.Pierce`,给该敌人技能一个足够大的穿透值(如 999)—— 语义上就是「这一击无视一切护甲」,零新机制、零新快照字段、零新测试维度 | 词渊起 ≥ 1 只,文山/墨海各 ≥ 2 只 |
+
+- **底线判据(可执行)**:**每个层段都必须存在至少一只敌人,其普攻或技能无法被当段可达的
+  最厚堆甲完全免疫。** 这条要写成一个跨 `enemies.json` 的配置守卫测试(与
+  `RealConfig_ArmoredEnemiesAreRare` 同款),在第八章落地时补。
+- ⚠ **仍然不给任何敌人配「免疫 DOT」**(第 4.2 节的既有约束)。高 DEF + 免疫 DOT 会造出无解怪;
+  DOT 是玩家对付厚甲的保底手段之一。
 
 ---
 
@@ -316,36 +513,87 @@ E-b1 第十节已经记下了病灶:整数除 `value * ATK / 100` 会吃掉低�
 (`15+12+12 = 39`)。对 `R_in = 60` 的一击:旧 −52%,新 −65%。堆甲变强了,且**理论上可以完全
 免疫小怪普攻**(DEF 39 + 玩家等级 DEF 12 = 51,对 attack 40 的怪归零)。
 
-**这是刻意接受的**,理由:
-1. `max(0, ...)` 的下钳与既有伤害路径一致,不为堆甲另开一条 `max(1, ...)` 保底规则(那是第三种口径)。
-2. 敌人 attack 随深度每层 +10% 无上限,而玩家 DEF 有上限(字表点数 + `DefenseFor` 封顶 12)。
-   免疫是**局部且暂时**的 —— 这正是土系防御流应得的幻想兑现。
-3. 有守卫:第 10.5 节的「土系堆甲探针画像」会量到它。若 P50 爆表,回调的是**字表点数**,不是机制。
+**裁定 10:这是刻意接受的**,理由见第 4.6 节。三条守卫:
 
-→ 见第十七节待拍板第 2 条(是否要 `max(1, ...)` 保底)。
+1. 敌人 attack 随深度每层 +10% 无上限,而玩家 DEF 有上限(字表点数 + `DefenseFor` 封顶 12)
+   → 免疫是**局部且暂时**的。
+2. 第 4.6.2 节对第八章的接口要求(敌人破甲 / 真伤)是**堆甲流的对冲**,底线判据是
+   「每个层段都存在至少一只无法被完全免疫的敌人」。
+3. 第 10.5 节的「土系堆甲探针画像」会量到它。若 P50 爆表,回调的是**字表点数**,不是机制。
 
 ### 6.3 敌人侧:承伤系数 → `Defense` 点数
 
 **已核实**(`enemies.json` 实测,与初稿清单一致:1 只小怪 + 3 个 Boss 阶段):
 
-| 敌人 / 阶段 | 旧 `damageTaken` | 参考量 | 新 `defense` 点数 |
-|---|---|---|---|
-| 墨渍(小怪,水,HP 14→140,atk 3→30) | 0.7 | `R_mob` 85 | **25** |
-| 排山倒海 · 山(第 2 阶段,坚壁) | 0.5 | `R_boss` 120 | **60** |
-| 翻江倒海 · 江(第 2 阶段) | 0.75 | `R_boss` 120 | **30** |
-| 雷霆万钧 · 钧(第 4 阶段) | 0.75 | `R_boss` 120 | **30** |
+| 敌人 / 阶段 | 旧 `damageTaken` | 参考量 | 折算值 | **最终 `defense`** |
+|---|---|---|---|---|
+| 墨渍(小怪,水,HP 14→140,atk 3→30) | 0.7 | `R_mob` 85 | 25 | **20** ⚠ 被 T3-V4 判据压低,见 6.3.2 |
+| 排山倒海 · 山(第 2 阶段,坚壁) | 0.5 | `R_boss` 120 | 60 | **60** |
+| 翻江倒海 · 江(第 2 阶段) | 0.75 | `R_boss` 120 | 30 | **30** |
+| 雷霆万钧 · 钧(第 4 阶段) | 0.75 | `R_boss` 120 | 30 | **30** |
 
 其余 12 只小怪与全部其他 Boss 阶段:`defense = 0`(配置里不写,DTO 默认 0)。
 
-**语义反转一处**:`Campaign.Scale()` 今天明写「承伤系数不缩放」(它是比例,缩放会溢出)。
-点数 DEF **必须随深度缩放**,与 HP/攻击同款 `Ceiling`:
+### 6.3.1 【裁定 11】DEF 随深度**半速**缩放
+
+`Campaign.Scale()` 今天明写「承伤系数不缩放」(它是比例,缩放会溢出)。点数 DEF 必须缩放
+—— 不缩放的话 100 层的坚壁 Boss 血量 ×11 而护甲仍是 60,占玩家单击的比例趋近 0,护甲形同虚设。
+
+但**同速缩放也不行**:点数减法对小数值是**开关**不是削减(第 4.2 节论证 DOT 时的同一条性质),
+同速缩放会让深层的低伤字全部归零,玩家在深层只剩几张高伤字可用 —— 字库多样性被护甲单方面
+掐死。于是取一半:
+
+```csharp
+/// <summary>敌人数值缩放。HP/攻击按 scale 向上取整;
+/// **护甲按 scale 的一半增长**(2026-08-12 裁定 11):点数减法对小数值是开关不是削减,
+/// 同速缩放会让深层只剩高伤字可用。承伤系数字段已删除。</summary>
+float defScale = 1f + (scale - 1f) / 2f;
+int scaledDefense = (int)Math.Ceiling(enemy.Defense * defScale);
+```
+
+无尽的 `scale = 1 + 0.1 × (depth − 1)`(`Endless.cs:61`),于是:
+
+| 深度 | `scale`(HP/攻击) | `defScale`(护甲) | 墨渍 DEF 20 → | 山阶段 DEF 60 → |
+|---|---|---|---|---|
+| 1 | 1.00 | 1.00 | 20 | 60 |
+| 11 | 2.00 | 1.50 | 30 | 90 |
+| 20 | 2.90 | 1.95 | **39** | 117 |
+| 51 | 6.00 | 3.50 | 70 | 210 |
+
+→ `Scale_PreservesDamageTaken` 这条测试的语义**反转**为 `Scale_ScalesDefenseAtHalfRate`。
+这是本批第一条「测试名和断言方向都反过来」的改动(第二条是 4.5.2 的 `ArmorBreak_Expires…`),
+单独点名以免评审时误判成回归。
+
+### 6.3.2 T3-V4:半速缩放的可执行判据(以及它如何压低了墨渍的 DEF)
+
+裁定 11 给的判据:**深层(取深度 20)时,字表里最低伤害档的字打在带甲小怪身上仍要有非零输出。**
+
+算一遍(深度 20,`defScale = 1.95`;典型玩家画像:等级 12 → `AttackFor(12) = 122`;卡等级 4 → ×1.3):
 
 ```
-DEF 不缩放 → 100 层的坚壁 Boss 血量 ×11 而护甲仍是 60,占玩家单击的比例趋近 0 → 护甲形同虚设
+最低伤害档字     DamageSingle 3 ×10 = 30
+→ ScaleByCardLevel(30, 4) = ceil(30 × 1.3)      = 39
+→ ScaleByAttack(39)       = 39 × 122 / 100      = 47   (整数除)
+→ 生克中性                                       = 47
+→ − 墨渍 DEF
 ```
 
-→ `Scale_PreservesDamageTaken` 这条测试的语义**反转**为 `Scale_ScalesDefense`。这是本批里唯一
-一条「测试名和断言方向都反过来」的改动,单独点名以免评审时误判。
+| 墨渍基础 DEF | 深度 20 的 DEF | 输出 | 判据 |
+|---|---|---|---|
+| 25(纯折算值) | `ceil(25×1.95)` = 49 | **0** | ❌ 不通过 |
+| **20** | `ceil(20×1.95)` = 39 | **8** | ✅ 通过 |
+| 20,但**同速**缩放 | `ceil(20×2.9)` = 58 | **0** | ❌ 不通过 |
+
+两件事同时被证明:
+
+1. **墨渍的 DEF 定为 20 而不是折算值 25** —— **判据优先于折算率**。折算率(6.1)只给初值,
+   可执行判据才是裁决者。这个因果链要留在 spec 里,否则日后有人看到 `(1−0.7)×85 = 25` 会以为
+   配置写错了。
+2. **这条判据有判别力** —— 它能区分半速与同速(最后一行),不是一条永远绿的装饰性断言。
+   这正是第 10.5 节「先证明仪器能看见,再用它读数」的同一条纪律。
+
+**判据的作用域是小怪,不含 Boss。** Boss 的护甲(山 117 @ 深度 20)本来就该逼玩家出大牌或
+先破甲 —— 「用白字磨 Boss」不是要保护的玩法。而小怪要能被任意字清掉,否则杂兵战会卡死。
 
 ### 6.4 穿甲 3 字 → 穿透点数(`IgnoreArmor` bool 删除)
 
@@ -367,20 +615,87 @@ DEF 不缩放 → 100 层的坚壁 Boss 血量 ×11 而护甲仍是 60,占玩家
 
 `EffectDef.IgnoreArmor`(bool)**删除**,`PierceBonusPercent` 常量**删除**,改为 `EffectDef.Pierce`(int,默认 0)。
 
-### 6.5 破甲 6 字 → 易伤(改名,机制与数值不变)
+### 6.5 破甲 6 字:`value` 从「回合数」变「削减点数」
 
-**已核实**:熔 / 溃 / 溶 / 锤 / 破 / 碎,全部 `ArmorBreak value: 2`(2 回合),承伤 +25%。
+**已核实**(`chars.json` 实测):6 个字**全部是复合效果**(伤害 + 破甲),`ArmorBreak value: 2`
+这个 `2` 今天是**回合数**不是强度。
 
-| 项 | 旧 | 新 |
+| 字 | 稀有度 | 五行 | 今天 | ×10 后的伤害 | **新 `ArmorBreak` 削减点数** |
+|---|---|---|---|---|---|
+| 碎 | ⚪白 | 土 | `DamageSingle 4` + `ArmorBreak 2` | 40 | **10** |
+| 溶 | 🟢绿 | 水 | `DamageSingle 6` + `ArmorBreak 2` | 60 | **15** |
+| 破 | 🟢绿 | 土 | `DamageSingle 6` + `ArmorBreak 2` | 60 | **15** |
+| 熔 | 🔵蓝 | 火 | `DamageSingle 9` + `ArmorBreak 2` | 90 | **20** |
+| 溃 | 🔵蓝 | 水 | `DamageSingle 9` + `ArmorBreak 2` | 90 | **20** |
+| 锤 | 🔵蓝 | 金 | `DamageSingle 9` + `ArmorBreak 2` | 90 | **20** |
+
+配置形状:`{"kind":"ArmorBreak","value":20}` —— **不再需要 `turns`**,因为破甲本场持久(4.5.2)。
+
+#### 档位的标定依据:战例二
+
+第 10 章 `:137` 战例二的口径是「**三张破甲字一回合削光一个 Boss 的甲**」(锋 5 + 削 3 + 刮 2 = 10,
+Boss 护甲 10 → 0)。映射到本批:
+
+| 场景 | 需要几张 |
+|---|---|
+| 三张蓝档破甲(20×3 = 60)削光 **山阶段 DEF 60** | **3 张** ✅ 与战例二同构 |
+| 一张蓝档(20)削光 **墨渍 DEF 20** | 1 张 |
+| 两张蓝档(40)削光 **深度 20 的墨渍 DEF 39** | 2 张 |
+| 白档 碎(10)削掉墨渍一半 | — |
+
+#### 三条必须一起写进 spec 的后果
+
+1. **对无甲目标,破甲部分是纯浪费** —— 但 6 个字**全部带伤害**,所以退化成一张普通伤害字,
+   不是废卡。这是它们当初被设计成复合效果的意外红利。
+2. **破甲流的价值取决于装甲怪密度**,而今天全塔只有 4 个带甲目标 → 第 4.6.2 节对第八章的
+   接口要求(补装甲怪)**不是锦上添花,是这 10 个金系字能不能活的前提**。
+3. **本场持久 + 可叠 + 只对有甲目标有效** = 典型的**工具卡**形状:遇到装甲怪时价值极高,
+   否则就是普通伤害字。这正是点数甲想要的战术分工,不是数值失衡。
+
+#### 「易伤」这条路已作废
+
+第二稿曾计划把 `ArmorBreak` 改名 `Vulnerable`(易伤,保留承伤 +25%)。裁定 9 否掉了它:
+承伤 +25% 本身就是没有 DEF 时的代偿实现,DEF 回来后它没有存在理由。**`Vulnerable` 这个名字
+本批完全不出现**,守方侧也不再有任何乘数(4.1)。
+
+### 6.5.3 `刮` 与「裂甲」的评估:可实现,但本批不做
+
+用户点名要评估 `第10章:137` 的 `刮` = 「破甲 2 + 挂 2 层裂甲(每回合护甲 −1)」。
+
+**现状核实**(`chars.json`):
+
+| 字 | v0.4 稿 | **今天的实装** |
 |---|---|---|
-| `EffectKind.ArmorBreak` | 破甲 | **`EffectKind.Vulnerable`**(易伤) |
-| `StatusKind.ArmorBreak`(枚举序号 **7**) | 破甲 | **`StatusKind.Vulnerable`**(序号仍是 7) |
-| 效果 | 目标承伤 +25%,2 回合,不叠层只刷新 | **一字不改** |
-| 结算位置 | 乘法层 | **增伤侧**(在生克之后、DEF 之前,见 4.1) |
-| 玩家可见文案 | 「破甲」 | **「易伤」** |
+| `刮` | 破甲 2 + 2 层裂甲 | `DamageSingle 6` + `Dispel -1`(全驱散),🟢绿,金 |
+| `削` | 破甲 3(永久)+ 4 伤害 | `DamageSingle 9` + `Dispel 1`(驱散 1 条),🟢绿,金 |
 
-**改名安全、改序号致命**:`StatusKind` 以整数进 JSON(第十一节),改名不改序号 → 旧存档里
-`{Kind:7}` 仍被读成同一条状态,语义也没变。这是本批里唯一「零成本」的重命名。
+两个字都**已实装且与 v0.4 稿完全不同** —— 它们今天是驱散字,不是破甲字。
+
+**技术可行性:成本很低。** 裂甲是「DOT 式的护甲削减」,最省的实现是让它**复用 `ArmorBreak` 的
+承载**,而不是自己开一条:
+
+```
+新增 EffectKind.ArmorDecay + StatusKind.ArmorDecay(Magnitude = 层数,追加末尾)
+EndTurn 的状态结算里:给带 ArmorDecay 的目标追加一条 ArmorBreak(Magnitude = 层数),
+                      SourceId 铸唯一序号 → 天然累加
+```
+
+零新增快照字段(仍然只是状态)、零新增结算分支(`EffectiveDefense` 一个字不改)、
+约等于再做一个 DOT 的工作量。**现在确实可以实现了 —— 这是 DEF 回归带来的能力。**
+
+**但本批不做,三条理由:**
+
+1. **`刮` 不是缺口字,改它是字表重设计。** 本批的边界是「机制迁移 + 量级 + 重平衡」,
+   不含「把已实装的字改成另一个字」。`刮` 的驱散定位有没有问题是另一个话题
+   —— 而且金系今天只有 `刮`/`削` 两张驱散,拿掉一张会在别处开新缺口。
+2. **裂甲相对破甲的增量,在装甲怪够多之前体验不到。** 破甲已经是「本场持久 + 可叠 + 即时」,
+   裂甲的差异只是「延迟生效换更高总量」。全塔只有 4 个带甲目标时,这个差异是不可感知的。
+   要先有第 4.6.2 节的装甲怪,裂甲才有评估的土壤。
+3. **本批已经是 E-b 系列最大的一批**(9 个任务、一次量级重定、一次模型推倒)。加一个可延后的
+   新机制不划算。
+
+**建议:记为 E-c 候选,与第八章补装甲怪同批评估。** 本批**不动 `刮` / `削` 的字表条目**。
+第 10 章 `:137` 的标注维持「v0.4 旧稿」—— 只有 `:56`「破甲永久降护甲」这一处被本批采纳为原始设计。
 
 ### 6.6 不动的
 
@@ -392,42 +707,49 @@ DEF 不缩放 → 100 层的坚壁 Boss 血量 ×11 而护甲仍是 60,占玩家
 
 ---
 
-## 七 · 命名方案:五个词各管一件事
+## 七 · 命名方案:四个词各管一件事
 
-「破甲」在代码里 = 承伤 +25%(乘法),在第 10 章 v0.4 稿里 = 永久削减护甲点数。点数制之后
-这两个含义正面撞车。裁决:
+裁定 9 之后,「破甲」的撞名问题**自行消失**了 —— 代码里的「破甲」与第 10 章 `:56` 的「破甲」
+本来就是同一个东西,只是前者在没有 DEF 的年代被实现成了乘法代偿。DEF 回来,两个含义合一。
+**本批不发生任何重命名。**
 
-| 词 | 归属 | 载体 | 本批状态 |
-|---|---|---|---|
-| **护甲 / DEF** | 单位属性,点数,减法 | `BattleConfig.PlayerDefense` / `EnemyDef.Defense` | ✅ 本批实现 |
-| **护甲增益**(`DefenseBuff`) | 局内给玩家加 DEF 点数的状态 | `StatusKind.DefenseBuff`(原 `DamageReduction`,序号 5 原地改名改语义) | ✅ 本批实现,6 字迁移 |
-| **易伤**(`Vulnerable`) | 目标受到的伤害 +N%,**增伤侧** | `StatusKind.Vulnerable`(原 `ArmorBreak`,序号 7 原地改名) | ✅ 本批改名,6 字迁移 |
-| **穿透**(`Pierce`) | 本次攻击视目标 DEF 少 N 点 | `EffectDef.Pierce` + `StatusKind.PierceBuff` | ✅ 本批实现,3 字迁移 + `锐` |
-| **破甲** | **削减目标 DEF 点数**(第 10 章 v0.4 稿的原义) | 见下 | ⛔ **本批不实现,名字留位** |
+| 词 | 是什么 | 载体 | 序号/兼容 | 本批状态 |
+|---|---|---|---|---|
+| **护甲 / DEF** | 单位属性,点数,减法。**战斗中永不被写** | `BattleConfig.PlayerDefense` / `EnemyDef.Defense` / `EnemyState.Defense` | 新增 | ✅ 实现 |
+| **护甲增益**(`DefenseBuff`) | 给自己**加** DEF 点数的状态 | `StatusKind.DefenseBuff` | 序号 **5**,原 `DamageReduction` 原地改名改语义 | ✅ 实现,6 字迁移 |
+| **破甲**(`ArmorBreak`) | 给目标**减** DEF 点数的状态,本场持久、可叠 | `StatusKind.ArmorBreak` | 序号 **7**,**名字与序号都不动** | ✅ 语义复原,6 字重定值 |
+| **穿透**(`Pierce`) | **本次**攻击视目标 DEF 少 N 点 | `EffectDef.Pierce` + `StatusKind.PierceBuff` | 新增 | ✅ 实现,3 字迁移 + `锐` |
 
-**「破甲」为什么留位不实现**:全表没有任何字要用它 —— 6 个原「破甲」字已经迁到易伤,`锐` 是穿透。
-为一个零使用方的机制写代码是投机。**但名字必须现在就锁住**,否则日后有人又拿「破甲」去指易伤。
+**唯一的改名是 `DamageReduction` → `DefenseBuff`**(序号 5),因为它的语义真的变了
+(百分比 → 点数),名字不改会持续误导。改名不改序号 → 旧存档里的整数 5 仍指向同一条状态。
 
-**留位的实现路径要一并写死**(这是用户点名的坑):
+**「穿甲」与「易伤」两个词本批之后不再存在**:
+- 「穿甲」(`IgnoreArmor`)并入穿透(6.4),它的 +15% 固化进基础值
+- 「易伤」(`Vulnerable`)是第二稿的设计,已随裁定 9 作废(6.5 末尾)
 
-> ⚠ 「破甲 = 削 DEF 点数」的天真实现是让 `EnemyState.Defense` 可变 —— 那会逼出一个新的
-> `EnemySnapshot` 字段(敌人 DEF 变成战中可变状态)。**规避办法:点数层只放属性,变动量一律走状态。**
-> 将来实现时新增 `StatusKind.ArmorBreak`(追加末尾,`Magnitude` = 削减点数),结算写成
-> `有效DEF = max(0, Defense − 易伤无关 − TotalMagnitude(ArmorBreak) − 本次穿透)`。
-> 状态本来就进快照 → 零新增快照字段。这条规则要写进 `EnemyState.Defense` 的注释里。
+**破甲与穿透的一句话区分**(文案要能让玩家一眼分开):
 
-同一条规则也约束本批:`EnemyState.Defense` 与 `BattleConfig.PlayerDefense` **在战斗中永不被写**,
-它们是属性;所有变动(`DefenseBuff` / `PierceBuff`)都是 `StatusBag` 里的条目。
+| | 破甲 | 穿透 |
+|---|---|---|
+| 削的是 | 目标的甲,**削掉就一直是削掉的** | 这一击的**视角**,下一击不算数 |
+| 挂在谁身上 | **目标**(敌人 / 玩家) | **攻击者**(或这张字自带) |
+| 持续 | 本场 | 本次(`PierceBuff` 则是本场对所有攻击生效) |
+| 队友能不能蹭到 | 能 —— 甲是真的薄了,召唤物打它也吃这个便宜 | 不能 —— 是我的视角不是它的甲 |
 
-**文案负担**:`CharInfo` / `EnemyInfo` 上四个词要一眼可分:
+最后一行是两者最有体感的区别,值得直接写进 UI 文案。
+
+**文案样例**(`CharInfo` / `EnemyInfo`):
 
 ```
-铠   护甲 +12          漜  护甲 +15,减速 2 回合
-碎   单体 40,易伤 2 回合(受伤 +25%)
-锥   单体 105,穿透 10(无视 10 点护甲)
+铠   护甲 +12                        漜   护甲 +15,减速 2 回合
+碎   单体 40,破甲 10(本场)          锤   单体 90,破甲 20(本场)
+锥   单体 105,穿透 10(本次无视 10 点护甲)
 锐   本场穿透 +20
-墨渍 护甲 25
+墨渍 护甲 20
 ```
+
+**分层硬约束见 4.5.3** —— 它是「零新增快照字段」的全部依据,也是 `EnemyState.Defense` 的
+XML 注释必须写的东西。
 
 ---
 
@@ -591,15 +913,15 @@ E-b1 用一整个子项目买下了「基准值下逐字节恒等、`Tests/` 纯
 
 | 对照测试 | 旧模型的等价值 | 新模型 | 断言 |
 |---|---|---|---|
-| 墨渍 DEF 25 挨 85 伤 | `floor(85×0.7) = 59` | `85−25 = 60` | `Is.EqualTo(59).Within(9)`(±15%) |
+| 墨渍 DEF 20 挨 85 伤 | `floor(85×0.7) = 59` | `85−20 = 65` | `Is.EqualTo(59).Within(9)`(±15%)。⚠ 20 是被 T3-V4 判据从折算值 25 压下来的(6.3.2),对照带宽刚好容得下 |
 | 山阶段 DEF 60 挨 120 伤 | `floor(120×0.5) = 60` | `120−60 = 60` | `Within(9)` |
 | 江/钧 DEF 30 挨 120 伤 | `90` | `90` | `Within(9)` |
 | 铠 DEF 12,挨 60 伤 | `floor(60×0.8) = 48` | `48` | `Within(9)` |
 | 漜 DEF 15,挨 60 伤 | `45` | `45` | `Within(9)` |
 | 巍/磐/崟/崊 各一条 | 同式 | 同式 | `Within(9)` |
-| 錰 pierce 30 打墨渍(DEF 25) | 旧:`taken` 提回 1 再 +15% → `floor(400×1.15)=460` | `460 − max(0,25−30) = 460` | 精确相等 |
-| 刺 pierce 15 打墨渍 | `floor(130×1.15)=149`(旧 taken 提回 1) | `150 − 10 = 140` | `Within(15)` |
-| 锥 pierce 10 打墨渍 | `floor(90×1.15)=103` | `105 − 15 = 90` | `Within(15)` |
+| 錰 pierce 30 打墨渍(DEF 20) | 旧:`taken` 提回 1 再 +15% → `floor(400×1.15)=460` | `460 − max(0,20−30) = 460` | 精确相等 |
+| 刺 pierce 15 打墨渍 | `floor(130×1.15)=149`(旧 taken 提回 1) | `150 − max(0,20−15) = 145` | `Within(15)` |
+| 锥 pierce 10 打墨渍 | `floor(90×1.15)=103` | `105 − max(0,20−10) = 95` | `Within(15)` |
 
 带宽 ±15% 是刻意宽松的:折算本来就是近似,测试守的是「量级没错」而不是「数字精确」。
 **一条超出带宽 = 折算率算错或者参考量选错**,两者都是要人来判的设计问题,不是代码 bug。
@@ -617,11 +939,13 @@ E-b1 用一整个子项目买下了「基准值下逐字节恒等、`Tests/` 纯
 | | `Minion_DamageTaken_ReducesDamage` | `damageTaken` 字段没了 → 改用 `defense` |
 | | `DamageTaken_AboveOne_SurvivesElementCounter` | **语义升级**为 4.3 的恒等式 |
 | | `DamageTaken_BelowOne_StillLostToElementCounter` | 同上;两条合并或改名 `Defense_DoesNotEatCounterBonus` |
-| | `ArmorBreak_RaisesDamageTakenByQuarter` | 改名 `Vulnerable_*`,数值 ×10 |
-| | `ArmorBreak_DoesNotStack_OnlyRefreshes` / `_IsDebuffPolarity` / `_ExpiresAfterTwoTurns` | **只改名,断言不动**(它们测的是状态语义) |
+| | `ArmorBreak_RaisesDamageTakenByQuarter` | **完全改写**为 `ArmorBreak_ReducesEffectiveDefense`(承伤 +25% → 削 DEF 点数,裁定 9) |
+| | `ArmorBreak_DoesNotStack_OnlyRefreshes` | ⚠ **语义反转** → `ArmorBreak_StacksAcrossChars`(4.5.2:必须可叠,否则六字互相排斥) |
+| | `ArmorBreak_ExpiresAfterTwoTurns` | ⚠ **语义反转** → `ArmorBreak_PersistsForTheWholeBattle`(4.5.2:第 10 章 `:56`「永久降护甲」) |
+| | `ArmorBreak_IsDebuffPolarity` | **断言不动**(极性没变,见 10.4) |
 | | `IgnoreArmor_BypassesReductionAndAddsFlatBonus` | 改写为 `Pierce_ReducesEffectiveDefense` |
 | | `IgnoreArmor_FlatBonusAppliesToUnarmoredToo` | **删除**(+15% 已固化进基础值,机制不存在了)⚠ 这是本批唯一的测试删除 |
-| | `IgnoreArmor_StacksWithArmorBreak` | 改写为 `Pierce_StacksWithVulnerable` |
+| | `IgnoreArmor_StacksWithArmorBreak` | 改写为 `ArmorBreak_AndPierce_DoNotDoubleCount_NorOverflow`(4.1.2 的裁定) |
 | | `Shield_PersistsThroughEnemyTurn` | 数值 ×10 |
 | `BossPhaseTests.cs` | `ShanPhase_HalvesDamageTaken` | 改名 `ShanPhase_HasHeavyArmor`,断言 DEF 60 |
 | | `LoadCampaign_ParsesPhases` / `ChapterScale_ScalesPhases` | 数值 ×10;后者加断言「DEF 也缩放」 |
@@ -632,10 +956,10 @@ E-b1 用一整个子项目买下了「基准值下逐字节恒等、`Tests/` 纯
 | | `Scale_PreservesDamageTaken` | **语义反转** → `Scale_ScalesDefense`(见 6.3) |
 | `CharTableTests.cs` | `RealConfig_KaiIsDamageReductionTwenty` | → `RealConfig_KaiIsDefenseTwelve` |
 | | `RealConfig_PierceChars_CarryIgnoreArmorFlag` | → `_CarryPiercePoints`,断言 30/15/10 |
-| | `RealConfig_ArmorBreakChars_CarryTwoTurns` | → `RealConfig_VulnerableChars_CarryTwoTurns`,断言不动 |
+| | `RealConfig_ArmorBreakChars_CarryTwoTurns` | ⚠ **语义反转** → `RealConfig_ArmorBreakChars_CarryTheirPoints`,断言 6 字的削减点数(10/15/15/20/20/20);`value` 不再是回合数 |
 | | `RealConfig_DuoIsTwoSegments` | 数值 → 120×2 |
 | `ConfigLoaderTests.cs` | `LoadGraph_ParsesHitCountAndNewEffectKinds` | DTO 字段改名 |
-| `DamageVariantTests.cs` | `MultiHit_EachSegmentGoesThroughArmorBreakSeparately` | 改名 `_GoesThroughVulnerableSeparately`;**追加**一条 `_SubtractsDefensePerSegment` |
+| `DamageVariantTests.cs` | `MultiHit_EachSegmentGoesThroughArmorBreakSeparately` | 数值改写(破甲从 +25% 变削 DEF,见 4.4 末尾的说明);**追加**一条 `MultiHit_SubtractsDefensePerSegment` |
 | | `HitCountDefaultsToOne_ExistingDamageUnchanged` / `HitCountZeroOrNegative_TreatedAsOne_NotADud` | 数值 ×10 |
 | `EndlessTests.cs` | `IdiomBoss_FourPhases_FromTemplate` | 数值 ×10 |
 | `RunEngineTests.cs` | `DamageReduction_CarriesToNextBattle` | → `DefenseBuff_CarriesToNextBattle` |
@@ -665,7 +989,8 @@ E-b1 用一整个子项目买下了「基准值下逐字节恒等、`Tests/` 纯
 | | `Dodge_IsCarriedOntoTheSummon` / `BlindPlusDodge_SummonTakesNothing` / `Dodge_SurvivesSaveRoundTrip` | 召唤物闪避通道(柳 50 不变) |
 | | `Blind_DoesNotStopToppleShieldBreak` / `_DoesNotStopDevour` / `_StopsSearFromBurningPlayer` | 「攻击是否发生」的 gate 口径 |
 | `StatusBagTests.cs` | 全部 4 条 | 状态容器语义(SourceId 覆盖、极性、TickTurns) |
-| `StatusOpsTests.cs` | `Dispel_DoesNotTouchPlayerBuffs` / `Cleanse_RemovesPlayerDebuffs_KeepsBuffs` | 极性口径 —— `DefenseBuff` 必须仍是 `Buff`,`Vulnerable` 必须仍是 `Debuff` |
+| `BattleEngineTests.cs` | `ArmorBreak_IsDebuffPolarity` | 极性没变(4.5.2 表最后一行) |
+| `StatusOpsTests.cs` | `Dispel_DoesNotTouchPlayerBuffs` / `Cleanse_RemovesPlayerDebuffs_KeepsBuffs` | 极性口径 —— `DefenseBuff` 必须仍是 `Buff`,`ArmorBreak` 必须仍是 `Debuff`(4.5.4) |
 | `SaveGuardTests.cs` | `LegacyCarriedDamageReductions_DictShape_DoesNotWipeSave` | 旧键容错 —— **加了迁移逻辑后必须仍绿**(第十一节) |
 | | `LegacyUnsealedSave_NotOpenable` | 存档封条 |
 | `WuxingResolverTests.cs` | **全部** | 生克是唯一来源。它的基础值取自 `wuxing-reference.md` 的规格例,是抽象数字不是字表数字 —— **量级 ×10 绝不能波及这个文件** |
@@ -679,13 +1004,19 @@ E-b1 用一整个子项目买下了「基准值下逐字节恒等、`Tests/` 纯
 | `Defense_DoesNotAffectBurnTick` / `_BleedTick` / `_Detonate` / `_Reflect` / `_Thorns` | 第 4.2 的负向清单(DOT 不吃 DEF)——**缺这几条,把 DEF 加到 DOT 上会让火系整条归零而无一条测试红** |
 | `Defense_DoesNotAffectShieldOrHeal` | DEF 泄漏到防御资源 |
 | `Defense_DoesNotBlockExecuteKill` | `ExecuteKills` 是抹血不是伤害 |
-| `Pierce_OnlyOffsets_NeverOverflows`:DEF 5 + 穿透 99,伤害 20 → 打出 20 而非 114 | `max(0, DEF − Pierce)` 的外层 `max` |
-| `Order_VulnerableBeforeDefense`:DEF 30 + 易伤 25%,基础 100 → `floor(100×1.25) − 30 = 95` | **两层顺序**(4.1) |
-| `Order_CritBeforeDefense`:与 E-b2 合流后补 | 同上 |
+| `Pierce_OnlyOffsets_NeverOverflows`:DEF 5 + 穿透 99,伤害 20 → 打出 20 而非 114 | `max(0, …)` 的外层钳位 |
+| `ArmorBreak_AndPierce_DoNotDoubleCount_NorOverflow`:DEF 20 + 破甲 20 + 穿透 30,基础 100 → 打出 **100**,且与「DEF 20 + 破甲 50」结果相同 | **裁定(4.1.2)**:两者从同一个基础 DEF 里减,不嵌套、不重复扣、不倒贴 |
+| `ArmorBreak_StacksAcrossChars`:碎(10)+ 锤(20)→ 目标 DEF −30 | 可叠加(4.5.2)。**缺这条,回退成「只刷新」不会有任何测试红,而六个破甲字会静默互斥** |
+| `ArmorBreak_PersistsForTheWholeBattle`:过 5 个回合仍在 | 本场持久(4.5.2) |
+| `ArmorBreak_OnPlayer_ReducesPlayerDefense` | 4.5.4 的通道 —— 第八章配敌人破甲时直接可用 |
+| `Defense_IsNeverMutatedDuringBattle`:施破甲前后断言 `EnemyState.Defense` 原值不变 | **4.5.3 的硬约束**。它是「零新增快照字段」的全部依据,必须可测 |
+| `Order_CritBeforeDefense`:与 E-b2 合流后补(暴击乘完再减 DEF) | 结算顺序(4.1)。⚠ 第二稿的 `Order_VulnerableBeforeDefense` 随易伤方案一起作废 |
 | `PlayerDodge_HundredPercent_EnemyAttackAlwaysMisses` | 玩家闪避接线(今天写死 0) |
 | `PlayerDodge_Zero_ConsumesNoRandom` | 短路(与既有那条对称,判别力来自判定次数不同) |
 | `PlayerAlwaysHits_EvenAgainstAnyEnemy` | **裁定 3 的守卫**:防止日后有人给 `DamageEnemy` 加命中判定 |
-| `(int)StatusKind.DefenseBuff == 5` / `(int)StatusKind.Vulnerable == 7` | **枚举序号锁值**(第十一节)。枚举错位是静默破坏旧存档,现有测试全都用新写的对象、不读旧 JSON 字节,没有任何一条能发现 |
+| `Scale_HalvesDefenseGrowth`:深度 20 的墨渍 DEF = 39 而非 58 | **裁定 11**(6.3.1) |
+| `LowestTierChar_StillDentsArmoredMobAtDepth20`(= T3-V4) | **半速缩放的可执行判据**(6.3.2)。它对「同速缩放」这个变异有判别力,不是装饰性断言 |
+| `(int)StatusKind.DefenseBuff == 5` / `(int)StatusKind.ArmorBreak == 7` | **枚举序号锁值**(第十一节)。枚举错位是静默破坏旧存档,现有测试全都用新写的对象、不读旧 JSON 字节,没有任何一条能发现 |
 
 ### 10.5 仿真工装:怎么让它有判别力
 
@@ -752,18 +1083,40 @@ E-b1 的解法是梯度证明(1 级恒等 + 3/10 级发散)。仿真侧的同构
 |---|---|
 | `MetaState.Endless` 属性改名 → **`EndlessV2`**(类型仍是 `EndlessSaveState`) | 旧存档的 `"Endless"` 键成为未知键被忽略 → `EndlessV2` 为 null → 玩家的**进行中登塔作废**,回到主界面可重新开塔 |
 | `EnemySnapshot.DamageTaken` 字段 **删除** | 随整个登塔快照一起失效,零风险 |
-| `StatusKind` 枚举:序号 5 与 7 **原地改名** | 旧存档里的整数 5/7 仍指向同一条状态,语义未变(5 从「20%」变成「20 点」,但它随 `EndlessV2` 一起丢了,读不到) |
+| `StatusKind` 序号 5 **原地改名**(`DamageReduction` → `DefenseBuff`) | 旧存档里的整数 5 仍指向同一条状态;语义从「20%」变「20 点」,但它随 `EndlessV2` 一起丢了,读不到 |
+| `StatusKind` 序号 7 **完全不动**(`ArmorBreak`) | 裁定 9 之后连改名都不需要;它只出现在 `EnemySnapshot.Statuses` 里,同样随登塔快照丢弃 |
 
-**零迁移代码、零新增版本字段。** 代价是玩家丢一次登塔进度(长期资产全保);这是一次性的,
-且 v0.7 无尽是「爬到死为止」的短周期玩法,丢一次的成本是几十分钟。
+**零迁移代码、零新增版本字段。**
+
+### 11.2.1 【裁定 12】断点直接丢弃,不补发 —— 以及这条路径的语义确认
+
+用户裁定:**不写补发结算宝箱的逻辑。** 理由(采纳):v0.7 仍在开发期未上线,现实里受影响的
+只有开发者自己的测试存档;补发逻辑是一段一次性代码,**写完即成死代码**。
+
+**确认这条路径在「丢弃断点但保留养成外层」这个语义下确实成立** —— 逐条核对丢与留的边界:
+
+| 数据 | 存在哪 | 改键名后 |
+|---|---|---|
+| 角色等级 / 经验 `CharacterXp` | `MetaState` 顶层 | ✅ **保留** |
+| 墨锭 `Ink` | `MetaState` 顶层 | ✅ **保留** |
+| 字库 / 卡等级 `CardLevels` / 出战牌组 `Deck` | `MetaState` 顶层 | ✅ **保留** |
+| 养成技能 `PerkLevels` | `MetaState` 顶层 | ✅ **保留** |
+| 图鉴 `Bestiary` | `MetaState` 顶层 | ✅ **保留** |
+| 历史最高 Boss 层 `TopBossDepth` | ⚠ **在 `EndlessSaveState` 里面** | ❌ 随登塔一起丢 |
+| 进行中登塔(HP / 护盾 / 携带召唤物 / 携带状态 / 战中快照) | `EndlessSaveState` | ❌ 丢(**这正是目的**) |
+
+⚠ **一处必须点名的不对齐**:`TopBossDepth`(`Endless.cs:185`)记的是「**本次**登塔已破的最高
+Boss 层」,它是**本次登塔的**字段而不是历史最高 —— 所以它随登塔作废是语义正确的,不是资产丢失。
+但要在实现时确认:**结算宝箱档位读的是 `TopBossDepth`,而结算发生在登塔结束时**,登塔都作废了
+自然没有结算。若日后要做「历史最高层」这种真·长期资产,它必须放在 `MetaState` 顶层而不是
+`EndlessSaveState` 里 —— 这条顺手记进 spec,免得将来重蹈。
 
 **需要补的测试**:
 
-- `LegacyEndlessKey_IsIgnored_KeepsInkAndCardLevels`:喂一份带 `"Endless":{...}` 的旧存档 JSON,
-  断言 `Ink` / `CardLevels` / 图鉴完好且 `EndlessV2 == null`
+- `LegacyEndlessKey_IsIgnored_KeepsMetaProgress`:喂一份带 `"Endless":{...}` 的旧存档 JSON,
+  断言 `Ink` / `CardLevels` / `PerkLevels` / `CharacterXp` / 图鉴**全部完好**,且 `EndlessV2 == null`
 - 既有的 `LegacyCarriedDamageReductions_DictShape_DoesNotWipeSave` 必须**仍绿**
-
-→ 见第十七节待拍板第 3 条(要不要给玩家补发一次结算宝箱作为补偿 —— 这是产品决定)。
+  —— 它守的正是同一条机制(改键名 ≠ 整份存档清空),两条测试互为佐证
 
 ### 11.3 新增 `StatusKind` 一律追加末尾
 
@@ -846,16 +1199,16 @@ Newtonsoft 默认把枚举序列化成**整数**。在 `StatusKind` 中间插入
 |---|---|
 | `Core/Meta.cs` | `MaxHpFor` ×10;新增 `DefenseFor` / `DodgeFor` |
 | `Core/Perk.cs` | 养元 / 金汤 的 `PerLevelValue` ×10 |
-| `Core/BattleEngine.cs` | `BattleConfig` 加 `PlayerDefense` / `PlayerDodge`;`EffectivePlayerDodge` / `EffectivePierce`;`DamageEnemy` 末尾减 DEF、删 `taken` 那一整段;`DamagePlayerDirect` 删 `ReducedDamage` 改减 DEF、传真实闪避;`DamageReductionMultiplier` / `ReducedDamage` **删除**(及其 7 个调用点);`ArmorBreakPercent` 保留改名、`PierceBonusPercent` **删除**;`_burnPerStack` / `ScorchGain` ×10;`Vulnerable` / `DefenseBuff` / `DodgeBuff` / `PierceBuff` 效果分支 |
-| `Core/EnemyDef.cs` | `EnemyDef` / `BossPhaseDef` / `EnemyState` 的 `DamageTaken` **删除**,换成 `Defense`(int,默认 0);`Capture` / `Restore` / `ApplyPhaseStats` 跟随 |
-| `Core/EffectDef.cs` | `IgnoreArmor`(bool)**删除** → `Pierce`(int,默认 0);`EffectKind.ArmorBreak` → `Vulnerable`;追加 `PierceBuff` / `DefenseBuff` / `DodgeBuff` |
-| `Core/StatusEffect.cs` | 序号 5 `DamageReduction` → `DefenseBuff`(语义改点数)、序号 7 `ArmorBreak` → `Vulnerable`;末尾追加 `DodgeBuff` / `PierceBuff`;把「新值一律追加末尾」的存档约束写进注释 |
-| `Core/Campaign.cs` | `Scale()` 的「承伤系数不缩放」→ **DEF 随 `Ceiling` 缩放** |
+| `Core/BattleEngine.cs` | `BattleConfig` 加 `PlayerDefense` / `PlayerDodge`;新增 `EffectiveDefense(敌人/玩家)` / `EffectivePlayerDodge` / `EffectivePierce`;`DamageEnemy` 末尾减 DEF、删 `taken` 那一整段(含「被克制则减免失效」补丁);`DamagePlayerDirect` 删 `ReducedDamage` 改减 DEF、传真实闪避;`DamageReductionMultiplier` / `ReducedDamage` **删除**(及其 7 个调用点);`ArmorBreakPercent` / `PierceBonusPercent` **两个常量都删除**;`_burnPerStack` / `ScorchGain` ×10;`ArmorBreak` 施加分支改写(`Value` = 点数、`TurnsLeft = -1`、`SourceId` 铸唯一序号);新增 `DefenseBuff` / `DodgeBuff` / `PierceBuff` 效果分支 |
+| `Core/EnemyDef.cs` | `EnemyDef` / `BossPhaseDef` / `EnemyState` 的 `DamageTaken` **删除**,换成 `Defense`(int,默认 0,**只读、无 internal setter** —— 4.5.3 的硬约束靠这个在类型层面兜住);`Capture` / `Restore` / `ApplyPhaseStats` 跟随 |
+| `Core/EffectDef.cs` | `IgnoreArmor`(bool)**删除** → `Pierce`(int,默认 0);`EffectKind.DamageReduction` → `DefenseBuff`;`EffectKind.ArmorBreak` **名字不动、`Value` 语义从回合数变削减点数**(改注释);追加 `PierceBuff` / `DodgeBuff` |
+| `Core/StatusEffect.cs` | 序号 5 `DamageReduction` → `DefenseBuff`(语义改点数);**序号 7 `ArmorBreak` 名字不动,注释改成「削减 DEF 点数」**;末尾追加 `DodgeBuff` / `PierceBuff`;把「新值一律追加末尾」的存档约束写进注释 |
+| `Core/Campaign.cs` | `Scale()` 的「承伤系数不缩放」→ **DEF 按 `1 + (scale−1)/2` 半速 `Ceiling` 缩放**(裁定 11) |
 | `Core/RunSnapshot.cs` | `EnemySnapshot.DamageTaken` **删除** |
 | `Core/Meta.cs`(`MetaState`) | `Endless` → `EndlessV2` |
 | `Core/RunEngine.cs` | 跨战斗携带态白名单 `DamageReduction` → `DefenseBuff` |
-| `Data/ConfigLoader.cs` | 敌人 DTO `damageTaken` → `defense`(int,默认 0);效果 DTO `ignoreArmor` → `pierce`(int,默认 0);`kind` 字符串 `ArmorBreak` → `Vulnerable` / `DamageReduction` → `DefenseBuff` |
-| `StreamingAssets/config/chars.json` | 231 字的数值 ×10;15 个字的迁移(6 减伤 + 6 破甲 + 3 穿甲);新增 `兑` / `锐` |
+| `Data/ConfigLoader.cs` | 敌人 DTO `damageTaken` → `defense`(int,默认 0);效果 DTO `ignoreArmor` → `pierce`(int,默认 0);`kind` 字符串 `DamageReduction` → `DefenseBuff`(`ArmorBreak` 字符串不变) |
+| `StreamingAssets/config/chars.json` | 231 字的数值 ×10;15 个字的迁移(6 减伤字换 `kind` + 6 破甲字的 `value` 从回合数换成点数 + 3 穿甲字换 `pierce` 并把 +15% 固化进基础值);新增 `兑` / `锐`。**`刮` / `削` 不动**(6.5.3) |
 | `StreamingAssets/config/enemies.json` | 13 只怪 + 全部 Boss 阶段的 HP/攻击 ×10;4 条 `damageTaken` → `defense`;`events` 的 `hpDelta` 与文案数字 ×10 |
 | `Presentation/GameRoot.cs` | 注入 `PlayerDefense` / `PlayerDodge`(与 `PlayerAttack` 并排) |
 | `Presentation/MapView.cs` | 属性上屏(HP / 攻击 / 暴击 / 护甲 / 闪避) |
@@ -863,7 +1216,8 @@ Newtonsoft 默认把枚举序列化成**整数**。在 `StatusKind` 中间插入
 | `tools/balance/Program.cs` | `Profile` 加 `Defense` / `Dodge`;新增两档探针画像;`FireCards` 扩表 |
 | `tools/trace/`(新) | 黄金轨迹工装(第 10.2 节) |
 | `tools/pipeline/` | 补 `兑` 部件与 `锐` 的配方 |
-| `docs/design/字选型/技能机制详表.md` | `锐` 落地;破甲 → 易伤;7.1 节「破甲 = 提高承伤系数」整段重写 |
+| `docs/design/字选型/技能机制详表.md` | `锐` 落地;**7.1 节「破甲 = 提高承伤系数」整段重写为「破甲 = 削减 DEF 点数」**(那一节自己就写着「引擎没有护甲概念,所以按承伤系数处理」—— 前提消失了);6 个破甲字的效果列改点数 |
+| `docs/design/第10章-战斗数值框架.md` | ⚠ **本批只需改一处**:`:56`「破甲永久降护甲」的 v0.4 旧稿标注**撤回** —— 它是原始设计,本批采纳(4.5.1)。`:137` 战例二的标注**保留**(`刮`/`削` 不动,6.5.3)。⚠ 该文件另一个 agent 也在改,动之前先看冲突 |
 
 ---
 
@@ -876,12 +1230,12 @@ Newtonsoft 默认把枚举序列化成**整数**。在 `StatusKind` 中间插入
 | **T0** | 黄金轨迹工装 | `tools/trace/` | 同 commit 跑两次逐字节相同;换种子不同 | 无 | ❌ |
 | **T1** | 量级 ×10 | 两个 json + `Meta.cs` + `Perk.cs` + 两个常量 | **网 1**:轨迹 amount 全 ×10、其余逐字段同;既有数值断言机械 ×10 | T0 | ✅(仅两个常量) |
 | **T2** | 点数层接线(值全 0) | `Defense` / `Pierce` 字段 + 结算点减法,乘法层暂留 | **网 2**:轨迹与 T1 末尾**逐字节相同**,零断言变红 | T1 | ✅ |
-| **T3** | 删乘法层 + 写入映射 | 第六节全部数值;`Vulnerable` / `DefenseBuff` 改名;`Scale` 缩放 DEF | **网 3**:12 条定向对照;编译器指出的读点全处理;10.4 清单零变动 | T2 | ✅ |
+| **T3** | 删乘法层 + 写入映射 + **破甲语义复原** | 第六节全部数值;`DamageReduction` → `DefenseBuff` 改名;**`ArmorBreak` 改语义(削点数 / 本场 / 可叠)**;`Scale` 半速缩放 | **网 3**:12 条定向对照;编译器指出的读点全处理;10.4 清单零变动;**外加 T3-V1~V4**(见下) | T2 | ✅ |
 | **T4** | 玩家闪避 | `PlayerDodge` / `DodgeFor` / `DodgeBuff` | 闪避 0 时轨迹逐字节同;闪避 100 必空;`PlayerAlwaysHits` 守卫 | T3 | ✅ |
 | **T5** | `锐` + `兑` 入表 | 管线 + 字表 + `PierceBuff` + 详表 | `锐` 可合成**且 `兑` 可通过拆字获得**(12.2) | T3(要量级与穿透量纲) | ✅ |
 | **T6** | 存档迁移 | `Endless` → `EndlessV2`;删 `EnemySnapshot.DamageTaken` | 旧存档 Ink/卡等级/图鉴完好且 `EndlessV2 == null` | T1 | ❌ |
 | **T7** | 表现层 + 仿真接线 | 四词文案、属性上屏、探针画像 | `prescompile` 0 error;探针按预期方向动(10.5) | T4 | ❌(只读 API) |
-| **T8** | 重平衡校准 | **只改 json** | 五档画像读数写进报告;探针方向正确;P50 落在目标带 | T7 | ❌ |
+| **T8** | 重平衡校准 | **只改 json** + **一份给第八章的接口要求清单**(4.6.2) | 五档画像读数写进报告;探针方向正确;P50 落在目标带 | T7 | ❌ |
 
 ### 并行性
 
@@ -900,11 +1254,29 @@ T0 ─────────────────────────�
 - **T8 必须最后**,且它**只改 json** —— 这条是纪律:校准阶段一旦开始改代码,网 3 的对照测试就
   失去基线,分不清是折算错还是公式错。
 
+### T3 的四条追加验收(裁定 9 与 11 的落点)
+
+T3 是本批最大的一块,裁定 9(破甲复原)与裁定 11(半速缩放)都落在它身上。除网 3 之外:
+
+| # | 验收 | 对应守卫测试 |
+|---|---|---|
+| **T3-V1** | 破甲**可叠**:碎(10)+ 锤(20)→ 目标 DEF −30 | `ArmorBreak_StacksAcrossChars` |
+| **T3-V2** | 破甲**本场持久**:过 5 个回合仍在 | `ArmorBreak_PersistsForTheWholeBattle` |
+| **T3-V3** | 破甲与穿透**不重复扣、不倒贴**,且 `EnemyState.Defense` 原值未被写 | `ArmorBreak_AndPierce_DoNotDoubleCount_NorOverflow` + `Defense_IsNeverMutatedDuringBattle` |
+| **T3-V4** | **半速缩放判据**:深度 20 时最低伤害档的字打墨渍仍有非零输出;且把缩放改成同速时这条必须变红 | `LowestTierChar_StillDentsArmoredMobAtDepth20` + `Scale_HalvesDefenseGrowth` |
+
+T3-V4 的「改成同速必须变红」是关键 —— 它保证这条判据有判别力而不是装饰(6.3.2 已算过三组数)。
+
 ### 任务粒度的取舍
 
 E-b1 是 6 个任务,本批是 9 个 —— 多出来的三个(T0 工装、T2 接线独立、T8 只改 json)**全部是
 为了安全网服务的切分**,不是工作量本身变多了。若把 T2 并进 T3,就丢掉网 2;若把 T8 并进 T3,
 就丢掉「代码冻结后调值」这条纪律。**这三刀是本 spec 的主要产出之一,不要合并。**
+
+**裁定 9~12 没有改变任务数。** 逐条核对:破甲语义复原落在 T3 内(它本来就要改这 6 个字与
+`ArmorBreakPercent`,只是改法不同);半速缩放是 T3 里 `Campaign.Scale` 的一行;堆甲归零是
+「不写 `max(1,…)`」= 零工作量,它的产出(第八章接口要求)是 **T8 的一份文档交付物**,不是新任务;
+存档不补发 = 删掉一段原本要写的代码。裂甲不做(6.5.3)也没有新增任务。
 
 ---
 
@@ -915,7 +1287,7 @@ E-b2(暴击,分支 `feat/crit`)与本批在 `BattleEngine.cs` 的同一段代码
 | 项 | 纪律 |
 |---|---|
 | **合流顺序** | **E-b2 先合并到 `main`,本批的 T1 才开工。** 本批会 ×10 全部数值,而 E-b2 正在写的 `CritStatTests.cs` 里全是旧量级的断言 —— 反过来合并意味着 E-b2 的测试要在合并时重写一遍 |
-| **结算顺序** | `floor(基础 × 生克 × 易伤 × 暴击) − max(0, DEF − 穿透)`。**暴击乘在最末,DEF 减在暴击之后。** 若反过来(先减 DEF 再暴击),暴击会把 DEF 的削减也放大,等价于「暴击时护甲变薄」 |
+| **结算顺序** | `floor(基础 × 生克 × 暴击) − max(0, DEF − 破甲 − 穿透)`。**暴击乘在最末,DEF 减在暴击之后。** 若反过来(先减 DEF 再暴击),暴击会把 DEF 的削减也放大,等价于「暴击时护甲变薄」。⚠ 裁定 9 之后守方侧**没有任何乘数**,E-b2 那条「暴击乘在 `taken` 之后」的表述要跟着更新 —— `taken` 不存在了 |
 | **`StatusKind` 序号** | E-b2 的 `CritBuff` = 17;本批的 `DodgeBuff` = 18、`PierceBuff` = 19。**若合流顺序改变,序号跟着变** —— 第 10.4 节的锁值测试要写实际值,不要写「末尾」 |
 | **随机流** | 两边都要守 `hitRate >= 100` / `critChance <= 0` 的短路。合流后**必须重跑一次** `NoBlindNoDodge_DoesNotConsumeRandom`,并补一条「暴击 0 + 闪避 0 时不消耗随机数」的交叉验证 |
 | **仿真 `Profile`** | 合流后三个新字段并排:`Crit`(E-b2)/ `Defense` / `Dodge`(本批) |
@@ -976,51 +1348,59 @@ E-b2(暴击,分支 `feat/crit`)与本批在 `BattleEngine.cs` 的同一段代码
 
 ---
 
-## 十七 · ⚠ 待用户拍板
+## 十七 · 裁定归档:已全部拍板,无待决项
 
-上面八条裁定与本文其余全部内容都是**已决**。真正还没定的只剩四条:
+第二稿留下的四条待拍板,2026-08-12 全部裁定。**本节只作归档,不再有开放问题。**
 
-### 1. 「破甲」→「易伤」的玩家可见文案要不要改
+### 1. ✅ 破甲不改名,改回原始设计(裁定 9)
 
-六个字(熔溃溶锤破碎)今天的文案是「破甲」。改名后代码侧叫 `Vulnerable`,文案建议改成「易伤」,
-把「破甲」这个词留给点数层。
+第二稿问的是「破甲 → 易伤 的玩家可见文案改不改」,三个选项全部作废 —— 用户给的是**第四种答案**:
 
-| 选项 | 代价 |
+> 破甲的设计初衷就是扣 DEF,只是那时候没有 DEF 的概念。本质上是一个东西。
+
+于是正确的结论不是命名取舍,而是**代偿实现退场**:`ArmorBreak = 承伤 +25%` 是 2026-08-05
+「承伤与护甲」子项目为了绕开「引擎里没有 DEF」而做的代偿;DEF 回来了,它就该变回削 DEF 点数。
+名字与枚举序号一个字不改。
+
+**连带后果比命名大得多**:守方侧的最后一个乘数消失 → **点数 DEF 成为唯一的防御层,零乘数**
+(4.1)。方案 A 的「模型唯一」比第二稿更彻底。落点:4.5(语义与硬约束)、6.5(6 字重定值)、
+七(命名归位)、4.1.1 / 4.1.2(结算顺序与不重复扣)。
+
+### 2. ✅ 堆甲允许把小怪普攻打到 0(裁定 10)
+
+不加 `max(1, …)` 保底,`伤害 = max(0, 基础×生克 − EffectiveDefense)`。土系铁乌龟构筑成立。
+
+对冲手段(敌人破甲 / 真伤)是**第八章的活**,本批交付两样东西:① 4.5.4 把「敌人给玩家挂
+破甲」的通道打通;② 4.6.2 的接口要求清单(装甲怪密度 + 对冲手段分布 + 底线判据),
+作为 T8 的文档交付物。
+
+**为什么不选 `max(1,…)`**:它会让穿透在残局失去意义(反正保底 1 点),而穿透是金系两条轴之一。
+
+### 3. ✅ 敌人 DEF 半速缩放(裁定 11)
+
+`defScale = 1 + (scale − 1) / 2`。理由:点数减法对小数值是**开关**不是削减,同速缩放会让深层
+只剩高伤字可用。
+
+这条裁定带来一个**有判别力的可执行判据 T3-V4**(6.3.2),而判据反过来**把墨渍的 DEF 从
+折算值 25 压到 20** —— 判据优先于折算率。这个因果链留在 spec 里,免得日后有人看到
+`(1−0.7)×85 = 25` 以为配置写错。
+
+### 4. ✅ 断点作废,不补发(裁定 12)
+
+不写补发结算宝箱的逻辑。理由采纳:v0.7 未上线,受影响的只有开发者自己的测试存档;
+补偿代码写完即成死代码。
+
+改键名(`Endless` → `EndlessV2`)这条路径在「丢弃断点但保留养成外层」语义下**确认成立**,
+逐字段核对见 11.2.1 —— 并顺手记下一处不对齐:`TopBossDepth` 在 `EndlessSaveState` 里面,
+它是「本次登塔」的字段而非历史最高,随登塔作废语义正确;将来若要做真·历史最高层,
+必须放在 `MetaState` 顶层。
+
+### 附:本次没有新增待决项
+
+裁定 9 改动了机制设计,但没有留下新的开放问题。两个可能被误认为待决的,都已就地裁定:
+
+| 看起来像待决 | 实际 |
 |---|---|
-| **(a) 改**(推荐) | 玩家认知要重学一次;但「破甲」将来指削 DEF 点数时不会撞车 |
-| (b) 代码改名、文案仍叫「破甲」 | 代码与 UI 不一致;将来做点数破甲时被迫另起一个更绕的词 |
-
-这是产品口味,不是技术问题,所以留给用户。
-
-### 2. 堆甲是否允许把小怪普攻打到 0
-
-加法叠加 + `max(0, ...)` 意味着 DEF 51(漜15 + 铠12 + 崊12 + 等级12)可以完全免疫 attack 40 的怪。
-
-| 选项 | 代价 |
-|---|---|
-| **(a) 允许**(推荐) | 与既有 `max(0, ...)` 口径一致,零新规则;土系防御流的幻想兑现。风险由第 10.5 的堆甲探针量 |
-| (b) `max(1, ...)` 保底 | 第三种口径(伤害有下限 1),要在 spec 里解释「为什么护盾能挡到 0 而护甲不能」;且它让「穿透」在残局失去意义 |
-
-方向要用户认可,数据要等 T8。
-
-### 3. 登塔进度作废要不要补偿
-
-第 11.2 节的迁移会让所有进行中的登塔作废。
-
-| 选项 | 代价 |
-|---|---|
-| (a) 不补偿(最简) | 玩家丢几十分钟 |
-| **(b) 按 `TopBossDepth` 补发一次结算宝箱**(推荐) | 要写一段一次性的补偿代码,而它读的正是那份要作废的存档 —— 需要在丢弃之前读一次 `TopBossDepth`,与「零迁移代码」的优雅有冲突 |
-
-### 4. 敌人 DEF 随深度缩放的强度
-
-第 6.3 节裁定 DEF 随深度 `Ceiling` 缩放(与 HP/攻击同款 `scalePerDepth = 0.1`)。这会让
-100 层的坚壁 Boss 护甲达到 60 × 11 = 660,**破甲/穿透在深层从「可选」变成「必需」**。
-
-| 选项 | 代价 |
-|---|---|
-| **(a) 同款缩放**(推荐) | 深层强制携带穿透手段,build 多样性下降 |
-| (b) 半速缩放(`1 + 0.05×深度`) | 又一个专为 DEF 开的系数 |
-| (c) 不缩放(维持今天承伤系数的做法) | 深层护甲形同虚设,点数制的战术意义在后期消失 |
-
-这条要等 T8 的探针数据才能真正判断,但方向要先定 —— 因为它决定 T3 写进 `Campaign.Scale` 的形状。
+| 破甲要不要可叠、要不要本场持久 | ✅ **都要**(4.5.2)。不叠则六字互斥,不持久则战例二那套玩法不成立 |
+| 穿透与破甲同时存在怎么算 | ✅ **合并相减,一个 `max(0,…)`**(4.1.2)。与「分别嵌套」数学等价,取少一次钳位的写法 |
+| `刮` / 裂甲要不要一起做 | ✅ **不做**,记为 E-c 候选(6.5.3)。技术上已可实现,但装甲怪够多之前体验不到增量;且 `刮` 已实装为驱散字,改它是字表重设计 |
