@@ -71,11 +71,11 @@ namespace Brushblade.Presentation
         {
             EnemyAbility.Regrow => "每回合自补全:攻 +2、回 3 血;第 3 次补全后攻翻倍并回满 —— 拖不得",
             EnemyAbility.Split => "首次受击存活即分裂成两个半血(场上不足 4 只时) —— 一击打死免分裂",
-            EnemyAbility.Buff => $"有同伴时每回合给其他怪攻 +{def.Attack}(整场累计不回滚);"
+            EnemyAbility.Buff => "有同伴时每回合给其他怪攻 +50%(整场累计不回滚);"
                 + "落单则亲自出手 —— 优先清掉",
             EnemyAbility.Disguise => "显示的属性是假的,首次行动后才露真身 —— 别急着按显示的属性配克制",
             EnemyAbility.Obscure => "属性隐藏,受击两次后被「读懂」现形",
-            EnemyAbility.Scorch => "每次受击存活,攻 +2 —— 越磨越烫,宜速杀",
+            EnemyAbility.Scorch => "每次受击存活,攻 +50% —— 越磨越烫,宜速杀",
             EnemyAbility.Sear => "每次攻击给你挂 1 层灼烧 —— 拖得越久烧得越久,备一张净化",
             _ => "",
         };
