@@ -19,7 +19,8 @@ namespace Brushblade.Core
         SpeedModifier,    // 速度增减(点数,可正可负)
         HealOverTime,     // 持续治疗
         DamageReduction,  // 减伤百分比
-        AttackBuff,       // 攻击加成
+        AttackBuff,       // 攻击加成:**百分点,敌我一致**(2026-08-12 统一;敌人 = BaseAttack 的百分比,
+                          // 玩家 = 以 AttackBaseline 100 为基准的百分点)。量级 ×10 时它是比值,永不跟着乘
         ArmorBreak,       // 破甲:承伤 +25%,不叠层(2026-08-05)
         Curse,            // 诅咒:攻击 −Magnitude%,不叠层只刷新(2026-08-05)
         Seal,             // 封字:玩家下回合 AP −Magnitude(2026-08-06,Boss 倾覆)
@@ -36,9 +37,13 @@ namespace Brushblade.Core
     public enum StatusPolarity { Buff, Debuff }
 
     /// <summary>一条状态。Magnitude 按 Kind 解读:Burn=层数、Bleed/HealOverTime=每回合量、
-    /// DamageReduction=百分比、SpeedModifier=速度点数、AttackBuff=攻击加成、
+    /// DamageReduction=百分比、SpeedModifier=速度点数、
+    /// AttackBuff=攻击加成的**百分点,敌我同一单位**(2026-08-12 统一:
+    ///   <see cref="StatusKind.AttackBuff"/> 的注释是这条的出处;
+    ///   敌人侧 EnemyState.Attack 拿它乘 BaseAttack,玩家侧 EffectiveAttack 拿它加在基准 100 上,
+    ///   两边都是比值 —— 量级 ×10 只乘数量,比值一律不乘)、
     /// ArmorBreak=承伤加成百分比(DamageEnemy 直接读这个字段,不再读常量)、
-    /// Curse=减攻百分比(EnemyState.Attack 读它)、
+    /// Curse=减攻百分比,与 AttackBuff **同一根轴**,EnemyState.Attack 里直接相减(±50% 精确相消)、
     /// Seal=AP 扣减量(StartTurn 读它)、
     /// Blind=命中降低百分比(AttackHits 读它)、
     /// Morale=战意层数(EffectiveAttack 乘 MoralePerStack 才是攻击加成)、

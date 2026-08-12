@@ -29,9 +29,9 @@ namespace Brushblade.Core.Tests
             var engine = Engine(Buffer(), Ghost(), Ghost());
             engine.EndTurn();
 
-            Assert.That(engine.PlayerHp, Is.EqualTo(50 - 5 - 5)); // 辅助先行动:buff 当回合生效
-            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(5)); // 4 + 1
-            Assert.That(engine.Enemies[2].Attack, Is.EqualTo(5));
+            Assert.That(engine.PlayerHp, Is.EqualTo(50 - 6 - 6)); // 辅助先行动:buff 当回合生效
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6)); // 4 × 150 ÷ 100
+            Assert.That(engine.Enemies[2].Attack, Is.EqualTo(6));
             Assert.That(engine.Enemies[0].Attack, Is.EqualTo(1)); // 自己不加
             Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyBuff), Is.EqualTo(2));
         }
@@ -59,9 +59,9 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine(Buffer(), Ghost());
             engine.EndTurn();
-            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(5)); // 4 + 1
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6)); // 4 × 150 ÷ 100
             engine.EndTurn();
-            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6)); // 再 + 1,不回滚
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(8)); // 再 +50%(百分点相加),不回滚
         }
 
         [Test]
@@ -70,7 +70,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine(Buffer(), new EnemyDef("枯", Element.Wood, 4, 3), Ghost());
             engine.Cast("火", 1); // 杀掉 4 血的
             engine.EndTurn();
-            Assert.That(engine.Enemies[2].Attack, Is.EqualTo(5)); // 活的被加
+            Assert.That(engine.Enemies[2].Attack, Is.EqualTo(6)); // 活的被加(4 × 150 ÷ 100)
             Assert.That(engine.Enemies[1].Attack, Is.EqualTo(3)); // 尸体不加
         }
 
@@ -130,7 +130,7 @@ namespace Brushblade.Core.Tests
             engine.EndTurn(); // 跳过
             engine.EndTurn(); // 行动:应恢复加攻
 
-            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(5), "减速行动回合应恢复加攻(4+1)");
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6), "减速行动回合应恢复加攻(4 × 150 ÷ 100)");
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.True);
         }
 

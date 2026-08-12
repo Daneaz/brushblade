@@ -199,21 +199,23 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Curse_AppliesAfterAttackBuff()
+        public void Curse_ShareOneAxisWithAttackBuff() // 原名 Curse_AppliesAfterAttackBuff
         {
-            // 先加增益再乘诅咒:(4 + 4) × 0.75 = 6。反过来算是 4×0.75+4 = 7,差一点
+            // 2026-08-12(E-b4 T0.5)**刻意的语义变化**:AttackBuff 从加数改成百分点后,
+            // 与 Curse 落在同一根轴上直接加减,「先加再乘」这个顺序问题本身消失了(加法可交换)。
+            // 旧口径:(4 + 4) × 0.75 = 6;新口径:4 × (100 + 50 − 25) ÷ 100 = 5。
             var enemy = EnemyWithAttack(4);
             enemy.Statuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
-                Magnitude = 4, TurnsLeft = -1, SourceId = "妖#1",
+                Magnitude = 50, TurnsLeft = -1, SourceId = "妖#1",
             });
             enemy.Statuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
                 Magnitude = 25, TurnsLeft = 2, SourceId = "诅咒",
             });
-            Assert.That(enemy.Attack, Is.EqualTo(6));
+            Assert.That(enemy.Attack, Is.EqualTo(5), "4 × (100 + 50 − 25) ÷ 100 = 5");
         }
 
         [Test]
@@ -367,7 +369,11 @@ namespace Brushblade.Core.Tests
             var scorchEngine = Engine(new[] { "焰" }, new[] { scorchEnemy });
             scorchEngine.Cast("焰");
             for (int i = 0; i < 3; i++) scorchEngine.EndTurn();
-            Assert.That(scorchEngine.Enemies[0].Attack, Is.EqualTo(0), "攻 0 召唤物出手不该喂焦痕自燃");
+            // 断 AttackBuff 而不是断 Attack:自燃改成百分点后(2026-08-12),攻 0 的怪加多少
+            // 百分比都还是 0,断 Attack 会静默退化成一条永远为真的断言。
+            Assert.That(scorchEngine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0),
+                "攻 0 召唤物出手不该喂焦痕自燃");
+            Assert.That(scorchEngine.Enemies[0].Attack, Is.EqualTo(0));
 
             // 叠字怪:首次受击存活即分裂,若攻 0 召唤物的出手仍算一次"命中",会无条件替敌人触发分裂。
             var splitEnemy = new EnemyDef("叠", Element.Heart, 200, 0, EnemyAbility.Split);

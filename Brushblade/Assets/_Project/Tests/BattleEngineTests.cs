@@ -2053,12 +2053,14 @@ namespace Brushblade.Core.Tests
             var enemy = engine.Enemies[0];
             int baseAttack = enemy.Attack;
 
+            // Magnitude 是百分点(2026-08-12 敌我单位统一);取 100 = 攻击翻倍,
+            // 小百分比会被整数除 floor 掉,断言就看不出增益到底有没有生效。
             enemy.Statuses.Apply(new StatusEffect
             {
                 Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
-                Magnitude = 7, TurnsLeft = -1, SourceId = "点",
+                Magnitude = 100, TurnsLeft = -1, SourceId = "点",
             });
-            Assert.That(enemy.Attack, Is.EqualTo(baseAttack + 7));
+            Assert.That(enemy.Attack, Is.EqualTo(baseAttack * 2));
 
             enemy.Statuses.RemoveAll(StatusPolarity.Buff);   // 驱散
             Assert.That(enemy.Attack, Is.EqualTo(baseAttack), "驱散后还原到基础攻击");
@@ -2078,11 +2080,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RegrowFinalDouble_DoesNotAmplifyExternalBuff() // 全分支评审 Important 2(2026-08-05)锁定测试:
-        // 缺笔妖(攻 3)+ 标点小妖(攻 2)同场,标点小妖每回合给缺笔妖叠 AttackBuff。
-        // 第 3 回合缺笔妖补全完成触发 BaseAttack ×2 —— 只翻自己的基础值,不该连标点小妖给的
-        // 增益一起翻倍。手算:T1 BaseAttack 3→5、Buff+2;T2 BaseAttack 5→7、Buff+2(共4);
-        // T3 BaseAttack (7+2)×2=18、Buff+2(共6) → Attack = 18+6 = 24。
+        public void RegrowFinalDouble_AmplifiesPercentBuffs_BecauseBuffsAreRatiosNow()
+        // 2026-08-12(E-b4 T0.5)**推翻了** 2026-08-05 的「补全 ×2 不放大外部增益」裁定,
+        // 原测试名 RegrowFinalDouble_DoesNotAmplifyExternalBuff。当时 AttackBuff 是加数,
+        // 「只翻基础值」说得通;统一成百分点后它是 BaseAttack 的比值,基数翻倍则贡献必然翻倍,
+        // 不是取舍而是恒等式的直接后果。写成测试是为了让后人看见这条是主动放弃的,不是回归。
+        //
+        // 缺笔妖(攻 3)+ 标点小妖同场,标点每回合给缺笔妖叠一层 +50%。手算:
+        // T1 BaseAttack 3→5、Buff 50%;T2 BaseAttack 5→7、Buff 100%;
+        // T3 BaseAttack (7+2)×2 = 18、Buff 150% → Attack = 18 × 250 ÷ 100 = 45。
         {
             var engine = new BattleEngine(Graph(), Config(), Array.Empty<string>(), Array.Empty<string>(),
                 new[]
@@ -2095,8 +2101,8 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             engine.EndTurn();
 
-            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(24),
-                "补全 ×2 不应放大标点小妖给的外部增益");
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(45),
+                "补全 ×2 翻的是 BaseAttack,百分比增益是它的比值,跟着一起放大");
         }
 
         [Test]

@@ -148,7 +148,13 @@ namespace Brushblade.Core
         private readonly List<SummonState> _summons = new();
         private const int SummonCap = 6; // 场上存活召唤物上限(2026-08-03:4 → 6)
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
-        private const int ScorchGain = 2; // 焦痕受击存活的加攻量
+        // 焦痕受击存活的加攻(**百分点**,2026-08-12 由「+2 点」换算而来:焦痕 BaseAttack = 4,
+        // 50% × 4 = 2,对任意层数逐位等价 —— AttackBuffUnitTests 的焦痕序列守着这条零行为变化)
+        private const int ScorchGain = 50;
+        // 标点小妖给同伴的加攻(百分点,2026-08-12 用户拍板)。改动前送的是「施加者自身攻击力」
+        // = 固定 +2,而敌人平均攻击 ≈ 4,取 50% 恰好保住平均值,同时修掉「加给攻 2 的怪是 +100%、
+        // 加给攻 8 的怪只有 +25%」这个 4 倍偏差。
+        private const int PunctuationBuffPercent = 50;
         private const int ArmorBreakPercent = 25; // 破甲的承伤加成(不叠层,恒定)
         private const int PierceBonusPercent = 15; // 穿甲的保底加成(对有无减免的目标一律生效)
         private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
@@ -180,7 +186,8 @@ namespace Brushblade.Core
 
         /// <summary>本场生效的玩家攻击力 = 角色属性(config)+ 局内增益 + 战意。
         /// 局内增益复用 <see cref="StatusKind.AttackBuff"/> —— 敌人侧的标点小妖加攻、
-        /// 焦痕受击自燃早就在用同一个 Kind,不新增枚举值。
+        /// 焦痕受击自燃早就在用同一个 Kind,不新增枚举值;2026-08-12 起两侧的**单位也统一**
+        /// 成百分点(敌人侧见 <see cref="EnemyState.Attack"/>),这里的加数就是那边的同一个比值。
         /// 战意(2026-08-12,战/戮)单开一个 Kind:它的 Magnitude 是**层数**不是加成值,
         /// 混进 AttackBuff 会既丢掉层数上限又让 +1 层被当成 +1 攻击。
         /// 钳到 ≥0 与 <see cref="EnemyState.Attack"/> 同口径:负攻击力会打出负伤害,
@@ -767,10 +774,10 @@ namespace Brushblade.Core
                     other.Statuses.Apply(new StatusEffect
                     {
                         Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
-                        Magnitude = enemy.Attack, TurnsLeft = -1,
+                        Magnitude = PunctuationBuffPercent, TurnsLeft = -1,
                         SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
                     });
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, enemy.Attack));
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
                 }
             }
 
@@ -876,8 +883,9 @@ namespace Brushblade.Core
                 enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 3);
                 if (enemy.RegrowProgress == 3)
                 {
-                    // ×2 只翻基础值,不翻别人给的增益(如标点小妖的 AttackBuff)——形态变化
-                    // 不放大外部增益(2026-08-05 裁定;RegrowFinalDouble_DoesNotAmplifyExternalBuff 守着)。
+                    // ×2 翻的是 BaseAttack(形态变化)。2026-08-12 AttackBuff 统一成百分点后,
+                    // 外部增益是 BaseAttack 的比值,于是**会**跟着一起放大 —— 这不是回退,是
+                    // 「比值就该跟着基数走」的直接后果(旧的 2026-08-05 裁定建立在加数语义上,已失效)。
                     enemy.BaseAttack *= 2;
                     enemy.Hp = enemy.MaxHp;
                 }
