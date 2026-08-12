@@ -17,7 +17,7 @@ namespace Brushblade.Core
         public IReadOnlyList<string> GainCharChoices { get; set; } = Array.Empty<string>(); // 任选一字入库(字摊)
         public int InkChancePercent { get; set; }             // >0 = Ink 按此概率发放(赌注;成本照付)
         // 局内血量上限增减(2026-08-04):按**当前**有效上限的百分比复利叠加,正数同步等量回血。
-        // 深层怪物 scale 无上限而 Meta.MaxHpFor 硬顶 100,靠这个在关内把上限顶上去。
+        // 深层怪物 scale 无上限而 Meta.MaxHpFor 硬顶 1000,靠这个在关内把上限顶上去。
         public int MaxHpPercent { get; set; }
         // >0 = MaxHpPercent 按此概率生效,**掷空则反向扣同样百分比**(不同于 InkChancePercent 的「不中即无」)
         public int MaxHpChancePercent { get; set; }
