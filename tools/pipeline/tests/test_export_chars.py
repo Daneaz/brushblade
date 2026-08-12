@@ -95,13 +95,17 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
     assert "targetAll" not in mu
 
 
-def test_extract_ignore_armor_flag_attaches_to_damage_effect():
-    """穿甲三字(锥/刺/錰):`ignoreArmor` 标记要落到 DamageSingle 效果的 ignoreArmor 字段上,
-    不是生成独立的效果条目 —— 否则 ConfigLoader 读不到,穿甲效果静默消失。"""
+def test_extract_pierce_points_attach_to_damage_effect():
+    """穿透三字(锥/刺/錰):`Pierce N` 要落到 DamageSingle 效果的 pierce 字段上,
+    不是生成独立的效果条目 —— EffectKind 里没有 Pierce 这个值,落成独立条目会让
+    ConfigLoader 在加载期直接抛 ConfigException(2026-08-12,E-b4 T3 替代旧的 ignoreArmor 布尔标记)。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    for char in ("锥", "刺", "錰"):
-        hit = next(e for e in values[char]["effects"] if e["kind"] == "DamageSingle")
-        assert hit.get("ignoreArmor") is True, f"「{char}」应带 ignoreArmor"
+    expected = {"锥": 10, "刺": 15, "錰": 30}
+    for char, points in expected.items():
+        effects = values[char]["effects"]
+        assert [e["kind"] for e in effects] == ["DamageSingle"], f"「{char}」不该产出独立的 Pierce 条目"
+        assert effects[0].get("pierce") == points, f"「{char}」的穿透点数应为 {points}"
+        assert "ignoreArmor" not in effects[0], f"「{char}」不该再带 ignoreArmor"
 
 
 def test_summon_passive_is_extracted():
