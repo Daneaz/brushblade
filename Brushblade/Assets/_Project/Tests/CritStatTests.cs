@@ -398,18 +398,18 @@ namespace Brushblade.CoreTests
             var engine = Battle(100, "辛");
             engine.Cast("辛", 0);
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 6), "3 层 × 每层 2 = 6,不暴击");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 60), "3 层 × 每层 20 = 60,不暴击");
         }
 
         [Test]
         public void FullCrit_DoesNotCritDetonate()
         {
             // 引爆是灼烧层数的**提前兑现**,总量口径与回合末结算同一条。
-            // 3 层:3×4/2 = 6 → × 每层 2 = 12。
+            // 3 层:3×4/2 = 6 → × 每层 20 = 120。
             var engine = Battle(100, "辛", "壬");
             engine.Cast("辛", 0);
             engine.Cast("壬", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 12), "引爆 12,不暴击");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 120), "引爆 120,不暴击");
         }
 
         [Test]

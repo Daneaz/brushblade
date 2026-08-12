@@ -31,7 +31,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 30
+          "value": 300
         },
         {
           "kind": "BurnAll",
@@ -50,7 +50,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 8
+          "value": 80
         },
         {
           "kind": "BurnAll",
@@ -69,7 +69,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 7
+          "value": 70
         },
         {
           "kind": "BurnAll",
@@ -88,7 +88,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 20
+          "value": 200
         },
         {
           "kind": "BurnAll",
@@ -107,7 +107,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 20
+          "value": 200
         },
         {
           "kind": "BurnSingle",
@@ -126,7 +126,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -156,7 +156,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 13
+          "value": 130
         }
       ]
     },
@@ -171,7 +171,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 20
+          "value": 200
         }
       ]
     },
@@ -186,7 +186,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 16
+          "value": 160
         },
         {
           "kind": "Blind",
@@ -206,7 +206,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 18
+          "value": 180
         }
       ]
     },
@@ -221,7 +221,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         },
         {
           "kind": "ArmorBreak",
@@ -240,7 +240,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 13,
+          "value": 130,
           "doubleVsBurning": true
         }
       ]
@@ -271,7 +271,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         }
       ]
     },
@@ -305,7 +305,7 @@
         },
         {
           "kind": "BurnPotency",
-          "value": 1
+          "value": 10
         },
         {
           "kind": "BurnSettleNow",
@@ -328,7 +328,7 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 3
+          "value": 30
         }
       ]
     },
@@ -381,7 +381,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 12
+          "value": 120
         },
         {
           "kind": "BurnSingle",
@@ -430,7 +430,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6,
+          "value": 60,
           "doubleVsBurning": true
         }
       ]
@@ -446,7 +446,7 @@
       "effects": [
         {
           "kind": "BurnPotency",
-          "value": 1
+          "value": 10
         }
       ]
     },
@@ -493,7 +493,7 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 22,
+          "value": 220,
           "count": 1,
           "attack": 0,
           "summonChar": "火",
@@ -515,7 +515,7 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 11,
+          "value": 110,
           "count": 1,
           "attack": 0,
           "summonChar": "火",
@@ -536,7 +536,7 @@
       "effects": [
         {
           "kind": "BurnPotency",
-          "value": 2
+          "value": 20
         }
       ]
     },
@@ -551,9 +551,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 30,
+          "value": 300,
           "count": 4,
-          "attack": 12,
+          "attack": 120,
           "summonChar": "木"
         }
       ]
@@ -569,9 +569,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 22,
+          "value": 220,
           "count": 2,
-          "attack": 9,
+          "attack": 90,
           "summonChar": "木"
         }
       ]
@@ -587,9 +587,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 11,
+          "value": 110,
           "count": 2,
-          "attack": 5,
+          "attack": 50,
           "summonChar": "木"
         }
       ]
@@ -605,9 +605,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 24,
+          "value": 240,
           "count": 1,
-          "attack": 6,
+          "attack": 60,
           "summonChar": "木",
           "passive": {
             "onHitBurn": 1
@@ -626,9 +626,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 28,
+          "value": 280,
           "count": 1,
-          "attack": 3,
+          "attack": 30,
           "summonChar": "木"
         }
       ]
@@ -644,12 +644,12 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 18,
+          "value": 180,
           "count": 1,
-          "attack": 6,
+          "attack": 60,
           "summonChar": "木",
           "passive": {
-            "thorns": 3
+            "thorns": 30
           }
         }
       ]
@@ -665,12 +665,12 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 12,
+          "value": 120,
           "count": 1,
-          "attack": 3,
+          "attack": 30,
           "summonChar": "木",
           "passive": {
-            "healAlly": 3
+            "healAlly": 30
           }
         }
       ]
@@ -686,9 +686,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 12,
+          "value": 120,
           "count": 1,
-          "attack": 4,
+          "attack": 40,
           "summonChar": "木",
           "passive": {
             "onHitCurse": 25
@@ -707,9 +707,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 8,
+          "value": 80,
           "count": 1,
-          "attack": 3,
+          "attack": 30,
           "summonChar": "木",
           "passive": {
             "dodge": 50
@@ -728,11 +728,11 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 22,
+          "value": 220,
           "count": 2,
-          "attack": 9,
+          "attack": 90,
           "summonChar": "木",
-          "summonShield": 6
+          "summonShield": 60
         }
       ]
     },
@@ -747,9 +747,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 32,
+          "value": 320,
           "count": 1,
-          "attack": 4,
+          "attack": 40,
           "summonChar": "木"
         }
       ]
@@ -765,9 +765,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 20,
+          "value": 200,
           "count": 1,
-          "attack": 7,
+          "attack": 70,
           "summonChar": "木",
           "passive": {
             "speed": 150
@@ -801,9 +801,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 16,
+          "value": 160,
           "count": 1,
-          "attack": 4,
+          "attack": 40,
           "summonChar": "木"
         }
       ]
@@ -819,9 +819,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 12,
+          "value": 120,
           "count": 1,
-          "attack": 3,
+          "attack": 30,
           "summonChar": "木"
         }
       ]
@@ -837,9 +837,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 6,
+          "value": 60,
           "count": 1,
-          "attack": 2,
+          "attack": 20,
           "summonChar": "木"
         }
       ]
@@ -855,9 +855,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 6,
+          "value": 60,
           "count": 1,
-          "attack": 2,
+          "attack": 20,
           "summonChar": "木"
         }
       ]
@@ -873,7 +873,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -888,7 +888,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         }
       ]
     },
@@ -903,11 +903,11 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 35
+          "value": 350
         },
         {
           "kind": "DamageAll",
-          "value": 20
+          "value": 200
         }
       ]
     },
@@ -922,11 +922,11 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 24
+          "value": 240
         },
         {
           "kind": "HealSelf",
-          "value": 24
+          "value": 240
         }
       ]
     },
@@ -941,11 +941,11 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 24
+          "value": 240
         },
         {
           "kind": "DamageAll",
-          "value": 12
+          "value": 120
         }
       ]
     },
@@ -960,7 +960,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 20
+          "value": 200
         },
         {
           "kind": "Dispel",
@@ -980,11 +980,11 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 12
+          "value": 120
         },
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         }
       ]
     },
@@ -999,7 +999,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 20
+          "value": 200
         },
         {
           "kind": "Dispel",
@@ -1018,7 +1018,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -1033,7 +1033,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -1048,7 +1048,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         },
         {
           "kind": "ArmorBreak",
@@ -1067,7 +1067,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -1082,7 +1082,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 5
+          "value": 50
         }
       ]
     },
@@ -1097,7 +1097,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 5
+          "value": 50
         }
       ]
     },
@@ -1112,7 +1112,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         }
       ]
     },
@@ -1127,7 +1127,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         }
       ]
     },
@@ -1142,7 +1142,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 20
+          "value": 200
         },
         {
           "kind": "Slow",
@@ -1161,7 +1161,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 15
+          "value": 150
         },
         {
           "kind": "Freeze",
@@ -1210,7 +1210,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         },
         {
           "kind": "ArmorBreak",
@@ -1259,7 +1259,7 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 27
+          "value": 270
         }
       ]
     },
@@ -1274,7 +1274,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 12
+          "value": 120
         },
         {
           "kind": "Cleanse",
@@ -1293,7 +1293,7 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 3,
+          "value": 30,
           "turns": 3
         }
       ]
@@ -1309,7 +1309,7 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 3,
+          "value": 30,
           "turns": 2,
           "targetAll": true
         }
@@ -1326,7 +1326,7 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 3,
+          "value": 30,
           "turns": 2
         }
       ]
@@ -1357,7 +1357,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 8
+          "value": 80
         }
       ]
     },
@@ -1387,7 +1387,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 60
+          "value": 600
         }
       ]
     },
@@ -1402,7 +1402,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 40
+          "value": 400
         }
       ]
     },
@@ -1417,7 +1417,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 15
+          "value": 150
         }
       ]
     },
@@ -1432,7 +1432,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 40,
+          "value": 400,
           "ignoreArmor": true
         }
       ]
@@ -1448,7 +1448,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 20
+          "value": 200
         }
       ]
     },
@@ -1463,7 +1463,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 20
+          "value": 200
         }
       ]
     },
@@ -1478,7 +1478,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 16,
+          "value": 160,
           "executeBelowPercent": 25,
           "executeKills": true
         }
@@ -1495,7 +1495,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 10,
+          "value": 100,
           "hitCount": 2
         }
       ]
@@ -1511,7 +1511,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 20
+          "value": 200
         }
       ]
     },
@@ -1526,7 +1526,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 13
+          "value": 130
         }
       ]
     },
@@ -1541,7 +1541,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         },
         {
           "kind": "ArmorBreak",
@@ -1560,7 +1560,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 13,
+          "value": 130,
           "ignoreArmor": true
         }
       ]
@@ -1576,7 +1576,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 13
+          "value": 130
         }
       ]
     },
@@ -1591,7 +1591,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9,
+          "value": 90,
           "executeBelowPercent": 30,
           "executeKills": false
         }
@@ -1608,7 +1608,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         },
         {
           "kind": "Morale",
@@ -1627,7 +1627,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9,
+          "value": 90,
           "ignoreArmor": true
         }
       ]
@@ -1643,7 +1643,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 6,
+          "value": 60,
           "executeBelowPercent": 30,
           "executeKills": false
         }
@@ -1660,7 +1660,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         },
         {
           "kind": "Dispel",
@@ -1679,7 +1679,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         },
         {
           "kind": "Dispel",
@@ -1698,7 +1698,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         }
       ]
     },
@@ -1713,7 +1713,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         }
       ]
     },
@@ -1744,7 +1744,7 @@
       "effects": [
         {
           "kind": "Bleed",
-          "value": 1
+          "value": 10
         }
       ]
     },
@@ -1850,12 +1850,12 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 45,
+          "value": 450,
           "persistOnce": true
         },
         {
           "kind": "DamageAll",
-          "value": 24
+          "value": 240
         }
       ]
     },
@@ -1870,12 +1870,12 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 36,
+          "value": 360,
           "persistOnce": true
         },
         {
           "kind": "DamageAll",
-          "value": 18
+          "value": 180
         }
       ]
     },
@@ -1890,11 +1890,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 30
+          "value": 300
         },
         {
           "kind": "DamageSingle",
-          "value": 32
+          "value": 320
         }
       ]
     },
@@ -1909,11 +1909,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 15
+          "value": 150
         },
         {
           "kind": "DamageSingle",
-          "value": 18
+          "value": 180
         }
       ]
     },
@@ -1928,7 +1928,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 18
+          "value": 180
         }
       ]
     },
@@ -1943,7 +1943,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 10
+          "value": 100
         }
       ]
     },
@@ -1958,11 +1958,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 10
+          "value": 100
         },
         {
           "kind": "DamageSingle",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -1977,7 +1977,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 10
+          "value": 100
         }
       ]
     },
@@ -1992,7 +1992,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 10,
+          "value": 100,
           "persistOnce": true
         }
       ]
@@ -2008,7 +2008,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -2023,7 +2023,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -2166,7 +2166,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 7
+          "value": 70
         }
       ]
     },
@@ -2181,7 +2181,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         },
         {
           "kind": "ArmorBreak",
@@ -2200,7 +2200,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 9
+          "value": 90
         }
       ]
     },
@@ -2215,7 +2215,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         },
         {
           "kind": "Freeze",
@@ -2234,7 +2234,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         },
         {
           "kind": "Freeze",
@@ -2253,7 +2253,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 6
+          "value": 60
         }
       ]
     },
@@ -2268,7 +2268,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 4
+          "value": 40
         },
         {
           "kind": "ArmorBreak",

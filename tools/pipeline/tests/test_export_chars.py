@@ -72,12 +72,13 @@ def test_extract_pulls_133_implementable_chars():
     test_no_playable_char_is_uncraftable)。
     2026-08-12:128 → 132,BUFF 组 剡/战/戮/利 落地(E-b3-a)。
     2026-08-12:132 → 133,锋 随 E-b2 暴击轴落地。
+    2026-08-12(E-b4/T1):全表血量量纲数值 ×10,字数不变、基础值一律十倍。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
     assert len(values) == 133
-    # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
+    # 焚含木生火,配置表填基础值 70(引擎结算时 ×3 = 210)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
-    assert fen["value"] == 7
+    assert fen["value"] == 70
     assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"
 

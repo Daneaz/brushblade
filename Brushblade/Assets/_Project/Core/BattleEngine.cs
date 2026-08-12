@@ -167,7 +167,7 @@ namespace Brushblade.Core
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
-        private int _burnPerStack = 2;      // 灼烧每层结算伤害(10.2;炽 +1,可叠加)
+        private int _burnPerStack = 20;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
 
@@ -581,7 +581,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>兜底一击(4.5 第二层防卡手地板):无效果的部件/字出手时的弱效果,永不 brick。</summary>
-        private static readonly EffectDef[] FallbackEffects = { new(EffectKind.DamageSingle, 3) };
+        private static readonly EffectDef[] FallbackEffects = { new(EffectKind.DamageSingle, 30) };
 
         /// <summary>该字的实际出字效果:攻击模式下优先用 AttackEffects(水/土 的第二用法),
         /// 没有第二用法就照常;都没有效果的用兜底一击。</summary>
@@ -877,10 +877,10 @@ namespace Brushblade.Core
 
                 int before = enemy.Hp;
                 enemy.RegrowProgress += 1;
-                enemy.BaseAttack += 2; // 补全成长(形态变化,非增益):不可驱散
+                enemy.BaseAttack += 20; // 补全成长(形态变化,非增益):不可驱散(2026-08-12 随全表量级 ×10)
                 // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
                 // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
-                enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 3);
+                enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 30); // 2026-08-12 随全表量级 ×10
                 if (enemy.RegrowProgress == 3)
                 {
                     // ×2 翻的是 BaseAttack(形态变化)。2026-08-12 AttackBuff 统一成百分点后,

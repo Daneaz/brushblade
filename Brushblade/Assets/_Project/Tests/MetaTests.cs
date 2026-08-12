@@ -37,10 +37,10 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.CharacterLevel(xp), Is.EqualTo(expected));
         }
 
-        [TestCase(1, 50)]
-        [TestCase(6, 60)]
-        [TestCase(26, 100)]
-        [TestCase(40, 100)] // 上限 100
+        [TestCase(1, 500)]
+        [TestCase(6, 600)]
+        [TestCase(26, 1000)]
+        [TestCase(40, 1000)] // 上限 1000
         public void MaxHp_GrowsWithLevel_Capped(int level, int hp)
         {
             Assert.That(MetaRules.MaxHpFor(level), Is.EqualTo(hp));
@@ -171,9 +171,9 @@ namespace Brushblade.Core.Tests
             // 两条角色属性曲线刻意同形同封顶级(19.2.1),口径一致才好记也好平衡。
             // 分开写死会在改了一条忘了另一条时静默漂移,这条守住它们的耦合。
             Assert.That(MetaRules.AttackFor(26), Is.EqualTo(150));
-            Assert.That(MetaRules.MaxHpFor(26), Is.EqualTo(100));
+            Assert.That(MetaRules.MaxHpFor(26), Is.EqualTo(1000));
             Assert.That(MetaRules.AttackFor(25), Is.LessThan(150));
-            Assert.That(MetaRules.MaxHpFor(25), Is.LessThan(100));
+            Assert.That(MetaRules.MaxHpFor(25), Is.LessThan(1000));
         }
 
         // ---- 卡等级进战斗:等级系数先作用于基础值,再走生克 ----

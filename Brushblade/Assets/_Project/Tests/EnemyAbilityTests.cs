@@ -12,63 +12,65 @@ namespace Brushblade.Core.Tests
         private static RecipeGraph Graph() => new(new[]
         {
             new CharDef("火", Element.Fire,
-                effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40) }),
             new CharDef("烧", Element.Fire,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 5) }),
+                effects: new[] { new EffectDef(EffectKind.DamageAll, 50) }),
         });
 
-        private static EnemyDef Regrower(int hp = 30) =>
-            new("缺笔妖", Element.Metal, hp, 2, EnemyAbility.Regrow);
+        private static EnemyDef Regrower(int hp = 300) =>
+            new("缺笔妖", Element.Metal, hp, 20, EnemyAbility.Regrow);
 
         private static EnemyDef Plain(string id, int hp, int attack) =>
             new(id, Element.Wood, hp, attack, EnemyAbility.None);
 
-        private static EnemyDef Splitter(int hp = 16) =>
-            new("叠字怪", Element.Wood, hp, 5, EnemyAbility.Split);
+        private static EnemyDef Splitter(int hp = 160) =>
+            new("叠字怪", Element.Wood, hp, 50, EnemyAbility.Split);
 
+        // 玩家血量显式给 MaxHpFor(1):本夹具的怪攻已随量级 ×10,再吃 BattleConfig 的
+        // 缺省 50(旧量级)会让玩家在第二个 EndTurn 就阵亡,补全进度推不到第 3 级。
         private static BattleEngine Engine(params EnemyDef[] enemies) =>
-            new(Graph(), new BattleConfig(), new[] { "烧" }, new[] { "火", "火", "火" },
-                enemies, seed: 1);
+            new(Graph(), new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+                new[] { "烧" }, new[] { "火", "火", "火" }, enemies, seed: 1);
 
         // ---- 缺笔妖:自补全 ----
 
         [Test]
         public void Regrow_GainsAttackAndHeals_EachEnemyTurn()
         {
-            var engine = Engine(Regrower(hp: 30));
-            engine.Cast("火", 0);  // 破点血:30−4=26(金被火克 ×1.5 → 6;30−6=24)
+            var engine = Engine(Regrower(hp: 300));
+            engine.Cast("火", 0);  // 破点血:金被火克 ×1.5 → 60;300−60=240
             int hpAfterHit = engine.Enemies[0].Hp;
             engine.EndTurn();
 
-            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(2 + 2));          // 攻 +2
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hpAfterHit + 3));     // 回 3 血
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(20 + 20));        // 攻 +20
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hpAfterHit + 30));    // 回 30 血
             Assert.That(engine.Enemies[0].RegrowProgress, Is.EqualTo(1));
         }
 
         [Test]
         public void Regrow_HealCapsAtMaxHp()
         {
-            var engine = Engine(Regrower(hp: 30)); // 未受伤
+            var engine = Engine(Regrower(hp: 300)); // 未受伤
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(30));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(300));
         }
 
         [Test]
         public void Regrow_ThirdTurn_Completes_DoubleAttackFullHeal()
         {
-            var engine = Engine(Regrower(hp: 30));
-            engine.Cast("火", 0); // 掉 6 血
-            engine.EndTurn();     // 进度 1,攻 4
-            engine.EndTurn();     // 进度 2,攻 6
+            var engine = Engine(Regrower(hp: 300));
+            engine.Cast("火", 0); // 掉 60 血
+            engine.EndTurn();     // 进度 1,攻 40
+            engine.EndTurn();     // 进度 2,攻 60
             engine.EndTurn();     // 进度 3:补全完成
 
             var enemy = engine.Enemies[0];
             Assert.That(enemy.RegrowProgress, Is.EqualTo(3));
-            Assert.That(enemy.Attack, Is.EqualTo((2 + 2 * 3) * 2)); // (基础2+2×3)×2 = 16
-            Assert.That(enemy.Hp, Is.EqualTo(30));                  // 血回满
+            Assert.That(enemy.Attack, Is.EqualTo((20 + 20 * 3) * 2)); // (基础20+20×3)×2 = 160
+            Assert.That(enemy.Hp, Is.EqualTo(300));                   // 血回满
 
             engine.EndTurn(); // 完成后不再成长
-            Assert.That(enemy.Attack, Is.EqualTo(16));
+            Assert.That(enemy.Attack, Is.EqualTo(160));
         }
 
         /// <summary>补全必须发事件。它原先是静默结算的:模型瞬时回血,表现层只在末次重绘看到结果,
@@ -76,23 +78,23 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Regrow_EmitsEvent_WithHealAmountAndProgress()
         {
-            var engine = Engine(Regrower(hp: 30));
+            var engine = Engine(Regrower(hp: 300));
             engine.Cast("火", 0); // 先破点血,回血才有量
             engine.EndTurn();
 
             var regrow = FirstOfKind(engine, BattleEventKind.Regrow);
             Assert.That(regrow.HasValue, "补全没发事件,表现层无从按节拍演");
             Assert.That(regrow.Value.TargetIndex, Is.EqualTo(0));
-            Assert.That(regrow.Value.Amount, Is.EqualTo(3));      // 实际回血量
+            Assert.That(regrow.Value.Amount, Is.EqualTo(30));     // 实际回血量
             Assert.That(regrow.Value.SecondIndex, Is.EqualTo(1)); // 补全进度
         }
 
-        /// <summary>回血被上限吃掉时,事件金额必须是**实际**回了多少(0),不是名义的 3 ——
+        /// <summary>回血被上限吃掉时,事件金额必须是**实际**回了多少(0),不是名义的 30 ——
         /// 表现层拿它推血条,报名义值会把条推过头。</summary>
         [Test]
         public void Regrow_EventAmount_IsActualHeal_NotNominal()
         {
-            var engine = Engine(Regrower(hp: 30)); // 满血,回不动
+            var engine = Engine(Regrower(hp: 300)); // 满血,回不动
             engine.EndTurn();
 
             var regrow = FirstOfKind(engine, BattleEventKind.Regrow);
@@ -100,11 +102,11 @@ namespace Brushblade.Core.Tests
             Assert.That(regrow.Value.Amount, Is.EqualTo(0));
         }
 
-        /// <summary>第 3 次补全把血拉满:事件金额要覆盖这一整段,否则血条只涨 3 点就停住。</summary>
+        /// <summary>第 3 次补全把血拉满:事件金额要覆盖这一整段,否则血条只涨 30 点就停住。</summary>
         [Test]
         public void Regrow_FinalStage_EventAmount_CoversFullHeal()
         {
-            var engine = Engine(Regrower(hp: 30));
+            var engine = Engine(Regrower(hp: 300));
             engine.Cast("火", 0);
             engine.EndTurn();
             engine.EndTurn();
@@ -114,7 +116,7 @@ namespace Brushblade.Core.Tests
             var regrow = FirstOfKind(engine, BattleEventKind.Regrow);
             Assert.That(regrow.HasValue);
             Assert.That(regrow.Value.SecondIndex, Is.EqualTo(3));
-            Assert.That(regrow.Value.Amount, Is.EqualTo(30 - before));
+            Assert.That(regrow.Value.Amount, Is.EqualTo(300 - before));
         }
 
         /// <summary>补全必须排在**本回合全部攻击之后**(2026-07-30 试玩)。
@@ -122,7 +124,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Regrow_SettlesAfterAllAttacks_NotMidwayThroughEnemyTurn()
         {
-            var engine = Engine(Regrower(hp: 30), Plain("木妖", hp: 20, attack: 1));
+            var engine = Engine(Regrower(hp: 300), Plain("木妖", hp: 200, attack: 10));
             engine.Cast("火", 0);
             engine.EndTurn();
 
@@ -140,7 +142,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Regrow_DoesNotSettle_WhenKilledEarlierInTheTurn()
         {
-            var engine = Engine(Regrower(hp: 3), Plain("木妖", hp: 20, attack: 1));
+            var engine = Engine(Regrower(hp: 30), Plain("木妖", hp: 200, attack: 10));
             engine.Cast("烧", 0);  // 挂灼烧,敌方回合开头结算
             engine.EndTurn();
 
@@ -177,12 +179,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Split_FirstDamageSurvived_SpawnsCloneHalfHp()
         {
-            var engine = Engine(Splitter(hp: 16));
-            engine.Cast("火", 0); // 火 vs 木 1.0 → 4 伤 → 12 血,分裂
+            var engine = Engine(Splitter(hp: 160));
+            engine.Cast("火", 0); // 火 vs 木 1.0 → 40 伤 → 120 血,分裂
 
             Assert.That(engine.Enemies.Count, Is.EqualTo(2));
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(6));  // ceil(12/2)
-            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(6));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(60));  // ceil(120/2)
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(60));
             Assert.That(engine.Enemies[1].Def.Id, Is.EqualTo("叠字怪"));
             Assert.That(engine.Enemies.All(e => e.HasSplit), Is.True);
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemySplit), Is.True);
@@ -191,8 +193,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Split_OnlyOnce()
         {
-            var engine = Engine(Splitter(hp: 16));
-            engine.Cast("火", 0);            // 分裂 → 两只 6 血
+            var engine = Engine(Splitter(hp: 160));
+            engine.Cast("火", 0);            // 分裂 → 两只 60 血
             engine.EndTurn();
             engine.Cast("火", 0);            // 再打不再分裂
             Assert.That(engine.Enemies.Count, Is.EqualTo(2));
@@ -201,8 +203,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Split_NotWhenKilled()
         {
-            var engine = Engine(Splitter(hp: 4));
-            engine.Cast("火", 0); // 4 伤致死
+            var engine = Engine(Splitter(hp: 40));
+            engine.Cast("火", 0); // 40 伤致死
             Assert.That(engine.Enemies.Count, Is.EqualTo(1));
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won));
         }

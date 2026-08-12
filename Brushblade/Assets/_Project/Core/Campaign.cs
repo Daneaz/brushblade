@@ -72,7 +72,7 @@ namespace Brushblade.Core
             };
         }
 
-        /// <summary>敌人数值缩放(HP/攻击向上取整,承伤系数不缩放);无尽深度缩放复用(20.4)。</summary>
+        /// <summary>敌人数值缩放(HP/攻击按 <see cref="Scaled"/>,承伤系数不缩放);无尽深度缩放复用(20.4)。</summary>
         public static EnemyDef Scale(EnemyDef enemy, float scale)
         {
             List<BossPhaseDef> phases = null;
@@ -81,14 +81,29 @@ namespace Brushblade.Core
                 phases = new List<BossPhaseDef>();
                 foreach (var phase in enemy.Phases)
                     phases.Add(new BossPhaseDef(phase.Char, phase.Element,
-                        (int)Math.Ceiling(phase.MaxHp * scale),
-                        (int)Math.Ceiling(phase.Attack * scale),
+                        Scaled(phase.MaxHp, scale), Scaled(phase.Attack, scale),
                         phase.DamageTaken, phase.Skill)); // 承伤系数与技能都不缩放
             }
             return new EnemyDef(enemy.Id, enemy.Element,
-                (int)Math.Ceiling(enemy.MaxHp * scale),
-                (int)Math.Ceiling(enemy.Attack * scale),
+                Scaled(enemy.MaxHp, scale), Scaled(enemy.Attack, scale),
                 enemy.Ability, phases, enemy.DamageTaken); // 承伤系数不缩放
         }
+
+        /// <summary>一个血量量纲的数乘 scale 后落回整数。
+        ///
+        /// ⚠ **不许换回 <c>Ceiling</c>**(2026-08-12,E-b4/T1)。旧口径是
+        /// <c>(int)Math.Ceiling(value × scale)</c>,而 <c>ceil(10a·s) ≠ 10·ceil(a·s)</c> ——
+        /// 向上取整给低基础值的怪凭空补一份「取整红利」,且基数越小红利占比越大。
+        /// 全表量级 ×10 之后这份红利必须消失,否则同一只怪在新旧量级下的相对强度对不上
+        /// (实测 19 个敌人基础值 × 30 层里 63% 的组合不满足交换律)。
+        ///
+        /// 现在的口径:**缩放本身是精确的,取整只负责夹掉 float 的表示误差**。
+        /// 敌人基础值全是 10 的倍数、scale 全是 0.1 的整数倍(无尽 <c>1 + 0.1×(depth−1)</c>、
+        /// 章节 1.0 / 1.5 / 2.0),故 <c>value × scale</c> 数学上恒为整数;但 <c>0.1f</c>
+        /// 二进制不可表示 —— depth 20 时 <c>140 × 2.9f</c> 实际算出 406.00001,
+        /// <c>Ceiling</c> 会把它读成 407。<c>Round</c> 把这类 1e-4 量级的噪声夹回真值,
+        /// 不承担任何取整语义。</summary>
+        private static int Scaled(int value, float scale) =>
+            (int)Math.Round(value * (double)scale, MidpointRounding.AwayFromZero);
     }
 }

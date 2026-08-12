@@ -44,13 +44,55 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void BuildRunConfig_ScalesEnemyStats_CeilRounded() // F2 逐章加难
+        public void BuildRunConfig_ScalesEnemyStats() // F2 逐章加难
         {
             var run = Campaign().BuildRunConfig(1, 0);
             var enemy = run.Encounters[0][0];
             Assert.That(enemy.MaxHp, Is.EqualTo(18));  // 12 × 1.5
             Assert.That(enemy.Attack, Is.EqualTo(6));  // 4 × 1.5
         }
+
+        /// <summary>缩放不许再向上取整(2026-08-12,E-b4/T1)。
+        ///
+        /// 旧口径是 <c>(int)Math.Ceiling(value × scale)</c>,它给低基础值的怪补了一份
+        /// 「取整红利」,且 <c>ceil(10a·s) ≠ 10·ceil(a·s)</c> —— 全表量级 ×10 之后这份红利
+        /// 必须消失,否则同一只怪在新旧量级下的相对强度对不上。
+        ///
+        /// 三条基准值全部选在「旧 ceil 与新口径可分辨」的点上,这条才有判别力:
+        /// 换回 Ceiling 的话三条都会红。</summary>
+        [Test]
+        public void Scale_DoesNotRoundUp_NoCeilingBonus()
+        {
+            // 20 × 1.1 = 22 恰好是整数;旧 ceil 会读成 23(0.1f 不精确,乘积落在 22.000001)
+            Assert.That(CampaignConfig.Scale(Enemy(20, 20), 1.1f).MaxHp, Is.EqualTo(22));
+            // 140 × 1.1 = 154;旧 ceil 给 155
+            Assert.That(CampaignConfig.Scale(Enemy(140, 30), 1.1f).MaxHp, Is.EqualTo(154));
+            // 深度 20 的 scale = 2.9f;140 × 2.9f 实际算出 406.00001,旧 ceil 给 407
+            Assert.That(CampaignConfig.Scale(Enemy(140, 30), 2.9f).MaxHp, Is.EqualTo(406));
+        }
+
+        /// <summary>缩放与「全表量级 ×10」可交换:<c>Scale(10a, s) == 10 × a × s</c>。
+        /// 基础值全是 10 的倍数、scale 全是 0.1 的整数倍,乘积恒为整数,取整只夹 float 噪声。
+        /// 遍历真实 enemies.json 的基础值 × 无尽 30 层,任何一处向上/向下偏一格都会红。</summary>
+        [Test]
+        public void Scale_IsExactOnTenfoldBases_AcrossDepths()
+        {
+            int[] bases = { 20, 30, 40, 50, 60, 70, 80, 100, 110, 120, 140, 150,
+                            160, 180, 210, 220, 230, 240 };
+            for (int depth = 1; depth <= 30; depth++)
+            {
+                float scale = 1f + 0.1f * (depth - 1);
+                foreach (int b in bases)
+                {
+                    int expected = b / 10 * (9 + depth); // 精确值:b × (9+depth)/10
+                    Assert.That(CampaignConfig.Scale(Enemy(b, b), scale).MaxHp, Is.EqualTo(expected),
+                        $"基础 {b} 在深度 {depth} 上的缩放应精确无取整");
+                }
+            }
+        }
+
+        private static EnemyDef Enemy(int hp, int attack) =>
+            new("桩", Element.Heart, hp, attack);
 
         [Test]
         public void BuildRunConfig_DoesNotMutateBaseDefs()

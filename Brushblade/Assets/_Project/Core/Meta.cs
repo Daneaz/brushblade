@@ -125,8 +125,10 @@ namespace Brushblade.Core
             return level;
         }
 
-        /// <summary>生命成长:50 + 2×(等级−1),上限 100。</summary>
-        public static int MaxHpFor(int level) => Math.Min(100, 50 + 2 * (level - 1));
+        /// <summary>生命成长:500 + 20×(等级−1),上限 1000。
+        /// 2026-08-12(E-b4/T1)全表量级 ×10:整数除 <c>值 × ATK ÷ 100</c> 会吃掉低数值字的
+        /// 成长,被乘数必须够大才有分辨率。曲线形状与封顶级(26 级)一字未改。</summary>
+        public static int MaxHpFor(int level) => Math.Min(1000, 500 + 20 * (level - 1));
 
         /// <summary>攻击成长:100 + 2×(等级−1),上限 150(19.2.1 角色属性)。
         /// 与 <see cref="MaxHpFor"/> 同形同封顶级(26 级)——两条角色属性曲线口径一致。

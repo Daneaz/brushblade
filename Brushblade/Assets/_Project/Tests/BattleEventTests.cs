@@ -72,7 +72,7 @@ namespace Brushblade.Core.Tests
 
             var tick = engine.LastEvents.Single(e => e.Kind == BattleEventKind.BurnTick);
             Assert.That(tick.TargetIndex, Is.EqualTo(0));
-            Assert.That(tick.Amount, Is.EqualTo(9)); // floor(3×2×1.5),默认敌人为金,火克金
+            Assert.That(tick.Amount, Is.EqualTo(90)); // floor(3×20×1.5),默认敌人为金,火克金
 
             var attack = engine.LastEvents.Single(e => e.Kind == BattleEventKind.EnemyAttack);
             Assert.That(attack.Amount, Is.EqualTo(5));

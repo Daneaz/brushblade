@@ -58,7 +58,7 @@ namespace Brushblade.Core
         private List<string> _carriedPool;
         private int _carriedHp;
         // 局内血量上限加成(2026-08-04):奇遇按当前有效上限的百分比复利累加。
-        // 局外 Meta.MaxHpFor 硬顶 100,而怪物 scale 无上限 —— 这是关内把上限顶上去的唯一手段。
+        // 局外 Meta.MaxHpFor 硬顶 1000,而怪物 scale 无上限 —— 这是关内把上限顶上去的唯一手段。
         private int _maxHpBonus;
         private int _carriedNormalShield;
         private int _carriedPersistShield;

@@ -265,7 +265,7 @@ namespace Brushblade.Core.Tests
             Assert.That(boss.Phases[0].Char, Is.EqualTo("刀"));
             Assert.That(boss.Phases[0].Element, Is.EqualTo(Element.Metal));
             Assert.That(boss.Phases[1].DamageTaken, Is.EqualTo(0.5f)); // 第二字坚壁
-            Assert.That(boss.Phases[3].Attack, Is.EqualTo(10));        // 末字狂攻
+            Assert.That(boss.Phases[3].Attack, Is.EqualTo(100));       // 末字狂攻
             Assert.That(boss.Phases[3].Element, Is.EqualTo(Element.Water));
         }
 
