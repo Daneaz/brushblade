@@ -64,16 +64,17 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_132_implementable_chars():
+def test_extract_pulls_133_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。
 
     2026-08-09:129 → 132,火系 DOT 三分化(炑/燥/灱)落地。
     2026-08-10:132 → 128,炼/杨/戟/塌 因配方缺口移出字表(见
     test_no_playable_char_is_uncraftable)。
     2026-08-12:128 → 132,BUFF 组 剡/战/戮/利 落地(E-b3-a)。
+    2026-08-12:132 → 133,锋 随 E-b2 暴击轴落地。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 132
+    assert len(values) == 133
     # 焚含木生火,配置表填基础值 7(引擎结算时 ×3 = 21)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 7
