@@ -31,6 +31,7 @@ namespace Brushblade.Core
         Empower,      // 本场攻击力 +Value(剡;可叠加,2026-08-12)
         Morale,       // 战意 +Value 层,每层 +10 攻击,上限 5 层(战/戮;本场持久,2026-08-12)
         ApBoost,      // 本场每回合 AP 上限 +Value(利;可叠加,2026-08-12)
+        CritBuff,     // 本场暴击率 +Value 个百分点(锋;可叠加、上限由 EffectiveCrit 钳,2026-08-12)
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
