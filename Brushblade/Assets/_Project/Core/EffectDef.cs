@@ -65,6 +65,14 @@ namespace Brushblade.Core
         /// 只忽略减免(&lt;1),不忽略破甲加成 —— 「无视防御」≠「无视一切修正」。</summary>
         public bool IgnoreArmor { get; }
 
+        /// <summary>伤害类:本次攻击的穿透**点数**(2026-08-12,E-b4 T2)。
+        /// 进 <c>EffectiveEnemyDefense</c> 的减数,与目标身上的破甲从同一个基础护甲里一起减
+        /// (合并相减、不嵌套、不重复扣),外层 <c>max(0, …)</c> 保证穿过头只是归零、绝不倒贴增伤。
+        ///
+        /// **只作用于这一次结算**,不留状态;要「本场持续的穿透」走
+        /// <see cref="StatusKind.PierceBuff"/>。T2 全表为 0(接线不配值),T3 才写入 3 个穿甲字。</summary>
+        public int Pierce { get; }
+
         /// <summary>召唤类:召唤物被动(2026-08-05)。null = 无被动。</summary>
         public SummonPassive Passive { get; }
 
@@ -90,7 +98,7 @@ namespace Brushblade.Core
             int turns = 0, bool targetAll = false, bool ignoreArmor = false,
             SummonPassive passive = null, int summonShield = 0,
             int executeBelowPercent = 0, bool executeKills = false,
-            int hitCount = 1)
+            int hitCount = 1, int pierce = 0)
         {
             Kind = kind;
             Value = value;
@@ -107,6 +115,7 @@ namespace Brushblade.Core
             ExecuteBelowPercent = executeBelowPercent;
             ExecuteKills = executeKills;
             HitCount = hitCount <= 0 ? 1 : hitCount;
+            Pierce = pierce;
         }
     }
 }
