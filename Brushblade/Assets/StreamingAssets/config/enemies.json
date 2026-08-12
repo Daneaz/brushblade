@@ -3,160 +3,160 @@
     {
       "id": "错字鬼",
       "element": "Wood",
-      "maxHp": 14,
-      "attack": 4
+      "maxHp": 140,
+      "attack": 40
     },
     {
       "id": "缺笔妖",
       "element": "Metal",
-      "maxHp": 12,
-      "attack": 3,
+      "maxHp": 120,
+      "attack": 30,
       "ability": "Regrow"
     },
     {
       "id": "标点小妖",
       "element": "Heart",
-      "maxHp": 10,
-      "attack": 2,
+      "maxHp": 100,
+      "attack": 20,
       "ability": "Buff"
     },
     {
       "id": "叠字怪",
       "element": "Wood",
-      "maxHp": 16,
-      "attack": 5,
+      "maxHp": 160,
+      "attack": 50,
       "ability": "Split"
     },
     {
       "id": "夯土妖",
       "element": "Earth",
-      "maxHp": 16,
-      "attack": 3
+      "maxHp": 160,
+      "attack": 30
     },
     {
       "id": "通假字",
       "element": "Wood",
-      "maxHp": 14,
-      "attack": 4,
+      "maxHp": 140,
+      "attack": 40,
       "ability": "Disguise"
     },
     {
       "id": "生僻字",
       "element": "Earth",
-      "maxHp": 22,
-      "attack": 2,
+      "maxHp": 220,
+      "attack": 20,
       "ability": "Obscure"
     },
     {
       "id": "墨渍",
       "element": "Water",
-      "maxHp": 14,
-      "attack": 3,
+      "maxHp": 140,
+      "attack": 30,
       "damageTaken": 0.7
     },
     {
       "id": "焦痕",
       "element": "Fire",
-      "maxHp": 16,
-      "attack": 4,
+      "maxHp": 160,
+      "attack": 40,
       "ability": "Scorch"
     },
-    {"id": "灯花", "element": "Fire", "maxHp": 12, "attack": 3, "ability": "Sear"},
+    {"id": "灯花", "element": "Fire", "maxHp": 120, "attack": 30, "ability": "Sear"},
     {
       "id": "排山倒海",
       "element": "Water",
-      "maxHp": 12,
-      "attack": 6,
+      "maxHp": 120,
+      "attack": 60,
       "phases": [
         {
           "char": "排",
           "element": "Metal",
-          "maxHp": 18,
-          "attack": 6
+          "maxHp": 180,
+          "attack": 60
         },
         {
           "char": "山",
           "element": "Earth",
-          "maxHp": 23,
-          "attack": 4,
+          "maxHp": 230,
+          "attack": 40,
           "damageTaken": 0.5
         },
         {
           "char": "倒",
           "element": "Wood",
-          "maxHp": 18,
-          "attack": 8
+          "maxHp": 180,
+          "attack": 80
         },
         {
           "char": "海",
           "element": "Water",
-          "maxHp": 24,
-          "attack": 10
+          "maxHp": 240,
+          "attack": 100
         }
       ]
     },
     {
       "id": "翻江倒海",
       "element": "Water",
-      "maxHp": 12,
-      "attack": 7,
+      "maxHp": 120,
+      "attack": 70,
       "phases": [
         {
           "char": "翻",
           "element": "Wood",
-          "maxHp": 18,
-          "attack": 7
+          "maxHp": 180,
+          "attack": 70
         },
         {
           "char": "江",
           "element": "Water",
-          "maxHp": 21,
-          "attack": 5,
+          "maxHp": 210,
+          "attack": 50,
           "damageTaken": 0.75
         },
         {
           "char": "倒",
           "element": "Wood",
-          "maxHp": 18,
-          "attack": 8
+          "maxHp": 180,
+          "attack": 80
         },
         {
           "char": "海",
           "element": "Water",
-          "maxHp": 24,
-          "attack": 10
+          "maxHp": 240,
+          "attack": 100
         }
       ]
     },
     {
       "id": "雷霆万钧",
       "element": "Metal",
-      "maxHp": 10,
-      "attack": 8,
+      "maxHp": 100,
+      "attack": 80,
       "phases": [
         {
           "char": "雷",
           "element": "Metal",
-          "maxHp": 15,
-          "attack": 8
+          "maxHp": 150,
+          "attack": 80
         },
         {
           "char": "霆",
           "element": "Metal",
-          "maxHp": 18,
-          "attack": 9
+          "maxHp": 180,
+          "attack": 90
         },
         {
           "char": "万",
           "element": "Heart",
-          "maxHp": 21,
-          "attack": 6
+          "maxHp": 210,
+          "attack": 60
         },
         {
           "char": "钧",
           "element": "Metal",
-          "maxHp": 24,
-          "attack": 11,
+          "maxHp": 240,
+          "attack": 110,
           "damageTaken": 0.75
         }
       ]
@@ -439,8 +439,8 @@
       "text": "一泓漆黑墨池泛着微光。传说浸墨可锻字,却伤元气。",
       "options": [
         {
-          "label": "浸染字库(HP −6,得「沝」)",
-          "hpDelta": -6,
+          "label": "浸染字库(HP −60,得「沝」)",
+          "hpDelta": -60,
           "gainChar": "沝"
         },
         {
@@ -461,8 +461,8 @@
           "randomComponents": 3
         },
         {
-          "label": "静心重读(HP +8)",
-          "hpDelta": 8
+          "label": "静心重读(HP +80)",
+          "hpDelta": 80
         },
         {
           "label": "转身离去"
@@ -474,8 +474,8 @@
       "text": "山间书院灯火未熄,先生愿留你半日。",
       "options": [
         {
-          "label": "休整(HP +15)",
-          "hpDelta": 15
+          "label": "休整(HP +150)",
+          "hpDelta": 150
         },
         {
           "label": "进修(得「林」)",
@@ -522,8 +522,8 @@
       "text": "篝火正旺,暖意驱散了错字的阴气。",
       "options": [
         {
-          "label": "休整(HP +20)",
-          "hpDelta": 20
+          "label": "休整(HP +200)",
+          "hpDelta": 200
         },
         {
           "label": "烤字取暖(随机部件 ×1)",
@@ -545,8 +545,8 @@
           "inkChancePercent": 50
         },
         {
-          "label": "观战学艺(HP +5)",
-          "hpDelta": 5
+          "label": "观战学艺(HP +50)",
+          "hpDelta": 50
         },
         {
           "label": "拱手不赌"
@@ -558,8 +558,8 @@
       "text": "半截古碑上一个残字隐约生光,拓印恐伤元气。",
       "options": [
         {
-          "label": "拓印残字(HP −8,得「鍂」)",
-          "hpDelta": -8,
+          "label": "拓印残字(HP −80,得「鍂」)",
+          "hpDelta": -80,
           "gainChar": "鍂"
         },
         {
@@ -580,8 +580,8 @@
           "ink": 40
         },
         {
-          "label": "搜刮暗格(HP −20,墨锭 +80)",
-          "hpDelta": -20,
+          "label": "搜刮暗格(HP −200,墨锭 +80)",
+          "hpDelta": -200,
           "ink": 80
         },
         {
@@ -616,8 +616,8 @@
           "maxHpChancePercent": 80
         },
         {
-          "label": "只观火候(HP +10)",
-          "hpDelta": 10
+          "label": "只观火候(HP +100)",
+          "hpDelta": 100
         },
         {
           "label": "退开三步"
@@ -634,8 +634,8 @@
           "componentCost": 1
         },
         {
-          "label": "讨碗凉茶(HP +5)",
-          "hpDelta": 5
+          "label": "讨碗凉茶(HP +50)",
+          "hpDelta": 50
         },
         {
           "label": "谢过离开"
