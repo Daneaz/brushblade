@@ -147,11 +147,16 @@ namespace Brushblade.CoreTests
         [Test]
         public void IntegerMath_HasNoFloatPrecisionLoss()
         {
-            // 10% / 30% 是浮点写法的照妖镜:1 − 0.1f = 0.89999997,10 × 它 floor 到 8 而不是 9
-            // (2026-08-06 M1 的既有纪律,统一算式后继续守)。25% 二进制精确,测不出来。
-            Assert.That(Target(10, 0, 10).Attack, Is.EqualTo(9), "10 × 90 ÷ 100 = 9");
-            Assert.That(Target(10, 0, 30).Attack, Is.EqualTo(7), "10 × 70 ÷ 100 = 7");
-            Assert.That(Target(10, 10, 20).Attack, Is.EqualTo(9), "净 −10%,走加减轴同样精确");
+            // 守 2026-08-06 M1 定下的纪律:算式必须是整数的 base × percent ÷ 100,
+            // 不许写成 base × (1 + (percent − 100) / 100f) 这类浮点。
+            //
+            // ⚠ 选值是有讲究的。M1 当年注释里举的 curse = 10 / 30 在 .NET 8 上**测不出来**:
+            // 1 − 0.1f 落在 0.9f 上,10 × 0.9f 再舍回恰好 9.0f,浮点写法与整数写法同值,
+            // 拿它做变异检查会绿着放行。下面这三组是穷举出来的真分歧点
+            // (前两组 float 与 double 两种误写都抓,第三组专抓 double)。
+            Assert.That(Target(10, 0, 80).Attack, Is.EqualTo(2), "10 × 20 ÷ 100 = 2,浮点写法给 1");
+            Assert.That(Target(20, 0, 80).Attack, Is.EqualTo(4), "20 × 20 ÷ 100 = 4,浮点写法给 3");
+            Assert.That(Target(25, 16, 0).Attack, Is.EqualTo(29), "25 × 116 ÷ 100 = 29,double 写法给 28");
         }
 
         // ---- 4. 玩家侧一行未变 ----

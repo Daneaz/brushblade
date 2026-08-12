@@ -187,8 +187,10 @@ namespace Brushblade.Core
         /// 换到加减轴上就成了「诅咒 120% 被削成 100%,+50% 的增益反而净赚」。
         /// 净百分比转负由 <c>Math.Max(0, …)</c> 兜住,与旧式子在「诅咒 ≥100 且无增益」时同样得 0。
         ///
-        /// 整数算式(2026-08-06 M1 起的纪律):不要写成 <c>1 − curse/100f</c> 这类浮点,
-        /// <c>1 − 0.1f = 0.89999997</c> 会把 floor 结果拉低 1 点。
+        /// 整数算式(2026-08-06 M1 起的纪律):必须是 <c>BaseAttack × percent ÷ 100</c>,
+        /// 不许写成 <c>BaseAttack × (1 + (percent − 100) / 100f)</c> 这类浮点 —— 会把 floor 拉低 1 点。
+        /// ⚠ M1 当年举的 curse = 10 / 30 这组例子在 .NET 8 上其实测不出差别(乘法那步又舍了回来),
+        /// 真正的分歧点见 AttackBuffUnitTests.IntegerMath_HasNoFloatPrecisionLoss,别拿旧例子做变异检查。
         /// Boss 大招也读这个属性,所以诅咒/加攻自动对大招生效,不需要额外接线。</summary>
         public int Attack
         {
