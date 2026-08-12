@@ -16,9 +16,9 @@ namespace Brushblade.Core.Tests
         public void Bonus_EqualsLevelTimesPerLevelValue()
         {
             var meta = new MetaState();
-            meta.PerkLevels["yangyuan"] = 3;  // 养元 +10/级
+            meta.PerkLevels["yangyuan"] = 3;  // 养元 +100/级
             meta.PerkLevels["yiqi"] = 2;      // 一气 +1/级
-            Assert.That(PerkRules.HpBonus(meta), Is.EqualTo(30));
+            Assert.That(PerkRules.HpBonus(meta), Is.EqualTo(300));
             Assert.That(PerkRules.ApBonus(meta), Is.EqualTo(2));
             Assert.That(PerkRules.ShieldBonus(meta), Is.EqualTo(0));
         }

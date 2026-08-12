@@ -36,7 +36,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 8, doubleVsBurning: true) }),
             new CharDef("勺", null),
             new CharDef("炽", Element.Fire, new[] { "火", "只" },
-                effects: new[] { new EffectDef(EffectKind.BurnPotency, 1) }),
+                effects: new[] { new EffectDef(EffectKind.BurnPotency, 10) }), // 同真实字表(×10 后)
             new CharDef("只", null),
             new CharDef("堡", Element.Earth, new[] { "呆", "土" }, rarity: CardRarity.Purple,
                 effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
@@ -393,7 +393,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine(library: new[] { "燃" }, enemies: new[] { MetalBoss(200) });
             engine.Cast("燃"); // 全体 3 层灼烧
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 9)); // floor(3×2×1.5),火克金
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 90)); // floor(3×20×1.5),火克金
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
         }
 
@@ -412,9 +412,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void BurnTick_AppliesKeMultiplierAsFire()
         {
-            AssertBurnTick(Element.Metal, 9);   // 火克金:floor(6 × 1.5)
-            AssertBurnTick(Element.Water, 3);   // 水克火:floor(6 × 0.5)
-            AssertBurnTick(Element.Heart, 6);   // 心中立:×1.0
+            AssertBurnTick(Element.Metal, 90);  // 火克金:floor(60 × 1.5)
+            AssertBurnTick(Element.Water, 30);  // 水克火:floor(60 × 0.5)
+            AssertBurnTick(Element.Heart, 60);  // 心中立:×1.0
         }
 
         private static void AssertBurnTick(Element enemyElement, int expected)
@@ -490,31 +490,34 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Fallback_ComponentWithoutEffects_CastsWeakHit()
         {
-            var engine = Engine(pool: new[] { "木" }, enemies: new[] { new EnemyDef("怔", Element.Heart, 100, 3) },
+            var engine = Engine(pool: new[] { "木" }, enemies: new[] { new EnemyDef("怔", Element.Heart, 1000, 3) },
                 config: Config("丁"));
             var error = engine.Cast("木", 0);
             Assert.That(error, Is.EqualTo(BattleError.None));
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(97)); // 兜底单体 3(心系目标无生克)
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(970)); // 兜底单体 30(心系目标无生克)
             Assert.That(engine.Pool, Does.Not.Contain("木"));   // 部件被消耗
         }
 
+        // 木 vs 土怪:木克土 ×1.5。⚠ 断言不是旧值的机械 ×10(960)而是 955:
+        // 旧量级下 floor(3 × 1.5) = 4 丢掉了 0.5,新量级下 floor(30 × 1.5) = 45 精确 ——
+        // 量级抬高把 floor 的舍入损失还了回来。这是 ×10 想要的效果,不是回归。
         [Test]
-        public void Fallback_AppliesWuxing() // 木 vs 土怪:木克土 ×1.5 → floor(4.5)=4
+        public void Fallback_AppliesWuxing()
         {
             var engine = Engine(pool: new[] { "木" },
-                enemies: new[] { new EnemyDef("夯", Element.Earth, 100, 3) }, config: Config("丁"));
+                enemies: new[] { new EnemyDef("夯", Element.Earth, 1000, 3) }, config: Config("丁"));
             engine.Cast("木", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(96));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(955));
         }
 
         [Test]
         public void Fallback_MaterialCharInLibrary_Castable() // 林(无效果材料字)也能兜底出手
         {
             var engine = Engine(library: new[] { "林" },
-                enemies: new[] { new EnemyDef("怔", Element.Heart, 100, 3) });
+                enemies: new[] { new EnemyDef("怔", Element.Heart, 1000, 3) });
             var error = engine.Cast("林", 0);
             Assert.That(error, Is.EqualTo(BattleError.None));
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(97));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(970));
             Assert.That(engine.Library, Does.Not.Contain("林")); // 出手即消耗
         }
 
@@ -584,13 +587,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Chi_RaisesBurnTick_Stackable() // 炽:每层结算 2→3;两个炽 → 4
+        public void Chi_RaisesBurnTick_Stackable() // 炽:每层结算 20→30;两个炽 → 40
         {
             var engine = Engine(library: new[] { "燃", "炽" }, enemies: new[] { MetalBoss(200) });
             engine.Cast("燃");   // 3 层灼烧
-            engine.Cast("炽");   // 结算系数 2→3
-            engine.EndTurn();    // floor(3×3×1.5)=13,火克金
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 13));
+            engine.Cast("炽");   // 结算系数 20→30
+            engine.EndTurn();    // floor(3×30×1.5)=135,火克金
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 135));
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
         }
 
@@ -2086,22 +2089,27 @@ namespace Brushblade.Core.Tests
         // 「只翻基础值」说得通;统一成百分点后它是 BaseAttack 的比值,基数翻倍则贡献必然翻倍,
         // 不是取舍而是恒等式的直接后果。写成测试是为了让后人看见这条是主动放弃的,不是回归。
         //
-        // 缺笔妖(攻 3)+ 标点小妖同场,标点每回合给缺笔妖叠一层 +50%。手算:
-        // T1 BaseAttack 3→5、Buff 50%;T2 BaseAttack 5→7、Buff 100%;
-        // T3 BaseAttack (7+2)×2 = 18、Buff 150% → Attack = 18 × 250 ÷ 100 = 45。
+        // 缺笔妖(攻 30)+ 标点小妖同场,标点每回合给缺笔妖叠一层 +50%。手算(全表 ×10 后):
+        // T1 BaseAttack 30→50、Buff 50%;T2 BaseAttack 50→70、Buff 100%;
+        // T3 BaseAttack (70+20)×2 = 180、Buff 150% → Attack = 180 × 250 ÷ 100 = 450。
         {
-            var engine = new BattleEngine(Graph(), Config(), Array.Empty<string>(), Array.Empty<string>(),
+            var engine = new BattleEngine(Graph(), new BattleConfig
+                {
+                    DropTable = new[] { "木" },
+                    PlayerMaxHp = MetaRules.MaxHpFor(1), // 怪攻已 ×10,吃缺省 50 会在第 3 回合前阵亡
+                },
+                Array.Empty<string>(), Array.Empty<string>(),
                 new[]
                 {
-                    new EnemyDef("缺笔妖", Element.Metal, 30, 3, EnemyAbility.Regrow),
-                    new EnemyDef("标点小妖", Element.Heart, 8, 2, EnemyAbility.Buff),
+                    new EnemyDef("缺笔妖", Element.Metal, 300, 30, EnemyAbility.Regrow),
+                    new EnemyDef("标点小妖", Element.Heart, 80, 20, EnemyAbility.Buff),
                 }, seed: 42);
 
             engine.EndTurn();
             engine.EndTurn();
             engine.EndTurn();
 
-            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(45),
+            Assert.That(engine.Enemies[0].Attack, Is.EqualTo(450),
                 "补全 ×2 翻的是 BaseAttack,百分比增益是它的比值,跟着一起放大");
         }
 

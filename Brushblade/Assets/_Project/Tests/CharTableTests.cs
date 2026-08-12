@@ -47,9 +47,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_XiangShengCharsStoreBaseValue()
         {
-            // 焚含木生火,配置表填基础值 7,引擎结算时 ×3 = 21
+            // 焚含木生火,配置表填基础值 70,引擎结算时 ×3 = 210
             var aoe = RealGraph().Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll);
-            Assert.That(aoe.Value, Is.EqualTo(7), "相生字必须填基础值,不是最终值");
+            Assert.That(aoe.Value, Is.EqualTo(70), "相生字必须填基础值,不是最终值");
         }
 
         [Test]
@@ -113,8 +113,8 @@ namespace Brushblade.Core.Tests
                 ["烓"] = p => { Assert.That(p.OnHitBurn, Is.EqualTo(3)); Assert.That(p.OnHitBurnAll, Is.True); },
                 ["灶"] = p => { Assert.That(p.OnHitBurn, Is.EqualTo(2)); Assert.That(p.OnHitBurnAll, Is.False); },
                 ["楸"] = p => Assert.That(p.OnHitBurn, Is.EqualTo(1)),
-                ["荆"] = p => Assert.That(p.Thorns, Is.EqualTo(3)),
-                ["桃"] = p => Assert.That(p.HealAlly, Is.EqualTo(3)),
+                ["荆"] = p => Assert.That(p.Thorns, Is.EqualTo(30)),
+                ["桃"] = p => Assert.That(p.HealAlly, Is.EqualTo(30)),
                 ["槐"] = p => Assert.That(p.OnHitCurse, Is.EqualTo(25)),
                 ["桤"] = p => Assert.That(p.Speed, Is.EqualTo(150)),
             };
@@ -131,7 +131,7 @@ namespace Brushblade.Core.Tests
         {
             var graph = RealGraph();
             var summon = graph.Get("桂").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(summon.SummonShield, Is.EqualTo(6));
+            Assert.That(summon.SummonShield, Is.EqualTo(60));
             Assert.That(summon.SummonCount, Is.EqualTo(2));
         }
 
@@ -141,8 +141,8 @@ namespace Brushblade.Core.Tests
             // 蕉 靠高血低攻当天然肉盾,不该被顺手加上被动
             var graph = RealGraph();
             var summon = graph.Get("蕉").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(summon.Value, Is.EqualTo(28));
-            Assert.That(summon.SummonAttack, Is.EqualTo(3));
+            Assert.That(summon.Value, Is.EqualTo(280));
+            Assert.That(summon.SummonAttack, Is.EqualTo(30));
             Assert.That(summon.Passive, Is.Null);
         }
 
@@ -257,7 +257,7 @@ namespace Brushblade.Core.Tests
             Assert.That(sui.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
             Assert.That(sui.TargetAll, Is.False);
             Assert.That(graph.Get("熣").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(16), "16 是带致盲后的平衡值,原值 21");
+                Is.EqualTo(160), "160 是带致盲后的平衡值,原值 210");
 
             var yan = graph.Get("烟").Effects.First(e => e.Kind == EffectKind.Blind);
             Assert.That(yan.Value, Is.EqualTo(30));
@@ -281,7 +281,7 @@ namespace Brushblade.Core.Tests
         {
             var graph = RealGraph();
             var duo = graph.Get("剁").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(duo.Value, Is.EqualTo(10));
+            Assert.That(duo.Value, Is.EqualTo(100));
             Assert.That(duo.HitCount, Is.EqualTo(2));
         }
 
@@ -290,8 +290,8 @@ namespace Brushblade.Core.Tests
         {
             var graph = RealGraph();
             var summon = graph.Get("柳").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(summon.Value, Is.EqualTo(8));
-            Assert.That(summon.SummonAttack, Is.EqualTo(3));
+            Assert.That(summon.Value, Is.EqualTo(80));
+            Assert.That(summon.SummonAttack, Is.EqualTo(30));
             Assert.That(summon.Passive, Is.Not.Null);
             Assert.That(summon.Passive.Dodge, Is.EqualTo(50));
         }
@@ -323,8 +323,8 @@ namespace Brushblade.Core.Tests
             {
                 EffectKind.BurnSingle, EffectKind.BurnPotency, EffectKind.BurnSettleNow,
             }), "顺序错了立即结算就吃不到自己抬的系数");
-            Assert.That(effects[0].Value, Is.EqualTo(2));
-            Assert.That(effects[1].Value, Is.EqualTo(1));
+            Assert.That(effects[0].Value, Is.EqualTo(2));   // 层数,不吃 ×10
+            Assert.That(effects[1].Value, Is.EqualTo(10));  // 灼烧系数,吃 ×10
         }
 
         [Test]

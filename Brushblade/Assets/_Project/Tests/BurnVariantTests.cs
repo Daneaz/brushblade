@@ -17,9 +17,9 @@ namespace Brushblade.Core.Tests
             // 隔离施加时的生克——灼烧只在结算时吃克制,施加这一步不该被生克污染测试
             new CharDef("燃", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 4) }),
-            // 炽:灼烧系数 +1(与真实字表的 炽 同配置)
+            // 炽:灼烧系数 +10(与真实字表的 炽 同配置;2026-08-12 随全表量级 ×10)
             new CharDef("炽", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.BurnPotency, 1) }),
+                effects: new[] { new EffectDef(EffectKind.BurnPotency, 10) }),
             // 燋:2 层 + 不灭(炑 的等价配置)
             new CharDef("燋", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 2),
@@ -32,10 +32,10 @@ namespace Brushblade.Core.Tests
             // 不灭的 Polarity 必须是 Debuff,否则会被这张字清掉
             new CharDef("驱", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Dispel, -1) }),
-            // 熇:2 层 + 系数 +1 + 立即结算(燥 的等价配置,效果顺序即结算顺序)
+            // 熇:2 层 + 系数 +10 + 立即结算(燥 的等价配置,效果顺序即结算顺序)
             new CharDef("熇", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 2),
-                                 new EffectDef(EffectKind.BurnPotency, 1),
+                                 new EffectDef(EffectKind.BurnPotency, 10),
                                  new EffectDef(EffectKind.BurnSettleNow, 0) }),
             // 熯:只有立即结算,不带灼烧也不带系数(用来单独验结算逻辑)
             new CharDef("熯", Element.Heart,
@@ -64,10 +64,10 @@ namespace Brushblade.Core.Tests
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
             BattleConfig config = null, int seed = 1) =>
-            new(Graph(), config ?? new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200 },
+            new(Graph(), config ?? new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 2000 },
                 library, Array.Empty<string>(), enemies, seed);
 
-        private static EnemyDef Dummy(int hp = 300, int attack = 0) =>
+        private static EnemyDef Dummy(int hp = 3000, int attack = 0) =>
             new("靶", Element.Heart, hp, attack);
 
         // ---- 灼烧结算的基线(重构守卫)----
@@ -80,12 +80,12 @@ namespace Brushblade.Core.Tests
             int before = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8), "4 层 × 系数 2 = 8");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 80), "4 层 × 系数 20 = 80");
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
                 "结算后减一层");
 
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8 - 6), "3 层 × 2 = 6");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 80 - 60), "3 层 × 20 = 60");
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
         }
 
@@ -122,33 +122,34 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Burn_RespectsKeMultiplier_NotShengMultiplier()
         {
-            // 火克金 ×1.5:4 层 × 2 × 1.5 = 12。用金属性靶子才测得出克制,
+            // 火克金 ×1.5:4 层 × 20 × 1.5 = 120。用金属性靶子才测得出克制,
             // 心属性对全属性都是 1.0x(子项目 D 的教训:同属性对同属性也是 1.0,同样测不出来)
-            var engine = Engine(new[] { "燃" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            var engine = Engine(new[] { "燃" }, new[] { new EnemyDef("锈", Element.Metal, 3000, 0) });
             engine.Cast("燃", 0);
             int before = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 12), "4 × 2 × 1.5(火克金)");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 120), "4 × 20 × 1.5(火克金)");
         }
 
         [Test]
         public void Burn_UsesCurrentBurnPerStack_AndFloors_NotRounds()
         {
             // 评审 Minor 2:炽 在 fixture 里定义了但基线一条都没 Cast 过它,于是
-            // _burnPerStack 写死成 2、Math.Floor 换成 Math.Round 都测不出来。炽 把系数从
-            // 基础 2 抬到 3;3 层 × 3 × 1.5(金)= 13.5 —— floor 给 13,Math.Round 的
-            // 银行家舍入会把 13.5 舍到偶数 14,两者在这里可分辨。
-            var engine = Engine(new[] { "燃", "炽" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            // _burnPerStack 写死成 20 都测不出来。炽 把系数从基础 20 抬到 30。
+            // ⚠ 2026-08-12(全表 ×10)这条对 floor / Math.Round 的判别力**已经失效**:
+            // 系数恒为 10 的倍数,乘 1.5 / 0.5 永远落在整数上,造不出半整数。
+            // floor 的判别力移交 AttackStatTests.BurnTick_FloorsFractionalAttackScaling
+            // (那条走 ATK 分数路径,是 ×10 之后唯一还能造出小数的入口)。
+            var engine = Engine(new[] { "燃", "炽" }, new[] { new EnemyDef("锈", Element.Metal, 3000, 0) });
             engine.Cast("燃", 0); // 4 层
             int before = engine.Enemies[0].Hp;
 
-            engine.EndTurn(); // 系数仍是基础 2:4 × 2 × 1.5 = 12,层数减到 3
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 12));
+            engine.EndTurn(); // 系数仍是基础 20:4 × 20 × 1.5 = 120,层数减到 3
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 120));
 
-            engine.Cast("炽"); // 系数 2 → 3(全局字段,不需要选目标)
-            engine.EndTurn(); // 3 × 3 × 1.5 = 13.5 → floor 13
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 12 - 13),
-                "floor(13.5) = 13;若用 Math.Round 会是 14");
+            engine.Cast("炽"); // 系数 20 → 30(全局字段,不需要选目标)
+            engine.EndTurn(); // 3 × 30 × 1.5 = 135
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 120 - 135));
         }
 
         [Test]
@@ -167,7 +168,7 @@ namespace Brushblade.Core.Tests
             // 评审 Important 1:Alive/Phase 两条断言都不经过 ResolveDefeat——它只发
             // EnemyDied 事件、不碰 Phase(Phase 由外层 CheckWin() 单独决定)。补事件断言
             // 才堵住「漏调 ResolveDefeat」这个洞:死亡动画/掉落飘字全靠这条事件驱动。
-            var engine = Engine(new[] { "燃" }, new[] { Dummy(hp: 6) });
+            var engine = Engine(new[] { "燃" }, new[] { Dummy(hp: 60) });
             engine.Cast("燃", 0);
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Alive, Is.False);
@@ -183,7 +184,7 @@ namespace Brushblade.Core.Tests
             // 评审 Minor 1:守卫「!enemy.Alive return」原来零覆盖。0 号被烧死后,
             // 灼烧状态条目还挂着(层数从 4 减到 3,>0 不会被移除)——若没有这道守卫,
             // 下一回合会对着尸体再结算一次,多发一条 BurnTick、多杀一次。
-            var engine = Engine(new[] { "燃" }, new[] { Dummy(hp: 6), Dummy() });
+            var engine = Engine(new[] { "燃" }, new[] { Dummy(hp: 60), Dummy() });
             engine.Cast("燃", 0);
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Alive, Is.False);
@@ -197,24 +198,24 @@ namespace Brushblade.Core.Tests
         public void Burn_CrossingPhaseThreshold_EmitsBossPhase()
         {
             // 评审 Important 2:CheckBossPhase 分支原来零覆盖,而 Task 4(引爆)恰恰最容易
-            // 一击连跨多阶。两阶 Boss,总血 13(3+10);灼烧一击 8 点打到 5,
-            // ≤ 下一阶预算 10 就该换阶。BossPhaseJitterPercent 归零去掉随机浮动,阈值才可推算。
+            // 一击连跨多阶。两阶 Boss,总血 130(30+100);灼烧一击 80 点打到 50,
+            // ≤ 下一阶预算 100 就该换阶。BossPhaseJitterPercent 归零去掉随机浮动,阈值才可推算。
             var boss = new EnemyDef("靶", Element.Heart, 0, 0, phases: new[]
             {
-                new BossPhaseDef("靶一阶", Element.Heart, 3, 0),
-                new BossPhaseDef("靶二阶", Element.Heart, 10, 0),
+                new BossPhaseDef("靶一阶", Element.Heart, 30, 0),
+                new BossPhaseDef("靶二阶", Element.Heart, 100, 0),
             });
             var config = new BattleConfig
             {
-                DropTable = new[] { "木" }, PlayerMaxHp = 200, BossPhaseJitterPercent = 0,
+                DropTable = new[] { "木" }, PlayerMaxHp = 2000, BossPhaseJitterPercent = 0,
             };
             var engine = Engine(new[] { "燃" }, new[] { boss }, config);
 
-            engine.Cast("燃", 0); // 4 层,心属性无生克:tick = 4 × 2 = 8
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(13), "总血 = 3 + 10");
+            engine.Cast("燃", 0); // 4 层,心属性无生克:tick = 4 × 20 = 80
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(130), "总血 = 30 + 100");
 
-            engine.EndTurn(); // 13 − 8 = 5,≤ 10(下一阶预算)→ 换阶
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(5));
+            engine.EndTurn(); // 130 − 80 = 50,≤ 100(下一阶预算)→ 换阶
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(50));
             Assert.That(engine.Enemies[0].Alive, Is.True);
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossPhase), Is.True,
                 "灼烧把 Boss 血量打过阶段阈值时要换阶,否则 Boss 停在旧阶段属性上继续挨打");
@@ -238,22 +239,22 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
                 "不灭:结算后层数不掉");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4), "2 层 × 2");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 40), "2 层 × 2");
 
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8), "第二回合照样 2 层 × 2");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 80), "第二回合照样 2 层 × 20");
         }
 
         [Test]
         public void NoDecay_DoesNotChangeTickFormula()
         {
             // 不灭只挡减层,不碰伤害算式。用金属性靶子确认克制仍然生效
-            var engine = Engine(new[] { "燋" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            var engine = Engine(new[] { "燋" }, new[] { new EnemyDef("锈", Element.Metal, 3000, 0) });
             engine.Cast("燋", 0);
             int before = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 6), "2 × 2 × 1.5(火克金)");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 60), "2 × 20 × 1.5(火克金)");
         }
 
         [Test]
@@ -281,7 +282,7 @@ namespace Brushblade.Core.Tests
             var restored = BattleEngine.Restore(
                 engine.Capture(),
                 Graph(),
-                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200 },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 2000 },
                 new Dictionary<string, int>(),
                 new Dictionary<string, EnemyDef> { ["靶"] = Dummy() });
 
@@ -290,7 +291,7 @@ namespace Brushblade.Core.Tests
             restored.EndTurn();
             Assert.That(restored.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
                 "读档回来仍然不衰减");
-            Assert.That(restored.Enemies[0].Hp, Is.EqualTo(before - 4));
+            Assert.That(restored.Enemies[0].Hp, Is.EqualTo(before - 40));
         }
 
         [Test]
@@ -310,7 +311,7 @@ namespace Brushblade.Core.Tests
             //   RefreshBurn(_playerStatuses, 1) 把玩家灼烧从 0 刷新回 1。
             //   → 断言 2:玩家灼烧仍是 1(先掉到 0 又被灯花补上,不是「因为敌人不灭而堆积」)。
             var engine = Engine(new[] { "燋" },
-                new[] { new EnemyDef("灯", Element.Heart, 300, 0, EnemyAbility.Sear) });
+                new[] { new EnemyDef("灯", Element.Heart, 3000, 0, EnemyAbility.Sear) });
             engine.Cast("燋", 0);
             engine.EndTurn();                       // 灯花出手 → 玩家挂 1 层
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
@@ -330,7 +331,7 @@ namespace Brushblade.Core.Tests
             // 这里让灯花闭嘴,不再有人刷新玩家灼烧,才能看清「层数会不会正常掉到 0」
             // 这件独立于灯花的事——如果不灭错误地也挡住了玩家灼烧的衰减,这里会停在 1。
             var engine = Engine(new[] { "燋", "噤" },
-                new[] { new EnemyDef("灯", Element.Heart, 300, 0, EnemyAbility.Sear) });
+                new[] { new EnemyDef("灯", Element.Heart, 3000, 0, EnemyAbility.Sear) });
             engine.Cast("燋", 0);                    // 敌人挂 2 层灼烧 + 不灭
             engine.EndTurn();                        // 灯花出手 → 玩家挂 1 层
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
@@ -359,7 +360,7 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
                 "驱散之后不灭仍生效,层数照样不掉");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 40));
         }
 
         [Test]
@@ -388,19 +389,19 @@ namespace Brushblade.Core.Tests
             // 规格 §4.2 标成爆发链根的不灭就失去了「只延长一次」的边界
             var boss = new EnemyDef("靶", Element.Heart, 0, 0, phases: new[]
             {
-                new BossPhaseDef("靶一阶", Element.Heart, 3, 0),
-                new BossPhaseDef("靶二阶", Element.Heart, 10, 0),
+                new BossPhaseDef("靶一阶", Element.Heart, 30, 0),
+                new BossPhaseDef("靶二阶", Element.Heart, 100, 0),
             });
             var config = new BattleConfig
             {
-                DropTable = new[] { "木" }, PlayerMaxHp = 200, BossPhaseJitterPercent = 0,
+                DropTable = new[] { "木" }, PlayerMaxHp = 2000, BossPhaseJitterPercent = 0,
             };
             var engine = Engine(new[] { "燋", "燃" }, new[] { boss }, config);
 
-            engine.Cast("燋", 0); // 2 层 + 不灭;心属性无生克:tick = 2 × 2 = 4
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(13), "总血 = 3 + 10");
+            engine.Cast("燋", 0); // 2 层 + 不灭;心属性无生克:tick = 2 × 20 = 40
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(130), "总血 = 30 + 100");
 
-            engine.EndTurn(); // 13 − 4 = 9,≤ 10(下一阶预算)→ 换阶,旧灼烧 + 不灭一起清零
+            engine.EndTurn(); // 130 − 40 = 90,≤ 100(下一阶预算)→ 换阶,旧灼烧 + 不灭一起清零
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossPhase), Is.True,
                 "先确认真的换阶了,不然下面的断言没有意义");
             Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.False,
@@ -408,7 +409,7 @@ namespace Brushblade.Core.Tests
 
             // 新一阶重新挂一次纯灼烧(不带不灭),验证衰减恢复正常——不是被旧不灭悄悄续上
             engine.Cast("燃", 0); // 4 层
-            engine.EndTurn(); // tick = 4 × 2 = 8(心属性无生克),层数正常 −1
+            engine.EndTurn(); // tick = 4 × 20 = 80(心属性无生克),层数正常 −1
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
                 "新一阶的灼烧照常衰减一层,没有被旧不灭续上");
         }
@@ -422,7 +423,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("燃", 0);                    // 4 层
             int before = engine.Enemies[0].Hp;
             engine.Cast("熯", 0);                    // 立即结算一次
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8), "4 层 × 2,当场掉血");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 80), "4 层 × 20,当场掉血");
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
                 "立即结算照常减一层");
         }
@@ -434,7 +435,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "熇" }, new[] { Dummy() });
             int before = engine.Enemies[0].Hp;
             engine.Cast("熇", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 6),
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 60),
                 "2 层 × 系数 3(同一张牌抬的系数,立即结算就吃到了)");
         }
 
@@ -466,7 +467,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("燋", 0);                    // 2 层 + 不灭
             int before = engine.Enemies[0].Hp;
             engine.Cast("熯", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4), "2 层 × 2");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 40), "2 层 × 2");
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
                 "不灭之下立即结算也不掉层");
         }
@@ -515,7 +516,7 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0), "0 号没被点中,不该被扣血");
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4),
                 "0 号没被点中,层数也不该动——若立即结算被写成全体,这里会掉到 3");
-            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 8), "1 号 4 层 × 2 当场掉血");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 80), "1 号 4 层 × 20 当场掉血");
             var ticks = engine.LastEvents.Where(e => e.Kind == BattleEventKind.BurnTick).ToList();
             Assert.That(ticks.Count, Is.EqualTo(1));
             Assert.That(ticks[0].TargetIndex, Is.EqualTo(1), "事件要带对目标下标,不能写死成 0");
@@ -524,7 +525,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SettleNow_CanKillAndWin()
         {
-            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy(hp: 8) });
+            var engine = Engine(new[] { "燃", "熯" }, new[] { Dummy(hp: 80) });
             engine.Cast("燃", 0);
             engine.Cast("熯", 0);
             Assert.That(engine.Enemies[0].Alive, Is.False);
@@ -542,12 +543,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Detonate_DealsFullRemainingBurnDamage()
         {
-            // 4 层正常烧完 = (4+3+2+1) × 2 = 20;引爆一次性打完
+            // 4 层正常烧完 = (4+3+2+1) × 20 = 200;引爆一次性打完
             var engine = Engine(new[] { "燃", "煸" }, new[] { Dummy() });
             engine.Cast("燃", 0);
             int before = engine.Enemies[0].Hp;
             engine.Cast("煸", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 20), "4×5/2 × 系数 2 = 20");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 200), "4×5/2 × 系数 20 = 200");
         }
 
         [Test]
@@ -563,35 +564,35 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Detonate_SelfSuppliedStacksParticipate()
         {
-            // 焌 自带 4 层,对空白目标也有 20 伤地板(紫档单攻上沿)
+            // 焌 自带 4 层,对空白目标也有 200 伤地板(紫档单攻上沿)
             var engine = Engine(new[] { "焌" }, new[] { Dummy() });
             int before = engine.Enemies[0].Hp;
             engine.Cast("焌", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 20),
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 200),
                 "自带 4 层先加、再引爆——结算顺序即数组顺序");
         }
 
         [Test]
         public void Detonate_StacksOnTopOfExistingBurn()
         {
-            // 目标已有 4 层,焌 再加 4 层 = 8 层 → 8×9/2 × 2 = 72
+            // 目标已有 4 层,焌 再加 4 层 = 8 层 → 8×9/2 × 20 = 720
             var engine = Engine(new[] { "燃", "焌" }, new[] { Dummy() });
             engine.Cast("燃", 0);
             int before = engine.Enemies[0].Hp;
             engine.Cast("焌", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 72), "8×9/2 × 2 = 72");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 720), "8×9/2 × 20 = 720");
         }
 
         [Test]
         public void Detonate_RespectsKeMultiplier_NotShengMultiplier()
         {
-            // 火克金 ×1.5:4 层引爆 = floor(4×5/2 × 2 × 1.5) = 30。
+            // 火克金 ×1.5:4 层引爆 = floor(4×5/2 × 20 × 1.5) = 300。
             // 必须用金属性靶子——心属性与同属性对同属性都是 1.0x,测不出来(子项目 D 的教训)
-            var engine = Engine(new[] { "燃", "煸" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            var engine = Engine(new[] { "燃", "煸" }, new[] { new EnemyDef("锈", Element.Metal, 3000, 0) });
             engine.Cast("燃", 0);
             int before = engine.Enemies[0].Hp;
             engine.Cast("煸", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 30));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 300));
         }
 
         [Test]
@@ -599,10 +600,10 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine(new[] { "燃", "炽", "煸" }, new[] { Dummy() });
             engine.Cast("燃", 0);
-            engine.Cast("炽");                       // 系数 2 → 3
+            engine.Cast("炽");                       // 系数 20 → 30
             int before = engine.Enemies[0].Hp;
             engine.Cast("煸", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 30), "4×5/2 × 3 = 30");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 300), "4×5/2 × 30 = 300");
         }
 
         [Test]
@@ -623,13 +624,13 @@ namespace Brushblade.Core.Tests
             engine.Cast("煸", 0);
             var ev = engine.LastEvents.First(e => e.Kind == BattleEventKind.Detonate);
             Assert.That(ev.TargetIndex, Is.EqualTo(0));
-            Assert.That(ev.Amount, Is.EqualTo(20), "表现层靠 Amount 决定震屏强度");
+            Assert.That(ev.Amount, Is.EqualTo(200), "表现层靠 Amount 决定震屏强度");
         }
 
         [Test]
         public void Detonate_KillingLastEnemy_WinsTheBattle()
         {
-            var engine = Engine(new[] { "燃", "煸" }, new[] { Dummy(hp: 20) });
+            var engine = Engine(new[] { "燃", "煸" }, new[] { Dummy(hp: 200) });
             engine.Cast("燃", 0);
             engine.Cast("煸", 0);
             Assert.That(engine.Enemies[0].Alive, Is.False);
@@ -681,19 +682,18 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Detonate_FloorsFractionalDamage_NotRounds()
         {
-            // 评审 Important 2:SettleBurnOn 的同款 Math.Floor 有 Burn_UsesCurrentBurnPerStack_
-            // AndFloors_NotRounds 守着,但引爆这边此前 13 条测试的 N(N+1)/2 × 系数 全部凑巧是
-            // 偶数,乘 1.5 永远整除,Math.Floor 从没真正生效过——统一取整口径时这条会静默漏改。
-            // 2 层 × 系数 3 × 1.5(火克金) = 2×3/2 × 3 × 1.5 = 13.5 → 向下取整 13,
-            // Math.Round/Ceiling 会给 14,在这里可分辨。
-            var engine = Engine(new[] { "燋", "炽", "煸" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            // ⚠ 2026-08-12(全表 ×10):这条原本靠 2×3/2 × 3 × 1.5 = 13.5 分辨 floor 与 round,
+            // 量级抬高后系数恒为 10 的倍数,乘 1.5 永远落在整数上,判别力**已经失效**。
+            // 引爆侧 floor 的判别力移交 AttackStatTests 的 ATK 分数路径
+            // (BurnTick_FloorsFractionalAttackScaling / HigherAttack_ScalesDetonate)。
+            var engine = Engine(new[] { "燋", "炽", "煸" }, new[] { new EnemyDef("锈", Element.Metal, 3000, 0) });
             engine.Cast("燋", 0);   // 2 层(带 BurnNoDecay,但引爆的层数取自当前 Magnitude,
                                     // 不受衰减挡板影响,这里不干扰算式)
-            engine.Cast("炽");      // 系数 2 → 3(全局字段,不需要选目标)
+            engine.Cast("炽");      // 系数 20 → 30(全局字段,不需要选目标)
             int before = engine.Enemies[0].Hp;
             engine.Cast("煸", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 13),
-                "floor(13.5) = 13;若用 Math.Round/Ceiling 会是 14");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 135),
+                "2×3/2 × 30 × 1.5(火克金) = 135");
         }
 
         [Test]
@@ -704,11 +704,11 @@ namespace Brushblade.Core.Tests
             // 承伤 0.5 的敌人身上引爆总伤会变成慢烧总量的一半,当场破坏这条设计承诺。
             // 4 层引爆 = floor(4×5/2 × 2 × 1.0) = 20,承伤系数 0.5 不应该参与这个算式。
             var engine = Engine(new[] { "燃", "煸" },
-                new[] { new EnemyDef("墨", Element.Heart, 300, 0, damageTaken: 0.5f) });
+                new[] { new EnemyDef("墨", Element.Heart, 3000, 0, damageTaken: 0.5f) });
             engine.Cast("燃", 0);
             int before = engine.Enemies[0].Hp;
             engine.Cast("煸", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 20),
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 200),
                 "承伤系数不该参与引爆算式,若误走 DamageEnemy 会变成 10");
         }
 
@@ -717,36 +717,36 @@ namespace Brushblade.Core.Tests
         {
             // 简报点名的 2.0→2 变异兜底:奇数层(3)+ 非整数克制系数(1.5)一起入算。
             // 3×4/2 × 2 × 1.5 = 18
-            var engine = Engine(new[] { "灸", "煸" }, new[] { new EnemyDef("锈", Element.Metal, 300, 0) });
+            var engine = Engine(new[] { "灸", "煸" }, new[] { new EnemyDef("锈", Element.Metal, 3000, 0) });
             engine.Cast("灸", 0); // 3 层
             int before = engine.Enemies[0].Hp;
             engine.Cast("煸", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 18), "3×4/2 × 2 × 1.5(火克金) = 18");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 180), "3×4/2 × 20 × 1.5(火克金) = 180");
         }
 
         [Test]
         public void Detonate_WithinPlayerTurn_CanCrossMultipleBossPhases()
         {
             // 上游交接:SettleBurnOn 里的 CheckBossPhase 此前只有 EndTurn 路径的测试守着。
-            // 引爆一击掉大量血,最容易连跨多阶——三阶 Boss,总血 58(3+5+50)。
+            // 引爆一击掉大量血,最容易连跨多阶——三阶 Boss,总血 580(30+50+500)。
             // 焌 自带 4 层 + 引爆,Heart 属性无生克:floor(4×5/2 × 2 × 1.0) = 20。
             // 58 − 20 = 38:第一阶阈值 55(≥38 触发换阶)、第二阶阈值 50(38 仍 ≤,再换一阶),
             // 第三阶(最后一阶)不再有阈值可比,循环停在阶段下标 2 —— 一次 Cast 连跨两阶。
             var boss = new EnemyDef("靶", Element.Heart, 0, 0, phases: new[]
             {
-                new BossPhaseDef("靶一阶", Element.Heart, 3, 0),
-                new BossPhaseDef("靶二阶", Element.Heart, 5, 0),
-                new BossPhaseDef("靶三阶", Element.Heart, 50, 0),
+                new BossPhaseDef("靶一阶", Element.Heart, 30, 0),
+                new BossPhaseDef("靶二阶", Element.Heart, 50, 0),
+                new BossPhaseDef("靶三阶", Element.Heart, 500, 0),
             });
             var config = new BattleConfig
             {
-                DropTable = new[] { "木" }, PlayerMaxHp = 200, BossPhaseJitterPercent = 0,
+                DropTable = new[] { "木" }, PlayerMaxHp = 2000, BossPhaseJitterPercent = 0,
             };
             var engine = Engine(new[] { "焌" }, new[] { boss }, config);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(58), "总血 = 3 + 5 + 50");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(580), "总血 = 30 + 50 + 500");
 
             engine.Cast("焌", 0); // 玩家回合内,不经过 EndTurn
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(38));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(380));
             Assert.That(engine.Enemies[0].Alive, Is.True);
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn),
                 "全程没调用 EndTurn,应仍停在玩家回合");
@@ -764,7 +764,7 @@ namespace Brushblade.Core.Tests
             // 打死目标,Cast 入口只在**进入时**校验过一次存活,同一张牌后续的 Detonate
             // 效果仍会跑到,必须靠 Detonate 自己的 !enemy.Alive 守卫挡住,否则会对着
             // 尸体重复调用 ResolveDefeat、多发一条 EnemyDied,还多出一条虚假的引爆事件
-            var engine = Engine(new[] { "殒" }, new[] { Dummy(hp: 8) });
+            var engine = Engine(new[] { "殒" }, new[] { Dummy(hp: 80) });
             engine.Cast("殒", 0); // 4 层 × 系数 2 = 8,刚好把靶子(HP 8)烧死在立即结算这一步
             Assert.That(engine.Enemies[0].Alive, Is.False);
             Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyDied),
@@ -787,7 +787,7 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0), "0 号没被点中,不该扣血");
             Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Burn), Is.False,
                 "0 号没被点中,不该带上灼烧");
-            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 20), "1 号 4×5/2 × 2 = 20");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 200), "1 号 4×5/2 × 20 = 200");
 
             var ev = engine.LastEvents.First(e => e.Kind == BattleEventKind.Detonate);
             Assert.That(ev.TargetIndex, Is.EqualTo(1), "事件下标不能写死成 0");
@@ -798,11 +798,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void BurstChain_FourCards_DealsExpectedTotal()
         {
-            // 燃(4 层)→ 燋(+2 且不灭)→ 熇(+2、系数→3、立即结算)→ 焌(+4、引爆)
+            // 燃(4 层)→ 燋(+2 且不灭)→ 熇(+2、系数→30、立即结算)→ 焌(+4、引爆)
             // 逐段断言,不要只断最终血量:只断总数的话,「层数算多了但系数算少了」
             // 这类互相抵消的错会蒙混过关
-            var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = 10 };
-            var engine = Engine(new[] { "燃", "燋", "熇", "焌" }, new[] { Dummy(hp: 1000) }, config);
+            var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 2000, ApPerTurn = 10 };
+            var engine = Engine(new[] { "燃", "燋", "熇", "焌" }, new[] { Dummy(hp: 10000) }, config);
             var enemy = engine.Enemies[0];
 
             engine.Cast("燃", 0);
@@ -816,11 +816,11 @@ namespace Brushblade.Core.Tests
             engine.Cast("熇", 0);
             Assert.That(enemy.Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(8),
                 "8 层:6 + 熇 的 2,且不灭之下立即结算不掉层");
-            Assert.That(enemy.Hp, Is.EqualTo(beforeSettle - 24), "立即结算 8 层 × 系数 3");
+            Assert.That(enemy.Hp, Is.EqualTo(beforeSettle - 240), "立即结算 8 层 × 系数 30");
 
             int beforeDetonate = enemy.Hp;
             engine.Cast("焌", 0);
-            Assert.That(enemy.Hp, Is.EqualTo(beforeDetonate - 234), "12 层 → 12×13/2 × 3 = 234");
+            Assert.That(enemy.Hp, Is.EqualTo(beforeDetonate - 2340), "12 层 → 12×13/2 × 30 = 2340");
 
             Assert.That(enemy.Statuses.Has(StatusKind.Burn), Is.False, "引爆后清空");
         }

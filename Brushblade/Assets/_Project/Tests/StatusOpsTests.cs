@@ -133,14 +133,16 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlayerBurn_TicksThenDecays_AndIgnoresWuxing()
         {
-            // 玩家没有五行属性,灼烧结算不套任何倍率:1 层 × 系数 2 = 2 伤。
-            // 灯花攻 3 → 挂灼烧那一记也打 3。第一回合:挨 3(灼烧还没结算)。
-            // 第二回合:先结算 1 层灼烧掉 2、层数降到 0,再挨 3、再挂 1 层。
-            var engine = Engine(Array.Empty<string>(), new[] { Searer() });
+            // 玩家没有五行属性,灼烧结算不套任何倍率:1 层 × 系数 20 = 20 伤。
+            // 灯花攻 30 → 挂灼烧那一记也打 30。第一回合:挨 30(灼烧还没结算)。
+            // 第二回合:先结算 1 层灼烧掉 20、层数降到 0,再挨 30、再挂 1 层。
+            // 灯花攻与玩家血量在这一条里随灼烧系数一同 ×10,断言才是旧值的机械 ×10。
+            var engine = Engine(Array.Empty<string>(), new[] { Searer(attack: 30) },
+                config: new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 500 });
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(47), "第 1 回合只挨普攻 3");
+            Assert.That(engine.PlayerHp, Is.EqualTo(470), "第 1 回合只挨普攻 30");
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(42), "第 2 回合:灼烧 2 + 普攻 3");
+            Assert.That(engine.PlayerHp, Is.EqualTo(420), "第 2 回合:灼烧 20 + 普攻 30");
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
                 "结算 −1 层、攻击 +1 层,净 0");
         }

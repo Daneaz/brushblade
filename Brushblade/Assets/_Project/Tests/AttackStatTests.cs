@@ -33,7 +33,7 @@ namespace Brushblade.CoreTests
             new CharDef("壬", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
             new CharDef("癸", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.BurnPotency, 4) }),
+                effects: new[] { new EffectDef(EffectKind.BurnPotency, 40) }), // 随全表量级 ×10
             new CharDef("子", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Reflect, 30, turns: 2) }),
             new CharDef("丑", Element.Heart,
@@ -224,11 +224,12 @@ namespace Brushblade.CoreTests
         public void BaselineAttack_LeavesBurnTickIdentical()
         {
             // 恒等性硬线在灼烧这条链上的对应物。
-            // 3 层 × 每层 2 = 6,与引入攻击力之前一致
+            // 3 层 × 每层 20 = 60,与引入攻击力之前一致
+            // (⚠ 靶子血量 500 是本夹具的合成常量,不随全表 ×10;变的只是伤害差)
             var engine = Battle(BattleConfig.AttackBaseline, "辛");
             engine.Cast("辛", 0);
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 6));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 60));
         }
 
         [Test]
@@ -237,7 +238,7 @@ namespace Brushblade.CoreTests
             var engine = Battle(150, "辛");
             engine.Cast("辛", 0);
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 9), "floor(3 × 2 × 1.5) = 9");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 90), "floor(3 × 20 × 1.5) = 90");
         }
 
         [Test]
@@ -250,7 +251,23 @@ namespace Brushblade.CoreTests
             engine.Cast("辛", 0);
             engine.ApplyPlayerAttackBuff(50);
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 9), "已挂的层吃新攻击力");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 90), "已挂的层吃新攻击力");
+        }
+
+        /// <summary>灼烧结算的 <c>Math.Floor</c> 守卫(2026-08-12 从 BurnVariantTests 迁来)。
+        ///
+        /// 全表量级 ×10 之后 _burnPerStack 恒为 10 的倍数,生克的 ×1.5 / ×0.5 再也造不出小数,
+        /// BurnVariantTests 里原来那两条靠 13.5 分辨 floor / round 的用例**判别力归零**。
+        /// ATK 是唯一还能造出分数的入口:ATK 133 → 3 × 20 × 1.33 = 79.8,
+        /// floor 给 79,Math.Round 给 80,两者在这里可分辨。</summary>
+        [Test]
+        public void BurnTick_FloorsFractionalAttackScaling()
+        {
+            var engine = Battle(133, "辛");
+            engine.Cast("辛", 0);
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 79),
+                "floor(79.8) = 79;若用 Math.Round 会是 80");
         }
 
         [Test]
@@ -268,11 +285,11 @@ namespace Brushblade.CoreTests
         public void HigherAttack_ScalesDetonate()
         {
             // 引爆 = N(N+1)/2 × 每层伤害,同口径吃攻击力。
-            // 3 层:3×4/2 = 6 → 6 × 2 = 12 → ×1.5 = 18
+            // 3 层:3×4/2 = 6 → 6 × 20 = 120 → ×1.5 = 180
             var engine = Battle(150, "辛", "壬");
             engine.Cast("辛", 0);
             engine.Cast("壬", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 18));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 180));
         }
 
         // ---- 负向补齐(E-b1 终审 M1):增益/控制类的量一律不吃 ATK ----
@@ -287,7 +304,7 @@ namespace Brushblade.CoreTests
             baseline.Cast("癸");
             var buffed = Battle(150, "癸");
             buffed.Cast("癸");
-            Assert.That(buffed.Capture().BurnPerStack, Is.EqualTo(2 + 4),
+            Assert.That(buffed.Capture().BurnPerStack, Is.EqualTo(20 + 40),
                 "炽的每层加成是乘数不是输出,不吃攻击力");
             Assert.That(buffed.Capture().BurnPerStack,
                 Is.EqualTo(baseline.Capture().BurnPerStack), "与 ATK=100 时完全相同");
@@ -296,14 +313,14 @@ namespace Brushblade.CoreTests
         [Test]
         public void BurnPotency_DoesNotCompoundWithAttackOnBurnTick()
         {
-            // 上一条的端到端对照:炽 +4 → 每层 6,3 层在 ATK=150 下结算。
-            // floor(3 × 6 × 1.5) = 27 是**线性**结果;若炽也吃了 ATK(每层变 2+6=8),
-            // 这里会是 floor(3 × 8 × 1.5) = 36 —— 差额就是那一层平方。
+            // 上一条的端到端对照:炽 +40 → 每层 60,3 层在 ATK=150 下结算。
+            // floor(3 × 60 × 1.5) = 270 是**线性**结果;若炽也吃了 ATK(每层变 20+60=80),
+            // 这里会是 floor(3 × 80 × 1.5) = 360 —— 差额就是那一层平方。
             var engine = Battle(150, "癸", "辛");
             engine.Cast("癸");
             engine.Cast("辛", 0);
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 27), "只乘一次 ATK,不平方");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 270), "只乘一次 ATK,不平方");
         }
 
         [Test]

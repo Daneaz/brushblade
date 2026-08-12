@@ -77,8 +77,8 @@ namespace Brushblade.CoreTests
             engine.Cast("辛", 0);
             engine.Cast("剡");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 9),
-                "floor(3 层 × 每层 2 × 1.5) = 9,已挂的层吃新攻击力");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 90),
+                "floor(3 层 × 每层 20 × 1.5) = 90,已挂的层吃新攻击力");
         }
 
         [Test]
