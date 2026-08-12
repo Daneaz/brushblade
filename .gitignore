@@ -29,6 +29,12 @@ tools/balance/bin/
 tools/balance/obj/
 tools/prescompile/bin/
 tools/prescompile/obj/
+tools/trace/bin/
+tools/trace/obj/
+
+# 黄金轨迹产物(spec §10.2 明写不入 git:它是一次性的验收基线,
+# 校验和写进任务报告即可 —— 入库会随每次数值改动产生几 MB 的无意义 diff)
+tools/trace/out/
 
 # Unity(项目创建后按需补全 Library/Temp/Logs/obj 等)
 Brushblade/Library/
