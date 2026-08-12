@@ -179,9 +179,19 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Curse_IntegerMath_AvoidsFloatPrecisionLoss()
         {
-            // 25% 是唯一二进制精确的档位,原先的 float 版 (1 - curse/100f) 测不出精度损耗——
-            // 10%/30% 才会露馅:1 - 0.1f = 0.89999997,10 × 0.89999997 会 floor 到 8 而不是 9
-            // (2026-08-06 M1,改成整数算式 raw × (100 − curse) / 100 后精确)。
+            // ⚠ 2026-08-12 订正:这条测试原本用 10%/30%,是**纸老虎** —— 把实现改回
+            // float 版 (1 - curse/100f) 它照样绿。2026-08-06 M1 那条注释举的例子
+            // 「1 - 0.1f = 0.89999997,10 × 它会 floor 到 8」在 .NET 8 上不成立:
+            // 1 - 0.1f 落在 0.9f 上,10 × 0.9f 的乘法又舍回恰好 9.0f,整数/float/double
+            // 三者同为 9。30% 同理三者同为 7。
+            //
+            // 穷举出的真分歧点是**大 curse**:80% 时整数算式给 2,float 与 double 都给 1。
+            // 换成它,把 float 与 double 两种误写一并罩住。
+            Assert.That(CursedEnemy(10, 80, "诅咒").Attack, Is.EqualTo(2),
+                "整数 10×20/100 = 2;float/double 的 10×(1−0.8) 会 floor 到 1");
+            Assert.That(CursedEnemy(20, 80, "诅咒").Attack, Is.EqualTo(4),
+                "整数 20×20/100 = 4;浮点同样 floor 到 3");
+            // 保留两条不分歧的档位当回归基线:它们不证明整数算式必要,但证明它没算错
             Assert.That(CursedEnemy(10, 10, "诅咒").Attack, Is.EqualTo(9));  // 10 × 0.9 = 9
             Assert.That(CursedEnemy(10, 30, "诅咒").Attack, Is.EqualTo(7));  // 10 × 0.7 = 7
         }
