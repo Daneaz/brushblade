@@ -40,6 +40,9 @@ namespace Brushblade.Core
         CritBuff,         // 玩家暴击率加成(百分点,2026-08-12,锋)
         DefenseBuff,      // 玩家护甲加成(**点数**,2026-08-12,E-b4 T2):进 EffectiveDefense 的加数
         PierceBuff,       // 玩家穿透加成(点数,2026-08-12,E-b4 T2):进 EffectiveDefense 的减数,本场持续
+        DodgeBuff,        // 玩家闪避加成(**百分点**,2026-08-12,E-b4 T4):进 EffectiveDodge 的加数。
+                          // 序号 20 而非 spec §11.3 预留的 18 —— T2 的 DefenseBuff/PierceBuff 先合流,
+                          // 按「新值一律追加在末尾」顺延,锁值测试写的是实际值
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -58,7 +61,8 @@ namespace Brushblade.Core
     /// ApBoost=每回合 AP 上限加成(StartTurn 与 ApPerTurn 两侧都读它)、
     /// CritBuff=暴击率加成的百分点(EffectiveCrit 读它)、
     /// DefenseBuff=护甲**点数**(EffectivePlayerDefense 的加数)、
-    /// PierceBuff=穿透点数(EffectiveEnemyDefense 的减数)。
+    /// PierceBuff=穿透点数(EffectiveEnemyDefense 的减数)、
+    /// DodgeBuff=闪避加成的**百分点**(EffectiveDodge 读它;它是比值,量级 ×10 永不跟着乘)。
     ///
     /// ⚠ 护甲这一层的**变动量一律走状态**(2026-08-12,E-b4 §4.5.3):基础护甲是不可变属性
     /// (BattleConfig.PlayerDefense / EnemyState.Defense),增(DefenseBuff)、减(ArmorBreak)、
