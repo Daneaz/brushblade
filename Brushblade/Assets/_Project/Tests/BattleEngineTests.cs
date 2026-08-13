@@ -1180,19 +1180,13 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(950)); // 100 × 1.0(心) − 50 = 50
         }
 
-        /// <summary>护甲那条减法排在生克**之后**:木克土 ×1.5 先乘完,护甲最后减一次。
-        /// 反过来(先减 DEF 再乘生克)会得到 floor((100−30)×1.5) = 105,同一件护甲对不同
-        /// 属性的攻击者厚度不同,无从解释(spec §4.1)。</summary>
-        [Test]
-        public void Defense_SubtractsAfterElementMultiplier()
-        {
-            var engine = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0, defense: 30));
-            engine.Cast("斫"); // 木克土 ×1.5:floor(100 × 1.5) − 30 = 120
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(880));
-        }
-
         /// <summary>攻方被克(×0.5)时护甲照常只减一次,减的还是同一个 30 点 ——
-        /// 点数是平的,不随生克倍率伸缩(与上一条互为对照)。</summary>
+        /// 点数是平的,不随生克倍率伸缩。
+        ///
+        /// ⚠ 本条现在**独自**守着「护甲减法排在生克乘法之后」(spec §4.1):原先由
+        /// Defense_SubtractsAfterElementMultiplier(木克土,期望 880)从相克方向守,
+        /// 2026-08-13「相克即破甲」落地后相克方向根本没有护甲可减,那条随之删除。
+        /// 顺序搬错(先减 DEF 再乘生克)在这里会得到 floor((100−30)×0.5) = 35 而不是 20。</summary>
         [Test]
         public void Defense_IsFlat_WhenAttackerIsCountered()
         {
@@ -1203,14 +1197,16 @@ namespace Brushblade.Core.Tests
 
         // ---- 护甲与生克的关系(2026-08-12,E-b4 T3:替代旧的「减免遭克失效」补丁)----
 
-        /// <summary>**减法对乘法是透明的**(spec §4.3)。旧乘法层会按比例抽走克制的收益
-        /// (100×1.5×0.5 = 75,而无甲时 100×1.5 = 150),所以当年打了一条「减免遭克制失效」
-        /// 的补丁。点数制下那条补丁**不需要存在**:克制多打出来的 50 点原封不动落到血条上,
-        /// 与无甲时**完全相同**。
+        /// <summary>四点对照表:**中立照吃满护甲,相克完全不吃**(2026-08-13「相克即破甲」)。
         ///
-        /// 这条断言比它替代的两条更强:它守的是一条恒等式,而不是某个具体数字。</summary>
+        /// 本条原名 Defense_DoesNotEatCounterBonus,守的是 E-b4 T3 的恒等式
+        /// 「克制净收益(+50)与无甲时相同」。新规则给了克制**额外**奖励,那条恒等式因此不再成立
+        /// (净收益变成 +80),改守一条更强的:**相克时有甲无甲打出来一模一样**。
+        ///
+        /// 保留四个测量点是有意的 —— armoredNeutral 那格是回归保护:相克破甲**不许**误伤
+        /// 中立与被克方向,那两个方向的护甲必须原样生效。</summary>
         [Test]
-        public void Defense_DoesNotEatCounterBonus()
+        public void Counter_IgnoresDefense_WhileNeutralStillEatsIt()
         {
             int ArmoredHit(string card, int defense)
             {
@@ -1229,9 +1225,28 @@ namespace Brushblade.Core.Tests
             Assert.That(bareNeutral, Is.EqualTo(100));
             Assert.That(bareCounter, Is.EqualTo(150));
             Assert.That(armoredNeutral, Is.EqualTo(70));
-            Assert.That(armoredCounter, Is.EqualTo(120));
-            Assert.That(armoredCounter - armoredNeutral, Is.EqualTo(bareCounter - bareNeutral),
-                "克制带来的净收益(+50)与无甲时完全相同 —— 打对属性的奖励不被护甲侵蚀");
+            Assert.That(armoredCounter, Is.EqualTo(150));
+            Assert.That(armoredCounter, Is.EqualTo(bareCounter),
+                "相克即破甲:那 30 点甲对打对属性的一击完全不存在");
+        }
+
+        /// <summary>护甲厚到远超伤害也照样归零 —— 「相克即破甲」是**开关**不是减数。
+        /// 上一条守「相克时有甲无甲一个样」,本条守「不随厚度伸缩」:
+        /// 若哪天被实现成「相克时护甲减半」之类,上一条会红而这条也红;但若实现成
+        /// 「相克时护甲至多抵 30 点」,只有本条抓得住。
+        ///
+        /// ⚠ 这条规则**不是** E-b4 T3 删掉的旧「减免遭克制失效」补丁的复活。那条补丁是代偿:
+        /// 乘法减伤层会按比例抽走克制收益(100×1.5×0.5 = 75),补丁只是把被抽走的还回来。
+        /// 本条是一条**新规则** —— 点数制下克制收益本来就一点没少,所以给的是**额外**奖励。
+        ///
+        /// 平衡代价写在这里备查:坚壁「山」(Earth, 60 甲)对任何木系攻击一击失效,
+        /// 6 个破甲字(锋/削/刮/錰/刺/锥)在打对属性时不再是必需品。</summary>
+        [Test]
+        public void Counter_NullifiesDefense_RegardlessOfArmorThickness()
+        {
+            var engine = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0, defense: 999));
+            engine.Cast("斫");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(850));
         }
 
         // ---- 破甲(2026-08-05 曾是「承伤 +25%,不叠层,2 回合」;

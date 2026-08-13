@@ -1661,7 +1661,21 @@ namespace Brushblade.Core
             // 下钳 0 不下钳 1(裁定 10):堆甲把小怪普攻打到 0 是防御流应得的兑现,
             // 且 max(1, …) 会让穿透在残局失去意义。多段与 AOE 天然每记各减一次 ——
             // 本方法就是「一记」的粒度,每段/每目标各调一次。
-            if (!bypassDefense)
+            // 相克即破甲(2026-08-13 用户裁定):攻方属性克守方时,守方护甲**整层失效**。
+            //
+            // ⚠ 这不是上面那条「减免遭克制失效」补丁的复活 —— 那条是乘法层的代偿,修的是被按比例
+            // 抽走的克制收益;点数制下克制收益本来就一点没少(守卫测试 Defense_DoesNotEatCounterBonus),
+            // 所以本条是一条**额外奖励**的新规则,不是修复。是开关不是减数:护甲再厚也照样归零。
+            //
+            // 判定用 > 1f 而不是 == 1.5f:躲开浮点等值比较,且语义就是「这一击吃到了克制加成」。
+            // 本方法是所有对敌伤害的唯一收口,所以出牌单体/AOE(每目标各调一次)、召唤物出手
+            // (attacker = summon.Element)全部自动跟着走,不需要各自接线。
+            //
+            // 对称性备查:敌人侧今天无处落地 —— 玩家没有五行属性(DamagePlayerDirect 收的是
+            // 算好的 enemy.Attack,不过 KeMultiplier),召唤物走五行但 SummonState 没有护甲字段。
+            // 哪天给召唤物加了护甲,这条规则要一并在 DamageSummon 里补上。
+            bool counters = WuxingResolver.KeMultiplier(attacker, enemy.Element) > 1f;
+            if (!bypassDefense && !counters)
                 damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce));
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit));
