@@ -147,11 +147,11 @@ namespace Brushblade.Presentation
             bool firstTower = _meta.BestDepth == 0 && snapshot == null;
             if (snapshot == null)
             {
-                int level = MetaRules.CharacterLevel(_meta.CharacterXp);
                 _meta.EndlessV2 = new EndlessSaveState
                 {
                     Depth = 1,
-                    PlayerHp = MetaRules.MaxHpFor(level) + PerkRules.HpBonus(_meta),
+                    // 满血登塔:与战斗配置的 PlayerMaxHp 同一个函数(此前两处各抄一遍表达式)
+                    PlayerHp = MetaRules.PlayerMaxHpFor(_meta),
                     Seed = System.Environment.TickCount,
                     Library = new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta)),
                     // 初始部件从出阵表所需部件里随机(2026-08-05):拿到的部件必拼得出手里的字。
@@ -188,23 +188,12 @@ namespace Brushblade.Presentation
             // 抽取按稀有度加权(绿 80/蓝 15/紫 5,见 RunEngine.RewardRarityWeights)
             runConfig.RewardPool = _meta.Deck;
 
-            int characterLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
-            int maxHp = MetaRules.MaxHpFor(characterLevel) + PerkRules.HpBonus(_meta);
-            var battleConfig = new BattleConfig
-            {
-                DropTable = _campaign.DropTable,
-                PlayerMaxHp = maxHp,
-                // 攻击力与生命同为角色属性(19.2.1),同一条链注入。
-                // 「被动技能加攻击」的口子将来在这里 + 一个 Bonus 项,与 HpBonus 并排
-                PlayerAttack = MetaRules.AttackFor(characterLevel),
-                // 防御轴两条(2026-08-12,E-b4 T4):不在这里注入,两条曲线就是死代码
-                // (与 E-b2 的 锋 同理)。1 级时都是 0,战斗行为与注入之前逐字节相同。
-                PlayerDefense = MetaRules.DefenseFor(characterLevel),
-                PlayerDodge = MetaRules.DodgeFor(characterLevel),
-                UnlockedChars = _meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
-                ApPerTurn = 3 + PerkRules.ApBonus(_meta), // 一气
-                LibraryCapacity = MetaRules.LibraryCapacityFor(_meta), // 起手 + 掉字缓冲 + 博闻加成(广告 +2 在其上叠加)
-            };
+            // ⚠ 角色属性一条都不在这里手写(2026-08-12,E-b4/E-b5 T7):Presentation 没有任何
+            // 自动化测试,此处漏注入一条属性是**静默**的(实测删掉 PlayerDodge 那行,967 条
+            // 测试全绿、零编译错)。整段映射下沉进 MetaRules.BuildBattleConfig,由
+            // MetaRulesBattleConfigTests 逐条盯着 —— 新属性加在那边,不要加回这里。
+            var battleConfig = MetaRules.BuildBattleConfig(_meta, _campaign.DropTable);
+            int maxHp = battleConfig.PlayerMaxHp;
             RunEngine run = null;
             if (resume != null)
             {
