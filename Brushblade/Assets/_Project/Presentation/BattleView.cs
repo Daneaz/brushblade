@@ -810,6 +810,17 @@ namespace Brushblade.Presentation
                 // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系
                 if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
                     chipSpecs.Add(new("不灭", Theme.Cinnabar, Color.white));
+                // 冻结 / 减速(2026-08-13):此前这两个状态在敌人身上零显示 —— 冻结的怪不出手、
+                // 减速的怪隔回合才出手,玩家只能靠数它哪回合打了自己来倒推。
+                // 排在致盲之前:这两条直接回答「它下回合会不会打我」,信息价值高于减伤类,
+                // 不该在 ChipFlow 装不下时被从尾部丢掉。
+                if (enemy.Statuses.Has(StatusKind.Freeze))
+                    chipSpecs.Add(new("冻结", Theme.InkSoft, Color.white));
+                // 只画负向:正向 SpeedModifier 眼下没有任何来源(唯一施加点是 EffectKind.Slow 的
+                // −50),画加速分支就是死代码。数字是**速度点数**不是百分比,故不带 %。
+                int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
+                if (speedMod < 0)
+                    chipSpecs.Add(new($"减速 −{-speedMod}", Theme.InkSoft, Color.white));
                 int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
                 if (blind > 0)
                     chipSpecs.Add(new($"致盲 −{blind}%", Theme.InkSoft, Color.white));
