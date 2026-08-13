@@ -67,8 +67,8 @@ namespace Brushblade.Presentation
         public static void SaveNow()
         {
             if (_meta == null) return;
-            if (_captureProgress != null && _meta.Endless != null)
-                _meta.Endless.InProgress = _captureProgress();
+            if (_captureProgress != null && _meta.EndlessV2 != null)
+                _meta.EndlessV2.InProgress = _captureProgress();
             MetaStore.Save(_meta);
         }
 
@@ -76,7 +76,7 @@ namespace Brushblade.Presentation
         private static void ClearProgress()
         {
             _captureProgress = null;
-            if (_meta.Endless != null) _meta.Endless.InProgress = null;
+            if (_meta.EndlessV2 != null) _meta.EndlessV2.InProgress = null;
         }
 
         public static void ShowMap(string message = null)
@@ -143,12 +143,12 @@ namespace Brushblade.Presentation
 
         private static void StartTower()
         {
-            var snapshot = _meta.Endless;
+            var snapshot = _meta.EndlessV2;
             bool firstTower = _meta.BestDepth == 0 && snapshot == null;
             if (snapshot == null)
             {
                 int level = MetaRules.CharacterLevel(_meta.CharacterXp);
-                _meta.Endless = new EndlessSaveState
+                _meta.EndlessV2 = new EndlessSaveState
                 {
                     Depth = 1,
                     PlayerHp = MetaRules.MaxHpFor(level) + PerkRules.HpBonus(_meta),
@@ -168,7 +168,7 @@ namespace Brushblade.Presentation
         private static void StartSegment(bool firstTower)
         {
             var endless = _campaign.Endless;
-            var snapshot = _meta.Endless;
+            var snapshot = _meta.EndlessV2;
             // 段中断点优先:它自带段起点与首塔标记,Depth 会随层清算前进,不能拿来重建本段
             var resume = snapshot.InProgress;
             _committedEventInk = resume?.CommittedEventInk ?? 0; // 不清零会把字摊净额重复入账
@@ -284,7 +284,7 @@ namespace Brushblade.Presentation
         /// <summary>广告扩容即时落盘:挂起/杀进程也不丢已看广告换来的容量。</summary>
         private static void OnExpanded(RunEngine run)
         {
-            var snapshot = _meta.Endless;
+            var snapshot = _meta.EndlessV2;
             if (snapshot == null) return;
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
@@ -306,7 +306,7 @@ namespace Brushblade.Presentation
         /// <returns>累加本层墨锭后的段前滚存(调用方回写,供后续层与结算使用)。</returns>
         private static int OnFloorCleared(RunEngine run, int fromDepth, int baseInk)
         {
-            var snapshot = _meta.Endless;
+            var snapshot = _meta.EndlessV2;
             if (snapshot == null || run.Phase == RunPhase.RunWon) return baseInk;
 
             SyncBestiary(run);
@@ -331,7 +331,7 @@ namespace Brushblade.Presentation
         /// 层经验与 Depth 推进已在 OnFloorCleared 记过账,这里不再重复。</summary>
         private static void OnFloorAdvanced(RunEngine run, int baseInk)
         {
-            var snapshot = _meta.Endless;
+            var snapshot = _meta.EndlessV2;
             if (snapshot == null) return;
             CommitEventInk(run); // 字摊/赌博净额即时结进账户,与爬塔滚存分离
             snapshot.PlayerHp = run.Battle.PlayerHp;
@@ -380,7 +380,7 @@ namespace Brushblade.Presentation
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
             totalEarned += EndlessRules.FloorInk(endless, segmentEnd); // Boss 层墨锭(层清算走 OnFloorCleared,段末不经手)
             EndlessRules.UpdateBest(_meta, segmentEnd);
-            var snapshot = _meta.Endless;
+            var snapshot = _meta.EndlessV2;
             snapshot.TopBossDepth = segmentEnd; // 逐段递增,即本次已破最高 Boss 层
             snapshot.Depth = segmentEnd + 1;
             snapshot.PlayerHp = run.Battle.PlayerHp;
@@ -447,8 +447,8 @@ namespace Brushblade.Presentation
         /// 一个 Boss 都没破则无箱。结算弹窗与墨锭一并呈现。</summary>
         private static void SettleTower(bool died, int clearedDepth, int totalEarned, bool abandoned = false)
         {
-            int chestDepth = EndlessRules.SettleChestDepth(_meta.Endless?.TopBossDepth ?? 0);
-            _meta.Endless = null;
+            int chestDepth = EndlessRules.SettleChestDepth(_meta.EndlessV2?.TopBossDepth ?? 0);
+            _meta.EndlessV2 = null;
             EndlessRules.UpdateBest(_meta, clearedDepth);
             int ink = EndlessRules.SettleInk(totalEarned, died);
             _meta.Ink += ink;

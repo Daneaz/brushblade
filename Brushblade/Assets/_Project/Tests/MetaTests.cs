@@ -446,7 +446,7 @@ namespace Brushblade.Core.Tests
             meta.Shop.CardSold.AddRange(new[] { false, true });
             meta.Chests.Add(new ChestState { CardPool = { "灯" } });
             meta.Chests.Add(new ChestState { CardPool = { "灯", "炎" } });
-            meta.Endless = new EndlessSaveState
+            meta.EndlessV2 = new EndlessSaveState
             {
                 Library = { "炎", "灯", "火" },
                 Pool = { "火", "丁" },
@@ -462,8 +462,8 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.Shop.DayStamp, Is.EqualTo(-1)); // 货架含下架字 → 整架作废重摆
             Assert.That(meta.Chests.Count, Is.EqualTo(1));   // 奖池清空的箱子一并移除
             Assert.That(meta.Chests[0].CardPool, Is.EqualTo(new[] { "炎" }));
-            Assert.That(meta.Endless.Library, Is.EqualTo(new[] { "炎", "火" }));
-            Assert.That(meta.Endless.Pool, Is.EqualTo(new[] { "火" }));
+            Assert.That(meta.EndlessV2.Library, Is.EqualTo(new[] { "炎", "火" }));
+            Assert.That(meta.EndlessV2.Pool, Is.EqualTo(new[] { "火" }));
         }
 
         [Test]

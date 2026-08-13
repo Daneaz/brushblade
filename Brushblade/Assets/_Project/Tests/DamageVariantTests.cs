@@ -329,15 +329,15 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "闪" }, new[] { Attacker(attack: 0) });
             engine.Cast("闪");
 
-            var meta = new MetaState { Endless = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 } };
-            foreach (var summon in engine.Summons) meta.Endless.CarriedSummons.Add(summon.Capture());
+            var meta = new MetaState { EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 } };
+            foreach (var summon in engine.Summons) meta.EndlessV2.CarriedSummons.Add(summon.Capture());
             var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
 
             var revived = new BattleEngine(Graph(),
                 new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
                 Array.Empty<string>(), Array.Empty<string>(),
                 new[] { Attacker(attack: 0) }, seed: 1,
-                startingSummons: restored.Endless.CarriedSummons);
+                startingSummons: restored.EndlessV2.CarriedSummons);
             Assert.That(revived.Summons[0].Passive.Dodge, Is.EqualTo(50));
         }
 

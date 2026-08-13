@@ -19,7 +19,15 @@ namespace Brushblade.Core
         public ShopState Shop { get; set; } = new();                      // 每日商城(19.6)
         public int BestDepth { get; set; }                                // 无尽最高层数(20.5)
         public List<string> BandMilestones { get; set; } = new();         // 已领首破奖励的层段(20.3)
-        public EndlessSaveState Endless { get; set; }                     // 断点续爬快照;null=无进行中登塔(20.6)
+        /// <summary>断点续爬快照(20.6);null=无进行中登塔。
+        /// 属性改名自 Endless(2026-08-12,E-b4/E-b5 T6):量级 ×10 与「减伤百分比 → 护甲点数」
+        /// 让整份登塔快照的数字全部作废(PlayerHp 50 在新上限 500 下是残血、CarriedStatuses 里的
+        /// 「减伤 20」会被读成「护甲 +20 点」)。逐字段迁移没有任何旧存档样本可测,丢弃可测。
+        /// 沿用 <see cref="EndlessSaveState.CarriedStatuses"/> 那次改名的同一条路径:改键名后旧的
+        /// "Endless" 键变成未知键,Newtonsoft 直接忽略 —— 断点作废、回主界面可重新开塔,而
+        /// MetaState 顶层的墨锭/卡等级/技能/图鉴/经验照常读出。⚠ 不是抛 JsonException 被
+        /// SaveSerializer.FromJson 兜底成整份存档清空。</summary>
+        public EndlessSaveState EndlessV2 { get; set; }
         public List<string> DefeatedEnemies { get; set; } = new();        // 图鉴已解锁(击败即入)
         public List<string> ClaimedBestiary { get; set; } = new();        // 图鉴已查阅领赏(主动点开才发)
     }
@@ -304,10 +312,10 @@ namespace Brushblade.Core
                 chest.CardPool.RemoveAll(id => !Known(id));
             meta.Chests.RemoveAll(chest => chest.CardPool.Count == 0);
 
-            if (meta.Endless != null)
+            if (meta.EndlessV2 != null)
             {
-                meta.Endless.Library.RemoveAll(id => !Known(id));
-                meta.Endless.Pool.RemoveAll(id => !Known(id));
+                meta.EndlessV2.Library.RemoveAll(id => !Known(id));
+                meta.EndlessV2.Pool.RemoveAll(id => !Known(id));
             }
         }
 

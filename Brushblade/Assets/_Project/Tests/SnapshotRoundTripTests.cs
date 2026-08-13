@@ -413,7 +413,7 @@ namespace Brushblade.Core.Tests
 
             var meta = new MetaState
             {
-                Endless = new EndlessSaveState
+                EndlessV2 = new EndlessSaveState
                 {
                     Depth = 3,
                     Seed = 999,
@@ -428,7 +428,7 @@ namespace Brushblade.Core.Tests
             };
 
             var reloaded = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
-            var resume = reloaded.Endless.InProgress;
+            var resume = reloaded.EndlessV2.InProgress;
             Assert.That(resume, Is.Not.Null);
             Assert.That(resume.FromDepth, Is.EqualTo(1));          // 段起点不能丢:靠它重建本段
             Assert.That(resume.FirstTowerSegment, Is.True);
@@ -500,7 +500,7 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState
             {
-                Endless = new EndlessSaveState
+                EndlessV2 = new EndlessSaveState
                 {
                     Depth = 6,
                     Seed = 999,
@@ -512,7 +512,7 @@ namespace Brushblade.Core.Tests
             };
 
             var reloaded = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
-            var carried = reloaded.Endless.CarriedSummons;
+            var carried = reloaded.EndlessV2.CarriedSummons;
             Assert.That(carried.Count, Is.EqualTo(1));
             Assert.That(carried[0].Char, Is.EqualTo("木"));
             Assert.That(carried[0].Element, Is.EqualTo(Element.Wood));
@@ -524,12 +524,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void LegacySave_WithoutCarriedSummons_LoadsEmpty() // 旧档没这字段:读出空场,不崩
         {
-            var meta = Data.SaveSerializer.FromJson("{\"Endless\":{\"Depth\":3,\"Seed\":999,\"NormalShield\":5}}");
-            Assert.That(meta.Endless, Is.Not.Null);
-            Assert.That(meta.Endless.Depth, Is.EqualTo(3));
-            Assert.That(meta.Endless.NormalShield, Is.EqualTo(5));
-            Assert.That(meta.Endless.CarriedSummons, Is.Not.Null);
-            Assert.That(meta.Endless.CarriedSummons, Is.Empty);
+            var meta = Data.SaveSerializer.FromJson("{\"EndlessV2\":{\"Depth\":3,\"Seed\":999,\"NormalShield\":5}}");
+            Assert.That(meta.EndlessV2, Is.Not.Null);
+            Assert.That(meta.EndlessV2.Depth, Is.EqualTo(3));
+            Assert.That(meta.EndlessV2.NormalShield, Is.EqualTo(5));
+            Assert.That(meta.EndlessV2.CarriedSummons, Is.Not.Null);
+            Assert.That(meta.EndlessV2.CarriedSummons, Is.Empty);
         }
     }
 }

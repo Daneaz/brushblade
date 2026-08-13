@@ -86,14 +86,14 @@ namespace Brushblade.Core.Tests
 
             var meta = new MetaState
             {
-                Endless = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 },
+                EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 },
             };
-            foreach (var summon in engine.Summons) meta.Endless.CarriedSummons.Add(summon.Capture());
-            meta.Endless.CarriedSummons[0].Shield = 6; // 护盾字段也要过一趟序列化
+            foreach (var summon in engine.Summons) meta.EndlessV2.CarriedSummons.Add(summon.Capture());
+            meta.EndlessV2.CarriedSummons[0].Shield = 6; // 护盾字段也要过一趟序列化
 
             var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
             var revived = Engine(new[] { "疾" }, new[] { Dummy() },
-                startingSummons: restored.Endless.CarriedSummons);
+                startingSummons: restored.EndlessV2.CarriedSummons);
 
             Assert.That(revived.Summons[0].Speed, Is.EqualTo(150));
             Assert.That(revived.Summons[0].Shield, Is.EqualTo(6));
@@ -107,11 +107,11 @@ namespace Brushblade.Core.Tests
             // 老存档没有 Speed 字段 → Newtonsoft 填 0 → 召唤物永远攒不满计量器,一辈子不出手。
             // Restore 必须兜底回 100。
             const string legacy =
-                "{\"Endless\":{\"Depth\":3,\"PlayerHp\":40,\"Seed\":7,\"CarriedSummons\":" +
+                "{\"EndlessV2\":{\"Depth\":3,\"PlayerHp\":40,\"Seed\":7,\"CarriedSummons\":" +
                 "[{\"Char\":\"木\",\"Element\":\"Wood\",\"Hp\":10,\"MaxHp\":10,\"Attack\":3,\"ActionMeter\":0}]}}";
             var restored = Data.SaveSerializer.FromJson(legacy);
             var engine = Engine(new[] { "素" }, new[] { Dummy() },
-                startingSummons: restored.Endless.CarriedSummons);
+                startingSummons: restored.EndlessV2.CarriedSummons);
 
             Assert.That(engine.Summons[0].Speed, Is.EqualTo(100));
             Assert.That(engine.Summons[0].Passive, Is.Null);

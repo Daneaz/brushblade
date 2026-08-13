@@ -580,7 +580,7 @@ namespace Brushblade.Core.Tests
             // 模拟 OnExpanded 落盘 + 挂起后重新读档
             var meta = new MetaState
             {
-                Endless = new EndlessSaveState
+                EndlessV2 = new EndlessSaveState
                 {
                     Depth = 3, PlayerHp = 30, Seed = 42,
                     LibraryExpanded = run.LibraryExpanded,
@@ -592,8 +592,8 @@ namespace Brushblade.Core.Tests
             // 模拟 StartSegment:新 run(容量回落到基准)后重放扩容
             var resumed = Run();
             Assert.That(resumed.Battle.LibraryCapacity, Is.EqualTo(6)); // 重放前是基准值
-            if (restored.Endless.LibraryExpanded) resumed.TryExpandLibrary();
-            if (restored.Endless.PoolExpanded) resumed.TryExpandPool();
+            if (restored.EndlessV2.LibraryExpanded) resumed.TryExpandLibrary();
+            if (restored.EndlessV2.PoolExpanded) resumed.TryExpandPool();
 
             Assert.That(resumed.Battle.LibraryCapacity, Is.EqualTo(8));
             Assert.That(resumed.Battle.PoolCapacity, Is.EqualTo(12));
