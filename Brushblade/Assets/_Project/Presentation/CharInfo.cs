@@ -110,6 +110,9 @@ namespace Brushblade.Presentation
                     // 倍率读常量而不是写死「×1.5」:E-b5 重平衡会改那个常量,写死了卡面就会骗人
                     EffectKind.CritBuff =>
                         $"本场暴击率+{v}%(暴击伤害×{BattleConfig.CritMultiplierPercent / 100f:0.##})",
+                    // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
+                    // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
+                    EffectKind.PierceBuff => $"本场穿透+{v}(本场每次攻击无视 {v} 点护甲)",
                     _ => e.Kind.ToString(),
                 });
             }

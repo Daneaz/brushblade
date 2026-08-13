@@ -611,6 +611,15 @@ namespace Brushblade.Presentation
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"暴击 {Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12);
             }
+            // 穿透(2026-08-12,锐):同 攻击 / 暴击 —— 锐 身上没有伤害效果,不出 chip 的话
+            // 打出去毫无反馈。读状态总量而不是某次结算的有效值:穿透打谁减多少要看那只怪的甲,
+            // 玩家该看到的是自己攒了多少
+            int pierceBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff);
+            if (pierceBuff > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"穿透 {pierceBuff}", Theme.Gold, Color.white, 12);
+            }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
