@@ -91,9 +91,14 @@ namespace Brushblade.Presentation
             var header = Ui.Row(transform, "Header", 22);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.9f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
             Ui.ThemedLabel(header.transform, $"正字者 Lv.{level}", 28, Theme.TextMain, Theme.TitleFont);
+            // 四条角色属性上屏(2026-08-12,E-b4/E-b5 T7)。读的是**战斗真正吃到的那份配置**,
+            // 不在这里另算一遍 —— 否则会出现「屏上写着护甲 5、局内其实是 0」这种最难查的偏差。
+            // ⚠ 暴击不上屏:基准恒 0 且不随等级成长,跑图界面会永远写「暴击 0%」,没有信息量
+            // (2026-08-12 E-b2 就地决定:改由局内 BattleView 出 chip)。
+            var stats = MetaRules.BuildBattleConfig(_meta, _campaign.DropTable);
             Ui.ThemedLabel(header.transform,
-                $"经验 {_meta.CharacterXp}    HP 上限 {MetaRules.MaxHpFor(level) + PerkRules.HpBonus(_meta)}"
-                + $"    攻击 {MetaRules.AttackFor(level)}", 20, Theme.TextDim);
+                $"经验 {_meta.CharacterXp}    HP 上限 {stats.PlayerMaxHp}    攻击 {stats.PlayerAttack}"
+                + $"    护甲 {stats.PlayerDefense}    闪避 {stats.PlayerDodge}%", 20, Theme.TextDim);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
             var collectionButton = Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
                 Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);
