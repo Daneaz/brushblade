@@ -716,11 +716,13 @@ EndTurn 的状态结算里:给带 ArmorDecay 的目标追加一条 ArmorBreak(Ma
 | 词 | 是什么 | 载体 | 序号/兼容 | 本批状态 |
 |---|---|---|---|---|
 | **护甲 / DEF** | 单位属性,点数,减法。**战斗中永不被写** | `BattleConfig.PlayerDefense` / `EnemyDef.Defense` / `EnemyState.Defense` | 新增 | ✅ 实现 |
-| **护甲增益**(`DefenseBuff`) | 给自己**加** DEF 点数的状态 | `StatusKind.DefenseBuff` | 序号 **5**,原 `DamageReduction` 原地改名改语义 | ✅ 实现,6 字迁移 |
+| **护甲增益**(`DefenseBuff`) | 给自己**加** DEF 点数的状态 | `StatusKind.DefenseBuff` | 序号 **18**(新建;见下方订正) | ✅ 实现,6 字迁移 |
 | **破甲**(`ArmorBreak`) | 给目标**减** DEF 点数的状态,本场持久、可叠 | `StatusKind.ArmorBreak` | 序号 **7**,**名字与序号都不动** | ✅ 语义复原,6 字重定值 |
 | **穿透**(`Pierce`) | **本次**攻击视目标 DEF 少 N 点 | `EffectDef.Pierce` + `StatusKind.PierceBuff` | 新增 | ✅ 实现,3 字迁移 + `锐` |
 
-**唯一的改名是 `DamageReduction` → `DefenseBuff`**(序号 5),因为它的语义真的变了
+⚠ **2026-08-13 实现订正**:序号 5 **未**原地改名。T2 已新建 `DefenseBuff = 18` 作为唯一载体,序号 5 退休成废弃占位 `ObsoleteDamageReduction`(不删除,删了会让 6 以后的序号全部前移、静默错位旧存档)。理由:复用旧序号且改变单位(百分点 → 点数)正是静默存档损坏的那一类,新建序号零风险。实际序号:`CritBuff=17` / `DefenseBuff=18` / `PierceBuff=19` / `DodgeBuff=20`。
+
+**~~唯一的改名是 `DamageReduction` → `DefenseBuff`(序号 5)~~**,因为它的语义真的变了
 (百分比 → 点数),名字不改会持续误导。改名不改序号 → 旧存档里的整数 5 仍指向同一条状态。
 
 **「穿甲」与「易伤」两个词本批之后不再存在**:
@@ -1096,7 +1098,7 @@ E-b1 的解法是梯度证明(1 级恒等 + 3/10 级发散)。仿真侧的同构
 |---|---|
 | `MetaState.Endless` 属性改名 → **`EndlessV2`**(类型仍是 `EndlessSaveState`) | 旧存档的 `"Endless"` 键成为未知键被忽略 → `EndlessV2` 为 null → 玩家的**进行中登塔作废**,回到主界面可重新开塔 |
 | `EnemySnapshot.DamageTaken` 字段 **删除** | 随整个登塔快照一起失效,零风险 |
-| `StatusKind` 序号 5 **原地改名**(`DamageReduction` → `DefenseBuff`) | 旧存档里的整数 5 仍指向同一条状态;语义从「20%」变「20 点」,但它随 `EndlessV2` 一起丢了,读不到 |
+| ~~`StatusKind` 序号 5 原地改名~~ ⚠ **已作废,见第七节订正**:序号 5 退休成 `ObsoleteDamageReduction`,`DefenseBuff = 18` 新建 | 旧存档里的整数 5 不再被任何活代码解读;它随 `EndlessV2` 一起丢了,读不到 |
 | `StatusKind` 序号 7 **完全不动**(`ArmorBreak`) | 裁定 9 之后连改名都不需要;它只出现在 `EnemySnapshot.Statuses` 里,同样随登塔快照丢弃 |
 
 **零迁移代码、零新增版本字段。**
@@ -1139,7 +1141,7 @@ Newtonsoft 默认把枚举序列化成**整数**。在 `StatusKind` 中间插入
 
 当前末尾状态(2026-08-12,E-b2 分支上):`… Morale(15), ApBoost(16), CritBuff(17)`。
 
-本批新增的 `DodgeBuff` / `PierceBuff` 一律**追加到 `CritBuff` 之后**(18、19)。
+本批新增的状态一律**追加到 `CritBuff(17)` 之后**。⚠ **实际落地序号:`DefenseBuff=18` / `PierceBuff=19` / `DodgeBuff=20`** —— `DefenseBuff` 因为改用新建(见第七节订正)占掉了 18,`DodgeBuff` 顺延到 20。
 ⚠ **与 E-b2 的合流顺序决定序号** —— 见第十五节。
 
 这条惯例此前只写在 E-b2 spec 里,本批要把它写进 `StatusKind` 的定义处注释,并用
@@ -1215,7 +1217,7 @@ Newtonsoft 默认把枚举序列化成**整数**。在 `StatusKind` 中间插入
 | `Core/BattleEngine.cs` | `BattleConfig` 加 `PlayerDefense` / `PlayerDodge`;新增 `EffectiveDefense(敌人/玩家)` / `EffectivePlayerDodge` / `EffectivePierce`;`DamageEnemy` 末尾减 DEF、删 `taken` 那一整段(含「被克制则减免失效」补丁);`DamagePlayerDirect` 删 `ReducedDamage` 改减 DEF、传真实闪避;`DamageReductionMultiplier` / `ReducedDamage` **删除**(及其 7 个调用点);`ArmorBreakPercent` / `PierceBonusPercent` **两个常量都删除**;`_burnPerStack` / `ScorchGain` ×10;`ArmorBreak` 施加分支改写(`Value` = 点数、`TurnsLeft = -1`、`SourceId` 铸唯一序号);新增 `DefenseBuff` / `DodgeBuff` / `PierceBuff` 效果分支 |
 | `Core/EnemyDef.cs` | `EnemyDef` / `BossPhaseDef` / `EnemyState` 的 `DamageTaken` **删除**,换成 `Defense`(int,默认 0,**只读、无 internal setter** —— 4.5.3 的硬约束靠这个在类型层面兜住);`Capture` / `Restore` / `ApplyPhaseStats` 跟随 |
 | `Core/EffectDef.cs` | `IgnoreArmor`(bool)**删除** → `Pierce`(int,默认 0);`EffectKind.DamageReduction` → `DefenseBuff`;`EffectKind.ArmorBreak` **名字不动、`Value` 语义从回合数变削减点数**(改注释);追加 `PierceBuff` / `DodgeBuff` |
-| `Core/StatusEffect.cs` | 序号 5 `DamageReduction` → `DefenseBuff`(语义改点数);**序号 7 `ArmorBreak` 名字不动,注释改成「削减 DEF 点数」**;末尾追加 `DodgeBuff` / `PierceBuff`;把「新值一律追加末尾」的存档约束写进注释 |
+| `Core/StatusEffect.cs` | ⚠ 序号 5 退休成 `ObsoleteDamageReduction`(**不删除**),`DefenseBuff` 新建于 18;**序号 7 `ArmorBreak` 名字不动,注释改成「削减 DEF 点数」**;末尾追加 `DodgeBuff` / `PierceBuff`;把「新值一律追加末尾」的存档约束写进注释 |
 | `Core/Campaign.cs` | `Scale()` 的「承伤系数不缩放」→ **DEF 按 `1 + (scale−1)/2` 半速 `Ceiling` 缩放**(裁定 11) |
 | `Core/RunSnapshot.cs` | `EnemySnapshot.DamageTaken` **删除** |
 | `Core/Meta.cs`(`MetaState`) | `Endless` → `EndlessV2` |
@@ -1301,7 +1303,7 @@ E-b2(暴击,分支 `feat/crit`)与本批在 `BattleEngine.cs` 的同一段代码
 |---|---|
 | **合流顺序** | **E-b2 先合并到 `main`,本批的 T1 才开工。** 本批会 ×10 全部数值,而 E-b2 正在写的 `CritStatTests.cs` 里全是旧量级的断言 —— 反过来合并意味着 E-b2 的测试要在合并时重写一遍 |
 | **结算顺序** | `floor(基础 × 生克 × 暴击) − max(0, DEF − 破甲 − 穿透)`。**暴击乘在最末,DEF 减在暴击之后。** 若反过来(先减 DEF 再暴击),暴击会把 DEF 的削减也放大,等价于「暴击时护甲变薄」。⚠ 裁定 9 之后守方侧**没有任何乘数**,E-b2 那条「暴击乘在 `taken` 之后」的表述要跟着更新 —— `taken` 不存在了 |
-| **`StatusKind` 序号** | E-b2 的 `CritBuff` = 17;本批的 `DodgeBuff` = 18、`PierceBuff` = 19。**若合流顺序改变,序号跟着变** —— 第 10.4 节的锁值测试要写实际值,不要写「末尾」 |
+| **`StatusKind` 序号** | 实际落地:`CritBuff=17` / `DefenseBuff=18` / `PierceBuff=19` / `DodgeBuff=20`。**若合流顺序改变,序号跟着变** —— 第 10.4 节的锁值测试要写实际值,不要写「末尾」 |
 | **随机流** | 两边都要守 `hitRate >= 100` / `critChance <= 0` 的短路。合流后**必须重跑一次** `NoBlindNoDodge_DoesNotConsumeRandom`,并补一条「暴击 0 + 闪避 0 时不消耗随机数」的交叉验证 |
 | **仿真 `Profile`** | 合流后三个新字段并排:`Crit`(E-b2)/ `Defense` / `Dodge`(本批) |
 
