@@ -197,6 +197,10 @@ namespace Brushblade.Presentation
                 // 攻击力与生命同为角色属性(19.2.1),同一条链注入。
                 // 「被动技能加攻击」的口子将来在这里 + 一个 Bonus 项,与 HpBonus 并排
                 PlayerAttack = MetaRules.AttackFor(characterLevel),
+                // 防御轴两条(2026-08-12,E-b4 T4):不在这里注入,两条曲线就是死代码
+                // (与 E-b2 的 锋 同理)。1 级时都是 0,战斗行为与注入之前逐字节相同。
+                PlayerDefense = MetaRules.DefenseFor(characterLevel),
+                PlayerDodge = MetaRules.DodgeFor(characterLevel),
                 UnlockedChars = _meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
                 ApPerTurn = 3 + PerkRules.ApBonus(_meta), // 一气
                 LibraryCapacity = MetaRules.LibraryCapacityFor(_meta), // 起手 + 掉字缓冲 + 博闻加成(广告 +2 在其上叠加)

@@ -68,6 +68,22 @@ namespace Brushblade.Core
         /// T3 起由 GameRoot 按 <c>MetaRules.DefenseFor(角色等级)</c> 注入,与 <see cref="PlayerAttack"/> 并排。</summary>
         public int PlayerDefense { get; set; }
 
+        /// <summary>玩家闪避(**百分点**,19.2.1 角色属性,2026-08-12,E-b4 T4)。
+        /// 敌人打玩家的命中率 = <c>100 − 攻击者致盲 − 本值</c>。
+        ///
+        /// **不对称**(用户拍板):玩家攻击**永远必中**,敌人**没有**闪避 ——
+        /// 所以「命中」不是玩家属性,玩家打敌人那条链根本不调 <see cref="BattleEngine.AttackHits"/>。
+        ///
+        /// **基准恒 0** 是 T4 的验收硬线:0 时命中率 = 100,<c>AttackHits</c> 走
+        /// <c>hitRate ≥ 100</c> 短路,**一次随机都不摇** —— _random 的消费方只有回合掉字、
+        /// AttackHits、EnemyState 构造抖动三处,无条件摇会平移掉落序列让依赖种子的测试全红。
+        ///
+        /// ⚠ **战斗中永不被写**(spec §4.5.3),同 <see cref="PlayerDefense"/>:
+        /// 局内增益全部走 <see cref="StatusKind.DodgeBuff"/> 进 <c>_playerStatuses</c>,
+        /// 而它本来就进 BattleSnapshot.PlayerStatuses —— 零新增快照字段。
+        /// 由 GameRoot 按 <c>MetaRules.DodgeFor(角色等级)</c> 注入,与 <see cref="PlayerAttack"/> 并排。</summary>
+        public int PlayerDodge { get; set; }
+
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
@@ -296,6 +312,17 @@ namespace Brushblade.Core
             _config.PlayerDefense
             + _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff)
             - _playerStatuses.TotalMagnitude(StatusKind.ArmorBreak));
+
+        /// <summary>本场生效的玩家闪避(百分点,2026-08-12,E-b4 T4)= 角色属性(config)
+        /// + 局内增益(<see cref="StatusKind.DodgeBuff"/>),钳到 [0,100]。与
+        /// <see cref="EffectiveAttack"/> / <see cref="EffectiveCrit"/> / <see cref="EffectivePlayerDefense"/>
+        /// 同形:**基础值来自 config(战中不可变),变动量全在 <c>_playerStatuses</c> 里**。
+        ///
+        /// 敌人没有闪避这条轴(用户拍板的不对称口径):它只减少玩家挨打,不影响玩家的输出。
+        /// 上钳 100 让 <see cref="AttackHits"/> 的 <c>hitRate ≤ 0</c> 短路成为一条**必然到达**
+        /// 的路径(叠满时靠它省掉摇点);下钳 0 是防御性的,理由同 <see cref="AttackHits"/> 的钳位。</summary>
+        public int EffectiveDodge =>
+            Math.Clamp(_config.PlayerDodge + _playerStatuses.TotalMagnitude(StatusKind.DodgeBuff), 0, 100);
 
         public BattleEngine(RecipeGraph graph, BattleConfig config,
             IReadOnlyList<string> startingLibrary, IReadOnlyList<string> startingPool,
@@ -1688,14 +1715,22 @@ namespace Brushblade.Core
         /// 这一条既有比较式的行为,是**防御性**的:防日后有人把比较式改成 `<=`、或改成
         /// `_random.Next(hitRate)` 这类写法时,负数传进去直接炸异常或产生意外行为。
         ///
-        /// **命中率 ≥ 100 时直接返回,一次随机都不摇** —— _random 的唯一既有消费方是
-        /// StartTurn 的回合掉字,无条件摇会平移掉落序列,让所有依赖种子的既有测试全红。
-        /// 既有战斗里没有任何致盲/闪避,于是走的都是这条短路,行为逐位不变。</summary>
+        /// **两端都短路,一次随机都不摇**(下端 ≤0 是 2026-08-12 E-b4 T4 补的,与 <see cref="RollCrit"/> 对称)。
+        /// 命中率 ≥ 100 那一端是恒等性硬线:_random 的既有消费方只有 StartTurn 的回合掉字、
+        /// 本方法、EnemyState 构造时的 Boss 阈值浮动,无条件摇会平移掉落序列,
+        /// 让所有依赖种子的既有测试全红。玩家闪避默认 0、既有战斗里也没有致盲,
+        /// 于是走的都是这条短路,行为逐位不变。
+        /// 命中率 ≤ 0 那一端同理:必空时摇不摇结果都一样,不摇能让「闪避叠满」这条玩法路径
+        /// 同样不扰动随机流,也让测试可以在不注入 RNG 的前提下断言必空。
+        ///
+        /// ⚠ **玩家打敌人不走这里**(用户拍板的不对称口径):玩家攻击永远必中,敌人没有闪避。
+        /// 本方法只服务「敌人打玩家」(<see cref="DamagePlayerDirect"/>)与「敌人打召唤物」两条链。</summary>
         private bool AttackHits(int enemyIndex, int dodgePercent)
         {
             int blind = _enemies[enemyIndex].Statuses.TotalMagnitude(StatusKind.Blind);
             int hitRate = Math.Clamp(100 - blind - dodgePercent, 0, 100);
             if (hitRate >= 100) return true;
+            if (hitRate <= 0) return false;
             return _random.Next(100) < hitRate;
         }
 
@@ -1710,8 +1745,9 @@ namespace Brushblade.Core
         private bool DamagePlayerDirect(int enemyIndex, int damage)
         {
             // 命中判定(2026-08-07):打空则什么都不发生 —— 免疫不消耗、护盾不掉、反弹不触发。
-            // 玩家没有闪避,只吃攻击者的致盲
-            if (!AttackHits(enemyIndex, 0))
+            // 命中率 = 100 − 攻击者致盲 − 玩家闪避(2026-08-12,E-b4 T4:闪避从写死的 0 接进来)。
+            // 闪避 0(1 级角色的缺省)时命中率 100,AttackHits 直接短路不摇随机数。
+            if (!AttackHits(enemyIndex, EffectiveDodge))
             {
                 _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0));
                 return false;

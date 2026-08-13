@@ -135,6 +135,23 @@ namespace Brushblade.Core
         /// 基准 100:<c>伤害 = 值 × ATK ÷ 100</c>,1 级时恒等于引入攻击力之前。</summary>
         public static int AttackFor(int level) => Math.Min(150, 100 + 2 * (level - 1));
 
+        /// <summary>防御成长:0 + 0.5×(等级−1),上限 12(19.2.1 角色属性,2026-08-12 E-b4 T4)。
+        /// 整数除表达 k = 1/2。**起点 0**:护甲是土系字给的,不是白送的 —— 也正因为起点 0,
+        /// 1 级角色的战斗行为与引入这条曲线之前逐字节相同(<c>max(0, x − 0) == x</c>)。
+        /// 上限 12:对参考打击量 R_in = 60 是 −20%,与 ATK 的 +50%、HP 的 +100% 同一个
+        /// 「成长感」量级;再高会让等级压过字表,土系防御字失去存在意义。</summary>
+        public static int DefenseFor(int level) => Math.Min(12, (level - 1) / 2);
+
+        /// <summary>闪避成长:0 + 1×(等级−1),上限 25(19.2.1 角色属性,2026-08-12 E-b4 T4)。
+        /// 起点 0 与 <see cref="DefenseFor"/> 一致(防御资源不白送,且 0 时命中判定短路、
+        /// 一次随机都不摇);k = 1 而非 DEF 的 1/2,因为闪避是概率轴 —— 满级 25% 的期望减伤
+        /// 与 DEF 12 对 R_in = 60 的 −20% 同量级,两条防御轴的成长感因此对齐。
+        /// 上限 25 是硬要求(spec 8.3):闪避是乘性生存能力,可堆到 60%+ 会出现「摸不到我」的退化局。
+        ///
+        /// ⚠ 没有对应的 CritFor —— 暴击率**不随等级成长**(2026-08-12 用户裁定),
+        /// 只靠字(锋)与养成技能给,见 <c>BattleConfig.PlayerCritChance</c>。</summary>
+        public static int DodgeFor(int level) => Math.Min(25, level - 1);
+
         /// <summary>关卡解锁:章内顺序解锁;下一章需上一章全通。</summary>
         public static bool IsStageUnlocked(MetaState meta, CampaignConfig campaign, int chapter, int stage)
         {

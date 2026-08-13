@@ -514,6 +514,9 @@ namespace Brushblade.CoreTests
             // spec 自己写明「序号跟着实际合流顺序走,锁值测试写实际值」,于是 DodgeBuff 顺延到 20。
             Assert.That((int)StatusKind.DefenseBuff, Is.EqualTo(18), "新值必须追加在末尾");
             Assert.That((int)StatusKind.PierceBuff, Is.EqualTo(19), "新值必须追加在末尾");
+            // E-b4 T4(2026-08-12):玩家闪避的局内增益通道。spec §11.3 原本预留 18 给它,
+            // 实际合流顺序是 T2 的两条先到,于是顺延到 20 —— 按 spec 自己的规定「写实际值」。
+            Assert.That((int)StatusKind.DodgeBuff, Is.EqualTo(20), "新值必须追加在末尾");
         }
     }
 }
