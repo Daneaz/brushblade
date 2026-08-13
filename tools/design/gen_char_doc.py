@@ -3,12 +3,24 @@
 
 用法:在仓库根目录执行 `python3 tools/design/gen_char_doc.py`。
 """
-import json, collections, subprocess
+import json, collections, subprocess, sys, os
 
 SRC = 'Brushblade/Assets/StreamingAssets/config/chars.json'
 chars = json.load(open(SRC))['chars']
+byid = {c['id']: c for c in chars}
 comp = [c for c in chars if 'recipe' in c]
 leaf = [c for c in chars if 'recipe' not in c]
+
+# 二级拆解借管线的 IDS 拆解器,与配方生成同一套规则(只拆 ⿰⿱⿲⿳、子部件须是真实字)。
+# ids.txt 是不入 git 的原始数据 —— 缺失时二级降级为「只按字表配方展开」。
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'pipeline'))
+try:
+    from fetch_ids import parse_ids_text, RAW_PATH
+    from decompose import build_index, split_once
+    from filter_chars import attr_of
+    IDS = build_index(parse_ids_text(RAW_PATH.read_text(encoding='utf-8'))) if RAW_PATH.exists() else None
+except Exception:
+    IDS, attr_of = None, lambda _: None
 
 EL = {'Metal': '金', 'Wood': '木', 'Water': '水', 'Fire': '火', 'Earth': '土', 'Heart': '心'}
 RA = {'White': '白', 'Green': '绿', 'Blue': '蓝', 'Purple': '紫', 'Gold': '金', 'Orange': '橙', 'Red': '红'}
@@ -20,6 +32,28 @@ PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge':
            'onHitBurnAll': '灼烧转全体'}
 
 def cname(c): return PUA.get(c['id'], c['id'])
+
+def lv1(c):
+    """一级组成:字表配方原文(玩家实际拆合到的那一层)。"""
+    return ' + '.join(PUA.get(p, p) for p in c['recipe'])
+
+def lv2(c):
+    """二级组成:把一级的每个部件再拆一层。
+
+    字表里有配方的部件用字表配方(游戏内口径优先);没有的退回 IDS 拆一级;
+    IDS 也拆不动的(冫、隹、里…)保留原样 —— 它已经是这套体系的终点。
+
+    五行部件(土、氵、钅…)一律不拆:管线 decompose 的同一条规则 ——
+    「五行部件是终点」,再往下的 土 = 十 + 一 在拆合语义里没有意义。
+    """
+    out = []
+    for p in c['recipe']:
+        if attr_of(p):
+            out.append(p)
+            continue
+        sub = byid.get(p, {}).get('recipe') or (split_once(p, IDS) if IDS else None)
+        out.extend(sub if sub else [p])
+    return ' + '.join(PUA.get(p, p) for p in out)
 
 def passive_txt(p):
     out = []
@@ -99,13 +133,15 @@ def cat_of(c):
     return '其他'
 
 def row5(c):
-    return f"| {cname(c)} | {EL[c['element']]} | {RA[c['rarity']]} | {atk(c)} | " + "；".join(desc(e) for e in c['effects']) + " |"
+    return (f"| {cname(c)} | {EL[c['element']]} | {RA[c['rarity']]} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
+            + "；".join(desc(e) for e in c['effects']) + " |")
 
 def row4(c):
-    return f"| {cname(c)} | {RA[c['rarity']]} | {atk(c)} | " + "；".join(desc(e) for e in c['effects']) + " |"
+    return (f"| {cname(c)} | {RA[c['rarity']]} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
+            + "；".join(desc(e) for e in c['effects']) + " |")
 
-H5 = "| 字 | 五行 | 稀有度 | 攻击力 | 功能 |\n|---|---|---|---|---|"
-H4 = "| 字 | 稀有度 | 攻击力 | 功能 |\n|---|---|---|---|"
+H5 = "| 字 | 五行 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n|---|---|---|---|---|---|---|"
+H4 = "| 字 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n|---|---|---|---|---|---|"
 
 head = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
 rc = collections.Counter(c['rarity'] for c in comp)
@@ -126,6 +162,12 @@ A("- **攻击力**:字表没有独立的攻击力字段,此列取**直伤效果�
 A("  纯辅助字记 `—`;召唤字记 `召 攻×只数`(实际输出在召唤物身上);纯 DOT 字记 DOT 量。")
 A("- **AP 消耗**:全表一律 1(2026-08-03 拍板与稀有度解耦),故不设列。")
 A("- **稀有度**:白 < 绿 < 蓝 < 紫 < 金 < 橙 < 红,枚举名 = 皮肤色 = 强度序。")
+A("- **一级组成**:字表 `recipe` 原文,即玩家在局内实际拆出/合成的那一层。")
+A("- **二级组成**:把一级的每个部件再拆一层 —— 部件自己在字表里有配方的用字表配方(游戏内口径优先),")
+A("  没有的退回管线的 IDS 拆解器(`decompose.split_once`,只拆 ⿰⿱⿲⿳ 且子部件须是真实字),")
+A("  两者都拆不动的(冫、隹、里…)保留原样,它已是这套体系的终点。")
+A("  **五行部件(土、氵、钅…)一律不拆** —— 与管线同一条规则,再往下的「土 = 十 + 一」在拆合语义里没有意义。")
+A("  ⚠ **二级里由 IDS 补出来的部件(七、几、勹…)不是游戏内对象** —— 字表里没有,玩家拿不到、也合不出。")
 A("- **PUA 字**:木/金的四叠字在 Unicode 无合适码点,用私有区 U+E625 / U+E626 + 自造字形,文中标注 `(PUA)`。")
 A("")
 A("## 总览")
