@@ -39,14 +39,16 @@ namespace Brushblade.Balance
 
             var profiles = new[]
             {
-                // 攻击力与生命取同一个角色等级(2026-08-11 E-b1):画像的等级此前只体现在血量上,
-                // 攻击力恒为基准 —— 那会让 E-b5 重平衡看不见攻击成长这一整条轴
-                new Profile("新手(灼,1级,HP500,ATK100)", new[] { "灼" },
-                    new Dictionary<string, int>(), MetaRules.MaxHpFor(1), MetaRules.AttackFor(1)),
-                new Profile("小成长(灼炎烧燃,卡3级,HP540,ATK104)", new[] { "灼", "炎", "烧", "燃" },
-                    FireCards.ToDictionary(c => c, _ => 3), MetaRules.MaxHpFor(3), MetaRules.AttackFor(3)),
-                new Profile("养成(焚炽灼燚,卡5级,HP680,ATK118)", new[] { "焚", "炽", "灼", "燚" },
-                    FireCards.ToDictionary(c => c, _ => 5), MetaRules.MaxHpFor(10), MetaRules.AttackFor(10)),
+                // 四条角色属性一律由**同一个角色等级**派生(2026-08-11 E-b1 起攻击、
+                // 2026-08-12 E-b4 T4 起 DEF 与闪避):画像的等级此前只体现在血量上,
+                // 其余恒为基准 —— 那会让 E-b5 重平衡看不见这些成长轴。等级只传一次,
+                // 从此不会出现「等级涨了但某条属性忘了跟着涨」。
+                new Profile("新手(灼,1级,HP500,ATK100,DEF0,闪0)", new[] { "灼" },
+                    new Dictionary<string, int>(), level: 1),
+                new Profile("小成长(灼炎烧燃,卡3级,3级,HP540,ATK104,DEF1,闪2)", new[] { "灼", "炎", "烧", "燃" },
+                    FireCards.ToDictionary(c => c, _ => 3), level: 3),
+                new Profile("养成(焚炽灼燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炽", "灼", "燚" },
+                    FireCards.ToDictionary(c => c, _ => 5), level: 10),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
@@ -63,9 +65,17 @@ namespace Brushblade.Balance
             public Dictionary<string, int> CardLevels;
             public int MaxHp;
             public int Attack;
+            public int Defense;
+            public int Dodge;
             public Profile(string name, IReadOnlyList<string> library, Dictionary<string, int> cardLevels,
-                int maxHp, int attack)
-            { Name = name; Library = library; CardLevels = cardLevels; MaxHp = maxHp; Attack = attack; }
+                int level)
+            {
+                Name = name; Library = library; CardLevels = cardLevels;
+                MaxHp = MetaRules.MaxHpFor(level);
+                Attack = MetaRules.AttackFor(level);
+                Defense = MetaRules.DefenseFor(level);
+                Dodge = MetaRules.DodgeFor(level);
+            }
         }
 
         private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
@@ -110,6 +120,7 @@ namespace Brushblade.Balance
                 {
                     DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp,
                     PlayerAttack = profile.Attack,
+                    PlayerDefense = profile.Defense, PlayerDodge = profile.Dodge,
                     UnlockedChars = FireCards,
                 };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
