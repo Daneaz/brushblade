@@ -307,13 +307,31 @@ namespace Brushblade.Core.Tests
             Assert.That(jing.Turns, Is.EqualTo(2));
         }
 
+        /// <summary>剁 是全表唯一的多段字,数值走 spec §4.4(b) 的**多段补偿规则**
+        /// (2026-08-13 E-b4/E-b5 T8 落地):
+        ///
+        /// > 多段字的总基础值 = 同档单段字 × (1 + 0.1 × (段数 − 1))
+        ///
+        /// 点数护甲对多段有天然惩罚 —— 每段各扣一次 DEF。紫档单段锚点 200,
+        /// 补偿后 剁 = 110 × 2 = 220 总(补偿前是 100 × 2 = 200)。
+        /// 面对 DEF 30 的敌人:剁 打出 (110−30)×2 = 160,同档单段 220 伤打出 190,
+        /// 补偿前只打出 140。**刻意不追求完全拉平** —— 多段在「两次过斩杀阈值」
+        /// 「两次触发受击后效」上有独立收益,拉平会让它净赚。
+        ///
+        /// ⚠ **2026-08-13 用户裁定:以公式为准,不是 spec 正文的 240。**
+        /// spec §4.4(b) 的正文与它自己上一行的公式矛盾(240 = 200×1.2,公式给 200×1.1=220)。
+        /// 公式是有原理的那个:补偿存在是因为 N 段字比单段多吃 `(N−1)` 次 DEF,
+        /// 系数**必须**正比于 `段数 − 1` —— 单段字代入才得 ×1.0(不需要补偿)。
+        /// 240 相当于 `1 + 0.1 × 段数`,那会让单段字也白拿 +10%。</summary>
         [Test]
         public void RealConfig_DuoIsTwoSegments()
         {
             var graph = RealGraph();
             var duo = graph.Get("剁").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(duo.Value, Is.EqualTo(100));
             Assert.That(duo.HitCount, Is.EqualTo(2));
+            Assert.That(duo.Value, Is.EqualTo(110), "每段 110");
+            Assert.That(duo.Value * duo.HitCount, Is.EqualTo(220),
+                "多段补偿后的总基础值 = 紫档单段锚点 200 × (1 + 0.1 × (2 − 1)) = 220");
         }
 
         [Test]

@@ -289,7 +289,13 @@ namespace Brushblade.CoreTests
         /// 交付时 13 只小怪里带甲的只有墨渍 1 只;Boss 的护甲挂在阶段上,而 Boss 永远单只。
         ///
         /// ⚠ 第八章补装甲怪时这条要相应改成「任一 enemyPool 抽样的遭遇里不超过 1 只」——
-        /// 那里要求的是**总数**变多,本条约束的是**同一次遭遇里的并发数**,两条不矛盾。</summary>
+        /// 那里要求的是**总数**变多,本条约束的是**同一次遭遇里的并发数**,两条不矛盾。
+        ///
+        /// ⚠⚠ **2026-08-13 T8 复核结论:本条守的是全表口径,而全表口径守不住 §4.4(a)。**
+        /// `BuildFloor` 有放回抽样,同一只墨渍能在一层里被抽中两次 —— 实测 9.5% 的遭遇
+        /// 已经违反「同场 ≤1 只带甲」。真判据搬进了下面的
+        /// <see cref="RealConfig_ArmoredConcurrency_PerEncounter_IsTheRealCriterion"/>。
+        /// **本条不删**:它仍然是「别顺手多配一只带甲杂兵」的第一道拦网,成本为零。</summary>
         [Test]
         public void RealConfig_ArmoredEnemiesAreRare()
         {
@@ -298,6 +304,53 @@ namespace Brushblade.CoreTests
             Assert.That(armored.Count, Is.LessThanOrEqualTo(1),
                 $"小怪级带甲的应不超过 1 只,实际:{string.Join("/", armored)}");
             Assert.That(armored, Does.Contain("墨渍"), "墨渍就是那一只");
+        }
+
+        /// <summary>⚠ **spec §4.4(a) 的真判据,以及它今天就已经不成立这件事**
+        /// (2026-08-13,E-b4/E-b5 T8 复核)。
+        ///
+        /// 上面那条 <see cref="RealConfig_ArmoredEnemiesAreRare"/> 守的是「**全表**带甲杂兵 ≤ 1 只」,
+        /// 而 spec §4.4(a) 真正要的是「**同一次遭遇**里带甲怪 ≤ 1 只」——AOE 的 N 倍惩罚只在
+        /// 同场多只带甲时兑现。两条不是一回事,而**全表口径看不见真判据的违反**:
+        ///
+        /// <c>Endless.BuildFloor</c> 是**有放回**的均匀抽样,所以哪怕全表只有墨渍一只带甲,
+        /// 同一层也可能抽到两只墨渍。词渊池 9 只、段末同屏 6 只 → 理论上
+        /// <c>1 − (8/9)^6 − 6·(1/9)·(8/9)^5 ≈ 13.7%</c> 的遭遇违反 §4.4(a)。
+        /// **这条约束今天就是破的,只是没有任何测试能发现。**实测违反率 **9.5%**(理论上界 13.7%,
+        /// 差在 Boss 层不算、浅层同屏敌数不足 6)。
+        ///
+        /// 本测试把实际违反率钉住,当**绊线**用:
+        /// - 第八章按 §8.6.1(a) 补装甲怪时,若**忘了**同时给 `BuildFloor` 加「带甲每场最多 1 只」
+        ///   的闸(照抄已有的 `hasSupport`),违反率会跳到 30~42%,这条立刻变红;
+        /// - 闸加上之后,把期望值改成 0 并把这条升级成硬断言 —— 那才是 §4.4(a) 的完成态。
+        ///
+        /// ⚠ 断言的是**上界**而不是等值:抽样是确定性的(种子固定),但换个 `enemyPool` 顺序
+        /// 就会变,钉死等值会变成一条一碰就红的噪声断言。</summary>
+        [Test]
+        public void RealConfig_ArmoredConcurrency_PerEncounter_IsTheRealCriterion()
+        {
+            var endless = RealCampaign().Endless;
+            Assert.That(endless, Is.Not.Null);
+
+            int floors = 0, violating = 0;
+            for (int depth = 1; depth <= 60; depth++)
+            {
+                if (endless.IsBossDepth(depth)) continue;   // Boss 层只出 Boss,永远单只
+                for (int seed = 0; seed < 200; seed++)
+                {
+                    var floor = EndlessGenerator.BuildFloor(endless, depth, new GameRandom(seed * 31 + depth));
+                    floors++;
+                    if (floor.Count(e => e.Defense > 0) >= 2) violating++;
+                }
+            }
+
+            double rate = violating / (double)floors;
+            Assert.That(floors, Is.GreaterThan(9000), "样本量够不够");
+            Assert.That(rate, Is.LessThan(0.12),
+                $"同场 ≥2 只带甲的遭遇占比 {rate:P1}(2026-08-13 实测 9.5%)。今天只有墨渍 1 只带甲,理论上界 ≈13.7%;"
+                + "涨过这条 = 有人加了带甲怪却没给 BuildFloor 加「带甲每场最多 1 只」的闸(spec §4.4(a))");
+            Assert.That(rate, Is.GreaterThan(0),
+                "这条判据必须有判别力:违反率为 0 说明抽样根本没覆盖到带甲怪,那这条就是装饰品");
         }
 
         /// <summary>其余 Boss 阶段一律无甲(spec §6.3:只有 山 60 / 江 30 / 钧 30 三处)。
