@@ -41,6 +41,44 @@ namespace Brushblade.Balance
         private static readonly string[] FireCards =
             { "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱", "锐" };
 
+        // ---- 阳性对照探针(spec §10.5,2026-08-12 E-b4/E-b5 T7)----
+        // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
+        // 判据只有一条:探针按预期方向动了。P50 的绝对值不是通过/失败判据。
+
+        /// <summary>探针的起爬深度 = 词渊段首。带甲小怪墨渍(DEF 20)只在 11 层起的池子里。</summary>
+        private const int ProbeStartDepth = 11;
+
+        /// <summary>六张护甲字(点数 12/15/12/6/3/9)。不同字 SourceId 不同 → **加法叠加**,
+        /// 六张全挂上是 57 点(卡 5 级后 82 点);同一个字再来只刷新。这正是要量的东西。</summary>
+        private static readonly string[] ArmorCards =
+            { "铠", "漜", "崊", "磐", "巍", "崟" };
+
+        /// <summary>土系堆甲探针的**起手四张** = 四张最厚的护甲字(铠12 漜15 崊12 崟9,
+        /// 卡 5 级后 17+21+17+13 = 68 点)。第一个回合 3 AP 就能挂上三张,DefenseBuff 是
+        /// <c>TurnsLeft = -1</c> 且 RunEngine 把它列进 CarriedStatuses,所以整段持久。
+        ///
+        /// ⚠ 这里刻意偏离了 spec §10.5 写的「铠漜崊磐巍崟 + 一个输出字」的**全防御卡组**。
+        /// 实测那套 P50 = 3,**低于对照组**,方向与预期相反 —— 而且不是因为 DefenseBuff
+        /// 没接上:六张护甲字占掉 6/7 的回合掉字,同字只刷新不叠加,第二张起全是废牌,
+        /// 机器人靠 1/7 的掉字打不动 140×scale 血的小怪,60 回合僵局被记成「卒于当层」。
+        /// 那套探针量到的是**僵局判定**,会把「接好了」误报成「接坏了」,比没有探针更糟。
+        ///
+        /// 现在这套把变量收敛到**一个**:起手四张换成护甲字。出阵卡组仍是 <see cref="FireCards"/>,
+        /// 与对照组**逐字相同** —— 掉字流、可合成集合、等级、卡等级、起爬深度全部一致,
+        /// 唯一的差别是开局那手牌。于是方向是净的:DefenseBuff 若真进了伤害链路,
+        /// 68 点甲对 30~50×scale 的怪攻压得过「少了四张开局输出」;若没接进去,
+        /// 剩下的就只有开局吃亏,P50 必然掉到对照组以下(实测正是如此,见任务报告)。</summary>
+        private static readonly string[] ArmorHand = { "铠", "漜", "崊", "崟" };
+
+        /// <summary>堆甲探针的卡等级表:得覆盖火系与护甲两边的字,漏掉哪边哪边就退回 1 级。</summary>
+        private static readonly string[] ArmorProbeCards = FireCards.Concat(ArmorCards).ToArray();
+
+        /// <summary>AOE 专精:全 DamageAll 且**不带任何附加效果**的字。
+        /// 刻意避开 燚/焱/㵘 这类「AOE + 灼烧/治疗」的复合字 —— 混进 DOT 就分不清读数的变化
+        /// 来自点数 DEF 的 N 倍惩罚还是来自灼烧,那又是一个「没变化 = 测不出来」的位置。</summary>
+        private static readonly string[] AoeCards =
+            { "爆", "海", "洪", "崩", "剿", "涛", "淹" };
+
         public static void Main()
         {
             string configDir = Path.Combine(AppContext.BaseDirectory,
@@ -61,11 +99,23 @@ namespace Brushblade.Balance
                     FireCards.ToDictionary(c => c, _ => 3), level: 3),
                 new Profile("养成(焚炽灼燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炽", "灼", "燚" },
                     FireCards.ToDictionary(c => c, _ => 5), level: 10),
+
+                // ---- 探针三连(spec §10.5)。三档等级/卡等级/起爬深度逐项相同,只换起手牌与卡组 ----
+                // ⚠ 对照这一档是**仪器的一部分**,不是第四个平衡目标:上面三档基线全部从 1 层起爬、
+                // 实测「带甲战/次」是 0.0/0.0/0.1 —— 拿它们当参照物,两个探针的方向都无从判起。
+                new Profile("探针·对照(火系,深启11)", new[] { "焚", "炽", "灼", "燚" },
+                    FireCards.ToDictionary(c => c, _ => 5), level: 10, startDepth: ProbeStartDepth),
+                new Profile("探针·土系堆甲(起手四护甲,深启11)", ArmorHand,
+                    ArmorProbeCards.ToDictionary(c => c, _ => 5), level: 10,
+                    deck: FireCards, startDepth: ProbeStartDepth),
+                new Profile("探针·AOE专精(全 DamageAll,深启11)", new[] { "爆", "海", "崩", "剿" },
+                    AoeCards.ToDictionary(c => c, _ => 5), level: 10,
+                    deck: AoeCards, startDepth: ProbeStartDepth),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
-            Console.WriteLine("| 画像 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) |");
-            Console.WriteLine("|---|---|---|---|---|---|---|---|");
+            Console.WriteLine("| 画像 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) | 带甲战/次 | 带甲多怪战/次 |");
+            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|");
             foreach (var profile in profiles)
                 SimulateProfile(graph, campaign, endless, profile);
         }
@@ -74,15 +124,25 @@ namespace Brushblade.Balance
         {
             public string Name;
             public IReadOnlyList<string> Library;
+            /// <summary>出阵卡组 = BattleConfig.UnlockedChars:回合掉字的抽取源,同时锁死合成目标
+            /// (2026-07-20)。此前写死成 <see cref="FireCards"/> —— 那样探针画像的起手字会被掉字
+            /// 一路稀释成火系,量到的根本不是它声称的那套卡组。</summary>
+            public IReadOnlyList<string> Deck;
             public Dictionary<string, int> CardLevels;
             public int MaxHp;
             public int Attack;
             public int Defense;
             public int Dodge;
+            /// <summary>起爬深度。三档基线一律从 1 起(它们量的是「一个号能爬多深」);
+            /// 探针从 11 起(词渊段首)—— 唯一带甲的小怪墨渍只在 11 层起的池子里,
+            /// 从 1 层起爬的画像**根本走不到那里**(实测三档基线的「带甲战/次」是 0.0/0.0/0.1)。
+            /// 探针量的不是「能爬多深」而是「某条机制在不在」,所以直接空投到有甲的水域。</summary>
+            public int StartDepth;
             public Profile(string name, IReadOnlyList<string> library, Dictionary<string, int> cardLevels,
-                int level)
+                int level, IReadOnlyList<string> deck = null, int startDepth = 1)
             {
-                Name = name; Library = library; CardLevels = cardLevels;
+                Name = name; Library = library; CardLevels = cardLevels; Deck = deck ?? FireCards;
+                StartDepth = startDepth;
                 MaxHp = MetaRules.MaxHpFor(level);
                 Attack = MetaRules.AttackFor(level);
                 Defense = MetaRules.DefenseFor(level);
@@ -90,12 +150,25 @@ namespace Brushblade.Balance
             }
         }
 
+        /// <summary>一次画像跑完攒下的「见没见到甲」证据(2026-08-12,E-b4/E-b5 T7)。
+        ///
+        /// ⚠ 为什么非要它:T5 刚踩过 —— 工装能**看见** 锐(三档画像分别真实出牌 332/352/427 次),
+        /// 却**量不出**它,因为三档只爬到 10~16 层,唯一带甲的小怪(墨渍,词渊 11 层起)出现太少,
+        /// PierceBuff 从 20 改到 5 读数完全不动。「没变化」和「测不出来」在仿真数据里长得一模一样,
+        /// 唯一的分辨办法就是**把分母也印出来**:探针到底遇到了几次带甲目标。</summary>
+        private sealed class DefExposure
+        {
+            public int ArmoredBattles;      // 含至少一只带甲敌人的战斗数
+            public int ArmoredMultiBattles; // 且同场敌人 ≥2 —— 点数 DEF 的 N 倍惩罚只在这种场里兑现
+        }
+
         private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
             EndlessConfig endless, Profile profile)
         {
             var deaths = new List<int>();
+            var exposure = new DefExposure();
             foreach (int seed in Enumerable.Range(0, Seeds))
-                deaths.Add(ClimbUntilDeath(graph, campaign, endless, profile, seed));
+                deaths.Add(ClimbUntilDeath(graph, campaign, endless, profile, seed, exposure));
 
             deaths.Sort();
             double avg = deaths.Average();
@@ -103,15 +176,17 @@ namespace Brushblade.Balance
             int p90 = deaths[(int)(deaths.Count * 0.9)];
             string Reach(int band) => $"{deaths.Count(d => d >= band) * 100 / deaths.Count}%";
             Console.WriteLine($"| {profile.Name} | {avg:F1} | {p50} | {p90} | {deaths[^1]} " +
-                              $"| {Reach(11)} | {Reach(26)} | {Reach(51)} |");
+                              $"| {Reach(11)} | {Reach(26)} | {Reach(51)} " +
+                              $"| {exposure.ArmoredBattles / (double)Seeds:F1} " +
+                              $"| {exposure.ArmoredMultiBattles / (double)Seeds:F1} |");
         }
 
         /// <summary>一路深入直到阵亡,返回卒层(= 阵亡所在层)。</summary>
         private static int ClimbUntilDeath(RecipeGraph graph, CampaignConfig campaign,
-            EndlessConfig endless, Profile profile, int seed)
+            EndlessConfig endless, Profile profile, int seed, DefExposure exposure)
         {
             int towerSeed = seed * 7919 + 17;
-            int fromDepth = 1;
+            int fromDepth = profile.StartDepth;
             IReadOnlyList<string> library = profile.Library;
             IReadOnlyList<string> pool = new[] { "木", "木" };
             int hp = profile.MaxHp;
@@ -133,7 +208,7 @@ namespace Brushblade.Balance
                     DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp,
                     PlayerAttack = profile.Attack,
                     PlayerDefense = profile.Defense, PlayerDodge = profile.Dodge,
-                    UnlockedChars = FireCards,
+                    UnlockedChars = profile.Deck,
                 };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
                     seed: unchecked(towerSeed * 17 + fromDepth), cardLevels: profile.CardLevels,
@@ -145,6 +220,15 @@ namespace Brushblade.Balance
                     if (run.Phase == RunPhase.Event) { ChooseBestEvent(run); continue; }
 
                     var battle = run.Battle;
+                    // 「见没见到甲」的分母(每场战斗记一次;这一行不消耗任何随机数)。
+                    // ⚠ 只数**开战时**就带甲的敌人 = 小怪墨渍(词渊 11 层起,DEF 20)。
+                    // Boss 的带甲阶段(山 60 / 江 30 / 钧 30)不计:它们是单敌战,
+                    // 点数 DEF 的 N 倍惩罚在单敌场里根本不兑现,对 AOE 探针没有判别力。
+                    if (battle.Enemies.Any(e => e.Defense > 0))
+                    {
+                        exposure.ArmoredBattles++;
+                        if (battle.Enemies.Count >= 2) exposure.ArmoredMultiBattles++;
+                    }
                     int turns = 0;
                     while (turns <= StallTurns)
                     {
@@ -266,6 +350,14 @@ namespace Brushblade.Balance
                     // 与 3 个 Boss 阶段(30/30/60)有甲,对其余敌人它一分钱不值。等价折算是这两头
                     // 之间的保守中点 —— 排在 灼(60)之后,机器人先打伤害再攒穿透。
                     case EffectKind.PierceBuff: sum += e.Value; break;
+                    // 护甲(2026-08-12,E-b4/E-b5 T7,土系堆甲探针):按点数 ×2 折算。
+                    // ⚠ **系数是多少不重要,是不是 0 才重要**:记 0 分的字机器人永远不会去
+                    // 合成它(Compose 那条分支要求 power 严格大于库里最强的),那与「没把它加进
+                    // 出阵表」完全等价 —— 正是 焰 变异检查轨迹毫无反应踩过的坑。没有这一条,
+                    // 土系堆甲探针就是个装饰品:它会握着一手防御字一张都不出。
+                    // ×2 的口径同 BurnSingle:本场持久、每记挥击都兑现,但只在挨打时兑现,
+                    // 所以排在同数值的直伤之后(铠 12 → 24 分,仍低于 碾 的 60)。
+                    case EffectKind.DefenseBuff: sum += e.Value * 2; break;
                 }
             }
             return sum;

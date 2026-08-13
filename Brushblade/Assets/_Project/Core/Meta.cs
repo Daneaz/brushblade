@@ -160,6 +160,50 @@ namespace Brushblade.Core
         /// 只靠字(锋)与养成技能给,见 <c>BattleConfig.PlayerCritChance</c>。</summary>
         public static int DodgeFor(int level) => Math.Min(25, level - 1);
 
+        /// <summary>玩家生命上限 = 等级曲线 + 养元加成(19.2.1 + 第 A 章)。**生命是唯一吃技能加成
+        /// 的角色属性**,所以只有它需要这层「等级 + meta」的合成,其余三条直接读曲线。
+        ///
+        /// ⚠ 独立成函数是因为这条表达式有**两个**调用点:战斗配置的 <c>PlayerMaxHp</c>,
+        /// 与新开一次登塔时的起始 HP(满血登塔)。此前两处各抄了一遍
+        /// <c>MaxHpFor(level) + PerkRules.HpBonus(meta)</c> —— 将来生命再加第二个 Bonus 项,
+        /// 改一处漏一处不会有任何东西报错。</summary>
+        public static int PlayerMaxHpFor(MetaState meta) =>
+            MaxHpFor(CharacterLevel(meta.CharacterXp)) + PerkRules.HpBonus(meta);
+
+        /// <summary>登塔时的战斗配置 = 角色等级派生的属性 + 养成加成 + 出阵表(19.2.1)。
+        /// <paramref name="dropTable"/> 是战役内容(不是角色属性),只能由调用方传进来。
+        ///
+        /// ⚠ **这个函数存在的唯一理由是可测性。** 在它之前,这段映射手写在
+        /// <c>GameRoot.StartSegment</c> 里 —— 而 Presentation 层没有任何自动化测试,两个工装
+        /// (tools/trace、tools/balance)又各自造 BattleConfig,谁都碰不到 GameRoot。
+        /// 结果是**把任意一条属性注入整行删掉,全部单元测试照旧全绿、零编译错**
+        /// (2026-08-12 E-b4 T4 做变异检查时实测:删掉 PlayerDodge 那行,967 条测试无一变红)。
+        /// 同一个洞覆盖了 PlayerMaxHp / PlayerAttack / PlayerDefense / PlayerDodge 四条。
+        ///
+        /// 所以:**GameRoot 不得再手写任何一条字段赋值**,新属性一律加在这里 ——
+        /// 加在这里就有 <c>MetaRulesBattleConfigTests</c> 逐条盯着。</summary>
+        public static BattleConfig BuildBattleConfig(MetaState meta, IReadOnlyList<string> dropTable)
+        {
+            int level = CharacterLevel(meta.CharacterXp);
+            return new BattleConfig
+            {
+                DropTable = dropTable,
+                // 生命是唯一吃养元加成的属性(19.2.1 + 第 A 章技能表)
+                PlayerMaxHp = PlayerMaxHpFor(meta),
+                PlayerAttack = AttackFor(level),
+                PlayerDefense = DefenseFor(level),
+                PlayerDodge = DodgeFor(level),
+                // ⚠ 没有 PlayerCritChance:暴击**不随角色等级成长**(2026-08-12 用户裁定),
+                // 缺省 0 让 RollCrit 短路、一次随机都不摇。见 BattleConfig.PlayerCritChance。
+                UnlockedChars = meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
+                ApPerTurn = BaseApPerTurn + PerkRules.ApBonus(meta), // 一气
+                LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
+            };
+        }
+
+        /// <summary>每回合基础 AP(10.1);一气技能在其上加。</summary>
+        public const int BaseApPerTurn = 3;
+
         /// <summary>关卡解锁:章内顺序解锁;下一章需上一章全通。</summary>
         public static bool IsStageUnlocked(MetaState meta, CampaignConfig campaign, int chapter, int stage)
         {
