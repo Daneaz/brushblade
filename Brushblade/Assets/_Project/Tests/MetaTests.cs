@@ -176,6 +176,51 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.MaxHpFor(25), Is.LessThan(1000));
         }
 
+        // ---- 防御轴的两条角色属性曲线(E-b4 T4,2026-08-12)----
+
+        [TestCase(1, 0)]    // 起点 0:护甲是土系字给的,不是白送的 —— 1 级行为与引入 DEF 之前逐字节相同
+        [TestCase(2, 0)]    // 整数除表达 k = 1/2:每两级 +1
+        [TestCase(3, 1)]
+        [TestCase(11, 5)]
+        [TestCase(25, 12)]  // (25−1)/2 = 12,恰好触顶
+        [TestCase(26, 12)]
+        public void DefenseFor_GrowsHalfPerLevel_CapsAt12(int level, int expected)
+        {
+            Assert.That(MetaRules.DefenseFor(level), Is.EqualTo(expected));
+        }
+
+        [TestCase(1, 0)]    // 起点 0,同 DefenseFor
+        [TestCase(2, 1)]    // k = 1:闪避是概率轴,满级 25% 与 DEF 12 对 R_in=60 的 −20% 同量级
+        [TestCase(11, 10)]
+        [TestCase(25, 24)]
+        [TestCase(26, 25)]  // 与 MaxHpFor / AttackFor 同在 26 级触顶
+        public void DodgeFor_GrowsOnePerLevel_CapsAt25(int level, int expected)
+        {
+            Assert.That(MetaRules.DodgeFor(level), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void DefenseAndDodge_StayCapped_FarAboveCapLevel()
+        {
+            // 封顶必须用**远超封顶级**的等级来证:E-b1 的评审教训是 TestCase(26, 150) 那种
+            // 「自然公式值恰好等于封顶值」的用例,把 Math.Min 整个删掉它照样绿,零判别力。
+            // 40 级的自然值是 DEF 19 / 闪避 39,与封顶值差得远,删掉封顶这条必红。
+            Assert.That(MetaRules.DefenseFor(40), Is.EqualTo(12));
+            Assert.That(MetaRules.DodgeFor(40), Is.EqualTo(25));
+            Assert.That(MetaRules.DefenseFor(200), Is.EqualTo(12));
+            Assert.That(MetaRules.DodgeFor(200), Is.EqualTo(25));
+        }
+
+        [Test]
+        public void DefenseAndDodge_AreZeroAtLevelOne()
+        {
+            // T4 的恒等性硬线:1 级角色的战斗行为与引入这两条曲线之前逐字节相同 ——
+            // 闪避 0 让 AttackHits 走 hitRate ≥ 100 的短路(一次随机都不摇),
+            // 护甲 0 让 max(0, x − 0) == x。任何一个起点不是 0 都会让黄金轨迹整体发散。
+            Assert.That(MetaRules.DefenseFor(1), Is.EqualTo(0));
+            Assert.That(MetaRules.DodgeFor(1), Is.EqualTo(0));
+        }
+
         // ---- 卡等级进战斗:等级系数先作用于基础值,再走生克 ----
 
         [Test]
