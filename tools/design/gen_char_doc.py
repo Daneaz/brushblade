@@ -43,8 +43,10 @@ def desc(e):
         'Blind': f"致盲 −{v}% 命中×{t} 回合" + ("(全体)" if all_ else ""),
         'Dispel': ("驱散敌方全部增益" if v == -1 else f"驱散敌方 {v} 条增益") + ("(全体各清)" if all_ else ""),
         'Cleanse': "净化自身全部减益", 'Immunity': f"免疫 {v} 次伤害",
-        'Reflect': f"反弹 {v}% 伤害×{t} 回合", 'DamageReduction': f"减伤 {v}%",
-        'ArmorBreak': f"破甲 {t or v} 回合", 'Empower': f"攻击力 +{v}(本场)",
+        'Reflect': f"反弹 {v}% 伤害×{t} 回合", 'DefenseBuff': f"护甲 +{v}(本场)",
+        # 破甲 2026-08-13 起是「削目标护甲 v 点」,不再是「承伤 +25% 持续 t 回合」
+        'ArmorBreak': f"破甲 {v}(削目标护甲,本场,可叠)", 'Empower': f"攻击力 +{v}(本场)",
+        'PierceBuff': f"穿透 +{v}(本场)", 'DodgeBuff': f"闪避 +{v}%(本场)",
         'Morale': f"战意 +{v} 层(每层 +10 攻,上限 5)", 'ApBoost': f"AP 上限 +{v}(本场)",
         'CritBuff': f"暴击率 +{v}%(本场)",
         'Summon': f"召唤 {e.get('count',1)} 只(血 {v}/攻 {e.get('attack',0)}"
@@ -53,7 +55,8 @@ def desc(e):
     mods = []
     if e.get('doubleVsBurning'): mods.append("对灼烧目标双倍")
     if e.get('persistOnce'): mods.append("免一次清盾")
-    if e.get('ignoreArmor'): mods.append("穿甲 +15%")
+    # mods 会被外层括号整体包住,这里不能再带括号,否则嵌套成「(穿透 10(…))」
+    if e.get('pierce'): mods.append(f"穿透 {e['pierce']}")
     if e.get('hitCount', 1) > 1: mods.append(f"{e['hitCount']} 段独立结算")
     if e.get('executeBelowPercent'):
         mods.append(f"斩杀线 {e['executeBelowPercent']}%" + ("→直杀(Boss 免疫)" if e.get('executeKills') else "→双倍"))
@@ -80,17 +83,17 @@ CATS = [
     ('灼烧 / 火系 DOT 操作', {'BurnSingle', 'BurnAll', 'BurnPotency', 'BurnNoDecay', 'BurnSettleNow', 'Detonate'}),
     ('流血', {'Bleed'}),
     ('治疗 / 复活', {'HealSelf', 'HealAll', 'HealOverTime', 'Revive'}),
-    ('护盾 / 减伤 / 免疫 / 反弹', {'Shield', 'DamageReduction', 'Immunity', 'Reflect'}),
-    ('破甲 / 穿甲', {'ArmorBreak'}),
+    ('护盾 / 护甲 / 免疫 / 反弹', {'Shield', 'DefenseBuff', 'Immunity', 'Reflect'}),
+    ('破甲 / 穿透', {'ArmorBreak', 'PierceBuff'}),
     ('状态操作(驱散 / 净化 / 致盲 / 沉默)', {'Dispel', 'Cleanse', 'Blind', 'Silence'}),
-    ('自强增益(攻 / 暴击 / AP / 战意)', {'Empower', 'Morale', 'ApBoost', 'CritBuff'}),
+    ('自强增益(攻 / 暴击 / AP / 战意 / 闪避)', {'Empower', 'Morale', 'ApBoost', 'CritBuff', 'DodgeBuff'}),
     ('纯伤害', {'DamageSingle', 'DamageAll'}),
 ]
 
 def cat_of(c):
     kinds = {e['kind'] for e in c['effects']}
     if any(e.get('executeBelowPercent') for e in c['effects']): return '斩杀'
-    if any(e.get('ignoreArmor') for e in c['effects']) and 'ArmorBreak' not in kinds: return '破甲 / 穿甲'
+    if any(e.get('pierce') for e in c['effects']) and 'ArmorBreak' not in kinds: return '破甲 / 穿透'
     for nm, ks in CATS:
         if kinds & ks: return nm
     return '其他'
