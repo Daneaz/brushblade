@@ -324,7 +324,11 @@ namespace Brushblade.Presentation
             // 这不是本次改动造成的 —— 原 79px 同样装不下(旧注释只算了三项的标称值,漏了行高与可选行),
             // 本次是让既有溢出再多 3.5px/边。HorizontalLayoutGroup 居中溢出,视觉上是上下各多探出一点。
             _summonRow = MakeSection("Summons", 0.560f, 0.640f); // 72px(原 79px,见上)
-            _bottomRow = MakeSection("PlayerStats", 0.505f, 0.560f); // 50px:HP/AP 横排(血值上条后省一行)
+            // 74px(2026-08-13 从 50px 抬高)。50px 一直装不下带护盾的情形:
+            // 血条 20 + 间距 3 + 护盾条 7 + 间距 3 + 「护盾 N」14 + 间距 3 + 状态 chip 行 24 = 74。
+            // 无护盾时是 47,所以此前只在有盾的回合溢出,不容易被发现。
+            // 这 24px 从 Status 区(单行标签,63px 给多了)挪来,中间两区整体下移、尺寸不变。
+            _bottomRow = MakeSection("PlayerStats", 0.478f, 0.560f);
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
             // 2026-07-20 移到最下面;左缘仍避开配字表(0.135 宽,2026-07-19 反馈:曾重叠)
@@ -342,9 +346,13 @@ namespace Brushblade.Presentation
             hintGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             _hintColumn = hintGo.transform;
 
-            _libraryRow = MakeSection("Library", 0.368f, 0.505f); // 123px ≥ 118 字牌
-            _poolRow = MakeSection("Pool", 0.300f, 0.368f);       // 61px ≥ 56 部件钮
-            _statusRow = MakeSection("Status", 0.230f, 0.300f);  // 63px:教程提示/奇遇文案
+            // 下面三区在 2026-08-13 整体下移 0.027(24px),给 PlayerStats 让位(见上)。
+            // 字牌区与部件钮区的**高度一分未减**,只是位置下移;被压缩的只有 Status。
+            _libraryRow = MakeSection("Library", 0.341f, 0.478f); // 123px ≥ 118 字牌(高度不变)
+            _poolRow = MakeSection("Pool", 0.273f, 0.341f);       // 61px ≥ 56 部件钮(高度不变)
+            // 39px(原 63px):只装单行标签(字号 18~26,26 号行高约 31px),63px 本就给多了。
+            // ⚠ 若将来这里要放两行文案,得另找地方要空间,不能再从这里挤。
+            _statusRow = MakeSection("Status", 0.230f, 0.273f);  // 教程提示/奇遇文案
 
             // 结束回合钮:屏幕右缘垂直居中(2026-07-21,右手拇指位)。字库满员 8 张 ×118
             // 居中最宽到 x≈1300(1600 基准),这里从 1376 起,不压字牌行
@@ -619,6 +627,25 @@ namespace Brushblade.Presentation
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"穿透 {pierceBuff}", Theme.Gold, Color.white, 12);
+            }
+            // 护甲 / 闪避(2026-08-13,E-b4 T7 收尾):铠漜崊崟等 6 个护甲字与闪避增益
+            // 此前打出去零反馈 —— 与 攻击/暴击/穿透 当初的缺口同型。
+            //
+            // ⚠ 这两条读的是 Effective*(基础 + 增益)而不是状态总量,与 暴击 同款、
+            // 与 穿透 相反。理由是「玩家该看到的是什么」在三者间本来就不同:
+            //   护甲/闪避 —— 角色等级给了基础值,只显示增益会让 0 级增益时整条消失,
+            //                玩家看不到自己本来就有 4 点甲;显示合计才对得上实际结算。
+            //   穿透     —— 基础恒 0,且「减多少」要看那只怪的甲,玩家该看到的是攒了多少。
+            // 用 > 0 而非 != 0 守门:等级低时两条都是 0,不该占位。
+            if (Battle.EffectivePlayerDefense > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"护甲 {Battle.EffectivePlayerDefense}", Theme.Jade, Color.white, 12);
+            }
+            if (Battle.EffectiveDodge > 0)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"闪避 {Battle.EffectiveDodge}%", Theme.Jade, Color.white, 12);
             }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
