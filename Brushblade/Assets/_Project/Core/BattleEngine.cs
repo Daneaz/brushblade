@@ -1254,6 +1254,19 @@ namespace Brushblade.Core
                             Magnitude = value, TurnsLeft = -1, SourceId = def.Id, // 段内持久
                         });
                         break;
+                    case EffectKind.PierceBuff:
+                        // 锐(2026-08-12,E-b4 T5):本场穿透 +Value 点,由 EffectiveEnemyDefense 读走。
+                        // 与 剡 的 Empower / 锋 的 CritBuff 同款:SourceId 铸唯一序号(用法 2)才能叠 ——
+                        // 传裸字 ID 会让第二张锐覆盖第一张,静默退化成刷新。
+                        // 不在这里钳上限:穿过头由 EffectiveEnemyDefense 的 max(0, …) 兜住,
+                        // 钳在施加处会让「穿透 50 打 DEF 10」把多出来的 40 也存丢,换个敌人就亏了。
+                        _playerStatuses.Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.PierceBuff, Polarity = StatusPolarity.Buff,
+                            Magnitude = value, TurnsLeft = -1,
+                            SourceId = $"{def.Id}#{_statusSerial++}",
+                        });
+                        break;
                     case EffectKind.BurnAll:
                         for (int i = 0; i < _enemies.Count; i++)
                             if (_enemies[i].Alive)
