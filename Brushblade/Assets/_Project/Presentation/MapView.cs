@@ -127,7 +127,7 @@ namespace Brushblade.Presentation
             var tower = Ui.CardPanel(transform, "Tower", Theme.PaperCard, 20);
             Ui.Anchor((RectTransform)tower.transform, new Vector2(0.2f, 0.27f), new Vector2(0.8f, 0.84f), Vector2.zero, Vector2.zero);
 
-            int depthNow = _meta.Endless?.Depth ?? Mathf.Max(1, _meta.BestDepth + 1);
+            int depthNow = _meta.EndlessV2?.Depth ?? Mathf.Max(1, _meta.BestDepth + 1);
             int bandIndex = 0;
             for (int i = 0; i < endless.Bands.Count; i++)
                 if (endless.Bands[i].FromDepth <= depthNow)
@@ -156,7 +156,7 @@ namespace Brushblade.Presentation
                     reached ? Color.white : Theme.LockGray, 15);
             }
 
-            var snapshot = _meta.Endless;
+            var snapshot = _meta.EndlessV2;
             string label = snapshot == null
                 ? "登 塔"
                 : $"继续 · 「{endless.BandFor(snapshot.Depth).Name}」第 {snapshot.Depth} 层";

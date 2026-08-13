@@ -36,6 +36,9 @@ namespace Brushblade.Core
         Morale,       // 战意 +Value 层,每层 +10 攻击,上限 5 层(战/戮;本场持久,2026-08-12)
         ApBoost,      // 本场每回合 AP 上限 +Value(利;可叠加,2026-08-12)
         CritBuff,     // 本场暴击率 +Value 个百分点(锋;可叠加、上限由 EffectiveCrit 钳,2026-08-12)
+        PierceBuff,   // 本场穿透 +Value **点**(锐;可叠加、本场持久,2026-08-12 E-b4 T5)
+                      // 与伤害效果自带的一次性 Pierce 进同一个减数(EffectiveEnemyDefense),区别只在存续:
+                      // 这条挂在玩家身上、往后每次结算都吃,Pierce 只作用于它所在的那一次攻击。
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

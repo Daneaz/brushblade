@@ -42,10 +42,9 @@ namespace Brushblade.Core
         public List<StatusEffect> Statuses { get; set; } = new();
         public int ActionMeter { get; set; }
         public int BaseAttack { get; set; }
-        // ⚠ 承伤系数已随乘法减伤层删除(2026-08-12,E-b4 T3):本字段从此**无人读写**。
-        // 留着不动是给 T6 的存档迁移一并处理 —— 那一刀会把整个登塔快照随 Endless → EndlessV2
-        // 作废,字段跟着消失,零风险。在那之前删它没有收益(敌人护甲是不可变属性,按 DefId 查回)。
-        public float DamageTaken { get; set; }
+        // ⚠ 曾有一个承伤系数 DamageTaken,随乘法减伤层删除(2026-08-12,E-b4 T3)后无人读写,
+        // 已在 T6 的存档迁移里一并删掉:整个登塔快照随 MetaState.Endless → EndlessV2 作废,
+        // 旧 JSON 里的 damageTaken 变成未知键被忽略,零风险。敌人护甲是不可变属性,按 DefId 查回。
         public int PhaseIndex { get; set; }
         public int[] PhaseBounds { get; set; }        // Boss 换阶阈值:开场摇的,重算会变
         public int RegrowProgress { get; set; }

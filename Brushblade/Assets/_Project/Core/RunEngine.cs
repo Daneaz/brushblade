@@ -477,7 +477,7 @@ namespace Brushblade.Core
             {
                 // 此时 _carriedSummons 仍是上一层的阵容,没清空:安全,因为 TryRevive 复活的是
                 // 同一个 BattleEngine(不走 NewBattle),OnSegmentEnded(won:false) 在写盘前就
-                // 从这里早退,随后塔结算把 _meta.Endless 置 null。若将来复活改成本层重开,
+                // 从这里早退,随后塔结算把 _meta.EndlessV2 置 null。若将来复活改成本层重开,
                 // 死掉的召唤物会集体诈尸,那时才需要在这里清空。
                 Phase = RunPhase.RunLost;
                 return;

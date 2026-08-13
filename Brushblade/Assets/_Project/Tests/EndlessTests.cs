@@ -326,7 +326,7 @@ namespace Brushblade.Core.Tests
             var meta = new MetaState
             {
                 BestDepth = 17,
-                Endless = new EndlessSaveState
+                EndlessV2 = new EndlessSaveState
                 {
                     Depth = 13, PlayerHp = 21, EarnedInk = 85, Seed = 42,
                     Library = new List<string> { "焚", "灯" },
@@ -341,10 +341,10 @@ namespace Brushblade.Core.Tests
 
             Assert.That(restored.BestDepth, Is.EqualTo(17));
             Assert.That(restored.BandMilestones, Is.EqualTo(new[] { "词渊" }));
-            Assert.That(restored.Endless.Depth, Is.EqualTo(13));
-            Assert.That(restored.Endless.Library, Is.EqualTo(new[] { "焚", "灯" }));
-            Assert.That(restored.Endless.LibraryExpanded, Is.True);
-            Assert.That(restored.Endless.TopBossDepth, Is.EqualTo(10)); // 结算宝箱档位据此(2026-07-22)
+            Assert.That(restored.EndlessV2.Depth, Is.EqualTo(13));
+            Assert.That(restored.EndlessV2.Library, Is.EqualTo(new[] { "焚", "灯" }));
+            Assert.That(restored.EndlessV2.LibraryExpanded, Is.True);
+            Assert.That(restored.EndlessV2.TopBossDepth, Is.EqualTo(10)); // 结算宝箱档位据此(2026-07-22)
         }
 
         [Test]

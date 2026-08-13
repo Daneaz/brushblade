@@ -1840,6 +1840,21 @@
       ]
     },
     {
+      "id": "锐",
+      "rarity": "White",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "兑"
+      ],
+      "effects": [
+        {
+          "kind": "PierceBuff",
+          "value": 20
+        }
+      ]
+    },
+    {
       "id": "㙓",
       "rarity": "Red",
       "element": "Earth",
@@ -2302,6 +2317,10 @@
     },
     {
       "id": "兆"
+    },
+    {
+      "id": "兑",
+      "element": "Metal"
     },
     {
       "id": "公"

@@ -26,8 +26,20 @@ namespace Brushblade.Balance
         // 里根本没有它这一行,管线从没产出过它,进不了 RecipeGraph。而它当时正是「新手」
         // 画像的**唯一**起手字,于是那一档量的是空手打(只能靠回合掉部件 + 兜底一击),
         // 与画像名声称的东西无关。换成 灼(白档,单攻 60,对灼烧目标翻倍)。
+        // ⚠ 2026-08-12(E-b4 T5,spec §10.5):追加 锐 —— 不扩这张表就又重演 E-a 的
+        // 「工装看不见新字」。锐 是金系而这三档画像是火系,故它是这张表里唯一的异色字:
+        // 表的语义是「画像的出阵卡组」,真实卡组本来就可以混色,而穿透那条轴在纯火表里
+        // 一个观测点都没有。⚠ 光加进表还不够,Power() 必须同时给 PierceBuff 记分 ——
+        // 记 0 分的字机器人永远不会出,那与没加进表**完全等价**(这正是 焰 变异检查
+        // 轨迹毫无反应的那次踩过的坑)。
+        //
+        // 兑 **不加**:它是部件不是字,而 StartTurn 的回合掉字明确只掉字
+        // (「五行部件只能靠拆字获得」,BattleEngine.cs:984),把叶子塞进 UnlockedChars
+        // 等于给工装造一条生产里不存在的获取路径。这个机器人也从不拆字,兑 在工装里
+        // 本就没有可达路径 —— 它的可达性由 PierceBuffCharTests 的
+        // RealConfig_Dui_IsReachable_ThroughRuiInTheDeck 在真实规则上钉住,不靠仿真。
         private static readonly string[] FireCards =
-            { "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱" };
+            { "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱", "锐" };
 
         public static void Main()
         {
@@ -249,6 +261,11 @@ namespace Brushblade.Balance
                     case EffectKind.BurnPotency: sum += e.Value * 2; break;
                     case EffectKind.HealSelf: sum += e.Value / 2; break;
                     case EffectKind.Summon: sum += (e.Value + e.SummonAttack * 3) * e.SummonCount / 2; break;
+                    // 穿透(2026-08-12,E-b4 T5,锐):按点数**等价折算成伤害**,不加权。
+                    // 它本场持久、每次攻击都兑现,理应比一次性伤害值钱;但全表只有 墨渍(DEF 20)
+                    // 与 3 个 Boss 阶段(30/30/60)有甲,对其余敌人它一分钱不值。等价折算是这两头
+                    // 之间的保守中点 —— 排在 灼(60)之后,机器人先打伤害再攒穿透。
+                    case EffectKind.PierceBuff: sum += e.Value; break;
                 }
             }
             return sum;
