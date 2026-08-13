@@ -160,7 +160,6 @@ namespace Brushblade.Balance
         {
             public int ArmoredBattles;      // 含至少一只带甲敌人的战斗数
             public int ArmoredMultiBattles; // 且同场敌人 ≥2 —— 点数 DEF 的 N 倍惩罚只在这种场里兑现
-            public int Battles;
         }
 
         private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
@@ -225,7 +224,6 @@ namespace Brushblade.Balance
                     // ⚠ 只数**开战时**就带甲的敌人 = 小怪墨渍(词渊 11 层起,DEF 20)。
                     // Boss 的带甲阶段(山 60 / 江 30 / 钧 30)不计:它们是单敌战,
                     // 点数 DEF 的 N 倍惩罚在单敌场里根本不兑现,对 AOE 探针没有判别力。
-                    exposure.Battles++;
                     if (battle.Enemies.Any(e => e.Defense > 0))
                     {
                         exposure.ArmoredBattles++;
