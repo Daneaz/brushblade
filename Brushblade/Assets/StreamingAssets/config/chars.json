@@ -1495,7 +1495,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 120,
+          "value": 110,
           "hitCount": 2
         }
       ]
