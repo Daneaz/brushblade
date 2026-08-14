@@ -58,7 +58,8 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             // 2026-08-14:溺 / 埋 / 坑 随用户裁定移出字表,从本列表删去。
             // 2026-08-14 第二批裁定移出 锯 / 磐 / 巍,从本列表删去。
-            foreach (var id in new[] { "淋", "润", "沐", "滋", "冰", "冻",
+            // 2026-08-14 第三批:润 / 滋 移出。
+            foreach (var id in new[] { "淋", "沐", "冰", "冻",
                                        "藤", "洼", "凝", "冷",
                                        "铠", "崊", "崟", "漜" })
                 Assert.That(graph.Get(id), Is.Not.Null, $"{id} 应已收录");
@@ -97,12 +98,14 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_RunIsHealOverTimeTargetAll()
         {
-            // 润:群体持续治疗,turns/targetAll 必须从 JSON 真正传到 EffectDef
-            // (ConfigLoader.ParseEffects 此前没接这两个字段——本测试就是防回归的)
-            var effect = RealGraph().Get("润").Effects
-                .First(e => e.Kind == EffectKind.HealOverTime);
-            Assert.That(effect.Turns, Is.EqualTo(2));
-            Assert.That(effect.TargetAll, Is.True);
+            // 2026-08-14 第三批:润 / 滋 移出字表,群体持续治疗(targetAll HoT)自此无载体。
+            // 本测试原是防「ConfigLoader.ParseEffects 不接 turns/targetAll」回归的 ——
+            // turns 那一半改由 沐 继续钉(见 RealConfig_MuIsHealOverTimeSingleTargetThreeTurns),
+            // targetAll 那一半在字表里没有靶子了,先钉住空集:新字带 targetAll HoT 时本条会红。
+            var graph = RealGraph();
+            Assert.That(graph.All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.HealOverTime && e.TargetAll), Is.False,
+                "群体持续治疗当前应无载体");
         }
 
         [Test]
@@ -297,16 +300,29 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_SilenceAndReflectHaveNoCarrier()
+        public void RealConfig_SilenceHasNoCarrier()
         {
-            // 2026-08-14 第二批裁定移出 锁(Silence)/ 镜(Reflect)——这两个 EffectKind
-            // 自此在字表里**没有任何载体**。引擎实现与 StatusKind 都还在(BattleEngine 的
-            // 沉默分支、反弹分支各有自己的单元测试),这里从「钉住数值」改为「钉住空集」:
-            // 哪天有新字接手,本测试会红,提醒把数值守卫加回来。
-            var graph = RealGraph();
-            foreach (var kind in new[] { EffectKind.Silence, EffectKind.Reflect })
-                Assert.That(graph.All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
-                    .Any(e => e.Kind == kind), Is.False, $"{kind} 当前应无载体");
+            // 2026-08-14 第二批裁定移出 锁(Silence)。引擎实现与 StatusKind 都还在
+            // (BattleEngine 的沉默分支有自己的单元测试),这里钉住空集:
+            // 哪天有新字接手,本条会红,提醒把数值守卫加回来。Reflect 已由 铸 接手,见下。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.Silence), Is.False, "Silence 当前应无载体");
+        }
+
+        /// <summary>铸(2026-08-14 第三批新增)接手 镜 移出后无载体的 Reflect。
+        /// 绿档口径比旧 镜(蓝,50%/2 回合)低一档:反弹按价目表计 0.30,余下给单攻。</summary>
+        [Test]
+        public void RealConfig_ZhuCarriesReflect()
+        {
+            var zhu = RealGraph().Get("铸");
+            Assert.That(zhu.Rarity, Is.EqualTo(CardRarity.Green));
+            Assert.That(zhu.Element, Is.EqualTo(Element.Metal));
+            Assert.That(zhu.Recipe, Is.EqualTo(new[] { "钅", "寿" }));
+            var reflect = zhu.Effects.Single(e => e.Kind == EffectKind.Reflect);
+            Assert.That(reflect.Value, Is.EqualTo(40));
+            Assert.That(reflect.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
+            Assert.That(zhu.Effects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(65), "T9 攻击性下限:绿档 90 × 0.70");
         }
 
         /// <summary>剁 是全表唯一的多段字,数值走 spec §4.4(b) 的**多段补偿规则**

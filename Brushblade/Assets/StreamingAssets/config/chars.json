@@ -958,21 +958,6 @@
       ]
     },
     {
-      "id": "淹",
-      "rarity": "Green",
-      "element": "Water",
-      "recipe": [
-        "氵",
-        "奄"
-      ],
-      "effects": [
-        {
-          "kind": "DamageAll",
-          "value": 50
-        }
-      ]
-    },
-    {
       "id": "淬",
       "rarity": "Green",
       "element": "Water",
@@ -984,21 +969,6 @@
         {
           "kind": "DamageSingle",
           "value": 90
-        }
-      ]
-    },
-    {
-      "id": "沸",
-      "rarity": "White",
-      "element": "Water",
-      "recipe": [
-        "氵",
-        "弗"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 60
         }
       ]
     },
@@ -1179,47 +1149,6 @@
       ]
     },
     {
-      "id": "润",
-      "rarity": "Green",
-      "element": "Water",
-      "recipe": [
-        "氵",
-        "闰"
-      ],
-      "effects": [
-        {
-          "kind": "HealOverTime",
-          "value": 20,
-          "turns": 2,
-          "targetAll": true
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 35
-        }
-      ]
-    },
-    {
-      "id": "滋",
-      "rarity": "Green",
-      "element": "Water",
-      "recipe": [
-        "氵",
-        "兹"
-      ],
-      "effects": [
-        {
-          "kind": "HealOverTime",
-          "value": 20,
-          "turns": 2
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 35
-        }
-      ]
-    },
-    {
       "id": "活",
       "rarity": "Blue",
       "element": "Water",
@@ -1235,25 +1164,6 @@
         {
           "kind": "DamageSingle",
           "value": 80
-        }
-      ]
-    },
-    {
-      "id": "治",
-      "rarity": "Blue",
-      "element": "Water",
-      "recipe": [
-        "氵",
-        "台"
-      ],
-      "effects": [
-        {
-          "kind": "HealSelf",
-          "value": 50
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 45
         }
       ]
     },
@@ -1508,6 +1418,26 @@
           "value": 40,
           "executeBelowPercent": 30,
           "executeKills": false
+        }
+      ]
+    },
+    {
+      "id": "铸",
+      "rarity": "Green",
+      "element": "Metal",
+      "recipe": [
+        "钅",
+        "寿"
+      ],
+      "effects": [
+        {
+          "kind": "Reflect",
+          "value": 40,
+          "turns": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 65
         }
       ]
     },
@@ -2009,9 +1939,6 @@
       "id": "共"
     },
     {
-      "id": "兹"
-    },
-    {
       "id": "冫",
       "element": "Water"
     },
@@ -2055,9 +1982,6 @@
       "id": "只"
     },
     {
-      "id": "台"
-    },
-    {
       "id": "周"
     },
     {
@@ -2068,9 +1992,6 @@
     },
     {
       "id": "埜"
-    },
-    {
-      "id": "奄"
     },
     {
       "id": "奉"
@@ -2105,9 +2026,6 @@
     },
     {
       "id": "廉"
-    },
-    {
-      "id": "弗"
     },
     {
       "id": "戈",
@@ -2201,9 +2119,6 @@
     {
       "id": "钅",
       "element": "Metal"
-    },
-    {
-      "id": "闰"
     },
     {
       "id": "隹"

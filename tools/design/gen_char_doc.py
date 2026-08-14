@@ -75,7 +75,13 @@ def passive_txt(p):
 
 def desc(e, mult=1):
     k, t, all_ = e['kind'], e.get('turns', 0), e.get('targetAll')
-    v = e.get('value', 0) * (mult if k in WUXING_SCALED else 1)
+    base = e.get('value', 0)
+    scaled = k in WUXING_SCALED and mult > 1
+    v = base * mult if scaled else base
+    # 相生字保留算式(70×3=210):只写最终值会让人以为配置表填的就是它,
+    # 只写基础值又与实战不符 —— 两个数都在,读表的人不用回头查倍率。
+    if scaled:
+        v = f"{base}×{mult}={base * mult}"
     s = {
         'DamageSingle': f"单体伤害 {v}", 'DamageAll': f"全体伤害 {v}",
         'BurnSingle': f"灼烧 {v} 层", 'BurnAll': f"全体灼烧 {v} 层",
@@ -115,8 +121,9 @@ def atk(c):
     for e in c['effects']:
         if e['kind'] in ('DamageSingle', 'DamageAll'):
             n = e.get('hitCount', 1)
-            parts.append(f"{e['value'] * m}" + (f"×{n}" if n > 1 else "")
-                         + ("(AOE)" if e['kind'] == 'DamageAll' else "") + (" ×3相生" if m > 1 else ""))
+            val = f"{e['value']}×{m}={e['value'] * m}" if m > 1 else f"{e['value']}"
+            parts.append(val + (f"×{n} 段" if n > 1 else "")
+                         + ("(AOE)" if e['kind'] == 'DamageAll' else ""))
     if parts: return '+'.join(parts)
     for e in c['effects']:
         if e['kind'] == 'Summon': return f"召 {e.get('attack',0)}×{e.get('count',1)}"
@@ -175,7 +182,7 @@ A(f"- **收录范围**:配置表 {len(chars)} 条中的 **{len(comp)} 个可出�
 A("- **攻击力**:字表没有独立的攻击力字段,此列取**直伤效果的 value**(已是 2026-08-12 全表 ×10 后的量级)。")
 A("  纯辅助字记 `—`;召唤字记 `召 攻×只数`(实际输出在召唤物身上);纯 DOT 字记 DOT 量。")
 A("- **相生 ×3**:配置表填的是**基础值**,配方原料含「生本字属性」的字(燊/焚/蒸/炑/沏/刲)实战 ×3。")
-A("  本表的攻击力与功能列**已经乘好**,标 `×3相生`;卡面(CharInfo)同口径。只有走生克结算的效果吃这个倍率,灼烧层数/召唤血攻/驱散条数是平值。")
+A("  本表的攻击力与功能列写成 `70×3=210` —— 基础值与实战值都留着,读表不必回头查倍率;卡面(CharInfo)同口径。只有走生克结算的效果吃这个倍率,灼烧层数/召唤血攻/驱散条数是平值。")
 A("- **AP 消耗**:全表一律 1(2026-08-03 拍板与稀有度解耦),故不设列。")
 A("- **稀有度**:白 < 绿 < 蓝 < 紫 < 金 < 橙 < 红,枚举名 = 皮肤色 = 强度序。")
 A("- **一级组成**:字表 `recipe` 原文,即玩家在局内实际拆出/合成的那一层。")

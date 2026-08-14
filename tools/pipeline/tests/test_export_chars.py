@@ -64,7 +64,7 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_109_implementable_chars():
+def test_extract_pulls_105_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。
 
     2026-08-09:129 → 132,火系 DOT 三分化(炑/燥/灱)落地。
@@ -77,9 +77,10 @@ def test_extract_pulls_109_implementable_chars():
     2026-08-14:134 → 128,用户裁定移出 埋/坑/溺/桑/桃/槐 六字(配方完好,主动精简)。
     2026-08-14 第二批:128 → 109,再移出 19 字(烟/燎/熔/燃/烫/锯/巍/城/塞/磐/岿/
     剖/割/戮/刮/削/锤/锁/镜)。Bleed / Silence / Reflect 三个 EffectKind 自此无载体。
+    2026-08-14 第三批:109 → 105,移出 沸/淹/润/滋/治 五字,新增 铸(绿·金,接手 Reflect)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 109
+    assert len(values) == 105
     # 焚含木生火,配置表填基础值 70(引擎结算时 ×3 = 210)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 70
@@ -88,11 +89,14 @@ def test_extract_pulls_109_implementable_chars():
 
 
 def test_extract_heal_over_time_parses_turns_and_target_all():
-    """润:群体持续治疗,turns/targetAll 要从「效果配置」列的括注里解出来。"""
+    """turns/targetAll 要从「效果配置」列的括注里解出来。
+
+    2026-08-14 第三批:润(唯一的群体持续治疗)移出字表,targetAll 那半改用 淡 的
+    `DispelEach 1` 守 —— 它走的是同一条括注解析路径,是现存唯一带 targetAll 的效果。
+    """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    run = next(e for e in values["润"]["effects"] if e["kind"] == "HealOverTime")
-    assert run["turns"] == 2
-    assert run["targetAll"] is True
+    dan = next(e for e in values["淡"]["effects"] if e["kind"] == "Dispel")
+    assert dan["targetAll"] is True
 
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
     assert mu["turns"] == 3

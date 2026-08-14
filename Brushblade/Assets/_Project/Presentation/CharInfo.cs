@@ -73,29 +73,33 @@ namespace Brushblade.Presentation
                 if (i > 0) parts.Append(';');
                 var e = def.Effects[i];
                 int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
-                if (IsWuxingScaled(e.Kind)) v *= sheng;
+                // 相生字把算式整个写出来(70×3=210):只显示最终值,玩家会以为字表就填的这个;
+                // 只显示基础值又与实战对不上 —— 燊 的卡面写 80、打出去 240 正是上一版的毛病。
+                string shown = IsWuxingScaled(e.Kind) && sheng > 1
+                    ? $"{v}×{sheng}={v * sheng}"
+                    : v.ToString();
                 parts.Append(e.Kind switch
                 {
-                    EffectKind.DamageSingle => $"单体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
+                    EffectKind.DamageSingle => $"单体{shown}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
                         + PierceText(e),
-                    EffectKind.DamageAll => $"全体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
+                    EffectKind.DamageAll => $"全体{shown}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
                         + PierceText(e),
-                    EffectKind.BurnSingle => $"单体灼烧+{v}",
-                    EffectKind.BurnAll => $"全体灼烧+{v}",
-                    EffectKind.Shield => $"护盾{v}" + (e.PersistOnce ? "(豁免一次回合末清空)" : ""),
-                    EffectKind.BurnPotency => $"本场灼烧每层结算+{v}",
-                    EffectKind.HealSelf => $"治疗{v}",
+                    EffectKind.BurnSingle => $"单体灼烧+{shown}",
+                    EffectKind.BurnAll => $"全体灼烧+{shown}",
+                    EffectKind.Shield => $"护盾{shown}" + (e.PersistOnce ? "(豁免一次回合末清空)" : ""),
+                    EffectKind.BurnPotency => $"本场灼烧每层结算+{shown}",
+                    EffectKind.HealSelf => $"治疗{shown}",
                     EffectKind.Summon => $"召{e.SummonCount}×「{e.SummonChar}」" +
-                        $"(血{v}攻{MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)},顶前排)",
-                    EffectKind.Bleed => $"流血{v}/回合(无属性)",
-                    EffectKind.HealAll => $"群体治疗{v}(含召唤物)",
+                        $"(血{shown}攻{MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)},顶前排)",
+                    EffectKind.Bleed => $"流血{shown}/回合(无属性)",
+                    EffectKind.HealAll => $"群体治疗{shown}(含召唤物)",
                     EffectKind.HealOverTime => e.TargetAll
-                        ? $"群体持续治疗{v}/回合,共{e.Turns}回合"
-                        : $"持续治疗{v}/回合,共{e.Turns}回合",
-                    EffectKind.Freeze => $"冻结{v}回合",
-                    EffectKind.Slow => $"减速{v}回合(半速)",
-                    EffectKind.DefenseBuff => $"本段护甲 +{v}",
-                    EffectKind.ArmorBreak => $"破甲 {v}(本场削目标护甲)",
+                        ? $"群体持续治疗{shown}/回合,共{e.Turns}回合"
+                        : $"持续治疗{shown}/回合,共{e.Turns}回合",
+                    EffectKind.Freeze => $"冻结{shown}回合",
+                    EffectKind.Slow => $"减速{shown}回合(半速)",
+                    EffectKind.DefenseBuff => $"本段护甲 +{shown}",
+                    EffectKind.ArmorBreak => $"破甲 {shown}(本场削目标护甲)",
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
                     // 用 e.Value 而不是 v:真正的约束是正数条数不能被 ScaleByCardLevel 缩放
                     // (Lv.10 系数 1.9,「驱散 2 条」会被算成 ceil(2×1.9)=4 条,与 Core 实际驱散数不符;
@@ -104,31 +108,31 @@ namespace Brushblade.Presentation
                         ? (e.TargetAll ? "全体驱散全部增益" : "驱散全部增益")
                         : (e.TargetAll ? $"全体驱散{e.Value}条增益" : $"驱散{e.Value}条增益"),
                     EffectKind.Cleanse => "净化自身全部减益",
-                    EffectKind.Immunity => $"免疫{v}次伤害",
-                    EffectKind.Revive => $"复活{v}名召唤物(各回半血)",
+                    EffectKind.Immunity => $"免疫{shown}次伤害",
+                    EffectKind.Revive => $"复活{shown}名召唤物(各回半血)",
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
-                    // 「破甲 {v} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
+                    // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
                     EffectKind.Blind => e.TargetAll
-                        ? $"全体致盲−{v}% {e.Turns}回合"
-                        : $"致盲−{v}% {e.Turns}回合",
+                        ? $"全体致盲−{shown}% {e.Turns}回合"
+                        : $"致盲−{shown}% {e.Turns}回合",
                     EffectKind.Silence => $"沉默{e.Turns}回合",
-                    EffectKind.Reflect => $"反弹{v}%伤害,{e.Turns}回合",
+                    EffectKind.Reflect => $"反弹{shown}%伤害,{e.Turns}回合",
                     EffectKind.BurnNoDecay => "灼烧不衰减(本场)",
                     EffectKind.BurnSettleNow => "立即结算一次灼烧",
                     EffectKind.Detonate => "引爆灼烧(全额兑现并清空)",
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
-                    EffectKind.Empower => $"本场攻击+{v}",
-                    EffectKind.Morale => $"战意+{v}层(每层攻击+10,上限 5 层)",
+                    EffectKind.Empower => $"本场攻击+{shown}",
+                    EffectKind.Morale => $"战意+{shown}层(每层攻击+10,上限 5 层)",
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
                     // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
                     EffectKind.ApBoost => $"本场每回合 AP 上限+{e.Value}",
                     // 倍率读常量而不是写死「×1.5」:E-b5 重平衡会改那个常量,写死了卡面就会骗人
                     EffectKind.CritBuff =>
-                        $"本场暴击率+{v}%(暴击伤害×{BattleConfig.CritMultiplierPercent / 100f:0.##})",
+                        $"本场暴击率+{shown}%(暴击伤害×{BattleConfig.CritMultiplierPercent / 100f:0.##})",
                     // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
                     // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
-                    EffectKind.PierceBuff => $"本场穿透+{v}(本场每次攻击无视 {v} 点护甲)",
+                    EffectKind.PierceBuff => $"本场穿透+{shown}(本场每次攻击无视 {shown} 点护甲)",
                     _ => e.Kind.ToString(),
                 });
             }
