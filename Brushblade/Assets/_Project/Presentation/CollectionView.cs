@@ -181,7 +181,7 @@ namespace Brushblade.Presentation
             Ui.GlyphTile(stack, def, $"{def.ApCost}AP", false, null, new Vector2(144, 180));
             Ui.ThemedLabel(stack, $"Lv.{level} → Lv.{level + 1}", 21, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack,
-                $"{CharInfo.EffectsText(def, level)}\n↓\n{CharInfo.EffectsText(def, level + 1)}",
+                $"{CharInfo.EffectsText(def, level, _graph)}\n↓\n{CharInfo.EffectsText(def, level + 1, _graph)}",
                 17, Theme.TextDim);
             Ui.ThemedLabel(stack,
                 $"消耗:重复卡 {copiesNeeded}(有 {copies}) · 墨锭 {inkNeeded}(有 {_meta.Ink})",

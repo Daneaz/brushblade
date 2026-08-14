@@ -35,7 +35,7 @@
         },
         {
           "kind": "BurnAll",
-          "value": 4
+          "value": 5
         }
       ]
     },
@@ -54,7 +54,7 @@
         },
         {
           "kind": "BurnAll",
-          "value": 3
+          "value": 4
         }
       ]
     },
@@ -131,21 +131,6 @@
       ]
     },
     {
-      "id": "燎",
-      "rarity": "Blue",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "尞"
-      ],
-      "effects": [
-        {
-          "kind": "BurnAll",
-          "value": 2
-        }
-      ]
-    },
-    {
       "id": "炸",
       "rarity": "Blue",
       "element": "Fire",
@@ -211,25 +196,6 @@
       ]
     },
     {
-      "id": "熔",
-      "rarity": "Blue",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "容"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 90
-        },
-        {
-          "kind": "ArmorBreak",
-          "value": 20
-        }
-      ]
-    },
-    {
       "id": "烬",
       "rarity": "Blue",
       "element": "Fire",
@@ -276,21 +242,6 @@
         {
           "kind": "DamageSingle",
           "value": 90
-        }
-      ]
-    },
-    {
-      "id": "燃",
-      "rarity": "Purple",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "然"
-      ],
-      "effects": [
-        {
-          "kind": "BurnSingle",
-          "value": 4
         }
       ]
     },
@@ -375,25 +326,6 @@
       ]
     },
     {
-      "id": "烫",
-      "rarity": "Purple",
-      "element": "Fire",
-      "recipe": [
-        "汤",
-        "火"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 120
-        },
-        {
-          "kind": "BurnSingle",
-          "value": 2
-        }
-      ]
-    },
-    {
       "id": "烧",
       "rarity": "Green",
       "element": "Fire",
@@ -470,27 +402,6 @@
         {
           "kind": "BurnSingle",
           "value": 1
-        }
-      ]
-    },
-    {
-      "id": "烟",
-      "rarity": "Green",
-      "element": "Fire",
-      "recipe": [
-        "火",
-        "因"
-      ],
-      "effects": [
-        {
-          "kind": "Blind",
-          "value": 30,
-          "turns": 1,
-          "targetAll": true
-        },
-        {
-          "kind": "DamageAll",
-          "value": 35
         }
       ]
     },
@@ -1520,25 +1431,6 @@
       ]
     },
     {
-      "id": "锤",
-      "rarity": "Blue",
-      "element": "Metal",
-      "recipe": [
-        "钅",
-        "垂"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 90
-        },
-        {
-          "kind": "ArmorBreak",
-          "value": 20
-        }
-      ]
-    },
-    {
       "id": "刺",
       "rarity": "Blue",
       "element": "Metal",
@@ -1587,25 +1479,6 @@
       ]
     },
     {
-      "id": "戮",
-      "rarity": "Green",
-      "element": "Metal",
-      "recipe": [
-        "羽",
-        "戈"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 75
-        },
-        {
-          "kind": "Morale",
-          "value": 1
-        }
-      ]
-    },
-    {
       "id": "锥",
       "rarity": "Green",
       "element": "Metal",
@@ -1639,109 +1512,6 @@
       ]
     },
     {
-      "id": "削",
-      "rarity": "Green",
-      "element": "Metal",
-      "recipe": [
-        "肖",
-        "刂"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 75
-        },
-        {
-          "kind": "Dispel",
-          "value": 1
-        }
-      ]
-    },
-    {
-      "id": "刮",
-      "rarity": "Green",
-      "element": "Metal",
-      "recipe": [
-        "舌",
-        "刂"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 60
-        },
-        {
-          "kind": "Dispel",
-          "value": -1
-        }
-      ]
-    },
-    {
-      "id": "割",
-      "rarity": "White",
-      "element": "Metal",
-      "recipe": [
-        "害",
-        "刂"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 60
-        }
-      ]
-    },
-    {
-      "id": "剖",
-      "rarity": "White",
-      "element": "Metal",
-      "recipe": [
-        "咅",
-        "刂"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 60
-        }
-      ]
-    },
-    {
-      "id": "锁",
-      "rarity": "Blue",
-      "element": "Metal",
-      "recipe": [
-        "钅",
-        "贝"
-      ],
-      "effects": [
-        {
-          "kind": "Silence",
-          "value": 0,
-          "turns": 1
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 85
-        }
-      ]
-    },
-    {
-      "id": "锯",
-      "rarity": "Green",
-      "element": "Metal",
-      "recipe": [
-        "钅",
-        "居"
-      ],
-      "effects": [
-        {
-          "kind": "Bleed",
-          "value": 10
-        }
-      ]
-    },
-    {
       "id": "铠",
       "rarity": "Purple",
       "element": "Metal",
@@ -1757,26 +1527,6 @@
         {
           "kind": "DamageSingle",
           "value": 80
-        }
-      ]
-    },
-    {
-      "id": "镜",
-      "rarity": "Blue",
-      "element": "Metal",
-      "recipe": [
-        "钅",
-        "竟"
-      ],
-      "effects": [
-        {
-          "kind": "Reflect",
-          "value": 50,
-          "turns": 2
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 85
         }
       ]
     },
@@ -1973,25 +1723,6 @@
       ]
     },
     {
-      "id": "城",
-      "rarity": "Blue",
-      "element": "Earth",
-      "recipe": [
-        "土",
-        "成"
-      ],
-      "effects": [
-        {
-          "kind": "Shield",
-          "value": 65
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 45
-        }
-      ]
-    },
-    {
       "id": "碉",
       "rarity": "Blue",
       "element": "Earth",
@@ -2145,44 +1876,6 @@
       ]
     },
     {
-      "id": "磐",
-      "rarity": "Blue",
-      "element": "Earth",
-      "recipe": [
-        "般",
-        "石"
-      ],
-      "effects": [
-        {
-          "kind": "DefenseBuff",
-          "value": 4
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 45
-        }
-      ]
-    },
-    {
-      "id": "巍",
-      "rarity": "White",
-      "element": "Earth",
-      "recipe": [
-        "山",
-        "魏"
-      ],
-      "effects": [
-        {
-          "kind": "DefenseBuff",
-          "value": 2
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 30
-        }
-      ]
-    },
-    {
       "id": "杜",
       "rarity": "Purple",
       "element": "Earth",
@@ -2198,48 +1891,6 @@
         {
           "kind": "DamageSingle",
           "value": 80
-        }
-      ]
-    },
-    {
-      "id": "岿",
-      "rarity": "Blue",
-      "element": "Earth",
-      "recipe": [
-        "山",
-        "归"
-      ],
-      "effects": [
-        {
-          "kind": "Immunity",
-          "value": 1
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 50
-        },
-        {
-          "kind": "Cleanse",
-          "value": 0
-        }
-      ]
-    },
-    {
-      "id": "塞",
-      "rarity": "Green",
-      "element": "Earth",
-      "recipe": [
-        "宀",
-        "土"
-      ],
-      "effects": [
-        {
-          "kind": "Immunity",
-          "value": 1
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 60
         }
       ]
     },
@@ -2410,19 +2061,10 @@
       "id": "周"
     },
     {
-      "id": "咅"
-    },
-    {
       "id": "啬"
     },
     {
       "id": "喿"
-    },
-    {
-      "id": "因"
-    },
-    {
-      "id": "垂"
     },
     {
       "id": "埜"
@@ -2434,28 +2076,16 @@
       "id": "奉"
     },
     {
-      "id": "宀"
-    },
-    {
-      "id": "害"
-    },
-    {
       "id": "容"
     },
     {
       "id": "寿"
     },
     {
-      "id": "尞"
-    },
-    {
       "id": "尧"
     },
     {
       "id": "尽"
-    },
-    {
-      "id": "居"
     },
     {
       "id": "展"
@@ -2480,14 +2110,8 @@
       "id": "弗"
     },
     {
-      "id": "归"
-    },
-    {
       "id": "戈",
       "element": "Metal"
-    },
-    {
-      "id": "成"
     },
     {
       "id": "执"
@@ -2524,9 +2148,6 @@
       "element": "Water"
     },
     {
-      "id": "汤"
-    },
-    {
       "id": "滕"
     },
     {
@@ -2535,9 +2156,6 @@
     },
     {
       "id": "烝"
-    },
-    {
-      "id": "然"
     },
     {
       "id": "疑"
@@ -2559,22 +2177,10 @@
       "id": "秋"
     },
     {
-      "id": "竟"
-    },
-    {
-      "id": "羽"
-    },
-    {
-      "id": "肖"
-    },
-    {
       "id": "臽"
     },
     {
       "id": "舌"
-    },
-    {
-      "id": "般"
     },
     {
       "id": "艹",
@@ -2585,9 +2191,6 @@
     },
     {
       "id": "谷"
-    },
-    {
-      "id": "贝"
     },
     {
       "id": "贵"
@@ -2604,9 +2207,6 @@
     },
     {
       "id": "隹"
-    },
-    {
-      "id": "魏"
     }
   ]
 }

@@ -934,7 +934,7 @@ namespace Brushblade.Presentation
         private string Brief(string charId)
         {
             var def = _graph.Get(charId);
-            return $"「{charId}」{def.ApCost}AP · {CharInfo.EffectsText(def, _run.CardLevel(charId))}";
+            return $"「{charId}」{def.ApCost}AP · {CharInfo.EffectsText(def, _run.CardLevel(charId), _graph)}";
         }
 
         /// <summary>长按看详情:preview 只读,不动选中态。</summary>

@@ -84,16 +84,17 @@ namespace Brushblade.Core.Tests
         public void DeckComponents_AreTheLeavesOfDeckRecipes()
         {
             var graph = RealGraph();
-            var deck = new[] { "剑", "城" }; // 佥+刂 / 土+成
+            // 2026-08-14:城 随第二批裁定移出字表,换同为土系蓝档护盾的 垒(厽+土)。
+            var deck = new[] { "剑", "垒" }; // 佥+刂 / 厽+土
             var components = MetaRules.DeckComponents(deck, graph);
-            Assert.That(components, Is.EquivalentTo(new[] { "佥", "刂", "土", "成" }));
+            Assert.That(components, Is.EquivalentTo(new[] { "佥", "刂", "厽", "土" }));
         }
 
         [Test]
         public void DeckComponents_Deduplicates()
         {
             var graph = RealGraph();
-            var deck = new[] { "割", "剑" }; // 害+刂 / 佥+刂 —— 刂 共用
+            var deck = new[] { "剁", "剑" }; // 朵+刂 / 佥+刂 —— 刂 共用(割 于 2026-08-14 移出)
             Assert.That(MetaRules.DeckComponents(deck, graph).Count(c => c == "刂"), Is.EqualTo(1));
         }
 

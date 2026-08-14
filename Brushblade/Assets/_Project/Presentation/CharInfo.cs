@@ -26,12 +26,12 @@ namespace Brushblade.Presentation
             if (cardLevel > 1)
                 text.Append("|Lv.").Append(cardLevel);
 
-            text.Append('|').Append(EffectsText(def, cardLevel));
+            text.Append('|').Append(EffectsText(def, cardLevel, graph));
 
             // 相生「他生我」:要拿本字属性去比对配方原料(中性字视作心,永不成对)
             if (WuxingResolver.ShengMultiplier(
                     graph.RecipeElements(def.Id), def.Element ?? Element.Heart) == 3)
-                text.Append("|相生:效果×3");
+                text.Append("|相生:效果已含 ×3");  // 数值本身已乘,这里只解释它为何比同档高
 
             return text.ToString();
         }
@@ -40,11 +40,26 @@ namespace Brushblade.Presentation
         public static string Detail(CharDef def, RecipeGraph graph, int cardLevel = 1) =>
             Summary(def, graph, cardLevel).Replace("|", "\n");
 
-        /// <summary>效果串(升级 preview 取前后两级各调一次)。</summary>
-        public static string EffectsText(CharDef def, int cardLevel = 1)
+        /// <summary>走生克结算的效果 —— 只有这些吃相生 ×3,与 BattleEngine 里过
+        /// <see cref="WuxingResolver.ResolveEffect"/> 的那几支严格对应。灼烧层数、召唤血攻、
+        /// 流血、驱散条数等都是平值,不乘。</summary>
+        private static bool IsWuxingScaled(EffectKind kind) => kind is
+            EffectKind.DamageSingle or EffectKind.DamageAll or EffectKind.Shield or
+            EffectKind.HealSelf or EffectKind.HealAll or EffectKind.HealOverTime;
+
+        /// <summary>效果串(升级 preview 取前后两级各调一次)。
+        ///
+        /// <paramref name="graph"/> 给了就把**相生 ×3 也算进显示值**(2026-08-14)。
+        /// 此前恒显示配置基础值,而相生是「固有、永久生效」的 —— 燊(焱+木,木生火)卡面写
+        /// 「全体 80 伤」,实战打出去是 240,比同为全体伤的金档 焱(200)更高;光看卡面
+        /// 却像是橙档反被金档压着。传 null 时行为与旧版逐字相同。</summary>
+        public static string EffectsText(CharDef def, int cardLevel = 1, RecipeGraph graph = null)
         {
             if (def.Effects.Count == 0)
                 return "无战斗效果(可兜底一击:单体3伤,或作合成材料)";
+
+            int sheng = graph == null ? 1
+                : WuxingResolver.ShengMultiplier(graph.RecipeElements(def.Id), def.Element ?? Element.Heart);
 
             var parts = new StringBuilder();
             for (int i = 0; i < def.Effects.Count; i++)
@@ -58,6 +73,7 @@ namespace Brushblade.Presentation
                 if (i > 0) parts.Append(';');
                 var e = def.Effects[i];
                 int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
+                if (IsWuxingScaled(e.Kind)) v *= sheng;
                 parts.Append(e.Kind switch
                 {
                     EffectKind.DamageSingle => $"单体{v}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")

@@ -316,8 +316,13 @@ namespace Brushblade.Core.Tests
             // 零判别力(变异证据:去掉这半句,737 全绿存活)。真实后果:出「烟」(全体致盲)时
             // UI 会进入选目标模式,逼玩家点一个毫无意义的目标才肯出牌。
             // 用实际出货字表断言:NeedsTarget 是公开静态方法,不用为测试放宽可见性。
+            // 2026-08-14:烟(唯一的全体致盲字)随第二批裁定移出字表。这条守卫的判别力
+            // 不能跟着没,故 targetAll 那一半改用构造的 CharDef —— 真实字表里没有载体了,
+            // 但 NeedsTarget 的分支还在,新字一旦带 targetAll Blind 就要走对路径。
             var graph = CharTableTests.RealGraph();
-            Assert.That(BattleEngine.NeedsTarget(graph.Get("烟")), Is.False, "全体致盲不需要选目标");
+            var blindAll = new CharDef("测", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.Blind, 30, turns: 1, targetAll: true) });
+            Assert.That(BattleEngine.NeedsTarget(blindAll), Is.False, "全体致盲不需要选目标");
             Assert.That(BattleEngine.NeedsTarget(graph.Get("熣")), Is.True, "单体致盲需要选目标");
         }
 

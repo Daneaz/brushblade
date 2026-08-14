@@ -57,9 +57,10 @@ namespace Brushblade.Core.Tests
         {
             var graph = RealGraph();
             // 2026-08-14:溺 / 埋 / 坑 随用户裁定移出字表,从本列表删去。
-            foreach (var id in new[] { "锯", "淋", "润", "沐", "滋", "冰", "冻",
+            // 2026-08-14 第二批裁定移出 锯 / 磐 / 巍,从本列表删去。
+            foreach (var id in new[] { "淋", "润", "沐", "滋", "冰", "冻",
                                        "藤", "洼", "凝", "冷",
-                                       "铠", "崊", "崟", "磐", "巍", "漜" })
+                                       "铠", "崊", "崟", "漜" })
                 Assert.That(graph.Get(id), Is.Not.Null, $"{id} 应已收录");
         }
 
@@ -83,7 +84,8 @@ namespace Brushblade.Core.Tests
             {
                 // 2026-08-14 T9:点数 ×0.65,腾出的预算换成各自的单攻(总预算守恒)。
                 // 铠 额外降到 5(金系不压土系),漜 同时去掉了 Slow 2。
-                ["巍"] = 2, ["磐"] = 4, ["崟"] = 6, ["铠"] = 5, ["崊"] = 8, ["漜"] = 10,
+                // 2026-08-14 第二批裁定移出 巍(2)/ 磐(4)。
+                ["崟"] = 6, ["铠"] = 5, ["崊"] = 8, ["漜"] = 10,
             };
             foreach (var pair in expected)
             {
@@ -184,7 +186,8 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             var expected = new Dictionary<string, int>
             {
-                ["碎"] = 10, ["溶"] = 15, ["破"] = 15, ["熔"] = 20, ["溃"] = 20, ["锤"] = 20,
+                // 2026-08-14 第二批裁定移出字表:熔 / 锤(均为 20 点)。
+                ["碎"] = 10, ["溶"] = 15, ["破"] = 15, ["溃"] = 20,
             };
             foreach (var pair in expected)
             {
@@ -248,10 +251,8 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             Assert.That(graph.Get("灭").Effects.First(e => e.Kind == EffectKind.Dispel).Value,
                 Is.EqualTo(-1), "灭清全部");
-            Assert.That(graph.Get("削").Effects.First(e => e.Kind == EffectKind.Dispel).Value,
-                Is.EqualTo(1), "削只清一条");
-            Assert.That(graph.Get("刮").Effects.First(e => e.Kind == EffectKind.Dispel).Value,
-                Is.EqualTo(-1), "刮清全部");
+            // 2026-08-14 第二批裁定移出字表:削(清一条)/ 刮(清全部)。
+            // 「清一条」的载体现在只剩 淡(全体各清一条),见下。
             var dan = graph.Get("淡").Effects.First(e => e.Kind == EffectKind.Dispel);
             Assert.That(dan.TargetAll, Is.True, "淡是全体各清一条");
             Assert.That(dan.Value, Is.EqualTo(1));
@@ -263,12 +264,8 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             Assert.That(graph.Get("杜").Effects.First(e => e.Kind == EffectKind.Immunity).Value,
                 Is.EqualTo(2));
-            Assert.That(graph.Get("塞").Effects.First(e => e.Kind == EffectKind.Immunity).Value,
-                Is.EqualTo(1));
-            // 岿 = 免疫 1 次 + 立即净化,两半都要在
-            var kui = graph.Get("岿").Effects;
-            Assert.That(kui.Any(e => e.Kind == EffectKind.Immunity), Is.True);
-            Assert.That(kui.Any(e => e.Kind == EffectKind.Cleanse), Is.True);
+            // 2026-08-14 第二批裁定移出字表:塞(免疫 1)/ 岿(免疫 1 + 净化)。
+            // 免疫的载体现在只剩 杜 一张;「免疫 + 净化」的组合无字使用。
             Assert.That(graph.Get("浴").Effects.Any(e => e.Kind == EffectKind.Cleanse), Is.True);
             Assert.That(graph.Get("活").Effects.First(e => e.Kind == EffectKind.Revive).Value,
                 Is.EqualTo(1));
@@ -277,10 +274,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_SaiUsesManualRecipe_NotSupplementaryPlanePart()
         {
-            // 塞 的 IDS 部件 𡨄 在增补平面,UGUI Text 显示不出代理对 ——
-            // 走 IDS 会让塞退化成不可拆的叶子(只能靠掉落获得)
+            // 2026-08-14:塞 随第二批裁定移出字表(它的 MANUAL_RECIPES 条目保留待复活),
+            // 本测试改由 湮 单独守住「手工配方优先于增补平面 IDS」这条不变量。
             var graph = RealGraph();
-            Assert.That(graph.Get("塞").Recipe, Is.EqualTo(new[] { "宀", "土" }));
             Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "土" }));
         }
 
@@ -295,21 +291,22 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("熣").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
                 Is.EqualTo(140), "2026-08-14 T9:致盲按价目表计 0.30 档预算,160 → 140");
 
-            var yan = graph.Get("烟").Effects.First(e => e.Kind == EffectKind.Blind);
-            Assert.That(yan.Value, Is.EqualTo(30));
-            Assert.That(yan.Turns, Is.EqualTo(1));
-            Assert.That(yan.TargetAll, Is.True, "烟 是全体致盲");
+            // 2026-08-14 第二批裁定移出 烟(全体致盲 30/1 回合)——Blind 的载体现在只剩 熣 一张,
+            // targetAll 那一半的守卫改由 DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True
+            // 用构造的 CharDef 顶着。
         }
 
         [Test]
-        public void RealConfig_SilenceAndReflectCarryTurns()
+        public void RealConfig_SilenceAndReflectHaveNoCarrier()
         {
+            // 2026-08-14 第二批裁定移出 锁(Silence)/ 镜(Reflect)——这两个 EffectKind
+            // 自此在字表里**没有任何载体**。引擎实现与 StatusKind 都还在(BattleEngine 的
+            // 沉默分支、反弹分支各有自己的单元测试),这里从「钉住数值」改为「钉住空集」:
+            // 哪天有新字接手,本测试会红,提醒把数值守卫加回来。
             var graph = RealGraph();
-            Assert.That(graph.Get("锁").Effects.First(e => e.Kind == EffectKind.Silence).Turns,
-                Is.EqualTo(1));
-            var jing = graph.Get("镜").Effects.First(e => e.Kind == EffectKind.Reflect);
-            Assert.That(jing.Value, Is.EqualTo(50));
-            Assert.That(jing.Turns, Is.EqualTo(2));
+            foreach (var kind in new[] { EffectKind.Silence, EffectKind.Reflect })
+                Assert.That(graph.All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                    .Any(e => e.Kind == kind), Is.False, $"{kind} 当前应无载体");
         }
 
         /// <summary>剁 是全表唯一的多段字,数值走 spec §4.4(b) 的**多段补偿规则**
@@ -353,8 +350,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_SuoUsesManualRecipe_NotSupplementaryPlanePart()
         {
-            var graph = RealGraph();
-            Assert.That(graph.Get("锁").Recipe, Is.EqualTo(new[] { "钅", "贝" }));
+            // 2026-08-14:锁 随第二批裁定移出字表,MANUAL_RECIPES 里的 钅+贝 保留待复活。
+            // 同一条不变量由 RealConfig_SaiUsesManualRecipe_NotSupplementaryPlanePart 的 湮 守着。
+            // Get 对缺席的 id 是抛 KeyNotFoundException 而不是返回 null,故走 All 判存在性。
+            Assert.That(RealGraph().All.Any(c => c.Id == "锁"), Is.False, "锁 已移出字表");
         }
 
         [Test]

@@ -31,6 +31,17 @@ PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge':
            'thorns': '荆棘', 'speed': '速度', 'onHitBurn': '命中挂灼烧',
            'onHitBurnAll': '灼烧转全体'}
 
+SHENG = {'Wood': 'Fire', 'Fire': 'Earth', 'Earth': 'Metal', 'Metal': 'Water', 'Water': 'Wood'}
+# 走生克结算的效果才吃相生 ×3,与 Core 的 WuxingResolver.ResolveEffect 覆盖面一致
+WUXING_SCALED = {'DamageSingle', 'DamageAll', 'Shield', 'HealSelf', 'HealAll', 'HealOverTime'}
+
+def sheng_mult(c):
+    """相生「他生我」:配方原料里含生本字属性的 → 3。配置表填的是基础值,×3 才是实战值。"""
+    mother = [k for k, v in SHENG.items() if v == c.get('element')]
+    if not mother:
+        return 1
+    return 3 if any(byid.get(p, {}).get('element') == mother[0] for p in c.get('recipe', [])) else 1
+
 def cname(c): return PUA.get(c['id'], c['id'])
 
 def lv1(c):
@@ -62,8 +73,9 @@ def passive_txt(p):
         out.append(n if v is True else f"{n} {v}")
     return '/'.join(out)
 
-def desc(e):
-    k, v, t, all_ = e['kind'], e.get('value', 0), e.get('turns', 0), e.get('targetAll')
+def desc(e, mult=1):
+    k, t, all_ = e['kind'], e.get('turns', 0), e.get('targetAll')
+    v = e.get('value', 0) * (mult if k in WUXING_SCALED else 1)
     s = {
         'DamageSingle': f"单体伤害 {v}", 'DamageAll': f"全体伤害 {v}",
         'BurnSingle': f"灼烧 {v} 层", 'BurnAll': f"全体灼烧 {v} 层",
@@ -98,11 +110,13 @@ def desc(e):
     return s + ("(" + "、".join(mods) + ")" if mods else "")
 
 def atk(c):
+    m = sheng_mult(c)
     parts = []
     for e in c['effects']:
         if e['kind'] in ('DamageSingle', 'DamageAll'):
             n = e.get('hitCount', 1)
-            parts.append(f"{e['value']}" + (f"×{n}" if n > 1 else "") + ("(AOE)" if e['kind'] == 'DamageAll' else ""))
+            parts.append(f"{e['value'] * m}" + (f"×{n}" if n > 1 else "")
+                         + ("(AOE)" if e['kind'] == 'DamageAll' else "") + (" ×3相生" if m > 1 else ""))
     if parts: return '+'.join(parts)
     for e in c['effects']:
         if e['kind'] == 'Summon': return f"召 {e.get('attack',0)}×{e.get('count',1)}"
@@ -134,11 +148,11 @@ def cat_of(c):
 
 def row5(c):
     return (f"| {cname(c)} | {EL[c['element']]} | {RA[c['rarity']]} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
-            + "；".join(desc(e) for e in c['effects']) + " |")
+            + "；".join(desc(e, sheng_mult(c)) for e in c['effects']) + " |")
 
 def row4(c):
     return (f"| {cname(c)} | {RA[c['rarity']]} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
-            + "；".join(desc(e) for e in c['effects']) + " |")
+            + "；".join(desc(e, sheng_mult(c)) for e in c['effects']) + " |")
 
 H5 = "| 字 | 五行 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n|---|---|---|---|---|---|---|"
 H4 = "| 字 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n|---|---|---|---|---|---|"
@@ -157,9 +171,11 @@ A(f"> 数据源:`{SRC}`(唯一真相)。本文由 `tools/design/gen_char_doc.py`
 A("")
 A("## 口径说明")
 A("")
-A("- **收录范围**:配置表 233 条中的 **133 个可出牌字**(有配方 + 有效果)。另 100 个无配方的部件/枢纽字只作合成原料,`IsLeaf` 会被奖励池过滤,玩家拿不到牌,故不入表。")
+A(f"- **收录范围**:配置表 {len(chars)} 条中的 **{len(comp)} 个可出牌字**(有配方 + 有效果)。另 {len(leaf)} 个无配方的部件/枢纽字只作合成原料,`IsLeaf` 会被奖励池过滤,玩家拿不到牌,故不入表。")
 A("- **攻击力**:字表没有独立的攻击力字段,此列取**直伤效果的 value**(已是 2026-08-12 全表 ×10 后的量级)。")
 A("  纯辅助字记 `—`;召唤字记 `召 攻×只数`(实际输出在召唤物身上);纯 DOT 字记 DOT 量。")
+A("- **相生 ×3**:配置表填的是**基础值**,配方原料含「生本字属性」的字(燊/焚/蒸/炑/沏/刲)实战 ×3。")
+A("  本表的攻击力与功能列**已经乘好**,标 `×3相生`;卡面(CharInfo)同口径。只有走生克结算的效果吃这个倍率,灼烧层数/召唤血攻/驱散条数是平值。")
 A("- **AP 消耗**:全表一律 1(2026-08-03 拍板与稀有度解耦),故不设列。")
 A("- **稀有度**:白 < 绿 < 蓝 < 紫 < 金 < 橙 < 红,枚举名 = 皮肤色 = 强度序。")
 A("- **一级组成**:字表 `recipe` 原文,即玩家在局内实际拆出/合成的那一层。")
