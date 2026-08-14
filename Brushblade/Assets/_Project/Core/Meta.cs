@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -383,6 +384,26 @@ namespace Brushblade.Core
         {
             if (cardLevel <= 1) return baseValue;
             return (int)Math.Ceiling(baseValue * (1 + 0.1 * (cardLevel - 1)));
+        }
+
+        /// <summary>叠字前置(spec 2026-08-15 Part 2):配方里的**非部件**原料必须都已收集。
+        ///
+        /// 只查直接原料 —— `㙓 = 土+垚` 只要求 `垚`,而拿到 `垚` 本身就得先有 `圭`,
+        /// 链式约束自然成立,不需要递归。
+        /// 部件(IsLeaf)不参与:它们靠掉落获得,不存在"解锁"一说。
+        ///
+        /// 独立成方法是为了复用:战后奖励选字(RunEngine.RollRewardOptions)是另一条
+        /// 会写 OwnedCards 的产出路径,将来要给它加同一条限制时直接调这里。</summary>
+        public static bool PrerequisitesMet(string cardId, RecipeGraph graph,
+            IReadOnlyCollection<string> ownedCards)
+        {
+            if (graph == null || !graph.TryGet(cardId, out var def)) return false;
+            foreach (var ingredient in def.Recipe)
+            {
+                if (!graph.TryGet(ingredient, out var idef) || idef.IsLeaf) continue;
+                if (!ownedCards.Contains(ingredient)) return false;
+            }
+            return true;
         }
     }
 }

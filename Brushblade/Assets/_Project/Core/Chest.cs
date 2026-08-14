@@ -203,9 +203,12 @@ namespace Brushblade.Core
 
             int tierIndex = (int)chest.Tier - 1;
             int ink = InkReward[tierIndex];
+            // 叠字前置(2026-08-15):前置未满足的字不进候选池。graph 为 null 的老调用点
+            // 无从查配方,跳过过滤保持旧行为。
+            var eligible = EligiblePool(chest.CardPool, graph, meta.OwnedCards);
             var cards = graph == null
-                ? DrawUniform(chest, random, CardCount[tierIndex])
-                : DrawWeighted(chest, random, CardCount[tierIndex], graph);
+                ? DrawUniform(eligible, random, CardCount[tierIndex])
+                : DrawWeighted(eligible, chest.Tier, random, CardCount[tierIndex], graph);
 
             meta.Ink += ink;
             foreach (var card in cards)
@@ -232,19 +235,34 @@ namespace Brushblade.Core
         private static readonly CardRarity?[] GuaranteedRarity =
             { null, null, CardRarity.Blue, CardRarity.Purple, CardRarity.Purple, CardRarity.Purple };
 
-        private static List<string> DrawUniform(ChestState chest, GameRandom random, int count)
+        /// <summary>候选池 = 前置已满足的字。滤空则回退到原池(2026-08-15 拍板的兜底):
+        /// 开箱永远出足数,玩家不该感知到自己被隐藏限制挡了。
+        /// graph 为 null 时不过滤(老调用点)。</summary>
+        private static IReadOnlyList<string> EligiblePool(IReadOnlyList<string> cardPool,
+            RecipeGraph graph, IReadOnlyCollection<string> ownedCards)
+        {
+            if (graph == null) return cardPool;
+            var eligible = new List<string>();
+            foreach (var id in cardPool)
+                if (MetaRules.PrerequisitesMet(id, graph, ownedCards))
+                    eligible.Add(id);
+            return eligible.Count > 0 ? eligible : cardPool;
+        }
+
+        private static List<string> DrawUniform(IReadOnlyList<string> cardPool, GameRandom random, int count)
         {
             var cards = new List<string>();
-            for (int i = 0; i < count && chest.CardPool.Count > 0; i++)
-                cards.Add(random.Pick(chest.CardPool));
+            for (int i = 0; i < count && cardPool.Count > 0; i++)
+                cards.Add(random.Pick(cardPool));
             return cards;
         }
 
-        private static List<string> DrawWeighted(ChestState chest, GameRandom random, int count, RecipeGraph graph)
+        private static List<string> DrawWeighted(IReadOnlyList<string> cardPool, ChestTier tier,
+            GameRandom random, int count, RecipeGraph graph)
         {
             // 池按稀有度分组(池外/图谱外的 id 忽略)
             var byRarity = new Dictionary<CardRarity, List<string>>();
-            foreach (var id in chest.CardPool)
+            foreach (var id in cardPool)
             {
                 if (!graph.TryGet(id, out var def)) continue;
                 if (!byRarity.TryGetValue(def.Rarity, out var group))
@@ -254,13 +272,15 @@ namespace Brushblade.Core
             if (byRarity.Count == 0)
                 return new List<string>();
 
-            var weights = CardRarityWeights[(int)chest.Tier - 1];
+            var weights = CardRarityWeights[(int)tier - 1];
             var cards = new List<string>();
             for (int i = 0; i < count; i++)
                 cards.Add(DrawOne(byRarity, weights, random));
 
-            // 保底:抽取结果中无达标稀有度 → 换入一张(池中无达标时取最高可得)
-            var guaranteed = GuaranteedRarity[(int)chest.Tier - 1];
+            // 保底:抽取结果中无达标稀有度 → 换入一张(池中无达标时取最高可得)。
+            // byRarity 已是**前置过滤后**的池,所以"前置优先、保底降级"由 PickAtLeast
+            // 既有的 floor 逻辑自动成立(spec §2.3 第 2 条),这里不需要额外接线。
+            var guaranteed = GuaranteedRarity[(int)tier - 1];
             if (guaranteed is { } minRarity && cards.Count > 0)
             {
                 bool satisfied = false;
