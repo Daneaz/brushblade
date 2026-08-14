@@ -183,7 +183,10 @@ namespace Brushblade.Core
                 var missing = new List<string>();
                 foreach (var ingredient in def.Recipe)
                 {
-                    if (!remaining.Remove(ingredient))
+                    // 与 TryCompose 同口径(2026-08-15):同系部件可替代。
+                    // Suggest 只有一份合并列表,故 pool/library 两个参数传同一个 ——
+                    // RemoveIngredient 里第二次 Remove 必然落空,行为等价于"只在这一份里找"。
+                    if (!RemoveIngredient(remaining, remaining, ingredient))
                         missing.Add(ingredient);
                 }
 

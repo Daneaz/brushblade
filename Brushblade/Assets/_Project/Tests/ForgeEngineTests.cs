@@ -342,5 +342,46 @@ namespace Brushblade.Core.Tests
             Assert.That(result.State.Pool, Is.EqualTo(new[] { "氵" }),
                 "精确的 冫 与 水 被吃掉,多余的 氵 原样留在池里");
         }
+
+        /// <summary>Suggest 必须与 TryCompose 同口径:池里 水+水 时 冰(配方 冫+水)算**可合成**,
+        /// 而不是"差一个 冫"。两者不一致会让拆合台提示骗人。</summary>
+        [Test]
+        public void Suggest_CountsKinComponentsAsComposable()
+        {
+            var result = ForgeEngine.Suggest(Graph(), new[] { "水", "水" }, Array.Empty<string>());
+            Assert.That(result.Composable, Contains.Item("冰"));
+            Assert.That(result.NearMisses.Select(m => m.CharId), Does.Not.Contain("冰"));
+        }
+
+        /// <summary>撞车共存(spec §1.4):池里 水+水 时,沝(水+水)与 冰(冫+水)都该列为可合成 ——
+        /// 合成是玩家指定目标字,不是从原料反推产物,两个都给玩家自己选。</summary>
+        [Test]
+        public void Suggest_ListsBothCharsWhenRecipesCollideUnderKin()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("水", Element.Water),
+                new CharDef("冫", Element.Water),
+                new CharDef("沝", Element.Water, new[] { "水", "水" }),
+                new CharDef("冰", Element.Water, new[] { "冫", "水" }),
+            });
+            var result = ForgeEngine.Suggest(graph, new[] { "水", "水" }, Array.Empty<string>());
+            Assert.That(result.Composable, Contains.Item("沝"));
+            Assert.That(result.Composable, Contains.Item("冰"));
+        }
+
+        /// <summary>一致性:Suggest 说可合成的,TryCompose 必须真能合出来。</summary>
+        [Test]
+        public void Suggest_ComposableAgreesWithTryCompose()
+        {
+            var graph = Graph();
+            string[] pool = { "水", "水", "禾", "金" };
+            var suggest = ForgeEngine.Suggest(graph, pool, Array.Empty<string>());
+            foreach (var id in suggest.Composable)
+            {
+                var composed = ForgeEngine.TryCompose(id, graph, State(Array.Empty<string>(), pool), 10);
+                Assert.That(composed.Success, Is.True, $"Suggest 说 {id} 可合成,TryCompose 却失败");
+            }
+        }
     }
 }
