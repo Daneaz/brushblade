@@ -13,12 +13,20 @@ namespace Brushblade.Core.Tests
             new CharDef("木", Element.Wood),
             new CharDef("火", Element.Fire),
             new CharDef("丁", null), // 中性部件
+            new CharDef("水", Element.Water),
+            new CharDef("冫", Element.Water),
+            new CharDef("氵", Element.Water),
+            new CharDef("禾", Element.Wood),  // 清单外的形声部件:element 是 Wood 但不与 木 等价
+            new CharDef("刂", Element.Metal),
+            new CharDef("金", Element.Metal),
             new CharDef("林", Element.Wood, new[] { "木", "木" }),
             new CharDef("炎", Element.Fire, new[] { "火", "火" }),
             new CharDef("灯", Element.Fire, new[] { "火", "丁" }),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }),
             new CharDef("森", Element.Wood, new[] { "林", "木" }),   // 三叠:字(林)+部件(木)
             new CharDef("䨺", Element.Wood, new[] { "森", "林" }),   // 合成图测试字:两字原料,用于库满分支
+            new CharDef("冰", Element.Water, new[] { "冫", "水" }),
+            new CharDef("利", Element.Metal, new[] { "禾", "刂" }),
         });
 
         private static ForgeState State(string[] library, string[] pool) => new(library, pool);
@@ -255,6 +263,84 @@ namespace Brushblade.Core.Tests
                 Array.Empty<string>(), unlockedChars: new[] { "林", "炎" });
             Assert.That(suggest.Composable, Is.EquivalentTo(new[] { "林" }));
             Assert.That(suggest.NearMisses.Select(n => n.CharId), Does.Contain("炎"));
+        }
+
+        // ---- 部件五系通用(spec 2026-08-15 §1.3)----
+
+        /// <summary>配方要 冫,池里只有 水 也能合 —— 同系部件在匹配上等价。</summary>
+        [Test]
+        public void Compose_AcceptsKinComponent()
+        {
+            var result = ForgeEngine.TryCompose("冰", Graph(),
+                State(Array.Empty<string>(), new[] { "水", "水" }), 10);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Library, Is.EqualTo(new[] { "冰" }));
+            Assert.That(result.State.Pool, Is.Empty);
+        }
+
+        /// <summary>氵+冫 同样合得出 冰(两个都不是配方字面量)。</summary>
+        [Test]
+        public void Compose_AcceptsKinComponent_ForBothIngredients()
+        {
+            var result = ForgeEngine.TryCompose("冰", Graph(),
+                State(Array.Empty<string>(), new[] { "氵", "冫" }), 10);
+            Assert.That(result.Success, Is.True);
+        }
+
+        /// <summary>跨系不等价:木 不能顶 水。</summary>
+        [Test]
+        public void Compose_RejectsCrossElementComponent()
+        {
+            var result = ForgeEngine.TryCompose("冰", Graph(),
+                State(Array.Empty<string>(), new[] { "木", "木" }), 10);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.MissingIngredients));
+        }
+
+        /// <summary>清单外的部件不参与:禾 的 element 是 Wood,但 木 顶不了它。
+        /// 这条守着「不许从 element 推导等价」那道口子。</summary>
+        [Test]
+        public void Compose_RejectsSubstitutionForPartsOutsideTheKinList()
+        {
+            var result = ForgeEngine.TryCompose("利", Graph(),
+                State(Array.Empty<string>(), new[] { "木", "金" }), 10);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.MissingIngredients));
+        }
+
+        /// <summary>金系四member:刂 可由 金 顶(配方 禾+刂,池里 禾+金)。</summary>
+        [Test]
+        public void Compose_AcceptsKinComponent_WithinMetalGroup()
+        {
+            var result = ForgeEngine.TryCompose("利", Graph(),
+                State(Array.Empty<string>(), new[] { "禾", "金" }), 10);
+            Assert.That(result.Success, Is.True);
+        }
+
+        /// <summary>**不变量**:拆字产出不归一化(spec §1.2) —— 拆 灯(火+丁) 仍得 火+丁,
+        /// 不许被换成组内代表字。变体在池中并存是设计板位形展示的前提。
+        /// 这条今天就是绿的,放进来是防止将来有人"顺手"给拆字也加一层归一化。</summary>
+        [Test]
+        public void Dismantle_DoesNotNormalizeComponents()
+        {
+            var result = ForgeEngine.TryDismantle("灯", Graph(),
+                State(new[] { "灯" }, Array.Empty<string>()), 10, 10);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "火", "丁" }));
+        }
+
+        /// <summary>**精确优先**(spec §1.3):池里同时有 冫 和 水,合 冰(配方 冫+水)时
+        /// 先吃掉更"专用"的 冫,剩下的 水 用于配方里的 水 —— 池应正好清空。
+        /// 若改成等价优先,会先用 水 顶 冫,再用 冫 顶 水,结果同样清空但取用顺序不可预期;
+        /// 本条真正守的是下一条(多余同系部件不被误吃)。</summary>
+        [Test]
+        public void Compose_PrefersExactMatchOverKin()
+        {
+            var result = ForgeEngine.TryCompose("冰", Graph(),
+                State(Array.Empty<string>(), new[] { "冫", "水", "氵" }), 10);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Pool, Is.EqualTo(new[] { "氵" }),
+                "精确的 冫 与 水 被吃掉,多余的 氵 原样留在池里");
         }
     }
 }
