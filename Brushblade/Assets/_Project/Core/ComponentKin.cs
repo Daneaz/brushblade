@@ -1,0 +1,49 @@
+using System.Collections.Generic;
+
+namespace Brushblade.Core
+{
+    /// <summary>五系部件等价清单(spec 2026-08-15 §1.1):同系部件在**配方匹配**上可互相替代。
+    ///
+    /// ⚠ 清单是**显式**的,不许改成从 <see cref="CharDef.Element"/> 推导 —— `禾` 的 element
+    /// 同样是 Wood,推导会让 `木` 顶掉 `利 = 禾+刂` 里的 `禾`,把形声部件当五行部件用。
+    /// 守卫测试:ComponentKinTests.TryGetGroup_RejectsPartsOutsideTheList。
+    ///
+    /// 每组首位是代表字(UI 徽标用);组内顺序即等价匹配的取用顺序。
+    /// 本表只管匹配,**不改变拆字产出** —— 变体各自并存,见 spec §1.2。</summary>
+    public static class ComponentKin
+    {
+        private static readonly string[][] Groups =
+        {
+            new[] { "水", "氵", "冫" },
+            new[] { "木", "艹" },
+            new[] { "金", "钅", "戈", "刂" },
+            new[] { "土", "山", "石" },
+            new[] { "火", "灬" },
+        };
+
+        public static bool TryGetGroup(string part, out IReadOnlyList<string> group)
+        {
+            foreach (var candidate in Groups)
+            {
+                foreach (var member in candidate)
+                {
+                    if (member != part) continue;
+                    group = candidate;
+                    return true;
+                }
+            }
+            group = null;
+            return false;
+        }
+
+        /// <summary>两个部件是否同组(同一个部件与自身也算)。</summary>
+        public static bool AreKin(string a, string b)
+        {
+            if (a == b) return true;
+            if (!TryGetGroup(a, out var group)) return false;
+            foreach (var member in group)
+                if (member == b) return true;
+            return false;
+        }
+    }
+}
