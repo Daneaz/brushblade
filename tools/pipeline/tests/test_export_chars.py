@@ -74,9 +74,10 @@ def test_extract_pulls_134_implementable_chars():
     2026-08-12:132 → 133,锋 随 E-b2 暴击轴落地。
     2026-08-12(E-b4/T1):全表血量量纲数值 ×10,字数不变、基础值一律十倍。
     2026-08-12(E-b4/T5):133 → 134,锐 随穿透轴落地(PierceBuff 20)。
+    2026-08-14:134 → 128,用户裁定移出 埋/坑/溺/桑/桃/槐 六字(配方完好,主动精简)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 134
+    assert len(values) == 128
     # 焚含木生火,配置表填基础值 70(引擎结算时 ×3 = 210)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
     assert fen["value"] == 70

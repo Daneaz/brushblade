@@ -671,48 +671,6 @@
       ]
     },
     {
-      "id": "桃",
-      "rarity": "Green",
-      "element": "Wood",
-      "recipe": [
-        "木",
-        "兆"
-      ],
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 120,
-          "count": 1,
-          "attack": 30,
-          "summonChar": "木",
-          "passive": {
-            "healAlly": 30
-          }
-        }
-      ]
-    },
-    {
-      "id": "槐",
-      "rarity": "Green",
-      "element": "Wood",
-      "recipe": [
-        "木",
-        "鬼"
-      ],
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 120,
-          "count": 1,
-          "attack": 40,
-          "summonChar": "木",
-          "passive": {
-            "onHitCurse": 25
-          }
-        }
-      ]
-    },
-    {
       "id": "柳",
       "rarity": "Green",
       "element": "Wood",
@@ -842,24 +800,6 @@
           "value": 120,
           "count": 1,
           "attack": 30,
-          "summonChar": "木"
-        }
-      ]
-    },
-    {
-      "id": "桑",
-      "rarity": "White",
-      "element": "Wood",
-      "recipe": [
-        "叒",
-        "木"
-      ],
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 60,
-          "count": 1,
-          "attack": 20,
           "summonChar": "木"
         }
       ]
@@ -1205,25 +1145,6 @@
         {
           "kind": "DamageSingle",
           "value": 85
-        }
-      ]
-    },
-    {
-      "id": "溺",
-      "rarity": "Blue",
-      "element": "Water",
-      "recipe": [
-        "氵",
-        "弱"
-      ],
-      "effects": [
-        {
-          "kind": "Slow",
-          "value": 2
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 90
         }
       ]
     },
@@ -2372,44 +2293,6 @@
       ]
     },
     {
-      "id": "埋",
-      "rarity": "Green",
-      "element": "Earth",
-      "recipe": [
-        "土",
-        "里"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 60
-        },
-        {
-          "kind": "Freeze",
-          "value": 1
-        }
-      ]
-    },
-    {
-      "id": "坑",
-      "rarity": "Green",
-      "element": "Earth",
-      "recipe": [
-        "土",
-        "亢"
-      ],
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 60
-        },
-        {
-          "kind": "Freeze",
-          "value": 1
-        }
-      ]
-    },
-    {
       "id": "碾",
       "rarity": "White",
       "element": "Earth",
@@ -2456,9 +2339,6 @@
       "id": "乍"
     },
     {
-      "id": "亢"
-    },
-    {
       "id": "令"
     },
     {
@@ -2466,9 +2346,6 @@
     },
     {
       "id": "保"
-    },
-    {
-      "id": "兆"
     },
     {
       "id": "兑",
@@ -2522,9 +2399,6 @@
     },
     {
       "id": "厽"
-    },
-    {
-      "id": "叒"
     },
     {
       "id": "只"
@@ -2604,9 +2478,6 @@
     },
     {
       "id": "弗"
-    },
-    {
-      "id": "弱"
     },
     {
       "id": "归"
@@ -2725,9 +2596,6 @@
       "id": "辟"
     },
     {
-      "id": "里"
-    },
-    {
       "id": "钅",
       "element": "Metal"
     },
@@ -2736,9 +2604,6 @@
     },
     {
       "id": "隹"
-    },
-    {
-      "id": "鬼"
     },
     {
       "id": "魏"

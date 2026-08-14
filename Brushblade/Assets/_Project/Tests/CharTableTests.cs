@@ -56,8 +56,9 @@ namespace Brushblade.Core.Tests
         public void RealConfig_P0UnlockedWordsAreLoadable()
         {
             var graph = RealGraph();
-            foreach (var id in new[] { "锯", "淋", "润", "沐", "滋", "冰", "冻", "溺",
-                                       "埋", "坑", "藤", "洼", "凝", "冷",
+            // 2026-08-14:溺 / 埋 / 坑 随用户裁定移出字表,从本列表删去。
+            foreach (var id in new[] { "锯", "淋", "润", "沐", "滋", "冰", "冻",
+                                       "藤", "洼", "凝", "冷",
                                        "铠", "崊", "崟", "磐", "巍", "漜" })
                 Assert.That(graph.Get(id), Is.Not.Null, $"{id} 应已收录");
         }
@@ -143,8 +144,8 @@ namespace Brushblade.Core.Tests
                 ["灶"] = p => { Assert.That(p.OnHitBurn, Is.EqualTo(2)); Assert.That(p.OnHitBurnAll, Is.False); },
                 ["楸"] = p => Assert.That(p.OnHitBurn, Is.EqualTo(1)),
                 ["荆"] = p => Assert.That(p.Thorns, Is.EqualTo(30)),
-                ["桃"] = p => Assert.That(p.HealAlly, Is.EqualTo(30)),
-                ["槐"] = p => Assert.That(p.OnHitCurse, Is.EqualTo(25)),
+                // 2026-08-14:桃(HealAlly)/ 槐(OnHitCurse)随用户裁定移出字表。
+                // 这两个被动字段与引擎实现都还在,只是当前无字使用 —— 新字接手即可复活。
                 ["桤"] = p => Assert.That(p.Speed, Is.EqualTo(150)),
             };
             foreach (var pair in expected)
