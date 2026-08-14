@@ -981,6 +981,46 @@ namespace Brushblade.Presentation
                     22, new Vector2(56, 56), 12);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def); // 水/土 直出的攻击用法在这一排
+
+                // 同源徽标(2026-08-15,部件五系通用):右上角 ≈X 指出它与谁通用。
+                // 设计参考:docs/design/frame/字斗设计板.dc.html 的部件池 row。
+                // 规则在 Core 的 ComponentKin.KinBadge 里做过单测,这里只负责画。
+                // Ui 没有角标原语,用既有的 Chip + Anchor 拼 —— 不为这一处新增公共 API。
+                string kin = ComponentKin.KinBadge(charId);
+                if (kin != null)
+                {
+                    string badgeText = $"≈{kin}";
+                    const int badgeFont = 10;
+                    var badge = Ui.Chip(tile.transform, badgeText,
+                        Theme.ElementColor(def.Element), Color.white, badgeFont);
+                    // 贴右上角:锚点钉在 (1,1),再按 chip 自身尺寸向左下让出位置
+                    Ui.Anchor((RectTransform)badge.transform,
+                        new Vector2(1, 1), new Vector2(1, 1),
+                        new Vector2(-Ui.ChipWidth(badgeText, badgeFont) - 2, -Ui.ChipHeight(badgeFont) - 2),
+                        new Vector2(-2, -2));
+                }
+
+                // 位形指示器(2026-08-15):左上角虚线小框 + 色块,标出该部件在字中的位置
+                // ——同源变体(如 火/灬)靠这个区分形象。None(清单外)不画。
+                var position = ComponentKin.PositionOf(charId);
+                if (position != ComponentPosition.None)
+                {
+                    // 外框:半透白底小方框(不用边框原语,拿低透明度色块凑一个近似的"虚线小框" 观感)
+                    var frame = Ui.CardPanel(tile.transform, "PosFrame", new Color(1f, 1f, 1f, 0.35f), 3);
+                    Ui.Anchor((RectTransform)frame.transform, new Vector2(0, 1), new Vector2(0, 1),
+                        new Vector2(3, -20), new Vector2(20, -3));
+                    var (min, max) = position switch
+                    {
+                        ComponentPosition.Left => (new Vector2(0, 0), new Vector2(0.48f, 1)),
+                        ComponentPosition.Right => (new Vector2(0.52f, 0), new Vector2(1, 1)),
+                        ComponentPosition.Top => (new Vector2(0, 0.45f), new Vector2(1, 1)),
+                        ComponentPosition.Bottom => (new Vector2(0, 0), new Vector2(1, 0.38f)),
+                        _ => (new Vector2(0, 0), new Vector2(1, 1)), // Whole
+                    };
+                    var fill = Ui.CardPanel(frame.transform, "PosFill", Theme.ElementColor(def.Element), 1);
+                    Ui.Anchor((RectTransform)fill.transform, min, max, Vector2.zero, Vector2.zero);
+                }
+
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
             }
         }
@@ -1020,6 +1060,17 @@ namespace Brushblade.Presentation
                 Ui.RoundButton(combo.transform, charId, () => OnCompose(charId),
                     Color.white, Theme.ElementColor(def.Element), 30, new Vector2(60, 54), 12);
             }
+
+            // 转位说明(2026-08-15):告诉玩家 火/灬 这类同源部件通用。纯说明,不是操作 ——
+            // 等价匹配在 ForgeEngine.TryCompose 里自动生效,没有按钮、不花 AP(spec §1.6c)。
+            var kinRow = Ui.Row(_suggestRow, "KinHint", 10);
+            Ui.ThemedLabel(kinRow.transform, "转位", 12, Theme.TextDim, Theme.TitleFont);
+            Ui.RoundButton(kinRow.transform, "火", null, Theme.ElementColor(Element.Fire),
+                Color.white, 16, new Vector2(34, 34), 8);
+            Ui.ThemedLabel(kinRow.transform, "⇄", 14, Theme.TextDim, Theme.TitleFont);
+            Ui.RoundButton(kinRow.transform, "灬", null, Theme.ElementColor(Element.Fire),
+                Color.white, 16, new Vector2(34, 34), 8);
+            Ui.ThemedLabel(kinRow.transform, "同源变体 · 位形互换", 12, Theme.TextDim, Theme.TitleFont);
         }
 
         private static readonly string[] HintBucketOrder = { "金", "木", "水", "火", "土", "心", "中性" };

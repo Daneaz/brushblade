@@ -37,5 +37,37 @@ namespace Brushblade.Core.Tests
             Assert.That(ComponentKin.AreKin("水", "木"), Is.False);
             Assert.That(ComponentKin.AreKin("木", "禾"), Is.False);
         }
+
+        /// <summary>徽标取组内代表字;自己就是代表字时取组内下一个 ——
+        /// 火 显示 ≈灬、灬 显示 ≈火(与设计板一致);金系四个里 钅/戈/刂 都显示 ≈金,金 显示 ≈钅。</summary>
+        [Test]
+        public void KinBadge_ShowsRepresentative_OrNextWhenSelfIsRepresentative()
+        {
+            Assert.That(ComponentKin.KinBadge("灬"), Is.EqualTo("火"));
+            Assert.That(ComponentKin.KinBadge("火"), Is.EqualTo("灬"));
+            Assert.That(ComponentKin.KinBadge("氵"), Is.EqualTo("水"));
+            Assert.That(ComponentKin.KinBadge("刂"), Is.EqualTo("金"));
+            Assert.That(ComponentKin.KinBadge("金"), Is.EqualTo("钅"));
+        }
+
+        [Test]
+        public void KinBadge_ReturnsNull_ForPartsOutsideTheList()
+        {
+            Assert.That(ComponentKin.KinBadge("禾"), Is.Null);
+        }
+
+        /// <summary>位形表(spec §1.6):能独立成字的一律「整」,火 例外取「左」(跟随设计板,
+        /// 与 灬 的「底」形成对照)。</summary>
+        [Test]
+        public void PositionOf_MatchesTheDesignBoard()
+        {
+            Assert.That(ComponentKin.PositionOf("氵"), Is.EqualTo(ComponentPosition.Left));
+            Assert.That(ComponentKin.PositionOf("灬"), Is.EqualTo(ComponentPosition.Bottom));
+            Assert.That(ComponentKin.PositionOf("火"), Is.EqualTo(ComponentPosition.Left));
+            Assert.That(ComponentKin.PositionOf("土"), Is.EqualTo(ComponentPosition.Whole));
+            Assert.That(ComponentKin.PositionOf("艹"), Is.EqualTo(ComponentPosition.Top));
+            Assert.That(ComponentKin.PositionOf("戈"), Is.EqualTo(ComponentPosition.Right));
+            Assert.That(ComponentKin.PositionOf("禾"), Is.EqualTo(ComponentPosition.None));
+        }
     }
 }

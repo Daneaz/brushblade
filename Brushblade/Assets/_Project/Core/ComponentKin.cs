@@ -2,6 +2,17 @@ using System.Collections.Generic;
 
 namespace Brushblade.Core
 {
+    /// <summary>部件在字中所处的位置(设计板称"位形")。同源变体靠它区分形象。</summary>
+    public enum ComponentPosition
+    {
+        None,   // 不在五系清单里
+        Left,
+        Right,
+        Top,
+        Bottom,
+        Whole,  // 能独立成字的形态
+    }
+
     /// <summary>五系部件等价清单(spec 2026-08-15 §1.1):同系部件在**配方匹配**上可互相替代。
     ///
     /// ⚠ 清单是**显式**的,不许改成从 <see cref="CharDef.Element"/> 推导 —— `禾` 的 element
@@ -44,6 +55,30 @@ namespace Brushblade.Core
             foreach (var member in group)
                 if (member == b) return true;
             return false;
+        }
+
+        /// <summary>位形表(spec §1.6,表现层数据,设计师可调)。
+        /// 能独立成字的一律 Whole;火 例外取 Left —— 跟随设计板,与 灬 的 Bottom 形成对照。</summary>
+        private static readonly Dictionary<string, ComponentPosition> Positions = new()
+        {
+            ["水"] = ComponentPosition.Whole,  ["氵"] = ComponentPosition.Left,
+            ["冫"] = ComponentPosition.Left,   ["木"] = ComponentPosition.Whole,
+            ["艹"] = ComponentPosition.Top,    ["金"] = ComponentPosition.Whole,
+            ["钅"] = ComponentPosition.Left,   ["戈"] = ComponentPosition.Right,
+            ["刂"] = ComponentPosition.Right,  ["土"] = ComponentPosition.Whole,
+            ["山"] = ComponentPosition.Whole,  ["石"] = ComponentPosition.Whole,
+            ["火"] = ComponentPosition.Left,   ["灬"] = ComponentPosition.Bottom,
+        };
+
+        public static ComponentPosition PositionOf(string part) =>
+            Positions.TryGetValue(part, out var position) ? position : ComponentPosition.None;
+
+        /// <summary>同源徽标文字(UI 右上角 ≈X):取组内代表字;自己就是代表字时取组内下一个。
+        /// 清单外返回 null(不画徽标)。</summary>
+        public static string KinBadge(string part)
+        {
+            if (!TryGetGroup(part, out var group)) return null;
+            return group[0] == part ? group[1] : group[0];
         }
     }
 }
