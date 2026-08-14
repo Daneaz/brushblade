@@ -968,6 +968,18 @@ namespace Brushblade.Core
             }
             // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
             _playerStatuses.TickTurns();
+
+            // 战意每回合末消减一层(2026-08-15 拍板,原为本场持久)。
+            // 单独处理而不是走 TickTurns:战意是**计数器式**状态 —— TurnsLeft = -1、层数记在
+            // Magnitude 上,TickTurns 只认 TurnsLeft,碰不到它。同理 ApBoost / CritBuff /
+            // PierceBuff / Empower 仍是本场持久,不在这里衰减。
+            // 排在本回合全部结算之后:当回合出的 战 先按 3 层生效,回合末才掉到 2。
+            var morale = _playerStatuses.Find(StatusKind.Morale);
+            if (morale != null)
+            {
+                morale.Magnitude -= 1;
+                if (morale.Magnitude <= 0) _playerStatuses.Remove(StatusKind.Morale);
+            }
         }
 
         private void StartTurn()

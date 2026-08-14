@@ -183,26 +183,28 @@ namespace Brushblade.CoreTests
         [Test]
         public void Calibration_Zuan_Pierce30_AgainstMoZhi()
         {
-            // 旧:穿甲把承伤提回 1 再 +15% → floor(400 × 1.15) = 460。
-            // 新:460 − max(0, 20 − 30) = 460。**精确相等** —— +15% 固化进基础值是等价变换。
+            // 2026-08-15:金系批量挂战意后基础值 460 → 415,与旧「穿甲 +15%」的等价校准
+            // (T3 当时验过 = 460)就此完成历史使命 —— 本条改为钉住**穿透减法本身**:
+            // 穿透 30 ≥ 墨渍 DEF 20,减到 0,伤害全额落地。
             var hit = RealGraph().Get("錰").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(460));
+            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(415),
+                "穿透 30 穿光 DEF 20,不倒贴增伤");
         }
 
         [Test]
         public void Calibration_Ci_Pierce15_AgainstMoZhi()
         {
-            // 旧:floor(130 × 1.15) = 149。新:150 − max(0, 20 − 15) = 145。
+            // 2026-08-15:135 − max(0, 20 − 15) = 130(战意改价前是 150 − 5 = 145)。
             var hit = RealGraph().Get("刺").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(149).Within(15));
+            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(130));
         }
 
         [Test]
         public void Calibration_Zhui_Pierce10_AgainstMoZhi()
         {
-            // 旧:floor(90 × 1.15) = 103。新:105 − max(0, 20 − 10) = 95。
+            // 2026-08-15:95 − max(0, 20 − 10) = 85(战意改价前是 105 − 10 = 95)。
             var hit = RealGraph().Get("锥").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(103).Within(15));
+            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(85));
         }
 
         // ============================================================
@@ -242,10 +244,14 @@ namespace Brushblade.CoreTests
             // 但打出去的那一记用**中立(心)**探针字 —— 与 spec §6.3.2 的推导同口径。
             // 不直接出 蒸:它是火系带配方的字,对水系的墨渍会吃到生克乘数(实测 ×1.5),
             // 量到的就不再是「最低档 vs 护甲」而是「最低档 × 运气好的属性」,判据会被生克糊掉。
-            int lowestTier = RealGraph().All
+            // 2026-08-15:取值要过一遍相生 —— 字表存的是**基础值**,相生字(炑 = 火+木)
+            // 填 10 而实战打 30。不乘就会把 10 当成最低档,判据被一个不存在的量误导。
+            var realGraph = RealGraph();
+            int lowestTier = realGraph.All
                 .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Where(e => e.Kind == EffectKind.DamageSingle && e.Pierce == 0)
-                    .Select(e => e.Value))
+                    .Select(e => e.Value * WuxingResolver.ShengMultiplier(
+                        realGraph.RecipeElements(c.Id), c.Element ?? Element.Heart)))
                 .Min();
             Assert.That(lowestTier, Is.EqualTo(30), "字表最低伤害档;它变了这条判据要重新标定");
 

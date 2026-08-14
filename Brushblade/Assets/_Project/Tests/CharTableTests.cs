@@ -47,9 +47,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_XiangShengCharsStoreBaseValue()
         {
-            // 焚含木生火,配置表填基础值 70,引擎结算时 ×3 = 210
+            // 焚含木生火,配置表填基础值 30,引擎结算时 ×3 = 90
+            // (2026-08-15 火系「攻击 + DOT」批量改造:原 70(=210)已占满金档全体锚点 200,3 层全体是白送的)
             var aoe = RealGraph().Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll);
-            Assert.That(aoe.Value, Is.EqualTo(70), "相生字必须填基础值,不是最终值");
+            Assert.That(aoe.Value, Is.EqualTo(30), "相生字必须填基础值,不是最终值");
         }
 
         [Test]
@@ -128,7 +129,9 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             var expected = new Dictionary<string, (int Damage, int Pierce)>
             {
-                ["锥"] = (105, 10), ["刺"] = (150, 15), ["錰"] = (460, 30),
+                // 2026-08-15 金系批量挂战意(计 0.10):105→95 / 150→135 / 460→415。
+                // 穿透点数不动 —— 它是防御轴的量,不参与战意计价。
+                ["锥"] = (95, 10), ["刺"] = (135, 15), ["錰"] = (415, 30),
             };
             foreach (var pair in expected)
             {
@@ -292,7 +295,9 @@ namespace Brushblade.Core.Tests
             Assert.That(sui.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
             Assert.That(sui.TargetAll, Is.False);
             Assert.That(graph.Get("熣").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(140), "2026-08-14 T9:致盲按价目表计 0.30 档预算,160 → 140");
+                Is.EqualTo(80), "2026-08-15:再挂 2 层 DOT(当量 60),80 + 60 + 致盲 60 = 紫档 200");
+            Assert.That(graph.Get("熣").Effects.Any(e => e.Kind == EffectKind.BurnSingle), Is.True,
+                "火系批量改造:攻击的同时挂 DOT");
 
             // 2026-08-14 第二批裁定移出 烟(全体致盲 30/1 回合)——Blind 的载体现在只剩 熣 一张,
             // targetAll 那一半的守卫改由 DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True
@@ -347,9 +352,10 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             var duo = graph.Get("剁").Effects.First(e => e.Kind == EffectKind.DamageSingle);
             Assert.That(duo.HitCount, Is.EqualTo(2));
-            Assert.That(duo.Value, Is.EqualTo(110), "每段 110");
-            Assert.That(duo.Value * duo.HitCount, Is.EqualTo(220),
-                "多段补偿后的总基础值 = 紫档单段锚点 200 × (1 + 0.1 × (2 − 1)) = 220");
+            Assert.That(duo.Value, Is.EqualTo(100), "每段 100");
+            // 2026-08-15 金系批量挂战意:多段补偿 220 再按战意计价 ×0.90 = 198 → 取整 200。
+            Assert.That(duo.Value * duo.HitCount, Is.EqualTo(200),
+                "紫档单段锚点 200 × 多段补偿 1.1 × 战意计价 0.9 ≈ 200");
         }
 
         [Test]
@@ -377,11 +383,14 @@ namespace Brushblade.Core.Tests
         {
             var effects = RealGraph().Get("炑").Effects;
             // 断全序列(而非只断前两条)——否则行尾静默多挂一个效果(如 Detonate)不会被发现
+            // 2026-08-15 火系「攻击 + DOT」批量改造:2 → 3 层并补攻(基础 10,含木生火 ×3 = 30)。
+            // BurnNoDecay 排在最后是 extract_values 的 VALUELESS_EFFECTS 统一追加所致,
+            // 与结算无关(不灭是标记位,不参与顺序敏感的兑现链)。
             Assert.That(effects.Select(e => e.Kind), Is.EqualTo(new[]
             {
-                EffectKind.BurnSingle, EffectKind.BurnNoDecay,
+                EffectKind.BurnSingle, EffectKind.DamageSingle, EffectKind.BurnNoDecay,
             }), "多一条效果就是超模——数组顺序即结算顺序");
-            Assert.That(effects[0].Value, Is.EqualTo(2));
+            Assert.That(effects[0].Value, Is.EqualTo(3));
         }
 
         [Test]
@@ -392,19 +401,21 @@ namespace Brushblade.Core.Tests
             {
                 EffectKind.BurnSingle, EffectKind.BurnPotency, EffectKind.BurnSettleNow,
             }), "顺序错了立即结算就吃不到自己抬的系数");
-            Assert.That(effects[0].Value, Is.EqualTo(2));   // 层数,不吃 ×10
+            Assert.That(effects[0].Value, Is.EqualTo(3));   // 层数,不吃 ×10;2026-08-15 火系「攻击 + DOT」批量改造 后 2 → 3
             Assert.That(effects[1].Value, Is.EqualTo(10));  // 灼烧系数,吃 ×10
         }
 
         [Test]
-        public void RealConfig_XiaoIsFourStacksThenDetonate()
+        public void RealConfig_XiaoIsThreeStacksThenDetonate()
         {
             var effects = RealGraph().Get("灱").Effects;
             Assert.That(effects.Select(e => e.Kind), Is.EqualTo(new[]
             {
                 EffectKind.BurnSingle, EffectKind.Detonate,
             }), "多一条效果就是超模——数组顺序即结算顺序");
-            Assert.That(effects[0].Value, Is.EqualTo(4), "4 层给引爆 20 伤的地板");
+            // 2026-08-15 火系「攻击 + DOT」批量改造:4 → 3 层。4 层的 DOT 当量 N(N+1)/2 × 20 = 200 已占满紫档锚点,
+            // 再挂引爆就是白送;3 层 120 + 引爆 60 = 180 ≈ 200。
+            Assert.That(effects[0].Value, Is.EqualTo(3));
         }
 
         [Test]

@@ -83,7 +83,7 @@ def test_extract_pulls_105_implementable_chars():
     assert len(values) == 105
     # 焚含木生火,配置表填基础值 70(引擎结算时 ×3 = 210)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
-    assert fen["value"] == 70
+    assert fen["value"] == 30  # 2026-08-15 火系改造:原 70(×3=210)已占满金档锚点
     assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"
 
@@ -111,7 +111,9 @@ def test_extract_pierce_points_attach_to_damage_effect():
     expected = {"锥": 10, "刺": 15, "錰": 30}
     for char, points in expected.items():
         effects = values[char]["effects"]
-        assert [e["kind"] for e in effects] == ["DamageSingle"], f"「{char}」不该产出独立的 Pierce 条目"
+        # 2026-08-15 金系批量挂战意:三字都多了一条 Morale,故断「第一条是伤害且只有一条伤害」
+        assert effects[0]["kind"] == "DamageSingle", f"「{char}」不该产出独立的 Pierce 条目"
+        assert all(e["kind"] != "Pierce" for e in effects), f"「{char}」不该产出独立的 Pierce 条目"
         assert effects[0].get("pierce") == points, f"「{char}」的穿透点数应为 {points}"
         assert "ignoreArmor" not in effects[0], f"「{char}」不该再带 ignoreArmor"
 

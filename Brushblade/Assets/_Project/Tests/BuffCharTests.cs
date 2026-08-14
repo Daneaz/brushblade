@@ -117,6 +117,40 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
+        public void Morale_DecaysOneStackPerTurnEnd()
+        {
+            // 2026-08-15 拍板:战意从「本场持久」改为**每回合末消减一层**。
+            // 当回合出的 战 先按 3 层生效(EffectiveAttack 130),回合末才掉到 2 ——
+            // 递减排在本回合全部结算之后,不是「刚施加就少一层」。
+            var engine = Battle(BattleConfig.AttackBaseline, "战");
+            engine.Cast("战");
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(130), "出牌当回合按 3 层算");
+
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2));
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1));
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(0),
+                "归零后整条状态移除,不留 0 层的空壳");
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Morale), Is.False);
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(BattleConfig.AttackBaseline));
+        }
+
+        [Test]
+        public void Morale_OtherBuffsStayPermanent()
+        {
+            // 负向:只有战意衰减。同为「本场持久」的 剡(Empower)不该被顺手削掉 ——
+            // 把衰减写进 TickTurns 或对整袋 Buff 生效,这条会红。
+            var engine = Battle(BattleConfig.AttackBaseline, "剡");
+            engine.Cast("剡");
+            int before = engine.EffectiveAttack;
+            engine.EndTurn();
+            engine.EndTurn();
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(before), "Empower 本场持久,不随回合衰减");
+        }
+
+        [Test]
         public void MoraleStacks_DoNotScaleWithAttack()
         {
             // 负向:战意的 Magnitude 是**层数**不是量。套上 ScaleByAttack 会算成
