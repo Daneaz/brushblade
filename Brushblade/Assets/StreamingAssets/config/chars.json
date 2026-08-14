@@ -186,7 +186,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 160
+          "value": 140
         },
         {
           "kind": "Blind",
@@ -254,6 +254,10 @@
         "火"
       ],
       "effects": [
+        {
+          "kind": "DamageAll",
+          "value": 30
+        },
         {
           "kind": "Dispel",
           "value": -1
@@ -447,6 +451,10 @@
         {
           "kind": "BurnPotency",
           "value": 10
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 40
         }
       ]
     },
@@ -479,6 +487,10 @@
           "value": 30,
           "turns": 1,
           "targetAll": true
+        },
+        {
+          "kind": "DamageAll",
+          "value": 35
         }
       ]
     },
@@ -537,6 +549,10 @@
         {
           "kind": "BurnPotency",
           "value": 20
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 110
         }
       ]
     },
@@ -787,6 +803,10 @@
         {
           "kind": "Freeze",
           "value": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 85
         }
       ]
     },
@@ -960,7 +980,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 200
+          "value": 170
         },
         {
           "kind": "Dispel",
@@ -999,7 +1019,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 200
+          "value": 130
         },
         {
           "kind": "Dispel",
@@ -1142,7 +1162,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 200
+          "value": 140
         },
         {
           "kind": "Slow",
@@ -1181,6 +1201,10 @@
         {
           "kind": "Freeze",
           "value": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 85
         }
       ]
     },
@@ -1194,8 +1218,12 @@
       ],
       "effects": [
         {
-          "kind": "Freeze",
-          "value": 1
+          "kind": "Slow",
+          "value": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 90
         }
       ]
     },
@@ -1230,6 +1258,10 @@
         {
           "kind": "Slow",
           "value": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 65
         }
       ]
     },
@@ -1245,6 +1277,10 @@
         {
           "kind": "Slow",
           "value": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 40
         }
       ]
     },
@@ -1259,7 +1295,11 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 270
+          "value": 155
+        },
+        {
+          "kind": "DamageAll",
+          "value": 70
         }
       ]
     },
@@ -1274,7 +1314,11 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 120
+          "value": 50
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 70
         },
         {
           "kind": "Cleanse",
@@ -1293,8 +1337,12 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 30,
+          "value": 20,
           "turns": 3
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 70
         }
       ]
     },
@@ -1309,9 +1357,13 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 30,
+          "value": 20,
           "turns": 2,
           "targetAll": true
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 35
         }
       ]
     },
@@ -1326,8 +1378,12 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 30,
+          "value": 20,
           "turns": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 35
         }
       ]
     },
@@ -1343,6 +1399,10 @@
         {
           "kind": "Revive",
           "value": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 80
         }
       ]
     },
@@ -1357,7 +1417,11 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 80
+          "value": 50
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 45
         }
       ]
     },
@@ -1370,6 +1434,10 @@
         "谷"
       ],
       "effects": [
+        {
+          "kind": "DamageSingle",
+          "value": 70
+        },
         {
           "kind": "Cleanse",
           "value": 0
@@ -1591,7 +1659,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 90,
+          "value": 75,
           "executeBelowPercent": 30,
           "executeKills": false
         }
@@ -1608,7 +1676,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 75
         },
         {
           "kind": "Morale",
@@ -1643,7 +1711,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 60,
+          "value": 40,
           "executeBelowPercent": 30,
           "executeKills": false
         }
@@ -1660,7 +1728,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 75
         },
         {
           "kind": "Dispel",
@@ -1730,6 +1798,10 @@
           "kind": "Silence",
           "value": 0,
           "turns": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 85
         }
       ]
     },
@@ -1759,7 +1831,11 @@
       "effects": [
         {
           "kind": "DefenseBuff",
-          "value": 12
+          "value": 5
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 80
         }
       ]
     },
@@ -1776,6 +1852,10 @@
           "kind": "Reflect",
           "value": 50,
           "turns": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 85
         }
       ]
     },
@@ -1791,6 +1871,10 @@
         {
           "kind": "Empower",
           "value": 50
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 220
         }
       ]
     },
@@ -1806,6 +1890,10 @@
         {
           "kind": "Morale",
           "value": 3
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 35
         }
       ]
     },
@@ -1821,6 +1909,10 @@
         {
           "kind": "ApBoost",
           "value": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 30
         }
       ]
     },
@@ -1836,6 +1928,10 @@
         {
           "kind": "CritBuff",
           "value": 20
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 35
         }
       ]
     },
@@ -1851,6 +1947,10 @@
         {
           "kind": "PierceBuff",
           "value": 20
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 40
         }
       ]
     },
@@ -1943,7 +2043,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 180
+          "value": 100
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 70
         }
       ]
     },
@@ -1958,7 +2062,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 100
+          "value": 65
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 45
         }
       ]
     },
@@ -1973,11 +2081,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 100
+          "value": 60
         },
         {
           "kind": "DamageSingle",
-          "value": 70
+          "value": 50
         }
       ]
     },
@@ -1992,7 +2100,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 100
+          "value": 65
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 45
         }
       ]
     },
@@ -2007,8 +2119,12 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 100,
+          "value": 55,
           "persistOnce": true
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 45
         }
       ]
     },
@@ -2023,7 +2139,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 70
+          "value": 45
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 35
         }
       ]
     },
@@ -2038,7 +2158,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 70
+          "value": 40
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 35
         }
       ]
     },
@@ -2053,11 +2177,11 @@
       "effects": [
         {
           "kind": "DefenseBuff",
-          "value": 15
+          "value": 10
         },
         {
-          "kind": "Slow",
-          "value": 2
+          "kind": "DamageSingle",
+          "value": 170
         }
       ]
     },
@@ -2072,7 +2196,11 @@
       "effects": [
         {
           "kind": "DefenseBuff",
-          "value": 12
+          "value": 8
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 140
         }
       ]
     },
@@ -2087,7 +2215,11 @@
       "effects": [
         {
           "kind": "DefenseBuff",
-          "value": 9
+          "value": 6
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 70
         }
       ]
     },
@@ -2102,7 +2234,11 @@
       "effects": [
         {
           "kind": "DefenseBuff",
-          "value": 6
+          "value": 4
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 45
         }
       ]
     },
@@ -2117,7 +2253,11 @@
       "effects": [
         {
           "kind": "DefenseBuff",
-          "value": 3
+          "value": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 30
         }
       ]
     },
@@ -2133,6 +2273,10 @@
         {
           "kind": "Immunity",
           "value": 2
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 80
         }
       ]
     },
@@ -2148,6 +2292,10 @@
         {
           "kind": "Immunity",
           "value": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 50
         },
         {
           "kind": "Cleanse",
@@ -2167,6 +2315,10 @@
         {
           "kind": "Immunity",
           "value": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 60
         }
       ]
     },

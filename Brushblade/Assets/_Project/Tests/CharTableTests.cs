@@ -63,11 +63,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_KaiIsDefenseTwelve()
+        public void RealConfig_KaiIsDefenseFive()
         {
             var effect = RealGraph().Get("铠").Effects
                 .First(e => e.Kind == EffectKind.DefenseBuff);
-            Assert.That(effect.Value, Is.EqualTo(12));
+            // 2026-08-14 T9:12 → 5。金系不该在防御轴上压过同档土系(崟 = 6),
+            // 差额换成了单攻 80 —— 铠 现在是「带一点甲的金系攻击字」,不是防御字。
+            Assert.That(effect.Value, Is.EqualTo(5));
         }
 
         /// <summary>6 个护甲字的点数(spec §6.2 的折算表:旧减伤% × 0.6)。
@@ -78,7 +80,9 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             var expected = new Dictionary<string, int>
             {
-                ["巍"] = 3, ["磐"] = 6, ["崟"] = 9, ["铠"] = 12, ["崊"] = 12, ["漜"] = 15,
+                // 2026-08-14 T9:点数 ×0.65,腾出的预算换成各自的单攻(总预算守恒)。
+                // 铠 额外降到 5(金系不压土系),漜 同时去掉了 Slow 2。
+                ["巍"] = 2, ["磐"] = 4, ["崟"] = 6, ["铠"] = 5, ["崊"] = 8, ["漜"] = 10,
             };
             foreach (var pair in expected)
             {
@@ -288,7 +292,7 @@ namespace Brushblade.Core.Tests
             Assert.That(sui.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
             Assert.That(sui.TargetAll, Is.False);
             Assert.That(graph.Get("熣").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(160), "160 是带致盲后的平衡值,原值 210");
+                Is.EqualTo(140), "2026-08-14 T9:致盲按价目表计 0.30 档预算,160 → 140");
 
             var yan = graph.Get("烟").Effects.First(e => e.Kind == EffectKind.Blind);
             Assert.That(yan.Value, Is.EqualTo(30));

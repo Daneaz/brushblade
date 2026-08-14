@@ -137,8 +137,10 @@ namespace Brushblade.CoreTests
             var def = RealGraph().Get("锐");
             Assert.That(def.Rarity, Is.EqualTo(CardRarity.White));
             Assert.That(def.Element, Is.EqualTo(Element.Metal));
-            var effect = def.Effects.Single();
-            Assert.That(effect.Kind, Is.EqualTo(EffectKind.PierceBuff));
+            // 2026-08-14 T9:锐 补了单攻 40,不再是单效果字 —— 按 Kind 取而不是 Single()。
+            var effect = def.Effects.Single(e => e.Kind == EffectKind.PierceBuff);
+            Assert.That(def.Effects.Any(e => e.Kind == EffectKind.DamageSingle && e.Value == 40),
+                Is.True, "T9 补的攻击性");
             // 20 的定位(spec §12.1):一张正好穿光墨渍的 20、抵江/钧阶段 30 的 2/3;
             // 两张叠满 40 配 錰 的本体穿透 30 才够穿山阶段的 60。改这个数字要连着重算那三条。
             Assert.That(effect.Value, Is.EqualTo(20));
