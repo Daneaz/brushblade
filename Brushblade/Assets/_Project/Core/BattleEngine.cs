@@ -411,6 +411,7 @@ namespace Brushblade.Core
                 Pool = new List<string>(_forge.Pool),
                 PendingDrop = _pendingDrop,
                 StatusSerial = _statusSerial,
+                PlayerActionMeter = PlayerActionMeter,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
@@ -434,6 +435,7 @@ namespace Brushblade.Core
                 _burnPerStack = snapshot.BurnPerStack,
                 _pendingDrop = snapshot.PendingDrop,
                 _statusSerial = snapshot.StatusSerial,
+                PlayerActionMeter = snapshot.PlayerActionMeter,
             };
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
@@ -1456,12 +1458,17 @@ namespace Brushblade.Core
                             // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
                             // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
                             // 之后再抬攻击力,已在场的这只不变
-                            // 新召唤物从 0 起攒计量器,当拍不出手(2026-08-15 审查裁定:不再靠
-                            // 「创建时头寸」抢跑,与旧行为一致——旧模型里它也是本回合末才头一次
-                            // += Speed,不是创建瞬间就满)。
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
+                            // 新召唤物当场就该跟上世界时钟(2026-08-15 审查订正:这不是「玩家开局
+                            // 先手」那种补偿,是既有行为本身——旧 EndTurn 的召唤段是
+                            // summon.ActionMeter += summon.Speed 然后 acts = meter/100,新召唤物
+                            // meter 从 0 起、加一次速度就到 100,当回合就出手。用 Speed 而不是
+                            // Threshold:带被动的召唤物(桤 Speed 150)旧行为是 += 150 得到 1 次
+                            // 行动 + 50 余额,写 Threshold 会把这 50 余额吃掉。
+                            // 分裂新生的敌人**不**享受这个待遇(那是故意的,见 EnemyState 分裂处注释)。
+                            newborn.ActionMeter += newborn.Speed;
                             if (AliveSummons() < SummonCap)
                             {
                                 _summons.Add(newborn);

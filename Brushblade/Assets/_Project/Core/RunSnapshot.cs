@@ -29,6 +29,11 @@ namespace Brushblade.Core
         /// (见 BattleEngine._statusSerial)。不存的话续爬后计数器归零,新施加的状态
         /// SourceId 可能撞上快照里恢复的条目,撞上就被意外覆盖(可叠语义失效)。</summary>
         public int StatusSerial { get; set; }
+
+        /// <summary>玩家的行动计量器(2026-08-15,ATB 改造)。不存会让续爬后玩家的节拍从 0 重来,
+        /// 而敌人侧的 ActionMeter 早就在存了 —— 这条是补齐。
+        /// ⚠ 开局的 -Threshold 预支只在主构造函数里设,Restore 走快照值,不要再减一次。</summary>
+        public int PlayerActionMeter { get; set; }
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>

@@ -49,11 +49,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PlayerActionMeter_StartsEmpty()
+        public void PlayerActionMeter_StartsInDebt()
         {
+            // 玩家开局白拿第一拍(战斗一开始 Phase 就是 PlayerTurn,没经过调度器),
+            // 那一拍的 100 记成预支 —— 否则玩家行动后与所有人同时归零,并列时靠优先级
+            // 永远先手,其余单位会被饿死。2026-08-15 CTB 改造裁定。
             var engine = Engine(new[] { Dummy() });
 
-            Assert.That(engine.PlayerActionMeter, Is.EqualTo(0));
+            Assert.That(engine.PlayerActionMeter, Is.EqualTo(-TurnScheduler.Threshold));
         }
 
         [Test]
