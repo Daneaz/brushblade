@@ -87,7 +87,11 @@ namespace Brushblade.Core
         public static ComponentPosition PositionOf(string part) =>
             Positions.TryGetValue(part, out var position) ? position : ComponentPosition.None;
 
-        /// <summary>同源徽标文字(UI 右上角 ≈X):变体 → 它的代表字;**代表字自己返回 null**。
+        /// <summary>变体 → 它的代表字;**代表字自己返回 null**。
+        ///
+        /// ⚠ 名字里的「徽标」是历史包袱:2026-08-15 徽标改成全量(同组成员各占一角,走
+        /// <see cref="TryGetGroup"/>)之后,本方法在表现层只剩一个用途 ——
+        /// 当「这个部件是不是变体」的判据(位形框只画在变体上)。语义没变,用途窄了。
         ///
         /// 提示是**单向**的(2026-08-15 用户裁定):`氵`/`冫` 需要被解释成"它等于水",
         /// 而 `水` 本身就是标准形态,提示「水 ≈ 冫」既没信息量,又会让五张最常见的部件卡
