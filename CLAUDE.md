@@ -47,6 +47,11 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 - ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
   NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
   集合子集用 `Has.All.Matches<T>`。
+- ⚠️ 测试里定位仓库根**只能用 `TestContext.CurrentContext.TestDirectory`**,禁用
+  `AppContext.BaseDirectory` —— 后者在 Unity Test Runner 下指向**编辑器安装目录**
+  (`Unity.app/Contents`),往上永远找不到含 `Brushblade/` 的父目录,读真实字表的测试会整类变红;
+  而 dotnet 工装下两者都指向 `bin/`,一直是绿的(2026-08-15 已发生:DefenseValuesTests 15 条
+  + PierceBuffCharTests 4 条)。
 - ⚠️ 测试代码**禁止直接引用 Newtonsoft**(`JsonConvert` 等):Tests asmdef 是
   `overrideReferences: true` 且只放行 `nunit.framework.dll`,而工装 csproj 有 Newtonsoft
   的 PackageReference —— 又一个工装绿≠编辑器绿(已犯过)。要测序列化就走 `Data.SaveSerializer`
