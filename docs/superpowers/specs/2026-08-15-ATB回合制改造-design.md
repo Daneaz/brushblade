@@ -97,13 +97,18 @@ sealed class TurnScheduler
 }
 ```
 
-**推进算法**:对每个参战单位算「到满还需时间」= `(100 − Meter) / 有效Speed`,取最小者 `t`,
-全场 `Meter += 有效Speed × t`,取出满格者,其 `Meter −= 100`。
+**推进算法**(每次只吐一个行动者,`Advance` 无状态,计量器存在各单位上):
 
-⚠ **全程整数运算**。比较「谁先满」时用交叉相乘
-(`(100 − MeterA) × SpeedB` vs `(100 − MeterB) × SpeedA`)而不是求商,更不许引入 `float`
-中间值——`float` 中间精度在 Unity Mono 与 .NET 8 下不同,配上取整会整级翻车
-(2026-08-15 护甲缩放刚踩过)。
+1. 若已有单位 `Meter >= 100`,按 tie-break 取第一个,`Meter −= 100`,返回它
+2. 否则推进 `ticks = min over i of ceil((100 − Meter_i) / Speed_i)`,全场 `Meter_i += Speed_i × ticks`,回到第 1 步
+
+⚠ **全程整数运算**,`ticks` 是整数;不许引入 `float` 中间值——`float` 中间精度在 Unity Mono
+与 .NET 8 下不同,配上取整会整级翻车(2026-08-15 护甲缩放刚踩过)。
+
+这条算法与「连续时间」的差别只在**同一 tick 内多人同时攒满时的排序**:连续模型按小数先后,
+本算法按 tie-break。长期比例精确 —— 速度 100 对 60,五个 tick 内恰好是 5 次对 3 次。
+选整数 tick 是因为它让 `ActionMeter` 保持现有语义(0~199 的整数,行动后扣 100 留余额),
+`EnemySnapshot`/`SummonSnapshot` 的既有字段一个都不用动。
 
 **有效速度** = `Speed + 所有 SpeedModifier 的 Magnitude 之和`,然后**钳到 [25, 400]**。
 下限是硬要求而非保守:现行减速下钳是 `Math.Max(0, …)`,速度 0 的单位永远攒不满 → 永远轮不到
