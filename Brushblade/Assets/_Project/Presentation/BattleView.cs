@@ -1005,10 +1005,14 @@ namespace Brushblade.Presentation
                         new Vector2(-2, -2));
                 }
 
-                // 位形指示器(2026-08-15):左上角虚线小框 + 色块,标出该部件在字中的位置
-                // ——同源变体(如 火/灬)靠这个区分形象。None(清单外)不画。
+                // 位形指示器(2026-08-15):左上角小框 + 色块,标出该部件在字中的位置。
+                //
+                // 只画在**变体**上,且位形不是「整」(2026-08-15 用户裁定):
+                // - 代表字(金木水火土)是标准形态,没有"位形"可言,框对它们是纯噪声 —— 复用上面
+                //   算好的 kin(代表字与清单外都是 null)做判据,与右上角徽标同一条口径;
+                // - 山/石 虽是变体,但位形为「整」,画一个填满的框等于没画。
                 var position = ComponentKin.PositionOf(charId);
-                if (position != ComponentPosition.None)
+                if (kin != null && position != ComponentPosition.Whole)
                 {
                     // 外框:半透白底小方框(不用边框原语,拿低透明度色块凑一个近似的"虚线小框" 观感)
                     var frame = Ui.CardPanel(tile.transform, "PosFrame", new Color(1f, 1f, 1f, 0.35f), 3);
@@ -1020,7 +1024,8 @@ namespace Brushblade.Presentation
                         ComponentPosition.Right => (new Vector2(0.52f, 0), new Vector2(1, 1)),
                         ComponentPosition.Top => (new Vector2(0, 0.45f), new Vector2(1, 1)),
                         ComponentPosition.Bottom => (new Vector2(0, 0), new Vector2(1, 0.38f)),
-                        _ => (new Vector2(0, 0), new Vector2(1, 1)), // Whole
+                        // Whole/None 上面已被条件挡掉,这里只是 switch 表达式要穷尽
+                        _ => (new Vector2(0, 0), new Vector2(1, 1)),
                     };
                     var fill = Ui.CardPanel(frame.transform, "PosFill", Theme.ElementColor(def.Element), 1);
                     Ui.Anchor((RectTransform)fill.transform, min, max, Vector2.zero, Vector2.zero);
@@ -1161,16 +1166,25 @@ namespace Brushblade.Presentation
             }
             else
             {
-                // 转位提示(2026-08-15 用户裁定):只在选中**变体**部件时显示,且内容随选中的那个走
-                // ——选 氵 就说「氵 ⇄ 水」。代表字(水/木/金/土/火)由 KinBadge 返回 null 自然不显示,
-                // 提示是单向的:变体需要被解释成「它等于哪个标准形态」,标准形态本身不需要。
+                // 转位提示(2026-08-15 用户裁定):选中五系部件时,把**同组全部**可互换的成员列出来
+                // ——选 氵 显示「氵 ⇄ 水 冫」,选 刂 显示「刂 ⇄ 金 钅 戈」。
+                //
+                // 这里与右上角 ≈X 徽标是**两条不同的口径**,别互相"对齐":
+                // 徽标是单向的(变体 → 代表字,代表字自己不带徽标),它要在一张 56×56 的卡上
+                // 用最小的面积回答「这张是什么」;转位提示是选中后的详情,空间够,给全量。
+                // 所以判据用 TryGetGroup 而不是 KinBadge —— 后者对代表字返回 null,会把
+                // 选中 水 时的提示整条吞掉(用户点名要补的正是这一条)。
+                //
                 // 纯说明不是操作:等价匹配在 ForgeEngine.TryCompose 里自动生效,不花 AP(spec §1.6c)。
-                string kin = ComponentKin.KinBadge(_selectedChar);
-                if (kin != null)
+                if (ComponentKin.TryGetGroup(_selectedChar, out var kinGroup))
                 {
                     Ui.ThemedLabel(_suggestRow, "⇄", 16, Theme.TextDim);
-                    Ui.RoundButton(_suggestRow, kin, null,
-                        Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
+                    foreach (var kin in kinGroup)
+                    {
+                        if (kin == _selectedChar) continue; // 自己不列进"可换成"
+                        Ui.RoundButton(_suggestRow, kin, null,
+                            Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
+                    }
                     Ui.ThemedLabel(_suggestRow, "同源变体 · 位形互换", 13, Theme.TextDim);
                 }
                 else
