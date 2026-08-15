@@ -89,7 +89,9 @@ namespace Brushblade.Presentation
                     EffectKind.Shield => $"护盾{shown}" + (e.PersistOnce ? "(豁免一次回合末清空)" : ""),
                     EffectKind.BurnPotency => $"本场灼烧每层结算+{shown}",
                     EffectKind.HealSelf => $"治疗{shown}",
-                    EffectKind.Summon => $"召{e.SummonCount}×「{e.SummonChar}」" +
+                    // 召唤物字形归位后(2026-08-15)绝大多数字召的就是自己,写成「梅:召1×「梅」」
+                    // 纯属绕口;只有召别的字时才点名。数据侧的默认值仍是「木」,不同名照旧显示
+                    EffectKind.Summon => (e.SummonChar == def.Id ? $"召{e.SummonCount}只" : $"召{e.SummonCount}×「{e.SummonChar}」") +
                         $"(血{shown}攻{MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)},顶前排)",
                     EffectKind.Bleed => $"流血{shown}/回合(无属性)",
                     EffectKind.HealAll => $"群体治疗{shown}(含召唤物)",

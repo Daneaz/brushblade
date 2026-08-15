@@ -677,8 +677,9 @@ namespace Brushblade.Presentation
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
                 if (!summon.Alive && !(Animating && _summonAnimHp.ContainsKey(i))) continue;
                 var cell = Ui.VStack(_summonRow, $"Summon{i}", 1);
+                int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
-                var glyph = Ui.RoundButton(cell.transform, summon.Char, null,
+                var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     23, new Vector2(50, 50), 12);
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
@@ -692,6 +693,18 @@ namespace Brushblade.Presentation
                 if (passiveTag.Length > 0)
                     Ui.ThemedLabel(cell.transform, passiveTag, 11, Theme.Cinnabar);
             }
+        }
+
+        /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称。
+        /// 死尸在动画期仍画得出,但点它没有意义 —— 下标越界/已死一律不弹。</summary>
+        private void OnSummonClicked(int index)
+        {
+            if (index < 0 || index >= Battle.Summons.Count) return;
+            var summon = Battle.Summons[index];
+            if (!summon.Alive) return;
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
+                new Vector2(320, 200), ("知道了", null, Theme.LockedBg, Theme.TextMain));
         }
 
         /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
