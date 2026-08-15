@@ -75,6 +75,17 @@ namespace Brushblade.Core
         /// <summary>计量器满值:攒够即行动一次。</summary>
         public const int Threshold = 100;
 
+        /// <summary>有效速度下限。**不是保守取值,是防死锁**:速度 0 的单位永远攒不满 →
+        /// 永远轮不到 → 它自己那拍的状态递减永远不跑 → 减速永远解不了(spec 口径 8)。
+        /// 25 = 基准的 1/4,四拍动一次。</summary>
+        public const int MinSpeed = 25;
+
+        /// <summary>有效速度上限:防养成与叠加失控。CTB 下没有「单回合行动次数封顶」这回事,
+        /// 上限全靠这条(旧的 MaxActionsPerTurn = 2 随本次改造删除)。</summary>
+        public const int MaxSpeed = 400;
+
+        public static int ClampSpeed(int raw) => Math.Clamp(raw, MinSpeed, MaxSpeed);
+
         public static SchedulerStep Advance(IReadOnlyList<SchedulerSlot> slots)
         {
             if (slots == null || slots.Count == 0)
@@ -88,7 +99,7 @@ namespace Brushblade.Core
             {
                 int ticks = TicksUntilAnyFull(slots, meters);
                 for (int i = 0; i < slots.Count; i++)
-                    meters[i] += EffectiveSpeed(slots[i].Speed) * ticks;
+                    meters[i] += ClampSpeed(slots[i].Speed) * ticks;
                 winner = FirstFull(slots, meters);
             }
 
@@ -115,14 +126,12 @@ namespace Brushblade.Core
             for (int i = 0; i < slots.Count; i++)
             {
                 int need = Threshold - meters[i];
-                int speed = EffectiveSpeed(slots[i].Speed);
+                int speed = ClampSpeed(slots[i].Speed);
                 int ticks = (need + speed - 1) / speed; // ceil,整数除
                 if (ticks < best) best = ticks;
             }
             return Math.Max(1, best);
         }
 
-        /// <summary>速度钳位由 Task 3 接入(TDD 分步:本任务只做推进算法,原样返回)。</summary>
-        private static int EffectiveSpeed(int speed) => speed;
     }
 }

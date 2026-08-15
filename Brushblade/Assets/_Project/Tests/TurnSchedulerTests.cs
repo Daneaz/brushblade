@@ -128,5 +128,39 @@ namespace Brushblade.Core.Tests
             Assert.That(seq[1].Index, Is.EqualTo(1));
             Assert.That(seq[2].Index, Is.EqualTo(2));
         }
+
+        [Test]
+        public void ClampSpeed_BoundsAreTwentyFiveToFourHundred()
+        {
+            Assert.That(TurnScheduler.ClampSpeed(0), Is.EqualTo(25));
+            Assert.That(TurnScheduler.ClampSpeed(-999), Is.EqualTo(25));
+            Assert.That(TurnScheduler.ClampSpeed(100), Is.EqualTo(100));
+            Assert.That(TurnScheduler.ClampSpeed(800), Is.EqualTo(400));
+        }
+
+        [Test]
+        public void ZeroSpeed_StillActsEventually_NoDeadlock()
+        {
+            // 速度 0 若原样使用,该单位永远攒不满 → 永远轮不到 → 它自己那拍的状态递减
+            // 永远不跑 → 减速永远解不了。钳到 25 就自然消解(四拍动一次)。
+            var slots = new List<SchedulerSlot> { Player(100), Enemy(0, 0) };
+
+            var seq = Sequence(slots, 10);
+
+            Assert.That(seq.Any(a => a.Kind == ActorKind.Enemy), Is.True, "速度 0 的单位仍须能行动");
+        }
+
+        [Test]
+        public void ExtremeSpeed_IsCappedAtFourHundred()
+        {
+            // 800 与 400 表现必须一致:上限之外再堆速度不再有收益
+            var capped = new List<SchedulerSlot> { Player(400), Enemy(0, 100) };
+            var beyond = new List<SchedulerSlot> { Player(800), Enemy(0, 100) };
+
+            var a = Sequence(capped, 10);
+            var b = Sequence(beyond, 10);
+
+            Assert.That(b.Select(x => x.Kind), Is.EqualTo(a.Select(x => x.Kind)));
+        }
     }
 }
