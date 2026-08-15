@@ -16,6 +16,12 @@ namespace Brushblade.Core.Tests
         private static SchedulerSlot Enemy(int index, int speed, int meter = 0) =>
             new(new ActorRef(ActorKind.Enemy, index), speed, meter, 3);
 
+        private static SchedulerSlot Summon(int index, int speed, int meter = 0) =>
+            new(new ActorRef(ActorKind.Summon, index), speed, meter, 1);
+
+        private static SchedulerSlot Buffer(int index, int speed, int meter = 0) =>
+            new(new ActorRef(ActorKind.Enemy, index), speed, meter, 2);
+
         /// <summary>连推 n 拍,返回出手序列。每拍把新计量器写回槽位——
         /// 这正是 BattleEngine 接线后要做的事。</summary>
         private static List<ActorRef> Sequence(List<SchedulerSlot> slots, int n)
@@ -48,7 +54,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SpeedRatio_IsExactOverFiveTicks()
         {
-            // 我 100 / 敌 60:五个 tick 内恰好 5 次对 3 次(spec §4.1 的口径例)
+            // 我 100 / 敌 60:前 8 次行动里恰好 5 次对 3 次,比例与速度 100:60 一致(spec §4.1 的口径例)
             var slots = new List<SchedulerSlot> { Player(100), Enemy(0, 60) };
 
             var seq = Sequence(slots, 8);
@@ -91,6 +97,36 @@ namespace Brushblade.Core.Tests
             Assert.That(step.Actor.Kind, Is.EqualTo(ActorKind.Player));
             Assert.That(step.Meters[0], Is.EqualTo(20), "行动者扣 100");
             Assert.That(step.Meters[1], Is.EqualTo(110), "其他人原地不动");
+        }
+
+        [Test]
+        public void TieBreak_PlayerThenSummonThenBufferThenOthers()
+        {
+            // 全部同速同计量器 —— 纯考排序契约。这条锁死后,谁「顺手优化」调度器
+            // 都会立刻红,而不是静默改掉战斗结果。
+            var slots = new List<SchedulerSlot>
+            {
+                Enemy(0, 100), Buffer(1, 100), Summon(0, 100), Player(100),
+            };
+
+            var seq = Sequence(slots, 4);
+
+            Assert.That(seq[0], Is.EqualTo(ActorRef.Player));
+            Assert.That(seq[1], Is.EqualTo(new ActorRef(ActorKind.Summon, 0)));
+            Assert.That(seq[2], Is.EqualTo(new ActorRef(ActorKind.Enemy, 1)), "Buff 敌先于普通敌");
+            Assert.That(seq[3], Is.EqualTo(new ActorRef(ActorKind.Enemy, 0)));
+        }
+
+        [Test]
+        public void TieBreak_SamePriorityFollowsIndexOrder()
+        {
+            var slots = new List<SchedulerSlot> { Enemy(0, 100), Enemy(1, 100), Enemy(2, 100) };
+
+            var seq = Sequence(slots, 3);
+
+            Assert.That(seq[0].Index, Is.EqualTo(0));
+            Assert.That(seq[1].Index, Is.EqualTo(1));
+            Assert.That(seq[2].Index, Is.EqualTo(2));
         }
     }
 }
