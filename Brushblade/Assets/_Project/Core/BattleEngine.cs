@@ -370,15 +370,13 @@ namespace Brushblade.Core
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
 
-            // ATB 头寸(2026-08-15,ATB 改造接线):玩家的第一个手动回合(拆合走 AP,不占调度器
-            // 格子)本身要占一拍世界时间,这份时间只记在非玩家单位头上 —— 与旧模型里 EndTurn
-            // 对 enemy.ActionMeter / summon.ActionMeter 各 += Speed 一次是同一件事。
-            // 只在这里(引擎新建的那一刻)记一次:此后每个人的计量器都由调度器自然推进,
-            // 不需要、也不能在 YieldTurn 里重复再记一次 —— 那会与调度器为凑「轮到玩家」的
-            // 那次并列 tick 顺带给非玩家单位记的余量重复叠加,导致同一人在同一次 EndTurn
-            // 里蓄力又放技能地连打两下(2026-08-15 排查:BossSkillTests 大面积翻车揪出此坑)。
-            foreach (var enemy in _enemies) enemy.ActionMeter += enemy.Speed;
-            foreach (var summon in _summons) summon.ActionMeter += summon.Speed;
+            // ATB 头寸(2026-08-15,审查后改法):玩家开局白拿了第一拍手动回合(拆合走 AP,
+            // 不占调度器格子),却没经过 Advance 扣过这 100 —— 与其给所有非玩家单位发一份
+            // 依赖各自 Speed 的补偿(旧版做法,被审查指出「构造后才改速度/挂减速」的测试会在
+            // 补偿定型之后才改速度,导致按错误的默认速度记满),不如直接把玩家这一拍记成预支:
+            // 只设这一个不依赖任何单位速度的负值,调度器的 TicksUntilAnyFull/FirstFull 原生
+            // 支持负 Meter,不需要为此改 TurnScheduler。
+            PlayerActionMeter = -TurnScheduler.Threshold;
 
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
@@ -1458,14 +1456,12 @@ namespace Brushblade.Core
                             // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
                             // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
                             // 之后再抬攻击力,已在场的这只不变
+                            // 新召唤物从 0 起攒计量器,当拍不出手(2026-08-15 审查裁定:不再靠
+                            // 「创建时头寸」抢跑,与旧行为一致——旧模型里它也是本回合末才头一次
+                            // += Speed,不是创建瞬间就满)。
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
-                            // ATB 头寸(2026-08-15,同构造函数里对 startingSummons 的处理):新召唤物
-                            // 当场就该跟上世界时钟,本回合末即可反击 —— 旧模型里 EndTurn 对
-                            // summon.ActionMeter 无条件 += Speed 一次,新怪当回合创建也不例外。
-                            // 分裂新生的敌人**不**享受这个待遇(那是故意的,见 EnemyState 分裂处注释)。
-                            newborn.ActionMeter += newborn.Speed;
                             if (AliveSummons() < SummonCap)
                             {
                                 _summons.Add(newborn);
