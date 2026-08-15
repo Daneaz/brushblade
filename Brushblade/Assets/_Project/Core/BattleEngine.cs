@@ -84,6 +84,15 @@ namespace Brushblade.Core
         /// 由 GameRoot 按 <c>MetaRules.DodgeFor(角色等级)</c> 注入,与 <see cref="PlayerAttack"/> 并排。</summary>
         public int PlayerDodge { get; set; }
 
+        /// <summary>玩家基础速度(2026-08-15,ATB 改造)。基准 100 = 与敌人同速 = 一人一手。
+        /// 有效速度 = 本值 + 所有 SpeedModifier 之和,再由 TurnScheduler.ClampSpeed 钳到 [25,400]。
+        ///
+        /// ⚠ **战斗中永不被写**,同 <see cref="PlayerDefense"/> / <see cref="PlayerDodge"/>:
+        /// 局内的加速/减速全部走 <see cref="StatusKind.SpeedModifier"/> 进 _playerStatuses,
+        /// 而它本来就进 BattleSnapshot.PlayerStatuses —— 零新增快照字段。
+        /// T4 起由 MetaRules.BuildBattleConfig 按 SpeedFor(角色等级) 注入。</summary>
+        public int PlayerSpeed { get; set; } = 100;
+
         public int ApPerTurn { get; set; } = 3;
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
@@ -203,6 +212,10 @@ namespace Brushblade.Core
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
 
+        /// <summary>玩家的行动计量器(2026-08-15,ATB 改造):与敌人/召唤物同走一套模型,
+        /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。</summary>
+        public int PlayerActionMeter { get; private set; }
+
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
 
@@ -312,6 +325,12 @@ namespace Brushblade.Core
             _config.PlayerDefense
             + _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff)
             - _playerStatuses.TotalMagnitude(StatusKind.ArmorBreak));
+
+        /// <summary>本场生效的玩家速度 = 角色属性(config)+ 局内 SpeedModifier,钳到 [25,400]。
+        /// 与敌人侧 <see cref="EnemyState"/> 的算法同一条 —— 钳位统一收在
+        /// <see cref="TurnScheduler.ClampSpeed"/>,两侧不许各写一份。</summary>
+        public int EffectivePlayerSpeed => TurnScheduler.ClampSpeed(
+            _config.PlayerSpeed + _playerStatuses.TotalMagnitude(StatusKind.SpeedModifier));
 
         /// <summary>本场生效的玩家闪避(百分点,2026-08-12,E-b4 T4)= 角色属性(config)
         /// + 局内增益(<see cref="StatusKind.DodgeBuff"/>),钳到 [0,100]。与
