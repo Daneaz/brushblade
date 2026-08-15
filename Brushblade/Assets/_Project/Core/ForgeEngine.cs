@@ -126,9 +126,8 @@ namespace Brushblade.Core
             var library = new List<string>(state.Library);
             foreach (var ingredient in def.Recipe)
             {
-                if (pool.Remove(ingredient)) continue;
-                if (library.Remove(ingredient)) continue;
-                return ForgeResult.Fail(ForgeError.MissingIngredients, state);
+                if (!RemoveIngredient(pool, library, ingredient))
+                    return ForgeResult.Fail(ForgeError.MissingIngredients, state);
             }
 
             // 容量在消耗原料之后判定:用字库中的字升阶不占新位
@@ -137,6 +136,28 @@ namespace Brushblade.Core
 
             library.Add(charId);
             return ForgeResult.Ok(new ForgeState(library, pool));
+        }
+
+        /// <summary>取用一份原料(2026-08-15,部件五系通用 spec §1.3)。四级优先:
+        /// 池精确 → 库精确 → 池等价 → 库等价。
+        ///
+        /// **精确两级排在等价两级之前**是刻意的,不是顺手写的:这样在等价匹配用不上的场合,
+        /// 取用顺序与旧实现逐字节相同 —— 既有 982 条测试因此一条都不用改。
+        /// 等价只在原本会 MissingIngredients 的分支上多给一条路。
+        ///
+        /// 组内按 <see cref="ComponentKin"/> 的声明顺序取,保证同一手牌同一结果(可重放)。</summary>
+        private static bool RemoveIngredient(List<string> pool, List<string> library, string ingredient)
+        {
+            if (pool.Remove(ingredient)) return true;
+            if (library.Remove(ingredient)) return true;
+            if (!ComponentKin.TryGetGroup(ingredient, out var group)) return false;
+            foreach (var kin in group)
+            {
+                if (kin == ingredient) continue; // 精确那两级已经试过
+                if (pool.Remove(kin)) return true;
+                if (library.Remove(kin)) return true;
+            }
+            return false;
         }
 
         /// <summary>提示:可合成的字 + 差一个原料的字。原料 = 部件池 + 字库低阶字(3.9 战例语义)。
@@ -162,7 +183,10 @@ namespace Brushblade.Core
                 var missing = new List<string>();
                 foreach (var ingredient in def.Recipe)
                 {
-                    if (!remaining.Remove(ingredient))
+                    // 与 TryCompose 同口径(2026-08-15):同系部件可替代。
+                    // Suggest 只有一份合并列表,故 pool/library 两个参数传同一个 ——
+                    // RemoveIngredient 里第二次 Remove 必然落空,行为等价于"只在这一份里找"。
+                    if (!RemoveIngredient(remaining, remaining, ingredient))
                         missing.Add(ingredient);
                 }
 

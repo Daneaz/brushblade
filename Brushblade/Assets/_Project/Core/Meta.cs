@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Brushblade.Core
 {
@@ -383,6 +384,30 @@ namespace Brushblade.Core
         {
             if (cardLevel <= 1) return baseValue;
             return (int)Math.Ceiling(baseValue * (1 + 0.1 * (cardLevel - 1)));
+        }
+
+        /// <summary>叠字前置(spec 2026-08-15 Part 2):配方里的**非部件**原料必须都已收集。
+        ///
+        /// 只查直接原料 —— `㙓 = 土+垚` 只要求 `垚`,而拿到 `垚` 本身就得先有 `圭`,
+        /// 链式约束自然成立,不需要递归。
+        /// 部件(IsLeaf)不参与:它们靠掉落获得,不存在"解锁"一说。
+        ///
+        /// 全仓 `OwnedCards` 的写入点只有三处:`Shop.cs`、`Chest.cs`、`GameRoot.cs` 的起始集合
+        /// (分支级审查核实:`RunEngine.RollRewardOptions` 只填局内战斗字库,不写
+        /// `OwnedCards`)。其中商城池(`GameRoot.ShopCardPool`)= 玩家**已拥有**的非叶子字,
+        /// 买卡只是给已拥有的字加重复份,天然不会绕过前置。
+        /// 独立成方法仍然有价值:将来若真要给战后奖励或其他产出路径加同一条限制,
+        /// 判定逻辑在这里可以直接复用。</summary>
+        public static bool PrerequisitesMet(string cardId, RecipeGraph graph,
+            IReadOnlyCollection<string> ownedCards)
+        {
+            if (graph == null || !graph.TryGet(cardId, out var def)) return false;
+            foreach (var ingredient in def.Recipe)
+            {
+                if (!graph.TryGet(ingredient, out var idef) || idef.IsLeaf) continue;
+                if (!ownedCards.Contains(ingredient)) return false;
+            }
+            return true;
         }
     }
 }

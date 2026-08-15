@@ -203,9 +203,12 @@ namespace Brushblade.Core
 
             int tierIndex = (int)chest.Tier - 1;
             int ink = InkReward[tierIndex];
+            // 叠字前置(2026-08-15):前置未满足的字不进候选池。graph 为 null 的老调用点
+            // 无从查配方,跳过过滤保持旧行为。
+            var eligible = EligiblePool(chest.CardPool, graph, meta.OwnedCards);
             var cards = graph == null
-                ? DrawUniform(chest, random, CardCount[tierIndex])
-                : DrawWeighted(chest, random, CardCount[tierIndex], graph);
+                ? DrawUniform(eligible, random, CardCount[tierIndex])
+                : DrawWeighted(eligible, chest.Tier, random, CardCount[tierIndex], graph);
 
             meta.Ink += ink;
             foreach (var card in cards)
@@ -232,19 +235,48 @@ namespace Brushblade.Core
         private static readonly CardRarity?[] GuaranteedRarity =
             { null, null, CardRarity.Blue, CardRarity.Purple, CardRarity.Purple, CardRarity.Purple };
 
-        private static List<string> DrawUniform(ChestState chest, GameRandom random, int count)
+        /// <summary>候选池 = 前置已满足的字;滤空时回退未过滤的原池
+        /// (2026-08-15 用户拍板:出满数优先,限制让路)。
+        ///
+        /// 这是有意的取舍,不是漏洞:
+        /// - 滤空时回退的是**未过滤的原池**,此时前置限制对本次开箱**确实完全失效**。
+        ///   两害相权:「隐藏限制」的首要目标是玩家无感知,开箱出 0 张是明显的 bug 感,
+        ///   比"这一箱限制没生效"更糟——所以选择让限制让路,而不是让产出数缩水。
+        /// - 不需要"配方只含部件的字"这一中间层:这类字对
+        ///   <see cref="MetaRules.PrerequisitesMet"/> 恒为 true(该方法只检查非叶子原料,
+        ///   全叶子配方没有要检查的),所以它们本就是第 1 级 eligible 的子集 —— eligible
+        ///   为空时它必然也空,单独写一层判定是数学上不可达的死代码(已删除;原实现叫
+        ///   IsComponentOnlyRecipe)。
+        /// - 当前真实数据下这条回退路径基本不会触发:ChestCardPool() 覆盖全部 105 个
+        ///   非叶子字,其中 82 个是纯部件配方、恒合格,任何未被人为收窄的池总有合格字可选。
+        ///   真触发了,大概率是**宝箱池配置有误**(比如误配了一个清一色高阶叠字的池),
+        ///   应该去配置层修,而不是靠运行时兜底掩盖配置问题。
+        /// graph 为 null 时不过滤(老调用点)。</summary>
+        private static IReadOnlyList<string> EligiblePool(IReadOnlyList<string> cardPool,
+            RecipeGraph graph, IReadOnlyCollection<string> ownedCards)
+        {
+            if (graph == null) return cardPool;
+            var eligible = new List<string>();
+            foreach (var id in cardPool)
+                if (MetaRules.PrerequisitesMet(id, graph, ownedCards))
+                    eligible.Add(id);
+            return eligible.Count > 0 ? eligible : cardPool;
+        }
+
+        private static List<string> DrawUniform(IReadOnlyList<string> cardPool, GameRandom random, int count)
         {
             var cards = new List<string>();
-            for (int i = 0; i < count && chest.CardPool.Count > 0; i++)
-                cards.Add(random.Pick(chest.CardPool));
+            for (int i = 0; i < count && cardPool.Count > 0; i++)
+                cards.Add(random.Pick(cardPool));
             return cards;
         }
 
-        private static List<string> DrawWeighted(ChestState chest, GameRandom random, int count, RecipeGraph graph)
+        private static List<string> DrawWeighted(IReadOnlyList<string> cardPool, ChestTier tier,
+            GameRandom random, int count, RecipeGraph graph)
         {
             // 池按稀有度分组(池外/图谱外的 id 忽略)
             var byRarity = new Dictionary<CardRarity, List<string>>();
-            foreach (var id in chest.CardPool)
+            foreach (var id in cardPool)
             {
                 if (!graph.TryGet(id, out var def)) continue;
                 if (!byRarity.TryGetValue(def.Rarity, out var group))
@@ -254,13 +286,15 @@ namespace Brushblade.Core
             if (byRarity.Count == 0)
                 return new List<string>();
 
-            var weights = CardRarityWeights[(int)chest.Tier - 1];
+            var weights = CardRarityWeights[(int)tier - 1];
             var cards = new List<string>();
             for (int i = 0; i < count; i++)
                 cards.Add(DrawOne(byRarity, weights, random));
 
-            // 保底:抽取结果中无达标稀有度 → 换入一张(池中无达标时取最高可得)
-            var guaranteed = GuaranteedRarity[(int)chest.Tier - 1];
+            // 保底:抽取结果中无达标稀有度 → 换入一张(池中无达标时取最高可得)。
+            // byRarity 已是**前置过滤后**的池,所以"前置优先、保底降级"由 PickAtLeast
+            // 既有的 floor 逻辑自动成立(spec §2.3 第 2 条),这里不需要额外接线。
+            var guaranteed = GuaranteedRarity[(int)tier - 1];
             if (guaranteed is { } minRarity && cards.Count > 0)
             {
                 bool satisfied = false;
