@@ -794,20 +794,9 @@ namespace Brushblade.Core
                 if (summon.ActionMeter >= ActionMeterThreshold) summon.ActionMeter = 0;
                 for (int act = 0; act < acts; act++)
                 {
-                    if (!summon.Alive) break;          // 反伤可能在两次出手之间打死它
-                    int target = -1;
-                    for (int i = 0; i < _enemies.Count; i++)
-                        if (_enemies[i].Alive) { target = i; break; }
-                    if (target < 0) break;
-                    _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, s)); // 发起者下标 s
-                    // 攻 0 的召唤物(烓/灶)照常出手,但不再走 DamageEnemy(2026-08-06,I2/I3):
-                    // 无条件发 amount=0 的 Damage 事件会让表现层白飘 "-0"(Juice.cs 的 Damage
-                    // 分支没有 ≤0 守卫),更关键的是 DamageEnemy 把"命中"与"吃到伤害"当同一件事
-                    // (enemy.HitsTaken += 1)——焦痕会因此白送 +2 攻,叠字怪会被无条件触发分裂。
-                    // 攻 0 单位的真实输出全在 ApplySummonOnHit(灼烧/诅咒),那个依旧无条件调用。
-                    if (summon.Attack > 0)
-                        DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
-                    ApplySummonOnHit(summon, target);
+                    if (!summon.Alive) break;
+                    if (!_enemies.Any(e => e.Alive)) break;
+                    StrikeOnceWithSummon(s);
                 }
             }
             CheckWin();
@@ -835,25 +824,8 @@ namespace Brushblade.Core
             // 加成本场累计、回合末不回滚;场上只剩自己时改为亲自出手(2026-07-22)
             for (int i = 0; i < _enemies.Count; i++)
             {
-                var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff || IsSilenced(enemy)) continue;
                 if (actionCount[i] == 0) continue; // 冻结或计量器不足:连辅助加攻都不出手
-                if (!HasOtherAliveEnemy(enemy)) continue; // 无人可加 → 交给下面的行动循环
-                for (int j = 0; j < _enemies.Count; j++)
-                {
-                    var other = _enemies[j];
-                    if (!other.Alive || other == enemy) continue;
-                    // 加成本场累计、回合末不回滚(既有语义)。SourceId 必须每次唯一——用回合数做
-                    // 后缀不够:场上若有两只同字标点小妖同回合各给同一目标加一次,回合数后缀会撞车
-                    // 变成互相覆盖而非累加(与 Task 4 的 HoT SourceId 教训同型)。
-                    other.Statuses.Apply(new StatusEffect
-                    {
-                        Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
-                        Magnitude = PunctuationBuffPercent, TurnsLeft = -1,
-                        SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                    });
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
-                }
+                ApplyEnemyBuffAura(i);
             }
 
             // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力。
@@ -873,49 +845,7 @@ namespace Brushblade.Core
                 if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
                     continue; // 已用加攻代替出手;独自在场时照常攻击;沉默压住加攻能力后改为亲自出手
 
-                for (int act = 0; act < actionCount[i]; act++)
-                {
-                    if (!enemy.Alive) break; // 反伤可能在两次行动之间打死它
-
-                    if (enemy.IsBoss && ResolveBossTurn(i, enemy))
-                        continue; // 已蓄力或已放大招,本回合不走普攻
-
-                    int damage = enemy.Attack; // 减护甲(点数)在 DamagePlayerDirect 里,护盾吸收再在其后
-                    int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
-                    // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
-                    // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
-                    bool hit;
-                    if (tankIdx >= 0)
-                    {
-                        // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
-                        hit = DamageSummon(i, tankIdx, damage, enemy.Element);
-                    }
-                    else
-                    {
-                        hit = DamagePlayerDirect(i, damage);
-                    }
-
-                    // 通假字:首次行动后现形(8.3)。现形只看「敌人是否出手了」,与命中判定无关——
-                    // 敌人确实动了,打空不影响这条(2026-08-08 明确:不受 hit 影响)。
-                    if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
-                    {
-                        enemy.ApparentElement = enemy.Element;
-                        _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, i, 0));
-                    }
-
-                    // 灯花(2026-08-06):每次攻击给玩家挂 1 层灼烧。TurnsLeft = -1 段内持久,
-                    // 靠上方的玩家灼烧结算段自减 Magnitude,不受 TickTurns 影响(与敌人侧同口径)。
-                    // 走 RefreshBurn 刷新到 N 层而非累加(2026-08-06 I1):BuildFloor 有放回抽取,
-                    // 同场可能出现多只灯花,累加语义会导致 N 只灯花净 +(N−1)层/回合,雪球失控
-                    // (实测 4 只第 6 回合单灼烧 38 伤/回合)。刷新语义下,单只与多只稳态都是 1 层。
-                    // hit 门槛(2026-08-08):打空 = 攻击没落到身上,附带效果不该触发;免疫挡下
-                    // 仍算命中(hit=true),灼烧照挂——免疫挡的是伤害,不是攻击本身。
-                    if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsSilenced(enemy))
-                    {
-                        RefreshBurn(_playerStatuses, SearStacks);
-                        _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
-                    }
-                }
+                ActOneEnemy(i, actionCount[i]);
             }
             // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
             // (Bleed_ExpiresAfterThreeTurns 守着这条)。
@@ -944,31 +874,125 @@ namespace Brushblade.Core
             // 后头,场上还有别的怪时就成了「打到一半血突然回了」—— 玩家的心理节拍是
             // 「我打、召唤物打、敌人打，一回合收尾时它才补」,补全得压到最后。
             for (int i = 0; i < _enemies.Count; i++)
-            {
-                var enemy = _enemies[i];
-                // 本回合已被灼烧/召唤物打死的不许回血 —— 死了还补就成了打不死的怪
-                if (!enemy.Alive) continue;
-                if (enemy.Def.Ability != EnemyAbility.Regrow || IsSilenced(enemy) || enemy.RegrowProgress >= 3) continue;
-
-                int before = enemy.Hp;
-                enemy.RegrowProgress += 1;
-                enemy.BaseAttack += 20; // 补全成长(形态变化,非增益):不可驱散(2026-08-12 随全表量级 ×10)
-                // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
-                // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
-                enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 30); // 2026-08-12 随全表量级 ×10
-                if (enemy.RegrowProgress == 3)
-                {
-                    // ×2 翻的是 BaseAttack(形态变化)。2026-08-12 AttackBuff 统一成百分点后,
-                    // 外部增益是 BaseAttack 的比值,于是**会**跟着一起放大 —— 这不是回退,是
-                    // 「比值就该跟着基数走」的直接后果(旧的 2026-08-05 裁定建立在加数语义上,已失效)。
-                    enemy.BaseAttack *= 2;
-                    enemy.Hp = enemy.MaxHp;
-                }
-                _events.Add(new BattleEvent(BattleEventKind.Regrow, i,
-                    enemy.Hp - before, enemy.RegrowProgress));
-            }
+                RegrowOneEnemy(i);
 
             StartTurn();
+        }
+
+        /// <summary>一只召唤物的一次出手(2026-08-15 提取,行为与提取前逐字节一致)。
+        /// 攻 0 的召唤物(烓/灶)照常出手但不走 DamageEnemy —— 见提取前的原注释。</summary>
+        private void StrikeOnceWithSummon(int summonIndex)
+        {
+            var summon = _summons[summonIndex];
+            int target = -1;
+            for (int i = 0; i < _enemies.Count; i++)
+                if (_enemies[i].Alive) { target = i; break; }
+            if (target < 0) return;
+            _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, summonIndex));
+            if (summon.Attack > 0)
+                DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
+            ApplySummonOnHit(summon, target);
+        }
+
+        /// <summary>标点小妖给其他存活字怪加攻的那一拍(2026-08-15 提取,行为与提取前逐字节一致)。
+        /// actionCount[i]==0 的冻结/计量器不足判断留在 EndTurn 的调用处——那个数组是 EndTurn 的局部变量,
+        /// 没有随 enemyIndex 一起传进来。</summary>
+        private void ApplyEnemyBuffAura(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff || IsSilenced(enemy)) return;
+            if (!HasOtherAliveEnemy(enemy)) return; // 无人可加 → 交给下面的行动循环
+            for (int j = 0; j < _enemies.Count; j++)
+            {
+                var other = _enemies[j];
+                if (!other.Alive || other == enemy) continue;
+                // 加成本场累计、回合末不回滚(既有语义)。SourceId 必须每次唯一——用回合数做
+                // 后缀不够:场上若有两只同字标点小妖同回合各给同一目标加一次,回合数后缀会撞车
+                // 变成互相覆盖而非累加(与 Task 4 的 HoT SourceId 教训同型)。
+                other.Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
+                    Magnitude = PunctuationBuffPercent, TurnsLeft = -1,
+                    SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
+                });
+                _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
+            }
+        }
+
+        /// <summary>一个敌人本回合的全部出手(2026-08-15 提取,行为与提取前逐字节一致)。
+        /// actionCount 由 EndTurn 按 actionCount[i] 传入,!Alive / 冻结 / 加攻互斥等守卫仍留在调用处。</summary>
+        private void ActOneEnemy(int enemyIndex, int actionCount)
+        {
+            var enemy = _enemies[enemyIndex];
+            for (int act = 0; act < actionCount; act++)
+            {
+                if (!enemy.Alive) break; // 反伤可能在两次行动之间打死它
+
+                if (enemy.IsBoss && ResolveBossTurn(enemyIndex, enemy))
+                    continue; // 已蓄力或已放大招,本回合不走普攻
+
+                int damage = enemy.Attack; // 减护甲(点数)在 DamagePlayerDirect 里,护盾吸收再在其后
+                int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
+                // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
+                // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
+                bool hit;
+                if (tankIdx >= 0)
+                {
+                    // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
+                    hit = DamageSummon(enemyIndex, tankIdx, damage, enemy.Element);
+                }
+                else
+                {
+                    hit = DamagePlayerDirect(enemyIndex, damage);
+                }
+
+                // 通假字:首次行动后现形(8.3)。现形只看「敌人是否出手了」,与命中判定无关——
+                // 敌人确实动了,打空不影响这条(2026-08-08 明确:不受 hit 影响)。
+                if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
+                {
+                    enemy.ApparentElement = enemy.Element;
+                    _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, enemyIndex, 0));
+                }
+
+                // 灯花(2026-08-06):每次攻击给玩家挂 1 层灼烧。TurnsLeft = -1 段内持久,
+                // 靠上方的玩家灼烧结算段自减 Magnitude,不受 TickTurns 影响(与敌人侧同口径)。
+                // 走 RefreshBurn 刷新到 N 层而非累加(2026-08-06 I1):BuildFloor 有放回抽取,
+                // 同场可能出现多只灯花,累加语义会导致 N 只灯花净 +(N−1)层/回合,雪球失控
+                // (实测 4 只第 6 回合单灼烧 38 伤/回合)。刷新语义下,单只与多只稳态都是 1 层。
+                // hit 门槛(2026-08-08):打空 = 攻击没落到身上,附带效果不该触发;免疫挡下
+                // 仍算命中(hit=true),灼烧照挂——免疫挡的是伤害,不是攻击本身。
+                if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsSilenced(enemy))
+                {
+                    RefreshBurn(_playerStatuses, SearStacks);
+                    _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
+                }
+            }
+        }
+
+        /// <summary>一只缺笔妖的自补全(2026-08-15 提取,行为与提取前逐字节一致)。</summary>
+        private void RegrowOneEnemy(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            // 本回合已被灼烧/召唤物打死的不许回血 —— 死了还补就成了打不死的怪
+            if (!enemy.Alive) return;
+            if (enemy.Def.Ability != EnemyAbility.Regrow || IsSilenced(enemy) || enemy.RegrowProgress >= 3) return;
+
+            int before = enemy.Hp;
+            enemy.RegrowProgress += 1;
+            enemy.BaseAttack += 20; // 补全成长(形态变化,非增益):不可驱散(2026-08-12 随全表量级 ×10)
+            // 上限取 enemy.MaxHp(当前阶段上限)而非 Def.MaxHp:缺笔妖眼下不分阶段,
+            // 两者相等,但语义上该跟随阶段 —— 免得日后给它加阶段时回血直接越过阶段上限
+            enemy.Hp = Math.Min(enemy.MaxHp, enemy.Hp + 30); // 2026-08-12 随全表量级 ×10
+            if (enemy.RegrowProgress == 3)
+            {
+                // ×2 翻的是 BaseAttack(形态变化)。2026-08-12 AttackBuff 统一成百分点后,
+                // 外部增益是 BaseAttack 的比值,于是**会**跟着一起放大 —— 这不是回退,是
+                // 「比值就该跟着基数走」的直接后果(旧的 2026-08-05 裁定建立在加数语义上,已失效)。
+                enemy.BaseAttack *= 2;
+                enemy.Hp = enemy.MaxHp;
+            }
+            _events.Add(new BattleEvent(BattleEventKind.Regrow, enemyIndex,
+                enemy.Hp - before, enemy.RegrowProgress));
         }
 
         /// <summary>状态回合递减(2026-08-04,抽成方法见 2026-08-06 C2):敌人侧带 Freeze 豁免
