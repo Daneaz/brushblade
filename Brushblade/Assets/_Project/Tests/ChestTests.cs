@@ -357,27 +357,23 @@ namespace Brushblade.Core.Tests
                 "赤霄匣 16 张里应至少出现一次刚解锁的 垚 或 桂");
         }
 
-        /// <summary>滤空兜底:一张都没解锁时仍出足数(隐藏限制不该让玩家看出来),
-        /// 且兜底不能把被前置挡住的字混回来 —— 池子里的 杜(配方全是部件,永远无前置)
-        /// 命中第 1 级(前置已满足)就该独占产出,垚/桂/㙓 一张都不该出现。</summary>
+        /// <summary>滤空兜底(2026-08-15 用户拍板:出满数优先,限制让路)——池子里一张
+        /// 前置已满足的字都没有时,EligiblePool 退回**未过滤的原池**,前置限制对这一箱
+        /// 完全失效,产出就是那些本该被挡住的字(垚/桂/㙓 全部需要未拥有的 圭/垚)。
+        /// 这是有意的取舍,不是上一轮误判修复漏掉的角:开箱出 0 张的 bug 感,比"这一箱
+        /// 限制偶尔不生效"更糟,所以选择让产出数量优先。</summary>
         [Test]
-        public void Open_StillYieldsFullCount_WhenEverythingIsFilteredOut()
+        public void Open_FallsBackToUnfilteredPool_WhenAllCardsAreGated_LimitYieldsToFullCount()
         {
-            var rewards = OpenWith(new[] { "垚", "桂", "㙓", "杜" }, Array.Empty<string>(),
-                ChestTier.Paper, 7, PrereqGraph());
-            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.CardCount[0]));
-            Assert.That(rewards.Cards, Has.All.Matches<string>(c => c == "杜"),
-                "分支级审查修正:兜底命中时产出不该含被前置挡住的字");
-        }
-
-        /// <summary>池子里连一张无前置要求的字都没有(全是被挡的叠字)时,才退回原池 ——
-        /// 这是最后一级兜底,仍要出满数(玩家不该在开箱数量上感知到自己被挡了)。</summary>
-        [Test]
-        public void Open_FallsBackToOriginalPool_WhenPoolHasNoUngatedCardsEither()
-        {
+            var graph = PrereqGraph();
             var rewards = OpenWith(new[] { "垚", "桂", "㙓" }, Array.Empty<string>(),
-                ChestTier.Paper, 7, PrereqGraph());
-            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.CardCount[0]));
+                ChestTier.Paper, 7, graph);
+
+            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.CardCount[0]),
+                "滤空也要出满数——这是隐藏限制存在的前提,出 0 张比限制失效更像 bug");
+            Assert.That(rewards.Cards, Has.All.Matches<string>(c =>
+                !MetaRules.PrerequisitesMet(c, graph, Array.Empty<string>())),
+                "有意的取舍(2026-08-15 拍板):出满数优先于前置限制,回退时产出就是本该被挡住的字,不是异常");
         }
 
         /// <summary>确定性:同种子 + 同 OwnedCards → 同结果。</summary>
