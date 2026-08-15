@@ -214,6 +214,11 @@ namespace Brushblade.Core
         /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。</summary>
         public int PlayerActionMeter { get; private set; }
 
+        /// <summary>开局那一拍是否已经消费(2026-08-15,第四次审查订正)。见
+        /// <see cref="ConsumeOpeningTick"/>。进 BattleSnapshot——续爬的战斗已经过了开局那一拍,
+        /// 不该在读档后再消费一次。</summary>
+        private bool _openingTickConsumed;
+
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
 
@@ -370,25 +375,9 @@ namespace Brushblade.Core
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
 
-            // 开局第一拍归玩家(既有行为:构造完 Phase 就是 PlayerTurn,玩家直接操作)。那一拍
-            // 不能白拿 —— 不扣的话玩家行动后与所有人同时归零,此后每次推进都并列、玩家优先级
-            // 最小永远先手,其余单位饿死。
-            //
-            // ⚠ 用「跑一次 Advance 把它消费掉」而不是给玩家一个负计量器(2026-08-15,第三次
-            // 审查订正):负值会让玩家的 need 超过 Threshold,ceil 之后至少 2 tick,而「创建即
-            // 满格」的召唤物打完归零只需 1 tick 回满 —— 两者之间必然空出一整个免费轮次,召唤段
-            // 会在开局那一拍打两轮(实测 [0,1,2,3,0,1,2,3])。**玩家计量器必须始终非负**,
-            // 这条是硬约束,不是可以按具体数值调的边界差异。
-            //
-            // 只在玩家赢下这一拍时才写回:玩家速度若远低于场上单位,Advance 会选中敌人 ——
-            // 那时绝不能在构造期执行它的行动(会产生表现层收不到的事件,甚至开局就把玩家打死)。
-            // 不写回则退化为「玩家白拿一拍」,对慢速玩家是友好的兜底。
-            {
-                var openingSlots = BuildSlots();
-                var openingStep = TurnScheduler.Advance(openingSlots);
-                if (openingStep.Actor.Kind == ActorKind.Player)
-                    WriteBackMeters(openingSlots, openingStep.Meters);
-            }
+            // 开局第一拍的消费挪到 YieldTurn()(2026-08-15,第四次审查订正):构造期玩家在
+            // 第 1 拍施放的减速/加速字是在构造**之后**才生效的,这里若提前跑一次 Advance 会
+            // 用到陈旧的速度。见 ConsumeOpeningTick() 的详细注释。
 
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
@@ -424,6 +413,7 @@ namespace Brushblade.Core
                 PendingDrop = _pendingDrop,
                 StatusSerial = _statusSerial,
                 PlayerActionMeter = PlayerActionMeter,
+                OpeningTickConsumed = _openingTickConsumed,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
@@ -448,6 +438,7 @@ namespace Brushblade.Core
                 _pendingDrop = snapshot.PendingDrop,
                 _statusSerial = snapshot.StatusSerial,
                 PlayerActionMeter = snapshot.PlayerActionMeter,
+                _openingTickConsumed = snapshot.OpeningTickConsumed,
             };
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
@@ -787,7 +778,35 @@ namespace Brushblade.Core
         {
             if (Phase != BattlePhase.PlayerTurn) return;
             _events.Clear();
+            ConsumeOpeningTick();
             SettlePlayerTurnEnd();
+        }
+
+        /// <summary>开局第一拍归玩家(战斗一开始 Phase 就是 PlayerTurn,玩家直接操作),那一拍
+        /// 不能白拿 —— 不扣的话玩家行动后与所有人同时归零,此后每次推进都并列、玩家优先级最小
+        /// 永远先手,其余单位饿死。
+        ///
+        /// ⚠ **必须在这里懒执行,不能放进构造函数**:玩家在第 1 拍施放的减速/加速字是在构造
+        /// **之后**才生效的,构造期跑这一次会用到陈旧的速度,「开局第一招放冷打不断敌人」
+        /// (2026-08-15 复审实测)。旧模型的 `ActionMeter += Speed` 同样发生在玩家动作之后,
+        /// 这里对齐的就是那个时机。
+        ///
+        /// ⚠ **玩家计量器必须始终非负**,不许改成"记成负债":负值会让 need 超过 Threshold、
+        /// ceil 后至少 2 tick,与"创建即满格"的召唤物之间空出一个免费轮次,召唤段会在开局
+        /// 那一拍打两轮。
+        ///
+        /// ⚠ **只在玩家赢下这一拍时才写回并置位**:若场上有创建即满格的召唤物(优先级 1)或
+        /// 玩家速度远低于全场,`Advance` 会选中别人 —— 那时既不能在这里执行它的行动,也不该
+        /// 把这一拍算作已消费,留到下次 `YieldTurn` 再试。不消费不会造成饿死:满格者的计量器
+        /// 会保留到下一轮,它们照样先动。</summary>
+        private void ConsumeOpeningTick()
+        {
+            if (_openingTickConsumed) return;
+            var slots = BuildSlots();
+            var step = TurnScheduler.Advance(slots);
+            if (step.Actor.Kind != ActorKind.Player) return;   // 不写回,也不置位
+            WriteBackMeters(slots, step.Meters);
+            _openingTickConsumed = true;
         }
 
         /// <summary>推进并执行**一个**非玩家行动者。轮到玩家时不执行,改为跑 BeginPlayerTurn()、

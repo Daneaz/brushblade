@@ -31,9 +31,13 @@ namespace Brushblade.Core
         public int StatusSerial { get; set; }
 
         /// <summary>玩家的行动计量器(2026-08-15,ATB 改造)。不存会让续爬后玩家的节拍从 0 重来,
-        /// 而敌人侧的 ActionMeter 早就在存了 —— 这条是补齐。
-        /// ⚠ 开局的 -Threshold 预支只在主构造函数里设,Restore 走快照值,不要再减一次。</summary>
+        /// 而敌人侧的 ActionMeter 早就在存了 —— 这条是补齐。</summary>
         public int PlayerActionMeter { get; set; }
+
+        /// <summary>开局那一拍是否已经消费(2026-08-15,第四次审查订正)。见
+        /// <see cref="BattleEngine.ConsumeOpeningTick"/>。取快照值原样恢复即可——存档必然发生在
+        /// 开局之后,Capture 时这里如实是 true,不需要在 Restore 侧另外硬置。</summary>
+        public bool OpeningTickConsumed { get; set; }
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>
