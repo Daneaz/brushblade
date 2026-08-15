@@ -51,9 +51,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlayerActionMeter_NeverGoesNegative()
         {
-            // 开局第一拍归玩家,但它在构造期就被调度器正常消费掉了(不是白拿,也不是记成负债)。
-            // 负计量器会让玩家的 need 超过 Threshold、ceil 后至少 2 tick,与「创建即满格」的召唤物
-            // 之间空出一个免费轮次 —— 召唤段会在开局那一拍打两轮。2026-08-15 CTB 改造裁定。
+            // 玩家计量器与场上所有单位同口径从 0 起步,不需要任何先手/负债/懒消费之类的特例
+            // (2026-08-15 第五次审查订正:前四轮试过的这些记账手法全是在给反向的 tie-break
+            // 打补丁——玩家排最先会让它每次推进都抢在敌人前面收回行动权。把 BuildSlots 的
+            // 优先级方向调成「玩家排最后」之后,恒非负这条不变式自然成立,不必再靠任何机制
+            // 保证。这条测试仍然保留,守住"永不为负"这个不变式)。
             var engine = Engine(new[] { Dummy() });
 
             Assert.That(engine.PlayerActionMeter, Is.GreaterThanOrEqualTo(0));

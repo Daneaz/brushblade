@@ -211,13 +211,10 @@ namespace Brushblade.Core
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
 
         /// <summary>玩家的行动计量器(2026-08-15,ATB 改造):与敌人/召唤物同走一套模型,
-        /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。</summary>
+        /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。恒非负——开局与所有人
+        /// 一样从 0 起步,不需要任何先手/负债/懒消费之类的特例(2026-08-15 第五次审查订正:
+        /// 前四轮的特例全是在给反向的 tie-break 打补丁,见 BuildSlots 的优先级注释)。</summary>
         public int PlayerActionMeter { get; private set; }
-
-        /// <summary>开局那一拍是否已经消费(2026-08-15,第四次审查订正)。见
-        /// <see cref="ConsumeOpeningTick"/>。进 BattleSnapshot——续爬的战斗已经过了开局那一拍,
-        /// 不该在读档后再消费一次。</summary>
-        private bool _openingTickConsumed;
 
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
@@ -375,10 +372,6 @@ namespace Brushblade.Core
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
 
-            // 开局第一拍的消费挪到 YieldTurn()(2026-08-15,第四次审查订正):构造期玩家在
-            // 第 1 拍施放的减速/加速字是在构造**之后**才生效的,这里若提前跑一次 Advance 会
-            // 用到陈旧的速度。见 ConsumeOpeningTick() 的详细注释。
-
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
         }
@@ -413,7 +406,6 @@ namespace Brushblade.Core
                 PendingDrop = _pendingDrop,
                 StatusSerial = _statusSerial,
                 PlayerActionMeter = PlayerActionMeter,
-                OpeningTickConsumed = _openingTickConsumed,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
@@ -438,7 +430,6 @@ namespace Brushblade.Core
                 _pendingDrop = snapshot.PendingDrop,
                 _statusSerial = snapshot.StatusSerial,
                 PlayerActionMeter = snapshot.PlayerActionMeter,
-                _openingTickConsumed = snapshot.OpeningTickConsumed,
             };
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
@@ -720,18 +711,26 @@ namespace Brushblade.Core
 
         /// <summary>当前参战单位的调度槽位。**顺序固定**:玩家、召唤物(下标升序)、敌人(下标升序)
         /// —— Forecast 与 Advance 返回的 Meters 与本列表同序,写回时按同一顺序。
-        /// 死掉的单位不进调度(它们不再行动,也不该占预测格子)。</summary>
+        /// 死掉的单位不进调度(它们不再行动,也不该占预测格子)。
+        ///
+        /// ⚠ 优先级(并列时的排序主键,小者先)是**召唤物 0 → Buff 敌 1 → 其余敌 2 → 玩家 3**
+        /// ——玩家排**最后**,不是最先(2026-08-15 第五次审查订正:方向曾经定反过)。`EndTurn`
+        /// 的语义是「玩家刚让出行动权,推进到下次轮到我」,并列时理应排在所有人后面;定成
+        /// 「玩家必赢」会让每次推进玩家都抢在敌人前面把行动权收回去,敌人永远拿不到那一拍。
+        /// 前四轮试过的「非玩家单位创建先手」「玩家记负债」「懒消费一次 Advance」全部是在给
+        /// 这个反向 tie-break 打补丁,方向调过来之后都不需要了——玩家计量器全程与其余单位
+        /// 同口径从 0 起步,恒非负,没有任何特例。</summary>
         private List<SchedulerSlot> BuildSlots()
         {
             var slots = new List<SchedulerSlot>
             {
-                new(ActorRef.Player, EffectivePlayerSpeed, PlayerActionMeter, 0),
+                new(ActorRef.Player, EffectivePlayerSpeed, PlayerActionMeter, 3),
             };
             for (int s = 0; s < _summons.Count; s++)
             {
                 if (!_summons[s].Alive) continue;
                 slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Summon, s),
-                    _summons[s].Speed, _summons[s].ActionMeter, 1));
+                    _summons[s].Speed, _summons[s].ActionMeter, 0));
             }
             for (int i = 0; i < _enemies.Count; i++)
             {
@@ -740,7 +739,7 @@ namespace Brushblade.Core
                 int speed = enemy.Speed + enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 // Buff 能力的敌人排在普通敌人之前:保住「辅助先摇旗、同伴才带着加成出手」
                 // 这个既有节拍。被减速时它自然排到后面 —— 那正是新系统该有的行为。
-                int priority = enemy.Def.Ability == EnemyAbility.Buff ? 2 : 3;
+                int priority = enemy.Def.Ability == EnemyAbility.Buff ? 1 : 2;
                 slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Enemy, i), speed,
                     enemy.ActionMeter, priority));
             }
@@ -778,35 +777,7 @@ namespace Brushblade.Core
         {
             if (Phase != BattlePhase.PlayerTurn) return;
             _events.Clear();
-            ConsumeOpeningTick();
             SettlePlayerTurnEnd();
-        }
-
-        /// <summary>开局第一拍归玩家(战斗一开始 Phase 就是 PlayerTurn,玩家直接操作),那一拍
-        /// 不能白拿 —— 不扣的话玩家行动后与所有人同时归零,此后每次推进都并列、玩家优先级最小
-        /// 永远先手,其余单位饿死。
-        ///
-        /// ⚠ **必须在这里懒执行,不能放进构造函数**:玩家在第 1 拍施放的减速/加速字是在构造
-        /// **之后**才生效的,构造期跑这一次会用到陈旧的速度,「开局第一招放冷打不断敌人」
-        /// (2026-08-15 复审实测)。旧模型的 `ActionMeter += Speed` 同样发生在玩家动作之后,
-        /// 这里对齐的就是那个时机。
-        ///
-        /// ⚠ **玩家计量器必须始终非负**,不许改成"记成负债":负值会让 need 超过 Threshold、
-        /// ceil 后至少 2 tick,与"创建即满格"的召唤物之间空出一个免费轮次,召唤段会在开局
-        /// 那一拍打两轮。
-        ///
-        /// ⚠ **只在玩家赢下这一拍时才写回并置位**:若场上有创建即满格的召唤物(优先级 1)或
-        /// 玩家速度远低于全场,`Advance` 会选中别人 —— 那时既不能在这里执行它的行动,也不该
-        /// 把这一拍算作已消费,留到下次 `YieldTurn` 再试。不消费不会造成饿死:满格者的计量器
-        /// 会保留到下一轮,它们照样先动。</summary>
-        private void ConsumeOpeningTick()
-        {
-            if (_openingTickConsumed) return;
-            var slots = BuildSlots();
-            var step = TurnScheduler.Advance(slots);
-            if (step.Actor.Kind != ActorKind.Player) return;   // 不写回,也不置位
-            WriteBackMeters(slots, step.Meters);
-            _openingTickConsumed = true;
         }
 
         /// <summary>推进并执行**一个**非玩家行动者。轮到玩家时不执行,改为跑 BeginPlayerTurn()、
@@ -1489,17 +1460,13 @@ namespace Brushblade.Core
                             // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
                             // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
                             // 之后再抬攻击力,已在场的这只不变
+                            // 新召唤物从 0 起攒计量器,与场上所有单位同口径(2026-08-15 第五次
+                            // 审查订正:不再需要"创建即满格"的头寸——那是在给反向的 tie-break
+                            // 打补丁,priority 方向调过来之后,新召唤物自然会在下一次推进里跟大家
+                            // 同时摸满、同回合出手,见 BuildSlots 的优先级注释)。
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
-                            // 新召唤物当场就该跟上世界时钟(2026-08-15 审查订正:这不是「玩家开局
-                            // 先手」那种补偿,是既有行为本身——旧 EndTurn 的召唤段是
-                            // summon.ActionMeter += summon.Speed 然后 acts = meter/100,新召唤物
-                            // meter 从 0 起、加一次速度就到 100,当回合就出手。用 Speed 而不是
-                            // Threshold:带被动的召唤物(桤 Speed 150)旧行为是 += 150 得到 1 次
-                            // 行动 + 50 余额,写 Threshold 会把这 50 余额吃掉。
-                            // 分裂新生的敌人**不**享受这个待遇(那是故意的,见 EnemyState 分裂处注释)。
-                            newborn.ActionMeter += newborn.Speed;
                             if (AliveSummons() < SummonCap)
                             {
                                 _summons.Add(newborn);

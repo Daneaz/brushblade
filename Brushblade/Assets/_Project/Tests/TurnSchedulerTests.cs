@@ -9,18 +9,21 @@ namespace Brushblade.Core.Tests
     /// 规格见 docs/superpowers/specs/2026-08-15-ATB回合制改造-design.md §4.1。</summary>
     public class TurnSchedulerTests
     {
-        // 优先级:玩家 0 / 召唤物 1 / Buff 敌 2 / 其余敌 3(与 BattleEngine 的填法一致)
+        // 优先级:召唤物 0 / Buff 敌 1 / 其余敌 2 / 玩家 3(与 BattleEngine 的填法一致)。
+        // 玩家排最后而不是最先(2026-08-15 第五次审查订正,方向曾定反):EndTurn 的语义是
+        // 「玩家刚让出行动权,推进到下次轮到我」,并列时理应排在所有人后面——定成「玩家必赢」
+        // 会让每次推进玩家都抢在敌人前面把行动权收回去,敌人永远拿不到那一拍。
         private static SchedulerSlot Player(int speed, int meter = 0) =>
-            new(ActorRef.Player, speed, meter, 0);
+            new(ActorRef.Player, speed, meter, 3);
 
         private static SchedulerSlot Enemy(int index, int speed, int meter = 0) =>
-            new(new ActorRef(ActorKind.Enemy, index), speed, meter, 3);
+            new(new ActorRef(ActorKind.Enemy, index), speed, meter, 2);
 
         private static SchedulerSlot Summon(int index, int speed, int meter = 0) =>
-            new(new ActorRef(ActorKind.Summon, index), speed, meter, 1);
+            new(new ActorRef(ActorKind.Summon, index), speed, meter, 0);
 
         private static SchedulerSlot Buffer(int index, int speed, int meter = 0) =>
-            new(new ActorRef(ActorKind.Enemy, index), speed, meter, 2);
+            new(new ActorRef(ActorKind.Enemy, index), speed, meter, 1);
 
         /// <summary>连推 n 拍,返回出手序列。每拍把新计量器写回槽位——
         /// 这正是 BattleEngine 接线后要做的事。</summary>
@@ -41,14 +44,16 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SameSpeed_AlternatesInPriorityOrder()
         {
+            // 玩家排最后(2026-08-15 第五次审查订正,方向曾定反):敌人先动、玩家收尾,
+            // 而不是玩家抢在敌人前面把行动权收回去。
             var slots = new List<SchedulerSlot> { Player(100), Enemy(0, 100) };
 
             var seq = Sequence(slots, 4);
 
-            Assert.That(seq[0].Kind, Is.EqualTo(ActorKind.Player));
-            Assert.That(seq[1].Kind, Is.EqualTo(ActorKind.Enemy));
-            Assert.That(seq[2].Kind, Is.EqualTo(ActorKind.Player));
-            Assert.That(seq[3].Kind, Is.EqualTo(ActorKind.Enemy));
+            Assert.That(seq[0].Kind, Is.EqualTo(ActorKind.Enemy));
+            Assert.That(seq[1].Kind, Is.EqualTo(ActorKind.Player));
+            Assert.That(seq[2].Kind, Is.EqualTo(ActorKind.Enemy));
+            Assert.That(seq[3].Kind, Is.EqualTo(ActorKind.Player));
         }
 
         [Test]
@@ -89,21 +94,28 @@ namespace Brushblade.Core.Tests
         [Test]
         public void AlreadyFull_ActsWithoutAdvancingTime()
         {
-            // 已经满格的不该再推进时间:否则同一 tick 内的第二个行动者会白拿一次累积
+            // 已经满格的不该再推进时间:否则同一 tick 内的第二个行动者会白拿一次累积。
+            // 两者都已满格时按优先级判并列:敌人(2)先于玩家(3)——2026-08-15 第五次审查订正,
+            // 方向曾定反,玩家排最后不是最先。
             var slots = new List<SchedulerSlot> { Player(100, meter: 120), Enemy(0, 100, meter: 110) };
 
             var step = TurnScheduler.Advance(slots);
 
-            Assert.That(step.Actor.Kind, Is.EqualTo(ActorKind.Player));
-            Assert.That(step.Meters[0], Is.EqualTo(20), "行动者扣 100");
-            Assert.That(step.Meters[1], Is.EqualTo(110), "其他人原地不动");
+            Assert.That(step.Actor.Kind, Is.EqualTo(ActorKind.Enemy));
+            Assert.That(step.Meters[1], Is.EqualTo(10), "行动者(敌人)扣 100");
+            Assert.That(step.Meters[0], Is.EqualTo(120), "其他人(玩家)原地不动");
         }
 
         [Test]
-        public void TieBreak_PlayerThenSummonThenBufferThenOthers()
+        public void TieBreak_SummonThenBufferThenOthersThenPlayer()
         {
             // 全部同速同计量器 —— 纯考排序契约。这条锁死后,谁「顺手优化」调度器
             // 都会立刻红,而不是静默改掉战斗结果。
+            //
+            // 玩家排最后,不是最先(2026-08-15 第五次审查订正——方向曾定反,是四轮返工的根因):
+            // EndTurn 的语义是「玩家刚让出行动权,推进到下次轮到我」,并列时理应排在所有人
+            // 后面;定成「玩家必赢」会让每次推进玩家都抢在敌人前面把行动权收回去,敌人永远
+            // 拿不到那一拍。
             var slots = new List<SchedulerSlot>
             {
                 Enemy(0, 100), Buffer(1, 100), Summon(0, 100), Player(100),
@@ -111,10 +123,10 @@ namespace Brushblade.Core.Tests
 
             var seq = Sequence(slots, 4);
 
-            Assert.That(seq[0], Is.EqualTo(ActorRef.Player));
-            Assert.That(seq[1], Is.EqualTo(new ActorRef(ActorKind.Summon, 0)));
-            Assert.That(seq[2], Is.EqualTo(new ActorRef(ActorKind.Enemy, 1)), "Buff 敌先于普通敌");
-            Assert.That(seq[3], Is.EqualTo(new ActorRef(ActorKind.Enemy, 0)));
+            Assert.That(seq[0], Is.EqualTo(new ActorRef(ActorKind.Summon, 0)));
+            Assert.That(seq[1], Is.EqualTo(new ActorRef(ActorKind.Enemy, 1)), "Buff 敌先于普通敌");
+            Assert.That(seq[2], Is.EqualTo(new ActorRef(ActorKind.Enemy, 0)));
+            Assert.That(seq[3], Is.EqualTo(ActorRef.Player));
         }
 
         [Test]
