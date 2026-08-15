@@ -198,8 +198,6 @@ namespace Brushblade.Core
         // = 固定 +2,而敌人平均攻击 ≈ 4,取 50% 恰好保住平均值,同时修掉「加给攻 2 的怪是 +100%、
         // 加给攻 8 的怪只有 +25%」这个 4 倍偏差。
         private const int PunctuationBuffPercent = 50;
-        private const int ActionMeterThreshold = 100; // 计量器满值:攒够即行动一次
-        private const int MaxActionsPerTurn = 2;      // 单回合行动次数封顶(口径 4)
         private const int SearStacks = 1;  // 灯花每次攻击给玩家挂的灼烧层数(2026-08-06)
         private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
         private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
@@ -371,6 +369,17 @@ namespace Brushblade.Core
             // 减伤跨战斗保留(2026-08-04):与普通盾同口径,段内持久,到段末才清。
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
+
+            // ATB 头寸(2026-08-15,ATB 改造接线):玩家的第一个手动回合(拆合走 AP,不占调度器
+            // 格子)本身要占一拍世界时间,这份时间只记在非玩家单位头上 —— 与旧模型里 EndTurn
+            // 对 enemy.ActionMeter / summon.ActionMeter 各 += Speed 一次是同一件事。
+            // 只在这里(引擎新建的那一刻)记一次:此后每个人的计量器都由调度器自然推进,
+            // 不需要、也不能在 YieldTurn 里重复再记一次 —— 那会与调度器为凑「轮到玩家」的
+            // 那次并列 tick 顺带给非玩家单位记的余量重复叠加,导致同一人在同一次 EndTurn
+            // 里蓄力又放技能地连打两下(2026-08-15 排查:BossSkillTests 大面积翻车揪出此坑)。
+            foreach (var enemy in _enemies) enemy.ActionMeter += enemy.Speed;
+            foreach (var summon in _summons) summon.ActionMeter += summon.Speed;
+
             Phase = BattlePhase.PlayerTurn;
             StartTurn();
         }
@@ -703,12 +712,134 @@ namespace Brushblade.Core
             return false;
         }
 
-        /// <summary>结束回合:灼烧结算 → 胜负检查 → 敌人行动 → 胜负检查 → 下回合开始(3.5/3.7)。</summary>
-        public void EndTurn()
+        /// <summary>最近一次 AdvanceOnce 执行的行动者(表现层据此高亮行动条那一格)。</summary>
+        public ActorRef LastActor { get; private set; } = ActorRef.Player;
+
+        /// <summary>当前参战单位的调度槽位。**顺序固定**:玩家、召唤物(下标升序)、敌人(下标升序)
+        /// —— Forecast 与 Advance 返回的 Meters 与本列表同序,写回时按同一顺序。
+        /// 死掉的单位不进调度(它们不再行动,也不该占预测格子)。</summary>
+        private List<SchedulerSlot> BuildSlots()
+        {
+            var slots = new List<SchedulerSlot>
+            {
+                new(ActorRef.Player, EffectivePlayerSpeed, PlayerActionMeter, 0),
+            };
+            for (int s = 0; s < _summons.Count; s++)
+            {
+                if (!_summons[s].Alive) continue;
+                slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Summon, s),
+                    _summons[s].Speed, _summons[s].ActionMeter, 1));
+            }
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                var enemy = _enemies[i];
+                if (!enemy.Alive) continue;
+                int speed = enemy.Speed + enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
+                // Buff 能力的敌人排在普通敌人之前:保住「辅助先摇旗、同伴才带着加成出手」
+                // 这个既有节拍。被减速时它自然排到后面 —— 那正是新系统该有的行为。
+                int priority = enemy.Def.Ability == EnemyAbility.Buff ? 2 : 3;
+                slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Enemy, i), speed,
+                    enemy.ActionMeter, priority));
+            }
+            return slots;
+        }
+
+        /// <summary>把一次推进后的计量器写回各单位。</summary>
+        private void WriteBackMeters(List<SchedulerSlot> slots, IReadOnlyList<int> meters)
+        {
+            for (int i = 0; i < slots.Count; i++)
+            {
+                var actor = slots[i].Actor;
+                switch (actor.Kind)
+                {
+                    case ActorKind.Player: PlayerActionMeter = meters[i]; break;
+                    case ActorKind.Summon: _summons[actor.Index].ActionMeter = meters[i]; break;
+                    case ActorKind.Enemy: _enemies[actor.Index].ActionMeter = meters[i]; break;
+                }
+            }
+        }
+
+        /// <summary>向前预测 count 个行动者(表现层的行动条用)。场面一变就会偏离,不许缓存。</summary>
+        public IReadOnlyList<ActorRef> Forecast(int count) =>
+            TurnScheduler.Forecast(BuildSlots(), count);
+
+        /// <summary>队首是谁(不改任何状态)。</summary>
+        public ActorRef PeekNextActor()
+        {
+            var forecast = TurnScheduler.Forecast(BuildSlots(), 1);
+            return forecast.Count > 0 ? forecast[0] : ActorRef.Player;
+        }
+
+        /// <summary>玩家让出行动权:跑玩家侧的收尾结算。之后由 AdvanceOnce 逐个推进。</summary>
+        public void YieldTurn()
         {
             if (Phase != BattlePhase.PlayerTurn) return;
             _events.Clear();
+            SettlePlayerTurnEnd();
+        }
 
+        /// <summary>推进并执行**一个**非玩家行动者。轮到玩家时不执行,改为跑 BeginPlayerTurn()、
+        /// 置 Phase = PlayerTurn 并返回 false —— 调用方据此停止循环。
+        ///
+        /// _events 在每次调用开头清空:逐格驱动时表现层每次拿到的就是**这一个单位**产生的事件。
+        /// 玩家分支也要清空(2026-08-15 控制者裁定):不清的话 BeginPlayerTurn() 产生的事件
+        /// (比如玩家灼烧的 BurnTick)会附着在上一个敌人的事件批次里,表现层会把玩家的效果
+        /// 播在敌人那一段。EndTurn 包装靠循环外那次 AddRange 收集玩家这批,清空后依然正确。</summary>
+        public bool AdvanceOnce()
+        {
+            if (Phase != BattlePhase.PlayerTurn && Phase != BattlePhase.DropChoice)
+                return false;   // Won / Lost:战斗已结束
+            if (Phase == BattlePhase.DropChoice) return false; // 等玩家决议
+
+            var slots = BuildSlots();
+            var step = TurnScheduler.Advance(slots);
+            if (step.Actor.Kind == ActorKind.Player)
+            {
+                _events.Clear();
+                WriteBackMeters(slots, step.Meters);
+                LastActor = ActorRef.Player;
+                BeginPlayerTurn();
+                return false;
+            }
+
+            _events.Clear();
+            WriteBackMeters(slots, step.Meters);
+            LastActor = step.Actor;
+            if (step.Actor.Kind == ActorKind.Summon) ActSummonTurn(step.Actor.Index);
+            else ActEnemyTurn(step.Actor.Index);
+            return Phase == BattlePhase.PlayerTurn;
+        }
+
+        /// <summary>结束回合(2026-08-15,ATB 改造接线):退化为对 AdvanceOnce 的包装,时序归属
+        /// 仍是旧的,只是换成调度器逐格驱动。跨段累积 _events,调用方拿到的仍是完整一整轮。</summary>
+        public void EndTurn()
+        {
+            if (Phase != BattlePhase.PlayerTurn) return;
+            YieldTurn();
+            var accumulated = new List<BattleEvent>(_events);
+            // YieldTurn() 自己的结算(灼烧致死等)可能已经分出胜负:此时循环里的第一次
+            // AdvanceOnce 会在还没碰 _events 之前就直接返回 false(战斗已结束那条早退),
+            // _events 仍是上面刚种进 accumulated 的那批。记下这一点,后面就不再重收一次
+            // ——否则 YieldTurn 那批事件(包括致死的 EnemyDied)会被重复叠加一遍。
+            bool alreadyOver = Phase != BattlePhase.PlayerTurn && Phase != BattlePhase.DropChoice;
+            while (AdvanceOnce())
+            {
+                accumulated.AddRange(_events);
+            }
+            // AdvanceOnce 返回 false 的那一次(轮到玩家,或这一击直接终结了战斗)也可能产生
+            // 新事件(BeginPlayerTurn 里的缺笔妖补全等),需要再收一次——但仅当循环真的跑到
+            // 了那一步(清过 _events)。
+            if (!alreadyOver)
+                accumulated.AddRange(_events);
+            _events.Clear();
+            _events.AddRange(accumulated);
+        }
+
+        /// <summary>玩家侧回合尾结算(2026-08-15 从 EndTurn 拆出,归属不变):敌人灼烧 → 玩家灼烧
+        /// (含致死早退)→ 敌人流血 → 玩家 HoT → 召唤物光环治疗。召唤物反击已挪出去,改由调度器
+        /// 逐个驱动(见 ActSummonTurn)。</summary>
+        private void SettlePlayerTurnEnd()
+        {
             // 3.7 结算顺序第 1 条:灼烧(X 层 → X×系数 伤害,然后 −1 层;系数基础 2,炽可加,10.2)
             for (int i = 0; i < _enemies.Count; i++) SettleBurnOn(i);
             CheckWin();
@@ -726,7 +857,7 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.BurnTick, -1, playerTick)); // −1 = 玩家
             }
 
-            // 玩家灼烧是 EndTurn 里第一个能把 PlayerHp 归零的点,必须在这里立刻收口
+            // 玩家灼烧是这里第一个能把 PlayerHp 归零的点,必须在这里立刻收口
             // (2026-08-06 全分支终审 C2):归零即死,持续治疗救不回来 —— 若照旧把判负推迟到
             // 回合尾部,中间的 HoT 循环会先把血救回去,CheckWin() 也可能被同回合的召唤物
             // 清场抢先判成 Won(PlayerHp=0 却「胜利」,还带着 0 血过关)。
@@ -739,7 +870,7 @@ namespace Brushblade.Core
             }
 
             // 流血(2026-08-03):无属性,不乘任何生克系数
-            // 回合数递减挪到 EndTurn 末尾统一处理(2026-08-04,见下方"状态回合递减"),
+            // 回合数递减挪到 BeginPlayerTurn 末尾统一处理(2026-08-04,见下方"状态回合递减"),
             // 这里只读不写,避免本回合刚施加的流血被立刻多减一次。
             for (int i = 0; i < _enemies.Count; i++)
             {
@@ -758,8 +889,8 @@ namespace Brushblade.Core
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
 
-            // 持续治疗(2026-08-04):回合数递减挪到 EndTurn 末尾统一处理(与 Bleed 同理,见下方
-            // "状态回合递减"),这里只结算不写 TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。
+            // 持续治疗(2026-08-04):回合数递减挪到 BeginPlayerTurn 末尾统一处理(与 Bleed 同理,
+            // 见下方"状态回合递减"),这里只结算不写 TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。
             for (int i = _playerStatuses.All.Count - 1; i >= 0; i--)
             {
                 var hot = _playerStatuses.All[i];
@@ -781,80 +912,38 @@ namespace Brushblade.Core
                 int heal = healer.Passive?.HealAlly ?? 0;
                 if (heal > 0) HealPlayerAndSummons(heal);
             }
+        }
 
-            // 召唤物反击(木系,2026-07-19):前排树各打首个存活敌人,走生克。
-            // 2026-08-04:与敌人同走行动计量器 —— 减速将来也能作用于我方召唤物。
-            for (int s = 0; s < _summons.Count; s++)
-            {
-                var summon = _summons[s];
-                if (!summon.Alive) continue;
-                summon.ActionMeter += summon.Speed;
-                int acts = Math.Min(summon.ActionMeter / ActionMeterThreshold, MaxActionsPerTurn);
-                summon.ActionMeter -= acts * ActionMeterThreshold;
-                if (summon.ActionMeter >= ActionMeterThreshold) summon.ActionMeter = 0;
-                for (int act = 0; act < acts; act++)
-                {
-                    if (!summon.Alive) break;
-                    if (!_enemies.Any(e => e.Alive)) break;
-                    StrikeOnceWithSummon(s);
-                }
-            }
+        /// <summary>一只召唤物轮到的这一拍(2026-08-15,ATB 改造接线):旧的"回合末按 ActionMeter
+        /// 累积一次性打好几下"随本次改造消失,CTB 下"轮到它" = 排一次队。</summary>
+        private void ActSummonTurn(int summonIndex)
+        {
+            StrikeOnceWithSummon(summonIndex);
             CheckWin();
-            if (Phase != BattlePhase.PlayerTurn) return;
+        }
 
-            _events.Add(new BattleEvent(BattleEventKind.EnemyTurnBegan, -1, 0)); // 召唤段到此为止,以下是敌方行动
+        /// <summary>一个敌人轮到的这一拍(2026-08-15,ATB 改造接线):CTB 下"轮到它" = 行动一次,
+        /// 旧的 actionCount 循环随本次改造消失。沿用原来的「已用加攻代替出手」判断:是 Buff 能力、
+        /// 没被沉默、且场上还有别的活怪 → 这一拍用来加攻同伴;否则亲自出手一次。</summary>
+        private void ActEnemyTurn(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
+                ApplyEnemyBuffAura(enemyIndex);
+            else
+                ActOneEnemy(enemyIndex, 1);
+        }
 
-            // 行动计量器(2026-08-04):每回合累积有效速度,每满 100 行动一次。旧的半速开关
-            // (SlowTurns/SlowActs 交替)是 Speed 50 的特例。冻结期间不累积——保持「节拍原地
-            // 暂停」语义,与下方"状态回合递减"里冻结中 SpeedModifier 也暂停递减的处理相呼应。
-            var actionCount = new int[_enemies.Count];
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                var enemy = _enemies[i];
-                if (!enemy.Alive || enemy.Statuses.Has(StatusKind.Freeze)) continue;
-                int effective = Math.Max(0,
-                    enemy.Speed + enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier));
-                enemy.ActionMeter += effective;
-                actionCount[i] = Math.Min(enemy.ActionMeter / ActionMeterThreshold, MaxActionsPerTurn);
-                enemy.ActionMeter -= actionCount[i] * ActionMeterThreshold;
-                if (enemy.ActionMeter >= ActionMeterThreshold) enemy.ActionMeter = 0; // 封顶后不留余额
-            }
-
-            // 敌方辅助先行动:标点小妖给其他存活字怪加攻,与站位无关(8.3)。
-            // 加成本场累计、回合末不回滚;场上只剩自己时改为亲自出手(2026-07-22)
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                if (actionCount[i] == 0) continue; // 冻结或计量器不足:连辅助加攻都不出手
-                ApplyEnemyBuffAura(i);
-            }
-
-            // 敌人行动:护盾先吸收(普通桶先扣,豁免桶垫后);行动后结算自身能力。
-            // 按 actionCount[i] 循环——Speed 200 这类会在同一回合行动多次;每次行动前重新
-            // 检查 Alive,反伤可能在两次行动之间打死它。
-            // 反伤可能在循环中触发分裂扩表(2026-08-05):新怪没有本回合的行动配额,
-            // 也不该当回合就出手 —— 与 ApplySummonOnHit 里"分裂产生的新怪不吃同一发光环"同口径。
-            // 上界必须取 actionCount.Length 而不是 _enemies.Count:后者每轮重新求值,
-            // 扩表后会走到没有配额的新下标上 IndexOutOfRange
-            // (Thorns_TriggeringSplit_DoesNotOverrunTheEnemyActionBudget 守着这条)
-            int acting = actionCount.Length;
-            for (int i = 0; i < acting; i++)
-            {
-                var enemy = _enemies[i];
-                if (!enemy.Alive) continue;
-                if (actionCount[i] == 0) continue; // 冻结或计量器不足:本回合不行动
-                if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
-                    continue; // 已用加攻代替出手;独自在场时照常攻击;沉默压住加攻能力后改为亲自出手
-
-                ActOneEnemy(i, actionCount[i]);
-            }
+        /// <summary>玩家回合开始(2026-08-15 从 EndTurn 拆出,归属不变):状态回合递减 → 判负 →
+        /// 判胜 → 缺笔妖自补全 → 开新一拍(StartTurn)。</summary>
+        private void BeginPlayerTurn()
+        {
             // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
             // (Bleed_ExpiresAfterThreeTurns 守着这条)。
             // ⚠️ 必须排在 PlayerHp<=0 早退**之前**(2026-08-05,全分支评审 Important 3):早退会
-            // 直接 return,若递减挪到早退后面,玩家阵亡的那个 EndTurn 就整个跳过递减 —— 广告复活
+            // 直接 return,若递减挪到早退后面,玩家阵亡的那一拍就整个跳过递减 —— 广告复活
             // 满血续战后,所有状态(流血/冻结/减速/HoT)都会多续一回合
-            // (Revive_DoesNotGrantExtraStatusTurn 守着这条)。递减不依赖缺笔妖补全循环,排在
-            // 补全循环之前不影响其结果。同一段逻辑也被玩家灼烧那个更早的判负早退复用
-            // (2026-08-06 C2),抽成 TickAllStatuses() 私有方法,不留两份实现。
+            // (Revive_DoesNotGrantExtraStatusTurn 守着这条)。
             TickAllStatuses();
 
             if (PlayerHp <= 0)
@@ -863,7 +952,7 @@ namespace Brushblade.Core
                 return;
             }
 
-            // 反伤可能在敌方回合里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
+            // 反伤可能在敌方段里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
             // 所以这里原本没有判胜,不补的话会带着满地尸体走进缺笔妖补全和 StartTurn。
             // 排在 Lost 早退之后 = 同归于尽时玩家阵亡优先,与既有口径一致。
             CheckWin();
@@ -1372,6 +1461,11 @@ namespace Brushblade.Core
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
+                            // ATB 头寸(2026-08-15,同构造函数里对 startingSummons 的处理):新召唤物
+                            // 当场就该跟上世界时钟,本回合末即可反击 —— 旧模型里 EndTurn 对
+                            // summon.ActionMeter 无条件 += Speed 一次,新怪当回合创建也不例外。
+                            // 分裂新生的敌人**不**享受这个待遇(那是故意的,见 EnemyState 分裂处注释)。
+                            newborn.ActionMeter += newborn.Speed;
                             if (AliveSummons() < SummonCap)
                             {
                                 _summons.Add(newborn);

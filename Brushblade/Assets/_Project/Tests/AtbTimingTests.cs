@@ -55,5 +55,56 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.PlayerActionMeter, Is.EqualTo(0));
         }
+
+        [Test]
+        public void EndTurn_IsAWrapperOverAdvanceOnce()
+        {
+            // 同速基准局:一次 EndTurn 应当恰好走完「召唤物 → 敌人 → 回到玩家」
+            var engine = Engine(new[] { Dummy(attack: 10) });
+
+            engine.EndTurn();
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.Turn, Is.EqualTo(2), "回到玩家 = 新一拍开始");
+        }
+
+        [Test]
+        public void Forecast_StartsWithTheEnemyWhenPlayerHasYielded()
+        {
+            var engine = Engine(new[] { Dummy(attack: 10) });
+
+            engine.YieldTurn();
+            var forecast = engine.Forecast(3);
+
+            Assert.That(forecast[0].Kind, Is.EqualTo(ActorKind.Enemy));
+        }
+
+        [Test]
+        public void AdvanceOnce_ReturnsFalseWhenPlayersTurnComesUp()
+        {
+            var engine = Engine(new[] { Dummy(attack: 10) });
+
+            engine.YieldTurn();
+            bool more = engine.AdvanceOnce();   // 敌人这一拍
+            Assert.That(more, Is.True);
+            Assert.That(engine.LastActor.Kind, Is.EqualTo(ActorKind.Enemy));
+
+            more = engine.AdvanceOnce();        // 轮到玩家 → 停
+            Assert.That(more, Is.False);
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+        }
+
+        [Test]
+        public void FastPlayer_GetsTwoTurnsPerEnemyTurn()
+        {
+            var engine = Engine(new[] { Dummy(attack: 10) },
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 200 });
+
+            engine.YieldTurn();
+            var forecast = engine.Forecast(6);
+
+            Assert.That(forecast.Count(a => a.Kind == ActorKind.Player), Is.EqualTo(4));
+            Assert.That(forecast.Count(a => a.Kind == ActorKind.Enemy), Is.EqualTo(2));
+        }
     }
 }
