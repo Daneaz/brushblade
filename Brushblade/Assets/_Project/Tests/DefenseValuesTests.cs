@@ -29,7 +29,13 @@ namespace Brushblade.CoreTests
 
         private static string ConfigDir()
         {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            // ⚠ 锚点必须是 TestContext.CurrentContext.TestDirectory,**不能用 AppContext.BaseDirectory**
+            // (2026-08-15 修):后者在 Unity Test Runner 下指向**编辑器安装目录**
+            // (/Applications/Unity/Hub/Editor/.../Unity.app/Contents),从那儿往上永远找不到
+            // 含 Brushblade/ 的父目录 → 本断言直接失败。dotnet 工装下两者都指向 bin/,
+            // 所以这是一条典型的「工装绿 ≠ 编辑器绿」——本文件 15 条、PierceBuffCharTests
+            // 4 条曾因此在 Test Runner 里全红,而工装一直是绿的。
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
             while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Brushblade")))
                 dir = dir.Parent;
             Assert.That(dir, Is.Not.Null, "找不到仓库根目录");
