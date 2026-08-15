@@ -105,9 +105,25 @@ namespace Brushblade.Core
         ///
         /// 这里用 <c>Ceiling</c> 而不是 <see cref="Scaled"/> 的 <c>Round</c>:护甲不是血量量纲,
         /// 没有「量级 ×10 要与缩放交换」的约束,而向上取整保证 defScale &gt; 1 时护甲至少涨 1 点
-        /// (DEF 1 的怪不会因为 Round 在深度 20 还是 1 点)。</summary>
+        /// (DEF 1 的怪不会因为 Round 在深度 20 还是 1 点)。
+        ///
+        /// ⚠ **必须先在 double 下夹掉 float 噪声再取整**(2026-08-15 修)。原式全程 float:
+        /// <c>(int)Math.Ceiling(defense * (1f + (scale - 1f) / 2f))</c> —— 与 <see cref="Scaled"/>
+        /// 注释里写的是同一个坑,但那边靠 <c>Round</c> 天然免疫,这边的 <c>Ceiling</c> 会把
+        /// 1e-7 量级的噪声整个放大一级。深度 20 的 <c>20 × 1.95</c> 精确值是 39,而
+        /// <c>0.1f</c> 二进制不可表示:.NET 8 算出 38.99999976(Ceiling → 39),
+        /// Unity Mono 的中间精度不同则可能算出 39.00000001(Ceiling → **40**)。
+        /// 后果是同一份配置在工装与编辑器里给出不同的护甲值 ——
+        /// <c>Scale_HalvesDefenseGrowth</c> 与 <c>LowestTierChar_StillDentsArmoredMobAtDepth20</c>
+        /// 曾因此只在 Test Runner 里红。
+        ///
+        /// 现在**显式提升到 double 再夹到 4 位小数**,结果不再依赖中间精度:深度 20 的
+        /// 精确值 39 对应的 double 是 39.00000095(scale 自带的 float 表示误差),
+        /// 夹到 4 位得回 39。⚠ 夹取位数不能再宽:<c>Round(…, 6)</c> 留下的 39.000001
+        /// 照样被 Ceiling 读成 40 —— 噪声量级是 1e-6 不是 1e-7。而真实的小数部分来自
+        /// defScale 的 0.05 倍数(DEF 3 × 1.05 = 3.15 → 4),比 1e-4 大三个量级,不会被误伤。</summary>
         private static int ScaledDefense(int defense, float scale) =>
-            (int)Math.Ceiling(defense * (1f + (scale - 1f) / 2f));
+            (int)Math.Ceiling(Math.Round(defense * (1.0 + ((double)scale - 1.0) / 2.0), 4));
 
         /// <summary>一个血量量纲的数乘 scale 后落回整数。
         ///

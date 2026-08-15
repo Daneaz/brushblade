@@ -223,6 +223,25 @@ namespace Brushblade.CoreTests
 
         /// <summary>T3-V4 的前一半:半速本身。深度 20 的墨渍护甲 = 39,不是同速的 58。
         /// 同速会让深层的低伤字全部归零,字库多样性被护甲单方面掐死。</summary>
+        /// <summary>护甲缩放**不依赖 float 中间精度**(2026-08-15)。
+        ///
+        /// 下面每组的精确值都恰好是整数 —— 而 <c>ScaledDefense</c> 用的是 <c>Ceiling</c>,
+        /// 只要实现里留下 1e-6 量级的正噪声,这些点就会整个跳一级(39 → 40)。
+        /// 原实现全程 float:.NET 8 下截断后恰好得 39(工装一直绿),Unity Mono 的中间精度
+        /// 不同则算出 39.00000095 → 40,两条守卫只在 Test Runner 里红。
+        /// 最后一组是**真需要进位**的,防止「夹噪声」被写成「一律不进位」。</summary>
+        [TestCase(20, 20, 39)]   // scale 2.9 → defScale 1.95;20 × 1.95 = 39 整
+        [TestCase(60, 20, 117)]  // 60 × 1.95 = 117 整
+        [TestCase(20, 11, 30)]   // scale 2.0 → defScale 1.5;20 × 1.5 = 30 整
+        [TestCase(30, 15, 51)]   // scale 2.4 → defScale 1.7;30 × 1.7 = 51 整
+        [TestCase(3, 2, 4)]      // scale 1.1 → defScale 1.05;3 × 1.05 = 3.15 → 进位到 4
+        public void ScaledDefense_IsIndependentOfFloatIntermediatePrecision(
+            int baseDefense, int depth, int expected)
+        {
+            var mob = new EnemyDef("靶", Element.Heart, 100, 10, defense: baseDefense);
+            Assert.That(CampaignConfig.Scale(mob, DepthScale(depth)).Defense, Is.EqualTo(expected));
+        }
+
         [Test]
         public void Scale_HalvesDefenseGrowth()
         {
