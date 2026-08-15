@@ -46,6 +46,14 @@ def _output_id(char):
     return PUA_PROXY.get(char, char)
 
 
+def _output_effect(effect):
+    """效果里的落地 id 换算:summonChar 与 id/recipe 同口径走 _output_id
+    (𣛧 召的 4 只显示的是它自己,不换代理码位就是 4 个空框)。"""
+    if "summonChar" not in effect:
+        return effect
+    return {**effect, "summonChar": _output_id(effect["summonChar"])}
+
+
 def _blocked_smp_part(recipe):
     """配方原料里第一个「SMP 且无 PUA 代理」的部件;没有则 None。
     UGUI Text 显示不出代理对,这类部件没法作为配方原料展示,只能让含它的字退化为叶子。"""
@@ -113,7 +121,7 @@ def build_chars(ids_text, values):
             if spec.get(optional):
                 entry[optional] = spec[optional]
         if spec.get("effects"):
-            entry["effects"] = spec["effects"]
+            entry["effects"] = [_output_effect(e) for e in spec["effects"]]
         entries.append(entry)
 
     for part in sorted(components):

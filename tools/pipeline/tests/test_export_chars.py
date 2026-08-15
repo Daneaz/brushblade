@@ -134,6 +134,30 @@ def test_summon_burn_aura_all_flag():
     assert effects[0]["passive"] == {"onHitBurn": 3, "onHitBurnAll": True}
 
 
+def test_summon_char_is_the_casting_char_itself():
+    """2026-08-15:summonChar 原先填的是那一节的五行(全表「木」/「火」),
+    场上一排召唤物长得一模一样,玩家分不出哪只是梅哪只是荆。改填施法字本身。
+
+    断言打在 _parse_row 上而不是 _parse_effects:后者拿到的第二个参数就是要填进
+    summonChar 的东西,喂什么它回什么,怎么写都是绿的 —— 真正会填错的是上一层。"""
+    from extract_values import _parse_row
+    char, spec = _parse_row("| 梅 | 🟢绿 | `Summon 1`(60 血/攻 20) | 1 只 | ✅ |", "木")
+    assert char == "梅"
+    assert spec["effects"][0]["summonChar"] == "梅"
+
+
+def test_summon_char_uses_pua_proxy_for_supplementary_plane_char():
+    """𣛧(四木,U+23ADF)在增补平面,UGUI Text 显示不出代理对 —— 落地 id 换 PUA 代理,
+    summonChar 必须跟着换,否则场上那 4 只召唤物是空框。"""
+    from export_chars import build_chars, PUA_PROXY
+    spec = {"𣛧": {"element": "Wood", "rarity": "Red",
+                   "effects": [{"kind": "Summon", "value": 300, "count": 4,
+                                "attack": 120, "summonChar": "𣛧"}]}}
+    entry = next(e for e in build_chars("", spec)["chars"] if e.get("effects"))
+    assert entry["effects"][0]["summonChar"] == PUA_PROXY["𣛧"]
+    assert entry["id"] == PUA_PROXY["𣛧"]
+
+
 def test_summon_shield_is_top_level_not_passive():
     """桂 的护盾发给全场,不是这只召唤物自带的 —— 平铺在 effect 上而非进 passive。"""
     from extract_values import _parse_effects
@@ -266,9 +290,9 @@ def test_suo_uses_manual_recipe_not_supplementary_plane_part():
 def test_summon_passive_dodge_is_extracted():
     """柳 的闪避:SUMMON_PASSIVE 缺 Dodge 会被静默丢弃,50% 闪避在引擎里凭空消失。"""
     from extract_values import _parse_effects
-    assert _parse_effects("`Summon 1`(8 血/攻 3)+ `Dodge 50`", "木") == [
+    assert _parse_effects("`Summon 1`(8 血/攻 3)+ `Dodge 50`", "柳") == [
         {"kind": "Summon", "value": 8, "count": 1, "attack": 3,
-         "summonChar": "木", "passive": {"dodge": 50}}]
+         "summonChar": "柳", "passive": {"dodge": 50}}]
 
 
 def test_gou_row_is_not_marked_implemented():

@@ -82,19 +82,24 @@ def _parse_row(line, element):
         return None
 
     config = next((c for c in cells if "`" in c), "")
-    effects = _parse_effects(config, element)
+    effects = _parse_effects(config, char)
     if not effects:
         return None
     return char, {"element": ELEMENT[element], "rarity": rarity, "effects": effects}
 
 
-def _parse_effects(config, element):
-    """「`DamageAll 30` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。"""
+def _parse_effects(config, char):
+    """「`DamageAll 30` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
+
+    char 只被召唤分支用到(当 summonChar),其余 kind 一概不看第二个参数。"""
     summon = re.search(r"`Summon (\d+)`\((\d+) 血/攻 (\d+)\)", config)
     if summon:
+        # summonChar = 施法字本身(2026-08-15):场上显示的就是这个字。原先填那一节的
+        # 五行,全表召唤物都叫「木」/「火」,一排下来分不出哪只是梅哪只是荆。
+        # 增补平面字(𣛧)的 PUA 代理换在 export_chars._output_id 那一层,与 id 同口径。
         effect = {"kind": "Summon", "value": int(summon.group(2)),
                   "count": int(summon.group(1)),
-                  "attack": int(summon.group(3)), "summonChar": element}
+                  "attack": int(summon.group(3)), "summonChar": char}
         # 桂 的护盾发给全场召唤物,不是这只自带的 —— 平铺在 effect 上,不进 passive
         shield = re.search(r"`SummonShield (\d+)`", config)
         if shield:

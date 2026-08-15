@@ -165,6 +165,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void RealConfig_SummonCharIsTheCastingCharItself()
+        {
+            // 2026-08-15:召唤物在场上显示 summonChar,原先全表填「木」/「火」,
+            // 一排召唤物长得一模一样,玩家分不出哪只是梅哪只是荆。
+            // ConfigLoader 的默认值又恰好是「木」—— 新字漏填就静默回到那个样子,故钉死。
+            var graph = RealGraph();
+            foreach (var def in graph.All)
+                foreach (var effect in def.Effects)
+                    if (effect.Kind == EffectKind.Summon)
+                        Assert.That(effect.SummonChar, Is.EqualTo(def.Id),
+                            $"「{def.Id}」的召唤物应显示本字,而不是「{effect.SummonChar}」");
+        }
+
+        [Test]
         public void RealConfig_GuiGrantsSummonShield()
         {
             var graph = RealGraph();
