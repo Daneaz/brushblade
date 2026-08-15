@@ -32,6 +32,20 @@ namespace Brushblade.Core
             new[] { "火", "灬" },
         };
 
+        /// <summary>五系清单里的全部 14 个成员(展开 <see cref="Groups"/>,守卫测试用:
+        /// ComponentKinTests.RealConfig_AllMembersAreLeavesInTheRealCharTable ——
+        /// 「部件等价」与「宝箱前置」互不干扰的唯一支点是这 14 个字在真实字表里全都没有配方。</summary>
+        public static IReadOnlyList<string> AllParts
+        {
+            get
+            {
+                var all = new List<string>();
+                foreach (var group in Groups)
+                    all.AddRange(group);
+                return all;
+            }
+        }
+
         public static bool TryGetGroup(string part, out IReadOnlyList<string> group)
         {
             foreach (var candidate in Groups)

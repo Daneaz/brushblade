@@ -991,12 +991,17 @@ namespace Brushblade.Presentation
                 {
                     string badgeText = $"≈{kin}";
                     const int badgeFont = 10;
+                    // 窄边距(spec §1.6b「小胶囊」;分支级审查修正 —— 默认 padX=18/padY=12 在
+                    // 56×56 的部件卡上占了 68% 宽、39% 高,压住了部件字形):24×14。
+                    const int badgePadX = 4;
+                    const int badgePadY = 4;
                     var badge = Ui.Chip(tile.transform, badgeText,
-                        Theme.ElementColor(def.Element), Color.white, badgeFont);
+                        Theme.ElementColor(def.Element), Color.white, badgeFont, badgePadX, badgePadY);
                     // 贴右上角:锚点钉在 (1,1),再按 chip 自身尺寸向左下让出位置
+                    // (ChipWidth 的 padX 必须与上面 Chip() 传的一致,否则尺寸算错、位置跟着错)
                     Ui.Anchor((RectTransform)badge.transform,
                         new Vector2(1, 1), new Vector2(1, 1),
-                        new Vector2(-Ui.ChipWidth(badgeText, badgeFont) - 2, -Ui.ChipHeight(badgeFont) - 2),
+                        new Vector2(-Ui.ChipWidth(badgeText, badgeFont, badgePadX) - 2, -Ui.ChipHeight(badgeFont, badgePadY) - 2),
                         new Vector2(-2, -2));
                 }
 

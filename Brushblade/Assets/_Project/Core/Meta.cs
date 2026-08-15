@@ -392,8 +392,12 @@ namespace Brushblade.Core
         /// 链式约束自然成立,不需要递归。
         /// 部件(IsLeaf)不参与:它们靠掉落获得,不存在"解锁"一说。
         ///
-        /// 独立成方法是为了复用:战后奖励选字(RunEngine.RollRewardOptions)是另一条
-        /// 会写 OwnedCards 的产出路径,将来要给它加同一条限制时直接调这里。</summary>
+        /// 全仓 `OwnedCards` 的写入点只有三处:`Shop.cs`、`Chest.cs`、`GameRoot.cs` 的起始集合
+        /// (分支级审查核实:`RunEngine.RollRewardOptions` 只填局内战斗字库,不写
+        /// `OwnedCards`)。其中商城池(`GameRoot.ShopCardPool`)= 玩家**已拥有**的非叶子字,
+        /// 买卡只是给已拥有的字加重复份,天然不会绕过前置。
+        /// 独立成方法仍然有价值:将来若真要给战后奖励或其他产出路径加同一条限制,
+        /// 判定逻辑在这里可以直接复用。</summary>
         public static bool PrerequisitesMet(string cardId, RecipeGraph graph,
             IReadOnlyCollection<string> ownedCards)
         {

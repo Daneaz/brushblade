@@ -235,7 +235,11 @@ namespace Brushblade.Core
         private static readonly CardRarity?[] GuaranteedRarity =
             { null, null, CardRarity.Blue, CardRarity.Purple, CardRarity.Purple, CardRarity.Purple };
 
-        /// <summary>候选池 = 前置已满足的字。滤空则回退到原池(2026-08-15 拍板的兜底):
+        /// <summary>候选池 = 前置已满足的字。三级回退(2026-08-15 拍板;分支级审查修正 —— 此前
+        /// 滤空直接退回未过滤的原池,等于把"限制降级"写成了"限制消失",被前置挡住的字反而混进产出):
+        /// 1. 前置已满足的字(<see cref="MetaRules.PrerequisitesMet"/>);
+        /// 2. 滤空时,退到"配方只含部件"的字 —— 这类字结构上永远无前置要求,与第 1 级不冲突;
+        /// 3. 连这个也空,才退回原池(最后兜底,保证开箱不出 0 张)。
         /// 开箱永远出足数,玩家不该感知到自己被隐藏限制挡了。
         /// graph 为 null 时不过滤(老调用点)。</summary>
         private static IReadOnlyList<string> EligiblePool(IReadOnlyList<string> cardPool,
@@ -246,7 +250,26 @@ namespace Brushblade.Core
             foreach (var id in cardPool)
                 if (MetaRules.PrerequisitesMet(id, graph, ownedCards))
                     eligible.Add(id);
-            return eligible.Count > 0 ? eligible : cardPool;
+            if (eligible.Count > 0) return eligible;
+
+            var componentOnly = new List<string>();
+            foreach (var id in cardPool)
+                if (graph.TryGet(id, out var def) && IsComponentOnlyRecipe(def, graph))
+                    componentOnly.Add(id);
+            if (componentOnly.Count > 0) return componentOnly;
+
+            return cardPool;
+        }
+
+        /// <summary>配方里的每一项原料都是部件(IsLeaf);字本身若无配方(自己就是部件)也算。
+        /// 这类字结构上永远无前置要求 —— 显式按结构判断,不许再调
+        /// <see cref="MetaRules.PrerequisitesMet"/>(那样会与第 1 级恒等,退化成没修)。</summary>
+        private static bool IsComponentOnlyRecipe(CharDef def, RecipeGraph graph)
+        {
+            foreach (var ingredient in def.Recipe)
+                if (!graph.TryGet(ingredient, out var idef) || !idef.IsLeaf)
+                    return false;
+            return true;
         }
 
         private static List<string> DrawUniform(IReadOnlyList<string> cardPool, GameRandom random, int count)

@@ -357,9 +357,23 @@ namespace Brushblade.Core.Tests
                 "赤霄匣 16 张里应至少出现一次刚解锁的 垚 或 桂");
         }
 
-        /// <summary>滤空兜底:一张都没解锁时仍出足数(隐藏限制不该让玩家看出来)。</summary>
+        /// <summary>滤空兜底:一张都没解锁时仍出足数(隐藏限制不该让玩家看出来),
+        /// 且兜底不能把被前置挡住的字混回来 —— 池子里的 杜(配方全是部件,永远无前置)
+        /// 命中第 1 级(前置已满足)就该独占产出,垚/桂/㙓 一张都不该出现。</summary>
         [Test]
         public void Open_StillYieldsFullCount_WhenEverythingIsFilteredOut()
+        {
+            var rewards = OpenWith(new[] { "垚", "桂", "㙓", "杜" }, Array.Empty<string>(),
+                ChestTier.Paper, 7, PrereqGraph());
+            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.CardCount[0]));
+            Assert.That(rewards.Cards, Has.All.Matches<string>(c => c == "杜"),
+                "分支级审查修正:兜底命中时产出不该含被前置挡住的字");
+        }
+
+        /// <summary>池子里连一张无前置要求的字都没有(全是被挡的叠字)时,才退回原池 ——
+        /// 这是最后一级兜底,仍要出满数(玩家不该在开箱数量上感知到自己被挡了)。</summary>
+        [Test]
+        public void Open_FallsBackToOriginalPool_WhenPoolHasNoUngatedCardsEither()
         {
             var rewards = OpenWith(new[] { "垚", "桂", "㙓" }, Array.Empty<string>(),
                 ChestTier.Paper, 7, PrereqGraph());

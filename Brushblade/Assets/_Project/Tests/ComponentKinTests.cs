@@ -69,5 +69,22 @@ namespace Brushblade.Core.Tests
             Assert.That(ComponentKin.PositionOf("戈"), Is.EqualTo(ComponentPosition.Right));
             Assert.That(ComponentKin.PositionOf("禾"), Is.EqualTo(ComponentPosition.None));
         }
+
+        /// <summary>守卫(分支级审查):「部件等价」与「宝箱前置」互不干扰,唯一支点是
+        /// ComponentKin 的 14 个成员在真实字表里全都没有配方(IsLeaf)。哪天设计给
+        /// 山/石/戈 之类配了配方,前置判定会开始要求玩家"拥有部件",合成也会开始把
+        /// 成品字当部件吃掉——两处都无声,所以钉在这里。
+        /// 真实配置加载复用 CharTableTests.RealGraph()(同程序集、同走 Data.ConfigLoader,
+        /// 不直接引 Newtonsoft)。</summary>
+        [Test]
+        public void RealConfig_AllMembersAreLeavesInTheRealCharTable()
+        {
+            var graph = CharTableTests.RealGraph();
+            foreach (var part in ComponentKin.AllParts)
+            {
+                Assert.That(graph.TryGet(part, out var def), Is.True, $"{part} 在真实字表里不存在");
+                Assert.That(def.IsLeaf, Is.True, $"{part} 已经有配方了,五系等价与宝箱前置的互不干扰假设被打破");
+            }
+        }
     }
 }
