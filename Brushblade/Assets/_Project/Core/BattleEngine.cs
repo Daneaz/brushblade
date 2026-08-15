@@ -370,13 +370,25 @@ namespace Brushblade.Core
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
 
-            // ATB 头寸(2026-08-15,审查后改法):玩家开局白拿了第一拍手动回合(拆合走 AP,
-            // 不占调度器格子),却没经过 Advance 扣过这 100 —— 与其给所有非玩家单位发一份
-            // 依赖各自 Speed 的补偿(旧版做法,被审查指出「构造后才改速度/挂减速」的测试会在
-            // 补偿定型之后才改速度,导致按错误的默认速度记满),不如直接把玩家这一拍记成预支:
-            // 只设这一个不依赖任何单位速度的负值,调度器的 TicksUntilAnyFull/FirstFull 原生
-            // 支持负 Meter,不需要为此改 TurnScheduler。
-            PlayerActionMeter = -TurnScheduler.Threshold;
+            // 开局第一拍归玩家(既有行为:构造完 Phase 就是 PlayerTurn,玩家直接操作)。那一拍
+            // 不能白拿 —— 不扣的话玩家行动后与所有人同时归零,此后每次推进都并列、玩家优先级
+            // 最小永远先手,其余单位饿死。
+            //
+            // ⚠ 用「跑一次 Advance 把它消费掉」而不是给玩家一个负计量器(2026-08-15,第三次
+            // 审查订正):负值会让玩家的 need 超过 Threshold,ceil 之后至少 2 tick,而「创建即
+            // 满格」的召唤物打完归零只需 1 tick 回满 —— 两者之间必然空出一整个免费轮次,召唤段
+            // 会在开局那一拍打两轮(实测 [0,1,2,3,0,1,2,3])。**玩家计量器必须始终非负**,
+            // 这条是硬约束,不是可以按具体数值调的边界差异。
+            //
+            // 只在玩家赢下这一拍时才写回:玩家速度若远低于场上单位,Advance 会选中敌人 ——
+            // 那时绝不能在构造期执行它的行动(会产生表现层收不到的事件,甚至开局就把玩家打死)。
+            // 不写回则退化为「玩家白拿一拍」,对慢速玩家是友好的兜底。
+            {
+                var openingSlots = BuildSlots();
+                var openingStep = TurnScheduler.Advance(openingSlots);
+                if (openingStep.Actor.Kind == ActorKind.Player)
+                    WriteBackMeters(openingSlots, openingStep.Meters);
+            }
 
             Phase = BattlePhase.PlayerTurn;
             StartTurn();

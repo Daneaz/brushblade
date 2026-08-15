@@ -49,14 +49,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PlayerActionMeter_StartsInDebt()
+        public void PlayerActionMeter_NeverGoesNegative()
         {
-            // 玩家开局白拿第一拍(战斗一开始 Phase 就是 PlayerTurn,没经过调度器),
-            // 那一拍的 100 记成预支 —— 否则玩家行动后与所有人同时归零,并列时靠优先级
-            // 永远先手,其余单位会被饿死。2026-08-15 CTB 改造裁定。
+            // 开局第一拍归玩家,但它在构造期就被调度器正常消费掉了(不是白拿,也不是记成负债)。
+            // 负计量器会让玩家的 need 超过 Threshold、ceil 后至少 2 tick,与「创建即满格」的召唤物
+            // 之间空出一个免费轮次 —— 召唤段会在开局那一拍打两轮。2026-08-15 CTB 改造裁定。
             var engine = Engine(new[] { Dummy() });
 
-            Assert.That(engine.PlayerActionMeter, Is.EqualTo(-TurnScheduler.Threshold));
+            Assert.That(engine.PlayerActionMeter, Is.GreaterThanOrEqualTo(0));
         }
 
         [Test]
