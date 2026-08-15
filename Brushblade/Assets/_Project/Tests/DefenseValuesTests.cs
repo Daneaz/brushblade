@@ -165,17 +165,21 @@ namespace Brushblade.CoreTests
 
         // ---- 玩家侧 5 条(R_in = 60)----
 
-        [TestCase("巍", 5, 57)]   // 旧 floor(60 × 0.95) = 57;新 60 − 3
-        [TestCase("磐", 10, 54)]  // 旧 floor(60 × 0.90) = 54;新 60 − 6
-        [TestCase("崟", 15, 51)]  // 旧 floor(60 × 0.85) = 51;新 60 − 9
-        [TestCase("铠", 20, 48)]  // 旧 floor(60 × 0.80) = 48;新 60 − 12
-        [TestCase("漜", 25, 45)]  // 旧 floor(60 × 0.75) = 45;新 60 − 15
-        public void Calibration_DefenseChars_AgainstIncomingReference(
-            string charId, int legacyReductionPercent, int legacyEquivalent)
+        // 2026-08-15 重写。原本是 E-b4 T3 的「旧减伤 % ↔ 新护甲点数」等价校准
+        // (TestCase 带 legacyReductionPercent,断言落在 ±9 容差内),两件事让它失效:
+        //   ① T9 把护甲点数整体 ×0.65(崟 9→6、铠 12→5、漜 15→10),等价关系不再成立;
+        //   ② 巍 / 磐 随第二批裁定移出字表 —— 而 Cast 一个不在图里的字不会报错,
+        //      量到的是「完全没护甲」的 60,它恰好落在 57±9 与 54±9 里,**两条假绿**。
+        // 现在改为精确钉住「点数 → 减伤」这条仍然成立的不变量,无容差、无已删的字。
+        [TestCase("崟", 6)]
+        [TestCase("铠", 5)]
+        [TestCase("漜", 10)]
+        public void Calibration_DefenseChars_AgainstIncomingReference(string charId, int points)
         {
-            Assert.That(legacyEquivalent, Is.EqualTo((int)Math.Floor(60 * (1 - legacyReductionPercent / 100.0))),
-                "旧等价值是可复算的算式,不是抄来的常数");
-            Assert.That(PlayerHitAfterCasting(charId, 60), Is.EqualTo(legacyEquivalent).Within(9));
+            var buff = RealGraph().Get(charId).Effects.First(e => e.Kind == EffectKind.DefenseBuff);
+            Assert.That(buff.Value, Is.EqualTo(points), $"「{charId}」的护甲点数");
+            Assert.That(PlayerHitAfterCasting(charId, 60), Is.EqualTo(60 - points),
+                "点数是直接从承伤里减的,不再走乘法减伤");
         }
 
         // ---- 穿透 3 条(打墨渍,DEF 20)----

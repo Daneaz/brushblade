@@ -97,7 +97,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_RunIsHealOverTimeTargetAll()
+        public void RealConfig_NoCharCarriesTargetAllHealOverTime()
         {
             // 2026-08-14 第三批:润 / 滋 移出字表,群体持续治疗(targetAll HoT)自此无载体。
             // 本测试原是防「ConfigLoader.ParseEffects 不接 turns/targetAll」回归的 ——
@@ -278,7 +278,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_SaiUsesManualRecipe_NotSupplementaryPlanePart()
+        public void RealConfig_ManualRecipeBeatsSupplementaryPlaneIds()
         {
             // 2026-08-14:塞 随第二批裁定移出字表(它的 MANUAL_RECIPES 条目保留待复活),
             // 本测试改由 湮 单独守住「手工配方优先于增补平面 IDS」这条不变量。
@@ -367,15 +367,6 @@ namespace Brushblade.Core.Tests
             Assert.That(summon.SummonAttack, Is.EqualTo(30));
             Assert.That(summon.Passive, Is.Not.Null);
             Assert.That(summon.Passive.Dodge, Is.EqualTo(50));
-        }
-
-        [Test]
-        public void RealConfig_SuoUsesManualRecipe_NotSupplementaryPlanePart()
-        {
-            // 2026-08-14:锁 随第二批裁定移出字表,MANUAL_RECIPES 里的 钅+贝 保留待复活。
-            // 同一条不变量由 RealConfig_SaiUsesManualRecipe_NotSupplementaryPlanePart 的 湮 守着。
-            // Get 对缺席的 id 是抛 KeyNotFoundException 而不是返回 null,故走 All 判存在性。
-            Assert.That(RealGraph().All.Any(c => c.Id == "锁"), Is.False, "锁 已移出字表");
         }
 
         [Test]
