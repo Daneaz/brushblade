@@ -1065,17 +1065,6 @@ namespace Brushblade.Presentation
                 Ui.RoundButton(combo.transform, charId, () => OnCompose(charId),
                     Color.white, Theme.ElementColor(def.Element), 30, new Vector2(60, 54), 12);
             }
-
-            // 转位说明(2026-08-15):告诉玩家 火/灬 这类同源部件通用。纯说明,不是操作 ——
-            // 等价匹配在 ForgeEngine.TryCompose 里自动生效,没有按钮、不花 AP(spec §1.6c)。
-            var kinRow = Ui.Row(_suggestRow, "KinHint", 10);
-            Ui.ThemedLabel(kinRow.transform, "转位", 12, Theme.TextDim, Theme.TitleFont);
-            Ui.RoundButton(kinRow.transform, "火", null, Theme.ElementColor(Element.Fire),
-                Color.white, 16, new Vector2(34, 34), 8);
-            Ui.ThemedLabel(kinRow.transform, "⇄", 14, Theme.TextDim, Theme.TitleFont);
-            Ui.RoundButton(kinRow.transform, "灬", null, Theme.ElementColor(Element.Fire),
-                Color.white, 16, new Vector2(34, 34), 8);
-            Ui.ThemedLabel(kinRow.transform, "同源变体 · 位形互换", 12, Theme.TextDim, Theme.TitleFont);
         }
 
         private static readonly string[] HintBucketOrder = { "金", "木", "水", "火", "土", "心", "中性" };
@@ -1172,7 +1161,22 @@ namespace Brushblade.Presentation
             }
             else
             {
-                Ui.ThemedLabel(_suggestRow, "(独体字,不可拆)", 14, Theme.TextDim);
+                // 转位提示(2026-08-15 用户裁定):只在选中**变体**部件时显示,且内容随选中的那个走
+                // ——选 氵 就说「氵 ⇄ 水」。代表字(水/木/金/土/火)由 KinBadge 返回 null 自然不显示,
+                // 提示是单向的:变体需要被解释成「它等于哪个标准形态」,标准形态本身不需要。
+                // 纯说明不是操作:等价匹配在 ForgeEngine.TryCompose 里自动生效,不花 AP(spec §1.6c)。
+                string kin = ComponentKin.KinBadge(_selectedChar);
+                if (kin != null)
+                {
+                    Ui.ThemedLabel(_suggestRow, "⇄", 16, Theme.TextDim);
+                    Ui.RoundButton(_suggestRow, kin, null,
+                        Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
+                    Ui.ThemedLabel(_suggestRow, "同源变体 · 位形互换", 13, Theme.TextDim);
+                }
+                else
+                {
+                    Ui.ThemedLabel(_suggestRow, "(独体字,不可拆)", 14, Theme.TextDim);
+                }
             }
 
             // 第二行(动作)

@@ -87,12 +87,18 @@ namespace Brushblade.Core
         public static ComponentPosition PositionOf(string part) =>
             Positions.TryGetValue(part, out var position) ? position : ComponentPosition.None;
 
-        /// <summary>同源徽标文字(UI 右上角 ≈X):取组内代表字;自己就是代表字时取组内下一个。
-        /// 清单外返回 null(不画徽标)。</summary>
+        /// <summary>同源徽标文字(UI 右上角 ≈X):变体 → 它的代表字;**代表字自己返回 null**。
+        ///
+        /// 提示是**单向**的(2026-08-15 用户裁定):`氵`/`冫` 需要被解释成"它等于水",
+        /// 而 `水` 本身就是标准形态,提示「水 ≈ 冫」既没信息量,又会让五张最常见的部件卡
+        /// 各顶一个多余角标。清单外的部件同样返回 null(不画徽标)。
+        ///
+        /// 顺带消掉了旧写法 `group[0] == part ? group[1] : group[0]` 的 group[1] 越界隐患 ——
+        /// 那要求每组至少两个成员,将来加单成员组会炸。</summary>
         public static string KinBadge(string part)
         {
             if (!TryGetGroup(part, out var group)) return null;
-            return group[0] == part ? group[1] : group[0];
+            return group[0] == part ? null : group[0];
         }
     }
 }

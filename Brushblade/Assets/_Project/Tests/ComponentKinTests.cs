@@ -41,13 +41,26 @@ namespace Brushblade.Core.Tests
         /// <summary>徽标取组内代表字;自己就是代表字时取组内下一个 ——
         /// 火 显示 ≈灬、灬 显示 ≈火(与设计板一致);金系四个里 钅/戈/刂 都显示 ≈金,金 显示 ≈钅。</summary>
         [Test]
-        public void KinBadge_ShowsRepresentative_OrNextWhenSelfIsRepresentative()
+        public void KinBadge_ShowsRepresentative_ForVariantsOnly()
         {
             Assert.That(ComponentKin.KinBadge("灬"), Is.EqualTo("火"));
-            Assert.That(ComponentKin.KinBadge("火"), Is.EqualTo("灬"));
             Assert.That(ComponentKin.KinBadge("氵"), Is.EqualTo("水"));
+            Assert.That(ComponentKin.KinBadge("冫"), Is.EqualTo("水"));
             Assert.That(ComponentKin.KinBadge("刂"), Is.EqualTo("金"));
-            Assert.That(ComponentKin.KinBadge("金"), Is.EqualTo("钅"));
+            Assert.That(ComponentKin.KinBadge("戈"), Is.EqualTo("金"));
+            Assert.That(ComponentKin.KinBadge("艹"), Is.EqualTo("木"));
+            Assert.That(ComponentKin.KinBadge("山"), Is.EqualTo("土"));
+        }
+
+        /// <summary>**代表字不提示**(2026-08-15 用户裁定):提示是单向的 ——
+        /// 变体需要被解释成"它等于哪个标准形态",而 水/木/金/土/火 本身就是标准形态,
+        /// 提示「水 ≈ 冫」既没信息量,也会让五张最常见的部件卡各顶一个多余角标。</summary>
+        [Test]
+        public void KinBadge_ReturnsNull_ForRepresentatives()
+        {
+            foreach (var representative in new[] { "水", "木", "金", "土", "火" })
+                Assert.That(ComponentKin.KinBadge(representative), Is.Null,
+                    $"代表字 {representative} 不该有同源提示");
         }
 
         [Test]
