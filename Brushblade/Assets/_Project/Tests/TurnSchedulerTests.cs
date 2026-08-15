@@ -162,5 +162,36 @@ namespace Brushblade.Core.Tests
 
             Assert.That(b.Select(x => x.Kind), Is.EqualTo(a.Select(x => x.Kind)));
         }
+
+        [Test]
+        public void Forecast_MatchesActualSequence()
+        {
+            var slots = new List<SchedulerSlot> { Player(100), Enemy(0, 60) };
+            var predicted = TurnScheduler.Forecast(slots, 8);
+
+            var actual = Sequence(new List<SchedulerSlot>(slots), 8);
+
+            Assert.That(predicted, Is.EqualTo(actual));
+        }
+
+        [Test]
+        public void Forecast_DoesNotMutateInput()
+        {
+            // UI 每帧刷新一次预测;若 Forecast 动了真实计量器,光是看着行动条就能把战斗推着走。
+            var slots = new List<SchedulerSlot> { Player(100, meter: 30), Enemy(0, 60, meter: 70) };
+
+            TurnScheduler.Forecast(slots, 20);
+
+            Assert.That(slots[0].Meter, Is.EqualTo(30));
+            Assert.That(slots[1].Meter, Is.EqualTo(70));
+        }
+
+        [Test]
+        public void Forecast_ZeroCountReturnsEmpty()
+        {
+            var slots = new List<SchedulerSlot> { Player(100) };
+
+            Assert.That(TurnScheduler.Forecast(slots, 0), Is.Empty);
+        }
     }
 }

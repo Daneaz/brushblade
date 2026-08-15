@@ -133,5 +133,28 @@ namespace Brushblade.Core
             return Math.Max(1, best);
         }
 
+        /// <summary>向前预测 count 个行动者,**不改动入参**——在本地拷贝上推演。
+        ///
+        /// ⚠ 这是「若场面不变」的预测:怪死了、召唤物上场、减速生效都会让实际序列偏离。
+        /// 表现层每次重绘都要重新调用,不许缓存。</summary>
+        public static IReadOnlyList<ActorRef> Forecast(IReadOnlyList<SchedulerSlot> slots, int count)
+        {
+            var result = new List<ActorRef>();
+            if (slots == null || slots.Count == 0 || count <= 0) return result;
+
+            var working = new SchedulerSlot[slots.Count];
+            for (int i = 0; i < slots.Count; i++) working[i] = slots[i];
+
+            for (int n = 0; n < count; n++)
+            {
+                var step = Advance(working);
+                result.Add(step.Actor);
+                for (int i = 0; i < working.Length; i++)
+                    working[i] = new SchedulerSlot(working[i].Actor, working[i].Speed,
+                        step.Meters[i], working[i].Priority);
+            }
+            return result;
+        }
+
     }
 }
