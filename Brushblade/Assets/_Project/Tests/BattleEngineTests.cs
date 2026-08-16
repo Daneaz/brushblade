@@ -658,16 +658,28 @@ namespace Brushblade.Core.Tests
         // ---- 广告复活(2026-07-24):满血续战 + 补给注入当前战斗 ----
 
         [Test]
-        public void Revive_RestoresFullHp_AndGivesPlayerTurn()
+        public void Revive_RestoresFullHp_ButLeavesApAtDeathBalance()
         {
-            var engine = Engine(enemies: new[] { new EnemyDef("讹影", Element.Heart, 100, 60) });
+            // 2026-08-16 全分支终审 Important 2:Revive() 故意不碰 PlayerActionMeter/Ap——满血复活
+            // 后时间轴接着走,AP 由下一次真正轮到玩家时的 BeginPlayerTurn 发,不该由 Revive()
+            // 越俎代庖(表现层那半修法见 BattleView.Refresh:接着跑 AdvanceRoutine 补上这一步)。
+            // 原断言 Ap==ApPerTurn 没有判别力——旧夹具的库存字是空的,一次 AP 都花不出去,
+            // 于是死亡时 Ap 恰好等于 ApPerTurn,两种语义(刷新 vs 不刷新)读数巧合相同。
+            // 这里先花掉一部分 AP 再死,断言死亡时的残值原样带过 Revive(),而不是被刷满。
+            var engine = Engine(library: new[] { "火" },
+                enemies: new[] { new EnemyDef("讹影", Element.Heart, 100, 60) });
+            engine.Cast("火", 0); // 花掉这张字的 AP
+            int apAfterCast = engine.Ap;
+            Assert.That(apAfterCast, Is.LessThan(engine.ApPerTurn), "夹具前提:先花掉一部分 AP");
+
             engine.EndTurn(); // 打到败北
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
 
             engine.Revive();
             Assert.That(engine.PlayerHp, Is.EqualTo(50));            // 回满
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
-            Assert.That(engine.Ap, Is.EqualTo(engine.ApPerTurn));   // 刷了 AP,接着打
+            Assert.That(engine.Ap, Is.EqualTo(apAfterCast),
+                "Revive() 不刷 AP——原样带着死亡时的余额,等下一次 BeginPlayerTurn 才补满");
         }
 
         [Test]

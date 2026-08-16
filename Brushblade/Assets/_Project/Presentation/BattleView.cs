@@ -401,6 +401,21 @@ namespace Brushblade.Presentation
             // 战利品阶段结束(不论选完、跳过还是引擎自动开拔)→ 本层记账落盘,挂起不丢收益
             if (_lastPhase == RunPhase.Reward && _run.Phase != RunPhase.Reward)
                 _onFloorCleared?.Invoke();
+
+            // 复活补给阶段结束的一次性检测(2026-08-16 全分支终审 Important 2):TryRevive() 只把
+            // PlayerHp 回满、Battle.Phase 置回 PlayerTurn,并不会补跑 BeginPlayerTurn——时间轴上
+            // 满格未动的敌人(调度优先级 1/2,高于玩家的 3)本该先补完它们那一拍,否则玩家会
+            // 直接拿到一个 AP 还停在死亡时余额(几乎恒为 0)、Turn 没 +1、也没掉字的"幽灵回合"。
+            // 三条退出路径都要覆盖,故分两半检测,缺一个都会漏:
+            // (a) 補给挑完/主动跳过——SkipReviveReward()/PickReviveChar(Replacing) 的
+            //     MaybeFinishRevive() 在调用方那边(供给弹窗的按钮回调)已经把 Phase 改成
+            //     InBattle,才调这次 Refresh()——本次入口时 _run.Phase 已经不是 Reviving 了,
+            //     只有上一次 Refresh 收尾时存的 _lastPhase 还留着 Reviving,靠它才追得到;
+            // (b) 奖励池为空:TryRevive() 刚把 Phase 设成 Reviving,本次 Refresh 入口时还是
+            //     Reviving,但下面几行的收尾检查会在**本次调用内**就把它翻回 InBattle——
+            //     _lastPhase 那时记的还是战斗结算前的旧值,追不到这种"进也是这次、出也是
+            //     这次"的瞬间转换,得在收尾检查跑完之后再看一眼当前 _run.Phase 才抓得到。
+            bool enteredReviving = _lastPhase == RunPhase.Reviving || _run.Phase == RunPhase.Reviving;
             _lastPhase = _run.Phase;
 
             // 复活补给额度取尽或候选枯竭 → 收尾。
@@ -409,6 +424,19 @@ namespace Brushblade.Presentation
             if (_run.Phase == RunPhase.Reviving
                 && !(_run.ReviveCharPicksLeft > 0 && _run.RewardOptions.Count > 0))
                 _run.SkipReviveReward();
+
+            if (enteredReviving && _run.Phase == RunPhase.InBattle && !Animating)
+            {
+                // 复活流程刚结束(三条出口任一条),接着跑被打断的循环:满格未动的敌人先补完
+                // 那一拍,调度器随后自然轮到玩家(BeginPlayerTurn 发 AP、Turn+1、掉字)。
+                // 不补 YieldTurn()——玩家是在上一拍被打死的,那一拍早就让过了,回头再补一次
+                // 只会像 Revive() 生产代码修之前那样多跑一次玩家侧状态递减。
+                // 这是一次性转换(_lastPhase 已在上面改成 InBattle),AdvanceRoutine 内部会
+                // 反复自己调 Refresh() 把后续帧画出来,本帧不再往下走完整的 switch 绘制。
+                BeginAnim();
+                StartCoroutine(AdvanceRoutine());
+                return;
+            }
 
             if (_run.Phase == RunPhase.InBattle && _run.BattleIndex != _lastBattleIndex)
             {
