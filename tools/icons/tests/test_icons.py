@@ -45,3 +45,16 @@ def test_build_produces_every_png(tmp_path, monkeypatch):
         png = tmp_path / f"icon_{key}.png"
         assert png.exists(), f"缺 {png.name}"
         assert png.stat().st_size > 200, f"{png.name} 太小,多半是空图"
+
+
+def test_csharp_fallback_covers_every_icon():
+    """C# 侧 Icons.Glyphs 与 build_icons.ICONS 必须逐个对应。
+
+    对不上的后果不是编译错,是上线后那个状态显示成「?」——只有肉眼能发现。
+    """
+    import re
+    src = (build_icons.ROOT
+           / "Brushblade/Assets/_Project/Presentation/UI/Icons.cs").read_text(encoding="utf-8")
+    keys = set(re.findall(r'\{\s*"([a-z_]+)"\s*,\s*"[^"]+"\s*\}', src))
+    assert keys == set(build_icons.ICONS), (
+        f"C# 多出: {keys - set(build_icons.ICONS)};C# 缺少: {set(build_icons.ICONS) - keys}")
