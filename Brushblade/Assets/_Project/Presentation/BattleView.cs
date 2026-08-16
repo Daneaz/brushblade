@@ -516,7 +516,12 @@ namespace Brushblade.Presentation
             if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
             SaveProgressIfChanged();
-            _turnBar.Refresh(Battle); // 每次重绘都重新问引擎要预测,不缓存(见 TurnBar 类注释)
+            // 只在真正的战斗阶段画行动条(2026-08-16 全分支终审):RunPhase.Reward/Event/
+            // Reviving/RunEnd 这些阶段没有别的东西盖住行动条那条带(0.855–0.900)。
+            // ⚠ 不能简单地跳过这次调用——TurnBar.Refresh 是"先销毁旧 chip 再按传入的 battle
+            // 重画"，跳过调用只会把上一场战斗的 chip 冻结在屏幕上,不会清掉。非战斗阶段传 null,
+            // 复用 Refresh 里"battle == null 则只销毁不重画"的既有分支,把行动条真正清空。
+            _turnBar.Refresh(_run.Phase == RunPhase.InBattle ? Battle : null);
         }
 
         private string _savedFingerprint; // 上次落盘时的进度指纹
