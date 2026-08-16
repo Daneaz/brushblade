@@ -29,7 +29,12 @@ namespace Brushblade.Core
 
     /// <summary>调度器的输入槽:一个参战单位的速度与计量器快照。
     /// <paramref name="Priority"/> 是并列时的排序主键(小者先),由 BattleEngine 按
-    /// 「玩家 0 / 召唤物 1 / Buff 敌 2 / 其余敌 3」填 —— 调度器不认识 EnemyAbility。</summary>
+    /// 「召唤物 0 / Buff 敌 1 / 其余敌 2 / 玩家 3」填 —— 调度器不认识 EnemyAbility。
+    ///
+    /// ⚠ **玩家排最后**:EndTurn 的语义是「玩家让出行动权、推进到下次轮到我」,玩家刚动完就让出,
+    /// 并列时理应排在所有人后面。曾把玩家定成优先级最小(并列必赢),结果每次推进后玩家都抢在敌人
+    /// 前面把行动权收回去、敌人拿不到那一拍 —— 那是 2026-08-15 四轮返工的根因,三种「开局记账」
+    /// (创建时先手 / 玩家记负债 / 消费一拍)全是在给这个反向规则打补丁。方向不要再调回去。</summary>
     public readonly struct SchedulerSlot
     {
         public ActorRef Actor { get; }
