@@ -796,9 +796,12 @@ namespace Brushblade.Core
 
             var slots = BuildSlots();
             var step = TurnScheduler.Advance(slots);
+            // 两个分支都要发 ActorActed:每批事件都以它开头,表现层才能用统一规则识别这批
+            // 事件属于谁(玩家/召唤/敌人),不必为玩家单独写一条特例分支。
             if (step.Actor.Kind == ActorKind.Player)
             {
                 _events.Clear();
+                _events.Add(new BattleEvent(BattleEventKind.ActorActed, -1, (int)ActorKind.Player));
                 WriteBackMeters(slots, step.Meters);
                 LastActor = ActorRef.Player;
                 BeginPlayerTurn();

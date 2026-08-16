@@ -266,6 +266,30 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void PlayerTurn_AlsoStartsWithActorActed()
+        {
+            // 2026-08-16 复核补:AdvanceOnce 的玩家分支曾经不发 ActorActed(brief 的示例代码
+            // 只放在非玩家分支),导致召唤物/敌人的批次都有段首标记、唯独玩家那批没有——下一个
+            // 任务的驱动协程要靠这条标记判断"这批事件属于谁",会漏判玩家这一批。挂个灼烧让
+            // BeginPlayerTurn() 必定产生事件(BurnTick),锁住"玩家批次同样以 ActorActed(Player)
+            // 开头"这条对称性。
+            var engine = Engine(new[] { Dummy(attack: 0) });
+            engine.EndTurn();   // 走到一个干净的玩家拍(与 PlayerBurn_SettlesAtPlayerTurnStart_NotWhenYielding 同款写法)
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 2, TurnsLeft = -1, SourceId = "灯",
+            });
+
+            engine.YieldTurn();
+            while (engine.AdvanceOnce()) { }   // 推到下一个玩家拍(BeginPlayerTurn 结算灼烧)
+
+            Assert.That(engine.LastEvents[0].Kind, Is.EqualTo(BattleEventKind.ActorActed));
+            Assert.That(engine.LastEvents[0].Amount, Is.EqualTo((int)ActorKind.Player));
+            Assert.That(engine.LastEvents[0].TargetIndex, Is.EqualTo(-1));
+        }
+
+        [Test]
         public void PlayerStatus_TicksWhenPlayerYields()
         {
             var engine = Engine(new[] { Dummy(attack: 0) });
