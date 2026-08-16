@@ -35,7 +35,6 @@ namespace Brushblade.Presentation
 
         private const float FlyDuration = 0.24f; // 飞牌全程(与 FlyRoutine 一致)
         private const float StepGap = 0.42f;     // 一记结算与下一记之间的间隔(串行看得清的关键;DoT/召唤/敌方通用)
-        private const float PhaseGap = 0.4f;     // 阶段之间的停顿(DoT → 召唤 → 敌方)
         private const float TailGap = 0.3f;      // 末次打击到「播完回调」的收尾停顿
 
         /// <summary>播放一次动作的全部结算表现,全程有序、播完回调。enemyAnchor(i) 返回敌人本体圆
@@ -56,57 +55,13 @@ namespace Brushblade.Presentation
             Canvas.ForceUpdateCanvases();
             _flashing.RemoveWhere(t => t == null); // 上一轮重绘销毁的目标不留在集合里
 
-            // 拆出召唤反击段:灼烧等在前(preRest)、召唤反击逐记(strikes)、敌人行动在后(postRest)。
-            // 边界只认两个显式信号:SummonAttack 开一记、EnemyTurnBegan 开敌方段。
-            // 一记召唤带的伴随事件不做种类白名单 —— 受击加攻/分裂/换阶都得跟着它那一记走,
-            // 早先按 Damage/EnemyDied 白名单收,遇上焦痕的加攻就断段,后续召唤全被冲进敌方段齐发。
-            int i = 0;
-            var preRest = new List<BattleEvent>();
-            while (i < events.Count && events[i].Kind != BattleEventKind.SummonAttack
-                   && events[i].Kind != BattleEventKind.EnemyTurnBegan)
-                preRest.Add(events[i++]);
-            var strikes = new List<(int target, int source, List<BattleEvent> effects)>();
-            while (i < events.Count && events[i].Kind == BattleEventKind.SummonAttack)
-            {
-                int target = events[i].TargetIndex;   // 受击敌人(飞牌终点)
-                int source = events[i].SecondIndex;   // 发起召唤物(飞牌起点)
-                i++;
-                var effects = new List<BattleEvent>();
-                while (i < events.Count && events[i].Kind != BattleEventKind.SummonAttack
-                       && events[i].Kind != BattleEventKind.EnemyTurnBegan)
-                    effects.Add(events[i++]);
-                strikes.Add((target, source, effects));
-            }
-            if (i < events.Count && events[i].Kind == BattleEventKind.EnemyTurnBegan)
-                i++; // 分隔符本身不播
-            var postRest = new List<BattleEvent>();
-            while (i < events.Count)
-                postRest.Add(events[i++]);
-
-            // 三阶段串行、阶段间留停顿(①DoT ②召唤 ③敌人反击 → ④胜利标语)。每记间隔在 ApplyBatch 内(StepGap),
-            // 此处只管阶段边界(PhaseGap)。受击致死者由 ApplyBatch 内联即时置灰+正(与致死伤害同帧,不再攒到统一节拍)。
-            yield return ApplyBatch(preRest, enemyAnchor, summonAnchor, onImpact);      // ① DoT / 全体伤害
-            if (preRest.Count > 0 && (strikes.Count > 0 || postRest.Count > 0))
-                yield return new WaitForSecondsRealtime(PhaseGap);
-            for (int k = 0; k < strikes.Count; k++)                                    // ② 召唤物逐个行动+结算
-            {
-                var from = summonAnchor?.Invoke(strikes[k].source);
-                var toRect = enemyAnchor(strikes[k].target);
-                if (from != null && toRect != null)
-                {
-                    FlyGlyph("木", Theme.ElementColor(Element.Wood), from.position, toRect.position);
-                    yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
-                }
-                yield return ApplyBatch(strikes[k].effects, enemyAnchor, summonAnchor, onImpact); // 内含 StepGap
-            }
-            if (strikes.Count > 0 && postRest.Count > 0)
-                yield return new WaitForSecondsRealtime(PhaseGap);
-            yield return ApplyBatch(postRest, enemyAnchor, summonAnchor, onImpact);     // ③ 敌人逐记反击
-            if (postRest.Count > 0)
-                yield return new WaitForSecondsRealtime(PhaseGap); // 敌方行动收尾多停一拍:看清末记掉血(如召唤物被打死 HP 归 0)再回合
+            // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
+            // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
+            // 段间停顿由 BattleView 的驱动协程控制。
+            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact);
 
             yield return new WaitForSecondsRealtime(TailGap);
-            onComplete?.Invoke();                                                       // ④ 关卡胜利标语(外层)
+            onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
         }
 
         /// <summary>结算一批事件的表现。受击致死者(紧随伤害的 EnemyDied)当帧内联:飘「正!」+ 立刻置灰,
@@ -181,6 +136,18 @@ namespace Brushblade.Presentation
                         HitFx(e.Amount);
                         onImpact?.Invoke(e);
                         serialPending = true;
+                        break;
+                    // 召唤物反击敌人:飞一记「木」字从发起召唤物(SecondIndex)砸向受击敌人(TargetIndex),
+                    // 落地才继续播后续事件(伤害走 Damage,紧随其后)。原先由 PlayRoutine 的 strikes 循环
+                    // 单独驱动,三段切分删除后(2026-08-16)搬进这里,否则召唤反击的飞字动画会随切分一起消失。
+                    case BattleEventKind.SummonAttack:
+                        var from = summonAnchor?.Invoke(e.SecondIndex);
+                        var toRect = enemyAnchor(e.TargetIndex);
+                        if (from != null && toRect != null)
+                        {
+                            FlyGlyph("木", Theme.ElementColor(Element.Wood), from.position, toRect.position);
+                            yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
+                        }
                         break;
                     case BattleEventKind.EnemyDied: // 受击致死:与刚才那记伤害同帧,飘「正!」+ 立刻置灰(分别显示)
                         var dead = enemyAnchor(e.TargetIndex);
@@ -279,6 +246,8 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.EnemyRevealed:
                         Popup("现形!", Theme.SplitBlue, enemyAnchor(e.TargetIndex));
+                        break;
+                    case BattleEventKind.ActorActed: // 段首标记,不播(2026-08-16)
                         break;
                 }
             }

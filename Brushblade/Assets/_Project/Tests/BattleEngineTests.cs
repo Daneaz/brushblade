@@ -948,21 +948,20 @@ namespace Brushblade.Core.Tests
             return engine;
         }
 
-        // 2026-08-16 CTB 改造:EnemyTurnBegan 按 spec §4.4 退役,换成逐行动者的 ActorActed
-        // 段首标记——这件事排到了 Task 16(逐格驱动 + ActorActed 接线)。这条测试守的"事件流
-        // 里恰好一条 EnemyTurnBegan"在逐格模型下已无意义,先标 Ignore,等 Task 16 改写为守
-        // ActorActed 的段首语义。
-        [Test, Ignore("ATB:等 Task 16 换 ActorActed")]
-        public void EndTurn_EnemyTurnBegan_SeparatesSummonPhaseFromEnemyPhase()
+        [Test]
+        public void AdvanceOnce_EmitsActorActedAsTheSegmentHeader()
         {
-            var engine = SummonsVsScorch();
-            engine.EndTurn();
-            var kinds = engine.LastEvents.Select(e => e.Kind).ToList();
+            // 2026-08-15 CTB 改造:原为「整个事件流里恰好一条 EnemyTurnBegan」,
+            // 现为「每个行动者的事件段以一条 ActorActed 开头」——
+            // 逐格驱动后表现层不再需要猜边界(Juice 那段三段切分随之删除)。
+            var engine = Engine(enemies: new[] { new EnemyDef("靶", Element.Heart, 999, 10) });
 
-            int split = kinds.IndexOf(BattleEventKind.EnemyTurnBegan);
-            Assert.That(kinds.Count(k => k == BattleEventKind.EnemyTurnBegan), Is.EqualTo(1));
-            Assert.That(kinds.LastIndexOf(BattleEventKind.SummonAttack), Is.LessThan(split));  // 召唤段全在前
-            Assert.That(kinds.IndexOf(BattleEventKind.SummonHit), Is.GreaterThan(split));      // 敌方段全在后
+            engine.YieldTurn();
+            engine.AdvanceOnce();
+
+            Assert.That(engine.LastEvents[0].Kind, Is.EqualTo(BattleEventKind.ActorActed));
+            Assert.That(engine.LastEvents[0].Amount, Is.EqualTo((int)ActorKind.Enemy));
+            Assert.That(engine.LastEvents[0].TargetIndex, Is.EqualTo(0));
         }
 
         [Test]
@@ -978,10 +977,19 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EndTurn_ScorchBuff_StaysInsideItsOwnStrike() // 加攻紧跟它那记伤害,不越到下一记
         {
+            // 2026-08-16 CTB 改造:原为「TakeWhile 到唯一一条 EnemyTurnBegan」,现为「找到敌方段的
+            // ActorActed 段首、取它之前的部分,再滤掉召唤段自己的 ActorActed」——因为逐格驱动后
+            // ActorActed 不再是「只在敌方段开头出现一次」的分隔符,而是每个行动者各来一条(4 只
+            // 召唤各自的批次开头也各有一条 ActorActed(Summon, i)),直接 TakeWhile(!= ActorActed)
+            // 会在第一条就截断。
             var engine = SummonsVsScorch();
             engine.EndTurn();
-            var kinds = engine.LastEvents.Select(e => e.Kind)
-                .TakeWhile(k => k != BattleEventKind.EnemyTurnBegan).ToList();
+            var all = engine.LastEvents.ToList();
+            int enemyStart = all.FindIndex(e => e.Kind == BattleEventKind.ActorActed
+                                             && e.Amount == (int)ActorKind.Enemy);
+            var kinds = all.Take(enemyStart < 0 ? all.Count : enemyStart)
+                .Where(e => e.Kind != BattleEventKind.ActorActed)
+                .Select(e => e.Kind).ToList();
             // 召唤段应为 4 组「SummonAttack, Damage, EnemyBuff」
             for (int n = 0; n < 4; n++)
             {

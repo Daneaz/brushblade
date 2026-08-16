@@ -136,8 +136,6 @@ namespace Brushblade.Core
         Summon,      // 召唤前排单位(Amount = 血量;SecondIndex = 被顶替的槽位,新增则 −1)
         SummonHit,   // 召唤物替玩家承伤(Amount = 伤害;TargetIndex = 攻击者敌人下标,驱动冲刺动效)
         SummonAttack,     // 召唤物反击敌人(TargetIndex = 敌人下标;仅驱动动效,伤害走 Damage)
-        EnemyTurnBegan, // 阶段分隔:此后为敌方行动(2026-07-27)。表现层据此切「召唤反击段 / 敌方段」——
-                        // 靠事件种类猜边界会被受击加攻之类的伴随事件带偏,已出过两次动画错乱
         EnemyBuff,   // 加攻(标点小妖给同伴 / 焦痕受击自燃;TargetIndex = 被加成的敌人)
         EnemyRevealed, // 通假字现形/生僻字被读懂(TargetIndex = 该敌人)
         BossCharging,   // Boss 进入蓄力回合(Amount = 即将释放的 BossSkill;驱动预警 UI)
@@ -152,6 +150,8 @@ namespace Brushblade.Core
         ImmunityBlocked, // 免疫挡下一记(TargetIndex = 攻击者敌人下标,Amount = 挡掉的伤害;2026-08-06)
         Missed,      // 攻击被打空(TargetIndex = 攻击者敌人下标,SecondIndex = 被打空的召唤物下标,玩家为 −1;2026-08-07)
         Detonate,    // 灼烧引爆(TargetIndex = 被引爆的敌人,Amount = 引爆伤害;2026-08-09)
+        ActorActed,  // 阶段分隔:每个行动者的事件段以此开头(TargetIndex = 行动者下标,Amount = (int)ActorKind;
+                     // 逐格驱动后表现层不再需要猜段边界,2026-08-16 换掉 EnemyTurnBegan)
     }
 
     public readonly struct BattleEvent
@@ -806,6 +806,8 @@ namespace Brushblade.Core
             }
 
             _events.Clear();
+            _events.Add(new BattleEvent(BattleEventKind.ActorActed,
+                step.Actor.Index, (int)step.Actor.Kind));
             WriteBackMeters(slots, step.Meters);
             LastActor = step.Actor;
             if (step.Actor.Kind == ActorKind.Summon) ActSummonTurn(step.Actor.Index);
