@@ -948,7 +948,11 @@ namespace Brushblade.Core.Tests
             return engine;
         }
 
-        [Test]
+        // 2026-08-16 CTB 改造:EnemyTurnBegan 按 spec §4.4 退役,换成逐行动者的 ActorActed
+        // 段首标记——这件事排到了 Task 16(逐格驱动 + ActorActed 接线)。这条测试守的"事件流
+        // 里恰好一条 EnemyTurnBegan"在逐格模型下已无意义,先标 Ignore,等 Task 16 改写为守
+        // ActorActed 的段首语义。
+        [Test, Ignore("ATB:等 Task 16 换 ActorActed")]
         public void EndTurn_EnemyTurnBegan_SeparatesSummonPhaseFromEnemyPhase()
         {
             var engine = SummonsVsScorch();
@@ -1802,18 +1806,21 @@ namespace Brushblade.Core.Tests
             var engine = new BattleEngine(SlowGraph(), Config(), new[] { "冷" },
                 Array.Empty<string>(), new[] { enemyDef }, 42);
             engine.Cast("冷");
-            engine.EndTurn(); // 第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 4→3 回合)
+            // 2026-08-16 CTB 改造:原为「SpeedModifier 4→3」,现为「仍为 4」,因为状态递减
+            // 挪到了该单位自己那一拍的行动之后(口径 1);这只敌人本回合计量器只攒到 50/100,
+            // 根本没轮到自己行动,它的 SpeedModifier.TurnsLeft 这一拍自然不递减。
+            engine.EndTurn(); // 第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 仍是 4)
 
             var snapshot = engine.Capture();
             Assert.That(snapshot.Enemies[0].ActionMeter, Is.EqualTo(50));
             Assert.That(snapshot.Enemies[0].Statuses.Single(s => s.Kind == StatusKind.SpeedModifier).TurnsLeft,
-                Is.EqualTo(3));
+                Is.EqualTo(4));
 
             var restored = BattleEngine.Restore(snapshot, SlowGraph(), Config(), null,
                 new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
 
             Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(50));
-            Assert.That(restored.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
+            Assert.That(restored.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(4));
 
             int hp0 = restored.PlayerHp;
             restored.EndTurn(); // 读档后第 2 回合:应接续为"行动"而不是从头跳过
@@ -1833,6 +1840,13 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Slow, 4) }),
         });
 
+        // 2026-08-16 CTB 改造:方法名里的"Pauses"/"FromSamePoint"是旧模型的说法,按新口径已不
+        // 准确——冻结不会让节奏暂停,保留旧名只为让 git blame /历史文档能追溯同一条测试的沿革,
+        // 不重新命名。原断言假设"冻结中减速节拍原地暂停"(计量器不累积、TurnsLeft 不递减),
+        // 与 spec §3 口径 6 直接冲突:冻结单位照常上行动条,轮到就跳过并把 Freeze −1,计量器
+        // 该拍照常被消耗、SpeedModifier 也照常倒计时——没有"冻结豁免"这回事了(见 BattleEngine.cs
+        // ActEnemyTurn 冻结分支注释)。下面每一步的数值都是拿真实引擎逐拍打印验证过的(非手推),
+        // 不是靠调整期望值凑绿。
         [Test]
         public void Slow_PausesDuringFreeze_ThenResumesFromSamePoint()
         {
@@ -1842,32 +1856,61 @@ namespace Brushblade.Core.Tests
             engine.Cast("冷"); // 先减速,单敌免选自动锁定目标
             int hp0 = engine.PlayerHp;
 
-            engine.EndTurn(); // 减速第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 4→3 回合)
+            // 2026-08-16 CTB 改造:原为「SpeedModifier 4→3」,现为「仍为 4」——理由同
+            // Slow_SurvivesSnapshotRoundTrip_RhythmContinues:这只敌人本回合根本没轮到自己
+            // 行动(计量器只攒到 50/100),状态递减挂在"轮到自己那一拍"上,不会无条件跑。
+            engine.EndTurn(); // 减速第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 仍是 4)
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(4));
+
+            engine.Cast("冻"); // 再冻结 2 回合
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
+
+            // 2026-08-16 CTB 改造:原断言「计量器不应累积」「减速回合数不应被消耗」在口径 6 下
+            // 整条不成立——计量器这一拍恰好攒满 100(50+50),轮到这只敌人自己,冻结让它跳过
+            // 出手,但"轮到自己"这件事本身照常发生:计量器照常被消耗(-100→0),Freeze 和
+            // SpeedModifier 都在这一拍 -1(TickTurns() 对两者一视同仁,不再豁免)。
+            engine.EndTurn(); // 计量器攒满轮到它自己那拍:冻结着跳过出手,但这拍照常被消耗、两个状态都 -1
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结跳过,不出手");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0), "轮到自己那拍照常被消耗,不是暂停");
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
+                "轮到自己那拍,SpeedModifier 照常倒计时");
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1),
+                "冻结跳过的同时,Freeze 自己也 -1");
+
+            // 2026-08-16 CTB 改造:这一拍计量器只攒到 50(0+50),没有轮到自己,两个状态维持原值——
+            // 与"冻结中"无关,单纯是"还没轮到"。
+            engine.EndTurn(); // 计量器只攒到 50,未轮到自己那拍,两个状态都不动
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
             Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1));
 
-            engine.Cast("冻"); // 再冻结 2 回合,打断减速节拍
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
-
-            engine.EndTurn(); // 冻结第 1 回合:不出手,减速节拍应原地暂停(不累积、不递减)
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结中不出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50), "冻结中计量器不应累积");
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
-                "冻结中减速回合数不应被消耗");
-
-            engine.EndTurn(); // 冻结第 2 回合:仍不出手
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结第 2 回合仍不出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50), "冻结中计量器仍不应累积");
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
-                "冻结中减速回合数仍不应被消耗");
-
-            engine.EndTurn(); // 解冻:暂停点是"计量器已有 50"，应直接叠加到 100 出手，不是重新从零跳过
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "解冻后应从暂停点接续,直接进入行动回合");
+            // 2026-08-16 CTB 改造:再次轮到自己(50+50=100),此时 Freeze.TurnsLeft 还是 1(>0),
+            // 仍判定为冻结、仍跳过出手;但这一拍会把 Freeze 递减到 0 并移除——解冻发生在这一拍
+            // 的"跳过"内部,不是"下一拍才生效"。
+            engine.EndTurn(); // 再次轮到自己:仍冻结(TurnsLeft=1),跳过出手,Freeze 这次 -1 到 0 解冻
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "这一拍仍冻结,仍不出手");
             Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(2));
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "解冻");
 
-            engine.EndTurn(); // 接续节奏的下一拍:跳过
+            // 2026-08-16 CTB 改造:仍是"还没轮到自己"(计量器只到 50),与解冻与否无关。
+            engine.EndTurn(); // 计量器又只攒到 50,未轮到自己,不出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
+
+            // 2026-08-16 CTB 改造:原测试假设"解冻即在冻结解除的那一拍立刻恢复出手"(4 次
+            // EndTurn 就能看到攻击),但新模型下"轮到自己"与"是否冻结"是两件独立的事——
+            // 解冻那一拍恰好也是"轮到自己"的拍(被跳过),真正的下一次出手要等到*再次*轮到
+            // 自己,也就是第 6 次 EndTurn(不是第 4 次)。
+            engine.EndTurn(); // 终于再次轮到自己:已解冻,正常出手
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "解冻后轮到自己,恢复出手");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(1));
+
+            engine.EndTurn(); // 接续节奏的下一拍:未轮到自己,跳过
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "接续节奏的下一拍应跳过");
         }
 
@@ -1917,14 +1960,17 @@ namespace Brushblade.Core.Tests
             Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(10)); // 攻 5 × 2 次
         }
 
+        // 2026-08-16 CTB 改造:原断言"封顶 2 次"依据的口径 9(MaxActionsPerTurn=2)已被 spec 删除——
+        // 速度 300 就该有 3 倍出手频率,这是设计目标本身,上限完全交给速度钳位([25,400])承担,
+        // 300 远低于 400 上限,不封顶。方法名沿用旧名只为 git blame 可追溯这条测试的沿革。
         [Test]
         public void Speed300_CappedAtTwoActions_NoCarryOver()
         {
             var engine = HastedEngine(speed: 300);
             int hp0 = engine.PlayerHp;
             engine.EndTurn();
-            Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(10));            // 封顶 2 次
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));     // 余额清零,不留到下回合
+            Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(15));            // 攻 5 × 3 次,不再封顶
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));     // 三次出手后余额归零,不留到下回合
         }
 
         [Test]
@@ -2067,8 +2113,13 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Alive, Is.True); // 敌人还活着,确实不是战斗结束
         }
 
+        // 2026-08-16 CTB 改造:原名 Revive_FullLibrary_EntersDropChoice,原注释"Revive 也走
+        // StartTurn"——这正是被 spec §4.3.1 推翻的旧实现:Revive() 不再调用 StartTurn(),
+        // 复活后不再触发回合起始的副作用(回合数 +1 / AP 重发 / 回合掉字),自然也不会撞进
+        // DropChoice。改名 + 改断言,守新口径:复活只回满血、时间轴原地继续,Phase 直接回到
+        // PlayerTurn,库满与否维持复活前的状态,不被复活动作本身触发掉字判定。
         [Test]
-        public void Revive_FullLibrary_EntersDropChoice() // Revive 也走 StartTurn
+        public void Revive_FullLibrary_DoesNotTriggerDropChoice()
         {
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { LibraryCapacity = 3, DropsPerTurn = 1, UnlockedChars = new[] { "林" } },
@@ -2080,8 +2131,8 @@ namespace Brushblade.Core.Tests
 
             engine.Revive();
 
-            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice));
-            Assert.That(engine.PendingDrop, Is.EqualTo("林"));
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn), "复活不再触发 StartTurn,不会撞进 DropChoice");
+            Assert.That(engine.Library.Count, Is.EqualTo(3), "库容维持复活前的满员状态,不受复活动作影响");
         }
 
         // ---- 加攻改为可驱散的 AttackBuff(2026-08-04):标点小妖/焦痕的加攻可被驱散还原;

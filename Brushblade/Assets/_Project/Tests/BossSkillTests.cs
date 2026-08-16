@@ -319,6 +319,13 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Ap, Is.EqualTo(2), "下回合 AP 由 3 降为 2");
         }
 
+        // 2026-08-16 CTB 改造:原断言"惩罚只吃一回合"依据的是旧时序;新模型下,倾覆挂 Seal
+        // 发生在敌方段,而玩家侧的状态递减(YieldTurn 里的 TickPlayerStatuses)已经在本轮更早
+        // 跑过——于是 Seal 要等下一轮的 YieldTurn 才第一次递减,比旧模型多续一轮。这与灼烧/
+        // 反弹等玩家侧主动挂载的状态方向相反(那些是"挂上后同一轮拍首就被结算",故变短)——
+        // 同一条因果链的镜像表现,不是两个机制(机制说明见 task-10-red-list.md,已经 controller
+        // 复核确认准确)。实测:原本"再过一回合"(第 4 轮)AP 仍是 2,要再多等一轮(第 5 轮)
+        // 才回到 3。
         [Test]
         public void ToppleApPenalty_LastsOneTurnOnly()
         {
@@ -326,8 +333,11 @@ namespace Brushblade.Core.Tests
             EndTurns(engine, 3);
             Assert.That(engine.Ap, Is.EqualTo(2));
 
-            engine.EndTurn(); // 再过一个回合
-            Assert.That(engine.Ap, Is.EqualTo(3), "惩罚只吃一回合");
+            engine.EndTurn(); // 第 4 回合:仍受罚(比旧模型多续一轮)
+            Assert.That(engine.Ap, Is.EqualTo(2), "Seal 要等下一轮 YieldTurn 才第一次递减,这一拍仍受罚");
+
+            engine.EndTurn(); // 第 5 回合:罚满解除
+            Assert.That(engine.Ap, Is.EqualTo(3), "惩罚在下一轮结束时解除");
         }
 
         [Test]

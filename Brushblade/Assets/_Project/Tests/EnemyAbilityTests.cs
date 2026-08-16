@@ -119,10 +119,15 @@ namespace Brushblade.Core.Tests
             Assert.That(regrow.Value.Amount, Is.EqualTo(300 - before));
         }
 
-        /// <summary>补全必须排在**本回合全部攻击之后**(2026-07-30 试玩)。
-        /// 原先它跟在缺笔妖自己那一记攻击后头,场上还有别的怪时就成了「打到一半血突然回了」。</summary>
+        // 2026-08-16 CTB 改造:原断言"补全必须在最后一记敌方攻击之后结算"依据的是 2026-07-30
+        // 的试玩裁定,已被 spec §3.1「本次推翻的既有裁定」明确推翻——CTB 下已无"回合末尾"
+        // 这个位置,缺笔妖补全挪到了它自己那一拍、攻击之前(spec §4.3「每个敌人那一拍」
+        // 第 3 步:先补全,第 5 步才出手)。原测试想防的"打到一半血突然回了"的手感问题,
+        // 现在反过来由"补全排在它自己出手之前"来满足——它这一下已经是用补全后的新攻击力/
+        // 新血量打的,强度上升一档(spec §3.1 已注明这是有意的代价,平衡期再调)。
+        /// <summary>补全必须排在**它自己出手之前**(spec §4.3,推翻 2026-07-30 试玩裁定)。</summary>
         [Test]
-        public void Regrow_SettlesAfterAllAttacks_NotMidwayThroughEnemyTurn()
+        public void Regrow_SettlesBeforeItsOwnAttack_NotAfterAllAttacks()
         {
             var engine = Engine(Regrower(hp: 300), Plain("木妖", hp: 200, attack: 10));
             engine.Cast("火", 0);
@@ -130,10 +135,10 @@ namespace Brushblade.Core.Tests
 
             int regrowAt = IndexOfKind(engine, BattleEventKind.Regrow);
             Assert.That(regrowAt, Is.GreaterThanOrEqualTo(0), "补全没发事件");
-            int lastAttackAt = LastIndexOfKind(engine, BattleEventKind.EnemyAttack);
-            Assert.That(lastAttackAt, Is.GreaterThanOrEqualTo(0), "这一回合应当有敌方攻击");
-            Assert.That(regrowAt, Is.GreaterThan(lastAttackAt),
-                "补全必须在最后一记敌方攻击之后结算,否则玩家看到的是打到一半血就回了");
+            int firstAttackAt = IndexOfKind(engine, BattleEventKind.EnemyAttack);
+            Assert.That(firstAttackAt, Is.GreaterThanOrEqualTo(0), "这一回合应当有敌方攻击");
+            Assert.That(regrowAt, Is.LessThan(firstAttackAt),
+                "补全排在它自己出手之前,这一下已经是用补全后的新攻击力打的");
         }
 
         /// <summary>本回合更早的时候已经被打死的,不许再补全 —— 死了还回血就成了打不死的怪。

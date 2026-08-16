@@ -328,13 +328,31 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
         }
 
+        // 2026-08-16 CTB 改造:原本"一次 EndTurn 就会再被打死"依赖旧的判负时序 bug——旧实现里
+        // 判负推迟到下一次 BeginPlayerTurn 才补判,期间会多跑一次 AdvanceOnce()(玩家已摸满、
+        // 不需要推进),顺带把玩家的计量器消费掉。新实现里 DamagePlayerDirect 扣血的那一刻
+        // 立刻标记 Phase=Lost、循环当场停止——那次"额外消费玩家计量器"的动作不会再发生,
+        // 玩家阵亡瞬间自己的计量器仍是"摸满未消费"状态。Revive() 不重置调度器(spec §4.3.1
+        // 明确要求),这个"摸满未消费"的计量器原样带进复活后的第一次 EndTurn()——YieldTurn
+        // 之后第一次 AdvanceOnce 一看玩家已摸满,不需要任何推进就直接判给玩家,于是又跑了
+        // 一次 BeginPlayerTurn()(给一轮新 AP),敌人的计量器纹丝未动,这一次 EndTurn 内
+        // 根本没机会出手。这不是 bug——玩家没死时也是同样节奏(敌人打完一拳 meter 归 0、
+        // 玩家满格→下一次 AdvanceOnce 轮到玩家);已经 controller 复核裁定为正确行为(见
+        // task-12-red-list.md),不采纳"在 Revive() 里钳位玩家计量器"的建议(那会重新引入
+        // 特例,且会让玩家白白多等本已攒满的一拍)。断言从"1 次 EndTurn"改成"再多打 1 次
+        // EndTurn"才会被 Strong 打死——多出的这一次是玩家的"复活赠送拍",敌人紧随其后的
+        // 那一拍才是真正的出手;测试真正要守的"只能复活一次"结论不变。
         [Test]
         public void Revive_OnlyOncePerRun()
         {
             var run = LostRun();
             run.TryRevive();
             run.SkipReviveReward();
-            run.Battle.EndTurn(); // 又被 Strong 打死
+
+            run.Battle.EndTurn(); // 复活赠送的这一拍:玩家计量器摸满未消费,又轮到玩家一次,敌人还没出手
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+
+            run.Battle.EndTurn(); // 这一拍敌人才真正出手,又被 Strong 打死
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Lost));
             Assert.That(run.ReviveAvailable, Is.False);
             Assert.That(run.TryRevive(), Is.False);
@@ -387,23 +405,24 @@ namespace Brushblade.Core.Tests
             Assert.That(restored.ReviveCharPicksLeft, Is.EqualTo(1));
         }
 
-        /// <summary>跨任务问题(Task 1 遗留,交给 Task 4 核实):Battle.Revive() 内部调用
-        /// StartTurn(),若字库当时已满且出阵掉字池非空,会立刻把 Battle 打进 DropChoice——
-        /// 与 RunEngine.Phase == Reviving 同时成立。这两条状态机彼此独立:Reviving 阶段结束
-        /// (无论取尽补给还是玩家 Skip)只切 RunPhase,不动 Battle;DropChoice 得靠
-        /// Battle.ResolveDrop/SkipDrop 单独解开,与 RunPhase 无关。本用例证明这条路径下 Core
-        /// 状态机不会卡死或损坏——留给 Task 5:表现层判断要不要弹「决议掉落」modal,
-        /// 必须看 Battle.Phase == DropChoice,不能只看 RunPhase(哪怕 RunPhase 已经是 Reviving)。</summary>
+        // 2026-08-16 CTB 改造:原名/原注释("跨任务问题,Task 1 遗留")依据的是 Battle.Revive()
+        // 内部调用 StartTurn() 这一旧实现——spec §4.3.1 已把这句调用整个删除("复活=满血站起来,
+        // 时间轴原地继续,不重置调度器、不跳过剩余行动者、不补任何递减"),复活因此不再触发
+        // 任何回合起始副作用(回合掉字包含在内),"复活撞库进 DropChoice"这条路径不复存在
+        // (同一因果链见 Revive_FullLibrary_DoesNotTriggerDropChoice)。这条测试原本要守护的
+        // 更深一层不变量——RunPhase 与 Battle.Phase 是两条独立状态机,表现层不能凭 RunPhase
+        // 推断 Battle 侧状态——依然成立,只是不再能用"复活撞库"这个具体场景来构造双非常态
+        // 叠加了。改名 + 改断言:验证复活后 Battle.Phase 干净地回到 PlayerTurn,库容维持
+        // 死亡前的状态,不被复活动作本身触发掉字判定。
+        /// <summary>Revive 不再触发 StartTurn,不会把 Battle 打进 DropChoice(spec §4.3.1)。</summary>
         [Test]
-        public void Revive_WithFullLibrary_LeavesBattleInDropChoice_ResolvedIndependentlyOfRunPhase()
+        public void Revive_WithFullLibrary_ReturnsBattleDirectlyToPlayerTurn()
         {
             var config = new RunConfig
             {
                 Encounters = new[] { new[] { Strong() } },
                 RewardPool = new[] { "灯", "焚", "林" },
             };
-            // 出阵掉字池非空 + 字库起手 5/6:第 1 回合(构造时 StartTurn 自动跑一次)掉 1 字正好填满
-            // 到 6/6,不撞库;死后 Revive() 再次 StartTurn 时库已经是满的,这次才会撞 DropChoice。
             var battleConfig = new BattleConfig { DropTable = new[] { "木" }, UnlockedChars = new[] { "木" } };
             var almostFullLibrary = new[] { "焚", "木", "木", "木", "木" };
             var run = new RunEngine(Graph(), config, battleConfig,
@@ -416,14 +435,12 @@ namespace Brushblade.Core.Tests
 
             Assert.That(run.TryRevive(), Is.True);
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Reviving));
-            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.DropChoice)); // 两条状态机同时非常态
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn), "Revive 不再触发 StartTurn,不会撞进 DropChoice");
+            Assert.That(run.Battle.Library.Count, Is.EqualTo(6), "库容维持复活前的满员状态,不受复活动作影响");
 
-            run.SkipReviveReward(); // 满库拿不到补给,玩家放弃剩余额度
+            run.SkipReviveReward();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
-            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.DropChoice)); // Battle 侧原样卡住,不受影响
-
-            Assert.That(run.Battle.ResolveDrop(0), Is.EqualTo(BattleError.None)); // 与 RunPhase 无关,能独立解开
-            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn)); // Battle 侧不受 RunPhase 切换影响
         }
 
         [Test]

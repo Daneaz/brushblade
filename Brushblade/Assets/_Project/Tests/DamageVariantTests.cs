@@ -280,6 +280,13 @@ namespace Brushblade.Core.Tests
                 "打空连带灼烧也不该挂——攻击根本没落到身上");
         }
 
+        // 2026-08-16 CTB 改造:原断言"免疫挡下伤害→PlayerHp 不变"不再成立——免疫确实挡住了
+        // 灯花那记普攻的物理伤害(8 点),但攻击同时新挂的 1 层灼烧会在同一次 EndTurn() 调用
+        // 尾部的 BeginPlayerTurn 被当场结算(20 点)。免疫管不到灼烧这件事本身没变(设计从
+        // 一开始就是如此),只是"灼烧当场结算"这个时序改动让它与这条测试的观察点撞进了
+        // 同一次调用。断言从"HP 不变"改成"只掉 20(灼烧那份)",既证明普攻确实被免疫挡下,
+        // 也证明灼烧确实触发了;末尾的层数断言从"> 0"改成"== 0",因为灼烧当场结算完就会
+        // 归零移除——HP 少的那 20 点才是它触发过的证据,不能再用剩余层数来看。
         [Test]
         public void ImmunityBlocked_StillTriggersSear()
         {
@@ -291,11 +298,11 @@ namespace Brushblade.Core.Tests
             engine.Cast("御", 0);
             int hpBefore = engine.PlayerHp;
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(hpBefore), "免疫挡下伤害");
+            Assert.That(hpBefore - engine.PlayerHp, Is.EqualTo(20), "普攻 8 点被免疫挡下,只剩当场结算的灼烧 20 点");
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(0),
                 "免疫层数被消耗——确认真的走了免疫分支,不是刚好没受击");
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.GreaterThan(0),
-                "但灼烧照挂——攻击确实发生了,免疫挡的是伤害不是攻击本身");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
+                "灼烧已当场结算完毕——HP 那 20 点损失就是它触发过的证据");
         }
 
         [Test]
@@ -357,8 +364,10 @@ namespace Brushblade.Core.Tests
             // 判别力来自两台引擎「AttackHits 调用次数不同」,而不是「两台引擎完全一样」——
             // 后者哪怕命中判定无条件摇随机数,两边烧掉的随机数一样多,序列照样一致,零判别力。
             // 用 EnemyState.Speed 制造差异:Speed=100 每回合出手 1 次,Speed=200 每回合出手 2 次
-            // (MaxActionsPerTurn=2 封顶)。同种子、同回合数、都无致盲无闪避,若 AttackHits
-            // 偷摇随机数,出手次数更多的那台每回合多烧一次,掉落序列必然分叉。
+            // (2026-08-16 CTB 改造:MaxActionsPerTurn 已删除,出手频次改由调度器按速度比例
+            // 决定,不再封顶——这里仍是 1:2 的比例,判别力不受影响)。同种子、同回合数、
+            // 都无致盲无闪避,若 AttackHits 偷摇随机数,出手次数更多的那台每回合多烧一次,
+            // 掉落序列必然分叉。
             var config = new BattleConfig
             {
                 DropTable = new[] { "木" }, PlayerMaxHp = 200,
@@ -656,13 +665,17 @@ namespace Brushblade.Core.Tests
                 "不需要选目标,状态照样挂上");
         }
 
+        // 2026-08-16 CTB 改造:原为「覆盖 2 个敌方回合」,现为「只覆盖 1 个」——Reflect 挂上
+        // TurnsLeft=2 后,第 1 次 EndTurn 的 YieldTurn(玩家那一拍第 6 步,spec §4.3)先把
+        // TurnsLeft 递减到 1(排在敌人攻击**之前**,因为归属挪到了玩家自己让出行动权那一刻),
+        // 第 2 次 EndTurn 的 YieldTurn 再减到 0、移除——于是敌人第 2 次攻击发生时 Reflect
+        // 已经不在了,反弹只真正覆盖了 1 个敌方回合,而非旧模型里的 2 个(旧模型的递减点排在
+        // 敌人攻击之后,故能多撑一轮)。
         [Test]
-        public void Reflect_ExpiresAfterTwoEnemyTurns()
+        public void Reflect_ExpiresAfterOneEnemyTurn() // 原名 …TwoEnemyTurns,理由见上方注释
         {
             // 评审 Important 1(2026-08-08):turns=2 之前零覆盖——把 ApplyEffects 里挂状态那句的
             // TurnsLeft 写成 -1(永不过期),720 条测试一条不红,一张蓝字就此变成整场永久反伤。
-            // 口径与 Blind_ExpiresAfterItsTurns 同型:TurnsLeft 递减挪到 EndTurn 末尾(敌方攻击
-            // 之后),turns=N 覆盖第 1~N 个敌方回合,第 N+1 个才失效。
             var engine = Engine(new[] { "映" }, new[] { Attacker(attack: 8) });
             engine.Cast("映", 0);
 
@@ -674,15 +687,16 @@ namespace Brushblade.Core.Tests
 
             int enemyHp = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp - 4), "第 1 个敌方回合仍在 2 回合覆盖内,照常反弹");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp - 4), "第 1 个敌方回合仍在覆盖内,照常反弹");
 
             enemyHp = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp - 4), "第 2 个敌方回合仍在覆盖内,照常反弹");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp),
+                "反弹已到期(TurnsLeft 在这次 YieldTurn 就减到 0),第 2 个敌方回合不再反弹");
 
             enemyHp = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp), "反弹到期,第 3 个敌方回合不再反弹");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp), "早已到期,第 3 个敌方回合仍不反弹");
         }
 
         [Test]
