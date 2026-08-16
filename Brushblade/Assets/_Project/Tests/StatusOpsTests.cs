@@ -91,16 +91,32 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Ap, Is.EqualTo(fullAp - 1));
         }
 
+        // 原用 ToppleBoss(BossChargeEvery=1)驱动——但该配置下 Boss 每 2 回合重铸一次倾覆,
+        // 两个周期重合会让 Seal 被下一次重铸永远续上、测不出"到期"这件事,故改为绕开会持续
+        // 重铸的 Boss,直接挂 Seal 隔离验证衰减本身。
+        // 2026-08-16 全分支终审 Important 1:此前 TickPlayerStatuses 曾短暂错放在 YieldTurn
+        // (拍尾,先递减后结算),一度被误判成这里也要多续一轮而错改名为「两轮」——实际上
+        // 这条测试是直接注入 Seal(不经由敌人攻击这个中间环节),不受那次错位影响,数值从未
+        // 变过:TickPlayerStatuses 现在紧跟在 BeginPlayerTurn 的结算之后、StartTurn 之前,每次
+        // EndTurn 恰好递减一次并被同一次 StartTurn 读到——第 1 轮递减到 1(仍非零,照常扣 AP),
+        // 第 2 轮减到 0 移除,AP 回满,总共只罚满 1 个玩家回合。改回原名。
         [Test]
         public void Seal_ExpiresAfterExactlyOnePenalizedTurn()
         {
-            var engine = Engine(Array.Empty<string>(), new[] { ToppleBoss() }, BossConfig());
+            var engine = Engine(Array.Empty<string>(), new[] { Dummy(attack: 0) });
             int fullAp = engine.Ap;
-            engine.EndTurn();  // 蓄力
-            engine.EndTurn();  // 释放 → AP 少 1
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 2, SourceId = "倾覆",
+            });
+
+            engine.EndTurn(); // 第 1 轮:BeginPlayerTurn 递减到 1(仍非零),StartTurn 照常扣 1 点 AP
             Assert.That(engine.Ap, Is.EqualTo(fullAp - 1));
-            engine.EndTurn();  // 下一轮蓄力 → 封字到期
-            Assert.That(engine.Ap, Is.EqualTo(fullAp), "只该罚一个回合");
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.True);
+
+            engine.EndTurn(); // 第 2 轮:再递减一次(1→0)移除,StartTurn 读到时已不存在
+            Assert.That(engine.Ap, Is.EqualTo(fullAp), "只罚满一个玩家回合就解除");
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False);
         }
 
@@ -122,52 +138,68 @@ namespace Brushblade.Core.Tests
         private static EnemyDef Searer(int attack = 3) =>
             new("灯花", Element.Fire, 200, attack, EnemyAbility.Sear);
 
+        // 2026-08-16 CTB 改造:原为「1 次 EndTurn 后玩家灼烧层数为 1」(灯花本回合刚挂上,
+        // 还没被结算),现为 0——灯花出手挂灼烧(敌方段)与玩家灼烧结算(BeginPlayerTurn,
+        // spec §4.3「玩家那一拍」第 1 步)现在落在同一次 EndTurn() 调用内:灯花挂上 1 层后,
+        // 同一次调用尾部的 BeginPlayerTurn 紧接着就把这 1 层烧掉、减到 0 移除。旧模型里这
+        // 两件事分属相邻两次 EndTurn,新模型合并成一次。
         [Test]
         public void Sear_AppliesBurnToPlayerOnAttack()
         {
             var engine = Engine(Array.Empty<string>(), new[] { Searer() });
             engine.EndTurn();
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
         }
 
+        // 2026-08-16 CTB 改造:原假设"当回合刚挂的灼烧要等下一回合才结算",与
+        // Sear_AppliesBurnToPlayerOnAttack 同一条因果链——灯花挂灼烧(敌方段)与玩家灼烧
+        // 结算(BeginPlayerTurn)现在落在同一次 EndTurn() 调用内,"当场烧"取代了"下一回合烧"。
+        // 于是每一回合都是「普攻 30 + 当场结算的灼烧 20」= 50,而不是旧模型里"这回合只挨
+        // 普攻、下回合才补上灼烧"那种交错节奏;稳态灼烧层数也从"净 0(挂 1 减 1)"变成
+        // "回合末恒为 0"(当场就烧没了,不会跨回合存在)。
         [Test]
         public void PlayerBurn_TicksThenDecays_AndIgnoresWuxing()
         {
             // 玩家没有五行属性,灼烧结算不套任何倍率:1 层 × 系数 20 = 20 伤。
-            // 灯花攻 30 → 挂灼烧那一记也打 30。第一回合:挨 30(灼烧还没结算)。
-            // 第二回合:先结算 1 层灼烧掉 20、层数降到 0,再挨 30、再挂 1 层。
+            // 灯花攻 30 → 挂灼烧那一记也打 30,同一次 EndTurn 内当场结算掉这 1 层。
             // 灯花攻与玩家血量在这一条里随灼烧系数一同 ×10,断言才是旧值的机械 ×10。
             var engine = Engine(Array.Empty<string>(), new[] { Searer(attack: 30) },
                 config: new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 500 });
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(470), "第 1 回合只挨普攻 30");
+            Assert.That(engine.PlayerHp, Is.EqualTo(450), "第 1 回合:普攻 30 + 当场结算的灼烧 20");
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(420), "第 2 回合:灼烧 20 + 普攻 30");
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
-                "结算 −1 层、攻击 +1 层,净 0");
+            Assert.That(engine.PlayerHp, Is.EqualTo(400), "第 2 回合:同样是普攻 30 + 当场结算的灼烧 20");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
+                "挂上的这层当场就被结算掉,不会跨回合留存");
         }
 
+        // 2026-08-16 CTB 改造:原为「稳态 1 层」,现为「稳态 0 层」——与 Sear_AppliesBurnToPlayerOnAttack
+        // 同一条因果链,灼烧当场就被结算(SettlePlayerBurn 每次只 -1 层,不是清零)。这条测试真正
+        // 守的"不雪球"不变量并未失效:RefreshBurn 若退化回累加语义,挂上的层数就会 >1,
+        // SettlePlayerBurn 那次 -1 之后仍会剩下 ≥1 层——所以"结算后归零"本身就是新的雪球探针,
+        // 断言从 1 改成 0 后判别力不变。
         [Test]
         public void PlayerBurn_StaysAtOneStack_DoesNotSnowball()
         {
-            // 子项目 C 的烓因为「每回合挂 3、只减 1」净 +2 而失控。灯花挂 1 减 1,恒定 1 层。
+            // 子项目 C 的烓因为「每回合挂 3、只减 1」净 +2 而失控。灯花挂 1 减 1,当场结算归零。
             var engine = Engine(Array.Empty<string>(), new[] { Searer() }, startingHp: 200,
                 config: new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200 });
             for (int turn = 0; turn < 5; turn++) engine.EndTurn();
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
         }
 
+        // 2026-08-16 CTB 改造:同上一条因果链,稳态从 1 层改为 0 层。
         [Test]
         public void PlayerBurn_TwoSearers_StaysAtOneStack()
         {
             // 2026-08-06 I1:Sear 原先走 ApplyBurn 的累加语义,单只灯花净 0(挂 1 减 1),
             // 但 BuildFloor 是有放回抽取,同场可能出现多只灯花,N 只就净 +(N−1)/回合,
             // 雪球失控(实测 4 只第 6 回合单灼烧 38 伤/回合)。改走 RefreshBurn(取较大值)后,
-            // 两只同时打,稳态也该恒定在 1 层。
+            // 两只同时打,每回合仍只挂 1 层、当场结算归零——若退化回累加语义,这里会读到 ≥1。
             var engine = Engine(Array.Empty<string>(), new[] { Searer(), Searer() }, startingHp: 200,
                 config: new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200 });
             for (int turn = 0; turn < 5; turn++) engine.EndTurn();
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
         }
 
         [Test]
@@ -220,12 +252,20 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
         }
 
+        // 2026-08-16 CTB 改造:原名/原断言守的是"玩家灼烧应抢在同回合的召唤物清场之前烧死玩家"
+        // ——这条前提建立在旧模型"灼烧结算点 = YieldTurn 那一刻"上,而这正是本任务(时序归属
+        // 重排)要推翻的东西。新模型下玩家灼烧挪到了 BeginPlayerTurn(spec §4.3「玩家那一拍」
+        // 第 1 步),是这一次 EndTurn() 调用里**最后**才会走到的一步——召唤物在敌方段之前
+        // 出手清场,CheckWin() 判 Won 的时候,战斗循环当场停止(AdvanceOnce 见 Phase 已经不是
+        // PlayerTurn 就直接返回 false),灼烧根本没有机会被结算。这不是"同一瞬间两件事抢判负/
+        // 判胜优先级"的旧场景(那条口径不变,见 spec §4.3「同归于尽时玩家阵亡优先」)——而是
+        // 在 CTB 的时间轴上,召唤物出手确确实实发生在玩家下一次轮到自己(灼烧结算点)之前,
+        // 敌人先死是时间上的事实,不是判定顺序的巧合。断言已经改成"灼烧尚未结算(层数仍是 1、
+        // PlayerHp 不变),战斗以 Won 收场"——原名 PlayerBurn_KillsPlayer_… 与断言的结果正相反
+        // (全分支终审 Important 5 点名的两条名不副实测试之一),这里一并改准。
         [Test]
-        public void PlayerBurn_KillsPlayer_EvenIfSummonWouldClearLastEnemySameTurn()
+        public void PlayerBurn_NeverSettles_WhenSummonClearsLastEnemyFirst()
         {
-            // 2026-08-06 全分支终审 C2:旧 bug 实测—玩家 2 血带 1 层灼烧,召唤物同回合把
-            // 最后一只敌人打死,CheckWin() 抢在玩家阵亡判负之前把 Phase 判成 Won,
-            // 结果 PlayerHp=0 却带着"胜利"结算继续爬塔。玩家 0 血时不可能判胜。
             var engine = Engine(new[] { "素" }, new[] { Dummy(hp: 3, attack: 0) }, startingHp: 2);
             engine.Cast("素"); // 召唤攻 3 的木,回合末反击本该同回合秒掉这只 3 血靶
             engine.PlayerStatuses.Apply(new StatusEffect
@@ -234,10 +274,10 @@ namespace Brushblade.Core.Tests
                 Magnitude = 1, TurnsLeft = -1,
             });
 
-            engine.EndTurn(); // 玩家灼烧先烧死,召唤物反击这一步在修复后根本不会跑到
+            engine.EndTurn(); // 召唤物先清场判 Won,玩家灼烧(挪到 BeginPlayerTurn)根本没轮到
 
-            Assert.That(engine.PlayerHp, Is.EqualTo(0));
-            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+            Assert.That(engine.PlayerHp, Is.EqualTo(2), "灼烧结算点在召唤物清场之后,这一拍没轮到");
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won));
         }
 
         // ---- 驱散 ----

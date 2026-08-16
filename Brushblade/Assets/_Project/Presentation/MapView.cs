@@ -98,7 +98,7 @@ namespace Brushblade.Presentation
             var stats = MetaRules.BuildBattleConfig(_meta, _campaign.DropTable);
             Ui.ThemedLabel(header.transform,
                 $"经验 {_meta.CharacterXp}    HP 上限 {stats.PlayerMaxHp}    攻击 {stats.PlayerAttack}"
-                + $"    护甲 {stats.PlayerDefense}    闪避 {stats.PlayerDodge}%", 20, Theme.TextDim);
+                + $"    护甲 {stats.PlayerDefense}    闪避 {stats.PlayerDodge}%    速度 {stats.PlayerSpeed}", 20, Theme.TextDim);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
             var collectionButton = Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
                 Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);

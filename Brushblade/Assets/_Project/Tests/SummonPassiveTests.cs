@@ -247,37 +247,46 @@ namespace Brushblade.Core.Tests
 
         // ---- 出手附带效果 ----
 
+        // 2026-08-16 CTB 改造:原为「施放当回合灼烧层数为 2」,现为 1——召唤物在 CTB 调度里的
+        // 优先级(0)比敌人(2)高,同速时几乎总是先出手;这只敌人紧接着在同一次 EndTurn() 内
+        // 轮到自己,把召唤物刚挂上的灼烧当场结算掉 1 层(SettleBurnOn 每次只 -1)。旧模型下
+        // 全场敌人的灼烧结算集中在 YieldTurn 一开始跑完,召唤物这回合刚挂的新灼烧要等下一次
+        // EndTurn 才会被吃 tick;新模型下每个敌人只在轮到自己时结算,顺序因此提前(见
+        // task-8-red-list.md,已经 controller 复核确认)。
         [Test]
         public void OnHitBurn_ZeroAttackSummon_StillAppliesBurn()
         {
             // 灶 攻 0:出手循环不能因为 Attack <= 0 提前返回,否则它一点输出都没有
             var engine = Engine(new[] { "焰" }, new[] { Dummy(hp: 200) });
             engine.Cast("焰");
-            engine.EndTurn(); // 召唤物出手挂灼烧;本回合的灼烧结算段排在召唤段之前,故这层还没吃 tick
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
+            engine.EndTurn(); // 召唤物出手挂灼烧;这只敌人紧接着在同一次 EndTurn 内轮到自己,当场结算掉 1 层
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
             int before = engine.Enemies[0].Hp;
             engine.EndTurn(); // 下一次结算:灼烧照常在这里掉血
             Assert.That(engine.Enemies[0].Hp, Is.LessThan(before), "灼烧照常在下一次结算掉血");
         }
 
+        // 2026-08-16 CTB 改造:同上一条因果链——单体灼烧只有 1 层,当场就被结算到 0。
         [Test]
         public void OnHitBurn_SingleTarget_OnlyBurnsTheOneItHit()
         {
             var engine = Engine(new[] { "燎" }, new[] { Dummy(hp: 200), Dummy(hp: 200) });
             engine.Cast("燎");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
             Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
         }
 
+        // 2026-08-16 CTB 改造:原为「施放当回合灼烧层数为 3」,现为 2——同上一条因果链,
+        // 两只敌人都在召唤物出手后的同一次 EndTurn 内轮到自己,各自当场结算掉 1 层。
         [Test]
         public void OnHitBurnAll_BurnsEveryLivingEnemy()
         {
             var engine = Engine(new[] { "炬" }, new[] { Dummy(hp: 200), Dummy(hp: 200) });
             engine.Cast("炬");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
-            Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
+            Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
         }
 
         [Test]
@@ -336,20 +345,25 @@ namespace Brushblade.Core.Tests
 
         // ---- 光环灼烧:刷新到 N 层,不是累加(2026-08-06 I1) ----
 
+        // 2026-08-16 CTB 改造:原为「稳态 3 层」,现为「稳态 2 层」——与 OnHitBurnAll_BurnsEveryLivingEnemy
+        // 同一条因果链:召唤物在 CTB 调度里的优先级(0)比敌人(2)高,同速时先出手;这只敌人
+        // 紧接着在同一次 EndTurn() 内轮到自己,把召唤物刚刷新到的 3 层当场结算掉 1 层
+        // (SettleBurnOn 每次只 -1,不是清零),稳态从 3 变成 2。不影响本条真正要守的"不雪球"
+        // 不变量:若 RefreshBurn 退化回累加语义,层数会一路涨过 2,而不是稳稳停在 2。
         [Test]
         public void OnHitBurnAll_RepeatedAcrossTurns_DoesNotAccumulate()
         {
-            // 烓(炬)连续 3 个回合出手,层数该稳定在 3,不该像 ApplyBurn 那样每回合净 +2
-            // (挂 3、衰减 1)一路涨上去 —— 这正是本轮修复要堵的失控口子。
+            // 烓(炬)连续 3 个回合出手,层数该稳定在 2,不该像 ApplyBurn 那样一路涨上去
+            // —— 这正是本轮修复要堵的失控口子。
             var engine = Engine(new[] { "炬" }, new[] { Dummy(hp: 500) });
             engine.Cast("炬");
 
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3), "第 1 回合刷新到 3 层");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2), "第 1 回合刷新到 3 层,当场结算掉 1 层,剩 2");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3), "第 2 回合仍是 3,不叠成 5");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2), "第 2 回合仍是 2,不继续涨");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3), "第 3 回合仍是 3");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2), "第 3 回合仍是 2");
         }
 
         [Test]

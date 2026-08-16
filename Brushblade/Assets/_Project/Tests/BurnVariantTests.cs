@@ -294,47 +294,42 @@ namespace Brushblade.Core.Tests
             Assert.That(restored.Enemies[0].Hp, Is.EqualTo(before - 40));
         }
 
+        // 2026-08-16 CTB 改造:原本"第 1 个 EndTurn 后玩家灼烧 = 1"依据的是旧模型"结算点要等
+        // 下一次 EndTurn 才轮到"的节奏——与 Sear_AppliesBurnToPlayerOnAttack 同一条因果链:
+        // 新模型下灯花挂灼烧(敌方段)与玩家灼烧结算(BeginPlayerTurn)落在同一次 EndTurn()
+        // 调用内,当场就烧没了,稳态从"1"变成"每回合结算后归 0"。这不影响本条真正要守的
+        // 东西:如果"不灭"错误地也套用到玩家灼烧那一段,结算时的 -1 就会被跳过,层数不会
+        // 掉到 0——断言从"稳态=1"改成"每回合结算后=0",判别力不变(依旧能抓住"不灭错误
+        // 绑到玩家灼烧"这个变异)。
         [Test]
         public void NoDecay_DoesNotAffectPlayerOwnBurn()
         {
             // 炑 是玩家出的牌,没有理由让自己身上的灼烧也不衰减。
             // 灯花(Sear)每次攻击给玩家挂 1 层,玩家灼烧走 _playerStatuses,是另一段结算。
-            //
-            // 期望值推演(EndTurn 顺序:敌人灼烧 → 玩家灼烧 → …… → 敌方行动):
-            // 第 1 个 EndTurn:敌人灼烧段结算 0 号(不灭,层数不掉);玩家灼烧段此时玩家
-            //   还没有灼烧(Cast 只烧了敌人),跳过;到敌方行动段,灯花攻击命中,
-            //   RefreshBurn(_playerStatuses, 1) 把玩家灼烧从 0 刷新到 max(0,1)=1。
-            //   → 断言 1:玩家灼烧 = 1。
-            // 第 2 个 EndTurn:玩家灼烧段先结算——层数 1 × 系数 2 = 2 点伤害,然后 1 层
-            //   自减到 0 被移除(这段不受敌人的 BurnNoDecay 影响,炑 挂在敌人身上,
-            //   与 _playerStatuses 无关);紧接着到敌方行动段,灯花又攻击一次,
-            //   RefreshBurn(_playerStatuses, 1) 把玩家灼烧从 0 刷新回 1。
-            //   → 断言 2:玩家灼烧仍是 1(先掉到 0 又被灯花补上,不是「因为敌人不灭而堆积」)。
             var engine = Engine(new[] { "燋" },
                 new[] { new EnemyDef("灯", Element.Heart, 3000, 0, EnemyAbility.Sear) });
             engine.Cast("燋", 0);
-            engine.EndTurn();                       // 灯花出手 → 玩家挂 1 层
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
-            engine.EndTurn();                       // 玩家灼烧结算 → 该减到 0(灯花又补 1 层)
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1),
-                "本条只钉灯花刷新的稳态 = 1;『衰减这一步真的跑了』由 " +
+            engine.EndTurn();                       // 灯花出手挂 1 层,同一拍内当场结算掉
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
+            engine.EndTurn();                       // 灯花再挂 1 层,再次当场结算——不受敌人的不灭影响
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0),
+                "本条只钉『不灭不该绑到玩家灼烧』;衰减本身独立于灯花的验证由 " +
                 "NoDecay_PlayerBurnActuallyReachesZero_WhenSearIsSilenced 守,别删那条");
         }
 
+        // 2026-08-16 CTB 改造:原本这条测试要"让灯花闭嘴"才能看清衰减独立于刷新——因为旧
+        // 模型下灯花每回合都把玩家灼烧刷新回 1,不闭嘴就没法把"稳态卡在 1"和"衰减没跑"
+        // 两种情况分开。新模型下灼烧当场结算(见上一条),两个版本已经不会撞车了(是否闭嘴
+        // 都读 0),这条测试的"必须闭嘴才能分辨"这一原始动机随之消失。保留这条测试是因为它
+        // 仍覆盖一个合法场景(战斗中途沉默施法者、验证玩家灼烧确实清零),断言按新数值更新。
         [Test]
         public void NoDecay_PlayerBurnActuallyReachesZero_WhenSearIsSilenced()
         {
-            // 变异验证补丁:上面那条 NoDecay_DoesNotAffectPlayerOwnBurn 有个死角——
-            // RefreshBurn 是 Math.Max(current, 1) 语义,灯花每回合都把玩家灼烧刷新回 1,
-            // 于是「误把不灭也套用到玩家灼烧那一段」这个变异,最终层数照样停在 1,
-            // 两个版本的断言 100% 撞车,测试杀不掉这处变异(已用真实变异跑过一遍验证)。
-            // 这里让灯花闭嘴,不再有人刷新玩家灼烧,才能看清「层数会不会正常掉到 0」
-            // 这件独立于灯花的事——如果不灭错误地也挡住了玩家灼烧的衰减,这里会停在 1。
             var engine = Engine(new[] { "燋", "噤" },
                 new[] { new EnemyDef("灯", Element.Heart, 3000, 0, EnemyAbility.Sear) });
             engine.Cast("燋", 0);                    // 敌人挂 2 层灼烧 + 不灭
-            engine.EndTurn();                        // 灯花出手 → 玩家挂 1 层
-            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1));
+            engine.EndTurn();                        // 灯花出手挂 1 层,同一拍内当场结算掉
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
 
             engine.Cast("噤", 0);                     // 沉默灯花,下回合它不再刷新玩家灼烧
             engine.EndTurn();                        // 玩家灼烧独立衰减:1 − 1 = 0,被移除

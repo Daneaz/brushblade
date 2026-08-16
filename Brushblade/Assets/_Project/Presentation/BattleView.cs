@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Brushblade.Core;
 using UnityEngine;
@@ -50,6 +51,7 @@ namespace Brushblade.Presentation
 
         // 容器
         private Transform _enemyRow;
+        private TurnBar _turnBar;   // 顶部行动条(2026-08-15,ATB 改造):自管锚点与 chip 生死
         private Transform _summonRow;    // 我方前排召唤物:夹在敌我血条之间
         private Transform _topLeft, _topRight, _bottomRow;
         private Transform _statusRow;    // 教程提示/奇遇文案(结束回合钮 2026-07-21 已移出)
@@ -316,10 +318,19 @@ namespace Brushblade.Presentation
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
+            // 行动条(2026-08-15/16,ATB 改造):夹在战况文案与敌人区之间,0.855-0.900(约
+            // 40.5px)。这条带原本不存在——敌人区顶部从 0.898 下压到 0.850 腾出来的,拍板见
+            // task-18-report:压 messageGo 会截断 Boss 播报,压 topBar 高度不够,只有敌人区
+            // 「有余量可让」。TurnBar 自己内部做 Anchor(Build 内),这里只建组件、挂一次。
+            _turnBar = gameObject.AddComponent<TurnBar>();
+            _turnBar.Build(transform);
+
             // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
             // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
             // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
-            _enemyRow = MakeSection("Enemies", 0.640f, 0.898f);  // 232px = 格高 232(2026-08-11 为 chip 第二行向下吃 7px)
+            // 2026-08-16:上边界从 0.898 降到 0.850(格高 232→189px),给行动条让出 4.8% 屏高
+            // (拍板见 task-18-report——敌人区本身还有余量,messageGo/topBar 没有)。
+            _enemyRow = MakeSection("Enemies", 0.640f, 0.850f);  // 189px(原 232px)
             // ⚠ 72px 装不下召唤物格:方块 50 + 血条 15 + 攻力行 ≈ 80,带「盾」或被动标签是 94/108。
             // 这不是本次改动造成的 —— 原 79px 同样装不下(旧注释只算了三项的标称值,漏了行高与可选行),
             // 本次是让既有溢出再多 3.5px/边。HorizontalLayoutGroup 居中溢出,视觉上是上下各多探出一点。
@@ -390,6 +401,21 @@ namespace Brushblade.Presentation
             // 战利品阶段结束(不论选完、跳过还是引擎自动开拔)→ 本层记账落盘,挂起不丢收益
             if (_lastPhase == RunPhase.Reward && _run.Phase != RunPhase.Reward)
                 _onFloorCleared?.Invoke();
+
+            // 复活补给阶段结束的一次性检测(2026-08-16 全分支终审 Important 2):TryRevive() 只把
+            // PlayerHp 回满、Battle.Phase 置回 PlayerTurn,并不会补跑 BeginPlayerTurn——时间轴上
+            // 满格未动的敌人(调度优先级 1/2,高于玩家的 3)本该先补完它们那一拍,否则玩家会
+            // 直接拿到一个 AP 还停在死亡时余额(几乎恒为 0)、Turn 没 +1、也没掉字的"幽灵回合"。
+            // 三条退出路径都要覆盖,故分两半检测,缺一个都会漏:
+            // (a) 補给挑完/主动跳过——SkipReviveReward()/PickReviveChar(Replacing) 的
+            //     MaybeFinishRevive() 在调用方那边(供给弹窗的按钮回调)已经把 Phase 改成
+            //     InBattle,才调这次 Refresh()——本次入口时 _run.Phase 已经不是 Reviving 了,
+            //     只有上一次 Refresh 收尾时存的 _lastPhase 还留着 Reviving,靠它才追得到;
+            // (b) 奖励池为空:TryRevive() 刚把 Phase 设成 Reviving,本次 Refresh 入口时还是
+            //     Reviving,但下面几行的收尾检查会在**本次调用内**就把它翻回 InBattle——
+            //     _lastPhase 那时记的还是战斗结算前的旧值,追不到这种"进也是这次、出也是
+            //     这次"的瞬间转换,得在收尾检查跑完之后再看一眼当前 _run.Phase 才抓得到。
+            bool enteredReviving = _lastPhase == RunPhase.Reviving || _run.Phase == RunPhase.Reviving;
             _lastPhase = _run.Phase;
 
             // 复活补给额度取尽或候选枯竭 → 收尾。
@@ -398,6 +424,19 @@ namespace Brushblade.Presentation
             if (_run.Phase == RunPhase.Reviving
                 && !(_run.ReviveCharPicksLeft > 0 && _run.RewardOptions.Count > 0))
                 _run.SkipReviveReward();
+
+            if (enteredReviving && _run.Phase == RunPhase.InBattle && !Animating)
+            {
+                // 复活流程刚结束(三条出口任一条),接着跑被打断的循环:满格未动的敌人先补完
+                // 那一拍,调度器随后自然轮到玩家(BeginPlayerTurn 发 AP、Turn+1、掉字)。
+                // 不补 YieldTurn()——玩家是在上一拍被打死的,那一拍早就让过了,回头再补一次
+                // 只会像 Revive() 生产代码修之前那样多跑一次玩家侧状态递减。
+                // 这是一次性转换(_lastPhase 已在上面改成 InBattle),AdvanceRoutine 内部会
+                // 反复自己调 Refresh() 把后续帧画出来,本帧不再往下走完整的 switch 绘制。
+                BeginAnim();
+                StartCoroutine(AdvanceRoutine());
+                return;
+            }
 
             if (_run.Phase == RunPhase.InBattle && _run.BattleIndex != _lastBattleIndex)
             {
@@ -477,6 +516,12 @@ namespace Brushblade.Presentation
             if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
             SaveProgressIfChanged();
+            // 只在真正的战斗阶段画行动条(2026-08-16 全分支终审):RunPhase.Reward/Event/
+            // Reviving/RunEnd 这些阶段没有别的东西盖住行动条那条带(0.855–0.900)。
+            // ⚠ 不能简单地跳过这次调用——TurnBar.Refresh 是"先销毁旧 chip 再按传入的 battle
+            // 重画"，跳过调用只会把上一场战斗的 chip 冻结在屏幕上,不会清掉。非战斗阶段传 null,
+            // 复用 Refresh 里"battle == null 则只销毁不重画"的既有分支,把行动条真正清空。
+            _turnBar.Refresh(_run.Phase == RunPhase.InBattle ? Battle : null);
         }
 
         private string _savedFingerprint; // 上次落盘时的进度指纹
@@ -646,6 +691,13 @@ namespace Brushblade.Presentation
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"闪避 {Battle.EffectiveDodge}%", Theme.Jade, Color.white, 12);
+            }
+            // 速度(2026-08-15,ATB 改造):基准恒 100,只在偏离基准时出 chip —— 与暴击同一个
+            // 取舍(暴击基准恒 0 所以不上养成界面,改由局内出 chip),避免恒定写「速度 100」占版面。
+            if (Battle.EffectivePlayerSpeed != 100)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"速度 {Battle.EffectivePlayerSpeed}", Theme.Jade, Color.white, 12);
             }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
@@ -2080,16 +2132,53 @@ namespace Brushblade.Presentation
 
         private void OnEndTurn()
         {
-            SnapshotPreHp(); // 出手前血量:敌方攻击触达才逐记扣血
-            Battle.EndTurn();
-            _tutorial?.Notify(TutorialAction.EndTurn);
-            _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "";
-            AppendBossSkillMessage(); // 蓄力/释放/护盾被掀空都发生在敌方回合结算(EndTurn),不是出字动作里
-            var deaths = DeathsThisAction();
-            _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
-            BeginAnim(); // 锁输入:召唤/敌方行动期间不许出字,须在重绘前置位
+            if (Battle.Phase != BattlePhase.PlayerTurn) return;
+            BeginAnim();               // 锁输入:整段推进期间不许出字,须在重绘前置位
             CancelSelection();
-            PlayAnimated(Battle.LastEvents, deaths);
+            Battle.YieldTurn();
+            _tutorial?.Notify(TutorialAction.EndTurn);
+            StartCoroutine(AdvanceRoutine());
+        }
+
+        /// <summary>逐格推进(2026-08-15 ATB 改造):一次 AdvanceOnce 播一个行动者的动画,原先是
+        /// 一次 EndTurn 拿到整轮事件、由 Juice 猜边界切三段——现在边界由引擎给,段间停顿挪到这里。
+        /// 全程只在 OnEndTurn 里 BeginAnim 过一次,循环内不逐批调用 OnAnimDone(那会提前把
+        /// _animsInFlight 归零、误放行输入)——死亡怪下标累积到 allDeaths,循环结束后一次性调用
+        /// OnAnimDone 收尾解锁 + 清死亡着色(否则 _dyingEnemies 里较早批次的下标会一直挂着,
+        /// 撞上下一场战斗同下标的新敌人,把它显示成灰)。
+        /// AppendBossSkillMessage 须按批调用而非等循环结束才读一次:蓄力/释放/护盾被掀空这些事件
+        /// 可能出在本轮任意一个行动者的批次里,循环结束后 Battle.LastEvents 只剩最后一批
+        /// (通常是轮回玩家那个只带 ActorActed 标记的空批),整轮跑到一半的播报会被静默吞掉。</summary>
+        private System.Collections.IEnumerator AdvanceRoutine()
+        {
+            _message = ""; // 蓄力/释放/护盾被掀空的播报按批累加在这里,回合前缀最后再补上
+            var allDeaths = new System.Collections.Generic.List<int>();
+            while (true)
+            {
+                SnapshotPreHp();       // 每个行动者出手前的血量:动画逐记扣
+                bool more = Battle.AdvanceOnce();
+                var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
+                var deaths = DeathsThisAction();
+                _dyingEnemies.UnionWith(deaths); // 登记须在下面 Refresh 前:重绘据此保持死怪着色
+                allDeaths.AddRange(deaths);
+                AppendBossSkillMessage();
+                // 每批事件必以 ActorActed 开头(段首标记),所以 events.Count > 0 恒真——
+                // 哪怕这一拍除了标记什么都没发生,也会误播整段 _juice.Play() + 停顿(约 0.42s)。
+                // 只在还有别的事件时才播。
+                if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
+                {
+                    bool done = false;
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
+                    while (!done) yield return null;
+                    yield return new WaitForSecondsRealtime(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap)
+                }
+                Refresh();
+                if (!more) break;
+                if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
+            }
+            _message = (Battle.Phase == BattlePhase.PlayerTurn
+                ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "") + _message;
+            OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
         }
 
         private void CancelSelection()
