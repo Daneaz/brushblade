@@ -1050,10 +1050,9 @@ namespace Brushblade.Presentation
                 // 同源徽标(2026-08-15,部件五系通用):同组**其他全部**成员各占一个角。
                 // 设计参考:docs/design/frame/字斗设计板.dc.html 的部件池 row。
                 //
-                // 全量 + 代表字也标(2026-08-15 用户裁定,与转位提示对齐):
-                // 判据用 TryGetGroup 而不是 KinBadge —— 后者对代表字返回 null,会让
-                // 金木水火土 五张卡一个徽标都没有。同组最多 4 个成员(金钅戈刂),
-                // 所以其他成员最多 3 个,占三个角,左上留给位形框。
+                // 全量 + 代表字也标(2026-08-15 用户裁定,与转位提示对齐)。
+                // 同组最大是金系 5 个(金钅戈刂刀),除自己外最多 4 个,四角刚好占满 ——
+                // 位形指示器已于 2026-08-16 移除,左上角空出来给徽标用。
                 // Ui 没有角标原语,用既有的 Chip + Anchor 拼 —— 不为这一处新增公共 API。
                 if (ComponentKin.TryGetGroup(charId, out var kinGroup))
                 {
@@ -1065,43 +1064,15 @@ namespace Brushblade.Presentation
                     }
                 }
 
-                // 位形指示器(2026-08-15):左上角小框 + 色块,标出该部件在字中的位置。
-                //
-                // 只画在**变体**上,且位形不是「整」(2026-08-15 用户裁定):
-                // - 代表字(金木水火土)是标准形态,没有"位形"可言,框对它们是纯噪声;
-                // - 山/石 虽是变体,但位形为「整」,画一个填满的框等于没画。
-                // KinBadge 在这里只当「是不是变体」的判据用(代表字与清单外都返回 null),
-                // 不再用它取徽标文字 —— 徽标已改走上面的 TryGetGroup 全量分支。
-                var position = ComponentKin.PositionOf(charId);
-                if (ComponentKin.KinBadge(charId) != null && position != ComponentPosition.Whole)
-                {
-                    // 外框:半透白底小方框(不用边框原语,拿低透明度色块凑一个近似的"虚线小框" 观感)
-                    var frame = Ui.CardPanel(tile.transform, "PosFrame", new Color(1f, 1f, 1f, 0.35f), 3);
-                    Ui.Anchor((RectTransform)frame.transform, new Vector2(0, 1), new Vector2(0, 1),
-                        new Vector2(3, -20), new Vector2(20, -3));
-                    var (min, max) = position switch
-                    {
-                        ComponentPosition.Left => (new Vector2(0, 0), new Vector2(0.48f, 1)),
-                        ComponentPosition.Right => (new Vector2(0.52f, 0), new Vector2(1, 1)),
-                        ComponentPosition.Top => (new Vector2(0, 0.45f), new Vector2(1, 1)),
-                        ComponentPosition.Bottom => (new Vector2(0, 0), new Vector2(1, 0.38f)),
-                        // Whole/None 上面已被条件挡掉,这里只是 switch 表达式要穷尽
-                        _ => (new Vector2(0, 0), new Vector2(1, 1)),
-                    };
-                    var fill = Ui.CardPanel(frame.transform, "PosFill", Theme.ElementColor(def.Element), 1);
-                    Ui.Anchor((RectTransform)fill.transform, min, max, Vector2.zero, Vector2.zero);
-                }
-
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
             }
         }
 
         /// <summary>把一个同源徽标贴到部件卡的某个角(2026-08-15)。
-        /// corner:0=右上、1=右下、2=左下、3=左上。
+        /// corner:0=右上、1=右下、2=左下、3=左上,从右上起顺时针填。
         ///
-        /// 左上正常留给位形指示器,所以徽标从右上起顺时针填。同组最多 4 个成员(金钅戈刂),
-        /// 除自己外最多 3 个,刚好占满 0~2 三个角;3 号角(左上)只有"位形为整的变体"
-        /// (山/石 —— 它们没有位形框)才可能用到,眼下的清单里其实排不到。
+        /// 四个角全部可用(位形指示器已于 2026-08-16 移除)。同组最大是金系 5 个
+        /// (金钅戈刂刀),除自己外 4 个 —— 刚好占满四角,再加成员就得换设计。
         ///
         /// 尺寸 24×14:窄边距是刻意的(spec §1.6b「小胶囊」),默认 padX=18/padY=12 在
         /// 56×56 的卡上单个就占 68% 宽,四个角一起画会把字形埋掉。
