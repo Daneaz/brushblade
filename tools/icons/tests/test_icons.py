@@ -35,7 +35,11 @@ def test_svg_is_wellformed():
 
 @pytest.mark.skipif(shutil.which("rsvg-convert") is None,
                     reason="需要 rsvg-convert(macOS: brew install librsvg)")
-def test_build_produces_every_png(tmp_path):
+def test_build_produces_every_png(tmp_path, monkeypatch):
+    # SVG_DIR 是模块级常量,不跟 out_dir 走 —— 不 patch 的话跑测试会覆写仓库里的
+    # tools/icons/svg/。那会让「改了 ICONS 只跑 pytest」这种情况下 SVG 更新而 PNG 没更新,
+    # git status 看着像图标已改,Unity 实际加载的还是旧 PNG。
+    monkeypatch.setattr(build_icons, "SVG_DIR", tmp_path / "svg")
     build_icons.main(out_dir=tmp_path)
     for key in build_icons.ICONS:
         png = tmp_path / f"icon_{key}.png"
