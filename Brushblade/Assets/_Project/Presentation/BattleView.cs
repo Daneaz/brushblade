@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Brushblade.Core;
 using UnityEngine;
@@ -50,6 +51,7 @@ namespace Brushblade.Presentation
 
         // 容器
         private Transform _enemyRow;
+        private TurnBar _turnBar;   // 顶部行动条(2026-08-15,ATB 改造):自管锚点与 chip 生死
         private Transform _summonRow;    // 我方前排召唤物:夹在敌我血条之间
         private Transform _topLeft, _topRight, _bottomRow;
         private Transform _statusRow;    // 教程提示/奇遇文案(结束回合钮 2026-07-21 已移出)
@@ -316,10 +318,19 @@ namespace Brushblade.Presentation
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
+            // 行动条(2026-08-15/16,ATB 改造):夹在战况文案与敌人区之间,0.855-0.900(约
+            // 40.5px)。这条带原本不存在——敌人区顶部从 0.898 下压到 0.850 腾出来的,拍板见
+            // task-18-report:压 messageGo 会截断 Boss 播报,压 topBar 高度不够,只有敌人区
+            // 「有余量可让」。TurnBar 自己内部做 Anchor(Build 内),这里只建组件、挂一次。
+            _turnBar = gameObject.AddComponent<TurnBar>();
+            _turnBar.Build(transform);
+
             // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
             // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
             // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
-            _enemyRow = MakeSection("Enemies", 0.640f, 0.898f);  // 232px = 格高 232(2026-08-11 为 chip 第二行向下吃 7px)
+            // 2026-08-16:上边界从 0.898 降到 0.850(格高 232→189px),给行动条让出 4.8% 屏高
+            // (拍板见 task-18-report——敌人区本身还有余量,messageGo/topBar 没有)。
+            _enemyRow = MakeSection("Enemies", 0.640f, 0.850f);  // 189px(原 232px)
             // ⚠ 72px 装不下召唤物格:方块 50 + 血条 15 + 攻力行 ≈ 80,带「盾」或被动标签是 94/108。
             // 这不是本次改动造成的 —— 原 79px 同样装不下(旧注释只算了三项的标称值,漏了行高与可选行),
             // 本次是让既有溢出再多 3.5px/边。HorizontalLayoutGroup 居中溢出,视觉上是上下各多探出一点。
@@ -477,6 +488,7 @@ namespace Brushblade.Presentation
             if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
             SaveProgressIfChanged();
+            _turnBar.Refresh(Battle); // 每次重绘都重新问引擎要预测,不缓存(见 TurnBar 类注释)
         }
 
         private string _savedFingerprint; // 上次落盘时的进度指纹
@@ -2110,7 +2122,10 @@ namespace Brushblade.Presentation
                 _dyingEnemies.UnionWith(deaths); // 登记须在下面 Refresh 前:重绘据此保持死怪着色
                 allDeaths.AddRange(deaths);
                 AppendBossSkillMessage();
-                if (events.Count > 0)
+                // 每批事件必以 ActorActed 开头(段首标记),所以 events.Count > 0 恒真——
+                // 哪怕这一拍除了标记什么都没发生,也会误播整段 _juice.Play() + 停顿(约 0.42s)。
+                // 只在还有别的事件时才播。
+                if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
