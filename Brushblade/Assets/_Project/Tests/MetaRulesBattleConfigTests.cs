@@ -94,6 +94,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void PlayerSpeed_IsLevelCurve()
+        {
+            // 110 ≠ 缺省 100(BattleConfig.PlayerSpeed 的默认值):必须用非 1 级的夹具断言,
+            // 否则 SpeedFor(1) == 100 会跟缺省值撞在一起,删掉这行注入也照样绿(2026-08-15 实测踩过)。
+            Assert.That(Build(LevelElevenWithPerks()).PlayerSpeed, Is.EqualTo(MetaRules.SpeedFor(11)));
+            Assert.That(Build(LevelElevenWithPerks()).PlayerSpeed, Is.EqualTo(110));
+        }
+
+        [Test]
         public void PlayerCritChance_IsNotALevelStat_AndStaysZero()
         {
             // 2026-08-12 用户裁定:暴击**不随角色等级成长**,只靠字(锋)与将来的养成技能给。
@@ -150,6 +159,7 @@ namespace Brushblade.Core.Tests
             Assert.That(config.PlayerAttack, Is.Not.EqualTo(fresh.PlayerAttack));
             Assert.That(config.PlayerDefense, Is.Not.EqualTo(fresh.PlayerDefense));
             Assert.That(config.PlayerDodge, Is.Not.EqualTo(fresh.PlayerDodge));
+            Assert.That(config.PlayerSpeed, Is.Not.EqualTo(fresh.PlayerSpeed));
             Assert.That(config.ApPerTurn, Is.Not.EqualTo(fresh.ApPerTurn));
             Assert.That(config.LibraryCapacity, Is.Not.EqualTo(fresh.LibraryCapacity));
             Assert.That(config.UnlockedChars, Is.Not.Null);   // 缺省 null = 不限合成

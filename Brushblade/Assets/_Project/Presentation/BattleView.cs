@@ -659,6 +659,13 @@ namespace Brushblade.Presentation
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"闪避 {Battle.EffectiveDodge}%", Theme.Jade, Color.white, 12);
             }
+            // 速度(2026-08-15,ATB 改造):基准恒 100,只在偏离基准时出 chip —— 与暴击同一个
+            // 取舍(暴击基准恒 0 所以不上养成界面,改由局内出 chip),避免恒定写「速度 100」占版面。
+            if (Battle.EffectivePlayerSpeed != 100)
+            {
+                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
+                Ui.Chip(statusRow.transform, $"速度 {Battle.EffectivePlayerSpeed}", Theme.Jade, Color.white, 12);
+            }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
             Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);

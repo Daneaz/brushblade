@@ -481,5 +481,14 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "火" }));
             Assert.That(meta.Shop.DayStamp, Is.EqualTo(7));
         }
+
+        [Test]
+        public void SpeedFor_StartsAtBaselineAndGrowsSlowly()
+        {
+            // 速度是最强属性(同时翻倍输出与资源产出,spec 口径 5),成长必须压得很慢
+            Assert.That(MetaRules.SpeedFor(1), Is.EqualTo(100), "1 级 = 基准 = 与敌人同速");
+            Assert.That(MetaRules.SpeedFor(26), Is.EqualTo(125), "封顶级 +25%");
+            Assert.That(MetaRules.SpeedFor(99), Is.EqualTo(125), "封顶后不再涨");
+        }
     }
 }

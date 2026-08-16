@@ -165,6 +165,15 @@ namespace Brushblade.Core
         /// 只靠字(锋)与养成技能给,见 <c>BattleConfig.PlayerCritChance</c>。</summary>
         public static int DodgeFor(int level) => Math.Min(25, level - 1);
 
+        /// <summary>速度成长:100 + 1×(等级−1),上限 125(2026-08-15,ATB 改造)。
+        /// 与其余四条同形同封顶级(26 级)。
+        ///
+        /// ⚠ **斜率刻意最小**。速度在 CTB 下是唯一同时翻倍「输出」与「资源产出」的属性
+        /// (一次行动 = 3 AP + 1 掉字,spec 口径 5)—— 满级 +25% 已经相当于每四拍白拿一整回合,
+        /// 再陡会让另外四条属性失去意义。基准 100 = 与敌人同速 = 一人一手,
+        /// 1 级角色的战斗节奏与引入这条曲线之前完全一致。</summary>
+        public static int SpeedFor(int level) => Math.Min(125, 100 + (level - 1));
+
         /// <summary>玩家生命上限 = 等级曲线 + 养元加成(19.2.1 + 第 A 章)。**生命是唯一吃技能加成
         /// 的角色属性**,所以只有它需要这层「等级 + meta」的合成,其余三条直接读曲线。
         ///
@@ -198,6 +207,7 @@ namespace Brushblade.Core
                 PlayerAttack = AttackFor(level),
                 PlayerDefense = DefenseFor(level),
                 PlayerDodge = DodgeFor(level),
+                PlayerSpeed = SpeedFor(level),
                 // ⚠ 没有 PlayerCritChance:暴击**不随角色等级成长**(2026-08-12 用户裁定),
                 // 缺省 0 让 RollCrit 短路、一次随机都不摇。见 BattleConfig.PlayerCritChance。
                 UnlockedChars = meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
