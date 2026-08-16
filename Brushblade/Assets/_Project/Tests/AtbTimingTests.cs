@@ -111,5 +111,110 @@ namespace Brushblade.Core.Tests
             Assert.That(forecast.Count(a => a.Kind == ActorKind.Player), Is.EqualTo(4));
             Assert.That(forecast.Count(a => a.Kind == ActorKind.Enemy), Is.EqualTo(2));
         }
+
+        [Test]
+        public void EnemyBurn_SettlesBeforeThatEnemyActs_NotAtPlayerTurnEnd()
+        {
+            // 灼烧从「玩家回合末全场统一烧」改为「它自己动之前烧」。
+            // 观察点:玩家让出后、敌人那一拍执行前,敌人血量不该已经掉。
+            var engine = Engine(new[] { Dummy(hp: 100, attack: 10) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 2, TurnsLeft = -1, SourceId = "测",
+            });
+            int before = engine.Enemies[0].Hp;
+
+            engine.YieldTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "让出行动权时还不该烧");
+
+            engine.AdvanceOnce();
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(before), "轮到它自己那拍才烧");
+        }
+
+        [Test]
+        public void EnemyStatus_TicksAfterThatEnemyActs()
+        {
+            var engine = Engine(new[] { Dummy(attack: 10) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
+                Magnitude = 5, TurnsLeft = 3, SourceId = "测",
+            });
+
+            engine.YieldTurn();
+            engine.AdvanceOnce();   // 敌人这一拍:结算流血 + 行动 + 自身递减
+
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Bleed).TurnsLeft, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void SlowedEnemy_TicksItsOwnDotSlower()
+        {
+            // 口径 1 的直接后果:被减速的敌人中的毒也跌得慢。
+            var engine = Engine(new[] { Dummy(hp: 999, attack: 0), Dummy("快", 999, 0) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = -1, SourceId = "缓",
+            });
+            foreach (var e in engine.Enemies)
+                e.Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
+                    Magnitude = 10, TurnsLeft = 99, SourceId = "血",
+                });
+
+            for (int i = 0; i < 4; i++) engine.EndTurn();
+
+            Assert.That(engine.Enemies[0].Hp, Is.GreaterThan(engine.Enemies[1].Hp),
+                "半速的怪流血次数少一半,应该更健康");
+        }
+
+        [Test]
+        public void BossCharge_CountsItsOwnActions_NotGlobalTurns()
+        {
+            // spec §4.5:BossChargeEvery 从「阶段内第 N 个敌方回合」改为「该 Boss 自己的行动次数」。
+            // 同速下等价 —— 但被减速的 Boss 攒大招也该变慢,这条锁住它。
+            // Boss 的构造照 BossSkillTests 里既有的工厂写(带 Phases 的 EnemyDef)。
+            var normal = BossEngine(speedModifier: 0);
+            var slowed = BossEngine(speedModifier: -50);
+
+            for (int i = 0; i < 4; i++) { normal.EndTurn(); slowed.EndTurn(); }
+
+            int normalCasts = CountBossSkillEvents(normal);
+            int slowedCasts = CountBossSkillEvents(slowed);
+            Assert.That(slowedCasts, Is.LessThan(normalCasts), "半速的 Boss 攒大招也该慢一半");
+        }
+
+        // 单阶段 Boss(照 BossSkillTests.SkillBoss 的工厂抄):BossChargeEvery 单独配成 3,
+        // 让「同速正常 Boss 4 个自身行动」恰好在第 4 次行动落在「释放」——LastEvents 才能在
+        // 4 次 EndTurn 后逮到 BossSkillCast;半速 Boss 4 回合只轮到 2 次自身行动,连蓄力都摸不到,
+        // 两边的差就是本测试要锁住的东西。
+        private static EnemyDef ChargeTestBoss() => new("试炼", Element.Heart, 999, 5,
+            phases: new[] { new BossPhaseDef("甲", Element.Heart, 999, 5, skill: BossSkill.Deluge) });
+
+        private static BattleEngine BossEngine(int speedModifier)
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { PlayerMaxHp = 999, BossPhaseJitterPercent = 0, BossChargeEvery = 3 },
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { ChargeTestBoss() }, seed: 1);
+            if (speedModifier != 0)
+                engine.Enemies[0].Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                    Magnitude = speedModifier, TurnsLeft = -1, SourceId = "缓",
+                });
+            return engine;
+        }
+
+        private static int CountBossSkillEvents(BattleEngine engine)
+        {
+            int count = 0;
+            foreach (var e in engine.LastEvents)
+                if (e.Kind == BattleEventKind.BossSkillCast) count++;
+            return count;
+        }
     }
 }

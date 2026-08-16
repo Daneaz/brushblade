@@ -837,16 +837,12 @@ namespace Brushblade.Core
             _events.AddRange(accumulated);
         }
 
-        /// <summary>玩家侧回合尾结算(2026-08-15 从 EndTurn 拆出,归属不变):敌人灼烧 → 玩家灼烧
-        /// (含致死早退)→ 敌人流血 → 玩家 HoT → 召唤物光环治疗。召唤物反击已挪出去,改由调度器
-        /// 逐个驱动(见 ActSummonTurn)。</summary>
+        /// <summary>玩家侧回合尾结算(2026-08-15 从 EndTurn 拆出,归属不变;敌人灼烧/流血已在同一天
+        /// 的 ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 各自那一拍,见该方法):玩家灼烧
+        /// (含致死早退)→ 玩家 HoT → 召唤物光环治疗。召唤物反击已挪出去,改由调度器逐个驱动
+        /// (见 ActSummonTurn)。</summary>
         private void SettlePlayerTurnEnd()
         {
-            // 3.7 结算顺序第 1 条:灼烧(X 层 → X×系数 伤害,然后 −1 层;系数基础 2,炽可加,10.2)
-            for (int i = 0; i < _enemies.Count; i++) SettleBurnOn(i);
-            CheckWin();
-            if (Phase != BattlePhase.PlayerTurn) return;
-
             // 玩家灼烧(2026-08-06):层数 × 系数掉血,然后 −1 层。玩家没有五行属性,
             // 所以**不走生克** —— 敌人侧那条 KeMultiplier(Fire, enemy.Element) 不适用。
             var playerBurn = _playerStatuses.Find(StatusKind.Burn);
@@ -863,33 +859,13 @@ namespace Brushblade.Core
             // (2026-08-06 全分支终审 C2):归零即死,持续治疗救不回来 —— 若照旧把判负推迟到
             // 回合尾部,中间的 HoT 循环会先把血救回去,CheckWin() 也可能被同回合的召唤物
             // 清场抢先判成 Won(PlayerHp=0 却「胜利」,还带着 0 血过关)。
-            // 状态回合递减必须照跑(下移进 TickAllStatuses):跳过会让广告复活后所有状态多续一回合。
+            // 状态回合递减必须照跑(下移进 TickPlayerStatuses):跳过会让广告复活后所有状态多续一回合。
             if (PlayerHp <= 0)
             {
-                TickAllStatuses();
+                TickPlayerStatuses();
                 Phase = BattlePhase.Lost;
                 return;
             }
-
-            // 流血(2026-08-03):无属性,不乘任何生克系数
-            // 回合数递减挪到 BeginPlayerTurn 末尾统一处理(2026-08-04,见下方"状态回合递减"),
-            // 这里只读不写,避免本回合刚施加的流血被立刻多减一次。
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                var enemy = _enemies[i];
-                if (!enemy.Alive) continue;
-                var bleedStatus = enemy.Statuses.Find(StatusKind.Bleed);
-                if (bleedStatus == null || bleedStatus.TurnsLeft <= 0) continue;
-                int bleed = bleedStatus.Magnitude;
-                enemy.Hp = Math.Max(0, enemy.Hp - bleed);
-                _events.Add(new BattleEvent(BattleEventKind.BleedTick, i, bleed));
-                if (!enemy.Alive)
-                    ResolveDefeat(i);
-                else
-                    CheckBossPhase(i);
-            }
-            CheckWin();
-            if (Phase != BattlePhase.PlayerTurn) return;
 
             // 持续治疗(2026-08-04):回合数递减挪到 BeginPlayerTurn 末尾统一处理(与 Bleed 同理,
             // 见下方"状态回合递减"),这里只结算不写 TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。
@@ -924,20 +900,36 @@ namespace Brushblade.Core
             CheckWin();
         }
 
-        /// <summary>一个敌人轮到的这一拍(2026-08-15,ATB 改造接线):CTB 下"轮到它" = 行动一次,
-        /// 旧的 actionCount 循环随本次改造消失。沿用原来的「已用加攻代替出手」判断:是 Buff 能力、
-        /// 没被沉默、且场上还有别的活怪 → 这一拍用来加攻同伴;否则亲自出手一次。</summary>
+        /// <summary>一个敌人的完整一拍(2026-08-15,ATB 时序归属搬迁,spec §4.3「每个敌人那一拍」
+        /// 六步):自身灼烧 → 自身流血 → 缺笔妖自补全 → 加攻/出手 → 自身状态递减。任何一步打死它
+        /// 都当场早退——DOT 从「玩家回合末全场统一结算」改成「它自己动之前结算」,谁补最后一刀的
+        /// 边界因此改变(已知归属变化,记录见 task-8-red-list.md)。
+        /// ⚠ SettleBurnOn / SettleBleedOn 命中致死时各自已经调用过 ResolveDefeat(发 EnemyDied),
+        /// 这里只补 CheckWin() 判胜——不重复调用 ResolveDefeat,否则同一次死亡会发两条 EnemyDied。</summary>
         private void ActEnemyTurn(int enemyIndex)
         {
             var enemy = _enemies[enemyIndex];
+            if (!enemy.Alive) return;
+
+            SettleBurnOn(enemyIndex);
+            if (!enemy.Alive) { CheckWin(); return; }
+
+            SettleBleedOn(enemyIndex);
+            if (!enemy.Alive) { CheckWin(); return; }
+
+            RegrowOneEnemy(enemyIndex);
+
             if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
                 ApplyEnemyBuffAura(enemyIndex);
             else
                 ActOneEnemy(enemyIndex, 1);
+
+            enemy.Statuses.TickTurns();
         }
 
-        /// <summary>玩家回合开始(2026-08-15 从 EndTurn 拆出,归属不变):状态回合递减 → 判负 →
-        /// 判胜 → 缺笔妖自补全 → 开新一拍(StartTurn)。</summary>
+        /// <summary>玩家回合开始(2026-08-15 从 EndTurn 拆出,归属不变;缺笔妖自补全已在同一天的
+        /// ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 敌人自己那一拍,不再统一独立一趟):
+        /// 状态回合递减 → 判负 → 判胜 → 开新一拍(StartTurn)。</summary>
         private void BeginPlayerTurn()
         {
             // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
@@ -946,7 +938,7 @@ namespace Brushblade.Core
             // 直接 return,若递减挪到早退后面,玩家阵亡的那一拍就整个跳过递减 —— 广告复活
             // 满血续战后,所有状态(流血/冻结/减速/HoT)都会多续一回合
             // (Revive_DoesNotGrantExtraStatusTurn 守着这条)。
-            TickAllStatuses();
+            TickPlayerStatuses();
 
             if (PlayerHp <= 0)
             {
@@ -955,17 +947,10 @@ namespace Brushblade.Core
             }
 
             // 反伤可能在敌方段里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
-            // 所以这里原本没有判胜,不补的话会带着满地尸体走进缺笔妖补全和 StartTurn。
+            // 所以这里原本没有判胜,不补的话会带着满地尸体走进 StartTurn。
             // 排在 Lost 早退之后 = 同归于尽时玩家阵亡优先,与既有口径一致。
             CheckWin();
             if (Phase != BattlePhase.PlayerTurn) return;
-
-            // 缺笔妖:每回合自补全,第 3 次补全完成(8.3)。
-            // **排在全部攻击之后**独立一趟(2026-07-30 试玩):原先它跟在缺笔妖自己那一记攻击
-            // 后头,场上还有别的怪时就成了「打到一半血突然回了」—— 玩家的心理节拍是
-            // 「我打、召唤物打、敌人打，一回合收尾时它才补」,补全得压到最后。
-            for (int i = 0; i < _enemies.Count; i++)
-                RegrowOneEnemy(i);
 
             StartTurn();
         }
@@ -1086,20 +1071,13 @@ namespace Brushblade.Core
                 enemy.Hp - before, enemy.RegrowProgress));
         }
 
-        /// <summary>状态回合递减(2026-08-04,抽成方法见 2026-08-06 C2):敌人侧带 Freeze 豁免
-        /// (冻结中只暂停 SpeedModifier,自身与流血照常倒计时,呼应 ActionMeter 累积也暂停),
-        /// 玩家侧整袋统一递减。两个调用点共用同一份实现:回合正常收尾时用一次,
+        /// <summary>玩家侧状态回合递减(2026-08-04,抽成方法见 2026-08-06 C2;敌人侧已在
+        /// 2026-08-15 的 ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 各自那一拍自行递减,
+        /// 不再在这里统一处理,方法因此改名)。两个调用点共用同一份实现:回合正常收尾时用一次,
         /// 玩家被灼烧烧死需要提前判负时也要用一次 —— 递减不能因为玩家阵亡就跳过,
         /// 否则广告复活满血续战后所有状态都会多续一回合。</summary>
-        private void TickAllStatuses()
+        private void TickPlayerStatuses()
         {
-            for (int i = 0; i < _enemies.Count; i++)
-            {
-                var enemy = _enemies[i];
-                if (!enemy.Alive) continue;
-                enemy.Statuses.TickTurns(
-                    enemy.Statuses.Has(StatusKind.Freeze) ? StatusKind.SpeedModifier : (StatusKind?)null);
-            }
             // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
             _playerStatuses.TickTurns();
 
@@ -1554,6 +1532,27 @@ namespace Brushblade.Core
                 if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
             }
             _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick));
+            if (!enemy.Alive)
+                ResolveDefeat(enemyIndex);
+            else
+                CheckBossPhase(enemyIndex);
+        }
+
+        /// <summary>对一名敌人结算一次流血(2026-08-15,ATB 时序归属搬迁:从 SettlePlayerTurnEnd
+        /// 那段回合末循环体拆出单只版本,搬进 ActEnemyTurn 各自那一拍,行为不变)。
+        /// 流血无属性(2026-08-03),不乘任何生克系数;不吃攻击力 —— 施加 Bleed 时
+        /// Magnitude 已经用 ScaleByAttack 定死,是快照语义,这里只读不再二次缩放。
+        /// TurnsLeft 只读不写:回合数递减挪到 ActEnemyTurn 末尾统一处理(与 SettleBurnOn 同口径,
+        /// 避免本回合刚施加的流血被立刻多减一次)。</summary>
+        private void SettleBleedOn(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (!enemy.Alive) return;
+            var bleedStatus = enemy.Statuses.Find(StatusKind.Bleed);
+            if (bleedStatus == null || bleedStatus.TurnsLeft <= 0) return;
+            int bleed = bleedStatus.Magnitude;
+            enemy.Hp = Math.Max(0, enemy.Hp - bleed);
+            _events.Add(new BattleEvent(BattleEventKind.BleedTick, enemyIndex, bleed));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
