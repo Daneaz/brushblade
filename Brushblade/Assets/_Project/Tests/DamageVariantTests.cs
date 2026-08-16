@@ -665,14 +665,14 @@ namespace Brushblade.Core.Tests
                 "不需要选目标,状态照样挂上");
         }
 
-        // 2026-08-16 CTB 改造:原为「覆盖 2 个敌方回合」,现为「只覆盖 1 个」——Reflect 挂上
-        // TurnsLeft=2 后,第 1 次 EndTurn 的 YieldTurn(玩家那一拍第 6 步,spec §4.3)先把
-        // TurnsLeft 递减到 1(排在敌人攻击**之前**,因为归属挪到了玩家自己让出行动权那一刻),
-        // 第 2 次 EndTurn 的 YieldTurn 再减到 0、移除——于是敌人第 2 次攻击发生时 Reflect
-        // 已经不在了,反弹只真正覆盖了 1 个敌方回合,而非旧模型里的 2 个(旧模型的递减点排在
-        // 敌人攻击之后,故能多撑一轮)。
+        // 2026-08-16 全分支终审 Important 1 修复后:玩家侧状态递减(TickPlayerStatuses)从
+        // YieldTurn(拍尾,先递减后结算)挪回 BeginPlayerTurn 尾部(结算之后、StartTurn 之前)。
+        // Reflect 挂上 TurnsLeft=2 后,第 1 次 EndTurn 的敌人攻击先触发反弹,随后本次 EndTurn
+        // 到达下一次 BeginPlayerTurn 时才把 TurnsLeft 减到 1(仍非零、照常反弹);第 2 次 EndTurn
+        // 的敌人攻击时 Reflect 仍在(TurnsLeft=1),照常反弹,随后才减到 0 移除——覆盖满整整
+        // 2 个敌方回合,恢复成本条测试原本要守的语义(曾短暂被误改成只覆盖 1 个,已修正)。
         [Test]
-        public void Reflect_ExpiresAfterOneEnemyTurn() // 原名 …TwoEnemyTurns,理由见上方注释
+        public void Reflect_ExpiresAfterTwoEnemyTurns()
         {
             // 评审 Important 1(2026-08-08):turns=2 之前零覆盖——把 ApplyEffects 里挂状态那句的
             // TurnsLeft 写成 -1(永不过期),720 条测试一条不红,一张蓝字就此变成整场永久反伤。
@@ -691,12 +691,11 @@ namespace Brushblade.Core.Tests
 
             enemyHp = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp),
-                "反弹已到期(TurnsLeft 在这次 YieldTurn 就减到 0),第 2 个敌方回合不再反弹");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp - 4), "第 2 个敌方回合仍在覆盖内,照常反弹");
 
             enemyHp = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp), "早已到期,第 3 个敌方回合仍不反弹");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHp), "反弹已到期,第 3 个敌方回合不再反弹");
         }
 
         [Test]

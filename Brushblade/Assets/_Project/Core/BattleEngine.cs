@@ -773,12 +773,12 @@ namespace Brushblade.Core
             return forecast.Count > 0 ? forecast[0] : ActorRef.Player;
         }
 
-        /// <summary>玩家让出行动权:跑玩家侧的收尾结算。之后由 AdvanceOnce 逐个推进。</summary>
+        /// <summary>玩家让出行动权,交由 AdvanceOnce 逐个推进(2026-08-16 全分支终审 Important 1
+        /// 之后:本方法不再做玩家侧状态递减——那一步挪到了 BeginPlayerTurn 尾部,见其注释)。</summary>
         public void YieldTurn()
         {
             if (Phase != BattlePhase.PlayerTurn) return;
             _events.Clear();
-            SettlePlayerTurnEnd();
         }
 
         /// <summary>推进并执行**一个**非玩家行动者。轮到玩家时不执行,改为跑 BeginPlayerTurn()、
@@ -825,10 +825,9 @@ namespace Brushblade.Core
             if (Phase != BattlePhase.PlayerTurn) return;
             YieldTurn();
             var accumulated = new List<BattleEvent>(_events);
-            // YieldTurn() 自己的结算(灼烧致死等)可能已经分出胜负:此时循环里的第一次
-            // AdvanceOnce 会在还没碰 _events 之前就直接返回 false(战斗已结束那条早退),
-            // _events 仍是上面刚种进 accumulated 的那批。记下这一点,后面就不再重收一次
-            // ——否则 YieldTurn 那批事件(包括致死的 EnemyDied)会被重复叠加一遍。
+            // YieldTurn() 现在只清事件、不结算(2026-08-16 全分支终审 Important 1 之后,状态递减
+            // 挪到了 BeginPlayerTurn),下面这条 alreadyOver 判断理论上不会被 YieldTurn 本身触发;
+            // 保留是防御性写法——循环里第一次 AdvanceOnce 若已经分出胜负,不会重复叠加事件。
             bool alreadyOver = Phase != BattlePhase.PlayerTurn && Phase != BattlePhase.DropChoice;
             while (AdvanceOnce())
             {
@@ -843,15 +842,7 @@ namespace Brushblade.Core
             _events.AddRange(accumulated);
         }
 
-        /// <summary>玩家让出行动权(2026-08-16,ATB 时序归属搬迁,spec §4.3 玩家那一拍第 6 步):
-        /// 只做玩家侧状态递减。DOT(灼烧/HoT)与 AP 补给都挪到了 <see cref="BeginPlayerTurn"/>
-        /// —— 玩家的一拍从「自己开始」算起,不再是「上一拍让出时」。</summary>
-        private void SettlePlayerTurnEnd()
-        {
-            TickPlayerStatuses();
-        }
-
-        /// <summary>玩家灼烧(2026-08-16 从 SettlePlayerTurnEnd 拆出,归属挪到 BeginPlayerTurn):
+        /// <summary>玩家灼烧(2026-08-16 从原 SettlePlayerTurnEnd 拆出,归属挪到 BeginPlayerTurn):
         /// 层数 × 系数掉血,然后 −1 层。玩家没有五行属性,所以**不走生克**
         /// —— 敌人侧那条 KeMultiplier(Fire, enemy.Element) 不适用。</summary>
         private void SettlePlayerBurn()
@@ -870,18 +861,18 @@ namespace Brushblade.Core
             // (2026-08-06 全分支终审 C2):归零即死,持续治疗救不回来 —— 若照旧把判负推迟到
             // 回合尾部,中间的 HoT 循环会先把血救回去,CheckWin() 也可能被同回合的召唤物
             // 清场抢先判成 Won(PlayerHp=0 却「胜利」,还带着 0 血过关)。
-            // ⚠️ 2026-08-16:这里不再补跑 TickPlayerStatuses() —— 玩家侧状态递减已经挪到
-            // 上一拍 YieldTurn() 里的 SettlePlayerTurnEnd() 执行过一次了,此处早退不会再
-            // 漏掉一次递减(旧代码在这里补跑是因为递减当时还挂在本方法末尾,早退会跳过它)。
+            // ⚠️ 2026-08-16(全分支终审 Important 1):这里早退成 Lost 不会漏掉本拍的状态递减——
+            // TickPlayerStatuses() 挪到了 BeginPlayerTurn 里紧跟 SettlePlayerHots 之后**无条件**
+            // 执行(见 BeginPlayerTurn),即便走的是这条早退也照样会跑到那一句,不需要在这里补跑。
             if (PlayerHp <= 0)
             {
                 Phase = BattlePhase.Lost;
             }
         }
 
-        /// <summary>玩家持续治疗(2026-08-16 从 SettlePlayerTurnEnd 拆出,归属挪到 BeginPlayerTurn):
-        /// 回合数递减仍由 TickPlayerStatuses 统一处理(见 SettlePlayerTurnEnd),这里只结算不写
-        /// TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。</summary>
+        /// <summary>玩家持续治疗(2026-08-16 从原 SettlePlayerTurnEnd 拆出,归属挪到 BeginPlayerTurn):
+        /// 回合数递减现在紧跟在本方法之后由 BeginPlayerTurn 统一调用 TickPlayerStatuses 处理,
+        /// 这里只结算不写 TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。</summary>
         private void SettlePlayerHots()
         {
             for (int i = _playerStatuses.All.Count - 1; i >= 0; i--)
@@ -962,17 +953,32 @@ namespace Brushblade.Core
             enemy.Statuses.TickTurns();
         }
 
-        /// <summary>轮到玩家(2026-08-16,ATB 时序归属搬迁,spec §4.3 玩家那一拍第 1~4 步):
-        /// 玩家灼烧 → 玩家 HoT → 判负 → 判胜 → 开新一拍(StartTurn)。DOT 与 AP 补给从「上一拍
-        /// 让出行动权时」挪到这里 —— 玩家的一拍从「自己开始」算起,状态回合递减则相应挪到了
-        /// 上一拍的 YieldTurn()(见 SettlePlayerTurnEnd)。</summary>
+        /// <summary>轮到玩家(2026-08-16,ATB 时序归属搬迁,spec §4.3 玩家那一拍):玩家灼烧 →
+        /// 玩家 HoT → 玩家侧状态回合递减 → 判负 → 判胜 → 开新一拍(StartTurn)。DOT 与 AP 补给从
+        /// 「上一拍让出行动权时」挪到这里 —— 玩家的一拍从「自己开始」算起。
+        ///
+        /// ⚠ 2026-08-16(全分支终审 Important 1):状态回合递减(TickPlayerStatuses)原先错放在
+        /// 上一拍 YieldTurn() 里,相对玩家自己的结算(灼烧/HoT)是**先递减后结算**——与
+        /// ActEnemyTurn(结算在前、递减在后)方向相反,静默改动了三处数值(沐 HoT 回合数从
+        /// 3 次变 2 次、铸反弹覆盖从 2 拍变 1 拍、倾覆封字从罚 1 拍变罚 2 拍)。现挪到这里、
+        /// 紧跟在 SettlePlayerHots 之后,与敌人那一拍结构同构。
+        ///
+        /// ⚠ TickPlayerStatuses 必须**无条件**执行,即便 SettlePlayerBurn 已经把玩家烧死
+        /// (Phase = Lost)——玩家可能被复活,阵亡当回合若漏掉这次递减,状态会在复活后凭空
+        /// 多续一轮(与 ActEnemyTurn 结尾「阵亡当回合状态也要照常递减」同一条口径,见
+        /// PlayerBurn_KillsWithoutSkippingStatusTick)。SettlePlayerHots 本身仍照旧只在
+        /// 玩家未被灼烧烧死时才跑——死人不用治。</summary>
         private void BeginPlayerTurn()
         {
             SettlePlayerBurn();
-            if (Phase == BattlePhase.Lost) return;
+            if (Phase != BattlePhase.Lost)
+            {
+                SettlePlayerHots();
+                if (PlayerHp <= 0) Phase = BattlePhase.Lost;
+            }
 
-            SettlePlayerHots();
-            if (PlayerHp <= 0) { Phase = BattlePhase.Lost; return; }
+            TickPlayerStatuses();
+            if (Phase == BattlePhase.Lost) return;
 
             // 反伤可能在敌方段里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
             // 所以这里原本没有判胜,不补的话会带着满地尸体走进 StartTurn。
@@ -1112,9 +1118,10 @@ namespace Brushblade.Core
 
         /// <summary>玩家侧状态回合递减(2026-08-04,抽成方法见 2026-08-06 C2;敌人侧已在
         /// 2026-08-15 的 ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 各自那一拍自行递减,
-        /// 不再在这里统一处理,方法因此改名)。2026-08-16:随灼烧/HoT 挪到 BeginPlayerTurn,
-        /// 本方法现在只剩 SettlePlayerTurnEnd 一个调用点 —— 玩家让出行动权那一刻递减,
-        /// 灼烧致死不必再补跑(见 SettlePlayerBurn 内的说明:递减已经在上一拍跑过了)。</summary>
+        /// 不再在这里统一处理,方法因此改名)。2026-08-16(全分支终审 Important 1):唯一调用点
+        /// 挪到了 <see cref="BeginPlayerTurn"/> 里紧跟 SettlePlayerBurn/SettlePlayerHots 之后
+        /// ——曾经错放在上一拍 YieldTurn() 里,导致玩家侧变成「先递减后结算」,与敌人侧的
+        /// 「结算在前、递减在后」方向相反,静默改动了三处数值(见 BeginPlayerTurn 注释)。</summary>
         private void TickPlayerStatuses()
         {
             // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
@@ -2169,14 +2176,12 @@ namespace Brushblade.Core
                         _shieldPersist = 0;
                         _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, broken));
                     }
-                    // TurnsLeft = 2(2026-08-06 定的值,2026-08-16 ATB 改造后时序事实已变,
-                    // 数值本身留给 Task 15 连同断言一起定夺,这里只订正因果关系不再撒谎):
-                    // Seal 由敌人的攻击动作在敌方段挂上,而玩家侧状态递减(TickPlayerStatuses)
-                    // 已经在本轮更早的 YieldTurn 跑过了 —— 所以它要等到**下一轮**的 YieldTurn
-                    // 才第一次递减,比旧模型(递减排在 StartTurn 之前、同一个 EndTurn 内就先减
-                    // 一次)多续整整一轮。这与玩家侧主动挂载的状态(灼烧、反弹)方向正好相反:
-                    // 那些是"挂上后在同一轮拍首就被结算",敌人挂载的这类是"挂上后要等下一轮才
-                    // 开始倒计时"——同一条因果链的两种镜像表现,不是两个机制。
+                    // TurnsLeft = 2(2026-08-06 定的值)。Seal 由敌人的攻击动作在敌方段挂上,
+                    // 玩家侧状态递减(TickPlayerStatuses)紧跟在 BeginPlayerTurn 的 SettlePlayerHots
+                    // 之后、StartTurn 之前(2026-08-16 全分支终审 Important 1 订正:曾经错放在
+                    // 上一拍 YieldTurn 里,导致本条要多续一轮,已修正)——挂上后紧接着的
+                    // BeginPlayerTurn 就会把它减到 1、StartTurn 读到仍非零而扣 1 点 AP,
+                    // 下一次 BeginPlayerTurn 再减到 0 移除,AP 罚满整整一个玩家回合。
                     _playerStatuses.Apply(new StatusEffect
                     {
                         Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,

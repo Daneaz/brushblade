@@ -91,15 +91,17 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Ap, Is.EqualTo(fullAp - 1));
         }
 
-        // 2026-08-16 CTB 改造:原用 ToppleBoss(BossChargeEvery=1)驱动——但该配置下 Boss 每 2
-        // 回合重铸一次倾覆,而 Seal 在新时序下本身也要整整 2 轮才清零(比旧模型多续一轮,
-        // 因为 Seal 由敌方段挂上,玩家侧递减「TickPlayerStatuses」已在本轮更早的 YieldTurn
-        // 跑过,故要等下一轮才第一次递减;机制见 task-10-red-list.md,已经 controller 复核
-        // 确认准确)。两个 2 轮周期完全重合,原配置下 Seal 会被下一次重铸永远续上,AP 永远
-        // 罚着——已经测不出"到期"这件事,不是这条测试原本想验证的东西。改为绕开会持续重铸
-        // 的 Boss,直接挂 Seal 隔离验证衰减本身:TurnsLeft=2 时,AP 要罚满整整两轮才解除。
+        // 原用 ToppleBoss(BossChargeEvery=1)驱动——但该配置下 Boss 每 2 回合重铸一次倾覆,
+        // 两个周期重合会让 Seal 被下一次重铸永远续上、测不出"到期"这件事,故改为绕开会持续
+        // 重铸的 Boss,直接挂 Seal 隔离验证衰减本身。
+        // 2026-08-16 全分支终审 Important 1:此前 TickPlayerStatuses 曾短暂错放在 YieldTurn
+        // (拍尾,先递减后结算),一度被误判成这里也要多续一轮而错改名为「两轮」——实际上
+        // 这条测试是直接注入 Seal(不经由敌人攻击这个中间环节),不受那次错位影响,数值从未
+        // 变过:TickPlayerStatuses 现在紧跟在 BeginPlayerTurn 的结算之后、StartTurn 之前,每次
+        // EndTurn 恰好递减一次并被同一次 StartTurn 读到——第 1 轮递减到 1(仍非零,照常扣 AP),
+        // 第 2 轮减到 0 移除,AP 回满,总共只罚满 1 个玩家回合。改回原名。
         [Test]
-        public void Seal_ExpiresAfterExactlyTwoPenalizedTurns() // 原名 …OnePenalizedTurn,理由见上方注释
+        public void Seal_ExpiresAfterExactlyOnePenalizedTurn()
         {
             var engine = Engine(Array.Empty<string>(), new[] { Dummy(attack: 0) });
             int fullAp = engine.Ap;
@@ -109,12 +111,12 @@ namespace Brushblade.Core.Tests
                 Magnitude = 1, TurnsLeft = 2, SourceId = "倾覆",
             });
 
-            engine.EndTurn(); // 第 1 轮:Seal 已挂,罚 1 点 AP;这轮的 YieldTurn 是挂上后第一次递减(2→1)
+            engine.EndTurn(); // 第 1 轮:BeginPlayerTurn 递减到 1(仍非零),StartTurn 照常扣 1 点 AP
             Assert.That(engine.Ap, Is.EqualTo(fullAp - 1));
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.True);
 
-            engine.EndTurn(); // 第 2 轮:再递减一次(1→0)移除
-            Assert.That(engine.Ap, Is.EqualTo(fullAp), "罚满两轮才解除(比旧模型多续一轮)");
+            engine.EndTurn(); // 第 2 轮:再递减一次(1→0)移除,StartTurn 读到时已不存在
+            Assert.That(engine.Ap, Is.EqualTo(fullAp), "只罚满一个玩家回合就解除");
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False);
         }
 

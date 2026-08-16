@@ -289,8 +289,13 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.LastEvents[0].TargetIndex, Is.EqualTo(-1));
         }
 
+        // 2026-08-16 全分支终审 Important 1:玩家侧状态回合递减曾经错放在 YieldTurn(拍尾),
+        // 相对玩家自己的结算(灼烧/HoT)变成「先递减后结算」,与 ActEnemyTurn(结算在前、
+        // 递减在后)方向相反,静默改动了三处数值。修复后递减挪到下一次 BeginPlayerTurn 尾部
+        // (紧跟 SettlePlayerHots 之后、StartTurn 之前)——原名 …TicksWhenPlayerYields 已经
+        // 名不副实,改名并把断言换成新的挂钩点。
         [Test]
-        public void PlayerStatus_TicksWhenPlayerYields()
+        public void PlayerStatus_TicksAtNextBeginPlayerTurn_NotWhenYielding()
         {
             var engine = Engine(new[] { Dummy(attack: 0) });
             engine.PlayerStatuses.Apply(new StatusEffect
@@ -300,8 +305,36 @@ namespace Brushblade.Core.Tests
             });
 
             engine.YieldTurn();
+            Assert.That(engine.PlayerStatuses.Find(StatusKind.HealOverTime).TurnsLeft, Is.EqualTo(3),
+                "让出行动权那一刻不该递减");
+
+            while (engine.AdvanceOnce()) { }   // 推到下一个玩家拍(BeginPlayerTurn 结算之后才递减)
 
             Assert.That(engine.PlayerStatuses.Find(StatusKind.HealOverTime).TurnsLeft, Is.EqualTo(2));
+        }
+
+        // 2026-08-16 全分支终审 Important 1:给沐(HealOverTime 20/turns 3)补一条有判别力的
+        // 回归测试——旧的 PlayerStatus_TicksWhenPlayerYields 只看第 1 次回复量和到期时刻两个
+        // 观察点,这两点在「先递减后结算」的错误模型下读数与正确模型恰好相同,从未变红过
+        // (沐的实际回复次数被静默从 3 次改成了 2 次)。这里直接断言总回复次数。
+        [Test]
+        public void PlayerHot_HealsExactlyThreeTimes()
+        {
+            // 攻 25(> HoT 的 20):每回合先挨打腾出headroom,heal 才不会被
+            // Math.Min(MaxHp - PlayerHp, Magnitude) 封顶裁掉,回复量能稳定按 20 结算。
+            var engine = Engine(new[] { Dummy(attack: 25) });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
+                Magnitude = 20, TurnsLeft = 3, SourceId = "沐",
+            });
+            int start = engine.PlayerHp;
+
+            for (int i = 0; i < 3; i++) engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(start - 3 * 25 + 3 * 20), "3 个回合各回复一次,共回复 3 次");
+
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(start - 4 * 25 + 3 * 20), "第 4 回合 HoT 已到期,不再回复");
         }
 
         [Test]
