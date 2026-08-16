@@ -172,6 +172,35 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SummonAura_HealsOnItsOwnTurn_NotAtPlayerTurnEnd()
+        {
+            // 光环治疗(桃)从「全体召唤物集体先治疗」改为「该召唤物自己那拍先治疗再出手」。
+            // 扣血走真实路径(挨敌人一记),不为测试新增生产 API —— 2026-08-11 用户裁定过这条。
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("桃", Element.Wood, effects: new[]
+                {
+                    new EffectDef(EffectKind.Summon, 20, summonCount: 1, summonAttack: 2,
+                        summonChar: "木", passive: new SummonPassive { HealAlly = 5 }),
+                }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = 999, UnlockedChars = new[] { "桃" } },
+                new[] { "桃" }, Array.Empty<string>(),
+                new[] { new EnemyDef("凶", Element.Heart, 999, 30) }, seed: 1);
+            engine.EndTurn();          // 挨一记,掉血
+            engine.Cast("桃");         // 召唤带光环的树
+            int hurt = engine.PlayerHp;
+
+            engine.YieldTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hurt), "让出行动权时还不该治疗");
+
+            while (engine.AdvanceOnce() && engine.LastActor.Kind != ActorKind.Summon) { }
+            Assert.That(engine.PlayerHp, Is.GreaterThan(hurt), "召唤物自己那拍才治疗");
+        }
+
+        [Test]
         public void BossCharge_CountsItsOwnActions_NotGlobalTurns()
         {
             // spec §4.5:BossChargeEvery 从「阶段内第 N 个敌方回合」改为「该 Boss 自己的行动次数」。

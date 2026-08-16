@@ -839,8 +839,8 @@ namespace Brushblade.Core
 
         /// <summary>玩家侧回合尾结算(2026-08-15 从 EndTurn 拆出,归属不变;敌人灼烧/流血已在同一天
         /// 的 ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 各自那一拍,见该方法):玩家灼烧
-        /// (含致死早退)→ 玩家 HoT → 召唤物光环治疗。召唤物反击已挪出去,改由调度器逐个驱动
-        /// (见 ActSummonTurn)。</summary>
+        /// (含致死早退)→ 玩家 HoT。召唤物光环治疗与反击已挪出去,改由调度器逐个驱动,归到它
+        /// 自己那拍(见 ActSummonTurn,2026-08-16)。</summary>
         private void SettlePlayerTurnEnd()
         {
             // 玩家灼烧(2026-08-06):层数 × 系数掉血,然后 −1 层。玩家没有五行属性,
@@ -881,22 +881,22 @@ namespace Brushblade.Core
                     _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
                 }
             }
-
-            // 召唤物光环治疗(2026-08-05,桃):排在出手之前、且与出手无关 —— 树结果不看有没有
-            // 敌人可打,场上清空时也照常回血。走 HealPlayerAndSummons,玩家侧不超上限
-            foreach (var healer in _summons)
-            {
-                if (!healer.Alive) continue;
-                int heal = healer.Passive?.HealAlly ?? 0;
-                if (heal > 0) HealPlayerAndSummons(heal);
-            }
         }
 
-        /// <summary>一只召唤物轮到的这一拍(2026-08-15,ATB 改造接线):旧的"回合末按 ActionMeter
-        /// 累积一次性打好几下"随本次改造消失,CTB 下"轮到它" = 排一次队。</summary>
-        private void ActSummonTurn(int summonIndex)
+        /// <summary>一只召唤物的完整一拍(2026-08-16,ATB 时序归属搬迁,spec §4.3):光环治疗
+        /// (2026-08-05,桃)从「玩家回合末全体召唤物集体先治疗」挪到这里,变成「该召唤物自己
+        /// 那拍先治疗再出手」——与出手无关,场上没有敌人可打时也照常回血。→ 出手 → 自身状态
+        /// 递减。召唤物目前没有状态容器(SummonState 无 Statuses 字段),所以"自身状态递减"
+        /// 这一步暂无内容——不要为此新增字段,等真有召唤物状态时再加。</summary>
+        private void ActSummonTurn(int s)
         {
-            StrikeOnceWithSummon(summonIndex);
+            var summon = _summons[s];
+            if (!summon.Alive) return;
+
+            int heal = summon.Passive?.HealAlly ?? 0;
+            if (heal > 0) HealPlayerAndSummons(heal);
+
+            if (_enemies.Any(e => e.Alive)) StrikeOnceWithSummon(s);
             CheckWin();
         }
 
