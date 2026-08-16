@@ -2121,9 +2121,14 @@ namespace Brushblade.Core
                         _shieldPersist = 0;
                         _events.Add(new BattleEvent(BattleEventKind.ShieldBroken, -1, broken));
                     }
-                    // TurnsLeft = 2 而不是 1(2026-08-06):倾覆在敌方段挂上,而同一个 EndTurn
-                    // 的「状态回合递减」排在 StartTurn 之前 —— 填 1 会被当场减到 0 移除,
-                    // StartTurn 读到 0,效果凭空消失。填 2 才等价于「只罚下一个玩家回合」。
+                    // TurnsLeft = 2(2026-08-06 定的值,2026-08-16 ATB 改造后时序事实已变,
+                    // 数值本身留给 Task 15 连同断言一起定夺,这里只订正因果关系不再撒谎):
+                    // Seal 由敌人的攻击动作在敌方段挂上,而玩家侧状态递减(TickPlayerStatuses)
+                    // 已经在本轮更早的 YieldTurn 跑过了 —— 所以它要等到**下一轮**的 YieldTurn
+                    // 才第一次递减,比旧模型(递减排在 StartTurn 之前、同一个 EndTurn 内就先减
+                    // 一次)多续整整一轮。这与玩家侧主动挂载的状态(灼烧、反弹)方向正好相反:
+                    // 那些是"挂上后在同一轮拍首就被结算",敌人挂载的这类是"挂上后要等下一轮才
+                    // 开始倒计时"——同一条因果链的两种镜像表现,不是两个机制。
                     _playerStatuses.Apply(new StatusEffect
                     {
                         Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
