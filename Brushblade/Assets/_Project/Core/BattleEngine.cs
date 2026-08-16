@@ -710,6 +710,11 @@ namespace Brushblade.Core
         /// <summary>最近一次 AdvanceOnce 执行的行动者(表现层据此高亮行动条那一格)。</summary>
         public ActorRef LastActor { get; private set; } = ActorRef.Player;
 
+        /// <summary>最近一次 AdvanceOnce 推进了多少拍(2026-08-17,每单位行动条)。
+        /// 表现层用它定行动条动画时长:时长 = LastAdvanceTicks × BaseMs。
+        /// 战斗刚开始、还没推进过时为 0 —— 表现层据此跳过条动画。</summary>
+        public int LastAdvanceTicks { get; private set; }
+
         /// <summary>当前参战单位的调度槽位。**顺序固定**:玩家、召唤物(下标升序)、敌人(下标升序)
         /// —— Forecast 与 Advance 返回的 Meters 与本列表同序,写回时按同一顺序。
         /// 死掉的单位不进调度(它们不再行动,也不该占预测格子)。
@@ -800,6 +805,7 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.ActorActed, -1, (int)ActorKind.Player));
                 WriteBackMeters(slots, step.Meters);
                 LastActor = ActorRef.Player;
+                LastAdvanceTicks = step.Ticks;
                 BeginPlayerTurn();
                 return false;
             }
@@ -809,6 +815,7 @@ namespace Brushblade.Core
                 step.Actor.Index, (int)step.Actor.Kind));
             WriteBackMeters(slots, step.Meters);
             LastActor = step.Actor;
+            LastAdvanceTicks = step.Ticks;
             if (step.Actor.Kind == ActorKind.Summon) ActSummonTurn(step.Actor.Index);
             else ActEnemyTurn(step.Actor.Index);
             return Phase == BattlePhase.PlayerTurn;

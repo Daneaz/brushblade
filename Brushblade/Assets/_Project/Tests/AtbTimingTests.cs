@@ -522,5 +522,28 @@ namespace Brushblade.Core.Tests
 
             Assert.That(restored.Forecast(6), Is.EqualTo(engine.Forecast(6)));
         }
+
+        // ===== LastAdvanceTicks(2026-08-17,每单位行动条)=====
+
+        [Test]
+        public void LastAdvanceTicks_RecordsSchedulerTicks()
+        {
+            // 全场速度 100、计量器全 0 → 每次推进恰好一拍
+            var engine = Engine(new[] { Dummy() });
+            engine.YieldTurn();
+
+            engine.AdvanceOnce();
+
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void LastAdvanceTicks_StartsAtZero()
+        {
+            // 战斗刚开始还没推进过 —— 表现层据此跳过第一帧的条动画
+            var engine = Engine(new[] { Dummy() });
+
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(0));
+        }
     }
 }

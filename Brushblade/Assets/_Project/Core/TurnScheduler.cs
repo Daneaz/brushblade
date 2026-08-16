@@ -58,10 +58,17 @@ namespace Brushblade.Core
         public ActorRef Actor { get; }
         public IReadOnlyList<int> Meters { get; }
 
-        public SchedulerStep(ActorRef actor, IReadOnlyList<int> meters)
+        /// <summary>本次跨了多少拍;已有人满格、无需推进时为 0(2026-08-17,每单位行动条)。
+        /// 表现层据此定行动条动画时长 —— 时长 = Ticks × BaseMs,只有这样「速度 100 的单位
+        /// 从 0% 攒到 100%」才恒等于 BaseMs,条才是严格匀速的(spec §6.2)。
+        /// 算出来本来就有(TicksUntilAnyFull),此前算完即丢。</summary>
+        public int Ticks { get; }
+
+        public SchedulerStep(ActorRef actor, IReadOnlyList<int> meters, int ticks)
         {
             Actor = actor;
             Meters = meters;
+            Ticks = ticks;
         }
     }
 
@@ -99,17 +106,18 @@ namespace Brushblade.Core
             var meters = new int[slots.Count];
             for (int i = 0; i < slots.Count; i++) meters[i] = slots[i].Meter;
 
+            int ticks = 0;
             int winner = FirstFull(slots, meters);
             if (winner < 0)
             {
-                int ticks = TicksUntilAnyFull(slots, meters);
+                ticks = TicksUntilAnyFull(slots, meters);
                 for (int i = 0; i < slots.Count; i++)
                     meters[i] += ClampSpeed(slots[i].Speed) * ticks;
                 winner = FirstFull(slots, meters);
             }
 
             meters[winner] -= Threshold;
-            return new SchedulerStep(slots[winner].Actor, meters);
+            return new SchedulerStep(slots[winner].Actor, meters, ticks);
         }
 
         /// <summary>满格者里 (Priority, 下标) 最小的那个;没有则 −1。</summary>
