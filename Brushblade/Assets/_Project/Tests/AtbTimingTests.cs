@@ -294,5 +294,59 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Turn, Is.EqualTo(turnBefore + 2));
             Assert.That(engine.Ap, Is.EqualTo(engine.ApPerTurn), "每拍都回满 AP");
         }
+
+        [Test]
+        public void Frozen_KeepsItsSlotButSkipsTheAction()
+        {
+            var engine = Engine(new[] { Dummy(hp: 999, attack: 50) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 2, SourceId = "冻",
+            });
+            int hp = engine.PlayerHp;
+
+            engine.EndTurn();
+
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp), "冻结中不出手");
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1),
+                "轮到它就 −1,不靠别人的回合数");
+        }
+
+        [Test]
+        public void Frozen_ThawsAndResumesActing()
+        {
+            var engine = Engine(new[] { Dummy(hp: 999, attack: 50) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 2, SourceId = "冻",
+            });
+
+            engine.EndTurn();
+            engine.EndTurn();
+            int hp = engine.PlayerHp;
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "两拍后解冻");
+            Assert.That(engine.PlayerHp, Is.LessThan(hp), "解冻后照常打人");
+        }
+
+        [Test]
+        public void Frozen_DoesNotDeadlockTheScheduler()
+        {
+            // 冻结单位照常上行动条(口径 6):它若被排除出调度,自身状态就永远不递减
+            var engine = Engine(new[] { Dummy(hp: 999, attack: 0) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 99, SourceId = "冻",
+            });
+
+            var forecast = engine.Forecast(6);
+
+            Assert.That(forecast.Any(a => a.Kind == ActorKind.Enemy), Is.True,
+                "冻结单位仍要出现在预测里(会被跳过,但占位)");
+        }
     }
 }

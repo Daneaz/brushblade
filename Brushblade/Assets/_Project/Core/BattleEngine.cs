@@ -928,6 +928,21 @@ namespace Brushblade.Core
 
             RegrowOneEnemy(enemyIndex);
 
+            // 冻结(2026-08-16 口径 6):照常上行动条,轮到就跳过并 −1,不出手。
+            // 旧语义是「计量器冻住不累积」——那在 CTB 下会死锁:冻结单位若被排除出调度,
+            // 就永远轮不到 → 自身状态永远不递减 → 冻结永远解不了。跳过语义还多一个好处:
+            // 行动条 UI 能直接画出「它下一拍会被跳过」。
+            //
+            // 2026-08-16 裁定:下面这行 TickTurns() 不豁免 SpeedModifier(即不写成
+            // TickTurns(Has(Freeze) ? SpeedModifier : null))是有意的,不是搬家搬丢——旧豁免
+            // 配的是旧的「冻结时计量器不累积」;新模型下计量器照常推进,减速倒计时也就该
+            // 照常走,不需要再暂停。
+            if (enemy.Statuses.Has(StatusKind.Freeze))
+            {
+                enemy.Statuses.TickTurns();
+                return;
+            }
+
             if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
                 ApplyEnemyBuffAura(enemyIndex);
             else
