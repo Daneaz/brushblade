@@ -402,5 +402,36 @@ namespace Brushblade.Core.Tests
             while (engine.AdvanceOnce()) { }
             Assert.That(engine.PlayerHp, Is.LessThan(100), "没行动的怪照常打");
         }
+
+        [Test]
+        public void Disguise_RevealsWhenTakingDamage()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood,
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = 999, UnlockedChars = new[] { "木" } },
+                new[] { "木" }, Array.Empty<string>(),
+                new[] { new EnemyDef("通", Element.Wood, 999, 0, EnemyAbility.Disguise) }, seed: 1);
+            var disguised = engine.Enemies[0].ApparentElement;
+
+            engine.Cast("木", 0);
+
+            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(engine.Enemies[0].Element),
+                "挨打就现形");
+        }
+
+        [Test]
+        public void Disguise_StillRevealsAfterActing()
+        {
+            // 旧口径(8.3 / 2026-08-08)保持不变:它出手就现形,打空也算
+            var engine = Engine(new[] { new EnemyDef("通", Element.Wood, 999, 10, EnemyAbility.Disguise) });
+
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(engine.Enemies[0].Element));
+        }
     }
 }

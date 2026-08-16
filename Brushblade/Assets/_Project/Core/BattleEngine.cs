@@ -1047,11 +1047,7 @@ namespace Brushblade.Core
 
                 // 通假字:首次行动后现形(8.3)。现形只看「敌人是否出手了」,与命中判定无关——
                 // 敌人确实动了,打空不影响这条(2026-08-08 明确:不受 hit 影响)。
-                if (enemy.Def.Ability == EnemyAbility.Disguise && enemy.ApparentElement != enemy.Element)
-                {
-                    enemy.ApparentElement = enemy.Element;
-                    _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, enemyIndex, 0));
-                }
+                RevealDisguise(enemyIndex);
 
                 // 灯花(2026-08-06):每次攻击给玩家挂 1 层灼烧。TurnsLeft = -1 段内持久,
                 // 靠上方的玩家灼烧结算段自减 Magnitude,不受 TickTurns 影响(与敌人侧同口径)。
@@ -1070,6 +1066,17 @@ namespace Brushblade.Core
                 // (actionCount 目前恒为 1,这里是防御性收口,不是当前会触发的分支)。
                 if (Phase != BattlePhase.PlayerTurn) break;
             }
+        }
+
+        /// <summary>通假字现形(8.3 + 2026-08-15 口径 7):挨打或出手,先到先触发。
+        /// 「出手但打空也现形」的旧口径不变 —— 敌人确实动了,与命中判定无关。</summary>
+        private void RevealDisguise(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            if (enemy.Def.Ability != EnemyAbility.Disguise) return;
+            if (enemy.ApparentElement == enemy.Element) return;
+            enemy.ApparentElement = enemy.Element;
+            _events.Add(new BattleEvent(BattleEventKind.EnemyRevealed, enemyIndex, 0));
         }
 
         /// <summary>一只缺笔妖的自补全(2026-08-15 提取,行为与提取前逐字节一致)。</summary>
@@ -1550,6 +1557,7 @@ namespace Brushblade.Core
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
+            RevealDisguise(enemyIndex); // 通假字:灼烧扣血也算挨打(2026-08-15 口径 7)
             // 不灭(2026-08-09,炑):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
             // 只挡这一步。Task 3 的 BurnSettleNow 同样复用这里,所以「免费兑现」
             // (立即结算也不掉层)也一并生效——这是规格 §4.2 那条爆发链的根
@@ -1579,6 +1587,7 @@ namespace Brushblade.Core
             if (bleedStatus == null || bleedStatus.TurnsLeft <= 0) return;
             int bleed = bleedStatus.Magnitude;
             enemy.Hp = Math.Max(0, enemy.Hp - bleed);
+            RevealDisguise(enemyIndex); // 通假字:流血扣血也算挨打(2026-08-15 口径 7)
             _events.Add(new BattleEvent(BattleEventKind.BleedTick, enemyIndex, bleed));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
@@ -1857,6 +1866,7 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit));
 
             enemy.HitsTaken += 1;
+            RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
 
             // 死亡先结算:EnemyDied 必须紧跟致死伤害,表现层据此判定「这记是否击杀」
             // (击杀不白闪、让位给置灰)。中间插任何事件都会打断判定 → 白闪抢色 + 置灰错拍
