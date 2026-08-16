@@ -217,19 +217,56 @@ namespace Brushblade.Presentation
             RoundButton(parent, text, onClick, bg, fg, fontSize, size, 24);
 
         /// <summary>胶囊小标签(宽度按 CJK 字宽估算)。padX/padY 只给挤不下的地方调窄用
-        /// (敌人格 chip 行),默认值即原尺寸,其余 20 多个调用点不受影响。</summary>
+        /// (敌人格 chip 行),默认值即原尺寸,其余 20 多个调用点不受影响。
+        ///
+        /// iconKey 非空时在文字左侧画图标(2026-08-17):PNG 有就画图,没有就画
+        /// <see cref="Icons.Fallback"/> 的汉字 —— 两条路占同样的宽,布局不受资产有无影响。</summary>
         public static GameObject Chip(Transform parent, string text, Color bg, Color fg,
-            int fontSize = 14, int padX = ChipPadX, int padY = ChipPadY)
+            int fontSize = 14, int padX = ChipPadX, int padY = ChipPadY, string iconKey = null)
         {
             var go = Panel(parent, "Chip");
             var image = go.AddComponent<Image>();
             image.sprite = Theme.Rounded(14);
             image.type = Image.Type.Sliced;
             image.color = bg;
-            var label = ThemedLabel(go.transform, text, fontSize, fg);
-            Stretch(label.rectTransform);
+
+            float iconSpan = 0f;
+            if (iconKey != null)
+            {
+                iconSpan = Icons.Size + (text.Length > 0 ? Icons.Gap : 0f);
+                var sprite = Icons.Get(iconKey);
+                if (sprite != null)
+                {
+                    var iconGo = Panel(go.transform, "Icon");
+                    var iconImage = iconGo.AddComponent<Image>();
+                    iconImage.sprite = sprite;
+                    iconImage.color = fg;                 // 图形是白的,用前景色染
+                    iconImage.preserveAspect = true;
+                    Anchor((RectTransform)iconGo.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                        new Vector2(padX / 2f, -Icons.Size / 2f),
+                        new Vector2(padX / 2f + Icons.Size, Icons.Size / 2f));
+                }
+                else
+                {
+                    // 兜底:同样占 Icons.Size 的宽,布局与有图时完全一致
+                    var glyph = ThemedLabel(go.transform, Icons.Fallback(iconKey), fontSize, fg);
+                    Anchor(glyph.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                        new Vector2(padX / 2f, -Icons.Size / 2f),
+                        new Vector2(padX / 2f + Icons.Size, Icons.Size / 2f));
+                }
+            }
+
+            if (text.Length > 0)
+            {
+                var label = ThemedLabel(go.transform, text, fontSize, fg);
+                Stretch(label.rectTransform);
+                if (iconSpan > 0f)
+                    Anchor(label.rectTransform, Vector2.zero, Vector2.one,
+                        new Vector2(iconSpan, 0f), Vector2.zero);
+            }
+
             var element = go.AddComponent<LayoutElement>();
-            element.preferredWidth = ChipWidth(text, fontSize, padX);
+            element.preferredWidth = ChipWidth(text, fontSize, padX) + iconSpan;
             element.preferredHeight = ChipHeight(fontSize, padY);
             return go;
         }
@@ -244,6 +281,18 @@ namespace Brushblade.Presentation
 
         public static float ChipHeight(int fontSize, int padY = ChipPadY) => fontSize + padY;
 
+        /// <summary>带图标的 chip 宽度。图标占 <see cref="Icons.Size"/>,后面还有 Gap;
+        /// 纯图标(无量值)时不留 Gap。无图标时与 <see cref="ChipWidth(string,int,int)"/> 等价。
+        ///
+        /// ⚠ 必须与 <see cref="Chip"/> 的实际布局一致 —— ChipFlow 在**建对象之前**就靠这个数
+        /// 把行排好(见 ChipWidth 的注释),两者一旦不一致,排出来的行会溢出或留白。</summary>
+        public static float ChipWidth(ChipSpec chip, int fontSize, int padX = ChipPadX)
+        {
+            float width = ChipWidth(chip.Text, fontSize, padX);
+            if (chip.IconKey == null) return width;
+            return width + Icons.Size + (chip.Text.Length > 0 ? Icons.Gap : 0f);
+        }
+
         /// <summary>一个待排的 chip:文字与配色。<see cref="ChipFlow"/> 要先看全部文字才能分行,
         /// 所以调用方先攒成 spec 列表,而不是逐个 <see cref="Chip"/> 直接建对象。</summary>
         public readonly struct ChipSpec
@@ -251,18 +300,28 @@ namespace Brushblade.Presentation
             public readonly string Text;
             public readonly Color Bg;
             public readonly Color Fg;
+
+            /// <summary>非空则在文字左侧画一个 <see cref="Icons"/> 图标(2026-08-17)。
+            /// 战斗界面的状态类 chip 用它把「灼烧 3」压成「[炎] 3」,宽度让给行动条。
+            /// 为 null 时行为与从前**逐字节相同** —— 既有五个消费方一行不用改。</summary>
+            public readonly string IconKey;
+
             /// <summary>这是 ChipFlow 自己补的「+N」计数,不是调用方给的真 chip ——
             /// 它用更紧的内边距(<see cref="ChipCountPadX"/>)。靠标记而不是认文本前缀:
             /// 「+N」长得像普通 chip,靠字符串猜迟早会误伤真 chip。</summary>
             internal readonly bool IsCount;
 
-            public ChipSpec(string text, Color bg, Color fg) : this(text, bg, fg, false) { }
+            public ChipSpec(string text, Color bg, Color fg) : this(text, bg, fg, null, false) { }
 
-            internal ChipSpec(string text, Color bg, Color fg, bool isCount)
+            public ChipSpec(string text, Color bg, Color fg, string iconKey)
+                : this(text, bg, fg, iconKey, false) { }
+
+            internal ChipSpec(string text, Color bg, Color fg, string iconKey, bool isCount)
             {
                 Text = text;
                 Bg = bg;
                 Fg = fg;
+                IconKey = iconKey;
                 IsCount = isCount;
             }
         }
@@ -304,7 +363,7 @@ namespace Brushblade.Presentation
                 var row = Row(stack.transform, "Line", spacing);
                 foreach (var chip in line)
                     Chip(row.transform, chip.Text, chip.Bg, chip.Fg, fontSize,
-                        chip.IsCount ? ChipCountPadX : padX, padY);
+                        chip.IsCount ? ChipCountPadX : padX, padY, chip.IconKey);
             }
             return stack;
         }
@@ -346,9 +405,9 @@ namespace Brushblade.Presentation
             }
 
             for (int i = 0; i < take; i++)
-                Place(chips[i], ChipWidth(chips[i].Text, fontSize, padX), false);
+                Place(chips[i], ChipWidth(chips[i], fontSize, padX), false);
             if (extra != null)
-                Place(new ChipSpec(extra, Theme.PaperDim, Theme.TextMain, isCount: true),
+                Place(new ChipSpec(extra, Theme.PaperDim, Theme.TextMain, null, isCount: true),
                     ChipWidth(extra, fontSize, ChipCountPadX), true);
             if (current.Count > 0) lines.Add(current);
             return lines;
