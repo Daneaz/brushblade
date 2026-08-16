@@ -245,5 +245,54 @@ namespace Brushblade.Core.Tests
                 if (e.Kind == BattleEventKind.BossSkillCast) count++;
             return count;
         }
+
+        [Test]
+        public void PlayerBurn_SettlesAtPlayerTurnStart_NotWhenYielding()
+        {
+            var engine = Engine(new[] { Dummy(attack: 0) });
+            engine.EndTurn();   // 走到一个干净的玩家拍
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 2, TurnsLeft = -1, SourceId = "灯",
+            });
+            int before = engine.PlayerHp;
+
+            engine.YieldTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(before), "让出行动权那一刻不烧");
+
+            while (engine.AdvanceOnce()) { }   // 推到下一个玩家拍
+            Assert.That(engine.PlayerHp, Is.LessThan(before), "玩家自己那拍开头才烧");
+        }
+
+        [Test]
+        public void PlayerStatus_TicksWhenPlayerYields()
+        {
+            var engine = Engine(new[] { Dummy(attack: 0) });
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
+                Magnitude = 5, TurnsLeft = 3, SourceId = "滋",
+            });
+
+            engine.YieldTurn();
+
+            Assert.That(engine.PlayerStatuses.Find(StatusKind.HealOverTime).TurnsLeft, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void FastPlayer_GetsApAndDropTwiceAsOften()
+        {
+            // 口径 5:一次行动 = 一份完整回合(3 AP + 1 掉字)
+            var engine = Engine(new[] { Dummy(attack: 0) },
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 200 });
+            int turnBefore = engine.Turn;
+
+            engine.EndTurn();
+            engine.EndTurn();
+
+            Assert.That(engine.Turn, Is.EqualTo(turnBefore + 2));
+            Assert.That(engine.Ap, Is.EqualTo(engine.ApPerTurn), "每拍都回满 AP");
+        }
     }
 }

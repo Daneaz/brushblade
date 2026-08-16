@@ -837,14 +837,19 @@ namespace Brushblade.Core
             _events.AddRange(accumulated);
         }
 
-        /// <summary>玩家侧回合尾结算(2026-08-15 从 EndTurn 拆出,归属不变;敌人灼烧/流血已在同一天
-        /// 的 ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 各自那一拍,见该方法):玩家灼烧
-        /// (含致死早退)→ 玩家 HoT。召唤物光环治疗与反击已挪出去,改由调度器逐个驱动,归到它
-        /// 自己那拍(见 ActSummonTurn,2026-08-16)。</summary>
+        /// <summary>玩家让出行动权(2026-08-16,ATB 时序归属搬迁,spec §4.3 玩家那一拍第 6 步):
+        /// 只做玩家侧状态递减。DOT(灼烧/HoT)与 AP 补给都挪到了 <see cref="BeginPlayerTurn"/>
+        /// —— 玩家的一拍从「自己开始」算起,不再是「上一拍让出时」。</summary>
         private void SettlePlayerTurnEnd()
         {
-            // 玩家灼烧(2026-08-06):层数 × 系数掉血,然后 −1 层。玩家没有五行属性,
-            // 所以**不走生克** —— 敌人侧那条 KeMultiplier(Fire, enemy.Element) 不适用。
+            TickPlayerStatuses();
+        }
+
+        /// <summary>玩家灼烧(2026-08-16 从 SettlePlayerTurnEnd 拆出,归属挪到 BeginPlayerTurn):
+        /// 层数 × 系数掉血,然后 −1 层。玩家没有五行属性,所以**不走生克**
+        /// —— 敌人侧那条 KeMultiplier(Fire, enemy.Element) 不适用。</summary>
+        private void SettlePlayerBurn()
+        {
             var playerBurn = _playerStatuses.Find(StatusKind.Burn);
             if (playerBurn != null && playerBurn.Magnitude > 0)
             {
@@ -859,16 +864,20 @@ namespace Brushblade.Core
             // (2026-08-06 全分支终审 C2):归零即死,持续治疗救不回来 —— 若照旧把判负推迟到
             // 回合尾部,中间的 HoT 循环会先把血救回去,CheckWin() 也可能被同回合的召唤物
             // 清场抢先判成 Won(PlayerHp=0 却「胜利」,还带着 0 血过关)。
-            // 状态回合递减必须照跑(下移进 TickPlayerStatuses):跳过会让广告复活后所有状态多续一回合。
+            // ⚠️ 2026-08-16:这里不再补跑 TickPlayerStatuses() —— 玩家侧状态递减已经挪到
+            // 上一拍 YieldTurn() 里的 SettlePlayerTurnEnd() 执行过一次了,此处早退不会再
+            // 漏掉一次递减(旧代码在这里补跑是因为递减当时还挂在本方法末尾,早退会跳过它)。
             if (PlayerHp <= 0)
             {
-                TickPlayerStatuses();
                 Phase = BattlePhase.Lost;
-                return;
             }
+        }
 
-            // 持续治疗(2026-08-04):回合数递减挪到 BeginPlayerTurn 末尾统一处理(与 Bleed 同理,
-            // 见下方"状态回合递减"),这里只结算不写 TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。
+        /// <summary>玩家持续治疗(2026-08-16 从 SettlePlayerTurnEnd 拆出,归属挪到 BeginPlayerTurn):
+        /// 回合数递减仍由 TickPlayerStatuses 统一处理(见 SettlePlayerTurnEnd),这里只结算不写
+        /// TurnsLeft,避免本回合刚施加的 HoT 被立刻多减一次。</summary>
+        private void SettlePlayerHots()
+        {
             for (int i = _playerStatuses.All.Count - 1; i >= 0; i--)
             {
                 var hot = _playerStatuses.All[i];
@@ -927,24 +936,17 @@ namespace Brushblade.Core
             enemy.Statuses.TickTurns();
         }
 
-        /// <summary>玩家回合开始(2026-08-15 从 EndTurn 拆出,归属不变;缺笔妖自补全已在同一天的
-        /// ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 敌人自己那一拍,不再统一独立一趟):
-        /// 状态回合递减 → 判负 → 判胜 → 开新一拍(StartTurn)。</summary>
+        /// <summary>轮到玩家(2026-08-16,ATB 时序归属搬迁,spec §4.3 玩家那一拍第 1~4 步):
+        /// 玩家灼烧 → 玩家 HoT → 判负 → 判胜 → 开新一拍(StartTurn)。DOT 与 AP 补给从「上一拍
+        /// 让出行动权时」挪到这里 —— 玩家的一拍从「自己开始」算起,状态回合递减则相应挪到了
+        /// 上一拍的 YieldTurn()(见 SettlePlayerTurnEnd)。</summary>
         private void BeginPlayerTurn()
         {
-            // 状态回合递减(2026-08-04):统一挪到本回合全部结算之后,避免"刚施加就少一回合"
-            // (Bleed_ExpiresAfterThreeTurns 守着这条)。
-            // ⚠️ 必须排在 PlayerHp<=0 早退**之前**(2026-08-05,全分支评审 Important 3):早退会
-            // 直接 return,若递减挪到早退后面,玩家阵亡的那一拍就整个跳过递减 —— 广告复活
-            // 满血续战后,所有状态(流血/冻结/减速/HoT)都会多续一回合
-            // (Revive_DoesNotGrantExtraStatusTurn 守着这条)。
-            TickPlayerStatuses();
+            SettlePlayerBurn();
+            if (Phase == BattlePhase.Lost) return;
 
-            if (PlayerHp <= 0)
-            {
-                Phase = BattlePhase.Lost;
-                return;
-            }
+            SettlePlayerHots();
+            if (PlayerHp <= 0) { Phase = BattlePhase.Lost; return; }
 
             // 反伤可能在敌方段里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
             // 所以这里原本没有判胜,不补的话会带着满地尸体走进 StartTurn。
@@ -1073,9 +1075,9 @@ namespace Brushblade.Core
 
         /// <summary>玩家侧状态回合递减(2026-08-04,抽成方法见 2026-08-06 C2;敌人侧已在
         /// 2026-08-15 的 ATB 时序归属搬迁中挪到 <see cref="ActEnemyTurn"/> 各自那一拍自行递减,
-        /// 不再在这里统一处理,方法因此改名)。两个调用点共用同一份实现:回合正常收尾时用一次,
-        /// 玩家被灼烧烧死需要提前判负时也要用一次 —— 递减不能因为玩家阵亡就跳过,
-        /// 否则广告复活满血续战后所有状态都会多续一回合。</summary>
+        /// 不再在这里统一处理,方法因此改名)。2026-08-16:随灼烧/HoT 挪到 BeginPlayerTurn,
+        /// 本方法现在只剩 SettlePlayerTurnEnd 一个调用点 —— 玩家让出行动权那一刻递减,
+        /// 灼烧致死不必再补跑(见 SettlePlayerBurn 内的说明:递减已经在上一拍跑过了)。</summary>
         private void TickPlayerStatuses()
         {
             // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
