@@ -2080,16 +2080,50 @@ namespace Brushblade.Presentation
 
         private void OnEndTurn()
         {
-            SnapshotPreHp(); // 出手前血量:敌方攻击触达才逐记扣血
-            Battle.EndTurn();
-            _tutorial?.Notify(TutorialAction.EndTurn);
-            _message = Battle.Phase == BattlePhase.PlayerTurn ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "";
-            AppendBossSkillMessage(); // 蓄力/释放/护盾被掀空都发生在敌方回合结算(EndTurn),不是出字动作里
-            var deaths = DeathsThisAction();
-            _dyingEnemies.UnionWith(deaths); // 登记须在 CancelSelection 重绘前:重绘据此保持死怪着色
-            BeginAnim(); // 锁输入:召唤/敌方行动期间不许出字,须在重绘前置位
+            if (Battle.Phase != BattlePhase.PlayerTurn) return;
+            BeginAnim();               // 锁输入:整段推进期间不许出字,须在重绘前置位
             CancelSelection();
-            PlayAnimated(Battle.LastEvents, deaths);
+            Battle.YieldTurn();
+            _tutorial?.Notify(TutorialAction.EndTurn);
+            StartCoroutine(AdvanceRoutine());
+        }
+
+        /// <summary>逐格推进(2026-08-15 ATB 改造):一次 AdvanceOnce 播一个行动者的动画,原先是
+        /// 一次 EndTurn 拿到整轮事件、由 Juice 猜边界切三段——现在边界由引擎给,段间停顿挪到这里。
+        /// 全程只在 OnEndTurn 里 BeginAnim 过一次,循环内不逐批调用 OnAnimDone(那会提前把
+        /// _animsInFlight 归零、误放行输入)——死亡怪下标累积到 allDeaths,循环结束后一次性调用
+        /// OnAnimDone 收尾解锁 + 清死亡着色(否则 _dyingEnemies 里较早批次的下标会一直挂着,
+        /// 撞上下一场战斗同下标的新敌人,把它显示成灰)。
+        /// AppendBossSkillMessage 须按批调用而非等循环结束才读一次:蓄力/释放/护盾被掀空这些事件
+        /// 可能出在本轮任意一个行动者的批次里,循环结束后 Battle.LastEvents 只剩最后一批
+        /// (通常是轮回玩家那个只带 ActorActed 标记的空批),整轮跑到一半的播报会被静默吞掉。</summary>
+        private System.Collections.IEnumerator AdvanceRoutine()
+        {
+            _message = ""; // 蓄力/释放/护盾被掀空的播报按批累加在这里,回合前缀最后再补上
+            var allDeaths = new System.Collections.Generic.List<int>();
+            while (true)
+            {
+                SnapshotPreHp();       // 每个行动者出手前的血量:动画逐记扣
+                bool more = Battle.AdvanceOnce();
+                var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
+                var deaths = DeathsThisAction();
+                _dyingEnemies.UnionWith(deaths); // 登记须在下面 Refresh 前:重绘据此保持死怪着色
+                allDeaths.AddRange(deaths);
+                AppendBossSkillMessage();
+                if (events.Count > 0)
+                {
+                    bool done = false;
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
+                    while (!done) yield return null;
+                    yield return new WaitForSecondsRealtime(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap)
+                }
+                Refresh();
+                if (!more) break;
+                if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
+            }
+            _message = (Battle.Phase == BattlePhase.PlayerTurn
+                ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "") + _message;
+            OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
         }
 
         private void CancelSelection()
