@@ -433,5 +433,32 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(engine.Enemies[0].Element));
         }
+
+        [Test]
+        public void PlayerActionMeter_SurvivesRoundTrip()
+        {
+            var engine = Engine(new[] { Dummy(attack: 0) },
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 });
+            engine.EndTurn();   // 速度 150:行动后计量器留 50 的余额
+
+            var snapshot = engine.Capture();
+            var restored = BattleEngine.Restore(snapshot, Graph(),
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 }, null, null);
+
+            Assert.That(restored.PlayerActionMeter, Is.EqualTo(engine.PlayerActionMeter));
+        }
+
+        [Test]
+        public void RestoredBattle_ContinuesTheSameRhythm()
+        {
+            var engine = Engine(new[] { Dummy(attack: 0), Dummy("乙", 999, 0) },
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 });
+            engine.EndTurn();
+
+            var restored = BattleEngine.Restore(engine.Capture(), Graph(),
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 }, null, null);
+
+            Assert.That(restored.Forecast(6), Is.EqualTo(engine.Forecast(6)));
+        }
     }
 }
