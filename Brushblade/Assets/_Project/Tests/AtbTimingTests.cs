@@ -348,5 +348,59 @@ namespace Brushblade.Core.Tests
             Assert.That(forecast.Any(a => a.Kind == ActorKind.Enemy), Is.True,
                 "冻结单位仍要出现在预测里(会被跳过,但占位)");
         }
+
+        [Test]
+        public void PlayerDeath_EndsBattleImmediately_RemainingEnemiesDoNotAct()
+        {
+            // 三只怪,第一只就能打死玩家:后两只不该再动(UI 也不该再读条)
+            var engine = Engine(new[]
+            {
+                new EnemyDef("甲", Element.Heart, 999, 500),
+                new EnemyDef("乙", Element.Heart, 999, 500),
+                new EnemyDef("丙", Element.Heart, 999, 500),
+            }, new BattleConfig { PlayerMaxHp = 100 });
+
+            engine.EndTurn();
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.EnemyAttack),
+                Is.EqualTo(1), "第一记就该收口");
+        }
+
+        [Test]
+        public void LastEnemyDeath_WinsImmediately()
+        {
+            var engine = Engine(new[] { Dummy(hp: 1, attack: 0) });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
+                Magnitude = 99, TurnsLeft = 3, SourceId = "血",
+            });
+
+            engine.EndTurn();
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won), "流血打死最后一只就当场赢");
+        }
+
+        [Test]
+        public void Revive_ContinuesTheTimeline_RemainingEnemiesStillAct()
+        {
+            // spec §4.3.1:复活 = 满血站起来,时间轴原地继续。
+            // 旧行为是 StartTurn() 开新一拍,等于白捡「剩下的怪本回合不再出手」。
+            var engine = Engine(new[]
+            {
+                new EnemyDef("甲", Element.Heart, 999, 150),
+                new EnemyDef("乙", Element.Heart, 999, 150),
+            }, new BattleConfig { PlayerMaxHp = 100 });
+
+            engine.EndTurn();
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Lost));
+
+            engine.Revive();
+            Assert.That(engine.PlayerHp, Is.EqualTo(100));
+
+            while (engine.AdvanceOnce()) { }
+            Assert.That(engine.PlayerHp, Is.LessThan(100), "没行动的怪照常打");
+        }
     }
 }

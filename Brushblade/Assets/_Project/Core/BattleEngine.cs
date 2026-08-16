@@ -591,17 +591,18 @@ namespace Brushblade.Core
             return BattleError.NotCastable;
         }
 
-        /// <summary>广告复活(2026-07-24):败北态满血续战。HP 回满 → 回到玩家回合(刷 AP)。
-        /// StartTurn 会 +Turn/刷 AP,并可能因回合掉字撞满库而把 Phase 从 PlayerTurn 改成
-        /// DropChoice(2026-08-04)——复活后不一定直接落在 PlayerTurn,调用方需按 Phase 分支处理。
-        /// StartTurn 无对玩家的 DoT,故复活瞬间不会被二次归零。
+        /// <summary>广告复活(spec §4.3.1,2026-08-16 改判:满血站起来,**时间轴原地继续** ——
+        /// 不重置调度器、不跳过剩余行动者、不补任何递减。
+        /// 旧实现调 StartTurn() 开新一拍,等于白送「剩下的怪本回合不再出手」;
+        /// 玩家买到的是满血,不是无敌一轮。
+        /// ⚠ 去掉 StartTurn() 后,复活当拍玩家不会拿到新 AP —— 这是正确的:AP 在轮到玩家时
+        /// 由 BeginPlayerTurn 给,不该由 Revive 越俎代庖。
         /// 补给(字)由 RunEngine 复活流程经 GrantLibraryChar 注入(部件补给已随掉落改造删除)。</summary>
         public void Revive()
         {
             if (Phase != BattlePhase.Lost) return;
             PlayerHp = _config.PlayerMaxHp;
             Phase = BattlePhase.PlayerTurn;
-            StartTurn();
         }
 
         /// <summary>掉落决议:用待决议字换掉字库第 <paramref name="replaceIndex"/> 张
@@ -948,6 +949,11 @@ namespace Brushblade.Core
             else
                 ActOneEnemy(enemyIndex, 1);
 
+            // 这一拍即便刚把玩家打死(Phase 已变 Lost),它自身的状态递减也照常执行——
+            // 不能因为玩家阵亡就早退跳过(2026-08-05 Important 3 锁定的口径:阵亡当回合状态也要
+            // 照常递减,不能拖到复活后才补,见 Revive_DoesNotGrantExtraStatusTurn)。
+            // 真正需要早退的是「剩余敌人不再出手」——那由 AdvanceOnce 末尾的
+            // `Phase == BattlePhase.PlayerTurn` 早退天然覆盖,不需要在这里重复拦一次。
             enemy.Statuses.TickTurns();
         }
 
@@ -1059,6 +1065,10 @@ namespace Brushblade.Core
                     RefreshBurn(_playerStatuses, SearStacks);
                     _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
                 }
+
+                // 立即判负(Task 12):这一下已经打死玩家 —— 不再走下一次行动
+                // (actionCount 目前恒为 1,这里是防御性收口,不是当前会触发的分支)。
+                if (Phase != BattlePhase.PlayerTurn) break;
             }
         }
 
@@ -1853,6 +1863,10 @@ namespace Brushblade.Core
             if (!enemy.Alive)
             {
                 ResolveDefeat(enemyIndex);
+                // 立即判胜(Task 12):这一记(含反弹/反伤这类回敬)可能就是清场的最后一击,
+                // 不等到下一次 BeginPlayerTurn 才收口。CheckWin() 内部会挡住「玩家同时也死了」
+                // 的情形——同归于尽时玩家阵亡优先,既有口径不变。
+                CheckWin();
                 return;
             }
 
@@ -1970,6 +1984,10 @@ namespace Brushblade.Core
             int absorbed = fromNormal + fromPersist;
             PlayerHp = Math.Max(0, PlayerHp - (damage - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.EnemyAttack, enemyIndex, damage, -1, absorbed));
+
+            // 立即判负(Task 12,spec §4.3.1):归零即当场收口,不推迟到下一次 BeginPlayerTurn ——
+            // 逐格驱动下,推迟意味着已经死了还要陪剩下的怪把动画读完才弹结算。
+            if (PlayerHp <= 0) Phase = BattlePhase.Lost;
 
             // 反弹(2026-08-07,镜):按**打过来的总伤害**照回去,不是按实际掉血 ——
             // 护盾吸掉的那部分也照样反。「镜」是把东西原样反射,不管你挡没挡住,
@@ -2186,6 +2204,10 @@ namespace Brushblade.Core
 
         private void CheckWin()
         {
+            // 同归于尽玩家阵亡优先(既有口径,不变,2026-08-16 补充):Lost 已经落定就不再
+            // 被清场反弹/反伤这类回敬链路翻成 Won —— 这条守卫是 DamageEnemy 死亡分支新补的
+            // CheckWin() 调用点专用(Task 12),其余既有调用点本就排在 Lost 早退之后,不受影响。
+            if (Phase == BattlePhase.Lost) return;
             foreach (var enemy in _enemies)
                 if (enemy.Alive)
                     return;
