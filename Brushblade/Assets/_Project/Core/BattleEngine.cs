@@ -766,12 +766,8 @@ namespace Brushblade.Core
         public IReadOnlyList<ActorRef> Forecast(int count) =>
             TurnScheduler.Forecast(BuildSlots(), count);
 
-        /// <summary>队首是谁(不改任何状态)。</summary>
-        public ActorRef PeekNextActor()
-        {
-            var forecast = TurnScheduler.Forecast(BuildSlots(), 1);
-            return forecast.Count > 0 ? forecast[0] : ActorRef.Player;
-        }
+        // 2026-08-16 全分支终审 Important 4:PeekNextActor() 已删除——全仓库零消费方的死代码
+        // (表现层的"当前行动者"格该用 LastActor,不是队首预测;见 TurnBar.Refresh 的改法)。
 
         /// <summary>玩家让出行动权,交由 AdvanceOnce 逐个推进(2026-08-16 全分支终审 Important 1
         /// 之后:本方法不再做玩家侧状态递减——那一步挪到了 BeginPlayerTurn 尾部,见其注释)。</summary>

@@ -25,20 +25,26 @@ namespace Brushblade.Presentation
             Ui.Anchor(_row, new Vector2(0.02f, 0.855f), new Vector2(0.98f, 0.900f), Vector2.zero, Vector2.zero);
         }
 
+        /// <summary>2026-08-16 全分支终审 Important 4:「当前行动者」那一格改用
+        /// <see cref="BattleEngine.LastActor"/>(刚行动过/正在行动的那个),不再用
+        /// Forecast(8)[0]——Forecast 读的是**当前**计量器,玩家自己那一拍里第 0 格永远是
+        /// 下一个要动的敌人,「我」根本不会出现在放大高亮位。spec §4.4 写的正是
+        /// HighlightActor(Battle.LastActor)。第 0 格固定放大标"当前",其余 Slots-1 格
+        /// 用 Forecast 出的序列标"接下来"。</summary>
         public void Refresh(BattleEngine battle)
         {
             foreach (var cell in _cells) if (cell != null) Object.Destroy(cell);
             _cells.Clear();
             if (battle == null || _row == null) return;
 
-            var forecast = battle.Forecast(Slots);
-            for (int i = 0; i < forecast.Count; i++)
-            {
-                var actor = forecast[i];
-                bool current = i == 0;
+            var current = battle.LastActor;
+            _cells.Add(Ui.Chip(_row, LabelFor(battle, current),
+                ColorFor(battle, current), Color.white, 18));
+
+            var forecast = battle.Forecast(Slots - 1);
+            foreach (var actor in forecast)
                 _cells.Add(Ui.Chip(_row, LabelFor(battle, actor),
-                    ColorFor(battle, actor), Color.white, current ? 18 : 14));
-            }
+                    ColorFor(battle, actor), Color.white, 14));
         }
 
         private static string LabelFor(BattleEngine battle, ActorRef actor) => actor.Kind switch
