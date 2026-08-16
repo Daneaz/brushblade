@@ -437,13 +437,15 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlayerActionMeter_SurvivesRoundTrip()
         {
-            var engine = Engine(new[] { Dummy(attack: 0) },
+            var dummy = Dummy(attack: 0);
+            var engine = Engine(new[] { dummy },
                 new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 });
             engine.EndTurn();   // 速度 150:行动后计量器留 50 的余额
 
             var snapshot = engine.Capture();
+            var defs = new Dictionary<string, EnemyDef> { [dummy.Id] = dummy };
             var restored = BattleEngine.Restore(snapshot, Graph(),
-                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 }, null, null);
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 }, null, defs);
 
             Assert.That(restored.PlayerActionMeter, Is.EqualTo(engine.PlayerActionMeter));
         }
@@ -451,12 +453,15 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RestoredBattle_ContinuesTheSameRhythm()
         {
-            var engine = Engine(new[] { Dummy(attack: 0), Dummy("乙", 999, 0) },
+            var dummy1 = Dummy(attack: 0);
+            var dummy2 = Dummy("乙", 999, 0);
+            var engine = Engine(new[] { dummy1, dummy2 },
                 new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 });
             engine.EndTurn();
 
+            var defs = new Dictionary<string, EnemyDef> { [dummy1.Id] = dummy1, [dummy2.Id] = dummy2 };
             var restored = BattleEngine.Restore(engine.Capture(), Graph(),
-                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 }, null, null);
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = 150 }, null, defs);
 
             Assert.That(restored.Forecast(6), Is.EqualTo(engine.Forecast(6)));
         }

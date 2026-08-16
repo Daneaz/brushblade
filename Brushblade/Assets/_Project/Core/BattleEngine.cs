@@ -434,20 +434,8 @@ namespace Brushblade.Core
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
             {
-                EnemyDef def;
-                if (enemyDefs != null && enemyDefs.TryGetValue(enemy.DefId, out var foundDef))
-                {
-                    def = foundDef;
-                }
-                else if (enemyDefs == null)
-                {
-                    // 当 enemyDefs 为 null 时,从快照信息构造最小的 EnemyDef
-                    def = new EnemyDef(enemy.DefId, enemy.Element, enemy.MaxHp, enemy.BaseAttack);
-                }
-                else
-                {
+                if (!enemyDefs.TryGetValue(enemy.DefId, out var def))
                     throw new InvalidOperationException($"存档里的字怪「{enemy.DefId}」不在本层遭遇定义中");
-                }
                 engine._enemies.Add(EnemyState.Restore(enemy, def));
             }
             foreach (var summon in snapshot.Summons)
