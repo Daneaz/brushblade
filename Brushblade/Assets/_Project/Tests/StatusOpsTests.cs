@@ -260,10 +260,11 @@ namespace Brushblade.Core.Tests
         // PlayerTurn 就直接返回 false),灼烧根本没有机会被结算。这不是"同一瞬间两件事抢判负/
         // 判胜优先级"的旧场景(那条口径不变,见 spec §4.3「同归于尽时玩家阵亡优先」)——而是
         // 在 CTB 的时间轴上,召唤物出手确确实实发生在玩家下一次轮到自己(灼烧结算点)之前,
-        // 敌人先死是时间上的事实,不是判定顺序的巧合。改断言为:灼烧尚未结算(层数仍是 1、
-        // PlayerHp 不变),战斗以 Won 收场。
+        // 敌人先死是时间上的事实,不是判定顺序的巧合。断言已经改成"灼烧尚未结算(层数仍是 1、
+        // PlayerHp 不变),战斗以 Won 收场"——原名 PlayerBurn_KillsPlayer_… 与断言的结果正相反
+        // (全分支终审 Important 5 点名的两条名不副实测试之一),这里一并改准。
         [Test]
-        public void PlayerBurn_KillsPlayer_EvenIfSummonWouldClearLastEnemySameTurn()
+        public void PlayerBurn_NeverSettles_WhenSummonClearsLastEnemyFirst()
         {
             var engine = Engine(new[] { "素" }, new[] { Dummy(hp: 3, attack: 0) }, startingHp: 2);
             engine.Cast("素"); // 召唤攻 3 的木,回合末反击本该同回合秒掉这只 3 血靶
