@@ -763,9 +763,12 @@ namespace Brushblade.Presentation
 
         // 敌人格尺寸(2026-07-28 随形象接入放大:圆头像 104 → 形象 150,格 168×208 → 190×220)。
         // 形象底稿四周留了 10% 白,同直径下视觉体积比实心圆头像小,所以要给得更足。
-        // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80);
-        // 形象保持 150 不动,12px 由敌人区锚点向下吃 7px + 区内原有 5px 余量凑齐(用户拍板)
-        private const float EnemyPortrait = 150f;
+        // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80)。
+        // 2026-08-17:形象 150 → 138,给每个敌人自己的行动条腾 12px + 间距。
+        //   info 可用 = 234 − 138 − 2 = 94px;常见(状态 ≤ 1 行)需 78px 不溢出,
+        //   最坏(状态 2 行)需 100px 溢出 6px —— 与改造前的 5px 持平。
+        //   保持 150 的话最坏会溢出到 18px。取舍见 spec §4.2,推翻它只改这一个常量。
+        private const float EnemyPortrait = 138f;
         private const float EnemyCellWidth = 190f;
         // 2026-08-17:232 → 234,与收回屏高后的敌人区(0.640–0.900 = 234px)对齐。
         // 此前是 232 对 189px 的区域 —— 2026-08-16 压缩敌人区时改了区域没改这个常量,
@@ -860,29 +863,30 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new($"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
                         Theme.Cinnabar, Color.white));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
-                if (burnStacks > 0) chipSpecs.Add(new($"灼烧 {burnStacks}", Theme.Cinnabar, Color.white));
+                if (burnStacks > 0)
+                    chipSpecs.Add(new($"{burnStacks}", Theme.Cinnabar, Color.white, "burn"));
                 // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系
                 if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
-                    chipSpecs.Add(new("不灭", Theme.Cinnabar, Color.white));
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "burn_nodecay"));
                 // 冻结 / 减速(2026-08-13):此前这两个状态在敌人身上零显示 —— 冻结的怪不出手、
                 // 减速的怪隔回合才出手,玩家只能靠数它哪回合打了自己来倒推。
                 // 排在致盲之前:这两条直接回答「它下回合会不会打我」,信息价值高于减伤类,
                 // 不该在 ChipFlow 装不下时被从尾部丢掉。
                 if (enemy.Statuses.Has(StatusKind.Freeze))
-                    chipSpecs.Add(new("冻结", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "freeze"));
                 // 只画负向:正向 SpeedModifier 眼下没有任何来源(唯一施加点是 EffectKind.Slow 的
                 // −50),画加速分支就是死代码。数字是**速度点数**不是百分比,故不带 %。
                 int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 if (speedMod < 0)
-                    chipSpecs.Add(new($"减速 −{-speedMod}", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"−{-speedMod}", Theme.InkSoft, Color.white, "slow"));
                 int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
                 if (blind > 0)
-                    chipSpecs.Add(new($"致盲 −{blind}%", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"−{blind}%", Theme.InkSoft, Color.white, "blind"));
                 if (enemy.Statuses.Has(StatusKind.Silence))
-                    chipSpecs.Add(new("沉默", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "silence"));
                 int curse = enemy.Statuses.TotalMagnitude(StatusKind.Curse);
                 if (curse > 0)
-                    chipSpecs.Add(new($"诅咒 −{curse}%", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"−{curse}%", Theme.InkSoft, Color.white, "curse"));
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)
