@@ -323,15 +323,15 @@ namespace Brushblade.Presentation
             // (189px → 234px),给每个敌人自己的行动条腾位。见
             // docs/superpowers/specs/2026-08-17-每单位行动条与状态图标-design.md §4.1
             _enemyRow = MakeSection("Enemies", 0.640f, 0.900f);  // 234px
-            // ⚠ 72px 装不下召唤物格:方块 50 + 血条 15 + 攻力行 ≈ 80,带「盾」或被动标签是 94/108。
-            // 这不是本次改动造成的 —— 原 79px 同样装不下(旧注释只算了三项的标称值,漏了行高与可选行),
-            // 本次是让既有溢出再多 3.5px/边。HorizontalLayoutGroup 居中溢出,视觉上是上下各多探出一点。
-            _summonRow = MakeSection("Summons", 0.560f, 0.640f); // 72px(原 79px,见上)
-            // 74px(2026-08-13 从 50px 抬高)。50px 一直装不下带护盾的情形:
-            // 血条 20 + 间距 3 + 护盾条 7 + 间距 3 + 「护盾 N」14 + 间距 3 + 状态 chip 行 24 = 74。
-            // 无护盾时是 47,所以此前只在有盾的回合溢出,不容易被发现。
-            // 这 24px 从 Status 区(单行标签,63px 给多了)挪来,中间两区整体下移、尺寸不变。
-            _bottomRow = MakeSection("PlayerStats", 0.478f, 0.560f);
+            // 2026-08-17:72 → 84px。召唤物格**一直**装不下(改造前最坏 111px,溢出 39px),
+            // 本次给它加行动条的同时把字块 50→44、血条 15→12,并从 _bottomRow 要来 8px,
+            // 溢出降到 27px。**这个区域闭合不了**:格宽只有 54px,「攻 12」「盾 3」「附灼 2」
+            // 三项挤不进一行。要真闭合只能把盾与被动移进详情弹窗(点召唤物已能看
+            // SummonInfo.Detail),那是删信息,不在本次范围。见 spec §4.4。
+            _summonRow = MakeSection("Summons", 0.547f, 0.640f); // 84px
+            // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字省了 17px,
+            // 加上新增的行动条 14px,净需求降到约 66px —— 富余的 8px 让给召唤物排。
+            _bottomRow = MakeSection("PlayerStats", 0.487f, 0.560f); // 66px
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
             // 2026-07-20 移到最下面;左缘仍避开配字表(0.135 宽,2026-07-19 反馈:曾重叠)
@@ -737,13 +737,14 @@ namespace Brushblade.Presentation
                 var cell = Ui.VStack(_summonRow, $"Summon{i}", 1);
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
+                // 2026-08-17:字块 50 → 44、血条 15 → 12,给行动条腾 8px + 间距
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    23, new Vector2(50, 50), 12);
+                    21, new Vector2(44, 44), 11);
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
                 // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。动画期间画出手前值,SummonHit 触达才降
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
-                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
+                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 12));
                 Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
                 if (summon.Shield > 0)
                     Ui.ThemedLabel(cell.transform, $"盾{summon.Shield}", 11, Theme.Jade);
