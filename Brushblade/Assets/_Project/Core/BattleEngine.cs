@@ -238,8 +238,10 @@ namespace Brushblade.Core
 
         /// <summary>玩家的行动计量器(2026-08-15,ATB 改造):与敌人/召唤物同走一套模型,
         /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。恒非负——开局与所有人
-        /// 一样从 0 起步,不需要任何先手/负债/懒消费之类的特例(2026-08-15 第五次审查订正:
-        /// 前四轮的特例全是在给反向的 tie-break 打补丁,见 BuildSlots 的优先级注释)。</summary>
+        /// 一样从 0 起步,不需要任何先手/负债/懒消费之类的特例(2026-08-18 第六次审查订正:
+        /// 病根不是 tie-break 方向本身,是「玩家优先 + 构造函数给的免费先手」这个组合;
+        /// 免费先手已随本次改造删除,前四轮那些记账手法因此一个都不需要,完整推理见
+        /// BuildSlots 的优先级注释)。</summary>
         public int PlayerActionMeter { get; private set; }
 
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
@@ -765,7 +767,8 @@ namespace Brushblade.Core
         private readonly List<OpeningStep> _openingSteps = new();
 
         /// <summary>开场每一拍的回放数据,按发生顺序(2026-08-17)。同速开局只有一条
-        /// (玩家自己那一拍);携带满格召唤物或敌人更快时会有多条。
+        /// (玩家自己那一拍);携带满格召唤物、或玩家一拍攒不满而别人能时会有多条
+        /// (2026-08-18 订正:「敌人更快」不是准确条件,见 BuildSlots 的优先级注释)。
         /// **不进快照** —— 断点续爬恢复的是战斗中途,没有「开场」可回放。</summary>
         public IReadOnlyList<OpeningStep> OpeningSteps => _openingSteps;
 
@@ -798,8 +801,14 @@ namespace Brushblade.Core
         /// 当初三种「开局记账」(创建时先手 / 玩家记负债 / 消费一拍)全是在抵消那次免费先手;
         /// 把免费先手删掉(见构造函数),它们一个都不需要。
         ///
-        /// 这里只管**同速并列**。速度不同时先比谁先攒满(TicksUntilAnyFull),
-        /// 所以敌人速度高于玩家时它先动 —— 那是速度该有的表达力,旧的免费先手把它压平了。</summary>
+        /// 这里只管**同速并列**。速度不同时,ticks(TicksUntilAnyFull)是**全场共用的
+        /// 最小值**(2026-08-18 第六次审查订正,推翻此前「敌人速度高于玩家时它先动」的说法——
+        /// 那是错的):只要玩家一拍就能攒满(speed >= Threshold),敌人再快也会同拍满格,
+        /// 落回本级 tie-break,还是玩家赢。「敌人先动」的真实条件是**玩家一拍攒不满而敌人能**
+        /// (如玩家 25 要 4 拍、敌人 400 只要 1 拍)。速度更快在这个模型里体现为**出手更频繁**
+        /// (多轮累积),不是抢第一拍——玩家 100 / 敌人 200 是「玩家先动,然后敌人连动两次」。
+        /// 反例见 AtbTimingTests.Opening_FasterEnemyButPlayerFullInOneTick_PlayerStillActsFirst
+        /// (敌人 400、玩家 100,玩家仍先动)。这层表达力此前被旧的免费先手压平了。</summary>
         private List<SchedulerSlot> BuildSlots()
         {
             var slots = new List<SchedulerSlot>

@@ -77,7 +77,21 @@ namespace Brushblade.Core
         ///
         /// 打开这个通道是为了让速度能在**构造之前**定下来:自 2026-08-17 起
         /// `BattleEngine` 构造函数就会跑开场推进,而「先构造、后改 Enemies[0].Speed」
-        /// 的写法会让敌人以默认 100 参与开场那一拍(spec §5.8 的实例)。</summary>
+        /// 的写法会让敌人以默认 100 参与开场那一拍(spec §5.8 的实例)。
+        ///
+        /// ⚠ 这条通道眼下只接了一半:`Data/ConfigLoader.cs` 的 `EnemyDto` 没有 speed 字段,
+        /// 传给 `EnemyDef` 构造函数时也没传 speed(约 `:390`)。以后谁在 `enemies.json` 里写
+        /// `"speed": 200` 会被**静默忽略**——接 JSON 还要同时改 `EnemyDto` + 那处构造调用。
+        ///
+        /// ⚠ 给敌人真正配上差异化速度(即本字段不再全 0)之前,还有两条限制要一起解决
+        /// (2026-08-18,详见 BattleView.OpeningRoutine 的文档注释):
+        ///   1. 开场回放不接 Boss 蓄力播报——`OpeningRoutine` 没调 `AppendBossSkillMessage`
+        ///      (它读的是 `Battle.LastEvents` 而非逐拍的 `step.Events`)。当前配速下 Boss
+        ///      不可能在开场蓄力,所以无影响;敌人一旦配速就要补。
+        ///   2. 开场中途死掉的召唤物在回放里连头像格都不画——`DrawSummons` 靠 `_summonAnimHp`
+        ///      决定画不画,而 `SnapshotPreHp` 只在开场结束后跑一次、只登记 `Alive` 为真的
+        ///      召唤物(敌人侧有 `_dyingEnemies` 兜底,召唤物没有)。当前不可达——开场期间
+        ///      没有任何非玩家单位能伤害召唤物;敌人一旦配速就变可达,要同时修。</summary>
         public int Speed { get; }
 
         public EnemyDef(string id, Element element, int maxHp, int attack,

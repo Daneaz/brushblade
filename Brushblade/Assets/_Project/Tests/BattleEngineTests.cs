@@ -2045,7 +2045,8 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 5), "第 1 回合:开场那一拍已攒满,行动");
             int hp1 = engine.PlayerHp;
             engine.EndTurn(); engine.EndTurn(); engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp1), "此后每拍只攒 25,3 拍累计 75,不足 100");
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp1), "此后每拍攒 25,起点是第 1 回合尾部已有的 25,3 拍后正好到 100,"
+                + "但同速并列输给玩家(priority 0 vs 3)而不行动——不是攒不够");
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.LessThan(hp1), "第 4 拍到 100 再次行动 —— 间隔 4 即 100−50−25=25");
         }
