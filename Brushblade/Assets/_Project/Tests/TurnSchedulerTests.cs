@@ -205,5 +205,45 @@ namespace Brushblade.Core.Tests
 
             Assert.That(TurnScheduler.Forecast(slots, 0), Is.Empty);
         }
+
+        // ===== Ticks(2026-08-17,每单位行动条):表现层据此定动画时长 =====
+
+        [Test]
+        public void Advance_ReportsTicksSpent()
+        {
+            // 玩家速度 100 从 0 起步,一拍就攒满
+            var step = TurnScheduler.Advance(new List<SchedulerSlot> { Player(100), Enemy(0, 50) });
+
+            Assert.That(step.Ticks, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Advance_ReportsZeroTicksWhenSomeoneAlreadyFull()
+        {
+            // 已有人满格 → 不推进,直接消费。时长为 0,表现层跳过条动画
+            var step = TurnScheduler.Advance(new List<SchedulerSlot> { Player(100, TurnScheduler.Threshold) });
+
+            Assert.That(step.Ticks, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Advance_SlowUnitNeedsMoreTicks()
+        {
+            // 速度 25(= MinSpeed)四拍才满 —— 这正是「慢的条涨得慢」在时长上的落点
+            var step = TurnScheduler.Advance(new List<SchedulerSlot> { Enemy(0, TurnScheduler.MinSpeed) });
+
+            Assert.That(step.Ticks, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Advance_TicksMatchMeterGrowth()
+        {
+            // Ticks 与计量器增量必须自洽:非行动者涨的量 = 速度 × Ticks。
+            // 这条守的是「时长与条的行程同一个来源」——两者一旦脱钩,条会在动画结束时跳一下。
+            var slots = new List<SchedulerSlot> { Player(100), Enemy(0, 40) };
+            var step = TurnScheduler.Advance(slots);
+
+            Assert.That(step.Meters[1], Is.EqualTo(40 * step.Ticks));
+        }
     }
 }

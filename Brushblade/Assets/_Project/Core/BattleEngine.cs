@@ -710,6 +710,11 @@ namespace Brushblade.Core
         /// <summary>最近一次 AdvanceOnce 执行的行动者(表现层据此高亮行动条那一格)。</summary>
         public ActorRef LastActor { get; private set; } = ActorRef.Player;
 
+        /// <summary>最近一次 AdvanceOnce 推进了多少拍(2026-08-17,每单位行动条)。
+        /// 表现层用它定行动条动画时长:时长 = LastAdvanceTicks × BaseMs。
+        /// 战斗刚开始、还没推进过时为 0 —— 表现层据此跳过条动画。</summary>
+        public int LastAdvanceTicks { get; private set; }
+
         /// <summary>当前参战单位的调度槽位。**顺序固定**:玩家、召唤物(下标升序)、敌人(下标升序)
         /// —— Forecast 与 Advance 返回的 Meters 与本列表同序,写回时按同一顺序。
         /// 死掉的单位不进调度(它们不再行动,也不该占预测格子)。
@@ -766,8 +771,10 @@ namespace Brushblade.Core
         public IReadOnlyList<ActorRef> Forecast(int count) =>
             TurnScheduler.Forecast(BuildSlots(), count);
 
-        // 2026-08-16 全分支终审 Important 4:PeekNextActor() 已删除——全仓库零消费方的死代码
-        // (表现层的"当前行动者"格该用 LastActor,不是队首预测;见 TurnBar.Refresh 的改法)。
+        // 2026-08-16 全分支终审 Important 4:PeekNextActor() 已删除——全仓库零消费方的死代码。
+        // 2026-08-17:顶部行动条(TurnBar)一并废止,改为每单位自己一条读 ActionMeter 的条。
+        // Forecast 因此暂时没有消费方,但保留 —— 它是 Core 公共 API,零维护成本,
+        // 以后做「接下来谁动」的提示随时能用。
 
         /// <summary>玩家让出行动权,交由 AdvanceOnce 逐个推进(2026-08-16 全分支终审 Important 1
         /// 之后:本方法不再做玩家侧状态递减——那一步挪到了 BeginPlayerTurn 尾部,见其注释)。</summary>
@@ -787,8 +794,15 @@ namespace Brushblade.Core
         public bool AdvanceOnce()
         {
             if (Phase != BattlePhase.PlayerTurn && Phase != BattlePhase.DropChoice)
+            {
+                LastAdvanceTicks = 0; // 防御性:不产生 step 就不该留着上一次的陈旧值
                 return false;   // Won / Lost:战斗已结束
-            if (Phase == BattlePhase.DropChoice) return false; // 等玩家决议
+            }
+            if (Phase == BattlePhase.DropChoice)
+            {
+                LastAdvanceTicks = 0; // 防御性:同上
+                return false; // 等玩家决议
+            }
 
             var slots = BuildSlots();
             var step = TurnScheduler.Advance(slots);
@@ -800,6 +814,7 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.ActorActed, -1, (int)ActorKind.Player));
                 WriteBackMeters(slots, step.Meters);
                 LastActor = ActorRef.Player;
+                LastAdvanceTicks = step.Ticks;
                 BeginPlayerTurn();
                 return false;
             }
@@ -809,6 +824,7 @@ namespace Brushblade.Core
                 step.Actor.Index, (int)step.Actor.Kind));
             WriteBackMeters(slots, step.Meters);
             LastActor = step.Actor;
+            LastAdvanceTicks = step.Ticks;
             if (step.Actor.Kind == ActorKind.Summon) ActSummonTurn(step.Actor.Index);
             else ActEnemyTurn(step.Actor.Index);
             return Phase == BattlePhase.PlayerTurn;
