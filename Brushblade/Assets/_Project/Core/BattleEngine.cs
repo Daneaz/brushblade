@@ -12,6 +12,32 @@ namespace Brushblade.Core
         DropChoice, // 回合掉字遇满库:停下让玩家替换或跳过(2026-08-04)
     }
 
+    /// <summary>开场推进的一拍(2026-08-17)。构造函数在开场就把推进跑完了,表现层靠这些
+    /// 数据把过程逐拍播出来 —— 否则玩家只会看到「进战斗即已打完」(spec §5.7)。
+    /// 字段与表现层每播一拍所需的东西一一对应:谁动、跨了几拍(定条动画时长)、
+    /// 推进后全场计量器(条的终点)、这一拍产生的事件(交给 Juice 播)。</summary>
+    public readonly struct OpeningStep
+    {
+        public ActorRef Actor { get; }
+        public int Ticks { get; }
+        public int PlayerMeter { get; }
+        public IReadOnlyList<int> SummonMeters { get; }
+        public IReadOnlyList<int> EnemyMeters { get; }
+        public IReadOnlyList<BattleEvent> Events { get; }
+
+        public OpeningStep(ActorRef actor, int ticks, int playerMeter,
+            IReadOnlyList<int> summonMeters, IReadOnlyList<int> enemyMeters,
+            IReadOnlyList<BattleEvent> events)
+        {
+            Actor = actor;
+            Ticks = ticks;
+            PlayerMeter = playerMeter;
+            SummonMeters = summonMeters;
+            EnemyMeters = enemyMeters;
+            Events = events;
+        }
+    }
+
     public enum BattleError
     {
         None,
@@ -212,8 +238,10 @@ namespace Brushblade.Core
 
         /// <summary>玩家的行动计量器(2026-08-15,ATB 改造):与敌人/召唤物同走一套模型,
         /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。恒非负——开局与所有人
-        /// 一样从 0 起步,不需要任何先手/负债/懒消费之类的特例(2026-08-15 第五次审查订正:
-        /// 前四轮的特例全是在给反向的 tie-break 打补丁,见 BuildSlots 的优先级注释)。</summary>
+        /// 一样从 0 起步,不需要任何先手/负债/懒消费之类的特例(2026-08-18 第六次审查订正:
+        /// 病根不是 tie-break 方向本身,是「玩家优先 + 构造函数给的免费先手」这个组合;
+        /// 免费先手已随本次改造删除,前四轮那些记账手法因此一个都不需要,完整推理见
+        /// BuildSlots 的优先级注释)。</summary>
         public int PlayerActionMeter { get; private set; }
 
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
@@ -373,7 +401,23 @@ namespace Brushblade.Core
                 _playerStatuses.CopyFrom(startingStatuses);
 
             Phase = BattlePhase.PlayerTurn;
-            StartTurn();
+            // 开场走调度(2026-08-17):不再直接开玩家回合 —— 那是改造前 AP 制的遗留,
+            // 等于给玩家一次免费先手,而全场计量器此刻都还是 0。现在全场从 0 攒,
+            // 谁先满谁先动;轮到玩家时 AdvanceOnce 的玩家分支会跑
+            // BeginPlayerTurn → StartTurn(AP / 发牌 / Turn+1),所以这里不必直接调 StartTurn。
+            //
+            // 每拍都记进 _openingSteps:AdvanceOnce 每次开头都 _events.Clear(),不记的话
+            // 开场抢先行动的单位(携带的满格召唤物、以后的高速敌人)表现全丢,玩家只会
+            // 看到「进战斗即已打完」。见 spec §5.7。
+            //
+            // ⚠ 这个循环可能让战斗在构造函数返回前就分出胜负(携带满格召唤物秒掉弱敌),
+            // Phase 会是 Won —— 表现层必须兜住(spec §5.7)。
+            bool more;
+            do
+            {
+                more = AdvanceOnce();
+                _openingSteps.Add(CaptureOpeningStep());
+            } while (more);
         }
 
         /// <summary>断点存档专用构造:不发牌、不开回合,状态全部由 <see cref="Restore"/> 灌进来。</summary>
@@ -721,31 +765,70 @@ namespace Brushblade.Core
 
         /// <summary>最近一次 AdvanceOnce 推进了多少拍(2026-08-17,每单位行动条)。
         /// 表现层用它定行动条动画时长:时长 = LastAdvanceTicks × BaseMs。
-        /// 战斗刚开始、还没推进过时为 0 —— 表现层据此跳过条动画。</summary>
+        /// **为 0 的唯一情形是「已有人满格」**(TurnScheduler.Advance 的 FirstFull 分支):
+        /// 那一格不需要推进时间,条不该动,表现层据此跳过条动画。
+        ///
+        /// ⚠ 不是「战斗刚开始为 0」(2026-08-17 订正):构造函数现在开场就跑推进,拿到引擎时
+        /// 它已经是开场那一拍的拍数 —— 同速开局 1,全场速度 25 的慢局 4。开场的逐拍回放走
+        /// <see cref="OpeningSteps"/>(每条自带 Ticks),不要拿本属性去判断「有没有推进过」。</summary>
         public int LastAdvanceTicks { get; private set; }
+
+        private readonly List<OpeningStep> _openingSteps = new();
+
+        /// <summary>开场每一拍的回放数据,按发生顺序(2026-08-17)。同速开局只有一条
+        /// (玩家自己那一拍);携带满格召唤物、或玩家一拍攒不满而别人能时会有多条
+        /// (2026-08-18 订正:「敌人更快」不是准确条件,见 BuildSlots 的优先级注释)。
+        /// **不进快照** —— 断点续爬恢复的是战斗中途,没有「开场」可回放。</summary>
+        public IReadOnlyList<OpeningStep> OpeningSteps => _openingSteps;
+
+        /// <summary>把当前这一拍的状态拷成回放数据。必须逐个拷值 ——
+        /// `_events` 下一拍开头就被 Clear,存引用会拿到空列表。</summary>
+        private OpeningStep CaptureOpeningStep()
+        {
+            var summons = new int[_summons.Count];
+            for (int i = 0; i < summons.Length; i++) summons[i] = _summons[i].ActionMeter;
+            var enemies = new int[_enemies.Count];
+            for (int i = 0; i < enemies.Length; i++) enemies[i] = _enemies[i].ActionMeter;
+            return new OpeningStep(LastActor, LastAdvanceTicks, PlayerActionMeter,
+                summons, enemies, new List<BattleEvent>(_events));
+        }
 
         /// <summary>当前参战单位的调度槽位。**顺序固定**:玩家、召唤物(下标升序)、敌人(下标升序)
         /// —— Forecast 与 Advance 返回的 Meters 与本列表同序,写回时按同一顺序。
         /// 死掉的单位不进调度(它们不再行动,也不该占预测格子)。
         ///
-        /// ⚠ 优先级(并列时的排序主键,小者先)是**召唤物 0 → Buff 敌 1 → 其余敌 2 → 玩家 3**
-        /// ——玩家排**最后**,不是最先(2026-08-15 第五次审查订正:方向曾经定反过)。`EndTurn`
-        /// 的语义是「玩家刚让出行动权,推进到下次轮到我」,并列时理应排在所有人后面;定成
-        /// 「玩家必赢」会让每次推进玩家都抢在敌人前面把行动权收回去,敌人永远拿不到那一拍。
-        /// 前四轮试过的「非玩家单位创建先手」「玩家记负债」「懒消费一次 Advance」全部是在给
-        /// 这个反向 tie-break 打补丁,方向调过来之后都不需要了——玩家计量器全程与其余单位
-        /// 同口径从 0 起步,恒非负,没有任何特例。</summary>
+        /// ⚠ 优先级(并列时的排序主键,小者先)是**玩家 0 → 召唤物 1 → Buff 敌 2 → 其余敌 3**
+        /// ——玩家排**最先**(2026-08-17 用户拍板,推翻 2026-08-15 的反向口径)。
+        ///
+        /// 2026-08-15 那次把玩家定成最后,并留下「方向不要再调回去」的警告,理由是
+        /// 「玩家优先会让它每次推进都抢在敌人前面把行动权收回去」。**那个诊断把病根归错了**:
+        /// 病根是「玩家优先 + 构造函数给的免费先手」这个**组合**,不是玩家优先本身。
+        /// 实测(spec §2.2,各跑一次全量 1062 条):
+        ///   只反转 priority(保留免费先手)→ 红 199 条,确实复现了那个现象
+        ///   只去掉免费先手(保留玩家最后)→ 红 537 条(AP=0、字库空)
+        ///   两个一起                      → 红 32 条,且序列变成干净的「玩家 → 召唤 → 敌」
+        /// 当初三种「开局记账」(创建时先手 / 玩家记负债 / 消费一拍)全是在抵消那次免费先手;
+        /// 把免费先手删掉(见构造函数),它们一个都不需要。
+        ///
+        /// 这里只管**同速并列**。速度不同时,ticks(TicksUntilAnyFull)是**全场共用的
+        /// 最小值**(2026-08-18 第六次审查订正,推翻此前「敌人速度高于玩家时它先动」的说法——
+        /// 那是错的):只要玩家一拍就能攒满(speed >= Threshold),敌人再快也会同拍满格,
+        /// 落回本级 tie-break,还是玩家赢。「敌人先动」的真实条件是**玩家一拍攒不满而敌人能**
+        /// (如玩家 25 要 4 拍、敌人 400 只要 1 拍)。速度更快在这个模型里体现为**出手更频繁**
+        /// (多轮累积),不是抢第一拍——玩家 100 / 敌人 200 是「玩家先动,然后敌人连动两次」。
+        /// 反例见 AtbTimingTests.Opening_FasterEnemyButPlayerFullInOneTick_PlayerStillActsFirst
+        /// (敌人 400、玩家 100,玩家仍先动)。这层表达力此前被旧的免费先手压平了。</summary>
         private List<SchedulerSlot> BuildSlots()
         {
             var slots = new List<SchedulerSlot>
             {
-                new(ActorRef.Player, EffectivePlayerSpeed, PlayerActionMeter, 3),
+                new(ActorRef.Player, EffectivePlayerSpeed, PlayerActionMeter, 0),
             };
             for (int s = 0; s < _summons.Count; s++)
             {
                 if (!_summons[s].Alive) continue;
                 slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Summon, s),
-                    _summons[s].Speed, _summons[s].ActionMeter, 0));
+                    _summons[s].Speed, _summons[s].ActionMeter, 1));
             }
             for (int i = 0; i < _enemies.Count; i++)
             {
@@ -754,7 +837,7 @@ namespace Brushblade.Core
                 int speed = enemy.Speed + enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 // Buff 能力的敌人排在普通敌人之前:保住「辅助先摇旗、同伴才带着加成出手」
                 // 这个既有节拍。被减速时它自然排到后面 —— 那正是新系统该有的行为。
-                int priority = enemy.Def.Ability == EnemyAbility.Buff ? 1 : 2;
+                int priority = enemy.Def.Ability == EnemyAbility.Buff ? 2 : 3;
                 slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Enemy, i), speed,
                     enemy.ActionMeter, priority));
             }
@@ -1505,13 +1588,19 @@ namespace Brushblade.Core
                             // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
                             // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
                             // 之后再抬攻击力,已在场的这只不变
-                            // 新召唤物从 0 起攒计量器,与场上所有单位同口径(2026-08-15 第五次
-                            // 审查订正:不再需要"创建即满格"的头寸——那是在给反向的 tie-break
-                            // 打补丁,priority 方向调过来之后,新召唤物自然会在下一次推进里跟大家
-                            // 同时摸满、同回合出手,见 BuildSlots 的优先级注释)。
+                            // 新召唤物**上场即满格**(2026-08-17 用户拍板):召唤术的价值就在
+                            // 「立刻有个肉盾并反击」,从 0 起攒会让它召出那一轮完全不动。
+                            //
+                            // 这是恢复 2026-08-15 删掉的那个头寸。当时删它的理由是「那是在给
+                            // 反向的 tie-break 打补丁」—— 那句话在当时是对的(priority 刚被改成
+                            // 「玩家最后」,召唤物排最先,从 0 起攒也能同回合出手)。2026-08-17
+                            // 把方向调回「玩家最先」之后,玩家插到了召唤物前面,这个头寸就重新
+                            // 成为必需:实测它让失败测试从 32 条降到 16 条(spec §2.3)。
+                            // 它不是补丁,是「玩家优先」那一整套设计的组成部分。
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
+                            newborn.ActionMeter = TurnScheduler.Threshold;
                             if (AliveSummons() < SummonCap)
                             {
                                 _summons.Add(newborn);

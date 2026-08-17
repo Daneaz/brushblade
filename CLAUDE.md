@@ -44,6 +44,17 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   ——工装只编译 Core/Data,Presentation 的编译错会一路漏到用户打开 Unity 才炸(已发生过两次)。
   离线编译依赖 `Brushblade/Library/ScriptAssemblies/`(Unity 至少打开过本工程一次)。
   只看 `error CS`,`warning MSB3245` 是 Unity 程序集自带的无关引用,忽略。
+- ⚠️ **在 git worktree 里跑验证要补两条前置**——不入 git 的目录在新 worktree 里不存在。
+  进 worktree 后先建软链,再用参数覆盖程序集路径(2026-08-18 实测:补齐后 coretests 1072、
+  pytest 246、prescompile 全绿):
+  ```bash
+  # pytest:tools/fonts/raw/ 不入 git,而 glyph_refs.py 把路径写死成 __file__/../raw,只能软链
+  ln -s /Users/eugenewu/code/game/tools/fonts/raw tools/fonts/raw   # 否则 fonts 测试挂 9 条
+  # prescompile:Brushblade/Library/ 不入 git,借主检出的程序集(否则 CS0006 找不到 UI/TMP)
+  dotnet build --nologo -v q -p:ProjectAsm=/Users/eugenewu/code/game/Brushblade/Library/ScriptAssemblies
+  ```
+  coretests 不依赖二者,worktree 里直接跑;`tools/pipeline/data/raw/` 也不用管(管线测试只吃
+  白名单里的 `ids.txt`)。
 - ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
   NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
   集合子集用 `Has.All.Matches<T>`。

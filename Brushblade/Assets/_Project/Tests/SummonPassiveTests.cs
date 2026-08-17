@@ -121,22 +121,28 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Speed150_ActsOneThenTwoAlternating()
         {
-            // 计量器:0+150=150 → 1 次(余 50);50+150=200 → 2 次(余 0);循环。平均 1.5 次/回合。
-            // 「当回合即可反击」本就是引擎默认行为(新召唤物 0+100 就够一次),桤 的差异化靠速度。
+            // 2026-08-17 召唤物上场即满格:出生那一格是现成的 100,不是靠攒来的,所以召出后的
+            // 第 1 回合它拿的是这 100(动 1 次、余 0),攒速要到第 2 回合才开始表达。此后
+            // 计量器:0+150=150 → 1 次(余 50);50+150=200 → 2 次(余 0);两回合一循环,
+            // 平均 1.5 次/回合 —— 这才是速度 150 的差异化。「当回合即可反击」照旧成立(第 1 回合)。
             var engine = Engine(new[] { "疾" }, new[] { Dummy(hp: 500) });
             engine.Cast("疾");
             int hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 1 回合出手 1 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 1 回合:吃掉出生那一格,1 次");
             hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(6), "第 2 回合出手 2 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 2 回合:0+150,1 次(余 50)");
             hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 3 回合回到 1 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(6), "第 3 回合:50+150 = 200,2 次");
+            hp = engine.Enemies[0].Hp;
+
+            engine.EndTurn();
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 4 回合回到 1 次 —— 两回合一循环");
         }
 
         [Test]
@@ -248,7 +254,7 @@ namespace Brushblade.Core.Tests
         // ---- 出手附带效果 ----
 
         // 2026-08-16 CTB 改造:原为「施放当回合灼烧层数为 2」,现为 1——召唤物在 CTB 调度里的
-        // 优先级(0)比敌人(2)高,同速时几乎总是先出手;这只敌人紧接着在同一次 EndTurn() 内
+        // 优先级(1)比敌人(3)高,同速时几乎总是先出手;这只敌人紧接着在同一次 EndTurn() 内
         // 轮到自己,把召唤物刚挂上的灼烧当场结算掉 1 层(SettleBurnOn 每次只 -1)。旧模型下
         // 全场敌人的灼烧结算集中在 YieldTurn 一开始跑完,召唤物这回合刚挂的新灼烧要等下一次
         // EndTurn 才会被吃 tick;新模型下每个敌人只在轮到自己时结算,顺序因此提前(见
@@ -346,7 +352,7 @@ namespace Brushblade.Core.Tests
         // ---- 光环灼烧:刷新到 N 层,不是累加(2026-08-06 I1) ----
 
         // 2026-08-16 CTB 改造:原为「稳态 3 层」,现为「稳态 2 层」——与 OnHitBurnAll_BurnsEveryLivingEnemy
-        // 同一条因果链:召唤物在 CTB 调度里的优先级(0)比敌人(2)高,同速时先出手;这只敌人
+        // 同一条因果链:召唤物在 CTB 调度里的优先级(1)比敌人(3)高,同速时先出手;这只敌人
         // 紧接着在同一次 EndTurn() 内轮到自己,把召唤物刚刷新到的 3 层当场结算掉 1 层
         // (SettleBurnOn 每次只 -1,不是清零),稳态从 3 变成 2。不影响本条真正要守的"不雪球"
         // 不变量:若 RefreshBurn 退化回累加语义,层数会一路涨过 2,而不是稳稳停在 2。

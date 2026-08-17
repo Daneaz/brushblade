@@ -19,8 +19,8 @@ namespace Brushblade.Core.Tests
             new(Graph(), config ?? new BattleConfig { PlayerMaxHp = 999 },
                 Array.Empty<string>(), Array.Empty<string>(), enemies, seed: 1);
 
-        private static EnemyDef Dummy(string id = "靶", int hp = 999, int attack = 0) =>
-            new(id, Element.Heart, hp, attack);
+        private static EnemyDef Dummy(string id = "靶", int hp = 999, int attack = 0, int speed = 0) =>
+            new(id, Element.Heart, hp, attack, speed: speed);
 
         [Test]
         public void PlayerSpeed_DefaultsToBaseline()
@@ -52,10 +52,15 @@ namespace Brushblade.Core.Tests
         public void PlayerActionMeter_NeverGoesNegative()
         {
             // 玩家计量器与场上所有单位同口径从 0 起步,不需要任何先手/负债/懒消费之类的特例
-            // (2026-08-15 第五次审查订正:前四轮试过的这些记账手法全是在给反向的 tie-break
-            // 打补丁——玩家排最先会让它每次推进都抢在敌人前面收回行动权。把 BuildSlots 的
-            // 优先级方向调成「玩家排最后」之后,恒非负这条不变式自然成立,不必再靠任何机制
-            // 保证。这条测试仍然保留,守住"永不为负"这个不变式)。
+            // —— 恒非负这条不变式是结构性的:计量器只在「满格(≥100)」时才扣 100,扣完必然
+            // ≥ 0,没有任何一处会把它写成负数。这条测试守的就是这个不变式。
+            //
+            // ⚠ 现行方向是**玩家排最先**(玩家 0 / 召唤 1 / Buff 敌 2 / 其余敌 3,2026-08-17)。
+            // 这里原先写着「把优先级方向调成『玩家排最后』之后,恒非负自然成立」—— 那个因果是
+            // 错的:2026-08-15 那四轮记账手法(创建时先手 / 玩家记负债 / 懒消费一次 Advance)
+            // 要抵消的是**构造函数给玩家的免费先手**,不是玩家优先本身。免费先手已随
+            // 2026-08-17 的改造删除,玩家优先因此不再需要任何补偿,不变式照样成立。
+            // 完整推演与实测数字见 BattleEngine.BuildSlots 的注释。
             var engine = Engine(new[] { Dummy() });
 
             Assert.That(engine.PlayerActionMeter, Is.GreaterThanOrEqualTo(0));
@@ -528,28 +533,35 @@ namespace Brushblade.Core.Tests
         [Test]
         public void LastAdvanceTicks_RecordsSchedulerTicks()
         {
-            // 全场速度 100、计量器全 0 → 每次推进恰好一拍
+            // 同速基准局,构造完的状态是「玩家 0,敌人 100」——开场那一拍全场攒到 100,
+            // 玩家(priority 0)赢了并列、扣掉自己那 100,敌人的 100 留在条上(2026-08-17)。
+            // 所以战斗开始后第一次 AdvanceOnce 走的是 FirstFull 分支:不推进时间,ticks 记 0。
+            // 断言 0 不是"没写值"——LastAdvanceTicks 此刻的旧值是开场那一拍的 1,
+            // 引擎漏了写回就会读到 1,这条正是那个漏写的哨兵。
             var engine = Engine(new[] { Dummy() });
             engine.YieldTurn();
 
             engine.AdvanceOnce();
 
-            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(1));
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(0));
         }
 
         [Test]
-        public void LastAdvanceTicks_StartsAtZero()
+        public void LastAdvanceTicks_RecordsOpeningAdvance()
         {
-            // 战斗刚开始还没推进过 —— 表现层据此跳过第一帧的条动画
+            // 2026-08-17:构造函数现在就会跑开场推进,所以「战斗刚开始 LastAdvanceTicks 为 0」
+            // 这个前提已经不成立。改为断言它记下了开场那一拍 —— 同速开局恰好 1 拍。
             var engine = Engine(new[] { Dummy() });
 
-            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(0));
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(1));
         }
 
         [Test]
         public void LastAdvanceTicks_UpdatesBetweenConsecutiveAdvances()
         {
-            // 引擎侧的接线要每拍都更新,不能只写第一次(调度器侧的多拍用例盖不到这一层)
+            // 引擎侧的接线要每拍都更新,不能只写第一次(调度器侧的多拍用例盖不到这一层)。
+            // 2026-08-17:两个值互换了 —— 开场那一拍已把敌人顶到满格,所以第一次推进是
+            // FirstFull 分支(0 拍),敌人吃掉那一格后全场归零,第二次才需要真推 1 拍。
             var engine = Engine(new[] { Dummy() });
             engine.YieldTurn();
 
@@ -557,34 +569,157 @@ namespace Brushblade.Core.Tests
             int first = engine.LastAdvanceTicks;
             engine.AdvanceOnce();
 
-            Assert.That(first, Is.EqualTo(1));
-            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(0),
-                "同速基准局:敌人那一拍已经把玩家的计量器也顶到满格(FirstFull 分支)," +
-                "第二次 AdvanceOnce 不需要再推进 tick");
+            Assert.That(first, Is.EqualTo(0),
+                "敌人在开场那一拍已被顶到满格,它这一格不需要推进时间(FirstFull 分支)");
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(1), "全场归零后,再攒满要整整一拍");
         }
 
         [Test]
         public void LastAdvanceTicks_ReflectsSlowUnitMultipleTicks()
         {
-            // 速度 25(= MinSpeed)的敌人要四拍才攒满 —— 表现层据此把条动画拉长到四倍。
+            // 速度 25(= MinSpeed)要四拍才攒满 —— 表现层据此把条动画拉长到四倍。
             //
-            // EnemyDef 的构造函数没有 speed 参数(敌人速度不是配表字段,战中靠 EnemyState.Speed
-            // 这个可写属性调 —— 抄的是 BattleEngineTests.HastedEngine 的既有写法),
-            // 直接在 EnemyDef 上传 speed 具名参数编译不过,这里改成建好后再赋值。
+            // 2026-08-17:速度改成在 EnemyDef 里配好(Task 1 打开的通道)。原先「先构造、
+            // 后改 Enemies[0].Speed」现在已经晚了 —— 构造函数会跑开场推进,敌人会以默认
+            // 速度 100 参与那一拍,四拍这条要验的路径根本走不到。
             //
-            // 玩家速度也要压到同一档:若只压敌人、玩家仍是默认 100,player 一拍就攒满,
-            // FirstFull 分支会先选中玩家(TurnScheduler.Advance 的第 1 步),ticks 恒为 1,
-            // 根本走不到「四拍」这条要验的路径 —— 两边都慢,同时在第 4 拍攒满时,
-            // 敌人的调度优先级(2)比玩家(3)小,才会是敌人赢得这一格。
-            var engine = Engine(new[] { Dummy() },
+            // 玩家速度也要压到同一档:若只压敌人、玩家仍是默认 100,玩家一拍就攒满,
+            // ticks 恒为 1。两边都慢才会出现「四拍才有人攒满」。
+            //
+            // 要推两次 AdvanceOnce:开场那一拍(4 拍)结束时敌人已满格,第一次推进是它吃掉
+            // 那一格(FirstFull 分支,0 拍),第二次才是全场从 0 重攒的四拍。四拍同时攒满时
+            // 按新 tie-break 玩家(0)赢敌人(3),所以这一格的行动者是玩家 —— 本条要验的是
+            // **跨拍数**,不是谁赢(谁赢由 TurnSchedulerTests 的 TieBreak_* 守)。
+            var engine = Engine(new[] { Dummy(speed: TurnScheduler.MinSpeed) },
                 new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = TurnScheduler.MinSpeed });
-            engine.Enemies[0].Speed = TurnScheduler.MinSpeed;
             engine.YieldTurn();
 
             engine.AdvanceOnce();
+            engine.AdvanceOnce();
 
-            Assert.That(engine.LastActor.Kind, Is.EqualTo(ActorKind.Enemy));
+            Assert.That(engine.LastActor.Kind, Is.EqualTo(ActorKind.Player));
             Assert.That(engine.LastAdvanceTicks, Is.EqualTo(4));
+        }
+
+        // ===== EnemyDef.Speed 配置通道(2026-08-17,spec §5.8)=====
+
+        [Test]
+        public void EnemyDefSpeed_FlowsIntoEnemyState()
+        {
+            var fast = new EnemyDef("疾", Element.Heart, 999, 0, speed: 200);
+            var engine = Engine(new[] { fast });
+
+            Assert.That(engine.Enemies[0].Speed, Is.EqualTo(200));
+        }
+
+        [Test]
+        public void EnemyDefSpeed_Unset_FallsBackToBaseline()
+        {
+            // 不配 speed 的怪仍是基准 100 —— 全部既有字表都走这条路径,数值一个不能变
+            var engine = Engine(new[] { Dummy() });
+
+            Assert.That(engine.Enemies[0].Speed, Is.EqualTo(100));
+        }
+
+        // ===== 开场走调度(2026-08-17,spec 口径 2 / 7)=====
+
+        [Test]
+        public void Opening_SameSpeed_PlayerActsFirst()
+        {
+            // 同速开局:全场从 0 攒,同拍满格,玩家 priority 最小 → 玩家先动。
+            // 构造完玩家计量器已被扣过 100(它真的行动了),而敌人停在满格等下一拍。
+            var engine = Engine(new[] { Dummy() });
+
+            Assert.That(engine.LastActor, Is.EqualTo(ActorRef.Player));
+            Assert.That(engine.PlayerActionMeter, Is.EqualTo(0), "玩家攒满后消费了那一拍");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold));
+        }
+
+        [Test]
+        public void Opening_EnemyFullInOneTickWhilePlayerIsNot_EnemyActsFirst()
+        {
+            // 口径 7:tie-break 只管同速。但「敌人先动」的条件不是「敌人更快」——
+            // ticks 是**全场共用的最小值**,只要玩家一拍能攒满(speed >= 100),
+            // 敌人再快也是同拍满格、tie-break 生效、玩家赢。
+            // 真实条件是**玩家一拍攒不满而敌人能**:玩家 25 要 4 拍,敌人 400 只要 1 拍。
+            // 没有这条,后人把 priority 当成绝对顺序也不会变红。
+            var engine = Engine(new[] { new EnemyDef("疾", Element.Heart, 999, 0, speed: 400) },
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = TurnScheduler.MinSpeed });
+
+            Assert.That(engine.OpeningSteps[0].Actor.Kind, Is.EqualTo(ActorKind.Enemy));
+        }
+
+        [Test]
+        public void Opening_FasterEnemyButPlayerFullInOneTick_PlayerStillActsFirst()
+        {
+            // 上一条的反面,也是最容易被误解的一条:敌人速度是玩家的 4 倍,**玩家仍先动** ——
+            // 双方都 1 拍满格,落到 tie-break。速度差体现为之后敌人连动两次,不是抢第一拍。
+            var engine = Engine(new[] { new EnemyDef("疾", Element.Heart, 999, 0, speed: 400) });
+
+            Assert.That(engine.OpeningSteps[0].Actor, Is.EqualTo(ActorRef.Player));
+        }
+
+        [Test]
+        public void Opening_SlowedPlayer_EnemyActsFirst()
+        {
+            // 与上面两条互补:敌人只是基准 100,单靠玩家慢(25 要 4 拍)就够让敌人抢到第一拍。
+            // 这条走 PlayerSpeed 配置通道,证明「敌人先动」不需要敌人被配高速。
+            var engine = Engine(new[] { Dummy() },
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = TurnScheduler.MinSpeed });
+
+            Assert.That(engine.OpeningSteps[0].Actor.Kind, Is.EqualTo(ActorKind.Enemy));
+        }
+
+        [Test]
+        public void Opening_RecordsReplayDataForEveryStep()
+        {
+            // spec §5.7:构造函数把开场推进跑完了,表现层要靠 OpeningSteps 把过程演出来。
+            // 每条都必须带齐回放所需的四样:谁动、跨几拍、推进后计量器、该拍事件。
+            var engine = Engine(new[] { Dummy() });
+
+            Assert.That(engine.OpeningSteps, Is.Not.Empty);
+            var first = engine.OpeningSteps[0];
+            Assert.That(first.Ticks, Is.GreaterThan(0), "开场必然跨了至少一拍");
+            Assert.That(first.EnemyMeters.Count, Is.EqualTo(engine.Enemies.Count));
+            Assert.That(first.Events, Is.Not.Empty, "每批至少带 ActorActed 段首标记");
+        }
+
+        [Test]
+        public void Opening_SnapshotRestore_HasNoOpeningSteps()
+        {
+            // 口径 8:断点续爬恢复的是战斗中途,没有「开场」可回放 —— 表现层据此跳过回放
+            var dummy = Dummy();
+            var engine = Engine(new[] { dummy });
+            var defs = new Dictionary<string, EnemyDef> { [dummy.Id] = dummy };
+            var restored = BattleEngine.Restore(engine.Capture(), Graph(),
+                new BattleConfig { PlayerMaxHp = 999 }, null, defs);
+
+            Assert.That(restored.OpeningSteps, Is.Empty);
+        }
+
+        [Test]
+        public void Summon_EntersFieldAtFullMeter()
+        {
+            // 口径 3:召唤术的价值在「立刻有个肉盾并反击」。这条守住那个头寸不被再删一次
+            // ——它 2026-08-15 被删过,理由在当时成立(召唤物排最先),方向调回来后失效。
+            // 用真实召唤路径(Cast 一个召唤字)而不是直接构造 SummonState。
+            // 图/召唤字照 SummonAura_HealsOnItsOwnTurn_NotAtPlayerTurnEnd 的写法抄(桃 召 木)。
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("桃", Element.Wood, effects: new[]
+                {
+                    new EffectDef(EffectKind.Summon, 20, summonCount: 1, summonAttack: 2, summonChar: "木"),
+                }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = 999, UnlockedChars = new[] { "桃" } },
+                new[] { "桃" }, Array.Empty<string>(),
+                new[] { new EnemyDef("凶", Element.Heart, 999, 30) }, seed: 1);
+
+            engine.Cast("桃");
+
+            Assert.That(engine.Summons[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold));
         }
     }
 }

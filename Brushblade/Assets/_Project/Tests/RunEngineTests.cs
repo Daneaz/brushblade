@@ -845,11 +845,14 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
         });
 
-        private static RunEngine SummonRun(EnemyDef enemy, string[] library) =>
+        /// <summary>两层同一只敌人的召唤物专用跑图;<paramref name="secondEnemy"/> 可单独指定
+        /// 第二层的敌人(2026-08-17:携带的满格召唤物会在开场把弱敌直接秒了,验「满编阻断」
+        /// 需要一只挨得住开场那几下的)。</summary>
+        private static RunEngine SummonRun(EnemyDef enemy, string[] library, EnemyDef secondEnemy = null) =>
             new(SummonGraph(),
                 new RunConfig
                 {
-                    Encounters = new[] { new[] { enemy }, new[] { enemy } },
+                    Encounters = new[] { new[] { enemy }, new[] { secondEnemy ?? enemy } },
                     RewardPool = new[] { "焚" },
                 },
                 new BattleConfig { DropTable = new[] { "木" } },
@@ -902,7 +905,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CarriedSummons_CountTowardCap()
         {
-            var run = SummonRun(Weak(), new[] { "森", "林", "焚", "林" });
+            // 第二层用 40 血的怪:携带的 6 只满格召唤物在开场推进里各打一下(2 伤 × 6 = 12),
+            // 它得挨得住,否则战斗在构造函数里就结束了、Cast 一律回 BattleOver
+            // (那条「开局即胜」的行为由 CarriedFullMeterSummons_WinNextBattleOnOpening 守,2026-08-17)。
+            var run = SummonRun(Weak(), new[] { "森", "林", "焚", "林" },
+                secondEnemy: new EnemyDef("枯", Element.Wood, 40, 2));
             Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None)); // 4 只
             Assert.That(run.Battle.Cast("林"), Is.EqualTo(BattleError.None)); // +2 只 = 6 只满编
             Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None)); // AOE 秒敌人
@@ -913,6 +920,7 @@ namespace Brushblade.Core.Tests
             run.SkipReward();
 
             // 新战斗中,检验带过来的 6 只召唤物确实占据了全部容量
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn), "这一层的怪挨得住开场");
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(6));
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(run.Battle.SummonCapacity));
             // 满编强阻断照旧生效:带过来的算进存活数
@@ -920,6 +928,31 @@ namespace Brushblade.Core.Tests
             // 确认替换后仍不超上限
             Assert.That(run.Battle.Cast("林", replaceSummon: true), Is.EqualTo(BattleError.None));
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(run.Battle.SummonCapacity));
+        }
+
+        [Test]
+        public void CarriedFullMeterSummons_WinNextBattleOnOpening()
+        {
+            // 2026-08-17 方案固有副作用(spec §5.7):召唤物上场即满格 + 构造函数跑开场推进,
+            // 携带满格召唤物进弱敌层时,战斗会在 **构造函数返回前** 就打完 —— Phase 已是 Won。
+            // 这是正确的 CTB 语义(攒满了就该动),不是缺陷;表现层靠 OpeningSteps 把这几下
+            // 逐拍播出来,再兜住「进战斗即胜利」。本条就是那个行为的哨兵。
+            var run = SummonRun(Weak(), new[] { "森", "焚" });
+            Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None)); // 4 只满格召唤物
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None)); // AOE 秒敌人
+            run.AdvanceAfterBattle();
+            Assert.That(run.CarriedSummons.Count, Is.EqualTo(4));
+
+            run.SkipReward();  // 开下一层 —— 战斗在这一步的构造函数里就分出胜负了
+
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won),
+                "4 只满格召唤物在开场推进里就把 4 血弱敌打死了");
+            // 回放数据必须留下:_events 每拍开头都被 Clear,不记就什么都播不出来
+            Assert.That(run.Battle.OpeningSteps.Count, Is.EqualTo(2), "两只召唤物各占一拍(2 伤 × 2 = 4 血)");
+            Assert.That(run.Battle.OpeningSteps[0].Actor.Kind, Is.EqualTo(ActorKind.Summon));
+            Assert.That(run.Battle.OpeningSteps[1].Actor.Kind, Is.EqualTo(ActorKind.Summon));
+            Assert.That(run.Battle.OpeningSteps[1].Events.Any(e => e.Kind == BattleEventKind.EnemyDied),
+                Is.True, "致死那一拍的事件也得在回放数据里");
         }
     }
 }
