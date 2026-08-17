@@ -511,6 +511,12 @@ namespace Brushblade.Core
         public int LibraryCapacity => _config.LibraryCapacity;
         public int PoolCapacity => _config.PoolCapacity;
 
+        /// <summary>广告扩容同步(2026-08-18):战斗持有的是 config 副本(RunEngine.BattleConfigForRun
+        /// 恒拷贝),RunEngine.TryExpand* 抬完自己的原对象后须经此把本场战斗的上限一并抬起,
+        /// 否则本场的掉字/合成/容量显示仍按旧上限走。</summary>
+        internal void RaiseLibraryCapacity(int bonus) => _config.LibraryCapacity += bonus;
+        internal void RaisePoolCapacity(int bonus) => _config.PoolCapacity += bonus;
+
         /// <summary>可合成字集(= 出阵列表);null = 不限。表现层的拆合台提示按此过滤。</summary>
         public IReadOnlyCollection<string> UnlockedChars => _config.UnlockedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;

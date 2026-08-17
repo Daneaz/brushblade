@@ -650,6 +650,83 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.LibraryCapacity, Is.EqualTo(8)); // 关内跨场保持
         }
 
+        /// <summary>吃过加血上限奇遇(_maxHpBonus != 0)后,BattleConfigForRun 给战斗的是 config
+        /// 副本 —— 此后广告扩容只改 run 手里的原对象,当前战斗(掉字/合成/容量显示)看不到 +2
+        /// (2026-08-18 bug:看广告提高上限后偶发不生效)。上面的
+        /// ExpandLibrary_AffectsCurrentAndLaterBattlesInRun 走的是无加成的共享引用路径,盖不到这条。</summary>
+        private static RunEngine RunWithMaxHpEventBetweenBattles()
+        {
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+                RewardPool = new[] { "灯", "焚", "林" },
+                EventPool = new[]
+                {
+                    new EventDef
+                    {
+                        Id = "养气",
+                        Options = new[] { new EventOption { Label = "静养", MaxHpPercent = 30 } },
+                    },
+                },
+                EventChancePercent = 100, // 两战之间必进奇遇
+            };
+            var run = new RunEngine(Graph(), config, new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: new[] { "焚", "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
+            Assert.That(run.ChooseEventOption(0), Is.True); // MaxHp +30% → 之后的战斗拿 config 副本
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            return run;
+        }
+
+        [Test]
+        public void ExpandAfterMaxHpEvent_AffectsCurrentBattle()
+        {
+            var run = RunWithMaxHpEventBetweenBattles();
+            Assert.That(run.TryExpandLibrary(), Is.True);
+            Assert.That(run.TryExpandPool(), Is.True);
+            Assert.That(run.Battle.LibraryCapacity, Is.EqualTo(8));  // 当前战斗必须看到 +2
+            Assert.That(run.Battle.PoolCapacity, Is.EqualTo(12));
+        }
+
+        /// <summary>扩容后的**战斗内断点**须带着容量回来:GameRoot 的 OnExpanded 走 SaveNow 就地
+        /// 取样(2026-08-18),恢复走 resume 分支时只认快照里的标志,塔级标志那条路不参与。</summary>
+        [Test]
+        public void ExpandFlags_SurviveInProgressSnapshot_WithMaxHpBonus()
+        {
+            var run = RunWithMaxHpEventBetweenBattles();
+            run.TryExpandLibrary();
+            run.TryExpandPool();
+
+            var restored = RunEngine.Restore(run.Capture(), Graph(),
+                new RunConfig
+                {
+                    Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+                    RewardPool = new[] { "灯", "焚", "林" },
+                },
+                new BattleConfig { DropTable = new[] { "木" } }, null, 0, 0);
+
+            Assert.That(restored.LibraryExpanded, Is.True);
+            Assert.That(restored.Battle.LibraryCapacity, Is.EqualTo(8));
+            Assert.That(restored.Battle.PoolCapacity, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void ExpandAtLastReward_AfterMaxHpEvent_ReflectsInCapacity()
+        {
+            var run = RunWithMaxHpEventBetweenBattles();
+            WinCurrentBattle(run); // 末战(Boss 位)告捷
+            run.AdvanceAfterBattle();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Reward));
+
+            // Boss 奖励页看广告扩容:容量可观察值(奖励页标签的数据源)必须立刻 +2
+            Assert.That(run.TryExpandLibrary(), Is.True);
+            Assert.That(run.Battle.LibraryCapacity, Is.EqualTo(8));
+            Assert.That(run.PickReward(0), Is.True); // 扩容后的战利品照常入库
+        }
+
         [Test]
         public void BattleEngine_StartsWithCarriedHp() // startingHp 参数
         {
