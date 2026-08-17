@@ -586,5 +586,25 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.LastActor.Kind, Is.EqualTo(ActorKind.Enemy));
             Assert.That(engine.LastAdvanceTicks, Is.EqualTo(4));
         }
+
+        // ===== EnemyDef.Speed 配置通道(2026-08-17,spec §5.8)=====
+
+        [Test]
+        public void EnemyDefSpeed_FlowsIntoEnemyState()
+        {
+            var fast = new EnemyDef("疾", Element.Heart, 999, 0, speed: 200);
+            var engine = Engine(new[] { fast });
+
+            Assert.That(engine.Enemies[0].Speed, Is.EqualTo(200));
+        }
+
+        [Test]
+        public void EnemyDefSpeed_Unset_FallsBackToBaseline()
+        {
+            // 不配 speed 的怪仍是基准 100 —— 全部既有字表都走这条路径,数值一个不能变
+            var engine = Engine(new[] { Dummy() });
+
+            Assert.That(engine.Enemies[0].Speed, Is.EqualTo(100));
+        }
     }
 }

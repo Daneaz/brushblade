@@ -71,9 +71,18 @@ namespace Brushblade.Core
         /// 「带甲怪不成群」是 AOE 保护的配置口径,守卫测试 RealConfig_ArmoredEnemiesAreRare。</summary>
         public int Defense { get; }
 
+        /// <summary>配置的基础速度(2026-08-17,spec §5.8)。`0` = 未配置,由
+        /// <see cref="EnemyState"/> 回落到基准 100 —— 眼下**全部字怪都走回落**,
+        /// `enemies.json` 里没有 speed 字段,本次也不加。
+        ///
+        /// 打开这个通道是为了让速度能在**构造之前**定下来:自 2026-08-17 起
+        /// `BattleEngine` 构造函数就会跑开场推进,而「先构造、后改 Enemies[0].Speed」
+        /// 的写法会让敌人以默认 100 参与开场那一拍(spec §5.8 的实例)。</summary>
+        public int Speed { get; }
+
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
-            int defense = 0)
+            int defense = 0, int speed = 0)
         {
             Id = id;
             Element = element;
@@ -82,6 +91,7 @@ namespace Brushblade.Core
             Ability = ability;
             Phases = phases ?? System.Array.Empty<BossPhaseDef>();
             Defense = defense;
+            Speed = speed;
         }
     }
 
@@ -301,6 +311,9 @@ namespace Brushblade.Core
         internal EnemyState(EnemyDef def, int phaseJitterPercent, GameRandom random)
         {
             Def = def;
+            // 配置速度优先,未配置(0)回落基准 100(2026-08-17,spec §5.8)。
+            // Speed 保留 setter:快照恢复路径显式赋值,减速走 SpeedModifier 状态不碰这里。
+            if (def.Speed > 0) Speed = def.Speed;
             if (def.Phases.Count > 0)
             {
                 int total = 0;
