@@ -515,9 +515,11 @@ namespace Brushblade.Core
 
         /// <summary>出字(ApCost):字库中的字,或池中可直出的部件(4.5 第二层,防卡手地板)。
         /// replaceSummon:前排满员时顶掉最前的召唤物入场(UI 弹窗确认后才置位),否则满员直接拒出。
-        /// attackMode:把字拖到敌人身上出手(2026-07-26),水/土 改走 AttackEffects。</summary>
+        /// attackMode:把字拖到敌人身上出手(2026-07-26),水/土 改走 AttackEffects。
+        /// libraryIndex:玩家点的卡位(2026-08-17)——同字多张时消耗这一张而非第一张;
+        /// −1 或与 charId 不符(陈旧下标)退回删首张的旧口径。</summary>
         public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false,
-            bool attackMode = false)
+            bool attackMode = false, int libraryIndex = -1)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -554,7 +556,10 @@ namespace Brushblade.Core
             if (fromLibrary)
             {
                 var library = new List<string>(_forge.Library);
-                library.Remove(charId);
+                if (libraryIndex >= 0 && libraryIndex < library.Count && library[libraryIndex] == charId)
+                    library.RemoveAt(libraryIndex);
+                else
+                    library.Remove(charId);
                 _forge = new ForgeState(library, _forge.Pool);
             }
             else
@@ -569,15 +574,19 @@ namespace Brushblade.Core
             return BattleError.None;
         }
 
-        /// <summary>丢弃(3.8.2 防卡手):从字库或部件池移除,免 AP;字库丢弃本关不回归。</summary>
-        public BattleError Discard(string charId)
+        /// <summary>丢弃(3.8.2 防卡手):从字库或部件池移除,免 AP;字库丢弃本关不回归。
+        /// libraryIndex 语义同 <see cref="Cast"/>:同字多张时丢玩家点的那张。</summary>
+        public BattleError Discard(string charId, int libraryIndex = -1)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
 
             if (_forge.Library.Contains(charId))
             {
                 var library = new List<string>(_forge.Library);
-                library.Remove(charId);
+                if (libraryIndex >= 0 && libraryIndex < library.Count && library[libraryIndex] == charId)
+                    library.RemoveAt(libraryIndex);
+                else
+                    library.Remove(charId);
                 _forge = new ForgeState(library, _forge.Pool);
                 return BattleError.None;
             }

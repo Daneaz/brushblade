@@ -402,6 +402,35 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[1].Hp, Is.EqualTo(200 - 81 - 9));
         }
 
+        // ---- 同字多张:按玩家点的卡位消耗(2026-08-17,此前 Remove(charId) 永远删第一张) ----
+
+        [Test]
+        public void Cast_LibraryIndex_ConsumesClickedCopy()
+        {
+            var engine = Engine(library: new[] { "灯", "木", "灯" }, enemies: new[] { MetalBoss(200) });
+            var error = engine.Cast("灯", libraryIndex: 2);
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Library, Is.EqualTo(new[] { "灯", "木" }));
+        }
+
+        [Test]
+        public void Cast_LibraryIndexMismatch_FallsBackToFirstCopy() // 陈旧下标不炸,退回旧口径
+        {
+            var engine = Engine(library: new[] { "灯", "木", "灯" }, enemies: new[] { MetalBoss(200) });
+            var error = engine.Cast("灯", libraryIndex: 1); // 下标 1 是「木」,与 charId 不符
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Library, Is.EqualTo(new[] { "木", "灯" }));
+        }
+
+        [Test]
+        public void Discard_LibraryIndex_RemovesClickedCopy()
+        {
+            var engine = Engine(library: new[] { "灯", "木", "灯" });
+            var error = engine.Discard("灯", libraryIndex: 2);
+            Assert.That(error, Is.EqualTo(BattleError.None));
+            Assert.That(engine.Library, Is.EqualTo(new[] { "灯", "木" }));
+        }
+
         // ---- 回合末结算(3.7:灼烧先行;10.2:X层 → X×2 伤,然后 −1) ----
 
         [Test]

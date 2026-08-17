@@ -45,6 +45,7 @@ namespace Brushblade.Presentation
 
         // 交互状态
         private string _selectedChar;   // 当前选中的字/部件
+        private int _selectedIndex = -1; // 选中的字库卡位(同字多张时区分是哪张,2026-08-17);部件池选中为 −1
         private bool _targeting;        // 等待点击敌人
         private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
         private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
@@ -498,6 +499,8 @@ namespace Brushblade.Presentation
 
         // 字牌位置登记(charId→当前 RectTransform):过渡动效的起终点;每次重绘重新登记
         private readonly System.Collections.Generic.Dictionary<string, RectTransform> _tileRects = new();
+        // 字库卡位→牌面(2026-08-17):同字多张时 _tileRects 按 charId 只留最后一张,飞字起点改按位取
+        private readonly System.Collections.Generic.List<RectTransform> _libraryTileRects = new();
 
         private bool TryGetTilePos(string charId, out Vector3 pos)
         {
@@ -508,6 +511,19 @@ namespace Brushblade.Presentation
             }
             pos = default;
             return false;
+        }
+
+        /// <summary>飞字起点:出的是字库第 <paramref name="libraryIndex"/> 张就用那张牌面,
+        /// 否则(部件直出/下标缺失)退回按 charId 查。</summary>
+        private bool TryGetCastFromPos(string charId, int libraryIndex, out Vector3 pos)
+        {
+            if (libraryIndex >= 0 && libraryIndex < _libraryTileRects.Count
+                && _libraryTileRects[libraryIndex] != null)
+            {
+                pos = _libraryTileRects[libraryIndex].position;
+                return true;
+            }
+            return TryGetTilePos(charId, out pos);
         }
 
         private void Refresh()
@@ -1074,6 +1090,7 @@ namespace Brushblade.Presentation
 
         private void DrawLibrary()
         {
+            _libraryTileRects.Clear();
             // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
@@ -1093,11 +1110,12 @@ namespace Brushblade.Presentation
                 int index = i;
                 string charId = library[i];
                 var def = _graph.Get(charId);
-                bool selected = _selectedChar == charId && !_targeting;
+                // 同字多张按卡位区分选中(2026-08-17):只亮玩家点的那张,不连坐
+                bool selected = _selectedChar == charId && _selectedIndex == index && !_targeting;
                 System.Action tap = () =>
                 {
                     if (rewardPhase) OnRewardLibraryClicked(charId);
-                    else OnLibraryCharClicked(charId);
+                    else OnLibraryCharClicked(charId, index);
                 };
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
                     new Vector2(84, 105));
@@ -1106,14 +1124,15 @@ namespace Brushblade.Presentation
                 if (!rewardPhase)
                     tile.GetComponent<CardFrameView>()?.SetPlayable(def.ApCost <= Battle.Ap);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
-                if (!rewardPhase) AttachDragToAttack(tile.gameObject, def);
+                if (!rewardPhase) AttachDragToAttack(tile.gameObject, def, index);
                 _tileRects[charId] = (RectTransform)tile.transform;
+                _libraryTileRects.Add((RectTransform)tile.transform); // 卡位→牌面,飞字起点按位取
             }
         }
 
         /// <summary>拖字打人(2026-07-26):拖到敌人身上松手 = 攻击那个敌人。
         /// 水/土 因此在双击的治疗/加盾之外多一个攻击用法;其余字拖放 = 出字并顺手选中目标。</summary>
-        private void AttachDragToAttack(GameObject tile, CharDef def)
+        private void AttachDragToAttack(GameObject tile, CharDef def, int libraryIndex = -1)
         {
             DragToAttack.Attach(tile, def.Id, Theme.ElementColor(def.Element),
                 () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
@@ -1121,7 +1140,7 @@ namespace Brushblade.Presentation
                 {
                     int target = EnemyIndexAt(screenPos);
                     if (target < 0) { CancelSelection(); return; } // 没落在敌人身上:当作取消,不出字
-                    ExecuteCast(def.Id, target, attackMode: true);
+                    ExecuteCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
                 });
         }
 
@@ -2016,14 +2035,15 @@ namespace Brushblade.Presentation
 
         // ---- 交互 ----
 
-        private void OnLibraryCharClicked(string charId)
+        private void OnLibraryCharClicked(string charId, int index)
         {
-            if (_selectedChar == charId && !_targeting)
+            if (_selectedChar == charId && _selectedIndex == index && !_targeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
             }
             _selectedChar = charId;
+            _selectedIndex = index;
             _targeting = false;
             _message = Brief(charId) + "|再点即出";
             Refresh();
@@ -2031,12 +2051,13 @@ namespace Brushblade.Presentation
 
         private void OnPoolCharClicked(string charId)
         {
-            if (_selectedChar == charId && !_targeting)
+            if (_selectedChar == charId && _selectedIndex < 0 && !_targeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
                 return;
             }
             _selectedChar = charId;
+            _selectedIndex = -1;
             _targeting = false;
             _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
             Refresh();
@@ -2051,7 +2072,7 @@ namespace Brushblade.Presentation
                 Refresh();
                 return;
             }
-            ExecuteCast(def.Id, -1); // 单敌免选:引擎自动锁定唯一存活目标
+            ExecuteCast(def.Id, -1, libraryIndex: _selectedIndex); // 单敌免选:引擎自动锁定唯一存活目标
         }
 
         private int AliveEnemyCount()
@@ -2066,7 +2087,7 @@ namespace Brushblade.Presentation
         {
             if (_targeting && _selectedChar != null)
             {
-                ExecuteCast(_selectedChar, index);
+                ExecuteCast(_selectedChar, index, libraryIndex: _selectedIndex);
                 return;
             }
             // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做
@@ -2074,11 +2095,12 @@ namespace Brushblade.Presentation
             _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def, phase: Battle.Enemies[index].PhaseIndex);
         }
 
-        private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false)
+        private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false,
+            int libraryIndex = -1)
         {
-            bool hasFrom = TryGetTilePos(charId, out var fromPos); // 起点须在重绘销毁字牌前捕获
+            bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var error = Battle.Cast(charId, target, replaceSummon, attackMode);
+            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex);
             if (error == BattleError.SummonCapFull) // 前排满员强阻断:AP/字都没动,确认替换才重出
             {
                 var def = _graph.Get(charId);
@@ -2087,7 +2109,7 @@ namespace Brushblade.Presentation
                     $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{charId}」召 {Battle.SummonCountOf(def, attackMode)} 只。\n"
                     + $"将从最前起顶掉 {replaceCount} 只。",
                     ($"替换最前 {replaceCount} 只",
-                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode), Theme.Cinnabar, Color.white),
+                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex), Theme.Cinnabar, Color.white),
                     ("取消", null, Theme.LockedBg, Theme.TextMain));
                 _message = "前排已满,出字待确认";
                 CancelSelection();
@@ -2186,7 +2208,7 @@ namespace Brushblade.Presentation
 
         private void OnDiscard(string charId)
         {
-            var error = Battle.Discard(charId);
+            var error = Battle.Discard(charId, _selectedIndex); // 同字多张:丢玩家选中的那张
             _message = error == BattleError.None ? $"丢弃「{charId}」(免 AP)" : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
@@ -2306,6 +2328,7 @@ namespace Brushblade.Presentation
         private void CancelSelection()
         {
             _selectedChar = null;
+            _selectedIndex = -1;
             _targeting = false;
             Refresh();
         }
