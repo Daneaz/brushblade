@@ -42,13 +42,15 @@ namespace Brushblade.Presentation
         /// 所有动效落幕后调用(战斗结束标语等它,2026-07-24)。
         /// 召唤反击逐个顺序播、伤害与「正!」分节拍(2026-07-24):此前同帧齐发相互重叠、只见一次。</summary>
         public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null)
+            Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null,
+            Func<int, SummonState> summonInfo = null)
         {
-            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact));
+            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact, summonInfo));
         }
 
         private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor, Action onComplete, Action<BattleEvent> onImpact)
+            Func<int, RectTransform> summonAnchor, Action onComplete, Action<BattleEvent> onImpact,
+            Func<int, SummonState> summonInfo)
         {
             // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
@@ -58,7 +60,7 @@ namespace Brushblade.Presentation
             // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
             // 段间停顿由 BattleView 的驱动协程控制。
-            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact);
+            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo);
 
             yield return new WaitForSecondsRealtime(TailGap);
             onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
@@ -68,7 +70,8 @@ namespace Brushblade.Presentation
         /// 与致死伤害同帧、分别显示。onImpact 在每记伤害触达时回调外层(触达才掉血)。
         /// 并行组(Damage 同帧齐出)组末停一拍;串行单位(DoT/敌攻/SummonHit)在下一记前才停一拍,好让致死伤害与正同帧。</summary>
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
-            Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact)
+            Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact,
+            Func<int, SummonState> summonInfo = null)
         {
             bool anyParallel = false;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
             bool serialPending = false; // 上一记串行单位已出,下一记串行单位前先停一拍
@@ -137,15 +140,19 @@ namespace Brushblade.Presentation
                         onImpact?.Invoke(e);
                         serialPending = true;
                         break;
-                    // 召唤物反击敌人:飞一记「木」字从发起召唤物(SecondIndex)砸向受击敌人(TargetIndex),
-                    // 落地才继续播后续事件(伤害走 Damage,紧随其后)。原先由 PlayRoutine 的 strikes 循环
+                    // 召唤物反击敌人:飞它**自己的字**从发起召唤物(SecondIndex)砸向受击敌人(TargetIndex),
+                    // 与玩家出牌的飞字同款(2026-08-17,此前写死「木」);落地才继续播后续事件
+                    // (伤害走 Damage,紧随其后)。原先由 PlayRoutine 的 strikes 循环
                     // 单独驱动,三段切分删除后(2026-08-16)搬进这里,否则召唤反击的飞字动画会随切分一起消失。
                     case BattleEventKind.SummonAttack:
                         var from = summonAnchor?.Invoke(e.SecondIndex);
                         var toRect = enemyAnchor(e.TargetIndex);
                         if (from != null && toRect != null)
                         {
-                            FlyGlyph("木", Theme.ElementColor(Element.Wood), from.position, toRect.position);
+                            var attacker = summonInfo?.Invoke(e.SecondIndex);
+                            FlyGlyph(attacker?.Char ?? "木",
+                                Theme.ElementColor(attacker?.Element ?? Element.Wood),
+                                from.position, toRect.position);
                             yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
                         }
                         break;

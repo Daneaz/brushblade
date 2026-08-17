@@ -35,10 +35,17 @@ namespace Brushblade.Presentation
         private (RectTransform fill, UnityEngine.UI.Text label) _playerShieldBar;
         private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyHpBars = new();
 
+        // 行动条(2026-08-17):每个参战单位一条,读各自的 ActionMeter。与血条同款持有
+        // fill/label 引用 —— 动画期间不重绘,靠这些引用就地推进(见 SetActionBar)。
+        private (RectTransform fill, UnityEngine.UI.Text label) _playerActionBar;
+        private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyActionBars = new();
+        private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonActionBarByCore = new();
+
         private BattleEngine Battle => _run.Battle;
 
         // 交互状态
         private string _selectedChar;   // 当前选中的字/部件
+        private int _selectedIndex = -1; // 选中的字库卡位(同字多张时区分是哪张,2026-08-17);部件池选中为 −1
         private bool _targeting;        // 等待点击敌人
         private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
         private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
@@ -51,7 +58,6 @@ namespace Brushblade.Presentation
 
         // 容器
         private Transform _enemyRow;
-        private TurnBar _turnBar;   // 顶部行动条(2026-08-15,ATB 改造):自管锚点与 chip 生死
         private Transform _summonRow;    // 我方前排召唤物:夹在敌我血条之间
         private Transform _topLeft, _topRight, _bottomRow;
         private Transform _statusRow;    // 教程提示/奇遇文案(结束回合钮 2026-07-21 已移出)
@@ -106,6 +112,8 @@ namespace Brushblade.Presentation
 
         private RectTransform EnemyAnchor(int i) => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null;
         private RectTransform SummonAnchor(int coreIndex) => _summonRectByCore.TryGetValue(coreIndex, out var r) ? r : null;
+        // 召唤反击飞字用:发起者是谁,飞它自己的字(2026-08-17);别叫 SummonInfo,和 UI 的同名类撞
+        private SummonState SummonAt(int i) => i >= 0 && i < Battle.Summons.Count ? Battle.Summons[i] : null;
 
         /// <summary>本次结算里死亡的怪(下标取自 LastEvents 的 EnemyDied)。</summary>
         private System.Collections.Generic.List<int> DeathsThisAction()
@@ -121,7 +129,7 @@ namespace Brushblade.Presentation
         private void PlayAnimated(System.Collections.Generic.IReadOnlyList<BattleEvent> events,
             System.Collections.Generic.List<int> deaths)
         {
-            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact);
+            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact, SummonAt);
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
@@ -257,6 +265,119 @@ namespace Brushblade.Presentation
             return (fill, label);
         }
 
+        /// <summary>行动条(2026-08-17):meter / Threshold 的进度 + 百分比叠字。
+        /// 填充色用赭金 —— 血条是朱砂、护盾条是翡翠,三者必须一眼分得开。
+        /// 与 <see cref="HpBar"/> 同款返回 fill/label,供动画期间就地推进。</summary>
+        private (RectTransform fill, UnityEngine.UI.Text label) ActionBar(
+            Transform parent, int meter, Vector2 size, int fontSize)
+        {
+            float frac = Mathf.Clamp01(meter / (float)TurnScheduler.Threshold);
+            var bar = Ui.Bar(parent, frac, Theme.Gold, size);
+            var fill = (RectTransform)bar.transform.Find("Fill");
+            var label = Ui.ThemedLabel(bar.transform, $"{Mathf.RoundToInt(frac * 100)}%",
+                fontSize, Color.white, Theme.TitleFont);
+            Ui.Stretch(label.rectTransform);
+            var outline = label.gameObject.AddComponent<Outline>(); // 与血条同款描边,保对比度
+            outline.effectColor = Theme.Ink;
+            outline.effectDistance = new Vector2(1.2f, 1.2f);
+            return (fill, label);
+        }
+
+        /// <summary>速度 100 的单位从 0% 攒到 100% 所需毫秒(2026-08-17)。
+        /// 一次推进的条动画时长 = LastAdvanceTicks × 本值,所以速度 200 的走一半时间 ——
+        /// 「与速度挂钩」就落在这一条上。
+        ///
+        /// ⚠ 这直接决定战斗节奏:每个行动者出手前都要等这么久,一轮五个单位就是 2.5 秒。
+        /// 嫌拖就改这一个数。</summary>
+        private const float ActionBarBaseMs = 500f;
+
+        /// <summary>全场计量器快照(玩家 −1,召唤物与敌人按下标)。推进前拍一次、推进后拍一次,
+        /// 条在两者之间插值 —— 这是把 Core 的离散跳跃反演成匀速流动的全部手法。</summary>
+        private (int player, int[] summons, int[] enemies) MeterSnapshot()
+        {
+            var summons = new int[Battle.Summons.Count];
+            for (int i = 0; i < summons.Length; i++) summons[i] = Battle.Summons[i].ActionMeter;
+            var enemies = new int[Battle.Enemies.Count];
+            for (int i = 0; i < enemies.Length; i++) enemies[i] = Battle.Enemies[i].ActionMeter;
+            return (Battle.PlayerActionMeter, summons, enemies);
+        }
+
+        /// <summary>把全场的条从 pre 匀速推到 post。**行动者例外**:它涨到 100% 就停住,
+        /// 不在这里回落 —— 让玩家看清「是它满了才动」,回落交给动作播完之后
+        /// (<see cref="DropActingBar"/>)。
+        ///
+        /// ⚠ 用 unscaledDeltaTime:Juice 会改 Time.timeScale 做打击顿帧,
+        /// 条跟着一起卡是错的(它表达的是时间流逝本身)。</summary>
+        private System.Collections.IEnumerator FillActionBars(
+            (int player, int[] summons, int[] enemies) pre,
+            (int player, int[] summons, int[] enemies) post,
+            ActorRef actor, int ticks)
+        {
+            if (ticks <= 0) yield break;   // 已有人满格,无需推进
+
+            float duration = ticks * ActionBarBaseMs / 1000f;
+            // 行动者的目标是满格(它的 post 已经扣过 Threshold,直接插到 post 会看到条倒退)。
+            // ⚠ 任何让行动者以非满格状态出手的机制(打断、抢拍)都要改这里。
+            float actingTarget = TurnScheduler.Threshold;
+
+            void Apply(float k)
+            {
+                SetActionBar(_playerActionBar, actor.Kind == ActorKind.Player
+                    ? Mathf.Lerp(pre.player, actingTarget, k)
+                    : Mathf.Lerp(pre.player, post.player, k));
+                for (int i = 0; i < pre.summons.Length && i < post.summons.Length; i++)
+                    if (_summonActionBarByCore.TryGetValue(i, out var bar))
+                        SetActionBar(bar, actor.Kind == ActorKind.Summon && actor.Index == i
+                            ? Mathf.Lerp(pre.summons[i], actingTarget, k)
+                            : Mathf.Lerp(pre.summons[i], post.summons[i], k));
+                for (int i = 0; i < pre.enemies.Length && i < post.enemies.Length
+                        && i < _enemyActionBars.Count; i++)
+                    SetActionBar(_enemyActionBars[i], actor.Kind == ActorKind.Enemy && actor.Index == i
+                        ? Mathf.Lerp(pre.enemies[i], actingTarget, k)
+                        : Mathf.Lerp(pre.enemies[i], post.enemies[i], k));
+            }
+
+            for (float t = 0f; t < duration; t += Time.unscaledDeltaTime)
+            {
+                Apply(Mathf.Clamp01(t / duration));
+                yield return null;
+            }
+            // ⚠ 循环条件是 t < duration,最后一帧的 k 恒 < 1(60fps/0.5s 时约 0.967)——
+            // 不补这一次,行动者会停在「97%」而不是满格,「是它满了才动」这个观感就没了。
+            Apply(1f);
+        }
+
+        /// <summary>行动者的条回落到余额(动作播完才调)。余额不一定是 0 ——
+        /// 攒过头的部分带到下一拍,这是 CTB 的既有语义。</summary>
+        private void DropActingBar(ActorRef actor, (int player, int[] summons, int[] enemies) post)
+        {
+            switch (actor.Kind)
+            {
+                case ActorKind.Player:
+                    SetActionBar(_playerActionBar, post.player);
+                    break;
+                case ActorKind.Summon:
+                    if (actor.Index < post.summons.Length
+                        && _summonActionBarByCore.TryGetValue(actor.Index, out var summonBar))
+                        SetActionBar(summonBar, post.summons[actor.Index]);
+                    break;
+                case ActorKind.Enemy:
+                    if (actor.Index < post.enemies.Length && actor.Index < _enemyActionBars.Count)
+                        SetActionBar(_enemyActionBars[actor.Index], post.enemies[actor.Index]);
+                    break;
+            }
+        }
+
+        /// <summary>行动条就地推进(条未画出时静默跳过)。meter 取 float 是因为动画要在
+        /// 整数拍之间插值 —— Core 侧全程整数,浮点只活在表现层(spec 全局约束)。</summary>
+        private static void SetActionBar((RectTransform fill, UnityEngine.UI.Text label) bar, float meter)
+        {
+            float frac = Mathf.Clamp01(meter / TurnScheduler.Threshold);
+            if (bar.fill != null)
+                Ui.Anchor(bar.fill, Vector2.zero, new Vector2(frac, 1), Vector2.zero, Vector2.zero);
+            if (bar.label != null) bar.label.text = $"{Mathf.RoundToInt(frac * 100)}%";
+        }
+
         private const float ShieldBarFull = 30f; // 护盾条满格基准值(无上限概念,取常见量级)
 
         /// <summary>护盾条就地推进(条未画出时静默跳过,如出手前后都无盾)。</summary>
@@ -318,28 +439,24 @@ namespace Brushblade.Presentation
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
-            // 行动条(2026-08-15/16,ATB 改造):夹在战况文案与敌人区之间,0.855-0.900(约
-            // 40.5px)。这条带原本不存在——敌人区顶部从 0.898 下压到 0.850 腾出来的,拍板见
-            // task-18-report:压 messageGo 会截断 Boss 播报,压 topBar 高度不够,只有敌人区
-            // 「有余量可让」。TurnBar 自己内部做 Anchor(Build 内),这里只建组件、挂一次。
-            _turnBar = gameObject.AddComponent<TurnBar>();
-            _turnBar.Build(transform);
-
             // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
-            // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
-            // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
-            // 2026-08-16:上边界从 0.898 降到 0.850(格高 232→189px),给行动条让出 4.8% 屏高
-            // (拍板见 task-18-report——敌人区本身还有余量,messageGo/topBar 没有)。
-            _enemyRow = MakeSection("Enemies", 0.640f, 0.850f);  // 189px(原 232px)
-            // ⚠ 72px 装不下召唤物格:方块 50 + 血条 15 + 攻力行 ≈ 80,带「盾」或被动标签是 94/108。
-            // 这不是本次改动造成的 —— 原 79px 同样装不下(旧注释只算了三项的标称值,漏了行高与可选行),
-            // 本次是让既有溢出再多 3.5px/边。HorizontalLayoutGroup 居中溢出,视觉上是上下各多探出一点。
-            _summonRow = MakeSection("Summons", 0.560f, 0.640f); // 72px(原 79px,见上)
-            // 74px(2026-08-13 从 50px 抬高)。50px 一直装不下带护盾的情形:
-            // 血条 20 + 间距 3 + 护盾条 7 + 间距 3 + 「护盾 N」14 + 间距 3 + 状态 chip 行 24 = 74。
-            // 无护盾时是 47,所以此前只在有盾的回合溢出,不容易被发现。
-            // 这 24px 从 Status 区(单行标签,63px 给多了)挪来,中间两区整体下移、尺寸不变。
-            _bottomRow = MakeSection("PlayerStats", 0.478f, 0.560f);
+            // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸。
+            // 2026-08-17:顶部全局行动条(TurnBar)废止,它占的 0.855–0.900 全部还给敌人区
+            // (189px → 234px),给每个敌人自己的行动条腾位。见
+            // docs/superpowers/specs/2026-08-17-每单位行动条与状态图标-design.md §4.1
+            _enemyRow = MakeSection("Enemies", 0.640f, 0.900f);  // 234px
+            // 2026-08-17:给召唤物格加行动条,字块 50→44、血条 15→12 腾位;区域高度维持 72px。
+            // **这个区域闭合不了**:格宽只有 54px,「攻 12」「盾 3」「附灼 2」三项挤不进一行,
+            // 内容最坏 111px。要真闭合只能把盾与被动移进详情弹窗(点召唤物已能看
+            // SummonInfo.Detail),那是删信息,不在本次范围 —— 本次只做到不恶化
+            // (溢出 39px → 39px,靠缩字块与血条抵掉新增的行动条)。见 spec §4.4。
+            _summonRow = MakeSection("Summons", 0.560f, 0.640f); // 72px
+            // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字(省 17px)、
+            // 但护盾条要从 7 抬到 14 才放得下叠字(还回去 7px),净省 10px;新增行动条吃 12px。
+            // 再把状态 chip 内边距收到敌人格同档、血条 20→18、行动条 14→12 省下 8px 之后,
+            // 内容最坏 73px(20-2 血条 + 14-2 行动条 + 14 护盾条 + 24-4 状态行 + 9 间距),
+            // 区域 73.8px —— 逐项可复算,余 0.8px。**改动内容高度时请重算这串加法。**
+            _bottomRow = MakeSection("PlayerStats", 0.478f, 0.560f); // 73.8px
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
             // 2026-07-20 移到最下面;左缘仍避开配字表(0.135 宽,2026-07-19 反馈:曾重叠)
@@ -384,6 +501,8 @@ namespace Brushblade.Presentation
 
         // 字牌位置登记(charId→当前 RectTransform):过渡动效的起终点;每次重绘重新登记
         private readonly System.Collections.Generic.Dictionary<string, RectTransform> _tileRects = new();
+        // 字库卡位→牌面(2026-08-17):同字多张时 _tileRects 按 charId 只留最后一张,飞字起点改按位取
+        private readonly System.Collections.Generic.List<RectTransform> _libraryTileRects = new();
 
         private bool TryGetTilePos(string charId, out Vector3 pos)
         {
@@ -394,6 +513,19 @@ namespace Brushblade.Presentation
             }
             pos = default;
             return false;
+        }
+
+        /// <summary>飞字起点:出的是字库第 <paramref name="libraryIndex"/> 张就用那张牌面,
+        /// 否则(部件直出/下标缺失)退回按 charId 查。</summary>
+        private bool TryGetCastFromPos(string charId, int libraryIndex, out Vector3 pos)
+        {
+            if (libraryIndex >= 0 && libraryIndex < _libraryTileRects.Count
+                && _libraryTileRects[libraryIndex] != null)
+            {
+                pos = _libraryTileRects[libraryIndex].position;
+                return true;
+            }
+            return TryGetTilePos(charId, out pos);
         }
 
         private void Refresh()
@@ -516,12 +648,6 @@ namespace Brushblade.Presentation
             if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
             SaveProgressIfChanged();
-            // 只在真正的战斗阶段画行动条(2026-08-16 全分支终审):RunPhase.Reward/Event/
-            // Reviving/RunEnd 这些阶段没有别的东西盖住行动条那条带(0.855–0.900)。
-            // ⚠ 不能简单地跳过这次调用——TurnBar.Refresh 是"先销毁旧 chip 再按传入的 battle
-            // 重画"，跳过调用只会把上一场战斗的 chip 冻结在屏幕上,不会清掉。非战斗阶段传 null,
-            // 复用 Refresh 里"battle == null 则只销毁不重画"的既有分支,把行动条真正清空。
-            _turnBar.Refresh(_run.Phase == RunPhase.InBattle ? Battle : null);
         }
 
         private string _savedFingerprint; // 上次落盘时的进度指纹
@@ -602,102 +728,124 @@ namespace Brushblade.Presentation
             var hpStack = Ui.VStack(_bottomRow, "Hp", 3);
             // 血值上条(2026-07-25);动画期间画在出手前值,敌人攻击触达才逐记掉血
             _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
-                PlayerMaxHp, new Vector2(260, 20));
+                PlayerMaxHp, new Vector2(260, 18));
+            // 行动条(2026-08-17):放血条与护盾条之间,与敌人/召唤物同口径读 ActionMeter
+            _playerActionBar = ActionBar(hpStack.transform, Battle.PlayerActionMeter, new Vector2(260, 12), 9);
             // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
-            // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动
+            // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动。
+            // 2026-08-17:数值从条下的独立文字行并进条上叠字(与 HpBar 同款),省 17px 给行动条。
             int shownShield = Animating ? _animShield : Battle.PlayerShield;
             _playerShieldBar = (null, null);
             if (shownShield > 0 || (Animating && Battle.PlayerShield > 0))
             {
-                var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull), Theme.Jade, new Vector2(260, 7));
-                _playerShieldBar = ((RectTransform)shieldBar.transform.Find("Fill"),
-                    Ui.ThemedLabel(hpStack.transform, $"护盾 {shownShield}", 12, Theme.Jade));
+                var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull),
+                    Theme.Jade, new Vector2(260, 14));
+                var shieldLabel = Ui.ThemedLabel(shieldBar.transform, $"护盾 {shownShield}", 10,
+                    Color.white, Theme.TitleFont);
+                Ui.Stretch(shieldLabel.rectTransform);
+                var shieldOutline = shieldLabel.gameObject.AddComponent<Outline>();
+                shieldOutline.effectColor = Theme.Ink;
+                shieldOutline.effectDistance = new Vector2(1.2f, 1.2f);
+                _playerShieldBar = ((RectTransform)shieldBar.transform.Find("Fill"), shieldLabel);
             }
-            // 玩家侧状态一行小字(2026-08-06,子项目 A):封字 / 灼烧 / 免疫。
-            // 禁用 emoji —— 字体子集补不出来,上线渲染成空框
-            // Row 按需创建(2026-08-06 M8):三条都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
+            // 玩家侧状态一行小图标(2026-08-06 起为 chip,2026-08-17 改图标)。
+            // Row 按需创建(2026-08-06 M8):都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
             GameObject statusRow = null;
             int seal = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal);
             if (seal > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"封字 −{seal}AP", Theme.InkSoft, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"−{seal}AP", Theme.InkSoft, Color.white, 12,
+                    ChipPadX, ChipPadY, "seal");
             }
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"灼烧 {playerBurn}", Theme.Cinnabar, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{playerBurn}", Theme.Cinnabar, Color.white, 12,
+                    ChipPadX, ChipPadY, "burn");
             }
             int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
             if (immunity > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"免疫 {immunity}", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{immunity}", Theme.Jade, Color.white, 12,
+                    ChipPadX, ChipPadY, "immunity");
             }
             int reflect = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect);
             if (reflect > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"反弹 {reflect}%", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{reflect}%", Theme.Jade, Color.white, 12,
+                    ChipPadX, ChipPadY, "reflect");
             }
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
-            // 而战斗界面不显示攻击力 —— 不出 chip 的话这三个字打出去毫无反馈。
-            // ApBoost(利)不用 chip:下方 AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
+            // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
+            // ApBoost(利)不出格:下方 AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
             int attackBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff);
             if (attackBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"攻击 +{attackBuff}", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"+{attackBuff}", Theme.Gold, Color.white, 12,
+                    ChipPadX, ChipPadY, "attack");
             }
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             if (morale > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"战意 {morale} 层", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{morale}", Theme.Gold, Color.white, 12,
+                    ChipPadX, ChipPadY, "morale");
             }
-            // 暴击率(2026-08-12,锋):同理 —— 战斗界面不显示暴击率,不出 chip 的话
-            // 出了锋只能靠飘字里偶尔冒出的「暴」倒推。读 EffectiveCrit(已钳到 100)
-            // 而不是状态总量:叠 6 张锋时玩家该看到的是 100 不是 120
+            // 暴击率(2026-08-12,锋):读 EffectiveCrit(已钳到 100)而不是状态总量 ——
+            // 叠 6 张锋时玩家该看到的是 100 不是 120
             if (Battle.EffectiveCrit > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"暴击 {Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12,
+                    ChipPadX, ChipPadY, "crit");
             }
-            // 穿透(2026-08-12,锐):同 攻击 / 暴击 —— 锐 身上没有伤害效果,不出 chip 的话
-            // 打出去毫无反馈。读状态总量而不是某次结算的有效值:穿透打谁减多少要看那只怪的甲,
-            // 玩家该看到的是自己攒了多少
+            // 穿透(2026-08-12,锐):读状态总量而不是某次结算的有效值 —— 穿透打谁减多少要看
+            // 那只怪的甲,玩家该看到的是自己攒了多少
             int pierceBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff);
             if (pierceBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"穿透 {pierceBuff}", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{pierceBuff}", Theme.Gold, Color.white, 12,
+                    ChipPadX, ChipPadY, "pierce");
             }
-            // 护甲 / 闪避(2026-08-13,E-b4 T7 收尾):铠漜崊崟等 6 个护甲字与闪避增益
-            // 此前打出去零反馈 —— 与 攻击/暴击/穿透 当初的缺口同型。
+            // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻。
             //
-            // ⚠ 这两条读的是 Effective*(基础 + 增益)而不是状态总量,与 暴击 同款、
-            // 与 穿透 相反。理由是「玩家该看到的是什么」在三者间本来就不同:
-            //   护甲/闪避 —— 角色等级给了基础值,只显示增益会让 0 级增益时整条消失,
-            //                玩家看不到自己本来就有 4 点甲;显示合计才对得上实际结算。
-            //   穿透     —— 基础恒 0,且「减多少」要看那只怪的甲,玩家该看到的是攒了多少。
-            // 用 > 0 而非 != 0 守门:等级低时两条都是 0,不该占位。
-            if (Battle.EffectivePlayerDefense > 0)
+            // ⚠ 这里推翻了 2026-08-13 的取舍。那时读的是 Effective*(基础 + 增益),理由是
+            // 「只显示增益会让 0 级增益时整条消失,玩家看不到自己本来就有 4 点甲」。
+            // 现在反过来:角色等级给的基础值白占一行版面,而版面正是这次要省的东西
+            // (每单位新增一条行动条)。基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」。
+            //
+            // 改完之后这三条与 穿透 同口径(读状态总量),四者可以一起理解:
+            // 局内 chip = 本场攒到的增量,不是角色面板。
+            //
+            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 ——
+            // 「只在有增益时出」的意图是「基础值不必常驻」,不是「隐藏负面」。
+            int defenseBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff);
+            if (defenseBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"护甲 {Battle.EffectivePlayerDefense}", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"+{defenseBuff}", Theme.Jade, Color.white, 12,
+                    ChipPadX, ChipPadY, "defense");
             }
-            if (Battle.EffectiveDodge > 0)
+            int dodgeBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff);
+            if (dodgeBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"闪避 {Battle.EffectiveDodge}%", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"+{dodgeBuff}%", Theme.Jade, Color.white, 12,
+                    ChipPadX, ChipPadY, "dodge");
             }
-            // 速度(2026-08-15,ATB 改造):基准恒 100,只在偏离基准时出 chip —— 与暴击同一个
-            // 取舍(暴击基准恒 0 所以不上养成界面,改由局内出 chip),避免恒定写「速度 100」占版面。
-            if (Battle.EffectivePlayerSpeed != 100)
+            int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
+            if (speedMod != 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"速度 {Battle.EffectivePlayerSpeed}", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
+                    speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, 12,
+                    ChipPadX, ChipPadY, "speed");
             }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
@@ -723,6 +871,7 @@ namespace Brushblade.Presentation
         {
             _summonRectByCore.Clear();
             _summonBarByCore.Clear();
+            _summonActionBarByCore.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
             {
                 var summon = Battle.Summons[i];
@@ -731,13 +880,15 @@ namespace Brushblade.Presentation
                 var cell = Ui.VStack(_summonRow, $"Summon{i}", 1);
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
+                // 2026-08-17:字块 50 → 44、血条 15 → 12,给行动条腾 8px + 间距
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    23, new Vector2(50, 50), 12);
+                    21, new Vector2(44, 44), 11);
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
                 // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。动画期间画出手前值,SummonHit 触达才降
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
-                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 15));
+                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 12));
+                _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter, new Vector2(54, 8), 8);
                 Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
                 if (summon.Shield > 0)
                     Ui.ThemedLabel(cell.transform, $"盾{summon.Shield}", 11, Theme.Jade);
@@ -777,11 +928,17 @@ namespace Brushblade.Presentation
 
         // 敌人格尺寸(2026-07-28 随形象接入放大:圆头像 104 → 形象 150,格 168×208 → 190×220)。
         // 形象底稿四周留了 10% 白,同直径下视觉体积比实心圆头像小,所以要给得更足。
-        // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80);
-        // 形象保持 150 不动,12px 由敌人区锚点向下吃 7px + 区内原有 5px 余量凑齐(用户拍板)
-        private const float EnemyPortrait = 150f;
+        // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80)。
+        // 2026-08-17:形象 150 → 138,给每个敌人自己的行动条腾 12px + 间距。
+        //   info 可用 = 234 − 138 − 2 = 94px;常见(状态 ≤ 1 行)需 78px 不溢出,
+        //   最坏(状态 2 行)需 100px 溢出 6px —— 与改造前的 5px 持平。
+        //   保持 150 的话最坏会溢出到 18px。取舍见 spec §4.2,推翻它只改这一个常量。
+        private const float EnemyPortrait = 138f;
         private const float EnemyCellWidth = 190f;
-        private const float EnemyCellHeight = 232f;
+        // 2026-08-17:232 → 234,与收回屏高后的敌人区(0.640–0.900 = 234px)对齐。
+        // 此前是 232 对 189px 的区域 —— 2026-08-16 压缩敌人区时改了区域没改这个常量,
+        // 敌人格一直在溢出。
+        private const float EnemyCellHeight = 234f;
 
         // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
         // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
@@ -802,6 +959,7 @@ namespace Brushblade.Presentation
             _enemyRects.Clear();
             _enemyMobs.Clear();
             _enemyHpBars.Clear();
+            _enemyActionBars.Clear();
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
                 var enemy = Battle.Enemies[i];
@@ -871,29 +1029,30 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new($"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
                         Theme.Cinnabar, Color.white));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
-                if (burnStacks > 0) chipSpecs.Add(new($"灼烧 {burnStacks}", Theme.Cinnabar, Color.white));
+                if (burnStacks > 0)
+                    chipSpecs.Add(new($"{burnStacks}", Theme.Cinnabar, Color.white, "burn"));
                 // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系
                 if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
-                    chipSpecs.Add(new("不灭", Theme.Cinnabar, Color.white));
+                    chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "burn_nodecay"));
                 // 冻结 / 减速(2026-08-13):此前这两个状态在敌人身上零显示 —— 冻结的怪不出手、
                 // 减速的怪隔回合才出手,玩家只能靠数它哪回合打了自己来倒推。
                 // 排在致盲之前:这两条直接回答「它下回合会不会打我」,信息价值高于减伤类,
                 // 不该在 ChipFlow 装不下时被从尾部丢掉。
                 if (enemy.Statuses.Has(StatusKind.Freeze))
-                    chipSpecs.Add(new("冻结", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "freeze"));
                 // 只画负向:正向 SpeedModifier 眼下没有任何来源(唯一施加点是 EffectKind.Slow 的
                 // −50),画加速分支就是死代码。数字是**速度点数**不是百分比,故不带 %。
                 int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 if (speedMod < 0)
-                    chipSpecs.Add(new($"减速 −{-speedMod}", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"−{-speedMod}", Theme.InkSoft, Color.white, "slow"));
                 int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
                 if (blind > 0)
-                    chipSpecs.Add(new($"致盲 −{blind}%", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"−{blind}%", Theme.InkSoft, Color.white, "blind"));
                 if (enemy.Statuses.Has(StatusKind.Silence))
-                    chipSpecs.Add(new("沉默", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "silence"));
                 int curse = enemy.Statuses.TotalMagnitude(StatusKind.Curse);
                 if (curse > 0)
-                    chipSpecs.Add(new($"诅咒 −{curse}%", Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"−{curse}%", Theme.InkSoft, Color.white, "curse"));
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)
@@ -912,11 +1071,14 @@ namespace Brushblade.Presentation
                 {
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
                     _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(140, 16)));
+                    // 行动条紧跟血条(2026-08-17,用户拍板放血条下方)
+                    _enemyActionBars.Add(ActionBar(info.transform, enemy.ActionMeter, new Vector2(140, 12), 9));
                 }
                 else
                 {
                     Ui.ThemedLabel(info.transform, "已正", 14, Theme.LockGray);
                     _enemyHpBars.Add((null, null));
+                    _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
                 }
 
                 var button = cell.AddComponent<Button>();
@@ -930,6 +1092,7 @@ namespace Brushblade.Presentation
 
         private void DrawLibrary()
         {
+            _libraryTileRects.Clear();
             // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
@@ -949,11 +1112,12 @@ namespace Brushblade.Presentation
                 int index = i;
                 string charId = library[i];
                 var def = _graph.Get(charId);
-                bool selected = _selectedChar == charId && !_targeting;
+                // 同字多张按卡位区分选中(2026-08-17):只亮玩家点的那张,不连坐
+                bool selected = _selectedChar == charId && _selectedIndex == index && !_targeting;
                 System.Action tap = () =>
                 {
                     if (rewardPhase) OnRewardLibraryClicked(charId);
-                    else OnLibraryCharClicked(charId);
+                    else OnLibraryCharClicked(charId, index);
                 };
                 var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
                     new Vector2(84, 105));
@@ -962,14 +1126,15 @@ namespace Brushblade.Presentation
                 if (!rewardPhase)
                     tile.GetComponent<CardFrameView>()?.SetPlayable(def.ApCost <= Battle.Ap);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
-                if (!rewardPhase) AttachDragToAttack(tile.gameObject, def);
+                if (!rewardPhase) AttachDragToAttack(tile.gameObject, def, index);
                 _tileRects[charId] = (RectTransform)tile.transform;
+                _libraryTileRects.Add((RectTransform)tile.transform); // 卡位→牌面,飞字起点按位取
             }
         }
 
         /// <summary>拖字打人(2026-07-26):拖到敌人身上松手 = 攻击那个敌人。
         /// 水/土 因此在双击的治疗/加盾之外多一个攻击用法;其余字拖放 = 出字并顺手选中目标。</summary>
-        private void AttachDragToAttack(GameObject tile, CharDef def)
+        private void AttachDragToAttack(GameObject tile, CharDef def, int libraryIndex = -1)
         {
             DragToAttack.Attach(tile, def.Id, Theme.ElementColor(def.Element),
                 () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
@@ -977,7 +1142,7 @@ namespace Brushblade.Presentation
                 {
                     int target = EnemyIndexAt(screenPos);
                     if (target < 0) { CancelSelection(); return; } // 没落在敌人身上:当作取消,不出字
-                    ExecuteCast(def.Id, target, attackMode: true);
+                    ExecuteCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
                 });
         }
 
@@ -1872,14 +2037,15 @@ namespace Brushblade.Presentation
 
         // ---- 交互 ----
 
-        private void OnLibraryCharClicked(string charId)
+        private void OnLibraryCharClicked(string charId, int index)
         {
-            if (_selectedChar == charId && !_targeting)
+            if (_selectedChar == charId && _selectedIndex == index && !_targeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
             }
             _selectedChar = charId;
+            _selectedIndex = index;
             _targeting = false;
             _message = Brief(charId) + "|再点即出";
             Refresh();
@@ -1887,12 +2053,13 @@ namespace Brushblade.Presentation
 
         private void OnPoolCharClicked(string charId)
         {
-            if (_selectedChar == charId && !_targeting)
+            if (_selectedChar == charId && _selectedIndex < 0 && !_targeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
                 return;
             }
             _selectedChar = charId;
+            _selectedIndex = -1;
             _targeting = false;
             _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
             Refresh();
@@ -1907,7 +2074,7 @@ namespace Brushblade.Presentation
                 Refresh();
                 return;
             }
-            ExecuteCast(def.Id, -1); // 单敌免选:引擎自动锁定唯一存活目标
+            ExecuteCast(def.Id, -1, libraryIndex: _selectedIndex); // 单敌免选:引擎自动锁定唯一存活目标
         }
 
         private int AliveEnemyCount()
@@ -1922,7 +2089,7 @@ namespace Brushblade.Presentation
         {
             if (_targeting && _selectedChar != null)
             {
-                ExecuteCast(_selectedChar, index);
+                ExecuteCast(_selectedChar, index, libraryIndex: _selectedIndex);
                 return;
             }
             // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做
@@ -1930,11 +2097,12 @@ namespace Brushblade.Presentation
             _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def, phase: Battle.Enemies[index].PhaseIndex);
         }
 
-        private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false)
+        private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false,
+            int libraryIndex = -1)
         {
-            bool hasFrom = TryGetTilePos(charId, out var fromPos); // 起点须在重绘销毁字牌前捕获
+            bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var error = Battle.Cast(charId, target, replaceSummon, attackMode);
+            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex);
             if (error == BattleError.SummonCapFull) // 前排满员强阻断:AP/字都没动,确认替换才重出
             {
                 var def = _graph.Get(charId);
@@ -1943,7 +2111,7 @@ namespace Brushblade.Presentation
                     $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{charId}」召 {Battle.SummonCountOf(def, attackMode)} 只。\n"
                     + $"将从最前起顶掉 {replaceCount} 只。",
                     ($"替换最前 {replaceCount} 只",
-                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode), Theme.Cinnabar, Color.white),
+                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex), Theme.Cinnabar, Color.white),
                     ("取消", null, Theme.LockedBg, Theme.TextMain));
                 _message = "前排已满,出字待确认";
                 CancelSelection();
@@ -2042,7 +2210,7 @@ namespace Brushblade.Presentation
 
         private void OnDiscard(string charId)
         {
-            var error = Battle.Discard(charId);
+            var error = Battle.Discard(charId, _selectedIndex); // 同字多张:丢玩家选中的那张
             _message = error == BattleError.None ? $"丢弃「{charId}」(免 AP)" : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
@@ -2127,22 +2295,29 @@ namespace Brushblade.Presentation
             while (true)
             {
                 SnapshotPreHp();       // 每个行动者出手前的血量:动画逐记扣
+                var preMeters = MeterSnapshot();   // 推进前的计量器:条从这里起步
                 bool more = Battle.AdvanceOnce();
+                var postMeters = MeterSnapshot();  // 推进后:条的终点
                 var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
                 var deaths = DeathsThisAction();
                 _dyingEnemies.UnionWith(deaths); // 登记须在下面 Refresh 前:重绘据此保持死怪着色
                 allDeaths.AddRange(deaths);
                 AppendBossSkillMessage();
+                // 条先匀速涨到位(行动者停在 100%),再播它的动作 —— 动作期间条冻结。
+                // 这一段在 Refresh 之前:条的 fill/label 引用来自**上一次**重绘,还有效。
+                yield return FillActionBars(preMeters, postMeters, Battle.LastActor,
+                    Battle.LastAdvanceTicks);
                 // 每批事件必以 ActorActed 开头(段首标记),所以 events.Count > 0 恒真——
                 // 哪怕这一拍除了标记什么都没发生,也会误播整段 _juice.Play() + 停顿(约 0.42s)。
                 // 只在还有别的事件时才播。
                 if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
-                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt);
                     while (!done) yield return null;
                     yield return new WaitForSecondsRealtime(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap)
                 }
+                DropActingBar(Battle.LastActor, postMeters); // 动作播完,行动者的条回落到余额
                 Refresh();
                 if (!more) break;
                 if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
@@ -2155,6 +2330,7 @@ namespace Brushblade.Presentation
         private void CancelSelection()
         {
             _selectedChar = null;
+            _selectedIndex = -1;
             _targeting = false;
             Refresh();
         }
