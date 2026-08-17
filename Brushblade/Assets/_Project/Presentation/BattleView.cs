@@ -51,7 +51,6 @@ namespace Brushblade.Presentation
 
         // 容器
         private Transform _enemyRow;
-        private TurnBar _turnBar;   // 顶部行动条(2026-08-15,ATB 改造):自管锚点与 chip 生死
         private Transform _summonRow;    // 我方前排召唤物:夹在敌我血条之间
         private Transform _topLeft, _topRight, _bottomRow;
         private Transform _statusRow;    // 教程提示/奇遇文案(结束回合钮 2026-07-21 已移出)
@@ -318,19 +317,12 @@ namespace Brushblade.Presentation
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
-            // 行动条(2026-08-15/16,ATB 改造):夹在战况文案与敌人区之间,0.855-0.900(约
-            // 40.5px)。这条带原本不存在——敌人区顶部从 0.898 下压到 0.850 腾出来的,拍板见
-            // task-18-report:压 messageGo 会截断 Boss 播报,压 topBar 高度不够,只有敌人区
-            // 「有余量可让」。TurnBar 自己内部做 Anchor(Build 内),这里只建组件、挂一次。
-            _turnBar = gameObject.AddComponent<TurnBar>();
-            _turnBar.Build(transform);
-
             // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
-            // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸:
-            // 敌人格 208、字牌 118、部件钮 56——各区都留了几像素余量
-            // 2026-08-16:上边界从 0.898 降到 0.850(格高 232→189px),给行动条让出 4.8% 屏高
-            // (拍板见 task-18-report——敌人区本身还有余量,messageGo/topBar 没有)。
-            _enemyRow = MakeSection("Enemies", 0.640f, 0.850f);  // 189px(原 232px)
+            // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸。
+            // 2026-08-17:顶部全局行动条(TurnBar)废止,它占的 0.855–0.900 全部还给敌人区
+            // (189px → 234px),给每个敌人自己的行动条腾位。见
+            // docs/superpowers/specs/2026-08-17-每单位行动条与状态图标-design.md §4.1
+            _enemyRow = MakeSection("Enemies", 0.640f, 0.900f);  // 234px
             // ⚠ 72px 装不下召唤物格:方块 50 + 血条 15 + 攻力行 ≈ 80,带「盾」或被动标签是 94/108。
             // 这不是本次改动造成的 —— 原 79px 同样装不下(旧注释只算了三项的标称值,漏了行高与可选行),
             // 本次是让既有溢出再多 3.5px/边。HorizontalLayoutGroup 居中溢出,视觉上是上下各多探出一点。
@@ -516,12 +508,6 @@ namespace Brushblade.Presentation
             if (_modal != null) _modal.transform.SetAsLastSibling();
             _messageLabel.text = _message;
             SaveProgressIfChanged();
-            // 只在真正的战斗阶段画行动条(2026-08-16 全分支终审):RunPhase.Reward/Event/
-            // Reviving/RunEnd 这些阶段没有别的东西盖住行动条那条带(0.855–0.900)。
-            // ⚠ 不能简单地跳过这次调用——TurnBar.Refresh 是"先销毁旧 chip 再按传入的 battle
-            // 重画"，跳过调用只会把上一场战斗的 chip 冻结在屏幕上,不会清掉。非战斗阶段传 null,
-            // 复用 Refresh 里"battle == null 则只销毁不重画"的既有分支,把行动条真正清空。
-            _turnBar.Refresh(_run.Phase == RunPhase.InBattle ? Battle : null);
         }
 
         private string _savedFingerprint; // 上次落盘时的进度指纹
@@ -781,7 +767,10 @@ namespace Brushblade.Presentation
         // 形象保持 150 不动,12px 由敌人区锚点向下吃 7px + 区内原有 5px 余量凑齐(用户拍板)
         private const float EnemyPortrait = 150f;
         private const float EnemyCellWidth = 190f;
-        private const float EnemyCellHeight = 232f;
+        // 2026-08-17:232 → 234,与收回屏高后的敌人区(0.640–0.900 = 234px)对齐。
+        // 此前是 232 对 189px 的区域 —— 2026-08-16 压缩敌人区时改了区域没改这个常量,
+        // 敌人格一直在溢出。
+        private const float EnemyCellHeight = 234f;
 
         // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
         // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
