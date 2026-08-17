@@ -79,6 +79,9 @@ namespace Brushblade.Presentation
         private System.Action _onAbandon;    // 弃塔:阵亡待遇半额结算(2026-07-19,与挂起并列选项)
         private System.Action _onExpanded;   // 广告扩容后回调(即时落盘,防挂起丢失)
         private int _lastBattleIndex;
+        // 这一场的开场回放播过没有(2026-08-17)。用 BattleIndex 而不是 bool:
+        // 换一场战斗就自然重置,不必找地方清标记。−1 = 还没播过任何一场。
+        private int _openingPlayedForBattle = -1;
         private RunPhase _lastPhase;    // 上一帧的阶段:用于检测「战利品阶段结束」这一次转换
         private int _pendingRewardIndex = -1;   // 满库替换:已选中待替换入库的奖励下标(3.8.1)
         private int _previewRewardIndex = -1;   // 字奖励预览:首点看简述,再点确认(新手友好)
@@ -518,7 +521,9 @@ namespace Brushblade.Presentation
 
             // 复活补给阶段结束的一次性检测(2026-08-16 全分支终审 Important 2):TryRevive() 只把
             // PlayerHp 回满、Battle.Phase 置回 PlayerTurn,并不会补跑 BeginPlayerTurn——时间轴上
-            // 满格未动的敌人(调度优先级 1/2,高于玩家的 3)本该先补完它们那一拍,否则玩家会
+            // 满格未动的敌人本该先补完它们那一拍(玩家是在上一拍被打死的,计量器停在死亡时余额、
+            // 几乎恒为 0,补不满就轮不到它;并列时的优先级已在 2026-08-17 反转成
+            // 玩家 0 / 召唤物 1 / Buff 敌 2 / 其余敌 3,玩家排**最先**),否则玩家会
             // 直接拿到一个 AP 还停在死亡时余额(几乎恒为 0)、Turn 没 +1、也没掉字的"幽灵回合"。
             // 三条退出路径都要覆盖,故分两半检测,缺一个都会漏:
             // (a) 補给挑完/主动跳过——SkipReviveReward()/PickReviveChar(Replacing) 的
@@ -542,13 +547,29 @@ namespace Brushblade.Presentation
             if (enteredReviving && _run.Phase == RunPhase.InBattle && !Animating)
             {
                 // 复活流程刚结束(三条出口任一条),接着跑被打断的循环:满格未动的敌人先补完
-                // 那一拍,调度器随后自然轮到玩家(BeginPlayerTurn 发 AP、Turn+1、掉字)。
+                // 那一拍(不是因为敌人优先——反转后玩家的优先级最小,而是玩家的计量器停在
+                // 死亡时余额),调度器随后自然轮到玩家(BeginPlayerTurn 发 AP、Turn+1、掉字)。
                 // 不补 YieldTurn()——玩家是在上一拍被打死的,那一拍早就让过了,回头再补一次
                 // 只会像 Revive() 生产代码修之前那样多跑一次玩家侧状态递减。
                 // 这是一次性转换(_lastPhase 已在上面改成 InBattle),AdvanceRoutine 内部会
                 // 反复自己调 Refresh() 把后续帧画出来,本帧不再往下走完整的 switch 绘制。
                 BeginAnim();
                 StartCoroutine(AdvanceRoutine());
+                return;
+            }
+
+            // 开场回放(2026-08-17):进战斗后先把开场那几拍演出来,再放开输入。
+            // 与 enteredReviving 同型:BeginAnim + 起协程 + return(本帧不走完整 switch,
+            // OpeningRoutine 内部会自己 Refresh)。靠 _openingPlayedForBattle 守一次性,
+            // 不必让 Core 记「播过没有」。断点续爬恢复的战斗 OpeningSteps 为空,自然跳过。
+            // ⚠ 位置须在 enteredReviving 之后:复活续跑优先级更高,而且复活时开场早已播过。
+            if (_run.Phase == RunPhase.InBattle && !Animating
+                && _openingPlayedForBattle != _run.BattleIndex
+                && Battle.OpeningSteps.Count > 0)
+            {
+                _openingPlayedForBattle = _run.BattleIndex;
+                BeginAnim();
+                StartCoroutine(OpeningRoutine());
                 return;
             }
 
@@ -2301,6 +2322,85 @@ namespace Brushblade.Presentation
             _message = (Battle.Phase == BattlePhase.PlayerTurn
                 ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "") + _message;
             OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
+        }
+
+        /// <summary>回放开场那几拍(2026-08-17)。构造函数已经把开场推进跑完了(spec §5.2),
+        /// 所以这里**不推进任何状态**,只把 Core 记下的 OpeningSteps 逐拍演出来 ——
+        /// 否则玩家会看到「进战斗即已打完」(携带满格召唤物秒掉弱敌,spec §5.7),
+        /// 同速开局则看不到条从 0% 涨起来、直接就是自己的回合。
+        ///
+        /// 循环体与 AdvanceRoutine 一致,差别只在数据来源(回放 vs 现场推进)。
+        /// pre 的串法:首拍从全 0 起(开场的定义),之后每拍的 pre 是上一拍的 post。
+        ///
+        /// ⚠ 血条只能画在开场**结束后**的值上:Core 没记开场前的血量,表现层无从复原。
+        /// 于是开场里挨了打却没死的怪,其血条会被 OnImpact 从终值再往下推一段(PushEnemyHp
+        /// 刻意不钳终值),由收尾的 Refresh 兜回去。玩家/召唤物侧的 OnImpact 钳的是终值下限,
+        /// 不会偏。开场通常只有一拍(玩家自己),这条只在携带满格召唤物时才看得见。</summary>
+        private System.Collections.IEnumerator OpeningRoutine()
+        {
+            var steps = Battle.OpeningSteps;
+            var pre = (player: 0, summons: new int[Battle.Summons.Count],
+                enemies: new int[Battle.Enemies.Count]);
+            // 开场里死掉的怪一次收齐(判定口径同 DeathsThisAction:LastEvents 里的 EnemyDied)。
+            // 登记进 _dyingEnemies 须在下面那次 Refresh **之前**:重绘据此保持死怪着色,
+            // 否则回放一开始它们就是灰的,死亡节拍再置灰一次毫无表现。
+            // 收尾一次性交给 OnAnimDone 清掉——留着会撞上下一场同下标的新敌人,把它画成灰。
+            var allDeaths = new System.Collections.Generic.List<int>();
+            foreach (var step in steps)
+                foreach (var e in step.Events)
+                    if (e.Kind == BattleEventKind.EnemyDied) allDeaths.Add(e.TargetIndex);
+            _dyingEnemies.UnionWith(allDeaths);
+
+            // 先画一次,再动条 —— 条的 fill/label 引用是 switch 里的 Draw* 建出来的,而上面那个
+            // 接入点是 return 掉整个 switch 的(首战更是一次都没画过),不补这次重绘
+            // FillActionBars 全打在空引用上(SetActionBar 静默跳过),回放什么都看不见。
+            // SnapshotPreHp 也必须在这次重绘之前:Animating 期间血条画的是 _anim*Hp,
+            // 首战它是默认 0(玩家血条整段回放画成 0/50),第二场起是上一场的陈旧值。
+            SnapshotPreHp();
+            Refresh();
+            PaintActionBars(pre); // Draw* 建条时读的是开场**结束后**的计量器,按回全 0 才是起点
+
+            foreach (var step in steps)
+            {
+                var post = (player: step.PlayerMeter,
+                    summons: ToArray(step.SummonMeters), enemies: ToArray(step.EnemyMeters));
+                yield return FillActionBars(pre, post, step.Actor, step.Ticks);
+                // 与 AdvanceRoutine 同一条守卫:每批必以 ActorActed 开头(段首标记),
+                // 只有标记时不该白播一整段动画 + 停顿。末拍是玩家自己那一拍,其 Events 是
+                // BeginPlayerTurn/StartTurn 那一批(发牌/AP/玩家灼烧),照常播。
+                if (step.Events.Any(e => e.Kind != BattleEventKind.ActorActed))
+                {
+                    bool done = false;
+                    var events = new System.Collections.Generic.List<BattleEvent>(step.Events);
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
+                    while (!done) yield return null;
+                    yield return new WaitForSecondsRealtime(0.12f);
+                }
+                DropActingBar(step.Actor, post);
+                pre = post;
+            }
+
+            Refresh();
+            OnAnimDone(allDeaths); // 解锁输入 + 清死亡着色 + 归零后重绘(Battle 已 Won 时才出结算)
+        }
+
+        /// <summary>把全场行动条一次性按到 meters(不插值)。开场回放起手用。</summary>
+        private void PaintActionBars((int player, int[] summons, int[] enemies) meters)
+        {
+            SetActionBar(_playerActionBar, meters.player);
+            for (int i = 0; i < meters.summons.Length; i++)
+                if (_summonActionBarByCore.TryGetValue(i, out var bar))
+                    SetActionBar(bar, meters.summons[i]);
+            for (int i = 0; i < meters.enemies.Length && i < _enemyActionBars.Count; i++)
+                SetActionBar(_enemyActionBars[i], meters.enemies[i]);
+        }
+
+        /// <summary>IReadOnlyList&lt;int&gt; → int[],供 FillActionBars 的元组用。</summary>
+        private static int[] ToArray(System.Collections.Generic.IReadOnlyList<int> source)
+        {
+            var result = new int[source.Count];
+            for (int i = 0; i < result.Length; i++) result[i] = source[i];
+            return result;
         }
 
         private void CancelSelection()
