@@ -233,7 +233,7 @@ namespace Brushblade.Presentation
             float iconSpan = 0f;
             if (iconKey != null)
             {
-                iconSpan = Icons.Size + (text.Length > 0 ? Icons.Gap : 0f);
+                iconSpan = Icons.Size + (!string.IsNullOrEmpty(text) ? Icons.Gap : 0f);
                 var sprite = Icons.Get(iconKey);
                 if (sprite != null)
                 {
@@ -256,13 +256,14 @@ namespace Brushblade.Presentation
                 }
             }
 
-            if (text.Length > 0)
+            if (!string.IsNullOrEmpty(text))
             {
                 var label = ThemedLabel(go.transform, text, fontSize, fg);
-                Stretch(label.rectTransform);
                 if (iconSpan > 0f)
                     Anchor(label.rectTransform, Vector2.zero, Vector2.one,
                         new Vector2(iconSpan, 0f), Vector2.zero);
+                else
+                    Stretch(label.rectTransform);
             }
 
             var element = go.AddComponent<LayoutElement>();
@@ -290,7 +291,7 @@ namespace Brushblade.Presentation
         {
             float width = ChipWidth(chip.Text, fontSize, padX);
             if (chip.IconKey == null) return width;
-            return width + Icons.Size + (chip.Text.Length > 0 ? Icons.Gap : 0f);
+            return width + Icons.Size + (!string.IsNullOrEmpty(chip.Text) ? Icons.Gap : 0f);
         }
 
         /// <summary>一个待排的 chip:文字与配色。<see cref="ChipFlow"/> 要先看全部文字才能分行,

@@ -545,5 +545,46 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.LastAdvanceTicks, Is.EqualTo(0));
         }
+
+        [Test]
+        public void LastAdvanceTicks_UpdatesBetweenConsecutiveAdvances()
+        {
+            // 引擎侧的接线要每拍都更新,不能只写第一次(调度器侧的多拍用例盖不到这一层)
+            var engine = Engine(new[] { Dummy() });
+            engine.YieldTurn();
+
+            engine.AdvanceOnce();
+            int first = engine.LastAdvanceTicks;
+            engine.AdvanceOnce();
+
+            Assert.That(first, Is.EqualTo(1));
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(0),
+                "同速基准局:敌人那一拍已经把玩家的计量器也顶到满格(FirstFull 分支)," +
+                "第二次 AdvanceOnce 不需要再推进 tick");
+        }
+
+        [Test]
+        public void LastAdvanceTicks_ReflectsSlowUnitMultipleTicks()
+        {
+            // 速度 25(= MinSpeed)的敌人要四拍才攒满 —— 表现层据此把条动画拉长到四倍。
+            //
+            // EnemyDef 的构造函数没有 speed 参数(敌人速度不是配表字段,战中靠 EnemyState.Speed
+            // 这个可写属性调 —— 抄的是 BattleEngineTests.HastedEngine 的既有写法),
+            // 直接在 EnemyDef 上传 speed 具名参数编译不过,这里改成建好后再赋值。
+            //
+            // 玩家速度也要压到同一档:若只压敌人、玩家仍是默认 100,player 一拍就攒满,
+            // FirstFull 分支会先选中玩家(TurnScheduler.Advance 的第 1 步),ticks 恒为 1,
+            // 根本走不到「四拍」这条要验的路径 —— 两边都慢,同时在第 4 拍攒满时,
+            // 敌人的调度优先级(2)比玩家(3)小,才会是敌人赢得这一格。
+            var engine = Engine(new[] { Dummy() },
+                new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = TurnScheduler.MinSpeed });
+            engine.Enemies[0].Speed = TurnScheduler.MinSpeed;
+            engine.YieldTurn();
+
+            engine.AdvanceOnce();
+
+            Assert.That(engine.LastActor.Kind, Is.EqualTo(ActorKind.Enemy));
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(4));
+        }
     }
 }

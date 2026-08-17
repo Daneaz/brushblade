@@ -47,6 +47,20 @@ def test_build_produces_every_png(tmp_path, monkeypatch):
         assert png.stat().st_size > 200, f"{png.name} 太小,多半是空图"
 
 
+def test_repo_svgs_match_icons():
+    """仓库里的 svg/*.svg 必须是当前 ICONS 的产物。
+
+    test_build_produces_every_png 把 SVG_DIR monkeypatch 到 tmp(避免测试写工作树),
+    副作用是没人再检查仓库里那份还新不新 —— 改了 ICONS 只跑 pytest 会全绿,
+    而 Unity 加载的还是旧图。这条补上那个缺口。
+    """
+    for key in build_icons.ICONS:
+        path = build_icons.SVG_DIR / f"icon_{key}.svg"
+        assert path.exists(), f"缺 {path.name},跑一次 build_icons.py"
+        assert path.read_text(encoding="utf-8") == build_icons.svg(key), (
+            f"{path.name} 与 ICONS 不同步,跑一次 build_icons.py")
+
+
 def test_csharp_fallback_covers_every_icon():
     """C# 侧 Icons.Glyphs 与 build_icons.ICONS 必须逐个对应。
 

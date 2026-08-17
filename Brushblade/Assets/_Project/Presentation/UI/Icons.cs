@@ -68,8 +68,5 @@ namespace Brushblade.Presentation
         /// 空串会画出一个看不见的 chip,「?」至少让人知道这里漏配了。</summary>
         public static string Fallback(string key) =>
             key != null && Glyphs.TryGetValue(key, out var glyph) ? glyph : "?";
-
-        /// <summary>全部已登记的 key(测试与自检用)。</summary>
-        public static IReadOnlyCollection<string> Keys => Glyphs.Keys;
     }
 }

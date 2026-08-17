@@ -794,8 +794,15 @@ namespace Brushblade.Core
         public bool AdvanceOnce()
         {
             if (Phase != BattlePhase.PlayerTurn && Phase != BattlePhase.DropChoice)
+            {
+                LastAdvanceTicks = 0; // 防御性:不产生 step 就不该留着上一次的陈旧值
                 return false;   // Won / Lost:战斗已结束
-            if (Phase == BattlePhase.DropChoice) return false; // 等玩家决议
+            }
+            if (Phase == BattlePhase.DropChoice)
+            {
+                LastAdvanceTicks = 0; // 防御性:同上
+                return false; // 等玩家决议
+            }
 
             var slots = BuildSlots();
             var step = TurnScheduler.Advance(slots);
