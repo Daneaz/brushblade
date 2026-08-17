@@ -333,7 +333,8 @@ namespace Brushblade.Presentation
                 bool isNew = seen.Add(cardId);
 
                 var cell = Ui.VStack(row, $"Reward_{cardId}_{i}", 4);
-                Ui.GlyphTile(cell.transform, def, "", false, null, new Vector2(76, 95));
+                // 点卡看详情(2026-08-17):与商城/收集同款 CharPreview,弹在结果面板之上
+                Ui.GlyphTile(cell.transform, def, "", false, () => ShowRewardPreview(cardId), new Vector2(76, 95));
                 if (isNew)
                 {
                     Ui.Chip(cell.transform, "新!", Theme.ExitPink, Color.white, 12);
@@ -359,6 +360,13 @@ namespace Brushblade.Presentation
             }, Theme.Cinnabar, Color.white, 20, new Vector2(180, 50));
 
             StartCoroutine(RevealTiles(tiles));
+        }
+
+        /// <summary>开箱奖励卡详情:开箱已入账,等级/进度按入账后的现值显示。</summary>
+        private void ShowRewardPreview(string cardId)
+        {
+            if (_modal != null) Destroy(_modal);
+            _modal = CharPreview.Show(transform, _graph.Get(cardId), _graph, MetaRules.CardLevel(_meta, cardId));
         }
 
         private System.Collections.IEnumerator RevealTiles(System.Collections.Generic.List<GameObject> tiles)
