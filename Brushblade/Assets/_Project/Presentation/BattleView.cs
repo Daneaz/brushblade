@@ -313,12 +313,12 @@ namespace Brushblade.Presentation
             if (ticks <= 0) yield break;   // 已有人满格,无需推进
 
             float duration = ticks * ActionBarBaseMs / 1000f;
-            // 行动者的目标是满格(它的 post 已经扣过 Threshold,直接插到 post 会看到条倒退)
+            // 行动者的目标是满格(它的 post 已经扣过 Threshold,直接插到 post 会看到条倒退)。
+            // ⚠ 任何让行动者以非满格状态出手的机制(打断、抢拍)都要改这里。
             float actingTarget = TurnScheduler.Threshold;
 
-            for (float t = 0f; t < duration; t += Time.unscaledDeltaTime)
+            void Apply(float k)
             {
-                float k = Mathf.Clamp01(t / duration);
                 SetActionBar(_playerActionBar, actor.Kind == ActorKind.Player
                     ? Mathf.Lerp(pre.player, actingTarget, k)
                     : Mathf.Lerp(pre.player, post.player, k));
@@ -332,8 +332,16 @@ namespace Brushblade.Presentation
                     SetActionBar(_enemyActionBars[i], actor.Kind == ActorKind.Enemy && actor.Index == i
                         ? Mathf.Lerp(pre.enemies[i], actingTarget, k)
                         : Mathf.Lerp(pre.enemies[i], post.enemies[i], k));
+            }
+
+            for (float t = 0f; t < duration; t += Time.unscaledDeltaTime)
+            {
+                Apply(Mathf.Clamp01(t / duration));
                 yield return null;
             }
+            // ⚠ 循环条件是 t < duration,最后一帧的 k 恒 < 1(60fps/0.5s 时约 0.967)——
+            // 不补这一次,行动者会停在「97%」而不是满格,「是它满了才动」这个观感就没了。
+            Apply(1f);
         }
 
         /// <summary>行动者的条回落到余额(动作播完才调)。余额不一定是 0 ——
@@ -434,16 +442,18 @@ namespace Brushblade.Presentation
             // (189px → 234px),给每个敌人自己的行动条腾位。见
             // docs/superpowers/specs/2026-08-17-每单位行动条与状态图标-design.md §4.1
             _enemyRow = MakeSection("Enemies", 0.640f, 0.900f);  // 234px
-            // 2026-08-17:72 → 80px。召唤物格**一直**装不下(改造前最坏 111px,溢出 39px),
-            // 本次给它加行动条的同时把字块 50→44、血条 15→12,并从 _bottomRow 的**顶边**
-            // 要来 8px,溢出降到 31px。**这个区域闭合不了**:格宽只有 54px,「攻 12」「盾 3」
-            // 「附灼 2」三项挤不进一行。要真闭合只能把盾与被动移进详情弹窗(点召唤物已能看
-            // SummonInfo.Detail),那是删信息,不在本次范围。见 spec §4.4。
-            _summonRow = MakeSection("Summons", 0.551f, 0.640f); // 80px
-            // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字省了 17px,
-            // 加上新增的行动条 14px,净需求降到约 66px —— 富余的 8px 从**顶边**让给召唤物排,
-            // 下边界 0.478 保持不动(它与 _libraryRow 严丝合缝,动了会留缝)。
-            _bottomRow = MakeSection("PlayerStats", 0.478f, 0.551f); // 66px
+            // 2026-08-17:给召唤物格加行动条,字块 50→44、血条 15→12 腾位;区域高度维持 72px。
+            // **这个区域闭合不了**:格宽只有 54px,「攻 12」「盾 3」「附灼 2」三项挤不进一行,
+            // 内容最坏 111px。要真闭合只能把盾与被动移进详情弹窗(点召唤物已能看
+            // SummonInfo.Detail),那是删信息,不在本次范围 —— 本次只做到不恶化
+            // (溢出 39px → 39px,靠缩字块与血条抵掉新增的行动条)。见 spec §4.4。
+            _summonRow = MakeSection("Summons", 0.560f, 0.640f); // 72px
+            // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字(省 17px)、
+            // 但护盾条要从 7 抬到 14 才放得下叠字(还回去 7px),净省 10px;新增行动条吃 12px。
+            // 再把状态 chip 内边距收到敌人格同档、血条 20→18、行动条 14→12 省下 8px 之后,
+            // 内容最坏 73px(20-2 血条 + 14-2 行动条 + 14 护盾条 + 24-4 状态行 + 9 间距),
+            // 区域 73.8px —— 逐项可复算,余 0.8px。**改动内容高度时请重算这串加法。**
+            _bottomRow = MakeSection("PlayerStats", 0.478f, 0.560f); // 73.8px
 
             // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
             // 2026-07-20 移到最下面;左缘仍避开配字表(0.135 宽,2026-07-19 反馈:曾重叠)
@@ -700,9 +710,9 @@ namespace Brushblade.Presentation
             var hpStack = Ui.VStack(_bottomRow, "Hp", 3);
             // 血值上条(2026-07-25);动画期间画在出手前值,敌人攻击触达才逐记掉血
             _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
-                PlayerMaxHp, new Vector2(260, 20));
+                PlayerMaxHp, new Vector2(260, 18));
             // 行动条(2026-08-17):放血条与护盾条之间,与敌人/召唤物同口径读 ActionMeter
-            _playerActionBar = ActionBar(hpStack.transform, Battle.PlayerActionMeter, new Vector2(260, 14), 10);
+            _playerActionBar = ActionBar(hpStack.transform, Battle.PlayerActionMeter, new Vector2(260, 12), 9);
             // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
             // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动。
             // 2026-08-17:数值从条下的独立文字行并进条上叠字(与 HpBar 同款),省 17px 给行动条。
@@ -728,28 +738,28 @@ namespace Brushblade.Presentation
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"−{seal}AP", Theme.InkSoft, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "seal");
+                    ChipPadX, ChipPadY, "seal");
             }
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"{playerBurn}", Theme.Cinnabar, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "burn");
+                    ChipPadX, ChipPadY, "burn");
             }
             int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
             if (immunity > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"{immunity}", Theme.Jade, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "immunity");
+                    ChipPadX, ChipPadY, "immunity");
             }
             int reflect = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect);
             if (reflect > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"{reflect}%", Theme.Jade, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "reflect");
+                    ChipPadX, ChipPadY, "reflect");
             }
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
@@ -759,14 +769,14 @@ namespace Brushblade.Presentation
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"+{attackBuff}", Theme.Gold, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "attack");
+                    ChipPadX, ChipPadY, "attack");
             }
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             if (morale > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"{morale}", Theme.Gold, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "morale");
+                    ChipPadX, ChipPadY, "morale");
             }
             // 暴击率(2026-08-12,锋):读 EffectiveCrit(已钳到 100)而不是状态总量 ——
             // 叠 6 张锋时玩家该看到的是 100 不是 120
@@ -774,7 +784,7 @@ namespace Brushblade.Presentation
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"{Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "crit");
+                    ChipPadX, ChipPadY, "crit");
             }
             // 穿透(2026-08-12,锐):读状态总量而不是某次结算的有效值 —— 穿透打谁减多少要看
             // 那只怪的甲,玩家该看到的是自己攒了多少
@@ -783,7 +793,7 @@ namespace Brushblade.Presentation
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"{pierceBuff}", Theme.Gold, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "pierce");
+                    ChipPadX, ChipPadY, "pierce");
             }
             // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻。
             //
@@ -802,14 +812,14 @@ namespace Brushblade.Presentation
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"+{defenseBuff}", Theme.Jade, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "defense");
+                    ChipPadX, ChipPadY, "defense");
             }
             int dodgeBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff);
             if (dodgeBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, $"+{dodgeBuff}%", Theme.Jade, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "dodge");
+                    ChipPadX, ChipPadY, "dodge");
             }
             int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod != 0)
@@ -817,7 +827,7 @@ namespace Brushblade.Presentation
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
                 Ui.Chip(statusRow.transform, speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
                     speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, 12,
-                    Ui.ChipPadX, Ui.ChipPadY, "speed");
+                    ChipPadX, ChipPadY, "speed");
             }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
