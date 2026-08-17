@@ -65,6 +65,11 @@ namespace Brushblade.Core.Tests
         }
 
         private static EnemyDef MetalBoss(int hp = 200) => new("锈", Element.Metal, hp, 5);
+
+        /// <summary>MetalBoss 的配速版(2026-08-17):速度必须在**构造之前**配好 ——
+        /// 构造函数现在会跑开场推进,构造后再改 Enemies[0].Speed 已经晚了(见 HastedEngine)。</summary>
+        private static EnemyDef MetalBossWithSpeed(int speed) =>
+            new("锈", Element.Metal, 200, 5, speed: speed);
         private static EnemyDef WoodMinion(int hp = 12) => new("枯", Element.Wood, hp, 3);
 
         private static BattleEngine Engine(
@@ -1808,15 +1813,18 @@ namespace Brushblade.Core.Tests
                 Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 6) }, 42);
             engine.Cast("冷");
 
+            // 2026-08-17:Cast 只能在构造之后打,所以这只敌人是以默认 100 速参与开场那一拍的,
+            // 构造完计量器已满格;减速从第二拍起生效。节奏整体前移一拍(动、跳、动),
+            // 「每 2 回合一次」这个周期没变 —— 这才是本条要守的东西。
             int hp0 = engine.PlayerHp;
-            engine.EndTurn();                       // 减速第 1 回合:跳过
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
-
-            engine.EndTurn();                       // 第 2 回合:行动
+            engine.EndTurn();                       // 第 1 回合:开场那一拍已满格,行动
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
 
-            engine.EndTurn();                       // 第 3 回合:跳过
+            engine.EndTurn();                       // 第 2 回合:半速只攒到 100,同速并列玩家赢,跳过
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
+
+            engine.EndTurn();                       // 第 3 回合:再次轮到自己,行动
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 12));
         }
 
         [Test]
@@ -1826,28 +1834,30 @@ namespace Brushblade.Core.Tests
             var engine = new BattleEngine(SlowGraph(), Config(), new[] { "冷" },
                 Array.Empty<string>(), new[] { enemyDef }, 42);
             engine.Cast("冷");
-            // 2026-08-16 CTB 改造:原为「SpeedModifier 4→3」,现为「仍为 4」,因为状态递减
-            // 挪到了该单位自己那一拍的行动之后(口径 1);这只敌人本回合计量器只攒到 50/100,
-            // 根本没轮到自己行动,它的 SpeedModifier.TurnsLeft 这一拍自然不递减。
-            engine.EndTurn(); // 第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 仍是 4)
+            // 2026-08-17:Cast 只能在构造之后打,这只敌人以默认 100 速参与了开场那一拍,构造完
+            // 已满格 → 第 1 回合它照常行动(减速从第二拍起生效),所以它自己那一拍跑了,
+            // SpeedModifier 4 → 3;行动后计量器归零、末尾那一拍以半速 +50 停在 50。
+            engine.EndTurn(); // 第 1 回合:行动(计量器归零后再攒 50;SpeedModifier 4 → 3)
 
             var snapshot = engine.Capture();
             Assert.That(snapshot.Enemies[0].ActionMeter, Is.EqualTo(50));
             Assert.That(snapshot.Enemies[0].Statuses.Single(s => s.Kind == StatusKind.SpeedModifier).TurnsLeft,
-                Is.EqualTo(4));
+                Is.EqualTo(3));
 
             var restored = BattleEngine.Restore(snapshot, SlowGraph(), Config(), null,
                 new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
 
             Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(50));
-            Assert.That(restored.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(4));
+            Assert.That(restored.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
 
             int hp0 = restored.PlayerHp;
-            restored.EndTurn(); // 读档后第 2 回合:应接续为"行动"而不是从头跳过
-            Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6), "读档后应接续节奏,行动而非重新跳过");
+            restored.EndTurn(); // 50 + 50 = 100 那一拍玩家也满格,并列玩家先 —— 还没轮到它
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0));
 
-            restored.EndTurn(); // 第 3 回合:跳过
-            Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6));
+            // 这一拍它已经满格,不推进时间直接行动。**从零重攒的话这里还得再等一拍** ——
+            // 「节奏接续」这件事就是靠这个差别守住的。
+            restored.EndTurn();
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0 - 6), "读档后应接续节奏,不从零重攒");
         }
 
         // ---- Freeze + Slow 组合(review finding,2026-08-03):冻结中减速节拍应原地暂停 ----
@@ -1876,67 +1886,74 @@ namespace Brushblade.Core.Tests
             engine.Cast("冷"); // 先减速,单敌免选自动锁定目标
             int hp0 = engine.PlayerHp;
 
-            // 2026-08-16 CTB 改造:原为「SpeedModifier 4→3」,现为「仍为 4」——理由同
-            // Slow_SurvivesSnapshotRoundTrip_RhythmContinues:这只敌人本回合根本没轮到自己
-            // 行动(计量器只攒到 50/100),状态递减挂在"轮到自己那一拍"上,不会无条件跑。
-            engine.EndTurn(); // 减速第 1 回合:跳过(计量器攒到 50,不足 100;SpeedModifier 仍是 4)
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
+            // 2026-08-17 开场走调度:Cast 只能在构造之后打,这只敌人以默认 100 速参与了开场
+            // 那一拍,构造完计量器已满格 → 第 1 回合它照常行动(减速从第二拍起才生效)。
+            // 整条测试的节拍因此整体前移一拍:它自己那一拍落在第 1/3/5/7 回合(奇数),
+            // 偶数回合是「半速刚攒满 100 但同速并列玩家先」→ 没轮到自己。周期仍是 2。
+            engine.EndTurn(); // 第 1 回合:开场那一拍已满格,行动;之后半速再攒 50
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "开场那一拍已满格,第 1 回合就出手");
             Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(4));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
+                "轮到自己那拍,SpeedModifier 照常倒计时");
 
             engine.Cast("冻"); // 再冻结 2 回合
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
 
-            // 2026-08-16 CTB 改造:原断言「计量器不应累积」「减速回合数不应被消耗」在口径 6 下
-            // 整条不成立——计量器这一拍恰好攒满 100(50+50),轮到这只敌人自己,冻结让它跳过
-            // 出手,但"轮到自己"这件事本身照常发生:计量器照常被消耗(-100→0),Freeze 和
-            // SpeedModifier 都在这一拍 -1(TickTurns() 对两者一视同仁,不再豁免)。
-            engine.EndTurn(); // 计量器攒满轮到它自己那拍:冻结着跳过出手,但这拍照常被消耗、两个状态都 -1
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结跳过,不出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0), "轮到自己那拍照常被消耗,不是暂停");
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
+            // 这一拍计量器 50 + 50 = 100 恰好攒满,但玩家同时也攒满,同速并列玩家(0)先于
+            // 敌人(3)—— 所以还没轮到它,两个状态维持原值。与"冻结中"无关,单纯是"还没轮到"。
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(100), "攒满了但并列输给玩家,留在条上");
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
+
+            // 2026-08-16 CTB 改造(口径 6)在这里仍然成立,只是挪到了第 3 回合:轮到这只敌人
+            // 自己,冻结让它跳过出手,但"轮到自己"这件事本身照常发生 —— 计量器照常被消耗
+            // (-100→0),Freeze 和 SpeedModifier 都在这一拍 -1(TickTurns() 一视同仁,不豁免)。
+            engine.EndTurn(); // 轮到它自己那拍:冻结着跳过出手,但这拍照常被消耗、两个状态都 -1
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "冻结跳过,不出手");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50), "轮到自己那拍照常被消耗,不是暂停");
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(2),
                 "轮到自己那拍,SpeedModifier 照常倒计时");
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1),
                 "冻结跳过的同时,Freeze 自己也 -1");
 
-            // 2026-08-16 CTB 改造:这一拍计量器只攒到 50(0+50),没有轮到自己,两个状态维持原值——
-            // 与"冻结中"无关,单纯是"还没轮到"。
-            engine.EndTurn(); // 计量器只攒到 50,未轮到自己那拍,两个状态都不动
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
+            engine.EndTurn(); // 又是并列输给玩家的那一拍:未轮到自己,两个状态都不动
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(100));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(2));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1));
 
-            // 2026-08-16 CTB 改造:再次轮到自己(50+50=100),此时 Freeze.TurnsLeft 还是 1(>0),
-            // 仍判定为冻结、仍跳过出手;但这一拍会把 Freeze 递减到 0 并移除——解冻发生在这一拍
-            // 的"跳过"内部,不是"下一拍才生效"。
-            engine.EndTurn(); // 再次轮到自己:仍冻结(TurnsLeft=1),跳过出手,Freeze 这次 -1 到 0 解冻
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "这一拍仍冻结,仍不出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(2));
+            // 再次轮到自己,此时 Freeze.TurnsLeft 还是 1(>0),仍判定为冻结、仍跳过出手;
+            // 但这一拍会把 Freeze 递减到 0 并移除——解冻发生在这一拍的"跳过"内部,
+            // 不是"下一拍才生效"。
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "这一拍仍冻结,仍不出手");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(1));
             Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "解冻");
 
-            // 2026-08-16 CTB 改造:仍是"还没轮到自己"(计量器只到 50),与解冻与否无关。
-            engine.EndTurn(); // 计量器又只攒到 50,未轮到自己,不出手
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
+            engine.EndTurn(); // 仍是"还没轮到自己"(并列输给玩家),与解冻与否无关
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(100));
 
-            // 2026-08-16 CTB 改造:原测试假设"解冻即在冻结解除的那一拍立刻恢复出手"(4 次
-            // EndTurn 就能看到攻击),但新模型下"轮到自己"与"是否冻结"是两件独立的事——
-            // 解冻那一拍恰好也是"轮到自己"的拍(被跳过),真正的下一次出手要等到*再次*轮到
-            // 自己,也就是第 6 次 EndTurn(不是第 4 次)。
+            // "轮到自己"与"是否冻结"是两件独立的事——解冻那一拍恰好也是"轮到自己"的拍
+            // (被跳过),真正的下一次出手要等到*再次*轮到自己。
             engine.EndTurn(); // 终于再次轮到自己:已解冻,正常出手
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "解冻后轮到自己,恢复出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));
-            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(1));
-
-            engine.EndTurn(); // 接续节奏的下一拍:未轮到自己,跳过
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "接续节奏的下一拍应跳过");
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 12), "解冻后轮到自己,恢复出手");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.SpeedModifier), Is.False,
+                "这一拍把最后 1 回合的减速也消耗掉了");
         }
 
         // ---- 行动计量器(2026-08-04):Speed 每回合累积,每满 100 行动一次 ----
 
-        /// <summary>挂了 −50 速度修正的敌人(等价于旧的半速 Slow)。</summary>
+        /// <summary>挂了 −50 速度修正的敌人(等价于旧的半速 Slow)。
+        ///
+        /// ⚠ 2026-08-17:状态只能在构造**之后**挂(EnemyState 由构造函数内部创建,测试拿不到
+        /// 那个构造点),所以这只敌人是以默认速度 100 参与开场那一拍的 —— 构造完它的计量器
+        /// 已经是 100(满格),半速只从第二拍起生效。下面几条的节奏因此整体前移一拍
+        /// (「动、跳、动」而不是「跳、动、跳」),周期没变。这是相位差,不是数值错。
+        /// 不能像 HastedEngine 那样搬到 EnemyDef.speed:那会把 SpeedModifier 这条通道整个绕开。</summary>
         private static BattleEngine SlowedEngine()
         {
             var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
@@ -1949,26 +1966,31 @@ namespace Brushblade.Core.Tests
             return engine;
         }
 
-        /// <summary>指定基础速度的敌人(测加速与封顶)。</summary>
-        private static BattleEngine HastedEngine(int speed)
-        {
-            var engine = new BattleEngine(Graph(), Config(), new[] { "灯" },
-                Array.Empty<string>(), new[] { MetalBoss() }, 42);
-            engine.Enemies[0].Speed = speed;
-            return engine;
-        }
+        /// <summary>指定基础速度的敌人(测加速与封顶)。
+        ///
+        /// 2026-08-17:速度改为在 EnemyDef 里配好再构造。构造函数现在会跑开场推进
+        /// (spec §5.2),先构造再改 Enemies[0].Speed 会让敌人以默认 100 参与开场那一拍,
+        /// 于是它少攒 100、这一回合少动一次 —— 断言没错,是构造顺序错(spec §5.8)。</summary>
+        private static BattleEngine HastedEngine(int speed) =>
+            new BattleEngine(Graph(), Config(), new[] { "灯" },
+                Array.Empty<string>(), new[] { MetalBossWithSpeed(speed) }, 42);
 
         [Test]
         public void Speed50_MatchesOldSlowRhythm_SkipActSkipAct()
         {
-            // 减速敌人:攻 5,玩家 50 血。逐拍验证「跳、动、跳、动」
+            // 减速敌人:攻 5,玩家 50 血。逐拍验证「每 2 回合行动一次」这个半速周期。
+            // 2026-08-17:方法名里的 SkipAct 顺序按新口径整体前移了一拍(变成 ActSkip)——
+            // 减速是构造后才挂的,开场那一拍它以 100 速攒满了(见 SlowedEngine 的注释)。
+            // 沿用旧名只为让 git blame 能追溯同一条测试的沿革,不重新命名。
             var engine = SlowedEngine();           // 见上方辅助
             int hp0 = engine.PlayerHp;
 
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "第 1 回合:计量器 50,不足 100,跳过");
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 5), "第 1 回合:开场那一拍已攒满,行动");
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.LessThan(hp0), "第 2 回合:累到 100,行动");
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 5), "第 2 回合:半速只攒到 100 但同速并列玩家赢,跳过");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 10), "第 3 回合:再次轮到自己,行动 —— 周期仍是 2");
         }
 
         [Test]
@@ -1990,7 +2012,12 @@ namespace Brushblade.Core.Tests
             int hp0 = engine.PlayerHp;
             engine.EndTurn();
             Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(15));            // 攻 5 × 3 次,不再封顶
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(0));     // 三次出手后余额归零,不留到下回合
+            // 2026-08-17 重算:每回合仍恰好 3 次、不多不少(囤积会让第 2 回合变成 4 次),
+            // 但「读到 0」这个表征换了位置。旧模型:回合内先推 1 拍(敌人 +300)再连动 3 次
+            // 归零,所以回合末读到 0。新模型:那 300 是开场/上一回合末那一拍给的,回合内连动
+            // 3 次扣到 0,末尾还要再推 1 拍才能让玩家攒满 100 —— 敌人同一拍又拿 300。
+            // 300 = 恰好一拍的量,不是余额囤积。
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(300));
         }
 
         [Test]
@@ -2004,10 +2031,15 @@ namespace Brushblade.Core.Tests
             });
             // 基准 100 − 50 − 25 = 25 → 每 4 回合行动一次
             int hp0 = engine.PlayerHp;
-            engine.EndTurn(); engine.EndTurn(); engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "前 3 回合累计 75,不足 100");
+            // 2026-08-17:两个修正都是构造后挂的,开场那一拍它以 100 速攒满了(见 SlowedEngine),
+            // 所以第 1 回合先白动一次;真正要验的「间隔 4 回合」从这一次出手往后数。
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.LessThan(hp0), "第 4 回合到 100");
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 5), "第 1 回合:开场那一拍已攒满,行动");
+            int hp1 = engine.PlayerHp;
+            engine.EndTurn(); engine.EndTurn(); engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp1), "此后每拍只攒 25,3 拍累计 75,不足 100");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.LessThan(hp1), "第 4 拍到 100 再次行动 —— 间隔 4 即 100−50−25=25");
         }
 
         [Test]
@@ -2022,15 +2054,21 @@ namespace Brushblade.Core.Tests
                 Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
                 Magnitude = -50, TurnsLeft = 99, SourceId = "洼",
             });
-            engine.EndTurn(); // 计量器攒到 50,未行动
+            // 2026-08-17:减速是构造后挂的,开场那一拍它以 100 速攒满并行动了一次;
+            // 半速从第二拍起生效,这一回合末计量器停在 50。
+            engine.EndTurn();
 
             var restored = BattleEngine.Restore(engine.Capture(), graph, Config(), null,
                 new Dictionary<string, EnemyDef> { ["枯"] = enemyDef });
 
             Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(50));
             int hp0 = restored.PlayerHp;
+            // 50 + 50 = 100 那一拍玩家也同时攒满,同速并列玩家(0)赢敌人(3),所以这一回合还没轮到它
             restored.EndTurn();
-            Assert.That(restored.PlayerHp, Is.LessThan(hp0), "续爬后下一回合就该行动,不从零重攒");
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0), "50 → 100 那一拍并列,玩家先");
+            restored.EndTurn();
+            Assert.That(restored.PlayerHp, Is.LessThan(hp0),
+                "续爬后第 2 拍就行动 —— 若从零重攒要到第 3 拍才行动,这条就是那个差别");
         }
 
         // ---- 回合掉字(2026-08-04):从出战牌组掉 1 字,满库停下决议 ----

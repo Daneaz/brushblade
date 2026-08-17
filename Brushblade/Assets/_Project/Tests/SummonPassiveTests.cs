@@ -121,22 +121,28 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Speed150_ActsOneThenTwoAlternating()
         {
-            // 计量器:0+150=150 → 1 次(余 50);50+150=200 → 2 次(余 0);循环。平均 1.5 次/回合。
-            // 「当回合即可反击」本就是引擎默认行为(新召唤物 0+100 就够一次),桤 的差异化靠速度。
+            // 2026-08-17 召唤物上场即满格:出生那一格是现成的 100,不是靠攒来的,所以召出后的
+            // 第 1 回合它拿的是这 100(动 1 次、余 0),攒速要到第 2 回合才开始表达。此后
+            // 计量器:0+150=150 → 1 次(余 50);50+150=200 → 2 次(余 0);两回合一循环,
+            // 平均 1.5 次/回合 —— 这才是速度 150 的差异化。「当回合即可反击」照旧成立(第 1 回合)。
             var engine = Engine(new[] { "疾" }, new[] { Dummy(hp: 500) });
             engine.Cast("疾");
             int hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 1 回合出手 1 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 1 回合:吃掉出生那一格,1 次");
             hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(6), "第 2 回合出手 2 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 2 回合:0+150,1 次(余 50)");
             hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 3 回合回到 1 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(6), "第 3 回合:50+150 = 200,2 次");
+            hp = engine.Enemies[0].Hp;
+
+            engine.EndTurn();
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 4 回合回到 1 次 —— 两回合一循环");
         }
 
         [Test]

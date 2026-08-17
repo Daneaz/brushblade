@@ -312,7 +312,9 @@ namespace Brushblade.Core
         {
             Def = def;
             // 配置速度优先,未配置(0)回落基准 100(2026-08-17,spec §5.8)。
-            // Speed 保留 setter:快照恢复路径显式赋值,减速走 SpeedModifier 状态不碰这里。
+            // Speed 保留 setter 只为让测试直接改速度(engine.Enemies[0].Speed = ...);
+            // Speed **不进快照**(EnemySnapshot 没有这个字段),Restore 走 new EnemyState(def)
+            // 由本条条件赋值现算 —— 与 Defense 同一套模式。减速走 SpeedModifier 状态不碰这里。
             if (def.Speed > 0) Speed = def.Speed;
             if (def.Phases.Count > 0)
             {

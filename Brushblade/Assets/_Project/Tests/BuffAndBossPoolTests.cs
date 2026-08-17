@@ -112,11 +112,17 @@ namespace Brushblade.Core.Tests
         {
             var engine = new BattleEngine(SlowGraph(), new BattleConfig(),
                 new[] { "冷" }, Array.Empty<string>(), new[] { Buffer(), Ghost() }, seed: 1);
-            engine.Cast("冷", 0); // 减速标点小妖(下标 0),施加后第 1 回合即跳过
+            engine.Cast("冷", 0); // 减速标点小妖(下标 0)
 
+            // 2026-08-17 开场走调度:Cast 只能在构造之后打,小妖以默认 100 速参与了开场那一拍,
+            // 构造完它的计量器已满格 → 第 1 回合它照常轮到、照常加攻,减速从第二拍起才表达。
+            // 「跳过的那一回合」因此后移到第 2 回合,本条要验的东西挪到那里去。
             engine.EndTurn();
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6), "第 1 回合满格轮到自己,照常加攻");
 
-            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(4), "减速跳过回合的标点小妖不应发放攻击加成");
+            engine.EndTurn(); // 第 2 回合:半速只攒满 100 但同速并列玩家先 → 没轮到自己
+
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6), "减速跳过回合的标点小妖不应发放攻击加成");
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.False);
         }
 
@@ -127,10 +133,13 @@ namespace Brushblade.Core.Tests
                 new[] { "冷" }, Array.Empty<string>(), new[] { Buffer(), Ghost() }, seed: 1);
             engine.Cast("冷", 0);
 
-            engine.EndTurn(); // 跳过
-            engine.EndTurn(); // 行动:应恢复加攻
+            // 2026-08-17:节拍整体前移一拍(理由见 Buffer_SlowSkipTurn_DoesNotBuffOthers)——
+            // 小妖自己那一拍落在第 1、3 回合,第 2 回合没轮到。加攻按百分点累加:4 → 6 → 8。
+            engine.EndTurn(); // 第 1 回合:满格,行动加攻(4 → 6)
+            engine.EndTurn(); // 第 2 回合:跳过
+            engine.EndTurn(); // 第 3 回合:再次轮到自己,应恢复加攻(6 → 8)
 
-            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(6), "减速行动回合应恢复加攻(4 × 150 ÷ 100)");
+            Assert.That(engine.Enemies[1].Attack, Is.EqualTo(8), "减速行动回合应恢复加攻(每次 +50 百分点)");
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyBuff), Is.True);
         }
 
