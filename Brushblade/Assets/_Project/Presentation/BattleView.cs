@@ -35,6 +35,12 @@ namespace Brushblade.Presentation
         private (RectTransform fill, UnityEngine.UI.Text label) _playerShieldBar;
         private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyHpBars = new();
 
+        // 行动条(2026-08-17):每个参战单位一条,读各自的 ActionMeter。与血条同款持有
+        // fill/label 引用 —— 动画期间不重绘,靠这些引用就地推进(见 SetActionBar)。
+        private (RectTransform fill, UnityEngine.UI.Text label) _playerActionBar;
+        private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyActionBars = new();
+        private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonActionBarByCore = new();
+
         private BattleEngine Battle => _run.Battle;
 
         // 交互状态
@@ -254,6 +260,34 @@ namespace Brushblade.Presentation
             outline.effectColor = Theme.Ink;
             outline.effectDistance = new Vector2(1.2f, 1.2f);
             return (fill, label);
+        }
+
+        /// <summary>行动条(2026-08-17):meter / Threshold 的进度 + 百分比叠字。
+        /// 填充色用赭金 —— 血条是朱砂、护盾条是翡翠,三者必须一眼分得开。
+        /// 与 <see cref="HpBar"/> 同款返回 fill/label,供动画期间就地推进。</summary>
+        private (RectTransform fill, UnityEngine.UI.Text label) ActionBar(
+            Transform parent, int meter, Vector2 size, int fontSize)
+        {
+            float frac = Mathf.Clamp01(meter / (float)TurnScheduler.Threshold);
+            var bar = Ui.Bar(parent, frac, Theme.Gold, size);
+            var fill = (RectTransform)bar.transform.Find("Fill");
+            var label = Ui.ThemedLabel(bar.transform, $"{Mathf.RoundToInt(frac * 100)}%",
+                fontSize, Color.white, Theme.TitleFont);
+            Ui.Stretch(label.rectTransform);
+            var outline = label.gameObject.AddComponent<Outline>(); // 与血条同款描边,保对比度
+            outline.effectColor = Theme.Ink;
+            outline.effectDistance = new Vector2(1.2f, 1.2f);
+            return (fill, label);
+        }
+
+        /// <summary>行动条就地推进(条未画出时静默跳过)。meter 取 float 是因为动画要在
+        /// 整数拍之间插值 —— Core 侧全程整数,浮点只活在表现层(spec 全局约束)。</summary>
+        private static void SetActionBar((RectTransform fill, UnityEngine.UI.Text label) bar, float meter)
+        {
+            float frac = Mathf.Clamp01(meter / TurnScheduler.Threshold);
+            if (bar.fill != null)
+                Ui.Anchor(bar.fill, Vector2.zero, new Vector2(frac, 1), Vector2.zero, Vector2.zero);
+            if (bar.label != null) bar.label.text = $"{Mathf.RoundToInt(frac * 100)}%";
         }
 
         private const float ShieldBarFull = 30f; // 护盾条满格基准值(无上限概念,取常见量级)
@@ -590,6 +624,8 @@ namespace Brushblade.Presentation
             // 血值上条(2026-07-25);动画期间画在出手前值,敌人攻击触达才逐记掉血
             _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
                 PlayerMaxHp, new Vector2(260, 20));
+            // 行动条(2026-08-17):放血条与护盾条之间,与敌人/召唤物同口径读 ActionMeter
+            _playerActionBar = ActionBar(hpStack.transform, Battle.PlayerActionMeter, new Vector2(260, 14), 10);
             // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
             // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动。
             // 2026-08-17:数值从条下的独立文字行并进条上叠字(与 HpBar 同款),省 17px 给行动条。
@@ -730,6 +766,7 @@ namespace Brushblade.Presentation
         {
             _summonRectByCore.Clear();
             _summonBarByCore.Clear();
+            _summonActionBarByCore.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
             {
                 var summon = Battle.Summons[i];
@@ -746,6 +783,7 @@ namespace Brushblade.Presentation
                 // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。动画期间画出手前值,SummonHit 触达才降
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
                 _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 12));
+                _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter, new Vector2(54, 8), 8);
                 Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
                 if (summon.Shield > 0)
                     Ui.ThemedLabel(cell.transform, $"盾{summon.Shield}", 11, Theme.Jade);
@@ -816,6 +854,7 @@ namespace Brushblade.Presentation
             _enemyRects.Clear();
             _enemyMobs.Clear();
             _enemyHpBars.Clear();
+            _enemyActionBars.Clear();
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
                 var enemy = Battle.Enemies[i];
@@ -927,11 +966,14 @@ namespace Brushblade.Presentation
                 {
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
                     _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(140, 16)));
+                    // 行动条紧跟血条(2026-08-17,用户拍板放血条下方)
+                    _enemyActionBars.Add(ActionBar(info.transform, enemy.ActionMeter, new Vector2(140, 12), 9));
                 }
                 else
                 {
                     Ui.ThemedLabel(info.transform, "已正", 14, Theme.LockGray);
                     _enemyHpBars.Add((null, null));
+                    _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
                 }
 
                 var button = cell.AddComponent<Button>();
