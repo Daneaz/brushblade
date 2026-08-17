@@ -754,7 +754,12 @@ namespace Brushblade.Core
 
         /// <summary>最近一次 AdvanceOnce 推进了多少拍(2026-08-17,每单位行动条)。
         /// 表现层用它定行动条动画时长:时长 = LastAdvanceTicks × BaseMs。
-        /// 战斗刚开始、还没推进过时为 0 —— 表现层据此跳过条动画。</summary>
+        /// **为 0 的唯一情形是「已有人满格」**(TurnScheduler.Advance 的 FirstFull 分支):
+        /// 那一格不需要推进时间,条不该动,表现层据此跳过条动画。
+        ///
+        /// ⚠ 不是「战斗刚开始为 0」(2026-08-17 订正):构造函数现在开场就跑推进,拿到引擎时
+        /// 它已经是开场那一拍的拍数 —— 同速开局 1,全场速度 25 的慢局 4。开场的逐拍回放走
+        /// <see cref="OpeningSteps"/>(每条自带 Ticks),不要拿本属性去判断「有没有推进过」。</summary>
         public int LastAdvanceTicks { get; private set; }
 
         private readonly List<OpeningStep> _openingSteps = new();

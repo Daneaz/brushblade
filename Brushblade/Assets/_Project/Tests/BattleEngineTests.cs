@@ -2018,6 +2018,14 @@ namespace Brushblade.Core.Tests
             // 3 次扣到 0,末尾还要再推 1 拍才能让玩家攒满 100 —— 敌人同一拍又拿 300。
             // 300 = 恰好一拍的量,不是余额囤积。
             Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(300));
+
+            // 「不囤积」不能只活在上面那段注释里。进回合的状态(玩家 0 / 敌人 300)与回合末
+            // 状态逐字节相同 —— 是个不动点,所以第 2 回合必然还是恰好 3 次。囤积会在这里
+            // 立刻暴露成 4 次(20 伤)。玩家 50 血(BattleConfig.PlayerMaxHp 默认值),
+            // 两回合 30 伤后剩 20,不会被打死变成 Lost 而提前收口。
+            engine.EndTurn();
+            Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(30), "第 2 回合仍恰好 3 次:回合首末状态是不动点");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(300), "不动点:回合末计量器仍是一拍的量");
         }
 
         [Test]
