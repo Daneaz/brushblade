@@ -590,100 +590,120 @@ namespace Brushblade.Presentation
             _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
                 PlayerMaxHp, new Vector2(260, 20));
             // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
-            // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动
+            // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动。
+            // 2026-08-17:数值从条下的独立文字行并进条上叠字(与 HpBar 同款),省 17px 给行动条。
             int shownShield = Animating ? _animShield : Battle.PlayerShield;
             _playerShieldBar = (null, null);
             if (shownShield > 0 || (Animating && Battle.PlayerShield > 0))
             {
-                var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull), Theme.Jade, new Vector2(260, 7));
-                _playerShieldBar = ((RectTransform)shieldBar.transform.Find("Fill"),
-                    Ui.ThemedLabel(hpStack.transform, $"护盾 {shownShield}", 12, Theme.Jade));
+                var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull),
+                    Theme.Jade, new Vector2(260, 14));
+                var shieldLabel = Ui.ThemedLabel(shieldBar.transform, $"护盾 {shownShield}", 10,
+                    Color.white, Theme.TitleFont);
+                Ui.Stretch(shieldLabel.rectTransform);
+                var shieldOutline = shieldLabel.gameObject.AddComponent<Outline>();
+                shieldOutline.effectColor = Theme.Ink;
+                shieldOutline.effectDistance = new Vector2(1.2f, 1.2f);
+                _playerShieldBar = ((RectTransform)shieldBar.transform.Find("Fill"), shieldLabel);
             }
-            // 玩家侧状态一行小字(2026-08-06,子项目 A):封字 / 灼烧 / 免疫。
-            // 禁用 emoji —— 字体子集补不出来,上线渲染成空框
-            // Row 按需创建(2026-08-06 M8):三条都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
+            // 玩家侧状态一行小图标(2026-08-06 起为 chip,2026-08-17 改图标)。
+            // Row 按需创建(2026-08-06 M8):都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
             GameObject statusRow = null;
             int seal = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal);
             if (seal > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"封字 −{seal}AP", Theme.InkSoft, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"−{seal}AP", Theme.InkSoft, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "seal");
             }
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"灼烧 {playerBurn}", Theme.Cinnabar, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{playerBurn}", Theme.Cinnabar, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "burn");
             }
             int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
             if (immunity > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"免疫 {immunity}", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{immunity}", Theme.Jade, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "immunity");
             }
             int reflect = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect);
             if (reflect > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"反弹 {reflect}%", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{reflect}%", Theme.Jade, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "reflect");
             }
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
-            // 而战斗界面不显示攻击力 —— 不出 chip 的话这三个字打出去毫无反馈。
-            // ApBoost(利)不用 chip:下方 AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
+            // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
+            // ApBoost(利)不出格:下方 AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
             int attackBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff);
             if (attackBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"攻击 +{attackBuff}", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"+{attackBuff}", Theme.Gold, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "attack");
             }
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             if (morale > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"战意 {morale} 层", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{morale}", Theme.Gold, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "morale");
             }
-            // 暴击率(2026-08-12,锋):同理 —— 战斗界面不显示暴击率,不出 chip 的话
-            // 出了锋只能靠飘字里偶尔冒出的「暴」倒推。读 EffectiveCrit(已钳到 100)
-            // 而不是状态总量:叠 6 张锋时玩家该看到的是 100 不是 120
+            // 暴击率(2026-08-12,锋):读 EffectiveCrit(已钳到 100)而不是状态总量 ——
+            // 叠 6 张锋时玩家该看到的是 100 不是 120
             if (Battle.EffectiveCrit > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"暴击 {Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "crit");
             }
-            // 穿透(2026-08-12,锐):同 攻击 / 暴击 —— 锐 身上没有伤害效果,不出 chip 的话
-            // 打出去毫无反馈。读状态总量而不是某次结算的有效值:穿透打谁减多少要看那只怪的甲,
-            // 玩家该看到的是自己攒了多少
+            // 穿透(2026-08-12,锐):读状态总量而不是某次结算的有效值 —— 穿透打谁减多少要看
+            // 那只怪的甲,玩家该看到的是自己攒了多少
             int pierceBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff);
             if (pierceBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"穿透 {pierceBuff}", Theme.Gold, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"{pierceBuff}", Theme.Gold, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "pierce");
             }
-            // 护甲 / 闪避(2026-08-13,E-b4 T7 收尾):铠漜崊崟等 6 个护甲字与闪避增益
-            // 此前打出去零反馈 —— 与 攻击/暴击/穿透 当初的缺口同型。
+            // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻。
             //
-            // ⚠ 这两条读的是 Effective*(基础 + 增益)而不是状态总量,与 暴击 同款、
-            // 与 穿透 相反。理由是「玩家该看到的是什么」在三者间本来就不同:
-            //   护甲/闪避 —— 角色等级给了基础值,只显示增益会让 0 级增益时整条消失,
-            //                玩家看不到自己本来就有 4 点甲;显示合计才对得上实际结算。
-            //   穿透     —— 基础恒 0,且「减多少」要看那只怪的甲,玩家该看到的是攒了多少。
-            // 用 > 0 而非 != 0 守门:等级低时两条都是 0,不该占位。
-            if (Battle.EffectivePlayerDefense > 0)
+            // ⚠ 这里推翻了 2026-08-13 的取舍。那时读的是 Effective*(基础 + 增益),理由是
+            // 「只显示增益会让 0 级增益时整条消失,玩家看不到自己本来就有 4 点甲」。
+            // 现在反过来:角色等级给的基础值白占一行版面,而版面正是这次要省的东西
+            // (每单位新增一条行动条)。基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」。
+            //
+            // 改完之后这三条与 穿透 同口径(读状态总量),四者可以一起理解:
+            // 局内 chip = 本场攒到的增量,不是角色面板。
+            //
+            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 ——
+            // 「只在有增益时出」的意图是「基础值不必常驻」,不是「隐藏负面」。
+            int defenseBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff);
+            if (defenseBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"护甲 {Battle.EffectivePlayerDefense}", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"+{defenseBuff}", Theme.Jade, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "defense");
             }
-            if (Battle.EffectiveDodge > 0)
+            int dodgeBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff);
+            if (dodgeBuff > 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"闪避 {Battle.EffectiveDodge}%", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, $"+{dodgeBuff}%", Theme.Jade, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "dodge");
             }
-            // 速度(2026-08-15,ATB 改造):基准恒 100,只在偏离基准时出 chip —— 与暴击同一个
-            // 取舍(暴击基准恒 0 所以不上养成界面,改由局内出 chip),避免恒定写「速度 100」占版面。
-            if (Battle.EffectivePlayerSpeed != 100)
+            int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
+            if (speedMod != 0)
             {
                 statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"速度 {Battle.EffectivePlayerSpeed}", Theme.Jade, Color.white, 12);
+                Ui.Chip(statusRow.transform, speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
+                    speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, 12,
+                    Ui.ChipPadX, Ui.ChipPadY, "speed");
             }
 
             var apStack = Ui.VStack(_bottomRow, "Ap", 4);
