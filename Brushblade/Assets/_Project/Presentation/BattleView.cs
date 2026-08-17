@@ -2330,12 +2330,21 @@ namespace Brushblade.Presentation
         /// 同速开局则看不到条从 0% 涨起来、直接就是自己的回合。
         ///
         /// 循环体与 AdvanceRoutine 一致,差别只在数据来源(回放 vs 现场推进)。
-        /// pre 的串法:首拍从全 0 起(开场的定义),之后每拍的 pre 是上一拍的 post。
+        /// pre 的串法:首拍从全 0 起——这对玩家成立(PlayerActionMeter 恒从 0 起步),
+        /// 但对携带满格召唤物**不成立**(它进场就是 Threshold,不是 0)。这处近似没有
+        /// 可见后果:该拍必然 Ticks == 0(FirstFull 分支的充要条件),下面在播放前会把
+        /// 行动者的条单独按到 Threshold 再播,不依赖这里的 pre 值(2026-08-18 修 I3)。
+        /// 之后每拍的 pre 是上一拍的 post,这段是精确的——Core 逐拍记的就是真实计量器。
         ///
         /// ⚠ 血条只能画在开场**结束后**的值上:Core 没记开场前的血量,表现层无从复原。
         /// 于是开场里挨了打却没死的怪,其血条会被 OnImpact 从终值再往下推一段(PushEnemyHp
         /// 刻意不钳终值),由收尾的 Refresh 兜回去。玩家/召唤物侧的 OnImpact 钳的是终值下限,
-        /// 不会偏。开场通常只有一拍(玩家自己),这条只在携带满格召唤物时才看得见。</summary>
+        /// 不会偏。开场通常只有一拍(玩家自己),这条只在携带满格召唤物时才看得见。
+        ///
+        /// ⚠ 当前配速下(全部字怪 Speed = 100)本方法还有两条限制没处理,一旦给敌人配速就要
+        /// 一起补(详见 Core.EnemyDef.Speed 的文档):没接 AppendBossSkillMessage(Boss 蓄力
+        /// 播报读的是 Battle.LastEvents 而非逐拍的 step.Events);开场中途死掉的召唤物在
+        /// DrawSummons 里连头像格都不画(SnapshotPreHp 只在开场结束后跑一次)。</summary>
         private System.Collections.IEnumerator OpeningRoutine()
         {
             var steps = Battle.OpeningSteps;
@@ -2358,12 +2367,36 @@ namespace Brushblade.Presentation
             // 首战它是默认 0(玩家血条整段回放画成 0/50),第二场起是上一场的陈旧值。
             SnapshotPreHp();
             Refresh();
-            PaintActionBars(pre); // Draw* 建条时读的是开场**结束后**的计量器,按回全 0 才是起点
+            // Draw* 建条时读的是开场**结束后**的计量器,按回全 0 只是近似起点——携带满格
+            // 召唤物时不准(它当前值就是 Threshold),但该拍会在下面播放前单独按满,见下。
+            PaintActionBars(pre);
 
             foreach (var step in steps)
             {
                 var post = (player: step.PlayerMeter,
                     summons: ToArray(step.SummonMeters), enemies: ToArray(step.EnemyMeters));
+                // Ticks == 0 是「这一拍推进前已经满格」的实证(TurnScheduler.Advance 的
+                // FirstFull 分支的充要条件)——携带满格召唤物开局时,它的第一拍就是这个情形。
+                // FillActionBars 遇 ticks <= 0 会直接 yield break、不画任何东西,于是玩家会
+                // 看到「空条的召唤物挥了一刀」(spec §5.7 的反例,2026-08-18 修 I3)。这里先把
+                // 该行动者的条按到 Threshold,再走正常的播动作 → 回落(DropActingBar)。
+                if (step.Ticks <= 0)
+                {
+                    switch (step.Actor.Kind)
+                    {
+                        case ActorKind.Player:
+                            SetActionBar(_playerActionBar, TurnScheduler.Threshold);
+                            break;
+                        case ActorKind.Summon:
+                            if (_summonActionBarByCore.TryGetValue(step.Actor.Index, out var fullSummonBar))
+                                SetActionBar(fullSummonBar, TurnScheduler.Threshold);
+                            break;
+                        case ActorKind.Enemy:
+                            if (step.Actor.Index < _enemyActionBars.Count)
+                                SetActionBar(_enemyActionBars[step.Actor.Index], TurnScheduler.Threshold);
+                            break;
+                    }
+                }
                 yield return FillActionBars(pre, post, step.Actor, step.Ticks);
                 // 与 AdvanceRoutine 同一条守卫:每批必以 ActorActed 开头(段首标记),
                 // 只有标记时不该白播一整段动画 + 停顿。末拍是玩家自己那一拍,其 Events 是
