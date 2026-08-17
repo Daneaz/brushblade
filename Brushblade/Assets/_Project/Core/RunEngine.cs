@@ -649,11 +649,27 @@ namespace Brushblade.Core
         }
 
         /// <summary>存活召唤物的携带态:死尸丢弃(槽位释放,下一场从 0 号重排),残血原样带走。</summary>
+        /// <summary>捕获活着的召唤物供下一场携带。**行动计量器归零**(2026-08-18):
+        /// 行动条每场战斗独立,上一场攒的行动力不跨战斗 —— 否则召唤物一进新战斗就白送一次
+        /// 攻击(携带满格时甚至能在构造函数的开场推进里直接把弱敌打完),而玩家对此毫无操作空间。
+        ///
+        /// 与紧邻的 <c>_carriedStatuses</c> 只带护甲增益是同一条口径:**本场限定的东西不跨战斗**。
+        /// 血量、护盾、被动、速度照旧原样带走 —— 那些是召唤物「是什么」,计量器是它「攒到哪了」。
+        ///
+        /// ⚠ 只能在这一层清。<see cref="SummonState.Capture"/> 同时服务断点续爬
+        /// (<see cref="BattleEngine.Capture"/> → <c>BattleSnapshot.Summons</c>),那条路径**必须**
+        /// 原样保留计量器,否则读档会把节奏重置(ActionMeter_SurvivesRoundTrip_RhythmContinues
+        /// 守着这一点)。改到 Capture 里去会同时破坏它。</summary>
         private List<SummonSnapshot> CaptureAliveSummons()
         {
             var alive = new List<SummonSnapshot>();
             foreach (var summon in Battle.Summons)
-                if (summon.Alive) alive.Add(summon.Capture());
+            {
+                if (!summon.Alive) continue;
+                var snapshot = summon.Capture();
+                snapshot.ActionMeter = 0;
+                alive.Add(snapshot);
+            }
             return alive;
         }
 

@@ -931,28 +931,43 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void CarriedFullMeterSummons_WinNextBattleOnOpening()
+        public void CarriedSummons_StartNextBattleWithEmptyMeter()
         {
-            // 2026-08-17 方案固有副作用(spec §5.7):召唤物上场即满格 + 构造函数跑开场推进,
-            // 携带满格召唤物进弱敌层时,战斗会在 **构造函数返回前** 就打完 —— Phase 已是 Won。
-            // 这是正确的 CTB 语义(攒满了就该动),不是缺陷;表现层靠 OpeningSteps 把这几下
-            // 逐拍播出来,再兜住「进战斗即胜利」。本条就是那个行为的哨兵。
+            // 行动计量器**每场战斗独立**(2026-08-18 用户报 bug):上一场攒的行动力不跨战斗。
+            //
+            // 这条曾经是反的:2026-08-17 把「携带满格召唤物进弱敌层会在构造函数里就打完」
+            // 当成正确的 CTB 语义(攒满了就该动)、记进 spec §5.7 当「方案固有副作用」,
+            // 还专门写了哨兵守它。那个判断是错的 —— 从玩法看,上一场攒的行动力让召唤物
+            // 在下一场白送一次攻击,而玩家对此毫无操作空间。
+            //
+            // ⚠ 归零只在**跨战斗携带**这条路径上做(RunEngine.CaptureAliveSummons)。
+            // 断点续爬(BattleEngine.Capture → BattleSnapshot.Summons)走的是同一个
+            // SummonState.Capture(),那条**必须原样保留**计量器,否则读档会把节奏重置 ——
+            // 由 ActionMeter_SurvivesRoundTrip_RhythmContinues 守着。改错层会同时破坏它。
             var run = SummonRun(Weak(), new[] { "森", "焚" });
-            Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None)); // 4 只满格召唤物
+            Assert.That(run.Battle.Cast("森"), Is.EqualTo(BattleError.None)); // 4 只召唤物
+            Assert.That(run.Battle.Summons[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold),
+                "本场内确实是满格的 —— 上场即满格那条口径不受本次影响");
             Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None)); // AOE 秒敌人
             run.AdvanceAfterBattle();
+
+            // 携带态里就该已经归零,而不是等进了新战斗再清
             Assert.That(run.CarriedSummons.Count, Is.EqualTo(4));
+            foreach (var carried in run.CarriedSummons)
+                Assert.That(carried.ActionMeter, Is.EqualTo(0), "携带态不带行动力");
 
-            run.SkipReward();  // 开下一层 —— 战斗在这一步的构造函数里就分出胜负了
+            run.SkipReward();  // 开下一层
 
-            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won),
-                "4 只满格召唤物在开场推进里就把 4 血弱敌打死了");
-            // 回放数据必须留下:_events 每拍开头都被 Clear,不记就什么都播不出来
-            Assert.That(run.Battle.OpeningSteps.Count, Is.EqualTo(2), "两只召唤物各占一拍(2 伤 × 2 = 4 血)");
-            Assert.That(run.Battle.OpeningSteps[0].Actor.Kind, Is.EqualTo(ActorKind.Summon));
-            Assert.That(run.Battle.OpeningSteps[1].Actor.Kind, Is.EqualTo(ActorKind.Summon));
-            Assert.That(run.Battle.OpeningSteps[1].Events.Any(e => e.Kind == BattleEventKind.EnemyDied),
-                Is.True, "致死那一拍的事件也得在回放数据里");
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn),
+                "召唤物计量器归零 → 开场没人抢先,弱敌活着等玩家出手");
+            // 「没带行动力过来」的可观察证据是**开场只有玩家那一拍**,而不是「召唤物 meter 为 0」——
+            // 构造函数的开场推进会把全场从 0 推到满格(行动者扣 100),所以构造**之后**召唤物
+            // 必然读到 100。那 100 是这一场推出来的,不是上一场带来的;真正被修掉的是
+            // 「它带着满格进场、于是抢在玩家之前先动」。
+            Assert.That(run.Battle.OpeningSteps.Count, Is.EqualTo(1),
+                "开场只推进一次,行动者是玩家");
+            Assert.That(run.Battle.OpeningSteps[0].Actor, Is.EqualTo(ActorRef.Player),
+                "同速下玩家 priority 最小 —— 召唤物若带着满格进场就会抢在它前面");
         }
     }
 }
