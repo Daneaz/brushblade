@@ -280,6 +280,83 @@ namespace Brushblade.Presentation
             return (fill, label);
         }
 
+        /// <summary>速度 100 的单位从 0% 攒到 100% 所需毫秒(2026-08-17)。
+        /// 一次推进的条动画时长 = LastAdvanceTicks × 本值,所以速度 200 的走一半时间 ——
+        /// 「与速度挂钩」就落在这一条上。
+        ///
+        /// ⚠ 这直接决定战斗节奏:每个行动者出手前都要等这么久,一轮五个单位就是 2.5 秒。
+        /// 嫌拖就改这一个数。</summary>
+        private const float ActionBarBaseMs = 500f;
+
+        /// <summary>全场计量器快照(玩家 −1,召唤物与敌人按下标)。推进前拍一次、推进后拍一次,
+        /// 条在两者之间插值 —— 这是把 Core 的离散跳跃反演成匀速流动的全部手法。</summary>
+        private (int player, int[] summons, int[] enemies) MeterSnapshot()
+        {
+            var summons = new int[Battle.Summons.Count];
+            for (int i = 0; i < summons.Length; i++) summons[i] = Battle.Summons[i].ActionMeter;
+            var enemies = new int[Battle.Enemies.Count];
+            for (int i = 0; i < enemies.Length; i++) enemies[i] = Battle.Enemies[i].ActionMeter;
+            return (Battle.PlayerActionMeter, summons, enemies);
+        }
+
+        /// <summary>把全场的条从 pre 匀速推到 post。**行动者例外**:它涨到 100% 就停住,
+        /// 不在这里回落 —— 让玩家看清「是它满了才动」,回落交给动作播完之后
+        /// (<see cref="DropActingBar"/>)。
+        ///
+        /// ⚠ 用 unscaledDeltaTime:Juice 会改 Time.timeScale 做打击顿帧,
+        /// 条跟着一起卡是错的(它表达的是时间流逝本身)。</summary>
+        private System.Collections.IEnumerator FillActionBars(
+            (int player, int[] summons, int[] enemies) pre,
+            (int player, int[] summons, int[] enemies) post,
+            ActorRef actor, int ticks)
+        {
+            if (ticks <= 0) yield break;   // 已有人满格,无需推进
+
+            float duration = ticks * ActionBarBaseMs / 1000f;
+            // 行动者的目标是满格(它的 post 已经扣过 Threshold,直接插到 post 会看到条倒退)
+            float actingTarget = TurnScheduler.Threshold;
+
+            for (float t = 0f; t < duration; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.Clamp01(t / duration);
+                SetActionBar(_playerActionBar, actor.Kind == ActorKind.Player
+                    ? Mathf.Lerp(pre.player, actingTarget, k)
+                    : Mathf.Lerp(pre.player, post.player, k));
+                for (int i = 0; i < pre.summons.Length && i < post.summons.Length; i++)
+                    if (_summonActionBarByCore.TryGetValue(i, out var bar))
+                        SetActionBar(bar, actor.Kind == ActorKind.Summon && actor.Index == i
+                            ? Mathf.Lerp(pre.summons[i], actingTarget, k)
+                            : Mathf.Lerp(pre.summons[i], post.summons[i], k));
+                for (int i = 0; i < pre.enemies.Length && i < post.enemies.Length
+                        && i < _enemyActionBars.Count; i++)
+                    SetActionBar(_enemyActionBars[i], actor.Kind == ActorKind.Enemy && actor.Index == i
+                        ? Mathf.Lerp(pre.enemies[i], actingTarget, k)
+                        : Mathf.Lerp(pre.enemies[i], post.enemies[i], k));
+                yield return null;
+            }
+        }
+
+        /// <summary>行动者的条回落到余额(动作播完才调)。余额不一定是 0 ——
+        /// 攒过头的部分带到下一拍,这是 CTB 的既有语义。</summary>
+        private void DropActingBar(ActorRef actor, (int player, int[] summons, int[] enemies) post)
+        {
+            switch (actor.Kind)
+            {
+                case ActorKind.Player:
+                    SetActionBar(_playerActionBar, post.player);
+                    break;
+                case ActorKind.Summon:
+                    if (actor.Index < post.summons.Length
+                        && _summonActionBarByCore.TryGetValue(actor.Index, out var summonBar))
+                        SetActionBar(summonBar, post.summons[actor.Index]);
+                    break;
+                case ActorKind.Enemy:
+                    if (actor.Index < post.enemies.Length && actor.Index < _enemyActionBars.Count)
+                        SetActionBar(_enemyActionBars[actor.Index], post.enemies[actor.Index]);
+                    break;
+            }
+        }
+
         /// <summary>行动条就地推进(条未画出时静默跳过)。meter 取 float 是因为动画要在
         /// 整数拍之间插值 —— Core 侧全程整数,浮点只活在表现层(spec 全局约束)。</summary>
         private static void SetActionBar((RectTransform fill, UnityEngine.UI.Text label) bar, float meter)
@@ -2184,12 +2261,18 @@ namespace Brushblade.Presentation
             while (true)
             {
                 SnapshotPreHp();       // 每个行动者出手前的血量:动画逐记扣
+                var preMeters = MeterSnapshot();   // 推进前的计量器:条从这里起步
                 bool more = Battle.AdvanceOnce();
+                var postMeters = MeterSnapshot();  // 推进后:条的终点
                 var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
                 var deaths = DeathsThisAction();
                 _dyingEnemies.UnionWith(deaths); // 登记须在下面 Refresh 前:重绘据此保持死怪着色
                 allDeaths.AddRange(deaths);
                 AppendBossSkillMessage();
+                // 条先匀速涨到位(行动者停在 100%),再播它的动作 —— 动作期间条冻结。
+                // 这一段在 Refresh 之前:条的 fill/label 引用来自**上一次**重绘,还有效。
+                yield return FillActionBars(preMeters, postMeters, Battle.LastActor,
+                    Battle.LastAdvanceTicks);
                 // 每批事件必以 ActorActed 开头(段首标记),所以 events.Count > 0 恒真——
                 // 哪怕这一拍除了标记什么都没发生,也会误播整段 _juice.Play() + 停顿(约 0.42s)。
                 // 只在还有别的事件时才播。
@@ -2200,6 +2283,7 @@ namespace Brushblade.Presentation
                     while (!done) yield return null;
                     yield return new WaitForSecondsRealtime(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap)
                 }
+                DropActingBar(Battle.LastActor, postMeters); // 动作播完,行动者的条回落到余额
                 Refresh();
                 if (!more) break;
                 if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
