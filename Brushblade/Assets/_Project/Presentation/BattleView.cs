@@ -112,6 +112,8 @@ namespace Brushblade.Presentation
 
         private RectTransform EnemyAnchor(int i) => i >= 0 && i < _enemyRects.Count ? _enemyRects[i] : null;
         private RectTransform SummonAnchor(int coreIndex) => _summonRectByCore.TryGetValue(coreIndex, out var r) ? r : null;
+        // 召唤反击飞字用:发起者是谁,飞它自己的字(2026-08-17);别叫 SummonInfo,和 UI 的同名类撞
+        private SummonState SummonAt(int i) => i >= 0 && i < Battle.Summons.Count ? Battle.Summons[i] : null;
 
         /// <summary>本次结算里死亡的怪(下标取自 LastEvents 的 EnemyDied)。</summary>
         private System.Collections.Generic.List<int> DeathsThisAction()
@@ -127,7 +129,7 @@ namespace Brushblade.Presentation
         private void PlayAnimated(System.Collections.Generic.IReadOnlyList<BattleEvent> events,
             System.Collections.Generic.List<int> deaths)
         {
-            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact);
+            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact, SummonAt);
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
@@ -2311,7 +2313,7 @@ namespace Brushblade.Presentation
                 if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
-                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt);
                     while (!done) yield return null;
                     yield return new WaitForSecondsRealtime(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap)
                 }
