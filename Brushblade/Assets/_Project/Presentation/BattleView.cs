@@ -1595,6 +1595,14 @@ namespace Brushblade.Presentation
         {
             if (_rewardModal != null) Destroy(_rewardModal);
 
+            // 替换子步的前提会被广告扩容推翻(2026-08-18):+2 徽章就画在弹窗背后的字库行上
+            // (case RunPhase.Reward 同时走 DrawLibrary),玩家正是为了不丢字才去看的广告。
+            // 这个下标是粘滞 UI 状态,只在替换成功/「算了不换」时才清 —— 不在这里按当前容量
+            // 复核,腾出空位后弹窗依旧扣着「字库已满」,玩家看着 7/9 却被要求换字,
+            // 广告等于白看。空位一出现就退回选字步,直接收下。
+            if (_pendingRewardIndex >= 0 && _run.CarriedLibrary.Count < Battle.LibraryCapacity)
+                _pendingRewardIndex = -1;
+
             if (_pendingRewardIndex >= 0)
                 DrawRewardReplaceStep();
             else
@@ -1632,13 +1640,31 @@ namespace Brushblade.Presentation
                         CancelSelection(); // 额度归零 → 下次 Refresh 由 Core 侧自动开拔
                         return;
                     }
-                    _pendingRewardIndex = index; // 字库已满(3.8.1):转入替换子步
+                    // PickReward 有三种拒收原因(阶段不符/额度尽/满库),此前一律当成「字库已满」
+                    // 转入替换子步 —— 提示因此会说谎:非满库时也弹「换掉哪一个」。
+                    // 按真实条件分流,并把状态打进日志,便于定位(2026-08-18 诊断中)。
+                    bool libraryFull = _run.CarriedLibrary.Count >= Battle.LibraryCapacity;
+                    Debug.Log($"[战利品诊断] Phase={_run.Phase} 额度={_run.CharPicksLeft} " +
+                              $"携带字数={_run.CarriedLibrary.Count} 显示容量={Battle.LibraryCapacity} " +
+                              $"已扩容={_run.LibraryExpanded} 判定满库={libraryFull}");
+                    if (libraryFull)
+                    {
+                        _pendingRewardIndex = index; // 真满库(3.8.1):转入替换子步
+                    }
+                    else
+                    {
+                        // 不是满库却被拒:把真实原因摆到台面上,而不是诬赖字库
+                        _message = $"收不下「{id}」——字库 {_run.CarriedLibrary.Count}/" +
+                                   $"{Battle.LibraryCapacity}、剩余额度 {_run.CharPicksLeft}、阶段 {_run.Phase}";
+                    }
                     Refresh();
                 };
                 var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP",
                     index == _previewRewardIndex, tap);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
+
+            DrawRewardAdBadge(content);
 
             Ui.RoundButton(content, "不要了,开拔", () =>
             {
@@ -1677,11 +1703,30 @@ namespace Brushblade.Presentation
                 }, new Vector2(74, 96));
             }
 
+            DrawRewardAdBadge(content);
+
             Ui.RoundButton(content, "算了,不换", () =>
             {
                 _pendingRewardIndex = -1;
                 Refresh();
             }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(150, 46));
+        }
+
+        /// <summary>战利品弹窗内的广告扩容入口(2026-08-18)。
+        /// **必须画在弹窗内容里**:Ui.ModalShell 铺的是全屏 Image 遮罩(还挂着吞点击的 Button),
+        /// DrawLibrary 画在弹窗背后的那枚 +2 徽章被整个盖住,满库时玩家根本够不着 ——
+        /// 「不想丢字就看广告」这条路在最需要它的时刻是断的,只能被迫替换或弃字。
+        /// 扩容后 DrawReward() 的容量复核会把替换子步退回选字步,直接收下。</summary>
+        private void DrawRewardAdBadge(Transform content)
+        {
+            if (_run.LibraryExpanded) return;
+            Ui.AdBadge(content, "看广告 · 字库 +2", () =>
+            {
+                _run.TryExpandLibrary();
+                _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
+                _message = "字库上限 +2(本次登塔有效)";
+                Refresh();
+            }, new Vector2(190, 44));
         }
 
         // ---- 复活补给(2026-07-24):以战利品展示方式给字,直接注入当前战斗字库。
@@ -1692,6 +1737,9 @@ namespace Brushblade.Presentation
 
         private void DrawReviveCharStep()
         {
+            // 同 DrawReward:复活补给页也画着字库行与 +2 徽章,扩容后满库前提不再成立
+            if (_pendingReviveIndex >= 0 && Battle.Library.Count < Battle.LibraryCapacity)
+                _pendingReviveIndex = -1;
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
             if (_rewardModal != null) Destroy(_rewardModal);
 
