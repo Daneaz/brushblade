@@ -270,7 +270,10 @@ namespace Brushblade.Presentation
                 });
         }
 
-        /// <summary>广告扩容即时落盘:挂起/杀进程也不丢已看广告换来的容量。</summary>
+        /// <summary>广告扩容即时落盘:挂起/杀进程也不丢已看广告换来的容量。
+        /// 走 SaveNow 而不是裸 MetaStore.Save(2026-08-18):后者只更新塔级标志,段中断点
+        /// (InProgress.Run)还是扩容前取的样 —— 此刻被杀,恢复走 resume 分支会按旧快照把容量
+        /// 退回去,且塔级标志随后被 WriteCarriedSnapshot 反向抹掉,战利品页就又按旧上限拒收。</summary>
         private static void OnExpanded(RunEngine run)
         {
             var snapshot = _meta.EndlessV2;
@@ -278,7 +281,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
-            MetaStore.Save(_meta);
+            SaveNow();
         }
 
         /// <summary>字摊/赌博净额即时结进账户(Option A,2026-07-24):按本段累计净额与已结额的差值入账,

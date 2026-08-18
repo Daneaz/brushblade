@@ -378,6 +378,7 @@ namespace Brushblade.Core
         {
             if (LibraryExpanded) return false;
             _battleConfig.LibraryCapacity += ExpandBonus;
+            Battle?.RaiseLibraryCapacity(ExpandBonus); // 战斗持有 config 副本,须显式同步
             LibraryExpanded = true;
             return true;
         }
@@ -387,6 +388,7 @@ namespace Brushblade.Core
         {
             if (PoolExpanded) return false;
             _battleConfig.PoolCapacity += ExpandBonus;
+            Battle?.RaisePoolCapacity(ExpandBonus);
             PoolExpanded = true;
             return true;
         }
@@ -676,9 +678,11 @@ namespace Brushblade.Core
         /// <summary>本关生效的血量上限 = 局外基础 + 奇遇累加的局内加成(至少 1)。</summary>
         public int EffectiveMaxHp => Math.Max(1, _battleConfig.PlayerMaxHp + _maxHpBonus);
 
-        /// <summary>把局内上限加成折进配置再交给战斗;无加成时原样返回,不白拷一份。</summary>
-        private BattleConfig BattleConfigForRun() =>
-            _maxHpBonus == 0 ? _battleConfig : _battleConfig.WithPlayerMaxHp(EffectiveMaxHp);
+        /// <summary>把局内上限加成折进配置再交给战斗。**恒拷贝**(2026-08-18):此前无加成时
+        /// 原样共享引用、有加成时才拷贝,广告扩容靠「碰巧共享」才对当前战斗生效 —— 吃过加血
+        /// 上限奇遇后就断线(扩容只改 run 手里的原对象,战斗读的是旧副本,Boss 层奖励页最常见)。
+        /// 现在战斗永远持有自己的副本,扩容由 TryExpand* 显式同步进去,两条路径一个口径。</summary>
+        private BattleConfig BattleConfigForRun() => _battleConfig.WithPlayerMaxHp(EffectiveMaxHp);
 
         private BattleEngine NewBattle(IReadOnlyList<string> library, IReadOnlyList<string> pool, int? startingHp)
         {
