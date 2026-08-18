@@ -28,6 +28,11 @@ namespace Brushblade.Presentation
             _save = save;
             _onBack = onBack;
             _all = CollectEnemies(campaign);
+            // 手势翻页(2026-08-18):与头部 ◀▶ 同一套动作。怪物详情弹窗开着时不翻。
+            SwipePager.Attach(gameObject,
+                () => { _page--; Rebuild(); },
+                () => { _page++; Rebuild(); },
+                () => _modal == null);
             Rebuild();
         }
 

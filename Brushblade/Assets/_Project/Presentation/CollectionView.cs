@@ -24,6 +24,12 @@ namespace Brushblade.Presentation
             _meta = meta;
             _save = save;
             _onBack = onBack;
+            // 手势翻页(2026-08-18):与头部 ◀▶ 同一套动作。弹窗开着时不翻 ——
+            // 详情/升级窗都挂在本页根下,不拦的话会隔着窗把底下的页换掉。
+            SwipePager.Attach(gameObject,
+                () => { _page--; Rebuild(); },
+                () => { _page++; Rebuild(); },
+                () => _modal == null);
             Rebuild();
         }
 
