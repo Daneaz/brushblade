@@ -122,10 +122,16 @@ namespace Brushblade.CoreTests
             // 2026-08-15 拍板:战意从「本场持久」改为**每回合末消减一层**。
             // 当回合出的 战 先按 3 层生效(EffectiveAttack 130),回合末才掉到 2 ——
             // 递减排在本回合全部结算之后,不是「刚施加就少一层」。
+            //
+            // 2026-08-18 补首回合宽限:从 0 层起手的那一回合**不递减**(见
+            // Morale_FromZero_SkipsFirstDecay),所以这里要先多走一个回合才进入稳态。
             var engine = Battle(BattleConfig.AttackBaseline, "战");
             engine.Cast("战");
             Assert.That(engine.EffectiveAttack, Is.EqualTo(130), "出牌当回合按 3 层算");
 
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3),
+                "起手那一回合宽限,层数不动");
             engine.EndTurn();
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2));
             engine.EndTurn();
@@ -135,6 +141,55 @@ namespace Brushblade.CoreTests
                 "归零后整条状态移除,不留 0 层的空壳");
             Assert.That(engine.PlayerStatuses.Has(StatusKind.Morale), Is.False);
             Assert.That(engine.EffectiveAttack, Is.EqualTo(BattleConfig.AttackBaseline));
+        }
+
+        [Test]
+        public void Morale_FromZero_SkipsFirstDecay()
+        {
+            // 2026-08-18 拍板(用户例 1):本回合身上**没有**战意时新挂的那条,
+            // 本回合末不递减,从第二回合起才开始掉 —— 否则 戮 给的这一层等于白给
+            // (当回合生效、回合末就没了)。
+            var engine = Battle(BattleConfig.AttackBaseline, "戮");
+            engine.Cast("戮", 0);
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1));
+
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1),
+                "起手回合宽限一次:1 层活到下一回合");
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Morale), Is.False,
+                "宽限只有一次,第二回合末照常递减到 0");
+        }
+
+        [Test]
+        public void Morale_OnTopOfExisting_DecaysSameTurn()
+        {
+            // 2026-08-18 拍板(用户例 2):身上**已有**战意时,不论本回合有没有再加,
+            // 回合末都照常递减一层。宽限只认「从 0 层起手」这一次。
+            var engine = Battle(BattleConfig.AttackBaseline, "战", "戮");
+            engine.Cast("战");           // 0 → 3,本回合宽限
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3));
+
+            engine.Cast("戮", 0);        // 3 → 4:已有战意,不再宽限
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3),
+                "4 层回合末递减到 3");
+        }
+
+        [Test]
+        public void Morale_Regained_AfterFullDecay_GetsGraceAgain()
+        {
+            // 宽限是「当前有没有战意」的函数,不是一场一次:掉光后重新起手照样宽限。
+            var engine = Battle(BattleConfig.AttackBaseline, "戮", "戮");
+            engine.Cast("戮", 0);
+            engine.EndTurn();            // 宽限
+            engine.EndTurn();            // 递减到 0
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Morale), Is.False);
+
+            engine.Cast("戮", 0);        // 又是从 0 起手
+            engine.EndTurn();
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(1));
         }
 
         [Test]
@@ -291,6 +346,21 @@ namespace Brushblade.CoreTests
                 "战意存在 PlayerStatuses 里,快照本来就在存 —— 零新增字段");
             Assert.That(restored.EffectiveAttack, Is.EqualTo(130));
             Assert.That(restored.ApPerTurn, Is.EqualTo(4), "ApBoost 同理");
+        }
+
+        [Test]
+        public void MoraleGrace_SurvivesSnapshotRoundTrip()
+        {
+            // 宽限标记不进快照的话,存盘续爬会在起手那一回合白掉一层(或反过来多留一层)。
+            var engine = Battle(BattleConfig.AttackBaseline, "战");
+            engine.Cast("战");
+            var defs = new Dictionary<string, EnemyDef> { ["怔"] = Dummy() };
+            var restored = BattleEngine.Restore(engine.Capture(), Graph(),
+                new BattleConfig { PlayerAttack = BattleConfig.AttackBaseline, PlayerMaxHp = 100 },
+                null, defs);
+            restored.EndTurn();
+            Assert.That(restored.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3),
+                "续爬后仍在起手那一回合的宽限里");
         }
     }
 }
