@@ -522,7 +522,21 @@ namespace Brushblade.Core
         /// <summary>广告扩容同步(2026-08-18):战斗持有的是 config 副本(RunEngine.BattleConfigForRun
         /// 恒拷贝),RunEngine.TryExpand* 抬完自己的原对象后须经此把本场战斗的上限一并抬起,
         /// 否则本场的掉字/合成/容量显示仍按旧上限走。</summary>
-        internal void RaiseLibraryCapacity(int bonus) => _config.LibraryCapacity += bonus;
+        internal void RaiseLibraryCapacity(int bonus)
+        {
+            _config.LibraryCapacity += bonus;
+            // 挂起的掉字是在**旧上限**下判满库才停下的(StartTurn 里焊住 DropChoice)。上限抬高后
+            // 若已放得下,就直接收下并回到玩家回合 —— 否则玩家看着 7/9 仍被要求「换掉哪一张」,
+            // 广告白看(2026-08-18)。收下的口径与 ResolveDrop 一致:入库、清挂起、回玩家回合。
+            if (Phase == BattlePhase.DropChoice && _forge.Library.Count < _config.LibraryCapacity)
+            {
+                var library = new List<string>(_forge.Library) { _pendingDrop };
+                _forge = new ForgeState(library, _forge.Pool);
+                _pendingDrop = null;
+                Phase = BattlePhase.PlayerTurn;
+            }
+        }
+
         internal void RaisePoolCapacity(int bonus) => _config.PoolCapacity += bonus;
 
         /// <summary>可合成字集(= 出阵列表);null = 不限。表现层的拆合台提示按此过滤。</summary>

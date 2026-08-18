@@ -72,12 +72,27 @@ namespace Brushblade.Core
             IReadOnlyDictionary<string, int> cardLevels = null, int startingInk = 0,
             int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
             int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
-            IReadOnlyList<StatusEffect> startingStatuses = null)
+            IReadOnlyList<StatusEffect> startingStatuses = null,
+            bool libraryExpanded = false, bool poolExpanded = false)
         {
             _startingInk = startingInk;
             _graph = graph;
             _runConfig = runConfig;
             _battleConfig = battleConfig;
+            // 段首重放的广告扩容**必须赶在开第一场之前**(2026-08-18):BattleEngine 的构造函数里
+            // 就会跑开场推进 → StartTurn → 回合掉字,晚一步的话第一场按未扩容的上限判满库,
+            // 把 DropChoice 焊死 —— 玩家看着 7/9 却被要求换字。GameRoot 此前是「先 new 后重放」,
+            // 正是这个顺序出的事;Restore 那条路一直是先抬容量再复原战斗,所以只在段首发作。
+            if (libraryExpanded)
+            {
+                _battleConfig.LibraryCapacity += ExpandBonus;
+                LibraryExpanded = true;
+            }
+            if (poolExpanded)
+            {
+                _battleConfig.PoolCapacity += ExpandBonus;
+                PoolExpanded = true;
+            }
             _cardLevels = cardLevels;
             _random = new GameRandom(seed);
             Phase = RunPhase.InBattle;

@@ -616,6 +616,44 @@ namespace Brushblade.Core.Tests
             Assert.That(resumed.Battle.PoolCapacity, Is.EqualTo(12));
         }
 
+        // ---- 段首扩容与开场掉字的先后(2026-08-18)----
+        // BattleEngine 的构造函数里就跑开场推进(AdvanceOnce → BeginPlayerTurn → StartTurn → 回合掉字),
+        // 而 GameRoot 段首是「先 new RunEngine,后重放 TryExpandLibrary」——第一场因此按**未扩容**的
+        // 上限判满库,把 DropChoice 焊死;随后容量才抬上去,玩家看着 7/9 却被要求「换掉哪一张」。
+        // (RunEngine.Restore 是先抬容量再复原战斗,顺序本来就对 —— 所以只在段首发作。)
+
+        /// <summary>满库 7 张 + 基础上限 7 + 回合掉字:开场必然撞满库。</summary>
+        private static BattleConfig FullLibraryConfig() =>
+            new BattleConfig { LibraryCapacity = 7, UnlockedChars = new[] { "灯" } };
+
+        private static string[] SevenCards() =>
+            new[] { "焚", "灯", "灯", "灯", "灯", "灯", "灯" };
+
+        [Test]
+        public void ExpandAfterConstruction_ReleasesFalseFullLibrary() // GameRoot 段首的真实顺序
+        {
+            var run = new RunEngine(Graph(), TwoBattles(), FullLibraryConfig(),
+                SevenCards(), Array.Empty<string>(), seed: 7);
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.DropChoice)); // 未扩容时确实满库
+
+            run.TryExpandLibrary(); // 段首重放:此刻才抬到 9
+            Assert.That(run.Battle.LibraryCapacity, Is.EqualTo(9));
+            // 9 格里只有 7 张,挂起的那张放得下 —— 不该再扣着「字库已满」要求替换
+            Assert.That(run.Battle.Phase, Is.Not.EqualTo(BattlePhase.DropChoice));
+            Assert.That(run.Battle.Library.Count, Is.EqualTo(8)); // 直接收下
+        }
+
+        [Test]
+        public void ExpandedAtConstruction_FirstBattleOpensAtRaisedCapacity() // 扩容先于开第一场
+        {
+            var run = new RunEngine(Graph(), TwoBattles(), FullLibraryConfig(),
+                SevenCards(), Array.Empty<string>(), seed: 7, libraryExpanded: true);
+            Assert.That(run.Battle.LibraryCapacity, Is.EqualTo(9));
+            Assert.That(run.LibraryExpanded, Is.True);       // 标志同步置上,广告徽章不再重复出现
+            Assert.That(run.TryExpandLibrary(), Is.False);   // 一局一次,不会被再抬一次
+            Assert.That(run.Battle.Phase, Is.Not.EqualTo(BattlePhase.DropChoice)); // 开场就没撞满库
+        }
+
         [Test]
         public void ExpandPool_OncePerRun_RaisesCapBy2()
         {
