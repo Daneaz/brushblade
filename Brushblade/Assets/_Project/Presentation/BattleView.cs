@@ -1595,6 +1595,14 @@ namespace Brushblade.Presentation
         {
             if (_rewardModal != null) Destroy(_rewardModal);
 
+            // 替换子步的前提会被广告扩容推翻(2026-08-18):+2 徽章就画在弹窗背后的字库行上
+            // (case RunPhase.Reward 同时走 DrawLibrary),玩家正是为了不丢字才去看的广告。
+            // 这个下标是粘滞 UI 状态,只在替换成功/「算了不换」时才清 —— 不在这里按当前容量
+            // 复核,腾出空位后弹窗依旧扣着「字库已满」,玩家看着 7/9 却被要求换字,
+            // 广告等于白看。空位一出现就退回选字步,直接收下。
+            if (_pendingRewardIndex >= 0 && _run.CarriedLibrary.Count < Battle.LibraryCapacity)
+                _pendingRewardIndex = -1;
+
             if (_pendingRewardIndex >= 0)
                 DrawRewardReplaceStep();
             else
@@ -1692,6 +1700,9 @@ namespace Brushblade.Presentation
 
         private void DrawReviveCharStep()
         {
+            // 同 DrawReward:复活补给页也画着字库行与 +2 徽章,扩容后满库前提不再成立
+            if (_pendingReviveIndex >= 0 && Battle.Library.Count < Battle.LibraryCapacity)
+                _pendingReviveIndex = -1;
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
             if (_rewardModal != null) Destroy(_rewardModal);
 
