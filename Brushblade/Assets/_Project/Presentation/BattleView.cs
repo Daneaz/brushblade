@@ -1640,7 +1640,23 @@ namespace Brushblade.Presentation
                         CancelSelection(); // 额度归零 → 下次 Refresh 由 Core 侧自动开拔
                         return;
                     }
-                    _pendingRewardIndex = index; // 字库已满(3.8.1):转入替换子步
+                    // PickReward 有三种拒收原因(阶段不符/额度尽/满库),此前一律当成「字库已满」
+                    // 转入替换子步 —— 提示因此会说谎:非满库时也弹「换掉哪一个」。
+                    // 按真实条件分流,并把状态打进日志,便于定位(2026-08-18 诊断中)。
+                    bool libraryFull = _run.CarriedLibrary.Count >= Battle.LibraryCapacity;
+                    Debug.Log($"[战利品诊断] Phase={_run.Phase} 额度={_run.CharPicksLeft} " +
+                              $"携带字数={_run.CarriedLibrary.Count} 显示容量={Battle.LibraryCapacity} " +
+                              $"已扩容={_run.LibraryExpanded} 判定满库={libraryFull}");
+                    if (libraryFull)
+                    {
+                        _pendingRewardIndex = index; // 真满库(3.8.1):转入替换子步
+                    }
+                    else
+                    {
+                        // 不是满库却被拒:把真实原因摆到台面上,而不是诬赖字库
+                        _message = $"收不下「{id}」——字库 {_run.CarriedLibrary.Count}/" +
+                                   $"{Battle.LibraryCapacity}、剩余额度 {_run.CharPicksLeft}、阶段 {_run.Phase}";
+                    }
                     Refresh();
                 };
                 var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP",
