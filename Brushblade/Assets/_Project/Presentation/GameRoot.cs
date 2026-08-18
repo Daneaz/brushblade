@@ -224,13 +224,15 @@ namespace Brushblade.Presentation
                 startingPersistShield: snapshot.PersistShield,
                 perFloorNormalShield: PerkRules.ShieldBonus(_meta), // 金汤:每关开战补盾(段首由 NormalShield 注入)
                 startingSummons: snapshot.CarriedSummons, // 召唤物跨段延续(2026-08-03),与普通盾同口径
-                startingStatuses: snapshot.CarriedStatuses); // 减伤跨段延续(2026-08-04),同上
-            if (resume == null) // 从断点恢复时这些已在 run 状态里,再调一次会把容量重复抬高
-            {
-                if (snapshot.LibraryExpanded) run.TryExpandLibrary(); // 断点恢复段内广告扩容
-                if (snapshot.PoolExpanded) run.TryExpandPool();
-                if (snapshot.Revived) run.MarkRevived();              // 防重进本层二次复活(2026-07-24)
-            }
+                startingStatuses: snapshot.CarriedStatuses, // 减伤跨段延续(2026-08-04),同上
+                // 广告扩容走构造参数而非事后 TryExpand*(2026-08-18):RunEngine 的构造函数里就开打
+                // 第一场,而 BattleEngine 构造时会跑开场推进 → 回合掉字。事后再抬容量已经晚了 ——
+                // 第一场按未扩容的上限判满库,把 DropChoice 焊死,玩家看着 7/9 却被要求换字。
+                // 从断点恢复(resume != null)时不走这里:Restore 自己会补容量,重复传会抬两次。
+                libraryExpanded: resume == null && snapshot.LibraryExpanded,
+                poolExpanded: resume == null && snapshot.PoolExpanded);
+            if (resume == null && snapshot.Revived)
+                run.MarkRevived(); // 防重进本层二次复活(2026-07-24)
 
             var tutorial = firstTowerSegment && resume == null ? new Tutorial() : null;
             int baseInk = snapshot.EarnedInk; // 段前滚存
