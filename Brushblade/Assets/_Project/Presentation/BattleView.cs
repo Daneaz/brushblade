@@ -1664,6 +1664,8 @@ namespace Brushblade.Presentation
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
+            DrawRewardAdBadge(content);
+
             Ui.RoundButton(content, "不要了,开拔", () =>
             {
                 _previewRewardIndex = -1;
@@ -1701,11 +1703,30 @@ namespace Brushblade.Presentation
                 }, new Vector2(74, 96));
             }
 
+            DrawRewardAdBadge(content);
+
             Ui.RoundButton(content, "算了,不换", () =>
             {
                 _pendingRewardIndex = -1;
                 Refresh();
             }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(150, 46));
+        }
+
+        /// <summary>战利品弹窗内的广告扩容入口(2026-08-18)。
+        /// **必须画在弹窗内容里**:Ui.ModalShell 铺的是全屏 Image 遮罩(还挂着吞点击的 Button),
+        /// DrawLibrary 画在弹窗背后的那枚 +2 徽章被整个盖住,满库时玩家根本够不着 ——
+        /// 「不想丢字就看广告」这条路在最需要它的时刻是断的,只能被迫替换或弃字。
+        /// 扩容后 DrawReward() 的容量复核会把替换子步退回选字步,直接收下。</summary>
+        private void DrawRewardAdBadge(Transform content)
+        {
+            if (_run.LibraryExpanded) return;
+            Ui.AdBadge(content, "看广告 · 字库 +2", () =>
+            {
+                _run.TryExpandLibrary();
+                _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
+                _message = "字库上限 +2(本次登塔有效)";
+                Refresh();
+            }, new Vector2(190, 44));
         }
 
         // ---- 复活补给(2026-07-24):以战利品展示方式给字,直接注入当前战斗字库。
