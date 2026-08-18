@@ -33,6 +33,10 @@ namespace Brushblade.Core
         /// <summary>玩家的行动计量器(2026-08-15,ATB 改造)。不存会让续爬后玩家的节拍从 0 重来,
         /// 而敌人侧的 ActionMeter 早就在存了 —— 这条是补齐。恒非负,进出快照都不需要任何特例。</summary>
         public int PlayerActionMeter { get; set; }
+
+        /// <summary>战意首回合宽限标记(2026-08-18):见 BattleEngine._moraleGraceTurn。
+        /// 不存的话续爬会在「从 0 层起手」的那一回合白掉一层。</summary>
+        public bool MoraleGraceTurn { get; set; }
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>

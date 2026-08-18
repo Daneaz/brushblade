@@ -247,6 +247,12 @@ namespace Brushblade.Core
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
 
+        /// <summary>战意首回合宽限(2026-08-18):本回合是「从 0 层起手」的那一回合,
+        /// 回合末免一次递减。<see cref="AddPlayerCounter"/> 新建战意时置起,
+        /// <see cref="TickPlayerStatuses"/> 消费掉。要进快照 —— 不存的话续爬后
+        /// 起手那一回合会白掉一层。</summary>
+        private bool _moraleGraceTurn;
+
         /// <summary>玩家侧状态容器(HoT / 减伤,2026-08-04 统一迁入状态容器)。减伤 SourceId = 字
         /// ID,同字覆盖 = 只刷新不叠加;TurnsLeft = -1 段内持久,跨战斗携带见 RunEngine._carriedStatuses。</summary>
         private readonly StatusBag _playerStatuses = new();
@@ -450,6 +456,7 @@ namespace Brushblade.Core
                 PendingDrop = _pendingDrop,
                 StatusSerial = _statusSerial,
                 PlayerActionMeter = PlayerActionMeter,
+                MoraleGraceTurn = _moraleGraceTurn,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
@@ -474,6 +481,7 @@ namespace Brushblade.Core
                 _pendingDrop = snapshot.PendingDrop,
                 _statusSerial = snapshot.StatusSerial,
                 PlayerActionMeter = snapshot.PlayerActionMeter,
+                _moraleGraceTurn = snapshot.MoraleGraceTurn,
             };
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
@@ -1242,8 +1250,16 @@ namespace Brushblade.Core
             // Magnitude 上,TickTurns 只认 TurnsLeft,碰不到它。同理 ApBoost / CritBuff /
             // PierceBuff / Empower 仍是本场持久,不在这里衰减。
             // 排在本回合全部结算之后:当回合出的 战 先按 3 层生效,回合末才掉到 2。
+            //
+            // 首回合宽限(2026-08-18 拍板):**从 0 层起手的那一回合不递减**,第二回合起才开始掉。
+            // 身上已有战意时再叠,则照常当回合递减。没有这条的话 戮 那一层等于白给 ——
+            // 当回合生效、同一个回合末就归零。标记由 AddPlayerCounter 在「新建」那一支置起。
             var morale = _playerStatuses.Find(StatusKind.Morale);
-            if (morale != null)
+            if (_moraleGraceTurn)
+            {
+                _moraleGraceTurn = false;
+            }
+            else if (morale != null)
             {
                 morale.Magnitude -= 1;
                 if (morale.Magnitude <= 0) _playerStatuses.Remove(StatusKind.Morale);
@@ -1648,6 +1664,9 @@ namespace Brushblade.Core
                 existing.Magnitude = Math.Min(existing.Magnitude + amount, cap);
                 return;
             }
+            // 从 0 起手:战意本回合免一次递减(2026-08-18,见 TickPlayerStatuses)。
+            // 只对战意置标记 —— ApBoost 走同一个方法但本来就不递减。
+            if (kind == StatusKind.Morale) _moraleGraceTurn = true;
             _playerStatuses.Apply(new StatusEffect
             {
                 Kind = kind, Polarity = StatusPolarity.Buff,
