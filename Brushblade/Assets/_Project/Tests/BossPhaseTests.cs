@@ -15,6 +15,8 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
             new CharDef("燃", Element.Fire,
                 effects: new[] { new EffectDef(EffectKind.BurnAll, 3) }),
+            new CharDef("炑", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.BurnNoDecay, 0) }),
         });
 
         private static EnemyDef PaiShanDaoHai() => new("排山倒海", Element.Water, 12, 6,
@@ -30,7 +32,7 @@ namespace Brushblade.Core.Tests
         // 无浮动时阈值 43/28/16(hp ≤ 阈值即进下一阶段),血量连续不重置
         private static BattleEngine Engine(int jitter = 0, int seed = 1) =>
             new(Graph(), new BattleConfig { DropTable = new[] { "火" }, BossPhaseJitterPercent = jitter },
-                new[] { "燃" }, new[] { "火", "火", "火", "火", "火", "火" },
+                new[] { "燃", "炑" }, new[] { "火", "火", "火", "火", "火", "火" },
                 new[] { PaiShanDaoHai() }, seed);
 
         [Test]
@@ -115,13 +117,28 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void PhaseChange_ClearsBurn()
+        public void PhaseChange_KeepsBurn()
         {
+            // 2026-08-18 拍板:换形态**不再清任何 debuff**(原为「新字新体,灼烧清零」)。
+            // 玩家好不容易铺起来的持续伤害不该被换阶白白抹掉。
             var engine = Engine();
             engine.Cast("燃");     // 挂 3 层灼烧
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
-            engine.Cast("火", 0);  // 跨阈值换阶段,新字新体
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(0));
+            engine.Cast("火", 0);  // 跨阈值换阶段
+            Assert.That(engine.Enemies[0].PhaseIndex, Is.EqualTo(1), "前置:这一击确实换了阶段");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void PhaseChange_KeepsBurnNoDecay()
+        {
+            // 不灭与灼烧同口径(2026-08-18):它也是挂在 Boss 身上的 debuff,换阶一并保留。
+            var engine = Engine();
+            engine.Cast("炑", 0);  // 挂不灭
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.True);
+            engine.Cast("火", 0);
+            Assert.That(engine.Enemies[0].PhaseIndex, Is.EqualTo(1), "前置:这一击确实换了阶段");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.True);
         }
 
         [Test]

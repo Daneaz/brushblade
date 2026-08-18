@@ -361,7 +361,7 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>换阶段:属性/攻击切换、灼烧清零;血量连续不重置。
+        /// <summary>换阶段:属性/攻击切换;血量连续不重置,**身上的状态一条都不清**。
         /// 护甲不在这里赋值 —— <see cref="Defense"/> 是读 PhaseIndex 的计算属性(§4.5.3:战中永不被写)。</summary>
         internal void ApplyPhaseStats(int index)
         {
@@ -370,10 +370,10 @@ namespace Brushblade.Core
             Element = phase.Element;
             ApparentElement = phase.Element; // Boss 阶段属性明示
             BaseAttack = phase.Attack;
-            Statuses.Remove(StatusKind.Burn); // 新字新体,灼烧清零
-            // 新字新体:连同不灭一起清,否则一张 炑 买断整场 Boss 战——不灭是挂在旧躯壳
-            // 那份灼烧上的属性,躯壳换了它没道理留着(2026-08-09,评审裁定,与灼烧同口径)
-            Statuses.Remove(StatusKind.BurnNoDecay);
+            // 2026-08-18 拍板:换阶不清 debuff。血是一条连续的总池,阶段只换属性与攻击,
+            // 「新字新体」那套说辞(曾据此清灼烧与不灭,2026-08-09)与血量连续本就不自洽,
+            // 实感上则是玩家铺好的持续伤害被换阶白白抹掉。**不灭一并保留** —— 它是挂在
+            // Boss 身上的 debuff,与灼烧同口径;代价是一张 炑 能覆盖整场 Boss 战。
 
             // 蓄力完全不受换阶影响(2026-07-29)。理由见 spec 3.2:阶段血量 12~16 在玩家输出面前
             // 只够 1~2 回合,任何"换阶打断蓄力"的写法都会让大招几乎放不出来——实测阶段血量抬到

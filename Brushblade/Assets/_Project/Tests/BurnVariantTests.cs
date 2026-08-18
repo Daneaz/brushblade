@@ -377,11 +377,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void NoDecay_ClearedOnBossPhaseChange()
+        public void NoDecay_SurvivesBossPhaseChange()
         {
-            // 评审 Important 3(控制器裁定):Boss 换阶「新字新体」,不灭是挂在旧躯壳那份
-            // 灼烧上的属性,躯壳换了没道理留着——否则一张 炑 就能买断整场 Boss 战,
-            // 规格 §4.2 标成爆发链根的不灭就失去了「只延长一次」的边界
+            // 2026-08-18 拍板反转 2026-08-09 的裁定:换阶**不清任何 debuff**,灼烧与不灭一并带过去
+            // (原为「新字新体,不灭跟旧躯壳一起清」)。代价是一张 炑 能覆盖整场 Boss 战 ——
+            // 这是明知的取舍,不是漏网:血是一条连续的总池,阶段只换属性与攻击。
             var boss = new EnemyDef("靶", Element.Heart, 0, 0, phases: new[]
             {
                 new BossPhaseDef("靶一阶", Element.Heart, 30, 0),
@@ -396,17 +396,18 @@ namespace Brushblade.Core.Tests
             engine.Cast("燋", 0); // 2 层 + 不灭;心属性无生克:tick = 2 × 20 = 40
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(130), "总血 = 30 + 100");
 
-            engine.EndTurn(); // 130 − 40 = 90,≤ 100(下一阶预算)→ 换阶,旧灼烧 + 不灭一起清零
+            engine.EndTurn(); // 130 − 40 = 90,≤ 100(下一阶预算)→ 换阶
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossPhase), Is.True,
                 "先确认真的换阶了,不然下面的断言没有意义");
-            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.False,
-                "新字新体:不灭跟着旧灼烧一起清掉,不能带进下一阶");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.True,
+                "不灭带进下一阶");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2),
+                "灼烧也带进下一阶,且在不灭下不衰减");
 
-            // 新一阶重新挂一次纯灼烧(不带不灭),验证衰减恢复正常——不是被旧不灭悄悄续上
-            engine.Cast("燃", 0); // 4 层
-            engine.EndTurn(); // tick = 4 × 20 = 80(心属性无生克),层数正常 −1
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
-                "新一阶的灼烧照常衰减一层,没有被旧不灭续上");
+            // 换阶后不灭继续生效:下一回合照旧按 2 层结算,层数仍不掉
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(50), "90 − 2 × 20");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2));
         }
 
         // ---- 立即结算(燥)----
