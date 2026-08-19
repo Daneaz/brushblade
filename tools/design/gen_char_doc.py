@@ -3,7 +3,7 @@
 
 用法:在仓库根目录执行 `python3 tools/design/gen_char_doc.py`。
 """
-import json, collections, subprocess, sys, os
+import json, collections, subprocess, sys, os, datetime
 
 SRC = 'Brushblade/Assets/StreamingAssets/config/chars.json'
 chars = json.load(open(SRC))['chars']
@@ -26,7 +26,7 @@ EL = {'Metal': '金', 'Wood': '木', 'Water': '水', 'Fire': '火', 'Earth': '�
 RA = {'White': '白', 'Green': '绿', 'Blue': '蓝', 'Purple': '紫', 'Gold': '金', 'Orange': '橙', 'Red': '红'}
 RORDER = ['White', 'Green', 'Blue', 'Purple', 'Gold', 'Orange', 'Red']
 EORDER = ['Wood', 'Fire', 'Earth', 'Metal', 'Water', 'Heart']
-PUA = {'': '𣛧(木四叠·PUA)', '': '䥱(金四叠·PUA)'}
+PUA = {'': '𣛧(木四叠·PUA)', '': '𨰻(金四叠·PUA)'}
 PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge': '闪避',
            'thorns': '荆棘', 'speed': '速度', 'onHitBurn': '命中挂灼烧',
            'onHitBurnAll': '灼烧转全体'}
@@ -165,6 +165,8 @@ H5 = "| 字 | 五行 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功
 H4 = "| 字 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n|---|---|---|---|---|---|"
 
 head = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
+# 日期跟着 head 一起现算 —— 原先日期写死、只有提交号会变,重跑后两者对不上
+today = datetime.date.today().isoformat()
 rc = collections.Counter(c['rarity'] for c in comp)
 ec = collections.Counter(c['element'] for c in comp)
 kc = collections.Counter(e['kind'] for c in comp for e in c['effects'])
@@ -173,7 +175,7 @@ o = []
 A = o.append
 A("# 《字·斗》字表功能解析")
 A("")
-A(f"> 生成日期:2026-08-13 · 基线提交:`{head}`  ")
+A(f"> 生成日期:{today} · 基线提交:`{head}`  ")
 A(f"> 数据源:`{SRC}`(唯一真相)。本文由 `tools/design/gen_char_doc.py` 从配置表直出 —— **改表后重跑该脚本刷新,勿手工编辑**。")
 A("")
 A("## 口径说明")
@@ -191,7 +193,10 @@ A("  没有的退回管线的 IDS 拆解器(`decompose.split_once`,只拆 ⿰⿱
 A("  两者都拆不动的(冫、隹、里…)保留原样,它已是这套体系的终点。")
 A("  **五行部件(土、氵、钅…)一律不拆** —— 与管线同一条规则,再往下的「土 = 十 + 一」在拆合语义里没有意义。")
 A("  ⚠ **二级里由 IDS 补出来的部件(七、几、勹…)不是游戏内对象** —— 字表里没有,玩家拿不到、也合不出。")
-A("- **PUA 字**:木/金的四叠字在 Unicode 无合适码点,用私有区 U+E625 / U+E626 + 自造字形,文中标注 `(PUA)`。")
+A("- **PUA 字**:木/金的四叠字用私有区 U+E625 / U+E626 + 自造字形(部件 2×2 拼合),文中标注 `(PUA)`,")
+A("  括号前写的是**真身字**:四木 𣛧(U+236E7)、四金 𨰻(U+28C3B)。走 PUA 的原因两个字各不相同 ——")
+A("  四木在 IDS 里是 ⿰木森 的横排,不是游戏要的 2×2 叠字;四金 𨰻 字形对但码位在 Ext-B(增补平面),")
+A("  UGUI Text 不支持代理对,故另取 BMP 私有区码位作显示代理(口径与 `tools/fonts/subset_fonts.py` 的 STACKED 一致)。")
 A("")
 A("## 总览")
 A("")
