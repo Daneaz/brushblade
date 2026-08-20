@@ -2293,7 +2293,10 @@ namespace Brushblade.Presentation
             if (overflow.Count == 0) return; // 决议完成的过渡帧
             string incoming = overflow[0];
             Ui.ThemedLabel(_enemyFrontRow, "部件已满", 30, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(_statusRow,
+            // 警示文案画在标题正下方那一排,**不是** _statusRow(2026-08-20 修回,同 DrawEvent 那一处):
+            // _statusRow 已被下三区重排挪到屏幕最底边,玩家很可能在没读到「永久失去」之前就点掉了
+            // 一次不可逆操作。这一排在部件超限阶段本来就是空的。
+            Ui.ThemedLabel(_summonFrontRow,
                 $"用「{incoming}」换掉池中一个(永久失去),或跳过不要。还剩 {overflow.Count} 个待决。",
                 18, Theme.TextDim);
 
