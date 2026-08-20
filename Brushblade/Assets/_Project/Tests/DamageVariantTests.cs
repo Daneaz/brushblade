@@ -20,6 +20,12 @@ namespace Brushblade.Core.Tests
             new CharDef("闪", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
                     passive: new SummonPassive { Dodge = 50 }) }),
+            // 矢:召唤物带远程被动(灶/烓 同款),用来钉 Ranged 字段真的进了存档往返
+            // (2026-08-20 评审 Minor:漏进 Clone() 的话跨战斗后远程召唤物会静默退化成近战,
+            // 没有任何报错——与 Dodge_SurvivesSaveRoundTrip 同一套钉法)
+            new CharDef("矢", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { Ranged = true }) }),
             // 昏:单体致盲 100%,2 回合(熣 的极端版,用来做确定性断言)
             new CharDef("昏", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Blind, 100, turns: 2) }),
@@ -352,6 +358,28 @@ namespace Brushblade.Core.Tests
                 new[] { Attacker(attack: 0) }, seed: 1,
                 startingSummons: restored.EndlessV2.CarriedSummons);
             Assert.That(revived.Summons[0].Passive.Dodge, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void Ranged_SurvivesSaveRoundTrip()
+        {
+            // 远程走 SummonPassive 的存档路径,与 Dodge_SurvivesSaveRoundTrip 同一套钉法
+            // (2026-08-20 评审 Minor):谁把 `Ranged = Ranged,` 从 SummonPassive.Clone() 里删掉,
+            // 现在全套测试无一变红,而断点续爬后远程召唤物会悄悄退化成近战,没有任何报错。
+            var engine = Engine(new[] { "矢" }, new[] { Attacker(attack: 0) });
+            engine.Cast("矢");
+
+            var meta = new MetaState { EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 } };
+            for (int s = 0; s < engine.Summons.Count; s++)
+                if (engine.Summons[s] != null) meta.EndlessV2.CarriedSummons.Add(engine.Summons[s].Capture(s));
+            var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
+
+            var revived = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { Attacker(attack: 0) }, seed: 1,
+                startingSummons: restored.EndlessV2.CarriedSummons);
+            Assert.That(revived.Summons[0].Passive.Ranged, Is.True);
         }
 
         // ---- 随机流不被污染 ----

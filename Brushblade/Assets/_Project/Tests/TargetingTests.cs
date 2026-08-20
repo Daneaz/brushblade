@@ -226,5 +226,53 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[1].Hp, Is.LessThan(400), "远程越过前排点后排");
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(400));
         }
+
+        /// <summary>前排两只都是 40 血(一剑即死),专为「打光前排后能不能够到后排」这条钉设的
+        /// 夹具——不复用 Trio()(前甲 400 血,得多发好几张「剑」外加跨回合才能打穿,拖慢用例
+        /// 却不改变判别力)。</summary>
+        private static BattleEngine ThinFrontTrio() => new(DamageGraph(),
+            new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+            new string[0], new[] { "剑", "剑", "剑" },
+            new[]
+            {
+                new EnemyDef("前甲", Element.Heart, 40, 0),
+                new EnemyDef("前乙", Element.Heart, 40, 0),
+                new EnemyDef("后手", Element.Heart, 400, 0, row: EnemyRow.Back),
+            }, seed: 1);
+
+        [Test]
+        public void Cast_SingleDamage_ReachesBackRow_AfterFrontRowCleared()
+        {
+            // CanPlayerHit 里 FirstAliveInRow(Front) < 0 的取反分支——「前排已清空」与
+            // 「前排从未有过」被同等对待——此前全仓库零覆盖,评审 Minor 破格补上。
+            var engine = ThinFrontTrio();
+            Assert.That(engine.Cast("剑", 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Cast("剑", 1), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Alive, Is.False);
+            Assert.That(engine.Enemies[1].Alive, Is.False);
+            int backHp = engine.Enemies[2].Hp;
+            Assert.That(engine.Cast("剑", 2), Is.EqualTo(BattleError.None), "前排已清空,单体直伤该够得着后排");
+            Assert.That(engine.Enemies[2].Hp, Is.LessThan(backHp));
+        }
+
+        /// <summary>整场没有前排(两只都是 EnemyRow.Back),钉「前排从未有过」这条口径——
+        /// 与上面「前排已清空」是 CanPlayerHit 里同一句判断的两种成因,分开钉才不会漏。</summary>
+        private static BattleEngine AllBackRowDuel() => new(DamageGraph(),
+            new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+            new string[0], new[] { "剑" },
+            new[]
+            {
+                new EnemyDef("后甲", Element.Heart, 400, 0, row: EnemyRow.Back),
+                new EnemyDef("后乙", Element.Heart, 400, 0, row: EnemyRow.Back),
+            }, seed: 1);
+
+        [Test]
+        public void Cast_SingleDamage_ReachesBackRow_WhenFrontRowNeverExisted()
+        {
+            var engine = AllBackRowDuel();
+            int hp = engine.Enemies[0].Hp;
+            Assert.That(engine.Cast("剑", 0), Is.EqualTo(BattleError.None), "整场没有前排,直伤全场可点");
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(hp));
+        }
     }
 }
