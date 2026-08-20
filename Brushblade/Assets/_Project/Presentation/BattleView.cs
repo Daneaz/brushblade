@@ -1607,6 +1607,17 @@ namespace Brushblade.Presentation
 
         private void DrawActions()
         {
+            // 选位置态:动作行**只**画「取消」(2026-08-20 review M-2)。两点都要:
+            //   (a) 判空之前 —— 把召唤字拖到敌人身上也会进选位置态,那条路径 _selectedChar
+            //       是 null,早退的话右侧连退出口都没有,玩家只能靠点空白才出得来;
+            //   (b) 不画「出字/拆/丢弃」—— 再点一次「出字」会走 OnCastPressed → BeginCast,
+            //       把已点的槽位悄悄清空、消息条跳回「点第 1 只」,玩家看不出发生了什么。
+            if (_slotPicking)
+            {
+                Ui.ThemedLabel(_actionRow, $"「{_pendingSummonChar}」落位中", 16, Theme.TextMain);
+                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(88, 50));
+                return;
+            }
             if (_selectedChar == null) return;
             var def = _graph.Get(_selectedChar);
 
@@ -2385,7 +2396,16 @@ namespace Brushblade.Presentation
         /// 目标已经选过了(若需要),这里只补落位。</summary>
         private void BeginCast(string charId, int target, bool attackMode, int libraryIndex)
         {
-            int summonCount = Battle.SummonCountOf(_graph.Get(charId), attackMode);
+            var def = _graph.Get(charId);
+            // AP 不够就别进选位置态(2026-08-20 review I-1):否则玩家会认真点完两格,
+            // 凑齐后才被 Cast 的 NotEnoughAp 拒掉 —— 改动前是点「出字」当场就被拒,
+            // 而林/桂/森 都是 2+ AP,这条很容易撞上。交给引擎当场报错,与改动前同口径。
+            if (Battle.Ap < def.ApCost)
+            {
+                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
+                return;
+            }
+            int summonCount = Battle.SummonCountOf(def, attackMode);
             if (summonCount <= 0)
             {
                 ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
@@ -2525,7 +2545,7 @@ namespace Brushblade.Presentation
                 if (Battle.SlotOccupancy(slot) != SlotState.Alive) continue;
                 body.Append($"{SlotName(slot)}上的「{Battle.Summons[slot].Char}」会被顶替。\n");
             }
-            body.Append("被顶替的一只当场消失。");
+            body.Append("被顶替的当场消失。"); // 不带量词:顶 1 只与顶 2 只共用这一句
             return body.ToString();
         }
 
