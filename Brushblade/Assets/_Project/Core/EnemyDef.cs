@@ -157,7 +157,7 @@ namespace Brushblade.Core
         /// <summary>被动(2026-08-05)。null = 无被动。</summary>
         public SummonPassive Passive { get; }
 
-        internal SummonState(string summonChar, Element element, int hp, int attack,
+        public SummonState(string summonChar, Element element, int hp, int attack,
             SummonPassive passive = null)
         {
             Char = summonChar;
