@@ -36,18 +36,28 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Melee_WithEmptyFront_PicksAmongBackRowAndPlayer()
+        public void Melee_WithEmptyFront_PicksUniformlyFromPoolNotCoinFlip()
         {
-            // 后排站 4、5 两只 + 玩家 = 三个候选,均匀随机
+            // 候选池 = 后排存活召唤物(4、5)∪ 玩家,spec §4.1 要求三个候选放进**同一个池**均匀抽一个,
+            // 而不是先五五开决定「打后排还是打玩家」、再在后排里抽。后一种实现在 200 次抽样下
+            // 同样能让 seen 摸到全部 3 个候选,单看「三个都出现过」测不出这条区别——
+            // 必须直接数 PlayerTarget 出现的次数:三选一期望约 1/3,五五开期望约 1/2。
             var seen = new HashSet<int>();
+            int playerHits = 0;
             var random = new GameRandom(7);
             for (int i = 0; i < 200; i++)
-                seen.Add(Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default,
-                    Line(4, 5), FrontRow, random));
+            {
+                int target = Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default,
+                    Line(4, 5), FrontRow, random);
+                seen.Add(target);
+                if (target == Targeting.PlayerTarget) playerHits++;
+            }
             Assert.That(seen.Count, Is.EqualTo(3), "三个候选都摇得到,一个不多");
             Assert.That(seen.Contains(4), Is.True);
             Assert.That(seen.Contains(5), Is.True);
             Assert.That(seen.Contains(Targeting.PlayerTarget), Is.True);
+            // 200 次里期望值:三选一 ≈ 67,五五开 ≈ 100。带宽给宽,别让偶发方差拍红。
+            Assert.That(playerHits, Is.LessThan(90), "玩家挨打概率应贴近 1/3,不是五五开的 1/2");
         }
 
         [Test]
