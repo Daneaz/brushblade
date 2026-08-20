@@ -86,5 +86,50 @@ namespace Brushblade.Core.Tests
             Assert.That(next.Summons[1], Is.Not.Null, "站位原样保留");
             Assert.That(next.AliveSummonCount, Is.EqualTo(1));
         }
+
+        [Test]
+        public void Cast_WithExplicitSlot_LandsThere()
+        {
+            var engine = MakeEngine();
+            Assert.That(engine.Cast("梅", summonSlots: new[] { 4 }), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Summons[4], Is.Not.Null, "落在玩家指定的后排槽");
+            Assert.That(engine.Summons[0], Is.Null, "不再自动占前排最小槽");
+        }
+
+        [Test]
+        public void Cast_OntoCorpseSlot_OverwritesWithoutReplaceFlag()
+        {
+            var engine = MakeEngine();
+            engine.Cast("梅", summonSlots: new[] { 0 });
+            KillFrontSummon(engine, 0);   // 只能打死前排最靠前的那只,所以这里用槽 0
+            // 尸体槽是空位的一种:不需要 replaceSummon 确认
+            Assert.That(engine.Cast("梅", summonSlots: new[] { 0 }), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Summons[0].Alive, Is.True);
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Cast_OntoLivingSlot_NeedsReplaceConfirmation()
+        {
+            var engine = MakeEngine();
+            engine.Cast("梅", summonSlots: new[] { 2 });
+            Assert.That(engine.Cast("梅", summonSlots: new[] { 2 }), Is.EqualTo(BattleError.SummonCapFull),
+                "点存活槽 = 顶替,必须先确认");
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(1), "被拒的这次不许改动任何状态");
+            Assert.That(engine.Cast("梅", replaceSummon: true, summonSlots: new[] { 2 }), Is.EqualTo(BattleError.None));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(1), "顶替不增员");
+        }
+
+        [Test]
+        public void SlotOccupancy_ReportsEmptyCorpseAlive()
+        {
+            var engine = MakeEngine();
+            Assert.That(engine.SlotOccupancy(0), Is.EqualTo(SlotState.Empty));
+            Assert.That(engine.SlotOccupancy(3), Is.EqualTo(SlotState.Empty), "后排空槽同样报 Empty");
+            engine.Cast("梅", summonSlots: new[] { 0 });
+            Assert.That(engine.SlotOccupancy(0), Is.EqualTo(SlotState.Alive));
+            KillFrontSummon(engine, 0);
+            Assert.That(engine.SlotOccupancy(0), Is.EqualTo(SlotState.Corpse));
+        }
     }
 }

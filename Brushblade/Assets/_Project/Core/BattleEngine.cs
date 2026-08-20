@@ -49,6 +49,15 @@ namespace Brushblade.Core
         SummonCapFull, // 前排召唤已满(2026-07-25 强阻断):不吃 AP、不消耗字,由 UI 确认后带 replaceSummon 重出
     }
 
+    /// <summary>召唤槽的占用状态(2026-08-20)。表现层据此决定点该槽的后果:
+    /// Empty / Corpse 直接落位,Alive 要先弹顶替确认。</summary>
+    public enum SlotState
+    {
+        Empty,   // 空槽
+        Corpse,  // 尸体占着(可被覆盖,也可被「复活」就地救回)
+        Alive,   // 存活召唤物占着
+    }
+
     /// <summary>战斗规则参数(基准值来自第 10 章 10.1)。</summary>
     public sealed class BattleConfig
     {
@@ -551,6 +560,16 @@ namespace Brushblade.Core
         public IReadOnlyList<SummonState> Summons => _summons;
         public int SummonCapacity => SummonCap;
         public int AliveSummonCount => AliveSummons();
+
+        /// <summary>前排槽位数(2026-08-20):槽 [0, FrontRow) 为前排,其余为后排。</summary>
+        public int FrontRow => FrontRowSize;
+
+        public SlotState SlotOccupancy(int slot)
+        {
+            if (slot < 0 || slot >= SummonCap || _summons[slot] == null) return SlotState.Empty;
+            return _summons[slot].Alive ? SlotState.Alive : SlotState.Corpse;
+        }
+
         public ForgeError LastForgeError { get; private set; }
 
         private readonly List<BattleEvent> _events = new();
@@ -595,9 +614,12 @@ namespace Brushblade.Core
         /// replaceSummon:前排满员时顶掉最前的召唤物入场(UI 弹窗确认后才置位),否则满员直接拒出。
         /// attackMode:把字拖到敌人身上出手(2026-07-26),水/土 改走 AttackEffects。
         /// libraryIndex:玩家点的卡位(2026-08-17)——同字多张时消耗这一张而非第一张;
-        /// −1 或与 charId 不符(陈旧下标)退回删首张的旧口径。</summary>
+        /// −1 或与 charId 不符(陈旧下标)退回删首张的旧口径。
+        /// summonSlots:玩家为本次召唤指定的槽位,第 n 只落 summonSlots[n]。
+        /// null = 未指定,按 NextEmptySlot() 依次填(测试与自动路径走这条)。
+        /// 指定到存活槽 = 顶替,与「六槽全满」同口径,需要 replaceSummon 确认。</summary>
         public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false,
-            bool attackMode = false, int libraryIndex = -1)
+            bool attackMode = false, int libraryIndex = -1, IReadOnlyList<int> summonSlots = null)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -625,7 +647,7 @@ namespace Brushblade.Core
 
             // 前排放不下就强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「是否替换?」。
             // 不只看满员——3/4 时召 2 只同样溢出,也得先问过玩家
-            if (!replaceSummon && SummonReplaceCountOf(def, attackMode) > 0) return BattleError.SummonCapFull;
+            if (!replaceSummon && SummonReplaceCountOf(def, attackMode, summonSlots) > 0) return BattleError.SummonCapFull;
 
             _events.Clear();
             Ap -= def.ApCost;
@@ -647,7 +669,7 @@ namespace Brushblade.Core
                 _forge = new ForgeState(_forge.Library, pool);
             }
 
-            ApplyEffects(def, targetIndex, replaceSummon, attackMode);
+            ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots);
             CheckWin();
             return BattleError.None;
         }
@@ -757,11 +779,19 @@ namespace Brushblade.Core
             return def.Effects.Count > 0 ? def.Effects : FallbackEffects;
         }
 
-        /// <summary>此刻出这张字会顶掉最前的几只(0 = 空位够,直接进场);UI 弹窗文案与阻断判定共用。</summary>
-        public int SummonReplaceCountOf(CharDef def, bool attackMode = false)
+        /// <summary>本次召唤会顶掉几只**存活**召唤物(0 = 不顶人,可以直接出)。
+        /// 指定了槽位就数这些槽里有几个是 Alive;没指定就退回「超出上限的部分」。</summary>
+        public int SummonReplaceCountOf(CharDef def, bool attackMode = false,
+            IReadOnlyList<int> summonSlots = null)
         {
             int count = SummonCountOf(def, attackMode);
-            return count <= 0 ? 0 : Math.Max(0, AliveSummons() + count - SummonCap);
+            if (count <= 0) return 0;
+            if (summonSlots == null)
+                return Math.Max(0, AliveSummons() + count - SummonCap);
+            int replaced = 0;
+            for (int n = 0; n < count && n < summonSlots.Count; n++)
+                if (SlotOccupancy(summonSlots[n]) == SlotState.Alive) replaced++;
+            return replaced;
         }
 
         /// <summary>这张字一次会召出几只(多条召唤效果累加,封顶到前排上限)。
@@ -1317,12 +1347,12 @@ namespace Brushblade.Core
             }
         }
 
-        private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false)
+        private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false,
+            IReadOnlyList<int> summonSlots = null)
         {
             var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
-            int replaceCursor = 0; // 替换从最前一只起,逐只后移:一次召多只不会顶掉刚进场的自己
 
             foreach (var effect in EffectsOf(def, attackMode))
             {
@@ -1624,6 +1654,10 @@ namespace Brushblade.Core
                         });
                         break;
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
+                        // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活
+                        // 起逐只后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占
+                        // (NextEmptySlot() 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
+                        int replaceCursor = 0;
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
                             // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些"资源"随等级涨,
@@ -1644,21 +1678,32 @@ namespace Brushblade.Core
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 effect.Passive);
                             newborn.ActionMeter = TurnScheduler.Threshold;
-                            if (AliveSummons() < SummonCap)
+
+                            // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)
+                            int slot;
+                            if (summonSlots != null && n < summonSlots.Count)
                             {
-                                int slot0 = NextEmptySlot();
-                                if (slot0 >= 0)
+                                slot = summonSlots[n];
+                            }
+                            else
+                            {
+                                slot = NextEmptySlot();
+                                // 空槽/尸体槽都没有了:只有「压根没指定槽位」的旧调用点才退回
+                                // 逐只顶替的旧口径(见上方 replaceCursor 注释);指定了槽位的
+                                // 调用点这里不兜底,越界检查会在下面拦下。
+                                if (slot < 0 && replaceSummon && summonSlots == null)
                                 {
-                                    _summons[slot0] = newborn;
-                                    _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot0));
-                                    continue;
+                                    slot = NextAliveSummonIndex(replaceCursor);
+                                    if (slot >= 0) replaceCursor = slot + 1;
                                 }
                             }
-                            if (!replaceSummon) break; // 溢出已在 Cast 拒出,走不到这;留作越界兜底
-                            int slot = NextAliveSummonIndex(replaceCursor);
-                            if (slot < 0) break;
-                            replaceCursor = slot + 1;
-                            _summons[slot] = newborn; // 原地顶替:下标稳定,表现层血条引用不错位
+                            if (slot < 0 || slot >= SummonCap) break;          // 越界兜底
+                            bool occupiedByAlive = _summons[slot] != null && _summons[slot].Alive;
+                            if (occupiedByAlive && !replaceSummon) break;      // 已在 Cast 拒出,走不到这
+
+                            // SecondIndex 一律报落位槽:新增与顶替都要让表现层知道画哪一格。
+                            // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
+                            _summons[slot] = newborn;
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
