@@ -965,17 +965,20 @@ namespace Brushblade.Presentation
             _summonActionBarByCore.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
             {
+                // 下标即槽位:[0, FrontRow) 前排,其余后排。**用 Battle.FrontRow 而不是写死 3** ——
+                // 槽位数是 Core 的事,表现层跟着它走
+                bool front = i < Battle.FrontRow;
                 var summon = Battle.Summons[i];
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
                 bool visible = summon != null
                     && (summon.Alive || (Animating && _summonAnimHp.ContainsKey(i)));
-                if (!visible) { DrawEmptySummonSlot(i); continue; }
-                var cell = Ui.VStack(_summonFrontRow, $"Summon{i}", SummonStackSpacing);
+                if (!visible) { DrawEmptySummonSlot(i, front); continue; }
+                var cell = Ui.VStack(front ? _summonFrontRow : _summonBackRow, $"Summon{i}", SummonStackSpacing);
                 var cellElement = cell.AddComponent<LayoutElement>();
                 cellElement.preferredWidth = SummonCellWidth;
-                cellElement.preferredHeight = SummonCellHeightFront;
-                float glyphSize = SummonGlyphFront;
-                float barWidth = SummonBarWidthFront;
+                cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
+                float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
+                float barWidth = front ? SummonBarWidthFront : SummonBarWidthBack;
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
@@ -984,8 +987,10 @@ namespace Brushblade.Presentation
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
                 // 血值上条(2026-07-25,带描边保对比度)。动画期间画出手前值,SummonHit 触达才降
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
-                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(barWidth, 13));
-                _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter, new Vector2(barWidth, 9), 8);
+                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp,
+                    new Vector2(barWidth, front ? 13 : 12));
+                _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter,
+                    new Vector2(barWidth, front ? 9 : 8), 8);
                 // 攻 / 盾 / 被动同一行(2026-08-20):格宽翻倍后放得下,不必再考虑「移进详情弹窗」
                 var stats = Ui.Row(cell.transform, "Stats", 6).transform;
                 Ui.ThemedLabel(stats, $"攻{summon.Attack}", 11, Theme.TextDim);
@@ -999,13 +1004,13 @@ namespace Brushblade.Presentation
 
         /// <summary>空槽虚框(2026-08-20):只画一个淡淡的圆角占位块,与该排字块同尺寸同位置。
         /// 不写字 —— 战斗界面里新增的任何汉字都要过字体子集,占位不值得为此加一个字符。</summary>
-        private void DrawEmptySummonSlot(int slot)
+        private void DrawEmptySummonSlot(int slot, bool front)
         {
-            var cell = Ui.Panel(_summonFrontRow, $"SummonEmpty{slot}");
+            var cell = Ui.Panel(front ? _summonFrontRow : _summonBackRow, $"SummonEmpty{slot}");
             var cellElement = cell.AddComponent<LayoutElement>();
             cellElement.preferredWidth = SummonCellWidth;
-            cellElement.preferredHeight = SummonCellHeightFront;
-            float glyphSize = SummonGlyphFront;
+            cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
+            float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
             var ghost = Ui.Panel(cell.transform, "Ghost");
             var image = ghost.AddComponent<Image>();
             image.sprite = Theme.Rounded(12);
@@ -1085,6 +1090,15 @@ namespace Brushblade.Presentation
         // 2026-08-20:基准从「整格宽 190」换成「信息列宽 200」,前后排共用同一个数。
         private const float ChipAreaWidth = EnemyInfoWidth - 4f;
 
+        /// <summary>敌方两排(2026-08-20):后排在上、前排在下(贴着中间的分隔线),
+        /// 站位读 <see cref="EnemyState.Row"/> —— 那是**实例状态**,开场按每排上限 3 分配、
+        /// 溢出会改判,和 <c>EnemyDef.Row</c> 那个偏好不是一回事。
+        ///
+        /// ⚠ 下标对齐:<c>_enemyRects</c> / <c>_enemyMobs</c> / <c>_enemyHpBars</c> /
+        /// <c>_enemyActionBars</c> 四个列表全都按**敌人下标**索引(事件的 TargetIndex 直接拿去取),
+        /// 所以这里只有一层按 i 升序的循环、每轮四个列表各 Add 一次,分排只体现在**父节点**上。
+        /// 不能改成「先画前排再画后排」那种按排遍历 —— 列表顺序会与 Battle.Enemies 错开,
+        /// 打谁就抖谁那套全部指错人。</summary>
         private void DrawEnemies()
         {
             _enemyRects.Clear();
@@ -1095,15 +1109,16 @@ namespace Brushblade.Presentation
             {
                 var enemy = Battle.Enemies[i];
                 int index = i;
+                bool front = enemy.Row == EnemyRow.Front;
                 // 死亡动画进行中的怪:重绘时仍保持着色挨打,置灰交给死亡节拍(GreyOut),别在重绘时就变灰
                 bool dying = _dyingEnemies.Contains(index);
                 bool showAlive = enemy.Alive || dying;
 
-                var cell = Ui.Panel(_enemyFrontRow, $"Enemy{i}");
+                var cell = Ui.Panel(front ? _enemyFrontRow : _enemyBackRow, $"Enemy{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
-                cellElement.preferredWidth = EnemyCellWidthFront;
-                cellElement.preferredHeight = EnemyCellHeightFront;
-                float portraitSize = EnemyPortraitFront;
+                cellElement.preferredWidth = front ? EnemyCellWidthFront : EnemyCellWidthBack;
+                cellElement.preferredHeight = front ? EnemyCellHeightFront : EnemyCellHeightBack;
+                float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
 
                 // 有形象就用分层字怪(Boss 按当前阶段取图),否则回落圆形字头像
                 MobView mob = null;
