@@ -18,9 +18,12 @@ namespace Brushblade.Core
         /// 不是先五五开决定「打后排还是打玩家」。后排站 2 只时玩家挨打概率是 1/3——
         /// 站位越厚玩家越安全。
         ///
-        /// ⚠ 候选只有一个时**不摇随机数**。这不是省事,是刻意的:绝大多数既有战斗
-        /// (没有后排召唤物)因此完全不消耗随机数,随机流与改前逐位相同,
-        /// 上千条带种子的既有测试才不会整体位移。</summary>
+        /// ⚠ 候选只有一个时**不摇随机数**——这一保证是两层叠的:第一层是
+        /// <see cref="GameRandom.Next"/> 自己的性质(maxExclusive ≤ 1 直接 return 0,
+        /// 不碰内部状态,见 GameRandomTests.NextZeroOrOne_DoesNotAdvanceState);
+        /// `pool.Count == 1 ? pool[0] : …` 这句短路是第二层纵深防御,不是唯一防线,
+        /// 两层任一在位都够。绝大多数既有战斗(没有后排召唤物)因此完全不消耗随机数,
+        /// 随机流与改前逐位相同,上千条带种子的既有测试才不会整体位移。</summary>
         public static int PickAllyTarget(AttackRange range, AttackFocus focus,
             IReadOnlyList<SummonState> summons, int frontRow, GameRandom random)
         {
