@@ -57,16 +57,25 @@ namespace Brushblade.Presentation
         private int PlayerMaxHp => Battle?.MaxHp ?? _playerMaxHp;
 
         // 容器
-        private Transform _enemyRow;
-        private Transform _summonRow;    // 我方前排召唤物:夹在敌我血条之间
+        // 四排(2026-08-20):敌方后排 / 敌方前排 / 我方前排 / 我方后排,各 3 格。
+        // 排序自上而下,两侧的**前排相邻**、夹着中间那条分隔线 —— 纵深才读得出来。
+        private Transform _enemyBackRow;
+        private Transform _enemyFrontRow;
+        private Transform _summonFrontRow;
+        private Transform _summonBackRow;
         private Transform _topLeft, _topRight, _bottomRow;
         private Transform _statusRow;    // 教程提示/奇遇文案(结束回合钮 2026-07-21 已移出)
-        private Transform _endTurnRow;   // 结束回合钮:屏幕右缘垂直居中(2026-07-21)
+        private Transform _endTurnRow;   // 结束回合钮:2026-08-20 起在右侧拆合台竖栏的底部
         private Transform _libraryRow;
         private Transform _poolRow;
         private Transform _suggestRow;
         private Transform _hintColumn;   // 差字面板(屏幕左侧竖排,五行三级目录)
         private Transform _actionRow;
+        // 非战斗阶段的宽操作区(2026-08-20):结算 / 奇遇 / 部件超限 / 跑图结束用它。
+        // 这些界面此前借的是拆合台的 _actionRow,而拆合台已经搬进 218px 的右侧竖栏
+        // —— 奇遇的 260 宽选项钮塞不进去,所以给它们留一条横贯屏幕的带。
+        // 它与 _libraryRow 在 y 上有重叠,但两者从不在同一阶段绘制(见 Refresh 的 switch)。
+        private Transform _centerRow;
         private Text _messageLabel;
         private string _hintBucket;      // 差字目录一级选中的五行桶(金木水火土心/中性;null = 收起)
         private string _hintCharFocus;   // 三级目录二级选中的字(null = 未选)
@@ -443,34 +452,67 @@ namespace Brushblade.Presentation
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
-            // 上三排「敌我对立」(2026-07-20 拍板):敌人 / 召唤物(中间) / 我方血条 AP。
-            // 纵向分配按 900 基准高(CanvasScaler 1600×900 按高匹配)预留硬尺寸。
-            // 2026-08-17:顶部全局行动条(TurnBar)废止,它占的 0.855–0.900 全部还给敌人区
-            // (189px → 234px),给每个敌人自己的行动条腾位。见
-            // docs/superpowers/specs/2026-08-17-每单位行动条与状态图标-design.md §4.1
-            _enemyRow = MakeSection("Enemies", 0.640f, 0.900f);  // 234px
-            // 2026-08-17:给召唤物格加行动条,字块 50→44、血条 15→12 腾位;区域高度维持 72px。
-            // **这个区域闭合不了**:格宽只有 54px,「攻 12」「盾 3」「附灼 2」三项挤不进一行,
-            // 内容最坏 111px。要真闭合只能把盾与被动移进详情弹窗(点召唤物已能看
-            // SummonInfo.Detail),那是删信息,不在本次范围 —— 本次只做到不恶化
-            // (溢出 39px → 39px,靠缩字块与血条抵掉新增的行动条)。见 spec §4.4。
-            _summonRow = MakeSection("Summons", 0.560f, 0.640f); // 72px
+            // ================= 纵向预算(2026-08-20 四排改造) =================
+            // 900 基准高(CanvasScaler 1600×900 按高匹配)。拆合台从底部大卡(0.012–0.230,196px)
+            // 搬到右侧竖栏,底部整条让出来 —— 下四区(PlayerStats/字库/部件池/Status)整体下移
+            // 0.220(198px),中区因此从 0.560–0.900(306px)长到 0.340–0.900(**504px**),
+            // 这 504px 就是四排 + 分隔线的全部预算。
+            //
+            // 逐项加法(区域给了多少 / 内容最坏多少 / 余量),自上而下:
+            //   顶部留白 0.890–0.900                        …  9.0px   (与消息条脱开)
+            //   敌方后排 0.754–0.890  = 0.136 → 122.4px  内容 119px  余 3.4px
+            //     └ 格高 = 形象 117 + 上下各 1;信息列最坏 100px(见下)不是约束方
+            //   排间留白 0.744–0.754                        …  9.0px
+            //   敌方前排 0.587–0.744  = 0.157 → 141.3px  内容 140px  余 1.3px
+            //     └ 格高 = 形象 138 + 上下各 1
+            //     └ 信息列最坏 100px = 名字 22(17号) + 3 + chip 两行 41(19+3+19)
+            //                        + 3 + 血条 16 + 3 + 行动条 12;常见(chip 一行)78px
+            //   分隔带 0.576–0.587(线本身 0.576–0.578 = 1.8px)  … 9.9px
+            //   我方前排 0.458–0.570  = 0.112 → 100.8px  内容  98px  余 2.8px
+            //     └ 字块 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 属性行 14(攻/盾/被动同排)
+            //   排间留白 0.452–0.458                        …  5.4px
+            //   我方后排 0.348–0.452  = 0.104 →  93.6px  内容  88px  余 5.6px
+            //     └ 字块 48 + 2 + 血条 12 + 2 + 行动条 8 + 2 + 属性行 14
+            //   收尾留白 0.340–0.348                        …  7.2px
+            //   ——————————————————————————————————————————————
+            //   合计 0.340–0.900 = 504.0px,四排内容 445px + 留白/分隔 59px,**闭合**。
+            //
+            // 2026-08-17 那条「这个区域闭合不了、要真闭合只能把盾与被动移进详情弹窗」
+            // 到此撤销:每排 6 格降到 3 格、格宽 54 → 180 之后,攻/盾/被动横排放得下,
+            // 不必删信息。**改动任何一格的内容高度时请重算上面这串加法**,
+            // 逐格的加法则在 EnemyCellHeightFront / SummonCellHeightFront 那两处常量旁。
+            _enemyBackRow = MakeSection("EnemiesBack", 0.754f, 0.890f);   // 122.4px
+            _enemyFrontRow = MakeSection("EnemiesFront", 0.587f, 0.744f); // 141.3px
+            _summonFrontRow = MakeSection("SummonsFront", 0.458f, 0.570f); // 100.8px
+            _summonBackRow = MakeSection("SummonsBack", 0.348f, 0.452f);   // 93.6px
+
+            // 敌我前排之间的分隔线:两侧「前排」贴着它,越远离它的排越靠后。
+            // raycastTarget = false —— 它只是一条线,不能拦掉空白点击(那是取消选中用的)
+            var dividerGo = Ui.Panel(transform, "RowDivider");
+            var dividerImage = dividerGo.AddComponent<Image>();
+            dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.35f);
+            dividerImage.raycastTarget = false;
+            Ui.Anchor((RectTransform)dividerGo.transform,
+                new Vector2(0.16f, 0.576f), new Vector2(0.86f, 0.578f), Vector2.zero, Vector2.zero);
+
             // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字(省 17px)、
             // 但护盾条要从 7 抬到 14 才放得下叠字(还回去 7px),净省 10px;新增行动条吃 12px。
             // 再把状态 chip 内边距收到敌人格同档、血条 20→18、行动条 14→12 省下 8px 之后,
             // 内容最坏 73px(20-2 血条 + 14-2 行动条 + 14 护盾条 + 24-4 状态行 + 9 间距),
             // 区域 73.8px —— 逐项可复算,余 0.8px。**改动内容高度时请重算这串加法。**
-            _bottomRow = MakeSection("PlayerStats", 0.478f, 0.560f); // 73.8px
+            // 2026-08-20:高度一分未动,只是整体下移 0.220。
+            _bottomRow = MakeSection("PlayerStats", 0.258f, 0.340f); // 73.8px
 
-            // 拆合台薄宣纸卡(半透,融层段染色):第一行内容(配方/拆字),第二行动作
-            // 2026-07-20 移到最下面;左缘仍避开配字表(0.135 宽,2026-07-19 反馈:曾重叠)
+            // 拆合台薄宣纸卡(半透,融层段染色):2026-08-20 从底部横卡改为**右侧竖栏**,
+            // 内部两区改竖排。左缘 0.862 = 1379px:字库满员 10 张 ×84 居中最右到 x≈1352,
+            // 留 27px 不压字牌行;上缘 0.775 让开右上角的相生环图(0.780 起)。
             var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.PaperCard, 20);
-            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.145f, 0.012f), new Vector2(0.92f, 0.230f), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.862f, 0.100f), new Vector2(0.998f, 0.775f), Vector2.zero, Vector2.zero);
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
-            _suggestRow = Ui.Row(workbenchStack.transform, "Content", 10).transform;
-            _actionRow = Ui.Row(workbenchStack.transform, "Actions", 8).transform;
+            _suggestRow = Ui.VStack(workbenchStack.transform, "Content", 6).transform;
+            _actionRow = Ui.VStack(workbenchStack.transform, "Actions", 8).transform;
 
             // 差字面板:屏幕最左侧,上下居中,五行三级目录
             var hintGo = Ui.VStack(transform, "HintPanel", 4);
@@ -478,19 +520,23 @@ namespace Brushblade.Presentation
             hintGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             _hintColumn = hintGo.transform;
 
-            // 下面三区在 2026-08-13 整体下移 0.027(24px),给 PlayerStats 让位(见上)。
-            // 字牌区与部件钮区的**高度一分未减**,只是位置下移;被压缩的只有 Status。
-            _libraryRow = MakeSection("Library", 0.341f, 0.478f); // 123px ≥ 118 字牌(高度不变)
-            _poolRow = MakeSection("Pool", 0.273f, 0.341f);       // 61px ≥ 56 部件钮(高度不变)
+            // 下面三区在 2026-08-13 整体下移 0.027(24px),给 PlayerStats 让位(见上);
+            // 2026-08-20 又整体下移 0.220(198px),接手拆合台让出的底部。
+            // 字牌区与部件钮区的**高度两次都一分未减**,只是位置下移。
+            _libraryRow = MakeSection("Library", 0.121f, 0.258f); // 123px ≥ 105 字牌(高度不变)
+            _poolRow = MakeSection("Pool", 0.053f, 0.121f);       // 61px ≥ 56 部件钮(高度不变)
             // 39px(原 63px):只装单行标签(字号 18~26,26 号行高约 31px),63px 本就给多了。
             // ⚠ 若将来这里要放两行文案,得另找地方要空间,不能再从这里挤。
-            _statusRow = MakeSection("Status", 0.230f, 0.273f);  // 教程提示/奇遇文案
+            _statusRow = MakeSection("Status", 0.010f, 0.053f);  // 教程提示/奇遇文案
 
-            // 结束回合钮:屏幕右缘垂直居中(2026-07-21,右手拇指位)。字库满员 8 张 ×118
-            // 居中最宽到 x≈1300(1600 基准),这里从 1376 起,不压字牌行
+            // 非战斗阶段的宽操作区:与字库行在 y 上重叠,但两者从不同阶段绘制(见 Refresh)
+            _centerRow = MakeSection("Center", 0.150f, 0.330f);  // 162px
+
+            // 结束回合钮:2026-08-20 从屏幕右缘中部移到拆合台竖栏正下方 —— 仍是右手拇指位,
+            // 且与拆合台同栏对齐。栏宽 217.6px 装得下 190 宽的钮。
             var endTurnGo = Ui.Row(transform, "EndTurn");
             Ui.Anchor((RectTransform)endTurnGo.transform,
-                new Vector2(0.86f, 0.44f), new Vector2(0.99f, 0.56f), Vector2.zero, Vector2.zero);
+                new Vector2(0.862f, 0.020f), new Vector2(0.998f, 0.092f), Vector2.zero, Vector2.zero);
             _endTurnRow = endTurnGo.transform;
         }
 
@@ -600,16 +646,19 @@ namespace Brushblade.Presentation
             _tileRects.Clear();
             Ui.Clear(_topLeft);
             Ui.Clear(_topRight);
-            Ui.Clear(_enemyRow);
+            Ui.Clear(_enemyBackRow);
+            Ui.Clear(_enemyFrontRow);
             Ui.Clear(_suggestRow);
             Ui.Clear(_actionRow);
+            Ui.Clear(_centerRow);
             Ui.Clear(_hintColumn);
             Ui.Clear(_statusRow);
             Ui.Clear(_endTurnRow);
             Ui.Clear(_libraryRow);
             Ui.Clear(_poolRow);
             Ui.Clear(_bottomRow);
-            Ui.Clear(_summonRow);
+            Ui.Clear(_summonFrontRow);
+            Ui.Clear(_summonBackRow);
             if (_run.Phase != RunPhase.Reward && _run.Phase != RunPhase.Reviving && _rewardModal != null)
                 Destroy(_rewardModal); // 离开战利品/复活阶段:弹窗不能留在战斗界面上
 
@@ -921,7 +970,7 @@ namespace Brushblade.Presentation
                 bool visible = summon != null
                     && (summon.Alive || (Animating && _summonAnimHp.ContainsKey(i)));
                 if (!visible) { DrawEmptySummonSlot(i); continue; }
-                var cell = Ui.VStack(_summonRow, $"Summon{i}", SummonStackSpacing);
+                var cell = Ui.VStack(_summonFrontRow, $"Summon{i}", SummonStackSpacing);
                 var cellElement = cell.AddComponent<LayoutElement>();
                 cellElement.preferredWidth = SummonCellWidth;
                 cellElement.preferredHeight = SummonCellHeightFront;
@@ -952,7 +1001,7 @@ namespace Brushblade.Presentation
         /// 不写字 —— 战斗界面里新增的任何汉字都要过字体子集,占位不值得为此加一个字符。</summary>
         private void DrawEmptySummonSlot(int slot)
         {
-            var cell = Ui.Panel(_summonRow, $"SummonEmpty{slot}");
+            var cell = Ui.Panel(_summonFrontRow, $"SummonEmpty{slot}");
             var cellElement = cell.AddComponent<LayoutElement>();
             cellElement.preferredWidth = SummonCellWidth;
             cellElement.preferredHeight = SummonCellHeightFront;
@@ -1050,7 +1099,7 @@ namespace Brushblade.Presentation
                 bool dying = _dyingEnemies.Contains(index);
                 bool showAlive = enemy.Alive || dying;
 
-                var cell = Ui.Panel(_enemyRow, $"Enemy{i}");
+                var cell = Ui.Panel(_enemyFrontRow, $"Enemy{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
                 cellElement.preferredWidth = EnemyCellWidthFront;
                 cellElement.preferredHeight = EnemyCellHeightFront;
@@ -1354,8 +1403,10 @@ namespace Brushblade.Presentation
             if (_selectedChar != null || _targeting) return; // 选中态:拆合台交给拆字+动作两行
             if (suggest.Composable.Count == 0)
                 Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
-            // 可合成项每行 4 个自动换行(2026-07-19 反馈:过多时横排溢出被配字表遮盖)
-            const int CombosPerRow = 4;
+            // 2026-07-19 反馈是「过多时横排溢出被配字表遮盖」,当时的解法是每行 4 个换行;
+            // 2026-08-20 拆合台改右侧竖栏(栏宽 217.6px)后每行只放得下 1 个 ——
+            // 一条配方 = 部件 36 ×2 + 「=」14 + 结果 60 + 间距 = 164px,两条就 334px 装不下。
+            const int CombosPerRow = 1;
             var comboStack = Ui.VStack(_suggestRow, "ComboRows", 4);
             Transform currentRow = null;
             int inRow = CombosPerRow;
@@ -1466,13 +1517,18 @@ namespace Brushblade.Presentation
             if (_selectedChar == null) return;
             var def = _graph.Get(_selectedChar);
 
-            // 第一行(拆字):选中字 → 部件拆解
-            Ui.RoundButton(_suggestRow, def.Id, null, Theme.Ink, Color.white, 22, new Vector2(52, 52), 12);
+            // 第一行(拆字):选中字 → 部件拆解。
+            // 2026-08-20:_suggestRow 已改成竖栏里的 VStack,这些按钮直接挂上去会一个个竖着排 ——
+            // 所以「选中字 + 箭头」与「部件/同源」各自装进一个横排子行。栏宽 217.6px 下:
+            //   选中字 52 + 6 + 箭头 16 = 74;同源最多 4 个 = 38×4 + 6×3 = 170 ✓
+            var head = Ui.Row(_suggestRow, "Selected", 6).transform;
+            Ui.RoundButton(head, def.Id, null, Theme.Ink, Color.white, 22, new Vector2(52, 52), 12);
             if (!def.IsLeaf)
             {
-                Ui.ThemedLabel(_suggestRow, "→", 16, Theme.TextDim);
+                Ui.ThemedLabel(head, "→", 16, Theme.TextDim);
+                var parts = Ui.Row(_suggestRow, "Parts", 6).transform;
                 foreach (var part in def.Recipe)
-                    Ui.RoundButton(_suggestRow, part, null,
+                    Ui.RoundButton(parts, part, null,
                         Theme.ElementColor(_graph.Get(part).Element), Color.white, 16, new Vector2(38, 38), 8);
             }
             else
@@ -1489,11 +1545,12 @@ namespace Brushblade.Presentation
                 // 纯说明不是操作:等价匹配在 ForgeEngine.TryCompose 里自动生效,不花 AP(spec §1.6c)。
                 if (ComponentKin.TryGetGroup(_selectedChar, out var kinGroup))
                 {
-                    Ui.ThemedLabel(_suggestRow, "⇄", 16, Theme.TextDim);
+                    Ui.ThemedLabel(head, "⇄", 16, Theme.TextDim);
+                    var kins = Ui.Row(_suggestRow, "Kin", 6).transform;
                     foreach (var kin in kinGroup)
                     {
                         if (kin == _selectedChar) continue; // 自己不列进"可换成"
-                        Ui.RoundButton(_suggestRow, kin, null,
+                        Ui.RoundButton(kins, kin, null,
                             Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
                     }
                     Ui.ThemedLabel(_suggestRow, "同源变体 · 位形互换", 13, Theme.TextDim);
@@ -1586,10 +1643,10 @@ namespace Brushblade.Presentation
                 ShowVictoryBanner(); // 过关提示走屏幕中央横幅,自动推进(2026-07-21)
                 return;
             }
-            Ui.ThemedLabel(_actionRow, "败北……", 36, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_centerRow, "败北……", 36, Theme.TextMain, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
-                Ui.AdBadge(_actionRow, "看广告复活", () =>
+                Ui.AdBadge(_centerRow, "看广告复活", () =>
                 {
                     _previewRewardIndex = -1;
                     _run.TryRevive();
@@ -1597,7 +1654,7 @@ namespace Brushblade.Presentation
                     _message = "满血复活!挑几样补给,接着打";
                     Refresh();
                 }, new Vector2(160, 60));
-            Ui.PillButton(_actionRow, "结算", AdvanceAfterSettle,
+            Ui.PillButton(_centerRow, "结算", AdvanceAfterSettle,
                 Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
@@ -1883,7 +1940,7 @@ namespace Brushblade.Presentation
         private void DrawEvent() // 奇遇(9.6):短情境 + 选择;部件抵价/任选字由玩家点选(2026-07-19)
         {
             var evt = _run.CurrentEvent;
-            Ui.ThemedLabel(_enemyRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_enemyFrontRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(_statusRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 18, Theme.TextDim);
 
             if (_pendingEventOption >= 0)
@@ -1895,11 +1952,11 @@ namespace Brushblade.Presentation
                     return;
                 }
                 bool needCharChoice = pending.GainCharChoices.Count > 0 && _pendingCharChoice < 0;
-                Ui.ThemedLabel(_actionRow, needCharChoice
+                Ui.ThemedLabel(_centerRow, needCharChoice
                         ? $"{pending.Label}:先点想要的字"
                         : $"{pending.Label}:点 {pending.ComponentCost} 个不要的部件({_eventPicks.Count}/{pending.ComponentCost})",
                     20, Theme.TextMain, Theme.TitleFont);
-                Ui.RoundButton(_actionRow, "取消", () =>
+                Ui.RoundButton(_centerRow, "取消", () =>
                 {
                     ResetEventSelection();
                     _message = "";
@@ -1919,7 +1976,7 @@ namespace Brushblade.Presentation
                 bool affordable = option.InkCost <= _run.AvailableInk
                     && option.ComponentCost <= _run.CarriedPool.Count
                     && AnyGainable(option); // 给的字都不在出阵列表 → 整个选项置灰(2026-07-20)
-                var button = Ui.RoundButton(_actionRow, option.Label, () =>
+                var button = Ui.RoundButton(_centerRow, option.Label, () =>
                 {
                     if (option.ComponentCost > 0 || option.GainCharChoices.Count > 0)
                     {
@@ -2127,12 +2184,12 @@ namespace Brushblade.Presentation
             var overflow = _run.PendingOverflow;
             if (overflow.Count == 0) return; // 决议完成的过渡帧
             string incoming = overflow[0];
-            Ui.ThemedLabel(_enemyRow, "部件已满", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_enemyFrontRow, "部件已满", 30, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(_statusRow,
                 $"用「{incoming}」换掉池中一个(永久失去),或跳过不要。还剩 {overflow.Count} 个待决。",
                 18, Theme.TextDim);
 
-            Ui.PillButton(_actionRow, $"跳过「{incoming}」", () =>
+            Ui.PillButton(_centerRow, $"跳过「{incoming}」", () =>
             {
                 _run.ResolveOverflowSkip();
                 _message = $"弃「{incoming}」";
@@ -2159,9 +2216,9 @@ namespace Brushblade.Presentation
         {
             bool won = _run.Phase == RunPhase.RunWon;
             bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
-            Ui.ThemedLabel(_actionRow, won ? (tower ? "本段告捷——字正!" : "关卡通过——字正!") : "败北",
+            Ui.ThemedLabel(_centerRow, won ? (tower ? "本段告捷——字正!" : "关卡通过——字正!") : "败北",
                 40, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_actionRow, won && tower ? "前往安全层" : tower ? "结算" : "返回地图",
+            Ui.PillButton(_centerRow, won && tower ? "前往安全层" : tower ? "结算" : "返回地图",
                 () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
             _message = won
                 ? (tower ? "Boss 已破,安全层可收官或深入。" : "通关结算:经验与墨锭入账。")
