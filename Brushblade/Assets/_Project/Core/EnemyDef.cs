@@ -164,8 +164,12 @@ namespace Brushblade.Core
         /// 老存档没有这个字段 → Newtonsoft 填 0 → 召唤物永远攒不满计量器,一辈子不出手。</summary>
         private static int EffectiveSpeed(int speed) => speed > 0 ? speed : 100;
 
-        public SummonSnapshot Capture() => new()
+        /// <summary>槽位由持有者传入 —— SummonState 自己不知道它站在哪一格
+        /// (槽位是 BattleEngine._summons 的数组下标,不是这只召唤物的属性,
+        /// 存成字段会有与下标失配的风险)。</summary>
+        public SummonSnapshot Capture(int slot) => new()
         {
+            Slot = slot,
             Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
             ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
             Passive = Passive?.Clone(),

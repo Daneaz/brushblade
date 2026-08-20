@@ -60,5 +60,31 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[1], Is.Null, "槽 1 仍空");
             Assert.That(engine.AliveSummonCount, Is.EqualTo(1));
         }
+
+        [Test]
+        public void CarriedSummons_KeepTheirSlots_AcrossBattles()
+        {
+            var engine = MakeEngine();
+            engine.Cast("梅");                       // 顺序填 → 槽 0
+            engine.Cast("梅");                       // 顺序填 → 槽 1
+            KillFrontSummon(engine, 0);              // 槽 0 阵亡,槽 1 活着
+            var carried = new List<SummonSnapshot>();
+            for (int s = 0; s < engine.Summons.Count; s++)
+                if (engine.Summons[s] != null && engine.Summons[s].Alive)
+                    carried.Add(engine.Summons[s].Capture(s));
+
+            Assert.That(carried.Count, Is.EqualTo(1), "只带走活的");
+            Assert.That(carried[0].Slot, Is.EqualTo(1), "带走的那只记着它原来的槽位");
+
+            var graph = new RecipeGraph(new List<CharDef> { new("木", Element.Wood) });
+            var config = new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) };
+            var next = new BattleEngine(graph, config, new string[0], new string[0],
+                new List<EnemyDef> { new("木桩", Element.Earth, 9999, 0) }, seed: 1,
+                startingSummons: carried);
+
+            Assert.That(next.Summons[0], Is.Null, "槽 0 不该被顶上来");
+            Assert.That(next.Summons[1], Is.Not.Null, "站位原样保留");
+            Assert.That(next.AliveSummonCount, Is.EqualTo(1));
+        }
     }
 }

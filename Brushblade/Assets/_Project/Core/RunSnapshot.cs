@@ -77,6 +77,10 @@ namespace Brushblade.Core
         public int Speed { get; set; }
         public int Shield { get; set; }
         public SummonPassive Passive { get; set; }
+
+        /// <summary>槽位 0..5(2026-08-20):0/1/2 = 前排,3/4/5 = 后排。
+        /// 携带过场与断点续爬都按它原样落位 —— 玩家布的阵不该被系统打乱。</summary>
+        public int Slot { get; set; }
     }
 
     /// <summary>挂在存档上的「段中断点」(2026-07-27):除了 run 自身的状态,还要记住

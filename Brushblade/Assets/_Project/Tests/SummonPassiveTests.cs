@@ -88,8 +88,8 @@ namespace Brushblade.Core.Tests
             {
                 EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 },
             };
-            foreach (var summon in engine.Summons)
-                if (summon != null) meta.EndlessV2.CarriedSummons.Add(summon.Capture());
+            for (int s = 0; s < engine.Summons.Count; s++)
+                if (engine.Summons[s] != null) meta.EndlessV2.CarriedSummons.Add(engine.Summons[s].Capture(s));
             meta.EndlessV2.CarriedSummons[0].Shield = 6; // 护盾字段也要过一趟序列化
 
             var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
@@ -151,7 +151,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine(new[] { "疾" }, new[] { Dummy() });
             engine.Cast("疾");
-            var snapshot = engine.Summons[0].Capture();
+            var snapshot = engine.Summons[0].Capture(0);
             Assert.That(snapshot.Passive, Is.Not.SameAs(engine.Summons[0].Passive),
                 "快照与实体共享同一条被动会让改一个连带改另一个");
         }

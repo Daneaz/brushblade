@@ -1011,9 +1011,10 @@ namespace Brushblade.Core.Tests
             run.AdvanceAfterBattle();
             run.SkipReward();
 
-            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(1), "死尸不带走,槽位从 0 号重排");
-            Assert.That(run.Battle.Summons[0].Alive, Is.True);
-            Assert.That(run.Battle.Summons[0].Hp, Is.EqualTo(1), "残血原样带走,不回满");
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(1), "死尸不带走");
+            Assert.That(run.Battle.Summons[0], Is.Null, "站位保留:原槽 0 的死尸不带走,活着的那只不前移");
+            Assert.That(run.Battle.Summons[1].Alive, Is.True);
+            Assert.That(run.Battle.Summons[1].Hp, Is.EqualTo(1), "残血原样带走,不回满");
         }
 
         [Test]

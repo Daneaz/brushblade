@@ -402,11 +402,11 @@ namespace Brushblade.Core
             _shieldNormal = startingNormalShield;
             _shieldPersist = startingPersistShield;
             // 召唤物跨战斗保留(2026-08-03):与普通盾同口径,上一层活下来的原样入场(残血不回满)。
-            // 这里不再钳制 SummonCap:来源已受上限约束——召唤侧出字时已卡死 SummonCap(Cast/
-            // SummonReplaceCountOf),存档文件那条路径也只写受约束过的携带态,不存在真实超员输入。
+            // 携带的召唤物按原槽位落位(2026-08-20)。Slot 越界或撞车一律回落到最小空槽 ——
+            // 携带态来源受控,这条只是防越界,不是会触发的分支。
             if (startingSummons != null)
                 foreach (var summon in startingSummons)
-                    _summons[NextEmptySlot()] = SummonState.Restore(summon);
+                    PlaceCarried(SummonState.Restore(summon), summon.Slot);
             // 减伤跨战斗保留(2026-08-04):与普通盾同口径,段内持久,到段末才清。
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
@@ -465,7 +465,7 @@ namespace Brushblade.Core
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             for (int s = 0; s < SummonCap; s++)
-                if (_summons[s] != null) snapshot.Summons.Add(_summons[s].Capture());
+                if (_summons[s] != null) snapshot.Summons.Add(_summons[s].Capture(s));
             foreach (var s in _playerStatuses.All) snapshot.PlayerStatuses.Add(s.Clone());
             return snapshot;
         }
@@ -497,7 +497,7 @@ namespace Brushblade.Core
                 engine._enemies.Add(EnemyState.Restore(enemy, def));
             }
             foreach (var summon in snapshot.Summons)
-                engine._summons[engine.NextEmptySlot()] = SummonState.Restore(summon);
+                engine.PlaceCarried(SummonState.Restore(summon), summon.Slot);
             engine._playerStatuses.CopyFrom(snapshot.PlayerStatuses ?? new List<StatusEffect>());
             return engine;
         }
@@ -1941,6 +1941,15 @@ namespace Brushblade.Core
             for (int s = 0; s < SummonCap; s++)
                 if (!_summons[s].Alive) return s;
             return -1;
+        }
+
+        /// <summary>把携带/读档来的召唤物放回它记下的槽位;槽位非法或已被占则回落到最小空槽。</summary>
+        private void PlaceCarried(SummonState summon, int slot)
+        {
+            if (slot < 0 || slot >= SummonCap || _summons[slot] != null)
+                slot = NextEmptySlot();
+            if (slot < 0) return; // 六槽全满:携带态来源受上限约束,走不到这;留作越界兜底
+            _summons[slot] = summon;
         }
 
         /// <summary>条件基础值:灼类效果对带灼烧目标翻倍(10.3.1),再进生克结算。</summary>
