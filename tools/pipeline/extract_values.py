@@ -111,6 +111,8 @@ def _parse_effects(config, char):
                 passive[field] = int(found.group(1))
         if "`OnHitBurnAll`" in config:      # 无数值的布尔标记(烓)
             passive["onHitBurnAll"] = True
+        if "`Ranged`" in config:            # 无数值的布尔标记(2026-08-20,灶/烓)
+            passive["ranged"] = True
         if passive:
             effect["passive"] = passive
         return [effect]
@@ -129,6 +131,12 @@ def _parse_effects(config, char):
             effect["targetAll"] = True
         if kind.startswith("Damage") and "DoubleVsBurning" in config:
             effect["doubleVsBurning"] = True
+        # 偷袭(2026-08-20):无视敌方前排。只修饰单体直伤 —— 其余单体效果本就不受排位限制。
+        # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Backline" 的独立效果,
+        #   而 EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException
+        #   (与 PIERCE_TOKEN 头上那条注释同一个坑)。
+        if kind == "DamageSingle" and "`Backline`" in config:
+            effect["backline"] = True
         if kind == "Shield" and "PersistOnce" in config:
             effect["persistOnce"] = True
         effects.append(effect)

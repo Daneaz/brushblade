@@ -49,6 +49,7 @@ namespace Brushblade.Data
             public int ExecuteBelowPercent { get; set; } // 斩杀:目标 HP 低于此百分比时触发
             public bool ExecuteKills { get; set; }       // true = 直接击杀(Boss 免疫);false = 伤害 ×2
             public int HitCount { get; set; } = 1;  // 多段:伤害分几段打(剁 = 2)
+            public bool Backline { get; set; }   // 偷袭:该发单体直伤无视敌方前排(2026-08-20)
         }
 
         private sealed class CampaignFileDto
@@ -498,7 +499,7 @@ namespace Brushblade.Data
                     effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
-                    effect.HitCount, effect.Pierce));
+                    effect.HitCount, effect.Pierce, effect.Backline));
             }
             return effects;
         }
