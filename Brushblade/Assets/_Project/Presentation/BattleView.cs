@@ -887,8 +887,28 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>我方前排召唤物(木系):替玩家承伤并反击。独占一排,夹在敌我血条之间
-        /// 形成三排对立(2026-07-20 拍板);无召唤物时该排留空,布局不跳动。</summary>
+        // 召唤格尺寸(2026-08-20 四排改造)。每排 3 格而不是 6 格,格宽从 ~54 翻到 180,
+        // 于是「攻 / 盾 / 被动」三项从竖着摞三行改成**同一行横排**——省下 2 × (14 + 2) = 32px,
+        // 正是 2026-08-17 那条「这个区域闭合不了」的注释里差的那口气。
+        //
+        // 属性行最坏宽度(字号 11,CJK 按字号估宽,间距 6):
+        //   攻1200(5×11=55) + 6 + 盾30(3×11=33) + 6 + 诅咒50%(5×11=55) = 155 ≤ 180 ✓ 余 25
+        private const float SummonCellWidth = 180f;
+        private const float SummonGlyphFront = 56f;
+        private const float SummonGlyphBack = 48f;    // ≈ 85%
+        private const float SummonBarWidthFront = 140f;
+        private const float SummonBarWidthBack = 120f;
+        // 逐项加法(VStack 间距 2;单行 Text 高 ≈ 字号 × 1.28):
+        //   前排 字块 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 属性行 14 = 98
+        //   后排 字块 48 + 2 + 血条 12 + 2 + 行动条  8 + 2 + 属性行 14 = 88
+        // **改动内容高度时请重算这两串加法**,并对照 BuildSkeleton 里两排 section 的高度。
+        private const float SummonCellHeightFront = 98f;
+        private const float SummonCellHeightBack = 88f;
+        private const float SummonStackSpacing = 2f;
+
+        /// <summary>我方召唤物(木系):替玩家承伤并反击。2026-08-20 起分前后两排、各 3 格,
+        /// 下标即槽位(<c>0..FrontRow-1</c> 前排,其余后排),**空槽也画**虚框占位 ——
+        /// 召唤/阵亡时布局不跳动,玩家也能一眼看出还剩几个位子。</summary>
         private void DrawSummons()
         {
             _summonRectByCore.Clear();
@@ -897,28 +917,55 @@ namespace Brushblade.Presentation
             for (int i = 0; i < Battle.Summons.Count; i++)
             {
                 var summon = Battle.Summons[i];
-                if (summon == null) continue;
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
-                if (!summon.Alive && !(Animating && _summonAnimHp.ContainsKey(i))) continue;
-                var cell = Ui.VStack(_summonRow, $"Summon{i}", 1);
+                bool visible = summon != null
+                    && (summon.Alive || (Animating && _summonAnimHp.ContainsKey(i)));
+                if (!visible) { DrawEmptySummonSlot(i); continue; }
+                var cell = Ui.VStack(_summonRow, $"Summon{i}", SummonStackSpacing);
+                var cellElement = cell.AddComponent<LayoutElement>();
+                cellElement.preferredWidth = SummonCellWidth;
+                cellElement.preferredHeight = SummonCellHeightFront;
+                float glyphSize = SummonGlyphFront;
+                float barWidth = SummonBarWidthFront;
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
-                // 2026-08-17:字块 50 → 44、血条 15 → 12,给行动条腾 8px + 间距
                 var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    21, new Vector2(44, 44), 11);
+                    Mathf.RoundToInt(glyphSize * 0.46f), new Vector2(glyphSize, glyphSize), 12);
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
-                // 血值上条(2026-07-25,带描边保对比度);攻力另起一排置于条下。动画期间画出手前值,SummonHit 触达才降
+                // 血值上条(2026-07-25,带描边保对比度)。动画期间画出手前值,SummonHit 触达才降
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
-                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(54, 12));
-                _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter, new Vector2(54, 8), 8);
-                Ui.ThemedLabel(cell.transform, $"攻{summon.Attack}", 11, Theme.TextDim);
+                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp, new Vector2(barWidth, 13));
+                _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter, new Vector2(barWidth, 9), 8);
+                // 攻 / 盾 / 被动同一行(2026-08-20):格宽翻倍后放得下,不必再考虑「移进详情弹窗」
+                var stats = Ui.Row(cell.transform, "Stats", 6).transform;
+                Ui.ThemedLabel(stats, $"攻{summon.Attack}", 11, Theme.TextDim);
                 if (summon.Shield > 0)
-                    Ui.ThemedLabel(cell.transform, $"盾{summon.Shield}", 11, Theme.Jade);
+                    Ui.ThemedLabel(stats, $"盾{summon.Shield}", 11, Theme.Jade);
                 string passiveTag = SummonPassiveTag(summon.Passive);
                 if (passiveTag.Length > 0)
-                    Ui.ThemedLabel(cell.transform, passiveTag, 11, Theme.Cinnabar);
+                    Ui.ThemedLabel(stats, passiveTag, 11, Theme.Cinnabar);
             }
+        }
+
+        /// <summary>空槽虚框(2026-08-20):只画一个淡淡的圆角占位块,与该排字块同尺寸同位置。
+        /// 不写字 —— 战斗界面里新增的任何汉字都要过字体子集,占位不值得为此加一个字符。</summary>
+        private void DrawEmptySummonSlot(int slot)
+        {
+            var cell = Ui.Panel(_summonRow, $"SummonEmpty{slot}");
+            var cellElement = cell.AddComponent<LayoutElement>();
+            cellElement.preferredWidth = SummonCellWidth;
+            cellElement.preferredHeight = SummonCellHeightFront;
+            float glyphSize = SummonGlyphFront;
+            var ghost = Ui.Panel(cell.transform, "Ghost");
+            var image = ghost.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.12f);
+            image.raycastTarget = false; // 空槽不吃点击:让空白点击照旧落到 Backdrop 上取消选中
+            // 与实格的字块对齐:实格是 VStack 从顶排下来,字块贴格顶
+            Ui.Anchor((RectTransform)ghost.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(-glyphSize / 2f, -glyphSize), new Vector2(glyphSize / 2f, 0f));
         }
 
         /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称。
@@ -953,15 +1000,26 @@ namespace Brushblade.Presentation
         // 形象底稿四周留了 10% 白,同直径下视觉体积比实心圆头像小,所以要给得更足。
         // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80)。
         // 2026-08-17:形象 150 → 138,给每个敌人自己的行动条腾 12px + 间距。
-        //   info 可用 = 234 − 138 − 2 = 94px;常见(状态 ≤ 1 行)需 78px 不溢出,
-        //   最坏(状态 2 行)需 100px 溢出 6px —— 与改造前的 5px 持平。
-        //   保持 150 的话最坏会溢出到 18px。取舍见 spec §4.2,推翻它只改这一个常量。
-        private const float EnemyPortrait = 138f;
-        private const float EnemyCellWidth = 190f;
-        // 2026-08-17:232 → 234,与收回屏高后的敌人区(0.640–0.900 = 234px)对齐。
-        // 此前是 232 对 189px 的区域 —— 2026-08-16 压缩敌人区时改了区域没改这个常量,
-        // 敌人格一直在溢出。
-        private const float EnemyCellHeight = 234f;
+        //
+        // 2026-08-20 四排改造:格内从「形象在上、信息在下」改成**形象在左、信息在右**。
+        // 理由是纵向预算 —— 每排从 6 格降到 3 格,横向一下子宽出一倍多,而纵向要塞下两排敌人
+        // 两排召唤,竖着摞的格高(138 + 2 + 100 = 240px)两排就 480px,整个中区只有 504px。
+        // 横排之后格高 = max(形象, 信息) 而不是两者相加,同样的信息量只要 140px。
+        //
+        // 信息列宽 200(此前是整格宽 190),chip 区反而比改造前宽 10px —— 换行只会更少。
+        private const float EnemyPortraitFront = 138f;
+        // 后排缩到约 85%(2026-08-20):138 × 0.85 = 117.3,取 117。**只缩形象不缩信息列** ——
+        // 信息列一起缩会让 chip 按另一个宽度换行,两排的「内容最坏高度」就成了两笔账。
+        private const float EnemyPortraitBack = 117f;
+        private const float EnemyPortraitGap = 8f;   // 形象与信息列之间的横向间隙
+        private const float EnemyInfoWidth = 200f;
+        private const float EnemyBarWidth = 180f;    // 血条/行动条:信息列宽减两侧各 10
+        private const float EnemyCellWidthFront = EnemyPortraitFront + EnemyPortraitGap + EnemyInfoWidth; // 346
+        private const float EnemyCellWidthBack = EnemyPortraitBack + EnemyPortraitGap + EnemyInfoWidth;   // 325
+        // 格高 = 形象直径 + 上下各 1px 呼吸。信息列最坏 100px(逐项加法见 BuildSkeleton 的预算注释),
+        // 两排都比 100 高,所以约束方是形象而不是信息 —— 这正是横排布局买到的东西。
+        private const float EnemyCellHeightFront = 140f;
+        private const float EnemyCellHeightBack = 119f;
 
         // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
         // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
@@ -974,8 +1032,9 @@ namespace Brushblade.Presentation
         private const float ChipSpacing = 4f;
         private const float ChipLineSpacing = 3f;
         private const int ChipMaxLines = 2;
-        // 左右各留 2px:贴着格宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行
-        private const float ChipAreaWidth = EnemyCellWidth - 4f;
+        // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
+        // 2026-08-20:基准从「整格宽 190」换成「信息列宽 200」,前后排共用同一个数。
+        private const float ChipAreaWidth = EnemyInfoWidth - 4f;
 
         private void DrawEnemies()
         {
@@ -993,8 +1052,9 @@ namespace Brushblade.Presentation
 
                 var cell = Ui.Panel(_enemyRow, $"Enemy{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
-                cellElement.preferredWidth = EnemyCellWidth;
-                cellElement.preferredHeight = EnemyCellHeight;
+                cellElement.preferredWidth = EnemyCellWidthFront;
+                cellElement.preferredHeight = EnemyCellHeightFront;
+                float portraitSize = EnemyPortraitFront;
 
                 // 有形象就用分层字怪(Boss 按当前阶段取图),否则回落圆形字头像
                 MobView mob = null;
@@ -1006,17 +1066,18 @@ namespace Brushblade.Presentation
                     portrait = new GameObject($"Mob{i}", typeof(RectTransform));
                     portrait.transform.SetParent(cell.transform, false);
                     mob = portrait.AddComponent<MobView>();
-                    mob.Init(prefix, EnemyPortrait);
+                    mob.Init(prefix, portraitSize);
                     mob.SetStateAmount(MobAssets.StateAmountFor(enemy)); // L4 绑战斗状态
                     if (!showAlive) mob.ApplyTint(Theme.LockedBg);
                 }
                 portrait ??= Ui.CircleGlyph(cell.transform,
                     EnemyInfo.FaceChar(enemy.Def, enemy.PhaseIndex),
                     showAlive ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
-                    Color.white, EnemyPortrait);
+                    Color.white, portraitSize);
                 _enemyMobs.Add(mob);
-                Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                    new Vector2(-EnemyPortrait / 2f, -EnemyPortrait), new Vector2(EnemyPortrait / 2f, 0));
+                // 形象贴左、纵向居中(2026-08-20 横排格);信息列在右侧,见下面的 info
+                Ui.Anchor((RectTransform)portrait.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                    new Vector2(0f, -portraitSize / 2f), new Vector2(portraitSize, portraitSize / 2f));
                 if (_targeting && enemy.Alive && mob == null)
                 {
                     var outline = portrait.AddComponent<Outline>(); // 圆头像用描边示意可选中
@@ -1031,8 +1092,9 @@ namespace Brushblade.Presentation
                     : new Color(0, 0, 0, 0);
 
                 var info = Ui.VStack(cell.transform, "Info", 3);
+                // 信息列:形象右侧一直到格右缘,整格高度内纵向居中(VStack 默认 MiddleCenter)
                 Ui.Anchor((RectTransform)info.transform, new Vector2(0, 0), new Vector2(1, 1),
-                    Vector2.zero, new Vector2(0, -(EnemyPortrait + 2f)));
+                    new Vector2(portraitSize + EnemyPortraitGap, 0), Vector2.zero);
                 Ui.ThemedLabel(info.transform, BossTitle(enemy), 17, Theme.TextMain, Theme.TitleFont);
                 // chip 攒成列表再交给 ChipFlow 分行 —— 它要先看全部文字才能决定在哪断行。
                 // 列表顺序即优先级:装不下 ChipMaxLines 行时从**尾部**丢弃,末尾补「+N」,
@@ -1093,9 +1155,9 @@ namespace Brushblade.Presentation
                 if (showAlive)
                 {
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
-                    _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(140, 16)));
+                    _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(EnemyBarWidth, 16)));
                     // 行动条紧跟血条(2026-08-17,用户拍板放血条下方)
-                    _enemyActionBars.Add(ActionBar(info.transform, enemy.ActionMeter, new Vector2(140, 12), 9));
+                    _enemyActionBars.Add(ActionBar(info.transform, enemy.ActionMeter, new Vector2(EnemyBarWidth, 12), 9));
                 }
                 else
                 {
