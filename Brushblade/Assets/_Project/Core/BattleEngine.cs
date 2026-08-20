@@ -1214,11 +1214,14 @@ namespace Brushblade.Core
                     continue; // 已蓄力或已放大招,本回合不走普攻
 
                 int damage = enemy.Attack; // 减护甲(点数)在 DamagePlayerDirect 里,护盾吸收再在其后
-                int tankIdx = FirstAliveSummonIndex(); // 召唤物顶前排:整次攻击由首个存活召唤物承受(不溢出)
+                // 目标裁定(2026-08-20):近战被我方前排拦下;前排清空后在「后排 ∪ 玩家」里均匀随机;
+                // 远程无视前排;Focus.Player 的够得着玩家时死盯玩家。规则全在 Targeting,这里只执行。
+                int tankIdx = Targeting.PickAllyTarget(enemy.Def.Range, enemy.Def.Focus,
+                    _summons, FrontRowSize, _random);
                 // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
                 // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
                 bool hit;
-                if (tankIdx >= 0)
+                if (tankIdx != Targeting.PlayerTarget)
                 {
                     // 召唤物带属性:敌人打召唤走五行(金克木 ×1.5、木反克土 ×0.5)
                     hit = DamageSummon(enemyIndex, tankIdx, damage, enemy.Element);
@@ -1981,8 +1984,6 @@ namespace Brushblade.Core
             }
         }
 
-        private int FirstAliveSummonIndex() => NextAliveSummonIndex(0);
-
         /// <summary>第一具尸体的槽位;没有返回 −1。引擎从不移除阵亡召唤物
         /// (表现层只是不画它们),所以复活直接就地救回。null 不是尸体,
         /// 复活救不回一个从未存在过的召唤物。</summary>
@@ -2422,7 +2423,7 @@ namespace Brushblade.Core
 
                 case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
                 {
-                    int front = FirstAliveSummonIndex();
+                    int front = Targeting.FrontmostSummon(_summons, FrontRowSize);
                     if (front >= 0)
                         DamageSummon(index, front, enemy.Attack, enemy.Element);
                     DamagePlayerDirect(index, enemy.Attack * 2);
@@ -2455,7 +2456,7 @@ namespace Brushblade.Core
 
                 case BossSkill.Devour: // 吞噬:无视血量必杀最前一只(不回血);没得吞就普攻(设计明确不 ×2,唯一例外)
                 {
-                    int front = FirstAliveSummonIndex();
+                    int front = Targeting.FrontmostSummon(_summons, FrontRowSize);
                     if (front >= 0)
                     {
                         var victim = _summons[front];

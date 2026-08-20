@@ -20,6 +20,20 @@ namespace Brushblade.Core.Tests
         private static EnemyDef Mob(string id, EnemyRow row = EnemyRow.Front) =>
             new(id, Element.Earth, 100, 0, row: row);
 
+        /// <summary>召唤字「梅」:1 只 200 血、攻 0 的召唤物。攻 0 是为了让它绝不反击,
+        /// 敌人血量因此恒定,断言只需要盯玩家与召唤物的血。</summary>
+        private static RecipeGraph SummonGraph() => new(new[]
+        {
+            new CharDef("梅", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 200,
+                    summonCount: 1, summonAttack: 0, summonChar: "梅") }),
+        });
+
+        /// <summary>「梅」放部件池里直出(叶子字免配方),敌人由调用方给。</summary>
+        private static BattleEngine SummonEngine(params EnemyDef[] enemies) =>
+            new(SummonGraph(), new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+                new string[0], new[] { "梅", "梅", "梅", "梅" }, enemies, seed: 1);
+
         [Test]
         public void EnemyDef_DefaultsToFrontMeleeDefault()
         {
@@ -73,6 +87,58 @@ namespace Brushblade.Core.Tests
             Assert.That(scaled.Range, Is.EqualTo(AttackRange.Ranged));
             Assert.That(scaled.Focus, Is.EqualTo(AttackFocus.Player));
             Assert.That(scaled.MaxHp, Is.GreaterThan(90), "缩放本身照常生效");
+        }
+
+        [Test]
+        public void MeleeEnemy_IsBlockedByFrontRow()
+        {
+            var engine = SummonEngine(new EnemyDef("错字鬼", Element.Wood, 500, 40));
+            engine.Cast("梅", summonSlots: new[] { 1 });
+            int playerBefore = engine.PlayerHp;
+            int summonBefore = engine.Summons[1].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Summons[1].Hp, Is.LessThan(summonBefore), "前排替玩家挨了这一下");
+            Assert.That(engine.PlayerHp, Is.EqualTo(playerBefore), "玩家一滴不掉");
+        }
+
+        [Test]
+        public void RangedEnemy_SkipsFrontRow()
+        {
+            // 后排没人 → 远程的候选池只剩玩家 → 必打玩家(确定性,不摇随机)
+            var sniper = new EnemyDef("墨溅", Element.Water, 500, 40,
+                row: EnemyRow.Back, range: AttackRange.Ranged);
+            var engine = SummonEngine(sniper);
+            engine.Cast("梅", summonSlots: new[] { 0 });
+            int playerBefore = engine.PlayerHp;
+            int summonBefore = engine.Summons[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(summonBefore), "前排被整个跳过");
+            Assert.That(engine.PlayerHp, Is.LessThan(playerBefore));
+        }
+
+        [Test]
+        public void MeleeAssassin_DivesForPlayer_WhenFrontIsEmpty()
+        {
+            var assassin = new EnemyDef("败笔", Element.Fire, 500, 40, focus: AttackFocus.Player);
+            var engine = SummonEngine(assassin);
+            engine.Cast("梅", summonSlots: new[] { 4 });   // 只站后排,前排空
+            int playerBefore = engine.PlayerHp;
+            int summonBefore = engine.Summons[4].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Summons[4].Hp, Is.EqualTo(summonBefore), "后排还有人也不管");
+            Assert.That(engine.PlayerHp, Is.LessThan(playerBefore));
+        }
+
+        [Test]
+        public void MeleeAssassin_IsStillBlockedByFrontRow()
+        {
+            var assassin = new EnemyDef("败笔", Element.Fire, 500, 40, focus: AttackFocus.Player);
+            var engine = SummonEngine(assassin);
+            engine.Cast("梅", summonSlots: new[] { 0 });
+            int playerBefore = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(playerBefore), "刺客也得先过前排这一关");
+            Assert.That(engine.Summons[0].Hp, Is.LessThan(200));
         }
     }
 }
