@@ -89,6 +89,7 @@ ln -s /Users/eugenewu/code/game/tools/fonts/raw tools/fonts/raw 2>/dev/null; pyt
 **Files:**
 - Modify: `Brushblade/Assets/_Project/Core/BattleEngine.cs`(24 处 `_summons` 触点)
 - Modify: `Brushblade/Assets/_Project/Presentation/BattleView.cs`(6 处 `null` 守卫)
+- Modify: `Brushblade/Assets/_Project/Core/RunEngine.cs:683`(1 处 `null` 守卫,预检裁定 1)
 - Test: `Brushblade/Assets/_Project/Tests/SummonSlotTests.cs`(新建)
 
 **Interfaces:**
@@ -222,6 +223,22 @@ private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20):槽 [0, Fro
 | 2304-2305(Boss `Deluge`) | 循环上界改 `SummonCap`,守卫改 `if (_summons[s] != null && _summons[s].Alive)` |
 | 2347(Boss `Devour`) | 不动 —— `front` 来自 `FirstAliveSummonIndex()` |
 
+**`BattleEngine.cs` 之外还有一处必须一起改**(预检裁定 1):
+
+`Core/RunEngine.cs:683` 的 `CaptureAliveSummons` 直接 `foreach (var summon in Battle.Summons)` 并解引用 `summon.Alive`,槽位数组引入 `null` 后会 NPE,而这条路径被 `RunEngineTests` 覆盖 —— 不补的话本任务的「全套测试全绿」根本过不了:
+
+```csharp
+foreach (var summon in Battle.Summons)
+{
+    if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
+    // …既有的 Capture 逻辑原样…
+}
+```
+
+这是**临时守卫**,Task 2 会把整个方法改写成按下标遍历(为了带走槽位)。本任务只要它不 NPE。
+
+⚠ 另外确认一处、但**不要改**:`Presentation/BattleView.cs:119` 的 `SummonAt(int i)` 在空槽上会返回 `null`。它的既有契约本就是「越界返回 `null`」,调用方(`Juice` 的召唤反击飞字)必须已经容忍 `null`。**只需读一眼 `Juice` 侧确认它确实 null-safe**;若发现它不容忍 null,在报告的 concerns 里写出来,不要顺手改 `Juice`。
+
 新增一个私有辅助(放在 `FirstDeadSummonIndex` 旁边):
 
 ```csharp
@@ -322,7 +339,7 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 - [ ] **Step 8: 提交**
 
 ```bash
-git add Brushblade/Assets/_Project/Core/BattleEngine.cs Brushblade/Assets/_Project/Presentation/BattleView.cs Brushblade/Assets/_Project/Tests/
+git add Brushblade/Assets/_Project/Core/BattleEngine.cs Brushblade/Assets/_Project/Core/RunEngine.cs Brushblade/Assets/_Project/Presentation/BattleView.cs Brushblade/Assets/_Project/Tests/
 git commit -m "refactor(core): 召唤物改定长 6 槽数组 —— 下标即槽位,行为不变
 
 为前后排站位铺路。_summons 从紧凑 List 换成定长 6 的数组,null = 空槽,
@@ -1035,6 +1052,18 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Produces: `Targeting.FrontmostSummon(IReadOnlyList<SummonState> summons, int frontRow)` → 槽位或 `-1`
 - Produces: `Targeting.PickEnemyTargetForSummon(IReadOnlyList<EnemyState> enemies, bool ranged)` → 敌人下标或 `-1`
 - Produces: `Targeting.CanPlayerHit(IReadOnlyList<EnemyState> enemies, int enemyIndex, bool ignoresRow)` → `bool`
+
+> ### 🔒 硬约束:`pool.Count == 1` 的短路分支不许删
+>
+> `BattleEngine.RollCrit` 的文档注释立了一条明规矩:
+>
+> > _random 的既有消费方只有回合掉字、`AttackHits`、`EnemyState` 构造时的 Boss 阈值浮动 —— 无条件摇会平移整条流,让所有依赖种子的既有测试全红。**不得新增第四个无条件消费方。**
+>
+> `PickAllyTarget` 正是第四个消费方。它之所以合规,**全靠 `pool.Count == 1 ? pool[0] : pool[random.Next(...)]` 这一句短路** —— 与 `RollCrit` / `AttackHits` 两端短路是同一手法。
+>
+> 没有后排召唤物的战斗(= 绝大多数既有测试)因此一个随机数都不消耗,随机流与改前逐位相同。
+>
+> **把它「简化」成无条件 `pool[random.Next(pool.Count)]` 会让上千条带种子的既有测试全红**,而且红的方式毫无规律(伤害、掉字、闪避全变),极难定位。`SingleCandidate_ConsumesNoRandomness` 那条测试就是钉这一句的,不许改也不许删。
 
 **先做一件事:把 `SummonState` 的主构造函数从 `internal` 放开成 `public`。**
 
