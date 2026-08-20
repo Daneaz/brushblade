@@ -1178,6 +1178,12 @@ namespace Brushblade.Presentation
                 // 死亡动画进行中的怪:重绘时仍保持着色挨打,置灰交给死亡节拍(GreyOut),别在重绘时就变灰
                 bool dying = _dyingEnemies.Contains(index);
                 bool showAlive = enemy.Alive || dying;
+                // 选目标态下够不到的怪置灰且不可点(2026-08-20)。判据**一律走 Battle.CanTarget**,
+                // 表现层不自己推排位规则 —— CanTarget 读的是 EnemyState.Row 这个实例状态,
+                // 「配置就在后排的怪 / 前排满员被改判到后排的怪 / 叠字分裂出的克隆」三种来源
+                // 一次覆盖;照 EnemyDef.Row 那个偏好自己算一套,后两种一定漏。
+                bool reachable = !_targeting || _selectedChar == null
+                    || Battle.CanTarget(_graph.Get(_selectedChar), index);
 
                 var cell = Ui.Panel(front ? _enemyFrontRow : _enemyBackRow, $"Enemy{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
@@ -1197,17 +1203,18 @@ namespace Brushblade.Presentation
                     mob = portrait.AddComponent<MobView>();
                     mob.Init(prefix, portraitSize);
                     mob.SetStateAmount(MobAssets.StateAmountFor(enemy)); // L4 绑战斗状态
-                    if (!showAlive) mob.ApplyTint(Theme.LockedBg);
+                    if (!showAlive || !reachable) mob.ApplyTint(Theme.LockedBg);
                 }
                 portrait ??= Ui.CircleGlyph(cell.transform,
                     EnemyInfo.FaceChar(enemy.Def, enemy.PhaseIndex),
-                    showAlive ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
-                    Color.white, portraitSize);
+                    showAlive && reachable ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
+                    // 白字压在 LockedBg 这种浅底上看不见:置灰的一并把字色降到 TextDim
+                    showAlive && reachable ? Color.white : Theme.TextDim, portraitSize);
                 _enemyMobs.Add(mob);
                 // 形象贴左、纵向居中(2026-08-20 横排格);信息列在右侧,见下面的 info
                 Ui.Anchor((RectTransform)portrait.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                     new Vector2(0f, -portraitSize / 2f), new Vector2(portraitSize, portraitSize / 2f));
-                if (_targeting && enemy.Alive && mob == null)
+                if (_targeting && enemy.Alive && reachable && mob == null)
                 {
                     var outline = portrait.AddComponent<Outline>(); // 圆头像用描边示意可选中
                     outline.effectColor = Theme.Ink;
@@ -1216,7 +1223,7 @@ namespace Brushblade.Presentation
 
                 // 点击区盖满整格:形象各层不吃 raycast(见 MobView),没有它整格点不动
                 var hitArea = cell.AddComponent<Image>();
-                hitArea.color = _targeting && enemy.Alive
+                hitArea.color = _targeting && enemy.Alive && reachable
                     ? new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.07f) // 选目标时整格微亮,提示可点
                     : new Color(0, 0, 0, 0);
 
@@ -1298,7 +1305,7 @@ namespace Brushblade.Presentation
                 var button = cell.AddComponent<Button>();
                 button.targetGraphic = hitArea;
                 button.onClick.AddListener(() => OnEnemyClicked(index));
-                button.interactable = enemy.Alive;
+                button.interactable = enemy.Alive && reachable; // 够不到:连详情都不弹,免得像点歪了
                 _enemyRects.Add((RectTransform)portrait.transform);
             }
 
@@ -2339,7 +2346,10 @@ namespace Brushblade.Presentation
 
         private void OnCastPressed(CharDef def)
         {
-            if (BattleEngine.NeedsTarget(def) && AliveEnemyCount() > 1)
+            // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
+            // 出一张够不到后排的字本就没得选,还弹一次选目标纯属让玩家白点一下。
+            // 与 Core 的 Cast 同口径 —— 那边合法目标恰好一个时会自动锁定。
+            if (BattleEngine.NeedsTarget(def) && LegalTargetCount(def, attackMode: false) > 1)
             {
                 _targeting = true;
                 _message = $"「{def.Id}」:点击目标敌人";
@@ -2349,11 +2359,13 @@ namespace Brushblade.Presentation
             BeginCast(def.Id, -1, attackMode: false, libraryIndex: _selectedIndex);
         }
 
-        private int AliveEnemyCount()
+        /// <summary>这张字现在有几只敌人点得动(2026-08-20)。判据走 <c>Battle.CanTarget</c>,
+        /// 与置灰、与引擎的自动锁定三处同源。</summary>
+        private int LegalTargetCount(CharDef def, bool attackMode)
         {
             int count = 0;
-            foreach (var enemy in Battle.Enemies)
-                if (enemy.Alive) count++;
+            for (int i = 0; i < Battle.Enemies.Count; i++)
+                if (Battle.CanTarget(def, i, attackMode)) count++;
             return count;
         }
 
@@ -2429,6 +2441,9 @@ namespace Brushblade.Presentation
         {
             if (_targeting && _selectedChar != null)
             {
+                // 够不到的怪已经置灰且 interactable = false,走不到这;真走到了也直接忽略 ——
+                // 落到下面的「看详情」分支会让玩家以为自己点歪了
+                if (!Battle.CanTarget(_graph.Get(_selectedChar), index)) return;
                 BeginCast(_selectedChar, index, attackMode: false, libraryIndex: _selectedIndex);
                 return;
             }
