@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.IO;
 using Brushblade.Core;
+using Brushblade.Data;
 using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
@@ -139,6 +141,96 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(playerBefore), "刺客也得先过前排这一关");
             Assert.That(engine.Summons[0].Hp, Is.LessThan(200));
+        }
+
+        // ---- 三只排位怪入库(2026-08-20) ----
+
+        private static string ConfigDir()
+        {
+            // ⚠ 锚点必须是 TestContext.CurrentContext.TestDirectory,不能用 AppContext.BaseDirectory
+            // (后者在 Unity Test Runner 下指向编辑器安装目录,见 DefenseValuesTests 的注释)。
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Brushblade")))
+                dir = dir.Parent;
+            Assert.That(dir, Is.Not.Null, "找不到仓库根目录");
+            return Path.Combine(dir.FullName, "Brushblade", "Assets", "StreamingAssets", "config");
+        }
+
+        private static EnemyDef FindInPools(EndlessConfig endless, string id)
+        {
+            foreach (var band in endless.Bands)
+                foreach (var enemy in band.EnemyPool)
+                    if (enemy.Id == id) return enemy;
+            return null;
+        }
+
+        [Test]
+        public void RealConfig_HasThreeRowAwareMobs()
+        {
+            var configDir = ConfigDir();
+            var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
+            var campaign = ConfigLoader.LoadCampaign(
+                File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
+
+            var moJian = FindInPools(campaign.Endless, "墨溅");
+            Assert.That(moJian, Is.Not.Null, "墨溅应已入库到某个层段怪池");
+            Assert.That(moJian.Row, Is.EqualTo(EnemyRow.Back));
+            Assert.That(moJian.Range, Is.EqualTo(AttackRange.Ranged));
+            Assert.That(moJian.Focus, Is.EqualTo(AttackFocus.Default));
+
+            var xuanZhen = FindInPools(campaign.Endless, "悬针");
+            Assert.That(xuanZhen, Is.Not.Null, "悬针应已入库到某个层段怪池");
+            Assert.That(xuanZhen.Row, Is.EqualTo(EnemyRow.Back));
+            Assert.That(xuanZhen.Range, Is.EqualTo(AttackRange.Ranged));
+            Assert.That(xuanZhen.Focus, Is.EqualTo(AttackFocus.Player));
+
+            var baiBi = FindInPools(campaign.Endless, "败笔");
+            Assert.That(baiBi, Is.Not.Null, "败笔应已入库到某个层段怪池");
+            Assert.That(baiBi.Row, Is.EqualTo(EnemyRow.Front));
+            Assert.That(baiBi.Range, Is.EqualTo(AttackRange.Melee));
+            Assert.That(baiBi.Focus, Is.EqualTo(AttackFocus.Player));
+        }
+
+        [Test]
+        public void BuildFloor_AlwaysStartsWithAFrontRowMob()
+        {
+            var configDir = ConfigDir();
+            var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
+            var campaign = ConfigLoader.LoadCampaign(
+                File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
+
+            for (int depth = 1; depth <= 200; depth++)
+            {
+                if (campaign.Endless.IsBossDepth(depth)) continue;
+                var floor = EndlessGenerator.BuildFloor(campaign.Endless, depth,
+                    EndlessGenerator.FloorRandom(seed: 12345, depth));
+                Assert.That(floor[0].Row, Is.EqualTo(EnemyRow.Front), $"第 {depth} 层首位必须是前排");
+            }
+        }
+
+        [Test]
+        public void BuildFloor_NeverPutsMoreThanThreeInEitherRow()
+        {
+            var configDir = ConfigDir();
+            var graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
+            var campaign = ConfigLoader.LoadCampaign(
+                File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
+
+            for (int depth = 1; depth <= 200; depth++)
+            {
+                if (campaign.Endless.IsBossDepth(depth)) continue;
+                var floor = EndlessGenerator.BuildFloor(campaign.Endless, depth,
+                    EndlessGenerator.FloorRandom(seed: 54321, depth));
+                var engine = new BattleEngine(graph,
+                    new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+                    new string[0], new string[0], floor, seed: 1);
+
+                int back = 0, front = 0;
+                foreach (var e in engine.Enemies)
+                    if (e.Row == EnemyRow.Back) back++; else front++;
+                Assert.That(back, Is.LessThanOrEqualTo(3), $"第 {depth} 层后排超过 3");
+                Assert.That(front, Is.LessThanOrEqualTo(3), $"第 {depth} 层前排超过 3");
+            }
         }
     }
 }
