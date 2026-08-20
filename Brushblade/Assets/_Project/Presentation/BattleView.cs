@@ -85,6 +85,7 @@ namespace Brushblade.Presentation
         // —— 奇遇的 260 宽选项钮塞不进去,所以给它们留一条横贯屏幕的带。
         // 它与 _libraryRow 在 y 上有重叠,但两者从不在同一阶段绘制(见 Refresh 的 switch)。
         private Transform _centerRow;
+        private GameObject _rowDivider;  // 敌我前排之间的墨线:只在战斗阶段现身(2026-08-20)
         private Text _messageLabel;
         private string _hintBucket;      // 差字目录一级选中的五行桶(金木水火土心/中性;null = 收起)
         private string _hintCharFocus;   // 三级目录二级选中的字(null = 未选)
@@ -500,11 +501,11 @@ namespace Brushblade.Presentation
 
             // 敌我前排之间的分隔线:两侧「前排」贴着它,越远离它的排越靠后。
             // raycastTarget = false —— 它只是一条线,不能拦掉空白点击(那是取消选中用的)
-            var dividerGo = Ui.Panel(transform, "RowDivider");
-            var dividerImage = dividerGo.AddComponent<Image>();
+            _rowDivider = Ui.Panel(transform, "RowDivider");
+            var dividerImage = _rowDivider.AddComponent<Image>();
             dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.35f);
             dividerImage.raycastTarget = false;
-            Ui.Anchor((RectTransform)dividerGo.transform,
+            Ui.Anchor((RectTransform)_rowDivider.transform,
                 new Vector2(0.16f, 0.576f), new Vector2(0.86f, 0.578f), Vector2.zero, Vector2.zero);
 
             // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字(省 17px)、
@@ -678,6 +679,11 @@ namespace Brushblade.Presentation
             Ui.Clear(_summonBackRow);
             if (_run.Phase != RunPhase.Reward && _run.Phase != RunPhase.Reviving && _rewardModal != null)
                 Destroy(_rewardModal); // 离开战利品/复活阶段:弹窗不能留在战斗界面上
+
+            // 分隔线是 transform 的直接子节点、不参与上面的 Ui.Clear(它不该每帧重建),
+            // 所以要在这里显式收起:战利品/复活/奇遇/部件超限/跑图结束这些阶段四排全空,
+            // 留着它就是一条孤零零横在标题下方的墨线(2026-08-20 修回)。
+            _rowDivider.SetActive(_run.Phase == RunPhase.InBattle);
 
             switch (_run.Phase)
             {
@@ -2028,7 +2034,11 @@ namespace Brushblade.Presentation
         {
             var evt = _run.CurrentEvent;
             Ui.ThemedLabel(_enemyFrontRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(_statusRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 18, Theme.TextDim);
+            // 情境文案画在标题正下方那一排,**不是** _statusRow(2026-08-20 修回):下三区整体
+            // 下移之后 _statusRow 落到了屏幕最底边,自上而下成了 标题 → 选项钮 → 部件池 → 文案,
+            // 玩家得先看见三个按钮、再把视线甩到屏幕底边才读得到自己在选什么。
+            // 这一排在奇遇阶段本来就是空的(四排只在战斗阶段画),借来放文案不占用别人的地方。
+            Ui.ThemedLabel(_summonFrontRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 18, Theme.TextDim);
 
             if (_pendingEventOption >= 0)
             {
