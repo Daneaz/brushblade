@@ -985,7 +985,6 @@ namespace Brushblade.Core.Tests
             Assert.That(run.CarriedSummons.Count, Is.EqualTo(4));
             run.SkipReward();                                                // 开下一层
 
-            Assert.That(run.Battle.Summons.Count, Is.EqualTo(4));
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(4));
             var carried = run.Battle.Summons[0];
             Assert.That(carried.Char, Is.EqualTo("木"));
@@ -1012,7 +1011,7 @@ namespace Brushblade.Core.Tests
             run.AdvanceAfterBattle();
             run.SkipReward();
 
-            Assert.That(run.Battle.Summons.Count, Is.EqualTo(1), "死尸不带走,槽位从 0 号重排");
+            Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(1), "死尸不带走,槽位从 0 号重排");
             Assert.That(run.Battle.Summons[0].Alive, Is.True);
             Assert.That(run.Battle.Summons[0].Hp, Is.EqualTo(1), "残血原样带走,不回满");
         }

@@ -932,7 +932,7 @@ namespace Brushblade.Core.Tests
             var engine = IdentityEngine(new[] { "林" },
                 new[] { new EnemyDef("怔", Element.Heart, 100, 5) });
             engine.Cast("林");
-            Assert.That(engine.Summons.Count, Is.EqualTo(2));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(2));
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(6));
             Assert.That(engine.Summons[0].Char, Is.EqualTo("木"));
 
@@ -1054,7 +1054,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("林"); // 已满 4
             int alive = 0;
             foreach (var summon in engine.Summons)
-                if (summon.Alive) alive++;
+                if (summon != null && summon.Alive) alive++;
             Assert.That(alive, Is.EqualTo(4));
         }
 

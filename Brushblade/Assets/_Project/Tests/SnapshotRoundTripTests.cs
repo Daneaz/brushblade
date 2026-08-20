@@ -54,7 +54,7 @@ namespace Brushblade.Core.Tests
                           $"atk{e.Attack},def{e.Defense},ab{e.Statuses.TotalMagnitude(StatusKind.ArmorBreak)},ph{e.PhaseIndex},rg{e.RegrowProgress}," +
                           $"sp{e.HasSplit},ht{e.HitsTaken})");
             foreach (var s in b.Summons)
-                sb.Append($"|S({s.Char},{s.Element},{s.Hp}/{s.MaxHp},atk{s.Attack})");
+                if (s != null) sb.Append($"|S({s.Char},{s.Element},{s.Hp}/{s.MaxHp},atk{s.Attack})");
             return sb.ToString();
         }
 
@@ -182,7 +182,7 @@ namespace Brushblade.Core.Tests
             a.Cast("林");
             a.EndTurn();  // 召唤挨一下,血量不满
             var b = Reload(a, def);
-            Assert.That(b.Summons.Count, Is.EqualTo(a.Summons.Count));
+            Assert.That(b.AliveSummonCount, Is.EqualTo(a.AliveSummonCount));
             a.EndTurn(); b.EndTurn();
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }

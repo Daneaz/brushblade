@@ -153,7 +153,7 @@ namespace Brushblade.Presentation
             _animShield = Battle.PlayerShield;
             _summonAnimHp.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
-                if (Battle.Summons[i].Alive) _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
+                if (Battle.Summons[i] != null && Battle.Summons[i].Alive) _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
             _animEnemyHp.Clear();
             foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
         }
@@ -222,7 +222,8 @@ namespace Brushblade.Presentation
                     break;
                 case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
                     int si = e.SecondIndex;
-                    if (si < 0 || si >= Battle.Summons.Count || !_summonAnimHp.ContainsKey(si)
+                    if (si < 0 || si >= Battle.Summons.Count || Battle.Summons[si] == null
+                        || !_summonAnimHp.ContainsKey(si)
                         || !_summonBarByCore.TryGetValue(si, out var sbar) || sbar.fill == null) break;
                     _summonAnimHp[si] = System.Math.Max(Battle.Summons[si].Hp, _summonAnimHp[si] - e.Amount);
                     SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
@@ -299,7 +300,7 @@ namespace Brushblade.Presentation
         private (int player, int[] summons, int[] enemies) MeterSnapshot()
         {
             var summons = new int[Battle.Summons.Count];
-            for (int i = 0; i < summons.Length; i++) summons[i] = Battle.Summons[i].ActionMeter;
+            for (int i = 0; i < summons.Length; i++) summons[i] = Battle.Summons[i]?.ActionMeter ?? 0;
             var enemies = new int[Battle.Enemies.Count];
             for (int i = 0; i < enemies.Length; i++) enemies[i] = Battle.Enemies[i].ActionMeter;
             return (Battle.PlayerActionMeter, summons, enemies);
@@ -700,7 +701,7 @@ namespace Brushblade.Presentation
             foreach (var enemy in battle.Enemies)
                 sb.Append('|').Append(enemy.Hp).Append(',').Append(enemy.Statuses.TotalMagnitude(StatusKind.Burn)).Append(',').Append(enemy.Attack);
             foreach (var summon in battle.Summons)
-                sb.Append('|').Append(summon.Hp);
+                sb.Append('|').Append(summon?.Hp ?? -1);
             return sb.ToString();
         }
 
@@ -896,6 +897,7 @@ namespace Brushblade.Presentation
             for (int i = 0; i < Battle.Summons.Count; i++)
             {
                 var summon = Battle.Summons[i];
+                if (summon == null) continue;
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
                 if (!summon.Alive && !(Animating && _summonAnimHp.ContainsKey(i))) continue;
                 var cell = Ui.VStack(_summonRow, $"Summon{i}", 1);
@@ -925,7 +927,7 @@ namespace Brushblade.Presentation
         {
             if (index < 0 || index >= Battle.Summons.Count) return;
             var summon = Battle.Summons[index];
-            if (!summon.Alive) return;
+            if (summon == null || !summon.Alive) return;
             if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
                 new Vector2(320, 200), ("知道了", null, Theme.LockedBg, Theme.TextMain));

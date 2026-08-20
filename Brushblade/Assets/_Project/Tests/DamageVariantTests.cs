@@ -342,7 +342,8 @@ namespace Brushblade.Core.Tests
             engine.Cast("闪");
 
             var meta = new MetaState { EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 } };
-            foreach (var summon in engine.Summons) meta.EndlessV2.CarriedSummons.Add(summon.Capture());
+            foreach (var summon in engine.Summons)
+                if (summon != null) meta.EndlessV2.CarriedSummons.Add(summon.Capture());
             var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
 
             var revived = new BattleEngine(Graph(),

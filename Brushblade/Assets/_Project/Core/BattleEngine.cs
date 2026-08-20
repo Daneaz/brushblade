@@ -214,8 +214,13 @@ namespace Brushblade.Core
         private readonly BattleConfig _config;
         private readonly GameRandom _random;
         private readonly List<EnemyState> _enemies = new();
-        private readonly List<SummonState> _summons = new();
-        private const int SummonCap = 6; // 场上存活召唤物上限(2026-08-03:4 → 6)
+        /// <summary>召唤物槽位(2026-08-20):**定长 6,下标即槽位**。0/1/2 = 前排,3/4/5 = 后排。
+        /// null = 空槽;Hp &lt;= 0 = 尸体,仍占槽,可被复活就地救回(引擎从不移除阵亡召唤物)。
+        /// 选定长数组而非「紧凑 List + Slot 字段」的理由见 spec §3.1:事件的 SecondIndex、
+        /// 表现层的血条引用、存档下标现在三者是同一个数,槽位化后仍是同一个数。</summary>
+        private readonly SummonState[] _summons = new SummonState[SummonCap];
+        private const int SummonCap = 6;      // 场上召唤物槽位数(2026-08-03:4 → 6)
+        private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20):槽 [0, FrontRowSize) 为前排
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         // 焦痕受击存活的加攻(**百分点**,2026-08-12 由「+2 点」换算而来:焦痕 BaseAttack = 4,
         // 50% × 4 = 2,对任意层数逐位等价 —— AttackBuffUnitTests 的焦痕序列守着这条零行为变化)
@@ -401,7 +406,7 @@ namespace Brushblade.Core
             // SummonReplaceCountOf),存档文件那条路径也只写受约束过的携带态,不存在真实超员输入。
             if (startingSummons != null)
                 foreach (var summon in startingSummons)
-                    _summons.Add(SummonState.Restore(summon));
+                    _summons[NextEmptySlot()] = SummonState.Restore(summon);
             // 减伤跨战斗保留(2026-08-04):与普通盾同口径,段内持久,到段末才清。
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
@@ -459,7 +464,8 @@ namespace Brushblade.Core
                 MoraleGraceTurn = _moraleGraceTurn,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
-            foreach (var summon in _summons) snapshot.Summons.Add(summon.Capture());
+            for (int s = 0; s < SummonCap; s++)
+                if (_summons[s] != null) snapshot.Summons.Add(_summons[s].Capture());
             foreach (var s in _playerStatuses.All) snapshot.PlayerStatuses.Add(s.Clone());
             return snapshot;
         }
@@ -491,7 +497,7 @@ namespace Brushblade.Core
                 engine._enemies.Add(EnemyState.Restore(enemy, def));
             }
             foreach (var summon in snapshot.Summons)
-                engine._summons.Add(SummonState.Restore(summon));
+                engine._summons[engine.NextEmptySlot()] = SummonState.Restore(summon);
             engine._playerStatuses.CopyFrom(snapshot.PlayerStatuses ?? new List<StatusEffect>());
             return engine;
         }
@@ -813,8 +819,8 @@ namespace Brushblade.Core
         /// `_events` 下一拍开头就被 Clear,存引用会拿到空列表。</summary>
         private OpeningStep CaptureOpeningStep()
         {
-            var summons = new int[_summons.Count];
-            for (int i = 0; i < summons.Length; i++) summons[i] = _summons[i].ActionMeter;
+            var summons = new int[SummonCap];
+            for (int i = 0; i < SummonCap; i++) summons[i] = _summons[i]?.ActionMeter ?? 0;
             var enemies = new int[_enemies.Count];
             for (int i = 0; i < enemies.Length; i++) enemies[i] = _enemies[i].ActionMeter;
             return new OpeningStep(LastActor, LastAdvanceTicks, PlayerActionMeter,
@@ -852,9 +858,9 @@ namespace Brushblade.Core
             {
                 new(ActorRef.Player, EffectivePlayerSpeed, PlayerActionMeter, 0),
             };
-            for (int s = 0; s < _summons.Count; s++)
+            for (int s = 0; s < SummonCap; s++)
             {
-                if (!_summons[s].Alive) continue;
+                if (_summons[s] == null || !_summons[s].Alive) continue;
                 slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Summon, s),
                     _summons[s].Speed, _summons[s].ActionMeter, 1));
             }
@@ -1029,7 +1035,7 @@ namespace Brushblade.Core
         private void ActSummonTurn(int s)
         {
             var summon = _summons[s];
-            if (!summon.Alive) return;
+            if (summon == null || !summon.Alive) return;
 
             int heal = summon.Passive?.HealAlly ?? 0;
             if (heal > 0) HealPlayerAndSummons(heal);
@@ -1126,6 +1132,7 @@ namespace Brushblade.Core
         private void StrikeOnceWithSummon(int summonIndex)
         {
             var summon = _summons[summonIndex];
+            if (summon == null) return;
             int target = -1;
             for (int i = 0; i < _enemies.Count; i++)
                 if (_enemies[i].Alive) { target = i; break; }
@@ -1639,9 +1646,13 @@ namespace Brushblade.Core
                             newborn.ActionMeter = TurnScheduler.Threshold;
                             if (AliveSummons() < SummonCap)
                             {
-                                _summons.Add(newborn);
-                                _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value));
-                                continue;
+                                int slot0 = NextEmptySlot();
+                                if (slot0 >= 0)
+                                {
+                                    _summons[slot0] = newborn;
+                                    _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot0));
+                                    continue;
+                                }
                             }
                             if (!replaceSummon) break; // 溢出已在 Cast 拒出,走不到这;留作越界兜底
                             int slot = NextAliveSummonIndex(replaceCursor);
@@ -1657,7 +1668,7 @@ namespace Brushblade.Core
                         {
                             int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);
                             foreach (var summon in _summons)
-                                if (summon.Alive) summon.Shield += shieldGrant;
+                                if (summon != null && summon.Alive) summon.Shield += shieldGrant;
                         }
                         break;
                 }
@@ -1875,7 +1886,7 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
             foreach (var summon in _summons)
             {
-                if (!summon.Alive) continue;
+                if (summon == null || !summon.Alive) continue;
                 summon.Hp = Math.Min(summon.MaxHp, summon.Hp + amount);
             }
         }
@@ -1897,25 +1908,38 @@ namespace Brushblade.Core
         {
             int alive = 0;
             foreach (var summon in _summons)
-                if (summon.Alive) alive++;
+                if (summon != null && summon.Alive) alive++;
             return alive;
         }
 
         private int FirstAliveSummonIndex() => NextAliveSummonIndex(0);
 
         /// <summary>第一具尸体的槽位;没有返回 −1。引擎从不移除阵亡召唤物
-        /// (表现层只是不画它们),所以复活直接就地救回。</summary>
+        /// (表现层只是不画它们),所以复活直接就地救回。null 不是尸体,
+        /// 复活救不回一个从未存在过的召唤物。</summary>
         private int FirstDeadSummonIndex()
         {
-            for (int s = 0; s < _summons.Count; s++)
-                if (!_summons[s].Alive) return s;
+            for (int s = 0; s < SummonCap; s++)
+                if (_summons[s] != null && !_summons[s].Alive) return s;
             return -1;
         }
 
         private int NextAliveSummonIndex(int from)
         {
-            for (int s = from; s < _summons.Count; s++)
-                if (_summons[s].Alive) return s;
+            for (int s = from; s < SummonCap; s++)
+                if (_summons[s] != null && _summons[s].Alive) return s;
+            return -1;
+        }
+
+        /// <summary>最小的可落位槽:优先真正的空槽,其次尸体槽;全被存活者占满返回 −1。
+        /// Task 1 阶段这是唯一的落位策略(等价于改前的「List 尾部追加」);Task 3 起
+        /// 玩家可以指定槽位,本函数退化为「玩家没指定时的兜底」。</summary>
+        private int NextEmptySlot()
+        {
+            for (int s = 0; s < SummonCap; s++)
+                if (_summons[s] == null) return s;
+            for (int s = 0; s < SummonCap; s++)
+                if (!_summons[s].Alive) return s;
             return -1;
         }
 
@@ -2301,8 +2325,8 @@ namespace Brushblade.Core
                     // 2026-08-12(E-b4 T3):不再套乘法减伤 —— 玩家份的点数护甲在
                     // DamagePlayerDirect 里减,召唤物份**不减**(召唤物没有护甲,也不借玩家的,spec §4.2)
                     DamagePlayerDirect(index, enemy.Attack * 2);
-                    for (int s = 0; s < _summons.Count; s++)
-                        if (_summons[s].Alive)
+                    for (int s = 0; s < SummonCap; s++)
+                        if (_summons[s] != null && _summons[s].Alive)
                             DamageSummon(index, s, enemy.Attack, enemy.Element);
                     break;
 

@@ -81,7 +81,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine(BossSkill.Deluge);
             engine.EndTurn();   // 敌方回合 1:普攻(此时场上无召唤物,伤害落在玩家身上)
             engine.Cast("林");   // 2 只 6 血木召唤
-            Assert.That(engine.Summons.Count, Is.EqualTo(2));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(2));
             int full = engine.PlayerHp;
 
             engine.EndTurn(); // 敌方回合 2:蓄力,不出手
@@ -93,7 +93,10 @@ namespace Brushblade.Core.Tests
             // 3 回合循环投放 1+0+2=3×Attack,与无技能 Boss 的 3×Attack 持平。
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "大招不被召唤物拦截,玩家份 Attack×2");
             foreach (var summon in engine.Summons)
+            {
+                if (summon == null) continue;
                 Assert.That(summon.Hp, Is.EqualTo(1)); // 6 血挨 5(心对木 ×1.0,召唤物份不翻倍)
+            }
         }
 
         [Test]
@@ -366,7 +369,10 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.PlayerHp, Is.EqualTo(full - 10), "倾覆玩家份不被满场召唤物拦截");
             foreach (var summon in engine.Summons)
+            {
+                if (summon == null) continue;
                 Assert.That(summon.Hp, Is.EqualTo(6), "倾覆不打召唤物,满血不掉");
+            }
         }
 
         [Test]

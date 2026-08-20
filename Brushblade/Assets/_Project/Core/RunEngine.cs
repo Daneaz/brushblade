@@ -682,7 +682,7 @@ namespace Brushblade.Core
             var alive = new List<SummonSnapshot>();
             foreach (var summon in Battle.Summons)
             {
-                if (!summon.Alive) continue;
+                if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
                 var snapshot = summon.Capture();
                 snapshot.ActionMeter = 0;
                 alive.Add(snapshot);

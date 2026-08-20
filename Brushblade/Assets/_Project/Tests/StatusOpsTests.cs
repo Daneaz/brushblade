@@ -669,7 +669,7 @@ namespace Brushblade.Core.Tests
             // 与「无敌人时出 AOE」同口径:消耗 AP 但无效果,不抛异常
             var engine = Engine(new[] { "苏" }, new[] { Dummy() });
             Assert.That(engine.Cast("苏", 0), Is.EqualTo(BattleError.None));
-            Assert.That(engine.Summons, Is.Empty);
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(0));
         }
 
         [Test]

@@ -88,7 +88,8 @@ namespace Brushblade.Core.Tests
             {
                 EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 },
             };
-            foreach (var summon in engine.Summons) meta.EndlessV2.CarriedSummons.Add(summon.Capture());
+            foreach (var summon in engine.Summons)
+                if (summon != null) meta.EndlessV2.CarriedSummons.Add(summon.Capture());
             meta.EndlessV2.CarriedSummons[0].Shield = 6; // 护盾字段也要过一趟序列化
 
             var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
@@ -311,7 +312,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "咒", "咒" }, new[] { new EnemyDef("靶", Element.Heart, 200, 8) });
             engine.Cast("咒");
             engine.Cast("咒");
-            Assert.That(engine.Summons.Count, Is.EqualTo(2));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(2));
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Attack, Is.EqualTo(6), "两只都挂了,仍是 −25%");
         }
@@ -556,9 +557,12 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "素", "盾" }, new[] { Dummy() });
             engine.Cast("素");
             engine.Cast("盾");
-            Assert.That(engine.Summons.Count, Is.EqualTo(3));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(3));
             foreach (var summon in engine.Summons)
+            {
+                if (summon == null) continue;
                 Assert.That(summon.Shield, Is.EqualTo(6), "先在场的那只也要吃到");
+            }
         }
 
         [Test]
