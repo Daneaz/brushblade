@@ -632,20 +632,27 @@ namespace Brushblade.Core
             if (!fromLibrary && !fromPool) return BattleError.NotCastable;
             if (Ap < def.ApCost) return BattleError.NotEnoughAp;
 
-            // 单体效果需要有效的存活目标;未指定且场上仅一个存活敌人时自动锁定(3.8.3 单敌免选)
-            if (NeedsTarget(def, attackMode) &&
-                (targetIndex < 0 || targetIndex >= _enemies.Count || !_enemies[targetIndex].Alive))
+            // 单体效果需要有效的存活目标;未指定或不合法时,**合法目标**恰好一个则自动锁定
+            // (3.8.3 单敌免选;2026-08-20 从「存活目标」改口径为「合法目标」——前排还剩一只时
+            //  点后排的字应当直接锁那一只,而不是弹一次没得选的选目标)
+            if (NeedsTarget(def, attackMode))
             {
-                int soleAlive = -1;
-                for (int i = 0; i < _enemies.Count; i++)
+                bool restricted = RestrictedToFrontRow(def, attackMode);
+                bool legal = targetIndex >= 0 && targetIndex < _enemies.Count && _enemies[targetIndex].Alive
+                    && (!restricted || Targeting.CanPlayerHit(_enemies, targetIndex, ignoresRow: false));
+                if (!legal)
                 {
-                    if (!_enemies[i].Alive) continue;
-                    if (soleAlive >= 0) { soleAlive = -1; break; } // 多于一个存活
-                    soleAlive = i;
+                    int sole = -1;
+                    for (int i = 0; i < _enemies.Count; i++)
+                    {
+                        if (!_enemies[i].Alive) continue;
+                        if (restricted && !Targeting.CanPlayerHit(_enemies, i, ignoresRow: false)) continue;
+                        if (sole >= 0) { sole = -1; break; } // 合法目标多于一个:交给 UI 去选
+                        sole = i;
+                    }
+                    if (sole < 0) return BattleError.InvalidTarget;
+                    targetIndex = sole;
                 }
-                if (soleAlive < 0)
-                    return BattleError.InvalidTarget;
-                targetIndex = soleAlive;
             }
 
             // 前排放不下就强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「是否替换?」。
@@ -825,6 +832,33 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Detonate)
                     return true;
             return false;
+        }
+
+        /// <summary>本次出字是否受敌方前排阻挡(2026-08-20,spec §4.2)。
+        ///
+        /// **只有 DamageSingle 受限**:控制、减益、灼烧、AOE 一律不受排位限制
+        /// ——「打不到后面,但够得着冻住、破甲、下毒」。
+        ///
+        /// 混合字按最严的算:效果里只要含一条 DamageSingle 就受限(如湮 = 直伤 + 全体驱散)。
+        /// 但只要有任一条直伤标了偷袭,整张字就是偷袭字——偷袭是字的身份,不是单条效果的属性。</summary>
+        public static bool RestrictedToFrontRow(CharDef def, bool attackMode = false)
+        {
+            bool hasDirectDamage = false;
+            foreach (var effect in EffectsOf(def, attackMode))
+            {
+                if (effect.Kind != EffectKind.DamageSingle) continue;
+                if (effect.CanStrikeBackline) return false;
+                hasDirectDamage = true;
+            }
+            return hasDirectDamage;
+        }
+
+        /// <summary>这张字现在能不能点这只敌人(表现层据此置灰;引擎在 Cast 里用同一条判据)。</summary>
+        public bool CanTarget(CharDef def, int enemyIndex, bool attackMode = false)
+        {
+            if (enemyIndex < 0 || enemyIndex >= _enemies.Count || !_enemies[enemyIndex].Alive) return false;
+            if (!RestrictedToFrontRow(def, attackMode)) return true;
+            return Targeting.CanPlayerHit(_enemies, enemyIndex, ignoresRow: false);
         }
 
         /// <summary>最近一次 AdvanceOnce 执行的行动者(表现层据此高亮行动条那一格)。</summary>
@@ -1166,9 +1200,9 @@ namespace Brushblade.Core
         {
             var summon = _summons[summonIndex];
             if (summon == null) return;
-            int target = -1;
-            for (int i = 0; i < _enemies.Count; i++)
-                if (_enemies[i].Alive) { target = i; break; }
+            // 近战打敌方前排、远程优先打后排(2026-08-20)。全部敌人默认前排时,
+            // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
+            int target = Targeting.PickEnemyTargetForSummon(_enemies, summon.Passive?.Ranged ?? false);
             if (target < 0) return;
             _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, summonIndex));
             if (summon.Attack > 0)

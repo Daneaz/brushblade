@@ -116,5 +116,115 @@ namespace Brushblade.Core.Tests
             Assert.That(Targeting.FrontmostSummon(Line(4, 5), FrontRow), Is.EqualTo(4), "前排空则取后排");
             Assert.That(Targeting.FrontmostSummon(Line(), FrontRow), Is.EqualTo(-1));
         }
+
+        /// <summary>四张叶子字直出:剑=纯直伤、刺=带偷袭的直伤、藤=纯冻结、湮=直伤+驱散(混合字)。</summary>
+        private static RecipeGraph DamageGraph() => new(new[]
+        {
+            new CharDef("剑", Element.Heart, effects: new[] {
+                new EffectDef(EffectKind.DamageSingle, 50) }),
+            new CharDef("刺", Element.Heart, effects: new[] {
+                new EffectDef(EffectKind.DamageSingle, 50, canStrikeBackline: true) }),
+            new CharDef("藤", Element.Heart, effects: new[] {
+                new EffectDef(EffectKind.Freeze, 2) }),
+            new CharDef("湮", Element.Heart, effects: new[] {
+                new EffectDef(EffectKind.DamageSingle, 20), new EffectDef(EffectKind.Dispel, 1) }),
+        });
+
+        /// <summary>前甲(厚)/ 前乙(40 血,一剑即死)/ 后手。敌人攻 0,不会回手。</summary>
+        private static BattleEngine Trio() => new(DamageGraph(),
+            new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+            new string[0], new[] { "剑", "剑", "刺", "藤", "湮" },
+            new[]
+            {
+                new EnemyDef("前甲", Element.Heart, 400, 0),
+                new EnemyDef("前乙", Element.Heart, 40, 0),
+                new EnemyDef("后手", Element.Heart, 400, 0, row: EnemyRow.Back),
+            }, seed: 1);
+
+        [Test]
+        public void Cast_SingleDamage_RejectsBackRow_WhileTwoFrontAlive()
+        {
+            var engine = Trio();
+            int ap = engine.Ap;
+            int backHp = engine.Enemies[2].Hp;
+            Assert.That(engine.Cast("剑", 2), Is.EqualTo(BattleError.InvalidTarget));
+            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(backHp), "被拒的这次一点伤害也不该落下");
+            Assert.That(engine.Ap, Is.EqualTo(ap), "AP 不扣");
+        }
+
+        [Test]
+        public void Cast_ControlEffect_ReachesBackRow_EvenWithFrontAlive()
+        {
+            var engine = Trio();
+            Assert.That(engine.Cast("藤", 2), Is.EqualTo(BattleError.None), "控制类不受排位限制");
+            Assert.That(engine.Enemies[2].Statuses.Has(StatusKind.Freeze), Is.True);
+        }
+
+        [Test]
+        public void Cast_BackstabDamage_ReachesBackRow()
+        {
+            var engine = Trio();
+            Assert.That(engine.Cast("刺", 2), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[2].Hp, Is.LessThan(400), "偷袭字够得着后排");
+        }
+
+        [Test]
+        public void Cast_MixedCard_TakesTheStrictestRule()
+        {
+            var engine = Trio();
+            Assert.That(engine.Cast("湮", 2), Is.EqualTo(BattleError.InvalidTarget),
+                "含单体直伤就受限,哪怕它还带一条驱散");
+        }
+
+        [Test]
+        public void Cast_AutoLocks_WhenExactlyOneLegalTargetRemains()
+        {
+            var engine = Trio();
+            engine.Cast("剑", 1);                       // 50 伤打死 40 血的前乙
+            Assert.That(engine.Enemies[1].Alive, Is.False);
+            // 现在存活的有两只(前甲、后手),但**合法的**只有前甲一只 → 不指定目标应自动锁它
+            Assert.That(engine.Cast("剑"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(350), "自动锁的是前甲");
+            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(400), "后手没被碰到");
+        }
+
+        private static RecipeGraph SummonRangeGraph() => new(new[]
+        {
+            new CharDef("松", Element.Heart, effects: new[] {
+                new EffectDef(EffectKind.Summon, 200, summonCount: 1, summonAttack: 30, summonChar: "松") }),
+            new CharDef("灶", Element.Heart, effects: new[] {
+                new EffectDef(EffectKind.Summon, 200, summonCount: 1, summonAttack: 30, summonChar: "灶",
+                    passive: new SummonPassive { Ranged = true }) }),
+        });
+
+        /// <summary>一前一后两只怪(攻 0),字库里放指定的召唤字。</summary>
+        private static BattleEngine SummonRangeDuel(string summonChar) => new(
+            SummonRangeGraph(), new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+            new string[0], new[] { summonChar, summonChar },
+            new[]
+            {
+                new EnemyDef("前卫", Element.Heart, 400, 0),
+                new EnemyDef("后手", Element.Heart, 400, 0, row: EnemyRow.Back),
+            }, seed: 1);
+
+        [Test]
+        public void MeleeSummon_HitsFrontRow()
+        {
+            var engine = SummonRangeDuel("松");
+            engine.Cast("松", summonSlots: new[] { 0 });
+            engine.EndTurn();   // 新召唤物上场即满格,这一拍就出手
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(400), "近战打前排");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(400), "后排一滴不掉");
+        }
+
+        [Test]
+        public void RangedSummon_PrefersBackRow()
+        {
+            var engine = SummonRangeDuel("灶");
+            engine.Cast("灶", summonSlots: new[] { 0 });
+            engine.EndTurn();
+            Assert.That(engine.Enemies[1].Hp, Is.LessThan(400), "远程越过前排点后排");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(400));
+        }
     }
 }
