@@ -47,6 +47,15 @@ namespace Brushblade.Presentation
         private string _selectedChar;   // 当前选中的字/部件
         private int _selectedIndex = -1; // 选中的字库卡位(同字多张时区分是哪张,2026-08-17);部件池选中为 −1
         private bool _targeting;        // 等待点击敌人
+        // 召唤落位(2026-08-20):出召唤字先点位子,攒够只数才真正 Cast。
+        // 槽位攒在这里、没调 Cast 之前引擎一无所知 —— 连选途中取消整张字天然回滚。
+        private bool _slotPicking;      // 等待点击召唤位
+        private readonly List<int> _pickedSlots = new(); // 已点的槽位,按点击顺序;互不重复
+        private string _pendingSummonChar;   // 待落位的字
+        private int _pendingSummonTarget = -1;
+        private bool _pendingSummonAttackMode;
+        private int _pendingSummonLibraryIndex = -1;
+        private int _pendingSummonCount;     // 这张字召几只 = 要点几个位子
         private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
         private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
         private string _message = "点击字库中的字开始行动";
@@ -425,7 +434,7 @@ namespace Brushblade.Presentation
             backdropButton.targetGraphic = backdropImage;
             backdropButton.onClick.AddListener(() =>
             {
-                if (_selectedChar != null || _targeting) CancelSelection();
+                if (_selectedChar != null || _targeting || _slotPicking) CancelSelection();
             });
 
             // 顶栏:标题 | 墨锭 · 回合 · 退出
@@ -980,7 +989,7 @@ namespace Brushblade.Presentation
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
                 bool visible = summon != null
                     && (summon.Alive || (Animating && _summonAnimHp.ContainsKey(i)));
-                if (!visible) { DrawEmptySummonSlot(i, front); continue; }
+                if (!visible) { DrawEmptySummonSlot(i, front, summon); continue; }
                 var cell = Ui.VStack(front ? _summonFrontRow : _summonBackRow, $"Summon{i}", SummonStackSpacing);
                 var cellElement = cell.AddComponent<LayoutElement>();
                 cellElement.preferredWidth = SummonCellWidth;
@@ -1007,12 +1016,17 @@ namespace Brushblade.Presentation
                 string passiveTag = SummonPassiveTag(summon.Passive);
                 if (passiveTag.Length > 0)
                     Ui.ThemedLabel(stats, passiveTag, 11, Theme.Cinnabar);
+                if (_slotPicking) AttachSlotPicker(cell.transform, summonIndex);
             }
         }
 
         /// <summary>空槽虚框(2026-08-20):只画一个淡淡的圆角占位块,与该排字块同尺寸同位置。
-        /// 不写字 —— 战斗界面里新增的任何汉字都要过字体子集,占位不值得为此加一个字符。</summary>
-        private void DrawEmptySummonSlot(int slot, bool front)
+        /// 不写字 —— 战斗界面里新增的任何汉字都要过字体子集,占位不值得为此加一个字符。
+        ///
+        /// 尸体槽平时也走这里(引擎从不移除阵亡召唤物,<c>Alive == false</c> 的条目一直占着槽),
+        /// 但**选位子的时候**要把原字画出来:玩家得看得出这一格是空的还是躺着一具尸体
+        /// ——点它的后果一样(直接落位、不弹确认),看到的东西却不该一样。</summary>
+        private void DrawEmptySummonSlot(int slot, bool front, SummonState corpse = null)
         {
             var cell = Ui.Panel(front ? _summonFrontRow : _summonBackRow, $"SummonEmpty{slot}");
             var cellElement = cell.AddComponent<LayoutElement>();
@@ -1023,11 +1037,54 @@ namespace Brushblade.Presentation
             var image = ghost.AddComponent<Image>();
             image.sprite = Theme.Rounded(12);
             image.type = Image.Type.Sliced;
-            image.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.12f);
+            bool showCorpse = _slotPicking && corpse != null;
+            image.color = showCorpse
+                ? Theme.LockedBg
+                : new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.12f);
             image.raycastTarget = false; // 空槽不吃点击:让空白点击照旧落到 Backdrop 上取消选中
             // 与实格的字块对齐:实格是 VStack 从顶排下来,字块贴格顶
             Ui.Anchor((RectTransform)ghost.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(-glyphSize / 2f, -glyphSize), new Vector2(glyphSize / 2f, 0f));
+            if (showCorpse)
+            {
+                var corpseGlyph = Ui.ThemedLabel(ghost.transform, corpse.Char,
+                    Mathf.RoundToInt(glyphSize * 0.46f), Theme.LockGray, Theme.TitleFont);
+                Ui.Stretch(corpseGlyph.rectTransform);
+            }
+            if (_slotPicking) AttachSlotPicker(cell.transform, slot);
+        }
+
+        /// <summary>选位子态的整格点击层(2026-08-20):盖满一格吃下点击,按「可选 / 已选」着色。
+        /// 整格而不是只有字块 —— 移动端手指落点粗,180×98 的格比 56 的字块好点得多。
+        ///
+        /// ⚠ 已点过的位子当场变朱砂且 <c>interactable = false</c>,这是**唯一**的去重把关处:
+        /// 传给 <c>Cast</c> 的 summonSlots 里一旦出现重复下标,落位循环会把第二只写进同一个槽、
+        /// 把第一只顶掉,而 Cast 已经返回 None、AP 也已经扣了 —— 玩家花了字只拿到一只。</summary>
+        private void AttachSlotPicker(Transform cell, int slot)
+        {
+            int order = _pickedSlots.IndexOf(slot);
+            bool picked = order >= 0;
+            var overlay = Ui.Panel(cell, "SlotPick");
+            // 实格是 VStack:不忽略布局的话这一层会被当成第五行排进去,把整格挤变形
+            overlay.AddComponent<LayoutElement>().ignoreLayout = true;
+            var image = overlay.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.color = picked
+                ? new Color(Theme.Cinnabar.r, Theme.Cinnabar.g, Theme.Cinnabar.b, 0.28f)
+                : new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, 0.14f);
+            Ui.Stretch((RectTransform)overlay.transform);
+            if (picked && _pendingSummonCount > 1) // 连选时标出这格排第几只,免得玩家忘了点到哪
+            {
+                var tag = Ui.ThemedLabel(overlay.transform, $"第 {order + 1} 只", 13, Theme.Cinnabar, Theme.TitleFont);
+                Ui.Anchor(tag.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f),
+                    Vector2.zero, new Vector2(0f, 17f));
+            }
+            var button = overlay.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = image;
+            button.interactable = !picked;
+            if (!picked) button.onClick.AddListener(() => OnSlotPicked(slot));
         }
 
         /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称。
@@ -1299,7 +1356,7 @@ namespace Brushblade.Presentation
                 {
                     int target = EnemyIndexAt(screenPos);
                     if (target < 0) { CancelSelection(); return; } // 没落在敌人身上:当作取消,不出字
-                    ExecuteCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
+                    BeginCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
                 });
         }
 
@@ -2260,6 +2317,7 @@ namespace Brushblade.Presentation
             _selectedChar = charId;
             _selectedIndex = index;
             _targeting = false;
+            ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
             _message = Brief(charId) + "|再点即出";
             Refresh();
         }
@@ -2274,6 +2332,7 @@ namespace Brushblade.Presentation
             _selectedChar = charId;
             _selectedIndex = -1;
             _targeting = false;
+            ResetSlotPicking();
             _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
             Refresh();
         }
@@ -2287,7 +2346,7 @@ namespace Brushblade.Presentation
                 Refresh();
                 return;
             }
-            ExecuteCast(def.Id, -1, libraryIndex: _selectedIndex); // 单敌免选:引擎自动锁定唯一存活目标
+            BeginCast(def.Id, -1, attackMode: false, libraryIndex: _selectedIndex);
         }
 
         private int AliveEnemyCount()
@@ -2298,11 +2357,79 @@ namespace Brushblade.Presentation
             return count;
         }
 
+        // ---- 召唤落位(2026-08-20) ----
+
+        /// <summary>出字总入口:召唤字先进选位子态,其余照旧直接结算。
+        /// 目标已经选过了(若需要),这里只补落位。</summary>
+        private void BeginCast(string charId, int target, bool attackMode, int libraryIndex)
+        {
+            int summonCount = Battle.SummonCountOf(_graph.Get(charId), attackMode);
+            if (summonCount <= 0)
+            {
+                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
+                return;
+            }
+            _slotPicking = true;
+            _targeting = false;
+            _pickedSlots.Clear();
+            _pendingSummonChar = charId;
+            _pendingSummonTarget = target;
+            _pendingSummonAttackMode = attackMode;
+            _pendingSummonLibraryIndex = libraryIndex;
+            _pendingSummonCount = summonCount;
+            _message = SlotPickMessage();
+            Refresh();
+        }
+
+        private string SlotPickMessage() => _pendingSummonCount > 1
+            ? $"「{_pendingSummonChar}」召 {_pendingSummonCount} 只:点第 {_pickedSlots.Count + 1} 只站的位置|点空白取消"
+            : $"「{_pendingSummonChar}」:点一个位置安置|点空白取消";
+
+        /// <summary>点一个召唤位。空槽与尸体槽直接落位;站着人的位子照样先记下,
+        /// 等凑齐了由引擎的 SummonCapFull 闸门统一弹一次顶替确认(见 <see cref="ExecuteCast"/>)
+        /// —— 不在这里逐格弹,连召两只时玩家会连吃两个弹窗。</summary>
+        private void OnSlotPicked(int slot)
+        {
+            if (!_slotPicking || slot < 0 || slot >= Battle.Summons.Count) return;
+            if (_pickedSlots.Contains(slot)) return; // 已选过:重复下标会让第二只顶掉第一只
+            _pickedSlots.Add(slot);
+            if (_pickedSlots.Count < _pendingSummonCount)
+            {
+                _message = SlotPickMessage();
+                Refresh();
+                return;
+            }
+            // 凑齐了才 Cast:长度恰好 = SummonCountOf,下标互不重复(上面那条守卫保证)
+            string charId = _pendingSummonChar;
+            int target = _pendingSummonTarget;
+            bool attackMode = _pendingSummonAttackMode;
+            int libraryIndex = _pendingSummonLibraryIndex;
+            int[] slots = _pickedSlots.ToArray();
+            ResetSlotPicking();
+            ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, summonSlots: slots);
+        }
+
+        private void ResetSlotPicking()
+        {
+            _slotPicking = false;
+            _pickedSlots.Clear();
+            _pendingSummonChar = null;
+            _pendingSummonTarget = -1;
+            _pendingSummonAttackMode = false;
+            _pendingSummonLibraryIndex = -1;
+            _pendingSummonCount = 0;
+        }
+
+        /// <summary>位子的人话名字:下标 0..5 玩家看不懂,说「前排第 2 位」才认得出是哪一格。</summary>
+        private string SlotName(int slot) => slot < Battle.FrontRow
+            ? $"前排第 {slot + 1} 位"
+            : $"后排第 {slot - Battle.FrontRow + 1} 位";
+
         private void OnEnemyClicked(int index)
         {
             if (_targeting && _selectedChar != null)
             {
-                ExecuteCast(_selectedChar, index, libraryIndex: _selectedIndex);
+                BeginCast(_selectedChar, index, attackMode: false, libraryIndex: _selectedIndex);
                 return;
             }
             // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做
@@ -2311,22 +2438,22 @@ namespace Brushblade.Presentation
         }
 
         private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false,
-            int libraryIndex = -1)
+            int libraryIndex = -1, IReadOnlyList<int> summonSlots = null)
         {
             bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex);
-            if (error == BattleError.SummonCapFull) // 前排满员强阻断:AP/字都没动,确认替换才重出
+            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots);
+            if (error == BattleError.SummonCapFull) // 顶替强阻断:AP/字都没动,确认了才重出
             {
                 var def = _graph.Get(charId);
-                int replaceCount = Battle.SummonReplaceCountOf(def, attackMode); // 空位不够的那部分才顶人
-                ShowModal("前排放不下",
-                    $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{charId}」召 {Battle.SummonCountOf(def, attackMode)} 只。\n"
-                    + $"将从最前起顶掉 {replaceCount} 只。",
-                    ($"替换最前 {replaceCount} 只",
-                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex), Theme.Cinnabar, Color.white),
+                int replaceCount = Battle.SummonReplaceCountOf(def, attackMode, summonSlots);
+                ShowModal("这个位置有人",
+                    ReplaceSummonBody(def, attackMode, summonSlots),
+                    ($"顶替 {replaceCount} 只",
+                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots),
+                        Theme.Cinnabar, Color.white),
                     ("取消", null, Theme.LockedBg, Theme.TextMain));
-                _message = "前排已满,出字待确认";
+                _message = "选的位置上站着人,出字待确认";
                 CancelSelection();
                 return;
             }
@@ -2355,6 +2482,26 @@ namespace Brushblade.Presentation
                     PlayAnimated(events, deaths); // 无伤害目标(纯护盾等)或起点缺失:即时表现
                 MaybeAutoEndTurn();
             }
+        }
+
+        /// <summary>顶替确认的正文:按玩家实际点的位子说话(2026-08-20)。
+        /// summonSlots 为 null 是自动落位的老路径(表现层眼下都走选位子,只剩兜底意义),
+        /// 那时说不出具体是哪一格,退回旧口径的整体说法。</summary>
+        private string ReplaceSummonBody(CharDef def, bool attackMode, IReadOnlyList<int> summonSlots)
+        {
+            int count = Battle.SummonCountOf(def, attackMode);
+            if (summonSlots == null)
+                return $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{def.Id}」召 {count} 只。\n"
+                    + $"将从最前起顶掉 {Battle.SummonReplaceCountOf(def, attackMode)} 只。";
+            var body = new StringBuilder();
+            for (int n = 0; n < count && n < summonSlots.Count; n++)
+            {
+                int slot = summonSlots[n];
+                if (Battle.SlotOccupancy(slot) != SlotState.Alive) continue;
+                body.Append($"{SlotName(slot)}上的「{Battle.Summons[slot].Char}」会被顶替。\n");
+            }
+            body.Append("被顶替的一只当场消失。");
+            return body.ToString();
         }
 
         /// <summary>召唤替换(Summon 事件带被顶替槽位):抹掉该槽的出手前血量快照,
@@ -2657,6 +2804,7 @@ namespace Brushblade.Presentation
             _selectedChar = null;
             _selectedIndex = -1;
             _targeting = false;
+            ResetSlotPicking(); // 连选途中取消 = 整张字回滚:没调 Cast,AP 与字库一滴未动
             Refresh();
         }
 
