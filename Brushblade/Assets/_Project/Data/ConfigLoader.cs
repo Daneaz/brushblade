@@ -387,7 +387,18 @@ namespace Brushblade.Data
                             SkillFor(bossSkills, phase.Char, phase.Skill, dto.Id), phase.Defense));
                     }
                 }
-                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases, dto.Defense);
+                var row = EnemyRow.Front;
+                if (dto.Row != null && !Enum.TryParse(dto.Row, out row))
+                    throw new ConfigException($"敌人「{dto.Id}」的站位未知:{dto.Row}");
+                var range = AttackRange.Melee;
+                if (dto.Range != null && !Enum.TryParse(dto.Range, out range))
+                    throw new ConfigException($"敌人「{dto.Id}」的攻击距离未知:{dto.Range}");
+                var focus = AttackFocus.Default;
+                if (dto.Focus != null && !Enum.TryParse(dto.Focus, out focus))
+                    throw new ConfigException($"敌人「{dto.Id}」的目标偏好未知:{dto.Focus}");
+
+                enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases,
+                    dto.Defense, speed: 0, row: row, range: range, focus: focus);
             }
             return enemyDefs;
         }
@@ -401,6 +412,9 @@ namespace Brushblade.Data
             public string Ability { get; set; }
             public List<PhaseDto> Phases { get; set; }
             public int Defense { get; set; }   // 护甲点数(2026-08-12,E-b4;缺省 0 = 无甲)
+            public string Row { get; set; }    // "Front" / "Back";缺省前排
+            public string Range { get; set; }  // "Melee" / "Ranged";缺省近战
+            public string Focus { get; set; }  // "Default" / "Player";缺省 Default
         }
 
         private sealed class PhaseDto

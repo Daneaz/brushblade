@@ -231,6 +231,8 @@ namespace Brushblade.Core
         private const int SummonCap = 6;      // 场上召唤物槽位数(2026-08-03:4 → 6)
         private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20):槽 [0, FrontRowSize) 为前排
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
+        private const int EnemyRowCap = 3;    // 每排敌人上限(2026-08-20)
+        public int EnemyRowCapacity => EnemyRowCap;
         // 焦痕受击存活的加攻(**百分点**,2026-08-12 由「+2 点」换算而来:焦痕 BaseAttack = 4,
         // 50% × 4 = 2,对任意层数逐位等价 —— AttackBuffUnitTests 的焦痕序列守着这条零行为变化)
         private const int ScorchGain = 50;
@@ -406,6 +408,7 @@ namespace Brushblade.Core
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
                 _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
+            AssignRows();
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
             _shieldNormal = startingNormalShield;
@@ -1962,6 +1965,22 @@ namespace Brushblade.Core
             return alive;
         }
 
+        /// <summary>按每排上限 3 给场上敌人定实际站位(2026-08-20)。
+        /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排。
+        /// 两排都满走不到 —— EnemyCap 6 = 3 + 3,列表长度天然受限。</summary>
+        private void AssignRows()
+        {
+            int front = 0, back = 0;
+            foreach (var enemy in _enemies)
+            {
+                bool wantsBack = enemy.Def.Row == EnemyRow.Back;
+                if (wantsBack && back < EnemyRowCap) { enemy.Row = EnemyRow.Back; back++; }
+                else if (!wantsBack && front < EnemyRowCap) { enemy.Row = EnemyRow.Front; front++; }
+                else if (front < EnemyRowCap) { enemy.Row = EnemyRow.Front; front++; }
+                else { enemy.Row = EnemyRow.Back; back++; }
+            }
+        }
+
         private int FirstAliveSummonIndex() => NextAliveSummonIndex(0);
 
         /// <summary>第一具尸体的槽位;没有返回 −1。引擎从不移除阵亡召唤物
@@ -2146,7 +2165,8 @@ namespace Brushblade.Core
                 _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
             }
 
-            // 叠字怪:首次受击存活 → 分裂成两个半血(8.3;场上 <EnemyCap 时)
+            // 叠字怪:首次受击存活 → 分裂成两个半血(8.3)。2026-08-20:克隆继承母体排位;
+            // 母体那排满了就落另一排;两排都满(= 场上 6 只)才不分裂。
             if (enemy.Def.Ability == EnemyAbility.Split && !IsSilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
                 int half = (enemy.Hp + 1) / 2;
@@ -2157,10 +2177,21 @@ namespace Brushblade.Core
                     Hp = half,
                     BaseAttack = enemy.Attack, // 一次性快照,不是活的引用——分裂出的怪不继承驱散来源
                     HasSplit = true,
+                    Row = RowWithSpace(enemy.Row),
                 };
                 _enemies.Add(clone);
                 _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
             }
+        }
+
+        /// <summary>优先返回 preferred 排(未满时),否则另一排。调用方已保证场上未满 EnemyCap,
+        /// 所以必有一排有空位。</summary>
+        private EnemyRow RowWithSpace(EnemyRow preferred)
+        {
+            int count = 0;
+            foreach (var e in _enemies)
+                if (e.Row == preferred) count++;
+            return count < EnemyRowCap ? preferred : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
         }
 
         private void ResolveDefeat(int enemyIndex)

@@ -17,6 +17,19 @@ namespace Brushblade.Core
         Sear,     // 灯花:每次攻击给玩家挂 1 层灼烧(2026-08-06;玩家侧减益的来源之一)
     }
 
+    /// <summary>站位(2026-08-20)。敌我各 3 前 3 后。前排未清空时,单体直接伤害够不到后排。
+    /// 排位只决定**能不能被够到**,不决定这只单位自己能不能出手——后排照常攻击。</summary>
+    public enum EnemyRow { Front, Back }
+
+    /// <summary>攻击距离(2026-08-20)。Ranged 无视对方前排。
+    /// 与 <see cref="EnemyAbility"/> 正交:做成 Ability 的取值会与灯花/焦痕互斥,
+    /// 而「远程的灯花」是完全合理的组合。</summary>
+    public enum AttackRange { Melee, Ranged }
+
+    /// <summary>够得着玩家时打谁(2026-08-20)。
+    /// Default = 在「对方存活后排 ∪ 玩家」里均匀随机;Player = 死盯玩家。</summary>
+    public enum AttackFocus { Default, Player }
+
     /// <summary>Boss 阶段技能(spec 2026-07-28):蓄力一回合后释放。
     /// Bulwark 为被动标签,行为与 None 相同(靠 <see cref="BossPhaseDef.Defense"/> 的高护甲吃伤),
     /// 分开只为可读性——Bulwark = 设计上就该是肉墙,None = 这字还没配技能。</summary>
@@ -94,9 +107,17 @@ namespace Brushblade.Core
         ///      没有任何非玩家单位能伤害召唤物;敌人一旦配速就变可达,要同时修。</summary>
         public int Speed { get; }
 
+        /// <summary>站位偏好(2026-08-20,缺省前排)。实际站位由 <see cref="EnemyState.Row"/> 决定
+        /// ——每排上限 3,偏好排满了会被改判到另一排。</summary>
+        public EnemyRow Row { get; }
+        public AttackRange Range { get; }
+        public AttackFocus Focus { get; }
+
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
-            int defense = 0, int speed = 0)
+            int defense = 0, int speed = 0,
+            EnemyRow row = EnemyRow.Front, AttackRange range = AttackRange.Melee,
+            AttackFocus focus = AttackFocus.Default)
         {
             Id = id;
             Element = element;
@@ -106,6 +127,9 @@ namespace Brushblade.Core
             Phases = phases ?? System.Array.Empty<BossPhaseDef>();
             Defense = defense;
             Speed = speed;
+            Row = row;
+            Range = range;
+            Focus = focus;
         }
     }
 
@@ -198,6 +222,11 @@ namespace Brushblade.Core
         /// <summary>基础速度(2026-08-04)。有效速度 = Speed + 所有 SpeedModifier 之和,下限 0。
         /// 基数用本字段而非常量 100:将来若有天生快/慢的字怪,写死 100 会让它们的修正算错。</summary>
         public int Speed { get; set; } = 100;
+
+        /// <summary>实际站位(2026-08-20)。开场由 BattleEngine 按每排上限 3 分配:
+        /// 优先吃 Def.Row,该排满了改判到另一排。**进快照** —— 同一个 Id 的两只怪
+        /// 可能站不同排,而 Restore 是按 Id 查 Def 的,不存就会在读档时被合并。</summary>
+        public EnemyRow Row { get; internal set; }
 
         /// <summary>行动计量器:回合末累积有效速度,每满 100 行动一次。</summary>
         public int ActionMeter { get; internal set; }
@@ -298,6 +327,7 @@ namespace Brushblade.Core
                 ChargeCounter = ChargeCounter,
                 IsCharging = IsCharging,
                 ChargingSkill = ChargingSkill,
+                Row = Row,
             };
         }
 
@@ -321,6 +351,7 @@ namespace Brushblade.Core
                 ChargeCounter = snapshot.ChargeCounter,
                 IsCharging = snapshot.IsCharging,
                 ChargingSkill = snapshot.ChargingSkill,
+                Row = snapshot.Row,
             };
             state.Statuses.CopyFrom(snapshot.Statuses ?? new List<StatusEffect>());
             return state;
