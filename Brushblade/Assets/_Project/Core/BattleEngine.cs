@@ -232,7 +232,6 @@ namespace Brushblade.Core
         private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20):槽 [0, FrontRowSize) 为前排
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
         private const int EnemyRowCap = 3;    // 每排敌人上限(2026-08-20)
-        public int EnemyRowCapacity => EnemyRowCap;
         // 焦痕受击存活的加攻(**百分点**,2026-08-12 由「+2 点」换算而来:焦痕 BaseAttack = 4,
         // 50% × 4 = 2,对任意层数逐位等价 —— AttackBuffUnitTests 的焦痕序列守着这条零行为变化)
         private const int ScorchGain = 50;
