@@ -131,5 +131,39 @@ namespace Brushblade.Core.Tests
             KillFrontSummon(engine, 0);
             Assert.That(engine.SlotOccupancy(0), Is.EqualTo(SlotState.Corpse));
         }
+
+        /// <summary>建一个有「甲」(召 1 只「A」)与「戊」的引擎——「戊」带**两条独立的**
+        /// EffectKind.Summon 效果(各召 1 只,分别显示「P」「Q」),用来钉住「未指定槽位 +
+        /// 顶替」时的游标必须跨这两条效果持续推进,不能各自从 0 起算(2026-08-20 review 抓出
+        /// 的收窄作用域回归:游标一旦声明进 case 块内,第二条效果会重新顶掉第一条效果刚放
+        /// 进去的那只)。</summary>
+        private static BattleEngine MultiEffectSummonEngine(string[] library) => new(
+            new RecipeGraph(new[]
+            {
+                new CharDef("甲", Element.Wood, effects: new[]
+                    { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "A") }),
+                new CharDef("戊", Element.Wood, effects: new[]
+                {
+                    new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "P"),
+                    new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "Q"),
+                }),
+            }),
+            new BattleConfig { PlayerMaxHp = 50, ApPerTurn = 9, LibraryCapacity = 9 },
+            library, new string[0],
+            new[] { new EnemyDef("怔", Element.Heart, 100, 0) }, seed: 1);
+
+        [Test]
+        public void Cast_MultiEffectSummon_ReplaceMode_AdvancesAcrossEffects()
+        {
+            var engine = MultiEffectSummonEngine(new[] { "甲", "甲", "甲", "甲", "甲", "甲", "戊" });
+            for (int i = 0; i < 6; i++) engine.Cast("甲"); // 六槽全存活占满
+
+            Assert.That(engine.Cast("戊", replaceSummon: true), Is.EqualTo(BattleError.None));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(6), "顶替不增员");
+            Assert.That(engine.Summons[0].Char, Is.EqualTo("P"), "第一条 Summon 效果顶掉最前的槽 0");
+            Assert.That(engine.Summons[1].Char, Is.EqualTo("Q"),
+                "第二条 Summon 效果接着顶槽 1,不是把游标重置回槽 0 顶掉刚放进去的 P");
+            Assert.That(engine.Summons[2].Char, Is.EqualTo("A"), "其余不动");
+        }
     }
 }

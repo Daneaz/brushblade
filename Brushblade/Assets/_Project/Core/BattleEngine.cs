@@ -1353,6 +1353,15 @@ namespace Brushblade.Core
             var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
+            // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
+            // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
+            // 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
+            // 声明在方法头部(而不是 Summon 的 case 块内):同一个 CharDef 若有两条独立的
+            // EffectKind.Summon 效果(SummonCountOf 文档说的"多条召唤效果累加"),case 会命中
+            // 两次;声明在 case 块内会让游标每次从 0 重新起算,顶掉第一条效果刚放进去的那只 ——
+            // 这是 2026-08-20 review 抓出的收窄作用域回归,SummonSlotTests 的
+            // Cast_MultiEffectSummon_ReplaceMode_AdvancesAcrossEffects 钉住这个语义。
+            int replaceCursor = 0;
 
             foreach (var effect in EffectsOf(def, attackMode))
             {
@@ -1654,10 +1663,6 @@ namespace Brushblade.Core
                         });
                         break;
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
-                        // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活
-                        // 起逐只后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占
-                        // (NextEmptySlot() 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
-                        int replaceCursor = 0;
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
                             // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些"资源"随等级涨,
