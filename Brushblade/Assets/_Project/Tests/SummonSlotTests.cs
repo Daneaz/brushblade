@@ -165,5 +165,21 @@ namespace Brushblade.Core.Tests
                 "第二条 Summon 效果接着顶槽 1,不是把游标重置回槽 0 顶掉刚放进去的 P");
             Assert.That(engine.Summons[2].Char, Is.EqualTo("A"), "其余不动");
         }
+
+        [Test]
+        public void Cast_MultiEffectSummon_WithSlots_SpreadsAcrossEffects()
+        {
+            // 落位游标的另一半(2026-08-20 review I-2):指定槽位时的下标也必须跨 effect 累加。
+            // 用内层的 n 的话两条效果都取 summonSlots[0],第二条撞上刚放进去的活体 →
+            // occupiedByAlive && !replaceSummon → break,第二只静默蒸发(AP 已扣、字已消耗)。
+            var engine = MultiEffectSummonEngine(new[] { "戊" });
+            Assert.That(engine.Cast("戊", summonSlots: new[] { 1, 4 }), Is.EqualTo(BattleError.None));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(2), "两条效果各落一只,一只都不许蒸发");
+            Assert.That(engine.Summons[1], Is.Not.Null, "第一条 Summon 效果落 summonSlots[0] = 槽 1");
+            Assert.That(engine.Summons[1].Char, Is.EqualTo("P"));
+            Assert.That(engine.Summons[4], Is.Not.Null, "第二条接着取 summonSlots[1] = 槽 4,不是重回槽 1");
+            Assert.That(engine.Summons[4].Char, Is.EqualTo("Q"));
+            Assert.That(engine.Summons[0], Is.Null, "没点的槽一律不动");
+        }
     }
 }

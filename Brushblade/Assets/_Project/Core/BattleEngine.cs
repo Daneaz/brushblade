@@ -1403,6 +1403,14 @@ namespace Brushblade.Core
             // Cast_MultiEffectSummon_ReplaceMode_AdvancesAcrossEffects 钉住这个语义。
             int replaceCursor = 0;
 
+            // 玩家指定槽位时的落位游标(2026-08-20 review I-2):**同样声明在方法头部**。
+            // 它和 replaceCursor 是同一个 bug 的两半 —— 此前这里直接用内层的 `n`,而 `n` 是
+            // 每条 effect 各自从 0 起算的,两条各召 1 只的 Summon 效果会双双取 summonSlots[0]:
+            // 第二条进来时该槽已被第一只占住且活着,occupiedByAlive && !replaceSummon → break,
+            // 第二只静默蒸发,而 AP 已扣、字已消耗。当前字表里没有多效果召唤字(15 张全是
+            // 单条 effect 用 count 表示只数),但半个家族的修法比不修更误导后来者。
+            int summonCursor = 0;
+
             foreach (var effect in EffectsOf(def, attackMode))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
@@ -1724,11 +1732,12 @@ namespace Brushblade.Core
                                 effect.Passive);
                             newborn.ActionMeter = TurnScheduler.Threshold;
 
-                            // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)
+                            // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)。
+                            // 下标取 summonCursor 而非内层的 n —— 见方法头部那条注释
                             int slot;
-                            if (summonSlots != null && n < summonSlots.Count)
+                            if (summonSlots != null && summonCursor < summonSlots.Count)
                             {
-                                slot = summonSlots[n];
+                                slot = summonSlots[summonCursor];
                             }
                             else
                             {
@@ -1749,6 +1758,7 @@ namespace Brushblade.Core
                             // SecondIndex 一律报落位槽:新增与顶替都要让表现层知道画哪一格。
                             // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
                             _summons[slot] = newborn;
+                            summonCursor++; // 每落一只推进一格,跨 effect 持续累加
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
