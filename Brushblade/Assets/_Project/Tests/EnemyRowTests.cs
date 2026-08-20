@@ -143,6 +143,40 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0].Hp, Is.LessThan(200));
         }
 
+        // ---- 分裂克隆继承排位(2026-08-20,spec §3.3) ----
+
+        private static RecipeGraph SplitGraph() => new(new[]
+        {
+            new CharDef("火", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 40) }),
+        });
+
+        private static EnemyDef Splitter(EnemyRow row) =>
+            new("叠字怪", Element.Wood, 160, 50, EnemyAbility.Split, row: row);
+
+        private static BattleEngine SplitEngine(params EnemyDef[] enemies) =>
+            new(SplitGraph(), new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+                new[] { "火" }, new string[0], enemies, seed: 1);
+
+        [Test]
+        public void Split_CloneInheritsBackRow_WhenBackRowNotFull()
+        {
+            // 母体独自站后排(1 只 < 上限 3);前排从未有过,单体直伤全场可点(不受排位限制)
+            var engine = SplitEngine(Splitter(EnemyRow.Back));
+            engine.Cast("火", 0); // 火 vs 木中立 → 40 伤,160→120,存活分裂
+            Assert.That(engine.Enemies.Count, Is.EqualTo(2));
+            Assert.That(engine.Enemies[1].Row, Is.EqualTo(EnemyRow.Back), "后排未满,克隆应跟着母体落后排");
+        }
+
+        [Test]
+        public void Split_CloneFallsToFrontRow_WhenBackRowIsFull()
+        {
+            // 三只都站后排,恰好占满上限 3;前排从未有过,直伤照样够得着
+            var engine = SplitEngine(Splitter(EnemyRow.Back), Splitter(EnemyRow.Back), Splitter(EnemyRow.Back));
+            engine.Cast("火", 0); // 打第一只,存活分裂
+            Assert.That(engine.Enemies.Count, Is.EqualTo(4));
+            Assert.That(engine.Enemies[3].Row, Is.EqualTo(EnemyRow.Front), "后排已满 3,克隆改判前排");
+        }
+
         // ---- 三只排位怪入库(2026-08-20) ----
 
         private static string ConfigDir()
