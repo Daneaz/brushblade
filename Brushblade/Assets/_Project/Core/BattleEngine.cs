@@ -407,7 +407,7 @@ namespace Brushblade.Core
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
                 _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
-            AssignRows();
+            AssignSlots();
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
             _shieldNormal = startingNormalShield;
@@ -2011,19 +2011,21 @@ namespace Brushblade.Core
             return alive;
         }
 
-        /// <summary>按每排上限 3 给场上敌人定实际站位(2026-08-20)。
-        /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排。
+        /// <summary>按每排上限 3 给场上敌人定实际站位与列(2026-08-20 排,2026-08-22 列)。
+        /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排;
+        /// 列号在**落定的那一排**里现算 —— 被改判的那只要从新排的计数起算,
+        /// 沿用原排的计数会撞号。
         /// 两排都满走不到 —— EnemyCap 6 = 3 + 3,列表长度天然受限。</summary>
-        private void AssignRows()
+        private void AssignSlots()
         {
             int front = 0, back = 0;
             foreach (var enemy in _enemies)
             {
                 bool wantsBack = enemy.Def.Row == EnemyRow.Back;
-                if (wantsBack && back < EnemyRowCap) { enemy.Row = EnemyRow.Back; back++; }
-                else if (!wantsBack && front < EnemyRowCap) { enemy.Row = EnemyRow.Front; front++; }
-                else if (front < EnemyRowCap) { enemy.Row = EnemyRow.Front; front++; }
-                else { enemy.Row = EnemyRow.Back; back++; }
+                if (wantsBack && back < EnemyRowCap) { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
+                else if (!wantsBack && front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
+                else if (front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
+                else { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
             }
         }
 
@@ -2216,12 +2218,14 @@ namespace Brushblade.Core
                 int half = (enemy.Hp + 1) / 2;
                 enemy.Hp = half;
                 enemy.HasSplit = true;
+                var cloneRow = RowWithSpace(enemy.Row);
                 var clone = new EnemyState(enemy.Def)
                 {
                     Hp = half,
                     BaseAttack = enemy.Attack, // 一次性快照,不是活的引用——分裂出的怪不继承驱散来源
                     HasSplit = true,
-                    Row = RowWithSpace(enemy.Row),
+                    Row = cloneRow,
+                    Column = FreeColumnIn(cloneRow),
                 };
                 _enemies.Add(clone);
                 _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
@@ -2236,6 +2240,21 @@ namespace Brushblade.Core
             foreach (var e in _enemies)
                 if (e.Row == preferred) count++;
             return count < EnemyRowCap ? preferred : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
+        }
+
+        /// <summary>该排里没被占用的最小列号(2026-08-22)。分裂出的克隆用它落位。
+        /// 全占满返回 −1 —— 分裂本就被「场上敌人 < 4」的守卫挡在前面,
+        /// 但守卫在别处,这里仍要能表达「没地方站」而不是撞号叠在别人身上。</summary>
+        private int FreeColumnIn(EnemyRow row)
+        {
+            for (int col = 0; col < EnemyRowCap; col++)
+            {
+                bool taken = false;
+                foreach (var e in _enemies)
+                    if (e.Row == row && e.Column == col) { taken = true; break; }
+                if (!taken) return col;
+            }
+            return -1;
         }
 
         private void ResolveDefeat(int enemyIndex)

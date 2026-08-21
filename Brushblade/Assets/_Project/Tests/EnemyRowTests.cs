@@ -266,5 +266,59 @@ namespace Brushblade.Core.Tests
                 Assert.That(front, Is.LessThanOrEqualTo(3), $"第 {depth} 层前排超过 3");
             }
         }
+
+        // ---- 列坐标(2026-08-22,spec §6.1) ----
+
+        /// <summary>列坐标(2026-08-22,spec §6.1):每排内按占位顺序 0、1、2。
+        /// 贯穿形状与 UI 固定格位都读它。</summary>
+        [Test]
+        public void AssignSlots_GivesEachEnemyAColumnWithinItsRow()
+        {
+            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"), Mob("后1", EnemyRow.Back));
+
+            var front = new List<int>();
+            var back = new List<int>();
+            foreach (var e in engine.Enemies)
+                (e.Row == EnemyRow.Front ? front : back).Add(e.Column);
+
+            Assert.That(front, Is.EquivalentTo(new[] { 0, 1, 2 }), "前排三只各占一列,不重号");
+            Assert.That(back, Is.EquivalentTo(new[] { 0 }));
+        }
+
+        [Test]
+        public void AssignSlots_OverflowToOtherRow_StillGetsFreeColumn()
+        {
+            // 第 4 只偏好前排但前排已满 → 改判后排,列号要在**后排**里重新算,不能沿用前排的计数
+            var engine = MakeEngine(Mob("前1"), Mob("前2"), Mob("前3"), Mob("前4"));
+
+            var back = new List<int>();
+            foreach (var e in engine.Enemies)
+            {
+                Assert.That(e.Column, Is.InRange(0, 2));
+                if (e.Row == EnemyRow.Back) back.Add(e.Column);
+            }
+            Assert.That(back, Is.EquivalentTo(new[] { 0 }), "被改判到后排的那只从后排的 0 号列起算");
+        }
+
+        /// <summary>同一个 DefId 的两只怪可能站不同列,而 Restore 是按 Id 查 Def 的 ——
+        /// 不进快照就会在读档时被合并成同一列(与 Row 同一条理由)。</summary>
+        [Test]
+        public void EnemyColumn_SurvivesSnapshotRoundTrip()
+        {
+            var a = Mob("甲");
+            var b = Mob("乙");
+            var engine = MakeEngine(a, b);
+            var before = new List<int>();
+            foreach (var e in engine.Enemies) before.Add(e.Column);
+
+            var graph = new RecipeGraph(new List<CharDef> { new("木", Element.Wood) });
+            var config = new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) };
+            var defs = new Dictionary<string, EnemyDef> { [a.Id] = a, [b.Id] = b };
+            var restored = BattleEngine.Restore(engine.Capture(), graph, config, null, defs);
+
+            var after = new List<int>();
+            foreach (var e in restored.Enemies) after.Add(e.Column);
+            Assert.That(after, Is.EqualTo(before));
+        }
     }
 }
