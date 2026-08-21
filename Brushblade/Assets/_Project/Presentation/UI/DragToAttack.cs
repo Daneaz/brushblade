@@ -14,19 +14,28 @@ namespace Brushblade.Presentation
         private string _glyph;
         private Color _color;
         private Func<bool> _canDrag;
+        private Action _onBeginDrag;
         private Action<Vector2> _onDrop;
         private RectTransform _ghost;
 
         /// <param name="canDrag">此刻能否拖(结算动画中/非玩家回合返回 false)。</param>
         /// <param name="onDrop">松手时回调,参数为松手处的屏幕坐标。</param>
+        /// <param name="onBeginDrag">真正起拖时回调一次(被 canDrag 拒掉则不回调)。
+        /// 2026-08-21 加的:拖召唤字时外层要在这一刻点亮 6 个槽位 —— 松手才点亮就晚了,
+        /// 玩家在整个拖拽过程中都不知道能往哪儿放。
+        ///
+        /// ⚠ 回调里**不许触发会销毁本组件的重绘**:uGUI 的拖拽事件只发给起拖的那个对象,
+        /// 它一旦被销毁,OnEndDrag 就再也不会来 —— 字影留在屏幕上、外层状态卡死。
+        /// 外层为此专门有一个只重画召唤两排、不动字牌的路径。</param>
         public static void Attach(GameObject target, string glyph, Color color,
-            Func<bool> canDrag, Action<Vector2> onDrop)
+            Func<bool> canDrag, Action<Vector2> onDrop, Action onBeginDrag = null)
         {
             var drag = target.AddComponent<DragToAttack>();
             drag._glyph = glyph;
             drag._color = color;
             drag._canDrag = canDrag;
             drag._onDrop = onDrop;
+            drag._onBeginDrag = onBeginDrag;
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -57,6 +66,7 @@ namespace Brushblade.Presentation
             label.raycastTarget = false; // 别挡住底下敌人格的射线
 
             _ghost.position = eventData.position;
+            _onBeginDrag?.Invoke(); // 字影建好之后再通知:回调里可能重画别的区,先把手感立起来
         }
 
         public void OnDrag(PointerEventData eventData)

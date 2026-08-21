@@ -20,6 +20,10 @@ namespace Brushblade.Presentation
         private readonly System.Collections.Generic.List<MobView> _enemyMobs = new();
         // 召唤物本体/血条按 _summons 下标索引(事件带 SecondIndex 定位承伤/发起者;死后仍在动画期可见)
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonRectByCore = new();
+        // 槽位 → 整格矩形(2026-08-21,拖拽落位命中判定用)。与 _summonRectByCore 的区别有二:
+        // 它记的是**整格**而不是字块(手指落点粗),而且**空槽也记** —— 拖召唤字最常见的落点
+        // 恰恰是空格,只记有人的格等于把主要用法排除在外。
+        private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonCellByCore = new();
         private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonBarByCore = new();
         private readonly System.Collections.Generic.Dictionary<int, int> _summonAnimHp = new(); // 出手前血(下标→值);SummonHit 触达按承伤者下标逐记降
         private readonly System.Collections.Generic.HashSet<int> _dyingEnemies = new(); // 死亡动画进行中的怪:重绘时维持着色,置灰交给死亡节拍(2026-07-25)
@@ -50,7 +54,6 @@ namespace Brushblade.Presentation
         // 召唤落位(2026-08-20):出召唤字先点位子,攒够只数才真正 Cast。
         // 槽位攒在这里、没调 Cast 之前引擎一无所知 —— 连选途中取消整张字天然回滚。
         private bool _slotPicking;      // 等待点击召唤位
-        private readonly List<int> _pickedSlots = new(); // 已点的槽位,按点击顺序;互不重复
         private string _pendingSummonChar;   // 待落位的字
         private int _pendingSummonTarget = -1;
         private bool _pendingSummonAttackMode;
@@ -1015,6 +1018,7 @@ namespace Brushblade.Presentation
         private void DrawSummons()
         {
             _summonRectByCore.Clear();
+            _summonCellByCore.Clear();
             _summonBarByCore.Clear();
             _summonActionBarByCore.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
@@ -1031,6 +1035,7 @@ namespace Brushblade.Presentation
                 var cellElement = cell.AddComponent<LayoutElement>();
                 cellElement.preferredWidth = SummonCellWidth;
                 cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
+                _summonCellByCore[i] = (RectTransform)cell.transform;
                 float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
                 float barWidth = front ? SummonBarWidthFront : SummonBarWidthBack;
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
@@ -1069,6 +1074,7 @@ namespace Brushblade.Presentation
             var cellElement = cell.AddComponent<LayoutElement>();
             cellElement.preferredWidth = SummonCellWidth;
             cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
+            _summonCellByCore[slot] = (RectTransform)cell.transform;
             float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
             var ghost = Ui.Panel(cell.transform, "Ghost");
             var image = ghost.AddComponent<Image>();
@@ -1091,37 +1097,27 @@ namespace Brushblade.Presentation
             if (_slotPicking) AttachSlotPicker(cell.transform, slot);
         }
 
-        /// <summary>选位子态的整格点击层(2026-08-20):盖满一格吃下点击,按「可选 / 已选」着色。
+        /// <summary>选位子态的整格点击层(2026-08-20):盖满一格吃下点击。
         /// 整格而不是只有字块 —— 移动端手指落点粗,180×98 的格比 56 的字块好点得多。
+        /// 拖拽落位共用同一套高亮:起拖即点亮,松手落在哪一格由 <c>SummonSlotAt</c> 判。
         ///
-        /// ⚠ 已点过的位子当场变朱砂且 <c>interactable = false</c>,这是**唯一**的去重把关处:
-        /// 传给 <c>Cast</c> 的 summonSlots 里一旦出现重复下标,落位循环会把第二只写进同一个槽、
-        /// 把第一只顶掉,而 Cast 已经返回 None、AP 也已经扣了 —— 玩家花了字只拿到一只。</summary>
+        /// 2026-08-21:去掉「已选/未选」两态与「第 N 只」角标 —— 改成只选一次、多只顺延之后,
+        /// 不再存在「选到一半」的中间态,六格永远同色可选。去重也不再靠这里把关:
+        /// 顺延在环上取连续 N 个位(N ≤ 6),下标天然互不重复。</summary>
         private void AttachSlotPicker(Transform cell, int slot)
         {
-            int order = _pickedSlots.IndexOf(slot);
-            bool picked = order >= 0;
             var overlay = Ui.Panel(cell, "SlotPick");
             // 实格是 VStack:不忽略布局的话这一层会被当成第五行排进去,把整格挤变形
             overlay.AddComponent<LayoutElement>().ignoreLayout = true;
             var image = overlay.AddComponent<Image>();
             image.sprite = Theme.Rounded(12);
             image.type = Image.Type.Sliced;
-            image.color = picked
-                ? new Color(Theme.Cinnabar.r, Theme.Cinnabar.g, Theme.Cinnabar.b, 0.28f)
-                : new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, 0.14f);
+            image.color = new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, 0.14f);
             Ui.Stretch((RectTransform)overlay.transform);
-            if (picked && _pendingSummonCount > 1) // 连选时标出这格排第几只,免得玩家忘了点到哪
-            {
-                var tag = Ui.ThemedLabel(overlay.transform, $"第 {order + 1} 只", 13, Theme.Cinnabar, Theme.TitleFont);
-                Ui.Anchor(tag.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f),
-                    Vector2.zero, new Vector2(0f, 17f));
-            }
             var button = overlay.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
             button.targetGraphic = image;
-            button.interactable = !picked;
-            if (!picked) button.onClick.AddListener(() => OnSlotPicked(slot));
+            button.onClick.AddListener(() => OnSlotPicked(slot));
         }
 
         /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称。
@@ -1424,17 +1420,56 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>拖字打人(2026-07-26):拖到敌人身上松手 = 攻击那个敌人。
-        /// 水/土 因此在双击的治疗/加盾之外多一个攻击用法;其余字拖放 = 出字并顺手选中目标。</summary>
+        /// 水/土 因此在双击的治疗/加盾之外多一个攻击用法;其余字拖放 = 出字并顺手选中目标。
+        ///
+        /// 2026-08-21 拖字召唤:拖的若是召唤字,**起拖那一刻就点亮 6 个槽位**,松手落在哪一格
+        /// 就安置在哪一格。此前只有「松手落在敌人身上」才会进落位态,落在槽位上反而算取消 ——
+        /// 而召唤字根本不携带目标信息(全 15 张都是纯召唤,没有 attackEffects),
+        /// 「拖到敌人身上才召得出」是把唯一无意义的落点定成了唯一有效的落点。</summary>
         private void AttachDragToAttack(GameObject tile, CharDef def, int libraryIndex = -1)
         {
+            // 召唤只数与 AP 都按 attackMode 口径先算一遍:两条都过才点亮槽位。
+            // AP 不够时故意**不**点亮 —— 让它走松手时的常规路径,由引擎当场报「AP 不够」,
+            // 与点「出字」被拒同口径(见 BeginCast 里那条同因的守卫)。
+            bool summons = Battle.SummonCountOf(def, attackMode: true) > 0;
+
             DragToAttack.Attach(tile, def.Id, Theme.ElementColor(def.Element),
                 () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
                 screenPos =>
                 {
+                    if (_slotPicking)
+                    {
+                        int slot = SummonSlotAt(screenPos);
+                        // 落在槽位上才算数(2026-08-21 用户拍板):多只召唤从这一格起顺延。
+                        if (slot >= 0) { OnSlotPicked(slot); return; }
+                        // 落在敌人身上或空白处 = 取消。召唤字不携带目标信息,拖到敌人身上
+                        // 本就没有意义,不给它兜底语义;AP 与字库一滴未动,重拖即可。
+                        CancelSelection();
+                        return;
+                    }
                     int target = EnemyIndexAt(screenPos);
                     if (target < 0) { CancelSelection(); return; } // 没落在敌人身上:当作取消,不出字
                     BeginCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
+                },
+                onBeginDrag: !summons ? null : () =>
+                {
+                    if (Battle.Ap < def.ApCost) return;
+                    EnterSlotPicking(def.Id, -1, attackMode: true, libraryIndex,
+                        Battle.SummonCountOf(def, attackMode: true));
+                    RedrawSummonRows(); // 只重画召唤两排:全量 Refresh 会销毁正被拖的这张字牌
                 });
+        }
+
+        /// <summary>该屏幕坐标落在第几个召唤槽上;都没命中返回 −1。
+        /// 判定用整格(<see cref="_summonCellByCore"/>)而非字块 —— 与 EnemyIndexAt 同一条理由:
+        /// 手指落点粗,只认字块会经常擦边落空。空槽也在表里,那正是拖召唤最常见的落点。</summary>
+        private int SummonSlotAt(Vector2 screenPos)
+        {
+            foreach (var pair in _summonCellByCore)
+                if (pair.Value != null
+                    && RectTransformUtility.RectangleContainsScreenPoint(pair.Value, screenPos, null))
+                    return pair.Key;
+            return -1;
         }
 
         /// <summary>该屏幕坐标落在哪个存活敌人格上;都没命中返回 −1。
@@ -2480,42 +2515,62 @@ namespace Brushblade.Presentation
                 ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
                 return;
             }
+            EnterSlotPicking(charId, target, attackMode, libraryIndex, summonCount);
+            Refresh();
+        }
+
+        /// <summary>只置位、不重绘 —— 拖拽路径需要在**不动字牌**的前提下点亮槽位:
+        /// 全量 Refresh 会销毁正被拖的那张字牌,连带把 uGUI 的拖拽事件流掐断
+        /// (OnEndDrag 再也不会来,字影留在屏幕上、状态卡死)。</summary>
+        private void EnterSlotPicking(string charId, int target, bool attackMode,
+            int libraryIndex, int summonCount)
+        {
             _slotPicking = true;
             _targeting = false;
-            _pickedSlots.Clear();
             _pendingSummonChar = charId;
             _pendingSummonTarget = target;
             _pendingSummonAttackMode = attackMode;
             _pendingSummonLibraryIndex = libraryIndex;
             _pendingSummonCount = summonCount;
             _message = SlotPickMessage();
-            Refresh();
+        }
+
+        /// <summary>只重画我方两排(拖拽中点亮/熄灭槽位用)。字牌行不动,拖拽事件流不断。</summary>
+        private void RedrawSummonRows()
+        {
+            Ui.Clear(_summonFrontRow);
+            Ui.Clear(_summonBackRow);
+            DrawSummons();
+            _messageLabel.text = _message;
         }
 
         private string SlotPickMessage() => _pendingSummonCount > 1
-            ? $"「{_pendingSummonChar}」召 {_pendingSummonCount} 只:点第 {_pickedSlots.Count + 1} 只站的位置|点空白取消"
-            : $"「{_pendingSummonChar}」:点一个位置安置|点空白取消";
+            ? $"「{_pendingSummonChar}」召 {_pendingSummonCount} 只:选一个位置,从那格起顺延|点空白取消"
+            : $"「{_pendingSummonChar}」:选一个位置安置|点空白取消";
 
-        /// <summary>点一个召唤位。空槽与尸体槽直接落位;站着人的位子照样先记下,
-        /// 等凑齐了由引擎的 SummonCapFull 闸门统一弹一次顶替确认(见 <see cref="ExecuteCast"/>)
-        /// —— 不在这里逐格弹,连召两只时玩家会连吃两个弹窗。</summary>
+        /// <summary>选定一个召唤位,当场结算(2026-08-21 用户拍板:**只选一次**)。
+        ///
+        /// 多只召唤(林/森/桂 各 2,四叠字 4)从选定那格起**顺延**占后面的槽,
+        /// 走到 5 号绕回 0 号。此前是「连点 N 次、每只各选一格」——玩家要记住自己点到第几只,
+        /// 而多出来的那点摆位自由并不值这份记账负担。
+        ///
+        /// 顺延天然满足引擎对 summonSlots 的两条不变式:下标互不重复(环上取 N ≤ 6 个连续位)、
+        /// 长度恰好等于 SummonCountOf。二者任一被破坏,落位循环会把第二只写进同一个槽、
+        /// 或静默吞掉多出来的那只,而 Cast 已经返回 None、AP 也已经扣了。
+        ///
+        /// 空槽与尸体槽直接落位;顺延路上撞到站着人的位子,由引擎的 SummonCapFull 闸门
+        /// 统一弹一次顶替确认(见 <see cref="ExecuteCast"/>)。</summary>
         private void OnSlotPicked(int slot)
         {
             if (!_slotPicking || slot < 0 || slot >= Battle.Summons.Count) return;
-            if (_pickedSlots.Contains(slot)) return; // 已选过:重复下标会让第二只顶掉第一只
-            _pickedSlots.Add(slot);
-            if (_pickedSlots.Count < _pendingSummonCount)
-            {
-                _message = SlotPickMessage();
-                Refresh();
-                return;
-            }
-            // 凑齐了才 Cast:长度恰好 = SummonCountOf,下标互不重复(上面那条守卫保证)
+            int total = Battle.Summons.Count;
+            var slots = new int[_pendingSummonCount];
+            for (int n = 0; n < slots.Length; n++) slots[n] = (slot + n) % total;
+
             string charId = _pendingSummonChar;
             int target = _pendingSummonTarget;
             bool attackMode = _pendingSummonAttackMode;
             int libraryIndex = _pendingSummonLibraryIndex;
-            int[] slots = _pickedSlots.ToArray();
             ResetSlotPicking();
             ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, summonSlots: slots);
         }
@@ -2523,7 +2578,6 @@ namespace Brushblade.Presentation
         private void ResetSlotPicking()
         {
             _slotPicking = false;
-            _pickedSlots.Clear();
             _pendingSummonChar = null;
             _pendingSummonTarget = -1;
             _pendingSummonAttackMode = false;
