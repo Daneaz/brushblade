@@ -462,11 +462,12 @@
           "kind": "Summon",
           "value": 220,
           "count": 1,
-          "attack": 0,
+          "attack": 30,
           "summonChar": "烓",
           "passive": {
             "onHitBurn": 3,
-            "onHitBurnAll": true
+            "onHitBurnAll": true,
+            "ranged": true
           }
         }
       ]
@@ -484,10 +485,11 @@
           "kind": "Summon",
           "value": 110,
           "count": 1,
-          "attack": 0,
+          "attack": 20,
           "summonChar": "灶",
           "passive": {
-            "onHitBurn": 2
+            "onHitBurn": 2,
+            "ranged": true
           }
         }
       ]
@@ -1436,6 +1438,7 @@
         {
           "kind": "DamageSingle",
           "value": 135,
+          "backline": true,
           "pierce": 15
         },
         {

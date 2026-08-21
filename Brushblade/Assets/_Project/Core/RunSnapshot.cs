@@ -61,6 +61,7 @@ namespace Brushblade.Core
         public int ChargeCounter { get; set; }   // Boss 蓄力进度(spec 2026-07-28)
         public bool IsCharging { get; set; }     // 蓄力中:读档后要照常放大招
         public BossSkill ChargingSkill { get; set; } // 蓄力锁定的技能:预告什么就放什么
+        public EnemyRow Row { get; set; }   // 实际站位(2026-08-20)
     }
 
     public sealed class SummonSnapshot
@@ -77,6 +78,10 @@ namespace Brushblade.Core
         public int Speed { get; set; }
         public int Shield { get; set; }
         public SummonPassive Passive { get; set; }
+
+        /// <summary>槽位 0..5(2026-08-20):0/1/2 = 前排,3/4/5 = 后排。
+        /// 携带过场与断点续爬都按它原样落位 —— 玩家布的阵不该被系统打乱。</summary>
+        public int Slot { get; set; }
     }
 
     /// <summary>挂在存档上的「段中断点」(2026-07-27):除了 run 自身的状态,还要记住

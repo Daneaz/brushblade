@@ -680,10 +680,11 @@ namespace Brushblade.Core
         private List<SummonSnapshot> CaptureAliveSummons()
         {
             var alive = new List<SummonSnapshot>();
-            foreach (var summon in Battle.Summons)
+            for (int s = 0; s < Battle.Summons.Count; s++)
             {
-                if (!summon.Alive) continue;
-                var snapshot = summon.Capture();
+                var summon = Battle.Summons[s];
+                if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
+                var snapshot = summon.Capture(s);   // 槽位随之带走
                 snapshot.ActionMeter = 0;
                 alive.Add(snapshot);
             }

@@ -52,9 +52,9 @@ namespace Brushblade.Core.Tests
             foreach (var e in b.Enemies)
                 sb.Append($"|E({e.Def.Id},{e.Hp}/{e.MaxHp},{e.Element},{e.ApparentElement},burn{e.Statuses.TotalMagnitude(StatusKind.Burn)}," +
                           $"atk{e.Attack},def{e.Defense},ab{e.Statuses.TotalMagnitude(StatusKind.ArmorBreak)},ph{e.PhaseIndex},rg{e.RegrowProgress}," +
-                          $"sp{e.HasSplit},ht{e.HitsTaken})");
+                          $"sp{e.HasSplit},ht{e.HitsTaken},row{e.Row})");
             foreach (var s in b.Summons)
-                sb.Append($"|S({s.Char},{s.Element},{s.Hp}/{s.MaxHp},atk{s.Attack})");
+                if (s != null) sb.Append($"|S({s.Char},{s.Element},{s.Hp}/{s.MaxHp},atk{s.Attack})");
             return sb.ToString();
         }
 
@@ -182,7 +182,7 @@ namespace Brushblade.Core.Tests
             a.Cast("林");
             a.EndTurn();  // 召唤挨一下,血量不满
             var b = Reload(a, def);
-            Assert.That(b.Summons.Count, Is.EqualTo(a.Summons.Count));
+            Assert.That(b.AliveSummonCount, Is.EqualTo(a.AliveSummonCount));
             a.EndTurn(); b.EndTurn();
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
@@ -261,6 +261,18 @@ namespace Brushblade.Core.Tests
             a.Cast("炎", 0); b.Cast("炎", 0);
             a.EndTurn(); b.EndTurn();
             Assert.That(b.Enemies[0].PhaseIndex, Is.EqualTo(a.Enemies[0].PhaseIndex));
+            Assert.That(Digest(b), Is.EqualTo(Digest(a)));
+        }
+
+        [Test]
+        public void Battle_EnemyRow_Survives() // Row 不进 Digest() 就测不出 Capture() 漏存(2026-08-20 review 补)
+        {
+            var front = new EnemyDef("枯", Element.Wood, 200, 0);
+            var back = new EnemyDef("锈", Element.Metal, 200, 0, row: EnemyRow.Back);
+            var a = Battle(new[] { front, back }, new[] { "火" });
+            Assert.That(a.Enemies[1].Row, Is.EqualTo(EnemyRow.Back), "前置:确实站在后排");
+            var b = Reload(a, front, back);
+            Assert.That(b.Enemies[1].Row, Is.EqualTo(EnemyRow.Back), "读档后排位不能回落 Front");
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 

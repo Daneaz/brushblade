@@ -181,7 +181,7 @@ namespace Brushblade.CoreTests
         {
             var engine = Battle(150, "庚");
             engine.Cast("庚");
-            Assert.That(engine.Summons.Count, Is.EqualTo(1));
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(1));
             Assert.That(engine.Summons[0].Attack, Is.EqualTo(9), "6 × 150 ÷ 100 = 9");
         }
 

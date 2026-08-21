@@ -60,6 +60,21 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void NextZeroOrOne_DoesNotAdvanceState()
+        {
+            // maxExclusive <= 1 直接 return 0,不调 NextBits、不碰 _state(GameRandom.cs:49)。
+            // 这条性质是 Targeting.PickAllyTarget 单候选短路的第一层保证——候选池只剩
+            // PlayerTarget 一个时即便真去调 Next(1),随机流也不会位移;短路本身只是
+            // 纵深防御的第二层。这条性质一旦被改掉(比如给 maxExclusive == 1 也走
+            // NextBits),短路就从「双保险」降级成「唯一防线」。
+            var random = new GameRandom(3);
+            uint before = random.State;
+            random.Next(0);
+            random.Next(1);
+            Assert.That(random.State, Is.EqualTo(before), "Next(0)/Next(1) 不该推进内部状态");
+        }
+
+        [Test]
         public void Next_CoversWholeRange() // 别退化成常数或只落半区
         {
             var random = new GameRandom(11);

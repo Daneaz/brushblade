@@ -158,11 +158,21 @@ namespace Brushblade.Core
                 if (enemy.Ability != EnemyAbility.Buff)
                     nonSupport.Add(enemy);
 
+            // 首位强制前排(2026-08-20):不加这条会摇出全员后排的怪场 —— 我方单体直伤
+            // 立刻全场可点,排位规则整场失效,后排怪也就失去了「够不到」这个身份。
+            var frontOpeners = new List<EnemyDef>();
+            foreach (var enemy in nonSupport)
+                if (enemy.Row == EnemyRow.Front)
+                    frontOpeners.Add(enemy);
+
             int count = 1 + Math.Min(5, (depth - 1) / 4);   // 上限 6(2026-08-03:4 → 6)
             bool hasSupport = false;
             for (int i = 0; i < count; i++)
             {
-                var pool = (i == 0 || hasSupport) && nonSupport.Count > 0 ? nonSupport : band.EnemyPool;
+                IReadOnlyList<EnemyDef> pool;
+                if (i == 0 && frontOpeners.Count > 0) pool = frontOpeners;
+                else if ((i == 0 || hasSupport) && nonSupport.Count > 0) pool = nonSupport;
+                else pool = band.EnemyPool;
                 var pick = pool[random.Next(pool.Count)];
                 if (pick.Ability == EnemyAbility.Buff)
                     hasSupport = true;

@@ -33,11 +33,15 @@ namespace Brushblade.Core
         /// 一起从命中率里扣。</summary>
         public int Dodge { get; set; }
 
+        /// <summary>远程(2026-08-20):出手时无视敌方前排,优先打后排。灶 / 烓 = true。
+        /// 与「站哪一槽」无关——排位只决定被不被够到,后排的近战召唤物照常打前排。</summary>
+        public bool Ranged { get; set; }
+
         public SummonPassive Clone() => new()
         {
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
-            Dodge = Dodge,
+            Dodge = Dodge, Ranged = Ranged,
         };
     }
 }

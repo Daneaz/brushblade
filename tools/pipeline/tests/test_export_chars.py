@@ -365,3 +365,44 @@ def test_no_playable_char_is_uncraftable():
         f"这些字配方生成失败,玩家永远拿不到: {sorted(uncraftable)} —— "
         "多半是 IDS 部件落在增补平面,补 export_chars.MANUAL_RECIPES 换部件,"
         "或在详表里标 ⚠ 移出字表")
+
+
+def test_backline_token_attaches_to_single_damage():
+    from extract_values import _parse_effects
+    assert _parse_effects("`DamageSingle 135`,`Pierce 15` + `Backline` + `Morale 1`", "金") == [
+        {"kind": "DamageSingle", "value": 135, "pierce": 15, "backline": True},
+        {"kind": "Morale", "value": 1}]
+
+
+def test_backline_does_not_become_a_standalone_effect():
+    """Backline 是伤害的修饰,不是效果。若它落成一条独立效果,
+    EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException。"""
+    from extract_values import _parse_effects
+    effects = _parse_effects("`DamageSingle 50` + `Backline`", "金")
+    assert all(e["kind"] != "Backline" for e in effects)
+    assert len(effects) == 1
+
+
+def test_ranged_token_lands_in_summon_passive():
+    from extract_values import _parse_effects
+    assert _parse_effects("`Summon 1`(110 血/攻 20)+ `OnHitBurn 2` + `Ranged`", "灶") == [
+        {"kind": "Summon", "value": 110, "count": 1, "attack": 20, "summonChar": "灶",
+         "passive": {"onHitBurn": 2, "ranged": True}}]
+
+
+def test_shipped_chars_json_carries_the_new_row_fields():
+    """三张改造字在**出货的 chars.json 里**确实带上了新字段。
+
+    上面几条喂的是手打字符串;这条读真实产物 —— token 表漏接线是无声的,
+    只有真产物能证明「详表写了」与「游戏读得到」之间没有断点。"""
+    shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
+    by_id = {c["id"]: c for c in shipped["chars"]}
+
+    ci = by_id["刺"]["effects"][0]
+    assert ci["kind"] == "DamageSingle" and ci.get("backline") is True
+
+    for char, attack in (("灶", 20), ("烓", 30)):
+        summon = by_id[char]["effects"][0]
+        assert summon["kind"] == "Summon"
+        assert summon["attack"] == attack, f"{char} 的基础攻击"
+        assert summon["passive"].get("ranged") is True, f"{char} 应为远程"

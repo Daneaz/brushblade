@@ -160,7 +160,10 @@
           "defense": 30
         }
       ]
-    }
+    },
+    { "id": "墨溅", "element": "Water", "maxHp": 100, "attack": 30, "row": "Back", "range": "Ranged" },
+    { "id": "悬针", "element": "Metal", "maxHp": 90,  "attack": 45, "row": "Back", "range": "Ranged", "focus": "Player" },
+    { "id": "败笔", "element": "Fire",  "maxHp": 150, "attack": 55, "focus": "Player" }
   ],
   "dropTable": [
     "金",
@@ -673,7 +676,10 @@
           "通假字",
           "墨渍",
           "焦痕",
-          "灯花"
+          "灯花",
+          "墨溅",
+          "悬针",
+          "败笔"
         ],
         "bossPool": [
           "排山倒海",
@@ -694,7 +700,10 @@
           "生僻字",
           "墨渍",
           "焦痕",
-          "灯花"
+          "灯花",
+          "墨溅",
+          "悬针",
+          "败笔"
         ],
         "bossPool": [
           "排山倒海",
@@ -716,7 +725,10 @@
           "生僻字",
           "墨渍",
           "焦痕",
-          "灯花"
+          "灯花",
+          "墨溅",
+          "悬针",
+          "败笔"
         ],
         "bossPool": [
           "排山倒海",
