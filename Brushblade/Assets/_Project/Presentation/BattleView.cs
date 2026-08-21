@@ -534,7 +534,11 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)workbenchStack.transform);
             Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
             _suggestRow = Ui.VStack(workbenchStack.transform, "Content", 6).transform;
-            _actionRow = Ui.VStack(workbenchStack.transform, "Actions", 8).transform;
+            // 动作行**横排**(2026-08-21 用户拍板):出 / 拆 / 弃 三个单字钮一行排完。
+            // 2026-08-20 改竖栏时它被一并改成 VStack(栏宽只有 217.6px,「出字/丢弃」那种
+            // 长标签横着放不下);现在标签收成单字、栏宽也加到 304px,横排回来:
+            //   3 × 76 + 间距 8×2 = 244px ≤ 304 ✓
+            _actionRow = Ui.Row(workbenchStack.transform, "Actions", 8).transform;
 
             // 差字面板:屏幕最左侧,上下居中,五行三级目录
             var hintGo = Ui.VStack(transform, "HintPanel", 4);
@@ -1049,8 +1053,8 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>空槽虚框(2026-08-20):只画一个淡淡的圆角占位块,与该排字块同尺寸同位置。
-        /// 不写字 —— 战斗界面里新增的任何汉字都要过字体子集,占位不值得为此加一个字符。
+        /// <summary>空槽(2026-08-20;2026-08-21 用户拍板去掉占位块):平时**什么也不画**,
+        /// 只靠 LayoutElement 把格子的位置占住,布局因此照样不跳动。
         ///
         /// 尸体槽平时也走这里(引擎从不移除阵亡召唤物,<c>Alive == false</c> 的条目一直占着槽),
         /// 但**选位子的时候**要把原字画出来:玩家得看得出这一格是空的还是躺着一具尸体
@@ -1062,21 +1066,25 @@ namespace Brushblade.Presentation
             cellElement.preferredWidth = SummonCellWidth;
             cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
             _summonCellByCore[slot] = (RectTransform)cell.transform;
-            float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
-            var ghost = Ui.Panel(cell.transform, "Ghost");
-            var image = ghost.AddComponent<Image>();
-            image.sprite = Theme.Rounded(12);
-            image.type = Image.Type.Sliced;
+            // 2026-08-21 用户拍板:**空槽不再画占位块**。原来画一个 α=0.12 的淡墨圆角块,
+            // 六格常驻在屏幕上,平时是纯噪音。位子还剩几个,选位的时候看翠玉高亮就够了。
+            //
+            // 布局不会因此跳动 —— 撑住格子的是上面那个 LayoutElement,不是这块图。
             bool showCorpse = _slotPicking && corpse != null;
-            image.color = showCorpse
-                ? Theme.LockedBg
-                : new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.12f);
-            image.raycastTarget = false; // 空槽不吃点击:让空白点击照旧落到 Backdrop 上取消选中
-            // 与实格的字块对齐:实格是 VStack 从顶排下来,字块贴格顶
-            Ui.Anchor((RectTransform)ghost.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(-glyphSize / 2f, -glyphSize), new Vector2(glyphSize / 2f, 0f));
             if (showCorpse)
             {
+                // 尸体槽在选位时仍要画出原字:点它的后果与空槽一样(直接落位、不弹确认),
+                // 但看到的东西不该一样 —— 玩家得知道这一格躺着谁。
+                float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
+                var ghost = Ui.Panel(cell.transform, "Corpse");
+                var image = ghost.AddComponent<Image>();
+                image.sprite = Theme.Rounded(12);
+                image.type = Image.Type.Sliced;
+                image.color = Theme.LockedBg;
+                image.raycastTarget = false; // 不吃点击:让点击落到下面的选位层上
+                // 与实格的字块对齐:实格是 VStack 从顶排下来,字块贴格顶
+                Ui.Anchor((RectTransform)ghost.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(-glyphSize / 2f, -glyphSize), new Vector2(glyphSize / 2f, 0f));
                 var corpseGlyph = Ui.ThemedLabel(ghost.transform, corpse.Char,
                     Mathf.RoundToInt(glyphSize * 0.46f), Theme.LockGray, Theme.TitleFont);
                 Ui.Stretch(corpseGlyph.rectTransform);
