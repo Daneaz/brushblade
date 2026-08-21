@@ -105,13 +105,30 @@ namespace Brushblade.Core
         /// 全字表眼下只有「刺」标了它(spec §12)。</summary>
         public bool CanStrikeBackline { get; }
 
+        /// <summary>目标形状(2026-08-22,spec §3)。缺省 <see cref="TargetShape.Single"/> ——
+        /// 缺省值即恒等性:现有 87 张伤害字不写这个字段,展开后目标表长度恒为 1,
+        /// 结算路径与改造前逐位相同。只对 <see cref="EffectKind.DamageSingle"/> 有意义。</summary>
+        public TargetShape Shape { get; }
+
+        /// <summary>非主目标的伤害百分比(2026-08-22)。主目标恒 100%。
+        /// 横扫/贯穿建议配 100,顺劈建议 50。<see cref="TargetShape.Volley"/> **不吃这个值**
+        /// ——连发每一发都是全额(spec §5)。
+        ///
+        /// ≤0 兜回 100:配置漏写时 JSON 会填 0,那会让两侧一分不伤,静默失效比报错更难查
+        /// (与 <see cref="HitCount"/> 的 `≤0 → 1` 同型)。</summary>
+        public int ShapePercent { get; }
+
+        /// <summary>连发的发数(2026-08-22)。只对 <see cref="TargetShape.Volley"/> 有意义。</summary>
+        public int Shots { get; }
+
         public EffectDef(EffectKind kind, int value,
             bool doubleVsBurning = false, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
             int turns = 0, bool targetAll = false,
             SummonPassive passive = null, int summonShield = 0,
             int executeBelowPercent = 0, bool executeKills = false,
-            int hitCount = 1, int pierce = 0, bool canStrikeBackline = false)
+            int hitCount = 1, int pierce = 0, bool canStrikeBackline = false,
+            TargetShape shape = TargetShape.Single, int shapePercent = 100, int shots = 0)
         {
             Kind = kind;
             Value = value;
@@ -129,6 +146,9 @@ namespace Brushblade.Core
             HitCount = hitCount <= 0 ? 1 : hitCount;
             Pierce = pierce;
             CanStrikeBackline = canStrikeBackline;
+            Shape = shape;
+            ShapePercent = shapePercent <= 0 ? 100 : shapePercent;
+            Shots = shots;
         }
     }
 }
