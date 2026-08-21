@@ -451,8 +451,13 @@ namespace Brushblade.Presentation
             return row;
         }
 
-        /// <summary>字牌(设计板字库卡):稀有度顶条 + 属性色宋体大字 + 拼音 + 费用;选中态墨色描环。</summary>
-        public static Button GlyphTile(Transform parent, Brushblade.Core.CharDef def, string costText,
+        /// <summary>字牌(设计板字库卡):稀有度框 + 属性色宋体大字 + 拼音;选中态墨色描环。
+        ///
+        /// 2026-08-21:去掉牌底那条费用带。<see cref="Brushblade.Core.CharDef.ApCostFor"/>
+        /// 自 2026-08-03 起**一律返回 1**(AP 与稀有度解耦),于是每张牌上都印一遍「1 AP」
+        /// 是零信息量的噪音,却占着牌面 19% 的高度(原 cost 带 0.0–0.19)。腾出来的份额
+        /// 分给字形与拼音,牌本身因此也能整体缩小 —— 战斗字库牌 105 → 85。</summary>
+        public static Button GlyphTile(Transform parent, Brushblade.Core.CharDef def,
             bool selected, Action onClick, Vector2? size = null)
         {
             var s = size ?? new Vector2(96, 120); // 默认对齐素材 0.8 竖版比例
@@ -514,13 +519,13 @@ namespace Brushblade.Presentation
             // 再加一条色带是冗余。金系原色对浅底只有 2.48:1,故字形必走 GlyphColor 而非 ElementColor
             var glyph = ThemedLabel(content.transform, def.Id, Mathf.RoundToInt(s.y * 0.34f),
                 Theme.GlyphColor(def.Element), Theme.TitleFont);
-            Anchor(glyph.rectTransform, new Vector2(0, 0.36f), new Vector2(1, 0.94f), Vector2.zero, Vector2.zero);
+            // 费用带撤销后的重新分配(2026-08-21):字形 0.36–0.94 → 0.30–0.95,拼音 0.19–0.36 → 0.06–0.30。
+            // 字号仍是 s.y * 0.34 —— 比例不动,是为了不改动其它调用方(图鉴 144×180、跑图 76×95)的观感;
+            // 战斗字库牌靠**把牌整体调小**来缩,而不是靠改这个比例。
+            Anchor(glyph.rectTransform, new Vector2(0, 0.30f), new Vector2(1, 0.95f), Vector2.zero, Vector2.zero);
 
             var pinyin = ThemedLabel(content.transform, def.Pinyin ?? "", 12, Theme.TextDim);
-            Anchor(pinyin.rectTransform, new Vector2(0, 0.19f), new Vector2(1, 0.36f), Vector2.zero, Vector2.zero);
-
-            var cost = ThemedLabel(content.transform, costText, 13, Theme.TextDim);
-            Anchor(cost.rectTransform, new Vector2(0, 0.0f), new Vector2(1, 0.19f), Vector2.zero, Vector2.zero);
+            Anchor(pinyin.rectTransform, new Vector2(0, 0.06f), new Vector2(1, 0.30f), Vector2.zero, Vector2.zero);
 
             // 动效(§4):属性决定动什么、稀有度决定动多少。素材缺失时 Init 里自行退化为不动
             go.AddComponent<CardFrameView>().Init(def.Rarity, def.Element,

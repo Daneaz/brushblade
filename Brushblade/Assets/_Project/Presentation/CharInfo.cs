@@ -16,9 +16,10 @@ namespace Brushblade.Presentation
                 text.Append(def.Pinyin).Append(' ');
             if (!string.IsNullOrEmpty(def.Gloss))
                 text.Append(def.Gloss).Append('|');
+            // 2026-08-21:不再印 AP —— ApCostFor 一律返回 1,写出来是零信息量。
+            // 功能性的 AP 判断(能不能出、出不起时的报错)照旧读 def.ApCost,只是不进描述文案。
             text.Append(RarityName(def.Rarity)).Append('·')
-                .Append(def.Element is { } element ? ElementName(element) + "系" : "中性")
-                .Append('·').Append(def.ApCost).Append("AP");
+                .Append(def.Element is { } element ? ElementName(element) + "系" : "中性");
 
             if (!def.IsLeaf)
                 text.Append("|配方:").Append(string.Join("+", def.Recipe));

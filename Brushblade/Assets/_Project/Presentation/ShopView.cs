@@ -63,7 +63,9 @@ namespace Brushblade.Presentation
                 bool affordable = !sold && _meta.Ink >= price;
 
                 var cell = Ui.VStack(cardRow.transform, $"Slot{i}", 8);
-                Ui.GlyphTile(cell.transform, def, sold ? "已售" : "", false,
+                // 2026-08-21:牌面底部那条「已售」随费用带一起撤销 —— 紧挨着的购买钮
+                // (下一行)本来就写着「已售」且整个置灰,牌上再印一遍是同一信息说两次。
+                Ui.GlyphTile(cell.transform, def, false,
                     () => ShowPreview(def), new Vector2(144, 180)); // 点卡看详情(2026-07-21)
                 var buy = Ui.RoundButton(cell.transform, sold ? "已售" : price.ToString(),
                     () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), $"购入「{card}」!",

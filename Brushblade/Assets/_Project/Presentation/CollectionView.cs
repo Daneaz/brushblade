@@ -113,7 +113,7 @@ namespace Brushblade.Presentation
                 // 点字卡 = 看能力;出阵改走下方独立按钮(2026-07-20)。
                 // 尺寸 118×112 → 152×190(2026-07-28):原先是**横**的,而稀有度框素材是 192×240 的竖版,
                 // 比例不合会把框内那个长方形留白拉变形;152:190 = 0.8,正好贴素材
-                Ui.GlyphTile(cell.transform, def, "", pinned, () => ShowDetail(cardId),
+                Ui.GlyphTile(cell.transform, def, pinned, () => ShowDetail(cardId),
                     new Vector2(152, 190));
                 Ui.RoundButton(cell.transform, pinned ? "卸下" : "出阵", () => ToggleDeck(cardId),
                     pinned ? Theme.LockedBg : Theme.ExitPink,
@@ -184,7 +184,7 @@ namespace Brushblade.Presentation
                 new Vector2(340, 275), dismissable: true, out var stack);
             _modal = overlay;
 
-            Ui.GlyphTile(stack, def, $"{def.ApCost}AP", false, null, new Vector2(144, 180));
+            Ui.GlyphTile(stack, def, false, null, new Vector2(144, 180));
             Ui.ThemedLabel(stack, $"Lv.{level} → Lv.{level + 1}", 21, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack,
                 $"{CharInfo.EffectsText(def, level, _graph)}\n↓\n{CharInfo.EffectsText(def, level + 1, _graph)}",

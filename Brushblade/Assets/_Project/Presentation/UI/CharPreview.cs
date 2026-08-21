@@ -11,7 +11,7 @@ namespace Brushblade.Presentation
             var overlay = Ui.ModalShell(root, cardLevel > 1 ? $"字卡 Lv.{cardLevel}" : "字卡",
                 new Vector2(360, 300), dismissable: true, out var stack);
             // 176×220:对齐框素材 192×240 的 0.8 竖版比例,比例不对会把框内的长方形留白拉变形
-            Ui.GlyphTile(stack, def, $"{def.ApCost}AP", false, null, new Vector2(176, 220));
+            Ui.GlyphTile(stack, def, false, null, new Vector2(176, 220));
             Ui.ThemedLabel(stack, CharInfo.Detail(def, graph, cardLevel), 17, Theme.TextDim);
             Ui.PillButton(stack, "知道了", () => Object.Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 48));

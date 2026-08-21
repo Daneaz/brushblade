@@ -1346,8 +1346,12 @@ namespace Brushblade.Presentation
                     if (rewardPhase) OnRewardLibraryClicked(charId);
                     else OnLibraryCharClicked(charId, index);
                 };
-                var tile = Ui.GlyphTile(_libraryRow, def, $"{def.ApCost} AP", selected, tap,
-                    new Vector2(84, 105));
+                // 2026-08-21:84×105 → 68×85。费用带撤销后牌面少了 19% 的死高度,
+                // 牌整体缩小把这笔省下来的还给纵向预算(字库区 123 → 95)。牌面锁 0.8 竖版比例,
+                // 所以宽度跟着走。顺带:满员 12 张时行宽 12×68 + 11×8 = 904(原 1184),
+                // 不再压到左侧配字表与右侧拆合台。
+                var tile = Ui.GlyphTile(_libraryRow, def, selected, tap,
+                    new Vector2(68, 85));
                 // AP 不够就去饱和压暗、属性动效停(《字牌形象关键词包》§4.4):
                 // 「用不了」要在点下去之前就看得出来,不能等弹窗告诉你
                 if (!rewardPhase)
@@ -1387,11 +1391,12 @@ namespace Brushblade.Presentation
             return -1;
         }
 
-        /// <summary>消息条简述(2026-07-21):只给 AP 与等级化效果;拼音/释义/配方走长按 preview。</summary>
+        /// <summary>消息条简述(2026-07-21):只给等级化效果;拼音/释义/配方走长按 preview。
+        /// 2026-08-21:AP 从这里撤掉 —— 一律 1,印出来是零信息量(与字牌费用带同因)。</summary>
         private string Brief(string charId)
         {
             var def = _graph.Get(charId);
-            return $"「{charId}」{def.ApCost}AP · {CharInfo.EffectsText(def, _run.CardLevel(charId), _graph)}";
+            return $"「{charId}」{CharInfo.EffectsText(def, _run.CardLevel(charId), _graph)}";
         }
 
         /// <summary>长按看详情:preview 只读,不动选中态。</summary>
@@ -1704,7 +1709,7 @@ namespace Brushblade.Presentation
                 if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
                 int replaceIndex = i;
                 var def = _graph.Get(Battle.Library[i]);
-                Ui.GlyphTile(row, def, $"{def.ApCost} AP", false, () =>
+                Ui.GlyphTile(row, def, false, () =>
                 {
                     string dropped = Battle.Library[replaceIndex];
                     if (Battle.ResolveDrop(replaceIndex) == BattleError.None)
@@ -1884,7 +1889,7 @@ namespace Brushblade.Presentation
                     }
                     Refresh();
                 };
-                var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP",
+                var tile = Ui.GlyphTile(row.transform, def,
                     index == _previewRewardIndex, tap);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
@@ -1915,7 +1920,7 @@ namespace Brushblade.Presentation
             {
                 int replaceIndex = i;
                 var def = _graph.Get(_run.CarriedLibrary[i]);
-                Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", false, () =>
+                Ui.GlyphTile(row.transform, def, false, () =>
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     if (_run.PickRewardReplacing(_pendingRewardIndex, replaceIndex))
@@ -1990,7 +1995,7 @@ namespace Brushblade.Presentation
                         _message = $"「{id}」入库";
                     Refresh();
                 };
-                var tile = Ui.GlyphTile(row.transform, def, $"{def.ApCost} AP", index == _previewRewardIndex, tap);
+                var tile = Ui.GlyphTile(row.transform, def, index == _previewRewardIndex, tap);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
@@ -2020,7 +2025,7 @@ namespace Brushblade.Presentation
                 if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
                 int replaceIndex = i;
                 var def = _graph.Get(Battle.Library[i]);
-                Ui.GlyphTile(row, def, $"{def.ApCost} AP", false, () =>
+                Ui.GlyphTile(row, def, false, () =>
                 {
                     string dropped = Battle.Library[replaceIndex];
                     if (_run.PickReviveCharReplacing(_pendingReviveIndex, replaceIndex))
@@ -2149,7 +2154,7 @@ namespace Brushblade.Presentation
                 if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
                 int replaceIndex = i;
                 var def = _graph.Get(_run.CarriedLibrary[i]);
-                Ui.GlyphTile(row, def, $"{def.ApCost} AP", false, () =>
+                Ui.GlyphTile(row, def, false, () =>
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     var picks = _eventPicks.Count > 0 ? _eventPicks.ToArray() : null;

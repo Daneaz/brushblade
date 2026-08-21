@@ -334,7 +334,7 @@ namespace Brushblade.Presentation
 
                 var cell = Ui.VStack(row, $"Reward_{cardId}_{i}", 4);
                 // 点卡看详情(2026-08-17):与商城/收集同款 CharPreview,弹在结果面板之上
-                Ui.GlyphTile(cell.transform, def, "", false, () => ShowRewardPreview(cardId), new Vector2(76, 95));
+                Ui.GlyphTile(cell.transform, def, false, () => ShowRewardPreview(cardId), new Vector2(76, 95));
                 if (isNew)
                 {
                     Ui.Chip(cell.transform, "新!", Theme.ExitPink, Color.white, 12);
