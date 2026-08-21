@@ -115,7 +115,10 @@ namespace Brushblade.Presentation
             var text = new StringBuilder();
             text.Append("第 ").Append(phaseIndex + 1).Append('/').Append(def.Phases.Count)
                 .Append(" 阶段 · ").Append(CharInfo.ElementName(phase.Element)).Append("系\n");
-            text.Append("血 ").Append(phase.MaxHp).Append(" · 攻 ").Append(phase.Attack).Append('\n');
+            // 攻击类型配在 EnemyDef 上、不分阶段(Boss 换阶段换的是属性/血/攻/技能,不换站位与射程)
+            text.Append("血 ").Append(phase.MaxHp).Append(" · 攻 ").Append(phase.Attack)
+                .Append(" · ").Append(RangeName(def.Range)).Append('\n');
+            text.Append('\n').Append(RangeText(def.Range)).Append('\n');
             if (phase.Skill == BossSkill.None)
                 text.Append("\n本阶段无大招,只有普攻");
             else
@@ -140,12 +143,23 @@ namespace Brushblade.Presentation
             _ => CharInfo.ElementName(def.Element) + "系",
         };
 
-        /// <summary>小怪单形态:属性血攻 + 能力 / 护甲 / 无机制(三者互斥)。</summary>
+        /// <summary>攻击类型的短标(2026-08-21):跟在血攻后面,一眼看出前排挡不挡得住它。</summary>
+        public static string RangeName(AttackRange range) => range == AttackRange.Ranged ? "远程" : "近战";
+
+        /// <summary>攻击类型的说明行。这是玩家排兵布阵时最需要的一条:决定「把召唤物摆在前排
+        /// 到底挡不挡得住这只怪」。近战会被前排拦下,远程根本不看前排。</summary>
+        public static string RangeText(AttackRange range) => range == AttackRange.Ranged
+            ? "远程:无视你的前排,直接打后排召唤物或你本人"
+            : "近战:被你的前排拦下,前排清空后才够得着后排或你本人";
+
+        /// <summary>小怪单形态:属性血攻 + 攻击类型 + 能力 / 护甲 / 无机制(后三者互斥)。</summary>
         public static string MinionDetail(EnemyDef def)
         {
             var text = new StringBuilder();
             text.Append(ElementDisplayForDetail(def)).Append(" · 血 ")
-                .Append(def.MaxHp).Append(" · 攻 ").Append(def.Attack).Append('\n');
+                .Append(def.MaxHp).Append(" · 攻 ").Append(def.Attack)
+                .Append(" · ").Append(RangeName(def.Range)).Append('\n');
+            text.Append('\n').Append(RangeText(def.Range)).Append('\n');
             if (def.Ability != EnemyAbility.None)
                 text.Append('\n').Append('【').Append(AbilityName(def.Ability)).Append("】\n")
                     .Append(AbilityText(def));

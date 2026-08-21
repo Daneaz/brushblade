@@ -441,12 +441,19 @@ namespace Brushblade.Presentation
                 if (_selectedChar != null || _targeting || _slotPicking) CancelSelection();
             });
 
-            // 顶栏:墨锭 · 回合 · 退出。标题 2026-08-21 搬到左下(见文件末尾的底部一行),
-            // 顶部只留这三个真正要随时点/看的东西 —— 中区上缘因此能一路抬到 0.938。
+            // 顶栏一行三段(2026-08-21 用户拍板):关卡名·层数·场次(左) | 战斗提示(中) | 墨锭·回合·退出(右)。
+            // 提示此前独占下面一条带(0.900–0.945,40.5px);并进顶栏后那 40.5px 归中区,
+            // 而标题与墨锭都回到原来的位置没动 —— 高度是白赚的,布局没有任何一样东西被挪走。
             var topBar = Ui.Panel(transform, "TopBar");
             Ui.Anchor((RectTransform)topBar.transform, new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
+            _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
+            Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.26f, 1), Vector2.zero, Vector2.zero);
+            var messageGo = Ui.Panel(topBar.transform, "Message");
+            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.26f, 0), new Vector2(0.70f, 1), Vector2.zero, Vector2.zero);
+            _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
+            Ui.Stretch(_messageLabel.rectTransform);
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
-            Ui.Anchor((RectTransform)_topRight, new Vector2(0.4f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)_topRight, new Vector2(0.70f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
             // 五行速查常驻(2026-07-22;2026-07-29 改为直接摆环图,不再点开弹窗):
             // 挂在消息行两端(那里通常是空白),向下延展 —— 敌人行居中排布,够不到这两角
@@ -458,22 +465,6 @@ namespace Brushblade.Presentation
             var shengGo = WuxingChart.Mount(transform, sheng: true);
             Ui.Anchor((RectTransform)shengGo.transform,
                 new Vector2(0.914f, 0.780f), new Vector2(0.996f, 0.938f), Vector2.zero, Vector2.zero);
-
-            // ===== 左下的一条描述行(2026-08-21,用户拍板)=====
-            // 原来提示行独占顶部 0.900–0.945(40.5px),标题独占顶栏左半。两者都是「描述」,
-            // 摆在顶部既分散注意力、又把中区的上缘压在 0.900。现在并到屏幕最底一行、一律左对齐,
-            // 中区上缘因此抬到 0.938 —— 这是竖排敌人格能装下的两笔预算之一。
-            //
-            // 同一条带上按 x 分三段,互不重叠:标题 | 提示 | 教程/结算文案。
-            // 三者可能同时有内容(教程期间既有提示又有教程指引),所以不能共用同一段。
-            _topLeft = Ui.Row(transform, "TitleLine", 10).transform;
-            ((HorizontalLayoutGroup)_topLeft.GetComponent<HorizontalLayoutGroup>()).childAlignment = TextAnchor.MiddleLeft;
-            Ui.Anchor((RectTransform)_topLeft, new Vector2(0.014f, 0.010f), new Vector2(0.22f, 0.053f), Vector2.zero, Vector2.zero);
-
-            var messageGo = Ui.Panel(transform, "Message");
-            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.23f, 0.010f), new Vector2(0.60f, 0.053f), Vector2.zero, Vector2.zero);
-            _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim, align: TextAnchor.MiddleLeft);
-            Ui.Stretch(_messageLabel.rectTransform);
 
             // ================= 纵向预算(2026-08-21 竖排复原) =================
             // 900 基准高(CanvasScaler 1600×900 按高匹配)。中区 = 四排 + 分隔线的全部预算。
@@ -567,13 +558,9 @@ namespace Brushblade.Presentation
                 new Vector2(0.135f, 0.121f), new Vector2(0.790f, 0.223f), Vector2.zero, Vector2.zero);
             _libraryRow = libraryGo.transform;                    // 91.8px ≥ 85 字牌
             _poolRow = MakeSection("Pool", 0.053f, 0.121f);       // 61px ≥ 56 部件钮(高度不变)
-            // 底部那条描述行的第三段:教程指引 / 「结算中……」。
-            // 与标题(0.014–0.22)、提示行(0.23–0.60)按 x 分段互不重叠 —— 教程期间三者会同时有字,
-            // 共用一段就会叠印。左对齐,与另两段同一条基线。
-            var statusGo = Ui.Row(transform, "Status", 8);
-            ((HorizontalLayoutGroup)statusGo.GetComponent<HorizontalLayoutGroup>()).childAlignment = TextAnchor.MiddleLeft;
-            Ui.Anchor((RectTransform)statusGo.transform, new Vector2(0.61f, 0.010f), new Vector2(0.99f, 0.053f), Vector2.zero, Vector2.zero);
-            _statusRow = statusGo.transform;
+            // 39px:只装单行标签(字号 18~26,26 号行高约 31px)。教程指引 / 「结算中……」。
+            // ⚠ 若将来这里要放两行文案,得另找地方要空间,不能再从这里挤。
+            _statusRow = MakeSection("Status", 0.010f, 0.053f);
 
             // 非战斗阶段的宽操作区。上下缘都被同阶段共存的区卡死,别再挪:
             //   下缘 > 0.121 —— 奇遇/部件超限阶段同屏画部件池(0.053–0.121)
@@ -1162,19 +1149,25 @@ namespace Brushblade.Presentation
         //   ② 字牌去掉费用带后 84×105 → 68×85,字库区 123 → 91.8,中区下缘从 0.340 落到 0.305
         // 两笔合计 +65.7px,中区 504 → 569.7px,**形象因此一分没缩**,仍是 138 / 117。
         //
-        // 代价:名字与 chip 半透叠在形象上,不占独立行。它们竖着排要再吃 126px/格
-        // (名字 22 + chip 两行 41,两排合计),那样形象就得缩到 72/61 —— 比现在小一半。
-        private const float EnemyPortraitFront = 138f;
-        // 后排缩到约 85%(2026-08-20):138 × 0.85 = 117.3,取 117。
-        private const float EnemyPortraitBack = 117f;
+        // 2026-08-21 二改(实机反馈:名字压在形象上看不清):**名字独占一行**,排在形象正下方,
+        // 形象相应缩小把这一行的高度让出来。chip 仍叠在形象底部 —— 它自带底色、又只有一两个,
+        // 压在墨色笔画上仍读得出;而名字是长串文字,叠上去必糊。
+        //
+        // 每格纵向:2 + 形象 + 2 + 名字 19 + 2 + 条区 31 = 形象 + 56。
+        // 反推形象:前排 171 − 56 = 115 → 取 114;后排 150 − 56 = 94。
+        private const float EnemyPortraitFront = 114f;
+        private const float EnemyPortraitBack = 94f;
+        private const float EnemyNameHeight = 19f;   // 单行 15 号字 ≈ 19px
         private const float EnemyBarWidth = 170f;    // 血条/行动条:格宽减两侧各 10
         private const float EnemyBarsHeight = 31f;   // 血条 16 + 间距 3 + 行动条 12
         // 前后排同宽:宽度由条与 chip 决定,与形象直径无关。三格一排 3×190 + 16 = 586 居中,
         // 落在配字表右缘(216)与拆合台左缘(1272)之间,两头都不压。
         private const float EnemyCellWidth = 190f;
-        // 格高 = 形象 + 2px 呼吸 + 条区 31。名字与 chip 叠在形象上,不进这笔加法。
-        private const float EnemyCellHeightFront = EnemyPortraitFront + 2f + EnemyBarsHeight; // 171
-        private const float EnemyCellHeightBack = EnemyPortraitBack + 2f + EnemyBarsHeight;   // 150
+        // 格高 = 2 + 形象 + 2 + 名字 + 2 + 条区。chip 叠在形象上,不进这笔加法。
+        private const float EnemyCellHeightFront =
+            2f + EnemyPortraitFront + 2f + EnemyNameHeight + 2f + EnemyBarsHeight; // 170
+        private const float EnemyCellHeightBack =
+            2f + EnemyPortraitBack + 2f + EnemyNameHeight + 2f + EnemyBarsHeight;  // 150
 
         // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
         // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
@@ -1249,9 +1242,9 @@ namespace Brushblade.Presentation
                     // 白字压在 LockedBg 这种浅底上看不见:置灰的一并把字色降到 TextDim
                     showAlive && reachable ? Color.white : Theme.TextDim, portraitSize);
                 _enemyMobs.Add(mob);
-                // 形象贴格顶、横向居中(2026-08-21 竖排格):条区在它正下方,同一列
+                // 形象贴格顶、横向居中(2026-08-21 竖排格):名字与条区都在它正下方,同一列
                 Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                    new Vector2(-portraitSize / 2f, -portraitSize), new Vector2(portraitSize / 2f, 0f));
+                    new Vector2(-portraitSize / 2f, -2f - portraitSize), new Vector2(portraitSize / 2f, -2f));
                 if (_targeting && enemy.Alive && reachable && mob == null)
                 {
                     var outline = portrait.AddComponent<Outline>(); // 圆头像用描边示意可选中
@@ -1265,30 +1258,23 @@ namespace Brushblade.Presentation
                     ? new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.07f) // 选目标时整格微亮,提示可点
                     : new Color(0, 0, 0, 0);
 
-                // 名字与 chip 半透叠在形象上(2026-08-21):铺**整格宽**而不是形象宽 ——
-                // 窄 50px 会让 chip 多换一行、多丢内容。不吃 raycast:名字底衬显式关掉,
-                // chip 自带的底色 Image 虽然吃射线,但 uGUI 会沿父链找到 cell 上的 Button,
-                // 点击照常落到「点敌人」上(与改造前 chip 在 info 里时同一条路径)。
-                var info = Ui.Panel(cell.transform, "Info");
-                Ui.Anchor((RectTransform)info.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
-                    new Vector2(0f, -portraitSize), Vector2.zero);
-
-                // 名字压形象顶:半透纸底保证压在墨色笔画上也读得清(形象本身就是水墨字形)
-                var nameStrip = Ui.Panel(info.transform, "NameStrip");
-                var nameBg = nameStrip.AddComponent<Image>();
-                nameBg.sprite = Theme.Rounded(6);
-                nameBg.type = Image.Type.Sliced;
-                nameBg.color = new Color(Theme.PaperCard.r, Theme.PaperCard.g, Theme.PaperCard.b, 0.82f);
-                nameBg.raycastTarget = false;
-                Ui.Anchor((RectTransform)nameStrip.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
-                    new Vector2(0f, -21f), Vector2.zero);
-                Ui.Stretch(Ui.ThemedLabel(nameStrip.transform, BossTitle(enemy), 15,
+                // 名字独占一行,排在形象正下方(2026-08-21 二改)。此前它半透叠在形象顶部,
+                // 而形象本身就是水墨字形 —— 长串名字压在笔画上读不出来(实机反馈)。
+                var nameGo = Ui.Panel(cell.transform, "Name");
+                Ui.Anchor((RectTransform)nameGo.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
+                    new Vector2(0f, -2f - portraitSize - 2f - EnemyNameHeight),
+                    new Vector2(0f, -2f - portraitSize - 2f));
+                Ui.Stretch(Ui.ThemedLabel(nameGo.transform, BossTitle(enemy), 15,
                     Theme.TextMain, Theme.TitleFont).rectTransform);
 
-                // chip 贴形象底:铺满形象区但内容靠下,这样一行两行都从底边往上长
-                var chipHolder = Ui.VStack(info.transform, "ChipHolder", 0);
+                // chip 仍叠在形象底部:它自带底色、通常只有一两个,压在笔画上仍读得出;
+                // 给它独占一行要再吃 41px/格(两行 chip),两个形象就得再缩 20 —— 不值。
+                // 铺**整格宽**而不是形象宽:窄 50px 会让 chip 多换一行、多丢内容。
+                // chip 的底色 Image 吃射线,但 uGUI 会沿父链找到 cell 上的 Button,点击照常落到「点敌人」。
+                var chipHolder = Ui.VStack(cell.transform, "ChipHolder", 0);
                 chipHolder.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.LowerCenter;
-                Ui.Stretch((RectTransform)chipHolder.transform);
+                Ui.Anchor((RectTransform)chipHolder.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
+                    new Vector2(0f, -2f - portraitSize), new Vector2(0f, -2f));
                 // chip 攒成列表再交给 ChipFlow 分行 —— 它要先看全部文字才能决定在哪断行。
                 // 列表顺序即优先级:装不下 ChipMaxLines 行时从**尾部**丢弃,末尾补「+N」,
                 // 所以越靠前的越保得住。完整信息仍在敌人详情弹窗里。
@@ -1596,28 +1582,20 @@ namespace Brushblade.Presentation
             if (_selectedChar != null || _targeting) return; // 选中态:拆合台交给拆字+动作两行
             if (suggest.Composable.Count == 0)
                 Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
-            // 2026-07-19 反馈是「过多时横排溢出被配字表遮盖」,当时的解法是每行 4 个换行;
-            // 2026-08-20 拆合台改右侧竖栏(栏宽 217.6px)后每行只放得下 1 个 ——
-            // 一条配方 = 部件 36 ×2 + 「=」14 + 结果 60 + 间距 = 164px,两条就 334px 装不下。
-            const int CombosPerRow = 1;
+            // 一行一组配方,**整组必须排得下**(2026-08-21 用户要求)。
+            // 合配方读作「火 + 炎 = 焱」:部件 36×2 + 「+」12 + 「=」14 + 结果 60 + 间距 6×4 = 182px,
+            // 而拆合台竖栏内宽 304px(0.795–0.985,CardPanel 只有圆角、无内边距)—— 放得下,余 122px。
             var comboStack = Ui.VStack(_suggestRow, "ComboRows", 4);
-            Transform currentRow = null;
-            int inRow = CombosPerRow;
             foreach (var id in suggest.Composable)
             {
-                if (inRow >= CombosPerRow)
-                {
-                    currentRow = Ui.Row(comboStack.transform, $"ComboRow{inRow}", 14).transform;
-                    inRow = 0;
-                }
-                inRow++;
                 string charId = id;
                 var def = _graph.Get(charId);
-                var combo = Ui.Row(currentRow, $"Combo_{charId}", 6); // 触控:组间距/主按钮加大
-                foreach (var part in def.Recipe)
+                var combo = Ui.Row(comboStack.transform, $"Combo_{charId}", 6); // 触控:组间距/主按钮加大
+                for (int n = 0; n < def.Recipe.Count; n++)
                 {
-                    var partDef = _graph.Get(part);
-                    Ui.RoundButton(combo.transform, part, null,
+                    if (n > 0) Ui.ThemedLabel(combo.transform, "+", 14, Theme.TextDim);
+                    var partDef = _graph.Get(def.Recipe[n]);
+                    Ui.RoundButton(combo.transform, def.Recipe[n], null,
                         Theme.ElementColor(partDef.Element), Color.white, 15, new Vector2(36, 36), 8);
                 }
                 Ui.ThemedLabel(combo.transform, "=", 14, Theme.TextDim);
@@ -1707,33 +1685,35 @@ namespace Brushblade.Presentation
 
         private void DrawActions()
         {
-            // 选位置态:动作行**只**画「取消」(2026-08-20 review M-2)。两点都要:
-            //   (a) 判空之前 —— 把召唤字拖到敌人身上也会进选位置态,那条路径 _selectedChar
-            //       是 null,早退的话右侧连退出口都没有,玩家只能靠点空白才出得来;
-            //   (b) 不画「出字/拆/丢弃」—— 再点一次「出字」会走 OnCastPressed → BeginCast,
-            //       把已点的槽位悄悄清空、消息条跳回「点第 1 只」,玩家看不出发生了什么。
+            // 选位置态:动作行只画一句提示(2026-08-20 review M-2)。这一段必须在判空**之前**——
+            // 拖召唤字进来的那条路径 _selectedChar 是 null,早退的话这里什么也不画,
+            // 玩家看不出自己正处在「等你选位置」的状态。
+            // 不画「出/拆/弃」:再点一次「出」会走 OnCastPressed → BeginCast,把落位态悄悄重置。
+            // 「取消」按钮 2026-08-21 随整排一起移除 —— 点空白即取消(Backdrop)。
             if (_slotPicking)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_pendingSummonChar}」落位中", 16, Theme.TextMain);
-                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(88, 50));
+                Ui.ThemedLabel(_actionRow, $"「{_pendingSummonChar}」落位中|点空白取消", 16, Theme.TextMain);
                 return;
             }
             if (_selectedChar == null) return;
             var def = _graph.Get(_selectedChar);
 
-            // 第一行(拆字):选中字 → 部件拆解。
-            // 2026-08-20:_suggestRow 已改成竖栏里的 VStack,这些按钮直接挂上去会一个个竖着排 ——
-            // 所以「选中字 + 箭头」与「部件/同源」各自装进一个横排子行。栏宽 217.6px 下:
-            //   选中字 52 + 6 + 箭头 16 = 74;同源最多 4 个 = 38×4 + 6×3 = 170 ✓
+            // 第一行(拆字):选中字 → 部件拆解,读作「炎 → 火 + 火」。
+            // 2026-08-21:整组排在**同一行**(用户要求)。此前「选中字 + 箭头」与「部件」分成两行,
+            // 那是 2026-08-20 竖栏只有 217.6px 宽时的将就;竖栏加宽到 304px 后一行装得下:
+            //   选中字 52 + 6 + 箭头 16 + 6 + 部件 38 + 4 + 「+」12 + 4 + 部件 38 = 176px,余 128px。
+            // 同源变体那支仍可能多到 4 个:52 + 6 + 16 + 6 + 38×4 + 6×3 = 244px,也放得下。
             var head = Ui.Row(_suggestRow, "Selected", 6).transform;
             Ui.RoundButton(head, def.Id, null, Theme.Ink, Color.white, 22, new Vector2(52, 52), 12);
             if (!def.IsLeaf)
             {
                 Ui.ThemedLabel(head, "→", 16, Theme.TextDim);
-                var parts = Ui.Row(_suggestRow, "Parts", 6).transform;
-                foreach (var part in def.Recipe)
-                    Ui.RoundButton(parts, part, null,
-                        Theme.ElementColor(_graph.Get(part).Element), Color.white, 16, new Vector2(38, 38), 8);
+                for (int n = 0; n < def.Recipe.Count; n++)
+                {
+                    if (n > 0) Ui.ThemedLabel(head, "+", 14, Theme.TextDim);
+                    Ui.RoundButton(head, def.Recipe[n], null,
+                        Theme.ElementColor(_graph.Get(def.Recipe[n]).Element), Color.white, 16, new Vector2(38, 38), 8);
+                }
             }
             else
             {
@@ -1750,11 +1730,10 @@ namespace Brushblade.Presentation
                 if (ComponentKin.TryGetGroup(_selectedChar, out var kinGroup))
                 {
                     Ui.ThemedLabel(head, "⇄", 16, Theme.TextDim);
-                    var kins = Ui.Row(_suggestRow, "Kin", 6).transform;
                     foreach (var kin in kinGroup)
                     {
                         if (kin == _selectedChar) continue; // 自己不列进"可换成"
-                        Ui.RoundButton(kins, kin, null,
+                        Ui.RoundButton(head, kin, null,
                             Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
                     }
                     Ui.ThemedLabel(_suggestRow, "同源变体 · 位形互换", 13, Theme.TextDim);
@@ -1768,18 +1747,21 @@ namespace Brushblade.Presentation
             // 第二行(动作)
             if (_targeting)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人", 16, Theme.TextMain);
-                Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 16, new Vector2(88, 50));
+                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人|点空白取消", 16, Theme.TextMain);
                 return;
             }
             bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
-            string castLabel = def.Effects.Count > 0 ? (inLibrary ? "出字" : "直出") : "兜底一击";
+            // 2026-08-21 用户拍板:动作名一律收成单字 —— 「出字 / 直出 / 兜底一击」三种情形
+            // 统一叫「出」,「丢弃」叫「弃」。竖栏里按钮排一行,长标签会把整行挤换行;
+            // 而三种「出」的差别(库里出 / 部件直出 / 无效果字的兜底一击)属于结算细节,
+            // 玩家在按钮上分不分得清都不影响他要点的那一下。
             // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性)
-            Ui.RoundButton(_actionRow, castLabel, () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(110, 52));
+            Ui.RoundButton(_actionRow, "出", () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
             if (inLibrary && !def.IsLeaf)
                 Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
-            Ui.RoundButton(_actionRow, "丢弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(88, 52));
-            Ui.RoundButton(_actionRow, "取消", CancelSelection, Theme.LockedBg, Theme.TextMain, 17, new Vector2(84, 52));
+            Ui.RoundButton(_actionRow, "弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(76, 52));
+            // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
+            // (BuildSkeleton 最先建的 Backdrop 全屏透明层),按钮是同一功能的第二个入口。
         }
 
         private void DrawEndTurn()
