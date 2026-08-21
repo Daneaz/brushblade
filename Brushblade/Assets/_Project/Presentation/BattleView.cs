@@ -438,11 +438,10 @@ namespace Brushblade.Presentation
                 if (_selectedChar != null || _targeting || _slotPicking) CancelSelection();
             });
 
-            // 顶栏:标题 | 墨锭 · 回合 · 退出
+            // 顶栏:墨锭 · 回合 · 退出。标题 2026-08-21 搬到左下(见文件末尾的底部一行),
+            // 顶部只留这三个真正要随时点/看的东西 —— 中区上缘因此能一路抬到 0.938。
             var topBar = Ui.Panel(transform, "TopBar");
             Ui.Anchor((RectTransform)topBar.transform, new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
-            _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
-            Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.4f, 1), Vector2.zero, Vector2.zero);
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.4f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
@@ -457,47 +456,59 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)shengGo.transform,
                 new Vector2(0.914f, 0.780f), new Vector2(0.996f, 0.938f), Vector2.zero, Vector2.zero);
 
+            // ===== 左下的一条描述行(2026-08-21,用户拍板)=====
+            // 原来提示行独占顶部 0.900–0.945(40.5px),标题独占顶栏左半。两者都是「描述」,
+            // 摆在顶部既分散注意力、又把中区的上缘压在 0.900。现在并到屏幕最底一行、一律左对齐,
+            // 中区上缘因此抬到 0.938 —— 这是竖排敌人格能装下的两笔预算之一。
+            //
+            // 同一条带上按 x 分三段,互不重叠:标题 | 提示 | 教程/结算文案。
+            // 三者可能同时有内容(教程期间既有提示又有教程指引),所以不能共用同一段。
+            _topLeft = Ui.Row(transform, "TitleLine", 10).transform;
+            ((HorizontalLayoutGroup)_topLeft.GetComponent<HorizontalLayoutGroup>()).childAlignment = TextAnchor.MiddleLeft;
+            Ui.Anchor((RectTransform)_topLeft, new Vector2(0.014f, 0.010f), new Vector2(0.22f, 0.053f), Vector2.zero, Vector2.zero);
+
             var messageGo = Ui.Panel(transform, "Message");
-            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.900f), new Vector2(0.98f, 0.945f), Vector2.zero, Vector2.zero);
-            _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
+            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.23f, 0.010f), new Vector2(0.60f, 0.053f), Vector2.zero, Vector2.zero);
+            _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim, align: TextAnchor.MiddleLeft);
             Ui.Stretch(_messageLabel.rectTransform);
 
-            // ================= 纵向预算(2026-08-20 四排改造) =================
-            // 900 基准高(CanvasScaler 1600×900 按高匹配)。拆合台从底部大卡(0.012–0.230,196px)
-            // 搬到右侧竖栏,底部整条让出来 —— 下四区(PlayerStats/字库/部件池/Status)整体下移
-            // 0.220(198px),中区因此从 0.560–0.900(306px)长到 0.340–0.900(**504px**),
-            // 这 504px 就是四排 + 分隔线的全部预算。
+            // ================= 纵向预算(2026-08-21 竖排复原) =================
+            // 900 基准高(CanvasScaler 1600×900 按高匹配)。中区 = 四排 + 分隔线的全部预算。
+            //
+            // 2026-08-20 那版是 0.340–0.900 = 504px,只够横排格(形象在左、信息在右)。
+            // 本次把敌人格改回竖排(形象在上、条在正下方),格高从 140/119 涨到 171/150,
+            // 两排多要 62px。钱是这么来的:
+            //   ① 提示行从顶部 0.900–0.945 搬到左下 → 上缘 0.900 抬到 0.938   … +34.2px
+            //   ② 字牌去费用带后 84×105 → 68×85,字库区 123 → 91.8            … +31.5px
+            // 中区因此 0.305–0.938 = 0.633 → **569.7px**,形象一分没缩(仍 138 / 117)。
             //
             // 逐项加法(区域给了多少 / 内容最坏多少 / 余量),自上而下:
-            //   顶部留白 0.890–0.900                        …  9.0px   (与消息条脱开)
-            //   敌方后排 0.754–0.890  = 0.136 → 122.4px  内容 119px  余 3.4px
-            //     └ 格高 = 形象 117 + 上下各 1;信息列最坏 100px(见下)不是约束方
-            //   排间留白 0.744–0.754                        …  9.0px
-            //   敌方前排 0.587–0.744  = 0.157 → 141.3px  内容 140px  余 1.3px
-            //     └ 格高 = 形象 138 + 上下各 1
-            //     └ 信息列最坏 100px = 名字 22(17号) + 3 + chip 两行 41(19+3+19)
-            //                        + 3 + 血条 16 + 3 + 行动条 12;常见(chip 一行)78px
-            //   分隔带 0.570–0.587                          … 15.3px
-            //     └ 留白 5.4 + 分隔线 1.8(0.576–0.578) + 留白 8.1;两侧前排贴着它
-            //   我方前排 0.458–0.570  = 0.112 → 100.8px  内容  98px  余 2.8px
+            //   顶部留白 0.930–0.938                        …  7.2px   (与顶栏脱开)
+            //   敌方后排 0.760–0.930  = 0.170 → 153.0px  内容 150px  余 3.0px
+            //     └ 格高 = 形象 117 + 2 + 条区 31
+            //   排间留白 0.753–0.760                        …  6.3px
+            //   敌方前排 0.560–0.753  = 0.193 → 173.7px  内容 171px  余 2.7px
+            //     └ 格高 = 形象 138 + 2 + 条区 31(血条 16 + 3 + 行动条 12)
+            //     └ 名字与 chip **叠在形象上**,不进这笔加法;竖着排要再吃 22 + 41 = 63px/格
+            //   分隔带 0.543–0.560                          … 15.3px
+            //     └ 留白 6.3 + 分隔线 1.8(0.550–0.552) + 留白 7.2;两侧前排贴着它
+            //   我方前排 0.431–0.543  = 0.112 → 100.8px  内容  98px  余 2.8px
             //     └ 字块 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 属性行 14(攻/盾/被动同排)
-            //   排间留白 0.452–0.458                        …  5.4px
-            //   我方后排 0.348–0.452  = 0.104 →  93.6px  内容  88px  余 5.6px
+            //   排间留白 0.425–0.431                        …  5.4px
+            //   我方后排 0.321–0.425  = 0.104 →  93.6px  内容  88px  余 5.6px
             //     └ 字块 48 + 2 + 血条 12 + 2 + 行动条 8 + 2 + 属性行 14
-            //   收尾留白 0.340–0.348                        …  7.2px
+            //   收尾留白 0.305–0.321                        … 14.4px
             //   ——————————————————————————————————————————————
-            //   区域 122.4 + 141.3 + 100.8 + 93.6 = 458.1px
-            //   留白  9.0 + 9.0 + 15.3 + 5.4 + 7.2 =  45.9px
-            //   合计 504.0px = 0.340–0.900 ✓;四排内容 445px,四区余量合计 13.1px,**闭合**。
+            //   区域 153.0 + 173.7 + 100.8 + 93.6 = 521.1px
+            //   留白  7.2 + 6.3 + 15.3 + 5.4 + 14.4 =  48.6px
+            //   合计 569.7px = 0.305–0.938 ✓;四排内容 507px,四区余量合计 14.1px,**闭合**。
             //
-            // 2026-08-17 那条「这个区域闭合不了、要真闭合只能把盾与被动移进详情弹窗」
-            // 到此撤销:每排 6 格降到 3 格、格宽 54 → 180 之后,攻/盾/被动横排放得下,
-            // 不必删信息。**改动任何一格的内容高度时请重算上面这串加法**,
-            // 逐格的加法则在 EnemyCellHeightFront / SummonCellHeightFront 那两处常量旁。
-            _enemyBackRow = MakeSection("EnemiesBack", 0.754f, 0.890f);   // 122.4px
-            _enemyFrontRow = MakeSection("EnemiesFront", 0.587f, 0.744f); // 141.3px
-            _summonFrontRow = MakeSection("SummonsFront", 0.458f, 0.570f); // 100.8px
-            _summonBackRow = MakeSection("SummonsBack", 0.348f, 0.452f);   // 93.6px
+            // **改动任何一格的内容高度时请重算上面这串加法**,逐格的加法在
+            // EnemyCellHeightFront / SummonCellHeightFront 那两处常量旁。
+            _enemyBackRow = MakeSection("EnemiesBack", 0.760f, 0.930f);   // 153.0px
+            _enemyFrontRow = MakeSection("EnemiesFront", 0.560f, 0.753f); // 173.7px
+            _summonFrontRow = MakeSection("SummonsFront", 0.431f, 0.543f); // 100.8px
+            _summonBackRow = MakeSection("SummonsBack", 0.321f, 0.425f);   // 93.6px
 
             // 敌我前排之间的分隔线:两侧「前排」贴着它,越远离它的排越靠后。
             // raycastTarget = false —— 它只是一条线,不能拦掉空白点击(那是取消选中用的)
@@ -506,21 +517,25 @@ namespace Brushblade.Presentation
             dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.35f);
             dividerImage.raycastTarget = false;
             Ui.Anchor((RectTransform)_rowDivider.transform,
-                new Vector2(0.16f, 0.576f), new Vector2(0.86f, 0.578f), Vector2.zero, Vector2.zero);
+                new Vector2(0.16f, 0.550f), new Vector2(0.86f, 0.552f), Vector2.zero, Vector2.zero);
 
             // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字(省 17px)、
             // 但护盾条要从 7 抬到 14 才放得下叠字(还回去 7px),净省 10px;新增行动条吃 12px。
             // 再把状态 chip 内边距收到敌人格同档、血条 20→18、行动条 14→12 省下 8px 之后,
             // 内容最坏 73px(20-2 血条 + 14-2 行动条 + 14 护盾条 + 24-4 状态行 + 9 间距),
             // 区域 73.8px —— 逐项可复算,余 0.8px。**改动内容高度时请重算这串加法。**
-            // 2026-08-20:高度一分未动,只是整体下移 0.220。
-            _bottomRow = MakeSection("PlayerStats", 0.258f, 0.340f); // 73.8px
+            // 2026-08-20:高度一分未动,只是整体下移 0.220。2026-08-21:再下移 0.035(31.5px),
+            // 接手字牌缩小让出的那一段;高度仍是 73.8px,一分未动。
+            _bottomRow = MakeSection("PlayerStats", 0.223f, 0.305f); // 73.8px
 
-            // 拆合台薄宣纸卡(半透,融层段染色):2026-08-20 从底部横卡改为**右侧竖栏**,
-            // 内部两区改竖排。左缘 0.862 = 1379px:字库满员 10 张 ×84 居中最右到 x≈1352,
-            // 留 27px 不压字牌行;上缘 0.775 让开右上角的相生环图(0.780 起)。
+            // 拆合台薄宣纸卡(半透,融层段染色):2026-08-20 从底部横卡改为**右侧竖栏**。
+            // 2026-08-21 左移加宽:0.862–0.998(宽 218)→ 0.795–0.985(宽 **304**)。
+            // 加宽 86px 是为了让配方条不再被 VerticalLayoutGroup 压扁(旧宽度约 9 条到顶)。
+            // 左缘 0.795 = 1272px 由字库行卡死:字牌缩到 68 宽后,满员 12 张的行宽
+            // 12×68 + 11×8 = 904 居中 → 最右到 x = 1252,留 20px 不压。
+            // 上缘 0.775 让开右上角的相生环图(0.780 起);右缘留 0.015 不贴屏幕边。
             var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.PaperCard, 20);
-            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.862f, 0.100f), new Vector2(0.998f, 0.775f), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.795f, 0.100f), new Vector2(0.985f, 0.775f), Vector2.zero, Vector2.zero);
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
@@ -535,26 +550,42 @@ namespace Brushblade.Presentation
 
             // 下面三区在 2026-08-13 整体下移 0.027(24px),给 PlayerStats 让位(见上);
             // 2026-08-20 又整体下移 0.220(198px),接手拆合台让出的底部。
-            // 字牌区与部件钮区的**高度两次都一分未减**,只是位置下移。
-            _libraryRow = MakeSection("Library", 0.121f, 0.258f); // 123px ≥ 105 字牌(高度不变)
+            // 2026-08-21:字库区**第一次减高** —— 字牌去掉费用带后 105 → 85,区高 123 → 91.8,
+            // 省下的 31.2px 全部交给中区(见上面那串加法的第 ② 笔)。部件钮区高度仍未动。
+            // ⚠ 字库行是唯一**横向也要限界**的一区:它的内容宽随字库上限增长,而左右两侧
+            // 都有常驻面板。满员 12 张(基础 7 + 博闻满级 3 + 局内广告 2)时内容宽
+            // ≈ 标签 90 + 广告位 130 + 12×68 + 间距 104 = 1140px;若照别的区那样通栏居中,
+            // 会铺到 x 230–1370,左压配字表(右缘 216)、右压拆合台(左缘 1272)。
+            // 所以这里不用 MakeSection,改成夹在两者之间的 0.135–0.790(1048px):
+            // 10 张(基础 7 + 博闻满级 3)= 988px 仍然宽松;满 12 张时 HorizontalLayoutGroup
+            // 会把每格等比压到约 92%(牌 68 → 62),**压扁而不是叠上去** —— 两害相权取其轻。
+            var libraryGo = Ui.Row(transform, "Library");
+            Ui.Anchor((RectTransform)libraryGo.transform,
+                new Vector2(0.135f, 0.121f), new Vector2(0.790f, 0.223f), Vector2.zero, Vector2.zero);
+            _libraryRow = libraryGo.transform;                    // 91.8px ≥ 85 字牌
             _poolRow = MakeSection("Pool", 0.053f, 0.121f);       // 61px ≥ 56 部件钮(高度不变)
-            // 39px(原 63px):只装单行标签(字号 18~26,26 号行高约 31px),63px 本就给多了。
-            // ⚠ 若将来这里要放两行文案,得另找地方要空间,不能再从这里挤。
-            _statusRow = MakeSection("Status", 0.010f, 0.053f);  // 教程提示/奇遇文案
+            // 底部那条描述行的第三段:教程指引 / 「结算中……」。
+            // 与标题(0.014–0.22)、提示行(0.23–0.60)按 x 分段互不重叠 —— 教程期间三者会同时有字,
+            // 共用一段就会叠印。左对齐,与另两段同一条基线。
+            var statusGo = Ui.Row(transform, "Status", 8);
+            ((HorizontalLayoutGroup)statusGo.GetComponent<HorizontalLayoutGroup>()).childAlignment = TextAnchor.MiddleLeft;
+            Ui.Anchor((RectTransform)statusGo.transform, new Vector2(0.61f, 0.010f), new Vector2(0.99f, 0.053f), Vector2.zero, Vector2.zero);
+            _statusRow = statusGo.transform;
 
             // 非战斗阶段的宽操作区。上下缘都被同阶段共存的区卡死,别再挪:
             //   下缘 > 0.121 —— 奇遇/部件超限阶段同屏画部件池(0.053–0.121)
-            //   上缘 < 0.258 —— 战斗结算阶段同屏画玩家条(0.258–0.340)
-            // 与字库行(0.121–0.258)几乎完全重叠是**有意的**:字库只在战斗回合内/战利品/
+            //   上缘 < 0.223 —— 战斗结算阶段同屏画玩家条(0.223–0.305)
+            // 与字库行(0.121–0.223)几乎完全重叠是**有意的**:字库只在战斗回合内/战利品/
             // 复活补给三个阶段画,和这条带的四个消费方(结算/奇遇/部件超限/跑图结束)互斥。
-            // 117px 装得下最高的一件:奇遇选项钮 260×72。
-            _centerRow = MakeSection("Center", 0.125f, 0.255f);  // 117px
+            // 2026-08-21:上缘随 PlayerStats 从 0.255 收到 0.220(区高 117 → 85.5px)——
+            // 最高的一件是奇遇选项钮 260×72,85.5px 仍装得下,余 13.5px。
+            _centerRow = MakeSection("Center", 0.125f, 0.220f);  // 85.5px
 
             // 结束回合钮:2026-08-20 从屏幕右缘中部移到拆合台竖栏正下方 —— 仍是右手拇指位,
-            // 且与拆合台同栏对齐。栏宽 217.6px 装得下 190 宽的钮。
+            // 且与拆合台同栏对齐。2026-08-21 随拆合台一起左移,保持同栏。
             var endTurnGo = Ui.Row(transform, "EndTurn");
             Ui.Anchor((RectTransform)endTurnGo.transform,
-                new Vector2(0.862f, 0.020f), new Vector2(0.998f, 0.092f), Vector2.zero, Vector2.zero);
+                new Vector2(0.795f, 0.020f), new Vector2(0.985f, 0.092f), Vector2.zero, Vector2.zero);
             _endTurnRow = endTurnGo.transform;
         }
 
@@ -1126,31 +1157,36 @@ namespace Brushblade.Presentation
         // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80)。
         // 2026-08-17:形象 150 → 138,给每个敌人自己的行动条腾 12px + 间距。
         //
-        // 2026-08-20 四排改造:格内从「形象在上、信息在下」改成**形象在左、信息在右**。
-        // 理由是纵向预算 —— 每排从 6 格降到 3 格,横向一下子宽出一倍多,而纵向要塞下两排敌人
-        // 两排召唤,竖着摞的格高(138 + 2 + 100 = 240px)两排就 480px,整个中区只有 504px。
-        // 横排之后格高 = max(形象, 信息) 而不是两者相加,同样的信息量只要 140px。
+        // 2026-08-21 竖排复原(用户拍板):2026-08-20 那次为了纵向预算把格内改成「形象在左、
+        // 信息在右」,实机看下来血条与它对应的怪读不成一体 —— 一排三只时,谁的条是谁的要靠数。
+        // 现在改回**形象在上、血条行动条在正下方同一列**。
         //
-        // 信息列宽 200(此前是整格宽 190),chip 区反而比改造前宽 10px —— 换行只会更少。
+        // 纵向预算是这么腾出来的(见 BuildSkeleton 的那串加法):
+        //   ① 消息提示行(0.900–0.945,40.5px)搬到左下,中区上缘从 0.900 抬到 0.938
+        //   ② 字牌去掉费用带后 84×105 → 68×85,字库区 123 → 91.8,中区下缘从 0.340 落到 0.305
+        // 两笔合计 +65.7px,中区 504 → 569.7px,**形象因此一分没缩**,仍是 138 / 117。
+        //
+        // 代价:名字与 chip 半透叠在形象上,不占独立行。它们竖着排要再吃 126px/格
+        // (名字 22 + chip 两行 41,两排合计),那样形象就得缩到 72/61 —— 比现在小一半。
         private const float EnemyPortraitFront = 138f;
-        // 后排缩到约 85%(2026-08-20):138 × 0.85 = 117.3,取 117。**只缩形象不缩信息列** ——
-        // 信息列一起缩会让 chip 按另一个宽度换行,两排的「内容最坏高度」就成了两笔账。
+        // 后排缩到约 85%(2026-08-20):138 × 0.85 = 117.3,取 117。
         private const float EnemyPortraitBack = 117f;
-        private const float EnemyPortraitGap = 8f;   // 形象与信息列之间的横向间隙
-        private const float EnemyInfoWidth = 200f;
-        private const float EnemyBarWidth = 180f;    // 血条/行动条:信息列宽减两侧各 10
-        private const float EnemyCellWidthFront = EnemyPortraitFront + EnemyPortraitGap + EnemyInfoWidth; // 346
-        private const float EnemyCellWidthBack = EnemyPortraitBack + EnemyPortraitGap + EnemyInfoWidth;   // 325
-        // 格高 = 形象直径 + 上下各 1px 呼吸。信息列最坏 100px(逐项加法见 BuildSkeleton 的预算注释),
-        // 两排都比 100 高,所以约束方是形象而不是信息 —— 这正是横排布局买到的东西。
-        private const float EnemyCellHeightFront = 140f;
-        private const float EnemyCellHeightBack = 119f;
+        private const float EnemyBarWidth = 170f;    // 血条/行动条:格宽减两侧各 10
+        private const float EnemyBarsHeight = 31f;   // 血条 16 + 间距 3 + 行动条 12
+        // 前后排同宽:宽度由条与 chip 决定,与形象直径无关。三格一排 3×190 + 16 = 586 居中,
+        // 落在配字表右缘(216)与拆合台左缘(1272)之间,两头都不压。
+        private const float EnemyCellWidth = 190f;
+        // 格高 = 形象 + 2px 呼吸 + 条区 31。名字与 chip 叠在形象上,不进这笔加法。
+        private const float EnemyCellHeightFront = EnemyPortraitFront + 2f + EnemyBarsHeight; // 171
+        private const float EnemyCellHeightBack = EnemyPortraitBack + 2f + EnemyBarsHeight;   // 150
 
         // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
         // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
         // 「水 攻15 承伤 灼烧9 不灭 致盲−50% 沉默」从 3 行降到 2 行,
         // 且两行只多要 17px 而不是 27px —— 这是 12px 预算能成立的前提。
         // 上限 2 行:3 行要再吃 22px,敌人区没有;超出的按列表顺序从尾部丢,末尾补「+N」。
+        // 2026-08-21:chip 改叠在形象上之后,可用宽度从「信息列 200」换成「整格 190」——
+        // 它铺满格宽而不是只铺形象(138/117),否则窄 50px 会多换一行、多丢 chip。
         private const int ChipFontSize = 11;
         private const int ChipPadX = 12;
         private const int ChipPadY = 8;
@@ -1158,8 +1194,8 @@ namespace Brushblade.Presentation
         private const float ChipLineSpacing = 3f;
         private const int ChipMaxLines = 2;
         // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
-        // 2026-08-20:基准从「整格宽 190」换成「信息列宽 200」,前后排共用同一个数。
-        private const float ChipAreaWidth = EnemyInfoWidth - 4f;
+        // 2026-08-21:基准换回整格宽,前后排共用同一个数(格宽与形象直径无关)。
+        private const float ChipAreaWidth = EnemyCellWidth - 4f;
 
         /// <summary>敌方两排(2026-08-20):后排在上、前排在下(贴着中间的分隔线),
         /// 站位读 <see cref="EnemyState.Row"/> —— 那是**实例状态**,开场按每排上限 3 分配、
@@ -1193,7 +1229,7 @@ namespace Brushblade.Presentation
 
                 var cell = Ui.Panel(front ? _enemyFrontRow : _enemyBackRow, $"Enemy{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
-                cellElement.preferredWidth = front ? EnemyCellWidthFront : EnemyCellWidthBack;
+                cellElement.preferredWidth = EnemyCellWidth;
                 cellElement.preferredHeight = front ? EnemyCellHeightFront : EnemyCellHeightBack;
                 float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
 
@@ -1217,9 +1253,9 @@ namespace Brushblade.Presentation
                     // 白字压在 LockedBg 这种浅底上看不见:置灰的一并把字色降到 TextDim
                     showAlive && reachable ? Color.white : Theme.TextDim, portraitSize);
                 _enemyMobs.Add(mob);
-                // 形象贴左、纵向居中(2026-08-20 横排格);信息列在右侧,见下面的 info
-                Ui.Anchor((RectTransform)portrait.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                    new Vector2(0f, -portraitSize / 2f), new Vector2(portraitSize, portraitSize / 2f));
+                // 形象贴格顶、横向居中(2026-08-21 竖排格):条区在它正下方,同一列
+                Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(-portraitSize / 2f, -portraitSize), new Vector2(portraitSize / 2f, 0f));
                 if (_targeting && enemy.Alive && reachable && mob == null)
                 {
                     var outline = portrait.AddComponent<Outline>(); // 圆头像用描边示意可选中
@@ -1233,11 +1269,30 @@ namespace Brushblade.Presentation
                     ? new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.07f) // 选目标时整格微亮,提示可点
                     : new Color(0, 0, 0, 0);
 
-                var info = Ui.VStack(cell.transform, "Info", 3);
-                // 信息列:形象右侧一直到格右缘,整格高度内纵向居中(VStack 默认 MiddleCenter)
-                Ui.Anchor((RectTransform)info.transform, new Vector2(0, 0), new Vector2(1, 1),
-                    new Vector2(portraitSize + EnemyPortraitGap, 0), Vector2.zero);
-                Ui.ThemedLabel(info.transform, BossTitle(enemy), 17, Theme.TextMain, Theme.TitleFont);
+                // 名字与 chip 半透叠在形象上(2026-08-21):铺**整格宽**而不是形象宽 ——
+                // 窄 50px 会让 chip 多换一行、多丢内容。不吃 raycast:名字底衬显式关掉,
+                // chip 自带的底色 Image 虽然吃射线,但 uGUI 会沿父链找到 cell 上的 Button,
+                // 点击照常落到「点敌人」上(与改造前 chip 在 info 里时同一条路径)。
+                var info = Ui.Panel(cell.transform, "Info");
+                Ui.Anchor((RectTransform)info.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
+                    new Vector2(0f, -portraitSize), Vector2.zero);
+
+                // 名字压形象顶:半透纸底保证压在墨色笔画上也读得清(形象本身就是水墨字形)
+                var nameStrip = Ui.Panel(info.transform, "NameStrip");
+                var nameBg = nameStrip.AddComponent<Image>();
+                nameBg.sprite = Theme.Rounded(6);
+                nameBg.type = Image.Type.Sliced;
+                nameBg.color = new Color(Theme.PaperCard.r, Theme.PaperCard.g, Theme.PaperCard.b, 0.82f);
+                nameBg.raycastTarget = false;
+                Ui.Anchor((RectTransform)nameStrip.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
+                    new Vector2(0f, -21f), Vector2.zero);
+                Ui.Stretch(Ui.ThemedLabel(nameStrip.transform, BossTitle(enemy), 15,
+                    Theme.TextMain, Theme.TitleFont).rectTransform);
+
+                // chip 贴形象底:铺满形象区但内容靠下,这样一行两行都从底边往上长
+                var chipHolder = Ui.VStack(info.transform, "ChipHolder", 0);
+                chipHolder.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.LowerCenter;
+                Ui.Stretch((RectTransform)chipHolder.transform);
                 // chip 攒成列表再交给 ChipFlow 分行 —— 它要先看全部文字才能决定在哪断行。
                 // 列表顺序即优先级:装不下 ChipMaxLines 行时从**尾部**丢弃,末尾补「+N」,
                 // 所以越靠前的越保得住。完整信息仍在敌人详情弹窗里。
@@ -1289,21 +1344,26 @@ namespace Brushblade.Presentation
                         chipSpecs.Add(new(abilityChip,
                             Theme.AbilityChipColor(enemy.Def.Ability), Color.white));
                 }
-                Ui.ChipFlow(info.transform, "Chips", chipSpecs, ChipAreaWidth, ChipFontSize,
+                Ui.ChipFlow(chipHolder.transform, "Chips", chipSpecs, ChipAreaWidth, ChipFontSize,
                     ChipMaxLines, ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
+
+                // 条区:形象正下方、横向居中、贴格底 —— 「血条和形象同一列」就是这一处
+                var bars = Ui.VStack(cell.transform, "Bars", 3);
+                Ui.Anchor((RectTransform)bars.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(-EnemyBarWidth / 2f, 0f), new Vector2(EnemyBarWidth / 2f, EnemyBarsHeight));
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。
                 if (showAlive)
                 {
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
-                    _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(EnemyBarWidth, 16)));
+                    _enemyHpBars.Add(HpBar(bars.transform, barHp, enemy.MaxHp, new Vector2(EnemyBarWidth, 16)));
                     // 行动条紧跟血条(2026-08-17,用户拍板放血条下方)
-                    _enemyActionBars.Add(ActionBar(info.transform, enemy.ActionMeter, new Vector2(EnemyBarWidth, 12), 9));
+                    _enemyActionBars.Add(ActionBar(bars.transform, enemy.ActionMeter, new Vector2(EnemyBarWidth, 12), 9));
                 }
                 else
                 {
-                    Ui.ThemedLabel(info.transform, "已正", 14, Theme.LockGray);
+                    Ui.ThemedLabel(bars.transform, "已正", 14, Theme.LockGray);
                     _enemyHpBars.Add((null, null));
                     _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
                 }
@@ -2050,10 +2110,11 @@ namespace Brushblade.Presentation
         {
             var evt = _run.CurrentEvent;
             Ui.ThemedLabel(_enemyFrontRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
-            // 情境文案画在标题正下方那一排,**不是** _statusRow(2026-08-20 修回):下三区整体
-            // 下移之后 _statusRow 落到了屏幕最底边,自上而下成了 标题 → 选项钮 → 部件池 → 文案,
-            // 玩家得先看见三个按钮、再把视线甩到屏幕底边才读得到自己在选什么。
-            // 这一排在奇遇阶段本来就是空的(四排只在战斗阶段画),借来放文案不占用别人的地方。
+            // 情境文案画在战场那一排,**不是** _statusRow(2026-08-20 修回):_statusRow 在屏幕
+            // 最底边,把文案放那儿会变成 选项钮 → 部件池 → 文案,玩家得先看见三个按钮、
+            // 再把视线甩到屏幕底边才读得到自己在选什么。这一排(0.431–0.543)在奇遇阶段本来
+            // 就是空的(四排只在战斗阶段画),且**高于**选项钮所在的 _centerRow(0.125–0.220),
+            // 阅读顺序因此是 文案 → 选项。2026-08-21 标题也搬到了左下,但这条理由与标题无关。
             Ui.ThemedLabel(_summonFrontRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 18, Theme.TextDim);
 
             if (_pendingEventOption >= 0)
@@ -2298,9 +2359,9 @@ namespace Brushblade.Presentation
             if (overflow.Count == 0) return; // 决议完成的过渡帧
             string incoming = overflow[0];
             Ui.ThemedLabel(_enemyFrontRow, "部件已满", 30, Theme.TextMain, Theme.TitleFont);
-            // 警示文案画在标题正下方那一排,**不是** _statusRow(2026-08-20 修回,同 DrawEvent 那一处):
-            // _statusRow 已被下三区重排挪到屏幕最底边,玩家很可能在没读到「永久失去」之前就点掉了
-            // 一次不可逆操作。这一排在部件超限阶段本来就是空的。
+            // 警示文案画在战场那一排,**不是** _statusRow(2026-08-20 修回,同 DrawEvent 那一处):
+            // _statusRow 在屏幕最底边,放那儿玩家很可能在没读到「永久失去」之前就点掉了一次
+            // 不可逆操作。这一排在部件超限阶段本来就是空的,且高于选项所在的 _centerRow。
             Ui.ThemedLabel(_summonFrontRow,
                 $"用「{incoming}」换掉池中一个(永久失去),或跳过不要。还剩 {overflow.Count} 个待决。",
                 18, Theme.TextDim);
