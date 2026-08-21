@@ -1053,12 +1053,13 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>空槽(2026-08-20;2026-08-21 用户拍板去掉占位块):平时**什么也不画**,
-        /// 只靠 LayoutElement 把格子的位置占住,布局因此照样不跳动。
+        /// <summary>空槽(2026-08-20;2026-08-21 两次调整后的口径):**平时什么也不画**,
+        /// 只靠 LayoutElement 把格子的位置占住,布局因此照样不跳动;
+        /// **选位/拖放时**才画出字块位置的占位块,让玩家看得出召唤物会落在哪儿、多大。
         ///
         /// 尸体槽平时也走这里(引擎从不移除阵亡召唤物,<c>Alive == false</c> 的条目一直占着槽),
-        /// 但**选位子的时候**要把原字画出来:玩家得看得出这一格是空的还是躺着一具尸体
-        /// ——点它的后果一样(直接落位、不弹确认),看到的东西却不该一样。</summary>
+        /// 选位时画的是实色底 + 原字:点它的后果与空槽一样(直接落位、不弹确认),
+        /// 看到的东西却不该一样。</summary>
         private void DrawEmptySummonSlot(int slot, bool front, SummonState corpse = null)
         {
             var cell = Ui.Panel(front ? _summonFrontRow : _summonBackRow, $"SummonEmpty{slot}");
@@ -1066,30 +1067,37 @@ namespace Brushblade.Presentation
             cellElement.preferredWidth = SummonCellWidth;
             cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
             _summonCellByCore[slot] = (RectTransform)cell.transform;
-            // 2026-08-21 用户拍板:**空槽不再画占位块**。原来画一个 α=0.12 的淡墨圆角块,
-            // 六格常驻在屏幕上,平时是纯噪音。位子还剩几个,选位的时候看翠玉高亮就够了。
+            // 占位块**只在选位态出现**(2026-08-21 用户两次拍板的合并结果):
+            // 平时六格常驻在屏幕上是纯噪音,所以先去掉了;但选位/拖放的那一刻它恰恰有用 ——
+            // 翠玉高亮铺的是整格,而这块淡墨圆角块画在**字块的确切位置**上,
+            // 玩家因此看得出召唤物落下来会长在哪儿、多大。
             //
-            // 布局不会因此跳动 —— 撑住格子的是上面那个 LayoutElement,不是这块图。
-            bool showCorpse = _slotPicking && corpse != null;
-            if (showCorpse)
+            // 平时什么都不画也不会让布局跳动 —— 撑住格子的是上面那个 LayoutElement,不是这块图。
+            if (_slotPicking)
             {
-                // 尸体槽在选位时仍要画出原字:点它的后果与空槽一样(直接落位、不弹确认),
-                // 但看到的东西不该一样 —— 玩家得知道这一格躺着谁。
                 float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
-                var ghost = Ui.Panel(cell.transform, "Corpse");
+                bool showCorpse = corpse != null;
+                var ghost = Ui.Panel(cell.transform, showCorpse ? "Corpse" : "Ghost");
                 var image = ghost.AddComponent<Image>();
                 image.sprite = Theme.Rounded(12);
                 image.type = Image.Type.Sliced;
-                image.color = Theme.LockedBg;
-                image.raycastTarget = false; // 不吃点击:让点击落到下面的选位层上
+                // 尸体槽用实色 LockedBg 压住,空槽用淡墨 —— 点它们的后果一样(直接落位、
+                // 不弹确认),但玩家得看得出这一格是空的还是躺着一具尸体。
+                image.color = showCorpse
+                    ? Theme.LockedBg
+                    : new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.12f);
+                image.raycastTarget = false; // 不吃点击:让点击落到 AttachSlotPicker 那一层上
                 // 与实格的字块对齐:实格是 VStack 从顶排下来,字块贴格顶
                 Ui.Anchor((RectTransform)ghost.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                     new Vector2(-glyphSize / 2f, -glyphSize), new Vector2(glyphSize / 2f, 0f));
-                var corpseGlyph = Ui.ThemedLabel(ghost.transform, corpse.Char,
-                    Mathf.RoundToInt(glyphSize * 0.46f), Theme.LockGray, Theme.TitleFont);
-                Ui.Stretch(corpseGlyph.rectTransform);
+                if (showCorpse)
+                {
+                    var corpseGlyph = Ui.ThemedLabel(ghost.transform, corpse.Char,
+                        Mathf.RoundToInt(glyphSize * 0.46f), Theme.LockGray, Theme.TitleFont);
+                    Ui.Stretch(corpseGlyph.rectTransform);
+                }
+                AttachSlotPicker(cell.transform, slot);
             }
-            if (_slotPicking) AttachSlotPicker(cell.transform, slot);
         }
 
         /// <summary>选位子态的整格点击层(2026-08-20):盖满一格吃下点击。
