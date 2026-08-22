@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -849,18 +850,18 @@ namespace Brushblade.Presentation
             Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
             Ui.ThemedLabel(_topRight, $"回合 {Battle.Turn}", 18, Theme.TextDim);
             bool suspend = _onExit != null; // 无尽:退出可挂起/弃塔(2026-07-19);否则=认输
-            Ui.PillButton(_topRight, "退出", () => // 统一弹窗确认(2026-07-19 拍板)
+            Ui.PillButton(_topRight, Strings.T("battle.btn.exit"), () => // 统一弹窗确认(2026-07-19 拍板)
             {
                 if (suspend)
                     ShowModal("离 塔",
                         "挂起:保留进度,下次从本层继续\n弃塔:墨锭半额结算,层数纪录保留",
-                        ("挂起离塔", _onExit, Theme.Cinnabar, Color.white),
-                        ("弃塔(半额)", () => _onAbandon?.Invoke(), Theme.InkSoft, Color.white),
-                        ("继续战斗", null, Theme.LockedBg, Theme.TextMain));
+                        (Strings.T("battle.btn.suspend"), _onExit, Theme.Cinnabar, Color.white),
+                        (Strings.T("battle.btn.abandon"), () => _onAbandon?.Invoke(), Theme.InkSoft, Color.white),
+                        (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
                 else
                     ShowModal("退出战斗?", "放弃本关:进度不推进,奇遇墨锭保留",
-                        ("确认退出", () => _onRunEnded(false), Theme.Cinnabar, Color.white),
-                        ("继续战斗", null, Theme.LockedBg, Theme.TextMain));
+                        (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Theme.Cinnabar, Color.white),
+                        (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
             }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
         }
 
@@ -1207,7 +1208,7 @@ namespace Brushblade.Presentation
             if (summon == null || !summon.Alive) return;
             if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
-                new Vector2(320, 200), ("知道了", null, Theme.LockedBg, Theme.TextMain));
+                new Vector2(320, 200), (Strings.T("battle.btn.ack"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
@@ -1966,17 +1967,17 @@ namespace Brushblade.Presentation
             // 而三种「出」的差别(库里出 / 部件直出 / 无效果字的兜底一击)属于结算细节,
             // 玩家在按钮上分不分得清都不影响他要点的那一下。
             // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性)
-            Ui.RoundButton(_actionRow, "出", () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
+            Ui.RoundButton(_actionRow, Strings.T("battle.btn.cast"), () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
             if (inLibrary && !def.IsLeaf)
-                Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
-            Ui.RoundButton(_actionRow, "弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(76, 52));
+                Ui.RoundButton(_actionRow, Strings.T("battle.btn.dismantle"), () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
+            Ui.RoundButton(_actionRow, Strings.T("battle.btn.discard"), () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(76, 52));
             // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
             // (BuildSkeleton 最先建的 Backdrop 全屏透明层),按钮是同一功能的第二个入口。
         }
 
         private void DrawEndTurn()
         {
-            Ui.PillButton(_endTurnRow, "结束回合", ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
+            Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
         }
 
         /// <summary>回合掉字遇满库(2026-08-04):停下让玩家选替换哪一张,或跳过这次掉落。
@@ -2008,7 +2009,7 @@ namespace Brushblade.Presentation
                 }, new Vector2(74, 96));
             }
 
-            Ui.PillButton(stack, "不要,跳过", () =>
+            Ui.PillButton(stack, Strings.T("battle.btn.drop_skip"), () =>
             {
                 Battle.SkipDrop();
                 if (_modal != null) Object.Destroy(_modal);
@@ -2028,8 +2029,8 @@ namespace Brushblade.Presentation
             }
             ShowModal("还有 AP 没用",
                 $"本回合还剩 {Battle.Ap} AP,结束后作废。\n确定结束回合?",
-                ("结束回合", OnEndTurn, Theme.Cinnabar, Color.white),
-                ("再想想", null, Theme.LockedBg, Theme.TextMain));
+                (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
+                (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         private void DrawBattleSettle()
@@ -2042,7 +2043,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(_centerRow, "败北……", 36, Theme.TextMain, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
-                Ui.AdBadge(_centerRow, "看广告复活", () =>
+                Ui.AdBadge(_centerRow, Strings.T("battle.btn.ad_revive"), () =>
                 {
                     _previewRewardIndex = -1;
                     _run.TryRevive();
@@ -2050,7 +2051,7 @@ namespace Brushblade.Presentation
                     _message = "满血复活!挑几样补给,接着打";
                     Refresh();
                 }, new Vector2(160, 60));
-            Ui.PillButton(_centerRow, "结算", AdvanceAfterSettle,
+            Ui.PillButton(_centerRow, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
                 Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
@@ -2183,7 +2184,7 @@ namespace Brushblade.Presentation
 
             DrawRewardAdBadge(content);
 
-            Ui.RoundButton(content, "不要了,开拔", () =>
+            Ui.RoundButton(content, Strings.T("battle.btn.reward_skip"), () =>
             {
                 _previewRewardIndex = -1;
                 _run.SkipReward();
@@ -2222,7 +2223,7 @@ namespace Brushblade.Presentation
 
             DrawRewardAdBadge(content);
 
-            Ui.RoundButton(content, "算了,不换", () =>
+            Ui.RoundButton(content, Strings.T("battle.btn.replace_cancel"), () =>
             {
                 _pendingRewardIndex = -1;
                 Refresh();
@@ -2237,7 +2238,7 @@ namespace Brushblade.Presentation
         private void DrawRewardAdBadge(Transform content)
         {
             if (_run.LibraryExpanded) return;
-            Ui.AdBadge(content, "看广告 · 字库 +2", () =>
+            Ui.AdBadge(content, Strings.T("battle.btn.ad_expand_library"), () =>
             {
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
@@ -2286,7 +2287,7 @@ namespace Brushblade.Presentation
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
-            Ui.RoundButton(content, "够了,接着打!", () =>
+            Ui.RoundButton(content, Strings.T("battle.btn.revive_skip"), () =>
             {
                 _previewRewardIndex = -1;
                 _run.SkipReviveReward();
@@ -2322,7 +2323,7 @@ namespace Brushblade.Presentation
                 }, new Vector2(74, 96));
             }
 
-            Ui.PillButton(stack, "算了,换个字", () =>
+            Ui.PillButton(stack, Strings.T("battle.btn.revive_replace_cancel"), () =>
             {
                 _pendingReviveIndex = -1; // 退回候选列表,额度未动
                 Refresh();
@@ -2357,7 +2358,7 @@ namespace Brushblade.Presentation
                         ? $"{pending.Label}:先点想要的字"
                         : $"{pending.Label}:点 {pending.ComponentCost} 个不要的部件({_eventPicks.Count}/{pending.ComponentCost})",
                     20, Theme.TextMain, Theme.TitleFont);
-                Ui.RoundButton(_centerRow, "取消", () =>
+                Ui.RoundButton(_centerRow, Strings.T("battle.btn.cancel"), () =>
                 {
                     ResetEventSelection();
                     _message = "";
@@ -2458,7 +2459,7 @@ namespace Brushblade.Presentation
                 }, new Vector2(74, 96));
             }
 
-            Ui.PillButton(stack, "算了,不换", () =>
+            Ui.PillButton(stack, Strings.T("battle.btn.replace_cancel"), () =>
             {
                 if (_modal != null) Object.Destroy(_modal);
                 ResetEventSelection();
@@ -2593,7 +2594,7 @@ namespace Brushblade.Presentation
                 $"用「{incoming}」换掉池中一个(永久失去),或跳过不要。还剩 {overflow.Count} 个待决。",
                 18, Theme.TextDim);
 
-            Ui.PillButton(_centerRow, $"跳过「{incoming}」", () =>
+            Ui.PillButton(_centerRow, Strings.T("battle.btn.overflow_skip", ("incoming", incoming)), () =>
             {
                 _run.ResolveOverflowSkip();
                 _message = $"弃「{incoming}」";
@@ -2622,7 +2623,7 @@ namespace Brushblade.Presentation
             bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
             Ui.ThemedLabel(_centerRow, won ? (tower ? "本段告捷——字正!" : "关卡通过——字正!") : "败北",
                 40, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_centerRow, won && tower ? "前往安全层" : tower ? "结算" : "返回地图",
+            Ui.PillButton(_centerRow, won && tower ? Strings.T("battle.btn.to_safe_floor") : tower ? Strings.T("battle.btn.settle") : Strings.T("battle.btn.to_map"),
                 () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
             _message = won
                 ? (tower ? "Boss 已破,安全层可收官或深入。" : "通关结算:经验与墨锭入账。")
@@ -2830,10 +2831,10 @@ namespace Brushblade.Presentation
                 int replaceCount = Battle.SummonReplaceCountOf(def, attackMode, summonSlots);
                 ShowModal("这个位置有人",
                     ReplaceSummonBody(def, attackMode, summonSlots),
-                    ($"顶替 {replaceCount} 只",
+                    (Strings.T("battle.btn.confirm_replace_summon", ("count", replaceCount)),
                         () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot),
                         Theme.Cinnabar, Color.white),
-                    ("取消", null, Theme.LockedBg, Theme.TextMain));
+                    (Strings.T("battle.btn.cancel"), null, Theme.LockedBg, Theme.TextMain));
                 _message = "选的位置上站着人,出字待确认";
                 CancelSelection();
                 return;
@@ -3223,11 +3224,11 @@ namespace Brushblade.Presentation
             if (error == BattleError.NotEnoughAp)
                 ShowModal("AP 不够",
                     $"「{charId}」需要 {neededAp} AP,本回合仅剩 {Battle.Ap} AP。\n结束回合可回满 {Battle.ApPerTurn} AP 并掉落新部件。",
-                    ("结束回合", OnEndTurn, Theme.Cinnabar, Color.white),
-                    ("再想想", null, Theme.LockedBg, Theme.TextMain));
+                    (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
+                    (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
             else if (error == BattleError.ForgeFailed)
                 ShowModal("操作被拒", Describe(error),
-                    ("知道了", null, Theme.LockedBg, Theme.TextMain));
+                    (Strings.T("battle.btn.ack"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         private string Describe(BattleError error) => error switch

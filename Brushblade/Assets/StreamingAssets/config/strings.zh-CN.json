@@ -288,5 +288,30 @@
   "char.preview.title": "字卡",
 
   "wuxing.chart.title_sheng": "相 生",
-  "wuxing.chart.title_ke": "相 克"
+  "wuxing.chart.title_ke": "相 克",
+
+  "battle.btn.exit": "退出",
+  "battle.btn.suspend": "挂起离塔",
+  "battle.btn.abandon": "弃塔(半额)",
+  "battle.btn.continue_fight": "继续战斗",
+  "battle.btn.confirm_exit": "确认退出",
+  "battle.btn.ack": "知道了",
+  "battle.btn.cast": "出",
+  "battle.btn.dismantle": "拆",
+  "battle.btn.discard": "弃",
+  "battle.btn.end_turn": "结束回合",
+  "battle.btn.drop_skip": "不要,跳过",
+  "battle.btn.reconsider": "再想想",
+  "battle.btn.ad_revive": "看广告复活",
+  "battle.btn.settle": "结算",
+  "battle.btn.reward_skip": "不要了,开拔",
+  "battle.btn.replace_cancel": "算了,不换",
+  "battle.btn.ad_expand_library": "看广告 · 字库 +2",
+  "battle.btn.revive_skip": "够了,接着打!",
+  "battle.btn.revive_replace_cancel": "算了,换个字",
+  "battle.btn.cancel": "取消",
+  "battle.btn.overflow_skip": "跳过「{incoming}」",
+  "battle.btn.to_safe_floor": "前往安全层",
+  "battle.btn.to_map": "返回地图",
+  "battle.btn.confirm_replace_summon": "顶替 {count} 只"
 }
