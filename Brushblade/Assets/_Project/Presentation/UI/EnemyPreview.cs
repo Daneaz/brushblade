@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -45,7 +46,7 @@ namespace Brushblade.Presentation
                         chips.Add((EnemyInfo.BossSkillName(phase.Skill),
                             Theme.BossSkillChipColor(phase.Skill)));
                     if (phase.Defense > 0)
-                        chips.Add(($"护甲 {phase.Defense}", Theme.InkSoft));
+                        chips.Add((Strings.T("enemy.preview.defense_chip", ("defense", phase.Defense)), Theme.InkSoft));
                     forms.Add(new FormTab(phase.Char, i, EnemyInfo.PhaseDetail(def, i),
                         Theme.ElementColor(phase.Element), chips));
                 }
@@ -57,7 +58,7 @@ namespace Brushblade.Presentation
                     chips.Add((EnemyInfo.AbilityName(def.Ability),
                         Theme.AbilityChipColor(def.Ability)));
                 else if (def.Defense > 0)
-                    chips.Add(($"护甲 {def.Defense}", Theme.InkSoft)); // 墨渍:没能力,护甲就是它的特征
+                    chips.Add((Strings.T("enemy.preview.defense_chip", ("defense", def.Defense)), Theme.InkSoft)); // 墨渍:没能力,护甲就是它的特征
                 forms.Add(new FormTab(EnemyInfo.FaceChar(def, 0), 0,
                     EnemyInfo.MinionDetail(def), Theme.ElementColor(def.Element), chips));
             }
@@ -72,13 +73,13 @@ namespace Brushblade.Presentation
             bool isBoss = def.Phases.Count > 0;
             var forms = FormsOf(def);
             phase = Mathf.Clamp(phase, 0, forms.Count - 1);
-            var overlay = Ui.ModalShell(root, isBoss ? "Boss 图鉴" : "怪物图鉴",
+            var overlay = Ui.ModalShell(root, isBoss ? Strings.T("enemy.preview.modal_title_boss") : Strings.T("common.bestiary_title"),
                 new Vector2(420, isBoss ? 400 : 340), dismissable: true, out var stack);
 
             // 标题行:Boss 附总血——四阶段是一条总血池,只看单阶段血量会误解
             int totalHp = 0;
             foreach (var p in def.Phases) totalHp += p.MaxHp;
-            Ui.ThemedLabel(stack, isBoss ? $"{def.Id} · 总血 {totalHp}" : def.Id,
+            Ui.ThemedLabel(stack, isBoss ? Strings.T("enemy.preview.title_with_hp", ("enemyId", def.Id), ("totalHp", totalHp)) : def.Id,
                 22, Theme.TextMain, Theme.TitleFont);
 
             // 先建 tab 行再建内容容器:VStack 按添加顺序排版,tab 必须在形象之上。
@@ -121,8 +122,8 @@ namespace Brushblade.Presentation
             if (isBoss)
                 Ui.ThemedLabel(stack, EnemyInfo.ChargeRuleText(), 14, Theme.TextDim);
             if (bounty > 0)
-                Ui.ThemedLabel(stack, $"◆ 首次查阅赏 {bounty} 墨锭", 18, Theme.GoldBorder, Theme.TitleFont);
-            Ui.PillButton(stack, "知道了", () => Object.Destroy(overlay),
+                Ui.ThemedLabel(stack, Strings.T("enemy.preview.bounty_line", ("bounty", bounty)), 18, Theme.GoldBorder, Theme.TitleFont);
+            Ui.PillButton(stack, Strings.T("common.ok"), () => Object.Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 48));
             return overlay;
         }
@@ -191,7 +192,7 @@ namespace Brushblade.Presentation
                     Vector2.zero, Vector2.zero);
 
                 var stats = Ui.ThemedLabel(inner.transform,
-                    locked ? "未遇" : $"血{def.MaxHp} 攻{def.Attack}",
+                    locked ? Strings.T("common.unmet") : Strings.T("enemy.preview.tile_stats", ("maxHp", def.MaxHp), ("attack", def.Attack)),
                     Mathf.RoundToInt(size.y * 0.068f),
                     locked ? Theme.LockGray : Theme.TextDim);
                 Ui.Anchor(stats.rectTransform, new Vector2(0, 0.01f), new Vector2(1, 0.10f),

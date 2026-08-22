@@ -276,5 +276,17 @@
   "perk.view.title": "技能",
   "perk.view.locked_requirement": "需角色 {level} 级",
   "perk.view.unlock_button": "解锁 · {cost}墨",
-  "perk.view.upgrade_button": "升级 · {cost}墨"
+  "perk.view.upgrade_button": "升级 · {cost}墨",
+
+  "enemy.preview.defense_chip": "护甲 {defense}",
+  "enemy.preview.modal_title_boss": "Boss 图鉴",
+  "enemy.preview.title_with_hp": "{enemyId} · 总血 {totalHp}",
+  "enemy.preview.bounty_line": "◆ 首次查阅赏 {bounty} 墨锭",
+  "enemy.preview.tile_stats": "血{maxHp} 攻{attack}",
+
+  "char.preview.title_with_level": "字卡 Lv.{level}",
+  "char.preview.title": "字卡",
+
+  "wuxing.chart.title_sheng": "相 生",
+  "wuxing.chart.title_ke": "相 克"
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -189,7 +190,7 @@ namespace Brushblade.Presentation
 
         /// <summary>单按钮告知弹窗:操作被拒类提示统一走这里(2026-07-19 拍板)。</summary>
         public static GameObject Alert(Transform root, string title, string body) =>
-            Modal(root, title, body, ("知道了", null, Theme.LockedBg, Theme.TextMain));
+            Modal(root, title, body, (Strings.T("common.ok"), null, Theme.LockedBg, Theme.TextMain));
 
         public static Button RoundButton(Transform parent, string text, Action onClick,
             Color bg, Color fg, int fontSize = 22, Vector2? size = null, int radius = 10)
