@@ -1532,11 +1532,11 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>拖字打人途中,悬停到某只敌人上方时预览这一发会打到的全部格子(2026-08-22)。
-        /// 判据一律走 <see cref="Targeting.ExpandTargets"/> —— 与 <see cref="Battle"/>.CanTarget
-        /// 同一条纪律,表现层不自己推形状几何;这里只挑「攻击模式下第一条 DamageSingle 的
-        /// Shape/Shots」这一步是表现层自己做的(与 BattleEngine.EffectsOf 同一口径:攻击模式
-        /// 优先用 AttackEffects),这一步不是几何判定,只是「这张字用哪条效果」,风险与
-        /// CanTarget 分头计算不是一回事。
+        /// 判据一律走 <see cref="Targeting.ExpandTargets"/>,形状/连发数也一律走
+        /// <see cref="BattleEngine.AttackShapeOf"/>(2026-08-22 评审 Finding 2 后从表现层自己
+        /// 挑效果列表改成调 Core 的公开 accessor——原先的表现层版本漏了「两个效果列表都空则用
+        /// FallbackEffects」那一支)。攻击模式恒传 <c>attackMode: true</c>,与 onDrop 那边传给
+        /// <see cref="BeginCast"/> 的值一致(拖字打人这条路径本就是 attackMode)。
         ///
         /// 连发(Volley)没有主目标(<see cref="BattleEngine.NeedsTarget"/> 对它就返回 false),
         /// 这里选择仍然预览它固定会打到的那几格(<c>primaryIndex: -1</c> 求出的表与悬停在
@@ -1556,7 +1556,7 @@ namespace Brushblade.Presentation
 
             if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
 
-            var (shape, shots) = AttackShapeOf(def);
+            var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
             var hits = shape == TargetShape.Volley
                 ? Targeting.ExpandTargets(Battle.Enemies, -1, shape, shots) // 连发无主目标,与悬停格无关
                 : Targeting.ExpandTargets(Battle.Enemies, target, shape, shots);
@@ -1578,20 +1578,6 @@ namespace Brushblade.Presentation
                 if (i < _enemyHitAreas.Count && _enemyHitAreas[i] != null)
                     _enemyHitAreas[i].color = original;
             _hoverPreviewCells.Clear();
-        }
-
-        /// <summary>攻击模式(拖字打人)下这张字的目标形状与连发数,供悬停预览用。
-        /// 选取口径与 BattleEngine.EffectsOf 相同(攻击模式优先用 AttackEffects,没有就用
-        /// Effects),只挑第一条 DamageSingle 效果的 Shape/Shots —— 纯 UI 预览,不影响结算。
-        /// 没有直伤效果的字(纯召唤/纯增益/兜底一击)按 Single/0 处理,预览只亮悬停的那一格,
-        /// 与「拖到敌人身上就会把这一格传给 BeginCast」的落点直觉一致。</summary>
-        private static (TargetShape shape, int shots) AttackShapeOf(CharDef def)
-        {
-            var effects = def.AttackEffects.Count > 0 ? def.AttackEffects : def.Effects;
-            foreach (var effect in effects)
-                if (effect.Kind == EffectKind.DamageSingle)
-                    return (effect.Shape, effect.Shots);
-            return (TargetShape.Single, 0);
         }
 
         /// <summary>该屏幕坐标落在第几个召唤槽上;都没命中返回 −1。

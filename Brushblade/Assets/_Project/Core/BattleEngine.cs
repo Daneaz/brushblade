@@ -807,6 +807,23 @@ namespace Brushblade.Core
             return def.Effects.Count > 0 ? def.Effects : FallbackEffects;
         }
 
+        /// <summary>这张字的**单体直伤形状**(2026-08-22,供表现层预览覆盖范围用)。
+        /// 建在 <see cref="EffectsOf"/> 之上而不是让表现层自己挑效果列表 —— 与 CanTarget 同一条
+        /// 理由:玩家看到会打到哪几格、和引擎实际打到哪几格,一旦分头推导迟早失配。尤其是
+        /// 两个效果列表都空的字,实际打出去的是 <see cref="FallbackEffects"/> 那一发兜底一击,
+        /// 表现层自己重写选取逻辑必然漏掉这一支(2026-08-22 评审 Finding 2 命中的正是这条)。
+        ///
+        /// 只取**第一条** DamageSingle 的 Shape/Shots——与 NeedsTarget/RestrictedToFrontRow
+        /// 一样只看首条,不聚合多条直伤(混合多形状直伤字眼下不存在,真出现时预览会只显示
+        /// 第一发,是已知的当前局限而非本次改动引入的新账)。没有单体直伤则返回 (Single, 0)。</summary>
+        public static (TargetShape Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false)
+        {
+            foreach (var effect in EffectsOf(def, attackMode))
+                if (effect.Kind == EffectKind.DamageSingle)
+                    return (effect.Shape, effect.Shots);
+            return (TargetShape.Single, 0);
+        }
+
         /// <summary>本次召唤会顶掉几只**存活**召唤物(0 = 不顶人,可以直接出)。
         /// 指定了槽位就数这些槽里有几个是 Alive;没指定就退回「超出上限的部分」。</summary>
         public int SummonReplaceCountOf(CharDef def, bool attackMode = false,

@@ -872,6 +872,37 @@ namespace Brushblade.Core.Tests
             Assert.That(BattleEngine.NeedsTarget(graph.Get("沐"), attackMode: true), Is.False);  // 无攻击效果,仍不选目标
         }
 
+        // ---- AttackShapeOf(2026-08-22,供 UI 拖拽预览用;评审 Finding 2)----
+
+        [Test]
+        public void AttackShapeOf_EffectsOnly_ReturnsItsShape() // 只有 Effects 的形状字:非攻击模式也读得到
+        {
+            var def = new CharDef("横", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Sweep) });
+            var (shape, shots) = BattleEngine.AttackShapeOf(def);
+            Assert.That(shape, Is.EqualTo(TargetShape.Sweep));
+            Assert.That(shots, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AttackShapeOf_AttackMode_SwitchesBetweenTheTwoLists() // attackMode:true 取 AttackEffects,false 取 Effects
+        {
+            var def = new CharDef("双", Element.Water,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Sweep) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Skewer) });
+            Assert.That(BattleEngine.AttackShapeOf(def, attackMode: false).Shape, Is.EqualTo(TargetShape.Sweep));
+            Assert.That(BattleEngine.AttackShapeOf(def, attackMode: true).Shape, Is.EqualTo(TargetShape.Skewer));
+        }
+
+        [Test]
+        public void AttackShapeOf_BothListsEmpty_ReadsFallbackEffectsShape() // 空字兜底一击(FallbackEffects):预览必须跟着它走,不能自己硬编码 Single
+        {
+            var def = new CharDef("空", Element.Heart);
+            var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
+            Assert.That(shape, Is.EqualTo(TargetShape.Single));
+            Assert.That(shots, Is.EqualTo(0));
+        }
+
         [Test]
         public void LoadGraph_ParsesAttackEffects()
         {

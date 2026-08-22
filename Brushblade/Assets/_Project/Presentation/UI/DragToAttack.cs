@@ -77,7 +77,13 @@ namespace Brushblade.Presentation
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (_ghost != null) _ghost.position = eventData.position;
+            // ⚠ 守卫必须包住这两行:起拖被 _canDrag() 拒掉时 _ghost 保持 null,但 uGUI 的
+            // EventSystem 不看这个内部状态——它在调 OnBeginDrag 之前就已经把指针标成
+            // dragging,之后 OnDrag/OnEndDrag 照样派发。被拒的拖拽必须是彻底的 no-op
+            // (2026-08-22 评审 Finding 1:onDragMove 单独出了守卫,预览高亮会被写上,
+            // 而 OnEndDrag 因 _ghost == null 提前返回、永不调 onDrop 去清它)。
+            if (_ghost == null) return;
+            _ghost.position = eventData.position;
             _onDragMove?.Invoke(eventData.position);
         }
 
