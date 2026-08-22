@@ -497,8 +497,12 @@ namespace Brushblade.Data
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
                 var shape = TargetShape.Single;
+                // Enum.TryParse 单独用会放数字字符串过关(如 "3" 解析成 Skewer、"99" 解析成
+                // 越界值),下游 Targeting.ExpandTargets 的 switch 对任何未定义的值都落到
+                // `_ => false`——整张字会静默退化成单体、零报错。必须叠加 IsDefined 才拦得住。
                 if (!string.IsNullOrEmpty(effect.Shape)
-                    && !Enum.TryParse(effect.Shape, out shape))
+                    && (!Enum.TryParse(effect.Shape, out shape)
+                        || !Enum.IsDefined(typeof(TargetShape), shape)))
                     throw new ConfigException($"字「{dto.Id}」的目标形状未知:{effect.Shape}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,

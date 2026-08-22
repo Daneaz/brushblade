@@ -42,5 +42,25 @@ namespace Brushblade.Core.Tests
             Assert.That(yi.Shape, Is.EqualTo(TargetShape.Volley));
             Assert.That(yi.Shots, Is.EqualTo(3));
         }
+
+        [Test]
+        public void LoadGraph_NumericShape_Throws()
+        {
+            // Enum.TryParse 单独用会把 "99" 解析「成功」成一个越界枚举值,而下游 ExpandTargets
+            // 的 switch 对它落到 _ => false —— 整张字静默退化成单体。必须在加载期就拦下。
+            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""丙"", ""effects"": [
+                    { ""kind"": ""DamageSingle"", ""value"": 4, ""shape"": ""99"" } ] } ] }"));
+            Assert.That(ex.Message, Does.Contain("丙"));
+        }
+
+        [Test]
+        public void LoadGraph_MissingShape_DefaultsToSingle()
+        {
+            var graph = ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""丁"", ""effects"": [
+                    { ""kind"": ""DamageSingle"", ""value"": 4 } ] } ] }");
+            Assert.That(graph.Get("丁").Effects[0].Shape, Is.EqualTo(TargetShape.Single));
+        }
     }
 }
