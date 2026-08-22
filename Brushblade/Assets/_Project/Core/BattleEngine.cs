@@ -1128,13 +1128,20 @@ namespace Brushblade.Core
             {
                 var hot = _playerStatuses.All[i];
                 if (hot.Kind != StatusKind.HealOverTime) continue;
-                if (hot.TargetAll) HealPlayerAndSummons(hot.Magnitude);
-                else
+                if (hot.TargetAll) { HealPlayerAndSummons(hot.Magnitude); continue; }
+
+                // 目标召唤物死了就当场移除,不空转到期(2026-08-22)——空转会让玩家的
+                // 一次出字被隐形浪费。玩家(TargetSlot == PlayerTarget)不会阵亡到这里
+                // 还没被 SettlePlayerBurn 拦下,故不需要同样的判活。
+                if (hot.TargetSlot != Targeting.PlayerTarget
+                    && (hot.TargetSlot < 0 || hot.TargetSlot >= SummonCap
+                        || _summons[hot.TargetSlot] == null || !_summons[hot.TargetSlot].Alive))
                 {
-                    int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, hot.Magnitude);
-                    PlayerHp += healed;
-                    _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+                    _playerStatuses.RemoveEntry(hot);
+                    continue;
                 }
+
+                HealAlly(hot.TargetSlot, hot.Magnitude);
             }
         }
 
@@ -1772,6 +1779,7 @@ namespace Brushblade.Core
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
                             Magnitude = WuxingResolver.ResolveEffect(value, recipeElements, attacker),
                             TurnsLeft = effect.Turns, TargetAll = effect.TargetAll,
+                            TargetSlot = allySlot,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;

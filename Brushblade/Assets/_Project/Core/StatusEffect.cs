@@ -87,10 +87,20 @@ namespace Brushblade.Core
         public string SourceId { get; set; }
         public bool TargetAll { get; set; }  // 仅 HealOverTime 用
 
+        /// <summary>持续治疗的落点槽位(2026-08-22,spec §8.3)。−1 = 玩家,0..5 = 召唤物槽。
+        /// 与 <see cref="TargetAll"/> 同构:HoT 始终挂在**玩家的** StatusBag 上,
+        /// 结算时按这个槽位分发。
+        ///
+        /// 为什么不给 SummonState 加状态容器:那要新增 SummonSnapshot 字段,而漏补是静默的
+        /// (RunSnapshot.cs 那条警告)。全字表只有 1 张 HoT 字,不值得为它引入一整套
+        /// 召唤物状态系统。</summary>
+        public int TargetSlot { get; set; } = -1;
+
         public StatusEffect Clone() => new()
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
+            TargetSlot = TargetSlot,
         };
     }
 

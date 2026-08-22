@@ -22,6 +22,9 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.HealAll, 30) }),
             new CharDef("刃", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
+            // 滋:持续治疗 10/回合,共 3 回合
+            new CharDef("滋", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.HealOverTime, 10, turns: 3) }),
         });
 
         /// <summary>攻 0 的靶子:敌人不还手,血量变化只可能来自玩家出字。</summary>
@@ -33,7 +36,7 @@ namespace Brushblade.Core.Tests
         private static BattleEngine Engine(int? startingHp = null) =>
             new(Graph(), new BattleConfig { PlayerMaxHp = 100 },
                 System.Array.Empty<string>(),
-                new[] { "素", "素", "泉", "泉", "涌", "刃" },
+                new[] { "素", "素", "泉", "泉", "涌", "刃", "滋" },
                 new[] { Dummy() }, seed: 1, startingHp: startingHp);
 
         [Test]
@@ -131,6 +134,63 @@ namespace Brushblade.Core.Tests
             foreach (var e in engine.LastEvents)
                 if (e.Kind == BattleEventKind.Heal) heal = e;
             Assert.That(heal.Value.SecondIndex, Is.EqualTo(Targeting.PlayerTarget), "−1 = 玩家,与改前默认值相同");
+        }
+
+        [Test]
+        public void Hot_OnSummon_TicksIntoThatSummon()
+        {
+            var engine = Engine(startingHp: 50);
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.Summons[0].Hp = 40;
+
+            engine.Cast("滋", allySlot: 0);
+            engine.EndTurn();
+
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(50), "每回合治这只召唤物");
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "玩家不吃这条 HoT");
+        }
+
+        [Test]
+        public void Hot_TargetDies_ExpiresImmediately()
+        {
+            // 目标死了就失效,不空转到期 —— 空转会让玩家的一次出字被隐形浪费
+            var engine = Engine();
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.Cast("滋", allySlot: 0);
+            engine.Summons[0].Hp = 0;
+
+            engine.EndTurn();
+
+            int hots = 0;
+            foreach (var s in engine.PlayerStatuses.All)
+                if (s.Kind == StatusKind.HealOverTime) hots++;
+            Assert.That(hots, Is.EqualTo(0), "目标阵亡,这条 HoT 当场移除");
+        }
+
+        [Test]
+        public void Hot_DefaultsToPlayer()
+        {
+            var engine = Engine(startingHp: 50);
+            engine.Cast("滋");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(60), "不传槽位时治玩家,与改前一致");
+        }
+
+        [Test]
+        public void Hot_TargetedAtSummon_DoesNotTickIntoPlayer()
+        {
+            // 闭合 Task 6 留下的跨任务缺口:NeedsAllyTarget 对 HoT 返回 true,
+            // 所以 allySlot 必须真的被 HealOverTime 分支读到 —— 否则玩家选了召唤物,
+            // 治疗却静默落在自己身上,是最难查的那种 bug
+            var engine = Engine(startingHp: 50);
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.Summons[0].Hp = 40;
+
+            engine.Cast("滋", allySlot: 0);
+            engine.EndTurn();
+
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(50), "HoT 落在召唤物身上");
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "玩家一分不回,不是静默落在玩家身上");
         }
     }
 }
