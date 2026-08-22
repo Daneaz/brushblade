@@ -1208,15 +1208,35 @@ namespace Brushblade.Presentation
         ///
         /// ⚠ 下标对齐:<c>_enemyRects</c> / <c>_enemyMobs</c> / <c>_enemyHpBars</c> /
         /// <c>_enemyActionBars</c> 四个列表全都按**敌人下标**索引(事件的 TargetIndex 直接拿去取),
-        /// 所以这里只有一层按 i 升序的循环、每轮四个列表各 Add 一次,分排只体现在**父节点**上。
-        /// 不能改成「先画前排再画后排」那种按排遍历 —— 列表顺序会与 Battle.Enemies 错开,
-        /// 打谁就抖谁那套全部指错人。</summary>
+        /// 所以下面仍是一层按 i 升序的循环、每轮四个列表各 Add 一次 —— 这四个列表的顺序
+        /// 不能变。不能改成「先画前排再画后排」那种按排遍历,列表顺序会与 Battle.Enemies
+        /// 错开,打谁就抖谁那套全部指错人。
+        ///
+        /// 2026-08-22 固定格位:每排预先按 <see cref="Targeting.RowCapacity"/> 建好 3 个
+        /// 固定格位(Transform 意义上的**子物体顺序**按列 0..2,与上面 i 升序的四个列表顺序
+        /// 无关),敌人按 <c>(Row, Column)</c> 落进对应格位,空格位只留一个带
+        /// <see cref="LayoutElement"/>(仅 preferredWidth)的透明占位撑宽度,不画任何可见元素。
+        /// 这是为了让 <see cref="Ui.Row"/> 的 <c>HorizontalLayoutGroup</c>(子物体整体
+        /// TextAnchor.MiddleCenter,见 Ui.cs)把两排都摆满 3 格再居中 —— 此前前排 2 只、
+        /// 后排 3 只时各自居中,列对不上。副产品:敌人死后不再因为「按存活数重排」而整体
+        /// 跳位,尸体格位原地不动。</summary>
         private void DrawEnemies()
         {
             _enemyRects.Clear();
             _enemyMobs.Clear();
             _enemyHpBars.Clear();
             _enemyActionBars.Clear();
+
+            var frontCells = new GameObject[Targeting.RowCapacity];
+            var backCells = new GameObject[Targeting.RowCapacity];
+            for (int c = 0; c < Targeting.RowCapacity; c++)
+            {
+                frontCells[c] = Ui.Panel(_enemyFrontRow, $"EnemySlotFront{c}");
+                frontCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
+                backCells[c] = Ui.Panel(_enemyBackRow, $"EnemySlotBack{c}");
+                backCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
+            }
+
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
                 var enemy = Battle.Enemies[i];
@@ -1232,9 +1252,8 @@ namespace Brushblade.Presentation
                 bool reachable = !_targeting || _selectedChar == null
                     || Battle.CanTarget(_graph.Get(_selectedChar), index);
 
-                var cell = Ui.Panel(front ? _enemyFrontRow : _enemyBackRow, $"Enemy{i}");
-                var cellElement = cell.AddComponent<LayoutElement>();
-                cellElement.preferredWidth = EnemyCellWidth;
+                var cell = front ? frontCells[enemy.Column] : backCells[enemy.Column];
+                var cellElement = cell.GetComponent<LayoutElement>();
                 cellElement.preferredHeight = front ? EnemyCellHeightFront : EnemyCellHeightBack;
                 float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
 
