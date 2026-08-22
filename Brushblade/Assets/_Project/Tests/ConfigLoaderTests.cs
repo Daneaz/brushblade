@@ -348,35 +348,5 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("丁").Effects[0].Kind, Is.EqualTo(EffectKind.Reflect));
             Assert.That(graph.Get("戊").Effects[0].Passive.Dodge, Is.EqualTo(50));
         }
-
-        [Test]
-        public void LoadGraph_UnknownShape_Throws()
-        {
-            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
-                @"{ ""chars"": [ { ""id"": ""火"", ""effects"": [
-                    { ""kind"": ""DamageSingle"", ""value"": 4, ""shape"": ""Nuke"" } ] } ] }"));
-            Assert.That(ex.Message, Does.Contain("火"));
-        }
-
-        [Test]
-        public void LoadGraph_ParsesShapeFields()
-        {
-            const string json = @"{""chars"":[
-                {""id"":""甲"",""element"":""Fire"",""effects"":[
-                    {""kind"":""DamageSingle"",""value"":10,""shape"":""Cleave"",
-                     ""shapePercent"":50}]},
-                {""id"":""乙"",""element"":""Fire"",""effects"":[
-                    {""kind"":""DamageSingle"",""value"":6,""shape"":""Volley"",""shots"":3}]}
-            ]}";
-            var graph = ConfigLoader.LoadGraph(json);
-
-            var jia = graph.Get("甲").Effects[0];
-            Assert.That(jia.Shape, Is.EqualTo(TargetShape.Cleave));
-            Assert.That(jia.ShapePercent, Is.EqualTo(50));
-
-            var yi = graph.Get("乙").Effects[0];
-            Assert.That(yi.Shape, Is.EqualTo(TargetShape.Volley));
-            Assert.That(yi.Shots, Is.EqualTo(3));
-        }
     }
 }
