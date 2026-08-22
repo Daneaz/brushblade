@@ -29,7 +29,7 @@ EORDER = ['Wood', 'Fire', 'Earth', 'Metal', 'Water', 'Heart']
 PUA = {'': '𣛧(木四叠·PUA)', '': '䥱(金四叠·PUA)'}
 PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge': '闪避',
            'thorns': '荆棘', 'speed': '速度', 'onHitBurn': '命中挂灼烧',
-           'onHitBurnAll': '灼烧转全体'}
+           'onHitBurnAll': '灼烧转全体', 'ranged': '远程:无视敌方前排'}
 
 SHENG = {'Wood': 'Fire', 'Fire': 'Earth', 'Earth': 'Metal', 'Metal': 'Water', 'Water': 'Wood'}
 # 走生克结算的效果才吃相生 ×3,与 Core 的 WuxingResolver.ResolveEffect 覆盖面一致
@@ -109,6 +109,7 @@ def desc(e, mult=1):
     if e.get('persistOnce'): mods.append("免一次清盾")
     # mods 会被外层括号整体包住,这里不能再带括号,否则嵌套成「(穿透 10(…))」
     if e.get('pierce'): mods.append(f"穿透 {e['pierce']}")
+    if e.get('backline'): mods.append("偷袭:无视敌方前排")
     if e.get('hitCount', 1) > 1: mods.append(f"{e['hitCount']} 段独立结算")
     if e.get('executeBelowPercent'):
         mods.append(f"斩杀线 {e['executeBelowPercent']}%" + ("→直杀(Boss 免疫)" if e.get('executeKills') else "→双倍"))
@@ -253,7 +254,8 @@ A("   桑 / 梅(召 血 60/攻 20)、割 / 剖 / 沸 / 碾(单体 60)。这批�
 A("2. **档位内跳变不均**:金档单体从 刲 150 直接跳到 鑫 / 錰 400;紫档金系 4 个字挤在 160~200 无区分度。")
 A("3. **紫档低攻召唤**:蕉(血 280/攻 30)、柘(血 320/攻 40)是纯肉盾定位,攻击力低于绿档的槐(攻 40),")
 A("   紫档的价值全押在血量上,牌面读感偏弱。")
-A("4. **零攻击召唤**:灶 / 烓 攻击力为 0,输出全在「命中挂灼烧」被动上,表内按 `召 0` 显示。")
+A("4. **远程召唤**:灶(攻 20)/ 烓(攻 30)是仅有的远程召唤物,无视敌方前排优先打后排;")
+A("   **2026-08-20** 前攻击力曾为 0,输出全在「命中挂灼烧」被动上,补基础攻后灼烧仍是主输出。")
 A("5. **心系空缺**:摄心流(第 5 章)与心属性的生克中立设定都已在引擎里,但没有一个心系字可出牌。")
 A("6. **`AttackEffects` 未启用**:`CharDef` 有「拖到敌人身上改用另一套效果」的字段(2026-07-26),")
 A("   但配置表里一条都没配,水 / 土 的「治疗/加盾之外多一个攻击选项」目前不存在。")
