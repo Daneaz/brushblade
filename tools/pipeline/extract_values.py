@@ -120,6 +120,21 @@ def _parse_effects(config, char):
             passive["onHitBurnAll"] = True
         if "`Ranged`" in config:            # 无数值的布尔标记(2026-08-20,灶/烓)
             passive["ranged"] = True
+        # 目标形状(2026-08-22,spec §9.1):召唤物自动攻击也能带形状,与伤害侧同一套 token,
+        # 落进 passive 的 shape/shots/shapePercent —— **不**新增独立 effect(与 Ranged 同处理,
+        # 头上 SHOTS_TOKEN/SHAPE_PERCENT_TOKEN 注释说的坑在这条分支不适用:本分支在通用
+        # `(\w+) (\d+)` 那个 for 循环之前就 return 了,数值 token 不会被那个循环二次吞掉)。
+        for token in ("Sweep", "Cleave", "Skewer"):
+            if f"`{token}`" in config:
+                passive["shape"] = token
+                break
+        percent = re.search(rf"`{SHAPE_PERCENT_TOKEN} (\d+)`", config)
+        if percent:
+            passive["shapePercent"] = int(percent.group(1))
+        shots = re.search(rf"`{SHOTS_TOKEN} (\d+)`", config)
+        if shots:
+            passive["shape"] = "Volley"
+            passive["shots"] = int(shots.group(1))
         if passive:
             effect["passive"] = passive
         return [effect]

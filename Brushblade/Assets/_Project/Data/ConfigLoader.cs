@@ -504,6 +504,13 @@ namespace Brushblade.Data
                     && (!Enum.TryParse(effect.Shape, out shape)
                         || !Enum.IsDefined(typeof(TargetShape), shape)))
                     throw new ConfigException($"字「{dto.Id}」的目标形状未知:{effect.Shape}");
+                // 召唤被动的 Shape 是 Core 的 SummonPassive.Shape(TargetShape 枚举),不是上面这个
+                // string 字段,走 Newtonsoft 整体反序列化——数字型越界值(如 "shape": 99)会被
+                // Newtonsoft 直接接住塞进枚举底层 int,不报错,与上面这条 string 校验是同一个坑,
+                // 只是入口不同(2026-08-22)。ExpandTargets 对任何未定义值都落到 `_ => false`,
+                // 悄悄退化成单体——正是上面那条 player 侧校验存在的理由,这里补齐 summon 侧。
+                if (effect.Passive != null && !Enum.IsDefined(typeof(TargetShape), effect.Passive.Shape))
+                    throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,

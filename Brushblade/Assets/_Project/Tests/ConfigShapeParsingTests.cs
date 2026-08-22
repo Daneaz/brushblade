@@ -62,5 +62,20 @@ namespace Brushblade.Core.Tests
                     { ""kind"": ""DamageSingle"", ""value"": 4 } ] } ] }");
             Assert.That(graph.Get("丁").Effects[0].Shape, Is.EqualTo(TargetShape.Single));
         }
+
+        [Test]
+        public void LoadGraph_NumericSummonPassiveShape_Throws()
+        {
+            // 召唤被动的 Shape 是 SummonPassive.Shape(TargetShape 枚举),整个 passive 对象由
+            // Newtonsoft 一次性反序列化——越界数字("shape": 99)不会像上面 player 侧的字符串
+            // 校验那样被 Enum.TryParse 拦下,Newtonsoft 会直接把它塞进枚举底层 int,不报错。
+            // ExpandTargets 的 switch 对任何未定义值都落到 _ => false,静默退化成单体
+            // (2026-08-22)。
+            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""戊"", ""effects"": [
+                    { ""kind"": ""Summon"", ""value"": 5, ""count"": 1, ""attack"": 3,
+                      ""summonChar"": ""戊"", ""passive"": { ""shape"": 99 } } ] } ] }"));
+            Assert.That(ex.Message, Does.Contain("戊"));
+        }
     }
 }
