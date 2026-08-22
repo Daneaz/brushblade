@@ -1236,6 +1236,11 @@ namespace Brushblade.Presentation
                 backCells[c] = Ui.Panel(_enemyBackRow, $"EnemySlotBack{c}");
                 backCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
             }
+            // 本次绘制里每排格位是否已被占用(2026-08-22 评审加固)。按**本次绘制**已用掉的
+            // 格位算,不读 Transform.childCount —— 预建的空格位本来就在那儿,child 数恒为
+            // RowCapacity,读它算不出"谁占了谁没占"。
+            var frontUsed = new bool[Targeting.RowCapacity];
+            var backUsed = new bool[Targeting.RowCapacity];
 
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
@@ -1252,7 +1257,29 @@ namespace Brushblade.Presentation
                 bool reachable = !_targeting || _selectedChar == null
                     || Battle.CanTarget(_graph.Get(_selectedChar), index);
 
-                var cell = front ? frontCells[enemy.Column] : backCells[enemy.Column];
+                // 格位守卫(2026-08-22 评审加固):Core 的不变式(每排 ≤ RowCapacity、列不重号)
+                // 理应保证 enemy.Column 永远落在 [0, RowCapacity) 且同排不重号,但表现层崩掉
+                // 的代价是整个战斗界面白屏,兜底的代价只是一只怪画错位置 —— 不对称,所以兜。
+                // 越界或撞列(本排该列已被这次绘制的另一只怪占了)就回落到本排第一个空格位。
+                var cells = front ? frontCells : backCells;
+                var used = front ? frontUsed : backUsed;
+                int col = enemy.Column;
+                if (col < 0 || col >= Targeting.RowCapacity || used[col])
+                    col = System.Array.IndexOf(used, false);
+                if (col < 0)
+                {
+                    // 连回落都没有空格位:说明本排存活敌人数已经超过 RowCapacity,违反 Core
+                    // 不变式,比越界/撞列更极端。不画这只怪,但仍要给四个下标对齐的列表
+                    // (_enemyRects/_enemyMobs/_enemyHpBars/_enemyActionBars)占一位 ——
+                    // 不然后续敌人的下标全部错位,TargetIndex 指错人(比不画更糟)。
+                    _enemyMobs.Add(null);
+                    _enemyHpBars.Add((null, null));
+                    _enemyActionBars.Add((null, null));
+                    _enemyRects.Add(null);
+                    continue;
+                }
+                used[col] = true;
+                var cell = cells[col];
                 var cellElement = cell.GetComponent<LayoutElement>();
                 cellElement.preferredHeight = front ? EnemyCellHeightFront : EnemyCellHeightBack;
                 float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
