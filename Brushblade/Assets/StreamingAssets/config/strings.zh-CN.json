@@ -313,5 +313,27 @@
   "battle.btn.overflow_skip": "跳过「{incoming}」",
   "battle.btn.to_safe_floor": "前往安全层",
   "battle.btn.to_map": "返回地图",
-  "battle.btn.confirm_replace_summon": "顶替 {count} 只"
+  "battle.btn.confirm_replace_summon": "顶替 {count} 只",
+
+  "battle.dialog.suspend_tower.title": "离 塔",
+  "battle.dialog.suspend_tower.body": "挂起:保留进度,下次从本层继续\n弃塔:墨锭半额结算,层数纪录保留",
+  "battle.dialog.exit_confirm.title": "退出战斗?",
+  "battle.dialog.exit_confirm.body": "放弃本关:进度不推进,奇遇墨锭保留",
+  "battle.dialog.ap_left.title": "还有 AP 没用",
+  "battle.dialog.ap_left.body": "本回合还剩 {ap} AP,结束后作废。\n确定结束回合?",
+  "battle.dialog.event_unaffordable.title": "这个选不了",
+  "battle.dialog.event_unaffordable.body_ink": "「{label}」需要 {cost} 墨锭,你只有 {available}。",
+  "battle.dialog.event_unaffordable.body_failed": "「{label}」这笔交易没能成立。",
+  "battle.dialog.event_char_unaffordable.title": "换不了",
+  "battle.dialog.event_char_unaffordable.body": "「{charId}」这笔交易没能成立。",
+  "battle.dialog.slot_name_front": "前排第 {n} 位",
+  "battle.dialog.slot_name_back": "后排第 {n} 位",
+  "battle.dialog.slot_occupied.title": "这个位置有人",
+  "battle.dialog.slot_occupied.body_generic": "前排 {alive}/{capacity},「{charId}」召 {count} 只。\n",
+  "battle.dialog.slot_occupied.body_generic_suffix": "将从最前起顶掉 {n} 只。",
+  "battle.dialog.slot_occupied.body_line": "{slotName}上的「{charId}」会被顶替。\n",
+  "battle.dialog.slot_occupied.body_suffix": "被顶替的当场消失。",
+  "battle.dialog.not_enough_ap.title": "AP 不够",
+  "battle.dialog.not_enough_ap.body": "「{charId}」需要 {neededAp} AP,本回合仅剩 {ap} AP。\n结束回合可回满 {apPerTurn} AP 并掉落新部件。",
+  "battle.common.rejected": "操作被拒"
 }

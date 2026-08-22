@@ -853,13 +853,13 @@ namespace Brushblade.Presentation
             Ui.PillButton(_topRight, Strings.T("battle.btn.exit"), () => // 统一弹窗确认(2026-07-19 拍板)
             {
                 if (suspend)
-                    ShowModal("离 塔",
-                        "挂起:保留进度,下次从本层继续\n弃塔:墨锭半额结算,层数纪录保留",
+                    ShowModal(Strings.T("battle.dialog.suspend_tower.title"),
+                        Strings.T("battle.dialog.suspend_tower.body"),
                         (Strings.T("battle.btn.suspend"), _onExit, Theme.Cinnabar, Color.white),
                         (Strings.T("battle.btn.abandon"), () => _onAbandon?.Invoke(), Theme.InkSoft, Color.white),
                         (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
                 else
-                    ShowModal("退出战斗?", "放弃本关:进度不推进,奇遇墨锭保留",
+                    ShowModal(Strings.T("battle.dialog.exit_confirm.title"), Strings.T("battle.dialog.exit_confirm.body"),
                         (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Theme.Cinnabar, Color.white),
                         (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
             }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
@@ -2027,8 +2027,8 @@ namespace Brushblade.Presentation
                 OnEndTurn();
                 return;
             }
-            ShowModal("还有 AP 没用",
-                $"本回合还剩 {Battle.Ap} AP,结束后作废。\n确定结束回合?",
+            ShowModal(Strings.T("battle.dialog.ap_left.title"),
+                Strings.T("battle.dialog.ap_left.body", ("ap", Battle.Ap)),
                 (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
                 (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
         }
@@ -2414,9 +2414,10 @@ namespace Brushblade.Presentation
                         return;
                     }
                     CancelSelection();
-                    ShowAlert("这个选不了", option.InkCost > _run.AvailableInk
-                        ? $"「{option.Label}」需要 {option.InkCost} 墨锭,你只有 {_run.AvailableInk}。"
-                        : $"「{option.Label}」这笔交易没能成立。");
+                    ShowAlert(Strings.T("battle.dialog.event_unaffordable.title"), option.InkCost > _run.AvailableInk
+                        ? Strings.T("battle.dialog.event_unaffordable.body_ink",
+                            ("label", option.Label), ("cost", option.InkCost), ("available", _run.AvailableInk))
+                        : Strings.T("battle.dialog.event_unaffordable.body_failed", ("label", option.Label)));
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
@@ -2538,7 +2539,8 @@ namespace Brushblade.Presentation
                     }
                     ResetEventSelection();
                     CancelSelection();
-                    ShowAlert("换不了", $"「{charId}」这笔交易没能成立。");
+                    ShowAlert(Strings.T("battle.dialog.event_char_unaffordable.title"),
+                        Strings.T("battle.dialog.event_char_unaffordable.body", ("charId", charId)));
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
                     26, new Vector2(64, 64), 12);
             }
@@ -2801,8 +2803,8 @@ namespace Brushblade.Presentation
 
         /// <summary>位子的人话名字:下标 0..5 玩家看不懂,说「前排第 2 位」才认得出是哪一格。</summary>
         private string SlotName(int slot) => slot < Battle.FrontRow
-            ? $"前排第 {slot + 1} 位"
-            : $"后排第 {slot - Battle.FrontRow + 1} 位";
+            ? Strings.T("battle.dialog.slot_name_front", ("n", slot + 1))
+            : Strings.T("battle.dialog.slot_name_back", ("n", slot - Battle.FrontRow + 1));
 
         private void OnEnemyClicked(int index)
         {
@@ -2829,7 +2831,7 @@ namespace Brushblade.Presentation
             {
                 var def = _graph.Get(charId);
                 int replaceCount = Battle.SummonReplaceCountOf(def, attackMode, summonSlots);
-                ShowModal("这个位置有人",
+                ShowModal(Strings.T("battle.dialog.slot_occupied.title"),
                     ReplaceSummonBody(def, attackMode, summonSlots),
                     (Strings.T("battle.btn.confirm_replace_summon", ("count", replaceCount)),
                         () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot),
@@ -2873,16 +2875,20 @@ namespace Brushblade.Presentation
         {
             int count = Battle.SummonCountOf(def, attackMode);
             if (summonSlots == null)
-                return $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{def.Id}」召 {count} 只。\n"
-                    + $"将从最前起顶掉 {Battle.SummonReplaceCountOf(def, attackMode)} 只。";
+                return Strings.T("battle.dialog.slot_occupied.body_generic",
+                        ("alive", Battle.AliveSummonCount), ("capacity", Battle.SummonCapacity),
+                        ("charId", def.Id), ("count", count))
+                    + Strings.T("battle.dialog.slot_occupied.body_generic_suffix",
+                        ("n", Battle.SummonReplaceCountOf(def, attackMode)));
             var body = new StringBuilder();
             for (int n = 0; n < count && n < summonSlots.Count; n++)
             {
                 int slot = summonSlots[n];
                 if (Battle.SlotOccupancy(slot) != SlotState.Alive) continue;
-                body.Append($"{SlotName(slot)}上的「{Battle.Summons[slot].Char}」会被顶替。\n");
+                body.Append(Strings.T("battle.dialog.slot_occupied.body_line",
+                    ("slotName", SlotName(slot)), ("charId", Battle.Summons[slot].Char)));
             }
-            body.Append("被顶替的当场消失。"); // 不带量词:顶 1 只与顶 2 只共用这一句
+            body.Append(Strings.T("battle.dialog.slot_occupied.body_suffix")); // 不带量词:顶 1 只与顶 2 只共用这一句
             return body.ToString();
         }
 
@@ -3222,12 +3228,13 @@ namespace Brushblade.Presentation
         private void MaybeModalError(BattleError error, string charId, int neededAp)
         {
             if (error == BattleError.NotEnoughAp)
-                ShowModal("AP 不够",
-                    $"「{charId}」需要 {neededAp} AP,本回合仅剩 {Battle.Ap} AP。\n结束回合可回满 {Battle.ApPerTurn} AP 并掉落新部件。",
+                ShowModal(Strings.T("battle.dialog.not_enough_ap.title"),
+                    Strings.T("battle.dialog.not_enough_ap.body",
+                        ("charId", charId), ("neededAp", neededAp), ("ap", Battle.Ap), ("apPerTurn", Battle.ApPerTurn)),
                     (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
                     (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
             else if (error == BattleError.ForgeFailed)
-                ShowModal("操作被拒", Describe(error),
+                ShowModal(Strings.T("battle.common.rejected"), Describe(error),
                     (Strings.T("battle.btn.ack"), null, Theme.LockedBg, Theme.TextMain));
         }
 
