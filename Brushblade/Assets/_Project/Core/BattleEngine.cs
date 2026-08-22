@@ -619,9 +619,12 @@ namespace Brushblade.Core
         /// −1 或与 charId 不符(陈旧下标)退回删首张的旧口径。
         /// summonSlots:玩家为本次召唤指定的槽位,第 n 只落 summonSlots[n]。
         /// null = 未指定,按 NextEmptySlot() 依次填(测试与自动路径走这条)。
-        /// 指定到存活槽 = 顶替,与「六槽全满」同口径,需要 replaceSummon 确认。</summary>
+        /// 指定到存活槽 = 顶替,与「六槽全满」同口径,需要 replaceSummon 确认。
+        /// allySlot:单体治疗(2026-08-22)治谁——默认玩家(Targeting.PlayerTarget),
+        /// 或指定某个召唤物槽位。</summary>
         public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false,
-            bool attackMode = false, int libraryIndex = -1, IReadOnlyList<int> summonSlots = null)
+            bool attackMode = false, int libraryIndex = -1, IReadOnlyList<int> summonSlots = null,
+            int allySlot = Targeting.PlayerTarget)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -654,6 +657,19 @@ namespace Brushblade.Core
                 }
             }
 
+            // 友方目标合法性(2026-08-22,spec §8.1)。免选口径与「单敌免选」同型:
+            // 场上没有存活召唤物时自动锁玩家,不让 UI 弹一次没得选的选择。
+            // 但尸体拒治优先于免选——allySlot 点着的是一具占槽的尸体(哪怕它是场上唯一
+            // 一只召唤物),这是玩家明确点错了目标,不能被「反正没得选」悄悄改判成治玩家。
+            if (NeedsAllyTarget(def, attackMode))
+            {
+                bool corpseSlot = allySlot >= 0 && allySlot < SummonCap
+                    && _summons[allySlot] != null && !_summons[allySlot].Alive;
+                if (corpseSlot) return BattleError.InvalidTarget;
+                if (AliveSummons() == 0) allySlot = Targeting.PlayerTarget;
+                else if (!CanHealSlot(allySlot)) return BattleError.InvalidTarget;
+            }
+
             // 前排放不下就强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「是否替换?」。
             // 不只看满员——3/4 时召 2 只同样溢出,也得先问过玩家
             if (!replaceSummon && SummonReplaceCountOf(def, attackMode, summonSlots) > 0) return BattleError.SummonCapFull;
@@ -678,7 +694,7 @@ namespace Brushblade.Core
                 _forge = new ForgeState(_forge.Library, pool);
             }
 
-            ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots);
+            ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot);
             CheckWin();
             return BattleError.None;
         }
@@ -835,6 +851,26 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Detonate)
                     return true;
             return false;
+        }
+
+        /// <summary>该字是否需要指定**友方**目标(2026-08-22,spec §8.1)。
+        /// 单体治疗(HealSelf / HealOverTime)从此可以选治玩家还是某只召唤物。
+        ///
+        /// 群治(HealAll)不在内 —— 它覆盖全体,本就无从选起,保持免选。</summary>
+        public static bool NeedsAllyTarget(CharDef def, bool attackMode = false)
+        {
+            foreach (var effect in EffectsOf(def, attackMode))
+                if (effect.Kind == EffectKind.HealSelf || effect.Kind == EffectKind.HealOverTime)
+                    return true;
+            return false;
+        }
+
+        /// <summary>这个槽位现在能不能作为治疗目标(表现层据此置灰;引擎在 Cast 里用同一条判据)。
+        /// 玩家(−1)恒可治;召唤物要活着 —— 尸体归复活管,治疗救不回来。</summary>
+        public bool CanHealSlot(int slot)
+        {
+            if (slot == Targeting.PlayerTarget) return true;
+            return slot >= 0 && slot < SummonCap && _summons[slot] != null && _summons[slot].Alive;
         }
 
         /// <summary>本次出字是否受敌方前排阻挡(2026-08-20,spec §4.2)。
@@ -1396,7 +1432,7 @@ namespace Brushblade.Core
         }
 
         private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false,
-            IReadOnlyList<int> summonSlots = null)
+            IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
         {
             var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
@@ -1718,10 +1754,10 @@ namespace Brushblade.Core
                         _burnPerStack += value;
                         break;
                     case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板);走生克(相生组合可增益)
+                        // 目标可选(2026-08-22,spec §8):生克算的是配方内部的元素关系,
+                        // 与目标是谁无关 —— 治召唤物与治玩家同值
                         int heal = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
-                        int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, heal);
-                        PlayerHp += healed;
-                        _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+                        HealAlly(allySlot, heal);
                         break;
                     case EffectKind.HealAll:
                         HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements, attacker));
@@ -2018,6 +2054,25 @@ namespace Brushblade.Core
                 if (summon == null || !summon.Alive) continue;
                 summon.Hp = Math.Min(summon.MaxHp, summon.Hp + amount);
             }
+        }
+
+        /// <summary>把治疗打到一个友方目标上(2026-08-22)。slot = −1 治玩家,否则治该槽召唤物。
+        /// 溢出部分丢弃。事件的 SecondIndex 带槽位 —— 与 Summon 事件报落位槽同一套写法,
+        /// 不为治疗新增事件类型。</summary>
+        private void HealAlly(int slot, int amount)
+        {
+            if (slot == Targeting.PlayerTarget)
+            {
+                int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
+                PlayerHp += healed;
+                _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed, Targeting.PlayerTarget));
+                return;
+            }
+            var summon = _summons[slot];
+            if (summon == null || !summon.Alive) return; // Cast 已拦下,这里是纵深防御
+            int given = Math.Min(summon.MaxHp - summon.Hp, amount);
+            summon.Hp += given;
+            _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
         }
 
         /// <summary>场上除 self 外还有存活敌人吗(辅助型据此决定加攻还是出手)。</summary>
