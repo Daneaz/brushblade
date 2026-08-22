@@ -1251,14 +1251,30 @@ namespace Brushblade.Core
         {
             var summon = _summons[summonIndex];
             if (summon == null) return;
+            var passive = summon.Passive;
             // 近战打敌方前排、远程优先打后排(2026-08-20)。全部敌人默认前排时,
             // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
-            int target = Targeting.PickEnemyTargetForSummon(_enemies, summon.Passive?.Ranged ?? false);
-            if (target < 0) return;
-            _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, summonIndex));
-            if (summon.Attack > 0)
-                DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
-            ApplySummonOnHit(summon, target);
+            int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false);
+            var shape = passive?.Shape ?? TargetShape.Single;
+            // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
+            if (target < 0 && shape != TargetShape.Volley) return;
+
+            // 形状展开(2026-08-22,spec §7):与玩家侧共用同一个几何函数,不写第二份
+            var hits = Targeting.ExpandTargets(_enemies, target, shape, passive?.Shots ?? 0);
+            int percent = passive == null || passive.ShapePercent <= 0 ? 100 : passive.ShapePercent;
+            for (int t = 0; t < hits.Count; t++)
+            {
+                int tgt = hits[t];
+                if (!_enemies[tgt].Alive) continue;
+                int damage = summon.Attack;
+                // 连发每发全额;形状类的非主目标按 ShapePercent 折算
+                if (t > 0 && shape != TargetShape.Volley && percent != 100)
+                    damage = damage * percent / 100;
+                _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
+                if (damage > 0)
+                    DamageEnemy(tgt, damage, Array.Empty<Element>(), summon.Element);
+                ApplySummonOnHit(summon, tgt);
+            }
         }
 
         /// <summary>标点小妖给其他存活字怪加攻的那一拍(2026-08-15 提取,行为与提取前逐字节一致)。
