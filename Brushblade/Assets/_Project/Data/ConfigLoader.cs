@@ -50,6 +50,9 @@ namespace Brushblade.Data
             public bool ExecuteKills { get; set; }       // true = 直接击杀(Boss 免疫);false = 伤害 ×2
             public int HitCount { get; set; } = 1;  // 多段:伤害分几段打(剁 = 2)
             public bool Backline { get; set; }   // 偷袭:该发单体直伤无视敌方前排(2026-08-20)
+            public string Shape { get; set; }      // 目标形状(2026-08-22):null = Single
+            public int ShapePercent { get; set; } = 100; // 非主目标伤害百分比
+            public int Shots { get; set; }         // 连发发数
         }
 
         private sealed class CampaignFileDto
@@ -493,13 +496,18 @@ namespace Brushblade.Data
             {
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
+                var shape = TargetShape.Single;
+                if (!string.IsNullOrEmpty(effect.Shape)
+                    && !Enum.TryParse(effect.Shape, out shape))
+                    throw new ConfigException($"字「{dto.Id}」的目标形状未知:{effect.Shape}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
                     effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
-                    effect.HitCount, effect.Pierce, effect.Backline));
+                    effect.HitCount, effect.Pierce, effect.Backline,
+                    shape, effect.ShapePercent, effect.Shots));
             }
             return effects;
         }
