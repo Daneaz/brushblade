@@ -40,6 +40,13 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   -testResults /tmp/results.xml -logFile /tmp/unity_test.log
 ```
 
+- ⚠️ **新增/改动任何玩家可见中文文案后,必须重跑字体子集**:游戏打包的是**子集字体**
+  (只含实际用到的字形),新字不在里面就会在真机上显示成空白/豆腐块——而离线编译和
+  Core 单测**都发现不了**,只有 `pytest tools/fonts/tests/` 会红。修法:
+  `python3 tools/fonts/subset_fonts.py`,然后复跑该测试。
+  重新生成必然产生几百 KB 的时间戳 churn,**光看 diff 大小说明不了变没变,要比 cmap**。
+  (2026-08-22「洞穿/横扫/连发/玩家」、2026-08-23「填」各栽过一次。)
+
 - Core/Data 每个模块:先写失败测试再实现;Presentation 不强求自动化测试,**但改完必须过离线编译**
   ——工装只编译 Core/Data,Presentation 的编译错会一路漏到用户打开 Unity 才炸(已发生过两次)。
   离线编译依赖 `Brushblade/Library/ScriptAssemblies/`(Unity 至少打开过本工程一次)。
