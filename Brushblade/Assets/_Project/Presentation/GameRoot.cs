@@ -35,6 +35,8 @@ namespace Brushblade.Presentation
             new GameObject("SaveOnSuspend").AddComponent<SaveOnSuspend>(); // 切后台保底落盘
 
             string configDir = Path.Combine(Application.streamingAssetsPath, "config");
+            // 文案表必须最先加载:后续任何 UI 构建都可能取文案(architecture.md §5)
+            Strings.Load(File.ReadAllText(Path.Combine(configDir, "strings.zh-CN.json")));
             _graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
             _campaign = ConfigLoader.LoadCampaign(
                 File.ReadAllText(Path.Combine(configDir, "enemies.json")), _graph);
