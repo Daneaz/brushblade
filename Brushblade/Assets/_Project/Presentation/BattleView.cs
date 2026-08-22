@@ -435,7 +435,7 @@ namespace Brushblade.Presentation
             if (_playerShieldBar.fill != null)
                 Ui.Anchor(_playerShieldBar.fill, Vector2.zero, new Vector2(Mathf.Clamp01(shield / ShieldBarFull), 1),
                     Vector2.zero, Vector2.zero);
-            if (_playerShieldBar.label != null) _playerShieldBar.label.text = $"护盾 {shield}";
+            if (_playerShieldBar.label != null) _playerShieldBar.label.text = Strings.T("battle.label.shield", ("shield", shield));
         }
 
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
@@ -555,7 +555,7 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.795f, 0.100f), new Vector2(0.985f, 0.775f), Vector2.zero, Vector2.zero);
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
             Ui.Stretch((RectTransform)workbenchStack.transform);
-            Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(workbenchStack.transform, Strings.T("battle.label.workbench_title"), 13, Theme.TextDim, Theme.TitleFont);
             _suggestRow = Ui.VStack(workbenchStack.transform, "Content", 6).transform;
             // 动作行**横排**(2026-08-21 用户拍板):出 / 拆 / 弃 三个单字钮一行排完。
             // 2026-08-20 改竖栏时它被一并改成 VStack(栏宽只有 217.6px,「出字/丢弃」那种
@@ -743,7 +743,7 @@ namespace Brushblade.Presentation
                     DrawPlayerStats();
                     if (Animating) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
                     {
-                        Ui.ThemedLabel(_statusRow, "结算中……", 20, Theme.TextDim, Theme.TitleFont);
+                        Ui.ThemedLabel(_statusRow, Strings.T("battle.phase.resolving"), 20, Theme.TextDim, Theme.TitleFont);
                         break;
                     }
                     DrawLibrary();
@@ -845,10 +845,12 @@ namespace Brushblade.Presentation
 
         private void DrawTopBar()
         {
-            Ui.ThemedLabel(_topLeft, string.IsNullOrEmpty(_title) ? $"战斗 {_run.BattleIndex + 1}" : $"{_title} · 战斗 {_run.BattleIndex + 1}",
+            Ui.ThemedLabel(_topLeft, string.IsNullOrEmpty(_title)
+                    ? Strings.T("battle.label.battle_index", ("index", _run.BattleIndex + 1))
+                    : Strings.T("battle.label.battle_index_titled", ("title", _title), ("index", _run.BattleIndex + 1)),
                 20, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
             Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
-            Ui.ThemedLabel(_topRight, $"回合 {Battle.Turn}", 18, Theme.TextDim);
+            Ui.ThemedLabel(_topRight, Strings.T("battle.label.turn", ("turn", Battle.Turn)), 18, Theme.TextDim);
             bool suspend = _onExit != null; // 无尽:退出可挂起/弃塔(2026-07-19);否则=认输
             Ui.PillButton(_topRight, Strings.T("battle.btn.exit"), () => // 统一弹窗确认(2026-07-19 拍板)
             {
@@ -882,7 +884,7 @@ namespace Brushblade.Presentation
             {
                 var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull),
                     Theme.Jade, new Vector2(260, 14));
-                var shieldLabel = Ui.ThemedLabel(shieldBar.transform, $"护盾 {shownShield}", 10,
+                var shieldLabel = Ui.ThemedLabel(shieldBar.transform, Strings.T("battle.label.shield", ("shield", shownShield)), 10,
                     Color.white, Theme.TitleFont);
                 Ui.Stretch(shieldLabel.rectTransform);
                 var shieldOutline = shieldLabel.gameObject.AddComponent<Outline>();
@@ -1074,9 +1076,9 @@ namespace Brushblade.Presentation
                     new Vector2(barWidth, front ? 9 : 8), 8);
                 // 攻 / 盾 / 被动同一行(2026-08-20):格宽翻倍后放得下,不必再考虑「移进详情弹窗」
                 var stats = Ui.Row(cell.transform, "Stats", 6).transform;
-                Ui.ThemedLabel(stats, $"攻{summon.Attack}", 11, Theme.TextDim);
+                Ui.ThemedLabel(stats, Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 11, Theme.TextDim);
                 if (summon.Shield > 0)
-                    Ui.ThemedLabel(stats, $"盾{summon.Shield}", 11, Theme.Jade);
+                    Ui.ThemedLabel(stats, Strings.T("battle.label.summon_shield", ("shield", summon.Shield)), 11, Theme.Jade);
                 string passiveTag = SummonPassiveTag(summon.Passive);
                 if (passiveTag.Length > 0)
                     Ui.ThemedLabel(stats, passiveTag, 11, Theme.Cinnabar);
@@ -1218,12 +1220,14 @@ namespace Brushblade.Presentation
         {
             if (passive == null) return "";
             if (passive.OnHitBurn > 0)
-                return passive.OnHitBurnAll ? $"全场灼{passive.OnHitBurn}" : $"附灼{passive.OnHitBurn}";
-            if (passive.Thorns > 0) return $"反伤{passive.Thorns}";
-            if (passive.HealAlly > 0) return $"回血{passive.HealAlly}";
-            if (passive.OnHitCurse > 0) return $"诅咒{passive.OnHitCurse}%";
-            if (passive.Dodge > 0) return $"闪避{passive.Dodge}%";
-            if (passive.Speed > 100) return "疾";
+                return passive.OnHitBurnAll
+                    ? Strings.T("battle.summon.burn_all", ("n", passive.OnHitBurn))
+                    : Strings.T("battle.summon.burn_attach", ("n", passive.OnHitBurn));
+            if (passive.Thorns > 0) return Strings.T("battle.summon.thorns", ("n", passive.Thorns));
+            if (passive.HealAlly > 0) return Strings.T("battle.summon.heal", ("n", passive.HealAlly));
+            if (passive.OnHitCurse > 0) return Strings.T("battle.summon.curse", ("n", passive.OnHitCurse));
+            if (passive.Dodge > 0) return Strings.T("battle.summon.dodge", ("n", passive.Dodge));
+            if (passive.Speed > 100) return Strings.T("battle.summon.haste");
             return "";
         }
 
@@ -1430,17 +1434,21 @@ namespace Brushblade.Presentation
                 // 所以越靠前的越保得住。完整信息仍在敌人详情弹窗里。
                 var chipSpecs = new List<Ui.ChipSpec>
                 {
-                    new(enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?",
+                    // 显示用的元素名走 CharInfo.ElementName(查表)—— 与差字面板/桶键那套
+                    // BattleView 私有的 ElementKey 是两件事,别弄混(见 ElementKey 定义处的注释)。
+                    new(enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?",
                         Theme.ElementColor(enemy.ApparentElement), Color.white),
-                    new($"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain),
+                    new(Strings.T("battle.label.enemy_attack", ("attack", enemy.Attack)), Theme.PaperDim, Theme.TextMain),
                 };
-                if (enemy.Defense > 0) chipSpecs.Add(new($"护甲 {enemy.Defense}", Theme.InkSoft, Color.white));
+                if (enemy.Defense > 0)
+                    chipSpecs.Add(new(Strings.T("battle.label.enemy_defense", ("defense", enemy.Defense)), Theme.InkSoft, Color.white));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
                     // 别用 emoji:⚡ 不在 Noto Serif SC 里,子集补不出来,上线渲染成空框
                     // (test_subset_fonts_cover_charset 正是拦这个的)。预警靠朱砂底色已经够显眼
-                    chipSpecs.Add(new($"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
+                    chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
+                            ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0)
@@ -1495,7 +1503,7 @@ namespace Brushblade.Presentation
                 }
                 else
                 {
-                    Ui.ThemedLabel(bars.transform, "已正", 14, Theme.LockGray);
+                    Ui.ThemedLabel(bars.transform, Strings.T("battle.label.corpse_settled"), 14, Theme.LockGray);
                     _enemyHpBars.Add((null, null));
                     _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
                 }
@@ -1515,17 +1523,18 @@ namespace Brushblade.Presentation
             // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
-            Ui.ThemedLabel(_libraryRow, $"字库 {library.Count}/{Battle.LibraryCapacity}", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_libraryRow, Strings.T("battle.label.library_count",
+                ("count", library.Count), ("capacity", Battle.LibraryCapacity)), 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.LibraryExpanded)
                 Ui.AdBadge(_libraryRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandLibrary();
                     _onExpanded?.Invoke();
-                    _message = "字库上限 +2(本次登塔有效)";
+                    _message = Strings.T("battle.label.library_cap_up");
                     Refresh();
                 }, new Vector2(64, 38));
             if (library.Count == 0)
-                Ui.ThemedLabel(_libraryRow, "(空)", 16, Theme.TextDim);
+                Ui.ThemedLabel(_libraryRow, Strings.T("battle.label.library_empty"), 16, Theme.TextDim);
             for (int i = 0; i < library.Count; i++)
             {
                 int index = i;
@@ -1703,13 +1712,14 @@ namespace Brushblade.Presentation
             // 奖励页显示携带池(部件不再随战利品入池,这里只展示当前持有,2026-08-04)
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var poolChars = rewardPhase ? _run.CarriedPool : Battle.Pool;
-            Ui.ThemedLabel(_poolRow, $"部件池 {poolChars.Count}/{Battle.PoolCapacity}", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_poolRow, Strings.T("battle.label.pool_count",
+                ("count", poolChars.Count), ("capacity", Battle.PoolCapacity)), 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.PoolExpanded)
                 Ui.AdBadge(_poolRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandPool();
                     _onExpanded?.Invoke();
-                    _message = "部件池上限 +2(本次登塔有效)";
+                    _message = Strings.T("battle.label.pool_cap_up");
                     Refresh();
                 }, new Vector2(64, 38));
             foreach (var id in poolChars)
@@ -1809,6 +1819,8 @@ namespace Brushblade.Presentation
             }
         }
 
+        // 五行分桶排序键——与 ElementKey()/ElementByName() 是同一套内部键,不是玩家可见文案,
+        // 不进字符串表:翻译了这几个字,ElementByName 那头的反向解析就找不到桶了(2026-08-23)。
         private static readonly string[] HintBucketOrder = { "金", "木", "水", "火", "土", "心", "中性" };
 
         /// <summary>差字面板(屏幕左侧竖排):统一五行三级目录——属性→字→差什么,玩家主动查。</summary>
@@ -1821,7 +1833,8 @@ namespace Brushblade.Presentation
             foreach (var miss in nearMisses)
             {
                 var element = _graph.Get(miss.CharId).Element;
-                string key = element is { } e ? ElementName(e) : "中性";
+                // "中性" 这里是分桶用的 key,不是显示文本,不进字符串表(同上)。
+                string key = element is { } e ? ElementKey(e) : "中性";
                 if (!buckets.TryGetValue(key, out var list))
                     buckets[key] = list = new System.Collections.Generic.List<NearMiss>();
                 list.Add(miss);
@@ -1876,6 +1889,8 @@ namespace Brushblade.Presentation
             }
         }
 
+        // 反向解析:把 ElementKey()/HintBucketOrder 那套内部键解回 Element。同样不进字符串表——
+        // 这里认的是 ElementKey() 吐出的原始汉字,不是玩家看到的翻译文本。
         private static Element? ElementByName(string name) => name switch
         {
             "金" => Element.Metal,
@@ -2040,7 +2055,7 @@ namespace Brushblade.Presentation
                 ShowVictoryBanner(); // 过关提示走屏幕中央横幅,自动推进(2026-07-21)
                 return;
             }
-            Ui.ThemedLabel(_centerRow, "败北……", 36, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_centerRow, Strings.T("battle.phase.defeat_ellipsis"), 36, Theme.TextMain, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
                 Ui.AdBadge(_centerRow, Strings.T("battle.btn.ad_revive"), () =>
@@ -2077,7 +2092,7 @@ namespace Brushblade.Presentation
             scrim.color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, boss ? 0.88f : 0.8f);
             var group = banner.AddComponent<CanvasGroup>();
             group.blocksRaycasts = false; // 只是提示,不拦点击
-            var label = Ui.ThemedLabel(banner.transform, boss ? "B O S S  已 破" : "本 层 告 捷",
+            var label = Ui.ThemedLabel(banner.transform, boss ? Strings.T("battle.phase.boss_broken_banner") : Strings.T("battle.phase.floor_cleared_banner"),
                 boss ? 72 : 44, boss ? Theme.Gold : Theme.CardWhite, Theme.TitleFont);
             Ui.Stretch(label.rectTransform);
             StartCoroutine(VictoryBannerRoutine(banner, group, boss ? 1.8f : 1.2f));
@@ -2242,7 +2257,7 @@ namespace Brushblade.Presentation
             {
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
-                _message = "字库上限 +2(本次登塔有效)";
+                _message = Strings.T("battle.label.library_cap_up");
                 Refresh();
             }, new Vector2(190, 44));
         }
@@ -2623,13 +2638,15 @@ namespace Brushblade.Presentation
         {
             bool won = _run.Phase == RunPhase.RunWon;
             bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
-            Ui.ThemedLabel(_centerRow, won ? (tower ? "本段告捷——字正!" : "关卡通过——字正!") : "败北",
+            Ui.ThemedLabel(_centerRow, won
+                    ? (tower ? Strings.T("battle.phase.run_won_tower_banner") : Strings.T("battle.phase.run_won_stage_banner"))
+                    : Strings.T("battle.phase.defeat_banner"),
                 40, Theme.TextMain, Theme.TitleFont);
             Ui.PillButton(_centerRow, won && tower ? Strings.T("battle.btn.to_safe_floor") : tower ? Strings.T("battle.btn.settle") : Strings.T("battle.btn.to_map"),
                 () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
             _message = won
-                ? (tower ? "Boss 已破,安全层可收官或深入。" : "通关结算:经验与墨锭入账。")
-                : (tower ? "卒……墨锭半额结算,纪录保留。" : "死亡即结算,回地图重整旗鼓。");
+                ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
+                : (tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg"));
         }
 
         // ---- 交互 ----
@@ -2930,7 +2947,7 @@ namespace Brushblade.Presentation
             if (_run.Phase != RunPhase.InBattle || Battle.Phase != BattlePhase.PlayerTurn || Battle.Ap != 0)
                 yield break; // 期间局面已变(胜负已分/新回合)则作罢
             OnEndTurn();
-            _messageLabel.text = "AP 耗尽,自动结束回合 · " + _message;
+            _messageLabel.text = Strings.T("battle.phase.auto_end_turn_prefix") + _message;
         }
 
         private void AppendBossPhaseMessage()
@@ -2939,7 +2956,8 @@ namespace Brushblade.Presentation
                 if (e.Kind == BattleEventKind.BossPhase)
                 {
                     var enemy = Battle.Enemies[e.TargetIndex];
-                    _message += $"  破阶!「{enemy.Def.Phases[e.Amount].Char}」现身——{ElementName(enemy.Element)}系";
+                    // 显示用元素名走 CharInfo.ElementName(查表),同 :1439 的敌人属性 chip。
+                    _message += $"  破阶!「{enemy.Def.Phases[e.Amount].Char}」现身——{CharInfo.ElementName(enemy.Element)}系";
                 }
         }
 
@@ -3071,7 +3089,7 @@ namespace Brushblade.Presentation
                 if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
             }
             _message = (Battle.Phase == BattlePhase.PlayerTurn
-                ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "") + _message;
+                ? Strings.T("battle.phase.new_turn_prefix", ("turn", Battle.Turn), ("apPerTurn", Battle.ApPerTurn)) : "") + _message;
             OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
         }
 
@@ -3256,7 +3274,10 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
-        private static string ElementName(Element element) => element switch
+        // 内部桶键,不是玩家可见文案——与 CharInfo.ElementName(查表、已迁字符串表)是两套
+        // 不同用途的实现,别合并。差字面板用它当分桶/排序/解析的 key(见 HintBucketOrder /
+        // ElementByName),翻译了这几个字桶就散了(2026-08-23,Task 6 元素名分离裁定)。
+        private static string ElementKey(Element element) => element switch
         {
             Element.Wood => "木",
             Element.Fire => "火",
