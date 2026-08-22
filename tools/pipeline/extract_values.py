@@ -53,6 +53,13 @@ HIT_COUNT_TOKEN = "HitCount"
 # 而 EffectKind 里没有这个值 —— ConfigLoader 会在加载期直接抛 ConfigException。
 PIERCE_TOKEN = "Pierce"
 
+# 目标形状的两个带数值 token,同样是伤害的修饰(2026-08-22,spec §9.1)。
+# 不挂白名单会被通用正则 `(\w+) (\d+)` 当成独立效果 kind=Shots/ShapePercent 落进 chars.json,
+# 而 EffectKind 里没有这两个值 —— ConfigLoader 会在加载期直接抛 ConfigException
+# (与 PIERCE_TOKEN / HIT_COUNT_TOKEN 同一个坑)。
+SHOTS_TOKEN = "Shots"
+SHAPE_PERCENT_TOKEN = "ShapePercent"
+
 
 def extract(markdown):
     """详表全文 → {字: {element, rarity, effects}},只收标 ✅ 的字。"""
@@ -125,6 +132,8 @@ def _parse_effects(config, char):
             continue  # 分段数是修饰而非效果,下面统一挂到伤害上
         if kind == PIERCE_TOKEN:
             continue  # 穿透点数是修饰而非效果,下面统一挂到伤害上
+        if kind in (SHOTS_TOKEN, SHAPE_PERCENT_TOKEN):
+            continue  # 目标形状的修饰,下面统一挂到伤害上
         effect = {"kind": kind, "value": int(value)}
         if kind == "DispelEach":       # 全体各驱散 N 条(淡)
             effect["kind"] = "Dispel"
@@ -137,6 +146,22 @@ def _parse_effects(config, char):
         #   (与 PIERCE_TOKEN 头上那条注释同一个坑)。
         if kind == "DamageSingle" and "`Backline`" in config:
             effect["backline"] = True
+        # 目标形状(2026-08-22,spec §9.1):只修饰单体直伤,与 Backline / Pierce / HitCount 同为**修饰位**。
+        # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Sweep" 的独立效果,
+        #   而 EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException
+        #   (与 PIERCE_TOKEN / Backline 头上那两条注释同一个坑)。
+        if kind == "DamageSingle":
+            for token in ("Sweep", "Cleave", "Skewer"):
+                if f"`{token}`" in config:
+                    effect["shape"] = token
+                    break
+            percent = re.search(rf"`{SHAPE_PERCENT_TOKEN} (\d+)`", config)
+            if percent:
+                effect["shapePercent"] = int(percent.group(1))
+            shots = re.search(rf"`{SHOTS_TOKEN} (\d+)`", config)
+            if shots:
+                effect["shape"] = "Volley"
+                effect["shots"] = int(shots.group(1))
         if kind == "Shield" and "PersistOnce" in config:
             effect["persistOnce"] = True
         effects.append(effect)
