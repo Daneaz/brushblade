@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,7 +18,7 @@ namespace Brushblade.Presentation
         private Action _save;
         private Action _onBack;
         private GameObject _modal; // 当前告知弹窗(同屏仅一个)
-        private string _message = "每日 0 点刷新;看广告可再刷一次货架";
+        private string _message = Strings.T("shop.hint.default");
 
         public void Init(RecipeGraph graph, MetaState meta, IReadOnlyList<string> cardPool,
             IReadOnlyList<string> chestPool, ITimeSource time, Action save, Action onBack)
@@ -40,9 +41,9 @@ namespace Brushblade.Presentation
             // 顶栏:标题 | 墨锭 + 返回
             var header = Ui.Row(transform, "Header", 24);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
-            Ui.ThemedLabel(header.transform, "每日商城", 34, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(header.transform, Strings.T("shop.header.title"), 34, Theme.TextMain, Theme.TitleFont);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 24);
-            Ui.PillButton(header.transform, "返回地图", () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
+            Ui.PillButton(header.transform, Strings.T("common.back_to_map"), () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
 
             // 消息行
             var messageGo = Ui.Panel(transform, "Message");
@@ -67,9 +68,9 @@ namespace Brushblade.Presentation
                 // (下一行)本来就写着「已售」且整个置灰,牌上再印一遍是同一信息说两次。
                 Ui.GlyphTile(cell.transform, def, false,
                     () => ShowPreview(def), new Vector2(144, 180)); // 点卡看详情(2026-07-21)
-                var buy = Ui.RoundButton(cell.transform, sold ? "已售" : price.ToString(),
-                    () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), $"购入「{card}」!",
-                        "买不起", $"「{card}」售价 {price} 墨锭,你有 {_meta.Ink}。"),
+                var buy = Ui.RoundButton(cell.transform, sold ? Strings.T("shop.slot.sold") : price.ToString(),
+                    () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity), Strings.T("shop.card.buy_success", ("card", card)),
+                        Strings.T("shop.card.buy_fail_title"), Strings.T("shop.card.buy_fail_body", ("card", card), ("price", price), ("ink", _meta.Ink))),
                     sold ? Theme.LockedBg : Theme.Ink, sold ? Theme.LockGray : Color.white,
                     18, new Vector2(144, 42));
                 buy.interactable = affordable;
@@ -89,29 +90,29 @@ namespace Brushblade.Presentation
             var chestLabel = Ui.ThemedLabel(chestCard.transform, chestName, 24,
                 Theme.ChestColor(_meta.Shop.ChestSlot), Theme.TitleFont);
             Ui.Stretch(chestLabel.rectTransform);
-            var chestBuy = Ui.RoundButton(chestCell.transform, _meta.Shop.ChestSold ? "已售" : chestPrice.ToString(),
-                () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time), $"{chestName}入箱位!",
-                    "买不下",
+            var chestBuy = Ui.RoundButton(chestCell.transform, _meta.Shop.ChestSold ? Strings.T("shop.slot.sold") : chestPrice.ToString(),
+                () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time), Strings.T("shop.chest.buy_success", ("chestName", chestName)),
+                    Strings.T("shop.chest.buy_fail_title"),
                     _meta.Chests.Count >= ChestRules.SlotLimit
-                        ? $"箱位已满({ChestRules.SlotLimit}/{ChestRules.SlotLimit})。\n先开掉一只再来。"
-                        : $"{chestName}售价 {chestPrice} 墨锭,你有 {_meta.Ink}。"),
+                        ? Strings.T("shop.chest.slot_full_body", ("count", ChestRules.SlotLimit), ("limit", ChestRules.SlotLimit))
+                        : Strings.T("shop.chest.buy_fail_body", ("chestName", chestName), ("price", chestPrice), ("ink", _meta.Ink))),
                 _meta.Shop.ChestSold ? Theme.LockedBg : Theme.Ink,
                 _meta.Shop.ChestSold ? Theme.LockGray : Color.white, 18, new Vector2(170, 42));
             chestBuy.interactable = !_meta.Shop.ChestSold && _meta.Ink >= chestPrice
                 && _meta.Chests.Count < ChestRules.SlotLimit;
 
             var inkAd = Ui.AdBadge(bottomRow.transform,
-                _meta.Shop.InkAdClaimed ? "墨锭已领" : $"看广告领 {ShopRules.InkAdAmount}",
-                () => Do(() => ShopRules.TryClaimInkAd(_meta), "墨锭到账!", // 原型:点击即生效,SDK 后接
-                    "今日已领", "墨锭广告位每日一次,明日 0 点重置。"),
+                _meta.Shop.InkAdClaimed ? Strings.T("shop.ink_ad.claimed_label") : Strings.T("shop.ink_ad.claim_label", ("amount", ShopRules.InkAdAmount)),
+                () => Do(() => ShopRules.TryClaimInkAd(_meta), Strings.T("shop.ink_ad.claim_success"), // 原型:点击即生效,SDK 后接
+                    Strings.T("shop.ink_ad.already_claimed_title"), Strings.T("shop.ink_ad.already_claimed_body")),
                 new Vector2(170, 64));
             inkAd.interactable = !_meta.Shop.InkAdClaimed;
 
             var refresh = Ui.AdBadge(bottomRow.transform,
-                _meta.Shop.AdRefreshUsed ? "今日已刷新" : "看广告刷新货架",
+                _meta.Shop.AdRefreshUsed ? Strings.T("shop.refresh.done_label") : Strings.T("shop.refresh.action_label"),
                 () => Do(() => ShopRules.TryAdRefresh(_meta, _cardPool,
-                    new GameRandom(Environment.TickCount)), "货架焕然一新!",
-                    "今日已刷新", "广告刷新每日一次,明日 0 点重置。"),
+                    new GameRandom(Environment.TickCount)), Strings.T("shop.refresh.success"),
+                    Strings.T("shop.refresh.done_label"), Strings.T("shop.refresh.already_done_body")),
                 new Vector2(190, 64));
             refresh.interactable = !_meta.Shop.AdRefreshUsed;
         }
@@ -127,7 +128,7 @@ namespace Brushblade.Presentation
                 return;
             }
             Rebuild();
-            ShowAlert(failTitle ?? "无法完成", failBody ?? "条件不满足,换个试试。");
+            ShowAlert(failTitle ?? Strings.T("shop.generic_fail_title"), failBody ?? Strings.T("shop.generic_fail_body"));
         }
 
         /// <summary>点货架字卡:看详情(商城卡未拥有,按 1 级基础值展示)。</summary>
