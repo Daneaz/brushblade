@@ -18,6 +18,12 @@ namespace Brushblade.Presentation
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
         // 分层形象(下标→MobView);没有形象资产的怪该位为 null,回落圆形字头像
         private readonly System.Collections.Generic.List<MobView> _enemyMobs = new();
+        // 整格点击层(2026-08-22):拖字打人悬停预览要就地改颜色,不能重绘 —— 得存着引用。
+        private readonly System.Collections.Generic.List<Image> _enemyHitAreas = new();
+        // 拖拽悬停预览态(2026-08-22):当前悬停的主目标下标(−1 = 未悬停任何敌人),
+        // 与被形状溅到、临时改了色的格子(连同各自改色前的原值,松手/挪走时原样恢复)。
+        private int _hoverPreviewPrimary = -1;
+        private readonly System.Collections.Generic.List<(int index, Color original)> _hoverPreviewCells = new();
         // 召唤物本体/血条按 _summons 下标索引(事件带 SecondIndex 定位承伤/发起者;死后仍在动画期可见)
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonRectByCore = new();
         // 槽位 → 整格矩形(2026-08-21,拖拽落位命中判定用)。与 _summonRectByCore 的区别有二:
@@ -1202,6 +1208,11 @@ namespace Brushblade.Presentation
         // 2026-08-21:基准换回整格宽,前后排共用同一个数(格宽与形象直径无关)。
         private const float ChipAreaWidth = EnemyCellWidth - 4f;
 
+        // 拖字打人悬停预览(2026-08-22):主目标复用「选目标态整格微亮」的既有强度(0.07f,
+        // 见 DrawEnemies 的 hitArea.color),被形状溅到的用更淡一档,与主目标拉开区分。
+        private const float HoverPreviewPrimaryAlpha = 0.07f;
+        private const float HoverPreviewSplashAlpha = 0.035f;
+
         /// <summary>敌方两排(2026-08-20):后排在上、前排在下(贴着中间的分隔线),
         /// 站位读 <see cref="EnemyState.Row"/> —— 那是**实例状态**,开场按每排上限 3 分配、
         /// 溢出会改判,和 <c>EnemyDef.Row</c> 那个偏好不是一回事。
@@ -1226,6 +1237,11 @@ namespace Brushblade.Presentation
             _enemyMobs.Clear();
             _enemyHpBars.Clear();
             _enemyActionBars.Clear();
+            _enemyHitAreas.Clear();
+            // 悬停预览引用的都是这次要被清掉的旧格子:整屏重绘期间不可能还在拖拽中
+            // (拖拽中间只有 RedrawSummonRows 那条不动敌人区的路径),但保险起见清空防悬空引用。
+            _hoverPreviewPrimary = -1;
+            _hoverPreviewCells.Clear();
 
             var frontCells = new GameObject[Targeting.RowCapacity];
             var backCells = new GameObject[Targeting.RowCapacity];
@@ -1276,6 +1292,7 @@ namespace Brushblade.Presentation
                     _enemyHpBars.Add((null, null));
                     _enemyActionBars.Add((null, null));
                     _enemyRects.Add(null);
+                    _enemyHitAreas.Add(null);
                     continue;
                 }
                 used[col] = true;
@@ -1319,6 +1336,7 @@ namespace Brushblade.Presentation
                 hitArea.color = _targeting && enemy.Alive && reachable
                     ? new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.07f) // 选目标时整格微亮,提示可点
                     : new Color(0, 0, 0, 0);
+                _enemyHitAreas.Add(hitArea); // 拖字打人悬停预览要就地改这个颜色,存引用
 
                 // 名字独占一行,排在形象正下方(2026-08-21 二改)。此前它半透叠在形象顶部,
                 // 而形象本身就是水墨字形 —— 长串名字压在笔画上读不出来(实机反馈)。
@@ -1485,6 +1503,10 @@ namespace Brushblade.Presentation
                 () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
                 screenPos =>
                 {
+                    // 松手前先清悬停预览,不管接下来落进哪个分支(2026-08-22)——
+                    // 三条分支(落位/取消/出字)都必须清干净,免得留下改过色的格子。
+                    ClearHoverPreview();
+                    _hoverPreviewPrimary = -1;
                     if (_slotPicking)
                     {
                         int slot = SummonSlotAt(screenPos);
@@ -1505,7 +1527,71 @@ namespace Brushblade.Presentation
                     EnterSlotPicking(def.Id, -1, attackMode: true, libraryIndex,
                         Battle.SummonCountOf(def, attackMode: true));
                     RedrawSummonRows(); // 只重画召唤两排:全量 Refresh 会销毁正被拖的这张字牌
-                });
+                },
+                onDragMove: screenPos => OnDragHover(screenPos, def));
+        }
+
+        /// <summary>拖字打人途中,悬停到某只敌人上方时预览这一发会打到的全部格子(2026-08-22)。
+        /// 判据一律走 <see cref="Targeting.ExpandTargets"/> —— 与 <see cref="Battle"/>.CanTarget
+        /// 同一条纪律,表现层不自己推形状几何;这里只挑「攻击模式下第一条 DamageSingle 的
+        /// Shape/Shots」这一步是表现层自己做的(与 BattleEngine.EffectsOf 同一口径:攻击模式
+        /// 优先用 AttackEffects),这一步不是几何判定,只是「这张字用哪条效果」,风险与
+        /// CanTarget 分头计算不是一回事。
+        ///
+        /// 连发(Volley)没有主目标(<see cref="BattleEngine.NeedsTarget"/> 对它就返回 false),
+        /// 这里选择仍然预览它固定会打到的那几格(<c>primaryIndex: -1</c> 求出的表与悬停在
+        /// 哪只敌人上无关)——只要指针落在任意一只敌人身上(与松手判定同一条门槛),就整体
+        /// 亮出连发会覆盖的格子,不特别标「主目标」(它本来就没有主目标概念)。
+        ///
+        /// ⚠ 每帧都会调用:只改已存在的 <see cref="_enemyHitAreas"/> 颜色,不重绘任何 GameObject
+        /// ——DragToAttack.cs 顶部有整段警告解释为什么(销毁正被拖的对象会掐断 OnEndDrag)。
+        /// 悬停格没变时直接 return,不做无用功。</summary>
+        private void OnDragHover(Vector2 screenPos, CharDef def)
+        {
+            // 召唤字走落位预览(起拖已点亮 6 槽),不叠加打人预览
+            int target = _slotPicking ? -1 : EnemyIndexAt(screenPos);
+            if (target == _hoverPreviewPrimary) return; // 悬停格没变,别做无用功
+            _hoverPreviewPrimary = target;
+            ClearHoverPreview();
+
+            if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
+
+            var (shape, shots) = AttackShapeOf(def);
+            var hits = shape == TargetShape.Volley
+                ? Targeting.ExpandTargets(Battle.Enemies, -1, shape, shots) // 连发无主目标,与悬停格无关
+                : Targeting.ExpandTargets(Battle.Enemies, target, shape, shots);
+            for (int n = 0; n < hits.Count; n++)
+            {
+                int i = hits[n];
+                if (i < 0 || i >= _enemyHitAreas.Count || _enemyHitAreas[i] == null) continue;
+                bool primary = shape != TargetShape.Volley && n == 0; // 首项即主目标,Volley 除外
+                _hoverPreviewCells.Add((i, _enemyHitAreas[i].color)); // 先存原色,清预览时原样还原
+                _enemyHitAreas[i].color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b,
+                    primary ? HoverPreviewPrimaryAlpha : HoverPreviewSplashAlpha);
+            }
+        }
+
+        /// <summary>把悬停预览改过色的格子原样还原(2026-08-22)。松手/取消/悬停格变化时都要调。</summary>
+        private void ClearHoverPreview()
+        {
+            foreach (var (i, original) in _hoverPreviewCells)
+                if (i < _enemyHitAreas.Count && _enemyHitAreas[i] != null)
+                    _enemyHitAreas[i].color = original;
+            _hoverPreviewCells.Clear();
+        }
+
+        /// <summary>攻击模式(拖字打人)下这张字的目标形状与连发数,供悬停预览用。
+        /// 选取口径与 BattleEngine.EffectsOf 相同(攻击模式优先用 AttackEffects,没有就用
+        /// Effects),只挑第一条 DamageSingle 效果的 Shape/Shots —— 纯 UI 预览,不影响结算。
+        /// 没有直伤效果的字(纯召唤/纯增益/兜底一击)按 Single/0 处理,预览只亮悬停的那一格,
+        /// 与「拖到敌人身上就会把这一格传给 BeginCast」的落点直觉一致。</summary>
+        private static (TargetShape shape, int shots) AttackShapeOf(CharDef def)
+        {
+            var effects = def.AttackEffects.Count > 0 ? def.AttackEffects : def.Effects;
+            foreach (var effect in effects)
+                if (effect.Kind == EffectKind.DamageSingle)
+                    return (effect.Shape, effect.Shots);
+            return (TargetShape.Single, 0);
         }
 
         /// <summary>该屏幕坐标落在第几个召唤槽上;都没命中返回 −1。

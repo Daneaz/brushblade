@@ -16,6 +16,7 @@ namespace Brushblade.Presentation
         private Func<bool> _canDrag;
         private Action _onBeginDrag;
         private Action<Vector2> _onDrop;
+        private Action<Vector2> _onDragMove;
         private RectTransform _ghost;
 
         /// <param name="canDrag">此刻能否拖(结算动画中/非玩家回合返回 false)。</param>
@@ -27,8 +28,12 @@ namespace Brushblade.Presentation
         /// ⚠ 回调里**不许触发会销毁本组件的重绘**:uGUI 的拖拽事件只发给起拖的那个对象,
         /// 它一旦被销毁,OnEndDrag 就再也不会来 —— 字影留在屏幕上、外层状态卡死。
         /// 外层为此专门有一个只重画召唤两排、不动字牌的路径。</param>
+        /// <param name="onDragMove">2026-08-22 加的:拖拽过程中**每帧**回调一次,参数为当前
+        /// 指针的屏幕坐标(用于「悬停到敌人上方时预览会打到哪几格」)。与 onBeginDrag 同一条
+        /// ⚠:不许触发会重绘/销毁本组件的路径 —— 这里只能就地改已存在物件的颜色。</param>
         public static void Attach(GameObject target, string glyph, Color color,
-            Func<bool> canDrag, Action<Vector2> onDrop, Action onBeginDrag = null)
+            Func<bool> canDrag, Action<Vector2> onDrop, Action onBeginDrag = null,
+            Action<Vector2> onDragMove = null)
         {
             var drag = target.AddComponent<DragToAttack>();
             drag._glyph = glyph;
@@ -36,6 +41,7 @@ namespace Brushblade.Presentation
             drag._canDrag = canDrag;
             drag._onDrop = onDrop;
             drag._onBeginDrag = onBeginDrag;
+            drag._onDragMove = onDragMove;
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -72,6 +78,7 @@ namespace Brushblade.Presentation
         public void OnDrag(PointerEventData eventData)
         {
             if (_ghost != null) _ghost.position = eventData.position;
+            _onDragMove?.Invoke(eventData.position);
         }
 
         public void OnEndDrag(PointerEventData eventData)
