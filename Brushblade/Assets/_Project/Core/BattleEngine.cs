@@ -824,6 +824,45 @@ namespace Brushblade.Core
             return (TargetShape.Single, 0);
         }
 
+        /// <summary>玩家选定起始槽后,这次召唤实际的落位表(2026-08-23 用户拍板)。
+        ///
+        /// 从 <paramref name="startSlot"/> 起**环绕**扫一圈,先收空槽与尸体槽;
+        /// 站着人的位子**跳过**,只有空位真的凑不满 <paramref name="count"/> 时才回头收它们
+        /// —— 那时它们才是真正要顶替的,顺序同样从选定格起顺延。
+        /// 于是「选定格恰好有人、旁边还空着」不再弹顶替确认,**只有六格全满才弹**。
+        ///
+        /// 改前是「环上取 N 个连续位」,不管占没占,所以点在有人的格上必弹一次替换,
+        /// 哪怕隔壁空着 —— 那是玩家实机反馈的那个毛病。
+        ///
+        /// 尸体槽算可用:它本来就能被直接覆盖(<see cref="SlotState.Corpse"/>),
+        /// 当成要顶替的会让「打死一只再召一只」白白多弹一次确认。
+        ///
+        /// **保证两条不变式**:返回长度恰好 count、下标互不重复。
+        /// <see cref="ApplyEffects"/> 的落位循环依赖它们 —— 破坏任一条,第二只会写进
+        /// 同一个槽或被静默吞掉,而那时 Cast 已经返回 None、AP 也已经扣了。</summary>
+        public IReadOnlyList<int> PlanSummonSlots(int startSlot, int count)
+        {
+            var plan = new List<int>(count);
+            if (count <= 0) return plan;
+            if (startSlot < 0 || startSlot >= SummonCap) startSlot = 0;
+
+            // 第一轮:空槽与尸体槽
+            for (int n = 0; n < SummonCap && plan.Count < count; n++)
+            {
+                int slot = (startSlot + n) % SummonCap;
+                if (SlotOccupancy(slot) != SlotState.Alive) plan.Add(slot);
+            }
+            // 第二轮:空位凑不满才顶替站着的人,同样从选定格起顺延
+            for (int n = 0; n < SummonCap && plan.Count < count; n++)
+            {
+                int slot = (startSlot + n) % SummonCap;
+                if (SlotOccupancy(slot) == SlotState.Alive) plan.Add(slot);
+            }
+            // 两轮的集合互斥且并集是全部六格,所以 count ≤ SummonCap 时必然填满。
+            // SummonCountOf 已经把只数封顶到 SummonCap,走不到填不满的分支。
+            return plan;
+        }
+
         /// <summary>本次召唤会顶掉几只**存活**召唤物(0 = 不顶人,可以直接出)。
         /// 指定了槽位就数这些槽里有几个是 Alive;没指定就退回「超出上限的部分」。</summary>
         public int SummonReplaceCountOf(CharDef def, bool attackMode = false,

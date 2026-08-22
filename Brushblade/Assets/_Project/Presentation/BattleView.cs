@@ -2776,7 +2776,7 @@ namespace Brushblade.Presentation
         }
 
         private string SlotPickMessage() => _pendingSummonCount > 1
-            ? $"「{_pendingSummonChar}」召 {_pendingSummonCount} 只:选一个位置,从那格起顺延|点空白取消"
+            ? $"「{_pendingSummonChar}」召 {_pendingSummonCount} 只:选一个位置,从那格起顺延填空位|点空白取消"
             : $"「{_pendingSummonChar}」:选一个位置安置|点空白取消";
 
         /// <summary>选定一个召唤位,当场结算(2026-08-21 用户拍板:**只选一次**)。
@@ -2785,18 +2785,15 @@ namespace Brushblade.Presentation
         /// 走到 5 号绕回 0 号。此前是「连点 N 次、每只各选一格」——玩家要记住自己点到第几只,
         /// 而多出来的那点摆位自由并不值这份记账负担。
         ///
-        /// 顺延天然满足引擎对 summonSlots 的两条不变式:下标互不重复(环上取 N ≤ 6 个连续位)、
-        /// 长度恰好等于 SummonCountOf。二者任一被破坏,落位循环会把第二只写进同一个槽、
-        /// 或静默吞掉多出来的那只,而 Cast 已经返回 None、AP 也已经扣了。
-        ///
-        /// 空槽与尸体槽直接落位;顺延路上撞到站着人的位子,由引擎的 SummonCapFull 闸门
-        /// 统一弹一次顶替确认(见 <see cref="ExecuteCast"/>)。</summary>
+        /// 2026-08-23 用户拍板:落位表改由引擎的 <see cref="BattleEngine.PlanSummonSlots"/> 算
+        /// —— 顺延时**跳过站着人的位子**,只有空位真的凑不满才顶替,于是「点在有人的格上、
+        /// 旁边还空着」不再弹替换确认。表现层不自己推这套规则:它决定召唤物落在哪,
+        /// 是引擎语义,而且「不重复、长度恰好」那两条不变式也由引擎那边一并保证
+        /// (破坏任一条会让第二只写进同一个槽或被静默吞掉,而 AP 已经扣了)。</summary>
         private void OnSlotPicked(int slot)
         {
             if (!_slotPicking || slot < 0 || slot >= Battle.Summons.Count) return;
-            int total = Battle.Summons.Count;
-            var slots = new int[_pendingSummonCount];
-            for (int n = 0; n < slots.Length; n++) slots[n] = (slot + n) % total;
+            var slots = Battle.PlanSummonSlots(slot, _pendingSummonCount);
 
             string charId = _pendingSummonChar;
             int target = _pendingSummonTarget;
