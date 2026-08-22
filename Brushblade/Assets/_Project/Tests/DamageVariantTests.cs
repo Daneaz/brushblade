@@ -74,6 +74,43 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2,
                     executeBelowPercent: 25, executeKills: false) }),
             // 凿(1 点伤害)在 Task 1 已加进 Graph(),这里直接用
+
+            // ---- 目标形状(2026-08-22,spec §5)----
+            // 劈:顺劈,两侧 50%
+            new CharDef("劈", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Cleave, shapePercent: 50) }),
+            // 扫:横扫整排,两侧全额
+            new CharDef("扫", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Sweep) }),
+            // 连:连发 3 发
+            new CharDef("连", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Volley, shots: 3) }),
+            // 劈斩:顺劈 + 斩杀,钉「斩杀只作用主目标」
+            new CharDef("劈斩", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Cleave, shapePercent: 50,
+                    executeBelowPercent: 90, executeKills: true) }),
+            // 劈锐:顺劈 + 穿透 10,钉「穿透只作用主目标」(不带斩杀/多段,否则测不出穿透那一项)
+            new CharDef("劈锐", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Cleave, shapePercent: 50, pierce: 10) }),
+            // 劈段:顺劈 + 多段 2,钉「多段只作用主目标」
+            new CharDef("劈段", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Cleave, shapePercent: 50, hitCount: 2) }),
+
+            // ---- 召唤物普攻的目标形状(2026-08-22,spec §7)----
+            // 扫兵:召唤物横扫整排(攻 6,能打出可读的血量差)
+            new CharDef("扫兵", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
+                    summonChar: "木", passive: new SummonPassive { Shape = TargetShape.Sweep }) }),
+            // 连兵:召唤物连发 3 发
+            new CharDef("连兵", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
+                    summonChar: "木", passive: new SummonPassive { Shape = TargetShape.Volley, Shots = 3 }) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -763,14 +800,14 @@ namespace Brushblade.Core.Tests
         public void Reflect_DoesNotDuplicateDeathWhenBossDiesToThornsBeforePierceLands()
         {
             // 评审 Important 3(2026-08-08):`_enemies[enemyIndex].Alive` 守卫之前零覆盖,而它挡的
-            // 是真实可达路径——BossSkill.Pierce 先 DamageSummon(可能触发召唤物 荆 的反伤打死
+            // 是真实可达路径——BossSkill.Impale 先 DamageSummon(可能触发召唤物 荆 的反伤打死
             // Boss)再 DamagePlayerDirect,此时 enemyIndex 上已是一具尸体。少了守卫,反弹会对
             // 死尸再补一刀,走进 DamageEnemy 触发第二次 ResolveDefeat,发出重复的 EnemyDied 事件
             // (表现层会把死亡动效播两遍)。
             // 3 血的 Boss:召唤物 棘(反伤 3)在 Pierce 打它那一步正好把它扎死;紧接着 Pierce
             // 还会无条件打玩家一下,玩家带着反弹——若漏了 Alive 守卫就会对死 Boss 补刀。
             var boss = new EnemyDef("觥", Element.Heart, 3, 4,
-                phases: new[] { new BossPhaseDef("觥", Element.Heart, 3, 4, skill: BossSkill.Pierce) });
+                phases: new[] { new BossPhaseDef("觥", Element.Heart, 3, 4, skill: BossSkill.Impale) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50, BossChargeEvery = 1 };
             var engine = Engine(new[] { "棘", "映" }, new[] { boss }, config);
             engine.Cast("棘");                        // 召唤反伤 3(荆)
@@ -991,6 +1028,231 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(190), "hitCount: 0 当 1 打,不是哑弹");
             engine.Cast("闷", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(180), "hitCount: -1 同样当 1 打,不是哑弹");
+        }
+
+        // ---- 目标形状(2026-08-22,spec §5)----
+
+        /// <summary>顺劈:主目标全额,两侧按 ShapePercent 折算。</summary>
+        [Test]
+        public void Cleave_SideTargetsTakeShapePercent()
+        {
+            var engine = Engine(new[] { "劈" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
+            engine.Cast("劈", targetIndex: 1); // 打前排中间那只
+
+            int primaryLoss = 200 - engine.Enemies[1].Hp;
+            int leftLoss = 200 - engine.Enemies[0].Hp;
+            int rightLoss = 200 - engine.Enemies[2].Hp;
+            Assert.That(primaryLoss, Is.GreaterThan(0));
+            Assert.That(leftLoss, Is.EqualTo(primaryLoss / 2), "ShapePercent 50:左侧是主目标的一半");
+            Assert.That(rightLoss, Is.EqualTo(leftLoss), "两侧对称");
+        }
+
+        /// <summary>顺劈打边格只溅一侧,不递补(spec §3.2:形状是几何,不是「保证打满 K 个」)。</summary>
+        [Test]
+        public void Cleave_OnEdge_HitsOneSideOnly()
+        {
+            var engine = Engine(new[] { "劈" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
+            engine.Cast("劈", targetIndex: 0);
+
+            Assert.That(engine.Enemies[1].Hp, Is.LessThan(200), "相邻那只挨打");
+            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(200), "隔了一格的不挨打");
+        }
+
+        /// <summary>横扫:整排全额,后排不中。</summary>
+        [Test]
+        public void Sweep_HitsWholeRowAtFullDamage()
+        {
+            var back = new EnemyDef("后", Element.Heart, 200, 0, row: EnemyRow.Back);
+            var engine = Engine(new[] { "扫" }, new[] { Attacker(0), Attacker(0), back });
+            engine.Cast("扫", targetIndex: 0);
+
+            int primaryLoss = 200 - engine.Enemies[0].Hp;
+            Assert.That(200 - engine.Enemies[1].Hp, Is.EqualTo(primaryLoss), "横扫不折算,同排全额");
+            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(200), "后排不吃横扫");
+        }
+
+        /// <summary>斩杀只作用主目标 —— 否则一张字能三连处决。</summary>
+        [Test]
+        public void Cleave_ExecuteAppliesToPrimaryOnly()
+        {
+            // 三只都残血(90% 阈值下都够处决线),但只有主目标该被斩
+            var engine = Engine(new[] { "劈斩" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
+            // 50 = 200 的 25%,远低于 90% 阈值;同时高于两侧溅射伤害(20),避免「溅射伤害
+            // 恰好等于残血」这一数值巧合把「死于处决」和「死于普通伤害」混为一谈
+            foreach (var e in engine.Enemies) e.Hp = 50;
+            engine.Cast("劈斩", targetIndex: 1);
+
+            Assert.That(engine.Enemies[1].Alive, Is.False, "主目标被处决");
+            Assert.That(engine.Enemies[0].Alive, Is.True, "两侧只吃普通溅射伤害,不被处决");
+            Assert.That(engine.Enemies[2].Alive, Is.True);
+        }
+
+        /// <summary>穿透只作用主目标:两侧照常吃满护甲。</summary>
+        [Test]
+        public void Cleave_PierceAppliesToPrimaryOnly()
+        {
+            // 三只同排、各带 10 点护甲。主目标 pierce 10 视同无甲,两侧照常减 10
+            var armored = new EnemyDef("甲", Element.Heart, 200, 0, defense: 10);
+            var plain = Engine(new[] { "劈" }, new[] { armored, armored, armored });
+            plain.Cast("劈", targetIndex: 1);
+            int plainPrimaryLoss = 200 - plain.Enemies[1].Hp;
+
+            var pierced = Engine(new[] { "劈锐" }, new[] { armored, armored, armored });
+            pierced.Cast("劈锐", targetIndex: 1);
+
+            Assert.That(200 - pierced.Enemies[1].Hp, Is.EqualTo(plainPrimaryLoss + 10),
+                "主目标穿掉 10 点甲");
+            Assert.That(200 - pierced.Enemies[0].Hp, Is.EqualTo(200 - plain.Enemies[0].Hp),
+                "两侧一点没穿,与不带穿透的那张字掉一样多");
+        }
+
+        /// <summary>多段只作用主目标:两侧各挨一下。</summary>
+        [Test]
+        public void Cleave_HitCountAppliesToPrimaryOnly()
+        {
+            var single = Engine(new[] { "劈" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
+            single.Cast("劈", targetIndex: 1);
+
+            var multi = Engine(new[] { "劈段" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
+            multi.Cast("劈段", targetIndex: 1);
+
+            Assert.That(200 - multi.Enemies[1].Hp, Is.EqualTo((200 - single.Enemies[1].Hp) * 2),
+                "主目标打两段");
+            Assert.That(200 - multi.Enemies[0].Hp, Is.EqualTo(200 - single.Enemies[0].Hp),
+                "两侧仍只挨一下");
+        }
+
+        /// <summary>形状类逐目标各减各自护甲(与 AOE 同口径,spec §5)。</summary>
+        [Test]
+        public void Sweep_EachTargetSubtractsItsOwnDefense()
+        {
+            var bare = new EnemyDef("裸", Element.Heart, 200, 0);
+            var armored = new EnemyDef("甲", Element.Heart, 200, 0, defense: 10);
+            var engine = Engine(new[] { "扫" }, new[] { bare, armored });
+            engine.Cast("扫", targetIndex: 0);
+
+            int bareLoss = 200 - engine.Enemies[0].Hp;
+            int armoredLoss = 200 - engine.Enemies[1].Hp;
+            Assert.That(bareLoss - armoredLoss, Is.EqualTo(10), "带甲那只正好少掉自己的护甲点数");
+        }
+
+        /// <summary>连发每一发全额、不吃 ShapePercent;目标不足时循环补足。</summary>
+        [Test]
+        public void Volley_EveryShotIsFullDamage()
+        {
+            // 单敌:3 发全砸同一只(spec §3.3 的已知后果)
+            var volley = Engine(new[] { "连" }, new[] { Attacker(0) });
+            volley.Cast("连", targetIndex: 0);
+            int volleyLoss = 200 - volley.Enemies[0].Hp;
+
+            var single = Engine(new[] { "扫" }, new[] { Attacker(0) }); // 扫在单敌时等于单体一发
+            single.Cast("扫", targetIndex: 0);
+            int singleLoss = 200 - single.Enemies[0].Hp;
+
+            Assert.That(volleyLoss, Is.EqualTo(singleLoss * 3), "3 发全额,单敌时正好是单发的三倍");
+        }
+
+        /// <summary>连发不受前排阻挡(远程);形状类照旧受限。</summary>
+        [Test]
+        public void Volley_IsNotRestrictedToFrontRow()
+        {
+            var volley = new CharDef("连测", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Volley, shots: 3) });
+            Assert.That(BattleEngine.RestrictedToFrontRow(volley), Is.False);
+            Assert.That(BattleEngine.NeedsTarget(volley), Is.False, "连发目标全自动,不进选目标态");
+
+            var sweep = new CharDef("扫测", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
+                    shape: TargetShape.Sweep) });
+            Assert.That(BattleEngine.RestrictedToFrontRow(sweep), Is.True,
+                "横扫只判主目标,而主目标照旧受前排阻挡");
+            Assert.That(BattleEngine.NeedsTarget(sweep), Is.True);
+        }
+
+        // ---- 召唤物普攻的目标形状(2026-08-22,spec §7)----
+
+        /// <summary>召唤物出手也走 Targeting.ExpandTargets:横扫整排,两侧全额。</summary>
+        [Test]
+        public void SummonSweep_HitsWholeRow()
+        {
+            var engine = Engine(new[] { "扫兵" }, new[] { Attacker(0), Attacker(0) });
+            engine.Cast("扫兵");
+            engine.EndTurn(); // 召唤物出手
+
+            int loss0 = 200 - engine.Enemies[0].Hp;
+            int loss1 = 200 - engine.Enemies[1].Hp;
+            Assert.That(loss0, Is.GreaterThan(0), "主目标掉血");
+            Assert.That(loss1, Is.EqualTo(loss0), "横扫不折算,同排两只全额同掉");
+        }
+
+        /// <summary>连发没有主目标,自己排候选、循环补足;每发全额,不吃 ShapePercent。</summary>
+        [Test]
+        public void SummonVolley_CyclesShotsAcrossTargets()
+        {
+            var engine = Engine(new[] { "连兵" }, new[] { Attacker(0), Attacker(0) });
+            engine.Cast("连兵");
+            engine.EndTurn(); // 召唤物出手:3 发循环打 2 只候选,一只挨 2 发、另一只挨 1 发
+
+            int loss0 = 200 - engine.Enemies[0].Hp;
+            int loss1 = 200 - engine.Enemies[1].Hp;
+            Assert.That(loss1, Is.GreaterThan(0), "第二只至少挨了 1 发");
+            Assert.That(loss0, Is.EqualTo(loss1 * 2), "第一只挨 2 发、每发全额,正好是第二只的两倍");
+        }
+
+        /// <summary>Ranged 与 Shape 正交:Ranged 决定主目标怎么选(越过前排取后排),
+        /// Shape 决定打几个(顺劈在主目标所在排展开)——两者互不干扰。</summary>
+        [Test]
+        public void SummonRangedAndShape_AreOrthogonal()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("远劈兵", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
+                        summonChar: "木", passive: new SummonPassive
+                        {
+                            Ranged = true, Shape = TargetShape.Cleave, ShapePercent = 50,
+                        }) }),
+            });
+            var frontDef = new EnemyDef("前", Element.Heart, 200, 0);
+            var backDef = new EnemyDef("后", Element.Heart, 200, 0, row: EnemyRow.Back);
+            var engine = new BattleEngine(graph,
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "远劈兵" }, Array.Empty<string>(),
+                new[] { frontDef, backDef, backDef }, seed: 1);
+            engine.Cast("远劈兵");
+            engine.EndTurn(); // 召唤物出手
+
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200),
+                "前排完全没被碰到 —— Ranged 越过了它,主目标落在后排");
+            int primaryLoss = 200 - engine.Enemies[1].Hp;
+            Assert.That(primaryLoss, Is.GreaterThan(0), "后排主目标掉血");
+            Assert.That(200 - engine.Enemies[2].Hp, Is.EqualTo(primaryLoss / 2),
+                "顺劈在主目标所在的后排内展开,相邻列折半");
+        }
+
+        /// <summary>Shape/ShapePercent/Shots 三字段跟 Ranged/Dodge 走同一条存档路径(Clone),
+        /// 与 Dodge_SurvivesSaveRoundTrip / Ranged_SurvivesSaveRoundTrip 同型——漏进 Clone() 的话
+        /// 跨战斗后召唤物的形状会静默退化成 Single,没有任何报错。</summary>
+        [Test]
+        public void SummonShape_SurvivesSaveRoundTrip()
+        {
+            var engine = Engine(new[] { "连兵" }, new[] { Attacker(attack: 0) });
+            engine.Cast("连兵");
+
+            var meta = new MetaState { EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 } };
+            for (int s = 0; s < engine.Summons.Count; s++)
+                if (engine.Summons[s] != null) meta.EndlessV2.CarriedSummons.Add(engine.Summons[s].Capture(s));
+            var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
+
+            var revived = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { Attacker(attack: 0) }, seed: 1,
+                startingSummons: restored.EndlessV2.CarriedSummons);
+            Assert.That(revived.Summons[0].Passive.Shape, Is.EqualTo(TargetShape.Volley));
+            Assert.That(revived.Summons[0].Passive.Shots, Is.EqualTo(3));
         }
     }
 }

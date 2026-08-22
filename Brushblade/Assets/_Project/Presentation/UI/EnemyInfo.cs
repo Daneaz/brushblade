@@ -22,7 +22,7 @@ namespace Brushblade.Presentation
         public static string BossSkillName(BossSkill skill) => skill switch
         {
             BossSkill.Deluge => "淹没",
-            BossSkill.Pierce => "贯穿",
+            BossSkill.Impale => "洞穿",
             BossSkill.Topple => "倾覆",
             BossSkill.Devour => "吞噬",
             BossSkill.Bulwark => "坚壁",
@@ -35,7 +35,7 @@ namespace Brushblade.Presentation
         public static string BossSkillText(BossSkill skill) => skill switch
         {
             BossSkill.Deluge => "对你造 攻×2,同时对每只召唤物造 攻×1(走五行)",
-            BossSkill.Pierce => "穿透前排:最前一只召唤物造 攻×1,你造 攻×2",
+            BossSkill.Impale => "穿透前排:最前一只召唤物造 攻×1,你造 攻×2",
             BossSkill.Topple => "对你造 攻×2,清空你全部护盾,下回合 AP −1",
             BossSkill.Devour => "吞掉最前一只召唤物(无视其血量);场上无召唤物时改为对你造 攻×1",
             // 「以守为攻」是旧措辞:坚壁可能落在 Defense == 0 的位次(见 spec 5.1),

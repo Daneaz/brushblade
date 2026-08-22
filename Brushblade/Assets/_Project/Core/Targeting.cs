@@ -12,6 +12,12 @@ namespace Brushblade.Core
         /// <summary>PickAllyTarget 的返回值:打玩家本人,而不是某个召唤物槽位。</summary>
         public const int PlayerTarget = -1;
 
+        /// <summary>每排的列数(2026-08-22)。BattleEngine.EnemyRowCap 转引这个数
+        /// (敌方每排上限);写在这里是为了让形状裁定不必反向依赖引擎。
+        /// 召唤物侧的 FrontRowSize 是另一回事——那是召唤物前排的槽位数,与敌方每排列数
+        /// 没有耦合,两者恰好同为 3 纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
+        public const int RowCapacity = 3;
+
         /// <summary>敌人选我方目标。返回召唤物槽位,或 <see cref="PlayerTarget"/>。
         ///
         /// 均匀随机的口径(spec §4.1):把**全部存活后排召唤物与玩家**放进同一个候选池抽一个,
@@ -42,7 +48,7 @@ namespace Brushblade.Core
             return pool.Count == 1 ? pool[0] : pool[random.Next(pool.Count)];
         }
 
-        /// <summary>「最前召唤物」(Boss 贯穿 / 吞噬):前排槽序最小的存活者;前排全空则取后排。
+        /// <summary>「最前召唤物」(Boss 洞穿 / 吞噬):前排槽序最小的存活者;前排全空则取后排。
         /// 全空返回 −1。
         ///
         /// 槽位是 0..5 且前排恰是低位段,所以本函数与「从 0 扫到末尾取第一个存活」等价——
@@ -67,6 +73,71 @@ namespace Brushblade.Core
             int front = FirstAliveInRow(enemies, EnemyRow.Front);
             if (front >= 0) return front;
             return FirstAliveInRow(enemies, EnemyRow.Back);
+        }
+
+        /// <summary>把「主目标 + 形状」展开成实际要结算的敌人下标表(2026-08-22,spec §4)。
+        ///
+        /// **首项恒为主目标**(Volley 除外——它没有主目标),调用方靠这一条区分
+        /// 「吃斩杀/多段/穿透的那一发」与「只吃 ShapePercent 的溅射」。
+        ///
+        /// **表内可含重复下标**:Volley 循环补足时同一只怪会出现多次,调用方按
+        /// 「每项一次结算」处理即可,不去重。形状类返回的表恒不重复。
+        ///
+        /// **不摇随机数**。这是硬要求,不是巧合:上千条带种子的既有测试靠随机流不位移
+        /// 才不会整体变红(与本文件 PickAllyTarget 那条「候选只有一个时不摇」同一套纪律)。
+        ///
+        /// 空位不递补:顺劈打边格只溅一侧,整排只剩一只横扫就只中一只。
+        /// 形状是几何,不是「保证打满 K 个」。</summary>
+        public static IReadOnlyList<int> ExpandTargets(IReadOnlyList<EnemyState> enemies,
+            int primaryIndex, TargetShape shape, int shots)
+        {
+            if (shape == TargetShape.Volley) return VolleyTargets(enemies, shots);
+            if (primaryIndex < 0 || primaryIndex >= enemies.Count) return System.Array.Empty<int>();
+
+            var result = new List<int> { primaryIndex };
+            if (shape == TargetShape.Single) return result;
+
+            var primary = enemies[primaryIndex];
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                if (i == primaryIndex || !enemies[i].Alive) continue;
+                bool hit = shape switch
+                {
+                    TargetShape.Sweep => enemies[i].Row == primary.Row,
+                    TargetShape.Cleave => enemies[i].Row == primary.Row
+                        && System.Math.Abs(enemies[i].Column - primary.Column) == 1,
+                    TargetShape.Skewer => enemies[i].Column == primary.Column,
+                    _ => false,
+                };
+                if (hit) result.Add(i);
+            }
+            return result;
+        }
+
+        /// <summary>连发的目标序列:后排优先、各排按列序排出候选,再从头循环取满 shots 发。
+        /// 候选为空或 shots ≤ 0 返回空表。</summary>
+        private static IReadOnlyList<int> VolleyTargets(IReadOnlyList<EnemyState> enemies, int shots)
+        {
+            if (shots <= 0) return System.Array.Empty<int>();
+            var pool = new List<int>();
+            CollectRowByColumn(enemies, EnemyRow.Back, pool);
+            CollectRowByColumn(enemies, EnemyRow.Front, pool);
+            if (pool.Count == 0) return System.Array.Empty<int>();
+
+            var result = new List<int>(shots);
+            for (int n = 0; n < shots; n++) result.Add(pool[n % pool.Count]);
+            return result;
+        }
+
+        /// <summary>把某一排的存活者按**列序**追加进 pool(不是按列表下标序)——
+        /// 「后排优先」这条口径要的是阵型上的先后,而 _enemies 的下标序是生成顺序。</summary>
+        private static void CollectRowByColumn(IReadOnlyList<EnemyState> enemies, EnemyRow row,
+            List<int> pool)
+        {
+            for (int col = 0; col < RowCapacity; col++)
+                for (int i = 0; i < enemies.Count; i++)
+                    if (enemies[i].Alive && enemies[i].Row == row && enemies[i].Column == col)
+                        pool.Add(i);
         }
 
         /// <summary>玩家的**单体直接伤害**能不能打这只敌人(spec §4.2)。

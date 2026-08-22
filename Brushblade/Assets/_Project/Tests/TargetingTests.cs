@@ -386,17 +386,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Expand_DoesNotConsumeRandomness()
+        public void Expand_IsDeterministic()
         {
-            // 硬要求:形状展开不摇随机数,否则上千条带种子的既有测试会整体位移
+            // 形状展开必须是确定性的:同一输入连续两次调用返回完全相同的表。
+            // 「不消耗外部随机流」这条更强的保证由方法签名结构性给出(ExpandTargets 不接受
+            // GameRandom,本代码库也没有全局 RNG),真正可观测的守卫是 Task 4 接进引擎后
+            // 「既有全量测试一条不红」—— 那才跑得出差别,不是这一层能断言的东西。
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Back, 0));
-            var random = new GameRandom(42);
-            int before = random.Next(1000);
-            Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0);
-            Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5);
-            var fresh = new GameRandom(42);
-            fresh.Next(1000);
-            Assert.That(random.Next(1000), Is.EqualTo(fresh.Next(1000)), "展开前后随机流一致");
+
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0),
+                Is.EqualTo(Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0)));
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5),
+                Is.EqualTo(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5)));
         }
     }
 }

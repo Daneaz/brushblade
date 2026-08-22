@@ -37,7 +37,9 @@ namespace Brushblade.Core
     {
         None,
         Deluge, // 淹没:玩家 + 全部召唤物各挨一下(群攻)
-        Pierce, // 贯穿:最前召唤物挨一下 + 玩家挨双倍(穿透)
+        Impale, // 洞穿:最前召唤物挨一下 + 玩家挨双倍(穿透)
+                // 2026-08-22 从 Pierce 改名 —— 「贯穿」这个中文名让给了 TargetShape.Skewer,
+                // 而代码名 Pierce 同时还是 EffectDef.Pierce(护甲穿透点数),一名三用读不清
         Topple, // 倾覆:伤害 + 清空护盾 + 下回合 AP −1(剥夺)
         Devour, // 吞噬:消灭最前召唤物(不回血);无召唤物则普攻玩家
         Bulwark, // 坚壁:被动高护甲,该阶段不蓄力
@@ -228,6 +230,14 @@ namespace Brushblade.Core
         /// 可能站不同排,而 Restore 是按 Id 查 Def 的,不存就会在读档时被合并。</summary>
         public EnemyRow Row { get; internal set; }
 
+        /// <summary>实际列(2026-08-22,spec §6.1):同排内 0..2,由 BattleEngine 开场分配。
+        /// **进快照** —— 与 <see cref="Row"/> 同一条理由:同一个 Id 的两只怪可能站不同列,
+        /// 而 Restore 是按 Id 查 Def 的,不存就会在读档时被合并。
+        ///
+        /// 贯穿形状(<see cref="TargetShape.Skewer"/>)按它取「同一列的前后两只」,
+        /// 表现层按它决定画进哪一格。</summary>
+        public int Column { get; internal set; }
+
         /// <summary>行动计量器:回合末累积有效速度,每满 100 行动一次。</summary>
         public int ActionMeter { get; internal set; }
 
@@ -328,6 +338,7 @@ namespace Brushblade.Core
                 IsCharging = IsCharging,
                 ChargingSkill = ChargingSkill,
                 Row = Row,
+                Column = Column,
             };
         }
 
@@ -352,6 +363,7 @@ namespace Brushblade.Core
                 IsCharging = snapshot.IsCharging,
                 ChargingSkill = snapshot.ChargingSkill,
                 Row = snapshot.Row,
+                Column = snapshot.Column,
             };
             state.Statuses.CopyFrom(snapshot.Statuses ?? new List<StatusEffect>());
             return state;

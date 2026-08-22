@@ -175,8 +175,8 @@
   "bossSkills": {
     "海": "Deluge", "江": "Deluge", "河": "Deluge", "啸": "Deluge",
     "崩": "Deluge", "雪": "Deluge", "沙": "Deluge", "气": "Deluge", "万": "Deluge",
-    "雷": "Pierce", "霆": "Pierce", "钧": "Pierce",
-    "刀": "Pierce", "石": "Pierce", "飞": "Pierce",
+    "雷": "Impale", "霆": "Impale", "钧": "Impale",
+    "刀": "Impale", "石": "Impale", "飞": "Impale",
     "倒": "Topple", "翻": "Topple", "排": "Topple", "走": "Topple",
     "吞": "Devour", "火": "Devour", "烈": "Devour", "柴": "Devour",
     "山": "Bulwark", "地": "Bulwark", "天": "Bulwark", "冰": "Bulwark"

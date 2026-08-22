@@ -81,8 +81,8 @@ namespace Brushblade.Presentation
                     : v.ToString();
                 parts.Append(e.Kind switch
                 {
-                    EffectKind.DamageSingle => $"单体{shown}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
-                        + PierceText(e),
+                    EffectKind.DamageSingle => $"{ShapeLabel(e)}{shown}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
+                        + PierceText(e) + ShapeSuffix(e),
                     EffectKind.DamageAll => $"全体{shown}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
                         + PierceText(e),
                     EffectKind.BurnSingle => $"单体灼烧+{shown}",
@@ -148,6 +148,29 @@ namespace Brushblade.Presentation
         /// 破甲削的是目标的甲(削掉就一直是削掉的、队友蹭得到),穿透只是这一击的视角。</summary>
         private static string PierceText(EffectDef e) =>
             e.Pierce > 0 ? $"(穿透 {e.Pierce}:本次无视 {e.Pierce} 点护甲)" : "";
+
+        /// <summary>目标形状前缀(2026-08-22,spec §7)。Single 沿用原「单体」——87 张既有
+        /// DamageSingle 卡面因此逐字节不变。</summary>
+        private static string ShapeLabel(EffectDef e) => e.Shape switch
+        {
+            TargetShape.Sweep => "横扫",
+            TargetShape.Cleave => "顺劈",
+            TargetShape.Skewer => "贯穿",
+            TargetShape.Volley => "连发",
+            _ => "单体",
+        };
+
+        /// <summary>目标形状后缀,与 PierceText 同一种「有则挂、无则空」写法。Volley 没有
+        /// 「非主目标」的概念——每发都按主目标满额结算(BattleEngine.cs:1291、1519 对 Volley
+        /// 都直接跳过 ShapePercent),卡面只报发数;其余三形状报 ShapePercent,等于 100(未配置)
+        /// 时不写,省字数。</summary>
+        private static string ShapeSuffix(EffectDef e) => e.Shape switch
+        {
+            TargetShape.Volley => $"(共{e.Shots}发)",
+            TargetShape.Sweep or TargetShape.Cleave or TargetShape.Skewer when e.ShapePercent != 100
+                => $"(溅{e.ShapePercent}%)",
+            _ => "",
+        };
 
         public static string ElementName(Element element) => element switch
         {

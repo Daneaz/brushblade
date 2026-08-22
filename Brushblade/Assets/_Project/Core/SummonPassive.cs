@@ -37,11 +37,26 @@ namespace Brushblade.Core
         /// 与「站哪一槽」无关——排位只决定被不被够到,后排的近战召唤物照常打前排。</summary>
         public bool Ranged { get; set; }
 
+        /// <summary>出手时的目标形状(2026-08-22,spec §7)。缺省 Single = 只打一只,
+        /// 与改造前逐位等价。
+        ///
+        /// 与 <see cref="Ranged"/> **正交**:Ranged 管「能不能越过前排」,Shape 管「打几个」。
+        /// 合并成一个枚举会让「远程的顺劈」这种合理组合表达不出来 ——
+        /// 与 EnemyAbility 当年把 Range 塞进去的教训同型(EnemyDef.cs 的注释)。</summary>
+        public TargetShape Shape { get; set; }
+
+        /// <summary>非主目标的伤害百分比。≤0 视为 100。</summary>
+        public int ShapePercent { get; set; }
+
+        /// <summary>连发发数(Shape = Volley 时有意义)。</summary>
+        public int Shots { get; set; }
+
         public SummonPassive Clone() => new()
         {
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
             Dodge = Dodge, Ranged = Ranged,
+            Shape = Shape, ShapePercent = ShapePercent, Shots = Shots,
         };
     }
 }

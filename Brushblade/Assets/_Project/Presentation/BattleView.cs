@@ -18,6 +18,12 @@ namespace Brushblade.Presentation
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
         // 分层形象(下标→MobView);没有形象资产的怪该位为 null,回落圆形字头像
         private readonly System.Collections.Generic.List<MobView> _enemyMobs = new();
+        // 整格点击层(2026-08-22):拖字打人悬停预览要就地改颜色,不能重绘 —— 得存着引用。
+        private readonly System.Collections.Generic.List<Image> _enemyHitAreas = new();
+        // 拖拽悬停预览态(2026-08-22):当前悬停的主目标下标(−1 = 未悬停任何敌人),
+        // 与被形状溅到、临时改了色的格子(连同各自改色前的原值,松手/挪走时原样恢复)。
+        private int _hoverPreviewPrimary = -1;
+        private readonly System.Collections.Generic.List<(int index, Color original)> _hoverPreviewCells = new();
         // 召唤物本体/血条按 _summons 下标索引(事件带 SecondIndex 定位承伤/发起者;死后仍在动画期可见)
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonRectByCore = new();
         // 槽位 → 整格矩形(2026-08-21,拖拽落位命中判定用)。与 _summonRectByCore 的区别有二:
@@ -51,6 +57,10 @@ namespace Brushblade.Presentation
         private string _selectedChar;   // 当前选中的字/部件
         private int _selectedIndex = -1; // 选中的字库卡位(同字多张时区分是哪张,2026-08-17);部件池选中为 −1
         private bool _targeting;        // 等待点击敌人
+        // 治疗选目标(2026-08-22):单体治疗字出字前先点一个友方(玩家或某只存活召唤物)。
+        // 与 _targeting 同构,只是点击面对象从敌人换成我方——选中的仍是 _selectedChar,
+        // 落点走 Cast 的 allySlot 参数(Targeting.PlayerTarget = 玩家)。
+        private bool _allyTargeting;
         // 召唤落位(2026-08-20):出召唤字先点位子,攒够只数才真正 Cast。
         // 槽位攒在这里、没调 Cast 之前引擎一无所知 —— 连选途中取消整张字天然回滚。
         private bool _slotPicking;      // 等待点击召唤位
@@ -224,6 +234,18 @@ namespace Brushblade.Presentation
                     _juice.BarPulse(_playerShieldBar.fill, Theme.Jade, Element.Earth); // 土:盾条起势
                     break;
                 case BattleEventKind.Heal: // 水系治疗:与群攻同一记里触达,血条即时上推(此前只在末次重绘才涨)
+                    // SecondIndex ≥0 = 治疗落在召唤物身上,推那只召唤物的血条(镜像 SummonHit,只是方向向上)
+                    if (e.SecondIndex >= 0)
+                    {
+                        int hsi = e.SecondIndex;
+                        if (hsi >= Battle.Summons.Count || Battle.Summons[hsi] == null
+                            || !_summonAnimHp.ContainsKey(hsi)
+                            || !_summonBarByCore.TryGetValue(hsi, out var hbar) || hbar.fill == null) break;
+                        _summonAnimHp[hsi] = System.Math.Min(Battle.Summons[hsi].Hp, _summonAnimHp[hsi] + e.Amount);
+                        SetHpBar(hbar, _summonAnimHp[hsi], Battle.Summons[hsi].MaxHp);
+                        _juice.BarPulse(hbar.fill, Theme.SplitBlue, Element.Water); // 水:血条起势
+                        break;
+                    }
                     if (_playerHpBar.fill == null) break;
                     _animPlayerHp = System.Math.Min(Battle.PlayerHp, _animPlayerHp + e.Amount);
                     SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
@@ -438,7 +460,7 @@ namespace Brushblade.Presentation
             backdropButton.targetGraphic = backdropImage;
             backdropButton.onClick.AddListener(() =>
             {
-                if (_selectedChar != null || _targeting || _slotPicking) CancelSelection();
+                if (_selectedChar != null || _targeting || _slotPicking || _allyTargeting) CancelSelection();
             });
 
             // 顶栏一行三段(2026-08-21 用户拍板):关卡名·层数·场次(左) | 战斗提示(中) | 墨锭·回合·退出(右)。
@@ -982,6 +1004,14 @@ namespace Brushblade.Presentation
                 element.preferredWidth = 18;
                 element.preferredHeight = 18;
             }
+
+            // 治疗选目标态(2026-08-22):玩家血条区整体点亮为「治玩家」的点击面。
+            // 必须在 hpStack 的其余子物件都画完之后再挂——覆盖层要盖在最上面才吃得到点击
+            // (与 AttachAllyTargetPicker/AttachSlotPicker 同一套「整格覆盖层」做法)。
+            // 判据走 Battle.CanHealSlot(Targeting.PlayerTarget),不是恒真的假设——
+            // 万一以后这条规则改了,表现层不必跟着改。
+            if (_allyTargeting && Battle.CanHealSlot(Targeting.PlayerTarget))
+                AttachAllyTargetPicker(hpStack.transform, Targeting.PlayerTarget);
         }
 
         // 召唤格尺寸(2026-08-20 四排改造)。每排 3 格而不是 6 格,格宽从 ~54 翻到 180,
@@ -1050,6 +1080,11 @@ namespace Brushblade.Presentation
                 if (passiveTag.Length > 0)
                     Ui.ThemedLabel(stats, passiveTag, 11, Theme.Cinnabar);
                 if (_slotPicking) AttachSlotPicker(cell.transform, summonIndex);
+                // 治疗选目标态(2026-08-22):判据走 Battle.CanHealSlot,不是「反正画出来的
+                // 都是存活的所以恒真」——这里就是与 Cast 内部同一条判据的落地,规则改了
+                // 这里自动跟着改,不必表现层另猜一遍。
+                else if (_allyTargeting && Battle.CanHealSlot(summonIndex))
+                    AttachAllyTargetPicker(cell.transform, summonIndex);
             }
         }
 
@@ -1123,12 +1158,52 @@ namespace Brushblade.Presentation
             button.onClick.AddListener(() => OnSlotPicked(slot));
         }
 
-        /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称。
-        /// 死尸在动画期仍画得出,但点它没有意义 —— 下标越界/已死一律不弹。</summary>
+        /// <summary>治疗选目标态的整格点击层(2026-08-22),与 <see cref="AttachSlotPicker"/> 同款做法:
+        /// 盖满一格吃下点击,而不是只挂在字块/血条这类小面积上——移动端手指落点粗。
+        /// <paramref name="cell"/> 在召唤物是格子的 VStack,在玩家是 <c>Hp</c> 那个 VStack,
+        /// 两处都要 <c>ignoreLayout</c>,否则这层覆盖会被当成一行排进布局,把整格挤变形。</summary>
+        private void AttachAllyTargetPicker(Transform cell, int slot)
+        {
+            var overlay = Ui.Panel(cell, "AllyPick");
+            overlay.AddComponent<LayoutElement>().ignoreLayout = true;
+            var image = overlay.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.color = new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, 0.14f);
+            Ui.Stretch((RectTransform)overlay.transform);
+            var button = overlay.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = image;
+            button.onClick.AddListener(() => OnAllyTargetPicked(slot));
+        }
+
+        /// <summary>治疗目标选定(2026-08-22):slot == Targeting.PlayerTarget 治玩家,
+        /// 否则治该槽位的召唤物。落点仍要过一遍 Battle.CanHealSlot 兜底——覆盖层理应只在
+        /// 合法目标上出现,这里再挡一次是防守式编程,不是第二套判据。</summary>
+        private void OnAllyTargetPicked(int slot)
+        {
+            if (!_allyTargeting || _selectedChar == null) return;
+            if (!Battle.CanHealSlot(slot)) return;
+            string charId = _selectedChar;
+            int libraryIndex = _selectedIndex;
+            BeginCast(charId, -1, attackMode: false, libraryIndex: libraryIndex, allySlot: slot);
+        }
+
+        /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称;
+        /// 治疗选目标态下(2026-08-22)则改为选中该召唤物为治疗目标。与
+        /// <see cref="OnEnemyClicked"/> 在 <c>_targeting</c> 时的写法同一套纪律:
+        /// 不可治的槽位平时压根不会走到这(<see cref="AttachAllyTargetPicker"/> 的覆盖层
+        /// 只盖在 <c>CanHealSlot</c> 为真的格子上,玩家点不到这枚按钮),这里再判一遍纯属兜底。</summary>
         private void OnSummonClicked(int index)
         {
             if (index < 0 || index >= Battle.Summons.Count) return;
             var summon = Battle.Summons[index];
+            if (_allyTargeting)
+            {
+                if (!Battle.CanHealSlot(index)) return;
+                OnAllyTargetPicked(index);
+                return;
+            }
             if (summon == null || !summon.Alive) return;
             if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
@@ -1202,21 +1277,56 @@ namespace Brushblade.Presentation
         // 2026-08-21:基准换回整格宽,前后排共用同一个数(格宽与形象直径无关)。
         private const float ChipAreaWidth = EnemyCellWidth - 4f;
 
+        // 拖字打人悬停预览(2026-08-22):主目标复用「选目标态整格微亮」的既有强度(0.07f,
+        // 见 DrawEnemies 的 hitArea.color),被形状溅到的用更淡一档,与主目标拉开区分。
+        private const float HoverPreviewPrimaryAlpha = 0.07f;
+        private const float HoverPreviewSplashAlpha = 0.035f;
+
         /// <summary>敌方两排(2026-08-20):后排在上、前排在下(贴着中间的分隔线),
         /// 站位读 <see cref="EnemyState.Row"/> —— 那是**实例状态**,开场按每排上限 3 分配、
         /// 溢出会改判,和 <c>EnemyDef.Row</c> 那个偏好不是一回事。
         ///
         /// ⚠ 下标对齐:<c>_enemyRects</c> / <c>_enemyMobs</c> / <c>_enemyHpBars</c> /
         /// <c>_enemyActionBars</c> 四个列表全都按**敌人下标**索引(事件的 TargetIndex 直接拿去取),
-        /// 所以这里只有一层按 i 升序的循环、每轮四个列表各 Add 一次,分排只体现在**父节点**上。
-        /// 不能改成「先画前排再画后排」那种按排遍历 —— 列表顺序会与 Battle.Enemies 错开,
-        /// 打谁就抖谁那套全部指错人。</summary>
+        /// 所以下面仍是一层按 i 升序的循环、每轮四个列表各 Add 一次 —— 这四个列表的顺序
+        /// 不能变。不能改成「先画前排再画后排」那种按排遍历,列表顺序会与 Battle.Enemies
+        /// 错开,打谁就抖谁那套全部指错人。
+        ///
+        /// 2026-08-22 固定格位:每排预先按 <see cref="Targeting.RowCapacity"/> 建好 3 个
+        /// 固定格位(Transform 意义上的**子物体顺序**按列 0..2,与上面 i 升序的四个列表顺序
+        /// 无关),敌人按 <c>(Row, Column)</c> 落进对应格位,空格位只留一个带
+        /// <see cref="LayoutElement"/>(仅 preferredWidth)的透明占位撑宽度,不画任何可见元素。
+        /// 这是为了让 <see cref="Ui.Row"/> 的 <c>HorizontalLayoutGroup</c>(子物体整体
+        /// TextAnchor.MiddleCenter,见 Ui.cs)把两排都摆满 3 格再居中 —— 此前前排 2 只、
+        /// 后排 3 只时各自居中,列对不上。副产品:敌人死后不再因为「按存活数重排」而整体
+        /// 跳位,尸体格位原地不动。</summary>
         private void DrawEnemies()
         {
             _enemyRects.Clear();
             _enemyMobs.Clear();
             _enemyHpBars.Clear();
             _enemyActionBars.Clear();
+            _enemyHitAreas.Clear();
+            // 悬停预览引用的都是这次要被清掉的旧格子:整屏重绘期间不可能还在拖拽中
+            // (拖拽中间只有 RedrawSummonRows 那条不动敌人区的路径),但保险起见清空防悬空引用。
+            _hoverPreviewPrimary = -1;
+            _hoverPreviewCells.Clear();
+
+            var frontCells = new GameObject[Targeting.RowCapacity];
+            var backCells = new GameObject[Targeting.RowCapacity];
+            for (int c = 0; c < Targeting.RowCapacity; c++)
+            {
+                frontCells[c] = Ui.Panel(_enemyFrontRow, $"EnemySlotFront{c}");
+                frontCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
+                backCells[c] = Ui.Panel(_enemyBackRow, $"EnemySlotBack{c}");
+                backCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
+            }
+            // 本次绘制里每排格位是否已被占用(2026-08-22 评审加固)。按**本次绘制**已用掉的
+            // 格位算,不读 Transform.childCount —— 预建的空格位本来就在那儿,child 数恒为
+            // RowCapacity,读它算不出"谁占了谁没占"。
+            var frontUsed = new bool[Targeting.RowCapacity];
+            var backUsed = new bool[Targeting.RowCapacity];
+
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
                 var enemy = Battle.Enemies[i];
@@ -1232,9 +1342,31 @@ namespace Brushblade.Presentation
                 bool reachable = !_targeting || _selectedChar == null
                     || Battle.CanTarget(_graph.Get(_selectedChar), index);
 
-                var cell = Ui.Panel(front ? _enemyFrontRow : _enemyBackRow, $"Enemy{i}");
-                var cellElement = cell.AddComponent<LayoutElement>();
-                cellElement.preferredWidth = EnemyCellWidth;
+                // 格位守卫(2026-08-22 评审加固):Core 的不变式(每排 ≤ RowCapacity、列不重号)
+                // 理应保证 enemy.Column 永远落在 [0, RowCapacity) 且同排不重号,但表现层崩掉
+                // 的代价是整个战斗界面白屏,兜底的代价只是一只怪画错位置 —— 不对称,所以兜。
+                // 越界或撞列(本排该列已被这次绘制的另一只怪占了)就回落到本排第一个空格位。
+                var cells = front ? frontCells : backCells;
+                var used = front ? frontUsed : backUsed;
+                int col = enemy.Column;
+                if (col < 0 || col >= Targeting.RowCapacity || used[col])
+                    col = System.Array.IndexOf(used, false);
+                if (col < 0)
+                {
+                    // 连回落都没有空格位:说明本排存活敌人数已经超过 RowCapacity,违反 Core
+                    // 不变式,比越界/撞列更极端。不画这只怪,但仍要给四个下标对齐的列表
+                    // (_enemyRects/_enemyMobs/_enemyHpBars/_enemyActionBars)占一位 ——
+                    // 不然后续敌人的下标全部错位,TargetIndex 指错人(比不画更糟)。
+                    _enemyMobs.Add(null);
+                    _enemyHpBars.Add((null, null));
+                    _enemyActionBars.Add((null, null));
+                    _enemyRects.Add(null);
+                    _enemyHitAreas.Add(null);
+                    continue;
+                }
+                used[col] = true;
+                var cell = cells[col];
+                var cellElement = cell.GetComponent<LayoutElement>();
                 cellElement.preferredHeight = front ? EnemyCellHeightFront : EnemyCellHeightBack;
                 float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
 
@@ -1273,6 +1405,7 @@ namespace Brushblade.Presentation
                 hitArea.color = _targeting && enemy.Alive && reachable
                     ? new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.07f) // 选目标时整格微亮,提示可点
                     : new Color(0, 0, 0, 0);
+                _enemyHitAreas.Add(hitArea); // 拖字打人悬停预览要就地改这个颜色,存引用
 
                 // 名字独占一行,排在形象正下方(2026-08-21 二改)。此前它半透叠在形象顶部,
                 // 而形象本身就是水墨字形 —— 长串名字压在笔画上读不出来(实机反馈)。
@@ -1398,7 +1531,7 @@ namespace Brushblade.Presentation
                 string charId = library[i];
                 var def = _graph.Get(charId);
                 // 同字多张按卡位区分选中(2026-08-17):只亮玩家点的那张,不连坐
-                bool selected = _selectedChar == charId && _selectedIndex == index && !_targeting;
+                bool selected = _selectedChar == charId && _selectedIndex == index && !_targeting && !_allyTargeting;
                 System.Action tap = () =>
                 {
                     if (rewardPhase) OnRewardLibraryClicked(charId);
@@ -1439,6 +1572,10 @@ namespace Brushblade.Presentation
                 () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
                 screenPos =>
                 {
+                    // 松手前先清悬停预览,不管接下来落进哪个分支(2026-08-22)——
+                    // 三条分支(落位/取消/出字)都必须清干净,免得留下改过色的格子。
+                    ClearHoverPreview();
+                    _hoverPreviewPrimary = -1;
                     if (_slotPicking)
                     {
                         int slot = SummonSlotAt(screenPos);
@@ -1459,7 +1596,57 @@ namespace Brushblade.Presentation
                     EnterSlotPicking(def.Id, -1, attackMode: true, libraryIndex,
                         Battle.SummonCountOf(def, attackMode: true));
                     RedrawSummonRows(); // 只重画召唤两排:全量 Refresh 会销毁正被拖的这张字牌
-                });
+                },
+                onDragMove: screenPos => OnDragHover(screenPos, def));
+        }
+
+        /// <summary>拖字打人途中,悬停到某只敌人上方时预览这一发会打到的全部格子(2026-08-22)。
+        /// 判据一律走 <see cref="Targeting.ExpandTargets"/>,形状/连发数也一律走
+        /// <see cref="BattleEngine.AttackShapeOf"/>(2026-08-22 评审 Finding 2 后从表现层自己
+        /// 挑效果列表改成调 Core 的公开 accessor——原先的表现层版本漏了「两个效果列表都空则用
+        /// FallbackEffects」那一支)。攻击模式恒传 <c>attackMode: true</c>,与 onDrop 那边传给
+        /// <see cref="BeginCast"/> 的值一致(拖字打人这条路径本就是 attackMode)。
+        ///
+        /// 连发(Volley)没有主目标(<see cref="BattleEngine.NeedsTarget"/> 对它就返回 false),
+        /// 这里选择仍然预览它固定会打到的那几格(<c>primaryIndex: -1</c> 求出的表与悬停在
+        /// 哪只敌人上无关)——只要指针落在任意一只敌人身上(与松手判定同一条门槛),就整体
+        /// 亮出连发会覆盖的格子,不特别标「主目标」(它本来就没有主目标概念)。
+        ///
+        /// ⚠ 每帧都会调用:只改已存在的 <see cref="_enemyHitAreas"/> 颜色,不重绘任何 GameObject
+        /// ——DragToAttack.cs 顶部有整段警告解释为什么(销毁正被拖的对象会掐断 OnEndDrag)。
+        /// 悬停格没变时直接 return,不做无用功。</summary>
+        private void OnDragHover(Vector2 screenPos, CharDef def)
+        {
+            // 召唤字走落位预览(起拖已点亮 6 槽),不叠加打人预览
+            int target = _slotPicking ? -1 : EnemyIndexAt(screenPos);
+            if (target == _hoverPreviewPrimary) return; // 悬停格没变,别做无用功
+            _hoverPreviewPrimary = target;
+            ClearHoverPreview();
+
+            if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
+
+            var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
+            var hits = shape == TargetShape.Volley
+                ? Targeting.ExpandTargets(Battle.Enemies, -1, shape, shots) // 连发无主目标,与悬停格无关
+                : Targeting.ExpandTargets(Battle.Enemies, target, shape, shots);
+            for (int n = 0; n < hits.Count; n++)
+            {
+                int i = hits[n];
+                if (i < 0 || i >= _enemyHitAreas.Count || _enemyHitAreas[i] == null) continue;
+                bool primary = shape != TargetShape.Volley && n == 0; // 首项即主目标,Volley 除外
+                _hoverPreviewCells.Add((i, _enemyHitAreas[i].color)); // 先存原色,清预览时原样还原
+                _enemyHitAreas[i].color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b,
+                    primary ? HoverPreviewPrimaryAlpha : HoverPreviewSplashAlpha);
+            }
+        }
+
+        /// <summary>把悬停预览改过色的格子原样还原(2026-08-22)。松手/取消/悬停格变化时都要调。</summary>
+        private void ClearHoverPreview()
+        {
+            foreach (var (i, original) in _hoverPreviewCells)
+                if (i < _enemyHitAreas.Count && _enemyHitAreas[i] != null)
+                    _enemyHitAreas[i].color = original;
+            _hoverPreviewCells.Clear();
         }
 
         /// <summary>该屏幕坐标落在第几个召唤槽上;都没命中返回 −1。
@@ -1528,7 +1715,7 @@ namespace Brushblade.Presentation
             {
                 string charId = id;
                 var def = _graph.Get(charId);
-                bool selected = _selectedChar == charId && !_targeting;
+                bool selected = _selectedChar == charId && !_targeting && !_allyTargeting;
                 System.Action tap = () =>
                 {
                     if (rewardPhase) { _message = Brief(charId); Refresh(); }
@@ -1764,6 +1951,13 @@ namespace Brushblade.Presentation
             if (_targeting)
             {
                 Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人|点空白取消", 16, Theme.TextMain);
+                return;
+            }
+            // 治疗选目标态(2026-08-22):同 _targeting 一样只画一句提示——再点一次「出」
+            // 会走 OnCastPressed → BeginCast,把这个待选态悄悄重置。
+            if (_allyTargeting)
+            {
+                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击治疗目标(玩家或召唤物)|点空白取消", 16, Theme.TextMain);
                 return;
             }
             bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
@@ -2439,7 +2633,7 @@ namespace Brushblade.Presentation
 
         private void OnLibraryCharClicked(string charId, int index)
         {
-            if (_selectedChar == charId && _selectedIndex == index && !_targeting)
+            if (_selectedChar == charId && _selectedIndex == index && !_targeting && !_allyTargeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
@@ -2447,6 +2641,7 @@ namespace Brushblade.Presentation
             _selectedChar = charId;
             _selectedIndex = index;
             _targeting = false;
+            _allyTargeting = false;
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
             _message = Brief(charId) + "|再点即出";
             Refresh();
@@ -2454,7 +2649,7 @@ namespace Brushblade.Presentation
 
         private void OnPoolCharClicked(string charId)
         {
-            if (_selectedChar == charId && _selectedIndex < 0 && !_targeting)
+            if (_selectedChar == charId && _selectedIndex < 0 && !_targeting && !_allyTargeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
                 return;
@@ -2462,6 +2657,7 @@ namespace Brushblade.Presentation
             _selectedChar = charId;
             _selectedIndex = -1;
             _targeting = false;
+            _allyTargeting = false;
             ResetSlotPicking();
             _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
             Refresh();
@@ -2476,6 +2672,16 @@ namespace Brushblade.Presentation
             {
                 _targeting = true;
                 _message = $"「{def.Id}」:点击目标敌人";
+                Refresh();
+                return;
+            }
+            // 友方目标(2026-08-22):场上有存活召唤物才进选目标态——没有的话引擎会自动锁玩家
+            // (Cast 里 AliveSummons() == 0 那条免选口径),UI 弹一次没得选的选择纯属白点一下,
+            // 与上面「单敌免选」同一条纪律。
+            if (BattleEngine.NeedsAllyTarget(def) && Battle.AliveSummonCount > 0)
+            {
+                _allyTargeting = true;
+                _message = $"「{def.Id}」:点击治疗目标(玩家或召唤物)";
                 Refresh();
                 return;
             }
@@ -2495,8 +2701,10 @@ namespace Brushblade.Presentation
         // ---- 召唤落位(2026-08-20) ----
 
         /// <summary>出字总入口:召唤字先进选位子态,其余照旧直接结算。
-        /// 目标已经选过了(若需要),这里只补落位。</summary>
-        private void BeginCast(string charId, int target, bool attackMode, int libraryIndex)
+        /// 目标已经选过了(若需要),这里只补落位。
+        /// allySlot:治疗目标(2026-08-22),默认 Targeting.PlayerTarget(玩家)。</summary>
+        private void BeginCast(string charId, int target, bool attackMode, int libraryIndex,
+            int allySlot = Targeting.PlayerTarget)
         {
             var def = _graph.Get(charId);
             // AP 不够就别进选位置态(2026-08-20 review I-1):否则玩家会认真点完两格,
@@ -2504,13 +2712,13 @@ namespace Brushblade.Presentation
             // 而林/桂/森 都是 2+ AP,这条很容易撞上。交给引擎当场报错,与改动前同口径。
             if (Battle.Ap < def.ApCost)
             {
-                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
+                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, allySlot: allySlot);
                 return;
             }
             int summonCount = Battle.SummonCountOf(def, attackMode);
             if (summonCount <= 0)
             {
-                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
+                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, allySlot: allySlot);
                 return;
             }
             EnterSlotPicking(charId, target, attackMode, libraryIndex, summonCount);
@@ -2524,7 +2732,14 @@ namespace Brushblade.Presentation
             int libraryIndex, int summonCount)
         {
             _slotPicking = true;
+            // 三个选目标态在这里必须互斥清干净:进选位态时,另外两态挂出去的高亮都得撤。
+            // _targeting 的高亮画在敌人格上,后续全量 Refresh 会带走,漏清问题不大;
+            // 但 _allyTargeting 的高亮(AttachAllyTargetPicker)画在玩家血条区(_bottomRow)——
+            // 拖字召唤走的是 RedrawSummonRows 那条轻量重画路径,只重画召唤两排,够不着
+            // _bottomRow。不在这里清掉的话,「治我」覆盖层会残留在玩家血条上且仍可点,
+            // 直到下一次真正的全量 Refresh 才消失(2026-08-22 评审 Finding 追出的缺口)。
             _targeting = false;
+            _allyTargeting = false;
             _pendingSummonChar = charId;
             _pendingSummonTarget = target;
             _pendingSummonAttackMode = attackMode;
@@ -2604,11 +2819,11 @@ namespace Brushblade.Presentation
         }
 
         private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false,
-            int libraryIndex = -1, IReadOnlyList<int> summonSlots = null)
+            int libraryIndex = -1, IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
         {
             bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots);
+            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot);
             if (error == BattleError.SummonCapFull) // 顶替强阻断:AP/字都没动,确认了才重出
             {
                 var def = _graph.Get(charId);
@@ -2616,7 +2831,7 @@ namespace Brushblade.Presentation
                 ShowModal("这个位置有人",
                     ReplaceSummonBody(def, attackMode, summonSlots),
                     ($"顶替 {replaceCount} 只",
-                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots),
+                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot),
                         Theme.Cinnabar, Color.white),
                     ("取消", null, Theme.LockedBg, Theme.TextMain));
                 _message = "选的位置上站着人,出字待确认";
@@ -2970,6 +3185,7 @@ namespace Brushblade.Presentation
             _selectedChar = null;
             _selectedIndex = -1;
             _targeting = false;
+            _allyTargeting = false;
             ResetSlotPicking(); // 连选途中取消 = 整张字回滚:没调 Cast,AP 与字库一滴未动
             Refresh();
         }

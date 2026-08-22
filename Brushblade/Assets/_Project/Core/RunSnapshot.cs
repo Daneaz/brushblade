@@ -62,6 +62,7 @@ namespace Brushblade.Core
         public bool IsCharging { get; set; }     // 蓄力中:读档后要照常放大招
         public BossSkill ChargingSkill { get; set; } // 蓄力锁定的技能:预告什么就放什么
         public EnemyRow Row { get; set; }   // 实际站位(2026-08-20)
+        public int Column { get; set; } // 实际列(2026-08-22)
     }
 
     public sealed class SummonSnapshot

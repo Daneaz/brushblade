@@ -50,6 +50,9 @@ namespace Brushblade.Data
             public bool ExecuteKills { get; set; }       // true = 直接击杀(Boss 免疫);false = 伤害 ×2
             public int HitCount { get; set; } = 1;  // 多段:伤害分几段打(剁 = 2)
             public bool Backline { get; set; }   // 偷袭:该发单体直伤无视敌方前排(2026-08-20)
+            public string Shape { get; set; }      // 目标形状(2026-08-22):null = Single
+            public int ShapePercent { get; set; } = 100; // 非主目标伤害百分比
+            public int Shots { get; set; }         // 连发发数
         }
 
         private sealed class CampaignFileDto
@@ -493,13 +496,29 @@ namespace Brushblade.Data
             {
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
+                var shape = TargetShape.Single;
+                // Enum.TryParse 单独用会放数字字符串过关(如 "3" 解析成 Skewer、"99" 解析成
+                // 越界值),下游 Targeting.ExpandTargets 的 switch 对任何未定义的值都落到
+                // `_ => false`——整张字会静默退化成单体、零报错。必须叠加 IsDefined 才拦得住。
+                if (!string.IsNullOrEmpty(effect.Shape)
+                    && (!Enum.TryParse(effect.Shape, out shape)
+                        || !Enum.IsDefined(typeof(TargetShape), shape)))
+                    throw new ConfigException($"字「{dto.Id}」的目标形状未知:{effect.Shape}");
+                // 召唤被动的 Shape 是 Core 的 SummonPassive.Shape(TargetShape 枚举),不是上面这个
+                // string 字段,走 Newtonsoft 整体反序列化——数字型越界值(如 "shape": 99)会被
+                // Newtonsoft 直接接住塞进枚举底层 int,不报错,与上面这条 string 校验是同一个坑,
+                // 只是入口不同(2026-08-22)。ExpandTargets 对任何未定义值都落到 `_ => false`,
+                // 悄悄退化成单体——正是上面那条 player 侧校验存在的理由,这里补齐 summon 侧。
+                if (effect.Passive != null && !Enum.IsDefined(typeof(TargetShape), effect.Passive.Shape))
+                    throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     effect.DoubleVsBurning, effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
                     effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
-                    effect.HitCount, effect.Pierce, effect.Backline));
+                    effect.HitCount, effect.Pierce, effect.Backline,
+                    shape, effect.ShapePercent, effect.Shots));
             }
             return effects;
         }

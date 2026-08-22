@@ -231,7 +231,10 @@ namespace Brushblade.Core
         private const int SummonCap = 6;      // 场上召唤物槽位数(2026-08-03:4 → 6)
         private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20):槽 [0, FrontRowSize) 为前排
         private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
-        private const int EnemyRowCap = 3;    // 每排敌人上限(2026-08-20)
+        // 每排敌人上限(2026-08-20)。转引 Targeting.RowCapacity 而不是再写一个 3 ——
+        // 表现层按列取固定格位(BattleView.DrawEnemies),两处上限一旦分叉,
+        // 分配出来的 Column 就会越过表现层的格位数组,静默变成一次崩溃(2026-08-22 评审)。
+        private const int EnemyRowCap = Targeting.RowCapacity;
         // 焦痕受击存活的加攻(**百分点**,2026-08-12 由「+2 点」换算而来:焦痕 BaseAttack = 4,
         // 50% × 4 = 2,对任意层数逐位等价 —— AttackBuffUnitTests 的焦痕序列守着这条零行为变化)
         private const int ScorchGain = 50;
@@ -407,7 +410,7 @@ namespace Brushblade.Core
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
                 _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
-            AssignRows();
+            AssignSlots();
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
             _shieldNormal = startingNormalShield;
@@ -619,9 +622,12 @@ namespace Brushblade.Core
         /// −1 或与 charId 不符(陈旧下标)退回删首张的旧口径。
         /// summonSlots:玩家为本次召唤指定的槽位,第 n 只落 summonSlots[n]。
         /// null = 未指定,按 NextEmptySlot() 依次填(测试与自动路径走这条)。
-        /// 指定到存活槽 = 顶替,与「六槽全满」同口径,需要 replaceSummon 确认。</summary>
+        /// 指定到存活槽 = 顶替,与「六槽全满」同口径,需要 replaceSummon 确认。
+        /// allySlot:单体治疗(2026-08-22)治谁——默认玩家(Targeting.PlayerTarget),
+        /// 或指定某个召唤物槽位。</summary>
         public BattleError Cast(string charId, int targetIndex = -1, bool replaceSummon = false,
-            bool attackMode = false, int libraryIndex = -1, IReadOnlyList<int> summonSlots = null)
+            bool attackMode = false, int libraryIndex = -1, IReadOnlyList<int> summonSlots = null,
+            int allySlot = Targeting.PlayerTarget)
         {
             if (Phase != BattlePhase.PlayerTurn) return BattleError.BattleOver;
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
@@ -654,6 +660,19 @@ namespace Brushblade.Core
                 }
             }
 
+            // 友方目标合法性(2026-08-22,spec §8.1)。免选口径与「单敌免选」同型:
+            // 场上没有存活召唤物时自动锁玩家,不让 UI 弹一次没得选的选择。
+            // 但尸体拒治优先于免选——allySlot 点着的是一具占槽的尸体(哪怕它是场上唯一
+            // 一只召唤物),这是玩家明确点错了目标,不能被「反正没得选」悄悄改判成治玩家。
+            if (NeedsAllyTarget(def, attackMode))
+            {
+                bool corpseSlot = allySlot >= 0 && allySlot < SummonCap
+                    && _summons[allySlot] != null && !_summons[allySlot].Alive;
+                if (corpseSlot) return BattleError.InvalidTarget;
+                if (AliveSummons() == 0) allySlot = Targeting.PlayerTarget;
+                else if (!CanHealSlot(allySlot)) return BattleError.InvalidTarget;
+            }
+
             // 前排放不下就强阻断(2026-07-25):在扣 AP/消耗字之前拒出,交 UI 弹「是否替换?」。
             // 不只看满员——3/4 时召 2 只同样溢出,也得先问过玩家
             if (!replaceSummon && SummonReplaceCountOf(def, attackMode, summonSlots) > 0) return BattleError.SummonCapFull;
@@ -678,7 +697,7 @@ namespace Brushblade.Core
                 _forge = new ForgeState(_forge.Library, pool);
             }
 
-            ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots);
+            ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot);
             CheckWin();
             return BattleError.None;
         }
@@ -788,6 +807,23 @@ namespace Brushblade.Core
             return def.Effects.Count > 0 ? def.Effects : FallbackEffects;
         }
 
+        /// <summary>这张字的**单体直伤形状**(2026-08-22,供表现层预览覆盖范围用)。
+        /// 建在 <see cref="EffectsOf"/> 之上而不是让表现层自己挑效果列表 —— 与 CanTarget 同一条
+        /// 理由:玩家看到会打到哪几格、和引擎实际打到哪几格,一旦分头推导迟早失配。尤其是
+        /// 两个效果列表都空的字,实际打出去的是 <see cref="FallbackEffects"/> 那一发兜底一击,
+        /// 表现层自己重写选取逻辑必然漏掉这一支(2026-08-22 评审 Finding 2 命中的正是这条)。
+        ///
+        /// 只取**第一条** DamageSingle 的 Shape/Shots——与 NeedsTarget/RestrictedToFrontRow
+        /// 一样只看首条,不聚合多条直伤(混合多形状直伤字眼下不存在,真出现时预览会只显示
+        /// 第一发,是已知的当前局限而非本次改动引入的新账)。没有单体直伤则返回 (Single, 0)。</summary>
+        public static (TargetShape Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false)
+        {
+            foreach (var effect in EffectsOf(def, attackMode))
+                if (effect.Kind == EffectKind.DamageSingle)
+                    return (effect.Shape, effect.Shots);
+            return (TargetShape.Single, 0);
+        }
+
         /// <summary>本次召唤会顶掉几只**存活**召唤物(0 = 不顶人,可以直接出)。
         /// 指定了槽位就数这些槽里有几个是 Alive;没指定就退回「超出上限的部分」。</summary>
         public int SummonReplaceCountOf(CharDef def, bool attackMode = false,
@@ -813,11 +849,21 @@ namespace Brushblade.Core
             return Math.Min(count, SummonCap);
         }
 
-        /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。</summary>
+        /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。
+        ///
+        /// 连发(Volley)**不需要选目标** —— 它的目标全自动(后排优先循环补足),
+        /// 交互上与 AOE 同档:点了就打。漏掉这条会让玩家对着一张自动字白点一次选目标。
+        ///
+        /// ⚠ 2026-08-06 C1 那次崩溃是靠 `_enemies[-1]` 越界抛异常才被发现的(见上面提到的旧账);
+        /// 但目标形状改造(2026-08-22)之后,ApplyEffects 走的是 Targeting.ExpandTargets ——
+        /// primaryIndex 越界(含 −1)时它直接返回空表,循环体一次不进,不再抛异常。也就是说
+        /// 这条白名单如果将来又漏了哪个新 Kind,不会再有响亮的崩溃把它带回评审台面,只会悄悄
+        /// 变成「点了没反应」。别以为「没崩就是漏判已经堵上了」。</summary>
         public static bool NeedsTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
-                if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle
+                if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetShape.Volley)
+                    || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
                     // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
@@ -833,13 +879,35 @@ namespace Brushblade.Core
             return false;
         }
 
+        /// <summary>该字是否需要指定**友方**目标(2026-08-22,spec §8.1)。
+        /// 单体治疗(HealSelf / HealOverTime)从此可以选治玩家还是某只召唤物。
+        ///
+        /// 群治(HealAll)不在内 —— 它覆盖全体,本就无从选起,保持免选。</summary>
+        public static bool NeedsAllyTarget(CharDef def, bool attackMode = false)
+        {
+            foreach (var effect in EffectsOf(def, attackMode))
+                if (effect.Kind == EffectKind.HealSelf || effect.Kind == EffectKind.HealOverTime)
+                    return true;
+            return false;
+        }
+
+        /// <summary>这个槽位现在能不能作为治疗目标(表现层据此置灰;引擎在 Cast 里用同一条判据)。
+        /// 玩家(−1)恒可治;召唤物要活着 —— 尸体归复活管,治疗救不回来。</summary>
+        public bool CanHealSlot(int slot)
+        {
+            if (slot == Targeting.PlayerTarget) return true;
+            return slot >= 0 && slot < SummonCap && _summons[slot] != null && _summons[slot].Alive;
+        }
+
         /// <summary>本次出字是否受敌方前排阻挡(2026-08-20,spec §4.2)。
         ///
         /// **只有 DamageSingle 受限**:控制、减益、灼烧、AOE 一律不受排位限制
         /// ——「打不到后面,但够得着冻住、破甲、下毒」。
         ///
         /// 混合字按最严的算:效果里只要含一条 DamageSingle 就受限(如湮 = 直伤 + 全体驱散)。
-        /// 但只要有任一条直伤标了偷袭,整张字就是偷袭字——偷袭是字的身份,不是单条效果的属性。</summary>
+        /// 但只要有任一条直伤标了偷袭,整张字就是偷袭字——偷袭是字的身份,不是单条效果的属性。
+        ///
+        /// 连发(Volley)不受限——它是远程形状,与偷袭一样越阵。</summary>
         public static bool RestrictedToFrontRow(CharDef def, bool attackMode = false)
         {
             bool hasDirectDamage = false;
@@ -847,6 +915,9 @@ namespace Brushblade.Core
             {
                 if (effect.Kind != EffectKind.DamageSingle) continue;
                 if (effect.CanStrikeBackline) return false;
+                // 连发是远程,天然越阵(2026-08-22,spec §3.4)。横扫/顺劈/贯穿照旧受限 ——
+                // 它们只判主目标,溅到的必然在主目标够得着的范围内
+                if (effect.Shape == TargetShape.Volley) return false;
                 hasDirectDamage = true;
             }
             return hasDirectDamage;
@@ -1083,13 +1154,20 @@ namespace Brushblade.Core
             {
                 var hot = _playerStatuses.All[i];
                 if (hot.Kind != StatusKind.HealOverTime) continue;
-                if (hot.TargetAll) HealPlayerAndSummons(hot.Magnitude);
-                else
+                if (hot.TargetAll) { HealPlayerAndSummons(hot.Magnitude); continue; }
+
+                // 目标召唤物死了就当场移除,不空转到期(2026-08-22)——空转会让玩家的
+                // 一次出字被隐形浪费。玩家(TargetSlot == PlayerTarget)不会阵亡到这里
+                // 还没被 SettlePlayerBurn 拦下,故不需要同样的判活。
+                if (hot.TargetSlot != Targeting.PlayerTarget
+                    && (hot.TargetSlot < 0 || hot.TargetSlot >= SummonCap
+                        || _summons[hot.TargetSlot] == null || !_summons[hot.TargetSlot].Alive))
                 {
-                    int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, hot.Magnitude);
-                    PlayerHp += healed;
-                    _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+                    _playerStatuses.RemoveEntry(hot);
+                    continue;
                 }
+
+                HealAlly(hot.TargetSlot, hot.Magnitude);
             }
         }
 
@@ -1199,14 +1277,30 @@ namespace Brushblade.Core
         {
             var summon = _summons[summonIndex];
             if (summon == null) return;
+            var passive = summon.Passive;
             // 近战打敌方前排、远程优先打后排(2026-08-20)。全部敌人默认前排时,
             // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
-            int target = Targeting.PickEnemyTargetForSummon(_enemies, summon.Passive?.Ranged ?? false);
-            if (target < 0) return;
-            _events.Add(new BattleEvent(BattleEventKind.SummonAttack, target, summon.Attack, summonIndex));
-            if (summon.Attack > 0)
-                DamageEnemy(target, summon.Attack, Array.Empty<Element>(), summon.Element);
-            ApplySummonOnHit(summon, target);
+            int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false);
+            var shape = passive?.Shape ?? TargetShape.Single;
+            // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
+            if (target < 0 && shape != TargetShape.Volley) return;
+
+            // 形状展开(2026-08-22,spec §7):与玩家侧共用同一个几何函数,不写第二份
+            var hits = Targeting.ExpandTargets(_enemies, target, shape, passive?.Shots ?? 0);
+            int percent = passive == null || passive.ShapePercent <= 0 ? 100 : passive.ShapePercent;
+            for (int t = 0; t < hits.Count; t++)
+            {
+                int tgt = hits[t];
+                if (!_enemies[tgt].Alive) continue;
+                int damage = summon.Attack;
+                // 连发每发全额;形状类的非主目标按 ShapePercent 折算
+                if (t > 0 && shape != TargetShape.Volley && percent != 100)
+                    damage = damage * percent / 100;
+                _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
+                if (damage > 0)
+                    DamageEnemy(tgt, damage, Array.Empty<Element>(), summon.Element);
+                ApplySummonOnHit(summon, tgt);
+            }
         }
 
         /// <summary>标点小妖给其他存活字怪加攻的那一拍(2026-08-15 提取,行为与提取前逐字节一致)。
@@ -1387,7 +1481,7 @@ namespace Brushblade.Core
         }
 
         private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false,
-            IReadOnlyList<int> summonSlots = null)
+            IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
         {
             var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
@@ -1416,24 +1510,45 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
-                        // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
-                        for (int hit = 0; hit < effect.HitCount; hit++)
+                    {
+                        // 形状展开(2026-08-22,spec §5):目标表首项是主目标,只有它吃
+                        // 斩杀/多段/穿透;其余按 ShapePercent 折算。Shape 缺省 Single 时
+                        // 表长恒为 1,整段逐位等价于改造前 —— 恒等性硬线就落在这里。
+                        var shapeTargets = Targeting.ExpandTargets(
+                            _enemies, targetIndex, effect.Shape, effect.Shots);
+                        for (int t = 0; t < shapeTargets.Count; t++)
                         {
-                            if (!_enemies[targetIndex].Alive) break;
-                            if (TryExecuteKill(effect, targetIndex)) break; // 处决:击杀后无需再打
-                            // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
-                            // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
-                            // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
-                            // 目标死了 / 被处决了都不该白摇一次,否则「这一发消耗几个随机数」
-                            // 会取决于目标的血量,复现与调试都会变成噩梦
-                            DamageEnemy(targetIndex,
-                                ScaleByAttack(ExecuteBonus(effect, targetIndex,
-                                    BaseValue(effect, value, _enemies[targetIndex]))),
-                                recipeElements, attacker, crit: RollCrit(),
-                                pierce: effect.Pierce); // 多段:每段各减一次护甲(裁定 4)
+                            int tgt = shapeTargets[t];
+                            bool primary = t == 0;
+                            // 连发每一发都是全额:它没有「主目标 + 溅射」的结构,
+                            // N 发是发数不是衰减(spec §3.3)
+                            int percent = primary || effect.Shape == TargetShape.Volley
+                                ? 100 : effect.ShapePercent;
+                            int hits = primary ? effect.HitCount : 1;
+                            // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
+                            // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
+                            for (int hit = 0; hit < hits; hit++)
+                            {
+                                if (!_enemies[tgt].Alive) break;
+                                if (primary && TryExecuteKill(effect, tgt)) break; // 处决:击杀后无需再打
+                                // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
+                                // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
+                                // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
+                                // 目标死了 / 被处决了都不该白摇一次,否则「这一发消耗几个随机数」
+                                // 会取决于目标的血量,复现与调试都会变成噩梦
+                                int baseValue = BaseValue(effect, value, _enemies[tgt]);
+                                if (primary) baseValue = ExecuteBonus(effect, tgt, baseValue);
+                                int damage = ScaleByAttack(baseValue);
+                                // percent == 100 时**不做乘除**:x * 100 / 100 在整数下虽然等于 x,
+                                // 但跳过它才能让「缺省路径与改前逐字节相同」成为结构性保证而非算术巧合
+                                if (percent != 100) damage = damage * percent / 100;
+                                DamageEnemy(tgt, damage, recipeElements, attacker,
+                                    crit: RollCrit(),
+                                    pierce: primary ? effect.Pierce : 0); // 多段:每段各减一次护甲(裁定 4)
+                            }
                         }
                         break;
+                    }
                     case EffectKind.DamageAll:
                         int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE
                         for (int i = 0; i < aoeCount; i++)
@@ -1688,10 +1803,10 @@ namespace Brushblade.Core
                         _burnPerStack += value;
                         break;
                     case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板);走生克(相生组合可增益)
+                        // 目标可选(2026-08-22,spec §8):生克算的是配方内部的元素关系,
+                        // 与目标是谁无关 —— 治召唤物与治玩家同值
                         int heal = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
-                        int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, heal);
-                        PlayerHp += healed;
-                        _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+                        HealAlly(allySlot, heal);
                         break;
                     case EffectKind.HealAll:
                         HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements, attacker));
@@ -1706,6 +1821,7 @@ namespace Brushblade.Core
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
                             Magnitude = WuxingResolver.ResolveEffect(value, recipeElements, attacker),
                             TurnsLeft = effect.Turns, TargetAll = effect.TargetAll,
+                            TargetSlot = allySlot,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
@@ -1990,6 +2106,25 @@ namespace Brushblade.Core
             }
         }
 
+        /// <summary>把治疗打到一个友方目标上(2026-08-22)。slot = −1 治玩家,否则治该槽召唤物。
+        /// 溢出部分丢弃。事件的 SecondIndex 带槽位 —— 与 Summon 事件报落位槽同一套写法,
+        /// 不为治疗新增事件类型。</summary>
+        private void HealAlly(int slot, int amount)
+        {
+            if (slot == Targeting.PlayerTarget)
+            {
+                int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
+                PlayerHp += healed;
+                _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed, Targeting.PlayerTarget));
+                return;
+            }
+            var summon = _summons[slot];
+            if (summon == null || !summon.Alive) return; // Cast 已拦下,这里是纵深防御
+            int given = Math.Min(summon.MaxHp - summon.Hp, amount);
+            summon.Hp += given;
+            _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
+        }
+
         /// <summary>场上除 self 外还有存活敌人吗(辅助型据此决定加攻还是出手)。</summary>
         private bool HasOtherAliveEnemy(EnemyState self)
         {
@@ -2011,19 +2146,21 @@ namespace Brushblade.Core
             return alive;
         }
 
-        /// <summary>按每排上限 3 给场上敌人定实际站位(2026-08-20)。
-        /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排。
+        /// <summary>按每排上限 3 给场上敌人定实际站位与列(2026-08-20 排,2026-08-22 列)。
+        /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排;
+        /// 列号在**落定的那一排**里现算 —— 被改判的那只要从新排的计数起算,
+        /// 沿用原排的计数会撞号。
         /// 两排都满走不到 —— EnemyCap 6 = 3 + 3,列表长度天然受限。</summary>
-        private void AssignRows()
+        private void AssignSlots()
         {
             int front = 0, back = 0;
             foreach (var enemy in _enemies)
             {
                 bool wantsBack = enemy.Def.Row == EnemyRow.Back;
-                if (wantsBack && back < EnemyRowCap) { enemy.Row = EnemyRow.Back; back++; }
-                else if (!wantsBack && front < EnemyRowCap) { enemy.Row = EnemyRow.Front; front++; }
-                else if (front < EnemyRowCap) { enemy.Row = EnemyRow.Front; front++; }
-                else { enemy.Row = EnemyRow.Back; back++; }
+                if (wantsBack && back < EnemyRowCap) { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
+                else if (!wantsBack && front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
+                else if (front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
+                else { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
             }
         }
 
@@ -2213,18 +2350,27 @@ namespace Brushblade.Core
             // 母体那排满了就落另一排;两排都满(= 场上 6 只)才不分裂。
             if (enemy.Def.Ability == EnemyAbility.Split && !IsSilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
-                int half = (enemy.Hp + 1) / 2;
-                enemy.Hp = half;
-                enemy.HasSplit = true;
-                var clone = new EnemyState(enemy.Def)
+                var cloneRow = RowWithSpace(enemy.Row);
+                int cloneColumn = FreeColumnIn(cloneRow);
+                // 找不到空列则不分裂(spec §6.1)。当前理论不可达——RowWithSpace 只会返回
+                // 一排未满的排,同排列号又互不相同,必有空列——但代码得照 spec 说的话讲,
+                // 不能靠"反正走不到"当隐性前提(2026-08-22)。
+                if (cloneColumn >= 0)
                 {
-                    Hp = half,
-                    BaseAttack = enemy.Attack, // 一次性快照,不是活的引用——分裂出的怪不继承驱散来源
-                    HasSplit = true,
-                    Row = RowWithSpace(enemy.Row),
-                };
-                _enemies.Add(clone);
-                _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
+                    int half = (enemy.Hp + 1) / 2;
+                    enemy.Hp = half;
+                    enemy.HasSplit = true;
+                    var clone = new EnemyState(enemy.Def)
+                    {
+                        Hp = half,
+                        BaseAttack = enemy.Attack, // 一次性快照,不是活的引用——分裂出的怪不继承驱散来源
+                        HasSplit = true,
+                        Row = cloneRow,
+                        Column = cloneColumn,
+                    };
+                    _enemies.Add(clone);
+                    _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
+                }
             }
         }
 
@@ -2236,6 +2382,21 @@ namespace Brushblade.Core
             foreach (var e in _enemies)
                 if (e.Row == preferred) count++;
             return count < EnemyRowCap ? preferred : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
+        }
+
+        /// <summary>该排里没被占用的最小列号(2026-08-22)。分裂出的克隆用它落位。
+        /// 全占满返回 −1 —— 分裂本就被「场上敌人 < 4」的守卫挡在前面,
+        /// 但守卫在别处,这里仍要能表达「没地方站」而不是撞号叠在别人身上。</summary>
+        private int FreeColumnIn(EnemyRow row)
+        {
+            for (int col = 0; col < EnemyRowCap; col++)
+            {
+                bool taken = false;
+                foreach (var e in _enemies)
+                    if (e.Row == row && e.Column == col) { taken = true; break; }
+                if (!taken) return col;
+            }
+            return -1;
         }
 
         private void ResolveDefeat(int enemyIndex)
@@ -2464,7 +2625,7 @@ namespace Brushblade.Core
                             DamageSummon(index, s, enemy.Attack, enemy.Element);
                     break;
 
-                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
+                case BossSkill.Impale: // 洞穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
                 {
                     int front = Targeting.FrontmostSummon(_summons, FrontRowSize);
                     if (front >= 0)

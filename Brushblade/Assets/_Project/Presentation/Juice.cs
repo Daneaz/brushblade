@@ -213,7 +213,8 @@ namespace Brushblade.Presentation
                     // 分开演就成了「先打完,血条才慢半拍地涨」(2026-07-29 实测)
                     case BattleEventKind.Heal:
                         if (e.Amount <= 0) break;
-                        Popup($"+{e.Amount}", Theme.SplitBlue, null);
+                        Popup($"+{e.Amount}", Theme.SplitBlue, e.SecondIndex >= 0
+                            ? summonAnchor?.Invoke(e.SecondIndex) : null);
                         _audio.PlayOneShot(_healClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨血条
                         break;
