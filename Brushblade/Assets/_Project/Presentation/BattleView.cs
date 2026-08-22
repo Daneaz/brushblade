@@ -1292,14 +1292,18 @@ namespace Brushblade.Presentation
         /// 不能变。不能改成「先画前排再画后排」那种按排遍历,列表顺序会与 Battle.Enemies
         /// 错开,打谁就抖谁那套全部指错人。
         ///
-        /// 2026-08-22 固定格位:每排预先按 <see cref="Targeting.RowCapacity"/> 建好 3 个
+        /// 2026-08-22 固定格位:每排预先建好 <see cref="Targeting.RowCapacity"/> 个
         /// 固定格位(Transform 意义上的**子物体顺序**按列 0..2,与上面 i 升序的四个列表顺序
         /// 无关),敌人按 <c>(Row, Column)</c> 落进对应格位,空格位只留一个带
         /// <see cref="LayoutElement"/>(仅 preferredWidth)的透明占位撑宽度,不画任何可见元素。
         /// 这是为了让 <see cref="Ui.Row"/> 的 <c>HorizontalLayoutGroup</c>(子物体整体
-        /// TextAnchor.MiddleCenter,见 Ui.cs)把两排都摆满 3 格再居中 —— 此前前排 2 只、
+        /// TextAnchor.MiddleCenter,见 Ui.cs)把两排都摆满同样多格再居中 —— 此前前排 2 只、
         /// 后排 3 只时各自居中,列对不上。副产品:敌人死后不再因为「按存活数重排」而整体
-        /// 跳位,尸体格位原地不动。</summary>
+        /// 跳位,尸体格位原地不动。
+        ///
+        /// 2026-08-23 例外:某一排**只有一只怪**时该排只建 1 格,由同一个 MiddleCenter
+        /// 把它摆正中(实机反馈:单怪遭遇下铺三格会把它顶到最左)。只有一只时列没有对齐
+        /// 对象,所以这个例外不与上面那条冲突。</summary>
         private void DrawEnemies()
         {
             _enemyRects.Clear();
@@ -1312,20 +1316,34 @@ namespace Brushblade.Presentation
             _hoverPreviewPrimary = -1;
             _hoverPreviewCells.Clear();
 
-            var frontCells = new GameObject[Targeting.RowCapacity];
-            var backCells = new GameObject[Targeting.RowCapacity];
-            for (int c = 0; c < Targeting.RowCapacity; c++)
+            // 每排画几格(2026-08-23 实机反馈):该排**只有一只怪时只建 1 格**,让
+            // HorizontalLayoutGroup 的 MiddleCenter 把它摆到正中 —— 铺满三格时单怪会被
+            // 顶到最左边,看着像站错了位。
+            // 只有一只时「列」没有对齐对象,居中不损失任何信息;两只及以上仍铺满
+            // RowCapacity 格,前后排的列继续对得上(贯穿形状靠的就是这个)。
+            // 数的是**格位上的怪**而非存活数:尸体照样占格(见下面 showAlive 的处理),
+            // 打死一只就让剩下的重新居中会让整排跳位 —— 那正是固定格位要消掉的毛病。
+            int frontCount = 0, backCount = 0;
+            foreach (var e in Battle.Enemies)
+                if (e.Row == EnemyRow.Front) frontCount++; else backCount++;
+
+            var frontCells = new GameObject[frontCount == 1 ? 1 : Targeting.RowCapacity];
+            var backCells = new GameObject[backCount == 1 ? 1 : Targeting.RowCapacity];
+            for (int c = 0; c < frontCells.Length; c++)
             {
                 frontCells[c] = Ui.Panel(_enemyFrontRow, $"EnemySlotFront{c}");
                 frontCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
+            }
+            for (int c = 0; c < backCells.Length; c++)
+            {
                 backCells[c] = Ui.Panel(_enemyBackRow, $"EnemySlotBack{c}");
                 backCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
             }
             // 本次绘制里每排格位是否已被占用(2026-08-22 评审加固)。按**本次绘制**已用掉的
             // 格位算,不读 Transform.childCount —— 预建的空格位本来就在那儿,child 数恒为
             // RowCapacity,读它算不出"谁占了谁没占"。
-            var frontUsed = new bool[Targeting.RowCapacity];
-            var backUsed = new bool[Targeting.RowCapacity];
+            var frontUsed = new bool[frontCells.Length];
+            var backUsed = new bool[backCells.Length];
 
             for (int i = 0; i < Battle.Enemies.Count; i++)
             {
@@ -1349,7 +1367,7 @@ namespace Brushblade.Presentation
                 var cells = front ? frontCells : backCells;
                 var used = front ? frontUsed : backUsed;
                 int col = enemy.Column;
-                if (col < 0 || col >= Targeting.RowCapacity || used[col])
+                if (col < 0 || col >= cells.Length || used[col])
                     col = System.Array.IndexOf(used, false);
                 if (col < 0)
                 {
