@@ -374,5 +374,26 @@
   "battle.phase.run_lost_tower_msg": "卒……墨锭半额结算,纪录保留。",
   "battle.phase.run_lost_stage_msg": "死亡即结算,回地图重整旗鼓。",
   "battle.phase.auto_end_turn_prefix": "AP 耗尽,自动结束回合 · ",
-  "battle.phase.new_turn_prefix": "回合 {turn}:+{apPerTurn} AP,字掉落"
+  "battle.phase.new_turn_prefix": "回合 {turn}:+{apPerTurn} AP,字掉落",
+
+  "battle.hint.initial": "点击字库中的字开始行动",
+  "battle.hint.tutorial.dismantle_demo": "选中【剑】点【拆】——拆出两个部件『佥』『刂』",
+  "battle.hint.tutorial.recompose_demo": "两个部件能拼回去:点提示里的【合 剑】——拆与合互为表里",
+  "battle.hint.tutorial.cast_demo": "选中【剑】点【出】——金克木,一剑斩掉这只木系字怪",
+  "battle.hint.tutorial.pick_reward": "战利品:选中意的字,最多挑 2 个——出过的字不回来,靠拆合再生产",
+  "battle.hint.suggest_empty": "凑齐部件即可合字",
+  "battle.hint.recipe_panel_title": "配字表",
+  "battle.hint.more_chars": "…共 {count} 字",
+  "battle.hint.missing_ingredient": "「{charId}」= {recipe},差「{missing}」",
+  "battle.hint.slot_picking_dragging": "「{charId}」落位中|点空白取消",
+  "battle.hint.kin_variant_label": "同源变体 · 位形互换",
+  "battle.hint.leaf_char": "(独体字,不可拆)",
+  "battle.hint.targeting_enemy": "「{charId}」点击目标敌人|点空白取消",
+  "battle.hint.targeting_ally": "「{charId}」点击治疗目标(玩家或召唤物)|点空白取消",
+  "battle.hint.suffix_tap_again_cast": "|再点即出",
+  "battle.hint.suffix_direct_cast": "|直出:部件不入库直接打出|再点即出",
+  "battle.hint.cast_pick_enemy_target": "「{charId}」:点击目标敌人",
+  "battle.hint.cast_pick_ally_target": "「{charId}」:点击治疗目标(玩家或召唤物)",
+  "battle.hint.slot_picking_multi": "「{charId}」召 {count} 只:选一个位置,从那格起顺延|点空白取消",
+  "battle.hint.slot_picking_single": "「{charId}」:选一个位置安置|点空白取消"
 }

@@ -72,7 +72,7 @@ namespace Brushblade.Presentation
         private int _pendingSummonCount;     // 这张字召几只 = 要点几个位子
         private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
         private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
-        private string _message = "点击字库中的字开始行动";
+        private string _message = Strings.T("battle.hint.initial");
 
         private string _title;          // 关卡标题(顶栏,可选)
         // 局内奇遇能抬高上限(2026-08-04),故以引擎当场值为准;Init 透传的那份只作 Battle 未就绪时的兜底
@@ -836,10 +836,10 @@ namespace Brushblade.Presentation
 
         private static string TutorialText(TutorialStep step) => step switch
         {
-            TutorialStep.DismantleDemo => "选中【剑】点【拆】——拆出两个部件『佥』『刂』",
-            TutorialStep.RecomposeDemo => "两个部件能拼回去:点提示里的【合 剑】——拆与合互为表里",
-            TutorialStep.CastDemo => "选中【剑】点【出】——金克木,一剑斩掉这只木系字怪",
-            TutorialStep.PickReward => "战利品:选中意的字,最多挑 2 个——出过的字不回来,靠拆合再生产",
+            TutorialStep.DismantleDemo => Strings.T("battle.hint.tutorial.dismantle_demo"),
+            TutorialStep.RecomposeDemo => Strings.T("battle.hint.tutorial.recompose_demo"),
+            TutorialStep.CastDemo => Strings.T("battle.hint.tutorial.cast_demo"),
+            TutorialStep.PickReward => Strings.T("battle.hint.tutorial.pick_reward"),
             _ => "",
         };
 
@@ -1795,7 +1795,7 @@ namespace Brushblade.Presentation
             DrawNearMissHints(suggest.NearMisses); // 左侧差字面板:选中与否都显示
             if (_selectedChar != null || _targeting) return; // 选中态:拆合台交给拆字+动作两行
             if (suggest.Composable.Count == 0)
-                Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
+                Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.suggest_empty"), 15, Theme.TextDim);
             // 一行一组配方,**整组必须排得下**(2026-08-21 用户要求)。
             // 合配方读作「火 + 炎 = 焱」:部件 36×2 + 「+」12 + 「=」14 + 结果 60 + 间距 6×4 = 182px,
             // 而拆合台竖栏内宽 304px(0.795–0.985,CardPanel 只有圆角、无内边距)—— 放得下,余 122px。
@@ -1841,7 +1841,7 @@ namespace Brushblade.Presentation
             }
 
             // 一级:属性胶囊竖排(带可合数),点选/再点收起
-            Ui.ThemedLabel(_hintColumn, "配字表", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_hintColumn, Strings.T("battle.hint.recipe_panel_title"), 16, Theme.TextDim, Theme.TitleFont);
             foreach (var key in HintBucketOrder)
             {
                 if (!buckets.TryGetValue(key, out var list)) continue;
@@ -1877,14 +1877,15 @@ namespace Brushblade.Presentation
                     focus ? Color.white : Theme.ElementColor(def.Element), 15, new Vector2(38, 36), 8);
             }
             if (bucketChars.Count > maxShown)
-                Ui.ThemedLabel(_hintColumn, $"…共 {bucketChars.Count} 字", 13, Theme.TextDim);
+                Ui.ThemedLabel(_hintColumn, Strings.T("battle.hint.more_chars", ("count", bucketChars.Count)), 13, Theme.TextDim);
 
             // 三级:差什么
             if (focused is { } target)
             {
                 var def = _graph.Get(target.CharId);
                 Ui.ThemedLabel(_hintColumn,
-                    $"「{target.CharId}」= {string.Join("+", def.Recipe)},差「{target.MissingIngredient}」",
+                    Strings.T("battle.hint.missing_ingredient", ("charId", target.CharId),
+                        ("recipe", string.Join("+", def.Recipe)), ("missing", target.MissingIngredient)),
                     14, Theme.TextMain);
             }
         }
@@ -1911,7 +1912,7 @@ namespace Brushblade.Presentation
             // 「取消」按钮 2026-08-21 随整排一起移除 —— 点空白即取消(Backdrop)。
             if (_slotPicking)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_pendingSummonChar}」落位中|点空白取消", 16, Theme.TextMain);
+                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar)), 16, Theme.TextMain);
                 return;
             }
             if (_selectedChar == null) return;
@@ -1955,25 +1956,25 @@ namespace Brushblade.Presentation
                         Ui.RoundButton(head, kin, null,
                             Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
                     }
-                    Ui.ThemedLabel(_suggestRow, "同源变体 · 位形互换", 13, Theme.TextDim);
+                    Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.kin_variant_label"), 13, Theme.TextDim);
                 }
                 else
                 {
-                    Ui.ThemedLabel(_suggestRow, "(独体字,不可拆)", 14, Theme.TextDim);
+                    Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.leaf_char"), 14, Theme.TextDim);
                 }
             }
 
             // 第二行(动作)
             if (_targeting)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人|点空白取消", 16, Theme.TextMain);
+                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.targeting_enemy", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
             // 治疗选目标态(2026-08-22):同 _targeting 一样只画一句提示——再点一次「出」
             // 会走 OnCastPressed → BeginCast,把这个待选态悄悄重置。
             if (_allyTargeting)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击治疗目标(玩家或召唤物)|点空白取消", 16, Theme.TextMain);
+                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
             bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
@@ -2663,7 +2664,7 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
-            _message = Brief(charId) + "|再点即出";
+            _message = Brief(charId) + Strings.T("battle.hint.suffix_tap_again_cast");
             Refresh();
         }
 
@@ -2679,7 +2680,7 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             ResetSlotPicking();
-            _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
+            _message = Brief(charId) + Strings.T("battle.hint.suffix_direct_cast");
             Refresh();
         }
 
@@ -2691,7 +2692,7 @@ namespace Brushblade.Presentation
             if (BattleEngine.NeedsTarget(def) && LegalTargetCount(def, attackMode: false) > 1)
             {
                 _targeting = true;
-                _message = $"「{def.Id}」:点击目标敌人";
+                _message = Strings.T("battle.hint.cast_pick_enemy_target", ("charId", def.Id));
                 Refresh();
                 return;
             }
@@ -2701,7 +2702,7 @@ namespace Brushblade.Presentation
             if (BattleEngine.NeedsAllyTarget(def) && Battle.AliveSummonCount > 0)
             {
                 _allyTargeting = true;
-                _message = $"「{def.Id}」:点击治疗目标(玩家或召唤物)";
+                _message = Strings.T("battle.hint.cast_pick_ally_target", ("charId", def.Id));
                 Refresh();
                 return;
             }
@@ -2778,8 +2779,8 @@ namespace Brushblade.Presentation
         }
 
         private string SlotPickMessage() => _pendingSummonCount > 1
-            ? $"「{_pendingSummonChar}」召 {_pendingSummonCount} 只:选一个位置,从那格起顺延|点空白取消"
-            : $"「{_pendingSummonChar}」:选一个位置安置|点空白取消";
+            ? Strings.T("battle.hint.slot_picking_multi", ("charId", _pendingSummonChar), ("count", _pendingSummonCount))
+            : Strings.T("battle.hint.slot_picking_single", ("charId", _pendingSummonChar));
 
         /// <summary>选定一个召唤位,当场结算(2026-08-21 用户拍板:**只选一次**)。
         ///
