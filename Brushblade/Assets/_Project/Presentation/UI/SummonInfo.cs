@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using Brushblade.Core;
+using Brushblade.Data;
 
 namespace Brushblade.Presentation
 {
@@ -16,16 +17,17 @@ namespace Brushblade.Presentation
         public static string Detail(SummonState summon)
         {
             var sb = new StringBuilder();
-            sb.Append($"血 {summon.Hp}/{summon.MaxHp}    攻 {summon.Attack}");
-            if (summon.Shield > 0) sb.Append($"    盾 {summon.Shield}");
+            sb.Append(Strings.T("summon.detail.stats",
+                ("hp", summon.Hp), ("maxHp", summon.MaxHp), ("attack", summon.Attack)));
+            if (summon.Shield > 0) sb.Append(Strings.T("summon.detail.shield", ("shield", summon.Shield)));
             sb.Append('\n');
 
             // 顶前排的口径按 BattleEngine:承伤只由**最前的**存活召唤物整个吃下(不溢出),
             // 出手打的是第一个存活敌人。攻 0 的(烓/灶)照常出手,输出全在被动上。
-            sb.Append("顶前排:排在最前时替你挡下敌人的整次攻击\n");
+            sb.Append(Strings.T("summon.detail.front_role"));
             sb.Append(summon.Attack > 0
-                ? "攒满行动条时攻击最前的敌人\n"
-                : "攒满行动条时出手,伤害为 0,靠下面的被动打人\n");
+                ? Strings.T("summon.detail.action_attack")
+                : Strings.T("summon.detail.action_passive_only"));
 
             string passive = PassiveText(summon.Passive);
             if (passive.Length > 0) sb.Append(passive).Append('\n');
@@ -42,18 +44,18 @@ namespace Brushblade.Presentation
             if (passive == null) return "";
             if (passive.OnHitBurn > 0)
                 return passive.OnHitBurnAll
-                    ? $"全场灼{passive.OnHitBurn}:每次出手把所有敌人的灼烧刷到 {passive.OnHitBurn} 层"
-                    : $"附灼{passive.OnHitBurn}:每次出手把目标的灼烧刷到 {passive.OnHitBurn} 层";
+                    ? Strings.T("summon.passive.burn_all", ("burn", passive.OnHitBurn))
+                    : Strings.T("summon.passive.burn_single", ("burn", passive.OnHitBurn));
             if (passive.Thorns > 0)
-                return $"反伤{passive.Thorns}:被攻击时反弹 {passive.Thorns} 点伤害,不走生克、无视护甲";
+                return Strings.T("summon.passive.thorns", ("thorns", passive.Thorns));
             if (passive.HealAlly > 0)
-                return $"回血{passive.HealAlly}:每回合给你和所有召唤物各回 {passive.HealAlly} 点血";
+                return Strings.T("summon.passive.heal_ally", ("heal", passive.HealAlly));
             if (passive.OnHitCurse > 0)
-                return $"诅咒{passive.OnHitCurse}%:每次出手让目标攻击力降低 {passive.OnHitCurse}%";
+                return Strings.T("summon.passive.curse", ("curse", passive.OnHitCurse));
             if (passive.Dodge > 0)
-                return $"闪避{passive.Dodge}%:被攻击时有 {passive.Dodge}% 概率躲开";
+                return Strings.T("summon.passive.dodge", ("dodge", passive.Dodge));
             if (passive.Speed > 100)
-                return $"疾:速度 {passive.Speed}(常规 100),行动条攒得更快";
+                return Strings.T("summon.passive.haste", ("speed", passive.Speed));
             return "";
         }
 
@@ -66,7 +68,9 @@ namespace Brushblade.Presentation
             {
                 if (other == self) continue;
                 if (WuxingResolver.KeMultiplier(self, other) > 1f)
-                    sb.Append($"克{CharInfo.ElementName(other)} ×{WuxingResolver.KeMultiplier(self, other):0.##}");
+                    sb.Append(Strings.T("summon.wuxing.counters",
+                        ("element", CharInfo.ElementName(other)),
+                        ("multiplier", WuxingResolver.KeMultiplier(self, other).ToString("0.##"))));
             }
             foreach (Element other in Enum.GetValues(typeof(Element)))
             {
@@ -74,7 +78,7 @@ namespace Brushblade.Presentation
                 if (WuxingResolver.KeMultiplier(other, self) > 1f)
                 {
                     if (sb.Length > 0) sb.Append(" · ");
-                    sb.Append($"被{CharInfo.ElementName(other)}克");
+                    sb.Append(Strings.T("summon.wuxing.countered_by", ("element", CharInfo.ElementName(other))));
                 }
             }
             return sb.ToString();
