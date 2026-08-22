@@ -2513,7 +2513,7 @@ namespace Brushblade.Core
                             DamageSummon(index, s, enemy.Attack, enemy.Element);
                     break;
 
-                case BossSkill.Pierce: // 贯穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
+                case BossSkill.Impale: // 洞穿:一击穿过前排,同时打中后面的玩家(本就是 ×2)
                 {
                     int front = Targeting.FrontmostSummon(_summons, FrontRowSize);
                     if (front >= 0)

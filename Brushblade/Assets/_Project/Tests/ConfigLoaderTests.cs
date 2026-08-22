@@ -239,7 +239,7 @@ namespace Brushblade.Core.Tests
             var moHai = campaign.Endless.Bands[campaign.Endless.Bands.Count - 1];
             var daoShan = moHai.IdiomBossPool[0];
             Assert.That(daoShan.Chars, Is.EqualTo("刀山火海"));
-            Assert.That(daoShan.Skills[0], Is.EqualTo(BossSkill.Pierce));  // 刀
+            Assert.That(daoShan.Skills[0], Is.EqualTo(BossSkill.Impale));  // 刀
             Assert.That(daoShan.Skills[1], Is.EqualTo(BossSkill.Bulwark)); // 山
             Assert.That(daoShan.Skills[2], Is.EqualTo(BossSkill.Devour));  // 火
             Assert.That(daoShan.Skills[3], Is.EqualTo(BossSkill.Deluge));  // 海

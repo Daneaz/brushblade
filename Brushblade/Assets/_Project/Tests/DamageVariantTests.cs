@@ -790,14 +790,14 @@ namespace Brushblade.Core.Tests
         public void Reflect_DoesNotDuplicateDeathWhenBossDiesToThornsBeforePierceLands()
         {
             // 评审 Important 3(2026-08-08):`_enemies[enemyIndex].Alive` 守卫之前零覆盖,而它挡的
-            // 是真实可达路径——BossSkill.Pierce 先 DamageSummon(可能触发召唤物 荆 的反伤打死
+            // 是真实可达路径——BossSkill.Impale 先 DamageSummon(可能触发召唤物 荆 的反伤打死
             // Boss)再 DamagePlayerDirect,此时 enemyIndex 上已是一具尸体。少了守卫,反弹会对
             // 死尸再补一刀,走进 DamageEnemy 触发第二次 ResolveDefeat,发出重复的 EnemyDied 事件
             // (表现层会把死亡动效播两遍)。
             // 3 血的 Boss:召唤物 棘(反伤 3)在 Pierce 打它那一步正好把它扎死;紧接着 Pierce
             // 还会无条件打玩家一下,玩家带着反弹——若漏了 Alive 守卫就会对死 Boss 补刀。
             var boss = new EnemyDef("觥", Element.Heart, 3, 4,
-                phases: new[] { new BossPhaseDef("觥", Element.Heart, 3, 4, skill: BossSkill.Pierce) });
+                phases: new[] { new BossPhaseDef("觥", Element.Heart, 3, 4, skill: BossSkill.Impale) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50, BossChargeEvery = 1 };
             var engine = Engine(new[] { "棘", "映" }, new[] { boss }, config);
             engine.Cast("棘");                        // 召唤反伤 3(荆)

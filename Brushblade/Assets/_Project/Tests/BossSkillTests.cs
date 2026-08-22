@@ -268,7 +268,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = new BattleEngine(Graph(), new BattleConfig { BossPhaseJitterPercent = 0 },
                 new[] { "铠", "林" }, new[] { "火", "盾", "火", "盾" },
-                new[] { SkillBoss(BossSkill.Pierce) }, seed: 1);
+                new[] { SkillBoss(BossSkill.Impale) }, seed: 1);
             engine.Cast("铠");   // 护甲 +2(只保护玩家)
             engine.EndTurn();    // 敌方回合 1:普攻(此时无召唤物,落在玩家身上)
             engine.Cast("林");   // 2 只 6 血木召唤
@@ -281,7 +281,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Pierce_HitsFrontSummonAndPlayerDouble()
         {
-            var engine = Engine(BossSkill.Pierce);
+            var engine = Engine(BossSkill.Impale);
             engine.EndTurn();   // 先走掉普攻回合,免得把最前一只磨死
             engine.Cast("林");   // 2 只 6 血
             int full = engine.PlayerHp;
@@ -296,7 +296,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Pierce_WithoutSummons_StillHitsPlayerDouble()
         {
-            var engine = Engine(BossSkill.Pierce);
+            var engine = Engine(BossSkill.Impale);
             int full = engine.PlayerHp;
 
             EndTurns(engine, 4);
@@ -488,12 +488,12 @@ namespace Brushblade.Core.Tests
             {
                 Chars = "刀山火海",
                 Elements = new[] { Element.Metal, Element.Earth, Element.Fire, Element.Water },
-                Skills = new[] { BossSkill.Pierce, BossSkill.Bulwark, BossSkill.Devour, BossSkill.Deluge },
+                Skills = new[] { BossSkill.Impale, BossSkill.Bulwark, BossSkill.Devour, BossSkill.Deluge },
             };
 
             var boss = EndlessGenerator.BuildIdiomBoss(idiom);
 
-            Assert.That(boss.Phases[0].Skill, Is.EqualTo(BossSkill.Pierce));
+            Assert.That(boss.Phases[0].Skill, Is.EqualTo(BossSkill.Impale));
             Assert.That(boss.Phases[1].Skill, Is.EqualTo(BossSkill.Bulwark));
             Assert.That(boss.Phases[3].Skill, Is.EqualTo(BossSkill.Deluge));
         }

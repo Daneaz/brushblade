@@ -37,7 +37,9 @@ namespace Brushblade.Core
     {
         None,
         Deluge, // 淹没:玩家 + 全部召唤物各挨一下(群攻)
-        Pierce, // 贯穿:最前召唤物挨一下 + 玩家挨双倍(穿透)
+        Impale, // 洞穿:最前召唤物挨一下 + 玩家挨双倍(穿透)
+                // 2026-08-22 从 Pierce 改名 —— 「贯穿」这个中文名让给了 TargetShape.Skewer,
+                // 而代码名 Pierce 同时还是 EffectDef.Pierce(护甲穿透点数),一名三用读不清
         Topple, // 倾覆:伤害 + 清空护盾 + 下回合 AP −1(剥夺)
         Devour, // 吞噬:消灭最前召唤物(不回血);无召唤物则普攻玩家
         Bulwark, // 坚壁:被动高护甲,该阶段不蓄力
