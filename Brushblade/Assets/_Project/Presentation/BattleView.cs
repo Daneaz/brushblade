@@ -234,6 +234,18 @@ namespace Brushblade.Presentation
                     _juice.BarPulse(_playerShieldBar.fill, Theme.Jade, Element.Earth); // 土:盾条起势
                     break;
                 case BattleEventKind.Heal: // 水系治疗:与群攻同一记里触达,血条即时上推(此前只在末次重绘才涨)
+                    // SecondIndex ≥0 = 治疗落在召唤物身上,推那只召唤物的血条(镜像 SummonHit,只是方向向上)
+                    if (e.SecondIndex >= 0)
+                    {
+                        int hsi = e.SecondIndex;
+                        if (hsi >= Battle.Summons.Count || Battle.Summons[hsi] == null
+                            || !_summonAnimHp.ContainsKey(hsi)
+                            || !_summonBarByCore.TryGetValue(hsi, out var hbar) || hbar.fill == null) break;
+                        _summonAnimHp[hsi] = System.Math.Min(Battle.Summons[hsi].Hp, _summonAnimHp[hsi] + e.Amount);
+                        SetHpBar(hbar, _summonAnimHp[hsi], Battle.Summons[hsi].MaxHp);
+                        _juice.BarPulse(hbar.fill, Theme.SplitBlue, Element.Water); // 水:血条起势
+                        break;
+                    }
                     if (_playerHpBar.fill == null) break;
                     _animPlayerHp = System.Math.Min(Battle.PlayerHp, _animPlayerHp + e.Amount);
                     SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
