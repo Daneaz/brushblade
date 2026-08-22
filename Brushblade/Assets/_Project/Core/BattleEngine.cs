@@ -852,7 +852,13 @@ namespace Brushblade.Core
         /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。
         ///
         /// 连发(Volley)**不需要选目标** —— 它的目标全自动(后排优先循环补足),
-        /// 交互上与 AOE 同档:点了就打。漏掉这条会让玩家对着一张自动字白点一次选目标。</summary>
+        /// 交互上与 AOE 同档:点了就打。漏掉这条会让玩家对着一张自动字白点一次选目标。
+        ///
+        /// ⚠ 2026-08-06 C1 那次崩溃是靠 `_enemies[-1]` 越界抛异常才被发现的(见上面提到的旧账);
+        /// 但目标形状改造(2026-08-22)之后,ApplyEffects 走的是 Targeting.ExpandTargets ——
+        /// primaryIndex 越界(含 −1)时它直接返回空表,循环体一次不进,不再抛异常。也就是说
+        /// 这条白名单如果将来又漏了哪个新 Kind,不会再有响亮的崩溃把它带回评审台面,只会悄悄
+        /// 变成「点了没反应」。别以为「没崩就是漏判已经堵上了」。</summary>
         public static bool NeedsTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
@@ -2344,20 +2350,27 @@ namespace Brushblade.Core
             // 母体那排满了就落另一排;两排都满(= 场上 6 只)才不分裂。
             if (enemy.Def.Ability == EnemyAbility.Split && !IsSilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
-                int half = (enemy.Hp + 1) / 2;
-                enemy.Hp = half;
-                enemy.HasSplit = true;
                 var cloneRow = RowWithSpace(enemy.Row);
-                var clone = new EnemyState(enemy.Def)
+                int cloneColumn = FreeColumnIn(cloneRow);
+                // 找不到空列则不分裂(spec §6.1)。当前理论不可达——RowWithSpace 只会返回
+                // 一排未满的排,同排列号又互不相同,必有空列——但代码得照 spec 说的话讲,
+                // 不能靠"反正走不到"当隐性前提(2026-08-22)。
+                if (cloneColumn >= 0)
                 {
-                    Hp = half,
-                    BaseAttack = enemy.Attack, // 一次性快照,不是活的引用——分裂出的怪不继承驱散来源
-                    HasSplit = true,
-                    Row = cloneRow,
-                    Column = FreeColumnIn(cloneRow),
-                };
-                _enemies.Add(clone);
-                _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
+                    int half = (enemy.Hp + 1) / 2;
+                    enemy.Hp = half;
+                    enemy.HasSplit = true;
+                    var clone = new EnemyState(enemy.Def)
+                    {
+                        Hp = half,
+                        BaseAttack = enemy.Attack, // 一次性快照,不是活的引用——分裂出的怪不继承驱散来源
+                        HasSplit = true,
+                        Row = cloneRow,
+                        Column = cloneColumn,
+                    };
+                    _enemies.Add(clone);
+                    _events.Add(new BattleEvent(BattleEventKind.EnemySplit, enemyIndex, half));
+                }
             }
         }
 

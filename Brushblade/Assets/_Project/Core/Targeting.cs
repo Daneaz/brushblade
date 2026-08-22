@@ -12,8 +12,10 @@ namespace Brushblade.Core
         /// <summary>PickAllyTarget 的返回值:打玩家本人,而不是某个召唤物槽位。</summary>
         public const int PlayerTarget = -1;
 
-        /// <summary>每排的列数(2026-08-22)。敌我两侧同为 3 —— BattleEngine.EnemyRowCap
-        /// 与 FrontRowSize 都是这个数,写在这里是为了让形状裁定不必反向依赖引擎。</summary>
+        /// <summary>每排的列数(2026-08-22)。BattleEngine.EnemyRowCap 转引这个数
+        /// (敌方每排上限);写在这里是为了让形状裁定不必反向依赖引擎。
+        /// 召唤物侧的 FrontRowSize 是另一回事——那是召唤物前排的槽位数,与敌方每排列数
+        /// 没有耦合,两者恰好同为 3 纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
         public const int RowCapacity = 3;
 
         /// <summary>敌人选我方目标。返回召唤物槽位,或 <see cref="PlayerTarget"/>。
@@ -46,7 +48,7 @@ namespace Brushblade.Core
             return pool.Count == 1 ? pool[0] : pool[random.Next(pool.Count)];
         }
 
-        /// <summary>「最前召唤物」(Boss 贯穿 / 吞噬):前排槽序最小的存活者;前排全空则取后排。
+        /// <summary>「最前召唤物」(Boss 洞穿 / 吞噬):前排槽序最小的存活者;前排全空则取后排。
         /// 全空返回 −1。
         ///
         /// 槽位是 0..5 且前排恰是低位段,所以本函数与「从 0 扫到末尾取第一个存活」等价——
