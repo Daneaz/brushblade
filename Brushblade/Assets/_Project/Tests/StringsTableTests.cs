@@ -22,13 +22,43 @@ namespace Brushblade.Core.Tests
         private static readonly Regex CallRe =
             new Regex(@"Strings\.T\(\s*""([^""]+)""", RegexOptions.Compiled);
 
-        // ("name",  —— 抓命名占位符实参。跟在 key 之后的元组实参都长这样
-        private static readonly Regex ArgRe =
-            new Regex(@"\(\s*""(\w+)""\s*,", RegexOptions.Compiled);
+        // 紧跟在顶层 "(" 之后的 "name", —— 一个顶层元组实参的名字
+        private static readonly Regex ArgHeadRe =
+            new Regex(@"^\s*""(\w+)""\s*,", RegexOptions.Compiled);
 
         // {name}  —— 抓模板里的占位符
         private static readonly Regex PlaceholderRe =
             new Regex(@"\{(\w+)\}", RegexOptions.Compiled);
+
+        /// <summary>从「key 之后到调用收尾括号」这段文本里,只挑出**顶层**元组实参的名字。
+        ///
+        /// 只在括号深度为 0(即紧跟在 T(...) 的参数列表最外层)时才把 `("name",` 认成一个占位符实参;
+        /// 深度 ≥1 的括号——比如 `MetaStore.GetInt("gold_key", 0)`、`x.ToString("F2", CultureInfo...)`
+        /// 这类嵌套调用——一律不认,避免把嵌套调用的首个字符串实参误当成调用点提供的占位符
+        /// (2026-08-22 code review 抓到:会在完全正确的代码上报假红)。</summary>
+        internal static HashSet<string> TopLevelArgNames(string tail)
+        {
+            var names = new HashSet<string>();
+            int depth = 0;
+            for (int i = 0; i < tail.Length; i++)
+            {
+                if (tail[i] == '(')
+                {
+                    if (depth == 0)
+                    {
+                        var head = ArgHeadRe.Match(tail.Substring(i + 1));
+                        if (head.Success) names.Add(head.Groups[1].Value);
+                    }
+                    depth++;
+                }
+                else if (tail[i] == ')')
+                {
+                    depth--;
+                    if (depth < 0) break; // 这个 ')' 关闭的是外层 T(...) 调用本身,后面不再有实参
+                }
+            }
+            return names;
+        }
 
         private static DirectoryInfo RepoRoot()
         {
@@ -55,7 +85,7 @@ namespace Brushblade.Core.Tests
                 var src = File.ReadAllText(file);
                 foreach (Match m in CallRe.Matches(src))
                 {
-                    // 从 key 之后一路读到调用的收尾括号,期间的元组实参就是占位符
+                    // 从 key 之后一路读到调用的收尾括号,期间的顶层元组实参就是占位符
                     int i = m.Index + m.Length, depth = 1;
                     while (i < src.Length && depth > 0)
                     {
@@ -64,7 +94,7 @@ namespace Brushblade.Core.Tests
                         i++;
                     }
                     var tail = src.Substring(m.Index + m.Length, Math.Max(0, i - m.Index - m.Length));
-                    var args = new HashSet<string>(ArgRe.Matches(tail).Cast<Match>().Select(a => a.Groups[1].Value));
+                    var args = TopLevelArgNames(tail);
                     int line = src.Take(m.Index).Count(c => c == '\n') + 1;
                     calls.Add((m.Groups[1].Value, args, $"{Path.GetFileName(file)}:{line}"));
                 }
@@ -110,6 +140,45 @@ namespace Brushblade.Core.Tests
                     problems.Add($"{call.Where} [{call.Key}] 调用点给了 {extra} 但模板里没有");
             }
             Assert.That(problems, Is.Empty, string.Join("\n", problems));
+        }
+
+        [Test]
+        public void TopLevelArgNames_IgnoresNestedCallArgs()
+        {
+            // 复现 review 抓到的假红:嵌套调用 MetaStore.GetInt("gold_key", 0) 的首个字符串实参
+            // 不该被当成 T(...) 的顶层占位符。
+            var names = TopLevelArgNames(@", (""count"", MetaStore.GetInt(""gold_key"", 0)))");
+            Assert.That(names, Is.EquivalentTo(new[] { "count" }));
+        }
+
+        [Test]
+        public void TopLevelArgNames_IgnoresToStringFormatAndCulture()
+        {
+            // 换成常见的 .ToString("F2", CultureInfo.InvariantCulture) 同样不该误抓 "F2"。
+            var names = TopLevelArgNames(
+                @", (""val"", x.ToString(""F2"", CultureInfo.InvariantCulture)))");
+            Assert.That(names, Is.EquivalentTo(new[] { "val" }));
+        }
+
+        [Test]
+        public void TopLevelArgNames_HandlesPlainInlineTuple()
+        {
+            var names = TopLevelArgNames(@", (""count"", 3))");
+            Assert.That(names, Is.EquivalentTo(new[] { "count" }));
+        }
+
+        [Test]
+        public void TopLevelArgNames_HandlesMultipleTopLevelTuples()
+        {
+            var names = TopLevelArgNames(@", (""a"", 1), (""b"", 2))");
+            Assert.That(names, Is.EquivalentTo(new[] { "a", "b" }));
+        }
+
+        [Test]
+        public void TopLevelArgNames_HandlesZeroArgs()
+        {
+            var names = TopLevelArgNames(")");
+            Assert.That(names, Is.Empty);
         }
     }
 }
