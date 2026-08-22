@@ -284,5 +284,119 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Cast("剑", 0), Is.EqualTo(BattleError.None), "整场没有前排,直伤全场可点");
             Assert.That(engine.Enemies[0].Hp, Is.LessThan(hp));
         }
+
+        /// <summary>摆一个敌阵:每项 (row, column),按顺序建满血敌人。</summary>
+        private static List<EnemyState> Grid(params (EnemyRow Row, int Column)[] slots)
+        {
+            var list = new List<EnemyState>();
+            foreach (var (row, column) in slots)
+            {
+                var def = new EnemyDef($"怪{list.Count}", Element.Heart, 100, 10, row: row);
+                var state = new EnemyState(def, 0, null) { Row = row, Column = column };
+                list.Add(state);
+            }
+            return list;
+        }
+
+        [Test]
+        public void Expand_Single_ReturnsOnlyPrimary()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1));
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Single, 0),
+                Is.EqualTo(new[] { 0 }));
+        }
+
+        [Test]
+        public void Expand_Sweep_TakesWholeRow_PrimaryFirst()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1),
+                (EnemyRow.Front, 2), (EnemyRow.Back, 0));
+            var hit = Targeting.ExpandTargets(grid, 1, TargetShape.Sweep, 0);
+            Assert.That(hit[0], Is.EqualTo(1), "首项恒为主目标");
+            Assert.That(hit, Is.EquivalentTo(new[] { 0, 1, 2 }), "整排三只,后排那只不中");
+        }
+
+        [Test]
+        public void Expand_Cleave_TakesAdjacentColumnsOnly()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Front, 2));
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Cleave, 0),
+                Is.EquivalentTo(new[] { 0, 1, 2 }), "打中间:两侧都溅到");
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Cleave, 0),
+                Is.EquivalentTo(new[] { 0, 1 }), "打边格:只溅一侧,不递补");
+        }
+
+        [Test]
+        public void Expand_Cleave_DoesNotJumpOverEmptyColumn()
+        {
+            // 1 号列空着:0 号打不到 2 号 —— 形状是几何,不是「保证打满 K 个」
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 2));
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Cleave, 0),
+                Is.EqualTo(new[] { 0 }));
+        }
+
+        [Test]
+        public void Expand_Skewer_TakesColumnAcrossRows()
+        {
+            var grid = Grid((EnemyRow.Front, 1), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Skewer, 0),
+                Is.EquivalentTo(new[] { 0, 1 }), "同列的前后两只,别的列不中");
+        }
+
+        [Test]
+        public void Expand_SkipsCorpses()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Front, 2));
+            grid[2].Hp = 0;
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Sweep, 0),
+                Is.EquivalentTo(new[] { 0, 1 }), "尸体不吃形状伤害");
+        }
+
+        [Test]
+        public void Expand_Volley_PrefersBackRowByColumn()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3),
+                Is.EqualTo(new[] { 2, 1, 0 }), "后排按列序在先(列 0 的下标 2、列 1 的下标 1),再轮到前排");
+        }
+
+        [Test]
+        public void Expand_Volley_CyclesWhenTargetsFewerThanShots()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1));
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 4),
+                Is.EqualTo(new[] { 0, 1, 0, 1 }), "不足 N 循环补足,表里允许重复下标");
+        }
+
+        [Test]
+        public void Expand_Volley_SoleEnemy_TakesAllShots()
+        {
+            // 单敌 Boss 战:连发退化为满额 N 倍单体(spec §3.3 的已知后果,配值时按 N 发全中定基础值)
+            var grid = Grid((EnemyRow.Front, 0));
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3),
+                Is.EqualTo(new[] { 0, 0, 0 }));
+        }
+
+        [Test]
+        public void Expand_Volley_NoAliveEnemy_ReturnsEmpty()
+        {
+            var grid = Grid((EnemyRow.Front, 0));
+            grid[0].Hp = 0;
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3), Is.Empty);
+        }
+
+        [Test]
+        public void Expand_DoesNotConsumeRandomness()
+        {
+            // 硬要求:形状展开不摇随机数,否则上千条带种子的既有测试会整体位移
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Back, 0));
+            var random = new GameRandom(42);
+            int before = random.Next(1000);
+            Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0);
+            Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5);
+            var fresh = new GameRandom(42);
+            fresh.Next(1000);
+            Assert.That(random.Next(1000), Is.EqualTo(fresh.Next(1000)), "展开前后随机流一致");
+        }
     }
 }
