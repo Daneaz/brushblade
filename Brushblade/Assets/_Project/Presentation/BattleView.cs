@@ -57,6 +57,10 @@ namespace Brushblade.Presentation
         private string _selectedChar;   // 当前选中的字/部件
         private int _selectedIndex = -1; // 选中的字库卡位(同字多张时区分是哪张,2026-08-17);部件池选中为 −1
         private bool _targeting;        // 等待点击敌人
+        // 治疗选目标(2026-08-22):单体治疗字出字前先点一个友方(玩家或某只存活召唤物)。
+        // 与 _targeting 同构,只是点击面对象从敌人换成我方——选中的仍是 _selectedChar,
+        // 落点走 Cast 的 allySlot 参数(Targeting.PlayerTarget = 玩家)。
+        private bool _allyTargeting;
         // 召唤落位(2026-08-20):出召唤字先点位子,攒够只数才真正 Cast。
         // 槽位攒在这里、没调 Cast 之前引擎一无所知 —— 连选途中取消整张字天然回滚。
         private bool _slotPicking;      // 等待点击召唤位
@@ -444,7 +448,7 @@ namespace Brushblade.Presentation
             backdropButton.targetGraphic = backdropImage;
             backdropButton.onClick.AddListener(() =>
             {
-                if (_selectedChar != null || _targeting || _slotPicking) CancelSelection();
+                if (_selectedChar != null || _targeting || _slotPicking || _allyTargeting) CancelSelection();
             });
 
             // 顶栏一行三段(2026-08-21 用户拍板):关卡名·层数·场次(左) | 战斗提示(中) | 墨锭·回合·退出(右)。
@@ -988,6 +992,14 @@ namespace Brushblade.Presentation
                 element.preferredWidth = 18;
                 element.preferredHeight = 18;
             }
+
+            // 治疗选目标态(2026-08-22):玩家血条区整体点亮为「治玩家」的点击面。
+            // 必须在 hpStack 的其余子物件都画完之后再挂——覆盖层要盖在最上面才吃得到点击
+            // (与 AttachAllyTargetPicker/AttachSlotPicker 同一套「整格覆盖层」做法)。
+            // 判据走 Battle.CanHealSlot(Targeting.PlayerTarget),不是恒真的假设——
+            // 万一以后这条规则改了,表现层不必跟着改。
+            if (_allyTargeting && Battle.CanHealSlot(Targeting.PlayerTarget))
+                AttachAllyTargetPicker(hpStack.transform, Targeting.PlayerTarget);
         }
 
         // 召唤格尺寸(2026-08-20 四排改造)。每排 3 格而不是 6 格,格宽从 ~54 翻到 180,
@@ -1056,6 +1068,11 @@ namespace Brushblade.Presentation
                 if (passiveTag.Length > 0)
                     Ui.ThemedLabel(stats, passiveTag, 11, Theme.Cinnabar);
                 if (_slotPicking) AttachSlotPicker(cell.transform, summonIndex);
+                // 治疗选目标态(2026-08-22):判据走 Battle.CanHealSlot,不是「反正画出来的
+                // 都是存活的所以恒真」——这里就是与 Cast 内部同一条判据的落地,规则改了
+                // 这里自动跟着改,不必表现层另猜一遍。
+                else if (_allyTargeting && Battle.CanHealSlot(summonIndex))
+                    AttachAllyTargetPicker(cell.transform, summonIndex);
             }
         }
 
@@ -1129,12 +1146,52 @@ namespace Brushblade.Presentation
             button.onClick.AddListener(() => OnSlotPicked(slot));
         }
 
-        /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称。
-        /// 死尸在动画期仍画得出,但点它没有意义 —— 下标越界/已死一律不弹。</summary>
+        /// <summary>治疗选目标态的整格点击层(2026-08-22),与 <see cref="AttachSlotPicker"/> 同款做法:
+        /// 盖满一格吃下点击,而不是只挂在字块/血条这类小面积上——移动端手指落点粗。
+        /// <paramref name="cell"/> 在召唤物是格子的 VStack,在玩家是 <c>Hp</c> 那个 VStack,
+        /// 两处都要 <c>ignoreLayout</c>,否则这层覆盖会被当成一行排进布局,把整格挤变形。</summary>
+        private void AttachAllyTargetPicker(Transform cell, int slot)
+        {
+            var overlay = Ui.Panel(cell, "AllyPick");
+            overlay.AddComponent<LayoutElement>().ignoreLayout = true;
+            var image = overlay.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.color = new Color(Theme.Jade.r, Theme.Jade.g, Theme.Jade.b, 0.14f);
+            Ui.Stretch((RectTransform)overlay.transform);
+            var button = overlay.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = image;
+            button.onClick.AddListener(() => OnAllyTargetPicked(slot));
+        }
+
+        /// <summary>治疗目标选定(2026-08-22):slot == Targeting.PlayerTarget 治玩家,
+        /// 否则治该槽位的召唤物。落点仍要过一遍 Battle.CanHealSlot 兜底——覆盖层理应只在
+        /// 合法目标上出现,这里再挡一次是防守式编程,不是第二套判据。</summary>
+        private void OnAllyTargetPicked(int slot)
+        {
+            if (!_allyTargeting || _selectedChar == null) return;
+            if (!Battle.CanHealSlot(slot)) return;
+            string charId = _selectedChar;
+            int libraryIndex = _selectedIndex;
+            BeginCast(charId, -1, attackMode: false, libraryIndex: libraryIndex, allySlot: slot);
+        }
+
+        /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称;
+        /// 治疗选目标态下(2026-08-22)则改为选中该召唤物为治疗目标。与
+        /// <see cref="OnEnemyClicked"/> 在 <c>_targeting</c> 时的写法同一套纪律:
+        /// 不可治的槽位平时压根不会走到这(<see cref="AttachAllyTargetPicker"/> 的覆盖层
+        /// 只盖在 <c>CanHealSlot</c> 为真的格子上,玩家点不到这枚按钮),这里再判一遍纯属兜底。</summary>
         private void OnSummonClicked(int index)
         {
             if (index < 0 || index >= Battle.Summons.Count) return;
             var summon = Battle.Summons[index];
+            if (_allyTargeting)
+            {
+                if (!Battle.CanHealSlot(index)) return;
+                OnAllyTargetPicked(index);
+                return;
+            }
             if (summon == null || !summon.Alive) return;
             if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
@@ -1462,7 +1519,7 @@ namespace Brushblade.Presentation
                 string charId = library[i];
                 var def = _graph.Get(charId);
                 // 同字多张按卡位区分选中(2026-08-17):只亮玩家点的那张,不连坐
-                bool selected = _selectedChar == charId && _selectedIndex == index && !_targeting;
+                bool selected = _selectedChar == charId && _selectedIndex == index && !_targeting && !_allyTargeting;
                 System.Action tap = () =>
                 {
                     if (rewardPhase) OnRewardLibraryClicked(charId);
@@ -1646,7 +1703,7 @@ namespace Brushblade.Presentation
             {
                 string charId = id;
                 var def = _graph.Get(charId);
-                bool selected = _selectedChar == charId && !_targeting;
+                bool selected = _selectedChar == charId && !_targeting && !_allyTargeting;
                 System.Action tap = () =>
                 {
                     if (rewardPhase) { _message = Brief(charId); Refresh(); }
@@ -1882,6 +1939,13 @@ namespace Brushblade.Presentation
             if (_targeting)
             {
                 Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人|点空白取消", 16, Theme.TextMain);
+                return;
+            }
+            // 治疗选目标态(2026-08-22):同 _targeting 一样只画一句提示——再点一次「出」
+            // 会走 OnCastPressed → BeginCast,把这个待选态悄悄重置。
+            if (_allyTargeting)
+            {
+                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击治疗目标(玩家或召唤物)|点空白取消", 16, Theme.TextMain);
                 return;
             }
             bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
@@ -2557,7 +2621,7 @@ namespace Brushblade.Presentation
 
         private void OnLibraryCharClicked(string charId, int index)
         {
-            if (_selectedChar == charId && _selectedIndex == index && !_targeting)
+            if (_selectedChar == charId && _selectedIndex == index && !_targeting && !_allyTargeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
@@ -2565,6 +2629,7 @@ namespace Brushblade.Presentation
             _selectedChar = charId;
             _selectedIndex = index;
             _targeting = false;
+            _allyTargeting = false;
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
             _message = Brief(charId) + "|再点即出";
             Refresh();
@@ -2572,7 +2637,7 @@ namespace Brushblade.Presentation
 
         private void OnPoolCharClicked(string charId)
         {
-            if (_selectedChar == charId && _selectedIndex < 0 && !_targeting)
+            if (_selectedChar == charId && _selectedIndex < 0 && !_targeting && !_allyTargeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
                 return;
@@ -2580,6 +2645,7 @@ namespace Brushblade.Presentation
             _selectedChar = charId;
             _selectedIndex = -1;
             _targeting = false;
+            _allyTargeting = false;
             ResetSlotPicking();
             _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
             Refresh();
@@ -2594,6 +2660,16 @@ namespace Brushblade.Presentation
             {
                 _targeting = true;
                 _message = $"「{def.Id}」:点击目标敌人";
+                Refresh();
+                return;
+            }
+            // 友方目标(2026-08-22):场上有存活召唤物才进选目标态——没有的话引擎会自动锁玩家
+            // (Cast 里 AliveSummons() == 0 那条免选口径),UI 弹一次没得选的选择纯属白点一下,
+            // 与上面「单敌免选」同一条纪律。
+            if (BattleEngine.NeedsAllyTarget(def) && Battle.AliveSummonCount > 0)
+            {
+                _allyTargeting = true;
+                _message = $"「{def.Id}」:点击治疗目标(玩家或召唤物)";
                 Refresh();
                 return;
             }
@@ -2613,8 +2689,10 @@ namespace Brushblade.Presentation
         // ---- 召唤落位(2026-08-20) ----
 
         /// <summary>出字总入口:召唤字先进选位子态,其余照旧直接结算。
-        /// 目标已经选过了(若需要),这里只补落位。</summary>
-        private void BeginCast(string charId, int target, bool attackMode, int libraryIndex)
+        /// 目标已经选过了(若需要),这里只补落位。
+        /// allySlot:治疗目标(2026-08-22),默认 Targeting.PlayerTarget(玩家)。</summary>
+        private void BeginCast(string charId, int target, bool attackMode, int libraryIndex,
+            int allySlot = Targeting.PlayerTarget)
         {
             var def = _graph.Get(charId);
             // AP 不够就别进选位置态(2026-08-20 review I-1):否则玩家会认真点完两格,
@@ -2622,13 +2700,13 @@ namespace Brushblade.Presentation
             // 而林/桂/森 都是 2+ AP,这条很容易撞上。交给引擎当场报错,与改动前同口径。
             if (Battle.Ap < def.ApCost)
             {
-                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
+                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, allySlot: allySlot);
                 return;
             }
             int summonCount = Battle.SummonCountOf(def, attackMode);
             if (summonCount <= 0)
             {
-                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex);
+                ExecuteCast(charId, target, attackMode: attackMode, libraryIndex: libraryIndex, allySlot: allySlot);
                 return;
             }
             EnterSlotPicking(charId, target, attackMode, libraryIndex, summonCount);
@@ -2722,11 +2800,11 @@ namespace Brushblade.Presentation
         }
 
         private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false,
-            int libraryIndex = -1, IReadOnlyList<int> summonSlots = null)
+            int libraryIndex = -1, IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
         {
             bool hasFrom = TryGetCastFromPos(charId, libraryIndex, out var fromPos); // 起点须在重绘销毁字牌前捕获
             SnapshotPreHp(); // 出手前血量:动画期间血条画在此值,伤害触达才逐记掉血
-            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots);
+            var error = Battle.Cast(charId, target, replaceSummon, attackMode, libraryIndex, summonSlots, allySlot);
             if (error == BattleError.SummonCapFull) // 顶替强阻断:AP/字都没动,确认了才重出
             {
                 var def = _graph.Get(charId);
@@ -2734,7 +2812,7 @@ namespace Brushblade.Presentation
                 ShowModal("这个位置有人",
                     ReplaceSummonBody(def, attackMode, summonSlots),
                     ($"顶替 {replaceCount} 只",
-                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots),
+                        () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot),
                         Theme.Cinnabar, Color.white),
                     ("取消", null, Theme.LockedBg, Theme.TextMain));
                 _message = "选的位置上站着人,出字待确认";
@@ -3088,6 +3166,7 @@ namespace Brushblade.Presentation
             _selectedChar = null;
             _selectedIndex = -1;
             _targeting = false;
+            _allyTargeting = false;
             ResetSlotPicking(); // 连选途中取消 = 整张字回滚:没调 Cast,AP 与字库一滴未动
             Refresh();
         }
