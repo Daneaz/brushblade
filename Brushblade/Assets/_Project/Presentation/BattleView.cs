@@ -2720,7 +2720,14 @@ namespace Brushblade.Presentation
             int libraryIndex, int summonCount)
         {
             _slotPicking = true;
+            // 三个选目标态在这里必须互斥清干净:进选位态时,另外两态挂出去的高亮都得撤。
+            // _targeting 的高亮画在敌人格上,后续全量 Refresh 会带走,漏清问题不大;
+            // 但 _allyTargeting 的高亮(AttachAllyTargetPicker)画在玩家血条区(_bottomRow)——
+            // 拖字召唤走的是 RedrawSummonRows 那条轻量重画路径,只重画召唤两排,够不着
+            // _bottomRow。不在这里清掉的话,「治我」覆盖层会残留在玩家血条上且仍可点,
+            // 直到下一次真正的全量 Refresh 才消失(2026-08-22 评审 Finding 追出的缺口)。
             _targeting = false;
+            _allyTargeting = false;
             _pendingSummonChar = charId;
             _pendingSummonTarget = target;
             _pendingSummonAttackMode = attackMode;
