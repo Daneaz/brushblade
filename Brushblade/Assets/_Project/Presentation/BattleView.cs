@@ -1819,8 +1819,9 @@ namespace Brushblade.Presentation
             }
         }
 
-        // 五行分桶排序键——与 ElementKey()/ElementByName() 是同一套内部键,不是玩家可见文案,
-        // 不进字符串表:翻译了这几个字,ElementByName 那头的反向解析就找不到桶了(2026-08-23)。
+        // 五行分桶排序键——与 ElementKey()/ElementByName() 是同一套内部键,只管排序/查表,
+        // 显示另走 CharInfo.ElementName(查字符串表,见 DrawNearMissHints 的胶囊标签)。
+        // 键必须留原始汉字、不进字符串表:ElementByName 拿它反查 Element,翻译了就再也查不回去(2026-08-23)。
         private static readonly string[] HintBucketOrder = { "金", "木", "水", "火", "土", "心", "中性" };
 
         /// <summary>差字面板(屏幕左侧竖排):统一五行三级目录——属性→字→差什么,玩家主动查。</summary>
@@ -1833,7 +1834,7 @@ namespace Brushblade.Presentation
             foreach (var miss in nearMisses)
             {
                 var element = _graph.Get(miss.CharId).Element;
-                // "中性" 这里是分桶用的 key,不是显示文本,不进字符串表(同上)。
+                // "中性" 同样是分桶用的 key,显示走 CharInfo.ElementName/char.element.neutral(同上)。
                 string key = element is { } e ? ElementKey(e) : "中性";
                 if (!buckets.TryGetValue(key, out var list))
                     buckets[key] = list = new System.Collections.Generic.List<NearMiss>();
@@ -1847,7 +1848,10 @@ namespace Brushblade.Presentation
                 if (!buckets.TryGetValue(key, out var list)) continue;
                 bool selected = _hintBucket == key;
                 var element = ElementByName(key);
-                Ui.RoundButton(_hintColumn, $"{key} {list.Count}", () =>
+                // 标签走 CharInfo.ElementName(查表);key 只管上面的桶查找/下面的 selected 比对,
+                // 不进这个字符串(2026-08-23 补漏:此前直接显示 key,英文包下胶囊仍是「金 3」这种原始汉字)。
+                string label = element is { } el ? CharInfo.ElementName(el) : Strings.T("char.element.neutral");
+                Ui.RoundButton(_hintColumn, $"{label} {list.Count}", () =>
                 {
                     _hintBucket = selected ? null : key;
                     _hintCharFocus = null;
@@ -3289,9 +3293,10 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
-        // 内部桶键,不是玩家可见文案——与 CharInfo.ElementName(查表、已迁字符串表)是两套
-        // 不同用途的实现,别合并。差字面板用它当分桶/排序/解析的 key(见 HintBucketOrder /
-        // ElementByName),翻译了这几个字桶就散了(2026-08-23,Task 6 元素名分离裁定)。
+        // 内部桶键,与 CharInfo.ElementName(查表、已迁字符串表)是两套不同用途的实现,别合并:
+        // 差字面板拿它当分桶/排序/反查的 key(见 HintBucketOrder / ElementByName),显示则另外
+        // 调 CharInfo.ElementName——键翻译了,ElementByName 的反向解析就找不到桶,所以键必须
+        // 留原始汉字,显示与键必须分开(2026-08-23,Task 6 元素名分离裁定)。
         private static string ElementKey(Element element) => element switch
         {
             Element.Wood => "木",

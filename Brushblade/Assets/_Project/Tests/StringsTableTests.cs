@@ -19,10 +19,15 @@ namespace Brushblade.Core.Tests
     public sealed class StringsTableTests
     {
         // Strings.T("key"  —— 抓调用点的 key 字面量
+        // ⚠ 已知边界(刻意接受,不是缺陷):正则不认注释,写在 .cs 注释里的 Strings.T("x") 字样
+        // 也会被当成真实调用点,于是要求 "x" 必须在表里——报错会指向一个源码里查不到出处的 key。
         private static readonly Regex CallRe =
             new Regex(@"Strings\.T\(\s*""([^""]+)""", RegexOptions.Compiled);
 
         // 紧跟在顶层 "(" 之后的 "name", —— 一个顶层元组实参的名字
+        // ⚠ 已知边界(刻意接受,不是缺陷):只认内联元组字面量实参。调用点若改成
+        // Strings.T(key, argsArray) 这种变量/数组传参,一个实参名都抓不到,于是该模板的
+        // **全部**占位符会被判「调用点没给」——报错指向文案,病根其实是这条正则的抓取范围。
         private static readonly Regex ArgHeadRe =
             new Regex(@"^\s*""(\w+)""\s*,", RegexOptions.Compiled);
 
