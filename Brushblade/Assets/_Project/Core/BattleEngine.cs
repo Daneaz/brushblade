@@ -813,11 +813,15 @@ namespace Brushblade.Core
             return Math.Min(count, SummonCap);
         }
 
-        /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。</summary>
+        /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。
+        ///
+        /// 连发(Volley)**不需要选目标** —— 它的目标全自动(后排优先循环补足),
+        /// 交互上与 AOE 同档:点了就打。漏掉这条会让玩家对着一张自动字白点一次选目标。</summary>
         public static bool NeedsTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
-                if (effect.Kind == EffectKind.DamageSingle || effect.Kind == EffectKind.BurnSingle
+                if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetShape.Volley)
+                    || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
                     // 2026-08-06 C1:单体驱散(灭/削/湮)漏在白名单外——UI 判定成「不需要选目标」,
@@ -839,7 +843,9 @@ namespace Brushblade.Core
         /// ——「打不到后面,但够得着冻住、破甲、下毒」。
         ///
         /// 混合字按最严的算:效果里只要含一条 DamageSingle 就受限(如湮 = 直伤 + 全体驱散)。
-        /// 但只要有任一条直伤标了偷袭,整张字就是偷袭字——偷袭是字的身份,不是单条效果的属性。</summary>
+        /// 但只要有任一条直伤标了偷袭,整张字就是偷袭字——偷袭是字的身份,不是单条效果的属性。
+        ///
+        /// 连发(Volley)不受限——它是远程形状,与偷袭一样越阵。</summary>
         public static bool RestrictedToFrontRow(CharDef def, bool attackMode = false)
         {
             bool hasDirectDamage = false;
@@ -847,6 +853,9 @@ namespace Brushblade.Core
             {
                 if (effect.Kind != EffectKind.DamageSingle) continue;
                 if (effect.CanStrikeBackline) return false;
+                // 连发是远程,天然越阵(2026-08-22,spec §3.4)。横扫/顺劈/贯穿照旧受限 ——
+                // 它们只判主目标,溅到的必然在主目标够得着的范围内
+                if (effect.Shape == TargetShape.Volley) return false;
                 hasDirectDamage = true;
             }
             return hasDirectDamage;
@@ -1416,24 +1425,45 @@ namespace Brushblade.Core
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
-                        // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
-                        for (int hit = 0; hit < effect.HitCount; hit++)
+                    {
+                        // 形状展开(2026-08-22,spec §5):目标表首项是主目标,只有它吃
+                        // 斩杀/多段/穿透;其余按 ShapePercent 折算。Shape 缺省 Single 时
+                        // 表长恒为 1,整段逐位等价于改造前 —— 恒等性硬线就落在这里。
+                        var shapeTargets = Targeting.ExpandTargets(
+                            _enemies, targetIndex, effect.Shape, effect.Shots);
+                        for (int t = 0; t < shapeTargets.Count; t++)
                         {
-                            if (!_enemies[targetIndex].Alive) break;
-                            if (TryExecuteKill(effect, targetIndex)) break; // 处决:击杀后无需再打
-                            // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
-                            // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
-                            // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
-                            // 目标死了 / 被处决了都不该白摇一次,否则「这一发消耗几个随机数」
-                            // 会取决于目标的血量,复现与调试都会变成噩梦
-                            DamageEnemy(targetIndex,
-                                ScaleByAttack(ExecuteBonus(effect, targetIndex,
-                                    BaseValue(effect, value, _enemies[targetIndex]))),
-                                recipeElements, attacker, crit: RollCrit(),
-                                pierce: effect.Pierce); // 多段:每段各减一次护甲(裁定 4)
+                            int tgt = shapeTargets[t];
+                            bool primary = t == 0;
+                            // 连发每一发都是全额:它没有「主目标 + 溅射」的结构,
+                            // N 发是发数不是衰减(spec §3.3)
+                            int percent = primary || effect.Shape == TargetShape.Volley
+                                ? 100 : effect.ShapePercent;
+                            int hits = primary ? effect.HitCount : 1;
+                            // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
+                            // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
+                            for (int hit = 0; hit < hits; hit++)
+                            {
+                                if (!_enemies[tgt].Alive) break;
+                                if (primary && TryExecuteKill(effect, tgt)) break; // 处决:击杀后无需再打
+                                // ATK 缩放在最外层:先过卡等级 → 灼烧翻倍 → 残血加伤,最后整体乘攻击力,
+                                // 再交给 DamageEnemy 过生克与减伤。放在里层会与那几个 ×2 的取整互相干扰
+                                // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
+                                // 目标死了 / 被处决了都不该白摇一次,否则「这一发消耗几个随机数」
+                                // 会取决于目标的血量,复现与调试都会变成噩梦
+                                int baseValue = BaseValue(effect, value, _enemies[tgt]);
+                                if (primary) baseValue = ExecuteBonus(effect, tgt, baseValue);
+                                int damage = ScaleByAttack(baseValue);
+                                // percent == 100 时**不做乘除**:x * 100 / 100 在整数下虽然等于 x,
+                                // 但跳过它才能让「缺省路径与改前逐字节相同」成为结构性保证而非算术巧合
+                                if (percent != 100) damage = damage * percent / 100;
+                                DamageEnemy(tgt, damage, recipeElements, attacker,
+                                    crit: RollCrit(),
+                                    pierce: primary ? effect.Pierce : 0); // 多段:每段各减一次护甲(裁定 4)
+                            }
                         }
                         break;
+                    }
                     case EffectKind.DamageAll:
                         int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE
                         for (int i = 0; i < aoeCount; i++)
