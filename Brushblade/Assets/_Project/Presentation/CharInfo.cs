@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using Brushblade.Core;
 using Brushblade.Data;
@@ -85,10 +86,11 @@ namespace Brushblade.Presentation
                     EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
                             ("shape", ShapeLabel(e)), ("value", shown))
                         + (e.DoubleVsBurning ? Strings.T("char.effect.doublevsburning") : "")
-                        + PierceText(e) + ShapeSuffix(e),
+                        + PierceText(e) + BacklineText(e) + HitCountText(e) + ExecuteText(e)
+                        + ShapeSuffix(e),
                     EffectKind.DamageAll => Strings.T("char.effect.damageall", ("value", shown))
                         + (e.DoubleVsBurning ? Strings.T("char.effect.doublevsburning") : "")
-                        + PierceText(e),
+                        + PierceText(e) + HitCountText(e) + ExecuteText(e),
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
@@ -101,7 +103,8 @@ namespace Brushblade.Presentation
                             ? Strings.T("char.effect.summon.self", ("count", e.SummonCount))
                             : Strings.T("char.effect.summon.other", ("count", e.SummonCount)) + "「" + e.SummonChar + "」") +
                         Strings.T("char.effect.summon.stats",
-                            ("hp", shown), ("atk", MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel))),
+                            ("hp", shown), ("atk", MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)))
+                        + PassiveText(e.Passive) + SummonShieldText(e),
                     EffectKind.Bleed => Strings.T("char.effect.bleed", ("value", shown)),
                     EffectKind.HealAll => Strings.T("char.effect.healall", ("value", shown)),
                     EffectKind.HealOverTime => e.TargetAll
@@ -151,6 +154,55 @@ namespace Brushblade.Presentation
             }
             return parts.ToString();
         }
+
+        /// <summary>斩杀后缀(2026-08-23)。此前**卡面一个字都不印** —— 引擎侧 2026-08-06 就实现了
+        /// (`1514207 feat(core)`,范围只写了 core),而 CharInfo 从没跟进,玩家看铡的卡面只见
+        /// 「单体145伤」,不知道它有 25% 直接抹杀。措辞与 tools/design/gen_char_doc.py 同口径。
+        ///
+        /// **直杀与双倍是互斥的两条分支**(BattleEngine 的 TryExecuteKill / ExecuteBonus):
+        /// executeKills 的字命中阈值直接归零血量、那记伤害根本不结算,没命中则毫无加成;
+        /// 其余斩杀字是基础值 ×2。Boss 只免疫前者,后者照常吃 —— 所以打 Boss 时铡反不如镰。</summary>
+        private static string ExecuteText(EffectDef e) =>
+            e.ExecuteBelowPercent <= 0 ? "" :
+            e.ExecuteKills
+                ? Strings.T("char.effect.execute.kill", ("percent", e.ExecuteBelowPercent))
+                : Strings.T("char.effect.execute.double", ("percent", e.ExecuteBelowPercent));
+
+        /// <summary>多段后缀(2026-08-23)。每段完全独立:各自过生克、各自减一次护甲,
+        /// 也各自过斩杀的「打之前判血」——「第一段把敌人打进阈值、第二段触发处决」是真会
+        /// 发生的涌现(EffectDef.HitCount 的注释)。全表只有「剁」用它。</summary>
+        private static string HitCountText(EffectDef e) =>
+            e.HitCount > 1 ? Strings.T("char.effect.hitcount", ("count", e.HitCount)) : "";
+
+        /// <summary>偷袭后缀(2026-08-23)。全表只有「刺」标了它。与召唤物被动的「远程」是
+        /// 同一件事的两侧:那条挂在召唤物身上,这条作用于玩家出的这一记单体伤害。</summary>
+        private static string BacklineText(EffectDef e) =>
+            e.CanStrikeBackline ? Strings.T("char.effect.backline") : "";
+
+        /// <summary>召唤物被动(2026-08-23)。此前**卡面完全不印**,导致柳(血80/攻30)与
+        /// 松(血120/攻30)除血量外毫无区别 —— 而柳实际带 50% 闪避,玩家没法判断该留哪张。
+        /// 顺序与 SummonPassive 的字段声明一致,措辞与 gen_char_doc.py 的 PASSIVE 表同口径。</summary>
+        private static string PassiveText(SummonPassive p)
+        {
+            if (p == null) return "";
+            var parts = new List<string>();
+            if (p.Speed > 0) parts.Add(Strings.T("char.passive.speed", ("value", p.Speed)));
+            if (p.Thorns > 0) parts.Add(Strings.T("char.passive.thorns", ("value", p.Thorns)));
+            if (p.HealAlly > 0) parts.Add(Strings.T("char.passive.healally", ("value", p.HealAlly)));
+            if (p.OnHitBurn > 0)
+                parts.Add(p.OnHitBurnAll
+                    ? Strings.T("char.passive.onhitburn.all", ("value", p.OnHitBurn))
+                    : Strings.T("char.passive.onhitburn", ("value", p.OnHitBurn)));
+            if (p.OnHitCurse > 0) parts.Add(Strings.T("char.passive.onhitcurse", ("value", p.OnHitCurse)));
+            if (p.Dodge > 0) parts.Add(Strings.T("char.passive.dodge", ("value", p.Dodge)));
+            if (p.Ranged) parts.Add(Strings.T("char.passive.ranged"));
+            return parts.Count == 0 ? "" : Strings.T("char.passive.wrap", ("list", string.Join("/", parts)));
+        }
+
+        /// <summary>出字瞬间给**全场存活召唤物**各加盾(桂 = 60)。不并进 PassiveText ——
+        /// 它作用于出字时已在场的其他召唤物,不是这只召唤物自带的被动。</summary>
+        private static string SummonShieldText(EffectDef e) =>
+            e.SummonShield > 0 ? Strings.T("char.effect.summonshield", ("value", e.SummonShield)) : "";
 
         /// <summary>穿透后缀(2026-08-12,E-b4 T3)。口径从「穿甲:无视减伤,额外 +15%」换成
         /// 点数 —— 旧的 +15% 已固化进这三个字的基础值,卡面上的伤害数字自己涨了,
