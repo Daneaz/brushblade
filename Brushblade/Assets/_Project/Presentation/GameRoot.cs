@@ -35,6 +35,8 @@ namespace Brushblade.Presentation
             new GameObject("SaveOnSuspend").AddComponent<SaveOnSuspend>(); // 切后台保底落盘
 
             string configDir = Path.Combine(Application.streamingAssetsPath, "config");
+            // 文案表必须最先加载:后续任何 UI 构建都可能取文案(architecture.md §5)
+            Strings.Load(File.ReadAllText(Path.Combine(configDir, "strings.zh-CN.json")));
             _graph = ConfigLoader.LoadGraph(File.ReadAllText(Path.Combine(configDir, "chars.json")));
             _campaign = ConfigLoader.LoadCampaign(
                 File.ReadAllText(Path.Combine(configDir, "enemies.json")), _graph);
@@ -252,13 +254,13 @@ namespace Brushblade.Presentation
             var view = NewView("BattleView", paper, band.Name.Substring(band.Name.Length - 1), bandIndex);
             view.AddComponent<BattleView>().Init(_graph, run,
                 won => OnSegmentEnded(run, fromDepth, segmentEnd, baseInk, won),
-                tutorial, $"「{band.Name}」第 {fromDepth}~{segmentEnd} 层", maxHp,
+                tutorial, Strings.T("root.battleview.segment_title", ("bandName", band.Name), ("fromDepth", fromDepth), ("segmentEnd", segmentEnd)), maxHp,
                 onNewFloor: () => OnFloorAdvanced(run, baseInk),
                 onFloorCleared: () => baseInk = OnFloorCleared(run, fromDepth, baseInk),
                 onExit: () => // 挂起离塔:此前只切视图不落盘,靠上一次写盘兜底(2026-07-22 补)
                 {
                     SaveNow();
-                    ShowMap("登塔已挂起,随时回来继续");
+                    ShowMap(Strings.T("root.map.tower_suspended_message"));
                 },
                 onExpanded: () => OnExpanded(run),
                 onProgress: SaveNow, // 每次玩家行动后落盘:挂起/闪退都能接着打(2026-07-27)
@@ -424,15 +426,15 @@ namespace Brushblade.Presentation
             var stack = Ui.VStack(card.transform, "Stack", 10);
             Ui.Stretch((RectTransform)stack.transform);
 
-            Ui.ThemedLabel(stack.transform, $"安全层 · 第 {depth} 层告捷", 28, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, Strings.T("root.safelayer.title", ("depth", depth)), 28, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack.transform,
-                $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层", 16, Theme.TextDim);
-            Ui.IngotLabel(stack.transform, $"滚存 {totalEarned}", 18);
+                Strings.T("common.rank_summary", ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)), 16, Theme.TextDim);
+            Ui.IngotLabel(stack.transform, Strings.T("root.safelayer.rollover_ink", ("ink", totalEarned)), 18);
             Ui.ThemedLabel(stack.transform,
-                "继续:滚存收益带入更深层,阵亡墨锭减半;撤退:立即全额结算墨锭", 14, Theme.TextDim);
-            Ui.PillButton(stack.transform, $"深入「{nextBand.Name}」第 {depth + 1}~{depth + endless.BossEvery} 层",
+                Strings.T("root.safelayer.hint"), 14, Theme.TextDim);
+            Ui.PillButton(stack.transform, Strings.T("root.safelayer.descend_button", ("nextBandName", nextBand.Name), ("from", depth + 1), ("to", depth + endless.BossEvery)),
                 () => StartSegment(firstTower: false), Theme.Cinnabar, Color.white, 19, new Vector2(340, 52));
-            Ui.PillButton(stack.transform, "收官撤退(全额结算)",
+            Ui.PillButton(stack.transform, Strings.T("root.safelayer.retreat_button"),
                 () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 19, new Vector2(340, 52));
         }
 
@@ -452,19 +454,19 @@ namespace Brushblade.Presentation
             {
                 var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
                 if (ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time))
-                    chestNote = $"获得{ChestRules.TierName(tier)}(第 {chestDepth} 层 Boss 战利)";
+                    chestNote = Strings.T("root.settle.chest_note_awarded", ("tierName", ChestRules.TierName(tier)), ("chestDepth", chestDepth));
                 else
                 {
                     _meta.PendingChests.Add(tier); // 满位不丢:暂存,回地图开箱腾位后自动入位
-                    chestNote = $"{ChestRules.TierName(tier)}暂存——箱位已满,开掉一只即可领取";
+                    chestNote = Strings.T("root.settle.chest_note_pending", ("tierName", ChestRules.TierName(tier)));
                 }
             }
 
             string headline = abandoned
-                ? $"于第 {clearedDepth + 1} 层弃塔……墨锭 {ink}(半额)入账,纪录保留"
+                ? Strings.T("root.settle.headline_abandoned", ("depth", clearedDepth + 1), ("ink", ink))
                 : died
-                    ? $"卒于第 {clearedDepth + 1} 层……墨锭 {ink}(半额)入账"
-                    : $"第 {clearedDepth} 层收官!墨锭 {ink} 入账";
+                    ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", ink))
+                    : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", ink));
             MetaStore.Save(_meta);
             ShowTowerSettle(headline, ink, chestNote);
         }
@@ -479,13 +481,13 @@ namespace Brushblade.Presentation
             var stack = Ui.VStack(card.transform, "Stack", 14);
             Ui.Stretch((RectTransform)stack.transform);
 
-            Ui.ThemedLabel(stack.transform, "登 塔 结 算", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, Strings.T("root.towersettle.title"), 30, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack.transform, headline, 17, Theme.TextDim);
             Ui.IngotLabel(stack.transform, ink.ToString(), 24);
             Ui.ThemedLabel(stack.transform,
-                chestNote ?? "本次未破 Boss,无宝箱", 18,
+                chestNote ?? Strings.T("root.towersettle.no_chest"), 18,
                 chestNote != null ? Theme.GoldBorder : Theme.TextDim, Theme.TitleFont);
-            Ui.PillButton(stack.transform, "回到地图", () => ShowMap(), Theme.Cinnabar, Color.white, 20, new Vector2(280, 56));
+            Ui.PillButton(stack.transform, Strings.T("root.towersettle.back_button"), () => ShowMap(), Theme.Cinnabar, Color.white, 20, new Vector2(280, 56));
         }
 
         private static GameObject NewView(string name, Color? paper = null, string watermark = null, int bandIndex = 0)

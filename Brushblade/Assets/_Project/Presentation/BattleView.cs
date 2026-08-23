@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -71,7 +72,7 @@ namespace Brushblade.Presentation
         private int _pendingSummonCount;     // 这张字召几只 = 要点几个位子
         private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
         private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
-        private string _message = "点击字库中的字开始行动";
+        private string _message = Strings.T("battle.hint.initial");
 
         private string _title;          // 关卡标题(顶栏,可选)
         // 局内奇遇能抬高上限(2026-08-04),故以引擎当场值为准;Init 透传的那份只作 Battle 未就绪时的兜底
@@ -434,7 +435,7 @@ namespace Brushblade.Presentation
             if (_playerShieldBar.fill != null)
                 Ui.Anchor(_playerShieldBar.fill, Vector2.zero, new Vector2(Mathf.Clamp01(shield / ShieldBarFull), 1),
                     Vector2.zero, Vector2.zero);
-            if (_playerShieldBar.label != null) _playerShieldBar.label.text = $"护盾 {shield}";
+            if (_playerShieldBar.label != null) _playerShieldBar.label.text = Strings.T("battle.label.shield", ("shield", shield));
         }
 
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
@@ -554,7 +555,7 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.795f, 0.100f), new Vector2(0.985f, 0.775f), Vector2.zero, Vector2.zero);
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
             Ui.Stretch((RectTransform)workbenchStack.transform);
-            Ui.ThemedLabel(workbenchStack.transform, "拆 合 台", 13, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(workbenchStack.transform, Strings.T("battle.label.workbench_title"), 13, Theme.TextDim, Theme.TitleFont);
             _suggestRow = Ui.VStack(workbenchStack.transform, "Content", 6).transform;
             // 动作行**横排**(2026-08-21 用户拍板):出 / 拆 / 弃 三个单字钮一行排完。
             // 2026-08-20 改竖栏时它被一并改成 VStack(栏宽只有 217.6px,「出字/丢弃」那种
@@ -742,7 +743,7 @@ namespace Brushblade.Presentation
                     DrawPlayerStats();
                     if (Animating) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
                     {
-                        Ui.ThemedLabel(_statusRow, "结算中……", 20, Theme.TextDim, Theme.TitleFont);
+                        Ui.ThemedLabel(_statusRow, Strings.T("battle.phase.resolving"), 20, Theme.TextDim, Theme.TitleFont);
                         break;
                     }
                     DrawLibrary();
@@ -835,32 +836,34 @@ namespace Brushblade.Presentation
 
         private static string TutorialText(TutorialStep step) => step switch
         {
-            TutorialStep.DismantleDemo => "选中【剑】点【拆】——拆出两个部件『佥』『刂』",
-            TutorialStep.RecomposeDemo => "两个部件能拼回去:点提示里的【合 剑】——拆与合互为表里",
-            TutorialStep.CastDemo => "选中【剑】点【出】——金克木,一剑斩掉这只木系字怪",
-            TutorialStep.PickReward => "战利品:选中意的字,最多挑 2 个——出过的字不回来,靠拆合再生产",
+            TutorialStep.DismantleDemo => Strings.T("battle.hint.tutorial.dismantle_demo"),
+            TutorialStep.RecomposeDemo => Strings.T("battle.hint.tutorial.recompose_demo"),
+            TutorialStep.CastDemo => Strings.T("battle.hint.tutorial.cast_demo"),
+            TutorialStep.PickReward => Strings.T("battle.hint.tutorial.pick_reward"),
             _ => "",
         };
 
         private void DrawTopBar()
         {
-            Ui.ThemedLabel(_topLeft, string.IsNullOrEmpty(_title) ? $"战斗 {_run.BattleIndex + 1}" : $"{_title} · 战斗 {_run.BattleIndex + 1}",
+            Ui.ThemedLabel(_topLeft, string.IsNullOrEmpty(_title)
+                    ? Strings.T("battle.label.battle_index", ("index", _run.BattleIndex + 1))
+                    : Strings.T("battle.label.battle_index_titled", ("title", _title), ("index", _run.BattleIndex + 1)),
                 20, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
             Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
-            Ui.ThemedLabel(_topRight, $"回合 {Battle.Turn}", 18, Theme.TextDim);
+            Ui.ThemedLabel(_topRight, Strings.T("battle.label.turn", ("turn", Battle.Turn)), 18, Theme.TextDim);
             bool suspend = _onExit != null; // 无尽:退出可挂起/弃塔(2026-07-19);否则=认输
-            Ui.PillButton(_topRight, "退出", () => // 统一弹窗确认(2026-07-19 拍板)
+            Ui.PillButton(_topRight, Strings.T("battle.btn.exit"), () => // 统一弹窗确认(2026-07-19 拍板)
             {
                 if (suspend)
-                    ShowModal("离 塔",
-                        "挂起:保留进度,下次从本层继续\n弃塔:墨锭半额结算,层数纪录保留",
-                        ("挂起离塔", _onExit, Theme.Cinnabar, Color.white),
-                        ("弃塔(半额)", () => _onAbandon?.Invoke(), Theme.InkSoft, Color.white),
-                        ("继续战斗", null, Theme.LockedBg, Theme.TextMain));
+                    ShowModal(Strings.T("battle.dialog.suspend_tower.title"),
+                        Strings.T("battle.dialog.suspend_tower.body"),
+                        (Strings.T("battle.btn.suspend"), _onExit, Theme.Cinnabar, Color.white),
+                        (Strings.T("battle.btn.abandon"), () => _onAbandon?.Invoke(), Theme.InkSoft, Color.white),
+                        (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
                 else
-                    ShowModal("退出战斗?", "放弃本关:进度不推进,奇遇墨锭保留",
-                        ("确认退出", () => _onRunEnded(false), Theme.Cinnabar, Color.white),
-                        ("继续战斗", null, Theme.LockedBg, Theme.TextMain));
+                    ShowModal(Strings.T("battle.dialog.exit_confirm.title"), Strings.T("battle.dialog.exit_confirm.body"),
+                        (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Theme.Cinnabar, Color.white),
+                        (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
             }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
         }
 
@@ -881,7 +884,7 @@ namespace Brushblade.Presentation
             {
                 var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull),
                     Theme.Jade, new Vector2(260, 14));
-                var shieldLabel = Ui.ThemedLabel(shieldBar.transform, $"护盾 {shownShield}", 10,
+                var shieldLabel = Ui.ThemedLabel(shieldBar.transform, Strings.T("battle.label.shield", ("shield", shownShield)), 10,
                     Color.white, Theme.TitleFont);
                 Ui.Stretch(shieldLabel.rectTransform);
                 var shieldOutline = shieldLabel.gameObject.AddComponent<Outline>();
@@ -1073,9 +1076,9 @@ namespace Brushblade.Presentation
                     new Vector2(barWidth, front ? 9 : 8), 8);
                 // 攻 / 盾 / 被动同一行(2026-08-20):格宽翻倍后放得下,不必再考虑「移进详情弹窗」
                 var stats = Ui.Row(cell.transform, "Stats", 6).transform;
-                Ui.ThemedLabel(stats, $"攻{summon.Attack}", 11, Theme.TextDim);
+                Ui.ThemedLabel(stats, Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 11, Theme.TextDim);
                 if (summon.Shield > 0)
-                    Ui.ThemedLabel(stats, $"盾{summon.Shield}", 11, Theme.Jade);
+                    Ui.ThemedLabel(stats, Strings.T("battle.label.summon_shield", ("shield", summon.Shield)), 11, Theme.Jade);
                 string passiveTag = SummonPassiveTag(summon.Passive);
                 if (passiveTag.Length > 0)
                     Ui.ThemedLabel(stats, passiveTag, 11, Theme.Cinnabar);
@@ -1207,7 +1210,7 @@ namespace Brushblade.Presentation
             if (summon == null || !summon.Alive) return;
             if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
-                new Vector2(320, 200), ("知道了", null, Theme.LockedBg, Theme.TextMain));
+                new Vector2(320, 200), (Strings.T("battle.btn.ack"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
@@ -1217,12 +1220,14 @@ namespace Brushblade.Presentation
         {
             if (passive == null) return "";
             if (passive.OnHitBurn > 0)
-                return passive.OnHitBurnAll ? $"全场灼{passive.OnHitBurn}" : $"附灼{passive.OnHitBurn}";
-            if (passive.Thorns > 0) return $"反伤{passive.Thorns}";
-            if (passive.HealAlly > 0) return $"回血{passive.HealAlly}";
-            if (passive.OnHitCurse > 0) return $"诅咒{passive.OnHitCurse}%";
-            if (passive.Dodge > 0) return $"闪避{passive.Dodge}%";
-            if (passive.Speed > 100) return "疾";
+                return passive.OnHitBurnAll
+                    ? Strings.T("battle.summon.burn_all", ("n", passive.OnHitBurn))
+                    : Strings.T("battle.summon.burn_attach", ("n", passive.OnHitBurn));
+            if (passive.Thorns > 0) return Strings.T("battle.summon.thorns", ("n", passive.Thorns));
+            if (passive.HealAlly > 0) return Strings.T("battle.summon.heal", ("n", passive.HealAlly));
+            if (passive.OnHitCurse > 0) return Strings.T("battle.summon.curse", ("n", passive.OnHitCurse));
+            if (passive.Dodge > 0) return Strings.T("battle.summon.dodge", ("n", passive.Dodge));
+            if (passive.Speed > 100) return Strings.T("battle.summon.haste");
             return "";
         }
 
@@ -1447,17 +1452,21 @@ namespace Brushblade.Presentation
                 // 所以越靠前的越保得住。完整信息仍在敌人详情弹窗里。
                 var chipSpecs = new List<Ui.ChipSpec>
                 {
-                    new(enemy.ApparentElement is { } apparent ? ElementName(apparent) : "?",
+                    // 显示用的元素名走 CharInfo.ElementName(查表)—— 与差字面板/桶键那套
+                    // BattleView 私有的 ElementKey 是两件事,别弄混(见 ElementKey 定义处的注释)。
+                    new(enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?",
                         Theme.ElementColor(enemy.ApparentElement), Color.white),
-                    new($"攻 {enemy.Attack}", Theme.PaperDim, Theme.TextMain),
+                    new(Strings.T("battle.label.enemy_attack", ("attack", enemy.Attack)), Theme.PaperDim, Theme.TextMain),
                 };
-                if (enemy.Defense > 0) chipSpecs.Add(new($"护甲 {enemy.Defense}", Theme.InkSoft, Color.white));
+                if (enemy.Defense > 0)
+                    chipSpecs.Add(new(Strings.T("battle.label.enemy_defense", ("defense", enemy.Defense)), Theme.InkSoft, Color.white));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
                     // 别用 emoji:⚡ 不在 Noto Serif SC 里,子集补不出来,上线渲染成空框
                     // (test_subset_fonts_cover_charset 正是拦这个的)。预警靠朱砂底色已经够显眼
-                    chipSpecs.Add(new($"蓄力 · 下回合:{EnemyInfo.BossSkillName(enemy.ChargingSkill)}",
+                    chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
+                            ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0)
@@ -1512,7 +1521,7 @@ namespace Brushblade.Presentation
                 }
                 else
                 {
-                    Ui.ThemedLabel(bars.transform, "已正", 14, Theme.LockGray);
+                    Ui.ThemedLabel(bars.transform, Strings.T("battle.label.corpse_settled"), 14, Theme.LockGray);
                     _enemyHpBars.Add((null, null));
                     _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
                 }
@@ -1532,17 +1541,18 @@ namespace Brushblade.Presentation
             // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
-            Ui.ThemedLabel(_libraryRow, $"字库 {library.Count}/{Battle.LibraryCapacity}", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_libraryRow, Strings.T("battle.label.library_count",
+                ("count", library.Count), ("capacity", Battle.LibraryCapacity)), 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.LibraryExpanded)
                 Ui.AdBadge(_libraryRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandLibrary();
                     _onExpanded?.Invoke();
-                    _message = "字库上限 +2(本次登塔有效)";
+                    _message = Strings.T("battle.label.library_cap_up");
                     Refresh();
                 }, new Vector2(64, 38));
             if (library.Count == 0)
-                Ui.ThemedLabel(_libraryRow, "(空)", 16, Theme.TextDim);
+                Ui.ThemedLabel(_libraryRow, Strings.T("battle.label.library_empty"), 16, Theme.TextDim);
             for (int i = 0; i < library.Count; i++)
             {
                 int index = i;
@@ -1720,13 +1730,14 @@ namespace Brushblade.Presentation
             // 奖励页显示携带池(部件不再随战利品入池,这里只展示当前持有,2026-08-04)
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var poolChars = rewardPhase ? _run.CarriedPool : Battle.Pool;
-            Ui.ThemedLabel(_poolRow, $"部件池 {poolChars.Count}/{Battle.PoolCapacity}", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_poolRow, Strings.T("battle.label.pool_count",
+                ("count", poolChars.Count), ("capacity", Battle.PoolCapacity)), 16, Theme.TextDim, Theme.TitleFont);
             if (!_run.PoolExpanded)
                 Ui.AdBadge(_poolRow, "+2", () => // 原型:点击即生效,SDK 后接
                 {
                     _run.TryExpandPool();
                     _onExpanded?.Invoke();
-                    _message = "部件池上限 +2(本次登塔有效)";
+                    _message = Strings.T("battle.label.pool_cap_up");
                     Refresh();
                 }, new Vector2(64, 38));
             foreach (var id in poolChars)
@@ -1802,7 +1813,7 @@ namespace Brushblade.Presentation
             DrawNearMissHints(suggest.NearMisses); // 左侧差字面板:选中与否都显示
             if (_selectedChar != null || _targeting) return; // 选中态:拆合台交给拆字+动作两行
             if (suggest.Composable.Count == 0)
-                Ui.ThemedLabel(_suggestRow, "凑齐部件即可合字", 15, Theme.TextDim);
+                Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.suggest_empty"), 15, Theme.TextDim);
             // 一行一组配方,**整组必须排得下**(2026-08-21 用户要求)。
             // 合配方读作「火 + 炎 = 焱」:部件 36×2 + 「+」12 + 「=」14 + 结果 60 + 间距 6×4 = 182px,
             // 而拆合台竖栏内宽 304px(0.795–0.985,CardPanel 只有圆角、无内边距)—— 放得下,余 122px。
@@ -1826,6 +1837,9 @@ namespace Brushblade.Presentation
             }
         }
 
+        // 五行分桶排序键——与 ElementKey()/ElementByName() 是同一套内部键,只管排序/查表,
+        // 显示另走 CharInfo.ElementName(查字符串表,见 DrawNearMissHints 的胶囊标签)。
+        // 键必须留原始汉字、不进字符串表:ElementByName 拿它反查 Element,翻译了就再也查不回去(2026-08-23)。
         private static readonly string[] HintBucketOrder = { "金", "木", "水", "火", "土", "心", "中性" };
 
         /// <summary>差字面板(屏幕左侧竖排):统一五行三级目录——属性→字→差什么,玩家主动查。</summary>
@@ -1838,20 +1852,24 @@ namespace Brushblade.Presentation
             foreach (var miss in nearMisses)
             {
                 var element = _graph.Get(miss.CharId).Element;
-                string key = element is { } e ? ElementName(e) : "中性";
+                // "中性" 同样是分桶用的 key,显示走 CharInfo.ElementName/char.element.neutral(同上)。
+                string key = element is { } e ? ElementKey(e) : "中性";
                 if (!buckets.TryGetValue(key, out var list))
                     buckets[key] = list = new System.Collections.Generic.List<NearMiss>();
                 list.Add(miss);
             }
 
             // 一级:属性胶囊竖排(带可合数),点选/再点收起
-            Ui.ThemedLabel(_hintColumn, "配字表", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_hintColumn, Strings.T("battle.hint.recipe_panel_title"), 16, Theme.TextDim, Theme.TitleFont);
             foreach (var key in HintBucketOrder)
             {
                 if (!buckets.TryGetValue(key, out var list)) continue;
                 bool selected = _hintBucket == key;
                 var element = ElementByName(key);
-                Ui.RoundButton(_hintColumn, $"{key} {list.Count}", () =>
+                // 标签走 CharInfo.ElementName(查表);key 只管上面的桶查找/下面的 selected 比对,
+                // 不进这个字符串(2026-08-23 补漏:此前直接显示 key,英文包下胶囊仍是「金 3」这种原始汉字)。
+                string label = element is { } el ? CharInfo.ElementName(el) : Strings.T("char.element.neutral");
+                Ui.RoundButton(_hintColumn, $"{label} {list.Count}", () =>
                 {
                     _hintBucket = selected ? null : key;
                     _hintCharFocus = null;
@@ -1881,18 +1899,21 @@ namespace Brushblade.Presentation
                     focus ? Color.white : Theme.ElementColor(def.Element), 15, new Vector2(38, 36), 8);
             }
             if (bucketChars.Count > maxShown)
-                Ui.ThemedLabel(_hintColumn, $"…共 {bucketChars.Count} 字", 13, Theme.TextDim);
+                Ui.ThemedLabel(_hintColumn, Strings.T("battle.hint.more_chars", ("count", bucketChars.Count)), 13, Theme.TextDim);
 
             // 三级:差什么
             if (focused is { } target)
             {
                 var def = _graph.Get(target.CharId);
                 Ui.ThemedLabel(_hintColumn,
-                    $"「{target.CharId}」= {string.Join("+", def.Recipe)},差「{target.MissingIngredient}」",
+                    Strings.T("battle.hint.missing_ingredient", ("charId", target.CharId),
+                        ("recipe", string.Join("+", def.Recipe)), ("missing", target.MissingIngredient)),
                     14, Theme.TextMain);
             }
         }
 
+        // 反向解析:把 ElementKey()/HintBucketOrder 那套内部键解回 Element。同样不进字符串表——
+        // 这里认的是 ElementKey() 吐出的原始汉字,不是玩家看到的翻译文本。
         private static Element? ElementByName(string name) => name switch
         {
             "金" => Element.Metal,
@@ -1913,7 +1934,7 @@ namespace Brushblade.Presentation
             // 「取消」按钮 2026-08-21 随整排一起移除 —— 点空白即取消(Backdrop)。
             if (_slotPicking)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_pendingSummonChar}」落位中|点空白取消", 16, Theme.TextMain);
+                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar)), 16, Theme.TextMain);
                 return;
             }
             if (_selectedChar == null) return;
@@ -1957,25 +1978,25 @@ namespace Brushblade.Presentation
                         Ui.RoundButton(head, kin, null,
                             Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
                     }
-                    Ui.ThemedLabel(_suggestRow, "同源变体 · 位形互换", 13, Theme.TextDim);
+                    Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.kin_variant_label"), 13, Theme.TextDim);
                 }
                 else
                 {
-                    Ui.ThemedLabel(_suggestRow, "(独体字,不可拆)", 14, Theme.TextDim);
+                    Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.leaf_char"), 14, Theme.TextDim);
                 }
             }
 
             // 第二行(动作)
             if (_targeting)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击目标敌人|点空白取消", 16, Theme.TextMain);
+                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.targeting_enemy", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
             // 治疗选目标态(2026-08-22):同 _targeting 一样只画一句提示——再点一次「出」
             // 会走 OnCastPressed → BeginCast,把这个待选态悄悄重置。
             if (_allyTargeting)
             {
-                Ui.ThemedLabel(_actionRow, $"「{_selectedChar}」点击治疗目标(玩家或召唤物)|点空白取消", 16, Theme.TextMain);
+                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
             bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
@@ -1984,17 +2005,17 @@ namespace Brushblade.Presentation
             // 而三种「出」的差别(库里出 / 部件直出 / 无效果字的兜底一击)属于结算细节,
             // 玩家在按钮上分不分得清都不影响他要点的那一下。
             // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性)
-            Ui.RoundButton(_actionRow, "出", () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
+            Ui.RoundButton(_actionRow, Strings.T("battle.btn.cast"), () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
             if (inLibrary && !def.IsLeaf)
-                Ui.RoundButton(_actionRow, "拆", () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
-            Ui.RoundButton(_actionRow, "弃", () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(76, 52));
+                Ui.RoundButton(_actionRow, Strings.T("battle.btn.dismantle"), () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
+            Ui.RoundButton(_actionRow, Strings.T("battle.btn.discard"), () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(76, 52));
             // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
             // (BuildSkeleton 最先建的 Backdrop 全屏透明层),按钮是同一功能的第二个入口。
         }
 
         private void DrawEndTurn()
         {
-            Ui.PillButton(_endTurnRow, "结束回合", ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
+            Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
         }
 
         /// <summary>回合掉字遇满库(2026-08-04):停下让玩家选替换哪一张,或跳过这次掉落。
@@ -2004,9 +2025,9 @@ namespace Brushblade.Presentation
             string incoming = Battle.PendingDrop;
 
             if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.ModalShell(transform, $"字库已满 · 用掉落的「{incoming}」换掉哪一张?",
+            _modal = Ui.ModalShell(transform, Strings.T("battle.drop.replace_title", ("charId", incoming)),
                 new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, "被换掉的字永久失去", 15, Theme.TextDim);
+            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
 
             Transform row = null;
             for (int i = 0; i < Battle.Library.Count; i++)
@@ -2019,18 +2040,18 @@ namespace Brushblade.Presentation
                     string dropped = Battle.Library[replaceIndex];
                     if (Battle.ResolveDrop(replaceIndex) == BattleError.None)
                     {
-                        _message = $"「{incoming}」替换「{dropped}」";
+                        _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
                         if (_modal != null) Object.Destroy(_modal);
                     }
                     Refresh();
                 }, new Vector2(74, 96));
             }
 
-            Ui.PillButton(stack, "不要,跳过", () =>
+            Ui.PillButton(stack, Strings.T("battle.btn.drop_skip"), () =>
             {
                 Battle.SkipDrop();
                 if (_modal != null) Object.Destroy(_modal);
-                _message = $"弃掉了「{incoming}」";
+                _message = Strings.T("battle.drop.skip_msg", ("charId", incoming));
                 Refresh();
             }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
         }
@@ -2044,10 +2065,10 @@ namespace Brushblade.Presentation
                 OnEndTurn();
                 return;
             }
-            ShowModal("还有 AP 没用",
-                $"本回合还剩 {Battle.Ap} AP,结束后作废。\n确定结束回合?",
-                ("结束回合", OnEndTurn, Theme.Cinnabar, Color.white),
-                ("再想想", null, Theme.LockedBg, Theme.TextMain));
+            ShowModal(Strings.T("battle.dialog.ap_left.title"),
+                Strings.T("battle.dialog.ap_left.body", ("ap", Battle.Ap)),
+                (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
+                (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         private void DrawBattleSettle()
@@ -2057,18 +2078,18 @@ namespace Brushblade.Presentation
                 ShowVictoryBanner(); // 过关提示走屏幕中央横幅,自动推进(2026-07-21)
                 return;
             }
-            Ui.ThemedLabel(_centerRow, "败北……", 36, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_centerRow, Strings.T("battle.phase.defeat_ellipsis"), 36, Theme.TextMain, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
-                Ui.AdBadge(_centerRow, "看广告复活", () =>
+                Ui.AdBadge(_centerRow, Strings.T("battle.btn.ad_revive"), () =>
                 {
                     _previewRewardIndex = -1;
                     _run.TryRevive();
                     _onExpanded?.Invoke(); // 即时落盘:防「刚看完广告就挂起」白看
-                    _message = "满血复活!挑几样补给,接着打";
+                    _message = Strings.T("battle.revive.full_hp_msg");
                     Refresh();
                 }, new Vector2(160, 60));
-            Ui.PillButton(_centerRow, "结算", AdvanceAfterSettle,
+            Ui.PillButton(_centerRow, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
                 Theme.Jade, Color.white, 26, new Vector2(150, 70));
         }
 
@@ -2094,7 +2115,7 @@ namespace Brushblade.Presentation
             scrim.color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, boss ? 0.88f : 0.8f);
             var group = banner.AddComponent<CanvasGroup>();
             group.blocksRaycasts = false; // 只是提示,不拦点击
-            var label = Ui.ThemedLabel(banner.transform, boss ? "B O S S  已 破" : "本 层 告 捷",
+            var label = Ui.ThemedLabel(banner.transform, boss ? Strings.T("battle.phase.boss_broken_banner") : Strings.T("battle.phase.floor_cleared_banner"),
                 boss ? 72 : 44, boss ? Theme.Gold : Theme.CardWhite, Theme.TitleFont);
             Ui.Stretch(label.rectTransform);
             StartCoroutine(VictoryBannerRoutine(banner, group, boss ? 1.8f : 1.2f));
@@ -2146,11 +2167,11 @@ namespace Brushblade.Presentation
 
         private void DrawRewardCharStep()
         {
-            _rewardModal = Ui.ModalShell(transform, $"战利品 · 选字(还剩 {_run.CharPicksLeft})",
+            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.reward.pick_title", ("left", _run.CharPicksLeft)),
                 new Vector2(340, 165), dismissable: false, out var content);
             var preview = _previewRewardIndex >= 0
-                ? Brief(_run.RewardOptions[_previewRewardIndex]) + "|再点一次收下"
-                : $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity} · 点一下看效果,再点收下";
+                ? Brief(_run.RewardOptions[_previewRewardIndex]) + Strings.T("battle.reward.tap_again_suffix")
+                : Strings.T("battle.reward.pick_hint", ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity));
             Ui.ThemedLabel(content, preview, 16, Theme.TextDim);
 
             var row = Ui.Row(content, "Options", 10);
@@ -2171,7 +2192,7 @@ namespace Brushblade.Presentation
                     if (_run.PickReward(index))
                     {
                         _tutorial?.Notify(TutorialAction.PickReward);
-                        _message = $"「{id}」入库";
+                        _message = Strings.T("battle.reward.added_msg", ("charId", id));
                         CancelSelection(); // 额度归零 → 下次 Refresh 由 Core 侧自动开拔
                         return;
                     }
@@ -2189,8 +2210,11 @@ namespace Brushblade.Presentation
                     else
                     {
                         // 不是满库却被拒:把真实原因摆到台面上,而不是诬赖字库
-                        _message = $"收不下「{id}」——字库 {_run.CarriedLibrary.Count}/" +
-                                   $"{Battle.LibraryCapacity}、剩余额度 {_run.CharPicksLeft}、阶段 {_run.Phase}";
+                        // ⚠ {phase} 直接传的是 RunPhase 枚举,ToString() 会把英文成员名(如
+                        // Reward)拼进中文消息——搬字符串表前就有的既有小问题,原样带过来。
+                        _message = Strings.T("battle.reward.rejected_detail",
+                            ("charId", id), ("count", _run.CarriedLibrary.Count),
+                            ("capacity", Battle.LibraryCapacity), ("left", _run.CharPicksLeft), ("phase", _run.Phase));
                     }
                     Refresh();
                 };
@@ -2201,12 +2225,12 @@ namespace Brushblade.Presentation
 
             DrawRewardAdBadge(content);
 
-            Ui.RoundButton(content, "不要了,开拔", () =>
+            Ui.RoundButton(content, Strings.T("battle.btn.reward_skip"), () =>
             {
                 _previewRewardIndex = -1;
                 _run.SkipReward();
                 _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
-                _message = "开拔,下一战!";
+                _message = Strings.T("battle.reward.skip_msg");
                 CancelSelection();
             }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
         }
@@ -2215,10 +2239,11 @@ namespace Brushblade.Presentation
         {
             var incoming = _run.RewardOptions[_pendingRewardIndex];
             _rewardModal = Ui.ModalShell(transform,
-                $"字库已满 · 用「{incoming}」换掉哪一个?",
+                Strings.T("battle.reward.replace_title", ("charId", incoming)),
                 new Vector2(360, 165), dismissable: false, out var content);
             Ui.ThemedLabel(content,
-                $"字库 {_run.CarriedLibrary.Count}/{Battle.LibraryCapacity}——被换掉的字永久失去", 16, Theme.TextDim);
+                Strings.T("battle.reward.replace_hint", ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity)),
+                16, Theme.TextDim);
 
             var row = Ui.Row(content, "Library", 8);
             for (int i = 0; i < _run.CarriedLibrary.Count; i++)
@@ -2232,7 +2257,7 @@ namespace Brushblade.Presentation
                     {
                         _pendingRewardIndex = -1;
                         _tutorial?.Notify(TutorialAction.PickReward);
-                        _message = $"「{incoming}」替换「{dropped}」入库";
+                        _message = Strings.T("battle.reward.replaced_in_msg", ("incoming", incoming), ("dropped", dropped));
                         CancelSelection();
                     }
                 }, new Vector2(74, 96));
@@ -2240,7 +2265,7 @@ namespace Brushblade.Presentation
 
             DrawRewardAdBadge(content);
 
-            Ui.RoundButton(content, "算了,不换", () =>
+            Ui.RoundButton(content, Strings.T("battle.btn.replace_cancel"), () =>
             {
                 _pendingRewardIndex = -1;
                 Refresh();
@@ -2255,11 +2280,11 @@ namespace Brushblade.Presentation
         private void DrawRewardAdBadge(Transform content)
         {
             if (_run.LibraryExpanded) return;
-            Ui.AdBadge(content, "看广告 · 字库 +2", () =>
+            Ui.AdBadge(content, Strings.T("battle.btn.ad_expand_library"), () =>
             {
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
-                _message = "字库上限 +2(本次登塔有效)";
+                _message = Strings.T("battle.label.library_cap_up");
                 Refresh();
             }, new Vector2(190, 44));
         }
@@ -2278,11 +2303,11 @@ namespace Brushblade.Presentation
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
             if (_rewardModal != null) Destroy(_rewardModal);
 
-            _rewardModal = Ui.ModalShell(transform, $"复活补给 · 选字(还剩 {_run.ReviveCharPicksLeft})",
+            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
                 new Vector2(340, 165), dismissable: false, out var content);
             Ui.ThemedLabel(content, _previewRewardIndex >= 0
-                ? Brief(_run.RewardOptions[_previewRewardIndex]) + "|再点一次收下"
-                : $"字库 {Battle.Library.Count}/{Battle.LibraryCapacity} · 点一下看效果,再点收下", 16, Theme.TextDim);
+                ? Brief(_run.RewardOptions[_previewRewardIndex]) + Strings.T("battle.reward.tap_again_suffix")
+                : Strings.T("battle.reward.pick_hint", ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)), 16, Theme.TextDim);
 
             var row = Ui.Row(content, "Options", 10);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
@@ -2297,18 +2322,18 @@ namespace Brushblade.Presentation
                     if (Battle.Library.Count >= Battle.LibraryCapacity)
                         _pendingReviveIndex = index;             // 满库:转入「换掉哪一张」
                     else if (_run.PickReviveChar(index))
-                        _message = $"「{id}」入库";
+                        _message = Strings.T("battle.reward.added_msg", ("charId", id));
                     Refresh();
                 };
                 var tile = Ui.GlyphTile(row.transform, def, index == _previewRewardIndex, tap);
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
             }
 
-            Ui.RoundButton(content, "够了,接着打!", () =>
+            Ui.RoundButton(content, Strings.T("battle.btn.revive_skip"), () =>
             {
                 _previewRewardIndex = -1;
                 _run.SkipReviveReward();
-                _message = "重整旗鼓,再战!";
+                _message = Strings.T("battle.revive.skip_msg");
                 CancelSelection();
             }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
         }
@@ -2320,9 +2345,9 @@ namespace Brushblade.Presentation
             string incoming = _run.RewardOptions[_pendingReviveIndex];
 
             if (_rewardModal != null) Destroy(_rewardModal);
-            _rewardModal = Ui.ModalShell(transform, $"字库已满 · 用补给的「{incoming}」换掉哪一张?",
+            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.revive.replace_title", ("charId", incoming)),
                 new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, "被换掉的字永久失去", 15, Theme.TextDim);
+            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
 
             Transform row = null;
             for (int i = 0; i < Battle.Library.Count; i++)
@@ -2334,13 +2359,13 @@ namespace Brushblade.Presentation
                 {
                     string dropped = Battle.Library[replaceIndex];
                     if (_run.PickReviveCharReplacing(_pendingReviveIndex, replaceIndex))
-                        _message = $"「{incoming}」替换「{dropped}」";
+                        _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
                     _pendingReviveIndex = -1;
                     Refresh();
                 }, new Vector2(74, 96));
             }
 
-            Ui.PillButton(stack, "算了,换个字", () =>
+            Ui.PillButton(stack, Strings.T("battle.btn.revive_replace_cancel"), () =>
             {
                 _pendingReviveIndex = -1; // 退回候选列表,额度未动
                 Refresh();
@@ -2354,13 +2379,17 @@ namespace Brushblade.Presentation
         private void DrawEvent() // 奇遇(9.6):短情境 + 选择;部件抵价/任选字由玩家点选(2026-07-19)
         {
             var evt = _run.CurrentEvent;
-            Ui.ThemedLabel(_enemyFrontRow, $"奇遇 · {evt.Id}", 30, Theme.TextMain, Theme.TitleFont);
+            // evt.Id 是奇遇事件配置数据里的 id/展示名,不是本文件的硬编码文案——这里只登记
+            // 「奇遇 · X」这层胶字模板本体。
+            Ui.ThemedLabel(_enemyFrontRow, Strings.T("battle.event.title", ("eventName", evt.Id)), 30, Theme.TextMain, Theme.TitleFont);
             // 情境文案画在战场那一排,**不是** _statusRow(2026-08-20 修回):_statusRow 在屏幕
             // 最底边,把文案放那儿会变成 选项钮 → 部件池 → 文案,玩家得先看见三个按钮、
             // 再把视线甩到屏幕底边才读得到自己在选什么。这一排(0.431–0.543)在奇遇阶段本来
             // 就是空的(四排只在战斗阶段画),且**高于**选项钮所在的 _centerRow(0.125–0.220),
             // 阅读顺序因此是 文案 → 选项。2026-08-21 标题也搬到了左下,但这条理由与标题无关。
-            Ui.ThemedLabel(_summonFrontRow, $"{evt.Text}    (墨锭 {_run.AvailableInk})", 18, Theme.TextDim);
+            // evt.Text 同样是事件正文数据,不在本文件文案范围——这里登记「正文 + 墨锭余额」
+            // 这层胶字模板,「(墨锭」前 4 个空格是刻意留白,别收窄。
+            Ui.ThemedLabel(_summonFrontRow, Strings.T("battle.event.body_with_ink", ("eventText", evt.Text), ("ink", _run.AvailableInk)), 18, Theme.TextDim);
 
             if (_pendingEventOption >= 0)
             {
@@ -2372,10 +2401,11 @@ namespace Brushblade.Presentation
                 }
                 bool needCharChoice = pending.GainCharChoices.Count > 0 && _pendingCharChoice < 0;
                 Ui.ThemedLabel(_centerRow, needCharChoice
-                        ? $"{pending.Label}:先点想要的字"
-                        : $"{pending.Label}:点 {pending.ComponentCost} 个不要的部件({_eventPicks.Count}/{pending.ComponentCost})",
+                        ? Strings.T("battle.event.pick_char_prompt", ("optionLabel", pending.Label))
+                        : Strings.T("battle.event.pick_components_prompt",
+                            ("optionLabel", pending.Label), ("cost", pending.ComponentCost), ("picked", _eventPicks.Count)),
                     20, Theme.TextMain, Theme.TitleFont);
-                Ui.RoundButton(_centerRow, "取消", () =>
+                Ui.RoundButton(_centerRow, Strings.T("battle.btn.cancel"), () =>
                 {
                     ResetEventSelection();
                     _message = "";
@@ -2403,8 +2433,8 @@ namespace Brushblade.Presentation
                         _pendingCharChoice = -1;
                         _eventPicks.Clear();
                         _message = option.GainCharChoices.Count > 0
-                            ? "先点想要的字"
-                            : $"以物易物:点 {option.ComponentCost} 个不要的部件抵价";
+                            ? Strings.T("battle.event.pick_char_only")
+                            : Strings.T("battle.event.barter_prompt", ("cost", option.ComponentCost));
                         Refresh();
                         return;
                     }
@@ -2412,7 +2442,9 @@ namespace Brushblade.Presentation
                     if (_run.ChooseEventOption(index))
                     {
                         _message = option.InkChancePercent > 0 // 赌注:按墨锭变化播报输赢
-                            ? (_run.AvailableInk > inkBefore ? $"手气极佳!+{option.Ink} 墨锭" : "输了……愿赌服输")
+                            ? (_run.AvailableInk > inkBefore
+                                ? Strings.T("battle.event.gamble_win", ("ink", option.Ink))
+                                : Strings.T("battle.event.gamble_lose"))
                             : $"{evt.Id}:{option.Label}";
                         CancelSelection();
                         return;
@@ -2426,14 +2458,15 @@ namespace Brushblade.Presentation
                         _pendingCharChoice = -1;
                         _eventPicks.Clear();
                         _eventReplacing = true;
-                        _message = $"字库已满:选一个换成「{option.GainChar}」";
+                        _message = Strings.T("battle.event.replace_needed_msg", ("charId", option.GainChar));
                         Refresh();
                         return;
                     }
                     CancelSelection();
-                    ShowAlert("这个选不了", option.InkCost > _run.AvailableInk
-                        ? $"「{option.Label}」需要 {option.InkCost} 墨锭,你只有 {_run.AvailableInk}。"
-                        : $"「{option.Label}」这笔交易没能成立。");
+                    ShowAlert(Strings.T("battle.dialog.event_unaffordable.title"), option.InkCost > _run.AvailableInk
+                        ? Strings.T("battle.dialog.event_unaffordable.body_ink",
+                            ("label", option.Label), ("cost", option.InkCost), ("available", _run.AvailableInk))
+                        : Strings.T("battle.dialog.event_unaffordable.body_failed", ("label", option.Label)));
                 }, affordable ? Theme.InkSoft : Theme.LockedBg,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
@@ -2450,9 +2483,9 @@ namespace Brushblade.Presentation
                 ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
 
             if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.ModalShell(transform, $"字库已满 · 用「{incoming}」换掉哪一张?",
+            _modal = Ui.ModalShell(transform, Strings.T("battle.event.replace_title", ("charId", incoming)),
                 new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, "被换掉的字永久失去", 15, Theme.TextDim);
+            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
 
             Transform row = null;
             for (int i = 0; i < _run.CarriedLibrary.Count; i++)
@@ -2466,7 +2499,7 @@ namespace Brushblade.Presentation
                     var picks = _eventPicks.Count > 0 ? _eventPicks.ToArray() : null;
                     if (_run.ChooseEventOption(_pendingEventOption, picks, _pendingCharChoice, replaceIndex))
                     {
-                        _message = $"成交!「{incoming}」替换「{dropped}」";
+                        _message = Strings.T("battle.event.trade_replaced_msg", ("incoming", incoming), ("dropped", dropped));
                         if (_modal != null) Object.Destroy(_modal);
                         ResetEventSelection();
                         CancelSelection();
@@ -2476,11 +2509,11 @@ namespace Brushblade.Presentation
                 }, new Vector2(74, 96));
             }
 
-            Ui.PillButton(stack, "算了,不换", () =>
+            Ui.PillButton(stack, Strings.T("battle.btn.replace_cancel"), () =>
             {
                 if (_modal != null) Object.Destroy(_modal);
                 ResetEventSelection();
-                _message = "交易取消,部件一个没少";
+                _message = Strings.T("battle.event.trade_cancel_msg");
                 Refresh();
             }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
         }
@@ -2535,13 +2568,13 @@ namespace Brushblade.Presentation
                     _pendingCharChoice = choice;
                     if (option.ComponentCost > 0)
                     {
-                        _message = $"要「{charId}」:点 {option.ComponentCost} 个不要的部件抵价";
+                        _message = Strings.T("battle.event.pick_components_for_char", ("charId", charId), ("cost", option.ComponentCost));
                         Refresh();
                         return;
                     }
                     if (_run.ChooseEventOption(_pendingEventOption, null, choice))
                     {
-                        _message = $"成交!得「{charId}」";
+                        _message = Strings.T("battle.event.trade_got_msg", ("charId", charId));
                         ResetEventSelection();
                         CancelSelection();
                         return;
@@ -2549,13 +2582,14 @@ namespace Brushblade.Presentation
                     if (_run.CarriedLibrary.Count >= Battle.LibraryCapacity)
                     {
                         _eventReplacing = true; // 满库不再是死路:转入「换掉哪一张」
-                        _message = $"字库已满:选一个换成「{charId}」";
+                        _message = Strings.T("battle.event.replace_needed_msg", ("charId", charId));
                         Refresh();
                         return;
                     }
                     ResetEventSelection();
                     CancelSelection();
-                    ShowAlert("换不了", $"「{charId}」这笔交易没能成立。");
+                    ShowAlert(Strings.T("battle.dialog.event_char_unaffordable.title"),
+                        Strings.T("battle.dialog.event_char_unaffordable.body", ("charId", charId)));
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
                     26, new Vector2(64, 64), 12);
             }
@@ -2564,7 +2598,7 @@ namespace Brushblade.Presentation
         /// <summary>抵价选件:携带池平铺,点选高亮,凑够数自动成交。</summary>
         private void DrawEventPoolPicker(EventOption option)
         {
-            Ui.ThemedLabel(_poolRow, "部件池", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_poolRow, Strings.T("battle.event.pool_title"), 16, Theme.TextDim, Theme.TitleFont);
             for (int i = 0; i < _run.CarriedPool.Count; i++)
             {
                 int index = i;
@@ -2581,7 +2615,9 @@ namespace Brushblade.Presentation
                         {
                             string gained = _pendingCharChoice >= 0
                                 ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
-                            _message = gained != null ? $"成交!得「{gained}」" : $"成交!{option.Label}";
+                            _message = gained != null
+                                ? Strings.T("battle.event.trade_got_msg", ("charId", gained))
+                                : Strings.T("battle.event.trade_success_label_msg", ("optionLabel", option.Label));
                             ResetEventSelection();
                             CancelSelection();
                             return;
@@ -2603,22 +2639,22 @@ namespace Brushblade.Presentation
             var overflow = _run.PendingOverflow;
             if (overflow.Count == 0) return; // 决议完成的过渡帧
             string incoming = overflow[0];
-            Ui.ThemedLabel(_enemyFrontRow, "部件已满", 30, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(_enemyFrontRow, Strings.T("battle.event.overflow_title"), 30, Theme.TextMain, Theme.TitleFont);
             // 警示文案画在战场那一排,**不是** _statusRow(2026-08-20 修回,同 DrawEvent 那一处):
             // _statusRow 在屏幕最底边,放那儿玩家很可能在没读到「永久失去」之前就点掉了一次
             // 不可逆操作。这一排在部件超限阶段本来就是空的,且高于选项所在的 _centerRow。
             Ui.ThemedLabel(_summonFrontRow,
-                $"用「{incoming}」换掉池中一个(永久失去),或跳过不要。还剩 {overflow.Count} 个待决。",
+                Strings.T("battle.event.overflow_prompt", ("charId", incoming), ("remaining", overflow.Count)),
                 18, Theme.TextDim);
 
-            Ui.PillButton(_centerRow, $"跳过「{incoming}」", () =>
+            Ui.PillButton(_centerRow, Strings.T("battle.btn.overflow_skip", ("incoming", incoming)), () =>
             {
                 _run.ResolveOverflowSkip();
-                _message = $"弃「{incoming}」";
+                _message = Strings.T("battle.event.overflow_skip_msg", ("charId", incoming));
                 Refresh();
             }, Theme.LockedBg, Theme.TextMain, 18, new Vector2(160, 56));
 
-            Ui.ThemedLabel(_poolRow, "部件池(点一个换掉)", 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(_poolRow, Strings.T("battle.event.overflow_pool_title"), 16, Theme.TextDim, Theme.TitleFont);
             for (int i = 0; i < _run.CarriedPool.Count; i++)
             {
                 int index = i;
@@ -2627,7 +2663,7 @@ namespace Brushblade.Presentation
                 {
                     string dropped = _run.CarriedPool[index];
                     _run.ResolveOverflowReplace(index);
-                    _message = $"「{incoming}」换掉「{dropped}」";
+                    _message = Strings.T("battle.event.overflow_replaced_msg", ("incoming", incoming), ("dropped", dropped));
                     Refresh();
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
                     22, new Vector2(56, 56), 12);
@@ -2638,13 +2674,15 @@ namespace Brushblade.Presentation
         {
             bool won = _run.Phase == RunPhase.RunWon;
             bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
-            Ui.ThemedLabel(_centerRow, won ? (tower ? "本段告捷——字正!" : "关卡通过——字正!") : "败北",
+            Ui.ThemedLabel(_centerRow, won
+                    ? (tower ? Strings.T("battle.phase.run_won_tower_banner") : Strings.T("battle.phase.run_won_stage_banner"))
+                    : Strings.T("battle.phase.defeat_banner"),
                 40, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_centerRow, won && tower ? "前往安全层" : tower ? "结算" : "返回地图",
+            Ui.PillButton(_centerRow, won && tower ? Strings.T("battle.btn.to_safe_floor") : tower ? Strings.T("battle.btn.settle") : Strings.T("battle.btn.to_map"),
                 () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
             _message = won
-                ? (tower ? "Boss 已破,安全层可收官或深入。" : "通关结算:经验与墨锭入账。")
-                : (tower ? "卒……墨锭半额结算,纪录保留。" : "死亡即结算,回地图重整旗鼓。");
+                ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
+                : (tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg"));
         }
 
         // ---- 交互 ----
@@ -2661,7 +2699,7 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
-            _message = Brief(charId) + "|再点即出";
+            _message = Brief(charId) + Strings.T("battle.hint.suffix_tap_again_cast");
             Refresh();
         }
 
@@ -2677,7 +2715,7 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             ResetSlotPicking();
-            _message = Brief(charId) + "|直出:部件不入库直接打出|再点即出";
+            _message = Brief(charId) + Strings.T("battle.hint.suffix_direct_cast");
             Refresh();
         }
 
@@ -2689,7 +2727,7 @@ namespace Brushblade.Presentation
             if (BattleEngine.NeedsTarget(def) && LegalTargetCount(def, attackMode: false) > 1)
             {
                 _targeting = true;
-                _message = $"「{def.Id}」:点击目标敌人";
+                _message = Strings.T("battle.hint.cast_pick_enemy_target", ("charId", def.Id));
                 Refresh();
                 return;
             }
@@ -2699,7 +2737,7 @@ namespace Brushblade.Presentation
             if (BattleEngine.NeedsAllyTarget(def) && Battle.AliveSummonCount > 0)
             {
                 _allyTargeting = true;
-                _message = $"「{def.Id}」:点击治疗目标(玩家或召唤物)";
+                _message = Strings.T("battle.hint.cast_pick_ally_target", ("charId", def.Id));
                 Refresh();
                 return;
             }
@@ -2776,8 +2814,8 @@ namespace Brushblade.Presentation
         }
 
         private string SlotPickMessage() => _pendingSummonCount > 1
-            ? $"「{_pendingSummonChar}」召 {_pendingSummonCount} 只:选一个位置,从那格起顺延填空位|点空白取消"
-            : $"「{_pendingSummonChar}」:选一个位置安置|点空白取消";
+            ? Strings.T("battle.hint.slot_picking_multi", ("charId", _pendingSummonChar), ("count", _pendingSummonCount))
+            : Strings.T("battle.hint.slot_picking_single", ("charId", _pendingSummonChar));
 
         /// <summary>选定一个召唤位,当场结算(2026-08-21 用户拍板:**只选一次**)。
         ///
@@ -2815,8 +2853,8 @@ namespace Brushblade.Presentation
 
         /// <summary>位子的人话名字:下标 0..5 玩家看不懂,说「前排第 2 位」才认得出是哪一格。</summary>
         private string SlotName(int slot) => slot < Battle.FrontRow
-            ? $"前排第 {slot + 1} 位"
-            : $"后排第 {slot - Battle.FrontRow + 1} 位";
+            ? Strings.T("battle.dialog.slot_name_front", ("n", slot + 1))
+            : Strings.T("battle.dialog.slot_name_back", ("n", slot - Battle.FrontRow + 1));
 
         private void OnEnemyClicked(int index)
         {
@@ -2843,13 +2881,13 @@ namespace Brushblade.Presentation
             {
                 var def = _graph.Get(charId);
                 int replaceCount = Battle.SummonReplaceCountOf(def, attackMode, summonSlots);
-                ShowModal("这个位置有人",
+                ShowModal(Strings.T("battle.dialog.slot_occupied.title"),
                     ReplaceSummonBody(def, attackMode, summonSlots),
-                    ($"顶替 {replaceCount} 只",
+                    (Strings.T("battle.btn.confirm_replace_summon", ("count", replaceCount)),
                         () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot),
                         Theme.Cinnabar, Color.white),
-                    ("取消", null, Theme.LockedBg, Theme.TextMain));
-                _message = "选的位置上站着人,出字待确认";
+                    (Strings.T("battle.btn.cancel"), null, Theme.LockedBg, Theme.TextMain));
+                _message = Strings.T("battle.msg.slot_occupied_pending");
                 CancelSelection();
                 return;
             }
@@ -2857,7 +2895,7 @@ namespace Brushblade.Presentation
                 _tutorial?.Notify(TutorialAction.Cast, charId);
             else
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
-            _message = error == BattleError.None ? $"出「{charId}」!" : Describe(error);
+            _message = error == BattleError.None ? Strings.T("battle.msg.cast_success", ("charId", charId)) : Describe(error);
             AppendBossPhaseMessage();
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
             // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
@@ -2887,16 +2925,20 @@ namespace Brushblade.Presentation
         {
             int count = Battle.SummonCountOf(def, attackMode);
             if (summonSlots == null)
-                return $"前排 {Battle.AliveSummonCount}/{Battle.SummonCapacity},「{def.Id}」召 {count} 只。\n"
-                    + $"将从最前起顶掉 {Battle.SummonReplaceCountOf(def, attackMode)} 只。";
+                return Strings.T("battle.dialog.slot_occupied.body_generic",
+                        ("alive", Battle.AliveSummonCount), ("capacity", Battle.SummonCapacity),
+                        ("charId", def.Id), ("count", count))
+                    + Strings.T("battle.dialog.slot_occupied.body_generic_suffix",
+                        ("n", Battle.SummonReplaceCountOf(def, attackMode)));
             var body = new StringBuilder();
             for (int n = 0; n < count && n < summonSlots.Count; n++)
             {
                 int slot = summonSlots[n];
                 if (Battle.SlotOccupancy(slot) != SlotState.Alive) continue;
-                body.Append($"{SlotName(slot)}上的「{Battle.Summons[slot].Char}」会被顶替。\n");
+                body.Append(Strings.T("battle.dialog.slot_occupied.body_line",
+                    ("slotName", SlotName(slot)), ("charId", Battle.Summons[slot].Char)));
             }
-            body.Append("被顶替的当场消失。"); // 不带量词:顶 1 只与顶 2 只共用这一句
+            body.Append(Strings.T("battle.dialog.slot_occupied.body_suffix")); // 不带量词:顶 1 只与顶 2 只共用这一句
             return body.ToString();
         }
 
@@ -2938,7 +2980,7 @@ namespace Brushblade.Presentation
             if (_run.Phase != RunPhase.InBattle || Battle.Phase != BattlePhase.PlayerTurn || Battle.Ap != 0)
                 yield break; // 期间局面已变(胜负已分/新回合)则作罢
             OnEndTurn();
-            _messageLabel.text = "AP 耗尽,自动结束回合 · " + _message;
+            _messageLabel.text = Strings.T("battle.phase.auto_end_turn_prefix") + _message;
         }
 
         private void AppendBossPhaseMessage()
@@ -2947,7 +2989,9 @@ namespace Brushblade.Presentation
                 if (e.Kind == BattleEventKind.BossPhase)
                 {
                     var enemy = Battle.Enemies[e.TargetIndex];
-                    _message += $"  破阶!「{enemy.Def.Phases[e.Amount].Char}」现身——{ElementName(enemy.Element)}系";
+                    // 显示用元素名走 CharInfo.ElementName(查表),同 :1439 的敌人属性 chip。
+                    _message += Strings.T("battle.msg.boss_phase_change",
+                        ("char", enemy.Def.Phases[e.Amount].Char), ("element", CharInfo.ElementName(enemy.Element)));
                 }
         }
 
@@ -2956,18 +3000,18 @@ namespace Brushblade.Presentation
             foreach (var e in Battle.LastEvents)
             {
                 if (e.Kind == BattleEventKind.BossCharging)
-                    _message += $"  蓄力中——下回合「{EnemyInfo.BossSkillName((BossSkill)e.Amount)}」";
+                    _message += Strings.T("battle.msg.boss_charging", ("skillName", EnemyInfo.BossSkillName((BossSkill)e.Amount)));
                 else if (e.Kind == BattleEventKind.BossSkillCast)
                     _message += $"  {EnemyInfo.BossSkillName((BossSkill)e.Amount)}!";
                 else if (e.Kind == BattleEventKind.ShieldBroken)
-                    _message += $"  护盾被掀空({e.Amount})";
+                    _message += Strings.T("battle.msg.shield_broken", ("amount", e.Amount));
             }
         }
 
         private void OnDiscard(string charId)
         {
             var error = Battle.Discard(charId, _selectedIndex); // 同字多张:丢玩家选中的那张
-            _message = error == BattleError.None ? $"丢弃「{charId}」(免 AP)" : Describe(error);
+            _message = error == BattleError.None ? Strings.T("battle.msg.discard_success", ("charId", charId)) : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
                 MaybeAutoEndTurn(); // 0 AP 时的丢弃:顺延自动结束缓冲,可连续丢
@@ -2982,7 +3026,7 @@ namespace Brushblade.Presentation
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
             else
                 MaybeModalError(error, charId, 1);
-            _message = error == BattleError.None ? $"拆「{charId}」" : Describe(error);
+            _message = error == BattleError.None ? Strings.T("battle.msg.dismantle_success", ("charId", charId)) : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
             {
@@ -3010,7 +3054,7 @@ namespace Brushblade.Presentation
                 _tutorial?.Notify(TutorialAction.Compose, charId);
             else
                 MaybeModalError(error, charId, 1);
-            _message = error == BattleError.None ? $"合出「{charId}」!" : Describe(error);
+            _message = error == BattleError.None ? Strings.T("battle.msg.compose_success", ("charId", charId)) : Describe(error);
             CancelSelection();
             if (error == BattleError.None)
             {
@@ -3079,7 +3123,7 @@ namespace Brushblade.Presentation
                 if (Battle.Phase == BattlePhase.Won || Battle.Phase == BattlePhase.Lost) break;
             }
             _message = (Battle.Phase == BattlePhase.PlayerTurn
-                ? $"回合 {Battle.Turn}:+{Battle.ApPerTurn} AP,字掉落" : "") + _message;
+                ? Strings.T("battle.phase.new_turn_prefix", ("turn", Battle.Turn), ("apPerTurn", Battle.ApPerTurn)) : "") + _message;
             OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
         }
 
@@ -3236,34 +3280,39 @@ namespace Brushblade.Presentation
         private void MaybeModalError(BattleError error, string charId, int neededAp)
         {
             if (error == BattleError.NotEnoughAp)
-                ShowModal("AP 不够",
-                    $"「{charId}」需要 {neededAp} AP,本回合仅剩 {Battle.Ap} AP。\n结束回合可回满 {Battle.ApPerTurn} AP 并掉落新部件。",
-                    ("结束回合", OnEndTurn, Theme.Cinnabar, Color.white),
-                    ("再想想", null, Theme.LockedBg, Theme.TextMain));
+                ShowModal(Strings.T("battle.dialog.not_enough_ap.title"),
+                    Strings.T("battle.dialog.not_enough_ap.body",
+                        ("charId", charId), ("neededAp", neededAp), ("ap", Battle.Ap), ("apPerTurn", Battle.ApPerTurn)),
+                    (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
+                    (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
             else if (error == BattleError.ForgeFailed)
-                ShowModal("操作被拒", Describe(error),
-                    ("知道了", null, Theme.LockedBg, Theme.TextMain));
+                ShowModal(Strings.T("battle.common.rejected"), Describe(error),
+                    (Strings.T("battle.btn.ack"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         private string Describe(BattleError error) => error switch
         {
-            BattleError.NotEnoughAp => "AP 不足",
-            BattleError.NotCastable => "此字当前不可出",
-            BattleError.InvalidTarget => "目标无效",
-            BattleError.BattleOver => "战斗已结束",
+            BattleError.NotEnoughAp => Strings.T("battle.error.not_enough_ap"),
+            BattleError.NotCastable => Strings.T("battle.error.not_castable"),
+            BattleError.InvalidTarget => Strings.T("battle.error.invalid_target"),
+            BattleError.BattleOver => Strings.T("battle.error.battle_over"),
             BattleError.ForgeFailed => Battle.LastForgeError switch
             {
-                ForgeError.PoolWouldOverflow => "部件池放不下,拆解取消",
-                ForgeError.MissingIngredients => "原料不足",
-                ForgeError.LibraryFull => "字库已满",
-                ForgeError.NotUnlocked => "此字不在出阵列表——登塔前在收集页编入才能合",
-                ForgeError.NotDismantlable => "独体字不可拆",
-                _ => "操作被拒",
+                ForgeError.PoolWouldOverflow => Strings.T("battle.error.pool_overflow"),
+                ForgeError.MissingIngredients => Strings.T("battle.error.missing_ingredients"),
+                ForgeError.LibraryFull => Strings.T("battle.error.library_full"),
+                ForgeError.NotUnlocked => Strings.T("battle.error.not_unlocked"),
+                ForgeError.NotDismantlable => Strings.T("battle.error.not_dismantlable"),
+                _ => Strings.T("battle.common.rejected"),
             },
             _ => "",
         };
 
-        private static string ElementName(Element element) => element switch
+        // 内部桶键,与 CharInfo.ElementName(查表、已迁字符串表)是两套不同用途的实现,别合并:
+        // 差字面板拿它当分桶/排序/反查的 key(见 HintBucketOrder / ElementByName),显示则另外
+        // 调 CharInfo.ElementName——键翻译了,ElementByName 的反向解析就找不到桶,所以键必须
+        // 留原始汉字,显示与键必须分开(2026-08-23,Task 6 元素名分离裁定)。
+        private static string ElementKey(Element element) => element switch
         {
             Element.Wood => "木",
             Element.Fire => "火",

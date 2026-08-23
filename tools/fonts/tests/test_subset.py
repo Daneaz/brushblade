@@ -6,10 +6,16 @@ import subset_fonts
 
 
 def test_charset_covers_config():
+    """按目录 glob 而不是列文件名:2026-08-22 之前这里列的是 ("chars.json",
+    "enemies.json"),strings.zh-CN.json 加进 config/ 后没人补这个列表,
+    238 个玩家可见字因此从子集里消失、这条测试却全程绿灯。
+    过滤规则与 charset() 保持一致:排除空格以外的空白(比如文案里手写的换行 \\n
+    用来做弹窗折行,不是要上字体的字形)。"""
     chars = subset_fonts.charset()
-    for name in ("chars.json", "enemies.json"):
-        missing = subset_fonts.json_chars(subset_fonts.CONFIG / name) - chars
-        assert not missing, f"{name} 缺字: {missing}"
+    for path in sorted(subset_fonts.CONFIG.glob("*.json")):
+        raw = {c for c in subset_fonts.json_chars(path) if c == " " or not c.isspace()}
+        missing = raw - chars
+        assert not missing, f"{path.name} 缺字: {missing}"
 
 
 def test_charset_covers_code_literals():

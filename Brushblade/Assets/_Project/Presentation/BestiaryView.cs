@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,7 +21,7 @@ namespace Brushblade.Presentation
         private Action _save;
         private GameObject _modal;
         private int _page;
-        private string _message = "击败过的怪会进图鉴;点开未查阅的条目可领赏钱";
+        private string _message = Strings.T("bestiary.hint.default");
 
         public void Init(CampaignConfig campaign, MetaState meta, Action save, Action onBack)
         {
@@ -75,10 +76,10 @@ namespace Brushblade.Presentation
 
             var header = Ui.Row(transform, "Header", 20);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
-            Ui.ThemedLabel(header.transform, "怪物图鉴", 34, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(header.transform, $"已录 {unlocked}/{_all.Count}", 22, Theme.TextDim);
+            Ui.ThemedLabel(header.transform, Strings.T("common.bestiary_title"), 34, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(header.transform, Strings.T("bestiary.header.stats", ("unlocked", unlocked), ("total", _all.Count)), 22, Theme.TextDim);
             if (unclaimed > 0)
-                Ui.Chip(header.transform, $"可领 {unclaimed}", Theme.Cinnabar, Color.white, 15);
+                Ui.Chip(header.transform, Strings.T("bestiary.header.unclaimed_chip", ("count", unclaimed)), Theme.Cinnabar, Color.white, 15);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
             if (pageCount > 1)
             {
@@ -90,7 +91,7 @@ namespace Brushblade.Presentation
                     Theme.InkSoft, Color.white, 20, new Vector2(48, 48));
                 next.interactable = _page < pageCount - 1;
             }
-            Ui.PillButton(header.transform, "返回地图", () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
+            Ui.PillButton(header.transform, Strings.T("common.back_to_map"), () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
 
             var messageGo = Ui.Panel(transform, "Message");
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.8f), new Vector2(1, 0.88f), Vector2.zero, Vector2.zero);
@@ -129,10 +130,10 @@ namespace Brushblade.Presentation
 
                 if (claimable)
                     Ui.Chip(cell.transform,
-                        $"可领 {(def.Phases.Count > 0 ? BestiaryRules.BossBounty : BestiaryRules.MinionBounty)}",
+                        Strings.T("bestiary.card.bounty_chip", ("bounty", def.Phases.Count > 0 ? BestiaryRules.BossBounty : BestiaryRules.MinionBounty)),
                         Theme.Cinnabar, Color.white, 13);
                 else
-                    Ui.ThemedLabel(cell.transform, isUnlocked ? "已查阅" : "未遇", 14, Theme.TextDim);
+                    Ui.ThemedLabel(cell.transform, isUnlocked ? Strings.T("bestiary.card.viewed_badge") : Strings.T("common.unmet"), 14, Theme.TextDim);
             }
         }
 
@@ -141,7 +142,7 @@ namespace Brushblade.Presentation
             int bounty = BestiaryRules.TryClaim(_meta, def); // 首次查阅即领赏
             if (bounty > 0)
             {
-                _message = $"「{def.Id}」录入图鉴,赏 {bounty} 墨锭";
+                _message = Strings.T("bestiary.message.claimed", ("enemyId", def.Id), ("bounty", bounty));
                 _save();
             }
             Rebuild(); // 先重建再弹窗:Rebuild 会清空根节点

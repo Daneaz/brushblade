@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,7 +17,7 @@ namespace Brushblade.Presentation
         public static GameObject Mount(Transform parent, bool sheng)
         {
             var stack = Ui.VStack(parent, sheng ? "WuxingSheng" : "WuxingKe", 2);
-            Ui.ThemedLabel(stack.transform, sheng ? "相 生" : "相 克", 16,
+            Ui.ThemedLabel(stack.transform, sheng ? Strings.T("wuxing.chart.title_sheng") : Strings.T("wuxing.chart.title_ke"), 16,
                 Theme.TextMain, Theme.TitleFont);
 
             var chartGo = Ui.Panel(stack.transform, "Chart");

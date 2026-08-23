@@ -1,5 +1,6 @@
 using System;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -60,7 +61,7 @@ namespace Brushblade.Presentation
                 }
                 long remaining = ChestRules.RemainingSeconds(chest, _time);
                 if (countdown != null) countdown.text = Format(remaining);
-                if (skipCost != null) skipCost.text = $"{ChestRules.InkCostToSkip(remaining)}墨";
+                if (skipCost != null) skipCost.text = Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining)));
             }
             if (becameReady && _resultPanel == null)
                 Rebuild();
@@ -90,27 +91,28 @@ namespace Brushblade.Presentation
             int level = MetaRules.CharacterLevel(_meta.CharacterXp);
             var header = Ui.Row(transform, "Header", 22);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.9f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
-            Ui.ThemedLabel(header.transform, $"正字者 Lv.{level}", 28, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(header.transform, Strings.T("map.header.title", ("level", level)), 28, Theme.TextMain, Theme.TitleFont);
             // 四条角色属性上屏(2026-08-12,E-b4/E-b5 T7)。读的是**战斗真正吃到的那份配置**,
             // 不在这里另算一遍 —— 否则会出现「屏上写着护甲 5、局内其实是 0」这种最难查的偏差。
             // ⚠ 暴击不上屏:基准恒 0 且不随等级成长,跑图界面会永远写「暴击 0%」,没有信息量
             // (2026-08-12 E-b2 就地决定:改由局内 BattleView 出 chip)。
             var stats = MetaRules.BuildBattleConfig(_meta, _campaign.DropTable);
             Ui.ThemedLabel(header.transform,
-                $"经验 {_meta.CharacterXp}    HP 上限 {stats.PlayerMaxHp}    攻击 {stats.PlayerAttack}"
-                + $"    护甲 {stats.PlayerDefense}    闪避 {stats.PlayerDodge}%    速度 {stats.PlayerSpeed}", 20, Theme.TextDim);
+                Strings.T("map.header.stats", ("xp", _meta.CharacterXp), ("maxHp", stats.PlayerMaxHp),
+                    ("attack", stats.PlayerAttack), ("defense", stats.PlayerDefense),
+                    ("dodge", stats.PlayerDodge), ("speed", stats.PlayerSpeed)), 20, Theme.TextDim);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
-            var collectionButton = Ui.RoundButton(header.transform, "收集/卡组", () => _onOpenCollection(),
+            var collectionButton = Ui.RoundButton(header.transform, Strings.T("map.nav.collection"), () => _onOpenCollection(),
                 Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);
             if (AnyCardUpgradable()) // 可升级红点导航
                 RedDot(collectionButton.transform);
-            var bestiaryButton = Ui.RoundButton(header.transform, "图鉴", () => _onOpenBestiary(),
+            var bestiaryButton = Ui.RoundButton(header.transform, Strings.T("map.nav.bestiary"), () => _onOpenBestiary(),
                 Theme.InkSoft, Color.white, 20, new Vector2(100, 50), 12);
             if (BestiaryRules.HasUnclaimed(_meta)) // 有已解锁未查阅的条目 → 红点(赏钱待领)
                 RedDot(bestiaryButton.transform);
-            Ui.RoundButton(header.transform, "技能", () => _onOpenPerks(),
+            Ui.RoundButton(header.transform, Strings.T("map.nav.perks"), () => _onOpenPerks(),
                 Theme.InkSoft, Color.white, 20, new Vector2(100, 50), 12);
-            Ui.RoundButton(header.transform, "商城", () => _onOpenShop(),
+            Ui.RoundButton(header.transform, Strings.T("map.nav.shop"), () => _onOpenShop(),
                 Theme.ShopNav, Color.white, 20, new Vector2(100, 50), 12);
 
             // 消息横幅(绿胶囊,有内容才显示)
@@ -146,9 +148,9 @@ namespace Brushblade.Presentation
             var stack = Ui.VStack(tower.transform, "Stack", 14);
             Ui.Stretch((RectTransform)stack.transform);
 
-            Ui.ThemedLabel(stack.transform, "无尽书塔", 32, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, Strings.T("map.tower.title"), 32, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack.transform,
-                $"段位「{EndlessRules.RankTitle(_meta.BestDepth)}」 · 最高第 {_meta.BestDepth} 层",
+                Strings.T("common.rank_summary", ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)),
                 20, Theme.TextDim);
 
             // 层段进度:已踏入亮色,未至灰色
@@ -156,22 +158,22 @@ namespace Brushblade.Presentation
             foreach (var band in endless.Bands)
             {
                 bool reached = band.FromDepth == 1 || _meta.BestDepth >= band.FromDepth;
-                Ui.Chip(bands.transform, $"{band.Name} {band.FromDepth}层起",
+                Ui.Chip(bands.transform, Strings.T("map.tower.band_chip", ("name", band.Name), ("fromDepth", band.FromDepth)),
                     reached ? Theme.InkSoft : Theme.LockedBg,
                     reached ? Color.white : Theme.LockGray, 15);
             }
 
             var snapshot = _meta.EndlessV2;
             string label = snapshot == null
-                ? "登 塔"
-                : $"继续 · 「{endless.BandFor(snapshot.Depth).Name}」第 {snapshot.Depth} 层";
+                ? Strings.T("map.tower.start_button")
+                : Strings.T("map.tower.resume_button", ("bandName", endless.BandFor(snapshot.Depth).Name), ("depth", snapshot.Depth));
             Ui.PillButton(stack.transform, label, () => _onStartTower(),
                 Theme.Cinnabar, Color.white, 24, new Vector2(300, 62));
             if (snapshot != null)
                 Ui.ThemedLabel(stack.transform,
-                    $"进行中:HP {snapshot.PlayerHp} · 滚存墨锭 {snapshot.EarnedInk}", 16, Theme.TextDim);
+                    Strings.T("map.tower.in_progress", ("hp", snapshot.PlayerHp), ("ink", snapshot.EarnedInk)), 16, Theme.TextDim);
             else
-                Ui.ThemedLabel(stack.transform, "每 5 层一位 Boss,战胜后可收官或深入", 16, Theme.TextDim);
+                Ui.ThemedLabel(stack.transform, Strings.T("map.tower.hint"), 16, Theme.TextDim);
 
             DrawChestBar();
         }
@@ -184,9 +186,9 @@ namespace Brushblade.Presentation
             var bar = Ui.Row(transform, "Chests", 18);
             Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 0.02f), new Vector2(1, 0.24f), Vector2.zero, Vector2.zero);
 
-            Ui.ThemedLabel(bar.transform, $"箱位\n{_meta.Chests.Count}/{ChestRules.SlotLimit}", 18, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(bar.transform, Strings.T("map.chest.bar_title", ("count", _meta.Chests.Count), ("limit", ChestRules.SlotLimit)), 18, Theme.TextDim, Theme.TitleFont);
             if (_meta.PendingChests.Count > 0) // 暂存箱等腾位(2026-07-22)
-                Ui.Chip(bar.transform, $"暂存 {_meta.PendingChests.Count}·开箱腾位", Theme.Cinnabar, Color.white, 13);
+                Ui.Chip(bar.transform, Strings.T("map.chest.pending_chip", ("count", _meta.PendingChests.Count)), Theme.Cinnabar, Color.white, 13);
 
             for (int i = 0; i < ChestRules.SlotLimit; i++)
             {
@@ -218,14 +220,14 @@ namespace Brushblade.Presentation
                 if (!chest.Timing)
                 {
                     bool anotherTiming = AnyChestTiming();
-                    var start = Ui.RoundButton(stack.transform, "开始开启",
+                    var start = Ui.RoundButton(stack.transform, Strings.T("map.chest.start_button"),
                         () => Do(() => ChestRules.TryStartOpening(_meta, index, _time)),
                         Theme.InkSoft, Color.white, 15, new Vector2(140, 36));
                     start.interactable = !anotherTiming;
                 }
                 else if (ready)
                 {
-                    Ui.RoundButton(stack.transform, "开箱!", () => OpenChest(index),
+                    Ui.RoundButton(stack.transform, Strings.T("map.chest.open_button"), () => OpenChest(index),
                         Theme.Gold, Theme.GoldText, 16, new Vector2(140, 36));
                 }
                 else
@@ -239,10 +241,11 @@ namespace Brushblade.Presentation
                         Ui.AdBadge(mini.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
                             () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(74, 34));
                     }
-                    var skip = Ui.RoundButton(mini.transform, $"{ChestRules.InkCostToSkip(remaining)}墨",
-                        () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), "墨锭不足",
-                            $"立即开启需要 {ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time))} 墨锭," +
-                            $"你有 {_meta.Ink}。\n可以看广告缩短,或等倒计时走完。"),
+                    var skip = Ui.RoundButton(mini.transform, Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining))),
+                        () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), Strings.T("map.chest.skip_fail_title"),
+                            Strings.T("map.chest.skip_fail_body",
+                                ("needed", ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time))),
+                                ("ink", _meta.Ink))),
                         Theme.Gold, Theme.GoldText, 14, new Vector2(70, 34));
                     _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
                 }
@@ -255,7 +258,7 @@ namespace Brushblade.Presentation
             var slotElement = slot.gameObject.AddComponent<LayoutElement>();
             slotElement.preferredWidth = 168;
             slotElement.preferredHeight = 150;
-            var label = Ui.ThemedLabel(slot.transform, "空位", 16, Theme.LockGray);
+            var label = Ui.ThemedLabel(slot.transform, Strings.T("map.chest.empty_slot"), 16, Theme.LockGray);
             Ui.Stretch(label.rectTransform);
         }
 
@@ -318,7 +321,7 @@ namespace Brushblade.Presentation
             var stack = Ui.VStack(card.transform, "Stack", 14);
             Ui.Stretch((RectTransform)stack.transform);
 
-            Ui.ThemedLabel(stack.transform, $"「{tierName}」开启!", 28, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, Strings.T("map.chest.result_title", ("tierName", tierName)), 28, Theme.TextMain, Theme.TitleFont);
             Ui.IngotLabel(stack.transform, $"+{rewards.Ink}", 22);
 
             // 字卡:每行最多 8 张(赤霄 16 张两行),先隐藏再逐张弹出
@@ -337,22 +340,22 @@ namespace Brushblade.Presentation
                 Ui.GlyphTile(cell.transform, def, false, () => ShowRewardPreview(cardId), new Vector2(76, 95));
                 if (isNew)
                 {
-                    Ui.Chip(cell.transform, "新!", Theme.ExitPink, Color.white, 12);
+                    Ui.Chip(cell.transform, Strings.T("map.chest.new_badge"), Theme.ExitPink, Color.white, 12);
                 }
                 else
                 {
                     int level = MetaRules.CardLevel(_meta, cardId);
                     _meta.CardCopies.TryGetValue(cardId, out int copies);
                     string progress = level >= MetaRules.MaxCardLevel
-                        ? "满级"
-                        : $"升级 {copies}/{MetaRules.CopiesRequired(level, def.Rarity)}";
+                        ? Strings.T("common.maxed")
+                        : Strings.T("map.chest.upgrade_progress", ("copies", copies), ("needed", MetaRules.CopiesRequired(level, def.Rarity)));
                     Ui.Chip(cell.transform, progress, Theme.AdGreenBg, Theme.UpgradeText, 12);
                 }
                 cell.SetActive(false);
                 tiles.Add(cell);
             }
 
-            Ui.PillButton(stack.transform, "收下", () =>
+            Ui.PillButton(stack.transform, Strings.T("map.chest.claim_button"), () =>
             {
                 Destroy(_resultPanel);
                 _resultPanel = null;
