@@ -602,10 +602,5 @@ namespace Brushblade.Presentation
             layout.childForceExpandHeight = false;
             return go;
         }
-
-        public static string ChineseNumber(int n) => n switch
-        {
-            1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五", _ => n.ToString(),
-        };
     }
 }
