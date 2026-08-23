@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -99,7 +100,7 @@ namespace Brushblade.Presentation
                         // 暴击(2026-08-12,E-b2):飘「暴」+ 放大一档 + 更重的震屏。
                         // 数值上暴击只是 ×1.5,与相克 ×1.5 长得一模一样 —— 玩家能不能读出
                         // 「这记暴了」全靠这里的表达,不能靠数字大小
-                        Popup(e.Crit ? $"暴 {e.Amount}" : $"-{e.Amount}", Theme.Cinnabar,
+                        Popup(e.Crit ? Strings.T("juice.popup.crit_damage", ("amount", e.Amount)) : $"-{e.Amount}", Theme.Cinnabar,
                             enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp((e.Crit ? 1.35f : 1f) + e.Amount / 50f,
                                 1f, e.Crit ? 2.4f : 1.9f));
@@ -122,7 +123,7 @@ namespace Brushblade.Presentation
                     // 上限 26,比这里这条更轻),改成内联 HitFx 的音效/闪光两件事(2026-08-10 复核补):
                     // 打击音 + amount≥40 全屏微闪照抄 HitFx,震屏单用下面这条更重的,避免叠两次。
                     case BattleEventKind.Detonate:
-                        Popup($"爆 {e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
+                        Popup(Strings.T("juice.popup.detonate", ("amount", e.Amount)), Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         _audio.pitch = Mathf.Clamp(1.3f - e.Amount / 80f, 0.6f, 1.3f);
                         _audio.PlayOneShot(e.Amount >= 30 ? _thudClip : _hitClip, 0.9f);
@@ -158,7 +159,7 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.EnemyDied: // 受击致死:与刚才那记伤害同帧,飘「正!」+ 立刻置灰(分别显示)
                         var dead = enemyAnchor(e.TargetIndex);
-                        Popup("正!", Theme.Ink, dead);
+                        Popup(Strings.T("juice.popup.kill_mark"), Theme.Ink, dead);
                         GreyOut(dead);                       // 立刻置灰
                         Knockback(dead);                     // 一记后坐
                         _audio.PlayOneShot(_killClip, 0.9f); // 下行收束音
@@ -181,8 +182,8 @@ namespace Brushblade.Presentation
                         // 飘字分账(2026-07-25):护盾吃掉多少、血实掉多少分开写,与两条同步
                         int hpLoss = e.Amount - e.Absorbed;
                         if (e.Absorbed <= 0) Popup($"-{e.Amount}", Theme.Cinnabar, null);
-                        else if (hpLoss <= 0) Popup($"盾-{e.Absorbed}", Theme.SplitBlue, null);
-                        else Popup($"盾-{e.Absorbed} 血-{hpLoss}", Theme.Cinnabar, null, small: true);
+                        else if (hpLoss <= 0) Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, null);
+                        else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), Theme.Cinnabar, null, small: true);
                         _audio.PlayOneShot(_thudClip, 0.8f);
                         StartCoroutine(Shake(10f));
                         ScreenFlash(0.14f, Theme.Cinnabar);
@@ -190,7 +191,7 @@ namespace Brushblade.Presentation
                         serialPending = true;
                         break;
                     case BattleEventKind.Burn:
-                        Popup($"灼+{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
+                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)), Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
                         break;
                     // 免疫完全挡下一记(2026-08-06):血条护盾条都不动,只给一个「免」的表达。
                     // 与护盾吸伤同款(2026-08-06 M4 改):攻击者下扑(Lunge)让这记攻击在画面上
@@ -199,14 +200,14 @@ namespace Brushblade.Presentation
                     // 在画面上凭空消失。
                     case BattleEventKind.ImmunityBlocked:
                         Lunge(enemyAnchor(e.TargetIndex));
-                        Popup("免", Theme.Jade, null);
+                        Popup(Strings.T("juice.popup.immune"), Theme.Jade, null);
                         break;
                     // 打空(2026-08-07,致盲/闪避):敌人照常下扑,但什么都没打到。
                     // 没有反馈的话玩家只会以为敌人这回合没动。SecondIndex ≥0 = 打空的召唤物,
                     // 飘字锚在那只召唤物身上;玩家为 −1,与 EnemyAttack/ImmunityBlocked 同口径飘屏幕中下
                     case BattleEventKind.Missed:
                         Lunge(enemyAnchor(e.TargetIndex));
-                        Popup("空", Theme.InkSoft, e.SecondIndex >= 0
+                        Popup(Strings.T("juice.popup.miss"), Theme.InkSoft, e.SecondIndex >= 0
                             ? summonAnchor?.Invoke(e.SecondIndex) : null);
                         break;
                     // 治疗:刻意**不 yield、不置 serialPending** —— 群攻与回血是同一记里的两件事,
@@ -223,37 +224,37 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Regrow:
                         if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
                         Popup(e.SecondIndex >= 3
-                                ? (e.Amount > 0 ? $"补全! +{e.Amount}" : "补全!")
-                                : (e.Amount > 0 ? $"补全 {e.SecondIndex}/3 +{e.Amount}" : $"补全 {e.SecondIndex}/3"),
+                                ? (e.Amount > 0 ? Strings.T("juice.popup.regrow_full_with_heal", ("amount", e.Amount)) : Strings.T("juice.popup.regrow_full"))
+                                : (e.Amount > 0 ? Strings.T("juice.popup.regrow_partial_with_heal", ("index", e.SecondIndex), ("amount", e.Amount)) : Strings.T("juice.popup.regrow_partial", ("index", e.SecondIndex))),
                             Theme.Jade, enemyAnchor(e.TargetIndex), small: e.SecondIndex < 3);
                         _audio.PlayOneShot(_healClip, 0.6f);
                         onImpact?.Invoke(e); // 触达才回血
                         serialPending = true;
                         break;
                     case BattleEventKind.Shield:
-                        Popup($"盾+{e.Amount}", Theme.SplitBlue, null);
+                        Popup(Strings.T("juice.popup.shield_gain", ("amount", e.Amount)), Theme.SplitBlue, null);
                         _audio.PlayOneShot(_shieldClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨护盾条
                         break;
                     case BattleEventKind.ShieldBroken:
-                        Popup($"盾-{e.Amount}", Theme.SplitBlue, null);
+                        Popup(Strings.T("juice.popup.shield_broken", ("amount", e.Amount)), Theme.SplitBlue, null);
                         _audio.PlayOneShot(_shieldClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才把护盾条推到 0(倾覆专用,BattleView.OnImpact 处理)
                         break;
                     case BattleEventKind.EnemySplit:
-                        Popup("分裂!", Theme.Jade, enemyAnchor(e.TargetIndex));
+                        Popup(Strings.T("juice.popup.enemy_split"), Theme.Jade, enemyAnchor(e.TargetIndex));
                         break;
                     case BattleEventKind.BossPhase:
-                        Popup("破阶!", Theme.GoldBorder, enemyAnchor(e.TargetIndex));
+                        Popup(Strings.T("juice.popup.boss_phase"), Theme.GoldBorder, enemyAnchor(e.TargetIndex));
                         _audio.PlayOneShot(_thudClip, 1f);
                         break;
                     case BattleEventKind.EnemyBuff:
                         // Amount 是百分点(2026-08-12 敌我 AttackBuff 单位统一),飘「攻+50%」
                         // 而不是「攻+50」—— 后者会被读成加了 50 点攻击。
-                        Popup($"攻+{e.Amount}%", Theme.InkSoft, enemyAnchor(e.TargetIndex), small: true);
+                        Popup(Strings.T("juice.popup.enemy_buff", ("amount", e.Amount)), Theme.InkSoft, enemyAnchor(e.TargetIndex), small: true);
                         break;
                     case BattleEventKind.EnemyRevealed:
-                        Popup("现形!", Theme.SplitBlue, enemyAnchor(e.TargetIndex));
+                        Popup(Strings.T("juice.popup.enemy_revealed"), Theme.SplitBlue, enemyAnchor(e.TargetIndex));
                         break;
                     case BattleEventKind.ActorActed: // 段首标记,不播(2026-08-16)
                         break;

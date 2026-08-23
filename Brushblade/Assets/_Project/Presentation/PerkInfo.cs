@@ -1,5 +1,6 @@
 using System.Text;
 using Brushblade.Core;
+using Brushblade.Data;
 
 namespace Brushblade.Presentation
 {
@@ -9,10 +10,10 @@ namespace Brushblade.Presentation
         /// <summary>牌面底部一行:每级效果短语(如「AP +1」)。</summary>
         public static string ShortEffect(PerkDef def) => def.Effect switch
         {
-            PerkEffect.MaxHp => $"生命 +{def.PerLevelValue}",
-            PerkEffect.Shield => $"护盾 +{def.PerLevelValue}",
-            PerkEffect.Library => $"字库 +{def.PerLevelValue}",
-            PerkEffect.Ap => $"AP +{def.PerLevelValue}",
+            PerkEffect.MaxHp => Strings.T("perk.info.effect.max_hp", ("value", def.PerLevelValue)),
+            PerkEffect.Shield => Strings.T("perk.info.effect.shield", ("value", def.PerLevelValue)),
+            PerkEffect.Library => Strings.T("perk.info.effect.library", ("value", def.PerLevelValue)),
+            PerkEffect.Ap => Strings.T("perk.info.effect.ap", ("value", def.PerLevelValue)),
             _ => "",
         };
 
@@ -23,31 +24,32 @@ namespace Brushblade.Presentation
             text.Append('「').Append(def.Name).Append("」· ").Append(Category(def)).Append('\n');
             text.Append("Lv").Append(level).Append('/').Append(def.MaxLevel).Append('\n');
             text.Append(Action(def)).Append('\n');
-            text.Append("每级 +").Append(def.PerLevelValue)
-                .Append(" · 当前 +").Append(level * def.PerLevelValue);
+            text.Append(Strings.T("perk.info.detail.per_level_current",
+                ("perLevel", def.PerLevelValue), ("current", level * def.PerLevelValue)));
             if (level < def.MaxLevel)
-                text.Append('\n').Append("下一级 +").Append((level + 1) * def.PerLevelValue)
-                    .Append(" · ").Append(def.InkCosts[level]).Append('墨');
+                text.Append('\n').Append(Strings.T("perk.info.detail.next_level",
+                        ("nextValue", (level + 1) * def.PerLevelValue), ("cost", def.InkCosts[level])))
+                    .Append(Strings.T("perk.info.unit.ink"));
             else
-                text.Append('\n').Append("已满级");
+                text.Append('\n').Append(Strings.T("perk.info.detail.max_level"));
             return text.ToString();
         }
 
         private static string Category(PerkDef def) => def.Effect switch
         {
-            PerkEffect.MaxHp => "起始生命上限",
-            PerkEffect.Shield => "每关护盾",
-            PerkEffect.Library => "字库容量",
-            PerkEffect.Ap => "每回合行动点",
+            PerkEffect.MaxHp => Strings.T("perk.info.category.max_hp"),
+            PerkEffect.Shield => Strings.T("perk.info.category.shield"),
+            PerkEffect.Library => Strings.T("perk.info.category.library"),
+            PerkEffect.Ap => Strings.T("perk.info.category.ap"),
             _ => "",
         };
 
         private static string Action(PerkDef def) => def.Effect switch
         {
-            PerkEffect.MaxHp => "提升登塔时的最大生命上限。",
-            PerkEffect.Shield => "每关开战附带护盾(叠加上关剩余)。",
-            PerkEffect.Library => "提升字库可持有字数上限。",
-            PerkEffect.Ap => "提升每回合可用行动点(AP)上限。",
+            PerkEffect.MaxHp => Strings.T("perk.info.action.max_hp"),
+            PerkEffect.Shield => Strings.T("perk.info.action.shield"),
+            PerkEffect.Library => Strings.T("perk.info.action.library"),
+            PerkEffect.Ap => Strings.T("perk.info.action.ap"),
             _ => "",
         };
     }

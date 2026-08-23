@@ -257,12 +257,15 @@ namespace Brushblade.Core.Tests
             Assert.That(zha.ExecuteBelowPercent, Is.EqualTo(25));
             Assert.That(zha.ExecuteKills, Is.True);
 
+            // 2026-08-23 用户拍板:三个斩杀字的阈值统一 25%,差别只在直杀 / 双倍
             var lian = graph.Get("镰").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(lian.ExecuteBelowPercent, Is.EqualTo(30));
+            Assert.That(lian.ExecuteBelowPercent, Is.EqualTo(25));
             Assert.That(lian.ExecuteKills, Is.False, "残血加伤,不是处决");
 
             var jiao = graph.Get("剿").Effects.First(e => e.Kind == EffectKind.DamageAll);
-            Assert.That(jiao.ExecuteBelowPercent, Is.EqualTo(30));
+            Assert.That(jiao.ExecuteBelowPercent, Is.EqualTo(25));
+            Assert.That(jiao.ExecuteKills, Is.False, "残血加伤,不是处决");
+            Assert.That(jiao.Value, Is.EqualTo(55), "2026-08-23 升蓝档,AOE 35 → 55");
         }
 
         [Test]

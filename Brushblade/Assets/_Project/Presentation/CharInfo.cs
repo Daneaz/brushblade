@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Text;
 using Brushblade.Core;
+using Brushblade.Data;
 
 namespace Brushblade.Presentation
 {
@@ -19,10 +21,10 @@ namespace Brushblade.Presentation
             // 2026-08-21:不再印 AP —— ApCostFor 一律返回 1,写出来是零信息量。
             // 功能性的 AP 判断(能不能出、出不起时的报错)照旧读 def.ApCost,只是不进描述文案。
             text.Append(RarityName(def.Rarity)).Append('·')
-                .Append(def.Element is { } element ? ElementName(element) + "系" : "中性");
+                .Append(def.Element is { } element ? ElementName(element) + "系" : Strings.T("char.element.neutral"));
 
             if (!def.IsLeaf)
-                text.Append("|配方:").Append(string.Join("+", def.Recipe));
+                text.Append('|').Append(Strings.T("char.summary.recipe")).Append(string.Join("+", def.Recipe));
 
             if (cardLevel > 1)
                 text.Append("|Lv.").Append(cardLevel);
@@ -32,7 +34,7 @@ namespace Brushblade.Presentation
             // 相生「他生我」:要拿本字属性去比对配方原料(中性字视作心,永不成对)
             if (WuxingResolver.ShengMultiplier(
                     graph.RecipeElements(def.Id), def.Element ?? Element.Heart) == 3)
-                text.Append("|相生:效果已含 ×3");  // 数值本身已乘,这里只解释它为何比同档高
+                text.Append('|').Append(Strings.T("char.summary.sheng"));  // 数值本身已乘,这里只解释它为何比同档高
 
             return text.ToString();
         }
@@ -57,7 +59,7 @@ namespace Brushblade.Presentation
         public static string EffectsText(CharDef def, int cardLevel = 1, RecipeGraph graph = null)
         {
             if (def.Effects.Count == 0)
-                return "无战斗效果(可兜底一击:单体3伤,或作合成材料)";
+                return Strings.T("char.summary.noeffect");
 
             int sheng = graph == null ? 1
                 : WuxingResolver.ShengMultiplier(graph.RecipeElements(def.Id), def.Element ?? Element.Heart);
@@ -81,83 +83,143 @@ namespace Brushblade.Presentation
                     : v.ToString();
                 parts.Append(e.Kind switch
                 {
-                    EffectKind.DamageSingle => $"{ShapeLabel(e)}{shown}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
-                        + PierceText(e) + ShapeSuffix(e),
-                    EffectKind.DamageAll => $"全体{shown}伤" + (e.DoubleVsBurning ? "(对灼烧目标翻倍)" : "")
-                        + PierceText(e),
-                    EffectKind.BurnSingle => $"单体灼烧+{shown}",
-                    EffectKind.BurnAll => $"全体灼烧+{shown}",
-                    EffectKind.Shield => $"护盾{shown}" + (e.PersistOnce ? "(豁免一次回合末清空)" : ""),
-                    EffectKind.BurnPotency => $"本场灼烧每层结算+{shown}",
-                    EffectKind.HealSelf => $"治疗{shown}",
+                    EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
+                            ("shape", ShapeLabel(e)), ("value", shown))
+                        + (e.DoubleVsBurning ? Strings.T("char.effect.doublevsburning") : "")
+                        + PierceText(e) + BacklineText(e) + HitCountText(e) + ExecuteText(e)
+                        + ShapeSuffix(e),
+                    EffectKind.DamageAll => Strings.T("char.effect.damageall", ("value", shown))
+                        + (e.DoubleVsBurning ? Strings.T("char.effect.doublevsburning") : "")
+                        + PierceText(e) + HitCountText(e) + ExecuteText(e),
+                    EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
+                    EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
+                    EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
+                        + (e.PersistOnce ? Strings.T("char.effect.shield.persistonce") : ""),
+                    EffectKind.BurnPotency => Strings.T("char.effect.burnpotency", ("value", shown)),
+                    EffectKind.HealSelf => Strings.T("char.effect.healself", ("value", shown)),
                     // 召唤物字形归位后(2026-08-15)绝大多数字召的就是自己,写成「梅:召1×「梅」」
                     // 纯属绕口;只有召别的字时才点名。数据侧的默认值仍是「木」,不同名照旧显示
-                    EffectKind.Summon => (e.SummonChar == def.Id ? $"召{e.SummonCount}只" : $"召{e.SummonCount}×「{e.SummonChar}」") +
-                        $"(血{shown}攻{MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)},顶前排)",
-                    EffectKind.Bleed => $"流血{shown}/回合(无属性)",
-                    EffectKind.HealAll => $"群体治疗{shown}(含召唤物)",
+                    EffectKind.Summon => (e.SummonChar == def.Id
+                            ? Strings.T("char.effect.summon.self", ("count", e.SummonCount))
+                            : Strings.T("char.effect.summon.other", ("count", e.SummonCount)) + "「" + e.SummonChar + "」") +
+                        Strings.T("char.effect.summon.stats",
+                            ("hp", shown), ("atk", MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)))
+                        + PassiveText(e.Passive) + SummonShieldText(e),
+                    EffectKind.Bleed => Strings.T("char.effect.bleed", ("value", shown)),
+                    EffectKind.HealAll => Strings.T("char.effect.healall", ("value", shown)),
                     EffectKind.HealOverTime => e.TargetAll
-                        ? $"群体持续治疗{shown}/回合,共{e.Turns}回合"
-                        : $"持续治疗{shown}/回合,共{e.Turns}回合",
-                    EffectKind.Freeze => $"冻结{shown}回合",
-                    EffectKind.Slow => $"减速{shown}回合(半速)",
-                    EffectKind.DefenseBuff => $"本段护甲 +{shown}",
-                    EffectKind.ArmorBreak => $"破甲 {shown}(本场削目标护甲)",
+                        ? Strings.T("char.effect.healovertime.all", ("value", shown), ("turns", e.Turns))
+                        : Strings.T("char.effect.healovertime.single", ("value", shown), ("turns", e.Turns)),
+                    EffectKind.Freeze => Strings.T("char.effect.freeze", ("value", shown)),
+                    EffectKind.Slow => Strings.T("char.effect.slow", ("value", shown)),
+                    EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff", ("value", shown)),
+                    EffectKind.ArmorBreak => Strings.T("char.effect.armorbreak", ("value", shown)),
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
                     // 用 e.Value 而不是 v:真正的约束是正数条数不能被 ScaleByCardLevel 缩放
                     // (Lv.10 系数 1.9,「驱散 2 条」会被算成 ceil(2×1.9)=4 条,与 Core 实际驱散数不符;
                     // −1 哨兵同样不缩放只是顺带受益,不是单独的理由)
                     EffectKind.Dispel => e.Value < 0
-                        ? (e.TargetAll ? "全体驱散全部增益" : "驱散全部增益")
-                        : (e.TargetAll ? $"全体驱散{e.Value}条增益" : $"驱散{e.Value}条增益"),
-                    EffectKind.Cleanse => "净化自身全部减益",
-                    EffectKind.Immunity => $"免疫{shown}次伤害",
-                    EffectKind.Revive => $"复活{shown}名召唤物(各回半血)",
+                        ? (e.TargetAll ? Strings.T("char.effect.dispel.all.full") : Strings.T("char.effect.dispel.single.full"))
+                        : (e.TargetAll ? Strings.T("char.effect.dispel.all.count", ("count", e.Value)) : Strings.T("char.effect.dispel.single.count", ("count", e.Value))),
+                    EffectKind.Cleanse => Strings.T("char.effect.cleanse"),
+                    EffectKind.Immunity => Strings.T("char.effect.immunity", ("value", shown)),
+                    EffectKind.Revive => Strings.T("char.effect.revive", ("value", shown)),
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
                     // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
                     EffectKind.Blind => e.TargetAll
-                        ? $"全体致盲−{shown}% {e.Turns}回合"
-                        : $"致盲−{shown}% {e.Turns}回合",
-                    EffectKind.Silence => $"沉默{e.Turns}回合",
-                    EffectKind.Reflect => $"反弹{shown}%伤害,{e.Turns}回合",
-                    EffectKind.BurnNoDecay => "灼烧不衰减(本场)",
-                    EffectKind.BurnSettleNow => "立即结算一次灼烧",
-                    EffectKind.Detonate => "引爆灼烧(全额兑现并清空)",
+                        ? Strings.T("char.effect.blind.all", ("value", shown), ("turns", e.Turns))
+                        : Strings.T("char.effect.blind.single", ("value", shown), ("turns", e.Turns)),
+                    EffectKind.Silence => Strings.T("char.effect.silence", ("turns", e.Turns)),
+                    EffectKind.Reflect => Strings.T("char.effect.reflect", ("value", shown), ("turns", e.Turns)),
+                    EffectKind.BurnNoDecay => Strings.T("char.effect.burnnodecay"),
+                    EffectKind.BurnSettleNow => Strings.T("char.effect.burnsettlenow"),
+                    EffectKind.Detonate => Strings.T("char.effect.detonate"),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
-                    EffectKind.Empower => $"本场攻击+{shown}",
-                    EffectKind.Morale => $"战意+{shown}层(每层攻击+10,上限 5 层)",
+                    EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown)),
+                    EffectKind.Morale => Strings.T("char.effect.morale",
+                        ("stacks", shown), ("per", 10), ("max", 5)),
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
                     // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
-                    EffectKind.ApBoost => $"本场每回合 AP 上限+{e.Value}",
+                    EffectKind.ApBoost => Strings.T("char.effect.apboost", ("value", e.Value)),
                     // 倍率读常量而不是写死「×1.5」:E-b5 重平衡会改那个常量,写死了卡面就会骗人
-                    EffectKind.CritBuff =>
-                        $"本场暴击率+{shown}%(暴击伤害×{BattleConfig.CritMultiplierPercent / 100f:0.##})",
+                    EffectKind.CritBuff => Strings.T("char.effect.critbuff",
+                        ("value", shown),
+                        ("mult", (BattleConfig.CritMultiplierPercent / 100f).ToString("0.##"))),
                     // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
                     // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
-                    EffectKind.PierceBuff => $"本场穿透+{shown}(本场每次攻击无视 {shown} 点护甲)",
+                    EffectKind.PierceBuff => Strings.T("char.effect.piercebuff", ("value", shown)),
                     _ => e.Kind.ToString(),
                 });
             }
             return parts.ToString();
         }
 
+        /// <summary>斩杀后缀(2026-08-23)。此前**卡面一个字都不印** —— 引擎侧 2026-08-06 就实现了
+        /// (`1514207 feat(core)`,范围只写了 core),而 CharInfo 从没跟进,玩家看铡的卡面只见
+        /// 「单体145伤」,不知道它有 25% 直接抹杀。措辞与 tools/design/gen_char_doc.py 同口径。
+        ///
+        /// **直杀与双倍是互斥的两条分支**(BattleEngine 的 TryExecuteKill / ExecuteBonus):
+        /// executeKills 的字命中阈值直接归零血量、那记伤害根本不结算,没命中则毫无加成;
+        /// 其余斩杀字是基础值 ×2。Boss 只免疫前者,后者照常吃 —— 所以打 Boss 时铡反不如镰。</summary>
+        private static string ExecuteText(EffectDef e) =>
+            e.ExecuteBelowPercent <= 0 ? "" :
+            e.ExecuteKills
+                ? Strings.T("char.effect.execute.kill", ("percent", e.ExecuteBelowPercent))
+                : Strings.T("char.effect.execute.double", ("percent", e.ExecuteBelowPercent));
+
+        /// <summary>多段后缀(2026-08-23)。每段完全独立:各自过生克、各自减一次护甲,
+        /// 也各自过斩杀的「打之前判血」——「第一段把敌人打进阈值、第二段触发处决」是真会
+        /// 发生的涌现(EffectDef.HitCount 的注释)。全表只有「剁」用它。</summary>
+        private static string HitCountText(EffectDef e) =>
+            e.HitCount > 1 ? Strings.T("char.effect.hitcount", ("count", e.HitCount)) : "";
+
+        /// <summary>偷袭后缀(2026-08-23)。全表只有「刺」标了它。与召唤物被动的「远程」是
+        /// 同一件事的两侧:那条挂在召唤物身上,这条作用于玩家出的这一记单体伤害。</summary>
+        private static string BacklineText(EffectDef e) =>
+            e.CanStrikeBackline ? Strings.T("char.effect.backline") : "";
+
+        /// <summary>召唤物被动(2026-08-23)。此前**卡面完全不印**,导致柳(血80/攻30)与
+        /// 松(血120/攻30)除血量外毫无区别 —— 而柳实际带 50% 闪避,玩家没法判断该留哪张。
+        /// 顺序与 SummonPassive 的字段声明一致,措辞与 gen_char_doc.py 的 PASSIVE 表同口径。</summary>
+        private static string PassiveText(SummonPassive p)
+        {
+            if (p == null) return "";
+            var parts = new List<string>();
+            if (p.Speed > 0) parts.Add(Strings.T("char.passive.speed", ("value", p.Speed)));
+            if (p.Thorns > 0) parts.Add(Strings.T("char.passive.thorns", ("value", p.Thorns)));
+            if (p.HealAlly > 0) parts.Add(Strings.T("char.passive.healally", ("value", p.HealAlly)));
+            if (p.OnHitBurn > 0)
+                parts.Add(p.OnHitBurnAll
+                    ? Strings.T("char.passive.onhitburn.all", ("value", p.OnHitBurn))
+                    : Strings.T("char.passive.onhitburn", ("value", p.OnHitBurn)));
+            if (p.OnHitCurse > 0) parts.Add(Strings.T("char.passive.onhitcurse", ("value", p.OnHitCurse)));
+            if (p.Dodge > 0) parts.Add(Strings.T("char.passive.dodge", ("value", p.Dodge)));
+            if (p.Ranged) parts.Add(Strings.T("char.passive.ranged"));
+            return parts.Count == 0 ? "" : Strings.T("char.passive.wrap", ("list", string.Join("/", parts)));
+        }
+
+        /// <summary>出字瞬间给**全场存活召唤物**各加盾(桂 = 60)。不并进 PassiveText ——
+        /// 它作用于出字时已在场的其他召唤物,不是这只召唤物自带的被动。</summary>
+        private static string SummonShieldText(EffectDef e) =>
+            e.SummonShield > 0 ? Strings.T("char.effect.summonshield", ("value", e.SummonShield)) : "";
+
         /// <summary>穿透后缀(2026-08-12,E-b4 T3)。口径从「穿甲:无视减伤,额外 +15%」换成
         /// 点数 —— 旧的 +15% 已固化进这三个字的基础值,卡面上的伤害数字自己涨了,
         /// 后缀只剩下真正与防御有关的那一半。破甲与穿透的一句话区分见 spec 第七节:
         /// 破甲削的是目标的甲(削掉就一直是削掉的、队友蹭得到),穿透只是这一击的视角。</summary>
         private static string PierceText(EffectDef e) =>
-            e.Pierce > 0 ? $"(穿透 {e.Pierce}:本次无视 {e.Pierce} 点护甲)" : "";
+            e.Pierce > 0 ? Strings.T("char.effect.piercetext", ("pierce", e.Pierce)) : "";
 
         /// <summary>目标形状前缀(2026-08-22,spec §7)。Single 沿用原「单体」——87 张既有
         /// DamageSingle 卡面因此逐字节不变。</summary>
         private static string ShapeLabel(EffectDef e) => e.Shape switch
         {
-            TargetShape.Sweep => "横扫",
-            TargetShape.Cleave => "顺劈",
-            TargetShape.Skewer => "贯穿",
-            TargetShape.Volley => "连发",
-            _ => "单体",
+            TargetShape.Sweep => Strings.T("char.shape.sweep"),
+            TargetShape.Cleave => Strings.T("char.shape.cleave"),
+            TargetShape.Skewer => Strings.T("char.shape.skewer"),
+            TargetShape.Volley => Strings.T("char.shape.volley"),
+            _ => Strings.T("char.shape.single"),
         };
 
         /// <summary>目标形状后缀,与 PierceText 同一种「有则挂、无则空」写法。Volley 没有
@@ -166,35 +228,35 @@ namespace Brushblade.Presentation
         /// 时不写,省字数。</summary>
         private static string ShapeSuffix(EffectDef e) => e.Shape switch
         {
-            TargetShape.Volley => $"(共{e.Shots}发)",
+            TargetShape.Volley => Strings.T("char.shape.suffix.volley", ("shots", e.Shots)),
             TargetShape.Sweep or TargetShape.Cleave or TargetShape.Skewer when e.ShapePercent != 100
-                => $"(溅{e.ShapePercent}%)",
+                => Strings.T("char.shape.suffix.splash", ("percent", e.ShapePercent)),
             _ => "",
         };
 
         public static string ElementName(Element element) => element switch
         {
-            Element.Wood => "木",
-            Element.Fire => "火",
-            Element.Earth => "土",
-            Element.Metal => "金",
-            Element.Water => "水",
-            Element.Heart => "心",
-            _ => "?",
+            Element.Wood => Strings.T("char.element.wood"),
+            Element.Fire => Strings.T("char.element.fire"),
+            Element.Earth => Strings.T("char.element.earth"),
+            Element.Metal => Strings.T("char.element.metal"),
+            Element.Water => Strings.T("char.element.water"),
+            Element.Heart => Strings.T("char.element.heart"),
+            _ => Strings.T("char.element.unknown"),
         };
 
         /// <summary>稀有度显示名(与 <see cref="Theme.RarityColor"/> 同一套):
         /// 枚举名 = 皮肤色 = 强度序,视觉层级 白→绿→蓝→紫→金→橙→红。</summary>
         public static string RarityName(CardRarity rarity) => rarity switch
         {
-            CardRarity.White => "白",
-            CardRarity.Green => "绿",
-            CardRarity.Blue => "蓝",
-            CardRarity.Purple => "紫",
-            CardRarity.Gold => "金",
-            CardRarity.Orange => "橙",
-            CardRarity.Red => "红",
-            _ => "?",
+            CardRarity.White => Strings.T("char.rarity.white"),
+            CardRarity.Green => Strings.T("char.rarity.green"),
+            CardRarity.Blue => Strings.T("char.rarity.blue"),
+            CardRarity.Purple => Strings.T("char.rarity.purple"),
+            CardRarity.Gold => Strings.T("char.rarity.gold"),
+            CardRarity.Orange => Strings.T("char.rarity.orange"),
+            CardRarity.Red => Strings.T("char.rarity.red"),
+            _ => Strings.T("char.rarity.unknown"),
         };
     }
 }

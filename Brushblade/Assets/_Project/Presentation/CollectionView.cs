@@ -1,5 +1,6 @@
 using System;
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,7 +17,7 @@ namespace Brushblade.Presentation
         private Action _save;
         private GameObject _modal; // 当前告知弹窗(同屏仅一个)
         private int _page;
-        private string _message = "点字卡看能力;「出阵」按钮编入卡组(只有出阵的字才会上场);集满重复卡后可升级";
+        private string _message = Strings.T("collection.hint.default");
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -57,11 +58,12 @@ namespace Brushblade.Presentation
 
             var header = Ui.Row(transform, "Header", 20);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
-            Ui.ThemedLabel(header.transform, "卡组", 34, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(header.transform, Strings.T("collection.header.title"), 34, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(header.transform,
-                $"收集 {_meta.OwnedCards.Count} 张    出阵 {_meta.Deck.Count}/{MetaRules.DeckLimit}", 22, Theme.TextDim);
+                Strings.T("collection.header.stats", ("owned", _meta.OwnedCards.Count),
+                    ("deckCount", _meta.Deck.Count), ("deckLimit", MetaRules.DeckLimit)), 22, Theme.TextDim);
             if (upgradable > 0)
-                Ui.Chip(header.transform, $"可升 {upgradable}", Theme.Cinnabar, Color.white, 15);
+                Ui.Chip(header.transform, Strings.T("collection.header.upgradable_chip", ("count", upgradable)), Theme.Cinnabar, Color.white, 15);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
             if (pageCount > 1)
             {
@@ -73,7 +75,7 @@ namespace Brushblade.Presentation
                     Theme.InkSoft, Color.white, 20, new Vector2(48, 48));
                 next.interactable = _page < pageCount - 1;
             }
-            Ui.PillButton(header.transform, "返回地图", () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
+            Ui.PillButton(header.transform, Strings.T("common.back_to_map"), () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
 
             var messageGo = Ui.Panel(transform, "Message");
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0, 0.8f), new Vector2(1, 0.88f), Vector2.zero, Vector2.zero);
@@ -109,19 +111,19 @@ namespace Brushblade.Presentation
                 var badges = Ui.Row(cell.transform, "Badges", 6);
                 Ui.Chip(badges.transform, $"Lv.{level}", Theme.Ink, Color.white, 13);
                 if (pinned)
-                    Ui.Chip(badges.transform, "出阵", Theme.ExitPink, Color.white, 13);
+                    Ui.Chip(badges.transform, Strings.T("collection.card.deployed_badge"), Theme.ExitPink, Color.white, 13);
                 // 点字卡 = 看能力;出阵改走下方独立按钮(2026-07-20)。
                 // 尺寸 118×112 → 152×190(2026-07-28):原先是**横**的,而稀有度框素材是 192×240 的竖版,
                 // 比例不合会把框内那个长方形留白拉变形;152:190 = 0.8,正好贴素材
                 Ui.GlyphTile(cell.transform, def, pinned, () => ShowDetail(cardId),
                     new Vector2(152, 190));
-                Ui.RoundButton(cell.transform, pinned ? "卸下" : "出阵", () => ToggleDeck(cardId),
+                Ui.RoundButton(cell.transform, pinned ? Strings.T("collection.card.unequip_button") : Strings.T("collection.card.equip_button"), () => ToggleDeck(cardId),
                     pinned ? Theme.LockedBg : Theme.ExitPink,
                     pinned ? Theme.TextMain : Color.white, 14, new Vector2(152, 32));
 
                 if (level >= MetaRules.MaxCardLevel)
                 {
-                    Ui.ThemedLabel(cell.transform, "满级", 15, Theme.UpgradeText);
+                    Ui.ThemedLabel(cell.transform, Strings.T("common.maxed"), 15, Theme.UpgradeText);
                 }
                 else
                 {
@@ -129,7 +131,7 @@ namespace Brushblade.Presentation
                     int inkNeeded = MetaRules.InkRequired(level, def.Rarity);
                     bool can = copies >= copiesNeeded && _meta.Ink >= inkNeeded;
                     var upgrade = Ui.RoundButton(cell.transform,
-                        $"升级 {copies}/{copiesNeeded} · {inkNeeded}墨",
+                        Strings.T("collection.card.upgrade_button", ("copies", copies), ("needed", copiesNeeded), ("ink", inkNeeded)),
                         () => ShowUpgradePreview(cardId),
                         can ? Theme.Jade : Theme.AdGreenBg,
                         can ? Color.white : Theme.UpgradeText, 14, new Vector2(118, 36));
@@ -149,17 +151,18 @@ namespace Brushblade.Presentation
             {
                 _save();
                 _message = $"「{cardId}」" + (removing
-                    ? "已移出出阵列表(未出阵的字不上场)"
-                    : "已加入出阵列表(下次登塔生效)");
+                    ? Strings.T("collection.message.removed_from_deck")
+                    : Strings.T("collection.message.added_to_deck"));
                 Rebuild();
                 return;
             }
 
             Rebuild();
-            ShowAlert("出阵受限", removing
-                ? $"出阵不能少于 {MetaRules.DeckMinimum} 字。\n先把别的字加进来,再移出这一张。"
-                : $"「{cardId}」加不进来。\n出阵列表:{MetaRules.DeckMinimum}~{MetaRules.DeckLimit} 字," +
-                  $"每属性至多 {MetaRules.DeckPerElementLimit} 字。");
+            ShowAlert(Strings.T("collection.alert.deck_limited_title"), removing
+                ? Strings.T("collection.alert.deck_min_body", ("min", MetaRules.DeckMinimum))
+                : Strings.T("collection.alert.deck_add_fail_body", ("cardId", cardId),
+                    ("min", MetaRules.DeckMinimum), ("max", MetaRules.DeckLimit),
+                    ("perElementLimit", MetaRules.DeckPerElementLimit)));
         }
 
         /// <summary>点字卡:只看不改状态(拼音/释义/属性/配方/当前等级效果)。</summary>
@@ -180,7 +183,7 @@ namespace Brushblade.Presentation
 
             // 自建而非走 Ui.Modal:要在正文里放卡面(2026-07-22),Modal 只接纯文本
             if (_modal != null) Destroy(_modal);
-            var overlay = Ui.ModalShell(transform, $"升级「{cardId}」",
+            var overlay = Ui.ModalShell(transform, Strings.T("collection.modal.upgrade_title", ("cardId", cardId)),
                 new Vector2(340, 275), dismissable: true, out var stack);
             _modal = overlay;
 
@@ -190,16 +193,17 @@ namespace Brushblade.Presentation
                 $"{CharInfo.EffectsText(def, level, _graph)}\n↓\n{CharInfo.EffectsText(def, level + 1, _graph)}",
                 17, Theme.TextDim);
             Ui.ThemedLabel(stack,
-                $"消耗:重复卡 {copiesNeeded}(有 {copies}) · 墨锭 {inkNeeded}(有 {_meta.Ink})",
+                Strings.T("collection.modal.upgrade_cost", ("needed", copiesNeeded), ("copies", copies),
+                    ("inkNeeded", inkNeeded), ("ink", _meta.Ink)),
                 16, Theme.TextDim);
 
             var buttons = Ui.Row(stack, "Buttons", 14);
-            Ui.PillButton(buttons.transform, "确认升级", () =>
+            Ui.PillButton(buttons.transform, Strings.T("collection.modal.confirm_upgrade_button"), () =>
             {
                 Destroy(overlay); // 先关弹窗:Upgrade 会 Rebuild 清根,顺序反了会留残影
                 Upgrade(cardId);
             }, Theme.Jade, Color.white, 18, new Vector2(150, 52));
-            Ui.PillButton(buttons.transform, "再想想", () => Destroy(overlay),
+            Ui.PillButton(buttons.transform, Strings.T("common.reconsider"), () => Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 52));
         }
 
@@ -209,7 +213,7 @@ namespace Brushblade.Presentation
             if (MetaRules.TryUpgradeCard(_meta, cardId, def.Rarity))
             {
                 int newLevel = MetaRules.CardLevel(_meta, cardId);
-                _message = $"「{cardId}」升至 Lv.{newLevel}!\n" + CharInfo.Summary(def, _graph, newLevel);
+                _message = Strings.T("collection.message.upgraded", ("cardId", cardId), ("newLevel", newLevel)) + CharInfo.Summary(def, _graph, newLevel);
                 _save();
                 Rebuild();
                 return;
@@ -219,15 +223,16 @@ namespace Brushblade.Presentation
             Rebuild();
             if (level >= MetaRules.MaxCardLevel)
             {
-                ShowAlert("已满级", $"「{cardId}」已是 Lv.{MetaRules.MaxCardLevel},无法再升。");
+                ShowAlert(Strings.T("collection.alert.already_maxed_title"),
+                    Strings.T("collection.alert.already_maxed_body", ("cardId", cardId), ("maxLevel", MetaRules.MaxCardLevel)));
                 return;
             }
             _meta.CardCopies.TryGetValue(cardId, out int copies);
             int copiesNeeded = MetaRules.CopiesRequired(level, def.Rarity);
             int inkNeeded = MetaRules.InkRequired(level, def.Rarity);
-            ShowAlert("升级条件不足",
-                $"「{cardId}」升到 Lv.{level + 1} 需要:\n" +
-                $"重复卡 {copies}/{copiesNeeded} · 墨锭 {_meta.Ink}/{inkNeeded}");
+            ShowAlert(Strings.T("collection.alert.upgrade_insufficient_title"),
+                Strings.T("collection.alert.upgrade_insufficient_body", ("cardId", cardId), ("nextLevel", level + 1),
+                    ("copies", copies), ("needed", copiesNeeded), ("ink", _meta.Ink), ("inkNeeded", inkNeeded)));
         }
 
         /// <summary>被拒提示统一弹窗(2026-07-19);须在 Rebuild 之后调用——Rebuild 会清空根节点。</summary>

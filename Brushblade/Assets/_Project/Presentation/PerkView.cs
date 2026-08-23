@@ -1,4 +1,5 @@
 using Brushblade.Core;
+using Brushblade.Data;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,7 +35,7 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)stack.transform);
 
             var header = Ui.Row(stack.transform, "Header", 20);
-            Ui.ThemedLabel(header.transform, "技能", 28, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(header.transform, Strings.T("perk.view.title"), 28, Theme.TextMain, Theme.TitleFont);
             Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 20);
 
             int charLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
@@ -46,7 +47,7 @@ namespace Brushblade.Presentation
                 if (i + 1 < all.Count) BuildPerkCell(row.transform, all[i + 1], charLevel);
             }
 
-            Ui.PillButton(stack.transform, "返回地图", () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(180, 50));
+            Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(180, 50));
         }
 
         private void BuildPerkCell(Transform parent, PerkDef def, int charLevel)
@@ -63,14 +64,14 @@ namespace Brushblade.Presentation
 
             if (level >= def.MaxLevel)
             {
-                Ui.ThemedLabel(cell.transform, "满级", 15, Theme.UpgradeText);
+                Ui.ThemedLabel(cell.transform, Strings.T("common.maxed"), 15, Theme.UpgradeText);
                 return;
             }
 
             bool gated = level == 0 && charLevel < def.UnlockLevel;
             int cost = def.InkCosts[level];
-            string label = gated ? $"需角色 {def.UnlockLevel} 级"
-                                  : (level == 0 ? $"解锁 · {cost}墨" : $"升级 · {cost}墨");
+            string label = gated ? Strings.T("perk.view.locked_requirement", ("level", def.UnlockLevel))
+                                  : (level == 0 ? Strings.T("perk.view.unlock_button", ("cost", cost)) : Strings.T("perk.view.upgrade_button", ("cost", cost)));
             var button = Ui.PillButton(cell.transform, label, () =>
             {
                 if (PerkRules.TryUpgradePerk(_meta, def.Id))
@@ -86,10 +87,10 @@ namespace Brushblade.Presentation
         {
             if (_modal != null) Destroy(_modal);
             int level = PerkRules.PerkLevel(_meta, def.Id);
-            var overlay = Ui.ModalShell(transform, "技能", new Vector2(330, 260), dismissable: true, out var stack);
+            var overlay = Ui.ModalShell(transform, Strings.T("perk.view.title"), new Vector2(330, 260), dismissable: true, out var stack);
             PerkTile(stack, def, level, new Vector2(150, 150));
             Ui.ThemedLabel(stack, PerkInfo.Detail(def, level), 17, Theme.TextDim);
-            Ui.PillButton(stack, "知道了", () => Destroy(overlay),
+            Ui.PillButton(stack, Strings.T("common.ok"), () => Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 48));
             _modal = overlay;
         }

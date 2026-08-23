@@ -11,15 +11,12 @@ namespace Brushblade.Presentation
     public sealed class CardFrameView : MonoBehaviour
     {
         // 材质光效层周期(§4.2):蓝釉光最慢,红星芒最快 —— 稀有度越高越「活」
-        // ⚠️ 稀有度显示皮肤错位映射(2026-08-04,接入金卡素材,与 Theme.RarityColor 等同一套映射):
-        // 枚举 Orange 现在显示"金"皮肤、枚举 Red 现在显示"橙"皮肤、新增枚举 Gold(强度最高)显示"红"皮肤。
-        // 下面周期常量按**当前显示皮肤**重新命名/追加,不是按枚举名——刻意错位,不是 bug。
-        private const float SweepPeriod = 6.1f;      // 蓝:釉面反光扫过(挂在枚举 Blue,皮肤未变)
-        private const float BreathePeriod = 4.3f;    // 紫:边缘辉光呼吸(挂在枚举 Purple,皮肤未变)
-        private const float FlowPeriod = 3.1f;       // 金:金边流光(挂在枚举 Orange,现显示"金"皮肤)
-        private const float FlowPeriodBright = 2.85f;// 橙:流光加强版(挂在枚举 Red,现显示"橙"皮肤)—— 周期比
+        private const float SweepPeriod = 6.1f;      // 蓝:釉面反光扫过
+        private const float BreathePeriod = 4.3f;    // 紫:边缘辉光呼吸
+        private const float FlowPeriod = 3.1f;       // 金:金边流光
+        private const float FlowPeriodBright = 2.85f;// 橙:流光加强版 —— 周期比
                                                        // 金档快、比红档星芒慢,呼应「金<橙<红」的视觉层级递增
-        private const float TwinklePeriod = 2.7f;    // 红:星芒明灭(挂在枚举 Gold,现显示"红"皮肤)
+        private const float TwinklePeriod = 2.7f;    // 红:星芒明灭
         private const float PlayablePeriod = 2.9f;   // 通用:可出手呼吸
 
         // 六系签名动效周期(§4.1)。金/土 刻意最慢:金是「瞬时、间隔长」,土是「几乎不动」

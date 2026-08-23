@@ -1478,7 +1478,7 @@
         {
           "kind": "DamageSingle",
           "value": 65,
-          "executeBelowPercent": 30,
+          "executeBelowPercent": 25,
           "executeKills": false
         },
         {
@@ -1509,7 +1509,7 @@
     },
     {
       "id": "剿",
-      "rarity": "Green",
+      "rarity": "Blue",
       "element": "Metal",
       "recipe": [
         "巢",
@@ -1518,8 +1518,8 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 35,
-          "executeBelowPercent": 30,
+          "value": 55,
+          "executeBelowPercent": 25,
           "executeKills": false
         },
         {

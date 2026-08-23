@@ -64,8 +64,12 @@ def code_chars(root: Path) -> set:
 
 def charset() -> set:
     chars = set(BASE)
-    for name in ("chars.json", "enemies.json"):
-        chars |= json_chars(CONFIG / name)
+    # 按目录 glob 而不是列文件名:曾经硬编码 ("chars.json", "enemies.json") 两个名字,
+    # strings.zh-CN.json 加进 config/ 后没人记得把它也列进来,238 个玩家可见字
+    # 就这样从子集里静默消失(2026-08-22 i18n 迁移暴露)。glob 让「新增一张配置表」
+    # 天然被扫到,不用再靠人记着改这个列表。
+    for path in sorted(CONFIG.glob("*.json")):
+        chars |= json_chars(path)
     for d in CODE_DIRS:
         chars |= code_chars(d)
     return {c for c in chars if c == " " or not c.isspace()}
