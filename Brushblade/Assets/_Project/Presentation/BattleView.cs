@@ -1210,7 +1210,7 @@ namespace Brushblade.Presentation
             if (summon == null || !summon.Alive) return;
             if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
-                new Vector2(320, 200), (Strings.T("battle.btn.ack"), null, Theme.LockedBg, Theme.TextMain));
+                new Vector2(320, 200), (Strings.T("common.ok"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
@@ -1459,7 +1459,7 @@ namespace Brushblade.Presentation
                     new(Strings.T("battle.label.enemy_attack", ("attack", enemy.Attack)), Theme.PaperDim, Theme.TextMain),
                 };
                 if (enemy.Defense > 0)
-                    chipSpecs.Add(new(Strings.T("battle.label.enemy_defense", ("defense", enemy.Defense)), Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new(Strings.T("enemy.defense_chip", ("defense", enemy.Defense)), Theme.InkSoft, Color.white));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
@@ -1521,6 +1521,8 @@ namespace Brushblade.Presentation
                 }
                 else
                 {
+                    // 「已正」= 那个错字被改正了(2026-08-23 用户确认语义):字怪死亡时代替血条。
+                    // 是主题双关而非机制描述 —— key 名 corpse_settled 说的是机制那一面,别照 key 名去译。
                     Ui.ThemedLabel(bars.transform, Strings.T("battle.label.corpse_settled"), 14, Theme.LockGray);
                     _enemyHpBars.Add((null, null));
                     _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
@@ -2068,7 +2070,7 @@ namespace Brushblade.Presentation
             ShowModal(Strings.T("battle.dialog.ap_left.title"),
                 Strings.T("battle.dialog.ap_left.body", ("ap", Battle.Ap)),
                 (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
-                (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
+                (Strings.T("common.reconsider"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         private void DrawBattleSettle()
@@ -2678,7 +2680,7 @@ namespace Brushblade.Presentation
                     ? (tower ? Strings.T("battle.phase.run_won_tower_banner") : Strings.T("battle.phase.run_won_stage_banner"))
                     : Strings.T("battle.phase.defeat_banner"),
                 40, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_centerRow, won && tower ? Strings.T("battle.btn.to_safe_floor") : tower ? Strings.T("battle.btn.settle") : Strings.T("battle.btn.to_map"),
+            Ui.PillButton(_centerRow, won && tower ? Strings.T("battle.btn.to_safe_floor") : tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"),
                 () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
             _message = won
                 ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
@@ -3284,10 +3286,10 @@ namespace Brushblade.Presentation
                     Strings.T("battle.dialog.not_enough_ap.body",
                         ("charId", charId), ("neededAp", neededAp), ("ap", Battle.Ap), ("apPerTurn", Battle.ApPerTurn)),
                     (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
-                    (Strings.T("battle.btn.reconsider"), null, Theme.LockedBg, Theme.TextMain));
+                    (Strings.T("common.reconsider"), null, Theme.LockedBg, Theme.TextMain));
             else if (error == BattleError.ForgeFailed)
                 ShowModal(Strings.T("battle.common.rejected"), Describe(error),
-                    (Strings.T("battle.btn.ack"), null, Theme.LockedBg, Theme.TextMain));
+                    (Strings.T("common.ok"), null, Theme.LockedBg, Theme.TextMain));
         }
 
         private string Describe(BattleError error) => error switch

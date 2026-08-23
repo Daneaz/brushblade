@@ -487,7 +487,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform,
                 chestNote ?? Strings.T("root.towersettle.no_chest"), 18,
                 chestNote != null ? Theme.GoldBorder : Theme.TextDim, Theme.TitleFont);
-            Ui.PillButton(stack.transform, Strings.T("root.towersettle.back_button"), () => ShowMap(), Theme.Cinnabar, Color.white, 20, new Vector2(280, 56));
+            Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(), Theme.Cinnabar, Color.white, 20, new Vector2(280, 56));
         }
 
         private static GameObject NewView(string name, Color? paper = null, string watermark = null, int bandIndex = 0)

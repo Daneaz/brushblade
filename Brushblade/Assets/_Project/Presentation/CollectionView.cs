@@ -203,7 +203,7 @@ namespace Brushblade.Presentation
                 Destroy(overlay); // 先关弹窗:Upgrade 会 Rebuild 清根,顺序反了会留残影
                 Upgrade(cardId);
             }, Theme.Jade, Color.white, 18, new Vector2(150, 52));
-            Ui.PillButton(buttons.transform, Strings.T("collection.modal.cancel_upgrade_button"), () => Destroy(overlay),
+            Ui.PillButton(buttons.transform, Strings.T("common.reconsider"), () => Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 52));
         }
 

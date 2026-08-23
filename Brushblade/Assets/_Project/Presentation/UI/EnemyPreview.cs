@@ -46,7 +46,7 @@ namespace Brushblade.Presentation
                         chips.Add((EnemyInfo.BossSkillName(phase.Skill),
                             Theme.BossSkillChipColor(phase.Skill)));
                     if (phase.Defense > 0)
-                        chips.Add((Strings.T("enemy.preview.defense_chip", ("defense", phase.Defense)), Theme.InkSoft));
+                        chips.Add((Strings.T("enemy.defense_chip", ("defense", phase.Defense)), Theme.InkSoft));
                     forms.Add(new FormTab(phase.Char, i, EnemyInfo.PhaseDetail(def, i),
                         Theme.ElementColor(phase.Element), chips));
                 }
@@ -58,7 +58,7 @@ namespace Brushblade.Presentation
                     chips.Add((EnemyInfo.AbilityName(def.Ability),
                         Theme.AbilityChipColor(def.Ability)));
                 else if (def.Defense > 0)
-                    chips.Add((Strings.T("enemy.preview.defense_chip", ("defense", def.Defense)), Theme.InkSoft)); // 墨渍:没能力,护甲就是它的特征
+                    chips.Add((Strings.T("enemy.defense_chip", ("defense", def.Defense)), Theme.InkSoft)); // 墨渍:没能力,护甲就是它的特征
                 forms.Add(new FormTab(EnemyInfo.FaceChar(def, 0), 0,
                     EnemyInfo.MinionDetail(def), Theme.ElementColor(def.Element), chips));
             }
