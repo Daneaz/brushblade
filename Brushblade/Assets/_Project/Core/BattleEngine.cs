@@ -2258,7 +2258,8 @@ namespace Brushblade.Core
         }
 
         /// <summary>处决:命中阈值且非 Boss 则直接击杀,返回 true(调用方不要再走伤害)。
-        /// Boss 是一条总血池,25% 也是很大一截,一刀没掉太破坏节奏,故免疫。</summary>
+        /// Boss 是一条总血池,25% 也是很大一截,一刀没掉太破坏节奏,故免疫**抹杀**
+        /// ——但不是毫无收益:2026-08-23 起 Boss 改吃双倍伤害,见 <see cref="ExecuteBonus"/>。</summary>
         private bool TryExecuteKill(EffectDef effect, int enemyIndex)
         {
             if (!effect.ExecuteKills || !BelowExecuteThreshold(effect, enemyIndex)) return false;
@@ -2272,9 +2273,15 @@ namespace Brushblade.Core
         }
 
         /// <summary>残血加伤:命中阈值则该次基础值 ×2。**对 Boss 照常生效** ——
-        /// 免疫的只是「直接击杀」,不是「残血加伤」。</summary>
+        /// 免疫的只是「直接击杀」,不是「残血加伤」。
+        ///
+        /// 处决字(<see cref="EffectDef.ExecuteKills"/>)打 Boss 时也走这里(2026-08-23 用户拍板)。
+        /// 此前它对 Boss 退化成普通伤,于是铡(直杀 rider)打 Boss 反而不如镰(残血 ×2 照常生效)——
+        /// 一个玩家从卡面上看不出来的反直觉。现在两类斩杀字对 Boss 的收益一致,差别只在非 Boss:
+        /// 一个抹杀、一个双倍。非 Boss 的处决在 <see cref="TryExecuteKill"/> 里已经 return true,
+        /// 走不到这里,所以这个条件不会让非 Boss 的直杀退化成双倍。</summary>
         private int ExecuteBonus(EffectDef effect, int enemyIndex, int baseValue) =>
-            !effect.ExecuteKills && BelowExecuteThreshold(effect, enemyIndex) ? baseValue * 2 : baseValue;
+            BelowExecuteThreshold(effect, enemyIndex) ? baseValue * 2 : baseValue;
 
         /// <summary>对敌人结算一记伤害。
         ///

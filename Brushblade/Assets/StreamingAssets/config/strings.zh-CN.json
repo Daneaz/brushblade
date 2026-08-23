@@ -181,7 +181,7 @@
   "char.effect.doublevsburning": "(对灼烧目标翻倍)",
   "char.effect.empower": "本场攻击+{value}",
   "char.effect.execute.double": "(残血 {percent}% 伤害翻倍)",
-  "char.effect.execute.kill": "(残血 {percent}% 直接斩杀,Boss 免疫)",
+  "char.effect.execute.kill": "(残血 {percent}% 直接斩杀;Boss 改吃双倍)",
   "char.effect.freeze": "冻结{value}回合",
   "char.effect.healall": "群体治疗{value}(含召唤物)",
   "char.effect.healovertime.all": "群体持续治疗{value}/回合,共{turns}回合",

@@ -542,14 +542,29 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Execute_DoesNotKillBoss()
+        public void Execute_DoesNotKillBoss_ButDoublesDamage()
         {
-            // 上限 200、现血 40 = 20% < 25%,但 Boss 免疫处决 → 只吃普通 20 伤剩 20。
-            // 血线特意选得让「处决」与「普通伤害」的结果不同,否则测不出区别。
-            var engine = EngineWithEnemyAt(BossTarget(200), 40, "斩");
+            // Boss 免疫「直接抹杀」,但**改吃双倍伤害**(2026-08-23 用户拍板)。
+            // 此前是退化成普通伤 —— 处决字打 Boss 毫无加成,铡反而不如镰(镰是残血 ×2、
+            // 对 Boss 照常生效),而玩家从卡面上看不出这层反直觉。
+            //
+            // 血线取 45 是为了三个条件同时成立:上限 200 的 25% = 50,45 < 50 触发阈值;
+            // 双倍 40 伤后剩 5 > 0,证明「没被抹杀」;而普通伤只会剩 25,两者可区分。
+            var engine = EngineWithEnemyAt(BossTarget(200), 45, "斩");
             engine.Cast("斩", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(20), "Boss 退化成普通 20 伤");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(5), "Boss 不被抹杀,但吃双倍 40 伤");
             Assert.That(engine.Enemies[0].Alive, Is.True);
+        }
+
+        [Test]
+        public void Execute_StillKillsNonBoss()
+        {
+            // 与上一条配对:同样的字、同样的血线,非 Boss 就是直接抹杀而不是双倍。
+            // 少了这条,「Boss 改吃双倍」的改动可能顺手把非 Boss 的直杀也弄没了。
+            var engine = EngineWithEnemyAt(Target(200), 45, "斩");
+            engine.Cast("斩", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Alive, Is.False, "非 Boss 照旧直接抹杀");
         }
 
         [Test]

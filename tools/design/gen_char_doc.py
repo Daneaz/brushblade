@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""从 chars.json 生成 docs/design/字表功能解析.md。配置表即真相,改表后重跑本脚本刷新。
+"""从 chars.json 生成 docs/design/字选型/字表功能解析.md。配置表即真相,改表后重跑本脚本刷新。
 
 用法:在仓库根目录执行 `python3 tools/design/gen_char_doc.py`。
 """
@@ -112,7 +112,8 @@ def desc(e, mult=1):
     if e.get('backline'): mods.append("偷袭:无视敌方前排")
     if e.get('hitCount', 1) > 1: mods.append(f"{e['hitCount']} 段独立结算")
     if e.get('executeBelowPercent'):
-        mods.append(f"斩杀线 {e['executeBelowPercent']}%" + ("→直杀(Boss 免疫)" if e.get('executeKills') else "→双倍"))
+        mods.append(f"斩杀线 {e['executeBelowPercent']}%"
+                    + ("→直杀(Boss 改吃双倍)" if e.get('executeKills') else "→双倍"))
     if e.get('summonShield'): mods.append(f"全场召唤物 +{e['summonShield']} 盾")
     return s + ("(" + "、".join(mods) + ")" if mods else "")
 
@@ -261,5 +262,8 @@ A("6. **`AttackEffects` 未启用**:`CharDef` 有「拖到敌人身上改用另�
 A("   但配置表里一条都没配,水 / 土 的「治疗/加盾之外多一个攻击选项」目前不存在。")
 A("")
 
-open('docs/design/字表功能解析.md', 'w').write('\n'.join(o) + '\n')
-print("写入 docs/design/字表功能解析.md,共", len(o), "行")
+# 2026-08-23 文档被移进「字选型/」,这里的路径当时没跟着改 ——
+# 脚本于是往老位置生成了一份影子文件,而真正在读的那份纹丝不动。
+DEST = 'docs/design/字选型/字表功能解析.md'
+open(DEST, 'w', encoding='utf-8').write('\n'.join(o) + '\n')
+print(f"写入 {DEST},共 {len(o)} 行")
