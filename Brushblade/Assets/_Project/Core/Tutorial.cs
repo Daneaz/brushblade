@@ -4,7 +4,8 @@ namespace Brushblade.Core
     /// v0.7 出字即消耗(无回归);2026-07-19「只能合已收集的字」后,首局用手上的字
     /// 演示 拆→合→出 三个核心动作,一回合 3 AP 闭环(拆 0 + 合 1 + 出 1)。
     /// 2026-08-05:初始收集改为五系白/绿/蓝后【炎】不再在手,演示字换成
-    /// <see cref="DemoChar"/>——金克木,一击斩掉首层的木系错字鬼。</summary>
+    /// <see cref="DemoChar"/>——金克木,一击斩掉首层的木系错字鬼。
+    /// 2026-08-25 字表重构:演示字由 剑 换 刺 —— 剑 已转为攻击型召唤,不再是单体直伤。</summary>
     public enum TutorialStep
     {
         DismantleDemo, // 拆【剑】得 佥+刂
@@ -28,7 +29,7 @@ namespace Brushblade.Core
     {
         /// <summary>首局演示字:必须在默认出阵里(StartingSetupTests 守这条),
         /// 且配方是「部件+部件」——拆开就能原地合回,不依赖别的字。</summary>
-        public const string DemoChar = "剑";
+        public const string DemoChar = "刺";
 
         private static readonly (TutorialStep step, TutorialAction action, string charId)[] Script =
         {

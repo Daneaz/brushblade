@@ -177,9 +177,9 @@ namespace Brushblade.CoreTests
         //   ② 巍 / 磐 随第二批裁定移出字表 —— 而 Cast 一个不在图里的字不会报错,
         //      量到的是「完全没护甲」的 60,它恰好落在 57±9 与 54±9 里,**两条假绿**。
         // 现在改为精确钉住「点数 → 减伤」这条仍然成立的不变量,无容差、无已删的字。
-        [TestCase("崟", 6)]
+        // 2026-08-25 字表重构:崟 / 漜 移出字表,DefenseBuff 只剩 铠 一个载体
+        // (载体全集的守卫在 CharTableTests.RealConfig_DefenseChars_CarryTheirPoints)。
         [TestCase("铠", 5)]
-        [TestCase("漜", 10)]
         public void Calibration_DefenseChars_AgainstIncomingReference(string charId, int points)
         {
             var buff = RealGraph().Get(charId).Effects.First(e => e.Kind == EffectKind.DefenseBuff);
@@ -190,31 +190,14 @@ namespace Brushblade.CoreTests
 
         // ---- 穿透 3 条(打墨渍,DEF 20)----
 
-        [Test]
-        public void Calibration_Zuan_Pierce30_AgainstMoZhi()
-        {
-            // 2026-08-15:金系批量挂战意后基础值 460 → 415,与旧「穿甲 +15%」的等价校准
-            // (T3 当时验过 = 460)就此完成历史使命 —— 本条改为钉住**穿透减法本身**:
-            // 穿透 30 ≥ 墨渍 DEF 20,减到 0,伤害全额落地。
-            var hit = RealGraph().Get("錰").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(415),
-                "穿透 30 穿光 DEF 20,不倒贴增伤");
-        }
-
+        // 2026-08-25 字表重构:錰 移出字表、锥 转攻击型召唤,穿透伤害字只剩 刺 ——
+        // 「穿透 ≥ DEF 全额落地」那一半自此在真字表里没有靶子,由 刺 这条继续钉减法本身。
         [Test]
         public void Calibration_Ci_Pierce15_AgainstMoZhi()
         {
-            // 2026-08-15:135 − max(0, 20 − 15) = 130(战意改价前是 150 − 5 = 145)。
+            // 2026-08-25:刺 升蓝档 135 → 100;100 − max(0, 20 − 15) = 95。
             var hit = RealGraph().Get("刺").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(130));
-        }
-
-        [Test]
-        public void Calibration_Zhui_Pierce10_AgainstMoZhi()
-        {
-            // 2026-08-15:95 − max(0, 20 − 10) = 85(战意改价前是 105 − 10 = 95)。
-            var hit = RealGraph().Get("锥").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(85));
+            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(95));
         }
 
         // ============================================================
@@ -273,8 +256,10 @@ namespace Brushblade.CoreTests
             // 但打出去的那一记用**中立(心)**探针字 —— 与 spec §6.3.2 的推导同口径。
             // 不直接出 蒸:它是火系带配方的字,对水系的墨渍会吃到生克乘数(实测 ×1.5),
             // 量到的就不再是「最低档 vs 护甲」而是「最低档 × 运气好的属性」,判据会被生克糊掉。
-            // 2026-08-15:取值要过一遍相生 —— 字表存的是**基础值**,相生字(炑 = 火+木)
-            // 填 10 而实战打 30。不乘就会把 10 当成最低档,判据被一个不存在的量误导。
+            // 2026-08-15:取值要过一遍相生 —— 字表存的是**基础值**,相生字填基础值而实战 ×3。
+            // 不乘就会把基础值当成最低档,判据被一个不存在的量误导。
+            // 2026-08-25 字表重构:最低档仍是 30(冻 / 利 / 烧);垒 的副伤原定 20,
+            // 会把这条判据打穿(20 → 深度 20 归零),故改配成 盾 50 + 单体 30。
             var realGraph = RealGraph();
             int lowestTier = realGraph.All
                 .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())

@@ -141,4 +141,5 @@ def test_execute_thresholds_match_across_three_places():
                 assert f"{pct}%" in row, (
                     f"「{cid}」的斩杀线在 chars.json 是 {pct}%,文档那行却没有这个数:\n  {row}")
             checked += 1
-    assert checked >= 3, f"只校到 {checked} 个斩杀字,预期至少 3 个(铡/镰/剿)"
+    # 2026-08-25 字表重构:镰 移出字表,斩杀字从 3 个减到 2 个(铡 直杀 / 剿 双倍)
+    assert checked >= 2, f"只校到 {checked} 个斩杀字,预期至少 2 个(铡/剿)"

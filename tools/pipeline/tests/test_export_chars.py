@@ -64,7 +64,7 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_105_implementable_chars():
+def test_extract_pulls_74_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。
 
     2026-08-09:129 → 132,火系 DOT 三分化(炑/燥/灱)落地。
@@ -78,12 +78,15 @@ def test_extract_pulls_105_implementable_chars():
     2026-08-14 第二批:128 → 109,再移出 19 字(烟/燎/熔/燃/烫/锯/巍/城/塞/磐/岿/
     剖/割/戮/刮/削/锤/锁/镜)。Bleed / Silence / Reflect 三个 EffectKind 自此无载体。
     2026-08-14 第三批:109 → 105,移出 沸/淹/润/滋/治 五字,新增 铸(绿·金,接手 Reflect)。
+    2026-08-25 字表重构:105 → 74,移出 33 字、新增 杖/枪 两字
+    (spec docs/superpowers/specs/2026-08-25-字表重构-design.md)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 105
-    # 焚含木生火,配置表填基础值 70(引擎结算时 ×3 = 210)
+    assert len(values) == 74
+    # 焚含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
-    assert fen["value"] == 30  # 2026-08-15 火系改造:原 70(×3=210)已占满金档锚点
+    assert fen["value"] == 40
+    assert values["焚"]["rarity"] == "Orange"
     assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"
 
@@ -104,11 +107,12 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
 
 
 def test_extract_pierce_points_attach_to_damage_effect():
-    """穿透三字(锥/刺/錰):`Pierce N` 要落到 DamageSingle 效果的 pierce 字段上,
+    """穿透字:`Pierce N` 要落到 DamageSingle 效果的 pierce 字段上,
+    2026-08-25 字表重构后只剩 刺 一个载体(锥 转攻击型召唤、錰 移出字表)。
     不是生成独立的效果条目 —— EffectKind 里没有 Pierce 这个值,落成独立条目会让
     ConfigLoader 在加载期直接抛 ConfigException(2026-08-12,E-b4 T3 替代旧的 ignoreArmor 布尔标记)。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    expected = {"锥": 10, "刺": 15, "錰": 30}
+    expected = {"刺": 15}
     for char, points in expected.items():
         effects = values[char]["effects"]
         # 2026-08-15 金系批量挂战意:三字都多了一条 Morale,故断「第一条是伤害且只有一条伤害」
@@ -401,8 +405,12 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     ci = by_id["刺"]["effects"][0]
     assert ci["kind"] == "DamageSingle" and ci.get("backline") is True
 
-    for char, attack in (("灶", 20), ("烓", 30)):
-        summon = by_id[char]["effects"][0]
-        assert summon["kind"] == "Summon"
-        assert summon["attack"] == attack, f"{char} 的基础攻击"
-        assert summon["passive"].get("ranged") is True, f"{char} 应为远程"
+    # 远程:2026-08-25 起唯一载体是 荆(灶/烓 已移出字表)
+    jing = by_id["荆"]["effects"][0]
+    assert jing["kind"] == "Summon" and jing["attack"] == 80
+    assert jing["passive"].get("ranged") is True, "荆 应为远程"
+
+    # 召唤物的目标形状与入场冻结(2026-08-25):这三条同样是「token 表漏接线就静默丢」的字段
+    assert by_id["剑"]["effects"][0]["passive"] == {"shape": "Sweep", "shapePercent": 50}
+    assert by_id["枪"]["effects"][0]["passive"] == {"shape": "Skewer", "shapePercent": 70}
+    assert by_id["藤"]["effects"][0]["passive"] == {"onSummonFreeze": 1}
