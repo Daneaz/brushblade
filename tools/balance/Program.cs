@@ -39,7 +39,11 @@ namespace Brushblade.Balance
         // 本就没有可达路径 —— 它的可达性由 PierceBuffCharTests 的
         // RealConfig_Dui_IsReachable_ThroughRuiInTheDeck 在真实规则上钉住,不靠仿真。
         private static readonly string[] FireCards =
-            { "炎", "烧", "燃", "灼", "炽", "焚", "焱", "燚", "炑", "燥", "灱", "锐" };
+        // ⚠ 2026-08-25 字表重构:整表按现行火系 16 字重列。原表里 燃 自 2026-08-14 起
+        // 就是幽灵字(那批裁定把它移出了详表,而这张表没跟着改),炽/炑/灱 则随本次重构移出 ——
+        // 幽灵字进不了 RecipeGraph,机器人永远摸不到,等于那几档观测点是空的
+        // (与上面「灯」那次同型的坑,已第二次踩)。
+            { "灼", "焦", "灭", "热", "烧", "爆", "炸", "燥", "烈", "熣", "蒸", "炎", "灿", "焚", "焱", "燚", "锐" };
 
         // ---- 阳性对照探针(spec §10.5,2026-08-12 E-b4/E-b5 T7)----
         // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
@@ -48,10 +52,13 @@ namespace Brushblade.Balance
         /// <summary>探针的起爬深度 = 词渊段首。带甲小怪墨渍(DEF 20)只在 11 层起的池子里。</summary>
         private const int ProbeStartDepth = 11;
 
-        /// <summary>六张护甲字(点数 12/15/12/6/3/9)。不同字 SourceId 不同 → **加法叠加**,
-        /// 六张全挂上是 57 点(卡 5 级后 82 点);同一个字再来只刷新。这正是要量的东西。</summary>
-        private static readonly string[] ArmorCards =
-            { "铠", "漜", "崊", "磐", "巍", "崟" };
+        /// <summary>护甲字。不同字 SourceId 不同 → **加法叠加**;同一个字再来只刷新。
+        ///
+        /// ⚠ **2026-08-25 起这档探针已经量不到「叠加」了** —— 磐/巍 早在 2026-08-14 移出字表
+        /// (这张表当时没跟着改,一直是幽灵字),漜/崊/崟 随本次字表重构移出,DefenseBuff
+        /// 只剩 铠 一个载体。一张字挂不出「加法叠加」,探针退化成「挂了 5 点甲」。
+        /// 留着是因为它仍能证明 DefenseBuff 接进了伤害链路;**但它不再是叠加的证据**。</summary>
+        private static readonly string[] ArmorCards = { "铠" };
 
         /// <summary>土系堆甲探针的**起手四张** = 四张最厚的护甲字(铠12 漜15 崊12 崟9,
         /// 卡 5 级后 17+21+17+13 = 68 点)。第一个回合 3 AP 就能挂上三张,DefenseBuff 是
@@ -68,7 +75,7 @@ namespace Brushblade.Balance
         /// 唯一的差别是开局那手牌。于是方向是净的:DefenseBuff 若真进了伤害链路,
         /// 68 点甲对 30~50×scale 的怪攻压得过「少了四张开局输出」;若没接进去,
         /// 剩下的就只有开局吃亏,P50 必然掉到对照组以下(实测正是如此,见任务报告)。</summary>
-        private static readonly string[] ArmorHand = { "铠", "漜", "崊", "崟" };
+        private static readonly string[] ArmorHand = { "铠" };
 
         /// <summary>堆甲探针的卡等级表:得覆盖火系与护甲两边的字,漏掉哪边哪边就退回 1 级。</summary>
         private static readonly string[] ArmorProbeCards = FireCards.Concat(ArmorCards).ToArray();
@@ -87,8 +94,9 @@ namespace Brushblade.Balance
         /// 要真正观测后者,需要一档**数值对齐的单体对照**(同基础值、同稀有度、单体 vs 群体),
         /// 现有字表凑不出来 —— 那是 T8 抬 AOE 数值时要顺带补的。
         /// 留着它是因为删了就连 0.2 层的观测点都没有,但**它的绿不构成任何证据**。</summary>
+        // 2026-08-25 字表重构:淹 早已是幽灵字,洪/涛 随本次移出;纯 DamageAll 只剩 海/崩。
         private static readonly string[] AoeCards =
-            { "爆", "海", "洪", "崩", "剿", "涛", "淹" };
+            { "爆", "海", "崩", "剿" };
 
         public static void Main()
         {
@@ -106,15 +114,15 @@ namespace Brushblade.Balance
                 // 从此不会出现「等级涨了但某条属性忘了跟着涨」。
                 new Profile("新手(灼,1级,HP500,ATK100,DEF0,闪0)", new[] { "灼" },
                     new Dictionary<string, int>(), level: 1),
-                new Profile("小成长(灼炎烧燃,卡3级,3级,HP540,ATK104,DEF1,闪2)", new[] { "灼", "炎", "烧", "燃" },
+                new Profile("小成长(灼炎烧热,卡3级,3级,HP540,ATK104,DEF1,闪2)", new[] { "灼", "炎", "烧", "热" },
                     FireCards.ToDictionary(c => c, _ => 3), level: 3),
-                new Profile("养成(焚炽灼燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炽", "灼", "燚" },
+                new Profile("养成(焚炎灼燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炎", "灼", "燚" },
                     FireCards.ToDictionary(c => c, _ => 5), level: 10),
 
                 // ---- 探针三连(spec §10.5)。三档等级/卡等级/起爬深度逐项相同,只换起手牌与卡组 ----
                 // ⚠ 对照这一档是**仪器的一部分**,不是第四个平衡目标:上面三档基线全部从 1 层起爬、
                 // 实测「带甲战/次」是 0.0/0.0/0.1 —— 拿它们当参照物,两个探针的方向都无从判起。
-                new Profile("探针·对照(火系,深启11)", new[] { "焚", "炽", "灼", "燚" },
+                new Profile("探针·对照(火系,深启11)", new[] { "焚", "炎", "灼", "燚" },
                     FireCards.ToDictionary(c => c, _ => 5), level: 10, startDepth: ProbeStartDepth),
                 new Profile("探针·土系堆甲(起手四护甲,深启11)", ArmorHand,
                     ArmorProbeCards.ToDictionary(c => c, _ => 5), level: 10,
