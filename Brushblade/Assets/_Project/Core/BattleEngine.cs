@@ -1924,6 +1924,12 @@ namespace Brushblade.Core
                             foreach (var summon in _summons)
                                 if (summon != null && summon.Alive) summon.Shield += shieldGrant;
                         }
+                        // 入场冻结(2026-08-25,藤):这张字**整体**冻一个随机存活敌人,
+                        // 不是每只召唤物各冻一个 —— 循环外触发就是为了守住这条(见 SummonPassive 注释)。
+                        // 不发事件:与 Freeze 效果同口径,表现层直接读敌人 Statuses 画 chip
+                        // (BattleEventKind 里那条 2026-08-06 M2 的注释)。
+                        if (effect.Passive != null && effect.Passive.OnSummonFreeze > 0)
+                            FreezeRandomLivingEnemy(effect.Passive.OnSummonFreeze);
                         break;
                 }
             }
@@ -1950,6 +1956,24 @@ namespace Brushblade.Core
             {
                 Kind = kind, Polarity = StatusPolarity.Buff,
                 Magnitude = Math.Min(amount, cap), TurnsLeft = -1, SourceId = null,
+            });
+        }
+
+        /// <summary>随机冻结一个**存活**敌人 N 回合(2026-08-25,藤的入场冻结)。
+        /// 全场无存活敌人时静默返回 —— 召唤本身照常落位,不该因为没人可冻就抛异常。
+        /// 随机走引擎内带种子的 RNG,保证同种子可复现(Core 禁用 UnityEngine.Random)。</summary>
+        private void FreezeRandomLivingEnemy(int turns)
+        {
+            var living = new List<int>();
+            for (int i = 0; i < _enemies.Count; i++)
+                if (_enemies[i].Alive) living.Add(i);
+            if (living.Count == 0) return;
+            int pick = living[_random.Next(living.Count)];
+            _enemies[pick].Statuses.Apply(new StatusEffect
+            {
+                // Magnitude 不赋值:与 EffectKind.Freeze 分支同口径(没有任何读取方)
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
+                TurnsLeft = turns,
             });
         }
 

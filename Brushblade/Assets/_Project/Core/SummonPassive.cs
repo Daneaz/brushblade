@@ -33,6 +33,17 @@ namespace Brushblade.Core
         /// 一起从命中率里扣。</summary>
         public int Dodge { get; set; }
 
+        /// <summary>入场冻结(2026-08-25,藤):这张字召唤落位时,冻结**一个**随机存活敌人
+        /// N 回合;0 = 无。
+        ///
+        /// 与本类其余被动的触发时机都不同 —— 它们是「出手时 / 被打时 / 每回合」,只有它是
+        /// **入场一次性**。所以它挂在召唤物身上纯粹是为了随配置读进来,运行期召唤物自己
+        /// 不再读它;真正的触发点在 <c>BattleEngine.ApplyEffects</c> 的 Summon 分支末尾。
+        ///
+        /// ⚠ 一张字召多只时**只触发一次** —— 冻结是「这张字」的效果,不是每只各冻一个。
+        /// 否则 藤 将来若升到召 2 只,会静默变成群控。</summary>
+        public int OnSummonFreeze { get; set; }
+
         /// <summary>远程(2026-08-20):出手时无视敌方前排,优先打后排。灶 / 烓 = true。
         /// 与「站哪一槽」无关——排位只决定被不被够到,后排的近战召唤物照常打前排。</summary>
         public bool Ranged { get; set; }
@@ -55,7 +66,7 @@ namespace Brushblade.Core
         {
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
-            Dodge = Dodge, Ranged = Ranged,
+            Dodge = Dodge, Ranged = Ranged, OnSummonFreeze = OnSummonFreeze,
             Shape = Shape, ShapePercent = ShapePercent, Shots = Shots,
         };
     }

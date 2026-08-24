@@ -216,6 +216,7 @@
   "char.passive.onhitburn.all": "命中给全体挂灼烧 {value}",
   "char.passive.onhitcurse": "命中施诅咒 −{value}%攻",
   "char.passive.ranged": "远程:无视敌方前排",
+  "char.passive.onsummonfreeze": "入场:冻结 1 名敌人 {value} 回合",
   "char.passive.speed": "速度 {value}",
   "char.passive.thorns": "荆棘 {value}",
   "char.passive.wrap": ",{list}",

@@ -196,6 +196,10 @@ namespace Brushblade.Presentation
             if (p.OnHitCurse > 0) parts.Add(Strings.T("char.passive.onhitcurse", ("value", p.OnHitCurse)));
             if (p.Dodge > 0) parts.Add(Strings.T("char.passive.dodge", ("value", p.Dodge)));
             if (p.Ranged) parts.Add(Strings.T("char.passive.ranged"));
+            // 入场冻结(2026-08-25,藤):写在最后 —— 它不是这只召唤物的持续能力,
+            // 而是召唤那一瞬间的一次性效果,读感上收尾比夹在中间清楚
+            if (p.OnSummonFreeze > 0)
+                parts.Add(Strings.T("char.passive.onsummonfreeze", ("value", p.OnSummonFreeze)));
             return parts.Count == 0 ? "" : Strings.T("char.passive.wrap", ("list", string.Join("/", parts)));
         }
 

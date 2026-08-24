@@ -17,6 +17,7 @@ SUMMON_PASSIVE = {
     "OnHitBurn": "onHitBurn",
     "OnHitCurse": "onHitCurse",
     "Dodge": "dodge",
+    "OnSummonFreeze": "onSummonFreeze",
 }
 
 

@@ -49,6 +49,14 @@ namespace Brushblade.Core.Tests
             new CharDef("棘", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1, summonAttack: 0, summonChar: "木",
                     passive: new SummonPassive { Thorns = 3 }) }),
+            // 缚:入场冻结 1 个敌人 1 回合(藤,2026-08-25)
+            new CharDef("缚", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
+                    passive: new SummonPassive { OnSummonFreeze = 1 }) }),
+            // 缚缚:入场冻结,但召 2 只 —— 只该冻一个
+            new CharDef("绑", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 2, summonAttack: 3, summonChar: "木",
+                    passive: new SummonPassive { OnSummonFreeze = 1 }) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -575,5 +583,46 @@ namespace Brushblade.Core.Tests
             Assert.That(hit.Amount, Is.EqualTo(4), "Amount 仍报吃到的总伤害");
             Assert.That(hit.Absorbed, Is.EqualTo(4), "全被盾吸走");
         }
+        // ---- 入场冻结(2026-08-25,藤)----
+
+        [Test]
+        public void OnSummonFreeze_FreezesExactlyOneLivingEnemy()
+        {
+            var engine = Engine(new[] { "缚" }, new[] { Dummy(), Dummy(), Dummy() });
+            engine.Cast("缚");
+            int frozen = engine.Enemies.Count(e => e.Statuses.Has(StatusKind.Freeze));
+            Assert.That(frozen, Is.EqualTo(1), "恰好一个敌人被冻");
+            var target = engine.Enemies.First(e => e.Statuses.Has(StatusKind.Freeze));
+            Assert.That(target.Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void OnSummonFreeze_MultiSummon_StillFreezesOnlyOne()
+        {
+            // 召 2 只不等于冻 2 个 —— 入场冻结是「这张字」的效果,不是每只各触发一次
+            var engine = Engine(new[] { "绑" }, new[] { Dummy(), Dummy(), Dummy() });
+            engine.Cast("绑");
+            Assert.That(engine.AliveSummonCount, Is.EqualTo(2));
+            Assert.That(engine.Enemies.Count(e => e.Statuses.Has(StatusKind.Freeze)), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void OnSummonFreeze_SkipsDeadEnemies()
+        {
+            var engine = Engine(new[] { "缚" }, new[] { Dummy(), Dummy() });
+            engine.Enemies[0].Hp = 0;
+            engine.Cast("缚");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "死人不该被冻");
+            Assert.That(engine.Enemies[1].Statuses.Has(StatusKind.Freeze), Is.True);
+        }
+
+        [Test]
+        public void SummonWithoutOnSummonFreeze_FreezesNobody()
+        {
+            var engine = Engine(new[] { "素" }, new[] { Dummy(), Dummy() });
+            engine.Cast("素");
+            Assert.That(engine.Enemies.Any(e => e.Statuses.Has(StatusKind.Freeze)), Is.False);
+        }
+
     }
 }
