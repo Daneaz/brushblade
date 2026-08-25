@@ -33,6 +33,13 @@ namespace Brushblade.Core
         public static int PickAllyTarget(AttackRange range, AttackFocus focus,
             IReadOnlyList<SummonState> summons, int frontRow, GameRandom random)
         {
+            // 嘲讽(2026-08-25)压在最前:它要压过近战的前排拦截、远程的后排优先、
+            // 以及 Focus.Player 的死盯玩家 —— 三条都是排位规则,而嘲讽是排位之上的强制。
+            // 候选只有一个时不摇随机数,与下面那段同一条纪律(见方法头注释)。
+            var taunters = TauntingSlots(summons);
+            if (taunters != null)
+                return taunters.Count == 1 ? taunters[0] : taunters[random.Next(taunters.Count)];
+
             if (range == AttackRange.Melee)
             {
                 int blocker = FirstAliveSlot(summons, 0, frontRow);
@@ -46,6 +53,20 @@ namespace Brushblade.Core
                 if (summons[s] != null && summons[s].Alive) pool.Add(s);
             pool.Add(PlayerTarget);
             return pool.Count == 1 ? pool[0] : pool[random.Next(pool.Count)];
+        }
+
+        /// <summary>全部**存活**的嘲讽召唤物槽位;一个都没有返回 null。
+        /// 死了的不算 —— 否则全场攻击会打进一个空槽,玩家反而无敌。</summary>
+        private static List<int> TauntingSlots(IReadOnlyList<SummonState> summons)
+        {
+            List<int> slots = null;
+            for (int s = 0; s < summons.Count; s++)
+            {
+                var summon = summons[s];
+                if (summon == null || !summon.Alive || summon.Passive == null || !summon.Passive.Taunt) continue;
+                (slots ??= new List<int>()).Add(s);
+            }
+            return slots;
         }
 
         /// <summary>「最前召唤物」(Boss 洞穿 / 吞噬):前排槽序最小的存活者;前排全空则取后排。
@@ -163,6 +184,7 @@ namespace Brushblade.Core
             int primaryIndex, TargetShape shape, int shots)
         {
             if (shape == TargetShape.Volley) return VolleyTargets(enemies, shots);
+            if (shape == TargetShape.Chain) return ChainTargets(enemies, primaryIndex, shots);
             if (primaryIndex < 0 || primaryIndex >= enemies.Count) return System.Array.Empty<int>();
 
             var result = new List<int> { primaryIndex };
@@ -184,6 +206,33 @@ namespace Brushblade.Core
             }
             return result;
         }
+
+        /// <summary>弹射的目标序列(2026-08-25):主目标打头,其余存活敌人按**离主目标的格子距离**
+        /// 升序排,同距按下标 —— 全程确定性,**不摇随机数**(与本文件其余形状同一条硬要求)。
+        /// 最多取 shots 个;目标不够就少跳,**不循环回头**(那是连发的语义)。
+        /// shots ≤ 1 时只剩主目标,与单体等价 —— 漏配 shots 不会静默变成打全场。</summary>
+        private static IReadOnlyList<int> ChainTargets(IReadOnlyList<EnemyState> enemies,
+            int primaryIndex, int shots)
+        {
+            var result = new List<int> { primaryIndex };
+            if (shots <= 1) return result;
+
+            var primary = enemies[primaryIndex];
+            var rest = new List<int>();
+            for (int i = 0; i < enemies.Count; i++)
+                if (i != primaryIndex && enemies[i].Alive) rest.Add(i);
+            // 距离 = 列差 + 排差(2×3 网格上的曼哈顿距离)。稳定排序:同距保持下标序。
+            rest.Sort((x, y) =>
+            {
+                int dx = GridDistance(enemies[x], primary), dy = GridDistance(enemies[y], primary);
+                return dx != dy ? dx.CompareTo(dy) : x.CompareTo(y);
+            });
+            for (int i = 0; i < rest.Count && result.Count < shots; i++) result.Add(rest[i]);
+            return result;
+        }
+
+        private static int GridDistance(EnemyState a, EnemyState b) =>
+            System.Math.Abs(a.Column - b.Column) + (a.Row == b.Row ? 0 : 1);
 
         /// <summary>连发的目标序列:后排优先、各排按列序排出候选,再从头循环取满 shots 发。
         /// 候选为空或 shots ≤ 0 返回空表。</summary>

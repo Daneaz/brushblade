@@ -44,5 +44,15 @@ namespace Brushblade.Core.Tests
                 shape: TargetShape.Cleave, shapePercent: 0);
             Assert.That(effect.ShapePercent, Is.EqualTo(100));
         }
+
+        [Test]
+        public void Chain_CarriesShots()
+        {
+            // 弹射与连发共用 Shots 字段(跳数);几何与衰减在 DamageVariantTests 走引擎测
+            var effect = new EffectDef(EffectKind.DamageSingle, 40,
+                shape: TargetShape.Chain, shots: 3);
+            Assert.That(effect.Shape, Is.EqualTo(TargetShape.Chain));
+            Assert.That(effect.Shots, Is.EqualTo(3));
+        }
     }
 }

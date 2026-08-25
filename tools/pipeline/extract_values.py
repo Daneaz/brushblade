@@ -62,6 +62,12 @@ PIERCE_TOKEN = "Pierce"
 # 不挂白名单会被通用正则 `(\w+) (\d+)` 当成独立效果 kind=Shots/ShapePercent 落进 chars.json,
 # 而 EffectKind 里没有这两个值 —— ConfigLoader 会在加载期直接抛 ConfigException
 # (与 PIERCE_TOKEN / HIT_COUNT_TOKEN 同一个坑)。
+# 弹射的跳数(2026-08-25):写成 `Chain N`,是**形状 + 跳数**的合写,不是独立效果。
+# ⚠ 与 PIERCE_TOKEN / SHOTS_TOKEN 同一个坑:不挂白名单会被通用正则 `(\w+) (\d+)`
+# 当成一条 kind="Chain" 的独立效果落进 chars.json,而 EffectKind 里没有这个值 ——
+# ConfigLoader 会在加载期直接抛 ConfigException。(2026-08-25 实测踩过一次。)
+CHAIN_TOKEN = "Chain"
+
 SHOTS_TOKEN = "Shots"
 SHAPE_PERCENT_TOKEN = "ShapePercent"
 
@@ -125,6 +131,8 @@ def _parse_effects(config, char):
             passive["onHitBurnAll"] = True
         if "`Ranged`" in config:            # 无数值的布尔标记(2026-08-20,灶/烓)
             passive["ranged"] = True
+        if "`Taunt`" in config:             # 无数值的布尔标记(2026-08-25,荆/堡)
+            passive["taunt"] = True
         # 目标形状(2026-08-22,spec §9.1):召唤物自动攻击也能带形状,与伤害侧同一套 token,
         # 落进 passive 的 shape/shots/shapePercent —— **不**新增独立 effect(与 Ranged 同处理,
         # 头上 SHOTS_TOKEN/SHAPE_PERCENT_TOKEN 注释说的坑在这条分支不适用:本分支在通用
@@ -133,12 +141,16 @@ def _parse_effects(config, char):
             if f"`{token}`" in config:
                 passive["shape"] = token
                 break
+        chain = re.search(rf"`{CHAIN_TOKEN} (\d+)`", config)
+        if chain:
+            passive["shape"] = "Chain"
+            passive["shots"] = int(chain.group(1))
         percent = re.search(rf"`{SHAPE_PERCENT_TOKEN} (\d+)`", config)
         if percent:
             passive["shapePercent"] = int(percent.group(1))
         shots = re.search(rf"`{SHOTS_TOKEN} (\d+)`", config)
         if shots:
-            passive["shape"] = "Volley"
+            passive.setdefault("shape", "Volley")   # 同上:Chain 也用 Shots
             passive["shots"] = int(shots.group(1))
         if passive:
             effect["passive"] = passive
@@ -152,7 +164,7 @@ def _parse_effects(config, char):
             continue  # 分段数是修饰而非效果,下面统一挂到伤害上
         if kind == PIERCE_TOKEN:
             continue  # 穿透点数是修饰而非效果,下面统一挂到伤害上
-        if kind in (SHOTS_TOKEN, SHAPE_PERCENT_TOKEN):
+        if kind in (SHOTS_TOKEN, SHAPE_PERCENT_TOKEN, CHAIN_TOKEN):
             continue  # 目标形状的修饰,下面统一挂到伤害上
         effect = {"kind": kind, "value": int(value)}
         if kind == "DispelEach":       # 全体各驱散 N 条(淡)
@@ -180,12 +192,18 @@ def _parse_effects(config, char):
                 if f"`{token}`" in config:
                     effect["shape"] = token
                     break
+            chain = re.search(rf"`{CHAIN_TOKEN} (\d+)`", config)
+            if chain:                       # `Chain N` = 形状 Chain + 跳数 N
+                effect["shape"] = "Chain"
+                effect["shots"] = int(chain.group(1))
             percent = re.search(rf"`{SHAPE_PERCENT_TOKEN} (\d+)`", config)
             if percent:
                 effect["shapePercent"] = int(percent.group(1))
             shots = re.search(rf"`{SHOTS_TOKEN} (\d+)`", config)
             if shots:
-                effect["shape"] = "Volley"
+                # 2026-08-25:Chain 也用 Shots 表示跳数,所以 Shots 不再无条件蕴含 Volley ——
+                # 只有没显式写形状时才当连发(保住 `Shots N` 单写即连发的旧口径)
+                effect.setdefault("shape", "Volley")
                 effect["shots"] = int(shots.group(1))
         if kind == "Shield" and "PersistOnce" in config:
             effect["persistOnce"] = True

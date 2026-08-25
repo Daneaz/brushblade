@@ -66,6 +66,10 @@ namespace Brushblade.Core.Tests
             new CharDef("缓", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
                     passive: new SummonPassive { OnHitSlowPercent = 50, OnHitSlowTurns = 2 }) }),
+            // 盯:嘲讽(2026-08-25)。站**后排**槽以证明嘲讽越过排位规则生效
+            new CharDef("盯", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { Taunt = true }) }),
             // 零:出手 0% 冻结 —— 负向,概率 0 不该冻
             new CharDef("零", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
@@ -778,6 +782,49 @@ namespace Brushblade.Core.Tests
             engine.Cast("缓");
             engine.EndTurn();
             Assert.That(engine.Enemies[0].Hp, Is.LessThan(before), "照样要打出去");
+        }
+        // ---- 嘲讽(2026-08-25,荆/堡)----
+
+        [Test]
+        public void Taunt_PullsMeleeAttackEvenFromABackRowSlot()
+        {
+            // 嘲讽压过一切排位规则:近战本来被前排拦下,有嘲讽时改打嘲讽的那只 ——
+            // 否则「攻 0 靠反伤输出」的肉盾挨不挨打全看运气。
+            var engine = Engine(new[] { "素", "盯" }, new[] { new EnemyDef("靶", Element.Heart, 200, 5) });
+            engine.Cast("素", summonSlots: new[] { 0 });   // 前排槽 0:没有嘲讽时它会挡下这一击
+            engine.Cast("盯", summonSlots: new[] { 3 });   // 后排槽 3
+            engine.EndTurn();
+            Assert.That(engine.Summons[3].Hp, Is.LessThan(100), "该打嘲讽的那只");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "前排那只不该挨打");
+        }
+
+        [Test]
+        public void Taunt_Absent_KeepsTheOldFrontRowBlocking()
+        {
+            // 负向:没有嘲讽时排位规则原样 —— 嘲讽不能变成「无条件改打后排」
+            var engine = Engine(new[] { "素", "素" }, new[] { new EnemyDef("靶", Element.Heart, 200, 5) });
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.Cast("素", summonSlots: new[] { 3 });
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.LessThan(10), "前排照旧挡下");
+        }
+
+        [Test]
+        public void Taunt_DeadTaunterDoesNotKeepPulling()
+        {
+            // 嘲讽者死了就不再拉仇恨,否则全场攻击会打进一个空槽、玩家反而无敌
+            var engine = Engine(new[] { "盯", "素" }, new[] { new EnemyDef("靶", Element.Heart, 200, 500) });
+            engine.Cast("盯", summonSlots: new[] { 3 });
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.EndTurn();
+            Assert.That(engine.Summons[3] == null || !engine.Summons[3].Alive, Is.True, "500 伤必死");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "第一拍嘲讽把火力全吸走了");
+
+            engine.EndTurn();
+            // 嘲讽者没了 → 排位规则复位 → 近战重新被前排槽 0 拦下。
+            // 它 10 血挨 500 必死,「死了」本身就是这一击落到它身上的证据。
+            Assert.That(engine.Summons[0] == null || !engine.Summons[0].Alive, Is.True,
+                "嘲讽者死后攻击要落回前排,不能凭空消失");
         }
     }
 }

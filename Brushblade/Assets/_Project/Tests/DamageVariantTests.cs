@@ -107,6 +107,10 @@ namespace Brushblade.Core.Tests
             new CharDef("扫兵", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
                     summonChar: "木", passive: new SummonPassive { Shape = TargetShape.Sweep }) }),
+            // 链:弹射 3 跳,每跳 ×50%(主 100 → 50 → 25)
+            new CharDef("链", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100,
+                    shape: TargetShape.Chain, shapePercent: 50, shots: 3) }),
             // 连兵:召唤物连发 3 发
             new CharDef("连兵", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
@@ -1046,6 +1050,36 @@ namespace Brushblade.Core.Tests
             Assert.That(primaryLoss, Is.GreaterThan(0));
             Assert.That(leftLoss, Is.EqualTo(primaryLoss / 2), "ShapePercent 50:左侧是主目标的一半");
             Assert.That(rightLoss, Is.EqualTo(leftLoss), "两侧对称");
+        }
+
+        // ---- 弹射 Chain(2026-08-25)----
+
+        /// <summary>弹射:逐跳**累乘**衰减,且目标不重复。这两条正是它与连发的分界 ——
+        /// 连发是「可重复、每发全额」,弹射是「不重复、越跳越弱」。</summary>
+        [Test]
+        public void Chain_DecaysCompoundingAcrossDistinctTargets()
+        {
+            var engine = Engine(new[] { "链" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
+            engine.Cast("链", targetIndex: 0);
+
+            int first = 200 - engine.Enemies[0].Hp;
+            int second = 200 - engine.Enemies[1].Hp;
+            int third = 200 - engine.Enemies[2].Hp;
+            Assert.That(first, Is.GreaterThan(0), "主目标全额");
+            Assert.That(second, Is.EqualTo(first / 2), "第二跳 50%");
+            Assert.That(third, Is.EqualTo(second / 2), "第三跳再 50% —— 累乘,不是一律 50%");
+        }
+
+        [Test]
+        public void Chain_RunsOutOfTargetsInsteadOfLoopingBack()
+        {
+            // 目标不够就少跳。若写成连发那样循环补足,主目标会被打第二次 ——
+            // 那就等于给了它一个隐藏的多段。
+            var engine = Engine(new[] { "链" }, new[] { Attacker(0), Attacker(0) });
+            engine.Cast("链", targetIndex: 0);
+            int first = 200 - engine.Enemies[0].Hp;
+            Assert.That(200 - engine.Enemies[1].Hp, Is.EqualTo(first / 2));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - first), "主目标只挨了一次全额,没有被循环补打第二下");
         }
 
         /// <summary>溅射打边格只溅一侧,不递补(spec §3.2:形状是几何,不是「保证打满 K 个」)。</summary>

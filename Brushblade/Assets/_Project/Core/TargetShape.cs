@@ -18,5 +18,8 @@ namespace Brushblade.Core
         Skewer, // 贯穿:主目标所在整列,前排 + 后排(≤2)。中文叫「贯穿」,代码不叫 Pierce ——
                 // EffectDef.Pierce 是护甲穿透点数,两者在同一个类上并存极易读错
         Volley, // 连发:后排优先按列序取,不足 N 则**循环补足**。无主目标,不进选目标态
+        Chain,  // 弹射:主目标 + 按格子距离依次跳到**不重复**的其它敌人,最多 Shots 个。
+                // 与 Volley 的分界:连发可重复目标且每发全额,弹射不重复且**逐跳累乘衰减**
+                // (衰减率用 ShapePercent,第 k 跳 = ShapePercent^k)。目标不够就少跳,不循环回头
     }
 }

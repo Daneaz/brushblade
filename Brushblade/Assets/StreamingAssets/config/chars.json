@@ -448,7 +448,8 @@
           "attack": 0,
           "summonChar": "荆",
           "passive": {
-            "thorns": 50
+            "thorns": 50,
+            "taunt": true
           }
         }
       ]
@@ -749,7 +750,10 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 45
+          "value": 30,
+          "shape": "Chain",
+          "shots": 3,
+          "shapePercent": 50
         },
         {
           "kind": "ArmorBreak",
@@ -1005,8 +1009,12 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 100,
+          "value": 70,
           "hitCount": 2
+        },
+        {
+          "kind": "Bleed",
+          "value": 20
         },
         {
           "kind": "Morale",
@@ -1192,7 +1200,11 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 50
+          "value": 30
+        },
+        {
+          "kind": "Bleed",
+          "value": 15
         }
       ]
     },
@@ -1303,12 +1315,12 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 60,
+          "value": 120,
           "count": 1,
-          "attack": 10,
+          "attack": 0,
           "summonChar": "碉",
           "passive": {
-            "thorns": 20
+            "thorns": 50
           }
         }
       ]
@@ -1343,10 +1355,14 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 120,
+          "value": 240,
           "count": 1,
-          "attack": 20,
-          "summonChar": "堡"
+          "attack": 0,
+          "summonChar": "堡",
+          "passive": {
+            "thorns": 50,
+            "taunt": true
+          }
         }
       ]
     },

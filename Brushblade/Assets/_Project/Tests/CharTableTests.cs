@@ -164,9 +164,13 @@ namespace Brushblade.Core.Tests
                 // 桃(HealAlly)的位子由新增的 杖 接手。
                 // 荆(2026-08-25 二次调整):纯反伤肉盾 —— 攻 0,输出全靠反伤。
                 // Thorns 的单位此时已是「受到伤害的百分比」,50 = 反弹一半。
-                ["荆"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Ranged, Is.False, "改前排肉盾,不再远程"); },
+                ["荆"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Ranged, Is.False, "改前排肉盾,不再远程");
+                                Assert.That(p.Taunt, Is.True, "嘲讽是「挨打即输出」成立的前提"); },
                 ["蕉"] = p => Assert.That(p.OnHitSlowPercent, Is.EqualTo(50)),
-                ["碉"] = p => Assert.That(p.Thorns, Is.EqualTo(20)),   // 20% 反弹
+                // 碉/堡(2026-08-25):与 荆 同型的纯反伤肉盾,攻 0、反弹 50%。
+                // 嘲讽只给 堡(蓝)与 荆(紫) —— 白档的 碉 拿不到全套坦克包。
+                ["碉"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Taunt, Is.False, "白档不给嘲讽"); },
+                ["堡"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Taunt, Is.True); },
                 ["杖"] = p => Assert.That(p.HealAlly, Is.EqualTo(10)),
                 ["藤"] = p => { Assert.That(p.OnHitFreezeChance, Is.EqualTo(10)); Assert.That(p.OnSummonFreeze, Is.EqualTo(0)); },
                 ["锥"] = p => { Assert.That(p.Shape, Is.EqualTo(TargetShape.Volley)); Assert.That(p.Shots, Is.EqualTo(2)); },
@@ -409,10 +413,12 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             var duo = graph.Get("剁").Effects.First(e => e.Kind == EffectKind.DamageSingle);
             Assert.That(duo.HitCount, Is.EqualTo(2));
-            Assert.That(duo.Value, Is.EqualTo(100), "每段 100");
-            // 2026-08-15 金系批量挂战意:多段补偿 220 再按战意计价 ×0.90 = 198 → 取整 200。
-            Assert.That(duo.Value * duo.HitCount, Is.EqualTo(200),
-                "紫档单段锚点 200 × 多段补偿 1.1 × 战意计价 0.9 ≈ 200");
+            Assert.That(duo.Value, Is.EqualTo(70), "2026-08-25 补流血后每段 100 → 70");
+            // 2026-08-25 补流血(20/回合 ×3 = 60)后重新分配:140 伤 + 60 流血 = 200,
+            // 战意仍计 0.10 —— 与多段补偿 1.1 大致对冲。
+            Assert.That(duo.Value * duo.HitCount, Is.EqualTo(140), "两段合计 140");
+            Assert.That(RealGraph().Get("剁").Effects.Any(e => e.Kind == EffectKind.Bleed), Is.True,
+                "剁 是流血的紫档载体");
         }
 
         [Test]
@@ -443,6 +449,16 @@ namespace Brushblade.Core.Tests
             Assert.That(jiao.Effects[0].Value, Is.EqualTo(1));
             Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
                 .Any(e => e.Kind == EffectKind.BurnNoDecay)), Is.EqualTo(1), "不灭当前只有 焦 一个载体");
+
+            // 流血(2026-08-25 起三档梯度:劈 白 10 / 锋 蓝 15 / 剁 紫 20),收割者是 铡
+            var bleeders = RealGraph().All
+                .Where(c => (c.Effects ?? Array.Empty<EffectDef>()).Any(e => e.Kind == EffectKind.Bleed))
+                .ToDictionary(c => c.Id,
+                    c => c.Effects.First(e => e.Kind == EffectKind.Bleed).Value);
+            Assert.That(bleeders, Is.EquivalentTo(new Dictionary<string, int>
+            {
+                ["劈"] = 10, ["锋"] = 15, ["剁"] = 20,
+            }), "铺流血的梯度就是这三张;新增载体时把它加进来一起钉");
         }
 
         [Test]

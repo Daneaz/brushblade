@@ -65,6 +65,15 @@ namespace Brushblade.Core
         /// <summary>出手减速的持续回合数。≤0 视为 1。</summary>
         public int OnHitSlowTurns { get; set; }
 
+        /// <summary>嘲讽(2026-08-25,荆/堡):在场时敌人的攻击**强制**落到它身上。
+        ///
+        /// 这条是「攻 0、靠挨打反伤输出」那套 build 的前提 —— 没有它,反伤肉盾挨不挨打
+        /// 完全由 <see cref="Targeting.PickAllyTarget"/> 的均匀随机决定,输出量不受玩家控制。
+        ///
+        /// **压过一切排位规则**:近战的前排拦截、远程的后排优先、Focus.Player 的死盯玩家,
+        /// 都让位于嘲讽。多只嘲讽物之间才走原有的均匀随机。</summary>
+        public bool Taunt { get; set; }
+
         /// <summary>远程(2026-08-20):出手时无视敌方前排,优先打后排。灶 / 烓 = true。
         /// 与「站哪一槽」无关——排位只决定被不被够到,后排的近战召唤物照常打前排。</summary>
         public bool Ranged { get; set; }
@@ -87,7 +96,7 @@ namespace Brushblade.Core
         {
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
-            Dodge = Dodge, Ranged = Ranged, OnSummonFreeze = OnSummonFreeze,
+            Dodge = Dodge, Ranged = Ranged, Taunt = Taunt, OnSummonFreeze = OnSummonFreeze,
             OnHitFreezeChance = OnHitFreezeChance, OnHitFreezeTurns = OnHitFreezeTurns,
             OnHitSlowPercent = OnHitSlowPercent, OnHitSlowTurns = OnHitSlowTurns,
             Shape = Shape, ShapePercent = ShapePercent, Shots = Shots,

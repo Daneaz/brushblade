@@ -1579,8 +1579,14 @@ namespace Brushblade.Core
                             bool primary = t == 0;
                             // 连发每一发都是全额:它没有「主目标 + 溅射」的结构,
                             // N 发是发数不是衰减(spec §3.3)
+                            // 弹射逐跳**累乘**(第 t 跳 = ShapePercent^t),其余形状一律
+                            // 「主目标全额、非主目标一次 ShapePercent」。连发每发全额:
+                            // 它没有「主目标 + 溅射」的结构,N 发是发数不是衰减(spec §3.3)
                             int percent = primary || effect.Shape == TargetShape.Volley
-                                ? 100 : effect.ShapePercent;
+                                ? 100
+                                : effect.Shape == TargetShape.Chain
+                                    ? ChainPercent(effect.ShapePercent, t)
+                                    : effect.ShapePercent;
                             int hits = primary ? effect.HitCount : 1;
                             // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
                             // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
@@ -1996,6 +2002,17 @@ namespace Brushblade.Core
             if (scaled.OnHitSlowTurns > 0)
                 scaled.OnHitSlowTurns = MetaRules.ScaleByCardLevel(scaled.OnHitSlowTurns, cardLevel);
             return scaled;
+        }
+
+        /// <summary>弹射第 hop 跳的伤害百分比:ShapePercent 自乘 hop 次(hop 0 = 主目标 = 100)。
+        /// 整数逐步取整而不是最后一次性算 —— 与伤害链路其余各处「每步 int 除」的口径一致,
+        /// 也避免 pow 引入浮点(Core 全程整数,float 中间精度在 Unity 与 .NET 下不同,
+        /// 见 float 精度那条既有教训)。</summary>
+        private static int ChainPercent(int shapePercent, int hop)
+        {
+            int percent = 100;
+            for (int i = 0; i < hop; i++) percent = percent * shapePercent / 100;
+            return percent;
         }
 
         /// <summary>随机冻结一个**存活**敌人 N 回合(2026-08-25,藤的入场冻结)。

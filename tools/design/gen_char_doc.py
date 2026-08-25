@@ -194,12 +194,13 @@ PUA = {'': '𣛧(木四叠·PUA)', '': '䥱(金四叠·PUA)'}
 PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge': '闪避',
            'speed': '速度', 'onHitBurn': '命中挂灼烧',
            'onHitBurnAll': '灼烧转全体', 'ranged': '远程:无视敌方前排',
+           'taunt': '嘲讽:强制敌人攻击它',
            }
 
 # 召唤物的攻击形状(2026-08-22 引擎侧落地,2026-08-25 起字表里才有载体:剑 / 枪 / 蕉)。
 # 不用括号作注 —— 整串被动会被外层「召唤 N 只(…)」括住,再嵌一层括号读起来是套娃。
 SHAPE = {'Sweep': '横扫:整排', 'Cleave': '溅射:相邻',
-         'Skewer': '贯穿:同列前后排', 'Volley': '连发'}
+         'Skewer': '贯穿:同列前后排', 'Volley': '连发', 'Chain': '弹射'}
 
 SHENG = {'Wood': 'Fire', 'Fire': 'Earth', 'Earth': 'Metal', 'Metal': 'Water', 'Water': 'Wood'}
 # 走生克结算的效果才吃相生 ×3,与 Core 的 WuxingResolver.ResolveEffect 覆盖面一致
@@ -296,6 +297,8 @@ def passive_txt(p):
         shape = SHAPE.get(p['shape'], p['shape'])
         if p['shape'] == 'Volley' and p.get('shots'):
             shape += f" {p['shots']} 发"
+        if p.get('shape') == 'Chain' and p.get('shots'):
+            shape += f" {p['shots']} 跳"
         if p.get('shapePercent'):
             shape += f",非主目标 {p['shapePercent']}%"
         out.append(shape)
@@ -338,8 +341,10 @@ def desc(e, mult=1):
     if e.get('shape') and e['shape'] != 'Single':
         label = SHAPE.get(e['shape'], e['shape'])
         if e['shape'] == 'Volley' and e.get('shots'): label += f" {e['shots']} 发"
+        if e['shape'] == 'Chain' and e.get('shots'): label += f" {e['shots']} 跳"
         pct = e.get('shapePercent')
-        mods.append(label + (f",非主目标 {pct}%" if pct and pct != 100 else ""))
+        suffix = (f",每跳 ×{pct}%" if e["shape"] == "Chain" else f",非主目标 {pct}%") if pct and pct != 100 else ""
+        mods.append(label + suffix)
     cond = {'Burning': "对灼烧目标双倍", 'Bleeding': "对流血目标双倍",
             'Controlled': "对冻结/减速目标双倍", 'ArmorBroken': "对破甲目标双倍"}.get(e.get('doubleVs'))
     if cond: mods.append(cond)

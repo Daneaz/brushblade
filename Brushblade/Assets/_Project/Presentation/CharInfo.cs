@@ -196,6 +196,7 @@ namespace Brushblade.Presentation
             if (p.OnHitCurse > 0) parts.Add(Strings.T("char.passive.onhitcurse", ("value", p.OnHitCurse)));
             if (p.Dodge > 0) parts.Add(Strings.T("char.passive.dodge", ("value", p.Dodge)));
             if (p.Ranged) parts.Add(Strings.T("char.passive.ranged"));
+            if (p.Taunt) parts.Add(Strings.T("char.passive.taunt"));
             // 入场冻结(2026-08-25,藤):写在最后 —— 它不是这只召唤物的持续能力,
             // 而是召唤那一瞬间的一次性效果,读感上收尾比夹在中间清楚
             // 出手冻结 / 出手减速(2026-08-25,藤 / 蕉):这两项**吃卡等级**,
