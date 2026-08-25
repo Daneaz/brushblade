@@ -125,8 +125,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageSingle",
-          "value": 90
+          "kind": "DamageAll",
+          "value": 50
         },
         {
           "kind": "Detonate",
@@ -145,7 +145,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 40
+          "value": 70
         },
         {
           "kind": "BurnAll",
@@ -404,7 +404,8 @@
           "attack": 40,
           "summonChar": "楸",
           "passive": {
-            "onHitBurn": 1
+            "onHitBurn": 1,
+            "ranged": true
           }
         }
       ]
@@ -420,13 +421,13 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 88,
+          "value": 110,
           "count": 2,
-          "attack": 40,
+          "attack": 50,
           "summonChar": "蕉",
           "passive": {
-            "onHitBurn": 1,
-            "shape": "Cleave"
+            "onHitSlowPercent": 50,
+            "onHitSlowTurns": 2
           }
         }
       ]
@@ -442,13 +443,12 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 66,
+          "value": 165,
           "count": 2,
-          "attack": 80,
+          "attack": 25,
           "summonChar": "荆",
           "passive": {
-            "thorns": 30,
-            "ranged": true
+            "thorns": 30
           }
         }
       ]
@@ -527,7 +527,8 @@
           "attack": 40,
           "summonChar": "藤",
           "passive": {
-            "onSummonFreeze": 1
+            "onHitFreezeChance": 10,
+            "onHitFreezeTurns": 1
           }
         }
       ]
@@ -767,7 +768,8 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 280
+          "value": 220,
+          "doubleVs": "Controlled"
         },
         {
           "kind": "Freeze",
@@ -981,7 +983,8 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 145,
+          "value": 110,
+          "doubleVs": "Bleeding",
           "executeBelowPercent": 25,
           "executeKills": true
         },
@@ -1022,11 +1025,11 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 50
+          "value": 30
         },
         {
-          "kind": "Morale",
-          "value": 1
+          "kind": "Bleed",
+          "value": 10
         }
       ]
     },
@@ -1042,7 +1045,8 @@
         {
           "kind": "DamageSingle",
           "value": 100,
-          "backline": true,
+          "shape": "Skewer",
+          "shapePercent": 60,
           "pierce": 15
         },
         {
@@ -1087,13 +1091,17 @@
           "value": 24,
           "count": 1,
           "attack": 32,
-          "summonChar": "锥"
+          "summonChar": "锥",
+          "passive": {
+            "shape": "Volley",
+            "shots": 2
+          }
         }
       ]
     },
     {
       "id": "剿",
-      "rarity": "White",
+      "rarity": "Blue",
       "element": "Metal",
       "recipe": [
         "巢",
@@ -1101,8 +1109,8 @@
       ],
       "effects": [
         {
-          "kind": "DamageAll",
-          "value": 25,
+          "kind": "DamageSingle",
+          "value": 100,
           "executeBelowPercent": 25,
           "executeKills": false
         },
@@ -1238,11 +1246,12 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 270
+          "value": 240
         },
         {
           "kind": "DamageSingle",
-          "value": 120
+          "value": 100,
+          "doubleVs": "ArmorBroken"
         }
       ]
     },
@@ -1406,7 +1415,9 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 60
+          "value": 45,
+          "shape": "Cleave",
+          "shapePercent": 50
         }
       ]
     },
@@ -1421,7 +1432,9 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 60
+          "value": 40,
+          "shape": "Sweep",
+          "shapePercent": 60
         }
       ]
     },

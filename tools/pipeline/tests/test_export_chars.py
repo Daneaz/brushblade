@@ -402,15 +402,26 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
     by_id = {c["id"]: c for c in shipped["chars"]}
 
+    # 伤害侧的目标形状(2026-08-25 装配到 刺/碾/砸):Backline 已换成 Skewer
     ci = by_id["刺"]["effects"][0]
-    assert ci["kind"] == "DamageSingle" and ci.get("backline") is True
+    assert ci["kind"] == "DamageSingle" and ci["shape"] == "Skewer" and ci["shapePercent"] == 60
+    assert ci.get("backline") is None, "偷袭换成贯穿后不该还留着"
+    assert by_id["碾"]["effects"][0]["shape"] == "Sweep"
+    assert by_id["砸"]["effects"][0]["shape"] == "Cleave"
 
-    # 远程:2026-08-25 起唯一载体是 荆(灶/烓 已移出字表)
-    jing = by_id["荆"]["effects"][0]
-    assert jing["kind"] == "Summon" and jing["attack"] == 80
-    assert jing["passive"].get("ranged") is True, "荆 应为远程"
+    # 远程:2026-08-25 起唯一载体是 楸(荆 改前排肉盾让出;灶/烓 更早移出字表)
+    qiu = by_id["楸"]["effects"][0]
+    assert qiu["kind"] == "Summon"
+    assert qiu["passive"].get("ranged") is True, "楸 应为远程"
 
-    # 召唤物的目标形状与入场冻结(2026-08-25):这三条同样是「token 表漏接线就静默丢」的字段
+    # 召唤被动的形状与出手控场(2026-08-25):都是「token 表漏接线就静默丢」的字段
     assert by_id["剑"]["effects"][0]["passive"] == {"shape": "Sweep", "shapePercent": 50}
     assert by_id["枪"]["effects"][0]["passive"] == {"shape": "Skewer", "shapePercent": 70}
-    assert by_id["藤"]["effects"][0]["passive"] == {"onSummonFreeze": 1}
+    assert by_id["锥"]["effects"][0]["passive"] == {"shape": "Volley", "shots": 2}
+    assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
+    assert by_id["蕉"]["effects"][0]["passive"] == {"onHitSlowPercent": 50, "onHitSlowTurns": 2}
+
+    # 条件加成(2026-08-25 由 doubleVsBurning 泛化):四系各一个收割位
+    assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
+            for e in c.get("effects", []) if e.get("doubleVs")} == {
+        "灼": "Burning", "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken"}

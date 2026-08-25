@@ -279,6 +279,14 @@ def passive_txt(p):
         if k == 'onSummonFreeze':   # 单位是回合数,套「名字 + 数字」的模板会读成「回合数 1」
             out.append(f"入场冻结 1 敌 {v} 回合")
             continue
+        if k == 'onHitFreezeChance':
+            out.append(f"出手 {v}% 冻结 {max(1, p.get('onHitFreezeTurns', 1))} 回合")
+            continue
+        if k == 'onHitSlowPercent':
+            out.append(f"出手减速 {v},持续 {max(1, p.get('onHitSlowTurns', 1))} 回合")
+            continue
+        if k in ('onHitFreezeTurns', 'onHitSlowTurns'):
+            continue   # 已并进上面那两句
         n = PASSIVE.get(k, k)
         out.append(n if v is True else f"{n} {v}")
     if p.get('shape'):
@@ -322,7 +330,16 @@ def desc(e, mult=1):
                   + (f",{passive_txt(e['passive'])}" if e.get('passive') else "") + ")",
     }.get(k, f"{k} {v}")
     mods = []
-    if e.get('doubleVsBurning'): mods.append("对灼烧目标双倍")
+    # 伤害侧的目标形状(2026-08-25 装配到 碾/砸/刺):与召唤被动侧共用 SHAPE 表。
+    # 此前只有召唤物带形状,伤害字一个都没有,所以这一段从来没被渲染过。
+    if e.get('shape') and e['shape'] != 'Single':
+        label = SHAPE.get(e['shape'], e['shape'])
+        if e['shape'] == 'Volley' and e.get('shots'): label += f" {e['shots']} 发"
+        pct = e.get('shapePercent')
+        mods.append(label + (f",非主目标 {pct}%" if pct and pct != 100 else ""))
+    cond = {'Burning': "对灼烧目标双倍", 'Bleeding': "对流血目标双倍",
+            'Controlled': "对冻结/减速目标双倍", 'ArmorBroken': "对破甲目标双倍"}.get(e.get('doubleVs'))
+    if cond: mods.append(cond)
     if e.get('persistOnce'): mods.append("免一次清盾")
     # mods 会被外层括号整体包住,这里不能再带括号,否则嵌套成「(穿透 10(…))」
     if e.get('pierce'): mods.append(f"穿透 {e['pierce']}")
