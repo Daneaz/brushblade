@@ -19,8 +19,12 @@ tools/pipeline/data/raw/*
 !tools/pipeline/data/raw/ids.txt
 tools/pipeline/out/
 
-# 字体原始文件(google/fonts, OFL, 体积大不入 git)
-tools/fonts/raw/
+# 字体原始文件(google/fonts, OFL):2026-08-25 起**入 git**。
+# 原先不入,理由是体积大、随时能从 google/fonts 重下 —— 但那天一次误操作把本地这两份
+# 删掉了,而「随时能重下」在需要它的那一刻不成立(新增中文时必须重跑 subset_fonts.py,
+# 拿不到原材料新字就是豆腐块)。43 MB 换掉这个单点故障,值。
+# ⚠ 这两行**不带尾斜杠**是有意的:带斜杠只匹配目录,匹配不到软链 ——
+# 正是它让那个自引用软链被 git add -A 悄悄收进来,进而覆盖掉真目录。
 
 # dotnet 测试工装构建产物
 tools/coretests/bin/
