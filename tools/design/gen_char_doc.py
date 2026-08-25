@@ -143,11 +143,47 @@ READINGS = {
 _missing = [c['id'] for c in comp if c['id'] not in READINGS]
 assert not _missing, f"READINGS 缺字,请补条目:{_missing}"
 
+# 词组:两张**表内字卡**凑成的现代汉语常用词。同样不是字表字段 —— 它是白/绿/蓝三档的
+# 定档判据(2026-08-25 字表重构),真相在 docs/design/字选型/词组计分表.md,这里是那张表的
+# 可执行副本;两边不许漂,由 tools/design/tests/test_doc_freshness.py 的
+# test_phrases_match_the_scoring_doc 交叉钉住。
+#
+# ⚠ 本列表**保留已移出字表的字的词**(炽热、墙壁、铸剑…)—— 它们是当初移出决策的依据,
+# 删掉就看不出那些字为什么走。渲染时按「两个字都还在可出牌字里」过滤,所以文档里只会
+# 出现现役的词,不需要在这张表上做删减。
+PHRASES = [
+    # 火系
+    '焦灼', '灼烧', '灼热', '烧焦', '炽热', '炽焰', '爆炸', '焚烧', '炎热', '炽烈', '燥热',
+    # 水系
+    '冷冻', '冷凝', '海涛', '冷淡', '淋浴', '沐浴', '冰冷', '冰冻', '冰海',
+    # 土系
+    '墙壁', '壁垒', '堡垒', '碉堡', '碾碎', '崩碎', '砸碎', '破碎',
+    # 金系
+    '锋利', '锐利', '锋锐', '剑锋', '铸剑', '劈刺',
+    # 木系
+    '棍棒', '松柏', '森林',
+    # 跨系
+    '冷战', '冷锋', '冰锥', '松涛', '林海', '冰棒', '热战', '剿灭', '冰壁', '崩溃',
+    '湮灭', '剁碎', '枪刺',
+]
+
+_bad = [w for w in PHRASES if len(w) != 2]
+assert not _bad, f"词组必须恰好两个字(两张字卡):{_bad}"
+assert len(PHRASES) == len(set(PHRASES)), "PHRASES 有重复词"
+
+# 字 → 它参与的、且两个字都还在可出牌字里的词。顺序按 PHRASES 原序,保证文档可复现。
+_PLAYABLE = {c['id'] for c in comp}
+PHRASE_OF = {cid: [w for w in PHRASES if cid in w and w[0] in _PLAYABLE and w[1] in _PLAYABLE]
+             for cid in _PLAYABLE}
+
 
 def pinyin(c): return READINGS[c['id']][0]
 
 
 def gloss(c): return READINGS[c['id']][1]
+
+
+def phrases(c): return '、'.join(PHRASE_OF[c['id']]) or '—'
 
 
 EL = {'Metal': '金', 'Wood': '木', 'Water': '水', 'Fire': '火', 'Earth': '土', 'Heart': '心'}
@@ -157,7 +193,13 @@ EORDER = ['Wood', 'Fire', 'Earth', 'Metal', 'Water', 'Heart']
 PUA = {'': '𣛧(木四叠·PUA)', '': '䥱(金四叠·PUA)'}
 PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge': '闪避',
            'thorns': '荆棘', 'speed': '速度', 'onHitBurn': '命中挂灼烧',
-           'onHitBurnAll': '灼烧转全体', 'ranged': '远程:无视敌方前排'}
+           'onHitBurnAll': '灼烧转全体', 'ranged': '远程:无视敌方前排',
+           }
+
+# 召唤物的攻击形状(2026-08-22 引擎侧落地,2026-08-25 起字表里才有载体:剑 / 枪 / 蕉)。
+# 不用括号作注 —— 整串被动会被外层「召唤 N 只(…)」括住,再嵌一层括号读起来是套娃。
+SHAPE = {'Sweep': '横扫:整排', 'Cleave': '顺劈:相邻',
+         'Skewer': '贯穿:同列前后排', 'Volley': '连发'}
 
 SHENG = {'Wood': 'Fire', 'Fire': 'Earth', 'Earth': 'Metal', 'Metal': 'Water', 'Water': 'Wood'}
 # 走生克结算的效果才吃相生 ×3,与 Core 的 WuxingResolver.ResolveEffect 覆盖面一致
@@ -228,10 +270,24 @@ def order(c):
     return (RORDER.index(c['rarity']), lv2_count(c), EORDER.index(c['element']))
 
 def passive_txt(p):
+    """召唤被动的卡面文案。形状三件套(shape / shapePercent / shots)合成一句 ——
+    分开写会渲染成「顺劈/非主目标 50%」这种断句,读起来像两条独立被动。"""
     out = []
     for k, v in p.items():
+        if k in ('shape', 'shapePercent', 'shots'):
+            continue
+        if k == 'onSummonFreeze':   # 单位是回合数,套「名字 + 数字」的模板会读成「回合数 1」
+            out.append(f"入场冻结 1 敌 {v} 回合")
+            continue
         n = PASSIVE.get(k, k)
         out.append(n if v is True else f"{n} {v}")
+    if p.get('shape'):
+        shape = SHAPE.get(p['shape'], p['shape'])
+        if p['shape'] == 'Volley' and p.get('shots'):
+            shape += f" {p['shots']} 发"
+        if p.get('shapePercent'):
+            shape += f",非主目标 {p['shapePercent']}%"
+        out.append(shape)
     return '/'.join(out)
 
 def desc(e, mult=1):
@@ -318,18 +374,18 @@ def cat_of(c):
 
 def row5(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {EL[c['element']]} | {RA[c['rarity']]} | "
-            f"{atk(c)} | {lv1(c)} | {lv2(c)} | "
+            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
             + "；".join(desc(e, sheng_mult(c)) for e in c['effects']) + " |")
 
 def row4(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {RA[c['rarity']]} | "
-            f"{atk(c)} | {lv1(c)} | {lv2(c)} | "
+            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
             + "；".join(desc(e, sheng_mult(c)) for e in c['effects']) + " |")
 
-H5 = ("| 字 | 拼音 | 近代字意 | 五行 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
+H5 = ("| 字 | 拼音 | 近代字意 | 五行 | 稀有度 | 词组 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
+      "|---|---|---|---|---|---|---|---|---|---|")
+H4 = ("| 字 | 拼音 | 近代字意 | 稀有度 | 词组 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
       "|---|---|---|---|---|---|---|---|---|")
-H4 = ("| 字 | 拼音 | 近代字意 | 稀有度 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
-      "|---|---|---|---|---|---|---|---|")
 
 head = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
 rc = collections.Counter(c['rarity'] for c in comp)
@@ -356,6 +412,14 @@ A("- **拼音 / 近代字意**:字表(`chars.json`)没有这两个字段,新华�
 A("  且其释义以「本义」(古义)为主,与「近代字意」正相反 —— 故这两列在 `gen_char_doc.py` 的 `READINGS` 表里**手工维护**。")
 A("  近代字意取**今天还在用的常用义**;古义已废、现代只作人名/商号或字典生僻条目的字,直接标「今罕用」并注明来历。")
 A("  四叠字(𣛧 / 䥱 / 㙓)与 鍂 现代字典无通行读音,拼音记 `—`。")
+A("- **词组**:两张**表内字卡**凑成的现代汉语常用词,正倒序算一条(炽热 = 热炽,只记一次)。")
+A("  这是白/绿/蓝三档的**定档判据**(2026-08-25 字表重构):`≥3 条 → 蓝`、`= 2 条 → 绿`、`≤1 条 → 白`,")
+A("  同分比搭档字的档位;紫及以上由结构(五行部件数)定档,不看词组。收词规则与完整词表见")
+A("  `docs/design/字选型/词组计分表.md`,本列由 `gen_char_doc.py` 的 `PHRASES` 直出,两边由测试钉住。")
+A("  **不收**:本体部件词(焦土 / 火海 / 木棍 / 镰刀 / 碎石…)、树种 + 林(松林 / 柏林)、")
+A("  边缘书面词、以及另一字不在表内的(藤蔓 / 荆棘 / 灰烬)。")
+A("  只列**两个字都还在字表里**的词 —— 随字被移出而失效的词(炽热 / 墙壁 / 铸剑…)不出现在本表,")
+A("  但仍留在 `PHRASES` 里作为当初移出决策的依据。")
 A("- **一级组成**:字表 `recipe` 原文,即玩家在局内实际拆出/合成的那一层。")
 A("- **二级组成**:只在**比一级多给出五行信息**时才填,否则记 `-` —— 两种记 `-` 的情况:")
 A("  ① 二级拆出来与一级完全一致(冰 = 冫 + 水,再拆还是 冫 + 水);")

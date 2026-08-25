@@ -30,6 +30,7 @@ DOC = ROOT / "docs/design/字选型/字表功能解析.md"
 GEN = ROOT / "tools/design/gen_char_doc.py"
 CHARS = ROOT / "Brushblade/Assets/StreamingAssets/config/chars.json"
 STRINGS = ROOT / "Brushblade/Assets/StreamingAssets/config/strings.zh-CN.json"
+SCORING = ROOT / "docs/design/字选型/词组计分表.md"
 
 
 def _normalize(text):
@@ -143,3 +144,30 @@ def test_execute_thresholds_match_across_three_places():
             checked += 1
     # 2026-08-25 字表重构:镰 移出字表,斩杀字从 3 个减到 2 个(铡 直杀 / 剿 双倍)
     assert checked >= 2, f"只校到 {checked} 个斩杀字,预期至少 2 个(铡/剿)"
+
+
+def test_phrases_match_the_scoring_doc():
+    """`gen_char_doc.PHRASES` 必须与《词组计分表》§一 的词表逐条一致。
+
+    词组是白/绿/蓝三档的定档判据(2026-08-25 字表重构),真相在设计文档里;
+    生成脚本里那份是可执行副本。两边一漂就会出现「文档说 冷 有 5 条词所以进蓝档」
+    而《字表功能解析》的词组列只列 4 条 —— 读表的人无从判断哪边错。
+
+    ⚠ 这里**解析源码文本**而不是 import gen_char_doc:那个模块在导入期就会读 chars.json
+    并把文档写回磁盘(全部逻辑在模块级),import 一下就等于跑了一次生成器。
+    """
+    src = GEN.read_text(encoding="utf-8")
+    block = src.split("PHRASES = [", 1)[1].split("]", 1)[0]
+    in_code = re.findall(r"'([^']+)'", block)
+
+    body = SCORING.read_text(encoding="utf-8").split("## 一 · 词表")[1].split("## 二 ·")[0]
+    # 词表行形如 `| 焦灼 | 焦 + 灼 |`,首格恰好两个字
+    in_doc = [row.split("|")[1].strip() for row in body.splitlines()
+              if row.startswith("| ") and not row.startswith("|---")
+              and len(row.split("|")[1].strip()) == 2]
+
+    assert in_doc, "没从《词组计分表》§一 解析出任何词 —— 表格格式变了,先修解析"
+    assert sorted(in_doc) == sorted(in_code), (
+        "《词组计分表》与 gen_char_doc.PHRASES 不一致:\n"
+        f"  只在文档里:{sorted(set(in_doc) - set(in_code))}\n"
+        f"  只在脚本里:{sorted(set(in_code) - set(in_doc))}")
