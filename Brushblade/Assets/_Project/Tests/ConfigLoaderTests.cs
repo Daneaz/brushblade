@@ -110,11 +110,13 @@ namespace Brushblade.Core.Tests
 
         // ---- 实际配置表:StreamingAssets/config/chars.json 必须永远可加载 ----
 
-        /// <summary>绿档的水与土是一对:各自本系的防御面 + 一记单攻(第 10 章数值表)。
-        /// 钉的是**形状**不是数字 —— 沝 曾经是全表唯一只有防御面的绿档,拖上去打不动人
-        /// (2026-07-30 补齐)。数值可调,少了攻击面就是回归。</summary>
+        /// <summary>纯叠字里的水与土是一对:各自本系的防御面 + 一记单攻(第 10 章数值表)。
+        /// 钉的是**形状**不是数字 —— 沝 曾经是全表唯一只有防御面的字,拖上去打不动人
+        /// (2026-07-30 补齐)。数值可调,少了攻击面就是回归。
+        /// (方法名与旧注释里的「绿档」已失真:沝 / 圭 随 2026-08-25 字表重构升到金档,
+        ///  但这条守的是「有没有攻击面」这个形状,与档位无关。)</summary>
         [Test]
-        public void ShippedCharsJson_GreenWaterAndEarth_BothDefendAndStrike()
+        public void ShippedCharsJson_StackedWaterAndEarth_BothDefendAndStrike()
         {
             var json = File.ReadAllText(
                 Path.Combine(Application.streamingAssetsPath, "config/chars.json"));
@@ -152,9 +154,13 @@ namespace Brushblade.Core.Tests
                 new[] { "火", "炎", "焱", "燚" },
                 new[] { "土", "圭", "垚", "㙓" },
             };
-            // 稀有度阶梯(详表 1.2 迁移,2026-08-03):部件白 / 2叠紫 / 3叠金 / 4叠红。
-            // AP 与稀有度解耦后此迁移不影响手感,但让四叠字坐实「压箱底」的定位。
-            var rarities = new[] { CardRarity.White, CardRarity.Purple, CardRarity.Gold, CardRarity.Red };
+            // 稀有度阶梯:部件白 / 2叠**金** / 3叠**橙** / 4叠红。
+            //
+            // 2026-08-25 字表重构上调了一档(原为 2叠紫 / 3叠金):新规则是
+            // 「五行部件数定基础档,**纯同系叠字再 +1 档**」——
+            // 混 2 部件 → 紫、纯 2 叠 → 金;3 部件 → 橙;纯 4 叠 → 红。
+            // 见 docs/superpowers/specs/2026-08-25-字表重构-design.md §1.1。
+            var rarities = new[] { CardRarity.White, CardRarity.Gold, CardRarity.Orange, CardRarity.Red };
             foreach (var ladder in ladders)
                 for (int i = 0; i < ladder.Length; i++)
                 {

@@ -44,6 +44,36 @@ namespace Brushblade.Core.Tests
                 Assert.That(graph.Get(id).Rarity, Is.EqualTo(CardRarity.Red), $"{id} 应为红档(最高)");
         }
 
+        /// <summary>五系叠字链的稀有度阶梯:部件白 / 纯 2 叠金 / 纯 3 叠橙 / 纯 4 叠红。
+        ///
+        /// ⚠ **这条是 ConfigLoaderTests.ShippedCharsJson_LoadsFiveElementLadders 的工装副本。**
+        /// 那个文件因为引了 UnityEngine.Application(streamingAssetsPath)被
+        /// tools/coretests/*.csproj **显式排除**,只有 Unity Test Runner 能跑 ——
+        /// 于是 2026-08-25 字表重构把阶梯从「2叠紫/3叠金」上调成「2叠金/3叠橙」时,
+        /// 工装全绿而编辑器里那条红着,直到用户手动跑 Test Runner 才发现。
+        /// 本条读真实 chars.json 走 TestContext.TestDirectory,两边都能跑,把盲区堵上。
+        /// 改阶梯时**两处一起改**。</summary>
+        [Test]
+        public void RealConfig_StackedLadders_FollowTheRarityStep()
+        {
+            var graph = RealGraph();
+            var ladders = new[]
+            {
+                new[] { "金", "鍂", "鑫", "\ue626" },
+                new[] { "木", "林", "森", "\ue625" },
+                new[] { "水", "沝", "淼", "㵘" },
+                new[] { "火", "炎", "焱", "燚" },
+                new[] { "土", "圭", "垚", "㙓" },
+            };
+            var rarities = new[]
+            {
+                CardRarity.White, CardRarity.Gold, CardRarity.Orange, CardRarity.Red,
+            };
+            foreach (var ladder in ladders)
+                for (int i = 0; i < ladder.Length; i++)
+                    Assert.That(graph.Get(ladder[i]).Rarity, Is.EqualTo(rarities[i]), ladder[i]);
+        }
+
         [Test]
         public void RealConfig_XiangShengCharsStoreBaseValue()
         {
