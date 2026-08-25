@@ -33,7 +33,7 @@ namespace Brushblade.Core.Tests
             new CharDef("锢", Element.Metal, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
             new CharDef("灼", Element.Fire, new[] { "火", "勺" },
-                effects: new[] { new EffectDef(EffectKind.DamageSingle, 8, doubleVsBurning: true) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 8, doubleVs: DamageCondition.Burning) }),
             new CharDef("勺", null),
             new CharDef("炽", Element.Fire, new[] { "火", "只" },
                 effects: new[] { new EffectDef(EffectKind.BurnPotency, 10) }), // 同真实字表(×10 后)

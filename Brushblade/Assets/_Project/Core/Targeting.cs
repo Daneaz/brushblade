@@ -63,7 +63,37 @@ namespace Brushblade.Core
         /// 远程优先打后排(后排空了才按近战规则来)。无敌可打返回 −1。
         ///
         /// 排位不影响召唤物**自己**能不能出手:站后排的近战照常攻击(用户 2026-08-20 拍板)。</summary>
-        public static int PickEnemyTargetForSummon(IReadOnlyList<EnemyState> enemies, bool ranged)
+        public static int PickEnemyTargetForSummon(IReadOnlyList<EnemyState> enemies, bool ranged,
+            TargetShape shape = TargetShape.Single, bool preferUnfrozen = false)
+        {
+            // 两条偏好都是**在原有排位规则之上的筛子**,不是替代:先按偏好缩小候选,
+            // 缩不出来就退回全体,再走原来的「远程先后排 / 近战先前排」。
+            // 顺序是 preferUnfrozen → 贯穿选列:前者关乎「这一下有没有用」,
+            // 后者只关乎「能不能多打一个」,前者优先级更高。
+            var pool = enemies;
+            if (preferUnfrozen)
+            {
+                var unfrozen = Subset(enemies, i => !enemies[i].Statuses.Has(StatusKind.Freeze));
+                if (unfrozen != null) pool = unfrozen;
+            }
+            if (shape == TargetShape.Skewer)
+            {
+                // 贯穿打的是整列。优先挑**前后排都有人**的那一列 —— 挑到空对位的列
+                // 只会中一只,贯穿就白给了。挑不出来(没有任何列是满的)就不挑。
+                var aligned = Subset(pool, i => HasBothRowsInColumn(pool, pool[i].Column));
+                if (aligned != null) pool = aligned;
+            }
+            if (!ReferenceEquals(pool, enemies))
+            {
+                int picked = PickByRow(pool, ranged);
+                // 候选池里的下标是子集自己的下标,要翻回原表
+                if (picked >= 0) return IndexIn(enemies, pool[picked]);
+            }
+            return PickByRow(enemies, ranged);
+        }
+
+        /// <summary>按排位挑一个存活目标:远程先后排,近战先前排,都没有就退另一排。</summary>
+        private static int PickByRow(IReadOnlyList<EnemyState> enemies, bool ranged)
         {
             if (ranged)
             {
@@ -73,6 +103,39 @@ namespace Brushblade.Core
             int front = FirstAliveInRow(enemies, EnemyRow.Front);
             if (front >= 0) return front;
             return FirstAliveInRow(enemies, EnemyRow.Back);
+        }
+
+        /// <summary>满足谓词的存活敌人子集;一个都没有返回 null(调用方据此退回全体)。</summary>
+        private static List<EnemyState> Subset(IReadOnlyList<EnemyState> enemies,
+            System.Func<int, bool> keep)
+        {
+            List<EnemyState> subset = null;
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                if (!enemies[i].Alive || !keep(i)) continue;
+                (subset ??= new List<EnemyState>()).Add(enemies[i]);
+            }
+            return subset;
+        }
+
+        /// <summary>该列的前排与后排是否都还有活人 —— 贯穿要打满两只的前提。</summary>
+        private static bool HasBothRowsInColumn(IReadOnlyList<EnemyState> enemies, int column)
+        {
+            bool front = false, back = false;
+            foreach (var e in enemies)
+            {
+                if (!e.Alive || e.Column != column) continue;
+                if (e.Row == EnemyRow.Front) front = true; else back = true;
+            }
+            return front && back;
+        }
+
+        /// <summary>实例在原表里的下标(子集筛选后翻回来用);找不到返回 −1。</summary>
+        private static int IndexIn(IReadOnlyList<EnemyState> enemies, EnemyState target)
+        {
+            for (int i = 0; i < enemies.Count; i++)
+                if (ReferenceEquals(enemies[i], target)) return i;
+            return -1;
         }
 
         /// <summary>把「主目标 + 形状」展开成实际要结算的敌人下标表(2026-08-22,spec §4)。

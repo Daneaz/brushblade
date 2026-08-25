@@ -35,7 +35,8 @@ namespace Brushblade.Core
         Silence,          // 沉默:该敌人的主动机制全部哑火(2026-08-07)
         Reflect,          // 反弹:把打到玩家的伤害按 Magnitude% 照回攻击者(2026-08-07)
         BurnNoDecay,      // 不灭:该敌人身上的灼烧层数不再每回合衰减(2026-08-09,炑)
-        Morale,           // 战意:Magnitude = **层数**(不是攻击加成值),每层 +10 攻击,上限 5 层(2026-08-12)
+        Morale,           // 战意:Magnitude = **层数**(不是攻击加成值),每层 **+10% 攻击**,上限 5 层
+                          // (2026-08-12 上线时是 +10 点;2026-08-25 用户拍板改成百分比)
         ApBoost,          // 玩家每回合 AP 上限加成(2026-08-12,利)
         CritBuff,         // 玩家暴击率加成(百分点,2026-08-12,锋)
         DefenseBuff,      // 玩家护甲加成(**点数**,2026-08-12,E-b4 T2):进 EffectiveDefense 的加数
@@ -57,7 +58,7 @@ namespace Brushblade.Core
     /// Curse=减攻百分比,与 AttackBuff **同一根轴**,EnemyState.Attack 里直接相减(±50% 精确相消)、
     /// Seal=AP 扣减量(StartTurn 读它)、
     /// Blind=命中降低百分比(AttackHits 读它)、
-    /// Morale=战意层数(EffectiveAttack 乘 MoralePerStack 才是攻击加成)、
+    /// Morale=战意层数(EffectiveAttack 按 MoralePercentPerStack 折成百分比才是攻击加成)、
     /// ApBoost=每回合 AP 上限加成(StartTurn 与 ApPerTurn 两侧都读它)、
     /// CritBuff=暴击率加成的百分点(EffectiveCrit 读它)、
     /// DefenseBuff=护甲**点数**(EffectivePlayerDefense 的加数)、

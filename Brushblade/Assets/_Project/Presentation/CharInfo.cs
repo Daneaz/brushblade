@@ -85,11 +85,11 @@ namespace Brushblade.Presentation
                 {
                     EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
                             ("shape", ShapeLabel(e)), ("value", shown))
-                        + (e.DoubleVsBurning ? Strings.T("char.effect.doublevsburning") : "")
+                        + DoubleVsText(e)
                         + PierceText(e) + BacklineText(e) + HitCountText(e) + ExecuteText(e)
                         + ShapeSuffix(e),
                     EffectKind.DamageAll => Strings.T("char.effect.damageall", ("value", shown))
-                        + (e.DoubleVsBurning ? Strings.T("char.effect.doublevsburning") : "")
+                        + DoubleVsText(e)
                         + PierceText(e) + HitCountText(e) + ExecuteText(e),
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
@@ -138,7 +138,7 @@ namespace Brushblade.Presentation
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
                     EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown)),
                     EffectKind.Morale => Strings.T("char.effect.morale",
-                        ("stacks", shown), ("per", 10), ("max", 5)),
+                        ("stacks", shown), ("per", 10), ("max", 5)),   // per 是百分数,文案里带 %
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
                     // AP 是节奏/经济不是资源)——用 e.Value 而不是 v
                     EffectKind.ApBoost => Strings.T("char.effect.apboost", ("value", e.Value)),
@@ -198,6 +198,14 @@ namespace Brushblade.Presentation
             if (p.Ranged) parts.Add(Strings.T("char.passive.ranged"));
             // 入场冻结(2026-08-25,藤):写在最后 —— 它不是这只召唤物的持续能力,
             // 而是召唤那一瞬间的一次性效果,读感上收尾比夹在中间清楚
+            // 出手冻结 / 出手减速(2026-08-25,藤 / 蕉):这两项**吃卡等级**,
+            // 所以走 p 里已缩放好的值 —— 卡面显示的就是这一张卡当前等级的实际数字
+            if (p.OnHitFreezeChance > 0)
+                parts.Add(Strings.T("char.passive.onhitfreeze",
+                    ("chance", p.OnHitFreezeChance), ("turns", System.Math.Max(1, p.OnHitFreezeTurns))));
+            if (p.OnHitSlowPercent > 0)
+                parts.Add(Strings.T("char.passive.onhitslow",
+                    ("value", p.OnHitSlowPercent), ("turns", System.Math.Max(1, p.OnHitSlowTurns))));
             if (p.OnSummonFreeze > 0)
                 parts.Add(Strings.T("char.passive.onsummonfreeze", ("value", p.OnSummonFreeze)));
             return parts.Count == 0 ? "" : Strings.T("char.passive.wrap", ("list", string.Join("/", parts)));
@@ -212,6 +220,18 @@ namespace Brushblade.Presentation
         /// 点数 —— 旧的 +15% 已固化进这三个字的基础值,卡面上的伤害数字自己涨了,
         /// 后缀只剩下真正与防御有关的那一半。破甲与穿透的一句话区分见 spec 第七节:
         /// 破甲削的是目标的甲(削掉就一直是削掉的、队友蹭得到),穿透只是这一击的视角。</summary>
+        /// <summary>条件加成后缀(2026-08-25):目标带某状态时这一记翻倍。
+        /// 四个条件各一条字符串表 key —— 拼「对 + 状态名 + 目标翻倍」会让翻译者
+        /// 拿不到完整句子,与本文件其余文案同口径。</summary>
+        private static string DoubleVsText(EffectDef e) => e.DoubleVs switch
+        {
+            DamageCondition.Burning => Strings.T("char.effect.doublevs.burning"),
+            DamageCondition.Bleeding => Strings.T("char.effect.doublevs.bleeding"),
+            DamageCondition.Controlled => Strings.T("char.effect.doublevs.controlled"),
+            DamageCondition.ArmorBroken => Strings.T("char.effect.doublevs.armorbroken"),
+            _ => "",
+        };
+
         private static string PierceText(EffectDef e) =>
             e.Pierce > 0 ? Strings.T("char.effect.piercetext", ("pierce", e.Pierce)) : "";
 

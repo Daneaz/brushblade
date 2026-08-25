@@ -47,8 +47,9 @@ namespace Brushblade.Core
         public EffectKind Kind { get; }
         public int Value { get; }
 
-        /// <summary>伤害类:目标带灼烧时基础值翻倍(灼,10.3.1)。</summary>
-        public bool DoubleVsBurning { get; }
+        /// <summary>伤害类:目标带某状态时基础值翻倍(2026-08-25 由 DoubleVsBurning 泛化)。
+        /// <see cref="DamageCondition.None"/> = 无条件。</summary>
+        public DamageCondition DoubleVs { get; }
 
         /// <summary>护盾类:豁免一次回合末全清(堡,10.3.6)。</summary>
         public bool PersistOnce { get; }
@@ -122,7 +123,7 @@ namespace Brushblade.Core
         public int Shots { get; }
 
         public EffectDef(EffectKind kind, int value,
-            bool doubleVsBurning = false, bool persistOnce = false,
+            DamageCondition doubleVs = DamageCondition.None, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
             int turns = 0, bool targetAll = false,
             SummonPassive passive = null, int summonShield = 0,
@@ -132,7 +133,7 @@ namespace Brushblade.Core
         {
             Kind = kind;
             Value = value;
-            DoubleVsBurning = doubleVsBurning;
+            DoubleVs = doubleVs;
             PersistOnce = persistOnce;
             SummonCount = summonCount;
             SummonAttack = summonAttack;

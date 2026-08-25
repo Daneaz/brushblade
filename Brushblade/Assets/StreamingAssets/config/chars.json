@@ -307,7 +307,7 @@
         {
           "kind": "DamageSingle",
           "value": 40,
-          "doubleVsBurning": true
+          "doubleVs": "Burning"
         },
         {
           "kind": "BurnSingle",

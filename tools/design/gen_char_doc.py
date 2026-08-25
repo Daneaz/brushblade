@@ -316,7 +316,7 @@ def desc(e, mult=1):
         # 破甲 2026-08-13 起是「削目标护甲 v 点」,不再是「承伤 +25% 持续 t 回合」
         'ArmorBreak': f"破甲 {v}(削目标护甲,本场,可叠)", 'Empower': f"攻击力 +{v}(本场)",
         'PierceBuff': f"穿透 +{v}(本场)", 'DodgeBuff': f"闪避 +{v}%(本场)",
-        'Morale': f"战意 +{v} 层(每层 +10 攻,上限 5)", 'ApBoost': f"AP 上限 +{v}(本场)",
+        'Morale': f"战意 +{v} 层(每层 +10% 攻,上限 5)", 'ApBoost': f"AP 上限 +{v}(本场)",
         'CritBuff': f"暴击率 +{v}%(本场)",
         'Summon': f"召唤 {e.get('count',1)} 只(血 {v}/攻 {e.get('attack',0)}"
                   + (f",{passive_txt(e['passive'])}" if e.get('passive') else "") + ")",

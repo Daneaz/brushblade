@@ -101,7 +101,30 @@ namespace Brushblade.CoreTests
             var engine = Battle(BattleConfig.AttackBaseline, "战");
             engine.Cast("战");
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(3));
-            Assert.That(engine.EffectiveAttack, Is.EqualTo(130), "100 + 3 层 × 每层 10");
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(130), "100 × (1 + 3 层 × 10%)");
+        }
+
+        [Test]
+        public void Morale_IsPercentOfAttack_NotFlatPoints()
+        {
+            // 2026-08-25 用户拍板:战意每层 **+10% 攻击**,不再是 +10 点。
+            // 基准 100 下两种口径同值(130),所以只有非基准攻击力能把它们区分开:
+            //   旧(加点):150 + 3×10 = 180
+            //   新(百分比):150 × 1.3 = 195
+            var engine = Battle(150, "战");
+            engine.Cast("战");
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(195), "150 × (1 + 3×10%)");
+        }
+
+        [Test]
+        public void Morale_MultipliesAfterEmpower()
+        {
+            // Empower 是加点、战意是乘比例,顺序定死:先加后乘。
+            // 反过来(先乘后加)会让 剡 的 +50 完全吃不到战意的放大。
+            var engine = Battle(150, "剡", "战");
+            engine.Cast("剡");
+            engine.Cast("战");
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(260), "(150 + 50) × 1.3");
         }
 
         [Test]
@@ -113,7 +136,7 @@ namespace Brushblade.CoreTests
             engine.Cast("战");
             engine.Cast("战");
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(5));
-            Assert.That(engine.EffectiveAttack, Is.EqualTo(150), "5 层封顶 = +50,不是 +60");
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(150), "5 层封顶 = +50%,不是 +60%");
         }
 
         [Test]
@@ -210,11 +233,14 @@ namespace Brushblade.CoreTests
         {
             // 负向:战意的 Magnitude 是**层数**不是量。套上 ScaleByAttack 会算成
             // 3 × 150 ÷ 100 = 4 层,攻击力越高战意给得越多 —— 又一条自我放大。
+            //
+            // ⚠ 2026-08-25 战意改成 +10%/层之后,「层数不随攻击力涨」这条**更要紧**了:
+            // 层数本身若再吃一次攻击力,就是攻击力放大层数、层数又按百分比放大攻击力的双重复利。
             var engine = Battle(150, "战");
             engine.Cast("战");
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Morale),
                 Is.EqualTo(3), "层数不吃攻击力");
-            Assert.That(engine.EffectiveAttack, Is.EqualTo(180), "150 + 3 × 10");
+            Assert.That(engine.EffectiveAttack, Is.EqualTo(195), "150 × 1.3(百分比口径,见 Morale_IsPercentOfAttack_NotFlatPoints)");
         }
 
         // ---- 戮:伤害 + 战意 ----

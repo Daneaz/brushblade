@@ -51,12 +51,12 @@ namespace Brushblade.Core.Tests
             var graph = ConfigLoader.LoadGraph(@"{
                 ""chars"": [
                     { ""id"": ""灼"", ""element"": ""Fire"",
-                      ""effects"": [ { ""kind"": ""DamageSingle"", ""value"": 8, ""doubleVsBurning"": true } ] },
+                      ""effects"": [ { ""kind"": ""DamageSingle"", ""value"": 8, ""doubleVs"": ""Burning"" } ] },
                     { ""id"": ""堡"", ""element"": ""Earth"",
                       ""effects"": [ { ""kind"": ""Shield"", ""value"": 10, ""persistOnce"": true } ] }
                 ]
             }");
-            Assert.That(graph.Get("灼").Effects.Single().DoubleVsBurning, Is.True);
+            Assert.That(graph.Get("灼").Effects.Single().DoubleVs, Is.EqualTo(DamageCondition.Burning));
             Assert.That(graph.Get("灼").Effects.Single().PersistOnce, Is.False);
             Assert.That(graph.Get("堡").Effects.Single().PersistOnce, Is.True);
         }

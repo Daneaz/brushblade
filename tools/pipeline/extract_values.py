@@ -18,6 +18,10 @@ SUMMON_PASSIVE = {
     "OnHitCurse": "onHitCurse",
     "Dodge": "dodge",
     "OnSummonFreeze": "onSummonFreeze",
+    "OnHitFreeze": "onHitFreezeChance",       # 概率(百分点),吃卡等级
+    "OnHitFreezeTurns": "onHitFreezeTurns",
+    "OnHitSlow": "onHitSlowPercent",          # 幅度(速度点数),吃卡等级
+    "OnHitSlowTurns": "onHitSlowTurns",
 }
 
 
@@ -154,8 +158,13 @@ def _parse_effects(config, char):
         if kind == "DispelEach":       # 全体各驱散 N 条(淡)
             effect["kind"] = "Dispel"
             effect["targetAll"] = True
-        if kind.startswith("Damage") and "DoubleVsBurning" in config:
-            effect["doubleVsBurning"] = True
+        # 条件加成(2026-08-25 由 DoubleVsBurning 泛化成四选一)。写成条件名而不是布尔位,
+        # 新增条件时只动这张表,不用再加一个平行的 bool —— 与 EffectKind 同口径。
+        if kind.startswith("Damage"):
+            for token in ("Burning", "Bleeding", "Controlled", "ArmorBroken"):
+                if f"`DoubleVs{token}`" in config:
+                    effect["doubleVs"] = token
+                    break
         # 偷袭(2026-08-20):无视敌方前排。只修饰单体直伤 —— 其余单体效果本就不受排位限制。
         # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Backline" 的独立效果,
         #   而 EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException

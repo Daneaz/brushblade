@@ -44,6 +44,25 @@ namespace Brushblade.Core
         /// 否则 藤 将来若升到召 2 只,会静默变成群控。</summary>
         public int OnSummonFreeze { get; set; }
 
+        /// <summary>出手时冻结目标的**概率**(百分点,2026-08-25,藤)。0 = 不冻。
+        /// 与 <see cref="OnSummonFreeze"/> 是两回事:那个是入场一次性,这个是每次出手都摇。
+        ///
+        /// ⚠ 这个字段与下面 OnHitSlow 两项**吃卡等级** —— 推翻了 2026-08-05 的
+        /// 「被动数值不吃卡等级」(那条把反伤/灼烧层/减攻百分比定为不随等级变的「节奏」)。
+        /// 2026-08-25 用户拍板:藤的冻结概率、蕉的减速幅度都要随卡等级成长。
+        /// 缩放在**召唤那一刻**做完并写进这份拷贝(与 Attack 同为快照语义),
+        /// 运行期不再看等级 —— 之后再升级卡,已在场的这只不变。</summary>
+        public int OnHitFreezeChance { get; set; }
+
+        /// <summary>出手冻结命中时的回合数。≤0 视为 1。</summary>
+        public int OnHitFreezeTurns { get; set; }
+
+        /// <summary>出手时给目标挂的减速幅度(速度点数,正数;施加时取负,2026-08-25,蕉)。0 = 不减速。</summary>
+        public int OnHitSlowPercent { get; set; }
+
+        /// <summary>出手减速的持续回合数。≤0 视为 1。</summary>
+        public int OnHitSlowTurns { get; set; }
+
         /// <summary>远程(2026-08-20):出手时无视敌方前排,优先打后排。灶 / 烓 = true。
         /// 与「站哪一槽」无关——排位只决定被不被够到,后排的近战召唤物照常打前排。</summary>
         public bool Ranged { get; set; }
@@ -67,6 +86,8 @@ namespace Brushblade.Core
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
             Dodge = Dodge, Ranged = Ranged, OnSummonFreeze = OnSummonFreeze,
+            OnHitFreezeChance = OnHitFreezeChance, OnHitFreezeTurns = OnHitFreezeTurns,
+            OnHitSlowPercent = OnHitSlowPercent, OnHitSlowTurns = OnHitSlowTurns,
             Shape = Shape, ShapePercent = ShapePercent, Shots = Shots,
         };
     }

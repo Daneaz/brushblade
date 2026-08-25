@@ -36,7 +36,9 @@ namespace Brushblade.Data
         {
             public string Kind { get; set; }
             public int Value { get; set; }
-            public bool DoubleVsBurning { get; set; }
+            // 2026-08-25:从 bool doubleVsBurning 换成条件名(Burning/Bleeding/Controlled/ArmorBroken)。
+            // 缺省 null → DamageCondition.None。
+            public string DoubleVs { get; set; }
             public bool PersistOnce { get; set; }
             public int Count { get; set; } = 1;        // 召唤:召几个
             public int Attack { get; set; }            // 召唤:攻击力
@@ -512,7 +514,7 @@ namespace Brushblade.Data
                 if (effect.Passive != null && !Enum.IsDefined(typeof(TargetShape), effect.Passive.Shape))
                     throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
                 effects.Add(new EffectDef(kind, effect.Value,
-                    effect.DoubleVsBurning, effect.PersistOnce,
+                    ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
                     effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield,
@@ -521,6 +523,18 @@ namespace Brushblade.Data
                     shape, effect.ShapePercent, effect.Shots));
             }
             return effects;
+        }
+
+        /// <summary>条件加成名 → 枚举(2026-08-25)。空 = 无条件;未知名**直接抛** ——
+        /// 与上面 Shape 那两条校验同口径:静默落成 None 会让一张「对流血双倍」的卡
+        /// 悄悄变成普通攻击,而伤害数字看起来完全正常。</summary>
+        private static DamageCondition ParseCondition(string name, string charId)
+        {
+            if (string.IsNullOrEmpty(name)) return DamageCondition.None;
+            if (!Enum.TryParse(name, out DamageCondition condition)
+                || !Enum.IsDefined(typeof(DamageCondition), condition))
+                throw new ConfigException($"字「{charId}」的条件加成未知:{name}");
+            return condition;
         }
     }
 }

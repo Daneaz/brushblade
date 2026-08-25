@@ -245,7 +245,13 @@ namespace Brushblade.Core
         private const int SearStacks = 1;  // 灯花每次攻击给玩家挂的灼烧层数(2026-08-06)
         private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
         private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
-        private const int MoralePerStack = 10;  // 战意每层的攻击加成(2026-08-12)
+        // 战意每层的攻击加成:2026-08-25 用户拍板从「+10 点」改为「**+10%**」。
+        // 基准攻击力恰好是 100,所以基准下两种口径同值 —— 只有非基准玩家看得出差别
+        // (26 级 ATK 150 满层:旧 +50 → 新 +75)。深层战意流因此明显变强。
+        private const int MoralePercentPerStack = 10;
+
+        /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
+        private const string SummonSlowSourceId = "summon.slow";
         private const int MoraleMaxStacks = 5;  // 战意层数上限:满层 +50 攻击,刚好追平剡单张的量
 
         private ForgeState _forge;
@@ -289,10 +295,19 @@ namespace Brushblade.Core
         /// 混进 AttackBuff 会既丢掉层数上限又让 +1 层被当成 +1 攻击。
         /// 钳到 ≥0 与 <see cref="EnemyState.Attack"/> 同口径:负攻击力会打出负伤害,
         /// 等于给敌人回血,且全程无声。</summary>
-        public int EffectiveAttack =>
-            Math.Max(0, _config.PlayerAttack
-                + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff)
-                + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePerStack);
+        public int EffectiveAttack
+        {
+            get
+            {
+                // 顺序定死:**先加后乘**。Empower / AttackBuff 是加点,战意是乘比例;
+                // 反过来会让 剡 的 +50 完全吃不到战意的放大(Morale_MultipliesAfterEmpower)。
+                int flat = _config.PlayerAttack
+                    + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff);
+                int percent = 100 + _playerStatuses.TotalMagnitude(StatusKind.Morale)
+                    * MoralePercentPerStack;
+                return Math.Max(0, flat * percent / 100);
+            }
+        }
 
         /// <summary>按玩家攻击力缩放一个输出值。**整数除**:
         /// <c>EffectiveAttack == AttackBaseline</c> 时 <c>value * 100 / 100 == value</c>,逐字节恒等。
@@ -1319,8 +1334,9 @@ namespace Brushblade.Core
             var passive = summon.Passive;
             // 近战打敌方前排、远程优先打后排(2026-08-20)。全部敌人默认前排时,
             // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
-            int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false);
             var shape = passive?.Shape ?? TargetShape.Single;
+            int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
+                shape, preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
             if (target < 0 && shape != TargetShape.Volley) return;
 
@@ -1883,7 +1899,7 @@ namespace Brushblade.Core
                             // 它不是补丁,是「玩家优先」那一整套设计的组成部分。
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
-                                effect.Passive);
+                                ScalePassiveByCardLevel(effect.Passive, cardLevel));
                             newborn.ActionMeter = TurnScheduler.Threshold;
 
                             // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)。
@@ -1957,6 +1973,27 @@ namespace Brushblade.Core
                 Kind = kind, Polarity = StatusPolarity.Buff,
                 Magnitude = Math.Min(amount, cap), TurnsLeft = -1, SourceId = null,
             });
+        }
+
+        /// <summary>把随卡等级成长的召唤被动折算好,写进一份拷贝(2026-08-25)。
+        ///
+        /// 只有 OnHitFreezeChance / OnHitSlowPercent / OnHitSlowTurns 三项吃等级 ——
+        /// 其余(反伤、灼烧层、诅咒、闪避、速度)仍守 2026-08-05 的「节奏不随等级变」。
+        /// 冻结概率**钳到 100**:再高也只是必中,让它超过 100 会在别处被误当成有效数字。
+        /// 返回拷贝而不是就地改:effect.Passive 是 CharDef 上的共享实例,
+        /// 就地改会让第二次召唤在第一次的结果上再乘一遍,等级越召越高。</summary>
+        private static SummonPassive ScalePassiveByCardLevel(SummonPassive passive, int cardLevel)
+        {
+            if (passive == null || cardLevel <= 1) return passive;
+            var scaled = passive.Clone();
+            if (scaled.OnHitFreezeChance > 0)
+                scaled.OnHitFreezeChance = Math.Min(100,
+                    MetaRules.ScaleByCardLevel(scaled.OnHitFreezeChance, cardLevel));
+            if (scaled.OnHitSlowPercent > 0)
+                scaled.OnHitSlowPercent = MetaRules.ScaleByCardLevel(scaled.OnHitSlowPercent, cardLevel);
+            if (scaled.OnHitSlowTurns > 0)
+                scaled.OnHitSlowTurns = MetaRules.ScaleByCardLevel(scaled.OnHitSlowTurns, cardLevel);
+            return scaled;
         }
 
         /// <summary>随机冻结一个**存活**敌人 N 回合(2026-08-25,藤的入场冻结)。
@@ -2145,6 +2182,31 @@ namespace Brushblade.Core
                 }
             }
 
+            // 出手冻结(2026-08-25,藤):每次出手独立摇。不发事件 —— 与 Freeze 效果同口径,
+            // 表现层直接读敌人 Statuses 画 chip(BattleEventKind 里 2026-08-06 M2 那条)。
+            if (passive.OnHitFreezeChance > 0 && _enemies[targetIndex].Alive
+                && _random.Next(100) < passive.OnHitFreezeChance)
+            {
+                _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
+                    TurnsLeft = Math.Max(1, passive.OnHitFreezeTurns),
+                });
+            }
+
+            // 出手减速(2026-08-25,蕉)。SourceId 用固定串 = 同一只召唤物反复打不叠加、只刷新;
+            // 叠加会让一只 蕉 打三回合把速度削到 −150,那不是减速是二次冻结。
+            if (passive.OnHitSlowPercent > 0 && _enemies[targetIndex].Alive)
+            {
+                _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                {
+                    Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                    Magnitude = -passive.OnHitSlowPercent,
+                    TurnsLeft = Math.Max(1, passive.OnHitSlowTurns),
+                    SourceId = SummonSlowSourceId,
+                });
+            }
+
             if (passive.OnHitCurse > 0 && _enemies[targetIndex].Alive)
             {
                 _enemies[targetIndex].Statuses.Apply(new StatusEffect
@@ -2265,11 +2327,24 @@ namespace Brushblade.Core
             _summons[slot] = summon;
         }
 
-        /// <summary>条件基础值:灼类效果对带灼烧目标翻倍(10.3.1),再进生克结算。</summary>
+        /// <summary>条件基础值:目标带指定状态时翻倍(10.3.1;2026-08-25 泛化成
+        /// <see cref="DamageCondition"/>),再进生克结算 —— 翻倍与相生 ×3 是**相乘**关系。</summary>
         private static int BaseValue(EffectDef effect, int scaledValue, EnemyState target)
         {
-            return effect.DoubleVsBurning && target.Statuses.Has(StatusKind.Burn) ? scaledValue * 2 : scaledValue;
+            return ConditionMet(effect.DoubleVs, target) ? scaledValue * 2 : scaledValue;
         }
+
+        /// <summary>目标是否满足条件加成。Controlled 把冻结与减速合成一条 ——
+        /// 减速只认**负的** SpeedModifier:加速状态(若将来有)不该让敌人反而吃双倍。</summary>
+        private static bool ConditionMet(DamageCondition condition, EnemyState target) => condition switch
+        {
+            DamageCondition.Burning => target.Statuses.Has(StatusKind.Burn),
+            DamageCondition.Bleeding => target.Statuses.Has(StatusKind.Bleed),
+            DamageCondition.Controlled => target.Statuses.Has(StatusKind.Freeze)
+                || target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
+            DamageCondition.ArmorBroken => target.Statuses.Has(StatusKind.ArmorBreak),
+            _ => false,
+        };
 
         /// <summary>目标现血是否低于斩杀阈值。MaxHp 取 EnemyState.MaxHp(Boss 的**总血池**——
         /// 全部阶段血量之和;ApplyPhaseStats 换阶不会改它,它永远不是「当前阶段上限」),

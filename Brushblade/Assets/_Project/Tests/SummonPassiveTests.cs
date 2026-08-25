@@ -57,6 +57,18 @@ namespace Brushblade.Core.Tests
             new CharDef("绑", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 2, summonAttack: 3, summonChar: "木",
                     passive: new SummonPassive { OnSummonFreeze = 1 }) }),
+            // 霜:出手 100% 冻结 1 回合(藤 的确定性版本,概率轴单独测)
+            new CharDef("霜", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
+                    passive: new SummonPassive { OnHitFreezeChance = 100, OnHitFreezeTurns = 3 }) }),
+            // 缓:出手减速 50%、2 回合(蕉)
+            new CharDef("缓", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
+                    passive: new SummonPassive { OnHitSlowPercent = 50, OnHitSlowTurns = 2 }) }),
+            // 零:出手 0% 冻结 —— 负向,概率 0 不该冻
+            new CharDef("零", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
+                    passive: new SummonPassive { OnHitFreezeChance = 0, OnHitFreezeTurns = 1 }) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -624,5 +636,94 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies.Any(e => e.Statuses.Has(StatusKind.Freeze)), Is.False);
         }
 
+        // ---- 出手冻结 / 出手减速(2026-08-25,藤 / 蕉)----
+
+        [Test]
+        public void OnHitFreeze_AtFullChance_FreezesTheTarget()
+        {
+            var engine = Engine(new[] { "霜" }, new[] { Dummy() });
+            engine.Cast("霜");
+            engine.EndTurn();
+            // 3 回合而不是 1:被冻的那个敌人在**同一次 EndTurn** 里会轮到自己那一拍,
+            // 冻结当场被消费(跳过行动 + TickTurns 递减)。1 回合的冻结到这里已经归零 ——
+            // 那是正确行为,不是没挂上,所以断言要用一个跨得过一次递减的回合数。
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.True);
+            Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2),
+                "挂 3 回合,敌人自己那一拍消费掉 1");
+        }
+
+        [Test]
+        public void OnHitFreeze_AtZeroChance_NeverFreezes()
+        {
+            // 负向:概率 0 却照冻,等于把「概率」写成了「只要非 null 就触发」
+            var engine = Engine(new[] { "零" }, new[] { Dummy() });
+            engine.Cast("零");
+            for (int i = 0; i < 5; i++) engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False);
+        }
+
+        [Test]
+        public void OnHitFreeze_ChanceScalesWithCardLevel()
+        {
+            // 2026-08-25 用户拍板:概率随卡等级涨。这**推翻了** 2026-08-05 的
+            // 「被动数值不吃卡等级」——那条把反伤/灼烧层/减攻百分比定为「节奏」不随等级变。
+            // 缩放与血/攻同走 MetaRules.ScaleByCardLevel,在召唤那一刻定死(快照语义)。
+            var graph = Graph();
+            var engine = new BattleEngine(graph,
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "霜" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["霜"] = 3 });
+            engine.Cast("霜");
+            // 100 × (1 + 0.1×2) = 120 → 钳回 100(概率不该超过必中)
+            Assert.That(engine.Summons[0].Passive.OnHitFreezeChance, Is.EqualTo(100));
+            Assert.That(engine.Summons[0].Passive.OnHitFreezeTurns, Is.EqualTo(3), "回合数不吃等级");
+
+            var e2 = new BattleEngine(graph,
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "零" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["零"] = 5 });
+            e2.Cast("零");
+            Assert.That(e2.Summons[0].Passive.OnHitFreezeChance, Is.EqualTo(0), "0 缩放后仍是 0");
+        }
+
+        [Test]
+        public void OnHitSlow_AppliesNegativeSpeedForItsTurns()
+        {
+            var engine = Engine(new[] { "缓" }, new[] { Dummy() });
+            engine.Cast("缓");
+            engine.EndTurn();
+            var slow = engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier);
+            Assert.That(slow, Is.Not.Null, "减速要挂上");
+            Assert.That(slow.Magnitude, Is.EqualTo(-50), "幅度是负的速度点数");
+            Assert.That(slow.TurnsLeft, Is.EqualTo(1), "挂 2 回合,敌人自己那一拍消费掉 1");
+        }
+
+        [Test]
+        public void OnHitSlow_ScalesBothPercentAndTurnsWithCardLevel()
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "缓" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
+                cardLevels: new Dictionary<string, int> { ["缓"] = 3 });
+            engine.Cast("缓");
+            var p = engine.Summons[0].Passive;
+            Assert.That(p.OnHitSlowPercent, Is.EqualTo(60), "50 × 1.2");
+            Assert.That(p.OnHitSlowTurns, Is.EqualTo(3), "ceil(2 × 1.2)");
+        }
+
+        [Test]
+        public void SummonTargeting_PrefersUnfrozenEnemy()
+        {
+            // 藤:优先打**没被冻住**的敌人 —— 冻结是「跳过行动」,再冻一个已冻的等于浪费。
+            var engine = Engine(new[] { "霜" }, new[] { Dummy(), Dummy() });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff, TurnsLeft = 3,
+            });
+            engine.Cast("霜");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[1].Statuses.Has(StatusKind.Freeze), Is.True,
+                "该打没冻的那只");
+        }
     }
 }
