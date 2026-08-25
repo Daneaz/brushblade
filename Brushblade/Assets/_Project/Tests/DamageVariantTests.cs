@@ -60,7 +60,7 @@ namespace Brushblade.Core.Tests
             // Boss 在 Pierce 打召唤物那一步先被反伤打死
             new CharDef("棘", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1, summonAttack: 0, summonChar: "木",
-                    passive: new SummonPassive { Thorns = 3 }) }),
+                    passive: new SummonPassive { Thorns = 50 }) }),   // 2026-08-25:单位改百分比
             // 斫:10 伤 ×2 段(剁)
             new CharDef("斫", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, hitCount: 2) }),
@@ -76,7 +76,7 @@ namespace Brushblade.Core.Tests
             // 凿(1 点伤害)在 Task 1 已加进 Graph(),这里直接用
 
             // ---- 目标形状(2026-08-22,spec §5)----
-            // 劈:顺劈,两侧 50%
+            // 劈:溅射,两侧 50%
             new CharDef("劈", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
                     shape: TargetShape.Cleave, shapePercent: 50) }),
@@ -88,16 +88,16 @@ namespace Brushblade.Core.Tests
             new CharDef("连", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
                     shape: TargetShape.Volley, shots: 3) }),
-            // 劈斩:顺劈 + 斩杀,钉「斩杀只作用主目标」
+            // 劈斩:溅射 + 斩杀,钉「斩杀只作用主目标」
             new CharDef("劈斩", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
                     shape: TargetShape.Cleave, shapePercent: 50,
                     executeBelowPercent: 90, executeKills: true) }),
-            // 劈锐:顺劈 + 穿透 10,钉「穿透只作用主目标」(不带斩杀/多段,否则测不出穿透那一项)
+            // 劈锐:溅射 + 穿透 10,钉「穿透只作用主目标」(不带斩杀/多段,否则测不出穿透那一项)
             new CharDef("劈锐", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
                     shape: TargetShape.Cleave, shapePercent: 50, pierce: 10) }),
-            // 劈段:顺劈 + 多段 2,钉「多段只作用主目标」
+            // 劈段:溅射 + 多段 2,钉「多段只作用主目标」
             new CharDef("劈段", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
                     shape: TargetShape.Cleave, shapePercent: 50, hitCount: 2) }),
@@ -834,7 +834,8 @@ namespace Brushblade.Core.Tests
             int enemyHpBefore = engine.Enemies[0].Hp;
             engine.EndTurn();
             // taken = 8(心对心恒 1.0x);荆反伤平值 3;反弹 = taken(8) × 50% = 4;合计 7
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 7), "反伤 3 + 反弹 4 = 7");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 8),
+                "反伤 50% × 8 = 4,加反弹 4,共 8(2026-08-25 反伤改百分比前是 3 + 4 = 7)");
 
             // 顺带钉住 EnemyDied 不重复:低血敌人构造「荆先打死」的场景 —— 荆的反伤(3)
             // 打死 3 血的敌人后,_enemies[enemyIndex].Alive 守卫必须挡住反弹再对死尸补刀。
@@ -1032,7 +1033,7 @@ namespace Brushblade.Core.Tests
 
         // ---- 目标形状(2026-08-22,spec §5)----
 
-        /// <summary>顺劈:主目标全额,两侧按 ShapePercent 折算。</summary>
+        /// <summary>溅射:主目标全额,两侧按 ShapePercent 折算。</summary>
         [Test]
         public void Cleave_SideTargetsTakeShapePercent()
         {
@@ -1047,7 +1048,7 @@ namespace Brushblade.Core.Tests
             Assert.That(rightLoss, Is.EqualTo(leftLoss), "两侧对称");
         }
 
-        /// <summary>顺劈打边格只溅一侧,不递补(spec §3.2:形状是几何,不是「保证打满 K 个」)。</summary>
+        /// <summary>溅射打边格只溅一侧,不递补(spec §3.2:形状是几何,不是「保证打满 K 个」)。</summary>
         [Test]
         public void Cleave_OnEdge_HitsOneSideOnly()
         {
@@ -1201,7 +1202,7 @@ namespace Brushblade.Core.Tests
         }
 
         /// <summary>Ranged 与 Shape 正交:Ranged 决定主目标怎么选(越过前排取后排),
-        /// Shape 决定打几个(顺劈在主目标所在排展开)——两者互不干扰。</summary>
+        /// Shape 决定打几个(溅射在主目标所在排展开)——两者互不干扰。</summary>
         [Test]
         public void SummonRangedAndShape_AreOrthogonal()
         {
@@ -1229,7 +1230,7 @@ namespace Brushblade.Core.Tests
             int primaryLoss = 200 - engine.Enemies[1].Hp;
             Assert.That(primaryLoss, Is.GreaterThan(0), "后排主目标掉血");
             Assert.That(200 - engine.Enemies[2].Hp, Is.EqualTo(primaryLoss / 2),
-                "顺劈在主目标所在的后排内展开,相邻列折半");
+                "溅射在主目标所在的后排内展开,相邻列折半");
         }
 
         /// <summary>Shape/ShapePercent/Shots 三字段跟 Ranged/Dodge 走同一条存档路径(Clone),

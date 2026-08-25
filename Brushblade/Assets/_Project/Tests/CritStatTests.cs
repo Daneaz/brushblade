@@ -58,7 +58,7 @@ namespace Brushblade.CoreTests
             new CharDef("卯", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1,
                     summonAttack: 0, summonChar: "木",
-                    passive: new SummonPassive { Thorns = 3 }) }),
+                    passive: new SummonPassive { Thorns = 50 }) }),   // 2026-08-25:单位改百分比
             // 辰 = 20 伤,HP<25% 且非 Boss 直接击杀(斩)
             new CharDef("辰", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 20,
@@ -379,7 +379,8 @@ namespace Brushblade.CoreTests
             engine.Cast("寅");
             int before = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 7), "反伤 3 + 反弹 4,都不暴击");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8),
+                "反伤 50% × 8 = 4,加反弹 4,都不暴击(暴击若漏进来会是 12)");
         }
 
         [Test]

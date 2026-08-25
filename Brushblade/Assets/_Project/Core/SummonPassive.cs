@@ -14,7 +14,9 @@ namespace Brushblade.Core
         /// <summary>基础速度。≤0 视为 100(缺省与老存档兜底都走这条)。桤 = 150。</summary>
         public int Speed { get; set; }
 
-        /// <summary>被打时反弹给攻击者的固定伤害,不走生克。荆 = 3。</summary>
+        /// <summary>被打时反弹给攻击者的伤害,单位是**受到伤害的百分点**(2026-08-25 由固定
+        /// 点数改成百分比,与玩家侧 StatusKind.Reflect 同口径)。荆 = 50、碉 = 20。
+        /// 反弹本身不走生克,也不吃敌人护甲。</summary>
         public int Thorns { get; set; }
 
         /// <summary>每回合给玩家 + 全部存活召唤物回血,与出手无关。桃 = 3。</summary>
@@ -71,7 +73,7 @@ namespace Brushblade.Core
         /// 与改造前逐位等价。
         ///
         /// 与 <see cref="Ranged"/> **正交**:Ranged 管「能不能越过前排」,Shape 管「打几个」。
-        /// 合并成一个枚举会让「远程的顺劈」这种合理组合表达不出来 ——
+        /// 合并成一个枚举会让「远程的溅射」这种合理组合表达不出来 ——
         /// 与 EnemyAbility 当年把 Range 塞进去的教训同型(EnemyDef.cs 的注释)。</summary>
         public TargetShape Shape { get; set; }
 

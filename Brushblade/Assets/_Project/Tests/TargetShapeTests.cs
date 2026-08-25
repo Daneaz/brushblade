@@ -38,7 +38,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ShapePercent_ZeroOrNegative_FallsBackToFull()
         {
-            // 配置漏写 shapePercent 时 JSON 会填 0,那会让顺劈的两侧一分不伤 ——
+            // 配置漏写 shapePercent 时 JSON 会填 0,那会让溅射的两侧一分不伤 ——
             // 静默失效比报错更难查,统一兜回 100(与 HitCount 的 `<=0 → 1` 同型)
             var effect = new EffectDef(EffectKind.DamageSingle, 100,
                 shape: TargetShape.Cleave, shapePercent: 0);

@@ -443,12 +443,12 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 165,
+          "value": 330,
           "count": 2,
-          "attack": 25,
+          "attack": 0,
           "summonChar": "荆",
           "passive": {
-            "thorns": 30
+            "thorns": 50
           }
         }
       ]

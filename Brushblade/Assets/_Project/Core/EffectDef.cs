@@ -112,7 +112,7 @@ namespace Brushblade.Core
         public TargetShape Shape { get; }
 
         /// <summary>非主目标的伤害百分比(2026-08-22)。主目标恒 100%。
-        /// 横扫/贯穿建议配 100,顺劈建议 50。<see cref="TargetShape.Volley"/> **不吃这个值**
+        /// 横扫/贯穿建议配 100,溅射建议 50。<see cref="TargetShape.Volley"/> **不吃这个值**
         /// ——连发每一发都是全额(spec §5)。
         ///
         /// ≤0 兜回 100:配置漏写时 JSON 会填 0,那会让两侧一分不伤,静默失效比报错更难查

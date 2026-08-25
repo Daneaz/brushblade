@@ -969,7 +969,7 @@ namespace Brushblade.Core
             {
                 if (effect.Kind != EffectKind.DamageSingle) continue;
                 if (effect.CanStrikeBackline) return false;
-                // 连发是远程,天然越阵(2026-08-22,spec §3.4)。横扫/顺劈/贯穿照旧受限 ——
+                // 连发是远程,天然越阵(2026-08-22,spec §3.4)。横扫/溅射/贯穿照旧受限 ——
                 // 它们只判主目标,溅到的必然在主目标够得着的范围内
                 if (effect.Shape == TargetShape.Volley) return false;
                 hasDirectDamage = true;
@@ -1336,7 +1336,9 @@ namespace Brushblade.Core
             // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
             var shape = passive?.Shape ?? TargetShape.Single;
             int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
-                shape, preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0);
+                shape,
+                preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
+                preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
             if (target < 0 && shape != TargetShape.Volley) return;
 
@@ -2679,13 +2681,24 @@ namespace Brushblade.Core
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed));
 
-            // 反伤(2026-08-05,荆):固定值、不走生克(与 Bleed 同口径,可预期)。
+            // 反伤(2026-08-05,荆):2026-08-25 用户拍板由**固定点数**改成**受到伤害的百分比**,
+            // 与下面玩家侧的 Reflect 完全同一套算式 —— 荆 要靠反伤当输出手段,固定值在深层会被
+            // 怪的线性成长甩开(与「低档字被点数护甲吃光」同型)。
+            //
+            // 基数用 taken:过完生克、护盾吸收**之前**的那个值,与 Reflect 同口径
+            //(「按打过来的总伤害反,护盾吸掉的也反」)。反弹本身不再过第二次生克 ——
+            // attacker 传 Element.Heart,心对全属性都是 1.0x。
             // 荆棘扎人不看自己死没死 —— 被打死的那一击照样反弹。
-            // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于"不走生克"。
             int thorns = summon.Passive?.Thorns ?? 0;
             if (thorns > 0 && _enemies[enemyIndex].Alive)
-                DamageEnemy(enemyIndex, thorns, Array.Empty<Element>(), Element.Heart,
-                    bypassDefense: true); // 荆的反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
+            {
+                // bounced > 0 守卫与下面 Reflect 那段同理:0 伤反弹会白白推进 enemy.HitsTaken,
+                // 送出生僻字现形 / 焦痕加攻 / 叠字分裂。低百分比 × 小伤害整除到 0 时正会撞上。
+                int bounced = taken * thorns / 100;
+                if (bounced > 0)
+                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
+                        bypassDefense: true); // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
+            }
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
             // 伤害同样算「打到了我方」,DamagePlayerDirect 末尾那段反弹不该只管玩家直接挨打

@@ -46,9 +46,10 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
                     passive: new SummonPassive { HealAlly = 3 }) }),
             // 棘:攻 0 + 反伤 3(荆)
+            // 棘:反伤 50%(荆 的等价配置;2026-08-25 起 Thorns 的单位是**百分比**)
             new CharDef("棘", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 1, summonAttack: 0, summonChar: "木",
-                    passive: new SummonPassive { Thorns = 3 }) }),
+                    passive: new SummonPassive { Thorns = 50 }) }),
             // 缚:入场冻结 1 个敌人 1 回合(藤,2026-08-25)
             new CharDef("缚", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
@@ -469,15 +470,35 @@ namespace Brushblade.Core.Tests
         // ---- 反伤 ----
 
         [Test]
-        public void Thorns_ReflectsFlatDamage_IgnoringWuxing()
+        public void Thorns_ReflectsPercentOfDamageTaken_IgnoringWuxing()
         {
-            // 敌人取金属性(而不是中立的「心」)才有判别力:召唤物是木,金克木,
-            // 反伤若误用 summon.Element 结算就会吃 0.5 的反克 → floor(3×0.5)=1 → 199。
-            // 用「心」当攻击方则恒 1.0x,反弹平值 3 → 197。
+            // 2026-08-25 用户拍板:反伤从**固定点数**改成**受到伤害的百分比**,与玩家侧的
+            // Reflect 同口径 —— 荆 要靠反伤当输出手段,固定值在深层会被怪的成长甩开。
+            //
+            // 敌人取金属性(而不是中立的「心」)才有判别力:召唤物是木,金克木,承伤 ×1.5,
+            // 4 × 1.5 = 6;反弹 50% = 3。反伤自身若误用 summon.Element 再结算一次生克,
+            // 就会吃 0.5 的反克变成 1。
             var engine = Engine(new[] { "棘" }, new[] { new EnemyDef("锈", Element.Metal, 200, 4) });
             engine.Cast("棘");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(197), "反伤不走生克,反弹平值 3");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(197),
+                "承伤 6 的 50% = 3,反弹本身不再过一次生克");
+        }
+
+        [Test]
+        public void Thorns_ScalesWithIncomingDamage()
+        {
+            // 百分比口径的要害:同一只召唤物,挨的越重反得越多。固定点数下这条恒不成立。
+            var light = Engine(new[] { "棘" }, new[] { new EnemyDef("锈", Element.Metal, 500, 4) });
+            light.Cast("棘"); light.EndTurn();
+            int lightBounce = 500 - light.Enemies[0].Hp;
+
+            var heavy = Engine(new[] { "棘" }, new[] { new EnemyDef("锈", Element.Metal, 500, 40) });
+            heavy.Cast("棘"); heavy.EndTurn();
+            int heavyBounce = 500 - heavy.Enemies[0].Hp;
+
+            Assert.That(heavyBounce, Is.GreaterThan(lightBounce),
+                "挨得越重反得越多 —— 固定点数下这两个数会相等");
         }
 
         [Test]
@@ -522,7 +543,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("棘");
             engine.EndTurn();
             Assert.That(engine.Summons[0].Alive, Is.False, "30 血挨 40 必死");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(197), "死了也扎");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(180), "死了也扎:50% × 40 = 20");
         }
 
         [Test]
@@ -724,6 +745,39 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             Assert.That(engine.Enemies[1].Statuses.Has(StatusKind.Freeze), Is.True,
                 "该打没冻的那只");
+        }
+
+        [Test]
+        public void SummonTargeting_PrefersUnslowedEnemy()
+        {
+            // 蕉:与 藤 同一条道理 —— 减速只刷新不叠加,再打一个已减速的等于这一下白费。
+            var engine = Engine(new[] { "缓" }, new[] { Dummy(), Dummy() });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 5, SourceId = "别人挂的",
+            });
+            engine.Cast("缓");
+            engine.EndTurn();
+            var slowed = engine.Enemies[1].Statuses.Find(StatusKind.SpeedModifier);
+            Assert.That(slowed, Is.Not.Null, "该打没被减速的那只");
+            Assert.That(slowed.Magnitude, Is.EqualTo(-50));
+        }
+
+        [Test]
+        public void SummonTargeting_AllSlowed_FallsBackToNormalPick()
+        {
+            // 负向:全场都已减速时不能选不出目标 —— 偏好是筛子,筛空了要退回全体。
+            var engine = Engine(new[] { "缓" }, new[] { Dummy() });
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 5, SourceId = "别人挂的",
+            });
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("缓");
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(before), "照样要打出去");
         }
     }
 }

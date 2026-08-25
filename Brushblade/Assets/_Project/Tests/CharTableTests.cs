@@ -162,9 +162,11 @@ namespace Brushblade.Core.Tests
                 // 2026-08-25 字表重构:召唤定位由配方里的第二个五行部件决定,
                 // 被动跟着定位走(spec §3)。烓 / 灶 移出后 OnHitBurnAll 无载体,
                 // 桃(HealAlly)的位子由新增的 杖 接手。
-                ["荆"] = p => { Assert.That(p.Thorns, Is.EqualTo(30)); Assert.That(p.Ranged, Is.False, "改前排肉盾,不再远程"); },
+                // 荆(2026-08-25 二次调整):纯反伤肉盾 —— 攻 0,输出全靠反伤。
+                // Thorns 的单位此时已是「受到伤害的百分比」,50 = 反弹一半。
+                ["荆"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Ranged, Is.False, "改前排肉盾,不再远程"); },
                 ["蕉"] = p => Assert.That(p.OnHitSlowPercent, Is.EqualTo(50)),
-                ["碉"] = p => Assert.That(p.Thorns, Is.EqualTo(20)),
+                ["碉"] = p => Assert.That(p.Thorns, Is.EqualTo(20)),   // 20% 反弹
                 ["杖"] = p => Assert.That(p.HealAlly, Is.EqualTo(10)),
                 ["藤"] = p => { Assert.That(p.OnHitFreezeChance, Is.EqualTo(10)); Assert.That(p.OnSummonFreeze, Is.EqualTo(0)); },
                 ["锥"] = p => { Assert.That(p.Shape, Is.EqualTo(TargetShape.Volley)); Assert.That(p.Shots, Is.EqualTo(2)); },
@@ -177,6 +179,12 @@ namespace Brushblade.Core.Tests
                 Assert.That(summon.Passive, Is.Not.Null, $"「{pair.Key}」应带被动");
                 pair.Value(summon.Passive);
             }
+
+            // 荆 的攻击力必须是 0:它的定位就是「靠挨打反伤输出」,给它补基础攻
+            // 等于把这条设计悄悄抹平(2026-08-25 用户拍板)。
+            var jingSummon = graph.Get("荆").Effects.First(e => e.Kind == EffectKind.Summon);
+            Assert.That(jingSummon.SummonAttack, Is.EqualTo(0), "荆 靠反伤输出,不该有基础攻");
+            Assert.That(jingSummon.Value, Is.EqualTo(330), "血量翻倍换掉攻击力");
         }
 
         [Test]

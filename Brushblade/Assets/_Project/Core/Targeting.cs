@@ -64,17 +64,25 @@ namespace Brushblade.Core
         ///
         /// 排位不影响召唤物**自己**能不能出手:站后排的近战照常攻击(用户 2026-08-20 拍板)。</summary>
         public static int PickEnemyTargetForSummon(IReadOnlyList<EnemyState> enemies, bool ranged,
-            TargetShape shape = TargetShape.Single, bool preferUnfrozen = false)
+            TargetShape shape = TargetShape.Single,
+            bool preferUnfrozen = false, bool preferUnslowed = false)
         {
-            // 两条偏好都是**在原有排位规则之上的筛子**,不是替代:先按偏好缩小候选,
+            // 三条偏好都是**在原有排位规则之上的筛子**,不是替代:先按偏好缩小候选,
             // 缩不出来就退回全体,再走原来的「远程先后排 / 近战先前排」。
-            // 顺序是 preferUnfrozen → 贯穿选列:前者关乎「这一下有没有用」,
-            // 后者只关乎「能不能多打一个」,前者优先级更高。
+            // 顺序是 控场偏好 → 贯穿选列:前者关乎「这一下有没有用」(冻结/减速都是
+            // 刷新而非叠加,打已中招的目标等于白费),后者只关乎「能不能多打一个」。
             var pool = enemies;
             if (preferUnfrozen)
             {
-                var unfrozen = Subset(enemies, i => !enemies[i].Statuses.Has(StatusKind.Freeze));
+                var unfrozen = Subset(pool, i => !pool[i].Statuses.Has(StatusKind.Freeze));
                 if (unfrozen != null) pool = unfrozen;
+            }
+            if (preferUnslowed)
+            {
+                // 「已减速」= 速度修正为负,与 DamageCondition.Controlled 的减速那一半同判据。
+                // 不看是谁挂的:别人挂的减速同样让这一下失去意义。
+                var unslowed = Subset(pool, i => pool[i].Statuses.TotalMagnitude(StatusKind.SpeedModifier) >= 0);
+                if (unslowed != null) pool = unslowed;
             }
             if (shape == TargetShape.Skewer)
             {
@@ -149,7 +157,7 @@ namespace Brushblade.Core
         /// **不摇随机数**。这是硬要求,不是巧合:上千条带种子的既有测试靠随机流不位移
         /// 才不会整体变红(与本文件 PickAllyTarget 那条「候选只有一个时不摇」同一套纪律)。
         ///
-        /// 空位不递补:顺劈打边格只溅一侧,整排只剩一只横扫就只中一只。
+        /// 空位不递补:溅射打边格只溅一侧,整排只剩一只横扫就只中一只。
         /// 形状是几何,不是「保证打满 K 个」。</summary>
         public static IReadOnlyList<int> ExpandTargets(IReadOnlyList<EnemyState> enemies,
             int primaryIndex, TargetShape shape, int shots)

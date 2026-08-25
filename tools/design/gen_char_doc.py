@@ -192,13 +192,13 @@ RORDER = ['White', 'Green', 'Blue', 'Purple', 'Gold', 'Orange', 'Red']
 EORDER = ['Wood', 'Fire', 'Earth', 'Metal', 'Water', 'Heart']
 PUA = {'': '𣛧(木四叠·PUA)', '': '䥱(金四叠·PUA)'}
 PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge': '闪避',
-           'thorns': '荆棘', 'speed': '速度', 'onHitBurn': '命中挂灼烧',
+           'speed': '速度', 'onHitBurn': '命中挂灼烧',
            'onHitBurnAll': '灼烧转全体', 'ranged': '远程:无视敌方前排',
            }
 
 # 召唤物的攻击形状(2026-08-22 引擎侧落地,2026-08-25 起字表里才有载体:剑 / 枪 / 蕉)。
 # 不用括号作注 —— 整串被动会被外层「召唤 N 只(…)」括住,再嵌一层括号读起来是套娃。
-SHAPE = {'Sweep': '横扫:整排', 'Cleave': '顺劈:相邻',
+SHAPE = {'Sweep': '横扫:整排', 'Cleave': '溅射:相邻',
          'Skewer': '贯穿:同列前后排', 'Volley': '连发'}
 
 SHENG = {'Wood': 'Fire', 'Fire': 'Earth', 'Earth': 'Metal', 'Metal': 'Water', 'Water': 'Wood'}
@@ -271,13 +271,16 @@ def order(c):
 
 def passive_txt(p):
     """召唤被动的卡面文案。形状三件套(shape / shapePercent / shots)合成一句 ——
-    分开写会渲染成「顺劈/非主目标 50%」这种断句,读起来像两条独立被动。"""
+    分开写会渲染成「溅射/非主目标 50%」这种断句,读起来像两条独立被动。"""
     out = []
     for k, v in p.items():
         if k in ('shape', 'shapePercent', 'shots'):
             continue
         if k == 'onSummonFreeze':   # 单位是回合数,套「名字 + 数字」的模板会读成「回合数 1」
             out.append(f"入场冻结 1 敌 {v} 回合")
+            continue
+        if k == 'thorns':   # 2026-08-25 起单位是「受到伤害的百分比」,不是固定点数
+            out.append(f"被打反弹 {v}% 伤害")
             continue
         if k == 'onHitFreezeChance':
             out.append(f"出手 {v}% 冻结 {max(1, p.get('onHitFreezeTurns', 1))} 回合")

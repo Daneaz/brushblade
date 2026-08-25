@@ -50,7 +50,7 @@ namespace Brushblade.CoreTests
             new CharDef("子", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 300, summonCount: 1,
                     summonAttack: 0, summonChar: "木",
-                    passive: new SummonPassive { Thorns = 30 }) }),
+                    passive: new SummonPassive { Thorns = 50 }) }),   // 2026-08-25:单位改百分比
             // 丑 = 100 伤 + 穿透 99(錰 的形状,量级由 T3 定)
             new CharDef("丑", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, pierce: 99) }),
@@ -210,7 +210,8 @@ namespace Brushblade.CoreTests
             engine.Cast("子", replaceSummon: true);
             int before = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(30), "反伤 30 全额扎进去");
+            Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(5),
+                "反伤 50% × 10 = 5 全额扎进去 —— 敌人 30 点护甲一点没吃掉");
         }
 
         [Test]
