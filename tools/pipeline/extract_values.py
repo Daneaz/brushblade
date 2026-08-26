@@ -35,6 +35,9 @@ VALUELESS_EFFECTS = {
     "BurnNoDecay": {"kind": "BurnNoDecay", "value": 0},
     "BurnSettleNow": {"kind": "BurnSettleNow", "value": 0},
     "Detonate": {"kind": "Detonate", "value": 0},
+    # 全体引爆(2026-08-26,炸)。必须排在 `Detonate` 之后**且**用整串带反引号匹配 ——
+    # `f"\`{token}\`" in config` 拿 "`Detonate`" 去配 "`DetonateAll`" 配不上,两者互不吞。
+    "DetonateAll": {"kind": "Detonate", "value": 0, "targetAll": True},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。

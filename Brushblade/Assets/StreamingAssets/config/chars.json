@@ -130,7 +130,8 @@
         },
         {
           "kind": "Detonate",
-          "value": 0
+          "value": 0,
+          "targetAll": true
         }
       ]
     },

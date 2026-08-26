@@ -48,6 +48,10 @@ namespace Brushblade.Core.Tests
             // 刻意避开真实字表里已有的「爆」(那是 DamageAll 7),免得读者以为是同一个字
             new CharDef("煸", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
+            // 煿:只有**全体**引爆(炸 的等价配置,2026-08-26)。与 煸 成对:
+            // 同一个 Kind,差一个 TargetAll,用来钉住「全体引爆不选目标、逐只各爆各的」
+            new CharDef("煿", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Detonate, 0, targetAll: true) }),
             // 灸:3 层灼烧,不带引爆(自制变异验证辅助字,非规格产物)——现有真实字与
             // fixture 里的灼烧值都是偶数(2/4),补一个奇数层数,专门覆盖 Detonate
             // 公式里 2.0→2 那处变异
@@ -821,5 +825,44 @@ namespace Brushblade.Core.Tests
 
             Assert.That(enemy.Statuses.Has(StatusKind.Burn), Is.False, "引爆后清空");
         }
-    }
+    
+        // ---- 全体引爆(2026-08-26,炸)----
+
+        [Test]
+        public void DetonateAll_BlowsEveryBurningEnemy()
+        {
+            // 详表:炸 = 全体 50 + **引爆全部**剩余灼烧。此前落成单体引爆,只炸主目标。
+            var engine = Engine(new[] { "燃", "燃", "煿" },
+                new[] { Dummy(), Dummy() });
+            engine.Cast("燃", 0);
+            engine.Cast("燃", 1);
+            int before0 = engine.Enemies[0].Hp, before1 = engine.Enemies[1].Hp;
+            engine.Cast("煿");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0 - 200), "4×5/2 × 20 = 200");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 200), "第二只也要炸");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Burn), Is.False);
+            Assert.That(engine.Enemies[1].Statuses.Has(StatusKind.Burn), Is.False);
+        }
+
+        [Test]
+        public void DetonateAll_NeedsNoTarget()
+        {
+            // 全体引爆与全体伤害同档:点了就打,不进选目标态。
+            // 单体引爆(煸)照旧要选 —— 这一对断言同时钉住白名单的两侧。
+            Assert.That(BattleEngine.NeedsTarget(Graph().Get("煿")), Is.False);
+            Assert.That(BattleEngine.NeedsTarget(Graph().Get("煸")), Is.True);
+        }
+
+        [Test]
+        public void DetonateAll_SkipsCleanAndDeadEnemies()
+        {
+            // 只有 1 号身上有层:0 号一分不掉,不该因为「全体」就凭空吃伤害
+            var engine = Engine(new[] { "燃", "煿" }, new[] { Dummy(), Dummy() });
+            engine.Cast("燃", 1);
+            int before0 = engine.Enemies[0].Hp, before1 = engine.Enemies[1].Hp;
+            engine.Cast("煿");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0));
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 200));
+        }
+}
 }

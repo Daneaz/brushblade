@@ -516,6 +516,10 @@ namespace Brushblade.Core.Tests
                 EffectKind.DamageAll, EffectKind.Detonate,
             }), "多一条效果就是超模——数组顺序即结算顺序");
             Assert.That(effects[0].Value, Is.EqualTo(50));
+            // 2026-08-26:引爆必须是**全体**(详表:「引爆全部剩余灼烧」)。落成单体会让
+            // 一张 AOE 字反过来要求玩家选目标 —— 交互与语义两头都错
+            Assert.That(effects[1].TargetAll, Is.True, "炸 是全体引爆,不是只炸主目标");
+            Assert.That(BattleEngine.NeedsTarget(RealGraph().Get("炸")), Is.False, "全体字不进选目标态");
             Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
                 .Any(e => e.Kind == EffectKind.Detonate)), Is.EqualTo(1), "引爆当前只有 炸 一个载体");
         }

@@ -208,6 +208,15 @@ def test_detonate_is_extracted_after_its_own_burn():
         {"kind": "Detonate", "value": 0}]
 
 
+def test_detonate_all_carries_target_all():
+    # 炸 = 全体 50 + 引爆全部剩余灼烧(2026-08-26)。`DetonateAll` 与 `Detonate`
+    # 共用 Kind,只差 targetAll —— 两个 token 必须互不吞
+    from extract_values import _parse_effects
+    assert _parse_effects("`DamageAll 50` + `DetonateAll`", "火") == [
+        {"kind": "DamageAll", "value": 50},
+        {"kind": "Detonate", "value": 0, "targetAll": True}]
+
+
 def test_new_valueless_tokens_do_not_leak_into_unrelated_rows():
     """负向:没写这些 token 的行不该凭空多出效果。
 

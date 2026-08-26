@@ -928,7 +928,8 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.Silence
                     || effect.Kind == EffectKind.BurnNoDecay
                     || effect.Kind == EffectKind.BurnSettleNow
-                    || effect.Kind == EffectKind.Detonate)
+                    // 全体引爆(炸)不选目标,与全体驱散/全体致盲同处理(2026-08-26)
+                    || (effect.Kind == EffectKind.Detonate && !effect.TargetAll))
                     return true;
             return false;
         }
@@ -1805,7 +1806,15 @@ namespace Brushblade.Core
                         if (targetIndex >= 0) SettleBurnOn(targetIndex);
                         break;
                     case EffectKind.Detonate:
-                        if (targetIndex >= 0) Detonate(targetIndex);
+                        // 全体引爆(2026-08-26,炸):逐只各爆各的,不选目标。
+                        // 与 DamageAll 同一条纪律:先取表长快照,引爆致死若牵出分裂,
+                        // 新怪不进这一发。
+                        if (effect.TargetAll)
+                        {
+                            int blastCount = _enemies.Count;
+                            for (int i = 0; i < blastCount; i++) Detonate(i);
+                        }
+                        else if (targetIndex >= 0) Detonate(targetIndex);
                         break;
                     case EffectKind.Empower:
                         // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
