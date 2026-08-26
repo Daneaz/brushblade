@@ -1326,11 +1326,15 @@ namespace Brushblade.Core
         }
 
         /// <summary>一只召唤物的一次出手(2026-08-15 提取,行为与提取前逐字节一致)。
-        /// 攻 0 的召唤物(烓/灶)照常出手但不走 DamageEnemy —— 见提取前的原注释。</summary>
+        /// 攻 0 的召唤物(烓/灶)照常出手但不走 DamageEnemy —— 见提取前的原注释;
+        /// 攻 0 **且**无任何出手附带效果的纯肉盾(荆/碉/堡)则整拍跳过,见 <see cref="HasStrikeOutput"/>。</summary>
         private void StrikeOnceWithSummon(int summonIndex)
         {
             var summon = _summons[summonIndex];
             if (summon == null) return;
+            // 纯反伤/嘲讽肉盾整个出手都是空转:唯一的产物是一条 damage = 0 的 SummonAttack,
+            // 表现层却照播一遍攻击动画(2026-08-26 实机反馈)。
+            if (!HasStrikeOutput(summon)) return;
             var passive = summon.Passive;
             // 近战打敌方前排、远程优先打后排(2026-08-20)。全部敌人默认前排时,
             // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
@@ -1358,6 +1362,20 @@ namespace Brushblade.Core
                     DamageEnemy(tgt, damage, Array.Empty<Element>(), summon.Element);
                 ApplySummonOnHit(summon, tgt);
             }
+        }
+
+        /// <summary>这只召唤物出手能产出点什么吗(2026-08-26)。攻击力、或任一**出手时**触发的
+        /// 附带效果,有一个就算。
+        ///
+        /// 判据只看「出手时」这一族:反伤(挨打时)、嘲讽(排位)、光环治疗(自己那一拍的另一步)、
+        /// 入场冻结(召唤那一刻)都不算 —— 它们与出不出手无关,把它们算进来等于什么都没跳过。</summary>
+        private static bool HasStrikeOutput(SummonState summon)
+        {
+            if (summon.Attack > 0) return true;
+            var passive = summon.Passive;
+            return passive != null
+                && (passive.OnHitBurn > 0 || passive.OnHitCurse > 0
+                    || passive.OnHitFreezeChance > 0 || passive.OnHitSlowPercent > 0);
         }
 
         /// <summary>标点小妖给其他存活字怪加攻的那一拍(2026-08-15 提取,行为与提取前逐字节一致)。

@@ -826,5 +826,43 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0] == null || !engine.Summons[0].Alive, Is.True,
                 "嘲讽者死后攻击要落回前排,不能凭空消失");
         }
-    }
+    
+        // ---- 攻 0 肉盾不出手(2026-08-26,荆/碉/堡)----
+
+        [Test]
+        public void ZeroAttackWall_DoesNotStrikeAtAll()
+        {
+            // 棘(荆 的等价配置)攻 0、只有反伤,出手唯一的产物是一条 damage=0 的
+            // SummonAttack —— 引擎空转,表现层却照播一遍攻击动画。整拍跳过。
+            var engine = Engine(new[] { "棘" }, new[] { Dummy() });
+            engine.Cast("棘");
+            engine.EndTurn();
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.SummonAttack),
+                Is.False, "攻 0 且无出手附带效果 → 不该发攻击事件");
+        }
+
+        [Test]
+        public void ZeroAttackWall_StillHealsItsAura()
+        {
+            // 跳过的只是「出手」这一步,光环治疗与它无关,照常走(荫 = 桃)
+            var engine = Engine(new[] { "荫" }, new[] { Dummy() });
+            engine.Cast("荫");
+            engine.EndTurn();
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.SummonAttack), Is.False);
+            // 玩家满血,回血量被夹成 0 —— 看事件而不是血量,断的是「这一步跑过了」
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.Heal), Is.True,
+                "光环治疗不受跳过影响");
+        }
+
+        [Test]
+        public void ZeroAttackWithOnHitBurn_StillStrikes()
+        {
+            // 烓/灶 那一族攻 0 但输出全靠 OnHitBurn —— 绝不能被上面那条一并跳掉
+            var engine = Engine(new[] { "焰" }, new[] { Dummy() });
+            engine.Cast("焰");
+            engine.EndTurn();
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.SummonAttack), Is.True);
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Burn), Is.True);
+        }
+}
 }
