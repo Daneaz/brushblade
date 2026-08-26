@@ -399,5 +399,34 @@ namespace Brushblade.Core.Tests
             Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5),
                 Is.EqualTo(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5)));
         }
-    }
+    
+        // ---- 排的格位数(2026-08-26):表现层铺几格由这里定,列对齐靠它 ----
+
+        [Test]
+        public void RowCells_SingleEnemyEncounter_CollapsesToOneCell()
+        {
+            // 2026-08-23 实机反馈:全场只有一只怪时铺三格会把它顶到最左。
+            // 两排都 ≤1 只时没有对齐对象,各自居中不损失任何信息。
+            Assert.That(Targeting.RowCells(1, 0), Is.EqualTo(1));
+            Assert.That(Targeting.RowCells(1, 1), Is.EqualTo(1), "两排各一只,双双居中仍然对齐");
+        }
+
+        [Test]
+        public void RowCells_KeepsFullGridWhenTheOtherRowHasTwoOrMore()
+        {
+            // 前排 2 只(列 0、1)+ 后排 1 只(列 0):后排若折叠成一格会被居中到视觉第 2 位,
+            // 而引擎认定它与前排列 0 同列 —— 贯穿(枪)于是看起来打了错位的一只。
+            Assert.That(Targeting.RowCells(1, 2), Is.EqualTo(Targeting.RowCapacity));
+            Assert.That(Targeting.RowCells(1, 3), Is.EqualTo(Targeting.RowCapacity));
+        }
+
+        [Test]
+        public void RowCells_MultiEnemyRow_AlwaysFillsTheGrid()
+        {
+            Assert.That(Targeting.RowCells(2, 1), Is.EqualTo(Targeting.RowCapacity));
+            Assert.That(Targeting.RowCells(3, 3), Is.EqualTo(Targeting.RowCapacity));
+            Assert.That(Targeting.RowCells(0, 3), Is.EqualTo(Targeting.RowCapacity), "空排照旧撑满");
+            Assert.That(Targeting.RowCells(0, 0), Is.EqualTo(Targeting.RowCapacity));
+        }
+}
 }

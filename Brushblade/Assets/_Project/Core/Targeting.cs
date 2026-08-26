@@ -18,6 +18,18 @@ namespace Brushblade.Core
         /// 没有耦合,两者恰好同为 3 纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
         public const int RowCapacity = 3;
 
+        /// <summary>某一排该铺几个格位(2026-08-26)。表现层照这个数建格,敌人按 Column 落格 ——
+        /// 「列」的几何在这里定一次,ExpandTargets 的 Skewer 才与玩家看到的对得上。
+        ///
+        /// 恒为 <see cref="RowCapacity"/>,**唯一例外**是两排都 ≤1 只:那时列没有对齐对象,
+        /// 折叠成一格交给 MiddleCenter 摆正中(2026-08-23 实机反馈:单怪铺三格会被顶到最左)。
+        ///
+        /// ⚠ 这个例外原先只看本排(「本排只有一只就折叠」),前排 2 只 + 后排 1 只时后排被
+        /// 居中到视觉第 2 位,而引擎认定它与前排第 1 位同列 —— 贯穿(枪)于是看起来打了
+        /// 错位的一只。别再把判据缩回单排。</summary>
+        public static int RowCells(int rowCount, int otherRowCount) =>
+            rowCount == 1 && otherRowCount <= 1 ? 1 : RowCapacity;
+
         /// <summary>敌人选我方目标。返回召唤物槽位,或 <see cref="PlayerTarget"/>。
         ///
         /// 均匀随机的口径(spec §4.1):把**全部存活后排召唤物与玩家**放进同一个候选池抽一个,
