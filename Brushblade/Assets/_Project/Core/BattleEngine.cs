@@ -894,15 +894,22 @@ namespace Brushblade.Core
             return (TargetShape.Single, 0);
         }
 
-        /// <summary>玩家选定起始槽后,这次召唤实际的落位表(2026-08-23 用户拍板)。
+        /// <summary>玩家选定起始槽后,这次召唤实际的落位表。
         ///
-        /// 从 <paramref name="startSlot"/> 起**环绕**扫一圈,先收空槽与尸体槽;
-        /// 站着人的位子**跳过**,只有空位真的凑不满 <paramref name="count"/> 时才回头收它们
-        /// —— 那时它们才是真正要顶替的,顺序同样从选定格起顺延。
-        /// 于是「选定格恰好有人、旁边还空着」不再弹顶替确认,**只有六格全满才弹**。
+        /// **第一只必落 <paramref name="startSlot"/>**(2026-08-27 用户拍板):那格站着人就顶替它,
+        /// UI 因此弹一次替换确认 —— 玩家亲手点的位子不能被悄悄挪走。第二只起才从选定格之后
+        /// **环绕**顺延:先收空槽与尸体槽,站着人的位子跳过,只有空位真的凑不满 count 时
+        /// 才回头收它们(那时它们才是真正要顶替的,顺序同样从选定格起顺延)。
         ///
-        /// 改前是「环上取 N 个连续位」,不管占没占,所以点在有人的格上必弹一次替换,
-        /// 哪怕隔壁空着 —— 那是玩家实机反馈的那个毛病。
+        /// 三代语义,改这段之前先分清是哪一代的账:
+        ///   ① 最早是「环上取 N 个连续位」,不管占没占 —— 顺延会平白顶掉后面站着的人。
+        ///   ② 2026-08-23 改成「一律跳过活人」,修掉了 ① 的误顶,但连**选定格**也一起跳了:
+        ///      点在有人的格上,召唤物落到隔壁,玩家的指定失效且毫无提示(实机反馈的毛病)。
+        ///   ③ 现在是「首只听点击、余数跳活人」。「跳到下一个空位」这条只服务于**一次召多只**,
+        ///      不再越过玩家对第一只的指定。
+        ///
+        /// <paramref name="startSlot"/> 本身**未解锁**时不能硬塞进落位表(那会把召唤物放进
+        /// 锁着的格),退回纯环绕扫描 —— 这条守在 Core 而不是指望 UI 已经拦过。
         ///
         /// 尸体槽算可用:它本来就能被直接覆盖(<see cref="SlotState.Corpse"/>),
         /// 当成要顶替的会让「打死一只再召一只」白白多弹一次确认。
@@ -919,7 +926,7 @@ namespace Brushblade.Core
             // 先把**开放的**槽按环序排出来:从 startSlot 起绕一圈,只收开着的格。
             // ⚠ 不能拿 `(startSlot + n) % 开放数` 绕 —— 开放集合不是连续前缀
             // (开局开的是槽 1、2,槽 0 锁着),那样绕会踩进锁着的格(2026-08-27)。
-            // startSlot 本身锁着也没关系:它只是扫描起点,不一定要被收进来。
+            // startSlot 本身锁着也没关系:它只是扫描起点,下面那句 IsSlotOpen 会挡住它入表。
             var ring = new List<int>(SummonCap);
             for (int n = 0; n < SummonCap; n++)
             {
@@ -927,19 +934,25 @@ namespace Brushblade.Core
                 if (IsSlotOpen(slot)) ring.Add(slot);
             }
 
-            // 第一轮:空槽与尸体槽
+            // 首只:玩家点的那一格,占没占都算数(语义③)。锁着的格除外 —— 那时整表退回
+            // 环绕扫描,与语义② 同形。
+            if (IsSlotOpen(startSlot)) plan.Add(startSlot);
+
+            // 余数第一轮:空槽与尸体槽。plan.Contains 只为排掉刚收的 startSlot ——
+            // ring 本身无重复,所以这一句的代价恒为 O(1) 规模的扫描。
             foreach (int slot in ring)
             {
                 if (plan.Count >= count) break;
-                if (SlotOccupancy(slot) != SlotState.Alive) plan.Add(slot);
+                if (SlotOccupancy(slot) != SlotState.Alive && !plan.Contains(slot)) plan.Add(slot);
             }
-            // 第二轮:空位凑不满才顶替站着的人,同样从选定格起顺延
+            // 余数第二轮:空位凑不满才顶替站着的人,同样从选定格起顺延
             foreach (int slot in ring)
             {
                 if (plan.Count >= count) break;
-                if (SlotOccupancy(slot) == SlotState.Alive) plan.Add(slot);
+                if (SlotOccupancy(slot) == SlotState.Alive && !plan.Contains(slot)) plan.Add(slot);
             }
-            // 两轮的集合互斥且并集是**本场开放的全部格**,所以 count ≤ ring.Count 时必然填满。
+            // 两轮的集合互斥且并集是**本场开放的全部格**(首只那一格必在 ring 里,已被两轮的
+            // Contains 排除),所以 count ≤ ring.Count 时必然填满。
             // SummonCountOf 已经把只数封顶到 SummonCapacity,走不到填不满的分支。
             return plan;
         }
