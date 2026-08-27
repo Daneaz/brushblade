@@ -114,6 +114,7 @@ namespace Brushblade.Presentation
         private Transform _centerRow;
         private GameObject _rowDivider;  // 敌我前排之间的墨线:只在战斗阶段现身(2026-08-20)
         private Text _messageLabel;
+        private bool _resolvingHint;    // 本次重绘落在动画锁里:底部提示行画「结算中……」而非播报
         private string _hintBucket;      // 差字目录一级选中的五行桶(金木水火土心/中性;null = 收起)
         private string _hintCharFocus;   // 三级目录二级选中的字(null = 未选)
 
@@ -595,15 +596,20 @@ namespace Brushblade.Presentation
                 if (_selectedChar != null || _targeting || _slotPicking || _allyTargeting) CancelSelection();
             });
 
-            // 顶栏一行三段(2026-08-21 用户拍板):关卡名·层数·场次(左) | 战斗提示(中) | 墨锭·回合·退出(右)。
-            // 提示此前独占下面一条带(0.900–0.945,40.5px);并进顶栏后那 40.5px 归中区,
-            // 而标题与墨锭都回到原来的位置没动 —— 高度是白赚的,布局没有任何一样东西被挪走。
+            // 顶栏两段:关卡名·层数·场次(左) | 墨锭·回合·退出(右)。
+            // 2026-08-21 曾是三段(中段放战斗提示);2026-08-27 用户拍板把提示挪到屏幕最底部,
+            // 中段腾空 —— 左右两段的锚点没动,顶栏该显示什么一样不少。
             var topBar = Ui.Panel(transform, "TopBar");
             Ui.Anchor((RectTransform)topBar.transform, new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
             _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
             Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.26f, 1), Vector2.zero, Vector2.zero);
-            var messageGo = Ui.Panel(topBar.transform, "Message");
-            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.26f, 0), new Vector2(0.70f, 1), Vector2.zero, Vector2.zero);
+            // 提示行:屏幕**最底部**通栏(2026-08-27 用户拍板)。与 _statusRow 同一条 y 带
+            // (0.010–0.053)——那一排眼下只剩教程指引,而教程将来要整体迁走。「结算中……」
+            // 已经并进本行(见 Refresh 末尾),所以这两者不会叠字。
+            // 挂在 transform 下而不是 _statusRow 里:_statusRow 每次 Refresh 都被 Ui.Clear 清空,
+            // 而这个 label 是常驻对象,靠 Refresh 末尾改 text 更新。
+            var messageGo = Ui.Panel(transform, "Message");
+            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.010f), new Vector2(0.98f, 0.053f), Vector2.zero, Vector2.zero);
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
@@ -841,6 +847,7 @@ namespace Brushblade.Presentation
                 _onNewFloor?.Invoke(); // 新一场开打:携带态已就位,供外层快照
             }
             _tileRects.Clear();
+            _resolvingHint = false; // 本次重绘是否处在动画锁里,末尾决定底部那行画什么
             Ui.Clear(_topLeft);
             Ui.Clear(_topRight);
             Ui.Clear(_enemyBackRow);
@@ -879,7 +886,7 @@ namespace Brushblade.Presentation
                     // (2026-08-27:抽卡动画就是栽在这里,整段静默空跑)。
                     if (Animating) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
                     {
-                        Ui.ThemedLabel(_statusRow, Strings.T("battle.phase.resolving"), 20, Theme.TextDim, Theme.TitleFont);
+                        _resolvingHint = true; // 「结算中……」由 Refresh 末尾画进底部提示行
                         break;
                     }
                     DrawLibrary();
@@ -924,7 +931,10 @@ namespace Brushblade.Presentation
             DrawTutorialHint();
             // 长按 preview 置顶:重绘后 preview 须盖在战斗 UI 之上
             if (_modal != null) _modal.transform.SetAsLastSibling();
-            _messageLabel.text = _message;
+            // 底部提示行现在是全屏唯一的提示位,动画期间让给「结算中……」——播报要等整轮推进
+            // 完才有完整内容(蓄力/释放/护盾被掀空按批累加),动画落幕后 OnAnimDone 那次重绘
+            // 自然会把它显示出来。两者不能叠在同一行。
+            _messageLabel.text = _resolvingHint ? Strings.T("battle.phase.resolving") : _message;
             SaveProgressIfChanged();
         }
 
