@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21（Home Indicator）。
+       Unity 逻辑单位换算 ×2.093（CanvasScaler 1600×900 按高匹配 → 实际画布 1950×900）。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .safe {
+      position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column;
+    }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+    .r-Red    { --rar: #CD262E; --rarSoft: #F9DFDF; }
+
+    /* 字牌（与 Main / Battle 同一套） */
+    .tile {
+      width: 62px; height: 78px; border-radius: 7px; box-sizing: border-box;
+      border: 2px solid var(--rar); background: var(--rarSoft);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    }
+    .tile .g { font-family: "Noto Serif SC", serif; font-size: 28px; font-weight: 600; color: var(--glyph); line-height: 1; }
+    .tile .py { font-size: 8px; color: #88909C; letter-spacing: .5px; }
+    .tile.sel { border-color: #161B22; box-shadow: 0 0 0 2px rgba(22,27,34,.18); }
+    .tile.dim { opacity: .42; }
+
+    /* 通用件 */
+    .pill {
+      height: 40px; padding: 0 22px; border: none; border-radius: 20px; cursor: pointer;
+      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 2px;
+      display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+    }
+    .pill.cinnabar { background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); }
+    .pill.ink { background: #3D4E69; color: #fff; }
+    .pill.jade { background: #2E7D46; color: #fff; }
+    .pill.quiet { background: #E4DDCE; color: #2C333D; }
+    .chip { height: 18px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 9px; font-size: 9.5px; letter-spacing: .5px; white-space: nowrap; }
+    .ingot { display: inline-flex; align-items: center; gap: 5px;
+      font-weight: 700; font-variant-numeric: tabular-nums; }
+    .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; box-sizing: border-box; }
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
+    .k { font-size: 8px; color: #B3AB9B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+
+    .sheet { position: relative; width: 1180px; box-sizing: border-box; padding: 22px 26px 26px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .title { font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 5px; }
+    .lede { margin-top: 7px; font-size: 11px; line-height: 1.7; color: #5D646F; max-width: 900px; }
+    .lede b { color: #161B22; }
+    .grp { margin-top: 18px; }
+    .grp > h3 { margin: 0 0 9px; font-family: "Noto Serif SC", serif; font-size: 13px;
+      font-weight: 600; letter-spacing: 2px; color: #2C333D; }
+    .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 11px; }
+    .pcell { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 9px; padding: 8px 9px 9px; }
+    .stage { height: 40px; display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; background: #EFE9DA; }
+    .pop { font-family: "Noto Serif SC", serif; font-weight: 600; letter-spacing: .5px; line-height: 1;
+      text-shadow: 0 1px 0 rgba(255,255,255,.7); }
+    .meta { margin-top: 6px; font-size: 8.5px; color: #2C333D; }
+    .meta b { font-weight: 700; }
+    .why { margin-top: 3px; font-size: 8px; line-height: 1.5; color: #88909C; }
+    .why code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 7.5px; color: #7A3F5C; }
+
+    /* 五行环图：战斗屏两个下角常驻（2026-07-29 由「小按钮 + 弹窗」改成常驻） */
+    .charts { display: flex; gap: 16px; align-items: flex-start; }
+    .chart { width: 262px; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 9px; padding: 11px; }
+    .chart .ct { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600;
+      letter-spacing: 4px; text-align: center; }
+    .ring { position: relative; height: 148px; margin-top: 4px; }
+    .ring .n { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #fff; }
+    .chart .cn { margin-top: 3px; font-size: 9px; line-height: 1.6; color: #5D646F; text-align: center; }
+    .chart .cn b { color: #161B22; }
+    .flashnote { margin-top: 11px; font-size: 10px; line-height: 1.7; color: #5D646F; max-width: 560px; }
+    .flashnote b { color: #161B22; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div class="title">飘 字 与 全 屏 反 馈</div>
+  <div class="lede">
+    战斗屏 2026-08-15 把顶部那条提示带撤了（搬到屏幕最底部只留一行），
+    从那以后<b>「这一下打中没有、打了多少」全靠飘字</b>——它是局内唯一的即时反馈通道，
+    所以口径必须固定：<b>颜色说的是「谁干的」，不是「好事坏事」</b>。<br>
+    朱砂 = 你打出去的直伤；赭 = 持续伤害自己在烧；靛 = 护盾与治疗；翠玉 = 无效化与分裂；
+    墨 = 击杀；赭金 = Boss 换相。小字号（13）留给<b>一拍里会连着冒好几条</b>的那些（灼烧跳伤、敌方自增益），
+    免得糊成一团盖住战场。
+  </div>
+
+  <div class="grp">
+    <h3>18 种飘字（<code style="font-size:9px;color:#7A3F5C;">Presentation/Juice.cs</code>）</h3>
+    <div class="grid">
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #C53637; font-size: 17px;">-120</span></div>
+        <div class="meta"><b>Cinnabar 朱砂</b> · 锚在敌人格</div>
+        <div class="why">普通伤害 · 数字直接写在被打的那一格上</div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #C53637; font-size: 17px;">暴 240</span></div>
+        <div class="meta"><b>Cinnabar 朱砂</b> · 锚在敌人格</div>
+        <div class="why">暴击 · <code>juice.popup.crit_damage</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #C53637; font-size: 17px;">爆 180</span></div>
+        <div class="meta"><b>Cinnabar 朱砂</b> · 锚在敌人格</div>
+        <div class="why">引爆灼烧 · <code>detonate</code>；伤害 ≥40 时另触发 0.12s 全屏白闪</div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #A6522F; font-size: 13px;">灼+3</span></div>
+        <div class="meta"><b>ShopNav 赭</b> · 锚在敌人格</div>
+        <div class="why">施加灼烧层数 · <code>burn_stack</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #A6522F; font-size: 13px;">-40</span></div>
+        <div class="meta"><b>ShopNav 赭</b> · 锚在敌人格</div>
+        <div class="why">灼烧跳伤 · 与直伤刻意不同色：一个是你打的，一个是它自己在烧</div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #161B22; font-size: 17px;">正！</span></div>
+        <div class="meta"><b>Ink 墨</b> · 锚在尸位</div>
+        <div class="why">击杀 · <code>kill_mark</code>；同时 0.16s 全屏微闪</div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #3D4E69; font-size: 17px;">空</span></div>
+        <div class="meta"><b>InkSoft 墨蓝</b> · 锚在被闪者</div>
+        <div class="why">闪避 · <code>miss</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #2E7D46; font-size: 17px;">免</span></div>
+        <div class="meta"><b>Jade 翠玉</b> · 锚在屏心</div>
+        <div class="why">免疫 · <code>immune</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #19507F; font-size: 17px;">盾+55</span></div>
+        <div class="meta"><b>SplitBlue 靛</b> · 锚在屏心</div>
+        <div class="why">获得护盾 · <code>shield_gain</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #19507F; font-size: 17px;">盾-30</span></div>
+        <div class="meta"><b>SplitBlue 靛</b> · 锚在屏心</div>
+        <div class="why">护盾吸收 · <code>shield_absorbed</code> / <code>shield_broken</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #C53637; font-size: 13px;">盾-30 血-12</span></div>
+        <div class="meta"><b>Cinnabar 朱砂</b> · 锚在屏心</div>
+        <div class="why">盾被打穿、血也掉了 · <code>shield_and_hp_loss</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #19507F; font-size: 17px;">+80</span></div>
+        <div class="meta"><b>SplitBlue 靛</b> · 锚在召唤物</div>
+        <div class="why">治疗</div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #19507F; font-size: 17px;">补全！+40</span></div>
+        <div class="meta"><b>SplitBlue 靛</b> · 锚在召唤物</div>
+        <div class="why">再生补全 · <code>regrow_full_with_heal</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #19507F; font-size: 17px;">补全 2/3</span></div>
+        <div class="meta"><b>SplitBlue 靛</b> · 锚在召唤物</div>
+        <div class="why">再生进度 · <code>regrow_partial</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #2E7D46; font-size: 17px;">分裂！</span></div>
+        <div class="meta"><b>Jade 翠玉</b> · 锚在敌人格</div>
+        <div class="why">敌人分裂 · <code>enemy_split</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #8F6B09; font-size: 17px;">破阶！</span></div>
+        <div class="meta"><b>GoldBorder 赭金</b> · 锚在敌人格</div>
+        <div class="why">Boss 换相 · <code>boss_phase</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #3D4E69; font-size: 13px;">攻+30%</span></div>
+        <div class="meta"><b>InkSoft 墨蓝</b> · 锚在敌人格</div>
+        <div class="why">敌方自增益 · <code>enemy_buff</code></div>
+      </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #19507F; font-size: 17px;">现形！</span></div>
+        <div class="meta"><b>SplitBlue 靛</b> · 锚在敌人格</div>
+        <div class="why">隐身敌人现形 · <code>enemy_revealed</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <h3>五行速查环图 · 战斗屏两个下角常驻</h3>
+    <div class="charts">
+      <div class="chart">
+        <div class="ct">相 生</div>
+        <div class="ring">
+          <span class="n" style="background:#348F4F; left:131px; top:22px;">木</span>
+          <span class="n" style="background:#C53637; left:195px; top:70px;">火</span>
+          <span class="n" style="background:#997C3C; left:171px; top:126px;">土</span>
+          <span class="n" style="background:#B3A382; left:91px; top:126px;">金</span>
+          <span class="n" style="background:#0F74C4; left:67px; top:70px;">水</span>
+          <svg width="240" height="148" viewBox="0 0 240 148" fill="none" stroke="#348F4F" stroke-width="1.6"
+               style="position:absolute; left:0; top:0; opacity:.55;">
+            <path d="M144 34 L182 62M188 88 L176 112M156 132 L116 132M96 128 L82 96M74 60 L118 30"></path>
+          </svg>
+        </div>
+        <div class="cn">木→火→土→金→水→木<br><b>×3 倍，去重不叠乘</b></div>
+      </div>
+      <div class="chart">
+        <div class="ct">相 克</div>
+        <div class="ring">
+          <span class="n" style="background:#348F4F; left:131px; top:22px;">木</span>
+          <span class="n" style="background:#C53637; left:195px; top:70px;">火</span>
+          <span class="n" style="background:#997C3C; left:171px; top:126px;">土</span>
+          <span class="n" style="background:#B3A382; left:91px; top:126px;">金</span>
+          <span class="n" style="background:#0F74C4; left:67px; top:70px;">水</span>
+          <svg width="240" height="148" viewBox="0 0 240 148" fill="none" stroke="#C53637" stroke-width="1.6"
+               style="position:absolute; left:0; top:0; opacity:.55;">
+            <path d="M136 44 L168 116M180 90 L106 122M164 128 L84 74M96 110 L128 40M84 84 L182 78"></path>
+          </svg>
+        </div>
+        <div class="cn">木克土·土克水·水克火·火克金·金克木<br><b>×1.5 倍，且这一击无视护甲</b></div>
+      </div>
+      <div class="flashnote">
+        <b>心属中立</b>：既不生也不克，任何一边都吃基础倍率。<br><br>
+        <b>全屏闪</b>只有两处，都很短、都是白色，别再加第三处：<br>
+        · 引爆且伤害 ≥ 40 → 0.12s<br>
+        · 击杀 → 0.16s<br>
+        全屏闪是最贵的一种强调，用滥了就等于没有。数值口径的唯一来源是
+        <code style="font-size:8.5px;color:#7A3F5C;">docs/design/wuxing-reference.md</code>，
+        <b>不是这张图</b>——图只是把它画出来。
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1180, "height": 780}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

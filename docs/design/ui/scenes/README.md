@@ -24,9 +24,17 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `Bestiary.dc.html` | 怪物图鉴（可交互） | `BestiaryView.cs` |
 | `Perks.dc.html` | 技能 | `PerkView.cs` |
 | `Shop.dc.html` | 商城 | `ShopView.cs` |
+| `RunEnd.dc.html` | 段末 · 告捷/败北 | `BattleView.DrawRunEnd` |
+| `SafeLayer.dc.html` | 安全层 | `GameRoot.ShowSafeLayer` |
+| `Settle.dc.html` | 登塔结算 | `GameRoot.ShowTowerSettle` |
+| `Event.dc.html` | 奇遇 | `BattleView.DrawEvent` |
+| `Reward.dc.html` | 战利品 · 选字 | `BattleView.DrawRewardCharStep` |
+| `Replace.dc.html` | 字库已满 · 换字 | `DrawRewardReplaceStep` 等四处 |
 | `Device.dc.html` | 设备基准与适配 | 规范，无对应实现 |
 | `CardStates.dc.html` | 字牌状态 | `Ui.GlyphTile` / `CardFrames` |
 | `StatMapping.dc.html` | 详情页数值口径 | `CharInfo` |
+| `Dialogs.dc.html` | 弹窗族 | `Ui.Modal` / `ModalShell` / `Alert` 的 13 个调用点 |
+| `Popups.dc.html` | 飘字与全屏反馈 | `Juice.cs` / `WuxingChart.cs` |
 
 `canvas.json` 是画布布局（位置、分页、便签）；便签里记着每处改动的理由与待办，
 **别只看画面不看便签**。`base.css` 是六屏共用的令牌（色板取自 `Theme.cs`，
@@ -99,6 +107,27 @@ node <skill>/seed-canvas.mjs \
 
 宝箱格的按钮文案沿用实现侧原有的（「开箱!」/「开始开启」），没有跟稿改成
 「开 启」/「排队等位」—— 纯文案差，改了要连带重跑字体子集，留待一并处理。
+
+## 2026-08-28 补齐：局内流程与弹窗
+
+按「代码里有、稿上没有」把 Presentation 层翻了一遍，补了 8 块。挖出来的缺口：
+
+- `GameRoot` 有 8 处 `NewView`，稿只画了 6 处 —— **安全层**与**登塔结算**两个整屏从来没有版面依据。
+- `BattleView` 一个屏里还藏着 5 个独立阶段（战利品选字／字库已满换字／广告复活／奇遇／段末横幅），
+  合起来是「一趟塔从打完到结算」的全部决策点，此前一处都没画。
+- `Ui.Modal / ModalShell / Alert` 有 13 个调用点散在 6 个界面里，没有任何一张图能回答
+  「我们的弹窗长什么样」。
+- `Juice.cs` 的 18 种飘字**一直没有稿**。战斗屏 2026-08-15 撤掉顶部提示带之后，
+  「这一下打中没有、打了多少」全靠它 —— 等于最要紧的那层反馈没人管口径。
+
+新增的稿都从代码取真实数据（奇遇文案取自 `enemies.json` 的 events，弹窗正文逐条对
+`strings.zh-CN.json` 的 key，飘字配色对 `Juice.cs` 里的 `Theme.*`），不是编的。
+画的时候定死了一条共有规矩：**凡是不可逆的，都要在按下去之前说清楚** ——
+安全层把「深入 / 撤退」的取舍写在钮下面而不是一行小字，换字把「永久失去」做成标红告警条。
+
+⚠ 这 8 块是**稿子先行**：实现侧那几屏还是旧版面（`GameRoot` 里的安全层与结算是两张
+朴素的居中卡，`BattleView` 的各阶段沿用 `ModalShell` 默认外壳）。要落地按稿改，
+不是反过来把稿改回去。
 
 ## 顺带查出的两处不一致
 

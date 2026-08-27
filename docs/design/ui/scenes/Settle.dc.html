@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21（Home Indicator）。
+       Unity 逻辑单位换算 ×2.093（CanvasScaler 1600×900 按高匹配 → 实际画布 1950×900）。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .safe {
+      position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column;
+    }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+    .r-Red    { --rar: #CD262E; --rarSoft: #F9DFDF; }
+
+    /* 字牌（与 Main / Battle 同一套） */
+    .tile {
+      width: 62px; height: 78px; border-radius: 7px; box-sizing: border-box;
+      border: 2px solid var(--rar); background: var(--rarSoft);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    }
+    .tile .g { font-family: "Noto Serif SC", serif; font-size: 28px; font-weight: 600; color: var(--glyph); line-height: 1; }
+    .tile .py { font-size: 8px; color: #88909C; letter-spacing: .5px; }
+    .tile.sel { border-color: #161B22; box-shadow: 0 0 0 2px rgba(22,27,34,.18); }
+    .tile.dim { opacity: .42; }
+
+    /* 通用件 */
+    .pill {
+      height: 40px; padding: 0 22px; border: none; border-radius: 20px; cursor: pointer;
+      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 2px;
+      display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+    }
+    .pill.cinnabar { background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); }
+    .pill.ink { background: #3D4E69; color: #fff; }
+    .pill.jade { background: #2E7D46; color: #fff; }
+    .pill.quiet { background: #E4DDCE; color: #2C333D; }
+    .chip { height: 18px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 9px; font-size: 9.5px; letter-spacing: .5px; white-space: nowrap; }
+    .ingot { display: inline-flex; align-items: center; gap: 5px;
+      font-weight: 700; font-variant-numeric: tabular-nums; }
+    .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; box-sizing: border-box; }
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
+    .k { font-size: 8px; color: #B3AB9B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+
+    .dev { background: #F1EBDD; }
+    .wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    .panel { width: 560px; padding: 20px 28px 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .h { font-family: "Noto Serif SC", serif; font-size: 22px; font-weight: 600; letter-spacing: 8px; }
+    .head { font-size: 11px; color: #5D646F; letter-spacing: .5px; text-align: center; }
+    .amount { display: flex; align-items: baseline; gap: 8px; }
+    .amount .n { font-family: "Noto Serif SC", serif; font-size: 40px; font-weight: 600; line-height: 1; }
+    .amount .half { font-size: 10px; color: #B02D2E; font-weight: 700; letter-spacing: 1px; }
+    .rec { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 9px;
+      border-radius: 10px; background: #F6EDD5; border: 1px solid rgba(201,169,74,.55);
+      font-size: 9.5px; font-weight: 700; color: #8F6B09; letter-spacing: 1px; }
+    /* 宝箱行是这一屏的第二主角：一场爬塔只发一个箱，档位由本次最高 Boss 层定 */
+    .chestrow { width: 100%; display: flex; align-items: center; gap: 11px;
+      padding: 9px 12px; border-radius: 10px; background: #FFFDF7; border: 1px solid #E7E1D4; }
+    .chestrow .ic { width: 40px; height: 30px; border-radius: 6px; flex: none;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 600; color: #fff; }
+    .chestrow .t { font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; }
+    .chestrow .d { font-size: 9.5px; color: #88909C; margin-top: 2px; }
+    .chestrow.none { background: transparent; border-style: dashed; border-color: #CFC7B6; }
+    .chestrow.none .t { color: #B3AB9B; font-family: inherit; font-weight: 400; font-size: 10.5px; }
+  </style>
+</helmet>
+
+<div class="dev">
+  <div class="safe">
+    <div class="wrap">
+      <div class="card panel">
+        <div class="h">登 塔 结 算</div>
+        <div class="head">第 45 层收官！墨锭 340 入账</div>
+
+        <div class="amount">
+          <svg width="26" height="16" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path><path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="2.5"></path></svg>
+          <span class="n">340</span>
+        </div>
+        <div class="rec">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#8F6B09" stroke-width="2.4">
+            <path d="M12 3 L14.6 9.4 L21 12 L14.6 14.6 L12 21 L9.4 14.6 L3 12 L9.4 9.4 Z"></path>
+          </svg>
+          新纪录 · 43 → 45 层
+        </div>
+
+        <div class="chestrow">
+          <div class="ic" style="background:#C9A94A;">鎏</div>
+          <div>
+            <div class="t">获得 鎏金匣</div>
+            <div class="d">第 45 层 Boss 战利 · 已入箱位 4 / 4</div>
+          </div>
+        </div>
+
+        <button class="pill cinnabar" style="width: 260px; margin-top: 2px;">回 地 图</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="guide"><i class="gl"></i><i class="gr"></i><i class="gb"></i></div>
+  <div class="homebar"><span></span></div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

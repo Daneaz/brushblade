@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21（Home Indicator）。
+       Unity 逻辑单位换算 ×2.093（CanvasScaler 1600×900 按高匹配 → 实际画布 1950×900）。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .safe {
+      position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column;
+    }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+    .r-Red    { --rar: #CD262E; --rarSoft: #F9DFDF; }
+
+    /* 字牌（与 Main / Battle 同一套） */
+    .tile {
+      width: 62px; height: 78px; border-radius: 7px; box-sizing: border-box;
+      border: 2px solid var(--rar); background: var(--rarSoft);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    }
+    .tile .g { font-family: "Noto Serif SC", serif; font-size: 28px; font-weight: 600; color: var(--glyph); line-height: 1; }
+    .tile .py { font-size: 8px; color: #88909C; letter-spacing: .5px; }
+    .tile.sel { border-color: #161B22; box-shadow: 0 0 0 2px rgba(22,27,34,.18); }
+    .tile.dim { opacity: .42; }
+
+    /* 通用件 */
+    .pill {
+      height: 40px; padding: 0 22px; border: none; border-radius: 20px; cursor: pointer;
+      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 2px;
+      display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+    }
+    .pill.cinnabar { background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); }
+    .pill.ink { background: #3D4E69; color: #fff; }
+    .pill.jade { background: #2E7D46; color: #fff; }
+    .pill.quiet { background: #E4DDCE; color: #2C333D; }
+    .chip { height: 18px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 9px; font-size: 9.5px; letter-spacing: .5px; white-space: nowrap; }
+    .ingot { display: inline-flex; align-items: center; gap: 5px;
+      font-weight: 700; font-variant-numeric: tabular-nums; }
+    .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; box-sizing: border-box; }
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
+    .k { font-size: 8px; color: #B3AB9B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+
+    /* 战场底：这几屏都是战斗屏上的一层浮层，底下那半张脸要留着，
+       玩家才知道自己还在第几层、字库里有什么 —— 全遮死就成了「不知从哪冒出来的窗」 */
+    .bg { position: absolute; inset: 0; opacity: .5; }
+    .bgtop { position: absolute; left: 59px; right: 59px; top: 8px; height: 22px;
+      display: flex; align-items: center; gap: 10px; font-size: 10px; color: #5D646F; }
+    .bgtop .t { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: #161B22; letter-spacing: 2px; }
+    .bgrow { position: absolute; left: 59px; right: 59px; display: flex; gap: 7px; justify-content: center; }
+    .mob { width: 92px; height: 54px; border-radius: 7px; background: #FBF8F1;
+      border: 1px solid #E7E1D4; box-sizing: border-box; }
+
+    .sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 780px; padding: 15px 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+    /* 780 是算出来的，不是拍的：字库满员 9 张 ×62 + 8 道 7px 间隙 = 614，
+       加上来牌 62 + 箭头 22 + 两道 9px 间隙 = 102，再加左右各 20 内边距 → 756。
+       窄一档就会折行，最后一张孤零零掉到第二排，读起来像「还有别的选项」。 */
+    .h { font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 600; letter-spacing: 1px; }
+    .h em { font-style: normal; color: #B02D2E; }
+    /* 「永久失去」必须是这一屏最重的一句：这是全局内唯一一处不可逆的删除 */
+    .warn { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 11px;
+      border-radius: 11px; background: #FBE3E2; color: #9B1E22;
+      font-size: 10px; font-weight: 700; letter-spacing: .5px; }
+    .warn b { font-variant-numeric: tabular-nums; }
+    .incoming { display: flex; align-items: center; gap: 9px; }
+    .incoming .lbl { font-size: 9px; color: #88909C; letter-spacing: 2px; writing-mode: vertical-rl; height: 60px; }
+    .lib { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+    .arrow { display: flex; align-items: center; color: #B3AB9B; }
+    .sources { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; margin-top: 1px; }
+    .src { height: 17px; padding: 0 7px; border-radius: 9px; background: #EFEADF; border: 1px solid #DED7C9;
+      font-size: 8.5px; color: #5D646F; display: inline-flex; align-items: center; }
+  </style>
+</helmet>
+
+<div class="dev">
+  <div class="bg">
+    <div class="bgtop"><span class="t">「文山」第 26~30 层</span><span>第 28 层 · 回合 4</span></div>
+    <div class="bgrow" style="top: 44px;">
+      <div class="mob"></div><div class="mob"></div><div class="mob"></div><div class="mob"></div>
+    </div>
+  </div>
+  <div class="scrim" style="background: rgba(22,27,34,.42);"></div>
+
+  <div class="card sheet">
+    <div class="h">字库已满 · 用「<em>爆</em>」换掉哪一张？</div>
+    <div class="warn">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9B1E22" stroke-width="2.2">
+        <path d="M12 3 L22 20 H2 Z"></path><path d="M12 10v4M12 17v.01"></path>
+      </svg>
+      字库 <b>9/9</b> —— 被换掉的字永久失去
+    </div>
+
+    <div class="incoming">
+      <div class="tile r-Blue e-Fire sel"><span class="g">爆</span><span class="py">bào</span></div>
+      <div class="arrow">
+        <svg width="22" height="14" viewBox="0 0 24 14" fill="none" stroke="#B3AB9B" stroke-width="2">
+          <path d="M1 7h20M16 2l5 5-5 5"></path>
+        </svg>
+      </div>
+      <div class="lib">
+        <div class="tile r-White e-Metal"><span class="g">刺</span><span class="py">cì</span></div>
+        <div class="tile r-Green e-Wood"><span class="g">藤</span><span class="py">téng</span></div>
+        <div class="tile r-Blue e-Water"><span class="g">冷</span><span class="py">lěng</span></div>
+        <div class="tile r-Green e-Earth"><span class="g">碎</span><span class="py">suì</span></div>
+        <div class="tile r-White e-Metal"><span class="g">锐</span><span class="py">ruì</span></div>
+        <div class="tile r-Blue e-Water"><span class="g">冰</span><span class="py">bīng</span></div>
+        <div class="tile r-Green e-Wood"><span class="g">荆</span><span class="py">jīng</span></div>
+        <div class="tile r-Purple e-Fire"><span class="g">焱</span><span class="py">yàn</span></div>
+        <div class="tile r-White e-Earth"><span class="g">圭</span><span class="py">guī</span></div>
+      </div>
+    </div>
+
+    <button class="pill quiet" style="height: 30px; font-size: 12px; padding: 0 18px;">算了，不换</button>
+
+    <div class="sources">
+      <span class="src">四个入口共用这一版：</span>
+      <span class="src">战利品 battle.reward.replace_title</span>
+      <span class="src">回合掉字 battle.drop.replace_title</span>
+      <span class="src">奇遇 battle.event.replace_title</span>
+      <span class="src">广告复活 battle.revive.replace_title</span>
+    </div>
+  </div>
+
+  <div class="guide"><i class="gl"></i><i class="gr"></i><i class="gb"></i></div>
+  <div class="homebar"><span></span></div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
