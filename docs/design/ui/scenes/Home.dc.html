@@ -165,8 +165,10 @@
     .runbar span { display: block; height: 100%; background: #B02D2E; }
     .fresh { font-size: 10px; color: #88909C; letter-spacing: .5px; }
 
-    /* 宝箱。228 → 195，同 .who：宽度让给书塔（2026-08-28） */
-    .chests { width: 195px; flex: none; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    /* 宝箱。2026-08-28 二轮：195 → 232。格内两颗 mini 并排一行要 47.5 + 4 + 38.5 ≈ 90px，
+       195 时格内净宽只有 85，「18墨」被挤到第二行、把按钮撑高、整行错位。
+       宽度从书塔那边匀 —— 书塔内容 273px 在 319px 的面板里本来就有富余。 */
+    .chests { width: 232px; flex: none; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
     .ch { font-size: 9px; color: #88909C; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; }
     .cgrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .box {
@@ -180,9 +182,12 @@
     .box .bn { font-size: 10px; font-family: "Noto Serif SC", serif; font-weight: 600; }
     .box .cd { font-size: 11px; color: #5D646F; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
     .box .acts { display: flex; gap: 4px; width: 100%; }
+    /* ⚠ nowrap：实现侧 Unity 的 Text 是 horizontalOverflow = Overflow，**从不折行** ——
+       稿这边不写 nowrap，窄格里标签会折成两行还把按钮撑高，两边看到的就不是同一件事了。
+       现在折不了，格子不够宽会直接顶出来，一眼能发现。 */
     .mini {
       flex: 1; height: 22px; border: none; border-radius: 11px; cursor: pointer;
-      font-family: inherit; font-size: 9.5px; letter-spacing: .3px;
+      font-family: inherit; font-size: 9.5px; letter-spacing: .3px; white-space: nowrap;
       display: flex; align-items: center; justify-content: center; gap: 3px;
     }
     .mini.ad { background: #E3F4E6; color: #1B552C; border: 1px solid #C6DCCB; }
@@ -312,7 +317,7 @@
                 <svg width="7" height="8" viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="#1B552C"></path></svg>
                 −30m
               </button>
-              <button class="mini ink">18 墨</button>
+              <button class="mini ink">18墨</button>
             </div>
           </div>
           <div class="box">

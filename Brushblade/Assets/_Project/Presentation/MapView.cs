@@ -20,11 +20,12 @@ namespace Brushblade.Presentation
         private const float TopH = 80f;        // 顶栏 38pt
         private const float NavH = 92f;        // 底部导航 44pt
         private const float Gap = 21f;         // 栏间距 10pt
-        // ⚠ 左右两栏比稿窄一档(稿:角色 214pt / 宝箱 228pt)。2026-08-28 反馈:两侧太占地方,
-        // 中间的书塔挤得慌 —— 那两栏都是「看一眼就够」的信息,书塔才是每次进主界面要用的。
-        // 让出来的 125u 全给书塔:16 Pro Max 上书塔从 736u 涨到 861u。
-        private const float HeroW = 392f;      // 角色栏 187pt
-        private const float ChestW = 408f;     // 宝箱栏 195pt
+        // 2026-08-28 反馈两轮:先把两侧收窄让宽给书塔(两侧都是「看一眼就够」的信息,
+        // 书塔才是每次进主界面要用的),再把宝箱栏还回去一截 —— 408 时格内净宽只够
+        // 两颗 mini 按钮挤在一起,「18墨」顶出按钮。净结果书塔仍比稿宽:
+        // 16 Pro Max 上 736u → 785u。
+        private const float HeroW = 392f;      // 角色栏 187pt(稿 214pt)
+        private const float ChestW = 486f;     // 宝箱栏 232pt(稿原 228pt)
         private const float SideInset = 123f;  // 稿上 .safe 左右各 59pt
         private const float BottomInset = 44f; // 稿上 .safe 下 21pt(Home Indicator)
 
