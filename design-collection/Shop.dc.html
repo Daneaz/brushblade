@@ -1,0 +1,292 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21(Home Indicator)。
+       Unity 逻辑单位换算 ×2.093(CanvasScaler 1600×900 按高匹配 → 实际画布 1950×900)。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .safe {
+      position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column;
+    }
+    /* 安全区参考线(设计稿标注,不是 UI) */
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .guide u {
+      position: absolute; font-size: 8px; font-style: normal; letter-spacing: .5px;
+      color: rgba(155,30,34,.5); text-decoration: none;
+    }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+    .r-Red    { --rar: #CD262E; --rarSoft: #F9DFDF; }
+
+    /* 顶栏 */
+    .top { height: 38px; flex: none; display: flex; align-items: center; gap: 10px; }
+    .top h1 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+    .top .sub { font-size: 11px; color: #5D646F; letter-spacing: .5px; }
+    .top .sub b { color: #161B22; font-weight: 700; }
+    .ink {
+      display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 7px;
+      background: #EFEADF; border: 1px solid #DED7C9; border-radius: 13px;
+      font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    /* 触控目标 ≥44pt:视觉 32 高的钮靠上下各 6px 透明边扩到 44 */
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+    .btn-back {
+      height: 30px; padding: 0 14px; border: none; border-radius: 15px; cursor: pointer;
+      background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px;
+    }
+    .chip { height: 19px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 10px; font-size: 10px; letter-spacing: .5px; }
+    .reddot { width: 7px; height: 7px; border-radius: 50%; background: #C53637;
+      box-shadow: 0 0 0 1.5px #F6F1E7; }
+    .body { flex: 1; display: flex; flex-direction: column; gap: 7px; min-height: 0; padding-bottom: 4px; }
+    .sh { display: flex; align-items: center; gap: 8px; flex: none; }
+    .sh .t { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 3px; }
+    .sh .d { font-size: 9.5px; color: #88909C; letter-spacing: .5px; }
+    .sh .line { flex: 1; height: 1px; background: #E4DDCE; }
+
+    .shelf { flex: none; display: flex; gap: 10px; }
+    .slot { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .card {
+      position: relative; height: 138px; border-radius: 10px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 2px 6px rgba(22,27,34,.09);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0; font-family: inherit;
+    }
+    .card::before { content: ""; position: absolute; inset: 4px; border-radius: 7px;
+      border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent); }
+    .card .g { font-family: "Noto Serif SC", serif; font-size: 50px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .card .p { font-size: 9.5px; color: #5D646F; letter-spacing: 1px; margin-top: 7px; }
+    .card .rr { position: absolute; top: 6px; left: 6px; height: 16px; padding: 0 6px; border-radius: 8px;
+      background: var(--rarSoft); color: color-mix(in srgb, var(--rar) 74%, #161B22);
+      font-size: 8.5px; display: flex; align-items: center; letter-spacing: .5px; }
+    .card .own { position: absolute; top: 6px; right: 6px; font-size: 8.5px; color: #88909C; }
+    .card.sold { filter: grayscale(.8); opacity: .55; }
+    .card .stamp {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-14deg);
+      font-family: "Noto Serif SC", serif; font-size: 26px; font-weight: 600; letter-spacing: 4px;
+      color: rgba(155,30,34,.72); border: 2.5px solid rgba(155,30,34,.55); border-radius: 6px;
+      padding: 2px 10px;
+    }
+    .price {
+      height: 34px; border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      background: #11161F; color: #fff; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    .price.poor { background: #E7E1D4; color: #A09A8C; cursor: not-allowed; }
+    .price.sold { background: #E9E5DB; color: #A09A8C; font-size: 12px; font-weight: 400; letter-spacing: 2px; }
+
+    .extras { flex: none; display: flex; gap: 10px; }
+    .ex {
+      flex: 1; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px;
+      padding: 7px 11px; display: flex; align-items: center; gap: 10px;
+    }
+    .ex .fig {
+      width: 44px; height: 44px; flex: none; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; color: #fff;
+    }
+    .ex .fig.ad { background: #E3F4E6; border: 1px solid #A9CDB2; }
+    .ex .ti { flex: 1; min-width: 0; }
+    .ex .tn { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+    .ex .ts { font-size: 9.5px; color: #88909C; margin-top: 3px; line-height: 1.5; }
+    .ex .btn {
+      height: 32px; padding: 0 14px; border: none; border-radius: 8px; cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .ex .btn.buy { background: #11161F; color: #fff; }
+    .ex .btn.adbtn { background: #E3F4E6; color: #1B552C; border: 1px solid #A9CDB2; font-weight: 500; }
+    .ex .btn.done { background: #E9E5DB; color: #A09A8C; font-weight: 400; }
+
+    /* 订阅 */
+    .sub {
+      flex: none; height: 48px; border-radius: 10px; padding: 0 14px;
+      background: linear-gradient(100deg, #1A1F2B 0%, #2C2418 62%, #3A2E14 100%);
+      display: flex; align-items: center; gap: 12px; color: #F3EEE2; position: relative; overflow: hidden;
+    }
+    .sub .seal {
+      position: absolute; right: 150px; top: -18px; font-family: "Noto Serif SC", serif;
+      font-size: 72px; font-weight: 600; color: rgba(201,169,74,.13); pointer-events: none;
+    }
+    .sub .st { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 3px; color: #E3C976; }
+    .sub .sl { font-size: 10px; color: rgba(243,238,226,.7); line-height: 1.6; }
+    .sub .sl b { color: #E3C976; font-weight: 500; }
+    .sub .go {
+      margin-left: auto; height: 34px; padding: 0 18px; border: none; border-radius: 17px; cursor: pointer;
+      background: #C9A94A; color: #2B2200; font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    }
+    .sub .price2 { font-size: 10px; color: rgba(243,238,226,.62); }
+  </style>
+</helmet>
+
+<div class="dev">
+  <div class="safe">
+
+    <div class="top">
+      <h1 class="serif">商城</h1>
+      <span class="sub">距刷新 <b>07:42:19</b></span>
+      <div class="grow"></div>
+      <div class="ink">
+        <svg width="18" height="11" viewBox="0 0 56 34"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>
+        2,480
+      </div>
+      <button class="btn-back tap">返回</button>
+    </div>
+
+    <div class="body">
+
+      <div class="sh">
+        <span class="t">今日字摊</span>
+        <span class="d">每日重掷 4 张 · 只出你已收集过的字，没见过的字走宝箱</span>
+        <span class="line"></span>
+      </div>
+
+      <div class="shelf">
+        <div class="slot">
+          <button class="card r-Blue e-Water">
+            <span class="rr">青瓷</span><span class="own">已有 Lv.3</span>
+            <span class="g">冷</span><span class="p">lěng</span>
+          </button>
+          <button class="price">
+            <svg width="15" height="9" viewBox="0 0 56 34"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg>
+            100
+          </button>
+        </div>
+        <div class="slot">
+          <button class="card r-Purple e-Fire">
+            <span class="rr">紫檀</span><span class="own">已有 Lv.1</span>
+            <span class="g">熣</span><span class="p">suī</span>
+          </button>
+          <button class="price">
+            <svg width="15" height="9" viewBox="0 0 56 34"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg>
+            160
+          </button>
+        </div>
+        <div class="slot">
+          <button class="card r-Gold e-Earth">
+            <span class="rr">鎏金</span><span class="own">已有 Lv.1</span>
+            <span class="g">圭</span><span class="p">guī</span>
+          </button>
+          <button class="price poor">
+            <svg width="15" height="9" viewBox="0 0 56 34"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#A09A8C"></path></svg>
+            2,600
+          </button>
+        </div>
+        <div class="slot">
+          <button class="card r-White e-Metal sold">
+            <span class="rr">素纸</span>
+            <span class="g">劈</span><span class="p">pī</span>
+            <span class="stamp serif">已售</span>
+          </button>
+          <button class="price sold">今日已购</button>
+        </div>
+      </div>
+
+      <div class="sh">
+        <span class="t">箱与广告</span>
+        <span class="d">奖励式广告每日各一次，绝不打断战斗</span>
+        <span class="line"></span>
+      </div>
+
+      <div class="extras">
+        <div class="ex">
+          <div class="fig" style="background:#7945AB;">紫</div>
+          <div class="ti">
+            <div class="tn">紫檀匣</div>
+            <div class="ts">今日箱位 · 4 张字卡 + 120 墨<br>箱位 3/4，买了直接进队列</div>
+          </div>
+          <button class="btn buy">
+            <svg width="14" height="9" viewBox="0 0 56 34"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg>
+            400
+          </button>
+        </div>
+        <div class="ex">
+          <div class="fig ad">
+            <svg width="14" height="17" viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="#1B552C"></path></svg>
+          </div>
+          <div class="ti">
+            <div class="tn">看广告领墨锭</div>
+            <div class="ts">+30 墨 · 今日可领</div>
+          </div>
+          <button class="btn adbtn">领 取</button>
+        </div>
+        <div class="ex">
+          <div class="fig ad">
+            <svg width="14" height="17" viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="#1B552C"></path></svg>
+          </div>
+          <div class="ti">
+            <div class="tn">看广告刷新字摊</div>
+            <div class="ts">重掷 4 个卡位 · 今日已用</div>
+          </div>
+          <button class="btn done">已用完</button>
+        </div>
+      </div>
+
+      <div class="sub">
+        <span class="seal serif">墨</span>
+        <div>
+          <div class="st">笔墨月供</div>
+          <div class="sl">每日 <b>+150 墨</b> · 箱位 <b>4 → 5</b> · 广告位<b>翻倍</b>　—　不卖字、不卖强度、不卖抽卡</div>
+        </div>
+        <span class="price2">[定价待定] / 月　随时可退订</span>
+        <button class="go">了 解</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="guide">
+    <i class="gl"></i><i class="gr"></i><i class="gb"></i>
+    <u style="left: 6px; top: 6px;">59pt</u>
+    <u style="right: 6px; top: 6px;">59pt</u>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

@@ -1,0 +1,1112 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21(Home Indicator)。
+       Unity 逻辑单位换算 ×2.093(CanvasScaler 1600×900 按高匹配 → 实际画布 1950×900)。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .safe {
+      position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column;
+    }
+    /* 安全区参考线(设计稿标注,不是 UI) */
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .guide u {
+      position: absolute; font-size: 8px; font-style: normal; letter-spacing: .5px;
+      color: rgba(155,30,34,.5); text-decoration: none;
+    }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+    .r-Red    { --rar: #CD262E; --rarSoft: #F9DFDF; }
+
+    /* 顶栏 */
+    .top { height: 38px; flex: none; display: flex; align-items: center; gap: 10px; }
+    .top h1 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+    .top .sub { font-size: 11px; color: #5D646F; letter-spacing: .5px; }
+    .top .sub b { color: #161B22; font-weight: 700; }
+    .ink {
+      display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 7px;
+      background: #EFEADF; border: 1px solid #DED7C9; border-radius: 13px;
+      font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    /* 触控目标 ≥44pt:视觉 32 高的钮靠上下各 6px 透明边扩到 44 */
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+    .btn-back {
+      height: 30px; padding: 0 14px; border: none; border-radius: 15px; cursor: pointer;
+      background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px;
+    }
+    .chip { height: 19px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 10px; font-size: 10px; letter-spacing: .5px; }
+    .reddot { width: 7px; height: 7px; border-radius: 50%; background: #C53637;
+      box-shadow: 0 0 0 1.5px #F6F1E7; }
+    .dev { background: #EFE8DA; }
+    .safe { padding-top: 3px; }
+
+    /* ---------- 顶栏 22 ---------- */
+    .bar { height: 22px; flex: none; display: flex; align-items: center; gap: 7px; font-size: 10.5px; color: #5D646F; }
+    .bar .lv { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: #161B22; letter-spacing: 1px; }
+    .bar .seg { font-variant-numeric: tabular-nums; }
+    .coachbtn { width: 20px; height: 20px; border: none; border-radius: 10px; padding: 0;
+      background: rgba(201,169,74,.22); color: #8F6B09; font-family: "Noto Serif SC", serif;
+      font-size: 12px; font-weight: 600; cursor: pointer; line-height: 1; }
+    .turn { height: 18px; padding: 0 8px; border-radius: 9px; background: #3D4E69; color: #fff;
+      display: flex; align-items: center; font-size: 9.5px; letter-spacing: .5px; }
+    .quit { width: 20px; height: 20px; border: none; border-radius: 10px; background: rgba(122,63,92,.14);
+      color: #7A3F5C; font-family: inherit; font-size: 11px; cursor: pointer; line-height: 1; padding: 0; }
+
+    .arena { flex: 1; display: flex; gap: 6px; min-height: 0; }
+
+    /* ---------- 左窄栏 ---------- */
+    .rail { width: 68px; flex: none; display: flex; flex-direction: column; gap: 5px; min-height: 0; }
+    .railbox { background: rgba(255,253,247,.66); border-radius: 7px; padding: 4px; }
+    .railbox .t { font-size: 7.5px; color: #88909C; letter-spacing: 1px; text-align: center; margin-bottom: 2px; }
+    .missing { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 3px; }
+    .mrow { display: flex; align-items: center; gap: 3px; font-size: 8.5px; }
+    .mrow .g { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: var(--glyph); }
+    .mrow .need { color: #9A927F; }
+    .mrow .need b { color: #9B1E22; font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; }
+
+    /* ---------- 中区 ---------- */
+    .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    /* 敌方贴顶、我方贴底,富余的纵向全部堆在分隔线两侧 —— 召唤物那两排不再互相压着。 */
+    .field { flex: 1; min-height: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start; gap: 2px; }
+    /* 敌我分界:auto margin 把 field 剩下的纵向全部堆到这一道的上下,
+       两侧各留一半 —— 富余越多,敌我离得越开。 */
+    .divider { position: relative; margin: auto 0; width: 86%; height: 1px;
+      background: rgba(61,78,105,.26); }
+    .divider::after { content: "◈"; position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%); font-size: 7px; color: rgba(61,78,105,.5);
+      background: #EFE8DA; padding: 0 5px; line-height: 1; }
+    /* flex: none 是关键:field 空间一紧,默认的 flex-shrink:1 会把后排那一行压扁,
+       看上去就成了「后排叠在前排上」。四排各自锁死高度,宁可 field 留白也不互相挤。 */
+    .erow { flex: none; display: flex; gap: 8px; justify-content: center; align-items: flex-end; }
+
+    /* 敌人格 = 横排:正方立绘在左,信息列在右。
+       中区 602px 宽,竖排时 4 格只吃掉 229px、空着 373px —— 横向本来就是这一屏最富余的资源。
+       横排后格高由立绘单独决定(信息列 36 < 立绘 60),纵向反而比竖排省 24px/排,
+       省出来的全给敌我之间的留白。BattleView 2026-08-20 试过同一种排法(横排格高 140 vs 竖排 171)。
+       立绘仍严格 1:1 —— mob 素材是 512×512 的方图。 */
+    .foe { display: flex; align-items: center; gap: 6px; cursor: pointer;
+      background: rgba(255,253,247,.5); border: 1px solid rgba(198,188,168,.5);
+      border-radius: 9px; padding: 3px; font-family: inherit; }
+    .foe .blk { position: relative; flex: none; border-radius: 7px; background: var(--elSoft);
+      border: 1.5px solid var(--el); overflow: hidden;
+      display: flex; align-items: center; justify-content: center; }
+    .foe .face { font-family: "Noto Serif SC", serif; font-weight: 600; color: var(--glyph); line-height: 1; }
+    .foe.front { width: 140px; }
+    .foe.front .blk { width: 60px; height: 60px; }
+    .foe.front .face { font-size: 30px; }
+    .foe.rear { width: 140px; }
+    .foe.rear .blk { width: 46px; height: 46px; }
+    .foe.rear .face { font-size: 23px; }
+    .foe .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .foe .hd { display: flex; align-items: baseline; gap: 4px; }
+    .foe .nm { font-size: 9.5px; color: #2C333D; letter-spacing: .2px; line-height: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .foe .els { flex: none; font-family: "Noto Serif SC", serif; font-size: 9px; font-weight: 600;
+      color: #fff; background: var(--el); border-radius: 3px; padding: 0 3px; line-height: 1.35; }
+    /* 攻击模式 / 技能特性 / debuff / DoT 全部并进这一行,一格最多 3 枚,超出收成 +N */
+    .cps { display: flex; gap: 2px; align-items: center; }
+    .icdefs { position: absolute; width: 0; height: 0; overflow: hidden; }
+    /* 状态 chip = 图标 + 数值。图形取自 tools/icons/build_icons.py 的同一批 SVG
+       (64×64、纯白、底色由 chip 上),真机走 Icons.Get() 的 PNG,取不到再回落汉字徽章。 */
+    .cp { flex: none; height: 12px; padding: 0 3px; border-radius: 6px; color: #fff;
+      font-size: 7.5px; font-weight: 700; letter-spacing: .1px;
+      display: flex; align-items: center; gap: 1.5px; font-variant-numeric: tabular-nums; }
+    .cp .ic { width: 9px; height: 9px; flex: none; display: block; }
+    .cp.more { background: #B3AB9B; font-weight: 400; }
+    .foe .hpb { position: relative; height: 7px; border-radius: 3px; background: #C6BCA8; overflow: hidden; }
+    .foe .hpb > span { display: block; height: 100%; background: #B02D2E; }
+    .foe .hpb u { position: absolute; inset: 0; font-style: normal; font-size: 6px; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      text-shadow: 0 0 2px rgba(0,0,0,.55); font-variant-numeric: tabular-nums; }
+    .foe .shb { height: 3px; border-radius: 2px; background: #EFE7D2; overflow: hidden; }
+    .foe .shb > span { display: block; height: 100%; background: #C9A94A; }
+    .foe .atb { height: 3px; border-radius: 2px; background: #C9C0AE; overflow: hidden; }
+    .foe .atb > span { display: block; height: 100%; background: #3D4E69; }
+    .foe .atb.soon > span { background: #C53637; }
+    .foe.target { border-color: #C53637; background: rgba(251,227,226,.6); }
+    .foe.target .nm { color: #9B1E22; font-weight: 700; }
+    .foe.hittable .blk { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(197,54,55,0); } 50% { box-shadow: 0 0 0 3px rgba(197,54,55,.35); } }
+    .foe.dead { opacity: .28; pointer-events: none; }
+    .foe .sh, .ally .sh { position: absolute; left: 2px; bottom: 2px; height: 12px; padding: 0 3px;
+      border-radius: 6px; background: #C9A94A; color: #2B2200; font-size: 7px; font-weight: 700;
+      display: flex; align-items: center; gap: 1px; font-variant-numeric: tabular-nums; z-index: 2; }
+    .sh .ic { width: 8px; height: 8px; flex: none; display: block; }
+    .sh .ic use { color: #2B2200; }
+    .foe .dmg { position: absolute; left: 50%; top: 3px; transform: translateX(-50%); z-index: 3;
+      background: rgba(155,30,34,.94); color: #fff; font-size: 10px; font-weight: 700;
+      padding: 1px 5px; border-radius: 7px; white-space: nowrap; font-variant-numeric: tabular-nums;
+      animation: pop .18s ease-out; }
+    .foe .dmg.ke { background: #8F6B09; box-shadow: 0 0 0 1.5px rgba(201,169,74,.6); }
+    @keyframes pop { from { transform: translate(-50%, 5px); opacity: 0; } }
+    /* 空格位:每排恒定 4 格,空的也占位 —— 贯穿/横扫按列结算,列不能因为死了怪就塌 */
+    .foeslot { border-radius: 9px; border: 1px dashed #C6BCA8; opacity: .45; }
+    .foeslot.front { width: 140px; height: 66px; }
+    .foeslot.rear { width: 140px; height: 52px; }
+
+    .divider { width: 74%; height: 1px; background: rgba(61,78,105,.3); }
+
+    /* 我方格同样横排。召唤物之前挤在 34/28 的小方块里,横排后立绘反而放大到 48/40。 */
+    .ally { display: flex; align-items: center; gap: 5px; padding: 3px;
+      background: rgba(255,253,247,.5); border: 1px solid rgba(198,188,168,.5); border-radius: 8px; }
+    .ally .blk { position: relative; flex: none; border-radius: 6px; background: var(--elSoft);
+      border: 1.5px solid var(--el); overflow: hidden;
+      display: flex; align-items: center; justify-content: center; }
+    .ally .face { font-family: "Noto Serif SC", serif; font-weight: 600; color: var(--glyph); line-height: 1; }
+    .ally.front { width: 138px; }
+    .ally.front .blk { width: 48px; height: 48px; } .ally.front .face { font-size: 24px; }
+    .ally.rear { width: 138px; }
+    .ally.rear .blk { width: 36px; height: 36px; } .ally.rear .face { font-size: 18px; }
+    .ally .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .ally .hd { display: flex; align-items: baseline; gap: 4px; }
+    .ally .atk { font-size: 9px; color: #2C333D; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .ally .hpn { margin-left: auto; font-size: 8px; color: #7A7261; font-variant-numeric: tabular-nums; }
+
+    .ally .hpb { position: relative; height: 6px; border-radius: 3px; background: #C6BCA8; overflow: hidden; }
+    .ally .hpb > span { display: block; height: 100%; background: #2E7D46; }
+    .ally .hpb u { position: absolute; inset: 0; font-style: normal; font-size: 5.5px; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      text-shadow: 0 0 2px rgba(0,0,0,.5); font-variant-numeric: tabular-nums; }
+    .ally .shb { height: 3px; border-radius: 2px; background: #EFE7D2; overflow: hidden; }
+    .ally .shb > span { display: block; height: 100%; background: #C9A94A; }
+    .ally .atb { height: 3px; border-radius: 2px; background: #C9C0AE; overflow: hidden; }
+    .ally .atb > span { display: block; height: 100%; background: #3D4E69; }
+    .ally .atb.soon > span { background: #2E7D46; }
+    .ally .sh { position: absolute; left: 2px; bottom: 2px; height: 11px; padding: 0 3px;
+      border-radius: 5px; background: #C9A94A; color: #2B2200; font-size: 6.5px; font-weight: 700;
+      display: flex; align-items: center; font-variant-numeric: tabular-nums; z-index: 2; }
+    .slotfree { border-radius: 8px; border: 1px dashed #B9B0A0; opacity: .45; }
+    .slotfree.front { width: 138px; height: 54px; }
+    .slotfree.rear { width: 138px; height: 42px; }
+
+    /* ---------- 玩家条 ---------- */
+    /* 与战场格同构:立绘方块 + 信息列 + 三条。执笔人原先只有一个名字,
+       在四排都是「立绘 + 条」的战场上显得不是同一类东西。 */
+    .me { flex: none; height: 40px; display: flex; align-items: center; gap: 8px;
+      background: rgba(255,253,247,.86); border: 1px solid #DED7C9;
+      border-radius: 9px; padding: 0 9px 0 4px; }
+    .me .blk { position: relative; flex: none; width: 34px; height: 34px; border-radius: 7px;
+      background: #11161F; display: flex; align-items: center; justify-content: center; }
+    .me .blk .face { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600;
+      color: #F3EEE2; line-height: 1; }
+    .me .lv { position: absolute; right: -3px; bottom: -3px; height: 11px; padding: 0 3px;
+      border-radius: 5px; background: #C9A94A; color: #2B2200; font-size: 6.5px; font-weight: 700;
+      display: flex; align-items: center; }
+    .me .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .me .hd { display: flex; align-items: center; gap: 5px; }
+    .me .who { flex: none; font-family: "Noto Serif SC", serif; font-size: 10.5px;
+      font-weight: 600; letter-spacing: 1px; }
+    .me .hpn { margin-left: auto; font-size: 8.5px; color: #5D646F; font-variant-numeric: tabular-nums; }
+    .me .hpn b { color: #161B22; font-weight: 700; }
+    .me .hpb { position: relative; height: 8px; border-radius: 4px; background: #D5CBB8; overflow: hidden; }
+    .me .hpb > span { display: block; height: 100%; background: #B02D2E; }
+    .me .shb { position: relative; height: 5px; border-radius: 3px; background: #EFE7D2;
+      box-shadow: inset 0 0 0 1px rgba(155,138,90,.3); overflow: hidden; }
+    .me .shb > span { display: block; height: 100%; background: #C9A94A; }
+    .me .atb { height: 3px; border-radius: 2px; background: #C9C0AE; overflow: hidden; }
+    .me .atb > span { display: block; height: 100%; background: #3D4E69; }
+    .me .atb.soon > span { background: #2E7D46; }
+
+    /* AP:每回合能出几个字,是这一屏最该一眼看见的资源。
+       原先是三颗 8px 小圆点,分量还不如旁边的状态 chip。改成竖笔画格 —— 满的是墨、
+       空的是白格,像还没蘸墨的笔画;不够出下一个字时整块转朱砂。 */
+    .ap { flex: none; display: flex; align-items: center; gap: 5px; padding-left: 8px;
+      border-left: 1px solid #E4DDCE; align-self: stretch; }
+    .ap .k { font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
+    .ap .pips { display: flex; gap: 3px; }
+    .ap .pips i { display: block; width: 8px; height: 20px; border-radius: 3px;
+      background: #EFEADF; box-shadow: inset 0 0 0 1px #D5CBB8; }
+    .ap .pips i.on { background: #11161F; box-shadow: none; }
+    .ap .n { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600;
+      font-variant-numeric: tabular-nums; line-height: 1; }
+    .ap .n em { font-style: normal; font-size: 9px; color: #88909C; }
+    .ap.dry .pips i.on { background: #C53637; }
+    .ap.dry .n { color: #9B1E22; }
+
+    /* 状态栏:定宽两行,四枚以内平铺、超出收 +N —— 之前挤在最右侧,多两个状态就顶出去了 */
+    .stt { flex: none; width: 120px; align-self: stretch; display: flex; flex-wrap: wrap;
+      align-content: center; gap: 3px; padding-left: 8px; border-left: 1px solid #E4DDCE; }
+
+    /* ---------- 手牌 ---------- */
+    .hand { flex: none; display: flex; align-items: center; justify-content: center; gap: 5px; }
+    .handlbl { font-size: 8px; color: #88909C; letter-spacing: 1.5px; writing-mode: vertical-rl; }
+    .tile { position: relative; width: 46px; height: 56px; border-radius: 7px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 1px 3px rgba(22,27,34,.1); cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 0; font-family: inherit; transition: transform .1s; }
+    .tile::before { content: ""; position: absolute; inset: 3px; border-radius: 4px;
+      border: 1px solid color-mix(in srgb, var(--rar) 28%, transparent); }
+    .tile .g { position: relative; z-index: 2; font-family: "Noto Serif SC", serif; font-size: 27px;
+      font-weight: 600; line-height: 1; color: var(--glyph); }
+    .tile .p { position: relative; z-index: 2; font-size: 7.5px; color: #5D646F; margin-top: 4px; letter-spacing: .3px; }
+    .tile.on { border-color: #C53637; box-shadow: 0 0 0 2px rgba(197,54,55,.28), 0 4px 9px rgba(22,27,34,.18);
+      transform: translateY(-4px); }
+    .tile.dim { filter: grayscale(.75); opacity: .48; }
+    .adslot { width: 42px; height: 56px; border-radius: 7px; border: 1px dashed #A9CDB2; background: #EDF7EF;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      font-size: 8px; color: #1B552C; cursor: pointer; font-family: inherit; line-height: 1.3; padding: 0; }
+    .adslot.used { border-color: #CFC7B6; background: #EFEAE0; color: #A8A08E; cursor: default; }
+
+    /* ---------- 部件池 ---------- */
+    .pool { flex: none; display: flex; align-items: center; gap: 4px; }
+    .pool .lbl { font-size: 8px; color: #88909C; letter-spacing: 1.5px; writing-mode: vertical-rl; height: 36px; }
+    .part { position: relative; width: 32px; height: 38px; border-radius: 7px; cursor: pointer;
+      background: var(--elSoft); border: 1.5px solid transparent; padding: 0; font-family: inherit;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+    .part .pg { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600;
+      line-height: 1; color: var(--elFg); }
+    /* 同源变体(ComponentKin):水=水氵冫 / 木=木艹 / 金=金钅戈刂刀 / 土=土山石 / 火=火灬。
+       同组任一都能顶替配方里的那一位,所以必须写在卡面上。 */
+    .part .kin { font-size: 7px; color: var(--elFg); opacity: .72; letter-spacing: -.2px; line-height: 1; }
+    .part.on { border-color: #C53637; box-shadow: 0 0 0 1.5px rgba(197,54,55,.25); }
+    .part.neutral { background: #E4DFD4; }
+    .part.neutral .pg { color: #4F5661; }
+    .adpart { width: 32px; height: 38px; border-radius: 7px; border: 1px dashed #A9CDB2; background: #EDF7EF;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      font-size: 7.5px; color: #1B552C; cursor: pointer; font-family: inherit; padding: 0; line-height: 1.2; }
+    .adpart.used { border-color: #CFC7B6; background: #EFEAE0; color: #A8A08E; cursor: default; }
+    .poolnote { font-size: 8px; color: #A8A08E; letter-spacing: .3px; margin-left: auto; }
+
+    /* ---------- 右栏 拆合台 ---------- */
+    .bench { width: 132px; flex: none; background: rgba(255,253,247,.84); border: 1px solid #DED7C9;
+      border-radius: 9px; padding: 7px; display: flex; flex-direction: column; gap: 5px; min-height: 0; }
+    .bench .t { font-size: 8px; color: #88909C; letter-spacing: 2px; text-align: center; flex: none; }
+    .picked { display: flex; align-items: center; gap: 6px; flex: none; }
+    .picked .pt { width: 34px; height: 43px; flex: none; border-radius: 5px; background: #FFFDF7;
+      border: 2px solid var(--rar); display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; color: var(--glyph); }
+    .picked .pi { min-width: 0; }
+    .picked .pn { font-size: 9px; color: #88909C; letter-spacing: .3px; }
+    .picked .pv { font-size: 9.5px; color: #2C333D; line-height: 1.45; margin-top: 2px; }
+    .picked .pv b { color: #B02D2E; }
+    .empty { flex: none; font-size: 9.5px; color: #A8A08E; line-height: 1.7; padding: 4px 2px; }
+    .acts { display: flex; gap: 4px; flex: none; }
+    .act { flex: 1; height: 32px; border: none; border-radius: 6px; cursor: pointer;
+      font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+    .act.cast { background: #C53637; color: #fff; }
+    .act.cast.no { background: #E0D9CB; color: #A8A08E; cursor: not-allowed; }
+    .act.split { background: #19507F; color: #fff; }
+    .act.drop { background: #DAD7D0; color: #40454D; }
+    .craft { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .craft::-webkit-scrollbar { width: 3px; }
+    .craft::-webkit-scrollbar-thumb { background: #D3CBBA; border-radius: 2px; }
+    /* 只列可合成的。缺料的字归左栏「配字表」—— 拆合台是动手的地方,不是清单。 */
+    .cr { display: flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 4px 5px; border-radius: 6px;
+      background: #E9F3EB; box-shadow: inset 0 0 0 1px #B9D6C0; cursor: pointer;
+      border: none; font-family: inherit; width: 100%; }
+    .cr .src { font-family: "Noto Serif SC", serif; font-size: 11px; color: #5D646F; }
+    .cr .ar { font-size: 9px; color: #A8B5AA; }
+    .cr .out { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600; color: var(--glyph); }
+    .crempty { font-size: 9px; color: #A8A08E; text-align: center; padding: 8px 2px; line-height: 1.6; }
+    /* ---------- 新手引导:屏幕中央,固定故事模板 ----------
+       三段恒定:一句道理(旁白) → 一个动作(指令) → 一句结果(预告)。
+       遮罩只压到 38%,要看得见被点名的那张牌/那只怪。 */
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.38); z-index: 60;
+      display: flex; align-items: center; justify-content: center; }
+    .coach { width: 372px; background: #FBF7EC; border: 1.5px solid #C9A94A; border-radius: 12px;
+      padding: 16px 20px 14px; box-shadow: 0 10px 34px rgba(22,27,34,.34); position: relative; }
+    .coach .seal { position: absolute; right: 14px; top: -11px; height: 21px; padding: 0 10px;
+      border-radius: 11px; background: #C9A94A; color: #2B2200; font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; letter-spacing: 1px; }
+    .coach .tale { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600;
+      letter-spacing: 2px; color: #161B22; line-height: 1.5; }
+    .coach .rule { height: 1px; background: #E4DBC5; margin: 11px 0 10px; }
+    .coach .doit { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #2C333D; }
+    .coach .doit .k { flex: none; font-size: 9px; letter-spacing: 2px; color: #8F6B09;
+      background: #F4EAD2; border-radius: 4px; padding: 2px 6px; }
+    .coach .doit b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #9B1E22; }
+    .coach .then { font-size: 11px; color: #7A7261; line-height: 1.6; margin-top: 8px; padding-left: 2px; }
+    .coach .foot { display: flex; align-items: center; gap: 9px; margin-top: 14px; }
+    .coach .dots { display: flex; gap: 4px; }
+    .coach .dots i { width: 6px; height: 6px; border-radius: 50%; background: #E0D5B8; display: block; }
+    .coach .dots i.on { background: #C9A94A; }
+    .coach .dots i.done { background: #A89468; }
+    .coach .skip { border: none; background: transparent; color: #A09A8C; font-family: inherit;
+      font-size: 11px; cursor: pointer; padding: 4px 2px; }
+    .coach .next { margin-left: auto; height: 34px; padding: 0 20px; border: none; border-radius: 17px;
+      background: #C53637; color: #fff; font-family: inherit; font-size: 13px;
+      letter-spacing: 2px; cursor: pointer; }
+
+    .endturn { flex: none; height: 34px; border: none; border-radius: 7px; cursor: pointer;
+      background: #3D4E69; color: #fff; font-family: "Noto Serif SC", serif;
+      font-size: 13px; font-weight: 600; letter-spacing: 2px; }
+  </style>
+</helmet>
+
+<div class="dev">
+  <svg class="icdefs" aria-hidden="true"><defs><symbol id="ic-burn" viewBox="0 0 64 64"><path fill="#fff" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/></symbol><symbol id="ic-burn_nodecay" viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="none" stroke="#fff" stroke-width="6"/><path fill="#fff" d="M32 14c6 8 10 13 10 18a10 10 0 0 1-20 0c0-4 2-7 4-8-1 3 1 5 2 6 1-5-1-9-2-12 3 1 5-1 6-4z"/></symbol><symbol id="ic-freeze" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7v50M10 19l44 26M54 19L10 45"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M25 14l7 7 7-7M25 50l7-7 7 7"/></symbol><symbol id="ic-slow" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M16 7h32M16 57h32"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M20 7c0 13 12 19 12 25s-12 12-12 25M44 7c0 13-12 19-12 25s12 12 12 25"/></symbol><symbol id="ic-blind" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 50L50 14"/></symbol><symbol id="ic-silence" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M10 13h44v25H33L21 50V38H10z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 53L53 11"/></symbol><symbol id="ic-curse" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 55c-12 0-22-10-22-22S20 11 32 11c9 0 17 7 17 16s-6 14-13 14-9-4-9-9 3-7 7-7"/></symbol><symbol id="ic-seal" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M21 30v-8a11 11 0 0 1 22 0v8"/><path fill="#fff" d="M15 30h34v24H15z"/></symbol><symbol id="ic-immunity" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M23 32l7 8 12-14"/></symbol><symbol id="ic-reflect" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M11 7v50"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M52 20H24"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M34 11l-10 9 10 9"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M24 45h28"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M42 36l10 9-10 9"/></symbol><symbol id="ic-attack" viewBox="0 0 64 64"><path fill="#fff" d="M52 8l-4 14-26 26-8-8L40 14z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 46l-8 8"/></symbol><symbol id="ic-morale" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 8v48"/><path fill="#fff" d="M18 12h30l-8 10 8 10H18z"/></symbol><symbol id="ic-crit" viewBox="0 0 64 64"><path fill="#fff" d="M32 4l7 19 19-7-7 19 7 19-19-7-7 19-7-19-19 7 7-19-7-19 19 7z"/></symbol><symbol id="ic-pierce" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32h42M40 20l12 12-12 12"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M30 12v40"/></symbol><symbol id="ic-defense" viewBox="0 0 64 64"><path fill="#fff" d="M32 6l22 8v19c0 13-11 23-22 27-11-4-22-14-22-27V14z"/></symbol><symbol id="ic-dodge" viewBox="0 0 64 64"><circle cx="45" cy="32" r="11" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M27 17c-7 9-7 21 0 30"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M14 21c-5 7-5 15 0 22"/></symbol><symbol id="ic-speed" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 20h26M8 32h34M8 44h26"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M40 20l14 12-14 12"/></symbol><symbol id="ic-shield" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/></symbol><symbol id="ic-armorbreak" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M37 17l-10 15h11l-10 15"/></symbol><symbol id="ic-bleed" viewBox="0 0 64 64"><path fill="#fff" d="M31 6c8 12 13 19 13 25a13 13 0 0 1-26 0c0-6 5-13 13-25z"/><circle cx="15" cy="49" r="5" fill="#fff"/><circle cx="47" cy="52" r="4" fill="#fff"/></symbol><symbol id="ic-scorch" viewBox="0 0 64 64"><path fill="#fff" d="M26 6c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M52 52V24M44 32l8-8 8 8"/></symbol><symbol id="ic-sear" viewBox="0 0 64 64"><path fill="#fff" d="M32 5c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M9 51c5-6 10 6 15 0s10 6 16 0 8 4 15 0"/></symbol><symbol id="ic-split" viewBox="0 0 64 64"><path fill="#fff" d="M27 6a26 26 0 0 0 0 52z"/><path fill="#fff" d="M37 6a26 26 0 0 1 0 52z"/></symbol><symbol id="ic-obscure" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 12h38v40H13z"/><path fill="#fff" d="M13 33c8-6 13 6 21 0s8 4 17 0v19H13z"/></symbol><symbol id="ic-focus" viewBox="0 0 64 64"><circle cx="32" cy="32" r="17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 5v10M32 49v10M5 32h10M49 32h10"/></symbol><symbol id="ic-ranged" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 10c13 8 13 36 0 44"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 32h33M39 22l10 10-10 10"/></symbol><symbol id="ic-sweep" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 11C28 11 11 28 11 53"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 27C37 27 27 37 27 53"/></symbol><symbol id="ic-skewer" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M6 32h44M40 22l10 10-10 10"/><circle cx="19" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/><circle cx="35" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/></symbol><symbol id="ic-thorns" viewBox="0 0 64 64"><circle cx="32" cy="32" r="11" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/></symbol></defs></svg>
+  <div class="safe">
+
+    <div class="bar">
+      <span class="lv">文山</span>
+      <span class="seg">44 层 · 第 2 场</span>
+      <div class="grow"></div>
+      <div class="ink" style="height:18px;font-size:10px;padding:0 7px 0 5px;">
+        <svg width="13" height="8" viewBox="0 0 56 34"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>
+        {{ink}}
+      </div>
+      <span class="turn">第 {{turn}} 回合</span>
+      <button class="coachbtn" onClick="{{openCoach}}">?</button>
+      <button class="quit" onClick="{{noop}}">✕</button>
+    </div>
+
+    <div class="arena">
+
+      <div class="rail">
+        <div class="railbox">
+          <div class="t">相克</div>
+          <svg viewBox="0 0 120 110" width="60" height="55" aria-hidden="true">
+            <defs>
+              <marker id="wxKe" markerWidth="7" markerHeight="7" refX="5.4" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="context-stroke"></path>
+              </marker>
+            </defs>
+            <g stroke-width="2.4" fill="none" marker-end="url(#wxKe)" opacity="0.9">
+              <path d="M64.6,30.3 Q87.6,49.1 80.1,77.7" stroke="#2E9E6B"></path>
+              <path d="M72.6,83.2 Q43,81.5 32.2,53.8" stroke="#7A6234"></path>
+              <path d="M35.1,45 Q60,29 84.9,45" stroke="#3B6DD8"></path>
+              <path d="M87.8,53.8 Q77,81.5 47.4,83.2" stroke="#C8462E"></path>
+              <path d="M39.9,77.7 Q32.4,49.1 55.4,30.3" stroke="#C9A23B"></path>
+            </g>
+            <g font-family="'Noto Serif SC','Songti SC',serif" font-size="13" font-weight="900" text-anchor="middle">
+              <circle cx="60" cy="16" r="12" fill="#2E9E6B"></circle><text x="60" y="20.5" fill="#fff">木</text>
+              <circle cx="99.9" cy="45" r="12" fill="#C8462E"></circle><text x="99.9" y="49.5" fill="#fff">火</text>
+              <circle cx="84.7" cy="92" r="12" fill="#7A6234"></circle><text x="84.7" y="96.5" fill="#fff">土</text>
+              <circle cx="35.3" cy="92" r="12" fill="#C9A23B"></circle><text x="35.3" y="96.5" fill="#fff">金</text>
+              <circle cx="20.1" cy="45" r="12" fill="#3B6DD8"></circle><text x="20.1" y="49.5" fill="#fff">水</text>
+              <circle cx="60" cy="58" r="12" fill="#A34A96"></circle><text x="60" y="62.5" fill="#fff">心</text>
+            </g>
+          </svg>
+        </div>
+        <div class="railbox missing">
+          <div class="t">配字表</div>
+          <sc-for list="{{missing}}" as="m" hint-placeholder-count="4">
+            <div class="mrow {{m.elCls}}">
+              <span class="g">{{m.id}}</span>
+              <span class="need">缺 <b>{{m.lack}}</b></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="mid">
+        <div class="field">
+          <div class="erow">
+            <sc-for list="{{rearFoes}}" as="e" hint-placeholder-count="4">
+              <sc-if value="{{e.filled}}" hint-placeholder-val="{{true}}">
+                <button class="foe rear {{e.cls}} {{e.elCls}}" onClick="{{e.tap}}">
+                  <div class="blk">
+                    <span class="face">{{e.face}}</span>
+                    <sc-if value="{{e.hasShield}}" hint-placeholder-val="{{false}}">
+                      <span class="sh"><svg class="ic"><use href="#ic-shield"></use></svg>{{e.shield}}</span>
+                    </sc-if>
+                    <sc-if value="{{e.hasDmg}}" hint-placeholder-val="{{false}}">
+                      <span class="dmg {{e.dmgCls}}">{{e.dmgText}}</span>
+                    </sc-if>
+                  </div>
+                  <div class="info">
+                    <div class="hd">
+                      <span class="nm">{{e.name}}</span>
+                      <span class="els">{{e.elName}}</span>
+                    </div>
+                    <div class="cps">
+                      <sc-for list="{{e.chips}}" as="c" hint-placeholder-count="2">
+                        <span class="cp {{c.cls}}" style="{{c.style}}">
+                          <svg class="ic"><use href="#ic-{{c.k}}"></use></svg>{{c.n}}
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div class="hpb"><span style="width: {{e.pct}}"></span><u>{{e.hpText}}</u></div>
+                    <div class="shb"><span style="width: {{e.shPct}}"></span></div>
+                    <div class="atb {{e.atbCls}}"><span style="width: {{e.atb}}"></span></div>
+                  </div>
+                </button>
+              </sc-if>
+              <sc-if value="{{e.empty}}" hint-placeholder-val="{{false}}">
+                <div class="foeslot rear"></div>
+              </sc-if>
+            </sc-for>
+          </div>
+
+          <div class="erow">
+            <sc-for list="{{frontFoes}}" as="e" hint-placeholder-count="4">
+              <sc-if value="{{e.filled}}" hint-placeholder-val="{{true}}">
+                <button class="foe front {{e.cls}} {{e.elCls}}" onClick="{{e.tap}}">
+                  <div class="blk">
+                    <span class="face">{{e.face}}</span>
+                    <sc-if value="{{e.hasShield}}" hint-placeholder-val="{{false}}">
+                      <span class="sh"><svg class="ic"><use href="#ic-shield"></use></svg>{{e.shield}}</span>
+                    </sc-if>
+                    <sc-if value="{{e.hasDmg}}" hint-placeholder-val="{{false}}">
+                      <span class="dmg {{e.dmgCls}}">{{e.dmgText}}</span>
+                    </sc-if>
+                  </div>
+                  <div class="info">
+                    <div class="hd">
+                      <span class="nm">{{e.name}}</span>
+                      <span class="els">{{e.elName}}</span>
+                    </div>
+                    <div class="cps">
+                      <sc-for list="{{e.chips}}" as="c" hint-placeholder-count="3">
+                        <span class="cp {{c.cls}}" style="{{c.style}}">
+                          <svg class="ic"><use href="#ic-{{c.k}}"></use></svg>{{c.n}}
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div class="hpb"><span style="width: {{e.pct}}"></span><u>{{e.hpText}}</u></div>
+                    <div class="shb"><span style="width: {{e.shPct}}"></span></div>
+                    <div class="atb {{e.atbCls}}"><span style="width: {{e.atb}}"></span></div>
+                  </div>
+                </button>
+              </sc-if>
+              <sc-if value="{{e.empty}}" hint-placeholder-val="{{false}}">
+                <div class="foeslot front"></div>
+              </sc-if>
+            </sc-for>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="erow">
+            <sc-for list="{{frontAllies}}" as="a" hint-placeholder-count="4">
+              <sc-if value="{{a.filled}}" hint-placeholder-val="{{true}}">
+                <div class="ally front {{a.elCls}}">
+                  <div class="blk">
+                    <span class="face">{{a.id}}</span>
+                    <sc-if value="{{a.hasShield}}" hint-placeholder-val="{{false}}">
+                      <span class="sh"><svg class="ic"><use href="#ic-shield"></use></svg>{{a.shield}}</span>
+                    </sc-if>
+                  </div>
+                  <div class="info">
+                    <div class="hd">
+                      <span class="atk">攻 {{a.atk}}</span>
+                      <span class="hpn">{{a.hpText}}</span>
+                    </div>
+                    <div class="cps">
+                      <sc-for list="{{a.chips}}" as="c" hint-placeholder-count="2">
+                        <span class="cp {{c.cls}}" style="{{c.style}}">
+                          <svg class="ic"><use href="#ic-{{c.k}}"></use></svg>{{c.n}}
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div class="hpb"><span style="width: {{a.pct}}"></span></div>
+                    <div class="shb"><span style="width: {{a.shPct}}"></span></div>
+                    <div class="atb {{a.atbCls}}"><span style="width: {{a.atb}}"></span></div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{a.empty}}" hint-placeholder-val="{{false}}">
+                <div class="slotfree front"></div>
+              </sc-if>
+            </sc-for>
+          </div>
+
+          <div class="erow">
+            <sc-for list="{{rearAllies}}" as="a" hint-placeholder-count="4">
+              <sc-if value="{{a.filled}}" hint-placeholder-val="{{true}}">
+                <div class="ally rear {{a.elCls}}">
+                  <div class="blk">
+                    <span class="face">{{a.id}}</span>
+                    <sc-if value="{{a.hasShield}}" hint-placeholder-val="{{false}}">
+                      <span class="sh"><svg class="ic"><use href="#ic-shield"></use></svg>{{a.shield}}</span>
+                    </sc-if>
+                  </div>
+                  <div class="info">
+                    <div class="hd">
+                      <span class="atk">攻 {{a.atk}}</span>
+                      <span class="hpn">{{a.hpText}}</span>
+                    </div>
+                    <div class="cps">
+                      <sc-for list="{{a.chips}}" as="c" hint-placeholder-count="2">
+                        <span class="cp {{c.cls}}" style="{{c.style}}">
+                          <svg class="ic"><use href="#ic-{{c.k}}"></use></svg>{{c.n}}
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div class="hpb"><span style="width: {{a.pct}}"></span></div>
+                    <div class="shb"><span style="width: {{a.shPct}}"></span></div>
+                    <div class="atb {{a.atbCls}}"><span style="width: {{a.atb}}"></span></div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{a.empty}}" hint-placeholder-val="{{false}}">
+                <div class="slotfree rear"></div>
+              </sc-if>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="me">
+          <div class="blk">
+            <span class="face">墨</span>
+            <span class="lv">12</span>
+          </div>
+          <div class="info">
+            <div class="hd">
+              <span class="who">执笔人</span>
+              <span class="hpn"><b>{{hp}}</b> / {{hpMax}}　盾 <b>{{shield}}</b></span>
+            </div>
+            <div class="hpb"><span style="width: {{hpPct}}"></span></div>
+            <div class="shb"><span style="width: {{shPct}}"></span></div>
+            <div class="atb {{atbCls}}"><span style="width: {{atb}}"></span></div>
+          </div>
+          <div class="stt">
+            <sc-for list="{{buffs}}" as="b" hint-placeholder-count="3">
+              <span class="cp" style="{{b.style}}">
+                <svg class="ic"><use href="#ic-{{b.k}}"></use></svg>{{b.n}}
+              </span>
+            </sc-for>
+          </div>
+          <div class="ap {{apCls}}">
+            <span class="k">AP</span>
+            <span class="pips">
+              <sc-for list="{{apPips}}" as="p" hint-placeholder-count="3"><i class="{{p.cls}}"></i></sc-for>
+            </span>
+            <span class="n">{{ap}}<em>/{{apMax}}</em></span>
+          </div>
+        </div>
+
+        <div class="hand">
+          <span class="handlbl">字库 {{handCount}}/{{handCap}}</span>
+          <sc-for list="{{hand}}" as="h" hint-placeholder-count="7">
+            <button class="tile {{h.rarCls}} {{h.elCls}} {{h.cls}}" onClick="{{h.tap}}">
+              <span class="g">{{h.id}}</span>
+              <span class="p">{{h.py}}</span>
+            </button>
+          </sc-for>
+          <button class="adslot {{handAdCls}}" onClick="{{handAd}}">
+            <svg width="7" height="8" viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="currentColor"></path></svg>
+            {{handAdText}}
+          </button>
+        </div>
+
+        <div class="pool">
+          <span class="lbl">部件 {{poolCount}}/{{poolCap}}</span>
+          <sc-for list="{{pool}}" as="p" hint-placeholder-count="9">
+            <button class="part {{p.elCls}} {{p.cls}}" onClick="{{p.tap}}">
+              <span class="pg">{{p.id}}</span>
+              <span class="kin">{{p.kin}}</span>
+            </button>
+          </sc-for>
+          <button class="adpart {{poolAdCls}}" onClick="{{poolAd}}">
+            <svg width="7" height="8" viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="currentColor"></path></svg>
+            {{poolAdText}}
+          </button>
+          <span class="poolnote">下回合掉 1 个</span>
+        </div>
+      </div>
+
+      <div class="bench">
+        <div class="t">拆 合 台</div>
+
+        <sc-if value="{{hasPicked}}" hint-placeholder-val="{{true}}">
+          <div class="picked">
+            <div class="pt {{sel.rarCls}} {{sel.elCls}}">{{sel.id}}</div>
+            <div class="pi">
+              <div class="pn">{{sel.meta}}</div>
+              <div class="pv">{{sel.effect}}</div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{hasPicked}}" hint-placeholder-val="{{true}}">
+          <div class="acts">
+            <button class="act cast {{castCls}}" onClick="{{doCast}}">出</button>
+            <button class="act split" onClick="{{doSplit}}">拆</button>
+            <button class="act drop" onClick="{{doDrop}}">弃</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{noPicked}}" hint-placeholder-val="{{false}}">
+          <div class="empty">点字库里的字看它能做什么，<br>点部件凑配方。</div>
+        </sc-if>
+
+        <div class="t" style="margin-top: 2px;">可 合 成</div>
+        <div class="craft">
+          <sc-for list="{{craftable}}" as="c" hint-placeholder-count="4">
+            <button class="cr {{c.elCls}}" onClick="{{c.tap}}">
+              <span class="src">{{c.src}}</span>
+              <span class="ar">→</span>
+              <span class="out">{{c.id}}</span>
+            </button>
+          </sc-for>
+          <sc-if value="{{noCraft}}" hint-placeholder-val="{{false}}">
+            <div class="crempty">手上的部件<br>还凑不出字</div>
+          </sc-if>
+        </div>
+
+        <button class="endturn" onClick="{{endTurn}}">结束回合</button>
+      </div>
+
+    </div>
+  </div>
+
+  <sc-if value="{{coachOn}}" hint-placeholder-val="{{true}}">
+    <div class="scrim">
+      <div class="coach">
+        <span class="seal">第 {{coach.no}} 步 / 共 4 步</span>
+        <div class="tale">{{coach.tale}}</div>
+        <div class="rule"></div>
+        <div class="doit"><span class="k">这样做</span><span>{{coach.doit}}</span></div>
+        <div class="then">{{coach.then}}</div>
+        <div class="foot">
+          <span class="dots">
+            <sc-for list="{{coach.dots}}" as="d" hint-placeholder-count="4"><i class="{{d.cls}}"></i></sc-for>
+          </span>
+          <button class="skip" onClick="{{skipCoach}}">跳过引导</button>
+          <button class="next" onClick="{{nextCoach}}">{{coach.btn}}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div class="guide">
+    <i class="gl"></i><i class="gr"></i><i class="gb"></i>
+    <u style="left: 6px; top: 6px;">59pt</u>
+    <u style="right: 6px; top: 6px;">59pt</u>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+// 五行:相克 木→土→水→火→金→木;相生「他生我」母→本字
+var KE = { Wood: "Earth", Earth: "Water", Water: "Fire", Fire: "Metal", Metal: "Wood" };
+var EL_NAME = { Metal: "金", Wood: "木", Water: "水", Fire: "火", Earth: "土", Heart: "心" };
+var RAR_NAME = { White: "素纸", Green: "竹青", Blue: "青瓷", Purple: "紫檀", Gold: "鎏金" };
+
+// ComponentKin(Core/ComponentKin.cs):同组任一都能顶替配方里的那一位
+var KIN = [["水","氵","冫"], ["木","艹"], ["金","钅","戈","刂","刀"], ["土","山","石"], ["火","灬"]];
+function kinOf(part) {
+  for (var i = 0; i < KIN.length; i++) {
+    if (KIN[i].indexOf(part) < 0) continue;
+    var rest = KIN[i].filter(function (x) { return x !== part; });
+    return rest.length > 2 ? "≈" + rest.slice(0, 2).join("") + "+" + (rest.length - 2) : "≈" + rest.join("");
+  }
+  return "";
+}
+function kinMatch(have, want) {
+  if (have === want) return true;
+  for (var i = 0; i < KIN.length; i++)
+    if (KIN[i].indexOf(have) >= 0 && KIN[i].indexOf(want) >= 0) return true;
+  return false;
+}
+
+var PART_EL = { "水":"Water","氵":"Water","冫":"Water","木":"Wood","艹":"Wood",
+  "金":"Metal","钅":"Metal","戈":"Metal","刂":"Metal","刀":"Metal",
+  "土":"Earth","山":"Earth","石":"Earth","火":"Fire","灬":"Fire" };
+
+// 字表(与 chars.json 同源);dmg/aoe 为 Lv.1 基础值,shown 时按卡等级缩放
+var CHARS = {
+  "冷": { el:"Water", rar:"Blue", py:"lěng", lv:3, rec:["冫","令"], dmg:90, txt:"减速 2 回合；单体 <b>{d}</b> 伤" },
+  "刺": { el:"Metal", rar:"Blue", py:"cì",   lv:5, rec:["朿","刂"], dmg:100, txt:"单体 <b>{d}</b> 伤（穿甲 15，可偷袭后排）；战意 +1" },
+  "藤": { el:"Wood",  rar:"Blue", py:"téng", lv:4, rec:["艹","滕"], summon:1, txt:"召唤 1×藤（血 104 攻 52，入场冻结 1 回合）" },
+  "爆": { el:"Fire",  rar:"Blue", py:"bào",  lv:2, rec:["火","暴"], dmg:50, aoe:true, txt:"全体 <b>{d}</b> 伤；全体灼烧 1 层" },
+  "灼": { el:"Fire",  rar:"White",py:"zhuó", lv:6, rec:["火","勺"], dmg:40, txt:"单体 <b>{d}</b> 伤（对灼烧目标双倍）；灼烧 1 层" },
+  "垒": { el:"Earth", rar:"Green",py:"lěi",  lv:2, rec:["厽","土"], dmg:30, shield:50, txt:"护盾 <b>55</b>；单体 <b>{d}</b> 伤" },
+  "锐": { el:"Metal", rar:"Green",py:"ruì",  lv:3, rec:["钅","兑"], dmg:40, txt:"本场无视 24 点护甲；单体 <b>{d}</b> 伤" },
+  "海": { el:"Water", rar:"Green",py:"hǎi",  lv:1, rec:["氵","每"], dmg:50, aoe:true, txt:"全体 <b>{d}</b> 伤" },
+  "碎": { el:"Earth", rar:"Blue", py:"suì",  lv:1, rec:["石","卒"], dmg:90, txt:"单体 <b>{d}</b> 伤；破甲 20" },
+  "烧": { el:"Fire",  rar:"Green",py:"shāo", lv:1, rec:["火","尧"], dmg:30, txt:"单体 <b>{d}</b> 伤；灼烧 2 层" },
+  // 下面三个部件不全,只进左栏「配字表」提示缺什么,不进拆合台
+  "冻": { el:"Water", rar:"White",py:"dòng", lv:1, rec:["冫","东"], dmg:30, txt:"冻结 1 回合；单体 <b>{d}</b> 伤" },
+  "炸": { el:"Fire",  rar:"Blue", py:"zhà",  lv:1, rec:["火","乍"], dmg:90, txt:"单体 <b>{d}</b> 伤；引爆灼烧" },
+  "剑": { el:"Metal", rar:"Blue", py:"jiàn", lv:1, rec:["佥","刂"], summon:1, txt:"召唤 1×剑（血 48 攻 64，横扫 50%）" },
+  "壁": { el:"Earth", rar:"Green",py:"bì",   lv:1, rec:["辟","土"], shield:40, txt:"护盾 <b>40</b>；反伤 30% 2 回合" }
+};
+// 护盾条标尺:盾 = 1/4 血时满格。不按各自血量归一 —— 归一了 60 盾的召唤物
+// 与 60 盾的 Boss 看起来一样长,横着比就没意义了。
+// chip 配色与 Theme.AbilityChipColor 同口径:朱砂 = 增长的威胁 / DoT,翠玉 = 恢复,
+// 墨蓝 = 控制类 debuff,土黄 = 攻击模式,深灰蓝 = 防御与信息(远程、锁人、护甲、特性)
+var CHIP_BG = { dot: "#C53637", heal: "#2E7D46", ctrl: "#19507F", mode: "#997C3C", info: "#3D4E69" };
+function chipsOf(list) {
+  var src = list || [];
+  var cap = 4;
+  var out = src.slice(0, cap).map(function (c) {
+    // c = [图标 key, 类别, 数值?] —— 数值缺省就只出图标
+    return { k: c[0], n: c[2] || "", cls: "", style: "background: " + (CHIP_BG[c[1]] || CHIP_BG.info) };
+  });
+  if (src.length > cap) out.push({ k: "curse", n: "+" + (src.length - cap), cls: "more", style: "" });
+  return out;
+}
+
+function shieldPct(shield, maxHp) {
+  return Math.min(100, Math.round((shield || 0) / maxHp * 400)) + "%";
+}
+
+function scaled(id) {
+  var c = CHARS[id];
+  return c.dmg ? Math.ceil(c.dmg * (1 + (c.lv - 1) * 0.1)) : 0;
+}
+function effectText(id) {
+  return CHARS[id].txt.replace("{d}", String(scaled(id)));
+}
+
+// 出阵表里能合的字:凑齐部件就出现在拆合台
+// 每排格位数。⚠ 对应 Core 三处常量:Targeting.RowCapacity(敌方每排,现 3)、
+// BattleEngine.EnemyCap(场上敌人上限,现 6)、SummonCap / FrontRowSize(我方,现 6 / 3)。
+// 改到 4 会连带影响 Targeting 里 Cleave / Skewer / Sweep 的按列取目标。
+var ROW_SLOTS = 4;
+
+var RECIPES = ["冷", "海", "碎", "烧", "灼", "爆", "锐", "藤", "冻", "炸", "剑", "壁"];
+
+// 引导脚本 —— 与 Core/Tutorial.cs 的 Script 顺序严格对应:
+//   DismantleDemo → RecomposeDemo → CastDemo → PickReward
+// 演示字取 Tutorial.DemoChar =「刺」。⚠ 现行 strings.zh-CN.json 的四条 tutorial 文案
+// 写的是【剑】,而 DemoChar 早已是「刺」—— 玩家会被指去点一张手上没有的牌。
+//
+// 固定故事模板,三段恒定:
+//   ① 旁白  一句道理,宋体大字,讲「为什么」
+//   ② 指令  一个动作,点名具体的牌与按钮,讲「怎么做」
+//   ③ 预告  一句结果,小字,讲「会发生什么」
+var COACH = [
+  { tale: "字，是拆得开的。",
+    doit: "选中「刺」→ 点拆合台的【拆】",
+    then: "它会散成『朿』『刂』两个部件，落回下面的部件池。" },
+  { tale: "拆开的，还能拼回去。",
+    doit: "在「可合成」里点【朿＋刂 → 刺】",
+    then: "部件重新合成一个字，回到你的字库。拆与合互为表里。" },
+  { tale: "金克木，一击见分晓。",
+    doit: "选中「刺」→ 点前排的【叠字怪】",
+    then: "木系怪吃 1.5 倍伤害，而且这一击直接无视它的护甲。" },
+  { tale: "出过的字，不会自己回来。",
+    doit: "战斗结束后，从战利品里挑至多 2 个字",
+    then: "往后全靠拆与合，把手上这几个字再生产出来。" }
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      turn: 6, ap: 2, apMax: 3, hp: 612, hpMax: 920, shield: 55, ink: 340, atb: 64,
+      hand: ["冷", "刺", "藤", "爆", "灼", "垒", "锐"],
+      handCap: 8, handAd: false,
+      pool: ["冫", "氵", "刂", "火", "石", "令", "每", "卒", "尧"],
+      poolCap: 10, poolAd: false,
+      picked: null, parts: [],
+      target: 0, hit: null,
+      foes: [
+        // 文山 ×3.0;col 是列号 —— 每排恒定 4 格,贯穿/横扫按列结算,空位也占格。
+        // chips = [文字, 类别]:mode 攻击模式 / info 技能特性与防御 / ctrl 控制 / dot 持续伤害
+        { id: "痕", name: "焦痕",  el: "Fire",  hp: 221, max: 480, atb: 55, row: "front", col: 0,
+          chips: [["scorch", "dot"], ["burn", "dot", "3"]] },
+        { id: "叠", name: "叠字怪", el: "Wood",  hp: 422, max: 480, atb: 22, row: "front", col: 1,
+          chips: [["split", "info"], ["slow", "ctrl", "2"]] },
+        { id: "夯", name: "夯土妖", el: "Earth", hp: 480, max: 480, atb: 12, row: "front", col: 2, shield: 90,
+          chips: [["defense", "info", "20"], ["sweep", "mode"]] },
+        { id: "灯", name: "灯花",  el: "Fire",  hp: 288, max: 360, atb: 68, row: "front", col: 3,
+          chips: [["sear", "dot"]] },
+        { id: "溅", name: "墨溅",  el: "Water", hp: 222, max: 300, atb: 40, row: "rear",  col: 0,
+          chips: [["ranged", "mode"]] },
+        { id: "针", name: "悬针",  el: "Metal", hp: 270, max: 270, atb: 88, row: "rear",  col: 1,
+          chips: [["ranged", "mode"], ["focus", "info"]] },
+        { id: "败", name: "败笔",  el: "Fire",  hp: 450, max: 450, atb: 30, row: "rear",  col: 2,
+          chips: [["focus", "info"], ["armorbreak", "ctrl", "20"]] },
+        { id: "僻", name: "生僻字", el: "Earth", hp: 610, max: 660, atb: 15, row: "rear",  col: 3, shield: 45,
+          chips: [["obscure", "info"], ["freeze", "ctrl", "1"], ["bleed", "dot", "12"]] }
+      ],
+      allies: [
+        { id: "藤", el: "Wood",  hp: 73, max: 104, atk: 52, atb: 86, speed: 33, row: "front", col: 0,
+          chips: [["freeze", "ctrl", "1"]] },
+        { id: "松", el: "Wood",  hp: 60, max: 60,  atk: 30, atb: 30, speed: 33, row: "front", col: 1, chips: [] },
+        { id: "枪", el: "Wood",  hp: 44, max: 72,  atk: 62, atb: 47, speed: 33, row: "front", col: 2,
+          chips: [["skewer", "mode", "70%"]] },
+        { id: "碉", el: "Earth", hp: 55, max: 60,  atk: 10, atb: 8,  speed: 22, row: "rear",  col: 0, shield: 60,
+          chips: [["thorns", "heal", "20"]] },
+        { id: "堡", el: "Earth", hp: 120, max: 120, atk: 20, atb: 20, speed: 22, row: "rear", col: 1, chips: [] }
+      ],
+      coach: -1, lastHit: null   // 设计稿默认关掉遮罩,点顶栏的「?」看引导;真机是首战自动弹
+    };
+  }
+
+  // 相克 ×1.5 并无视护甲;被克 ×0.5(spec docs/design/wuxing-reference.md)
+  multiplier(atkEl, defEl) {
+    if (KE[atkEl] === defEl) return 1.5;
+    if (KE[defEl] === atkEl) return 0.5;
+    return 1;
+  }
+
+  cast(foeIndex) {
+    var st = this.state, id = st.picked;
+    if (id === null || st.ap < 1) return;
+    var c = CHARS[id];
+    // 出盾字:护盾加在玩家身上,与伤害同一次出手结算(垒 = 盾 50 + 单体 30)
+    var gainShield = c.shield ? Math.ceil(c.shield * (1 + (c.lv - 1) * 0.1)) : 0;
+    var self = this;
+    var foes = st.foes.map(function (f, i) {
+      var isTarget = c.aoe || i === foeIndex;
+      if (!isTarget || f.hp <= 0) return f;
+      var mult = self.multiplier(c.el, f.el);
+      var dmg = Math.round(scaled(id) * mult);
+      return Object.assign({}, f, { hp: Math.max(0, f.hp - dmg), lastDmg: dmg });
+    });
+    var hitFoe = st.foes[foeIndex];
+    var m = this.multiplier(c.el, hitFoe.el);
+    var note = m === 1.5 ? EL_NAME[c.el] + "克" + EL_NAME[hitFoe.el] + " ×1.5"
+      : (m === 0.5 ? "被克 ×0.5" : "");
+    this.setState({
+      foes: foes, ap: st.ap - 1,
+      hand: st.hand.filter(function (h, i) { return i !== st.handIdx; }),
+      picked: null, handIdx: null,
+      // 顶栏提示条已撤,出手反馈改由敌人格上的飘字承担 —— 打在谁身上、掉多少、
+      // 有没有吃到克制,三件事都长在被打的那一格上,不必抬头去读一行字。
+      shield: st.shield + gainShield,
+      lastHit: { index: c.aoe ? -1 : foeIndex, dmg: Math.round(scaled(id) * (c.aoe ? 1 : m)), note: note.trim() }
+    });
+  }
+
+  renderVals() {
+    var self = this, st = this.state;
+
+    var mkFoe = function (f, i) {
+      var dead = f.hp <= 0;
+      var cls = [];
+      if (dead) cls.push("dead");
+      if (st.target === i) cls.push("target");
+      if (st.picked !== null && !dead) cls.push("hittable");
+      var hit = st.lastHit && (st.lastHit.index === i || st.lastHit.index === -1);
+      return {
+        filled: true, empty: false,
+        face: f.id, name: f.name, elCls: "e-" + f.el, cls: cls.join(" "),
+        elName: EL_NAME[f.el], chips: chipsOf(f.chips),
+        shield: f.shield || 0, hasShield: (f.shield || 0) > 0,
+        shPct: shieldPct(f.shield, f.max),
+        hasDmg: !!hit && !dead,
+        dmgText: hit ? "−" + st.lastHit.dmg + (st.lastHit.note ? "　" + st.lastHit.note : "") : "",
+        dmgCls: hit && st.lastHit.note.indexOf("×1.5") >= 0 ? "ke" : "",
+        pct: Math.round(f.hp / f.max * 100) + "%",
+        hpText: f.hp + "/" + f.max,
+        atb: f.atb + "%", atbCls: f.atb > 80 ? "soon" : "",
+        ranged: !!f.ranged, hasTag: !!f.tag, tag: f.tag || "",
+        tagStyle: "background: " + (f.tagBg || "#3D4E69"),
+        tap: function () {
+          if (dead) return;
+          if (st.picked !== null && st.ap > 0) self.cast(i);
+          else self.setState({ target: i, lastHit: null });
+        }
+      };
+    };
+
+    var mkAlly = function (a) {
+      return { filled: true, empty: false, id: a.id, elCls: "e-" + a.el,
+        atk: a.atk, chips: chipsOf(a.chips),
+        shield: a.shield || 0, hasShield: (a.shield || 0) > 0,
+        shPct: shieldPct(a.shield, a.max),
+        pct: Math.round(a.hp / a.max * 100) + "%", hpText: a.hp + "/" + a.max,
+        atb: a.atb + "%", atbCls: a.atb > 80 ? "soon" : "" };
+    };
+
+    // 每排恒定 ROW_SLOTS 格,空位也建 —— 与真机 BattleView 的固定格位一致:
+    // 贯穿(Skewer)/横扫(Sweep)按「列」结算,列不能因为死了一只怪就塌掉。
+    var rowOf = function (row, list, make) {
+      var out = [];
+      for (var col = 0; col < ROW_SLOTS; col++) {
+        var found = null;
+        for (var i = 0; i < list.length; i++)
+          if (list[i].row === row && list[i].col === col) { found = make(list[i], i); break; }
+        out.push(found || { filled: false, empty: true });
+      }
+      return out;
+    };
+
+    var hand = st.hand.map(function (id, i) {
+      var c = CHARS[id];
+      return {
+        id: id, py: c.py, rarCls: "r-" + c.rar, elCls: "e-" + c.el,
+        cls: st.picked === id && st.handIdx === i ? "on" : (st.ap < 1 ? "dim" : ""),
+        tap: function () {
+          if (st.picked === id && st.handIdx === i) self.setState({ picked: null, handIdx: null, lastHit: null });
+          else self.setState({ picked: id, handIdx: i, parts: [], lastHit: null });
+        }
+      };
+    });
+
+    var pool = st.pool.map(function (p, i) {
+      var el = PART_EL[p];
+      var on = st.parts.indexOf(i) >= 0;
+      return {
+        id: p, kin: kinOf(p),
+        elCls: el ? "e-" + el : "neutral",
+        cls: on ? "on" : "",
+        tap: function () {
+          var next = on ? st.parts.filter(function (x) { return x !== i; }) : st.parts.concat([i]);
+          self.setState({ parts: next, picked: null, handIdx: null, lastHit: null });
+        }
+      };
+    });
+
+    // 可合成:池里的部件(认同源变体)能凑齐配方的字。缺料的不进这里,归左栏配字表。
+    var craftable = [], missing = [];
+    RECIPES.forEach(function (id) {
+      var c = CHARS[id]; if (!c) return;
+      var left = st.pool.slice(), lack = [];
+      c.rec.forEach(function (want) {
+        var at = -1;
+        for (var i = 0; i < left.length; i++) if (kinMatch(left[i], want)) { at = i; break; }
+        if (at >= 0) left.splice(at, 1); else lack.push(want);
+      });
+      if (lack.length === 0) {
+        craftable.push({
+          id: id, src: c.rec.join("＋"), elCls: "e-" + c.el,
+          tap: function () {
+            var left2 = st.pool.slice();
+            c.rec.forEach(function (want) {
+              for (var i = 0; i < left2.length; i++) if (kinMatch(left2[i], want)) { left2.splice(i, 1); break; }
+            });
+            self.setState({ pool: left2, hand: st.hand.concat([id]), parts: [],
+              picked: id, handIdx: st.hand.length, lastHit: null });
+          }
+        });
+      } else if (lack.length === 1 && missing.length < 5 && st.hand.indexOf(id) < 0) {
+        // 手上已经有这张字了就别再列进配字表 —— 那是「还差什么」的清单,不是字典
+        missing.push({ id: id, lack: lack[0], elCls: "e-" + c.el });
+      }
+    });
+
+    var apPips = [];
+    for (var i = 0; i < st.apMax; i++) apPips.push({ cls: i < st.ap ? "on" : "" });
+
+    var sel = {};
+    if (st.picked !== null && CHARS[st.picked]) {
+      var c = CHARS[st.picked];
+      sel = {
+        id: st.picked, rarCls: "r-" + c.rar, elCls: "e-" + c.el,
+        meta: RAR_NAME[c.rar] + " · " + EL_NAME[c.el] + " · Lv." + c.lv,
+        effect: effectText(st.picked)
+      };
+    }
+
+    var co = st.coach >= 0 && st.coach < COACH.length ? COACH[st.coach] : null;
+    var dots = COACH.map(function (x, i) {
+      return { cls: i === st.coach ? "on" : (i < st.coach ? "done" : "") };
+    });
+
+    return {
+      turn: st.turn, ink: st.ink,
+      coachOn: co !== null,
+      coach: co === null ? { dots: dots } : {
+        no: st.coach + 1, tale: co.tale, doit: co.doit, then: co.then, dots: dots,
+        btn: st.coach === COACH.length - 1 ? "开始" : "知道了"
+      },
+      openCoach: function () { self.setState({ coach: 0 }); },
+      nextCoach: function () { self.setState({ coach: st.coach + 1 }); },
+      skipCoach: function () { self.setState({ coach: -1 }); },
+      hpPct: Math.round(st.hp / st.hpMax * 100) + "%", hpText: st.hp + " / " + st.hpMax,
+      shPct: shieldPct(st.shield, st.hpMax), shield: st.shield,
+      hp: st.hp, hpMax: st.hpMax, ap: st.ap, apMax: st.apMax,
+      // 出不起下一个字时整块 AP 转朱砂:出字恒耗 1 AP(CharDef.ApCostFor 一律返回 1)
+      apCls: st.ap < 1 ? "dry" : "",
+      atb: st.atb + "%", atbCls: st.atb > 80 ? "soon" : "",
+      apPips: apPips,
+      buffs: chipsOf([["pierce", "mode", "24"], ["morale", "dot", "2"],
+        ["shield", "info", "55"], ["crit", "mode", "20%"]]),
+      frontFoes: rowOf("front", st.foes, mkFoe),
+      rearFoes: rowOf("rear", st.foes, mkFoe),
+      frontAllies: rowOf("front", st.allies, mkAlly),
+      rearAllies: rowOf("rear", st.allies, mkAlly),
+      hand: hand, handCount: st.hand.length, handCap: st.handCap,
+      handAdCls: st.handAd ? "used" : "",
+      handAdText: st.handAd ? "已扩容" : "+2 格",
+      handAd: function () {
+        if (st.handAd) return;
+        self.setState({ handAd: true, handCap: st.handCap + 2 });
+      },
+      pool: pool, poolCount: st.pool.length, poolCap: st.poolCap,
+      poolAdCls: st.poolAd ? "used" : "",
+      poolAdText: st.poolAd ? "已扩" : "+2",
+      poolAd: function () {
+        if (st.poolAd) return;
+        self.setState({ poolAd: true, poolCap: st.poolCap + 2 });
+      },
+      craftable: craftable, noCraft: craftable.length === 0,
+      missing: missing,
+      sel: sel, hasPicked: st.picked !== null, noPicked: st.picked === null,
+      castCls: st.ap > 0 ? "" : "no",
+      doCast: function () {
+        if (st.picked === null || st.ap < 1) return;
+        var alive = st.foes.map(function (f, i) { return { f: f, i: i }; })
+          .filter(function (x) { return x.f.hp > 0; });
+        if (alive.length === 0) return;
+        var t = st.foes[st.target] && st.foes[st.target].hp > 0 ? st.target : alive[0].i;
+        self.cast(t);
+      },
+      doSplit: function () {
+        if (st.picked === null) return;
+        var c = CHARS[st.picked];
+        self.setState({
+          hand: st.hand.filter(function (h, i) { return i !== st.handIdx; }),
+          pool: st.pool.concat(c.rec).slice(0, st.poolCap),
+          picked: null, handIdx: null, lastHit: null
+        });
+      },
+      doDrop: function () {
+        if (st.picked === null) return;
+        self.setState({
+          hand: st.hand.filter(function (h, i) { return i !== st.handIdx; }),
+          picked: null, handIdx: null, lastHit: null
+        });
+      },
+      endTurn: function () {
+        var foes = st.foes.map(function (f) {
+          return Object.assign({}, f, { atb: f.hp > 0 ? (f.atb + 35) % 100 : f.atb });
+        });
+        // 召唤物按各自 Speed 推进(桤 150 快、堡 慢),不是所有单位一个步长
+        var allies = st.allies.map(function (a) {
+          return Object.assign({}, a, { atb: a.hp > 0 ? (a.atb + (a.speed || 33)) % 100 : a.atb });
+        });
+        var hurt = st.foes.filter(function (f) { return f.hp > 0 && f.atb > 80; }).length * 60;
+        var absorb = Math.min(st.shield, hurt);
+        self.setState({
+          turn: st.turn + 1, ap: st.apMax, foes: foes, allies: allies, atb: (st.atb + 37) % 100,
+          shield: st.shield - absorb, hp: Math.max(1, st.hp - (hurt - absorb)),
+          picked: null, handIdx: null, parts: [], lastHit: null
+        });
+      },
+      noop: function () {}
+    };
+  }
+}
+</script>
+</body>
+</html>

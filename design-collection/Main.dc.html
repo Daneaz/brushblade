@@ -1,0 +1,850 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21(Home Indicator)。
+       Unity 逻辑单位换算 ×2.093(CanvasScaler 1600×900 按高匹配 → 实际画布 1950×900)。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .safe {
+      position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column;
+    }
+    /* 安全区参考线(设计稿标注,不是 UI) */
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .guide u {
+      position: absolute; font-size: 8px; font-style: normal; letter-spacing: .5px;
+      color: rgba(155,30,34,.5); text-decoration: none;
+    }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+    .r-Red    { --rar: #CD262E; --rarSoft: #F9DFDF; }
+
+    /* 顶栏 */
+    .top { height: 38px; flex: none; display: flex; align-items: center; gap: 10px; }
+    .top h1 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+    .top .sub { font-size: 11px; color: #5D646F; letter-spacing: .5px; }
+    .top .sub b { color: #161B22; font-weight: 700; }
+    .ink {
+      display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 7px;
+      background: #EFEADF; border: 1px solid #DED7C9; border-radius: 13px;
+      font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    /* 触控目标 ≥44pt:视觉 32 高的钮靠上下各 6px 透明边扩到 44 */
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+    .btn-back {
+      height: 30px; padding: 0 14px; border: none; border-radius: 15px; cursor: pointer;
+      background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px;
+    }
+    .chip { height: 19px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 10px; font-size: 10px; letter-spacing: .5px; }
+    .reddot { width: 7px; height: 7px; border-radius: 50%; background: #C53637;
+      box-shadow: 0 0 0 1.5px #F6F1E7; }
+    /* 筛选栏 */
+    .filters { height: 27px; flex: none; display: flex; align-items: stretch; gap: 2px; margin-bottom: 6px; }
+    .ftab {
+      position: relative; display: flex; align-items: center; gap: 5px; padding: 0 11px;
+      border: none; background: transparent; cursor: pointer; font-family: inherit; color: #5D646F;
+      border-bottom: 2px solid transparent; border-radius: 5px 5px 0 0;
+    }
+    .ftab .fn { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+    .ftab .fc { font-size: 9px; padding: 0 5px; border-radius: 7px; background: #E7E1D4; color: #5D646F;
+      font-variant-numeric: tabular-nums; }
+    .ftab.on { color: var(--elFg); background: var(--elSoft); border-bottom-color: var(--el); }
+    .ftab.on .fc { background: color-mix(in srgb, var(--el) 26%, #fff); color: var(--elFg); }
+    .ftab .nd { position: absolute; top: 2px; right: 4px; width: 6px; height: 6px; border-radius: 50%;
+      background: #C53637; box-shadow: 0 0 0 1.5px #F6F1E7; }
+    .fsep { width: 1px; margin: 7px 7px; background: #DED7C9; }
+    .toggle {
+      align-self: center; height: 22px; padding: 0 10px; border-radius: 11px; cursor: pointer;
+      font-family: inherit; font-size: 10px; letter-spacing: .3px;
+      border: 1px solid #C6DCCB; background: #E3F4E6; color: #1B552C;
+    }
+    .toggle.on { background: #439458; border-color: #439458; color: #fff; }
+    .toggle.wanted { border-color: #DED7C9; background: #EFEAE0; color: #8C8474; margin-left: 4px; }
+    .toggle.wanted.on { background: #5D5545; border-color: #5D5545; color: #fff; }
+    .sorthint { align-self: center; font-size: 9px; color: #A09A8C; letter-spacing: .3px; }
+
+    main { flex: 1; display: flex; gap: 9px; min-height: 0; padding-bottom: 6px; }
+    .gridwrap { flex: 1; min-width: 0; overflow-y: auto; padding-right: 5px; }
+    .gridwrap::-webkit-scrollbar { width: 4px; }
+    .gridwrap::-webkit-scrollbar-thumb { background: #D3CBBA; border-radius: 2px; }
+    .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 8px; }
+    .empty { padding: 50px 0; text-align: center; color: #A09A8C; font-size: 11px; }
+
+    /* 字牌 */
+    .cell { display: flex; flex-direction: column; gap: 4px; }
+    .card {
+      position: relative; height: 128px; border-radius: 9px; cursor: pointer; padding: 0;
+      font-family: inherit; overflow: hidden; background: #FFFDF7; border: 2px solid var(--rar);
+      box-shadow: 0 1px 4px rgba(22,27,34,.09);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: transform .12s, box-shadow .12s;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(22,27,34,.15); }
+    .card::before { content: ""; position: absolute; inset: 4px; border-radius: 6px;
+      border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent); pointer-events: none; }
+    /* 稀有度光效层(金以上)。CardFrameView 的层序戒律:属性层在下、光效在中、字在最上。
+       原先用一整面 148° 斜向渐变 —— 伪元素画在所有子元素之上,把字罩住了,
+       读起来像置灰不可用。改成只沿框内侧走的辉光,牌心恒定干净(§4.5)。 */
+    .card.glow::after { content: ""; position: absolute; inset: 2px; border-radius: 7px; pointer-events: none; }
+    .card.glow.r-Gold::after {
+      box-shadow: inset 0 0 0 1px rgba(201,169,74,.5), inset 0 0 9px -3px rgba(201,169,74,.9); }
+    .card.glow.r-Orange::after {
+      box-shadow: inset 0 0 0 1px rgba(225,121,27,.55), inset 0 0 11px -3px rgba(225,121,27,.9); }
+    .card.glow.r-Red::after {
+      box-shadow: inset 0 0 0 1.5px rgba(205,38,46,.6), inset 0 0 14px -3px rgba(205,38,46,.95); }
+    .card.sel { box-shadow: 0 0 0 2px #3D4E69, 0 5px 12px rgba(22,27,34,.2); }
+    .card .gl { position: relative; z-index: 2; font-family: "Noto Serif SC", serif; font-size: 46px;
+      font-weight: 600; line-height: 1; color: var(--glyph); margin-top: 4px; }
+    .card .py { position: relative; z-index: 2; font-size: 8.5px; color: #5D646F;
+      letter-spacing: .5px; margin-top: 6px; }
+    .lvchip { position: absolute; top: 5px; left: 5px; height: 15px; padding: 0 5px;
+      display: flex; align-items: center; border-radius: 8px; background: #11161F; color: #fff;
+      font-size: 8.5px; font-variant-numeric: tabular-nums; }
+    .lvchip.max { background: #C9A94A; color: #2B2200; }
+    .rarchip { position: absolute; top: 5px; right: 5px; width: 13px; height: 13px; border-radius: 50%;
+      background: var(--rar); border: 1.5px solid #FFFDF7; }
+    .deckbar { position: absolute; left: 0; right: 0; bottom: 0; height: 15px;
+      display: flex; align-items: center; justify-content: center;
+      background: #7A3F5C; color: #fff; font-size: 8.5px; letter-spacing: 2px; }
+    .upbadge { position: absolute; left: 5px; bottom: 21px; height: 15px; padding: 0 6px;
+      display: flex; align-items: center; gap: 2px; border-radius: 8px;
+      background: #439458; color: #fff; font-size: 8.5px; }
+    .upbadge.nodeck { bottom: 5px; }
+
+    /* 未拥有:牌面褪成宣纸灰,但稀有度框留三成色相 —— 「那张朱漆我还没拿到」
+       是收集页最该传达的一件事,全灰掉就说不出来了。字形仍读得清:玩家要认出是哪个字。 */
+    .card.locked {
+      background: #EFEAE0; border-color: color-mix(in srgb, var(--rar) 34%, #C2BAAA);
+      box-shadow: none;
+    }
+    .card.locked::before { border-color: rgba(150,142,128,.3); }
+    .card.locked .gl { color: #AFA695; }
+    .card.locked .py { color: #C2BAAA; }
+    .card.locked .rarchip { background: color-mix(in srgb, var(--rar) 42%, #CFC7B6); border-color: #EFEAE0; }
+    .lockicon {
+      position: absolute; top: 5px; left: 5px; width: 17px; height: 17px; border-radius: 50%;
+      background: rgba(122,114,98,.16); display: flex; align-items: center; justify-content: center;
+    }
+    .foot .src { font-size: 8.5px; color: #A8A08E; letter-spacing: .5px; }
+
+    .card.isnew { border-color: #C9A94A; }
+    .card.isnew::before { border-color: rgba(201,169,74,.55); }
+    .newwrap { position: absolute; inset: -2px; border-radius: 11px; pointer-events: none;
+      box-shadow: 0 0 0 2px rgba(201,169,74,.5), 0 0 12px 3px rgba(201,169,74,.34);
+      animation: breathe 2.6s ease-in-out infinite; }
+    @keyframes breathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+    .newflag { position: absolute; top: 0; right: 0; width: 34px; height: 34px; overflow: hidden; }
+    .newflag span { position: absolute; top: 4px; right: -13px; width: 48px; transform: rotate(45deg);
+      background: #C53637; color: #fff; font-size: 8.5px; font-weight: 700;
+      text-align: center; line-height: 14px; letter-spacing: 1px; }
+
+    .foot { display: flex; align-items: center; gap: 5px; height: 12px; }
+    .bar { flex: 1; height: 4px; border-radius: 2px; background: #E1DACB; overflow: hidden; }
+    .bar > span { display: block; height: 100%; border-radius: 2px; background: #A9B0A2; }
+    .bar.ready > span { background: #439458; }
+    .foot .num { font-size: 8.5px; color: #5D646F; font-variant-numeric: tabular-nums; }
+    .foot .num.ready { color: #1B552C; font-weight: 700; }
+    .foot .num.max { color: #8F6B09; font-weight: 700; }
+
+    /* 右栏 */
+    .side { width: 252px; flex: none; background: #FBF8F1; border: 1px solid #DED7C9;
+      border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
+    .sidehead { height: 26px; flex: none; display: flex; align-items: center; gap: 6px;
+      padding: 0 8px; border-bottom: 1px solid #E7E1D4; }
+    .sidehead .lbl { font-size: 9px; color: #88909C; letter-spacing: 2px; }
+    .iconbtn { width: 22px; height: 22px; border: none; border-radius: 6px; background: transparent;
+      color: #5D646F; cursor: pointer; font-size: 12px; font-family: inherit; }
+    .iconbtn:hover { background: #EFEADF; color: #161B22; }
+    .sidebody { flex: 1; overflow-y: auto; padding: 10px; min-height: 0; }
+    .sidebody::-webkit-scrollbar { width: 4px; }
+    .sidebody::-webkit-scrollbar-thumb { background: #D3CBBA; border-radius: 2px; }
+    .sidefoot { flex: none; display: flex; gap: 6px; padding: 8px; border-top: 1px solid #E7E1D4; background: #F6F1E7; }
+
+    .idcard { display: flex; gap: 10px; }
+    .bigcard { position: relative; width: 76px; height: 95px; flex: none; border-radius: 8px;
+      background: #FFFDF7; border: 2px solid var(--rar); box-shadow: 0 2px 6px rgba(22,27,34,.1);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .bigcard::before { content: ""; position: absolute; inset: 4px; border-radius: 5px;
+      border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent); }
+    .bigcard .gl { font-family: "Noto Serif SC", serif; font-size: 38px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .bigcard .py { font-size: 8.5px; color: #5D646F; letter-spacing: .5px; margin-top: 6px; }
+    .idmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .idname { display: flex; align-items: baseline; gap: 6px; }
+    .idname .n { font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; }
+    .idname .p { font-size: 10px; color: #5D646F; letter-spacing: .5px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .chip.rar { background: var(--rarSoft); color: color-mix(in srgb, var(--rar) 76%, #161B22);
+      border: 1px solid color-mix(in srgb, var(--rar) 40%, transparent); }
+    .chip.elm { background: var(--elSoft); color: var(--elFg); }
+    .chip.sheng { background: #F6EDD5; color: #8F6B09; border: 1px solid rgba(201,169,74,.5); }
+    .gloss { font-size: 9.5px; color: #5D646F; line-height: 1.55; }
+
+    .sect { margin-top: 11px; }
+    .sect > h4 { margin: 0 0 6px; font-size: 9px; font-weight: 500; letter-spacing: 2px; color: #88909C;
+      display: flex; align-items: center; gap: 6px; }
+    .sect > h4::after { content: ""; flex: 1; height: 1px; background: #E7E1D4; }
+
+    .lvrow { display: flex; align-items: flex-end; gap: 7px; }
+    .lvnow { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; line-height: 1;
+      font-variant-numeric: tabular-nums; }
+    .lvmax { font-size: 10px; color: #A09A8C; padding-bottom: 1px; }
+    .pips { display: flex; gap: 2px; flex: 1; padding-bottom: 3px; }
+    .pips i { flex: 1; height: 5px; border-radius: 2px; background: #E1DACB; }
+    .pips i.f { background: #3D4E69; }
+    .pips i.n { background: #439458; }
+    .cost { display: flex; gap: 6px; margin-top: 8px; }
+    .costbox { flex: 1; background: #F2EEE4; border-radius: 7px; padding: 6px 8px; }
+    .costbox .k { font-size: 8.5px; color: #88909C; letter-spacing: 1px; }
+    .costbox .v { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .costbox.ok { background: #E3F4E6; } .costbox.ok .v { color: #1B552C; }
+    .costbox.no .v { color: #9B1E22; }
+
+    .stats { display: flex; gap: 6px; }
+    .sbox { flex: 1; min-width: 0; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 6px 7px; }
+    .sbox .k { font-size: 8.5px; color: #88909C; letter-spacing: 1px; }
+    .sbox .v { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; line-height: 1.2;
+      font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .sbox .t { font-size: 7.5px; color: #A09A8C; margin-top: 1px; }
+    .sbox.atk .v { color: #B02D2E; } .sbox.hp .v { color: #1F6333; }
+    .sbox.shield .v { color: #82552A; } .sbox.heal .v { color: #0A5E9E; }
+
+    .desc { background: #FFFDF7; border: 1px solid #E7E1D4; border-left: 3px solid var(--el);
+      border-radius: 0 8px 8px 0; padding: 8px 9px; font-size: 10.5px; line-height: 1.7; color: #2C333D; }
+
+    .recipe { display: flex; align-items: center; gap: 6px; }
+    .part { width: 42px; height: 42px; border-radius: 8px; flex: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--pSoft); color: var(--pFg); }
+    .part .pg { font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; line-height: 1; }
+    .part .pe { font-size: 7.5px; letter-spacing: .5px; margin-top: 2px; opacity: .8; }
+    .op { font-size: 12px; color: #A09A8C; }
+    .part.out { background: var(--elSoft); color: var(--elFg); box-shadow: 0 0 0 2px var(--el) inset; }
+    .leafnote { font-size: 9px; line-height: 1.55; }
+
+    .wx { display: flex; gap: 6px; }
+    .wxbox { flex: 1; border-radius: 7px; padding: 6px 7px; font-size: 9px; line-height: 1.4;
+      display: flex; align-items: center; gap: 6px; }
+    .wxbox.k { background: #FBE9E7; color: #862726; }
+    .wxbox.b { background: #EEEBE3; color: #5D646F; }
+    .wxdot { width: 17px; height: 17px; flex: none; border-radius: 5px; display: flex;
+      align-items: center; justify-content: center; font-family: "Noto Serif SC", serif;
+      font-size: 10px; font-weight: 600; color: #fff; }
+
+    .getbox { background: #F2EEE4; border-radius: 8px; padding: 9px 10px; }
+    .getrow { display: flex; align-items: center; gap: 8px; }
+    .getrow + .getrow { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #DED7C9; }
+    .getrow .ic { width: 26px; height: 26px; flex: none; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: #fff; }
+    .getrow .tx { font-size: 9.5px; line-height: 1.55; color: #5D646F; }
+    .getrow .tx b { color: #161B22; font-weight: 500; }
+    .getrow.no .ic { background: #D5CDBC; color: #8C8474; }
+    .getrow.no .tx { color: #A8A08E; }
+
+    .abtn { flex: 1; height: 36px; border: none; border-radius: 8px; cursor: pointer;
+      font-family: inherit; font-size: 12px; letter-spacing: 1px; font-weight: 500; }
+    .abtn.deck { background: #7A3F5C; color: #fff; }
+    .abtn.deck.off { background: #DAD7D0; color: #161B22; }
+    .abtn.up { background: #439458; color: #fff; }
+    .abtn.up.dis { background: #E7E1D4; color: #A09A8C; cursor: not-allowed; }
+    .abtn.up.maxed { background: #F6EDD5; color: #8F6B09; }
+
+    .slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+    .slot { height: 44px; border-radius: 7px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1px; background: var(--elSoft);
+      color: var(--glyph); cursor: pointer; }
+    .slot .sg { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; line-height: 1; }
+    .slot .sl { font-size: 7.5px; color: #5D646F; font-variant-numeric: tabular-nums; }
+    .slot.free { background: transparent; border: 1px dashed #CFC7B6; color: #B3AB9B; font-size: 13px; cursor: default; }
+    .elbars { display: flex; flex-direction: column; gap: 5px; }
+    .elbar { display: flex; align-items: center; gap: 7px; font-size: 9.5px; }
+    .elbar .en { width: 14px; font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: var(--glyph); }
+    .elbar .et { flex: 1; height: 6px; border-radius: 3px; background: #E7E1D4; overflow: hidden; }
+    .elbar .et > span { display: block; height: 100%; background: var(--el); border-radius: 3px; }
+    .elbar .ec { width: 26px; text-align: right; color: #5D646F; font-variant-numeric: tabular-nums; }
+    .elbar.full .ec { color: #9B1E22; font-weight: 700; }
+    .tip { font-size: 9.5px; color: #88909C; line-height: 1.8; }
+    .tipk { color: #5D646F; font-weight: 500; }
+  </style>
+</helmet>
+
+<div class="dev">
+  <div class="safe">
+
+    <div class="top">
+      <h1 class="serif">卡组</h1>
+      <span class="sub">收集 <b>{{ownedCount}}</b>/{{totalCount}}　出阵 <b>{{deckCount}}</b>/15</span>
+      <sc-if value="{{hasLocked}}" hint-placeholder-val="{{true}}">
+        <span class="chip" style="background:#EFEAE0;color:#8C8474;border:1px solid #DED7C9;">未拥有 {{lockedCount}}</span>
+      </sc-if>
+      <sc-if value="{{hasNew}}" hint-placeholder-val="{{true}}">
+        <span class="chip" style="background:#C53637;color:#fff;">新字 {{newCount}}</span>
+      </sc-if>
+      <div class="grow"></div>
+      <div class="ink">
+        <svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true">
+          <path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path>
+          <path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="2.5"></path>
+        </svg>
+        2,480
+      </div>
+      <button class="btn-back tap" onClick="{{noop}}">返回</button>
+    </div>
+
+    <div class="filters">
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="6">
+        <button class="ftab {{f.cls}}" onClick="{{f.pick}}">
+          <span class="fn">{{f.name}}</span>
+          <span class="fc">{{f.count}}</span>
+          <sc-if value="{{f.hasNew}}" hint-placeholder-val="{{true}}"><span class="nd"></span></sc-if>
+        </button>
+      </sc-for>
+      <div class="fsep"></div>
+      <button class="toggle {{upOnlyCls}}" onClick="{{toggleUpOnly}}">仅看可升级 {{upgradableCount}}</button>
+      <button class="toggle wanted {{wantOnlyCls}}" onClick="{{toggleWantOnly}}">只看未拥有 {{lockedCount}}</button>
+      <div class="grow"></div>
+      <div class="sorthint">排序：可升级 › 新字 › 稀有度</div>
+    </div>
+
+    <main>
+      <div class="gridwrap">
+        <div class="grid">
+          <sc-for list="{{cards}}" as="c" hint-placeholder-count="10">
+            <div class="cell">
+              <button class="card {{c.rarCls}} {{c.elCls}} {{c.flags}}" onClick="{{c.pick}}">
+                <sc-if value="{{c.isNew}}" hint-placeholder-val="{{true}}"><span class="newwrap"></span></sc-if>
+                <span class="gl">{{c.id}}</span>
+                <span class="py">{{c.py}}</span>
+                <sc-if value="{{c.owned}}" hint-placeholder-val="{{true}}">
+                  <span class="lvchip {{c.lvCls}}">{{c.lvText}}</span>
+                </sc-if>
+                <sc-if value="{{c.locked}}" hint-placeholder-val="{{false}}">
+                  <span class="lockicon">
+                    <svg width="9" height="10" viewBox="0 0 14 16" fill="none" stroke="#8C8474" stroke-width="1.6">
+                      <rect x="1.8" y="6.6" width="10.4" height="8.2" rx="1.6"></rect>
+                      <path d="M4.4 6.6 V4.3 a2.6 2.6 0 0 1 5.2 0 V6.6"></path>
+                    </svg>
+                  </span>
+                </sc-if>
+                <span class="rarchip"></span>
+                <sc-if value="{{c.canUp}}" hint-placeholder-val="{{true}}">
+                  <span class="upbadge {{c.upPos}}">▲ 可升</span>
+                </sc-if>
+                <sc-if value="{{c.inDeck}}" hint-placeholder-val="{{true}}">
+                  <span class="deckbar">出阵中</span>
+                </sc-if>
+                <sc-if value="{{c.isNew}}" hint-placeholder-val="{{true}}">
+                  <span class="newflag"><span>新</span></span>
+                </sc-if>
+              </button>
+              <div class="foot">
+                <sc-if value="{{c.owned}}" hint-placeholder-val="{{true}}">
+                  <span class="bar {{c.barCls}}"><span style="width: {{c.pct}}"></span></span>
+                </sc-if>
+                <sc-if value="{{c.owned}}" hint-placeholder-val="{{true}}">
+                  <span class="num {{c.numCls}}">{{c.copyText}}</span>
+                </sc-if>
+                <sc-if value="{{c.locked}}" hint-placeholder-val="{{false}}">
+                  <span class="src">未拥有 · 宝箱产出</span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+          <div class="empty">{{emptyText}}</div>
+        </sc-if>
+      </div>
+
+      <div class="side {{sel.rarCls}} {{sel.elCls}}">
+        <div class="sidehead">
+          <sc-if value="{{hasSel}}" hint-placeholder-val="{{true}}">
+            <button class="iconbtn" onClick="{{clearSel}}">←</button>
+          </sc-if>
+          <span class="lbl">{{sideTitle}}</span>
+          <div class="grow"></div>
+          <sc-if value="{{hasSel}}" hint-placeholder-val="{{true}}">
+            <button class="iconbtn" onClick="{{clearSel}}">✕</button>
+          </sc-if>
+        </div>
+
+        <div class="sidebody">
+          <sc-if value="{{hasSel}}" hint-placeholder-val="{{true}}">
+            <div>
+              <div class="idcard">
+                <div class="bigcard">
+                  <span class="gl">{{sel.id}}</span>
+                  <span class="py">{{sel.py}}</span>
+                </div>
+                <div class="idmeta">
+                  <div class="idname">
+                    <span class="n">{{sel.id}}</span>
+                    <span class="p">{{sel.py}}</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip rar">{{sel.rarName}}</span>
+                    <span class="chip elm">{{sel.elName}}系</span>
+                    <sc-if value="{{sel.sheng}}" hint-placeholder-val="{{false}}">
+                      <span class="chip sheng">相生 ×3</span>
+                    </sc-if>
+                  </div>
+                  <div class="gloss">{{sel.gloss}}</div>
+                </div>
+              </div>
+
+              <sc-if value="{{sel.locked}}" hint-placeholder-val="{{false}}">
+                <div class="sect">
+                  <h4>怎么拿到</h4>
+                  <div class="getbox">
+                    <div class="getrow">
+                      <span class="ic" style="background: #7945AB;">箱</span>
+                      <span class="tx"><b>开宝箱</b> —— {{sel.chestHint}}<br>档位越高的匣子越容易出。</span>
+                    </div>
+                    <div class="getrow no">
+                      <span class="ic">摊</span>
+                      <span class="tx">商城字摊<b>不上架</b>没收集过的字，<br>只卖部件和你已有的字。</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{sel.owned}}" hint-placeholder-val="{{true}}">
+              <div class="sect">
+                <h4>等级</h4>
+                <div class="lvrow">
+                  <span class="lvnow serif">Lv.{{sel.lv}}</span>
+                  <span class="lvmax">/ 10</span>
+                  <span class="pips">
+                    <sc-for list="{{sel.pips}}" as="p" hint-placeholder-count="10">
+                      <i class="{{p.cls}}"></i>
+                    </sc-for>
+                  </span>
+                </div>
+                <div class="cost">
+                  <div class="costbox {{sel.copyOk}}"><div class="k">重复卡</div><div class="v">{{sel.copyText}}</div></div>
+                  <div class="costbox {{sel.inkOk}}"><div class="k">墨锭</div><div class="v">{{sel.inkText}}</div></div>
+                </div>
+              </div>
+              </sc-if>
+
+              <div class="sect">
+                <h4>{{sel.statTitle}}</h4>
+                <div class="stats">
+                  <sc-for list="{{sel.stats}}" as="s" hint-placeholder-count="3">
+                    <div class="sbox {{s.cls}}">
+                      <div class="k">{{s.k}}</div>
+                      <div class="v">{{s.v}}</div>
+                      <div class="t">{{s.t}}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div class="sect">
+                <h4>字卡功能</h4>
+                <div class="desc">{{sel.desc}}</div>
+              </div>
+
+              <div class="sect">
+                <h4>配方</h4>
+                <div class="recipe">
+                  <sc-for list="{{sel.parts}}" as="p" hint-placeholder-count="2">
+                    <div class="part" style="{{p.style}}">
+                      <span class="pg">{{p.id}}</span>
+                      <span class="pe">{{p.el}}</span>
+                    </div>
+                    <span class="op">{{p.op}}</span>
+                  </sc-for>
+                  <div class="part out">
+                    <span class="pg">{{sel.id}}</span>
+                    <span class="pe">{{sel.elName}}</span>
+                  </div>
+                </div>
+                <sc-if value="{{sel.sheng}}" hint-placeholder-val="{{false}}">
+                  <div class="leafnote" style="margin-top: 6px; color: #8F6B09;">{{sel.shengNote}}</div>
+                </sc-if>
+              </div>
+
+              <div class="sect">
+                <h4>生克</h4>
+                <div class="wx">
+                  <div class="wxbox k">
+                    <span class="wxdot serif" style="{{sel.keDot}}">{{sel.keName}}</span>
+                    <span>克 {{sel.keName}} ×1.5<br>并无视其护甲</span>
+                  </div>
+                  <div class="wxbox b">
+                    <span class="wxdot serif" style="{{sel.beiDot}}">{{sel.beiName}}</span>
+                    <span>被 {{sel.beiName}} 克<br>×0.5</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{noSel}}" hint-placeholder-val="{{false}}">
+            <div>
+              <div class="sect" style="margin-top: 0;">
+                <h4>出阵 {{deckCount}} / 15</h4>
+                <div class="slots">
+                  <sc-for list="{{slots}}" as="s" hint-placeholder-count="15">
+                    <div class="slot {{s.cls}} {{s.elCls}}" onClick="{{s.pick}}">
+                      <span class="sg">{{s.id}}</span>
+                      <span class="sl">{{s.lv}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div class="sect">
+                <h4>属性配额 每系至多 5</h4>
+                <div class="elbars">
+                  <sc-for list="{{elbars}}" as="b" hint-placeholder-count="5">
+                    <div class="elbar {{b.cls}} {{b.elCls}}">
+                      <span class="en">{{b.name}}</span>
+                      <span class="et"><span style="width: {{b.pct}}"></span></span>
+                      <span class="ec">{{b.text}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div class="sect">
+                <h4>说明</h4>
+                <div class="tip">
+                  <span class="tipk">只有出阵的字才会上场</span>。<br>
+                  出阵 5～15 字，每系至多 5 字。<br>
+                  改动<span class="tipk">下次登塔生效</span>。
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div class="sidefoot">
+          <sc-if value="{{selOwned}}" hint-placeholder-val="{{true}}">
+            <button class="abtn deck {{sel.deckCls}}" onClick="{{toggleDeck}}">{{sel.deckText}}</button>
+          </sc-if>
+          <sc-if value="{{selOwned}}" hint-placeholder-val="{{true}}">
+            <button class="abtn up {{sel.upCls}}" onClick="{{doUpgrade}}">{{sel.upText}}</button>
+          </sc-if>
+          <sc-if value="{{selLocked}}" hint-placeholder-val="{{false}}">
+            <button class="abtn locked" onClick="{{noop}}" style="background:#A6522F;color:#fff;">尚未拥有 · 去开宝箱</button>
+          </sc-if>
+          <sc-if value="{{noSel}}" hint-placeholder-val="{{false}}">
+            <button class="abtn up" onClick="{{pickFirstUpgradable}}">去升级 {{upgradableCount}} 张</button>
+          </sc-if>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <div class="guide">
+    <i class="gl"></i><i class="gr"></i><i class="gb"></i>
+    <u style="left: 6px; top: 6px;">59pt</u>
+    <u style="right: 6px; top: 6px;">59pt</u>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+var CARDS = [{"id":"燚","r":"Red","e":"Fire","rec":["火","焱"],"recE":["Fire","Fire"],"py":"yì","g":"火势极盛","s":false,"st":{"atk":100,"aoe":true},"d":"全体100伤;全体灼烧5层"},{"id":"焚","r":"Orange","e":"Fire","rec":["林","火"],"recE":["Wood","Fire"],"py":"fén","g":"烧毁","s":true,"st":{"atk":120,"aoe":true},"d":"全体40×3=120伤;全体灼烧3层"},{"id":"焱","r":"Orange","e":"Fire","rec":["火","炎"],"recE":["Fire","Fire"],"py":"yàn","g":"火花飞迸","s":false,"st":{"atk":120,"aoe":true},"d":"全体120伤;全体灼烧3层"},{"id":"炎","r":"Gold","e":"Fire","rec":["火","火"],"recE":["Fire","Fire"],"py":"yán","g":"火苗上炎","s":false,"st":{"atk":340,"aoe":false},"d":"单体340伤;灼烧2层"},{"id":"爆","r":"Blue","e":"Fire","rec":["火","暴"],"recE":["Fire","None"],"py":"bào","g":"迸裂炸开","s":false,"st":{"atk":50,"aoe":true},"d":"全体50伤;全体灼烧1层"},{"id":"炸","r":"Blue","e":"Fire","rec":["火","乍"],"recE":["Fire","None"],"py":"zhà","g":"骤然爆开","s":false,"st":{"atk":90,"aoe":false},"d":"单体90伤;引爆灼烧"},{"id":"烈","r":"Purple","e":"Fire","rec":["列","灬"],"recE":["None","Fire"],"py":"liè","g":"火猛、气盛","s":false,"st":{"atk":40,"aoe":true},"d":"全体40伤;全体灼烧2层"},{"id":"熣","r":"Purple","e":"Fire","rec":["火","崔"],"recE":["Fire","None"],"py":"suī","g":"火光晃眼","s":false,"st":{"atk":80,"aoe":false},"d":"单体80伤;灼烧2层;致盲50% 2回合"},{"id":"灿","r":"Gold","e":"Fire","rec":["火","山"],"recE":["Fire","Earth"],"py":"càn","g":"光彩明亮","s":false,"st":{"atk":380,"aoe":false},"d":"单体380伤;灼烧1层"},{"id":"灭","r":"White","e":"Fire","rec":["一","火"],"recE":["None","Fire"],"py":"miè","g":"火熄、尽绝","s":false,"st":{"atk":30,"aoe":true},"d":"全体30伤;驱散全部增益"},{"id":"燥","r":"Purple","e":"Fire","rec":["火","喿"],"recE":["Fire","None"],"py":"zào","g":"干而无润","s":false,"st":{},"d":"灼烧3层;灼烧威力+10;立即结算灼烧"},{"id":"蒸","r":"Purple","e":"Fire","rec":["艹","烝"],"recE":["Wood","None"],"py":"zhēng","g":"水气上腾","s":true,"st":{"atk":135,"aoe":false},"d":"灼烧2层;单体45×3=135伤"},{"id":"烧","r":"Green","e":"Fire","rec":["火","尧"],"recE":["Fire","None"],"py":"shāo","g":"使着火","s":false,"st":{"atk":30,"aoe":false},"d":"单体30伤;灼烧2层"},{"id":"焦","r":"White","e":"Fire","rec":["隹","灬"],"recE":["None","Fire"],"py":"jiāo","g":"火燎而黑","s":false,"st":{},"d":"灼烧1层;灼烧不再衰减"},{"id":"灼","r":"White","e":"Fire","rec":["火","勺"],"recE":["Fire","None"],"py":"zhuó","g":"火烧、烫","s":false,"st":{"atk":40,"aoe":false},"d":"单体40伤(对灼烧目标双倍);灼烧1层"},{"id":"热","r":"Green","e":"Fire","rec":["执","灬"],"recE":["None","Fire"],"py":"rè","g":"温度高","s":false,"st":{"atk":70,"aoe":false},"d":"单体70伤;灼烧1层"},{"id":"森","r":"Orange","e":"Wood","rec":["木","林"],"recE":["Wood","Wood"],"py":"sēn","g":"树木丛生","s":false,"st":{"atk":100,"hp":260,"sum":3},"d":"召唤 3×自身(血260 攻100)"},{"id":"林","r":"Gold","e":"Wood","rec":["木","木"],"recE":["Wood","Wood"],"py":"lín","g":"成片的树","s":false,"st":{"atk":90,"hp":220,"sum":2},"d":"召唤 2×自身(血220 攻90)"},{"id":"楸","r":"Purple","e":"Wood","rec":["木","秋"],"recE":["Wood","None"],"py":"qiū","g":"落叶乔木,材质坚","s":false,"st":{"atk":40,"hp":88,"sum":2},"d":"召唤 2×自身(血88 攻40, 普攻附灼烧1层)"},{"id":"蕉","r":"Purple","e":"Wood","rec":["艹","焦"],"recE":["Wood","Fire"],"py":"jiāo","g":"芭蕉,阔叶草木","s":false,"st":{"atk":40,"hp":88,"sum":2},"d":"召唤 2×自身(血88 攻40, 普攻附灼烧1层、劈砍)"},{"id":"荆","r":"Purple","e":"Wood","rec":["艹","刂"],"recE":["Wood","Metal"],"py":"jīng","g":"多刺灌木","s":false,"st":{"atk":80,"hp":66,"sum":2},"d":"召唤 2×自身(血66 攻80, 荆棘30、远程)"},{"id":"桂","r":"Orange","e":"Wood","rec":["木","圭"],"recE":["Wood","Earth"],"py":"guì","g":"桂树,花香馥郁","s":false,"st":{"atk":50,"hp":390,"sum":3},"d":"召唤 3×自身(血390 攻50);全场召唤物各获盾60"},{"id":"柘","r":"Gold","e":"Wood","rec":["木","石"],"recE":["Wood","Earth"],"py":"zhè","g":"桑科乔木,木坚","s":false,"st":{"atk":45,"hp":330,"sum":2},"d":"召唤 2×自身(血330 攻45)"},{"id":"桤","r":"Purple","e":"Wood","rec":["木","岂"],"recE":["Wood","None"],"py":"qī","g":"桤木,生长极速","s":false,"st":{"atk":25,"hp":165,"sum":2},"d":"召唤 2×自身(血165 攻25, 迅捷150)"},{"id":"藤","r":"Blue","e":"Wood","rec":["艹","滕"],"recE":["Wood","None"],"py":"téng","g":"蔓生木本,缠绕攀援","s":false,"st":{"atk":40,"hp":80,"sum":1},"d":"召唤 1×自身(血80 攻40, 入场冻结1回合)"},{"id":"柏","r":"White","e":"Wood","rec":["木","白"],"recE":["Wood","None"],"py":"bǎi","g":"常绿乔木,耐寒","s":false,"st":{"atk":20,"hp":40,"sum":1},"d":"召唤 1×自身(血40 攻20)"},{"id":"松","r":"Green","e":"Wood","rec":["木","公"],"recE":["Wood","None"],"py":"sōng","g":"针叶乔木,四时不凋","s":false,"st":{"atk":30,"hp":60,"sum":1},"d":"召唤 1×自身(血60 攻30)"},{"id":"杖","r":"White","e":"Wood","rec":["木","丈"],"recE":["Wood","None"],"py":"zhàng","g":"扶行的木棍","s":false,"st":{"atk":10,"hp":40,"sum":1},"d":"召唤 1×自身(血40 攻10, 每回合治疗友方10)"},{"id":"枪","r":"Green","e":"Wood","rec":["木","仓"],"recE":["Wood","None"],"py":"qiāng","g":"长柄尖兵","s":false,"st":{"atk":48,"hp":36,"sum":1},"d":"召唤 1×自身(血36 攻48, 穿刺70%)"},{"id":"㵘","r":"Red","e":"Water","rec":["水","淼"],"recE":["Water","Water"],"py":"màn","g":"洪水滔天","s":false,"st":{"atk":200,"aoe":true,"heal":350},"d":"回复350;全体200伤"},{"id":"淼","r":"Orange","e":"Water","rec":["水","沝"],"recE":["Water","Water"],"py":"miǎo","g":"水大无际","s":false,"st":{"atk":60,"aoe":true,"heal":210},"d":"回复210;全体60伤"},{"id":"淡","r":"Orange","e":"Water","rec":["氵","炎"],"recE":["Water","Fire"],"py":"dàn","g":"味薄、色浅","s":false,"st":{"atk":180,"aoe":true},"d":"全体180伤;全体驱散1条增益"},{"id":"沝","r":"Gold","e":"Water","rec":["水","水"],"recE":["Water","Water"],"py":"zhuǐ","g":"二水并流","s":false,"st":{"atk":135,"aoe":false,"heal":160},"d":"回复160;单体135伤"},{"id":"湮","r":"Purple","e":"Water","rec":["氵","土"],"recE":["Water","Earth"],"py":"yān","g":"没入水土而灭","s":false,"st":{"atk":130,"aoe":false},"d":"单体130伤;驱散全部增益"},{"id":"沏","r":"Purple","e":"Water","rec":["氵","切"],"recE":["Water","Metal"],"py":"qī","g":"以沸水冲","s":true,"st":{"atk":210,"aoe":false},"d":"单体70×3=210伤"},{"id":"海","r":"Green","e":"Water","rec":["氵","每"],"recE":["Water","None"],"py":"hǎi","g":"百川所归","s":false,"st":{"atk":50,"aoe":true},"d":"全体50伤"},{"id":"溃","r":"White","e":"Water","rec":["氵","贵"],"recE":["Water","None"],"py":"kuì","g":"堤破水散","s":false,"st":{"atk":45,"aoe":false},"d":"单体45伤;破甲10 回合"},{"id":"冰","r":"Gold","e":"Water","rec":["冫","水"],"recE":["Water","Water"],"py":"bīng","g":"水凝而坚","s":false,"st":{"atk":280,"aoe":false},"d":"单体280伤;冻结1回合"},{"id":"冻","r":"White","e":"Water","rec":["冫","东"],"recE":["Water","None"],"py":"dòng","g":"遇寒凝结","s":false,"st":{"atk":30,"aoe":false},"d":"冻结1回合;单体30伤"},{"id":"冷","r":"Blue","e":"Water","rec":["冫","令"],"recE":["Water","None"],"py":"lěng","g":"寒而不温","s":false,"st":{"atk":90,"aoe":false},"d":"减速2回合;单体90伤"},{"id":"淋","r":"Orange","e":"Water","rec":["氵","林"],"recE":["Water","Wood"],"py":"lín","g":"水自上浇下","s":false,"st":{"atk":70,"aoe":true,"heal":210},"d":"全体回复210;全体70伤"},{"id":"澡","r":"Purple","e":"Water","rec":["氵","喿"],"recE":["Water","None"],"py":"zǎo","g":"洗涤全身","s":false,"st":{"atk":70,"aoe":false,"heal":50},"d":"回复50;单体70伤;净化己方负面"},{"id":"沐","r":"Gold","e":"Water","rec":["氵","木"],"recE":["Water","Wood"],"py":"mù","g":"以水濯发","s":false,"st":{"atk":100,"aoe":false,"heal":60},"d":"每回合回复60,共3回合;单体100伤"},{"id":"浴","r":"Blue","e":"Water","rec":["氵","谷"],"recE":["Water","None"],"py":"yù","g":"以水洗身","s":false,"st":{},"d":"复活1名;净化己方负面"},{"id":"鑫","r":"Orange","e":"Metal","rec":["金","鍂"],"recE":["Metal","Metal"],"py":"xīn","g":"三金聚,大盛","s":false,"st":{"atk":430,"aoe":false},"d":"单体430伤;战意+1层(每层攻击+10,最多5层)"},{"id":"刲","r":"Orange","e":"Metal","rec":["圭","刂"],"recE":["Earth","Metal"],"py":"kuī","g":"割取、刺杀","s":true,"st":{"atk":450,"aoe":false},"d":"单体150×3=450伤;战意+1层(每层攻击+10,最多5层)"},{"id":"鍂","r":"Gold","e":"Metal","rec":["金","金"],"recE":["Metal","Metal"],"py":"pēn","g":"双金相并,金气盛","s":false,"st":{"atk":180,"aoe":false},"d":"单体180伤;战意+1层(每层攻击+10,最多5层)"},{"id":"铡","r":"Purple","e":"Metal","rec":["钅","则"],"recE":["Metal","None"],"py":"zhá","g":"闸刀截断","s":false,"st":{"atk":145,"aoe":false},"d":"单体145伤(残血25%以下直接斩杀);战意+1层(每层攻击+10,最多5层)"},{"id":"剁","r":"Purple","e":"Metal","rec":["朵","刂"],"recE":["None","Metal"],"py":"duò","g":"用力斩落","s":false,"st":{"atk":100,"aoe":false},"d":"单体100伤(分2段);战意+1层(每层攻击+10,最多5层)"},{"id":"劈","r":"White","e":"Metal","rec":["辟","刀"],"recE":["None","Metal"],"py":"pī","g":"用刀斧纵向砍开","s":false,"st":{"atk":50,"aoe":false},"d":"单体50伤;战意+1层(每层攻击+10,最多5层)"},{"id":"刺","r":"Blue","e":"Metal","rec":["朿","刂"],"recE":["None","Metal"],"py":"cì","g":"以尖物直入","s":false,"st":{"atk":100,"aoe":false},"d":"单体100伤(无视15点护甲)(可偷袭后排);战意+1层(每层攻击+10,最多5层)"},{"id":"剑","r":"Blue","e":"Metal","rec":["佥","刂"],"recE":["None","Metal"],"py":"jiàn","g":"两刃长兵","s":false,"st":{"atk":64,"hp":48,"sum":1},"d":"召唤 1×自身(血48 攻64, 横扫50%)"},{"id":"锥","r":"White","e":"Metal","rec":["钅","隹"],"recE":["Metal","None"],"py":"zhuī","g":"钻孔的尖头利器","s":false,"st":{"atk":32,"hp":24,"sum":1},"d":"召唤 1×自身(血24 攻32)"},{"id":"剿","r":"White","e":"Metal","rec":["巢","刂"],"recE":["None","Metal"],"py":"jiǎo","g":"围而歼之","s":false,"st":{"atk":25,"aoe":true},"d":"全体25伤(对25%以下残血双倍);战意+1层(每层攻击+10,最多5层)"},{"id":"铠","r":"Purple","e":"Metal","rec":["钅","岂"],"recE":["Metal","None"],"py":"kǎi","g":"护身的甲","s":false,"st":{"atk":80,"aoe":false},"d":"防御+5;单体80伤"},{"id":"战","r":"Green","e":"Metal","rec":["占","戈"],"recE":["None","Metal"],"py":"zhàn","g":"交锋、争斗","s":false,"st":{"atk":40,"aoe":false},"d":"攻击+30;单体40伤"},{"id":"利","r":"Green","e":"Metal","rec":["禾","刂"],"recE":["None","Metal"],"py":"lì","g":"锋刃锐、得其益","s":false,"st":{"atk":30,"aoe":false},"d":"本回合 AP+1;单体30伤"},{"id":"锋","r":"Blue","e":"Metal","rec":["钅","丰"],"recE":["Metal","None"],"py":"fēng","g":"刀剑最尖处","s":false,"st":{"atk":50,"aoe":false},"d":"暴击+20%(暴击×1.5);单体50伤"},{"id":"锐","r":"Green","e":"Metal","rec":["钅","兑"],"recE":["Metal","Metal"],"py":"ruì","g":"刀刃尖而快","s":false,"st":{"atk":40,"aoe":false},"d":"本场无视20点护甲;单体40伤"},{"id":"㙓","r":"Red","e":"Earth","rec":["土","垚"],"recE":["Earth","Earth"],"py":"lěi","g":"土垒极厚","s":false,"st":{"atk":240,"aoe":true,"shield":450},"d":"护盾450;全体240伤"},{"id":"垚","r":"Orange","e":"Earth","rec":["土","圭"],"recE":["Earth","Earth"],"py":"yáo","g":"三土聚,山高","s":false,"st":{"atk":120,"aoe":false,"shield":270},"d":"护盾270;单体120伤"},{"id":"圭","r":"Gold","e":"Earth","rec":["土","土"],"recE":["Earth","Earth"],"py":"guī","g":"二土相叠,厚实","s":false,"st":{"atk":135,"aoe":false,"shield":200},"d":"护盾200;单体135伤"},{"id":"塔","r":"Purple","e":"Earth","rec":["土","荅"],"recE":["Earth","None"],"py":"tǎ","g":"层叠高耸的建筑","s":false,"st":{"atk":50,"hp":110,"sum":2},"d":"召唤 2×自身(血110 攻50)"},{"id":"碉","r":"White","e":"Earth","rec":["石","周"],"recE":["Earth","None"],"py":"diāo","g":"石砌的堡","s":false,"st":{"atk":10,"hp":60,"sum":1},"d":"召唤 1×自身(血60 攻10, 荆棘20)"},{"id":"垒","r":"Green","e":"Earth","rec":["厽","土"],"recE":["None","Earth"],"py":"lěi","g":"堆石成墙","s":false,"st":{"atk":30,"aoe":false,"shield":50},"d":"护盾50;单体30伤"},{"id":"堡","r":"Blue","e":"Earth","rec":["保","土"],"recE":["None","Earth"],"py":"bǎo","g":"土石筑的防垒","s":false,"st":{"atk":20,"hp":120,"sum":1},"d":"召唤 1×自身(血120 攻20)"},{"id":"壁","r":"Green","e":"Earth","rec":["辟","土"],"recE":["None","Earth"],"py":"bì","g":"墙、峭立","s":false,"st":{"shield":40},"d":"护盾40;反伤30% 2回合"},{"id":"杜","r":"Gold","e":"Earth","rec":["木","土"],"recE":["Wood","Earth"],"py":"dù","g":"堵塞、杜绝","s":false,"st":{"atk":100,"aoe":false},"d":"免疫2回合;单体100伤"},{"id":"崩","r":"Green","e":"Earth","rec":["山","朋"],"recE":["Earth","None"],"py":"bēng","g":"山石塌落","s":false,"st":{"atk":50,"aoe":true},"d":"全体50伤"},{"id":"砸","r":"White","e":"Earth","rec":["石","匝"],"recE":["Earth","None"],"py":"zá","g":"重物下击","s":false,"st":{"atk":60,"aoe":false},"d":"单体60伤"},{"id":"碾","r":"White","e":"Earth","rec":["石","展"],"recE":["Earth","None"],"py":"niǎn","g":"轧而使碎","s":false,"st":{"atk":60,"aoe":false},"d":"单体60伤"},{"id":"碎","r":"Blue","e":"Earth","rec":["石","卒"],"recE":["Earth","None"],"py":"suì","g":"击破成片","s":false,"st":{"atk":90,"aoe":false},"d":"单体90伤;破甲20 回合"}];
+
+var EL_NAME = { Metal: "金", Wood: "木", Water: "水", Fire: "火", Earth: "土", None: "中" };
+var EL_GLYPH = { Metal: "#6B6449", Wood: "#1F6333", Water: "#0A5E9E", Fire: "#B02D2E", Earth: "#82552A", None: "#161B22" };
+var EL_SOFT = { Metal: "#EEE3CF", Wood: "#CCE6D0", Water: "#C8E1FB", Fire: "#FED2CE", Earth: "#ECDCBD", None: "#DAD7D0" };
+var EL_FG = { Metal: "#64532C", Wood: "#185C2E", Water: "#0E4F86", Fire: "#862726", Earth: "#634800", None: "#5D646F" };
+var EL_MAIN = { Metal: "#B3A382", Wood: "#348F4F", Water: "#0F74C4", Fire: "#C53637", Earth: "#997C3C", None: "#4F5661" };
+var RAR_NAME = { White: "素纸", Green: "竹青", Blue: "青瓷", Purple: "紫檀", Gold: "鎏金", Orange: "赤金", Red: "朱漆" };
+var RAR_ORDER = ["White", "Green", "Blue", "Purple", "Gold", "Orange", "Red"];
+// 相克:木克土,土克水,水克火,火克金,金克木
+var KE = { Wood: "Earth", Earth: "Water", Water: "Fire", Fire: "Metal", Metal: "Wood" };
+var BEI = { Earth: "Wood", Water: "Earth", Fire: "Water", Metal: "Fire", Wood: "Metal" };
+// 相生「他生我」:母 → 本字
+var MOTHER = { Water: "Metal", Wood: "Water", Fire: "Wood", Earth: "Fire", Metal: "Earth" };
+
+// MetaRules 的真实升级公式
+var COPIES = [2, 4, 10, 20, 40, 80, 150, 300, 500];
+var INKS = [20, 50, 120, 300, 700, 1500, 3000, 6000, 12000];
+var COPY_MUL = [1.0, 0.7, 0.4, 0.25, 0.15, 0.1, 0.05];
+var INK_MUL = [1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0];
+var PLAYER_INK = 2480;
+
+function ri(r) { return RAR_ORDER.indexOf(r); }
+function copiesNeed(lv, r) { return Math.max(1, Math.ceil(COPIES[lv - 1] * COPY_MUL[ri(r)])); }
+function inkNeed(lv, r) { return Math.max(1, Math.ceil(INKS[lv - 1] * INK_MUL[ri(r)])); }
+
+// 稳定的模拟存档:同一个字每次渲染出同一套进度
+function seedOf(id) {
+  var h = 0;
+  for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100000;
+  return h;
+}
+var NEW_IDS = ["锋", "熣", "淋", "堡", "柘"];
+var DECK_IDS = ["刺", "藤", "冷", "爆", "碎", "锐", "灼", "垒"];
+
+// 拥有率按稀有度递减:Lv.12 / 最高 43 层的存档,朱漆一张没有、赤金拿到小半
+function ownedOf(rar, s) {
+  var r = ri(rar);
+  if (r >= 6) return false;
+  if (r === 5) return s % 10 < 4;
+  if (r === 4) return s % 10 < 6;
+  if (r === 3) return s % 10 < 7;
+  return s % 20 > 0;
+}
+var CHEST_HINT = {
+  White: "素纸匣起就能开出",
+  Green: "素纸匣起就能开出",
+  Blue: "青瓷匣及以上有机会",
+  Purple: "紫檀匣及以上有机会",
+  Gold: "鎏金匣及以上有机会",
+  Orange: "鎏金匣少量、赤霄匣稳出",
+  Red: "只有赤霄匣开得出"
+};
+
+var ROSTER = CARDS.map(function (c) {
+  var s = seedOf(c.id);
+  var lv = 1 + (s % 4) + (ri(c.r) < 2 ? (s % 3) : 0);
+  if (lv > 10) lv = 10;
+  if (c.id === "劈") lv = 10;
+  var need = lv >= 10 ? 0 : copiesNeed(lv, c.r);
+  // 分母 15 让 (s%11)/15 恒 < 1,凑不满材料 —— 可升级只由下面这张名单指定。
+  // 早先是 /10,有 23% 的字自然达标,55 张里 27 张挂「可升」徽标,排序做了等于没做。
+  // 夹到 need-1:高稀有度低等级的 need 常常就是 1,不夹的话 round 一进位就白白达标
+  var copies = lv >= 10 ? 0 : Math.max(0, Math.min(need - 1, Math.round(need * ((s % 11) / 15))));
+  if (["锐", "灼", "碾", "海", "壁", "利", "塔", "铠"].indexOf(c.id) >= 0) copies = need + (s % 3);
+  var owned = DECK_IDS.indexOf(c.id) >= 0 || NEW_IDS.indexOf(c.id) >= 0 || ownedOf(c.r, s);
+  return {
+    d: c, owned: owned,
+    lv: owned ? lv : 1, copies: owned ? copies : 0, need: need,
+    ink: lv >= 10 ? 0 : inkNeed(lv, c.r),
+    isNew: NEW_IDS.indexOf(c.id) >= 0,
+    inDeck: DECK_IDS.indexOf(c.id) >= 0
+  };
+});
+ROSTER.forEach(function (m) {
+  m.canUp = m.owned && m.lv < 10 && m.copies >= m.need && PLAYER_INK >= m.ink;
+});
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: "All", sel: null, seen: {}, upOnly: false, wantOnly: false, deck: DECK_IDS.slice() };
+  }
+
+  visible() {
+    var st = this.state;
+    return ROSTER.filter(function (m) {
+      if (st.filter !== "All" && m.d.e !== st.filter) return false;
+      if (st.upOnly && !m.canUp) return false;
+      if (st.wantOnly && m.owned) return false;
+      return true;
+    }).sort(function (a, b) {
+      // 未拥有一律沉底:收集页首先是「我手上有什么」,其次才是「还差什么」
+      if (a.owned !== b.owned) return a.owned ? -1 : 1;
+      if (a.canUp !== b.canUp) return a.canUp ? -1 : 1;
+      var an = a.isNew && !st.seen[a.d.id], bn = b.isNew && !st.seen[b.d.id];
+      if (an !== bn) return an ? -1 : 1;
+      if (ri(a.d.r) !== ri(b.d.r)) return ri(b.d.r) - ri(a.d.r);
+      return a.d.id.localeCompare(b.d.id);
+    });
+  }
+
+  statsOf(m) {
+    var s = m.d.st, out = [];
+    var scale = 1 + (m.lv - 1) * 0.1;
+    var up = function (v) { return Math.ceil(v * scale); };
+    if (s.atk !== undefined) {
+      out.push({ cls: "atk", k: "攻击", v: up(s.atk),
+        t: s.hp !== undefined ? "召唤物每击" : (s.aoe ? "全体，每个目标" : "单体，每次") });
+    }
+    if (s.hp !== undefined) out.push({ cls: "hp", k: "血量", v: up(s.hp), t: "召唤物 ×" + s.sum });
+    if (s.shield !== undefined) out.push({ cls: "shield", k: "护盾", v: up(s.shield), t: "叠加到自身" });
+    if (s.heal !== undefined) out.push({ cls: "heal", k: "治疗", v: up(s.heal), t: "回复生命" });
+    return out.slice(0, 3);
+  }
+
+  renderVals() {
+    var self = this, st = this.state;
+    var list = this.visible();
+    var seenNew = ROSTER.filter(function (m) { return m.isNew && !st.seen[m.d.id]; });
+    var upCount = ROSTER.filter(function (m) { return m.canUp; }).length;
+
+    var filters = [{ k: "All", n: "全部" }, { k: "Metal", n: "金" }, { k: "Wood", n: "木" },
+      { k: "Water", n: "水" }, { k: "Fire", n: "火" }, { k: "Earth", n: "土" }]
+      .map(function (f) {
+        var pool = ROSTER.filter(function (m) { return f.k === "All" || m.d.e === f.k; });
+        var own = pool.filter(function (m) { return m.owned; }).length;
+        return {
+          name: f.n, count: own + "/" + pool.length,
+          cls: (st.filter === f.k ? "on " : "") + "e-" + (f.k === "All" ? "All" : f.k),
+          hasNew: pool.some(function (m) { return m.isNew && !st.seen[m.d.id]; }),
+          pick: function () { self.setState({ filter: f.k }); }
+        };
+      });
+
+    var cards = list.map(function (m) {
+      var isNew = m.isNew && !st.seen[m.d.id];
+      var maxed = m.lv >= 10;
+      var inDeck = st.deck.indexOf(m.d.id) >= 0;
+      var pct = maxed ? 100 : Math.min(100, Math.round(m.copies / m.need * 100));
+      var flags = [];
+      if (!m.owned) flags.push("locked");
+      if (isNew) flags.push("isnew");
+      if (ri(m.d.r) >= 4 && m.owned) flags.push("glow"); // 未拥有不发光
+      if (st.sel === m.d.id) flags.push("sel");
+      return {
+        id: m.d.id, py: m.d.py, owned: m.owned, locked: !m.owned,
+        rarCls: "r-" + m.d.r, elCls: "e-" + m.d.e, flags: flags.join(" "),
+        lvText: maxed ? "MAX" : "Lv." + m.lv, lvCls: maxed ? "max" : "",
+        isNew: isNew && m.owned, canUp: m.canUp, inDeck: inDeck,
+        upPos: inDeck ? "" : "nodeck",
+        pct: pct + "%",
+        barCls: m.canUp ? "ready" : "",
+        numCls: maxed ? "max" : (m.canUp ? "ready" : ""),
+        copyText: maxed ? "满级" : m.copies + "/" + m.need,
+        pick: function () {
+          var seen = Object.assign({}, st.seen);
+          seen[m.d.id] = true;
+          self.setState({ sel: m.d.id, seen: seen });
+        }
+      };
+    });
+
+    var m = ROSTER.filter(function (x) { return x.d.id === st.sel; })[0];
+    var sel = {};
+    if (m) {
+      var maxed = m.lv >= 10;
+      var inDeck = st.deck.indexOf(m.d.id) >= 0;
+      var parts = m.d.rec.map(function (p, i) {
+        var pe = m.d.recE[i];
+        return {
+          id: p, el: EL_NAME[pe] || "中", op: i === m.d.rec.length - 1 ? "→" : "＋",
+          style: "--pSoft: " + EL_SOFT[pe] + "; --pFg: " + EL_FG[pe]
+        };
+      });
+      var pips = [];
+      for (var i = 1; i <= 10; i++) pips.push({ cls: i <= m.lv ? "f" : (i === m.lv + 1 && m.canUp ? "n" : "") });
+      sel = {
+        id: m.d.id, py: m.d.py, gloss: m.d.g, desc: m.d.d, lv: m.lv,
+        owned: m.owned, locked: !m.owned, chestHint: CHEST_HINT[m.d.r],
+        rarCls: "r-" + m.d.r, elCls: "e-" + m.d.e,
+        rarName: RAR_NAME[m.d.r], elName: EL_NAME[m.d.e], sheng: m.d.s,
+        shengNote: "配方含「" + EL_NAME[MOTHER[m.d.e]] + "」生「" + EL_NAME[m.d.e] + "」，伤害/护盾/治疗恒 ×3（已计入上方数值）",
+        pips: pips,
+        copyOk: maxed ? "" : (m.copies >= m.need ? "ok" : "no"),
+        inkOk: maxed ? "" : (PLAYER_INK >= m.ink ? "ok" : "no"),
+        copyText: maxed ? "—" : m.copies + " / " + m.need,
+        inkText: maxed ? "—" : m.ink.toLocaleString() + " / 2,480",
+        statTitle: (m.owned ? "数值 · Lv." + m.lv : "数值 · Lv.1 基础值")
+          + (m.d.st.hp !== undefined ? " 召唤物" : ""),
+        stats: this.statsOf(m),
+        parts: parts,
+        keName: EL_NAME[KE[m.d.e]], beiName: EL_NAME[BEI[m.d.e]],
+        keDot: "background: " + EL_MAIN[KE[m.d.e]],
+        beiDot: "background: " + EL_MAIN[BEI[m.d.e]],
+        deckText: inDeck ? "卸下出阵" : "编入出阵",
+        deckCls: inDeck ? "off" : "",
+        upText: maxed ? "已满级" : (m.canUp ? "升到 Lv." + (m.lv + 1) : "材料不足"),
+        upCls: maxed ? "maxed" : (m.canUp ? "" : "dis")
+      };
+    }
+
+    var slots = [];
+    st.deck.forEach(function (id) {
+      var r = ROSTER.filter(function (x) { return x.d.id === id; })[0];
+      if (!r) return;
+      slots.push({
+        id: id, lv: "Lv." + r.lv, cls: "", elCls: "e-" + r.d.e,
+        pick: function () { self.setState({ sel: id }); }
+      });
+    });
+    for (var j = st.deck.length; j < 15; j++) slots.push({ id: "＋", lv: "", cls: "free", elCls: "", pick: function () {} });
+
+    var elbars = ["Metal", "Wood", "Water", "Fire", "Earth"].map(function (e) {
+      var n = st.deck.filter(function (id) {
+        var r = ROSTER.filter(function (x) { return x.d.id === id; })[0];
+        return r && r.d.e === e;
+      }).length;
+      return {
+        name: EL_NAME[e], elCls: "e-" + e, cls: n >= 5 ? "full" : "",
+        pct: (n / 5 * 100) + "%", text: n + "/5"
+      };
+    });
+
+    var ownedTotal = ROSTER.filter(function (x) { return x.owned; }).length;
+    var lockedTotal = ROSTER.length - ownedTotal;
+    return {
+      filters: filters, cards: cards, sel: sel,
+      hasSel: !!m, noSel: !m, isEmpty: list.length === 0,
+      emptyText: st.wantOnly ? "这一系已经集齐了。" : "这一系还没有可升级的字。",
+      selOwned: !!m && m.owned, selLocked: !!m && !m.owned,
+      sideTitle: m ? (m.owned ? "字牌详情" : "字牌详情 · 未拥有") : "出阵编组",
+      ownedCount: ownedTotal, totalCount: ROSTER.length, deckCount: st.deck.length,
+      lockedCount: lockedTotal, hasLocked: lockedTotal > 0,
+      newCount: seenNew.length, hasNew: seenNew.length > 0,
+      upgradableCount: upCount,
+      upOnlyCls: st.upOnly ? "on" : "",
+      wantOnlyCls: st.wantOnly ? "on" : "",
+      toggleWantOnly: function () { self.setState({ wantOnly: !st.wantOnly, upOnly: false }); },
+      slots: slots, elbars: elbars,
+      toggleUpOnly: function () { self.setState({ upOnly: !st.upOnly, wantOnly: false }); },
+      clearSel: function () { self.setState({ sel: null }); },
+      toggleDeck: function () {
+        if (!m || !m.owned) return;
+        var d = st.deck.slice(), i = d.indexOf(m.d.id);
+        if (i >= 0) { if (d.length > 5) d.splice(i, 1); }
+        else if (d.length < 15) d.push(m.d.id);
+        self.setState({ deck: d });
+      },
+      doUpgrade: function () {},
+      pickFirstUpgradable: function () {
+        var f = ROSTER.filter(function (x) { return x.canUp; })[0];
+        if (f) self.setState({ sel: f.d.id, filter: "All" });
+      },
+      noop: function () {}
+    };
+  }
+}
+</script>
+</body>
+</html>

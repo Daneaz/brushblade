@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .sheet {
+      width: 1180px; height: 640px; box-sizing: border-box; padding: 26px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .sub { font-size: 13px; color: #5D646F; margin-top: 6px; line-height: 1.7; }
+    .sub em { font-style: normal; color: #9B1E22; font-weight: 500; }
+    .cols { display: flex; gap: 24px; flex: 1; min-height: 0; }
+
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #E4DDCE; vertical-align: top; }
+    th { font-size: 11px; font-weight: 500; letter-spacing: 2px; color: #88909C; border-bottom-color: #CFC7B6; }
+    td.k { font-family: "Noto Serif SC", serif; font-weight: 600; white-space: nowrap; }
+    td.e { color: #5D646F; font-family: "SF Mono", "Menlo", monospace; font-size: 11.5px; white-space: nowrap; }
+    td.x { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; }
+    .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+      border-radius: 10px; font-size: 11px; font-weight: 500; }
+    .tag.atk { background: #FBE3E2; color: #B02D2E; }
+    .tag.hp { background: #DDEEE1; color: #1F6333; }
+    .tag.sh { background: #EFE2CE; color: #82552A; }
+    .tag.he { background: #D9E8F7; color: #0A5E9E; }
+    .tag.no { background: #E9E5DB; color: #88909C; }
+
+    .demo { width: 306px; flex: none; display: flex; flex-direction: column; gap: 12px; }
+    .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; padding: 13px 14px; }
+    .ch { display: flex; align-items: baseline; gap: 9px; margin-bottom: 9px; }
+    .ch .g { font-family: "Noto Serif SC", serif; font-size: 24px; font-weight: 600; }
+    .ch .p { font-size: 12px; color: #5D646F; }
+    .ch .r { margin-left: auto; font-size: 11px; color: #88909C; }
+    .stats { display: flex; gap: 7px; }
+    .sbox { flex: 1; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 9px; padding: 8px 10px; }
+    .sbox .k { font-size: 10px; color: #88909C; letter-spacing: 2px; }
+    .sbox .v { font-family: "Noto Serif SC", serif; font-size: 22px; font-weight: 600; line-height: 1.2;
+      font-variant-numeric: tabular-nums; margin-top: 3px; }
+    .sbox .t { font-size: 9px; color: #88909C; margin-top: 2px; }
+    .sbox.atk .v { color: #B02D2E; } .sbox.hp .v { color: #1F6333; }
+    .sbox.shield .v { color: #82552A; } .sbox.heal .v { color: #0A5E9E; }
+    .note { font-size: 11.5px; color: #5D646F; line-height: 1.65; margin-top: 9px;
+      padding-top: 9px; border-top: 1px dashed #DED7C9; }
+    .note b { color: #161B22; font-weight: 500; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2>详情页数值口径</h2>
+    <div class="sub">
+      字表里字卡本身没有攻/血字段，只有效果。四格数值都是从 <em>effects</em> 现算的——
+      <b>有则出、无则整格不占位</b>，绝不显示「攻击 —」。
+    </div>
+  </div>
+
+  <div class="cols">
+    <div style="flex: 1; min-width: 0;">
+      <table>
+        <tr>
+          <th>数值格</th><th>取自</th><th>写法</th><th>例</th><th>该字详情显示</th>
+        </tr>
+        <tr>
+          <td class="k"><span class="tag atk">攻击</span></td>
+          <td class="e">DamageSingle / DamageAll</td>
+          <td>效果值；全体伤在副标注「全体，每个目标」</td>
+          <td class="x">冷</td>
+          <td>攻击 90（单体）</td>
+        </tr>
+        <tr>
+          <td class="k"><span class="tag atk">攻击</span></td>
+          <td class="e">Summon.attack</td>
+          <td>召唤字的「攻击」是召唤物的，副标注「召唤物每击」</td>
+          <td class="x">藤</td>
+          <td>攻击 40 · 血量 80</td>
+        </tr>
+        <tr>
+          <td class="k"><span class="tag hp">血量</span></td>
+          <td class="e">Summon.value</td>
+          <td>召唤物血量，副标注只数 ×N</td>
+          <td class="x">楸</td>
+          <td>血量 88（召唤物 ×2）</td>
+        </tr>
+        <tr>
+          <td class="k"><span class="tag sh">护盾</span></td>
+          <td class="e">Shield</td>
+          <td>盾值</td>
+          <td class="x">垒</td>
+          <td>护盾 50 · 攻击 30</td>
+        </tr>
+        <tr>
+          <td class="k"><span class="tag he">治疗</span></td>
+          <td class="e">HealSelf / HealAll / HealOverTime</td>
+          <td>单次回复量；持续治疗的每回合量</td>
+          <td class="x">澡</td>
+          <td>治疗 50 · 攻击 70</td>
+        </tr>
+        <tr>
+          <td class="k"><span class="tag no">不进数值格</span></td>
+          <td class="e">Burn / Freeze / Slow / ArmorBreak<br>Morale / Dispel / Revive / …</td>
+          <td>没有可比数量级，全部走下面的「字卡功能」整句</td>
+          <td class="x">焦</td>
+          <td>只有功能行，无数值格</td>
+        </tr>
+      </table>
+      <div class="note" style="margin-top: 14px;">
+        <b>两重缩放都已算进显示值：</b>
+        卡等级按 <span style="font-family: monospace;">MetaRules.ScaleByCardLevel</span> 缩放；
+        相生「他生我」的 ×3 直接计入并在字头挂一枚<b>相生 ×3</b>徽标——
+        照旧只作用于伤害／护盾／治疗，召唤血攻、灼烧层数不乘，与 <span style="font-family: monospace;">CharInfo.IsWuxingScaled</span> 同一套判据。
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="card">
+        <div class="ch"><span class="g">刺</span><span class="p">cì</span><span class="r">青瓷 · 金系 · Lv.5</span></div>
+        <div class="stats">
+          <div class="sbox atk"><div class="k">攻击</div><div class="v">140</div><div class="t">单体，每次</div></div>
+        </div>
+        <div class="note">纯输出字只出一格。穿甲 15 点、可偷袭后排这些「有加成但没量级」的信息留在功能行里，不挤进数值格。</div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="g">藤</span><span class="p">téng</span><span class="r">青瓷 · 木系 · Lv.4</span></div>
+        <div class="stats">
+          <div class="sbox atk"><div class="k">攻击</div><div class="v">52</div><div class="t">召唤物每击</div></div>
+          <div class="sbox hp"><div class="k">血量</div><div class="v">104</div><div class="t">召唤物 ×1</div></div>
+        </div>
+        <div class="note">召唤字是唯一同时有攻和血的一类，两格必然成对出现。</div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="g">焚</span><span class="p">fén</span><span class="r">赤金 · 火系 · Lv.1 · 相生 ×3</span></div>
+        <div class="stats">
+          <div class="sbox atk"><div class="k">攻击</div><div class="v">120</div><div class="t">全体，每个目标</div></div>
+        </div>
+        <div class="note">配方「林＋火」含木生火，基础 40 恒 ×3。功能行仍写全算式 <b>全体 40×3=120 伤</b>，玩家能对上字表。</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

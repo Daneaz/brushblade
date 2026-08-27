@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .sheet {
+      width: 1180px; height: 470px; box-sizing: border-box; padding: 26px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .sub { font-size: 13px; color: #5D646F; margin-top: 6px; line-height: 1.7; }
+    .sub b { color: #161B22; font-weight: 700; }
+    .row { display: flex; gap: 18px; }
+    .item { width: 168px; display: flex; flex-direction: column; gap: 8px; }
+
+    .r-Blue { --rar: #0F74C4; } .r-Green { --rar: #2E9E52; }
+    .r-Purple { --rar: #7945AB; } .r-Gold { --rar: #C9A94A; } .r-White { --rar: #A19E98; }
+    .e-Metal { --glyph: #6B6449; } .e-Wood { --glyph: #1F6333; } .e-Water { --glyph: #0A5E9E; }
+    .e-Fire { --glyph: #B02D2E; } .e-Earth { --glyph: #82552A; }
+
+    .card {
+      position: relative; width: 103px; height: 128px; border-radius: 9px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 2px 6px rgba(22,27,34,.08);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .card::before { content: ""; position: absolute; inset: 4px; border-radius: 6px;
+      border: 1px solid color-mix(in srgb, var(--rar) 34%, transparent); }
+    .card .gl { font-family: "Noto Serif SC", serif; font-size: 46px; font-weight: 600; line-height: 1; color: var(--glyph); margin-top: 4px; }
+    .card .py { font-size: 8.5px; color: #5D646F; letter-spacing: .5px; margin-top: 6px; }
+    .lvchip { position: absolute; top: 5px; left: 5px; height: 15px; padding: 0 5px;
+      display: flex; align-items: center; border-radius: 8px; background: #11161F;
+      color: #fff; font-size: 8.5px; }
+    .lvchip.max { background: #C9A94A; color: #2B2200; }
+    .rarchip { position: absolute; top: 5px; right: 5px; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--rar); border: 1.5px solid #FFFDF7; }
+    .deckbar { position: absolute; left: 0; right: 0; bottom: 0; height: 15px;
+      display: flex; align-items: center; justify-content: center;
+      background: #7A3F5C; color: #fff; font-size: 8.5px; letter-spacing: 2px; }
+    .upbadge { position: absolute; left: 5px; bottom: 5px; height: 15px; padding: 0 6px;
+      display: flex; align-items: center; gap: 2px; border-radius: 8px;
+      background: #439458; color: #fff; font-size: 8.5px; }
+    .upbadge.ondeck { bottom: 21px; }
+    .isnew { border-color: #C9A94A; }
+    .isnew::before { border-color: rgba(201,169,74,.55); }
+    .newwrap { position: absolute; inset: -2px; border-radius: 11px;
+      box-shadow: 0 0 0 2px rgba(201,169,74,.5), 0 0 12px 3px rgba(201,169,74,.34);
+      animation: breathe 2.6s ease-in-out infinite; }
+    @keyframes breathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+    .newflag { position: absolute; top: 0; right: 0; width: 34px; height: 34px; overflow: hidden; }
+    .newflag span { position: absolute; top: 4px; right: -13px; width: 48px; transform: rotate(45deg);
+      background: #C53637; color: #fff; font-size: 8.5px; font-weight: 700;
+      text-align: center; line-height: 14px; letter-spacing: 1px; }
+
+    .foot { width: 103px; display: flex; align-items: center; gap: 5px; height: 12px; }
+    .bar { flex: 1; height: 4px; border-radius: 2px; background: #E1DACB; overflow: hidden; }
+    .bar > span { display: block; height: 100%; border-radius: 3px; background: #A9B0A2; }
+    .bar.ready > span { background: #439458; }
+    .num { font-size: 8.5px; color: #5D646F; font-variant-numeric: tabular-nums; }
+    .num.ready { color: #1B552C; font-weight: 700; }
+    .num.max { color: #8F6B09; font-weight: 700; }
+
+    .cap { font-size: 12px; line-height: 1.6; }
+    .cap b { display: block; font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    .cap span { color: #5D646F; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2>字牌状态</h2>
+    <div class="sub">1:1 实际尺寸 — 卡组页每张 <b>103×128pt</b>（5 列滚动网格）。牌面只承载「一眼要认出的四件事」：等级、稀有度、能不能升、在不在阵上，其余全部让给右栏详情。</div>
+  </div>
+
+  <div class="row">
+    <div class="item">
+      <div class="card r-Blue e-Water">
+        <span class="gl">冷</span><span class="py">lěng</span>
+        <span class="lvchip">Lv.3</span><span class="rarchip"></span>
+      </div>
+      <div class="foot">
+        <span class="bar"><span style="width: 25%"></span></span>
+        <span class="num">1/4</span>
+      </div>
+      <div class="cap"><b>常规</b><span>左上等级、右上稀有度色点，牌脚是升级材料进度。</span></div>
+    </div>
+
+    <div class="item">
+      <div class="card r-Blue e-Metal isnew">
+        <span class="newwrap"></span>
+        <span class="gl">锋</span><span class="py">fēng</span>
+        <span class="lvchip">Lv.1</span><span class="rarchip"></span>
+        <span class="newflag"><span>新</span></span>
+      </div>
+      <div class="foot">
+        <span class="bar"><span style="width: 0%"></span></span>
+        <span class="num">0/4</span>
+      </div>
+      <div class="cap"><b>新字·未看过</b><span>朱砂角旗＋赭金呼吸描边，2.6s 一次，不闪不跳。</span></div>
+    </div>
+
+    <div class="item">
+      <div class="card r-Green e-Earth">
+        <span class="gl">壁</span><span class="py">bì</span>
+        <span class="lvchip">Lv.2</span><span class="rarchip"></span>
+        <span class="upbadge">▲ 可升</span>
+      </div>
+      <div class="foot">
+        <span class="bar ready"><span style="width: 100%"></span></span>
+        <span class="num ready">4/3</span>
+      </div>
+      <div class="cap"><b>可升级</b><span>翠玉徽标＋进度条填满转绿；这类牌自动排到最前。</span></div>
+    </div>
+
+    <div class="item">
+      <div class="card r-Blue e-Wood">
+        <span class="gl">藤</span><span class="py">téng</span>
+        <span class="lvchip">Lv.4</span><span class="rarchip"></span>
+        <span class="deckbar">出阵中</span>
+      </div>
+      <div class="foot">
+        <span class="bar"><span style="width: 60%"></span></span>
+        <span class="num">6/10</span>
+      </div>
+      <div class="cap"><b>出阵中</b><span>牌底一条藕荷色带，与稀有度框不抢层次。</span></div>
+    </div>
+
+    <div class="item">
+      <div class="card r-White e-Metal">
+        <span class="gl">劈</span><span class="py">pī</span>
+        <span class="lvchip max">MAX</span><span class="rarchip"></span>
+      </div>
+      <div class="foot">
+        <span class="bar"><span style="width: 100%"></span></span>
+        <span class="num max">满级</span>
+      </div>
+      <div class="cap"><b>满级</b><span>等级角标转鎏金；牌脚不再显示材料，只写「满级」。</span></div>
+    </div>
+
+    <div class="item">
+      <div class="card r-Purple e-Fire isnew">
+        <span class="newwrap"></span>
+        <span class="gl">熣</span><span class="py">suī</span>
+        <span class="lvchip">Lv.1</span><span class="rarchip"></span>
+        <span class="upbadge ondeck">▲ 可升</span>
+        <span class="deckbar">出阵中</span>
+        <span class="newflag"><span>新</span></span>
+      </div>
+      <div class="foot">
+        <span class="bar ready"><span style="width: 100%"></span></span>
+        <span class="num ready">2/2</span>
+      </div>
+      <div class="cap"><b>叠加</b><span>四种状态各占一角互不遮挡：可升徽标遇出阵带自动上移。</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

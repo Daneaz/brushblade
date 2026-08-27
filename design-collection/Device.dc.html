@@ -1,0 +1,203 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .sheet {
+      width: 1180px; height: 660px; box-sizing: border-box; padding: 26px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .sub { font-size: 13px; color: #5D646F; margin-top: 6px; line-height: 1.7; }
+    .sub b { color: #161B22; font-weight: 700; }
+    .cols { display: flex; gap: 22px; flex: 1; min-height: 0; }
+    .col { display: flex; flex-direction: column; gap: 14px; }
+    h4 { margin: 0 0 8px; font-size: 11px; font-weight: 500; letter-spacing: 3px; color: #88909C;
+      display: flex; align-items: center; gap: 9px; }
+    h4::after { content: ""; flex: 1; height: 1px; background: #E4DDCE; }
+
+    /* 设备图 */
+    .devbox { position: relative; width: 466px; height: 215px; }
+    .screen { position: absolute; inset: 0; border-radius: 14px; background: #FBF8F1;
+      border: 2px solid #2C333D; box-shadow: 0 4px 16px rgba(22,27,34,.14); overflow: hidden; }
+    .safe2 { position: absolute; left: 29.5px; right: 29.5px; top: 0; bottom: 10.5px;
+      border: 1px dashed rgba(197,54,55,.55); background: rgba(197,54,55,.035); }
+    .island { position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      width: 11px; height: 54px; border-radius: 6px; background: #11161F; }
+    .hind { position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+      width: 64px; height: 2.5px; border-radius: 2px; background: rgba(22,27,34,.34); }
+    .dim { position: absolute; font-size: 10px; color: #9B1E22; letter-spacing: .5px; }
+    .devbox .arrowline { position: absolute; background: rgba(155,30,34,.45); }
+    .content-lbl { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+      text-align: center; }
+    .content-lbl .a { font-family: "Noto Serif SC", serif; font-size: 24px; font-weight: 600; letter-spacing: 2px; }
+    .content-lbl .b { font-size: 11px; color: #5D646F; margin-top: 4px; }
+
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-size: 12px; }
+    .kv .k { color: #88909C; white-space: nowrap; }
+    .kv .v { font-variant-numeric: tabular-nums; }
+    .kv .v b { color: #9B1E22; }
+    .kv .v code { font-family: "SF Mono", Menlo, monospace; font-size: 11px; background: #EDE7DA;
+      padding: 1px 5px; border-radius: 3px; }
+
+    .warn { background: #FBE9E7; border-left: 3px solid #C53637; border-radius: 0 8px 8px 0;
+      padding: 9px 11px; font-size: 11.5px; line-height: 1.7; color: #862726; }
+    .warn b { color: #9B1E22; }
+
+    table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+    th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #E4DDCE; }
+    th { font-size: 10px; font-weight: 500; letter-spacing: 1px; color: #88909C; border-bottom-color: #CFC7B6; }
+    td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    td.s { color: #5D646F; }
+    .swatch { display: inline-block; background: #161B22; color: #F6F1E7; border-radius: 3px;
+      padding: 0 5px; font-family: "Noto Serif SC", serif; }
+
+    .taps { display: flex; gap: 10px; align-items: flex-end; }
+    .tapdemo { text-align: center; }
+    .tapdemo .box { border-radius: 8px; background: #E7E1D4; display: flex; align-items: center;
+      justify-content: center; color: #5D646F; font-size: 10px; }
+    .tapdemo .box.ok { background: #E3F4E6; color: #1B552C; box-shadow: inset 0 0 0 1px #A9CDB2; }
+    .tapdemo .box.warnb { background: #FBE9E7; color: #862726; box-shadow: inset 0 0 0 1px #E5B4B0; }
+    .tapdemo .lb { font-size: 9.5px; color: #88909C; margin-top: 5px; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2>设备基准与适配</h2>
+    <div class="sub">
+      全部六屏按 <b>iPhone 16 Pro Max 横屏 932×430pt</b> 排版（@3x = 2796×1290px），锁横屏不变。
+      安全区左右各 59pt、底部 21pt——所有可点元素都在这个框里。
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="col" style="width: 466px; flex: none;">
+      <div>
+        <h4>屏幕</h4>
+        <div class="devbox">
+          <div class="screen">
+            <div class="safe2"></div>
+            <div class="content-lbl">
+              <div class="a">814 × 409 pt</div>
+              <div class="b">安全区内的可用画面</div>
+            </div>
+          </div>
+          <div class="island"></div>
+          <div class="hind"></div>
+          <span class="dim" style="left: 0; top: -15px;">932pt</span>
+          <span class="dim" style="left: 33px; top: -15px;">← 59 →</span>
+          <span class="dim" style="right: 33px; top: -15px;">← 59 →</span>
+          <span class="dim" style="right: -46px; top: 50%; transform: translateY(-50%);">430pt</span>
+          <span class="dim" style="left: 34px; bottom: -16px;">Home Indicator 21pt</span>
+        </div>
+      </div>
+
+      <div>
+        <h4>与 Unity 画布的换算</h4>
+        <div class="kv">
+          <span class="k">CanvasScaler</span>
+          <span class="v"><code>referenceResolution 1600×900</code>，<code>match = 1</code>（按高）</span>
+          <span class="k">实际逻辑画布</span>
+          <span class="v"><b>1950 × 900</b> 单位　（932 ÷ 430 × 900）</span>
+          <span class="k">1pt =</span>
+          <span class="v">2.093 逻辑单位　（900 ÷ 430）</span>
+          <span class="k">本稿 103pt 字牌</span>
+          <span class="v">= 216 × 268 逻辑单位</span>
+        </div>
+        <div class="warn" style="margin-top: 11px;">
+          按高匹配的后果：这台机上横向有 <b>1950</b> 单位、比参考的 1600 多出 350，
+          而纵向仍是 900、<b>一分没多</b>。现有布局全用 0–1 归一化锚点，
+          所以多出来的宽度会摊进各段间距（不裁切），
+          但战斗界面那串「闭合到只剩 14px 余量」的纵向预算，在真机上一点没松。
+          本轮所有重排都只在纵向上做减法。
+        </div>
+      </div>
+    </div>
+
+    <div class="col" style="flex: 1; min-width: 0;">
+      <div>
+        <h4>触控与字号阶梯</h4>
+        <div class="taps">
+          <div class="tapdemo">
+            <div class="box ok" style="width: 100px; height: 44px;">44 × 44</div>
+            <div class="lb">最小触控目标</div>
+          </div>
+          <div class="tapdemo">
+            <div class="box ok" style="width: 74px; height: 36px;">36 高</div>
+            <div class="lb">视觉高度 + 上下各<br>4pt 透明扩边</div>
+          </div>
+          <div class="tapdemo">
+            <div class="box warnb" style="width: 52px; height: 22px;">22 高</div>
+            <div class="lb">仅限非独占操作<br>（chip / 角标）</div>
+          </div>
+        </div>
+        <table style="margin-top: 12px;">
+          <tr><th>用途</th><th>字号</th><th>字体</th><th>示例</th></tr>
+          <tr><td>页标题</td><td class="n">19pt / 600</td><td class="s">思源宋体</td><td><span class="swatch">卡组</span></td></tr>
+          <tr><td>字牌字形</td><td class="n">46pt / 600</td><td class="s">思源宋体</td><td><span class="swatch">冷</span></td></tr>
+          <tr><td>区块小标题</td><td class="n">13pt / 600</td><td class="s">思源宋体</td><td class="s">今日字摊</td></tr>
+          <tr><td>正文 / 描述</td><td class="n">10.5–12pt</td><td class="s">思源黑体</td><td class="s">减速 2 回合；单体 108 伤</td></tr>
+          <tr><td>数值</td><td class="n">12–19pt / 700</td><td class="s">等宽数字</td><td class="s">612 / 920</td></tr>
+          <tr><td>标签 / 角标</td><td class="n">8.5–9.5pt</td><td class="s">思源黑体</td><td class="s">Lv.3 · 可升 · 赏 20</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <h4>六屏纵向预算（安全区内 409pt）</h4>
+        <table>
+          <tr><th>屏</th><th>纵向分配</th><th>余量</th></tr>
+          <tr>
+            <td>主界面</td>
+            <td class="s">顶栏 38 ＋ 三栏主区 311 ＋ 底部导航 44 ＋ 间距 16</td>
+            <td class="n">0</td>
+          </tr>
+          <tr>
+            <td>卡组</td>
+            <td class="s">顶栏 38 ＋ 筛选 27 ＋ 网格／详情 338（内部滚动）＋ 间距 6</td>
+            <td class="n">0</td>
+          </tr>
+          <tr>
+            <td>图鉴</td>
+            <td class="s">顶栏 38 ＋ 层段 28 ＋ 网格／详情 337（内部滚动）＋ 间距 6</td>
+            <td class="n">0</td>
+          </tr>
+          <tr>
+            <td>技能</td>
+            <td class="s">顶栏 38 ＋ 四张技能牌 295 ＋ 合计条 62 ＋ 间距 14</td>
+            <td class="n">0</td>
+          </tr>
+          <tr>
+            <td>商城</td>
+            <td class="s">顶栏 38 ＋ 字摊 178 ＋ 箱与广告 65 ＋ 订阅 48 ＋ 标题行 32 ＋ 间距 32</td>
+            <td class="n">16</td>
+          </tr>
+          <tr>
+            <td><b>战斗</b></td>
+            <td class="s">顶栏 26 ＋ 战场 226 ＋ 玩家条 30 ＋ 手牌 68 ＋ 部件 32 ＋ 间距 16</td>
+            <td class="n">11</td>
+          </tr>
+        </table>
+        <div class="sub" style="font-size: 11.5px; margin-top: 10px;">
+          都用 flex 分配而非固定百分比锚点：更矮的机型（16:9 的 iPhone SE 横屏 = 375pt 高）
+          先压网格行数与战场格高，顶栏、底栏、按钮的绝对高度不动——
+          <b>可点的东西永远不会被压到 44pt 以下</b>。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
