@@ -7,6 +7,13 @@ namespace Brushblade.Core
     public sealed class EventOption
     {
         public string Label { get; set; }
+        // 效果说明(2026-08-27):选项钮上只画 Label 这个**名称**,效果明细由表现层列在情境正文
+        // 下方(BattleView.DrawEvent)。此前效果是写进 Label 的,而选项钮宽 260/字号 22 只装得下
+        // 23 个半宽,「入炉淬骨(八成 上限 +30%,两成 反噬 −30%)」有 39 个 —— 溢出到钮外被邻钮
+        // 底图盖掉,玩家看到的就是「描述展示不全」。
+        // ⚠ Detail 是**手写**的,与下面那些数值字段是两份数据:改了 MaxHpPercent 之类的数,
+        // 这句话不会自己跟着变。EventLabelWidthTests 只能守住「非空」,措辞对不对得靠人看。
+        public string Detail { get; set; }
         public int HpDelta { get; set; }                      // 正=治疗(不超上限),负=损伤(至少留 1)
         public int Ink { get; set; }                          // 墨锭收入(run 结束入账)
         public int InkCost { get; set; }                      // 墨锭消费(对赌类;余额不足不可选)

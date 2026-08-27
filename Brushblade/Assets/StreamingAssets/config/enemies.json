@@ -425,11 +425,13 @@
       "text": "路边测字先生托起罗盘:『客官,抽一字,卜一卦。』",
       "options": [
         {
-          "label": "求字(得「炎」)",
+          "label": "求字",
+          "detail": "得「炎」",
           "gainChar": "炎"
         },
         {
-          "label": "求墨(随机部件 ×2)",
+          "label": "求墨",
+          "detail": "随机部件 ×2",
           "randomComponents": 2
         },
         {
@@ -442,12 +444,14 @@
       "text": "一泓漆黑墨池泛着微光。传说浸墨可锻字,却伤元气。",
       "options": [
         {
-          "label": "浸染字库(HP −60,得「沝」)",
+          "label": "浸染字库",
+          "detail": "HP −60,得「沝」",
           "hpDelta": -60,
           "gainChar": "沝"
         },
         {
-          "label": "取墨而归(随机部件 ×2)",
+          "label": "取墨而归",
+          "detail": "随机部件 ×2",
           "randomComponents": 2
         },
         {
@@ -460,11 +464,13 @@
       "text": "你撞见自己历次失败留下的废稿。废稿也是稿。",
       "options": [
         {
-          "label": "翻找部件(随机部件 ×3)",
+          "label": "翻找部件",
+          "detail": "随机部件 ×3",
           "randomComponents": 3
         },
         {
-          "label": "静心重读(HP +80)",
+          "label": "静心重读",
+          "detail": "HP +80",
           "hpDelta": 80
         },
         {
@@ -477,15 +483,18 @@
       "text": "山间书院灯火未熄,先生愿留你半日。",
       "options": [
         {
-          "label": "休整(HP +150)",
+          "label": "休整",
+          "detail": "HP +150",
           "hpDelta": 150
         },
         {
-          "label": "进修(得「林」)",
+          "label": "进修",
+          "detail": "得「林」",
           "gainChar": "林"
         },
         {
-          "label": "帮抄书换钱(墨锭 +20)",
+          "label": "帮抄书换钱",
+          "detail": "墨锭 +20",
           "ink": 20
         }
       ]
@@ -495,7 +504,8 @@
       "text": "路旁小摊,摊主捻须:『以物易物,童叟无欺。』",
       "options": [
         {
-          "label": "一部件换 3 叠字(任选)",
+          "label": "以物易字",
+          "detail": "舍 1 部件,3 叠字任选一",
           "componentCost": 1,
           "gainCharChoices": [
             "鑫",
@@ -506,7 +516,8 @@
           ]
         },
         {
-          "label": "白拿 2 叠字(任选)",
+          "label": "白讨一字",
+          "detail": "2 叠字任选一",
           "gainCharChoices": [
             "鍂",
             "林",
@@ -525,11 +536,13 @@
       "text": "篝火正旺,暖意驱散了错字的阴气。",
       "options": [
         {
-          "label": "休整(HP +200)",
+          "label": "休整",
+          "detail": "HP +200",
           "hpDelta": 200
         },
         {
-          "label": "烤字取暖(随机部件 ×1)",
+          "label": "烤字取暖",
+          "detail": "随机部件 ×1",
           "randomComponents": 1
         },
         {
@@ -542,13 +555,15 @@
       "text": "书生摇扇:『赌一局飞花令?押注方可入席。』",
       "options": [
         {
-          "label": "押注对赌(付 30,五成赢 100)",
+          "label": "押注对赌",
+          "detail": "付墨 30,五成赢 100",
           "inkCost": 30,
           "ink": 100,
           "inkChancePercent": 50
         },
         {
-          "label": "观战学艺(HP +50)",
+          "label": "观战学艺",
+          "detail": "HP +50",
           "hpDelta": 50
         },
         {
@@ -561,12 +576,14 @@
       "text": "半截古碑上一个残字隐约生光,拓印恐伤元气。",
       "options": [
         {
-          "label": "拓印残字(HP −80,得「鍂」)",
+          "label": "拓印残字",
+          "detail": "HP −80,得「鍂」",
           "hpDelta": -80,
           "gainChar": "鍂"
         },
         {
-          "label": "描摹碑文(随机部件 ×2)",
+          "label": "描摹碑文",
+          "detail": "随机部件 ×2",
           "randomComponents": 2
         },
         {
@@ -579,11 +596,13 @@
       "text": "尘封的藏宝库虚掩着门,金光自缝隙间渗出。",
       "options": [
         {
-          "label": "取明面财(墨锭 +40)",
+          "label": "取明面财",
+          "detail": "墨锭 +40",
           "ink": 40
         },
         {
-          "label": "搜刮暗格(HP −200,墨锭 +80)",
+          "label": "搜刮暗格",
+          "detail": "HP −200,墨锭 +80",
           "hpDelta": -200,
           "ink": 80
         },
@@ -597,11 +616,13 @@
       "text": "松下老道盘坐不动:『字有筋骨,人有气脉。静坐一刻,气自厚三分。』",
       "options": [
         {
-          "label": "静坐养气(血量上限 +30%)",
+          "label": "静坐养气",
+          "detail": "血量上限 +30%",
           "maxHpPercent": 30
         },
         {
-          "label": "讨教笔法(随机部件 ×1)",
+          "label": "讨教笔法",
+          "detail": "随机部件 ×1",
           "randomComponents": 1
         },
         {
@@ -614,12 +635,14 @@
       "text": "铁匠抡锤不歇:『字要淬,骨也要淬。火里走一遭,成不成看你的命。』",
       "options": [
         {
-          "label": "入炉淬骨(八成 上限 +30%,两成 反噬 −30%)",
+          "label": "入炉淬骨",
+          "detail": "八成 上限 +30%,两成 反噬 −30%",
           "maxHpPercent": 30,
           "maxHpChancePercent": 80
         },
         {
-          "label": "只观火候(HP +100)",
+          "label": "只观火候",
+          "detail": "HP +100",
           "hpDelta": 100
         },
         {
@@ -632,12 +655,14 @@
       "text": "药庐老妪伸出枯手:『一味药引,换你一口真气。』",
       "options": [
         {
-          "label": "以物易气(舍 1 部件,上限 +30%)",
+          "label": "以物易气",
+          "detail": "舍 1 部件,上限 +30%",
           "maxHpPercent": 30,
           "componentCost": 1
         },
         {
-          "label": "讨碗凉茶(HP +50)",
+          "label": "讨碗凉茶",
+          "detail": "HP +50",
           "hpDelta": 50
         },
         {

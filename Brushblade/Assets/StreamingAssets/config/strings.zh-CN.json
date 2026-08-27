@@ -58,6 +58,8 @@
   "battle.event.body_with_ink": "{eventText}    (墨锭 {ink})",
   "battle.event.gamble_lose": "输了……愿赌服输",
   "battle.event.gamble_win": "手气极佳!+{ink} 墨锭",
+  "battle.event.option_detail": "{label} = {detail}",
+  "battle.event.option_detail_none": "无",
   "battle.event.overflow_pool_title": "部件池(点一个换掉)",
   "battle.event.overflow_prompt": "用「{charId}」换掉池中一个(永久失去),或跳过不要。还剩 {remaining} 个待决。",
   "battle.event.overflow_replaced_msg": "「{incoming}」换掉「{dropped}」",

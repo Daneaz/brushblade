@@ -103,6 +103,7 @@ namespace Brushblade.Data
         private sealed class EventOptionDto
         {
             public string Label { get; set; }
+            public string Detail { get; set; }
             public int HpDelta { get; set; }
             public int Ink { get; set; }
             public int InkCost { get; set; }
@@ -224,6 +225,7 @@ namespace Brushblade.Data
                     options.Add(new EventOption
                     {
                         Label = optionDto.Label,
+                        Detail = optionDto.Detail,
                         HpDelta = optionDto.HpDelta,
                         Ink = optionDto.Ink,
                         InkCost = optionDto.InkCost,

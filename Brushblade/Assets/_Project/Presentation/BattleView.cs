@@ -2644,6 +2644,30 @@ namespace Brushblade.Presentation
             }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
         }
 
+        /// <summary>奇遇三个选项的效果明细,一行排开(2026-08-27 用户拍板)。
+        ///
+        /// 效果说明**不在选项钮上** —— 钮宽 260 / 字号 22 只装得下 23 个半宽,而
+        /// 「入炉淬骨(八成 上限 +30%,两成 反噬 −30%)」有 39 个,溢出到钮外被邻钮盖掉。
+        /// 于是 label 只留名称,说明搬到通栏的正文行下面,不吃那个宽度限。
+        ///
+        /// 常驻显示而不是长按/悬停才出:奇遇是**不可逆**决策,「点下去会发生什么」必须在点之前
+        /// 就看得见;而长按看详情那套惯例(字牌/敌人)首次遇到的玩家不会知道要长按。
+        ///
+        /// 分隔用两个全角空格,与 battle.event.body_with_ink 里「(墨锭」前那 4 个半角空格同性质
+        /// —— 是排版留白,不是文案,所以不进字符串表。
+        /// 无效果的「离开」类选项显式画成「无」,不留空白 —— 空白读起来像没加载出来。</summary>
+        private static string EventOptionDetails(EventDef evt)
+        {
+            var parts = new System.Collections.Generic.List<string>(evt.Options.Count);
+            foreach (var option in evt.Options)
+                parts.Add(Strings.T("battle.event.option_detail",
+                    ("label", option.Label),
+                    ("detail", string.IsNullOrEmpty(option.Detail)
+                        ? Strings.T("battle.event.option_detail_none")
+                        : option.Detail)));
+            return string.Join("\u3000\u3000", parts);
+        }
+
         private int _pendingEventOption = -1; // 部件抵价/任选字:待成交的选项下标
         private int _pendingCharChoice = -1;  // 任选字:已选中的字下标(-1 = 未选)
         private readonly System.Collections.Generic.List<int> _eventPicks = new(); // 已点选的池下标
@@ -2661,7 +2685,11 @@ namespace Brushblade.Presentation
             // 阅读顺序因此是 文案 → 选项。2026-08-21 标题也搬到了左下,但这条理由与标题无关。
             // evt.Text 同样是事件正文数据,不在本文件文案范围——这里登记「正文 + 墨锭余额」
             // 这层胶字模板,「(墨锭」前 4 个空格是刻意留白,别收窄。
-            Ui.ThemedLabel(_summonFrontRow, Strings.T("battle.event.body_with_ink", ("eventText", evt.Text), ("ink", _run.AvailableInk)), 18, Theme.TextDim);
+            // 正文之后换行接效果明细(2026-08-27):选项钮上只有名称,「点下去会发生什么」全在这一行。
+            // 与正文共用一个 Text 而不是再加一个 label —— _summonFrontRow 是 HorizontalLayoutGroup,
+            // 第二个 label 会横向并排而不是换到下一行;"\n" 走 verticalOverflow = Overflow,两行都画得出。
+            Ui.ThemedLabel(_summonFrontRow, Strings.T("battle.event.body_with_ink", ("eventText", evt.Text), ("ink", _run.AvailableInk))
+                + "\n" + EventOptionDetails(evt), 18, Theme.TextDim);
 
             if (_pendingEventOption >= 0)
             {
@@ -2690,6 +2718,13 @@ namespace Brushblade.Presentation
                 return;
             }
 
+            // ⚠ 钮上只画 option.Label 这个**名称**,效果说明由 EventOptionDetails 列在正文下方
+            // (2026-08-27 用户拍板)。标签是 horizontalOverflow = Overflow —— 超宽**不会换行也不会
+            // 省略号**,而是溢出到钮外被邻钮的底图盖掉,玩家看到的就是「描述展示不全」
+            // (旧口径把效果写进 label,「入炉淬骨(八成 上限 +30%,两成 反噬 −30%)」39 个半宽 = 429px,
+            // 钮宽 260 只装得下 23 个,后半截整个不见)。
+            // 钮宽 260 / 字号 22 的容量是 23 个半宽;EventLabelWidthTests 钉住这条,新增选项时
+            // 别再把效果塞回 label —— 那是同一个坑。
             for (int i = 0; i < evt.Options.Count; i++)
             {
                 int index = i;
