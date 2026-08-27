@@ -872,6 +872,11 @@ namespace Brushblade.Presentation
                     DrawTopBar();
                     DrawSummons();
                     DrawPlayerStats();
+                    // ⚠ 这个 break 跳过了下面**全部**操作区,字库也在内 —— 动画锁期间
+                    // _libraryTileRects 恒为空,而本方法开头的 Ui.Clear(_libraryRow) 已经把旧牌
+                    // 销毁了。任何「等 Refresh 把字牌画出来再拿它的 RectTransform」的代码
+                    // (飞牌起终点之类)都必须排在动画落幕之后,见 DealRoutine 的文档
+                    // (2026-08-27:抽卡动画就是栽在这里,整段静默空跑)。
                     if (Animating) // 召唤/敌方行动中:锁出字,只留退出口(DrawTopBar 已画),待动画完成放行
                     {
                         Ui.ThemedLabel(_statusRow, Strings.T("battle.phase.resolving"), 20, Theme.TextDim, Theme.TitleFont);
@@ -3465,10 +3470,13 @@ namespace Brushblade.Presentation
             }
             _message = (Battle.Phase == BattlePhase.PlayerTurn
                 ? Strings.T("battle.phase.new_turn_prefix", ("turn", Battle.Turn), ("apPerTurn", Battle.ApPerTurn)) : "") + _message;
-            // 抽卡动画排在整轮推进**之后**:掉字发生在 StartTurn(轮回玩家那一拍),此刻新牌
-            // 已被循环内最后那次 Refresh 建出来了。仍在 BeginAnim 的锁里,玩家点不到牌。
-            yield return DealRoutine(drawnIndices);
             OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
+            // 抽卡动画必须排在 OnAnimDone **之后**(2026-08-27 修):循环内那几次 Refresh 都发生在
+            // BeginAnim 的锁里,而 Refresh 的玩家回合分支遇 Animating 会在 DrawLibrary() 之前
+            // 就 break —— 动画期间字库一张牌都不画(且 Refresh 开头的 Ui.Clear 已把旧牌销毁)。
+            // 放在 OnAnimDone 之前,DealRoutine 拿到的 _libraryTileRects 恒为空,整段静默空跑。
+            // 是 OnAnimDone 归零后那次 Refresh 才把新牌建出来的。
+            yield return DealRoutine(drawnIndices);
         }
 
         /// <summary>回放开场那几拍(2026-08-17)。构造函数已经把开场推进跑完了(spec §5.2),
@@ -3564,8 +3572,8 @@ namespace Brushblade.Presentation
             }
 
             Refresh();
-            yield return DealRoutine(drawnIndices); // 首回合的发牌同样要飞一遍
             OnAnimDone(allDeaths); // 解锁输入 + 清死亡着色 + 归零后重绘(Battle 已 Won 时才出结算)
+            yield return DealRoutine(drawnIndices); // 首回合的发牌同样要飞一遍(顺序同 AdvanceRoutine)
         }
 
         /// <summary>把 <see cref="BattleEventKind.CharDrawn"/> 从事件批里摘出来,落位下标记进
@@ -3590,10 +3598,16 @@ namespace Brushblade.Presentation
         /// <summary>回合开始的抽卡动画(2026-08-27 用户拍板):新掉的字从「字库 n/N」标签处
         /// 逐张飞到自己的卡位,错峰落位并弹跳一下。
         ///
+        /// ⚠ **只能在 <see cref="OnAnimDone"/> 之后调用**(2026-08-27 修:此前放在它之前,动画
+        /// 一次都没播过)。Refresh 的玩家回合分支遇 Animating 会在 DrawLibrary() 之前就 break ——
+        /// 整个动画锁期间字库一张牌都不画,而 Refresh 开头的 Ui.Clear(_libraryRow) 已经把旧牌
+        /// 销毁了。所以锁里调用本协程,_libraryTileRects 恒为空,下面那两条早退会让它静默空跑。
+        /// 真正把新牌建出来的是 OnAnimDone 归零后那一次 Refresh。
+        ///
         /// 时序上有两个坑,顺序不能动:
-        ///   ① **先把新牌 localScale 按 0,再等一帧**。掉字发生在 StartTurn,调用方那次 Refresh
-        ///      已经把新牌按最终样子建出来了 —— 不先藏,玩家会先看到牌凭空出现、再看它飞一遍。
-        ///      按 0 这一步在调用方 Refresh 之后、本协程首次 yield 之前,同一帧内完成,不会渲染。
+        ///   ① **先把新牌 localScale 按 0,再等一帧**。调用方(OnAnimDone)那次 Refresh 已经把
+        ///      新牌按最终样子建出来了 —— 不先藏,玩家会先看到牌凭空出现、再看它飞一遍。
+        ///      按 0 这一步在那次 Refresh 之后、本协程首次 yield 之前,同一帧内完成,不会渲染。
         ///   ② **position 只能在等过一帧之后读**。Unity 的 UI 布局不是建对象时算的,刚 Refresh
         ///      建出来的 RectTransform 此刻 position 还是父级中心,直接拿去当飞行终点会让所有牌
         ///      都飞到字库行正中央。localScale = 0 不影响 HorizontalLayoutGroup 的排布
@@ -3601,7 +3615,10 @@ namespace Brushblade.Presentation
         ///      ExecuteCast 那边的飞牌起点用的是相反的招 —— 在重绘**销毁**旧牌之前抢先读,
         ///      两处解决的是同一个「布局晚一帧」的问题。
         ///
-        /// 全程在调用方的 BeginAnim 锁里,玩家点不到还在飞的牌。
+        /// 本协程**自己重新持锁**(BeginAnim 是计数器,可重入):调用方已经 OnAnimDone 解锁过了,
+        /// 不重锁的话玩家能在等布局那一帧里点字牌出字 —— 那会 Refresh 掉正在飞的 tile。
+        /// 两条早退都在 BeginAnim 之前,锁不会失配。
+        ///
         /// 卡位越界/为空一律跳过:满库那次 Core 不发 CharDrawn(字进的是 PendingDrop),
         /// 但战斗当拍已 Won 时 Refresh 走的是不画字库的分支,那时 _libraryTileRects 是空的。</summary>
         private System.Collections.IEnumerator DealRoutine(
@@ -3622,6 +3639,7 @@ namespace Brushblade.Presentation
             }
             if (tiles.Count == 0) yield break;
 
+            BeginAnim(); // 早退在此之前,锁不会失配;配对的 OnAnimDone 在本协程末尾
             yield return null; // 坑 ②:等布局跑完,下面读到的 position 才是牌的真实落点
 
             // 起点是字库行的第一个子节点 = 「字库 n/N」那个计数标签(DrawLibrary 先画它)。
@@ -3649,7 +3667,11 @@ namespace Brushblade.Presentation
                     yield return new WaitForSecondsRealtime(0.08f); // 多张错峰,不糊成一团
             }
             while (pending > 0) yield return null;
+            OnAnimDone(NoDeaths); // 与上面那次 BeginAnim 配对:解锁输入 + 归零后重绘(恢复牌的 scale)
         }
+
+        /// <summary>给不牵扯死亡的 <see cref="OnAnimDone"/> 调用用的空表(它只拿来做 ExceptWith)。</summary>
+        private static readonly System.Collections.Generic.List<int> NoDeaths = new();
 
         /// <summary>把全场行动条一次性按到 meters(不插值)。开场回放起手用。</summary>
         private void PaintActionBars((int player, int[] summons, int[] enemies) meters)
