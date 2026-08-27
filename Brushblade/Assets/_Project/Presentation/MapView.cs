@@ -22,6 +22,8 @@ namespace Brushblade.Presentation
         private const float Gap = 21f;         // 栏间距 10pt
         private const float HeroW = 448f;      // 角色栏 214pt
         private const float ChestW = 477f;     // 宝箱栏 228pt
+        private const float SideInset = 123f;  // 稿上 .safe 左右各 59pt
+        private const float BottomInset = 44f; // 稿上 .safe 下 21pt(Home Indicator)
 
         private RecipeGraph _graph;
         private CampaignConfig _campaign;
@@ -102,10 +104,17 @@ namespace Brushblade.Presentation
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
-            BuildTopBar();
+            // 稿上 .safe 的内缩;弹窗仍挂在 transform 上,铺满整屏
+            var (padSide, padBottom) = MissingInset();
+            var content = Ui.Panel(transform, "Content");
+            Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
+                new Vector2(padSide, padBottom), new Vector2(-padSide, 0));
+            var frame = content.transform;
+
+            BuildTopBar(frame);
 
             // 三栏主体:左右定宽、中间吃掉余量(稿上 214 / 弹性 / 228)
-            var body = Ui.Row(transform, "Body", Gap);
+            var body = Ui.Row(frame, "Body", Gap);
             var bodyLayout = body.GetComponent<HorizontalLayoutGroup>();
             bodyLayout.childForceExpandHeight = true;
             bodyLayout.childAlignment = TextAnchor.UpperLeft;
@@ -116,14 +125,30 @@ namespace Brushblade.Presentation
             BuildTowerPanel(body.transform);
             BuildChestPanel(body.transform);
 
-            BuildNavBar();
+            BuildNavBar(frame);
+        }
+
+        /// <summary>稿上 .safe 的内缩里,**设备安全区还没给够的那一部分**。
+        ///
+        /// 根节点已在 <see cref="SafeAreaFitter"/> 之内:真机横屏的 59pt 边和 21pt Home Indicator
+        /// 已经让出来了,这里再叠一次就会缩两回。但编辑器与无刘海机上 <c>Screen.safeArea</c> = 整屏,
+        /// 不补的话内容直接贴着屏幕边 —— 所以按差额补,两边都对得上稿。
+        ///
+        /// 左右取两侧的较小值:横屏左右旋转时刘海会换边,取 min 才不会随旋转跳动。</summary>
+        private static (float side, float bottom) MissingInset()
+        {
+            float scale = Screen.height / 900f; // CanvasScaler referenceResolution 1600×900,match = 1(按高)
+            if (scale <= 0f) return (SideInset, BottomInset);
+            var safe = Screen.safeArea;
+            float given = Mathf.Min(safe.xMin, Screen.width - safe.xMax) / scale;
+            return (Mathf.Max(0f, SideInset - given), Mathf.Max(0f, BottomInset - safe.yMin / scale));
         }
 
         // ---- 顶栏 ----
 
-        private void BuildTopBar()
+        private void BuildTopBar(Transform parent)
         {
-            var top = Ui.Row(transform, "Top", 21);
+            var top = Ui.Row(parent, "Top", 21);
             top.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Anchor((RectTransform)top.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -TopH), Vector2.zero);
@@ -144,7 +169,7 @@ namespace Brushblade.Presentation
 
         private void BuildHeroPanel(Transform parent)
         {
-            var panel = Ui.CardPanel(parent, "Hero", Theme.PaperCard, 20);
+            var panel = Ui.OutlinedPanel(parent, "Hero", Theme.PanelPaper, Theme.PanelBorder, 21);
             var element = panel.gameObject.AddComponent<LayoutElement>();
             element.preferredWidth = HeroW;
             element.flexibleWidth = 0;
@@ -222,20 +247,31 @@ namespace Brushblade.Presentation
             Ui.Stretch(value.rectTransform);
         }
 
-        /// <summary>出阵预览:前 6 张字牌的属性色小格 +「+N」。点不动,只是提示带了什么上塔。</summary>
+        /// <summary>出阵预览:属性色小格,**全量铺开**、每排 6 个折行(2026-08-28 反馈:不折叠成「+N」)。
+        /// 点不动,只是提示带了什么上塔。出阵上限 15,最多三排。</summary>
         private void BuildDeckMini(Transform parent)
         {
+            const int PerRow = 6; // 54×6 + 8×5 = 364,正好塞进角色栏 448 − 左右各 25 的净宽
+
             Ui.ThemedLabel(parent,
                 Strings.T("map.hero.deck_title", ("count", _meta.Deck.Count), ("limit", MetaRules.DeckLimit)),
                 19, Theme.LockGray, null, TextAnchor.MiddleLeft);
 
-            var row = Ui.Row(parent, "DeckRow", 8);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            var rows = Ui.VStack(parent, "DeckRows", 8);
+            rows.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
+
+            Transform row = null;
             int shown = 0;
-            for (int i = 0; i < _meta.Deck.Count && shown < 6; i++)
+            foreach (string id in _meta.Deck)
             {
-                if (!_graph.TryGet(_meta.Deck[i], out var def)) continue;
-                var tile = Ui.CardPanel(row.transform, $"Dm_{def.Id}", Theme.ElementSoft(def.Element), 10);
+                if (!_graph.TryGet(id, out var def)) continue;
+                if (shown % PerRow == 0)
+                {
+                    var rowGo = Ui.Row(rows.transform, $"DeckRow{shown / PerRow}", 8);
+                    rowGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                    row = rowGo.transform;
+                }
+                var tile = Ui.CardPanel(row, $"Dm_{def.Id}", Theme.ElementSoft(def.Element), 10);
                 var element = tile.gameObject.AddComponent<LayoutElement>();
                 element.preferredWidth = 54;
                 element.preferredHeight = 67;
@@ -243,14 +279,6 @@ namespace Brushblade.Presentation
                 Ui.Stretch(glyph.rectTransform);
                 shown++;
             }
-            int rest = _meta.Deck.Count - shown;
-            if (rest <= 0) return;
-            var more = Ui.CardPanel(row.transform, "DmMore", Theme.LockedBg, 10);
-            var moreElement = more.gameObject.AddComponent<LayoutElement>();
-            moreElement.preferredWidth = 54;
-            moreElement.preferredHeight = 67;
-            var moreLabel = Ui.ThemedLabel(more.transform, Strings.T("map.hero.deck_more", ("count", rest)), 21, Theme.LockGray);
-            Ui.Stretch(moreLabel.rectTransform);
         }
 
         // ---- 中栏:无尽书塔 ----
@@ -265,7 +293,7 @@ namespace Brushblade.Presentation
                 if (endless.Bands[i].FromDepth <= depthNow)
                     bandIndex = i;
 
-            var panel = Ui.CardPanel(parent, "Tower", Theme.PaperCard, 20);
+            var panel = Ui.OutlinedPanel(parent, "Tower", Theme.PanelPaper, Theme.PanelBorder, 21);
             panel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
 
             // 内衬当前层段的巨字水印(林/渊/山/海)
@@ -278,7 +306,7 @@ namespace Brushblade.Presentation
             var stack = Ui.VStack(panel.transform, "Stack", 14);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
-            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childAlignment = TextAnchor.MiddleCenter; // 整块内容在面板里居中(2026-08-28 反馈)
             layout.padding = new RectOffset(34, 34, 25, 29);
             Ui.Stretch((RectTransform)stack.transform);
 
@@ -373,7 +401,7 @@ namespace Brushblade.Presentation
         {
             _countdowns.Clear(); // 旧标签随 Ui.Clear 已销毁,重建时重新登记
 
-            var panel = Ui.CardPanel(parent, "Chests", Theme.PaperCard, 20);
+            var panel = Ui.OutlinedPanel(parent, "Chests", Theme.PanelPaper, Theme.PanelBorder, 21);
             var element = panel.gameObject.AddComponent<LayoutElement>();
             element.preferredWidth = ChestW;
             element.flexibleWidth = 0;
@@ -422,7 +450,7 @@ namespace Brushblade.Presentation
             var chest = _meta.Chests[index];
             bool ready = chest.Timing && ChestRules.IsReady(chest, _time);
 
-            var card = Ui.CardPanel(parent, $"Chest{index}", Theme.CardWhite, 14);
+            var card = Ui.OutlinedPanel(parent, $"Chest{index}", Theme.CardWhite, Theme.PanelBorder, 17);
             var cardElement = card.gameObject.AddComponent<LayoutElement>();
             cardElement.flexibleWidth = 1;
             cardElement.flexibleHeight = 1;
@@ -498,9 +526,9 @@ namespace Brushblade.Presentation
 
         // ---- 底部导航 ----
 
-        private void BuildNavBar()
+        private void BuildNavBar(Transform parent)
         {
-            var nav = Ui.Row(transform, "Nav", 17);
+            var nav = Ui.Row(parent, "Nav", 17);
             var layout = nav.GetComponent<HorizontalLayoutGroup>();
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = true;
@@ -515,38 +543,34 @@ namespace Brushblade.Presentation
 
             NavTab(nav.transform, Strings.T("map.nav.collection"),
                 Strings.T("map.nav.collection_sub", ("count", _meta.OwnedCards.Count)),
-                () => _onOpenCollection(), AnyCardUpgradable(), Theme.PaperCard, Theme.TextMain);
+                () => _onOpenCollection(), AnyCardUpgradable(), Theme.PanelPaper, Theme.PanelBorder, Theme.TextMain);
             NavTab(nav.transform, Strings.T("map.nav.bestiary"),
                 Strings.T("map.nav.bestiary_sub", ("unlocked", unlockedEnemies), ("total", _enemies.Count)),
-                () => _onOpenBestiary(), BestiaryRules.HasUnclaimed(_meta), Theme.PaperCard, Theme.TextMain);
+                () => _onOpenBestiary(), BestiaryRules.HasUnclaimed(_meta), Theme.PanelPaper, Theme.PanelBorder, Theme.TextMain);
             NavTab(nav.transform, Strings.T("map.nav.perks"),
                 Strings.T("map.nav.perks_sub", ("unlocked", unlockedPerks), ("total", PerkRules.All.Count)),
-                () => _onOpenPerks(), false, Theme.PaperCard, Theme.TextMain);
+                () => _onOpenPerks(), false, Theme.PanelPaper, Theme.PanelBorder, Theme.TextMain);
             NavTab(nav.transform, Strings.T("map.nav.shop"), Strings.T("map.nav.shop_sub"),
-                () => _onOpenShop(), true, Theme.ShopTabBg, Theme.ShopNav);
+                () => _onOpenShop(), true, Theme.ShopTabBg, Theme.ShopTabBorder, Theme.ShopNav);
         }
 
         private static void NavTab(Transform parent, string name, string sub, Action onClick,
-            bool dot, Color background, Color foreground)
+            bool dot, Color background, Color border, Color foreground)
         {
-            var go = new GameObject("Tab", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var image = go.AddComponent<Image>();
-            image.sprite = Theme.Rounded(14);
-            image.type = Image.Type.Sliced;
-            image.color = background;
-            var button = go.AddComponent<Button>();
-            button.targetGraphic = image;
+            // 描边卡而不是纯色块:稿上页签靠那条 1pt 边线从宣纸底里立起来(2026-08-28 反馈)
+            var tab = Ui.OutlinedPanel(parent, "Tab", background, border, 19, 2f, out var face);
+            var button = tab.gameObject.AddComponent<Button>();
+            button.targetGraphic = face; // 按下要染填充面,染那条边线看不出来
             button.onClick.AddListener(() => onClick());
-            var element = go.AddComponent<LayoutElement>();
+            var element = tab.gameObject.AddComponent<LayoutElement>();
             element.flexibleWidth = 1;
             element.preferredHeight = NavH;
 
-            var row = Ui.Row(go.transform, "Content", 15);
+            var row = Ui.Row(tab.transform, "Content", 15);
             Ui.Stretch((RectTransform)row.transform);
             Ui.ThemedLabel(row.transform, name, 29, foreground, Theme.TitleFont);
             Ui.ThemedLabel(row.transform, sub, 19, Theme.LockGray);
-            if (dot) RedDot(go.transform);
+            if (dot) RedDot(tab.transform);
         }
 
         /// <summary>吃掉剩余空间的透明占位(稿上的 .grow / margin-top:auto)。</summary>

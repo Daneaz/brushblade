@@ -359,7 +359,6 @@
   "map.header.game_title": "字 · 斗",
   "map.header.settings": "设置",
   "map.header.subtitle": "{rank} · 最高 {depth} 层",
-  "map.hero.deck_more": "+{count}",
   "map.hero.deck_title": "出阵 {count} / {limit}",
   "map.hero.face": "墨",
   "map.hero.level_line": "Lv.{level} · {rank}",

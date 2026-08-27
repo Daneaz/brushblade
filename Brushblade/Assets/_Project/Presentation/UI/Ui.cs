@@ -137,6 +137,29 @@ namespace Brushblade.Presentation
             return image;
         }
 
+        /// <summary>描边圆角卡:外层描边色垫底 + 内层填充色内缩,留出 <paramref name="thickness"/> 的边线。
+        ///
+        /// 稿上每块面板、每个页签都有一条 1pt 的浅描边(#DED7C9)—— 没有它,浅色卡片会直接
+        /// 融进同样是浅色的宣纸底,四个页签看上去就是一片平地(2026-08-28 反馈)。
+        ///
+        /// ⚠ 返回的是**外层**:LayoutElement 与内容都往它身上挂。内容是比内层更靠后的兄弟节点,
+        /// 所以画在填充之上,不会被盖住。做成按钮时 <c>targetGraphic</c> 要指
+        /// <paramref name="face"/> 而不是外层 —— 染色染在那条边线上几乎看不见。</summary>
+        public static Image OutlinedPanel(Transform parent, string name, Color fill, Color border,
+            int radius, float thickness, out Image face)
+        {
+            var outer = CardPanel(parent, name, border, radius);
+            face = CardPanel(outer.transform, "Face", fill, radius);
+            face.raycastTarget = false;
+            Anchor((RectTransform)face.transform, Vector2.zero, Vector2.one,
+                new Vector2(thickness, thickness), new Vector2(-thickness, -thickness));
+            return outer;
+        }
+
+        public static Image OutlinedPanel(Transform parent, string name, Color fill, Color border,
+            int radius = 20, float thickness = 2f) =>
+            OutlinedPanel(parent, name, fill, border, radius, thickness, out _);
+
         /// <summary>模态弹窗(2026-07-19 拍板:提示统一弹窗):墨色遮罩 + 宣纸卡 + 按钮行。
         /// 点按钮或遮罩即关闭(按钮先关再执行动作);返回根节点供外部提前销毁。</summary>
         /// <summary>模态外壳:墨遮罩 + 宣纸卡 + 标题,返回内容容器供调用方自由填充。
