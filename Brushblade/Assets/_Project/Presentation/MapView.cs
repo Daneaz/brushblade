@@ -20,8 +20,11 @@ namespace Brushblade.Presentation
         private const float TopH = 80f;        // 顶栏 38pt
         private const float NavH = 92f;        // 底部导航 44pt
         private const float Gap = 21f;         // 栏间距 10pt
-        private const float HeroW = 448f;      // 角色栏 214pt
-        private const float ChestW = 477f;     // 宝箱栏 228pt
+        // ⚠ 左右两栏比稿窄一档(稿:角色 214pt / 宝箱 228pt)。2026-08-28 反馈:两侧太占地方,
+        // 中间的书塔挤得慌 —— 那两栏都是「看一眼就够」的信息,书塔才是每次进主界面要用的。
+        // 让出来的 125u 全给书塔:16 Pro Max 上书塔从 736u 涨到 861u。
+        private const float HeroW = 392f;      // 角色栏 187pt
+        private const float ChestW = 408f;     // 宝箱栏 195pt
         private const float SideInset = 123f;  // 稿上 .safe 左右各 59pt
         private const float BottomInset = 44f; // 稿上 .safe 下 21pt(Home Indicator)
 
@@ -178,7 +181,7 @@ namespace Brushblade.Presentation
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
             layout.childAlignment = TextAnchor.UpperCenter;
-            layout.padding = new RectOffset(25, 25, 23, 23);
+            layout.padding = new RectOffset(20, 20, 20, 20);
             Ui.Stretch((RectTransform)stack.transform);
 
             int level = MetaRules.LevelProgress(_meta.CharacterXp, out int into, out int need);
@@ -251,7 +254,9 @@ namespace Brushblade.Presentation
         /// 点不动,只是提示带了什么上塔。出阵上限 15,最多三排。</summary>
         private void BuildDeckMini(Transform parent)
         {
-            const int PerRow = 6; // 54×6 + 8×5 = 364,正好塞进角色栏 448 − 左右各 25 的净宽
+            const int PerRow = 6;    // 50×6 + 8×5 = 340,正好塞进角色栏 392 − 左右各 20 − 描边的净宽
+            const float TileW = 50f; // 角色栏收窄后跟着缩(2026-08-28),排数与折行规则不变
+            const float TileH = 62f;
 
             Ui.ThemedLabel(parent,
                 Strings.T("map.hero.deck_title", ("count", _meta.Deck.Count), ("limit", MetaRules.DeckLimit)),
@@ -273,9 +278,9 @@ namespace Brushblade.Presentation
                 }
                 var tile = Ui.CardPanel(row, $"Dm_{def.Id}", Theme.ElementSoft(def.Element), 10);
                 var element = tile.gameObject.AddComponent<LayoutElement>();
-                element.preferredWidth = 54;
-                element.preferredHeight = 67;
-                var glyph = Ui.ThemedLabel(tile.transform, def.Id, 33, Theme.GlyphColor(def.Element), Theme.TitleFont);
+                element.preferredWidth = TileW;
+                element.preferredHeight = TileH;
+                var glyph = Ui.ThemedLabel(tile.transform, def.Id, 31, Theme.GlyphColor(def.Element), Theme.TitleFont);
                 Ui.Stretch(glyph.rectTransform);
                 shown++;
             }
@@ -329,9 +334,13 @@ namespace Brushblade.Presentation
 
             BuildBands(stack.transform, endless, depthNow, bandIndex);
 
+            // 按钮上只放动作。层段与层数是**详情**,搬到按钮下面(2026-08-28 反馈:
+            // 「继续 · 「字林」第 1 层」在 523u 的胶囊里排不下,字被挤成一条)
+            // ⚠ 两个 key 各写成字面量传给 Strings.T:StringsTableTests 是**正则扫源码**认调用点的,
+            // 写成 Strings.T(cond ? "a" : "b") 会让两条都被判成孤儿 key(已栽过一次)
             string label = snapshot == null
                 ? Strings.T("map.tower.start_button")
-                : Strings.T("map.tower.resume_button", ("bandName", endless.BandFor(snapshot.Depth).Name), ("depth", snapshot.Depth));
+                : Strings.T("map.tower.resume_button");
             var resumeRow = Ui.Row(stack.transform, "Resume");
             Ui.PillButton(resumeRow.transform, label, () => _onStartTower(),
                 Theme.Cinnabar, Color.white, 38, new Vector2(523, 109));
@@ -341,6 +350,11 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(stack.transform, Strings.T("map.tower.hint"), 21, Theme.TextDim);
                 return;
             }
+
+            Ui.ThemedLabel(stack.transform,
+                Strings.T("map.tower.resume_detail",
+                    ("bandName", endless.BandFor(snapshot.Depth).Name), ("depth", snapshot.Depth)),
+                25, Theme.TextMain, Theme.TitleFont);
 
             // 进行中:血条 + 三项本趟账目 + 断点说明
             int maxHp = MetaRules.PlayerMaxHpFor(_meta);
@@ -409,7 +423,7 @@ namespace Brushblade.Presentation
             var stack = Ui.VStack(panel.transform, "Stack", 15);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
-            layout.padding = new RectOffset(21, 21, 19, 19);
+            layout.padding = new RectOffset(17, 17, 16, 16);
             Ui.Stretch((RectTransform)stack.transform);
 
             var header = Ui.Row(stack.transform, "Head", 13);
@@ -422,7 +436,7 @@ namespace Brushblade.Presentation
                     Theme.Cinnabar, Color.white, 15);
 
             // 2×2 网格(稿上 .cgrid):两行各两格,行列都吃满剩下的空间
-            var grid = Ui.VStack(stack.transform, "Grid", 15);
+            var grid = Ui.VStack(stack.transform, "Grid", 13);
             var gridLayout = grid.GetComponent<VerticalLayoutGroup>();
             gridLayout.childForceExpandWidth = true;
             gridLayout.childForceExpandHeight = true;
@@ -430,7 +444,7 @@ namespace Brushblade.Presentation
 
             for (int r = 0; r < 2; r++)
             {
-                var row = Ui.Row(grid.transform, $"Row{r}", 15);
+                var row = Ui.Row(grid.transform, $"Row{r}", 13);
                 var rowLayout = row.GetComponent<HorizontalLayoutGroup>();
                 rowLayout.childForceExpandWidth = true;
                 rowLayout.childForceExpandHeight = true;
@@ -455,18 +469,18 @@ namespace Brushblade.Presentation
             cardElement.flexibleWidth = 1;
             cardElement.flexibleHeight = 1;
 
-            var stack = Ui.VStack(card.transform, "Stack", 7);
+            var stack = Ui.VStack(card.transform, "Stack", 6);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
-            layout.padding = new RectOffset(15, 15, 15, 15);
+            layout.padding = new RectOffset(11, 11, 12, 12);
             Ui.Stretch((RectTransform)stack.transform);
 
             // 箱型图标:档位色圆角块 + 档位首字(19.5.1 六档)
             var iconRow = Ui.Row(stack.transform, "Icon", 0);
             var icon = Ui.CardPanel(iconRow.transform, "Body", Theme.ChestColor(chest.Tier), 10);
             var iconElement = icon.gameObject.AddComponent<LayoutElement>();
-            iconElement.preferredWidth = 80;
-            iconElement.preferredHeight = 59;
+            iconElement.preferredWidth = 70;
+            iconElement.preferredHeight = 52;
             var iconGlyph = Ui.ThemedLabel(icon.transform, ChestRules.TierName(chest.Tier).Substring(0, 1),
                 31, Color.white, Theme.TitleFont);
             Ui.Stretch(iconGlyph.rectTransform);
@@ -477,39 +491,39 @@ namespace Brushblade.Presentation
             {
                 // 未开始:先亮出这一档要等多久,再给排队按钮(同时只能开一个)
                 Ui.ThemedLabel(stack.transform, Format(ChestRules.DurationSeconds[(int)chest.Tier - 1]), 23, Theme.LockGray);
-                var actions = Ui.Row(stack.transform, "Acts", 8);
+                var actions = Ui.Row(stack.transform, "Acts", 7);
                 actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
                 var start = Ui.RoundButton(actions.transform, Strings.T("map.chest.start_button"),
                     () => Do(() => ChestRules.TryStartOpening(_meta, index, _time)),
-                    Theme.InkSoft, Color.white, 20, new Vector2(190, 50), 14);
+                    Theme.InkSoft, Color.white, 19, new Vector2(150, 46), 14);
                 start.interactable = !AnyChestTiming();
             }
             else if (ready)
             {
                 Ui.ThemedLabel(stack.transform, Strings.T("map.chest.ready"), 23, Theme.UpgradeText, Theme.TitleFont);
-                var actions = Ui.Row(stack.transform, "Acts", 8);
+                var actions = Ui.Row(stack.transform, "Acts", 7);
                 actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
                 Ui.RoundButton(actions.transform, Strings.T("map.chest.open_button"), () => OpenChest(index),
-                    Theme.Gold, Theme.GoldText, 23, new Vector2(190, 54), 14);
+                    Theme.Gold, Theme.GoldText, 22, new Vector2(150, 50), 14);
             }
             else
             {
                 long remaining = ChestRules.RemainingSeconds(chest, _time);
                 var countdown = Ui.ThemedLabel(stack.transform, Format(remaining), 23, Theme.TextDim);
-                var actions = Ui.Row(stack.transform, "Acts", 8);
+                var actions = Ui.Row(stack.transform, "Acts", 7);
                 actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
                 if (!chest.AdUsed)
                 {
                     long cut = ChestRules.AdReductionSeconds[(int)chest.Tier - 1];
                     Ui.AdBadge(actions.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
-                        () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(91, 50));
+                        () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(72, 46));
                 }
                 var skip = Ui.RoundButton(actions.transform, Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining))),
                     () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), Strings.T("map.chest.skip_fail_title"),
                         Strings.T("map.chest.skip_fail_body",
                             ("needed", ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time))),
                             ("ink", _meta.Ink))),
-                    Theme.Gold, Theme.GoldText, 20, new Vector2(91, 50), 14);
+                    Theme.Gold, Theme.GoldText, 19, new Vector2(72, 46), 14);
                 _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
             }
         }
