@@ -13,6 +13,7 @@ namespace Brushblade.Core
         public bool ChestSold { get; set; }
         public bool InkAdClaimed { get; set; }               // 墨锭广告位(每日一次)
         public bool AdRefreshUsed { get; set; }              // 广告刷新(每日一次)
+        public long VisitedDayStamp { get; set; } = -1;      // 最后一次进商城的 UTC 日(主界面红点用)
     }
 
     /// <summary>每日商城规则(19.6 首版基准)。货架卡池由调用方按已解锁章节合成(F3)。</summary>
@@ -58,6 +59,21 @@ namespace Brushblade.Core
                 MetaRules.CharacterLevel(meta.CharacterXp), random);
             meta.Shop.ChestSold = false;
         }
+
+        /// <summary>记下「今天来过商城了」(主界面红点用)。进商城时调用,同日重复调用无副作用。</summary>
+        public static void MarkVisited(MetaState meta, ITimeSource time) =>
+            meta.Shop.VisitedDayStamp = time.NowUnixSeconds / 86400;
+
+        /// <summary>主界面商城页签要不要亮红点(2026-08-28 拍板):
+        /// **今日刷新后还没进过**,或者**还有没用完的广告位**。
+        ///
+        /// ⚠ 「今日还没来过」这一条不能省。跨日之后 <see cref="EnsureShelf"/> 要等玩家真进商城
+        /// 才跑,在那之前两个广告标记仍留着昨天的 true —— 只看广告标记的话,新一天的货架
+        /// 摆好了红点却是灭的。</summary>
+        public static bool HasRedDot(MetaState meta, ITimeSource time) =>
+            meta.Shop.VisitedDayStamp != time.NowUnixSeconds / 86400
+            || !meta.Shop.InkAdClaimed
+            || !meta.Shop.AdRefreshUsed;
 
         /// <summary>购卡:未售出且墨锭足够 → 扣费(按稀有度)、入收集、标记已售。</summary>
         public static bool TryBuyCard(MetaState meta, int slotIndex, CardRarity rarity = CardRarity.White)

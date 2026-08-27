@@ -5,6 +5,46 @@ namespace Brushblade.Core.Tests
 {
     public class PerkTests
     {
+        // ---- 主界面技能红点(2026-08-28):有任意一条现在就能升 ----
+
+        [Test]
+        public void HasUpgradable_FalseForBrandNewSave() // 1 级、0 墨:一条都够不着
+        {
+            Assert.That(PerkRules.HasUpgradable(new MetaState()), Is.False);
+        }
+
+        [Test]
+        public void HasUpgradable_TrueOnceOnePerkIsAffordable()
+        {
+            var meta = new MetaState { CharacterXp = 100, Ink = 200 }; // 2 级 + 养元首级 200 墨
+            Assert.That(PerkRules.CanUpgradePerk(meta, "yangyuan"), Is.True, "夹具自检");
+            Assert.That(PerkRules.HasUpgradable(meta), Is.True);
+        }
+
+        [Test]
+        public void HasUpgradable_FalseWhenInkIsOneShort() // 只差 1 墨也不亮
+        {
+            var meta = new MetaState { CharacterXp = 100, Ink = 199 };
+            Assert.That(PerkRules.HasUpgradable(meta), Is.False);
+        }
+
+        [Test]
+        public void HasUpgradable_FalseWhenLevelGateBlocksTheOnlyAffordableOne()
+        {
+            // 墨锭管够,但 1 级角色一条都没解锁(最低的养元要 2 级)
+            var meta = new MetaState { Ink = 999_999 };
+            Assert.That(PerkRules.HasUpgradable(meta), Is.False);
+        }
+
+        [Test]
+        public void HasUpgradable_FalseWhenEveryPerkIsMaxed()
+        {
+            var meta = new MetaState { CharacterXp = 999_999, Ink = 999_999 };
+            foreach (var def in PerkRules.All)
+                meta.PerkLevels[def.Id] = def.MaxLevel;
+            Assert.That(PerkRules.HasUpgradable(meta), Is.False);
+        }
+
         [Test]
         public void PerkLevel_DefaultsToZero()
         {

@@ -20,6 +20,70 @@ namespace Brushblade.Core.Tests
             return meta;
         }
 
+        // ---- 主界面商城红点(2026-08-28):有没用完的广告位,或今日刷新后还没进过 ----
+
+        private static MetaState Visited(FakeTime time) // 今日已逛过、两个广告位都用掉
+        {
+            var meta = Fresh(time);
+            ShopRules.TryClaimInkAd(meta);
+            ShopRules.TryAdRefresh(meta, Pool, new GameRandom(2));
+            ShopRules.MarkVisited(meta, time);
+            return meta;
+        }
+
+        [Test]
+        public void RedDot_OnForNeverVisitedShop()
+        {
+            Assert.That(ShopRules.HasRedDot(Fresh(new FakeTime()), new FakeTime()), Is.True);
+        }
+
+        [Test]
+        public void RedDot_OffAfterVisitingAndUsingBothAdSlots()
+        {
+            var time = new FakeTime();
+            Assert.That(ShopRules.HasRedDot(Visited(time), time), Is.False);
+        }
+
+        [Test]
+        public void RedDot_OnWhileInkAdUnclaimed()
+        {
+            var time = new FakeTime();
+            var meta = Fresh(time);
+            ShopRules.TryAdRefresh(meta, Pool, new GameRandom(2));
+            ShopRules.MarkVisited(meta, time);
+            Assert.That(ShopRules.HasRedDot(meta, time), Is.True, "墨锭广告位还没领");
+        }
+
+        [Test]
+        public void RedDot_OnWhileAdRefreshUnused()
+        {
+            var time = new FakeTime();
+            var meta = Fresh(time);
+            ShopRules.TryClaimInkAd(meta);
+            ShopRules.MarkVisited(meta, time);
+            Assert.That(ShopRules.HasRedDot(meta, time), Is.True, "广告刷新还没用");
+        }
+
+        [Test]
+        public void RedDot_ComesBackNextDay_EvenBeforeShelfRerolls()
+        {
+            // ⚠ 跨日后 EnsureShelf 还没跑(玩家没进商城),两个广告标记仍是昨天的 true ——
+            // 红点只能靠「今日还没来过」这一条撑住,不能只看广告标记
+            var time = new FakeTime();
+            var meta = Visited(time);
+            time.NowUnixSeconds += 86_400;
+            Assert.That(ShopRules.HasRedDot(meta, time), Is.True);
+        }
+
+        [Test]
+        public void MarkVisited_IsIdempotentWithinTheDay()
+        {
+            var time = new FakeTime();
+            var meta = Visited(time);
+            ShopRules.MarkVisited(meta, time);
+            Assert.That(ShopRules.HasRedDot(meta, time), Is.False);
+        }
+
         [Test]
         public void EnsureShelf_RollsOncePerDay()
         {

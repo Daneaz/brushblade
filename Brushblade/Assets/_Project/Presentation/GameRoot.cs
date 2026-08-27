@@ -112,8 +112,11 @@ namespace Brushblade.Presentation
             // 旧货架可能还摆着部件(2026-07-19 下架):作废重摆,不必等跨日
             if (_meta.Shop.CardSlots.Exists(id => _graph.TryGet(id, out var def) && def.IsLeaf))
                 _meta.Shop.DayStamp = -1;
-            if (ShopRules.EnsureShelf(_meta, cardPool, Time, new GameRandom(System.Environment.TickCount)))
-                MetaStore.Save(_meta);
+            ShopRules.EnsureShelf(_meta, cardPool, Time, new GameRandom(System.Environment.TickCount));
+            // 记下「今天来过」——主界面商城红点靠它灭掉(2026-08-28)。
+            // 与重摆合并成一次落盘:重摆没发生时这条也得存,否则退出重进红点又亮
+            ShopRules.MarkVisited(_meta, Time);
+            MetaStore.Save(_meta);
             var view = NewView("ShopView");
             view.AddComponent<ShopView>().Init(_graph, _meta, cardPool, ChestCardPool(), Time,
                 () => MetaStore.Save(_meta), () => ShowMap());

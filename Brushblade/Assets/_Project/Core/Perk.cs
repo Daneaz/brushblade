@@ -75,6 +75,16 @@ namespace Brushblade.Core
             return meta.Ink >= def.InkCosts[lvl];                                      // 墨锭足够
         }
 
+        /// <summary>有没有任意一条技能**现在就能升**(主界面技能页签的红点)。
+        /// 与 <see cref="CanUpgradePerk"/> 同源 —— 红点亮着而点进去一条也升不了,是最烦人的那种假消息。</summary>
+        public static bool HasUpgradable(MetaState meta)
+        {
+            foreach (var def in All)
+                if (CanUpgradePerk(meta, def.Id))
+                    return true;
+            return false;
+        }
+
         public static bool TryUpgradePerk(MetaState meta, string id)
         {
             if (!CanUpgradePerk(meta, id)) return false;

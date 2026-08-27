@@ -27,10 +27,8 @@ namespace Brushblade.Presentation
         public static readonly Color AdGreenText = new(0.044f, 0.364f, 0.165f);
         public static readonly Color ExitPink = new(0.477f, 0.246f, 0.362f);
         public static readonly Color ShopNav = new(0.654f, 0.349f, 0.241f);
-        public static readonly Color PanelPaper = new(0.984f, 0.973f, 0.945f);   // 面板/页签底(比宣纸底亮一档)
-        public static readonly Color PanelBorder = new(0.871f, 0.843f, 0.788f);  // 面板/页签描边(稿上统一 1pt)
-        public static readonly Color ShopTabBg = new(0.965f, 0.933f, 0.913f);     // 商城页签底(暖赭浅底,与其余三页签区分)
-        public static readonly Color ShopTabBorder = new(0.878f, 0.804f, 0.761f); // 商城页签描边(同上,偏赭)
+        public static readonly Color PanelPaper = new(0.984f, 0.973f, 0.945f);   // 面板底(比宣纸底亮一档)
+        public static readonly Color PanelBorder = new(0.871f, 0.843f, 0.788f);  // 面板描边(稿上统一 1pt)
         public static readonly Color LockedBg = new(0.856f, 0.843f, 0.816f);
         public static readonly Color LockGray = new(0.534f, 0.563f, 0.611f);
         public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);
@@ -147,6 +145,53 @@ namespace Brushblade.Presentation
             Element.Heart => new Color(0.925f, 0.835f, 0.945f),
             _ => LockedBg,
         };
+
+        // ---- 底部导航页签配色(2026-08-28 反馈:四格各给一色) ----
+
+        /// <summary>一个页签的三支色:浅底 + 同色系描边 + 深色前景(名字与图标)。
+        ///
+        /// 三支**同源于一个属性色**,不是手挑的 —— 手挑四组颜色必然有一组不搭,
+        /// 而且改配色时要改十二个数。属性色板本身已经过对比度校准
+        /// (见 <see cref="GlyphColor"/> 的注释:金系原色对浅底只有 2.48:1,故另有一套加深色),
+        /// 蹭它就等于蹭了那次校准。</summary>
+        public readonly struct TabPalette
+        {
+            public readonly Color Bg;
+            public readonly Color Border;
+            public readonly Color Fg;
+
+            private TabPalette(Color bg, Color border, Color fg)
+            {
+                Bg = bg; Border = border; Fg = fg;
+            }
+
+            /// <summary>由属性色派生:前景取 ElementSoftFg,底色是 PanelPaper 往 ElementSoft 走 35%
+            /// (够看出是哪一格,又不压过宣纸底),描边再从 ElementSoft 往前景压 22%。
+            ///
+            /// ⚠ 描边**不能**直接用 ElementSoft:那样边线对宣纸底只有 1.19 的对比度,比原来的
+            /// 素色描边(1.27)还弱 —— 页签一上色反而更塌,与「给页签立体感」的初衷相反。
+            /// 压过之后是 1.65,边线清清楚楚而不刺眼。</summary>
+            public static TabPalette FromElement(Element element)
+            {
+                var soft = ElementSoft(element);
+                var fg = ElementSoftFg(element);
+                return new TabPalette(Color.Lerp(PanelPaper, soft, 0.35f), Color.Lerp(soft, fg, 0.22f), fg);
+            }
+
+            /// <summary>商城不属于五行,用它自己那支赭色(<see cref="ShopNav"/>)同法派生:
+            /// 底 / 描边 / 前景三档,越往前景越浓。</summary>
+            public static TabPalette FromAccent(Color accent)
+            {
+                var soft = Color.Lerp(PanelPaper, accent, 0.32f);
+                return new TabPalette(Color.Lerp(PanelPaper, soft, 0.35f), Color.Lerp(soft, accent, 0.22f), accent);
+            }
+        }
+
+        // ⚠ 静态字段按书写顺序初始化:这四条读 PanelPaper / ShopNav,必须排在它们后面
+        public static readonly TabPalette DeckTab = TabPalette.FromElement(Element.Water);
+        public static readonly TabPalette BestiaryTab = TabPalette.FromElement(Element.Wood);
+        public static readonly TabPalette PerkTab = TabPalette.FromElement(Element.Heart);
+        public static readonly TabPalette ShopTab = TabPalette.FromAccent(ShopNav);
 
         public static Color ElementSoftFg(Element? element) => element switch
         {
