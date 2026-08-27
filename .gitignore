@@ -53,5 +53,5 @@ Brushblade/Builds/
 # 重新出图(在稿子所在目录跑):
 #   node <design skill>/seed-canvas.mjs --template <skill>/payload.template.html \
 #     --out <名字>.html --title "..." --artboard Main.dc.html ... --canvas canvas.json
-docs/design/frame/**/*.html
-!docs/design/frame/**/*.dc.html
+docs/design/ui/**/*.html
+!docs/design/ui/**/*.dc.html
