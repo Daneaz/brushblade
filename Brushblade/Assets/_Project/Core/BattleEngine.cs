@@ -199,6 +199,11 @@ namespace Brushblade.Core
         SummonBurnTick, // 召唤物灼烧结算(TargetIndex = 槽位,Amount = 这一跳的伤害;2026-08-26)
                         // 不复用 Burn/BurnTick:那两个的 TargetIndex 是「−1 = 玩家,其余 = 敌人下标」,
                         // 槽位挤进去会与敌人下标撞号,飘字直接飘到别人头上
+        CharDrawn,   // 回合掉字入库(2026-08-27;TargetIndex = −1 玩家侧,Amount = **落位的字库下标**)。
+                     // 事件结构里没有放字 id 的字段,而下标够用:Library[Amount] 就是那张字,
+                     // 同字多张也不会认错卡位(表现层的飞牌起终点按卡位取,见 _libraryTileRects)。
+                     // ⚠ 满库挂起(DropChoice)那次**不发** —— 那张字进的是 PendingDrop 而不是
+                     // Library,没有卡位可飞;照发会让表现层拿 Amount 去索引卡位表越界。
         ActorActed,  // 阶段分隔:每个行动者的事件段以此开头(TargetIndex = 行动者下标,Amount = (int)ActorKind;
                      // 逐格驱动后表现层不再需要猜段边界,2026-08-16 换掉 EnemyTurnBegan)
     }
@@ -1672,6 +1677,9 @@ namespace Brushblade.Core
                     }
                     var library = new List<string>(_forge.Library) { pick };
                     _forge = new ForgeState(library, _forge.Pool);
+                    // 抽卡动画的驱动源(2026-08-27):在**入库成功之后**发,所以上面那条
+                    // 满库挂起的 return 天然不会走到这里 —— PendingDrop 没有卡位可飞。
+                    _events.Add(new BattleEvent(BattleEventKind.CharDrawn, -1, library.Count - 1));
                 }
             }
         }

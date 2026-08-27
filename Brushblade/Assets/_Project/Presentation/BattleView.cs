@@ -3432,13 +3432,14 @@ namespace Brushblade.Presentation
         {
             _message = ""; // 蓄力/释放/护盾被掀空的播报按批累加在这里,回合前缀最后再补上
             var allDeaths = new System.Collections.Generic.List<int>();
+            var drawnIndices = new System.Collections.Generic.List<int>(); // 本轮掉字落在哪几个卡位
             while (true)
             {
                 SnapshotPreHp();       // 每个行动者出手前的血量:动画逐记扣
                 var preMeters = MeterSnapshot();   // 推进前的计量器:条从这里起步
                 bool more = Battle.AdvanceOnce();
                 var postMeters = MeterSnapshot();  // 推进后:条的终点
-                var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
+                var events = SplitOutDrawn(Battle.LastEvents, drawnIndices);
                 var deaths = DeathsThisAction();
                 _dyingEnemies.UnionWith(deaths); // 登记须在下面 Refresh 前:重绘据此保持死怪着色
                 allDeaths.AddRange(deaths);
@@ -3464,6 +3465,9 @@ namespace Brushblade.Presentation
             }
             _message = (Battle.Phase == BattlePhase.PlayerTurn
                 ? Strings.T("battle.phase.new_turn_prefix", ("turn", Battle.Turn), ("apPerTurn", Battle.ApPerTurn)) : "") + _message;
+            // 抽卡动画排在整轮推进**之后**:掉字发生在 StartTurn(轮回玩家那一拍),此刻新牌
+            // 已被循环内最后那次 Refresh 建出来了。仍在 BeginAnim 的锁里,玩家点不到牌。
+            yield return DealRoutine(drawnIndices);
             OnAnimDone(allDeaths); // 解锁输入(_animsInFlight 归零)+ 清死亡着色 + 归零后重绘
         }
 
@@ -3498,6 +3502,7 @@ namespace Brushblade.Presentation
             // 否则回放一开始它们就是灰的,死亡节拍再置灰一次毫无表现。
             // 收尾一次性交给 OnAnimDone 清掉——留着会撞上下一场同下标的新敌人,把它画成灰。
             var allDeaths = new System.Collections.Generic.List<int>();
+            var drawnIndices = new System.Collections.Generic.List<int>(); // 开场那一拍的掉字卡位
             foreach (var step in steps)
                 foreach (var e in step.Events)
                     if (e.Kind == BattleEventKind.EnemyDied) allDeaths.Add(e.TargetIndex);
@@ -3544,10 +3549,12 @@ namespace Brushblade.Presentation
                 // 与 AdvanceRoutine 同一条守卫:每批必以 ActorActed 开头(段首标记),
                 // 只有标记时不该白播一整段动画 + 停顿。末拍是玩家自己那一拍,其 Events 是
                 // BeginPlayerTurn/StartTurn 那一批(发牌/AP/玩家灼烧),照常播。
-                if (step.Events.Any(e => e.Kind != BattleEventKind.ActorActed))
+                // 摘 CharDrawn 必须在下面那条守卫**之前**:末拍(玩家自己)常常只有段首标记
+                // + 掉字两样,不摘就会白播一整段 Juice 动画 + 0.12s 停顿,而抽卡另有动画。
+                var events = SplitOutDrawn(step.Events, drawnIndices);
+                if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
-                    var events = new System.Collections.Generic.List<BattleEvent>(step.Events);
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
                     while (!done) yield return null;
                     yield return new WaitForSecondsRealtime(0.12f);
@@ -3557,7 +3564,91 @@ namespace Brushblade.Presentation
             }
 
             Refresh();
+            yield return DealRoutine(drawnIndices); // 首回合的发牌同样要飞一遍
             OnAnimDone(allDeaths); // 解锁输入 + 清死亡着色 + 归零后重绘(Battle 已 Won 时才出结算)
+        }
+
+        /// <summary>把 <see cref="BattleEventKind.CharDrawn"/> 从事件批里摘出来,落位下标记进
+        /// <paramref name="drawnIndices"/>,其余原序返回交给 Juice。
+        ///
+        /// 摘掉而不是让 Juice 忽略它:轮回玩家那一拍的事件批常常**只有**段首标记 + 掉字两样,
+        /// 不摘就会通过「这批还有别的事件」那条守卫,白播一整段 Juice 动画 + 0.12s 停顿 ——
+        /// 而抽卡的表现是 <see cref="DealRoutine"/> 那条独立动画,不在 Juice 里。</summary>
+        private static System.Collections.Generic.List<BattleEvent> SplitOutDrawn(
+            System.Collections.Generic.IReadOnlyList<BattleEvent> source,
+            System.Collections.Generic.List<int> drawnIndices)
+        {
+            var rest = new System.Collections.Generic.List<BattleEvent>(source.Count);
+            foreach (var e in source)
+            {
+                if (e.Kind == BattleEventKind.CharDrawn) drawnIndices.Add(e.Amount);
+                else rest.Add(e);
+            }
+            return rest;
+        }
+
+        /// <summary>回合开始的抽卡动画(2026-08-27 用户拍板):新掉的字从「字库 n/N」标签处
+        /// 逐张飞到自己的卡位,错峰落位并弹跳一下。
+        ///
+        /// 时序上有两个坑,顺序不能动:
+        ///   ① **先把新牌 localScale 按 0,再等一帧**。掉字发生在 StartTurn,调用方那次 Refresh
+        ///      已经把新牌按最终样子建出来了 —— 不先藏,玩家会先看到牌凭空出现、再看它飞一遍。
+        ///      按 0 这一步在调用方 Refresh 之后、本协程首次 yield 之前,同一帧内完成,不会渲染。
+        ///   ② **position 只能在等过一帧之后读**。Unity 的 UI 布局不是建对象时算的,刚 Refresh
+        ///      建出来的 RectTransform 此刻 position 还是父级中心,直接拿去当飞行终点会让所有牌
+        ///      都飞到字库行正中央。localScale = 0 不影响 HorizontalLayoutGroup 的排布
+        ///      (它只看 LayoutElement.preferredWidth),所以「藏着等一帧」两个目的能同时达到。
+        ///      ExecuteCast 那边的飞牌起点用的是相反的招 —— 在重绘**销毁**旧牌之前抢先读,
+        ///      两处解决的是同一个「布局晚一帧」的问题。
+        ///
+        /// 全程在调用方的 BeginAnim 锁里,玩家点不到还在飞的牌。
+        /// 卡位越界/为空一律跳过:满库那次 Core 不发 CharDrawn(字进的是 PendingDrop),
+        /// 但战斗当拍已 Won 时 Refresh 走的是不画字库的分支,那时 _libraryTileRects 是空的。</summary>
+        private System.Collections.IEnumerator DealRoutine(
+            System.Collections.Generic.IReadOnlyList<int> libraryIndices)
+        {
+            if (libraryIndices.Count == 0) yield break;
+
+            var tiles = new System.Collections.Generic.List<RectTransform>(libraryIndices.Count);
+            var glyphs = new System.Collections.Generic.List<string>(libraryIndices.Count);
+            foreach (int index in libraryIndices)
+            {
+                if (index < 0 || index >= _libraryTileRects.Count || index >= Battle.Library.Count) continue;
+                var rect = _libraryTileRects[index];
+                if (rect == null) continue;
+                rect.localScale = Vector3.zero; // 坑 ①:先藏,同一帧内,不会渲染出来
+                tiles.Add(rect);
+                glyphs.Add(Battle.Library[index]);
+            }
+            if (tiles.Count == 0) yield break;
+
+            yield return null; // 坑 ②:等布局跑完,下面读到的 position 才是牌的真实落点
+
+            // 起点是字库行的第一个子节点 = 「字库 n/N」那个计数标签(DrawLibrary 先画它)。
+            // 拿不到就退化成牌自己的位置 —— 那样只剩落位弹跳,没有飞行,但不会飞错地方。
+            bool hasOrigin = _libraryRow != null && _libraryRow.childCount > 0;
+            Vector3 origin = hasOrigin ? _libraryRow.GetChild(0).position : Vector3.zero;
+
+            int pending = tiles.Count;
+            for (int i = 0; i < tiles.Count; i++)
+            {
+                var rect = tiles[i];
+                if (rect == null) { pending--; continue; }
+                var def = _graph.Get(glyphs[i]);
+                _juice.FlyGlyph(glyphs[i], Theme.ElementColor(def.Element),
+                    hasOrigin ? origin : rect.position, rect.position, () =>
+                    {
+                        if (rect != null)
+                        {
+                            rect.localScale = Vector3.one; // 飞到才现身
+                            _juice.PopTile(rect);
+                        }
+                        pending--;
+                    });
+                if (i + 1 < tiles.Count)
+                    yield return new WaitForSecondsRealtime(0.08f); // 多张错峰,不糊成一团
+            }
+            while (pending > 0) yield return null;
         }
 
         /// <summary>把全场行动条一次性按到 meters(不插值)。开场回放起手用。</summary>

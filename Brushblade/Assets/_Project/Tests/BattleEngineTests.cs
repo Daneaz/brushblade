@@ -2229,6 +2229,84 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice)); // EndTurn 被守卫挡住
         }
 
+        // ---- 抽卡事件(2026-08-27):回合掉字发 CharDrawn,供表现层播抽卡动画 ----
+
+        [Test]
+        public void Drop_EmitsCharDrawn_WithLandingIndex()
+        {
+            // 表现层要播「新牌飞进字库」的动画,就必须知道**哪几张是新的**。
+            // Amount = 落位下标 —— 事件结构里没有字段能放字 id,而下标足够:
+            // Library[Amount] 就是那张字,同字多张也不会认错卡位。
+            var engine = DropEngine(libraryCount: 1, deck: "林");
+            var drawn = engine.LastEvents.Where(e => e.Kind == BattleEventKind.CharDrawn).ToList();
+
+            Assert.That(drawn.Count, Is.EqualTo(1), "DropsPerTurn = 1 就该恰好一条");
+            Assert.That(drawn[0].Amount, Is.EqualTo(engine.Library.Count - 1), "掉字 append 在末尾");
+            Assert.That(engine.Library[drawn[0].Amount], Is.EqualTo("林"));
+            Assert.That(drawn[0].TargetIndex, Is.EqualTo(-1), "玩家侧事件,不指向任何敌人");
+        }
+
+        [Test]
+        public void Drop_LibraryFull_EmitsNoCharDrawn()
+        {
+            // 满库那次字进的是 PendingDrop 而不是 Library,**没有卡位可飞** ——
+            // 照发一条会让表现层拿 Amount 去索引 _libraryTileRects 越界,
+            // 或者更糟:飞到别人的卡位上把那张牌藏起来
+            var engine = DropEngine(libraryCount: 3, deck: "林"); // 3/3 满 → DropChoice
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice));
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.CharDrawn), Is.False);
+        }
+
+        [Test]
+        public void Drop_NoDeck_EmitsNoCharDrawn()
+        {
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { LibraryCapacity = 3, DropsPerTurn = 1 },
+                new[] { "灯" }, Array.Empty<string>(), new[] { WoodMinion() }, 42);
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.CharDrawn), Is.False);
+        }
+
+        [Test]
+        public void Drop_MultiplePerTurn_EmitsOnePerCharWithDistinctIndices()
+        {
+            // 一回合掉多张时下标必须两两不同 —— 表现层按 Amount 取卡位,撞号就会有一张不飞
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { LibraryCapacity = 6, DropsPerTurn = 3, UnlockedChars = new[] { "林" } },
+                new[] { "灯" }, Array.Empty<string>(), new[] { WoodMinion() }, 42);
+            var drawn = engine.LastEvents.Where(e => e.Kind == BattleEventKind.CharDrawn).ToList();
+
+            Assert.That(drawn.Count, Is.EqualTo(3));
+            Assert.That(drawn.Select(e => e.Amount).ToList(), Is.EqualTo(new[] { 1, 2, 3 }),
+                "起手 1 张,三次 append 落在下标 1/2/3");
+            Assert.That(new HashSet<int>(drawn.Select(e => e.Amount)).Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Drop_NextTurn_EmitsCharDrawnAgain()
+        {
+            // 首回合那条来自开场推进(OpeningSteps);第二回合起来自 AdvanceOnce 的玩家分支。
+            // 两条路都得发 —— 只接一条会让首战没动画、或第二回合起没动画
+            var engine = DropEngine(libraryCount: 0, deck: "林");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.CharDrawn), Is.True,
+                "开场那一拍就该有");
+
+            engine.EndTurn();
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.CharDrawn), Is.True,
+                "第二回合的掉字同样要发");
+        }
+
+        [Test]
+        public void Drop_OpeningSteps_CarryCharDrawn()
+        {
+            // 开场那一拍的事件表现层是从 OpeningSteps 回放的(AdvanceOnce 每次开头都 _events.Clear(),
+            // 不记就全丢)。首回合的抽卡动画靠这条
+            var engine = DropEngine(libraryCount: 0, deck: "林");
+            bool found = engine.OpeningSteps
+                .Any(step => step.Events.Any(e => e.Kind == BattleEventKind.CharDrawn));
+            Assert.That(found, Is.True, "OpeningSteps 里找不到 CharDrawn,首回合就没动画可播");
+        }
+
         // ---- 阶段回归:StartTurn 的三个调用点都可能切进 DropChoice ----
 
         [Test]
