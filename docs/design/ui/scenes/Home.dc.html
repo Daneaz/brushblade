@@ -76,13 +76,22 @@
     }
     .chip { height: 19px; padding: 0 8px; display: inline-flex; align-items: center;
       border-radius: 10px; font-size: 10px; letter-spacing: .5px; }
+    /* 红点。稿上画的是「恰好这三格有事」的一种示例，**不是**固定配置 —— 四格各有各的判据，
+       都在 Core 里（2026-08-28 接线）：
+         卡组 = 有卡够张数可升级      图鉴 = 有已解锁未查阅的条目（赏钱待领）
+         技能 = 有技能现在就能升      商城 = 今日刷新后还没进过，或还有没用完的广告位
+       判据一律与「点进去真能做的事」同源：亮着而点进去无事可做是最烦人的那种假消息。 */
     .reddot { width: 7px; height: 7px; border-radius: 50%; background: #C53637;
       box-shadow: 0 0 0 1.5px #F6F1E7; }
     .body { flex: 1; display: flex; gap: 10px; min-height: 0; padding-bottom: 8px; }
     .panel { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; }
+    /* ⚠ 三栏一律 border-box:.who / .chests 的 width 是**含内边距与描边的总宽**,与实现里
+       HeroW / ChestW 那两个常量是同一个数。默认的 content-box 会让 187 实际占到 209,
+       稿与实现看着都写着 187 却对不上 —— 这类偏差只有量像素才看得出来。 */
+    .who, .chests, .tower { box-sizing: border-box; }
 
-    /* 角色 */
-    .who { width: 214px; flex: none; padding: 11px 12px; display: flex; flex-direction: column; gap: 9px; }
+    /* 角色。214 → 187:两侧都是「看一眼就够」的信息，宽度让给中间的书塔（2026-08-28） */
+    .who { width: 187px; flex: none; padding: 10px; display: flex; flex-direction: column; gap: 9px; }
     .avatar { display: flex; align-items: center; gap: 9px; }
     .face {
       width: 42px; height: 42px; flex: none; border-radius: 50%; background: #11161F;
@@ -100,28 +109,35 @@
     .at.hp b { color: #B02D2E; }
     .deckmini { margin-top: auto; }
     .deckmini .h { font-size: 9px; color: #88909C; letter-spacing: 2px; margin-bottom: 5px; }
-    .dmrow { display: flex; gap: 4px; }
+    /* 出阵**全量**铺开，每排 6 个折行（上限 15 → 最多三排）。不再折叠成「+N」：
+       出阵表是「我这趟带了什么」，折起来等于把最该看的那半藏了（2026-08-28） */
+    .dmrow { display: flex; flex-wrap: wrap; gap: 4px; }
     .dm {
-      width: 26px; height: 32px; border-radius: 5px; background: var(--elSoft);
+      width: 24px; height: 30px; border-radius: 5px; background: var(--elSoft);
       display: flex; align-items: center; justify-content: center;
-      font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 600; color: var(--glyph);
+      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: var(--glyph);
     }
-    .dm.more { background: #EFEADF; color: #88909C; font-size: 10px; font-family: inherit; }
 
     /* 书塔 */
+    /* 内容整体在面板里居中（2026-08-28） */
     .tower { flex: 1; min-width: 0; position: relative; overflow: hidden;
       background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px;
-      display: flex; flex-direction: column; align-items: center; padding: 12px 16px 14px; }
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; padding: 12px 16px 14px; }
     .mark {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       font-family: "Noto Serif SC", serif; font-size: 250px; font-weight: 600; line-height: 1;
       color: rgba(94,74,49,.075); pointer-events: none; user-select: none;
     }
-    .tower > * { position: relative; }
+    /* ⚠ 排除 .mark:这条原本写成 .tower > *,与上面 .mark 的 position:absolute 同特异度而排在后面,
+       把水印**拽回了文档流** —— 它那 250px 的行高会把血条/账目/提示三行顶出面板,再被
+       overflow:hidden 剪掉(2026-08-28 渲染实测:内容 478px vs 面板 319px)。
+       实现侧一直是「水印铺满面板垫在底层、内容另起一叠」,这里跟上。 */
+    .tower > *:not(.mark) { position: relative; }
     .tower h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 6px; }
-    .rank { font-size: 11px; color: #5D646F; margin-top: 5px; letter-spacing: 1px; }
+    .rank { font-size: 11px; color: #5D646F; letter-spacing: 1px; }
     .rank b { font-family: "Noto Serif SC", serif; font-size: 14px; color: #9B1E22; letter-spacing: 2px; }
-    .bands { display: flex; gap: 3px; width: 100%; margin-top: 12px; }
+    .bands { display: flex; gap: 3px; width: 100%; }
     .bd { flex: 1; }
     .bd .bn { font-size: 9px; letter-spacing: 1px; color: #88909C; text-align: center; margin-bottom: 4px; }
     .bd .bt { height: 6px; border-radius: 3px; background: #E4DDCE; overflow: hidden; }
@@ -131,42 +147,48 @@
     .bd.now .bn { color: #161B22; font-weight: 700; }
     .bd.now .bt span { background: #9B1E22; }
     .bd .df { font-size: 8px; color: #B3AB9B; text-align: center; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    /* 按钮上只放动作。层段与层数是**详情**，搬到 .resumedetail ——
+       「续爬 · 文山 44 层」在 250px 的胶囊里排不下，字会被挤成一条（2026-08-28） */
     .resume {
-      margin-top: 14px; width: 250px; height: 52px; border: none; border-radius: 26px; cursor: pointer;
+      width: 250px; height: 52px; border: none; border-radius: 26px; cursor: pointer;
       background: #C53637; color: #fff; font-family: "Noto Serif SC", serif;
       font-size: 18px; font-weight: 600; letter-spacing: 3px;
       box-shadow: 0 4px 12px rgba(155,30,34,.28);
     }
-    .runstate { display: flex; gap: 12px; margin-top: 10px; font-size: 10px; color: #5D646F; }
+    .resumedetail {
+      font-family: "Noto Serif SC", serif;
+      font-size: 12px; font-weight: 600; color: #161B22; letter-spacing: 1px;
+    }
+    .runstate { display: flex; gap: 12px; font-size: 10px; color: #5D646F; }
     .runstate b { font-variant-numeric: tabular-nums; color: #161B22; }
-    .runbar { width: 250px; margin-top: 7px; height: 5px; border-radius: 3px; background: #E4DDCE; overflow: hidden; }
+    .runbar { width: 250px; height: 5px; border-radius: 3px; background: #E4DDCE; overflow: hidden; }
     .runbar span { display: block; height: 100%; background: #B02D2E; }
-    .fresh { font-size: 10px; color: #88909C; margin-top: 9px; letter-spacing: .5px; }
+    .fresh { font-size: 10px; color: #88909C; letter-spacing: .5px; }
 
-    /* 宝箱 */
-    .chests { width: 228px; flex: none; padding: 9px 10px; display: flex; flex-direction: column; gap: 7px; }
+    /* 宝箱。228 → 195，同 .who：宽度让给书塔（2026-08-28） */
+    .chests { width: 195px; flex: none; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
     .ch { font-size: 9px; color: #88909C; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; }
-    .cgrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .cgrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .box {
-      background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 7px;
+      background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 5px;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
     }
     .box .icon {
-      width: 38px; height: 28px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
-      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #fff;
+      width: 33px; height: 25px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; color: #fff;
     }
     .box .bn { font-size: 10px; font-family: "Noto Serif SC", serif; font-weight: 600; }
     .box .cd { font-size: 11px; color: #5D646F; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
     .box .acts { display: flex; gap: 4px; width: 100%; }
     .mini {
-      flex: 1; height: 24px; border: none; border-radius: 12px; cursor: pointer;
+      flex: 1; height: 22px; border: none; border-radius: 11px; cursor: pointer;
       font-family: inherit; font-size: 9.5px; letter-spacing: .3px;
       display: flex; align-items: center; justify-content: center; gap: 3px;
     }
     .mini.ad { background: #E3F4E6; color: #1B552C; border: 1px solid #C6DCCB; }
     .mini.ink { background: #F6EDD5; color: #8F6B09; border: 1px solid rgba(201,169,74,.5); }
     .mini.start { background: #3D4E69; color: #fff; }
-    .mini.open { background: #C9A94A; color: #40340A; font-weight: 700; font-size: 11px; height: 26px; }
+    .mini.open { background: #C9A94A; color: #40340A; font-weight: 700; font-size: 11px; height: 24px; }
     .box.empty { background: transparent; border: 1px dashed #CFC7B6; justify-content: center; }
     .box.empty .t { font-size: 10px; color: #B3AB9B; letter-spacing: 1px; }
 
@@ -177,12 +199,23 @@
       background: #FBF8F1; font-family: inherit; color: #2C333D;
       display: flex; align-items: center; justify-content: center; gap: 7px;
     }
-    .tab:hover { background: #F1EBDE; }
+    .tab:hover { filter: brightness(.97); }
     .tab .tn { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 2px; }
     .tab .td { font-size: 9px; color: #88909C; }
     .tab .rd { position: absolute; top: 7px; right: 9px; }
-    .tab.shop { background: #F6EEE9; border-color: #E0CDC2; }
     .tab svg { display: block; }
+
+    /* 四格各一色（2026-08-28）。三支色**同源于一个属性色**：底 = 面板底往 elSoft 走 35%、
+       描边 = elSoft 往前景压 22%、前景 = elFg（商城不属五行，用它自己那支赭色同法派生）。
+       手挑四组必然有一组不搭，改配色也要改十二个数；属性色板本身过过对比度校准，蹭它就等于蹭了那次校准。
+
+       ⚠ 描边**不能**直接用 elSoft：那样边线对宣纸底只有 1.19 的对比度，比素色描边（1.27）还弱，
+       页签一上色反而更塌 —— 与「靠边线立起来」的初衷相反。压过之后是 1.65。
+       字/底对比度实测 7.35 / 7.04 / 7.74 / 4.15，商城那格最低但页签名是 14px 宋体，过 AA-large。 */
+    .tab.deck     { background: #E9F0F5; border-color: #9FC1E2; color: #0E4F86; }
+    .tab.bestiary { background: #EBF2E6; border-color: #A5C8AD; color: #195C2E; }
+    .tab.perks    { background: #F6ECF1; border-color: #CFB2D5; color: #673672; }
+    .tab.shop     { background: #F1E6DD; border-color: #D5B0A0; color: #A75A3D; }
   </style>
 </helmet>
 
@@ -200,6 +233,8 @@
         </svg>
         2,480
       </div>
+      <!-- ⚠ 设置界面还没做（2026-08-28）：实现里这颗是占位钮，点了弹一句说明。
+           真设置做出来时只换回调，版面不动。 -->
       <button class="btn-back tap">设置</button>
     </div>
 
@@ -235,7 +270,8 @@
             <span class="dm e-Fire serif">爆</span>
             <span class="dm e-Earth serif">碎</span>
             <span class="dm e-Metal serif">锐</span>
-            <span class="dm more">+2</span>
+            <span class="dm e-Water serif">冰</span>
+            <span class="dm e-Wood serif">荆</span>
           </div>
         </div>
       </div>
@@ -250,14 +286,15 @@
           <div class="bd now"><div class="bn">文山</div><div class="bt"><span style="width: 72%"></span></div><div class="df">26</div></div>
           <div class="bd"><div class="bn">墨海</div><div class="bt"><span></span></div><div class="df">51</div></div>
         </div>
-        <button class="resume">续爬 · 文山 44 层</button>
+        <button class="resume">续 爬</button>
+        <div class="resumedetail">「文山」第 44 层</div>
         <div class="runbar"><span style="width: 66%"></span></div>
         <div class="runstate">
           <span>生命 <b>612 / 920</b></span>
           <span>本趟已得 <b>340</b> 墨</span>
           <span>字库 <b>6 / 8</b></span>
         </div>
-        <div class="fresh">断点续爬 · 也可放弃本趟从第 1 层重开</div>
+        <div class="fresh">断点续爬 · 接着上次停下的那层打</div>
       </div>
 
       <div class="panel chests">
@@ -299,34 +336,34 @@
     </div>
 
     <div class="nav">
-      <button class="tab">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3D4E69" stroke-width="1.7">
+      <button class="tab deck">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
           <rect x="3" y="5" width="11" height="15" rx="2"></rect>
           <path d="M17 7 L20.5 8.2 A1.5 1.5 0 0 1 21.4 10 L18 19.5"></path>
         </svg>
         <span class="tn">卡组</span><span class="td">72 张</span>
         <span class="rd reddot"></span>
       </button>
-      <button class="tab">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3D4E69" stroke-width="1.7">
+      <button class="tab bestiary">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
           <path d="M4 4.5 A1.5 1.5 0 0 1 5.5 3 H19 v18 H5.5 A1.5 1.5 0 0 1 4 19.5 Z"></path>
           <path d="M4 17.5 A1.5 1.5 0 0 1 5.5 16 H19"></path>
         </svg>
         <span class="tn">图鉴</span><span class="td">11 / 16</span>
         <span class="rd reddot"></span>
       </button>
-      <button class="tab">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3D4E69" stroke-width="1.7">
+      <button class="tab perks">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
           <path d="M12 3 L14.6 9.4 L21 12 L14.6 14.6 L12 21 L9.4 14.6 L3 12 L9.4 9.4 Z"></path>
         </svg>
         <span class="tn">技能</span><span class="td">3 / 16</span>
       </button>
       <button class="tab shop">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A6522F" stroke-width="1.7">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
           <path d="M3.5 8 h17 l-1.3 11.2 A1.5 1.5 0 0 1 17.7 20.5 H6.3 A1.5 1.5 0 0 1 4.8 19.2 Z"></path>
           <path d="M8.5 8 V6 a3.5 3.5 0 0 1 7 0 v2"></path>
         </svg>
-        <span class="tn" style="color:#A6522F;">商城</span><span class="td">每日刷新</span>
+        <span class="tn">商城</span><span class="td">每日刷新</span>
         <span class="rd reddot"></span>
       </button>
     </div>
