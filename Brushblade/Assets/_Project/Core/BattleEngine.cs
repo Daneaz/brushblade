@@ -69,6 +69,16 @@ namespace Brushblade.Core
         /// T3 配值时会连同夹具一起重做。
         public int PlayerMaxHp { get; set; } = 50;
 
+        /// <summary>本场开放哪几个召唤槽位,**按位**表示(bit i = 槽 i;2026-08-27 用户拍板)。
+        /// 解锁的是位置不是「前 N 格」—— 开局开的是前排中间两格(槽 1、2),槽 0 还锁着,
+        /// 所以这里必须是集合而不是计数。表在 <see cref="MetaRules.UnlockedSlotMask"/>,
+        /// 由 RunEngine 按**当前层**逐场注入。
+        ///
+        /// ⚠ 缺省全开而不是最低档:1200+ 条既有测试夹具与章节关卡路径都不传这个字段,
+        /// 缺省给两格会让它们集体变红,而那不是解锁曲线要表达的东西
+        /// (与 PlayerMaxHp 那条「缺省只服务测试夹具」同一套理由)。</summary>
+        public int UnlockedSummonSlots { get; set; } = BattleEngine.AllSummonSlotsMask;
+
         /// <summary>攻击力基准。<see cref="PlayerAttack"/> 等于此值时,
         /// 伤害与引入攻击力之前**逐字节相同** —— 这是 E-b1 的验收硬线。</summary>
         public const int AttackBaseline = 100;
@@ -185,6 +195,10 @@ namespace Brushblade.Core
         ImmunityBlocked, // 免疫挡下一记(TargetIndex = 攻击者敌人下标,Amount = 挡掉的伤害;2026-08-06)
         Missed,      // 攻击被打空(TargetIndex = 攻击者敌人下标,SecondIndex = 被打空的召唤物下标,玩家为 −1;2026-08-07)
         Detonate,    // 灼烧引爆(TargetIndex = 被引爆的敌人,Amount = 引爆伤害;2026-08-09)
+        SummonBurn,     // 召唤物被点燃(TargetIndex = **召唤物槽位**,Amount = 层数;2026-08-26)
+        SummonBurnTick, // 召唤物灼烧结算(TargetIndex = 槽位,Amount = 这一跳的伤害;2026-08-26)
+                        // 不复用 Burn/BurnTick:那两个的 TargetIndex 是「−1 = 玩家,其余 = 敌人下标」,
+                        // 槽位挤进去会与敌人下标撞号,飘字直接飘到别人头上
         ActorActed,  // 阶段分隔:每个行动者的事件段以此开头(TargetIndex = 行动者下标,Amount = (int)ActorKind;
                      // 逐格驱动后表现层不再需要猜段边界,2026-08-16 换掉 EnemyTurnBegan)
     }
@@ -228,9 +242,39 @@ namespace Brushblade.Core
         /// 选定长数组而非「紧凑 List + Slot 字段」的理由见 spec §3.1:事件的 SecondIndex、
         /// 表现层的血条引用、存档下标现在三者是同一个数,槽位化后仍是同一个数。</summary>
         private readonly SummonState[] _summons = new SummonState[SummonCap];
-        private const int SummonCap = 6;      // 场上召唤物槽位数(2026-08-03:4 → 6)
-        private const int FrontRowSize = 3;   // 前排槽位数(2026-08-20):槽 [0, FrontRowSize) 为前排
-        private const int EnemyCap = 6;  // 场上敌人上限(2026-08-03),分裂怪据此守闸
+        /// <summary>召唤槽位的**硬上限** = 数组长度(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4)。
+        /// 本场**实际可用**几格由 <see cref="BattleConfig.SummonSlots"/> 按层解锁决定,见
+        /// <see cref="_slotMask"/> —— 数组多长与本场开着哪几格是两回事,逻辑里要看后者。</summary>
+        private const int SummonCap = 8;
+        private const int FrontRowSize = 4;   // 前排槽位数(2026-08-20;2026-08-27:3 → 4):槽 [0, FrontRowSize) 为前排
+        private const int EnemyCap = 8;  // 场上敌人上限(2026-08-03:4→6;2026-08-27:6→8),分裂怪据此守闸
+
+        /// <summary>本场可用的召唤槽位数(2026-08-27 按层解锁)。夹在 [1, SummonCap]。
+        /// 槽位从 0 号连续开放,所以「前 4 后 4」在 2/4/6 槽时自然退化成
+        /// 前 2 / 前 4 / 前 4 + 后 2 —— 不需要另一套排位规则。</summary>
+        /// 未解锁的槽恒为 null,所以「前排是槽 [0,4)」这条几何**不随解锁变** ——
+        /// 排位规则读到的仍是同一段区间,结果逐位相同。
+        /// 表现层也靠这条固定几何把未解锁的格子画在它将来该在的那一排。
+        private readonly int _slotMask;
+
+        /// <summary>召唤槽位的硬上限,供解锁表与测试断言。</summary>
+        public const int MaxSummonSlots = SummonCap;
+
+        /// <summary>全部槽位开放的掩码,<see cref="BattleConfig.UnlockedSummonSlots"/> 的缺省值。</summary>
+        public const int AllSummonSlotsMask = (1 << SummonCap) - 1;
+
+        /// <summary>配置里的掩码去掉越界位;**全零回落成全开** —— 掩码漏填(默认 0)会让
+        /// 召唤字变成一张纯废牌,而那与「这一层不许召唤」是两回事,前者不该被静默解读成后者
+        /// (与 SummonSpeed 的 `≤0 → 100` 同型的兜底)。</summary>
+        private static int ClampSlotMask(BattleConfig config)
+        {
+            int mask = (config?.UnlockedSummonSlots ?? AllSummonSlotsMask) & AllSummonSlotsMask;
+            return mask == 0 ? AllSummonSlotsMask : mask;
+        }
+
+        /// <summary>这一格本场开着吗(2026-08-27)。表现层据此决定画实格还是锁格。</summary>
+        public bool IsSlotOpen(int slot) =>
+            slot >= 0 && slot < SummonCap && (_slotMask & (1 << slot)) != 0;
         // 每排敌人上限(2026-08-20)。转引 Targeting.RowCapacity 而不是再写一个 3 ——
         // 表现层按列取固定格位(BattleView.DrawEnemies),两处上限一旦分叉,
         // 分配出来的 Column 就会越过表现层的格位数组,静默变成一次崩溃(2026-08-22 评审)。
@@ -430,6 +474,7 @@ namespace Brushblade.Core
             PlayerHp = startingHp ?? config.PlayerMaxHp;
             _shieldNormal = startingNormalShield;
             _shieldPersist = startingPersistShield;
+            _slotMask = ClampSlotMask(config);
             // 召唤物跨战斗保留(2026-08-03):与普通盾同口径,上一层活下来的原样入场(残血不回满)。
             // 携带的召唤物按原槽位落位(2026-08-20)。Slot 越界或撞车一律回落到最小空槽 ——
             // 携带态来源受控,这条只是防越界,不是会触发的分支。
@@ -466,6 +511,7 @@ namespace Brushblade.Core
         {
             _graph = graph;
             _config = config;
+            _slotMask = ClampSlotMask(config);
             _cardLevels = cardLevels;
             _random = random;
             _forge = new ForgeState(new List<string>(), new List<string>());
@@ -578,7 +624,16 @@ namespace Brushblade.Core
         public IReadOnlyCollection<string> UnlockedChars => _config.UnlockedChars;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public IReadOnlyList<SummonState> Summons => _summons;
-        public int SummonCapacity => SummonCap;
+        public int SummonCapacity
+        {
+            get
+            {
+                int count = 0;
+                for (int slot = 0; slot < SummonCap; slot++)
+                    if ((_slotMask & (1 << slot)) != 0) count++;
+                return count;
+            }
+        }
         public int AliveSummonCount => AliveSummons();
 
         /// <summary>前排槽位数(2026-08-20):槽 [0, FrontRow) 为前排,其余为后排。</summary>
@@ -861,20 +916,31 @@ namespace Brushblade.Core
             if (count <= 0) return plan;
             if (startSlot < 0 || startSlot >= SummonCap) startSlot = 0;
 
-            // 第一轮:空槽与尸体槽
-            for (int n = 0; n < SummonCap && plan.Count < count; n++)
+            // 先把**开放的**槽按环序排出来:从 startSlot 起绕一圈,只收开着的格。
+            // ⚠ 不能拿 `(startSlot + n) % 开放数` 绕 —— 开放集合不是连续前缀
+            // (开局开的是槽 1、2,槽 0 锁着),那样绕会踩进锁着的格(2026-08-27)。
+            // startSlot 本身锁着也没关系:它只是扫描起点,不一定要被收进来。
+            var ring = new List<int>(SummonCap);
+            for (int n = 0; n < SummonCap; n++)
             {
                 int slot = (startSlot + n) % SummonCap;
+                if (IsSlotOpen(slot)) ring.Add(slot);
+            }
+
+            // 第一轮:空槽与尸体槽
+            foreach (int slot in ring)
+            {
+                if (plan.Count >= count) break;
                 if (SlotOccupancy(slot) != SlotState.Alive) plan.Add(slot);
             }
             // 第二轮:空位凑不满才顶替站着的人,同样从选定格起顺延
-            for (int n = 0; n < SummonCap && plan.Count < count; n++)
+            foreach (int slot in ring)
             {
-                int slot = (startSlot + n) % SummonCap;
+                if (plan.Count >= count) break;
                 if (SlotOccupancy(slot) == SlotState.Alive) plan.Add(slot);
             }
-            // 两轮的集合互斥且并集是全部六格,所以 count ≤ SummonCap 时必然填满。
-            // SummonCountOf 已经把只数封顶到 SummonCap,走不到填不满的分支。
+            // 两轮的集合互斥且并集是**本场开放的全部格**,所以 count ≤ ring.Count 时必然填满。
+            // SummonCountOf 已经把只数封顶到 SummonCapacity,走不到填不满的分支。
             return plan;
         }
 
@@ -886,7 +952,7 @@ namespace Brushblade.Core
             int count = SummonCountOf(def, attackMode);
             if (count <= 0) return 0;
             if (summonSlots == null)
-                return Math.Max(0, AliveSummons() + count - SummonCap);
+                return Math.Max(0, AliveSummons() + count - SummonCapacity);
             int replaced = 0;
             for (int n = 0; n < count && n < summonSlots.Count; n++)
                 if (SlotOccupancy(summonSlots[n]) == SlotState.Alive) replaced++;
@@ -900,7 +966,7 @@ namespace Brushblade.Core
             int count = 0;
             foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.Summon) count += effect.SummonCount;
-            return Math.Min(count, SummonCap);
+            return Math.Min(count, SummonCapacity);
         }
 
         /// <summary>该字的效果是否需要指定单体目标(供 UI 进入选目标模式;攻击模式看第二用法)。
@@ -935,13 +1001,16 @@ namespace Brushblade.Core
         }
 
         /// <summary>该字是否需要指定**友方**目标(2026-08-22,spec §8.1)。
-        /// 单体治疗(HealSelf / HealOverTime)从此可以选治玩家还是某只召唤物。
+        /// 单体治疗(HealSelf / HealOverTime)从此可以选治玩家还是某只召唤物;
+        /// 2026-08-26 起护盾(Shield)同理 —— 土系 5 张护盾字都能加给召唤物。
         ///
-        /// 群治(HealAll)不在内 —— 它覆盖全体,本就无从选起,保持免选。</summary>
+        /// 群治(HealAll)不在内 —— 它覆盖全体,本就无从选起,保持免选。
+        /// 桂 的全场加盾也不在内:那是 Summon 效果上的 SummonShield 字段,不是 Shield 这个 Kind。</summary>
         public static bool NeedsAllyTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
-                if (effect.Kind == EffectKind.HealSelf || effect.Kind == EffectKind.HealOverTime)
+                if (effect.Kind == EffectKind.HealSelf || effect.Kind == EffectKind.HealOverTime
+                    || effect.Kind == EffectKind.Shield)
                     return true;
             return false;
         }
@@ -1226,21 +1295,49 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>一只召唤物的完整一拍(2026-08-16,ATB 时序归属搬迁,spec §4.3):光环治疗
-        /// (2026-08-05,桃)从「玩家回合末全体召唤物集体先治疗」挪到这里,变成「该召唤物自己
-        /// 那拍先治疗再出手」——与出手无关,场上没有敌人可打时也照常回血。→ 出手 → 自身状态
-        /// 递减。召唤物目前没有状态容器(SummonState 无 Statuses 字段),所以"自身状态递减"
-        /// 这一步暂无内容——不要为此新增字段,等真有召唤物状态时再加。</summary>
+        /// <summary>一只召唤物的完整一拍(2026-08-16,ATB 时序归属搬迁,spec §4.3;
+        /// 2026-08-26 补齐状态那两步):自身灼烧 → 光环治疗 → 出手 → 自身状态递减。
+        /// 与 <see cref="ActEnemyTurn"/> 的六步同构,只是召唤物没有流血/自补全那两支。
+        ///
+        /// 光环治疗(2026-08-05,桃)从「玩家回合末全体召唤物集体先治疗」挪到这里,变成
+        /// 「该召唤物自己那拍先治疗再出手」——与出手无关,场上没有敌人可打时也照常回血。
+        /// 排在灼烧**之后**、与玩家那一拍(SettlePlayerBurn → SettlePlayerHots)同序。
+        ///
+        /// 没有敌人侧那条「冻结就跳过」的分支:目前没有任何机制能冻住召唤物,
+        /// 写一条永远走不到的分支等于写一条没人测得到的代码。真有来源了再补。</summary>
         private void ActSummonTurn(int s)
         {
             var summon = _summons[s];
             if (summon == null || !summon.Alive) return;
 
+            SettleSummonBurn(s);
+            if (!summon.Alive) return;   // 烧死在出手之前:这一拍不再治疗、不再挥刀
+
             int heal = summon.Passive?.HealAlly ?? 0;
             if (heal > 0) HealPlayerAndSummons(heal);
 
             if (_enemies.Any(e => e.Alive)) StrikeOnceWithSummon(s);
+            summon.Statuses.TickTurns();
             CheckWin();
+        }
+
+        /// <summary>召唤物自身的灼烧结算(2026-08-26)。口径**照抄玩家侧**
+        /// <see cref="SettlePlayerBurn"/>:层数 × <c>_burnPerStack</c>,结算后自减一层。
+        ///
+        /// ⚠ 不吃攻击力、不吃生克 —— 敌人侧的 <see cref="SettleBurnOn"/> 两样都吃,那是
+        /// 「玩家点的火」的口径;烧在我方身上的火是敌人点的,与玩家攻击力无关。
+        /// 两边本来就是两套口径,别看着相似就合并。</summary>
+        private void SettleSummonBurn(int slot)
+        {
+            var summon = _summons[slot];
+            var burn = summon.Statuses.Find(StatusKind.Burn);
+            if (burn == null || burn.Magnitude <= 0) return;
+
+            int tick = burn.Magnitude * _burnPerStack;
+            summon.Hp = Math.Max(0, summon.Hp - tick);
+            burn.Magnitude -= 1;
+            if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
+            _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
         }
 
         /// <summary>一个敌人的完整一拍(2026-08-15,ATB 时序归属搬迁,spec §4.3「每个敌人那一拍」
@@ -1445,10 +1542,20 @@ namespace Brushblade.Core
                 // (实测 4 只第 6 回合单灼烧 38 伤/回合)。刷新语义下,单只与多只稳态都是 1 层。
                 // hit 门槛(2026-08-08):打空 = 攻击没落到身上,附带效果不该触发;免疫挡下
                 // 仍算命中(hit=true),灼烧照挂——免疫挡的是伤害,不是攻击本身。
+                // 2026-08-26:打谁烧谁。改前无论这一下落在玩家还是召唤物身上,烧的都是玩家 ——
+                // 那时召唤物没有状态容器,只能这么写;现在有了,就该落在实际挨打的那个身上。
                 if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsSilenced(enemy))
                 {
-                    RefreshBurn(_playerStatuses, SearStacks);
-                    _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
+                    if (tankIdx == Targeting.PlayerTarget)
+                    {
+                        RefreshBurn(_playerStatuses, SearStacks);
+                        _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
+                    }
+                    else
+                    {
+                        RefreshBurn(_summons[tankIdx].Statuses, SearStacks);
+                        _events.Add(new BattleEvent(BattleEventKind.SummonBurn, tankIdx, SearStacks));
+                    }
                 }
 
                 // 立即判负(Task 12):这一下已经打死玩家 —— 不再走下一次行动
@@ -1741,7 +1848,7 @@ namespace Brushblade.Core
                         for (int n = 0; n < value; n++)
                         {
                             // 死尸占着槽位,复活不新增条目但存活数 +1 —— 满员时停手,免得超上限
-                            if (AliveSummons() >= SummonCap) break;
+                            if (AliveSummons() >= SummonCapacity) break;
                             int slot = FirstDeadSummonIndex();
                             if (slot < 0) break; // 没有阵亡召唤物 → 空放(与无敌人时出 AOE 同口径)
                             var revived = _summons[slot];
@@ -1884,10 +1991,21 @@ namespace Brushblade.Core
                             }
                         break;
                     case EffectKind.Shield:
+                        // 目标可选(2026-08-26):与 HealSelf 同一套 allySlot,生克照旧只看
+                        // 配方内部的元素关系,与盾加给谁无关 —— 加召唤物与加玩家同值。
                         int shield = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
-                        if (effect.PersistOnce) _shieldPersist += shield;
-                        else _shieldNormal += shield;
-                        _events.Add(new BattleEvent(BattleEventKind.Shield, -1, shield));
+                        if (allySlot == Targeting.PlayerTarget)
+                        {
+                            if (effect.PersistOnce) _shieldPersist += shield;
+                            else _shieldNormal += shield;
+                        }
+                        else
+                        {
+                            // 召唤物只有一个盾桶:豁免桶是玩家侧「倾覆清盾」的对策,召唤物不吃倾覆,
+                            // 分两桶存也没有任何一处读得出区别。PersistOnce 在这一支被有意忽略。
+                            _summons[allySlot].Shield += shield;
+                        }
+                        _events.Add(new BattleEvent(BattleEventKind.Shield, allySlot, shield));
                         break;
                     case EffectKind.BurnPotency:
                         _burnPerStack += value;
@@ -2321,7 +2439,7 @@ namespace Brushblade.Core
         /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排;
         /// 列号在**落定的那一排**里现算 —— 被改判的那只要从新排的计数起算,
         /// 沿用原排的计数会撞号。
-        /// 两排都满走不到 —— EnemyCap 6 = 3 + 3,列表长度天然受限。</summary>
+        /// 两排都满走不到 —— EnemyCap 8 = 4 + 4,列表长度天然受限。</summary>
         private void AssignSlots()
         {
             int front = 0, back = 0;
@@ -2357,19 +2475,21 @@ namespace Brushblade.Core
         /// 玩家可以指定槽位,本函数退化为「玩家没指定时的兜底」。</summary>
         private int NextEmptySlot()
         {
+            // 只在**本场开放的格**里找 —— 两个循环必须用同一个判据,否则第一轮会返回一个
+            // 尚未解锁的空槽,第二轮的 `!_summons[s].Alive` 又会对着 null 解引用(2026-08-27)
             for (int s = 0; s < SummonCap; s++)
-                if (_summons[s] == null) return s;
+                if (IsSlotOpen(s) && _summons[s] == null) return s;
             for (int s = 0; s < SummonCap; s++)
-                if (!_summons[s].Alive) return s;
+                if (IsSlotOpen(s) && !_summons[s].Alive) return s;
             return -1;
         }
 
         /// <summary>把携带/读档来的召唤物放回它记下的槽位;槽位非法或已被占则回落到最小空槽。</summary>
         private void PlaceCarried(SummonState summon, int slot)
         {
-            if (slot < 0 || slot >= SummonCap || _summons[slot] != null)
+            if (!IsSlotOpen(slot) || _summons[slot] != null)
                 slot = NextEmptySlot();
-            if (slot < 0) return; // 六槽全满:携带态来源受上限约束,走不到这;留作越界兜底
+            if (slot < 0) return; // 全满:携带态来源受上限约束,走不到这;留作越界兜底
             _summons[slot] = summon;
         }
 

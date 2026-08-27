@@ -1099,7 +1099,11 @@ namespace Brushblade.Core.Tests
                 new CharDef("乙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 20, summonCount: 1, summonAttack: 0, summonChar: "B") }),
                 new CharDef("丙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 2, summonAttack: 0, summonChar: "C") }),
             }),
-            new BattleConfig { PlayerMaxHp = 50, ApPerTurn = 9, LibraryCapacity = 9 },
+            // 掩码钉死「槽 0..5 连续 6 格」(2026-08-27):这一族测的是**满员时的顶替/落位规则**,
+            // 不是解锁表长什么样。真实解锁表在 6 格档开的是 {0,1,2,4,5,6}(槽 3 锁着),
+            // 拿它当夹具会让下面按下标写死的断言全部要重排,而那与被测行为无关。
+            new BattleConfig { PlayerMaxHp = 50, ApPerTurn = 9, LibraryCapacity = 9,
+                UnlockedSummonSlots = 0b111111 },
             library, Array.Empty<string>(),
             new[] { new EnemyDef("怔", Element.Heart, 100, 0) }, seed: 1);
 
@@ -1147,7 +1151,7 @@ namespace Brushblade.Core.Tests
             });
             Assert.That(engine.SummonCountOf(graph.Get("甲")), Is.EqualTo(1));
             Assert.That(engine.SummonCountOf(graph.Get("丙")), Is.EqualTo(2));
-            Assert.That(engine.SummonCountOf(graph.Get("丁")), Is.EqualTo(6)); // 4+4=8 被砍到上限 6
+            Assert.That(engine.SummonCountOf(graph.Get("丁")), Is.EqualTo(6)); // 4+4=8 被砍到本场槽位数 6
             Assert.That(engine.SummonCountOf(graph.Get("戊")), Is.EqualTo(0)); // 不召唤
         }
 
@@ -1590,9 +1594,11 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void SummonCapacity_IsSix()
+        public void SummonCapacity_DefaultsToTheHardCap()
         {
-            Assert.That(Engine().SummonCapacity, Is.EqualTo(6));
+            // 2026-08-27:硬上限 6 → 8(前 4 + 后 4)。夹具不传 BattleConfig.SummonSlots,
+            // 缺省满开 —— 按层解锁的曲线由 SummonSlotUnlockTests 单独盯
+            Assert.That(Engine().SummonCapacity, Is.EqualTo(BattleEngine.MaxSummonSlots));
         }
 
         private static RecipeGraph BleedGraph() => new(new[]

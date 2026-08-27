@@ -969,6 +969,11 @@ namespace Brushblade.Core.Tests
                 {
                     Encounters = new[] { new[] { enemy }, new[] { secondEnemy ?? enemy } },
                     RewardPool = new[] { "焚" },
+                    // FromDepth 16 = 召唤槽位解锁到 6(2026-08-27)。这一族测的是**携带**语义,
+                    // 不是解锁曲线;不写的话缺省第 1 层只开 2 槽,森 召 4 只当场就满员了。
+                    // 走 FromDepth 而不是 BattleConfig.SummonSlots —— 后者会被
+                    // RunEngine.BattleConfigForRun 按层重算覆盖掉,钉不住。
+                    FromDepth = 16,
                 },
                 new BattleConfig { DropTable = new[] { "木" } },
                 startingLibrary: library, startingPool: Array.Empty<string>(), seed: 7);

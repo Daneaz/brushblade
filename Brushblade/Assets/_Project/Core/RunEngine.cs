@@ -29,6 +29,12 @@ namespace Brushblade.Core
 
         /// <summary>两场战斗之间触发奇遇的概率(百分比,0~100)。</summary>
         public int EventChancePercent { get; set; }
+
+        /// <summary>本段起始层的**绝对层号**(1-based,2026-08-27)。
+        /// <c>FromDepth + BattleIndex</c> 就是当前层 —— 召唤槽位的解锁曲线按它逐场算。
+        ///
+        /// 缺省 1:章节关卡路径与测试夹具不填这个字段,落在第一档比落进「0 层」有意义。</summary>
+        public int FromDepth { get; set; } = 1;
     }
 
     /// <summary>连战状态机:战斗 → 奖励 → 下一战。
@@ -698,7 +704,16 @@ namespace Brushblade.Core
         /// 原样共享引用、有加成时才拷贝,广告扩容靠「碰巧共享」才对当前战斗生效 —— 吃过加血
         /// 上限奇遇后就断线(扩容只改 run 手里的原对象,战斗读的是旧副本,Boss 层奖励页最常见)。
         /// 现在战斗永远持有自己的副本,扩容由 TryExpand* 显式同步进去,两条路径一个口径。</summary>
-        private BattleConfig BattleConfigForRun() => _battleConfig.WithPlayerMaxHp(EffectiveMaxHp);
+        /// <summary>当前层的绝对层号(2026-08-27):段起始层 + 段内下标。
+        /// 召唤槽位的解锁曲线读它 —— 拿段起始层顶替会让整段都停在进段那一刻的档位。</summary>
+        public int CurrentDepth => _runConfig.FromDepth + BattleIndex;
+
+        private BattleConfig BattleConfigForRun()
+        {
+            var config = _battleConfig.WithPlayerMaxHp(EffectiveMaxHp);
+            config.UnlockedSummonSlots = MetaRules.UnlockedSlotMask(CurrentDepth); // 按层解锁,逐场重算
+            return config;
+        }
 
         private BattleEngine NewBattle(IReadOnlyList<string> library, IReadOnlyList<string> pool, int? startingHp)
         {

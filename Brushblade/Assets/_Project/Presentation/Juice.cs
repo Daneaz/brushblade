@@ -193,6 +193,23 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Burn:
                         Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)), Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
                         break;
+                    // 召唤物被点燃 / 自身灼烧结算(2026-08-26,灯花「打谁烧谁」)。与上面敌人侧的
+                    // Burn / BurnTick 同款演出,只是锚点换成 summonAnchor —— 这两个 Kind 的
+                    // TargetIndex 是**召唤物槽位**,喂给 enemyAnchor 会锚到编号相同的那只怪身上。
+                    case BattleEventKind.SummonBurn:
+                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)), Theme.ShopNav,
+                            summonAnchor?.Invoke(e.TargetIndex), small: true);
+                        break;
+                    case BattleEventKind.SummonBurnTick:
+                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        var burntSummon = summonAnchor?.Invoke(e.TargetIndex);
+                        Popup($"-{e.Amount}", Theme.ShopNav, burntSummon,
+                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        FlameBurst(burntSummon);
+                        HitFx(e.Amount);
+                        onImpact?.Invoke(e);
+                        serialPending = true;
+                        break;
                     // 免疫完全挡下一记(2026-08-06):血条护盾条都不动,只给一个「免」的表达。
                     // 与护盾吸伤同款(2026-08-06 M4 改):攻击者下扑(Lunge)让这记攻击在画面上
                     // 真的发生过,飘字锚在屏幕中下(null,与 EnemyAttack/Heal/Shield 同口径)——

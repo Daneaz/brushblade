@@ -703,8 +703,11 @@ namespace Brushblade.Core.Tests
                 new CharDef("苏", Element.Heart,
                     effects: new[] { new EffectDef(EffectKind.Revive, 1) }),
             });
+            // 掩码钉死「槽 0..5 连续 6 格」(2026-08-27):「丛」正好召满这个数,测的是满员时
+            // 复活停手 —— 硬上限从 6 涨到 8 之后不钉的话,丛 召 6 只根本就没满员
             var engine = new BattleEngine(graph,
-                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = 10 },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, ApPerTurn = 10,
+                    UnlockedSummonSlots = 0b111111 },
                 new[] { "丛", "苗", "苏" }, Array.Empty<string>(),
                 new[] { new EnemyDef("靶", Element.Heart, 500, 4) }, seed: 1);
 

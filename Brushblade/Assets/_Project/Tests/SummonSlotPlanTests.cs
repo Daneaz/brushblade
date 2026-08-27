@@ -21,10 +21,10 @@ namespace Brushblade.Core.Tests
         });
 
         private static BattleEngine Engine() =>
-            // ApPerTurn 给足:预置六格要连出六张,默认 3 AP 不够(与落位规则无关的夹具需要)
-            new(Graph(), new BattleConfig { PlayerMaxHp = 100, ApPerTurn = 10 },
+            // ApPerTurn 给足:预置八格要连出八张,默认 3 AP 不够(与落位规则无关的夹具需要)
+            new(Graph(), new BattleConfig { PlayerMaxHp = 100, ApPerTurn = 12 },
                 System.Array.Empty<string>(),
-                new[] { "素", "素", "素", "素", "素", "素", "素" },
+                new[] { "素", "素", "素", "素", "素", "素", "素", "素", "素" },
                 new[] { new EnemyDef("靶", Element.Heart, 200, 0) }, seed: 1);
 
         /// <summary>在指定槽位放上存活召唤物。</summary>
@@ -46,7 +46,7 @@ namespace Brushblade.Core.Tests
         public void WrapsAroundPastLastSlot()
         {
             var engine = Engine();
-            Assert.That(engine.PlanSummonSlots(4, 3), Is.EqualTo(new[] { 4, 5, 0 }));
+            Assert.That(engine.PlanSummonSlots(6, 3), Is.EqualTo(new[] { 6, 7, 0 }));
         }
 
         [Test]
@@ -63,7 +63,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine();
             Occupy(engine, 3, 4);
-            Assert.That(engine.PlanSummonSlots(2, 3), Is.EqualTo(new[] { 2, 5, 0 }),
+            Assert.That(engine.PlanSummonSlots(2, 3), Is.EqualTo(new[] { 2, 5, 6 }),
                 "3、4 站着人就跳过,继续往下找空的");
         }
 
@@ -83,18 +83,18 @@ namespace Brushblade.Core.Tests
             // 只剩 1 个空位却要召 3 只:先吃那个空位,不够的部分才顶替,
             // 且顶替的也从选定格起顺延
             var engine = Engine();
-            Occupy(engine, 0, 1, 2, 3, 4);
+            Occupy(engine, 0, 1, 2, 3, 4, 5, 6);
             var plan = engine.PlanSummonSlots(1, 3);
             Assert.That(plan.Count, Is.EqualTo(3));
-            Assert.That(plan[0], Is.EqualTo(5), "唯一的空位排在最前");
-            Assert.That(plan, Is.EquivalentTo(new[] { 5, 1, 2 }));
+            Assert.That(plan[0], Is.EqualTo(7), "唯一的空位排在最前");
+            Assert.That(plan, Is.EquivalentTo(new[] { 7, 1, 2 }));
         }
 
         [Test]
         public void AllSlotsFull_PlanIsAllReplacements()
         {
             var engine = Engine();
-            Occupy(engine, 0, 1, 2, 3, 4, 5);
+            Occupy(engine, 0, 1, 2, 3, 4, 5, 6, 7);
             var plan = engine.PlanSummonSlots(3, 2);
             Assert.That(plan, Is.EqualTo(new[] { 3, 4 }), "全满才从选定格起顺延顶替");
         }
@@ -106,14 +106,15 @@ namespace Brushblade.Core.Tests
             // 破坏任一条,第二只会写进同一个槽、或被静默吞掉,而 AP 已经扣了
             var engine = Engine();
             Occupy(engine, 1, 4);
-            for (int start = 0; start < 6; start++)
-                for (int count = 1; count <= 6; count++)
+            int cap = BattleEngine.MaxSummonSlots;
+            for (int start = 0; start < cap; start++)
+                for (int count = 1; count <= cap; count++)
                 {
                     var plan = engine.PlanSummonSlots(start, count);
                     Assert.That(plan.Count, Is.EqualTo(count), $"start={start} count={count}");
                     Assert.That(new HashSet<int>(plan).Count, Is.EqualTo(count),
                         $"start={start} count={count} 出现重复下标");
-                    foreach (int s in plan) Assert.That(s, Is.InRange(0, 5));
+                    foreach (int s in plan) Assert.That(s, Is.InRange(0, cap - 1));
                 }
         }
 

@@ -80,10 +80,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void EnemyCount_GrowsWithDepth_CapsAtSix()
+        public void EnemyCount_GrowsWithDepth_CapsAtEight()
         {
-            Assert.That(EndlessGenerator.BuildFloor(Config(), 9, new GameRandom(7)).Count, Is.EqualTo(3));
-            Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count, Is.EqualTo(6));
+            // 2026-08-27:每 6 层多一只(此前每 4 层),上限 6 → 8
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 9, new GameRandom(7)).Count, Is.EqualTo(2));
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 13, new GameRandom(7)).Count, Is.EqualTo(3));
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count, Is.EqualTo(8));
         }
 
         [Test]
@@ -359,13 +361,22 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void BuildFloor_EnemyCountCapsAtSix()
+        public void BuildFloor_EnemyCountCapsAtEight()
         {
             Assert.That(EndlessGenerator.BuildFloor(Config(), 99, new GameRandom(7)).Count,
-                Is.EqualTo(6), "深层敌人数上限应为 6");
-            for (int depth = 1; depth <= 60; depth++)
+                Is.EqualTo(8), "深层敌人数上限应为 8");
+            for (int depth = 1; depth <= 120; depth++)
                 Assert.That(EndlessGenerator.BuildFloor(Config(), depth, new GameRandom(7)).Count,
-                    Is.LessThanOrEqualTo(6), $"第 {depth} 层敌人数超上限");
+                    Is.LessThanOrEqualTo(8), $"第 {depth} 层敌人数超上限");
+        }
+
+        [Test]
+        public void BuildFloor_ReachesFullHouseAtDepth43()
+        {
+            // 放缓节奏(2026-08-27):1 + min(7, (depth−1)/6) —— 43 层才满员,42 层还是 7 只。
+            // 这条钉住的是**节奏**而不只是上限:把除数改回 4 会让满员深度回到 29,测试要红。
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 42, new GameRandom(7)).Count, Is.EqualTo(7));
+            Assert.That(EndlessGenerator.BuildFloor(Config(), 43, new GameRandom(7)).Count, Is.EqualTo(8));
         }
     }
 }

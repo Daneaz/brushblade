@@ -479,8 +479,11 @@ namespace Brushblade.Core.Tests
 
             foreach (var r in new[] { a, b }) r.SkipReward(); // 读档接着打:召唤物照样上场
             Assert.That(b.Battle.AliveSummonCount, Is.EqualTo(2));
-            Assert.That(b.Battle.Summons[0].Hp, Is.EqualTo(3), "残血原样入场,不回满");
-            Assert.That(b.Battle.Summons[0].MaxHp, Is.EqualTo(6), "MaxHp 与 Hp 脱钩");
+            // 首只落**槽 1** 而不是槽 0(2026-08-27 按位置解锁):第 1 层开的是前排中间两格
+            // (槽 1、2),槽 0 是前排 1 号位,第 16 层才开
+            Assert.That(b.Battle.Summons[0], Is.Null, "前排 1 号位这一层还锁着");
+            Assert.That(b.Battle.Summons[1].Hp, Is.EqualTo(3), "残血原样入场,不回满");
+            Assert.That(b.Battle.Summons[1].MaxHp, Is.EqualTo(6), "MaxHp 与 Hp 脱钩");
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 

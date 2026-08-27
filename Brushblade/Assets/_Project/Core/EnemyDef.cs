@@ -159,6 +159,13 @@ namespace Brushblade.Core
         /// <summary>被动(2026-08-05)。null = 无被动。</summary>
         public SummonPassive Passive { get; }
 
+        /// <summary>召唤物身上的状态容器(2026-08-26)。与 <see cref="EnemyState.Statuses"/> 同型。
+        ///
+        /// 目前唯一的来源是灯花(Sear)—— 它打谁就烧谁,此前无论打到谁都只烧玩家。
+        /// 结算与递减在 <c>BattleEngine.ActSummonTurn</c>:先结算自身灼烧,出手之后再递减回合数,
+        /// 与 <c>ActEnemyTurn</c> 的六步同构。</summary>
+        public StatusBag Statuses { get; } = new();
+
         public SummonState(string summonChar, Element element, int hp, int attack,
             SummonPassive passive = null)
         {
@@ -193,17 +200,28 @@ namespace Brushblade.Core
         /// <summary>槽位由持有者传入 —— SummonState 自己不知道它站在哪一格
         /// (槽位是 BattleEngine._summons 的数组下标,不是这只召唤物的属性,
         /// 存成字段会有与下标失配的风险)。</summary>
-        public SummonSnapshot Capture(int slot) => new()
+        public SummonSnapshot Capture(int slot)
         {
-            Slot = slot,
-            Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
-            ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
-            Passive = Passive?.Clone(),
-        };
+            // Statuses 深拷贝:条目是引用对象,浅拷会让快照与实体共享同一条状态
+            // (与 EnemyState.Capture 同一条 2026-08-04 的教训)
+            var statuses = new List<StatusEffect>();
+            foreach (var s in Statuses.All) statuses.Add(s.Clone());
+            return new SummonSnapshot
+            {
+                Slot = slot,
+                Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+                ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
+                Passive = Passive?.Clone(), Statuses = statuses,
+            };
+        }
 
-        internal static SummonState Restore(SummonSnapshot s) =>
-            new(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
+        internal static SummonState Restore(SummonSnapshot s)
+        {
+            var state = new SummonState(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
                 s.Speed, s.Shield, s.Passive?.Clone());
+            state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
+            return state;
+        }
     }
 
     /// <summary>战斗中的字怪状态。成语 Boss 为一条总血池,按血量阈值切换阶段

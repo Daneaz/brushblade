@@ -32,7 +32,12 @@ namespace Brushblade.Presentation
         // 恰恰是空格,只记有人的格等于把主要用法排除在外。
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonCellByCore = new();
         private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonBarByCore = new();
+        // 召唤物盾条(2026-08-26):与 _summonBarByCore 同款,按**核心槽位**索引
+        private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonShieldBarByCore = new();
         private readonly System.Collections.Generic.Dictionary<int, int> _summonAnimHp = new(); // 出手前血(下标→值);SummonHit 触达按承伤者下标逐记降
+        // 出手前盾(2026-08-26,下标→值)。与 _animShield 之于玩家同构:召唤格有了常驻盾条,
+        // 一段里连挨两记时不逐记推的话,条会在第一记就跳到整段的终值
+        private readonly System.Collections.Generic.Dictionary<int, int> _summonAnimShield = new();
         private readonly System.Collections.Generic.HashSet<int> _dyingEnemies = new(); // 死亡动画进行中的怪:重绘时维持着色,置灰交给死亡节拍(2026-07-25)
         private int _animsInFlight; // 在播的打击动画数;>0 = 锁输入 + 血条画在出手前值(2026-07-25),归零才放行重绘
         private bool Animating => _animsInFlight > 0;
@@ -62,6 +67,14 @@ namespace Brushblade.Presentation
         // 与 _targeting 同构,只是点击面对象从敌人换成我方——选中的仍是 _selectedChar,
         // 落点走 Cast 的 allySlot 参数(Targeting.PlayerTarget = 玩家)。
         private bool _allyTargeting;
+        // 敌人 + 友方两段选目标(2026-08-26):圭/垚/垒 是「护盾 + 单体伤害」,沐/沝/澡 是
+        // 「治疗 + 单体伤害」—— 两个目标都要选。先点敌人,下标暂存在这里,再进 _allyTargeting。
+        // 改前 OnEnemyClicked 选完敌人直接 BeginCast,友方那一段根本进不去,治疗/护盾**永远落玩家**。
+        // −1 = 这一张不需要敌人目标(纯友方字),BeginCast 照旧传 −1。
+        private int _pendingAllyEnemyTarget = -1;
+        // 玩家血条区(2026-08-27):拖治疗/加盾字时,松手落在这块上 = 施给玩家自己。
+        // 召唤物那边有 _summonCellByCore,玩家没有槽位,所以单记一份。
+        private RectTransform _playerAllyRect;
         // 召唤落位(2026-08-20):出召唤字先点位子,攒够只数才真正 Cast。
         // 槽位攒在这里、没调 Cast 之前引擎一无所知 —— 连选途中取消整张字天然回滚。
         private bool _slotPicking;      // 等待点击召唤位
@@ -185,8 +198,13 @@ namespace Brushblade.Presentation
             _animPlayerHp = Battle.PlayerHp;
             _animShield = Battle.PlayerShield;
             _summonAnimHp.Clear();
+            _summonAnimShield.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
-                if (Battle.Summons[i] != null && Battle.Summons[i].Alive) _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
+                if (Battle.Summons[i] != null && Battle.Summons[i].Alive)
+                {
+                    _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
+                    _summonAnimShield[i] = Battle.Summons[i].Shield;
+                }
             _animEnemyHp.Clear();
             foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
         }
@@ -230,6 +248,20 @@ namespace Brushblade.Presentation
                     SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
                     break;
                 case BattleEventKind.Shield: // 筑盾触达才涨,与掉盾同一条推进(不整屏重绘)
+                    // TargetIndex ≥0 = 盾加在召唤物身上(2026-08-26),推那一格的盾条;−1 才是玩家
+                    if (e.TargetIndex >= 0)
+                    {
+                        int shieldSlot = e.TargetIndex;
+                        if (shieldSlot >= Battle.Summons.Count || Battle.Summons[shieldSlot] == null
+                            || !_summonAnimShield.ContainsKey(shieldSlot)
+                            || !_summonShieldBarByCore.TryGetValue(shieldSlot, out var ssb)
+                            || ssb.fill == null) break;
+                        _summonAnimShield[shieldSlot] = System.Math.Min(
+                            Battle.Summons[shieldSlot].Shield, _summonAnimShield[shieldSlot] + e.Amount);
+                        SetShieldBarOn(ssb, _summonAnimShield[shieldSlot]);
+                        _juice.BarPulse(ssb.fill, Theme.Jade, Element.Earth); // 土:盾条起势
+                        break;
+                    }
                     _animShield = System.Math.Min(Battle.PlayerShield, _animShield + e.Amount);
                     SetShieldBar(_animShield);
                     _juice.BarPulse(_playerShieldBar.fill, Theme.Jade, Element.Earth); // 土:盾条起势
@@ -270,8 +302,25 @@ namespace Brushblade.Presentation
                     if (si < 0 || si >= Battle.Summons.Count || Battle.Summons[si] == null
                         || !_summonAnimHp.ContainsKey(si)
                         || !_summonBarByCore.TryGetValue(si, out var sbar) || sbar.fill == null) break;
-                    _summonAnimHp[si] = System.Math.Max(Battle.Summons[si].Hp, _summonAnimHp[si] - e.Amount);
+                    // Amount 分账与玩家侧 EnemyAttack 同口径:Absorbed 走盾条,余量才掉血
+                    if (e.Absorbed > 0 && _summonAnimShield.ContainsKey(si)
+                        && _summonShieldBarByCore.TryGetValue(si, out var hitShield))
+                    {
+                        _summonAnimShield[si] = System.Math.Max(
+                            Battle.Summons[si].Shield, _summonAnimShield[si] - e.Absorbed);
+                        SetShieldBarOn(hitShield, _summonAnimShield[si]);
+                    }
+                    _summonAnimHp[si] = System.Math.Max(Battle.Summons[si].Hp,
+                        _summonAnimHp[si] - (e.Amount - e.Absorbed));
                     SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
+                    break;
+                case BattleEventKind.SummonBurnTick: // 召唤物自身灼烧(2026-08-26):TargetIndex 就是槽位
+                    int bsi = e.TargetIndex;
+                    if (bsi < 0 || bsi >= Battle.Summons.Count || Battle.Summons[bsi] == null
+                        || !_summonAnimHp.ContainsKey(bsi)
+                        || !_summonBarByCore.TryGetValue(bsi, out var bbar) || bbar.fill == null) break;
+                    _summonAnimHp[bsi] = System.Math.Max(Battle.Summons[bsi].Hp, _summonAnimHp[bsi] - e.Amount);
+                    SetHpBar(bbar, _summonAnimHp[bsi], Battle.Summons[bsi].MaxHp);
                     break;
             }
         }
@@ -427,16 +476,98 @@ namespace Brushblade.Presentation
             if (bar.label != null) bar.label.text = $"{Mathf.RoundToInt(frac * 100)}%";
         }
 
-        private const float ShieldBarFull = 30f; // 护盾条满格基准值(无上限概念,取常见量级)
+        // 护盾条满格基准值(护盾本身无上限概念,取一个常见量级当刻度)。
+        // 2026-08-26:30 → 200。30 是 2026-08-12 全表数值 ×10 之前定的,现在最小的一张
+        // 垒 就有 50,任何一次加盾都直接顶满,条永远是满的、等于没有条。
+        // 200 之下:垒 50 = 1/4、圭 200 = 满、㙓 450 夹到满。
+        private const float ShieldBarFull = 200f;
 
-        /// <summary>护盾条就地推进(条未画出时静默跳过,如出手前后都无盾)。</summary>
-        private void SetShieldBar(int shield)
+        /// <summary>玩家护盾条就地推进(2026-08-26 起条恒在,不会再有「没画出来」的情形)。</summary>
+        private void SetShieldBar(int shield) => SetShieldBarOn(_playerShieldBar, shield);
+
+        /// <summary>护盾条(2026-08-26):玩家与召唤物共用。**常驻** —— 值为 0 时是一条空条,
+        /// 不再「有盾才画」:那样一涨一消整块布局跟着跳一下。
+        ///
+        /// 文字去掉了「护盾」二字,换成盾牌图标 + 纯数字(<see cref="Icons"/> 的 "shield" —— 描边盾,
+        /// 与 "defense" 那个实心盾刻意分开:一个是会被打空的临时血,一个是常驻减伤点数)。
+        /// 与 <see cref="HpBar"/> / <see cref="ActionBar"/> 同款返回 fill/label,供动画期间就地推进。</summary>
+        private (RectTransform fill, UnityEngine.UI.Text label) ShieldBar(Transform parent, int shield, Vector2 size)
         {
-            if (_playerShieldBar.fill != null)
-                Ui.Anchor(_playerShieldBar.fill, Vector2.zero, new Vector2(Mathf.Clamp01(shield / ShieldBarFull), 1),
-                    Vector2.zero, Vector2.zero);
-            if (_playerShieldBar.label != null) _playerShieldBar.label.text = Strings.T("battle.label.shield", ("shield", shield));
+            var bar = Ui.Bar(parent, Mathf.Clamp01(shield / ShieldBarFull), Theme.Jade, size);
+            var fill = (RectTransform)bar.transform.Find("Fill");
+
+            // 图标压在条的最左端,数字仍居中 —— 与 Ui.Chip 的「图标在左、文字在右」同一套摆法
+            float iconSpan = Mathf.Min(Icons.Size, size.y + 4f);
+            var sprite = Icons.Get("shield");
+            if (sprite != null)
+            {
+                var iconGo = Ui.Panel(bar.transform, "ShieldIcon");
+                var iconImage = iconGo.AddComponent<Image>();
+                iconImage.sprite = sprite;
+                iconImage.color = Color.white;
+                iconImage.preserveAspect = true;
+                Ui.Anchor((RectTransform)iconGo.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                    new Vector2(2f, -iconSpan / 2f), new Vector2(2f + iconSpan, iconSpan / 2f));
+            }
+            else
+            {
+                // 兜底汉字(资产缺失时):占同样的宽,布局与有图时一致
+                var glyph = Ui.ThemedLabel(bar.transform, Icons.Fallback("shield"),
+                    Mathf.Clamp((int)(size.y * 0.9f), 9, 13), Color.white, Theme.TitleFont);
+                Ui.Anchor(glyph.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                    new Vector2(2f, -iconSpan / 2f), new Vector2(2f + iconSpan, iconSpan / 2f));
+            }
+
+            var label = Ui.ThemedLabel(bar.transform, shield.ToString(),
+                Mathf.Clamp((int)(size.y * 0.75f), 9, 13), Color.white, Theme.TitleFont);
+            Ui.Stretch(label.rectTransform);
+            var outline = label.gameObject.AddComponent<Outline>(); // 与血条同款描边,保对比度
+            outline.effectColor = Theme.Ink;
+            outline.effectDistance = new Vector2(1.2f, 1.2f);
+            return (fill, label);
         }
+
+        private static void SetShieldBarOn((RectTransform fill, UnityEngine.UI.Text label) bar, int shield)
+        {
+            if (bar.fill != null)
+                Ui.Anchor(bar.fill, Vector2.zero, new Vector2(Mathf.Clamp01(shield / ShieldBarFull), 1),
+                    Vector2.zero, Vector2.zero);
+            if (bar.label != null) bar.label.text = shield.ToString();
+        }
+
+        /// <summary>召唤格顶行的右翼(2026-08-26):被动 + 身上挂着的状态,竖着摞小 chip。
+        /// 与玩家状态行同一套 <see cref="Ui.Chip"/> + <see cref="Icons"/>,只是内边距压到最小 ——
+        /// 这一翼只有 <see cref="SummonSideWidth"/> 宽。
+        ///
+        /// 被动是常驻标签(朱砂),状态是会消的减益(各自的图标)。两者摞在一起而不是分两处:
+        /// 玩家读这一格时问的是「这只现在什么情况」,不是「哪些来自被动」。</summary>
+        private void DrawSummonStatusColumn(Transform head, SummonState summon, float glyphSize)
+        {
+            var column = Ui.VStack(head, "Status", 2);
+            var element = column.AddComponent<LayoutElement>();
+            element.preferredWidth = SummonSideWidth;
+            element.preferredHeight = glyphSize;
+
+            string passiveTag = SummonPassiveTag(summon.Passive);
+            if (passiveTag.Length > 0)
+                Ui.Chip(column.transform, passiveTag, Theme.Cinnabar, Color.white,
+                    SummonChipFontSize, SummonChipPadX, SummonChipPadY);
+
+            int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
+            if (burn > 0)
+                Ui.Chip(column.transform, $"{burn}", Theme.Cinnabar, Color.white,
+                    SummonChipFontSize, SummonChipPadX, SummonChipPadY, "burn");
+        }
+
+        // 右翼 chip 的字号与内边距。定这么小是被 SummonSideWidth = 58 逼出来的,不是随手填的:
+        // 按 Ui.ChipWidth 的口径(text.Length × fontSize + padX),最长的被动标签是
+        // 「反伤100%」7 字 → 7 × 8 + 2 = 58,**恰好**贴着 58 不溢出。
+        // ⚠ 加更长的被动文案、或把这三个数调大之前,先拿 Ui.ChipWidth 重算一遍 ——
+        // 溢出的 chip 会横着压到中间的字块上(Ui.PackChips 明说它不截断,由调用方保证宽度)。
+        // 完整文案在点召唤物弹出的详情里(SummonInfo),这一翼只是速读。
+        private const int SummonChipFontSize = 8;
+        private const int SummonChipPadX = 2;
+        private const int SummonChipPadY = 2;
 
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
         {
@@ -876,22 +1007,11 @@ namespace Brushblade.Presentation
             // 行动条(2026-08-17):放血条与护盾条之间,与敌人/召唤物同口径读 ActionMeter
             _playerActionBar = ActionBar(hpStack.transform, Battle.PlayerActionMeter, new Vector2(260, 12), 9);
             // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
-            // 出手前/结算后任一有盾就占位画条,免动画中途条消失导致布局跳动。
             // 2026-08-17:数值从条下的独立文字行并进条上叠字(与 HpBar 同款),省 17px 给行动条。
+            // 2026-08-26:改为**常驻**(用户拍板)——此前「有盾才画」,一涨一消整块底栏跟着跳一下;
+            // 文字也从「护盾 N」换成盾牌图标 + 纯数字,与召唤格那条盾条共用 ShieldBar。
             int shownShield = Animating ? _animShield : Battle.PlayerShield;
-            _playerShieldBar = (null, null);
-            if (shownShield > 0 || (Animating && Battle.PlayerShield > 0))
-            {
-                var shieldBar = Ui.Bar(hpStack.transform, Mathf.Clamp01(shownShield / ShieldBarFull),
-                    Theme.Jade, new Vector2(260, 14));
-                var shieldLabel = Ui.ThemedLabel(shieldBar.transform, Strings.T("battle.label.shield", ("shield", shownShield)), 10,
-                    Color.white, Theme.TitleFont);
-                Ui.Stretch(shieldLabel.rectTransform);
-                var shieldOutline = shieldLabel.gameObject.AddComponent<Outline>();
-                shieldOutline.effectColor = Theme.Ink;
-                shieldOutline.effectDistance = new Vector2(1.2f, 1.2f);
-                _playerShieldBar = ((RectTransform)shieldBar.transform.Find("Fill"), shieldLabel);
-            }
+            _playerShieldBar = ShieldBar(hpStack.transform, shownShield, new Vector2(260, 14));
             // 玩家侧状态一行小图标(2026-08-06 起为 chip,2026-08-17 改图标)。
             // Row 按需创建(2026-08-06 M8):都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
             GameObject statusRow = null;
@@ -1013,27 +1133,35 @@ namespace Brushblade.Presentation
             // (与 AttachAllyTargetPicker/AttachSlotPicker 同一套「整格覆盖层」做法)。
             // 判据走 Battle.CanHealSlot(Targeting.PlayerTarget),不是恒真的假设——
             // 万一以后这条规则改了,表现层不必跟着改。
+            // 拖拽落点判定要用它(2026-08-27):玩家没有「槽位」,这一块血条区就是他的落点
+            _playerAllyRect = (RectTransform)hpStack.transform;
             if (_allyTargeting && Battle.CanHealSlot(Targeting.PlayerTarget))
                 AttachAllyTargetPicker(hpStack.transform, Targeting.PlayerTarget);
         }
 
-        // 召唤格尺寸(2026-08-20 四排改造)。每排 3 格而不是 6 格,格宽从 ~54 翻到 180,
-        // 于是「攻 / 盾 / 被动」三项从竖着摞三行改成**同一行横排**——省下 2 × (14 + 2) = 32px,
-        // 正是 2026-08-17 那条「这个区域闭合不了」的注释里差的那口气。
+        // 召唤格尺寸(2026-08-20 四排改造)。每排 3 格而不是 6 格,格宽从 ~54 翻到 180。
         //
-        // 属性行最坏宽度(字号 11,CJK 按字号估宽,间距 6):
-        //   攻1200(5×11=55) + 6 + 盾30(3×11=33) + 6 + 诅咒50%(5×11=55) = 155 ≤ 180 ✓ 余 25
+        // 2026-08-26 重排(用户拍板):原先「攻 / 盾 / 被动」挤在字块下面的一行属性行里,
+        // 现在改成 **攻 | 字块 | 状态** 三段横排,属性行的位置让给常驻盾条。
+        //   ├ 左:攻击力(定宽 SummonSideWidth)
+        //   ├ 中:字块(SummonGlyphFront/Back)
+        //   └ 右:状态列(同样定宽 —— 两侧等宽字块才居中,少一边字块就会偏)
+        // 横向账(前排):58 + 4 + 56 + 4 + 58 = 180 ✓ 恰好铺满
         private const float SummonCellWidth = 180f;
         private const float SummonGlyphFront = 56f;
         private const float SummonGlyphBack = 48f;    // ≈ 85%
+        private const float SummonSideWidth = 58f;    // 顶行左右两翼各占的宽度,必须相等
+        private const float SummonHeadSpacing = 4f;
         private const float SummonBarWidthFront = 140f;
         private const float SummonBarWidthBack = 120f;
-        // 逐项加法(VStack 间距 2;单行 Text 高 ≈ 字号 × 1.28):
-        //   前排 字块 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 属性行 14 = 98
-        //   后排 字块 48 + 2 + 血条 12 + 2 + 行动条  8 + 2 + 属性行 14 = 88
-        // **改动内容高度时请重算这两串加法**,并对照 BuildSkeleton 里两排 section 的高度。
-        private const float SummonCellHeightFront = 98f;
-        private const float SummonCellHeightBack = 88f;
+        private const float SummonShieldBarHeight = 10f;
+        // 逐项加法(VStack 间距 2):
+        //   前排 顶行 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 盾条 10 = 94
+        //   后排 顶行 48 + 2 + 血条 12 + 2 + 行动条 8 + 2 + 盾条 10 = 84
+        // **改动内容高度时请重算这两串加法**,并对照 BuildSkeleton 里两排 section 的高度
+        // (SummonsFront 100.8px / SummonsBack 93.6px)。
+        private const float SummonCellHeightFront = 94f;
+        private const float SummonCellHeightBack = 84f;
         private const float SummonStackSpacing = 2f;
 
         /// <summary>我方召唤物(木系):替玩家承伤并反击。2026-08-20 起分前后两排、各 3 格,
@@ -1044,12 +1172,20 @@ namespace Brushblade.Presentation
             _summonRectByCore.Clear();
             _summonCellByCore.Clear();
             _summonBarByCore.Clear();
+            _summonShieldBarByCore.Clear();
             _summonActionBarByCore.Clear();
+            // 八格**常态化显示**(2026-08-27 用户拍板):未解锁的也画出来,印上「N 关解锁」——
+            // 玩家因此一眼看得出还有几格没开、什么时候开,而不是打到第 10 层突然多出两格。
+            // 循环到硬上限而不是 SummonCapacity;后者只决定这一格是实格还是锁着的格。
             for (int i = 0; i < Battle.Summons.Count; i++)
             {
-                // 下标即槽位:[0, FrontRow) 前排,其余后排。**用 Battle.FrontRow 而不是写死 3** ——
-                // 槽位数是 Core 的事,表现层跟着它走
+                // 下标即槽位:[0, FrontRow) 前排,其余后排。**用 Battle.FrontRow 而不是写死 4** ——
+                // 槽位几何是 Core 的事,表现层跟着它走。它是固定的,不随解锁伸缩,
+                // 所以锁着的格子也画在它将来该在的那一排
                 bool front = i < Battle.FrontRow;
+                // 判据是**集合**不是「下标 < 开放数」(2026-08-27):解锁按位置来,
+                // 开局开的是槽 1、2,槽 0 锁着 —— 按下标比大小会把锁格画反
+                if (!Battle.IsSlotOpen(i)) { DrawLockedSummonSlot(i, front); continue; }
                 var summon = Battle.Summons[i];
                 // 动画期间:本回合被打死的召唤物照常画出(玩家看得到它挨打);平时只画存活的(=我方回合开始清理死尸)
                 bool visible = summon != null
@@ -1063,32 +1199,90 @@ namespace Brushblade.Presentation
                 float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
                 float barWidth = front ? SummonBarWidthFront : SummonBarWidthBack;
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
+                // 顶行三段(2026-08-26):左 攻击力 | 中 字块 | 右 状态列。
+                // 两翼**必须等宽**(SummonSideWidth),否则 MiddleCenter 会把字块推偏。
+                var head = Ui.Row(cell.transform, "Head", SummonHeadSpacing).transform;
+                var headElement = head.gameObject.AddComponent<LayoutElement>();
+                headElement.preferredWidth = SummonCellWidth;
+                headElement.preferredHeight = glyphSize;
+
+                var attackSide = Ui.Panel(head, "Attack");
+                var attackElement = attackSide.AddComponent<LayoutElement>();
+                attackElement.preferredWidth = SummonSideWidth;
+                attackElement.preferredHeight = glyphSize;
+                var attackLabel = Ui.ThemedLabel(attackSide.transform,
+                    Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 12, Theme.TextDim);
+                Ui.Stretch(attackLabel.rectTransform);
+
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
-                var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
+                var glyph = Ui.RoundButton(head, summon.Char, () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     Mathf.RoundToInt(glyphSize * 0.46f), new Vector2(glyphSize, glyphSize), 12);
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
+
+                DrawSummonStatusColumn(head, summon, glyphSize);
+
                 // 血值上条(2026-07-25,带描边保对比度)。动画期间画出手前值,SummonHit 触达才降
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
                 _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp,
                     new Vector2(barWidth, front ? 13 : 12));
                 _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter,
                     new Vector2(barWidth, front ? 9 : 8), 8);
-                // 攻 / 盾 / 被动同一行(2026-08-20):格宽翻倍后放得下,不必再考虑「移进详情弹窗」
-                var stats = Ui.Row(cell.transform, "Stats", 6).transform;
-                Ui.ThemedLabel(stats, Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 11, Theme.TextDim);
-                if (summon.Shield > 0)
-                    Ui.ThemedLabel(stats, Strings.T("battle.label.summon_shield", ("shield", summon.Shield)), 11, Theme.Jade);
-                string passiveTag = SummonPassiveTag(summon.Passive);
-                if (passiveTag.Length > 0)
-                    Ui.ThemedLabel(stats, passiveTag, 11, Theme.Cinnabar);
+                // 盾条(2026-08-26)接在行动条下面,**常驻** —— 0 时是一条空条,不再有无盾时
+                // 整格塌一行、加盾时又顶回来的跳动。动画期间画出手前值(与血条同理),
+                // Shield / SummonHit 触达才推
+                int shownShield = Animating && _summonAnimShield.TryGetValue(i, out var preShield)
+                    ? preShield : summon.Shield;
+                _summonShieldBarByCore[i] = ShieldBar(cell.transform, shownShield,
+                    new Vector2(barWidth, SummonShieldBarHeight));
                 if (_slotPicking) AttachSlotPicker(cell.transform, summonIndex);
-                // 治疗选目标态(2026-08-22):判据走 Battle.CanHealSlot,不是「反正画出来的
-                // 都是存活的所以恒真」——这里就是与 Cast 内部同一条判据的落地,规则改了
-                // 这里自动跟着改,不必表现层另猜一遍。
+                // 友方选目标态(2026-08-22 治疗;2026-08-26 起护盾同走这条):判据走
+                // Battle.CanHealSlot,不是「反正画出来的都是存活的所以恒真」——这里就是与
+                // Cast 内部同一条判据的落地,规则改了这里自动跟着改,不必表现层另猜一遍。
                 else if (_allyTargeting && Battle.CanHealSlot(summonIndex))
                     AttachAllyTargetPicker(cell.transform, summonIndex);
             }
+        }
+
+        /// <summary>未解锁的槽位(2026-08-27 用户拍板「常态化显示」):画一块压暗的占位 +
+        /// 「N 关解锁」。
+        ///
+        /// 与空槽(<see cref="DrawEmptySummonSlot"/>)刻意长得不一样:空槽是「现在没人、可以落」,
+        /// 锁格是「这一层根本还没这格」—— 两者都点不出东西,但玩家要分得清是自己没召还是没开。
+        /// 不挂 <see cref="AttachSlotPicker"/>:落位只在开着的格里选(那边也有同一条守卫)。
+        ///
+        /// 解锁层数走 <see cref="MetaRules.UnlockDepthForSlot"/> —— 与决定「这一层开几格」的
+        /// 是同一张档位表,表现层不自己数第二遍。</summary>
+        private void DrawLockedSummonSlot(int slot, bool front)
+        {
+            var cell = Ui.VStack(front ? _summonFrontRow : _summonBackRow, $"SummonLocked{slot}",
+                SummonStackSpacing);
+            var cellElement = cell.AddComponent<LayoutElement>();
+            cellElement.preferredWidth = SummonCellWidth;
+            cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
+            _summonCellByCore[slot] = (RectTransform)cell.transform;
+
+            float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
+            var plate = Ui.Panel(cell.transform, "Lock");
+            var image = plate.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.08f);
+            image.raycastTarget = false;
+            var plateElement = plate.AddComponent<LayoutElement>();
+            plateElement.preferredWidth = SummonCellWidth;
+            plateElement.preferredHeight = glyphSize;
+
+            // 锁图标 + 层数分两行:一行放不下「[封] 30 关解锁」而不挤(格宽 180,字号 11)
+            var lockGlyph = Ui.ThemedLabel(plate.transform, Icons.Fallback("seal"),
+                Mathf.RoundToInt(glyphSize * 0.34f), Theme.LockGray, Theme.TitleFont);
+            Ui.Anchor(lockGlyph.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(-glyphSize / 2f, -glyphSize * 0.58f), new Vector2(glyphSize / 2f, -2f));
+            var hint = Ui.ThemedLabel(plate.transform,
+                Strings.T("battle.summon.slot_locked", ("depth", MetaRules.UnlockDepthForSlot(slot))),
+                11, Theme.LockGray);
+            Ui.Anchor(hint.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f),
+                new Vector2(4f, 2f), new Vector2(-4f, glyphSize * 0.36f));
         }
 
         /// <summary>空槽(2026-08-20;2026-08-21 两次调整后的口径):**平时什么也不画**,
@@ -1180,6 +1374,42 @@ namespace Brushblade.Presentation
             button.onClick.AddListener(() => OnAllyTargetPicked(slot));
         }
 
+        /// <summary>进入友方选目标态(2026-08-27 抽出,三个入口共用:点「出字」、
+        /// 拖到敌人身上松手后的第二段、拖纯友方字)。
+        /// enemyTarget = 第一段已经选过的敌人下标;纯友方字传 −1。</summary>
+        private void EnterAllyTargeting(CharDef def, int enemyTarget)
+        {
+            _targeting = false;
+            _allyTargeting = true;
+            _pendingAllyEnemyTarget = enemyTarget;
+            _message = Strings.T("battle.hint.cast_pick_ally_target", ("charId", def.Id));
+        }
+
+        /// <summary>该屏幕坐标落在哪个**友方**落点上(2026-08-27,拖治疗/加盾用)。
+        /// 命中返回 true 并给出 slot(<see cref="Targeting.PlayerTarget"/> = 玩家本人)。
+        ///
+        /// 判据走 <see cref="BattleEngine.CanHealSlot"/> —— 与覆盖层、与引擎 Cast 内部同一条,
+        /// 尸体槽因此接不住这一拖(与点击那条路径同口径)。
+        /// 返回值用 out 而不是「−1 表示没命中」:−1 是玩家本人这个合法落点。</summary>
+        private bool TryGetAllySlotAt(Vector2 screenPos, out int slot)
+        {
+            foreach (var pair in _summonCellByCore)
+                if (pair.Value != null && Battle.CanHealSlot(pair.Key)
+                    && RectTransformUtility.RectangleContainsScreenPoint(pair.Value, screenPos, null))
+                {
+                    slot = pair.Key;
+                    return true;
+                }
+            if (_playerAllyRect != null && Battle.CanHealSlot(Targeting.PlayerTarget)
+                && RectTransformUtility.RectangleContainsScreenPoint(_playerAllyRect, screenPos, null))
+            {
+                slot = Targeting.PlayerTarget;
+                return true;
+            }
+            slot = Targeting.PlayerTarget;
+            return false;
+        }
+
         /// <summary>治疗目标选定(2026-08-22):slot == Targeting.PlayerTarget 治玩家,
         /// 否则治该槽位的召唤物。落点仍要过一遍 Battle.CanHealSlot 兜底——覆盖层理应只在
         /// 合法目标上出现,这里再挡一次是防守式编程,不是第二套判据。</summary>
@@ -1189,7 +1419,9 @@ namespace Brushblade.Presentation
             if (!Battle.CanHealSlot(slot)) return;
             string charId = _selectedChar;
             int libraryIndex = _selectedIndex;
-            BeginCast(charId, -1, attackMode: false, libraryIndex: libraryIndex, allySlot: slot);
+            int enemyTarget = _pendingAllyEnemyTarget; // 第一段选过的敌人;纯友方字为 −1
+            _pendingAllyEnemyTarget = -1;
+            BeginCast(charId, enemyTarget, attackMode: false, libraryIndex: libraryIndex, allySlot: slot);
         }
 
         /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称;
@@ -1593,6 +1825,13 @@ namespace Brushblade.Presentation
             // AP 不够时故意**不**点亮 —— 让它走松手时的常规路径,由引擎当场报「AP 不够」,
             // 与点「出字」被拒同口径(见 BeginCast 里那条同因的守卫)。
             bool summons = Battle.SummonCountOf(def, attackMode: true) > 0;
+            // 治疗 / 加盾拖拽(2026-08-27 用户拍板,参考拖拽召唤):
+            //   · **纯友方字**(㵘/淼/㙓/壁 —— 友方效果 + 群体伤害,不用选敌人):起拖即点亮
+            //     友方落点,拖到自己或某只召唤物身上松手即施放。
+            //   · **既要敌人又要友方**的(沝/澡/沐/垚/圭/垒):照旧拖到敌人身上,松手后进第二段
+            //     点友方 —— 与点「出字」那条路径同一个状态机,不写第二套。
+            bool allyOnly = BattleEngine.NeedsAllyTarget(def, attackMode: true)
+                && !BattleEngine.NeedsTarget(def, attackMode: true);
 
             DragToAttack.Attach(tile, def.Id, Theme.ElementColor(def.Element),
                 () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
@@ -1612,13 +1851,44 @@ namespace Brushblade.Presentation
                         CancelSelection();
                         return;
                     }
+                    if (_allyTargeting)
+                    {
+                        // 纯友方字:落在自己或某只召唤物身上才算数,与召唤落位同一条纪律
+                        if (TryGetAllySlotAt(screenPos, out int allySlot))
+                        {
+                            BeginCast(def.Id, -1, attackMode: true, libraryIndex: libraryIndex,
+                                allySlot: allySlot);
+                            return;
+                        }
+                        CancelSelection();
+                        return;
+                    }
                     int target = EnemyIndexAt(screenPos);
                     if (target < 0) { CancelSelection(); return; } // 没落在敌人身上:当作取消,不出字
+                    // 还要选友方就进第二段(2026-08-27),别在这里就出字 —— 与 OnEnemyClicked
+                    // 同一条免选口径:场上没有存活召唤物时引擎自动锁玩家,不弹没得选的选择
+                    if (BattleEngine.NeedsAllyTarget(def, attackMode: true) && Battle.AliveSummonCount > 0)
+                    {
+                        _selectedChar = def.Id;
+                        _selectedIndex = libraryIndex;
+                        EnterAllyTargeting(def, enemyTarget: target);
+                        Refresh();
+                        return;
+                    }
                     BeginCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
                 },
-                onBeginDrag: !summons ? null : () =>
+                onBeginDrag: !summons && !allyOnly ? null : () =>
                 {
                     if (Battle.Ap < def.ApCost) return;
+                    if (allyOnly)
+                    {
+                        // 纯友方字:点亮玩家血条区与可施的召唤格
+                        _selectedChar = def.Id;
+                        _selectedIndex = libraryIndex;
+                        EnterAllyTargeting(def, enemyTarget: -1);
+                        RedrawAllyTargets();
+                        return;
+                    }
                     EnterSlotPicking(def.Id, -1, attackMode: true, libraryIndex,
                         Battle.SummonCountOf(def, attackMode: true));
                     RedrawSummonRows(); // 只重画召唤两排:全量 Refresh 会销毁正被拖的这张字牌
@@ -1677,11 +1947,15 @@ namespace Brushblade.Presentation
 
         /// <summary>该屏幕坐标落在第几个召唤槽上;都没命中返回 −1。
         /// 判定用整格(<see cref="_summonCellByCore"/>)而非字块 —— 与 EnemyIndexAt 同一条理由:
-        /// 手指落点粗,只认字块会经常擦边落空。空槽也在表里,那正是拖召唤最常见的落点。</summary>
+        /// 手指落点粗,只认字块会经常擦边落空。空槽也在表里,那正是拖召唤最常见的落点。
+        ///
+        /// **锁着的格不算命中**(2026-08-27):它们同样登记在 _summonCellByCore 里(重绘时
+        /// 整表重建,少登记一格会让别处拿不到它的 RectTransform),但松手落在上面等于没落 ——
+        /// 返回它的槽号会让召唤物落进一个本层还不存在的位子。</summary>
         private int SummonSlotAt(Vector2 screenPos)
         {
             foreach (var pair in _summonCellByCore)
-                if (pair.Value != null
+                if (pair.Value != null && Battle.IsSlotOpen(pair.Key)
                     && RectTransformUtility.RectangleContainsScreenPoint(pair.Value, screenPos, null))
                     return pair.Key;
             return -1;
@@ -2696,6 +2970,7 @@ namespace Brushblade.Presentation
             _selectedIndex = index;
             _targeting = false;
             _allyTargeting = false;
+            _pendingAllyEnemyTarget = -1;
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
             _message = Brief(charId) + Strings.T("battle.hint.suffix_tap_again_cast");
             Refresh();
@@ -2712,6 +2987,7 @@ namespace Brushblade.Presentation
             _selectedIndex = -1;
             _targeting = false;
             _allyTargeting = false;
+            _pendingAllyEnemyTarget = -1;
             ResetSlotPicking();
             _message = Brief(charId) + Strings.T("battle.hint.suffix_direct_cast");
             Refresh();
@@ -2734,8 +3010,7 @@ namespace Brushblade.Presentation
             // 与上面「单敌免选」同一条纪律。
             if (BattleEngine.NeedsAllyTarget(def) && Battle.AliveSummonCount > 0)
             {
-                _allyTargeting = true;
-                _message = Strings.T("battle.hint.cast_pick_ally_target", ("charId", def.Id));
+                EnterAllyTargeting(def, enemyTarget: -1);
                 Refresh();
                 return;
             }
@@ -2794,6 +3069,7 @@ namespace Brushblade.Presentation
             // 直到下一次真正的全量 Refresh 才消失(2026-08-22 评审 Finding 追出的缺口)。
             _targeting = false;
             _allyTargeting = false;
+            _pendingAllyEnemyTarget = -1;
             _pendingSummonChar = charId;
             _pendingSummonTarget = target;
             _pendingSummonAttackMode = attackMode;
@@ -2808,6 +3084,22 @@ namespace Brushblade.Presentation
             Ui.Clear(_summonFrontRow);
             Ui.Clear(_summonBackRow);
             DrawSummons();
+            _messageLabel.text = _message;
+        }
+
+        /// <summary>拖治疗/加盾字途中重画友方落点(2026-08-27):召唤两排 **+ 玩家血条区**。
+        /// 比 <see cref="RedrawSummonRows"/> 多出 _bottomRow 那一块 —— 玩家本人是最常见的
+        /// 施放目标,不重画它就只有召唤格会亮,玩家看不出还能拖到自己身上。
+        ///
+        /// 仍然不走全量 <see cref="Refresh"/>:那会 Ui.Clear(_libraryRow) 销毁正被拖的这张字牌。
+        /// _bottomRow 与 _libraryRow 是两个互不包含的 section,清前者不碰后者。</summary>
+        private void RedrawAllyTargets()
+        {
+            Ui.Clear(_summonFrontRow);
+            Ui.Clear(_summonBackRow);
+            DrawSummons();
+            Ui.Clear(_bottomRow);
+            DrawPlayerStats();
             _messageLabel.text = _message;
         }
 
@@ -2828,7 +3120,7 @@ namespace Brushblade.Presentation
         /// (破坏任一条会让第二只写进同一个槽或被静默吞掉,而 AP 已经扣了)。</summary>
         private void OnSlotPicked(int slot)
         {
-            if (!_slotPicking || slot < 0 || slot >= Battle.Summons.Count) return;
+            if (!_slotPicking || !Battle.IsSlotOpen(slot)) return;
             var slots = Battle.PlanSummonSlots(slot, _pendingSummonCount);
 
             string charId = _pendingSummonChar;
@@ -2860,7 +3152,16 @@ namespace Brushblade.Presentation
             {
                 // 够不到的怪已经置灰且 interactable = false,走不到这;真走到了也直接忽略 ——
                 // 落到下面的「看详情」分支会让玩家以为自己点歪了
-                if (!Battle.CanTarget(_graph.Get(_selectedChar), index)) return;
+                var picked = _graph.Get(_selectedChar);
+                if (!Battle.CanTarget(picked, index)) return;
+                // 还要选友方就转第二段,别在这里就出字(2026-08-26)。免选口径与 OnCastPressed
+                // 那条同源:场上没有存活召唤物时引擎会自动锁玩家,弹一次没得选的选择纯属白点。
+                if (BattleEngine.NeedsAllyTarget(picked) && Battle.AliveSummonCount > 0)
+                {
+                    EnterAllyTargeting(picked, enemyTarget: index);
+                    Refresh();
+                    return;
+                }
                 BeginCast(_selectedChar, index, attackMode: false, libraryIndex: _selectedIndex);
                 return;
             }
@@ -2946,7 +3247,10 @@ namespace Brushblade.Presentation
         {
             foreach (var e in Battle.LastEvents)
                 if (e.Kind == BattleEventKind.Summon && e.SecondIndex >= 0)
+                {
                     _summonAnimHp.Remove(e.SecondIndex);
+                    _summonAnimShield.Remove(e.SecondIndex);
+                }
         }
 
         /// <summary>出字动效终点:第一个受击/受灼敌人格;没有则 null。</summary>
@@ -3243,6 +3547,7 @@ namespace Brushblade.Presentation
             _selectedIndex = -1;
             _targeting = false;
             _allyTargeting = false;
+            _pendingAllyEnemyTarget = -1;
             ResetSlotPicking(); // 连选途中取消 = 整张字回滚:没调 Cast,AP 与字库一滴未动
             Refresh();
         }

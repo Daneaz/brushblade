@@ -41,11 +41,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Summons_IsAlwaysSixSlots_EmptyOnesAreNull()
+        public void Summons_IsAlwaysTheHardCapSlots_EmptyOnesAreNull()
         {
             var engine = MakeEngine();
-            Assert.That(engine.Summons.Count, Is.EqualTo(6), "槽位数组恒长 6");
-            for (int i = 0; i < 6; i++)
+            Assert.That(engine.Summons.Count, Is.EqualTo(BattleEngine.MaxSummonSlots),
+                "槽位数组恒长 = 硬上限(与本场开放几格无关)");
+            for (int i = 0; i < BattleEngine.MaxSummonSlots; i++)
                 Assert.That(engine.Summons[i], Is.Null, $"槽 {i} 开局应为空");
             Assert.That(engine.AliveSummonCount, Is.EqualTo(0));
         }
@@ -148,7 +149,10 @@ namespace Brushblade.Core.Tests
                     new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "Q"),
                 }),
             }),
-            new BattleConfig { PlayerMaxHp = 50, ApPerTurn = 9, LibraryCapacity = 9 },
+            // 掩码钉死「槽 0..5 连续 6 格」(2026-08-27):测的是跨 effect 的落位游标,
+            // 不是解锁表长什么样
+            new BattleConfig { PlayerMaxHp = 50, ApPerTurn = 9, LibraryCapacity = 9,
+                UnlockedSummonSlots = 0b111111 },
             library, new string[0],
             new[] { new EnemyDef("怔", Element.Heart, 100, 0) }, seed: 1);
 

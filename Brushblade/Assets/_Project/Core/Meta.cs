@@ -217,6 +217,66 @@ namespace Brushblade.Core
         /// <summary>每回合基础 AP(10.1);一气技能在其上加。</summary>
         public const int BaseApPerTurn = 3;
 
+        /// <summary>召唤槽位的解锁层(2026-08-27 用户拍板),**按下标**排:
+        ///
+        /// <code>
+        ///   槽位   0    1    2    3        4    5    6    7
+        ///   位置  前1  前2  前3  前4      后1  后2  后3  后4
+        ///   层数   16    1    1   30       16   11   11   30
+        /// </code>
+        ///
+        /// 从每排中间两格往两侧开:开局前排 2/3 号 → 11 层后排 2/3 号 → 16 层前后排 1 号
+        /// → 30 层前后排 4 号。累计 2 / 4 / 6 / 8 格。
+        ///
+        /// ⚠ 开放集合**不是连续前缀** —— 开局能用的是槽 1、2,槽 0 还锁着。
+        /// 引擎里凡是找空位、顶替、携带回位的地方都要按集合判,拿「下标 &lt; 开放数」当判据
+        /// 会让第一只召唤物落进锁着的槽 0(SummonSlotUnlockTests 的
+        /// OpeningDepth_FillsTheTwoMiddleFrontSlots 守着这条)。
+        ///
+        /// 一张表喂三个方向:<see cref="UnlockedSlotMask"/>(这层开哪几格)、
+        /// <see cref="SummonSlotsFor"/>(这层开几格)、<see cref="UnlockDepthForSlot"/>
+        /// (这格第几层开,UI 印它)。写成三串独立常量迟早分叉,而分叉的表现是 UI 提示一个
+        /// 错的层数 —— 静默、只有肉眼能发现。</summary>
+        private static readonly int[] SlotUnlockDepth = { 16, 1, 1, 30, 16, 11, 11, 30 };
+
+        /// <summary>这一层开放哪几个召唤槽位,按位表示(bit i = 槽 i)。
+        ///
+        /// 依据是**当前层**,不是段起始层 —— 一段横跨解锁线时,跨过去的那一层就该多两格
+        /// (RunEngine.BattleConfigForRun 逐场重算)。
+        ///
+        /// 层号从 1 起;≤0 一律给最低档 —— 那是调用方失误,给满开比给两格危险得多。</summary>
+        public static int UnlockedSlotMask(int depth)
+        {
+            if (depth < 1) depth = 1;   // 层号从 1 起;≤0 是调用方失误,给最低档不给空集
+            int mask = 0;
+            for (int slot = 0; slot < SlotUnlockDepth.Length; slot++)
+                if (depth >= SlotUnlockDepth[slot]) mask |= 1 << slot;
+            return mask;
+        }
+
+        /// <summary>这一层开放几个召唤槽位(= 掩码里的位数)。</summary>
+        public static int SummonSlotsFor(int depth)
+        {
+            if (depth < 1) depth = 1;   // 与 UnlockedSlotMask 同一条兜底
+            int count = 0;
+            foreach (int unlockDepth in SlotUnlockDepth)
+                if (depth >= unlockDepth) count++;
+            return count;
+        }
+
+        /// <summary>这一格召唤槽第几层解锁(表现层在锁着的格子上印它)。
+        /// 槽号越界返回最深的那一档 —— 越界不该被读成「已解锁」。</summary>
+        public static int UnlockDepthForSlot(int slot)
+        {
+            if (slot < 0 || slot >= SlotUnlockDepth.Length)
+            {
+                int deepest = 0;
+                foreach (int d in SlotUnlockDepth) if (d > deepest) deepest = d;
+                return deepest;
+            }
+            return SlotUnlockDepth[slot];
+        }
+
         /// <summary>关卡解锁:章内顺序解锁;下一章需上一章全通。</summary>
         public static bool IsStageUnlocked(MetaState meta, CampaignConfig campaign, int chapter, int stage)
         {

@@ -80,6 +80,10 @@ namespace Brushblade.Core
         public int Shield { get; set; }
         public SummonPassive Passive { get; set; }
 
+        /// <summary>身上的状态(2026-08-26)。与 <see cref="EnemySnapshot.Statuses"/> 同型;
+        /// 老存档没有这个字段 → Newtonsoft 填 null → Restore 兜底成空表。</summary>
+        public List<StatusEffect> Statuses { get; set; } = new();
+
         /// <summary>槽位 0..5(2026-08-20):0/1/2 = 前排,3/4/5 = 后排。
         /// 携带过场与断点续爬都按它原样落位 —— 玩家布的阵不该被系统打乱。</summary>
         public int Slot { get; set; }

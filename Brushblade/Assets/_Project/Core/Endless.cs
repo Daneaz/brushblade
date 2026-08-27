@@ -81,6 +81,7 @@ namespace Brushblade.Core
                 RewardPool = config.BandFor(fromDepth).RewardPool,
                 EventPool = events ?? Array.Empty<EventDef>(),
                 EventChancePercent = eventChancePercent,
+                FromDepth = fromDepth,   // 召唤槽位按当前层解锁,RunEngine 靠它换算绝对层号
             };
         }
 
@@ -165,7 +166,10 @@ namespace Brushblade.Core
                 if (enemy.Row == EnemyRow.Front)
                     frontOpeners.Add(enemy);
 
-            int count = 1 + Math.Min(5, (depth - 1) / 4);   // 上限 6(2026-08-03:4 → 6)
+            // 上限 8(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4)。
+            // 每 6 层多一只而不是每 4 层(2026-08-27 用户拍板「提到 8 但放缓节奏」):
+            // 总量抬高的同时把满员深度从 21 层推到 43 层,前中期体验接近改前。
+            int count = 1 + Math.Min(7, (depth - 1) / 6);
             bool hasSupport = false;
             for (int i = 0; i < count; i++)
             {
