@@ -136,6 +136,26 @@ namespace Brushblade.Core
             return level;
         }
 
+        /// <summary>等级 + 本级经验进度(主界面经验条):返回等级,<paramref name="intoLevel"/> = 本级已得,
+        /// <paramref name="toNextLevel"/> = 升下一级所需。
+        ///
+        /// ⚠ 与 <see cref="CharacterLevel"/> **共用同一条曲线**,不是另抄一遍 —— 曲线将来一改
+        /// (100+50×(n−1) 这一段),两个入口必须同时变;各写各的会出现「屏上条满了却没升级」。</summary>
+        public static int LevelProgress(int xp, out int intoLevel, out int toNextLevel)
+        {
+            int level = 1;
+            int cost = 100;
+            while (xp >= cost)
+            {
+                xp -= cost;
+                level += 1;
+                cost += 50;
+            }
+            intoLevel = xp;
+            toNextLevel = cost;
+            return level;
+        }
+
         /// <summary>生命成长:500 + 20×(等级−1),上限 1000。
         /// 2026-08-12(E-b4/T1)全表量级 ×10:整数除 <c>值 × ATK ÷ 100</c> 会吃掉低数值字的
         /// 成长,被乘数必须够大才有分辨率。曲线形状与封顶级(26 级)一字未改。</summary>

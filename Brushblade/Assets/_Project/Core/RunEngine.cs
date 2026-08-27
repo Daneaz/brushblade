@@ -391,7 +391,7 @@ namespace Brushblade.Core
                 BeginNextBattle();
         }
 
-        private const int ExpandBonus = 2; // 广告扩容的容量增量(复原时也要按它补回上限)
+        public const int ExpandBonus = 2;  // 广告扩容的容量增量(复原时也要按它补回上限;主界面显示容量也读它)
 
         /// <summary>局内广告扩容:字库 +2,一局一次,跨场有效(2026-07-06 拍板)。
         /// 无尽塔 = 整次登塔一次:跨段由外层快照恢复,塔结算随快照清除。</summary>

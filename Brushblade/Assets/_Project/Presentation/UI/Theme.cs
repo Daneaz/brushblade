@@ -27,6 +27,7 @@ namespace Brushblade.Presentation
         public static readonly Color AdGreenText = new(0.044f, 0.364f, 0.165f);
         public static readonly Color ExitPink = new(0.477f, 0.246f, 0.362f);
         public static readonly Color ShopNav = new(0.654f, 0.349f, 0.241f);
+        public static readonly Color ShopTabBg = new(0.965f, 0.933f, 0.913f); // 商城页签底(暖赭浅底,与其余三页签区分)
         public static readonly Color LockedBg = new(0.856f, 0.843f, 0.816f);
         public static readonly Color LockGray = new(0.534f, 0.563f, 0.611f);
         public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);

@@ -37,6 +37,35 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.CharacterLevel(xp), Is.EqualTo(expected));
         }
 
+        // ---- 本级经验进度(主界面经验条;与等级曲线同源) ----
+
+        [TestCase(0, 1, 0, 100)]      // 1 级起点:0/100
+        [TestCase(99, 1, 99, 100)]
+        [TestCase(100, 2, 0, 150)]    // 刚升 2 级:本级归零,下一级要 150
+        [TestCase(249, 2, 149, 150)]
+        [TestCase(250, 3, 0, 200)]
+        [TestCase(300, 3, 50, 200)]
+        public void LevelProgress_MatchesCurve(int xp, int level, int into, int need)
+        {
+            Assert.That(MetaRules.LevelProgress(xp, out int gotInto, out int gotNeed), Is.EqualTo(level));
+            Assert.That(gotInto, Is.EqualTo(into), "本级已得经验");
+            Assert.That(gotNeed, Is.EqualTo(need), "升下一级所需经验");
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(99)]
+        [TestCase(100)]
+        [TestCase(4321)]
+        [TestCase(999999)]
+        public void LevelProgress_AgreesWithCharacterLevel(int xp) // 两个入口不得各算各的
+        {
+            Assert.That(MetaRules.LevelProgress(xp, out int into, out int need),
+                Is.EqualTo(MetaRules.CharacterLevel(xp)));
+            Assert.That(into, Is.LessThan(need), "本级已得永远够不着下一级门槛");
+            Assert.That(into, Is.GreaterThanOrEqualTo(0));
+        }
+
         [TestCase(1, 500)]
         [TestCase(6, 600)]
         [TestCase(26, 1000)]

@@ -38,7 +38,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>图鉴全集 = 各层段的杂兵池 + Boss 池 + 成语 Boss(按 id 去重,保持配置顺序)。</summary>
-        private static List<EnemyDef> CollectEnemies(CampaignConfig campaign)
+        internal static List<EnemyDef> CollectEnemies(CampaignConfig campaign)
         {
             var all = new List<EnemyDef>();
             var seen = new HashSet<string>();

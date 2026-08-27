@@ -6,9 +6,23 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>主界面(20.2 无尽外层):角色状态头 + 无尽书塔面板 + 宝箱栏(19.5)。</summary>
+    /// <summary>主界面(20.2 无尽外层)。版式基线 = <c>docs/design/ui/scenes/Home.dc.html</c>:
+    /// 顶栏 / 三栏主体(角色 · 书塔 · 宝箱)/ 底部四页签导航。
+    ///
+    /// ⚠ 尺寸常量都是**逻辑单位**,由稿子的 pt 换算而来(CanvasScaler 1600×900 按高匹配,
+    /// iPhone 16 Pro Max 上 1pt = 2.093 逻辑单位;见 Device.dc.html)。改稿子就同步改这里,
+    /// 别只改一边 —— 稿与实现两边都可能过时,但任何一边动了都要留痕(scenes/README.md)。
+    ///
+    /// 根节点已在 SafeArea 之内(GameRoot.NewView),所以这里的 0/1 边界就是稿上的 .safe 框。</summary>
     public sealed class MapView : MonoBehaviour
     {
+        // ---- 稿上的骨架尺寸(pt → 逻辑单位) ----
+        private const float TopH = 80f;        // 顶栏 38pt
+        private const float NavH = 92f;        // 底部导航 44pt
+        private const float Gap = 21f;         // 栏间距 10pt
+        private const float HeroW = 448f;      // 角色栏 214pt
+        private const float ChestW = 477f;     // 宝箱栏 228pt
+
         private RecipeGraph _graph;
         private CampaignConfig _campaign;
         private MetaState _meta;
@@ -20,6 +34,7 @@ namespace Brushblade.Presentation
         private Action _onOpenBestiary;
         private Action _onOpenPerks;
         private string _message;
+        private System.Collections.Generic.List<EnemyDef> _enemies; // 图鉴全集(页签计数用),口径与图鉴页同源
 
         // 计时中箱位的倒计时/加速价标签引用:Tick 只改文本不重建,避免按钮每秒被销毁点不中
         private readonly System.Collections.Generic.List<(int index, Text countdown, Text skipCost)> _countdowns = new();
@@ -41,6 +56,7 @@ namespace Brushblade.Presentation
             _onOpenBestiary = onOpenBestiary;
             _onOpenPerks = onOpenPerks;
             _message = message ?? "";
+            _enemies = BestiaryView.CollectEnemies(campaign);
             Rebuild();
             InvokeRepeating(nameof(Tick), 1f, 1f); // 倒计时刷新
         }
@@ -84,182 +100,462 @@ namespace Brushblade.Presentation
                 _save();
 
             Ui.Clear(transform);
-            var root = (RectTransform)transform;
-            Ui.Stretch(root);
+            Ui.Stretch((RectTransform)transform);
 
-            // 角色状态头
-            int level = MetaRules.CharacterLevel(_meta.CharacterXp);
-            var header = Ui.Row(transform, "Header", 22);
-            Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.9f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
-            Ui.ThemedLabel(header.transform, Strings.T("map.header.title", ("level", level)), 28, Theme.TextMain, Theme.TitleFont);
-            // 四条角色属性上屏(2026-08-12,E-b4/E-b5 T7)。读的是**战斗真正吃到的那份配置**,
-            // 不在这里另算一遍 —— 否则会出现「屏上写着护甲 5、局内其实是 0」这种最难查的偏差。
-            // ⚠ 暴击不上屏:基准恒 0 且不随等级成长,跑图界面会永远写「暴击 0%」,没有信息量
+            BuildTopBar();
+
+            // 三栏主体:左右定宽、中间吃掉余量(稿上 214 / 弹性 / 228)
+            var body = Ui.Row(transform, "Body", Gap);
+            var bodyLayout = body.GetComponent<HorizontalLayoutGroup>();
+            bodyLayout.childForceExpandHeight = true;
+            bodyLayout.childAlignment = TextAnchor.UpperLeft;
+            Ui.Anchor((RectTransform)body.transform, Vector2.zero, Vector2.one,
+                new Vector2(0, NavH + Gap), new Vector2(0, -TopH));
+
+            BuildHeroPanel(body.transform);
+            BuildTowerPanel(body.transform);
+            BuildChestPanel(body.transform);
+
+            BuildNavBar();
+        }
+
+        // ---- 顶栏 ----
+
+        private void BuildTopBar()
+        {
+            var top = Ui.Row(transform, "Top", 21);
+            top.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Anchor((RectTransform)top.transform, new Vector2(0, 1), Vector2.one,
+                new Vector2(0, -TopH), Vector2.zero);
+
+            Ui.ThemedLabel(top.transform, Strings.T("map.header.game_title"), 40, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(top.transform,
+                Strings.T("map.header.subtitle", ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)),
+                23, Theme.TextDim);
+            Spring(top.transform);
+            Ui.IngotLabel(top.transform, _meta.Ink.ToString(), 25);
+            // 设置界面尚未实现(2026-08-28 拍板):先占位,点了说明去向,不留死按钮
+            Ui.RoundButton(top.transform, Strings.T("map.header.settings"),
+                () => ShowAlert(Strings.T("map.settings.soon_title"), Strings.T("map.settings.soon_body")),
+                Theme.ExitPink, Color.white, 25, new Vector2(130, 63), 16);
+        }
+
+        // ---- 左栏:角色 ----
+
+        private void BuildHeroPanel(Transform parent)
+        {
+            var panel = Ui.CardPanel(parent, "Hero", Theme.PaperCard, 20);
+            var element = panel.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = HeroW;
+            element.flexibleWidth = 0;
+
+            var stack = Ui.VStack(panel.transform, "Stack", 19);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childForceExpandWidth = true;
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.padding = new RectOffset(25, 25, 23, 23);
+            Ui.Stretch((RectTransform)stack.transform);
+
+            int level = MetaRules.LevelProgress(_meta.CharacterXp, out int into, out int need);
+
+            // 头像 + 名 + 等级/段位
+            var avatar = Ui.Row(stack.transform, "Avatar", 19);
+            avatar.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.CircleGlyph(avatar.transform, Strings.T("map.hero.face"), Theme.Ink, Theme.Paper, 88);
+            var names = Ui.VStack(avatar.transform, "Names", 4);
+            names.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.ThemedLabel(names.transform, Strings.T("map.hero.name"), 33, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(names.transform,
+                Strings.T("map.hero.level_line", ("level", level), ("rank", EndlessRules.RankTitle(_meta.BestDepth))),
+                21, Theme.TextDim);
+
+            // 经验条:等级与进度同源于 MetaRules.LevelProgress,不在这里另算曲线
+            var xp = Ui.Row(stack.transform, "Xp", 12);
+            xp.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.ThemedLabel(xp.transform, Strings.T("map.hero.xp"), 19, Theme.TextDim);
+            var xpBar = Ui.Bar(xp.transform, need > 0 ? (float)into / need : 0f, Theme.Gold, new Vector2(120, 9));
+            xpBar.GetComponent<LayoutElement>().flexibleWidth = 1;
+            Ui.ThemedLabel(xp.transform, Strings.T("map.hero.xp_value", ("into", into), ("need", need)), 19, Theme.TextDim);
+
+            // 六项属性上屏。读的是**战斗真正吃到的那份配置**,不在这里另算一遍 ——
+            // 否则会出现「屏上写着护甲 5、局内其实是 0」这种最难查的偏差。
+            // ⚠ 暴击不上屏:基准恒 0 且不随等级成长,写「暴击 0%」没有信息量
             // (2026-08-12 E-b2 就地决定:改由局内 BattleView 出 chip)。
             var stats = MetaRules.BuildBattleConfig(_meta, _campaign.DropTable);
-            Ui.ThemedLabel(header.transform,
-                Strings.T("map.header.stats", ("xp", _meta.CharacterXp), ("maxHp", stats.PlayerMaxHp),
-                    ("attack", stats.PlayerAttack), ("defense", stats.PlayerDefense),
-                    ("dodge", stats.PlayerDodge), ("speed", stats.PlayerSpeed)), 20, Theme.TextDim);
-            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
-            var collectionButton = Ui.RoundButton(header.transform, Strings.T("map.nav.collection"), () => _onOpenCollection(),
-                Theme.InkSoft, Color.white, 20, new Vector2(140, 50), 12);
-            if (AnyCardUpgradable()) // 可升级红点导航
-                RedDot(collectionButton.transform);
-            var bestiaryButton = Ui.RoundButton(header.transform, Strings.T("map.nav.bestiary"), () => _onOpenBestiary(),
-                Theme.InkSoft, Color.white, 20, new Vector2(100, 50), 12);
-            if (BestiaryRules.HasUnclaimed(_meta)) // 有已解锁未查阅的条目 → 红点(赏钱待领)
-                RedDot(bestiaryButton.transform);
-            Ui.RoundButton(header.transform, Strings.T("map.nav.perks"), () => _onOpenPerks(),
-                Theme.InkSoft, Color.white, 20, new Vector2(100, 50), 12);
-            Ui.RoundButton(header.transform, Strings.T("map.nav.shop"), () => _onOpenShop(),
-                Theme.ShopNav, Color.white, 20, new Vector2(100, 50), 12);
+            var grid = Ui.VStack(stack.transform, "Attrs", 6);
+            var gridLayout = grid.GetComponent<VerticalLayoutGroup>();
+            gridLayout.childForceExpandWidth = true;
+            StatRow(grid.transform,
+                (Strings.T("map.hero.stat.hp"), stats.PlayerMaxHp.ToString(), Theme.Cinnabar),
+                (Strings.T("map.hero.stat.attack"), stats.PlayerAttack.ToString(), Theme.TextMain));
+            StatRow(grid.transform,
+                (Strings.T("map.hero.stat.defense"), stats.PlayerDefense.ToString(), Theme.TextMain),
+                (Strings.T("map.hero.stat.dodge"), Strings.T("map.hero.stat_percent", ("value", stats.PlayerDodge)), Theme.TextMain));
+            StatRow(grid.transform,
+                (Strings.T("map.hero.stat.speed"), stats.PlayerSpeed.ToString(), Theme.TextMain),
+                (Strings.T("map.hero.stat.ap"), stats.ApPerTurn.ToString(), Theme.TextMain));
 
-            // 消息横幅(绿胶囊,有内容才显示)
-            if (!string.IsNullOrEmpty(_message))
+            Spring(stack.transform, vertical: true); // 出阵预览钉在面板底(稿上 margin-top:auto)
+            BuildDeckMini(stack.transform);
+        }
+
+        private static void StatRow(Transform parent,
+            (string name, string value, Color color) left, (string name, string value, Color color) right)
+        {
+            var row = Ui.Row(parent, "StatRow", 17);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.childForceExpandWidth = true;
+            StatCell(row.transform, left);
+            StatCell(row.transform, right);
+        }
+
+        /// <summary>一格属性:名靠左、值靠右(两条都铺满整格,靠对齐分左右)。</summary>
+        private static void StatCell(Transform parent, (string name, string value, Color color) stat)
+        {
+            var cell = Ui.Panel(parent, "Stat");
+            var element = cell.AddComponent<LayoutElement>();
+            element.flexibleWidth = 1;
+            element.preferredHeight = 30;
+            var name = Ui.ThemedLabel(cell.transform, stat.name, 21, Theme.TextDim, null, TextAnchor.MiddleLeft);
+            Ui.Stretch(name.rectTransform);
+            var value = Ui.ThemedLabel(cell.transform, stat.value, 27, stat.color, Theme.TitleFont, TextAnchor.MiddleRight);
+            Ui.Stretch(value.rectTransform);
+        }
+
+        /// <summary>出阵预览:前 6 张字牌的属性色小格 +「+N」。点不动,只是提示带了什么上塔。</summary>
+        private void BuildDeckMini(Transform parent)
+        {
+            Ui.ThemedLabel(parent,
+                Strings.T("map.hero.deck_title", ("count", _meta.Deck.Count), ("limit", MetaRules.DeckLimit)),
+                19, Theme.LockGray, null, TextAnchor.MiddleLeft);
+
+            var row = Ui.Row(parent, "DeckRow", 8);
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            int shown = 0;
+            for (int i = 0; i < _meta.Deck.Count && shown < 6; i++)
             {
-                var banner = Ui.Row(transform, "Banner");
-                Ui.Anchor((RectTransform)banner.transform, new Vector2(0.25f, 0.845f), new Vector2(0.75f, 0.9f), Vector2.zero, Vector2.zero);
-                var pill = Ui.CardPanel(banner.transform, "Pill", Theme.AdGreenBg, 24);
-                var pillElement = pill.gameObject.AddComponent<LayoutElement>();
-                pillElement.preferredWidth = 560;
-                pillElement.preferredHeight = 40;
-                var text = Ui.ThemedLabel(pill.transform, _message, 17, Theme.AdGreenText);
-                Ui.Stretch(text.rectTransform);
+                if (!_graph.TryGet(_meta.Deck[i], out var def)) continue;
+                var tile = Ui.CardPanel(row.transform, $"Dm_{def.Id}", Theme.ElementSoft(def.Element), 10);
+                var element = tile.gameObject.AddComponent<LayoutElement>();
+                element.preferredWidth = 54;
+                element.preferredHeight = 67;
+                var glyph = Ui.ThemedLabel(tile.transform, def.Id, 33, Theme.GlyphColor(def.Element), Theme.TitleFont);
+                Ui.Stretch(glyph.rectTransform);
+                shown++;
             }
+            int rest = _meta.Deck.Count - shown;
+            if (rest <= 0) return;
+            var more = Ui.CardPanel(row.transform, "DmMore", Theme.LockedBg, 10);
+            var moreElement = more.gameObject.AddComponent<LayoutElement>();
+            moreElement.preferredWidth = 54;
+            moreElement.preferredHeight = 67;
+            var moreLabel = Ui.ThemedLabel(more.transform, Strings.T("map.hero.deck_more", ("count", rest)), 21, Theme.LockGray);
+            Ui.Stretch(moreLabel.rectTransform);
+        }
 
-            // 无尽书塔面板(20.2):段位/最高层 + 层段进度 + 登塔/续爬;
-            // 薄宣纸半透卡融背景,内衬当前进度层段的巨字水印
+        // ---- 中栏:无尽书塔 ----
+
+        private void BuildTowerPanel(Transform parent)
+        {
             var endless = _campaign.Endless;
-            var tower = Ui.CardPanel(transform, "Tower", Theme.PaperCard, 20);
-            Ui.Anchor((RectTransform)tower.transform, new Vector2(0.2f, 0.27f), new Vector2(0.8f, 0.84f), Vector2.zero, Vector2.zero);
-
-            int depthNow = _meta.EndlessV2?.Depth ?? Mathf.Max(1, _meta.BestDepth + 1);
+            var snapshot = _meta.EndlessV2;
+            int depthNow = snapshot?.Depth ?? Mathf.Max(1, _meta.BestDepth + 1);
             int bandIndex = 0;
             for (int i = 0; i < endless.Bands.Count; i++)
                 if (endless.Bands[i].FromDepth <= depthNow)
                     bandIndex = i;
+
+            var panel = Ui.CardPanel(parent, "Tower", Theme.PaperCard, 20);
+            panel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
+
+            // 内衬当前层段的巨字水印(林/渊/山/海)
             var bandName = endless.Bands[bandIndex].Name;
-            var mark = Ui.Label(tower.transform, bandName.Substring(bandName.Length - 1), 300);
+            var mark = Ui.Label(panel.transform, bandName.Substring(bandName.Length - 1), 500);
             mark.color = Theme.BandWatermark(bandIndex);
             mark.raycastTarget = false;
             Ui.Stretch(mark.rectTransform);
 
-            var stack = Ui.VStack(tower.transform, "Stack", 14);
+            var stack = Ui.VStack(panel.transform, "Stack", 14);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childForceExpandWidth = true;
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.padding = new RectOffset(34, 34, 25, 29);
             Ui.Stretch((RectTransform)stack.transform);
 
-            Ui.ThemedLabel(stack.transform, Strings.T("map.tower.title"), 32, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(stack.transform,
-                Strings.T("common.rank_summary", ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)),
-                20, Theme.TextDim);
-
-            // 层段进度:已踏入亮色,未至灰色
-            var bands = Ui.Row(stack.transform, "Bands", 10);
-            foreach (var band in endless.Bands)
+            // 结算提示(2026-08-28 拍板:落在书塔面板顶部);有内容才占位
+            if (!string.IsNullOrEmpty(_message))
             {
-                bool reached = band.FromDepth == 1 || _meta.BestDepth >= band.FromDepth;
-                Ui.Chip(bands.transform, Strings.T("map.tower.band_chip", ("name", band.Name), ("fromDepth", band.FromDepth)),
-                    reached ? Theme.InkSoft : Theme.LockedBg,
-                    reached ? Color.white : Theme.LockGray, 15);
+                var banner = Ui.Row(stack.transform, "Banner");
+                var pill = Ui.CardPanel(banner.transform, "Pill", Theme.AdGreenBg, 20);
+                var pillElement = pill.gameObject.AddComponent<LayoutElement>();
+                pillElement.preferredWidth = 470;
+                pillElement.preferredHeight = 42;
+                var text = Ui.ThemedLabel(pill.transform, _message, 19, Theme.AdGreenText);
+                Ui.Stretch(text.rectTransform);
             }
 
-            var snapshot = _meta.EndlessV2;
+            Ui.ThemedLabel(stack.transform, Strings.T("map.tower.title"), 44, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform,
+                Strings.T("map.tower.rank_line", ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)),
+                23, Theme.TextDim);
+
+            BuildBands(stack.transform, endless, depthNow, bandIndex);
+
             string label = snapshot == null
                 ? Strings.T("map.tower.start_button")
                 : Strings.T("map.tower.resume_button", ("bandName", endless.BandFor(snapshot.Depth).Name), ("depth", snapshot.Depth));
-            Ui.PillButton(stack.transform, label, () => _onStartTower(),
-                Theme.Cinnabar, Color.white, 24, new Vector2(300, 62));
-            if (snapshot != null)
-                Ui.ThemedLabel(stack.transform,
-                    Strings.T("map.tower.in_progress", ("hp", snapshot.PlayerHp), ("ink", snapshot.EarnedInk)), 16, Theme.TextDim);
-            else
-                Ui.ThemedLabel(stack.transform, Strings.T("map.tower.hint"), 16, Theme.TextDim);
+            var resumeRow = Ui.Row(stack.transform, "Resume");
+            Ui.PillButton(resumeRow.transform, label, () => _onStartTower(),
+                Theme.Cinnabar, Color.white, 38, new Vector2(523, 109));
 
-            DrawChestBar();
+            if (snapshot == null)
+            {
+                Ui.ThemedLabel(stack.transform, Strings.T("map.tower.hint"), 21, Theme.TextDim);
+                return;
+            }
+
+            // 进行中:血条 + 三项本趟账目 + 断点说明
+            int maxHp = MetaRules.PlayerMaxHpFor(_meta);
+            var hpRow = Ui.Row(stack.transform, "RunBar");
+            Ui.Bar(hpRow.transform, maxHp > 0 ? (float)snapshot.PlayerHp / maxHp : 0f,
+                Theme.CinnabarDark, new Vector2(523, 10));
+
+            var run = Ui.Row(stack.transform, "RunState", 25);
+            Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_hp", ("hp", snapshot.PlayerHp), ("maxHp", maxHp)), 21, Theme.TextDim);
+            Ui.ThemedLabel(run.transform, Strings.T("map.tower.run_ink", ("ink", snapshot.EarnedInk)), 21, Theme.TextDim);
+            int capacity = MetaRules.LibraryCapacityFor(_meta) + (snapshot.LibraryExpanded ? RunEngine.ExpandBonus : 0);
+            Ui.ThemedLabel(run.transform,
+                Strings.T("map.tower.run_library", ("count", snapshot.Library.Count), ("capacity", capacity)), 21, Theme.TextDim);
+
+            Ui.ThemedLabel(stack.transform, Strings.T("map.tower.resume_hint"), 21, Theme.LockGray);
         }
 
-        // ---- 宝箱栏(19.5) ----
+        /// <summary>层段进度:已过的段填满灰蓝,当前段按层数在段内的占比填朱砂,未至的段留空。</summary>
+        private static void BuildBands(Transform parent, EndlessConfig endless, int depthNow, int bandIndex)
+        {
+            var row = Ui.Row(parent, "Bands", 6);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.childForceExpandWidth = true;
+            layout.childAlignment = TextAnchor.UpperCenter;
 
-        private void DrawChestBar()
+            for (int i = 0; i < endless.Bands.Count; i++)
+            {
+                var band = endless.Bands[i];
+                bool done = i < bandIndex;
+                bool now = i == bandIndex;
+                float frac = done ? 1f : 0f;
+                if (now)
+                {
+                    // 段末 = 下一段的起层;最后一段没有下一段,拿它自己的跨度当分母
+                    int spanEnd = i + 1 < endless.Bands.Count
+                        ? endless.Bands[i + 1].FromDepth
+                        : band.FromDepth + Mathf.Max(1, band.FromDepth);
+                    frac = Mathf.Clamp01((float)(depthNow - band.FromDepth) / Mathf.Max(1, spanEnd - band.FromDepth));
+                }
+
+                var cell = Ui.VStack(row.transform, $"Band{i}", 4);
+                var cellLayout = cell.GetComponent<VerticalLayoutGroup>();
+                cellLayout.childForceExpandWidth = true;
+                cell.AddComponent<LayoutElement>().flexibleWidth = 1;
+
+                Ui.ThemedLabel(cell.transform, band.Name, 19,
+                    now ? Theme.TextMain : done ? Theme.TextDim : Theme.LockGray,
+                    now ? Theme.TitleFont : null);
+                var bar = Ui.Bar(cell.transform, frac, now ? Theme.Cinnabar : Theme.LockGray, new Vector2(60, 13));
+                bar.GetComponent<LayoutElement>().flexibleWidth = 1;
+                Ui.ThemedLabel(cell.transform, band.FromDepth.ToString(), 17, Theme.LockGray);
+            }
+        }
+
+        // ---- 右栏:宝箱(19.5) ----
+
+        private void BuildChestPanel(Transform parent)
         {
             _countdowns.Clear(); // 旧标签随 Ui.Clear 已销毁,重建时重新登记
-            var bar = Ui.Row(transform, "Chests", 18);
-            Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 0.02f), new Vector2(1, 0.24f), Vector2.zero, Vector2.zero);
 
-            Ui.ThemedLabel(bar.transform, Strings.T("map.chest.bar_title", ("count", _meta.Chests.Count), ("limit", ChestRules.SlotLimit)), 18, Theme.TextDim, Theme.TitleFont);
+            var panel = Ui.CardPanel(parent, "Chests", Theme.PaperCard, 20);
+            var element = panel.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = ChestW;
+            element.flexibleWidth = 0;
+
+            var stack = Ui.VStack(panel.transform, "Stack", 15);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childForceExpandWidth = true;
+            layout.padding = new RectOffset(21, 21, 19, 19);
+            Ui.Stretch((RectTransform)stack.transform);
+
+            var header = Ui.Row(stack.transform, "Head", 13);
+            header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.ThemedLabel(header.transform,
+                Strings.T("map.chest.panel_title", ("count", _meta.Chests.Count), ("limit", ChestRules.SlotLimit)),
+                19, Theme.LockGray, Theme.TitleFont);
             if (_meta.PendingChests.Count > 0) // 暂存箱等腾位(2026-07-22)
-                Ui.Chip(bar.transform, Strings.T("map.chest.pending_chip", ("count", _meta.PendingChests.Count)), Theme.Cinnabar, Color.white, 13);
+                Ui.Chip(header.transform, Strings.T("map.chest.pending_chip", ("count", _meta.PendingChests.Count)),
+                    Theme.Cinnabar, Color.white, 15);
 
-            for (int i = 0; i < ChestRules.SlotLimit; i++)
+            // 2×2 网格(稿上 .cgrid):两行各两格,行列都吃满剩下的空间
+            var grid = Ui.VStack(stack.transform, "Grid", 15);
+            var gridLayout = grid.GetComponent<VerticalLayoutGroup>();
+            gridLayout.childForceExpandWidth = true;
+            gridLayout.childForceExpandHeight = true;
+            grid.AddComponent<LayoutElement>().flexibleHeight = 1;
+
+            for (int r = 0; r < 2; r++)
             {
-                if (i >= _meta.Chests.Count) { DrawEmptySlot(bar.transform); continue; }
-                int index = i;
-                var chest = _meta.Chests[i];
-                bool ready = chest.Timing && ChestRules.IsReady(chest, _time);
-
-                var card = Ui.CardPanel(bar.transform, $"Chest{i}", Theme.CardWhite, 14);
-                var cardElement = card.gameObject.AddComponent<LayoutElement>();
-                cardElement.preferredWidth = 168;
-                cardElement.preferredHeight = 150;
-                var stack = Ui.VStack(card.transform, "Stack", 5);
-                Ui.Stretch((RectTransform)stack.transform);
-
-                // 箱型图标:档位色圆角块 + 档位首字(两套形状按档位色区分;19.5.1 六档)
-                var iconRow = Ui.Row(stack.transform, "Icon", 0);
-                var icon = Ui.CardPanel(iconRow.transform, "Body",
-                    Theme.ChestColor(chest.Tier), 10);
-                var iconElement = icon.gameObject.AddComponent<LayoutElement>();
-                iconElement.preferredWidth = 52;
-                iconElement.preferredHeight = 40;
-                var iconGlyph = Ui.ThemedLabel(icon.transform, ChestRules.TierName(chest.Tier).Substring(0, 1),
-                    22, Color.white, Theme.TitleFont);
-                Ui.Stretch(iconGlyph.rectTransform);
-
-                Ui.ThemedLabel(stack.transform, ChestRules.TierName(chest.Tier), 17, Theme.TextMain, Theme.TitleFont);
-
-                if (!chest.Timing)
+                var row = Ui.Row(grid.transform, $"Row{r}", 15);
+                var rowLayout = row.GetComponent<HorizontalLayoutGroup>();
+                rowLayout.childForceExpandWidth = true;
+                rowLayout.childForceExpandHeight = true;
+                row.AddComponent<LayoutElement>().flexibleHeight = 1;
+                for (int c = 0; c < 2; c++)
                 {
-                    bool anotherTiming = AnyChestTiming();
-                    var start = Ui.RoundButton(stack.transform, Strings.T("map.chest.start_button"),
-                        () => Do(() => ChestRules.TryStartOpening(_meta, index, _time)),
-                        Theme.InkSoft, Color.white, 15, new Vector2(140, 36));
-                    start.interactable = !anotherTiming;
-                }
-                else if (ready)
-                {
-                    Ui.RoundButton(stack.transform, Strings.T("map.chest.open_button"), () => OpenChest(index),
-                        Theme.Gold, Theme.GoldText, 16, new Vector2(140, 36));
-                }
-                else
-                {
-                    long remaining = ChestRules.RemainingSeconds(chest, _time);
-                    var countdown = Ui.ThemedLabel(stack.transform, Format(remaining), 15, Theme.TextDim);
-                    var mini = Ui.Row(stack.transform, "Mini", 5);
-                    if (!chest.AdUsed)
-                    {
-                        long cut = ChestRules.AdReductionSeconds[(int)chest.Tier - 1];
-                        Ui.AdBadge(mini.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
-                            () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(74, 34));
-                    }
-                    var skip = Ui.RoundButton(mini.transform, Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining))),
-                        () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), Strings.T("map.chest.skip_fail_title"),
-                            Strings.T("map.chest.skip_fail_body",
-                                ("needed", ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time))),
-                                ("ink", _meta.Ink))),
-                        Theme.Gold, Theme.GoldText, 14, new Vector2(70, 34));
-                    _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
+                    int index = r * 2 + c;
+                    if (index >= ChestRules.SlotLimit) continue;
+                    if (index >= _meta.Chests.Count) DrawEmptySlot(row.transform);
+                    else DrawChest(row.transform, index);
                 }
             }
         }
 
-        private void DrawEmptySlot(Transform parent)
+        private void DrawChest(Transform parent, int index)
+        {
+            var chest = _meta.Chests[index];
+            bool ready = chest.Timing && ChestRules.IsReady(chest, _time);
+
+            var card = Ui.CardPanel(parent, $"Chest{index}", Theme.CardWhite, 14);
+            var cardElement = card.gameObject.AddComponent<LayoutElement>();
+            cardElement.flexibleWidth = 1;
+            cardElement.flexibleHeight = 1;
+
+            var stack = Ui.VStack(card.transform, "Stack", 7);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childForceExpandWidth = true;
+            layout.padding = new RectOffset(15, 15, 15, 15);
+            Ui.Stretch((RectTransform)stack.transform);
+
+            // 箱型图标:档位色圆角块 + 档位首字(19.5.1 六档)
+            var iconRow = Ui.Row(stack.transform, "Icon", 0);
+            var icon = Ui.CardPanel(iconRow.transform, "Body", Theme.ChestColor(chest.Tier), 10);
+            var iconElement = icon.gameObject.AddComponent<LayoutElement>();
+            iconElement.preferredWidth = 80;
+            iconElement.preferredHeight = 59;
+            var iconGlyph = Ui.ThemedLabel(icon.transform, ChestRules.TierName(chest.Tier).Substring(0, 1),
+                31, Color.white, Theme.TitleFont);
+            Ui.Stretch(iconGlyph.rectTransform);
+
+            Ui.ThemedLabel(stack.transform, ChestRules.TierName(chest.Tier), 21, Theme.TextMain, Theme.TitleFont);
+
+            if (!chest.Timing)
+            {
+                // 未开始:先亮出这一档要等多久,再给排队按钮(同时只能开一个)
+                Ui.ThemedLabel(stack.transform, Format(ChestRules.DurationSeconds[(int)chest.Tier - 1]), 23, Theme.LockGray);
+                var actions = Ui.Row(stack.transform, "Acts", 8);
+                actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
+                var start = Ui.RoundButton(actions.transform, Strings.T("map.chest.start_button"),
+                    () => Do(() => ChestRules.TryStartOpening(_meta, index, _time)),
+                    Theme.InkSoft, Color.white, 20, new Vector2(190, 50), 14);
+                start.interactable = !AnyChestTiming();
+            }
+            else if (ready)
+            {
+                Ui.ThemedLabel(stack.transform, Strings.T("map.chest.ready"), 23, Theme.UpgradeText, Theme.TitleFont);
+                var actions = Ui.Row(stack.transform, "Acts", 8);
+                actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
+                Ui.RoundButton(actions.transform, Strings.T("map.chest.open_button"), () => OpenChest(index),
+                    Theme.Gold, Theme.GoldText, 23, new Vector2(190, 54), 14);
+            }
+            else
+            {
+                long remaining = ChestRules.RemainingSeconds(chest, _time);
+                var countdown = Ui.ThemedLabel(stack.transform, Format(remaining), 23, Theme.TextDim);
+                var actions = Ui.Row(stack.transform, "Acts", 8);
+                actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
+                if (!chest.AdUsed)
+                {
+                    long cut = ChestRules.AdReductionSeconds[(int)chest.Tier - 1];
+                    Ui.AdBadge(actions.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
+                        () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(91, 50));
+                }
+                var skip = Ui.RoundButton(actions.transform, Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining))),
+                    () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), Strings.T("map.chest.skip_fail_title"),
+                        Strings.T("map.chest.skip_fail_body",
+                            ("needed", ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time))),
+                            ("ink", _meta.Ink))),
+                    Theme.Gold, Theme.GoldText, 20, new Vector2(91, 50), 14);
+                _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
+            }
+        }
+
+        private static void DrawEmptySlot(Transform parent)
         {
             var slot = Ui.CardPanel(parent, "Empty", Theme.LockedBg, 14);
             var slotElement = slot.gameObject.AddComponent<LayoutElement>();
-            slotElement.preferredWidth = 168;
-            slotElement.preferredHeight = 150;
-            var label = Ui.ThemedLabel(slot.transform, Strings.T("map.chest.empty_slot"), 16, Theme.LockGray);
+            slotElement.flexibleWidth = 1;
+            slotElement.flexibleHeight = 1;
+            var label = Ui.ThemedLabel(slot.transform, Strings.T("map.chest.empty_slot"), 21, Theme.LockGray);
             Ui.Stretch(label.rectTransform);
+        }
+
+        // ---- 底部导航 ----
+
+        private void BuildNavBar()
+        {
+            var nav = Ui.Row(transform, "Nav", 17);
+            var layout = nav.GetComponent<HorizontalLayoutGroup>();
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+            Ui.Anchor((RectTransform)nav.transform, Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, NavH));
+
+            int unlockedEnemies = 0;
+            foreach (var def in _enemies)
+                if (BestiaryRules.IsUnlocked(_meta, def.Id)) unlockedEnemies++;
+            int unlockedPerks = 0;
+            foreach (var perk in PerkRules.All)
+                if (PerkRules.PerkLevel(_meta, perk.Id) > 0) unlockedPerks++;
+
+            NavTab(nav.transform, Strings.T("map.nav.collection"),
+                Strings.T("map.nav.collection_sub", ("count", _meta.OwnedCards.Count)),
+                () => _onOpenCollection(), AnyCardUpgradable(), Theme.PaperCard, Theme.TextMain);
+            NavTab(nav.transform, Strings.T("map.nav.bestiary"),
+                Strings.T("map.nav.bestiary_sub", ("unlocked", unlockedEnemies), ("total", _enemies.Count)),
+                () => _onOpenBestiary(), BestiaryRules.HasUnclaimed(_meta), Theme.PaperCard, Theme.TextMain);
+            NavTab(nav.transform, Strings.T("map.nav.perks"),
+                Strings.T("map.nav.perks_sub", ("unlocked", unlockedPerks), ("total", PerkRules.All.Count)),
+                () => _onOpenPerks(), false, Theme.PaperCard, Theme.TextMain);
+            NavTab(nav.transform, Strings.T("map.nav.shop"), Strings.T("map.nav.shop_sub"),
+                () => _onOpenShop(), true, Theme.ShopTabBg, Theme.ShopNav);
+        }
+
+        private static void NavTab(Transform parent, string name, string sub, Action onClick,
+            bool dot, Color background, Color foreground)
+        {
+            var go = new GameObject("Tab", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(14);
+            image.type = Image.Type.Sliced;
+            image.color = background;
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(() => onClick());
+            var element = go.AddComponent<LayoutElement>();
+            element.flexibleWidth = 1;
+            element.preferredHeight = NavH;
+
+            var row = Ui.Row(go.transform, "Content", 15);
+            Ui.Stretch((RectTransform)row.transform);
+            Ui.ThemedLabel(row.transform, name, 29, foreground, Theme.TitleFont);
+            Ui.ThemedLabel(row.transform, sub, 19, Theme.LockGray);
+            if (dot) RedDot(go.transform);
+        }
+
+        /// <summary>吃掉剩余空间的透明占位(稿上的 .grow / margin-top:auto)。</summary>
+        private static void Spring(Transform parent, bool vertical = false)
+        {
+            var go = Ui.Panel(parent, "Spring");
+            var element = go.AddComponent<LayoutElement>();
+            if (vertical) element.flexibleHeight = 1;
+            else element.flexibleWidth = 1;
         }
 
         /// <summary>导航红点:钉在按钮右上角,不拦点击。</summary>
@@ -271,7 +567,7 @@ namespace Brushblade.Presentation
             dotImage.color = Theme.Cinnabar;
             dotImage.raycastTarget = false;
             Ui.Anchor((RectTransform)dot.transform, Vector2.one, Vector2.one,
-                new Vector2(-16, -16), new Vector2(-4, -4));
+                new Vector2(-30, -30), new Vector2(-16, -16));
         }
 
         private bool AnyCardUpgradable()
