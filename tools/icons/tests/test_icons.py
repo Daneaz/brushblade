@@ -17,6 +17,9 @@ EXPECTED = {
     # 与 defense(实心盾 = 护甲点数)刻意做成**描边 vs 实心**两种画法 —— 同为盾形,
     # 一眼要分得出「这是可消耗的盾条」还是「这是常驻的减伤点数」。
     "shield",
+    # 主界面底部导航 4(2026-08-28):不是 spec §5.1 的战斗状态图标,是 Home.dc.html
+    # 四枚页签的线性图标。共用同一条 SVG→PNG 管线与 Icons.Get,故也归这张表管。
+    "nav_deck", "nav_bestiary", "nav_perks", "nav_shop",
 }
 
 

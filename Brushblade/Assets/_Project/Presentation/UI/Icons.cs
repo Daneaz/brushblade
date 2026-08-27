@@ -46,6 +46,12 @@ namespace Brushblade.Presentation
             // 护盾(2026-08-26):玩家与召唤物的盾条都用它。与 defense(护甲点数,实心盾)
             // 是两码事 —— 那个是常驻减伤,这个是会被打空的一层临时血
             { "shield", "盾" },
+            // 主界面底部导航 4(2026-08-28):PNG 缺失时页签**不画图标**(名字本来就在旁边,
+            // 补一个字反而挤),这几条兜底字只为守住「两张表一一对应」那条测试。
+            { "nav_deck", "牌" },
+            { "nav_bestiary", "册" },
+            { "nav_perks", "术" },
+            { "nav_shop", "市" },
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new();

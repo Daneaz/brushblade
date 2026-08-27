@@ -24,6 +24,13 @@ CANVAS = 64
 STROKE = 'fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"'
 FILL = 'fill="#fff"'
 
+# 导航图标(nav_*)另一套:路径直接抄 Home.dc.html,那边是 24 的 viewBox,
+# 这里只加一层缩放撑到 64,坐标一个不改 —— 手改坐标必然和稿漂开。
+# 线宽也照稿的 1.7(在 24 空间里)而不是上面的 6:导航图标显示在 36 逻辑单位上,
+# 是状态 chip 图标(18)的两倍大,按 STROKE 那个粗细会糊成一坨黑。
+NAV_SCALE = f'transform="scale({CANVAS / 24})"'
+NAV_STROKE = 'fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"'
+
 # key → SVG 内容片段(不含 <svg> 外壳,由 svg() 补)。
 # 形状取「一眼能认」而非写实:20px 下能分辨的特征最多两三个。
 ICONS = {
@@ -94,6 +101,38 @@ ICONS = {
     "speed": (
         f'<path {STROKE} d="M8 20h26M8 32h34M8 44h26"/>'
         f'<path {STROKE} d="M40 20l14 12-14 12"/>'
+    ),
+
+    # ---- 主界面底部导航 4(2026-08-28)----
+    # 路径**逐字取自** docs/design/ui/scenes/Home.dc.html 的四枚页签 SVG,
+    # 只用一层 scale 把稿上的 24 viewBox 撑到 64 画布(见 NAV_* 的注释)。
+    # 改稿就重抄一遍,别在这里手改坐标 —— 手改必然和稿漂开。
+    # 卡组:一张正牌 + 一张斜插的牌
+    "nav_deck": (
+        f'<g {NAV_SCALE} {NAV_STROKE}>'
+        f'<rect x="3" y="5" width="11" height="15" rx="2"/>'
+        f'<path d="M17 7 L20.5 8.2 A1.5 1.5 0 0 1 21.4 10 L18 19.5"/>'
+        f'</g>'
+    ),
+    # 图鉴:书(书脊在左,底下一道翻口)
+    "nav_bestiary": (
+        f'<g {NAV_SCALE} {NAV_STROKE}>'
+        f'<path d="M4 4.5 A1.5 1.5 0 0 1 5.5 3 H19 v18 H5.5 A1.5 1.5 0 0 1 4 19.5 Z"/>'
+        f'<path d="M4 17.5 A1.5 1.5 0 0 1 5.5 16 H19"/>'
+        f'</g>'
+    ),
+    # 技能:四角星芒
+    "nav_perks": (
+        f'<g {NAV_SCALE} {NAV_STROKE}>'
+        f'<path d="M12 3 L14.6 9.4 L21 12 L14.6 14.6 L12 21 L9.4 14.6 L3 12 L9.4 9.4 Z"/>'
+        f'</g>'
+    ),
+    # 商城:购物袋
+    "nav_shop": (
+        f'<g {NAV_SCALE} {NAV_STROKE}>'
+        f'<path d="M3.5 8 h17 l-1.3 11.2 A1.5 1.5 0 0 1 17.7 20.5 H6.3 A1.5 1.5 0 0 1 4.8 19.2 Z"/>'
+        f'<path d="M8.5 8 V6 a3.5 3.5 0 0 1 7 0 v2"/>'
+        f'</g>'
     ),
 }
 

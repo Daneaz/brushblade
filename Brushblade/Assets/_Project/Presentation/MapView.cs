@@ -541,22 +541,29 @@ namespace Brushblade.Presentation
             foreach (var perk in PerkRules.All)
                 if (PerkRules.PerkLevel(_meta, perk.Id) > 0) unlockedPerks++;
 
-            NavTab(nav.transform, Strings.T("map.nav.collection"),
+            NavTab(nav.transform, "nav_deck", Strings.T("map.nav.collection"),
                 Strings.T("map.nav.collection_sub", ("count", _meta.OwnedCards.Count)),
-                () => _onOpenCollection(), AnyCardUpgradable(), Theme.PanelPaper, Theme.PanelBorder, Theme.TextMain);
-            NavTab(nav.transform, Strings.T("map.nav.bestiary"),
+                () => _onOpenCollection(), AnyCardUpgradable(), shop: false);
+            NavTab(nav.transform, "nav_bestiary", Strings.T("map.nav.bestiary"),
                 Strings.T("map.nav.bestiary_sub", ("unlocked", unlockedEnemies), ("total", _enemies.Count)),
-                () => _onOpenBestiary(), BestiaryRules.HasUnclaimed(_meta), Theme.PanelPaper, Theme.PanelBorder, Theme.TextMain);
-            NavTab(nav.transform, Strings.T("map.nav.perks"),
+                () => _onOpenBestiary(), BestiaryRules.HasUnclaimed(_meta), shop: false);
+            NavTab(nav.transform, "nav_perks", Strings.T("map.nav.perks"),
                 Strings.T("map.nav.perks_sub", ("unlocked", unlockedPerks), ("total", PerkRules.All.Count)),
-                () => _onOpenPerks(), false, Theme.PanelPaper, Theme.PanelBorder, Theme.TextMain);
-            NavTab(nav.transform, Strings.T("map.nav.shop"), Strings.T("map.nav.shop_sub"),
-                () => _onOpenShop(), true, Theme.ShopTabBg, Theme.ShopTabBorder, Theme.ShopNav);
+                () => _onOpenPerks(), false, shop: false);
+            NavTab(nav.transform, "nav_shop", Strings.T("map.nav.shop"), Strings.T("map.nav.shop_sub"),
+                () => _onOpenShop(), true, shop: true);
         }
 
-        private static void NavTab(Transform parent, string name, string sub, Action onClick,
-            bool dot, Color background, Color border, Color foreground)
+        /// <summary>一个页签:图标 + 名 + 副标题(+ 红点)。<paramref name="shop"/> 对应稿上的
+        /// <c>.tab.shop</c> —— 商城那格整套换成暖赭色,是四格里唯一变色的。</summary>
+        private static void NavTab(Transform parent, string iconKey, string name, string sub,
+            Action onClick, bool dot, bool shop)
         {
+            Color background = shop ? Theme.ShopTabBg : Theme.PanelPaper;
+            Color border = shop ? Theme.ShopTabBorder : Theme.PanelBorder;
+            Color foreground = shop ? Theme.ShopNav : Theme.TextMain;
+            Color iconColor = shop ? Theme.ShopNav : Theme.InkSoft; // 稿上图标比名字浅一档
+
             // 描边卡而不是纯色块:稿上页签靠那条 1pt 边线从宣纸底里立起来(2026-08-28 反馈)
             var tab = Ui.OutlinedPanel(parent, "Tab", background, border, 19, 2f, out var face);
             var button = tab.gameObject.AddComponent<Button>();
@@ -568,9 +575,27 @@ namespace Brushblade.Presentation
 
             var row = Ui.Row(tab.transform, "Content", 15);
             Ui.Stretch((RectTransform)row.transform);
+            NavIcon(row.transform, iconKey, iconColor);
             Ui.ThemedLabel(row.transform, name, 29, foreground, Theme.TitleFont);
             Ui.ThemedLabel(row.transform, sub, 19, Theme.LockGray);
             if (dot) RedDot(tab.transform);
+        }
+
+        /// <summary>页签的线性图标(稿上 17pt)。PNG 缺失时**什么都不画** —— 名字就在旁边,
+        /// 补 <see cref="Icons.Fallback"/> 那个兜底汉字反而挤,还会跟页签名连成一串读不断。</summary>
+        private static void NavIcon(Transform parent, string key, Color color)
+        {
+            var sprite = Icons.Get(key);
+            if (sprite == null) return;
+            var go = Ui.Panel(parent, "Icon");
+            var image = go.AddComponent<Image>();
+            image.sprite = sprite;
+            image.color = color; // 图形是白的,用前景色染
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            var element = go.AddComponent<LayoutElement>();
+            element.preferredWidth = 36;
+            element.preferredHeight = 36;
         }
 
         /// <summary>吃掉剩余空间的透明占位(稿上的 .grow / margin-top:auto)。</summary>
