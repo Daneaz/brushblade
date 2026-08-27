@@ -65,6 +65,9 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 - ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
   NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
   集合子集用 `Has.All.Matches<T>`。
+  同一个坑:**`Does.Not.Contain(x)` 只在 x 是 string 时能用** —— Unity 自带 NUnit 只有字符串
+  子串那个重载,传 int/枚举是编译期 CS1503(2026-08-27 栽过一次)。集合判包含一律写成
+  `Assert.That(list.Contains(x), Is.True/False, "…")`,断在 bool 上最稳。
 - ⚠️ 测试里定位仓库根**只能用 `TestContext.CurrentContext.TestDirectory`**,禁用
   `AppContext.BaseDirectory` —— 后者在 Unity Test Runner 下指向**编辑器安装目录**
   (`Unity.app/Contents`),往上永远找不到含 `Brushblade/` 的父目录,读真实字表的测试会整类变红;
