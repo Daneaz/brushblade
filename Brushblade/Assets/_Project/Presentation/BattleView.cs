@@ -919,6 +919,8 @@ namespace Brushblade.Presentation
                     DrawReviveCharStep(); // 走到这里时已由 Refresh 顶部的收尾检查保证还有字可选
                     break;
                 case RunPhase.Event:
+                    DrawTopBar();    // 2026-08-27 用户拍板:奇遇不该把等级/墨锭那一栏整条吞掉
+                    DrawPlayerStats();
                     DrawEvent();
                     break;
                 case RunPhase.EventOverflow:
@@ -2659,30 +2661,29 @@ namespace Brushblade.Presentation
             }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
         }
 
-        /// <summary>奇遇三个选项的效果明细,一行排开(2026-08-27 用户拍板)。
+        /// <summary>选中某个奇遇选项时画进底部提示行的那句话(2026-08-27 用户拍板)。
         ///
         /// 效果说明**不在选项钮上** —— 钮宽 260 / 字号 22 只装得下 23 个半宽,而
         /// 「入炉淬骨(八成 上限 +30%,两成 反噬 −30%)」有 39 个,溢出到钮外被邻钮盖掉。
-        /// 于是 label 只留名称,说明搬到通栏的正文行下面,不吃那个宽度限。
+        /// 于是 label 只留名称,说明改由本方法送进屏幕最底部那条通栏提示行,不吃钮的宽度限。
         ///
-        /// 常驻显示而不是长按/悬停才出:奇遇是**不可逆**决策,「点下去会发生什么」必须在点之前
-        /// 就看得见;而长按看详情那套惯例(字牌/敌人)首次遇到的玩家不会知道要长按。
-        ///
-        /// 分隔用两个全角空格,与 battle.event.body_with_ink 里「(墨锭」前那 4 个半角空格同性质
-        /// —— 是排版留白,不是文案,所以不进字符串表。
+        /// 尾部缀「再点一次」:奇遇是**不可逆**决策,首点只选中不结算(见 _previewEventOption),
+        /// 玩家读完这句话再点第二下才真的执行 —— 那句提示就是告诉他还有第二下。
         /// 无效果的「离开」类选项显式画成「无」,不留空白 —— 空白读起来像没加载出来。</summary>
-        private static string EventOptionDetails(EventDef evt)
-        {
-            var parts = new System.Collections.Generic.List<string>(evt.Options.Count);
-            foreach (var option in evt.Options)
-                parts.Add(Strings.T("battle.event.option_detail",
-                    ("label", option.Label),
-                    ("detail", string.IsNullOrEmpty(option.Detail)
-                        ? Strings.T("battle.event.option_detail_none")
-                        : option.Detail)));
-            return string.Join("\u3000\u3000", parts);
-        }
+        private static string EventOptionHint(EventOption option) =>
+            Strings.T("battle.event.option_detail",
+                ("label", option.Label),
+                ("detail", string.IsNullOrEmpty(option.Detail)
+                    ? Strings.T("battle.event.option_detail_none")
+                    : option.Detail))
+            + Strings.T("battle.event.tap_again_suffix");
 
+        private int _previewEventOption = -1; // 奇遇选项:首点看效果说明,再点同一个才结算(2026-08-27)
+        // 预览态是为**哪一层**的奇遇留的。_previewEventOption 是实例字段,而奇遇一层一个 ——
+        // 不记这个,挂起续爬或下一层的奇遇撞上同一个下标时,首点就会跳过说明直接结算,
+        // 而那是一次不可逆操作。用 BattleIndex 而不是 evt.Id:奇遇池是有放回抽的,
+        // 同一个 Id 会在不同层再出现。
+        private int _previewEventFloor = -1;
         private int _pendingEventOption = -1; // 部件抵价/任选字:待成交的选项下标
         private int _pendingCharChoice = -1;  // 任选字:已选中的字下标(-1 = 未选)
         private readonly System.Collections.Generic.List<int> _eventPicks = new(); // 已点选的池下标
@@ -2690,6 +2691,11 @@ namespace Brushblade.Presentation
         private void DrawEvent() // 奇遇(9.6):短情境 + 选择;部件抵价/任选字由玩家点选(2026-07-19)
         {
             var evt = _run.CurrentEvent;
+            if (_previewEventFloor != _run.BattleIndex || _previewEventOption >= evt.Options.Count)
+            {
+                _previewEventOption = -1;   // 换了一层(或选项数变少):预览态不跨奇遇沿用
+                _previewEventFloor = _run.BattleIndex;
+            }
             // evt.Id 是奇遇事件配置数据里的 id/展示名,不是本文件的硬编码文案——这里只登记
             // 「奇遇 · X」这层胶字模板本体。
             Ui.ThemedLabel(_enemyFrontRow, Strings.T("battle.event.title", ("eventName", evt.Id)), 30, Theme.TextMain, Theme.TitleFont);
@@ -2698,13 +2704,10 @@ namespace Brushblade.Presentation
             // 再把视线甩到屏幕底边才读得到自己在选什么。这一排(0.431–0.543)在奇遇阶段本来
             // 就是空的(四排只在战斗阶段画),且**高于**选项钮所在的 _centerRow(0.125–0.220),
             // 阅读顺序因此是 文案 → 选项。2026-08-21 标题也搬到了左下,但这条理由与标题无关。
-            // evt.Text 同样是事件正文数据,不在本文件文案范围——这里登记「正文 + 墨锭余额」
-            // 这层胶字模板,「(墨锭」前 4 个空格是刻意留白,别收窄。
-            // 正文之后换行接效果明细(2026-08-27):选项钮上只有名称,「点下去会发生什么」全在这一行。
-            // 与正文共用一个 Text 而不是再加一个 label —— _summonFrontRow 是 HorizontalLayoutGroup,
-            // 第二个 label 会横向并排而不是换到下一行;"\n" 走 verticalOverflow = Overflow,两行都画得出。
-            Ui.ThemedLabel(_summonFrontRow, Strings.T("battle.event.body_with_ink", ("eventText", evt.Text), ("ink", _run.AvailableInk))
-                + "\n" + EventOptionDetails(evt), 18, Theme.TextDim);
+            // 正文直接用 evt.Text —— 它是事件数据,不套胶字模板(2026-08-27:此前还在正文尾部
+            // 缀「(墨锭 N)」,而顶栏本来就有墨锭那一格,重复一遍反倒抢正文的注意力)。
+            // 效果说明**不在这里**:选中某个选项时才画进底部提示行,见选项钮的 onClick。
+            Ui.ThemedLabel(_summonFrontRow, evt.Text, 18, Theme.TextDim);
 
             if (_pendingEventOption >= 0)
             {
@@ -2749,6 +2752,19 @@ namespace Brushblade.Presentation
                     && AnyGainable(option); // 给的字都不在出阵列表 → 整个选项置灰(2026-07-20)
                 var button = Ui.RoundButton(_centerRow, option.Label, () =>
                 {
+                    // 首点只选中(2026-08-27 用户拍板):效果说明画进底部提示行,钮转高亮,
+                    // **不结算**。奇遇是不可逆决策,而钮上只有名称 —— 不给这一步,玩家就是在
+                    // 盲点。再点同一个才往下走;点另一个则换成那一个的说明。
+                    // 与战利品页的 _previewRewardIndex 同一套惯例(battle.reward.tap_again_suffix)。
+                    if (_previewEventOption != index)
+                    {
+                        _previewEventOption = index;
+                        _previewEventFloor = _run.BattleIndex;
+                        _message = EventOptionHint(option);
+                        Refresh();
+                        return;
+                    }
+                    _previewEventOption = -1; // 确认了,这一格的预览态就地清掉
                     if (option.ComponentCost > 0 || option.GainCharChoices.Count > 0)
                     {
                         _pendingEventOption = index; // 进入选件/选字模式
@@ -2789,7 +2805,7 @@ namespace Brushblade.Presentation
                         ? Strings.T("battle.dialog.event_unaffordable.body_ink",
                             ("label", option.Label), ("cost", option.InkCost), ("available", _run.AvailableInk))
                         : Strings.T("battle.dialog.event_unaffordable.body_failed", ("label", option.Label)));
-                }, affordable ? Theme.InkSoft : Theme.LockedBg,
+                }, !affordable ? Theme.LockedBg : index == _previewEventOption ? Theme.Cinnabar : Theme.InkSoft,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
                 button.interactable = affordable;
             }
@@ -2842,6 +2858,8 @@ namespace Brushblade.Presentation
 
         private void ResetEventSelection()
         {
+            _previewEventOption = -1; // 从选件/选字子步退回选项列表:预览态也要归零,
+                                      // 不然玩家再点同一个钮会跳过说明直接结算
             _pendingEventOption = -1;
             _pendingCharChoice = -1;
             _eventReplacing = false;
