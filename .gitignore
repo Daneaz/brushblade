@@ -50,6 +50,8 @@ Brushblade/Builds/
 
 # 设计稿的 seed 产物:内联了整个 Claude Design 编辑器 payload(2.7MB),
 # 每次重出图全文件都变,不入 git。源文件是同目录的 *.dc.html + canvas.json,
-# 重新出图:node <skill>/seed-canvas.mjs --template ... --artboard *.dc.html --canvas canvas.json
-design-collection/*.html
-!design-collection/*.dc.html
+# 重新出图(在稿子所在目录跑):
+#   node <design skill>/seed-canvas.mjs --template <skill>/payload.template.html \
+#     --out <名字>.html --title "..." --artboard Main.dc.html ... --canvas canvas.json
+docs/design/frame/**/*.html
+!docs/design/frame/**/*.dc.html
