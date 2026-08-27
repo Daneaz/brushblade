@@ -7,12 +7,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import build_icons
 
-# spec §5.1 的 17 个 key。C# 侧 Icons.Fallback 必须与它逐个对应(见 test_icons.py 的
-# test_csharp_fallback_covers_every_icon)——两边任一多一个少一个都是上线空白。
+# spec §5.1 的 17 个 key,2026-08-26 加护盾共 18 个。C# 侧 Icons.Fallback 必须与它逐个对应
+# (见 test_icons.py 的 test_csharp_fallback_covers_every_icon)——两边任一多一个少一个都是上线空白。
 EXPECTED = {
     "burn", "burn_nodecay", "freeze", "slow", "blind", "silence", "curse",
     "seal", "immunity", "reflect", "attack", "morale", "crit", "pierce",
     "defense", "dodge", "speed",
+    # 护盾(2026-08-26):玩家与召唤物的盾条都用它,取代原来的「护盾 N」/「盾 N」文字。
+    # 与 defense(实心盾 = 护甲点数)刻意做成**描边 vs 实心**两种画法 —— 同为盾形,
+    # 一眼要分得出「这是可消耗的盾条」还是「这是常驻的减伤点数」。
+    "shield",
 }
 
 

@@ -43,6 +43,9 @@ namespace Brushblade.Presentation
             { "defense", "甲" },
             { "dodge", "闪" },
             { "speed", "速" },
+            // 护盾(2026-08-26):玩家与召唤物的盾条都用它。与 defense(护甲点数,实心盾)
+            // 是两码事 —— 那个是常驻减伤,这个是会被打空的一层临时血
+            { "shield", "盾" },
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new();
