@@ -3623,8 +3623,11 @@ namespace Brushblade.Presentation
             return rest;
         }
 
-        /// <summary>回合开始的抽卡动画(2026-08-27 用户拍板):新掉的字从「字库 n/N」标签处
-        /// 逐张飞到自己的卡位,错峰落位并弹跳一下。
+        /// <summary>回合开始的抽卡动画(2026-08-27 用户拍板):新掉的字从字库行**右侧**逐张滑入
+        /// 到自己的卡位,错峰落位并弹跳一下。
+        ///
+        /// 从右边进而不是从左边:掉字一律 append 到字库末尾,新牌永远在最右 —— 从左端飞过来
+        /// 是横穿整行、逆着落点方向跑(2026-08-27 首版就是那样,用户实机看出来的)。
         ///
         /// ⚠ **只能在 <see cref="OnAnimDone"/> 之后调用**(2026-08-27 修:此前放在它之前,动画
         /// 一次都没播过)。Refresh 的玩家回合分支遇 Animating 会在 DrawLibrary() 之前就 break ——
@@ -3649,6 +3652,15 @@ namespace Brushblade.Presentation
         ///
         /// 卡位越界/为空一律跳过:满库那次 Core 不发 CharDrawn(字进的是 PendingDrop),
         /// 但战斗当拍已 Won 时 Refresh 走的是不画字库的分支,那时 _libraryTileRects 是空的。</summary>
+        // 抽卡滑入的三个手感参数(2026-08-27 用户拍板「从右边滑入、再慢一点」)。
+        // 时长是出字那记飞牌(0.22s)的两倍:出字是「砸」,抽卡是「滑」,快了就看不清是从哪来的。
+        private const float DealFlyDuration = 0.45f;
+        // 入口离最右那张牌多远。约两张牌宽(牌 68 + 间距 8 = 76),够看出「从外面进来」,
+        // 又不至于伸进右侧拆合台(左缘 1272)的地盘太深。
+        private const float DealSlideIn = 152f;
+        // 多张之间的错峰。单张时用不到 —— DropsPerTurn 缺省是 1,养成抬高后才会有多张。
+        private const float DealStagger = 0.12f;
+
         private System.Collections.IEnumerator DealRoutine(
             System.Collections.Generic.IReadOnlyList<int> libraryIndices)
         {
@@ -3670,10 +3682,17 @@ namespace Brushblade.Presentation
             BeginAnim(); // 早退在此之前,锁不会失配;配对的 OnAnimDone 在本协程末尾
             yield return null; // 坑 ②:等布局跑完,下面读到的 position 才是牌的真实落点
 
-            // 起点是字库行的第一个子节点 = 「字库 n/N」那个计数标签(DrawLibrary 先画它)。
-            // 拿不到就退化成牌自己的位置 —— 那样只剩落位弹跳,没有飞行,但不会飞错地方。
-            bool hasOrigin = _libraryRow != null && _libraryRow.childCount > 0;
-            Vector3 origin = hasOrigin ? _libraryRow.GetChild(0).position : Vector3.zero;
+            // 入口在**最右那张新牌的右侧**(2026-08-27 用户拍板):掉字一律 append 到字库末尾,
+            // 新牌永远落在最右 —— 从左端的计数标签飞过来是横穿整行、逆着落点方向跑(改前就是
+            // 那样)。所有新牌共用同一个入口 x,依次滑到自己的位置,像从右边推进来。
+            //
+            // 从后往前找第一张还活着的(跨帧持有的 RectTransform 一律判空,见 Juice.PopTile)。
+            // ⚠ 找不到也**不能**早退:BeginAnim 已经在上面调过了,早退会让锁失配、输入永久锁死。
+            // 那种情形交给下面循环里的 `if (rect == null) { pending--; continue; }` —— pending
+            // 归零、while 立刻过、末尾的 OnAnimDone 照常配对。
+            float entryX = 0f;
+            for (int i = tiles.Count - 1; i >= 0; i--)
+                if (tiles[i] != null) { entryX = tiles[i].position.x + DealSlideIn; break; }
 
             int pending = tiles.Count;
             for (int i = 0; i < tiles.Count; i++)
@@ -3681,18 +3700,19 @@ namespace Brushblade.Presentation
                 var rect = tiles[i];
                 if (rect == null) { pending--; continue; }
                 var def = _graph.Get(glyphs[i]);
+                var target = rect.position;
                 _juice.FlyGlyph(glyphs[i], Theme.ElementColor(def.Element),
-                    hasOrigin ? origin : rect.position, rect.position, () =>
+                    new Vector3(entryX, target.y, target.z), target, () =>
                     {
                         if (rect != null)
                         {
-                            rect.localScale = Vector3.one; // 飞到才现身
+                            rect.localScale = Vector3.one; // 滑到才现身
                             _juice.PopTile(rect);
                         }
                         pending--;
-                    });
+                    }, DealFlyDuration, easeOut: true);
                 if (i + 1 < tiles.Count)
-                    yield return new WaitForSecondsRealtime(0.08f); // 多张错峰,不糊成一团
+                    yield return new WaitForSecondsRealtime(DealStagger); // 多张错峰,不糊成一团
             }
             while (pending > 0) yield return null;
             OnAnimDone(NoDeaths); // 与上面那次 BeginAnim 配对:解锁输入 + 归零后重绘(恢复牌的 scale)

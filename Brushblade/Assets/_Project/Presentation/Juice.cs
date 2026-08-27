@@ -503,8 +503,18 @@ namespace Brushblade.Presentation
 
         // ---- 过渡动效:飞牌 / 字牌弹跳(整屏重绘后补播,纯浮层不碰逻辑) ----
 
-        /// <summary>幽灵字牌从 from 飞到 to(世界坐标),到达后销毁并回调。出字/合成/拆解的过渡表现。</summary>
-        public void FlyGlyph(string glyph, Color color, Vector3 from, Vector3 to, Action onArrive = null)
+        /// <summary>出字/合成/拆解那记飞牌的时长与曲线。ease-in = 蓄力后加速**砸**向目标,
+        /// 配的是「打出去」这个动作。抽卡是「滑进来」,得用相反的一头,见
+        /// <see cref="FlyGlyph"/> 的两个可选参数。</summary>
+        private const float CastFlyDuration = 0.22f;
+
+        /// <summary>幽灵字牌从 from 飞到 to(世界坐标),到达后销毁并回调。出字/合成/拆解的过渡表现。
+        ///
+        /// duration / easeOut 两个可选参数给抽卡动画用(BattleView.DealRoutine),缺省值就是
+        /// 出字那一记的原样 —— 加参数而不是改常量:两种动作的手感刻意不同,
+        /// 出字要「砸」(ease-in,越飞越快),抽卡要「滑」(ease-out,快进慢停)。</summary>
+        public void FlyGlyph(string glyph, Color color, Vector3 from, Vector3 to, Action onArrive = null,
+            float duration = CastFlyDuration, bool easeOut = false)
         {
             var go = new GameObject("FlyGlyph", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
@@ -531,18 +541,21 @@ namespace Brushblade.Presentation
             label.raycastTarget = false;
             Ui.Stretch(label.rectTransform);
 
-            StartCoroutine(FlyRoutine(rect, from, to, onArrive));
+            StartCoroutine(FlyRoutine(rect, from, to, onArrive, duration, easeOut));
         }
 
-        private static IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to, Action onArrive)
+        private static IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to, Action onArrive,
+            float duration, bool easeOut)
         {
             float t = 0f;
-            const float duration = 0.22f;
+            if (duration <= 0f) duration = CastFlyDuration; // 防 0 除:传 0 会让 k 变 NaN,牌卡在起点
             while (t < duration && rect != null)
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
                 float k = Mathf.Clamp01(t / duration);
-                float eased = k * k; // ease-in:蓄力后加速砸向目标
+                // ease-in(k²)= 蓄力后加速砸向目标,出字用;
+                // ease-out(1−(1−k)²)= 起步就有速度、临到位收住,抽卡滑入用
+                float eased = easeOut ? 1f - (1f - k) * (1f - k) : k * k;
                 rect.position = Vector3.Lerp(from, to, eased);
                 rect.localScale = Vector3.one * (1f + 0.2f * Mathf.Sin(k * Mathf.PI));
                 yield return null;
