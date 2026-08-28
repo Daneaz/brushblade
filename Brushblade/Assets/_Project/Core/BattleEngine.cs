@@ -416,6 +416,16 @@ namespace Brushblade.Core
         private static int EffectiveSummonAttack(SummonState summon) =>
             Math.Max(0, summon.Attack + summon.Statuses.TotalMagnitude(StatusKind.AttackBuff));
 
+        /// <summary>召唤物挨一记时的有效护甲(点数,2026-08-28,铠 可以挂给召唤物了)。
+        ///
+        /// 召唤物**没有基础护甲**(SummonState 没有 Defense 字段,被动也不给),所以这一项
+        /// 完全来自玩家挂上去的增益 —— 无 buff 时恒 0,减法退化成不减,与改前逐位相同。
+        /// 破甲(ArmorBreak)一并读进来:眼下没有任何「敌人破召唤物甲」的通道,但口径与
+        /// EffectivePlayerDefense 对齐,将来配了那种敌人这里不用再改。</summary>
+        private static int EffectiveSummonDefense(SummonState summon) => Math.Max(0,
+            summon.Statuses.TotalMagnitude(StatusKind.DefenseBuff)
+            - summon.Statuses.TotalMagnitude(StatusKind.ArmorBreak));
+
         /// <summary>给玩家挂一层攻击增益。E-b3 的 剡/战意 会走正规的效果分支,
         /// 在那之前这是局内改变攻击力的唯一入口,现阶段只有测试在用。
         ///
@@ -1064,7 +1074,12 @@ namespace Brushblade.Core
                     // EffectiveSummonAttack / RollCritForSummon / EffectiveEnemyDefense 的
                     // attackerBag,三条都真读得到。
                     || effect.Kind == EffectKind.Empower || effect.Kind == EffectKind.CritBuff
-                    || effect.Kind == EffectKind.PierceBuff)
+                    || effect.Kind == EffectKind.PierceBuff
+                    // 第三批(2026-08-28):护甲与反弹。至此七条纯增益全部单体化。
+                    // 玩家专属的四条**不在这张名单上,别顺手加**:战意(连续出字的节奏奖励,
+                    // 召唤物不由玩家逐张出字驱动)、利(AP 是玩家资源)、燥(召唤物不施加灼烧)、
+                    // 淋(群体治疗本就覆盖全场)。
+                    || effect.Kind == EffectKind.DefenseBuff || effect.Kind == EffectKind.Reflect)
                     return true;
             return false;
         }
@@ -1971,7 +1986,10 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.Reflect:
-                        _playerStatuses.Apply(new StatusEffect
+                        // 2026-08-28:改单体。玩家身上那份在召唤物顶前排时本来就会结算
+                        // (2026-08-08,镜 × 召唤物),召唤物自己挂一份时**两份都反** ——
+                        // 它们是两个不同来源,见 DamageSummon 末尾。
+                        AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.Reflect, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = effect.Turns, SourceId = def.Id,
@@ -2044,7 +2062,8 @@ namespace Brushblade.Core
                     case EffectKind.DefenseBuff:
                         // 护甲 +Value **点**(2026-08-12,E-b4 T3):多字**加法**叠加(旧乘法层是
                         // 连乘,天然趋近但不达 0;点数是直接相加),同字仍按 SourceId 覆盖 = 只刷新。
-                        _playerStatuses.Apply(new StatusEffect
+                        // 2026-08-28:改单体;召唤物侧由 EffectiveSummonDefense 读走。
+                        AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1, SourceId = def.Id, // 段内持久
@@ -2926,22 +2945,27 @@ namespace Brushblade.Core
                 return false;
             }
 
-            // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,先于护盾消耗 ——
-            // 与玩家侧 DamagePlayerDirect 同一条理由(免疫是稀缺的一次性资源,让它挡小伤
-            // 而把盾留着更亏)。读的是**召唤物自己的**袋子,与玩家的层数互不挪用。
-            //
-            // 位置在生克之前:免疫挡的是「这一记攻击」而不是「这一记的数值」,过不过生克
-            // 都一样挡下,而放在生克之后会白算一次。玩家侧免疫排在护甲之后是因为那边要先
-            // 让护甲把数值压下去再判,召唤物没有护甲那一步(要到第三批才有),这里没有这个约束。
+            int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
+
+            // 护甲(2026-08-28,铠 可以挂给召唤物了):点数减法,下钳 0 —— 甲厚过攻击力时
+            // 不给召唤物回血。位置在生克**之后**,与 DamageEnemy 那边(生克 → 暴击 → 减甲)
+            // 同序:减的是实际打到身上的量,不是敌人名义上的攻击力。
+            taken = Math.Max(0, taken - EffectiveSummonDefense(summon));
+
+            // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,排在护甲之后、护盾之前 ——
+            // 与玩家侧 DamagePlayerDirect 逐步同序。读的是**召唤物自己的**袋子,与玩家的
+            // 层数互不挪用。
+            // 不特判「护甲已经把它减到 0」:免疫挡的是**这一记攻击**,不是这一记的数值 ——
+            // 玩家侧那条注释说的是同一件事,两边刻意一致。
             if (ConsumeImmunity(summon.Statuses))
             {
                 // SecondIndex 给出被保护的槽位 —— 玩家侧那条是 −1,表现层靠这个数决定
-                // 「免」字飘在谁头上。Amount 报被挡掉的伤害(未过生克的原值)。
-                _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, damage, summonIndex));
+                // 「免」字飘在谁头上。Amount 报被挡掉的伤害(过完生克与护甲的实际量,
+                // 与玩家侧同口径)。
+                _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, taken, summonIndex));
                 return true;
             }
 
-            int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
             int absorbed = Math.Min(summon.Shield, taken);
             summon.Shield -= absorbed;
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
@@ -2980,7 +3004,11 @@ namespace Brushblade.Core
             // 那条守的是同一类问题)。bounced > 0 守卫同样必须有:0 伤反弹会推进
             // enemy.HitsTaken,白送生僻字现形 / 焦痕加攻 / 叠字分裂(与玩家侧同一条注释解释过)。
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」,与玩家侧一致。
-            int reflect = _playerStatuses.TotalMagnitude(StatusKind.Reflect);
+            // 两份反弹都算(2026-08-28,壁 可以挂给召唤物了):玩家身上那份管「我方挨的打」
+            // (上面那段 2026-08-08 的裁定),召唤物自己那份管「它自己挨的打」。它们是两个
+            // 不同来源,不是同一条的重复 —— 各按自己的百分比反,基数同为 taken。
+            int reflect = _playerStatuses.TotalMagnitude(StatusKind.Reflect)
+                + summon.Statuses.TotalMagnitude(StatusKind.Reflect);
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
                 int bounced = taken * reflect / 100;

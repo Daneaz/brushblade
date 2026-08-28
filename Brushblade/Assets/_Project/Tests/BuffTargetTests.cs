@@ -45,6 +45,12 @@ namespace Brushblade.Core.Tests
             // 锐:穿透 +8 点
             new CharDef("锐", Element.Metal,
                 effects: new[] { new EffectDef(EffectKind.PierceBuff, 8) }),
+            // 铠:护甲 +8 点
+            new CharDef("铠", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 8) }),
+            // 壁:反弹 50%(真实字表的 壁 还带 Shield,盾会把伤害吃掉、看不出反弹,所以这里只留反弹)
+            new CharDef("壁", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.Reflect, 50, turns: 3) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies = null, int seed = 1) =>
@@ -318,6 +324,103 @@ namespace Brushblade.Core.Tests
             engine.Cast("锐");   // 给玩家
             Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(12),
                 "玩家的穿透不该帮召唤物破甲");
+        }
+
+        // ---- 第三批:防御侧(铠 DefenseBuff / 壁 Reflect) ----
+
+        [Test]
+        public void NeedsAllyTarget_TrueForDefenseSideBuffs()
+        {
+            Assert.That(BattleEngine.NeedsAllyTarget(Graph().Get("铠")), Is.True);
+            Assert.That(BattleEngine.NeedsAllyTarget(Graph().Get("壁")), Is.True);
+        }
+
+        [Test]
+        public void DefenseBuff_DefaultsToPlayer()
+        {
+            var engine = Engine(new[] { "铠" });
+            engine.Cast("铠");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff), Is.EqualTo(8));
+        }
+
+        [Test]
+        public void DefenseBuff_OnSummon_CutsIncomingDamage()
+        {
+            // 30 攻的敌人打 100 血的召唤物:无甲掉 30,挂 8 点甲掉 22
+            var puncher = new[] { new EnemyDef("拳", Element.Heart, 3000, 30) };
+
+            var plain = Engine(new[] { "兵" }, puncher);
+            plain.Cast("兵");
+            int hp0 = plain.Summons[0].Hp;
+            plain.EndTurn();
+            Assert.That(hp0 - plain.Summons[0].Hp, Is.EqualTo(30), "夹具基线:无甲吃满 30");
+
+            var engine = Engine(new[] { "兵", "铠" }, puncher);
+            engine.Cast("兵");
+            engine.Cast("铠", allySlot: 0);
+            int hp1 = engine.Summons[0].Hp;
+            engine.EndTurn();
+            Assert.That(hp1 - engine.Summons[0].Hp, Is.EqualTo(22), "30 − 8 点甲");
+        }
+
+        [Test]
+        public void DefenseBuff_OnPlayer_DoesNotProtectSummon()
+        {
+            var engine = Engine(new[] { "兵", "铠" },
+                new[] { new EnemyDef("拳", Element.Heart, 3000, 30) });
+            engine.Cast("兵");
+            engine.Cast("铠");   // 给玩家
+            int hp = engine.Summons[0].Hp;
+            engine.EndTurn();
+            Assert.That(hp - engine.Summons[0].Hp, Is.EqualTo(30), "玩家的甲不该替召唤物挡");
+        }
+
+        [Test]
+        public void DefenseBuff_OnSummon_CannotPushDamageBelowZero()
+        {
+            // 甲厚过攻击力时下钳 0,不给召唤物回血
+            var engine = Engine(new[] { "兵", "铠", "铠", "铠", "铠" },
+                new[] { new EnemyDef("轻", Element.Heart, 3000, 5) });
+            engine.Cast("兵");
+            for (int n = 0; n < 4; n++) engine.Cast("铠", allySlot: 0);  // 同字按 SourceId 只刷新
+            int hp = engine.Summons[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(hp), "5 攻打不穿 8 甲,血量分毫不动");
+        }
+
+        [Test]
+        public void Reflect_OnSummon_BouncesBackToAttacker()
+        {
+            // 30 攻打召唤物,50% 反弹 → 敌人吃 15。反弹不吃敌人护甲、不走生克
+            var engine = Engine(new[] { "兵", "壁" },
+                new[] { new EnemyDef("拳", Element.Heart, 3000, 30) });
+            engine.Cast("兵");
+            engine.Cast("壁", allySlot: 0);
+            int enemyHp = engine.Enemies[0].Hp;
+
+            engine.EndTurn();
+
+            // 召唤物攻 3(兵),自己也会打敌人一下 —— 所以扣掉那 3
+            Assert.That(enemyHp - engine.Enemies[0].Hp, Is.EqualTo(15 + 3),
+                "反弹 15 + 召唤物自己那记 3");
+        }
+
+        [Test]
+        public void Reflect_OnPlayerAndSummon_BothBounce()
+        {
+            // 玩家身上的反弹在召唤物顶前排时本来就会结算(2026-08-08,镜 × 召唤物)。
+            // 召唤物自己也挂一份时**两份都反** —— 它们是两个不同来源
+            var engine = Engine(new[] { "兵", "壁", "壁" },
+                new[] { new EnemyDef("拳", Element.Heart, 3000, 30) });
+            engine.Cast("兵");
+            engine.Cast("壁");                // 给玩家
+            engine.Cast("壁", allySlot: 0);   // 给召唤物
+            int enemyHp = engine.Enemies[0].Hp;
+
+            engine.EndTurn();
+
+            Assert.That(enemyHp - engine.Enemies[0].Hp, Is.EqualTo(15 + 15 + 3),
+                "玩家那份 15 + 召唤物那份 15 + 召唤物自己那记 3");
         }
 
         [Test]
