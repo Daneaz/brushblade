@@ -35,6 +35,11 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `StatMapping.dc.html` | 详情页数值口径 | `CharInfo` |
 | `Dialogs.dc.html` | 弹窗族 | `Ui.Modal` / `ModalShell` / `Alert` 的 13 个调用点 |
 | `Popups.dc.html` | 飘字与全屏反馈 | `Juice.cs` / `WuxingChart.cs` |
+| `UnitFoe.dc.html` | 单位详情 · 敌人 | `OnEnemyClicked` → `EnemyInfo` |
+| `UnitAlly.dc.html` | 单位详情 · 召唤物 | `OnSummonClicked` → `SummonInfo` |
+| `UnitMe.dc.html` | 单位详情 · 执笔人 | 实现侧**还没有**入口 |
+| `StatusGlossary.dc.html` | 状态词条 29 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
+| `UnitSheetAlt.dc.html` | 详情承载方式取舍 | 低保真，无对应实现 |
 
 `canvas.json` 是画布布局（位置、分页、便签）；便签里记着每处改动的理由与待办，
 **别只看画面不看便签**。`base.css` 是六屏共用的令牌（色板取自 `Theme.cs`，
@@ -52,6 +57,12 @@ node <skill>/seed-canvas.mjs \
   --artboard Main.dc.html --artboard Home.dc.html --artboard Battle.dc.html \
   --artboard Bestiary.dc.html --artboard Perks.dc.html --artboard Shop.dc.html \
   --artboard Device.dc.html --artboard CardStates.dc.html --artboard StatMapping.dc.html \
+  --artboard RunEnd.dc.html --artboard SafeLayer.dc.html --artboard Settle.dc.html \
+  --artboard Event.dc.html --artboard Reward.dc.html --artboard Replace.dc.html \
+  --artboard Dialogs.dc.html --artboard Popups.dc.html \
+  --artboard UnitFoe.dc.html --artboard UnitAlly.dc.html --artboard UnitMe.dc.html \
+  --artboard StatusGlossary.dc.html --artboard UnitSheetAlt.dc.html \
+  --image mob_jiaohen.png \
   --canvas canvas.json
 ```
 
@@ -135,3 +146,26 @@ node <skill>/seed-canvas.mjs \
   写的是【剑】——新手会被指去点一张手上没有的牌。
 - `chars.json` 的 `Pinyin` / `Gloss` 一条都没填，字段与 `ConfigLoader` 都在，
   卡面拼音位现在是空的。稿里 72 个字的拼音释义是补的，需要过一遍再写进详表。
+
+## 2026-08-29 新增：单位详情弹窗（第四页）
+
+战斗里点敌人 / 召唤物 / 执笔人，弹同一张详情。三件事一张稿：**状态逐条带说明**（含 debuff 与 DoT）、
+**基本描述 + 被动/主动的特性说明**、**立绘**。
+
+- 三类单位共用一个骨架（立绘 88 方 + 名与三条 + 左状态右特性 + 底部提示行），只换内容不换版式。
+- 状态说明写在名字底下，**不做二级弹窗**——弹窗上再弹一层，就得先关掉这层才看得回战场，
+  而玩家点开详情正是为了对着战场看。
+- `StatusGlossary.dc.html` 是那句说明的**唯一出处**：29 枚图标 + 4 条走文字 chip 的能力，
+  逐条写清机制 / 挂在谁身上 / 时长口径 / 能不能清掉。落地时它是 `status.*` 两族 strings key 的底稿。
+- `mob_jiaohen.png` 是敌人立绘，从 `Presentation/Mobs/Resources/` 的四层压平并缩到 256：
+  `magick enemy_jiaohen_body.png enemy_jiaohen_face.png -composite enemy_jiaohen_wisp.png -composite
+  enemy_jiaohen_state.png -composite -resize 256x256 -strip mob_jiaohen.png`
+  （层序取自 `MobAssets.Layers` + MobView 的 state 层）。
+
+⚠ **稿子先行**，实现侧还是老样子：现在点敌人/召唤物走 `Ui.Modal(title, body)`——一段
+StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔人根本没有入口**。要落地得动四处：
+玩家条加点击入口；`EnemyInfo` / `SummonInfo` 从「返回整段文本」改成返回逐条结构；新建
+`status.*` 的 strings key；以及新文案上线前**重跑字体子集**。
+
+顺带查出：`Battle.dc.html` 里 碉 写的是「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
+「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）——本页按 `chars.json` 画，战斗稿那格待回填。

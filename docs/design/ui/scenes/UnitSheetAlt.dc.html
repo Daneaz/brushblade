@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* 低保真:两种承载方式的取舍，不是成品。只用灰阶与占位条，免得看成第二套视觉。 */
+    .sheet { width: 1180px; height: 450px; box-sizing: border-box; padding: 24px 28px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      display: flex; flex-direction: column; gap: 16px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+    .sub { font-size: 11.5px; color: #5D646F; margin-top: 6px; line-height: 1.7; max-width: 940px; }
+    .sub b { color: #161B22; font-weight: 500; }
+    .row { display: flex; gap: 24px; }
+    .opt { flex: 1; min-width: 0; }
+    .cap { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+    .cap h3 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+    .badge { height: 17px; padding: 0 8px; border-radius: 9px; font-size: 9.5px;
+      display: inline-flex; align-items: center; letter-spacing: .5px; }
+    .badge.on { background: #E7EFE9; color: #2E7D46; }
+    .badge.off { background: #E9E5DB; color: #88909C; }
+
+    /* 低保真设备框 */
+    .lofi { position: relative; width: 466px; height: 215px; box-sizing: border-box;
+      background: #E8E4DA; border: 1px solid #CFC7B6; border-radius: 6px; overflow: hidden; }
+    .lofi .band { position: absolute; left: 30px; right: 30px; height: 9px; border-radius: 3px;
+      background: #CFC7B6; }
+    .lofi .cell { position: absolute; width: 70px; height: 30px; border-radius: 4px;
+      background: #D7D1C4; border: 1px solid #C4BCAB; }
+    .lofi .cell.on { border-color: #9B1E22; box-shadow: 0 0 0 2px rgba(155,30,34,.28); background: #E4D3CE; }
+    .lofi .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.34); }
+    .lofi .card { position: absolute; background: #FBF8F1; border: 1px solid #B9B0A0;
+      border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .lofi .ph { display: flex; gap: 7px; }
+    .lofi .sq { width: 44px; height: 44px; border-radius: 4px; background: #D7D1C4;
+      border: 1px dashed #B0A695; flex: none; display: flex; align-items: center; justify-content: center;
+      font-size: 8px; color: #8B8271; }
+    .lofi .lines { flex: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+    .lofi .l { height: 6px; border-radius: 3px; background: #D7D1C4; }
+    .lofi .l.s { width: 55%; } .lofi .l.m { width: 78%; }
+    .lofi .cols2 { display: flex; gap: 8px; flex: 1; }
+    .lofi .c { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+    .lofi .st { display: flex; gap: 4px; align-items: center; }
+    .lofi .chip { width: 20px; height: 9px; border-radius: 5px; background: #B9B0A0; flex: none; }
+    .lofi .txt { flex: 1; height: 6px; border-radius: 3px; background: #DCD6C9; }
+    .lofi .lbl { position: absolute; font-size: 8.5px; color: #9B1E22; letter-spacing: .5px; }
+
+    .why { margin-top: 10px; font-size: 10.5px; line-height: 1.7; color: #5D646F; }
+    .why b { color: #161B22; font-weight: 500; }
+    .why .plus { color: #2E7D46; } .why .minus { color: #9B1E22; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2>详情怎么承载：居中卡 vs 侧栏</h2>
+    <div class="sub">
+      同一份内容（立绘 · 状态逐条 · 特性 · 生克），两种放法。本轮<b>采用居中卡</b>——
+      项目里 13 个弹窗全走 <b>Ui.Modal / ModalShell</b> 同一个外壳，详情要是自己长一套，
+      「我们的弹窗长什么样」这个问题就又没有答案了。侧栏留在这里，是因为它解决的那件事是真的：
+      <b>看详情时战场还看得见</b>。
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="opt">
+      <div class="cap"><h3>A · 居中卡</h3><span class="badge on">本轮采用</span><span class="badge off">760 × 350</span></div>
+      <div class="lofi">
+        <div class="band" style="top: 10px;"></div>
+        <div class="cell on" style="left: 88px; top: 30px;"></div>
+        <div class="cell" style="left: 172px; top: 30px;"></div>
+        <div class="cell" style="left: 256px; top: 30px;"></div>
+        <div class="cell" style="left: 340px; top: 30px;"></div>
+        <div class="band" style="bottom: 14px;"></div>
+        <div class="scrim"></div>
+        <div class="card" style="left: 43px; top: 20px; width: 380px; height: 175px;">
+          <div class="ph">
+            <div class="sq">立绘</div>
+            <div class="lines"><div class="l m"></div><div class="l s"></div><div class="l"></div><div class="l s"></div></div>
+          </div>
+          <div class="cols2">
+            <div class="c">
+              <div class="st"><span class="chip"></span><span class="txt"></span></div>
+              <div class="st"><span class="chip"></span><span class="txt"></span></div>
+              <div class="st"><span class="chip"></span><span class="txt"></span></div>
+              <div class="st"><span class="chip"></span><span class="txt"></span></div>
+            </div>
+            <div class="c">
+              <div class="l"></div><div class="l m"></div><div class="l"></div><div class="l s"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="why">
+        <span class="plus">＋</span> 与另外 13 个弹窗<b>同一个外壳</b>，一眼认得出是弹窗，关法也一样（点遮罩 / ✕）。<br>
+        <span class="plus">＋</span> 760 宽够状态说明<b>一条一行</b>不折行；两列排得下「状态」与「特性」。<br>
+        <span class="minus">−</span> 盖住战场中段：想对着看「它下回合会不会打我」，得先关掉。
+      </div>
+    </div>
+
+    <div class="opt">
+      <div class="cap"><h3>B · 右侧栏</h3><span class="badge off">备选</span><span class="badge off">300 × 全高</span></div>
+      <div class="lofi">
+        <div class="band" style="top: 10px;"></div>
+        <div class="cell on" style="left: 20px; top: 30px;"></div>
+        <div class="cell" style="left: 100px; top: 30px;"></div>
+        <div class="cell" style="left: 180px; top: 30px;"></div>
+        <div class="band" style="bottom: 14px; right: 175px;"></div>
+        <div class="card" style="right: 8px; top: 8px; width: 148px; bottom: 8px;">
+          <div class="ph">
+            <div class="sq">立绘</div>
+            <div class="lines"><div class="l m"></div><div class="l s"></div></div>
+          </div>
+          <div class="l"></div><div class="l s"></div>
+          <div class="st"><span class="chip"></span><span class="txt"></span></div>
+          <div class="st"><span class="chip"></span><span class="txt"></span></div>
+          <div class="st"><span class="chip"></span><span class="txt"></span></div>
+          <div class="l m"></div><div class="l"></div>
+        </div>
+        <span class="lbl" style="left: 20px; bottom: 34px;">战场仍可点</span>
+      </div>
+      <div class="why">
+        <span class="plus">＋</span> 战场大半仍在，能对着血条和行动条读；点下一个单位<b>直接换栏</b>，不用一开一关。<br>
+        <span class="minus">−</span> 148pt 的栏宽下，状态说明每条要折 2–3 行，四条就得滚。<br>
+        <span class="minus">−</span> 它不是弹窗也不是常驻栏，多出一套开合与「点哪儿算关」的规则要单独定。
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1180, "height": 450}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* 规范板,不是一屏 UI:把 29 枚图标背后的**规则**一次写全。
+       详情弹窗里每条状态底下那句说明,取词就取这里 —— 一条状态只有一处定义。 */
+    .sheet { width: 1180px; min-height: 1480px; box-sizing: border-box; padding: 26px 30px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    .icdefs { position: absolute; width: 0; height: 0; overflow: hidden; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .sub { font-size: 12px; color: #5D646F; margin-top: 7px; line-height: 1.75; max-width: 900px; }
+    .sub b { color: #161B22; font-weight: 500; }
+    .sub em { font-style: normal; color: #9B1E22; }
+
+    .cols { margin-top: 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px; align-items: start; }
+    .grp { background: #FBF8F1; border: 1px solid #E7E1D4; border-radius: 10px; padding: 12px 13px 13px; }
+    .gh { display: flex; align-items: center; gap: 7px;
+      font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+    .gh i { width: 9px; height: 9px; border-radius: 3px; background: var(--gc); display: block; }
+    .gl { font-size: 9.5px; color: #88909C; line-height: 1.55; margin: 4px 0 10px; }
+
+    .ent { display: flex; gap: 8px; padding: 8px 0; border-top: 1px solid #EDE7DA; }
+    .cp { flex: none; margin-top: 1px; height: 16px; padding: 0 5px; border-radius: 8px;
+      background: var(--gc); color: #fff; font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; }
+    .cp .ic { width: 11px; height: 11px; flex: none; display: block; }
+    .ed { min-width: 0; }
+    .en { font-size: 11.5px; font-weight: 500; color: #2C333D; }
+    .en code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8.5px;
+      color: #A8A08E; margin-left: 6px; }
+    .et { font-size: 10px; color: #7A7261; line-height: 1.6; margin-top: 3px; }
+    .et b { color: #2C333D; font-weight: 500; }
+    .em { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .em span { height: 15px; padding: 0 6px; border-radius: 8px; background: #EFEADF;
+      color: #7A7261; font-size: 8.5px; display: inline-flex; align-items: center; letter-spacing: .3px; }
+    .em .cl { background: #E7EFE9; color: #2E7D46; }
+
+    .gap { margin-top: 22px; background: #FBF3E6; border: 1px solid #E6D6B4; border-radius: 10px;
+      padding: 13px 15px 14px; }
+    .gh2 { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 1px;
+      color: #8F6B09; }
+    .mrows { margin-top: 9px; display: flex; flex-direction: column; gap: 7px; }
+    .mrow { display: flex; align-items: baseline; gap: 10px; font-size: 10.5px; line-height: 1.6; }
+    .mrow b { flex: none; width: 150px; font-family: "Noto Serif SC", serif; font-weight: 600; color: #2C333D; }
+    .mrow span { flex: none; width: 250px; color: #7A7261; }
+    .mrow em { font-style: normal; color: #5D646F; }
+    .mrow em b { display: inline; width: auto; font-family: inherit; color: #9B1E22; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <svg class="icdefs" aria-hidden="true"><defs><symbol id="ic-burn" viewBox="0 0 64 64"><path fill="#fff" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/></symbol><symbol id="ic-burn_nodecay" viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="none" stroke="#fff" stroke-width="6"/><path fill="#fff" d="M32 14c6 8 10 13 10 18a10 10 0 0 1-20 0c0-4 2-7 4-8-1 3 1 5 2 6 1-5-1-9-2-12 3 1 5-1 6-4z"/></symbol><symbol id="ic-freeze" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7v50M10 19l44 26M54 19L10 45"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M25 14l7 7 7-7M25 50l7-7 7 7"/></symbol><symbol id="ic-slow" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M16 7h32M16 57h32"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M20 7c0 13 12 19 12 25s-12 12-12 25M44 7c0 13-12 19-12 25s12 12 12 25"/></symbol><symbol id="ic-blind" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 50L50 14"/></symbol><symbol id="ic-silence" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M10 13h44v25H33L21 50V38H10z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 53L53 11"/></symbol><symbol id="ic-curse" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 55c-12 0-22-10-22-22S20 11 32 11c9 0 17 7 17 16s-6 14-13 14-9-4-9-9 3-7 7-7"/></symbol><symbol id="ic-seal" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M21 30v-8a11 11 0 0 1 22 0v8"/><path fill="#fff" d="M15 30h34v24H15z"/></symbol><symbol id="ic-immunity" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M23 32l7 8 12-14"/></symbol><symbol id="ic-reflect" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M11 7v50"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M52 20H24"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M34 11l-10 9 10 9"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M24 45h28"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M42 36l10 9-10 9"/></symbol><symbol id="ic-attack" viewBox="0 0 64 64"><path fill="#fff" d="M52 8l-4 14-26 26-8-8L40 14z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 46l-8 8"/></symbol><symbol id="ic-morale" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 8v48"/><path fill="#fff" d="M18 12h30l-8 10 8 10H18z"/></symbol><symbol id="ic-crit" viewBox="0 0 64 64"><path fill="#fff" d="M32 4l7 19 19-7-7 19 7 19-19-7-7 19-7-19-19 7 7-19-7-19 19 7z"/></symbol><symbol id="ic-pierce" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32h42M40 20l12 12-12 12"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M30 12v40"/></symbol><symbol id="ic-defense" viewBox="0 0 64 64"><path fill="#fff" d="M32 6l22 8v19c0 13-11 23-22 27-11-4-22-14-22-27V14z"/></symbol><symbol id="ic-dodge" viewBox="0 0 64 64"><circle cx="45" cy="32" r="11" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M27 17c-7 9-7 21 0 30"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M14 21c-5 7-5 15 0 22"/></symbol><symbol id="ic-speed" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 20h26M8 32h34M8 44h26"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M40 20l14 12-14 12"/></symbol><symbol id="ic-shield" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/></symbol><symbol id="ic-armorbreak" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M37 17l-10 15h11l-10 15"/></symbol><symbol id="ic-bleed" viewBox="0 0 64 64"><path fill="#fff" d="M31 6c8 12 13 19 13 25a13 13 0 0 1-26 0c0-6 5-13 13-25z"/><circle cx="15" cy="49" r="5" fill="#fff"/><circle cx="47" cy="52" r="4" fill="#fff"/></symbol><symbol id="ic-scorch" viewBox="0 0 64 64"><path fill="#fff" d="M26 6c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M52 52V24M44 32l8-8 8 8"/></symbol><symbol id="ic-sear" viewBox="0 0 64 64"><path fill="#fff" d="M32 5c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M9 51c5-6 10 6 15 0s10 6 16 0 8 4 15 0"/></symbol><symbol id="ic-split" viewBox="0 0 64 64"><path fill="#fff" d="M27 6a26 26 0 0 0 0 52z"/><path fill="#fff" d="M37 6a26 26 0 0 1 0 52z"/></symbol><symbol id="ic-obscure" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 12h38v40H13z"/><path fill="#fff" d="M13 33c8-6 13 6 21 0s8 4 17 0v19H13z"/></symbol><symbol id="ic-focus" viewBox="0 0 64 64"><circle cx="32" cy="32" r="17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 5v10M32 49v10M5 32h10M49 32h10"/></symbol><symbol id="ic-ranged" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 10c13 8 13 36 0 44"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 32h33M39 22l10 10-10 10"/></symbol><symbol id="ic-sweep" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 11C28 11 11 28 11 53"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 27C37 27 27 37 27 53"/></symbol><symbol id="ic-skewer" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M6 32h44M40 22l10 10-10 10"/><circle cx="19" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/><circle cx="35" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/></symbol><symbol id="ic-thorns" viewBox="0 0 64 64"><circle cx="32" cy="32" r="11" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/></symbol></defs></svg>
+  <div>
+    <h2>状态词条 · 29 枚图标背后的规则</h2>
+    <div class="sub">
+      战斗里点任何一个单位，弹出的详情都会把它身上的状态<b>逐条列出并附一句说明</b>——这一页就是那句说明的唯一出处，
+      一条状态只在这里定义一次。颜色说的是<b>「这是哪一类」</b>，不是好事坏事：
+      <em>朱砂</em> 会自己长大的威胁 · <em>墨蓝</em> 控制 · <em>翠玉</em> 守方增益 · <em>赭金</em> 攻方增益与资源 ·
+      <em>土黄</em> 攻击模式 · <em>深灰蓝</em> 天生的能力。与 <b>Theme.AbilityChipColor</b> 同口径。<br>
+      <b>时长</b>一栏三种口径要分清：按<b>回合</b>递减的、按<b>层数/次数</b>消耗的、以及 <code>TurnsLeft = −1</code> 的<b>本场持久</b>。
+      「清不掉」= 它是能力或资源，不是状态，驱散与净化都不碰。
+    </div>
+  </div>
+
+  <div class="cols">
+      <div class="grp" style="--gc: #C53637">
+        <div class="gh"><i></i>持续伤害与增长的威胁</div>
+        <div class="gl">朱砂 = 会自己长大的威胁：不处理就越拖越亏</div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-burn"></use></svg>3</span>
+          <div class="ed">
+            <div class="en">灼烧 N 层<code>burn</code></div>
+            <div class="et">敌方身上：每回合 <b>层数 × 20 × 你的攻击比 × 生克</b>；我方身上不吃攻击力也不吃生克，恒 层数 × 20。回合末退 1 层</div>
+            <div class="em"><span>敌 / 我</span><span>层数即时长</span><span class="cl">净化可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-burn_nodecay"></use></svg></span>
+          <div class="ed">
+            <div class="en">不灭<code>burn_nodecay</code></div>
+            <div class="et">灼烧层数<b>不再每回合衰减</b>，伤害算式一个字不动，只挡掉那一步</div>
+            <div class="em"><span>敌</span><span>本场</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-bleed"></use></svg>12</span>
+          <div class="ed">
+            <div class="en">流血 N<code>bleed</code></div>
+            <div class="et">每回合固定 N 点。无属性，不吃生克、也不吃攻击力——施加时数值已定死，是快照</div>
+            <div class="em"><span>敌</span><span>回合数</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-scorch"></use></svg></span>
+          <div class="ed">
+            <div class="en">自燃<code>scorch</code></div>
+            <div class="et"><b>能力，不是状态</b>：每次受击存活，攻 +50%——越磨越烫，宜速杀（焦痕）</div>
+            <div class="em"><span>敌</span><span>永久</span><span class="cl">清不掉</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-sear"></use></svg></span>
+          <div class="ed">
+            <div class="en">灼身<code>sear</code></div>
+            <div class="et"><b>能力，不是状态</b>：它每次攻击给你挂 1 层灼烧（灯花）——备一张净化</div>
+            <div class="em"><span>敌</span><span>永久</span><span class="cl">清不掉</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="grp" style="--gc: #19507F">
+        <div class="gh"><i></i>控制类 debuff</div>
+        <div class="gl">墨蓝 = 让它少打一次、或打得轻一点</div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-freeze"></use></svg></span>
+          <div class="ed">
+            <div class="en">冻结<code>freeze</code></div>
+            <div class="et">跳过它的行动。冻结期间它身上的<b>减速暂停递减</b>（黑名单式豁免，只豁免这一条）</div>
+            <div class="em"><span>敌 / 我</span><span>回合数</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-slow"></use></svg>−50</span>
+          <div class="ed">
+            <div class="en">减速 −N<code>slow</code></div>
+            <div class="et">速度<b>点数</b>（不是百分比）−N，行动条攒得慢、出手更稀</div>
+            <div class="em"><span>敌</span><span>回合数</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-blind"></use></svg>−30%</span>
+          <div class="ed">
+            <div class="en">致盲 −N%<code>blind</code></div>
+            <div class="et">该敌人攻击的<b>命中率</b> −N%，落空就是白打一回合</div>
+            <div class="em"><span>敌</span><span>回合数</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-silence"></use></svg></span>
+          <div class="ed">
+            <div class="en">沉默<code>silence</code></div>
+            <div class="et">它的<b>主动机制</b>全部哑火（分裂、自补全、鼓舞…）；<b>普攻照常</b>——沉默压能力，不压行动</div>
+            <div class="em"><span>敌</span><span>回合数</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-curse"></use></svg>−25%</span>
+          <div class="ed">
+            <div class="en">诅咒 −N%<code>curse</code></div>
+            <div class="et">攻击 −N%。与攻击增益<b>同一根轴</b>，±50% 精确相消；不叠层，重复施放只刷新</div>
+            <div class="em"><span>敌</span><span>回合数</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-armorbreak"></use></svg>20</span>
+          <div class="ed">
+            <div class="en">破甲 −N<code>armorbreak</code></div>
+            <div class="et">目标护甲 −N <b>点</b>，<b>可叠加</b>——两张碎就是 −40</div>
+            <div class="em"><span>敌</span><span>本场持久</span><span class="cl">驱散可解</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-seal"></use></svg>−1</span>
+          <div class="ed">
+            <div class="en">封字 −N AP<code>seal</code></div>
+            <div class="et">你下回合行动点 −N，但<b>至少保留 1 点</b>（Boss 倾覆）</div>
+            <div class="em"><span>我</span><span>下回合</span><span class="cl">净化可解</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="grp" style="--gc: #2E7D46">
+        <div class="gh"><i></i>我方增益 · 守</div>
+        <div class="gl">翠玉 = 少挨打、或让打你的人自己疼</div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-defense"></use></svg>+18</span>
+          <div class="ed">
+            <div class="en">护甲 +N<code>defense</code></div>
+            <div class="et">每次受到的伤害减 N <b>点</b>。同一个字重复挂只刷新；<b>全场唯一</b>会被带进下一场的增益</div>
+            <div class="em"><span>我 / 召唤物</span><span>本场持久</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-immunity"></use></svg>1</span>
+          <div class="ed">
+            <div class="en">免疫 N 次<code>immunity</code></div>
+            <div class="et">完全挡下 N 次伤害，用掉即消——<b>按次数计，不按回合</b></div>
+            <div class="em"><span>我 / 召唤物</span><span>次数</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-reflect"></use></svg>30%</span>
+          <div class="ed">
+            <div class="en">反弹 N%<code>reflect</code></div>
+            <div class="et">把打到它的伤害按 N% 照回攻击者。与召唤物被动「反伤」<b>各算各的</b>，能一起吃</div>
+            <div class="em"><span>我 / 召唤物</span><span>回合数</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-dodge"></use></svg>+50%</span>
+          <div class="ed">
+            <div class="en">闪避 +N%<code>dodge</code></div>
+            <div class="et">被攻击时按 N% 概率整次躲开。是<b>百分点</b>，量级 ×10 时永不跟着乘</div>
+            <div class="em"><span>我</span><span>本场持久</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-speed"></use></svg>+22</span>
+          <div class="ed">
+            <div class="en">速度 ±N<code>speed</code></div>
+            <div class="et">速度<b>点数</b>增减，行动条攒得更快/更慢（常规 100）</div>
+            <div class="em"><span>我 / 敌</span><span>回合数</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-shield"></use></svg>55</span>
+          <div class="ed">
+            <div class="en">护盾 N<code>shield</code></div>
+            <div class="et"><b>不是状态，是资源</b>：先于血扣除，驱散与净化都碰不到它，也不占状态位</div>
+            <div class="em"><span>我 / 召唤物</span><span>扣完为止</span><span class="cl">碰不到</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="grp" style="--gc: #C9A94A">
+        <div class="gh"><i></i>我方增益 · 攻</div>
+        <div class="gl">赭金 = 这一下打得更重。金在这套 UI 里恒是资源与增益，不表示危险</div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-attack"></use></svg>+50</span>
+          <div class="ed">
+            <div class="en">攻击 +N%<code>attack</code></div>
+            <div class="et"><b>百分点，敌我同一口径</b>：敌人是 BaseAttack 的百分比，你是以基准 100 为底的百分点</div>
+            <div class="em"><span>我 / 敌</span><span>回合数</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-morale"></use></svg>3</span>
+          <div class="ed">
+            <div class="en">战意 N 层<code>morale</code></div>
+            <div class="et">N 是<b>层数</b>不是加成值：每层 +10% 攻击，上限 5 层（满层 +50%）</div>
+            <div class="em"><span>我</span><span>本场持久</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-crit"></use></svg>20%</span>
+          <div class="ed">
+            <div class="en">暴击 +N%<code>crit</code></div>
+            <div class="et">暴击率加成（百分点）。暴击伤害恒 <b>×1.5</b>；显示读已钳到 100 的有效值</div>
+            <div class="em"><span>我</span><span>本场持久</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-pierce"></use></svg>+24</span>
+          <div class="ed">
+            <div class="en">穿透 +N<code>pierce</code></div>
+            <div class="et">结算时把目标护甲<b>当作少 N 点</b>。实际减多少要看那只怪的甲，所以 chip 报的是你攒了多少</div>
+            <div class="em"><span>我 / 召唤物</span><span>本场持久</span><span class="cl">—</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="grp" style="--gc: #997C3C">
+        <div class="gh"><i></i>攻击模式与站位</div>
+        <div class="gl">土黄 = 它够不够得着我、一次打几个。近战是默认，不出 chip</div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-ranged"></use></svg></span>
+          <div class="ed">
+            <div class="en">远程<code>ranged</code></div>
+            <div class="et"><b>无视你的前排</b>，直接打后排召唤物或你本人</div>
+            <div class="em"><span>敌</span><span>常驻</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-sweep"></use></svg>70%</span>
+          <div class="ed">
+            <div class="en">横扫<code>sweep</code></div>
+            <div class="et">按<b>列</b>溅射到相邻目标，百分比是溅射伤害占比</div>
+            <div class="em"><span>敌 / 召唤物</span><span>常驻</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-skewer"></use></svg>70%</span>
+          <div class="ed">
+            <div class="en">穿刺<code>skewer</code></div>
+            <div class="et">按<b>列</b>贯穿到后一排，百分比是后续目标的伤害占比</div>
+            <div class="em"><span>敌 / 召唤物</span><span>常驻</span><span class="cl">—</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-focus"></use></svg></span>
+          <div class="ed">
+            <div class="en">锁人<code>focus</code></div>
+            <div class="et">越过你的前排，直接盯着<b>你本人</b>打</div>
+            <div class="em"><span>敌</span><span>常驻</span><span class="cl">—</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="grp" style="--gc: #3D4E69">
+        <div class="gh"><i></i>能力与被动</div>
+        <div class="gl">深灰蓝 = 它是这么设计的，不是你打上去的。能力清不掉，只能顺着打</div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-split"></use></svg></span>
+          <div class="ed">
+            <div class="en">叠字<code>split</code></div>
+            <div class="et">首次受击存活即分裂成两个半血（场上不足 4 只时）——<b>一击打死免分裂</b></div>
+            <div class="em"><span>敌</span><span>永久</span><span class="cl">清不掉</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-obscure"></use></svg></span>
+          <div class="ed">
+            <div class="en">生僻<code>obscure</code></div>
+            <div class="et">属性隐藏显示为「？」，受击两次后被「读懂」现形</div>
+            <div class="em"><span>敌</span><span>至现形</span><span class="cl">清不掉</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-thorns"></use></svg>50</span>
+          <div class="ed">
+            <div class="en">反伤 N<code>thorns</code></div>
+            <div class="et">被攻击时反弹 N 点伤害，<b>不走生克、无视护甲</b>（碉 / 堡）</div>
+            <div class="em"><span>召唤物</span><span>常驻</span><span class="cl">清不掉</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-dodge"></use></svg>50%</span>
+          <div class="ed">
+            <div class="en">闪避 N%<code>dodge</code></div>
+            <div class="et">被攻击时按 N% 概率躲开（召唤物被动，与增益版同图标不同来源）</div>
+            <div class="em"><span>召唤物</span><span>常驻</span><span class="cl">清不掉</span></div>
+          </div>
+        </div>
+        <div class="ent">
+          <span class="cp"><svg class="ic"><use href="#ic-speed"></use></svg>150</span>
+          <div class="ed">
+            <div class="en">疾<code>speed</code></div>
+            <div class="et">速度 150（常规 100），行动条攒得更快（桤）</div>
+            <div class="em"><span>召唤物</span><span>常驻</span><span class="cl">清不掉</span></div>
+          </div>
+        </div>
+      </div>
+  </div>
+
+  <div class="gap">
+    <div class="gh2">三处「有状态、没图标」——落地前要拍板</div>
+    <div class="mrows">
+          <div class="mrow"><b>持续治疗</b><span>每回合给目标回 N 点血（HealOverTime）</span><em><b>没有图标</b>——29 枚里缺这一枚，落地要补第 30 枚</em></div>
+          <div class="mrow"><b>缺笔 · 标点 · 通假</b><span>三条敌人能力</span><em>走<b>文字 chip</b>（AbilityChipText），本来就不进图标表——它们的 chip 要带实时进度（「缺笔 2/3」），图标带不了数字以外的字</em></div>
+          <div class="mrow"><b>AP 上限 +N</b><span>利：每回合行动点上限 +N</span><em><b>刻意不出 chip</b>：底栏 AP 格子多一格就是它的反馈，再出一枚是重复</em></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1180, "height": 1480}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
