@@ -215,9 +215,14 @@ namespace Brushblade.Presentation
                     // 真的发生过,飘字锚在屏幕中下(null,与 EnemyAttack/Heal/Shield 同口径)——
                     // 原先飘在敌人头上会读成「这只敌人免疫了」,而且没有 Lunge,整记攻击等于
                     // 在画面上凭空消失。
+                    // 免疫挡下(2026-08-06;2026-08-28 免疫可以挂给召唤物了)。
+                    // SecondIndex ≥0 = 被保护的召唤物槽位,飘字锚在它身上;玩家为 −1,
+                    // 飘屏幕中下 —— 与 Missed / EnemyAttack 同口径。不锚的话「免」会飘在
+                    // **攻击者**头上,玩家读成「敌人免疫了」,正好反过来。
                     case BattleEventKind.ImmunityBlocked:
                         Lunge(enemyAnchor(e.TargetIndex));
-                        Popup(Strings.T("juice.popup.immune"), Theme.Jade, null);
+                        Popup(Strings.T("juice.popup.immune"), Theme.Jade, e.SecondIndex >= 0
+                            ? summonAnchor?.Invoke(e.SecondIndex) : null);
                         break;
                     // 打空(2026-08-07,致盲/闪避):敌人照常下扑,但什么都没打到。
                     // 没有反馈的话玩家只会以为敌人这回合没动。SecondIndex ≥0 = 打空的召唤物,

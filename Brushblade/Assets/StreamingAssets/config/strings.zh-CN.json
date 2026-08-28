@@ -169,7 +169,7 @@
   "char.effect.burnpotency": "本场灼烧每层结算+{value}",
   "char.effect.burnsettlenow": "立即结算一次灼烧",
   "char.effect.burnsingle": "单体灼烧+{value}",
-  "char.effect.cleanse": "净化自身全部减益",
+  "char.effect.cleanse": "净化全部减益",
   "char.effect.critbuff": "本场暴击率+{value}%(暴击伤害×{mult})",
   "char.effect.damageall": "全体{value}伤",
   "char.effect.damagesingle": "{shape}{value}伤",

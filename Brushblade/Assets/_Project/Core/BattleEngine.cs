@@ -1028,13 +1028,34 @@ namespace Brushblade.Core
         {
             foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.HealSelf || effect.Kind == EffectKind.HealOverTime
-                    || effect.Kind == EffectKind.Shield)
+                    || effect.Kind == EffectKind.Shield
+                    // 增益改单体(2026-08-28 用户拍板):净化与免疫也要选给谁。
+                    // ⚠ 这张名单只放**挂上就真生效**的效果。攻击/暴击/穿透(战/锋/锐)与
+                    // 护甲/反弹(铠/壁)要先在召唤物侧建结算链路 —— 在那之前放进来,
+                    // 玩家能把铠加给召唤物、状态挂上去却没人读,比不让加更糟。
+                    || effect.Kind == EffectKind.Cleanse || effect.Kind == EffectKind.Immunity)
                     return true;
             return false;
         }
 
-        /// <summary>这个槽位现在能不能作为治疗目标(表现层据此置灰;引擎在 Cast 里用同一条判据)。
-        /// 玩家(−1)恒可治;召唤物要活着 —— 尸体归复活管,治疗救不回来。</summary>
+        /// <summary>这次效果落在谁的状态袋上(2026-08-28,增益改单体)。
+        /// allySlot = <see cref="Targeting.PlayerTarget"/> 就是玩家的袋子,否则是那只召唤物自己的。
+        ///
+        /// 调用方已由 Cast 里的 <see cref="NeedsAllyTarget"/> 校验保证 allySlot 合法(活着的
+        /// 召唤物或玩家),这里那串判空是**防御性**的:退回玩家而不是抛,与 allySlot 缺省值同向 ——
+        /// 一条增益落错地方是可见的手感问题,崩掉整场战斗是另一个量级。</summary>
+        private StatusBag AllyStatuses(int allySlot) =>
+            allySlot == Targeting.PlayerTarget || allySlot < 0 || allySlot >= SummonCap
+                || _summons[allySlot] == null || !_summons[allySlot].Alive
+                ? _playerStatuses
+                : _summons[allySlot].Statuses;
+
+        /// <summary>这个槽位现在能不能作为**友方目标**(表现层据此置灰;引擎在 Cast 里用同一条判据)。
+        /// 玩家(−1)恒可选;召唤物要活着 —— 尸体归复活管,治疗救不回来、增益也不给尸体挂。
+        ///
+        /// 名字里的 Heal 是历史(2026-08-22 只有单体治疗用它);2026-08-26 起护盾、
+        /// 2026-08-28 起净化/免疫也走这同一条判据。没改名是因为它有二十来个调用点、
+        /// 判据本身一个字没变 —— 改名的收益不抵那片改动。</summary>
         public bool CanHealSlot(int slot)
         {
             if (slot == Targeting.PlayerTarget) return true;
@@ -1853,13 +1874,15 @@ namespace Brushblade.Core
                     case EffectKind.Cleanse:
                         // 不发事件(2026-08-06 M2):与诅咒同口径——表现层直接读 PlayerStatuses 画 chip,
                         // 没有任何消费方读 Cleanse 事件,发了也是死代码。
-                        _playerStatuses.RemoveAll(StatusPolarity.Debuff);
+                        // 2026-08-28:改单体,清的是 allySlot 指的那一方(改前无论点谁都清玩家)。
+                        AllyStatuses(allySlot).RemoveAll(StatusPolarity.Debuff);
                         break;
                     case EffectKind.Immunity:
                         // SourceId 用字 ID:同字再出只刷新,不无限叠层数;
                         // 不同字之间可叠(塞 1 + 杜 2 = 3 次),因为它们是不同来源。
                         // 不发事件(2026-08-06 M2):没有任何消费方读 Immunity 事件,理由同 Cleanse。
-                        _playerStatuses.Apply(new StatusEffect
+                        // 2026-08-28:改单体,挂在 allySlot 指的那一方身上。
+                        AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.Immunity, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1, SourceId = def.Id,
@@ -2792,8 +2815,9 @@ namespace Brushblade.Core
 
             // 免疫(2026-08-06):先于护盾消耗 —— 免疫是稀缺的一次性资源,让它去挡一记小伤
             // 而把护盾留着更亏;玩家的预期是「免疫牌打出去,下一记不管多重都不疼」。
-            // 完全挡下,不是减免。召唤物承伤走 DamageSummon,不经这里,所以免疫只保护玩家。
-            if (ConsumeImmunity())
+            // 完全挡下,不是减免。召唤物承伤走 DamageSummon —— 那边 2026-08-28 起有自己的
+            // 一支,读的是召唤物自己的袋子,两边层数互不挪用。
+            if (ConsumeImmunity(_playerStatuses))
             {
                 _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, damage));
                 return true;
@@ -2831,15 +2855,18 @@ namespace Brushblade.Core
         }
 
         /// <summary>消耗一层免疫;成功返回 true。袋子里可能同时有多条(不同字来源可叠),
-        /// 所以从第一条非零的扣 1,扣到 0 就移除那一条,而不是按 Kind 一把清。</summary>
-        private bool ConsumeImmunity()
+        /// 所以从第一条非零的扣 1,扣到 0 就移除那一条,而不是按 Kind 一把清。
+        ///
+        /// 2026-08-28 起收 bag 参数:免疫可以挂在召唤物身上了,而两边的层数**互不挪用** ——
+        /// 打召唤物只扣它自己的。此前这里写死 _playerStatuses。</summary>
+        private static bool ConsumeImmunity(StatusBag bag)
         {
-            var all = _playerStatuses.All;
+            var all = bag.All;
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i].Kind != StatusKind.Immunity || all[i].Magnitude <= 0) continue;
                 all[i].Magnitude -= 1;
-                if (all[i].Magnitude <= 0) _playerStatuses.RemoveEntry(all[i]);
+                if (all[i].Magnitude <= 0) bag.RemoveEntry(all[i]);
                 return true;
             }
             return false;
@@ -2858,6 +2885,21 @@ namespace Brushblade.Core
             {
                 _events.Add(new BattleEvent(BattleEventKind.Missed, enemyIndex, 0, summonIndex));
                 return false;
+            }
+
+            // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,先于护盾消耗 ——
+            // 与玩家侧 DamagePlayerDirect 同一条理由(免疫是稀缺的一次性资源,让它挡小伤
+            // 而把盾留着更亏)。读的是**召唤物自己的**袋子,与玩家的层数互不挪用。
+            //
+            // 位置在生克之前:免疫挡的是「这一记攻击」而不是「这一记的数值」,过不过生克
+            // 都一样挡下,而放在生克之后会白算一次。玩家侧免疫排在护甲之后是因为那边要先
+            // 让护甲把数值压下去再判,召唤物没有护甲那一步(要到第三批才有),这里没有这个约束。
+            if (ConsumeImmunity(summon.Statuses))
+            {
+                // SecondIndex 给出被保护的槽位 —— 玩家侧那条是 −1,表现层靠这个数决定
+                // 「免」字飘在谁头上。Amount 报被挡掉的伤害(未过生克的原值)。
+                _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, damage, summonIndex));
+                return true;
             }
 
             int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
