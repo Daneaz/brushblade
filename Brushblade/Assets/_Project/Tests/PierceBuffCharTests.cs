@@ -144,10 +144,13 @@ namespace Brushblade.CoreTests
             var def = RealGraph().Get("锐");
             Assert.That(def.Rarity, Is.EqualTo(CardRarity.Green));
             Assert.That(def.Element, Is.EqualTo(Element.Metal));
-            // 2026-08-14 T9:锐 补了单攻 40,不再是单效果字 —— 按 Kind 取而不是 Single()。
+            // 2026-08-29 用户拍板:锐 与其余六张 buff 字一起去掉伤害、回归**纯 buff**。
+            // (2026-08-14 T9 曾给它补过单攻 40,那次决定已撤销 —— 增益现在可以单体指定、
+            //  也能加给召唤物,带一发伤害会逼玩家先选敌人再选友方,拖拽更没法直接拖到友方。)
+            // 按 Kind 取仍然保留:将来若再挂别的增益,Single() 会当场炸。
             var effect = def.Effects.Single(e => e.Kind == EffectKind.PierceBuff);
-            Assert.That(def.Effects.Any(e => e.Kind == EffectKind.DamageSingle && e.Value == 40),
-                Is.True, "T9 补的攻击性");
+            Assert.That(def.Effects.Any(e => e.Kind == EffectKind.DamageSingle), Is.False,
+                "纯 buff 字不带伤害 —— 带了就又要先选敌人");
             // 20 的定位(spec §12.1):一张正好穿光墨渍的 20、抵江/钧阶段 30 的 2/3。
             // 2026-08-25:錰 移出字表,「两张叠满 40 配 錰 的本体穿透 30 穿山阶段 60」那条线断了 ——
             // 现在最高的本体穿透是 刺 的 15,叠两张 锐 也只到 55,穿不透山阶段。这是已知缺口。

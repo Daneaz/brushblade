@@ -423,6 +423,48 @@ namespace Brushblade.Core.Tests
                 "玩家那份 15 + 召唤物那份 15 + 召唤物自己那记 3");
         }
 
+        // ---- 真实字表:这几张必须是**纯友方字**,否则拖不到友方身上 ----
+
+        private static string ConfigDir()
+        {
+            // ⚠ 锚点只能是 TestContext.CurrentContext.TestDirectory,见 EventLabelWidthTests 的注释
+            var dir = new System.IO.DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null && !System.IO.Directory.Exists(System.IO.Path.Combine(dir.FullName, "Brushblade")))
+                dir = dir.Parent;
+            Assert.That(dir, Is.Not.Null, "找不到仓库根目录");
+            return System.IO.Path.Combine(dir.FullName, "Brushblade", "Assets", "StreamingAssets", "config");
+        }
+
+        private static RecipeGraph RealGraph() =>
+            Brushblade.Data.ConfigLoader.LoadGraph(
+                System.IO.File.ReadAllText(System.IO.Path.Combine(ConfigDir(), "chars.json")));
+
+        /// <summary>2026-08-29 用户拍板:七张 buff 字**统一去掉对敌效果**,只留增益。
+        ///
+        /// 钉的是表现层那条判据的取数:BattleView.AttachDragToAttack 用
+        /// <c>NeedsAllyTarget(def, attackMode: true) &amp;&amp; !NeedsTarget(def, attackMode: true)</c>
+        /// 判「纯友方字」,只有它为真才**起拖就点亮友方落点**、让玩家直接拖到自己或某只召唤物
+        /// 身上松手。带一发伤害的话这个判据为假,玩家就得先拖到敌人、松手后再点友方两段操作,
+        /// 而直接拖到召唤物身上会落进 target &lt; 0 那一支 = 静默取消,什么也不发生。
+        ///
+        /// ⚠ attackMode 传 **true**:拖拽路径恒用攻击模式,而 EffectsOf 在 attackEffects
+        /// 非空时**只用它、跳过 effects**。给这几张字配第二用法会让增益在拖拽下静默失效 ——
+        /// 这条断言连那个陷阱一起守住了。</summary>
+        [Test]
+        public void ShippedBuffChars_AreAllyOnly_SoTheyCanBeDraggedOntoAllies()
+        {
+            var graph = RealGraph();
+            // 七条纯增益的载体 + 壁(护盾 + 反弹)。澡/浴 带治疗与复活,同样是纯友方字。
+            foreach (string id in new[] { "铠", "战", "锋", "锐", "杜", "壁", "澡", "浴" })
+            {
+                var def = graph.Get(id);
+                Assert.That(BattleEngine.NeedsAllyTarget(def, attackMode: true), Is.True,
+                    $"「{id}」要选友方目标");
+                Assert.That(BattleEngine.NeedsTarget(def, attackMode: true), Is.False,
+                    $"「{id}」不该还要选敌人 —— 带对敌效果就拖不到友方身上了");
+            }
+        }
+
         [Test]
         public void Buff_AutoLocksToPlayerWhenNoSummonAlive()
         {

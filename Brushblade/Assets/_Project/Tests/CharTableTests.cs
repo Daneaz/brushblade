@@ -480,15 +480,18 @@ namespace Brushblade.Core.Tests
             Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
                 .Any(e => e.Kind == EffectKind.BurnNoDecay)), Is.EqualTo(1), "不灭当前只有 焦 一个载体");
 
-            // 流血(2026-08-25 起三档梯度:劈 白 10 / 锋 蓝 15 / 剁 紫 20),收割者是 铡
+            // 流血梯度:劈 白 10 / 剁 紫 20,收割者是 铡。
+            // 2026-08-25 曾是三档(锋 蓝 15 居中);2026-08-29 用户拍板把 锋 连同其余六张
+            // buff 字一起去掉对敌效果、回归纯 buff,中间那一档因此空出来 —— 是已知缺口,
+            // 不是漏钉。要补就再找一张蓝档金系的字挂 Bleed 15。
             var bleeders = RealGraph().All
                 .Where(c => (c.Effects ?? Array.Empty<EffectDef>()).Any(e => e.Kind == EffectKind.Bleed))
                 .ToDictionary(c => c.Id,
                     c => c.Effects.First(e => e.Kind == EffectKind.Bleed).Value);
             Assert.That(bleeders, Is.EquivalentTo(new Dictionary<string, int>
             {
-                ["劈"] = 10, ["锋"] = 15, ["剁"] = 20,
-            }), "铺流血的梯度就是这三张;新增载体时把它加进来一起钉");
+                ["劈"] = 10, ["剁"] = 20,
+            }), "铺流血的梯度就是这两张;新增载体时把它加进来一起钉");
         }
 
         [Test]

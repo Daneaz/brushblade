@@ -853,10 +853,6 @@
           "value": 50
         },
         {
-          "kind": "DamageSingle",
-          "value": 70
-        },
-        {
           "kind": "Cleanse",
           "value": 0
         }
@@ -1141,10 +1137,6 @@
         {
           "kind": "DefenseBuff",
           "value": 5
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 80
         }
       ]
     },
@@ -1160,10 +1152,6 @@
         {
           "kind": "Empower",
           "value": 30
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 40
         }
       ]
     },
@@ -1198,14 +1186,6 @@
         {
           "kind": "CritBuff",
           "value": 20
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 30
-        },
-        {
-          "kind": "Bleed",
-          "value": 15
         }
       ]
     },
@@ -1221,10 +1201,6 @@
         {
           "kind": "PierceBuff",
           "value": 20
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 40
         }
       ]
     },
@@ -1399,10 +1375,6 @@
         {
           "kind": "Immunity",
           "value": 2
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 100
         }
       ]
     },
