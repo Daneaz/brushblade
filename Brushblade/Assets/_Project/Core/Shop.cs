@@ -29,7 +29,7 @@ namespace Brushblade.Core
         public static int CardPriceFor(CardRarity rarity) => CardPrices[(int)rarity - 1];
 
         /// <summary>宝箱位价格(索引 = tier−1)。</summary>
-        public static readonly int[] ChestPrice = { 30, 80, 200, 400, 800, 1500 };
+        public static readonly int[] ChestPrice = { 30, 80, 200, 400, 800, 1100, 1500 };
 
         /// <summary>确保货架是今日的:跨日则重掷(卡位/宝箱位/各每日标记复位)。返回是否发生了重掷。</summary>
         public static bool EnsureShelf(MetaState meta, IReadOnlyList<string> unlockedPool,

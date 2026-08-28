@@ -199,9 +199,12 @@ namespace Brushblade.Core.Tests
                     Is.EqualTo(ChestTier.Paper).Or.EqualTo(ChestTier.Bamboo));
                 Assert.That(EndlessRules.ChestTierFor(12, random),
                     Is.EqualTo(ChestTier.Celadon).Or.EqualTo(ChestTier.Rosewood));
-                Assert.That(EndlessRules.ChestTierFor(40, random), Is.EqualTo(ChestTier.Gilded));
+                Assert.That(EndlessRules.ChestTierFor(40, random),
+                    Is.EqualTo(ChestTier.Gilded).Or.EqualTo(ChestTier.Vermilion));
                 Assert.That(EndlessRules.ChestTierFor(60, random),
-                    Is.EqualTo(ChestTier.Gilded).Or.EqualTo(ChestTier.Crimson));
+                    Is.EqualTo(ChestTier.Vermilion).Or.EqualTo(ChestTier.Crimson));
+                Assert.That(EndlessRules.ChestTierFor(80, random), Is.EqualTo(ChestTier.Crimson),
+                    "70 层往上已到顶,没有更高一档可掷");
             }
         }
 

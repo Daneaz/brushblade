@@ -231,8 +231,9 @@ namespace Brushblade.Core
                 < 10 => (ChestTier.Bamboo, ChestTier.Celadon),
                 < 20 => (ChestTier.Celadon, ChestTier.Rosewood),
                 < 35 => (ChestTier.Rosewood, ChestTier.Gilded),
-                < 50 => (ChestTier.Gilded, ChestTier.Gilded),
-                _ => (ChestTier.Gilded, ChestTier.Crimson),
+                < 50 => (ChestTier.Gilded, ChestTier.Vermilion),
+                < 70 => (ChestTier.Vermilion, ChestTier.Crimson),
+                _ => (ChestTier.Crimson, ChestTier.Crimson),
             };
             return random.Next(10) == 0 ? high : low;
         }

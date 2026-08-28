@@ -9,15 +9,18 @@ namespace Brushblade.Core
         long NowUnixSeconds { get; }
     }
 
-    /// <summary>宝箱六级(19.5.1):数值索引 1~6,对应色阶白→红。</summary>
+    /// <summary>宝箱七级(19.5.1):数值索引 1~7,与 <see cref="CardRarity"/> 的七档色阶一一对应。
+    /// 2026-08-29 补上朱漆匣(橙)—— 此前只有六档,鎏金注成「橙」而实际取的是金色,
+    /// 橙这一档在箱子侧根本不存在。赤霄由 6 挪到 7,旧存档里的赤霄箱会被读成朱漆(未上线,不做迁移)。</summary>
     public enum ChestTier
     {
-        Paper = 1,    // 素纸匣(白)
-        Bamboo = 2,   // 竹简匣(绿)
-        Celadon = 3,  // 青瓷匣(蓝)
-        Rosewood = 4, // 紫檀匣(紫)
-        Gilded = 5,   // 鎏金匣(橙)
-        Crimson = 6,  // 赤霄匣(红)
+        Paper = 1,     // 素纸匣(白)
+        Bamboo = 2,    // 竹简匣(绿)
+        Celadon = 3,   // 青瓷匣(蓝)
+        Rosewood = 4,  // 紫檀匣(紫)
+        Gilded = 5,    // 鎏金匣(金)
+        Vermilion = 6, // 朱漆匣(橙)
+        Crimson = 7,   // 赤霄匣(红)
     }
 
     /// <summary>箱位中的一只宝箱(存档友好:纯数据)。</summary>
@@ -48,27 +51,27 @@ namespace Brushblade.Core
     {
         public const int SlotLimit = 4; // 箱位数(19.5.2);节奏阀 = 箱位 + 计时,无每日上限(2026-07-05 拍板)
 
-        /// <summary>各级开启时长(秒):5m/30m/2h/4h/8h/12h。索引 = tier−1。</summary>
-        public static readonly long[] DurationSeconds = { 300, 1800, 7200, 14400, 28800, 43200 };
+        /// <summary>各级开启时长(秒):5m/30m/2h/4h/8h/10h/12h。索引 = tier−1。</summary>
+        public static readonly long[] DurationSeconds = { 300, 1800, 7200, 14400, 28800, 36000, 43200 };
 
-        /// <summary>各级单次广告缩短(秒):即开/即开/40m/60m/90m/120m。</summary>
-        public static readonly long[] AdReductionSeconds = { 300, 1800, 2400, 3600, 5400, 7200 };
+        /// <summary>各级单次广告缩短(秒):即开/即开/40m/60m/90m/105m/120m。</summary>
+        public static readonly long[] AdReductionSeconds = { 300, 1800, 2400, 3600, 5400, 6300, 7200 };
 
-        /// <summary>各级产出卡数:3/4/6/8/12/16(19.5.1)。</summary>
-        public static readonly int[] CardCount = { 3, 4, 6, 8, 12, 16 };
+        /// <summary>各级产出卡数:3/4/6/8/12/14/16(19.5.1)。</summary>
+        public static readonly int[] CardCount = { 3, 4, 6, 8, 12, 14, 16 };
 
         /// <summary>各级产出墨锭(首版基准)。</summary>
-        public static readonly int[] InkReward = { 15, 30, 60, 120, 250, 400 };
+        public static readonly int[] InkReward = { 15, 30, 60, 120, 250, 320, 400 };
 
         // 档位权重表:每 5 级一档向高档偏移(19.5.3 首版基准;行 = 等级段,列 = tier)
         private static readonly int[][] TierWeightBands =
         {
-            new[] { 55, 30, 10, 4, 1, 0 },   // Lv 1~5
-            new[] { 35, 35, 18, 8, 3, 1 },   // Lv 6~10
-            new[] { 20, 32, 25, 14, 6, 3 },  // Lv 11~15
-            new[] { 10, 25, 28, 20, 11, 6 }, // Lv 16~20
-            new[] { 5, 18, 26, 24, 17, 10 }, // Lv 21~25
-            new[] { 2, 12, 22, 26, 22, 16 }, // Lv 26+
+            new[] { 55, 30, 10, 4, 1, 0, 0 },   // Lv 1~5
+            new[] { 35, 35, 18, 8, 3, 1, 0 },   // Lv 6~10
+            new[] { 20, 32, 25, 14, 6, 2, 1 },  // Lv 11~15
+            new[] { 10, 25, 28, 20, 11, 4, 2 }, // Lv 16~20
+            new[] { 5, 18, 26, 24, 17, 7, 3 },  // Lv 21~25
+            new[] { 2, 12, 22, 26, 22, 11, 5 }, // Lv 26+
         };
 
         public static string TierName(ChestTier tier) => tier switch
@@ -78,11 +81,12 @@ namespace Brushblade.Core
             ChestTier.Celadon => "青瓷匣",
             ChestTier.Rosewood => "紫檀匣",
             ChestTier.Gilded => "鎏金匣",
+            ChestTier.Vermilion => "朱漆匣",
             ChestTier.Crimson => "赤霄匣",
             _ => "?",
         };
 
-        /// <summary>该角色等级下六档宝箱的掉落权重(索引 = tier−1)。</summary>
+        /// <summary>该角色等级下七档宝箱的掉落权重(索引 = tier−1)。</summary>
         public static IReadOnlyList<int> TierWeightsFor(int characterLevel)
         {
             int band = Math.Min((characterLevel - 1) / 5, TierWeightBands.Length - 1);
@@ -104,7 +108,7 @@ namespace Brushblade.Core
                 if (roll < 0) { tier = i + 1; break; }
             }
             if (bossFirstClear) tier += 1;
-            return (ChestTier)Math.Min(tier, 6);
+            return (ChestTier)Math.Min(tier, (int)ChestTier.Crimson);
         }
 
         /// <summary>胜利掉箱:箱位满返回 false(不掉箱、无折算)。</summary>
@@ -208,7 +212,7 @@ namespace Brushblade.Core
             var eligible = EligiblePool(chest.CardPool, graph, meta.OwnedCards);
             var cards = graph == null
                 ? DrawUniform(eligible, random, CardCount[tierIndex])
-                : DrawWeighted(eligible, chest.Tier, random, CardCount[tierIndex], graph);
+                : DrawWeighted(meta, eligible, chest.Tier, random, CardCount[tierIndex], graph);
 
             meta.Ink += ink;
             foreach (var card in cards)
@@ -219,21 +223,48 @@ namespace Brushblade.Core
             return true;
         }
 
-        // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→绿→蓝→紫→金→橙→红)
-        // 首发仅绿/蓝/紫三档,白/金/橙/红列留 0 待扩展;绿蓝紫三列合计 100 = 实际出卡百分比。
+        /// <summary>权重单位是**千分比**(2026-08-29):红在鎏金匣只有 0.1%,百分比装不下。</summary>
+        public const int RarityWeightTotal = 1000;
+
+        // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→绿→蓝→紫→金→橙→红),每行合计 1000‰。
+        // 2026-08-29 重写:此前白/金/橙/红四列写死 0,而 8-25 字表重构后这四档共 37 个字
+        // (占可收集字的一半)—— 白字整档掉不出来,金橙红只能从保底口子漏。
+        // 加粗的九个数是用户拍板值:金 青瓷 10‰ / 紫檀 20‰ / 鎏金 50‰;
+        // 橙 紫檀 5‰ / 鎏金 10‰ / 朱漆 20‰;红 鎏金 1‰ / 朱漆 5‰ / 赤霄 10‰。
         private static readonly int[][] CardRarityWeights =
         {
-            new[] { 0, 92, 8, 0, 0, 0, 0 },   // 素纸
-            new[] { 0, 85, 14, 1, 0, 0, 0 },  // 竹简
-            new[] { 0, 76, 22, 2, 0, 0, 0 },  // 青瓷
-            new[] { 0, 68, 28, 4, 0, 0, 0 },  // 紫檀
-            new[] { 0, 58, 34, 8, 0, 0, 0 },  // 鎏金
-            new[] { 0, 48, 38, 14, 0, 0, 0 }, // 赤霄
+            //       白    绿    蓝    紫    金   橙  红
+            new[] { 400, 500, 100,   0,   0,  0,  0 },  // 素纸
+            new[] { 250, 500, 220,  30,   0,  0,  0 },  // 竹简
+            new[] { 120, 450, 330,  90,  10,  0,  0 },  // 青瓷
+            new[] {  50, 330, 380, 215,  20,  5,  0 },  // 紫檀
+            new[] {   0, 219, 360, 360,  50, 10,  1 },  // 鎏金
+            new[] {   0, 150, 320, 435,  70, 20,  5 },  // 朱漆
+            new[] {   0, 100, 260, 500, 100, 30, 10 },  // 赤霄
         };
 
-        /// <summary>保底稀有度:青瓷保底蓝,紫檀及以上保底紫(首发仅到紫,原橙/红保底钳到紫)。</summary>
+        /// <summary>该档宝箱的卡稀有度权重(千分比,索引 = rarity−1)。</summary>
+        public static IReadOnlyList<int> CardRarityWeightsFor(ChestTier tier)
+            => CardRarityWeights[(int)tier - 1];
+
+        /// <summary>单箱保底:青瓷保蓝、紫檀及以上保紫。金/橙/红不在这里 —— 它们走
+        /// <see cref="PityRules"/> 的跨箱计数保底,两套叠在一起会让高稀有度过量。</summary>
         private static readonly CardRarity?[] GuaranteedRarity =
-            { null, null, CardRarity.Blue, CardRarity.Purple, CardRarity.Purple, CardRarity.Purple };
+        {
+            null, null, CardRarity.Blue, CardRarity.Purple,
+            CardRarity.Purple, CardRarity.Purple, CardRarity.Purple,
+        };
+
+        /// <summary>计数保底(2026-08-29 拍板):开满 Threshold 只 ≥MinTier 的箱还没见过该稀有度,
+        /// 下一箱强制替一张进来。高档箱推进全部低档计数(赤霄箱同时是一次橙、一次金的进度),
+        /// 出了就归零 —— 自然掉出的也算,所以保底只兜极端非酋,不抬总产出。
+        /// 顺序从高到低:同一箱多条同时触发时,先放红再放橙,后面的替换只会挑更低的那张。</summary>
+        public static readonly (CardRarity Rarity, int Threshold, ChestTier MinTier)[] PityRules =
+        {
+            (CardRarity.Red, 20, ChestTier.Crimson),
+            (CardRarity.Orange, 10, ChestTier.Vermilion),
+            (CardRarity.Gold, 5, ChestTier.Gilded),
+        };
 
         /// <summary>候选池 = 前置已满足的字;滤空时回退未过滤的原池
         /// (2026-08-15 用户拍板:出满数优先,限制让路)。
@@ -271,8 +302,8 @@ namespace Brushblade.Core
             return cards;
         }
 
-        private static List<string> DrawWeighted(IReadOnlyList<string> cardPool, ChestTier tier,
-            GameRandom random, int count, RecipeGraph graph)
+        private static List<string> DrawWeighted(MetaState meta, IReadOnlyList<string> cardPool,
+            ChestTier tier, GameRandom random, int count, RecipeGraph graph)
         {
             // 池按稀有度分组(池外/图谱外的 id 忽略)
             var byRarity = new Dictionary<CardRarity, List<string>>();
@@ -301,9 +332,75 @@ namespace Brushblade.Core
                 foreach (var card in cards)
                     if (graph.Get(card).Rarity >= minRarity) { satisfied = true; break; }
                 if (!satisfied)
-                    cards[0] = PickAtLeast(byRarity, minRarity, random);
+                    cards[0] = PickAtLeast(byRarity, minRarity, weights, random);
             }
+
+            ApplyPity(meta, tier, cards, byRarity, random, graph);
             return cards;
+        }
+
+        /// <summary>计数保底(见 <see cref="PityRules"/>)。每条规则:够档的箱先给计数 +1,
+        /// 结果里没有该稀有度且计数到阈值就替掉**最低**的那张,最后按「这一箱到底有没有」归零。
+        /// 池里根本没有该稀有度的字时不替换、计数也不清 —— 下一箱接着攒。</summary>
+        private static void ApplyPity(MetaState meta, ChestTier tier, List<string> cards,
+            Dictionary<CardRarity, List<string>> byRarity, GameRandom random, RecipeGraph graph)
+        {
+            if (cards.Count == 0)
+                return;
+
+            foreach (var rule in PityRules)
+            {
+                if (tier < rule.MinTier)
+                    continue; // 低档箱不推进这条:金只数鎏金及以上、橙只数朱漆及以上、红只数赤霄
+
+                int counter = GetPity(meta, rule.Rarity) + 1;
+                bool hit = HasRarity(cards, rule.Rarity, graph);
+
+                if (!hit && counter >= rule.Threshold
+                    && byRarity.TryGetValue(rule.Rarity, out var group) && group.Count > 0)
+                {
+                    cards[LowestRarityIndex(cards, graph)] = random.Pick(group);
+                    hit = true;
+                }
+                SetPity(meta, rule.Rarity, hit ? 0 : counter);
+            }
+        }
+
+        private static bool HasRarity(List<string> cards, CardRarity rarity, RecipeGraph graph)
+        {
+            foreach (var card in cards)
+                if (graph.Get(card).Rarity == rarity) return true;
+            return false;
+        }
+
+        private static int LowestRarityIndex(List<string> cards, RecipeGraph graph)
+        {
+            int index = 0;
+            var lowest = graph.Get(cards[0]).Rarity;
+            for (int i = 1; i < cards.Count; i++)
+            {
+                var rarity = graph.Get(cards[i]).Rarity;
+                if (rarity < lowest) { lowest = rarity; index = i; }
+            }
+            return index;
+        }
+
+        private static int GetPity(MetaState meta, CardRarity rarity) => rarity switch
+        {
+            CardRarity.Gold => meta.GoldPity,
+            CardRarity.Orange => meta.OrangePity,
+            CardRarity.Red => meta.RedPity,
+            _ => 0,
+        };
+
+        private static void SetPity(MetaState meta, CardRarity rarity, int value)
+        {
+            switch (rarity)
+            {
+                case CardRarity.Gold: meta.GoldPity = value; break;
+                case CardRarity.Orange: meta.OrangePity = value; break;
+                case CardRarity.Red: meta.RedPity = value; break;
+            }
         }
 
         private static string DrawOne(Dictionary<CardRarity, List<string>> byRarity,
@@ -329,19 +426,39 @@ namespace Brushblade.Core
             throw new InvalidOperationException("unreachable");
         }
 
+        /// <summary>保底补位:在 ≥floor 的档里**按权重**抽(2026-08-29)。
+        /// 原先是把 ≥floor 的字混成一锅均匀抽,于是保底比正常抽还慷慨 —— 金橙红字数多于紫,
+        /// 触发保底反而更常吐高稀有度,越高档的箱越明显。权重全零(池里 ≥floor 的档
+        /// 在这档箱上都不该出)才退回均匀抽,否则一张都给不出来。</summary>
         private static string PickAtLeast(Dictionary<CardRarity, List<string>> byRarity,
-            CardRarity minRarity, GameRandom random)
+            CardRarity minRarity, int[] weights, GameRandom random)
         {
-            var candidates = new List<string>();
             var best = CardRarity.White;
             foreach (var pair in byRarity)
                 if (pair.Key > best) best = pair.Key;
-
             var floor = minRarity <= best ? minRarity : best; // 池中无达标 → 取最高可得档
+
+            int total = 0;
             foreach (var pair in byRarity)
-                if (pair.Key >= floor)
-                    candidates.AddRange(pair.Value);
-            return random.Pick(candidates);
+                if (pair.Key >= floor) total += weights[(int)pair.Key - 1];
+
+            if (total <= 0)
+            {
+                var candidates = new List<string>();
+                foreach (var pair in byRarity)
+                    if (pair.Key >= floor) candidates.AddRange(pair.Value);
+                return random.Pick(candidates);
+            }
+
+            int roll = random.Next(total);
+            foreach (var pair in byRarity)
+            {
+                if (pair.Key < floor) continue;
+                roll -= weights[(int)pair.Key - 1];
+                if (roll < 0)
+                    return random.Pick(pair.Value);
+            }
+            throw new InvalidOperationException("unreachable");
         }
     }
 }
