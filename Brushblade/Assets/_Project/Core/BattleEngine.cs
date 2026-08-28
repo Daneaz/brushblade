@@ -406,26 +406,6 @@ namespace Brushblade.Core
             return _random.Next(100) < chance;
         }
 
-        /// <summary>召唤物这一拍的有效攻击力(2026-08-28)= 基础攻击 + **它自己袋子里的**攻击增益。
-        ///
-        /// 与玩家侧 <see cref="EffectiveAttack"/> 同形,但刻意**不含战意那个乘区**:战意是
-        /// 玩家专属(连续出字的节奏奖励,召唤物不由玩家逐张出字驱动),用户 2026-08-28 明确
-        /// 把它留在玩家侧。点数直接照搬、不按血量比缩放,也是同一次拍板。
-        /// 钳到 ≥0 与 <see cref="EffectiveAttack"/> 同口径:负攻击力会打出负伤害 =
-        /// 给敌人回血,且全程无声。</summary>
-        private static int EffectiveSummonAttack(SummonState summon) =>
-            Math.Max(0, summon.Attack + summon.Statuses.TotalMagnitude(StatusKind.AttackBuff));
-
-        /// <summary>召唤物挨一记时的有效护甲(点数,2026-08-28,铠 可以挂给召唤物了)。
-        ///
-        /// 召唤物**没有基础护甲**(SummonState 没有 Defense 字段,被动也不给),所以这一项
-        /// 完全来自玩家挂上去的增益 —— 无 buff 时恒 0,减法退化成不减,与改前逐位相同。
-        /// 破甲(ArmorBreak)一并读进来:眼下没有任何「敌人破召唤物甲」的通道,但口径与
-        /// EffectivePlayerDefense 对齐,将来配了那种敌人这里不用再改。</summary>
-        private static int EffectiveSummonDefense(SummonState summon) => Math.Max(0,
-            summon.Statuses.TotalMagnitude(StatusKind.DefenseBuff)
-            - summon.Statuses.TotalMagnitude(StatusKind.ArmorBreak));
-
         /// <summary>给玩家挂一层攻击增益。E-b3 的 剡/战意 会走正规的效果分支,
         /// 在那之前这是局内改变攻击力的唯一入口,现阶段只有测试在用。
         ///
@@ -1071,7 +1051,7 @@ namespace Brushblade.Core
                     // 玩家能把铠加给召唤物、状态挂上去却没人读,比不让加更糟。
                     || effect.Kind == EffectKind.Cleanse || effect.Kind == EffectKind.Immunity
                     // 第二批(2026-08-28):攻击/暴击/穿透。召唤物侧的结算链路同批建好 ——
-                    // EffectiveSummonAttack / RollCritForSummon / EffectiveEnemyDefense 的
+                    // SummonState.EffectiveAttack / RollCritForSummon / EffectiveEnemyDefense 的
                     // attackerBag,三条都真读得到。
                     || effect.Kind == EffectKind.Empower || effect.Kind == EffectKind.CritBuff
                     || effect.Kind == EffectKind.PierceBuff
@@ -1536,7 +1516,7 @@ namespace Brushblade.Core
             {
                 int tgt = hits[t];
                 if (!_enemies[tgt].Alive) continue;
-                int damage = EffectiveSummonAttack(summon);
+                int damage = summon.EffectiveAttack;
                 // 连发每发全额;形状类的非主目标按 ShapePercent 折算
                 if (t > 0 && shape != TargetShape.Volley && percent != 100)
                     damage = damage * percent / 100;
@@ -2024,7 +2004,7 @@ namespace Brushblade.Core
                         // SourceId 铸唯一序号(用法 2)才能叠 —— 传裸字 ID 会让第二张剡
                         // 覆盖第一张,静默退化成刷新。
                         // 2026-08-28:改单体,挂在 allySlot 指的那一方身上;召唤物侧由
-                        // EffectiveSummonAttack 读走。
+                        // SummonState.EffectiveAttack 读走。
                         AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
@@ -2062,7 +2042,7 @@ namespace Brushblade.Core
                     case EffectKind.DefenseBuff:
                         // 护甲 +Value **点**(2026-08-12,E-b4 T3):多字**加法**叠加(旧乘法层是
                         // 连乘,天然趋近但不达 0;点数是直接相加),同字仍按 SourceId 覆盖 = 只刷新。
-                        // 2026-08-28:改单体;召唤物侧由 EffectiveSummonDefense 读走。
+                        // 2026-08-28:改单体;召唤物侧由 SummonState.EffectiveDefense 读走。
                         AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
@@ -2950,7 +2930,7 @@ namespace Brushblade.Core
             // 护甲(2026-08-28,铠 可以挂给召唤物了):点数减法,下钳 0 —— 甲厚过攻击力时
             // 不给召唤物回血。位置在生克**之后**,与 DamageEnemy 那边(生克 → 暴击 → 减甲)
             // 同序:减的是实际打到身上的量,不是敌人名义上的攻击力。
-            taken = Math.Max(0, taken - EffectiveSummonDefense(summon));
+            taken = Math.Max(0, taken - summon.EffectiveDefense);
 
             // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,排在护甲之后、护盾之前 ——
             // 与玩家侧 DamagePlayerDirect 逐步同序。读的是**召唤物自己的**袋子,与玩家的

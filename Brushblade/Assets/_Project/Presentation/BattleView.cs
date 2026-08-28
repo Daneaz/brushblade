@@ -558,6 +558,27 @@ namespace Brushblade.Presentation
             if (burn > 0)
                 Ui.Chip(column.transform, $"{burn}", Theme.Cinnabar, Color.white,
                     SummonChipFontSize, SummonChipPadX, SummonChipPadY, "burn");
+
+            // 增益汇总(2026-08-28,增益改单体之后)。这一翼只有 58px,七条增益逐个画必然溢出
+            // 到中间的字块上(见下面那三个常量的注释),所以只报**条数** —— 「这只有 buff」是
+            // 速读要的信息,具体几点几秒点开 SummonInfo 看,与被动缩写标签同一套分工。
+            // 「益+9」4 字 × 8 + 2 = 34px,离 58 还有余量。
+            int buffs = CountBuffs(summon);
+            if (buffs > 0)
+                Ui.Chip(column.transform, Strings.T("summon.buff_count", ("count", buffs)),
+                    Theme.Jade, Color.white, SummonChipFontSize, SummonChipPadX, SummonChipPadY);
+        }
+
+        /// <summary>召唤物身上挂着几条增益(2026-08-28)。按**条数**数而不是按 Magnitude 求和:
+        /// 那几条的单位互不相同(护甲是点数、暴击是百分点、免疫是次数),加在一起没有意义。
+        /// 走 Polarity 而不是列举 StatusKind —— 将来再让哪条增益能挂给召唤物,这里不用改。</summary>
+        private static int CountBuffs(SummonState summon)
+        {
+            int count = 0;
+            var all = summon.Statuses.All;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i].Polarity == StatusPolarity.Buff && all[i].Magnitude > 0) count++;
+            return count;
         }
 
         // 右翼 chip 的字号与内边距。定这么小是被 SummonSideWidth = 58 逼出来的,不是随手填的:

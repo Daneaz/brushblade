@@ -166,6 +166,26 @@ namespace Brushblade.Core
         /// 与 <c>ActEnemyTurn</c> 的六步同构。</summary>
         public StatusBag Statuses { get; } = new();
 
+        /// <summary>这一拍的有效攻击力(2026-08-28,增益改单体)= 基础攻击 + 自己袋子里的攻击增益。
+        ///
+        /// 与玩家侧 <c>BattleEngine.EffectiveAttack</c> 同形,但刻意**不含战意那个乘区**:
+        /// 战意是玩家专属(连续出字的节奏奖励,召唤物不由玩家逐张出字驱动),用户 2026-08-28
+        /// 明确留在玩家侧。点数直接照搬、不按血量比缩放,也是同一次拍板。
+        /// 钳到 ≥0:负攻击力会打出负伤害 = 给敌人回血,且全程无声。
+        ///
+        /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示同一个数,
+        /// 而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
+        public int EffectiveAttack => System.Math.Max(0,
+            Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff));
+
+        /// <summary>挨一记时的有效护甲(点数,2026-08-28)。召唤物**没有基础护甲**(没这个字段,
+        /// 被动也不给),所以完全来自玩家挂上去的增益 —— 无 buff 时恒 0、减法退化成不减。
+        /// 破甲一并读进来:眼下没有「敌人破召唤物甲」的通道,但口径与玩家侧
+        /// <c>EffectivePlayerDefense</c> 对齐,将来配了那种敌人不用再改。</summary>
+        public int EffectiveDefense => System.Math.Max(0,
+            Statuses.TotalMagnitude(StatusKind.DefenseBuff)
+            - Statuses.TotalMagnitude(StatusKind.ArmorBreak));
+
         public SummonState(string summonChar, Element element, int hp, int attack,
             SummonPassive passive = null)
         {
