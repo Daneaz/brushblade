@@ -388,13 +388,33 @@ namespace Brushblade.Core
         /// 同样不扰动随机流,也让测试可以在不注入 RNG 的前提下断言必暴。
         ///
         /// 比较式抄 AttackHits:Next(100) 吐 [0,99],chance = 1 即 1%、99 即 99%,无偏。</summary>
-        private bool RollCrit()
+        private bool RollCrit() => RollCritWith(EffectiveCrit);
+
+        /// <summary>召唤物的暴击判定(2026-08-28,锋 可以挂给召唤物了)。
+        ///
+        /// 召唤物**没有基础暴击率通道** —— 不像玩家有 config.PlayerCritChance,它只靠玩家给它
+        /// 挂锋。所以无 buff 时 chance 恒 0、走下端短路、一次随机都不摇,随机流逐位不变。
+        /// 这正是 E-b2 那条「不得新增第四个无条件消费方」的恒等性硬线:召唤物每拍都出手,
+        /// 无条件摇一次会平移整条随机流,让所有依赖种子的既有测试全红。</summary>
+        private bool RollCritForSummon(SummonState summon) =>
+            RollCritWith(Math.Clamp(summon.Statuses.TotalMagnitude(StatusKind.CritBuff), 0, 100));
+
+        private bool RollCritWith(int chance)
         {
-            int chance = EffectiveCrit;
             if (chance <= 0) return false;
             if (chance >= 100) return true;
             return _random.Next(100) < chance;
         }
+
+        /// <summary>召唤物这一拍的有效攻击力(2026-08-28)= 基础攻击 + **它自己袋子里的**攻击增益。
+        ///
+        /// 与玩家侧 <see cref="EffectiveAttack"/> 同形,但刻意**不含战意那个乘区**:战意是
+        /// 玩家专属(连续出字的节奏奖励,召唤物不由玩家逐张出字驱动),用户 2026-08-28 明确
+        /// 把它留在玩家侧。点数直接照搬、不按血量比缩放,也是同一次拍板。
+        /// 钳到 ≥0 与 <see cref="EffectiveAttack"/> 同口径:负攻击力会打出负伤害 =
+        /// 给敌人回血,且全程无声。</summary>
+        private static int EffectiveSummonAttack(SummonState summon) =>
+            Math.Max(0, summon.Attack + summon.Statuses.TotalMagnitude(StatusKind.AttackBuff));
 
         /// <summary>给玩家挂一层攻击增益。E-b3 的 剡/战意 会走正规的效果分支,
         /// 在那之前这是局内改变攻击力的唯一入口,现阶段只有测试在用。
@@ -425,10 +445,16 @@ namespace Brushblade.Core
         /// 破甲(2026-08-12,T3 接入)是**目标身上**的持续状态,穿透是**攻击者**的本次视角 ——
         /// 两者削的是同一层厚度,故相加后一起减。破甲可叠、本场持久,所以读 TotalMagnitude
         /// 而不是 Find():多张破甲字接力削光一个坚壁 Boss 是它的设计玩法(战例二)。</summary>
-        private int EffectiveEnemyDefense(EnemyState enemy, int pierce) => Math.Max(0,
+        /// <summary>attackerBag = 这一记是谁打的(2026-08-28):null / 省略 = 玩家,
+        /// 传召唤物的袋子则读它自己的穿透。
+        ///
+        /// 此前这里写死 _playerStatuses,于是**玩家的穿透会替召唤物破甲** —— 召唤物每拍出手
+        /// 都白吃玩家身上那份锐。那是穿透上线(2026-08-12)起就在的账,BuffTargetTests 的
+        /// PierceBuff_OnPlayer_DoesNotHelpSummon 逮住的正是它。</summary>
+        private int EffectiveEnemyDefense(EnemyState enemy, int pierce, StatusBag attackerBag = null) => Math.Max(0,
             enemy.Defense
             - enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)
-            - (pierce + _playerStatuses.TotalMagnitude(StatusKind.PierceBuff)));
+            - (pierce + (attackerBag ?? _playerStatuses).TotalMagnitude(StatusKind.PierceBuff)));
 
         /// <summary>玩家挨一记时的有效护甲(点数,2026-08-12,E-b4 T2)= 角色属性 + 局内护甲增益
         /// − 身上的破甲,下钳 0。与 <see cref="EffectiveAttack"/> / <see cref="EffectiveCrit"/> 同形:
@@ -1033,7 +1059,12 @@ namespace Brushblade.Core
                     // ⚠ 这张名单只放**挂上就真生效**的效果。攻击/暴击/穿透(战/锋/锐)与
                     // 护甲/反弹(铠/壁)要先在召唤物侧建结算链路 —— 在那之前放进来,
                     // 玩家能把铠加给召唤物、状态挂上去却没人读,比不让加更糟。
-                    || effect.Kind == EffectKind.Cleanse || effect.Kind == EffectKind.Immunity)
+                    || effect.Kind == EffectKind.Cleanse || effect.Kind == EffectKind.Immunity
+                    // 第二批(2026-08-28):攻击/暴击/穿透。召唤物侧的结算链路同批建好 ——
+                    // EffectiveSummonAttack / RollCritForSummon / EffectiveEnemyDefense 的
+                    // attackerBag,三条都真读得到。
+                    || effect.Kind == EffectKind.Empower || effect.Kind == EffectKind.CritBuff
+                    || effect.Kind == EffectKind.PierceBuff)
                     return true;
             return false;
         }
@@ -1490,13 +1521,16 @@ namespace Brushblade.Core
             {
                 int tgt = hits[t];
                 if (!_enemies[tgt].Alive) continue;
-                int damage = summon.Attack;
+                int damage = EffectiveSummonAttack(summon);
                 // 连发每发全额;形状类的非主目标按 ShapePercent 折算
                 if (t > 0 && shape != TargetShape.Volley && percent != 100)
                     damage = damage * percent / 100;
                 _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
                 if (damage > 0)
-                    DamageEnemy(tgt, damage, Array.Empty<Element>(), summon.Element);
+                    // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle / DamageAll 两处
+                    // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
+                    DamageEnemy(tgt, damage, Array.Empty<Element>(), summon.Element,
+                        crit: RollCritForSummon(summon), attackerBag: summon.Statuses);
                 ApplySummonOnHit(summon, tgt);
             }
         }
@@ -1971,7 +2005,9 @@ namespace Brushblade.Core
                         // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
                         // SourceId 铸唯一序号(用法 2)才能叠 —— 传裸字 ID 会让第二张剡
                         // 覆盖第一张,静默退化成刷新。
-                        _playerStatuses.Apply(new StatusEffect
+                        // 2026-08-28:改单体,挂在 allySlot 指的那一方身上;召唤物侧由
+                        // EffectiveSummonAttack 读走。
+                        AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1,
@@ -1990,7 +2026,8 @@ namespace Brushblade.Core
                         // 传裸字 ID 会让第二张锋覆盖第一张,静默退化成刷新。
                         // 不在这里钳上限,由 EffectiveCrit 的 Clamp 统一负责:钳在施加处的话
                         // 「90 + 20」会被存成 100,后来驱散掉一条反而看不出原本该剩多少。
-                        _playerStatuses.Apply(new StatusEffect
+                        // 2026-08-28:改单体;召唤物侧由 RollCritForSummon 读走(它自己钳)。
+                        AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1,
@@ -2019,7 +2056,8 @@ namespace Brushblade.Core
                         // 传裸字 ID 会让第二张锐覆盖第一张,静默退化成刷新。
                         // 不在这里钳上限:穿过头由 EffectiveEnemyDefense 的 max(0, …) 兜住,
                         // 钳在施加处会让「穿透 50 打 DEF 10」把多出来的 40 也存丢,换个敌人就亏了。
-                        _playerStatuses.Apply(new StatusEffect
+                        // 2026-08-28:改单体;召唤物出手时 EffectiveEnemyDefense 收它自己的袋子。
+                        AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.PierceBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1,
@@ -2610,7 +2648,8 @@ namespace Brushblade.Core
         /// 默认 false = 吃护甲,所以漏传的后果是「多挡了一次」而不是「静默穿透」。</summary>
         private void DamageEnemy(int enemyIndex, int baseValue,
             IReadOnlyCollection<Element> recipeElements, Element attacker,
-            bool crit = false, int pierce = 0, bool bypassDefense = false)
+            bool crit = false, int pierce = 0, bool bypassDefense = false,
+            StatusBag attackerBag = null)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
@@ -2660,7 +2699,7 @@ namespace Brushblade.Core
             // 哪天给召唤物加了护甲,这条规则要一并在 DamageSummon 里补上。
             bool counters = WuxingResolver.KeMultiplier(attacker, enemy.Element) > 1f;
             if (!bypassDefense && !counters)
-                damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce));
+                damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce, attackerBag));
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit));
 

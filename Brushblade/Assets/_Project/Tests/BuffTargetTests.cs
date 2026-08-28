@@ -32,6 +32,19 @@ namespace Brushblade.Core.Tests
             // 杜:免疫 2 次(真实字表的 杜 还带 DamageSingle,那张要先选敌人再选友方)
             new CharDef("杜", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Immunity, 2) }),
+            // 攻 20 的召唤物:20 这个数便于逐位核对(+50 → 70,×1.5 → 30,减甲 8 → 12)
+            new CharDef("卒", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 20, summonChar: "木") }),
+            // 战:攻击 +50 点(真实字表的 战 还带 DamageSingle)
+            new CharDef("战", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.Empower, 50) }),
+            // 锋:暴击 +100 个百分点 = **必暴**。刻意取 100 而不是真实字表的值 ——
+            // RollCrit 在 ≥100 时短路不摇骰,断言因此不依赖种子
+            new CharDef("锋", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.CritBuff, 100) }),
+            // 锐:穿透 +8 点
+            new CharDef("锐", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.PierceBuff, 8) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies = null, int seed = 1) =>
@@ -193,6 +206,118 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Cast("杜", allySlot: 0), Is.EqualTo(BattleError.InvalidTarget));
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.Immunity), Is.EqualTo(0),
                 "拒出就不该扣字扣 AP,更不该挂到玩家身上");
+        }
+
+        // ---- 第二批:攻击侧(战 Empower / 锋 CritBuff / 锐 PierceBuff) ----
+        //
+        // 观测手法一律是「敌人掉了多少血」:玩家这几张字本身不带伤害,所以敌人的血只可能
+        // 是召唤物打掉的。敌人取心属性(对木系召唤物 1.0x),数值因此逐位可核。
+
+        /// <summary>让召唤物打满一整拍,返回敌人掉的血。</summary>
+        private static int SummonDamageInOneTurn(BattleEngine engine)
+        {
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            return before - engine.Enemies[0].Hp;
+        }
+
+        [Test]
+        public void NeedsAllyTarget_TrueForAttackSideBuffs()
+        {
+            Assert.That(BattleEngine.NeedsAllyTarget(Graph().Get("战")), Is.True);
+            Assert.That(BattleEngine.NeedsAllyTarget(Graph().Get("锋")), Is.True);
+            Assert.That(BattleEngine.NeedsAllyTarget(Graph().Get("锐")), Is.True);
+        }
+
+        [Test]
+        public void Empower_DefaultsToPlayer()
+        {
+            // 不传 allySlot 时口径与改前逐位相同
+            var engine = Engine(new[] { "战" });
+            engine.Cast("战");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(50));
+        }
+
+        [Test]
+        public void Empower_OnSummon_RaisesThatSummonsDamage()
+        {
+            var plain = Engine(new[] { "卒" });
+            plain.Cast("卒");
+            int baseline = SummonDamageInOneTurn(plain);
+            Assert.That(baseline, Is.EqualTo(20), "夹具基线:攻 20、无甲敌人、无生克");
+
+            var engine = Engine(new[] { "卒", "战" });
+            engine.Cast("卒");
+            engine.Cast("战", allySlot: 0);
+            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(70), "20 + 50 点");
+        }
+
+        [Test]
+        public void Empower_OnPlayer_LeavesSummonDamageAlone()
+        {
+            // 玩家身上的攻击增益**不该**漏到召唤物身上 —— 召唤物读自己的袋子
+            var engine = Engine(new[] { "卒", "战" });
+            engine.Cast("卒");
+            engine.Cast("战");   // 给玩家
+            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(20));
+        }
+
+        [Test]
+        public void CritBuff_OnSummon_MakesItCrit()
+        {
+            var engine = Engine(new[] { "卒", "锋" });
+            engine.Cast("卒");
+            engine.Cast("锋", allySlot: 0);
+            // 20 × 150% = 30。暴击在护甲之前,无甲敌人这里看不出顺序,顺序另有玩家侧测试守
+            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(30));
+        }
+
+        [Test]
+        public void CritBuff_OnPlayer_DoesNotMakeSummonCrit()
+        {
+            var engine = Engine(new[] { "卒", "锋" });
+            engine.Cast("卒");
+            engine.Cast("锋");   // 给玩家
+            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(20), "玩家必暴不等于召唤物必暴");
+        }
+
+        [Test]
+        public void NoCritBuff_SummonDamageIsDeterministic()
+        {
+            // 恒等性硬线的可观测面:零层时 RollCrit 短路、一次随机都不摇,所以召唤物的伤害
+            // 每拍都是同一个数。真正的保证来自既有那千余条依赖种子的测试仍全绿 ——
+            // 这里只钉住「没有随机波动」这个能直接断言的部分。
+            var engine = Engine(new[] { "卒" },
+                new[] { new EnemyDef("靶", Element.Heart, 100000, 0) });
+            engine.Cast("卒");
+            for (int turn = 0; turn < 5; turn++)
+                Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(20), $"第 {turn + 1} 拍");
+        }
+
+        [Test]
+        public void PierceBuff_OnSummon_IgnoresEnemyDefense()
+        {
+            var armored = new[] { new EnemyDef("甲", Element.Heart, 3000, 0, defense: 8) };
+
+            var plain = Engine(new[] { "卒" }, armored);
+            plain.Cast("卒");
+            Assert.That(SummonDamageInOneTurn(plain), Is.EqualTo(12), "夹具基线:20 − 8 点甲");
+
+            var engine = Engine(new[] { "卒", "锐" }, armored);
+            engine.Cast("卒");
+            engine.Cast("锐", allySlot: 0);
+            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(20), "穿透 8 正好抵掉 8 点甲");
+        }
+
+        [Test]
+        public void PierceBuff_OnPlayer_DoesNotHelpSummon()
+        {
+            var engine = Engine(new[] { "卒", "锐" },
+                new[] { new EnemyDef("甲", Element.Heart, 3000, 0, defense: 8) });
+            engine.Cast("卒");
+            engine.Cast("锐");   // 给玩家
+            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(12),
+                "玩家的穿透不该帮召唤物破甲");
         }
 
         [Test]
