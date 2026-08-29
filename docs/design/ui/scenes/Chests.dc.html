@@ -55,8 +55,14 @@
     .state svg { width: 108px; height: 108px; display: block; margin: 0 auto; }
     .state .sn { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; margin-top: 2px; }
     .state .sd { font-size: 9px; color: #7A7261; line-height: 1.5; margin-top: 3px; }
-    @keyframes glow { 0%, 100% { opacity: .35; } 50% { opacity: .95; } }
-    .ready .beam { animation: glow 1.8s ease-in-out infinite; }
+    /* 已就绪是主界面唯一的动效,要压得过另外三个箱位:光晕呼吸 + 箱身起伏 + 盖缝透光。
+       只用叠加层,底图一张不换。 */
+    @keyframes glow { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+    @keyframes seam { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    .ready .halo { animation: glow 1.6s ease-in-out infinite; transform-origin: 60px 60px; }
+    .ready .bob { animation: bob 1.6s ease-in-out infinite; }
+    .ready .beam { animation: seam 1.6s ease-in-out infinite; }
 
     /* 主界面宝箱格实尺 */
     .slotdemo { width: 232px; box-sizing: border-box; background: #FFFDF7; border: 1px solid #E7E1D4;
@@ -200,20 +206,47 @@
       <!-- ⑦ 赤霄匣:铁函 + 交叉封符 + 缝里透出来的光。全表唯一"关不住"的一只 -->
       <symbol id="chest-crimson" viewBox="0 0 120 120">
         <ellipse cx="60" cy="102" rx="35" ry="4" fill="#111622" opacity=".10"/>
-        <path d="M30 22 l6 10 M90 22 l-6 10 M60 16 v10" stroke="#C53637" stroke-width="2.4"
-              stroke-linecap="round" opacity=".55"/>
         <rect x="24" y="34" width="72" height="58" rx="2" fill="var(--c)" fill-opacity=".42"
               stroke="#111622" stroke-width="3"/>
-        <path d="M24 58 h72" stroke="#FFD470" stroke-width="5" opacity=".55"/>
-        <path d="M24 58 h72" stroke="#FFF3CF" stroke-width="2"/>
+        <path d="M24 58 h72" stroke="#FFD470" stroke-width="6" opacity=".6"/>
+        <path d="M24 58 h72" stroke="#FFF3CF" stroke-width="2.4"/>
         <path d="M24 56 h72" stroke="#111622" stroke-width="2.2"/>
-        <path d="M28 26 l64 62" stroke="#F6F1E7" stroke-width="9" stroke-linecap="square"/>
-        <path d="M28 26 l64 62" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
-        <path d="M92 26 l-64 62" stroke="#F6F1E7" stroke-width="9" stroke-linecap="square"/>
-        <path d="M92 26 l-64 62" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+        <!-- 封符裁进箱体,只留 3px 折边 —— 不裁的话交叉那两道会甩出箱外,
+             与另外六只的画幅对不齐(2026-08-29 修:原先整只箱比同排高出 12px) -->
+        <g clip-path="url(#clip-crimson)">
+          <path d="M22 28 l76 74" stroke="#F6F1E7" stroke-width="9"/>
+          <path d="M22 28 l76 74" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+          <path d="M98 28 l-76 74" stroke="#F6F1E7" stroke-width="9"/>
+          <path d="M98 28 l-76 74" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+        </g>
         <rect x="50" y="47" width="20" height="20" rx="2" fill="#9B1E22" stroke="#111622" stroke-width="2"/>
         <path d="M55 53 h10 M55 57 h10 M55 61 h10" stroke="#F6F1E7" stroke-width="1.6" opacity=".85"/>
         <path d="M24 92 h72" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+      </symbol>
+
+      <clipPath id="clip-crimson"><rect x="21" y="31" width="78" height="64" rx="2"/></clipPath>
+
+      <!-- 已就绪光效:与箱型无关的一层,套在任何一只箱下面都成立 -->
+      <radialGradient id="g-ready" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFD470" stop-opacity=".9"/>
+        <stop offset="52%" stop-color="#FFCF5E" stop-opacity=".38"/>
+        <stop offset="100%" stop-color="#FFCF5E" stop-opacity="0"/>
+      </radialGradient>
+      <symbol id="fx-ready" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="60" rx="46" ry="44" fill="url(#g-ready)"/>
+        <g stroke="#C9A94A" stroke-width="3" stroke-linecap="round">
+          <path d="M60 20 v-7"/>
+          <path d="M33 29 l-5 -6"/>
+          <path d="M87 29 l5 -6"/>
+          <path d="M21 57 h-7"/>
+          <path d="M99 57 h7"/>
+          <path d="M27 85 l-6 5"/>
+          <path d="M93 85 l6 5"/>
+        </g>
+        <g fill="#FFF3CF" stroke="#C9A94A" stroke-width="1.2">
+          <path d="M30 38 l2.6 5.4 5.4 2.6 -5.4 2.6 -2.6 5.4 -2.6 -5.4 -5.4 -2.6 5.4 -2.6z"/>
+          <path d="M92 70 l2.2 4.6 4.6 2.2 -4.6 2.2 -2.2 4.6 -2.2 -4.6 -4.6 -2.2 4.6 -2.2z"/>
+        </g>
       </symbol>
 
       <!-- 沙漏(计时中角标) -->
@@ -337,30 +370,31 @@
           </div>
           <div class="state" style="--c: #0F74C4">
             <svg viewBox="0 0 120 120">
-              <g opacity=".55"><use href="#chest-celadon"></use></g>
+              <g opacity=".45"><use href="#chest-celadon"></use></g>
               <circle cx="92" cy="90" r="15" fill="#EFEADF" stroke="#111622" stroke-width="2.4"/>
               <svg x="80" y="78" width="24" height="24" viewBox="0 0 32 32"><use href="#ic-glass"></use></svg>
             </svg>
             <div class="sn">计时中</div>
-            <div class="sd">压到 55% 不透明 + 沙漏角标。同一时间只允许一只在计时</div>
+            <div class="sd">压到 45% 不透明 + 沙漏角标。同一时间只允许一只在计时</div>
           </div>
           <div class="state ready" style="--c: #0F74C4">
             <svg viewBox="0 0 120 120">
-              <use href="#chest-celadon"></use>
-              <g class="beam">
-                <path d="M28 58 h64" stroke="#FFD470" stroke-width="7" opacity=".5"/>
-                <path d="M28 58 h64" stroke="#FFF3CF" stroke-width="2.4"/>
-                <path d="M40 48 l-7 -12 M60 44 l0 -14 M80 48 l7 -12" stroke="#C9A94A"
-                      stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
+              <use class="halo" href="#fx-ready"></use>
+              <g class="bob">
+                <use href="#chest-celadon"></use>
+                <g class="beam">
+                  <path d="M28 57 h64" stroke="#FFD470" stroke-width="9" opacity=".55"/>
+                  <path d="M28 57 h64" stroke="#FFF3CF" stroke-width="3.4"/>
+                </g>
               </g>
             </svg>
             <div class="sn">已就绪</div>
-            <div class="sd">盖缝透光 + 三道光芒，1.8s 一呼一吸。全屏只有它在动</div>
+            <div class="sd">金光晕 + 七道光芒 + 盖缝透光，箱身 1.6s 一起一落</div>
           </div>
         </div>
         <div class="note" style="margin-top: 12px;">
           三态<b>只改叠加层，不换底图</b>——一只箱一张素材，省 21 张图。
-          「已就绪」的呼吸是这一屏唯一的动效：主界面同时有四个箱位，谁该点一眼就见。
+          「已就绪」是主界面<b>唯一的动效</b>：四个箱位同屏，光晕与起伏要压得过另外三只，谁该点一眼就见。
         </div>
       </div>
 
@@ -369,14 +403,22 @@
         <div class="slotdemo">
           <div class="ch">宝箱 3 / 4</div>
           <div class="cgrid">
-            <div class="box" style="--c: #C9A94A">
-              <svg viewBox="0 0 120 120"><use href="#chest-gilded"></use></svg>
+            <div class="box ready" style="--c: #C9A94A">
+              <svg viewBox="0 0 120 120">
+                <use class="halo" href="#fx-ready"></use>
+                <g class="bob"><use href="#chest-gilded"></use>
+                  <g class="beam">
+                    <path d="M26 49 h68" stroke="#FFD470" stroke-width="9" opacity=".55"/>
+                    <path d="M26 49 h68" stroke="#FFF3CF" stroke-width="3.4"/>
+                  </g>
+                </g>
+              </svg>
               <div class="bn">鎏金匣</div>
               <div class="cd">已就绪</div>
               <div class="mini open">开箱!</div>
             </div>
             <div class="box" style="--c: #0F74C4">
-              <svg viewBox="0 0 120 120" opacity=".55"><use href="#chest-celadon"></use></svg>
+              <svg viewBox="0 0 120 120" opacity=".45"><use href="#chest-celadon"></use></svg>
               <div class="bn">青瓷匣</div>
               <div class="cd">1:12:44</div>
               <div class="mini start">看广告 −40分</div>
