@@ -41,8 +41,11 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `StatusGlossary.dc.html` | 状态词条 29 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
 | `UnitSheetAlt.dc.html` | 详情承载方式取舍 | 低保真，无对应实现 |
 | `Chests.dc.html` | 七档宝箱立绘 | `Core/Chest.cs` · `MapView.DrawChest` |
+| `ChestOpen.dc.html` | 开箱 · 获字 | `ChestRules.TryOpen` · `MapView.ShowChestResult` |
 
-`canvas.json` 是画布布局（位置、分页、便签）；便签里记着每处改动的理由与待办，
+`canvas.json` 是画布布局（位置、分页、便签）。**分页按「屏」组织**（2026-08-29 在画布上重排）：
+主界面 / 卡组 / 战斗 / 局内流程 / 怪物图鉴 / 技能 / 商城 / 公共 —— 按「哪一屏用得着」找图，
+而不是按「哪一轮加的」。便签里记着每处改动的理由与待办，
 **别只看画面不看便签**。`base.css` 是六屏共用的令牌（色板取自 `Theme.cs`，
 安全区、触控与字号阶梯）。`cards.min.json` 是从 `chars.json` 生成的字表快照，
 仅供稿子填真实数据。
@@ -63,7 +66,7 @@ node <skill>/seed-canvas.mjs \
   --artboard Dialogs.dc.html --artboard Popups.dc.html \
   --artboard UnitFoe.dc.html --artboard UnitAlly.dc.html --artboard UnitMe.dc.html \
   --artboard StatusGlossary.dc.html --artboard UnitSheetAlt.dc.html \
-  --artboard Chests.dc.html \
+  --artboard Chests.dc.html --artboard ChestOpen.dc.html \
   --image mob_jiaohen.png \
   --canvas canvas.json
 ```
@@ -193,3 +196,20 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 `#E1791B`），要不要并成一套得先拍板；② 换立绘要接一套 `ChestAssets`（与 `MobAssets` 同构：
 前缀表 + 分层 + 缓存）；③ 首字兜底留着，取不到素材时回落，与 `Icons.cs` 的双轨同理；
 ④ 图标位 33×25 → 40×40（立绘是方图，4:3 会压扁），格高 +15pt，要量一遍 `MapView.ChestW`。
+
+## 2026-08-29 补：开箱 · 获字，与分页重排
+
+这三样是**在画布上直接改的，已原样回填**（线上版本 `1787998827-1bdf`）：
+
+- **分页按屏重组**：原来的四页（六屏 / 局内流程 / 规范 / 单位详情）拆成八页，每块图归到
+  它服务的那一屏——宝箱立绘进「主界面」，单位详情进「战斗」。
+- **新增 `ChestOpen.dc.html`（开箱 · 获字）**：宝箱是未收集字的唯一来源，而「开了之后
+  发生什么」此前一张稿也没有，只写在 `MapView.ShowChestResult` 里。这一页画全了五步流程、
+  结果面板实尺、牌脚三态（新字 / 重复字 / 满级）、`TryOpen` 的五道闸与七档产出表。
+- **`Home.dc.html` 的宝箱格接上立绘**：33×25 色块 + 首字 → 40×40 方图，「已就绪」的
+  光晕 / 起伏 / 盖缝三段动效一并接上（格内容高 98 → 113px，栏宽与格数没动）。
+
+⚠ 该页自记的落地清单：结果面板要改左右分栏（`ShowChestResult` 现在是 VStack + 每行 8 张
+写死）、面板尺寸从 0.16~0.84 的比例锚点换成安全区内定尺 814×380、新字牌脚要做重。
+另有一处**命名冲突待拍板**：卡的第 6/7 档在 strings 里叫「橙 / 红」，箱的第 6/7 档叫
+「朱漆 / 赤霄」，而卡组稿又给稀有度起了「赤金 / 朱漆」的雅名——「朱漆」现在同时是箱名和卡名。
