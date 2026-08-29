@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><g><defs>
+<filter id="L2_rg" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.042" numOctaves="3" seed="7" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="7" /></filter>
+<filter id="L2_rs" x="-25%" y="-25%" width="150%" height="150%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="13" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="12" /><feGaussianBlur stdDeviation="0.6" /></filter>
+<filter id="L2_pa"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="11" /><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.7 0.7 0.7 0 -0.15" /></filter>
+<filter id="L2_pb"><feTurbulence type="fractalNoise" baseFrequency="0.016 0.011" numOctaves="2" seed="29" /><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.2 1.2 1.2 0 -1.15" /></filter>
+<mask id="L2_sm"><rect width="512" height="512" fill="#9a9a9a" /><rect width="512" height="512" filter="url(#L2_pa)" /></mask>
+<mask id="L2_wt"><rect width="512" height="512" fill="#000" /><rect width="512" height="512" filter="url(#L2_pb)" /></mask>
+<radialGradient id="L2_iris" cx="0.5" cy="0.4" r="0.6"><stop offset="0" stop-color="#63bb7e" /><stop offset="0.6" stop-color="#348F4F" /><stop offset="1" stop-color="#1c5430" /></radialGradient>
+<radialGradient id="L2_aura" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#348F4F" stop-opacity="0.5" /><stop offset="1" stop-color="#348F4F" stop-opacity="0" /></radialGradient>
+</defs><g filter="url(#L2_rs)"><circle cx="150" cy="450" r="8" fill="#111622" opacity="0.7" /><circle cx="162" cy="476" r="5" fill="#348F4F" opacity="0.5" /><circle cx="370" cy="446" r="7" fill="#111622" opacity="0.6" /><circle cx="382" cy="472" r="4" fill="#348F4F" opacity="0.45" /></g></g>
+</svg>

@@ -64,7 +64,7 @@ namespace Brushblade.Presentation
                     ("deckCount", _meta.Deck.Count), ("deckLimit", MetaRules.DeckLimit)), 22, Theme.TextDim);
             if (upgradable > 0)
                 Ui.Chip(header.transform, Strings.T("collection.header.upgradable_chip", ("count", upgradable)), Theme.Cinnabar, Color.white, 15);
-            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
+            Ui.InkCounter(header.transform, _meta.Ink, 22);
             if (pageCount > 1)
             {
                 var prev = Ui.RoundButton(header.transform, "◀", () => { _page--; Rebuild(); },

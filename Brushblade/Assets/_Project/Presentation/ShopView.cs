@@ -42,7 +42,7 @@ namespace Brushblade.Presentation
             var header = Ui.Row(transform, "Header", 24);
             Ui.Anchor((RectTransform)header.transform, new Vector2(0.02f, 0.88f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
             Ui.ThemedLabel(header.transform, Strings.T("shop.header.title"), 34, Theme.TextMain, Theme.TitleFont);
-            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 24);
+            Ui.InkCounter(header.transform, _meta.Ink, 24);
             Ui.PillButton(header.transform, Strings.T("common.back_to_map"), () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(130, 48));
 
             // 消息行

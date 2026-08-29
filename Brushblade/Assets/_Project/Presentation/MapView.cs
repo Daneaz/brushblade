@@ -162,7 +162,7 @@ namespace Brushblade.Presentation
                 Strings.T("map.header.subtitle", ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)),
                 23, Theme.TextDim);
             Spring(top.transform);
-            Ui.IngotLabel(top.transform, _meta.Ink.ToString(), 25);
+            Ui.InkCounter(top.transform, _meta.Ink, 25);
             // 设置界面尚未实现(2026-08-28 拍板):先占位,点了说明去向,不留死按钮
             Ui.RoundButton(top.transform, Strings.T("map.header.settings"),
                 () => ShowAlert(Strings.T("map.settings.soon_title"), Strings.T("map.settings.soon_body")),

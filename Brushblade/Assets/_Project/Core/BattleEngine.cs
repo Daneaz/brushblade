@@ -186,6 +186,9 @@ namespace Brushblade.Core
         BossCharging,   // Boss 进入蓄力回合(Amount = 即将释放的 BossSkill;驱动预警 UI)
         BossSkillCast,  // Boss 释放技能(Amount = BossSkill);随后是各目标的受击事件
         ShieldBroken,   // 护盾被倾覆清空(TargetIndex = −1,Amount = 清掉的总量)
+        EnemyMend,   // 涂改给同伴回血(TargetIndex = **被治疗的**敌人,Amount = 实际回血;2026-08-29)。
+                     // 不复用 Regrow:那个的 TargetIndex 是「自补全的那只自己」且带补全进度,
+                     // 表现层要画的两件事不一样 —— 一条是自愈、一条是有人在后面奶它
         Regrow,      // 缺笔妖自补全(TargetIndex = 该敌人,Amount = 实际回血,SecondIndex = 补全进度 1~3)。
                      // 原先是**静默**结算的:模型瞬时回血、表现层只在末次重绘看到结果,
                      // 于是玩家看到的是「召唤物砸上去不掉血」「还没打就满血」(2026-07-29 实测)
@@ -292,6 +295,9 @@ namespace Brushblade.Core
         // 加给攻 8 的怪只有 +25%」这个 4 倍偏差。
         private const int PunctuationBuffPercent = 50;
         private const int SearStacks = 1;  // 灯花每次攻击给玩家挂的灼烧层数(2026-08-06)
+        // 铁画受击反噬给玩家的比例(百分点,2026-08-29)。基数是**打进身体的量**(过完生克、
+        // 减完护甲),不是名义伤害 —— 与召唤物荆棘、玩家侧镜反弹同一条口径:反的是落到身上的量。
+        private const int BarbPercent = 30;
         private const int CurseTurns = 2;          // 诅咒持续回合(2026-08-05)
         private const string CurseSourceId = "诅咒"; // 全局同源:多只召唤物重复施加只刷新不叠
         // 战意每层的攻击加成:2026-08-25 用户拍板从「+10 点」改为「**+10%**」。
@@ -1439,8 +1445,12 @@ namespace Brushblade.Core
                 return;
             }
 
+            // 支援型能力优先于普攻:有活可干就不出手,没活干才亲自上(标点小妖的既有口径,
+            // 涂改沿用同一条 —— 玩家因此可以靠「清光伤员」或「打断它」把它逼成普通怪)
             if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
                 ApplyEnemyBuffAura(enemyIndex);
+            else if (enemy.Def.Ability == EnemyAbility.Mend && !IsSilenced(enemy) && MostWoundedAlly(enemy) >= 0)
+                MendOneAlly(enemyIndex);
             else
                 ActOneEnemy(enemyIndex, 1);
 
@@ -1567,6 +1577,41 @@ namespace Brushblade.Core
                 });
                 _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
             }
+        }
+
+        /// <summary>伤得最重的**其他**存活敌人的下标;没有伤员返回 −1(2026-08-29,涂改)。
+        ///
+        /// 「伤得最重」按**缺失血量的绝对值**排,不是按百分比:涂改的回复量是定值(自身攻击力),
+        /// 按百分比排会让它去奶一只掉了 5% 但满血 3000 的 Boss —— 那 25 点血什么都改变不了。
+        /// 平手取下标小的那只,保证同一局面下的选择是确定的(整个 Core 不允许有非确定性)。</summary>
+        private int MostWoundedAlly(EnemyState healer)
+        {
+            int best = -1, worst = 0;
+            for (int j = 0; j < _enemies.Count; j++)
+            {
+                var other = _enemies[j];
+                if (!other.Alive || other == healer) continue;
+                int missing = other.MaxHp - other.Hp;
+                if (missing > worst) { worst = missing; best = j; }
+            }
+            return best;
+        }
+
+        /// <summary>涂改给伤最重的同伴回血那一拍(2026-08-29)。回复量 = **自身攻击力** ——
+        /// 与标点小妖当年「加成 = 自身攻击力」同一条思路:深度缩放只放大 Attack,
+        /// 治疗量因此自动跟着层数长,不必再维护第二条缩放曲线。
+        ///
+        /// 自己不回:它是「涂改别人的错」,不是自愈;而且能自奶的后排治疗会把战斗拖成
+        /// 消耗战 —— 玩家够不到它、它又奶自己,是个死结。</summary>
+        private void MendOneAlly(int enemyIndex)
+        {
+            var enemy = _enemies[enemyIndex];
+            int target = MostWoundedAlly(enemy);
+            if (target < 0) return;
+            var ally = _enemies[target];
+            int healed = Math.Min(enemy.Attack, ally.MaxHp - ally.Hp);
+            ally.Hp += healed;
+            _events.Add(new BattleEvent(BattleEventKind.EnemyMend, target, healed));
         }
 
         /// <summary>一个敌人本回合的全部出手(2026-08-15 提取,行为与提取前逐字节一致)。
@@ -2645,10 +2690,16 @@ namespace Brushblade.Core
         /// DamageSummon 的荆反伤与镜反弹。理由:它们是把已经落到我方身上的伤害原样折返,
         /// 不是我方发起的挥击,再让对方的皮厚度挡一次是错位(与 DOT 不吃护甲同一条道理)。
         /// 默认 false = 吃护甲,所以漏传的后果是「多挡了一次」而不是「静默穿透」。</summary>
+        // allowBarb(2026-08-29,铁画):这一记是不是**我方主动的挥击**。两个回敬类调用点
+        // (镜反弹 / 荆反伤)传 false —— 否则「镜 × 铁画」会互相激发:反弹触发反噬、
+        // 反噬触发反弹,来回衰减成一条长链,每一跳还顺带推进 HitsTaken(白送生僻字现形 /
+        // 焦痕加攻 / 叠字分裂)。名单与 bypassDefense 眼下重合,但刻意分成两个参数:
+        // 那条问的是「吃不吃护甲」,这条问的是「算不算挥击」,日后出现「穿甲的挥击」时
+        // 不该连带把反噬也关掉。
         private void DamageEnemy(int enemyIndex, int baseValue,
             IReadOnlyCollection<Element> recipeElements, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
-            StatusBag attackerBag = null)
+            StatusBag attackerBag = null, bool allowBarb = true)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
@@ -2737,6 +2788,17 @@ namespace Brushblade.Core
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
                 });
                 _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
+            }
+
+            // 铁画:受击存活即反噬(2026-08-29)。与召唤物荆棘刻意相反 —— 荆棘被打死那一击照样扎,
+            // 铁画「硬碰硬崩刃」的前提是它还立着,所以放在上面的死亡早退**之后**。
+            // 基数 damage 是过完生克、减完护甲后真正打进身体的量(与荆/镜「反的是落到身上的量」同口径)。
+            // allowBarb 见 DamageEnemy 签名上方:回敬类的伤害不触发,免得与「镜」互相激发。
+            // 反噬本身传 allowReflect: false —— 它不是敌人的挥击,是玩家自己撞上去的,镜反射不了自己的动作。
+            if (allowBarb && enemy.Def.Ability == EnemyAbility.Barb && !IsSilenced(enemy))
+            {
+                int recoil = damage * BarbPercent / 100;
+                if (recoil > 0) DamagePlayerDirect(enemyIndex, recoil, allowReflect: false);
             }
 
             // 叠字怪:首次受击存活 → 分裂成两个半血(8.3)。2026-08-20:克隆继承母体排位;
@@ -2832,7 +2894,10 @@ namespace Brushblade.Core
         /// 攻击确实命中了,只是伤害被完全吸收。灯花(Sear)之类「出手就触发」的攻击附带效果
         /// 靠这个返回值 gate(见攻击循环):打空 = 攻击没发生,附带效果不该触发;
         /// 免疫挡下 = 攻击发生了,附带效果照常。</summary>
-        private bool DamagePlayerDirect(int enemyIndex, int damage)
+        // allowReflect(2026-08-29):false = 这一记不触发玩家的「镜」。眼下只有铁画的反噬走
+        // 这一支 —— 那不是敌人的挥击,是玩家自己撞上去的,镜反射不了自己的动作;顺带切断了
+        // 「反噬 → 反弹 → 反噬」的互激环(见 DamageEnemy 的 allowBarb)。
+        private bool DamagePlayerDirect(int enemyIndex, int damage, bool allowReflect = true)
         {
             // 命中判定(2026-08-07):打空则什么都不发生 —— 免疫不消耗、护盾不掉、反弹不触发。
             // 命中率 = 100 − 攻击者致盲 − 玩家闪避(2026-08-12,E-b4 T4:闪避从写死的 0 接进来)。
@@ -2881,13 +2946,14 @@ namespace Brushblade.Core
             // 刻意不钳位(评审 Minor 2,2026-08-08):眼下字表只有「映」一个 Reflect 字,同字
             // 再放走 SourceId 去重只刷新,多来源叠加现实不可达。日后加第二张反弹字之前,
             // 先想清楚上限——两张 60% 同在身会反弹 120%,比挨的还多。
-            int reflect = _playerStatuses.TotalMagnitude(StatusKind.Reflect);
+            int reflect = allowReflect ? _playerStatuses.TotalMagnitude(StatusKind.Reflect) : 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
                 int bounced = damage * reflect / 100;
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
-                        bypassDefense: true); // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
+                        bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
+                        allowBarb: false);     // 同理也不算挥击:不触发铁画的反噬
             }
             return true;
         }
@@ -2967,7 +3033,8 @@ namespace Brushblade.Core
                 int bounced = taken * thorns / 100;
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
-                        bypassDefense: true); // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
+                        bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
+                        allowBarb: false);     // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
             }
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
@@ -2994,7 +3061,8 @@ namespace Brushblade.Core
                 int bounced = taken * reflect / 100;
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
-                        bypassDefense: true); // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
+                        bypassDefense: true,   // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
+                        allowBarb: false);     // 同玩家侧:折返不算挥击,不触发铁画的反噬
             }
             return true;
         }

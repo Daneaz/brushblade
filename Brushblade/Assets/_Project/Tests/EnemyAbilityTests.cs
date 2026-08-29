@@ -232,6 +232,152 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies.Count, Is.EqualTo(8));
         }
 
+        // ---- 涂改:治疗同伴(2026-08-29) ----
+
+        private static EnemyDef Mender(int attack = 25) =>
+            new("涂改", Element.Heart, 130, attack, EnemyAbility.Mend);
+
+        [Test]
+        public void Mend_HealsMostWoundedAlly_ByOwnAttack()
+        {
+            // 两个伤员:被打得更狠的那只优先。火 vs 木不构成相克,40 伤照原样落下
+            var engine = Engine(Mender(), Plain("甲", 300, 10), Plain("乙", 300, 10));
+            engine.Cast("火", 1);
+            engine.Cast("火", 1); // 甲 掉 80
+            engine.Cast("火", 2); // 乙 掉 40
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(300 - 80 + 25), "伤最重的甲被治");
+            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(300 - 40), "乙这回合没被治");
+        }
+
+        [Test]
+        public void Mend_DoesNotHealItself()
+        {
+            var engine = Engine(Mender(), Plain("甲", 300, 10));
+            engine.Cast("火", 0);           // 只打涂改自己
+            int hurt = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hurt), "自己不回血");
+        }
+
+        [Test]
+        public void Mend_CapsAtMaxHp()
+        {
+            var engine = Engine(Mender(attack: 500), Plain("甲", 300, 10));
+            engine.Cast("火", 1); // 甲 掉 60
+            engine.EndTurn();
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(300), "回血不超上限");
+        }
+
+        [Test]
+        public void Mend_NoWoundedAlly_AttacksInstead()
+        {
+            // 与标点小妖落单时亲自出手同口径:没活干就自己上
+            var engine = Engine(Mender(), Plain("甲", 300, 10));
+            int before = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.LessThan(before), "无人可治 → 亲自出手");
+        }
+
+        [Test]
+        public void Mend_Alone_AttacksInstead()
+        {
+            var engine = Engine(Mender());
+            int before = engine.PlayerHp;
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.LessThan(before));
+        }
+
+        [Test]
+        public void Mend_Silenced_AttacksInstead()
+        {
+            // 沉默压的是能力不是行动(既有口径):不治了,但照常普攻
+            var engine = Engine(Mender(), Plain("甲", 300, 10));
+            engine.Cast("火", 1);           // 甲 掉 60,给它留个伤口
+            int wounded = engine.Enemies[1].Hp;
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Silence, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 2, SourceId = "test",
+            });
+            int before = engine.PlayerHp;
+            engine.EndTurn();
+
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(wounded), "被沉默不治疗");
+            Assert.That(engine.PlayerHp, Is.LessThan(before), "但照常出手");
+        }
+
+        // ---- 铁画:受击反噬(2026-08-29) ----
+
+        private static EnemyDef Barbed(int hp = 300, int defense = 0) =>
+            new("铁画", Element.Metal, hp, 45, EnemyAbility.Barb, defense: defense);
+
+        [Test]
+        public void Barb_ReflectsPortionOfDamageToPlayer()
+        {
+            var engine = Engine(Barbed());
+            int before = engine.PlayerHp;
+            engine.Cast("火", 0);  // 金被火克 ×1.5 → 60 打进身体
+            Assert.That(engine.PlayerHp, Is.EqualTo(before - 60 * 30 / 100), "反噬 30%");
+        }
+
+        [Test]
+        public void Barb_CountsDamageAfterDefense()
+        {
+            // 基数是**打进身体的量**,不是名义伤害:40 − 20 甲 = 20,反噬 6。
+            // 这里刻意用木系带甲的怪:火克金时护甲整个失效(既有口径),那条路上验不到减甲
+            var engine = Engine(new EnemyDef("铁画", Element.Wood, 300, 45,
+                EnemyAbility.Barb, defense: 20));
+            int before = engine.PlayerHp;
+            engine.Cast("火", 0);
+            Assert.That(engine.PlayerHp, Is.EqualTo(before - 20 * 30 / 100));
+        }
+
+        [Test]
+        public void Barb_DoesNotFireWhenKilled()
+        {
+            // 打死了就不扎人 —— 与召唤物荆棘(死也照扎)刻意相反:铁画是「硬碰硬崩刃」,
+            // 崩的前提是它还立着
+            var engine = Engine(Barbed(hp: 30));
+            int before = engine.PlayerHp;
+            engine.Cast("火", 0);
+            Assert.That(engine.Enemies[0].Alive, Is.False);
+            Assert.That(engine.PlayerHp, Is.EqualTo(before));
+        }
+
+        [Test]
+        public void Barb_Silenced_DoesNotFire()
+        {
+            var engine = Engine(Barbed());
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Silence, Polarity = StatusPolarity.Debuff,
+                Magnitude = 1, TurnsLeft = 2, SourceId = "test",
+            });
+            int before = engine.PlayerHp;
+            engine.Cast("火", 0);
+            Assert.That(engine.PlayerHp, Is.EqualTo(before));
+        }
+
+        [Test]
+        public void Barb_DoesNotChainWithPlayerReflect()
+        {
+            // 反噬不是敌人的挥击,是玩家自己撞上去的 —— 「镜」反射不了自己的动作。
+            // 这条同时是防成环的守卫:若反噬触发反弹,反弹又触发反噬,两者会互相激发
+            // 成一条来回衰减的长链,还会顺带推进 HitsTaken(白送生僻字现形/焦痕加攻/叠字分裂)。
+            var engine = Engine(Barbed());
+            engine.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Reflect, Polarity = StatusPolarity.Buff,
+                Magnitude = 60, TurnsLeft = 3, SourceId = "镜",
+            });
+            int hpBefore = engine.Enemies[0].Hp;
+            engine.Cast("火", 0);   // 60 打进去,反噬 18 给玩家,不该再折返任何伤害给敌人
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(hpBefore - 60),
+                "敌人只该吃到那一记 60,反噬没有二次折返回来");
+        }
+
         // ---- 配置解析 ----
 
         [Test]
