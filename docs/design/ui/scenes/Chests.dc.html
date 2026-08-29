@@ -260,9 +260,11 @@
   <div>
     <h2>七档宝箱立绘</h2>
     <div class="sub">
-      七只箱是<b>七种材质</b>，不是七种颜色——现在格子里画的是一个色块加「素」「竹」这样的首字，
+      七只箱是<b>七种材质</b>，不是七种颜色——原先格子里画的是一个色块加「素」「竹」这样的首字，
       七档只有色相之差，玩家分不出「哪只更值得等」。改法是让<em>工艺随档位递进</em>：
       纸 → 竹 → 瓷 → 木 → 金 → 漆 → 铁函，越往上五金越多、轮廓越"抬头"，赤霄那只干脆关不严。<br>
+      <b>已落地</b>（2026-08-30）：本页的 SVG <em>就是</em>游戏里那批素材——<code>tools/design/build_chests.py</code>
+      逐字抄这里的 path 出 PNG，接 <code>ChestAssets</code> / <code>ChestView</code>。改这一页就重跑那个脚本。<br>
       画法与 mob 素材同规格：<b>1:1 方图</b>、四周留 10% 白、墨线 <code>#111622</code>、纸底 <code>#FFFDF7</code>；
       属性色只铺<b>一块大面积平涂</b>（盖或身）——40px 缩略图里认色全靠它，细节那时一概看不见。
       色值逐条取自 <b>Theme.ChestColor</b>，数值取自 <b>ChestRules</b>。
@@ -434,7 +436,8 @@
         </div>
         <div class="note" style="margin-top: 12px; width: 232px;">
           图标位 <b>33×25 → 40×40</b>：立绘是方图，塞进 4:3 的格子会压扁。
-          格高因此 +15pt，四个箱位仍在 232pt 栏内（<em>落地时要量一遍 MapView 的 ChestW</em>）。
+          格高因此 +15pt，四个箱位仍在 232pt 栏内。<em>已落地</em>：格高吃的是 2×2 网格原有的余量，
+          <code>MapView.ChestW</code> 一分没动。
         </div>
       </div>
     </div>

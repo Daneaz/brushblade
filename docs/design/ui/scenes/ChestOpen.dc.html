@@ -368,11 +368,11 @@
       <span class="anno" style="right:64px;top:6px;">16 张（赤霄）也是这个网格：8 列 × 2 行，牌宽 96 → 70</span>
     </div>
     <div class="note" style="margin-top: 10px;">
-      <b>版式与实现不同的一处</b>：MapView 现在是<b>竖排</b>（标题 → 墨锭 → 卡行 → 收下），面板占屏 0.16~0.84 = 634×292pt。
+      <b>版式与实现原先不同的一处</b>（2026-08-30 已按稿改完）：MapView 此前是<b>竖排</b>（标题 → 墨锭 → 卡行 → 收下），面板占屏 0.16~0.84 = 634×292pt。
       横屏下这样放不进 12 张：两行牌加牌脚要 282pt，光标题与按钮就吃掉 100pt。
       稿改成<b>左右分栏</b> —— 左栏 180 交代「哪只箱、多少墨」，右栏整块留给牌。
       面板因此从 634×292 放大到 <b>814×380</b>（安全区内左右各 59、上下留 15），牌从 76×95 长到 <b>96×120</b>，
-      赤霄的 16 张也只要缩到 70 宽就排得下。<em>这一条要改 ShowChestResult 的布局，不只是调数</em>。
+      赤霄的 16 张也只要缩到 70 宽就排得下。<em>这一条改的是 ShowChestResult 的布局，不只是调数</em>。
     </div>
   </div>
 
@@ -485,14 +485,15 @@
   </div>
 
   <div class="blk">
-    <h3>落地清单 <span>⚠ 稿子先行的四件</span></h3>
+    <h3>落地清单 <span>✓ 四件已于 2026-08-30 落地</span></h3>
     <div class="card2">
       <ol class="todo">
-        <li><b>结果面板改左右分栏</b>：<code>ShowChestResult</code> 现在是 VStack + 每行 8 张写死。改成左信息栏 + 右网格，牌宽按张数在 96 / 70 两档之间取。</li>
-        <li><b>面板尺寸</b>：<code>0.16~0.84</code> 的锚点换成安全区内定尺 814×380 —— 横屏下按比例锚点会随机型漂，而这一屏的排布是按牌数算死的。</li>
-        <li><b>新字要标得更重</b>：现在新卡与重复卡的 chip 只差颜色（<code>ExitPink</code> vs <code>AdGreenBg</code>），一眼扫过去分不出。稿把新字牌脚做成实心胭脂底 + 加粗字距。</li>
-        <li><b>本页无新增游戏文案</b>：五个 key（<code>result_title / new_badge / upgrade_progress / claim_button / common.maxed</code>）都已在 strings 里，
-          <em>不必重跑字体子集</em> —— 但「满级」若要改写成别的词，就得跑一次 <code>tools/fonts/subset_fonts.py</code>。</li>
+        <li>✓ <b>结果面板改左右分栏</b>：<code>ShowChestResult</code> 已拆成 <code>BuildResultLeft</code> / <code>BuildResultGrid</code> / <code>ResultFoot</code>，牌宽按张数在 6 列 / 8 列两档之间取。</li>
+        <li>✓ <b>面板尺寸</b>：<code>0.16~0.84</code> 的锚点已换成安全区内左右吃满、上下各留 15pt —— 根节点本就在安全区之内，这即是稿上的 814×380。</li>
+        <li>✓ <b>新字要标得更重</b>：新字牌脚已做成实心胭脂底（<code>ExitPink</code> = 本页的 <code>#7A3F5C</code>），重复字未凑满走中性底、凑满才转翠玉底，满级另走金底。</li>
+        <li><b>文案</b>：牌与按钮那五个 key（<code>result_title / new_badge / upgrade_progress / claim_button / common.maxed</code>）本就在 strings 里；
+          落地时另补了左栏画着的三条 —— <code>map.chest.result_count / result_hint / result_tip</code>，
+          带进「事听屏情详」五个新字形，<em>已重跑</em> <code>tools/fonts/subset_fonts.py</code>。</li>
       </ol>
     </div>
   </div>

@@ -192,10 +192,9 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
   （`fx-ready`），套在任何一只箱下面都成立。
 - 数值与色值逐条取自 `ChestRules` 与 `Theme.ChestColor`，改平衡要同步这一页。
 
-⚠ 落地四处：① 箱色与卡色是两套值（`Theme.ChestColor` 橙 `#D4602A` vs `base.css` 稀有度橙
-`#E1791B`），要不要并成一套得先拍板；② 换立绘要接一套 `ChestAssets`（与 `MobAssets` 同构：
-前缀表 + 分层 + 缓存）；③ 首字兜底留着，取不到素材时回落，与 `Icons.cs` 的双轨同理；
-④ 图标位 33×25 → 40×40（立绘是方图，4:3 会压扁），格高 +15pt，要量一遍 `MapView.ChestW`。
+落地四处里 ②③④ 已做（见「2026-08-30 已接线」），只剩 ① 待拍板：箱色与卡色是两套值
+（`Theme.ChestColor` 橙 `#D4602A` vs `base.css` 稀有度橙 `#E1791B`），要不要并成一套。
+立绘按 `Theme.ChestColor` 出图，并档就要重跑 `build_chests.py`。
 
 ## 2026-08-29 补：开箱 · 获字，与分页重排
 
@@ -209,9 +208,54 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 - **`Home.dc.html` 的宝箱格接上立绘**：33×25 色块 + 首字 → 40×40 方图，「已就绪」的
   光晕 / 起伏 / 盖缝三段动效一并接上（格内容高 98 → 113px，栏宽与格数没动）。
 
-⚠ 该页自记的落地清单：结果面板要改左右分栏（`ShowChestResult` 现在是 VStack + 每行 8 张
-写死）、面板尺寸从 0.16~0.84 的比例锚点换成安全区内定尺 814×380、新字牌脚要做重。
+该页自记的落地清单（左右分栏、定尺、新字牌脚做重）已全部做完，见「2026-08-30 已接线」。
 **箱名与卡名已分家**（2026-08-29）：卡组稿原先给稀有度另起了一套雅名（素纸 / 竹青 /
 青瓷 / 紫檀 / 鎏金 / 赤金 / 朱漆），与七档箱名撞车——「朱漆」同时是第 6 档箱和第 7 档卡。
 雅名已全稿移除：**卡按 `strings.zh-CN.json` 的 `char.rarity.*` 叫白绿蓝紫金橙红，
 箱按材质叫 xx 匣**；往后单字说的是卡、带「匣」说的是箱。
+
+## 2026-08-30 已接线：宝箱立绘 + 开箱结果面板
+
+「主界面」这一页的三张稿（`Home.dc.html` 宝箱格 / `Chests.dc.html` 七档立绘 /
+`ChestOpen.dc.html` 开箱获字）从**稿子先行**转为**已实现**。稿没动，动的是代码。
+
+### 立绘走的是这一页的 SVG 本身
+
+`Chests.dc.html` 自己写着「本页的 SVG 可以直接当素材用」——照办了，没有再出一批 painterly 图。
+新增 `tools/design/build_chests.py`：七只箱的 path **逐字抄稿**，只把 `var(--c)` 换成
+`Theme.ChestColor` 的实色，rsvg-convert 出 256 方 PNG 进
+`Presentation/Chests/Resources/`。改稿就重抄一遍，别在脚本里手改坐标——与
+`build_icons.py` 的 `nav_*` 同一条戒律。页内那张「出图关键词」表仍然有效：往后要与 mob
+那批统一，拿现在这批 SVG 作 ControlNet 底稿即可，轮廓已经定死了。
+
+分层比 mob 少两层（箱子是器物不是活物）：`body` 三态共用，`seam` 是盖缝的光、逐档出
+（缝的 y 各档不同）。加上与箱型无关的 `chest_fx_ready` / `chest_fx_timing`，共 16 张。
+
+- `ChestAssets.cs` —— 与 `MobAssets` 同构的前缀表 + 缓存；取不到返回 null。
+- `ChestView.cs` —— 三态。计时中把 `body` 压到 45% 加沙漏角标；已就绪跑稿上那 1.6s
+  的三段（光晕 .45↔1、盖缝 .55↔1、箱身起落 2.5/120），三段**同相**，合起来是一次呼吸。
+- `MapView.ChestArt` —— 素材缺失回落成色块 + 首字（`Icons.cs` 的双轨）。图标位
+  33×25 → **40×40**（84 逻辑单位）；格高吃的是 2×2 网格原有的余量，`ChestW` 没动。
+- `tools/design/tests/test_chests.py` —— 守四条：七档与 `ChestTier` 一一对应、
+  C# 的 slug 表与生成器一致、仓库 SVG 与生成器同步、Resources 里 16 张 PNG 与 `.meta` 齐全。
+
+### 开箱结果面板：竖排 → 左右分栏
+
+`ShowChestResult` 拆成 `BuildResultLeft` / `BuildResultGrid` / `ResultFoot` 三段。
+
+- **定尺**：`0.16~0.84` 的比例锚点换成安全区内左右吃满、上下各留 15pt。根节点已在
+  `SafeAreaFitter` 之内，所以这就是稿上的 814×380（16 Pro Max）。
+- **牌网格**：≤12 张走 6 列、>12 张走 8 列，牌 174×218 / 126×158 逻辑单位。这两个尺寸是
+  **上限不是定值**——格子在行里可被压窄，比 16:9 更方的屏上牌一起变小而不是溢出。
+  牌与牌脚同缩靠的是格内 VStack 的 `childForceExpandWidth`。
+- **牌脚三态**：新字实心胭脂底（`ExitPink` = 稿上的 `#7A3F5C`）／重复字未凑满走
+  `PaperDim` 中性底、凑满转 `AdGreenBg` 翠玉底／满级走 `GoldSoft`。此前新卡与重复卡
+  只差颜色（`ExitPink` vs `AdGreenBg`），一眼扫过去分不出。
+- **新增三条文案**（稿上左栏画着的）：`map.chest.result_count` / `result_hint` /
+  `result_tip`。⚠ 引入了「事听屏情详」五个新字形，**已重跑** `tools/fonts/subset_fonts.py`。
+- `Theme` 加了 `GoldSoft` / `GoldDeep` 两色（稿上 `#F6EDD5` / `#8F6B09`），墨锭条与
+  满级牌脚共用。
+
+⚠ 遮罩仍是 `Theme.Scrim`（55%）而稿上写 62%——那是**全项目共用**的模态遮罩，
+为一屏改它会牵动另外十几个弹窗，没动。
+
