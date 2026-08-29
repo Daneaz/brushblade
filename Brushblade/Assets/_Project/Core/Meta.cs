@@ -17,6 +17,11 @@ namespace Brushblade.Core
         public List<int> ClearedStages { get; set; } = new();             // 每章已通关数
         public List<ChestState> Chests { get; set; } = new();             // 箱位队列(≤4,19.5.2)
         public List<ChestTier> PendingChests { get; set; } = new();        // 结算时箱位满的暂存箱,开箱腾位后入位(2026-07-22)
+        /// <summary>金/橙/红的计数保底进度(2026-08-29,见 <see cref="ChestRules.PityRules"/>):
+        /// 「已开了几只够档的箱还没见到这一档」。出了就归零,自然掉出的也算。</summary>
+        public int GoldPity { get; set; }
+        public int OrangePity { get; set; }
+        public int RedPity { get; set; }
         public ShopState Shop { get; set; } = new();                      // 每日商城(19.6)
         public int BestDepth { get; set; }                                // 无尽最高层数(20.5)
         public List<string> BandMilestones { get; set; } = new();         // 已领首破奖励的层段(20.3)

@@ -90,6 +90,7 @@ namespace Brushblade.Presentation
             ChestTier.Celadon => new Color(0.06f, 0.455f, 0.771f),   // 青瓷匣:瓷蓝
             ChestTier.Rosewood => new Color(0.475f, 0.269f, 0.669f), // 紫檀匣:檀紫
             ChestTier.Gilded => new Color(0.788f, 0.663f, 0.29f),    // 鎏金匣:鎏金 #c9a94a
+            ChestTier.Vermilion => new Color(0.831f, 0.376f, 0.165f), // 朱漆匣:朱漆 #d4602a
             ChestTier.Crimson => new Color(0.802f, 0.151f, 0.181f),  // 赤霄匣:赤红
             _ => new Color(0.632f, 0.62f, 0.594f),                   // 素纸匣:纸白
         };

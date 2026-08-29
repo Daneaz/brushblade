@@ -173,7 +173,7 @@ namespace Brushblade.Core.Tests
             var meta = new MetaState();
             ChestRules.TryAwardChest(meta, ChestTier.Crimson, new[] { "灯", "烧" }, time);
             ChestRules.TryStartOpening(meta, 0, time);
-            time.NowUnixSeconds += ChestRules.DurationSeconds[5];
+            time.NowUnixSeconds += ChestRules.DurationSeconds[(int)ChestTier.Crimson - 1];
             Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(3), out var rewards, graph), Is.True);
             Assert.That(rewards.Cards, Does.Contain("烧")); // 最高可得 = 绿
         }
