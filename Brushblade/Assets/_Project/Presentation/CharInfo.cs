@@ -196,6 +196,12 @@ namespace Brushblade.Presentation
             if (p.OnHitCurse > 0) parts.Add(Strings.T("char.passive.onhitcurse", ("value", p.OnHitCurse)));
             if (p.Dodge > 0) parts.Add(Strings.T("char.passive.dodge", ("value", p.Dodge)));
             if (p.Ranged) parts.Add(Strings.T("char.passive.ranged"));
+            // 出手形状(2026-08-29,剑横扫 / 枪贯穿 / 锥连发):与效果侧共用 ShapeLabel /
+            // ShapeSuffix,措辞因此天然一致 —— 此前这三只召唤物的形状卡面上一个字都没有,
+            // 剑(血48攻64,横扫整排)与一只同数值的单体召唤物在卡面上完全无法区分。
+            // 与 Ranged 正交:那条管越不越得过前排,这条管一次打几个(SummonPassive.Shape 的注释)
+            if (p.Shape != TargetShape.Single)
+                parts.Add(ShapeLabel(p.Shape) + ShapeSuffix(p.Shape, p.ShapePercent, p.Shots));
             if (p.Taunt) parts.Add(Strings.T("char.passive.taunt"));
             // 入场冻结(2026-08-25,藤):写在最后 —— 它不是这只召唤物的持续能力,
             // 而是召唤那一瞬间的一次性效果,读感上收尾比夹在中间清楚
@@ -237,27 +243,48 @@ namespace Brushblade.Presentation
             e.Pierce > 0 ? Strings.T("char.effect.piercetext", ("pierce", e.Pierce)) : "";
 
         /// <summary>目标形状前缀(2026-08-22,spec §7)。Single 沿用原「单体」——87 张既有
-        /// DamageSingle 卡面因此逐字节不变。</summary>
-        private static string ShapeLabel(EffectDef e) => e.Shape switch
+        /// DamageSingle 卡面因此逐字节不变。
+        ///
+        /// 拆出**只吃 TargetShape 的重载**(2026-08-29):召唤物被动也有形状(剑横扫/枪贯穿/
+        /// 锥连发),此前 PassiveText 自己不印、这两个函数又只认 EffectDef,三只召唤物的形状
+        /// 在卡面上一个字都没有。共用同一张表 = 加新形状时两侧不可能再各自漏。</summary>
+        private static string ShapeLabel(EffectDef e) => ShapeLabel(e.Shape);
+
+        private static string ShapeLabel(TargetShape shape) => shape switch
         {
             TargetShape.Sweep => Strings.T("char.shape.sweep"),
             TargetShape.Cleave => Strings.T("char.shape.cleave"),
             TargetShape.Skewer => Strings.T("char.shape.skewer"),
             TargetShape.Volley => Strings.T("char.shape.volley"),
+            TargetShape.Chain => Strings.T("char.shape.chain"),
             _ => Strings.T("char.shape.single"),
         };
 
         /// <summary>目标形状后缀,与 PierceText 同一种「有则挂、无则空」写法。Volley 没有
         /// 「非主目标」的概念——每发都按主目标满额结算(BattleEngine.cs:1291、1519 对 Volley
-        /// 都直接跳过 ShapePercent),卡面只报发数;其余三形状报 ShapePercent,等于 100(未配置)
-        /// 时不写,省字数。</summary>
-        private static string ShapeSuffix(EffectDef e) => e.Shape switch
+        /// 都直接跳过 ShapePercent),卡面只报发数;其余形状报 ShapePercent,等于 100(未配置)
+        /// 时不写,省字数。
+        ///
+        /// Chain 单列一支(2026-08-29):它的 ShapePercent 是**逐跳累乘**的衰减率
+        /// (第 k 跳 = ShapePercent^k,BattleEngine.ChainPercent),与其余形状「非主目标一次性
+        /// 折算」不是一回事,共用「(溅 N%)」会把玩家骗了;跳数也得报,否则 3 跳与 5 跳同面。</summary>
+        private static string ShapeSuffix(EffectDef e) => ShapeSuffix(e.Shape, e.ShapePercent, e.Shots);
+
+        /// <summary>≤0 的 percent 兜回 100:EffectDef 在构造里已兜过,SummonPassive 没有
+        /// (引擎侧 BattleEngine.cs:1514 每次现兜),漏配时会写出「(溅 0%)」。</summary>
+        private static string ShapeSuffix(TargetShape shape, int percent, int shots)
         {
-            TargetShape.Volley => Strings.T("char.shape.suffix.volley", ("shots", e.Shots)),
-            TargetShape.Sweep or TargetShape.Cleave or TargetShape.Skewer when e.ShapePercent != 100
-                => Strings.T("char.shape.suffix.splash", ("percent", e.ShapePercent)),
-            _ => "",
-        };
+            if (percent <= 0) percent = 100;
+            return shape switch
+            {
+                TargetShape.Volley => Strings.T("char.shape.suffix.volley", ("shots", shots)),
+                TargetShape.Chain => Strings.T("char.shape.suffix.chain",
+                    ("shots", shots), ("percent", percent)),
+                TargetShape.Sweep or TargetShape.Cleave or TargetShape.Skewer when percent != 100
+                    => Strings.T("char.shape.suffix.splash", ("percent", percent)),
+                _ => "",
+            };
+        }
 
         public static string ElementName(Element element) => element switch
         {
