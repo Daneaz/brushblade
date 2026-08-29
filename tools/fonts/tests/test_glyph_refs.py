@@ -16,11 +16,17 @@ import glyph_refs as gr
 
 # ---- 覆盖表 ----
 
-def test_covers_all_nine_minions():
-    """9 只杂兵每只一个字形(《敌人形象关键词包》§5)。"""
+def test_covers_the_minions_with_art():
+    """有底稿的杂兵每只一个字形(《敌人形象关键词包》§5)。
+
+    ⚠ 这张名单**不是** enemies.json 的全集:灯花/墨溅/悬针/败笔 四只至今没有底稿。
+    刻意不从 enemies.json 反查 —— 那会让这条测试在每次加怪时自动变绿,而「新怪该不该
+    配立绘」正是需要人来拍板的那一下(与 chars_json 那类生成物的对账不同)。
+    补了底稿就把名字加进来。"""
     minions = {
         "错字鬼", "缺笔妖", "标点小妖", "叠字怪", "夯土妖",
         "通假字", "生僻字", "墨渍", "焦痕",
+        "涂改", "铁画", "镇纸", "洇痕", "衍文",   # 2026-08-29 补的五只
     }
     assert {job.owner for job in gr.JOBS if job.kind == "minion"} == minions
 

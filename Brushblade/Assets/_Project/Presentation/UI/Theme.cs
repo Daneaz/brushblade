@@ -111,7 +111,9 @@ namespace Brushblade.Presentation
         {
             EnemyAbility.Scorch => Cinnabar, // 越磨越烫
             EnemyAbility.Sear => Cinnabar,   // 灼身:与焦痕同为火系威胁
+            EnemyAbility.Barb => Cinnabar,   // 反噬:打它就疼,与自燃同属「越打越亏」
             EnemyAbility.Regrow => Jade,     // 自我修复
+            EnemyAbility.Mend => Jade,       // 治疗同伴:与自补全同属恢复
             _ => InkSoft,                    // 叠字/标点/通假/生僻
         };
 

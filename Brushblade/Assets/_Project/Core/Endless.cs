@@ -152,6 +152,18 @@ namespace Brushblade.Core
                 return floor;
             }
 
+            // 带甲每场最多 1 只(2026-08-29,spec §4.4(a) 的完成态)。点数护甲对 AOE 有 N 倍
+            // 惩罚 —— 打 N 个目标就损失 N × DEF,同场两只带甲会把群伤字直接打成废牌。
+            //
+            // 此前这条只靠「全表就配一只带甲杂兵」的配置口径兜着,而 BuildFloor 是**有放回**
+            // 抽样:同一只墨渍能在一层里被抽中两次,实测 9.5% 的遭遇早就违反了 §4.4(a),
+            // 只是没有任何测试看得见(DefenseValuesTests 那两条注释把这笔账记了半个月)。
+            // 2026-08-29 补进第二只、第三只带甲怪(镇纸/铁画)时补上真正的闸,
+            // 那两条测试同时从「绊线」升级成硬断言(违反率恒 0)。
+            //
+            // 闸叠在既有的「首位前排 / 辅助不单独成场」之后:先按老规矩选池,已经有一只带甲了
+            // 再把带甲的从这一位的候选里摘掉 —— 顺序反过来会让首位强制前排失效。
+
             // 辅助型(Buff)每场最多 1 只,且不单独成场(2026-07-19:标点小妖自己不打人,
             // 全辅助场零威胁)——首位强制从非辅助子池抽,保证场上至少 1 只能打的
             var nonSupport = new List<EnemyDef>();
@@ -171,18 +183,33 @@ namespace Brushblade.Core
             // 总量抬高的同时把满员深度从 21 层推到 43 层,前中期体验接近改前。
             int count = 1 + Math.Min(7, (depth - 1) / 6);
             bool hasSupport = false;
+            bool hasArmored = false;
             for (int i = 0; i < count; i++)
             {
                 IReadOnlyList<EnemyDef> pool;
                 if (i == 0 && frontOpeners.Count > 0) pool = frontOpeners;
                 else if ((i == 0 || hasSupport) && nonSupport.Count > 0) pool = nonSupport;
                 else pool = band.EnemyPool;
+                pool = hasArmored ? WithoutArmor(pool) : pool;
                 var pick = pool[random.Next(pool.Count)];
                 if (pick.Ability == EnemyAbility.Buff)
                     hasSupport = true;
+                if (pick.Defense > 0)
+                    hasArmored = true;
                 floor.Add(CampaignConfig.Scale(pick, scale));
             }
             return floor;
+        }
+
+        /// <summary>摘掉带甲的候选;摘完为空时原样返回(抽不出来比多一只带甲更糟)。
+        /// 理论上走不到空:每个层段池里都有大把无甲怪 —— 但这条守卫不能靠「反正走不到」,
+        /// 与 <c>FreeColumnIn</c> 那处同一条道理。</summary>
+        private static IReadOnlyList<EnemyDef> WithoutArmor(IReadOnlyList<EnemyDef> pool)
+        {
+            var clean = new List<EnemyDef>(pool.Count);
+            foreach (var enemy in pool)
+                if (enemy.Defense == 0) clean.Add(enemy);
+            return clean.Count > 0 ? clean : pool;
         }
     }
 

@@ -163,7 +163,12 @@
     },
     { "id": "墨溅", "element": "Water", "maxHp": 100, "attack": 30, "row": "Back", "range": "Ranged" },
     { "id": "悬针", "element": "Metal", "maxHp": 90,  "attack": 45, "row": "Back", "range": "Ranged", "focus": "Player" },
-    { "id": "败笔", "element": "Fire",  "maxHp": 150, "attack": 55, "focus": "Player" }
+    { "id": "败笔", "element": "Fire",  "maxHp": 150, "attack": 55, "focus": "Player" },
+    { "id": "涂改", "element": "Heart", "maxHp": 130, "attack": 25, "ability": "Mend", "row": "Back", "range": "Ranged" },
+    { "id": "铁画", "element": "Metal", "maxHp": 150, "attack": 45, "ability": "Barb", "defense": 25 },
+    { "id": "镇纸", "element": "Earth", "maxHp": 240, "attack": 25, "defense": 40 },
+    { "id": "洇痕", "element": "Water", "maxHp": 110, "attack": 35, "ability": "Split", "row": "Back", "range": "Ranged" },
+    { "id": "衍文", "element": "Wood",  "maxHp": 130, "attack": 40, "ability": "Regrow", "row": "Back", "range": "Ranged" }
   ],
   "dropTable": [
     "金",
@@ -704,7 +709,10 @@
           "灯花",
           "墨溅",
           "悬针",
-          "败笔"
+          "败笔",
+          "镇纸",
+          "洇痕",
+          "衍文"
         ],
         "bossPool": [
           "排山倒海",
@@ -728,7 +736,12 @@
           "灯花",
           "墨溅",
           "悬针",
-          "败笔"
+          "败笔",
+          "镇纸",
+          "洇痕",
+          "衍文",
+          "涂改",
+          "铁画"
         ],
         "bossPool": [
           "排山倒海",
@@ -753,7 +766,12 @@
           "灯花",
           "墨溅",
           "悬针",
-          "败笔"
+          "败笔",
+          "镇纸",
+          "洇痕",
+          "衍文",
+          "涂改",
+          "铁画"
         ],
         "bossPool": [
           "排山倒海",

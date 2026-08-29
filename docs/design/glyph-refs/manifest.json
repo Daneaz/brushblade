@@ -93,6 +93,56 @@
       "note": "烧焦纸质;L4=裂缝火芯"
     },
     {
+      "file": "enemy_tugai.svg",
+      "char": "涂",
+      "kind": "minion",
+      "owners": [
+        "涂改"
+      ],
+      "weight": 500,
+      "note": "心系奶妈,笔画像被反复涂抹改写,边缘毛糙层层压盖"
+    },
+    {
+      "file": "enemy_tiehua.svg",
+      "char": "铁",
+      "kind": "minion",
+      "owners": [
+        "铁画"
+      ],
+      "weight": 500,
+      "note": "金系反噬,笔锋硬如铁铸,转折处有崩刃的缺口"
+    },
+    {
+      "file": "enemy_zhenzhi.svg",
+      "char": "镇",
+      "kind": "minion",
+      "owners": [
+        "镇纸"
+      ],
+      "weight": 500,
+      "note": "土系肉墙,方正压秤,下盘沉得像块石条"
+    },
+    {
+      "file": "enemy_yinhen.svg",
+      "char": "洇",
+      "kind": "minion",
+      "owners": [
+        "洇痕"
+      ],
+      "weight": 500,
+      "note": "水系分裂,墨在纸上洇开,边界糊成两团"
+    },
+    {
+      "file": "enemy_yanwen.svg",
+      "char": "衍",
+      "kind": "minion",
+      "owners": [
+        "衍文"
+      ],
+      "weight": 500,
+      "note": "木系增生,笔画向外抽枝,越拖越长"
+    },
+    {
       "file": "boss_paishandaohai_1_u6392.svg",
       "char": "排",
       "kind": "boss",

@@ -62,6 +62,8 @@ namespace Brushblade.Presentation
             EnemyAbility.Obscure => Strings.T("enemy.ability.obscure.name"),
             EnemyAbility.Scorch => Strings.T("enemy.ability.scorch.name"),
             EnemyAbility.Sear => Strings.T("enemy.ability.sear.name"),
+            EnemyAbility.Mend => Strings.T("enemy.ability.mend.name"),
+            EnemyAbility.Barb => Strings.T("enemy.ability.barb.name"),
             _ => "",
         };
 
@@ -76,6 +78,8 @@ namespace Brushblade.Presentation
             EnemyAbility.Obscure => Strings.T("enemy.ability.obscure.desc"),
             EnemyAbility.Scorch => Strings.T("enemy.ability.scorch.desc"),
             EnemyAbility.Sear => Strings.T("enemy.ability.sear.desc"),
+            EnemyAbility.Mend => Strings.T("enemy.ability.mend.desc"),
+            EnemyAbility.Barb => Strings.T("enemy.ability.barb.desc"),
             _ => "",
         };
 
@@ -96,6 +100,9 @@ namespace Brushblade.Presentation
             EnemyAbility.Obscure => enemy.ApparentElement != null ? "" : Strings.T("enemy.ability.obscure.chip"),
             EnemyAbility.Scorch => Strings.T("enemy.ability.scorch.chip"),
             EnemyAbility.Sear => Strings.T("enemy.ability.sear.chip"),
+            // 涂改的 chip 常驻:治疗是每回合都会发生的事,没有「用掉就没了」的状态
+            EnemyAbility.Mend => Strings.T("enemy.ability.mend.chip"),
+            EnemyAbility.Barb => Strings.T("enemy.ability.barb.chip"),
             _ => "",
         };
 

@@ -23,6 +23,12 @@ namespace Brushblade.Presentation
             { "生僻字", "shengpizi" },
             { "墨渍", "mozi" },
             { "焦痕", "jiaohen" },
+            // 2026-08-29 补的五只(六系各补到 3 只)
+            { "涂改", "tugai" },
+            { "铁画", "tiehua" },
+            { "镇纸", "zhenzhi" },
+            { "洇痕", "yinhen" },
+            { "衍文", "yanwen" },
         };
 
         /// <summary>Boss 形象按阶段出:四个阶段是四套图。「倒」「海」复用排山倒海的稿。</summary>

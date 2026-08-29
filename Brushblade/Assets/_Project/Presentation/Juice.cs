@@ -275,6 +275,13 @@ namespace Brushblade.Presentation
                         // 而不是「攻+50」—— 后者会被读成加了 50 点攻击。
                         Popup(Strings.T("juice.popup.enemy_buff", ("amount", e.Amount)), Theme.InkSoft, enemyAnchor(e.TargetIndex), small: true);
                         break;
+                    // 涂改给同伴回血(2026-08-29):飘在**被治疗的那只**头上,不是治疗者头上 ——
+                    // 玩家要看见的是「谁被奶回去了」,才知道该先打谁
+                    case BattleEventKind.EnemyMend:
+                        Popup(Strings.T("juice.popup.enemy_mend", ("amount", e.Amount)),
+                            Theme.Jade, enemyAnchor(e.TargetIndex), small: true);
+                        _audio.PlayOneShot(_healClip, 0.5f);
+                        break;
                     case BattleEventKind.EnemyRevealed:
                         Popup(Strings.T("juice.popup.enemy_revealed"), Theme.SplitBlue, enemyAnchor(e.TargetIndex));
                         break;
