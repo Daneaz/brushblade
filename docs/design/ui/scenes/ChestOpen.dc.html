@@ -1,0 +1,501 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #F6F1E7; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+
+    .sheet {
+      width: 1180px; box-sizing: border-box; padding: 26px 24px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 24px; font-weight: 600; letter-spacing: 3px; }
+    .sub { margin-top: 6px; font-size: 11.5px; color: #5D646F; line-height: 1.7; }
+    .sub b { color: #161B22; font-weight: 500; }
+    .sub em { font-style: normal; color: #9B1E22; }
+
+    .blk { margin-top: 22px; }
+    .blk > h3 {
+      margin: 0 0 10px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 2px;
+      display: flex; align-items: baseline; gap: 10px;
+    }
+    .blk > h3 span { font-family: "Noto Sans SC", sans-serif; font-size: 10.5px; font-weight: 400; color: #88909C; letter-spacing: 0; }
+    .card2 { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; padding: 14px; }
+    .note { font-size: 10.5px; color: #5D646F; line-height: 1.75; }
+    .note b { color: #161B22; font-weight: 500; }
+    .note em { font-style: normal; color: #9B1E22; }
+    .cols { display: flex; gap: 14px; align-items: flex-start; }
+
+    /* ---- 属性 / 稀有度色板（与卡组、主界面同一套） ---- */
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+    .r-Red    { --rar: #CD262E; --rarSoft: #F9DFDF; }
+
+    /* ---- 五步流程条 ---- */
+    .flow { display: flex; align-items: stretch; gap: 0; }
+    .step { flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 0 12px; }
+    .step:first-child { padding-left: 0; }
+    .step:last-child { padding-right: 0; }
+    .arw { flex: none; width: 22px; display: flex; align-items: center; justify-content: center; color: #B3AB9B; }
+    .step .sh { font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; letter-spacing: 1px; }
+    .step .sh i { font-style: normal; color: #B3AB9B; margin-right: 5px; font-family: inherit; }
+    .step .sb { font-size: 10px; color: #5D646F; line-height: 1.65; }
+    .step .sb em { font-style: normal; color: #9B1E22; }
+    .stage {
+      height: 74px; border-radius: 8px; border: 1px solid #E7E1D4; background: #FFFDF7;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+
+    /* ---- 实尺屏 ---- */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; overflow: hidden; flex: none;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      border: 1px solid #DED7C9; border-radius: 4px;
+    }
+    /* 底层的主界面（压在遮罩下,只为交代「开箱是压在主界面之上的一层」） */
+    .under { position: absolute; inset: 0; padding: 14px 59px 21px; box-sizing: border-box; }
+    .under .ubar { height: 30px; border-radius: 8px; background: #FBF8F1; border: 1px solid #DED7C9; }
+    .under .ubody { display: flex; gap: 10px; margin-top: 10px; height: 265px; }
+    .under .ubody i { display: block; border-radius: 10px; background: #FBF8F1; border: 1px solid #DED7C9; }
+    .under .ubody i.a { width: 187px; } .under .ubody i.b { flex: 1; } .under .ubody i.c { width: 232px; }
+    .under .unav { display: flex; gap: 8px; margin-top: 10px; height: 44px; }
+    .under .unav i { flex: 1; border-radius: 9px; background: #FBF8F1; border: 1px solid #DED7C9; }
+    .scrim { position: absolute; inset: 0; background: rgba(17,22,31,.62); }
+
+    .rpanel {
+      position: absolute; left: 59px; top: 15px; width: 814px; height: 380px; box-sizing: border-box;
+      background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 14px;
+      box-shadow: 0 10px 34px rgba(17,22,31,.28); padding: 16px; display: flex; gap: 16px;
+    }
+    /* 左栏:这一箱是什么、给了多少墨 */
+    .rleft { width: 180px; flex: none; display: flex; flex-direction: column; align-items: center;
+      border-right: 1px solid #E7E1D4; padding-right: 14px; }
+    .rleft .tt { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 1px; }
+    .rleft .tt em { font-style: normal; color: #8F6B09; }
+    .rleft .art { width: 96px; height: 96px; display: block; margin: 8px 0 4px; }
+    .inkline {
+      display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 9px;
+      background: #F6EDD5; border: 1px solid rgba(201,169,74,.55); border-radius: 15px;
+      font-size: 17px; font-weight: 700; color: #8F6B09; font-variant-numeric: tabular-nums;
+    }
+    .rleft .cnt { margin-top: 9px; font-size: 10.5px; color: #5D646F; letter-spacing: .5px; }
+    .rleft .cnt b { color: #161B22; font-variant-numeric: tabular-nums; }
+    .rleft .hint { margin-top: auto; font-size: 9.5px; color: #88909C; line-height: 1.6; text-align: center; }
+
+    /* 右栏:卡网格 + 收下 */
+    .rright { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px 8px; }
+    .cell { display: flex; flex-direction: column; gap: 3px; align-items: stretch; }
+    .card {
+      position: relative; height: 120px; border-radius: 8px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 1px 4px rgba(22,27,34,.09);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .card::before { content: ""; position: absolute; inset: 3px; border-radius: 5px;
+      border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent); }
+    .card.glow::after { content: ""; position: absolute; inset: 2px; border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(201,169,74,.5), inset 0 0 9px -3px rgba(201,169,74,.9); }
+    .card .gl { position: relative; z-index: 2; font-family: "Noto Serif SC", serif; font-size: 40px;
+      font-weight: 600; line-height: 1; color: var(--glyph); margin-top: 3px; }
+    .card .py { position: relative; z-index: 2; font-size: 8px; color: #5D646F; margin-top: 5px; }
+    .card .rarchip { position: absolute; top: 4px; right: 4px; width: 11px; height: 11px; border-radius: 50%;
+      background: var(--rar); border: 1.5px solid #FFFDF7; }
+    .card .lvchip { position: absolute; top: 4px; left: 4px; height: 14px; padding: 0 4px;
+      display: flex; align-items: center; border-radius: 7px; background: #11161F; color: #fff;
+      font-size: 8px; font-variant-numeric: tabular-nums; }
+    .card .lvchip.max { background: #C9A94A; color: #2B2200; }
+    .foot {
+      height: 15px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 8.5px; letter-spacing: .3px; white-space: nowrap;
+    }
+    .foot.new  { background: #7A3F5C; color: #fff; font-weight: 700; letter-spacing: 1px; }
+    .foot.up   { background: #EDE7DA; color: #5D646F; font-variant-numeric: tabular-nums; }
+    .foot.up.on { background: #E3F4E6; color: #1B552C; font-weight: 700; }
+    .foot.maxed { background: #F6EDD5; color: #8F6B09; font-weight: 700; }
+    /* 逐张翻卡:0.12s 弹入、间隔 0.08s（RevealTiles 的实际节拍）。both 让静止态 = 终态,
+       导出 PNG/PDF 时即使动画已跑完也画得对。 */
+    @keyframes pop { from { transform: scale(.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .cell { animation: pop .12s ease-out both; }
+    .claimrow { margin-top: auto; display: flex; align-items: center; gap: 10px; }
+    .claimrow .tip { font-size: 9.5px; color: #88909C; }
+    .pill {
+      margin-left: auto; height: 40px; padding: 0 34px; border: none; border-radius: 20px; cursor: pointer;
+      background: #C53637; color: #fff; font-family: "Noto Serif SC", serif; font-size: 15px;
+      font-weight: 600; letter-spacing: 3px;
+    }
+    /* 标注引线 */
+    .anno { position: absolute; z-index: 5; font-size: 9px; color: #9B1E22; letter-spacing: .3px;
+      background: rgba(246,241,231,.94); border: 1px solid rgba(155,30,34,.35); border-radius: 4px;
+      padding: 2px 5px; white-space: nowrap; }
+
+    /* ---- 牌脚三态放大 ---- */
+    .foots { display: flex; gap: 14px; }
+    .fdemo { display: flex; gap: 10px; align-items: flex-start; flex: 1; }
+    .fdemo .cell { width: 84px; flex: none; animation: none; }
+    .fdemo .card { height: 104px; }
+    .fdemo .card .gl { font-size: 34px; }
+    .fdemo .tx { font-size: 10px; color: #5D646F; line-height: 1.7; }
+    .fdemo .tx b { display: block; font-family: "Noto Serif SC", serif; font-size: 11.5px;
+      font-weight: 600; color: #161B22; margin-bottom: 2px; letter-spacing: .5px; }
+
+    /* ---- 闸门 ---- */
+    .gates { display: flex; gap: 10px; }
+    .gate { flex: 1; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 10px; }
+    .gate .gn { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; letter-spacing: .5px; }
+    .gate .gn i { font-style: normal; color: #B3AB9B; margin-right: 4px; }
+    .gate .gd { margin-top: 5px; font-size: 9.5px; color: #5D646F; line-height: 1.65; }
+    .gate .gd code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; color: #7A7261; }
+
+    /* 千分比条 */
+    .wbar { display: flex; height: 18px; border-radius: 4px; overflow: hidden; border: 1px solid #E4DDCE; }
+    .wbar span { display: flex; align-items: center; justify-content: center; font-size: 8.5px;
+      color: #fff; font-variant-numeric: tabular-nums; }
+    .wlegend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-size: 9.5px; color: #5D646F; }
+    .wlegend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+
+    table { border-collapse: collapse; width: 100%; font-size: 10.5px; }
+    th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid #E4DDCE; }
+    th { font-size: 9.5px; font-weight: 500; letter-spacing: 2px; color: #88909C; border-bottom-color: #CFC7B6; }
+    td.k { font-family: "Noto Serif SC", serif; font-weight: 600; white-space: nowrap; }
+    td.n { font-variant-numeric: tabular-nums; }
+    tr.hi td { background: #F6EDD5; }
+    ol.todo { margin: 0; padding-left: 18px; font-size: 10.5px; color: #5D646F; line-height: 1.8; }
+    ol.todo b { color: #161B22; font-weight: 500; }
+    ol.todo em { font-style: normal; color: #9B1E22; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <radialGradient id="g-ready2" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFD470" stop-opacity=".9"></stop>
+        <stop offset="52%" stop-color="#FFCF5E" stop-opacity=".38"></stop>
+        <stop offset="100%" stop-color="#FFCF5E" stop-opacity="0"></stop>
+      </radialGradient>
+      <symbol id="co-gilded" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"></ellipse>
+        <rect x="27" y="52" width="66" height="40" rx="2" fill="#C9A94A" fill-opacity=".32" stroke="#111622" stroke-width="2.6"></rect>
+        <path d="M36 28 h48 l10 22 h-68 z" fill="#C9A94A" fill-opacity=".70" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"></path>
+        <path d="M26 50 h68" stroke="#111622" stroke-width="2.4"></path>
+        <circle cx="44" cy="40" r="1.7" fill="#111622" opacity=".45"></circle>
+        <circle cx="54" cy="36" r="1.7" fill="#111622" opacity=".45"></circle>
+        <circle cx="66" cy="36" r="1.7" fill="#111622" opacity=".45"></circle>
+        <circle cx="76" cy="40" r="1.7" fill="#111622" opacity=".45"></circle>
+        <path d="M53 52 h14 v13 a7 7 0 0 1 -14 0 z" fill="#F6EDD5" stroke="#111622" stroke-width="1.9"></path>
+        <path d="M60 58 v5" stroke="#111622" stroke-width="1.8" stroke-linecap="round"></path>
+        <circle cx="60" cy="56" r="2.4" fill="#111622"></circle>
+        <path d="M33 84 h54" stroke="#C9A94A" stroke-width="2.4" opacity=".9"></path>
+        <path d="M27 92 h66" stroke="#111622" stroke-width="2.6" stroke-linecap="round"></path>
+      </symbol>
+      <symbol id="co-ready" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="60" rx="46" ry="44" fill="url(#g-ready2)"></ellipse>
+        <g stroke="#C9A94A" stroke-width="3" stroke-linecap="round">
+          <path d="M60 20 v-7"></path><path d="M33 29 l-5 -6"></path><path d="M87 29 l5 -6"></path>
+          <path d="M21 57 h-7"></path><path d="M99 57 h7"></path>
+          <path d="M27 85 l-6 5"></path><path d="M93 85 l6 5"></path>
+        </g>
+      </symbol>
+      <symbol id="co-ingot" viewBox="0 0 56 34">
+        <path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path>
+        <path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="2.5"></path>
+      </symbol>
+    </defs>
+  </svg>
+
+  <h2>开箱 · 获字</h2>
+  <div class="sub">
+    从<b>就绪的箱</b>到<b>手里的字</b>。宝箱是未收集字的<b>唯一</b>来源（商城字摊只卖部件和你已有的字），
+    可这一段此前<em>一张稿也没有</em>——结果面板、翻卡节奏、重复卡怎么记，都只写在 MapView 里。
+    本页按 <code>ChestRules.TryOpen</code> / <code>ShowChestResult</code> 的现行口径画，数值全部取自 Core。
+  </div>
+
+  <div class="blk">
+    <h3>一次开箱 <span>五步，玩家实际经历的先后</span></h3>
+    <div class="card2">
+      <div class="flow">
+        <div class="step">
+          <div class="sh"><i>①</i>箱就绪</div>
+          <div class="stage">
+            <svg width="52" height="52" viewBox="0 0 120 120">
+              <use href="#co-ready"></use><use href="#co-gilded"></use>
+            </svg>
+          </div>
+          <div class="sb">倒计时走完，箱位上换成金光晕 + 「开箱!」。<em>已就绪的箱不占计时位</em>，后面那只可以同时开始计时。</div>
+        </div>
+        <div class="arw">→</div>
+        <div class="step">
+          <div class="sh"><i>②</i>点开箱</div>
+          <div class="stage">
+            <span style="height:24px;padding:0 16px;border-radius:12px;background:#C9A94A;color:#40340A;font-size:11px;font-weight:700;display:flex;align-items:center;">开箱!</span>
+          </div>
+          <div class="sb">一次点击直接结算，没有二次确认——开箱不可逆，但也没有可失去的东西。抽卡在这一刻已经掷完。</div>
+        </div>
+        <div class="arw">→</div>
+        <div class="step">
+          <div class="sh"><i>③</i>结果面板</div>
+          <div class="stage">
+            <span style="width:64px;height:40px;border-radius:6px;background:#FBF8F1;border:1px solid #DED7C9;display:flex;align-items:center;justify-content:center;gap:3px;">
+              <i style="width:9px;height:12px;border-radius:2px;background:#0F74C4;"></i>
+              <i style="width:9px;height:12px;border-radius:2px;background:#7945AB;"></i>
+              <i style="width:9px;height:12px;border-radius:2px;background:#C9A94A;"></i>
+            </span>
+          </div>
+          <div class="sb">遮罩挡住底下一切点击。墨锭先入账，字卡<b>逐张弹出</b>（0.12s 弹入、间隔 0.08s），点任一张看详情。</div>
+        </div>
+        <div class="arw">→</div>
+        <div class="step">
+          <div class="sh"><i>④</i>收下</div>
+          <div class="stage">
+            <span style="height:26px;padding:0 18px;border-radius:13px;background:#C53637;color:#fff;font-size:11px;letter-spacing:2px;display:flex;align-items:center;">收下</span>
+          </div>
+          <div class="sb">唯一的出口，遮罩不给点空白关闭：<em>12 张里哪张是新的，只在这一屏说得清</em>，误触关掉就再没有第二次。</div>
+        </div>
+        <div class="arw">→</div>
+        <div class="step">
+          <div class="sh"><i>⑤</i>回箱位</div>
+          <div class="stage">
+            <span style="width:60px;height:44px;border:1px dashed #CFC7B6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#B3AB9B;letter-spacing:1px;">空箱位</span>
+          </div>
+          <div class="sb">该箱移除、腾出一位；<b>暂存箱先进先出补位</b>；卡组红点按「有卡够张数可升级」重算。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h3>结果面板 <span>实尺 932×430pt · 鎏金匣 12 张</span></h3>
+    <div class="dev">
+      <div class="under">
+        <div class="ubar"></div>
+        <div class="ubody"><i class="a"></i><i class="b"></i><i class="c"></i></div>
+        <div class="unav"><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="scrim"></div>
+
+      <div class="rpanel">
+        <div class="rleft">
+          <div class="tt">「<em>鎏金匣</em>」开启!</div>
+          <svg class="art" viewBox="0 0 120 120"><use href="#co-gilded"></use></svg>
+          <div class="inkline">
+            <svg width="20" height="12" viewBox="0 0 56 34"><use href="#co-ingot"></use></svg>
+            +250
+          </div>
+          <div class="cnt">字卡 <b>12</b> 张 · 新字 <b>2</b></div>
+          <div class="hint">墨锭与字卡在点开箱那一刻<br>就已入账，这一屏只是<br>把发生过的事说给你听</div>
+        </div>
+
+        <div class="rright">
+          <div class="grid">
+            <div class="cell" style="animation-delay:0s">
+              <div class="card r-Purple e-Wood"><span class="rarchip"></span><span class="gl">荆</span><span class="py">jīng</span></div>
+              <div class="foot new">新 !</div>
+            </div>
+            <div class="cell" style="animation-delay:.2s">
+              <div class="card glow r-Gold e-Earth"><span class="rarchip"></span><span class="gl">圭</span><span class="py">guī</span></div>
+              <div class="foot new">新 !</div>
+            </div>
+            <div class="cell" style="animation-delay:.4s">
+              <div class="card r-Blue e-Metal"><span class="lvchip">Lv.3</span><span class="rarchip"></span><span class="gl">刺</span><span class="py">cì</span></div>
+              <div class="foot up on">升级 4/4</div>
+            </div>
+            <div class="cell" style="animation-delay:.6s">
+              <div class="card r-Purple e-Earth"><span class="lvchip max">MAX</span><span class="rarchip"></span><span class="gl">塔</span><span class="py">tǎ</span></div>
+              <div class="foot maxed">满级</div>
+            </div>
+            <div class="cell" style="animation-delay:.8s">
+              <div class="card r-Purple e-Metal"><span class="lvchip">Lv.3</span><span class="rarchip"></span><span class="gl">铠</span><span class="py">kǎi</span></div>
+              <div class="foot up">升级 2/3</div>
+            </div>
+            <div class="cell" style="animation-delay:1s">
+              <div class="card r-Purple e-Water"><span class="lvchip">Lv.4</span><span class="rarchip"></span><span class="gl">湮</span><span class="py">yān</span></div>
+              <div class="foot up">升级 3/5</div>
+            </div>
+            <div class="cell" style="animation-delay:1.2s">
+              <div class="card r-Blue e-Earth"><span class="lvchip">Lv.2</span><span class="rarchip"></span><span class="gl">碎</span><span class="py">suì</span></div>
+              <div class="foot up">升级 1/2</div>
+            </div>
+            <div class="cell" style="animation-delay:1.4s">
+              <div class="card r-Blue e-Earth"><span class="lvchip">Lv.1</span><span class="rarchip"></span><span class="gl">堡</span><span class="py">bǎo</span></div>
+              <div class="foot up on">升级 1/1</div>
+            </div>
+            <div class="cell" style="animation-delay:1.6s">
+              <div class="card r-Blue e-Water"><span class="lvchip">Lv.5</span><span class="rarchip"></span><span class="gl">冷</span><span class="py">lěng</span></div>
+              <div class="foot up">升级 6/16</div>
+            </div>
+            <div class="cell" style="animation-delay:1.8s">
+              <div class="card r-Blue e-Wood"><span class="lvchip">Lv.2</span><span class="rarchip"></span><span class="gl">藤</span><span class="py">téng</span></div>
+              <div class="foot up on">升级 2/2</div>
+            </div>
+            <div class="cell" style="animation-delay:2s">
+              <div class="card r-Green e-Wood"><span class="lvchip">Lv.2</span><span class="rarchip"></span><span class="gl">松</span><span class="py">sōng</span></div>
+              <div class="foot up">升级 1/3</div>
+            </div>
+            <div class="cell" style="animation-delay:2.2s">
+              <div class="card r-Green e-Water"><span class="lvchip">Lv.4</span><span class="rarchip"></span><span class="gl">海</span><span class="py">hǎi</span></div>
+              <div class="foot up">升级 9/14</div>
+            </div>
+          </div>
+          <div class="claimrow">
+            <span class="tip">点任一张看详情（与商城 / 收集同款 CharPreview，弹在结果面板之上）</span>
+            <button class="pill">收 下</button>
+          </div>
+        </div>
+      </div>
+
+      <span class="anno" style="left:70px;top:400px;">遮罩 62%：底下的主界面还认得出，但一个钮也点不动</span>
+      <span class="anno" style="right:64px;top:6px;">16 张（赤霄）也是这个网格：8 列 × 2 行，牌宽 96 → 70</span>
+    </div>
+    <div class="note" style="margin-top: 10px;">
+      <b>版式与实现不同的一处</b>：MapView 现在是<b>竖排</b>（标题 → 墨锭 → 卡行 → 收下），面板占屏 0.16~0.84 = 634×292pt。
+      横屏下这样放不进 12 张：两行牌加牌脚要 282pt，光标题与按钮就吃掉 100pt。
+      稿改成<b>左右分栏</b> —— 左栏 180 交代「哪只箱、多少墨」，右栏整块留给牌。
+      面板因此从 634×292 放大到 <b>814×380</b>（安全区内左右各 59、上下留 15），牌从 76×95 长到 <b>96×120</b>，
+      赤霄的 16 张也只要缩到 70 宽就排得下。<em>这一条要改 ShowChestResult 的布局，不只是调数</em>。
+    </div>
+  </div>
+
+  <div class="blk">
+    <h3>牌脚三态 <span>一张牌只回答一件事：它对你意味着什么</span></h3>
+    <div class="card2 foots">
+      <div class="fdemo">
+        <div class="cell">
+          <div class="card glow r-Gold e-Earth"><span class="rarchip"></span><span class="gl">圭</span><span class="py">guī</span></div>
+          <div class="foot new">新 !</div>
+        </div>
+        <div class="tx"><b>新字</b>
+          此前没有过，<code>OwnedCards</code> 里新增一条。牌脚走胭脂底白字，是这一屏最该被看见的东西；
+          金以上另有框内辉光。收下后卡组那一格挂红旗。
+        </div>
+      </div>
+      <div class="fdemo">
+        <div class="cell">
+          <div class="card r-Blue e-Metal"><span class="lvchip">Lv.3</span><span class="rarchip"></span><span class="gl">刺</span><span class="py">cì</span></div>
+          <div class="foot up on">升级 4/4</div>
+        </div>
+        <div class="tx"><b>重复字</b>
+          不作废、不折算，<b>记成一张升级材料</b>（<code>CardCopies +1</code>）。牌脚写<b>入账后</b>的现值；
+          凑满转翠玉底 —— 「这张现在就能升」和「还差几张」是两件事。
+        </div>
+      </div>
+      <div class="fdemo">
+        <div class="cell">
+          <div class="card r-Purple e-Earth"><span class="lvchip max">MAX</span><span class="rarchip"></span><span class="gl">塔</span><span class="py">tǎ</span></div>
+          <div class="foot maxed">满级</div>
+        </div>
+        <div class="tx"><b>满级</b>
+          Lv.10 封顶，多出的重复卡<em>仍照常计入 CardCopies</em>，只是暂时没有出口。
+          牌脚不写进度、改写「满级」，别拿一个永远填不满的分母吊着人。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h3>出什么字 <span>五道闸，按 TryOpen 的实际顺序</span></h3>
+    <div class="gates">
+      <div class="gate">
+        <div class="gn"><i>①</i>池的快照</div>
+        <div class="gd">箱是<b>掉落那一刻</b>就把奖励池抄进 <code>CardPool</code> 的。放着不开不会跟着后来的进度变 —— 早拿的箱按早的池开。</div>
+      </div>
+      <div class="gate">
+        <div class="gn"><i>②</i>前置过滤</div>
+        <div class="gd">配方里含<b>非叶子原料</b>而你还没有的字，先剔出去（叠字前置）。<em>滤空则整条限制让路</em>，回退未过滤的原池——出满数优先。</div>
+      </div>
+      <div class="gate">
+        <div class="gn"><i>③</i>稀有度权重</div>
+        <div class="gd">按箱档掷稀有度，<b>单位是千分比</b>：红在鎏金匣只有 0.1%，百分比装不下这一档。再在该稀有度的字里等概率取一个。</div>
+      </div>
+      <div class="gate">
+        <div class="gn"><i>④</i>单箱保底</div>
+        <div class="gd">青瓷保 1 张蓝，紫檀及以上保 1 张紫。<b>金 / 橙 / 红不在这里</b> —— 两套保底叠在一起会让高稀有度过量。</div>
+      </div>
+      <div class="gate">
+        <div class="gn"><i>⑤</i>计数保底</div>
+        <div class="gd">开满 N 只够档的箱还没见过该档，下一箱强制替一张进来：<b>红 20 只赤霄 / 橙 10 只朱漆+ / 金 5 只鎏金+</b>。自然掉出的也算，所以它只兜非酋、不抬产出。</div>
+      </div>
+    </div>
+    <div class="card2" style="margin-top: 12px;">
+      <div class="note" style="margin-bottom: 7px;"><b>鎏金匣一张牌的稀有度分布</b>（千分比，合计 1000）——白字整档不出，金 5%、橙 1%、红 0.1%：</div>
+      <div class="wbar">
+        <span style="flex:219;background:#2E9E52;">绿 219</span>
+        <span style="flex:360;background:#0F74C4;">蓝 360</span>
+        <span style="flex:360;background:#7945AB;">紫 360</span>
+        <span style="flex:50;background:#C9A94A;color:#2B2200;">50</span>
+        <span style="flex:10;background:#E1791B;"></span>
+        <span style="flex:1;background:#CD262E;"></span>
+      </div>
+      <div class="wlegend">
+        <span><i style="background:#A19E98;"></i>白 0</span>
+        <span><i style="background:#2E9E52;"></i>绿 219</span>
+        <span><i style="background:#0F74C4;"></i>蓝 360</span>
+        <span><i style="background:#7945AB;"></i>紫 360</span>
+        <span><i style="background:#C9A94A;"></i>金 50</span>
+        <span><i style="background:#E1791B;"></i>橙 10</span>
+        <span><i style="background:#CD262E;"></i>红 1</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h3>七档一次开箱给多少 <span>ChestRules 首版基准</span></h3>
+    <div class="card2 cols">
+      <table>
+        <tr><th>档</th><th>时长</th><th>广告缩短</th><th>字卡</th><th>墨锭</th></tr>
+        <tr><td class="k">素纸匣</td><td class="n">5 分</td><td class="n">即开</td><td class="n">3</td><td class="n">15</td></tr>
+        <tr><td class="k">竹简匣</td><td class="n">30 分</td><td class="n">即开</td><td class="n">4</td><td class="n">30</td></tr>
+        <tr><td class="k">青瓷匣</td><td class="n">2 时</td><td class="n">40 分</td><td class="n">6</td><td class="n">60</td></tr>
+        <tr><td class="k">紫檀匣</td><td class="n">4 时</td><td class="n">60 分</td><td class="n">8</td><td class="n">120</td></tr>
+        <tr class="hi"><td class="k">鎏金匣</td><td class="n">8 时</td><td class="n">90 分</td><td class="n">12</td><td class="n">250</td></tr>
+        <tr><td class="k">朱漆匣</td><td class="n">10 时</td><td class="n">105 分</td><td class="n">14</td><td class="n">320</td></tr>
+        <tr><td class="k">赤霄匣</td><td class="n">12 时</td><td class="n">120 分</td><td class="n">16</td><td class="n">400</td></tr>
+      </table>
+      <div class="note" style="width: 330px; flex: none;">
+        <b>三条节奏阀</b>，都不是每日上限：<br>
+        · 箱位 <b>4</b> 只，满了再掉的箱进<b>暂存</b>，开一只补一只；<br>
+        · 同一时间只有 <b>1</b> 只在计时，已就绪的不占位；<br>
+        · 广告每箱<b>只能用一次</b>，墨锭加速 <b>1 墨 / 2 分钟</b>（向上取整）。<br><br>
+        <b>命名冲突，落地前拍板</b>：卡的第 6/7 档在 strings 里叫<b>橙 / 红</b>，
+        而箱的第 6/7 档叫<b>朱漆 / 赤霄</b>；卡组稿里另给稀有度起了「赤金 / 朱漆」的雅名 ——
+        <em>「朱漆」现在同时是一档箱名和一档卡名</em>。本稿一律用 strings 的白绿蓝紫金橙红。
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h3>落地清单 <span>⚠ 稿子先行的四件</span></h3>
+    <div class="card2">
+      <ol class="todo">
+        <li><b>结果面板改左右分栏</b>：<code>ShowChestResult</code> 现在是 VStack + 每行 8 张写死。改成左信息栏 + 右网格，牌宽按张数在 96 / 70 两档之间取。</li>
+        <li><b>面板尺寸</b>：<code>0.16~0.84</code> 的锚点换成安全区内定尺 814×380 —— 横屏下按比例锚点会随机型漂，而这一屏的排布是按牌数算死的。</li>
+        <li><b>新字要标得更重</b>：现在新卡与重复卡的 chip 只差颜色（<code>ExitPink</code> vs <code>AdGreenBg</code>），一眼扫过去分不出。稿把新字牌脚做成实心胭脂底 + 加粗字距。</li>
+        <li><b>本页无新增游戏文案</b>：五个 key（<code>result_title / new_badge / upgrade_progress / claim_button / common.maxed</code>）都已在 strings 里，
+          <em>不必重跑字体子集</em> —— 但「满级」若要改写成别的词，就得跑一次 <code>tools/fonts/subset_fonts.py</code>。</li>
+      </ol>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

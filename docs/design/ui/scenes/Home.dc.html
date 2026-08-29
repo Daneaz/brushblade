@@ -175,10 +175,16 @@
       background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 5px;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
     }
-    .box .icon {
-      width: 33px; height: 25px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
-      font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; color: #fff;
-    }
+    /* 立绘位。33×25 色块 + 首字 → 40×40 方图（2026-08-29）：宝箱素材是 1:1，塞进 4:3 会压扁。
+       格内容高 98 → 113px，仍在两行 136px 的行高内 —— 栏宽 232 与格数一分没动。 */
+    .box .art { width: 40px; height: 40px; display: block; }
+    /* 「已就绪」是主界面唯一的动效：光晕呼吸 + 箱身起伏 + 盖缝透光，只叠层、不换底图。 */
+    @keyframes chestGlow { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+    @keyframes chestBob  { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+    @keyframes chestSeam { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    .box.ready .halo { animation: chestGlow 1.6s ease-in-out infinite; transform-origin: 60px 60px; }
+    .box.ready .bob  { animation: chestBob 1.6s ease-in-out infinite; }
+    .box.ready .beam { animation: chestSeam 1.6s ease-in-out infinite; }
     .box .bn { font-size: 10px; font-family: "Noto Serif SC", serif; font-weight: 600; }
     .box .cd { font-size: 11px; color: #5D646F; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
     .box .acts { display: flex; gap: 4px; width: 100%; }
@@ -225,6 +231,80 @@
 </helmet>
 
 <div class="dev">
+  <!-- 七档宝箱立绘（取自「七档宝箱立绘」那页的同一套 symbol，此处只用到主界面出现的三只）。
+       artboard 之间不共享任何东西，所以 defs 要在本文件里各留一份。 -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <radialGradient id="g-ready" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFD470" stop-opacity=".9"/>
+        <stop offset="52%" stop-color="#FFCF5E" stop-opacity=".38"/>
+        <stop offset="100%" stop-color="#FFCF5E" stop-opacity="0"/>
+      </radialGradient>
+      <symbol id="chest-bamboo" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="32" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 32 h68 v60 h-68 z" fill="var(--c)" fill-opacity=".30" stroke="#111622" stroke-width="2.6"/>
+        <path d="M26 32 h68 v12 h-68 z" fill="var(--c)" fill-opacity=".72" stroke="#111622" stroke-width="2"/>
+        <path d="M34.5 44 v48 M43 44 v48 M51.5 44 v48 M60 44 v48 M68.5 44 v48 M77 44 v48 M85.5 44 v48"
+              stroke="#111622" stroke-width="1.5" opacity=".34"/>
+        <path d="M30 60 h8 M47 60 h8 M64 60 h8 M81 60 h8" stroke="#111622" stroke-width="1.5" opacity=".3"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#6B5B3E" stroke-width="3.6" stroke-linecap="round"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#111622" stroke-width="1" opacity=".35"/>
+        <circle cx="60" cy="80" r="4.4" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+      </symbol>
+      <symbol id="chest-celadon" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="31" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M28 58 h64 v26 a7 7 0 0 1 -7 7 h-50 a7 7 0 0 1 -7 -7 z"
+              fill="var(--c)" fill-opacity=".13" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M28 58 a32 26 0 0 1 64 0 z" fill="var(--c)" fill-opacity=".52" stroke="#111622" stroke-width="2.6"/>
+        <path d="M52 32 h16 v5 h-16 z" fill="var(--c)" fill-opacity=".6" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40 56 l6 -14 M56 50 l-4 -12 M72 56 l-3 -16 M84 54 l-8 -9" stroke="#111622"
+              stroke-width="1.2" opacity=".28" fill="none"/>
+        <path d="M38 66 l9 8 M62 64 l-6 12 M76 68 l8 6" stroke="#111622" stroke-width="1.2" opacity=".24" fill="none"/>
+        <path d="M28 58 h64" stroke="#111622" stroke-width="2.2"/>
+        <path d="M36 91 h48" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M40 50 a24 20 0 0 1 12 -14" fill="none" stroke="#FFFFFF" stroke-width="3.4"
+              stroke-linecap="round" opacity=".75"/>
+      </symbol>
+      <symbol id="chest-gilded" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="27" y="52" width="66" height="40" rx="2" fill="var(--c)" fill-opacity=".32"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M36 28 h48 l10 22 h-68 z" fill="var(--c)" fill-opacity=".70"
+              stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 50 h68" stroke="#111622" stroke-width="2.4"/>
+        <circle cx="44" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="54" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="66" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="76" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <path d="M53 52 h14 v13 a7 7 0 0 1 -14 0 z" fill="#F6EDD5" stroke="#111622" stroke-width="1.9"/>
+        <path d="M60 58 v5" stroke="#111622" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="60" cy="56" r="2.4" fill="#111622"/>
+        <path d="M33 84 h54" stroke="#C9A94A" stroke-width="2.4" opacity=".9"/>
+        <path d="M27 92 h66" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="fx-ready" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="60" rx="46" ry="44" fill="url(#g-ready)"/>
+        <g stroke="#C9A94A" stroke-width="3" stroke-linecap="round">
+          <path d="M60 20 v-7"/>
+          <path d="M33 29 l-5 -6"/>
+          <path d="M87 29 l5 -6"/>
+          <path d="M21 57 h-7"/>
+          <path d="M99 57 h7"/>
+          <path d="M27 85 l-6 5"/>
+          <path d="M93 85 l6 5"/>
+        </g>
+        <g fill="#FFF3CF" stroke="#C9A94A" stroke-width="1.2">
+          <path d="M30 38 l2.6 5.4 5.4 2.6 -5.4 2.6 -2.6 5.4 -2.6 -5.4 -5.4 -2.6 5.4 -2.6z"/>
+          <path d="M92 70 l2.2 4.6 4.6 2.2 -4.6 2.2 -2.2 4.6 -2.2 -4.6 -4.6 -2.2 4.6 -2.2z"/>
+        </g>
+      </symbol>
+      <symbol id="ic-glass" viewBox="0 0 32 32">
+        <path d="M9 5h14M9 27h14" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+        <path d="M11 5c0 7 5 9 5 11s-5 4-5 11M21 5c0 7-5 9-5 11s5 4 5 11"
+              fill="none" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+      </symbol>
+    </defs>
+  </svg>
   <div class="safe">
 
     <div class="top">
@@ -308,8 +388,12 @@
           <span class="chip" style="background:#FBE3E2;color:#9B1E22;">暂存 1</span>
         </div>
         <div class="cgrid">
-          <div class="box">
-            <div class="icon" style="background:#C9A94A;">鎏</div>
+          <div class="box" style="--c:#C9A94A;">
+            <svg class="art" viewBox="0 0 120 120" aria-hidden="true">
+              <g opacity=".45"><use href="#chest-gilded"></use></g>
+              <circle cx="92" cy="90" r="15" fill="#EFEADF" stroke="#111622" stroke-width="2.4"></circle>
+              <svg x="80" y="78" width="24" height="24" viewBox="0 0 32 32"><use href="#ic-glass"></use></svg>
+            </svg>
             <div class="bn">鎏金匣</div>
             <div class="cd">2:14:08</div>
             <div class="acts">
@@ -320,14 +404,23 @@
               <button class="mini ink">18墨</button>
             </div>
           </div>
-          <div class="box">
-            <div class="icon" style="background:#0F74C4;">青</div>
+          <div class="box ready" style="--c:#0F74C4;">
+            <svg class="art" viewBox="0 0 120 120" aria-hidden="true">
+              <use class="halo" href="#fx-ready"></use>
+              <g class="bob">
+                <use href="#chest-celadon"></use>
+                <g class="beam">
+                  <path d="M28 57 h64" stroke="#FFD470" stroke-width="9" opacity=".55"></path>
+                  <path d="M28 57 h64" stroke="#FFF3CF" stroke-width="3.4"></path>
+                </g>
+              </g>
+            </svg>
             <div class="bn">青瓷匣</div>
             <div class="cd" style="color:#1B552C;font-weight:700;">已就绪</div>
             <div class="acts"><button class="mini open">开 启</button></div>
           </div>
-          <div class="box">
-            <div class="icon" style="background:#2E9E52;">竹</div>
+          <div class="box" style="--c:#2E9E52;">
+            <svg class="art" viewBox="0 0 120 120" aria-hidden="true"><use href="#chest-bamboo"></use></svg>
             <div class="bn">竹简匣</div>
             <div class="cd" style="color:#88909C;">3 小时</div>
             <div class="acts"><button class="mini start">排队等位</button></div>
