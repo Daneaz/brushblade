@@ -1,0 +1,470 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* 七档宝箱立绘。规范板,不是一屏 UI。
+       色值逐条取自 Theme.ChestColor,数值取自 ChestRules —— 改平衡要同步这里。 */
+    .sheet { width: 1180px; box-sizing: border-box; padding: 26px 30px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .sub { font-size: 12px; color: #5D646F; margin-top: 7px; line-height: 1.75; max-width: 940px; }
+    .sub b { color: #161B22; font-weight: 500; }
+    .sub em { font-style: normal; color: #9B1E22; }
+    h3 { margin: 0 0 10px; font-family: "Noto Serif SC", serif; font-size: 14px;
+      font-weight: 600; letter-spacing: 2px; color: #2C333D; }
+    h3 span { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400;
+      letter-spacing: 0; color: #88909C; margin-left: 8px; }
+    .blk { margin-top: 26px; }
+
+    /* 七档一排 */
+    .tiers { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+    .tier { background: #FBF8F1; border: 1px solid #E7E1D4; border-radius: 10px;
+      padding: 10px 10px 11px; display: flex; flex-direction: column; align-items: center; }
+    .art { width: 120px; height: 120px; display: block; }
+    .tn { margin-top: 4px; display: flex; align-items: center; gap: 5px;
+      font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+    .dot { width: 9px; height: 9px; border-radius: 3px; background: var(--c); display: block; }
+    .hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px;
+      color: #A8A08E; margin-top: 2px; letter-spacing: .3px; }
+    .mat { font-size: 9.5px; color: #7A7261; line-height: 1.55; margin-top: 6px; text-align: center;
+      min-height: 44px; }
+    .mat b { color: #2C333D; font-weight: 500; }
+    .num { margin-top: 6px; width: 100%; display: flex; flex-direction: column; gap: 2px;
+      padding-top: 7px; border-top: 1px solid #EDE7DA; }
+    .num span { display: flex; font-size: 9.5px; color: #88909C; }
+    .num span b { margin-left: auto; color: #2C333D; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+    /* 三态 + 落位 */
+    .row2 { display: flex; gap: 20px; align-items: flex-start; }
+    .card { background: #FBF8F1; border: 1px solid #E7E1D4; border-radius: 10px;
+      padding: 13px 15px 15px; display: flex; flex-direction: column; }
+    .states { display: flex; gap: 16px; }
+    .state { text-align: center; width: 128px; }
+    .state svg { width: 108px; height: 108px; display: block; margin: 0 auto; }
+    .state .sn { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+    .state .sd { font-size: 9px; color: #7A7261; line-height: 1.5; margin-top: 3px; }
+    @keyframes glow { 0%, 100% { opacity: .35; } 50% { opacity: .95; } }
+    .ready .beam { animation: glow 1.8s ease-in-out infinite; }
+
+    /* 主界面宝箱格实尺 */
+    .slotdemo { width: 232px; box-sizing: border-box; background: #FFFDF7; border: 1px solid #E7E1D4;
+      border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .ch { font-size: 9px; color: #88909C; letter-spacing: 2px; }
+    .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .box { background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 5px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .box svg { width: 40px; height: 40px; display: block; }
+    .box .bn { font-size: 10px; font-family: "Noto Serif SC", serif; font-weight: 600; }
+    .box .cd { font-size: 11px; color: #5D646F; font-variant-numeric: tabular-nums; }
+    .box .mini { width: 100%; height: 22px; border: none; border-radius: 11px; font-family: inherit;
+      font-size: 9.5px; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
+    .mini.start { background: #3D4E69; color: #fff; }
+    .mini.open { background: #C9A94A; color: #40340A; font-weight: 700; font-size: 11px; height: 24px; }
+    .box.empty { background: transparent; border: 1px dashed #CFC7B6; justify-content: center;
+      min-height: 96px; }
+    .box.empty .t { font-size: 10px; color: #B3AB9B; letter-spacing: 1px; }
+
+    .note { font-size: 10.5px; color: #5D646F; line-height: 1.7; }
+    .note b { color: #161B22; font-weight: 500; }
+    .note em { font-style: normal; color: #9B1E22; }
+    .note ul { margin: 7px 0 0; padding-left: 16px; }
+    .note li { margin-bottom: 4px; }
+
+    /* 出图关键词 */
+    table { border-collapse: collapse; width: 100%; font-size: 10.5px; }
+    th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid #E4DDCE; vertical-align: top; }
+    th { font-size: 9.5px; font-weight: 500; letter-spacing: 2px; color: #88909C; border-bottom-color: #CFC7B6; }
+    td.k { font-family: "Noto Serif SC", serif; font-weight: 600; white-space: nowrap; }
+    td.c { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; color: #7A7261; white-space: nowrap; }
+    td.t { color: #5D646F; line-height: 1.6; }
+    td.t b { color: #2C333D; font-weight: 500; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <svg class="defs" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <!-- 七只箱共用的画法:墨线 #111622(2.6 主体 / 1.8 细节)、纸底 #FFFDF7、
+           属性色只做**大面积平涂的那一块**(盖或身),40px 缩略图里认色全靠它。
+           一律 1:1 方图、四周留 10% 白,与 mob 素材同规格。 -->
+
+      <!-- ① 素纸匣:纸函套 + 麻绳十字 + 题签。最朴素,毛边与书口是它唯一的"工" -->
+      <symbol id="chest-paper" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="33" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 30 h68 v62 h-68 z" fill="#FFFDF7" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 30 h68 v15 h-68 z" fill="var(--c)" fill-opacity=".55" stroke="#111622" stroke-width="2"/>
+        <path d="M82 50 v36 M86 50 v36 M90 50 v36" stroke="#C6BCA8" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="32" y="52" width="17" height="30" rx="1.5" fill="#F6F1E7" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40.5 57 v20" stroke="#111622" stroke-width="1.4" opacity=".4" stroke-dasharray="2 3.5"/>
+        <path d="M26 64 h68" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M66 30 v62" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>
+        <circle cx="66" cy="64" r="4.6" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+        <path d="M26 92 q5.7 4 11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.5 0" fill="none"
+              stroke="#111622" stroke-width="2.2" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ② 竹简匣:竹片竖排 + 两道编绳。轮廓最"瘦",一眼与纸函分得开 -->
+      <symbol id="chest-bamboo" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="32" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 32 h68 v60 h-68 z" fill="var(--c)" fill-opacity=".30" stroke="#111622" stroke-width="2.6"/>
+        <path d="M26 32 h68 v12 h-68 z" fill="var(--c)" fill-opacity=".72" stroke="#111622" stroke-width="2"/>
+        <path d="M34.5 44 v48 M43 44 v48 M51.5 44 v48 M60 44 v48 M68.5 44 v48 M77 44 v48 M85.5 44 v48"
+              stroke="#111622" stroke-width="1.5" opacity=".34"/>
+        <path d="M30 60 h8 M47 60 h8 M64 60 h8 M81 60 h8" stroke="#111622" stroke-width="1.5" opacity=".3"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#6B5B3E" stroke-width="3.6" stroke-linecap="round"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#111622" stroke-width="1" opacity=".35"/>
+        <circle cx="60" cy="80" r="4.4" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+      </symbol>
+
+      <!-- ③ 青瓷匣:半圆盖 + 冰裂纹 + 圈足。唯一的圆顶轮廓 -->
+      <symbol id="chest-celadon" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="31" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M28 58 h64 v26 a7 7 0 0 1 -7 7 h-50 a7 7 0 0 1 -7 -7 z"
+              fill="var(--c)" fill-opacity=".13" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M28 58 a32 26 0 0 1 64 0 z" fill="var(--c)" fill-opacity=".52" stroke="#111622" stroke-width="2.6"/>
+        <path d="M52 32 h16 v5 h-16 z" fill="var(--c)" fill-opacity=".6" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40 56 l6 -14 M56 50 l-4 -12 M72 56 l-3 -16 M84 54 l-8 -9" stroke="#111622"
+              stroke-width="1.2" opacity=".28" fill="none"/>
+        <path d="M38 66 l9 8 M62 64 l-6 12 M76 68 l8 6" stroke="#111622" stroke-width="1.2" opacity=".24" fill="none"/>
+        <path d="M28 58 h64" stroke="#111622" stroke-width="2.2"/>
+        <path d="M36 91 h48" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M40 50 a24 20 0 0 1 12 -14" fill="none" stroke="#FFFFFF" stroke-width="3.4"
+              stroke-linecap="round" opacity=".75"/>
+      </symbol>
+
+      <!-- ④ 紫檀匣:硬木 + 四角包角 + 云头扣。第一只"带五金"的箱 -->
+      <symbol id="chest-rosewood" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="26" y="44" width="68" height="48" rx="3" fill="var(--c)" fill-opacity=".30"
+              stroke="#111622" stroke-width="2.6"/>
+        <rect x="22" y="30" width="76" height="15" rx="3" fill="var(--c)" fill-opacity=".64"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M32 56 q14 5 28 0 t28 0 M32 68 q14 -5 28 0 t28 0 M32 80 q14 5 28 0 t28 0"
+              fill="none" stroke="#111622" stroke-width="1.3" opacity=".26"/>
+        <path d="M26 54 v-10 h10 M94 54 v-10 h-10 M26 82 v10 h10 M94 82 v10 h-10"
+              fill="none" stroke="#8A7B5A" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M52 45 h16 v11 a8 8 0 0 1 -16 0 z" fill="#C9A94A" stroke="#111622" stroke-width="1.9"/>
+        <circle cx="60" cy="53" r="2.2" fill="#111622"/>
+      </symbol>
+
+      <!-- ⑤ 鎏金匣:盝顶盖 + 錾花 + 如意锁牌。轮廓从这一档开始"起脊" -->
+      <symbol id="chest-gilded" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="27" y="52" width="66" height="40" rx="2" fill="var(--c)" fill-opacity=".32"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M36 28 h48 l10 22 h-68 z" fill="var(--c)" fill-opacity=".70"
+              stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 50 h68" stroke="#111622" stroke-width="2.4"/>
+        <circle cx="44" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="54" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="66" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="76" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <path d="M53 52 h14 v13 a7 7 0 0 1 -14 0 z" fill="#F6EDD5" stroke="#111622" stroke-width="1.9"/>
+        <path d="M60 58 v5" stroke="#111622" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="60" cy="56" r="2.4" fill="#111622"/>
+        <path d="M33 84 h54" stroke="#C9A94A" stroke-width="2.4" opacity=".9"/>
+        <path d="M27 92 h66" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ⑥ 朱漆匣:剔红卷草 + 铜包角。圆角最饱满,漆面用一层高光带出"厚" -->
+      <symbol id="chest-vermilion" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="25" y="36" width="70" height="56" rx="8" fill="var(--c)" fill-opacity=".50"
+              stroke="#111622" stroke-width="2.8"/>
+        <path d="M25 58 h70" stroke="#111622" stroke-width="2.4"/>
+        <path d="M32 50 c8 -8 18 -2 22 -8 c4 -6 14 -6 18 1 c3 5 10 5 13 1" fill="none" stroke="#111622"
+              stroke-width="1.8" opacity=".42" stroke-linecap="round"/>
+        <path d="M44 46 c-3 -4 -8 -3 -8 1 c0 3 4 4 5 1" fill="none" stroke="#111622"
+              stroke-width="1.6" opacity=".38" stroke-linecap="round"/>
+        <path d="M30 74 c9 -7 19 -1 25 -6 c6 -5 16 -3 20 3 c3 4 9 4 12 1" fill="none" stroke="#111622"
+              stroke-width="1.6" opacity=".28" stroke-linecap="round"/>
+        <path d="M25 48 h12 M83 48 h12" stroke="#C9A94A" stroke-width="3" stroke-linecap="round"/>
+        <path d="M25 82 h12 M83 82 h12" stroke="#C9A94A" stroke-width="3" stroke-linecap="round"/>
+        <rect x="53" y="52" width="14" height="12" rx="2.5" fill="#C9A94A" stroke="#111622" stroke-width="1.9"/>
+        <circle cx="60" cy="58" r="2.2" fill="#111622"/>
+        <path d="M33 42 q10 -4 20 -1" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".38" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ⑦ 赤霄匣:铁函 + 交叉封符 + 缝里透出来的光。全表唯一"关不住"的一只 -->
+      <symbol id="chest-crimson" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="35" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M30 22 l6 10 M90 22 l-6 10 M60 16 v10" stroke="#C53637" stroke-width="2.4"
+              stroke-linecap="round" opacity=".55"/>
+        <rect x="24" y="34" width="72" height="58" rx="2" fill="var(--c)" fill-opacity=".42"
+              stroke="#111622" stroke-width="3"/>
+        <path d="M24 58 h72" stroke="#FFD470" stroke-width="5" opacity=".55"/>
+        <path d="M24 58 h72" stroke="#FFF3CF" stroke-width="2"/>
+        <path d="M24 56 h72" stroke="#111622" stroke-width="2.2"/>
+        <path d="M28 26 l64 62" stroke="#F6F1E7" stroke-width="9" stroke-linecap="square"/>
+        <path d="M28 26 l64 62" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+        <path d="M92 26 l-64 62" stroke="#F6F1E7" stroke-width="9" stroke-linecap="square"/>
+        <path d="M92 26 l-64 62" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+        <rect x="50" y="47" width="20" height="20" rx="2" fill="#9B1E22" stroke="#111622" stroke-width="2"/>
+        <path d="M55 53 h10 M55 57 h10 M55 61 h10" stroke="#F6F1E7" stroke-width="1.6" opacity=".85"/>
+        <path d="M24 92 h72" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- 沙漏(计时中角标) -->
+      <symbol id="ic-glass" viewBox="0 0 32 32">
+        <path d="M9 5h14M9 27h14" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+        <path d="M11 5c0 7 5 9 5 11s-5 4-5 11M21 5c0 7-5 9-5 11s5 4 5 11"
+              fill="none" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+      </symbol>
+    </defs>
+  </svg>
+  <div>
+    <h2>七档宝箱立绘</h2>
+    <div class="sub">
+      七只箱是<b>七种材质</b>，不是七种颜色——现在格子里画的是一个色块加「素」「竹」这样的首字，
+      七档只有色相之差，玩家分不出「哪只更值得等」。改法是让<em>工艺随档位递进</em>：
+      纸 → 竹 → 瓷 → 木 → 金 → 漆 → 铁函，越往上五金越多、轮廓越"抬头"，赤霄那只干脆关不严。<br>
+      画法与 mob 素材同规格：<b>1:1 方图</b>、四周留 10% 白、墨线 <code>#111622</code>、纸底 <code>#FFFDF7</code>；
+      属性色只铺<b>一块大面积平涂</b>（盖或身）——40px 缩略图里认色全靠它，细节那时一概看不见。
+      色值逐条取自 <b>Theme.ChestColor</b>，数值取自 <b>ChestRules</b>。
+    </div>
+  </div>
+
+  <div class="blk">
+    <h3>七档 <span>材质递进 · 数值为 ChestRules 首版基准</span></h3>
+    <div class="tiers">
+      <div class="tier" style="--c: #A19E98">
+        <svg class="art" viewBox="0 0 120 120"><use href="#chest-paper"></use></svg>
+        <div class="tn"><i class="dot"></i>素纸匣</div>
+        <div class="hex">Paper · 1 · #A19E98</div>
+        <div class="mat">宣纸函套，麻绳十字捆扎。毛边与书口是它全部的「工」——最常见的一只，也该最不起眼。</div>
+        <div class="num">
+          <span>开启<b>5 分钟</b></span>
+          <span>产字<b>3 张</b></span>
+          <span>墨锭<b>15 墨</b></span>
+          <span>广告<b>即开</b></span>
+        </div>
+      </div>
+      <div class="tier" style="--c: #2E9E52">
+        <svg class="art" viewBox="0 0 120 120"><use href="#chest-bamboo"></use></svg>
+        <div class="tn"><i class="dot"></i>竹简匣</div>
+        <div class="hex">Bamboo · 2 · #2E9E52</div>
+        <div class="mat">竹片竖排、两道编绳、竹节留痕。轮廓最瘦，40px 下也与纸函分得开。</div>
+        <div class="num">
+          <span>开启<b>30 分钟</b></span>
+          <span>产字<b>4 张</b></span>
+          <span>墨锭<b>30 墨</b></span>
+          <span>广告<b>即开</b></span>
+        </div>
+      </div>
+      <div class="tier" style="--c: #0F74C4">
+        <svg class="art" viewBox="0 0 120 120"><use href="#chest-celadon"></use></svg>
+        <div class="tn"><i class="dot"></i>青瓷匣</div>
+        <div class="hex">Celadon · 3 · #0F74C4</div>
+        <div class="mat">全表唯一的圆顶。冰裂纹配一道白高光，釉光就是它的贵气。</div>
+        <div class="num">
+          <span>开启<b>2 小时</b></span>
+          <span>产字<b>6 张</b></span>
+          <span>墨锭<b>60 墨</b></span>
+          <span>广告<b>−40 分</b></span>
+        </div>
+      </div>
+      <div class="tier" style="--c: #7945AB">
+        <svg class="art" viewBox="0 0 120 120"><use href="#chest-rosewood"></use></svg>
+        <div class="tn"><i class="dot"></i>紫檀匣</div>
+        <div class="hex">Rosewood · 4 · #7945AB</div>
+        <div class="mat">硬木起线、木纹三道，四角包铜、云头扣。第一只带五金的箱。</div>
+        <div class="num">
+          <span>开启<b>4 小时</b></span>
+          <span>产字<b>8 张</b></span>
+          <span>墨锭<b>120 墨</b></span>
+          <span>广告<b>−60 分</b></span>
+        </div>
+      </div>
+      <div class="tier" style="--c: #C9A94A">
+        <svg class="art" viewBox="0 0 120 120"><use href="#chest-gilded"></use></svg>
+        <div class="tn"><i class="dot"></i>鎏金匣</div>
+        <div class="hex">Gilded · 5 · #C9A94A</div>
+        <div class="mat">盝顶起脊、錾花点、如意锁牌。轮廓从这一档开始「抬头」。</div>
+        <div class="num">
+          <span>开启<b>8 小时</b></span>
+          <span>产字<b>12 张</b></span>
+          <span>墨锭<b>250 墨</b></span>
+          <span>广告<b>−90 分</b></span>
+        </div>
+      </div>
+      <div class="tier" style="--c: #D4602A">
+        <svg class="art" viewBox="0 0 120 120"><use href="#chest-vermilion"></use></svg>
+        <div class="tn"><i class="dot"></i>朱漆匣</div>
+        <div class="hex">Vermilion · 6 · #D4602A</div>
+        <div class="mat">剔红卷草满盖，铜包角四枚，漆面一道高光带出厚度。</div>
+        <div class="num">
+          <span>开启<b>10 小时</b></span>
+          <span>产字<b>14 张</b></span>
+          <span>墨锭<b>320 墨</b></span>
+          <span>广告<b>−105 分</b></span>
+        </div>
+      </div>
+      <div class="tier" style="--c: #CD262E">
+        <svg class="art" viewBox="0 0 120 120"><use href="#chest-crimson"></use></svg>
+        <div class="tn"><i class="dot"></i>赤霄匣</div>
+        <div class="hex">Crimson · 7 · #CD262E</div>
+        <div class="mat">铁函加交叉封符，缝里的光压不住——全表唯一一只「关不严」的箱。</div>
+        <div class="num">
+          <span>开启<b>12 小时</b></span>
+          <span>产字<b>16 张</b></span>
+          <span>墨锭<b>400 墨</b></span>
+          <span>广告<b>−120 分</b></span>
+        </div>
+      </div>    </div>
+  </div>
+
+  <div class="blk">
+    <div class="row2">
+      <div class="card">
+        <h3>三态 <span>同一只箱，三种画法 —— 以青瓷匣为例</span></h3>
+        <div class="states">
+          <div class="state" style="--c: #0F74C4">
+            <svg viewBox="0 0 120 120"><use href="#chest-celadon"></use></svg>
+            <div class="sn">未开始</div>
+            <div class="sd">原色满不透明。箱位上就这一只是「还能动手」的</div>
+          </div>
+          <div class="state" style="--c: #0F74C4">
+            <svg viewBox="0 0 120 120">
+              <g opacity=".55"><use href="#chest-celadon"></use></g>
+              <circle cx="92" cy="90" r="15" fill="#EFEADF" stroke="#111622" stroke-width="2.4"/>
+              <svg x="80" y="78" width="24" height="24" viewBox="0 0 32 32"><use href="#ic-glass"></use></svg>
+            </svg>
+            <div class="sn">计时中</div>
+            <div class="sd">压到 55% 不透明 + 沙漏角标。同一时间只允许一只在计时</div>
+          </div>
+          <div class="state ready" style="--c: #0F74C4">
+            <svg viewBox="0 0 120 120">
+              <use href="#chest-celadon"></use>
+              <g class="beam">
+                <path d="M28 58 h64" stroke="#FFD470" stroke-width="7" opacity=".5"/>
+                <path d="M28 58 h64" stroke="#FFF3CF" stroke-width="2.4"/>
+                <path d="M40 48 l-7 -12 M60 44 l0 -14 M80 48 l7 -12" stroke="#C9A94A"
+                      stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
+              </g>
+            </svg>
+            <div class="sn">已就绪</div>
+            <div class="sd">盖缝透光 + 三道光芒，1.8s 一呼一吸。全屏只有它在动</div>
+          </div>
+        </div>
+        <div class="note" style="margin-top: 12px;">
+          三态<b>只改叠加层，不换底图</b>——一只箱一张素材，省 21 张图。
+          「已就绪」的呼吸是这一屏唯一的动效：主界面同时有四个箱位，谁该点一眼就见。
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>落位 <span>主界面宝箱栏 232pt 实尺</span></h3>
+        <div class="slotdemo">
+          <div class="ch">宝箱 3 / 4</div>
+          <div class="cgrid">
+            <div class="box" style="--c: #C9A94A">
+              <svg viewBox="0 0 120 120"><use href="#chest-gilded"></use></svg>
+              <div class="bn">鎏金匣</div>
+              <div class="cd">已就绪</div>
+              <div class="mini open">开箱!</div>
+            </div>
+            <div class="box" style="--c: #0F74C4">
+              <svg viewBox="0 0 120 120" opacity=".55"><use href="#chest-celadon"></use></svg>
+              <div class="bn">青瓷匣</div>
+              <div class="cd">1:12:44</div>
+              <div class="mini start">看广告 −40分</div>
+            </div>
+            <div class="box" style="--c: #2E9E52">
+              <svg viewBox="0 0 120 120"><use href="#chest-bamboo"></use></svg>
+              <div class="bn">竹简匣</div>
+              <div class="cd">30:00</div>
+              <div class="mini start">开始开启</div>
+            </div>
+            <div class="box empty"><span class="t">空位</span></div>
+          </div>
+        </div>
+        <div class="note" style="margin-top: 12px; width: 232px;">
+          图标位 <b>33×25 → 40×40</b>：立绘是方图，塞进 4:3 的格子会压扁。
+          格高因此 +15pt，四个箱位仍在 232pt 栏内（<em>落地时要量一遍 MapView 的 ChestW</em>）。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h3>出图关键词 <span>风格前缀与分层规范沿用《敌人形象关键词包》§1 / §2</span></h3>
+    <div class="note" style="margin-bottom: 10px;">
+      本页的 SVG <b>可以直接当素材用</b>——箱子是器物不是活物，矢量墨线画得住，还省一套 512 方图。
+      要与 mob 那批painterly 立绘统一，再按下表出图：<b>底稿用本页 SVG</b> 作 ControlNet 输入，
+      让模型只长材质与光，轮廓一律不许改——七只箱的辨识度全在轮廓上。
+      分层沿用 mob 那套 <code>body / face / wisp</code>，箱子对应 <code>body</code>（器物）、
+      <code>face</code>（五金与封条）、<code>wisp</code>（光与气）；赤霄那只的缝隙光单出 <code>state</code> 层，
+      好让「已就绪」直接换层强度，与焦痕的火芯同一套做法。
+    </div>
+    <table>
+      <tr><th>档</th><th>色值</th><th>中文关键词</th><th>英文 keywords（多数模型对英文响应更准）</th></tr>
+        <tr>
+          <td class="k">素纸匣</td>
+          <td class="c">#A19E98</td>
+          <td class="t">宣纸函套 / 毛边 / 麻绳十字 / 空白题签 / 无五金</td>
+          <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">xuan-paper slipcase, deckle edge, hemp cord cross-tie, blank title slip, no metal fittings</td>
+        </tr>
+        <tr>
+          <td class="k">竹简匣</td>
+          <td class="c">#2E9E52</td>
+          <td class="t">竹片竖排 / 编绳两道 / 竹节 / 青竹色 / 瘦长</td>
+          <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">bamboo-slat case, two binding cords, visible culm nodes, green bamboo, slender silhouette</td>
+        </tr>
+        <tr>
+          <td class="k">青瓷匣</td>
+          <td class="c">#0F74C4</td>
+          <td class="t">半圆盖 / 冰裂纹开片 / 釉面高光 / 圈足 / 影青</td>
+          <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">celadon porcelain box, domed lid, crackle glaze (ice-crack), glossy highlight, foot ring, qingbai blue</td>
+        </tr>
+        <tr>
+          <td class="k">紫檀匣</td>
+          <td class="c">#7945AB</td>
+          <td class="t">硬木起线 / 木纹 / 四角包铜 / 云头扣 / 深紫檀</td>
+          <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">rosewood casket, carved edge lines, wood grain, brass corner brackets, ruyi-cloud clasp, deep purple rosewood</td>
+        </tr>
+        <tr>
+          <td class="k">鎏金匣</td>
+          <td class="c">#C9A94A</td>
+          <td class="t">盝顶盖 / 錾花地 / 如意锁牌 / 鎏金 / 起脊</td>
+          <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">gilt-bronze casket, truncated-pyramid (lu-ding) lid, chased floral ground, ruyi lock plate, fire-gilding</td>
+        </tr>
+        <tr>
+          <td class="k">朱漆匣</td>
+          <td class="c">#D4602A</td>
+          <td class="t">剔红卷草 / 满地雕漆 / 铜包角 / 圆角 / 漆光</td>
+          <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">carved red lacquer (tihong) box, scrolling-vine relief, brass corner mounts, rounded corners, lacquer sheen</td>
+        </tr>
+        <tr>
+          <td class="k">赤霄匣</td>
+          <td class="c">#CD262E</td>
+          <td class="t">铁函 / 交叉封符 / 朱砂印 / 缝隙透光 / 镇不住</td>
+          <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">iron reliquary chest, crossed paper talisman seals, cinnabar seal stamp, light escaping the seam, barely contained</td>
+        </tr>    </table>
+    <div class="note" style="margin-top: 12px;">
+      ⚠ 落地要动的三处：① <b>Theme.ChestColor 的橙档</b>现在是 <code>#D4602A</code>，
+      而 base.css 的稀有度橙是 <code>#E1791B</code>——箱色与卡色是两套值，本页按 Theme 画，
+      要不要并成一套得先拍板。② 现在 <code>MapView.DrawChest</code> 画的是色块 + 首字，
+      换立绘要接一套 <code>ChestAssets</code>（与 <code>MobAssets</code> 同构：前缀表 + 分层 + 缓存）。
+      ③ 首字兜底可以留着——取不到素材时回落到现在这套，与 Icons.cs 的双轨同一个道理。
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1180, "height": 1420}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

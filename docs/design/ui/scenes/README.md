@@ -40,6 +40,7 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `UnitMe.dc.html` | 单位详情 · 执笔人 | 实现侧**还没有**入口 |
 | `StatusGlossary.dc.html` | 状态词条 29 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
 | `UnitSheetAlt.dc.html` | 详情承载方式取舍 | 低保真，无对应实现 |
+| `Chests.dc.html` | 七档宝箱立绘 | `Core/Chest.cs` · `MapView.DrawChest` |
 
 `canvas.json` 是画布布局（位置、分页、便签）；便签里记着每处改动的理由与待办，
 **别只看画面不看便签**。`base.css` 是六屏共用的令牌（色板取自 `Theme.cs`，
@@ -62,6 +63,7 @@ node <skill>/seed-canvas.mjs \
   --artboard Dialogs.dc.html --artboard Popups.dc.html \
   --artboard UnitFoe.dc.html --artboard UnitAlly.dc.html --artboard UnitMe.dc.html \
   --artboard StatusGlossary.dc.html --artboard UnitSheetAlt.dc.html \
+  --artboard Chests.dc.html \
   --image mob_jiaohen.png \
   --canvas canvas.json
 ```
@@ -169,3 +171,24 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 
 顺带查出：`Battle.dc.html` 里 碉 写的是「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
 「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）——本页按 `chars.json` 画，战斗稿那格待回填。
+
+## 2026-08-29 新增：七档宝箱立绘
+
+七只箱是**七种材质**不是七种颜色。现在 `MapView.DrawChest` 画的是一个 `Theme.ChestColor` 色块
+加「素」「竹」这样的首字——七档只有色相之差，而它们的等待时长差着 5 分钟到 12 小时。
+
+`Chests.dc.html` 把工艺按档位排开：纸 → 竹 → 瓷 → 木 → 金 → 漆 → 铁函，越往上五金越多、
+轮廓越「抬头」，赤霄那只干脆关不严（缝里透光）。轮廓各不相同是刻意的：40px 缩略图下细节
+全看不见，认的是外形与那一块平涂色。
+
+- **这一页的 SVG 可以直接当素材**：箱子是器物不是活物，矢量墨线画得住，不必像 mob 那样出
+  512 方图。要与 mob 那批 painterly 立绘统一，页内附了逐档的中英文出图关键词——底稿用本页
+  SVG 作 ControlNet 输入，只许长材质与光、不许改轮廓。
+- **三态只改叠加层**：未开始（满不透明）／计时中（55% + 沙漏角标）／已就绪（盖缝透光 +
+  三道光芒，1.8s 一呼一吸）。一只箱一张素材，省 21 张图。
+- 数值与色值逐条取自 `ChestRules` 与 `Theme.ChestColor`，改平衡要同步这一页。
+
+⚠ 落地四处：① 箱色与卡色是两套值（`Theme.ChestColor` 橙 `#D4602A` vs `base.css` 稀有度橙
+`#E1791B`），要不要并成一套得先拍板；② 换立绘要接一套 `ChestAssets`（与 `MobAssets` 同构：
+前缀表 + 分层 + 缓存）；③ 首字兜底留着，取不到素材时回落，与 `Icons.cs` 的双轨同理；
+④ 图标位 33×25 → 40×40（立绘是方图，4:3 会压扁），格高 +15pt，要量一遍 `MapView.ChestW`。
