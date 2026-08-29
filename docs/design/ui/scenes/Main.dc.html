@@ -151,7 +151,7 @@
       background: #439458; color: #fff; font-size: 8.5px; }
     .upbadge.nodeck { bottom: 5px; }
 
-    /* 未拥有:牌面褪成宣纸灰,但稀有度框留三成色相 —— 「那张朱漆我还没拿到」
+    /* 未拥有:牌面褪成宣纸灰,但稀有度框留三成色相 —— 「那张红卡我还没拿到」
        是收集页最该传达的一件事,全灰掉就说不出来了。字形仍读得清:玩家要认出是哪个字。 */
     .card.locked {
       background: #EFEAE0; border-color: color-mix(in srgb, var(--rar) 34%, #C2BAAA);
@@ -594,7 +594,10 @@ var EL_GLYPH = { Metal: "#6B6449", Wood: "#1F6333", Water: "#0A5E9E", Fire: "#B0
 var EL_SOFT = { Metal: "#EEE3CF", Wood: "#CCE6D0", Water: "#C8E1FB", Fire: "#FED2CE", Earth: "#ECDCBD", None: "#DAD7D0" };
 var EL_FG = { Metal: "#64532C", Wood: "#185C2E", Water: "#0E4F86", Fire: "#862726", Earth: "#634800", None: "#5D646F" };
 var EL_MAIN = { Metal: "#B3A382", Wood: "#348F4F", Water: "#0F74C4", Fire: "#C53637", Earth: "#997C3C", None: "#4F5661" };
-var RAR_NAME = { White: "素纸", Green: "竹青", Blue: "青瓷", Purple: "紫檀", Gold: "鎏金", Orange: "赤金", Red: "朱漆" };
+// 稀有度名以 strings.zh-CN.json 的 char.rarity.* 为准：白绿蓝紫金橙红。
+// 曾另起过「素纸/竹青/青瓷/紫檀/鎏金/赤金/朱漆」一套雅名 —— 与七档**箱名**撞了：
+// 「朱漆」既是第 6 档箱、又成了第 7 档卡，同屏出现根本分不清说的是箱还是卡。
+var RAR_NAME = { White: "白", Green: "绿", Blue: "蓝", Purple: "紫", Gold: "金", Orange: "橙", Red: "红" };
 var RAR_ORDER = ["White", "Green", "Blue", "Purple", "Gold", "Orange", "Red"];
 // 相克:木克土,土克水,水克火,火克金,金克木
 var KE = { Wood: "Earth", Earth: "Water", Water: "Fire", Fire: "Metal", Metal: "Wood" };
@@ -622,7 +625,7 @@ function seedOf(id) {
 var NEW_IDS = ["锋", "熣", "淋", "堡", "柘"];
 var DECK_IDS = ["刺", "藤", "冷", "爆", "碎", "锐", "灼", "垒"];
 
-// 拥有率按稀有度递减:Lv.12 / 最高 43 层的存档,朱漆一张没有、赤金拿到小半
+// 拥有率按稀有度递减:Lv.12 / 最高 43 层的存档,红一张没有、橙拿到小半
 function ownedOf(rar, s) {
   var r = ri(rar);
   if (r >= 6) return false;
