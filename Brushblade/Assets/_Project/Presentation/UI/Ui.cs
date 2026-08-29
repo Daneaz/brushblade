@@ -475,9 +475,9 @@ namespace Brushblade.Presentation
             return row;
         }
 
-        /// <summary>账户墨锭计数器 = <see cref="IngotLabel"/> + 增减飘字(2026-08-29)。
-        /// 外层五个页签的顶栏都走它;<b>只传账户墨锭</b>(MetaState.Ink)——
-        /// 结算面板上的「+120」、商品价签、局内塔内预算都仍走 IngotLabel,
+        /// <summary>玩家余额计数器 = <see cref="IngotLabel"/> + 增减飘字(2026-08-29)。
+        /// 外层五个页签的顶栏与局内右上都走它(2026-08-30:半额取消后塔内预算与账户同源)。
+        /// <b>只传余额</b> —— 结算面板上的「这趟挣了 N」、安全层累计、商品价签仍走 IngotLabel,
         /// 那些数字不是同一个账本,混进来会让飘字报出凭空的增减(InkPulse 的注释)。</summary>
         public static GameObject InkCounter(Transform parent, int ink, int fontSize = 20)
         {

@@ -304,17 +304,10 @@ namespace Brushblade.Core.Tests
             Assert.That(EndlessRules.RankTitle(120), Is.EqualTo("翰林"));
         }
 
-        [Test]
-        public void Retreat_SettlesFullInk()
-        {
-            Assert.That(EndlessRules.SettleInk(120, died: false), Is.EqualTo(120));
-        }
-
-        [Test]
-        public void Death_SettlesHalfInk()
-        {
-            Assert.That(EndlessRules.SettleInk(121, died: true), Is.EqualTo(60));
-        }
+        // 半额结算已于 2026-08-30 取消(用户拍板):`EndlessRules.SettleInk` 随之删除,
+        // 塔内墨锭改为**赚到即入账**,塔结算时账上已经一分不少 —— 撤退与阵亡拿到的一样多。
+        // 原先守它的 Retreat_SettlesFullInk / Death_SettlesHalfInk 两条一并删除;
+        // 「即时入账」的新账目由 RunEngine 侧的 FloorInk_GoesIntoTheSameLedgerAsEvents 守。
 
         [Test]
         public void BestDepth_OnlyImproves()

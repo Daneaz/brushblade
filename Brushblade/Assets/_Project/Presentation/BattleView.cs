@@ -1018,7 +1018,12 @@ namespace Brushblade.Presentation
                     ? Strings.T("battle.label.battle_index", ("index", _run.BattleIndex + 1))
                     : Strings.T("battle.label.battle_index_titled", ("title", _title), ("index", _run.BattleIndex + 1)),
                 20, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
-            Ui.IngotLabel(_topRight, _run.AvailableInk.ToString(), 18);
+            // 塔内预算与账户是同一本账了(2026-08-30 半额取消):层清算与字摊收支都记在
+            // run.EarnedInk 上、随赚随结进账户,所以这里也走 InkCounter,与外层五个顶栏
+            // 共用同一套增减飘字 —— 打完一层当场就能看见 +N,而不是等回到地图才补一个总数。
+            // 差额只会在「刚挣到、还没走到下一个存档点」的那一小段里存在,飘字因此比账户更早,
+            // 正是想要的时序;每条离塔路径都先 CommitEventInk,所以切回外层时两边必然相等。
+            Ui.InkCounter(_topRight, _run.AvailableInk, 18);
             Ui.ThemedLabel(_topRight, Strings.T("battle.label.turn", ("turn", Battle.Turn)), 18, Theme.TextDim);
             bool suspend = _onExit != null; // 无尽:退出可挂起/弃塔(2026-07-19);否则=认输
             Ui.PillButton(_topRight, Strings.T("battle.btn.exit"), () => // 统一弹窗确认(2026-07-19 拍板)

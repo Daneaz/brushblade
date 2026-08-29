@@ -220,6 +220,9 @@ namespace Brushblade.Core
         public int PlayerHp { get; set; }
         public List<string> Library { get; set; } = new();
         public List<string> Pool { get; set; } = new();
+        /// <summary>本次登塔累计已挣的墨锭,**纯展示量**(2026-08-30 起)——安全层与结算弹窗
+        /// 用它告诉玩家「这趟挣了多少」。钱本身早已随赚随进账户,这个数字再怎么变都不影响余额。
+        /// 半额结算取消前它是真账本(塔内滚存,结算时才入账、阵亡减半)。</summary>
         public int EarnedInk { get; set; }
         public int Seed { get; set; }
         public bool LibraryExpanded { get; set; }
@@ -244,10 +247,14 @@ namespace Brushblade.Core
         public InProgressRun InProgress { get; set; }
     }
 
-    /// <summary>结算与里程碑(20.5/20.3):撤退全额、阵亡半额;首破奖励一次性、永远全额。</summary>
+    /// <summary>结算与里程碑(20.5/20.3)。
+    ///
+    /// **墨锭已经没有"结算"这一步了**(2026-08-30 用户拍板取消半额):塔内每笔收入
+    /// 赚到即入账,塔结算时账上一分不少,撤退与阵亡拿到的完全一样。原先的
+    /// `SettleInk(earned, died) => died ? earned / 2 : earned` 随之删除 ——
+    /// 留一个恒等函数只会让人以为这里还有档可调。首破奖励照旧一次性、永远全额。</summary>
     public static class EndlessRules
     {
-        public static int SettleInk(int earned, bool died) => died ? earned / 2 : earned;
 
         /// <summary>宝箱档位=f(层数)(20.8):区间内低档 90% / 高一档 10%(2026-07-20 拍板)。</summary>
         public static ChestTier ChestTierFor(int depth, GameRandom random)
@@ -266,12 +273,13 @@ namespace Brushblade.Core
         }
 
         /// <summary>结算宝箱依据层(2026-07-22):一场爬塔一个箱,按本次已破最高 Boss 层
-        /// 定档;返回 0 表示一个 Boss 都没破 → 不发箱。阵亡/弃塔照发不降档(与墨锭减半无关),
+        /// 定档;返回 0 表示一个 Boss 都没破 → 不发箱。阵亡/弃塔照发不降档,
         /// 故本函数不看死亡标志——档位只由 topBossDepth 决定。</summary>
         public static int SettleChestDepth(int topBossDepth) => topBossDepth > 0 ? topBossDepth : 0;
 
         /// <summary>层清算墨锭(2026-07-21):普通层 2、Boss 层 5,每 10 层翻倍。
-        /// 计入本次登塔的滚存(不直接进账户),塔结算时随 SettleInk 一并入账。</summary>
+        /// 2026-08-30 起**赚到即入账**(走 RunEngine.AddInk 进本段账目,由外层即时结进账户),
+        /// 不再攒成滚存等塔结算 —— 那条通道存在的唯一理由是阵亡减半,减半已取消。</summary>
         public static int FloorInk(EndlessConfig config, int depth)
         {
             int tier = (depth - 1) / 10;                  // 1~10 档 0,11~20 档 1……
