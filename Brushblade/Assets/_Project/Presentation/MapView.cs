@@ -28,6 +28,9 @@ namespace Brushblade.Presentation
         private const float ChestW = 486f;     // 宝箱栏 232pt(稿原 228pt)
         private const float SideInset = 123f;  // 稿上 .safe 左右各 59pt
         private const float BottomInset = 44f; // 稿上 .safe 下 21pt(Home Indicator)
+        // 箱位里的立绘 40pt(2026-08-30 接立绘:原先是 33×25pt 的色块,方图塞进 4:3 会压扁)
+        private const float ChestArtSize = 84f;
+        private const float ResultArtSize = 201f;  // 开箱结果面板左栏 96pt
 
         private RecipeGraph _graph;
         private CampaignConfig _campaign;
@@ -476,15 +479,10 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(11, 11, 12, 12);
             Ui.Stretch((RectTransform)stack.transform);
 
-            // 箱型图标:档位色圆角块 + 档位首字(19.5.1 六档)
-            var iconRow = Ui.Row(stack.transform, "Icon", 0);
-            var icon = Ui.CardPanel(iconRow.transform, "Body", Theme.ChestColor(chest.Tier), 10);
-            var iconElement = icon.gameObject.AddComponent<LayoutElement>();
-            iconElement.preferredWidth = 70;
-            iconElement.preferredHeight = 52;
-            var iconGlyph = Ui.ThemedLabel(icon.transform, ChestRules.TierName(chest.Tier).Substring(0, 1),
-                31, Color.white, Theme.TitleFont);
-            Ui.Stretch(iconGlyph.rectTransform);
+            // 箱型立绘(Chests.dc.html):七只箱是七种材质,不是七种颜色
+            ChestArt(stack.transform, chest.Tier,
+                ready ? ChestView.State.Ready : chest.Timing ? ChestView.State.Timing : ChestView.State.Idle,
+                ChestArtSize);
 
             Ui.ThemedLabel(stack.transform, ChestRules.TierName(chest.Tier), 21, Theme.TextMain, Theme.TitleFont);
 
@@ -527,6 +525,31 @@ namespace Brushblade.Presentation
                     Theme.Gold, Theme.GoldText, 19, new Vector2(72, 46), 14);
                 _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
             }
+        }
+
+        /// <summary>宝箱立绘 + 三态。素材缺失时回落成档位色块 + 首字(与 Icons.cs 的双轨同理):
+        /// 信息一点不丢,换 PNG 也不需要动这里一行。</summary>
+        private static void ChestArt(Transform parent, ChestTier tier, ChestView.State state, float size)
+        {
+            var row = Ui.Row(parent, "Art", 0);
+            if (ChestAssets.Has(tier))
+            {
+                var go = new GameObject("ChestArt", typeof(RectTransform));
+                go.transform.SetParent(row.transform, false);
+                var element = go.AddComponent<LayoutElement>();
+                element.preferredWidth = size;
+                element.preferredHeight = size;
+                go.AddComponent<ChestView>().Init(tier, state, size);
+                return;
+            }
+
+            var icon = Ui.CardPanel(row.transform, "Body", Theme.ChestColor(tier), 10);
+            var iconElement = icon.gameObject.AddComponent<LayoutElement>();
+            iconElement.preferredWidth = size;
+            iconElement.preferredHeight = size;
+            var glyph = Ui.ThemedLabel(icon.transform, ChestRules.TierName(tier).Substring(0, 1),
+                Mathf.RoundToInt(size * 0.44f), Color.white, Theme.TitleFont);
+            Ui.Stretch(glyph.rectTransform);
         }
 
         private static void DrawEmptySlot(Transform parent)
@@ -648,22 +671,40 @@ namespace Brushblade.Presentation
 
         private void OpenChest(int index)
         {
-            string tierName = ChestRules.TierName(_meta.Chests[index].Tier);
+            var tier = _meta.Chests[index].Tier;
             var ownedBefore = new System.Collections.Generic.HashSet<string>(_meta.OwnedCards);
             if (ChestRules.TryOpen(_meta, index, _time, new GameRandom(Environment.TickCount), out var rewards, _graph))
             {
                 _save();
                 _message = "";
                 Rebuild();
-                ShowChestResult(tierName, rewards, ownedBefore);
+                ShowChestResult(tier, rewards, ownedBefore);
                 return;
             }
             Rebuild();
         }
 
-        // ---- 开箱结果面板:逐张翻卡,新卡标「新!」,重复卡显示升级进度 ----
+        // ---- 开箱结果面板(ChestOpen.dc.html):左栏交代「哪只箱、多少墨」,右栏整块留给牌 ----
+        //
+        // 2026-08-30 按稿改成左右分栏。原先是竖排(标题 → 墨锭 → 卡行 → 收下)+ 0.16~0.84 的
+        // 比例锚点:横屏下放不进 12 张 —— 两行牌加牌脚要 282pt,光标题与按钮就吃掉 100pt;
+        // 而比例锚点会随机型漂,这一屏的排布却是按牌数算死的。现在改成**安全区内定尺**:
+        // 根节点已在安全区之内(GameRoot.NewView),所以左右吃满、上下各留稿上的 15pt。
 
-        private void ShowChestResult(string tierName, ChestRewards rewards,
+        private const float ResultInsetY = 31f;   // 稿上面板距安全区上下各 15pt
+        private const float ResultLeftW = 377f;   // 左栏 180pt
+        private const float ResultPad = 33f;      // 面板内边距 16pt
+
+        // 牌按张数在两档之间取(稿:12 张走 6 列 96 宽,16 张走 8 列 70 宽)。
+        // 这两个尺寸是**上限**不是定值:格子在行里可被压窄(HorizontalLayoutGroup 在
+        // 总预期宽超过可用宽时按比例收),所以比 16:9 更「方」的屏(iPad 4:3)上牌会一起变小
+        // 而不是溢出屏外。牌与牌脚同缩,靠的是格内 VStack 的 childForceExpandWidth。
+        private const int ResultWideColumns = 6;
+        private const int ResultNarrowColumns = 8;
+        private static readonly Vector2 ResultWideCard = new(174f, 218f);
+        private static readonly Vector2 ResultNarrowCard = new(126f, 158f);
+
+        private void ShowChestResult(ChestTier tier, ChestRewards rewards,
             System.Collections.Generic.HashSet<string> ownedBefore)
         {
             var scrim = Ui.Panel(transform, "ChestResult");
@@ -673,52 +714,158 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)scrim.transform);
 
             var card = Ui.CardPanel(scrim.transform, "Panel");
-            Ui.Anchor((RectTransform)card.transform, new Vector2(0.16f, 0.16f), new Vector2(0.84f, 0.84f), Vector2.zero, Vector2.zero);
-            var stack = Ui.VStack(card.transform, "Stack", 14);
-            Ui.Stretch((RectTransform)stack.transform);
+            Ui.Anchor((RectTransform)card.transform, Vector2.zero, Vector2.one,
+                new Vector2(0f, ResultInsetY), new Vector2(0f, -ResultInsetY));
 
-            Ui.ThemedLabel(stack.transform, Strings.T("map.chest.result_title", ("tierName", tierName)), 28, Theme.TextMain, Theme.TitleFont);
-            Ui.IngotLabel(stack.transform, $"+{rewards.Ink}", 22);
+            var columns = Ui.Row(card.transform, "Columns", ResultPad);
+            var columnsLayout = columns.GetComponent<HorizontalLayoutGroup>();
+            columnsLayout.childForceExpandHeight = true;
+            columnsLayout.padding = new RectOffset((int)ResultPad, (int)ResultPad, (int)ResultPad, (int)ResultPad);
+            Ui.Stretch((RectTransform)columns.transform);
 
-            // 字卡:每行最多 8 张(赤霄 16 张两行),先隐藏再逐张弹出
-            var tiles = new System.Collections.Generic.List<GameObject>();
+            // 「新字 N」要先数出来给左栏用,而右栏逐张翻卡时还要再判一次新旧 ——
+            // 两处各拿一份快照,别在同一个集合上边数边判(同一张字在同一箱里可能出两次)
+            var counted = new System.Collections.Generic.HashSet<string>(ownedBefore);
+            int fresh = 0;
+            foreach (var id in rewards.Cards)
+                if (counted.Add(id)) fresh++;
             var seen = new System.Collections.Generic.HashSet<string>(ownedBefore);
+
+            BuildResultLeft(columns.transform, tier, rewards, fresh);
+            // 两栏之间那条竖线(稿上左栏的 border-right)。不走 CardPanel:Rounded(0) 会算出
+            // 一张 50% 半透的图,细线上看着像掉了色
+            var separator = Ui.Panel(columns.transform, "Rule");
+            separator.AddComponent<Image>().color = Theme.PanelBorder;
+            var separatorElement = separator.AddComponent<LayoutElement>();
+            separatorElement.preferredWidth = 2;
+            separatorElement.flexibleHeight = 1;
+
+            var tiles = BuildResultGrid(columns.transform, rewards, seen);
+            StartCoroutine(RevealTiles(tiles));
+        }
+
+        /// <summary>左栏:哪只箱、多少墨、几张新字。立绘用的是与箱位同一张素材。</summary>
+        private void BuildResultLeft(Transform parent, ChestTier tier, ChestRewards rewards, int fresh)
+        {
+            var left = Ui.VStack(parent, "Left", 8);
+            var leftLayout = left.GetComponent<VerticalLayoutGroup>();
+            leftLayout.childAlignment = TextAnchor.UpperCenter;
+            var leftElement = left.AddComponent<LayoutElement>();
+            leftElement.preferredWidth = ResultLeftW;
+            leftElement.flexibleWidth = 0;
+
+            Ui.ThemedLabel(left.transform,
+                Strings.T("map.chest.result_title", ("tierName", ChestRules.TierName(tier))),
+                26, Theme.TextMain, Theme.TitleFont);
+            // 开箱后箱已移除,这里画的是「刚才那只」——三态取 Ready,金光晕正是开箱的语气
+            ChestArt(left.transform, tier, ChestView.State.Ready, ResultArtSize);
+
+            var inkPill = Ui.CardPanel(left.transform, "Ink", Theme.GoldSoft, 15);
+            var inkElement = inkPill.gameObject.AddComponent<LayoutElement>();
+            inkElement.preferredWidth = 190;
+            inkElement.preferredHeight = 63; // 稿上 30pt
+            var inkRow = Ui.IngotLabel(inkPill.transform, $"+{rewards.Ink}", 22, true);
+            Ui.Stretch((RectTransform)inkRow.transform);
+            inkRow.GetComponentInChildren<Text>().color = Theme.GoldDeep;
+
+            Ui.ThemedLabel(left.transform,
+                Strings.T("map.chest.result_count", ("count", rewards.Cards.Count), ("fresh", fresh)),
+                18, Theme.TextDim);
+
+            var spacer = Ui.Panel(left.transform, "Spacer");
+            spacer.AddComponent<LayoutElement>().flexibleHeight = 1; // 提示贴左栏底(稿上 margin-top:auto)
+            var hint = Ui.ThemedLabel(left.transform, Strings.T("map.chest.result_hint"), 15, Theme.LockGray);
+            hint.alignment = TextAnchor.LowerCenter;
+        }
+
+        /// <summary>右栏:卡网格 + 收下。返回逐张翻卡要用的格子(先隐藏)。</summary>
+        private System.Collections.Generic.List<GameObject> BuildResultGrid(Transform parent,
+            ChestRewards rewards, System.Collections.Generic.HashSet<string> seen)
+        {
+            var right = Ui.VStack(parent, "Right", 17);
+            var rightLayout = right.GetComponent<VerticalLayoutGroup>();
+            rightLayout.childAlignment = TextAnchor.UpperCenter;
+            rightLayout.childForceExpandWidth = true;
+            var rightElement = right.AddComponent<LayoutElement>();
+            rightElement.flexibleWidth = 1;
+
+            bool narrow = rewards.Cards.Count > ResultWideColumns * 2;
+            int columns = narrow ? ResultNarrowColumns : ResultWideColumns;
+            var cardSize = narrow ? ResultNarrowCard : ResultWideCard;
+
+            var tiles = new System.Collections.Generic.List<GameObject>();
             Transform row = null;
             for (int i = 0; i < rewards.Cards.Count; i++)
             {
-                if (i % 8 == 0) row = Ui.Row(stack.transform, $"CardRow{i / 8}", 10).transform;
+                if (i % columns == 0) row = Ui.Row(right.transform, $"CardRow{i / columns}", 17).transform;
                 string cardId = rewards.Cards[i];
                 var def = _graph.Get(cardId);
                 bool isNew = seen.Add(cardId);
 
-                var cell = Ui.VStack(row, $"Reward_{cardId}_{i}", 4);
+                var cell = Ui.VStack(row, $"Reward_{cardId}_{i}", 6);
+                // 牌与牌脚一起吃格宽:格被压窄时两者同缩,牌脚才不会比牌宽出去
+                cell.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
                 // 点卡看详情(2026-08-17):与商城/收集同款 CharPreview,弹在结果面板之上
-                Ui.GlyphTile(cell.transform, def, false, () => ShowRewardPreview(cardId), new Vector2(76, 95));
-                if (isNew)
-                {
-                    Ui.Chip(cell.transform, Strings.T("map.chest.new_badge"), Theme.ExitPink, Color.white, 12);
-                }
-                else
-                {
-                    int level = MetaRules.CardLevel(_meta, cardId);
-                    _meta.CardCopies.TryGetValue(cardId, out int copies);
-                    string progress = level >= MetaRules.MaxCardLevel
-                        ? Strings.T("common.maxed")
-                        : Strings.T("map.chest.upgrade_progress", ("copies", copies), ("needed", MetaRules.CopiesRequired(level, def.Rarity)));
-                    Ui.Chip(cell.transform, progress, Theme.AdGreenBg, Theme.UpgradeText, 12);
-                }
+                Ui.GlyphTile(cell.transform, def, false, () => ShowRewardPreview(cardId), cardSize);
+                ResultFoot(cell.transform, cardId, def, isNew, cardSize.x);
                 cell.SetActive(false);
                 tiles.Add(cell);
             }
 
-            Ui.PillButton(stack.transform, Strings.T("map.chest.claim_button"), () =>
+            // 收下贴右栏底(稿上 margin-top:auto):撑开的是这块空白,不是按钮行本身 ——
+            // 把 flexibleHeight 挂在按钮行上会让行变高、钮浮到半空
+            var gridSpacer = Ui.Panel(right.transform, "Spacer");
+            gridSpacer.AddComponent<LayoutElement>().flexibleHeight = 1;
+
+            var claim = Ui.Row(right.transform, "Claim", 21);
+            claim.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            var claimElement = claim.AddComponent<LayoutElement>();
+            claimElement.preferredHeight = 84;
+            claimElement.flexibleHeight = 0;
+            Ui.ThemedLabel(claim.transform, Strings.T("map.chest.result_tip"), 15, Theme.LockGray);
+            var claimSpacer = Ui.Panel(claim.transform, "Spacer");
+            claimSpacer.AddComponent<LayoutElement>().flexibleWidth = 1;
+            Ui.PillButton(claim.transform, Strings.T("map.chest.claim_button"), () =>
             {
                 Destroy(_resultPanel);
                 _resultPanel = null;
                 Rebuild(); // 面板期间押后的就绪跃迁在此补上
             }, Theme.Cinnabar, Color.white, 20, new Vector2(180, 50));
 
-            StartCoroutine(RevealTiles(tiles));
+            return tiles;
+        }
+
+        /// <summary>牌脚三态(稿:一张牌只回答一件事 —— 它对你意味着什么)。
+        /// 新字走实心胭脂底,是这一屏最该被看见的东西;重复字凑满转翠玉底,
+        /// 「这张现在就能升」和「还差几张」是两件事;满级不写进度,别拿填不满的分母吊着人。</summary>
+        private void ResultFoot(Transform parent, string cardId, CharDef def, bool isNew, float width)
+        {
+            GameObject chip;
+            if (isNew)
+            {
+                chip = Ui.Chip(parent, Strings.T("map.chest.new_badge"), Theme.ExitPink, Color.white, 15);
+            }
+            else
+            {
+                int level = MetaRules.CardLevel(_meta, cardId);
+                _meta.CardCopies.TryGetValue(cardId, out int copies);
+                if (level >= MetaRules.MaxCardLevel)
+                {
+                    chip = Ui.Chip(parent, Strings.T("common.maxed"), Theme.GoldSoft, Theme.GoldDeep, 15);
+                }
+                else
+                {
+                    int needed = MetaRules.CopiesRequired(level, def.Rarity);
+                    bool upgradable = copies >= needed;
+                    chip = Ui.Chip(parent,
+                        Strings.T("map.chest.upgrade_progress", ("copies", copies), ("needed", needed)),
+                        upgradable ? Theme.AdGreenBg : Theme.PaperDim,
+                        upgradable ? Theme.UpgradeText : Theme.TextDim, 15);
+                }
+            }
+            var element = chip.GetComponent<LayoutElement>();
+            element.preferredWidth = width; // 牌脚与牌同宽:三态一眼可比,不受文本长短影响
+            element.preferredHeight = 31;   // 稿上 15pt
         }
 
         /// <summary>开箱奖励卡详情:开箱已入账,等级/进度按入账后的现值显示。</summary>
