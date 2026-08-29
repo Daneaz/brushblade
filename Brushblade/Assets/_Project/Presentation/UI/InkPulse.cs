@@ -16,8 +16,12 @@ namespace Brushblade.Presentation
     /// 代价是「变化发生时没开着任何顶栏」的那些增减(后台奖励、塔内滚存)会攒到下次
     /// 打开时一次性飘出来。这反而是想要的:玩家回到主界面正好看见这一趟挣了多少。
     ///
-    /// ⚠ 只服务**账户**墨锭(MetaState.Ink)。局内右上的 `RunEngine.AvailableInk` 是塔内
-    /// 预算,与账户不同源,共用这份静态 `_lastSeen` 会让两边互相误报成巨额增减。</summary>
+    /// ⚠ 服务的是**玩家余额**这一条线:外层五个顶栏的 `MetaState.Ink`,以及局内右上的
+    /// `RunEngine.AvailableInk`。2026-08-30 半额结算取消后这两个数字同源了 —— 层清算与
+    /// 字摊收支都记在 run.EarnedInk 上、随赚随结进账户,每条离塔路径又都先 CommitEventInk,
+    /// 所以切换视图时两边必然相等,共用这份静态 `_lastSeen` 不会互相误报。
+    /// 别把**别的账本**接进来:结算弹窗上的「这趟挣了 N」、安全层的累计、商品价签都不是余额,
+    /// 接进来就会飘出凭空的增减。</summary>
     public sealed class InkPulse : MonoBehaviour
     {
         private const float Duration = 0.9f;

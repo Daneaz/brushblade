@@ -198,6 +198,38 @@ namespace Brushblade.Core.Tests
             Assert.That(run.AvailableInk, Is.EqualTo(40)); // startingInk 缺省 0 + 40
         }
 
+        /// <summary>爬塔层墨锭与奇遇净额记在**同一本账**上(2026-08-30)。
+        ///
+        /// 半额结算取消之前,爬塔收益走的是另一条通道:外层 GameRoot 自己攒一个「滚存」,
+        /// 塔结算时才随 SettleInk 减半入账,刻意不进 AvailableInk —— 因为进了预算就意味着
+        /// 花掉的那部分逃过了减半。减半一取消,这条分账的唯一理由就没了,两本账因此合一:
+        /// 爬塔挣的墨锭当场就能在字摊花掉,账户余额与塔内预算也不再是两个会打架的数字。</summary>
+        [Test]
+        public void FloorInk_GoesIntoTheSameLedgerAsEvents()
+        {
+            var run = ShopRun(startingInk: 10);
+            WinAndSkipReward(run);
+            Assert.That(run.ChooseEventOption(0), Is.False, "10 墨买不起 40 的炎");
+
+            run.AddInk(50);                                   // 爬了一层,层清算 +50
+            Assert.That(run.EarnedInk, Is.EqualTo(50));
+            Assert.That(run.AvailableInk, Is.EqualTo(60), "刚挣的墨锭当场进预算");
+            Assert.That(run.ChooseEventOption(0), Is.True, "现在买得起了");
+            Assert.That(run.EarnedInk, Is.EqualTo(10), "同一本账:50 − 40");
+        }
+
+        [Test]
+        public void AddInk_SurvivesSnapshotRoundTrip()
+        {
+            var run = ShopRun(startingInk: 10);
+            WinAndSkipReward(run);
+            run.AddInk(50);
+            var restored = RunEngine.Restore(run.Capture(), Graph(), ShopConfig(), new BattleConfig(),
+                null, startingInk: 10);
+            Assert.That(restored.EarnedInk, Is.EqualTo(50));
+            Assert.That(restored.AvailableInk, Is.EqualTo(60));
+        }
+
         // ---- 部件抵价(字摊以物易物,2026-07-19:墨锭买一次性品废止) ----
 
         private static RunConfig BarterConfig() => new()

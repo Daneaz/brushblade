@@ -265,13 +265,25 @@ namespace Brushblade.Core
         /// <summary>当前奇遇(Phase == Event 时非空)。</summary>
         public EventDef CurrentEvent { get; private set; }
 
-        /// <summary>奇遇累积的墨锭净变化(可为负 = 字摊消费;run 结束由外层入账)。</summary>
+        /// <summary>本段墨锭净变化:奇遇/字摊的收支 **+ 爬塔层清算**(可为负 = 字摊买多了)。
+        /// 外层按「本值与已结额的差」即时入账,不等 run 结束(GameRoot.CommitEventInk)。
+        ///
+        /// 2026-08-30 起爬塔层墨锭也记在这里。此前它走外层的「滚存」另一本账,
+        /// 塔结算时才随 SettleInk 减半入账 —— 分账的唯一理由是「进了预算就逃过减半」;
+        /// 减半取消后两本账合一,见 <see cref="AddInk"/>。</summary>
         public int EarnedInk { get; private set; }
 
         private readonly int _startingInk;
 
-        /// <summary>当前可支配墨锭(入场余额 + 关内净变化),字摊消费的预算。</summary>
+        /// <summary>当前可支配墨锭(入场余额 + 本段净变化),字摊消费的预算。</summary>
         public int AvailableInk => _startingInk + EarnedInk;
+
+        /// <summary>把一笔塔外规则算出的收入记进本段账目(2026-08-30,爬塔层清算)。
+        ///
+        /// 层墨锭的**数额**由 EndlessRules.FloorInk 定(那是层段规则,Core 的 run 不认识层数),
+        /// 这里只负责入账 —— 与奇遇收支共用同一本账,于是它立刻进 <see cref="AvailableInk"/>
+        /// 成为字摊预算,也立刻被外层的即时入账通道结进玩家账户。</summary>
+        public void AddInk(int amount) => EarnedInk += amount;
 
         /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。
         /// 消费付不起时返回 false,停留在事件中。部件抵价(ComponentCost)须由玩家指定
