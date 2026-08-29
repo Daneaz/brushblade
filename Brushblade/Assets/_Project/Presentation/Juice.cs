@@ -584,6 +584,57 @@ namespace Brushblade.Presentation
                 StartCoroutine(PunchRoutine(target));
         }
 
+        // ---- 新到手的牌:持续高亮(2026-08-30) ----
+
+        /// <summary>给一张牌套一圈**呼吸的属性色光晕**,亮到 <paramref name="untilUnscaledTime"/> 为止。
+        ///
+        /// 为什么是「到某个时刻」而不是「持续 N 秒」:BattleView 是全量重绘的,拆完字随手点一下
+        /// 界面,这张牌连同光晕就被 Ui.Clear 销毁了。所以真正记账的是 BattleView 里那张
+        /// 「字 → 到期时刻」的表,每次重绘照着表把光晕重新套上 —— 传剩余时长的话,每次重绘都会
+        /// 把倒计时重置,牌会一直亮下去。
+        ///
+        /// 光晕是一圈**空心**的圆角框(Sliced + fillCenter = false),不是一块半透明色板:
+        /// 牌自己的底图挂在 tile 本身上,任何子物体都画在它之上 —— 实心的话会把牌面整个染成
+        /// 属性色,字形跟着糊掉。关掉 fillCenter 就只剩九宫格的边,读作「这张牌镶了道光边」。</summary>
+        public void Glow(RectTransform target, Color color, float untilUnscaledTime)
+        {
+            if (target == null || UnityEngine.Time.unscaledTime >= untilUnscaledTime) return;
+            StartCoroutine(GlowRoutine(target, color, untilUnscaledTime));
+        }
+
+        private const float GlowPadding = 9f;   // 光晕比牌大出来的一圈(px)
+        private const float GlowPeriod = 0.75f; // 呼吸一个来回的时长
+
+        private static IEnumerator GlowRoutine(RectTransform target, Color color, float until)
+        {
+            var go = new GameObject("Glow", typeof(RectTransform));
+            go.transform.SetParent(target, false);
+            go.transform.SetAsFirstSibling(); // 排在最底:字形、徽标都盖在光边之上
+            var halo = go.AddComponent<Image>();
+            // 半径取小值:Rounded(r) 的九宫格边宽是 r+2,取 14 会画出 16px 的粗带,
+            // 把 56×56 的部件牌糊掉大半。8 → 10px 的细边,配上外扩 9px 几乎全落在牌外
+            halo.sprite = Theme.Rounded(8);
+            halo.type = Image.Type.Sliced;
+            halo.fillCenter = false;          // 只画九宫格的边 —— 见上面为什么不能实心
+            halo.raycastTarget = false;       // 不抢牌自己的点击
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(-GlowPadding, -GlowPadding);
+            rect.offsetMax = new Vector2(GlowPadding, GlowPadding);
+
+            while (go != null && UnityEngine.Time.unscaledTime < until)
+            {
+                // 呼吸:0.28↔0.72,末段随剩余时间整体收暗 —— 光晕是「淡出」而不是「啪地消失」
+                float breathe = 0.5f + 0.5f * Mathf.Sin(UnityEngine.Time.unscaledTime / GlowPeriod * Mathf.PI * 2f);
+                float remain = Mathf.Clamp01((until - UnityEngine.Time.unscaledTime) / GlowPeriod);
+                halo.color = new Color(color.r, color.g, color.b,
+                    Mathf.Lerp(0.28f, 0.72f, breathe) * remain);
+                yield return null;
+            }
+            if (go != null) Destroy(go);
+        }
+
         // ---- 震屏 ----
 
         private IEnumerator Shake(float amplitude)

@@ -778,6 +778,93 @@ namespace Brushblade.Presentation
         // 字库卡位→牌面(2026-08-17):同字多张时 _tileRects 按 charId 只留最后一张,飞字起点改按位取
         private readonly System.Collections.Generic.List<RectTransform> _libraryTileRects = new();
 
+        // ---- 新到手的牌:持续高亮(2026-08-30) ----
+
+        /// <summary>刚到手的字/部件 → 光晕到期时刻(unscaledTime)。拆出的部件、合出的字、
+        /// 选中的战利品、奇遇拿到的东西都登记在这里,`DrawLibrary` / `DrawPool` 每次重绘照着
+        /// 把光晕重新套上。
+        ///
+        /// 记「到期时刻」而不是「剩余时长」:重绘频繁(点一下界面就是一次),存时长的话每次
+        /// 重绘都会把倒计时重置,牌会一直亮着。
+        ///
+        /// ⚠ 用**字**做键而不是卡位:卡位在拆合/战利品插入后会整体位移,记下的下标下一帧就
+        /// 指向别人了。代价是同字多张时会一起亮 —— 那也是能自圆其说的读法(「这个字刚变多」),
+        /// 比亮错一张强。</summary>
+        private readonly System.Collections.Generic.Dictionary<string, float> _freshGlyphs = new();
+
+        /// <summary>高亮时长:够看清是哪张牌变了,又不至于拖进下一次操作。</summary>
+        private const float FreshGlowSeconds = 2.4f;
+
+        /// <summary>登记一张刚到手的牌。到期时刻统一往后推,连着拿到两张同名字时以后一次为准。</summary>
+        private void MarkFresh(string glyph)
+        {
+            if (!string.IsNullOrEmpty(glyph))
+                _freshGlyphs[glyph] = Time.unscaledTime + FreshGlowSeconds;
+        }
+
+        private void MarkFresh(System.Collections.Generic.IEnumerable<string> glyphs)
+        {
+            if (glyphs == null) return;
+            foreach (var glyph in glyphs) MarkFresh(glyph);
+        }
+
+        /// <summary>重绘时给还在高亮期内的牌套上光晕;顺手清掉过期条目,免得这张表越攒越长。</summary>
+        private void ApplyFreshGlow(string glyph, RectTransform tile, Color color)
+        {
+            if (!_freshGlyphs.TryGetValue(glyph, out float until)) return;
+            if (Time.unscaledTime >= until) { _freshGlyphs.Remove(glyph); return; }
+            _juice.Glow(tile, color, until);
+        }
+
+        /// <summary>手里有什么的一张快照(携带字库 + 携带池,各按多重集计数)。
+        /// 奇遇结算前拍一张,结算后与新状态比对,多出来的就是这次拿到的。</summary>
+        private (System.Collections.Generic.Dictionary<string, int> lib,
+                 System.Collections.Generic.Dictionary<string, int> pool) SnapshotHoldings()
+            => (Tally(_run.CarriedLibrary), Tally(_run.CarriedPool));
+
+        private static System.Collections.Generic.Dictionary<string, int> Tally(
+            System.Collections.Generic.IReadOnlyList<string> items)
+        {
+            var tally = new System.Collections.Generic.Dictionary<string, int>();
+            for (int i = 0; i < items.Count; i++)
+                tally[items[i]] = tally.TryGetValue(items[i], out int n) ? n + 1 : 1;
+            return tally;
+        }
+
+        /// <summary>与快照比对,把多出来的字/部件登记成「刚到手」。
+        ///
+        /// 用 diff 而不是逐条读 `EventOption` 的字段:随机部件(`RandomComponents`)事前根本
+        /// 不知道会掷出哪几个,任选字还要看玩家点了哪一项 —— 而 Core 日后再添获得途径时,
+        /// 这里也不用跟着改。</summary>
+        private void MarkFreshSince((System.Collections.Generic.Dictionary<string, int> lib,
+                                     System.Collections.Generic.Dictionary<string, int> pool) before)
+        {
+            MarkFreshDelta(before.lib, _run.CarriedLibrary);
+            MarkFreshDelta(before.pool, _run.CarriedPool);
+        }
+
+        private void MarkFreshDelta(System.Collections.Generic.Dictionary<string, int> before,
+            System.Collections.Generic.IReadOnlyList<string> after)
+        {
+            foreach (var pair in Tally(after))
+                if (!before.TryGetValue(pair.Key, out int had) || pair.Value > had)
+                    MarkFresh(pair.Key);
+        }
+
+        /// <summary>把刚到手的字从来源位置飞进字库里它的新牌位,落位弹跳。
+        ///
+        /// **调用时机必须在触发重绘之后** —— `_tileRects` 里登记的得是新牌位。
+        /// 找不到就安静早退:战利品选到最后一张时额度归零,Core 会当场把相位推走,
+        /// 那一帧的字库画的已经是下一战的 `Battle.Library`,新字还没进去(它在携带库里)。
+        /// 那种情况下光晕仍然有效 —— 下一战开打重绘时它就亮在字库里。</summary>
+        private void FlyIntoLibrary(string glyph, bool hasFrom, Vector3 fromPos)
+        {
+            if (!hasFrom) return;
+            if (!_tileRects.TryGetValue(glyph, out var target) || target == null) return;
+            _juice.FlyGlyph(glyph, Theme.ElementColor(_graph.Get(glyph).Element), fromPos, target.position,
+                () => _juice.PopTile(target));
+        }
+
         private bool TryGetTilePos(string charId, out Vector3 pos)
         {
             if (_tileRects.TryGetValue(charId, out var rect) && rect != null)
@@ -1852,6 +1939,7 @@ namespace Brushblade.Presentation
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def, index);
                 _tileRects[charId] = (RectTransform)tile.transform;
                 _libraryTileRects.Add((RectTransform)tile.transform); // 卡位→牌面,飞字起点按位取
+                ApplyFreshGlow(charId, (RectTransform)tile.transform, Theme.ElementColor(def.Element));
             }
         }
 
@@ -2090,6 +2178,7 @@ namespace Brushblade.Presentation
                 }
 
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
+                ApplyFreshGlow(charId, (RectTransform)tile.transform, Theme.ElementColor(def.Element));
             }
         }
 
@@ -2495,6 +2584,9 @@ namespace Brushblade.Presentation
                 int index = i;
                 var id = _run.RewardOptions[i];
                 var def = _graph.Get(id);
+                // 先声明后赋值:tap 要在闭包里读这张牌的位置(飞字起点),而 C# 不许 lambda
+                // 引用它后面才声明的局部变量
+                GameObject tile = null;
                 System.Action tap = () =>
                 {
                     if (_previewRewardIndex != index)
@@ -2504,11 +2596,19 @@ namespace Brushblade.Presentation
                         return;
                     }
                     _previewRewardIndex = -1;
+                    // 起点须在重绘销毁弹窗牌之前捕获(与 OnCompose 同一条约束)
+                    bool hasFrom = tile != null;
+                    Vector3 fromPos = hasFrom ? tile.transform.position : default;
                     if (_run.PickReward(index))
                     {
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.added_msg", ("charId", id));
+                        MarkFresh(id);     // 记在重绘之前:光晕是重绘时照表套上的
                         CancelSelection(); // 额度归零 → 下次 Refresh 由 Core 侧自动开拔
+                        // 选中的字从弹窗飞进字库并落位弹跳(2026-08-30):此前只有一行文字
+                        // 说「已收入」,牌是凭空出现在字库里的 —— 玩家得自己去队尾找它。
+                        // 光晕接着亮 2.4s,与拆合、奇遇同一套读法。
+                        FlyIntoLibrary(id, hasFrom, fromPos);
                         return;
                     }
                     // PickReward 有三种拒收原因(阶段不符/额度尽/满库),此前一律当成「字库已满」
@@ -2533,9 +2633,10 @@ namespace Brushblade.Presentation
                     }
                     Refresh();
                 };
-                var tile = Ui.GlyphTile(row.transform, def,
+                var button = Ui.GlyphTile(row.transform, def,
                     index == _previewRewardIndex, tap);
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
+                tile = button.gameObject;
+                HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(id));
             }
 
             DrawRewardAdBadge(content);
@@ -2573,6 +2674,7 @@ namespace Brushblade.Presentation
                         _pendingRewardIndex = -1;
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.replaced_in_msg", ("incoming", incoming), ("dropped", dropped));
+                        MarkFresh(incoming); // 换进来的那张也高亮:满库替换时更要看清换进了什么
                         CancelSelection();
                     }
                 }, new Vector2(74, 96));
@@ -2803,6 +2905,7 @@ namespace Brushblade.Presentation
                         return;
                     }
                     int inkBefore = _run.AvailableInk;
+                    var beforeHoldings = SnapshotHoldings(); // 结算前拍一张,结算后 diff 出拿到了什么
                     if (_run.ChooseEventOption(index))
                     {
                         _message = option.InkChancePercent > 0 // 赌注:按墨锭变化播报输赢
@@ -2810,6 +2913,7 @@ namespace Brushblade.Presentation
                                 ? Strings.T("battle.event.gamble_win", ("ink", option.Ink))
                                 : Strings.T("battle.event.gamble_lose"))
                             : $"{evt.Id}:{option.Label}";
+                        MarkFreshSince(beforeHoldings); // 拿到的字/部件高亮,与战利品同一套读法
                         CancelSelection();
                         return;
                     }
@@ -2861,9 +2965,11 @@ namespace Brushblade.Presentation
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     var picks = _eventPicks.Count > 0 ? _eventPicks.ToArray() : null;
+                    var beforeHoldings = SnapshotHoldings();
                     if (_run.ChooseEventOption(_pendingEventOption, picks, _pendingCharChoice, replaceIndex))
                     {
                         _message = Strings.T("battle.event.trade_replaced_msg", ("incoming", incoming), ("dropped", dropped));
+                        MarkFreshSince(beforeHoldings);
                         if (_modal != null) Object.Destroy(_modal);
                         ResetEventSelection();
                         CancelSelection();
@@ -2938,9 +3044,11 @@ namespace Brushblade.Presentation
                         Refresh();
                         return;
                     }
+                    var beforeHoldings = SnapshotHoldings();
                     if (_run.ChooseEventOption(_pendingEventOption, null, choice))
                     {
                         _message = Strings.T("battle.event.trade_got_msg", ("charId", charId));
+                        MarkFreshSince(beforeHoldings);
                         ResetEventSelection();
                         CancelSelection();
                         return;
@@ -2977,8 +3085,10 @@ namespace Brushblade.Presentation
                     else _eventPicks.Add(index);
                     if (_eventPicks.Count == option.ComponentCost)
                     {
+                        var beforeHoldings = SnapshotHoldings();
                         if (_run.ChooseEventOption(_pendingEventOption, _eventPicks.ToArray(), _pendingCharChoice))
                         {
+                            MarkFreshSince(beforeHoldings);
                             string gained = _pendingCharChoice >= 0
                                 ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
                             _message = gained != null
@@ -3422,7 +3532,14 @@ namespace Brushblade.Presentation
             var recipe = _graph.Get(charId).Recipe;
             var error = Battle.Dismantle(charId);
             if (error == BattleError.None)
+            {
                 _tutorial?.Notify(TutorialAction.Dismantle, charId);
+                // 拆出来的两个部件持续高亮(2026-08-30):落位弹跳只有 0.16s,而部件池里
+                // 一排同色小方块,眨眼就找不出刚才拆出来的是哪两个 —— 光晕替玩家指着它们。
+                // ⚠ 必须记在 CancelSelection() **之前**:光晕是重绘时照表套上去的,
+                // 而那一行就是本次重绘的触发点,记晚一步这一轮就白记了
+                MarkFresh(recipe);
+            }
             else
                 MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? Strings.T("battle.msg.dismantle_success", ("charId", charId)) : Describe(error);
@@ -3450,7 +3567,12 @@ namespace Brushblade.Presentation
                     partsFrom.Add((part, pos));
             var error = Battle.Compose(charId);
             if (error == BattleError.None)
+            {
                 _tutorial?.Notify(TutorialAction.Compose, charId);
+                // 合出来的字持续高亮,与拆字同一套:满库 12 张牌里新多出来的那张要能一眼认出。
+                // 同样必须记在下面 CancelSelection() 的重绘之前
+                MarkFresh(charId);
+            }
             else
                 MaybeModalError(error, charId, 1);
             _message = error == BattleError.None ? Strings.T("battle.msg.compose_success", ("charId", charId)) : Describe(error);
