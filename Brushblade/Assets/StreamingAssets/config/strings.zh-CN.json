@@ -471,6 +471,8 @@
   "summon.passive.thorns": "反伤{thorns}:被攻击时反弹 {thorns} 点伤害,不走生克、无视护甲",
   "summon.wuxing.countered_by": "被{element}克",
   "summon.wuxing.counters": "克{element} ×{multiplier}",
+  "ui.ink_pulse.gain": "+{delta}",
+  "ui.ink_pulse.spend": "−{delta}",
   "wuxing.chart.title_ke": "相 克",
   "wuxing.chart.title_sheng": "相 生"
 }

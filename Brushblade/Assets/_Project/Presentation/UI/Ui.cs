@@ -475,6 +475,17 @@ namespace Brushblade.Presentation
             return row;
         }
 
+        /// <summary>账户墨锭计数器 = <see cref="IngotLabel"/> + 增减飘字(2026-08-29)。
+        /// 外层五个页签的顶栏都走它;<b>只传账户墨锭</b>(MetaState.Ink)——
+        /// 结算面板上的「+120」、商品价签、局内塔内预算都仍走 IngotLabel,
+        /// 那些数字不是同一个账本,混进来会让飘字报出凭空的增减(InkPulse 的注释)。</summary>
+        public static GameObject InkCounter(Transform parent, int ink, int fontSize = 20)
+        {
+            var row = IngotLabel(parent, ink.ToString(), fontSize);
+            InkPulse.Observe((RectTransform)row.transform, ink);
+            return row;
+        }
+
         /// <summary>字牌(设计板字库卡):稀有度框 + 属性色宋体大字 + 拼音;选中态墨色描环。
         ///
         /// 2026-08-21:去掉牌底那条费用带。<see cref="Brushblade.Core.CharDef.ApCostFor"/>

@@ -36,7 +36,7 @@ namespace Brushblade.Presentation
 
             var header = Ui.Row(stack.transform, "Header", 20);
             Ui.ThemedLabel(header.transform, Strings.T("perk.view.title"), 28, Theme.TextMain, Theme.TitleFont);
-            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 20);
+            Ui.InkCounter(header.transform, _meta.Ink, 20);
 
             int charLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
             var all = PerkRules.All;

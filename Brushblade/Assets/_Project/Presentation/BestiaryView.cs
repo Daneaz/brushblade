@@ -80,7 +80,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(header.transform, Strings.T("bestiary.header.stats", ("unlocked", unlocked), ("total", _all.Count)), 22, Theme.TextDim);
             if (unclaimed > 0)
                 Ui.Chip(header.transform, Strings.T("bestiary.header.unclaimed_chip", ("count", unclaimed)), Theme.Cinnabar, Color.white, 15);
-            Ui.IngotLabel(header.transform, _meta.Ink.ToString(), 22);
+            Ui.InkCounter(header.transform, _meta.Ink, 22);
             if (pageCount > 1)
             {
                 var prev = Ui.RoundButton(header.transform, "◀", () => { _page--; Rebuild(); },
