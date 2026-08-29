@@ -24,16 +24,19 @@ namespace Brushblade.Presentation
     /// 接进来就会飘出凭空的增减。</summary>
     public sealed class InkPulse : MonoBehaviour
     {
-        private const float Duration = 0.9f;
-        private const float Rise = 52f;      // 总上浮距离(px,1600×900 参考分辨率下)
-        private const float PopIn = 0.12f;   // 冒头那一下的放大时长
+        private const float Duration = 1.6f;    // 2026-08-30:0.9 太短,数字还没读完就没了
+        private const float Rise = 46f;         // 上行距离(px,1600×900 参考分辨率下)
+        private const float StartBelow = 40f;   // 起点压在计数器下方多少 —— 见 Observe 里的说明
+        private const float PopIn = 0.16f;      // 冒头那一下的放大时长
+        private const float Hold = 0.7f;        // 前 70% 全不透明,尾段才褪
+        private const float SizeScale = 1.7f;   // 相对顶栏字号的倍数:要一眼看见,又不至于糊住半屏
 
         /// <summary>上次见到的账户墨锭。`int.MinValue` = 本次进程还没见过 ——
         /// 首次显示不飘,否则每次冷启动都会当着玩家的面「+全部身家」。</summary>
         private static int _lastSeen = int.MinValue;
 
-        /// <summary>顶栏每次重建都调一次。anchor = 墨锭标签本身,飘字从它上方冒出来。</summary>
-        public static void Observe(RectTransform anchor, int ink)
+        /// <summary>顶栏每次重建都调一次。anchor = 墨锭标签本身,飘字从它下方往上汇入。</summary>
+        public static void Observe(RectTransform anchor, int ink, int fontSize = 20)
         {
             int delta = _lastSeen == int.MinValue ? 0 : ink - _lastSeen;
             _lastSeen = ink;
@@ -44,11 +47,16 @@ namespace Brushblade.Presentation
             var canvas = anchor.GetComponentInParent<Canvas>();
             if (canvas == null) return;
 
+            // 立刻把布局排完,当场取 anchor 的位置(2026-08-30)。原先是在协程里等一帧再读 ——
+            // 那一帧里顶栏可能已经被下一次 Refresh 清掉,anchor 变成已销毁对象,`anchor != null`
+            // 判 false 就跳过定位,飘字于是留在画布正中央。奇遇选完选项那一下正是连着两次重绘。
+            Canvas.ForceUpdateCanvases();
+
             var go = new GameObject("InkPulse", typeof(RectTransform));
             go.transform.SetParent(canvas.transform, false);
             var label = go.AddComponent<Text>();
             label.font = Theme.TitleFont;
-            label.fontSize = 28;
+            label.fontSize = Mathf.RoundToInt(fontSize * SizeScale);
             // 两条各自写全 —— key 传三元表达式会被 StringsTableTests 当成孤儿(它只认字面量)
             label.text = delta > 0
                 ? Strings.T("ui.ink_pulse.gain", ("delta", delta))
@@ -58,30 +66,43 @@ namespace Brushblade.Presentation
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
             label.verticalOverflow = VerticalWrapMode.Overflow;
             label.raycastTarget = false;
+            // 宣纸色描边:翠玉/朱砂压在深色页签或水墨立绘上都还读得清
+            var outline = go.AddComponent<Outline>();
+            outline.effectColor = new Color(Theme.Paper.r, Theme.Paper.g, Theme.Paper.b, 0.92f);
+            outline.effectDistance = new Vector2(2.2f, -2.2f);
 
-            go.AddComponent<InkPulse>().StartCoroutine(Float(anchor, (RectTransform)go.transform, label));
+            var rect = (RectTransform)go.transform;
+            rect.position = anchor.position;
+            // 起点压到计数器**下方**,再往上汇入(2026-08-30)。原先是从上方往上飘 ——
+            // 而所有顶栏都贴着画布顶边,52px 的行程有一大半在屏幕外:主界面只看得见开头一截
+            // (于是「不够久」),局内顶栏更靠边,整个飘字压根看不见(于是「奇遇没动效」)。
+            // 现在的轨迹是「墨锭从下面飞进计数器」,全程可见,顺带把隐喻也说对了。
+            var start = rect.anchoredPosition + new Vector2(0, -StartBelow);
+            // 再钳一道:万一日后哪个顶栏挪了位置,也不会把飘字顶出可视区
+            float maxY = ((RectTransform)rect.parent).rect.height / 2f - 8f;
+            if (start.y + Rise > maxY) start.y = maxY - Rise;
+            rect.anchoredPosition = start;
+
+            go.AddComponent<InkPulse>().StartCoroutine(Float(rect, label, start));
         }
 
-        private static IEnumerator Float(RectTransform anchor, RectTransform rect, Text label)
+        private static IEnumerator Float(RectTransform rect, Text label, Vector2 start)
         {
-            // 等一帧:顶栏是 LayoutGroup 排的,建出来的这一帧 anchor.position 还是 (0,0)
-            yield return null;
-            if (rect == null) yield break;
-            if (anchor != null) rect.position = anchor.position;
-            rect.anchoredPosition += new Vector2(0, 22f);
-
             float t = 0f;
             while (t < Duration && rect != null)
             {
                 t += Time.unscaledDeltaTime;   // 弹窗/暂停时 timeScale 可能是 0
                 float p = Mathf.Clamp01(t / Duration);
-                rect.anchoredPosition += new Vector2(0, Rise / Duration * Time.unscaledDeltaTime);
-                // 冒头先放大到 1.15 再回落,尾段才开始褪 —— 一路线性淡出会看不清数字
-                float scale = t < PopIn ? Mathf.Lerp(0.7f, 1.15f, t / PopIn)
-                    : Mathf.Lerp(1.15f, 1f, Mathf.Clamp01((t - PopIn) / PopIn));
+                // 缓出:一冒头就窜上去,后半程几乎停住 —— 停住的那段正好是读数字的时间。
+                // 按绝对位置算而不是每帧累加:累加会随帧率漂,低帧时行程被吃掉一截。
+                float ease = 1f - (1f - p) * (1f - p) * (1f - p);
+                rect.anchoredPosition = start + new Vector2(0, Rise * ease);
+                // 冒头先放大到 1.3 再回落,尾段才褪 —— 一路线性淡出会看不清数字
+                float scale = t < PopIn ? Mathf.Lerp(0.6f, 1.3f, t / PopIn)
+                    : Mathf.Lerp(1.3f, 1f, Mathf.Clamp01((t - PopIn) / PopIn));
                 rect.localScale = new Vector3(scale, scale, 1f);
                 var c = label.color;
-                c.a = p < 0.55f ? 1f : 1f - (p - 0.55f) / 0.45f;
+                c.a = p < Hold ? 1f : 1f - (p - Hold) / (1f - Hold);
                 label.color = c;
                 yield return null;
             }

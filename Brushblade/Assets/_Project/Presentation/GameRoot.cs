@@ -451,6 +451,8 @@ namespace Brushblade.Presentation
                 band.Name.Substring(band.Name.Length - 1), bandIndex);
             Ui.Stretch((RectTransform)view.transform);
 
+            BalanceCorner(view.transform); // Boss 层那笔墨锭的飘字落点
+
             var card = Ui.CardPanel(view.transform, "Panel");
             Ui.Anchor((RectTransform)card.transform, new Vector2(0.16f, 0.08f), new Vector2(0.84f, 0.92f), Vector2.zero, Vector2.zero);
             var stack = Ui.VStack(card.transform, "Stack", 10);
@@ -503,11 +505,25 @@ namespace Brushblade.Presentation
             ShowTowerSettle(headline, ink, chestNote);
         }
 
+        /// <summary>账户余额角标(2026-08-30):安全层与结算页这两个过场页本来没有余额栏,
+        /// 于是打完 Boss 那笔墨锭入账时飘字没有落点 —— 得等回到主界面才补飘一次,
+        /// 而那正是玩家最想当场看见它的时刻。位置与其余页签的顶栏余额同侧,读作「账户」,
+        /// 与卡片里的「本趟已挣 / 这趟收成」是两个数,不会混。</summary>
+        private static void BalanceCorner(Transform parent)
+        {
+            var row = Ui.Row(parent, "Balance", 8);
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
+            Ui.Anchor((RectTransform)row.transform, new Vector2(0.6f, 0.92f), new Vector2(0.97f, 0.99f),
+                Vector2.zero, Vector2.zero);
+            Ui.InkCounter(row.transform, _meta.Ink, 20);
+        }
+
         /// <summary>塔结算弹窗(2026-07-22):墨锭 + 宝箱一并呈现,确认后回地图。</summary>
         private static void ShowTowerSettle(string headline, int ink, string chestNote)
         {
             var view = NewView("TowerSettleView");
             Ui.Stretch((RectTransform)view.transform);
+            BalanceCorner(view.transform); // 弃塔/阵亡那笔的飘字落点(钱在 CommitEventInk 时已入账)
             var card = Ui.CardPanel(view.transform, "Panel");
             Ui.Anchor((RectTransform)card.transform, new Vector2(0.22f, 0.2f), new Vector2(0.78f, 0.8f), Vector2.zero, Vector2.zero);
             var stack = Ui.VStack(card.transform, "Stack", 14);

@@ -482,7 +482,8 @@ namespace Brushblade.Presentation
         public static GameObject InkCounter(Transform parent, int ink, int fontSize = 20)
         {
             var row = IngotLabel(parent, ink.ToString(), fontSize);
-            InkPulse.Observe((RectTransform)row.transform, ink);
+            // 字号传下去:飘字按顶栏字号等比放大(局内 18 与主界面 25 的顶栏,飘字也该差这么多)
+            InkPulse.Observe((RectTransform)row.transform, ink, fontSize);
             return row;
         }
 
