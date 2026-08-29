@@ -244,6 +244,55 @@ namespace Brushblade.Presentation
             return sprite;
         }
 
+        /// <summary>墨晕外扩宽度(px):牌沿向外洇开多远。<see cref="Halo"/> 与调用方的
+        /// RectTransform 外扩量必须用同一个数,不然贴图里的渐变对不上牌的边界。</summary>
+        public const int HaloPad = 10;
+
+        private static readonly Dictionary<int, Sprite> _halo = new();
+
+        /// <summary>墨晕 9-slice(2026-08-30):牌沿一线属性色,向外 <see cref="HaloPad"/> px
+        /// 洇开到透明,**牌内全透明**。
+        ///
+        /// 给「这张牌刚到手」用。上一版是 <see cref="Rounded"/> + fillCenter=false 的实边,
+        /// 边宽等于九宫格 border(radius+2),56 见方的部件牌被吃掉大半 —— 而发光是唯一
+        /// 不占版面的强调方式:牌面、四角、描线一样都不动,只在牌**之外**加一圈会呼吸的光。
+        ///
+        /// 几何与 Rounded 同一套(到圆角矩形边界的有符号距离),差别是这里把圆角矩形
+        /// **内缩 HaloPad**,腾出纹理边缘那一圈给洇开的尾巴;alpha 曲线也换了:
+        /// 牌内 1px 收到 0、牌沿冲到 1、向外按平方衰减 —— 平方让尾巴更长更淡,
+        /// 线性衰减看着像一圈硬边框。</summary>
+        public static Sprite Halo(int radius)
+        {
+            if (_halo.TryGetValue(radius, out var cached)) return cached;
+            int size = (radius + HaloPad) * 2 + 8;
+            var tex = NewTex(size, size);
+            float r = radius;
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    // 圆角圆心 = 四角内缩 (HaloPad + r);signed > 0 在牌内,< 0 在牌外
+                    float dx = Mathf.Max(0, Mathf.Max(HaloPad + r - x - 0.5f, x + 0.5f - (size - HaloPad - r)));
+                    float dy = Mathf.Max(0, Mathf.Max(HaloPad + r - y - 0.5f, y + 0.5f - (size - HaloPad - r)));
+                    float signed = r - Mathf.Sqrt(dx * dx + dy * dy);
+                    float alpha;
+                    if (signed >= 0)
+                        alpha = Mathf.Clamp01(1f - signed);          // 牌内:1px 之内收干净
+                    else
+                    {
+                        float t = Mathf.Clamp01(1f + signed / HaloPad);
+                        alpha = t * t;                               // 牌外:平方衰减,尾巴长而淡
+                    }
+                    tex.SetPixel(x, y, new Color(1, 1, 1, alpha));
+                }
+            tex.Apply();
+            // border 要盖住整条渐变(圆角 + 外扩),中心那块全透明,拉伸不失真
+            var border = radius + HaloPad + 2;
+            var sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f),
+                100, 0, SpriteMeshType.FullRect, new Vector4(border, border, border, border));
+            _halo[radius] = sprite;
+            return sprite;
+        }
+
         public static Sprite Circle
         {
             get

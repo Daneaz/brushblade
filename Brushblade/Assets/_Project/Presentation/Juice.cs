@@ -593,43 +593,51 @@ namespace Brushblade.Presentation
         /// 「字 → 到期时刻」的表,每次重绘照着表把光晕重新套上 —— 传剩余时长的话,每次重绘都会
         /// 把倒计时重置,牌会一直亮下去。
         ///
-        /// 光晕是一圈**空心**的圆角框(Sliced + fillCenter = false),不是一块半透明色板:
-        /// 牌自己的底图挂在 tile 本身上,任何子物体都画在它之上 —— 实心的话会把牌面整个染成
-        /// 属性色,字形跟着糊掉。关掉 fillCenter 就只剩九宫格的边,读作「这张牌镶了道光边」。</summary>
+        /// 光是 <see cref="Theme.Halo"/> 那张贴图:牌沿一线属性色,向外 10px 洇开到透明,
+        /// **牌内全透明**。牌自己的底图挂在 tile 本身上,任何子物体都画在它之上 ——
+        /// 实心色板会把牌面整个染成属性色、字形跟着糊掉,而一圈实边(上一版:Rounded +
+        /// fillCenter=false)在 56 见方的部件牌上又粗得吃掉大半。发光是唯一不占版面的
+        /// 强调方式:牌面、四角、描线一样都不动,只在牌之外加一圈会呼吸的光。
+        ///
+        /// 呼吸**只改 alpha,不改尺寸** —— 尺寸一动,一排牌就会跟着挤。</summary>
         public void Glow(RectTransform target, Color color, float untilUnscaledTime)
         {
             if (target == null || UnityEngine.Time.unscaledTime >= untilUnscaledTime) return;
             StartCoroutine(GlowRoutine(target, color, untilUnscaledTime));
         }
 
-        private const float GlowPadding = 9f;   // 光晕比牌大出来的一圈(px)
+        // 牌的圆角:字库牌 9、部件牌 12,取中间值 —— 光是模糊的,差这 3px 看不出来,
+        // 而多一张贴图就多一次运行时生成
+        private const int GlowRadius = 10;
         private const float GlowPeriod = 0.75f; // 呼吸一个来回的时长
+        private const float GlowDim = 0.26f;    // 呼吸谷:牌沿那一线的 alpha
+        private const float GlowBright = 0.55f; // 呼吸峰
 
         private static IEnumerator GlowRoutine(RectTransform target, Color color, float until)
         {
             var go = new GameObject("Glow", typeof(RectTransform));
             go.transform.SetParent(target, false);
-            go.transform.SetAsFirstSibling(); // 排在最底:字形、徽标都盖在光边之上
+            go.transform.SetAsFirstSibling(); // 排在最底:字形、徽标都盖在光之上
             var halo = go.AddComponent<Image>();
-            // 半径取小值:Rounded(r) 的九宫格边宽是 r+2,取 14 会画出 16px 的粗带,
-            // 把 56×56 的部件牌糊掉大半。8 → 10px 的细边,配上外扩 9px 几乎全落在牌外
-            halo.sprite = Theme.Rounded(8);
+            halo.sprite = Theme.Halo(GlowRadius);
             halo.type = Image.Type.Sliced;
-            halo.fillCenter = false;          // 只画九宫格的边 —— 见上面为什么不能实心
-            halo.raycastTarget = false;       // 不抢牌自己的点击
+            halo.fillCenter = false;    // 中心本就全透明,少画一个 quad
+            halo.raycastTarget = false; // 不抢牌自己的点击
             var rect = (RectTransform)go.transform;
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(-GlowPadding, -GlowPadding);
-            rect.offsetMax = new Vector2(GlowPadding, GlowPadding);
+            // 外扩量必须与贴图里的 HaloPad 一致 —— 对不上的话,渐变的峰值就不落在牌沿了
+            rect.offsetMin = new Vector2(-Theme.HaloPad, -Theme.HaloPad);
+            rect.offsetMax = new Vector2(Theme.HaloPad, Theme.HaloPad);
 
             while (go != null && UnityEngine.Time.unscaledTime < until)
             {
-                // 呼吸:0.28↔0.72,末段随剩余时间整体收暗 —— 光晕是「淡出」而不是「啪地消失」
+                // 呼吸只改 alpha —— 尺寸一动,一排牌就会跟着挤。
+                // 末段随剩余时间整体收暗:光晕是「淡出」而不是「啪地消失」
                 float breathe = 0.5f + 0.5f * Mathf.Sin(UnityEngine.Time.unscaledTime / GlowPeriod * Mathf.PI * 2f);
                 float remain = Mathf.Clamp01((until - UnityEngine.Time.unscaledTime) / GlowPeriod);
                 halo.color = new Color(color.r, color.g, color.b,
-                    Mathf.Lerp(0.28f, 0.72f, breathe) * remain);
+                    Mathf.Lerp(GlowDim, GlowBright, breathe) * remain);
                 yield return null;
             }
             if (go != null) Destroy(go);

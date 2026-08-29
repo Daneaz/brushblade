@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+
+    .sheet {
+      width: 1020px; height: 700px; box-sizing: border-box; padding: 28px 32px 24px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      display: flex; flex-direction: column; gap: 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    h4 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 2px; color: #5D646F; }
+    .lede { font-size: 12.5px; color: #5D646F; margin-top: 7px; line-height: 1.75; }
+    .lede b { color: #161B22; font-weight: 700; }
+
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
+    .r-Blue  { --rar: #0F74C4; }
+
+    .cols { display: flex; gap: 26px; }
+    .panel { background: #FFFDF7; border: 1px solid #E4DCCB; border-radius: 10px; padding: 18px 20px; }
+
+    /* ---- 渐变剖面图 ---- */
+    .ramp { width: 300px; }
+    .ramp .bar {
+      height: 46px; border-radius: 5px; margin-bottom: 7px;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, #348F4F 0%, transparent) 0%,
+        color-mix(in srgb, #348F4F 0%, transparent) 46%,
+        color-mix(in srgb, #348F4F 62%, transparent) 62%,
+        color-mix(in srgb, #348F4F 30%, transparent) 78%,
+        color-mix(in srgb, #348F4F 0%, transparent) 100%);
+      border: 1px solid #EDE6D6;
+    }
+    .ticks { display: flex; font-size: 9.5px; color: #8A8478; letter-spacing: .3px; }
+    .ticks span { flex: 1; }
+    .ticks span:last-child { text-align: right; flex: none; }
+
+    /* ---- 三种属性色的成品 ---- */
+    .gallery { display: flex; gap: 22px; align-items: center; justify-content: center; padding: 8px 0 4px; }
+    .card {
+      position: relative; width: 82px; height: 102px; border-radius: 9px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 2px 6px rgba(22,27,34,.08);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      animation: halo 2.1s ease-in-out infinite;
+    }
+    .card::before { content: ""; position: absolute; inset: 4px; border-radius: 6px;
+      border: 1px solid color-mix(in srgb, var(--rar) 34%, transparent); }
+    .card .gl { font-family: "Noto Serif SC", serif; font-size: 38px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .part {
+      position: relative; width: 68px; height: 68px; border-radius: 12px;
+      background: var(--elSoft); color: var(--elFg);
+      font-family: "Noto Serif SC", serif; font-size: 27px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      animation: halo 2.1s ease-in-out infinite;
+    }
+    @keyframes halo {
+      0%, 100% { box-shadow: 0 2px 6px rgba(22,27,34,.08),
+                             0 0 0 1px color-mix(in srgb, var(--el) 26%, transparent),
+                             0 0 9px 2px color-mix(in srgb, var(--el) 16%, transparent); }
+      50%      { box-shadow: 0 2px 6px rgba(22,27,34,.08),
+                             0 0 0 1px color-mix(in srgb, var(--el) 55%, transparent),
+                             0 0 17px 5px color-mix(in srgb, var(--el) 34%, transparent); }
+    }
+    /* 末段收暗:同一条光,alpha 整体乘 remain */
+    .fading { animation: halo 2.1s ease-in-out infinite, fade 2.1s linear infinite; }
+    @keyframes fade { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: .25; } }
+
+    .cap { font-size: 10px; color: #8A8478; text-align: center; margin-top: 7px; letter-spacing: .5px; }
+
+    /* ---- 时序条 ---- */
+    .timeline { position: relative; height: 62px; margin-top: 4px; }
+    .track { position: absolute; left: 0; right: 0; top: 22px; height: 12px; border-radius: 6px;
+      background: linear-gradient(90deg, #348F4F 0%, #348F4F 71%, rgba(52,143,79,0) 100%); opacity: .55; }
+    .mark { position: absolute; top: 0; font-size: 9.5px; color: #5D646F; letter-spacing: .3px; }
+    .mark i { display: block; width: 1px; height: 16px; background: #C3BCAC; margin: 3px 0 0 0; font-style: normal; }
+    .beat { position: absolute; top: 40px; font-size: 9.5px; color: #8A8478; }
+
+    .spec { font-size: 11.5px; line-height: 2; color: #3C4450; }
+    .spec b { color: #161B22; }
+    .spec code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px;
+      background: #F2ECDF; padding: 1px 5px; border-radius: 3px; color: #5A4A2E; }
+    .spec .k { color: #8A8478; }
+
+    .warn { margin-top: 14px; padding: 11px 13px; border-radius: 7px;
+      background: #F9EEE9; border: 1px solid #E9D3C6; font-size: 11px; line-height: 1.75; color: #7A3F2C; }
+    .warn b { color: #9B1E22; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2>墨晕 · 落地规格</h2>
+    <div class="lede">
+      一层 <b>1px 贴边</b> + 一团<b>向外扩散的柔光</b>,牌面、四角、描线三样都不动。
+      呼吸只改亮度不改尺寸 —— 尺寸一动,一排牌就会跟着挤。
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="panel ramp">
+      <h4>贴图剖面</h4>
+      <div class="bar"></div>
+      <div class="ticks"><span>牌内(全透)</span><span>牌沿</span><span>+10px</span></div>
+      <div class="spec" style="margin-top: 12px">
+        径向渐变,一张 <code>Theme.Halo()</code> 九宫格贴图:<br>
+        <span class="k">·</span> 中心到牌沿 <b>全透明</b> —— 不碰牌面<br>
+        <span class="k">·</span> 牌沿处冲到 <b>62%</b>,即那条 1px 贴边<br>
+        <span class="k">·</span> 向外 10px 衰减到 0,末段是墨洇开的尾巴
+      </div>
+    </div>
+
+    <div class="panel" style="flex: 1">
+      <h4>成品(三种属性色 · 呼吸中)</h4>
+      <div class="gallery">
+        <div>
+          <div class="card e-Wood r-Blue"><span class="gl">林</span></div>
+          <div class="cap">字库 68×85</div>
+        </div>
+        <div>
+          <div class="part e-Fire">火</div>
+          <div class="cap">部件 56×56</div>
+        </div>
+        <div>
+          <div class="part e-Water">水</div>
+          <div class="cap">部件 · 水</div>
+        </div>
+        <div>
+          <div class="part e-Heart fading">心</div>
+          <div class="cap">末段收暗</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h4>时序</h4>
+    <div class="timeline">
+      <div class="track"></div>
+      <div class="mark" style="left: 0">0.0s 到手<i></i></div>
+      <div class="mark" style="left: 33%">0.8s<i></i></div>
+      <div class="mark" style="left: 66%">1.6s<i></i></div>
+      <div class="mark" style="right: 0; text-align: right">2.4s 收<i style="margin-left: auto"></i></div>
+      <div class="beat" style="left: 0">呼吸 0.75s 一个来回,alpha 在 .26 ↔ .55(贴边) / .16 ↔ .34(外扩)</div>
+      <div class="beat" style="right: 0">最后 0.75s 整体乘 remain 收暗</div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="panel" style="flex: 1">
+      <h4>与现状的差</h4>
+      <div class="spec">
+        <span class="k">边宽</span> 10px 实边 → <b>1px 贴边 + 10px 柔光</b><br>
+        <span class="k">占位</span> 盖住框线与徽标 → <b>牌上一个像素都不占</b><br>
+        <span class="k">呼吸</span> .28↔.72(整条边) → <b>.26↔.55 / .16↔.34</b>(分层)<br>
+        <span class="k">尺寸</span> 外扩 9px → <b>外扩 10px,不参与布局</b>
+      </div>
+    </div>
+    <div class="panel" style="flex: 1">
+      <h4>实现要点</h4>
+      <div class="spec">
+        <span class="k">·</span> <code>Image</code> 挂在牌下、<code>SetAsFirstSibling</code>、<code>raycastTarget=false</code><br>
+        <span class="k">·</span> 贴图按 <b>九宫格</b>(border = 渐变宽度),牌大小变了不用重画<br>
+        <span class="k">·</span> 只改 <code>halo.color.a</code>,<b>不动 offsetMin/Max</b><br>
+        <span class="k">·</span> 记「到期时刻」不记时长 —— 重绘照表重套
+      </div>
+      <div class="warn">
+        <b>别把光晕做成子物体的实心块。</b>牌的底图挂在 tile 本身上,
+        任何子物体都画在它之上 —— 实心会把牌面整个染成属性色,字形跟着糊掉。
+        这正是现状那版翻车的地方。
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

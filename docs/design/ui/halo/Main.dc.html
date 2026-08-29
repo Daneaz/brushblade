@@ -1,0 +1,235 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+
+    .sheet {
+      width: 1320px; height: 700px; box-sizing: border-box; padding: 28px 32px 24px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      display: flex; flex-direction: column; gap: 18px;
+      -webkit-font-smoothing: antialiased;
+    }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .lede { font-size: 12.5px; color: #5D646F; margin-top: 7px; line-height: 1.75; max-width: 980px; }
+    .lede b { color: #161B22; font-weight: 700; }
+
+    /* 实船色值:Theme.ElementColor / GlyphColor / RarityColor */
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .r-Blue  { --rar: #0F74C4; }
+
+    .row { display: flex; gap: 16px; align-items: flex-start; }
+    .opt { width: 200px; display: flex; flex-direction: column; gap: 10px; }
+    .opt > header { display: flex; align-items: baseline; gap: 7px; }
+    .opt h3 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 1.5px; }
+    .opt .tag { font-size: 9.5px; letter-spacing: 1px; color: #8A8478; }
+    .opt.pick h3 { color: #9B1E22; }
+    .opt.pick .tag { color: #9B1E22; }
+
+    /* 展示台:宣纸底上摆两张真尺寸牌(字库 68×85 / 部件 56×56,此处 ×1.35 便于看边) */
+    .stage {
+      height: 176px; border-radius: 10px; background: #FFFDF7;
+      border: 1px solid #E4DCCB;
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+    }
+    .note { font-size: 11px; line-height: 1.65; color: #5D646F; }
+    .note b { color: #161B22; font-weight: 700; }
+    .cost { font-size: 10px; line-height: 1.6; color: #8A8478; }
+    .cost em { font-style: normal; color: #9B1E22; }
+
+    /* ---- 牌本体(照 Ui.GlyphTile / RoundButton 的实船构造) ---- */
+    .card {
+      position: relative; width: 92px; height: 115px; border-radius: 9px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 2px 6px rgba(22,27,34,.08);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .card::before { content: ""; position: absolute; inset: 4px; border-radius: 6px;
+      border: 1px solid color-mix(in srgb, var(--rar) 34%, transparent); }
+    .card .gl { font-family: "Noto Serif SC", serif; font-size: 42px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .card .py { font-size: 8px; color: #5D646F; letter-spacing: .5px; margin-top: 7px; }
+
+    .part {
+      position: relative; width: 76px; height: 76px; border-radius: 12px;
+      background: var(--elSoft); color: var(--elFg);
+      font-family: "Noto Serif SC", serif; font-size: 30px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ================= A 现状:10px 实边 ================= */
+    .a-now::after {
+      content: ""; position: absolute; inset: -9px; border-radius: 15px;
+      border: 10px solid var(--el); opacity: .5;
+      animation: breathe 1.5s ease-in-out infinite;
+    }
+    @keyframes breathe { 0%, 100% { opacity: .28; } 50% { opacity: .72; } }
+
+    /* ================= B 细描环 ================= */
+    .b-ring::after {
+      content: ""; position: absolute; inset: -4px; border-radius: 12px;
+      border: 1.5px solid var(--el);
+      animation: breathe2 1.9s ease-in-out infinite;
+    }
+    @keyframes breathe2 { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+    /* ================= C 墨晕 ================= */
+    .c-halo {
+      animation: halo 2.1s ease-in-out infinite;
+    }
+    @keyframes halo {
+      0%, 100% { box-shadow: 0 2px 6px rgba(22,27,34,.08),
+                             0 0 0 1px color-mix(in srgb, var(--el) 26%, transparent),
+                             0 0 9px 2px color-mix(in srgb, var(--el) 16%, transparent); }
+      50%      { box-shadow: 0 2px 6px rgba(22,27,34,.08),
+                             0 0 0 1px color-mix(in srgb, var(--el) 55%, transparent),
+                             0 0 17px 5px color-mix(in srgb, var(--el) 34%, transparent); }
+    }
+
+    /* ================= D 钤印 ================= */
+    .d-seal::after {
+      content: "新"; position: absolute; top: -7px; right: -7px;
+      width: 21px; height: 21px; border-radius: 3px;
+      background: #9B1E22; color: #F6F1E7;
+      font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 1px 3px rgba(22,27,34,.25);
+      animation: stamp .5s cubic-bezier(.2,1.5,.4,1) both;
+    }
+    @keyframes stamp {
+      0%   { transform: scale(2.1) rotate(-14deg); opacity: 0; }
+      55%  { transform: scale(.92) rotate(-6deg); opacity: 1; }
+      100% { transform: scale(1) rotate(-6deg); opacity: 1; }
+    }
+
+    /* ================= E 挑角 ================= */
+    .e-tick::before, .e-tick::after {
+      content: ""; position: absolute; width: 15px; height: 15px; pointer-events: none;
+      animation: breathe2 1.9s ease-in-out infinite;
+    }
+    .e-tick::before { top: -4px; left: -4px;
+      border-top: 2px solid var(--el); border-left: 2px solid var(--el); border-radius: 7px 0 0 0; }
+    .e-tick::after { bottom: -4px; right: -4px;
+      border-bottom: 2px solid var(--el); border-right: 2px solid var(--el); border-radius: 0 0 7px 0; }
+    .e-tick.part::before, .e-tick.part::after { border-radius: 9px 0 0 0; }
+    .e-tick.part::after { border-radius: 0 0 9px 0; }
+
+    /* ================= F 提纸 ================= */
+    .f-lift { animation: lift 2.2s ease-in-out infinite; }
+    @keyframes lift {
+      0%, 100% { transform: translateY(0);
+                 box-shadow: 0 2px 6px rgba(22,27,34,.08),
+                             inset 0 0 0 1px color-mix(in srgb, var(--el) 18%, transparent); }
+      50%      { transform: translateY(-3px);
+                 box-shadow: 0 7px 14px rgba(22,27,34,.16),
+                             inset 0 0 0 1px color-mix(in srgb, var(--el) 45%, transparent); }
+    }
+
+    .foot { margin-top: auto; display: flex; gap: 26px; align-items: flex-end; }
+    .foot .k { font-size: 11px; line-height: 1.8; color: #5D646F; }
+    .foot .k b { color: #161B22; }
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2>新到手的牌 · 高亮方案对比</h2>
+    <div class="lede">
+      场景:拆出的部件、合出的字、选中的战利品、奇遇拿到的东西 —— <b>2.4 秒内要能在一排牌里被认出来</b>,
+      然后安静退场。牌是实船尺寸(字库 68×85 / 部件 56×56)按 1.35 倍放大,便于看边。
+      现状 A 的 10px 实边把 56 见方的部件牌吃掉了大半,粗且脏。
+    </div>
+  </div>
+
+  <div class="row">
+    <section class="opt">
+      <header><h3>A 现状</h3><span class="tag">10PX 实边</span></header>
+      <div class="stage">
+        <div class="card e-Wood r-Blue a-now"><span class="gl">林</span><span class="py">lín</span></div>
+        <div class="part e-Fire a-now">火</div>
+      </div>
+      <div class="note"><b>粗、脏。</b>边宽是 Rounded(8) 九宫格的 10px,压在牌上盖住框线与徽标,部件牌几乎只剩中心。</div>
+      <div class="cost"><em>弃</em> · 基准</div>
+    </section>
+
+    <section class="opt">
+      <header><h3>B 细描环</h3><span class="tag">1.5PX 外环</span></header>
+      <div class="stage">
+        <div class="card e-Wood r-Blue b-ring"><span class="gl">林</span><span class="py">lín</span></div>
+        <div class="part e-Fire b-ring">火</div>
+      </div>
+      <div class="note">牌外 4px 处一圈 1.5px 细线,呼吸在 .45↔1。<b>最省事</b>,但和稀有度框、选中描环是同一种语言,三层线叠在一起会读混。</div>
+      <div class="cost">线太多 · 与选中态撞</div>
+    </section>
+
+    <section class="opt pick">
+      <header><h3>C 墨晕</h3><span class="tag">推荐</span></header>
+      <div class="stage">
+        <div class="card e-Wood r-Blue c-halo"><span class="gl">林</span><span class="py">lín</span></div>
+        <div class="part e-Fire c-halo">火</div>
+      </div>
+      <div class="note"><b>没有硬边</b> —— 一层 1px 贴边 + 一团向外扩散的柔光,像墨在宣纸上洇开。不占牌面、不与任何描线争,呼吸时只有"亮度"在动。</div>
+      <div class="cost">Unity 侧要自绘径向渐变贴图</div>
+    </section>
+
+    <section class="opt">
+      <header><h3>D 钤印</h3><span class="tag">朱印角标</span></header>
+      <div class="stage">
+        <div class="card e-Wood r-Blue d-seal"><span class="gl">林</span><span class="py">lín</span></div>
+        <div class="part e-Fire d-seal">火</div>
+      </div>
+      <div class="note">右上角落一枚朱印,0.5s 一记盖下去。<b>水墨语汇里最正统的"新收之物"</b>,可读性最强 —— 但部件牌四角已被同源徽标占满。</div>
+      <div class="cost">与同源徽标抢角</div>
+    </section>
+
+    <section class="opt">
+      <header><h3>E 挑角</h3><span class="tag">对角取景线</span></header>
+      <div class="stage">
+        <div class="card e-Wood r-Blue e-tick"><span class="gl">林</span><span class="py">lín</span></div>
+        <div class="part e-Fire e-tick part">火</div>
+      </div>
+      <div class="note">左上右下两段 L 形角线。克制、指向明确,<b>但取景框是相机语汇</b>,放进水墨界面里像贴了个 HUD。</div>
+      <div class="cost">风格出戏</div>
+    </section>
+
+    <section class="opt">
+      <header><h3>F 提纸</h3><span class="tag">浮起 + 内辉</span></header>
+      <div class="stage">
+        <div class="card e-Wood r-Blue f-lift"><span class="gl">林</span><span class="py">lín</span></div>
+        <div class="part e-Fire f-lift">火</div>
+      </div>
+      <div class="note">牌浮起 3px、投影加深,内缘透一线属性色 —— "这张纸被拈起来过"。<b>最含蓄</b>,但一排牌里高度差 3px 不够抓眼。</div>
+      <div class="cost">太弱 · 排里认不出</div>
+    </section>
+  </div>
+
+  <div class="foot">
+    <div class="k">
+      <b>判据</b><br>
+      ① 56 见方的部件牌上也成立<br>
+      ② 不与稀有度框 / 选中描环 / 同源徽标抢位置
+    </div>
+    <div class="k">
+      <b>取 C 的理由</b><br>
+      发光是唯一不占版面的强调方式 —— 牌面、四角、描线三样都不动,<br>
+      只在牌**之外**加一圈会呼吸的光。水墨里"洇"本来就是墨自己会做的事。
+    </div>
+    <div class="k">
+      <b>落地</b><br>
+      Theme 加一张径向渐变贴图(中心透明→边缘属性色→外沿透明),<br>
+      Image 铺在牌下、外扩 10px,只改 alpha 呼吸 —— 见「墨晕规格」板
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
