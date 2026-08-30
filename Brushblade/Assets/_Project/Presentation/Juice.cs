@@ -73,6 +73,11 @@ namespace Brushblade.Presentation
         private const float HitStopLight = 0.03f;  // 小伤害:一记轻轻的迟滞
         private const float HitStopHeavy = 0.075f; // 重击封顶
         private const float HitStopBig = 0.10f;    // 暴击 / 相克 / 引爆:再重一档
+        // 被克(2026-08-31):比最轻的还轻,但**不是 0** —— 完全不停会让被克那记读成「没打中」,
+        // 而它是打中了、只是被扛住了。一点点迟滞正好说出这个区别
+        private const float HitStopCountered = 0.018f;
+        // 打空的声音是高而薄的:音调提上去,音量也压一档(见 HitFx 里的 0.7f)
+        private const float CounteredPitch = 1.45f;
 
         private void HitStop(float seconds)
         {
@@ -209,29 +214,35 @@ namespace Brushblade.Presentation
                         // 颜色则交给相克 —— 金比朱砂更跳,而「打对属性」是玩家更需要学会的那件事
                         var hitAnchor = enemyAnchor(e.TargetIndex);
                         // 放大档:暴击 1.35 起(罕见,该抢眼),相克 1.18 起(常见,大一点就够,
-                        // 再大整场都是巨字、反而分不出哪记特别);两者都占时按暴击那档
-                        float damageScale = e.Crit ? 1.35f : e.Ke ? 1.18f : 1f;
+                        // 再大整场都是巨字、反而分不出哪记特别);两者都占时按暴击那档。
+                        // 被克(0.5x)反过来**缩**一档(2026-08-31):这一记本来就打软了,
+                        // 表现跟着软下去比再加一层特效更准 —— 玩家读到的是「这下没打实」
+                        float damageScale = e.Crit ? 1.35f : e.Ke ? 1.18f : e.Countered ? 0.78f : 1f;
                         // 飘字颜色 = **攻击方**的五行色(2026-08-30):火系打出来是朱砂、水系是靖蓝……
                         // 玩家一眼读得出这记是拿什么属性打的。用 GlyphColor 而不是 ElementColor ——
                         // 飘字就是字,得过 WCAG 4.5:1(金 #B3A382 对宣纸底只有 2.48,大字门槛都够不到)。
                         // 火系色恰好与原来的朱砂几乎同色,所以火系那一路看起来跟改之前一样
-                        Popup(DamageText(e), Theme.GlyphColor(e.Attacker), hitAnchor,
+                        Popup(DamageText(e), DamageColor(e), hitAnchor,
                             sizeScale: Mathf.Clamp(damageScale + e.Amount / 50f,
-                                1f, e.Crit ? 2.4f : e.Ke ? 2.1f : 1.9f),
+                                e.Countered ? 0.78f : 1f, e.Crit ? 2.4f : e.Ke ? 2.1f : 1.9f),
                             outline: e.Ke ? Theme.GoldBorder : null);
-                        if (e.Ke) Ring(hitAnchor, Theme.GoldBorder); // 相克专属:一圈金环炸开
-                        if (!kills) HitReact(hitAnchor); // 致死不白闪,让位给置灰
-                        HitFx(e.Amount, e.Crit, e.Ke, hitAnchor);
+                        if (e.Ke) Ring(hitAnchor, Theme.GoldBorder);            // 相克:金环炸开
+                        else if (e.Countered) Ring(hitAnchor, Theme.InkSoft, inward: true); // 被克:环往里收
+                        // 被克的白闪也弱一档:目标「扛住了」,身上的反应就不该跟挨实一样狠
+                        if (!kills) HitReact(hitAnchor, e.Countered ? 0.45f : 1f); // 致死不白闪,让位给置灰
+                        HitFx(e.Amount, e.Crit, e.Ke, hitAnchor, e.Countered);
                         onImpact?.Invoke(e);
                         anyParallel = true;
                         break;
                     case BattleEventKind.BurnTick: // 火系 DoT:串行 + 火焰视觉
                         if (serialPending) yield return Beat(StepGap); // 与上一记 DoT 拉开
-                        Popup($"-{e.Amount}", Theme.GlyphColor(e.Attacker), enemyAnchor(e.TargetIndex),
-                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f),
+                        Popup(DamageText(e), DamageColor(e), enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp((e.Countered ? 0.78f : 1f) + e.Amount / 50f,
+                                e.Countered ? 0.78f : 1f, 1.9f),
                             outline: e.Ke ? Theme.GoldBorder : null);
                         FlameBurst(enemyAnchor(e.TargetIndex));
-                        HitFx(e.Amount, ke: e.Ke, target: enemyAnchor(e.TargetIndex));
+                        HitFx(e.Amount, ke: e.Ke, target: enemyAnchor(e.TargetIndex),
+                            countered: e.Countered);
                         onImpact?.Invoke(e);
                         serialPending = true;
                         break;
@@ -240,17 +251,25 @@ namespace Brushblade.Presentation
                     // 上限 26,比这里这条更轻),改成内联 HitFx 的音效/闪光两件事(2026-08-10 复核补):
                     // 打击音 + amount≥40 全屏微闪照抄 HitFx,震屏单用下面这条更重的,避免叠两次。
                     case BattleEventKind.Detonate:
-                        Popup(Strings.T("juice.popup.detonate", ("amount", e.Amount)),
-                            Theme.GlyphColor(e.Attacker), enemyAnchor(e.TargetIndex),
-                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f),
+                        // ⚠ 两个 key 都得作为**字面量**出现在 Strings.T( 后面:字符串表的孤儿检查
+                        // 只认字面量,把 key 塞进三元表达式(或变量)会让它俩双双被判成没人用
+                        Popup(e.Countered
+                                ? Strings.T("juice.popup.detonate_countered", ("amount", e.Amount))
+                                : Strings.T("juice.popup.detonate", ("amount", e.Amount)),
+                            DamageColor(e), enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp((e.Countered ? 0.78f : 1f) + e.Amount / 50f,
+                                e.Countered ? 0.78f : 1f, 1.9f),
                             outline: e.Ke ? Theme.GoldBorder : null);
                         var blastAnchor = enemyAnchor(e.TargetIndex);
-                        HitStop(HitStopBig); // 抢杀爆发:与暴击/相克同一档的顿帧
+                        // 被克的引爆不给重顿帧:炸在水系身上只有半数伤害,停一大拍会名不副实
+                        HitStop(e.Countered ? HitStopLight : HitStopBig);
                         PlayClip(e.Amount >= 30 ? _thudClip : _hitClip, 0.9f,
                             Mathf.Clamp(1.3f - e.Amount / 80f, 0.6f, 1.3f));
                         StartCoroutine(Shake(Mathf.Clamp(10f + e.Amount * 0.4f, 10f, 30f),
                             AttackDir(blastAnchor)));
-                        Ring(blastAnchor, Theme.GlyphColor(e.Attacker)); // 火色扩散环,读出「炸开」
+                        // 炸在克制自己的属性上(水系怪)时环往里收 —— 与直接伤害那边同一套语言
+                    Ring(blastAnchor, e.Countered ? Theme.InkSoft : Theme.GlyphColor(e.Attacker),
+                        inward: e.Countered);
                         if (e.Amount >= 40) ScreenFlash(0.12f, Color.white);
                         onImpact?.Invoke(e);
                         break;
@@ -448,22 +467,29 @@ namespace Brushblade.Presentation
         /// 暴击是「打得狠」,相克是「打得对」,两者可以同时发生。
         /// target(2026-08-30):受击者,只用来定震屏方向;传 null 退回原来的全随机抖。
         /// 三个参数都有缺省值,DoT 那几个调用点一个字都不用改。</summary>
-        private void HitFx(int amount, bool crit = false, bool ke = false, RectTransform target = null)
+        /// <param name="countered">这一记吃了 0.5x(2026-08-31):整体**减**一档 —— 顿帧砍到最轻、
+        /// 震屏减半、打击音换成脆的那一条并把音调提上去(没打实的声音是高而薄的,不是闷而厚的)。
+        /// 相克是加法,被克是减法,两头用同一套旋钮反向拧,玩家不用学第二套语言。</param>
+        private void HitFx(int amount, bool crit = false, bool ke = false, RectTransform target = null,
+            bool countered = false)
         {
             bool heavy = crit || ke;
             // 顿帧:小伤害一记轻迟滞,重击封顶,暴击/相克再重一档。
             // 排在最前 —— 时间要在音效和震屏**开始之前**按住,才是「命中卡了一下」而不是「抖完才卡」
-            HitStop(heavy ? HitStopBig
+            HitStop(countered ? HitStopCountered
+                : heavy ? HitStopBig
                 : Mathf.Lerp(HitStopLight, HitStopHeavy, Mathf.Clamp01(amount / 60f)));
-            PlayClip(amount >= 30 || heavy ? _thudClip : _hitClip, 0.9f,
-                Mathf.Clamp(1.3f - amount / 80f, 0.6f, 1.3f));
-            StartCoroutine(Shake(heavy
+            PlayClip(!countered && (amount >= 30 || heavy) ? _thudClip : _hitClip, countered ? 0.7f : 0.9f,
+                countered ? CounteredPitch : Mathf.Clamp(1.3f - amount / 80f, 0.6f, 1.3f));
+            StartCoroutine(Shake((heavy
                 ? Mathf.Clamp(10f + amount * 0.5f, 10f, 34f)
-                : Mathf.Clamp(4f + amount * 0.35f, 4f, 26f), AttackDir(target)));
+                : Mathf.Clamp(4f + amount * 0.35f, 4f, 26f)) * (countered ? 0.45f : 1f),
+                AttackDir(target)));
             // 全屏微闪的阈值只看暴击,不看相克(2026-08-30):相克太常见 —— 五分之一的属性组合
             // 都吃它,阈值一降就整场都在闪,白光反而不再意味着「这记不一般」。
             // 相克的分量交给金环 + 金字 + 顿帧,那几样是**指向性**的,不抢全屏
-            if (amount >= (crit ? 20 : 40)) ScreenFlash(0.12f, Color.white); // 大伤害:一记全屏微闪
+            // 被克那一记不给全屏闪:半数伤害配一记全屏白光,读起来会比实际分量重得多
+            if (!countered && amount >= (crit ? 20 : 40)) ScreenFlash(0.12f, Color.white); // 大伤害:一记全屏微闪
         }
 
         /// <summary>从玩家席指向 target 的单位向量,用作震屏方向(2026-08-30)。
@@ -486,13 +512,15 @@ namespace Brushblade.Presentation
         private readonly HashSet<RectTransform> _flashing = new();
 
         /// <summary>受击反应:更狠的缩放冲击 + 头像白闪一下(比 Punch 更强,专供敌人挨打)。</summary>
-        private void HitReact(RectTransform target)
+        /// <param name="strength">冲击与白闪的强度倍率(2026-08-31):被克那一记传 0.45,
+        /// 目标「扛住了」,身上的反应就不该跟挨实一样狠。</param>
+        private void HitReact(RectTransform target, float strength = 1f)
         {
             if (target == null || !_flashing.Add(target)) return;
-            StartCoroutine(HitReactRoutine(target));
+            StartCoroutine(HitReactRoutine(target, strength));
         }
 
-        private IEnumerator HitReactRoutine(RectTransform target)
+        private IEnumerator HitReactRoutine(RectTransform target, float strength)
         {
             // ⚠ 取整棵子树,不是 target.GetComponent<Image>()(2026-08-30 修):
             // 分层字怪(MobView)的锚点物件身上**根本没有 Image** —— 各层 Image 都在子节点上,
@@ -508,10 +536,10 @@ namespace Brushblade.Presentation
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
                 float k = t / duration;
-                float s = 1f + 0.28f * Mathf.Sin((1f - k) * Mathf.PI); // 更狠冲击
+                float s = 1f + 0.28f * strength * Mathf.Sin((1f - k) * Mathf.PI); // 更狠冲击
                 target.localScale = new Vector3(s, s, 1f);
                 for (int i = 0; i < images.Length; i++)                 // 白闪 → 复原
-                    if (images[i] != null) images[i].color = FlashOf(original[i], k);
+                    if (images[i] != null) images[i].color = FlashOf(original[i], k, strength);
                 yield return null;
             }
             if (target != null) target.localScale = Vector3.one;
@@ -522,9 +550,11 @@ namespace Brushblade.Presentation
 
         /// <summary>白闪色:只推 RGB,alpha 保各层原值 —— 与 <see cref="GreyOf"/> 同一条戒律,
         /// 状态层(L4)的 alpha 编码着战斗状态,一并拉到 1 会让墨雾/火芯在受击瞬间突然全显。</summary>
-        private static Color FlashOf(Color original, float k)
+        private static Color FlashOf(Color original, float k, float strength)
         {
-            var flash = Color.Lerp(Color.white, original, k);
+            // strength < 1 时白闪只闪一半:把「全白」先往原色拉回去,再走原来的复原曲线
+            var peak = Color.Lerp(original, Color.white, Mathf.Clamp01(strength));
+            var flash = Color.Lerp(peak, original, k);
             flash.a = original.a;
             return flash;
         }
@@ -648,8 +678,22 @@ namespace Brushblade.Presentation
             if (e.Crit && e.Ke) return Strings.T("juice.popup.ke_crit_damage", ("amount", e.Amount));
             if (e.Crit) return Strings.T("juice.popup.crit_damage", ("amount", e.Amount));
             if (e.Ke) return Strings.T("juice.popup.ke_damage", ("amount", e.Amount));
+            // 被克(2026-08-31):必须有个字说出来。光把数字缩小只会被读成「这记伤害本来就低」,
+            // 而玩家要知道的是**为什么**低 —— 属性挑错了,换一张牌就能翻倍
+            if (e.Countered) return Strings.T("juice.popup.countered_damage", ("amount", e.Amount));
             return $"-{e.Amount}";
         }
+
+        /// <summary>一记伤害飘字的颜色。平/暴/相克都用攻击方的五行色;
+        /// 被克则把它往纸底里**褪**一截(2026-08-31)—— 褪色是「这一记没使上劲」最直接的说法,
+        /// 而且不用再占一个新颜色:属性仍然认得出,只是暗下去了。</summary>
+        private static Color DamageColor(BattleEvent e)
+        {
+            var color = Theme.GlyphColor(e.Attacker);
+            return e.Countered ? Color.Lerp(color, Theme.Paper, CounteredFade) : color;
+        }
+
+        private const float CounteredFade = 0.42f;
 
         // ---- 扩散环:一记落点的冲击波(相克 / 引爆 / 飞字砸中)----
 
@@ -659,7 +703,10 @@ namespace Brushblade.Presentation
         ///
         /// 为什么值得有:此前一记命中的全部「落点」表达就是白闪 + 震屏,两者都是**目标身上**的变化,
         /// 画面上没有任何东西说明冲击是从这个点扩散出去的。一圈环把「这里发生了一记」钉在原地。</summary>
-        private void Ring(RectTransform at, Color color)
+        /// <param name="inward">true = 环从大**收**到小(2026-08-31,被克专用)。
+        /// 外扩读作「冲击从这里散出去」,内收读作「打上去被挡回来了」—— 同一个元件反着放,
+        /// 玩家不用学第二套语言。</param>
+        private void Ring(RectTransform at, Color color, bool inward = false)
         {
             if (at == null || _shakeTarget == null) return;
             var go = new GameObject("Ring", typeof(RectTransform));
@@ -673,17 +720,19 @@ namespace Brushblade.Presentation
             image.fillCenter = false; // 只要边:实心会把目标整个盖住
             image.raycastTarget = false;
             image.color = color;
-            StartCoroutine(RingRoutine(rect, image, color));
+            StartCoroutine(RingRoutine(rect, image, color, inward));
         }
 
-        private static IEnumerator RingRoutine(RectTransform rect, Image image, Color color)
+        private static IEnumerator RingRoutine(RectTransform rect, Image image, Color color, bool inward)
         {
             float t = 0f;
             while (t < RingDuration && rect != null)
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
                 float k = t / RingDuration;
-                float scale = Mathf.Lerp(0.35f, 2.3f, 1f - (1f - k) * (1f - k)); // ease-out:炸得快、收得慢
+                float scale = inward
+                    ? Mathf.Lerp(2.0f, 0.7f, 1f - (1f - k) * (1f - k))  // 被克:从外往里收
+                    : Mathf.Lerp(0.35f, 2.3f, 1f - (1f - k) * (1f - k)); // ease-out:炸得快、收得慢
                 rect.localScale = new Vector3(scale, scale, 1f);
                 image.color = new Color(color.r, color.g, color.b, 0.85f * (1f - k));
                 yield return null;
