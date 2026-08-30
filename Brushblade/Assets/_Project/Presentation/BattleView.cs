@@ -2002,17 +2002,28 @@ namespace Brushblade.Presentation
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
                     _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(infoWidth, EnemyHpBarHeight)));
                     // 护盾条(稿 .shb):盾 = 1/4 血时满格,盾为 0 时整条不画——与角标同一判据。
+                    // 填充色用 Theme.Gold(稿 #C9A94A,同一族,不为这条 6px 高的细条新增色值)。
+                    // 上一版这里误判「稿上 .shb/.atb 背景色相同」而临时改成翡翠避让——其实两者
+                    // 在稿上本就不同色,真正撞色的是下面那条行动条(抄错成了金色),已改正,
+                    // 两条各自照稿对色后不再冲突。
                     // 敌人 Shield 眼下恒为 0,真机看不到属预期(见常量注释)。
                     if (enemy.Shield > 0)
-                        Ui.Bar(info.transform, ShieldFraction(enemy.Shield, enemy.MaxHp), Theme.Jade,
+                        Ui.Bar(info.transform, ShieldFraction(enemy.Shield, enemy.MaxHp), Theme.Gold,
                             new Vector2(infoWidth, EnemyShieldBarHeight));
                     // 行动条紧跟护盾条(2026-08-17,用户拍板放血条下方)。稿 .atb 无文字覆盖——
                     // 高度只有 6,塞百分比数字必糊,故直接调 Ui.Bar 出裸条而不是共享的 ActionBar
                     // helper(那个固定带文字,是给玩家/召唤物的更高条用的)。fill 仍存进
                     // _enemyActionBars 供动画期间就地推进,SetActionBar 对 label == null
                     // 本就判空跳过,不受影响。
+                    // 底色跟稿走:.foe/.ally/.me 三种单位的行动条稿上**同色** #3D4E69,
+                    // 正是 Theme.InkSoft(一字不差,Theme 里早有这个 token,不是新增)。
+                    // >80% 时稿转 .soon 态——敌方转朱砂 #C53637 = Theme.Cinnabar;
+                    // 我方/玩家的 soon 态是绿色 #2E7D46,不是同一个色,下个任务给我方条
+                    // 补这一态时别照抄这里的朱砂。
                     float actionFrac = Mathf.Clamp01(enemy.ActionMeter / (float)TurnScheduler.Threshold);
-                    var actionBarGo = Ui.Bar(info.transform, actionFrac, Theme.Gold, new Vector2(infoWidth, EnemyActionBarHeight));
+                    bool actionSoon = actionFrac > 0.8f;
+                    var actionBarGo = Ui.Bar(info.transform, actionFrac,
+                        actionSoon ? Theme.Cinnabar : Theme.InkSoft, new Vector2(infoWidth, EnemyActionBarHeight));
                     _enemyActionBars.Add(((RectTransform)actionBarGo.transform.Find("Fill"), null));
                 }
                 else
