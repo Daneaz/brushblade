@@ -248,8 +248,20 @@ namespace Brushblade.Core
         /// 灼烧/引爆恒为火 —— 与它们生克算式里写死的 KeMultiplier(Fire, …) 同一口径。</summary>
         public Element? Attacker { get; }
 
+        /// <summary>这一记是不是吃了 **0.5x**(2026-08-31);占便宜的那一头见 <see cref="Ke"/>。
+        ///
+        /// 生克是双向规则,表现也该双向:<see cref="Ke"/> 只标了占便宜的一头,吃亏的一头此前
+        /// 一点表达都没有 —— 玩家打出去伤害莫名其妙只有一半,读不出是自己属性挑错了,
+        /// 还容易误以为是敌人有护甲。
+        ///
+        /// 与 <see cref="Ke"/> **互斥且同源**:两者都由 KeMultiplier(攻, 守) 这一个数决定 ——
+        /// &gt;1 是 Ke,&lt;1 是 Countered,==1 两者皆假。留成两个 bool 而不升格成枚举,
+        /// 是因为非法组合在构造点根本造不出来(三处赋值都读同一个倍率),而改动面小得多。</summary>
+        public bool Countered { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
-            int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null)
+            int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null,
+            bool countered = false)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -259,6 +271,7 @@ namespace Brushblade.Core
             Crit = crit;
             Ke = ke;
             Attacker = attacker;
+            Countered = countered;
         }
     }
 
@@ -2354,8 +2367,10 @@ namespace Brushblade.Core
             // 出牌时冻结的量,它是 _burnPerStack 这个全局标量。层数(Magnitude)不吃攻击力。
             // 不复用 ScaleByAttack:那是整数除(早截断),这里要插进既有的浮点式子里晚截断,
             // 才能在基准值下保住逐字节恒等
-            // 相克标记与倍率同源:算式里本来就乘了这个倍率,>1 即相克(2026-08-30)
-            bool burnKe = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element) > 1f;
+            // 相克标记与倍率同源:算式里本来就乘了这个倍率,>1 即相克(2026-08-30),<1 即被克(2026-08-31)
+            float burnWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
+            bool burnKe = burnWuxing > 1f;
+            bool burnCountered = burnWuxing < 1f;
             int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
@@ -2370,7 +2385,7 @@ namespace Brushblade.Core
                 if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
             }
             _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick, ke: burnKe,
-                attacker: Element.Fire));
+                attacker: Element.Fire, countered: burnCountered));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2416,14 +2431,16 @@ namespace Brushblade.Core
             int stacks = burn.Magnitude;
             // 与 SettleBurnOn 同口径吃攻击力:引爆是把剩余层数一次性兑现,
             // 每层伤害用的是同一个量,不能只有一边吃
-            bool detonateKe = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element) > 1f;
+            float detonateWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
+            bool detonateKe = detonateWuxing > 1f;
+            bool detonateCountered = detonateWuxing < 1f;
             int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * _burnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe,
-                attacker: Element.Fire));
+                attacker: Element.Fire, countered: detonateCountered));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2776,14 +2793,16 @@ namespace Brushblade.Core
             // 对称性备查:敌人侧今天无处落地 —— 玩家没有五行属性(DamagePlayerDirect 收的是
             // 算好的 enemy.Attack,不过 KeMultiplier),召唤物走五行但 SummonState 没有护甲字段。
             // 哪天给召唤物加了护甲,这条规则要一并在 DamageSummon 里补上。
-            bool counters = WuxingResolver.KeMultiplier(attacker, enemy.Element) > 1f;
+            float wuxing = WuxingResolver.KeMultiplier(attacker, enemy.Element);
+            bool counters = wuxing > 1f;
+            bool countered = wuxing < 1f; // 吃亏的那一头(0.5x):与 counters 同源、互斥
             if (!bypassDefense && !counters)
                 damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce, attackerBag));
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             // counters 在上面为「相克即破甲」算过了,直接复用:相克标记与破甲判据是同一件事,
             // 分头再算一次就有走岔的余地(表现层说相克、结算却吃了护甲)
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit,
-                ke: counters, attacker: attacker));
+                ke: counters, attacker: attacker, countered: countered));
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
