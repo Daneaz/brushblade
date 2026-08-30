@@ -15,6 +15,9 @@ namespace Brushblade.Core.Tests
     {
         // 弹:心系 50 伤,心中立(全属性 ×1.0),用来测护盾本身而不搅动生克(同 DefenseWiringTests 的口径)。
         // 斫:木系 50 伤,木克土 ×1.5,专门用来触发相克(绕护甲、但不该绕盾)。
+        // 掴:心系 40 伤,心中立;专门配合护甲 30 / 盾 20 这组「顺序反转会被拦住」的数字
+        // (Review 2026-08-30 指出「弹」的 50 配不出判别力,见下方 Shield_AbsorbsAfterDefenseSubtraction
+        // 的算式注释——不能与「弹」共用基础值,数字是这条测试判别力的一部分)。
         private static RecipeGraph Graph() => new(new[]
         {
             new CharDef("木", Element.Wood),
@@ -22,11 +25,13 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 50) }),
             new CharDef("斫", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 50) }),
+            new CharDef("掴", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 40) }),
         });
 
         private static BattleEngine Engine(EnemyDef enemy) =>
             new(Graph(), new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
-                new[] { "弹", "斫" }, Array.Empty<string>(), new[] { enemy }, seed: 1);
+                new[] { "弹", "斫", "掴" }, Array.Empty<string>(), new[] { enemy }, seed: 1);
 
         [Test]
         public void Shield_AbsorbsBeforeHp()
@@ -42,13 +47,26 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Shield_AbsorbsAfterDefenseSubtraction()
         {
-            // 护甲 10、盾 30、血 100,挨一记 50:先减甲成 40,再由盾吃 30,血掉 10
-            // —— 顺序反过来(先吃盾再减甲)会让盾+甲的组合凭空多挡 10 点
-            var engine = Engine(new EnemyDef("靶", Element.Earth, 100, 0, defense: 10));
-            engine.Enemies[0].Shield = 30;
-            engine.Cast("弹", 0);
-            Assert.That(engine.Enemies[0].Shield, Is.EqualTo(0), "盾被打空");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(90), "(50 − 10 甲) − 30 盾 = 10 点穿盾落地");
+            // 护甲 30、盾 20、血 100,挨一记 40(心系中立)。
+            //
+            // ⚠ 这组数字是刻意挑的,不是随手换的(Review 2026-08-30 指出上一版护甲 10/盾 30/伤害 50
+            // 那组没有判别力——当伤害 ≥ 护甲+盾 时,max(0,D−A)−S 与 max(0,D−S)−A 在那个区间代数恒等,
+            // 两种顺序算出来的血量/盾残值逐位相同,谁先谁后测不出来)。
+            //
+            // 正确顺序(先减甲、再吃盾):40−30=10 → 盾吸收 min(20,10)=10 → 血掉 0,盾剩 10
+            // 反过来(先吃盾、再减甲):盾吸收 min(20,40)=20 → 剩 20 → max(0,20−30)=0 → 血掉 0,盾剩 0
+            //
+            // 两条路径的 Hp 都是 0(判别力不在这——血量这条断言留着只是钉住「没有多穿透」的兜底),
+            // 真正的判别力在 Shield 残值:10(正确)对 0(反了)。数学上是「护甲减法先撞上
+            // Math.Max(0,…) 下限、护盾吸收没撞」与「护盾先吸收未撞、护甲减法才撞」这两种情形分道扬镳——
+            // 判据就是让某一步先触底。已用变异检查验证(把吸收段挪到护甲减法之前会让 Shield 断言变红,
+            // 见 task-3-report.md 的反向变异记录)。
+            var engine = Engine(new EnemyDef("靶", Element.Earth, 100, 0, defense: 30));
+            engine.Enemies[0].Shield = 20;
+            engine.Cast("掴", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100), "40−30=10 全被 20 盾吃掉,一点没掉血");
+            Assert.That(engine.Enemies[0].Shield, Is.EqualTo(10),
+                "盾只吃了 10 剩 10 —— 顺序反了会把盾吃满剩 0,这才是本条真正的判别力所在");
         }
 
         [Test]
