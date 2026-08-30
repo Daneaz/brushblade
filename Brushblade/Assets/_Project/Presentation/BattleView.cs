@@ -416,13 +416,20 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>行动条(2026-08-17):meter / Threshold 的进度 + 百分比叠字。
-        /// 填充色用赭金 —— 血条是朱砂、护盾条是翡翠,三者必须一眼分得开。
+        /// 2026-08-31 改口径:.foe/.ally/.me 三种单位的行动条稿上**同色**藏青
+        /// (Theme.InkSoft = #3D4E69,一字不差)——此前这里错写成赭金,与护盾条撞色
+        /// (根因见 DrawEnemies 里敌人行动条那处的修复记录,虽然敌人早已改直调 Ui.Bar,
+        /// 不再经这个 helper,但颜色错误的根源就是这里)。
+        /// >80% 转稿的 .soon 态:**我方是绿**(Theme.DoneGreen ≈ 稿 #2E7D46,差值 (5,9,0)
+        /// 可忽略不计,不为此新增 Theme 常量)——敌方的朱砂 soon 态在敌人自己直调 Ui.Bar
+        /// 那条裸条上,与这个共享 helper 是两码事,这里不能照抄那份朱砂。
         /// 与 <see cref="HpBar"/> 同款返回 fill/label,供动画期间就地推进。</summary>
         private (RectTransform fill, UnityEngine.UI.Text label) ActionBar(
             Transform parent, int meter, Vector2 size, int fontSize)
         {
             float frac = Mathf.Clamp01(meter / (float)TurnScheduler.Threshold);
-            var bar = Ui.Bar(parent, frac, Theme.Gold, size);
+            bool soon = frac > 0.8f;
+            var bar = Ui.Bar(parent, frac, soon ? Theme.DoneGreen : Theme.InkSoft, size);
             var fill = (RectTransform)bar.transform.Find("Fill");
             var label = Ui.ThemedLabel(bar.transform, $"{Mathf.RoundToInt(frac * 100)}%",
                 fontSize, Color.white, Theme.TitleFont);
@@ -587,39 +594,6 @@ namespace Brushblade.Presentation
             if (bar.label != null) bar.label.text = shield.ToString();
         }
 
-        /// <summary>召唤格顶行的右翼(2026-08-26):被动 + 身上挂着的状态,竖着摞小 chip。
-        /// 与玩家状态行同一套 <see cref="Ui.Chip"/> + <see cref="Icons"/>,只是内边距压到最小 ——
-        /// 这一翼只有 <see cref="SummonSideWidth"/> 宽。
-        ///
-        /// 被动是常驻标签(朱砂),状态是会消的减益(各自的图标)。两者摞在一起而不是分两处:
-        /// 玩家读这一格时问的是「这只现在什么情况」,不是「哪些来自被动」。</summary>
-        private void DrawSummonStatusColumn(Transform head, SummonState summon, float glyphSize)
-        {
-            var column = Ui.VStack(head, "Status", 2);
-            var element = column.AddComponent<LayoutElement>();
-            element.preferredWidth = SummonSideWidth;
-            element.preferredHeight = glyphSize;
-
-            string passiveTag = SummonPassiveTag(summon.Passive);
-            if (passiveTag.Length > 0)
-                Ui.Chip(column.transform, passiveTag, Theme.Cinnabar, Color.white,
-                    SummonChipFontSize, SummonChipPadX, SummonChipPadY);
-
-            int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
-            if (burn > 0)
-                Ui.Chip(column.transform, $"{burn}", Theme.Cinnabar, Color.white,
-                    SummonChipFontSize, SummonChipPadX, SummonChipPadY, "burn");
-
-            // 增益汇总(2026-08-28,增益改单体之后)。这一翼只有 58px,七条增益逐个画必然溢出
-            // 到中间的字块上(见下面那三个常量的注释),所以只报**条数** —— 「这只有 buff」是
-            // 速读要的信息,具体几点几秒点开 SummonInfo 看,与被动缩写标签同一套分工。
-            // 「益+9」4 字 × 8 + 2 = 34px,离 58 还有余量。
-            int buffs = CountBuffs(summon);
-            if (buffs > 0)
-                Ui.Chip(column.transform, Strings.T("summon.buff_count", ("count", buffs)),
-                    Theme.Jade, Color.white, SummonChipFontSize, SummonChipPadX, SummonChipPadY);
-        }
-
         /// <summary>召唤物身上挂着几条增益(2026-08-28)。按**条数**数而不是按 Magnitude 求和:
         /// 那几条的单位互不相同(护甲是点数、暴击是百分点、免疫是次数),加在一起没有意义。
         /// 走 Polarity 而不是列举 StatusKind —— 将来再让哪条增益能挂给召唤物,这里不用改。</summary>
@@ -631,16 +605,6 @@ namespace Brushblade.Presentation
                 if (all[i].Polarity == StatusPolarity.Buff && all[i].Magnitude > 0) count++;
             return count;
         }
-
-        // 右翼 chip 的字号与内边距。定这么小是被 SummonSideWidth = 58 逼出来的,不是随手填的:
-        // 按 Ui.ChipWidth 的口径(text.Length × fontSize + padX),最长的被动标签是
-        // 「反伤100%」7 字 → 7 × 8 + 2 = 58,**恰好**贴着 58 不溢出。
-        // ⚠ 加更长的被动文案、或把这三个数调大之前,先拿 Ui.ChipWidth 重算一遍 ——
-        // 溢出的 chip 会横着压到中间的字块上(Ui.PackChips 明说它不截断,由调用方保证宽度)。
-        // 完整文案在点召唤物弹出的详情里(SummonInfo),这一翼只是速读。
-        private const int SummonChipFontSize = 8;
-        private const int SummonChipPadX = 2;
-        private const int SummonChipPadY = 2;
 
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
         {
@@ -1230,175 +1194,199 @@ namespace Brushblade.Presentation
             }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
         }
 
+        // 玩家条(稿 .me)。信息列宽度不是编译期常量——_bottomRow 铺满 Mid 区,实际宽度
+        // 由运行时布局决定,不像召唤/敌人格有固定格宽,所以这里让 info 及其内部三条都
+        // flexibleWidth = 1 顶满剩余空间,而不是像 DrawSummons/DrawEnemies 那样现场
+        // 算一个固定 infoWidth。
+        private const float PlayerBlkSize = 71f;         // 稿 .me .blk { 34×34 }
+        private const float PlayerInfoSpacing = 4f;      // 稿 .me .info { gap: 2pt }
+        private const float PlayerHeaderHeight = 18f;    // 容得下 14 号「执笔人」
+        private const float PlayerHpBarHeight = 17f;     // 稿 .me .hpb { height: 8pt }
+        private const float PlayerShieldBarHeight = 10f; // 稿 .me .shb { height: 5pt }
+        private const float PlayerActionBarHeight = 6f;  // 稿 .me .atb { height: 3pt },与敌人同口径
+        private const float PlayerSttWidth = 251f;       // 稿 .stt { width: 120pt }
+        private const float PlayerApGap = 10f;           // 稿 .ap { gap: 5pt }
+        private const float PlayerApPipGap = 6f;         // 稿 .ap .pips { gap: 3pt }
+        private const float PlayerApPipWidth = 17f;      // 稿 .ap .pips i { width: 8pt }
+        private const float PlayerApPipHeight = 42f;     // 稿 .ap .pips i { height: 20pt }
+
+        /// <summary>玩家条(2026-08-31 改稿):与召唤/敌人格同构的一条——立绘块 + 信息列 +
+        /// 状态栏 + AP,DOM 顺序取自稿 Battle.dc.html(blk→info→stt→ap;简报草稿把
+        /// 3、4 段顺序写反了,以稿为准,2026-08-31 用户确认)。
+        ///
+        /// 血/盾条不再用共享的 HpBar/ShieldBar helper(那两个会把数值叠成条上文字)——
+        /// 稿上 .me/.ally 的 .hpb/.shb 都是裸条,数字挪到头行文字里,与 .foe「条上叠字、
+        /// 没有头行数字」是两种不同的读法,不能顺手复用敌人那一套。行动条例外:调度方
+        /// 明确要求继续走共享 ActionBar helper(只改颜色不改结构),所以行动条仍带百分比
+        /// 叠字,与血/盾条不对称,是刻意的,不是漏改。</summary>
         private void DrawPlayerStats()
         {
-            var hpStack = Ui.VStack(_bottomRow, "Hp", 3);
-            // 血值上条(2026-07-25);动画期间画在出手前值,敌人攻击触达才逐记掉血
-            _playerHpBar = HpBar(hpStack.transform, Animating ? _animPlayerHp : Battle.PlayerHp,
-                PlayerMaxHp, new Vector2(260, 18));
-            // 行动条(2026-08-17):放血条与护盾条之间,与敌人/召唤物同口径读 ActionMeter
-            _playerActionBar = ActionBar(hpStack.transform, Battle.PlayerActionMeter, new Vector2(260, 12), 9);
-            // 护盾条(2026-07-25):动画期间画出手前值,敌方一记触达才按吸收量降,与血条同步可见。
-            // 2026-08-17:数值从条下的独立文字行并进条上叠字(与 HpBar 同款),省 17px 给行动条。
-            // 2026-08-26:改为**常驻**(用户拍板)——此前「有盾才画」,一涨一消整块底栏跟着跳一下;
-            // 文字也从「护盾 N」换成盾牌图标 + 纯数字,与召唤格那条盾条共用 ShieldBar。
+            // 立绘块(稿 .me .blk):墨底白字。没有稿上那枚金色等级角标——项目没有
+            // 「玩家等级」这个数据源(无尽层段爬塔,非角色养成等级制,见第 20 章 GDD),
+            // 伪造一个数字会比空着更误导人,留给以后真的接入等级概念时再补。
+            var blk = Ui.Panel(_bottomRow, "Blk");
+            var blkElement = blk.AddComponent<LayoutElement>();
+            blkElement.preferredWidth = PlayerBlkSize;
+            blkElement.preferredHeight = PlayerBlkSize;
+            var blkImage = blk.AddComponent<Image>();
+            blkImage.sprite = Theme.Rounded(15);
+            blkImage.type = Image.Type.Sliced;
+            blkImage.color = Theme.Ink;
+            var faceLabel = Ui.ThemedLabel(blk.transform, Strings.T("battle.label.player_face"),
+                Mathf.RoundToInt(PlayerBlkSize * 0.56f), Color.white, Theme.TitleFont);
+            Ui.Stretch(faceLabel.rectTransform);
+
+            // 把 Ui.Bar/ActionBar 建出来的裸条,从「固定宽」改判成「跟着 info 撑满」——
+            // 这几条的真实宽度要等 _bottomRow 布局完才知道,建的时候先随便给个 0。
+            void StretchWidth(GameObject go)
+            {
+                var el = go.GetComponent<LayoutElement>();
+                el.preferredWidth = -1f;
+                el.flexibleWidth = 1f;
+            }
+
+            // 信息列(稿 .me .info { flex: 1 }):吃掉 blk/stt/ap 之外的全部剩余宽度。
+            var info = Ui.VStack(_bottomRow, "Info", PlayerInfoSpacing);
+            info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            Sized(info, flexWidth: 1f);
+
+            // 头行:执笔人(左)+ 血/上限 盾 N(右),与 MapView.StatCell 同一套「同一块
+            // 满宽面板叠两条 Stretch 文字、靠 TextAnchor 分左右」的做法。
+            int shownHp = Animating ? _animPlayerHp : Battle.PlayerHp;
             int shownShield = Animating ? _animShield : Battle.PlayerShield;
-            _playerShieldBar = ShieldBar(hpStack.transform, shownShield, new Vector2(260, 14));
-            // 玩家侧状态一行小图标(2026-08-06 起为 chip,2026-08-17 改图标)。
-            // Row 按需创建(2026-08-06 M8):都为 0 时不留一个空 Row 白吃 VStack 的一份间距。
-            GameObject statusRow = null;
+            var header = Ui.Panel(info.transform, "Header");
+            Sized(header, height: PlayerHeaderHeight, flexWidth: 1f);
+            var whoLabel = Ui.ThemedLabel(header.transform, Strings.T("battle.label.player_name"),
+                14, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
+            Ui.Stretch(whoLabel.rectTransform);
+            var hpLabel = Ui.ThemedLabel(header.transform,
+                Strings.T("battle.label.player_hp_shield",
+                    ("hp", shownHp), ("hpMax", PlayerMaxHp), ("shield", shownShield)),
+                11, Theme.TextDim, null, TextAnchor.MiddleRight);
+            Ui.Stretch(hpLabel.rectTransform);
+
+            // 血条(裸条,2026-08-31 起不再叠字——数字已经在头行读到)
+            var hpBarGo = Ui.Bar(info.transform, PlayerMaxHp > 0 ? shownHp / (float)PlayerMaxHp : 0f,
+                Theme.Cinnabar, new Vector2(0f, PlayerHpBarHeight));
+            StretchWidth(hpBarGo);
+            _playerHpBar = ((RectTransform)hpBarGo.transform.Find("Fill"), null);
+
+            // 护盾条(裸条,常驻——0 时是空条,不再「有盾才画」跳一下整块布局)
+            var shieldBarGo = Ui.Bar(info.transform, Mathf.Clamp01(shownShield / ShieldBarFull),
+                Theme.Gold, new Vector2(0f, PlayerShieldBarHeight));
+            StretchWidth(shieldBarGo);
+            _playerShieldBar = ((RectTransform)shieldBarGo.transform.Find("Fill"), null);
+
+            // 行动条(2026-08-17 加入,2026-08-31 改色):仍走共享 ActionBar helper,
+            // 带百分比叠字——调度方明确要求这里只改颜色不改结构,见方法注释。
+            _playerActionBar = ActionBar(info.transform, Battle.PlayerActionMeter,
+                new Vector2(0f, PlayerActionBarHeight), 8);
+            StretchWidth(_playerActionBar.fill.parent.gameObject);
+
+            // 状态栏(稿 .stt):定宽 120pt,超出收 +N —— 与敌人 chip 行同一套 Ui.ChipFlow,
+            // 不再是旧版「都为 0 就不建、按需创建的无限宽单行」;内容/顺序/颜色/图标
+            // 一个没变,只是从「有则建」改成「恒定占位、内容为空时是一条空槽」——与
+            // blk/info/ap 同为结构性四段之一,不能忽有忽无。
+            var statusChips = new List<Ui.ChipSpec>();
             int seal = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal);
-            if (seal > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"−{seal}AP", Theme.InkSoft, Color.white, 12,
-                    ChipPadX, ChipPadY, "seal");
-            }
+            if (seal > 0) statusChips.Add(new($"−{seal}AP", Theme.InkSoft, Color.white, "seal"));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
-            if (playerBurn > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"{playerBurn}", Theme.Cinnabar, Color.white, 12,
-                    ChipPadX, ChipPadY, "burn");
-            }
+            if (playerBurn > 0) statusChips.Add(new($"{playerBurn}", Theme.Cinnabar, Color.white, "burn"));
             int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
-            if (immunity > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"{immunity}", Theme.Jade, Color.white, 12,
-                    ChipPadX, ChipPadY, "immunity");
-            }
+            if (immunity > 0) statusChips.Add(new($"{immunity}", Theme.Jade, Color.white, "immunity"));
             int reflect = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect);
-            if (reflect > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"{reflect}%", Theme.Jade, Color.white, 12,
-                    ChipPadX, ChipPadY, "reflect");
-            }
+            if (reflect > 0) statusChips.Add(new($"{reflect}%", Theme.Jade, Color.white, "reflect"));
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
-            // ApBoost(利)不出格:下方 AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
+            // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
             int attackBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff);
-            if (attackBuff > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"+{attackBuff}", Theme.Gold, Color.white, 12,
-                    ChipPadX, ChipPadY, "attack");
-            }
+            if (attackBuff > 0) statusChips.Add(new($"+{attackBuff}", Theme.Gold, Color.white, "attack"));
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
-            if (morale > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"{morale}", Theme.Gold, Color.white, 12,
-                    ChipPadX, ChipPadY, "morale");
-            }
+            if (morale > 0) statusChips.Add(new($"{morale}", Theme.Gold, Color.white, "morale"));
             // 暴击率(2026-08-12,锋):读 EffectiveCrit(已钳到 100)而不是状态总量 ——
             // 叠 6 张锋时玩家该看到的是 100 不是 120
             if (Battle.EffectiveCrit > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"{Battle.EffectiveCrit}%", Theme.Gold, Color.white, 12,
-                    ChipPadX, ChipPadY, "crit");
-            }
+                statusChips.Add(new($"{Battle.EffectiveCrit}%", Theme.Gold, Color.white, "crit"));
             // 穿透(2026-08-12,锐):读状态总量而不是某次结算的有效值 —— 穿透打谁减多少要看
             // 那只怪的甲,玩家该看到的是自己攒了多少
             int pierceBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff);
-            if (pierceBuff > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"{pierceBuff}", Theme.Gold, Color.white, 12,
-                    ChipPadX, ChipPadY, "pierce");
-            }
-            // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻。
-            //
-            // ⚠ 这里推翻了 2026-08-13 的取舍。那时读的是 Effective*(基础 + 增益),理由是
-            // 「只显示增益会让 0 级增益时整条消失,玩家看不到自己本来就有 4 点甲」。
-            // 现在反过来:角色等级给的基础值白占一行版面,而版面正是这次要省的东西
-            // (每单位新增一条行动条)。基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」。
-            //
-            // 改完之后这三条与 穿透 同口径(读状态总量),四者可以一起理解:
-            // 局内 chip = 本场攒到的增量,不是角色面板。
-            //
-            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 ——
-            // 「只在有增益时出」的意图是「基础值不必常驻」,不是「隐藏负面」。
+            if (pierceBuff > 0) statusChips.Add(new($"{pierceBuff}", Theme.Gold, Color.white, "pierce"));
+            // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻——
+            // 基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」(与穿透同口径)。
+            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见。
             int defenseBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff);
-            if (defenseBuff > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"+{defenseBuff}", Theme.Jade, Color.white, 12,
-                    ChipPadX, ChipPadY, "defense");
-            }
+            if (defenseBuff > 0) statusChips.Add(new($"+{defenseBuff}", Theme.Jade, Color.white, "defense"));
             int dodgeBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff);
-            if (dodgeBuff > 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, $"+{dodgeBuff}%", Theme.Jade, Color.white, 12,
-                    ChipPadX, ChipPadY, "dodge");
-            }
+            if (dodgeBuff > 0) statusChips.Add(new($"+{dodgeBuff}%", Theme.Jade, Color.white, "dodge"));
             int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod != 0)
-            {
-                statusRow ??= Ui.Row(hpStack.transform, "PlayerStatus", 6);
-                Ui.Chip(statusRow.transform, speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
-                    speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, 12,
-                    ChipPadX, ChipPadY, "speed");
-            }
+                statusChips.Add(new(speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
+                    speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
+            var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, 12, 2,
+                ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
+            stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            Sized(stt, width: PlayerSttWidth);
 
-            var apStack = Ui.VStack(_bottomRow, "Ap", 4);
-            Ui.ThemedLabel(apStack.transform, "AP", 12, Theme.TextDim);
-            var pips = Ui.Row(apStack.transform, "Pips", 12);
+            // AP 竖笔画格(稿 .ap):满的是墨、空的是白格,像还没蘸墨的笔画——原先三颗
+            // 8px 小圆点分量还不如旁边的状态 chip。AP 不够出下一个字(< 1)时整块转朱砂
+            // (稿 .ap.dry);pips 自身的「on」颜色不需要单独判 dry——dry 恰好意味着
+            // Ap == 0,这时不会有任何一枚 pip 处于 on 态,稿上 .ap.dry .pips i.on 那条
+            // 规则在当前 AP 语义下永远不会触发,这里不必为它专门分支。
+            bool dry = Battle.Ap < 1;
+            var apRow = Ui.Row(_bottomRow, "Ap", PlayerApGap);
+            Ui.ThemedLabel(apRow.transform, "AP", 12, dry ? Theme.Cinnabar : Theme.TextDim);
+            var pips = Ui.Row(apRow.transform, "Pips", PlayerApPipGap);
             for (int i = 0; i < Battle.ApPerTurn; i++)
             {
                 var pip = Ui.Panel(pips.transform, $"Pip{i}");
                 var image = pip.AddComponent<Image>();
-                image.sprite = Theme.Rounded(10);
+                image.sprite = Theme.Rounded(4);
                 image.type = Image.Type.Sliced;
-                image.color = i < Battle.Ap ? Theme.Gold : Theme.PaperDim;
-                pip.transform.localRotation = Quaternion.Euler(0, 0, 45);
+                image.color = i < Battle.Ap ? Theme.Ink : Theme.PaperDim;
                 var element = pip.AddComponent<LayoutElement>();
-                element.preferredWidth = 18;
-                element.preferredHeight = 18;
+                element.preferredWidth = PlayerApPipWidth;
+                element.preferredHeight = PlayerApPipHeight;
             }
+            Ui.ThemedLabel(apRow.transform, $"{Battle.Ap}/{Battle.ApPerTurn}", 16,
+                dry ? Theme.Cinnabar : Theme.TextMain, Theme.TitleFont);
 
-            // 治疗选目标态(2026-08-22):玩家血条区整体点亮为「治玩家」的点击面。
-            // 必须在 hpStack 的其余子物件都画完之后再挂——覆盖层要盖在最上面才吃得到点击
-            // (与 AttachAllyTargetPicker/AttachSlotPicker 同一套「整格覆盖层」做法)。
-            // 判据走 Battle.CanHealSlot(Targeting.PlayerTarget),不是恒真的假设——
+            // 治疗选目标态(2026-08-22):玩家整条底栏点亮为「治玩家」的点击面——覆盖对象从
+            // 原来的 hpStack(单个 VStack)换成 _bottomRow(整条横排的容器),结构改横排
+            // 之后玩家不再有单一的「血条那一块」,整条 .me 才是对应稿上的落点。
+            // 判据仍走 Battle.CanHealSlot(Targeting.PlayerTarget),不是恒真的假设——
             // 万一以后这条规则改了,表现层不必跟着改。
-            // 拖拽落点判定要用它(2026-08-27):玩家没有「槽位」,这一块血条区就是他的落点
-            _playerAllyRect = (RectTransform)hpStack.transform;
+            // 拖拽落点判定要用它(2026-08-27):玩家没有「槽位」,这一整条就是他的落点。
+            _playerAllyRect = (RectTransform)_bottomRow;
             if (_allyTargeting && Battle.CanHealSlot(Targeting.PlayerTarget))
-                AttachAllyTargetPicker(hpStack.transform, Targeting.PlayerTarget);
+                AttachAllyTargetPicker(_bottomRow, Targeting.PlayerTarget);
         }
 
-        // 召唤格尺寸(2026-08-20 四排改造)。每排 3 格而不是 6 格,格宽从 ~54 翻到 180。
-        //
-        // 2026-08-26 重排(用户拍板):原先「攻 / 盾 / 被动」挤在字块下面的一行属性行里,
-        // 现在改成 **攻 | 字块 | 状态** 三段横排,属性行的位置让给常驻盾条。
-        //   ├ 左:攻击力(定宽 SummonSideWidth)
-        //   ├ 中:字块(SummonGlyphFront/Back)
-        //   └ 右:状态列(同样定宽 —— 两侧等宽字块才居中,少一边字块就会偏)
-        // 横向账(前排):58 + 4 + 56 + 4 + 58 = 180 ✓ 恰好铺满
-        private const float SummonCellWidth = 180f;
-        private const float SummonGlyphFront = 56f;
-        private const float SummonGlyphBack = 48f;    // ≈ 85%
-        private const float SummonSideWidth = 58f;    // 顶行左右两翼各占的宽度,必须相等
-        private const float SummonHeadSpacing = 4f;
-        private const float SummonBarWidthFront = 140f;
-        private const float SummonBarWidthBack = 120f;
-        private const float SummonShieldBarHeight = 10f;
-        // 逐项加法(VStack 间距 2):
-        //   前排 顶行 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 盾条 10 = 94
-        //   后排 顶行 48 + 2 + 血条 12 + 2 + 行动条 8 + 2 + 盾条 10 = 84
-        // **改动内容高度时请重算这两串加法**:骨架换布局组之后,两排的高度就是这里的格高撑出来的
-        // (四排各自锁死高度,见 MakeFieldRow),改这两个数等于直接改排高。
-        private const float SummonCellHeightFront = 94f;
-        private const float SummonCellHeightBack = 84f;
+        // 召唤格尺寸(2026-08-31 横排改造,与敌人格同构)。之前挤在 34/28 的小方块里,
+        // 横排后立绘反而放大到 48/36(稿写明了这条收益)。尺寸 = 稿 pt × 2.093,与
+        // 敌人格(EnemyCellWidth 一带)同一套换算。
+        private const float SummonCellWidth = 289f;         // 稿 .ally.front/.rear { width: 138pt }
+        private const float SummonCellHeightFront = 113f;   // 稿 .slotfree.front { height: 54pt }
+        private const float SummonCellHeightBack = 88f;     // 稿 .slotfree.rear { height: 42pt }
+        private const float SummonPortraitFront = 100f;     // 稿 .ally.front .blk { 48×48 }
+        private const float SummonPortraitBack = 75f;       // 稿 .ally.rear .blk { 36×36 }
+        private const float SummonBlkInfoGap = 10f;         // 稿 .ally { gap: 5pt }
+        private const float SummonInfoSpacing = 4f;         // 稿 .ally .info { gap: 2pt }
+        private const float SummonHeaderHeight = 16f;       // 容得下 12 号「攻 N」
+        private const float SummonHpBarHeight = 13f;        // 稿 .ally .hpb { height: 6pt }
+        // 盾条 / 行动条与敌人格同一口径(稿 .shb/.atb 两种单位都是 height:3pt),
+        // 复用 EnemyShieldBarHeight/EnemyActionBarHeight(见敌人格常量),不重复定义。
+        // DrawSummons 本体不再用它(格子内部改横排,不再是竖排 VStack),但锁格/空槽
+        // (DrawLockedSummonSlot/DrawEmptySummonSlot)仍各自套一层单子物体的 VStack,
+        // 留着这个常量给那两处用,省得再定义一份。
         private const float SummonStackSpacing = 2f;
 
         /// <summary>我方召唤物(木系):替玩家承伤并反击。2026-08-20 起分前后两排、各 3 格,
         /// 下标即槽位(<c>0..FrontRow-1</c> 前排,其余后排),**空槽也画**虚框占位 ——
-        /// 召唤/阵亡时布局不跳动,玩家也能一眼看出还剩几个位子。</summary>
+        /// 召唤/阵亡时布局不跳动,玩家也能一眼看出还剩几个位子。
+        ///
+        /// 2026-08-31 格内改横排(与 <see cref="DrawEnemies"/> 同构):立绘在左、信息列在右
+        /// (头行 攻N+血/上限、chip 行、血/盾/行动条自上而下)。血/盾条同玩家条一样不再叠字
+        /// (数字已在头行),行动条例外仍走共享 ActionBar helper(结构不变、只改颜色)。</summary>
         private void DrawSummons()
         {
             _summonRectByCore.Clear();
@@ -1423,50 +1411,91 @@ namespace Brushblade.Presentation
                 bool visible = summon != null
                     && (summon.Alive || (Animating && _summonAnimHp.ContainsKey(i)));
                 if (!visible) { DrawEmptySummonSlot(i, front, summon); continue; }
-                var cell = Ui.VStack(front ? _summonFrontRow : _summonBackRow, $"Summon{i}", SummonStackSpacing);
+
+                var cell = Ui.Panel(front ? _summonFrontRow : _summonBackRow, $"Summon{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
                 cellElement.preferredWidth = SummonCellWidth;
                 cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
                 _summonCellByCore[i] = (RectTransform)cell.transform;
-                float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
-                float barWidth = front ? SummonBarWidthFront : SummonBarWidthBack;
-                int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
-                // 顶行三段(2026-08-26):左 攻击力 | 中 字块 | 右 状态列。
-                // 两翼**必须等宽**(SummonSideWidth),否则 MiddleCenter 会把字块推偏。
-                var head = Ui.Row(cell.transform, "Head", SummonHeadSpacing).transform;
-                var headElement = head.gameObject.AddComponent<LayoutElement>();
-                headElement.preferredWidth = SummonCellWidth;
-                headElement.preferredHeight = glyphSize;
 
-                var attackSide = Ui.Panel(head, "Attack");
-                var attackElement = attackSide.AddComponent<LayoutElement>();
-                attackElement.preferredWidth = SummonSideWidth;
-                attackElement.preferredHeight = glyphSize;
-                var attackLabel = Ui.ThemedLabel(attackSide.transform,
-                    Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 12, Theme.TextDim);
-                Ui.Stretch(attackLabel.rectTransform);
+                var cellRow = cell.AddComponent<HorizontalLayoutGroup>();
+                cellRow.spacing = SummonBlkInfoGap;
+                cellRow.childAlignment = TextAnchor.MiddleLeft;
+                cellRow.childForceExpandWidth = false;
+                cellRow.childForceExpandHeight = false;
+
+                float portraitSize = front ? SummonPortraitFront : SummonPortraitBack;
+                float infoWidth = SummonCellWidth - portraitSize - SummonBlkInfoGap;
+                int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
 
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
-                var glyph = Ui.RoundButton(head, summon.Char, () => OnSummonClicked(summonIndex),
+                var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
-                    Mathf.RoundToInt(glyphSize * 0.46f), new Vector2(glyphSize, glyphSize), 12);
+                    Mathf.RoundToInt(portraitSize * 0.46f), new Vector2(portraitSize, portraitSize), 12);
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
 
-                DrawSummonStatusColumn(head, summon, glyphSize);
+                // 护盾角标(稿 .ally .sh,与敌人格同一判据):叠在立绘左下角,Shield > 0 才画
+                if (summon.Shield > 0)
+                {
+                    var badge = Ui.Chip(glyph.transform, summon.Shield.ToString(), Theme.Gold, Theme.GoldText,
+                        ShieldBadgeFontSize, ShieldBadgePadX, ShieldBadgePadY, "shield");
+                    var badgeElement = badge.GetComponent<LayoutElement>();
+                    Ui.Anchor((RectTransform)badge.transform, Vector2.zero, Vector2.zero,
+                        new Vector2(ShieldBadgeMargin, ShieldBadgeMargin),
+                        new Vector2(ShieldBadgeMargin + badgeElement.preferredWidth,
+                            ShieldBadgeMargin + badgeElement.preferredHeight));
+                }
 
-                // 血值上条(2026-07-25,带描边保对比度)。动画期间画出手前值,SummonHit 触达才降
+                var info = Ui.VStack(cell.transform, "Info", SummonInfoSpacing);
+                info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                Sized(info, width: infoWidth);
+
+                // 头行:攻 N(左)+ 血/上限(右),稿 .ally .hd —— 与玩家条头行同一套
+                // 「同一块满宽面板叠两条 Stretch 文字」做法,取代旧版顶行的攻/字块/状态三段横排。
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
-                _summonBarByCore[i] = HpBar(cell.transform, shownHp, summon.MaxHp,
-                    new Vector2(barWidth, front ? 13 : 12));
-                _summonActionBarByCore[i] = ActionBar(cell.transform, summon.ActionMeter,
-                    new Vector2(barWidth, front ? 9 : 8), 8);
-                // 盾条(2026-08-26)接在行动条下面,**常驻** —— 0 时是一条空条,不再有无盾时
+                var header = Ui.Panel(info.transform, "Header");
+                Sized(header, width: infoWidth, height: SummonHeaderHeight);
+                var atkLabel = Ui.ThemedLabel(header.transform,
+                    Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 12, Theme.TextMain,
+                    null, TextAnchor.MiddleLeft);
+                Ui.Stretch(atkLabel.rectTransform);
+                var hpLabel = Ui.ThemedLabel(header.transform, $"{shownHp}/{summon.MaxHp}", 11, Theme.TextDim,
+                    null, TextAnchor.MiddleRight);
+                Ui.Stretch(hpLabel.rectTransform);
+
+                // chip 行(稿 .cps):被动 + 灼烧 + 增益条数,从旧顶行右翼搬进信息列 ——
+                // 内容/判据完全不变(SummonPassiveTag/Burn/CountBuffs),只是从竖排小 chip
+                // 摞改成横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑,虽这三项几乎不会溢出)。
+                var chipSpecs = new List<Ui.ChipSpec>();
+                string passiveTag = SummonPassiveTag(summon.Passive);
+                if (passiveTag.Length > 0) chipSpecs.Add(new(passiveTag, Theme.Cinnabar, Color.white));
+                int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
+                if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
+                int buffs = CountBuffs(summon);
+                if (buffs > 0)
+                    chipSpecs.Add(new(Strings.T("summon.buff_count", ("count", buffs)), Theme.Jade, Color.white));
+                Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize, ChipMaxLines,
+                    ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
+
+                // 三条(裸条,数字已在头行读到,与玩家条同一取舍):血、盾、行动条自上而下。
+                var hpBarGo = Ui.Bar(info.transform, summon.MaxHp > 0 ? shownHp / (float)summon.MaxHp : 0f,
+                    Theme.Cinnabar, new Vector2(infoWidth, SummonHpBarHeight));
+                _summonBarByCore[i] = ((RectTransform)hpBarGo.transform.Find("Fill"), null);
+
+                // 盾条(2026-08-26)接在血条下面,**常驻** —— 0 时是一条空条,不再有无盾时
                 // 整格塌一行、加盾时又顶回来的跳动。动画期间画出手前值(与血条同理),
                 // Shield / SummonHit 触达才推
                 int shownShield = Animating && _summonAnimShield.TryGetValue(i, out var preShield)
                     ? preShield : summon.Shield;
-                _summonShieldBarByCore[i] = ShieldBar(cell.transform, shownShield,
-                    new Vector2(barWidth, SummonShieldBarHeight));
+                var shieldBarGo = Ui.Bar(info.transform, Mathf.Clamp01(shownShield / ShieldBarFull), Theme.Gold,
+                    new Vector2(infoWidth, EnemyShieldBarHeight));
+                _summonShieldBarByCore[i] = ((RectTransform)shieldBarGo.transform.Find("Fill"), null);
+
+                // 行动条:仍走共享 ActionBar helper(带百分比叠字),与玩家条同一取舍,
+                // 只是颜色/soon 态已经在 helper 里统一改过(见 ActionBar 方法注释)。
+                _summonActionBarByCore[i] = ActionBar(info.transform, summon.ActionMeter,
+                    new Vector2(infoWidth, EnemyActionBarHeight), 8);
+
                 if (_slotPicking) AttachSlotPicker(cell.transform, summonIndex);
                 // 友方选目标态(2026-08-22 治疗;2026-08-26 起护盾同走这条):判据走
                 // Battle.CanHealSlot,不是「反正画出来的都是存活的所以恒真」——这里就是与
@@ -1494,7 +1523,7 @@ namespace Brushblade.Presentation
             cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
             _summonCellByCore[slot] = (RectTransform)cell.transform;
 
-            float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
+            float glyphSize = front ? SummonPortraitFront : SummonPortraitBack;
             var plate = Ui.Panel(cell.transform, "Lock");
             var image = plate.AddComponent<Image>();
             image.sprite = Theme.Rounded(12);
@@ -1505,7 +1534,7 @@ namespace Brushblade.Presentation
             plateElement.preferredWidth = SummonCellWidth;
             plateElement.preferredHeight = glyphSize;
 
-            // 锁图标 + 层数分两行:一行放不下「[封] 30 关解锁」而不挤(格宽 180,字号 11)
+            // 锁图标 + 层数分两行:一行放不下「[封] 30 关解锁」而不挤(格宽 289,字号 11)
             var lockGlyph = Ui.ThemedLabel(plate.transform, Icons.Fallback("seal"),
                 Mathf.RoundToInt(glyphSize * 0.34f), Theme.LockGray, Theme.TitleFont);
             Ui.Anchor(lockGlyph.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -1539,7 +1568,7 @@ namespace Brushblade.Presentation
             // 平时什么都不画也不会让布局跳动 —— 撑住格子的是上面那个 LayoutElement,不是这块图。
             if (_slotPicking)
             {
-                float glyphSize = front ? SummonGlyphFront : SummonGlyphBack;
+                float glyphSize = front ? SummonPortraitFront : SummonPortraitBack;
                 bool showCorpse = corpse != null;
                 var ghost = Ui.Panel(cell.transform, showCorpse ? "Corpse" : "Ghost");
                 var image = ghost.AddComponent<Image>();
