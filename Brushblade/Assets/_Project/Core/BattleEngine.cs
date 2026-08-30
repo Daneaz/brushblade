@@ -3043,6 +3043,10 @@ namespace Brushblade.Core
             }
 
             int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
+            // 生克标记(2026-08-31):敌人打召唤物这一路本来就过生克(上面那句),标记跟着同一个倍率走。
+            // 由 Core 标而不是让表现层拿两边属性自己推 —— 那会成为规则的第二个来源,
+            // 与 SummonState.EffectiveAttack 那条注释说的是同一件事。
+            float summonWuxing = WuxingResolver.KeMultiplier(attacker, summon.Element);
 
             // 护甲(2026-08-28,铠 可以挂给召唤物了):点数减法,下钳 0 —— 甲厚过攻击力时
             // 不给召唤物回血。位置在生克**之后**,与 DamageEnemy 那边(生克 → 暴击 → 减甲)
@@ -3066,7 +3070,8 @@ namespace Brushblade.Core
             int absorbed = Math.Min(summon.Shield, taken);
             summon.Shield -= absorbed;
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
-            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
+                ke: summonWuxing > 1f, countered: summonWuxing < 1f));
 
             // 反伤(2026-08-05,荆):2026-08-25 用户拍板由**固定点数**改成**受到伤害的百分比**,
             // 与下面玩家侧的 Reflect 完全同一套算式 —— 荆 要靠反伤当输出手段,固定值在深层会被
