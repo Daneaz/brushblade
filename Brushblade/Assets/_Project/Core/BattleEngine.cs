@@ -238,8 +238,18 @@ namespace Brushblade.Core
         /// 相克取决于打的是谁,只有结算当下才知道。</summary>
         public bool Ke { get; }
 
+        /// <summary>打出这一记的**攻击方属性**(2026-08-30);没有攻击方概念的事件(筑盾、现形、分裂……)为 null。
+        ///
+        /// 给表现层按五行着色用。为什么非放进事件不可:一条 Damage 只说「第 i 只怪掉了 N 血」,
+        /// 打它的是哪张牌、哪只召唤物,事件里一个字都没有 —— 而那正是要拿来上色的属性。
+        ///
+        /// 敌方攻击(EnemyAttack / SummonHit)刻意**不**带:那两类的 TargetIndex 就是攻击者下标,
+        /// 表现层顺着它读 Enemies[i].ApparentElement 即可,Core 的改动面越小越好。
+        /// 灼烧/引爆恒为火 —— 与它们生克算式里写死的 KeMultiplier(Fire, …) 同一口径。</summary>
+        public Element? Attacker { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
-            int absorbed = 0, bool crit = false, bool ke = false)
+            int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -248,6 +258,7 @@ namespace Brushblade.Core
             Absorbed = absorbed;
             Crit = crit;
             Ke = ke;
+            Attacker = attacker;
         }
     }
 
@@ -2358,7 +2369,8 @@ namespace Brushblade.Core
                 burn.Magnitude -= 1;
                 if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
             }
-            _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick, ke: burnKe));
+            _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick, ke: burnKe,
+                attacker: Element.Fire));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2410,7 +2422,8 @@ namespace Brushblade.Core
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
-            _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe));
+            _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe,
+                attacker: Element.Fire));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2769,7 +2782,8 @@ namespace Brushblade.Core
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             // counters 在上面为「相克即破甲」算过了,直接复用:相克标记与破甲判据是同一件事,
             // 分头再算一次就有走岔的余地(表现层说相克、结算却吃了护甲)
-            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit, ke: counters));
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit,
+                ke: counters, attacker: attacker));
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
