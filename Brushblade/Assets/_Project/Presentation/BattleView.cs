@@ -12,6 +12,24 @@ namespace Brushblade.Presentation
     /// 战斗内交互:点字库字 → 出字/拆;点部件 → 直出;可合成列表一键合;单体效果进入选目标模式。</summary>
     public sealed class BattleView : MonoBehaviour
     {
+        // ===== 稿上的骨架尺寸(docs/design/ui/scenes/Battle.dc.html)=====
+        // 都是**逻辑单位**,由稿子的 pt 换算而来:CanvasScaler 1600×900 按高匹配,
+        // iPhone 16 Pro Max 932×430pt → 实际画布 1950×900,1pt = 2.093 逻辑单位。
+        // 根节点已在 SafeAreaFitter 之内(GameRoot.NewView),所以 0/1 边界就是稿上的 .safe 框。
+        // 改这些数就是改版面 —— 改完要同步改稿,别让两边漂开(scenes/README.md)。
+        private const float RailW = 142f;      // 稿 68pt:左窄栏(相克环图 + 配字表)
+        private const float BenchW = 276f;     // 稿 132pt:右栏拆合台
+        private const float ArenaGap = 13f;    // 稿 6pt:三栏之间
+        private const float TopBarH = 46f;     // 稿 22pt:顶栏
+        private const float PlayerBarH = 84f;  // 稿 40pt:玩家条
+        private const float RowGap = 17f;      // 稿 8pt:同排格与格之间
+        private const float MidGap = 6f;       // 稿 3pt:中区各行之间
+        private const float FieldGap = 4f;     // 稿 2pt:战场四排之间
+        private const float DividerH = 2f;     // 稿 1pt:敌我分隔线
+        // 字库带的高度。稿上 .hand 是被字牌(56pt)撑出来的,但这里它是**叠放层**的槽
+        // (见 _centerRow),两个消费方谁也撑不出另一个要的高度,只能给死一个数。
+        // 非战斗阶段那一路最高的一件是奇遇选项钮 72,这个数也装得下。
+        private const float HandBandH = 117f;  // 稿 56pt
         private RecipeGraph _graph;
         private RunEngine _run;
         private System.Action<bool> _onRunEnded;
@@ -108,9 +126,10 @@ namespace Brushblade.Presentation
         private Transform _hintColumn;   // 差字面板(屏幕左侧竖排,五行三级目录)
         private Transform _actionRow;
         // 非战斗阶段的宽操作区(2026-08-20):结算 / 奇遇 / 部件超限 / 跑图结束用它。
-        // 这些界面此前借的是拆合台的 _actionRow,而拆合台已经搬进 218px 的右侧竖栏
-        // —— 奇遇的 260 宽选项钮塞不进去,所以给它们留一条横贯屏幕的带。
-        // 它与 _libraryRow 在 y 上有重叠,但两者从不在同一阶段绘制(见 Refresh 的 switch)。
+        // 这些界面此前借的是拆合台的 _actionRow,而拆合台是右侧那条窄竖栏 —— 奇遇的
+        // 260 宽选项钮塞不进去,所以给它们留一条横贯中区的带。
+        // 它与 _libraryRow **共占同一个槽**(两个铺满的叠放层,见 BuildSkeleton 的 Band),
+        // 两者从不在同一阶段绘制(见 Refresh 的 switch)。
         private Transform _centerRow;
         private GameObject _rowDivider;  // 敌我前排之间的墨线:只在战斗阶段现身(2026-08-20)
         private Text _messageLabel;
@@ -625,6 +644,12 @@ namespace Brushblade.Presentation
             if (bar.label != null) bar.label.text = $"{hp}/{maxHp}";
         }
 
+        /// <summary>版面骨架:顶栏 + 三栏(左窄栏 / 中区 / 拆合台),照稿的 flex 直译成布局组。
+        ///
+        /// 三条纵向规则全在布局组的开关上,别用锚点去凑:
+        ///   ① 稿 .erow { flex: none } —— 战场四排各自锁死高度(见 <see cref="MakeFieldRow"/>);
+        ///   ② 稿 .divider { margin: auto 0 } —— field 的富余全堆到分隔线上下,两侧各一半;
+        ///   ③ 稿 .mid { flex: 1 } —— 中区吃掉左右两栏之外的全部横向。</summary>
         private void BuildSkeleton()
         {
             var root = (RectTransform)transform;
@@ -644,16 +669,24 @@ namespace Brushblade.Presentation
                 if (_selectedChar != null || _targeting || _slotPicking || _allyTargeting) CancelSelection();
             });
 
+            // 版面主干挂在这一层,**不挂根节点**:弹窗、过关横幅、飘字、上面那块 Backdrop
+            // 全都挂根节点铺满整屏,根节点一旦有布局组就会把它们一件件排成行。
+            var frame = Ui.VStack(transform, "Frame", 0);
+            Ui.Stretch((RectTransform)frame.transform);
+            var frameLayout = frame.GetComponent<VerticalLayoutGroup>();
+            frameLayout.childForceExpandWidth = true;   // 顶栏与三栏都通栏
+            frameLayout.childAlignment = TextAnchor.UpperCenter;
+
             // 顶栏两段:关卡名·层数·场次(左) | 墨锭·回合·退出(右)。
             // 2026-08-21 曾是三段(中段放战斗提示);2026-08-27 用户拍板把提示挪到屏幕最底部,
             // 中段腾空 —— 左右两段的锚点没动,顶栏该显示什么一样不少。
-            var topBar = Ui.Panel(transform, "TopBar");
-            Ui.Anchor((RectTransform)topBar.transform, new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
+            var topBar = Ui.Panel(frame.transform, "TopBar");
+            Sized(topBar, height: TopBarH);
             _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
             Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.26f, 1), Vector2.zero, Vector2.zero);
-            // 提示行:屏幕**最底部**通栏(2026-08-27 用户拍板)。与 _statusRow 同一条 y 带
-            // (0.010–0.053)——那一排眼下只剩教程指引,而教程将来要整体迁走。「结算中……」
-            // 已经并进本行(见 Refresh 末尾),所以这两者不会叠字。
+            // 提示行:屏幕**最底部**通栏(2026-08-27 用户拍板)。与 _statusRow 同一条底边
+            // ——那一排眼下只剩教程指引,而教程将来要整体迁走。「结算中……」已经并进本行
+            // (见 Refresh 末尾),所以这两者不会叠字。
             // 挂在 transform 下而不是 _statusRow 里:_statusRow 每次 Refresh 都被 Ui.Clear 清空,
             // 而这个 label 是常驻对象,靠 Refresh 末尾改 text 更新。
             var messageGo = Ui.Panel(transform, "Message");
@@ -663,139 +696,146 @@ namespace Brushblade.Presentation
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.70f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
-            // 五行速查常驻(2026-07-22;2026-07-29 改为直接摆环图,不再点开弹窗):
-            // 挂在消息行两端(那里通常是空白),向下延展 —— 敌人行居中排布,够不到这两角
-            // 纵向 0.158×900 ≈ 142px = 标题 20 + 间距 2 + 环图 120
-            var keGo = WuxingChart.Mount(transform, sheng: false);
-            Ui.Anchor((RectTransform)keGo.transform,
-                new Vector2(0.004f, 0.780f), new Vector2(0.086f, 0.938f), Vector2.zero, Vector2.zero);
+            // 稿 .arena:左窄栏定宽、中区吃余量、右栏定宽,三栏都铺满顶栏以下的整条带。
+            var arena = Ui.Row(frame.transform, "Arena", ArenaGap);
+            var arenaLayout = arena.GetComponent<HorizontalLayoutGroup>();
+            arenaLayout.childForceExpandHeight = true;
+            arenaLayout.childAlignment = TextAnchor.UpperLeft;
+            Sized(arena, flexHeight: 1f);
 
-            var shengGo = WuxingChart.Mount(transform, sheng: true);
-            Ui.Anchor((RectTransform)shengGo.transform,
-                new Vector2(0.914f, 0.780f), new Vector2(0.996f, 0.938f), Vector2.zero, Vector2.zero);
+            // ---- 左窄栏(稿 .rail) ----
+            var rail = Ui.VStack(arena.transform, "Rail", 10);
+            rail.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
+            // minWidth 与 preferredWidth 同值 = 稿的 flex: none。只写 preferredWidth 不够:
+            // 中区内容一旦宽过余量,布局组会把**所有**子物体按 min…preferred 等比压回去,
+            // 左右两栏跟着一起缩 —— 那就不是三栏定宽了。右栏同理。
+            Sized(rail, width: RailW).minWidth = RailW;
 
-            // ================= 纵向预算(2026-08-21 竖排复原) =================
-            // 900 基准高(CanvasScaler 1600×900 按高匹配)。中区 = 四排 + 分隔线的全部预算。
-            //
-            // 2026-08-20 那版是 0.340–0.900 = 504px,只够横排格(形象在左、信息在右)。
-            // 本次把敌人格改回竖排(形象在上、条在正下方),格高从 140/119 涨到 171/150,
-            // 两排多要 62px。钱是这么来的:
-            //   ① 提示行从顶部 0.900–0.945 搬到左下 → 上缘 0.900 抬到 0.938   … +34.2px
-            //   ② 字牌去费用带后 84×105 → 68×85,字库区 123 → 91.8            … +31.5px
-            // 中区因此 0.305–0.938 = 0.633 → **569.7px**,形象一分没缩(仍 138 / 117)。
-            //
-            // 逐项加法(区域给了多少 / 内容最坏多少 / 余量),自上而下:
-            //   顶部留白 0.930–0.938                        …  7.2px   (与顶栏脱开)
-            //   敌方后排 0.760–0.930  = 0.170 → 153.0px  内容 150px  余 3.0px
-            //     └ 格高 = 形象 117 + 2 + 条区 31
-            //   排间留白 0.753–0.760                        …  6.3px
-            //   敌方前排 0.560–0.753  = 0.193 → 173.7px  内容 171px  余 2.7px
-            //     └ 格高 = 形象 138 + 2 + 条区 31(血条 16 + 3 + 行动条 12)
-            //     └ 名字与 chip **叠在形象上**,不进这笔加法;竖着排要再吃 22 + 41 = 63px/格
-            //   分隔带 0.543–0.560                          … 15.3px
-            //     └ 留白 6.3 + 分隔线 1.8(0.550–0.552) + 留白 7.2;两侧前排贴着它
-            //   我方前排 0.431–0.543  = 0.112 → 100.8px  内容  98px  余 2.8px
-            //     └ 字块 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 属性行 14(攻/盾/被动同排)
-            //   排间留白 0.425–0.431                        …  5.4px
-            //   我方后排 0.321–0.425  = 0.104 →  93.6px  内容  88px  余 5.6px
-            //     └ 字块 48 + 2 + 血条 12 + 2 + 行动条 8 + 2 + 属性行 14
-            //   收尾留白 0.305–0.321                        … 14.4px
-            //   ——————————————————————————————————————————————
-            //   区域 153.0 + 173.7 + 100.8 + 93.6 = 521.1px
-            //   留白  7.2 + 6.3 + 15.3 + 5.4 + 14.4 =  48.6px
-            //   合计 569.7px = 0.305–0.938 ✓;四排内容 507px,四区余量合计 14.1px,**闭合**。
-            //
-            // **改动任何一格的内容高度时请重算上面这串加法**,逐格的加法在
-            // EnemyCellHeightFront / SummonCellHeightFront 那两处常量旁。
-            _enemyBackRow = MakeSection("EnemiesBack", 0.760f, 0.930f);   // 153.0px
-            _enemyFrontRow = MakeSection("EnemiesFront", 0.560f, 0.753f); // 173.7px
-            _summonFrontRow = MakeSection("SummonsFront", 0.431f, 0.543f); // 100.8px
-            _summonBackRow = MakeSection("SummonsBack", 0.321f, 0.425f);   // 93.6px
+            // 五行速查常驻(2026-07-22;2026-07-29 改为直接摆环图,不再点开弹窗)
+            WuxingChart.Mount(rail.transform, sheng: false);
 
-            // 敌我前排之间的分隔线:两侧「前排」贴着它,越远离它的排越靠后。
-            // raycastTarget = false —— 它只是一条线,不能拦掉空白点击(那是取消选中用的)
-            _rowDivider = Ui.Panel(transform, "RowDivider");
-            var dividerImage = _rowDivider.AddComponent<Image>();
-            dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.35f);
-            dividerImage.raycastTarget = false;
-            Ui.Anchor((RectTransform)_rowDivider.transform,
-                new Vector2(0.16f, 0.550f), new Vector2(0.86f, 0.552f), Vector2.zero, Vector2.zero);
-
-            // 74px(2026-08-13 从 50px 抬高)。2026-08-17:护盾数值并进条上叠字(省 17px)、
-            // 但护盾条要从 7 抬到 14 才放得下叠字(还回去 7px),净省 10px;新增行动条吃 12px。
-            // 再把状态 chip 内边距收到敌人格同档、血条 20→18、行动条 14→12 省下 8px 之后,
-            // 内容最坏 73px(20-2 血条 + 14-2 行动条 + 14 护盾条 + 24-4 状态行 + 9 间距),
-            // 区域 73.8px —— 逐项可复算,余 0.8px。**改动内容高度时请重算这串加法。**
-            // 2026-08-20:高度一分未动,只是整体下移 0.220。2026-08-21:再下移 0.035(31.5px),
-            // 接手字牌缩小让出的那一段;高度仍是 73.8px,一分未动。
-            _bottomRow = MakeSection("PlayerStats", 0.223f, 0.305f); // 73.8px
-
-            // 拆合台薄宣纸卡(半透,融层段染色):2026-08-20 从底部横卡改为**右侧竖栏**。
-            // 2026-08-21 左移加宽:0.862–0.998(宽 218)→ 0.795–0.985(宽 **304**)。
-            // 加宽 86px 是为了让配方条不再被 VerticalLayoutGroup 压扁(旧宽度约 9 条到顶)。
-            // 左缘 0.795 = 1272px 由字库行卡死:字牌缩到 68 宽后,满员 12 张的行宽
-            // 12×68 + 11×8 = 904 居中 → 最右到 x = 1252,留 20px 不压。
-            // 上缘 0.775 让开右上角的相生环图(0.780 起);右缘留 0.015 不贴屏幕边。
-            var workbenchCard = Ui.CardPanel(transform, "Workbench", Theme.PaperCard, 20);
-            Ui.Anchor((RectTransform)workbenchCard.transform, new Vector2(0.795f, 0.100f), new Vector2(0.985f, 0.775f), Vector2.zero, Vector2.zero);
-            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
-            Ui.Stretch((RectTransform)workbenchStack.transform);
-            Ui.ThemedLabel(workbenchStack.transform, Strings.T("battle.label.workbench_title"), 13, Theme.TextDim, Theme.TitleFont);
-            _suggestRow = Ui.VStack(workbenchStack.transform, "Content", 6).transform;
-            // 动作行**横排**(2026-08-21 用户拍板):出 / 拆 / 弃 三个单字钮一行排完。
-            // 2026-08-20 改竖栏时它被一并改成 VStack(栏宽只有 217.6px,「出字/丢弃」那种
-            // 长标签横着放不下);现在标签收成单字、栏宽也加到 304px,横排回来:
-            //   3 × 76 + 间距 8×2 = 244px ≤ 304 ✓
-            _actionRow = Ui.Row(workbenchStack.transform, "Actions", 8).transform;
-
-            // 差字面板:屏幕最左侧,上下居中,五行三级目录
-            var hintGo = Ui.VStack(transform, "HintPanel", 4);
-            Ui.Anchor((RectTransform)hintGo.transform, new Vector2(0.002f, 0.16f), new Vector2(0.135f, 0.84f), Vector2.zero, Vector2.zero);
+            // 差字面板:五行三级目录,吃掉左栏剩下的高度,内容上下居中
+            var hintGo = Ui.VStack(rail.transform, "HintPanel", 4);
             hintGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Sized(hintGo, flexHeight: 1f);
             _hintColumn = hintGo.transform;
 
-            // 下面三区在 2026-08-13 整体下移 0.027(24px),给 PlayerStats 让位(见上);
-            // 2026-08-20 又整体下移 0.220(198px),接手拆合台让出的底部。
-            // 2026-08-21:字库区**第一次减高** —— 字牌去掉费用带后 105 → 85,区高 123 → 91.8,
-            // 省下的 31.2px 全部交给中区(见上面那串加法的第 ② 笔)。部件钮区高度仍未动。
-            // ⚠ 字库行是唯一**横向也要限界**的一区:它的内容宽随字库上限增长,而左右两侧
-            // 都有常驻面板。满员 12 张(基础 7 + 博闻满级 3 + 局内广告 2)时内容宽
-            // ≈ 标签 90 + 广告位 130 + 12×68 + 间距 104 = 1140px;若照别的区那样通栏居中,
-            // 会铺到 x 230–1370,左压配字表(右缘 216)、右压拆合台(左缘 1272)。
-            // 所以这里不用 MakeSection,改成夹在两者之间的 0.135–0.790(1048px):
-            // 10 张(基础 7 + 博闻满级 3)= 988px 仍然宽松;满 12 张时 HorizontalLayoutGroup
-            // 会把每格等比压到约 92%(牌 68 → 62),**压扁而不是叠上去** —— 两害相权取其轻。
-            var libraryGo = Ui.Row(transform, "Library");
-            Ui.Anchor((RectTransform)libraryGo.transform,
-                new Vector2(0.135f, 0.121f), new Vector2(0.790f, 0.223f), Vector2.zero, Vector2.zero);
-            _libraryRow = libraryGo.transform;                    // 91.8px ≥ 85 字牌
-            _poolRow = MakeSection("Pool", 0.053f, 0.121f);       // 61px ≥ 56 部件钮(高度不变)
-            // 39px:只装单行标签(字号 18~26,26 号行高约 31px)。教程指引 / 「结算中……」。
-            // ⚠ 若将来这里要放两行文案,得另找地方要空间,不能再从这里挤。
-            _statusRow = MakeSection("Status", 0.010f, 0.053f);
+            // 相生环图暂居左栏最下:稿上左栏只有相克。它原先贴在屏幕右上角,而右栏现在
+            // 从顶铺到底,留在原处就会压着拆合台的标题。
+            WuxingChart.Mount(rail.transform, sheng: true);
 
-            // 非战斗阶段的宽操作区。上下缘都被同阶段共存的区卡死,别再挪:
-            //   下缘 > 0.121 —— 奇遇/部件超限阶段同屏画部件池(0.053–0.121)
-            //   上缘 < 0.223 —— 战斗结算阶段同屏画玩家条(0.223–0.305)
-            // 与字库行(0.121–0.223)几乎完全重叠是**有意的**:字库只在战斗回合内/战利品/
-            // 复活补给三个阶段画,和这条带的四个消费方(结算/奇遇/部件超限/跑图结束)互斥。
-            // 2026-08-21:上缘随 PlayerStats 从 0.255 收到 0.220(区高 117 → 85.5px)——
-            // 最高的一件是奇遇选项钮 260×72,85.5px 仍装得下,余 13.5px。
-            _centerRow = MakeSection("Center", 0.125f, 0.220f);  // 85.5px
+            // ---- 中区(稿 .mid) ----
+            var mid = Ui.VStack(arena.transform, "Mid", MidGap);
+            var midLayout = mid.GetComponent<VerticalLayoutGroup>();
+            midLayout.childForceExpandWidth = true;   // 每一行都铺满中区宽度
+            midLayout.childAlignment = TextAnchor.UpperCenter;
+            Sized(mid, flexWidth: 1f);
+            // 中区被左右两栏夹到 1260 逻辑单位(稿 602pt)。手牌行满员时**装不下**:
+            // 12 张牌 46pt + 11 个间距 5pt + 竖排标签 8pt + 广告位 42pt = 662pt(1385 单位),
+            // 溢出约 125 单位(10%)。HorizontalLayoutGroup 会等比压窄每格(既有行为,
+            // 与旧版面同),压扁而不是溢出 —— 压后牌约 87 单位,仍比旧版的 68 大三成。
+            // 别为这 10% 改牌宽:稿上的 46×56pt 是量出来的,改它会让整屏比例跟稿漂开。
 
-            // 结束回合钮:2026-08-20 从屏幕右缘中部移到拆合台竖栏正下方 —— 仍是右手拇指位,
-            // 且与拆合台同栏对齐。2026-08-21 随拆合台一起左移,保持同栏。
-            var endTurnGo = Ui.Row(transform, "EndTurn");
-            Ui.Anchor((RectTransform)endTurnGo.transform,
-                new Vector2(0.795f, 0.020f), new Vector2(0.985f, 0.092f), Vector2.zero, Vector2.zero);
-            _endTurnRow = endTurnGo.transform;
+            // 战场四排(稿 .field):敌方贴顶、我方贴底,富余的纵向全部堆在分隔线两侧。
+            var field = Ui.VStack(mid.transform, "Field", FieldGap);
+            var fieldLayout = field.GetComponent<VerticalLayoutGroup>();
+            fieldLayout.childAlignment = TextAnchor.UpperCenter;
+            // 真正实现「四排不互相挤」的是这一条:布局组的 childForceExpand 会把每个子物体的
+            // flexible 强抬到 1,那样四排会各分一份富余,分隔线两侧的 Spacer 也就白设了。
+            fieldLayout.childForceExpandHeight = false;
+            Sized(field, flexHeight: 1f);
+
+            // 四排(2026-08-20):敌方后排 / 敌方前排 / 我方前排 / 我方后排。
+            // 排序自上而下,两侧的**前排相邻**、夹着中间那条分隔线 —— 纵深才读得出来。
+            _enemyBackRow = MakeFieldRow(field.transform, "EnemiesBack");
+            _enemyFrontRow = MakeFieldRow(field.transform, "EnemiesFront");
+
+            // 稿:.divider { margin: auto 0 } —— field 剩下的纵向全部堆到这一道的上下,
+            // 两侧各留一半。用两个 flexibleHeight = 1 的空 Spacer 夹住分隔线来表达。
+            // 富余越多,敌我离得越开。
+            Sized(Ui.Panel(field.transform, "SpacerTop"), flexHeight: 1f);
+            // 敌我前排之间的分隔线:两侧「前排」贴着它,越远离它的排越靠后。
+            // 线只占 86% 宽(稿 .divider),所以外面套一个通栏的槽,线在槽里按比例居中 ——
+            // 槽是布局组排的那一件,线是槽里锚出来的,SetActive 仍然切在线本身上。
+            var dividerSlot = Ui.Panel(field.transform, "DividerSlot");
+            Sized(dividerSlot, height: DividerH, flexWidth: 1f);
+            _rowDivider = Ui.Panel(dividerSlot.transform, "RowDivider");
+            var dividerImage = _rowDivider.AddComponent<Image>();
+            dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.35f);
+            // raycastTarget = false —— 它只是一条线,不能拦掉空白点击(那是取消选中用的)
+            dividerImage.raycastTarget = false;
+            Ui.Anchor((RectTransform)_rowDivider.transform,
+                new Vector2(0.07f, 0f), new Vector2(0.93f, 1f), Vector2.zero, Vector2.zero);
+            Sized(Ui.Panel(field.transform, "SpacerBottom"), flexHeight: 1f);
+
+            _summonFrontRow = MakeFieldRow(field.transform, "SummonsFront");
+            _summonBackRow = MakeFieldRow(field.transform, "SummonsBack");
+
+            // 玩家条(稿 .me):定高,不跟着 field 伸缩
+            var bottomGo = Ui.Row(mid.transform, "PlayerStats");
+            Sized(bottomGo, height: PlayerBarH);
+            _bottomRow = bottomGo.transform;
+
+            // 字库行与非战斗阶段的宽操作区**共占同一条带、按阶段只画其一**:字库只在
+            // 战斗回合内/战利品/复活补给三个阶段画,而这条带的四个消费方(结算/奇遇/
+            // 部件超限/跑图结束)与那三个阶段互斥。做成上下两行会让这条带占双倍高度,
+            // 把战场四排挤扁 —— 所以是两个铺满同一个槽的叠放层,各自 Ui.Clear / 绘制。
+            var band = Ui.Panel(mid.transform, "Band");
+            Sized(band, height: HandBandH);
+
+            var libraryGo = Ui.Row(band.transform, "Library");
+            Ui.Stretch((RectTransform)libraryGo.transform);
+            _libraryRow = libraryGo.transform;
+
+            var centerGo = Ui.Row(band.transform, "Center");
+            Ui.Stretch((RectTransform)centerGo.transform);
+            _centerRow = centerGo.transform;
+
+            // 部件池与底部提示行:高度由内容撑(Mid 的 childForceExpandHeight 已关,
+            // 它们不会去分 field 的富余)
+            _poolRow = Ui.Row(mid.transform, "Pool").transform;
+            _statusRow = Ui.Row(mid.transform, "Status").transform;
+
+            // ---- 右栏:拆合台(稿 .bench) ----
+            // 薄宣纸卡(半透,融层段染色);2026-08-20 从底部横卡改为右侧竖栏。
+            var workbenchCard = Ui.CardPanel(arena.transform, "Workbench", Theme.PaperCard, 20);
+            Sized(workbenchCard.gameObject, width: BenchW).minWidth = BenchW;
+            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
+            Ui.Stretch((RectTransform)workbenchStack.transform);
+            workbenchStack.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
+            Ui.ThemedLabel(workbenchStack.transform, Strings.T("battle.label.workbench_title"), 13, Theme.TextDim, Theme.TitleFont);
+            // 选中详情 + 可合成列表:吃掉栏里的余量,把下面两行压在栏底(稿 .craft { flex: 1 })
+            var suggestGo = Ui.VStack(workbenchStack.transform, "Content", 6);
+            Sized(suggestGo, flexHeight: 1f);
+            _suggestRow = suggestGo.transform;
+            // 动作行**横排**(2026-08-21 用户拍板):出 / 拆 / 弃 三个单字钮一行排完。
+            //   3 × 76 + 间距 8×2 = 244 ≤ BenchW ✓
+            _actionRow = Ui.Row(workbenchStack.transform, "Actions", 8).transform;
+            // 结束回合钮:与拆合台同栏、压在栏底(稿 .bench 的最后一件),仍是右手拇指位。
+            _endTurnRow = Ui.Row(workbenchStack.transform, "EndTurn").transform;
         }
 
-        private Transform MakeSection(string name, float yMin, float yMax)
+        /// <summary>战场的一排。稿:<c>.erow { flex: none }</c> —— 四排各自锁死高度,
+        /// 宁可 field 留白也不互相挤。稿上写明了理由:field 空间一紧,默认的 flex-shrink
+        /// 会把后排那一行压扁,看上去就成了「后排叠在前排上」。</summary>
+        private static Transform MakeFieldRow(Transform field, string name)
         {
-            var go = Ui.Row(transform, name);
-            Ui.Anchor((RectTransform)go.transform, new Vector2(0, yMin), new Vector2(1, yMax), Vector2.zero, Vector2.zero);
+            var go = Ui.Row(field, name, RowGap);
+            Sized(go, flexHeight: 0f);
             return go.transform;
+        }
+
+        /// <summary>给节点挂一个 <see cref="LayoutElement"/>。宽/高传负数 = 这一维不指定,
+        /// 由布局组按内容算(LayoutUtility 会跳过负值,轮到优先级更低的布局组自己报数)。</summary>
+        private static LayoutElement Sized(GameObject go,
+            float width = -1f, float height = -1f, float flexWidth = 0f, float flexHeight = 0f)
+        {
+            var element = go.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+            element.preferredHeight = height;
+            element.flexibleWidth = flexWidth;
+            element.flexibleHeight = flexHeight;
+            return element;
         }
 
         // ---- 渲染 ----
@@ -1315,8 +1355,8 @@ namespace Brushblade.Presentation
         // 逐项加法(VStack 间距 2):
         //   前排 顶行 56 + 2 + 血条 13 + 2 + 行动条 9 + 2 + 盾条 10 = 94
         //   后排 顶行 48 + 2 + 血条 12 + 2 + 行动条 8 + 2 + 盾条 10 = 84
-        // **改动内容高度时请重算这两串加法**,并对照 BuildSkeleton 里两排 section 的高度
-        // (SummonsFront 100.8px / SummonsBack 93.6px)。
+        // **改动内容高度时请重算这两串加法**:骨架换布局组之后,两排的高度就是这里的格高撑出来的
+        // (四排各自锁死高度,见 MakeFieldRow),改这两个数等于直接改排高。
         private const float SummonCellHeightFront = 94f;
         private const float SummonCellHeightBack = 84f;
         private const float SummonStackSpacing = 2f;
@@ -1629,7 +1669,7 @@ namespace Brushblade.Presentation
         // 信息在右」,实机看下来血条与它对应的怪读不成一体 —— 一排三只时,谁的条是谁的要靠数。
         // 现在改回**形象在上、血条行动条在正下方同一列**。
         //
-        // 纵向预算是这么腾出来的(见 BuildSkeleton 的那串加法):
+        // 当时的纵向预算是这么腾出来的(那串手算加法已随骨架换布局组作废,只留这段来由):
         //   ① 消息提示行(0.900–0.945,40.5px)搬到左下,中区上缘从 0.900 抬到 0.938
         //   ② 字牌去掉费用带后 84×105 → 68×85,字库区 123 → 91.8,中区下缘从 0.340 落到 0.305
         // 两笔合计 +65.7px,中区 504 → 569.7px,**形象因此一分没缩**,仍是 138 / 117。
