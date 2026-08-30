@@ -1695,56 +1695,68 @@ namespace Brushblade.Presentation
             return "";
         }
 
-        // 敌人格尺寸(2026-07-28 随形象接入放大:圆头像 104 → 形象 150,格 168×208 → 190×220)。
-        // 形象底稿四周留了 10% 白,同直径下视觉体积比实心圆头像小,所以要给得更足。
-        // 2026-08-11:格高 220 → 232,给 chip 第二行腾 12px(信息区 68 → 80)。
-        // 2026-08-17:形象 150 → 138,给每个敌人自己的行动条腾 12px + 间距。
-        //
-        // 2026-08-21 竖排复原(用户拍板):2026-08-20 那次为了纵向预算把格内改成「形象在左、
-        // 信息在右」,实机看下来血条与它对应的怪读不成一体 —— 一排三只时,谁的条是谁的要靠数。
-        // 现在改回**形象在上、血条行动条在正下方同一列**。
-        //
-        // 当时的纵向预算是这么腾出来的(那串手算加法已随骨架换布局组作废,只留这段来由):
-        //   ① 消息提示行(0.900–0.945,40.5px)搬到左下,中区上缘从 0.900 抬到 0.938
-        //   ② 字牌去掉费用带后 84×105 → 68×85,字库区 123 → 91.8,中区下缘从 0.340 落到 0.305
-        // 两笔合计 +65.7px,中区 504 → 569.7px,**形象因此一分没缩**,仍是 138 / 117。
-        //
-        // 2026-08-21 二改(实机反馈:名字压在形象上看不清):**名字独占一行**,排在形象正下方,
-        // 形象相应缩小把这一行的高度让出来。chip 仍叠在形象底部 —— 它自带底色、又只有一两个,
-        // 压在墨色笔画上仍读得出;而名字是长串文字,叠上去必糊。
-        //
-        // 每格纵向:2 + 形象 + 2 + 名字 19 + 2 + 条区 31 = 形象 + 56。
-        // 反推形象:前排 171 − 56 = 115 → 取 114;后排 150 − 56 = 94。
-        private const float EnemyPortraitFront = 114f;
-        private const float EnemyPortraitBack = 94f;
-        private const float EnemyNameHeight = 19f;   // 单行 15 号字 ≈ 19px
-        private const float EnemyBarWidth = 170f;    // 血条/行动条:格宽减两侧各 10
-        private const float EnemyBarsHeight = 31f;   // 血条 16 + 间距 3 + 行动条 12
-        // 前后排同宽:宽度由条与 chip 决定,与形象直径无关。三格一排 3×190 + 16 = 586 居中,
-        // 落在配字表右缘(216)与拆合台左缘(1272)之间,两头都不压。
-        private const float EnemyCellWidth = 190f;
-        // 格高 = 2 + 形象 + 2 + 名字 + 2 + 条区。chip 叠在形象上,不进这笔加法。
-        private const float EnemyCellHeightFront =
-            2f + EnemyPortraitFront + 2f + EnemyNameHeight + 2f + EnemyBarsHeight; // 170
-        private const float EnemyCellHeightBack =
-            2f + EnemyPortraitBack + 2f + EnemyNameHeight + 2f + EnemyBarsHeight;  // 150
+        // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
+        // 中区 602px 宽,竖排却只占用形象那一份直径,横向本就是这块屏最富余的资源。
+        // 稿(Battle.dc.html .foe/.foeslot)写明了理由:横排后格高由立绘单独决定
+        // (信息列 36 < 立绘 60),纵向反而比竖排省 24px/排,省下的全给敌我之间的留白。
+        // 尺寸 = 稿 pt × 2.093(逻辑单位换算,与骨架其余常量同一套换算)。
+        private const float EnemyCellWidth = 293f;        // 稿 140pt
+        private const float EnemyCellHeightFront = 138f;  // 稿 66pt
+        private const float EnemyCellHeightBack = 109f;   // 稿 52pt
+        private const float EnemyPortraitFront = 126f;    // 稿 60pt
+        private const float EnemyPortraitBack = 96f;      // 稿 46pt
+
+        // 立绘与信息列的间距(稿 .foe { gap: 6px })。信息列自身的行距(稿 .info { gap: 2px }),
+        // 头行里名字与属性徽章的间距(稿 .hd { gap: 4px })——同一套 ×2.093 换算。
+        private const float EnemyBlkInfoGap = 13f;   // 6pt
+        private const float EnemyInfoSpacing = 4f;   // 2pt
+        private const float EnemyHeaderSpacing = 8f; // 4pt
+
+        // 三条状态条的高度(稿:血条 7pt、护盾条/行动条各 3pt)。宽度不设常量——
+        // 前排、后排、Boss 跨列的信息列宽各不相同,在每只敌人的绘制现场按实际格宽算。
+        private const float EnemyHpBarHeight = 15f;
+        private const float EnemyShieldBarHeight = 6f;
+        private const float EnemyActionBarHeight = 6f;
+
+        // 元素徽章(稿 .els):头行里跟名字并排的小胶囊,字号压到比状态 chip 还小——
+        // 它只需要装得下最长的单字元素名(火/水/木/金/土/问号),不必跟 chip 抢可读性预算。
+        private const int ElementBadgeFontSize = 10;
+        private const int ElementBadgePadX = 6;
+        private const int ElementBadgePadY = 4;
+
+        // 护盾角标(稿 .sh):叠在立绘左下角,与护盾条同一判据——Shield > 0 才画。
+        // 敌人 Shield 眼下恒为 0(2026-08-30 拍板,来源是将来的加盾辅助怪),真机看不到属预期,
+        // 别因为试玩看不到就以为没接上,也别为了让它显形去给哪只怪配盾。
+        private const int ShieldBadgeFontSize = 10;
+        private const int ShieldBadgePadX = 4;
+        private const int ShieldBadgePadY = 3;
+        private const float ShieldBadgeMargin = 4f;
+
+        // 空格位虚线框(稿 .foeslot { border: 1px dashed #C6BCA8; opacity: .45 })——
+        // uGUI 没有虚线,用 Ui.OutlinedPanel 的实线 + 45% 透明近似。这是「每排恒定 4 格」
+        // 在屏上真正成立的那一半:打死一只怪之后,其余的不该跳位,空位也要看得见。
+        private const int SlotFrameRadius = 12;
+        private const float SlotFrameThickness = 2f;
+
+        /// <summary>护盾条的填充比例(稿 Battle.dc.html 的 shieldPct):盾 = 1/4 血时满格。
+        /// 刻意**不按各自血量归一** —— 归一了 60 盾的召唤物与 60 盾的 Boss 看起来一样长,
+        /// 横着比就没意义了。</summary>
+        private static float ShieldFraction(int shield, int maxHp) =>
+            maxHp <= 0 ? 0f : Mathf.Min(1f, shield * 4f / maxHp);
 
         // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
         // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
         // 「水 攻15 承伤 灼烧9 不灭 致盲−50% 沉默」从 3 行降到 2 行,
         // 且两行只多要 17px 而不是 27px —— 这是 12px 预算能成立的前提。
-        // 上限 2 行:3 行要再吃 22px,敌人区没有;超出的按列表顺序从尾部丢,末尾补「+N」。
-        // 2026-08-21:chip 改叠在形象上之后,可用宽度从「信息列 200」换成「整格 190」——
-        // 它铺满格宽而不是只铺形象(138/117),否则窄 50px 会多换一行、多丢 chip。
+        // 上限 2 行:3 行要再吃 22px,超出的按列表顺序从尾部丢,末尾补「+N」。
+        // 2026-08-30:横排后可用宽度不再是整格宽,是信息列宽(前/后排、Boss 跨列各不相同),
+        // 在绘制现场算,不设常量。
         private const int ChipFontSize = 11;
         private const int ChipPadX = 12;
         private const int ChipPadY = 8;
         private const float ChipSpacing = 4f;
         private const float ChipLineSpacing = 3f;
         private const int ChipMaxLines = 2;
-        // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
-        // 2026-08-21:基准换回整格宽,前后排共用同一个数(格宽与形象直径无关)。
-        private const float ChipAreaWidth = EnemyCellWidth - 4f;
 
         // 拖字打人悬停预览(2026-08-22):主目标复用「选目标态整格微亮」的既有强度(0.07f,
         // 见 DrawEnemies 的 hitArea.color),被形状溅到的用更淡一档,与主目标拉开区分。
@@ -1752,7 +1764,7 @@ namespace Brushblade.Presentation
         private const float HoverPreviewSplashAlpha = 0.035f;
 
         /// <summary>敌方两排(2026-08-20):后排在上、前排在下(贴着中间的分隔线),
-        /// 站位读 <see cref="EnemyState.Row"/> —— 那是**实例状态**,开场按每排上限 3 分配、
+        /// 站位读 <see cref="EnemyState.Row"/> —— 那是**实例状态**,开场按每排上限 4 分配、
         /// 溢出会改判,和 <c>EnemyDef.Row</c> 那个偏好不是一回事。
         ///
         /// ⚠ 下标对齐:<c>_enemyRects</c> / <c>_enemyMobs</c> / <c>_enemyHpBars</c> /
@@ -1786,12 +1798,12 @@ namespace Brushblade.Presentation
             for (int c = 0; c < frontCells.Length; c++)
             {
                 frontCells[c] = Ui.Panel(_enemyFrontRow, $"EnemySlotFront{c}");
-                frontCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
+                Sized(frontCells[c], width: EnemyCellWidth, height: EnemyCellHeightFront);
             }
             for (int c = 0; c < backCells.Length; c++)
             {
                 backCells[c] = Ui.Panel(_enemyBackRow, $"EnemySlotBack{c}");
-                backCells[c].AddComponent<LayoutElement>().preferredWidth = EnemyCellWidth;
+                Sized(backCells[c], width: EnemyCellWidth, height: EnemyCellHeightBack);
             }
             // 本次绘制里每排格位是否已被占用(2026-08-22 评审加固)。按**本次绘制**已用掉的
             // 格位算,不读 Transform.childCount —— 预建的空格位本来就在那儿,child 数恒为
@@ -1814,15 +1826,20 @@ namespace Brushblade.Presentation
                 bool reachable = !_targeting || _selectedChar == null
                     || Battle.CanTarget(_graph.Get(_selectedChar), index);
 
-                // 格位守卫(2026-08-22 评审加固):Core 的不变式(每排 ≤ RowCapacity、列不重号)
-                // 理应保证 enemy.Column 永远落在 [0, RowCapacity) 且同排不重号,但表现层崩掉
-                // 的代价是整个战斗界面白屏,兜底的代价只是一只怪画错位置 —— 不对称,所以兜。
-                // 越界或撞列(本排该列已被这次绘制的另一只怪占了)就回落到本排第一个空格位。
+                // 格位守卫(2026-08-22 评审加固,2026-08-30 扩到跨列):Core 的不变式
+                // (每排 ≤ RowCapacity、列不重号)理应保证 enemy.Column/ColumnSpan 永远落在
+                // [0, RowCapacity) 且同排不重叠,但表现层崩掉的代价是整个战斗界面白屏,
+                // 兜底的代价只是一只怪画错位置 —— 不对称,所以兜。
+                // 越界或撞列就回落到本排第一个能放下连续 span 列的起点 —— 跨列的怪
+                // (Boss)不能只找单列空位,回落到的那一格未必放得下它的 ColumnSpan。
                 var cells = front ? frontCells : backCells;
                 var used = front ? frontUsed : backUsed;
+                int span = enemy.Def.ColumnSpan;
                 int col = enemy.Column;
-                if (col < 0 || col >= cells.Length || used[col])
-                    col = System.Array.IndexOf(used, false);
+                bool fits = col >= 0 && col + span <= cells.Length;
+                for (int c = col; fits && c < col + span; c++)
+                    if (used[c]) fits = false;
+                if (!fits) col = FindFreeRun(used, span);
                 if (col < 0)
                 {
                     // 连回落都没有空格位:说明本排存活敌人数已经超过 RowCapacity,违反 Core
@@ -1836,11 +1853,29 @@ namespace Brushblade.Presentation
                     _enemyHitAreas.Add(null);
                     continue;
                 }
-                used[col] = true;
+                for (int c = col; c < col + span; c++) used[c] = true;
+                // 跨列的怪(眼下只有 Boss)吞掉的预建空格位要销毁,不是隐藏——留着会把行撑宽
+                for (int c = col + 1; c < col + span; c++)
+                {
+                    if (cells[c] == null) continue;
+                    Object.Destroy(cells[c]);
+                    cells[c] = null;
+                }
+
                 var cell = cells[col];
                 var cellElement = cell.GetComponent<LayoutElement>();
                 cellElement.preferredHeight = front ? EnemyCellHeightFront : EnemyCellHeightBack;
+                // 宽度按 span 算,把被它吞掉的那几条格间距也算进去,否则会比整排窄
+                // (span-1) 个 RowGap
+                cellElement.preferredWidth = EnemyCellWidth * span + RowGap * (span - 1);
                 float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
+                // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排)
+                var cellRow = cell.AddComponent<HorizontalLayoutGroup>();
+                cellRow.spacing = EnemyBlkInfoGap;
+                cellRow.childAlignment = TextAnchor.MiddleLeft;
+                cellRow.childForceExpandWidth = false;
+                cellRow.childForceExpandHeight = false;
+                float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
 
                 // 有形象就用分层字怪(Boss 按当前阶段取图),否则回落圆形字头像
                 MobView mob = null;
@@ -1851,6 +1886,9 @@ namespace Brushblade.Presentation
                     // 死了也照旧画形象,只是置灰 —— 换回字头像会让尸体「跳」一下形
                     portrait = new GameObject($"Mob{i}", typeof(RectTransform));
                     portrait.transform.SetParent(cell.transform, false);
+                    // MobView 自己只设 sizeDelta,不是 ILayoutElement——没有这个,cell 的
+                    // HorizontalLayoutGroup 量不出它该占多宽多高(CircleGlyph 分支自带,见下)
+                    Sized(portrait, width: portraitSize, height: portraitSize);
                     mob = portrait.AddComponent<MobView>();
                     mob.Init(prefix, portraitSize);
                     mob.SetStateAmount(MobAssets.StateAmountFor(enemy)); // L4 绑战斗状态
@@ -1862,14 +1900,22 @@ namespace Brushblade.Presentation
                     // 白字压在 LockedBg 这种浅底上看不见:置灰的一并把字色降到 TextDim
                     showAlive && reachable ? Color.white : Theme.TextDim, portraitSize);
                 _enemyMobs.Add(mob);
-                // 形象贴格顶、横向居中(2026-08-21 竖排格):名字与条区都在它正下方,同一列
-                Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                    new Vector2(-portraitSize / 2f, -2f - portraitSize), new Vector2(portraitSize / 2f, -2f));
                 if (_targeting && enemy.Alive && reachable && mob == null)
                 {
                     var outline = portrait.AddComponent<Outline>(); // 圆头像用描边示意可选中
                     outline.effectColor = Theme.Ink;
                     outline.effectDistance = new Vector2(3, 3);
+                }
+                // 护盾角标(稿 .sh):叠在立绘左下角,Shield > 0 才画(与护盾条同一判据)
+                if (enemy.Shield > 0)
+                {
+                    var badge = Ui.Chip(portrait.transform, enemy.Shield.ToString(), Theme.Gold, Theme.GoldText,
+                        ShieldBadgeFontSize, ShieldBadgePadX, ShieldBadgePadY, "shield");
+                    var badgeElement = badge.GetComponent<LayoutElement>();
+                    Ui.Anchor((RectTransform)badge.transform, Vector2.zero, Vector2.zero,
+                        new Vector2(ShieldBadgeMargin, ShieldBadgeMargin),
+                        new Vector2(ShieldBadgeMargin + badgeElement.preferredWidth,
+                            ShieldBadgeMargin + badgeElement.preferredHeight));
                 }
 
                 // 点击区盖满整格:形象各层不吃 raycast(见 MobView),没有它整格点不动
@@ -1879,32 +1925,26 @@ namespace Brushblade.Presentation
                     : new Color(0, 0, 0, 0);
                 _enemyHitAreas.Add(hitArea); // 拖字打人悬停预览要就地改这个颜色,存引用
 
-                // 名字独占一行,排在形象正下方(2026-08-21 二改)。此前它半透叠在形象顶部,
-                // 而形象本身就是水墨字形 —— 长串名字压在笔画上读不出来(实机反馈)。
-                var nameGo = Ui.Panel(cell.transform, "Name");
-                Ui.Anchor((RectTransform)nameGo.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
-                    new Vector2(0f, -2f - portraitSize - 2f - EnemyNameHeight),
-                    new Vector2(0f, -2f - portraitSize - 2f));
-                Ui.Stretch(Ui.ThemedLabel(nameGo.transform, BossTitle(enemy), 15,
-                    Theme.TextMain, Theme.TitleFont).rectTransform);
+                // 信息列:名字+属性徽章一行、chip 一行、血条、护盾条、行动条,自上而下(稿 .info)
+                var info = Ui.VStack(cell.transform, "Info", EnemyInfoSpacing);
+                info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                Sized(info, width: infoWidth);
 
-                // chip 仍叠在形象底部:它自带底色、通常只有一两个,压在笔画上仍读得出;
-                // 给它独占一行要再吃 41px/格(两行 chip),两个形象就得再缩 20 —— 不值。
-                // 铺**整格宽**而不是形象宽:窄 50px 会让 chip 多换一行、多丢内容。
-                // chip 的底色 Image 吃射线,但 uGUI 会沿父链找到 cell 上的 Button,点击照常落到「点敌人」。
-                var chipHolder = Ui.VStack(cell.transform, "ChipHolder", 0);
-                chipHolder.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.LowerCenter;
-                Ui.Anchor((RectTransform)chipHolder.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
-                    new Vector2(0f, -2f - portraitSize), new Vector2(0f, -2f));
-                // chip 攒成列表再交给 ChipFlow 分行 —— 它要先看全部文字才能决定在哪断行。
-                // 列表顺序即优先级:装不下 ChipMaxLines 行时从**尾部**丢弃,末尾补「+N」,
-                // 所以越靠前的越保得住。完整信息仍在敌人详情弹窗里。
+                // 头行:名字 + 五行属性徽章(稿 .hd/.els)。元素徽章从 chip 行搬到这里——
+                // 与名字一起才是「这是谁」,不该跟灼烧/致盲那些战况 chip 混排。
+                var header = Ui.Row(info.transform, "Header", EnemyHeaderSpacing);
+                Ui.ThemedLabel(header.transform, BossTitle(enemy), 15, Theme.TextMain, Theme.TitleFont);
+                // 显示用的元素名走 CharInfo.ElementName(查表)—— 与差字面板/桶键那套
+                // BattleView 私有的 ElementKey 是两件事,别弄混(见 ElementKey 定义处的注释)。
+                string elementName = enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?";
+                Ui.Chip(header.transform, elementName, Theme.ElementColor(enemy.ApparentElement), Color.white,
+                    ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY);
+
+                // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
+                // 行时从**尾部**丢弃,末尾补「+N」,所以越靠前的越保得住。
+                // 完整信息仍在敌人详情弹窗里。
                 var chipSpecs = new List<Ui.ChipSpec>
                 {
-                    // 显示用的元素名走 CharInfo.ElementName(查表)—— 与差字面板/桶键那套
-                    // BattleView 私有的 ElementKey 是两件事,别弄混(见 ElementKey 定义处的注释)。
-                    new(enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?",
-                        Theme.ElementColor(enemy.ApparentElement), Color.white),
                     new(Strings.T("battle.label.enemy_attack", ("attack", enemy.Attack)), Theme.PaperDim, Theme.TextMain),
                 };
                 if (enemy.Defense > 0)
@@ -1951,28 +1991,35 @@ namespace Brushblade.Presentation
                         chipSpecs.Add(new(abilityChip,
                             Theme.AbilityChipColor(enemy.Def.Ability), Color.white));
                 }
-                Ui.ChipFlow(chipHolder.transform, "Chips", chipSpecs, ChipAreaWidth, ChipFontSize,
+                // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
+                Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize,
                     ChipMaxLines, ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
-
-                // 条区:形象正下方、横向居中、贴格底 —— 「血条和形象同一列」就是这一处
-                var bars = Ui.VStack(cell.transform, "Bars", 3);
-                Ui.Anchor((RectTransform)bars.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                    new Vector2(-EnemyBarWidth / 2f, 0f), new Vector2(EnemyBarWidth / 2f, EnemyBarsHeight));
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。
                 if (showAlive)
                 {
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
-                    _enemyHpBars.Add(HpBar(bars.transform, barHp, enemy.MaxHp, new Vector2(EnemyBarWidth, 16)));
-                    // 行动条紧跟血条(2026-08-17,用户拍板放血条下方)
-                    _enemyActionBars.Add(ActionBar(bars.transform, enemy.ActionMeter, new Vector2(EnemyBarWidth, 12), 9));
+                    _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(infoWidth, EnemyHpBarHeight)));
+                    // 护盾条(稿 .shb):盾 = 1/4 血时满格,盾为 0 时整条不画——与角标同一判据。
+                    // 敌人 Shield 眼下恒为 0,真机看不到属预期(见常量注释)。
+                    if (enemy.Shield > 0)
+                        Ui.Bar(info.transform, ShieldFraction(enemy.Shield, enemy.MaxHp), Theme.Jade,
+                            new Vector2(infoWidth, EnemyShieldBarHeight));
+                    // 行动条紧跟护盾条(2026-08-17,用户拍板放血条下方)。稿 .atb 无文字覆盖——
+                    // 高度只有 6,塞百分比数字必糊,故直接调 Ui.Bar 出裸条而不是共享的 ActionBar
+                    // helper(那个固定带文字,是给玩家/召唤物的更高条用的)。fill 仍存进
+                    // _enemyActionBars 供动画期间就地推进,SetActionBar 对 label == null
+                    // 本就判空跳过,不受影响。
+                    float actionFrac = Mathf.Clamp01(enemy.ActionMeter / (float)TurnScheduler.Threshold);
+                    var actionBarGo = Ui.Bar(info.transform, actionFrac, Theme.Gold, new Vector2(infoWidth, EnemyActionBarHeight));
+                    _enemyActionBars.Add(((RectTransform)actionBarGo.transform.Find("Fill"), null));
                 }
                 else
                 {
                     // 「已正」= 那个错字被改正了(2026-08-23 用户确认语义):字怪死亡时代替血条。
                     // 是主题双关而非机制描述 —— key 名 corpse_settled 说的是机制那一面,别照 key 名去译。
-                    Ui.ThemedLabel(bars.transform, Strings.T("battle.label.corpse_settled"), 14, Theme.LockGray);
+                    Ui.ThemedLabel(info.transform, Strings.T("battle.label.corpse_settled"), 14, Theme.LockGray);
                     _enemyHpBars.Add((null, null));
                     _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
                 }
@@ -1984,6 +2031,40 @@ namespace Brushblade.Presentation
                 _enemyRects.Add((RectTransform)portrait.transform);
             }
 
+            // 空格位画成看得见的虚线框(稿 .foeslot):没有它,「每排恒定 4 格」在屏上就是
+            // 一句空话——打死一只怪之后玩家看不出旁边还留着位子。
+            DrawEmptyEnemySlots(frontCells, frontUsed);
+            DrawEmptyEnemySlots(backCells, backUsed);
+        }
+
+        /// <summary>把本排没被占用的格位画成虚线框(稿 .foeslot);已被跨列怪吞掉、
+        /// Destroy 置 null 的格位直接跳过——那是 Boss 吃掉的位置,压根不该再占地方。
+        /// uGUI 没有虚线,用 <see cref="Ui.OutlinedPanel"/> 的实线 + 45% 透明近似。</summary>
+        private static void DrawEmptyEnemySlots(GameObject[] cells, bool[] used)
+        {
+            for (int c = 0; c < cells.Length; c++)
+            {
+                if (cells[c] == null || used[c]) continue;
+                var frame = Ui.OutlinedPanel(cells[c].transform, "Slot", Color.clear,
+                    new Color(Theme.PaperDim.r, Theme.PaperDim.g, Theme.PaperDim.b, 0.45f),
+                    SlotFrameRadius, SlotFrameThickness);
+                Ui.Stretch((RectTransform)frame.transform);
+            }
+        }
+
+        /// <summary>本排第一个能放下连续 <paramref name="span"/> 列的起点;放不下返回 −1。
+        /// span = 1 时等价于 <c>System.Array.IndexOf(used, false)</c>——跨列的怪(Boss)
+        /// 不能只找单列空位,回落到的那一格未必放得下它的 ColumnSpan。</summary>
+        private static int FindFreeRun(bool[] used, int span)
+        {
+            for (int start = 0; start + span <= used.Length; start++)
+            {
+                bool ok = true;
+                for (int c = start; c < start + span; c++)
+                    if (used[c]) { ok = false; break; }
+                if (ok) return start;
+            }
+            return -1;
         }
 
         private void DrawLibrary()
