@@ -406,7 +406,8 @@ namespace Brushblade.Data
                     throw new ConfigException($"敌人「{dto.Id}」的目标偏好未知:{dto.Focus}");
 
                 enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases,
-                    dto.Defense, speed: 0, row: row, range: range, focus: focus);
+                    dto.Defense, speed: 0, row: row, range: range, focus: focus,
+                    columnSpan: dto.ColumnSpan);
             }
             return enemyDefs;
         }
@@ -423,6 +424,7 @@ namespace Brushblade.Data
             public string Row { get; set; }    // "Front" / "Back";缺省前排
             public string Range { get; set; }  // "Melee" / "Ranged";缺省近战
             public string Focus { get; set; }  // "Default" / "Player";缺省 Default
+            public int ColumnSpan { get; set; }  // 占几列(2026-08-30);缺省 0 → EnemyDef 钳到 1
         }
 
         private sealed class PhaseDto

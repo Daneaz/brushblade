@@ -123,7 +123,8 @@ namespace Brushblade.Core
                 new(idiom.Chars[2].ToString(), idiom.Elements[2], 180, 80, SkillAt(2)),
                 new(idiom.Chars[3].ToString(), idiom.Elements[3], 240, 100, SkillAt(3)),
             };
-            return new EnemyDef(idiom.Chars, idiom.Elements[0], 180, 60, EnemyAbility.None, phases);
+            return new EnemyDef(idiom.Chars, idiom.Elements[0], 180, 60, EnemyAbility.None, phases,
+                columnSpan: Targeting.RowCapacity);
         }
 
         private static IReadOnlyList<EnemyDef> Scaled(EndlessConfig config, int depth, params EnemyDef[] enemies)

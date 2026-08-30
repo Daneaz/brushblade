@@ -210,9 +210,14 @@ namespace Brushblade.Core
                 bool hit = shape switch
                 {
                     TargetShape.Sweep => enemies[i].Row == primary.Row,
+                    // 相邻 = 一方的右开端正好顶着另一方的起始列(2026-08-30 列区间)。
+                    // Span 全 1 时 ⟺ |ΔColumn| == 1,与旧写法逐字节相同。
                     TargetShape.Cleave => enemies[i].Row == primary.Row
-                        && System.Math.Abs(enemies[i].Column - primary.Column) == 1,
-                    TargetShape.Skewer => enemies[i].Column == primary.Column,
+                        && (enemies[i].ColumnEnd == primary.Column
+                            || primary.ColumnEnd == enemies[i].Column),
+                    // 同列 = 两个列区间相交。Span 全 1 时 ⟺ Column 相等。
+                    TargetShape.Skewer => enemies[i].Column < primary.ColumnEnd
+                        && primary.Column < enemies[i].ColumnEnd,
                     _ => false,
                 };
                 if (hit) result.Add(i);
@@ -244,8 +249,15 @@ namespace Brushblade.Core
             return result;
         }
 
+        /// <summary>列中心的**两倍**(2026-08-30 列区间):Span=1 时恒为 2×Column。
+        /// 用两倍是为了让跨偶数列的中心(如占 0..3 的 Boss 中心 1.5)仍是整数,不引浮点。</summary>
+        private static int ColumnCenter2(EnemyState e) => 2 * e.Column + e.ColumnSpan - 1;
+
+        /// <summary>弹射排序用的格子距离。**只被 ChainTargets 的比较器调用**(全仓库唯一调用点),
+        /// 所以整体乘 2 是安全的:单调线性变换不改排序,Span 全 1 时排序结果与旧式子逐位相同。
+        /// 列用中心距(半列为单位),排差记 2(= 旧式子的 1 乘 2)。</summary>
         private static int GridDistance(EnemyState a, EnemyState b) =>
-            System.Math.Abs(a.Column - b.Column) + (a.Row == b.Row ? 0 : 1);
+            System.Math.Abs(ColumnCenter2(a) - ColumnCenter2(b)) + (a.Row == b.Row ? 0 : 2);
 
         /// <summary>连发的目标序列:后排优先、各排按列序排出候选,再从头循环取满 shots 发。
         /// 候选为空或 shots ≤ 0 返回空表。</summary>
