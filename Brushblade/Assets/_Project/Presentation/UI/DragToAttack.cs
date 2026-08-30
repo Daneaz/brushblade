@@ -72,7 +72,39 @@ namespace Brushblade.Presentation
             label.raycastTarget = false; // 别挡住底下敌人格的射线
 
             _ghost.position = eventData.position;
+            _ghost.localScale = Vector3.one * GhostBirthScale;
+            _lastPointer = eventData.position;
+            StartCoroutine(GhostBirthRoutine());
             _onBeginDrag?.Invoke(); // 字影建好之后再通知:回调里可能重画别的区,先把手感立起来
+        }
+
+        // 起拖的一记「抓起来」(2026-08-30):字影从略小弹到略大再回 1。
+        // 此前它是啪地出现在指尖的一个静态字,拿起来这个动作在画面上完全没有发生过
+        private const float GhostBirthScale = 0.7f;
+        private const float GhostPeakScale = 1.16f;
+        private const float GhostBirthTime = 0.12f;
+        // 跟手的倾斜:按指针移动速度左右倒,封顶 14°。拖得越快歪得越多,像真的在拽着一张牌走
+        private const float GhostLeanMax = 14f;
+        private const float GhostLeanPerPixel = 0.6f;
+
+        private Vector2 _lastPointer;
+        private float _lean;
+
+        private System.Collections.IEnumerator GhostBirthRoutine()
+        {
+            float t = 0f;
+            while (t < GhostBirthTime && _ghost != null)
+            {
+                t += Time.unscaledDeltaTime;
+                float k = t / GhostBirthTime;
+                // 一记 overshoot:小 → 过头 → 落回 1
+                float scale = k < 0.6f
+                    ? Mathf.Lerp(GhostBirthScale, GhostPeakScale, k / 0.6f)
+                    : Mathf.Lerp(GhostPeakScale, 1f, (k - 0.6f) / 0.4f);
+                _ghost.localScale = new Vector3(scale, scale, 1f);
+                yield return null;
+            }
+            if (_ghost != null) _ghost.localScale = Vector3.one;
         }
 
         public void OnDrag(PointerEventData eventData)
@@ -83,6 +115,12 @@ namespace Brushblade.Presentation
             // (2026-08-22 评审 Finding 1:onDragMove 单独出了守卫,预览高亮会被写上,
             // 而 OnEndDrag 因 _ghost == null 提前返回、永不调 onDrop 去清它)。
             if (_ghost == null) return;
+            // 倾斜跟着横向速度走,再往 0 收 —— 不收的话停手时字影会一直歪着
+            float dx = eventData.position.x - _lastPointer.x;
+            _lastPointer = eventData.position;
+            _lean = Mathf.Clamp(Mathf.Lerp(_lean, -dx * GhostLeanPerPixel, 0.35f),
+                -GhostLeanMax, GhostLeanMax);
+            _ghost.localRotation = Quaternion.Euler(0f, 0f, _lean);
             _ghost.position = eventData.position;
             _onDragMove?.Invoke(eventData.position);
         }
@@ -90,8 +128,13 @@ namespace Brushblade.Presentation
         public void OnEndDrag(PointerEventData eventData)
         {
             if (_ghost == null) return; // 起拖时被拒(结算中):什么也不做
-            Destroy(_ghost.gameObject);
+            // 松手不再是啪地消失:字影原地缩一下淡出,手上「放开了」这个动作才有落点。
+            // ⚠ 协程挂在**字影自己**身上而不是本组件上 —— onDrop 通常会触发重绘、把本组件连同
+            // 字牌一起销毁,挂在这边的协程会当场断掉,字影就永远留在屏幕上了
+            var releasing = _ghost;
             _ghost = null;
+            var fader = releasing.gameObject.AddComponent<GhostRelease>();
+            fader.Begin();
             _onDrop?.Invoke(eventData.position);
         }
 
@@ -100,6 +143,36 @@ namespace Brushblade.Presentation
             if (_ghost == null) return;
             Destroy(_ghost.gameObject);
             _ghost = null;
+        }
+    }
+
+    /// <summary>松手后字影的收尾:原地缩一点、淡出、自毁(2026-08-30)。
+    ///
+    /// 单独一个组件挂在字影身上,是因为 <see cref="DragToAttack"/> 的 onDrop 几乎必然触发重绘,
+    /// 把那个组件连同字牌一起销毁 —— 收尾协程只要挂在它那边就会当场断掉,字影永远留在屏幕上。
+    /// 挂在字影自己身上,它的生命周期就只跟自己有关。</summary>
+    public sealed class GhostRelease : MonoBehaviour
+    {
+        private const float Duration = 0.14f;
+
+        public void Begin() => StartCoroutine(Fade());
+
+        private System.Collections.IEnumerator Fade()
+        {
+            var rect = (RectTransform)transform;
+            var label = GetComponent<Text>();
+            Color from = label != null ? label.color : Color.white;
+            float t = 0f;
+            while (t < Duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float k = t / Duration;
+                float scale = 1f - 0.25f * k;
+                rect.localScale = new Vector3(scale, scale, 1f);
+                if (label != null) label.color = new Color(from.r, from.g, from.b, from.a * (1f - k));
+                yield return null;
+            }
+            Destroy(gameObject);
         }
     }
 }

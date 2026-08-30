@@ -226,8 +226,10 @@ namespace Brushblade.Presentation
                     if (e.TargetIndex < 0)
                     {
                         if (_playerHpBar.fill == null) break;
+                        int burnBefore = _animPlayerHp;
                         _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - e.Amount);
                         SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
+                        ChipDamage(_playerHpBar, burnBefore, _animPlayerHp, PlayerMaxHp);
                         break;
                     }
                     // 挨这一记的形象抖起来:主体抖、墨丝甩尾、眼睛瞪大(MobView 三层各自不同步)
@@ -245,8 +247,10 @@ namespace Brushblade.Presentation
                     _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
                     SetShieldBar(_animShield);
                     if (_playerHpBar.fill == null) break;
+                    int hitBefore = _animPlayerHp;
                     _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - (e.Amount - e.Absorbed));
                     SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
+                    ChipDamage(_playerHpBar, hitBefore, _animPlayerHp, PlayerMaxHp);
                     break;
                 case BattleEventKind.Shield: // 筑盾触达才涨,与掉盾同一条推进(不整屏重绘)
                     // TargetIndex ≥0 = 盾加在召唤物身上(2026-08-26),推那一格的盾条;−1 才是玩家
@@ -311,17 +315,21 @@ namespace Brushblade.Presentation
                             Battle.Summons[si].Shield, _summonAnimShield[si] - e.Absorbed);
                         SetShieldBarOn(hitShield, _summonAnimShield[si]);
                     }
+                    int summonBefore = _summonAnimHp[si];
                     _summonAnimHp[si] = System.Math.Max(Battle.Summons[si].Hp,
                         _summonAnimHp[si] - (e.Amount - e.Absorbed));
                     SetHpBar(sbar, _summonAnimHp[si], Battle.Summons[si].MaxHp);
+                    ChipDamage(sbar, summonBefore, _summonAnimHp[si], Battle.Summons[si].MaxHp);
                     break;
                 case BattleEventKind.SummonBurnTick: // 召唤物自身灼烧(2026-08-26):TargetIndex 就是槽位
                     int bsi = e.TargetIndex;
                     if (bsi < 0 || bsi >= Battle.Summons.Count || Battle.Summons[bsi] == null
                         || !_summonAnimHp.ContainsKey(bsi)
                         || !_summonBarByCore.TryGetValue(bsi, out var bbar) || bbar.fill == null) break;
+                    int burntBefore = _summonAnimHp[bsi];
                     _summonAnimHp[bsi] = System.Math.Max(Battle.Summons[bsi].Hp, _summonAnimHp[bsi] - e.Amount);
                     SetHpBar(bbar, _summonAnimHp[bsi], Battle.Summons[bsi].MaxHp);
+                    ChipDamage(bbar, burntBefore, _summonAnimHp[bsi], Battle.Summons[bsi].MaxHp);
                     break;
             }
         }
@@ -345,9 +353,20 @@ namespace Brushblade.Presentation
                 || index >= _animEnemyHp.Count || index >= Battle.Enemies.Count) return false;
             if (_enemyHpBars[index].fill == null) return false;
             var enemy = Battle.Enemies[index];
+            int before = _animEnemyHp[index];
             _animEnemyHp[index] = Mathf.Clamp(hp, 0, enemy.MaxHp);
             SetHpBar(_enemyHpBars[index], _animEnemyHp[index], enemy.MaxHp);
+            ChipDamage(_enemyHpBars[index], before, _animEnemyHp[index], enemy.MaxHp);
             return true;
+        }
+
+        /// <summary>掉血残影:条上那一截浅色尾巴(2026-08-30)。只在**掉**的方向留,回血/补全不留 ——
+        /// 涨的那一头已经有 BarPulse 的辉光在表达了。血条本身是瞬时按到新值的,
+        /// 没有这截尾巴,掉 3 点和掉 30 点在画面上都只是长度变了一下。</summary>
+        private void ChipDamage((RectTransform fill, UnityEngine.UI.Text label) bar, int from, int to, int maxHp)
+        {
+            if (bar.fill == null || maxHp <= 0 || to >= from) return;
+            _juice.ChipDamage(bar.fill, from / (float)maxHp, to / (float)maxHp);
         }
 
         /// <summary>血条 + 血值叠加其上(带深色描边保对比度);返回 fill/label 供命中回调就地推进。</summary>
@@ -3637,7 +3656,7 @@ namespace Brushblade.Presentation
                     bool done = false;
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt);
                     while (!done) yield return null;
-                    yield return new WaitForSecondsRealtime(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap)
+                    yield return _juice.Wait(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap);走 Juice 的节拍才吃快进
                 }
                 DropActingBar(Battle.LastActor, postMeters); // 动作播完,行动者的条回落到余额
                 Refresh();
@@ -3741,7 +3760,7 @@ namespace Brushblade.Presentation
                     bool done = false;
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
                     while (!done) yield return null;
-                    yield return new WaitForSecondsRealtime(0.12f);
+                    yield return _juice.Wait(0.12f);
                 }
                 DropActingBar(step.Actor, post);
                 pre = post;

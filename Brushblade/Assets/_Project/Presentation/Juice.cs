@@ -15,23 +15,121 @@ namespace Brushblade.Presentation
     {
         private RectTransform _shakeTarget;
         private Vector2 _shakeHome; // 震屏基准位:并发震屏都以此复位,避免读实时位置累积漂移
-        private AudioSource _audio;
+        private AudioSource[] _voices;
+        private int _voice;
         private AudioClip _hitClip;
         private AudioClip _thudClip;
         private AudioClip _shieldClip;
         private AudioClip _killClip;
         private AudioClip _healClip;
 
+        /// <summary>同时发声的路数(2026-08-30)。此前只有一个 AudioSource,而 pitch 是它的**持续属性**、
+        /// 不是 PlayOneShot 的快照 —— 原先「设 pitch → PlayOneShot → 立刻设回 1」的写法等于
+        /// 让几乎所有音效都以 pitch 1 播出,「伤害越高音调越低」这条设计从来没真正落地过。
+        /// 分成几路轮转、每路设好 pitch 就不再动它,调制才生效,并发的几记也不再互相串音。</summary>
+        private const int VoiceCount = 6;
+
         public void Init(RectTransform shakeTarget)
         {
             _shakeTarget = shakeTarget;
             _shakeHome = shakeTarget.anchoredPosition;
-            _audio = gameObject.AddComponent<AudioSource>();
+            _voices = new AudioSource[VoiceCount];
+            for (int i = 0; i < VoiceCount; i++) _voices[i] = gameObject.AddComponent<AudioSource>();
             _hitClip = Synth(0.07f, 190f, noise: 0.7f);   // 命中:脆
             _thudClip = Synth(0.12f, 90f, noise: 0.4f);   // 重击/受击:闷
             _shieldClip = Synth(0.1f, 320f, noise: 0.1f); // 护盾:润
             _killClip = SynthSweep(0.18f, 260f, 90f, noise: 0.25f); // 击杀:下行收束
             _healClip = SynthSweep(0.16f, 380f, 620f, noise: 0.05f); // 治疗:上行,与击杀的下行相反
+        }
+
+        /// <summary>发一记音:取下一路音源,设好 pitch 再播,**播完不复位**(见 <see cref="VoiceCount"/>)。
+        /// 每次叠一点随机微扰 —— 同一记打击音一模一样地重复几十遍,人耳会把它听成机械噪声而不是打击。</summary>
+        private void PlayClip(AudioClip clip, float volume, float pitch = 1f)
+        {
+            if (_voices == null || clip == null) return;
+            _voice = (_voice + 1) % _voices.Length;
+            var source = _voices[_voice];
+            source.pitch = pitch * UnityEngine.Random.Range(1f - PitchJitter, 1f + PitchJitter);
+            source.PlayOneShot(clip, volume);
+        }
+
+        private const float PitchJitter = 0.06f;
+
+        // ---- 顿帧(hit stop) ----
+
+        /// <summary>命中瞬间把时间按住几十毫秒。打击感里投入产出比最高的一件事 ——
+        /// 没有它,再大的震屏也只是画面在抖,冲击拿不到「重量」。
+        ///
+        /// (2026-08-30:本类的类注释与 BattleView 的注释从一开始就写着「命中顿帧」,
+        /// 但全项目没有一处写过 Time.timeScale —— 这个功能此前只存在于注释里。)
+        ///
+        /// 记的是**结束时刻**而不是累加时长:全体攻击同帧五记命中只取最狠的那记停,
+        /// 不会五次各停 60ms 叠成一次半秒的卡死。</summary>
+        private float _hitStopUntil;
+        private bool _hitStopRunning;
+
+        // 克制加强档(2026-08-30 用户拍板):水墨的「静」保住,只把「重」补回来。
+        // 三个数是这套打击感的主旋钮,想更爽/更收敛先动这里
+        private const float HitStopLight = 0.03f;  // 小伤害:一记轻轻的迟滞
+        private const float HitStopHeavy = 0.075f; // 重击封顶
+        private const float HitStopBig = 0.10f;    // 暴击 / 相克 / 引爆:再重一档
+
+        private void HitStop(float seconds)
+        {
+            if (seconds <= 0f) return;
+            _hitStopUntil = Mathf.Max(_hitStopUntil, UnityEngine.Time.unscaledTime + seconds);
+            if (_hitStopRunning) return;
+            _hitStopRunning = true;
+            StartCoroutine(HitStopRoutine());
+        }
+
+        private IEnumerator HitStopRoutine()
+        {
+            UnityEngine.Time.timeScale = 0f;
+            while (UnityEngine.Time.unscaledTime < _hitStopUntil) yield return null;
+            UnityEngine.Time.timeScale = 1f;
+            _hitStopRunning = false;
+        }
+
+        /// <summary>⚠ 顿帧期间本组件被销毁/禁用(战斗结束、切场景)时必须把 timeScale 放回去 ——
+        /// 协程随物件一起没了,timeScale 会永远停在 0,整个游戏冻死。这是引入顿帧唯一的真风险,
+        /// 所以兜底写在这里而不是指望协程一定跑完。</summary>
+        private void OnDisable()
+        {
+            if (!_hitStopRunning) return;
+            UnityEngine.Time.timeScale = 1f;
+            _hitStopRunning = false;
+        }
+
+        // ---- 结算快进(按住屏幕)----
+
+        /// <summary>按住屏幕时结算节拍走得更快(2026-08-30)。群攻 + DoT + 一排召唤反击时一轮结算
+        /// 能到好几秒,看过一遍之后就只是在等 —— 但节拍本身不能删,它是「看得清」的唯一保障。
+        ///
+        /// 做成**按住**而不是点一下切换:玩家随时能松手回到正常速度,不会误触之后整段糊过去。
+        /// 结算期间外层是锁输入的,所以这个按住不跟任何点击抢。</summary>
+        private const float FastForwardRate = 3f;
+        private float _rate = 1f;
+
+        private void Update()
+        {
+            _rate = Input.GetMouseButton(0) || Input.touchCount > 0 ? FastForwardRate : 1f;
+        }
+
+        /// <summary>结算节拍的等待。不用 WaitForSecondsRealtime —— 那个一旦 yield 出去时长就锁死了,
+        /// 中途按住屏幕对**已经在等的这一拍**没用;逐帧累加才能立刻响应。</summary>
+        /// <summary>给外层驱动协程用的同一条等待(BattleView 的行动者间停顿)——
+        /// 否则按住屏幕时段内飞快、段间照旧慢等,整体反而更别扭。</summary>
+        public IEnumerator Wait(float seconds) => Beat(seconds);
+
+        private IEnumerator Beat(float seconds)
+        {
+            float t = 0f;
+            while (t < seconds)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime * _rate;
+                yield return null;
+            }
         }
 
         private const float FlyDuration = 0.24f; // 飞牌全程(与 FlyRoutine 一致)
@@ -63,7 +161,7 @@ namespace Brushblade.Presentation
             // 段间停顿由 BattleView 的驱动协程控制。
             yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo);
 
-            yield return new WaitForSecondsRealtime(TailGap);
+            yield return Beat(TailGap);
             onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
         }
 
@@ -95,26 +193,35 @@ namespace Brushblade.Presentation
                         // 紧邻判据会被这些事件打断,漏掉本该拉开的一拍。跨目标的全体攻击(DamageAll)
                         // 各条 TargetIndex 不同,lastDamageTarget 逐个变化,仍并行不受影响
                         if (lastDamageTarget == e.TargetIndex)
-                            yield return new WaitForSecondsRealtime(StepGap);
+                            yield return Beat(StepGap);
                         lastDamageTarget = e.TargetIndex;
                         // 暴击(2026-08-12,E-b2):飘「暴」+ 放大一档 + 更重的震屏。
                         // 数值上暴击只是 ×1.5,与相克 ×1.5 长得一模一样 —— 玩家能不能读出
-                        // 「这记暴了」全靠这里的表达,不能靠数字大小
-                        Popup(e.Crit ? Strings.T("juice.popup.crit_damage", ("amount", e.Amount)) : $"-{e.Amount}", Theme.Cinnabar,
-                            enemyAnchor(e.TargetIndex),
-                            sizeScale: Mathf.Clamp((e.Crit ? 1.35f : 1f) + e.Amount / 50f,
-                                1f, e.Crit ? 2.4f : 1.9f));
-                        if (!kills) HitReact(enemyAnchor(e.TargetIndex)); // 致死不白闪,让位给置灰
-                        HitFx(e.Amount, e.Crit);
+                        // 「这记暴了」全靠这里的表达,不能靠数字大小。
+                        //
+                        // 相克(2026-08-30,e.Ke):同一条道理,而且更迫切 —— 相克此前**一点表达都没有**,
+                        // 玩家读不出自己有没有打对属性,而这是本作的核心机制(还顺带无视全部护甲)。
+                        // 两者可以同时发生:暴击是「打得狠」,相克是「打得对」,飘字合成「暴克」,
+                        // 颜色则交给相克 —— 金比朱砂更跳,而「打对属性」是玩家更需要学会的那件事
+                        var hitAnchor = enemyAnchor(e.TargetIndex);
+                        // 放大档:暴击 1.35 起(罕见,该抢眼),相克 1.18 起(常见,大一点就够,
+                        // 再大整场都是巨字、反而分不出哪记特别);两者都占时按暴击那档
+                        float damageScale = e.Crit ? 1.35f : e.Ke ? 1.18f : 1f;
+                        Popup(DamageText(e), e.Ke ? Theme.GoldBorder : Theme.Cinnabar, hitAnchor,
+                            sizeScale: Mathf.Clamp(damageScale + e.Amount / 50f,
+                                1f, e.Crit ? 2.4f : e.Ke ? 2.1f : 1.9f));
+                        if (e.Ke) Ring(hitAnchor, Theme.GoldBorder); // 相克专属:一圈金环炸开
+                        if (!kills) HitReact(hitAnchor); // 致死不白闪,让位给置灰
+                        HitFx(e.Amount, e.Crit, e.Ke, hitAnchor);
                         onImpact?.Invoke(e);
                         anyParallel = true;
                         break;
                     case BattleEventKind.BurnTick: // 火系 DoT:串行 + 火焰视觉
-                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap); // 与上一记 DoT 拉开
+                        if (serialPending) yield return Beat(StepGap); // 与上一记 DoT 拉开
                         Popup($"-{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         FlameBurst(enemyAnchor(e.TargetIndex));
-                        HitFx(e.Amount);
+                        HitFx(e.Amount, ke: e.Ke, target: enemyAnchor(e.TargetIndex));
                         onImpact?.Invoke(e);
                         serialPending = true;
                         break;
@@ -125,15 +232,18 @@ namespace Brushblade.Presentation
                     case BattleEventKind.Detonate:
                         Popup(Strings.T("juice.popup.detonate", ("amount", e.Amount)), Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
-                        _audio.pitch = Mathf.Clamp(1.3f - e.Amount / 80f, 0.6f, 1.3f);
-                        _audio.PlayOneShot(e.Amount >= 30 ? _thudClip : _hitClip, 0.9f);
-                        _audio.pitch = 1f;
-                        StartCoroutine(Shake(Mathf.Clamp(10f + e.Amount * 0.4f, 10f, 30f)));
+                        var blastAnchor = enemyAnchor(e.TargetIndex);
+                        HitStop(HitStopBig); // 抢杀爆发:与暴击/相克同一档的顿帧
+                        PlayClip(e.Amount >= 30 ? _thudClip : _hitClip, 0.9f,
+                            Mathf.Clamp(1.3f - e.Amount / 80f, 0.6f, 1.3f));
+                        StartCoroutine(Shake(Mathf.Clamp(10f + e.Amount * 0.4f, 10f, 30f),
+                            AttackDir(blastAnchor)));
+                        Ring(blastAnchor, Theme.ShopNav); // 火色扩散环,读出「炸开」
                         if (e.Amount >= 40) ScreenFlash(0.12f, Color.white);
                         onImpact?.Invoke(e);
                         break;
                     case BattleEventKind.BleedTick: // 无属性 DoT:同样串行,但用朱砂色且不带火焰
-                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        if (serialPending) yield return Beat(StepGap);
                         Popup($"-{e.Amount}", Theme.Cinnabar, enemyAnchor(e.TargetIndex),
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         if (!kills) HitReact(enemyAnchor(e.TargetIndex));
@@ -154,7 +264,7 @@ namespace Brushblade.Presentation
                             FlyGlyph(attacker?.Char ?? "木",
                                 Theme.ElementColor(attacker?.Element ?? Element.Wood),
                                 from.position, toRect.position);
-                            yield return new WaitForSecondsRealtime(FlyDuration); // 等飞牌砸到才结算
+                            yield return Beat(FlyDuration); // 等飞牌砸到才结算
                         }
                         break;
                     case BattleEventKind.EnemyDied: // 受击致死:与刚才那记伤害同帧,飘「正!」+ 立刻置灰(分别显示)
@@ -162,30 +272,35 @@ namespace Brushblade.Presentation
                         Popup(Strings.T("juice.popup.kill_mark"), Theme.Ink, dead);
                         GreyOut(dead);                       // 立刻置灰
                         Knockback(dead);                     // 一记后坐
-                        _audio.PlayOneShot(_killClip, 0.9f); // 下行收束音
+                        InkBurst(dead);                      // 墨散:一团墨炸开又收(2026-08-30)
+                        HitStop(HitStopBig);                 // 击杀值一记最重的顿帧
+                        PlayClip(_killClip, 0.9f); // 下行收束音
                         ScreenFlash(0.16f, Color.white);     // 致命全屏微闪
                         break;
                     case BattleEventKind.SummonHit: // 敌人打召唤物:攻击者(TargetIndex)下扑 + 飘伤害在承伤召唤(SecondIndex)身上
-                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        if (serialPending) yield return Beat(StepGap);
                         var tank = summonAnchor?.Invoke(e.SecondIndex); // 承伤者(坦克死后前移到下一个)
                         Lunge(enemyAnchor(e.TargetIndex));
                         Popup($"-{e.Amount}", Theme.Cinnabar, tank);
                         HitReact(tank);
-                        _audio.PlayOneShot(_thudClip, 0.7f);
-                        StartCoroutine(Shake(7f));
+                        PlayClip(_thudClip, 0.7f);
+                        HitStop(HitStopLight);
+                        // 方向取反:这一记是敌人从上面撞下来,震屏该往我方那侧走
+                        StartCoroutine(Shake(7f, -AttackDir(enemyAnchor(e.TargetIndex))));
                         onImpact?.Invoke(e); // 触达才扣召唤血
                         serialPending = true;
                         break;
                     case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
-                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        if (serialPending) yield return Beat(StepGap);
                         Lunge(enemyAnchor(e.TargetIndex));
                         // 飘字分账(2026-07-25):护盾吃掉多少、血实掉多少分开写,与两条同步
                         int hpLoss = e.Amount - e.Absorbed;
                         if (e.Absorbed <= 0) Popup($"-{e.Amount}", Theme.Cinnabar, null);
                         else if (hpLoss <= 0) Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, null);
                         else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), Theme.Cinnabar, null, small: true);
-                        _audio.PlayOneShot(_thudClip, 0.8f);
-                        StartCoroutine(Shake(10f));
+                        PlayClip(_thudClip, 0.8f);
+                        HitStop(hpLoss > 0 ? HitStopHeavy : HitStopLight); // 盾全吃下就轻一档
+                        StartCoroutine(Shake(10f, -AttackDir(enemyAnchor(e.TargetIndex))));
                         ScreenFlash(0.14f, Theme.Cinnabar);
                         onImpact?.Invoke(e); // 触达才扣玩家血
                         serialPending = true;
@@ -201,7 +316,7 @@ namespace Brushblade.Presentation
                             summonAnchor?.Invoke(e.TargetIndex), small: true);
                         break;
                     case BattleEventKind.SummonBurnTick:
-                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        if (serialPending) yield return Beat(StepGap);
                         var burntSummon = summonAnchor?.Invoke(e.TargetIndex);
                         Popup($"-{e.Amount}", Theme.ShopNav, burntSummon,
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
@@ -238,29 +353,29 @@ namespace Brushblade.Presentation
                         if (e.Amount <= 0) break;
                         Popup($"+{e.Amount}", Theme.SplitBlue, e.SecondIndex >= 0
                             ? summonAnchor?.Invoke(e.SecondIndex) : null);
-                        _audio.PlayOneShot(_healClip, 0.7f);
+                        PlayClip(_healClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨血条
                         break;
                     // 缺笔妖补全:串行占一拍 —— 它是敌方回合里独立发生的事,
                     // 与那一记攻击挤在同帧就会被当成攻击的一部分
                     case BattleEventKind.Regrow:
-                        if (serialPending) yield return new WaitForSecondsRealtime(StepGap);
+                        if (serialPending) yield return Beat(StepGap);
                         Popup(e.SecondIndex >= 3
                                 ? (e.Amount > 0 ? Strings.T("juice.popup.regrow_full_with_heal", ("amount", e.Amount)) : Strings.T("juice.popup.regrow_full"))
                                 : (e.Amount > 0 ? Strings.T("juice.popup.regrow_partial_with_heal", ("index", e.SecondIndex), ("amount", e.Amount)) : Strings.T("juice.popup.regrow_partial", ("index", e.SecondIndex))),
                             Theme.Jade, enemyAnchor(e.TargetIndex), small: e.SecondIndex < 3);
-                        _audio.PlayOneShot(_healClip, 0.6f);
+                        PlayClip(_healClip, 0.6f);
                         onImpact?.Invoke(e); // 触达才回血
                         serialPending = true;
                         break;
                     case BattleEventKind.Shield:
                         Popup(Strings.T("juice.popup.shield_gain", ("amount", e.Amount)), Theme.SplitBlue, null);
-                        _audio.PlayOneShot(_shieldClip, 0.7f);
+                        PlayClip(_shieldClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨护盾条
                         break;
                     case BattleEventKind.ShieldBroken:
                         Popup(Strings.T("juice.popup.shield_broken", ("amount", e.Amount)), Theme.SplitBlue, null);
-                        _audio.PlayOneShot(_shieldClip, 0.7f);
+                        PlayClip(_shieldClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才把护盾条推到 0(倾覆专用,BattleView.OnImpact 处理)
                         break;
                     case BattleEventKind.EnemySplit:
@@ -268,7 +383,7 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.BossPhase:
                         Popup(Strings.T("juice.popup.boss_phase"), Theme.GoldBorder, enemyAnchor(e.TargetIndex));
-                        _audio.PlayOneShot(_thudClip, 1f);
+                        PlayClip(_thudClip, 1f);
                         break;
                     case BattleEventKind.EnemyBuff:
                         // Amount 是百分点(2026-08-12 敌我 AttackBuff 单位统一),飘「攻+50%」
@@ -280,7 +395,7 @@ namespace Brushblade.Presentation
                     case BattleEventKind.EnemyMend:
                         Popup(Strings.T("juice.popup.enemy_mend", ("amount", e.Amount)),
                             Theme.Jade, enemyAnchor(e.TargetIndex), small: true);
-                        _audio.PlayOneShot(_healClip, 0.5f);
+                        PlayClip(_healClip, 0.5f);
                         break;
                     case BattleEventKind.EnemyRevealed:
                         Popup(Strings.T("juice.popup.enemy_revealed"), Theme.SplitBlue, enemyAnchor(e.TargetIndex));
@@ -290,7 +405,7 @@ namespace Brushblade.Presentation
                 }
             }
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
-                yield return new WaitForSecondsRealtime(StepGap);
+                yield return Beat(StepGap);
         }
 
         /// <summary>这记伤害是否打死了目标:向后扫到下一记伤害为止,期间出现本目标的 EnemyDied 即算。
@@ -307,18 +422,44 @@ namespace Brushblade.Presentation
             return false;
         }
 
-        /// <summary>一记命中的音效 + 震屏(伤害越高音调越低、震屏越大,封顶);大伤害叠全屏微闪。
+        /// <summary>一记命中的顿帧 + 音效 + 震屏(伤害越高音调越低、震屏越大,封顶);大伤害叠全屏微闪。
+        ///
         /// crit(2026-08-12,E-b2):暴击整体重一档 —— 闷响、更大的震屏、更低的全屏闪阈值。
-        /// 默认 false 让 DoT 那几个调用点一个字都不用改。</summary>
-        private void HitFx(int amount, bool crit = false)
+        /// ke(2026-08-30):相克与暴击**同档**(数值上也都是 ×1.5),但走各自的表达 ——
+        /// 暴击是「打得狠」,相克是「打得对」,两者可以同时发生。
+        /// target(2026-08-30):受击者,只用来定震屏方向;传 null 退回原来的全随机抖。
+        /// 三个参数都有缺省值,DoT 那几个调用点一个字都不用改。</summary>
+        private void HitFx(int amount, bool crit = false, bool ke = false, RectTransform target = null)
         {
-            _audio.pitch = Mathf.Clamp(1.3f - amount / 80f, 0.6f, 1.3f);
-            _audio.PlayOneShot(amount >= 30 || crit ? _thudClip : _hitClip, 0.9f);
-            _audio.pitch = 1f;
-            StartCoroutine(Shake(crit
+            bool heavy = crit || ke;
+            // 顿帧:小伤害一记轻迟滞,重击封顶,暴击/相克再重一档。
+            // 排在最前 —— 时间要在音效和震屏**开始之前**按住,才是「命中卡了一下」而不是「抖完才卡」
+            HitStop(heavy ? HitStopBig
+                : Mathf.Lerp(HitStopLight, HitStopHeavy, Mathf.Clamp01(amount / 60f)));
+            PlayClip(amount >= 30 || heavy ? _thudClip : _hitClip, 0.9f,
+                Mathf.Clamp(1.3f - amount / 80f, 0.6f, 1.3f));
+            StartCoroutine(Shake(heavy
                 ? Mathf.Clamp(10f + amount * 0.5f, 10f, 34f)
-                : Mathf.Clamp(4f + amount * 0.35f, 4f, 26f)));
+                : Mathf.Clamp(4f + amount * 0.35f, 4f, 26f), AttackDir(target)));
+            // 全屏微闪的阈值只看暴击,不看相克(2026-08-30):相克太常见 —— 五分之一的属性组合
+            // 都吃它,阈值一降就整场都在闪,白光反而不再意味着「这记不一般」。
+            // 相克的分量交给金环 + 金字 + 顿帧,那几样是**指向性**的,不抢全屏
             if (amount >= (crit ? 20 : 40)) ScreenFlash(0.12f, Color.white); // 大伤害:一记全屏微闪
+        }
+
+        /// <summary>从玩家席指向 target 的单位向量,用作震屏方向(2026-08-30)。
+        ///
+        /// 为什么值得算:原先震屏是纯 <c>Random.insideUnitCircle</c>,每帧方向乱跳,
+        /// 读起来是画面在「糊」而不是被「撞」了一下 —— 同样的振幅,给它一个方向,冲击力差一个量级。
+        /// 起点取屏幕中下 0.32,与 <see cref="Popup"/> 玩家侧飘字的锚点同一个口径。
+        /// 拿不到目标就回落竖直向上(我方在下、敌方在上,这是最常见的那一记)。</summary>
+        private Vector2 AttackDir(RectTransform target)
+        {
+            if (target == null || _shakeTarget == null) return Vector2.up;
+            var area = _shakeTarget.rect;
+            Vector3 seat = _shakeTarget.TransformPoint(new Vector3(0f, area.yMin + area.height * 0.32f, 0f));
+            Vector2 delta = target.position - seat;
+            return delta.sqrMagnitude < 1f ? Vector2.up : delta.normalized;
         }
 
         // 正在白闪的目标:同一目标同帧挨多记时,后来者会把「原色」读成白闪中的颜色,
@@ -334,8 +475,14 @@ namespace Brushblade.Presentation
 
         private IEnumerator HitReactRoutine(RectTransform target)
         {
-            var image = target.GetComponent<Image>();
-            Color original = image != null ? image.color : Color.white;
+            // ⚠ 取整棵子树,不是 target.GetComponent<Image>()(2026-08-30 修):
+            // 分层字怪(MobView)的锚点物件身上**根本没有 Image** —— 各层 Image 都在子节点上,
+            // 只看自己会让所有有形象的怪白闪静默失效,而现在场上绝大多数怪都有形象。
+            // GreyRoutine 早就为同一个坑改成了 GetComponentsInChildren,当时只修了置灰这一半。
+            var images = target.GetComponentsInChildren<Image>(true);
+            var original = new Color[images.Length];
+            for (int i = 0; i < images.Length; i++) original[i] = images[i].color;
+
             float t = 0f;
             const float duration = 0.16f;
             while (t < duration && target != null)
@@ -344,12 +491,23 @@ namespace Brushblade.Presentation
                 float k = t / duration;
                 float s = 1f + 0.28f * Mathf.Sin((1f - k) * Mathf.PI); // 更狠冲击
                 target.localScale = new Vector3(s, s, 1f);
-                if (image != null) image.color = Color.Lerp(Color.white, original, k); // 白闪 → 复原
+                for (int i = 0; i < images.Length; i++)                 // 白闪 → 复原
+                    if (images[i] != null) images[i].color = FlashOf(original[i], k);
                 yield return null;
             }
             if (target != null) target.localScale = Vector3.one;
-            if (image != null) image.color = original;
+            for (int i = 0; i < images.Length; i++)
+                if (images[i] != null) images[i].color = original[i];
             _flashing.Remove(target);
+        }
+
+        /// <summary>白闪色:只推 RGB,alpha 保各层原值 —— 与 <see cref="GreyOf"/> 同一条戒律,
+        /// 状态层(L4)的 alpha 编码着战斗状态,一并拉到 1 会让墨雾/火芯在受击瞬间突然全显。</summary>
+        private static Color FlashOf(Color original, float k)
+        {
+            var flash = Color.Lerp(Color.white, original, k);
+            flash.a = original.a;
+            return flash;
         }
 
         /// <summary>敌人攻击下扑:攻击者头像向下(我方召唤/玩家所在)猛冲一记再收回,增强"撞过来"的打击感。</summary>
@@ -464,6 +622,114 @@ namespace Brushblade.Presentation
             return grey;
         }
 
+        /// <summary>一记伤害的飘字内容。四种组合:平、暴、克、暴克 —— 单独一条方法是因为
+        /// 这四种要在**同一个** Popup 调用里选,散在三元表达式里读不出来。</summary>
+        private static string DamageText(BattleEvent e)
+        {
+            if (e.Crit && e.Ke) return Strings.T("juice.popup.ke_crit_damage", ("amount", e.Amount));
+            if (e.Crit) return Strings.T("juice.popup.crit_damage", ("amount", e.Amount));
+            if (e.Ke) return Strings.T("juice.popup.ke_damage", ("amount", e.Amount));
+            return $"-{e.Amount}";
+        }
+
+        // ---- 扩散环:一记落点的冲击波(相克 / 引爆 / 飞字砸中)----
+
+        private const float RingDuration = 0.26f;
+
+        /// <summary>从落点炸开的一圈细环,放大 + 淡出。程序生成,无资产。
+        ///
+        /// 为什么值得有:此前一记命中的全部「落点」表达就是白闪 + 震屏,两者都是**目标身上**的变化,
+        /// 画面上没有任何东西说明冲击是从这个点扩散出去的。一圈环把「这里发生了一记」钉在原地。</summary>
+        private void Ring(RectTransform at, Color color)
+        {
+            if (at == null || _shakeTarget == null) return;
+            var go = new GameObject("Ring", typeof(RectTransform));
+            go.transform.SetParent(_shakeTarget, false);
+            var rect = (RectTransform)go.transform;
+            rect.sizeDelta = new Vector2(64f, 64f);
+            rect.position = at.position;
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(16);
+            image.type = Image.Type.Sliced;
+            image.fillCenter = false; // 只要边:实心会把目标整个盖住
+            image.raycastTarget = false;
+            image.color = color;
+            StartCoroutine(RingRoutine(rect, image, color));
+        }
+
+        private static IEnumerator RingRoutine(RectTransform rect, Image image, Color color)
+        {
+            float t = 0f;
+            while (t < RingDuration && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float k = t / RingDuration;
+                float scale = Mathf.Lerp(0.35f, 2.3f, 1f - (1f - k) * (1f - k)); // ease-out:炸得快、收得慢
+                rect.localScale = new Vector3(scale, scale, 1f);
+                image.color = new Color(color.r, color.g, color.b, 0.85f * (1f - k));
+                yield return null;
+            }
+            if (rect != null) UnityEngine.Object.Destroy(rect.gameObject);
+        }
+
+        // ---- 墨散:死亡的一团墨(2026-08-30)----
+
+        // 墨色阶:浓墨 → 淡墨 → 一点朱砂(收尾那点血色),水墨的死法
+        private static readonly Color[] InkPalette =
+        {
+            new Color(0.10f, 0.10f, 0.12f), new Color(0.24f, 0.22f, 0.26f),
+            new Color(0.42f, 0.40f, 0.44f), new Color(0.62f, 0.20f, 0.18f),
+        };
+
+        /// <summary>怪物咽气时炸开一团墨:碎片向外抛、旋转、边飞边淡。
+        ///
+        /// 此前死亡的全部表现是「置灰 + 后坐 + 全屏闪」,置灰是个 0.2s 的渐变 —— 一只怪就这么
+        /// 悄悄褪色了,分量还不如挨一记普通攻击。复用 <see cref="EmberRoutine"/> 那套即抛即毁的
+        /// 程序碎片,不违反第 12 章「不做骨骼/帧动画」。</summary>
+        private void InkBurst(RectTransform target)
+        {
+            if (target == null || _shakeTarget == null) return;
+            for (int n = 0; n < 12; n++)
+            {
+                var go = new GameObject("InkSplat", typeof(RectTransform));
+                go.transform.SetParent(_shakeTarget, false);
+                var rect = (RectTransform)go.transform;
+                float side = UnityEngine.Random.Range(7f, 19f);
+                rect.sizeDelta = new Vector2(side, side * UnityEngine.Random.Range(0.6f, 1.5f));
+                rect.position = target.position;
+                var image = go.AddComponent<Image>();
+                image.sprite = Theme.Rounded(8);
+                image.type = Image.Type.Sliced;
+                image.color = InkPalette[UnityEngine.Random.Range(0, InkPalette.Length)];
+                image.raycastTarget = false;
+                // 均匀铺满一圈再加抖动:纯随机方向会结块,看着像溅在一侧而不是炸开
+                float angle = (n / 12f + UnityEngine.Random.Range(-0.04f, 0.04f)) * Mathf.PI * 2f;
+                StartCoroutine(InkSplatRoutine(rect, image,
+                    new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * UnityEngine.Random.Range(46f, 96f)));
+            }
+        }
+
+        private static IEnumerator InkSplatRoutine(RectTransform rect, Image image, Vector2 throwTo)
+        {
+            Vector2 start = rect.anchoredPosition;
+            Color from = image.color;
+            float duration = UnityEngine.Random.Range(0.34f, 0.58f);
+            float spin = UnityEngine.Random.Range(-220f, 220f);
+            float t = 0f;
+            while (t < duration && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float k = t / duration;
+                float eased = 1f - (1f - k) * (1f - k); // 抛出去就减速:墨有阻力,不是弹片
+                rect.anchoredPosition = start + throwTo * eased + new Vector2(0f, -26f * k * k); // 尾段微微下坠
+                rect.localRotation = Quaternion.Euler(0f, 0f, spin * eased);
+                rect.localScale = Vector3.one * (1f - 0.4f * k);
+                image.color = new Color(from.r, from.g, from.b, 1f - k * k);
+                yield return null;
+            }
+            if (rect != null) UnityEngine.Object.Destroy(rect.gameObject);
+        }
+
         // 火焰色阶(黄 → 橙 → 红):火系 DoT 火苗
         private static readonly Color[] FlamePalette =
         {
@@ -553,14 +819,22 @@ namespace Brushblade.Presentation
             label.raycastTarget = false;
             Ui.Stretch(label.rectTransform);
 
-            StartCoroutine(FlyRoutine(rect, from, to, onArrive, duration, easeOut));
+            StartCoroutine(FlyRoutine(rect, from, to, onArrive, duration, easeOut, color));
         }
 
-        private static IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to, Action onArrive,
-            float duration, bool easeOut)
+        // 拖尾:每隔这么久落一片残影。0.03 ≈ 每两帧一片(60fps),0.22s 的一记出字大约留 7 片,
+        // 够连成一条线又不至于铺满屏
+        private const float TrailInterval = 0.03f;
+
+        private IEnumerator FlyRoutine(RectTransform rect, Vector3 from, Vector3 to, Action onArrive,
+            float duration, bool easeOut, Color color)
         {
             float t = 0f;
+            float nextTrail = 0f;
             if (duration <= 0f) duration = CastFlyDuration; // 防 0 除:传 0 会让 k 变 NaN,牌卡在起点
+            // 沿飞行方向的倾角:朝目标「低头」扎过去,而不是端端正正地平移。
+            // 只给出字那一记(ease-in = 砸);抽卡是滑进来的,滑着还歪就成了打滑
+            float lean = easeOut ? 0f : Mathf.Clamp(Vector3.Distance(from, to) * 0.02f, 6f, 16f);
             while (t < duration && rect != null)
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
@@ -570,11 +844,53 @@ namespace Brushblade.Presentation
                 float eased = easeOut ? 1f - (1f - k) * (1f - k) : k * k;
                 rect.position = Vector3.Lerp(from, to, eased);
                 rect.localScale = Vector3.one * (1f + 0.2f * Mathf.Sin(k * Mathf.PI));
+                rect.localRotation = Quaternion.Euler(0f, 0f, -lean * eased);
+                if (lean > 0f && t >= nextTrail) // 拖尾只给"砸"的那一记,滑入不留
+                {
+                    nextTrail = t + TrailInterval;
+                    Trail(rect, color);
+                }
                 yield return null;
             }
             if (rect != null)
                 UnityEngine.Object.Destroy(rect.gameObject);
             onArrive?.Invoke();
+        }
+
+        /// <summary>飞字残影:在当前位置落一片同色底板,原地淡出。只画底板不画字 ——
+        /// 一串半透明的字叠在一起会糊成一团黑,只留色块反而读得出是一条轨迹。</summary>
+        private void Trail(RectTransform source, Color color)
+        {
+            if (_shakeTarget == null) return;
+            var go = new GameObject("Trail", typeof(RectTransform));
+            go.transform.SetParent(_shakeTarget, false);
+            var rect = (RectTransform)go.transform;
+            rect.sizeDelta = source.sizeDelta;
+            rect.position = source.position;
+            rect.localRotation = source.localRotation;
+            rect.localScale = source.localScale;
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = false;
+            image.color = color;
+            StartCoroutine(TrailRoutine(rect, image, color));
+        }
+
+        private const float TrailFade = 0.16f;
+
+        private static IEnumerator TrailRoutine(RectTransform rect, Image image, Color color)
+        {
+            float t = 0f;
+            while (t < TrailFade && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float k = t / TrailFade;
+                image.color = new Color(color.r, color.g, color.b, 0.42f * (1f - k));
+                rect.localScale *= 1f - 0.9f * UnityEngine.Time.unscaledDeltaTime; // 边淡边缩,尾巴收得干净
+                yield return null;
+            }
+            if (rect != null) UnityEngine.Object.Destroy(rect.gameObject);
         }
 
         /// <summary>字牌到位弹跳(合成结果/拆出部件落位)。目标可能已被重绘销毁,全程判空。</summary>
@@ -645,16 +961,25 @@ namespace Brushblade.Presentation
 
         // ---- 震屏 ----
 
-        private IEnumerator Shake(float amplitude)
+        /// <summary>震屏。direction 给了就沿那个轴来回撞(2026-08-30),default 回落成原来的全随机抖。
+        ///
+        /// 有方向的是「撞」,没方向的是「糊」:衰减正弦跑一个半来回,再叠一点小噪声 ——
+        /// 纯正弦会读成机械滑动,纯随机又丢掉了这一记是从哪个方向来的。</summary>
+        private IEnumerator Shake(float amplitude, Vector2 direction = default)
         {
             // 以固定 home 为基准(不读实时位置):多个 Shake 并发时不会把彼此的偏移当原点累积
             float t = 0f;
             const float duration = 0.22f;
+            bool aimed = direction.sqrMagnitude > 0.0001f;
             while (t < duration)
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
                 float decay = 1f - t / duration;
-                _shakeTarget.anchoredPosition = _shakeHome + UnityEngine.Random.insideUnitCircle * (amplitude * decay);
+                Vector2 offset = aimed
+                    ? direction * (Mathf.Sin(t / duration * Mathf.PI * 3f) * amplitude * decay)
+                      + UnityEngine.Random.insideUnitCircle * (amplitude * 0.18f * decay)
+                    : UnityEngine.Random.insideUnitCircle * (amplitude * decay);
+                _shakeTarget.anchoredPosition = _shakeHome + offset;
                 yield return null;
             }
             _shakeTarget.anchoredPosition = _shakeHome;
@@ -757,6 +1082,53 @@ namespace Brushblade.Presentation
             if (go != null) Destroy(go);
         }
 
+        // ---- 掉血残影(chip damage)----
+
+        private const float ChipHold = 0.18f;   // 停在原处不动的时间:让「刚掉了这么多」看得见
+        private const float ChipDrain = 0.34f;  // 之后收回去的时长
+
+        /// <summary>在血条上留一截浅色的尾巴,盖住「刚刚掉掉的那一段」,停一拍再收回去。
+        ///
+        /// 血条本身是**瞬时**按到新值的(SetHpBar 直接改 anchor),掉 3 点和掉 30 点在画面上
+        /// 都只是长度变了一下 —— 玩家读得到数字,却感觉不到分量。这截尾巴把「掉了多少」
+        /// 在条上停成一个看得见的量。
+        ///
+        /// 只占 [to, from] 这一段、画在 Fill 之上:不覆盖剩余血量,也就不用动 Fill 与
+        /// BarPulse 的层级关系(<see cref="BarGlowRoutine"/> 按 sibling index 定位)。</summary>
+        public void ChipDamage(RectTransform fill, float fromFrac, float toFrac)
+        {
+            if (fill == null || fill.parent == null) return;
+            fromFrac = Mathf.Clamp01(fromFrac);
+            toFrac = Mathf.Clamp01(toFrac);
+            if (fromFrac - toFrac < 0.002f) return; // 掉得太少,一条尾巴还没一个像素宽
+
+            var go = new GameObject("Chip", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(fill.parent, false);
+            var image = go.GetComponent<Image>();
+            image.sprite = Theme.Rounded(10);
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = false;
+            StartCoroutine(ChipRoutine((RectTransform)go.transform, image, fromFrac, toFrac));
+        }
+
+        private static IEnumerator ChipRoutine(RectTransform rect, Image image, float from, float to)
+        {
+            var color = Theme.Paper;
+            float t = 0f;
+            while (t < ChipHold + ChipDrain && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                // 停住那一拍整条都在,之后右缘从 from 收到 to —— 收的是「血刚流干」的方向
+                float right = t <= ChipHold ? from
+                    : Mathf.Lerp(from, to, (t - ChipHold) / ChipDrain);
+                Ui.Anchor(rect, new Vector2(to, 0f), new Vector2(right, 1f), Vector2.zero, Vector2.zero);
+                image.color = new Color(color.r, color.g, color.b,
+                    t <= ChipHold ? 0.85f : 0.85f * (1f - (t - ChipHold) / ChipDrain));
+                yield return null;
+            }
+            if (rect != null) UnityEngine.Object.Destroy(rect.gameObject);
+        }
+
         // ---- 伤害飘字 ----
 
         private void Popup(string text, Color color, RectTransform anchor, bool small = false, float sizeScale = 1f)
@@ -789,17 +1161,35 @@ namespace Brushblade.Presentation
             StartCoroutine(FloatAndFade(rect, label));
         }
 
+        // 飘字三段的分界(占总时长的比例):弹出 → 悬停 → 上浮淡出
+        private const float PopupPunch = 0.12f;
+        private const float PopupHold = 0.34f;
+
         private static IEnumerator FloatAndFade(RectTransform rect, Text label)
         {
             float t = 0f;
             const float duration = 0.7f;
+            Color from = label.color;
             while (t < duration && rect != null)
             {
                 t += UnityEngine.Time.unscaledDeltaTime;
-                rect.anchoredPosition += new Vector2(0, 70f * UnityEngine.Time.unscaledDeltaTime);
-                var c = label.color;
-                c.a = 1f - t / duration;
-                label.color = c;
+                float k = t / duration;
+
+                // 弹出:0.4 → 1.15 → 1。匀速淡出的数字看着是「浮上来的」,弹一下才是「打出来的」
+                float scale = k < PopupPunch
+                    ? Mathf.Lerp(0.4f, 1.15f, k / PopupPunch)
+                    : k < PopupHold
+                        ? Mathf.Lerp(1.15f, 1f, (k - PopupPunch) / (PopupHold - PopupPunch))
+                        : 1f;
+                rect.localScale = new Vector3(scale, scale, 1f);
+
+                // 上浮:弹出那一段几乎不动,让数字先站住;悬停之后才加速离场
+                float rise = k < PopupPunch ? 10f : Mathf.Lerp(24f, 120f, Mathf.InverseLerp(PopupPunch, 1f, k));
+                rect.anchoredPosition += new Vector2(0f, rise * UnityEngine.Time.unscaledDeltaTime);
+
+                // 淡出同样推后:前半段全不透明,数字才读得清
+                from.a = k < PopupHold ? 1f : 1f - (k - PopupHold) / (1f - PopupHold);
+                label.color = from;
                 yield return null;
             }
             if (rect != null)
