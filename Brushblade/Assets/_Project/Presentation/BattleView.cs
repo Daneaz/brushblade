@@ -15,7 +15,9 @@ namespace Brushblade.Presentation
         // ===== 稿上的骨架尺寸(docs/design/ui/scenes/Battle.dc.html)=====
         // 都是**逻辑单位**,由稿子的 pt 换算而来:CanvasScaler 1600×900 按高匹配,
         // iPhone 16 Pro Max 932×430pt → 实际画布 1950×900,1pt = 2.093 逻辑单位。
-        // 根节点已在 SafeAreaFitter 之内(GameRoot.NewView),所以 0/1 边界就是稿上的 .safe 框。
+        // SafeAreaFitter(GameRoot.NewView)在真机上会让出刘海;编辑器 16:9 下它是空操作,
+        // 所以 Frame 自己按 SafeArea.MissingInset() 补齐差额 —— 0/1 边界落在稿上的 .safe 框,
+        // 不是靠根节点白得的(见 BuildSkeleton 里 Frame 那一层)。
         // 改这些数就是改版面 —— 改完要同步改稿,别让两边漂开(scenes/README.md)。
         private const float RailW = 142f;      // 稿 68pt:左窄栏(相克环图 + 配字表)
         private const float BenchW = 276f;     // 稿 132pt:右栏拆合台
@@ -26,6 +28,9 @@ namespace Brushblade.Presentation
         private const float MidGap = 6f;       // 稿 3pt:中区各行之间
         private const float FieldGap = 4f;     // 稿 2pt:战场四排之间
         private const float DividerH = 2f;     // 稿 1pt:敌我分隔线
+        private const float RailGap = 10f;     // 稿 .rail gap 5pt:左栏内部各元素间距
+        private const float BenchGap = 10f;    // 稿 .bench gap 5pt:拆合台内部间距
+        private const float BenchPad = 15f;    // 稿 .bench padding 7pt:拆合台内边距
         // 字库带的高度。稿上 .hand 是被字牌(56pt)撑出来的,但这里它是**叠放层**的槽
         // (见 _centerRow),两个消费方谁也撑不出另一个要的高度,只能给死一个数。
         // 非战斗阶段那一路最高的一件是奇遇选项钮 72,这个数也装得下。
@@ -671,8 +676,14 @@ namespace Brushblade.Presentation
 
             // 版面主干挂在这一层,**不挂根节点**:弹窗、过关横幅、飘字、上面那块 Backdrop
             // 全都挂根节点铺满整屏,根节点一旦有布局组就会把它们一件件排成行。
+            //
+            // 这一层同时是稿 .safe 的落点(与 MapView 的 content 对应):左右各内缩 59pt、
+            // 底部内缩 21pt。SideInset/BottomInset 已由 SafeAreaFitter 在真机上让出大半,
+            // MissingInset() 只补差额 —— 编辑器/无刘海机上差额就是全部,真机上接近 0。
             var frame = Ui.VStack(transform, "Frame", 0);
-            Ui.Stretch((RectTransform)frame.transform);
+            var (padSide, padBottom) = SafeArea.MissingInset();
+            Ui.Anchor((RectTransform)frame.transform, Vector2.zero, Vector2.one,
+                new Vector2(padSide, padBottom), new Vector2(-padSide, 0));
             var frameLayout = frame.GetComponent<VerticalLayoutGroup>();
             frameLayout.childForceExpandWidth = true;   // 顶栏与三栏都通栏
             frameLayout.childAlignment = TextAnchor.UpperCenter;
@@ -704,7 +715,7 @@ namespace Brushblade.Presentation
             Sized(arena, flexHeight: 1f);
 
             // ---- 左窄栏(稿 .rail) ----
-            var rail = Ui.VStack(arena.transform, "Rail", 10);
+            var rail = Ui.VStack(arena.transform, "Rail", RailGap);
             rail.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
             // minWidth 与 preferredWidth 同值 = 稿的 flex: none。只写 preferredWidth 不够:
             // 中区内容一旦宽过余量,布局组会把**所有**子物体按 min…preferred 等比压回去,
@@ -743,6 +754,16 @@ namespace Brushblade.Presentation
             // 真正实现「四排不互相挤」的是这一条:布局组的 childForceExpand 会把每个子物体的
             // flexible 强抬到 1,那样四排会各分一份富余,分隔线两侧的 Spacer 也就白设了。
             fieldLayout.childForceExpandHeight = false;
+            // Field 是 Mid 里**唯一** flexibleHeight = 1 的行 —— 换成布局组之后,任何一行
+            // 内容变高,扣的都是 Field 的份额,不再是各区各自写死的比例。两个已知会跳的场景:
+            //   ① 教程提示出现时,_statusRow 多塞一个 26 号 Label(约高 31),战场就少 31;
+            //   ② 部件池空↔非空(高度 0 ↔ 约 56)会让分隔线、敌我间距跟着跳一下。
+            // 换布局组之前这两件事都不可能发生(每一区都是写死的 y 比例)——不是本次改动的
+            // 错误,是切换布局方式的必然结果,只是过去没人把这笔账记下来。
+            //
+            // 当前纵向预算口径(供改行高前先算一遍):Field 的高 = Mid 减去 PlayerBar(84)/
+            // Band(117)/ Pool / Status,后两者由内容撑。四排内容目前合计约 524,余量薄,
+            // 改任何一行的高度都要重新过一遍这笔账,别凭感觉调。
             Sized(field, flexHeight: 1f);
 
             // 四排(2026-08-20):敌方后排 / 敌方前排 / 我方前排 / 我方后排。
@@ -755,17 +776,19 @@ namespace Brushblade.Presentation
             // 富余越多,敌我离得越开。
             Sized(Ui.Panel(field.transform, "SpacerTop"), flexHeight: 1f);
             // 敌我前排之间的分隔线:两侧「前排」贴着它,越远离它的排越靠后。
-            // 线只占 86% 宽(稿 .divider),所以外面套一个通栏的槽,线在槽里按比例居中 ——
+            // 线只占 74% 宽(稿 .divider 定义了两次,86% 那份被 74%/.3 那份用同特异度、
+            // 排在后面的规则覆盖,浏览器实际渲染的是 74%/.3 —— 稿已去重,详见 scenes/README.md
+            // 或 Battle.dc.html 的 .divider 规则),所以外面套一个通栏的槽,线在槽里按比例居中 ——
             // 槽是布局组排的那一件,线是槽里锚出来的,SetActive 仍然切在线本身上。
             var dividerSlot = Ui.Panel(field.transform, "DividerSlot");
             Sized(dividerSlot, height: DividerH, flexWidth: 1f);
             _rowDivider = Ui.Panel(dividerSlot.transform, "RowDivider");
             var dividerImage = _rowDivider.AddComponent<Image>();
-            dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.35f);
+            dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.3f);
             // raycastTarget = false —— 它只是一条线,不能拦掉空白点击(那是取消选中用的)
             dividerImage.raycastTarget = false;
             Ui.Anchor((RectTransform)_rowDivider.transform,
-                new Vector2(0.07f, 0f), new Vector2(0.93f, 1f), Vector2.zero, Vector2.zero);
+                new Vector2(0.13f, 0f), new Vector2(0.87f, 1f), Vector2.zero, Vector2.zero);
             Sized(Ui.Panel(field.transform, "SpacerBottom"), flexHeight: 1f);
 
             _summonFrontRow = MakeFieldRow(field.transform, "SummonsFront");
@@ -800,9 +823,12 @@ namespace Brushblade.Presentation
             // 薄宣纸卡(半透,融层段染色);2026-08-20 从底部横卡改为右侧竖栏。
             var workbenchCard = Ui.CardPanel(arena.transform, "Workbench", Theme.PaperCard, 20);
             Sized(workbenchCard.gameObject, width: BenchW).minWidth = BenchW;
-            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", 8);
+            var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", BenchGap);
             Ui.Stretch((RectTransform)workbenchStack.transform);
-            workbenchStack.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
+            var workbenchLayout = workbenchStack.GetComponent<VerticalLayoutGroup>();
+            workbenchLayout.childForceExpandWidth = true;
+            // 稿 .bench { padding: 7px } —— 内容原先直接贴着卡片边,这里补上内边距。
+            workbenchLayout.padding = new RectOffset((int)BenchPad, (int)BenchPad, (int)BenchPad, (int)BenchPad);
             Ui.ThemedLabel(workbenchStack.transform, Strings.T("battle.label.workbench_title"), 13, Theme.TextDim, Theme.TitleFont);
             // 选中详情 + 可合成列表:吃掉栏里的余量,把下面两行压在栏底(稿 .craft { flex: 1 })
             var suggestGo = Ui.VStack(workbenchStack.transform, "Content", 6);
@@ -826,7 +852,14 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>给节点挂一个 <see cref="LayoutElement"/>。宽/高传负数 = 这一维不指定,
-        /// 由布局组按内容算(LayoutUtility 会跳过负值,轮到优先级更低的布局组自己报数)。</summary>
+        /// 由布局组按内容算(LayoutUtility 会跳过负值,轮到优先级更低的布局组自己报数)。
+        ///
+        /// ⚠ flexWidth/flexHeight 默认是 0f,不是 -1f —— 这两个默认值**不对称**是故意的:
+        /// 0 是显式压制,不是「不指定」。rail 因为父级 HorizontalLayoutGroup 开了
+        /// childForceExpandWidth,本来会被强抬出 flexibleWidth = 1;是这个 priority 1、
+        /// 值为 0 的 LayoutElement 把它压下去,142 定宽才守得住。如果哪天为了跟 width/height
+        /// 「统一」把默认值改成 -1f,rail 会立刻开始跟着中区一起伸缩 —— 这个坑编译不报错,
+        /// 也没有任何测试盖得住,只能全屏逐栏眼看着比对。</summary>
         private static LayoutElement Sized(GameObject go,
             float width = -1f, float height = -1f, float flexWidth = 0f, float flexHeight = 0f)
         {
@@ -1041,8 +1074,10 @@ namespace Brushblade.Presentation
             if (_run.Phase != RunPhase.Reward && _run.Phase != RunPhase.Reviving && _rewardModal != null)
                 Destroy(_rewardModal); // 离开战利品/复活阶段:弹窗不能留在战斗界面上
 
-            // 分隔线是 transform 的直接子节点、不参与上面的 Ui.Clear(它不该每帧重建),
-            // 所以要在这里显式收起:战利品/复活/奇遇/部件超限/跑图结束这些阶段四排全空,
+            // 分隔线现在挂在 Frame/Arena/Mid/Field/DividerSlot/RowDivider 这条路径下
+            // (骨架换布局组之后不再是 transform 的直接子节点了),但不参与上面的 Ui.Clear
+            // 这条结论没变(它不该每帧重建),所以要在这里显式收起:战利品/复活/奇遇/
+            // 部件超限/跑图结束这些阶段四排全空,
             // 留着它就是一条孤零零横在标题下方的墨线(2026-08-20 修回)。
             _rowDivider.SetActive(_run.Phase == RunPhase.InBattle);
 

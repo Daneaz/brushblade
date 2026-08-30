@@ -26,8 +26,6 @@ namespace Brushblade.Presentation
         // 16 Pro Max 上 736u → 785u。
         private const float HeroW = 392f;      // 角色栏 187pt(稿 214pt)
         private const float ChestW = 486f;     // 宝箱栏 232pt(稿原 228pt)
-        private const float SideInset = 123f;  // 稿上 .safe 左右各 59pt
-        private const float BottomInset = 44f; // 稿上 .safe 下 21pt(Home Indicator)
         // 箱位里的立绘 40pt(2026-08-30 接立绘:原先是 33×25pt 的色块,方图塞进 4:3 会压扁)
         private const float ChestArtSize = 84f;
         private const float ResultArtSize = 201f;  // 开箱结果面板左栏 96pt
@@ -112,7 +110,7 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)transform);
 
             // 稿上 .safe 的内缩;弹窗仍挂在 transform 上,铺满整屏
-            var (padSide, padBottom) = MissingInset();
+            var (padSide, padBottom) = SafeArea.MissingInset();
             var content = Ui.Panel(transform, "Content");
             Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
                 new Vector2(padSide, padBottom), new Vector2(-padSide, 0));
@@ -133,22 +131,6 @@ namespace Brushblade.Presentation
             BuildChestPanel(body.transform);
 
             BuildNavBar(frame);
-        }
-
-        /// <summary>稿上 .safe 的内缩里,**设备安全区还没给够的那一部分**。
-        ///
-        /// 根节点已在 <see cref="SafeAreaFitter"/> 之内:真机横屏的 59pt 边和 21pt Home Indicator
-        /// 已经让出来了,这里再叠一次就会缩两回。但编辑器与无刘海机上 <c>Screen.safeArea</c> = 整屏,
-        /// 不补的话内容直接贴着屏幕边 —— 所以按差额补,两边都对得上稿。
-        ///
-        /// 左右取两侧的较小值:横屏左右旋转时刘海会换边,取 min 才不会随旋转跳动。</summary>
-        private static (float side, float bottom) MissingInset()
-        {
-            float scale = Screen.height / 900f; // CanvasScaler referenceResolution 1600×900,match = 1(按高)
-            if (scale <= 0f) return (SideInset, BottomInset);
-            var safe = Screen.safeArea;
-            float given = Mathf.Min(safe.xMin, Screen.width - safe.xMax) / scale;
-            return (Mathf.Max(0f, SideInset - given), Mathf.Max(0f, BottomInset - safe.yMin / scale));
         }
 
         // ---- 顶栏 ----

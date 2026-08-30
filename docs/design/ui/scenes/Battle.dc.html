@@ -112,8 +112,8 @@
       align-items: center; justify-content: flex-start; gap: 2px; }
     /* 敌我分界:auto margin 把 field 剩下的纵向全部堆到这一道的上下,
        两侧各留一半 —— 富余越多,敌我离得越开。 */
-    .divider { position: relative; margin: auto 0; width: 86%; height: 1px;
-      background: rgba(61,78,105,.26); }
+    .divider { position: relative; margin: auto 0; width: 74%; height: 1px;
+      background: rgba(61,78,105,.3); }
     .divider::after { content: "◈"; position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%); font-size: 7px; color: rgba(61,78,105,.5);
       background: #EFE8DA; padding: 0 5px; line-height: 1; }
@@ -185,8 +185,6 @@
     .foeslot { border-radius: 9px; border: 1px dashed #C6BCA8; opacity: .45; }
     .foeslot.front { width: 140px; height: 66px; }
     .foeslot.rear { width: 140px; height: 52px; }
-
-    .divider { width: 74%; height: 1px; background: rgba(61,78,105,.3); }
 
     /* 我方格同样横排。召唤物之前挤在 34/28 的小方块里,横排后立绘反而放大到 48/40。 */
     .ally { display: flex; align-items: center; gap: 5px; padding: 3px;
