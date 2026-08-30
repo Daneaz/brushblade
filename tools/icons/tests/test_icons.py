@@ -20,6 +20,16 @@ EXPECTED = {
     # 主界面底部导航 4(2026-08-28):不是 spec §5.1 的战斗状态图标,是 Home.dc.html
     # 四枚页签的线性图标。共用同一条 SVG→PNG 管线与 Icons.Get,故也归这张表管。
     "nav_deck", "nav_bestiary", "nav_perks", "nav_shop",
+    # 战斗稿 Battle.dc.html 的 icdefs 补齐到 29 枚(2026-08-30)。前 18 枚已有,这 11 枚新增:
+    # 状态类 —— 破甲 / 流血
+    "armorbreak", "bleed",
+    # 敌人天生能力 —— 焦痕 / 灯花 / 叠字分裂 / 生僻(属性隐藏) / 反伤
+    "scorch", "sear", "split", "obscure", "thorns",
+    # 攻击模式 —— 远程 / 死盯玩家 / 横扫 / 贯穿
+    "ranged", "focus", "sweep", "skewer",
+    # 第 30 枚(2026-08-30):持续治疗。StatusGlossary.dc.html 自己记着「29 枚里缺这一枚,
+    # 落地要补第 30 枚」—— 稿上没有它的 SVG,这一枚是**新画的**,已回填进稿。
+    "heal",
 }
 
 

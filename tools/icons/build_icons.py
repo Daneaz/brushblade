@@ -134,6 +134,68 @@ ICONS = {
         f'<path d="M8.5 8 V6 a3.5 3.5 0 0 1 7 0 v2"/>'
         f'</g>'
     ),
+
+    # ---- 战斗稿补齐 11(2026-08-30)----
+    # 逐字抄自 docs/design/ui/scenes/Battle.dc.html 的 <svg class="icdefs">,
+    # 每枚是一个 <symbol id="ic-KEY">;坐标一个字不改 —— 与 nav_* 同一条戒律。
+    # 状态类 —— 破甲 / 流血
+    "armorbreak": (
+        f'<path {STROKE} d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/>'
+        f'<path {STROKE} d="M37 17l-10 15h11l-10 15"/>'
+    ),
+    "bleed": (
+        f'<path {FILL} d="M31 6c8 12 13 19 13 25a13 13 0 0 1-26 0c0-6 5-13 13-25z"/>'
+        f'<circle cx="15" cy="49" r="5" {FILL}/>'
+        f'<circle cx="47" cy="52" r="4" {FILL}/>'
+    ),
+    # 敌人天生能力 —— 焦痕 / 灯花 / 叠字分裂 / 生僻(属性隐藏) / 反伤
+    "scorch": (
+        f'<path {FILL} d="M26 6c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/>'
+        f'<path {STROKE} d="M52 52V24M44 32l8-8 8 8"/>'
+    ),
+    # stroke-width 是稿上的 5,不是 6,不塞进 {STROKE}
+    "sear": (
+        f'<path {FILL} d="M32 5c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/>'
+        f'<path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M9 51c5-6 10 6 15 0s10 6 16 0 8 4 15 0"/>'
+    ),
+    "split": (
+        f'<path {FILL} d="M27 6a26 26 0 0 0 0 52z"/>'
+        f'<path {FILL} d="M37 6a26 26 0 0 1 0 52z"/>'
+    ),
+    "obscure": (
+        f'<path {STROKE} d="M13 12h38v40H13z"/>'
+        f'<path {FILL} d="M13 33c8-6 13 6 21 0s8 4 17 0v19H13z"/>'
+    ),
+    "thorns": (
+        f'<circle cx="32" cy="32" r="11" {STROKE}/>'
+        f'<path {STROKE} d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/>'
+    ),
+    # 攻击模式 —— 远程 / 死盯玩家 / 横扫 / 贯穿
+    "ranged": (
+        f'<path {STROKE} d="M15 10c13 8 13 36 0 44"/>'
+        f'<path {STROKE} d="M15 32h33M39 22l10 10-10 10"/>'
+    ),
+    "focus": (
+        f'<circle cx="32" cy="32" r="17" {STROKE}/>'
+        f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'
+    ),
+    "sweep": (
+        f'<path {STROKE} d="M53 11C28 11 11 28 11 53"/>'
+        f'<path {STROKE} d="M53 27C37 27 27 37 27 53"/>'
+    ),
+    # 圆圈 stroke-width 是稿上的 4,不是 6,不塞进 {STROKE}
+    "skewer": (
+        f'<path {STROKE} d="M6 32h44M40 22l10 10-10 10"/>'
+        f'<circle cx="19" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/>'
+        f'<circle cx="35" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/>'
+    ),
+
+    # 持续治疗(2026-08-30 新画,第 30 枚):十字 + 向上的小箭头 = 每回合回一点。
+    # StatusGlossary.dc.html 记着「29 枚里缺这一枚」,本枚已回填进那一页与 Battle.dc.html 的 icdefs。
+    # 与 defense(实心盾)、immunity(盾+对勾)刻意都不像 —— 那两个是「挡」,这个是「回」。
+    "heal": (
+        f'<path {FILL} d="M26 12h12v14h14v12H38v14H26V38H12V26h14z"/>'
+    ),
 }
 
 

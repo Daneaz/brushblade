@@ -52,6 +52,20 @@ namespace Brushblade.Presentation
             { "nav_bestiary", "册" },
             { "nav_perks", "术" },
             { "nav_shop", "市" },
+            // 战斗稿补齐的 11 枚(2026-08-30)
+            { "armorbreak", "破" },
+            { "bleed", "血" },
+            { "scorch", "烫" },
+            { "sear", "燎" },
+            { "split", "裂" },
+            { "obscure", "隐" },
+            { "thorns", "刺" },
+            { "ranged", "远" },
+            { "focus", "盯" },
+            { "sweep", "扫" },
+            { "skewer", "贯" },
+            // 第 30 枚(2026-08-30):持续治疗
+            { "heal", "愈" },
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new();
