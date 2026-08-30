@@ -226,8 +226,20 @@ namespace Brushblade.Core
         /// 暴击是那一记伤害的**属性**,就该长在那条事件上。</summary>
         public bool Crit { get; }
 
+        /// <summary>这一记是不是吃到了**相克 ×1.5**(2026-08-30);不相克 / 被克(0.5x)/ 心系中立一律 false。
+        ///
+        /// 理由与 <see cref="Crit"/> 同构,而且更迫切:数值上相克 ×1.5 与暴击 ×1.5 长得一模一样,
+        /// 暴击有「暴」字 + 放大档专门表达,相克却什么都没有 —— 玩家读不出自己有没有打对属性,
+        /// 而这是本作的核心机制。相克还顺带无视守方全部护甲(wuxing-reference.md「相克即破甲」),
+        /// 实际收益比 1.5 更大,更该看得见。
+        ///
+        /// 同样**不新增 BattleEventKind**:相克是那一记伤害的属性,单独发事件会逼表现层做事件配对。
+        /// 只标相克不标相生 —— 相生 ×3 由配方静态决定(「他生我」),同一张牌打谁都一样,属于牌面信息;
+        /// 相克取决于打的是谁,只有结算当下才知道。</summary>
+        public bool Ke { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
-            int absorbed = 0, bool crit = false)
+            int absorbed = 0, bool crit = false, bool ke = false)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -235,6 +247,7 @@ namespace Brushblade.Core
             SecondIndex = secondIndex;
             Absorbed = absorbed;
             Crit = crit;
+            Ke = ke;
         }
     }
 
@@ -2330,6 +2343,8 @@ namespace Brushblade.Core
             // 出牌时冻结的量,它是 _burnPerStack 这个全局标量。层数(Magnitude)不吃攻击力。
             // 不复用 ScaleByAttack:那是整数除(早截断),这里要插进既有的浮点式子里晚截断,
             // 才能在基准值下保住逐字节恒等
+            // 相克标记与倍率同源:算式里本来就乘了这个倍率,>1 即相克(2026-08-30)
+            bool burnKe = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element) > 1f;
             int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
@@ -2343,7 +2358,7 @@ namespace Brushblade.Core
                 burn.Magnitude -= 1;
                 if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
             }
-            _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick));
+            _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick, ke: burnKe));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2389,12 +2404,13 @@ namespace Brushblade.Core
             int stacks = burn.Magnitude;
             // 与 SettleBurnOn 同口径吃攻击力:引爆是把剩余层数一次性兑现,
             // 每层伤害用的是同一个量,不能只有一边吃
+            bool detonateKe = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element) > 1f;
             int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * _burnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
-            _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage));
+            _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2751,7 +2767,9 @@ namespace Brushblade.Core
             if (!bypassDefense && !counters)
                 damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce, attackerBag));
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
-            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit));
+            // counters 在上面为「相克即破甲」算过了,直接复用:相克标记与破甲判据是同一件事,
+            // 分头再算一次就有走岔的余地(表现层说相克、结算却吃了护甲)
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit, ke: counters));
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发

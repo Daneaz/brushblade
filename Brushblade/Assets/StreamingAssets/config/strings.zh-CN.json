@@ -342,6 +342,8 @@
   "juice.popup.enemy_revealed": "现形!",
   "juice.popup.enemy_split": "分裂!",
   "juice.popup.immune": "免",
+  "juice.popup.ke_crit_damage": "暴克 {amount}",
+  "juice.popup.ke_damage": "克 {amount}",
   "juice.popup.kill_mark": "正!",
   "juice.popup.miss": "空",
   "juice.popup.regrow_full": "补全!",

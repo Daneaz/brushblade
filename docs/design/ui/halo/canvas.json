@@ -1,0 +1,10 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1320, "h": 700, "title": "方案对比" },
+    { "file": "HaloSpec.dc.html", "x": 1420, "y": 0, "w": 1020, "h": 700, "title": "墨晕规格" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -150, "w": 420, "text": "问题:新到手的牌那圈光边是 10px 实边,粗且盖住牌面。\n目标:2.4 秒内在一排牌里被认出来,然后安静退场 —— 且在 56 见方的部件牌上也成立。" }
+  ],
+  "launch": { "view": "canvas" }
+}

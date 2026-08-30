@@ -475,16 +475,31 @@ namespace Brushblade.Presentation
             return row;
         }
 
-        /// <summary>玩家余额计数器 = <see cref="IngotLabel"/> + 增减飘字(2026-08-29)。
+        /// <summary>墨锭图标 + 数字,并把那枚数字交出来 —— 调用方要拿它做动效。
+        /// <see cref="IngotLabel"/> 只返回整行,而翻牌动效要转的是数字自己(转整行会把
+        /// 图标一起卷进去,看着像整块牌在抖)。</summary>
+        private static Text IngotLabelText(Transform parent, string text, int fontSize)
+        {
+            var row = Row(parent, "Ingot", 6);
+            var icon = Panel(row.transform, "Icon");
+            var image = icon.AddComponent<Image>();
+            image.sprite = Theme.Ingot;
+            image.color = Theme.IngotDark;
+            var iconElement = icon.AddComponent<LayoutElement>();
+            iconElement.preferredWidth = fontSize * 1.4f;
+            iconElement.preferredHeight = fontSize * 0.85f;
+            return ThemedLabel(row.transform, text, fontSize, Theme.TextMain);
+        }
+
+        /// <summary>玩家余额计数器 = 墨锭 + 数字 + 增减翻牌动效(2026-08-29;08-30 由飘字改翻牌)。
         /// 外层五个页签的顶栏与局内右上都走它(2026-08-30:半额取消后塔内预算与账户同源)。
         /// <b>只传余额</b> —— 结算面板上的「这趟挣了 N」、安全层累计、商品价签仍走 IngotLabel,
-        /// 那些数字不是同一个账本,混进来会让飘字报出凭空的增减(InkPulse 的注释)。</summary>
+        /// 那些数字不是同一个账本,混进来会翻出凭空的增减(InkPulse 的注释)。</summary>
         public static GameObject InkCounter(Transform parent, int ink, int fontSize = 20)
         {
-            var row = IngotLabel(parent, ink.ToString(), fontSize);
-            // 字号传下去:飘字按顶栏字号等比放大(局内 18 与主界面 25 的顶栏,飘字也该差这么多)
-            InkPulse.Observe((RectTransform)row.transform, ink, fontSize);
-            return row;
+            var label = IngotLabelText(parent, ink.ToString(), fontSize);
+            InkPulse.Observe(label, ink);
+            return label.transform.parent.gameObject;
         }
 
         /// <summary>字牌(设计板字库卡):稀有度框 + 属性色宋体大字 + 拼音;选中态墨色描环。
