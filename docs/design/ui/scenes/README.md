@@ -246,6 +246,12 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 - **牌网格**：≤12 张走 6 列、>12 张走 8 列，牌 174×218 / 126×158 逻辑单位。这两个尺寸是
   **上限不是定值**——格子在行里可被压窄，比 16:9 更方的屏上牌一起变小而不是溢出。
   牌与牌脚同缩靠的是格内 VStack 的 `childForceExpandWidth`。
+  ⚠ 但那个开关会让格子**向外**也报出弹性宽（uGUI 的 `GetChildSizes` 里
+  `if (childForceExpand) flexible = Mathf.Max(flexible, 1)`），行里多出来的宽就全分给了格子——
+  12 张时余量小看不出来，**3 张（素纸匣）时三格瓜分整条右栏**，牌被拉成横条。
+  所以格上必须再钉一个 `LayoutElement`：`preferredWidth = 牌宽`、`flexibleWidth = 0`
+  （`layoutPriority` 1 压过布局组的 0），`minWidth` 故意不设，留着窄屏仍能整排压窄。
+  少于一行的箱（素纸 3 / 竹简 4 / 青瓷 6）是这条的常驻用例，改这块要拿 3 张回归。
 - **牌脚三态**：新字实心胭脂底（`ExitPink` = 稿上的 `#7A3F5C`）／重复字未凑满走
   `PaperDim` 中性底、凑满转 `AdGreenBg` 翠玉底／满级走 `GoldSoft`。此前新卡与重复卡
   只差颜色（`ExitPink` vs `AdGreenBg`），一眼扫过去分不出。

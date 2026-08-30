@@ -805,6 +805,16 @@ namespace Brushblade.Presentation
                 var cell = Ui.VStack(row, $"Reward_{cardId}_{i}", 6);
                 // 牌与牌脚一起吃格宽:格被压窄时两者同缩,牌脚才不会比牌宽出去
                 cell.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
+                // ⚠ 上面那行会让格子**向外**也报出弹性宽:uGUI 的 GetChildSizes 里
+                // `if (childForceExpand) flexible = Mathf.Max(flexible, 1)`,于是格子的
+                // VerticalLayoutGroup 对外 flexibleWidth = 1,行里多出来的宽全分给了它们。
+                // 12 张时余量小看不出来,3 张(素纸匣)时三格瓜分整条右栏 —— 牌被拉成
+                // 宽高比 1.7 的横条(2026-08-30 试玩发现)。这里钉死:preferred = 牌宽、
+                // flexible = 0(LayoutElement 的 layoutPriority 1 压过布局组的 0)。
+                // minWidth 故意不设 —— 留着 0,窄屏上仍可整排一起压窄。
+                var cellElement = cell.AddComponent<LayoutElement>();
+                cellElement.preferredWidth = cardSize.x;
+                cellElement.flexibleWidth = 0;
                 // 点卡看详情(2026-08-17):与商城/收集同款 CharPreview,弹在结果面板之上
                 Ui.GlyphTile(cell.transform, def, false, () => ShowRewardPreview(cardId), cardSize);
                 ResultFoot(cell.transform, cardId, def, isNew, cardSize.x);
