@@ -2799,11 +2799,20 @@ namespace Brushblade.Core
             bool counters = WuxingResolver.KeMultiplier(attacker, enemy.Element) > 1f;
             if (!bypassDefense && !counters)
                 damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce, attackerBag));
-            enemy.Hp = Math.Max(0, enemy.Hp - damage);
             // counters 在上面为「相克即破甲」算过了,直接复用:相克标记与破甲判据是同一件事,
             // 分头再算一次就有走岔的余地(表现层说相克、结算却吃了护甲)
-            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit,
-                ke: counters, attacker: attacker));
+            // 护盾吸收(2026-08-30):护甲减法之后、扣血之前。
+            // **相克不穿盾**(用户拍板):相克已经在上面绕过了护甲(硬度),
+            // 盾是一层临时血,照常要打空 —— 连盾一起穿会让护盾对带对属性的玩家形同虚设。
+            int absorbed = Math.Min(enemy.Shield, damage);
+            enemy.Shield -= absorbed;
+            enemy.Hp = Math.Max(0, enemy.Hp - (damage - absorbed));
+            // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
+            // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
+            // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「倾覆清空玩家护盾」
+            // (TargetIndex = −1),语义不同,挪用会让表现层分不清是谁的盾没了。
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage,
+                absorbed: absorbed, crit: crit, ke: counters, attacker: attacker));
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发

@@ -277,6 +277,18 @@ namespace Brushblade.Core
         /// Bleed/Freeze/SpeedModifier 用 TurnsLeft 正常回合递减。</summary>
         public StatusBag Statuses { get; } = new();
 
+        /// <summary>敌人护盾(2026-08-30):一次性额外血条,在护甲减法**之后**、扣血**之前**吸收;
+        /// 吸完即无、不刷新、不随回合清空。与 <see cref="SummonState.Shield"/> 同型。
+        ///
+        /// ⚠ **眼下没有来源**(用户 2026-08-30 拍板):enemies.json 不配、也没有结盾技能。
+        /// 将来的来源是「加盾辅助怪给同伴挂 buff」。所以真机上它恒为 0,
+        /// 吸收逻辑只有 EnemyShieldTests 看得见 —— 改这一块别指望试玩能发现问题。
+        ///
+        /// **进快照**:与 <see cref="Hp"/> 同类,是战中可变状态。这一条与
+        /// <see cref="Defense"/> 那条「零新增快照字段」的推理不冲突 ——
+        /// 那条说的是**不可变**的基础属性做成计算属性,而护盾是会被打掉的。</summary>
+        public int Shield { get; internal set; }
+
         /// <summary>基础速度(2026-08-04)。有效速度 = Speed + 所有 SpeedModifier 之和,下限 0。
         /// 基数用本字段而非常量 100:将来若有天生快/慢的字怪,写死 100 会让它们的修正算错。</summary>
         public int Speed { get; set; } = 100;
@@ -392,6 +404,7 @@ namespace Brushblade.Core
                 MaxHp = MaxHp,
                 Element = Element,
                 ApparentElement = ApparentElement,
+                Shield = Shield,
                 Statuses = statuses,
                 ActionMeter = ActionMeter,
                 BaseAttack = BaseAttack,
@@ -418,6 +431,7 @@ namespace Brushblade.Core
                 MaxHp = snapshot.MaxHp,
                 Element = snapshot.Element,
                 ApparentElement = snapshot.ApparentElement,
+                Shield = snapshot.Shield,
                 ActionMeter = snapshot.ActionMeter,
                 BaseAttack = snapshot.BaseAttack,
                 PhaseIndex = snapshot.PhaseIndex,
