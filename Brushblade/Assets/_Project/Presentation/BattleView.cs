@@ -1112,6 +1112,11 @@ namespace Brushblade.Presentation
         private void DrawTutorialHint()
         {
             if (_tutorial == null || _tutorial.Done) return;
+            // 奇遇页不挂教程提示(2026-08-30 改序的连带):先奇遇后选字之后,首层打赢有四成概率
+            // (enemies.json 的 eventChance = 40)先弹奇遇 —— 而教程此刻等的是「选一张字」,
+            // 提示挂在奇遇页上就成了指着 A 说 B。教程是**动作**驱动的,这一步不会因为少画一次
+            // 就丢:走完奇遇进选字,它照样在那儿等
+            if (_run.Phase == RunPhase.Event || _run.Phase == RunPhase.EventOverflow) return;
             var hint = Ui.Label(_statusRow, "◆ " + TutorialText(_tutorial.Step), 26);
             hint.color = Theme.GoldBorder;
             hint.transform.SetAsFirstSibling();
