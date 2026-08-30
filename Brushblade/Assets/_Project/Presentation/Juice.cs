@@ -314,13 +314,26 @@ namespace Brushblade.Presentation
                         Lunge(enemyAnchor(e.TargetIndex));
                         // 敌方那一记同样按**攻击者**的五行上色(2026-08-30):这两类事件的 TargetIndex
                         // 就是攻击者下标,属性顺着它查得到,所以 Core 侧刻意没给它们加 Attacker 字段。
-                        // 查不到(伪装怪未现形)时回落中性色 —— 玩家本来就还不知道它是什么属性
-                        Popup($"-{e.Amount}", Theme.GlyphColor(enemyElement?.Invoke(e.TargetIndex)), tank);
-                        HitReact(tank);
-                        PlayClip(_thudClip, 0.7f);
-                        HitStop(HitStopLight);
+                        // 查不到(伪装怪未现形)时回落中性色 —— 玩家本来就还不知道它是什么属性。
+                        //
+                        // 生克(2026-08-31):这一路本来就过五行(DamageSummon 里的 ResolveEffect),
+                        // 表现却一直是平的 —— 玩家看着召唤物被一口咬掉半管血,不知道是属性被压制,
+                        // 还以为那只怪就是这么强。用的是玩家侧那套完全一样的语言:
+                        // 敌人占便宜(e.Ke)镶金边 + 金环炸开,敌人打软(e.Countered)褪色缩字 + 环往里收
+                        var foeElement = Theme.GlyphColor(enemyElement?.Invoke(e.TargetIndex));
+                        if (e.Countered) foeElement = Color.Lerp(foeElement, Theme.Paper, CounteredFade);
+                        Popup(SummonHitText(e), foeElement, tank,
+                            sizeScale: e.Ke ? 1.18f : e.Countered ? 0.78f : 1f,
+                            outline: e.Ke ? Theme.GoldBorder : null);
+                        if (e.Ke) Ring(tank, Theme.GoldBorder);
+                        else if (e.Countered) Ring(tank, Theme.InkSoft, inward: true);
+                        HitReact(tank, e.Countered ? 0.45f : 1f);
+                        PlayClip(e.Countered ? _hitClip : _thudClip, e.Countered ? 0.55f : 0.7f,
+                            e.Countered ? CounteredPitch : 1f);
+                        HitStop(e.Countered ? HitStopCountered : e.Ke ? HitStopBig : HitStopLight);
                         // 方向取反:这一记是敌人从上面撞下来,震屏该往我方那侧走
-                        StartCoroutine(Shake(7f, -AttackDir(enemyAnchor(e.TargetIndex))));
+                        StartCoroutine(Shake(7f * (e.Countered ? 0.45f : e.Ke ? 1.6f : 1f),
+                            -AttackDir(enemyAnchor(e.TargetIndex))));
                         onImpact?.Invoke(e); // 触达才扣召唤血
                         serialPending = true;
                         break;
@@ -680,6 +693,15 @@ namespace Brushblade.Presentation
             if (e.Ke) return Strings.T("juice.popup.ke_damage", ("amount", e.Amount));
             // 被克(2026-08-31):必须有个字说出来。光把数字缩小只会被读成「这记伤害本来就低」,
             // 而玩家要知道的是**为什么**低 —— 属性挑错了,换一张牌就能翻倍
+            if (e.Countered) return Strings.T("juice.popup.countered_damage", ("amount", e.Amount));
+            return $"-{e.Amount}";
+        }
+
+        /// <summary>敌人打召唤物那一记的飘字。与玩家侧 <see cref="DamageText"/> 共用文案,
+        /// 只是这里没有暴击(敌人不暴击)—— 三种组合:平、克、抗。</summary>
+        private static string SummonHitText(BattleEvent e)
+        {
+            if (e.Ke) return Strings.T("juice.popup.ke_damage", ("amount", e.Amount));
             if (e.Countered) return Strings.T("juice.popup.countered_damage", ("amount", e.Amount));
             return $"-{e.Amount}";
         }
