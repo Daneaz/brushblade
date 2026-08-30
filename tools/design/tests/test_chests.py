@@ -87,3 +87,56 @@ def test_unity_resources_have_every_png():
         assert png.exists(), f"缺 {png.name},跑一次 build_chests.py"
         assert png.with_suffix(".png.meta").exists(), (
             f"缺 {png.name}.meta —— GUID 不定下来,换机拉码会重新生成一套")
+
+
+# ---- 箱色与卡色并成一套(2026-08-30 拍板)之后的两道锁 ----
+#
+# 立绘的属性色是**出图时烤进 PNG 的**,而色块兜底走 Theme.ChestColor。两者一旦分家,
+# 同一档箱在「有素材」与「没素材」两条路上是两个颜色 —— 编译不会报,只有肉眼能发现。
+
+THEME = build_chests.ROOT / "Brushblade/Assets/_Project/Presentation/UI/Theme.cs"
+
+# 档位 slug → CardRarity 枚举名(白绿蓝紫金橙红,与 ChestTier 同序)
+TIER_TO_RARITY = {
+    "paper": "White", "bamboo": "Green", "celadon": "Blue", "rosewood": "Purple",
+    "gilded": "Gold", "vermilion": "Orange", "crimson": "Red",
+}
+
+
+def _rarity_colors():
+    """Theme.RarityColor 的七个 (r, g, b) 浮点值,按枚举名索引。"""
+    src = THEME.read_text(encoding="utf-8")
+    start = src.index("public static Color RarityColor")
+    block = src[start:src.index("};", start)]
+    out = {}
+    for name, r, g, b in re.findall(
+            r"CardRarity\.(\w+) => new Color\(([\d.]+)f, ([\d.]+)f, ([\d.]+)f\)", block):
+        out[name] = (float(r), float(g), float(b))
+    # 白走 `_ =>` 兜底那一支,上面的正则匹配不到
+    fallback = re.search(r"_ => new Color\(([\d.]+)f, ([\d.]+)f, ([\d.]+)f\)", block)
+    out["White"] = tuple(float(v) for v in fallback.groups())
+    return out
+
+
+def test_chest_color_delegates_to_rarity_color():
+    """Theme.ChestColor 必须**委托**给 RarityColor,不能再抄一遍数值。
+
+    抄一遍就是两张表,而两张表迟早会分家 —— 2026-08-29 之前正是这个状态。
+    """
+    src = THEME.read_text(encoding="utf-8")
+    assert "public static Color ChestColor(ChestTier tier) => RarityColor(RarityOf(tier));" in src, \
+        "ChestColor 不再委托给 RarityColor 了 —— 箱色与卡色已于 2026-08-30 拍板并成一套"
+
+
+def test_baked_tier_colors_match_theme_rarity_colors():
+    """烤进 PNG 的属性色 = Theme.RarityColor。逐通道容 1 —— C# 那边是浮点,
+    与十六进制不是精确来回(如白档 0.594×255 = 151.47,写作 #..98 = 152)。"""
+    rarity = _rarity_colors()
+    for slug, hex_value in build_chests.TIERS.items():
+        want = rarity[TIER_TO_RARITY[slug]]
+        got = tuple(int(hex_value[i:i + 2], 16) for i in (1, 3, 5))
+        for channel, (g, w) in enumerate(zip(got, want)):
+            assert abs(g - round(w * 255)) <= 1, (
+                f"{slug} 第 {channel} 通道:出图用 {hex_value},"
+                f"而 Theme.RarityColor.{TIER_TO_RARITY[slug]} 是 {want} —— "
+                f"改了 Theme 要同步改 TIERS 并重跑 build_chests.py")

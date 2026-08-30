@@ -28,16 +28,21 @@ SVG_DIR = Path(__file__).parent / "chests/svg"
 CANVAS = 256      # 主界面显示 40pt ≈ 84 逻辑单位,256 留够高 DPI 余量
 VIEWBOX = 120     # 稿上的坐标空间,path 逐字照抄,一个数不改
 
-# 档位 slug ↔ Theme.ChestColor 的实色。顺序 = ChestTier 的 1~7,
+# 档位 slug ↔ 实色。顺序 = ChestTier 的 1~7,
 # C# 侧 ChestAssets.Slugs 必须与它逐个对应(test_chests.py 守着)。
+#
+# 2026-08-30 拍板:箱色与卡色**并成一套** —— 这七个值就是 base.css 的 .r-* 稀有度色
+# (白绿蓝紫金橙红),不再另有一套箱色。并之前只差橙这一档(朱漆 #D4602A → #E1791B)。
+# C# 侧对应地改成 Theme.ChestColor = RarityColor(RarityOf(tier)),两边同源。
+# test_chests.py 逐档比对 base.css,改这里而不改那边会红。
 TIERS = {
-    "paper":     "#A19E98",  # 素纸匣
-    "bamboo":    "#2E9E52",  # 竹简匣
-    "celadon":   "#0F74C4",  # 青瓷匣
-    "rosewood":  "#7945AB",  # 紫檀匣
-    "gilded":    "#C9A94A",  # 鎏金匣
-    "vermilion": "#D4602A",  # 朱漆匣
-    "crimson":   "#CD262E",  # 赤霄匣
+    "paper":     "#A19E98",  # 素纸匣 · 白
+    "bamboo":    "#2E9E52",  # 竹简匣 · 绿
+    "celadon":   "#0F74C4",  # 青瓷匣 · 蓝
+    "rosewood":  "#7945AB",  # 紫檀匣 · 紫
+    "gilded":    "#C9A94A",  # 鎏金匣 · 金
+    "vermilion": "#E1791B",  # 朱漆匣 · 橙
+    "crimson":   "#CD262E",  # 赤霄匣 · 红
 }
 
 # 各档的**盖缝**位置。逐条对着 BODIES 里那条盖沿线量出来的:

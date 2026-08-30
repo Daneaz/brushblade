@@ -83,18 +83,31 @@ namespace Brushblade.Presentation
             _ => new Color(0.632f, 0.62f, 0.594f), // 白
         };
 
-        /// <summary>宝箱配色:按匣子名取色,与卡牌稀有度**各走各的**。
-        /// 曾经是 RarityColor((CardRarity)(int)tier) —— 两个枚举都从 1 起,强转能跑,
-        /// 但卡牌换肤后 Crimson(赤霄匣)拿到橙色、名不副实,故拆出独立一张表。</summary>
-        public static Color ChestColor(ChestTier tier) => tier switch
+        /// <summary>宝箱配色 = **卡牌稀有度色**(2026-08-30 拍板并成一套)。
+        ///
+        /// 曾经是 <c>RarityColor((CardRarity)(int)tier)</c>,后来拆成独立一张表 ——
+        /// 因为那时 <see cref="ChestTier"/> 只有六档,强转让 Crimson(赤霄匣,当时 = 6)
+        /// 拿到橙色、名不副实。2026-08-29 补上朱漆匣之后两个枚举**七档一一对应**
+        /// (<see cref="RarityOf"/>),那个坑不存在了,于是并回一套。
+        ///
+        /// 并之前两张表只差**橙**这一档(朱漆 <c>#D4602A</c> vs 稀有度橙 <c>#E1791B</c>),
+        /// 其余六档本来就逐字节相同。这里不再抄一遍数值 —— 委托过去,并了就永远不会再分家。
+        ///
+        /// ⚠ 宝箱立绘的属性色是**出图时烤进 PNG 的**(<c>tools/design/build_chests.py</c> 的
+        /// TIERS 表),改这里要同步改那边并重跑脚本,否则立绘与色块兜底两套色。</summary>
+        public static Color ChestColor(ChestTier tier) => RarityColor(RarityOf(tier));
+
+        /// <summary>档位 → 同序稀有度(白绿蓝紫金橙红)。显式写出来而不用强转:
+        /// 强转在两个枚举长度再次分家时会静默错位,这张表则会编译不过。</summary>
+        public static CardRarity RarityOf(ChestTier tier) => tier switch
         {
-            ChestTier.Bamboo => new Color(0.181f, 0.621f, 0.323f),   // 竹简匣:竹绿
-            ChestTier.Celadon => new Color(0.06f, 0.455f, 0.771f),   // 青瓷匣:瓷蓝
-            ChestTier.Rosewood => new Color(0.475f, 0.269f, 0.669f), // 紫檀匣:檀紫
-            ChestTier.Gilded => new Color(0.788f, 0.663f, 0.29f),    // 鎏金匣:鎏金 #c9a94a
-            ChestTier.Vermilion => new Color(0.831f, 0.376f, 0.165f), // 朱漆匣:朱漆 #d4602a
-            ChestTier.Crimson => new Color(0.802f, 0.151f, 0.181f),  // 赤霄匣:赤红
-            _ => new Color(0.632f, 0.62f, 0.594f),                   // 素纸匣:纸白
+            ChestTier.Bamboo => CardRarity.Green,     // 竹简匣
+            ChestTier.Celadon => CardRarity.Blue,     // 青瓷匣
+            ChestTier.Rosewood => CardRarity.Purple,  // 紫檀匣
+            ChestTier.Gilded => CardRarity.Gold,      // 鎏金匣
+            ChestTier.Vermilion => CardRarity.Orange, // 朱漆匣
+            ChestTier.Crimson => CardRarity.Red,      // 赤霄匣
+            _ => CardRarity.White,                    // 素纸匣
         };
 
         public static Color ElementColor(Element? element) => element switch

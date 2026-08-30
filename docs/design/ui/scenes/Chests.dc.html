@@ -334,10 +334,10 @@
           <span>广告<b>−90 分</b></span>
         </div>
       </div>
-      <div class="tier" style="--c: #D4602A">
+      <div class="tier" style="--c: #E1791B">
         <svg class="art" viewBox="0 0 120 120"><use href="#chest-vermilion"></use></svg>
         <div class="tn"><i class="dot"></i>朱漆匣</div>
-        <div class="hex">Vermilion · 6 · #D4602A</div>
+        <div class="hex">Vermilion · 6 · #E1791B</div>
         <div class="mat">剔红卷草满盖，铜包角四枚，漆面一道高光带出厚度。</div>
         <div class="num">
           <span>开启<b>10 小时</b></span>
@@ -487,7 +487,7 @@
         </tr>
         <tr>
           <td class="k">朱漆匣</td>
-          <td class="c">#D4602A</td>
+          <td class="c">#E1791B</td>
           <td class="t">剔红卷草 / 满地雕漆 / 铜包角 / 圆角 / 漆光</td>
           <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">carved red lacquer (tihong) box, scrolling-vine relief, brass corner mounts, rounded corners, lacquer sheen</td>
         </tr>
@@ -498,11 +498,14 @@
           <td class="t" style="font-family: ui-monospace, Menlo, monospace; font-size: 9px;">iron reliquary chest, crossed paper talisman seals, cinnabar seal stamp, light escaping the seam, barely contained</td>
         </tr>    </table>
     <div class="note" style="margin-top: 12px;">
-      ⚠ 落地要动的三处：① <b>Theme.ChestColor 的橙档</b>现在是 <code>#D4602A</code>，
-      而 base.css 的稀有度橙是 <code>#E1791B</code>——箱色与卡色是两套值，本页按 Theme 画，
-      要不要并成一套得先拍板。② 现在 <code>MapView.DrawChest</code> 画的是色块 + 首字，
-      换立绘要接一套 <code>ChestAssets</code>（与 <code>MobAssets</code> 同构：前缀表 + 分层 + 缓存）。
-      ③ 首字兜底可以留着——取不到素材时回落到现在这套，与 Icons.cs 的双轨同一个道理。
+      ✓ 落地三处已全部做完（2026-08-30）：① <b>箱色与卡色并成一套</b>——已拍板。
+      两张表本来只差橙这一档（朱漆 <code>#D4602A</code> → 稀有度橙 <code>#E1791B</code>，本页已改），
+      其余六档逐字节相同；C# 侧 <code>Theme.ChestColor</code> 现在直接委托
+      <code>RarityColor(RarityOf(tier))</code>，不再抄一遍数值，永远不会再分家。
+      ② <code>ChestAssets</code> / <code>ChestView</code> 已接（与 <code>MobAssets</code> 同构）。
+      ③ 首字兜底留着了——取不到素材时回落，与 Icons.cs 的双轨同一个道理。<br>
+      ⚠ 属性色是<b>出图时烤进 PNG 的</b>：改这一页的 <code>--c</code> 或 <code>Theme.RarityColor</code>，
+      都要同步 <code>build_chests.py</code> 的 TIERS 并重跑（<code>test_chests.py</code> 逐档比对，改一边会红）。
     </div>
   </div>
 </div>
