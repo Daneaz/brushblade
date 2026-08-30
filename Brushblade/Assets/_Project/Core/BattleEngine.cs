@@ -2590,21 +2590,41 @@ namespace Brushblade.Core
             return alive;
         }
 
-        /// <summary>按每排上限 3 给场上敌人定实际站位与列(2026-08-20 排,2026-08-22 列)。
-        /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排;
-        /// 列号在**落定的那一排**里现算 —— 被改判的那只要从新排的计数起算,
-        /// 沿用原排的计数会撞号。
-        /// 两排都满走不到 —— EnemyCap 8 = 4 + 4,列表长度天然受限。</summary>
+        // 未分配哨兵(2026-08-30):AssignSlots 边分配边查占位,尚未轮到的敌人不能被算成
+        // 「已占默认的 Front/0」。用 −1 而不是布尔标志:Column 本来就是 int,
+        // 而 FreeColumnIn 的区间相交式子对 −1 起点天然不成立(ColumnEnd = -1 + span ≤ 0 ≤ start)。
+        private const int UnassignedColumn = -1;
+
+        /// <summary>按每排容量给场上敌人定实际站位与列(2026-08-20 排,2026-08-22 列,
+        /// 2026-08-30 列区间 + 居中往外)。
+        ///
+        /// 按 _enemies 顺序依次分:先试偏好排,该排**剩余宽度**不够就改判到另一排。
+        /// 判据是宽度不是只数 —— Boss 一只就占满 4 列,按只数算会让小怪叠在它身上。
+        ///
+        /// 列号走 <see cref="Targeting.ColumnOrder"/> 的居中往外序,取第一个能放下
+        /// 连续 <c>ColumnSpan</c> 列的起点。占满整排的(Span = RowCapacity)只有起点 0 放得下。
+        ///
+        /// ⚠ **这里是布局策略的唯一落点。** 将来要加「辅助怪躲进没有前排的后排列」这类判据,
+        /// 加在本方法里,不要架一层策略接口(用户 2026-08-30 拍板:单一实现不做抽象)。</summary>
         private void AssignSlots()
         {
-            int front = 0, back = 0;
+            foreach (var enemy in _enemies) enemy.Column = UnassignedColumn;
             foreach (var enemy in _enemies)
             {
-                bool wantsBack = enemy.Def.Row == EnemyRow.Back;
-                if (wantsBack && back < EnemyRowCap) { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
-                else if (!wantsBack && front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
-                else if (front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
-                else { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
+                var preferred = enemy.Def.Row;
+                var other = preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front;
+                int column = FreeColumnIn(preferred, enemy.Def.ColumnSpan);
+                var row = preferred;
+                if (column < 0)
+                {
+                    row = other;
+                    column = FreeColumnIn(other, enemy.Def.ColumnSpan);
+                }
+                // 两排都放不下:EnemyCap 8 = 4 + 4 且全员 Span 1 时走不到,
+                // 但跨列的怪会让「只数没超上限、宽度却超了」成为可能。落到 −1 就把它
+                // 挤在最后一排的 0 列 —— 画面会叠,但下标与列号仍然自洽,不至于崩。
+                enemy.Row = row;
+                enemy.Column = column < 0 ? 0 : column;
             }
         }
 
@@ -2837,8 +2857,8 @@ namespace Brushblade.Core
             // 母体那排满了就落另一排;两排都满(= 场上 6 只)才不分裂。
             if (enemy.Def.Ability == EnemyAbility.Split && !IsSilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
-                var cloneRow = RowWithSpace(enemy.Row);
-                int cloneColumn = FreeColumnIn(cloneRow);
+                var cloneRow = RowWithSpace(enemy.Row, enemy.Def.ColumnSpan);
+                int cloneColumn = FreeColumnIn(cloneRow, enemy.Def.ColumnSpan);
                 // 找不到空列则不分裂(spec §6.1)。当前理论不可达——RowWithSpace 只会返回
                 // 一排未满的排,同排列号又互不相同,必有空列——但代码得照 spec 说的话讲,
                 // 不能靠"反正走不到"当隐性前提(2026-08-22)。
@@ -2861,27 +2881,38 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>优先返回 preferred 排(未满时),否则另一排。调用方已保证场上未满 EnemyCap,
-        /// 所以必有一排有空位。</summary>
-        private EnemyRow RowWithSpace(EnemyRow preferred)
+        /// <summary>优先返回 preferred 排(**剩余宽度**放得下 span 时),否则另一排。
+        /// 2026-08-30:从数只数改成数宽度 —— 跨列的怪让「只数没满、宽度已满」成为可能。</summary>
+        private EnemyRow RowWithSpace(EnemyRow preferred, int span)
         {
-            int count = 0;
+            int width = 0;
             foreach (var e in _enemies)
-                if (e.Row == preferred) count++;
-            return count < EnemyRowCap ? preferred : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
+                if (e.Row == preferred && e.Column != UnassignedColumn) width += e.ColumnSpan;
+            return width + span <= EnemyRowCap
+                ? preferred
+                : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
         }
 
-        /// <summary>该排里没被占用的最小列号(2026-08-22)。分裂出的克隆用它落位。
-        /// 全占满返回 −1 —— 分裂本就被「场上敌人 < 4」的守卫挡在前面,
-        /// 但守卫在别处,这里仍要能表达「没地方站」而不是撞号叠在别人身上。</summary>
-        private int FreeColumnIn(EnemyRow row)
+        /// <summary>该排里能放下连续 <paramref name="span"/> 列的起始列号,按
+        /// <see cref="Targeting.ColumnOrder"/> 的居中往外序取第一个;放不下返回 −1。
+        ///
+        /// 开场分配与叠字怪分裂共用这一处 —— 两边对「哪里算空」必须是同一个判据,
+        /// 分头写就有走岔的余地。已阵亡的怪**照样占位**(引擎从不移除阵亡敌人),
+        /// 与表现层「尸体占格」一致。</summary>
+        private int FreeColumnIn(EnemyRow row, int span)
         {
-            for (int col = 0; col < EnemyRowCap; col++)
+            foreach (int start in Targeting.ColumnOrder)
             {
-                bool taken = false;
+                if (start + span > EnemyRowCap) continue;
+                bool free = true;
                 foreach (var e in _enemies)
-                    if (e.Row == row && e.Column == col) { taken = true; break; }
-                if (!taken) return col;
+                {
+                    if (e.Row != row) continue;
+                    if (e.Column == UnassignedColumn) continue;
+                    // 区间相交 = 放不下
+                    if (e.Column < start + span && start < e.ColumnEnd) { free = false; break; }
+                }
+                if (free) return start;
             }
             return -1;
         }

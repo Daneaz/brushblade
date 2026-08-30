@@ -285,7 +285,8 @@ namespace Brushblade.Core.Tests
                 (e.Row == EnemyRow.Front ? front : back).Add(e.Column);
 
             Assert.That(front, Is.EquivalentTo(new[] { 0, 1, 2, 3 }), "前排四只各占一列,不重号");
-            Assert.That(back, Is.EquivalentTo(new[] { 0 }));
+            Assert.That(back, Is.EquivalentTo(new[] { 1 }),
+                "2026-08-30 居中往外:单怪落列 1(ColumnOrder{1,2,0,3}的第一个),不再是列 0");
         }
 
         [Test]
@@ -300,7 +301,8 @@ namespace Brushblade.Core.Tests
                 Assert.That(e.Column, Is.InRange(0, Targeting.RowCapacity - 1));
                 if (e.Row == EnemyRow.Back) back.Add(e.Column);
             }
-            Assert.That(back, Is.EquivalentTo(new[] { 0 }), "被改判到后排的那只从后排的 0 号列起算");
+            Assert.That(back, Is.EquivalentTo(new[] { 1 }),
+                "被改判到后排的那只从后排的空列起算 —— 2026-08-30 居中往外后空排的第一个空列是 1,不是 0");
         }
 
         [Test]

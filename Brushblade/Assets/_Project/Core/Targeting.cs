@@ -19,17 +19,15 @@ namespace Brushblade.Core
         /// 没有耦合,两者恰好同为 4 纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
         public const int RowCapacity = 4;
 
-        /// <summary>某一排该铺几个格位(2026-08-26)。表现层照这个数建格,敌人按 Column 落格 ——
-        /// 「列」的几何在这里定一次,ExpandTargets 的 Skewer 才与玩家看到的对得上。
+        /// <summary>列号的分配顺序(2026-08-30):**居中往外**。4 列没有正中,取中间偏左先。
         ///
-        /// 恒为 <see cref="RowCapacity"/>,**唯一例外**是两排都 ≤1 只:那时列没有对齐对象,
-        /// 折叠成一格交给 MiddleCenter 摆正中(2026-08-23 实机反馈:单怪铺三格会被顶到最左)。
+        /// 取代了旧的「两排都 ≤1 只就把该排折叠成一格」特例(RowCells,已删)——
+        /// 那条特例当年是为了修「单怪铺三格会被顶到最左」(2026-08-23 实机反馈),
+        /// 而居中往外之后单怪自然落在列 1,不折叠也不靠边,稿上的「每排恒定 4 格」得以成立。
         ///
-        /// ⚠ 这个例外原先只看本排(「本排只有一只就折叠」),前排 2 只 + 后排 1 只时后排被
-        /// 居中到视觉第 2 位,而引擎认定它与前排第 1 位同列 —— 贯穿(枪)于是看起来打了
-        /// 错位的一只。别再把判据缩回单排。</summary>
-        public static int RowCells(int rowCount, int otherRowCount) =>
-            rowCount == 1 && otherRowCount <= 1 ? 1 : RowCapacity;
+        /// ⚠ 这是**唯一**一条布局策略。将来若要加别的(例如辅助怪躲进没有前排的后排列
+        /// 以避开贯穿),判据加在 <c>BattleEngine.AssignSlots</c> 那一处,不要在这里架一层抽象。</summary>
+        public static readonly IReadOnlyList<int> ColumnOrder = new[] { 1, 2, 0, 3 };
 
         /// <summary>敌人选我方目标。返回召唤物槽位,或 <see cref="PlayerTarget"/>。
         ///

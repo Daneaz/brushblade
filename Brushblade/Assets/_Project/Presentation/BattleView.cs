@@ -1693,11 +1693,7 @@ namespace Brushblade.Presentation
         /// 这是为了让 <see cref="Ui.Row"/> 的 <c>HorizontalLayoutGroup</c>(子物体整体
         /// TextAnchor.MiddleCenter,见 Ui.cs)把两排都摆满同样多格再居中 —— 此前前排 2 只、
         /// 后排 3 只时各自居中,列对不上。副产品:敌人死后不再因为「按存活数重排」而整体
-        /// 跳位,尸体格位原地不动。
-        ///
-        /// 2026-08-23 例外:某一排**只有一只怪**时该排只建 1 格,由同一个 MiddleCenter
-        /// 把它摆正中(实机反馈:单怪遭遇下铺三格会把它顶到最左)。判据在
-        /// <see cref="Targeting.RowCells"/> —— 2026-08-26 收窄为「**两排都** ≤1 只」才折叠。</summary>
+        /// 跳位,尸体格位原地不动。</summary>
         private void DrawEnemies()
         {
             _enemyRects.Clear();
@@ -1710,15 +1706,8 @@ namespace Brushblade.Presentation
             _hoverPreviewPrimary = -1;
             _hoverPreviewCells.Clear();
 
-            // 每排画几格:判据在 Targeting.RowCells(与 Column 的几何同一处定义)。
-            // 数的是**格位上的怪**而非存活数:尸体照样占格(见下面 showAlive 的处理),
-            // 打死一只就让剩下的重新居中会让整排跳位 —— 那正是固定格位要消掉的毛病。
-            int frontCount = 0, backCount = 0;
-            foreach (var e in Battle.Enemies)
-                if (e.Row == EnemyRow.Front) frontCount++; else backCount++;
-
-            var frontCells = new GameObject[Targeting.RowCells(frontCount, backCount)];
-            var backCells = new GameObject[Targeting.RowCells(backCount, frontCount)];
+            var frontCells = new GameObject[Targeting.RowCapacity];
+            var backCells = new GameObject[Targeting.RowCapacity];
             for (int c = 0; c < frontCells.Length; c++)
             {
                 frontCells[c] = Ui.Panel(_enemyFrontRow, $"EnemySlotFront{c}");
