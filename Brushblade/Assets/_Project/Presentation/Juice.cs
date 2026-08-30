@@ -142,14 +142,15 @@ namespace Brushblade.Presentation
         /// 召唤反击逐个顺序播、伤害与「正!」分节拍(2026-07-24):此前同帧齐发相互重叠、只见一次。</summary>
         public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null,
-            Func<int, SummonState> summonInfo = null)
+            Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null)
         {
-            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact, summonInfo));
+            StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact,
+                summonInfo, enemyElement));
         }
 
         private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action onComplete, Action<BattleEvent> onImpact,
-            Func<int, SummonState> summonInfo)
+            Func<int, SummonState> summonInfo, Func<int, Element?> enemyElement)
         {
             // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
@@ -159,7 +160,7 @@ namespace Brushblade.Presentation
             // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
             // 段间停顿由 BattleView 的驱动协程控制。
-            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo);
+            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement);
 
             yield return Beat(TailGap);
             onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
@@ -170,7 +171,7 @@ namespace Brushblade.Presentation
         /// 并行组(Damage 同帧齐出)组末停一拍;串行单位(DoT/敌攻/SummonHit)在下一记前才停一拍,好让致死伤害与正同帧。</summary>
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact,
-            Func<int, SummonState> summonInfo = null)
+            Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null)
         {
             bool anyParallel = false;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
             bool serialPending = false; // 上一记串行单位已出,下一记串行单位前先停一拍
@@ -207,9 +208,14 @@ namespace Brushblade.Presentation
                         // 放大档:暴击 1.35 起(罕见,该抢眼),相克 1.18 起(常见,大一点就够,
                         // 再大整场都是巨字、反而分不出哪记特别);两者都占时按暴击那档
                         float damageScale = e.Crit ? 1.35f : e.Ke ? 1.18f : 1f;
-                        Popup(DamageText(e), e.Ke ? Theme.GoldBorder : Theme.Cinnabar, hitAnchor,
+                        // 飘字颜色 = **攻击方**的五行色(2026-08-30):火系打出来是朱砂、水系是靖蓝……
+                        // 玩家一眼读得出这记是拿什么属性打的。用 GlyphColor 而不是 ElementColor ——
+                        // 飘字就是字,得过 WCAG 4.5:1(金 #B3A382 对宣纸底只有 2.48,大字门槛都够不到)。
+                        // 火系色恰好与原来的朱砂几乎同色,所以火系那一路看起来跟改之前一样
+                        Popup(DamageText(e), Theme.GlyphColor(e.Attacker), hitAnchor,
                             sizeScale: Mathf.Clamp(damageScale + e.Amount / 50f,
-                                1f, e.Crit ? 2.4f : e.Ke ? 2.1f : 1.9f));
+                                1f, e.Crit ? 2.4f : e.Ke ? 2.1f : 1.9f),
+                            outline: e.Ke ? Theme.GoldBorder : null);
                         if (e.Ke) Ring(hitAnchor, Theme.GoldBorder); // 相克专属:一圈金环炸开
                         if (!kills) HitReact(hitAnchor); // 致死不白闪,让位给置灰
                         HitFx(e.Amount, e.Crit, e.Ke, hitAnchor);
@@ -218,8 +224,9 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.BurnTick: // 火系 DoT:串行 + 火焰视觉
                         if (serialPending) yield return Beat(StepGap); // 与上一记 DoT 拉开
-                        Popup($"-{e.Amount}", Theme.ShopNav, enemyAnchor(e.TargetIndex),
-                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        Popup($"-{e.Amount}", Theme.GlyphColor(e.Attacker), enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f),
+                            outline: e.Ke ? Theme.GoldBorder : null);
                         FlameBurst(enemyAnchor(e.TargetIndex));
                         HitFx(e.Amount, ke: e.Ke, target: enemyAnchor(e.TargetIndex));
                         onImpact?.Invoke(e);
@@ -230,15 +237,17 @@ namespace Brushblade.Presentation
                     // 上限 26,比这里这条更轻),改成内联 HitFx 的音效/闪光两件事(2026-08-10 复核补):
                     // 打击音 + amount≥40 全屏微闪照抄 HitFx,震屏单用下面这条更重的,避免叠两次。
                     case BattleEventKind.Detonate:
-                        Popup(Strings.T("juice.popup.detonate", ("amount", e.Amount)), Theme.Cinnabar, enemyAnchor(e.TargetIndex),
-                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                        Popup(Strings.T("juice.popup.detonate", ("amount", e.Amount)),
+                            Theme.GlyphColor(e.Attacker), enemyAnchor(e.TargetIndex),
+                            sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f),
+                            outline: e.Ke ? Theme.GoldBorder : null);
                         var blastAnchor = enemyAnchor(e.TargetIndex);
                         HitStop(HitStopBig); // 抢杀爆发:与暴击/相克同一档的顿帧
                         PlayClip(e.Amount >= 30 ? _thudClip : _hitClip, 0.9f,
                             Mathf.Clamp(1.3f - e.Amount / 80f, 0.6f, 1.3f));
                         StartCoroutine(Shake(Mathf.Clamp(10f + e.Amount * 0.4f, 10f, 30f),
                             AttackDir(blastAnchor)));
-                        Ring(blastAnchor, Theme.ShopNav); // 火色扩散环,读出「炸开」
+                        Ring(blastAnchor, Theme.GlyphColor(e.Attacker)); // 火色扩散环,读出「炸开」
                         if (e.Amount >= 40) ScreenFlash(0.12f, Color.white);
                         onImpact?.Invoke(e);
                         break;
@@ -272,7 +281,7 @@ namespace Brushblade.Presentation
                         Popup(Strings.T("juice.popup.kill_mark"), Theme.Ink, dead);
                         GreyOut(dead);                       // 立刻置灰
                         Knockback(dead);                     // 一记后坐
-                        InkBurst(dead);                      // 墨散:一团墨炸开又收(2026-08-30)
+                        InkBurst(dead, enemyElement?.Invoke(e.TargetIndex)); // 墨散:一团墨炸开又收(2026-08-30)
                         HitStop(HitStopBig);                 // 击杀值一记最重的顿帧
                         PlayClip(_killClip, 0.9f); // 下行收束音
                         ScreenFlash(0.16f, Color.white);     // 致命全屏微闪
@@ -281,7 +290,10 @@ namespace Brushblade.Presentation
                         if (serialPending) yield return Beat(StepGap);
                         var tank = summonAnchor?.Invoke(e.SecondIndex); // 承伤者(坦克死后前移到下一个)
                         Lunge(enemyAnchor(e.TargetIndex));
-                        Popup($"-{e.Amount}", Theme.Cinnabar, tank);
+                        // 敌方那一记同样按**攻击者**的五行上色(2026-08-30):这两类事件的 TargetIndex
+                        // 就是攻击者下标,属性顺着它查得到,所以 Core 侧刻意没给它们加 Attacker 字段。
+                        // 查不到(伪装怪未现形)时回落中性色 —— 玩家本来就还不知道它是什么属性
+                        Popup($"-{e.Amount}", Theme.GlyphColor(enemyElement?.Invoke(e.TargetIndex)), tank);
                         HitReact(tank);
                         PlayClip(_thudClip, 0.7f);
                         HitStop(HitStopLight);
@@ -295,30 +307,34 @@ namespace Brushblade.Presentation
                         Lunge(enemyAnchor(e.TargetIndex));
                         // 飘字分账(2026-07-25):护盾吃掉多少、血实掉多少分开写,与两条同步
                         int hpLoss = e.Amount - e.Absorbed;
-                        if (e.Absorbed <= 0) Popup($"-{e.Amount}", Theme.Cinnabar, null);
+                        // 掉血那一路按攻击者属性上色;被盾吃掉的那一路仍是盾的语义色(SplitBlue)——
+                        // 「盾挡下了多少」说的是盾,不是打过来的是什么属性
+                        var foeColor = Theme.GlyphColor(enemyElement?.Invoke(e.TargetIndex));
+                        if (e.Absorbed <= 0) Popup($"-{e.Amount}", foeColor, null);
                         else if (hpLoss <= 0) Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, null);
-                        else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), Theme.Cinnabar, null, small: true);
+                        else Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", hpLoss)), foeColor, null, small: true);
                         PlayClip(_thudClip, 0.8f);
                         HitStop(hpLoss > 0 ? HitStopHeavy : HitStopLight); // 盾全吃下就轻一档
                         StartCoroutine(Shake(10f, -AttackDir(enemyAnchor(e.TargetIndex))));
-                        ScreenFlash(0.14f, Theme.Cinnabar);
+                        ScreenFlash(0.14f, foeColor); // 屏缘那一闪也跟着来袭属性走
                         onImpact?.Invoke(e); // 触达才扣玩家血
                         serialPending = true;
                         break;
                     case BattleEventKind.Burn:
-                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)), Theme.ShopNav, enemyAnchor(e.TargetIndex), small: true);
+                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)),
+                            Theme.GlyphColor(Element.Fire), enemyAnchor(e.TargetIndex), small: true);
                         break;
                     // 召唤物被点燃 / 自身灼烧结算(2026-08-26,灯花「打谁烧谁」)。与上面敌人侧的
                     // Burn / BurnTick 同款演出,只是锚点换成 summonAnchor —— 这两个 Kind 的
                     // TargetIndex 是**召唤物槽位**,喂给 enemyAnchor 会锚到编号相同的那只怪身上。
                     case BattleEventKind.SummonBurn:
-                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)), Theme.ShopNav,
-                            summonAnchor?.Invoke(e.TargetIndex), small: true);
+                        Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)),
+                            Theme.GlyphColor(Element.Fire), summonAnchor?.Invoke(e.TargetIndex), small: true);
                         break;
                     case BattleEventKind.SummonBurnTick:
                         if (serialPending) yield return Beat(StepGap);
                         var burntSummon = summonAnchor?.Invoke(e.TargetIndex);
-                        Popup($"-{e.Amount}", Theme.ShopNav, burntSummon,
+                        Popup($"-{e.Amount}", Theme.GlyphColor(Element.Fire), burntSummon,
                             sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
                         FlameBurst(burntSummon);
                         HitFx(e.Amount);
@@ -686,9 +702,12 @@ namespace Brushblade.Presentation
         /// 此前死亡的全部表现是「置灰 + 后坐 + 全屏闪」,置灰是个 0.2s 的渐变 —— 一只怪就这么
         /// 悄悄褪色了,分量还不如挨一记普通攻击。复用 <see cref="EmberRoutine"/> 那套即抛即毁的
         /// 程序碎片,不违反第 12 章「不做骨骼/帧动画」。</summary>
-        private void InkBurst(RectTransform target)
+        /// <param name="element">死者的属性:墨色里掺它一成,一团墨也就带上了这只怪的底色。
+        /// 掺而不是替换 —— 全用属性色就成了「彩色纸屑」,水墨那口气全散了。</param>
+        private void InkBurst(RectTransform target, Element? element = null)
         {
             if (target == null || _shakeTarget == null) return;
+            var tint = Theme.GlyphColor(element);
             for (int n = 0; n < 12; n++)
             {
                 var go = new GameObject("InkSplat", typeof(RectTransform));
@@ -700,7 +719,9 @@ namespace Brushblade.Presentation
                 var image = go.AddComponent<Image>();
                 image.sprite = Theme.Rounded(8);
                 image.type = Image.Type.Sliced;
-                image.color = InkPalette[UnityEngine.Random.Range(0, InkPalette.Length)];
+                image.color = element.HasValue
+                    ? Color.Lerp(InkPalette[UnityEngine.Random.Range(0, InkPalette.Length)], tint, 0.32f)
+                    : InkPalette[UnityEngine.Random.Range(0, InkPalette.Length)];
                 image.raycastTarget = false;
                 // 均匀铺满一圈再加抖动:纯随机方向会结块,看着像溅在一侧而不是炸开
                 float angle = (n / 12f + UnityEngine.Random.Range(-0.04f, 0.04f)) * Mathf.PI * 2f;
@@ -1131,7 +1152,10 @@ namespace Brushblade.Presentation
 
         // ---- 伤害飘字 ----
 
-        private void Popup(string text, Color color, RectTransform anchor, bool small = false, float sizeScale = 1f)
+        /// <param name="outline">描边色。相克专用(2026-08-30):飘字本身已经交给五行属性色了,
+        /// 「这记打对了属性」得靠别的通道说 —— 一圈金边既不抢属性色,又是全场独一份的信号。</param>
+        private void Popup(string text, Color color, RectTransform anchor, bool small = false,
+            float sizeScale = 1f, Color? outline = null)
         {
             var go = new GameObject("Popup", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
@@ -1157,6 +1181,13 @@ namespace Brushblade.Presentation
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
             label.verticalOverflow = VerticalWrapMode.Overflow;
             label.raycastTarget = false;
+            if (outline.HasValue)
+            {
+                var edge = go.AddComponent<Outline>();
+                edge.effectColor = outline.Value;
+                edge.effectDistance = new Vector2(2.5f, 2.5f);
+                edge.useGraphicAlpha = true; // 跟着字一起淡出,否则字没了金边还悬在那儿
+            }
 
             StartCoroutine(FloatAndFade(rect, label));
         }

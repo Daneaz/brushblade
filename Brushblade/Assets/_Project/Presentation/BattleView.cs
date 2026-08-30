@@ -165,6 +165,13 @@ namespace Brushblade.Presentation
         // 召唤反击飞字用:发起者是谁,飞它自己的字(2026-08-17);别叫 SummonInfo,和 UI 的同名类撞
         private SummonState SummonAt(int i) => i >= 0 && i < Battle.Summons.Count ? Battle.Summons[i] : null;
 
+        /// <summary>第 i 只怪**看起来**是什么属性(2026-08-30):敌方那记攻击的飘字/屏闪按它上色。
+        ///
+        /// 用 ApparentElement 而不是 Element 是刻意的 —— 伪装怪(通假字)、生僻字没现形之前它是 null,
+        /// 飘字就回落中性色。玩家本来就还不知道那是什么属性,提前用真属性上色等于泄题。</summary>
+        private Element? EnemyElement(int i) =>
+            i >= 0 && i < Battle.Enemies.Count ? Battle.Enemies[i].ApparentElement : null;
+
         /// <summary>本次结算里死亡的怪(下标取自 LastEvents 的 EnemyDied)。</summary>
         private System.Collections.Generic.List<int> DeathsThisAction()
         {
@@ -179,7 +186,8 @@ namespace Brushblade.Presentation
         private void PlayAnimated(System.Collections.Generic.IReadOnlyList<BattleEvent> events,
             System.Collections.Generic.List<int> deaths)
         {
-            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact, SummonAt);
+            _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact, SummonAt,
+                EnemyElement);
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
@@ -1983,7 +1991,9 @@ namespace Brushblade.Presentation
             bool allyOnly = BattleEngine.NeedsAllyTarget(def, attackMode: true)
                 && !BattleEngine.NeedsTarget(def, attackMode: true);
 
-            DragToAttack.Attach(tile, def.Id, Theme.ElementColor(def.Element),
+            // 字影是**纯文字**压在场景上,得用过了 WCAG 的 GlyphColor 而不是 UI 色块那套
+            // ElementColor(金 #B3A382 对宣纸底只有 2.48,拖起来是一团糊的)
+            DragToAttack.Attach(tile, def.Id, Theme.GlyphColor(def.Element),
                 () => _run.Phase == RunPhase.InBattle && Battle.Phase == BattlePhase.PlayerTurn && !Animating,
                 screenPos =>
                 {
@@ -3654,7 +3664,8 @@ namespace Brushblade.Presentation
                 if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
-                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt);
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt,
+                        EnemyElement);
                     while (!done) yield return null;
                     yield return _juice.Wait(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap);走 Juice 的节拍才吃快进
                 }
@@ -3758,7 +3769,8 @@ namespace Brushblade.Presentation
                 if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
-                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact);
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact,
+                        enemyElement: EnemyElement);
                     while (!done) yield return null;
                     yield return _juice.Wait(0.12f);
                 }
