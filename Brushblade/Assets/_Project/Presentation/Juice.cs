@@ -156,6 +156,9 @@ namespace Brushblade.Presentation
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
             Canvas.ForceUpdateCanvases();
             _flashing.RemoveWhere(t => t == null); // 上一轮重绘销毁的目标不留在集合里
+            // 飘字排队表同理:锚点是跨帧持有的 RectTransform,重绘一过就全成了空引用。
+            // 一整段结算之间必然隔着重绘,所以整表清掉即可,不用逐个判空
+            _popupSlots.Clear();
 
             // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
@@ -1152,6 +1155,44 @@ namespace Brushblade.Presentation
 
         // ---- 伤害飘字 ----
 
+        // 同一锚点上排队的层高与时窗。34 略高于常规飘字的行高(36 号字),叠两三条读得开;
+        // 0.55s 略长于飘字自己的 0.7s 前半程 —— 上一条还没飘走,下一条就该往上让
+        private const float PopupStackStep = 34f;
+        private const float PopupStackWindow = 0.55f;
+        // 排到第 4 层封顶(再高就飘出屏幕了)。封顶后**停在顶层**而不是绕回底部 ——
+        // 底层是伤害数字的位置,绕回去压住的正是最该读清的那条;停在顶层压住的是更老的标记
+        private const int PopupStackMax = 4;
+
+        /// <summary>同一个锚点上短时间内连着飘的字,依次往上让一层(2026-08-30)。
+        ///
+        /// 「正!」是刻意与致死伤害**同帧**的(要让玩家同时看见「掉了多少」和「死了」),
+        /// 破阶、现形、分裂、加攻这些也都紧跟着伤害 —— 原先全都锚在同一个点上、只靠
+        /// ±24 的水平随机分开,同帧两条几乎必然叠在一起,叠上了就两条都读不出来。
+        ///
+        /// 记「上次是什么时候、排到第几层」而不是「当前有几条活着」:飘字自己会飘走、会被
+        /// 重绘销毁,数活的就得维护一份注册表并处理销毁回调;而时窗一过自然归零,不用记账。</summary>
+        private readonly Dictionary<RectTransform, (float time, int slot)> _popupSlots = new();
+        private (float time, int slot) _playerPopupSlot; // 玩家侧锚点是 null,单独记一份
+
+        private int NextSlot(RectTransform anchor)
+        {
+            float now = UnityEngine.Time.unscaledTime;
+            if (anchor == null)
+            {
+                _playerPopupSlot = Advance(_playerPopupSlot, now);
+                return _playerPopupSlot.slot;
+            }
+            _popupSlots.TryGetValue(anchor, out var state);
+            state = Advance(state, now);
+            _popupSlots[anchor] = state;
+            return state.slot;
+        }
+
+        private static (float time, int slot) Advance((float time, int slot) state, float now) =>
+            (now, now - state.time > PopupStackWindow
+                ? 0
+                : Mathf.Min(state.slot + 1, PopupStackMax - 1));
+
         /// <param name="outline">描边色。相克专用(2026-08-30):飘字本身已经交给五行属性色了,
         /// 「这记打对了属性」得靠别的通道说 —— 一圈金边既不抢属性色,又是全场独一份的信号。</param>
         private void Popup(string text, Color color, RectTransform anchor, bool small = false,
@@ -1160,15 +1201,21 @@ namespace Brushblade.Presentation
             var go = new GameObject("Popup", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
             var rect = (RectTransform)go.transform;
+            int slot = NextSlot(anchor);
             if (anchor != null)
             {
                 rect.position = anchor.position;
-                rect.anchoredPosition += new Vector2(UnityEngine.Random.Range(-24f, 24f), 30f);
+                // 第 0 条留一点水平抖动(同一只怪连挨几记时不至于呆板),排到第 1 条起横向收窄 ——
+                // 叠起来的几条要读成一列,左右乱跳反而更难认
+                float jitter = slot == 0 ? 24f : 8f;
+                rect.anchoredPosition += new Vector2(UnityEngine.Random.Range(-jitter, jitter),
+                    30f + slot * PopupStackStep);
             }
             else // 玩家侧:屏幕中下
             {
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.32f);
-                rect.anchoredPosition = new Vector2(UnityEngine.Random.Range(-60f, 60f), 0);
+                rect.anchoredPosition = new Vector2(
+                    UnityEngine.Random.Range(-60f, 60f), slot * PopupStackStep);
             }
 
             var label = go.AddComponent<Text>();
