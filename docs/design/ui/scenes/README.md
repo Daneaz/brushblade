@@ -38,7 +38,7 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `UnitFoe.dc.html` | 单位详情 · 敌人 | `OnEnemyClicked` → `EnemyInfo` |
 | `UnitAlly.dc.html` | 单位详情 · 召唤物 | `OnSummonClicked` → `SummonInfo` |
 | `UnitMe.dc.html` | 单位详情 · 执笔人 | 实现侧**还没有**入口 |
-| `StatusGlossary.dc.html` | 状态词条 29 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
+| `StatusGlossary.dc.html` | 状态词条 30 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
 | `UnitSheetAlt.dc.html` | 详情承载方式取舍 | 低保真，无对应实现 |
 | `Chests.dc.html` | 七档宝箱立绘 | `Core/Chest.cs` · `MapView.DrawChest` |
 | `ChestOpen.dc.html` | 开箱 · 获字 | `ChestRules.TryOpen` · `MapView.ShowChestResult` |
@@ -73,20 +73,6 @@ node <skill>/seed-canvas.mjs \
 
 产出的 `.html` 内联了整个编辑器 payload（2.7MB），**不入 git**（见 `.gitignore`）。
 浏览器里首次渲染要 30 秒以上，不是卡住了。
-
-## 稿子先行、代码待跟进
-
-这三项在稿上已经画成，实现还没有：
-
-- **每排 4 格位**：`Targeting.RowCapacity` 3→4、`BattleEngine.EnemyCap` 6→8、
-  `SummonCap` 6→8、`FrontRowSize` 3→4。会连带影响 `Targeting` 里
-  Cleave / Skewer / Sweep 的按列取目标，属平衡改动。
-- **敌人护盾**：`EnemyState` 没有 `Shield` 字段。要加字段 + 在 `DamageEnemy` 的护甲减法之后、
-  扣血之前插一段吸收，并补 `ShieldBroken` 事件。另有一条待拍板：
-  「相克即破甲」那一击目前无视护甲，要不要连护盾一起穿？
-- **状态图标扩到 29 枚**：`tools/icons/build_icons.py` 的 ICONS 表与 `Icons.cs` 的 Glyphs
-  兜底表要同步（`test_icons.py` 守着两边一一对应），新增兜底汉字须重跑
-  `python3 tools/fonts/subset_fonts.py`。
 
 ## Home 已接线（2026-08-28）
 
@@ -148,7 +134,10 @@ node <skill>/seed-canvas.mjs \
 ## 顺带查出的两处不一致
 
 - `Tutorial.DemoChar` 是「刺」，而 `strings.zh-CN.json` 的四条 `battle.hint.tutorial.*`
-  写的是【剑】——新手会被指去点一张手上没有的牌。
+  写的是【剑】——新手会被指去点一张手上没有的牌。**2026-08-31 已解决**：不是去补这四条旧文案，
+  而是屏底单行提示整体被四步故事弹层取代，新的 12 条 `battle.coach.*` 从头按「刺」写对
+  （配方『朿』『刂』）。顺带一提：旧文案描述的是直伤行为，而剑其实是召唤字、刺才是直伤字，
+  所以对齐到刺之后文案反而更准确了。详见「2026-08-31 已接线」。
 - `chars.json` 的 `Pinyin` / `Gloss` 一条都没填，字段与 `ConfigLoader` 都在，
   卡面拼音位现在是空的。稿里 72 个字的拼音释义是补的，需要过一遍再写进详表。
 
@@ -160,7 +149,7 @@ node <skill>/seed-canvas.mjs \
 - 三类单位共用一个骨架（立绘 88 方 + 名与三条 + 左状态右特性 + 底部提示行），只换内容不换版式。
 - 状态说明写在名字底下，**不做二级弹窗**——弹窗上再弹一层，就得先关掉这层才看得回战场，
   而玩家点开详情正是为了对着战场看。
-- `StatusGlossary.dc.html` 是那句说明的**唯一出处**：29 枚图标 + 4 条走文字 chip 的能力，
+- `StatusGlossary.dc.html` 是那句说明的**唯一出处**：30 枚图标 + 4 条走文字 chip 的能力，
   逐条写清机制 / 挂在谁身上 / 时长口径 / 能不能清掉。落地时它是 `status.*` 两族 strings key 的底稿。
 - `mob_jiaohen.png` 是敌人立绘，从 `Presentation/Mobs/Resources/` 的四层压平并缩到 256：
   `magick enemy_jiaohen_body.png enemy_jiaohen_face.png -composite enemy_jiaohen_wisp.png -composite
@@ -173,7 +162,8 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 `status.*` 的 strings key；以及新文案上线前**重跑字体子集**。
 
 顺带查出：`Battle.dc.html` 里 碉 写的是「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
-「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）——本页按 `chars.json` 画，战斗稿那格待回填。
+「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）——本页按 `chars.json` 画。
+**2026-08-31 已回填**，见「2026-08-31 已接线：战斗屏本体」。
 
 ## 2026-08-29 新增：七档宝箱立绘
 
@@ -277,4 +267,73 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 
 ⚠ 遮罩仍是 `Theme.Scrim`（55%）而稿上写 62%——那是**全项目共用**的模态遮罩，
 为一屏改它会牵动另外十几个弹窗，没动。
+
+## 2026-08-31 已接线：战斗屏本体
+
+`Battle.dc.html` 整页从**稿子先行**转**已实现**——上一轮标着「稿子先行、代码待跟进」的
+敌人护盾与状态图标两条这次一并接线，连同三栏骨架、格内布局、Boss 跨列、引导弹层等全部落地。
+稿本身基本没动，动的是代码去对齐稿子。
+
+- **敌人护盾**：`EnemyState` 加了 `Shield` 字段，`DamageEnemy` 在护甲减法之后、扣血之前插一段
+  吸收，`BattleEvent.Absorbed` 带出被吸收的量并写进快照。⚠ **来源留白**：用户 2026-08-30
+  拍板不改 `enemies.json`、不做结盾技能——盾的来源将来是「加盾辅助怪给同伴挂 buff」，那类
+  小怪还没设计，所以真机上敌人的 `Shield` 恒为 0、盾条看不见，验证全靠 `EnemyShieldTests`
+  那 5 条。这一点专门写清楚，否则以后有人会以为没做。刻意**不新增 `BattleEventKind`**，
+  复用既有的 `Absorbed` 字段（玩家侧 `EnemyAttack` 同口径）；既有的 `ShieldBroken` 是
+  「Boss 倾覆清空**玩家**护盾」，语义不同，没有挪用。
+- **相克即破甲穿不穿盾（拍板）**：**不穿，盾照常吸收**。护甲是「硬度」、护盾是「一层临时
+  血」，两回事——连盾一起穿会让护盾对带对属性的玩家形同虚设。
+- **状态图标扩到 30 枚（不是 29）**：`StatusGlossary.dc.html` 自己记着「持续治疗没有
+  图标——29 枚里缺这一枚，落地要补第 30 枚」，补了 `heal`（新画，已回填进
+  `StatusGlossary.dc.html` 与 `Battle.dc.html` 两张稿的 `icdefs`）。其余 11 枚逐字抄自
+  `Battle.dc.html` 原有的 `icdefs`。
+- **三栏骨架换布局组**：`BuildSkeleton` 从「比例锚点 + 手算纵向预算」改成
+  `Horizontal/VerticalLayoutGroup + LayoutElement`，直译稿的 flex——顶上那 40 行手算加法
+  整段删掉了，它描述的是已不存在的布局，留着比没有更糟。稿的三条 flex 语义：
+  `.erow { flex: none }` 四排各自锁高、`.divider { margin: auto 0 }` 用两个
+  `flexibleHeight = 1` 的空 Spacer 把富余对半堆到敌我之间、中区 `flex: 1`。
+- **安全区内缩补到 `SafeArea.cs` 共用**：`MissingInset()` 从 `MapView` 提出来。每个界面都
+  挂在 `SafeAreaFitter` 下，但编辑器 16:9 下 `Screen.safeArea` 等于全屏，那一层什么都不
+  做；而稿上 `68 + 6 + 602 + 6 + 132 = 814 = 932 − 59×2`，中区那个 602pt 是被 `.safe`
+  内缩定义出来的。不补的话唯一那条弹性轴差 27%。
+- **格内竖排改横排**（敌我两侧都是）：立绘在左、信息列在右。中区横向本就富余，横排后
+  格高由立绘单独决定，纵向反比竖排省 24px/排，省出来的全给敌我之间的留白。召唤物立绘
+  因此反而从 34/28 放大到 48/36pt。
+- **每排恒定 4 格 + 列号居中往外**：`Targeting.RowCells` 「两排都 ≤1 只就折叠成一格」
+  那条特例整个删掉，改由 `ColumnOrder = {1,2,0,3}` 让单怪自然落在中间偏左——顺带解决了
+  那条特例当年要修的毛病（2026-08-23 实机反馈「单怪铺三格会被顶到最左」）。
+- **Boss 跨列（列区间）**：`EnemyDef.ColumnSpan`（默认 1），`EnemyState.Column` 语义收紧
+  为**起始列**，占据 `[Column, ColumnEnd)`。`Skewer` 改区间相交、`Cleave` 改区间相邻、
+  `Chain` 的 `GridDistance` 改半列中心距——`Span = 1` 时与旧写法逐字节等价，既有测试一条
+  未动。⚠ 用户拍板「Boss 将来肯定会配小怪」，口子做在 Core 里而不是只留注释。
+- **行动条配色照稿改**：稿上 `.foe`/`.ally`/`.me` 三种单位的行动条底色同为 `#3D4E69`
+  （= `Theme.InkSoft`），且有 `.soon` 态（>80% 时敌方转朱砂 `#C53637`、我方转绿
+  `#2E7D46`）；实现原本全是 `Theme.Gold` 且无 soon 态。
+- **召唤物血条改绿**（稿 `.ally .hpb` 是 `#2E7D46`，玩家与敌人是红）——敌我一眼分清。
+- **相生环图去掉**：用户拍板，战斗中要实时查的是「我这张字克不克它」，相生 ×3 由配方
+  静态决定、属牌面信息（长按详情弹窗已经显示）。左栏只留相克那张，`WuxingChart.Mount`
+  的 `sheng: true` 分支保留不删——图鉴一类页面仍可能用得上，删的只是战斗屏这一个调用点。
+- **左栏配字表从五行三级目录改平铺列表**：稿上 `.missing` 就是一行一条「字 缺 N」。左窄栏
+  只有 68pt（142 逻辑单位），三级目录的二级那排 4 个 38 宽的钮 + 间距 = 164 已经超出栏宽。
+- **新手引导改四步故事弹层**：屏底一行「◆ 提示」改成屏幕中央的「一句道理 → 一个动作 →
+  一句结果」。遮罩只压 38%（不是全项目共用的 `Theme.Scrim` 55%）——要看得见被点名的那张
+  牌/那只怪。卡片高度内容驱动（`ContentSizeFitter` + `ForceRebuildLayoutImmediate`）。
+  旧的单行提示与四条 `battle.hint.tutorial.*` 整体被替换，新的 12 条 `battle.coach.*`
+  从头按「刺」写对（配方『朿』『刂』），顺带修正了「顺带查出的两处不一致」里记的那处
+  指错。
+- **新增基础件 `Ui.ScrollList`**：本仓库第一个 `ScrollRect`，为拆合台的「可合成」列表
+  （稿 `.craft` 是 `overflow-y: auto`）。此前列表长了会把「结束回合」钮顶出卡片。
+
+### 落地时量出的稿自身毛病
+
+- **`.divider` 在稿里定义了两次**：`:115` 的 `margin: auto 0; width: 86%; rgba(...,.26)`
+  与 `:189` 的 `width: 74%; height: 1px; rgba(...,.3)`。同特异度、后者在后，浏览器实际
+  渲染的是 74%/.3。已在稿里去重（保留渲染生效的值，把 `:115` 独有的 `margin: auto 0`
+  并进去）。
+- **部件池的「下回合掉 1 个」是过时文案**：`BattleEngine` 里明写「部件不再掉落——五行
+  部件只能靠拆字获得（拆免 AP 是这条的对冲）」。已从 `Battle.dc.html` 删掉这条提示
+  （`.poolnote`）。
+- **「碉」的数值过期**：稿写「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
+  「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）。README 早就记着这条待回填，
+  这次一并按 `chars.json` 改了稿。
 

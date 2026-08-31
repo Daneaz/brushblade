@@ -305,7 +305,6 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       font-size: 7.5px; color: #1B552C; cursor: pointer; font-family: inherit; padding: 0; line-height: 1.2; }
     .adpart.used { border-color: #CFC7B6; background: #EFEAE0; color: #A8A08E; cursor: default; }
-    .poolnote { font-size: 8px; color: #A8A08E; letter-spacing: .3px; margin-left: auto; }
 
     /* ---------- 右栏 拆合台 ---------- */
     .bench { width: 132px; flex: none; background: rgba(255,253,247,.84); border: 1px solid #DED7C9;
@@ -633,7 +632,6 @@
             <svg width="7" height="8" viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="currentColor"></path></svg>
             {{poolAdText}}
           </button>
-          <span class="poolnote">下回合掉 1 个</span>
         </div>
       </div>
 
@@ -851,8 +849,8 @@ class Component extends DCLogic {
         { id: "松", el: "Wood",  hp: 60, max: 60,  atk: 30, atb: 30, speed: 33, row: "front", col: 1, chips: [] },
         { id: "枪", el: "Wood",  hp: 44, max: 72,  atk: 62, atb: 47, speed: 33, row: "front", col: 2,
           chips: [["skewer", "mode", "70%"]] },
-        { id: "碉", el: "Earth", hp: 55, max: 60,  atk: 10, atb: 8,  speed: 22, row: "rear",  col: 0, shield: 60,
-          chips: [["thorns", "heal", "20"]] },
+        { id: "碉", el: "Earth", hp: 110, max: 120, atk: 0,  atb: 8,  speed: 22, row: "rear",  col: 0, shield: 60,
+          chips: [["thorns", "heal", "50"]] },
         { id: "堡", el: "Earth", hp: 120, max: 120, atk: 20, atb: 20, speed: 22, row: "rear", col: 1, chips: [] }
       ],
       coach: -1, lastHit: null   // 设计稿默认关掉遮罩,点顶栏的「?」看引导;真机是首战自动弹
