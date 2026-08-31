@@ -135,7 +135,7 @@ namespace Brushblade.Presentation
             var ruleImage = rule.AddComponent<Image>();
             ruleImage.color = RuleColor;
             ruleImage.raycastTarget = false;
-            Sized(rule, height: RuleH);
+            Ui.Sized(rule, height: RuleH);
 
             var doitRow = Ui.Row(content.transform, "Doit", DoitGap);
             // 稿 .doit { align-items: center }——doIt 换行成两行时(如 pick_reward 那句),
@@ -147,7 +147,7 @@ namespace Brushblade.Presentation
                 align: TextAnchor.UpperLeft);
             doitLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             doitLabel.verticalOverflow = VerticalWrapMode.Overflow;
-            Sized(doitLabel.gameObject, flexWidth: 1f); // 「这样做」chip 定宽,doIt 文本吃剩下的宽度才断得了行
+            Ui.Sized(doitLabel.gameObject, flexWidth: 1f); // 「这样做」chip 定宽,doIt 文本吃剩下的宽度才断得了行
 
             var thenLabel = Ui.ThemedLabel(content.transform, then, ThenFontSize, Theme.TextDim,
                 align: TextAnchor.UpperLeft);
@@ -165,7 +165,7 @@ namespace Brushblade.Presentation
                 dotImage.sprite = Theme.Rounded((int)(DotSize / 2f));
                 dotImage.type = Image.Type.Sliced;
                 dotImage.color = i + 1 == stepNo ? Theme.Gold : i + 1 < stepNo ? DotDone : DotOff;
-                Sized(dot, width: DotSize, height: DotSize);
+                Ui.Sized(dot, width: DotSize, height: DotSize);
             }
 
             var skipGo = Ui.Panel(footRow.transform, "Skip");
@@ -177,9 +177,9 @@ namespace Brushblade.Presentation
             string skipText = Strings.T("battle.coach.skip");
             var skipLabel = Ui.ThemedLabel(skipGo.transform, skipText, SkipFontSize, Theme.TextDim);
             Ui.Stretch(skipLabel.rectTransform);
-            Sized(skipGo, width: Ui.ChipWidth(skipText, SkipFontSize, 8), height: NextH); // 与下一步钮等高,触控目标一致
+            Ui.Sized(skipGo, width: Ui.ChipWidth(skipText, SkipFontSize, 8), height: NextH); // 与下一步钮等高,触控目标一致
 
-            Sized(Ui.Panel(footRow.transform, "Spacer"), flexWidth: 1f); // 把「下一步」推到最右(稿 .next { margin-left: auto })
+            Ui.Sized(Ui.Panel(footRow.transform, "Spacer"), flexWidth: 1f); // 把「下一步」推到最右(稿 .next { margin-left: auto })
 
             // 最后一步(领奖)按「开始」——引导到此结束,该去真的玩了;其余几步仍是「下一步」
             // (还有下一段引导在等着,不该给「结束」的错觉)。
@@ -200,12 +200,5 @@ namespace Brushblade.Presentation
             return scrim;
         }
 
-        private static void Sized(GameObject go, float width = -1f, float height = -1f, float flexWidth = 0f)
-        {
-            var element = go.AddComponent<LayoutElement>();
-            element.preferredWidth = width;
-            element.preferredHeight = height;
-            element.flexibleWidth = flexWidth;
-        }
     }
 }

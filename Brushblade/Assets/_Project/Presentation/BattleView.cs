@@ -548,48 +548,6 @@ namespace Brushblade.Presentation
         /// <summary>玩家护盾条就地推进(2026-08-26 起条恒在,不会再有「没画出来」的情形)。</summary>
         private void SetShieldBar(int shield) => SetShieldBarOn(_playerShieldBar, shield);
 
-        /// <summary>护盾条(2026-08-26):玩家与召唤物共用。**常驻** —— 值为 0 时是一条空条,
-        /// 不再「有盾才画」:那样一涨一消整块布局跟着跳一下。
-        ///
-        /// 文字去掉了「护盾」二字,换成盾牌图标 + 纯数字(<see cref="Icons"/> 的 "shield" —— 描边盾,
-        /// 与 "defense" 那个实心盾刻意分开:一个是会被打空的临时血,一个是常驻减伤点数)。
-        /// 与 <see cref="HpBar"/> / <see cref="ActionBar"/> 同款返回 fill/label,供动画期间就地推进。</summary>
-        private (RectTransform fill, UnityEngine.UI.Text label) ShieldBar(Transform parent, int shield, Vector2 size)
-        {
-            var bar = Ui.Bar(parent, Mathf.Clamp01(shield / ShieldBarFull), Theme.Jade, size);
-            var fill = (RectTransform)bar.transform.Find("Fill");
-
-            // 图标压在条的最左端,数字仍居中 —— 与 Ui.Chip 的「图标在左、文字在右」同一套摆法
-            float iconSpan = Mathf.Min(Icons.Size, size.y + 4f);
-            var sprite = Icons.Get("shield");
-            if (sprite != null)
-            {
-                var iconGo = Ui.Panel(bar.transform, "ShieldIcon");
-                var iconImage = iconGo.AddComponent<Image>();
-                iconImage.sprite = sprite;
-                iconImage.color = Color.white;
-                iconImage.preserveAspect = true;
-                Ui.Anchor((RectTransform)iconGo.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                    new Vector2(2f, -iconSpan / 2f), new Vector2(2f + iconSpan, iconSpan / 2f));
-            }
-            else
-            {
-                // 兜底汉字(资产缺失时):占同样的宽,布局与有图时一致
-                var glyph = Ui.ThemedLabel(bar.transform, Icons.Fallback("shield"),
-                    Mathf.Clamp((int)(size.y * 0.9f), 9, 13), Color.white, Theme.TitleFont);
-                Ui.Anchor(glyph.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                    new Vector2(2f, -iconSpan / 2f), new Vector2(2f + iconSpan, iconSpan / 2f));
-            }
-
-            var label = Ui.ThemedLabel(bar.transform, shield.ToString(),
-                Mathf.Clamp((int)(size.y * 0.75f), 9, 13), Color.white, Theme.TitleFont);
-            Ui.Stretch(label.rectTransform);
-            var outline = label.gameObject.AddComponent<Outline>(); // 与血条同款描边,保对比度
-            outline.effectColor = Theme.Ink;
-            outline.effectDistance = new Vector2(1.2f, 1.2f);
-            return (fill, label);
-        }
-
         private static void SetShieldBarOn((RectTransform fill, UnityEngine.UI.Text label) bar, int shield)
         {
             if (bar.fill != null)
@@ -660,7 +618,7 @@ namespace Brushblade.Presentation
             // 2026-08-21 曾是三段(中段放战斗提示);2026-08-27 用户拍板把提示挪到屏幕最底部,
             // 中段腾空 —— 左右两段的锚点没动,顶栏该显示什么一样不少。
             var topBar = Ui.Panel(frame.transform, "TopBar");
-            Sized(topBar, height: TopBarH);
+            Ui.Sized(topBar, height: TopBarH);
             _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
             Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.26f, 1), Vector2.zero, Vector2.zero);
             // 提示行:屏幕**最底部**通栏(2026-08-27 用户拍板)。与 _statusRow 同一条底边
@@ -680,7 +638,7 @@ namespace Brushblade.Presentation
             var arenaLayout = arena.GetComponent<HorizontalLayoutGroup>();
             arenaLayout.childForceExpandHeight = true;
             arenaLayout.childAlignment = TextAnchor.UpperLeft;
-            Sized(arena, flexHeight: 1f);
+            Ui.Sized(arena, flexHeight: 1f);
 
             // ---- 左窄栏(稿 .rail) ----
             var rail = Ui.VStack(arena.transform, "Rail", RailGap);
@@ -688,7 +646,7 @@ namespace Brushblade.Presentation
             // minWidth 与 preferredWidth 同值 = 稿的 flex: none。只写 preferredWidth 不够:
             // 中区内容一旦宽过余量,布局组会把**所有**子物体按 min…preferred 等比压回去,
             // 左右两栏跟着一起缩 —— 那就不是三栏定宽了。右栏同理。
-            Sized(rail, width: RailW).minWidth = RailW;
+            Ui.Sized(rail, width: RailW).minWidth = RailW;
 
             // 五行速查常驻(2026-07-22;2026-07-29 改为直接摆环图,不再点开弹窗)。
             // 相生环图 2026-08-31 拍板整个撤掉:战斗中要实时查的是「我这张字克不克它」,
@@ -702,7 +660,7 @@ namespace Brushblade.Presentation
             // 的收起态凑数的,现在常驻显示若干行「字 缺 N」,顶对齐才是列表该有的样子)。
             var hintGo = Ui.VStack(rail.transform, "HintPanel", 4);
             hintGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
-            Sized(hintGo, flexHeight: 1f);
+            Ui.Sized(hintGo, flexHeight: 1f);
             _hintColumn = hintGo.transform;
 
             // ---- 中区(稿 .mid) ----
@@ -710,7 +668,7 @@ namespace Brushblade.Presentation
             var midLayout = mid.GetComponent<VerticalLayoutGroup>();
             midLayout.childForceExpandWidth = true;   // 每一行都铺满中区宽度
             midLayout.childAlignment = TextAnchor.UpperCenter;
-            Sized(mid, flexWidth: 1f);
+            Ui.Sized(mid, flexWidth: 1f);
             // 中区被左右两栏夹到 1260 逻辑单位(稿 602pt)。手牌行满员时**装不下**:
             // 12 张牌 46pt + 11 个间距 5pt + 竖排标签 8pt + 广告位 42pt = 662pt(1385 单位),
             // 溢出约 125 单位(10%)。HorizontalLayoutGroup 会等比压窄每格(既有行为,
@@ -734,7 +692,7 @@ namespace Brushblade.Presentation
             // 当前纵向预算口径(供改行高前先算一遍):Field 的高 = Mid 减去 PlayerBar(84)/
             // Band(117)/ Pool / Status,后两者由内容撑。四排内容目前合计约 524,余量薄,
             // 改任何一行的高度都要重新过一遍这笔账,别凭感觉调。
-            Sized(field, flexHeight: 1f);
+            Ui.Sized(field, flexHeight: 1f);
 
             // 四排(2026-08-20):敌方后排 / 敌方前排 / 我方前排 / 我方后排。
             // 排序自上而下,两侧的**前排相邻**、夹着中间那条分隔线 —— 纵深才读得出来。
@@ -744,14 +702,14 @@ namespace Brushblade.Presentation
             // 稿:.divider { margin: auto 0 } —— field 剩下的纵向全部堆到这一道的上下,
             // 两侧各留一半。用两个 flexibleHeight = 1 的空 Spacer 夹住分隔线来表达。
             // 富余越多,敌我离得越开。
-            Sized(Ui.Panel(field.transform, "SpacerTop"), flexHeight: 1f);
+            Ui.Sized(Ui.Panel(field.transform, "SpacerTop"), flexHeight: 1f);
             // 敌我前排之间的分隔线:两侧「前排」贴着它,越远离它的排越靠后。
             // 线只占 74% 宽(稿 .divider 定义了两次,86% 那份被 74%/.3 那份用同特异度、
             // 排在后面的规则覆盖,浏览器实际渲染的是 74%/.3 —— 稿已去重,详见 scenes/README.md
             // 或 Battle.dc.html 的 .divider 规则),所以外面套一个通栏的槽,线在槽里按比例居中 ——
             // 槽是布局组排的那一件,线是槽里锚出来的,SetActive 仍然切在线本身上。
             var dividerSlot = Ui.Panel(field.transform, "DividerSlot");
-            Sized(dividerSlot, height: DividerH, flexWidth: 1f);
+            Ui.Sized(dividerSlot, height: DividerH, flexWidth: 1f);
             _rowDivider = Ui.Panel(dividerSlot.transform, "RowDivider");
             var dividerImage = _rowDivider.AddComponent<Image>();
             dividerImage.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.3f);
@@ -759,14 +717,14 @@ namespace Brushblade.Presentation
             dividerImage.raycastTarget = false;
             Ui.Anchor((RectTransform)_rowDivider.transform,
                 new Vector2(0.13f, 0f), new Vector2(0.87f, 1f), Vector2.zero, Vector2.zero);
-            Sized(Ui.Panel(field.transform, "SpacerBottom"), flexHeight: 1f);
+            Ui.Sized(Ui.Panel(field.transform, "SpacerBottom"), flexHeight: 1f);
 
             _summonFrontRow = MakeFieldRow(field.transform, "SummonsFront");
             _summonBackRow = MakeFieldRow(field.transform, "SummonsBack");
 
             // 玩家条(稿 .me):定高,不跟着 field 伸缩
             var bottomGo = Ui.Row(mid.transform, "PlayerStats");
-            Sized(bottomGo, height: PlayerBarH);
+            Ui.Sized(bottomGo, height: PlayerBarH);
             _bottomRow = bottomGo.transform;
 
             // 字库行与非战斗阶段的宽操作区**共占同一条带、按阶段只画其一**:字库只在
@@ -774,7 +732,7 @@ namespace Brushblade.Presentation
             // 部件超限/跑图结束)与那三个阶段互斥。做成上下两行会让这条带占双倍高度,
             // 把战场四排挤扁 —— 所以是两个铺满同一个槽的叠放层,各自 Ui.Clear / 绘制。
             var band = Ui.Panel(mid.transform, "Band");
-            Sized(band, height: HandBandH);
+            Ui.Sized(band, height: HandBandH);
 
             var libraryGo = Ui.Row(band.transform, "Library");
             Ui.Stretch((RectTransform)libraryGo.transform);
@@ -792,7 +750,7 @@ namespace Brushblade.Presentation
             // ---- 右栏:拆合台(稿 .bench) ----
             // 薄宣纸卡(半透,融层段染色);2026-08-20 从底部横卡改为右侧竖栏。
             var workbenchCard = Ui.CardPanel(arena.transform, "Workbench", Theme.PaperCard, 20);
-            Sized(workbenchCard.gameObject, width: BenchW).minWidth = BenchW;
+            Ui.Sized(workbenchCard.gameObject, width: BenchW).minWidth = BenchW;
             var workbenchStack = Ui.VStack(workbenchCard.transform, "Stack", BenchGap);
             Ui.Stretch((RectTransform)workbenchStack.transform);
             var workbenchLayout = workbenchStack.GetComponent<VerticalLayoutGroup>();
@@ -819,7 +777,7 @@ namespace Brushblade.Presentation
             // (稿的口径:拆合台是动手的地方,不是清单)。
             Ui.ThemedLabel(workbenchStack.transform, Strings.T("battle.label.craft_title"), 13, Theme.TextDim, Theme.TitleFont);
             var craftScroll = Ui.ScrollList(workbenchStack.transform, "CraftScroll", CraftRowSpacing, out var craftContent);
-            Sized(craftScroll, flexHeight: 1f);
+            Ui.Sized(craftScroll, flexHeight: 1f);
             _craftRow = craftContent;
 
             // 结束回合钮:与拆合台同栏、压在栏底(稿 .bench 的最后一件),仍是右手拇指位。
@@ -832,28 +790,8 @@ namespace Brushblade.Presentation
         private static Transform MakeFieldRow(Transform field, string name)
         {
             var go = Ui.Row(field, name, RowGap);
-            Sized(go, flexHeight: 0f);
+            Ui.Sized(go, flexHeight: 0f);
             return go.transform;
-        }
-
-        /// <summary>给节点挂一个 <see cref="LayoutElement"/>。宽/高传负数 = 这一维不指定,
-        /// 由布局组按内容算(LayoutUtility 会跳过负值,轮到优先级更低的布局组自己报数)。
-        ///
-        /// ⚠ flexWidth/flexHeight 默认是 0f,不是 -1f —— 这两个默认值**不对称**是故意的:
-        /// 0 是显式压制,不是「不指定」。rail 因为父级 HorizontalLayoutGroup 开了
-        /// childForceExpandWidth,本来会被强抬出 flexibleWidth = 1;是这个 priority 1、
-        /// 值为 0 的 LayoutElement 把它压下去,142 定宽才守得住。如果哪天为了跟 width/height
-        /// 「统一」把默认值改成 -1f,rail 会立刻开始跟着中区一起伸缩 —— 这个坑编译不报错,
-        /// 也没有任何测试盖得住,只能全屏逐栏眼看着比对。</summary>
-        private static LayoutElement Sized(GameObject go,
-            float width = -1f, float height = -1f, float flexWidth = 0f, float flexHeight = 0f)
-        {
-            var element = go.AddComponent<LayoutElement>();
-            element.preferredWidth = width;
-            element.preferredHeight = height;
-            element.flexibleWidth = flexWidth;
-            element.flexibleHeight = flexHeight;
-            return element;
         }
 
         // ---- 渲染 ----
@@ -1356,15 +1294,21 @@ namespace Brushblade.Presentation
             // 立绘块(稿 .me .blk):墨底白字。没有稿上那枚金色等级角标——项目没有
             // 「玩家等级」这个数据源(无尽层段爬塔,非角色养成等级制,见第 20 章 GDD),
             // 伪造一个数字会比空着更误导人,留给以后真的接入等级概念时再补。
-            var blk = Ui.Panel(_bottomRow, "Blk");
-            var blkElement = blk.AddComponent<LayoutElement>();
-            blkElement.preferredWidth = PlayerBlkSize;
-            blkElement.preferredHeight = PlayerBlkSize;
-            var blkImage = blk.AddComponent<Image>();
+            //
+            // Blk/Info 外壳换成 Ui.UnitBlock(2026-08-31 收口,与敌人格/召唤格同一套写法)。
+            // 水平间距直接读 _bottomRow 自己那条 Ui.Row 的 spacing——Blk/Info 原本就是
+            // 它的直接子物体,间距一直来自这里、从没另立过常量,现在只是把这个既有值
+            // 接着用,数值没变。infoWidth 传 -1f:玩家信息列不像敌人/召唤格有算得出的
+            // 定宽,靠 flexWidth 吃剩余空间,下面会把 Ui.UnitBlock 内部按 -1f 建出的
+            // LayoutElement 改成 flexWidth:1。
+            float blkInfoGap = _bottomRow.GetComponent<HorizontalLayoutGroup>().spacing;
+            Ui.UnitBlock(_bottomRow, "Unit", PlayerBlkSize, -1f, blkInfoGap,
+                out var portrait, out var info);
+            var blkImage = portrait.gameObject.AddComponent<Image>();
             blkImage.sprite = Theme.Rounded(15);
             blkImage.type = Image.Type.Sliced;
             blkImage.color = Theme.Ink;
-            var faceLabel = Ui.ThemedLabel(blk.transform, Strings.T("battle.label.player_face"),
+            var faceLabel = Ui.ThemedLabel(portrait, Strings.T("battle.label.player_face"),
                 Mathf.RoundToInt(PlayerBlkSize * 0.56f), Color.white, Theme.TitleFont);
             Ui.Stretch(faceLabel.rectTransform);
 
@@ -1396,16 +1340,22 @@ namespace Brushblade.Presentation
             }
 
             // 信息列(稿 .me .info { flex: 1 }):吃掉 blk/stt/ap 之外的全部剩余宽度。
-            var info = Ui.VStack(_bottomRow, "Info", PlayerInfoSpacing);
-            info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Sized(info, flexWidth: 1f);
+            // info 由上面的 Ui.UnitBlock 建出(VStack + LayoutElement),这里只按玩家条
+            // 自己的口径接着配:spacing 用 PlayerInfoSpacing(UnitBlock 建的时候还不知道
+            // 这个值),宽度从 UnitBlock 给的占位 -1f 改判成 flexWidth:1。
+            var infoLayout = info.GetComponent<VerticalLayoutGroup>();
+            infoLayout.childAlignment = TextAnchor.UpperLeft;
+            infoLayout.spacing = PlayerInfoSpacing;
+            var infoElement = info.GetComponent<LayoutElement>();
+            infoElement.preferredWidth = -1f;
+            infoElement.flexibleWidth = 1f;
 
             // 头行:执笔人(左)+ 血/上限 盾 N(右),与 MapView.StatCell 同一套「同一块
             // 满宽面板叠两条 Stretch 文字、靠 TextAnchor 分左右」的做法。
             int shownHp = Animating ? _animPlayerHp : Battle.PlayerHp;
             int shownShield = Animating ? _animShield : Battle.PlayerShield;
             var header = Ui.Panel(info.transform, "Header");
-            Sized(header, height: PlayerHeaderHeight, flexWidth: 1f);
+            Ui.Sized(header, height: PlayerHeaderHeight, flexWidth: 1f);
             var whoLabel = Ui.ThemedLabel(header.transform, Strings.T("battle.label.player_name"),
                 14, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
             Ui.Stretch(whoLabel.rectTransform);
@@ -1477,7 +1427,7 @@ namespace Brushblade.Presentation
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, 12, 2,
                 ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
             stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Sized(stt, width: PlayerSttWidth);
+            Ui.Sized(stt, width: PlayerSttWidth);
 
             Divider(); // stt | ap 分隔线
 
@@ -1578,20 +1528,20 @@ namespace Brushblade.Presentation
                 cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
                 _summonCellByCore[i] = (RectTransform)cell.transform;
 
-                var cellRow = cell.AddComponent<HorizontalLayoutGroup>();
-                cellRow.spacing = SummonBlkInfoGap;
-                cellRow.childAlignment = TextAnchor.MiddleLeft;
-                cellRow.childForceExpandWidth = false;
-                cellRow.childForceExpandHeight = false;
-
                 float portraitSize = front ? SummonPortraitFront : SummonPortraitBack;
                 float infoWidth = SummonCellWidth - portraitSize - SummonBlkInfoGap;
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
 
+                // 立绘在左、信息列在右(2026-08-31 收口,与敌人格/玩家条同一套 Ui.UnitBlock)
+                Ui.UnitBlock(cell.transform, "Block", portraitSize, infoWidth, SummonBlkInfoGap,
+                    out var portraitMount, out var info);
+                info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+
                 // 保持着色挨打:HP 掉到 0 + 我方回合开始消失来表达阵亡,不在动画里就变灰(免飘字/掉血还没到就先灰)
-                var glyph = Ui.RoundButton(cell.transform, summon.Char, () => OnSummonClicked(summonIndex),
+                var glyph = Ui.RoundButton(portraitMount, summon.Char, () => OnSummonClicked(summonIndex),
                     Theme.ElementSoft(summon.Element), Theme.ElementSoftFg(summon.Element),
                     Mathf.RoundToInt(portraitSize * 0.46f), new Vector2(portraitSize, portraitSize), 12);
+                Ui.Stretch((RectTransform)glyph.transform); // 挂载点已按 portraitSize 定好尺寸,铺满即可
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
 
                 // 护盾角标(稿 .ally .sh,与敌人格同一判据):叠在立绘左下角,Shield > 0 才画
@@ -1606,15 +1556,15 @@ namespace Brushblade.Presentation
                             ShieldBadgeMargin + badgeElement.preferredHeight));
                 }
 
-                var info = Ui.VStack(cell.transform, "Info", SummonInfoSpacing);
-                info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-                Sized(info, width: infoWidth);
+                // info 已由上面的 Ui.UnitBlock 建好,这里只补 spacing——UnitBlock 建的时候
+                // 还不知道这个值(4f 与 VStack 默认值巧合相同,显式写出不依赖这个巧合)。
+                info.GetComponent<VerticalLayoutGroup>().spacing = SummonInfoSpacing;
 
                 // 头行:攻 N(左)+ 血/上限(右),稿 .ally .hd —— 与玩家条头行同一套
                 // 「同一块满宽面板叠两条 Stretch 文字」做法,取代旧版顶行的攻/字块/状态三段横排。
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
                 var header = Ui.Panel(info.transform, "Header");
-                Sized(header, width: infoWidth, height: SummonHeaderHeight);
+                Ui.Sized(header, width: infoWidth, height: SummonHeaderHeight);
                 var atkLabel = Ui.ThemedLabel(header.transform,
                     Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 12, Theme.TextMain,
                     null, TextAnchor.MiddleLeft);
@@ -1990,12 +1940,12 @@ namespace Brushblade.Presentation
             for (int c = 0; c < frontCells.Length; c++)
             {
                 frontCells[c] = Ui.Panel(_enemyFrontRow, $"EnemySlotFront{c}");
-                Sized(frontCells[c], width: EnemyCellWidth, height: EnemyCellHeightFront);
+                Ui.Sized(frontCells[c], width: EnemyCellWidth, height: EnemyCellHeightFront);
             }
             for (int c = 0; c < backCells.Length; c++)
             {
                 backCells[c] = Ui.Panel(_enemyBackRow, $"EnemySlotBack{c}");
-                Sized(backCells[c], width: EnemyCellWidth, height: EnemyCellHeightBack);
+                Ui.Sized(backCells[c], width: EnemyCellWidth, height: EnemyCellHeightBack);
             }
             // 本次绘制里每排格位是否已被占用(2026-08-22 评审加固)。按**本次绘制**已用掉的
             // 格位算,不读 Transform.childCount —— 预建的空格位本来就在那儿,child 数恒为
@@ -2061,13 +2011,12 @@ namespace Brushblade.Presentation
                 // (span-1) 个 RowGap
                 cellElement.preferredWidth = EnemyCellWidth * span + RowGap * (span - 1);
                 float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
-                // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排)
-                var cellRow = cell.AddComponent<HorizontalLayoutGroup>();
-                cellRow.spacing = EnemyBlkInfoGap;
-                cellRow.childAlignment = TextAnchor.MiddleLeft;
-                cellRow.childForceExpandWidth = false;
-                cellRow.childForceExpandHeight = false;
                 float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
+                // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),
+                // 2026-08-31 收口成 Ui.UnitBlock,与召唤格/玩家条同一套写法。
+                Ui.UnitBlock(cell.transform, "Block", portraitSize, infoWidth, EnemyBlkInfoGap,
+                    out var portraitMount, out var info);
+                info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
 
                 // 有形象就用分层字怪(Boss 按当前阶段取图),否则回落圆形字头像
                 MobView mob = null;
@@ -2075,22 +2024,26 @@ namespace Brushblade.Presentation
                 string prefix = MobAssets.PrefixFor(enemy.Def, enemy.PhaseIndex);
                 if (MobAssets.Layer(prefix, "body") != null)
                 {
-                    // 死了也照旧画形象,只是置灰 —— 换回字头像会让尸体「跳」一下形
-                    portrait = new GameObject($"Mob{i}", typeof(RectTransform));
-                    portrait.transform.SetParent(cell.transform, false);
-                    // MobView 自己只设 sizeDelta,不是 ILayoutElement——没有这个,cell 的
-                    // HorizontalLayoutGroup 量不出它该占多宽多高(CircleGlyph 分支自带,见下)
-                    Sized(portrait, width: portraitSize, height: portraitSize);
+                    // 死了也照旧画形象,只是置灰 —— 换回字头像会让尸体「跳」一下形。
+                    // 挂载点已经是 Ui.UnitBlock 按 portraitSize 定好尺寸的节点,MobView
+                    // (它自己只设 sizeDelta,不是 ILayoutElement)直接加在它身上即可,
+                    // 不必再另建一个节点——重新挂名字方便层级里辨认是哪只怪。
+                    portrait = portraitMount.gameObject;
+                    portrait.name = $"Mob{i}";
                     mob = portrait.AddComponent<MobView>();
                     mob.Init(prefix, portraitSize);
                     mob.SetStateAmount(MobAssets.StateAmountFor(enemy)); // L4 绑战斗状态
                     if (!showAlive || !reachable) mob.ApplyTint(Theme.LockedBg);
                 }
-                portrait ??= Ui.CircleGlyph(cell.transform,
-                    EnemyInfo.FaceChar(enemy.Def, enemy.PhaseIndex),
-                    showAlive && reachable ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
-                    // 白字压在 LockedBg 这种浅底上看不见:置灰的一并把字色降到 TextDim
-                    showAlive && reachable ? Color.white : Theme.TextDim, portraitSize);
+                if (portrait == null)
+                {
+                    portrait = Ui.CircleGlyph(portraitMount,
+                        EnemyInfo.FaceChar(enemy.Def, enemy.PhaseIndex),
+                        showAlive && reachable ? Theme.ElementColor(enemy.ApparentElement) : Theme.LockedBg,
+                        // 白字压在 LockedBg 这种浅底上看不见:置灰的一并把字色降到 TextDim
+                        showAlive && reachable ? Color.white : Theme.TextDim, portraitSize);
+                    Ui.Stretch((RectTransform)portrait.transform); // 挂载点已定好尺寸,铺满即可
+                }
                 _enemyMobs.Add(mob);
                 if (_targeting && enemy.Alive && reachable && mob == null)
                 {
@@ -2117,10 +2070,11 @@ namespace Brushblade.Presentation
                     : new Color(0, 0, 0, 0);
                 _enemyHitAreas.Add(hitArea); // 拖字打人悬停预览要就地改这个颜色,存引用
 
-                // 信息列:名字+属性徽章一行、chip 一行、血条、护盾条、行动条,自上而下(稿 .info)
-                var info = Ui.VStack(cell.transform, "Info", EnemyInfoSpacing);
-                info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-                Sized(info, width: infoWidth);
+                // 信息列:名字+属性徽章一行、chip 一行、血条、护盾条、行动条,自上而下(稿 .info)。
+                // info 已由上面的 Ui.UnitBlock 建好(VStack + 定宽 LayoutElement),这里只按
+                // 敌人格自己的口径补 spacing——与 childAlignment 同理,UnitBlock 建的时候
+                // 还不知道这个值(4f 与 VStack 默认值巧合相同,显式写出不依赖这个巧合)。
+                info.GetComponent<VerticalLayoutGroup>().spacing = EnemyInfoSpacing;
 
                 // 头行:名字 + 五行属性徽章(稿 .hd/.els)。元素徽章从 chip 行搬到这里——
                 // 与名字一起才是「这是谁」,不该跟灼烧/致盲那些战况 chip 混排。
@@ -2296,7 +2250,7 @@ namespace Brushblade.Presentation
             var outer = Ui.OutlinedPanel(_libraryRow, "HandAdSlot",
                 used ? Theme.LockedBg : Theme.AdGreenBg, used ? Theme.PanelBorder : Theme.AdGreen,
                 10, 1.5f, out var face);
-            Sized(outer.gameObject, width: HandAdSlotW, height: HandAdSlotH);
+            Ui.Sized(outer.gameObject, width: HandAdSlotW, height: HandAdSlotH);
             var stack = Ui.VStack(face.transform, "Stack", 4);
             Ui.Stretch((RectTransform)stack.transform);
             Ui.ThemedLabel(stack.transform,
@@ -2598,7 +2552,7 @@ namespace Brushblade.Presentation
             var outer = Ui.OutlinedPanel(_poolRow, "PoolAdSlot",
                 used ? Theme.LockedBg : Theme.AdGreenBg, used ? Theme.PanelBorder : Theme.AdGreen,
                 10, 1.5f, out var face);
-            Sized(outer.gameObject, width: PoolAdSlotW, height: PoolAdSlotH);
+            Ui.Sized(outer.gameObject, width: PoolAdSlotW, height: PoolAdSlotH);
             var stack = Ui.VStack(face.transform, "Stack", 2);
             Ui.Stretch((RectTransform)stack.transform);
             Ui.ThemedLabel(stack.transform,
@@ -2686,7 +2640,7 @@ namespace Brushblade.Presentation
                 // 再拼 "+"/"="——2026-08-31 接稿简化成一行文字,复杂的等价匹配/转位提示
                 // 已经挪到部件池卡面自己身上常驻显示(见 DrawPool 的 KinHint)。
                 var row = Ui.CardPanel(_craftRow, $"Craft_{charId}", Theme.AdGreenBg, 10);
-                Sized(row.gameObject, height: CraftRowHeight);
+                Ui.Sized(row.gameObject, height: CraftRowHeight);
                 var button = row.gameObject.AddComponent<Button>();
                 button.targetGraphic = row;
                 button.onClick.AddListener(() => OnCompose(charId));
@@ -2753,7 +2707,7 @@ namespace Brushblade.Presentation
             // 显示(DrawPool 的 KinHint),不必等选中才看得到。
             var picked = Ui.Row(_suggestRow, "PickedRow", 6).transform;
             var pickedOuter = Ui.OutlinedPanel(picked, "Tile", Color.white, Theme.RarityColor(def.Rarity), 8, 2f, out var pickedFace);
-            Sized(pickedOuter.gameObject, width: PickedTileW, height: PickedTileH);
+            Ui.Sized(pickedOuter.gameObject, width: PickedTileW, height: PickedTileH);
             var pickedGlyph = Ui.ThemedLabel(pickedFace.transform, def.Id, PickedGlyphFontSize,
                 Theme.GlyphColor(def.Element), Theme.TitleFont);
             Ui.Stretch(pickedGlyph.rectTransform);
@@ -2763,7 +2717,7 @@ namespace Brushblade.Presentation
             // 显式开 childForceExpandWidth:效果说明要按这一列的实际宽度换行,不开的话
             // Text 拿不到宽度、算不出该在哪里断行(下面 effectLabel 的 Wrap 依赖这个)。
             pickedInfoLayout.childForceExpandWidth = true;
-            Sized(pickedInfo, flexWidth: 1f);
+            Ui.Sized(pickedInfo, flexWidth: 1f);
             int cardLevel = _run.CardLevel(_selectedChar);
             string elementName = def.Element is { } elem ? CharInfo.ElementName(elem) : Strings.T("char.element.neutral");
             Ui.ThemedLabel(pickedInfo.transform, Strings.T("battle.label.picked_meta",

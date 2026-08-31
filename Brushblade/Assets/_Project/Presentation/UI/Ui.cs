@@ -439,6 +439,26 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>进度条:PaperDim 底 + 填充色,圆角胶囊。</summary>
+        /// <summary>给节点挂一个 <see cref="LayoutElement"/>。宽/高传负数 = 这一维不指定,
+        /// 由布局组按内容算(LayoutUtility 会跳过负值,轮到优先级更低的布局组自己报数)。
+        ///
+        /// ⚠ flexWidth/flexHeight 默认是 0f,不是 -1f —— 这两个默认值**不对称**是故意的:
+        /// 0 是显式压制,不是「不指定」。rail 因为父级 HorizontalLayoutGroup 开了
+        /// childForceExpandWidth,本来会被强抬出 flexibleWidth = 1;是这个 priority 1、
+        /// 值为 0 的 LayoutElement 把它压下去,142 定宽才守得住。如果哪天为了跟 width/height
+        /// 「统一」把默认值改成 -1f,rail 会立刻开始跟着中区一起伸缩 —— 这个坑编译不报错,
+        /// 也没有任何测试盖得住,只能全屏逐栏眼看着比对。</summary>
+        public static LayoutElement Sized(GameObject go,
+            float width = -1f, float height = -1f, float flexWidth = 0f, float flexHeight = 0f)
+        {
+            var element = go.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+            element.preferredHeight = height;
+            element.flexibleWidth = flexWidth;
+            element.flexibleHeight = flexHeight;
+            return element;
+        }
+
         public static GameObject Bar(Transform parent, float frac, Color fill, Vector2 size)
         {
             var back = Panel(parent, "Bar");
@@ -458,6 +478,42 @@ namespace Brushblade.Presentation
             Anchor((RectTransform)front.transform, Vector2.zero,
                 new Vector2(Mathf.Clamp01(frac), 1), Vector2.zero, Vector2.zero);
             return back; // 调用方可在其上叠加文本(如召唤物血值)
+        }
+
+        /// <summary>战场单位块:立绘方块在左、信息列在右(稿 .foe / .ally / .me 同构)。
+        /// 三条(血/盾/行动)由调用方按需塞进 info —— 敌人的血条带叠字、我方的不带,
+        /// 那是稿本身的结构差异(.foe .hpb 有 &lt;u&gt; 而 .ally/.me 没有),不是可以统一掉的东西。
+        ///
+        /// 抽出来是因为轮二的详情弹窗是第四个调用点。前三处在轮一各写各的,
+        /// 已经长出三套盾条刻度 —— 再来一处就收不住了。
+        ///
+        /// <paramref name="portrait"/> 是一个已按 <paramref name="portraitSize"/> 定好宽高的空挂载点——
+        /// 内容自定形状的立绘(<see cref="CircleGlyph"/>/<see cref="RoundButton"/>)建在它下面后
+        /// 记得 <see cref="Stretch"/> 铺满;直接在挂载点本体上加组件(如 MobView)则不需要。
+        /// <paramref name="info"/> 已是配好 <paramref name="infoWidth"/> 定宽的 <see cref="VStack"/>——
+        /// 需要横向撑满(玩家条 flexWidth:1 那种)的话,调用方在拿到后自己改它的
+        /// <see cref="LayoutElement"/>。</summary>
+        public static GameObject UnitBlock(Transform parent, string name,
+            float portraitSize, float infoWidth, float spacing,
+            out Transform portrait, out Transform info)
+        {
+            var shell = Panel(parent, name);
+            Stretch((RectTransform)shell.transform);
+            var row = shell.AddComponent<HorizontalLayoutGroup>();
+            row.spacing = spacing;
+            row.childAlignment = TextAnchor.MiddleLeft;
+            row.childForceExpandWidth = false;
+            row.childForceExpandHeight = false;
+
+            var portraitGo = Panel(shell.transform, "Portrait");
+            Sized(portraitGo, width: portraitSize, height: portraitSize);
+            portrait = portraitGo.transform;
+
+            var infoGo = VStack(shell.transform, "Info");
+            Sized(infoGo, width: infoWidth);
+            info = infoGo.transform;
+
+            return shell;
         }
 
         /// <summary>墨锭图标 + 文本(gold=true 用于价格标签)。</summary>
