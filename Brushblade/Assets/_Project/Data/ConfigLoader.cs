@@ -30,6 +30,7 @@ namespace Brushblade.Data
             public string Rarity { get; set; }
             public string Pinyin { get; set; }
             public string Gloss { get; set; }
+            public bool Component { get; set; } // 部件标记(2026-09-01):→ CharDef.IsComponent
         }
 
         private sealed class EffectDto
@@ -461,7 +462,7 @@ namespace Brushblade.Data
 
                 defs.Add(new CharDef(dto.Id, ParseElement(dto),
                     dto.Recipe, ParseEffects(dto, dto.Effects), ParseRarity(dto),
-                    dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects)));
+                    dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component));
             }
 
             // fail fast 二次校验:配方引用必须已定义(完整校验在管线侧,4.9.6)

@@ -77,5 +77,35 @@ namespace Brushblade.Core.Tests
                       ""summonChar"": ""戊"", ""passive"": { ""shape"": 99 } } ] } ] }"));
             Assert.That(ex.Message, Does.Contain("戊"));
         }
+
+        /// <summary>component 字段 → CharDef.IsComponent(2026-09-01 二级拆解)。
+        /// 与 IsLeaf 正交:部件可以有配方(烝 = 丞 + 灬),字永远不是部件。</summary>
+        [Test]
+        public void LoadGraph_ParsesComponentFlag()
+        {
+            const string json = @"{""chars"":[
+                {""id"":""丞"",""component"":true},
+                {""id"":""灬"",""element"":""Fire"",""component"":true},
+                {""id"":""烝"",""component"":true,""recipe"":[""丞"",""灬""]},
+                {""id"":""蒸"",""element"":""Fire"",""rarity"":""Purple"",""recipe"":[""烝""],
+                 ""effects"":[{""kind"":""DamageSingle"",""value"":45}]}
+            ]}";
+            var graph = ConfigLoader.LoadGraph(json);
+
+            Assert.That(graph.Get("丞").IsComponent, Is.True);
+            Assert.That(graph.Get("蒸").IsComponent, Is.False, "可出牌字不是部件");
+
+            // 两个谓词正交:烝 既是部件(归部件池)又有配方(可以拆)
+            var zheng = graph.Get("烝");
+            Assert.That(zheng.IsComponent, Is.True);
+            Assert.That(zheng.IsLeaf, Is.False);
+        }
+
+        [Test]
+        public void LoadGraph_ComponentDefaultsFalseWhenAbsent()
+        {
+            var graph = ConfigLoader.LoadGraph(@"{ ""chars"": [ { ""id"": ""火"" } ] }");
+            Assert.That(graph.Get("火").IsComponent, Is.False);
+        }
     }
 }

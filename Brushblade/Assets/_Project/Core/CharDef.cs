@@ -48,6 +48,17 @@ namespace Brushblade.Core
         /// <summary>短释义(11.2.4);可缺省。</summary>
         public string Gloss { get; }
 
+        /// <summary>是不是部件(2026-09-01 二级拆解):部件属**部件池**,不进战后奖励池 /
+        /// 宝箱池 / 商城 / 收集图鉴 / 叠字前置。
+        ///
+        /// 与 <see cref="IsLeaf"/> **正交** —— 部件可以有配方(烝 = 丞 + 灬 可以再拆),
+        /// 字永远不是部件。此前两件事都靠 IsLeaf 兼任,给部件配上配方会让它被全系统判成字。
+        ///
+        /// ⚠ 由 chars.json 的 `"component"` **显式标注**(管线在合成部件条目时写),
+        /// 不许改成从 Effects / Rarity 推导 —— 同 <see cref="ComponentKin"/> 的理由:
+        /// 推导迟早会在某个反例上误判,而这里误判是无声的。</summary>
+        public bool IsComponent { get; }
+
         public bool IsLeaf => Recipe.Count == 0;
 
         /// <summary>出字 AP:一律 1(2026-08-03 拍板,与稀有度解耦)。
@@ -56,7 +67,8 @@ namespace Brushblade.Core
 
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
             IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
-            string pinyin = null, string gloss = null, IReadOnlyList<EffectDef> attackEffects = null)
+            string pinyin = null, string gloss = null, IReadOnlyList<EffectDef> attackEffects = null,
+            bool isComponent = false)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Element = element;
@@ -67,6 +79,7 @@ namespace Brushblade.Core
             Rarity = rarity;
             Pinyin = pinyin;
             Gloss = gloss;
+            IsComponent = isComponent;
         }
     }
 }
