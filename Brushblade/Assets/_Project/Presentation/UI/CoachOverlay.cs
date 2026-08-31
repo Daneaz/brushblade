@@ -19,7 +19,9 @@ namespace Brushblade.Presentation
         /// 普通模态提示用的,盖住整屏没关系;这里点名的是屏幕中央具体的一张牌/一只怪,
         /// 压到 55% 玩家会照着「这样做」的指令去找,却找不到要点哪里。两者刻意不同,
         /// 不要图省事复用 <see cref="Theme.Scrim"/>,也不要把这个常量搬去 Theme 里给别处公用
-        /// ——38% 只这里用。</summary>
+        /// ——38% 只这里用。RGB 沿用 <see cref="Theme.Scrim"/> 的底色(它与稿的
+        /// rgba(22,27,34,...) 精确对应,<see cref="Theme.TextMain"/> 是同一个值)——
+        /// 与 Theme.Scrim 的差别就只在 alpha,别自己另配一个「看着差不多」的近似色。</summary>
         private const float ScrimAlpha = 0.38f;
 
         // 卡片配色取自稿 .coach 的精确色值。Theme 调色板里凑巧色值相近的几个(GoldSoft/
@@ -31,13 +33,15 @@ namespace Brushblade.Presentation
         private static readonly Color DotDone = new(0.659f, 0.580f, 0.408f);   // 稿 .dots i.done #A89468
 
         // 尺寸 = 稿 pt × 2.093(与 BattleView 骨架同一套换算,见 BattleView.cs:17)。
-        // 卡片高度是固定值而不是随内容撑高:项目里所有弹窗(Modal/ModalShell/EnemyPreview)
-        // 都是这个套路——按已知文案估一个够用的高度,不额外接一套「外框跟内容联动撑高」的
-        // uGUI 布局(OutlinedPanel 的 face 靠显式 Anchor 内缩出边框,不是靠布局组撑出来的,
-        // 硬接 ContentSizeFitter 会跟这条内缩逻辑打架)。12 条文案都在一两句以内,CardH
-        // 留了余量;人工试玩如果发现哪一步文案被卡片切掉,调这一个常量即可。
-        private const float CardW = 779f;      // 稿 .coach { width: 372px }
-        private const float CardH = 480f;      // 按四步文案估的够用高度(见上,非稿直译值)
+        // 卡片高度是**内容驱动**的(稿 .coach 没写死 height):宽度固定,高度由 Show() 末尾
+        // 对 content 强制跑一次布局、量出实际高度后反写到 card 身上——这不是最初的实现,
+        // 最初图省事仿照项目里其它弹窗(Modal/ModalShell/EnemyPreview)按文案估了个固定值,
+        // 但那几个弹窗的文案都是运营态基本不变的短句,这里是新手引导的正文,字数会随四步
+        // 内容浮动,固定高度撑爆时是**溢出而不是裁剪**(OutlinedPanel/CardPanel 都不带
+        // Mask/RectMask2D)——文字和按钮会画到金边卡片外面糊在遮罩上,新玩家看到的第一屏
+        // UI 就裂开,划不来靠"估得准"去赌。
+        private const float CardW = 779f;         // 稿 .coach { width: 372px }
+        private const float BorderThickness = 3f; // 描边厚度,card 高度要把它加回去(见 Show() 末尾)
         private const float PadX = 42f;        // 稿 .coach { padding: 16px 20px 14px } 的左右
         private const float PadTop = 33f;      // 同上,顶
         private const float PadBottom = 29f;   // 同上,底
@@ -75,14 +79,19 @@ namespace Brushblade.Presentation
             var scrim = Ui.Panel(root, "CoachScrim");
             Ui.Stretch((RectTransform)scrim.transform);
             var scrimImage = scrim.AddComponent<Image>();
-            scrimImage.color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, ScrimAlpha);
+            scrimImage.color = new Color(Theme.Scrim.r, Theme.Scrim.g, Theme.Scrim.b, ScrimAlpha);
             // 不挂 Button:Image.raycastTarget 默认开着已经挡住了底下的点击——弹层显示期间
             // 不许穿透去点场上的牌/怪,遮罩压到 38% 只是为了「看得见」,不是为了「点得到」。
 
-            var card = Ui.OutlinedPanel(scrim.transform, "Coach", CardBg, Theme.Gold, 16, 3f, out var face);
+            var card = Ui.OutlinedPanel(scrim.transform, "Coach", CardBg, Theme.Gold, 16, BorderThickness, out var face);
             var cardRect = (RectTransform)card.transform;
-            Ui.Anchor(cardRect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-CardW / 2f, -CardH / 2f), new Vector2(CardW / 2f, CardH / 2f));
+            cardRect.anchorMin = cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.anchoredPosition = Vector2.zero;
+            // 高度先随便填 0——只要宽度先定下来,face/content 的宽度就已经能正确解出
+            // (uGUI 的锚点百分比是即时算的,不需要等一次布局),content 里的文字才能按
+            // 正确的可用宽度换行。真正的高度在 Show() 末尾量出 content 实际内容后再回填。
+            cardRect.sizeDelta = new Vector2(CardW, 0f);
 
             // 印章(稿 .seal):挂在 card 而不是 face 上,且晚于 face 添加——face 已经把
             // OutlinedPanel 的描边内缩挡住了,印章要探出卡片顶边,得是 face 的兄弟节点、
@@ -102,8 +111,20 @@ namespace Brushblade.Presentation
             // 换行靠它给 Text 一个实际宽度算断行——与 BattleView 拆合台 pickedInfo 那处
             // effectLabel 换行同一手法(见 BattleView.cs 的 pickedInfoLayout 注释)。
             contentLayout.childForceExpandWidth = true;
-            Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
-                new Vector2(PadX, PadBottom), new Vector2(-PadX, -PadTop));
+            // 锚顶(不是四边拉伸)、宽度固定(内缩 PadX)、高度交给 ContentSizeFitter 按
+            // 子物体撑出来——卡片高度就是靠量这个撑出来的高度反推的(见下面 Show() 末尾)。
+            var contentRect = (RectTransform)content.transform;
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(-PadX * 2f, 0f);
+            contentRect.anchoredPosition = new Vector2(0f, -PadTop);
+            // ⚠ uGUI 经典坑:ContentSizeFitter 与 LayoutGroup 挂在同一物体、且该物体又被
+            // 父级 LayoutGroup 沿同一根轴控制时,两边会互相递归打架。这里安全的前提是
+            // content 的父级 face 没有 LayoutGroup(纯 Anchor 定位的 Image)、card 的父级
+            // scrim 也没有——如果以后有人把这张卡片(或 content 的父层级)塞进某个
+            // LayoutGroup 里,这条 PreferredSize 就要重新检查是否还成立。
+            content.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             var taleLabel = Ui.ThemedLabel(content.transform, tale, TaleFontSize, Theme.TextMain,
                 Theme.TitleFont, TextAnchor.UpperLeft);
@@ -117,7 +138,9 @@ namespace Brushblade.Presentation
             Sized(rule, height: RuleH);
 
             var doitRow = Ui.Row(content.transform, "Doit", DoitGap);
-            doitRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            // 稿 .doit { align-items: center }——doIt 换行成两行时(如 pick_reward 那句),
+            // 「这样做」chip 应该跟文本块垂直居中,不是贴在顶上。
+            doitRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Chip(doitRow.transform, Strings.T("battle.coach.doit_label"),
                 Theme.GoldSoft, Theme.GoldDeep, DoitKFontSize, 13, 4);
             var doitLabel = Ui.ThemedLabel(doitRow.transform, doIt, DoitFontSize, Theme.TextMain,
@@ -165,6 +188,14 @@ namespace Brushblade.Presentation
                 : Strings.T("battle.coach.next");
             Ui.PillButton(footRow.transform, nextText, () => onNext?.Invoke(),
                 Theme.Cinnabar, Color.white, NextFontSize, new Vector2(NextW, NextH));
+
+            // 卡片高度 = content 实际内容高度 + 上下 padding + 两侧描边厚度。content 挂了
+            // ContentSizeFitter 但它的 sizeDelta 要等一次布局才会更新,这里强制立即跑一遍
+            // (递归重建 content 全部子物体,包括 doitRow/footRow 那些嵌套的 Row)才能在
+            // 本帧同步拿到准确值——不强制的话就得等到下一帧,card 这一帧会先显示成 0 高。
+            LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            float cardHeight = contentRect.rect.height + PadTop + PadBottom + BorderThickness * 2f;
+            cardRect.sizeDelta = new Vector2(CardW, cardHeight);
 
             return scrim;
         }
