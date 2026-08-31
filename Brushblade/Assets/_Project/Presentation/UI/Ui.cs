@@ -652,5 +652,46 @@ namespace Brushblade.Presentation
             layout.childForceExpandHeight = false;
             return go;
         }
+
+        /// <summary>竖直可滚动列表(2026-08-31,拆合台可合成列表首用):项目里第一处 ScrollRect,
+        /// 后续要做别的滚动列表照这个结构抄,别再发明第二套。
+        ///
+        /// 结构是标准 uGUI 三层:返回的外层挂 <see cref="ScrollRect"/>(调用方在它身上挂
+        /// LayoutElement 决定这块区域占多高)→ Viewport(<see cref="RectMask2D"/> 裁剪,不用
+        /// <see cref="Mask"/> 是因为那个要求一张 Graphic 陪衬,平白多一次 overdraw)→
+        /// Content(<paramref name="content"/>,VerticalLayoutGroup + ContentSizeFitter 按
+        /// 子物体撑高)。调用方只管 <c>Ui.Clear(content)</c> 再往里塞东西,和其余 Draw* 方法
+        /// 同一套用法,不用关心 ScrollRect 内部怎么接。</summary>
+        public static GameObject ScrollList(Transform parent, string name, float spacing, out Transform content)
+        {
+            var root = Panel(parent, name);
+            var scroll = root.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var viewport = Panel(root.transform, "Viewport");
+            Stretch((RectTransform)viewport.transform);
+            viewport.AddComponent<RectMask2D>();
+
+            var contentGo = VStack(viewport.transform, "Content", spacing);
+            var contentLayout = contentGo.GetComponent<VerticalLayoutGroup>();
+            contentLayout.childAlignment = TextAnchor.UpperCenter;
+            contentLayout.childForceExpandWidth = true;   // 列表项铺满列表宽度(稿 .cr { width: 100% })
+            contentLayout.childForceExpandHeight = false; // 每项按自己的高度摞,不分摊富余
+            var contentRect = (RectTransform)contentGo.transform;
+            // 锚顶、随内容向下长——ContentSizeFitter 算出的高度是「顶部固定、往下撑」,
+            // 锚点/pivot 都钉在顶边,否则内容变化时会从中心往两边长,滚动位置会跟着跳。
+            contentRect.anchorMin = new Vector2(0, 1);
+            contentRect.anchorMax = new Vector2(1, 1);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentGo.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = (RectTransform)viewport.transform;
+            scroll.content = contentRect;
+            content = contentGo.transform;
+            return root;
+        }
     }
 }
