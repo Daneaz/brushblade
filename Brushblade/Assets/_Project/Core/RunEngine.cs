@@ -369,7 +369,7 @@ namespace Brushblade.Core
                 Phase = RunPhase.EventOverflow; // 部件超上限:停下让玩家逐个替换/跳过
                 return true;
             }
-            BeginNextBattle();
+            EnterReward(); // 改序后奇遇接的是选字,不再直接开下一战(2026-08-30)
             return true;
         }
 
@@ -400,7 +400,7 @@ namespace Brushblade.Core
         private void FinishOverflowIfDone()
         {
             if (_pendingOverflow.Count == 0)
-                BeginNextBattle();
+                EnterReward(); // 与 ChooseEventOption 同一个下家:奇遇这一支走完接选字
         }
 
         public const int ExpandBonus = 2;  // 广告扩容的容量增量(复原时也要按它补回上限;主界面显示容量也读它)
@@ -541,6 +541,39 @@ namespace Brushblade.Core
                 .Select(s => s.Clone())
                 .ToList();
 
+            // 复活补给与战后选字共用 _rewardOptions:上一次复活剩下的候选不能混进这一轮
+            // (改序之前这里直接 RollRewardOptions 重掷,内部会 Clear,轮不到这条)
+            _rewardOptions.Clear();
+            ProceedAfterBattle();
+        }
+
+        /// <summary>打赢之后往哪走(2026-08-30 改序:**先奇遇,后选字**)。
+        ///
+        /// 原先是「选字 → 掷奇遇 → 下一战」,现在是「掷奇遇 → 选字 → 下一战」。
+        /// 顺序一换,奇遇给的字会先进库、可能把库塞满,随后的选字就得走满库替换那条路
+        /// —— 那是改序换来的新情形,不是 bug。
+        ///
+        /// 末层(Boss 层)照旧**不掷奇遇**:打完 Boss 直接选字 → 结算通关。这条口径改序之前
+        /// 就在(原 ProceedAfterReward 的第一个分支),搬过来的时候一并搬了。</summary>
+        private void ProceedAfterBattle()
+        {
+            bool finalBattle = BattleIndex >= _runConfig.Encounters.Count - 1;
+            if (!finalBattle && _runConfig.EventPool.Count > 0
+                && _random.Next(100) < _runConfig.EventChancePercent)
+            {
+                CurrentEvent = _runConfig.EventPool[_random.Next(_runConfig.EventPool.Count)];
+                Phase = RunPhase.Event;
+                return;
+            }
+            EnterReward();
+        }
+
+        /// <summary>进选字:候选在**这一刻**才掷(2026-08-30)。
+        ///
+        /// 改序之前是打赢当场掷的。现在奇遇排在前面,要是还在打赢那一刻掷,奇遇对携带状态
+        /// 做的任何改动都反映不到候选里 —— 而且奇遇页上会有一批已经掷好的候选静静躺着。</summary>
+        private void EnterReward()
+        {
             RollRewardOptions();
             CharPicksLeft = RewardPicks;
             Phase = RunPhase.Reward;
@@ -579,25 +612,20 @@ namespace Brushblade.Core
                 ProceedAfterReward();
         }
 
-        /// <summary>提前开拔:放弃剩余战利品额度,进入奇遇或下一战。</summary>
+        /// <summary>提前开拔:放弃剩余战利品额度,直接进下一战(段末则结算)。</summary>
         public void SkipReward()
         {
             if (Phase != RunPhase.Reward) return;
             ProceedAfterReward();
         }
 
-        /// <summary>奖励结算后:段末直接通关(不再走奇遇),否则按概率触发奇遇(9.6)或下一战。</summary>
+        /// <summary>选字结算后:段末通关,否则下一战。
+        /// 掷奇遇那一步 2026-08-30 改序时挪到了 <see cref="ProceedAfterBattle"/> —— 奇遇现在排在选字**之前**。</summary>
         private void ProceedAfterReward()
         {
             if (BattleIndex >= _runConfig.Encounters.Count - 1)
             {
                 Phase = RunPhase.RunWon; // Boss 层战利品取完 → 交给外层结算并进安全层
-                return;
-            }
-            if (_runConfig.EventPool.Count > 0 && _random.Next(100) < _runConfig.EventChancePercent)
-            {
-                CurrentEvent = _runConfig.EventPool[_random.Next(_runConfig.EventPool.Count)];
-                Phase = RunPhase.Event;
                 return;
             }
             BeginNextBattle();

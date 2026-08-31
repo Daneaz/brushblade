@@ -1183,6 +1183,13 @@ namespace Brushblade.Presentation
         {
             if (_coachOverlay != null) { Object.Destroy(_coachOverlay); _coachOverlay = null; }
             if (_tutorial == null || _tutorial.Done || _tutorialSkipped) return;
+            // 奇遇页不弹教程(2026-08-30 改序的连带,合并 main 时带过来的):先奇遇后选字之后,
+            // 首层打赢有四成概率(enemies.json 的 eventChance = 40)先弹奇遇 —— 而教程此刻等的是
+            // 「选一张字」,弹在奇遇页上就成了指着 A 说 B。教程是**动作**驱动的,这一步不会因为
+            // 少弹一次就丢:走完奇遇进选字,它照样在那儿等。
+            // ⚠ 这条守卫在 main 上拦的是屏底一行提示,换成整块模态的引导弹层之后**更该拦** ——
+            // 一行字只是碍眼,一块模态会把奇遇的选项整个盖住。
+            if (_run.Phase == RunPhase.Event || _run.Phase == RunPhase.EventOverflow) return;
             var step = _tutorial.Step;
             if (step != _coachShownStep)
             {

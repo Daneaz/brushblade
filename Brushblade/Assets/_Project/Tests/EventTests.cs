@@ -49,11 +49,28 @@ namespace Brushblade.Core.Tests
             new(Graph(), Config(chance), new BattleConfig(),
                 new[] { "焚" }, Array.Empty<string>(), seed);
 
+        /// <summary>打赢进奇遇。2026-08-30 改序(先奇遇后选字)之后 AdvanceAfterBattle 直接进奇遇,
+        /// 尾巴上那句 SkipReward 只是给「没掷中奇遇 → 落到选字」的用例兜底,掷中时它是 no-op。</summary>
         private static void WinAndSkipReward(RunEngine run)
         {
             Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
             run.AdvanceAfterBattle();
             run.SkipReward();
+        }
+
+        /// <summary>选一个奇遇选项,再跳过随后的选字 —— 一路走到下一战。
+        ///
+        /// 2026-08-30 改序之后奇遇与下一战之间多了一步选字。关心「奇遇的后果落到下一场」的用例
+        /// 用这个把那一步吃掉,断言仍然照旧读 run.Battle。选项被拒时 Phase 还是 Event、
+        /// SkipReward 是 no-op,所以那类用例也能安全地走这条路。</summary>
+        private static bool ChooseAndAdvance(RunEngine run, int index,
+            System.Collections.Generic.IReadOnlyList<int> discardPoolIndices = null,
+            int charChoiceIndex = -1, int replaceLibraryIndex = -1)
+        {
+            bool taken = run.ChooseEventOption(index, discardPoolIndices,
+                charChoiceIndex, replaceLibraryIndex);
+            run.SkipReward();
+            return taken;
         }
 
         [Test]
@@ -80,7 +97,7 @@ namespace Brushblade.Core.Tests
         {
             var run = Run();
             WinAndSkipReward(run);
-            run.ChooseEventOption(0); // 求字:得炎
+            ChooseAndAdvance(run, 0); // 求字:得炎
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Library, Does.Contain("炎"));
             Assert.That(run.Battle.Library, Does.Not.Contain("焚")); // 出字即消耗(v0.7)
@@ -109,7 +126,7 @@ namespace Brushblade.Core.Tests
         {
             var run = Run();
             WinAndSkipReward(run);
-            run.ChooseEventOption(3); // −99 + 部件
+            ChooseAndAdvance(run, 3); // −99 + 部件
             Assert.That(run.Battle.PlayerHp, Is.EqualTo(1)); // 奇遇不打死人
             Assert.That(run.Battle.Pool, Does.Contain("木").And.Contain("火"));
         }
@@ -119,7 +136,7 @@ namespace Brushblade.Core.Tests
         {
             var run = Run();
             WinAndSkipReward(run);
-            run.ChooseEventOption(0); // 求字:得炎(焚已消耗,末战用炎)
+            ChooseAndAdvance(run, 0); // 求字:得炎(焚已消耗,末战用炎)
             Assert.That(run.Battle.Cast("炎"), Is.EqualTo(BattleError.None)); // 赢最后一战
             run.AdvanceAfterBattle();
             run.SkipReward();                                    // 段末战利品(2026-07-20)
@@ -172,7 +189,7 @@ namespace Brushblade.Core.Tests
             var run = ShopRun(startingInk: 100);
             WinAndSkipReward(run);
             Assert.That(run.AvailableInk, Is.EqualTo(100));
-            Assert.That(run.ChooseEventOption(0), Is.True); // 购炎 −40
+            Assert.That(ChooseAndAdvance(run, 0), Is.True); // 购炎 −40
             Assert.That(run.AvailableInk, Is.EqualTo(60));
             Assert.That(run.EarnedInk, Is.EqualTo(-40));    // run 结束入账为负
             Assert.That(run.Battle.Library, Does.Contain("炎"));
@@ -185,7 +202,7 @@ namespace Brushblade.Core.Tests
             WinAndSkipReward(run);
             Assert.That(run.ChooseEventOption(0), Is.False); // 买不起
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Event)); // 留在事件里换别的选
-            Assert.That(run.ChooseEventOption(1), Is.True);  // 离开
+            Assert.That(ChooseAndAdvance(run, 1), Is.True);  // 离开
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
         }
 
@@ -266,7 +283,7 @@ namespace Brushblade.Core.Tests
             var run = BarterRun(new[] { "木", "火", "木" });
             WinAndSkipReward(run);
             // 玩家自选不要的部件(下标 1、2 = 火与第二个木),而非自动扣最早的
-            Assert.That(run.ChooseEventOption(0, new[] { 1, 2 }), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0, new[] { 1, 2 }), Is.True);
             Assert.That(run.Battle.Library, Does.Contain("炎"));
             Assert.That(run.Battle.Pool, Is.EquivalentTo(new[] { "木" })); // 首位的木保留
         }
@@ -316,7 +333,7 @@ namespace Brushblade.Core.Tests
                 new BattleConfig { DropTable = Array.Empty<string>() },
                 new[] { "焚" }, Array.Empty<string>(), seed: 7);
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0), Is.True);
             Assert.That(run.Battle.Pool.Count, Is.EqualTo(2));
             // 候选 = 出阵表(RewardPool=[炎])所需部件 = [火]
             var allowed = MetaRules.DeckComponents(new[] { "炎" }, Graph()).ToList();
@@ -355,7 +372,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }), Is.False);                     // 未指定选哪个字
             Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 9), Is.False); // 越界
             Assert.That(run.CarriedPool.Count, Is.EqualTo(2)); // 失败不动池
-            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 1), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0, new[] { 0, 1 }, charChoiceIndex: 1), Is.True);
             Assert.That(run.Battle.Library, Does.Contain("炎"));
             Assert.That(run.Battle.Library, Does.Not.Contain("林"));
             Assert.That(run.Battle.Pool, Is.Empty); // 两部件已抵价
@@ -393,7 +410,7 @@ namespace Brushblade.Core.Tests
             WinAndSkipReward(run); // 焚出手后字库只剩炎(容量 1,已满)
             Assert.That(run.CarriedLibrary, Is.EqualTo(new[] { "炎" }));
 
-            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, replaceLibraryIndex: 0), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0, new[] { 0, 1 }, replaceLibraryIndex: 0), Is.True);
             Assert.That(run.Battle.Library, Is.EqualTo(new[] { "林" })); // 炎被换掉
             Assert.That(run.Battle.Pool, Is.Empty);                     // 两部件已抵价
         }
@@ -419,7 +436,7 @@ namespace Brushblade.Core.Tests
                 new BattleConfig { LibraryCapacity = 5, DropTable = Array.Empty<string>() },
                 new[] { "焚", "炎" }, new[] { "木", "火" }, seed: 7);
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, replaceLibraryIndex: 0), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0, new[] { 0, 1 }, replaceLibraryIndex: 0), Is.True);
             Assert.That(run.Battle.Library, Does.Contain("炎").And.Contain("林")); // 炎还在
         }
 
@@ -506,6 +523,7 @@ namespace Brushblade.Core.Tests
             WinAndSkipReward(run);
             run.ChooseEventOption(0);
             Assert.That(run.ResolveOverflowReplace(0), Is.True); // 换掉首位的木
+            run.SkipReward(); // 改序后溢出决议完接的是选字,跳过它才进下一战
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Pool.Count, Is.EqualTo(12));
             Assert.That(run.Battle.Pool.Count(c => c == "火"), Is.EqualTo(3)); // 溢出项换进来
@@ -518,6 +536,7 @@ namespace Brushblade.Core.Tests
             WinAndSkipReward(run);
             run.ChooseEventOption(0);
             run.ResolveOverflowSkip();
+            run.SkipReward(); // 改序后溢出决议完接的是选字,跳过它才进下一战
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Pool.Count, Is.EqualTo(12));
             Assert.That(run.Battle.Pool.Count(c => c == "火"), Is.EqualTo(2)); // 第 3 个被丢
@@ -534,6 +553,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(RunPhase.EventOverflow)); // 还剩一个待决
             Assert.That(run.PendingOverflow.Count, Is.EqualTo(1));
             run.ResolveOverflowSkip();
+            run.SkipReward(); // 改序后溢出决议完接的是选字,跳过它才进下一战
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Pool.Count, Is.EqualTo(12));
         }
@@ -557,7 +577,7 @@ namespace Brushblade.Core.Tests
         {
             var run = OverflowRun(startingPoolCount: 5, gain: 3);
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0), Is.True);
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             Assert.That(run.Battle.Pool.Count, Is.EqualTo(8));
             Assert.That(run.PendingOverflow, Is.Empty);
@@ -763,7 +783,7 @@ namespace Brushblade.Core.Tests
             run.Battle.EndTurn();                        // 先挨一下,腾出回血空间
             int hpBefore = run.Battle.PlayerHp;
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0), Is.True);
 
             Assert.That(run.Battle.MaxHp, Is.EqualTo(130));            // 100 → 130
             Assert.That(run.Battle.PlayerHp, Is.EqualTo(hpBefore + 30)); // 同步等量回血
@@ -774,11 +794,11 @@ namespace Brushblade.Core.Tests
         {
             var run = MaxHpRun();
             WinAndSkipReward(run);
-            run.ChooseEventOption(0);        // 100 → 130
+            ChooseAndAdvance(run, 0);        // 100 → 130
             run.Battle.Cast("焚");
             run.AdvanceAfterBattle();
             run.SkipReward();
-            Assert.That(run.ChooseEventOption(0), Is.True);
+            Assert.That(ChooseAndAdvance(run, 0), Is.True);
 
             Assert.That(run.Battle.MaxHp, Is.EqualTo(169)); // 130 + floor(130×0.3)=39
         }
@@ -789,7 +809,7 @@ namespace Brushblade.Core.Tests
             // 掷不中的种子:MaxHpChancePercent=80,需要 _random.Next(100) >= 80
             var run = MaxHpRun(seed: BackfireSeed());
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(1), Is.True);
+            Assert.That(ChooseAndAdvance(run, 1), Is.True);
 
             Assert.That(run.Battle.MaxHp, Is.EqualTo(70));          // 100 − 30
             Assert.That(run.Battle.PlayerHp, Is.LessThanOrEqualTo(70)); // 当前血钳到新上限
@@ -801,7 +821,7 @@ namespace Brushblade.Core.Tests
             var run = MaxHpRun(seed: 7, pool: new[] { "木" });
             WinAndSkipReward(run);
             Assert.That(run.ChooseEventOption(2), Is.False);                  // 没指定弃哪个
-            Assert.That(run.ChooseEventOption(2, new[] { 0 }), Is.True);
+            Assert.That(ChooseAndAdvance(run, 2, new[] { 0 }), Is.True);
             Assert.That(run.Battle.MaxHp, Is.EqualTo(130));
             Assert.That(run.Battle.Pool, Does.Not.Contain("木"));
         }
@@ -826,7 +846,7 @@ namespace Brushblade.Core.Tests
             {
                 var probe = MaxHpRun(seed);
                 WinAndSkipReward(probe);
-                probe.ChooseEventOption(1);
+                ChooseAndAdvance(probe, 1); // 要走到下一战才读得到新上限(2026-08-30 改序)
                 if (probe.Battle.MaxHp < 100) return seed;
             }
             throw new InvalidOperationException("500 个种子里没找到掷空的,概率模型有问题");

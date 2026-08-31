@@ -715,6 +715,7 @@ namespace Brushblade.Core.Tests
             run.SkipReward();
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
             Assert.That(run.ChooseEventOption(0), Is.True); // MaxHp +30% → 之后的战斗拿 config 副本
+            run.SkipReward(); // 改序后(2026-08-30)奇遇接的是选字,跳过它才真正进下一战
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
             return run;
         }
