@@ -1,22 +1,27 @@
 {
   "chars": [
     {
+      "component": true,
       "id": "金",
       "element": "Metal"
     },
     {
+      "component": true,
       "id": "木",
       "element": "Wood"
     },
     {
+      "component": true,
       "id": "水",
       "element": "Water"
     },
     {
+      "component": true,
       "id": "火",
       "element": "Fire"
     },
     {
+      "component": true,
       "id": "土",
       "element": "Earth"
     },
@@ -1447,171 +1452,223 @@
       ]
     },
     {
+      "component": true,
       "id": "一"
     },
     {
+      "component": true,
       "id": "丈"
     },
     {
+      "component": true,
       "id": "东"
     },
     {
+      "component": true,
       "id": "丰"
     },
     {
+      "component": true,
       "id": "乍"
     },
     {
+      "component": true,
       "id": "仓"
     },
     {
+      "component": true,
       "id": "令"
     },
     {
+      "component": true,
       "id": "佥"
     },
     {
+      "component": true,
       "id": "保"
     },
     {
+      "component": true,
       "id": "兑",
       "element": "Metal"
     },
     {
+      "component": true,
       "id": "公"
     },
     {
+      "component": true,
       "id": "冫",
       "element": "Water"
     },
     {
+      "component": true,
       "id": "刀",
       "element": "Metal"
     },
     {
+      "component": true,
       "id": "刂",
       "element": "Metal"
     },
     {
+      "component": true,
       "id": "切",
       "element": "Metal"
     },
     {
+      "component": true,
       "id": "列"
     },
     {
+      "component": true,
       "id": "则"
     },
     {
+      "component": true,
       "id": "勺"
     },
     {
+      "component": true,
       "id": "匝"
     },
     {
+      "component": true,
       "id": "卒"
     },
     {
+      "component": true,
       "id": "占"
     },
     {
+      "component": true,
       "id": "厽"
     },
     {
+      "component": true,
       "id": "周"
     },
     {
+      "component": true,
       "id": "喿"
     },
     {
+      "component": true,
       "id": "尧"
     },
     {
+      "component": true,
       "id": "展"
     },
     {
+      "component": true,
       "id": "山",
       "element": "Earth"
     },
     {
+      "component": true,
       "id": "岂"
     },
     {
+      "component": true,
       "id": "崔"
     },
     {
+      "component": true,
       "id": "巢"
     },
     {
+      "component": true,
       "id": "戈",
       "element": "Metal"
     },
     {
+      "component": true,
       "id": "执"
     },
     {
+      "component": true,
       "id": "暴"
     },
     {
+      "component": true,
       "id": "朋"
     },
     {
+      "component": true,
       "id": "朵"
     },
     {
+      "component": true,
       "id": "朿"
     },
     {
+      "component": true,
       "id": "每"
     },
     {
+      "component": true,
       "id": "氵",
       "element": "Water"
     },
     {
+      "component": true,
       "id": "滕"
     },
     {
+      "component": true,
       "id": "灬",
       "element": "Fire"
     },
     {
+      "component": true,
       "id": "烝"
     },
     {
+      "component": true,
       "id": "白"
     },
     {
+      "component": true,
       "id": "石",
       "element": "Earth"
     },
     {
+      "component": true,
       "id": "禾"
     },
     {
+      "component": true,
       "id": "秋"
     },
     {
+      "component": true,
       "id": "艹",
       "element": "Wood"
     },
     {
+      "component": true,
       "id": "荅"
     },
     {
+      "component": true,
       "id": "谷"
     },
     {
+      "component": true,
       "id": "贵"
     },
     {
+      "component": true,
       "id": "辟"
     },
     {
+      "component": true,
       "id": "钅",
       "element": "Metal"
     },
     {
+      "component": true,
       "id": "隹"
     }
   ]

@@ -434,3 +434,28 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
             for e in c.get("effects", []) if e.get("doubleVs")} == {
         "灼": "Burning", "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken"}
+
+
+def test_component_entries_are_flagged():
+    """部件条目带 component: true;可出牌字不带这个字段。
+
+    Core 侧的 CharDef.IsComponent 靠它区分「部件池成员」和「可出牌字」——
+    不能从 recipe/effects 推导,二级拆解之后部件也会有配方。
+    """
+    chars = build_chars(MINI_IDS, {"烫": {"element": "Fire", "rarity": "Purple", "effects": []}})
+    byid = {c["id"]: c for c in chars["chars"]}
+    assert byid["汤"]["component"] is True, "配方原料合成出来的部件要标 component"
+    assert byid["火"]["component"] is True, "开头硬编码的五行五条也是部件"
+    assert "component" not in byid["烫"], "可出牌字不带 component 字段"
+
+
+def test_real_table_flags_every_component():
+    """实船字表:74 个可出牌字都不带 component,其余全部带。"""
+    chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
+    playable = {c["id"] for c in chars if "effects" in c}
+    assert len(playable) == 74
+    for c in chars:
+        if c["id"] in playable:
+            assert "component" not in c, f"{c['id']} 是可出牌字,不该带 component"
+        else:
+            assert c.get("component") is True, f"{c['id']} 是部件,该带 component"
