@@ -1218,7 +1218,11 @@ namespace Brushblade.Presentation
         /// 稿上 .me/.ally 的 .hpb/.shb 都是裸条,数字挪到头行文字里,与 .foe「条上叠字、
         /// 没有头行数字」是两种不同的读法,不能顺手复用敌人那一套。行动条例外:调度方
         /// 明确要求继续走共享 ActionBar helper(只改颜色不改结构),所以行动条仍带百分比
-        /// 叠字,与血/盾条不对称,是刻意的,不是漏改。</summary>
+        /// 叠字,与血/盾条不对称,是刻意的,不是漏改。
+        ///
+        /// ⚠ 这不是「比照敌人格先例」——敌人格的 <see cref="HpBar"/> 现在仍在用(见
+        /// <c>DrawEnemies</c>),没有被绕开;唯一被绕开、只留颜色/soon 态改动的公共 helper
+        /// 是 <see cref="ActionBar"/>。别把这条注释理解成「敌人格血条也是绕开 helper 的」。</summary>
         private void DrawPlayerStats()
         {
             // 立绘块(稿 .me .blk):墨底白字。没有稿上那枚金色等级角标——项目没有
@@ -1243,6 +1247,20 @@ namespace Brushblade.Presentation
                 var el = go.GetComponent<LayoutElement>();
                 el.preferredWidth = -1f;
                 el.flexibleWidth = 1f;
+            }
+
+            // 分隔线(稿 .stt/.ap 都有 border-left: 1px solid #E4DDCE),把四段在视觉上隔开。
+            // 用 Theme.PanelBorder(#DED7C9,与稿差值可忽略)——它本来就是「面板描边(稿上
+            // 统一 1pt)」的既有 token,不为这条线新增颜色常量。高度取 PlayerBlkSize:
+            // 稿上 .me 靠 align-items:center 让行高等于最高的子项(立绘块),.stt/.ap 的
+            // align-self:stretch 只是撑到这个高度,不是另有一个独立的行高来源。
+            void Divider()
+            {
+                var div = Ui.Panel(_bottomRow, "Divider");
+                var divElement = div.AddComponent<LayoutElement>();
+                divElement.preferredWidth = 2f;
+                divElement.preferredHeight = PlayerBlkSize;
+                div.AddComponent<Image>().color = Theme.PanelBorder;
             }
 
             // 信息列(稿 .me .info { flex: 1 }):吃掉 blk/stt/ap 之外的全部剩余宽度。
@@ -1282,6 +1300,8 @@ namespace Brushblade.Presentation
             _playerActionBar = ActionBar(info.transform, Battle.PlayerActionMeter,
                 new Vector2(0f, PlayerActionBarHeight), 8);
             StretchWidth(_playerActionBar.fill.parent.gameObject);
+
+            Divider(); // info | stt 分隔线
 
             // 状态栏(稿 .stt):定宽 120pt,超出收 +N —— 与敌人 chip 行同一套 Ui.ChipFlow,
             // 不再是旧版「都为 0 就不建、按需创建的无限宽单行」;内容/顺序/颜色/图标
@@ -1327,14 +1347,21 @@ namespace Brushblade.Presentation
             stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Sized(stt, width: PlayerSttWidth);
 
+            Divider(); // stt | ap 分隔线
+
             // AP 竖笔画格(稿 .ap):满的是墨、空的是白格,像还没蘸墨的笔画——原先三颗
-            // 8px 小圆点分量还不如旁边的状态 chip。AP 不够出下一个字(< 1)时整块转朱砂
-            // (稿 .ap.dry);pips 自身的「on」颜色不需要单独判 dry——dry 恰好意味着
-            // Ap == 0,这时不会有任何一枚 pip 处于 on 态,稿上 .ap.dry .pips i.on 那条
-            // 规则在当前 AP 语义下永远不会触发,这里不必为它专门分支。
+            // 8px 小圆点分量还不如旁边的状态 chip。AP 不够出下一个字(dry)时**只有数字**
+            // 转深朱砂(稿 .ap.dry .n,「AP」标签没有 dry 规则,见下方两处 ThemedLabel);
+            // pips 自身的「on」颜色不需要单独判 dry——dry 恰好意味着 Ap == 0,这时不会有
+            // 任何一枚 pip 处于 on 态,稿上 .ap.dry .pips i.on 那条规则在当前 AP 语义下
+            // 永远不会触发,这里不必为它专门分支。
+            // Ap < 1 与「不够出下一个字」等价,只是因为 Core.CharDef.ApCostFor 目前对
+            // 所有稀有度恒为 1(2026-08-03 拍板);这是脆弱等价——将来 AP 消耗按稀有度
+            // 分化,这行就该改成「够不够出手上最便宜的那张字」。
             bool dry = Battle.Ap < 1;
             var apRow = Ui.Row(_bottomRow, "Ap", PlayerApGap);
-            Ui.ThemedLabel(apRow.transform, "AP", 12, dry ? Theme.Cinnabar : Theme.TextDim);
+            // 稿 .ap.dry 只有 .n(数字)转色,「AP」标签(.k)没有 dry 规则,故不判 dry
+            Ui.ThemedLabel(apRow.transform, "AP", 12, Theme.TextDim);
             var pips = Ui.Row(apRow.transform, "Pips", PlayerApPipGap);
             for (int i = 0; i < Battle.ApPerTurn; i++)
             {
@@ -1347,8 +1374,9 @@ namespace Brushblade.Presentation
                 element.preferredWidth = PlayerApPipWidth;
                 element.preferredHeight = PlayerApPipHeight;
             }
+            // 稿 .ap.dry .n { color: #9B1E22 } = Theme.CinnabarDark,不是 pips 用的 Theme.Cinnabar
             Ui.ThemedLabel(apRow.transform, $"{Battle.Ap}/{Battle.ApPerTurn}", 16,
-                dry ? Theme.Cinnabar : Theme.TextMain, Theme.TitleFont);
+                dry ? Theme.CinnabarDark : Theme.TextMain, Theme.TitleFont);
 
             // 治疗选目标态(2026-08-22):玩家整条底栏点亮为「治玩家」的点击面——覆盖对象从
             // 原来的 hpStack(单个 VStack)换成 _bottomRow(整条横排的容器),结构改横排
@@ -1478,8 +1506,10 @@ namespace Brushblade.Presentation
                     ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 三条(裸条,数字已在头行读到,与玩家条同一取舍):血、盾、行动条自上而下。
+                // 血条颜色刻意与玩家/敌人不同(稿 .ally .hpb > span { background: #2E7D46 } 是绿,
+                // .me/.foe 都是红):稿用色区分敌我——召唤物是友军,红色会被误读成类敌方单位。
                 var hpBarGo = Ui.Bar(info.transform, summon.MaxHp > 0 ? shownHp / (float)summon.MaxHp : 0f,
-                    Theme.Cinnabar, new Vector2(infoWidth, SummonHpBarHeight));
+                    Theme.DoneGreen, new Vector2(infoWidth, SummonHpBarHeight));
                 _summonBarByCore[i] = ((RectTransform)hpBarGo.transform.Find("Fill"), null);
 
                 // 盾条(2026-08-26)接在血条下面,**常驻** —— 0 时是一条空条,不再有无盾时
