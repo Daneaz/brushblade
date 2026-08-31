@@ -201,7 +201,7 @@ namespace Brushblade.Presentation
                 // 这里直接用它而不是 enemy.Element,否则详情弹窗会把老文本刻意藏起来的真身泄出去。
                 Element = enemy.ApparentElement,
                 Name = isBoss ? BossTitleText(def, enemy.PhaseIndex) : def.Id,
-                Tags = new[] { PositionRangeTag(def) },
+                Tags = BuildTags(enemy, isBoss),
                 Flavor = null, // enemies.json 没有风味文案字段,19 只怪的这句话没法凭空写
                 Hp = enemy.Hp,
                 MaxHp = enemy.MaxHp,
@@ -225,18 +225,35 @@ namespace Brushblade.Presentation
             return title.ToString();
         }
 
-        /// <summary>「前排 · 近战」标签。稿上焦痕那条标签还有第二枚金色「文山 ×3.0」
-        /// (层段深度缩放倍率)——那个倍率在 Endless.cs 里现算现丢,不进 EnemyDef/EnemyState,
-        /// Detail(EnemyState) 这个签名拿不到,故没有第二个 Tag。</summary>
-        private static string PositionRangeTag(EnemyDef def)
+        /// <summary>Tags:小怪一枚「前排 · 近战」;Boss 再加一枚「第 N/M 阶段」在前面
+        /// (老文本 PhaseDetail 的 enemy.phase.header,旧文本里是阶段信息,新结构挪进 Tags)。
+        /// 稿上焦痕那条标签还有第二枚金色「文山 ×3.0」(层段深度缩放倍率)——那个倍率在
+        /// Endless.cs 里现算现丢,不进 EnemyDef/EnemyState,Sheet(EnemyState) 这个签名拿不到,
+        /// 故没有第二个 Tag(报告里点名跳过,不是漏掉)。</summary>
+        private static string[] BuildTags(EnemyState enemy, bool isBoss)
+        {
+            var position = PositionRangeTag(enemy);
+            if (!isBoss) return new[] { position };
+            string phaseTag = Strings.T("enemy.phase.tag",
+                ("phaseNumber", enemy.PhaseIndex + 1), ("phaseCount", enemy.Def.Phases.Count));
+            return new[] { phaseTag, position };
+        }
+
+        /// <summary>「前排 · 近战」标签。⚠ 站位读 <c>enemy.Row</c>,不是 <c>enemy.Def.Row</c>——
+        /// Def.Row 只是「偏好」,实际站位在开场分配(BattleEngine.AssignSlots)时可能因为
+        /// 偏好排满了被改判到另一排,之后 Targeting/前排拦截/Endless.cs 全部读的是
+        /// EnemyState.Row。这个标签存在的全部意义就是告诉玩家「它现在站哪」,读错字段会让
+        /// 一只实际在后排的怪显示成「前排」,判定与展示对不上(2026-09-01 review 抓到过一次,
+        /// 当时读的是 def.Row,已改)。</summary>
+        private static string PositionRangeTag(EnemyState enemy)
         {
             // 两支各写各的 Strings.T(字面量 key):StringsTableTests 扫的是紧跟在 T( 后面的
             // 字符串字面量,key 从三元表达式的结果变量传进去它认不出来,会被判孤儿
             // (StatusText.cs 的注释早就点过这个坑,这里再踩一次没必要)。
-            string rowName = def.Row == EnemyRow.Front
+            string rowName = enemy.Row == EnemyRow.Front
                 ? Strings.T("enemy.row.front.name")
                 : Strings.T("enemy.row.back.name");
-            return rowName + " · " + RangeName(def.Range);
+            return rowName + " · " + RangeName(enemy.Def.Range);
         }
 
         /// <summary>攻/甲/速/行动四格,口径见 task-3-report.md 的逐条对照表:
@@ -254,6 +271,10 @@ namespace Brushblade.Presentation
                     enemy.Statuses.TotalMagnitude(StatusKind.AttackBuff)),
                 UnitDetailChip.DeltaDebuffPct(Strings.T("status.curse.name"),
                     enemy.Statuses.TotalMagnitude(StatusKind.Curse)));
+            // ⚠ 这一格只含破甲(敌人自己身上的减益),不含攻击方的穿透——不是签名拿不到,
+            // 是拍板的设计分工(2026-09-01 review 追加裁定):UnitMe.dc.html 的穿透词条自己写着
+            // 「实际减多少看那只怪的甲」,即穿透是执笔人那一屏的属性,这一屏只显示敌人自身的甲。
+            // 两者混进同一个数会让「这只怪的甲」这个概念含糊掉。
             string defenseNote = UnitDetailChip.BaseNote(enemy.Defense,
                 UnitDetailChip.DeltaDebuffPts(Strings.T("status.armorbreak.name"), armorBreak));
             string speedNote = UnitDetailChip.BaseNote(enemy.Speed,
@@ -311,7 +332,7 @@ namespace Brushblade.Presentation
                     list.Add(new AbilityEntry
                     {
                         IconKey = null, ChipColor = UnitDetailChip.Ability,
-                        Name = "", Desc = Strings.T("enemy.phase.no_ultimate").TrimStart('\n'),
+                        Name = Strings.T("enemy.phase.no_ultimate").TrimStart('\n'), Desc = null,
                     });
                 else
                     list.Add(new AbilityEntry
@@ -342,7 +363,7 @@ namespace Brushblade.Presentation
                     list.Add(new AbilityEntry
                     {
                         IconKey = null, ChipColor = UnitDetailChip.Ability,
-                        Name = "", Desc = Strings.T("enemy.minion.no_mechanic").TrimStart('\n'),
+                        Name = Strings.T("enemy.minion.no_mechanic").TrimStart('\n'), Desc = null,
                     });
             }
             return list;

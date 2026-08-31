@@ -47,23 +47,40 @@ namespace Brushblade.Presentation
             Strings.T("player.detail.tag_ap_cost", ("cost", CharDef.ApCostFor(CardRarity.White))),
         };
 
+        /// <summary>战意每层的攻击加成(百分点)。与 <c>BattleEngine</c> 私有常量
+        /// <c>MoralePercentPerStack</c> 数值必须保持一致,但那个常量是 private,这里拿不到——
+        /// 复制这个数字是有意的,不是偷懒:既有文案 status.morale.desc 里已经把「每层 +10% 攻击」
+        /// 写成了玩家可见的事实(等于说这个数字本来就是公开的),PlayerInfo 这里再抄一份不算
+        /// 新泄露信息,只是同一个已公开事实又写了一份。⚠ 这个数字改的话,BattleEngine.cs 的
+        /// MoralePercentPerStack、strings 表的 status.morale.desc、这里三处都要一起改。</summary>
+        private const int MoralePercentPerStack = 10;
+
         /// <summary>攻/甲/暴击/速四格。攻直接读 <see cref="BattleEngine.EffectiveAttack"/>——
         /// 稿子点名要求的口径,不在这里重新拼一遍公式。基准值(角色成长曲线)另算,
         /// 因为 BattleEngine 不对外报 config 里的原始 PlayerAttack/PlayerDefense/PlayerSpeed——
         /// 战斗引擎只暴露「有效值」,这几条基准借 MetaRules 的同名成长函数复原
-        /// (与 MetaRules.BuildBattleConfig 当初写进 config 的是同一条公式,单一来源,不会漂)。</summary>
+        /// (与 MetaRules.BuildBattleConfig 当初写进 config 的是同一条公式,单一来源,不会漂)。
+        ///
+        /// ⚠ 判据是"note 的各项拼起来要能推出大字"(2026-09-01 review 定的线,敌人那格已经
+        /// 满足:BaseAttack × (100+buff%−curse%)/100)。玩家这格第一版没做到,已改:
+        /// EffectiveAttack 的真实公式是 flat = PlayerAttack + AttackBuff(点数,不是百分比!)
+        /// 然后 × (100 + 战意% ) / 100(见 BattleEngine.EffectiveAttack 的源码)。
+        /// 所以 note 现在拼成「基准 X · 攻击 +N(点数)· 战意 +M%」,读的人能自己算:
+        /// (X+N) × (100+M) / 100(整数除)= 显示的大字,与敌人那格同一个可验证标准。</summary>
         private static (string, string, string)[] BuildFigures(BattleEngine battle, MetaState meta)
         {
             int level = MetaRules.CharacterLevel(meta.CharacterXp);
             var statuses = battle.PlayerStatuses;
 
+            // AttackBuff 在玩家侧是加点数(与 PlayerAttack 同一个数量级相加),不是百分比——
+            // 这是玩家侧 EffectiveAttack 与敌人侧 EnemyState.Attack 唯一不同的地方,虽然两边
+            // 用的是同一个 StatusKind.AttackBuff,口径却不一样,不能照抄敌人那边的格式化。
+            int attackBuffPts = statuses.TotalMagnitude(StatusKind.AttackBuff);
             int moraleLayers = statuses.TotalMagnitude(StatusKind.Morale);
-            int attackBuff = statuses.TotalMagnitude(StatusKind.AttackBuff);
+            int moralePercent = moraleLayers * MoralePercentPerStack;
             string attackNote = UnitDetailChip.BaseNote(MetaRules.AttackFor(level),
-                UnitDetailChip.DeltaBuffPct(Strings.T("status.attack.name"), attackBuff),
-                moraleLayers > 0
-                    ? Strings.T("status.morale.name") + " " + Strings.T("status.duration.stacks", ("value", moraleLayers))
-                    : null);
+                UnitDetailChip.DeltaBuffPts(Strings.T("status.attack.name"), attackBuffPts),
+                UnitDetailChip.DeltaBuffPct(Strings.T("status.morale.name"), moralePercent));
 
             int defenseBuff = statuses.TotalMagnitude(StatusKind.DefenseBuff);
             int armorBreak = statuses.TotalMagnitude(StatusKind.ArmorBreak);
@@ -77,10 +94,14 @@ namespace Brushblade.Presentation
                     ? UnitDetailChip.DeltaDebuffPts(Strings.T("status.slow.name"), -speedMod)
                     : UnitDetailChip.DeltaBuffPts(Strings.T("status.speed.name"), speedMod));
 
+            // 甲带 "+" 前缀(有值才带),与召唤物那格统一——UnitMe.dc.html 稿上写的就是「甲 +18」。
+            int defenseValue = battle.EffectivePlayerDefense;
+            string defenseText = defenseValue > 0 ? "+" + defenseValue : "0";
+
             return new[]
             {
                 (Strings.T("char.stat.attack"), battle.EffectiveAttack.ToString(), attackNote),
-                (Strings.T("char.stat.defense"), battle.EffectivePlayerDefense.ToString(), defenseNote),
+                (Strings.T("char.stat.defense"), defenseText, defenseNote),
                 (Strings.T("status.crit.name"), battle.EffectiveCrit + "%",
                     Strings.T("player.detail.crit_multiplier_note")),
                 (Strings.T("char.stat.speed"), battle.EffectivePlayerSpeed.ToString(), speedNote),

@@ -588,6 +588,7 @@
   "char.stat.action": "行动",
   "char.stat.shield": "盾",
   "enemy.row.front.name": "前排",
+  "enemy.phase.tag": "第 {phaseNumber}/{phaseCount} 阶段",
   "enemy.row.back.name": "后排",
   "summon.detail.tag_type": "召唤物",
   "summon.detail.figure_attack_passive_note": "输出全在被动",

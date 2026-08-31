@@ -156,9 +156,14 @@ namespace Brushblade.Presentation
         /// 这里不重新推一遍。</summary>
         private static (string, string, string)[] BuildFigures(SummonState summon)
         {
+            // 老文本(Detail(SummonState))这里是无条件二选一(action_attack / action_passive_only),
+            // 第一版这里只映射了 Attack==0 那一支,Attack>0 那句「攒满行动条时攻击最前的敌人」
+            // 静默消失了(2026-09-01 review 抓到)。补上——Attack>0 直接复用现成的
+            // summon.detail.action_attack(去掉老文本拼接用的尾部换行符),不新开一个短 key,
+            // 因为没有稿子例子撑腰,拟一句更短的反而是发明。
             string attackNote = summon.Attack == 0
                 ? Strings.T("summon.detail.figure_attack_passive_note")
-                : null; // Attack>0 时老文本也没有额外口径可对照,不外推一个没有例子撑腰的说法
+                : Strings.T("summon.detail.action_attack").TrimEnd('\n');
 
             int defenseValue = summon.EffectiveDefense;
             string defenseNote = defenseValue > 0
