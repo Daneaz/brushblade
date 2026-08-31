@@ -8,8 +8,8 @@ import json, collections, subprocess, sys, os
 SRC = 'Brushblade/Assets/StreamingAssets/config/chars.json'
 chars = json.load(open(SRC))['chars']
 byid = {c['id']: c for c in chars}
-comp = [c for c in chars if 'recipe' in c]
-leaf = [c for c in chars if 'recipe' not in c]
+comp = [c for c in chars if not c.get('component')]
+leaf = [c for c in chars if c.get('component')]
 
 # 二级拆解借管线的 IDS 拆解器,与配方生成同一套规则(只拆 ⿰⿱⿲⿳、子部件须是真实字)。
 # ids.txt 是不入 git 的原始数据 —— 缺失时二级降级为「只按字表配方展开」。
@@ -426,7 +426,7 @@ A(f"> 数据源:`{SRC}`(唯一真相)。本文由 `tools/design/gen_char_doc.py`
 A("")
 A("## 口径说明")
 A("")
-A(f"- **收录范围**:配置表 {len(chars)} 条中的 **{len(comp)} 个可出牌字**(有配方 + 有效果)。另 {len(leaf)} 个无配方的部件/枢纽字只作合成原料,`IsLeaf` 会被奖励池过滤,玩家拿不到牌,故不入表。")
+A(f"- **收录范围**:配置表 {len(chars)} 条中的 **{len(comp)} 个可出牌字**(有配方 + 有效果)。另 {len(leaf)} 个部件/枢纽字只作合成原料(其中部分自身也带配方,可再向下拆一层 —— 2026-09-01 二级拆解新增的中间层),`IsComponent` 会被奖励池过滤,玩家拿不到牌,故不入表。")
 A("- **攻击力**:字表没有独立的攻击力字段,此列取**直伤效果的 value**(已是 2026-08-12 全表 ×10 后的量级)。")
 A("  纯辅助字记 `—`;召唤字记 `召 攻×只数`(实际输出在召唤物身上);纯 DOT 字记 DOT 量。")
 A("- **相生 ×3**:配置表填的是**基础值**,配方原料含「生本字属性」的字(焚/蒸/沏/刲)实战 ×3。")
