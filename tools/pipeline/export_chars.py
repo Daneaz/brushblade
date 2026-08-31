@@ -101,7 +101,7 @@ def build_chars(ids_text, values):
     # component: true 是 Core 侧 CharDef.IsComponent 的唯一来源 —— 部件属部件池,
     # 不进奖励池/宝箱池/商城/收集/叠字前置。与「有没有配方」正交(2026-09-01 二级拆解:
     # 部件也可以有配方),所以必须显式标,不能让 Core 去推导。
-    entries = [{"component": True, "id": e, "element": _ELEMENT_NAME[e]} for e in ELEMENTS]
+    entries = [{"id": e, "element": _ELEMENT_NAME[e], "component": True} for e in ELEMENTS]
 
     components = set()
     for char, spec in values.items():
@@ -129,10 +129,11 @@ def build_chars(ids_text, values):
 
     for part in sorted(components):
         if part not in values:
-            leaf = {"component": True, "id": _output_id(part)}
+            leaf = {"id": _output_id(part)}
             attr = attr_of(part) or COMPOUND_ATTR.get(part)
             if attr:
                 leaf["element"] = _ELEMENT_NAME[attr]
+            leaf["component"] = True
             entries.append(leaf)
 
     return {"chars": entries}
