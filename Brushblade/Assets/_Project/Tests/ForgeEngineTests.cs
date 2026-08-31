@@ -29,6 +29,18 @@ namespace Brushblade.Core.Tests
             new CharDef("利", Element.Metal, new[] { "禾", "刂" }),
         });
 
+        // 只给「拆池中部件」测试用——独立于 Graph(),避免非叶子的 烝/蒸 混进
+        // Suggest 的 composable/nearMiss 精确列表断言(2026-09-01 二级拆解)。
+        private static RecipeGraph ComponentGraph() => new(Graph().All.Concat(new[]
+        {
+            // 带配方的部件(2026-09-01 二级拆解):烝 = 丞 + 灬 —— 既归部件池,又能再拆
+            new CharDef("丞", null, isComponent: true),
+            new CharDef("灬", Element.Fire, isComponent: true),
+            new CharDef("烝", null, new[] { "丞", "灬" }, isComponent: true),
+            new CharDef("蒸", Element.Fire, new[] { "艹", "烝" }),
+            new CharDef("艹", Element.Wood, isComponent: true),
+        }));
+
         private static ForgeState State(string[] library, string[] pool) => new(library, pool);
 
         // ---- RecipeGraph ----
@@ -108,6 +120,62 @@ namespace Brushblade.Core.Tests
             var pool = Enumerable.Repeat("木", 12).ToArray(); // 12 + 1(火)> 12
             var result = ForgeEngine.TryDismantle("焚", Graph(), State(new[] { "焚" }, pool), 12, 6);
             Assert.That(result.Error, Is.EqualTo(ForgeError.PoolWouldOverflow));
+        }
+
+        // ---- 拆池中部件(2026-09-01 二级拆解)----
+
+        [Test]
+        public void Dismantle_ComponentInPool_ProductsStayInPool()
+        {
+            // 烝 = 丞 + 灬,两个都是部件 → 全进池;源 烝 从池里移除
+            var result = ForgeEngine.TryDismantle("烝", ComponentGraph(),
+                State(Array.Empty<string>(), new[] { "烝" }), 6, 12);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "丞", "灬" }));
+            Assert.That(result.State.Library, Is.Empty);
+        }
+
+        [Test]
+        public void Dismantle_ComponentInPool_CostsOnePoolSlotNet()
+        {
+            // 池容量 3,已有 烝 + 2 个占位 → 拆完是 丞 + 灬 + 2 = 4 > 3,应当整体失败
+            var before = State(Array.Empty<string>(), new[] { "烝", "木", "火" });
+            var result = ForgeEngine.TryDismantle("烝", ComponentGraph(), before, 3, 12);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.PoolWouldOverflow));
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "烝", "木", "火" }), "失败不动状态");
+
+            // 容量放到 4 就过得去(净 +1)
+            Assert.That(ForgeEngine.TryDismantle("烝", ComponentGraph(), before, 4, 12).Success, Is.True);
+        }
+
+        [Test]
+        public void Dismantle_ComponentNotInPoolOrLibrary_Fails()
+        {
+            var result = ForgeEngine.TryDismantle("烝", ComponentGraph(),
+                State(Array.Empty<string>(), new[] { "木" }), 6, 12);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.NotInLibrary));
+        }
+
+        [Test]
+        public void Dismantle_ComponentWithoutRecipe_StillNotDismantlable()
+        {
+            var result = ForgeEngine.TryDismantle("丞", ComponentGraph(),
+                State(Array.Empty<string>(), new[] { "丞" }), 6, 12);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.NotDismantlable));
+        }
+
+        [Test]
+        public void Dismantle_CharWithComponentIngredient_ComponentGoesToPool()
+        {
+            // 蒸 = 艹 + 烝:两个都是部件(烝 有配方但仍是部件)→ 都进池,不进字库
+            var result = ForgeEngine.TryDismantle("蒸", ComponentGraph(),
+                State(new[] { "蒸" }, Array.Empty<string>()), 6, 12);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "艹", "烝" }));
+            Assert.That(result.State.Library, Is.Empty);
         }
 
         // ---- 合(Compose) ----

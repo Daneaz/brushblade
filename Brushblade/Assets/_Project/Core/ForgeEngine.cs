@@ -77,9 +77,9 @@ namespace Brushblade.Core
     /// <summary>拆合引擎:拆(4.4.1)/合(4.4.2)/提示(4.7)。纯函数,无副作用。</summary>
     public static class ForgeEngine
     {
-        /// <summary>拆:字库中的字 → 配方全部原料入池(无损返还)。</summary>
-        /// <summary>拆:配方原料按性质归位——部件(叶子)回部件池,可合成字回字库
+        /// <summary>拆:配方原料按性质归位——部件(IsComponent)回部件池,可出牌字回字库
         /// (2026-07-22 拍板:如森=林+木,林回库、木回池;原「全进池」废止)。
+        /// 源可以是字库里的字,也可以是部件池里带配方的部件(2026-09-01 二级拆解)。
         /// 任一去处放不下则整体失败,不动状态(先验后扣)。</summary>
         public static ForgeResult TryDismantle(string charId, RecipeGraph graph, ForgeState state,
             int poolCapacity, int libraryCapacity)
@@ -88,24 +88,34 @@ namespace Brushblade.Core
                 return ForgeResult.Fail(ForgeError.UnknownChar, state);
             if (def.IsLeaf)
                 return ForgeResult.Fail(ForgeError.NotDismantlable, state);
-            if (!state.Library.Contains(charId))
+
+            // 来源:字库里的字,或**部件池里带配方的部件**(2026-09-01 二级拆解:烝 = 丞 + 灬)。
+            // 两者都不在就是 NotInLibrary —— 错误名沿用旧的,含义扩成「手上没有这个东西」。
+            bool fromLibrary = state.Library.Contains(charId);
+            if (!fromLibrary && !state.Pool.Contains(charId))
                 return ForgeResult.Fail(ForgeError.NotInLibrary, state);
 
+            // 归位按原料**自身的性质**,与拆的来源无关:部件回池、可出牌字回字库
+            // (2026-07-22 拍板,如 森 = 林 + 木,林 回库、木 回池)。
             var toPool = new List<string>();
             var toLibrary = new List<string>();
             foreach (var ingredient in def.Recipe)
                 (graph.TryGet(ingredient, out var idef) && !idef.IsComponent ? toLibrary : toPool).Add(ingredient);
 
-            if (state.Pool.Count + toPool.Count > poolCapacity)
+            // 容量先验后扣,任一去处放不下则整体失败、不动状态。
+            // 源先移除腾出 1 位:拆字库的字腾字库位,拆池里的部件腾池位。
+            int poolAfter = state.Pool.Count + toPool.Count - (fromLibrary ? 0 : 1);
+            if (poolAfter > poolCapacity)
                 return ForgeResult.Fail(ForgeError.PoolWouldOverflow, state);
-            // 父字先移除腾出 1 位,故字库容量按 −1 判定
-            if (state.Library.Count - 1 + toLibrary.Count > libraryCapacity)
+            int libraryAfter = state.Library.Count + toLibrary.Count - (fromLibrary ? 1 : 0);
+            if (libraryAfter > libraryCapacity)
                 return ForgeResult.Fail(ForgeError.LibraryFull, state);
 
             var library = new List<string>(state.Library);
-            library.Remove(charId);
-            library.AddRange(toLibrary);
             var pool = new List<string>(state.Pool);
+            if (fromLibrary) library.Remove(charId);
+            else pool.Remove(charId);
+            library.AddRange(toLibrary);
             pool.AddRange(toPool);
             return ForgeResult.Ok(new ForgeState(library, pool));
         }

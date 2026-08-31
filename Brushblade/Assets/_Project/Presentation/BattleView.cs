@@ -2432,14 +2432,15 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
-            bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
             // 2026-08-21 用户拍板:动作名一律收成单字 —— 「出字 / 直出 / 兜底一击」三种情形
             // 统一叫「出」,「丢弃」叫「弃」。竖栏里按钮排一行,长标签会把整行挤换行;
             // 而三种「出」的差别(库里出 / 部件直出 / 无效果字的兜底一击)属于结算细节,
             // 玩家在按钮上分不分得清都不影响他要点的那一下。
             // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性)
             Ui.RoundButton(_actionRow, Strings.T("battle.btn.cast"), () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
-            if (inLibrary && !def.IsLeaf)
+            // 2026-09-01 二级拆解:去掉「必须在字库里」的前提 —— 部件池里带配方的部件
+            // (烝 = 丞 + 灬)同样该给拆按钮,ForgeEngine.TryDismantle 认两种来源。
+            if (!def.IsLeaf)
                 Ui.RoundButton(_actionRow, Strings.T("battle.btn.dismantle"), () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
             Ui.RoundButton(_actionRow, Strings.T("battle.btn.discard"), () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(76, 52));
             // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
