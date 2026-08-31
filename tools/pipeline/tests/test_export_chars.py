@@ -178,9 +178,10 @@ def test_summon_without_passive_has_no_passive_key():
 
 
 def test_jing_uses_manual_recipe_not_rare_ids_part():
-    """荆 的 IDS 是 ⿰茾刂,茾 是生僻字 —— 人工兜底成 艹+刂。"""
+    """荆 的 IDS 是 ⿰茾刂,茾 曾因生僻被绕开成 艹+刂;2026-09-01 二级拆解引回 茾
+    (茾 = 艹+开,见 COMPONENT_RECIPES),不再是纯 IDS 一级拆解的直接产物。"""
     from export_chars import MANUAL_RECIPES
-    assert MANUAL_RECIPES["荆"] == ["艹", "刂"]
+    assert MANUAL_RECIPES["荆"] == ["茾", "刂"]
 
 
 def test_burn_no_decay_is_extracted_after_the_valued_effect():
@@ -264,10 +265,12 @@ def test_dispel_all_marker_does_not_swallow_counted_dispel():
 
 
 def test_manual_recipes_avoid_smp_and_rare_parts():
-    """塞 的 IDS 部件 𡨄 是增补平面(会让整字降级成叶子);湮 的 垔 生僻。"""
+    """塞 的 IDS 部件 𡨄 是增补平面(会让整字降级成叶子),换成常见部首 宀。
+    湮 的 垔 曾因生僻被绕开成 氵+土;2026-09-01 二级拆解引回 垔
+    (垔 = 覀+土,见 COMPONENT_RECIPES)。"""
     from export_chars import MANUAL_RECIPES
     assert MANUAL_RECIPES["塞"] == ["宀", "土"]
-    assert MANUAL_RECIPES["湮"] == ["氵", "土"]
+    assert MANUAL_RECIPES["湮"] == ["氵", "垔"]
 
 
 def test_turns_applies_to_all_duration_kinds_not_just_hot():
@@ -459,3 +462,54 @@ def test_real_table_flags_every_component():
             assert "component" not in c, f"{c['id']} 是可出牌字,不该带 component"
         else:
             assert c.get("component") is True, f"{c['id']} 是部件,该带 component"
+
+
+def test_component_recipes_yield_one_element_part_each():
+    """选中的 12 条部件配方,每条都恰好产出 1 个五行部件。
+
+    这是范围的判据(spec §六):拆的价值 = 换五行部件,中性部件是残渣。
+    文档「二级组成」的筛选条件「比一级多给出五行信息」与这个价值模型是同一件事。
+    """
+    from export_chars import COMPONENT_RECIPES, COMPOUND_ATTR
+    from filter_chars import attr_of
+    assert len(COMPONENT_RECIPES) == 12
+    for part, recipe in COMPONENT_RECIPES.items():
+        hits = [p for p in recipe if attr_of(p) or p in COMPOUND_ATTR]
+        assert len(hits) == 1, f"{part} = {' + '.join(recipe)} 产出 {hits},应当恰好 1 个五行部件"
+
+
+def test_real_table_has_component_recipes():
+    """实船字表:12 个部件带上了配方,10 个新部件条目在场。"""
+    chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
+    byid = {c["id"]: c for c in chars}
+    expected = {
+        "秋": ["禾", "火"], "崔": ["山", "隹"], "岂": ["山", "己"], "荅": ["艹", "合"],
+        "列": ["歹", "刂"], "喿": ["品", "木"], "烝": ["丞", "灬"], "则": ["贝", "刂"],
+        "朵": ["几", "木"], "切": ["七", "刀"], "茾": ["艹", "开"], "垔": ["覀", "土"],
+    }
+    for part, recipe in expected.items():
+        assert byid[part]["recipe"] == recipe, f"{part} 的配方不对"
+        assert byid[part]["component"] is True, f"{part} 有了配方,但仍然必须是部件"
+    for part in "己合歹品丞贝几七开覀":
+        assert part in byid, f"新部件 {part} 不在字表里"
+        assert "recipe" not in byid[part], f"{part} 是终点,不该有配方"
+
+
+def test_jing_and_yan_recipes_route_through_the_middle_layer():
+    """荆 / 湮 的一级配方引回中间层(2026-09-01 用户复核后拍板)。"""
+    chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
+    byid = {c["id"]: c for c in chars}
+    assert byid["荆"]["recipe"] == ["茾", "刂"]
+    assert byid["湮"]["recipe"] == ["氵", "垔"]
+
+
+def test_real_table_entry_count():
+    # 74 字不变;部件从 57 → 69:12 条 COMPONENT_RECIPES 里 10 个原料是全新终点部件
+    # (己合歹品丞贝几七开覀),另外 2 个(茾、垔)本身也是全新条目 —— 荆/湮 之前的
+    # 一级配方(艹+刂、氷+土)绕开了它们,回收前 chars.json 里并不存在这两个部件。
+    # 新增条目 = 12,不是「12 条配方」暗示的 10:任务纪要曾按「12 个部件带配方,
+    # 新增 10 个终点部件」估算总数为 141,漏算了 茾/垔 自身也是新条目,实测 143。
+    chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
+    playable = [c for c in chars if "effects" in c]
+    assert len(playable) == 74
+    assert len(chars) == 143, "74 字 + 69 部件"

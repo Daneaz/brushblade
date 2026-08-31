@@ -371,8 +371,10 @@ namespace Brushblade.Core.Tests
         {
             // 2026-08-14:塞 随第二批裁定移出字表(它的 MANUAL_RECIPES 条目保留待复活),
             // 本测试改由 湮 单独守住「手工配方优先于增补平面 IDS」这条不变量。
+            // 2026-09-01 二级拆解:湮 的手工配方从 氷+土 引回 氷+垔(垔 = 覀+土,
+            // 见 RealConfig_JingAndYanRouteThroughTheMiddleLayer),不变量本身未变。
             var graph = RealGraph();
-            Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "土" }));
+            Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "垔" }));
         }
 
         [Test]
@@ -561,6 +563,119 @@ namespace Brushblade.Core.Tests
             var graph = RealGraph();
             Assert.That(() => graph.Get("钩"), Throws.Exception,
                 "钩 不该出现在字表里");
+        }
+
+        /// <summary>二级拆解(2026-09-01):12 个部件有了配方,但仍然是部件。
+        /// 两个谓词正交是这次改动的支点 —— 谁把 IsComponent 又推导回 IsLeaf,这条就红。</summary>
+        [Test]
+        public void RealConfig_ComponentsWithRecipes_AreStillComponents()
+        {
+            var graph = RealGraph();
+            var expected = new (string Part, string[] Recipe)[]
+            {
+                ("秋", new[] { "禾", "火" }), ("崔", new[] { "山", "隹" }),
+                ("岂", new[] { "山", "己" }), ("荅", new[] { "艹", "合" }),
+                ("列", new[] { "歹", "刂" }), ("喿", new[] { "品", "木" }),
+                ("烝", new[] { "丞", "灬" }), ("则", new[] { "贝", "刂" }),
+                ("朵", new[] { "几", "木" }), ("切", new[] { "七", "刀" }),
+                ("茾", new[] { "艹", "开" }), ("垔", new[] { "覀", "土" }),
+            };
+            foreach (var (part, recipe) in expected)
+            {
+                var def = graph.Get(part);
+                Assert.That(def.Recipe, Is.EqualTo(recipe), $"{part} 的配方不对");
+                Assert.That(def.IsComponent, Is.True, $"{part} 有了配方,但它仍然是部件");
+                Assert.That(def.IsLeaf, Is.False, $"{part} 该能拆");
+            }
+        }
+
+        /// <summary>新部件是终点,只做两级(2026-09-01 拍板)。</summary>
+        [Test]
+        public void RealConfig_NewComponentsAreTerminal()
+        {
+            var graph = RealGraph();
+            foreach (var part in new[] { "己", "合", "歹", "品", "丞", "贝", "几", "七", "开", "覀" })
+            {
+                Assert.That(graph.TryGet(part, out var def), Is.True, $"{part} 不在字表里");
+                Assert.That(def.IsComponent, Is.True, $"{part} 该是部件");
+                Assert.That(def.IsLeaf, Is.True, $"{part} 是终点,不该有配方");
+            }
+        }
+
+        /// <summary>荆 / 湮 的一级配方引回中间层(2026-09-01 用户复核后拍板,spec §六)。
+        /// 代价是这两个字拆一次的产出从 2 个五行部件降到 1 个,已明确接受。</summary>
+        [Test]
+        public void RealConfig_JingAndYanRouteThroughTheMiddleLayer()
+        {
+            var graph = RealGraph();
+            Assert.That(graph.Get("荆").Recipe, Is.EqualTo(new[] { "茾", "刂" }));
+            Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "垔" }));
+        }
+
+        /// <summary>74 个可出牌字一个都不是部件;部件一个都不是可出牌字。
+        /// 库/池归属的 9 处判据全压在这条上。</summary>
+        [Test]
+        public void RealConfig_PlayableCharsAndComponentsDoNotOverlap()
+        {
+            var graph = RealGraph();
+            int playable = 0, components = 0;
+            foreach (var def in graph.All)
+            {
+                if (def.Effects.Count > 0)
+                {
+                    playable++;
+                    Assert.That(def.IsComponent, Is.False, $"{def.Id} 有效果,不该是部件");
+                }
+                else
+                {
+                    components++;
+                    Assert.That(def.IsComponent, Is.True, $"{def.Id} 没效果,该是部件");
+                }
+            }
+            // 部件 57 → 69:12 条 COMPONENT_RECIPES 里 10 个原料是全新终点部件,另外 2 个
+            // (茾、垔)本身也是全新条目——荆/湮 之前的一级配方绕开了它们(见
+            // tools/pipeline/tests/test_export_chars.py::test_real_table_entry_count)。
+            Assert.That(playable, Is.EqualTo(74));
+            Assert.That(components, Is.EqualTo(69));
+        }
+
+        /// <summary>相生倍率全表恒等(spec §五):RecipeGraph.RecipeElements 只读直接原料的
+        /// element,而荆 / 湮 换掉的原料两边都不含各自的「母」属性,倍率仍是 1。</summary>
+        [Test]
+        public void RealConfig_JingAndYanKeepMultiplierOne()
+        {
+            var graph = RealGraph();
+            // 荆 是木系,木的母是水 —— 配方里不含 Water
+            Assert.That(graph.RecipeElements("荆").Contains(Element.Water), Is.False);
+            // 湮 是水系,水的母是金 —— 配方里不含 Metal
+            Assert.That(graph.RecipeElements("湮").Contains(Element.Metal), Is.False);
+        }
+
+        /// <summary>叠字前置不因部件有了配方而收紧(spec §一列出的三个回归之一)。
+        /// 把 IsComponent 换回 IsLeaf,合 蒸 会开始要求玩家「拥有 烝」这张收集卡,
+        /// 而 烝 根本不在收集图鉴里 —— 蒸 变得永远合不出来,且无声。</summary>
+        [Test]
+        public void RealConfig_ComponentWithRecipe_IsNotAPrerequisite()
+        {
+            var graph = RealGraph();
+            var ownNothing = new List<string>();
+            // 蒸 = 艹 + 烝,烝 现在有配方了,但它是部件,不该成为前置
+            Assert.That(MetaRules.PrerequisitesMet("蒸", graph, ownNothing), Is.True);
+            Assert.That(MetaRules.PrerequisitesMet("荆", graph, ownNothing), Is.True, "荆 = 茾 + 刂,茾 是部件");
+            // 对照:森 = 木 + 林,林 是可出牌字 → 仍然是前置
+            Assert.That(MetaRules.PrerequisitesMet("森", graph, ownNothing), Is.False);
+            Assert.That(MetaRules.PrerequisitesMet("森", graph, new List<string> { "林" }), Is.True);
+        }
+
+        /// <summary>登塔起手部件池仍然收得到带配方的部件(spec §一列出的三个回归之一)。
+        /// 把 IsComponent 换回 IsLeaf,烝 不再算可掉落部件,蒸 的原料就掉不出来了。</summary>
+        [Test]
+        public void RealConfig_ComponentWithRecipe_StillCountsAsDeckComponent()
+        {
+            var graph = RealGraph();
+            var parts = new List<string>(MetaRules.DeckComponents(new List<string> { "蒸" }, graph));
+            Assert.That(parts.Contains("烝"), Is.True, "烝 有了配方,但它仍是 蒸 的可掉落部件");
+            Assert.That(parts.Contains("艹"), Is.True);
         }
 
         private static CampaignConfig RealCampaign()

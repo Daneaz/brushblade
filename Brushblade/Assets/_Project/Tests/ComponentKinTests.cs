@@ -54,6 +54,7 @@ namespace Brushblade.Core.Tests
             {
                 Assert.That(graph.TryGet(part, out var def), Is.True, $"{part} 在真实字表里不存在");
                 Assert.That(def.IsLeaf, Is.True, $"{part} 已经有配方了,五系等价与宝箱前置的互不干扰假设被打破");
+                Assert.That(def.IsComponent, Is.True, $"{part} 必须是部件 —— 五系等价只在部件之间成立");
             }
         }
     }

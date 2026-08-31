@@ -64,14 +64,18 @@ def _blocked_smp_part(recipe):
 
 
 # 人工配方兜底(非叠字):IDS 拆出来的部件太生僻,字体子集与玩家辨识都是负担。
-# 荆 的 IDS 是 ⿰茾刂,茾(U+833E)基本没人认得;评分版口径就是 艹+刂,照它来。
 MANUAL_RECIPES = {
-    "荆": ["艹", "刂"],
+    # 荆:IDS 是 ⿰茾刂。2026-08 曾改成 艹+刂 绕开生僻的 茾,2026-09-01 二级拆解**推翻**
+    # 这个绕开 —— 照 艹+刂 展开会原地打转(两个都是五行部件,拆不动),文档里的二级
+    # 艹+开+刂 在游戏里永远不可达。引回 茾(茾 = 艹+开,见 COMPONENT_RECIPES)。
+    # 已知代价:拆一次的产出从 2 个五行部件降到 1 个(spec §六,用户复核后仍拍板引回)。
+    "荆": ["茾", "刂"],
     # 塞 的 IDS 是 ⿱𡨄土,𡨄(U+21A04)在增补平面 —— _blocked_smp_part 会因此把整个字
     # 降级成不可拆的叶子(只能靠掉落获得)。换成常见部首 宀 直接绕开。
     "塞": ["宀", "土"],
-    # 湮 的 IDS 是 ⿰氵垔,垔 生僻;它的核心就是土,义通(水土掩埋),且零新部件。
-    "湮": ["氵", "土"],
+    # 湮:IDS 是 ⿰氵垔。同 荆 —— 2026-08 改成 氵+土 绕开生僻的 垔,2026-09-01 引回,
+    # 让文档的二级 氵+覀+土 可达(垔 = 覀+土,见 COMPONENT_RECIPES)。
+    "湮": ["氵", "垔"],
     # 锁 的 IDS 是 ⿰钅𭕆,𭕆(U+2D546)在增补平面 —— _blocked_smp_part 会把整字
     # 降级成不可拆的叶子。换成 贝,义也通(锁住财物)。
     "锁": ["钅", "贝"],
@@ -84,6 +88,38 @@ MANUAL_RECIPES = {
     # 钅+丰 与字表现有配方无撞车(全表配方无重复,已核)。
     "锋": ["钅", "丰"],
 }
+
+
+# 部件的配方(2026-09-01「二级拆解」):让部件自己也能再拆一层。
+#
+# 取值范围 = docs/design/字选型/字表功能解析.md「二级组成」列蕴含的那一批,不做 IDS 全量
+# 展开 —— 全展开会引入 𠅃 / 𭕄 / 㳟 / 龴 这类生僻与增补平面部件(40 个),正是下面
+# MANUAL_RECIPES 当初刻意绕开的东西。
+#
+# 判据(spec §六):拆是**单向变现**,价值 = 换到五行部件(五行部件能去合金/橙/红那 25 个
+# 纯五行字),中性部件是残渣。选中的这 12 条**每条都恰好产出 1 个五行部件**;没选的 17 个
+# 部件拆出来 0/17 产五行部件。守卫测试:test_component_recipes_yield_one_element_part_each。
+#
+# 注释里的字是这条配方服务的可出牌字。
+COMPONENT_RECIPES = {
+    "秋": ["禾", "火"],   # 楸
+    "崔": ["山", "隹"],   # 熣
+    "岂": ["山", "己"],   # 桤、铠
+    "荅": ["艹", "合"],   # 塔
+    "列": ["歹", "刂"],   # 烈
+    "喿": ["品", "木"],   # 燥、澡
+    "烝": ["丞", "灬"],   # 蒸
+    "则": ["贝", "刂"],   # 铡
+    "朵": ["几", "木"],   # 剁
+    "切": ["七", "刀"],   # 沏
+    # 荆 / 湮 的一级配方引回中间层后新出现的两个(见 MANUAL_RECIPES 里那两条的注释)
+    "茾": ["艹", "开"],   # 荆
+    "垔": ["覀", "土"],   # 湮
+}
+
+# 己 合 歹 品 丞 贝 几 七 开 覀 是**终点**,不再往下拆(2026-09-01 拍板:只做两级)。
+# 品 = 口+口+口、合 = 亼+口 再往下就是笔画,没有拆合语义 —— 与「五行部件不拆」
+# 「禾 不拆」同一条规则。
 
 
 def recipe_for(char, index):
@@ -127,14 +163,28 @@ def build_chars(ids_text, values):
             entry["effects"] = [_output_effect(e) for e in spec["effects"]]
         entries.append(entry)
 
-    for part in sorted(components):
-        if part not in values:
-            leaf = {"id": _output_id(part)}
-            attr = attr_of(part) or COMPOUND_ATTR.get(part)
-            if attr:
-                leaf["element"] = _ELEMENT_NAME[attr]
-            leaf["component"] = True
-            entries.append(leaf)
+    # 部件条目:先做闭包 —— 部件自己也可能有配方(COMPONENT_RECIPES),它的原料同样要落地。
+    # 写成 worklist 而不是「再来一轮」,是为了将来加第三级时不会静默漏掉一层。
+    # 收敛之后再按字典序输出,保证 chars.json 的部件段顺序稳定(否则 diff 会无谓翻腾)。
+    emitted = set()
+    pending = sorted(components)
+    while pending:
+        part = pending.pop()
+        if part in values or part in emitted:
+            continue
+        emitted.add(part)
+        pending.extend(p for p in COMPONENT_RECIPES.get(part, []) if p not in ELEMENTS)
+
+    for part in sorted(emitted):
+        leaf = {"id": _output_id(part)}
+        attr = attr_of(part) or COMPOUND_ATTR.get(part)
+        if attr:
+            leaf["element"] = _ELEMENT_NAME[attr]
+        leaf["component"] = True
+        sub = COMPONENT_RECIPES.get(part)
+        if sub:
+            leaf["recipe"] = [_output_id(p) for p in sub]
+        entries.append(leaf)
 
     return {"chars": entries}
 

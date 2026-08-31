@@ -443,7 +443,7 @@
       "rarity": "Purple",
       "element": "Wood",
       "recipe": [
-        "艹",
+        "茾",
         "刂"
       ],
       "effects": [
@@ -702,7 +702,7 @@
       "element": "Water",
       "recipe": [
         "氵",
-        "土"
+        "垔"
       ],
       "effects": [
         {
@@ -1456,11 +1456,19 @@
       "component": true
     },
     {
+      "id": "七",
+      "component": true
+    },
+    {
       "id": "丈",
       "component": true
     },
     {
       "id": "东",
+      "component": true
+    },
+    {
+      "id": "丞",
       "component": true
     },
     {
@@ -1502,6 +1510,10 @@
       "component": true
     },
     {
+      "id": "几",
+      "component": true
+    },
+    {
       "id": "刀",
       "element": "Metal",
       "component": true
@@ -1514,15 +1526,27 @@
     {
       "id": "切",
       "element": "Metal",
-      "component": true
+      "component": true,
+      "recipe": [
+        "七",
+        "刀"
+      ]
     },
     {
       "id": "列",
-      "component": true
+      "component": true,
+      "recipe": [
+        "歹",
+        "刂"
+      ]
     },
     {
       "id": "则",
-      "component": true
+      "component": true,
+      "recipe": [
+        "贝",
+        "刂"
+      ]
     },
     {
       "id": "勺",
@@ -1545,12 +1569,32 @@
       "component": true
     },
     {
+      "id": "合",
+      "component": true
+    },
+    {
       "id": "周",
       "component": true
     },
     {
-      "id": "喿",
+      "id": "品",
       "component": true
+    },
+    {
+      "id": "喿",
+      "component": true,
+      "recipe": [
+        "品",
+        "木"
+      ]
+    },
+    {
+      "id": "垔",
+      "component": true,
+      "recipe": [
+        "覀",
+        "土"
+      ]
     },
     {
       "id": "尧",
@@ -1567,14 +1611,30 @@
     },
     {
       "id": "岂",
-      "component": true
+      "component": true,
+      "recipe": [
+        "山",
+        "己"
+      ]
     },
     {
       "id": "崔",
-      "component": true
+      "component": true,
+      "recipe": [
+        "山",
+        "隹"
+      ]
     },
     {
       "id": "巢",
+      "component": true
+    },
+    {
+      "id": "己",
+      "component": true
+    },
+    {
+      "id": "开",
       "component": true
     },
     {
@@ -1596,10 +1656,18 @@
     },
     {
       "id": "朵",
-      "component": true
+      "component": true,
+      "recipe": [
+        "几",
+        "木"
+      ]
     },
     {
       "id": "朿",
+      "component": true
+    },
+    {
+      "id": "歹",
       "component": true
     },
     {
@@ -1622,7 +1690,11 @@
     },
     {
       "id": "烝",
-      "component": true
+      "component": true,
+      "recipe": [
+        "丞",
+        "灬"
+      ]
     },
     {
       "id": "白",
@@ -1639,7 +1711,11 @@
     },
     {
       "id": "秋",
-      "component": true
+      "component": true,
+      "recipe": [
+        "禾",
+        "火"
+      ]
     },
     {
       "id": "艹",
@@ -1647,11 +1723,31 @@
       "component": true
     },
     {
+      "id": "茾",
+      "component": true,
+      "recipe": [
+        "艹",
+        "开"
+      ]
+    },
+    {
       "id": "荅",
+      "component": true,
+      "recipe": [
+        "艹",
+        "合"
+      ]
+    },
+    {
+      "id": "覀",
       "component": true
     },
     {
       "id": "谷",
+      "component": true
+    },
+    {
+      "id": "贝",
       "component": true
     },
     {
