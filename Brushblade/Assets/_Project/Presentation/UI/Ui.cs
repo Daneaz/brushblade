@@ -438,7 +438,6 @@ namespace Brushblade.Presentation
             return lines;
         }
 
-        /// <summary>进度条:PaperDim 底 + 填充色,圆角胶囊。</summary>
         /// <summary>给节点挂一个 <see cref="LayoutElement"/>。宽/高传负数 = 这一维不指定,
         /// 由布局组按内容算(LayoutUtility 会跳过负值,轮到优先级更低的布局组自己报数)。
         ///
@@ -459,6 +458,7 @@ namespace Brushblade.Presentation
             return element;
         }
 
+        /// <summary>进度条:PaperDim 底 + 填充色,圆角胶囊。</summary>
         public static GameObject Bar(Transform parent, float frac, Color fill, Vector2 size)
         {
             var back = Panel(parent, "Bar");

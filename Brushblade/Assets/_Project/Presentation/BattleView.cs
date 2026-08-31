@@ -2460,13 +2460,24 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>该屏幕坐标落在哪个存活敌人格上;都没命中返回 −1。
-        /// 判定用整格(字符圆的父级)而非字符圆本身:手指落点粗,圆只有 104 宽会经常擦边落空。</summary>
+        /// 判定用整格 = 点击区(<see cref="_enemyHitAreas"/>,与格子上那个 <c>Button</c> 盖的
+        /// 是同一块)而非立绘本身:手指落点粗,立绘窄的话会经常擦边落空。
+        ///
+        /// ⚠ 2026-08-31 前这里读的是 <c>_enemyRects[i].parent</c>——套 <see cref="Ui.UnitBlock"/>
+        /// 之前立绘的父级就是 cell(整格),套完之后立绘的父级变成 UnitBlock 里新建的挂载点
+        /// (CircleGlyph 分支只有 126×126/96×96,MobView 分支碰巧因为 shell 被 Stretch 铺满
+        /// 还对,但那是巧合不是保证)——没有形象、回落圆头像的怪(灯花/墨溅/悬针/败笔)拖字
+        /// 落点区会跟着缩水。改读 _enemyHitAreas 就不会再受立绘父级是谁影响,与 <c>_enemyRects</c>
+        /// 是同一套下标对齐(DrawEnemies 里两个列表在同一批 continue/正常分支里成对 Add,
+        /// 包括越界兜底的 col &lt; 0 分支)。</summary>
         private int EnemyIndexAt(Vector2 screenPos)
         {
             for (int i = 0; i < _enemyRects.Count && i < Battle.Enemies.Count; i++)
             {
                 if (!Battle.Enemies[i].Alive || _enemyRects[i] == null) continue;
-                var hitArea = _enemyRects[i].parent as RectTransform ?? _enemyRects[i];
+                var hitArea = i < _enemyHitAreas.Count && _enemyHitAreas[i] != null
+                    ? _enemyHitAreas[i].rectTransform
+                    : _enemyRects[i];
                 if (RectTransformUtility.RectangleContainsScreenPoint(hitArea, screenPos, null))
                     return i;
             }
