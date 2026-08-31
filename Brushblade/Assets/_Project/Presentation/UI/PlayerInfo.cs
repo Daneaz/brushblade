@@ -17,7 +17,7 @@ namespace Brushblade.Presentation
         /// <summary>稿上「养成技能 · 局外」那四条(每回合行动点/字库容量/起始生命上限/每关护盾)
         /// 需要 <see cref="MetaState"/>——等级、技能等级都不在 BattleEngine 上,战斗引擎只吃
         /// 养成算好的最终数值,不认识「哪一级」「哪个技能」这些养成层概念。</summary>
-        public static UnitDetail Detail(BattleEngine battle, MetaState meta)
+        public static UnitDetail Sheet(BattleEngine battle, MetaState meta)
         {
             return new UnitDetail
             {

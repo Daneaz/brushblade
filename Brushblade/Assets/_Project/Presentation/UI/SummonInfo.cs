@@ -127,7 +127,7 @@ namespace Brushblade.Presentation
         /// <summary>召唤物详情弹窗(稿 UnitAlly.dc.html)。**追加**方法,<see cref="Detail(SummonState)"/>
         /// 以上那个整段文本版本一个不动(战斗页点召唤物看老版详情的调用点还在用)。
         /// 数值口径与老文本一致,逐条对照见 task-3-report.md。</summary>
-        public static UnitDetail StructuredDetail(SummonState summon)
+        public static UnitDetail Sheet(SummonState summon)
         {
             return new UnitDetail
             {

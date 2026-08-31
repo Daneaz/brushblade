@@ -188,7 +188,7 @@ namespace Brushblade.Presentation
         /// EnemyPreview 与图鉴还在用它们。数值口径与那些方法完全一致(同一份 Def/State 字段,
         /// 只是拆成条目而不是拼成一段字符串);Figures/Tags/Flavor 这几个稿上有、老文本从来
         /// 没有的字段,来源与外推理由见 task-3-report.md 的对照表。</summary>
-        public static UnitDetail Detail(EnemyState enemy)
+        public static UnitDetail Sheet(EnemyState enemy)
         {
             var def = enemy.Def;
             bool isBoss = enemy.IsBoss;
