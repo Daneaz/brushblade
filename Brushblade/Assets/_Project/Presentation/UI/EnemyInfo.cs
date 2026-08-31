@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Text;
 using Brushblade.Core;
 using Brushblade.Data;
+using UnityEngine;
 
 namespace Brushblade.Presentation
 {
@@ -179,5 +181,180 @@ namespace Brushblade.Presentation
                 text.Append(Strings.T("enemy.minion.no_mechanic"));
             return text.ToString();
         }
+
+        // ============ 结构化详情(2026-08-31,单位详情轮二 Task 3) ============
+
+        /// <summary>敌人详情弹窗(稿 UnitFoe.dc.html)。**追加**方法,以上整段文本 API 一个不动——
+        /// EnemyPreview 与图鉴还在用它们。数值口径与那些方法完全一致(同一份 Def/State 字段,
+        /// 只是拆成条目而不是拼成一段字符串);Figures/Tags/Flavor 这几个稿上有、老文本从来
+        /// 没有的字段,来源与外推理由见 task-3-report.md 的对照表。</summary>
+        public static UnitDetail Detail(EnemyState enemy)
+        {
+            var def = enemy.Def;
+            bool isBoss = enemy.IsBoss;
+            return new UnitDetail
+            {
+                PortraitPrefix = MobAssets.PrefixFor(def, enemy.PhaseIndex), // 没形象时它自己返回 null
+                FaceChar = FaceChar(def, enemy.PhaseIndex),
+                // 通假/生僻的「对玩家隐藏真属性」就是靠 ApparentElement 这个字段本身表达的
+                // (真身/伪装/未读懂三种状态,见 EnemyState.ApparentElement 的类型注释)——
+                // 这里直接用它而不是 enemy.Element,否则详情弹窗会把老文本刻意藏起来的真身泄出去。
+                Element = enemy.ApparentElement,
+                Name = isBoss ? BossTitleText(def, enemy.PhaseIndex) : def.Id,
+                Tags = new[] { PositionRangeTag(def) },
+                Flavor = null, // enemies.json 没有风味文案字段,19 只怪的这句话没法凭空写
+                Hp = enemy.Hp,
+                MaxHp = enemy.MaxHp,
+                Shield = enemy.Shield,
+                ActionMeter = enemy.ActionMeter,
+                Figures = BuildFigures(enemy),
+                Statuses = UnitDetailChip.BuildStatuses(enemy.Statuses),
+                Abilities = BuildAbilities(enemy, isBoss),
+                Wuxing = UnitDetailChip.WuxingOf(enemy.ApparentElement),
+            };
+        }
+
+        /// <summary>成语 Boss 的详情标题:「排【山】倒海」,当前阶段字加框。
+        /// 与 BattleView.BossTitle 同一条规则(那边是 private,战场小名牌用;这里独立一份给
+        /// 详情大标题用)——两处都在展示「这只 Boss 现在是第几阶段」,没有别的既有惯例可循。</summary>
+        private static string BossTitleText(EnemyDef def, int phaseIndex)
+        {
+            var title = new StringBuilder();
+            for (int i = 0; i < def.Phases.Count; i++)
+                title.Append(i == phaseIndex ? "【" + def.Phases[i].Char + "】" : def.Phases[i].Char);
+            return title.ToString();
+        }
+
+        /// <summary>「前排 · 近战」标签。稿上焦痕那条标签还有第二枚金色「文山 ×3.0」
+        /// (层段深度缩放倍率)——那个倍率在 Endless.cs 里现算现丢,不进 EnemyDef/EnemyState,
+        /// Detail(EnemyState) 这个签名拿不到,故没有第二个 Tag。</summary>
+        private static string PositionRangeTag(EnemyDef def)
+        {
+            // 两支各写各的 Strings.T(字面量 key):StringsTableTests 扫的是紧跟在 T( 后面的
+            // 字符串字面量,key 从三元表达式的结果变量传进去它认不出来,会被判孤儿
+            // (StatusText.cs 的注释早就点过这个坑,这里再踩一次没必要)。
+            string rowName = def.Row == EnemyRow.Front
+                ? Strings.T("enemy.row.front.name")
+                : Strings.T("enemy.row.back.name");
+            return rowName + " · " + RangeName(def.Range);
+        }
+
+        /// <summary>攻/甲/速/行动四格,口径见 task-3-report.md 的逐条对照表:
+        /// 前三格是「基准值 + 实时状态偏离」的展开(老文本从不展示这层偏离,只印一个静态数);
+        /// 第四格(行动)整个是新内容,老文本从未提过冻结/蓄力对行动条的影响。</summary>
+        private static (string, string, string)[] BuildFigures(EnemyState enemy)
+        {
+            int armorBreak = enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak);
+            int defenseValue = System.Math.Max(0, enemy.Defense - armorBreak);
+            int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
+            int speedValue = TurnScheduler.ClampSpeed(enemy.Speed + speedMod);
+
+            string attackNote = UnitDetailChip.BaseNote(enemy.BaseAttack,
+                UnitDetailChip.DeltaBuffPct(Strings.T("status.attack.name"),
+                    enemy.Statuses.TotalMagnitude(StatusKind.AttackBuff)),
+                UnitDetailChip.DeltaDebuffPct(Strings.T("status.curse.name"),
+                    enemy.Statuses.TotalMagnitude(StatusKind.Curse)));
+            string defenseNote = UnitDetailChip.BaseNote(enemy.Defense,
+                UnitDetailChip.DeltaDebuffPts(Strings.T("status.armorbreak.name"), armorBreak));
+            string speedNote = UnitDetailChip.BaseNote(enemy.Speed,
+                speedMod < 0
+                    ? UnitDetailChip.DeltaDebuffPts(Strings.T("status.slow.name"), -speedMod)
+                    : UnitDetailChip.DeltaBuffPts(Strings.T("status.speed.name"), speedMod));
+
+            string actionValue = "";
+            string actionNote;
+            if (enemy.Statuses.Has(StatusKind.Freeze))
+                actionNote = Strings.T("detail.figure.action_frozen");
+            else if (enemy.IsCharging)
+                actionNote = Strings.T("detail.figure.action_charging");
+            else
+            {
+                actionValue = Strings.T("detail.chip.plain_pct", ("value", enemy.ActionMeter));
+                actionNote = null;
+            }
+
+            return new[]
+            {
+                (Strings.T("char.stat.attack"), enemy.Attack.ToString(), attackNote),
+                (Strings.T("char.stat.defense"), defenseValue.ToString(), defenseNote),
+                (Strings.T("char.stat.speed"), speedValue.ToString(), speedNote),
+                (Strings.T("char.stat.action"), actionValue, actionNote),
+            };
+        }
+
+        /// <summary>「特性 · 技能」列。小怪与 Boss 分支和老文本的 PhaseDetail/MinionDetail
+        /// 逐支对应(见 task-3-report.md):同一份 if/else 结构,只是每一支从「往 StringBuilder
+        /// 里追加一段话」改成「往 List 里加一张卡」。</summary>
+        private static List<AbilityEntry> BuildAbilities(EnemyState enemy, bool isBoss)
+        {
+            var def = enemy.Def;
+            var list = new List<AbilityEntry>();
+
+            var range = StatusText.OfRange(def.Range); // 老文本无条件追加 RangeText,这里同理
+            list.Add(new AbilityEntry
+            {
+                IconKey = range.IconKey, ChipColor = UnitDetailChip.Positioning,
+                Name = range.Name, Desc = range.Desc,
+            });
+            var focus = StatusText.OfFocus(def.Focus); // Default 返回 None,新信息,老文本从未提过
+            if (focus.Name != null)
+                list.Add(new AbilityEntry
+                {
+                    IconKey = focus.IconKey, ChipColor = UnitDetailChip.Positioning,
+                    Name = focus.Name, Desc = focus.Desc,
+                });
+
+            if (isBoss)
+            {
+                var phase = def.Phases[enemy.PhaseIndex];
+                if (phase.Skill == BossSkill.None)
+                    list.Add(new AbilityEntry
+                    {
+                        IconKey = null, ChipColor = UnitDetailChip.Ability,
+                        Name = "", Desc = Strings.T("enemy.phase.no_ultimate").TrimStart('\n'),
+                    });
+                else
+                    list.Add(new AbilityEntry
+                    {
+                        IconKey = null, ChipColor = Theme.BossSkillChipColor(phase.Skill),
+                        Name = BossSkillName(phase.Skill), Desc = BossSkillText(phase.Skill),
+                    });
+                // 护甲与技能两套独立配置,老文本(PhaseDetail)在技能分支之外独立追加,这里同理。
+                if (phase.Defense > 0) list.Add(DefenseEntry(phase.Defense));
+            }
+            else
+            {
+                // 老文本(MinionDetail)里能力/护甲/无机制三支互斥,这里保持同一互斥关系——
+                // 注意 Boss 的 EnemyDef.Ability 老文本从未读过(它只看 phase.Skill),
+                // 所以这一支只在非 Boss 分支里判断,与老文本的疏漏保持一致(口径不变)。
+                if (def.Ability != EnemyAbility.None)
+                {
+                    var info = StatusText.OfAbility(def.Ability);
+                    list.Add(new AbilityEntry
+                    {
+                        IconKey = info.IconKey, ChipColor = Theme.AbilityChipColor(def.Ability),
+                        Name = info.Name, Desc = info.Desc,
+                    });
+                }
+                else if (def.Defense > 0)
+                    list.Add(DefenseEntry(def.Defense));
+                else
+                    list.Add(new AbilityEntry
+                    {
+                        IconKey = null, ChipColor = UnitDetailChip.Ability,
+                        Name = "", Desc = Strings.T("enemy.minion.no_mechanic").TrimStart('\n'),
+                    });
+            }
+            return list;
+        }
+
+        /// <summary>护甲卡:复用 status.defense.name 当标题(与「护甲增益」是同一个词,含义在
+        /// 这里的语境下不会混淆——这条讲的是敌人天生带的甲,不是谁给它挂的增益),
+        /// Desc 是老文本 DefenseText 的原句原参数,数值口径与老文本一字不差。</summary>
+        private static AbilityEntry DefenseEntry(int defense) => new()
+        {
+            IconKey = "defense", ChipColor = UnitDetailChip.ColorFor(StatusKind.DefenseBuff, defense),
+            Name = Strings.T("status.defense.name"), Desc = Strings.T("enemy.defense.desc", ("defense", defense)),
+        };
     }
 }

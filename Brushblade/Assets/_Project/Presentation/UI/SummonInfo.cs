@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using Brushblade.Core;
 using Brushblade.Data;
+using UnityEngine;
 
 namespace Brushblade.Presentation
 {
@@ -118,6 +120,115 @@ namespace Brushblade.Presentation
                 }
             }
             return sb.ToString();
+        }
+
+        // ============ 结构化详情(2026-08-31,单位详情轮二 Task 3) ============
+
+        /// <summary>召唤物详情弹窗(稿 UnitAlly.dc.html)。**追加**方法,<see cref="Detail(SummonState)"/>
+        /// 以上那个整段文本版本一个不动(战斗页点召唤物看老版详情的调用点还在用)。
+        /// 数值口径与老文本一致,逐条对照见 task-3-report.md。</summary>
+        public static UnitDetail StructuredDetail(SummonState summon)
+        {
+            return new UnitDetail
+            {
+                PortraitPrefix = null, // 召唤物没有立绘管线,稿子自己也写着「立绘待补·现用字牌位」
+                FaceChar = summon.Char,
+                Element = summon.Element,
+                Name = summon.Char,
+                // 稿上第二枚标签是排位(「后排」)+ 稀有度(「白」),两者 SummonState 都没有——
+                // 排位是 BattleEngine._summons 的数组下标,稀有度在 CharDef 上,SummonState 一个
+                // 运行时战斗实体两样都不携带,Detail(SummonState) 这个签名够不到,只给类型标签。
+                Tags = new[] { Strings.T("summon.detail.tag_type") },
+                Flavor = null, // CharDef.Gloss(短释义)是候选来源,但要查 RecipeGraph,签名拿不到
+                Hp = summon.Hp,
+                MaxHp = summon.MaxHp,
+                Shield = summon.Shield,
+                ActionMeter = summon.ActionMeter,
+                Figures = BuildFigures(summon),
+                Statuses = UnitDetailChip.BuildStatuses(summon.Statuses),
+                Abilities = BuildAbilities(summon),
+                Wuxing = UnitDetailChip.WuxingOf(summon.Element),
+            };
+        }
+
+        /// <summary>攻/盾/甲/速四格。攻的口径与老文本 <see cref="Detail(SummonState)"/> 一致
+        /// (读 EffectiveAttack,不是 Attack)——这是稿子标出来的既有规则(见那个属性的文档),
+        /// 这里不重新推一遍。</summary>
+        private static (string, string, string)[] BuildFigures(SummonState summon)
+        {
+            string attackNote = summon.Attack == 0
+                ? Strings.T("summon.detail.figure_attack_passive_note")
+                : null; // Attack>0 时老文本也没有额外口径可对照,不外推一个没有例子撑腰的说法
+
+            int defenseValue = summon.EffectiveDefense;
+            string defenseNote = defenseValue > 0
+                ? Strings.T("summon.detail.figure_defense_note")
+                : null; // 召唤物没有基础护甲字段,EffectiveDefense 全部来自增益,这句恒成立
+
+            return new[]
+            {
+                (Strings.T("char.stat.attack"), summon.EffectiveAttack.ToString(), attackNote),
+                (Strings.T("char.stat.shield"), summon.Shield.ToString(), (string)null),
+                (Strings.T("char.stat.defense"),
+                    defenseValue > 0 ? "+" + defenseValue : "0", defenseNote),
+                (Strings.T("char.stat.speed"), summon.Speed.ToString(), (string)null),
+            };
+        }
+
+        /// <summary>「特性 · 被动」列:被动(至多一条,取第一个非零项,与 <see cref="PassiveText"/>
+        /// 同一优先级)+ 顶前排(老文本无条件追加,这里同理)。
+        ///
+        /// 被动的 Name 直接复用现成的 summon.passive.* 整句(标签+冒号+说明合一),Desc 留空——
+        /// 那几个 key 本来就是「一句话」的形状,拆 Name/Desc 要么另开新 key、要么在运行时切
+        /// 字符串,Ruling ⑥「直接读字段配现成 key」批的是复用,没有批准拆分,所以整句放 Name。</summary>
+        private static List<AbilityEntry> BuildAbilities(SummonState summon)
+        {
+            var list = new List<AbilityEntry>();
+            var passive = summon.Passive;
+            if (passive != null)
+            {
+                string iconKey = null;
+                string name = null;
+                if (passive.OnHitBurn > 0)
+                    name = passive.OnHitBurnAll
+                        ? Strings.T("summon.passive.burn_all", ("burn", passive.OnHitBurn))
+                        : Strings.T("summon.passive.burn_single", ("burn", passive.OnHitBurn));
+                else if (passive.Thorns > 0)
+                {
+                    iconKey = "thorns";
+                    name = Strings.T("summon.passive.thorns", ("thorns", passive.Thorns));
+                }
+                else if (passive.HealAlly > 0)
+                    name = Strings.T("summon.passive.heal_ally", ("heal", passive.HealAlly));
+                else if (passive.OnHitCurse > 0)
+                    name = Strings.T("summon.passive.curse", ("curse", passive.OnHitCurse));
+                else if (passive.Dodge > 0)
+                {
+                    iconKey = "dodge";
+                    name = Strings.T("summon.passive.dodge", ("dodge", passive.Dodge));
+                }
+                else if (passive.Speed > 100)
+                {
+                    iconKey = "speed";
+                    name = Strings.T("summon.passive.haste", ("speed", passive.Speed));
+                }
+
+                if (name != null)
+                    list.Add(new AbilityEntry
+                    {
+                        IconKey = iconKey, ChipColor = UnitDetailChip.Ability, Name = name, Desc = null,
+                    });
+            }
+
+            // 顶前排是老文本 front_role 的原句,同样只放 Name——那句话本身就是「标签:说明」
+            // 一体的形状(见上面的理由),稿上还带一句「它现在在后排」,SummonState 没有排位信息
+            // (槽位是 BattleEngine._summons 的数组下标),够不到,略去。
+            list.Add(new AbilityEntry
+            {
+                IconKey = null, ChipColor = UnitDetailChip.Ability,
+                Name = Strings.T("summon.detail.front_role").TrimEnd('\n'), Desc = null,
+            });
+            return list;
         }
     }
 }
