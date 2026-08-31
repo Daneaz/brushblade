@@ -56,7 +56,12 @@ namespace Brushblade.Core
         ///
         /// ⚠ 由 chars.json 的 `"component"` **显式标注**(管线在合成部件条目时写),
         /// 不许改成从 Effects / Rarity 推导 —— 同 <see cref="ComponentKin"/> 的理由:
-        /// 推导迟早会在某个反例上误判,而这里误判是无声的。</summary>
+        /// 推导迟早会在某个反例上误判,而这里误判是无声的。
+        ///
+        /// 构造时不传(<c>null</c>)则回退到 <see cref="IsLeaf"/> —— 这是给手写测试夹具留的门:
+        /// 真实数据一律走 <c>ConfigLoader</c> 显式传值,回退只还原「没配方就是部件」这条
+        /// 夹具被写就时所依据的旧语义。带配方的部件若在数据里漏标,由 CharTableTests 的
+        /// RealConfig_PlayableCharsAndComponentsDoNotOverlap 守住。</summary>
         public bool IsComponent { get; }
 
         public bool IsLeaf => Recipe.Count == 0;
@@ -68,7 +73,7 @@ namespace Brushblade.Core
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
             IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
             string pinyin = null, string gloss = null, IReadOnlyList<EffectDef> attackEffects = null,
-            bool isComponent = false)
+            bool? isComponent = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Element = element;
@@ -79,7 +84,7 @@ namespace Brushblade.Core
             Rarity = rarity;
             Pinyin = pinyin;
             Gloss = gloss;
-            IsComponent = isComponent;
+            IsComponent = isComponent ?? IsLeaf;
         }
     }
 }

@@ -82,7 +82,7 @@ namespace Brushblade.Core
             {
                 if (!graph.TryGet(card, out var def)) continue;
                 foreach (var part in def.Recipe)
-                    if (graph.TryGet(part, out var partDef) && partDef.IsLeaf && !seen.Contains(part))
+                    if (graph.TryGet(part, out var partDef) && partDef.IsComponent && !seen.Contains(part))
                         seen.Add(part);
             }
             return seen;
@@ -483,7 +483,7 @@ namespace Brushblade.Core
         ///
         /// 只查直接原料 —— `㙓 = 土+垚` 只要求 `垚`,而拿到 `垚` 本身就得先有 `圭`,
         /// 链式约束自然成立,不需要递归。
-        /// 部件(IsLeaf)不参与:它们靠掉落获得,不存在"解锁"一说。
+        /// 部件(IsComponent)不参与:它们靠掉落获得,不存在"解锁"一说。
         ///
         /// 全仓 `OwnedCards` 的写入点只有三处:`Shop.cs`、`Chest.cs`、`GameRoot.cs` 的起始集合
         /// (分支级审查核实:`RunEngine.RollRewardOptions` 只填局内战斗字库,不写
@@ -497,7 +497,7 @@ namespace Brushblade.Core
             if (graph == null || !graph.TryGet(cardId, out var def)) return false;
             foreach (var ingredient in def.Recipe)
             {
-                if (!graph.TryGet(ingredient, out var idef) || idef.IsLeaf) continue;
+                if (!graph.TryGet(ingredient, out var idef) || idef.IsComponent) continue;
                 if (!ownedCards.Contains(ingredient)) return false;
             }
             return true;

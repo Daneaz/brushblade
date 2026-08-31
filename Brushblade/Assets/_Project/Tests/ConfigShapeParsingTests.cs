@@ -101,11 +101,30 @@ namespace Brushblade.Core.Tests
             Assert.That(zheng.IsLeaf, Is.False);
         }
 
+        /// <summary>component 字段缺省(2026-09-01 裁定:CharDto.Component 改 bool?)时,
+        /// ConfigLoader 把 null 原样传给 CharDef,由 CharDef 的构造函数回退到 IsLeaf——
+        /// 真实 chars.json 一律显式标注,这条只覆盖字段缺失这一种输入形状。</summary>
         [Test]
-        public void LoadGraph_ComponentDefaultsFalseWhenAbsent()
+        public void LoadGraph_ComponentAbsentFallsBackToIsLeaf()
         {
-            var graph = ConfigLoader.LoadGraph(@"{ ""chars"": [ { ""id"": ""火"" } ] }");
-            Assert.That(graph.Get("火").IsComponent, Is.False);
+            var graph = ConfigLoader.LoadGraph(
+                @"{ ""chars"": [ { ""id"": ""火"" }, { ""id"": ""炎"", ""recipe"": [""火"", ""火""] } ] }");
+            Assert.That(graph.Get("火").IsComponent, Is.True, "缺省 + 没配方 → 回退成部件");
+            Assert.That(graph.Get("炎").IsComponent, Is.False, "缺省 + 有配方 → 回退成非部件");
+        }
+
+        /// <summary>不传 isComponent 时回退到 IsLeaf(2026-09-01 裁定)——
+        /// 给手写测试夹具留的门:405 处夹具从不传这个参数,回退还原它们被写就时的旧语义。
+        /// 真实数据走 ConfigLoader 显式传值,不吃这条回退。</summary>
+        [Test]
+        public void CharDef_IsComponentDefaultsToIsLeaf_WhenNotSpecified()
+        {
+            Assert.That(new CharDef("火", Element.Fire).IsComponent, Is.True, "没配方 → 回退成部件");
+            Assert.That(new CharDef("炎", Element.Fire, new[] { "火", "火" }).IsComponent, Is.False,
+                "有配方 → 回退成非部件");
+            // 显式传值压过回退:带配方的部件(烝 = 丞 + 灬)
+            Assert.That(new CharDef("烝", null, new[] { "丞", "灬" }, isComponent: true).IsComponent,
+                Is.True, "显式 true 压过回退");
         }
     }
 }

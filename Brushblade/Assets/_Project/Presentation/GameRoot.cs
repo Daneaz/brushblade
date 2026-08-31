@@ -112,7 +112,7 @@ namespace Brushblade.Presentation
         {
             var cardPool = ShopCardPool();
             // 旧货架可能还摆着部件(2026-07-19 下架):作废重摆,不必等跨日
-            if (_meta.Shop.CardSlots.Exists(id => _graph.TryGet(id, out var def) && def.IsLeaf))
+            if (_meta.Shop.CardSlots.Exists(id => _graph.TryGet(id, out var def) && def.IsComponent))
                 _meta.Shop.DayStamp = -1;
             ShopRules.EnsureShelf(_meta, cardPool, Time, new GameRandom(System.Environment.TickCount));
             // 记下「今天来过」——主界面商城红点靠它灭掉(2026-08-28)。
@@ -130,7 +130,7 @@ namespace Brushblade.Presentation
         {
             var pool = new System.Collections.Generic.List<string>();
             foreach (var card in _meta.OwnedCards)
-                if (_graph.TryGet(card, out var def) && !def.IsLeaf && !pool.Contains(card))
+                if (_graph.TryGet(card, out var def) && !def.IsComponent && !pool.Contains(card))
                     pool.Add(card);
             return pool;
         }
@@ -141,7 +141,7 @@ namespace Brushblade.Presentation
         {
             var pool = new System.Collections.Generic.List<string>();
             foreach (var def in _graph.All)
-                if (!def.IsLeaf)
+                if (!def.IsComponent)
                     pool.Add(def.Id);
             return pool;
         }

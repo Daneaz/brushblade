@@ -622,7 +622,7 @@ namespace Brushblade.Core
             var byRarity = new Dictionary<CardRarity, List<string>>();
             foreach (var id in _runConfig.RewardPool)
             {
-                if (!_graph.TryGet(id, out var def) || def.IsLeaf)
+                if (!_graph.TryGet(id, out var def) || def.IsComponent)
                     continue;
                 if (!byRarity.TryGetValue(def.Rarity, out var group))
                     byRarity[def.Rarity] = group = new List<string>();

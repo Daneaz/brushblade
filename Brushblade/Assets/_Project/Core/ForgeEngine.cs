@@ -94,7 +94,7 @@ namespace Brushblade.Core
             var toPool = new List<string>();
             var toLibrary = new List<string>();
             foreach (var ingredient in def.Recipe)
-                (graph.TryGet(ingredient, out var idef) && !idef.IsLeaf ? toLibrary : toPool).Add(ingredient);
+                (graph.TryGet(ingredient, out var idef) && !idef.IsComponent ? toLibrary : toPool).Add(ingredient);
 
             if (state.Pool.Count + toPool.Count > poolCapacity)
                 return ForgeResult.Fail(ForgeError.PoolWouldOverflow, state);

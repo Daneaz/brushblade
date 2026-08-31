@@ -97,7 +97,7 @@ namespace Brushblade.Presentation
         {
             var pool = new System.Collections.Generic.List<string>();
             foreach (var def in _graph.All)
-                if (!def.IsLeaf)
+                if (!def.IsComponent)
                     pool.Add(def.Id);
             return pool;
         }

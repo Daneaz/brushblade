@@ -754,7 +754,7 @@ namespace Brushblade.Core
             if (!_graph.TryGet(charId, out var def)) return BattleError.NotCastable;
 
             bool fromLibrary = _forge.Library.Contains(charId);
-            bool fromPool = !fromLibrary && def.IsLeaf && _forge.Pool.Contains(charId);
+            bool fromPool = !fromLibrary && def.IsComponent && _forge.Pool.Contains(charId);
             if (!fromLibrary && !fromPool) return BattleError.NotCastable;
             if (Ap < def.ApCost) return BattleError.NotEnoughAp;
 
