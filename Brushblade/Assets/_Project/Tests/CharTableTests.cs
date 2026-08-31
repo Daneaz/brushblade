@@ -639,16 +639,21 @@ namespace Brushblade.Core.Tests
             Assert.That(components, Is.EqualTo(69));
         }
 
-        /// <summary>相生倍率全表恒等(spec §五):RecipeGraph.RecipeElements 只读直接原料的
-        /// element,而荆 / 湮 换掉的原料两边都不含各自的「母」属性,倍率仍是 1。</summary>
+        /// <summary>相生倍率恒等(spec §五):荆 / 湮 换了配方原料,但倍率仍是 1。
+        ///
+        /// ⚠ 断在 <see cref="WuxingResolver.ShengMultiplier"/> 的真实计算上,不断「配方不含某属性」——
+        /// 后者把「木的母是水」这个前提藏在注释里,日后谁改了 荆 的 element,倍率真变了也不会红。
+        /// 这条守的是本分支「不动任何平衡」的核心主张,必须测那件事本身。</summary>
         [Test]
         public void RealConfig_JingAndYanKeepMultiplierOne()
         {
             var graph = RealGraph();
-            // 荆 是木系,木的母是水 —— 配方里不含 Water
-            Assert.That(graph.RecipeElements("荆").Contains(Element.Water), Is.False);
-            // 湮 是水系,水的母是金 —— 配方里不含 Metal
-            Assert.That(graph.RecipeElements("湮").Contains(Element.Metal), Is.False);
+            foreach (var id in new[] { "荆", "湮" })
+            {
+                var def = graph.Get(id);
+                Assert.That(WuxingResolver.ShengMultiplier(graph.RecipeElements(id), def.Element.Value),
+                    Is.EqualTo(1), $"{id} 换配方后相生倍率必须仍是 1(spec §五:不动任何平衡)");
+            }
         }
 
         /// <summary>叠字前置不因部件有了配方而收紧(spec §一列出的三个回归之一)。

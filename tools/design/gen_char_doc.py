@@ -8,8 +8,8 @@ import json, collections, subprocess, sys, os
 SRC = 'Brushblade/Assets/StreamingAssets/config/chars.json'
 chars = json.load(open(SRC))['chars']
 byid = {c['id']: c for c in chars}
-comp = [c for c in chars if not c.get('component')]
-leaf = [c for c in chars if c.get('component')]
+playable = [c for c in chars if not c.get('component')]
+components = [c for c in chars if c.get('component')]
 
 # 二级拆解借管线的 IDS 拆解器,与配方生成同一套规则(只拆 ⿰⿱⿲⿳、子部件须是真实字)。
 # ids.txt 是不入 git 的原始数据 —— 缺失时二级降级为「只按字表配方展开」。
@@ -140,7 +140,7 @@ READINGS = {
     '碎': ('suì', '破碎;琐碎'),
 }
 
-_missing = [c['id'] for c in comp if c['id'] not in READINGS]
+_missing = [c['id'] for c in playable if c['id'] not in READINGS]
 assert not _missing, f"READINGS 缺字,请补条目:{_missing}"
 
 # 词组:两张**表内字卡**凑成的现代汉语常用词。同样不是字表字段 —— 它是白/绿/蓝三档的
@@ -172,7 +172,7 @@ assert not _bad, f"词组必须恰好两个字(两张字卡):{_bad}"
 assert len(PHRASES) == len(set(PHRASES)), "PHRASES 有重复词"
 
 # 字 → 它参与的、且两个字都还在可出牌字里的词。顺序按 PHRASES 原序,保证文档可复现。
-_PLAYABLE = {c['id'] for c in comp}
+_PLAYABLE = {c['id'] for c in playable}
 PHRASE_OF = {cid: [w for w in PHRASES if cid in w and w[0] in _PLAYABLE and w[1] in _PLAYABLE]
              for cid in _PLAYABLE}
 
@@ -413,9 +413,9 @@ H4 = ("| 字 | 拼音 | 近代字意 | 稀有度 | 词组 | 攻击力 | 一级�
       "|---|---|---|---|---|---|---|---|---|")
 
 head = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
-rc = collections.Counter(c['rarity'] for c in comp)
-ec = collections.Counter(c['element'] for c in comp)
-kc = collections.Counter(e['kind'] for c in comp for e in c['effects'])
+rc = collections.Counter(c['rarity'] for c in playable)
+ec = collections.Counter(c['element'] for c in playable)
+kc = collections.Counter(e['kind'] for c in playable for e in c['effects'])
 
 o = []
 A = o.append
@@ -426,7 +426,7 @@ A(f"> 数据源:`{SRC}`(唯一真相)。本文由 `tools/design/gen_char_doc.py`
 A("")
 A("## 口径说明")
 A("")
-A(f"- **收录范围**:配置表 {len(chars)} 条中的 **{len(comp)} 个可出牌字**(有配方 + 有效果)。另 {len(leaf)} 个部件/枢纽字只作合成原料(其中部分自身也带配方,可再向下拆一层 —— 2026-09-01 二级拆解新增的中间层),`IsComponent` 会被奖励池过滤,玩家拿不到牌,故不入表。")
+A(f"- **收录范围**:配置表 {len(chars)} 条中的 **{len(playable)} 个可出牌字**(有配方 + 有效果)。另 {len(components)} 个部件/枢纽字只作合成原料(其中部分自身也带配方,可再向下拆一层 —— 2026-09-01 二级拆解新增的中间层),`IsComponent` 会被奖励池过滤,玩家拿不到牌,故不入表。")
 A("- **攻击力**:字表没有独立的攻击力字段,此列取**直伤效果的 value**(已是 2026-08-12 全表 ×10 后的量级)。")
 A("  纯辅助字记 `—`;召唤字记 `召 攻×只数`(实际输出在召唤物身上);纯 DOT 字记 DOT 量。")
 A("- **相生 ×3**:配置表填的是**基础值**,配方原料含「生本字属性」的字(焚/蒸/沏/刲)实战 ×3。")
@@ -469,7 +469,7 @@ A("|---|---|")
 A("| 稀有度 | " + " / ".join(f"{RA[r]} {rc[r]}" for r in RORDER if rc[r]) + " |")
 A("| 五行 | " + " / ".join(f"{EL[e]} {ec[e]}" for e in EORDER if ec[e]) + f" / 心 0 |")
 A(f"| 效果条目 | {sum(kc.values())} 条,覆盖 {len(kc)} 种 `EffectKind`(枚举共 29 种) |")
-A("| 单效果 / 双效果 / 三效果字 | " + " / ".join(str(collections.Counter(len(c['effects']) for c in comp)[n]) for n in (1, 2, 3)) + " |")
+A("| 单效果 / 双效果 / 三效果字 | " + " / ".join(str(collections.Counter(len(c['effects']) for c in playable)[n]) for n in (1, 2, 3)) + " |")
 A("")
 A("**心系 0 字** —— 第 5 章摄心流在字表侧没有任何载体。")
 A("")
@@ -479,7 +479,7 @@ A("# 一 · 按功能类型归类")
 A("")
 A("一个字只归一组,取其**最有辨识度的机制**(特殊机制优先于纯伤害)。所以「冰」「埋」这类带控的伤害字都进硬控组,便于横向比同类字的数值。")
 groups = collections.defaultdict(list)
-for c in comp: groups[cat_of(c)].append(c)
+for c in playable: groups[cat_of(c)].append(c)
 for nm, _ in CATS + [('其他', set())]:
     g = groups.get(nm)
     if not g: continue
@@ -494,7 +494,7 @@ A("")
 A("看同一档位里五个系各拿到什么强度,用于横向校平。")
 A("")
 A(H5)
-for c in sorted(comp, key=order):
+for c in sorted(playable, key=order):
     A(row5(c))
 A("")
 A("---")
@@ -505,7 +505,7 @@ A("看单系的成长曲线是否连续、定位是否收敛。")
 SUB = {'Wood': '召唤流唯一载体', 'Fire': 'DOT 与 AOE', 'Earth': '防御与破甲',
        'Metal': '高单体、斩杀、自强', 'Water': '治疗与控场'}
 for el in EORDER:
-    g = [c for c in comp if c['element'] == el]
+    g = [c for c in playable if c['element'] == el]
     if not g: continue
     g.sort(key=order)
     A("");  A(f"## {EL[el]}系 · {len(g)} 字 —— {SUB.get(el,'')}");  A("");  A(H4)

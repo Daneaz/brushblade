@@ -92,7 +92,7 @@ namespace Brushblade.Presentation
                 Rebuild();
         }
 
-        /// <summary>宝箱卡池 = 全部可收集字(带配方的字);与 GameRoot.ChestCardPool 同逻辑。</summary>
+        /// <summary>宝箱卡池 = 全部可收集字(非部件的字);与 GameRoot.ChestCardPool 同逻辑。</summary>
         private System.Collections.Generic.List<string> ChestCardPool()
         {
             var pool = new System.Collections.Generic.List<string>();

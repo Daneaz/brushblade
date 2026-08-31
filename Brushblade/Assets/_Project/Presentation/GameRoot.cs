@@ -135,7 +135,7 @@ namespace Brushblade.Presentation
             return pool;
         }
 
-        /// <summary>宝箱卡池 = 全部可收集字(带配方的 15 字):3/4 叠唯一收集渠道,
+        /// <summary>宝箱卡池 = 全部可收集字(非部件的字):3/4 叠唯一收集渠道,
         /// 箱级越高稀有度权重越偏高阶(ChestRules.CardRarityWeights + 保底)。</summary>
         private static System.Collections.Generic.List<string> ChestCardPool()
         {

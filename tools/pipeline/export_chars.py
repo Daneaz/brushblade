@@ -134,6 +134,12 @@ def recipe_for(char, index):
 def build_chars(ids_text, values):
     """values: {字: {element, rarity, effects, pinyin?, gloss?}} → {"chars": [...]}"""
     index = build_index(parse_ids_text(ids_text))
+
+    # COMPONENT_RECIPES 的 key 必须是纯部件 —— 若某个 key 同时是可出牌字,它的配方会被
+    # recipe_for 那条路无声顶掉。同「管线 token 表静默丢弃」是一类坑,宁可炸也不要静默。
+    overlap = COMPONENT_RECIPES.keys() & values.keys()
+    assert not overlap, f"COMPONENT_RECIPES 的 key 与可出牌字撞车,配方会被无声忽略:{sorted(overlap)}"
+
     # component: true 是 Core 侧 CharDef.IsComponent 的唯一来源 —— 部件属部件池,
     # 不进奖励池/宝箱池/商城/收集/叠字前置。与「有没有配方」正交(2026-09-01 二级拆解:
     # 部件也可以有配方),所以必须显式标,不能让 Core 去推导。

@@ -29,8 +29,11 @@ namespace Brushblade.Core.Tests
             new CharDef("利", Element.Metal, new[] { "禾", "刂" }),
         });
 
-        // 只给「拆池中部件」测试用——独立于 Graph(),避免非叶子的 烝/蒸 混进
-        // Suggest 的 composable/nearMiss 精确列表断言(2026-09-01 二级拆解)。
+        // 只给「拆池中部件」测试用——独立于 Graph()(2026-09-01 二级拆解)。
+        // ⚠ 2026-09-01 最终评审:枚举过全部 8 条 Suggest 测试后确认非叶子的 烝/蒸 混进
+        // Graph() 其实不会让那些精确列表断言变红——这不是在修一个已发生的冲突。这是
+        // 预防性隔离:把新功能(带配方的部件)的夹具与共享图谱分开,避免以后谁往 Graph()
+        // 加东西时要连带考虑 Suggest 断言。隔离本身仍有防回归价值,不要因此删掉本方法。
         private static RecipeGraph ComponentGraph() => new(Graph().All.Concat(new[]
         {
             // 带配方的部件(2026-09-01 二级拆解):烝 = 丞 + 灬 —— 既归部件池,又能再拆
