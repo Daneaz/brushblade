@@ -142,6 +142,10 @@ namespace Brushblade.Presentation
         private bool _resolvingHint;    // 本次重绘落在动画锁里:底部提示行画「结算中……」而非播报
 
         private Tutorial _tutorial;      // 新手引导(11.2);null = 不引导
+        private GameObject _coachOverlay;         // 当前引导弹层(2026-08-31 改稿,同 _modal 的生命周期套路)
+        private TutorialStep _coachShownStep = (TutorialStep)(-1); // 上次为哪一步弹出过;换步才重新弹
+        private bool _coachDismissed;             // 当前这步的弹层是否已被玩家点「下一步」关掉去真操作
+        private bool _tutorialSkipped;            // 「跳过引导」——此后 DrawTutorialHint 不再自动弹层
 
         private System.Action _onNewFloor;      // 连战推进到新一场时回调(无尽断点快照,20.6)
         private System.Action _onFloorCleared;  // 战利品取完时回调:本层记账落盘(2026-07-20)
@@ -1165,22 +1169,60 @@ namespace Brushblade.Presentation
             return sb.ToString();
         }
 
-        /// <summary>引导横幅:一步一句话(11.2.5),金色置于结束回合行(屏幕中部显眼)。</summary>
+        private const int TutorialStepTotal = 4; // 与 Tutorial 私有 Script 数组的固定四步同口径(稿 .seal 也写死「共 4 步」)
+
+        /// <summary>新手引导:稿上的四步故事弹层(2026-08-31 改稿,原先是屏底一行「◆ 提示」)。
+        ///
+        /// 弹层只在 <see cref="Tutorial.Step"/> **换成新的一步**时自动弹出;玩家点「下一步」
+        /// 只是关掉弹层去真的操作(拆/合/出/领奖)——真正的步骤推进是那些操作各自调用的
+        /// <see cref="Tutorial.Notify"/>,不是这颗按钮。下一次 Refresh 发现 Step 变了会自动
+        /// 重新弹出下一步。与 <c>_modal</c> 同一套生命周期:每次 Refresh 先销毁上一份,
+        /// 该显示才重新画一份——不然每次 Refresh 都新建一份会一直叠加。</summary>
         private void DrawTutorialHint()
         {
-            if (_tutorial == null || _tutorial.Done) return;
-            var hint = Ui.Label(_statusRow, "◆ " + TutorialText(_tutorial.Step), 26);
-            hint.color = Theme.GoldBorder;
-            hint.transform.SetAsFirstSibling();
+            if (_coachOverlay != null) { Object.Destroy(_coachOverlay); _coachOverlay = null; }
+            if (_tutorial == null || _tutorial.Done || _tutorialSkipped) return;
+            var step = _tutorial.Step;
+            if (step != _coachShownStep)
+            {
+                _coachShownStep = step;
+                _coachDismissed = false;
+            }
+            if (_coachDismissed) return;
+            var (tale, doIt, then) = TutorialText(step);
+            _coachOverlay = CoachOverlay.Show(transform, StepNumber(step), TutorialStepTotal, tale, doIt, then,
+                onNext: () => { _coachDismissed = true; Refresh(); },
+                onSkip: () => { _tutorialSkipped = true; Refresh(); });
         }
 
-        private static string TutorialText(TutorialStep step) => step switch
+        private static int StepNumber(TutorialStep step) => step switch
         {
-            TutorialStep.DismantleDemo => Strings.T("battle.hint.tutorial.dismantle_demo"),
-            TutorialStep.RecomposeDemo => Strings.T("battle.hint.tutorial.recompose_demo"),
-            TutorialStep.CastDemo => Strings.T("battle.hint.tutorial.cast_demo"),
-            TutorialStep.PickReward => Strings.T("battle.hint.tutorial.pick_reward"),
-            _ => "",
+            TutorialStep.DismantleDemo => 1,
+            TutorialStep.RecomposeDemo => 2,
+            TutorialStep.CastDemo => 3,
+            TutorialStep.PickReward => 4,
+            _ => TutorialStepTotal,
+        };
+
+        private static (string tale, string doIt, string then) TutorialText(TutorialStep step) => step switch
+        {
+            TutorialStep.DismantleDemo => (
+                Strings.T("battle.coach.dismantle_demo.tale"),
+                Strings.T("battle.coach.dismantle_demo.doit"),
+                Strings.T("battle.coach.dismantle_demo.then")),
+            TutorialStep.RecomposeDemo => (
+                Strings.T("battle.coach.recompose_demo.tale"),
+                Strings.T("battle.coach.recompose_demo.doit"),
+                Strings.T("battle.coach.recompose_demo.then")),
+            TutorialStep.CastDemo => (
+                Strings.T("battle.coach.cast_demo.tale"),
+                Strings.T("battle.coach.cast_demo.doit"),
+                Strings.T("battle.coach.cast_demo.then")),
+            TutorialStep.PickReward => (
+                Strings.T("battle.coach.pick_reward.tale"),
+                Strings.T("battle.coach.pick_reward.doit"),
+                Strings.T("battle.coach.pick_reward.then")),
+            _ => ("", "", ""),
         };
 
         private const float CoachBtnSize = 46f;   // 稿 .coachbtn { width/height: 20pt }
@@ -1225,8 +1267,13 @@ namespace Brushblade.Presentation
             }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
         }
 
-        /// <summary>「?」引导钮(稿 .coachbtn,新增):引导弹层是下一个任务的活,这里先把钮和
-        /// 回调位置留出来,点了先弹个占位说明,别留空回调。
+        /// <summary>「?」引导钮(稿 .coachbtn):重新打开当前这步的引导弹层(2026-08-31 接上
+        /// <see cref="DrawTutorialHint"/>,取代此前占位的提示弹窗)。
+        /// 清 <see cref="_coachDismissed"/> 让下一次 Refresh 重新画;顺带清掉
+        /// <see cref="_tutorialSkipped"/>——「跳过引导」关的是自动弹出,不该连带把这颗
+        /// 手动求助的入口也堵死,不然玩家一旦手滑点了跳过,「?」就成了摆设。教程已经跑完
+        /// (<c>_tutorial.Done</c>)或压根没有引导(<c>_tutorial == null</c>)时没有「当前步」
+        /// 可重开,点了不做事。
         ///
         /// 触控目标 ≥44pt(稿 .tap::after):TopBarH 只有 46 个逻辑单位(22pt),天生装不下
         /// 92(44pt)高的命中区——稿的 CSS 版本靠 <c>position:absolute</c> 让 <c>.tap::after</c>
@@ -1258,8 +1305,13 @@ namespace Brushblade.Presentation
                 new Vector2(-CoachBtnSize / 2f, -CoachBtnTapH / 2f), new Vector2(CoachBtnSize / 2f, CoachBtnTapH / 2f));
             var button = hit.AddComponent<Button>();
             button.targetGraphic = hitImage;
-            button.onClick.AddListener(() => Ui.Alert(transform,
-                Strings.T("battle.dialog.coach_placeholder.title"), Strings.T("battle.dialog.coach_placeholder.body")));
+            button.onClick.AddListener(() =>
+            {
+                if (_tutorial == null || _tutorial.Done) return; // 没有「当前步」可重开
+                _tutorialSkipped = false;
+                _coachDismissed = false;
+                Refresh();
+            });
         }
 
         // 玩家条(稿 .me)。信息列宽度不是编译期常量——_bottomRow 铺满 Mid 区,实际宽度
@@ -2065,8 +2117,7 @@ namespace Brushblade.Presentation
                 // 与名字一起才是「这是谁」,不该跟灼烧/致盲那些战况 chip 混排。
                 var header = Ui.Row(info.transform, "Header", EnemyHeaderSpacing);
                 Ui.ThemedLabel(header.transform, BossTitle(enemy), 15, Theme.TextMain, Theme.TitleFont);
-                // 显示用的元素名走 CharInfo.ElementName(查表)—— 与差字面板/桶键那套
-                // BattleView 私有的 ElementKey 是两件事,别弄混(见 ElementKey 定义处的注释)。
+                // 显示用的元素名走 CharInfo.ElementName(查表)。
                 string elementName = enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?";
                 Ui.Chip(header.transform, elementName, Theme.ElementColor(enemy.ApparentElement), Color.white,
                     ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY);
@@ -2692,8 +2743,8 @@ namespace Brushblade.Presentation
             // 本就有(CharInfo.Detail 含配方行);转位提示已经搬到部件池卡面自己身上常驻
             // 显示(DrawPool 的 KinHint),不必等选中才看得到。
             var picked = Ui.Row(_suggestRow, "PickedRow", 6).transform;
-            Ui.OutlinedPanel(picked, "Tile", Color.white, Theme.RarityColor(def.Rarity), 8, 2f, out var pickedFace);
-            Sized(pickedFace.transform.parent.gameObject, width: PickedTileW, height: PickedTileH);
+            var pickedOuter = Ui.OutlinedPanel(picked, "Tile", Color.white, Theme.RarityColor(def.Rarity), 8, 2f, out var pickedFace);
+            Sized(pickedOuter.gameObject, width: PickedTileW, height: PickedTileH);
             var pickedGlyph = Ui.ThemedLabel(pickedFace.transform, def.Id, PickedGlyphFontSize,
                 Theme.GlyphColor(def.Element), Theme.TitleFont);
             Ui.Stretch(pickedGlyph.rectTransform);
