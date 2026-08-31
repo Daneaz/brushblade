@@ -237,7 +237,7 @@ namespace Brushblade.Core
             var rest = new List<int>();
             for (int i = 0; i < enemies.Count; i++)
                 if (i != primaryIndex && enemies[i].Alive) rest.Add(i);
-            // 距离 = 列差 + 排差(2×3 网格上的曼哈顿距离)。稳定排序:同距保持下标序。
+            // 稳定排序:同距保持下标序。
             rest.Sort((x, y) =>
             {
                 int dx = GridDistance(enemies[x], primary), dy = GridDistance(enemies[y], primary);

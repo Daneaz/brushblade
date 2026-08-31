@@ -215,10 +215,21 @@ namespace Brushblade.Presentation
                         // 玩家一眼读得出这记是拿什么属性打的。用 GlyphColor 而不是 ElementColor ——
                         // 飘字就是字,得过 WCAG 4.5:1(金 #B3A382 对宣纸底只有 2.48,大字门槛都够不到)。
                         // 火系色恰好与原来的朱砂几乎同色,所以火系那一路看起来跟改之前一样
-                        Popup(DamageText(e), Theme.GlyphColor(e.Attacker), hitAnchor,
-                            sizeScale: Mathf.Clamp(damageScale + e.Amount / 50f,
-                                1f, e.Crit ? 2.4f : e.Ke ? 2.1f : 1.9f),
-                            outline: e.Ke ? Theme.GoldBorder : null);
+                        //
+                        // 护盾分账(2026-08-30):与 EnemyAttack 同口径,Amount − Absorbed 才是实际掉血。
+                        // 敌人目前没有任何加盾来源,Absorbed 恒为 0,这条分支今天走不到,但要先写对——
+                        // 等加盾辅助怪上线,飘字数字不能跟血条实际掉的量对不上
+                        int enemyHpLoss = e.Amount - e.Absorbed;
+                        if (e.Absorbed <= 0)
+                            Popup(DamageText(e), Theme.GlyphColor(e.Attacker), hitAnchor,
+                                sizeScale: Mathf.Clamp(damageScale + e.Amount / 50f,
+                                    1f, e.Crit ? 2.4f : e.Ke ? 2.1f : 1.9f),
+                                outline: e.Ke ? Theme.GoldBorder : null);
+                        else if (enemyHpLoss <= 0)
+                            Popup(Strings.T("juice.popup.shield_absorbed", ("absorbed", e.Absorbed)), Theme.SplitBlue, hitAnchor);
+                        else
+                            Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", enemyHpLoss)),
+                                Theme.GlyphColor(e.Attacker), hitAnchor, small: true);
                         if (e.Ke) Ring(hitAnchor, Theme.GoldBorder); // 相克专属:一圈金环炸开
                         if (!kills) HitReact(hitAnchor); // 致死不白闪,让位给置灰
                         HitFx(e.Amount, e.Crit, e.Ke, hitAnchor);

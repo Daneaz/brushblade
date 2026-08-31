@@ -270,7 +270,8 @@ namespace Brushblade.Presentation
                     // 挨这一记的形象抖起来:主体抖、墨丝甩尾、眼睛瞪大(MobView 三层各自不同步)
                     if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
                         _enemyMobs[e.TargetIndex].PlayHit();
-                    PushEnemyHp(e.TargetIndex, -e.Amount);
+                    // Amount 分账与玩家侧 EnemyAttack 同口径:Absorbed 走盾条,余量才掉血
+                    PushEnemyHp(e.TargetIndex, -(e.Amount - e.Absorbed));
                     break;
                 case BattleEventKind.ImmunityBlocked: // 完全挡下:血条护盾条都不动,表达交给 Juice 的飘字
                     break;
@@ -1921,9 +1922,10 @@ namespace Brushblade.Presentation
         private const int SlotFrameRadius = 12;
         private const float SlotFrameThickness = 2f;
 
-        /// <summary>护盾条的填充比例(稿 Battle.dc.html 的 shieldPct):盾 = 1/4 血时满格。
-        /// 刻意**不按各自血量归一** —— 归一了 60 盾的召唤物与 60 盾的 Boss 看起来一样长,
-        /// 横着比就没意义了。</summary>
+        /// <summary>护盾条的填充比例(稿 Battle.dc.html 的 shieldPct):按各自血量归一,
+        /// 盾达到自身血量的 1/4 时满格,与稿一致。玩家/召唤物那两条盾条走的是另一套
+        /// 绝对刻度(<see cref="ShieldBarFull"/>)——两套刻度并存是 2026-08-26 的既有决策,
+        /// 不是本轮引入,敌人这条沿用的仍是本函数的归一算法。</summary>
         private static float ShieldFraction(int shield, int maxHp) =>
             maxHp <= 0 ? 0f : Mathf.Min(1f, shield * 4f / maxHp);
 

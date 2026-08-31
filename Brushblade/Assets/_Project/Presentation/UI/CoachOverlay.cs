@@ -39,7 +39,7 @@ namespace Brushblade.Presentation
         // 但那几个弹窗的文案都是运营态基本不变的短句,这里是新手引导的正文,字数会随四步
         // 内容浮动,固定高度撑爆时是**溢出而不是裁剪**(OutlinedPanel/CardPanel 都不带
         // Mask/RectMask2D)——文字和按钮会画到金边卡片外面糊在遮罩上,新玩家看到的第一屏
-        // UI 就裂开,划不来靠"估得准"去赌。
+        // UI 就裂开,划不来靠「估得准」去赌。
         private const float CardW = 779f;         // 稿 .coach { width: 372px }
         private const float BorderThickness = 3f; // 描边厚度,card 高度要把它加回去(见 Show() 末尾)
         private const float PadX = 42f;        // 稿 .coach { padding: 16px 20px 14px } 的左右
