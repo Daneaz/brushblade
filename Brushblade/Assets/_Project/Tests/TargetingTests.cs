@@ -179,6 +179,37 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Cast_BacklineCleave_SplashesWithinTheBackRow()
+        {
+            // 砸 = 溅射 + 偷袭(2026-09-02)。两个修饰位并存时的落点:偷袭把主目标解放到后排,
+            // 溅射再按**主目标所在那一排**取相邻 —— 溅到的是另一只后排怪,不是前排。
+            // RestrictedToFrontRow 里 CanStrikeBackline 判在形状之前,这条口径才成立;
+            // 谁把那两句调换顺序,或让溅射改按前排取相邻,这条就会红。
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("砸", Element.Heart, effects: new[] {
+                    new EffectDef(EffectKind.DamageSingle, 50,
+                        shape: TargetShape.Cleave, shapePercent: 50, canStrikeBackline: true) }),
+            });
+            var engine = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+                new string[0], new[] { "砸" },
+                new[]
+                {
+                    new EnemyDef("前甲", Element.Heart, 400, 0),
+                    new EnemyDef("前乙", Element.Heart, 400, 0),
+                    new EnemyDef("后甲", Element.Heart, 400, 0, row: EnemyRow.Back),
+                    new EnemyDef("后乙", Element.Heart, 400, 0, row: EnemyRow.Back),
+                }, seed: 1);
+
+            Assert.That(engine.Cast("砸", 2), Is.EqualTo(BattleError.None), "偷袭字点得动后排");
+            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(350), "主目标吃全额");
+            Assert.That(engine.Enemies[3].Hp, Is.EqualTo(375), "同排相邻吃 50%");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(400), "前排一点都不该沾");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(400), "前排一点都不该沾");
+        }
+
+        [Test]
         public void Cast_MixedCard_TakesTheStrictestRule()
         {
             var engine = Trio();

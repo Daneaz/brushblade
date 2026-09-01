@@ -170,7 +170,8 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 80
+          "value": 80,
+          "backline": true
         },
         {
           "kind": "BurnSingle",
@@ -821,7 +822,8 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 90,
+          "backline": true
         }
       ]
     },
@@ -951,7 +953,8 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 150
+          "value": 150,
+          "backline": true
         },
         {
           "kind": "Morale",
@@ -1410,6 +1413,7 @@
         {
           "kind": "DamageSingle",
           "value": 45,
+          "backline": true,
           "shape": "Cleave",
           "shapePercent": 50
         }

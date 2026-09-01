@@ -174,8 +174,12 @@ namespace Brushblade.Presentation
         private static string HitCountText(EffectDef e) =>
             e.HitCount > 1 ? Strings.T("char.effect.hitcount", ("count", e.HitCount)) : "";
 
-        /// <summary>偷袭后缀(2026-08-23)。全表只有「刺」标了它。与召唤物被动的「远程」是
-        /// 同一件事的两侧:那条挂在召唤物身上,这条作用于玩家出的这一记单体伤害。</summary>
+        /// <summary>偷袭后缀(2026-08-23)。与召唤物被动的「远程」是同一件事的两侧:
+        /// 那条挂在召唤物身上,这条作用于玩家出的这一记单体伤害。
+        ///
+        /// 载体:砸 / 冷 / 熣 / 刲(2026-09-02 按字意装配)。2026-08-25 刺 改贯穿之后
+        /// 到此之前**一张字都没标**,这条后缀有半个月是渲染不出来的死路径 ——
+        /// 全集由 CharTableTests.RealConfig_BacklineChars_CanStrikeBackline 钉住。</summary>
         private static string BacklineText(EffectDef e) =>
             e.CanStrikeBackline ? Strings.T("char.effect.backline") : "";
 
