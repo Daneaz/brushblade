@@ -1732,7 +1732,10 @@ namespace Brushblade.Core.Tests
             var buffs = 0;
             foreach (var s in engine.PlayerStatuses.All)
                 if (s.Polarity == StatusPolarity.Buff) buffs++;
-            Assert.That(buffs, Is.EqualTo(2)); // HoT + 护甲增益
+            // 2026-09-02(水土双方向 Task 2):"沐"是 HealOverTime,按总量(3×3=9)攒水势;
+            // 本夹具 PlayerMaxHp 走 Config() 的旧量级缺省 50,阈值只有 5,9 够攒 1 层 ——
+            // 于是多出第 3 条 Buff(WaterPower)。这是新机制的真实、预期结果,不是回归。
+            Assert.That(buffs, Is.EqualTo(3)); // HoT + 护甲增益 + 水势
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff), Is.EqualTo(12));
         }
 

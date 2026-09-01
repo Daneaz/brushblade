@@ -342,6 +342,16 @@ namespace Brushblade.Core
         // (26 级 ATK 150 满层:旧 +50 → 新 +75)。深层战意流因此明显变强。
         private const int MoralePercentPerStack = 10;
 
+        /// <summary>势每层的伤害加成(百分点,2026-09-02)。5 × 10 层 = +50%,
+        /// 与战意的 10 × 5 层 = +50% **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。</summary>
+        private const int MomentumPercentPerStack = 5;
+
+        /// <summary>水势每层的治疗加成(百分点,2026-09-02)。</summary>
+        private const int WaterPowerPercentPerStack = 10;
+
+        /// <summary>势与水势的层数上限(2026-09-02)。</summary>
+        private const int MaxResourceStacks = 10;
+
         /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
         private const string SummonSlowSourceId = "summon.slow";
         private const int MoraleMaxStacks = 5;  // 战意层数上限:满层 +50 攻击,刚好追平剡单张的量
@@ -351,6 +361,8 @@ namespace Brushblade.Core
         private int _burnPerStack = 20;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
+        private int _shieldAccum;           // 势的余数:不足一层的护盾量(2026-09-02)
+        private int _healAccum;             // 水势的余数:不足一层的治疗名义值
 
         /// <summary>玩家的行动计量器(2026-08-15,ATB 改造):与敌人/召唤物同走一套模型,
         /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。恒非负——开局与所有人
@@ -395,8 +407,11 @@ namespace Brushblade.Core
                 // 反过来会让 剡 的 +50 完全吃不到战意的放大(Morale_MultipliesAfterEmpower)。
                 int flat = _config.PlayerAttack
                     + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff);
-                int percent = 100 + _playerStatuses.TotalMagnitude(StatusKind.Morale)
-                    * MoralePercentPerStack;
+                int percent = 100
+                    + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
+                    // 势(2026-09-02):与战意同一个百分比乘区相加。「先加后乘」的既有顺序不动 ——
+                    // Empower / AttackBuff 是加点,战意与势是乘比例。
+                    + _playerStatuses.TotalMagnitude(StatusKind.Momentum) * MomentumPercentPerStack;
                 return Math.Max(0, flat * percent / 100);
             }
         }
@@ -654,6 +669,69 @@ namespace Brushblade.Core
         /// <summary>待决议的掉落字(满库时挂起);无待决议时为 null。</summary>
         public string PendingDrop => _pendingDrop;
         public int PlayerShield => _shieldNormal + _shieldPersist;
+
+        /// <summary>势/水势的当前层数与余数(2026-09-02),给 UI 与测试。</summary>
+        public int MomentumStacks => _playerStatuses.TotalMagnitude(StatusKind.Momentum);
+        public int WaterPowerStacks => _playerStatuses.TotalMagnitude(StatusKind.WaterPower);
+        public int ShieldAccum => _shieldAccum;
+        public int HealAccum => _healAccum;
+
+        /// <summary>攒一层势/水势需要的量 = 玩家生命上限的十分之一(2026-09-02)。
+        ///
+        /// 用百分比而不是固定值:固定 100 点在早期(垒 50 盾)攒不出一层、在深层
+        /// (㙓 630 盾)一次给 6 层。百分比口径自动跟着角色成长走。
+        /// 下钳 1:MaxHp &lt; 10 时整数除会得 0,那会让 while 循环永不终止。</summary>
+        private int ResourceThreshold => Math.Max(1, _config.PlayerMaxHp / 10);
+
+        /// <summary>获得护盾时攒势(2026-09-02)。<paramref name="shieldAmount"/> 是
+        /// **获得量**,不是实际吸伤量 —— 势衡量的是"你堆了多少防御",不是"你挨了多少打"。
+        /// 满层后余数也不再攒:否则掉一层会立刻被余数补回,层数形同不掉。
+        /// 仅供测试与引擎内部调用。</summary>
+        internal void GainMomentumForTest(int shieldAmount) => GainMomentum(shieldAmount);
+
+        private void GainMomentum(int shieldAmount)
+        {
+            GainStacks(shieldAmount, StatusKind.Momentum, "势", ref _shieldAccum);
+        }
+
+        /// <summary>治疗时攒水势(2026-09-02)。<paramref name="healAmount"/> 是
+        /// **名义值**,不是实际回血量 —— 满血时治疗溢出照样攒,这是「满血奶自己不亏」的落点。
+        /// 仅供测试与引擎内部调用。</summary>
+        internal void GainWaterPowerForTest(int healAmount) => GainWaterPower(healAmount);
+
+        private void GainWaterPower(int healAmount)
+        {
+            GainStacks(healAmount, StatusKind.WaterPower, "水势", ref _healAccum);
+        }
+
+        /// <summary>势与水势共用的攒层逻辑(2026-09-02)。两者只在 Kind、来源标识与
+        /// 余数字段上不同,规则一字不差 —— 写两份迟早分叉。</summary>
+        private void GainStacks(int amount, StatusKind kind, string sourceId, ref int accum)
+        {
+            if (amount <= 0) return;
+            var existing = _playerStatuses.Find(kind);
+            int stacks = existing?.Magnitude ?? 0;
+            if (stacks >= MaxResourceStacks) return;   // 满层:连余数都不攒
+
+            accum += amount;
+            int threshold = ResourceThreshold;
+            while (accum >= threshold && stacks < MaxResourceStacks)
+            {
+                accum -= threshold;
+                stacks++;
+            }
+            if (stacks >= MaxResourceStacks) accum = 0; // 攒到顶,余数清掉
+
+            _playerStatuses.Apply(new StatusEffect
+            {
+                Kind = kind,
+                Polarity = StatusPolarity.Buff,
+                Magnitude = stacks,
+                TurnsLeft = -1,        // 持久,不随回合递减
+                SourceId = sourceId,   // 单一来源:Apply() 走覆盖刷新而非叠加
+            });
+        }
+
         public int ShieldNormal => _shieldNormal;
         public int ShieldPersist => _shieldPersist;
 
@@ -2168,6 +2246,9 @@ namespace Brushblade.Core
                             // 分两桶存也没有任何一处读得出区别。PersistOnce 在这一支被有意忽略。
                             _summons[allySlot].Shield += shield;
                         }
+                        // 攒势(2026-09-02):按获得量算,加给谁都一样 ——
+                        // 给召唤物的盾同样是"你堆了防御"。
+                        GainMomentum(shield);
                         _events.Add(new BattleEvent(BattleEventKind.Shield, allySlot, shield));
                         break;
                     case EffectKind.BurnPotency:
@@ -2177,16 +2258,25 @@ namespace Brushblade.Core
                         // 目标可选(2026-08-22,spec §8):生克算的是配方内部的元素关系,
                         // 与目标是谁无关 —— 治召唤物与治玩家同值
                         int heal = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
+                        GainWaterPower(heal);   // 名义值:满血溢出照样攒(2026-09-02)
                         HealAlly(allySlot, heal);
                         break;
                     case EffectKind.HealAll:
-                        HealPlayerAndSummons(WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                    {
+                        int healAll = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
+                        GainWaterPower(healAll);
+                        HealPlayerAndSummons(healAll);
                         break;
+                    }
                     case EffectKind.HealOverTime:
                         // 可叠(2026-08-04,技能机制详表「滋」):SourceId 用自增序号而非字 ID,
                         // 让 Apply() 永远走新增分支——同字连放两次得到两条独立倒计时,与老代码
                         // 无条件 List.Add 的口径一致。不能用回合数做后缀:一回合 3 AP,同一回合
                         // 内完全可能连放两次,会被回合数误判成同一来源又变回刷新。
+                        // HoT 按总量攒水势(2026-09-02):它承诺的治疗总量就是
+                        // Magnitude × Turns,分几回合兑现不改变承诺量。
+                        GainWaterPower(WuxingResolver.ResolveEffect(value, recipeElements, attacker)
+                            * Math.Max(1, effect.Turns));
                         _playerStatuses.Apply(new StatusEffect
                         {
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
