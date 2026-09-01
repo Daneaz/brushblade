@@ -275,7 +275,7 @@ namespace Brushblade.Presentation
             int bandIndex = BandIndexFor(fromDepth);
             var paper = Theme.BandPaper(bandIndex, (fromDepth - band.FromDepth) / endless.BossEvery);
             var view = NewView("BattleView", paper, band.Name.Substring(band.Name.Length - 1), bandIndex);
-            view.AddComponent<BattleView>().Init(_graph, run,
+            view.AddComponent<BattleView>().Init(_graph, run, _meta,
                 won => OnSegmentEnded(run, fromDepth, segmentEnd, carriedInk, won),
                 tutorial, Strings.T("root.battleview.segment_title", ("bandName", band.Name), ("fromDepth", fromDepth), ("segmentEnd", segmentEnd)), maxHp,
                 onNewFloor: () => OnFloorAdvanced(run, carriedInk),

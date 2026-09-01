@@ -37,6 +37,11 @@ namespace Brushblade.Presentation
         private const float HandBandH = 117f;  // 稿 56pt
         private RecipeGraph _graph;
         private RunEngine _run;
+        // 执笔人详情弹窗(PlayerInfo.Sheet)要用:局外等级/技能不在 BattleEngine 上,得从这里
+        // 复原基准值(2026-09-01,单位详情轮二 Task 5)。必须是 GameRoot._meta 那一个实例——
+        // 另建一份或重新 MetaStore.Load() 都会让这里的小字数值悄悄偏离 BuildBattleConfig
+        // 当初写进战斗配置的那份基准,而且没有任何测试拦得住。
+        private MetaState _meta;
         private System.Action<bool> _onRunEnded;
         private Juice _juice;
         private readonly System.Collections.Generic.List<RectTransform> _enemyRects = new();
@@ -107,6 +112,14 @@ namespace Brushblade.Presentation
         private int _pendingSummonLibraryIndex = -1;
         private int _pendingSummonCount;     // 这张字召几只 = 要点几个位子
         private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
+        // 单位详情弹窗开着时(_modal 是 UnitSheet 建的那个),Refresh 靠它重新取一份 UnitDetail
+        // 整体重建——稿上写着「数值随战斗实时刷新,不暂停」,事件驱动而不是每帧。
+        // 返回 null = 那个单位没了(比如召唤物被打死),Refresh 顺手关掉详情而不是抱着空数据崩。
+        private System.Func<UnitDetail> _unitSheetSource;
+        // 与 UI/UnitSheet.cs 内部 private 的 SheetName 保持一致的字面量——那边不让改、也没有
+        // 公开出来,这里只能复述字符串,用来判断当前 _modal 是不是详情弹窗、还是被别的模态
+        // (奇遇替换弹窗等)顶掉了。顶掉的情形下没必要也不应该把详情弹窗重新弹到别的模态上面。
+        private const string UnitSheetGameObjectName = "UnitSheet";
         private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
         private string _message = Strings.T("battle.hint.initial");
 
@@ -161,7 +174,7 @@ namespace Brushblade.Presentation
         private int _pendingRewardIndex = -1;   // 满库替换:已选中待替换入库的奖励下标(3.8.1)
         private int _previewRewardIndex = -1;   // 字奖励预览:首点看简述,再点确认(新手友好)
 
-        public void Init(RecipeGraph graph, RunEngine run, System.Action<bool> onRunEnded,
+        public void Init(RecipeGraph graph, RunEngine run, MetaState meta, System.Action<bool> onRunEnded,
             Tutorial tutorial = null, string title = null, int playerMaxHp = 50,
             System.Action onNewFloor = null, System.Action onExit = null, System.Action onProgress = null,
             System.Action onExpanded = null, System.Action onAbandon = null,
@@ -169,6 +182,7 @@ namespace Brushblade.Presentation
         {
             _graph = graph;
             _run = run;
+            _meta = meta;
             _onRunEnded = onRunEnded;
             _onNewFloor = onNewFloor;
             _onFloorCleared = onFloorCleared;
@@ -726,6 +740,17 @@ namespace Brushblade.Presentation
             var bottomGo = Ui.Row(mid.transform, "PlayerStats");
             Ui.Sized(bottomGo, height: PlayerBarH);
             _bottomRow = bottomGo.transform;
+            // 执笔人详情入口(2026-09-01,单位详情轮二 Task 5):挂在 _bottomRow 自己身上,
+            // 只挂一次——DrawPlayerStats 每次 Refresh 只 Ui.Clear 它的子物件,不动它本身
+            // (与 Ui.Clear 只删子物件、不碰父物件同一条,见方法说明)。图透明只为接点击,
+            // 视觉不变;选目标态下 AttachAllyTargetPicker 会把选中覆盖层挂成它的子物件,
+            // 子物件天然盖在父物件的 Graphic 之上,详见 OnPlayerClicked 的方法注释。
+            var bottomImage = bottomGo.AddComponent<Image>();
+            bottomImage.color = Color.clear;
+            var bottomButton = bottomGo.AddComponent<Button>();
+            bottomButton.transition = Selectable.Transition.None;
+            bottomButton.targetGraphic = bottomImage;
+            bottomButton.onClick.AddListener(OnPlayerClicked);
 
             // 字库行与非战斗阶段的宽操作区**共占同一条带、按阶段只画其一**:字库只在
             // 战斗回合内/战利品/复活补给三个阶段画,而这条带的四个消费方(结算/奇遇/
@@ -1066,6 +1091,18 @@ namespace Brushblade.Presentation
                     break;
             }
             DrawTutorialHint();
+            // 单位详情弹窗开着时数值跟着 Refresh 走(2026-09-01,单位详情轮二 Task 5;稿上
+            // 「数值随战斗实时刷新,不暂停」,事件驱动而非每帧)——重新拿一份 UnitDetail 整体
+            // 重建。用 _modal 的 GameObject 名字判断而不是另记一个「当前是不是详情弹窗」的
+            // 布尔:期间若被别的模态(奇遇替换弹窗等)顶掉,_modal 已经指向别的物体,名字
+            // 自然对不上,不会把详情弹窗重新弹到别的模态上面;玩家自己点 ×/知道了/遮罩关掉后
+            // _modal 变 Unity 假 null,同样不会再重建。
+            if (_modal != null && _modal.name == UnitSheetGameObjectName && _unitSheetSource != null)
+            {
+                var detail = _unitSheetSource();
+                if (detail != null) _modal = UnitSheet.Show(transform, detail);
+                else { Object.Destroy(_modal); _modal = null; _unitSheetSource = null; } // 单位没了(召唤物阵亡等):跟着关掉详情
+            }
             // 长按 preview 置顶:重绘后 preview 须盖在战斗 UI 之上
             if (_modal != null) _modal.transform.SetAsLastSibling();
             // 底部提示行现在是全屏唯一的提示位,动画期间让给「结算中……」——播报要等整轮推进
@@ -1813,9 +1850,37 @@ namespace Brushblade.Presentation
                 return;
             }
             if (summon == null || !summon.Alive) return;
+            // 2026-09-01 改走 UnitSheet + SummonInfo.Sheet(单位详情轮二 Task 5),替掉原来
+            // 拼一段文本塞进通用 Ui.Modal 的写法。刷新时召唤物可能已经阵亡(槽位变 null 或
+            // Alive 变 false)——那种情形下不再调 SummonInfo.Sheet(它不吃 null),让 Refresh
+            // 那边的重建逻辑顺手关掉详情。
             if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.Modal(transform, SummonInfo.Title(summon), SummonInfo.Detail(summon),
-                new Vector2(320, 200), (Strings.T("common.ok"), null, Theme.LockedBg, Theme.TextMain));
+            _unitSheetSource = () =>
+            {
+                var s = Battle.Summons[index];
+                return s != null && s.Alive ? SummonInfo.Sheet(s) : null;
+            };
+            _modal = UnitSheet.Show(transform, _unitSheetSource());
+        }
+
+        /// <summary>点玩家条 = 看详情(2026-09-01,单位详情轮二 Task 5)——执笔人此前没有任何
+        /// 点击入口。与 <see cref="OnEnemyClicked"/> 同一套纪律:选目标态优先,治疗选目标态下
+        /// (<c>_allyTargeting</c>)改成把玩家选为治疗目标;够不到时(<c>!CanHealSlot</c>)直接
+        /// 忽略,不落到下面的看详情分支——同 <see cref="OnEnemyClicked"/> 的注释,落下去会让
+        /// 玩家以为自己点歪了。绑在 <c>_bottomRow</c> 自己身上的按钮见 <c>BuildSkeleton</c>;
+        /// <see cref="AttachAllyTargetPicker"/> 选目标态下会在它身上再叠一层子物件覆盖层,
+        /// 子物件的 Graphic 天然盖住父物件自己的 Graphic,点击先命中那层,不需要额外互斥判断。</summary>
+        private void OnPlayerClicked()
+        {
+            if (_allyTargeting)
+            {
+                if (!Battle.CanHealSlot(Targeting.PlayerTarget)) return;
+                OnAllyTargetPicked(Targeting.PlayerTarget);
+                return;
+            }
+            if (_modal != null) Object.Destroy(_modal);
+            _unitSheetSource = () => PlayerInfo.Sheet(Battle, _meta);
+            _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 
         /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
@@ -3725,9 +3790,14 @@ namespace Brushblade.Presentation
                 BeginCast(_selectedChar, index, attackMode: false, libraryIndex: _selectedIndex);
                 return;
             }
-            // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做
+            // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做。
+            // 2026-09-01 改走 UnitSheet + EnemyInfo.Sheet(单位详情轮二 Task 5):原来的
+            // EnemyPreview 是按 EnemyDef 画的图鉴式预览,拿不到战斗中的实时状态(当前血量、
+            // 身上挂着什么状态)。EnemyPreview 本身不删——BestiaryView.cs 两处怪物图鉴调用点
+            // 还在用它。
             if (_modal != null) Object.Destroy(_modal);
-            _modal = EnemyPreview.Show(transform, Battle.Enemies[index].Def, phase: Battle.Enemies[index].PhaseIndex);
+            _unitSheetSource = () => EnemyInfo.Sheet(Battle.Enemies[index]);
+            _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 
         private void ExecuteCast(string charId, int target, bool replaceSummon = false, bool attackMode = false,
