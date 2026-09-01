@@ -12,14 +12,21 @@ namespace Brushblade.Presentation
     /// 「如果是敌人/召唤物/执笔人」的分支。
     ///
     /// **刷新策略(稿上写死「数值随战斗实时刷新,不暂停」)**:<see cref="Show"/> 每次调用都
-    /// 整体重建、不保留状态——与本文件之外 <c>BattleView.cs</c> 里 28 处 <c>Ui.Clear</c> +
-    /// 重建的 <c>Draw*</c> 方法同一套写法(该文件 <c>Refresh()</c> 每次状态变化整屏重画,
-    /// 没有任何一处做增量更新)。调用方(Task 5)要做的事只是:每次想要刷新数值时,
-    /// 销毁上一次 <see cref="Show"/> 返回的 GameObject,再拿新的 <see cref="UnitDetail"/>
-    /// 重新调用一次——不必学一套新的更新 API,和调用其余 Draw* 方法的心智负担一样。
-    /// 选它而不是「返回句柄供外部逐字段 patch」,是因为后者要在 <c>UnitSheet</c> 里额外
-    /// 保留一堆 Text/Image 引用只为支持部分刷新,复杂度换来的收益是「重建一次弹窗的开销」——
-    /// 而这只是一个偶尔点开的详情层,不是每帧刷新的战场本体,省不下这个成本没有意义。</summary>
+    /// 整体重建、不保留状态。
+    /// ⚠ 2026-09-01 review 修:此前这里的论据是「BattleView.cs 里所有 Draw* 方法都整屏重画,
+    /// 没有任何一处做增量更新」——这句不成立,反例就在同一个文件里:<c>BattleView.cs</c> 的
+    /// <c>_playerActionBar</c>/<c>_enemyActionBars</c>/<c>_summonActionBarByCore</c> 几个缓存
+    /// 字段 + <c>ActionBar()</c>/<c>FillActionBars()</c>/<c>SetActionBar()</c> 是专门为行动条
+    /// 抽出来的**增量**刷新路径,正是因为「高频连续变化的数值不适合全量重建」。
+    /// 真实理由是:详情是玩家偶尔点开、看完就关的浮层,不是每帧刷新的战场本体,重建一次的
+    /// 开销可以接受;换成「返回句柄供外部逐字段 patch」需要在 <c>UnitSheet</c> 里额外保留一堆
+    /// Text/Image 引用只为支持部分刷新,复杂度换来的收益对这一层不值当。
+    /// 刷新频率跟随 <c>BattleView.Refresh</c>(事件驱动,不是每帧)。
+    /// 调用方(Task 5)要做的事只是:每次想要刷新数值时,拿新的 <see cref="UnitDetail"/>
+    /// 重新调用一次 <see cref="Show"/>——本方法内部会自己找到并销毁上一个同名实例,调用方
+    /// 不需要先手动 Destroy。全量重建有一个代价:<see cref="Ui.ScrollList"/> 的 Content 带
+    /// <c>ContentSizeFitter</c>,重建会把左列滚动条弹回顶部——玩家正翻到第 5 条以后会被
+    /// 弹回顶端。<see cref="Show"/> 因此在重建前记下旧实例的滚动位置,重建后原样恢复。</summary>
     public static class UnitSheet
     {
         private const float SheetWidth = 1280f;
@@ -35,6 +42,18 @@ namespace Brushblade.Presentation
         /// 销毁(下一次刷新,或玩家点关闭时它自己已经销毁自己)。</summary>
         public static GameObject Show(Transform root, UnitDetail detail)
         {
+            // 刷新即整体重建(见类注释),但左列 ScrollRect 不该跟着弹回顶部——重建前找一下
+            // root 下是否已有一张旧的详情弹窗,记下它的滚动位置再销毁它,新面板建完后原样
+            // 恢复。这样调用方不必自己保留/销毁上一个 GameObject,直接反复调 Show 即可。
+            Vector2? savedScroll = null;
+            var previous = root.Find("UnitSheet");
+            if (previous != null)
+            {
+                var previousScroll = previous.GetComponentInChildren<ScrollRect>();
+                if (previousScroll != null) savedScroll = previousScroll.normalizedPosition;
+                Object.Destroy(previous.gameObject);
+            }
+
             var overlay = new GameObject("UnitSheet", typeof(RectTransform), typeof(Image));
             overlay.transform.SetParent(root, false);
             var mask = overlay.GetComponent<Image>();
@@ -50,7 +69,13 @@ namespace Brushblade.Presentation
                 new Vector2(-SheetWidth / 2f, -SheetHeight / 2f), new Vector2(SheetWidth / 2f, SheetHeight / 2f));
             // 点面板本体不该关闭(只有遮罩/×/知道了三处能关)——面板是 overlay 的子物体,
             // 天生会挡住遮罩按钮的射线,补一个空 Button 吃掉点击,不让它透到遮罩上。
-            face.gameObject.AddComponent<Button>().targetGraphic = face;
+            // ⚠ 2026-09-01 review 修:Button 必须挂在 outer 上、targetGraphic 指向 face——
+            // Ui.OutlinedPanel 对 face 无条件设了 raycastTarget = false(Ui.cs:153),
+            // raycastTarget = false 的 Graphic 根本不会注册进 GraphicRegistry,挂在 face 自己
+            // 身上的 Button 永远吃不到点击,点击会直接穿透 face 命中 outer、再冒泡到遮罩的
+            // 关闭按钮上,把整个弹窗关掉——正好是这段注释想避免的效果。仓库其余同款按钮
+            // (Ui.cs:146 的文档约定、MapView.cs 页签、Ui.cs 另外两处)全部是这个挂法。
+            outer.gameObject.AddComponent<Button>().targetGraphic = face;
 
             var stack = Ui.VStack(face.transform, "Stack", RootSpacing);
             Ui.Stretch((RectTransform)stack.transform);
@@ -62,6 +87,16 @@ namespace Brushblade.Presentation
             BuildHeader(stack.transform, detail, overlay);
             BuildBody(stack.transform, detail);
             BuildFoot(stack.transform, overlay);
+
+            if (savedScroll is { } scrollPos)
+            {
+                // ScrollRect.normalizedPosition 依赖 Content 的 ContentSizeFitter 已经量出高度——
+                // 刚建完的这一帧布局还没跑过,这里先强制跑一遍再赋值,否则要么读到旧高度、
+                // 要么被随后的布局重排盖掉。
+                Canvas.ForceUpdateCanvases();
+                var scrollRect = overlay.GetComponentInChildren<ScrollRect>();
+                if (scrollRect != null) scrollRect.normalizedPosition = scrollPos;
+            }
 
             return overlay;
         }
@@ -143,8 +178,8 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>名字行:名 + 属性徽章(可能不画,见 <see cref="ShouldShowElementBadge"/>)+
-        /// 标签 chip + 弹性空 + × 关闭钮。</summary>
+        /// <summary>名字行:名 + 属性徽章(执笔人不画,见 <see cref="UnitDetail.ElementUnknown"/>
+        /// 的字段注释)+ 标签 chip + 弹性空 + × 关闭钮。</summary>
         private static void BuildNameRow(Transform parent, UnitDetail detail, GameObject overlay)
         {
             var row = Ui.Row(parent, "NameRow", 8);
@@ -152,7 +187,10 @@ namespace Brushblade.Presentation
 
             Ui.ThemedLabel(row.transform, detail.Name, 22, Theme.TextMain, Theme.TitleFont);
 
-            if (ShouldShowElementBadge(detail))
+            // 2026-09-01 review 修:此前靠比对 Tags 里有没有「无五行」那条文案来分辨
+            // Element == null 的两种含义,脆弱且与 UnitDetail.Element 的字段注释自相矛盾——
+            // 现在直接读 ElementUnknown 这个显式信号,不用猜。
+            if (detail.Element != null || detail.ElementUnknown)
             {
                 string text = detail.Element is { } el ? CharInfo.ElementName(el) : Strings.T("char.element.unknown");
                 Ui.Chip(row.transform, text, Theme.ElementColor(detail.Element), Color.white, 13, 8, 4);
@@ -167,22 +205,6 @@ namespace Brushblade.Presentation
 
             Ui.RoundButton(row.transform, "×", () => Object.Destroy(overlay),
                 Theme.PaperDim, Theme.TextDim, 14, new Vector2(28, 28), 14);
-        }
-
-        /// <summary><see cref="UnitDetail.Element"/> 为 null 有两种含义(执笔人没有五行 /
-        /// 生僻字未读懂),<see cref="UnitDetail.Wuxing"/> 在两种情形下都同为 null,没有
-        /// 区分度(task-3-report.md 第 4 节已核实,不能靠 Wuxing 反推)。这里改用
-        /// <see cref="UnitDetail.Tags"/> 里有没有「无五行」那条来分辨——那条 tag
-        /// (<c>player.detail.tag_no_element</c>)是执笔人独有的、敌人/召唤物从不会带上的
-        /// 内容,用它做信号不需要新增字段,也不需要按单位类型分支。</summary>
-        private static bool ShouldShowElementBadge(UnitDetail detail)
-        {
-            if (detail.Element != null) return true;
-            if (detail.Tags == null) return true;
-            string noElementTag = Strings.T("player.detail.tag_no_element");
-            foreach (var tag in detail.Tags)
-                if (tag == noElementTag) return false;
-            return true;
         }
 
         /// <summary>血条(带 x/y 叠字)+ 盾条 + 行动条。盾条的填充比例借用 BattleView 里
@@ -287,40 +309,56 @@ namespace Brushblade.Presentation
             Ui.Chip(row.transform, status.ChipText, status.ChipColor, Color.white, 12, 6, 4, status.IconKey);
 
             var textCol = Ui.VStack(row.transform, "Text", 1);
-            textCol.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            var textColLayout = textCol.GetComponent<VerticalLayoutGroup>();
+            textColLayout.childAlignment = TextAnchor.UpperLeft;
+            // 显式开 childForceExpandWidth:说明文字要按这一列的实际宽度换行,不开的话
+            // Text 拿不到宽度、算不出该在哪里断行——与 BattleView.cs 里 pickedInfoLayout 那处
+            // 换行同一个套路。
+            textColLayout.childForceExpandWidth = true;
             Ui.Sized(textCol, flexWidth: 1f);
 
             var nameLine = Ui.Row(textCol.transform, "Name", 6);
             Ui.ThemedLabel(nameLine.transform, status.Name, 13, Theme.TextMain, align: TextAnchor.UpperLeft);
             Ui.ThemedLabel(nameLine.transform, status.Duration, 10, Theme.TextDim, align: TextAnchor.UpperLeft);
 
-            Ui.ThemedLabel(textCol.transform, status.Desc, 11, Theme.TextDim, align: TextAnchor.UpperLeft);
+            // 说明文字长度不受控,左列虽在 ScrollList 的 Viewport 内(有 RectMask2D)会被裁掉、
+            // 不至于糊到弹窗外,但裁掉同样会丢字——开换行才是真正的修法(2026-09-01 review)。
+            var desc = Ui.ThemedLabel(textCol.transform, status.Desc, 11, Theme.TextDim, align: TextAnchor.UpperLeft);
+            desc.horizontalOverflow = HorizontalWrapMode.Wrap;
+            desc.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
         /// <summary>右列「特性 · 技能」:能力卡列表 + 生克行(执笔人没有,Wuxing 为 null 时
-        /// 整行不画)。这一列不滚动——brief 只点名左列要滚,这里维持自然高度。</summary>
+        /// 整行不画)。这一列不滚动——brief 只点名左列要滚,这里维持自然高度。
+        ///
+        /// 2026-09-01 review 修:执笔人的「养成技能 · 局外」四条(永久生效的局外加成)此前
+        /// 与「护盾」这类随时会消失的实时资源混排在同一列表、同款卡片、无任何视觉区分,
+        /// 丢了「这两类性质不同」这层信息。现在靠 <see cref="AbilityEntry.Section"/>(可空)
+        /// 分组:Section 从上一条切到一个不同的非空取值时画一个小标题,连续同取值的条目
+        /// 共享同一个标题,不逐条重画。</summary>
         private static void BuildAbilityColumn(Transform parent, UnitDetail detail)
         {
             Ui.ThemedLabel(parent, Strings.T("unit.detail.abilities_title"), 15, Theme.TextMain, Theme.TitleFont,
                 TextAnchor.UpperLeft);
 
             if (detail.Abilities != null)
+            {
+                string currentSection = null;
                 foreach (var ability in detail.Abilities)
+                {
+                    if (ability.Section != null && ability.Section != currentSection)
+                        Ui.ThemedLabel(parent, ability.Section, 12, Theme.TextDim, Theme.TitleFont,
+                            TextAnchor.UpperLeft);
+                    currentSection = ability.Section;
                     BuildAbilityCard(parent, ability);
+                }
+            }
 
             if (detail.Wuxing is { } wx)
                 BuildWuxingRow(parent, detail.Element.Value, wx.beats, wx.beatenBy);
         }
 
-        /// <summary>「养成技能 · 局外」那四条(每回合行动点/字库容量/起始生命上限/每关护盾)
-        /// 在 <see cref="UnitDetail.Abilities"/> 里就是四条普通 <see cref="AbilityEntry"/>,
-        /// 与「护盾」「自燃」「顶前排」等条目**同一种卡片渲染**,不额外画分组小标题——
-        /// AbilityEntry 没有携带「这条属于哪个分组」的字段(brief 明确不让为此加字段),
-        /// 而唯一能用来猜测「这是养成条目」的信号(IconKey == null)同时也是「无机制」
-        /// 「无大招」等纯文字卡片的信号,拿来分组会把不相关的卡片也框进同一个标题下,
-        /// 比不分组更容易读错。四条各自的 Name/Desc(如「每回合行动点」+「Lv.3 · AP 3」)
-        /// 已经完整、独立成句,不靠共享标题也读得懂,所以选择不分组——不丢信息,只是
-        /// 少了稿子上那一条「养成技能 · 局外」的视觉分隔线。</summary>
+        /// <summary>一张能力/特性卡片:图标 chip(可能没有)+ 名 + 可选说明。</summary>
         private static void BuildAbilityCard(Transform parent, AbilityEntry ability)
         {
             Ui.OutlinedPanel(parent, "Ability", Theme.PanelPaper, Theme.PanelBorder, 8, 1f, out var face);
@@ -329,6 +367,10 @@ namespace Brushblade.Presentation
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperLeft;
             layout.padding = new RectOffset(8, 8, 6, 6);
+            // 显式开 childForceExpandWidth:说明文字要按这张卡片的实际宽度换行,不开的话
+            // Text 拿不到宽度、算不出该在哪里断行——与 BattleView.cs 里 pickedInfoLayout 那处
+            // 换行同一个套路(那里的注释详细解释了为什么需要这一行)。
+            layout.childForceExpandWidth = true;
 
             var header = Ui.Row(stack.transform, "Header", 6);
             if (ability.IconKey != null)
@@ -337,7 +379,15 @@ namespace Brushblade.Presentation
                 TextAnchor.UpperLeft);
 
             if (ability.Desc != null)
-                Ui.ThemedLabel(stack.transform, ability.Desc, 11, Theme.TextDim, align: TextAnchor.UpperLeft);
+            {
+                // 说明文字长度不受控(战斗数值随时可能拼出很长的 note),这一列从自身到 Face
+                // 全程没有 Mask/RectMask2D——不开换行会不被裁剪地溢出到卡片外甚至弹窗外
+                // (2026-09-01 review 抓到)。
+                var desc = Ui.ThemedLabel(stack.transform, ability.Desc, 11, Theme.TextDim,
+                    align: TextAnchor.UpperLeft);
+                desc.horizontalOverflow = HorizontalWrapMode.Wrap;
+                desc.verticalOverflow = VerticalWrapMode.Overflow;
+            }
         }
 
         /// <summary>生克行:倍率现取 <see cref="WuxingResolver.KeMultiplier"/>,不写死 1.5——

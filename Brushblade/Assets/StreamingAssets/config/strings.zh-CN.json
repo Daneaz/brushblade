@@ -608,6 +608,7 @@
   "player.detail.perk_hp_desc": "Lv.{level} · {value}",
   "player.detail.perk_shield_name": "每关护盾",
   "player.detail.perk_shield_desc": "Lv.{level} · 开局 {value}",
+  "player.detail.perk_section": "养成技能 · 局外",
   "unit.detail.statuses_title": "身上的状态 {count}",
   "unit.detail.statuses_hint": "超过 4 条这一列滚动",
   "unit.detail.abilities_title": "特性 · 技能",

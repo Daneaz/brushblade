@@ -200,6 +200,9 @@ namespace Brushblade.Presentation
                 // (真身/伪装/未读懂三种状态,见 EnemyState.ApparentElement 的类型注释)——
                 // 这里直接用它而不是 enemy.Element,否则详情弹窗会把老文本刻意藏起来的真身泄出去。
                 Element = enemy.ApparentElement,
+                // ApparentElement == null 只可能是生僻字没读懂(受击不到两次),不可能是别的
+                // 情形——EnemyInfo.Sheet 只服务敌人,这里恒不会遇到「执笔人没有五行」那一支。
+                ElementUnknown = enemy.ApparentElement == null,
                 Name = isBoss ? BossTitleText(def, enemy.PhaseIndex) : def.Id,
                 Tags = BuildTags(enemy, isBoss),
                 Flavor = null, // enemies.json 没有风味文案字段,19 只怪的这句话没法凭空写

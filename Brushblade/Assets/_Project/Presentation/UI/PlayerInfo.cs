@@ -24,6 +24,7 @@ namespace Brushblade.Presentation
                 PortraitPrefix = null, // 执笔人没有立绘管线,稿子写着「立绘待补·现用墨底字块」
                 FaceChar = Strings.T("battle.label.player_face"), // 复用战场小名牌同一个字(墨)
                 Element = null,
+                ElementUnknown = false, // 执笔人没有五行,不是生僻字没读懂——不画「?」徽章
                 Name = Strings.T("battle.label.player_name"), // 复用战场小名牌同一个词(执笔人)
                 Tags = BuildTags(battle),
                 Flavor = Strings.T("player.detail.flavor"),
@@ -110,10 +111,13 @@ namespace Brushblade.Presentation
 
         /// <summary>「特性 · 技能」列:护盾说明(资源,不是状态)+ 养成技能 · 局外四条
         /// (每回合行动点/字库容量/起始生命上限/每关护盾)。四条各自独立一张卡,
-        /// 稿上共享一个「养成技能 · 局外」小标题——那个分组标题怎么画是 Task 4 的事,
-        /// 这里只按顺序把四条数据吐出来。</summary>
+        /// 稿上共享一个「养成技能 · 局外」小标题——这里给这四条填上同一个
+        /// <see cref="AbilityEntry.Section"/>,UnitSheet 据此画出那条分组标题(2026-09-01
+        /// review 修:此前认为不加字段也不丢信息,但分组标题本身就是稿上要求的元素,
+        /// 护盾与养成加成混排、无区分才是真的丢了信息)。</summary>
         private static List<AbilityEntry> BuildAbilities(BattleEngine battle, MetaState meta)
         {
+            string growthSection = Strings.T("player.detail.perk_section");
             var list = new List<AbilityEntry>();
             if (battle.PlayerShield > 0)
                 list.Add(new AbilityEntry
@@ -132,7 +136,7 @@ namespace Brushblade.Presentation
             // 一套算法。稿上的 Lv.3/Lv.4/Lv.6/Lv.2 只是画图时的示例数字,这里一律读 meta 现算。
             list.Add(new AbilityEntry
             {
-                IconKey = null, ChipColor = UnitDetailChip.Ability,
+                IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_ap_name"),
                 Desc = Strings.T("player.detail.perk_ap_desc",
                     ("level", PerkRules.PerkLevel(meta, "yiqi")),
@@ -140,7 +144,7 @@ namespace Brushblade.Presentation
             });
             list.Add(new AbilityEntry
             {
-                IconKey = null, ChipColor = UnitDetailChip.Ability,
+                IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_library_name"),
                 Desc = Strings.T("player.detail.perk_library_desc",
                     ("level", PerkRules.PerkLevel(meta, "bowen")),
@@ -148,7 +152,7 @@ namespace Brushblade.Presentation
             });
             list.Add(new AbilityEntry
             {
-                IconKey = null, ChipColor = UnitDetailChip.Ability,
+                IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_hp_name"),
                 Desc = Strings.T("player.detail.perk_hp_desc",
                     ("level", PerkRules.PerkLevel(meta, "yangyuan")),
@@ -156,7 +160,7 @@ namespace Brushblade.Presentation
             });
             list.Add(new AbilityEntry
             {
-                IconKey = null, ChipColor = UnitDetailChip.Ability,
+                IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_shield_name"),
                 Desc = Strings.T("player.detail.perk_shield_desc",
                     ("level", PerkRules.PerkLevel(meta, "jintang")),

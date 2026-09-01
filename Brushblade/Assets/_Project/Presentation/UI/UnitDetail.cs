@@ -26,6 +26,11 @@ namespace Brushblade.Presentation
         public Color ChipColor;
         public string Name;
         public string Desc;
+        // 可空;非 null 时 UnitSheet 会在这条前面画一个分组小标题(连续同取值的条目共享一个
+        // 标题,不逐条重画)。2026-09-01 review 新增——执笔人的「养成技能 · 局外」四条永久
+        // 加成此前与护盾这类随时会消失的实时资源混排在同一列表、同款卡片、无任何视觉区分,
+        // 丢了「这两类性质不同」这层信息。
+        public string Section;
     }
 
     /// <summary>一张详情的全部内容。三类单位(敌人/召唤物/执笔人)共用,字段为 null 表达
@@ -34,16 +39,19 @@ namespace Brushblade.Presentation
     {
         public string PortraitPrefix;   // MobAssets 前缀;null = 用 FaceChar 画圆形字头像
         public string FaceChar;
-        // null 有两种含义,读的时候要分清是哪一种:
-        //   1) 执笔人(玩家没有五行属性,EnemyInfo/SummonInfo 从不产生这个值);
+        // Element 为 null 有两种含义,读的时候要分清是哪一种:
+        //   1) 执笔人(玩家没有五行属性,PlayerInfo.Sheet 从不产生非 null 值);
         //   2) 生僻字未读懂真身(EnemyInfo.Sheet 读 enemy.ApparentElement,受击两次前是 null)。
         // 这两种情形 Wuxing 也同时为 null(WuxingOf(null) 恒返回 null),不能靠
         // 「Wuxing 是否为 null」反过来分辨是哪一种——两种情形下 Wuxing 都是 null,没有区分度。
-        // BattleView.cs 既有惯例是 Element == null 就画「?」,Task 4 若照抄这条,执笔人也会被
-        // 画上一个「?」徽章,这是不对的。真正能分辨的信号是这份 UnitDetail 从哪个 Info.Sheet
-        // 产生——调 PlayerInfo.Sheet 的调用点本来就知道这是执笔人,不该指望从 UnitDetail
-        // 的字段里反推出来。
+        // 2026-09-01 review 修:此前这里写的结论是「真正能分辨的信号是这份 UnitDetail 从哪个
+        // Info.Sheet 产生,不该指望从 UnitDetail 字段里反推」——这条已经不再成立。
+        // ElementUnknown 就是专门为这件事补的显式信号:EnemyInfo.Sheet 按
+        // enemy.ApparentElement == null 据实填 true,PlayerInfo.Sheet 恒填 false,
+        // 调用方(UnitSheet)只读这一个字段就能分辨,不需要再去猜哪个 Info.Sheet 产生的。
         public Element? Element;
+        public bool ElementUnknown; // true = 生僻字未读懂(画「?」徽章);
+                                     // Element == null 且此项为 false = 执笔人没有五行(不画徽章)
         public string Name;
         public string[] Tags;           // 「前排 · 近战」/「文山 ×3.0」
         public string Flavor;           // 一句风味描述;null = 不画
