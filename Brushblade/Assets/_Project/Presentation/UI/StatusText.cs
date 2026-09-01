@@ -74,8 +74,16 @@ namespace Brushblade.Presentation
         /// 按回合递减 → status.duration.turns(「剩 N 回合」);
         /// 按层数/次数消耗 → status.duration.stacks 或 .charges;
         /// TurnsLeft = -1 的本场持久 → status.duration.persistent(固定文案,不带数字)。
-        /// Seal 是回合口径里的特例(只对下一回合生效,不是「倒数 N 回合」),单独一条措辞。</summary>
-        public static Info Of(StatusKind kind, int magnitude, int turnsLeft)
+        /// Seal 是回合口径里的特例(只对下一回合生效,不是「倒数 N 回合」),单独一条措辞。
+        ///
+        /// ⚠ <paramref name="isPlayer"/>(2026-09-01 review 修):AttackBuff 的 desc 敌我口径
+        /// 不同 —— EnemyState.Attack 拿它当基础攻击的百分比乘,BattleEngine.EffectiveAttack /
+        /// SummonState.EffectiveAttack 都是拿它当点数直接加(同一个 StatusKind,单位不同)。
+        /// 一条 status.attack.desc 不可能同时对两种口径说对话,拆成 .desc / .desc.player 两条,
+        /// 调用方按自己是谁传这个参数选(目前只有 PlayerInfo 传 true;召唤物身上出现 AttackBuff
+        /// 时——如剡挂在召唤物身上——仍走敌人那条百分比措辞,是本轮审查明确限定的范围,
+        /// 没有跟着改,见 final-fix-report.md D 条)。</summary>
+        public static Info Of(StatusKind kind, int magnitude, int turnsLeft, bool isPlayer = false)
         {
             switch (kind)
             {
@@ -148,7 +156,9 @@ namespace Brushblade.Presentation
                 case StatusKind.AttackBuff:
                     return new Info("attack", Strings.T("status.attack.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),
-                        Strings.T("status.attack.desc", ("magnitude", magnitude)));
+                        isPlayer
+                            ? Strings.T("status.attack.desc.player", ("magnitude", magnitude))
+                            : Strings.T("status.attack.desc", ("magnitude", magnitude)));
                 case StatusKind.Morale:
                     return new Info("morale", Strings.T("status.morale.name"),
                         Strings.T("status.duration.persistent"),

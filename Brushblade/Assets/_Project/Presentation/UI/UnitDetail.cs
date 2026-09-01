@@ -142,13 +142,16 @@ namespace Brushblade.Presentation
         };
 
         /// <summary>「身上的状态」列表的共用构建:敌人/召唤物/执笔人的 StatusBag 结构完全一样,
-        /// 三处各写一遍循环只会越改越漂。Name == null(StatusText.Of 对占位值的兜底)按契约跳过。</summary>
-        public static List<StatusEntry> BuildStatuses(StatusBag statuses)
+        /// 三处各写一遍循环只会越改越漂。Name == null(StatusText.Of 对占位值的兜底)按契约跳过。
+        ///
+        /// <paramref name="isPlayer"/> 透传给 <see cref="StatusText.Of"/>(2026-09-01 review 修):
+        /// AttackBuff 的说明文案敌我口径不同(百分比 vs 点数),只有 PlayerInfo 传 true。</summary>
+        public static List<StatusEntry> BuildStatuses(StatusBag statuses, bool isPlayer = false)
         {
             var list = new List<StatusEntry>();
             foreach (var effect in statuses.All)
             {
-                var info = StatusText.Of(effect.Kind, effect.Magnitude, effect.TurnsLeft);
+                var info = StatusText.Of(effect.Kind, effect.Magnitude, effect.TurnsLeft, isPlayer);
                 if (info.Name == null) continue;
                 list.Add(new StatusEntry
                 {

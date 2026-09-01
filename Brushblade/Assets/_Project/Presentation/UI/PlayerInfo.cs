@@ -33,7 +33,7 @@ namespace Brushblade.Presentation
                 Shield = battle.PlayerShield,
                 ActionMeter = battle.PlayerActionMeter,
                 Figures = BuildFigures(battle, meta),
-                Statuses = UnitDetailChip.BuildStatuses(battle.PlayerStatuses),
+                Statuses = UnitDetailChip.BuildStatuses(battle.PlayerStatuses, isPlayer: true),
                 Abilities = BuildAbilities(battle, meta),
                 Wuxing = null,
             };
@@ -62,7 +62,7 @@ namespace Brushblade.Presentation
         /// 战斗引擎只暴露「有效值」,这几条基准借 MetaRules 的同名成长函数复原
         /// (与 MetaRules.BuildBattleConfig 当初写进 config 的是同一条公式,单一来源,不会漂)。
         ///
-        /// ⚠ 判据是"note 的各项拼起来要能推出大字"(2026-09-01 review 定的线,敌人那格已经
+        /// ⚠ 判据是「note 的各项拼起来要能推出大字」(2026-09-01 review 定的线,敌人那格已经
         /// 满足:BaseAttack × (100+buff%−curse%)/100)。玩家这格第一版没做到,已改:
         /// EffectiveAttack 的真实公式是 flat = PlayerAttack + AttackBuff(点数,不是百分比!)
         /// 然后 × (100 + 战意% ) / 100(见 BattleEngine.EffectiveAttack 的源码)。
