@@ -306,6 +306,25 @@ namespace Brushblade.Presentation
 
         public static float ChipHeight(int fontSize, int padY = ChipPadY) => fontSize + padY;
 
+        /// <summary>一段开了 Wrap 的文字在给定宽度下大约占多高。与 <see cref="ChipWidth"/> 同一
+        /// 性质:**纯函数**,不测量、不等一帧布局。
+        ///
+        /// 为什么不用 <c>Text.preferredHeight</c>:那个要先知道自己 rect 的宽度才算得出,
+        /// 而 rect 宽度又由布局决定 —— 首帧读到的是上一帧的旧宽。凡是「内容一变就重建」的
+        /// 东西(详情弹窗的能力卡、拆合台的整句提示),首帧算错就等于常态算错。
+        ///
+        /// 估法:汉字约占一个字号宽(与 ChipWidth 同口径),ASCII 偏窄会让行数估多 —— 宁可
+        /// 多留一行空白,也不让文字被卡片高度截掉。行高按 1.35 倍字号。</summary>
+        public static float WrappedTextHeight(string text, int fontSize, float width)
+        {
+            if (string.IsNullOrEmpty(text)) return 0f;
+            int perLine = Mathf.Max(1, Mathf.FloorToInt(width / fontSize));
+            int lines = 0;
+            foreach (var segment in text.Split('\n'))   // 显式换行也要各占至少一行
+                lines += Mathf.Max(1, Mathf.CeilToInt(segment.Length / (float)perLine));
+            return lines * fontSize * 1.35f;
+        }
+
         /// <summary>带图标的 chip 宽度。图标占 <see cref="Icons.Size"/>,后面还有 Gap;
         /// 纯图标(无量值)时不留 Gap。无图标时与 <see cref="ChipWidth(string,int,int)"/> 等价。
         ///

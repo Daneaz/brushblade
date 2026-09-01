@@ -393,10 +393,11 @@ namespace Brushblade.Presentation
             Ui.Sized(textCol, width: StatusColumnWidth - chipWidth - StatusRowGap);
 
             var nameLine = Ui.Row(textCol.transform, "Name", 6);
-            // 左对齐(2026-09-01 修):Ui.Row 默认 MiddleCenter,而 textCol 开了
+            // MiddleLeft(2026-09-01 修):Ui.Row 默认 MiddleCenter,而 textCol 开了
             // childForceExpandWidth —— 名字行被撑成整列宽再居中,于是「暴击 本场持久」
-            // 飘在列中间,底下的说明却贴着左边,一条状态读起来像两条。
-            nameLine.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            // 飘在列中间,底下的说明却贴着左边,一条状态读起来像两条。取 MiddleLeft 而不是
+            // UpperLeft:名字 13 号、时长 10 号,顶对齐会让小字浮在上沿,居中才像同一行。
+            nameLine.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.ThemedLabel(nameLine.transform, status.Name, 13, Theme.TextMain, align: TextAnchor.UpperLeft);
             Ui.ThemedLabel(nameLine.transform, status.Duration, 10, Theme.TextDim, align: TextAnchor.UpperLeft);
 
@@ -438,42 +439,82 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>一张能力/特性卡片:图标 chip(可能没有)+ 名 + 可选说明。</summary>
+        private const float AbilityCardBorder = 1f;
+        private const int AbilityCardPadX = 8;
+        private const int AbilityCardPadY = 6;
+        private const float AbilityCardSpacing = 3f;
+        private const int AbilityNameFont = 14;
+        private const int AbilityDescFont = 11;
+        private const int AbilityChipFont = 12;
+        private const int AbilityChipPadX = 6;
+        private const int AbilityChipPadY = 4;
+        private const float AbilityHeaderGap = 6f;
+
         private static void BuildAbilityCard(Transform parent, AbilityEntry ability)
         {
-            var card = Ui.OutlinedPanel(parent, "Ability", Theme.PanelPaper, Theme.PanelBorder, 8, 1f, out var face);
-            // 定宽(2026-09-01 修):右列是 childForceExpandWidth = false 的 VStack,卡片不
-            // 定宽就各自按自己那段文字的整句宽度排 —— 一列卡片宽窄参差、右缘呈锯齿状,
-            // 长的那几张还会直接捅出弹窗。定宽之后卡片右缘齐平,里面的说明按卡宽换行。
-            Ui.Sized(card.gameObject, width: AbilityColumnWidth);
-            var stack = Ui.VStack(face.transform, "Stack", 3);
+            var card = Ui.OutlinedPanel(parent, "Ability", Theme.PanelPaper, Theme.PanelBorder,
+                8, AbilityCardBorder, out var face);
+
+            // ⚠ 卡片的**高度必须自己算**(2026-09-01 修「图标和文案错位」)。
+            // Ui.OutlinedPanel 返回的是一张 Image,而 Image 实现了 ILayoutElement ——
+            // 不给 LayoutElement 写死高度的话,它报出的 preferredHeight 是**贴图的尺寸**
+            // (Theme.Rounded(8) 生成的是 24×24 的九宫格贴图),跟卡里装了什么毫无关系。
+            // 于是卡片恒为 24 高:内容被 Stretch 在 face 里,照样画得出来,却整段溢到卡片
+            // 框外 —— 屏幕上就是一条细线框加一堆没着落的图标和文字。
+            // 宽度同样定死:右列是 childForceExpandWidth = false 的 VStack,不定宽的话每张
+            // 卡按自己那段文字的整句宽度排,一列卡片右缘呈锯齿状,长的还会捅出弹窗。
+            float innerWidth = AbilityColumnWidth - AbilityCardBorder * 2 - AbilityCardPadX * 2;
+            float chipWidth = ability.IconKey != null
+                ? Ui.ChipWidth("", AbilityChipFont, AbilityChipPadX) + Icons.Size
+                : 0f;
+            float nameWidth = innerWidth - chipWidth - (chipWidth > 0f ? AbilityHeaderGap : 0f);
+            float headerHeight = Mathf.Max(
+                ability.IconKey != null ? Ui.ChipHeight(AbilityChipFont, AbilityChipPadY) : 0f,
+                Ui.WrappedTextHeight(ability.Name, AbilityNameFont, nameWidth));
+            float descHeight = ability.Desc == null ? 0f
+                : AbilityCardSpacing + Ui.WrappedTextHeight(ability.Desc, AbilityDescFont, innerWidth);
+            Ui.Sized(card.gameObject, width: AbilityColumnWidth,
+                height: AbilityCardBorder * 2 + AbilityCardPadY * 2 + headerHeight + descHeight);
+
+            var stack = Ui.VStack(face.transform, "Stack", AbilityCardSpacing);
             Ui.Stretch((RectTransform)stack.transform);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperLeft;
-            layout.padding = new RectOffset(8, 8, 6, 6);
+            layout.padding = new RectOffset(AbilityCardPadX, AbilityCardPadX,
+                AbilityCardPadY, AbilityCardPadY);
             // 显式开 childForceExpandWidth:说明文字要按这张卡片的实际宽度换行,不开的话
             // Text 拿不到宽度、算不出该在哪里断行——与 BattleView.cs 里 pickedInfoLayout 那处
             // 换行同一个套路(那里的注释详细解释了为什么需要这一行)。
             layout.childForceExpandWidth = true;
 
-            var header = Ui.Row(stack.transform, "Header", 6);
-            // 左对齐(2026-09-01 修):同状态名字行那条 —— Ui.Row 默认 MiddleCenter,
-            // 而外面的 stack 开了 childForceExpandWidth,头行被撑满卡宽再把图标和名字
-            // 一起挤到卡片正中,一列卡片的文字各自居中、左缘参差,读起来最乱。
-            header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            var header = Ui.Row(stack.transform, "Header", AbilityHeaderGap);
+            // MiddleLeft:靠左排,但图标与名字**竖直居中对齐**。Ui.Row 的缺省 MiddleCenter
+            // 会把整组挤到卡片正中(左缘参差);而纯 UpperLeft 又让 16 高的图标胶囊与 19 高的
+            // 名字各自顶对齐,图标明显偏上 —— 两头都不对,取 MiddleLeft(2026-09-01 修)。
+            header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             if (ability.IconKey != null)
-                Ui.Chip(header.transform, "", ability.ChipColor, Color.white, 12, 6, 4, ability.IconKey);
-            Ui.ThemedLabel(header.transform, ability.Name, 14, Theme.TextMain, Theme.TitleFont,
-                TextAnchor.UpperLeft);
+                Ui.Chip(header.transform, "", ability.ChipColor, Color.white,
+                    AbilityChipFont, AbilityChipPadX, AbilityChipPadY, ability.IconKey);
+            // 名字也定宽 + 换行:它偶尔是一整句(「反伤 50」这种短名之外还有长的),
+            // 单行溢出会横着捅出卡片右缘。
+            var nameLabel = Ui.ThemedLabel(header.transform, ability.Name, AbilityNameFont,
+                Theme.TextMain, Theme.TitleFont, TextAnchor.UpperLeft);
+            nameLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            nameLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            Ui.Sized(nameLabel.gameObject, width: nameWidth,
+                height: Ui.WrappedTextHeight(ability.Name, AbilityNameFont, nameWidth));
 
             if (ability.Desc != null)
             {
                 // 说明文字长度不受控(战斗数值随时可能拼出很长的 note),这一列从自身到 Face
                 // 全程没有 Mask/RectMask2D——不开换行会不被裁剪地溢出到卡片外甚至弹窗外
                 // (2026-09-01 review 抓到)。
-                var desc = Ui.ThemedLabel(stack.transform, ability.Desc, 11, Theme.TextDim,
+                var desc = Ui.ThemedLabel(stack.transform, ability.Desc, AbilityDescFont, Theme.TextDim,
                     align: TextAnchor.UpperLeft);
                 desc.horizontalOverflow = HorizontalWrapMode.Wrap;
                 desc.verticalOverflow = VerticalWrapMode.Overflow;
+                Ui.Sized(desc.gameObject, width: innerWidth,
+                    height: Ui.WrappedTextHeight(ability.Desc, AbilityDescFont, innerWidth));
             }
         }
 
@@ -491,6 +532,11 @@ namespace Brushblade.Presentation
             var column = Ui.VStack(parent, "Wuxing", 2);
             column.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
 
+            // 「生克」小标题(2026-09-01 用户拍板补回):上一轮拆两行时顺手去掉了它,
+            // 结果这两行直接接在能力卡下面,看上去像第三、第四条能力 —— 标题在这里的作用
+            // 是**分组**,不是解释,不能省。
+            Ui.ThemedLabel(column.transform, Strings.T("unit.detail.wx_label"), 11, Theme.TextDim,
+                Theme.TitleFont, TextAnchor.UpperLeft);
             Ui.ThemedLabel(column.transform,
                 Strings.T("unit.detail.wx_beats", ("element", CharInfo.ElementName(beats)),
                     ("mult", WuxingResolver.KeMultiplier(self, beats).ToString("0.0"))),

@@ -2829,20 +2829,15 @@ namespace Brushblade.Presentation
         /// 16 号下约 400 宽,而栏内只有 246 —— 单行渲染会直接甩出卡片外糊到中区上
         /// (2026-09-01 用户报的溢出)。这里定宽 + 开 Wrap 让它换行。
         ///
-        /// 行高自己算,不靠 Text 的 preferredHeight:后者要先知道 rect 宽度才算得出,
-        /// 而 rect 宽度又由布局决定,首帧拿到的是上一帧的旧宽 —— 提示是「换一句就重绘」
-        /// 的东西,首帧算错就等于常态算错。估法与 <see cref="Ui.ChipWidth"/> 同一个
-        /// 口径(汉字约一个字号宽),ASCII 偏窄会让行数估多,宁可多留一行也不裁字。</summary>
+        /// 行高走 <see cref="Ui.WrappedTextHeight"/>(纯函数,不靠 Text.preferredHeight ——
+        /// 理由见那个方法的注释)。</summary>
         private static Text BenchHint(Transform parent, string text, int fontSize, Color color)
         {
             var label = Ui.ThemedLabel(parent, text, fontSize, color, align: TextAnchor.UpperLeft);
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Overflow;
-            int perLine = Mathf.Max(1, Mathf.FloorToInt(BenchInnerW / fontSize));
-            int lines = 0;
-            foreach (var segment in text.Split('\n'))   // 显式换行也要各占至少一行
-                lines += Mathf.Max(1, Mathf.CeilToInt(segment.Length / (float)perLine));
-            Ui.Sized(label.gameObject, width: BenchInnerW, height: lines * fontSize * 1.35f);
+            Ui.Sized(label.gameObject, width: BenchInnerW,
+                height: Ui.WrappedTextHeight(text, fontSize, BenchInnerW));
             return label;
         }
 
