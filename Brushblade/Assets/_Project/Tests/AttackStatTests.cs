@@ -118,18 +118,22 @@ namespace Brushblade.CoreTests
         // ---- 负向:不该吃的没吃 ----
 
         [Test]
-        public void HighAttack_DoesNotScaleShield()
+        public void HighAttack_ScalesShieldByBaseAttack()
         {
-            // 只写正向断言的话,把护盾也乘上 ATK 不会有任何测试发现 ——
-            // 子项目 D 的白名单方向性教训,同一类漏洞换了个形状。
+            // 2026-09-02(护盾/治疗接上角色攻击成长,Task 5)语义改判:护盾吃
+            // config.PlayerAttack(角色等级的基础攻击力),这条测试原先断言「不吃」,
+            // 现在改断言「吃的是基础值,不是 EffectiveAttack」——局内增益(战意/势)
+            // 不吃这条见 MomentumTests.Shield_IgnoresMomentumAndMorale_NoFeedbackLoop。
             var engine = Battle(150, "丙");
             engine.Cast("丙");
-            Assert.That(engine.PlayerShield, Is.EqualTo(7), "护盾不吃攻击力");
+            Assert.That(engine.PlayerShield, Is.EqualTo(10), "floor(7 × 150 ÷ 100) = 10");
         }
 
         [Test]
-        public void HighAttack_DoesNotScaleHeal()
+        public void HighAttack_ScalesHealByBaseAttack()
         {
+            // 2026-09-02(Task 5)语义改判,同 HighAttack_ScalesShieldByBaseAttack:
+            // 治疗吃 config.PlayerAttack。水势层数为 0,AmplifyByWaterPower 恒等,不干扰这条。
             // PlayerHp 是 { get; private set; },不能用对象初始化器设 ——
             // 起始血量只能走构造参数 startingHp
             var engine = new BattleEngine(Graph(),
@@ -137,7 +141,7 @@ namespace Brushblade.CoreTests
                 new[] { "丁" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
                 startingHp: 50);
             engine.Cast("丁");
-            Assert.That(engine.PlayerHp, Is.EqualTo(59), "治疗不吃攻击力");
+            Assert.That(engine.PlayerHp, Is.EqualTo(63), "50 + floor(9 × 150 ÷ 100) = 50 + 13 = 63");
         }
 
         [Test]
@@ -346,14 +350,15 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void HighAttack_DoesNotScaleHealOverTime()
+        public void HighAttack_ScalesHealOverTimeByBaseAttack()
         {
-            // 与 HealSelf 同理:治疗是防御资源。HoT 每回合量走生克但不走 ATK。
+            // 2026-09-02(Task 5)语义改判,同上两条:HoT 每回合量走生克也走 ATK 了;
+            // 持续回合数仍不吃 ATK —— 那是节奏,不是资源,这条口径没变。
             var engine = Battle(150, "寅");
             engine.Cast("寅");
             var hot = engine.PlayerStatuses.Find(StatusKind.HealOverTime);
             Assert.That(hot, Is.Not.Null);
-            Assert.That(hot.Magnitude, Is.EqualTo(8), "持续治疗每回合量不吃攻击力");
+            Assert.That(hot.Magnitude, Is.EqualTo(12), "floor(8 × 150 ÷ 100) = 12");
             Assert.That(hot.TurnsLeft, Is.EqualTo(3), "持续回合数不吃攻击力");
         }
 

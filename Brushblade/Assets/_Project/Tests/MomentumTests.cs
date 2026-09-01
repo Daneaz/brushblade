@@ -25,9 +25,21 @@ namespace Brushblade.Core.Tests
             new(Graph(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
                 Array.Empty<string>(), Array.Empty<string>(), new[] { Dummy() }, seed: 1);
 
-        private static BattleEngine NewBattleWithChar(string charId, int maxHp) =>
-            new(CharTableTests.RealGraph(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
+        private static BattleEngine NewBattleWithChar(string charId, int maxHp, int playerAttack = 100) =>
+            new(CharTableTests.RealGraph(),
+                new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = playerAttack },
                 new[] { charId }, Array.Empty<string>(), new[] { Dummy() }, seed: 1);
+
+        /// <summary>沝 治疗测试専用夹具:敌人带真实攻击力,先挨一记把血打低,给治疗留出空间
+        /// (2026-09-02)。没有 DamagePlayerForTest 钩子:照 DefenseValuesTests
+        /// .PlayerHitAfterCasting 同一手法,用已有的公开路径(EndTurn 打一记)而不是
+        /// 给引擎加新的可调用面。</summary>
+        private static BattleEngine NewBattleWithCharTakingDamage(
+            string charId, int maxHp, int playerAttack, int enemyAttack) =>
+            new(CharTableTests.RealGraph(),
+                new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = playerAttack },
+                new[] { charId }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 100000, enemyAttack) }, seed: 1);
 
         /// <summary>引爆两条效果各自的测试字(2026-09-02,Task 4 review 后改走真实 Cast() —— 见
         /// Cast() 的三条前置校验:Phase/字在图谱且在库/AP 够用,手造字塞进 Library 就都满足,
@@ -164,6 +176,74 @@ namespace Brushblade.Core.Tests
             battle.Cast("沝", 0);
             Assert.That(battle.WaterPowerStacks, Is.EqualTo(3));
             Assert.That(battle.HealAccum, Is.EqualTo(10));
+        }
+
+        // ---- 护盾/治疗接上角色攻击成长(2026-09-02,Task 5)----
+
+        [Test]
+        public void Shield_ScalesWithCharacterAttack()
+        {
+            // 圭 = 护盾 200。ATK 150(26 级)→ 300。
+            var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 150);
+            battle.Cast("圭", -1);
+            Assert.That(battle.PlayerShield, Is.EqualTo(300));
+        }
+
+        [Test]
+        public void Shield_AtBaselineAttack_IsIdentical()
+        {
+            // 恒等性硬线:ATK = 100 时一分不差
+            var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
+            battle.Cast("圭", -1);
+            Assert.That(battle.PlayerShield, Is.EqualTo(200));
+        }
+
+        [Test]
+        public void Shield_IgnoresMomentumAndMorale_NoFeedbackLoop()
+        {
+            // 这条是正反馈环的哨兵,删了会悄悄退化回去:
+            // 若护盾读 EffectiveAttack,就成了 堆盾 → 涨势 → 势放大护盾 → 涨更多势。
+            var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
+            battle.GainMomentumForTest(50 * 10);            // 满 10 层势 = EffectiveAttack 150
+            battle.ApplyMoraleForTest(5);                    // 满 5 层战意
+            Assert.That(battle.EffectiveAttack, Is.GreaterThan(100), "伤害侧确实被放大了");
+
+            battle.Cast("圭", -1);
+            // 圭 加盾前已有的势带来的盾不算:这里断言的是这一次施放的增量
+            Assert.That(battle.PlayerShield, Is.EqualTo(200),
+                "护盾只认 config.PlayerAttack,不吃势也不吃战意");
+        }
+
+        [Test]
+        public void Heal_IsAmplifiedByWaterPower()
+        {
+            // 水势每层 +10% 治疗(spec §3.1)。满 10 层 = +100%。
+            // 用真实攻击的敌人打掉一部分血,给治疗留出空间(优先用既有公开路径,不加测试钩子)。
+            var battle = NewBattleWithCharTakingDamage("沝", maxHp: 500, playerAttack: 100, enemyAttack: 400);
+            battle.EndTurn();   // 敌人打一记,EffectiveDodge 默认 0,必中:500 - 400 = 100
+            Assert.That(battle.PlayerHp, Is.EqualTo(100), "夹具前提:留出治疗空间");
+            battle.GainWaterPowerForTest(50 * 10);    // 满 10 层
+            int before = battle.PlayerHp;
+            battle.Cast("沝", 0);
+            // 沝 治疗 160(卡 1 级) → ×(100+100)/100 = 320
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(320));
+        }
+
+        [Test]
+        public void WaterPower_AccumulatesFromUnamplifiedBase_NoFeedbackLoop()
+        {
+            // 攒水势用的是**未经水势放大**的基数。否则:治疗 → 攒水势 →
+            // 水势放大治疗 → 攒更多水势,又是一个正反馈环(与 §3.5 那个同型)。
+            var battleA = NewBattleWithChar("沝", maxHp: 500, playerAttack: 100);
+            battleA.Cast("沝", 0);
+            int stacksFromZero = battleA.WaterPowerStacks;   // 160 / 50 = 3 层
+
+            var battleB = NewBattleWithChar("沝", maxHp: 500, playerAttack: 100);
+            battleB.GainWaterPowerForTest(50 * 5);           // 先有 5 层
+            int before = battleB.WaterPowerStacks;
+            battleB.Cast("沝", 0);
+            Assert.That(battleB.WaterPowerStacks - before, Is.EqualTo(stacksFromZero),
+                "已有水势不该让这一发治疗攒得更多 —— 攒的基数与水势层数无关");
         }
 
         // ---- 快照往返(2026-09-02,Task 3)----

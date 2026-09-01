@@ -424,6 +424,28 @@ namespace Brushblade.Core
         /// 真解法是 E-b5 抬高字表数值量级(见 spec 第十节)。</summary>
         private int ScaleByAttack(int value) => value * EffectiveAttack / BattleConfig.AttackBaseline;
 
+        /// <summary>按**角色等级的**攻击力缩放一个防御向输出(护盾/治疗,2026-09-02)。
+        ///
+        /// ⚠ 读的是 <c>_config.PlayerAttack</c>,**不是 <see cref="EffectiveAttack"/>**。
+        /// 用后者会造出一个正反馈环:势进 EffectiveAttack 的百分比乘区 → 护盾吃
+        /// EffectiveAttack → 堆盾涨势 → 势放大护盾 → 涨更多势。10 层上限能兜住不爆炸,
+        /// 但「战意(连续出字的节奏奖励)放大护盾」「势放大自己的来源」两条语义都荒谬。
+        ///
+        /// 要表达的是「笔力越深,写什么都更重」这一层等级成长,局内增益不在内。
+        /// 基准值下逐字节恒等:<c>v * 100 / 100 == v</c>(E-b1 立的硬线)。</summary>
+        private int ScaleByBaseAttack(int value) =>
+            value * _config.PlayerAttack / BattleConfig.AttackBaseline;
+
+        /// <summary>按水势放大一个治疗量(2026-09-02,spec §3.1:每层 +10%)。
+        ///
+        /// ⚠ **只放大实际治疗量,不放大攒水势的基数** —— 攒的基数必须是放大**之前**的值,
+        /// 否则「治疗 → 攒水势 → 水势放大治疗 → 攒更多水势」就是一个正反馈环,
+        /// 与 <see cref="ScaleByBaseAttack"/> 注释里说的那个同型。
+        /// 0 层时 <c>v * 100 / 100 == v</c>,恒等。</summary>
+        private int AmplifyByWaterPower(int value) =>
+            value * (100 + _playerStatuses.TotalMagnitude(StatusKind.WaterPower)
+                * WaterPowerPercentPerStack) / 100;
+
         /// <summary>本场生效的暴击率(百分点)= 角色属性(config)+ 局内增益(锋),钳到 [0,100]。
         ///
         /// 单开 <see cref="StatusKind.CritBuff"/> 而不复用 AttackBuff:攻击加成与暴击率是两个
@@ -705,6 +727,12 @@ namespace Brushblade.Core
         /// **名义值**,不是实际回血量 —— 满血时治疗溢出照样攒,这是「满血奶自己不亏」的落点。
         /// 仅供测试与引擎内部调用。</summary>
         internal void GainWaterPowerForTest(int healAmount) => GainWaterPower(healAmount);
+
+        /// <summary>给玩家堆战意层数,供测试搭「势/战意同时满层」的场景(2026-09-02)。
+        /// 与 <see cref="AddPlayerCounter"/> 的既有钳位/宽限语义完全一致,只是免去
+        /// 靠真实的 战/刺 反复出字攒到 <c>MoraleMaxStacks</c> 层的搭建成本。
+        /// 仅供测试调用,与 <see cref="GainMomentumForTest"/> 同型。</summary>
+        internal void ApplyMoraleForTest(int amount) => AddPlayerCounter(StatusKind.Morale, amount, MoraleMaxStacks);
 
         private void GainWaterPower(int healAmount)
         {
@@ -1507,6 +1535,10 @@ namespace Brushblade.Core
             if (!summon.Alive) return;   // 烧死在出手之前:这一拍不再治疗、不再挥刀
 
             int heal = summon.Passive?.HealAlly ?? 0;
+            // 刻意**不**攒水势(2026-09-02):势/水势衡量的是玩家**主动投入**了多少防御资源,
+            // 而光环是每回合自动触发的 —— 接了会让玩家什么都不做也能攒满水势,
+            // 破坏「攒 → 泻」的节奏,而那个节奏正是这台引擎存在的理由。
+            // 与 桂 的 SummonShield 要攒势不矛盾:桂 是玩家出的字,光环是召唤物的被动。
             if (heal > 0) HealPlayerAndSummons(heal);
 
             if (_enemies.Any(e => e.Alive)) StrikeOnceWithSummon(s);
@@ -2247,7 +2279,8 @@ namespace Brushblade.Core
                     case EffectKind.Shield:
                         // 目标可选(2026-08-26):与 HealSelf 同一套 allySlot,生克照旧只看
                         // 配方内部的元素关系,与盾加给谁无关 —— 加召唤物与加玩家同值。
-                        int shield = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
+                        int shield = ScaleByBaseAttack(
+                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
                         if (allySlot == Targeting.PlayerTarget)
                         {
                             if (effect.PersistOnce) _shieldPersist += shield;
@@ -2268,37 +2301,47 @@ namespace Brushblade.Core
                         _burnPerStack += value;
                         break;
                     case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板);走生克(相生组合可增益)
+                    {
                         // 目标可选(2026-08-22,spec §8):生克算的是配方内部的元素关系,
                         // 与目标是谁无关 —— 治召唤物与治玩家同值
-                        int heal = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
-                        GainWaterPower(heal);   // 名义值:满血溢出照样攒(2026-09-02)
-                        HealAlly(allySlot, heal);
+                        int healBase = ScaleByBaseAttack(
+                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                        int amplified = AmplifyByWaterPower(healBase);  // 用**攒之前**的层数
+                        GainWaterPower(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
+                        HealAlly(allySlot, amplified);
                         break;
+                    }
                     case EffectKind.HealAll:
                     {
-                        int healAll = WuxingResolver.ResolveEffect(value, recipeElements, attacker);
-                        GainWaterPower(healAll);
-                        HealPlayerAndSummons(healAll);
+                        int healAllBase = ScaleByBaseAttack(
+                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                        int amplifiedAll = AmplifyByWaterPower(healAllBase);
+                        GainWaterPower(healAllBase);
+                        HealPlayerAndSummons(amplifiedAll);
                         break;
                     }
                     case EffectKind.HealOverTime:
+                    {
                         // 可叠(2026-08-04,技能机制详表「滋」):SourceId 用自增序号而非字 ID,
                         // 让 Apply() 永远走新增分支——同字连放两次得到两条独立倒计时,与老代码
                         // 无条件 List.Add 的口径一致。不能用回合数做后缀:一回合 3 AP,同一回合
                         // 内完全可能连放两次,会被回合数误判成同一来源又变回刷新。
-                        // HoT 按总量攒水势(2026-09-02):它承诺的治疗总量就是
-                        // Magnitude × Turns,分几回合兑现不改变承诺量。
-                        GainWaterPower(WuxingResolver.ResolveEffect(value, recipeElements, attacker)
-                            * Math.Max(1, effect.Turns));
+                        int perTurn = ScaleByBaseAttack(
+                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                        int amplifiedPerTurn = AmplifyByWaterPower(perTurn);   // 用**攒之前**的层数
+                        // 按**总量**攒水势:HoT 承诺的治疗总量就是 每回合量 × 回合数,
+                        // 分几回合兑现不改变承诺量。攒的是基数(放大前),理由同 HealSelf。
+                        GainWaterPower(perTurn * Math.Max(1, effect.Turns));
                         _playerStatuses.Apply(new StatusEffect
                         {
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
-                            Magnitude = WuxingResolver.ResolveEffect(value, recipeElements, attacker),
+                            Magnitude = amplifiedPerTurn,   // 每回合量,已吃水势放大
                             TurnsLeft = effect.Turns, TargetAll = effect.TargetAll,
                             TargetSlot = allySlot,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
+                    }
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
@@ -2358,6 +2401,11 @@ namespace Brushblade.Core
                             int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);
                             foreach (var summon in _summons)
                                 if (summon != null && summon.Alive) summon.Shield += shieldGrant;
+                            // 桂 的全场加盾同样攒势(2026-09-02):它与 EffectKind.Shield
+                            // 一样是玩家出字换来的护盾,只是发给召唤物。不接就是同类不同待遇。
+                            // 按**单只量**而不是发出的总量攒:势衡量的是这张字提供了多厚的一层
+                            // 防御,不是它复制了几份 —— 场上召唤物越多不该让同一张字攒的势越多。
+                            GainMomentum(shieldGrant);
                         }
                         // 入场冻结(2026-08-25,藤):这张字**整体**冻一个随机存活敌人,
                         // 不是每只召唤物各冻一个 —— 循环外触发就是为了守住这条(见 SummonPassive 注释)。
