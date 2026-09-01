@@ -39,6 +39,11 @@ namespace Brushblade.Core
         PierceBuff,   // 本场穿透 +Value **点**(锐;可叠加、本场持久,2026-08-12 E-b4 T5)
                       // 与伤害效果自带的一次性 Pierce 进同一个减数(EffectiveEnemyDefense),区别只在存续:
                       // 这条挂在玩家身上、往后每次结算都吃,Pierce 只作用于它所在的那一次攻击。
+        SpendMomentum,   // 发势(2026-09-02,土):清空全部势,对全体造成 层数 × Value 伤害。
+                         // 0 层时空转 —— 不发事件、零伤害,但**同字的其他效果照常生效**
+                         // (崩 = 全体伤害 + 发势,0 层时 AOE 那一半不能被吞掉)。
+        SpendWaterPower, // 泻(2026-09-02,水):清空全部水势,对全体造成 层数 × Value 伤害。
+                         // 规则与 SpendMomentum 一字不差,只是读另一个资源。
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

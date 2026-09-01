@@ -29,6 +29,25 @@ namespace Brushblade.Core.Tests
             new(CharTableTests.RealGraph(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
                 new[] { charId }, Array.Empty<string>(), new[] { Dummy() }, seed: 1);
 
+        /// <summary>真实字表(CastCharForTest("崩") 要读到真字)外加一个 "_test" 占位字
+        /// (CastEffectForTest 用它包一条孤立 EffectDef —— ApplyEffects 会拿 def.Id 去图谱里
+        /// 查 RecipeElements,不注册这张字会 KeyNotFoundException)。</summary>
+        private static RecipeGraph GraphWithTestChar()
+        {
+            var chars = new System.Collections.Generic.List<CharDef>(CharTableTests.RealGraph().All)
+            {
+                new CharDef("_test", Element.Heart, effects: Array.Empty<EffectDef>()),
+            };
+            return new RecipeGraph(chars);
+        }
+
+        /// <summary>两只敌人的战斗夹具(2026-09-02,引爆):全体效果要断言「不止打了一个」,
+        /// 单敌的 NewBattle 断不出这条。</summary>
+        private static BattleEngine NewBattleWithTwoEnemies(int maxHp) =>
+            new(GraphWithTestChar(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { Dummy(maxHp), Dummy(maxHp) }, seed: 1);
+
         /// <summary>存档 → 读档,照 SnapshotRoundTripTests 的 Reload() 写法(2026-09-02)。</summary>
         private static BattleEngine NewBattleFromSnapshot(BattleSnapshot snapshot, int maxHp)
         {
@@ -175,6 +194,57 @@ namespace Brushblade.Core.Tests
             var run = NewRunAfterWinningWithMomentum();
             Assert.That(run.CarriedStatuses.Count(s => s.Kind == StatusKind.Momentum), Is.EqualTo(1));
             Assert.That(run.CarriedStatuses.Count(s => s.Kind == StatusKind.WaterPower), Is.EqualTo(1));
+        }
+
+        // ---- 引爆:SpendMomentum / SpendWaterPower(2026-09-02,Task 4)----
+
+        [Test]
+        public void SpendMomentum_DealsStacksTimesValueToAll_AndClearsStacks()
+        {
+            var battle = NewBattleWithTwoEnemies(maxHp: 500);
+            battle.GainMomentumForTest(50 * 4);   // 4 层
+            int hp0 = battle.Enemies[0].Hp, hp1 = battle.Enemies[1].Hp;
+
+            battle.CastEffectForTest(new EffectDef(EffectKind.SpendMomentum, 60));
+
+            // 4 层 × 60 = 240,过 ScaleByAttack(基准 100 → ×1)与相克
+            Assert.That(hp0 - battle.Enemies[0].Hp, Is.GreaterThan(0));
+            Assert.That(hp1 - battle.Enemies[1].Hp, Is.GreaterThan(0), "是全体效果");
+            Assert.That(battle.MomentumStacks, Is.EqualTo(0), "引爆清空全部层数");
+        }
+
+        [Test]
+        [Ignore("等 Task 11 给崩配发势")]
+        public void SpendMomentum_AtZeroStacks_IsNoOp_ButSiblingEffectsStillFire()
+        {
+            // 崩 = 全体伤害 + 发势。0 层时 AOE 那一半仍该打出来 ——
+            // 「0 层就整张字拒出」会把 AOE 一起吞掉。
+            var battle = NewBattleWithTwoEnemies(maxHp: 500);
+            Assert.That(battle.MomentumStacks, Is.EqualTo(0));
+            int before = battle.Enemies[0].Hp;
+
+            battle.CastCharForTest("崩");
+
+            Assert.That(battle.Enemies[0].Hp, Is.LessThan(before), "AOE 那一半照常生效");
+            Assert.That(battle.MomentumStacks, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SpendWaterPower_DealsStacksTimesValueToAll_AndClearsStacks()
+        {
+            var battle = NewBattleWithTwoEnemies(maxHp: 500);
+            battle.GainWaterPowerForTest(50 * 5);   // 5 层
+            battle.CastEffectForTest(new EffectDef(EffectKind.SpendWaterPower, 80));
+            Assert.That(battle.WaterPowerStacks, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SpendMomentum_DoesNotNeedTarget()
+        {
+            // 全体效果,与全体驱散(淡)、全体引爆(炸)同处理
+            var def = new CharDef("测", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.SpendMomentum, 60) });
+            Assert.That(BattleEngine.NeedsTarget(def), Is.False);
         }
     }
 }

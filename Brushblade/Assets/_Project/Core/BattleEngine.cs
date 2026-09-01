@@ -711,6 +711,18 @@ namespace Brushblade.Core
             GainStacks(healAmount, StatusKind.WaterPower, "水势", ref _healAccum);
         }
 
+        /// <summary>直接结算一条孤立效果(2026-09-02,引爆),不经 Cast 的 AP/库存/目标校验 ——
+        /// 用来单独验一条 EffectKind 的语义,不必先给它配一张真字。
+        /// 仅供测试调用。</summary>
+        internal void CastEffectForTest(EffectDef effect, int targetIndex = -1) =>
+            ApplyEffects(new CharDef("_test", Element.Heart, effects: new[] { effect }), targetIndex);
+
+        /// <summary>按字表已有的字直接结算(2026-09-02,引爆),同样绕过 Cast 的 AP/库存校验 ——
+        /// 用来验「同一张字里,引爆效果与其他效果各自独立生效」这类跨效果场景。
+        /// 仅供测试调用。</summary>
+        internal void CastCharForTest(string charId, int targetIndex = -1) =>
+            ApplyEffects(_graph.Get(charId), targetIndex);
+
         /// <summary>势与水势共用的攒层逻辑(2026-09-02)。两者只在 Kind、来源标识与
         /// 余数字段上不同,规则一字不差 —— 写两份迟早分叉。</summary>
         private void GainStacks(int amount, StatusKind kind, string sourceId, ref int accum)
@@ -2166,6 +2178,12 @@ namespace Brushblade.Core
                         }
                         else if (targetIndex >= 0) Detonate(targetIndex);
                         break;
+                    case EffectKind.SpendMomentum:
+                        SpendResource(StatusKind.Momentum, value, attacker, recipeElements);
+                        break;
+                    case EffectKind.SpendWaterPower:
+                        SpendResource(StatusKind.WaterPower, value, attacker, recipeElements);
+                        break;
                     case EffectKind.Empower:
                         // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
                         // SourceId 铸唯一序号(用法 2)才能叠 —— 传裸字 ID 会让第二张剡
@@ -2447,6 +2465,31 @@ namespace Brushblade.Core
             var statuses = _enemies[enemyIndex].Statuses;
             if (count < 0) statuses.RemoveAll(StatusPolarity.Buff);
             else statuses.RemoveFirst(StatusPolarity.Buff, count);
+        }
+
+        /// <summary>引爆一条资源(2026-09-02):清空层数,对全体存活敌人造成
+        /// <c>层数 × perStack</c> 伤害。势与水势共用这一份 —— 两者规则一字不差。
+        ///
+        /// 0 层时**直接返回**:不发事件、不造成伤害,但调用方(ApplyEffects 的 foreach)
+        /// 会继续走同一张字的其他效果 —— 崩 的 AOE 那一半不能被吞掉。
+        ///
+        /// 走 DamageEnemy 而不是自己扣血:相克、护甲、暴击、反噬、分裂那一整套
+        /// 都在那条链路上,绕过去就得抄一遍。</summary>
+        private void SpendResource(StatusKind kind, int perStack, Element attacker,
+            IReadOnlyCollection<Element> recipeElements)
+        {
+            int stacks = _playerStatuses.TotalMagnitude(kind);
+            if (stacks <= 0 || perStack <= 0) return;
+
+            _playerStatuses.Remove(kind);
+
+            int damage = ScaleByAttack(stacks * perStack);
+            // 取 Count 快照:分裂(叠字怪)会在循环里往 _enemies 追加,
+            // 新生成的克隆不该被同一发引爆再打一次(与 DamageAll 同口径)。
+            int count = _enemies.Count;
+            for (int i = 0; i < count; i++)
+                if (_enemies[i].Alive)
+                    DamageEnemy(i, damage, recipeElements, attacker, crit: RollCrit());
         }
 
         /// <summary>对一名敌人结算一次灼烧(2026-08-09 抽出):层数 × 系数 × 克制 掉血,然后 −1 层。
