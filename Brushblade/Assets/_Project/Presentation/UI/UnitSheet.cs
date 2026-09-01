@@ -37,16 +37,19 @@ namespace Brushblade.Presentation
         private const float HeaderGap = 16f;
         private const float InfoWidth = SheetWidth - SheetPadding * 2 - PortraitSize - HeaderGap;
         private const float ColumnGap = 18f;
+        private const string SheetName = "UnitSheet";
 
-        /// <summary>建一张详情弹窗并挂到 <paramref name="root"/> 下,返回根节点供调用方
-        /// 销毁(下一次刷新,或玩家点关闭时它自己已经销毁自己)。</summary>
+        /// <summary>建一张详情弹窗并挂到 <paramref name="root"/> 下。内部自动查找并销毁上一个
+        /// 同名实例(保留其滚动位置),调用方不需要手动 Destroy——若调用方自己再 Destroy 一次,
+        /// 会打破滚动位置保留机制,让下一次 Show 的 root.Find() 扑空。返回新建的根节点以供
+        /// 玩家点关闭/确定钮时销毁。</summary>
         public static GameObject Show(Transform root, UnitDetail detail)
         {
             // 刷新即整体重建(见类注释),但左列 ScrollRect 不该跟着弹回顶部——重建前找一下
             // root 下是否已有一张旧的详情弹窗,记下它的滚动位置再销毁它,新面板建完后原样
             // 恢复。这样调用方不必自己保留/销毁上一个 GameObject,直接反复调 Show 即可。
             Vector2? savedScroll = null;
-            var previous = root.Find("UnitSheet");
+            var previous = root.Find(SheetName);
             if (previous != null)
             {
                 var previousScroll = previous.GetComponentInChildren<ScrollRect>();
@@ -54,7 +57,7 @@ namespace Brushblade.Presentation
                 Object.Destroy(previous.gameObject);
             }
 
-            var overlay = new GameObject("UnitSheet", typeof(RectTransform), typeof(Image));
+            var overlay = new GameObject(SheetName, typeof(RectTransform), typeof(Image));
             overlay.transform.SetParent(root, false);
             var mask = overlay.GetComponent<Image>();
             mask.color = Theme.Scrim;

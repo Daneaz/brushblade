@@ -134,6 +134,7 @@ namespace Brushblade.Presentation
                 PortraitPrefix = null, // 召唤物没有立绘管线,稿子自己也写着「立绘待补·现用字牌位」
                 FaceChar = summon.Char,
                 Element = summon.Element,
+                ElementUnknown = false, // 召唤物属性恒为已知(SummonState.Element 不可空),此字段定恒为 false
                 Name = summon.Char,
                 // 稿上第二枚标签是排位(「后排」)+ 稀有度(「白」),两者 SummonState 都没有——
                 // 排位是 BattleEngine._summons 的数组下标,稀有度在 CharDef 上,SummonState 一个
