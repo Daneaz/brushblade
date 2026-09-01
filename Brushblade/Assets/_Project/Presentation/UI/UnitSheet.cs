@@ -69,11 +69,15 @@ namespace Brushblade.Presentation
                 savedScroll = new Vector2[previousScrolls.Length];
                 for (int i = 0; i < previousScrolls.Length; i++)
                     savedScroll[i] = previousScrolls[i].normalizedPosition;
-                // 销毁交给 Ui.Sheet(它对同名节点做同一件事),这里只负责把滚动位置抄下来
+                // 销毁交给 Ui.Sheet(replaceSameName: true 时,它对同名节点做同一件事),
+                // 这里只负责把滚动位置抄下来
             }
 
+            // replaceSameName: true —— 本类的滚动位置保留机制本就建立在「销毁上一个同名
+            // 实例」上(2026-09-02 review 补:Ui.Sheet 现在默认不再按名互斥,详见其文档),
+            // UnitSheet 反复用同一个 SheetName 重建,必须显式要这条行为。
             var overlay = Ui.Sheet(root, SheetName, SheetWidth, SheetHeight,
-                dismissable: true, out var stackTransform);
+                dismissable: true, replaceSameName: true, out var stackTransform);
 
             BuildHeader(stackTransform, detail, overlay);
             BuildBody(stackTransform, detail);

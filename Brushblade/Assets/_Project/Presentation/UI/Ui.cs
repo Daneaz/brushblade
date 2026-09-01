@@ -167,19 +167,35 @@ namespace Brushblade.Presentation
         /// 此前 <see cref="ModalShell"/> 用的是无边 <see cref="CardPanel"/>,而 UnitSheet 自己
         /// 手写了一份带描边的 —— 两套外壳各写各的,正是这次要收掉的东西。
         ///
-        /// **同屏只留一个**:建之前先销毁 <paramref name="root"/> 下的同名节点。稿上的原话是
-        /// 「新的弹出前先销毁旧的,否则叠成一摞、点不到底下那层」。调用方因此不必自己 Destroy,
-        /// 传同一个 <paramref name="name"/> 反复调即可。
+        /// ⚠ 2026-09-02 review 修(Critical):「同屏只留一个」**只对显式共用同一个 <paramref
+        /// name="name"/> 的调用方生效**,不是全站任意两个浮层互斥——稿上「新的弹出前先销毁
+        /// 旧的,否则叠成一摞、点不到底下那层」说的是**同一族流程弹窗**排队,不是不同族的
+        /// 浮层也要互相清场。此前 <see cref="ModalShell"/> 把 name 硬编码成 <c>"Modal"</c>
+        /// 且无条件走销毁分支,导致 13 个既有调用点互相残杀:战利品弹窗(<c>_rewardModal</c>)
+        /// 与长按预览(<c>_modal</c>)是<c>BattleView</c>刻意分层、要同屏共存的两张浮层,
+        /// 都经 <see cref="ModalShell"/> 建在同一个 <c>"Modal"</c> 名下,预览一弹出就把
+        /// 战利品弹窗自己销毁了(而且没有回调重建)。修法是加一个开关:调用方自己决定
+        /// 是否参与「按名互斥」——<see cref="ModalShell"/> 传 false(维持轮三之前「从不销毁」
+        /// 的既有行为),<see cref="UnitSheet.Show"/> 传 true(它的滚动位置保留机制本就
+        /// 建立在「销毁上一个同名实例」上)。后续 Task 2/3 的战斗流程浮层会共用同一个名字
+        /// <c>"BattleSheet"</c> 并传 true,那条「同族排队」的规矩落在那里,不落在这里。
         ///
         /// ⚠ 吃点击的 Button 必须挂在**外层**、targetGraphic 指向 <c>face</c>:
         /// <see cref="OutlinedPanel"/> 对 face 无条件设了 raycastTarget = false,
         /// 挂在 face 身上的 Button 永远吃不到点击,点击会穿透下去命中遮罩的关闭按钮。</summary>
         /// <param name="dismissable">点遮罩是否关闭。必须做出选择的流程(战利品、换字)传 false。</param>
+        /// <param name="replaceSameName">true 时才会在建之前销毁 <paramref name="root"/> 下的
+        /// 同名节点——只给「显式共用同一个 name、要按名互斥排队」的调用方(如
+        /// <see cref="UnitSheet.Show"/>)传 true;不同族、要同屏共存的浮层各用各的 name,
+        /// 或者干脆传 false,不参与这条互斥。</param>
         public static GameObject Sheet(Transform root, string name, float width, float height,
-            bool dismissable, Color scrim, out Transform content)
+            bool dismissable, bool replaceSameName, Color scrim, out Transform content)
         {
-            var stale = root.Find(name);
-            if (stale != null) UnityEngine.Object.Destroy(stale.gameObject);
+            if (replaceSameName)
+            {
+                var stale = root.Find(name);
+                if (stale != null) UnityEngine.Object.Destroy(stale.gameObject);
+            }
 
             var overlay = new GameObject(name, typeof(RectTransform), typeof(Image));
             overlay.transform.SetParent(root, false);
@@ -207,8 +223,8 @@ namespace Brushblade.Presentation
         }
 
         public static GameObject Sheet(Transform root, string name, float width, float height,
-            bool dismissable, out Transform content) =>
-            Sheet(root, name, width, height, dismissable, Theme.Scrim, out content);
+            bool dismissable, bool replaceSameName, out Transform content) =>
+            Sheet(root, name, width, height, dismissable, replaceSameName, Theme.Scrim, out content);
 
         private const int SheetRadius = 18;    // 稿 9pt 圆角
         private const float SheetBorder = 1.5f; // 稿 1pt 描边
@@ -216,12 +232,15 @@ namespace Brushblade.Presentation
         private const int SheetPad = 24;
 
         /// <summary>模态外壳:坐在 <see cref="Sheet"/> 上,标题写进内容容器。
-        /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。</summary>
+        /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。
+        /// ⚠ 2026-09-02 review 修:对 <see cref="Sheet"/> 传 <c>replaceSameName: false</c>——
+        /// 13 个既有调用点共用同一个 name("Modal"),但互相之间并不是「同族排队」关系
+        /// (战利品弹窗与长按预览要同屏共存),按名互斥会把其中一个误杀,详见 Sheet 的文档。</summary>
         public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
             bool dismissable, out Transform content)
         {
             var overlay = Sheet(root, "Modal", halfSize.x * 2f, halfSize.y * 2f,
-                dismissable, out content);
+                dismissable, replaceSameName: false, out content);
             ThemedLabel(content, title, 24, Theme.TextMain, Theme.TitleFont);
             return overlay;
         }
