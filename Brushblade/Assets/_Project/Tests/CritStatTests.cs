@@ -518,6 +518,9 @@ namespace Brushblade.CoreTests
             // E-b4 T4(2026-08-12):玩家闪避的局内增益通道。spec §11.3 原本预留 18 给它,
             // 实际合流顺序是 T2 的两条先到,于是顺延到 20 —— 按 spec 自己的规定「写实际值」。
             Assert.That((int)StatusKind.DodgeBuff, Is.EqualTo(20), "新值必须追加在末尾");
+            // 2026-09-02(水土双方向):势与水势。追加在末尾,DodgeBuff(20) 之后。
+            Assert.That((int)StatusKind.Momentum, Is.EqualTo(21), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.WaterPower, Is.EqualTo(22), "新值必须追加在末尾");
         }
     }
 }
