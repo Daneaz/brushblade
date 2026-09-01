@@ -37,6 +37,16 @@ namespace Brushblade.Presentation
         private const float HeaderGap = 16f;
         private const float InfoWidth = SheetWidth - SheetPadding * 2 - PortraitSize - HeaderGap;
         private const float ColumnGap = 18f;
+        // 2026-09-01 用户报「详情页排版混乱」后补的三个宽度。病根统一是一条:这一层原先
+        // 大量依赖 flexWidth 决定列宽,而 flexWidth 只在**有富余**时才分配 —— 富余从哪来?
+        // 从「这一件的 preferredWidth 比可用宽窄」来。可这些列的 preferredWidth 全部由
+        // 里面的 Text 报,而 **Text.preferredWidth 报的是不换行时的整句宽度**,一段长说明
+        // 就是好几百,列永远处在「不缺反超」的状态,flex 从来轮不上,布局退化成「谁的字长
+        // 谁就宽」。所以三处一律改成算得出的定宽。
+        private const float BodyWidth = SheetWidth - SheetPadding * 2;                       // 1232
+        // 稿 .body 两列 flex 比 1.06 : 1,减掉列间距后按这个比例分。
+        private const float StatusColumnWidth = (BodyWidth - ColumnGap) * 1.06f / 2.06f;     // ≈624
+        private const float AbilityColumnWidth = BodyWidth - ColumnGap - StatusColumnWidth;  // ≈589
         private const string SheetName = "UnitSheet";
 
         /// <summary>建一张详情弹窗并挂到 <paramref name="root"/> 下。内部自动查找并销毁上一个
@@ -118,8 +128,17 @@ namespace Brushblade.Presentation
 
             BuildNameRow(info, detail, overlay);
             if (detail.Flavor != null)
-                Ui.ThemedLabel(info, detail.Flavor, 13, Theme.TextDim, align: TextAnchor.UpperLeft)
-                    .rectTransform.sizeDelta = new Vector2(InfoWidth, 20);
+            {
+                // 定宽 + 换行(2026-09-01 修)。此前这里写的是 rectTransform.sizeDelta =
+                // (InfoWidth, 20) —— **那一行是死的**:info 是 VerticalLayoutGroup,子物体的
+                // RectTransform 由布局组接管,手写的 sizeDelta 下一次布局就被覆盖。实际生效的
+                // 是 Text 自己报的 preferredWidth(整句不换行的宽度),一句长点的 flavor 就
+                // 横着捅出 info 列、捅出弹窗右缘。
+                var flavor = Ui.ThemedLabel(info, detail.Flavor, 13, Theme.TextDim, align: TextAnchor.UpperLeft);
+                flavor.horizontalOverflow = HorizontalWrapMode.Wrap;
+                flavor.verticalOverflow = VerticalWrapMode.Overflow;
+                Ui.Sized(flavor.gameObject, width: InfoWidth);
+            }
             BuildBars(info, detail);
             BuildFigures(info, detail);
         }
@@ -206,8 +225,13 @@ namespace Brushblade.Presentation
             var spacer = Ui.Panel(row.transform, "Spacer");
             Ui.Sized(spacer, flexWidth: 1f);
 
-            Ui.RoundButton(row.transform, "×", () => Object.Destroy(overlay),
+            // minWidth 钉死(2026-09-01 修):名字 + 属性 + 若干 tag chip 加起来偶尔会超过
+            // InfoWidth(生僻怪的 tag 最多),一超预算这一行就等比压缩,关闭钮会跟着缩成
+            // 一个点不准的小方块 —— 而它恰恰是这张弹窗最不能缩的那一件。
+            var close = Ui.RoundButton(row.transform, "×", () => Object.Destroy(overlay),
                 Theme.PaperDim, Theme.TextDim, 14, new Vector2(28, 28), 14);
+            var closeElement = close.GetComponent<LayoutElement>();
+            if (closeElement != null) { closeElement.minWidth = 28f; closeElement.minHeight = 28f; }
         }
 
         /// <summary>血条(带 x/y 叠字)+ 盾条 + 行动条。盾条的填充比例借用 BattleView 里
@@ -238,9 +262,20 @@ namespace Brushblade.Presentation
         /// 标签内容)。每格「label 值」+ 可选小字 note,格间一条竖分隔线。</summary>
         private static void BuildFigures(Transform parent, UnitDetail detail)
         {
-            if (detail.Figures == null) return;
-            var row = Ui.Row(parent, "Figs", 12);
+            if (detail.Figures == null || detail.Figures.Length == 0) return;
+            const float figGap = 12f;
+            const float dividerW = 1.5f;
+            var row = Ui.Row(parent, "Figs", figGap);
             Ui.Sized(row, width: InfoWidth);
+
+            // 每格等分定宽(2026-09-01 修):格里的 note 是算出来的小字(例:执笔人的
+            // 「攻 = (基础+增益)×士气」那一串),长度不受控。不定宽的话每格按自己 note 的
+            // 整句宽度排,四格宽窄不一;整行一超预算,HorizontalLayoutGroup 还会把四格连同
+            // 中间的分隔线一起等比压回去,格子大小变成「谁的小字长谁就宽」。
+            int count = detail.Figures.Length;
+            float itemWidth = (InfoWidth
+                - figGap * (count * 2 - 2)          // 格与分隔线之间的间距:2n−2 个
+                - dividerW * (count - 1)) / count;
 
             bool first = true;
             foreach (var (label, value, note) in detail.Figures)
@@ -250,17 +285,26 @@ namespace Brushblade.Presentation
                     var divider = Ui.Panel(row.transform, "Divider");
                     var divImage = divider.AddComponent<Image>();
                     divImage.color = Theme.PanelBorder;
-                    Ui.Sized(divider, width: 1.5f, height: 22f);
+                    Ui.Sized(divider, width: dividerW, height: 22f).minWidth = dividerW;
                 }
                 first = false;
 
                 var item = Ui.VStack(row.transform, "Fig", 1);
-                item.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                var itemLayout = item.GetComponent<VerticalLayoutGroup>();
+                itemLayout.childAlignment = TextAnchor.UpperLeft;
+                itemLayout.childForceExpandWidth = true;   // note 要按格宽换行,得先拿到格宽
+                Ui.Sized(item, width: itemWidth).minWidth = itemWidth;
                 var line = Ui.Row(item.transform, "Line", 4);
+                line.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
                 Ui.ThemedLabel(line.transform, label, 11, Theme.TextDim);
                 Ui.ThemedLabel(line.transform, value, 15, Theme.TextMain, Theme.TitleFont);
                 if (note != null)
-                    Ui.ThemedLabel(item.transform, note, 10, Theme.TextDim, align: TextAnchor.UpperLeft);
+                {
+                    var noteLabel = Ui.ThemedLabel(item.transform, note, 10, Theme.TextDim,
+                        align: TextAnchor.UpperLeft);
+                    noteLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    noteLabel.verticalOverflow = VerticalWrapMode.Overflow;
+                }
             }
         }
 
@@ -268,18 +312,22 @@ namespace Brushblade.Presentation
 
         private static void BuildBody(Transform parent, UnitDetail detail)
         {
+            // 三处定宽(2026-09-01 修,见 BodyWidth 的说明)。body 自己也要定宽:外面的
+            // stack 是 Ui.VStack(childForceExpandWidth = false),不定宽的话 body 只有内容
+            // 那么宽、还被 UpperCenter 居中 —— 头部(1232)和底部(1232)是通栏的,中间这段
+            // 却按内容宽居中,三段左右边缘对不齐,这是「排版混乱」最显眼的一条。
             var body = Ui.Row(parent, "Body", ColumnGap);
             body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Ui.Sized(body, flexHeight: 1f);
+            Ui.Sized(body, width: BodyWidth, flexHeight: 1f);
 
             var left = Ui.VStack(body.transform, "StatusColumn", 8);
             left.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Ui.Sized(left, flexWidth: 1.06f, flexHeight: 1f);
+            Ui.Sized(left, width: StatusColumnWidth, flexHeight: 1f);
             BuildStatusColumn(left.transform, detail);
 
             var right = Ui.VStack(body.transform, "AbilityColumn", 8);
             right.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Ui.Sized(right, flexWidth: 1f, flexHeight: 1f);
+            Ui.Sized(right, width: AbilityColumnWidth, flexHeight: 1f);
             BuildAbilityColumn(right.transform, detail);
         }
 
@@ -294,22 +342,40 @@ namespace Brushblade.Presentation
                 15, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(title.transform, Strings.T("unit.detail.statuses_hint"), 10, Theme.TextDim);
 
+            // ⚠ 宽度必须显式给(2026-09-01 修):Ui.ScrollList 返回的是一个只挂了 ScrollRect
+            // 的 Panel —— 没有布局组、没有 Graphic,ScrollRect 也不实现 ILayoutElement,
+            // 所以它报出的 preferredWidth 是 **0**。父列是 childForceExpandWidth = false 的
+            // VStack,于是这块列表被排成 0 宽,Viewport 的 RectMask2D 把里面的状态条目
+            // 整个裁没 —— 左列看上去是空的。
             var scroll = Ui.ScrollList(parent, "StatusScroll", 8, out var content);
-            Ui.Sized(scroll, flexHeight: 1f);
+            Ui.Sized(scroll, width: StatusColumnWidth, flexHeight: 1f);
 
             if (detail.Statuses != null)
                 foreach (var status in detail.Statuses)
                     BuildStatusRow(content, status);
         }
 
+        private const float StatusRowGap = 8f;
+        private const int StatusChipFont = 12;
+        private const int StatusChipPadX = 6;
+        private const int StatusChipPadY = 4;
+
         private static void BuildStatusRow(Transform parent, StatusEntry status)
         {
-            var row = Ui.Row(parent, "Status", 8);
+            var row = Ui.Row(parent, "Status", StatusRowGap);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
 
             // IconKey 可能是 null——那是「走文字 chip」,不是「跳过整条」(StatusText 的契约)。
             // Ui.Chip 本身已经处理了 iconKey == null 的分支(只画文字),这里不需要再判断一次。
-            Ui.Chip(row.transform, status.ChipText, status.ChipColor, Color.white, 12, 6, 4, status.IconKey);
+            var chip = Ui.Chip(row.transform, status.ChipText, status.ChipColor, Color.white,
+                StatusChipFont, StatusChipPadX, StatusChipPadY, status.IconKey);
+            // chip 宽度按 Ui 自己那套纯函数算一遍(与 Ui.Chip 内部挂 LayoutElement 用的是同一
+            // 条公式),好把剩余宽度算给右边的文字列 —— 见下面那段注释。
+            float chipWidth = Ui.ChipWidth(status.ChipText, StatusChipFont, StatusChipPadX)
+                + (status.IconKey != null
+                    ? Icons.Size + (string.IsNullOrEmpty(status.ChipText) ? 0f : Icons.Gap)
+                    : 0f);
+            chip.GetComponent<LayoutElement>().minWidth = chipWidth;   // 不许被压缩
 
             var textCol = Ui.VStack(row.transform, "Text", 1);
             var textColLayout = textCol.GetComponent<VerticalLayoutGroup>();
@@ -318,7 +384,11 @@ namespace Brushblade.Presentation
             // Text 拿不到宽度、算不出该在哪里断行——与 BattleView.cs 里 pickedInfoLayout 那处
             // 换行同一个套路。
             textColLayout.childForceExpandWidth = true;
-            Ui.Sized(textCol, flexWidth: 1f);
+            // 定宽而不是 flexWidth:1(2026-09-01 修,同 BodyWidth 的说明)。原先这一行让
+            // 说明文字的整句宽度去和左边的 chip 争:整行超预算,HorizontalLayoutGroup 就把
+            // **所有**子物体等比压回去,连状态图标 chip 都跟着缩水 —— 同一列里各行的 chip
+            // 大小还不一样,取决于那一行的说明有多长。
+            Ui.Sized(textCol, width: StatusColumnWidth - chipWidth - StatusRowGap);
 
             var nameLine = Ui.Row(textCol.transform, "Name", 6);
             Ui.ThemedLabel(nameLine.transform, status.Name, 13, Theme.TextMain, align: TextAnchor.UpperLeft);
@@ -364,7 +434,11 @@ namespace Brushblade.Presentation
         /// <summary>一张能力/特性卡片:图标 chip(可能没有)+ 名 + 可选说明。</summary>
         private static void BuildAbilityCard(Transform parent, AbilityEntry ability)
         {
-            Ui.OutlinedPanel(parent, "Ability", Theme.PanelPaper, Theme.PanelBorder, 8, 1f, out var face);
+            var card = Ui.OutlinedPanel(parent, "Ability", Theme.PanelPaper, Theme.PanelBorder, 8, 1f, out var face);
+            // 定宽(2026-09-01 修):右列是 childForceExpandWidth = false 的 VStack,卡片不
+            // 定宽就各自按自己那段文字的整句宽度排 —— 一列卡片宽窄参差、右缘呈锯齿状,
+            // 长的那几张还会直接捅出弹窗。定宽之后卡片右缘齐平,里面的说明按卡宽换行。
+            Ui.Sized(card.gameObject, width: AbilityColumnWidth);
             var stack = Ui.VStack(face.transform, "Stack", 3);
             Ui.Stretch((RectTransform)stack.transform);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
@@ -419,8 +493,12 @@ namespace Brushblade.Presentation
             var foot = Ui.Row(parent, "Foot", 12);
             Ui.Sized(foot, width: SheetWidth - SheetPadding * 2);
 
-            Ui.ThemedLabel(foot.transform, Strings.T("unit.detail.foot_hint"), 11, Theme.TextDim,
-                align: TextAnchor.MiddleLeft).rectTransform.sizeDelta = new Vector2(SheetWidth * 0.6f, 20);
+            // 定宽走 LayoutElement,不写 rectTransform.sizeDelta(2026-09-01 修):foot 是
+            // HorizontalLayoutGroup,子物体的 RectTransform 由布局组接管,手写的 sizeDelta
+            // 下一次布局就被覆盖,那一行等于没写 —— 与 Flavor 那处同一个坑。
+            var footHint = Ui.ThemedLabel(foot.transform, Strings.T("unit.detail.foot_hint"), 11,
+                Theme.TextDim, align: TextAnchor.MiddleLeft);
+            Ui.Sized(footHint.gameObject, width: SheetWidth * 0.6f, height: 20f);
             var spacer = Ui.Panel(foot.transform, "Spacer");
             Ui.Sized(spacer, flexWidth: 1f);
             Ui.PillButton(foot.transform, Strings.T("common.ok"), () => Object.Destroy(overlay),

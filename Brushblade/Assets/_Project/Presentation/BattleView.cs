@@ -2819,6 +2819,34 @@ namespace Brushblade.Presentation
             }
         }
 
+        // 拆合台栏内可用宽:BenchW 减两侧 BenchPad。栏里任何一件「按栏宽定宽」的东西
+        // 都该拿这个数,别再各自写死一个近似值。
+        private const float BenchInnerW = BenchW - BenchPad * 2;   // 276 − 15×2 = 246
+
+        /// <summary>拆合台里的整句提示(选目标态 / 落位态那几条)。
+        ///
+        /// 这些句子是**整句**,不是标签:「「治」点击治疗目标(玩家或召唤物)|点空白取消」
+        /// 16 号下约 400 宽,而栏内只有 246 —— 单行渲染会直接甩出卡片外糊到中区上
+        /// (2026-09-01 用户报的溢出)。这里定宽 + 开 Wrap 让它换行。
+        ///
+        /// 行高自己算,不靠 Text 的 preferredHeight:后者要先知道 rect 宽度才算得出,
+        /// 而 rect 宽度又由布局决定,首帧拿到的是上一帧的旧宽 —— 提示是「换一句就重绘」
+        /// 的东西,首帧算错就等于常态算错。估法与 <see cref="Ui.ChipWidth"/> 同一个
+        /// 口径(汉字约一个字号宽),ASCII 偏窄会让行数估多,宁可多留一行也不裁字。</summary>
+        private static Text BenchHint(Transform parent, string text, int fontSize, Color color)
+        {
+            var label = Ui.ThemedLabel(parent, text, fontSize, color, align: TextAnchor.UpperLeft);
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            int perLine = Mathf.Max(1, Mathf.FloorToInt(BenchInnerW / fontSize));
+            int lines = 0;
+            foreach (var segment in text.Split('\n'))   // 显式换行也要各占至少一行
+                lines += Mathf.Max(1, Mathf.CeilToInt(segment.Length / (float)perLine));
+            Ui.Sized(label.gameObject, width: BenchInnerW, height: lines * fontSize * 1.35f);
+            return label;
+        }
+
+        private const float PickedRowGap = 6f;          // 稿 .picked { gap: 3pt }
         private const float PickedTileW = 71f;          // 稿 .picked .pt { width: 34pt }
         private const float PickedTileH = 90f;          // 稿 .picked .pt { height: 43pt }
         private const int PickedGlyphFontSize = 42;     // 稿 .picked .pt { font-size: 20pt }
@@ -2832,7 +2860,7 @@ namespace Brushblade.Presentation
             // 「取消」按钮 2026-08-21 随整排一起移除 —— 点空白即取消(Backdrop)。
             if (_slotPicking)
             {
-                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar)), 16, Theme.TextMain);
+                BenchHint(_actionRow, Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar)), 16, Theme.TextMain);
                 return;
             }
             if (_selectedChar == null) return;
@@ -2842,9 +2870,16 @@ namespace Brushblade.Presentation
             // 旧版这里第一行是「选中字 → 拆解部件」的分解预览,那一条没有真的丢:配方拆解
             // 长按字牌的详情弹窗本就有(CharInfo.Detail 含配方行)。
             // 转位提示那一条 2026-09-01 用户拍板还原,见下面 KinVariants 那段。
-            var picked = Ui.Row(_suggestRow, "PickedRow", 6).transform;
+            var picked = Ui.Row(_suggestRow, "PickedRow", PickedRowGap).transform;
             var pickedOuter = Ui.OutlinedPanel(picked, "Tile", Color.white, Theme.RarityColor(def.Rarity), 8, 2f, out var pickedFace);
-            Ui.Sized(pickedOuter.gameObject, width: PickedTileW, height: PickedTileH);
+            // minWidth 与 preferredWidth 同值(2026-09-01 修「牌面有时大有时小」):
+            // HorizontalLayoutGroup 一旦发现子物体的 preferred 之和超过行宽,会把**所有**
+            // 子物体从 preferred 往 min 等比压回去。而右边信息列的 preferredWidth 来自
+            // Text —— Text 的 preferredWidth 报的是**不换行时的整句宽度**,效果说明一长
+            // 就是好几百,于是每次都超预算、牌面跟着被压窄:效果短的字牌面正常,效果长的
+            // 字牌面明显小一圈。钉死 minWidth 让牌面不参与这场压缩,再给信息列一个算得出
+            // 的定宽(见下),整行就再也不超预算了。
+            Ui.Sized(pickedOuter.gameObject, width: PickedTileW, height: PickedTileH).minWidth = PickedTileW;
             var pickedGlyph = Ui.ThemedLabel(pickedFace.transform, def.Id, PickedGlyphFontSize,
                 Theme.GlyphColor(def.Element), Theme.TitleFont);
             Ui.Stretch(pickedGlyph.rectTransform);
@@ -2854,7 +2889,11 @@ namespace Brushblade.Presentation
             // 显式开 childForceExpandWidth:效果说明要按这一列的实际宽度换行,不开的话
             // Text 拿不到宽度、算不出该在哪里断行(下面 effectLabel 的 Wrap 依赖这个)。
             pickedInfoLayout.childForceExpandWidth = true;
-            Ui.Sized(pickedInfo, flexWidth: 1f);
+            // 定宽而不是 flexWidth:1(2026-09-01,同上)。flexWidth 只在**有富余**时才分配,
+            // 决定不了「超预算时谁先缩」;这里的病根恰恰是 Text 把 preferredWidth 报成了
+            // 不换行的整句宽度,行永远处在超预算态,flex 从来轮不上。直接把剩余宽度算给它,
+            // preferredWidth 就等于实际宽度,effectLabel 的 Wrap 也拿到了正确的换行依据。
+            Ui.Sized(pickedInfo, width: BenchInnerW - PickedTileW - PickedRowGap);
             int cardLevel = _run.CardLevel(_selectedChar);
             string elementName = def.Element is { } elem ? CharInfo.ElementName(elem) : Strings.T("char.element.neutral");
             Ui.ThemedLabel(pickedInfo.transform, Strings.T("battle.label.picked_meta",
@@ -2906,14 +2945,14 @@ namespace Brushblade.Presentation
             // 第二行(动作)
             if (_targeting)
             {
-                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.targeting_enemy", ("charId", _selectedChar)), 16, Theme.TextMain);
+                BenchHint(_actionRow, Strings.T("battle.hint.targeting_enemy", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
             // 治疗选目标态(2026-08-22):同 _targeting 一样只画一句提示——再点一次「出」
             // 会走 OnCastPressed → BeginCast,把这个待选态悄悄重置。
             if (_allyTargeting)
             {
-                Ui.ThemedLabel(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
+                BenchHint(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
             bool inLibrary = System.Linq.Enumerable.Contains(Battle.Library, _selectedChar);
