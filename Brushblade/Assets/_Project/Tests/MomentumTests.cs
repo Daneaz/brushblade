@@ -29,23 +29,20 @@ namespace Brushblade.Core.Tests
             new(CharTableTests.RealGraph(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
                 new[] { charId }, Array.Empty<string>(), new[] { Dummy() }, seed: 1);
 
-        /// <summary>真实字表(CastCharForTest("崩") 要读到真字)外加一个 "_test" 占位字
-        /// (CastEffectForTest 用它包一条孤立 EffectDef —— ApplyEffects 会拿 def.Id 去图谱里
-        /// 查 RecipeElements,不注册这张字会 KeyNotFoundException)。</summary>
-        private static RecipeGraph GraphWithTestChar()
+        /// <summary>引爆两条效果各自的测试字(2026-09-02,Task 4 review 后改走真实 Cast() —— 见
+        /// Cast() 的三条前置校验:Phase/字在图谱且在库/AP 够用,手造字塞进 Library 就都满足,
+        /// 不需要绕过 Cast 的测试钩子)。</summary>
+        private static RecipeGraph SpendGraph() => new(new[]
         {
-            var chars = new System.Collections.Generic.List<CharDef>(CharTableTests.RealGraph().All)
-            {
-                new CharDef("_test", Element.Heart, effects: Array.Empty<EffectDef>()),
-            };
-            return new RecipeGraph(chars);
-        }
+            new CharDef("崩测", Element.Heart, effects: new[] { new EffectDef(EffectKind.SpendMomentum, 60) }),
+            new CharDef("泻测", Element.Heart, effects: new[] { new EffectDef(EffectKind.SpendWaterPower, 80) }),
+        });
 
         /// <summary>两只敌人的战斗夹具(2026-09-02,引爆):全体效果要断言「不止打了一个」,
-        /// 单敌的 NewBattle 断不出这条。</summary>
-        private static BattleEngine NewBattleWithTwoEnemies(int maxHp) =>
-            new(GraphWithTestChar(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
-                Array.Empty<string>(), Array.Empty<string>(),
+        /// 单敌的 NewBattle 断不出这条。字放进 Library 才能走真实 Cast()。</summary>
+        private static BattleEngine NewSpendBattle(string charId, int maxHp) =>
+            new(SpendGraph(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
+                new[] { charId }, Array.Empty<string>(),
                 new[] { Dummy(maxHp), Dummy(maxHp) }, seed: 1);
 
         /// <summary>存档 → 读档,照 SnapshotRoundTripTests 的 Reload() 写法(2026-09-02)。</summary>
@@ -201,11 +198,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SpendMomentum_DealsStacksTimesValueToAll_AndClearsStacks()
         {
-            var battle = NewBattleWithTwoEnemies(maxHp: 500);
+            var battle = NewSpendBattle("崩测", maxHp: 500);
             battle.GainMomentumForTest(50 * 4);   // 4 层
             int hp0 = battle.Enemies[0].Hp, hp1 = battle.Enemies[1].Hp;
 
-            battle.CastEffectForTest(new EffectDef(EffectKind.SpendMomentum, 60));
+            battle.Cast("崩测", -1);
 
             // 4 层 × 60 = 240,过 ScaleByAttack(基准 100 → ×1)与相克
             Assert.That(hp0 - battle.Enemies[0].Hp, Is.GreaterThan(0));
@@ -219,11 +216,11 @@ namespace Brushblade.Core.Tests
         {
             // 崩 = 全体伤害 + 发势。0 层时 AOE 那一半仍该打出来 ——
             // 「0 层就整张字拒出」会把 AOE 一起吞掉。
-            var battle = NewBattleWithTwoEnemies(maxHp: 500);
+            var battle = NewBattleWithChar("崩", maxHp: 500);
             Assert.That(battle.MomentumStacks, Is.EqualTo(0));
             int before = battle.Enemies[0].Hp;
 
-            battle.CastCharForTest("崩");
+            battle.Cast("崩", 0);
 
             Assert.That(battle.Enemies[0].Hp, Is.LessThan(before), "AOE 那一半照常生效");
             Assert.That(battle.MomentumStacks, Is.EqualTo(0));
@@ -232,9 +229,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SpendWaterPower_DealsStacksTimesValueToAll_AndClearsStacks()
         {
-            var battle = NewBattleWithTwoEnemies(maxHp: 500);
+            var battle = NewSpendBattle("泻测", maxHp: 500);
             battle.GainWaterPowerForTest(50 * 5);   // 5 层
-            battle.CastEffectForTest(new EffectDef(EffectKind.SpendWaterPower, 80));
+            battle.Cast("泻测", -1);
             Assert.That(battle.WaterPowerStacks, Is.EqualTo(0));
         }
 

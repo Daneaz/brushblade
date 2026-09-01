@@ -711,18 +711,6 @@ namespace Brushblade.Core
             GainStacks(healAmount, StatusKind.WaterPower, "水势", ref _healAccum);
         }
 
-        /// <summary>直接结算一条孤立效果(2026-09-02,引爆),不经 Cast 的 AP/库存/目标校验 ——
-        /// 用来单独验一条 EffectKind 的语义,不必先给它配一张真字。
-        /// 仅供测试调用。</summary>
-        internal void CastEffectForTest(EffectDef effect, int targetIndex = -1) =>
-            ApplyEffects(new CharDef("_test", Element.Heart, effects: new[] { effect }), targetIndex);
-
-        /// <summary>按字表已有的字直接结算(2026-09-02,引爆),同样绕过 Cast 的 AP/库存校验 ——
-        /// 用来验「同一张字里,引爆效果与其他效果各自独立生效」这类跨效果场景。
-        /// 仅供测试调用。</summary>
-        internal void CastCharForTest(string charId, int targetIndex = -1) =>
-            ApplyEffects(_graph.Get(charId), targetIndex);
-
         /// <summary>势与水势共用的攒层逻辑(2026-09-02)。两者只在 Kind、来源标识与
         /// 余数字段上不同,规则一字不差 —— 写两份迟早分叉。</summary>
         private void GainStacks(int amount, StatusKind kind, string sourceId, ref int accum)
