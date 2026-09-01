@@ -298,6 +298,66 @@ namespace Brushblade.Core.Tests
             return list;
         }
 
+        /// <summary>带列宽的阵:span &gt; 1 的怪横跨 [Column, Column + span) 若干列。
+        /// Boss 是目前唯一的 span &gt; 1 —— 编成里 Boss 独占一场,所以这些用例是**构造出来**的,
+        /// 真机上跑不到。构造它们正是本条测试的意义:等真给 Boss 配了小怪,裁定已经是对的。</summary>
+        private static List<EnemyState> SpanGrid(params (EnemyRow Row, int Column, int Span)[] slots)
+        {
+            var list = new List<EnemyState>();
+            foreach (var (row, column, span) in slots)
+            {
+                var def = new EnemyDef($"怪{list.Count}", Element.Heart, 100, 10,
+                    row: row, columnSpan: span);
+                list.Add(new EnemyState(def, 0, null) { Row = row, Column = column });
+            }
+            return list;
+        }
+
+        [Test]
+        public void Expand_Skewer_SpanningBossOverlapsEveryColumn()
+        {
+            // Boss 占满前排 4 列;后排三只各站一列 —— 贯穿从任意一只打上去都串到 Boss
+            var grid = SpanGrid((EnemyRow.Front, 0, 4), (EnemyRow.Back, 0, 1),
+                (EnemyRow.Back, 2, 1), (EnemyRow.Back, 3, 1));
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Skewer, 0),
+                Is.EquivalentTo(new[] { 0, 1 }), "后排第 0 列 + 跨列 Boss");
+            Assert.That(Targeting.ExpandTargets(grid, 3, TargetShape.Skewer, 0),
+                Is.EquivalentTo(new[] { 0, 3 }), "后排第 3 列同样串到 Boss");
+        }
+
+        [Test]
+        public void Expand_Cleave_SpanIsAdjacentOnlyAtItsEdge()
+        {
+            // Boss 占前排 0..1,小怪站前排 2、3:只有第 2 列贴着 Boss 的右缘
+            var grid = SpanGrid((EnemyRow.Front, 0, 2), (EnemyRow.Front, 2, 1),
+                (EnemyRow.Front, 3, 1));
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Cleave, 0),
+                Is.EquivalentTo(new[] { 0, 1 }), "Boss 只溅到贴着它右缘的那只");
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Cleave, 0),
+                Is.EquivalentTo(new[] { 0, 1, 2 }), "夹在中间那只:左邻 Boss、右邻小怪");
+        }
+
+        [Test]
+        public void Expand_Chain_SpanUsesCenterDistance()
+        {
+            // Boss 占前排 0..3(中心 1.5),后排第 0 列(中心 0)与第 2 列(中心 2)
+            // 到 Boss 的中心距分别是 1.5 与 0.5 —— 第 2 列更近,先跳
+            var grid = SpanGrid((EnemyRow.Front, 0, 4), (EnemyRow.Back, 0, 1),
+                (EnemyRow.Back, 2, 1));
+            var hit = Targeting.ExpandTargets(grid, 0, TargetShape.Chain, 2);
+            Assert.That(hit[0], Is.EqualTo(0), "首项恒为主目标");
+            Assert.That(hit[1], Is.EqualTo(2), "第 2 列离 Boss 中心更近");
+        }
+
+        [Test]
+        public void Expand_Sweep_IgnoresSpanEntirely()
+        {
+            var grid = SpanGrid((EnemyRow.Front, 0, 2), (EnemyRow.Front, 2, 1),
+                (EnemyRow.Back, 0, 1));
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0),
+                Is.EquivalentTo(new[] { 0, 1 }), "整排,与占几列无关;后排那只不中");
+        }
+
         [Test]
         public void Expand_Single_ReturnsOnlyPrimary()
         {
@@ -400,33 +460,16 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5)));
         }
     
-        // ---- 排的格位数(2026-08-26):表现层铺几格由这里定,列对齐靠它 ----
+        // ---- 列号分配顺序(2026-08-30):居中往外,与 RowCapacity 的守卫 ----
 
         [Test]
-        public void RowCells_SingleEnemyEncounter_CollapsesToOneCell()
+        public void ColumnOrder_CoversEveryColumnExactlyOnce()
         {
-            // 2026-08-23 实机反馈:全场只有一只怪时铺三格会把它顶到最左。
-            // 两排都 ≤1 只时没有对齐对象,各自居中不损失任何信息。
-            Assert.That(Targeting.RowCells(1, 0), Is.EqualTo(1));
-            Assert.That(Targeting.RowCells(1, 1), Is.EqualTo(1), "两排各一只,双双居中仍然对齐");
-        }
-
-        [Test]
-        public void RowCells_KeepsFullGridWhenTheOtherRowHasTwoOrMore()
-        {
-            // 前排 2 只(列 0、1)+ 后排 1 只(列 0):后排若折叠成一格会被居中到视觉第 2 位,
-            // 而引擎认定它与前排列 0 同列 —— 贯穿(枪)于是看起来打了错位的一只。
-            Assert.That(Targeting.RowCells(1, 2), Is.EqualTo(Targeting.RowCapacity));
-            Assert.That(Targeting.RowCells(1, 3), Is.EqualTo(Targeting.RowCapacity));
-        }
-
-        [Test]
-        public void RowCells_MultiEnemyRow_AlwaysFillsTheGrid()
-        {
-            Assert.That(Targeting.RowCells(2, 1), Is.EqualTo(Targeting.RowCapacity));
-            Assert.That(Targeting.RowCells(3, 3), Is.EqualTo(Targeting.RowCapacity));
-            Assert.That(Targeting.RowCells(0, 3), Is.EqualTo(Targeting.RowCapacity), "空排照旧撑满");
-            Assert.That(Targeting.RowCells(0, 0), Is.EqualTo(Targeting.RowCapacity));
+            var seen = new HashSet<int>(Targeting.ColumnOrder);
+            Assert.That(Targeting.ColumnOrder.Count, Is.EqualTo(Targeting.RowCapacity));
+            Assert.That(seen.Count, Is.EqualTo(Targeting.RowCapacity), "不许重号");
+            foreach (int c in Targeting.ColumnOrder)
+                Assert.That(c >= 0 && c < Targeting.RowCapacity, Is.True, $"列 {c} 越界");
         }
 }
 }

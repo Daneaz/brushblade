@@ -121,11 +121,22 @@ namespace Brushblade.Core
         public AttackRange Range { get; }
         public AttackFocus Focus { get; }
 
+        /// <summary>占几列(2026-08-30)。默认 1 = 占一格,与本字段引入之前逐字节等价。
+        /// 三只 Boss 配 4(占满整排);将来想让护法站在 Boss 旁边就把 Boss 配成 2 或 3。
+        ///
+        /// <see cref="EnemyState.Column"/> 的语义因此收紧为「**起始列(左端)**」,
+        /// 实际占据 [Column, Column + ColumnSpan)。Skewer/Cleave/Chain 三处裁定
+        /// 全部按区间算(Targeting),Span = 1 时与旧写法逐字节相同。
+        ///
+        /// **不进快照**:由 Def 推得,与 <see cref="EnemyState.Defense"/> 做成计算属性
+        /// 同一条理由(见那条注释里「零新增快照字段」的推理)。</summary>
+        public int ColumnSpan { get; }
+
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
             int defense = 0, int speed = 0,
             EnemyRow row = EnemyRow.Front, AttackRange range = AttackRange.Melee,
-            AttackFocus focus = AttackFocus.Default)
+            AttackFocus focus = AttackFocus.Default, int columnSpan = 1)
         {
             Id = id;
             Element = element;
@@ -138,6 +149,7 @@ namespace Brushblade.Core
             Row = row;
             Range = range;
             Focus = focus;
+            ColumnSpan = columnSpan < 1 ? 1 : columnSpan;
         }
     }
 
@@ -265,6 +277,18 @@ namespace Brushblade.Core
         /// Bleed/Freeze/SpeedModifier 用 TurnsLeft 正常回合递减。</summary>
         public StatusBag Statuses { get; } = new();
 
+        /// <summary>敌人护盾(2026-08-30):一次性额外血条,在护甲减法**之后**、扣血**之前**吸收;
+        /// 吸完即无、不刷新、不随回合清空。与 <see cref="SummonState.Shield"/> 同型。
+        ///
+        /// ⚠ **眼下没有来源**(用户 2026-08-30 拍板):enemies.json 不配、也没有结盾技能。
+        /// 将来的来源是「加盾辅助怪给同伴挂 buff」。所以真机上它恒为 0,
+        /// 吸收逻辑只有 EnemyShieldTests 看得见 —— 改这一块别指望试玩能发现问题。
+        ///
+        /// **进快照**:与 <see cref="Hp"/> 同类,是战中可变状态。这一条与
+        /// <see cref="Defense"/> 那条「零新增快照字段」的推理不冲突 ——
+        /// 那条说的是**不可变**的基础属性做成计算属性,而护盾是会被打掉的。</summary>
+        public int Shield { get; internal set; }
+
         /// <summary>基础速度(2026-08-04)。有效速度 = Speed + 所有 SpeedModifier 之和,下限 0。
         /// 基数用本字段而非常量 100:将来若有天生快/慢的字怪,写死 100 会让它们的修正算错。</summary>
         public int Speed { get; set; } = 100;
@@ -279,8 +303,18 @@ namespace Brushblade.Core
         /// 而 Restore 是按 Id 查 Def 的,不存就会在读档时被合并。
         ///
         /// 贯穿形状(<see cref="TargetShape.Skewer"/>)按它取「同一列的前后两只」,
-        /// 表现层按它决定画进哪一格。</summary>
+        /// 表现层按它决定画进哪一格。
+        ///
+        /// 2026-08-30 起语义收紧为「**起始列(左端)**」——占几列由 <see cref="ColumnSpan"/>
+        /// 决定,实际占据 [Column, ColumnEnd)。Span = 1 的怪(眼下除 Boss 外全部)不受影响。</summary>
         public int Column { get; internal set; }
+
+        /// <summary>占几列(2026-08-30),转发 <see cref="EnemyDef.ColumnSpan"/>。
+        /// 不存快照 —— Def 里就有。</summary>
+        public int ColumnSpan => Def.ColumnSpan;
+
+        /// <summary>占位区间的**右开端**= Column + ColumnSpan。裁定一律用 [Column, ColumnEnd)。</summary>
+        public int ColumnEnd => Column + Def.ColumnSpan;
 
         /// <summary>行动计量器:回合末累积有效速度,每满 100 行动一次。</summary>
         public int ActionMeter { get; internal set; }
@@ -370,6 +404,7 @@ namespace Brushblade.Core
                 MaxHp = MaxHp,
                 Element = Element,
                 ApparentElement = ApparentElement,
+                Shield = Shield,
                 Statuses = statuses,
                 ActionMeter = ActionMeter,
                 BaseAttack = BaseAttack,
@@ -396,6 +431,7 @@ namespace Brushblade.Core
                 MaxHp = snapshot.MaxHp,
                 Element = snapshot.Element,
                 ApparentElement = snapshot.ApparentElement,
+                Shield = snapshot.Shield,
                 ActionMeter = snapshot.ActionMeter,
                 BaseAttack = snapshot.BaseAttack,
                 PhaseIndex = snapshot.PhaseIndex,

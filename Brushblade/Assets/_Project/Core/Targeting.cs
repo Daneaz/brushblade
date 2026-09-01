@@ -19,17 +19,15 @@ namespace Brushblade.Core
         /// 没有耦合,两者恰好同为 4 纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
         public const int RowCapacity = 4;
 
-        /// <summary>某一排该铺几个格位(2026-08-26)。表现层照这个数建格,敌人按 Column 落格 ——
-        /// 「列」的几何在这里定一次,ExpandTargets 的 Skewer 才与玩家看到的对得上。
+        /// <summary>列号的分配顺序(2026-08-30):**居中往外**。4 列没有正中,取中间偏左先。
         ///
-        /// 恒为 <see cref="RowCapacity"/>,**唯一例外**是两排都 ≤1 只:那时列没有对齐对象,
-        /// 折叠成一格交给 MiddleCenter 摆正中(2026-08-23 实机反馈:单怪铺三格会被顶到最左)。
+        /// 取代了旧的「两排都 ≤1 只就把该排折叠成一格」特例(RowCells,已删)——
+        /// 那条特例当年是为了修「单怪铺三格会被顶到最左」(2026-08-23 实机反馈),
+        /// 而居中往外之后单怪自然落在列 1,不折叠也不靠边,稿上的「每排恒定 4 格」得以成立。
         ///
-        /// ⚠ 这个例外原先只看本排(「本排只有一只就折叠」),前排 2 只 + 后排 1 只时后排被
-        /// 居中到视觉第 2 位,而引擎认定它与前排第 1 位同列 —— 贯穿(枪)于是看起来打了
-        /// 错位的一只。别再把判据缩回单排。</summary>
-        public static int RowCells(int rowCount, int otherRowCount) =>
-            rowCount == 1 && otherRowCount <= 1 ? 1 : RowCapacity;
+        /// ⚠ 这是**唯一**一条布局策略。将来若要加别的(例如辅助怪躲进没有前排的后排列
+        /// 以避开贯穿),判据加在 <c>BattleEngine.AssignSlots</c> 那一处,不要在这里架一层抽象。</summary>
+        public static readonly IReadOnlyList<int> ColumnOrder = new[] { 1, 2, 0, 3 };
 
         /// <summary>敌人选我方目标。返回召唤物槽位,或 <see cref="PlayerTarget"/>。
         ///
@@ -210,9 +208,14 @@ namespace Brushblade.Core
                 bool hit = shape switch
                 {
                     TargetShape.Sweep => enemies[i].Row == primary.Row,
+                    // 相邻 = 一方的右开端正好顶着另一方的起始列(2026-08-30 列区间)。
+                    // Span 全 1 时 ⟺ |ΔColumn| == 1,与旧写法逐字节相同。
                     TargetShape.Cleave => enemies[i].Row == primary.Row
-                        && System.Math.Abs(enemies[i].Column - primary.Column) == 1,
-                    TargetShape.Skewer => enemies[i].Column == primary.Column,
+                        && (enemies[i].ColumnEnd == primary.Column
+                            || primary.ColumnEnd == enemies[i].Column),
+                    // 同列 = 两个列区间相交。Span 全 1 时 ⟺ Column 相等。
+                    TargetShape.Skewer => enemies[i].Column < primary.ColumnEnd
+                        && primary.Column < enemies[i].ColumnEnd,
                     _ => false,
                 };
                 if (hit) result.Add(i);
@@ -234,7 +237,7 @@ namespace Brushblade.Core
             var rest = new List<int>();
             for (int i = 0; i < enemies.Count; i++)
                 if (i != primaryIndex && enemies[i].Alive) rest.Add(i);
-            // 距离 = 列差 + 排差(2×3 网格上的曼哈顿距离)。稳定排序:同距保持下标序。
+            // 稳定排序:同距保持下标序。
             rest.Sort((x, y) =>
             {
                 int dx = GridDistance(enemies[x], primary), dy = GridDistance(enemies[y], primary);
@@ -244,8 +247,15 @@ namespace Brushblade.Core
             return result;
         }
 
+        /// <summary>列中心的**两倍**(2026-08-30 列区间):Span=1 时恒为 2×Column。
+        /// 用两倍是为了让跨偶数列的中心(如占 0..3 的 Boss 中心 1.5)仍是整数,不引浮点。</summary>
+        private static int ColumnCenter2(EnemyState e) => 2 * e.Column + e.ColumnSpan - 1;
+
+        /// <summary>弹射排序用的格子距离。**只被 ChainTargets 的比较器调用**(全仓库唯一调用点),
+        /// 所以整体乘 2 是安全的:单调线性变换不改排序,Span 全 1 时排序结果与旧式子逐位相同。
+        /// 列用中心距(半列为单位),排差记 2(= 旧式子的 1 乘 2)。</summary>
         private static int GridDistance(EnemyState a, EnemyState b) =>
-            System.Math.Abs(a.Column - b.Column) + (a.Row == b.Row ? 0 : 1);
+            System.Math.Abs(ColumnCenter2(a) - ColumnCenter2(b)) + (a.Row == b.Row ? 0 : 2);
 
         /// <summary>连发的目标序列:后排优先、各排按列序排出候选,再从头循环取满 shots 发。
         /// 候选为空或 shots ≤ 0 返回空表。</summary>

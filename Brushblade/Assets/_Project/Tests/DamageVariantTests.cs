@@ -1042,11 +1042,12 @@ namespace Brushblade.Core.Tests
         public void Cleave_SideTargetsTakeShapePercent()
         {
             var engine = Engine(new[] { "劈" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
-            engine.Cast("劈", targetIndex: 1); // 打前排中间那只
+            // 2026-08-30 居中往外:三只按 ColumnOrder{1,2,0,3}分到列 1、2、0,下标 0 落正中(列 1)
+            engine.Cast("劈", targetIndex: 0); // 打前排中间那只
 
-            int primaryLoss = 200 - engine.Enemies[1].Hp;
-            int leftLoss = 200 - engine.Enemies[0].Hp;
-            int rightLoss = 200 - engine.Enemies[2].Hp;
+            int primaryLoss = 200 - engine.Enemies[0].Hp;
+            int leftLoss = 200 - engine.Enemies[2].Hp; // 列 0
+            int rightLoss = 200 - engine.Enemies[1].Hp; // 列 2
             Assert.That(primaryLoss, Is.GreaterThan(0));
             Assert.That(leftLoss, Is.EqualTo(primaryLoss / 2), "ShapePercent 50:左侧是主目标的一半");
             Assert.That(rightLoss, Is.EqualTo(leftLoss), "两侧对称");
@@ -1087,10 +1088,11 @@ namespace Brushblade.Core.Tests
         public void Cleave_OnEdge_HitsOneSideOnly()
         {
             var engine = Engine(new[] { "劈" }, new[] { Attacker(0), Attacker(0), Attacker(0) });
-            engine.Cast("劈", targetIndex: 0);
+            // 2026-08-30 居中往外:三只分到列 1、2、0,下标 2 落列 0 —— 三只里唯一的边格
+            engine.Cast("劈", targetIndex: 2);
 
-            Assert.That(engine.Enemies[1].Hp, Is.LessThan(200), "相邻那只挨打");
-            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(200), "隔了一格的不挨打");
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(200), "相邻那只挨打"); // 列 1,与列 0 相邻
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(200), "隔了一格的不挨打"); // 列 2,隔了一列
         }
 
         /// <summary>横扫:整排全额,后排不中。</summary>

@@ -306,6 +306,25 @@ namespace Brushblade.Presentation
 
         public static float ChipHeight(int fontSize, int padY = ChipPadY) => fontSize + padY;
 
+        /// <summary>一段开了 Wrap 的文字在给定宽度下大约占多高。与 <see cref="ChipWidth"/> 同一
+        /// 性质:**纯函数**,不测量、不等一帧布局。
+        ///
+        /// 为什么不用 <c>Text.preferredHeight</c>:那个要先知道自己 rect 的宽度才算得出,
+        /// 而 rect 宽度又由布局决定 —— 首帧读到的是上一帧的旧宽。凡是「内容一变就重建」的
+        /// 东西(详情弹窗的能力卡、拆合台的整句提示),首帧算错就等于常态算错。
+        ///
+        /// 估法:汉字约占一个字号宽(与 ChipWidth 同口径),ASCII 偏窄会让行数估多 —— 宁可
+        /// 多留一行空白,也不让文字被卡片高度截掉。行高按 1.35 倍字号。</summary>
+        public static float WrappedTextHeight(string text, int fontSize, float width)
+        {
+            if (string.IsNullOrEmpty(text)) return 0f;
+            int perLine = Mathf.Max(1, Mathf.FloorToInt(width / fontSize));
+            int lines = 0;
+            foreach (var segment in text.Split('\n'))   // 显式换行也要各占至少一行
+                lines += Mathf.Max(1, Mathf.CeilToInt(segment.Length / (float)perLine));
+            return lines * fontSize * 1.35f;
+        }
+
         /// <summary>带图标的 chip 宽度。图标占 <see cref="Icons.Size"/>,后面还有 Gap;
         /// 纯图标(无量值)时不留 Gap。无图标时与 <see cref="ChipWidth(string,int,int)"/> 等价。
         ///
@@ -438,6 +457,26 @@ namespace Brushblade.Presentation
             return lines;
         }
 
+        /// <summary>给节点挂一个 <see cref="LayoutElement"/>。宽/高传负数 = 这一维不指定,
+        /// 由布局组按内容算(LayoutUtility 会跳过负值,轮到优先级更低的布局组自己报数)。
+        ///
+        /// ⚠ flexWidth/flexHeight 默认是 0f,不是 -1f —— 这两个默认值**不对称**是故意的:
+        /// 0 是显式压制,不是「不指定」。rail 因为父级 HorizontalLayoutGroup 开了
+        /// childForceExpandWidth,本来会被强抬出 flexibleWidth = 1;是这个 priority 1、
+        /// 值为 0 的 LayoutElement 把它压下去,142 定宽才守得住。如果哪天为了跟 width/height
+        /// 「统一」把默认值改成 -1f,rail 会立刻开始跟着中区一起伸缩 —— 这个坑编译不报错,
+        /// 也没有任何测试盖得住,只能全屏逐栏眼看着比对。</summary>
+        public static LayoutElement Sized(GameObject go,
+            float width = -1f, float height = -1f, float flexWidth = 0f, float flexHeight = 0f)
+        {
+            var element = go.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+            element.preferredHeight = height;
+            element.flexibleWidth = flexWidth;
+            element.flexibleHeight = flexHeight;
+            return element;
+        }
+
         /// <summary>进度条:PaperDim 底 + 填充色,圆角胶囊。</summary>
         public static GameObject Bar(Transform parent, float frac, Color fill, Vector2 size)
         {
@@ -458,6 +497,42 @@ namespace Brushblade.Presentation
             Anchor((RectTransform)front.transform, Vector2.zero,
                 new Vector2(Mathf.Clamp01(frac), 1), Vector2.zero, Vector2.zero);
             return back; // 调用方可在其上叠加文本(如召唤物血值)
+        }
+
+        /// <summary>战场单位块:立绘方块在左、信息列在右(稿 .foe / .ally / .me 同构)。
+        /// 三条(血/盾/行动)由调用方按需塞进 info —— 敌人的血条带叠字、我方的不带,
+        /// 那是稿本身的结构差异(.foe .hpb 有 &lt;u&gt; 而 .ally/.me 没有),不是可以统一掉的东西。
+        ///
+        /// 抽出来是因为轮二的详情弹窗是第四个调用点。前三处在轮一各写各的,
+        /// 已经长出三套盾条刻度 —— 再来一处就收不住了。
+        ///
+        /// <paramref name="portrait"/> 是一个已按 <paramref name="portraitSize"/> 定好宽高的空挂载点——
+        /// 内容自定形状的立绘(<see cref="CircleGlyph"/>/<see cref="RoundButton"/>)建在它下面后
+        /// 记得 <see cref="Stretch"/> 铺满;直接在挂载点本体上加组件(如 MobView)则不需要。
+        /// <paramref name="info"/> 已是配好 <paramref name="infoWidth"/> 定宽的 <see cref="VStack"/>——
+        /// 需要横向撑满(玩家条 flexWidth:1 那种)的话,调用方在拿到后自己改它的
+        /// <see cref="LayoutElement"/>。</summary>
+        public static GameObject UnitBlock(Transform parent, string name,
+            float portraitSize, float infoWidth, float spacing,
+            out Transform portrait, out Transform info)
+        {
+            var shell = Panel(parent, name);
+            Stretch((RectTransform)shell.transform);
+            var row = shell.AddComponent<HorizontalLayoutGroup>();
+            row.spacing = spacing;
+            row.childAlignment = TextAnchor.MiddleLeft;
+            row.childForceExpandWidth = false;
+            row.childForceExpandHeight = false;
+
+            var portraitGo = Panel(shell.transform, "Portrait");
+            Sized(portraitGo, width: portraitSize, height: portraitSize);
+            portrait = portraitGo.transform;
+
+            var infoGo = VStack(shell.transform, "Info");
+            Sized(infoGo, width: infoWidth);
+            info = infoGo.transform;
+
+            return shell;
         }
 
         /// <summary>墨锭图标 + 文本(gold=true 用于价格标签)。</summary>
@@ -651,6 +726,53 @@ namespace Brushblade.Presentation
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
             return go;
+        }
+
+        /// <summary>竖直可滚动列表(2026-08-31,拆合台可合成列表首用):项目里第一处 ScrollRect,
+        /// 后续要做别的滚动列表照这个结构抄,别再发明第二套。
+        ///
+        /// 结构是标准 uGUI 三层:返回的外层挂 <see cref="ScrollRect"/>(调用方在它身上挂
+        /// LayoutElement 决定这块区域占多高)→ Viewport(<see cref="RectMask2D"/> 裁剪,不用
+        /// <see cref="Mask"/> 是因为那个要求一张 Graphic 陪衬,平白多一次 overdraw)→
+        /// Content(<paramref name="content"/>,VerticalLayoutGroup + ContentSizeFitter 按
+        /// 子物体撑高)。调用方只管 <c>Ui.Clear(content)</c> 再往里塞东西,和其余 Draw* 方法
+        /// 同一套用法,不用关心 ScrollRect 内部怎么接。</summary>
+        public static GameObject ScrollList(Transform parent, string name, float spacing, out Transform content)
+        {
+            var root = Panel(parent, name);
+            var scroll = root.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var viewport = Panel(root.transform, "Viewport");
+            Stretch((RectTransform)viewport.transform);
+            viewport.AddComponent<RectMask2D>();
+
+            var contentGo = VStack(viewport.transform, "Content", spacing);
+            var contentLayout = contentGo.GetComponent<VerticalLayoutGroup>();
+            contentLayout.childAlignment = TextAnchor.UpperCenter;
+            contentLayout.childForceExpandWidth = true;   // 列表项铺满列表宽度(稿 .cr { width: 100% })
+            contentLayout.childForceExpandHeight = false; // 每项按自己的高度摞,不分摊富余
+            var contentRect = (RectTransform)contentGo.transform;
+            // 锚顶、随内容向下长——ContentSizeFitter 算出的高度是「顶部固定、往下撑」,
+            // 锚点/pivot 都钉在顶边,否则内容变化时会从中心往两边长,滚动位置会跟着跳。
+            contentRect.anchorMin = new Vector2(0, 1);
+            contentRect.anchorMax = new Vector2(1, 1);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            // 横向 sizeDelta 显式归零(2026-09-01):anchorMin.x/anchorMax.x 已经是 0/1,
+            // 宽度 = 视口宽 + sizeDelta.x —— 这一项没写死的话就吃 RectTransform 的构造
+            // 缺省值,一旦不是 0,Content 会比视口宽出那么多、再按 pivot 0.5 居中,
+            // 左右两端各被 RectMask2D 裁掉一半差额(表现是列表项左边缘缺一块)。
+            // y 交给 ContentSizeFitter,这里给 0 只是占位。
+            contentRect.sizeDelta = Vector2.zero;
+            contentGo.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = (RectTransform)viewport.transform;
+            scroll.content = contentRect;
+            content = contentGo.transform;
+            return root;
         }
     }
 }

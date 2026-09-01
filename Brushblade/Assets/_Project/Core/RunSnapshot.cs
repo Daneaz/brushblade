@@ -63,6 +63,7 @@ namespace Brushblade.Core
         public BossSkill ChargingSkill { get; set; } // 蓄力锁定的技能:预告什么就放什么
         public EnemyRow Row { get; set; }   // 实际站位(2026-08-20)
         public int Column { get; set; } // 实际列(2026-08-22)
+        public int Shield { get; set; }  // 敌人护盾(2026-08-30)
     }
 
     public sealed class SummonSnapshot

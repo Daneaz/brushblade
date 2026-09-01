@@ -112,8 +112,8 @@
       align-items: center; justify-content: flex-start; gap: 2px; }
     /* 敌我分界:auto margin 把 field 剩下的纵向全部堆到这一道的上下,
        两侧各留一半 —— 富余越多,敌我离得越开。 */
-    .divider { position: relative; margin: auto 0; width: 86%; height: 1px;
-      background: rgba(61,78,105,.26); }
+    .divider { position: relative; margin: auto 0; width: 74%; height: 1px;
+      background: rgba(61,78,105,.3); }
     .divider::after { content: "◈"; position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%); font-size: 7px; color: rgba(61,78,105,.5);
       background: #EFE8DA; padding: 0 5px; line-height: 1; }
@@ -186,8 +186,6 @@
     .foeslot.front { width: 140px; height: 66px; }
     .foeslot.rear { width: 140px; height: 52px; }
 
-    .divider { width: 74%; height: 1px; background: rgba(61,78,105,.3); }
-
     /* 我方格同样横排。召唤物之前挤在 34/28 的小方块里,横排后立绘反而放大到 48/40。 */
     .ally { display: flex; align-items: center; gap: 5px; padding: 3px;
       background: rgba(255,253,247,.5); border: 1px solid rgba(198,188,168,.5); border-radius: 8px; }
@@ -224,7 +222,11 @@
     /* ---------- 玩家条 ---------- */
     /* 与战场格同构:立绘方块 + 信息列 + 三条。执笔人原先只有一个名字,
        在四排都是「立绘 + 条」的战场上显得不是同一类东西。 */
-    .me { flex: none; height: 40px; display: flex; align-items: center; gap: 8px;
+    /* 宽度锁死 584px 并居中(2026-09-01):584 = 一排 4 格 ×140 + 3 个间距 ×8,即战场网格的
+       实际内容宽。中区是 602px,玩家条原先铺满 602,比上方的战场网格两边各宽出 9px —— 竖着
+       看边缘不齐,读起来就是「玩家条比战斗区长了一截」。手牌行、部件池行同此。 */
+    .me { flex: none; width: 584px; align-self: center; height: 40px; display: flex;
+      align-items: center; gap: 8px;
       background: rgba(255,253,247,.86); border: 1px solid #DED7C9;
       border-radius: 9px; padding: 0 9px 0 4px; }
     .me .blk { position: relative; flex: none; width: 34px; height: 34px; border-radius: 7px;
@@ -251,7 +253,12 @@
 
     /* AP:每回合能出几个字,是这一屏最该一眼看见的资源。
        原先是三颗 8px 小圆点,分量还不如旁边的状态 chip。改成竖笔画格 —— 满的是墨、
-       空的是白格,像还没蘸墨的笔画;不够出下一个字时整块转朱砂。 */
+       空的是白格,像还没蘸墨的笔画。
+       2026-09-01 去掉了原本跟在笔画格后面的「3/3」数字(.ap .n):几根格子本来就是
+       「满了几根 / 一共几根」,数字是同一件事说第二遍。连带没了的是唯一的 dry 表现
+       (.ap.dry .n 转深朱砂)—— AP 见底时每一根格子都是空的,这本身就是最一眼的反馈。
+       下面留着的 .ap.dry .pips i.on 在当前 AP 语义下永远不触发(dry 即 Ap==0,不会有
+       任何一枚 on),落地也一直没实现它,留着只为记住这条规则曾经存在。 */
     .ap { flex: none; display: flex; align-items: center; gap: 5px; padding-left: 8px;
       border-left: 1px solid #E4DDCE; align-self: stretch; }
     .ap .k { font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
@@ -259,19 +266,23 @@
     .ap .pips i { display: block; width: 8px; height: 20px; border-radius: 3px;
       background: #EFEADF; box-shadow: inset 0 0 0 1px #D5CBB8; }
     .ap .pips i.on { background: #11161F; box-shadow: none; }
-    .ap .n { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600;
-      font-variant-numeric: tabular-nums; line-height: 1; }
-    .ap .n em { font-style: normal; font-size: 9px; color: #88909C; }
     .ap.dry .pips i.on { background: #C53637; }
-    .ap.dry .n { color: #9B1E22; }
 
     /* 状态栏:定宽两行,四枚以内平铺、超出收 +N —— 之前挤在最右侧,多两个状态就顶出去了 */
     .stt { flex: none; width: 120px; align-self: stretch; display: flex; flex-wrap: wrap;
       align-content: center; gap: 3px; padding-left: 8px; border-left: 1px solid #E4DDCE; }
 
     /* ---------- 手牌 ---------- */
-    .hand { flex: none; display: flex; align-items: center; justify-content: center; gap: 5px; }
-    .handlbl { font-size: 8px; color: #88909C; letter-spacing: 1.5px; writing-mode: vertical-rl; }
+    /* 宽度与对齐同 .me(见那里的说明)。justify-content 从 center 改成 flex-start
+       (2026-09-01):计数标题在行首,整组居中会让标题的 x 随牌数左右漂,与下面同样带
+       标题的部件池行对不齐 —— 「竖着看别扭」正是别扭在这里。 */
+    .hand { flex: none; width: 584px; align-self: center; display: flex;
+      align-items: center; justify-content: flex-start; gap: 5px; }
+    /* 计数标题:原本是 writing-mode: vertical-rl,而「部件池 12/12」有 8 个字符,竖着
+       堆起来比整条手牌带(56px)还高,一个字一个字往下读确实别扭。2026-09-01 改回横排
+       一行。定宽 46px 不是为了标题自己好看,是为了让两行的第一张牌落在同一个 x 上
+       ——「字库 5/9」与「部件池 12/12」的自然宽度差着一大截。 */
+    .handlbl { flex: none; width: 46px; font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
     .tile { position: relative; width: 46px; height: 56px; border-radius: 7px; background: #FFFDF7;
       border: 2px solid var(--rar); box-shadow: 0 1px 3px rgba(22,27,34,.1); cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -290,16 +301,27 @@
     .adslot.used { border-color: #CFC7B6; background: #EFEAE0; color: #A8A08E; cursor: default; }
 
     /* ---------- 部件池 ---------- */
-    .pool { flex: none; display: flex; align-items: center; gap: 4px; }
-    .pool .lbl { font-size: 8px; color: #88909C; letter-spacing: 1.5px; writing-mode: vertical-rl; height: 36px; }
+    .pool { flex: none; width: 584px; align-self: center; display: flex;
+      align-items: center; justify-content: flex-start; gap: 4px; }
+    .pool .lbl { flex: none; width: 46px; font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
     .part { position: relative; width: 32px; height: 38px; border-radius: 7px; cursor: pointer;
       background: var(--elSoft); border: 1.5px solid transparent; padding: 0; font-family: inherit;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
     .part .pg { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600;
       line-height: 1; color: var(--elFg); }
     /* 同源变体(ComponentKin):水=水氵冫 / 木=木艹 / 金=金钅戈刂刀 / 土=土山石 / 火=火灬。
-       同组任一都能顶替配方里的那一位,所以必须写在卡面上。 */
-    .part .kin { font-size: 7px; color: var(--elFg); opacity: .72; letter-spacing: -.2px; line-height: 1; }
+       同组任一都能顶替配方里的那一位,所以必须标在卡面上。
+       2026-09-01 用户拍板还原四角设计:同组**其他全部**成员各占一个角,从右上起顺时针填。
+       曾短暂改成卡面底部一行「≈氵冫」(超过 2 个用 +N 收尾),那一版读不出「具体能顶谁」
+       —— 金系除自己外正好 4 个(钅戈刂刀),四角刚好占满,一个都不用省。
+       再加成员就得换设计:第五个角不存在。 */
+    .part .kb { position: absolute; height: 7px; padding: 0 2px; border-radius: 4px;
+      background: var(--elFg); color: #fff; font-size: 5px; line-height: 7px;
+      letter-spacing: -.2px; white-space: nowrap; }
+    .part .kb.c0 { right: 1px; top: 1px; }      /* 右上 */
+    .part .kb.c1 { right: 1px; bottom: 1px; }   /* 右下 */
+    .part .kb.c2 { left: 1px; bottom: 1px; }    /* 左下 */
+    .part .kb.c3 { left: 1px; top: 1px; }       /* 左上 */
     .part.on { border-color: #C53637; box-shadow: 0 0 0 1.5px rgba(197,54,55,.25); }
     .part.neutral { background: #E4DFD4; }
     .part.neutral .pg { color: #4F5661; }
@@ -307,7 +329,6 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       font-size: 7.5px; color: #1B552C; cursor: pointer; font-family: inherit; padding: 0; line-height: 1.2; }
     .adpart.used { border-color: #CFC7B6; background: #EFEAE0; color: #A8A08E; cursor: default; }
-    .poolnote { font-size: 8px; color: #A8A08E; letter-spacing: .3px; margin-left: auto; }
 
     /* ---------- 右栏 拆合台 ---------- */
     .bench { width: 132px; flex: none; background: rgba(255,253,247,.84); border: 1px solid #DED7C9;
@@ -321,6 +342,12 @@
     .picked .pn { font-size: 9px; color: #88909C; letter-spacing: .3px; }
     .picked .pv { font-size: 9.5px; color: #2C333D; line-height: 1.45; margin-top: 2px; }
     .picked .pv b { color: #B02D2E; }
+    .kinrow { display: flex; align-items: center; gap: 3px; flex: none; }
+    .kinrow .ar { font-size: 11px; color: #88909C; }
+    .kinrow .kp { width: 18px; height: 18px; border-radius: 4px; display: flex;
+      align-items: center; justify-content: center; background: var(--elFg); color: #fff;
+      font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; }
+    .kinnote { flex: none; font-size: 8px; color: #88909C; letter-spacing: .3px; }
     .empty { flex: none; font-size: 9.5px; color: #A8A08E; line-height: 1.7; padding: 4px 2px; }
     .acts { display: flex; gap: 4px; flex: none; }
     .act { flex: 1; height: 32px; border: none; border-radius: 6px; cursor: pointer;
@@ -377,7 +404,7 @@
 </helmet>
 
 <div class="dev">
-  <svg class="icdefs" aria-hidden="true"><defs><symbol id="ic-burn" viewBox="0 0 64 64"><path fill="#fff" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/></symbol><symbol id="ic-burn_nodecay" viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="none" stroke="#fff" stroke-width="6"/><path fill="#fff" d="M32 14c6 8 10 13 10 18a10 10 0 0 1-20 0c0-4 2-7 4-8-1 3 1 5 2 6 1-5-1-9-2-12 3 1 5-1 6-4z"/></symbol><symbol id="ic-freeze" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7v50M10 19l44 26M54 19L10 45"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M25 14l7 7 7-7M25 50l7-7 7 7"/></symbol><symbol id="ic-slow" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M16 7h32M16 57h32"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M20 7c0 13 12 19 12 25s-12 12-12 25M44 7c0 13-12 19-12 25s12 12 12 25"/></symbol><symbol id="ic-blind" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 50L50 14"/></symbol><symbol id="ic-silence" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M10 13h44v25H33L21 50V38H10z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 53L53 11"/></symbol><symbol id="ic-curse" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 55c-12 0-22-10-22-22S20 11 32 11c9 0 17 7 17 16s-6 14-13 14-9-4-9-9 3-7 7-7"/></symbol><symbol id="ic-seal" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M21 30v-8a11 11 0 0 1 22 0v8"/><path fill="#fff" d="M15 30h34v24H15z"/></symbol><symbol id="ic-immunity" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M23 32l7 8 12-14"/></symbol><symbol id="ic-reflect" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M11 7v50"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M52 20H24"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M34 11l-10 9 10 9"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M24 45h28"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M42 36l10 9-10 9"/></symbol><symbol id="ic-attack" viewBox="0 0 64 64"><path fill="#fff" d="M52 8l-4 14-26 26-8-8L40 14z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 46l-8 8"/></symbol><symbol id="ic-morale" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 8v48"/><path fill="#fff" d="M18 12h30l-8 10 8 10H18z"/></symbol><symbol id="ic-crit" viewBox="0 0 64 64"><path fill="#fff" d="M32 4l7 19 19-7-7 19 7 19-19-7-7 19-7-19-19 7 7-19-7-19 19 7z"/></symbol><symbol id="ic-pierce" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32h42M40 20l12 12-12 12"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M30 12v40"/></symbol><symbol id="ic-defense" viewBox="0 0 64 64"><path fill="#fff" d="M32 6l22 8v19c0 13-11 23-22 27-11-4-22-14-22-27V14z"/></symbol><symbol id="ic-dodge" viewBox="0 0 64 64"><circle cx="45" cy="32" r="11" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M27 17c-7 9-7 21 0 30"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M14 21c-5 7-5 15 0 22"/></symbol><symbol id="ic-speed" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 20h26M8 32h34M8 44h26"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M40 20l14 12-14 12"/></symbol><symbol id="ic-shield" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/></symbol><symbol id="ic-armorbreak" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M37 17l-10 15h11l-10 15"/></symbol><symbol id="ic-bleed" viewBox="0 0 64 64"><path fill="#fff" d="M31 6c8 12 13 19 13 25a13 13 0 0 1-26 0c0-6 5-13 13-25z"/><circle cx="15" cy="49" r="5" fill="#fff"/><circle cx="47" cy="52" r="4" fill="#fff"/></symbol><symbol id="ic-scorch" viewBox="0 0 64 64"><path fill="#fff" d="M26 6c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M52 52V24M44 32l8-8 8 8"/></symbol><symbol id="ic-sear" viewBox="0 0 64 64"><path fill="#fff" d="M32 5c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M9 51c5-6 10 6 15 0s10 6 16 0 8 4 15 0"/></symbol><symbol id="ic-split" viewBox="0 0 64 64"><path fill="#fff" d="M27 6a26 26 0 0 0 0 52z"/><path fill="#fff" d="M37 6a26 26 0 0 1 0 52z"/></symbol><symbol id="ic-obscure" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 12h38v40H13z"/><path fill="#fff" d="M13 33c8-6 13 6 21 0s8 4 17 0v19H13z"/></symbol><symbol id="ic-focus" viewBox="0 0 64 64"><circle cx="32" cy="32" r="17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 5v10M32 49v10M5 32h10M49 32h10"/></symbol><symbol id="ic-ranged" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 10c13 8 13 36 0 44"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 32h33M39 22l10 10-10 10"/></symbol><symbol id="ic-sweep" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 11C28 11 11 28 11 53"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 27C37 27 27 37 27 53"/></symbol><symbol id="ic-skewer" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M6 32h44M40 22l10 10-10 10"/><circle cx="19" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/><circle cx="35" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/></symbol><symbol id="ic-thorns" viewBox="0 0 64 64"><circle cx="32" cy="32" r="11" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/></symbol></defs></svg>
+  <svg class="icdefs" aria-hidden="true"><defs><symbol id="ic-burn" viewBox="0 0 64 64"><path fill="#fff" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/></symbol><symbol id="ic-burn_nodecay" viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="none" stroke="#fff" stroke-width="6"/><path fill="#fff" d="M32 14c6 8 10 13 10 18a10 10 0 0 1-20 0c0-4 2-7 4-8-1 3 1 5 2 6 1-5-1-9-2-12 3 1 5-1 6-4z"/></symbol><symbol id="ic-freeze" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7v50M10 19l44 26M54 19L10 45"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M25 14l7 7 7-7M25 50l7-7 7 7"/></symbol><symbol id="ic-slow" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M16 7h32M16 57h32"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M20 7c0 13 12 19 12 25s-12 12-12 25M44 7c0 13-12 19-12 25s12 12 12 25"/></symbol><symbol id="ic-blind" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 50L50 14"/></symbol><symbol id="ic-silence" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M10 13h44v25H33L21 50V38H10z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 53L53 11"/></symbol><symbol id="ic-curse" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 55c-12 0-22-10-22-22S20 11 32 11c9 0 17 7 17 16s-6 14-13 14-9-4-9-9 3-7 7-7"/></symbol><symbol id="ic-seal" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M21 30v-8a11 11 0 0 1 22 0v8"/><path fill="#fff" d="M15 30h34v24H15z"/></symbol><symbol id="ic-immunity" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M23 32l7 8 12-14"/></symbol><symbol id="ic-reflect" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M11 7v50"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M52 20H24"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M34 11l-10 9 10 9"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M24 45h28"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M42 36l10 9-10 9"/></symbol><symbol id="ic-attack" viewBox="0 0 64 64"><path fill="#fff" d="M52 8l-4 14-26 26-8-8L40 14z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 46l-8 8"/></symbol><symbol id="ic-morale" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 8v48"/><path fill="#fff" d="M18 12h30l-8 10 8 10H18z"/></symbol><symbol id="ic-crit" viewBox="0 0 64 64"><path fill="#fff" d="M32 4l7 19 19-7-7 19 7 19-19-7-7 19-7-19-19 7 7-19-7-19 19 7z"/></symbol><symbol id="ic-pierce" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32h42M40 20l12 12-12 12"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M30 12v40"/></symbol><symbol id="ic-defense" viewBox="0 0 64 64"><path fill="#fff" d="M32 6l22 8v19c0 13-11 23-22 27-11-4-22-14-22-27V14z"/></symbol><symbol id="ic-dodge" viewBox="0 0 64 64"><circle cx="45" cy="32" r="11" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M27 17c-7 9-7 21 0 30"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M14 21c-5 7-5 15 0 22"/></symbol><symbol id="ic-speed" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 20h26M8 32h34M8 44h26"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M40 20l14 12-14 12"/></symbol><symbol id="ic-shield" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/></symbol><symbol id="ic-armorbreak" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M37 17l-10 15h11l-10 15"/></symbol><symbol id="ic-bleed" viewBox="0 0 64 64"><path fill="#fff" d="M31 6c8 12 13 19 13 25a13 13 0 0 1-26 0c0-6 5-13 13-25z"/><circle cx="15" cy="49" r="5" fill="#fff"/><circle cx="47" cy="52" r="4" fill="#fff"/></symbol><symbol id="ic-scorch" viewBox="0 0 64 64"><path fill="#fff" d="M26 6c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M52 52V24M44 32l8-8 8 8"/></symbol><symbol id="ic-sear" viewBox="0 0 64 64"><path fill="#fff" d="M32 5c9 11 14 18 14 24a14 14 0 0 1-28 0c0-5 2-9 5-11-1 4 1 7 3 9 2-7-1-13-3-17 4 1 7-1 9-5z"/><path fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M9 51c5-6 10 6 15 0s10 6 16 0 8 4 15 0"/></symbol><symbol id="ic-split" viewBox="0 0 64 64"><path fill="#fff" d="M27 6a26 26 0 0 0 0 52z"/><path fill="#fff" d="M37 6a26 26 0 0 1 0 52z"/></symbol><symbol id="ic-obscure" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M13 12h38v40H13z"/><path fill="#fff" d="M13 33c8-6 13 6 21 0s8 4 17 0v19H13z"/></symbol><symbol id="ic-focus" viewBox="0 0 64 64"><circle cx="32" cy="32" r="17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 5v10M32 49v10M5 32h10M49 32h10"/></symbol><symbol id="ic-ranged" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 10c13 8 13 36 0 44"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 32h33M39 22l10 10-10 10"/></symbol><symbol id="ic-sweep" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 11C28 11 11 28 11 53"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M53 27C37 27 27 37 27 53"/></symbol><symbol id="ic-skewer" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M6 32h44M40 22l10 10-10 10"/><circle cx="19" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/><circle cx="35" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/></symbol><symbol id="ic-thorns" viewBox="0 0 64 64"><circle cx="32" cy="32" r="11" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/></symbol><symbol id="ic-heal" viewBox="0 0 64 64"><path fill="#fff" d="M26 12h12v14h14v12H38v14H26V38H12V26h14z"/></symbol></defs></svg>
   <div class="safe">
 
     <div class="bar">
@@ -605,7 +632,6 @@
             <span class="pips">
               <sc-for list="{{apPips}}" as="p" hint-placeholder-count="3"><i class="{{p.cls}}"></i></sc-for>
             </span>
-            <span class="n">{{ap}}<em>/{{apMax}}</em></span>
           </div>
         </div>
 
@@ -628,14 +654,15 @@
           <sc-for list="{{pool}}" as="p" hint-placeholder-count="9">
             <button class="part {{p.elCls}} {{p.cls}}" onClick="{{p.tap}}">
               <span class="pg">{{p.id}}</span>
-              <span class="kin">{{p.kin}}</span>
+              <sc-for list="{{p.kins}}" as="k" hint-placeholder-count="2">
+                <span class="kb {{k.cls}}">≈{{k.t}}</span>
+              </sc-for>
             </button>
           </sc-for>
           <button class="adpart {{poolAdCls}}" onClick="{{poolAd}}">
             <svg width="7" height="8" viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="currentColor"></path></svg>
             {{poolAdText}}
           </button>
-          <span class="poolnote">下回合掉 1 个</span>
         </div>
       </div>
 
@@ -650,6 +677,22 @@
               <div class="pv">{{sel.effect}}</div>
             </div>
           </div>
+          <!-- 转位提示(2026-09-01 还原):选中五系部件时列出同组**全部**可互换成员。
+               与卡面四角的 ≈X 徽标是两条口径:徽标在 32×38 的卡上用最小面积回答
+               「这张能顶谁」,这里空间够、给全量,还配一句说明这是什么机制。
+               纯说明不是操作 —— 等价匹配在合成时自动生效,不花 AP(spec §1.6c)。 -->
+          <sc-if value="{{sel.hasKin}}" hint-placeholder-val="{{true}}">
+            <div class="kinrow">
+              <span class="ar">⇄</span>
+              <sc-for list="{{sel.kins}}" as="k" hint-placeholder-count="2">
+                <span class="kp {{k.elCls}}">{{k.t}}</span>
+              </sc-for>
+            </div>
+            <div class="kinnote">同源变体 · 位形互换</div>
+          </sc-if>
+          <sc-if value="{{sel.soloLeaf}}" hint-placeholder-val="{{false}}">
+            <div class="kinnote">(独体字,不可拆)</div>
+          </sc-if>
         </sc-if>
         <sc-if value="{{hasPicked}}" hint-placeholder-val="{{true}}">
           <div class="acts">
@@ -719,13 +762,17 @@ var RAR_NAME = { White: "白", Green: "绿", Blue: "蓝", Purple: "紫", Gold: "
 
 // ComponentKin(Core/ComponentKin.cs):同组任一都能顶替配方里的那一位
 var KIN = [["水","氵","冫"], ["木","艹"], ["金","钅","戈","刂","刀"], ["土","山","石"], ["火","灬"]];
-function kinOf(part) {
+// 四角徽标:同组其他全部成员,从右上起顺时针填。最多 4 个(金系),四角刚好占满。
+function kinsOf(part) {
+  return kinRest(part).map(function (x, i) { return { t: x, cls: "c" + i }; });
+}
+// 同组除自己以外的成员,原序。四角徽标与拆合台的转位提示共用这一条口径。
+function kinRest(part) {
   for (var i = 0; i < KIN.length; i++) {
     if (KIN[i].indexOf(part) < 0) continue;
-    var rest = KIN[i].filter(function (x) { return x !== part; });
-    return rest.length > 2 ? "≈" + rest.slice(0, 2).join("") + "+" + (rest.length - 2) : "≈" + rest.join("");
+    return KIN[i].filter(function (x) { return x !== part; });
   }
-  return "";
+  return [];
 }
 function kinMatch(have, want) {
   if (have === want) return true;
@@ -853,8 +900,8 @@ class Component extends DCLogic {
         { id: "松", el: "Wood",  hp: 60, max: 60,  atk: 30, atb: 30, speed: 33, row: "front", col: 1, chips: [] },
         { id: "枪", el: "Wood",  hp: 44, max: 72,  atk: 62, atb: 47, speed: 33, row: "front", col: 2,
           chips: [["skewer", "mode", "70%"]] },
-        { id: "碉", el: "Earth", hp: 55, max: 60,  atk: 10, atb: 8,  speed: 22, row: "rear",  col: 0, shield: 60,
-          chips: [["thorns", "heal", "20"]] },
+        { id: "碉", el: "Earth", hp: 110, max: 120, atk: 0,  atb: 8,  speed: 22, row: "rear",  col: 0, shield: 60,
+          chips: [["thorns", "heal", "50"]] },
         { id: "堡", el: "Earth", hp: 120, max: 120, atk: 20, atb: 20, speed: 22, row: "rear", col: 1, chips: [] }
       ],
       coach: -1, lastHit: null   // 设计稿默认关掉遮罩,点顶栏的「?」看引导;真机是首战自动弹
@@ -967,7 +1014,7 @@ class Component extends DCLogic {
       var el = PART_EL[p];
       var on = st.parts.indexOf(i) >= 0;
       return {
-        id: p, kin: kinOf(p),
+        id: p, kins: kinsOf(p),
         elCls: el ? "e-" + el : "neutral",
         cls: on ? "on" : "",
         tap: function () {
@@ -1011,10 +1058,20 @@ class Component extends DCLogic {
     var sel = {};
     if (st.picked !== null && CHARS[st.picked]) {
       var c = CHARS[st.picked];
+      // 转位提示只对独体字(无 rec 配方)出:合成字选中时这一栏该讲的是它的配方。
+      // ⚠ 这块在本稿的可交互 demo 里跑不到:落地实现点部件是**单选**(OnPoolCharClicked
+      // 设 _selectedChar,拆合台随即显示这张部件的详情),而稿上的部件池做的是**多选凑
+      // 配方**(见 pool 的 tap:改 st.parts、并把 picked 清空),CHARS 里也只有合成字、
+      // 没有部件条目。所以下面这几行是**规格**,不是这份 demo 走得到的路径 —— 别因为
+      // 点不出来就以为它是死代码删掉。
+      var kins = c.rec ? [] : kinRest(st.picked);
       sel = {
         id: st.picked, rarCls: "r-" + c.rar, elCls: "e-" + c.el,
         meta: RAR_NAME[c.rar] + " · " + EL_NAME[c.el] + " · Lv." + c.lv,
-        effect: effectText(st.picked)
+        effect: effectText(st.picked),
+        kins: kins.map(function (x) { return { t: x, elCls: "e-" + (PART_EL[x] || "") }; }),
+        hasKin: kins.length > 0,
+        soloLeaf: !c.rec && kins.length === 0
       };
     }
 
@@ -1035,8 +1092,10 @@ class Component extends DCLogic {
       skipCoach: function () { self.setState({ coach: -1 }); },
       hpPct: Math.round(st.hp / st.hpMax * 100) + "%", hpText: st.hp + " / " + st.hpMax,
       shPct: shieldPct(st.shield, st.hpMax), shield: st.shield,
-      hp: st.hp, hpMax: st.hpMax, ap: st.ap, apMax: st.apMax,
-      // 出不起下一个字时整块 AP 转朱砂:出字恒耗 1 AP(CharDef.ApCostFor 一律返回 1)
+      hp: st.hp, hpMax: st.hpMax,
+      // 出不起下一个字:出字恒耗 1 AP(CharDef.ApCostFor 一律返回 1)。2026-09-01 起
+      // .dry 已无可见表现(数字撤了,唯一剩下的 .ap.dry .pips i.on 永远不触发),
+      // 类名留着是为了记住这条规则曾经存在 —— 见 .ap 上方的说明。
       apCls: st.ap < 1 ? "dry" : "",
       atb: st.atb + "%", atbCls: st.atb > 80 ? "soon" : "",
       apPips: apPips,

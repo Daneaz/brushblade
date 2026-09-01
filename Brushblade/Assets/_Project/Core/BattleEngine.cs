@@ -248,8 +248,20 @@ namespace Brushblade.Core
         /// 灼烧/引爆恒为火 —— 与它们生克算式里写死的 KeMultiplier(Fire, …) 同一口径。</summary>
         public Element? Attacker { get; }
 
+        /// <summary>这一记是不是吃了 **0.5x**(2026-08-31);占便宜的那一头见 <see cref="Ke"/>。
+        ///
+        /// 生克是双向规则,表现也该双向:<see cref="Ke"/> 只标了占便宜的一头,吃亏的一头此前
+        /// 一点表达都没有 —— 玩家打出去伤害莫名其妙只有一半,读不出是自己属性挑错了,
+        /// 还容易误以为是敌人有护甲。
+        ///
+        /// 与 <see cref="Ke"/> **互斥且同源**:两者都由 KeMultiplier(攻, 守) 这一个数决定 ——
+        /// &gt;1 是 Ke,&lt;1 是 Countered,==1 两者皆假。留成两个 bool 而不升格成枚举,
+        /// 是因为非法组合在构造点根本造不出来(三处赋值都读同一个倍率),而改动面小得多。</summary>
+        public bool Countered { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
-            int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null)
+            int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null,
+            bool countered = false)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -259,6 +271,7 @@ namespace Brushblade.Core
             Crit = crit;
             Ke = ke;
             Attacker = attacker;
+            Countered = countered;
         }
     }
 
@@ -2354,8 +2367,10 @@ namespace Brushblade.Core
             // 出牌时冻结的量,它是 _burnPerStack 这个全局标量。层数(Magnitude)不吃攻击力。
             // 不复用 ScaleByAttack:那是整数除(早截断),这里要插进既有的浮点式子里晚截断,
             // 才能在基准值下保住逐字节恒等
-            // 相克标记与倍率同源:算式里本来就乘了这个倍率,>1 即相克(2026-08-30)
-            bool burnKe = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element) > 1f;
+            // 相克标记与倍率同源:算式里本来就乘了这个倍率,>1 即相克(2026-08-30),<1 即被克(2026-08-31)
+            float burnWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
+            bool burnKe = burnWuxing > 1f;
+            bool burnCountered = burnWuxing < 1f;
             int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
@@ -2370,7 +2385,7 @@ namespace Brushblade.Core
                 if (burn.Magnitude <= 0) enemy.Statuses.Remove(StatusKind.Burn);
             }
             _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick, ke: burnKe,
-                attacker: Element.Fire));
+                attacker: Element.Fire, countered: burnCountered));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2416,14 +2431,16 @@ namespace Brushblade.Core
             int stacks = burn.Magnitude;
             // 与 SettleBurnOn 同口径吃攻击力:引爆是把剩余层数一次性兑现,
             // 每层伤害用的是同一个量,不能只有一边吃
-            bool detonateKe = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element) > 1f;
+            float detonateWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
+            bool detonateKe = detonateWuxing > 1f;
+            bool detonateCountered = detonateWuxing < 1f;
             int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * _burnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);
             enemy.Hp = Math.Max(0, enemy.Hp - damage);
             _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe,
-                attacker: Element.Fire));
+                attacker: Element.Fire, countered: detonateCountered));
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else
@@ -2590,21 +2607,41 @@ namespace Brushblade.Core
             return alive;
         }
 
-        /// <summary>按每排上限 3 给场上敌人定实际站位与列(2026-08-20 排,2026-08-22 列)。
-        /// 按 _enemies 顺序依次分:先满足 Def.Row 的偏好,该排已满则改判到另一排;
-        /// 列号在**落定的那一排**里现算 —— 被改判的那只要从新排的计数起算,
-        /// 沿用原排的计数会撞号。
-        /// 两排都满走不到 —— EnemyCap 8 = 4 + 4,列表长度天然受限。</summary>
+        // 未分配哨兵(2026-08-30):AssignSlots 边分配边查占位,尚未轮到的敌人不能被算成
+        // 「已占默认的 Front/0」。用 −1 而不是布尔标志:Column 本来就是 int,
+        // 而 FreeColumnIn 的区间相交式子对 −1 起点天然不成立(ColumnEnd = -1 + span ≤ 0 ≤ start)。
+        private const int UnassignedColumn = -1;
+
+        /// <summary>按每排容量给场上敌人定实际站位与列(2026-08-20 排,2026-08-22 列,
+        /// 2026-08-30 列区间 + 居中往外)。
+        ///
+        /// 按 _enemies 顺序依次分:先试偏好排,该排**剩余宽度**不够就改判到另一排。
+        /// 判据是宽度不是只数 —— Boss 一只就占满 4 列,按只数算会让小怪叠在它身上。
+        ///
+        /// 列号走 <see cref="Targeting.ColumnOrder"/> 的居中往外序,取第一个能放下
+        /// 连续 <c>ColumnSpan</c> 列的起点。占满整排的(Span = RowCapacity)只有起点 0 放得下。
+        ///
+        /// ⚠ **这里是布局策略的唯一落点。** 将来要加「辅助怪躲进没有前排的后排列」这类判据,
+        /// 加在本方法里,不要架一层策略接口(用户 2026-08-30 拍板:单一实现不做抽象)。</summary>
         private void AssignSlots()
         {
-            int front = 0, back = 0;
+            foreach (var enemy in _enemies) enemy.Column = UnassignedColumn;
             foreach (var enemy in _enemies)
             {
-                bool wantsBack = enemy.Def.Row == EnemyRow.Back;
-                if (wantsBack && back < EnemyRowCap) { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
-                else if (!wantsBack && front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
-                else if (front < EnemyRowCap) { enemy.Row = EnemyRow.Front; enemy.Column = front++; }
-                else { enemy.Row = EnemyRow.Back; enemy.Column = back++; }
+                var preferred = enemy.Def.Row;
+                var other = preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front;
+                int column = FreeColumnIn(preferred, enemy.Def.ColumnSpan);
+                var row = preferred;
+                if (column < 0)
+                {
+                    row = other;
+                    column = FreeColumnIn(other, enemy.Def.ColumnSpan);
+                }
+                // 两排都放不下:EnemyCap 8 = 4 + 4 且全员 Span 1 时走不到,
+                // 但跨列的怪会让「只数没超上限、宽度却超了」成为可能。落到 −1 就把它
+                // 挤在最后一排的 0 列 —— 画面会叠,但下标与列号仍然自洽,不至于崩。
+                enemy.Row = row;
+                enemy.Column = column < 0 ? 0 : column;
             }
         }
 
@@ -2776,14 +2813,26 @@ namespace Brushblade.Core
             // 对称性备查:敌人侧今天无处落地 —— 玩家没有五行属性(DamagePlayerDirect 收的是
             // 算好的 enemy.Attack,不过 KeMultiplier),召唤物走五行但 SummonState 没有护甲字段。
             // 哪天给召唤物加了护甲,这条规则要一并在 DamageSummon 里补上。
-            bool counters = WuxingResolver.KeMultiplier(attacker, enemy.Element) > 1f;
+            float wuxing = WuxingResolver.KeMultiplier(attacker, enemy.Element);
+            bool counters = wuxing > 1f;
+            bool countered = wuxing < 1f; // 吃亏的那一头(0.5x):与 counters 同源、互斥
             if (!bypassDefense && !counters)
                 damage = Math.Max(0, damage - EffectiveEnemyDefense(enemy, pierce, attackerBag));
-            enemy.Hp = Math.Max(0, enemy.Hp - damage);
             // counters 在上面为「相克即破甲」算过了,直接复用:相克标记与破甲判据是同一件事,
             // 分头再算一次就有走岔的余地(表现层说相克、结算却吃了护甲)
-            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, crit: crit,
-                ke: counters, attacker: attacker));
+            // 护盾吸收(2026-08-30):护甲减法之后、扣血之前。
+            // **相克不穿盾**(用户拍板):相克已经在上面绕过了护甲(硬度),
+            // 盾是一层临时血,照常要打空 —— 连盾一起穿会让护盾对带对属性的玩家形同虚设。
+            int absorbed = Math.Min(enemy.Shield, damage);
+            enemy.Shield -= absorbed;
+            enemy.Hp = Math.Max(0, enemy.Hp - (damage - absorbed));
+            // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
+            // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
+            // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「倾覆清空玩家护盾」
+            // (TargetIndex = −1),语义不同,挪用会让表现层分不清是谁的盾没了。
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage,
+                absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,
+                countered: countered));
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
@@ -2837,8 +2886,8 @@ namespace Brushblade.Core
             // 母体那排满了就落另一排;两排都满(= 场上 6 只)才不分裂。
             if (enemy.Def.Ability == EnemyAbility.Split && !IsSilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
-                var cloneRow = RowWithSpace(enemy.Row);
-                int cloneColumn = FreeColumnIn(cloneRow);
+                var cloneRow = RowWithSpace(enemy.Row, enemy.Def.ColumnSpan);
+                int cloneColumn = FreeColumnIn(cloneRow, enemy.Def.ColumnSpan);
                 // 找不到空列则不分裂(spec §6.1)。当前理论不可达——RowWithSpace 只会返回
                 // 一排未满的排,同排列号又互不相同,必有空列——但代码得照 spec 说的话讲,
                 // 不能靠"反正走不到"当隐性前提(2026-08-22)。
@@ -2861,27 +2910,38 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>优先返回 preferred 排(未满时),否则另一排。调用方已保证场上未满 EnemyCap,
-        /// 所以必有一排有空位。</summary>
-        private EnemyRow RowWithSpace(EnemyRow preferred)
+        /// <summary>优先返回 preferred 排(**剩余宽度**放得下 span 时),否则另一排。
+        /// 2026-08-30:从数只数改成数宽度 —— 跨列的怪让「只数没满、宽度已满」成为可能。</summary>
+        private EnemyRow RowWithSpace(EnemyRow preferred, int span)
         {
-            int count = 0;
+            int width = 0;
             foreach (var e in _enemies)
-                if (e.Row == preferred) count++;
-            return count < EnemyRowCap ? preferred : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
+                if (e.Row == preferred && e.Column != UnassignedColumn) width += e.ColumnSpan;
+            return width + span <= EnemyRowCap
+                ? preferred
+                : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
         }
 
-        /// <summary>该排里没被占用的最小列号(2026-08-22)。分裂出的克隆用它落位。
-        /// 全占满返回 −1 —— 分裂本就被「场上敌人 < 4」的守卫挡在前面,
-        /// 但守卫在别处,这里仍要能表达「没地方站」而不是撞号叠在别人身上。</summary>
-        private int FreeColumnIn(EnemyRow row)
+        /// <summary>该排里能放下连续 <paramref name="span"/> 列的起始列号,按
+        /// <see cref="Targeting.ColumnOrder"/> 的居中往外序取第一个;放不下返回 −1。
+        ///
+        /// 开场分配与叠字怪分裂共用这一处 —— 两边对「哪里算空」必须是同一个判据,
+        /// 分头写就有走岔的余地。已阵亡的怪**照样占位**(引擎从不移除阵亡敌人),
+        /// 与表现层「尸体占格」一致。</summary>
+        private int FreeColumnIn(EnemyRow row, int span)
         {
-            for (int col = 0; col < EnemyRowCap; col++)
+            foreach (int start in Targeting.ColumnOrder)
             {
-                bool taken = false;
+                if (start + span > EnemyRowCap) continue;
+                bool free = true;
                 foreach (var e in _enemies)
-                    if (e.Row == row && e.Column == col) { taken = true; break; }
-                if (!taken) return col;
+                {
+                    if (e.Row != row) continue;
+                    if (e.Column == UnassignedColumn) continue;
+                    // 区间相交 = 放不下
+                    if (e.Column < start + span && start < e.ColumnEnd) { free = false; break; }
+                }
+                if (free) return start;
             }
             return -1;
         }
@@ -3024,6 +3084,10 @@ namespace Brushblade.Core
             }
 
             int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
+            // 生克标记(2026-08-31):敌人打召唤物这一路本来就过生克(上面那句),标记跟着同一个倍率走。
+            // 由 Core 标而不是让表现层拿两边属性自己推 —— 那会成为规则的第二个来源,
+            // 与 SummonState.EffectiveAttack 那条注释说的是同一件事。
+            float summonWuxing = WuxingResolver.KeMultiplier(attacker, summon.Element);
 
             // 护甲(2026-08-28,铠 可以挂给召唤物了):点数减法,下钳 0 —— 甲厚过攻击力时
             // 不给召唤物回血。位置在生克**之后**,与 DamageEnemy 那边(生克 → 暴击 → 减甲)
@@ -3047,7 +3111,8 @@ namespace Brushblade.Core
             int absorbed = Math.Min(summon.Shield, taken);
             summon.Shield -= absorbed;
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
-            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed));
+            _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
+                ke: summonWuxing > 1f, countered: summonWuxing < 1f));
 
             // 反伤(2026-08-05,荆):2026-08-25 用户拍板由**固定点数**改成**受到伤害的百分比**,
             // 与下面玩家侧的 Reflect 完全同一套算式 —— 荆 要靠反伤当输出手段,固定值在深层会被

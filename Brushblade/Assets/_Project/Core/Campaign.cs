@@ -90,7 +90,7 @@ namespace Brushblade.Core
             return new EnemyDef(enemy.Id, enemy.Element,
                 Scaled(enemy.MaxHp, scale), Scaled(enemy.Attack, scale),
                 enemy.Ability, phases, ScaledDefense(enemy.Defense, scale), enemy.Speed,
-                enemy.Row, enemy.Range, enemy.Focus);
+                enemy.Row, enemy.Range, enemy.Focus, enemy.ColumnSpan);
         }
 
         /// <summary>护甲点数的深度缩放:**半速**(2026-08-12,E-b4 裁定 11)。

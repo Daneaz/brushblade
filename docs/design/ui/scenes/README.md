@@ -37,8 +37,8 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `Popups.dc.html` | 飘字与全屏反馈 | `Juice.cs` / `WuxingChart.cs` |
 | `UnitFoe.dc.html` | 单位详情 · 敌人 | `OnEnemyClicked` → `EnemyInfo` |
 | `UnitAlly.dc.html` | 单位详情 · 召唤物 | `OnSummonClicked` → `SummonInfo` |
-| `UnitMe.dc.html` | 单位详情 · 执笔人 | 实现侧**还没有**入口 |
-| `StatusGlossary.dc.html` | 状态词条 29 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
+| `UnitMe.dc.html` | 单位详情 · 执笔人 | `OnPlayerClicked` → `PlayerInfo` |
+| `StatusGlossary.dc.html` | 状态词条 30 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
 | `UnitSheetAlt.dc.html` | 详情承载方式取舍 | 低保真，无对应实现 |
 | `Chests.dc.html` | 七档宝箱立绘 | `Core/Chest.cs` · `MapView.DrawChest` |
 | `ChestOpen.dc.html` | 开箱 · 获字 | `ChestRules.TryOpen` · `MapView.ShowChestResult` |
@@ -73,20 +73,6 @@ node <skill>/seed-canvas.mjs \
 
 产出的 `.html` 内联了整个编辑器 payload（2.7MB），**不入 git**（见 `.gitignore`）。
 浏览器里首次渲染要 30 秒以上，不是卡住了。
-
-## 稿子先行、代码待跟进
-
-这三项在稿上已经画成，实现还没有：
-
-- **每排 4 格位**：`Targeting.RowCapacity` 3→4、`BattleEngine.EnemyCap` 6→8、
-  `SummonCap` 6→8、`FrontRowSize` 3→4。会连带影响 `Targeting` 里
-  Cleave / Skewer / Sweep 的按列取目标，属平衡改动。
-- **敌人护盾**：`EnemyState` 没有 `Shield` 字段。要加字段 + 在 `DamageEnemy` 的护甲减法之后、
-  扣血之前插一段吸收，并补 `ShieldBroken` 事件。另有一条待拍板：
-  「相克即破甲」那一击目前无视护甲，要不要连护盾一起穿？
-- **状态图标扩到 29 枚**：`tools/icons/build_icons.py` 的 ICONS 表与 `Icons.cs` 的 Glyphs
-  兜底表要同步（`test_icons.py` 守着两边一一对应），新增兜底汉字须重跑
-  `python3 tools/fonts/subset_fonts.py`。
 
 ## Home 已接线（2026-08-28）
 
@@ -148,7 +134,10 @@ node <skill>/seed-canvas.mjs \
 ## 顺带查出的两处不一致
 
 - `Tutorial.DemoChar` 是「刺」，而 `strings.zh-CN.json` 的四条 `battle.hint.tutorial.*`
-  写的是【剑】——新手会被指去点一张手上没有的牌。
+  写的是【剑】——新手会被指去点一张手上没有的牌。**2026-08-31 已解决**：不是去补这四条旧文案，
+  而是屏底单行提示整体被四步故事弹层取代，新的 12 条 `battle.coach.*` 从头按「刺」写对
+  （配方『朿』『刂』）。顺带一提：旧文案描述的是直伤行为，而剑其实是召唤字、刺才是直伤字，
+  所以对齐到刺之后文案反而更准确了。详见「2026-08-31 已接线」。
 - `chars.json` 的 `Pinyin` / `Gloss` 一条都没填，字段与 `ConfigLoader` 都在，
   卡面拼音位现在是空的。稿里 72 个字的拼音释义是补的，需要过一遍再写进详表。
 
@@ -160,20 +149,20 @@ node <skill>/seed-canvas.mjs \
 - 三类单位共用一个骨架（立绘 88 方 + 名与三条 + 左状态右特性 + 底部提示行），只换内容不换版式。
 - 状态说明写在名字底下，**不做二级弹窗**——弹窗上再弹一层，就得先关掉这层才看得回战场，
   而玩家点开详情正是为了对着战场看。
-- `StatusGlossary.dc.html` 是那句说明的**唯一出处**：29 枚图标 + 4 条走文字 chip 的能力，
+- `StatusGlossary.dc.html` 是那句说明的**唯一出处**：30 枚图标 + 4 条走文字 chip 的能力，
   逐条写清机制 / 挂在谁身上 / 时长口径 / 能不能清掉。落地时它是 `status.*` 两族 strings key 的底稿。
 - `mob_jiaohen.png` 是敌人立绘，从 `Presentation/Mobs/Resources/` 的四层压平并缩到 256：
   `magick enemy_jiaohen_body.png enemy_jiaohen_face.png -composite enemy_jiaohen_wisp.png -composite
   enemy_jiaohen_state.png -composite -resize 256x256 -strip mob_jiaohen.png`
   （层序取自 `MobAssets.Layers` + MobView 的 state 层）。
 
-⚠ **稿子先行**，实现侧还是老样子：现在点敌人/召唤物走 `Ui.Modal(title, body)`——一段
-StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔人根本没有入口**。要落地得动四处：
-玩家条加点击入口；`EnemyInfo` / `SummonInfo` 从「返回整段文本」改成返回逐条结构；新建
-`status.*` 的 strings key；以及新文案上线前**重跑字体子集**。
+四处都已落地（玩家条加点击入口 / `EnemyInfo` `SummonInfo` 从「返回整段文本」改成返回逐条结构 /
+`status.*` 的 strings key / 新文案上线前重跑字体子集），从**稿子先行**转**已接线**，
+见下面「2026-09-01 已接线：单位详情」。
 
 顺带查出：`Battle.dc.html` 里 碉 写的是「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
-「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）——本页按 `chars.json` 画，战斗稿那格待回填。
+「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）——本页按 `chars.json` 画。
+**2026-08-31 已回填**，见「2026-08-31 已接线：战斗屏本体」。
 
 ## 2026-08-29 新增：七档宝箱立绘
 
@@ -277,4 +266,138 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 
 ⚠ 遮罩仍是 `Theme.Scrim`（55%）而稿上写 62%——那是**全项目共用**的模态遮罩，
 为一屏改它会牵动另外十几个弹窗，没动。
+
+## 2026-08-31 已接线：战斗屏本体
+
+`Battle.dc.html` 整页从**稿子先行**转**已实现**——上一轮标着「稿子先行、代码待跟进」的
+敌人护盾与状态图标两条这次一并接线，连同三栏骨架、格内布局、Boss 跨列、引导弹层等全部落地。
+稿本身基本没动，动的是代码去对齐稿子。
+
+- **敌人护盾**：`EnemyState` 加了 `Shield` 字段，`DamageEnemy` 在护甲减法之后、扣血之前插一段
+  吸收，`BattleEvent.Absorbed` 带出被吸收的量并写进快照。⚠ **来源留白**：用户 2026-08-30
+  拍板不改 `enemies.json`、不做结盾技能——盾的来源将来是「加盾辅助怪给同伴挂 buff」，那类
+  小怪还没设计，所以真机上敌人的 `Shield` 恒为 0、盾条看不见，验证全靠 `EnemyShieldTests`
+  那 5 条。这一点专门写清楚，否则以后有人会以为没做。刻意**不新增 `BattleEventKind`**，
+  复用既有的 `Absorbed` 字段（玩家侧 `EnemyAttack` 同口径）；既有的 `ShieldBroken` 是
+  「Boss 倾覆清空**玩家**护盾」，语义不同，没有挪用。
+- **相克即破甲穿不穿盾（拍板）**：**不穿，盾照常吸收**。护甲是「硬度」、护盾是「一层临时
+  血」，两回事——连盾一起穿会让护盾对带对属性的玩家形同虚设。
+- **状态图标扩到 30 枚（不是 29）**：`StatusGlossary.dc.html` 自己记着「持续治疗没有
+  图标——29 枚里缺这一枚，落地要补第 30 枚」，补了 `heal`（新画，已回填进
+  `StatusGlossary.dc.html` 与 `Battle.dc.html` 两张稿的 `icdefs`）。其余 11 枚逐字抄自
+  `Battle.dc.html` 原有的 `icdefs`。
+- **三栏骨架换布局组**：`BuildSkeleton` 从「比例锚点 + 手算纵向预算」改成
+  `Horizontal/VerticalLayoutGroup + LayoutElement`，直译稿的 flex——顶上那 40 行手算加法
+  整段删掉了，它描述的是已不存在的布局，留着比没有更糟。稿的三条 flex 语义：
+  `.erow { flex: none }` 四排各自锁高、`.divider { margin: auto 0 }` 用两个
+  `flexibleHeight = 1` 的空 Spacer 把富余对半堆到敌我之间、中区 `flex: 1`。
+- **安全区内缩补到 `SafeArea.cs` 共用**：`MissingInset()` 从 `MapView` 提出来。每个界面都
+  挂在 `SafeAreaFitter` 下，但编辑器 16:9 下 `Screen.safeArea` 等于全屏，那一层什么都不
+  做；而稿上 `68 + 6 + 602 + 6 + 132 = 814 = 932 − 59×2`，中区那个 602pt 是被 `.safe`
+  内缩定义出来的。不补的话唯一那条弹性轴差 27%。
+- **格内竖排改横排**（敌我两侧都是）：立绘在左、信息列在右。中区横向本就富余，横排后
+  格高由立绘单独决定，纵向反比竖排省 24px/排，省出来的全给敌我之间的留白。召唤物立绘
+  因此反而从 34/28 放大到 48/36pt。
+- **每排恒定 4 格 + 列号居中往外**：`Targeting.RowCells` 「两排都 ≤1 只就折叠成一格」
+  那条特例整个删掉，改由 `ColumnOrder = {1,2,0,3}` 让单怪自然落在中间偏左——顺带解决了
+  那条特例当年要修的毛病（2026-08-23 实机反馈「单怪铺三格会被顶到最左」）。
+- **Boss 跨列（列区间）**：`EnemyDef.ColumnSpan`（默认 1），`EnemyState.Column` 语义收紧
+  为**起始列**，占据 `[Column, ColumnEnd)`。`Skewer` 改区间相交、`Cleave` 改区间相邻、
+  `Chain` 的 `GridDistance` 改半列中心距——`Span = 1` 时与旧写法逐字节等价，既有测试一条
+  未动。⚠ 用户拍板「Boss 将来肯定会配小怪」，口子做在 Core 里而不是只留注释。
+- **行动条配色照稿改**：稿上 `.foe`/`.ally`/`.me` 三种单位的行动条底色同为 `#3D4E69`
+  （= `Theme.InkSoft`），且有 `.soon` 态（>80% 时敌方转朱砂 `#C53637`、我方转绿
+  `#2E7D46`）；实现原本全是 `Theme.Gold` 且无 soon 态。
+- **召唤物血条改绿**（稿 `.ally .hpb` 是 `#2E7D46`，玩家与敌人是红）——敌我一眼分清。
+- **相生环图去掉**：用户拍板，战斗中要实时查的是「我这张字克不克它」，相生 ×3 由配方
+  静态决定、属牌面信息（长按详情弹窗已经显示）。左栏只留相克那张，`WuxingChart.Mount`
+  的 `sheng: true` 分支保留不删——图鉴一类页面仍可能用得上，删的只是战斗屏这一个调用点。
+- **左栏配字表从五行三级目录改平铺列表**：稿上 `.missing` 就是一行一条「字 缺 N」。左窄栏
+  只有 68pt（142 逻辑单位），三级目录的二级那排 4 个 38 宽的钮 + 间距 = 164 已经超出栏宽。
+- **新手引导改四步故事弹层**：屏底一行「◆ 提示」改成屏幕中央的「一句道理 → 一个动作 →
+  一句结果」。遮罩只压 38%（不是全项目共用的 `Theme.Scrim` 55%）——要看得见被点名的那张
+  牌/那只怪。卡片高度内容驱动（`ContentSizeFitter` + `ForceRebuildLayoutImmediate`）。
+  旧的单行提示与四条 `battle.hint.tutorial.*` 整体被替换，新的 12 条 `battle.coach.*`
+  从头按「刺」写对（配方『朿』『刂』），顺带修正了「顺带查出的两处不一致」里记的那处
+  指错。
+- **新增基础件 `Ui.ScrollList`**：本仓库第一个 `ScrollRect`，为拆合台的「可合成」列表
+  （稿 `.craft` 是 `overflow-y: auto`）。此前列表长了会把「结束回合」钮顶出卡片。
+
+### 落地时量出的稿自身毛病
+
+- **`.divider` 在稿里定义了两次**：`:115` 的 `margin: auto 0; width: 86%; rgba(...,.26)`
+  与 `:189` 的 `width: 74%; height: 1px; rgba(...,.3)`。同特异度、后者在后，浏览器实际
+  渲染的是 74%/.3。已在稿里去重（保留渲染生效的值，把 `:115` 独有的 `margin: auto 0`
+  并进去）。
+- **部件池的「下回合掉 1 个」是过时文案**：`BattleEngine` 里明写「部件不再掉落——五行
+  部件只能靠拆字获得（拆免 AP 是这条的对冲）」。已从 `Battle.dc.html` 删掉这条提示
+  （`.poolnote`）。
+- **「碉」的数值过期**：稿写「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
+  「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）。README 早就记着这条待回填，
+  这次一并按 `chars.json` 改了稿。
+
+## 2026-09-01 已接线：单位详情
+
+「2026-08-29 新增：单位详情弹窗」那节记的四处缺口——玩家条没有点击入口、`EnemyInfo`/`SummonInfo`
+只会拼一整段文本、`status.*` 没有 strings key、新文案没过字体子集——本轮全部落地，从**稿子先行**
+转**已接线**。新增 `UI/UnitSheet.cs`（骨架）+ `UI/UnitDetail.cs`（三类单位共用的数据结构）+
+`UI/PlayerInfo.cs`（执笔人的详情数据，全新，此前不存在），`EnemyInfo`/`SummonInfo` 各加一个
+`Sheet(...)` 方法（**追加**，老的整段文本方法一个没删——`EnemyPreview` 与图鉴还在用）。
+
+- **三类单位共用一张骨架，只换内容不换版式**：`UnitSheet` 只认 `UnitDetail`，不认识
+  `EnemyState`/`SummonState`/`BattleEngine`，内部没有任何「如果是敌人/召唤物/执笔人」的分支——
+  三张权威稿（`UnitFoe`/`UnitAlly`/`UnitMe`）本来就是同一张骨架，内容差异全靠 `UnitDetail`
+  的字段为 null 表达（比如执笔人 `Element`/`Wuxing` 恒 null，没有立绘时 `PortraitPrefix` 为
+  null 落成墨底字块）。这样以后要改版式只改一处，三类单位一起跟着变，不会有「敌人那屏改了
+  召唤物那屏忘了」的漂移。
+- **不做二级弹窗**：状态说明直接写在详情面板的左列（`Ui.ScrollList`），不再弹一层新窗——弹窗
+  上再弹一层，就得先关掉上面那层才能看回战场，而玩家点开详情本来就是想对着战场核对信息
+  （这只怪还剩多少甲、我身上这层减速还剩几回合），中间插一层「关闭再看」的动作正好打断这件事。
+- **`status.*` 文案只有三种时长口径**（`StatusText.cs` 的注释原话）：按回合递减
+  （`status.duration.turns`，「剩 N 回合」）、按层数/次数消耗（`.stacks`/`.charges`，不随
+  回合掉，用掉才减）、`TurnsLeft = -1` 的本场持久（`.persistent`，固定文案不带数字）。另外
+  还有几个不挂在这三类上的固定态（`.next_turn` 下回合生效、`.ability`/`.until_revealed`/
+  `.persistent_trait` 这几个「清不掉的天生特性」），但玩家真正会盯着看「还剩多少」的状态
+  只走前三种口径。
+- **执笔人第一次有了入口**：`_bottomRow`（玩家条）自己身上挂了个透明 `Button`，点击触发
+  `OnPlayerClicked`——与 `OnEnemyClicked`/`OnSummonClicked` 同一套纪律，**选目标态优先**：
+  `_allyTargeting` 时够不到治疗目标（`!CanHealSlot`）直接忽略，不落到看详情分支，同样是为了
+  不让玩家以为自己点歪了；`AttachAllyTargetPicker` 的选中覆盖层挂在 `_bottomRow` 的子物件上，
+  子物件的 Graphic 天然盖住父物件自己的 Graphic，点击先命中那层，两套响应不需要额外互斥判断。
+- **`EnemyPreview` 为什么保留**：它按 `EnemyDef` 画（图鉴用的是配置数据，不是某一场具体战斗
+  里的敌人实例），`BestiaryView` 传的也是 `EnemyDef`，拿不到 `Shield`/`Statuses`/`ActionMeter`
+  这些只有 `EnemyState` 才有的实时字段。战斗里改走 `EnemyInfo.Sheet(EnemyState)`，正是因为
+  详情弹窗要显示的是「这只怪现在带了多少甲、身上挂着什么」——图鉴要的是静态资料，战斗要的是
+  实时状态，两件事拿的是两种不同形状的数据，没必要也不该合成一个方法。
+- **`MetaState` 穿透进 `BattleView`**：执笔人详情要显示「养成技能 · 局外」那四条（每回合行动点
+  /字库容量/起始生命上限/每关护盾），这几个数字挂在 `MetaState` 上，`BattleEngine` 只吃养成
+  算好的最终数值、不认识「哪一级」「哪个技能」这些养成层概念，`PlayerInfo.Sheet` 要自己算就
+  得拿到 `MetaState`。`BattleView.Init` 因此新增一个 `MetaState meta` 参数，`GameRoot` 唯一
+  调用点传它已有的 `_meta` 静态实例——不新建、不重新 `MetaStore.Load()`，与 `MapView`/
+  `CollectionView`/`BestiaryView`/`PerkView` 四个界面拿 `MetaState` 的既有模式一致。
+- **刷新是事件驱动，跟 `Refresh` 走，不是每帧**：详情开着时，`BattleView.Refresh()` 每次都会
+  用 `_unitSheetSource`（记着当前详情该拿哪份数据）重新取一份 `UnitDetail`，整体重建一次
+  `UnitSheet`；数据源返回 null（比如召唤物被打死）就顺手关掉详情，不抱着空数据崩。全量重建
+  的代价是 `Ui.ScrollList` 的滚动条会被弹回顶部——`UnitSheet.Show` 因此在重建前记下旧实例的
+  `ScrollRect.normalizedPosition`，重建后原样恢复，玩家翻到第 5 条以后不会被冷不丁弹回开头。
+
+### 落地时量出的稿自身毛病
+
+- **`StatusGlossary.dc.html` 的横扫词条曾写错机制**：改前的原文是「按**列**溅射到相邻目标」，
+  错两处——横扫是命中主目标所在整**排**，不是列；「溅射到相邻」说的其实是 `Cleave`
+  （溅射：主目标 + 同排左右相邻）。判定是稿错而不是代码错的依据是 `Core/TargetShape.cs`
+  这个枚举本身的注释：`Sweep`（横扫）= 主目标所在整排（≤3）、`Cleave`（溅射）= 主目标 +
+  同排左右相邻（≤3）、`Skewer`（贯穿）= 主目标所在整列，前排 + 后排（≤2）——这是判定生克/
+  连锁等一切目标选取逻辑的唯一权威来源，代码这边只有这一处定义，没有第二份互相矛盾的口径
+  可去怀疑。已在稿里改成「命中主目标所在**整排**（≤3），百分比是溅射伤害占比」。⚠ 同一节的
+  **贯穿**词条（`ic-skewer` 那条，稿上标「穿刺」，说明写「按列贯穿到后一排」）核对下来是对的，
+  与 `Skewer` 的定义一致，没有被误改。
+- **稿上画的 `✕`（U+2715）关闭钮，两支源字体都不含这个字形**：`tools/fonts/raw/` 下的
+  `NotoSerifSC[wght].ttf`/`NotoSansSC[wght].ttf` 逐一查过 cmap，两支都没有 U+2715——真上线用
+  这个符号会渲染成空框/豆腐块。判定是稿的问题而不是代码的问题：代码这边 `UnitSheet.cs` 的
+  关闭钮用的从来不是这个字形，而是 `×`（U+00D7，数学乘号），两支源字体都含 U+00D7，运行时
+  显示正常，稿上画的符号和代码实际使用的符号本来就不是同一个字符。⚠ 顺带给以后提个醒：
+  **稿上能画出来的符号，不等于游戏字体里真的有**——同样查过三张详情稿其余的非 CJK 符号
+  （`· × — → − ≥ ±`），逐个核对下来两支源字体都含，这一批没有潜伏风险，只有 `✕` 这一个
+  例外。
 
