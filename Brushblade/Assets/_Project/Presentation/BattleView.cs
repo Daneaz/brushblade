@@ -79,6 +79,13 @@ namespace Brushblade.Presentation
         private const float EventBodyTop = 0.926f;
         private const float EventBodyBottom = 0.109f;
 
+        // ---- 段末横幅(稿 RunEnd.dc.html):整屏纸罩 + 居中大字 ----
+        // ShowVictoryBanner(过关)、DrawBattleSettle 败北支、DrawRunEnd 三处共用,统一定义
+        // 免得三份数字各自漂移。
+        private const int BannerFont = 92;      // 稿 .banner 44pt
+        private const int BannerMsgFont = 23;   // 稿 .msg 11pt
+        private const float BannerPillH = 100f; // 稿 .pill 48pt
+
         private RecipeGraph _graph;
         private RunEngine _run;
         // 执笔人详情弹窗(PlayerInfo.Sheet)要用:局外等级/技能不在 BattleEngine 上,得从这里
@@ -223,6 +230,30 @@ namespace Brushblade.Presentation
         // 生命周期于是和 _centerRow / _poolRow 完全同构,不需要任何人记得销毁它。
         // 它没有 Image、清空后也没有子物件,非奇遇阶段既不绘制也不拦点击,不必再 SetActive。
         private Transform _eventBody;
+
+        // 段末横幅(稿 RunEnd.dc.html)的整屏纸罩容器:DrawBattleSettle 败北支专用。
+        //
+        // ⚠ 没有照抄任务书原方案(「DrawBattleSettle 每次画之前 transform.Find 销毁同名旧
+        // 节点」)——上面 _eventBody 那段注释警的雷②在这里是真炸的,败北结算有两条退出
+        // 路径完全不会再经过 DrawBattleSettle 本身:
+        //   · 点「看广告复活」→ RunEngine.TryRevive() 把 Phase 直接改成 RunPhase.Reviving
+        //     (不是 InBattle),下一次 Refresh 走 DrawReviveCharStep(),DrawBattleSettle
+        //     再也不会被调用;
+        //   · 点「结算」→ AdvanceAfterBattle() 把 Phase 改成 RunPhase.RunLost,下一次
+        //     Refresh 走 DrawRunEnd()——它只会 Find+Destroy 自己的 "RunEndBanner",认不得
+        //     "SettleBanner" 这个名字。
+        // 两条路径都是「建前销毁那句代码再也没有机会执行第二次」的场景,横幅会原地变成
+        // 一层永久拦点击的孤儿全屏罩。按 _eventBody 的办法(常驻 + Refresh 开头 Ui.Clear,
+        // 见 Refresh 里对应那行)才对:清空这一步与「当前是不是败北结算」完全解耦。
+        private Transform _settleBanner;
+
+        // 段末横幅(稿 RunEnd.dc.html)的整屏纸罩容器:DrawRunEnd 专用。
+        // RunWon/RunLost 是 RunEngine 里的终态(两处赋值只进不出,见 RunEngine.cs),唯一
+        // 出口 _onRunEnded 最终总会经 GameRoot.NewView() 把整个 BattleView 连根拔起——单看
+        // DrawRunEnd 自己确实不会像 _settleBanner 那样漏。但那份「安全」压在 GameRoot.cs
+        // 那条外部约定上,BattleView 自己看不见、也拦不住将来谁改;两个版式相同的横幅没理由
+        // 走两套生命周期模型,索性都按 _settleBanner 那套最保险的办法来。
+        private Transform _runEndBanner;
         private GameObject _rowDivider;  // 敌我前排之间的墨线:只在战斗阶段现身(2026-08-20)
         private Text _messageLabel;
         private bool _resolvingHint;    // 本次重绘落在动画锁里:底部提示行画「结算中……」而非播报
@@ -732,6 +763,14 @@ namespace Brushblade.Presentation
             eventBodyGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             _eventBody = eventBodyGo.transform;
 
+            // 段末横幅两个槽位,常驻 + 全屏拉伸,自己不挂 Image、清空后也没有子物件——
+            // 与 _eventBody 同一套办法(见字段声明处的雷)。建在 EventBody 之后,天然又
+            // 盖在其上,虽说三者从不同屏,先后顺序其实不打紧。
+            _settleBanner = Ui.Panel(transform, "SettleBanner").transform;
+            Ui.Stretch((RectTransform)_settleBanner);
+            _runEndBanner = Ui.Panel(transform, "RunEndBanner").transform;
+            Ui.Stretch((RectTransform)_runEndBanner);
+
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.70f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
@@ -1127,6 +1166,8 @@ namespace Brushblade.Presentation
             Ui.Clear(_summonFrontRow);
             Ui.Clear(_summonBackRow);
             Ui.Clear(_eventBody);   // 奇遇页那一整块跟着排一起清:它就是靠这一条才不必挂退出路径销毁
+            Ui.Clear(_settleBanner); // 段末横幅(败北结算)同一套办法,见字段声明处的雷
+            Ui.Clear(_runEndBanner); // 段末横幅(跑图结束)同上
             // 2026-09-01 轮三 Task 3:此处原有「离开战利品/复活阶段就无条件销毁 _rewardModal」
             // 的通用兜底——那是安全的,因为 _rewardModal 只在 Reward/Reviving 两个阶段被
             // 赋值,别处不碰。当时把它合并进 _modal 想复用这条兜底,但 _modal 在 InBattle
@@ -3173,19 +3214,29 @@ namespace Brushblade.Presentation
                 ShowVictoryBanner(); // 过关提示走屏幕中央横幅,自动推进(2026-07-21)
                 return;
             }
-            Ui.ThemedLabel(_centerRow, Strings.T("battle.phase.defeat_ellipsis"), 36, Theme.TextMain, Theme.TitleFont);
+            // 整屏纸罩(稿 RunEnd.dc.html),与 DrawRunEnd 同款版式——败北结算本质就是 RunEnd
+            // 提前露出的一支,只是多一个「看广告复活」的口子。挂在常驻的 _settleBanner 而非
+            // 每次现建现销:详见该字段声明处——看广告复活/点结算这两条退出路径都不会再
+            // 回头调用本方法,「建前 Find 销毁」永远等不到下一次执行的机会。
+            var overlay = Ui.Panel(_settleBanner, "Overlay");
+            Ui.Stretch((RectTransform)overlay.transform);
+            overlay.AddComponent<Image>().color = Theme.ScrimPaper;
+            var wrap = Ui.VStack(overlay.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
+            Ui.Stretch((RectTransform)wrap.transform);
+            wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.ThemedLabel(wrap.transform, Strings.T("battle.phase.defeat_ellipsis"), BannerFont, Theme.CinnabarDark, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
-                Ui.AdBadge(_centerRow, Strings.T("battle.btn.ad_revive"), () =>
+                Ui.AdBadge(wrap.transform, Strings.T("battle.btn.ad_revive"), () =>
                 {
                     _previewRewardIndex = -1;
                     _run.TryRevive();
                     _onExpanded?.Invoke(); // 即时落盘:防「刚看完广告就挂起」白看
                     _message = Strings.T("battle.revive.full_hp_msg");
                     Refresh();
-                }, new Vector2(160, 60));
-            Ui.PillButton(_centerRow, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
-                Theme.Jade, Color.white, 26, new Vector2(150, 70));
+                }, new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
+            Ui.PillButton(wrap.transform, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
+                Theme.Jade, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill font-size 17pt→36;宽度非换算值,估的
         }
 
         private bool _bannerRunning; // 横幅协程已起:Refresh 会反复走到这里,防重复
@@ -3201,18 +3252,29 @@ namespace Brushblade.Presentation
             foreach (var enemy in Battle.Enemies)
                 if (enemy.IsBoss) { boss = true; break; }
 
-            // 墨色横带压暗底下的血条/字牌:大字与背景分层,不再糊在一起(2026-07-21)
+            // 纸色罩铺满整屏(稿 RunEnd.dc.html:rgba(246,241,231,.72))。此前是压在中间
+            // 一条的墨色横带 —— 墨罩把战场压成深色,与「本段告捷」的明快读感相反,
+            // 且大字只在那条带里,余光扫不到。整屏罩 + 居中大字才是稿要的读法。
+            //
+            // 挂在 transform 下现建现销(不进 _settleBanner/_runEndBanner 那套常驻+Ui.Clear):
+            // 这里是纯计时协程自销毁的模型,与另外两个「每次 Refresh 都重画」的模型不同源——
+            // VictoryBannerRoutine 结束时自己 Destroy(banner) 再 AdvanceAfterSettle(),不依赖
+            // Refresh() 的清空节奏;反过来说,如果把它塞进常驻容器,某次淡出动画中途被
+            // Refresh() 的 Ui.Clear 打断,协程手里还攥着已被销毁的 group,下一帧
+            // group.alpha = ... 就是访问假 null,直接抛 MissingReferenceException。
             var banner = Ui.Panel(transform, "VictoryBanner");
-            Ui.Anchor((RectTransform)banner.transform,
-                new Vector2(0, boss ? 0.42f : 0.45f), new Vector2(1, boss ? 0.62f : 0.59f),
-                Vector2.zero, Vector2.zero);
+            Ui.Stretch((RectTransform)banner.transform);
             var scrim = banner.AddComponent<Image>();
-            scrim.color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, boss ? 0.88f : 0.8f);
+            scrim.color = Theme.ScrimPaper;
             var group = banner.AddComponent<CanvasGroup>();
-            group.blocksRaycasts = false; // 只是提示,不拦点击
-            var label = Ui.ThemedLabel(banner.transform, boss ? Strings.T("battle.phase.boss_broken_banner") : Strings.T("battle.phase.floor_cleared_banner"),
-                boss ? 72 : 44, boss ? Theme.Gold : Theme.CardWhite, Theme.TitleFont);
-            Ui.Stretch(label.rectTransform);
+            group.blocksRaycasts = false;   // 只是提示,不拦点击
+
+            var wrap = Ui.VStack(banner.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
+            Ui.Stretch((RectTransform)wrap.transform);
+            wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.ThemedLabel(wrap.transform,
+                boss ? Strings.T("battle.phase.boss_broken_banner") : Strings.T("battle.phase.floor_cleared_banner"),
+                BannerFont, boss ? Theme.CinnabarDark : Theme.TextMain, Theme.TitleFont);
             StartCoroutine(VictoryBannerRoutine(banner, group, boss ? 1.8f : 1.2f));
         }
 
@@ -3960,15 +4022,34 @@ namespace Brushblade.Presentation
         {
             bool won = _run.Phase == RunPhase.RunWon;
             bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
-            Ui.ThemedLabel(_centerRow, won
+
+            // 稿 RunEnd.dc.html:整屏纸罩 + 横幅 + 一句 msg + 一个大钮,胜负只换文案与色。
+            // 挂在常驻的 _runEndBanner(与 DrawBattleSettle 的 _settleBanner 同一套办法,
+            // 没有照抄任务书「建前 transform.Find 销毁」的原方案)——理由见该字段声明处:
+            // RunWon/RunLost 虽是终态、_onRunEnded 最终总会经 GameRoot.NewView() 把整个
+            // BattleView 连根拔起,但那份「安全」压在 GameRoot.cs 的外部约定上,不值得让
+            // 两个版式相同的横幅走两套生命周期模型。
+            var overlay = Ui.Panel(_runEndBanner, "Overlay");
+            Ui.Stretch((RectTransform)overlay.transform);
+            overlay.AddComponent<Image>().color = Theme.ScrimPaper;
+            var wrap = Ui.VStack(overlay.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
+            Ui.Stretch((RectTransform)wrap.transform);
+            wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+
+            Ui.ThemedLabel(wrap.transform, won
                     ? (tower ? Strings.T("battle.phase.run_won_tower_banner") : Strings.T("battle.phase.run_won_stage_banner"))
                     : Strings.T("battle.phase.defeat_banner"),
-                40, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_centerRow, won && tower ? Strings.T("battle.btn.to_safe_floor") : tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"),
-                () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
-            _message = won
-                ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
-                : (tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg"));
+                BannerFont, won ? Theme.TextMain : Theme.CinnabarDark, Theme.TitleFont);
+            Ui.ThemedLabel(wrap.transform, won
+                    ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
+                    : (tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg")),
+                BannerMsgFont, Theme.TextDim);
+            Ui.PillButton(wrap.transform,
+                won && tower ? Strings.T("battle.btn.to_safe_floor")
+                    : tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"),
+                () => _onRunEnded(won), won ? Theme.Jade : Theme.InkSoft, Color.white, 36, // 稿 .pill font-size 17pt→36
+                new Vector2(400, BannerPillH)); // 稿 .pill 48pt;宽度非换算值,估的
+            _message = "";   // 那句话已经画在横幅里,底部提示行不再重复一遍
         }
 
         // ---- 交互 ----
