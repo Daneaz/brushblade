@@ -37,7 +37,7 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `Popups.dc.html` | 飘字与全屏反馈 | `Juice.cs` / `WuxingChart.cs` |
 | `UnitFoe.dc.html` | 单位详情 · 敌人 | `OnEnemyClicked` → `EnemyInfo` |
 | `UnitAlly.dc.html` | 单位详情 · 召唤物 | `OnSummonClicked` → `SummonInfo` |
-| `UnitMe.dc.html` | 单位详情 · 执笔人 | 实现侧**还没有**入口 |
+| `UnitMe.dc.html` | 单位详情 · 执笔人 | `OnPlayerClicked` → `PlayerInfo` |
 | `StatusGlossary.dc.html` | 状态词条 30 枚 | `Core/StatusEffect.cs` · `Icons.cs` |
 | `UnitSheetAlt.dc.html` | 详情承载方式取舍 | 低保真，无对应实现 |
 | `Chests.dc.html` | 七档宝箱立绘 | `Core/Chest.cs` · `MapView.DrawChest` |
@@ -156,10 +156,9 @@ node <skill>/seed-canvas.mjs \
   enemy_jiaohen_state.png -composite -resize 256x256 -strip mob_jiaohen.png`
   （层序取自 `MobAssets.Layers` + MobView 的 state 层）。
 
-⚠ **稿子先行**，实现侧还是老样子：现在点敌人/召唤物走 `Ui.Modal(title, body)`——一段
-StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔人根本没有入口**。要落地得动四处：
-玩家条加点击入口；`EnemyInfo` / `SummonInfo` 从「返回整段文本」改成返回逐条结构；新建
-`status.*` 的 strings key；以及新文案上线前**重跑字体子集**。
+四处都已落地（玩家条加点击入口 / `EnemyInfo` `SummonInfo` 从「返回整段文本」改成返回逐条结构 /
+`status.*` 的 strings key / 新文案上线前重跑字体子集），从**稿子先行**转**已接线**，
+见下面「2026-09-01 已接线：单位详情」。
 
 顺带查出：`Battle.dc.html` 里 碉 写的是「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
 「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）——本页按 `chars.json` 画。
@@ -336,4 +335,69 @@ StringBuilder 拼出来的长文本，没有立绘、没有图标；**点执笔�
 - **「碉」的数值过期**：稿写「血 60 / 攻 10 / 反伤 20」，而 `chars.json` 现在是
   「血 120 / 攻 0 / 反伤 50」（2026-08-25 字表重构之后）。README 早就记着这条待回填，
   这次一并按 `chars.json` 改了稿。
+
+## 2026-09-01 已接线：单位详情
+
+「2026-08-29 新增：单位详情弹窗」那节记的四处缺口——玩家条没有点击入口、`EnemyInfo`/`SummonInfo`
+只会拼一整段文本、`status.*` 没有 strings key、新文案没过字体子集——本轮全部落地，从**稿子先行**
+转**已接线**。新增 `UI/UnitSheet.cs`（骨架）+ `UI/UnitDetail.cs`（三类单位共用的数据结构）+
+`UI/PlayerInfo.cs`（执笔人的详情数据，全新，此前不存在），`EnemyInfo`/`SummonInfo` 各加一个
+`Sheet(...)` 方法（**追加**，老的整段文本方法一个没删——`EnemyPreview` 与图鉴还在用）。
+
+- **三类单位共用一张骨架，只换内容不换版式**：`UnitSheet` 只认 `UnitDetail`，不认识
+  `EnemyState`/`SummonState`/`BattleEngine`，内部没有任何「如果是敌人/召唤物/执笔人」的分支——
+  三张权威稿（`UnitFoe`/`UnitAlly`/`UnitMe`）本来就是同一张骨架，内容差异全靠 `UnitDetail`
+  的字段为 null 表达（比如执笔人 `Element`/`Wuxing` 恒 null，没有立绘时 `PortraitPrefix` 为
+  null 落成墨底字块）。这样以后要改版式只改一处，三类单位一起跟着变，不会有「敌人那屏改了
+  召唤物那屏忘了」的漂移。
+- **不做二级弹窗**：状态说明直接写在详情面板的左列（`Ui.ScrollList`），不再弹一层新窗——弹窗
+  上再弹一层，就得先关掉上面那层才能看回战场，而玩家点开详情本来就是想对着战场核对信息
+  （这只怪还剩多少甲、我身上这层减速还剩几回合），中间插一层「关闭再看」的动作正好打断这件事。
+- **`status.*` 文案只有三种时长口径**（`StatusText.cs` 的注释原话）：按回合递减
+  （`status.duration.turns`，「剩 N 回合」）、按层数/次数消耗（`.stacks`/`.charges`，不随
+  回合掉，用掉才减）、`TurnsLeft = -1` 的本场持久（`.persistent`，固定文案不带数字）。另外
+  还有几个不挂在这三类上的固定态（`.next_turn` 下回合生效、`.ability`/`.until_revealed`/
+  `.persistent_trait` 这几个「清不掉的天生特性」），但玩家真正会盯着看「还剩多少」的状态
+  只走前三种口径。
+- **执笔人第一次有了入口**：`_bottomRow`（玩家条）自己身上挂了个透明 `Button`，点击触发
+  `OnPlayerClicked`——与 `OnEnemyClicked`/`OnSummonClicked` 同一套纪律，**选目标态优先**：
+  `_allyTargeting` 时够不到治疗目标（`!CanHealSlot`）直接忽略，不落到看详情分支，同样是为了
+  不让玩家以为自己点歪了；`AttachAllyTargetPicker` 的选中覆盖层挂在 `_bottomRow` 的子物件上，
+  子物件的 Graphic 天然盖住父物件自己的 Graphic，点击先命中那层，两套响应不需要额外互斥判断。
+- **`EnemyPreview` 为什么保留**：它按 `EnemyDef` 画（图鉴用的是配置数据，不是某一场具体战斗
+  里的敌人实例），`BestiaryView` 传的也是 `EnemyDef`，拿不到 `Shield`/`Statuses`/`ActionMeter`
+  这些只有 `EnemyState` 才有的实时字段。战斗里改走 `EnemyInfo.Sheet(EnemyState)`，正是因为
+  详情弹窗要显示的是「这只怪现在带了多少甲、身上挂着什么」——图鉴要的是静态资料，战斗要的是
+  实时状态，两件事拿的是两种不同形状的数据，没必要也不该合成一个方法。
+- **`MetaState` 穿透进 `BattleView`**：执笔人详情要显示「养成技能 · 局外」那四条（每回合行动点
+  /字库容量/起始生命上限/每关护盾），这几个数字挂在 `MetaState` 上，`BattleEngine` 只吃养成
+  算好的最终数值、不认识「哪一级」「哪个技能」这些养成层概念，`PlayerInfo.Sheet` 要自己算就
+  得拿到 `MetaState`。`BattleView.Init` 因此新增一个 `MetaState meta` 参数，`GameRoot` 唯一
+  调用点传它已有的 `_meta` 静态实例——不新建、不重新 `MetaStore.Load()`，与 `MapView`/
+  `CollectionView`/`BestiaryView`/`PerkView` 四个界面拿 `MetaState` 的既有模式一致。
+- **刷新是事件驱动，跟 `Refresh` 走，不是每帧**：详情开着时，`BattleView.Refresh()` 每次都会
+  用 `_unitSheetSource`（记着当前详情该拿哪份数据）重新取一份 `UnitDetail`，整体重建一次
+  `UnitSheet`；数据源返回 null（比如召唤物被打死）就顺手关掉详情，不抱着空数据崩。全量重建
+  的代价是 `Ui.ScrollList` 的滚动条会被弹回顶部——`UnitSheet.Show` 因此在重建前记下旧实例的
+  `ScrollRect.normalizedPosition`，重建后原样恢复，玩家翻到第 5 条以后不会被冷不丁弹回开头。
+
+### 落地时量出的稿自身毛病
+
+- **`StatusGlossary.dc.html` 的横扫词条曾写错机制**：改前的原文是「按**列**溅射到相邻目标」，
+  错两处——横扫是命中主目标所在整**排**，不是列；「溅射到相邻」说的其实是 `Cleave`
+  （溅射：主目标 + 同排左右相邻）。判定是稿错而不是代码错的依据是 `Core/TargetShape.cs`
+  这个枚举本身的注释：`Sweep`（横扫）= 主目标所在整排（≤3）、`Cleave`（溅射）= 主目标 +
+  同排左右相邻（≤3）、`Skewer`（贯穿）= 主目标所在整列，前排 + 后排（≤2）——这是判定生克/
+  连锁等一切目标选取逻辑的唯一权威来源，代码这边只有这一处定义，没有第二份互相矛盾的口径
+  可去怀疑。已在稿里改成「命中主目标所在**整排**（≤3），百分比是溅射伤害占比」。⚠ 同一节的
+  **贯穿**词条（`ic-skewer` 那条，稿上标「穿刺」，说明写「按列贯穿到后一排」）核对下来是对的，
+  与 `Skewer` 的定义一致，没有被误改。
+- **稿上画的 `✕`（U+2715）关闭钮，两支源字体都不含这个字形**：`tools/fonts/raw/` 下的
+  `NotoSerifSC[wght].ttf`/`NotoSansSC[wght].ttf` 逐一查过 cmap，两支都没有 U+2715——真上线用
+  这个符号会渲染成空框/豆腐块。判定是稿的问题而不是代码的问题：代码这边 `UnitSheet.cs` 的
+  关闭钮用的从来不是这个字形，而是 `×`（U+00D7，数学乘号），两支源字体都含 U+00D7，运行时
+  显示正常，稿上画的符号和代码实际使用的符号本来就不是同一个字符。⚠ 顺带给以后提个醒：
+  **稿上能画出来的符号，不等于游戏字体里真的有**——同样查过三张详情稿其余的非 CJK 符号
+  （`· × — → − ≥ ±`），逐个核对下来两支源字体都含，这一批没有潜伏风险，只有 `✕` 这一个
+  例外。
 

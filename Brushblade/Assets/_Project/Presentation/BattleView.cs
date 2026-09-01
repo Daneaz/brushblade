@@ -1097,6 +1097,15 @@ namespace Brushblade.Presentation
             // 布尔:期间若被别的模态(奇遇替换弹窗等)顶掉,_modal 已经指向别的物体,名字
             // 自然对不上,不会把详情弹窗重新弹到别的模态上面;玩家自己点 ×/知道了/遮罩关掉后
             // _modal 变 Unity 假 null,同样不会再重建。
+            // ⚠ 隐式依赖(2026-09-01 review 补记):这一块**不检查** Animating,而
+            // AdvanceRoutine() 在 BeginAnim 的锁区间内、每个行动者动作播完都会调一次
+            // Refresh(),也就是一次结算里详情理论上会被反复重建。今天打不通纯粹是巧合:
+            // 详情弹窗的遮罩是铺满 transform 的全屏拦截层(UnitSheet.Show 里的 overlay),
+            // 且下面紧跟着那句 SetAsLastSibling 每次 Refresh 后都把它置顶,详情开着时玩家
+            // 点不到「结束回合」也出不了字,根本进不去会触发 AdvanceRoutine 的结算流程。
+            // 这条不是设计出来的保证,是两处互不知情的代码碰巧对上了——将来谁把某个模态
+            // 改成半屏或半透遮罩,这里就会在结算过程中悄悄开始闪,而且没有任何测试拦得住
+            // (Presentation 层无自动化测试)。
             if (_modal != null && _modal.name == UnitSheetGameObjectName && _unitSheetSource != null)
             {
                 var detail = _unitSheetSource();
@@ -1869,7 +1878,11 @@ namespace Brushblade.Presentation
         /// 忽略,不落到下面的看详情分支——同 <see cref="OnEnemyClicked"/> 的注释,落下去会让
         /// 玩家以为自己点歪了。绑在 <c>_bottomRow</c> 自己身上的按钮见 <c>BuildSkeleton</c>;
         /// <see cref="AttachAllyTargetPicker"/> 选目标态下会在它身上再叠一层子物件覆盖层,
-        /// 子物件的 Graphic 天然盖住父物件自己的 Graphic,点击先命中那层,不需要额外互斥判断。</summary>
+        /// 子物件的 Graphic 天然盖住父物件自己的 Graphic,点击先命中那层,不需要额外互斥判断。
+        /// 另外一层不会撞见的情形是拖字牌打怪(<see cref="DragToAttack"/>)松手落在玩家条上——
+        /// uGUI 的 Button 点击要求「按下目标 == 抬起目标」,而拖放的按下发生在字牌卡片自己身上,
+        /// 不在 <c>_bottomRow</c> 上,松手时哪怕正好压在这颗按钮上也命中不了 click,天然不会
+        /// 误开详情。</summary>
         private void OnPlayerClicked()
         {
             if (_allyTargeting)
