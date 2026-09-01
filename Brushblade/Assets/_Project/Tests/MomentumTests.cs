@@ -203,9 +203,20 @@ namespace Brushblade.Core.Tests
         {
             // 这条是正反馈环的哨兵,删了会悄悄退化回去:
             // 若护盾读 EffectiveAttack,就成了 堆盾 → 涨势 → 势放大护盾 → 涨更多势。
-            var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
+            // 满 5 层战意走构造函数的 startingStatuses 直接注入(与 BattleEngineTests
+            // .DefenseBuff_InjectedViaConstructor_AppliesImmediately 同一手法,2026-09-02
+            // review 后改用既有公开路径,不再新增 internal 测试钩子)——真实字里「战」给的是
+            // Empower 不是 Morale,「刺」给 Morale 但出字即耗字、还得跨回合累积并躲开战意
+            // 衰减规则,反而更麻烦。
+            var battle = new BattleEngine(CharTableTests.RealGraph(),
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
+                new[] { "圭" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
+                startingStatuses: new[] { new StatusEffect
+                {
+                    Kind = StatusKind.Morale, Magnitude = 5,
+                    Polarity = StatusPolarity.Buff, TurnsLeft = -1, SourceId = "test",
+                } });
             battle.GainMomentumForTest(50 * 10);            // 满 10 层势 = EffectiveAttack 150
-            battle.ApplyMoraleForTest(5);                    // 满 5 层战意
             Assert.That(battle.EffectiveAttack, Is.GreaterThan(100), "伤害侧确实被放大了");
 
             battle.Cast("圭", -1);
@@ -244,6 +255,32 @@ namespace Brushblade.Core.Tests
             battleB.Cast("沝", 0);
             Assert.That(battleB.WaterPowerStacks - before, Is.EqualTo(stacksFromZero),
                 "已有水势不该让这一发治疗攒得更多 —— 攒的基数与水势层数无关");
+        }
+
+        [Test]
+        public void Heal_AmplifiesUsingStacksBeforeGain_NotAfter()
+        {
+            // 上一条(WaterPower_AccumulatesFromUnamplifiedBase_NoFeedbackLoop)只断言层数差,
+            // 吃不出「先 GainWaterPower 再算 amplified(用攒后的层数)」这种顺序反转 —— 两种顺序
+            // 下 GainWaterPower 收到的都是同一个 healBase,最终层数一样,层数差自然一样。
+            // 这条改断言**单次施放的实际回血量**,并且用非零非满(5 层,MaxResourceStacks=10)
+            // 的水势 —— 满层时 GainWaterPower 直接空转 return,顺序对结果毫无影响,测不出反转。
+            //
+            // 沝 治前 5 层(阈值 50 × 5,整除,余数 0):
+            //   正确顺序:amplified = AmplifyByWaterPower(160) 用旧层数 5 → 160 × 150 / 100 = 240
+            //   反转顺序:先 GainWaterPower(160) 层数变 8(160 / 50 = 3 层 + 余 10,5+3=8),
+            //             再用新层数 8 算 amplified → 160 × 180 / 100 = 288
+            // 240 ≠ 288,反转时这条断言必须变红。
+            var battle = NewBattleWithCharTakingDamage("沝", maxHp: 500, playerAttack: 100, enemyAttack: 450);
+            battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 288 的回血空间不封顶
+            Assert.That(battle.PlayerHp, Is.EqualTo(50), "夹具前提:留出的回血空间要盖过两种顺序的差值");
+            battle.GainWaterPowerForTest(50 * 5);   // 先有 5 层(非零非满)
+            Assert.That(battle.WaterPowerStacks, Is.EqualTo(5), "夹具前提:整除,层数刚好 5");
+
+            int before = battle.PlayerHp;
+            battle.Cast("沝", 0);
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(240),
+                "放大值必须用施放前(旧)的层数算,不能用 GainWaterPower 攒完之后的新层数");
         }
 
         // ---- 快照往返(2026-09-02,Task 3)----

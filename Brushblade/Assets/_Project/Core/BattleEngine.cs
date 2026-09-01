@@ -728,12 +728,6 @@ namespace Brushblade.Core
         /// 仅供测试与引擎内部调用。</summary>
         internal void GainWaterPowerForTest(int healAmount) => GainWaterPower(healAmount);
 
-        /// <summary>给玩家堆战意层数,供测试搭「势/战意同时满层」的场景(2026-09-02)。
-        /// 与 <see cref="AddPlayerCounter"/> 的既有钳位/宽限语义完全一致,只是免去
-        /// 靠真实的 战/刺 反复出字攒到 <c>MoraleMaxStacks</c> 层的搭建成本。
-        /// 仅供测试调用,与 <see cref="GainMomentumForTest"/> 同型。</summary>
-        internal void ApplyMoraleForTest(int amount) => AddPlayerCounter(StatusKind.Morale, amount, MoraleMaxStacks);
-
         private void GainWaterPower(int healAmount)
         {
             GainStacks(healAmount, StatusKind.WaterPower, "水势", ref _healAccum);
