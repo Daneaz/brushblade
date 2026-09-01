@@ -310,8 +310,18 @@
     .part .pg { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600;
       line-height: 1; color: var(--elFg); }
     /* 同源变体(ComponentKin):水=水氵冫 / 木=木艹 / 金=金钅戈刂刀 / 土=土山石 / 火=火灬。
-       同组任一都能顶替配方里的那一位,所以必须写在卡面上。 */
-    .part .kin { font-size: 7px; color: var(--elFg); opacity: .72; letter-spacing: -.2px; line-height: 1; }
+       同组任一都能顶替配方里的那一位,所以必须标在卡面上。
+       2026-09-01 用户拍板还原四角设计:同组**其他全部**成员各占一个角,从右上起顺时针填。
+       曾短暂改成卡面底部一行「≈氵冫」(超过 2 个用 +N 收尾),那一版读不出「具体能顶谁」
+       —— 金系除自己外正好 4 个(钅戈刂刀),四角刚好占满,一个都不用省。
+       再加成员就得换设计:第五个角不存在。 */
+    .part .kb { position: absolute; height: 7px; padding: 0 2px; border-radius: 4px;
+      background: var(--elFg); color: #fff; font-size: 5px; line-height: 7px;
+      letter-spacing: -.2px; white-space: nowrap; }
+    .part .kb.c0 { right: 1px; top: 1px; }      /* 右上 */
+    .part .kb.c1 { right: 1px; bottom: 1px; }   /* 右下 */
+    .part .kb.c2 { left: 1px; bottom: 1px; }    /* 左下 */
+    .part .kb.c3 { left: 1px; top: 1px; }       /* 左上 */
     .part.on { border-color: #C53637; box-shadow: 0 0 0 1.5px rgba(197,54,55,.25); }
     .part.neutral { background: #E4DFD4; }
     .part.neutral .pg { color: #4F5661; }
@@ -332,6 +342,12 @@
     .picked .pn { font-size: 9px; color: #88909C; letter-spacing: .3px; }
     .picked .pv { font-size: 9.5px; color: #2C333D; line-height: 1.45; margin-top: 2px; }
     .picked .pv b { color: #B02D2E; }
+    .kinrow { display: flex; align-items: center; gap: 3px; flex: none; }
+    .kinrow .ar { font-size: 11px; color: #88909C; }
+    .kinrow .kp { width: 18px; height: 18px; border-radius: 4px; display: flex;
+      align-items: center; justify-content: center; background: var(--elFg); color: #fff;
+      font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; }
+    .kinnote { flex: none; font-size: 8px; color: #88909C; letter-spacing: .3px; }
     .empty { flex: none; font-size: 9.5px; color: #A8A08E; line-height: 1.7; padding: 4px 2px; }
     .acts { display: flex; gap: 4px; flex: none; }
     .act { flex: 1; height: 32px; border: none; border-radius: 6px; cursor: pointer;
@@ -638,7 +654,9 @@
           <sc-for list="{{pool}}" as="p" hint-placeholder-count="9">
             <button class="part {{p.elCls}} {{p.cls}}" onClick="{{p.tap}}">
               <span class="pg">{{p.id}}</span>
-              <span class="kin">{{p.kin}}</span>
+              <sc-for list="{{p.kins}}" as="k" hint-placeholder-count="2">
+                <span class="kb {{k.cls}}">≈{{k.t}}</span>
+              </sc-for>
             </button>
           </sc-for>
           <button class="adpart {{poolAdCls}}" onClick="{{poolAd}}">
@@ -659,6 +677,22 @@
               <div class="pv">{{sel.effect}}</div>
             </div>
           </div>
+          <!-- 转位提示(2026-09-01 还原):选中五系部件时列出同组**全部**可互换成员。
+               与卡面四角的 ≈X 徽标是两条口径:徽标在 32×38 的卡上用最小面积回答
+               「这张能顶谁」,这里空间够、给全量,还配一句说明这是什么机制。
+               纯说明不是操作 —— 等价匹配在合成时自动生效,不花 AP(spec §1.6c)。 -->
+          <sc-if value="{{sel.hasKin}}" hint-placeholder-val="{{true}}">
+            <div class="kinrow">
+              <span class="ar">⇄</span>
+              <sc-for list="{{sel.kins}}" as="k" hint-placeholder-count="2">
+                <span class="kp {{k.elCls}}">{{k.t}}</span>
+              </sc-for>
+            </div>
+            <div class="kinnote">同源变体 · 位形互换</div>
+          </sc-if>
+          <sc-if value="{{sel.soloLeaf}}" hint-placeholder-val="{{false}}">
+            <div class="kinnote">(独体字,不可拆)</div>
+          </sc-if>
         </sc-if>
         <sc-if value="{{hasPicked}}" hint-placeholder-val="{{true}}">
           <div class="acts">
@@ -728,13 +762,17 @@ var RAR_NAME = { White: "白", Green: "绿", Blue: "蓝", Purple: "紫", Gold: "
 
 // ComponentKin(Core/ComponentKin.cs):同组任一都能顶替配方里的那一位
 var KIN = [["水","氵","冫"], ["木","艹"], ["金","钅","戈","刂","刀"], ["土","山","石"], ["火","灬"]];
-function kinOf(part) {
+// 四角徽标:同组其他全部成员,从右上起顺时针填。最多 4 个(金系),四角刚好占满。
+function kinsOf(part) {
+  return kinRest(part).map(function (x, i) { return { t: x, cls: "c" + i }; });
+}
+// 同组除自己以外的成员,原序。四角徽标与拆合台的转位提示共用这一条口径。
+function kinRest(part) {
   for (var i = 0; i < KIN.length; i++) {
     if (KIN[i].indexOf(part) < 0) continue;
-    var rest = KIN[i].filter(function (x) { return x !== part; });
-    return rest.length > 2 ? "≈" + rest.slice(0, 2).join("") + "+" + (rest.length - 2) : "≈" + rest.join("");
+    return KIN[i].filter(function (x) { return x !== part; });
   }
-  return "";
+  return [];
 }
 function kinMatch(have, want) {
   if (have === want) return true;
@@ -976,7 +1014,7 @@ class Component extends DCLogic {
       var el = PART_EL[p];
       var on = st.parts.indexOf(i) >= 0;
       return {
-        id: p, kin: kinOf(p),
+        id: p, kins: kinsOf(p),
         elCls: el ? "e-" + el : "neutral",
         cls: on ? "on" : "",
         tap: function () {
@@ -1020,10 +1058,20 @@ class Component extends DCLogic {
     var sel = {};
     if (st.picked !== null && CHARS[st.picked]) {
       var c = CHARS[st.picked];
+      // 转位提示只对独体字(无 rec 配方)出:合成字选中时这一栏该讲的是它的配方。
+      // ⚠ 这块在本稿的可交互 demo 里跑不到:落地实现点部件是**单选**(OnPoolCharClicked
+      // 设 _selectedChar,拆合台随即显示这张部件的详情),而稿上的部件池做的是**多选凑
+      // 配方**(见 pool 的 tap:改 st.parts、并把 picked 清空),CHARS 里也只有合成字、
+      // 没有部件条目。所以下面这几行是**规格**,不是这份 demo 走得到的路径 —— 别因为
+      // 点不出来就以为它是死代码删掉。
+      var kins = c.rec ? [] : kinRest(st.picked);
       sel = {
         id: st.picked, rarCls: "r-" + c.rar, elCls: "e-" + c.el,
         meta: RAR_NAME[c.rar] + " · " + EL_NAME[c.el] + " · Lv." + c.lv,
-        effect: effectText(st.picked)
+        effect: effectText(st.picked),
+        kins: kins.map(function (x) { return { t: x, elCls: "e-" + (PART_EL[x] || "") }; }),
+        hasKin: kins.length > 0,
+        soloLeaf: !c.rec && kins.length === 0
       };
     }
 

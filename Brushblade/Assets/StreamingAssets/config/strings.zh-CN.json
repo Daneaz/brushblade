@@ -102,6 +102,8 @@
   "battle.hint.cast_pick_enemy_target": "「{charId}」:点击目标敌人",
   "battle.hint.craft_empty": "手上的部件\n还凑不出字",
   "battle.hint.initial": "点击字库中的字开始行动",
+  "battle.hint.kin_variant_label": "同源变体 · 位形互换",
+  "battle.hint.leaf_char": "(独体字,不可拆)",
   "battle.hint.missing_short": "缺 {missing}",
   "battle.hint.recipe_panel_title": "配字表",
   "battle.hint.slot_picking_dragging": "「{charId}」落位中|点空白取消",

@@ -2609,13 +2609,14 @@ namespace Brushblade.Presentation
         private const float PartTileW = 67f;          // 稿 .part { width: 32pt }
         private const float PartTileH = 80f;          // 稿 .part { height: 38pt }
         private const int PartGlyphFontSize = 30;     // 稿 .part .pg { font-size: 17pt } 附近
-        private const int PartKinFontSize = 12;       // 稿 .part .kin { font-size: 7pt },放大到可读
         private const float PoolAdSlotW = 67f;        // 稿 .adpart { width: 32pt },与部件卡同宽
         private const float PoolAdSlotH = 80f;        // 稿 .adpart { height: 38pt },与部件卡同高
 
-        /// <summary>部件卡(稿 .part):字形 + 同源变体提示两行,比 <see cref="Ui.RoundButton"/>
-        /// 多一行,那个只画一行居中文字,这里单独手搭。</summary>
-        private static Button PartTile(Transform parent, string glyph, string kinHint,
+        /// <summary>部件卡(稿 .part):一个大字形。同源变体不写在卡面上,由
+        /// <see cref="PlaceKinBadge"/> 贴到四角(2026-09-01 用户拍板还原四角设计)。
+        /// 仍不复用 <see cref="Ui.RoundButton"/>:那个是圆钮口径(定圆角/定字号),
+        /// 这里要的是稿上 67×80 的竖版卡,单独手搭。</summary>
+        private static Button PartTile(Transform parent, string glyph,
             System.Action onClick, Color bg, Color fg)
         {
             var go = new GameObject($"Part_{glyph}", typeof(RectTransform));
@@ -2631,28 +2632,42 @@ namespace Brushblade.Presentation
             element.preferredWidth = PartTileW;
             element.preferredHeight = PartTileH;
 
-            var stack = Ui.VStack(go.transform, "Stack", 1);
-            Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform, glyph, PartGlyphFontSize, fg, Theme.TitleFont);
-            if (!string.IsNullOrEmpty(kinHint))
-                Ui.ThemedLabel(stack.transform, kinHint, PartKinFontSize, fg);
+            var label = Ui.ThemedLabel(go.transform, glyph, PartGlyphFontSize, fg, Theme.TitleFont);
+            Ui.Stretch(label.rectTransform);
             return button;
         }
 
-        /// <summary>部件卡面的同源变体提示(稿 .kin,如「≈氵冫」)——ComponentKin 同组任一都能
-        /// 顶替配方里的那一位,不写在卡面上,玩家会以为手里的部件凑不出那个配方
-        /// (2026-08-31 拍板补上,取代旧版的四角徽标 <c>PlaceKinBadge</c>)。
+        /// <summary>把一个同源徽标贴到部件卡的某个角(2026-08-15 首版;2026-08-31 接稿时曾被
+        /// 卡面上一行「≈氵冫」取代,2026-09-01 用户拍板还原四角设计)。
+        /// corner:0=右上、1=右下、2=左下、3=左上,从右上起顺时针填。
         ///
-        /// 逻辑照抄稿的 <c>kinOf()</c>:同组最多列 2 个成员,超出用「+N」收尾——金系
-        /// (金钅戈刂刀,5 个成员)会触发这一支。</summary>
-        private static string KinHint(string charId)
+        /// 四个角全部可用。同组最大是金系 5 个(金钅戈刂刀),除自己外 4 个 —— 刚好占满
+        /// 四角,再加成员就得换设计。
+        ///
+        /// 尺寸 24×14(font 10 / pad 4):窄边距是刻意的(spec §1.6b「小胶囊」),默认
+        /// padX=18/padY=12 单个就占掉大半卡宽,四个角一起画会把字形埋掉。传进
+        /// <see cref="Ui.ChipWidth"/>/<see cref="Ui.ChipHeight"/> 的 pad 必须与传给
+        /// <see cref="Ui.Chip"/> 的一致,否则算出来的尺寸不对、锚点跟着错位。
+        ///
+        /// 徽标是 Text/Image,raycastTarget 默认开着,但点击会冒泡到卡片本身那个 Button
+        /// (与卡面字形同理),所以不必逐个关掉。</summary>
+        private static void PlaceKinBadge(Transform tile, string kinPart, Element? element, int corner)
         {
-            if (!ComponentKin.TryGetGroup(charId, out var group)) return "";
-            var rest = new System.Collections.Generic.List<string>();
-            foreach (var member in group)
-                if (member != charId) rest.Add(member);
-            if (rest.Count == 0) return "";
-            return rest.Count > 2 ? $"≈{rest[0]}{rest[1]}+{rest.Count - 2}" : "≈" + string.Concat(rest);
+            const int font = 10;
+            const int padX = 4;
+            const int padY = 4;
+            string text = $"≈{kinPart}";
+            float w = Ui.ChipWidth(text, font, padX);
+            float h = Ui.ChipHeight(font, padY);
+            var badge = Ui.Chip(tile, text, Theme.ElementColor(element), Color.white, font, padX, padY);
+            var (anchor, offsetMin, offsetMax) = corner switch
+            {
+                0 => (new Vector2(1, 1), new Vector2(-w - 2, -h - 2), new Vector2(-2, -2)),
+                1 => (new Vector2(1, 0), new Vector2(-w - 2, 2), new Vector2(-2, h + 2)),
+                2 => (new Vector2(0, 0), new Vector2(2, 2), new Vector2(w + 2, h + 2)),
+                _ => (new Vector2(0, 1), new Vector2(2, -h - 2), new Vector2(w + 2, -2)),
+            };
+            Ui.Anchor((RectTransform)badge.transform, anchor, anchor, offsetMin, offsetMax);
         }
 
         /// <summary>部件池行末尾的广告扩容位(稿 .adpart):常驻显示,用过后转灰而不是消失,
@@ -2698,11 +2713,23 @@ namespace Brushblade.Presentation
                     if (rewardPhase) { _message = Brief(charId); Refresh(); }
                     else OnPoolCharClicked(charId);
                 };
-                // 2026-08-31 接稿:56×56 的 RoundButton → 67×80 的 PartTile(稿 32×38pt),
-                // 常驻带同源变体提示,不再靠选中/长按才看得到。
-                var tile = PartTile(_poolRow, charId, KinHint(charId), tap,
+                // 2026-08-31 接稿:56×56 的 RoundButton → 67×80 的 PartTile(稿 32×38pt)。
+                var tile = PartTile(_poolRow, charId, tap,
                     selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     selected ? Color.white : Theme.ElementSoftFg(def.Element));
+                // 同源徽标(2026-08-15,部件五系通用;2026-09-01 用户拍板从卡面一行文字
+                // 还原回四角):同组**其他全部**成员各占一个角。判据用 TryGetGroup 而不是
+                // 「只标变体、代表字不标」——代表字(水/金/木/火/土)自己也要标出它能顶谁,
+                // 这是 2026-08-15 的裁定,与下面拆合台的转位提示同口径。
+                if (ComponentKin.TryGetGroup(charId, out var kinGroup))
+                {
+                    int corner = 0;
+                    foreach (var kinPart in kinGroup)
+                    {
+                        if (kinPart == charId) continue; // 自己不标在自己身上
+                        PlaceKinBadge(tile.transform, kinPart, def.Element, corner++);
+                    }
+                }
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def); // 水/土 直出的攻击用法在这一排
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
@@ -2812,10 +2839,9 @@ namespace Brushblade.Presentation
             var def = _graph.Get(_selectedChar);
 
             // 选中详情(稿 .picked):牌面 + 名/效果两行。2026-08-31 接稿改成这个更简的格式——
-            // 旧版这里是「选中字 → 拆解部件」的分解预览,部件是部件五系时还会再加一行
-            // 「⇄ 同源变体」转位提示。两条旧信息都没有真的丢:配方拆解长按字牌详情弹窗
-            // 本就有(CharInfo.Detail 含配方行);转位提示已经搬到部件池卡面自己身上常驻
-            // 显示(DrawPool 的 KinHint),不必等选中才看得到。
+            // 旧版这里第一行是「选中字 → 拆解部件」的分解预览,那一条没有真的丢:配方拆解
+            // 长按字牌的详情弹窗本就有(CharInfo.Detail 含配方行)。
+            // 转位提示那一条 2026-09-01 用户拍板还原,见下面 KinVariants 那段。
             var picked = Ui.Row(_suggestRow, "PickedRow", 6).transform;
             var pickedOuter = Ui.OutlinedPanel(picked, "Tile", Color.white, Theme.RarityColor(def.Rarity), 8, 2f, out var pickedFace);
             Ui.Sized(pickedOuter.gameObject, width: PickedTileW, height: PickedTileH);
@@ -2842,6 +2868,40 @@ namespace Brushblade.Presentation
             // 硬要单行会甩出卡片外糊到中区上,比换行更难看。
             effectLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             effectLabel.verticalOverflow = VerticalWrapMode.Overflow;
+
+            // 转位提示(2026-08-15 用户裁定,2026-09-01 用户拍板还原):选中五系部件时,把
+            // **同组全部**可互换的成员列出来 —— 选 氵 显示「⇄ 水 冫」,选 刂 显示「⇄ 金 钅 戈」。
+            //
+            // 这与部件卡四角的 ≈X 徽标是**两条不同的口径**,别互相「对齐」:徽标要在一张
+            // 67×80 的卡上用最小面积回答「这张能顶谁」,这里是选中后的详情,空间够、给全量,
+            // 还配一句说明这是什么机制。判据同为 TryGetGroup —— 代表字(水/金…)自己也要
+            // 出这一条,2026-08-15 用户点名要补的正是它。
+            //
+            // 纯说明不是操作:等价匹配在 ForgeEngine.TryCompose 里自动生效,不花 AP
+            // (spec §1.6c)。所以这些字钮 onClick 传 null。
+            //
+            // 只对独体字(IsLeaf)出:合成字选中时这一栏该讲的是它的配方,不是部件互换。
+            if (def.IsLeaf)
+            {
+                if (ComponentKin.TryGetGroup(_selectedChar, out var kinGroup))
+                {
+                    // 拆合台内宽 246(BenchW 276 − 两侧 BenchPad 15)。金系除自己外 4 个是上限:
+                    // 「⇄」20 + 4×38 + 5 个间距×6 = 202,放得下。
+                    var kinRow = Ui.Row(_suggestRow, "KinVariants", 6).transform;
+                    Ui.ThemedLabel(kinRow, "⇄", 16, Theme.TextDim);
+                    foreach (var kin in kinGroup)
+                    {
+                        if (kin == _selectedChar) continue; // 自己不列进「可换成」
+                        Ui.RoundButton(kinRow, kin, null,
+                            Theme.ElementColor(_graph.Get(kin).Element), Color.white, 16, new Vector2(38, 38), 8);
+                    }
+                    Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.kin_variant_label"), 13, Theme.TextDim);
+                }
+                else
+                {
+                    Ui.ThemedLabel(_suggestRow, Strings.T("battle.hint.leaf_char"), 13, Theme.TextDim);
+                }
+            }
 
             // 第二行(动作)
             if (_targeting)
