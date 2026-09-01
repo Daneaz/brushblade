@@ -58,12 +58,18 @@ namespace Brushblade.Presentation
             // 刷新即整体重建(见类注释),但左列 ScrollRect 不该跟着弹回顶部——重建前找一下
             // root 下是否已有一张旧的详情弹窗,记下它的滚动位置再销毁它,新面板建完后原样
             // 恢复。这样调用方不必自己保留/销毁上一个 GameObject,直接反复调 Show 即可。
-            Vector2? savedScroll = null;
+            // ⚠ 按**下标**逐个保存,不是只存第一个(2026-09-01 修):这张弹窗现在有两条
+            // 滚动列表(左列状态、右列特性技能),GetComponentInChildren 只取第一个,右列
+            // 每次刷新都会被弹回顶部 —— 正是当初给左列加这套保留机制要避免的那件事。
+            // 下标可比较是因为两条列表的建立顺序固定(BuildBody 先左后右),不是巧合。
+            Vector2[] savedScroll = null;
             var previous = root.Find(SheetName);
             if (previous != null)
             {
-                var previousScroll = previous.GetComponentInChildren<ScrollRect>();
-                if (previousScroll != null) savedScroll = previousScroll.normalizedPosition;
+                var previousScrolls = previous.GetComponentsInChildren<ScrollRect>();
+                savedScroll = new Vector2[previousScrolls.Length];
+                for (int i = 0; i < previousScrolls.Length; i++)
+                    savedScroll[i] = previousScrolls[i].normalizedPosition;
                 Object.Destroy(previous.gameObject);
             }
 
@@ -101,14 +107,17 @@ namespace Brushblade.Presentation
             BuildBody(stack.transform, detail);
             BuildFoot(stack.transform, overlay);
 
-            if (savedScroll is { } scrollPos)
+            if (savedScroll != null)
             {
                 // ScrollRect.normalizedPosition 依赖 Content 的 ContentSizeFitter 已经量出高度——
                 // 刚建完的这一帧布局还没跑过,这里先强制跑一遍再赋值,否则要么读到旧高度、
                 // 要么被随后的布局重排盖掉。
                 Canvas.ForceUpdateCanvases();
-                var scrollRect = overlay.GetComponentInChildren<ScrollRect>();
-                if (scrollRect != null) scrollRect.normalizedPosition = scrollPos;
+                var scrolls = overlay.GetComponentsInChildren<ScrollRect>();
+                // 取两者较短的那一段:换一类单位重开(敌人 → 执笔人)时列表条数会变,
+                // 数量对不上时宁可少恢复一条,也不能越界。
+                int n = Mathf.Min(scrolls.Length, savedScroll.Length);
+                for (int i = 0; i < n; i++) scrolls[i].normalizedPosition = savedScroll[i];
             }
 
             return overlay;
@@ -409,7 +418,12 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>右列「特性 · 技能」:能力卡列表 + 生克行(执笔人没有,Wuxing 为 null 时
-        /// 整行不画)。这一列不滚动——brief 只点名左列要滚,这里维持自然高度。
+        /// 整行不画)。
+        ///
+        /// 2026-09-01:这一列**也滚动了**。原先不滚(「brief 只点名左列要滚」)是按「一只怪
+        /// 最多两三张卡」估的,而成语 Boss 一次要列四个阶段、每张卡还带大招说明,四张卡就能
+        /// 顶出这一列的高度——不滚就是直接看不到最后一段。标题与生克行留在滚动区**外**:
+        /// 标题是这一列的抬头,生克是固定三行的结论,都不该跟着卡片滚走。
         ///
         /// 2026-09-01 review 修:执笔人的「养成技能 · 局外」四条(永久生效的局外加成)此前
         /// 与「护盾」这类随时会消失的实时资源混排在同一列表、同款卡片、无任何视觉区分,
@@ -421,16 +435,20 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(parent, Strings.T("unit.detail.abilities_title"), 15, Theme.TextMain, Theme.TitleFont,
                 TextAnchor.UpperLeft);
 
+            // 宽度必须显式给,理由与左列那处一字不差(Ui.ScrollList 返回的 Panel 报 0 宽)。
+            var scroll = Ui.ScrollList(parent, "AbilityScroll", 8, out var content);
+            Ui.Sized(scroll, width: AbilityColumnWidth, flexHeight: 1f);
+
             if (detail.Abilities != null)
             {
                 string currentSection = null;
                 foreach (var ability in detail.Abilities)
                 {
                     if (ability.Section != null && ability.Section != currentSection)
-                        Ui.ThemedLabel(parent, ability.Section, 12, Theme.TextDim, Theme.TitleFont,
+                        Ui.ThemedLabel(content, ability.Section, 12, Theme.TextDim, Theme.TitleFont,
                             TextAnchor.UpperLeft);
                     currentSection = ability.Section;
-                    BuildAbilityCard(parent, ability);
+                    BuildAbilityCard(content, ability);
                 }
             }
 

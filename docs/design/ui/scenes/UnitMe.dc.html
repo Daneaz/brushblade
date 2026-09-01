@@ -170,6 +170,15 @@
       font-size: 9px; letter-spacing: 2px; color: #88909C; }
     .ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; color: #5D646F; letter-spacing: 0; }
     .ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+    /* 两列的卡片区都滚。右列尤其需要:成语 Boss 的「特性 · 技能」一次要列**四个阶段**
+       (2026-09-01 用户拍板 —— 详情弹窗此前只画当前阶段,答不了「下一段是什么属性、
+       多少血、什么大招」这个 Boss 战里最要紧的问题),四张带大招说明的卡顶得出这一列。
+       每张卡:标题「第 N 阶段 · 字 · X系(当前)」,正文「血 H · 攻 A[ · 甲 D]」加一行
+       大招名与说明(该阶段无大招则写明)。血攻取的是配置里该阶段的**基准值**,不是实时
+       ——实时只有当前阶段有意义(Boss 的血是一条连续总池),而这张列表的用处正是
+       「未至的阶段长什么样」。
+       ⚠ .wx(生克)刻意排在 .list **外面**:它是这一列的结论,而且 Boss 每换一阶就换五行,
+       正是读阶段列表时最需要一直看得见的一行,不能跟着卡片滚走。 */
     .list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
       gap: 3px; padding-right: 3px; }
     .list::-webkit-scrollbar { width: 3px; }
@@ -184,6 +193,9 @@
     .sd .n em { font-style: normal; font-weight: 400; font-size: 9px; color: #88909C; margin-left: 5px; }
     .sd .d { font-size: 9.5px; color: #7A7261; line-height: 1.45; margin-top: 1px; }
     .sd .d b { color: #2C333D; font-weight: 500; }
+    /* 段小标题(2026-09-01):同一段里连续的卡片共用一个标题,内容不变则不重画。
+       眼下唯一的用处是成语 Boss 的「阶段 · 共 4 段」—— 见下面 .list 的说明。 */
+    .sect { flex: none; font-size: 9px; color: #88909C; letter-spacing: 1px; }
     .abil { background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 7px; padding: 6px 8px; }
     .abil .h { display: flex; align-items: center; gap: 5px;
       font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #2C333D; }

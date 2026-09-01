@@ -330,21 +330,45 @@ namespace Brushblade.Presentation
 
             if (isBoss)
             {
-                var phase = def.Phases[enemy.PhaseIndex];
-                if (phase.Skill == BossSkill.None)
+                // 四个阶段**全列**(2026-09-01 用户拍板)。此前这里只画当前阶段那一张技能卡,
+                // 于是详情弹窗答不了 Boss 战里最要紧的那个问题:「下一段是什么属性、多少血、
+                // 什么大招」——玩家要按它决定现在留哪张克制的字、要不要先攒盾。四字成语的
+                // 四个阶段在 EnemyDef 里是完全公开的静态配置,没有任何理由藏着。
+                //
+                // 血/攻取 BossPhaseDef 的配置值(该阶段的**基准**),不是实时值:实时只有
+                // 当前阶段有意义(Boss 的血是一条连续总池,阶段只是分段阈值),而这张列表
+                // 的用处正是「未至的阶段长什么样」。当前阶段的实时数值在上面四格里。
+                string section = Strings.T("enemy.phase.section", ("phaseCount", def.Phases.Count));
+                for (int i = 0; i < def.Phases.Count; i++)
+                {
+                    var phase = def.Phases[i];
+                    bool current = i == enemy.PhaseIndex;
+                    // 两支各写各的 Strings.T(字面量 key):StringsTableTests 只认紧跟在 T( 后面的
+                    // 字符串字面量,key 从三元表达式传进去会被判成孤儿(PositionRangeTag 那里
+                    // 有同一条注释)。
+                    string name = current
+                        ? Strings.T("enemy.phase.card_name_current", ("phaseNumber", i + 1),
+                            ("char", phase.Char), ("element", CharInfo.ElementName(phase.Element)))
+                        : Strings.T("enemy.phase.card_name", ("phaseNumber", i + 1),
+                            ("char", phase.Char), ("element", CharInfo.ElementName(phase.Element)));
+                    // 护甲与技能是两套独立配置(老文本 PhaseDetail 的 Finding 1),不能假定
+                    // 「有护甲 ⇔ 技能是坚壁」—— 所以是两个独立的 key 而不是拼一句。
+                    string stats = phase.Defense > 0
+                        ? Strings.T("enemy.phase.card_stats_armor", ("hp", phase.MaxHp),
+                            ("attack", phase.Attack), ("defense", phase.Defense))
+                        : Strings.T("enemy.phase.card_stats", ("hp", phase.MaxHp), ("attack", phase.Attack));
+                    string skillLine = phase.Skill == BossSkill.None
+                        ? Strings.T("enemy.phase.no_ultimate").TrimStart('\n')
+                        : "【" + BossSkillName(phase.Skill) + "】" + BossSkillText(phase.Skill);
                     list.Add(new AbilityEntry
                     {
-                        IconKey = null, ChipColor = UnitDetailChip.Ability,
-                        Name = Strings.T("enemy.phase.no_ultimate").TrimStart('\n'), Desc = null,
+                        IconKey = null,
+                        ChipColor = Theme.BossSkillChipColor(phase.Skill),
+                        Name = name,
+                        Desc = stats + "\n" + skillLine,
+                        Section = section,
                     });
-                else
-                    list.Add(new AbilityEntry
-                    {
-                        IconKey = null, ChipColor = Theme.BossSkillChipColor(phase.Skill),
-                        Name = BossSkillName(phase.Skill), Desc = BossSkillText(phase.Skill),
-                    });
-                // 护甲与技能两套独立配置,老文本(PhaseDetail)在技能分支之外独立追加,这里同理。
-                if (phase.Defense > 0) list.Add(DefenseEntry(phase.Defense));
+                }
             }
             else
             {
