@@ -33,7 +33,8 @@ namespace Brushblade.Presentation
         private const float BenchPad = 15f;    // 稿 .bench padding 7pt:拆合台内边距
         // 字库带的高度。稿上 .hand 是被字牌(56pt)撑出来的,但这里它是**叠放层**的槽
         // (见 _centerRow),两个消费方谁也撑不出另一个要的高度,只能给死一个数。
-        // 非战斗阶段那一路最高的一件是奇遇选项钮 72,这个数也装得下。
+        // 非战斗阶段那一路最高的一件是跑图结束的「结算」钮 70,这个数也装得下。
+        // (2026-09-02 轮三 Task 4:奇遇选项钮 92 已随整块内容搬进 _eventBody,不再进这条带。)
         private const float HandBandH = 117f;  // 稿 56pt
         // 战场网格的实际内容宽:一排 4 格 × 293 + 3 个间距 × 17(稿 4×140 + 3×8 = 584pt)。
         // 中区本身是 1260(稿 602pt),两侧各富余 18 —— 玩家条 / 字库带 / 部件池原先都铺满
@@ -56,6 +57,28 @@ namespace Brushblade.Presentation
                                                    // 可换算的数;同 ReplaceSheetH 的估法,配合 Ui.Sheet
                                                    // 内边距估的容器高度。
         private const float PickDetailH = 63f;    // 稿 .detail min-height 30pt
+
+        // ---- 奇遇页(稿 Event.dc.html):一整块垂直居中的 .body ----
+        private const float EventTextW = 1172f;   // 稿 .text max-width 560pt
+        private const float EventOptW = 260f;     // 稿 .opt 124pt
+        private const float EventOptH = 92f;      // 稿 .opt 44pt
+        private const float EventPartW = 96f;     // 稿 .tile.sm 46pt
+        private const float EventPartH = 121f;    // 稿 .tile.sm 58pt
+        private const int EventTitleFont = 40;    // 稿 .h font-size 19pt
+        private const int EventTextFont = 25;     // 稿 .text font-size 12pt
+        // VerticalLayoutGroup 只有一个 spacing,而稿上三段各自的 margin-top 是 8/14/13pt ——
+        // 取最小那档(8pt)打底,不足的差额宁可不补:纵向预算本来就薄(见 Field 那段账),
+        // 撑大间距只会把部件池顶出 .body 的下缘。
+        private const float EventBodyGap = 17f;   // 稿 .text margin-top 8pt
+        private const float EventOptsGap = 25f;   // 稿 .opts gap 12pt
+        private const float EventPoolGap = 17f;   // 稿 .pool gap 8pt
+        // .body 的上下缘,按稿的 932×430pt 折成屏高比例:
+        //   上缘 = .safe padding-top 6pt + .top 26pt = 32pt,自顶下量 → (430-32)/430 = 0.926
+        //   下缘 = 安全区底 21pt + .say 26pt = 47pt,自底上量 → 47/430 = 0.109
+        // 横向不用比例:直接跟 Frame 共用 SafeArea.MissingInset() 的 padSide,两者才对得齐。
+        private const float EventBodyTop = 0.926f;
+        private const float EventBodyBottom = 0.109f;
+
         private RecipeGraph _graph;
         private RunEngine _run;
         // 执笔人详情弹窗(PlayerInfo.Sheet)要用:局外等级/技能不在 BattleEngine 上,得从这里
@@ -181,12 +204,25 @@ namespace Brushblade.Presentation
         private Transform _craftRow;     // 拆合台:可合成列表,常驻+可滚动(稿 .craft),2026-08-31 从 _suggestRow 拆出
         private Transform _hintColumn;   // 差字面板(屏幕左侧竖排,平铺列表,2026-08-31 起不再是五行三级目录)
         private Transform _actionRow;
-        // 非战斗阶段的宽操作区(2026-08-20):结算 / 奇遇 / 部件超限 / 跑图结束用它。
+        // 非战斗阶段的宽操作区(2026-08-20):结算 / 部件超限 / 跑图结束用它。
         // 这些界面此前借的是拆合台的 _actionRow,而拆合台是右侧那条窄竖栏 —— 奇遇的
         // 260 宽选项钮塞不进去,所以给它们留一条横贯中区的带。
+        // (奇遇本身 2026-09-02 轮三 Task 4 起改走居中的 _eventBody,不再是这条带的消费方,
+        //  但它仍是这条带宽度口径的由来。)
         // 它与 _libraryRow **共占同一个槽**(两个铺满的叠放层,见 BuildSkeleton 的 Band),
         // 两者从不在同一阶段绘制(见 Refresh 的 switch)。
         private Transform _centerRow;
+        // 奇遇页的整块内容(稿 Event.dc.html 的 .body,2026-09-02 轮三 Task 4)。
+        //
+        // ⚠ 它**不是**每次 DrawEvent 新建、也不挂 _sheet/_modal —— 那两条路都埋着雷:
+        //   ① 在 DrawEvent 里 new 一个挂 transform 下的节点,离开奇遇阶段时没有任何人负责
+        //      销毁它(Refresh 的 switch 根本不会再走进 DrawEvent),它会原地盖在战斗界面上;
+        //   ② 靠「进各条退出路径显式销毁」补救,就是轮三 Task 2/3 连栽两次的那种写法 ——
+        //      奇遇的退出口有六条(成交/取消/跳过/转选字/转选件/转换字),漏一条就漏一条。
+        // 所以按**排**来办:BuildSkeleton 里建一次,Refresh 开头和其他排一起 Ui.Clear。
+        // 生命周期于是和 _centerRow / _poolRow 完全同构,不需要任何人记得销毁它。
+        // 它没有 Image、清空后也没有子物件,非奇遇阶段既不绘制也不拦点击,不必再 SetActive。
+        private Transform _eventBody;
         private GameObject _rowDivider;  // 敌我前排之间的墨线:只在战斗阶段现身(2026-08-20)
         private Text _messageLabel;
         private bool _resolvingHint;    // 本次重绘落在动画锁里:底部提示行画「结算中……」而非播报
@@ -681,6 +717,21 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.010f), new Vector2(0.98f, 0.053f), Vector2.zero, Vector2.zero);
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
+
+            // 奇遇页的 .body(稿 Event.dc.html):整块内容垂直居中。同 Message 一样挂 transform
+            // 而不是 Frame —— Frame 是 VerticalLayoutGroup,挂进去就成了顶栏底下的又一行,
+            // 拿不到「盖住三栏、自己居中」的那块地。挂 transform 的代价是不在任何布局组里,
+            // 所以上下缘只能自己锚(见 EventBodyTop/Bottom 的换算),横向则跟 Frame 共用
+            // 同一个 padSide,免得奇遇的正文比战斗屏的内容宽出一圈。
+            // 建在 Message 之后 = transform 的最后一个静态子节点:它要盖在 Frame 之上,而
+            // 运行期弹出的 _sheet / _modal 都是后来追加的兄弟,天然又盖在它之上。
+            var eventBodyGo = Ui.VStack(transform, "EventBody", EventBodyGap);
+            Ui.Anchor((RectTransform)eventBodyGo.transform,
+                new Vector2(0f, EventBodyBottom), new Vector2(1f, EventBodyTop),
+                new Vector2(padSide, 0f), new Vector2(-padSide, 0f));
+            eventBodyGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            _eventBody = eventBodyGo.transform;
+
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.70f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
@@ -1075,6 +1126,7 @@ namespace Brushblade.Presentation
             Ui.Clear(_bottomRow);
             Ui.Clear(_summonFrontRow);
             Ui.Clear(_summonBackRow);
+            Ui.Clear(_eventBody);   // 奇遇页那一整块跟着排一起清:它就是靠这一条才不必挂退出路径销毁
             // 2026-09-01 轮三 Task 3:此处原有「离开战利品/复活阶段就无条件销毁 _rewardModal」
             // 的通用兜底——那是安全的,因为 _rewardModal 只在 Reward/Reviving 两个阶段被
             // 赋值,别处不碰。当时把它合并进 _modal 想复用这条兜底,但 _modal 在 InBattle
@@ -3568,18 +3620,31 @@ namespace Brushblade.Presentation
                 _previewEventOption = -1;   // 换了一层(或选项数变少):预览态不跨奇遇沿用
                 _previewEventFloor = _run.BattleIndex;
             }
-            // evt.Id 是奇遇事件配置数据里的 id/展示名,不是本文件的硬编码文案——这里只登记
-            // 「奇遇 · X」这层胶字模板本体。
-            Ui.ThemedLabel(_enemyFrontRow, Strings.T("battle.event.title", ("eventName", evt.Id)), 30, Theme.TextMain, Theme.TitleFont);
-            // 情境文案画在战场那一排,**不是** _statusRow(2026-08-20 修回):_statusRow 在屏幕
-            // 最底边,把文案放那儿会变成 选项钮 → 部件池 → 文案,玩家得先看见三个按钮、
-            // 再把视线甩到屏幕底边才读得到自己在选什么。这一排(0.431–0.543)在奇遇阶段本来
-            // 就是空的(四排只在战斗阶段画),且**高于**选项钮所在的 _centerRow(0.125–0.220),
-            // 阅读顺序因此是 文案 → 选项。2026-08-21 标题也搬到了左下,但这条理由与标题无关。
+            // 稿 Event.dc.html 的 .body:一整块垂直居中的内容,标题 → 正文 → 选项 → 部件池。
+            // 2026-09-02(轮三 Task 4)之前这四件散在 _enemyFrontRow / _summonFrontRow /
+            // _centerRow / _poolRow 四处 —— 阅读顺序碰巧是对的(那两排比 _centerRow 高),
+            // 但中间隔着整片空排,读起来是散的。稿的原话:「奇遇没有战场要让位,整块内容
+            // 居中才不会上半屏挤、下半屏空」。
+            // 也因此**不再**需要 2026-08-20 那条「文案画在战场那一排、不放 _statusRow」的
+            // 权宜:那条理由是「_statusRow 在屏幕最底边,放那儿会变成 选项钮 → 部件池 →
+            // 文案」,而现在正文就排在选项**上面**,同一块里,那个倒序根本不会发生。
+            // 效果说明**不在这里**:选中某个选项时才画进屏幕最底那条通栏提示行(_message),
+            // 也就是稿的 .say。
+            //
             // 正文直接用 evt.Text —— 它是事件数据,不套胶字模板(2026-08-27:此前还在正文尾部
             // 缀「(墨锭 N)」,而顶栏本来就有墨锭那一格,重复一遍反倒抢正文的注意力)。
-            // 效果说明**不在这里**:选中某个选项时才画进底部提示行,见选项钮的 onClick。
-            Ui.ThemedLabel(_summonFrontRow, evt.Text, 18, Theme.TextDim);
+            // evt.Id 同理是配置里的 id/展示名,这里只登记「奇遇 · X」那层胶字模板本体。
+            Ui.ThemedLabel(_eventBody, Strings.T("battle.event.title", ("eventName", evt.Id)),
+                EventTitleFont, Theme.TextMain, Theme.TitleFont);
+            // ⚠ 正文是长文本,宽度只能**算出来钉死**,不能靠 flexWidth:Text.preferredWidth
+            // 报的是不换行时的整句宽度,富余永远不会出现,布局组会把所有子物体按
+            // min…preferred 等比压回去,退化成「谁的字长谁就宽」。高度同理要预先估
+            // (Ui.WrappedTextHeight),否则单行高的 preferredHeight 会把折行的正文截掉。
+            var text = Ui.ThemedLabel(_eventBody, evt.Text, EventTextFont, Theme.TextDim);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            Ui.Sized(text.gameObject, width: EventTextW,
+                height: Ui.WrappedTextHeight(evt.Text, EventTextFont, EventTextW));
 
             if (_pendingEventOption >= 0)
             {
@@ -3590,31 +3655,36 @@ namespace Brushblade.Presentation
                     return;
                 }
                 bool needCharChoice = pending.GainCharChoices.Count > 0 && _pendingCharChoice < 0;
-                Ui.ThemedLabel(_centerRow, needCharChoice
+                // 子步的提示与取消也留在这一块里:它们占的正是「选项」那一档位置,
+                // 落回 _centerRow 就又把版面拆成上下两截了。
+                Ui.ThemedLabel(_eventBody, needCharChoice
                         ? Strings.T("battle.event.pick_char_prompt", ("optionLabel", pending.Label))
                         : Strings.T("battle.event.pick_components_prompt",
                             ("optionLabel", pending.Label), ("cost", pending.ComponentCost), ("picked", _eventPicks.Count)),
                     20, Theme.TextMain, Theme.TitleFont);
-                Ui.RoundButton(_centerRow, Strings.T("battle.btn.cancel"), () =>
+                var cancelRow = Ui.Row(_eventBody, "Actions", EventOptsGap).transform;
+                Ui.RoundButton(cancelRow, Strings.T("battle.btn.cancel"), () =>
                 {
                     ResetEventSelection();
                     _message = "";
                     Refresh();
                 }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(84, 48));
+                var pickRow = Ui.Row(_eventBody, "Pool", EventPoolGap).transform;
                 if (needCharChoice)
-                    DrawEventCharChoices(pending);
+                    DrawEventCharChoices(pending, pickRow);
                 else
-                    DrawEventPoolPicker(pending);
+                    DrawEventPoolPicker(pending, pickRow);
                 return;
             }
 
-            // ⚠ 钮上只画 option.Label 这个**名称**,效果说明由 EventOptionDetails 列在正文下方
-            // (2026-08-27 用户拍板)。标签是 horizontalOverflow = Overflow —— 超宽**不会换行也不会
-            // 省略号**,而是溢出到钮外被邻钮的底图盖掉,玩家看到的就是「描述展示不全」
-            // (旧口径把效果写进 label,「入炉淬骨(八成 上限 +30%,两成 反噬 −30%)」39 个半宽 = 429px,
-            // 钮宽 260 只装得下 23 个,后半截整个不见)。
+            // ⚠ 钮上只画 option.Label 这个**名称**,效果说明画进屏幕最底那条提示行
+            // (_message,稿的 .say;2026-08-27 用户拍板)。标签是 horizontalOverflow = Overflow
+            // —— 超宽**不会换行也不会省略号**,而是溢出到钮外被邻钮的底图盖掉,玩家看到的
+            // 就是「描述展示不全」(旧口径把效果写进 label,「入炉淬骨(八成 上限 +30%,
+            // 两成 反噬 −30%)」39 个半宽 = 429px,钮宽 260 只装得下 23 个,后半截整个不见)。
             // 钮宽 260 / 字号 22 的容量是 23 个半宽;EventLabelWidthTests 钉住这条,新增选项时
-            // 别再把效果塞回 label —— 那是同一个坑。
+            // 别再把效果塞回 label —— 那是同一个坑。稿上也把这条写死了。
+            var optionRow = Ui.Row(_eventBody, "Options", EventOptsGap).transform;
             for (int i = 0; i < evt.Options.Count; i++)
             {
                 int index = i;
@@ -3622,7 +3692,7 @@ namespace Brushblade.Presentation
                 bool affordable = option.InkCost <= _run.AvailableInk
                     && option.ComponentCost <= _run.CarriedPool.Count
                     && AnyGainable(option); // 给的字都不在出阵列表 → 整个选项置灰(2026-07-20)
-                var button = Ui.RoundButton(_centerRow, option.Label, () =>
+                var button = Ui.RoundButton(optionRow, option.Label, () =>
                 {
                     // 首点只选中(2026-08-27 用户拍板):效果说明画进底部提示行,钮转高亮,
                     // **不结算**。奇遇是不可逆决策,而钮上只有名称 —— 不给这一步,玩家就是在
@@ -3680,7 +3750,7 @@ namespace Brushblade.Presentation
                             ("label", option.Label), ("cost", option.InkCost), ("available", _run.AvailableInk))
                         : Strings.T("battle.dialog.event_unaffordable.body_failed", ("label", option.Label)));
                 }, !affordable ? Theme.LockedBg : index == _previewEventOption ? Theme.Cinnabar : Theme.InkSoft,
-                    affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
+                    affordable ? Color.white : Theme.TextDim, 22, new Vector2(EventOptW, EventOptH));
                 button.interactable = affordable;
             }
         }
@@ -3754,8 +3824,11 @@ namespace Brushblade.Presentation
             return false;
         }
 
-        /// <summary>任选字:候选平铺(元素色字牌),点选即定;无部件成本则当场成交。</summary>
-        private void DrawEventCharChoices(EventOption option)
+        /// <summary>任选字:候选平铺(元素色字牌),点选即定;无部件成本则当场成交。
+        /// <paramref name="parent"/> 由 <see cref="DrawEvent"/> 传入 —— 2026-09-02(轮三 Task 4)
+        /// 之前这里自己找 _poolRow(屏幕下方那条部件池带),而奇遇的其余三件已经收进
+        /// 居中的 _eventBody,牌再落回 _poolRow 就会孤零零掉在整块内容的下面。</summary>
+        private void DrawEventCharChoices(EventOption option, Transform parent)
         {
             for (int i = 0; i < option.GainCharChoices.Count; i++)
             {
@@ -3764,12 +3837,12 @@ namespace Brushblade.Presentation
                 var def = _graph.Get(charId);
                 if (!CanGain(charId)) // 不在出阵列表:换到也白换,直接置灰(2026-07-20)
                 {
-                    var locked = Ui.RoundButton(_poolRow, charId, null,
-                        Theme.LockedBg, Theme.TextDim, 26, new Vector2(64, 64), 12);
+                    var locked = Ui.RoundButton(parent, charId, null,
+                        Theme.LockedBg, Theme.TextDim, 26, new Vector2(EventPartW, EventPartH), 12);
                     locked.interactable = false;
                     continue;
                 }
-                Ui.RoundButton(_poolRow, charId, () =>
+                Ui.RoundButton(parent, charId, () =>
                 {
                     _pendingCharChoice = choice;
                     if (option.ComponentCost > 0)
@@ -3799,21 +3872,23 @@ namespace Brushblade.Presentation
                     ShowAlert(Strings.T("battle.dialog.event_char_unaffordable.title"),
                         Strings.T("battle.dialog.event_char_unaffordable.body", ("charId", charId)));
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
-                    26, new Vector2(64, 64), 12);
+                    26, new Vector2(EventPartW, EventPartH), 12);
             }
         }
 
-        /// <summary>抵价选件:携带池平铺,点选高亮,凑够数自动成交。</summary>
-        private void DrawEventPoolPicker(EventOption option)
+        /// <summary>抵价选件:携带池平铺,点选高亮,凑够数自动成交。
+        /// <paramref name="parent"/> 的来由同 <see cref="DrawEventCharChoices"/>。
+        /// 「部件池」这个标题仍排在牌之前,对应稿 .pool 里那个竖排的 .lbl。</summary>
+        private void DrawEventPoolPicker(EventOption option, Transform parent)
         {
-            Ui.ThemedLabel(_poolRow, Strings.T("battle.event.pool_title"), 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(parent, Strings.T("battle.event.pool_title"), 16, Theme.TextDim, Theme.TitleFont);
             for (int i = 0; i < _run.CarriedPool.Count; i++)
             {
                 int index = i;
                 string charId = _run.CarriedPool[i];
                 var def = _graph.Get(charId);
                 bool picked = _eventPicks.Contains(index);
-                Ui.RoundButton(_poolRow, charId, () =>
+                Ui.RoundButton(parent, charId, () =>
                 {
                     if (picked) _eventPicks.Remove(index);
                     else _eventPicks.Add(index);
@@ -3839,7 +3914,8 @@ namespace Brushblade.Presentation
                     }
                     Refresh();
                 }, picked ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
-                    picked ? Color.white : Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
+                    picked ? Color.white : Theme.ElementSoftFg(def.Element), 22,
+                    new Vector2(EventPartW, EventPartH), 12);
             }
         }
 
