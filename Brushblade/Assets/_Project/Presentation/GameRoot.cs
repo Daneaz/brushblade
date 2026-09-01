@@ -453,21 +453,90 @@ namespace Brushblade.Presentation
 
             BalanceCorner(view.transform); // Boss 层那笔墨锭的飘字落点
 
-            var card = Ui.CardPanel(view.transform, "Panel");
-            Ui.Anchor((RectTransform)card.transform, new Vector2(0.16f, 0.08f), new Vector2(0.84f, 0.92f), Vector2.zero, Vector2.zero);
-            var stack = Ui.VStack(card.transform, "Stack", 10);
+            // 稿 SafeLayer.dc.html。宣纸卡居中,内容自上而下:
+            // 标题 → 段位 → 滚存 → 三项状态 → 两条路(各占一半,取舍写在钮下面) → risk 行。
+            // 换算 1pt = 2.093 逻辑单位(稿头注:932×430pt 对 1950×900 画布)。
+            const float PanelW = 1340f;   // 稿 .panel 640pt
+            const float PanelH = 620f;    // 估:稿上 .panel 高度由内容撑开,没有标称值;
+                                          // 按下面这一列内容(约 490)留出余量,再多也不会让卡贴边
+            var card = Ui.OutlinedPanel(view.transform, "Panel", Theme.PanelPaper, Theme.PanelBorder,
+                25, 2f, out var face);    // 稿 .card 圆角 12pt / 描边 1pt
+            Ui.Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(-PanelW / 2f, -PanelH / 2f), new Vector2(PanelW / 2f, PanelH / 2f));
+            var stack = Ui.VStack(face.transform, "Stack", 19);   // 稿 .panel gap 9pt
             Ui.Stretch((RectTransform)stack.transform);
+            var stackLayout = stack.GetComponent<VerticalLayoutGroup>();
+            stackLayout.childAlignment = TextAnchor.MiddleCenter;
+            stackLayout.padding = new RectOffset(54, 54, 38, 42);   // 稿 .panel padding 18/26/20pt
 
-            Ui.ThemedLabel(stack.transform, Strings.T("root.safelayer.title", ("depth", depth)), 28, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, Strings.T("root.safelayer.title", ("depth", depth)),
+                46, Theme.TextMain, Theme.TitleFont);              // 稿 .h 22pt
             Ui.ThemedLabel(stack.transform,
-                Strings.T("common.rank_summary", ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)), 16, Theme.TextDim);
-            Ui.IngotLabel(stack.transform, Strings.T("root.safelayer.rollover_ink", ("ink", totalEarned)), 18);
-            Ui.ThemedLabel(stack.transform,
-                Strings.T("root.safelayer.hint"), 14, Theme.TextDim);
-            Ui.PillButton(stack.transform, Strings.T("root.safelayer.descend_button", ("nextBandName", nextBand.Name), ("from", depth + 1), ("to", depth + endless.BossEvery)),
-                () => StartSegment(firstTower: false), Theme.Cinnabar, Color.white, 19, new Vector2(340, 52));
-            Ui.PillButton(stack.transform, Strings.T("root.safelayer.retreat_button"),
-                () => SettleTower(died: false, depth, totalEarned), Theme.InkSoft, Color.white, 19, new Vector2(340, 52));
+                Strings.T("common.rank_summary",
+                    ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)),
+                22, Theme.TextDim);                                // 稿 .sub 10.5pt
+
+            // 滚存:大金数字 + 单位小字(稿 .roll)。这里刻意不用 IngotLabel ——
+            // 稿上这一处没有墨锭图标,数字本身就是主角
+            var roll = Ui.Row(stack.transform, "Roll", 15);        // 稿 .roll gap 7pt
+            roll.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.ThemedLabel(roll.transform, totalEarned.ToString(), 71, Theme.GoldDeep, Theme.TitleFont); // 稿 .roll .n 34pt
+            Ui.ThemedLabel(roll.transform, Strings.T("root.safelayer.rollover_unit"), 21, Theme.LockGray); // 稿 .roll .u 10pt
+
+            // 三项状态(稿 .state)
+            var state = Ui.Row(stack.transform, "State", 33);      // 稿 .state gap 16pt
+            state.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            var snap = _meta.EndlessV2;
+            // 生命上限:EndlessSaveState 只存当前 HP,上限一直是从养成态现算的
+            // (MetaRules.BuildBattleConfig 里的 PlayerMaxHp 走的也是这一条),这里同源
+            Ui.ThemedLabel(state.transform,
+                Strings.T("root.safelayer.state_hp",
+                    ("hp", snap.PlayerHp), ("maxHp", MetaRules.PlayerMaxHpFor(_meta))),
+                21, Theme.TextDim);                                // 稿 .state 10pt
+            // 字库容量不是常数:基准由博闻(养成)决定,局内广告扩容再 +ExpandBonus。
+            // 与 MapView 断点续爬那一行同一条表达式,别在这边散写数字
+            Ui.ThemedLabel(state.transform,
+                Strings.T("root.safelayer.state_library",
+                    ("count", snap.Library.Count),
+                    ("capacity", MetaRules.LibraryCapacityFor(_meta)
+                        + (snap.LibraryExpanded ? RunEngine.ExpandBonus : 0))),
+                21, Theme.TextDim);
+            Ui.ThemedLabel(state.transform,
+                Strings.T("root.safelayer.state_boss", ("depth", depth)), 21, Theme.TextDim);
+
+            // 两条路各占一半,取舍写在钮下面 —— 这一屏的全部意义就是把这个取舍讲清楚(稿原话)
+            var forks = Ui.Row(stack.transform, "Forks", 29);      // 稿 .forks gap 14pt
+            forks.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
+            Ui.Sized(forks, width: PanelW - 108f,                  // 108 = 稿 .panel 左右各 26pt 内边距
+                height: 190f);                                     // 估:钮 40pt + gap 6pt + 两行 why(9.5pt×1.5 行高)
+            Fork(forks.transform,
+                Strings.T("root.safelayer.descend_button",
+                    ("nextBandName", nextBand.Name), ("from", depth + 1), ("to", depth + endless.BossEvery)),
+                Strings.T("root.safelayer.descend_why"), Theme.Cinnabar,
+                () => StartSegment(firstTower: false));
+            Fork(forks.transform,
+                Strings.T("root.safelayer.retreat_button"),
+                Strings.T("root.safelayer.retreat_why"), Theme.InkSoft,
+                () => SettleTower(died: false, depth, totalEarned));
+
+            Ui.ThemedLabel(stack.transform, Strings.T("root.safelayer.risk"), 19, Theme.LockGray); // 稿 .risk 9pt
+        }
+
+        /// <summary>安全层的一条岔路:钮 + 钮**下面**那句取舍说明(稿 SafeLayer.dc.html 的 .fork)。
+        /// 说明放在钮下面而不是一行小字,是这一轮贯穿的规矩「凡是不可逆的都要在按下去之前说清楚」。</summary>
+        private static void Fork(Transform parent, string label, string why, Color color, System.Action onClick)
+        {
+            var column = Ui.VStack(parent, "Fork", 13);            // 稿 .fork gap 6pt
+            column.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+            Ui.Sized(column, flexWidth: 1f);                       // 稿 .fork flex:1 —— 两路各占一半
+            // 600 是估的:稿上 .fork .pill 是 width:100%,实测宽度 = (1340 − 108 − 29) / 2 ≈ 601
+            Ui.PillButton(column.transform, label, onClick, color, Color.white, 31, new Vector2(600, 84)); // 稿 .pill 15pt / 高 40pt
+            var note = Ui.ThemedLabel(column.transform, why, 20, Theme.TextDim);   // 稿 .why 9.5pt
+            // 长文本必须自己定宽定高:Text.preferredWidth 报的是**不换行**时的整句宽,
+            // 靠 flexWidth 撑列会退化成「谁的字长谁就宽」(Ui.WrappedTextHeight 的注释同理)
+            note.horizontalOverflow = HorizontalWrapMode.Wrap;
+            note.verticalOverflow = VerticalWrapMode.Overflow;
+            Ui.Sized(note.gameObject, width: 600f, height: Ui.WrappedTextHeight(why, 20, 600f));
         }
 
         /// <summary>塔结算(20.5):宝箱一场一个,按本次最高 Boss 层档位发(2026-07-22 拍板,
@@ -480,19 +549,25 @@ namespace Brushblade.Presentation
         {
             int chestDepth = EndlessRules.SettleChestDepth(_meta.EndlessV2?.TopBossDepth ?? 0);
             _meta.EndlessV2 = null;
+            // 旧纪录要在 UpdateBest **之前**留一份:新纪录 chip 上是「43 → 45」两个数,
+            // 刷完再读 _meta.BestDepth 就只剩新的那个了
+            int previousBest = _meta.BestDepth;
             EndlessRules.UpdateBest(_meta, clearedDepth);
             int ink = totalEarned; // 展示值:钱已在账户里,这里不再 +=
 
-            string chestNote = null;
+            // 宝箱行拆成标题 + 说明两截(稿 Settle.dc.html 的 .chestrow):标题是宋体主行,
+            // 说明是灰色小字,原先那一条长句在稿上排不下
+            string chestTitle = null, chestDesc = null;
             if (chestDepth > 0)
             {
                 var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
+                chestTitle = Strings.T("root.settle.chest_row_title", ("tierName", ChestRules.TierName(tier)));
                 if (ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time))
-                    chestNote = Strings.T("root.settle.chest_note_awarded", ("tierName", ChestRules.TierName(tier)), ("chestDepth", chestDepth));
+                    chestDesc = Strings.T("root.settle.chest_row_desc", ("chestDepth", chestDepth));
                 else
                 {
                     _meta.PendingChests.Add(tier); // 满位不丢:暂存,回地图开箱腾位后自动入位
-                    chestNote = Strings.T("root.settle.chest_note_pending", ("tierName", ChestRules.TierName(tier)));
+                    chestDesc = Strings.T("root.settle.chest_row_pending_desc");
                 }
             }
 
@@ -502,7 +577,7 @@ namespace Brushblade.Presentation
                     ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", ink))
                     : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", ink));
             MetaStore.Save(_meta);
-            ShowTowerSettle(headline, ink, chestNote);
+            ShowTowerSettle(headline, ink, chestTitle, chestDesc, previousBest, clearedDepth);
         }
 
         /// <summary>账户余额角标(2026-08-30):安全层与结算页这两个过场页本来没有余额栏,
@@ -518,24 +593,81 @@ namespace Brushblade.Presentation
             Ui.InkCounter(row.transform, _meta.Ink, 20);
         }
 
-        /// <summary>塔结算弹窗(2026-07-22):墨锭 + 宝箱一并呈现,确认后回地图。</summary>
-        private static void ShowTowerSettle(string headline, int ink, string chestNote)
+        /// <summary>塔结算页(2026-07-22;2026-09-02 按稿 Settle.dc.html 改整屏版面):
+        /// 墨锭 + 宝箱一并呈现,确认后回地图。</summary>
+        private static void ShowTowerSettle(string headline, int ink, string chestTitle, string chestDesc,
+            int previousBest, int clearedDepth)
         {
             var view = NewView("TowerSettleView");
             Ui.Stretch((RectTransform)view.transform);
             BalanceCorner(view.transform); // 弃塔/阵亡那笔的飘字落点(钱在 CommitEventInk 时已入账)
-            var card = Ui.CardPanel(view.transform, "Panel");
-            Ui.Anchor((RectTransform)card.transform, new Vector2(0.22f, 0.2f), new Vector2(0.78f, 0.8f), Vector2.zero, Vector2.zero);
-            var stack = Ui.VStack(card.transform, "Stack", 14);
-            Ui.Stretch((RectTransform)stack.transform);
 
-            Ui.ThemedLabel(stack.transform, Strings.T("root.towersettle.title"), 30, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(stack.transform, headline, 17, Theme.TextDim);
-            Ui.IngotLabel(stack.transform, ink.ToString(), 24);
-            Ui.ThemedLabel(stack.transform,
-                chestNote ?? Strings.T("root.towersettle.no_chest"), 18,
-                chestNote != null ? Theme.GoldBorder : Theme.TextDim, Theme.TitleFont);
-            Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(), Theme.Cinnabar, Color.white, 20, new Vector2(280, 56));
+            // 稿 Settle.dc.html。宝箱行是这一屏的第二主角 ——
+            // 一场爬塔只发一个箱,档位由本次最高 Boss 层定。换算 1pt = 2.093 逻辑单位。
+            const float PanelW = 1172f;   // 稿 .panel 560pt
+            const float PanelH = 600f;    // 估:稿上 .panel 高度由内容撑开,没有标称值;
+                                          // 带新纪录 chip 时这一列约 572,取 600 留一档余量
+            var card = Ui.OutlinedPanel(view.transform, "Panel", Theme.PanelPaper, Theme.PanelBorder,
+                25, 2f, out var face);    // 稿 .card 圆角 12pt / 描边 1pt
+            Ui.Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(-PanelW / 2f, -PanelH / 2f), new Vector2(PanelW / 2f, PanelH / 2f));
+            var stack = Ui.VStack(face.transform, "Stack", 21);   // 稿 .panel gap 10pt
+            Ui.Stretch((RectTransform)stack.transform);
+            var stackLayout = stack.GetComponent<VerticalLayoutGroup>();
+            stackLayout.childAlignment = TextAnchor.MiddleCenter;
+            stackLayout.padding = new RectOffset(59, 59, 42, 46);   // 稿 .panel padding 20/28/22pt
+
+            Ui.ThemedLabel(stack.transform, Strings.T("root.towersettle.title"),
+                46, Theme.TextMain, Theme.TitleFont);              // 稿 .h 22pt
+            Ui.ThemedLabel(stack.transform, headline, 23, Theme.TextDim);   // 稿 .head 11pt
+            Ui.IngotLabel(stack.transform, ink.ToString(), 84);    // 稿 .amount .n 40pt
+
+            // 新纪录 chip 只在真破纪录时出现(稿 .rec)。previousBest 是 UpdateBest 之前留的那份,
+            // 所以这里比的是「这趟 vs 上一次的最好」,不是自己跟自己比
+            if (clearedDepth > previousBest)
+                Ui.Chip(stack.transform,
+                    Strings.T("root.settle.record_chip", ("from", previousBest), ("to", clearedDepth)),
+                    Theme.GoldSoft, Theme.GoldDeep, 20,            // 稿 .rec 9.5pt
+                    padX: 19,                                      // 稿 .rec padding 0 9pt
+                    padY: 22);                                     // 反推:ChipHeight = 字号 + padY,要凑够稿 .rec 高 20pt(=42)
+
+            ChestRow(stack.transform, chestTitle, chestDesc, PanelW - 118f); // 118 = 稿 .panel 左右各 28pt 内边距
+
+            Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(),
+                Theme.Cinnabar, Color.white, 31, new Vector2(544, 84));   // 稿 .pill 15pt / 260×40pt
+        }
+
+        /// <summary>结算页的宝箱行(稿 Settle.dc.html 的 .chestrow):色块图标 + 标题 + 说明。
+        /// 无箱走虚线的 .none 态 —— 一场爬塔只发一个箱,一个 Boss 都没破就没有。
+        /// (uGUI 画不出虚线边,这里用 LockGray 细边 + 与页底同色的填充表达「空着」这层意思。)</summary>
+        private static void ChestRow(Transform parent, string title, string desc, float width)
+        {
+            bool has = title != null;
+            var row = Ui.OutlinedPanel(parent, "ChestRow",
+                has ? Theme.CardWhite : Theme.Paper, has ? Theme.PanelBorder : Theme.LockGray,
+                21, 2f, out var face);                             // 稿 .chestrow 圆角 10pt / 描边 1pt
+            Ui.Sized(row.gameObject, width: width,
+                height: 100f);                                     // 稿 .ic 30pt + 上下各 9pt 内边距 = 48pt
+            var inner = Ui.Row(face.transform, "Inner", 23);       // 稿 .chestrow gap 11pt
+            Ui.Stretch((RectTransform)inner.transform);
+            var innerLayout = inner.GetComponent<HorizontalLayoutGroup>();
+            innerLayout.childAlignment = TextAnchor.MiddleLeft;
+            innerLayout.padding = new RectOffset(25, 25, 19, 19);  // 稿 .chestrow padding 9/12pt
+
+            if (!has)
+            {
+                Ui.ThemedLabel(inner.transform, Strings.T("root.towersettle.no_chest"), 22, Theme.LockGray); // 稿 .none .t 10.5pt
+                return;
+            }
+            // ⚠ 这块色块是 Image:没有 LayoutElement 时它会把 Theme.Rounded 生成的贴图尺寸
+            // 当成 preferred size 报给布局(能力卡曾因此恒 24 高)。Sized 的 LayoutElement
+            // 优先级更高,压住它;minWidth 再防父级 HorizontalLayoutGroup 把它挤扁
+            var icon = Ui.CardPanel(inner.transform, "Icon", Theme.Gold, 13);   // 稿 .ic 圆角 6pt
+            Ui.Sized(icon.gameObject, width: 84f, height: 63f).minWidth = 84f;  // 稿 .ic 40×30pt
+            var column = Ui.VStack(inner.transform, "Text", 4);    // 稿 .d margin-top 2pt
+            column.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.ThemedLabel(column.transform, title, 26, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft); // 稿 .t 12.5pt
+            Ui.ThemedLabel(column.transform, desc, 20, Theme.LockGray, null, TextAnchor.MiddleLeft);             // 稿 .d 9.5pt
         }
 
         private static GameObject NewView(string name, Color? paper = null, string watermark = null, int bandIndex = 0)
