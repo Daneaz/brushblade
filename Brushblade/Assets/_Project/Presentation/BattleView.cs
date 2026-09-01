@@ -50,6 +50,12 @@ namespace Brushblade.Presentation
         private const float TileW = 130f;            // 稿 .tile 62pt
         private const float TileH = 163f;            // 稿 .tile 78pt
         private const float TileGap = 15f;           // 稿 7pt
+
+        private const float PickSheetW = 1298f;   // 稿 Reward.dc.html .sheet 620pt
+        private const float PickSheetH = 520f;    // 非稿上 pt 换算:.sheet 高度由内容 flex 撑出,没有
+                                                   // 可换算的数;同 ReplaceSheetH 的估法,配合 Ui.Sheet
+                                                   // 内边距估的容器高度。
+        private const float PickDetailH = 63f;    // 稿 .detail min-height 30pt
         private RecipeGraph _graph;
         private RunEngine _run;
         // 执笔人详情弹窗(PlayerInfo.Sheet)要用:局外等级/技能不在 BattleEngine 上,得从这里
@@ -135,7 +141,6 @@ namespace Brushblade.Presentation
         // 公开出来,这里只能复述字符串,用来判断当前 _modal 是不是详情弹窗、还是被别的模态
         // (奇遇替换弹窗等)顶掉了。顶掉的情形下没必要也不应该把详情弹窗重新弹到别的模态上面。
         private const string UnitSheetGameObjectName = "UnitSheet";
-        private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
         private string _message = Strings.T("battle.hint.initial");
 
         private string _title;          // 关卡标题(顶栏,可选)
@@ -1053,8 +1058,12 @@ namespace Brushblade.Presentation
             Ui.Clear(_bottomRow);
             Ui.Clear(_summonFrontRow);
             Ui.Clear(_summonBackRow);
-            if (_run.Phase != RunPhase.Reward && _run.Phase != RunPhase.Reviving && _rewardModal != null)
-                Destroy(_rewardModal); // 离开战利品/复活阶段:弹窗不能留在战斗界面上
+            // 2026-09-01 轮三 Task 3:此处原有「离开战利品/复活阶段就无条件销毁 _rewardModal」
+            // 的通用兜底——那是安全的,因为 _rewardModal 只在 Reward/Reviving 两个阶段被
+            // 赋值。合并进 _modal 之后这条兜底不能带过来:_modal 在 InBattle 阶段也被
+            // 长按预览、掉字换字弹窗等大量借用,盯着「不在 Reward/Reviving 就销毁」会把
+            // 那些无关弹窗一起误杀。改为在每条会让 Phase 离开 Reward/Reviving 的退出路径
+            // (选字页四个回调 + 换字页的收下/取消)显式销毁 _modal,不再靠这条通用兜底。
 
             // 分隔线现在挂在 Frame/Arena/Mid/Field/DividerSlot/RowDivider 这条路径下
             // (骨架换布局组之后不再是 transform 的直接子节点了),但不参与上面的 Ui.Clear
@@ -3152,11 +3161,71 @@ namespace Brushblade.Presentation
             Refresh();
         }
 
+        /// <summary>战利品 / 复活补给的共用版面(2026-09-01,轮三 Task 3,稿 Reward.dc.html)。
+        /// 两页只差标题与回调,版面一模一样。
+        ///
+        /// **效果说明在牌下面,不在牌上、也不在标题行**:稿上的原话是「牌面只有 62px 宽,
+        /// 塞进一句效果必然截断」。所以留一条定高的 detail 横条,未选中时是 hint、选中时
+        /// 换成这张牌的效果 + 右浮「再点一次收下」。定高是为了**选中前后不跳版**。
+        ///
+        /// 浮层名字固定 <c>"BattleSheet"</c> 且 <c>replaceSameName: true</c>(协调者 2026-09-02
+        /// 裁定):与 <see cref="DrawReplaceSheet"/> 共用同一个名字,选字页 → 换字页的互斥因此
+        /// 自动成立,玩家从选字步转入换字步时旧的选字弹窗自己被顶掉,不必在每个入口手写
+        /// Destroy。内部仍先兜底销毁一次 _modal——理由同 DrawReplaceSheet 的同一行:此刻
+        /// _modal 可能指向长按预览打开的 CharPreview / UnitSheet,Ui.Sheet 的按名互斥只认
+        /// 同名的 "BattleSheet",管不到它们。</summary>
+        private Transform DrawPickSheet(string title, string hint,
+            out Transform picksRow, out Transform detailBar, out Transform footRow)
+        {
+            if (_modal != null) Object.Destroy(_modal);
+            _modal = Ui.Sheet(transform, "BattleSheet", PickSheetW, PickSheetH,
+                dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
+            Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(content, hint, 21, Theme.TextDim);
+
+            var picks = Ui.Row(content, "Picks", 21);   // 稿 .picks gap 10pt
+            picks.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            picksRow = picks.transform;
+
+            var detail = Ui.OutlinedPanel(content, "Detail", Theme.PaperDim, Theme.PanelBorder, 17, 2f, out var face);
+            Ui.Sized(detail.gameObject, width: PickSheetW - 48f, height: PickDetailH).minHeight = PickDetailH;
+            var detailStack = Ui.Row(face.transform, "DetailRow", 12);
+            detailStack.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            detailStack.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(23, 23, 0, 0);
+            Ui.Stretch((RectTransform)detailStack.transform);
+            detailBar = detailStack.transform;
+
+            var foot = Ui.Row(content, "Foot", 21);
+            foot.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Sized(foot, width: PickSheetW - 48f);
+            footRow = foot.transform;
+            return content;
+        }
+
+        /// <summary>候选牌 + 牌下那行「火 · 蓝」(稿 .pick .name)。返回 Button 供调用方取
+        /// GameObject(如飞字动效要的起点)——按层级摸子物体是脆的,返回值稳。</summary>
+        private Button PickTile(Transform parent, string charId, bool selected, System.Action onTap)
+        {
+            var def = _graph.Get(charId);
+            var column = Ui.VStack(parent, $"Pick_{charId}", 8);
+            var button = Ui.GlyphTile(column.transform, def, selected, onTap, new Vector2(TileW, TileH));
+            HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(charId));
+            // def.Element 是 Element?(部件/无属性字为 null)——同 :2913 敌人属性 chip 的既有写法,
+            // 空属性落到「中性」而不是让 CharInfo.ElementName 直接炸参数类型不匹配。
+            string elementName = def.Element is { } elem ? CharInfo.ElementName(elem) : Strings.T("char.element.neutral");
+            Ui.ThemedLabel(column.transform,
+                Strings.T("battle.reward.pick_name",
+                    ("element", elementName),
+                    ("rarity", CharInfo.RarityName(def.Rarity))),
+                19, Theme.TextDim);
+            return button;
+        }
+
         /// <summary>战利品弹窗:字库满时就地转入「换掉哪一个」子步;额度用尽(2026-08-04 起
         /// 5 选 2)由 Core 侧 MaybeFinishRewards 自动开拔——走到这里时必然还有字可选。</summary>
         private void DrawReward()
         {
-            if (_rewardModal != null) Destroy(_rewardModal);
+            if (_modal != null) Object.Destroy(_modal);
 
             // 替换子步的前提会被广告扩容推翻(2026-08-18):+2 徽章就画在弹窗背后的字库行上
             // (case RunPhase.Reward 同时走 DrawLibrary),玩家正是为了不丢字才去看的广告。
@@ -3174,19 +3243,16 @@ namespace Brushblade.Presentation
 
         private void DrawRewardCharStep()
         {
-            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.reward.pick_title", ("left", _run.CharPicksLeft)),
-                new Vector2(340, 165), dismissable: false, out var content);
-            var preview = _previewRewardIndex >= 0
-                ? Brief(_run.RewardOptions[_previewRewardIndex]) + Strings.T("battle.reward.tap_again_suffix")
-                : Strings.T("battle.reward.pick_hint", ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity));
-            Ui.ThemedLabel(content, preview, 16, Theme.TextDim);
+            DrawPickSheet(
+                Strings.T("battle.reward.pick_title", ("left", _run.CharPicksLeft)),
+                Strings.T("battle.reward.pick_hint",
+                    ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity)),
+                out var picksRow, out var detailBar, out var footRow);
 
-            var row = Ui.Row(content, "Options", 10);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.RewardOptions[i];
-                var def = _graph.Get(id);
                 // 先声明后赋值:tap 要在闭包里读这张牌的位置(飞字起点),而 C# 不许 lambda
                 // 引用它后面才声明的局部变量
                 GameObject tile = null;
@@ -3207,7 +3273,14 @@ namespace Brushblade.Presentation
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.added_msg", ("charId", id));
                         MarkFresh(id);     // 记在重绘之前:光晕是重绘时照表套上的
-                        CancelSelection(); // 额度归零 → 下次 Refresh 由 Core 侧自动开拔
+                        // 额度归零时 Core 会在下面 CancelSelection() 触发的这次 Refresh() 里
+                        // 自动把 Phase 挪出 Reward——挪出去以后没有任何 Draw* 方法会再摸到
+                        // 这个 _modal,不主动销毁就会被 Refresh() 末尾的 SetAsLastSibling
+                        // 永远顶在最上层(2026-09-01 轮三 Task 3,合并 _rewardModal 进 _modal
+                        // 后原来靠「离开 Reward/Reviving 就销毁」的通用兜底不能再要:那条兜底
+                        // 不分青红皂白盯着 _modal,战斗中长按预览/掉字换字弹窗也会被一起误杀)。
+                        if (_modal != null) Object.Destroy(_modal);
+                        CancelSelection();
                         // 选中的字从弹窗飞进字库并落位弹跳(2026-08-30):此前只有一行文字
                         // 说「已收入」,牌是凭空出现在字库里的 —— 玩家得自己去队尾找它。
                         // 光晕接着亮 2.4s,与拆合、奇遇同一套读法。
@@ -3236,22 +3309,32 @@ namespace Brushblade.Presentation
                     }
                     Refresh();
                 };
-                var button = Ui.GlyphTile(row.transform, def,
-                    index == _previewRewardIndex, tap);
-                tile = button.gameObject;
-                HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(id));
+                tile = PickTile(picksRow, id, index == _previewRewardIndex, tap).gameObject;
             }
 
-            DrawRewardAdBadge(content);
-
-            Ui.RoundButton(content, Strings.T("battle.btn.reward_skip"), () =>
+            if (_previewRewardIndex >= 0)
             {
+                var picked = _run.RewardOptions[_previewRewardIndex];
+                var pickedDef = _graph.Get(picked);
+                Ui.ThemedLabel(detailBar,
+                    Strings.T("battle.reward.detail_line", ("charId", picked),
+                        ("brief", CharInfo.EffectsText(pickedDef, _run.CardLevel(picked), _graph))),
+                    21, Theme.TextMain, align: TextAnchor.MiddleLeft);
+                Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
+            }
+
+            DrawRewardAdBadge(footRow);
+            var spacer = Ui.Panel(footRow, "Spacer");
+            Ui.Sized(spacer, flexWidth: 1f);
+            Ui.RoundButton(footRow, Strings.T("battle.btn.reward_skip"), () =>
+            {
+                if (_modal != null) Object.Destroy(_modal);
                 _previewRewardIndex = -1;
                 _run.SkipReward();
                 _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
                 _message = Strings.T("battle.reward.skip_msg");
                 CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
+            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));
         }
 
         private void DrawRewardReplaceStep()
@@ -3291,7 +3374,7 @@ namespace Brushblade.Presentation
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
                 _message = Strings.T("battle.label.library_cap_up");
                 Refresh();
-            }, new Vector2(190, 44));
+            }, new Vector2(280, 63));   // 稿 .adbadge 高 30pt
         }
 
         // ---- 复活补给(2026-07-24):以战利品展示方式给字,直接注入当前战斗字库。
@@ -3306,21 +3389,19 @@ namespace Brushblade.Presentation
             if (_pendingReviveIndex >= 0 && Battle.Library.Count < Battle.LibraryCapacity)
                 _pendingReviveIndex = -1;
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
-            if (_rewardModal != null) Destroy(_rewardModal);
+            if (_modal != null) Object.Destroy(_modal);
 
-            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
-                new Vector2(340, 165), dismissable: false, out var content);
-            Ui.ThemedLabel(content, _previewRewardIndex >= 0
-                ? Brief(_run.RewardOptions[_previewRewardIndex]) + Strings.T("battle.reward.tap_again_suffix")
-                : Strings.T("battle.reward.pick_hint", ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)), 16, Theme.TextDim);
+            DrawPickSheet(
+                Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
+                Strings.T("battle.reward.pick_hint",
+                    ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)),
+                out var picksRow, out var detailBar, out var footRow);
 
-            var row = Ui.Row(content, "Options", 10);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.RewardOptions[i];
-                var def = _graph.Get(id);
-                System.Action tap = () =>
+                PickTile(picksRow, id, index == _previewRewardIndex, () =>
                 {
                     if (_previewRewardIndex != index) { _previewRewardIndex = index; Refresh(); return; }
                     _previewRewardIndex = -1;
@@ -3328,19 +3409,35 @@ namespace Brushblade.Presentation
                         _pendingReviveIndex = index;             // 满库:转入「换掉哪一张」
                     else if (_run.PickReviveChar(index))
                         _message = Strings.T("battle.reward.added_msg", ("charId", id));
+                    // 额度归零/候选枯竭时 Core 会在下面这次 Refresh() 里自动把 Phase 挪出
+                    // Reviving(见 Refresh() 顶部的收尾检查)——挪出去以后没有 Draw* 方法
+                    // 会再摸到这个 _modal,理由同 DrawRewardCharStep 的 PickReward 成功分支。
+                    if (_modal != null) Object.Destroy(_modal);
                     Refresh();
-                };
-                var tile = Ui.GlyphTile(row.transform, def, index == _previewRewardIndex, tap);
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
+                });
             }
 
-            Ui.RoundButton(content, Strings.T("battle.btn.revive_skip"), () =>
+            if (_previewRewardIndex >= 0)
             {
+                var picked = _run.RewardOptions[_previewRewardIndex];
+                var pickedDef = _graph.Get(picked);
+                Ui.ThemedLabel(detailBar,
+                    Strings.T("battle.reward.detail_line", ("charId", picked),
+                        ("brief", CharInfo.EffectsText(pickedDef, _run.CardLevel(picked), _graph))),
+                    21, Theme.TextMain, align: TextAnchor.MiddleLeft);
+                Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
+            }
+
+            var spacer = Ui.Panel(footRow, "Spacer");
+            Ui.Sized(spacer, flexWidth: 1f);
+            Ui.RoundButton(footRow, Strings.T("battle.btn.revive_skip"), () =>
+            {
+                if (_modal != null) Object.Destroy(_modal);
                 _previewRewardIndex = -1;
                 _run.SkipReviveReward();
                 _message = Strings.T("battle.revive.skip_msg");
                 CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
+            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));
         }
 
         /// <summary>复活补给满库替换(2026-08-04):结构同 DrawDropChoiceStep,
