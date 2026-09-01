@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using Brushblade.Core;
 
@@ -27,6 +28,35 @@ namespace Brushblade.Core.Tests
         private static BattleEngine NewBattleWithChar(string charId, int maxHp) =>
             new(CharTableTests.RealGraph(), new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 },
                 new[] { charId }, Array.Empty<string>(), new[] { Dummy() }, seed: 1);
+
+        /// <summary>存档 → 读档,照 SnapshotRoundTripTests 的 Reload() 写法(2026-09-02)。</summary>
+        private static BattleEngine NewBattleFromSnapshot(BattleSnapshot snapshot, int maxHp)
+        {
+            var def = Dummy();
+            var defs = new System.Collections.Generic.Dictionary<string, EnemyDef> { [def.Id] = def };
+            return BattleEngine.Restore(snapshot, Graph(),
+                new BattleConfig { PlayerMaxHp = maxHp, PlayerAttack = 100 }, null, defs);
+        }
+
+        /// <summary>打赢一场并 AdvanceAfterBattle,携带态里应含势/水势(2026-09-02)。</summary>
+        private static RunEngine NewRunAfterWinningWithMomentum()
+        {
+            var def = Dummy(hp: 20); // 一发 20 伤秒杀,不受命中/生克干扰
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { def } },
+                RewardPool = new[] { "甲" },
+            };
+            var run = new RunEngine(Graph(), config,
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
+                new[] { "甲" }, Array.Empty<string>(), seed: 1);
+            run.Battle.GainMomentumForTest(80);    // 阈值 50 → 1 层 + 余 30
+            run.Battle.GainWaterPowerForTest(80);
+            run.Battle.Cast("甲", 0);
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won), "夹具前提:必须一发秒杀");
+            run.AdvanceAfterBattle();
+            return run;
+        }
 
         [Test]
         public void Shield_AtThreshold_GainsOneMomentumStack()
@@ -118,6 +148,33 @@ namespace Brushblade.Core.Tests
             battle.Cast("沝", 0);
             Assert.That(battle.WaterPowerStacks, Is.EqualTo(3));
             Assert.That(battle.HealAccum, Is.EqualTo(10));
+        }
+
+        // ---- 快照往返(2026-09-02,Task 3)----
+
+        [Test]
+        public void Snapshot_RoundTrip_PreservesStacksAndRemainder()
+        {
+            var battle = NewBattle(maxHp: 500);
+            battle.GainMomentumForTest(130);      // 2 层 + 余 30
+            battle.GainWaterPowerForTest(70);     // 1 层 + 余 20
+            var snapshot = battle.Capture();
+            var restored = NewBattleFromSnapshot(snapshot, maxHp: 500);
+
+            Assert.That(restored.MomentumStacks, Is.EqualTo(2));
+            Assert.That(restored.ShieldAccum, Is.EqualTo(30), "余数漏存是静默的:续爬会丢半层");
+            Assert.That(restored.WaterPowerStacks, Is.EqualTo(1));
+            Assert.That(restored.HealAccum, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void CarriedStatuses_IncludeMomentumAndWaterPower()
+        {
+            // 护盾本来就整场爬塔延续(_shieldNormal),势必须跟它同步,
+            // 否则每场重新攒,而护盾还留着 —— 两者会一直对不上。
+            var run = NewRunAfterWinningWithMomentum();
+            Assert.That(run.CarriedStatuses.Count(s => s.Kind == StatusKind.Momentum), Is.EqualTo(1));
+            Assert.That(run.CarriedStatuses.Count(s => s.Kind == StatusKind.WaterPower), Is.EqualTo(1));
         }
     }
 }

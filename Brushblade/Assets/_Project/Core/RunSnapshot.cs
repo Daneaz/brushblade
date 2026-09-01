@@ -37,6 +37,14 @@ namespace Brushblade.Core
         /// <summary>战意首回合宽限标记(2026-08-18):见 BattleEngine._moraleGraceTurn。
         /// 不存的话续爬会在「从 0 层起手」的那一回合白掉一层。</summary>
         public bool MoraleGraceTurn { get; set; }
+
+        /// <summary>势的余数:不足一层的护盾量(2026-09-02)。
+        /// ⚠ 漏存是**静默**的 —— 续爬后余数归零,玩家丢掉最多一层势,而没有任何
+        /// 现有测试看得见(全部测试都建新对象,没有一条读旧快照字节)。</summary>
+        public int ShieldAccum { get; set; }
+
+        /// <summary>水势的余数:不足一层的治疗名义值(2026-09-02)。同上,漏存静默。</summary>
+        public int HealAccum { get; set; }
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>
@@ -113,6 +121,8 @@ namespace Brushblade.Core
         public int MaxHpBonus { get; set; } // 局内血量上限加成(奇遇累加,2026-08-04)
         public int CarriedNormalShield { get; set; }
         public int CarriedPersistShield { get; set; }
+        public int CarriedShieldAccum { get; set; }
+        public int CarriedHealAccum { get; set; }
         public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)
 
         /// <summary>护甲增益跨战斗延续(2026-08-04):段内持久,段末清空;只承载 DefenseBuff,

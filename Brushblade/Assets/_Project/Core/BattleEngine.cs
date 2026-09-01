@@ -539,7 +539,8 @@ namespace Brushblade.Core
             IReadOnlyDictionary<string, int> cardLevels = null,
             int startingNormalShield = 0, int startingPersistShield = 0,
             IReadOnlyList<SummonSnapshot> startingSummons = null,
-            IReadOnlyList<StatusEffect> startingStatuses = null)
+            IReadOnlyList<StatusEffect> startingStatuses = null,
+            int startingShieldAccum = 0, int startingHealAccum = 0)
         {
             _graph = graph;
             _config = config;
@@ -563,6 +564,8 @@ namespace Brushblade.Core
             // 减伤跨战斗保留(2026-08-04):与普通盾同口径,段内持久,到段末才清。
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
+            _shieldAccum = startingShieldAccum;
+            _healAccum = startingHealAccum;
 
             Phase = BattlePhase.PlayerTurn;
             // 开场走调度(2026-08-17):不再直接开玩家回合 —— 那是改造前 AP 制的遗留,
@@ -616,6 +619,8 @@ namespace Brushblade.Core
                 StatusSerial = _statusSerial,
                 PlayerActionMeter = PlayerActionMeter,
                 MoraleGraceTurn = _moraleGraceTurn,
+                ShieldAccum = _shieldAccum,
+                HealAccum = _healAccum,
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             for (int s = 0; s < SummonCap; s++)
@@ -642,6 +647,8 @@ namespace Brushblade.Core
                 _statusSerial = snapshot.StatusSerial,
                 PlayerActionMeter = snapshot.PlayerActionMeter,
                 _moraleGraceTurn = snapshot.MoraleGraceTurn,
+                _shieldAccum = snapshot.ShieldAccum,
+                _healAccum = snapshot.HealAccum,
             };
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)

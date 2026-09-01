@@ -68,6 +68,8 @@ namespace Brushblade.Core
         private int _maxHpBonus;
         private int _carriedNormalShield;
         private int _carriedPersistShield;
+        private int _carriedShieldAccum;
+        private int _carriedHealAccum;
         private List<SummonSnapshot> _carriedSummons = new(); // 召唤物延续(2026-08-03):只带活的,残血原样
         private List<StatusEffect> _carriedStatuses = new(); // 护甲增益延续(2026-08-04):段内持久,到段末才清;
                                                                // 只承载 DefenseBuff,HoT 不跨战斗
@@ -146,6 +148,8 @@ namespace Brushblade.Core
                 MaxHpBonus = _maxHpBonus,
                 CarriedNormalShield = _carriedNormalShield,
                 CarriedPersistShield = _carriedPersistShield,
+                CarriedShieldAccum = _carriedShieldAccum,
+                CarriedHealAccum = _carriedHealAccum,
                 CarriedSummons = new List<SummonSnapshot>(_carriedSummons),
                 CarriedStatuses = _carriedStatuses.Select(s => s.Clone()).ToList(),
                 CharPicksLeft = CharPicksLeft,
@@ -182,6 +186,8 @@ namespace Brushblade.Core
                 _maxHpBonus = snapshot.MaxHpBonus,
                 _carriedNormalShield = snapshot.CarriedNormalShield,
                 _carriedPersistShield = snapshot.CarriedPersistShield,
+                _carriedShieldAccum = snapshot.CarriedShieldAccum,
+                _carriedHealAccum = snapshot.CarriedHealAccum,
                 _carriedSummons = new List<SummonSnapshot>(snapshot.CarriedSummons),
                 _carriedStatuses = snapshot.CarriedStatuses.Select(s => s.Clone()).ToList(),
                 CharPicksLeft = snapshot.CharPicksLeft,
@@ -533,11 +539,17 @@ namespace Brushblade.Core
             _carriedHp = Battle.PlayerHp;
             _carriedNormalShield = Battle.ShieldNormal;
             _carriedPersistShield = Battle.ShieldPersist;
+            _carriedShieldAccum = Battle.ShieldAccum;
+            _carriedHealAccum = Battle.HealAccum;
             _carriedSummons = CaptureAliveSummons();
             // 只取护甲增益:HoT 是本场限定,不随携带态跨战斗(2026-08-04;
             // 2026-08-12 E-b4 T3 随乘法减伤退场,载体从 DamageReduction 换成 DefenseBuff)
+            // 势/水势跟护盾同步跨战斗(2026-09-02):护盾本来就整场爬塔延续(_shieldNormal),
+            // 势不跟着延续的话每场重攒,而护盾还留着 —— 两者永远对不上。
             _carriedStatuses = Battle.PlayerStatuses.All
-                .Where(s => s.Kind == StatusKind.DefenseBuff)
+                .Where(s => s.Kind == StatusKind.DefenseBuff
+                    || s.Kind == StatusKind.Momentum
+                    || s.Kind == StatusKind.WaterPower)
                 .Select(s => s.Clone())
                 .ToList();
 
@@ -759,7 +771,8 @@ namespace Brushblade.Core
         {
             return new BattleEngine(_graph, BattleConfigForRun(), library, pool,
                 _runConfig.Encounters[BattleIndex], _random.Next(int.MaxValue), startingHp, _cardLevels,
-                _carriedNormalShield, _carriedPersistShield, _carriedSummons, _carriedStatuses);
+                _carriedNormalShield, _carriedPersistShield, _carriedSummons, _carriedStatuses,
+                _carriedShieldAccum, _carriedHealAccum);
         }
     }
 }
