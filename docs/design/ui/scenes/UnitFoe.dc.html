@@ -161,7 +161,7 @@
     .figs i { font-style: normal; color: #2C333D; }
     .figs b { font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; color: #161B22; }
 
-    /* 身:左「身上的状态」、右「特性 / 技能」。状态一条一行、说明就在名字底下 ——
+    /* 身:左「状态」、右「特性 / 技能」。状态一条一行、说明就在名字底下 ——
        不做二级弹窗:弹窗上再弹一层就得先关掉这层才看得回战场,而玩家点这里正是为了对着战场看。 */
     .body { flex: 1; min-height: 0; display: flex; gap: 13px; }
     .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
@@ -190,7 +190,11 @@
     .abil .h .cp { font-family: "Noto Sans SC", sans-serif; }
     .abil .t { font-size: 9.5px; color: #7A7261; line-height: 1.55; margin-top: 3px; }
     .abil .t b { color: #2C333D; font-weight: 500; }
-    .wx { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #5D646F;
+    /* 两行(2026-09-01 用户拍板):一行「克 X ×1.5」,一行「被 Y 克,承伤 ×1.5」。
+       原先挤在一行、且「被克」那半只说关系不给倍率 —— 玩家最想知道的恰恰是
+       「被克我要多吃多少」,那个数是现成的,没理由让他自己去推。「生克」这个小标题
+       也一并去掉:两行各自把话说全了,标题不再承担信息。 */
+    .wx { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 10px; color: #5D646F;
       background: #F3EFE4; border-radius: 7px; padding: 5px 8px; }
     .wx .k { font-size: 9px; letter-spacing: 1px; color: #88909C; }
     .wx b { font-family: "Noto Serif SC", serif; font-size: 11px; color: #161B22; }
@@ -319,7 +323,7 @@
 
     <div class="body">
       <div class="col wide">
-        <div class="ttl">身上的状态 <b>4</b><span class="rule"></span><span>超过 4 条这一列滚动</span></div>
+        <div class="ttl">状态 <b>4</b><span class="rule"></span></div>
         <div class="list">
           <div class="st">
             <span class="cp" style="background: #C53637"><svg class="ic"><use href="#ic-burn"></use></svg>3</span>
@@ -367,16 +371,15 @@
             <div class="t">被你的前排拦下；前排清空后才够得着后排或你本人</div>
           </div>
           <div class="wx">
-            <span class="k">生克</span>
             <span class="ke">克 <b>金</b> ×1.5</span>
-            <span class="by">被 <b>水</b> 克</span>
+            <span class="by">被 <b>水</b> 克，承伤 ×1.5</span>
           </div>
         </div>
       </div>
     </div>
 
     <div class="foot">
-      <span class="hint">点遮罩或 ✕ 关闭 · 数值随战斗实时刷新，不暂停</span>
+      <span class="hint">点空白或 ✕ 关闭 · 数值随战斗实时刷新</span>
       <button class="btn ink tap">知道了</button>
     </div>
   </div>

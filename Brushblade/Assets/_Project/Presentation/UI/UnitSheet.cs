@@ -336,11 +336,11 @@ namespace Brushblade.Presentation
         /// 内容少时 ScrollRect 只是不会动,不多花一行特判代码。</summary>
         private static void BuildStatusColumn(Transform parent, UnitDetail detail)
         {
+            // 2026-09-01 用户拍板:标题就叫「状态 N」,后面那句「超过 4 条这一列滚动」删掉
+            // —— 能不能滚是玩家一划就知道的事,写出来只占地方。
             int count = detail.Statuses?.Count ?? 0;
-            var title = Ui.Row(parent, "Title", 8);
-            Ui.ThemedLabel(title.transform, Strings.T("unit.detail.statuses_title", ("count", count)),
-                15, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(title.transform, Strings.T("unit.detail.statuses_hint"), 10, Theme.TextDim);
+            Ui.ThemedLabel(parent, Strings.T("unit.detail.statuses_title", ("count", count)),
+                15, Theme.TextMain, Theme.TitleFont, TextAnchor.UpperLeft);
 
             // ⚠ 宽度必须显式给(2026-09-01 修):Ui.ScrollList 返回的是一个只挂了 ScrollRect
             // 的 Panel —— 没有布局组、没有 Graphic,ScrollRect 也不实现 ILayoutElement,
@@ -375,7 +375,9 @@ namespace Brushblade.Presentation
                 + (status.IconKey != null
                     ? Icons.Size + (string.IsNullOrEmpty(status.ChipText) ? 0f : Icons.Gap)
                     : 0f);
-            chip.GetComponent<LayoutElement>().minWidth = chipWidth;   // 不许被压缩
+            var chipElement = chip.GetComponent<LayoutElement>();
+            chipElement.minWidth = chipWidth;                                  // 不许被压缩
+            chipElement.minHeight = chipElement.preferredHeight;               // 也不许被拉长
 
             var textCol = Ui.VStack(row.transform, "Text", 1);
             var textColLayout = textCol.GetComponent<VerticalLayoutGroup>();
@@ -391,6 +393,10 @@ namespace Brushblade.Presentation
             Ui.Sized(textCol, width: StatusColumnWidth - chipWidth - StatusRowGap);
 
             var nameLine = Ui.Row(textCol.transform, "Name", 6);
+            // 左对齐(2026-09-01 修):Ui.Row 默认 MiddleCenter,而 textCol 开了
+            // childForceExpandWidth —— 名字行被撑成整列宽再居中,于是「暴击 本场持久」
+            // 飘在列中间,底下的说明却贴着左边,一条状态读起来像两条。
+            nameLine.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Ui.ThemedLabel(nameLine.transform, status.Name, 13, Theme.TextMain, align: TextAnchor.UpperLeft);
             Ui.ThemedLabel(nameLine.transform, status.Duration, 10, Theme.TextDim, align: TextAnchor.UpperLeft);
 
@@ -450,6 +456,10 @@ namespace Brushblade.Presentation
             layout.childForceExpandWidth = true;
 
             var header = Ui.Row(stack.transform, "Header", 6);
+            // 左对齐(2026-09-01 修):同状态名字行那条 —— Ui.Row 默认 MiddleCenter,
+            // 而外面的 stack 开了 childForceExpandWidth,头行被撑满卡宽再把图标和名字
+            // 一起挤到卡片正中,一列卡片的文字各自居中、左缘参差,读起来最乱。
+            header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             if (ability.IconKey != null)
                 Ui.Chip(header.transform, "", ability.ChipColor, Color.white, 12, 6, 4, ability.IconKey);
             Ui.ThemedLabel(header.transform, ability.Name, 14, Theme.TextMain, Theme.TitleFont,
@@ -473,17 +483,23 @@ namespace Brushblade.Presentation
         /// 本身去体现,这里只提示关系),照抄。</summary>
         private static void BuildWuxingRow(Transform parent, Element self, Element beats, Element beatenBy)
         {
-            var row = Ui.Row(parent, "Wuxing", 10);
-            Ui.ThemedLabel(row.transform, Strings.T("unit.detail.wx_label"), 11, Theme.TextDim);
+            // 两行(2026-09-01 用户拍板):一行「克 X ×1.5」,一行「被 Y 克,承伤 ×1.5」。
+            // 原先挤在一行、且「被克」那半只说关系不给倍率 —— 玩家最想知道的恰恰是
+            // 「被克我要多吃多少」,那个数是现成的,没有理由让他自己去推。
+            // 两边的倍率各取各的方向:我打它走 KeMultiplier(self, beats),它打我走
+            // KeMultiplier(beatenBy, self)。不写死 1.5,规则唯一来源是 wuxing-reference.md。
+            var column = Ui.VStack(parent, "Wuxing", 2);
+            column.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
 
-            float multiplier = WuxingResolver.KeMultiplier(self, beats);
-            Ui.ThemedLabel(row.transform,
+            Ui.ThemedLabel(column.transform,
                 Strings.T("unit.detail.wx_beats", ("element", CharInfo.ElementName(beats)),
-                    ("mult", multiplier.ToString("0.0"))),
-                12, Theme.Cinnabar);
-            Ui.ThemedLabel(row.transform,
-                Strings.T("unit.detail.wx_beaten_by", ("element", CharInfo.ElementName(beatenBy))),
-                12, new Color(0.055f, 0.31f, 0.526f)); // 与 Theme.ElementSoftFg(Water) 同色,稿上「被克」用的水系蓝
+                    ("mult", WuxingResolver.KeMultiplier(self, beats).ToString("0.0"))),
+                12, Theme.Cinnabar, align: TextAnchor.UpperLeft);
+            Ui.ThemedLabel(column.transform,
+                Strings.T("unit.detail.wx_beaten_by", ("element", CharInfo.ElementName(beatenBy)),
+                    ("mult", WuxingResolver.KeMultiplier(beatenBy, self).ToString("0.0"))),
+                12, new Color(0.055f, 0.31f, 0.526f), // 与 Theme.ElementSoftFg(Water) 同色,稿上「被克」用的水系蓝
+                align: TextAnchor.UpperLeft);
         }
 
         // ---------------------------------------------------------------- 底部(.foot)

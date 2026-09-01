@@ -742,6 +742,12 @@ namespace Brushblade.Presentation
             contentRect.anchorMax = new Vector2(1, 1);
             contentRect.pivot = new Vector2(0.5f, 1f);
             contentRect.anchoredPosition = Vector2.zero;
+            // 横向 sizeDelta 显式归零(2026-09-01):anchorMin.x/anchorMax.x 已经是 0/1,
+            // 宽度 = 视口宽 + sizeDelta.x —— 这一项没写死的话就吃 RectTransform 的构造
+            // 缺省值,一旦不是 0,Content 会比视口宽出那么多、再按 pivot 0.5 居中,
+            // 左右两端各被 RectMask2D 裁掉一半差额(表现是列表项左边缘缺一块)。
+            // y 交给 ContentSizeFitter,这里给 0 只是占位。
+            contentRect.sizeDelta = Vector2.zero;
             contentGo.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             scroll.viewport = (RectTransform)viewport.transform;
