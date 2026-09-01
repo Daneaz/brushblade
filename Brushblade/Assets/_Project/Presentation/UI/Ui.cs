@@ -160,31 +160,69 @@ namespace Brushblade.Presentation
             int radius = 20, float thickness = 2f) =>
             OutlinedPanel(parent, name, fill, border, radius, thickness, out _);
 
-        /// <summary>模态弹窗(2026-07-19 拍板:提示统一弹窗):墨色遮罩 + 宣纸卡 + 按钮行。
-        /// 点按钮或遮罩即关闭(按钮先关再执行动作);返回根节点供外部提前销毁。</summary>
-        /// <summary>模态外壳:墨遮罩 + 宣纸卡 + 标题,返回内容容器供调用方自由填充。
-        /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。</summary>
-        public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
-            bool dismissable, out Transform content)
+        /// <summary>统一浮层外壳(2026-09-01,轮三 Task 1):遮罩 + 宣纸描边卡 + 带内边距的竖排容器。
+        ///
+        /// `Dialogs.dc.html` 定死了一条:全站弹窗是**同一套**外壳 —— 半透遮罩 + 宣纸圆角卡
+        /// **带 1pt 描边**(#DED7C9)+ 内容。没有那条描边,浅色卡会直接融进同样浅色的宣纸底。
+        /// 此前 <see cref="ModalShell"/> 用的是无边 <see cref="CardPanel"/>,而 UnitSheet 自己
+        /// 手写了一份带描边的 —— 两套外壳各写各的,正是这次要收掉的东西。
+        ///
+        /// **同屏只留一个**:建之前先销毁 <paramref name="root"/> 下的同名节点。稿上的原话是
+        /// 「新的弹出前先销毁旧的,否则叠成一摞、点不到底下那层」。调用方因此不必自己 Destroy,
+        /// 传同一个 <paramref name="name"/> 反复调即可。
+        ///
+        /// ⚠ 吃点击的 Button 必须挂在**外层**、targetGraphic 指向 <c>face</c>:
+        /// <see cref="OutlinedPanel"/> 对 face 无条件设了 raycastTarget = false,
+        /// 挂在 face 身上的 Button 永远吃不到点击,点击会穿透下去命中遮罩的关闭按钮。</summary>
+        /// <param name="dismissable">点遮罩是否关闭。必须做出选择的流程(战利品、换字)传 false。</param>
+        public static GameObject Sheet(Transform root, string name, float width, float height,
+            bool dismissable, Color scrim, out Transform content)
         {
-            var overlay = new GameObject("Modal", typeof(RectTransform), typeof(Image));
+            var stale = root.Find(name);
+            if (stale != null) UnityEngine.Object.Destroy(stale.gameObject);
+
+            var overlay = new GameObject(name, typeof(RectTransform), typeof(Image));
             overlay.transform.SetParent(root, false);
             var mask = overlay.GetComponent<Image>();
-            mask.color = new Color(0.12f, 0.10f, 0.08f, 0.55f); // 墨色半透遮罩
+            mask.color = scrim;
             Stretch((RectTransform)overlay.transform);
             var maskButton = overlay.AddComponent<Button>();
             maskButton.targetGraphic = mask;
             if (dismissable)
                 maskButton.onClick.AddListener(() => UnityEngine.Object.Destroy(overlay));
 
-            var card = CardPanel(overlay.transform, "Dialog");
-            Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                -halfSize, halfSize);
+            var outer = OutlinedPanel(overlay.transform, "Card", Theme.PanelPaper, Theme.PanelBorder,
+                SheetRadius, SheetBorder, out var face);
+            Anchor((RectTransform)outer.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(-width / 2f, -height / 2f), new Vector2(width / 2f, height / 2f));
+            outer.gameObject.AddComponent<Button>().targetGraphic = face;
 
-            var stack = VStack(card.transform, "Stack", 12);
+            var stack = VStack(face.transform, "Stack", SheetSpacing);
             Stretch((RectTransform)stack.transform);
-            ThemedLabel(stack.transform, title, 24, Theme.TextMain, Theme.TitleFont);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.padding = new RectOffset(SheetPad, SheetPad, SheetPad, SheetPad);
             content = stack.transform;
+            return overlay;
+        }
+
+        public static GameObject Sheet(Transform root, string name, float width, float height,
+            bool dismissable, out Transform content) =>
+            Sheet(root, name, width, height, dismissable, Theme.Scrim, out content);
+
+        private const int SheetRadius = 18;    // 稿 9pt 圆角
+        private const float SheetBorder = 1.5f; // 稿 1pt 描边
+        private const float SheetSpacing = 14f;
+        private const int SheetPad = 24;
+
+        /// <summary>模态外壳:坐在 <see cref="Sheet"/> 上,标题写进内容容器。
+        /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。</summary>
+        public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
+            bool dismissable, out Transform content)
+        {
+            var overlay = Sheet(root, "Modal", halfSize.x * 2f, halfSize.y * 2f,
+                dismissable, out content);
+            ThemedLabel(content, title, 24, Theme.TextMain, Theme.TitleFont);
             return overlay;
         }
 

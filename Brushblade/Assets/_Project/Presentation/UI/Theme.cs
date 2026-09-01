@@ -41,6 +41,13 @@ namespace Brushblade.Presentation
         public static readonly Color UpgradeText = new(0.107f, 0.333f, 0.173f);
         public static readonly Color Shadow = new(0.088f, 0.105f, 0.132f, 0.08f);
         public static readonly Color Scrim = new(0.088f, 0.105f, 0.132f, 0.55f);  // 模态遮罩
+        /// <summary>局内浮层的浅遮罩(稿 rgba(22,27,34,.42))。战利品/换字这几张浮在战斗屏上,
+        /// 底下那半张脸要留着 —— 玩家才知道自己还在第几层、字库里有什么。
+        /// 全遮死就成了「不知从哪冒出来的窗」(Reward.dc.html / Replace.dc.html 的原话)。</summary>
+        public static readonly Color ScrimSoft = new(0.086f, 0.106f, 0.133f, 0.42f);
+        /// <summary>段末横幅的**纸色**罩(稿 rgba(246,241,231,.72))。胜负横幅压的是自家宣纸底,
+        /// 不是墨色 —— 墨罩会把战场压成深色,与「本段告捷」的明快读感相反(RunEnd.dc.html)。</summary>
+        public static readonly Color ScrimPaper = new(0.965f, 0.945f, 0.906f, 0.72f);
 
         // 层段背景基色(20.2 每段换景):字林竹绿/词渊黛蓝/文山赭石/墨海墨青
         private static readonly Color[] BandInks =

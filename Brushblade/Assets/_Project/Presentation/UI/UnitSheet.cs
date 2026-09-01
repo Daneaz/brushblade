@@ -32,7 +32,6 @@ namespace Brushblade.Presentation
         private const float SheetWidth = 1280f;
         private const float SheetHeight = 760f;
         private const float SheetPadding = 24f;
-        private const float RootSpacing = 14f;
         private const float PortraitSize = 148f;
         private const float HeaderGap = 16f;
         private const float InfoWidth = SheetWidth - SheetPadding * 2 - PortraitSize - HeaderGap;
@@ -70,42 +69,15 @@ namespace Brushblade.Presentation
                 savedScroll = new Vector2[previousScrolls.Length];
                 for (int i = 0; i < previousScrolls.Length; i++)
                     savedScroll[i] = previousScrolls[i].normalizedPosition;
-                Object.Destroy(previous.gameObject);
+                // 销毁交给 Ui.Sheet(它对同名节点做同一件事),这里只负责把滚动位置抄下来
             }
 
-            var overlay = new GameObject(SheetName, typeof(RectTransform), typeof(Image));
-            overlay.transform.SetParent(root, false);
-            var mask = overlay.GetComponent<Image>();
-            mask.color = Theme.Scrim;
-            Ui.Stretch((RectTransform)overlay.transform);
-            var maskButton = overlay.AddComponent<Button>();
-            maskButton.targetGraphic = mask;
-            maskButton.onClick.AddListener(() => Object.Destroy(overlay));
+            var overlay = Ui.Sheet(root, SheetName, SheetWidth, SheetHeight,
+                dismissable: true, out var stackTransform);
 
-            var outer = Ui.OutlinedPanel(overlay.transform, "Sheet", Theme.PanelPaper, Theme.PanelBorder,
-                18, 1.5f, out var face);
-            Ui.Anchor((RectTransform)outer.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-SheetWidth / 2f, -SheetHeight / 2f), new Vector2(SheetWidth / 2f, SheetHeight / 2f));
-            // 点面板本体不该关闭(只有遮罩/×/知道了三处能关)——面板是 overlay 的子物体,
-            // 天生会挡住遮罩按钮的射线,补一个空 Button 吃掉点击,不让它透到遮罩上。
-            // ⚠ 2026-09-01 review 修:Button 必须挂在 outer 上、targetGraphic 指向 face——
-            // Ui.OutlinedPanel 对 face 无条件设了 raycastTarget = false(Ui.cs:153),
-            // raycastTarget = false 的 Graphic 根本不会注册进 GraphicRegistry,挂在 face 自己
-            // 身上的 Button 永远吃不到点击,点击会直接穿透 face 命中 outer、再冒泡到遮罩的
-            // 关闭按钮上,把整个弹窗关掉——正好是这段注释想避免的效果。仓库其余同款按钮
-            // (Ui.cs:146 的文档约定、MapView.cs 页签、Ui.cs 另外两处)全部是这个挂法。
-            outer.gameObject.AddComponent<Button>().targetGraphic = face;
-
-            var stack = Ui.VStack(face.transform, "Stack", RootSpacing);
-            Ui.Stretch((RectTransform)stack.transform);
-            var stackLayout = stack.GetComponent<VerticalLayoutGroup>();
-            stackLayout.childAlignment = TextAnchor.UpperCenter;
-            stackLayout.padding = new RectOffset((int)SheetPadding, (int)SheetPadding,
-                (int)SheetPadding, (int)SheetPadding);
-
-            BuildHeader(stack.transform, detail, overlay);
-            BuildBody(stack.transform, detail);
-            BuildFoot(stack.transform, overlay);
+            BuildHeader(stackTransform, detail, overlay);
+            BuildBody(stackTransform, detail);
+            BuildFoot(stackTransform, overlay);
 
             if (savedScroll != null)
             {
