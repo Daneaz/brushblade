@@ -222,7 +222,11 @@
     /* ---------- 玩家条 ---------- */
     /* 与战场格同构:立绘方块 + 信息列 + 三条。执笔人原先只有一个名字,
        在四排都是「立绘 + 条」的战场上显得不是同一类东西。 */
-    .me { flex: none; height: 40px; display: flex; align-items: center; gap: 8px;
+    /* 宽度锁死 584px 并居中(2026-09-01):584 = 一排 4 格 ×140 + 3 个间距 ×8,即战场网格的
+       实际内容宽。中区是 602px,玩家条原先铺满 602,比上方的战场网格两边各宽出 9px —— 竖着
+       看边缘不齐,读起来就是「玩家条比战斗区长了一截」。手牌行、部件池行同此。 */
+    .me { flex: none; width: 584px; align-self: center; height: 40px; display: flex;
+      align-items: center; gap: 8px;
       background: rgba(255,253,247,.86); border: 1px solid #DED7C9;
       border-radius: 9px; padding: 0 9px 0 4px; }
     .me .blk { position: relative; flex: none; width: 34px; height: 34px; border-radius: 7px;
@@ -249,7 +253,12 @@
 
     /* AP:每回合能出几个字,是这一屏最该一眼看见的资源。
        原先是三颗 8px 小圆点,分量还不如旁边的状态 chip。改成竖笔画格 —— 满的是墨、
-       空的是白格,像还没蘸墨的笔画;不够出下一个字时整块转朱砂。 */
+       空的是白格,像还没蘸墨的笔画。
+       2026-09-01 去掉了原本跟在笔画格后面的「3/3」数字(.ap .n):几根格子本来就是
+       「满了几根 / 一共几根」,数字是同一件事说第二遍。连带没了的是唯一的 dry 表现
+       (.ap.dry .n 转深朱砂)—— AP 见底时每一根格子都是空的,这本身就是最一眼的反馈。
+       下面留着的 .ap.dry .pips i.on 在当前 AP 语义下永远不触发(dry 即 Ap==0,不会有
+       任何一枚 on),落地也一直没实现它,留着只为记住这条规则曾经存在。 */
     .ap { flex: none; display: flex; align-items: center; gap: 5px; padding-left: 8px;
       border-left: 1px solid #E4DDCE; align-self: stretch; }
     .ap .k { font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
@@ -257,19 +266,23 @@
     .ap .pips i { display: block; width: 8px; height: 20px; border-radius: 3px;
       background: #EFEADF; box-shadow: inset 0 0 0 1px #D5CBB8; }
     .ap .pips i.on { background: #11161F; box-shadow: none; }
-    .ap .n { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600;
-      font-variant-numeric: tabular-nums; line-height: 1; }
-    .ap .n em { font-style: normal; font-size: 9px; color: #88909C; }
     .ap.dry .pips i.on { background: #C53637; }
-    .ap.dry .n { color: #9B1E22; }
 
     /* 状态栏:定宽两行,四枚以内平铺、超出收 +N —— 之前挤在最右侧,多两个状态就顶出去了 */
     .stt { flex: none; width: 120px; align-self: stretch; display: flex; flex-wrap: wrap;
       align-content: center; gap: 3px; padding-left: 8px; border-left: 1px solid #E4DDCE; }
 
     /* ---------- 手牌 ---------- */
-    .hand { flex: none; display: flex; align-items: center; justify-content: center; gap: 5px; }
-    .handlbl { font-size: 8px; color: #88909C; letter-spacing: 1.5px; writing-mode: vertical-rl; }
+    /* 宽度与对齐同 .me(见那里的说明)。justify-content 从 center 改成 flex-start
+       (2026-09-01):计数标题在行首,整组居中会让标题的 x 随牌数左右漂,与下面同样带
+       标题的部件池行对不齐 —— 「竖着看别扭」正是别扭在这里。 */
+    .hand { flex: none; width: 584px; align-self: center; display: flex;
+      align-items: center; justify-content: flex-start; gap: 5px; }
+    /* 计数标题:原本是 writing-mode: vertical-rl,而「部件池 12/12」有 8 个字符,竖着
+       堆起来比整条手牌带(56px)还高,一个字一个字往下读确实别扭。2026-09-01 改回横排
+       一行。定宽 46px 不是为了标题自己好看,是为了让两行的第一张牌落在同一个 x 上
+       ——「字库 5/9」与「部件池 12/12」的自然宽度差着一大截。 */
+    .handlbl { flex: none; width: 46px; font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
     .tile { position: relative; width: 46px; height: 56px; border-radius: 7px; background: #FFFDF7;
       border: 2px solid var(--rar); box-shadow: 0 1px 3px rgba(22,27,34,.1); cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -288,8 +301,9 @@
     .adslot.used { border-color: #CFC7B6; background: #EFEAE0; color: #A8A08E; cursor: default; }
 
     /* ---------- 部件池 ---------- */
-    .pool { flex: none; display: flex; align-items: center; gap: 4px; }
-    .pool .lbl { font-size: 8px; color: #88909C; letter-spacing: 1.5px; writing-mode: vertical-rl; height: 36px; }
+    .pool { flex: none; width: 584px; align-self: center; display: flex;
+      align-items: center; justify-content: flex-start; gap: 4px; }
+    .pool .lbl { flex: none; width: 46px; font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
     .part { position: relative; width: 32px; height: 38px; border-radius: 7px; cursor: pointer;
       background: var(--elSoft); border: 1.5px solid transparent; padding: 0; font-family: inherit;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
@@ -602,7 +616,6 @@
             <span class="pips">
               <sc-for list="{{apPips}}" as="p" hint-placeholder-count="3"><i class="{{p.cls}}"></i></sc-for>
             </span>
-            <span class="n">{{ap}}<em>/{{apMax}}</em></span>
           </div>
         </div>
 
@@ -1031,8 +1044,10 @@ class Component extends DCLogic {
       skipCoach: function () { self.setState({ coach: -1 }); },
       hpPct: Math.round(st.hp / st.hpMax * 100) + "%", hpText: st.hp + " / " + st.hpMax,
       shPct: shieldPct(st.shield, st.hpMax), shield: st.shield,
-      hp: st.hp, hpMax: st.hpMax, ap: st.ap, apMax: st.apMax,
-      // 出不起下一个字时整块 AP 转朱砂:出字恒耗 1 AP(CharDef.ApCostFor 一律返回 1)
+      hp: st.hp, hpMax: st.hpMax,
+      // 出不起下一个字:出字恒耗 1 AP(CharDef.ApCostFor 一律返回 1)。2026-09-01 起
+      // .dry 已无可见表现(数字撤了,唯一剩下的 .ap.dry .pips i.on 永远不触发),
+      // 类名留着是为了记住这条规则曾经存在 —— 见 .ap 上方的说明。
       apCls: st.ap < 1 ? "dry" : "",
       atb: st.atb + "%", atbCls: st.atb > 80 ? "soon" : "",
       apPips: apPips,

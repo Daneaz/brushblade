@@ -35,6 +35,10 @@ namespace Brushblade.Presentation
         // (见 _centerRow),两个消费方谁也撑不出另一个要的高度,只能给死一个数。
         // 非战斗阶段那一路最高的一件是奇遇选项钮 72,这个数也装得下。
         private const float HandBandH = 117f;  // 稿 56pt
+        // 战场网格的实际内容宽:一排 4 格 × 293 + 3 个间距 × 17(稿 4×140 + 3×8 = 584pt)。
+        // 中区本身是 1260(稿 602pt),两侧各富余 18 —— 玩家条 / 字库带 / 部件池原先都铺满
+        // 1260,比上方的战场网格两边各宽出一圈,竖着看边缘不齐(2026-09-01 用户拍板收窄对齐)。
+        private const float FieldContentWidth = EnemyCellWidth * 4 + RowGap * 3;
         private RecipeGraph _graph;
         private RunEngine _run;
         // 执笔人详情弹窗(PlayerInfo.Sheet)要用:局外等级/技能不在 BattleEngine 上,得从这里
@@ -683,11 +687,22 @@ namespace Brushblade.Presentation
             midLayout.childForceExpandWidth = true;   // 每一行都铺满中区宽度
             midLayout.childAlignment = TextAnchor.UpperCenter;
             Ui.Sized(mid, flexWidth: 1f);
-            // 中区被左右两栏夹到 1260 逻辑单位(稿 602pt)。手牌行满员时**装不下**:
-            // 12 张牌 46pt + 11 个间距 5pt + 竖排标签 8pt + 广告位 42pt = 662pt(1385 单位),
-            // 溢出约 125 单位(10%)。HorizontalLayoutGroup 会等比压窄每格(既有行为,
-            // 与旧版面同),压扁而不是溢出 —— 压后牌约 87 单位,仍比旧版的 68 大三成。
-            // 别为这 10% 改牌宽:稿上的 46×56pt 是量出来的,改它会让整屏比例跟稿漂开。
+
+            // 中区被左右两栏夹到 1260 逻辑单位(稿 602pt),而玩家条 / 字库带 / 部件池
+            // 三行进一步收窄到 FieldContentWidth = 1223 并居中(见该常量的说明)。
+            // 手牌行满员时**装不下**:12 张牌 96 + 13 个间距 8 + 计数标题 96 + 广告位 88
+            // = 1440,溢出约 217(18%)。HorizontalLayoutGroup 会等比压窄每格(既有行为,
+            // 与旧版面同),压扁而不是溢出 —— 压后牌约 82 单位,仍比旧版的 68 大两成。
+            // 别为这一成八改牌宽:稿上的 46×56pt 是量出来的,改它会让整屏比例跟稿漂开。
+            // (2026-09-01 收窄对齐前是溢出 10%、压后 87;标题从竖排单字改横排定宽
+            //  也吃掉了一部分,两笔加起来就是从 87 到 82。)
+            //
+            // 收窄居中槽:Mid 的 childForceExpandWidth 会把直接子物体一律撑满 1260,所以
+            // 「收窄再居中」只能靠一层通栏的槽 —— 槽照旧铺满 1260,真正那一件建在槽里、
+            // 自己按 FieldContentWidth 定宽,由槽的 MiddleCenter 居中。槽不设 LayoutElement:
+            // 高度跟着里面那件的 preferredHeight 走,部件池那种「高度由内容撑」的行才不会
+            // 被钉死成某个数。
+            GameObject NarrowSlot(string name) => Ui.Row(mid.transform, name + "Slot");
 
             // 战场四排(稿 .field):敌方贴顶、我方贴底,富余的纵向全部堆在分隔线两侧。
             var field = Ui.VStack(mid.transform, "Field", FieldGap);
@@ -737,8 +752,8 @@ namespace Brushblade.Presentation
             _summonBackRow = MakeFieldRow(field.transform, "SummonsBack");
 
             // 玩家条(稿 .me):定高,不跟着 field 伸缩
-            var bottomGo = Ui.Row(mid.transform, "PlayerStats");
-            Ui.Sized(bottomGo, height: PlayerBarH);
+            var bottomGo = Ui.Row(NarrowSlot("PlayerStats").transform, "PlayerStats");
+            Ui.Sized(bottomGo, width: FieldContentWidth, height: PlayerBarH);
             _bottomRow = bottomGo.transform;
             // 执笔人详情入口(2026-09-01,单位详情轮二 Task 5):挂在 _bottomRow 自己身上,
             // 只挂一次——DrawPlayerStats 每次 Refresh 只 Ui.Clear 它的子物件,不动它本身
@@ -756,10 +771,14 @@ namespace Brushblade.Presentation
             // 战斗回合内/战利品/复活补给三个阶段画,而这条带的四个消费方(结算/奇遇/
             // 部件超限/跑图结束)与那三个阶段互斥。做成上下两行会让这条带占双倍高度,
             // 把战场四排挤扁 —— 所以是两个铺满同一个槽的叠放层,各自 Ui.Clear / 绘制。
-            var band = Ui.Panel(mid.transform, "Band");
-            Ui.Sized(band, height: HandBandH);
+            var band = Ui.Panel(NarrowSlot("Band").transform, "Band");
+            Ui.Sized(band, width: FieldContentWidth, height: HandBandH);
 
+            // 字库行左对齐(2026-09-01 用户拍板):稿 .hand 是 justify-content:center,
+            // 但计数标题在行首 —— 整组居中会让标题的 x 随牌数左右漂,与下面同样带标题的
+            // 部件池行对不齐,「竖着看」正是别扭在这里。改左对齐后两行的标题共用一个 x。
             var libraryGo = Ui.Row(band.transform, "Library");
+            libraryGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Stretch((RectTransform)libraryGo.transform);
             _libraryRow = libraryGo.transform;
 
@@ -769,7 +788,10 @@ namespace Brushblade.Presentation
 
             // 部件池与底部提示行:高度由内容撑(Mid 的 childForceExpandHeight 已关,
             // 它们不会去分 field 的富余)
-            _poolRow = Ui.Row(mid.transform, "Pool").transform;
+            var poolGo = Ui.Row(NarrowSlot("Pool").transform, "Pool");
+            Ui.Sized(poolGo, width: FieldContentWidth);
+            poolGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            _poolRow = poolGo.transform;
             _statusRow = Ui.Row(mid.transform, "Status").transform;
 
             // ---- 右栏:拆合台(稿 .bench) ----
@@ -1478,17 +1500,15 @@ namespace Brushblade.Presentation
             Divider(); // stt | ap 分隔线
 
             // AP 竖笔画格(稿 .ap):满的是墨、空的是白格,像还没蘸墨的笔画——原先三颗
-            // 8px 小圆点分量还不如旁边的状态 chip。AP 不够出下一个字(dry)时**只有数字**
-            // 转深朱砂(稿 .ap.dry .n,「AP」标签没有 dry 规则,见下方两处 ThemedLabel);
-            // pips 自身的「on」颜色不需要单独判 dry——dry 恰好意味着 Ap == 0,这时不会有
-            // 任何一枚 pip 处于 on 态,稿上 .ap.dry .pips i.on 那条规则在当前 AP 语义下
-            // 永远不会触发,这里不必为它专门分支。
-            // Ap < 1 与「不够出下一个字」等价,只是因为 Core.CharDef.ApCostFor 目前对
-            // 所有稀有度恒为 1(2026-08-03 拍板);这是脆弱等价——将来 AP 消耗按稀有度
-            // 分化,这行就该改成「够不够出手上最便宜的那张字」。
-            bool dry = Battle.Ap < 1;
+            // 8px 小圆点分量还不如旁边的状态 chip。
+            //
+            // 2026-09-01 用户拍板去掉稿上的「3/3」数字(.ap .n):几根笔画格本来就是
+            // 「满了几根 / 一共几根」,数字是同一件事说第二遍。连带没了的是稿上唯一的
+            // dry 表现(.ap.dry .n 转深朱砂)——AP 见底时**每一根笔画格都是空的**,
+            // 这本身就是最一眼的 dry 反馈,不必再给标签或格子补一套变色规则。
+            // (稿另有 .ap.dry .pips i.on 一条,在当前 AP 语义下永远不触发:dry 恰好
+            //  意味着 Ap == 0,不会有任何一枚 pip 处于 on 态。落地一直没实现它。)
             var apRow = Ui.Row(_bottomRow, "Ap", PlayerApGap);
-            // 稿 .ap.dry 只有 .n(数字)转色,「AP」标签(.k)没有 dry 规则,故不判 dry
             Ui.ThemedLabel(apRow.transform, "AP", 12, Theme.TextDim);
             var pips = Ui.Row(apRow.transform, "Pips", PlayerApPipGap);
             for (int i = 0; i < Battle.ApPerTurn; i++)
@@ -1502,9 +1522,6 @@ namespace Brushblade.Presentation
                 element.preferredWidth = PlayerApPipWidth;
                 element.preferredHeight = PlayerApPipHeight;
             }
-            // 稿 .ap.dry .n { color: #9B1E22 } = Theme.CinnabarDark,不是 pips 用的 Theme.Cinnabar
-            Ui.ThemedLabel(apRow.transform, $"{Battle.Ap}/{Battle.ApPerTurn}", 16,
-                dry ? Theme.CinnabarDark : Theme.TextMain, Theme.TitleFont);
 
             // 治疗选目标态(2026-08-22):玩家整条底栏点亮为「治玩家」的点击面——覆盖对象从
             // 原来的 hpStack(单个 VStack)换成 _bottomRow(整条横排的容器),结构改横排
@@ -2306,15 +2323,20 @@ namespace Brushblade.Presentation
         private const float HandAdSlotW = 88f;  // 稿 .adslot { width: 42pt }
         private const float HandAdSlotH = 117f; // 稿 .adslot { height: 56pt },与手牌牌面同高
 
-        /// <summary>竖排文字标签(稿 <c>writing-mode: vertical-rl</c> 的等价物):Unity Text
-        /// 没有竖排书写模式,退而求其次逐字拆开纵向摞——浏览器的 vertical-rl 下数字/字母
-        /// 保持直立不转 90°,逐字纵向堆恰好是同一个观感(整串旋转 90° 会把「N/M」的数字也
-        /// 转倒,反而跟稿不像)。手牌「字库 N/M」、部件池「部件 N/M」两处共用。</summary>
-        private static void VerticalLabel(Transform parent, string text, int fontSize, Color color)
+        private const float CountCaptionW = 96f;  // 「部件池 12/12」14 号横排约 88,留 8 的余量
+
+        /// <summary>字库行 / 部件池行行首的计数标题(稿 .handlbl、.pool .lbl)。
+        ///
+        /// 2026-09-01 用户拍板改版。稿上这两处是 <c>writing-mode: vertical-rl</c>,落地时
+        /// 曾按「逐字拆开纵向摞」近似(旧的 VerticalLabel),但「部件池 12/12」有 8 个字符,
+        /// 堆起来约 128 单位 —— 比整条字库带(117)还高,一个字一个字往下读也确实别扭。
+        /// 现在改回横排一行、**定宽** CountCaptionW:定宽不是为了标题自己好看,是为了让
+        /// 两行的第一张牌落在同一个 x 上(标题自然宽度「字库 5/9」与「部件池 12/12」差着
+        /// 一大截,不定宽就对不齐)。配合两行都改左对齐,标题与牌各自成一条竖线。</summary>
+        private static void CountCaption(Transform parent, string text, int fontSize, Color color)
         {
-            var column = Ui.VStack(parent, "VerticalLabel", 1);
-            foreach (var ch in text)
-                Ui.ThemedLabel(column.transform, ch.ToString(), fontSize, color);
+            var label = Ui.ThemedLabel(parent, text, fontSize, color, null, TextAnchor.MiddleLeft);
+            Ui.Sized(label.gameObject, width: CountCaptionW);
         }
 
         /// <summary>手牌行末尾的广告扩容位(稿 .adslot):常驻显示,用过后转灰而不是消失——
@@ -2352,7 +2374,7 @@ namespace Brushblade.Presentation
             // 奖励页显示携带字库(出过的字已回归)——这才是下一战的真实字库,也是替换的操作对象
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var library = rewardPhase ? _run.CarriedLibrary : Battle.Library;
-            VerticalLabel(_libraryRow, Strings.T("battle.label.library_count",
+            CountCaption(_libraryRow, Strings.T("battle.label.library_count",
                 ("count", library.Count), ("capacity", Battle.LibraryCapacity)), 14, Theme.TextDim);
             if (library.Count == 0)
                 Ui.ThemedLabel(_libraryRow, Strings.T("battle.label.library_empty"), 16, Theme.TextDim);
@@ -2664,7 +2686,7 @@ namespace Brushblade.Presentation
             // 奖励页显示携带池(部件不再随战利品入池,这里只展示当前持有,2026-08-04)
             bool rewardPhase = _run.Phase == RunPhase.Reward;
             var poolChars = rewardPhase ? _run.CarriedPool : Battle.Pool;
-            VerticalLabel(_poolRow, Strings.T("battle.label.pool_count",
+            CountCaption(_poolRow, Strings.T("battle.label.pool_count",
                 ("count", poolChars.Count), ("capacity", Battle.PoolCapacity)), 14, Theme.TextDim);
             foreach (var id in poolChars)
             {
