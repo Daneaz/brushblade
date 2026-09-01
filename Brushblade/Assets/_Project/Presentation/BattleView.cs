@@ -44,7 +44,9 @@ namespace Brushblade.Presentation
         // 内边距 → 756,取 780。窄一档就会折行,最后一张孤零零掉到第二排,读起来像
         // 「还有别的选项」。
         private const float ReplaceSheetW = 1633f;   // 稿 780pt
-        private const float ReplaceSheetH = 460f;
+        private const float ReplaceSheetH = 460f;    // 非稿上 pt 换算:稿 .sheet 只定死了宽,高度是
+                                                      // flex 自适应撑出来的,没有可换算的数;这里是配合
+                                                      // Ui.Sheet 内边距估的容器高度。
         private const float TileW = 130f;            // 稿 .tile 62pt
         private const float TileH = 163f;            // 稿 .tile 78pt
         private const float TileGap = 15f;           // 稿 7pt
@@ -3001,6 +3003,10 @@ namespace Brushblade.Presentation
             System.Collections.Generic.IReadOnlyList<string> library,
             System.Action<int> onPick, System.Action onCancel, string cancelLabel)
         {
+            // 前置清场:_modal 此刻可能指向长按预览打开的 CharPreview / UnitSheet(DropChoice 由
+            // BeginPlayerTurn 自动触发,不等玩家松手)。Ui.Sheet 的按名互斥只认同名的 "BattleSheet",
+            // 管不到它们 —— 不在这里销毁,下一行的赋值就会把它变成再也够不着的孤儿。
+            if (_modal != null) Object.Destroy(_modal);
             _modal = Ui.Sheet(transform, "BattleSheet", ReplaceSheetW, ReplaceSheetH,
                 dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
             Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
@@ -3262,10 +3268,11 @@ namespace Brushblade.Presentation
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.replaced_in_msg", ("incoming", incoming), ("dropped", dropped));
                         MarkFresh(incoming); // 换进来的那张也高亮:满库替换时更要看清换进了什么
+                        if (_modal != null) Object.Destroy(_modal);
                         CancelSelection();
                     }
                 },
-                () => { _pendingRewardIndex = -1; Refresh(); },
+                () => { _pendingRewardIndex = -1; if (_modal != null) Object.Destroy(_modal); Refresh(); },
                 Strings.T("battle.btn.replace_cancel"));
             DrawRewardAdBadge(content);
         }
@@ -3349,9 +3356,10 @@ namespace Brushblade.Presentation
                     if (_run.PickReviveCharReplacing(_pendingReviveIndex, replaceIndex))
                         _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
                     _pendingReviveIndex = -1;
+                    if (_modal != null) Object.Destroy(_modal);
                     Refresh();
                 },
-                () => { _pendingReviveIndex = -1; Refresh(); }, // 退回候选列表,额度未动
+                () => { _pendingReviveIndex = -1; if (_modal != null) Object.Destroy(_modal); Refresh(); }, // 退回候选列表,额度未动
                 Strings.T("battle.btn.revive_replace_cancel"));
         }
 
