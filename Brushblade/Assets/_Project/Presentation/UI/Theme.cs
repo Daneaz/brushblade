@@ -33,6 +33,12 @@ namespace Brushblade.Presentation
         public static readonly Color ShopNav = new(0.654f, 0.349f, 0.241f);
         public static readonly Color PanelPaper = new(0.984f, 0.973f, 0.945f);   // 面板底(比宣纸底亮一档)
         public static readonly Color PanelBorder = new(0.871f, 0.843f, 0.788f);  // 面板描边(稿上统一 1pt)
+        // 稿 #F1EBDE:面板内嵌/凹槽条的底色(如 Reward 选字页牌下方那条 detail 横条)。
+        // ⚠ 2026-09-02 review 修:此前这类凹槽误用了 PaperDim(#DED7C9,进度条底)——
+        // PaperDim 与 PanelBorder(同样 #DED7C9)撞色,套进 OutlinedPanel 会变成一块
+        // 没有描边的灰褐实心板,正是 OutlinedPanel 自己文档里警告的「浅色卡融进浅色底」。
+        // PanelInset 单独占一个色阶,别跟 PanelPaper(卡片底)、PaperDim(进度条底)混用。
+        public static readonly Color PanelInset = new(0.945f, 0.922f, 0.871f);
         public static readonly Color LockedBg = new(0.856f, 0.843f, 0.816f);
         public static readonly Color LockGray = new(0.534f, 0.563f, 0.611f);
         public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);

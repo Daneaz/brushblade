@@ -132,14 +132,31 @@ namespace Brushblade.Presentation
         private bool _pendingSummonAttackMode;
         private int _pendingSummonLibraryIndex = -1;
         private int _pendingSummonCount;     // 这张字召几只 = 要点几个位子
-        private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
+        // 2026-09-02 review Critical-1:_modal 与 _sheet 是两个不同族的浮层,不能合一。
+        // _modal —— 只读浮层族:CharPreview / UnitSheet / Ui.Modal / Ui.Alert。玩家可以在
+        // 战利品/复活选字页(_sheet)开着的时候长按候选牌看详情,详情要能**叠在**选字页
+        // 之上,不能把选字页顶掉。
+        // _sheet —— 流程浮层族:选字页(DrawPickSheet)+ 换字页(DrawReplaceSheet),名字都是
+        // "BattleSheet"、dismissable:false,离开对应步骤必须显式销毁(见各 Draw*Step 的
+        // Object.Destroy(_sheet))。
+        // 血的教训(2026-09-01 轮三 Task 3 曾把两族合成一个 _modal 字段,2026-09-02 审查抓到
+        // 的 Critical):ShowCharPreview 第一句是 `if (_modal != null) Object.Destroy(_modal)`——
+        // 字段合一之后,这一句销毁的其实是选字页本身。CharPreview 自己关闭时(CharPreview.cs
+        // 内部自行 Destroy)又不回调 Refresh,于是玩家长按一下候选牌看效果,选字页就从屏幕上
+        // 消失,Phase 仍停在 Reward/Reviving,没有任何东西触发重绘——只能靠误点字库牌或者
+        // 点 ✕ 才能救回来,后者还会白白丢掉这一层战利品。拆成两个字段后叠层顺序天然正确:
+        // Refresh 按相位分支画 _sheet → 末尾把 _modal 顶到最上(见下面 SetAsLastSibling 那行),
+        // _modal 永远盖在 _sheet 上面,谁也不会误杀谁。
+        private GameObject _modal;
+        private GameObject _sheet;
         // 单位详情弹窗开着时(_modal 是 UnitSheet 建的那个),Refresh 靠它重新取一份 UnitDetail
         // 整体重建——稿上写着「数值随战斗实时刷新,不暂停」,事件驱动而不是每帧。
         // 返回 null = 那个单位没了(比如召唤物被打死),Refresh 顺手关掉详情而不是抱着空数据崩。
         private System.Func<UnitDetail> _unitSheetSource;
         // 与 UI/UnitSheet.cs 内部 private 的 SheetName 保持一致的字面量——那边不让改、也没有
-        // 公开出来,这里只能复述字符串,用来判断当前 _modal 是不是详情弹窗、还是被别的模态
-        // (奇遇替换弹窗等)顶掉了。顶掉的情形下没必要也不应该把详情弹窗重新弹到别的模态上面。
+        // 公开出来,这里只能复述字符串,用来判断当前 _modal 是不是详情弹窗、还是被别的只读
+        // 浮层(长按预览/确认弹窗等)顶掉了。顶掉的情形下没必要也不应该把详情弹窗重新弹到
+        // 别的模态上面。
         private const string UnitSheetGameObjectName = "UnitSheet";
         private string _message = Strings.T("battle.hint.initial");
 
@@ -1060,10 +1077,17 @@ namespace Brushblade.Presentation
             Ui.Clear(_summonBackRow);
             // 2026-09-01 轮三 Task 3:此处原有「离开战利品/复活阶段就无条件销毁 _rewardModal」
             // 的通用兜底——那是安全的,因为 _rewardModal 只在 Reward/Reviving 两个阶段被
-            // 赋值。合并进 _modal 之后这条兜底不能带过来:_modal 在 InBattle 阶段也被
-            // 长按预览、掉字换字弹窗等大量借用,盯着「不在 Reward/Reviving 就销毁」会把
-            // 那些无关弹窗一起误杀。改为在每条会让 Phase 离开 Reward/Reviving 的退出路径
-            // (选字页四个回调 + 换字页的收下/取消)显式销毁 _modal,不再靠这条通用兜底。
+            // 赋值,别处不碰。当时把它合并进 _modal 想复用这条兜底,但 _modal 在 InBattle
+            // 阶段也被长按预览、掉字换字弹窗等大量借用,盯着「不在 Reward/Reviving 就销毁」
+            // 会把那些无关弹窗一起误杀,故整段删掉。
+            // 2026-09-02 review 又抓到反方向的 Critical:合并后的字段还让 ShowCharPreview
+            // 那句 `if (_modal != null) Object.Destroy(_modal)` 反过来把选字页/换字页自己
+            // 销毁了(CharPreview 关闭时不回调 Refresh,选字页凭空消失,Phase 卡在原地)。
+            // 根子是把「互斥的两族浮层」硬塞进一个字段——按名互斥(见 Ui.Sheet 的
+            // replaceSameName)本来就与用哪个 C# 字段无关。改回两个字段:_sheet 专属选字页/
+            // 换字页,离开对应步骤时在退出路径显式销毁(见各 Draw*Step 里 Object.Destroy
+            // (_sheet));_modal 专属只读浮层(长按预览/单位详情/确认弹窗),允许叠在 _sheet
+            // 之上。都不靠通用兜底,兜底在这两版尝试里都出过事,不值得再要。
 
             // 分隔线现在挂在 Frame/Arena/Mid/Field/DividerSlot/RowDivider 这条路径下
             // (骨架换布局组之后不再是 transform 的直接子节点了),但不参与上面的 Ui.Clear
@@ -1136,9 +1160,10 @@ namespace Brushblade.Presentation
             // 单位详情弹窗开着时数值跟着 Refresh 走(2026-09-01,单位详情轮二 Task 5;稿上
             // 「数值随战斗实时刷新,不暂停」,事件驱动而非每帧)——重新拿一份 UnitDetail 整体
             // 重建。用 _modal 的 GameObject 名字判断而不是另记一个「当前是不是详情弹窗」的
-            // 布尔:期间若被别的模态(奇遇替换弹窗等)顶掉,_modal 已经指向别的物体,名字
-            // 自然对不上,不会把详情弹窗重新弹到别的模态上面;玩家自己点 ×/知道了/遮罩关掉后
-            // _modal 变 Unity 假 null,同样不会再重建。
+            // 布尔:期间若被别的只读浮层(长按预览/确认弹窗等,2026-09-02 起选字页/换字页
+            // 已经改走独立的 _sheet 字段,不会再落到这里)顶掉,_modal 已经指向别的物体,
+            // 名字自然对不上,不会把详情弹窗重新弹到别的模态上面;玩家自己点 ×/知道了/
+            // 遮罩关掉后 _modal 变 Unity 假 null,同样不会再重建。
             // ⚠ 隐式依赖(2026-09-01 review 补记):这一块**不检查** Animating,而
             // AdvanceRoutine() 在 BeginAnim 的锁区间内、每个行动者动作播完都会调一次
             // Refresh(),也就是一次结算里详情理论上会被反复重建。今天打不通纯粹是巧合:
@@ -3012,11 +3037,13 @@ namespace Brushblade.Presentation
             System.Collections.Generic.IReadOnlyList<string> library,
             System.Action<int> onPick, System.Action onCancel, string cancelLabel)
         {
-            // 前置清场:_modal 此刻可能指向长按预览打开的 CharPreview / UnitSheet(DropChoice 由
-            // BeginPlayerTurn 自动触发,不等玩家松手)。Ui.Sheet 的按名互斥只认同名的 "BattleSheet",
-            // 管不到它们 —— 不在这里销毁,下一行的赋值就会把它变成再也够不着的孤儿。
+            // 前置清场(2026-09-02 review Critical-1 修复后仍保留):这里销毁的是 _modal 而不是
+            // _sheet——掉字步由 BeginPlayerTurn 自动触发,不等玩家松手,此刻若正好有长按预览
+            // (CharPreview/UnitSheet)开着,这条强制决策(dismissable:false)不该让预览继续
+            // 叠在上面挡着;Reward/Revive 选字页那种「预览可以叠在流程浮层之上」的放行
+            // (见 DrawPickSheet)只对那两个可选流程成立,掉字/换字这条不可逆决策要更保守。
             if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.Sheet(transform, "BattleSheet", ReplaceSheetW, ReplaceSheetH,
+            _sheet = Ui.Sheet(transform, "BattleSheet", ReplaceSheetW, ReplaceSheetH,
                 dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
             Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
 
@@ -3058,14 +3085,14 @@ namespace Brushblade.Presentation
                     if (Battle.ResolveDrop(replaceIndex) == BattleError.None)
                     {
                         _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
-                        if (_modal != null) Object.Destroy(_modal);
+                        if (_sheet != null) Object.Destroy(_sheet);
                     }
                     Refresh();
                 },
                 () =>
                 {
                     Battle.SkipDrop();
-                    if (_modal != null) Object.Destroy(_modal);
+                    if (_sheet != null) Object.Destroy(_sheet);
                     _message = Strings.T("battle.drop.skip_msg", ("charId", incoming));
                     Refresh();
                 },
@@ -3165,41 +3192,59 @@ namespace Brushblade.Presentation
         /// 两页只差标题与回调,版面一模一样。
         ///
         /// **效果说明在牌下面,不在牌上、也不在标题行**:稿上的原话是「牌面只有 62px 宽,
-        /// 塞进一句效果必然截断」。所以留一条定高的 detail 横条,未选中时是 hint、选中时
-        /// 换成这张牌的效果 + 右浮「再点一次收下」。定高是为了**选中前后不跳版**。
+        /// 塞进一句效果必然截断」。所以留一条定高的 detail 横条,定高是为了**选中前后不跳版**。
+        /// ⚠ 2026-09-02 review 修 I3(原注释在说谎):这里不是「同一个横条内容在 hint 与效果
+        /// 之间切换」——稿上 <c>.hint</c> 与 <c>.detail</c> 本就是两个独立元素,hint 固定画在
+        /// picks 上方(下面这行 <c>Ui.ThemedLabel(content, hint, ...)</c>),detail 横条未选中
+        /// 时一个子物体都没有(靠 <c>Ui.Sized(...).minHeight</c> 撑住定高,不靠内容撑),选中
+        /// 时才由调用方(<see cref="DrawRewardCharStep"/>/<see cref="DrawReviveCharStep"/>)
+        /// 往 <paramref name="detailBar"/> 里塞效果文本 + 「再点一次收下」。
         ///
         /// 浮层名字固定 <c>"BattleSheet"</c> 且 <c>replaceSameName: true</c>(协调者 2026-09-02
         /// 裁定):与 <see cref="DrawReplaceSheet"/> 共用同一个名字,选字页 → 换字页的互斥因此
         /// 自动成立,玩家从选字步转入换字步时旧的选字弹窗自己被顶掉,不必在每个入口手写
-        /// Destroy。内部仍先兜底销毁一次 _modal——理由同 DrawReplaceSheet 的同一行:此刻
-        /// _modal 可能指向长按预览打开的 CharPreview / UnitSheet,Ui.Sheet 的按名互斥只认
-        /// 同名的 "BattleSheet",管不到它们。</summary>
-        private Transform DrawPickSheet(string title, string hint,
+        /// Destroy——赋的字段是 <c>_sheet</c>,不是 <c>_modal</c>(见字段声明处 Critical-1 的
+        /// 教训:这里如果还赋 <c>_modal</c>,玩家长按候选牌看预览时 <see cref="ShowCharPreview"/>
+        /// 会把这张选字页自己销毁)。<c>_modal</c>(长按预览等只读浮层)允许叠在这张 <c>_sheet</c>
+        /// 之上,所以这里**不**兜底销毁 <c>_modal</c>——与 <see cref="DrawReplaceSheet"/> 开头
+        /// 仍会销毁 <c>_modal</c> 不同,那是掉字步的强制决策,不接受预览叠在上面。</summary>
+        private void DrawPickSheet(string title, string hint,
             out Transform picksRow, out Transform detailBar, out Transform footRow)
         {
-            if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.Sheet(transform, "BattleSheet", PickSheetW, PickSheetH,
+            if (_sheet != null) Object.Destroy(_sheet);
+            _sheet = Ui.Sheet(transform, "BattleSheet", PickSheetW, PickSheetH,
                 dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
-            Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(content, hint, 21, Theme.TextDim);
+            Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);       // 稿 .h 16pt
+            Ui.ThemedLabel(content, hint, 21, Theme.TextDim);                          // 稿 .hint 10pt
 
             var picks = Ui.Row(content, "Picks", 21);   // 稿 .picks gap 10pt
             picks.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             picksRow = picks.transform;
 
-            var detail = Ui.OutlinedPanel(content, "Detail", Theme.PaperDim, Theme.PanelBorder, 17, 2f, out var face);
+            // I2(2026-09-02 review 修):底色改用 PanelInset(#F1EBDE),不再是 PaperDim——
+            // PaperDim 与下面的描边色 PanelBorder 撞成同一个 #DED7C9,原先渲染出来是一块
+            // 没有描边的灰褐实心板。圆角/描边 17,2f 换算见下。
+            var detail = Ui.OutlinedPanel(content, "Detail", Theme.PanelInset, Theme.PanelBorder,
+                17, 2f, out var face);    // 稿 .detail 圆角 8pt / 描边 1pt
+            // PickSheetW - 48f:48 = Ui.Sheet 内部 SheetPad(24,private,不能公开引用那个常量)
+            // 的两侧——detail 横条与 foot 行都要贴平 Sheet 内容区的左右边缘,减掉这一圈内边距。
             Ui.Sized(detail.gameObject, width: PickSheetW - 48f, height: PickDetailH).minHeight = PickDetailH;
-            var detailStack = Ui.Row(face.transform, "DetailRow", 12);
+            var detailStack = Ui.Row(face.transform, "DetailRow", 12);   // 稿上没有对应 gap
+            // (.again 是 float:right,不占正常流的 gap),12 是新造的间距,给右浮"再点一次
+            // 收下"和效果文本之间留一点呼吸感。
             detailStack.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            // 横向 23 = 稿 .detail padding 的 11pt(→23);纵向留 0 而不是稿的 7pt(→15pt≈15)——
+            // 稿的 padding 是给**自适应高度**(min-height:30px)的盒子撑内边距的,这里的盒子
+            // 反过来是**定高**且用 Ui.Stretch 铺满整块面板,子物体靠 MiddleLeft 垂直居中,
+            // 顶/底 padding 只会白白挤掉可用高度、不会让文字看起来更居中,故意留 0。
             detailStack.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(23, 23, 0, 0);
             Ui.Stretch((RectTransform)detailStack.transform);
             detailBar = detailStack.transform;
 
-            var foot = Ui.Row(content, "Foot", 21);
+            var foot = Ui.Row(content, "Foot", 21);   // 稿 .foot gap 10pt
             foot.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Sized(foot, width: PickSheetW - 48f);
+            Ui.Sized(foot, width: PickSheetW - 48f);   // 同上,减掉 Ui.Sheet 内边距的两侧
             footRow = foot.transform;
-            return content;
         }
 
         /// <summary>候选牌 + 牌下那行「火 · 蓝」(稿 .pick .name)。返回 Button 供调用方取
@@ -3207,7 +3252,7 @@ namespace Brushblade.Presentation
         private Button PickTile(Transform parent, string charId, bool selected, System.Action onTap)
         {
             var def = _graph.Get(charId);
-            var column = Ui.VStack(parent, $"Pick_{charId}", 8);
+            var column = Ui.VStack(parent, $"Pick_{charId}", 8);   // 稿 .pick gap 4pt
             var button = Ui.GlyphTile(column.transform, def, selected, onTap, new Vector2(TileW, TileH));
             HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(charId));
             // def.Element 是 Element?(部件/无属性字为 null)——同 :2913 敌人属性 chip 的既有写法,
@@ -3217,7 +3262,7 @@ namespace Brushblade.Presentation
                 Strings.T("battle.reward.pick_name",
                     ("element", elementName),
                     ("rarity", CharInfo.RarityName(def.Rarity))),
-                19, Theme.TextDim);
+                19, Theme.TextDim);   // 稿 .pick .name 9pt
             return button;
         }
 
@@ -3225,7 +3270,7 @@ namespace Brushblade.Presentation
         /// 5 选 2)由 Core 侧 MaybeFinishRewards 自动开拔——走到这里时必然还有字可选。</summary>
         private void DrawReward()
         {
-            if (_modal != null) Object.Destroy(_modal);
+            if (_sheet != null) Object.Destroy(_sheet);
 
             // 替换子步的前提会被广告扩容推翻(2026-08-18):+2 徽章就画在弹窗背后的字库行上
             // (case RunPhase.Reward 同时走 DrawLibrary),玩家正是为了不丢字才去看的广告。
@@ -3273,13 +3318,18 @@ namespace Brushblade.Presentation
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.added_msg", ("charId", id));
                         MarkFresh(id);     // 记在重绘之前:光晕是重绘时照表套上的
-                        // 额度归零时 Core 会在下面 CancelSelection() 触发的这次 Refresh() 里
-                        // 自动把 Phase 挪出 Reward——挪出去以后没有任何 Draw* 方法会再摸到
-                        // 这个 _modal,不主动销毁就会被 Refresh() 末尾的 SetAsLastSibling
-                        // 永远顶在最上层(2026-09-01 轮三 Task 3,合并 _rewardModal 进 _modal
-                        // 后原来靠「离开 Reward/Reviving 就销毁」的通用兜底不能再要:那条兜底
-                        // 不分青红皂白盯着 _modal,战斗中长按预览/掉字换字弹窗也会被一起误杀)。
-                        if (_modal != null) Object.Destroy(_modal);
+                        // ⚠ M5(2026-09-02 review 修因果):不是「下面 CancelSelection() 触发的
+                        // 这次 Refresh() 里」才把 Phase 挪出 Reward——RunEngine.PickReward
+                        // (:592)在 return true 之前就**同步**调了 MaybeFinishRewards(),
+                        // 执行到这一行时 Phase 早就可能已经不是 Reward 了,与 Refresh 无关。
+                        // 但只要 Phase 挪出去,确实没有任何 Draw* 方法会再摸到这个 _sheet,
+                        // 不主动销毁就会被 Refresh() 末尾对 _modal 的 SetAsLastSibling 逻辑
+                        // 晾在原地(_sheet 没有类似的兜底重排,只会一直卡在画面上)。
+                        // Destroy 之后立即置空(同文件 :1155 UnitSheet 那处的既有写法)——
+                        // Unity 的 Object.Destroy 要到本帧末尾才真正生效,C# 侧 != null 判断
+                        // 在此之前仍会命中待销毁对象;显式置空不依赖那个时序,同帧内谁再摸
+                        // _sheet 都能立刻看到"没有"而不是一个即将失效的引用。
+                        if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                         CancelSelection();
                         // 选中的字从弹窗飞进字库并落位弹跳(2026-08-30):此前只有一行文字
                         // 说「已收入」,牌是凭空出现在字库里的 —— 玩家得自己去队尾找它。
@@ -3316,10 +3366,21 @@ namespace Brushblade.Presentation
             {
                 var picked = _run.RewardOptions[_previewRewardIndex];
                 var pickedDef = _graph.Get(picked);
+                // M3(2026-09-02 review):没开 Wrap——当前效果文案最长约 30 字,detailBar 可用宽
+                // 足够单行摆下(算法同 DrawReplaceSheet 那条不折行的思路),定高 63 也是照单行
+                // 预留的。这是有意选的上限,不是漏做:稿要求 detail 横条**定高不跳版**,若开
+                // Wrap 就得让面板跟着行数变高,反而违背这条要求;真长到需要换行时会静默溢出
+                // 压住右边的「再点一次收下」,目前没有测试盖(Presentation 层无自动化测试),
+                // 未来加长文案时留意这条。
                 Ui.ThemedLabel(detailBar,
                     Strings.T("battle.reward.detail_line", ("charId", picked),
                         ("brief", CharInfo.EffectsText(pickedDef, _run.CardLevel(picked), _graph))),
                     21, Theme.TextMain, align: TextAnchor.MiddleLeft);
+                // I1(2026-09-02 review 修):稿 .detail .again { float: right }——插一个
+                // flexWidth:1 的 spacer 把"再点一次收下"推到横条右缘,同 foot 行那枚 spacer
+                // 的同一手法;原来漏了这一步,两段文字挤在一起贴左边。
+                var detailSpacer = Ui.Panel(detailBar, "Spacer");
+                Ui.Sized(detailSpacer, flexWidth: 1f);
                 Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
             }
 
@@ -3328,13 +3389,15 @@ namespace Brushblade.Presentation
             Ui.Sized(spacer, flexWidth: 1f);
             Ui.RoundButton(footRow, Strings.T("battle.btn.reward_skip"), () =>
             {
-                if (_modal != null) Object.Destroy(_modal);
+                // 同上一个成功分支:立即置空,不依赖 Unity 假 null 的下帧时序。
+                if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                 _previewRewardIndex = -1;
                 _run.SkipReward();
                 _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
                 _message = Strings.T("battle.reward.skip_msg");
                 CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));
+            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));   // 宽度 280 是估的:
+            // 稿 .pill.quiet 只给了 height:30pt(→63)与自适应 padding,没有定宽
         }
 
         private void DrawRewardReplaceStep()
@@ -3351,17 +3414,20 @@ namespace Brushblade.Presentation
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.replaced_in_msg", ("incoming", incoming), ("dropped", dropped));
                         MarkFresh(incoming); // 换进来的那张也高亮:满库替换时更要看清换进了什么
-                        if (_modal != null) Object.Destroy(_modal);
+                        // 2026-09-02 review Critical-1 修:这条换字页由 DrawReplaceSheet 建,
+                        // 赋的是 _sheet 不是 _modal——销毁错字段等于没销毁,面板会卡屏。
+                        if (_sheet != null) Object.Destroy(_sheet);
                         CancelSelection();
                     }
                 },
-                () => { _pendingRewardIndex = -1; if (_modal != null) Object.Destroy(_modal); Refresh(); },
+                () => { _pendingRewardIndex = -1; if (_sheet != null) Object.Destroy(_sheet); Refresh(); },
                 Strings.T("battle.btn.replace_cancel"));
             DrawRewardAdBadge(content);
         }
 
         /// <summary>战利品弹窗内的广告扩容入口(2026-08-18)。
-        /// **必须画在弹窗内容里**:Ui.ModalShell 铺的是全屏 Image 遮罩(还挂着吞点击的 Button),
+        /// **必须画在弹窗内容里**:Ui.Sheet 铺的是全屏 Image 遮罩(还挂着吞点击的 Button,
+        /// 2026-09-02 review 修 M6:选字页早已从 Ui.ModalShell 换成 Ui.Sheet,注释类名没跟着改),
         /// DrawLibrary 画在弹窗背后的那枚 +2 徽章被整个盖住,满库时玩家根本够不着 ——
         /// 「不想丢字就看广告」这条路在最需要它的时刻是断的,只能被迫替换或弃字。
         /// 扩容后 DrawReward() 的容量复核会把替换子步退回选字步,直接收下。</summary>
@@ -3374,7 +3440,8 @@ namespace Brushblade.Presentation
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
                 _message = Strings.T("battle.label.library_cap_up");
                 Refresh();
-            }, new Vector2(280, 63));   // 稿 .adbadge 高 30pt
+            }, new Vector2(280, 63));   // 高 63 = 稿 .adbadge 30pt;宽 280 是估的,稿只给了
+                                        // padding:0 12px 自适应宽,没有定宽(同 M1)
         }
 
         // ---- 复活补给(2026-07-24):以战利品展示方式给字,直接注入当前战斗字库。
@@ -3389,7 +3456,7 @@ namespace Brushblade.Presentation
             if (_pendingReviveIndex >= 0 && Battle.Library.Count < Battle.LibraryCapacity)
                 _pendingReviveIndex = -1;
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
-            if (_modal != null) Object.Destroy(_modal);
+            if (_sheet != null) Object.Destroy(_sheet);
 
             DrawPickSheet(
                 Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
@@ -3409,10 +3476,11 @@ namespace Brushblade.Presentation
                         _pendingReviveIndex = index;             // 满库:转入「换掉哪一张」
                     else if (_run.PickReviveChar(index))
                         _message = Strings.T("battle.reward.added_msg", ("charId", id));
-                    // 额度归零/候选枯竭时 Core 会在下面这次 Refresh() 里自动把 Phase 挪出
-                    // Reviving(见 Refresh() 顶部的收尾检查)——挪出去以后没有 Draw* 方法
-                    // 会再摸到这个 _modal,理由同 DrawRewardCharStep 的 PickReward 成功分支。
-                    if (_modal != null) Object.Destroy(_modal);
+                    // M5(2026-09-02 review 修因果):Phase 挪出 Reviving 是 RunEngine.
+                    // PickReviveChar(:465)在 return 之前**同步**调 MaybeFinishRevive() 做的,
+                    // 不是"下面这次 Refresh() 里"才发生;但只要挪出去就没有 Draw* 方法会再
+                    // 摸到这个 _sheet,理由同 DrawRewardCharStep 的 PickReward 成功分支。
+                    if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }   // 立即置空,理由同上
                     Refresh();
                 });
             }
@@ -3421,10 +3489,15 @@ namespace Brushblade.Presentation
             {
                 var picked = _run.RewardOptions[_previewRewardIndex];
                 var pickedDef = _graph.Get(picked);
+                // M3:同 DrawRewardCharStep 那条——没开 Wrap 是有意的,定高横条不能因为换行
+                // 跳版,现有数据单行够用,加长文案时留意会静默溢出。
                 Ui.ThemedLabel(detailBar,
                     Strings.T("battle.reward.detail_line", ("charId", picked),
                         ("brief", CharInfo.EffectsText(pickedDef, _run.CardLevel(picked), _graph))),
                     21, Theme.TextMain, align: TextAnchor.MiddleLeft);
+                // I1:右浮"再点一次收下",同 DrawRewardCharStep 的同一手 spacer。
+                var detailSpacer = Ui.Panel(detailBar, "Spacer");
+                Ui.Sized(detailSpacer, flexWidth: 1f);
                 Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
             }
 
@@ -3432,12 +3505,12 @@ namespace Brushblade.Presentation
             Ui.Sized(spacer, flexWidth: 1f);
             Ui.RoundButton(footRow, Strings.T("battle.btn.revive_skip"), () =>
             {
-                if (_modal != null) Object.Destroy(_modal);
+                if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                 _previewRewardIndex = -1;
                 _run.SkipReviveReward();
                 _message = Strings.T("battle.revive.skip_msg");
                 CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));
+            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));   // 宽度是估的,同 M1
         }
 
         /// <summary>复活补给满库替换(2026-08-04):结构同 DrawDropChoiceStep,
@@ -3453,10 +3526,10 @@ namespace Brushblade.Presentation
                     if (_run.PickReviveCharReplacing(_pendingReviveIndex, replaceIndex))
                         _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
                     _pendingReviveIndex = -1;
-                    if (_modal != null) Object.Destroy(_modal);
+                    if (_sheet != null) Object.Destroy(_sheet);   // Critical-1:这条也是 DrawReplaceSheet 建的,销毁 _sheet
                     Refresh();
                 },
-                () => { _pendingReviveIndex = -1; if (_modal != null) Object.Destroy(_modal); Refresh(); }, // 退回候选列表,额度未动
+                () => { _pendingReviveIndex = -1; if (_sheet != null) Object.Destroy(_sheet); Refresh(); }, // 退回候选列表,额度未动
                 Strings.T("battle.btn.revive_replace_cancel"));
         }
 
@@ -3632,7 +3705,7 @@ namespace Brushblade.Presentation
                     {
                         _message = Strings.T("battle.event.trade_replaced_msg", ("incoming", incoming), ("dropped", dropped));
                         MarkFreshSince(beforeHoldings);
-                        if (_modal != null) Object.Destroy(_modal);
+                        if (_sheet != null) Object.Destroy(_sheet);   // Critical-1:换字四路之一,销毁 _sheet 而非 _modal
                         ResetEventSelection();
                         CancelSelection();
                         return;
@@ -3641,7 +3714,7 @@ namespace Brushblade.Presentation
                 },
                 () =>
                 {
-                    if (_modal != null) Object.Destroy(_modal);
+                    if (_sheet != null) Object.Destroy(_sheet);
                     ResetEventSelection();
                     _message = Strings.T("battle.event.trade_cancel_msg");
                     Refresh();
