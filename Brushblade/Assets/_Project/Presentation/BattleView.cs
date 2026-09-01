@@ -39,6 +39,15 @@ namespace Brushblade.Presentation
         // 中区本身是 1260(稿 602pt),两侧各富余 18 —— 玩家条 / 字库带 / 部件池原先都铺满
         // 1260,比上方的战场网格两边各宽出一圈,竖着看边缘不齐(2026-09-01 用户拍板收窄对齐)。
         private const float FieldContentWidth = EnemyCellWidth * 4 + RowGap * 3;
+        // 换字面板(稿 Replace.dc.html)。780pt 是算出来的不是拍的:字库满员 9 张 ×62
+        // + 8 道 7pt 间隙 = 614,加来牌 62 + 箭头 22 + 两道 9pt 间隙 = 102,再加左右各 20
+        // 内边距 → 756,取 780。窄一档就会折行,最后一张孤零零掉到第二排,读起来像
+        // 「还有别的选项」。
+        private const float ReplaceSheetW = 1633f;   // 稿 780pt
+        private const float ReplaceSheetH = 460f;
+        private const float TileW = 130f;            // 稿 .tile 62pt
+        private const float TileH = 163f;            // 稿 .tile 78pt
+        private const float TileGap = 15f;           // 稿 7pt
         private RecipeGraph _graph;
         private RunEngine _run;
         // 执笔人详情弹窗(PlayerInfo.Sheet)要用:局外等级/技能不在 BattleEngine 上,得从这里
@@ -2970,24 +2979,65 @@ namespace Brushblade.Presentation
             Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
         }
 
+        /// <summary>「字库已满,换掉哪一张」的唯一一版(2026-09-01,轮三 Task 2)。
+        /// 稿 <c>Replace.dc.html</c> 的 <c>.sources</c> 那行写明四个入口共用这一版:
+        /// 战利品 / 回合掉字 / 奇遇 / 广告复活。此前是四个近乎逐字重复的方法。
+        ///
+        /// **一横排不折行**:字牌铺在一行里,来牌在左、箭头、字库在右。稿的宽度就是按
+        /// 「满员 9 张不折行」算出来的 —— 折行之后最后一张孤零零掉到第二排,读起来像
+        /// 「还有别的选项」。
+        ///
+        /// **警告条标红**:这是全局内唯一一处不可逆的删除,按贯穿全轮的那条规矩
+        /// (凡是不可逆的都要在按下去之前说清楚),做成标红胶囊而不是一行灰色小字。
+        ///
+        /// 浮层名字固定 <c>"BattleSheet"</c> 且 <c>replaceSameName: true</c>:Task 3 的
+        /// 战利品/复活选字页会共用同一个名字,两张流程浮层的互斥因此自动成立,不必在
+        /// 每个入口手写 Destroy(见 <see cref="Ui.Sheet"/> 文档「同族排队」那段)。</summary>
+        /// <param name="onPick">玩家点了字库里第 N 张。调用方负责调 Core 并善后。</param>
+        /// <param name="cancelLabel">取消钮文案。四个入口语义不同(掉字是「不要,跳过」,
+        /// 其余是「算了,不换」一类),不能写死成一种。</param>
+        /// <returns>弹窗内容容器,供调用方(如战利品广告徽章)接着往里画东西。</returns>
+        private Transform DrawReplaceSheet(string title, string incoming,
+            System.Collections.Generic.IReadOnlyList<string> library,
+            System.Action<int> onPick, System.Action onCancel, string cancelLabel)
+        {
+            _modal = Ui.Sheet(transform, "BattleSheet", ReplaceSheetW, ReplaceSheetH,
+                dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
+            Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
+
+            var warn = Ui.Chip(content, Strings.T("battle.reward.replace_hint",
+                ("count", library.Count), ("capacity", Battle.LibraryCapacity)),
+                Theme.WarnBg, Theme.WarnText, 21, padX: 23, padY: 12);
+            Ui.Sized(warn, height: 46);   // 稿 .warn 22pt
+
+            var row = Ui.Row(content, "Incoming", 19);   // 稿 .incoming gap 9pt
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.GlyphTile(row.transform, _graph.Get(incoming), true, null, new Vector2(TileW, TileH));
+            var arrow = Ui.ThemedLabel(row.transform, "→", 40, Theme.LockGray);
+            Ui.Sized(arrow.gameObject, width: 46, height: 29);   // 稿 .arrow 22×14pt
+
+            var lib = Ui.Row(row.transform, "Library", TileGap);
+            lib.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            for (int i = 0; i < library.Count; i++)
+            {
+                int replaceIndex = i;
+                Ui.GlyphTile(lib.transform, _graph.Get(library[i]), false,
+                    () => onPick(replaceIndex), new Vector2(TileW, TileH));
+            }
+
+            Ui.PillButton(content, cancelLabel, () => onCancel(),
+                Theme.LockedBg, Theme.TextMain, 25, new Vector2(300, 63));
+            return content;
+        }
+
         /// <summary>回合掉字遇满库(2026-08-04):停下让玩家选替换哪一张,或跳过这次掉落。
-        /// 结构照搬 DrawEventReplaceStep —— 同一个「满库换哪张」的心智模型。</summary>
+        /// 换字面板本体已四合一进 <see cref="DrawReplaceSheet"/>(2026-09-01,轮三 Task 2)。</summary>
         private void DrawDropChoiceStep()
         {
             string incoming = Battle.PendingDrop;
-
-            if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.ModalShell(transform, Strings.T("battle.drop.replace_title", ("charId", incoming)),
-                new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
-
-            Transform row = null;
-            for (int i = 0; i < Battle.Library.Count; i++)
-            {
-                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
-                int replaceIndex = i;
-                var def = _graph.Get(Battle.Library[i]);
-                Ui.GlyphTile(row, def, false, () =>
+            DrawReplaceSheet(
+                Strings.T("battle.drop.replace_title", ("charId", incoming)), incoming, Battle.Library,
+                replaceIndex =>
                 {
                     string dropped = Battle.Library[replaceIndex];
                     if (Battle.ResolveDrop(replaceIndex) == BattleError.None)
@@ -2996,16 +3046,15 @@ namespace Brushblade.Presentation
                         if (_modal != null) Object.Destroy(_modal);
                     }
                     Refresh();
-                }, new Vector2(74, 96));
-            }
-
-            Ui.PillButton(stack, Strings.T("battle.btn.drop_skip"), () =>
-            {
-                Battle.SkipDrop();
-                if (_modal != null) Object.Destroy(_modal);
-                _message = Strings.T("battle.drop.skip_msg", ("charId", incoming));
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
+                },
+                () =>
+                {
+                    Battle.SkipDrop();
+                    if (_modal != null) Object.Destroy(_modal);
+                    _message = Strings.T("battle.drop.skip_msg", ("charId", incoming));
+                    Refresh();
+                },
+                Strings.T("battle.btn.drop_skip"));
         }
 
         /// <summary>还有 AP 时先确认,避免误触把这回合的 AP 作废(2026-07-21)。
@@ -3202,19 +3251,9 @@ namespace Brushblade.Presentation
         private void DrawRewardReplaceStep()
         {
             var incoming = _run.RewardOptions[_pendingRewardIndex];
-            _rewardModal = Ui.ModalShell(transform,
-                Strings.T("battle.reward.replace_title", ("charId", incoming)),
-                new Vector2(360, 165), dismissable: false, out var content);
-            Ui.ThemedLabel(content,
-                Strings.T("battle.reward.replace_hint", ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity)),
-                16, Theme.TextDim);
-
-            var row = Ui.Row(content, "Library", 8);
-            for (int i = 0; i < _run.CarriedLibrary.Count; i++)
-            {
-                int replaceIndex = i;
-                var def = _graph.Get(_run.CarriedLibrary[i]);
-                Ui.GlyphTile(row.transform, def, false, () =>
+            var content = DrawReplaceSheet(
+                Strings.T("battle.reward.replace_title", ("charId", incoming)), incoming, _run.CarriedLibrary,
+                replaceIndex =>
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     if (_run.PickRewardReplacing(_pendingRewardIndex, replaceIndex))
@@ -3225,16 +3264,10 @@ namespace Brushblade.Presentation
                         MarkFresh(incoming); // 换进来的那张也高亮:满库替换时更要看清换进了什么
                         CancelSelection();
                     }
-                }, new Vector2(74, 96));
-            }
-
+                },
+                () => { _pendingRewardIndex = -1; Refresh(); },
+                Strings.T("battle.btn.replace_cancel"));
             DrawRewardAdBadge(content);
-
-            Ui.RoundButton(content, Strings.T("battle.btn.replace_cancel"), () =>
-            {
-                _pendingRewardIndex = -1;
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(150, 46));
         }
 
         /// <summary>战利品弹窗内的广告扩容入口(2026-08-18)。
@@ -3308,33 +3341,18 @@ namespace Brushblade.Presentation
         private void DrawReviveReplaceStep()
         {
             string incoming = _run.RewardOptions[_pendingReviveIndex];
-
-            if (_rewardModal != null) Destroy(_rewardModal);
-            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.revive.replace_title", ("charId", incoming)),
-                new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
-
-            Transform row = null;
-            for (int i = 0; i < Battle.Library.Count; i++)
-            {
-                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
-                int replaceIndex = i;
-                var def = _graph.Get(Battle.Library[i]);
-                Ui.GlyphTile(row, def, false, () =>
+            DrawReplaceSheet(
+                Strings.T("battle.revive.replace_title", ("charId", incoming)), incoming, Battle.Library,
+                replaceIndex =>
                 {
                     string dropped = Battle.Library[replaceIndex];
                     if (_run.PickReviveCharReplacing(_pendingReviveIndex, replaceIndex))
                         _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
                     _pendingReviveIndex = -1;
                     Refresh();
-                }, new Vector2(74, 96));
-            }
-
-            Ui.PillButton(stack, Strings.T("battle.btn.revive_replace_cancel"), () =>
-            {
-                _pendingReviveIndex = -1; // 退回候选列表,额度未动
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
+                },
+                () => { _pendingReviveIndex = -1; Refresh(); }, // 退回候选列表,额度未动
+                Strings.T("battle.btn.revive_replace_cancel"));
         }
 
         /// <summary>选中某个奇遇选项时画进底部提示行的那句话(2026-08-27 用户拍板)。
@@ -3491,25 +3509,16 @@ namespace Brushblade.Presentation
 
         private bool _eventReplacing; // 字摊交易已备齐但字库满:等玩家选换掉哪一张
 
-        /// <summary>字摊满库替换(2026-07-22):走模态弹窗、字牌每行 4 个换行铺开(此前塞在
-        /// 拆合台一行里挤成一团)。字与部件都已选定,只补一个替换目标即成交;取消则部件不少。</summary>
+        /// <summary>字摊满库替换(2026-07-22):字与部件都已选定,只补一个替换目标即成交;
+        /// 取消则部件不少。换字面板本体已四合一进 <see cref="DrawReplaceSheet"/>
+        /// (2026-09-01,轮三 Task 2)。</summary>
         private void DrawEventReplaceStep(EventOption option)
         {
             string incoming = _pendingCharChoice >= 0
                 ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
-
-            if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.ModalShell(transform, Strings.T("battle.event.replace_title", ("charId", incoming)),
-                new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
-
-            Transform row = null;
-            for (int i = 0; i < _run.CarriedLibrary.Count; i++)
-            {
-                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
-                int replaceIndex = i;
-                var def = _graph.Get(_run.CarriedLibrary[i]);
-                Ui.GlyphTile(row, def, false, () =>
+            DrawReplaceSheet(
+                Strings.T("battle.event.replace_title", ("charId", incoming)), incoming, _run.CarriedLibrary,
+                replaceIndex =>
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     var picks = _eventPicks.Count > 0 ? _eventPicks.ToArray() : null;
@@ -3524,16 +3533,15 @@ namespace Brushblade.Presentation
                         return;
                     }
                     Refresh();
-                }, new Vector2(74, 96));
-            }
-
-            Ui.PillButton(stack, Strings.T("battle.btn.replace_cancel"), () =>
-            {
-                if (_modal != null) Object.Destroy(_modal);
-                ResetEventSelection();
-                _message = Strings.T("battle.event.trade_cancel_msg");
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
+                },
+                () =>
+                {
+                    if (_modal != null) Object.Destroy(_modal);
+                    ResetEventSelection();
+                    _message = Strings.T("battle.event.trade_cancel_msg");
+                    Refresh();
+                },
+                Strings.T("battle.btn.replace_cancel"));
         }
 
         private void ResetEventSelection()

@@ -42,7 +42,6 @@
   "battle.coach.skip": "跳过引导",
   "battle.coach.step": "第 {no} 步 · 共 {total} 步",
   "battle.common.rejected": "操作被拒",
-  "battle.common.replace_warning": "被换掉的字永久失去",
   "battle.common.replaced_msg": "「{incoming}」替换「{dropped}」",
   "battle.dialog.ap_left.body": "本回合还剩 {ap} AP,结束后作废。\n确定结束回合?",
   "battle.dialog.ap_left.title": "还有 AP 没用",

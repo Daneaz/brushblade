@@ -18,6 +18,8 @@ namespace Brushblade.Presentation
         public static readonly Color CardWhite = Color.white;
         public static readonly Color Cinnabar = new(0.772f, 0.211f, 0.215f);    // 朱砂
         public static readonly Color CinnabarDark = new(0.607f, 0.117f, 0.135f);
+        public static readonly Color WarnBg = new(0.984f, 0.890f, 0.886f);   // 稿 #FBE3E2:不可逆告警条底
+        public static readonly Color WarnText = new(0.607f, 0.117f, 0.133f); // 稿 #9B1E22:告警条字色
         public static readonly Color Jade = new(0.264f, 0.58f, 0.347f);         // 翠玉
         public static readonly Color Gold = new(0.791f, 0.617f, 0.199f);        // 赭金
         public static readonly Color GoldBorder = new(0.56f, 0.421f, 0.037f);
