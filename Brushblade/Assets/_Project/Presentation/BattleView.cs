@@ -40,10 +40,18 @@ namespace Brushblade.Presentation
         // 中区本身是 1260(稿 602pt),两侧各富余 18 —— 玩家条 / 字库带 / 部件池原先都铺满
         // 1260,比上方的战场网格两边各宽出一圈,竖着看边缘不齐(2026-09-01 用户拍板收窄对齐)。
         private const float FieldContentWidth = EnemyCellWidth * 4 + RowGap * 3;
-        // 换字面板(稿 Replace.dc.html)。780pt 是算出来的不是拍的:字库满员 9 张 ×62
+        // 换字面板(稿 Replace.dc.html)。780pt 是算出来的不是拍的:按**9 张**字牌 ×62
         // + 8 道 7pt 间隙 = 614,加来牌 62 + 箭头 22 + 两道 9pt 间隙 = 102,再加左右各 20
         // 内边距 → 756,取 780。窄一档就会折行,最后一张孤零零掉到第二排,读起来像
         // 「还有别的选项」。
+        // ⚠ 更正(2026-09-02 收尾波):上面那个 9 **不是**字库满员数,只是稿宽倒推出来的
+        // 「不压缩能排下几张」。字库真实上限是 12 ——
+        //   MetaRules.LibraryCapacityFor = StartingLibrarySize(6) + LibraryCapacitySlack(1)
+        //   + 博闻满级(+3) = 10,再 + RunEngine.ExpandBonus(2,局内广告扩容) = 12。
+        // 10~12 张时按 TileW 铺会溢出净宽,HorizontalLayoutGroup 会按 min…preferred 只压**宽**
+        // 不压高,牌面比例从 0.8 掉到 0.65,而稀有度框是 Image.Type.Simple 直接拉伸 ——
+        // 正是 Ui.GlyphTile 自己注释里警告的「牌面被压扁、四角纹样跟着变形」。
+        // 面板宽度不改(稿定死了),改成在 DrawReplaceSheet 里按张数反算牌宽、两个维度同比缩。
         private const float ReplaceSheetW = 1633f;   // 稿 780pt
         private const float ReplaceSheetH = 460f;    // 非稿上 pt 换算:稿 .sheet 只定死了宽,高度是
                                                       // flex 自适应撑出来的,没有可换算的数;这里是配合
@@ -3118,9 +3126,9 @@ namespace Brushblade.Presentation
         /// 稿 <c>Replace.dc.html</c> 的 <c>.sources</c> 那行写明四个入口共用这一版:
         /// 战利品 / 回合掉字 / 奇遇 / 广告复活。此前是四个近乎逐字重复的方法。
         ///
-        /// **一横排不折行**:字牌铺在一行里,来牌在左、箭头、字库在右。稿的宽度就是按
-        /// 「满员 9 张不折行」算出来的 —— 折行之后最后一张孤零零掉到第二排,读起来像
-        /// 「还有别的选项」。
+        /// **一横排不折行**:字牌铺在一行里,来牌在左、箭头、字库在右。折行之后最后一张
+        /// 孤零零掉到第二排,读起来像「还有别的选项」——稿把这条理由写死了,所以张数多到
+        /// 排不下时**缩牌不折行**(牌宽反算见下面的算术),而不是改成每行 N 张。
         ///
         /// **警告条标红**:这是全局内唯一一处不可逆的删除,按贯穿全轮的那条规矩
         /// (凡是不可逆的都要在按下去之前说清楚),做成标红胶囊而不是一行灰色小字。
@@ -3151,11 +3159,41 @@ namespace Brushblade.Presentation
                 Theme.WarnBg, Theme.WarnText, 21, padX: 23, padY: 12);
             Ui.Sized(warn, height: 46);   // 稿 .warn 22pt
 
-            var row = Ui.Row(content, "Incoming", 19);   // 稿 .incoming gap 9pt
+            const float incomingGap = 19f;   // 稿 .incoming gap 9pt
+            const float arrowW = 46f;        // 稿 .arrow 22pt
+
+            // 牌宽按**张数反算**(2026-09-02 收尾波):稿宽 780pt 只排得下 9 张原尺寸牌,
+            // 而字库真实上限是 12(见 ReplaceSheetW 常量处那笔账)。10 张起铺不下,
+            // HorizontalLayoutGroup 会照 min…preferred 等比压回去 —— 而 Ui.GlyphTile 的
+            // LayoutElement 只设了 preferredWidth/Height、minWidth 是 0,布局组压的只有**宽**,
+            // 高度照给,牌面比例从 0.8 掉到 0.65;稀有度框素材是 Image.Type.Simple,
+            // 直接跟着拉伸变形。压扁的根源就是「只压宽不压高」,所以这里自己把两个维度
+            // 同比缩小,布局组便再无可压之处。
+            //
+            //   净宽     = ReplaceSheetW − 描边内缩(Ui.SheetBorder×2) − 内边距(Ui.SheetPad×2)
+            //            = 1633 − 3 − 48 = 1582
+            //   来牌区   = 牌 130 + 箭头 46 + 两道间距 19×2 = 214(按原尺寸记账,留一点富余)
+            //   字库可用 = 1582 − 214 = 1368
+            //   每张宽   = min(TileW, (字库可用 − TileGap×(n−1)) / n)
+            //   每张高   = 每张宽 × TileH/TileW   ← 130:163 ≈ 0.8,同比缩才不变形
+            //
+            // 实算(n = 字库张数):9 → 130.0×163.0(不缩);10 → 123.3×154.6;
+            // 11 → 110.7×138.8;12 → 100.3×125.7。四档总占宽依次 1504 / 1575 / 1563 / 1552,
+            // 都在 1582 以内,布局组不会再触发压缩。
+            //
+            // ⚠ 来牌那张(左边不可点的那张)必须用**同一个** tileSize:它若留在 130 而字库
+            // 缩到 100,一行里两种大小,读起来像两类东西。
+            float netW = ReplaceSheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
+            float libAvail = netW - (TileW + arrowW + incomingGap * 2f);
+            int tileCount = Mathf.Max(library.Count, 1);   // 防 0 除;实际调用时字库必满
+            float tileW = Mathf.Min(TileW, (libAvail - TileGap * (tileCount - 1)) / tileCount);
+            var tileSize = new Vector2(tileW, tileW * (TileH / TileW));
+
+            var row = Ui.Row(content, "Incoming", incomingGap);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.GlyphTile(row.transform, _graph.Get(incoming), true, null, new Vector2(TileW, TileH));
+            Ui.GlyphTile(row.transform, _graph.Get(incoming), true, null, tileSize);
             var arrow = Ui.ThemedLabel(row.transform, "→", 40, Theme.LockGray);
-            Ui.Sized(arrow.gameObject, width: 46, height: 29);   // 稿 .arrow 22×14pt
+            Ui.Sized(arrow.gameObject, width: arrowW, height: 29);   // 稿 .arrow 22×14pt
 
             var lib = Ui.Row(row.transform, "Library", TileGap);
             lib.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
@@ -3163,7 +3201,7 @@ namespace Brushblade.Presentation
             {
                 int replaceIndex = i;
                 Ui.GlyphTile(lib.transform, _graph.Get(library[i]), false,
-                    () => onPick(replaceIndex), new Vector2(TileW, TileH));
+                    () => onPick(replaceIndex), tileSize);
             }
 
             Ui.PillButton(content, cancelLabel, () => onCancel(),
@@ -3226,7 +3264,29 @@ namespace Brushblade.Presentation
             // 回头调用本方法,「建前 Find 销毁」永远等不到下一次执行的机会。
             var overlay = Ui.Panel(_settleBanner, "Overlay");
             Ui.Stretch((RectTransform)overlay.transform);
-            overlay.AddComponent<Image>().color = Theme.ScrimPaper;
+            // ⚠ 纸罩**让开顶栏那一条带**(2026-09-02 收尾波)。
+            // _settleBanner 是 Frame 的兄弟且排在其后(BuildSkeleton:Backdrop → Frame →
+            // Message → EventBody → SettleBanner → RunEndBanner),所以铺在这里的整屏
+            // Image 既渲染在顶栏**之上**、又拿默认的 raycastTarget = true 把点击吃掉 ——
+            // 玩家在无尽塔阵亡后想点顶栏「退出」选挂起/弃塔就点不到了,而那是他离开
+            // 这座塔的唯一出口;顺带层数/墨锭/回合也被 72% 的纸罩糊住。
+            // 旧版败北 UI 画在 _centerRow 里,DrawTopBar() 照常画且可点,这是本轮的退化。
+            //
+            // 修法:overlay 自己**不挂 Image**(不挂就不接射线),纸罩改成它下面一件
+            // 从顶栏底边起铺到屏底的子物件。于是:
+            //   ① 顶栏那条带没有任何遮挡物,既看得清也点得到;
+            //   ② 顶栏以下仍然是一整块拦截层,玩家透不过去点到底下的残局卡面
+            //      —— 当初把罩设成拦截就是为了这条,不能简单地把 raycastTarget 关掉。
+            // 顶栏之下没有别的东西要露出来:Frame 是 VStack,顶栏之后紧接着就是 Arena。
+            // 不改成 CanvasGroup.blocksRaycasts = false(胜利横幅那条路):那张横幅是
+            // 1.2~2.1s 自动消失的纯提示,整屏放行没有代价;败北屏要一直停到玩家做决定,
+            // 放行等于把整个残局都变回可点。
+            var scrim = Ui.Panel(overlay.transform, "Scrim");
+            Ui.Anchor((RectTransform)scrim.transform, Vector2.zero, Vector2.one,
+                Vector2.zero, new Vector2(0f, -TopBarH));
+            scrim.AddComponent<Image>().color = Theme.ScrimPaper;
+            // Wrap 仍按**整屏**居中(不是按纸罩居中):大字压在屏幕正中是稿的读法,
+            // 让它跟着纸罩下移半个顶栏高会看出偏。它建在 Scrim 之后 → 天然盖在纸罩之上。
             var wrap = Ui.VStack(overlay.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
             Ui.Stretch((RectTransform)wrap.transform);
             wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;

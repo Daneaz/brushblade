@@ -171,7 +171,7 @@ namespace Brushblade.Presentation
         /// name="name"/> 的调用方生效**,不是全站任意两个浮层互斥——稿上「新的弹出前先销毁
         /// 旧的,否则叠成一摞、点不到底下那层」说的是**同一族流程弹窗**排队,不是不同族的
         /// 浮层也要互相清场。此前 <see cref="ModalShell"/> 把 name 硬编码成 <c>"Modal"</c>
-        /// 且无条件走销毁分支,导致 13 个既有调用点互相残杀:战利品弹窗(<c>_rewardModal</c>)
+        /// 且无条件走销毁分支,导致当时的 11 个既有调用点互相残杀:战利品弹窗(<c>_rewardModal</c>)
         /// 与长按预览(<c>_modal</c>)是<c>BattleView</c>刻意分层、要同屏共存的两张浮层,
         /// 都经 <see cref="ModalShell"/> 建在同一个 <c>"Modal"</c> 名下,预览一弹出就把
         /// 战利品弹窗自己销毁了(而且没有回调重建)。修法是加一个开关:调用方自己决定
@@ -211,7 +211,14 @@ namespace Brushblade.Presentation
                 SheetRadius, SheetBorder, out var face);
             Anchor((RectTransform)outer.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(-width / 2f, -height / 2f), new Vector2(width / 2f, height / 2f));
-            outer.gameObject.AddComponent<Button>().targetGraphic = face;
+            // 这个 Button 只为**吃掉**落在卡片本体上的点击(不让它穿透到遮罩去关掉弹窗),
+            // 不是一个可按的控件 —— 必须关掉过渡效果。Button 默认 ColorTint:按下整张卡面
+            // 乘 0.78、抬手后停在 selectedColor 0.96,于是点一下卡片本体、卡面就闪暗一下,
+            // 全站弹窗(含 UnitSheet / 两张 BattleSheet)一处不落。同款写法见 BattleView 的
+            // Backdrop(那块也是纯粹的「吃点击层」)。(2026-09-02 收尾波)
+            var faceButton = outer.gameObject.AddComponent<Button>();
+            faceButton.transition = Selectable.Transition.None;
+            faceButton.targetGraphic = face;
 
             var stack = VStack(face.transform, "Stack", SheetSpacing);
             Stretch((RectTransform)stack.transform);
@@ -227,15 +234,21 @@ namespace Brushblade.Presentation
             Sheet(root, name, width, height, dismissable, replaceSameName, Theme.Scrim, out content);
 
         private const int SheetRadius = 18;    // 稿 9pt 圆角
-        private const float SheetBorder = 1.5f; // 稿 1pt 描边
+        // 这两个是 internal 而非 private:调用方要按「浮层还剩多少净宽」反算内容尺寸时
+        // (见 BattleView.DrawReplaceSheet 按字库张数反算牌宽),必须扣掉描边内缩与内边距。
+        // 抄一份常数到调用方那边会两边各改各的、悄悄漂开,索性让它们读同一个数。
+        internal const float SheetBorder = 1.5f; // 稿 1pt 描边(左右各内缩一次)
         private const float SheetSpacing = 14f;
-        private const int SheetPad = 24;
+        internal const int SheetPad = 24;        // 内容容器左右内边距(各一次)
 
         /// <summary>模态外壳:坐在 <see cref="Sheet"/> 上,标题写进内容容器。
         /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。
         /// ⚠ 2026-09-02 review 修:对 <see cref="Sheet"/> 传 <c>replaceSameName: false</c>——
-        /// 13 个既有调用点共用同一个 name("Modal"),但互相之间并不是「同族排队」关系
-        /// (战利品弹窗与长按预览要同屏共存),按名互斥会把其中一个误杀,详见 Sheet 的文档。</summary>
+        /// 所有调用点共用同一个 name("Modal"),但互相之间并不是「同族排队」关系
+        /// (战利品弹窗与长按预览要同屏共存),按名互斥会把其中一个误杀,详见 Sheet 的文档。
+        /// 数目:出问题那会儿(53ee2bf)直连本方法的是 11 处;轮三把战斗流程浮层(选字/换字)
+        /// 全迁去 Ui.Sheet 之后,今天只剩 5 处(PerkView / CollectionView / CharPreview /
+        /// EnemyPreview / 本文件的 Ui.Modal)。原注释写的「13」两处都不对(2026-09-02 收尾波)。</summary>
         public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
             bool dismissable, out Transform content)
         {

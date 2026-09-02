@@ -494,10 +494,19 @@ namespace Brushblade.Presentation
             state.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             var snap = _meta.EndlessV2;
             // 生命上限:EndlessSaveState 只存当前 HP,上限一直是从养成态现算的
-            // (MetaRules.BuildBattleConfig 里的 PlayerMaxHp 走的也是这一条),这里同源
+            // (MetaRules.BuildBattleConfig 里的 PlayerMaxHp 走的也是这一条),这里同源。
+            // ⚠ 分子必须 clamp(2026-09-02 收尾波):段内的奇遇能把上限抬到
+            // EffectiveMaxHp = PlayerMaxHp + _maxHpBonus(RunEngine 的「+N% 生命上限」那支),
+            // _carriedHp 跟着涨到那个高位;而段末落盘的 snapshot.PlayerHp = run.Battle.PlayerHp
+            // 不做 clamp,_maxHpBonus 又**不跨段** —— 于是「拿了 +15% 上限的奇遇并回满血」
+            // 走到安全层就会显示「生命 1058 / 920」,分子大于分母。
+            // 只在这一屏 clamp:安全层是整趟里玩家唯一逐项读数值的一屏,读到这种数会当 bug 报。
+            // MapView 断点续爬那行(MapView.cs:346)是同一口径的既有写法,但那是另一个界面的
+            // 一行小字、不在本轮范围,暂不动 —— 真要统一得两处一起改,那是单独一笔。
+            int maxHp = MetaRules.PlayerMaxHpFor(_meta);
             Ui.ThemedLabel(state.transform,
                 Strings.T("root.safelayer.state_hp",
-                    ("hp", snap.PlayerHp), ("maxHp", MetaRules.PlayerMaxHpFor(_meta))),
+                    ("hp", Mathf.Min(snap.PlayerHp, maxHp)), ("maxHp", maxHp)),
                 21, Theme.TextDim);                                // 稿 .state 10pt
             // 字库容量不是常数:基准由博闻(养成)决定,局内广告扩容再 +ExpandBonus。
             // 与 MapView 断点续爬那一行同一条表达式,别在这边散写数字
