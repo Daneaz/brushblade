@@ -85,27 +85,37 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
-        /// <summary>战斗中的能力 chip 文案:带实时状态,机制已失效时返回空串(调用方据此不画)。
+        /// <summary>战斗中的能力 chip:带实时状态,机制已失效时两项都为空(调用方据此不画)。
+        ///
+        /// **2026-09-02 用户拍板:战场上的状态只用「图标 + 数字」,不用文字描述,全量说明只在详情里。**
+        /// 于是有图标的六种(叠字/生僻/自燃/灼身/反噬/涂改)改成只出图标、文案留空;
+        /// 剩下三种(缺笔/标点/通假)眼下没有对应图标,**暂时保留文字**,等美术补齐再一起换 ——
+        /// 所以这里出的是「文案 + 图标 key」两项而不是一项。缺笔那条还要带 2/3 进度数字。
+        ///
+        /// 生效条件(分裂过就不画、现形/读懂后撤掉)只写在这一处 —— 若把图标拆成第二个方法,
+        /// 那几条判据就得抄一遍,改一处漏一处不会有任何东西报错。
+        ///
         /// 与 <see cref="AbilityName"/> 同一套命名 —— 玩家在详情学一次,战斗中看到 chip 就懂。
         /// chip 与 name 各用独立 key(不复用):中文眼下相同,但 chip 是小标签有长度上限、
         /// 详情面板没有 —— 英文版 chip 必须缩写、name 不必。</summary>
-        public static string AbilityChipText(EnemyState enemy) => enemy.Def.Ability switch
+        public static (string Text, string IconKey) AbilityChip(EnemyState enemy) => enemy.Def.Ability switch
         {
-            EnemyAbility.Regrow => enemy.RegrowProgress >= 3
+            EnemyAbility.Regrow => (enemy.RegrowProgress >= 3
                 ? Strings.T("enemy.ability.regrow.chip_full")
-                : Strings.T("enemy.ability.regrow.chip_progress", ("progress", enemy.RegrowProgress)),
-            EnemyAbility.Split => enemy.HasSplit ? "" : Strings.T("enemy.ability.split.chip"), // 分裂过就没这威胁了
-            EnemyAbility.Buff => Strings.T("enemy.ability.buff.chip"),
+                : Strings.T("enemy.ability.regrow.chip_progress", ("progress", enemy.RegrowProgress)), null),
+            EnemyAbility.Split => enemy.HasSplit ? ("", null) : ("", "split"), // 分裂过就没这威胁了
+            EnemyAbility.Buff => (Strings.T("enemy.ability.buff.chip"), null),
             // 通假:chip 只说「这属性不可信」,不泄真属性;现形(真伪一致)后撤掉
-            EnemyAbility.Disguise => enemy.ApparentElement == enemy.Element ? "" : Strings.T("enemy.ability.disguise.chip"),
+            EnemyAbility.Disguise => enemy.ApparentElement == enemy.Element
+                ? ("", null) : (Strings.T("enemy.ability.disguise.chip"), null),
             // 生僻:未读懂时 ApparentElement 为 null(属性显示「?」);被读懂后撤掉
-            EnemyAbility.Obscure => enemy.ApparentElement != null ? "" : Strings.T("enemy.ability.obscure.chip"),
-            EnemyAbility.Scorch => Strings.T("enemy.ability.scorch.chip"),
-            EnemyAbility.Sear => Strings.T("enemy.ability.sear.chip"),
+            EnemyAbility.Obscure => enemy.ApparentElement != null ? ("", null) : ("", "obscure"),
+            EnemyAbility.Scorch => ("", "scorch"),
+            EnemyAbility.Sear => ("", "sear"),
             // 涂改的 chip 常驻:治疗是每回合都会发生的事,没有「用掉就没了」的状态
-            EnemyAbility.Mend => Strings.T("enemy.ability.mend.chip"),
-            EnemyAbility.Barb => Strings.T("enemy.ability.barb.chip"),
-            _ => "",
+            EnemyAbility.Mend => ("", "heal"),
+            EnemyAbility.Barb => ("", "thorns"),
+            _ => ("", null),
         };
 
         /// <summary>护甲特性行(2026-08-12,E-b4 T3:口径从承伤系数换成点数)。与 Boss 坚壁走

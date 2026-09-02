@@ -33,12 +33,70 @@ namespace Brushblade.Presentation
         private const float BenchPad = 15f;    // 稿 .bench padding 7pt:拆合台内边距
         // 字库带的高度。稿上 .hand 是被字牌(56pt)撑出来的,但这里它是**叠放层**的槽
         // (见 _centerRow),两个消费方谁也撑不出另一个要的高度,只能给死一个数。
-        // 非战斗阶段那一路最高的一件是奇遇选项钮 72,这个数也装得下。
+        // 非战斗阶段那一路最高的一件是跑图结束的「结算」钮 70,这个数也装得下。
+        // (2026-09-02 轮三 Task 4:奇遇选项钮 92 已随整块内容搬进 _eventBody,不再进这条带。)
         private const float HandBandH = 117f;  // 稿 56pt
         // 战场网格的实际内容宽:一排 4 格 × 293 + 3 个间距 × 17(稿 4×140 + 3×8 = 584pt)。
         // 中区本身是 1260(稿 602pt),两侧各富余 18 —— 玩家条 / 字库带 / 部件池原先都铺满
         // 1260,比上方的战场网格两边各宽出一圈,竖着看边缘不齐(2026-09-01 用户拍板收窄对齐)。
         private const float FieldContentWidth = EnemyCellWidth * 4 + RowGap * 3;
+        // 换字面板(稿 Replace.dc.html)。780pt 是算出来的不是拍的:按**9 张**字牌 ×62
+        // + 8 道 7pt 间隙 = 614,加来牌 62 + 箭头 22 + 两道 9pt 间隙 = 102,再加左右各 20
+        // 内边距 → 756,取 780。窄一档就会折行,最后一张孤零零掉到第二排,读起来像
+        // 「还有别的选项」。
+        // ⚠ 更正(2026-09-02 收尾波):上面那个 9 **不是**字库满员数,只是稿宽倒推出来的
+        // 「不压缩能排下几张」。字库真实上限是 12 ——
+        //   MetaRules.LibraryCapacityFor = StartingLibrarySize(6) + LibraryCapacitySlack(1)
+        //   + 博闻满级(+3) = 10,再 + RunEngine.ExpandBonus(2,局内广告扩容) = 12。
+        // 10~12 张时按 TileW 铺会溢出净宽,HorizontalLayoutGroup 会按 min…preferred 只压**宽**
+        // 不压高,牌面比例从 0.8 掉到 0.65,而稀有度框是 Image.Type.Simple 直接拉伸 ——
+        // 正是 Ui.GlyphTile 自己注释里警告的「牌面被压扁、四角纹样跟着变形」。
+        // 面板宽度不改(稿定死了),改成在 DrawReplaceSheet 里按张数反算牌宽、两个维度同比缩。
+        private const float ReplaceSheetW = 1633f;   // 稿 780pt
+        private const float ReplaceSheetH = 460f;    // 非稿上 pt 换算:稿 .sheet 只定死了宽,高度是
+                                                      // flex 自适应撑出来的,没有可换算的数;这里是配合
+                                                      // Ui.Sheet 内边距估的容器高度。
+        private const float TileW = 130f;            // 稿 .tile 62pt
+        private const float TileH = 163f;            // 稿 .tile 78pt
+        private const float TileGap = 15f;           // 稿 7pt
+
+        private const float PickSheetW = 1298f;   // 稿 Reward.dc.html .sheet 620pt
+        private const float PickSheetH = 520f;    // 非稿上 pt 换算:.sheet 高度由内容 flex 撑出,没有
+                                                   // 可换算的数;同 ReplaceSheetH 的估法,配合 Ui.Sheet
+                                                   // 内边距估的容器高度。
+        private const float PickDetailH = 63f;    // 稿 .detail min-height 30pt
+
+        // ---- 奇遇页(稿 Event.dc.html):一整块垂直居中的 .body ----
+        private const float EventTextW = 1172f;   // 稿 .text max-width 560pt
+        private const float EventOptW = 260f;     // 稿 .opt 124pt
+        private const float EventOptH = 92f;      // 稿 .opt 44pt
+        private const float EventPartW = 96f;     // 稿 .tile.sm 46pt
+        private const float EventPartH = 121f;    // 稿 .tile.sm 58pt
+        // 收尾批次(2026-09-02):部件牌尺寸轮三 Task 4 已按稿放大,字号当时漏改,还是旧稿
+        // 22/26 那两个数——.tile.sm 里只画字形(没有拼音行),对应稿 .g font-size 21pt→44。
+        private const int EventPartGlyphFont = 44;// 稿 .tile.sm .g font-size 21pt→44
+        private const int EventTitleFont = 40;    // 稿 .h font-size 19pt
+        private const int EventTextFont = 25;     // 稿 .text font-size 12pt
+        // VerticalLayoutGroup 只有一个 spacing,而稿上三段各自的 margin-top 是 8/14/13pt ——
+        // 取最小那档(8pt)打底,不足的差额宁可不补:纵向预算本来就薄(见 Field 那段账),
+        // 撑大间距只会把部件池顶出 .body 的下缘。
+        private const float EventBodyGap = 17f;   // 稿 .text margin-top 8pt
+        private const float EventOptsGap = 25f;   // 稿 .opts gap 12pt
+        private const float EventPoolGap = 17f;   // 稿 .pool gap 8pt
+        // .body 的上下缘,按稿的 932×430pt 折成屏高比例:
+        //   上缘 = .safe padding-top 6pt + .top 26pt = 32pt,自顶下量 → (430-32)/430 = 0.926
+        //   下缘 = 安全区底 21pt + .say 26pt = 47pt,自底上量 → 47/430 = 0.109
+        // 横向不用比例:直接跟 Frame 共用 SafeArea.MissingInset() 的 padSide,两者才对得齐。
+        private const float EventBodyTop = 0.926f;
+        private const float EventBodyBottom = 0.109f;
+
+        // ---- 段末横幅(稿 RunEnd.dc.html):整屏纸罩 + 居中大字 ----
+        // ShowVictoryBanner(过关)、DrawBattleSettle 败北支、DrawRunEnd 三处共用,统一定义
+        // 免得三份数字各自漂移。
+        private const int BannerFont = 92;      // 稿 .banner 44pt
+        private const int BannerMsgFont = 23;   // 稿 .msg 11pt
+        private const float BannerPillH = 100f; // 稿 .pill 48pt
+
         private RecipeGraph _graph;
         private RunEngine _run;
         // 执笔人详情弹窗(PlayerInfo.Sheet)要用:局外等级/技能不在 BattleEngine 上,得从这里
@@ -122,16 +180,32 @@ namespace Brushblade.Presentation
         private bool _pendingSummonAttackMode;
         private int _pendingSummonLibraryIndex = -1;
         private int _pendingSummonCount;     // 这张字召几只 = 要点几个位子
-        private GameObject _modal;      // 当前模态弹窗(同屏仅一个)
+        // 2026-09-02 review Critical-1:_modal 与 _sheet 是两个不同族的浮层,不能合一。
+        // _modal —— 只读浮层族:CharPreview / UnitSheet / Ui.Modal / Ui.Alert。玩家可以在
+        // 战利品/复活选字页(_sheet)开着的时候长按候选牌看详情,详情要能**叠在**选字页
+        // 之上,不能把选字页顶掉。
+        // _sheet —— 流程浮层族:选字页(DrawPickSheet)+ 换字页(DrawReplaceSheet),名字都是
+        // "BattleSheet"、dismissable:false,离开对应步骤必须显式销毁(见各 Draw*Step 的
+        // Object.Destroy(_sheet))。
+        // 血的教训(2026-09-01 轮三 Task 3 曾把两族合成一个 _modal 字段,2026-09-02 审查抓到
+        // 的 Critical):ShowCharPreview 第一句是 `if (_modal != null) Object.Destroy(_modal)`——
+        // 字段合一之后,这一句销毁的其实是选字页本身。CharPreview 自己关闭时(CharPreview.cs
+        // 内部自行 Destroy)又不回调 Refresh,于是玩家长按一下候选牌看效果,选字页就从屏幕上
+        // 消失,Phase 仍停在 Reward/Reviving,没有任何东西触发重绘——只能靠误点字库牌或者
+        // 点 ✕ 才能救回来,后者还会白白丢掉这一层战利品。拆成两个字段后叠层顺序天然正确:
+        // Refresh 按相位分支画 _sheet → 末尾把 _modal 顶到最上(见下面 SetAsLastSibling 那行),
+        // _modal 永远盖在 _sheet 上面,谁也不会误杀谁。
+        private GameObject _modal;
+        private GameObject _sheet;
         // 单位详情弹窗开着时(_modal 是 UnitSheet 建的那个),Refresh 靠它重新取一份 UnitDetail
         // 整体重建——稿上写着「数值随战斗实时刷新,不暂停」,事件驱动而不是每帧。
         // 返回 null = 那个单位没了(比如召唤物被打死),Refresh 顺手关掉详情而不是抱着空数据崩。
         private System.Func<UnitDetail> _unitSheetSource;
         // 与 UI/UnitSheet.cs 内部 private 的 SheetName 保持一致的字面量——那边不让改、也没有
-        // 公开出来,这里只能复述字符串,用来判断当前 _modal 是不是详情弹窗、还是被别的模态
-        // (奇遇替换弹窗等)顶掉了。顶掉的情形下没必要也不应该把详情弹窗重新弹到别的模态上面。
+        // 公开出来,这里只能复述字符串,用来判断当前 _modal 是不是详情弹窗、还是被别的只读
+        // 浮层(长按预览/确认弹窗等)顶掉了。顶掉的情形下没必要也不应该把详情弹窗重新弹到
+        // 别的模态上面。
         private const string UnitSheetGameObjectName = "UnitSheet";
-        private GameObject _rewardModal;// 战利品弹窗:与 _modal 分层,避免提示覆盖选择流程
         private string _message = Strings.T("battle.hint.initial");
 
         private string _title;          // 关卡标题(顶栏,可选)
@@ -155,12 +229,53 @@ namespace Brushblade.Presentation
         private Transform _craftRow;     // 拆合台:可合成列表,常驻+可滚动(稿 .craft),2026-08-31 从 _suggestRow 拆出
         private Transform _hintColumn;   // 差字面板(屏幕左侧竖排,平铺列表,2026-08-31 起不再是五行三级目录)
         private Transform _actionRow;
-        // 非战斗阶段的宽操作区(2026-08-20):结算 / 奇遇 / 部件超限 / 跑图结束用它。
+        // 非战斗阶段的宽操作区(2026-08-20):结算 / 部件超限 / 跑图结束用它。
         // 这些界面此前借的是拆合台的 _actionRow,而拆合台是右侧那条窄竖栏 —— 奇遇的
         // 260 宽选项钮塞不进去,所以给它们留一条横贯中区的带。
+        // (奇遇本身 2026-09-02 轮三 Task 4 起改走居中的 _eventBody,不再是这条带的消费方,
+        //  但它仍是这条带宽度口径的由来。)
         // 它与 _libraryRow **共占同一个槽**(两个铺满的叠放层,见 BuildSkeleton 的 Band),
         // 两者从不在同一阶段绘制(见 Refresh 的 switch)。
         private Transform _centerRow;
+        // 奇遇页的整块内容(稿 Event.dc.html 的 .body,2026-09-02 轮三 Task 4)。
+        //
+        // ⚠ 它**不是**每次 DrawEvent 新建、也不挂 _sheet/_modal —— 那两条路都埋着雷:
+        //   ① 在 DrawEvent 里 new 一个挂 transform 下的节点,离开奇遇阶段时没有任何人负责
+        //      销毁它(Refresh 的 switch 根本不会再走进 DrawEvent),它会原地盖在战斗界面上;
+        //   ② 靠「进各条退出路径显式销毁」补救,就是轮三 Task 2/3 连栽两次的那种写法 ——
+        //      奇遇的退出口有六条(成交/取消/跳过/转选字/转选件/转换字),漏一条就漏一条。
+        // 所以按**排**来办:BuildSkeleton 里建一次,Refresh 开头和其他排一起 Ui.Clear。
+        // 生命周期于是和 _centerRow / _poolRow 完全同构,不需要任何人记得销毁它。
+        // 它没有 Image、清空后也没有子物件,非奇遇阶段既不绘制也不拦点击,不必再 SetActive。
+        private Transform _eventBody;
+
+        // 段末横幅(稿 RunEnd.dc.html)的整屏纸罩容器:DrawBattleSettle 败北支专用。
+        //
+        // ⚠ 没有照抄任务书原方案(「DrawBattleSettle 每次画之前 transform.Find 销毁同名旧
+        // 节点」)——上面 _eventBody 那段注释警的雷②在这里是真炸的,败北结算有两条退出
+        // 路径完全不会再经过 DrawBattleSettle 本身:
+        //   · 点「看广告复活」→ RunEngine.TryRevive() 把 Phase 直接改成 RunPhase.Reviving
+        //     (不是 InBattle),下一次 Refresh 走 DrawReviveCharStep(),DrawBattleSettle
+        //     再也不会被调用;
+        //   · 点「结算」→ AdvanceAfterBattle() 把 Phase 改成 RunPhase.RunLost,下一次
+        //     Refresh 走 DrawRunEnd(),不会再回到 DrawBattleSettle——写这条论证时(轮三
+        //     Task 2)DrawRunEnd 还是老办法,进来只 Find+Destroy 自己的 "RunEndBanner",
+        //     认不得 "SettleBanner" 这个名字;DrawRunEnd 后来也改成了常驻容器(同下面
+        //     _runEndBanner 那段的办法),但结论没变——这条路径本来就不会再进
+        //     DrawBattleSettle,「建前销毁」那句代码不管改成认哪个名字都没有第二次执行
+        //     的机会。
+        // 两条路径都是「建前销毁那句代码再也没有机会执行第二次」的场景,横幅会原地变成
+        // 一层永久拦点击的孤儿全屏罩。按 _eventBody 的办法(常驻 + Refresh 开头 Ui.Clear,
+        // 见 Refresh 里对应那行)才对:清空这一步与「当前是不是败北结算」完全解耦。
+        private Transform _settleBanner;
+
+        // 段末横幅(稿 RunEnd.dc.html)的整屏纸罩容器:DrawRunEnd 专用。
+        // RunWon/RunLost 是 RunEngine 里的终态(两处赋值只进不出,见 RunEngine.cs),唯一
+        // 出口 _onRunEnded 最终总会经 GameRoot.NewView() 把整个 BattleView 连根拔起——单看
+        // DrawRunEnd 自己确实不会像 _settleBanner 那样漏。但那份「安全」压在 GameRoot.cs
+        // 那条外部约定上,BattleView 自己看不见、也拦不住将来谁改;两个版式相同的横幅没理由
+        // 走两套生命周期模型,索性都按 _settleBanner 那套最保险的办法来。
+        private Transform _runEndBanner;
         private GameObject _rowDivider;  // 敌我前排之间的墨线:只在战斗阶段现身(2026-08-20)
         private Text _messageLabel;
         private bool _resolvingHint;    // 本次重绘落在动画锁里:底部提示行画「结算中……」而非播报
@@ -581,18 +696,6 @@ namespace Brushblade.Presentation
             if (bar.label != null) bar.label.text = shield.ToString();
         }
 
-        /// <summary>召唤物身上挂着几条增益(2026-08-28)。按**条数**数而不是按 Magnitude 求和:
-        /// 那几条的单位互不相同(护甲是点数、暴击是百分点、免疫是次数),加在一起没有意义。
-        /// 走 Polarity 而不是列举 StatusKind —— 将来再让哪条增益能挂给召唤物,这里不用改。</summary>
-        private static int CountBuffs(SummonState summon)
-        {
-            int count = 0;
-            var all = summon.Statuses.All;
-            for (int i = 0; i < all.Count; i++)
-                if (all[i].Polarity == StatusPolarity.Buff && all[i].Magnitude > 0) count++;
-            return count;
-        }
-
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
         {
             if (bar.fill != null)
@@ -655,6 +758,28 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.010f), new Vector2(0.98f, 0.053f), Vector2.zero, Vector2.zero);
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
+
+            // 奇遇页的 .body(稿 Event.dc.html):整块内容垂直居中。同 Message 一样挂 transform
+            // 而不是 Frame —— Frame 是 VerticalLayoutGroup,挂进去就成了顶栏底下的又一行,
+            // 拿不到「盖住三栏、自己居中」的那块地。挂 transform 的代价是不在任何布局组里,
+            // 所以上下缘只能自己锚(见 EventBodyTop/Bottom 的换算),横向则跟 Frame 共用
+            // 同一个 padSide,免得奇遇的正文比战斗屏的内容宽出一圈。
+            // 建在 Message 之后 = transform 的最后一个静态子节点:它要盖在 Frame 之上,而
+            // 运行期弹出的 _sheet / _modal 都是后来追加的兄弟,天然又盖在它之上。
+            var eventBodyGo = Ui.VStack(transform, "EventBody", EventBodyGap);
+            Ui.Anchor((RectTransform)eventBodyGo.transform,
+                new Vector2(0f, EventBodyBottom), new Vector2(1f, EventBodyTop),
+                new Vector2(padSide, 0f), new Vector2(-padSide, 0f));
+            _eventBody = eventBodyGo.transform;
+
+            // 段末横幅两个槽位,常驻 + 全屏拉伸,自己不挂 Image、清空后也没有子物件——
+            // 与 _eventBody 同一套办法(见字段声明处的雷)。建在 EventBody 之后,天然又
+            // 盖在其上,虽说三者从不同屏,先后顺序其实不打紧。
+            _settleBanner = Ui.Panel(transform, "SettleBanner").transform;
+            Ui.Stretch((RectTransform)_settleBanner);
+            _runEndBanner = Ui.Panel(transform, "RunEndBanner").transform;
+            Ui.Stretch((RectTransform)_runEndBanner);
+
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.70f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
@@ -1049,8 +1174,22 @@ namespace Brushblade.Presentation
             Ui.Clear(_bottomRow);
             Ui.Clear(_summonFrontRow);
             Ui.Clear(_summonBackRow);
-            if (_run.Phase != RunPhase.Reward && _run.Phase != RunPhase.Reviving && _rewardModal != null)
-                Destroy(_rewardModal); // 离开战利品/复活阶段:弹窗不能留在战斗界面上
+            Ui.Clear(_eventBody);   // 奇遇页那一整块跟着排一起清:它就是靠这一条才不必挂退出路径销毁
+            Ui.Clear(_settleBanner); // 段末横幅(败北结算)同一套办法,见字段声明处的雷
+            Ui.Clear(_runEndBanner); // 段末横幅(跑图结束)同上
+            // 2026-09-01 轮三 Task 3:此处原有「离开战利品/复活阶段就无条件销毁 _rewardModal」
+            // 的通用兜底——那是安全的,因为 _rewardModal 只在 Reward/Reviving 两个阶段被
+            // 赋值,别处不碰。当时把它合并进 _modal 想复用这条兜底,但 _modal 在 InBattle
+            // 阶段也被长按预览、掉字换字弹窗等大量借用,盯着「不在 Reward/Reviving 就销毁」
+            // 会把那些无关弹窗一起误杀,故整段删掉。
+            // 2026-09-02 review 又抓到反方向的 Critical:合并后的字段还让 ShowCharPreview
+            // 那句 `if (_modal != null) Object.Destroy(_modal)` 反过来把选字页/换字页自己
+            // 销毁了(CharPreview 关闭时不回调 Refresh,选字页凭空消失,Phase 卡在原地)。
+            // 根子是把「互斥的两族浮层」硬塞进一个字段——按名互斥(见 Ui.Sheet 的
+            // replaceSameName)本来就与用哪个 C# 字段无关。改回两个字段:_sheet 专属选字页/
+            // 换字页,离开对应步骤时在退出路径显式销毁(见各 Draw*Step 里 Object.Destroy
+            // (_sheet));_modal 专属只读浮层(长按预览/单位详情/确认弹窗),允许叠在 _sheet
+            // 之上。都不靠通用兜底,兜底在这两版尝试里都出过事,不值得再要。
 
             // 分隔线现在挂在 Frame/Arena/Mid/Field/DividerSlot/RowDivider 这条路径下
             // (骨架换布局组之后不再是 transform 的直接子节点了),但不参与上面的 Ui.Clear
@@ -1123,9 +1262,10 @@ namespace Brushblade.Presentation
             // 单位详情弹窗开着时数值跟着 Refresh 走(2026-09-01,单位详情轮二 Task 5;稿上
             // 「数值随战斗实时刷新,不暂停」,事件驱动而非每帧)——重新拿一份 UnitDetail 整体
             // 重建。用 _modal 的 GameObject 名字判断而不是另记一个「当前是不是详情弹窗」的
-            // 布尔:期间若被别的模态(奇遇替换弹窗等)顶掉,_modal 已经指向别的物体,名字
-            // 自然对不上,不会把详情弹窗重新弹到别的模态上面;玩家自己点 ×/知道了/遮罩关掉后
-            // _modal 变 Unity 假 null,同样不会再重建。
+            // 布尔:期间若被别的只读浮层(长按预览/确认弹窗等,2026-09-02 起选字页/换字页
+            // 已经改走独立的 _sheet 字段,不会再落到这里)顶掉,_modal 已经指向别的物体,
+            // 名字自然对不上,不会把详情弹窗重新弹到别的模态上面;玩家自己点 ×/知道了/
+            // 遮罩关掉后 _modal 变 Unity 假 null,同样不会再重建。
             // ⚠ 隐式依赖(2026-09-01 review 补记):这一块**不检查** Animating,而
             // AdvanceRoutine() 在 BeginAnim 的锁区间内、每个行动者动作播完都会调一次
             // Refresh(),也就是一次结算里详情理论上会被反复重建。今天打不通纯粹是巧合:
@@ -1465,42 +1605,55 @@ namespace Brushblade.Presentation
             // 一个没变,只是从「有则建」改成「恒定占位、内容为空时是一条空槽」——与
             // blk/info/ap 同为结构性四段之一,不能忽有忽无。
             var statusChips = new List<Ui.ChipSpec>();
-            int seal = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal);
-            if (seal > 0) statusChips.Add(new($"−{seal}AP", Theme.InkSoft, Color.white, "seal"));
+            // **判据:这条状态的「量」本身会不会随回合变小 —— 会的才带数字**(2026-09-02
+            // 用户拍板,与召唤物格、敌人格同一条;完整说明见 AddSummonStatusChips 的注释)。
+            // 这一栏里符合的是灼烧(层数每回合衰减)与战意(Magnitude 每回合 −1);
+            // 封字是**下回合一次性**扣 AP、减速是持续期间恒定的修正值、那一排增益挂着即生效,
+            // 都只出图标 —— 一排数字在 120pt 宽的状态栏里糊成一团,反而读不出挂了哪几样。
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal) > 0)
+                statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0) statusChips.Add(new($"{playerBurn}", Theme.Cinnabar, Color.white, "burn"));
-            int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
-            if (immunity > 0) statusChips.Add(new($"{immunity}", Theme.Jade, Color.white, "immunity"));
-            int reflect = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect);
-            if (reflect > 0) statusChips.Add(new($"{reflect}%", Theme.Jade, Color.white, "reflect"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "immunity"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "reflect"));
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
-            int attackBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff);
-            if (attackBuff > 0) statusChips.Add(new($"+{attackBuff}", Theme.Gold, Color.white, "attack"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff) > 0)
+                statusChips.Add(new("", Theme.Gold, Color.white, "attack"));
+            // 战意带数字:Magnitude 每回合 −1(BattleEngine 的 EndTurn 那段),数字是倒计时,
+            // 玩家要按「还剩几层」决定这回合梭不梭 —— 与灼烧同族,和旁边那排平量增益不同。
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             if (morale > 0) statusChips.Add(new($"{morale}", Theme.Gold, Color.white, "morale"));
-            // 暴击率(2026-08-12,锋):读 EffectiveCrit(已钳到 100)而不是状态总量 ——
-            // 叠 6 张锋时玩家该看到的是 100 不是 120
+            // 暴击(2026-08-12,锋):判据仍读 EffectiveCrit(已钳到 100)而不是状态总量 ——
+            // 数字虽然不显示了,但「叠满没叠满」的口径要与详情一致
             if (Battle.EffectiveCrit > 0)
-                statusChips.Add(new($"{Battle.EffectiveCrit}%", Theme.Gold, Color.white, "crit"));
-            // 穿透(2026-08-12,锐):读状态总量而不是某次结算的有效值 —— 穿透打谁减多少要看
-            // 那只怪的甲,玩家该看到的是自己攒了多少
-            int pierceBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff);
-            if (pierceBuff > 0) statusChips.Add(new($"{pierceBuff}", Theme.Gold, Color.white, "pierce"));
+                statusChips.Add(new("", Theme.Gold, Color.white, "crit"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff) > 0)
+                statusChips.Add(new("", Theme.Gold, Color.white, "pierce"));
             // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻——
             // 基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」(与穿透同口径)。
-            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见。
-            int defenseBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff);
-            if (defenseBuff > 0) statusChips.Add(new($"+{defenseBuff}", Theme.Jade, Color.white, "defense"));
-            int dodgeBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff);
-            if (dodgeBuff > 0) statusChips.Add(new($"+{dodgeBuff}%", Theme.Jade, Color.white, "dodge"));
+            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 —— 但正负都只出图标,
+            // 减了多少与加了多少同样是持续期间的恒定修正,不是每回合的结算量。
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "defense"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "dodge"));
             int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod != 0)
-                statusChips.Add(new(speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
-                    speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
-            // 势 / 水势(2026-09-02,终审修复):无图标资产,文字里自带字头区分——同「seal」
-            // 那行 AP 后缀同一处理,字头走字符串表。层数为 0 时不占格,与其余增益类 chip 同口径。
+                statusChips.Add(new("", speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
+            // 势 / 水势(2026-09-02):**「状态只出图标」那条规矩的显式例外,带数字。**
+            //
+            // main 2026-09-02 的判据是「量本身会不会随回合变小」——势/水势不会(TurnsLeft = -1,
+            // 只在引爆那一刻清零),按字面该只出图标。这里刻意破例,因为那条规矩要保护的东西
+            // 在这里反过来了:它挡的是「恒定修正值反复占用注意力」,而势/水势的层数**就是玩家
+            // 唯一的决策依据** —— 攒到几层才值得引爆、这一手该攒还是该泻,全看这个数。
+            // 藏了它,「攒→泻」整个机制就不可玩(2026-09-02 全分支终审 #2 的核心正是这一条)。
+            //
+            // 无图标资产,故字头走字符串表自带区分(同 seal 那行 AP 后缀的处理)。
+            // 层数为 0 不占格,与其余增益类 chip 同口径。
             int momentum = Battle.MomentumStacks;
             if (momentum > 0)
                 statusChips.Add(new($"{Strings.T("status.momentum.chip")}{momentum}", Theme.Gold, Color.white, null));
@@ -1651,17 +1804,19 @@ namespace Brushblade.Presentation
                     null, TextAnchor.MiddleRight);
                 Ui.Stretch(hpLabel.rectTransform);
 
-                // chip 行(稿 .cps):被动 + 灼烧 + 增益条数,从旧顶行右翼搬进信息列 ——
-                // 内容/判据完全不变(SummonPassiveTag/Burn/CountBuffs),只是从竖排小 chip
-                // 摞改成横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑,虽这三项几乎不会溢出)。
+                // chip 行(稿 .cps):被动 + 灼烧 + 身上挂着的每条状态,一律「图标 + 数字」,
+                // 横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑:装不下 ChipMaxLines 行时
+                // 从**尾部**丢弃、末尾补「+N」,所以越靠前的越保得住)。
+                //
+                // 顺序即优先级:被动(它是什么怪)→ 灼烧(正在掉血)→ 其余状态(负面先于正面)。
+                // 2026-09-02:此前这里只有一个「益+2」的条数计数,而条数不告诉玩家是什么增益——
+                // 「锐」给的穿透、「壁」给的护甲都只是那个 2 里的一份,打出去生效没有看不出来。
                 var chipSpecs = new List<Ui.ChipSpec>();
-                string passiveTag = SummonPassiveTag(summon.Passive);
-                if (passiveTag.Length > 0) chipSpecs.Add(new(passiveTag, Theme.Cinnabar, Color.white));
+                var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
+                if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
-                int buffs = CountBuffs(summon);
-                if (buffs > 0)
-                    chipSpecs.Add(new(Strings.T("summon.buff_count", ("count", buffs)), Theme.Jade, Color.white));
+                AddSummonStatusChips(chipSpecs, summon);
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize, ChipMaxLines,
                     ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
 
@@ -1937,19 +2092,87 @@ namespace Brushblade.Presentation
         /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
         /// 一只召唤物只有一种被动(数据侧如此),所以取第一个非零项即可。
         /// 禁用 emoji —— 字体子集补不出来,上线渲染成空框。</summary>
-        private static string SummonPassiveTag(SummonPassive passive)
+        /// <summary>召唤物格上的被动 chip:「图标 + 数字」,不出文字(2026-09-02 用户拍板)。
+        /// 六种被动都有现成图标,所以这一族一条文字都不剩;完整说明在召唤物详情弹窗里
+        /// (<c>SummonInfo</c> 用的是另一族 <c>summon.passive.*</c> 整句,没被本次改动波及)。
+        ///
+        /// ⚠ **附灼与全场灼在格子上看起来一样**(都是 burn 图标 + 层数)。区别是「刷目标」
+        /// 还是「刷全场」,一个图标带不出来,而这正是「全量说明只在详情里」那条口径的代价 ——
+        /// 详情弹窗的 <c>summon.passive.burn_all</c> / <c>burn_single</c> 把两者写得很清楚。
+        /// 将来若要在格子上分开,得新画一枚图标,别用文字绕回去。</summary>
+        private static (string Text, string IconKey) SummonPassiveChip(SummonPassive passive)
         {
-            if (passive == null) return "";
-            if (passive.OnHitBurn > 0)
-                return passive.OnHitBurnAll
-                    ? Strings.T("battle.summon.burn_all", ("n", passive.OnHitBurn))
-                    : Strings.T("battle.summon.burn_attach", ("n", passive.OnHitBurn));
-            if (passive.Thorns > 0) return Strings.T("battle.summon.thorns", ("n", passive.Thorns));
-            if (passive.HealAlly > 0) return Strings.T("battle.summon.heal", ("n", passive.HealAlly));
-            if (passive.OnHitCurse > 0) return Strings.T("battle.summon.curse", ("n", passive.OnHitCurse));
-            if (passive.Dodge > 0) return Strings.T("battle.summon.dodge", ("n", passive.Dodge));
-            if (passive.Speed > 100) return Strings.T("battle.summon.haste");
-            return "";
+            // **特性一律只出图标,不带数字**(2026-09-02 用户拍板,与状态同一条判据):
+            // 数字只留给「跟随回合消亡」的 DOT/HOT。特性是这只召唤物**天生常驻**的,
+            // 不随回合衰减、也不会消失 —— 玩家要知道的是「它是哪一种」,
+            // 具体几层/几点/百分之几去详情弹窗看(summon.passive.* 那一族整句写得很清楚)。
+            if (passive == null) return ("", null);
+            if (passive.OnHitBurn > 0) return ("", "burn");
+            if (passive.Thorns > 0) return ("", "thorns");
+            if (passive.HealAlly > 0) return ("", "heal");
+            if (passive.OnHitCurse > 0) return ("", "curse");
+            if (passive.Dodge > 0) return ("", "dodge");
+            if (passive.Speed > 100) return ("", "speed");
+            return ("", null);
+        }
+
+        /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
+        ///
+        /// 此前这里只有一个「益+2」的**条数**计数,而条数不告诉玩家是什么增益 ——
+        /// 「锐」给召唤物加的穿透、「壁」加的护甲,在格子上都只是那个 2 里的一份,
+        /// 玩家看不出自己那几张字打出去到底生效了没有。改成逐条出图标,与玩家状态栏同一套
+        /// 图标与配色(玩家条那份是内联写的,含两处只有玩家才有的特例:暴击读 EffectiveCrit
+        /// 而非状态总量、AP 加成不出格因为 AP 格子数本身就是它的反馈 —— 所以没有合并成一个函数)。
+        ///
+        /// 顺序即优先级:<see cref="Ui.ChipFlow"/> 装不下时从**尾部**丢弃。先负面后正面 ——
+        /// 负面直接回答「它还能不能替我挡刀」,比「它变强了多少」更急。
+        /// 完整说明(每条的机制与时长)在召唤物详情弹窗里。</summary>
+        private static void AddSummonStatusChips(List<Ui.ChipSpec> chips, SummonState summon)
+        {
+            var st = summon.Statuses;
+            // **判据:这条状态的「量」本身会不会随回合变小 —— 会的才带数字**
+            // (2026-09-02 用户拍板,三处 chip 行同一条)。注意不是「有没有到期」:
+            // 诅咒也会到期,但挂着期间恒定减 30%,到点整条消失,数字对玩家没有决策价值。
+            //
+            //   带数字(数字是**倒计时**,玩家要按它权衡):
+            //     · 灼烧 —— 层数每回合衰减(所以才有 BurnNoDecay 这条「不灭」来对着干)
+            //     · 战意 —— Magnitude 每回合 −1(BattleEngine.cs 的 EndTurn 那段)
+            //     · 流血 / 持续治疗 —— 每回合结算一次的量,数字回答「这一跳掉/回多少」
+            //   只出图标(挂着期间量恒定,到期整条消失):
+            //     诅咒、破甲、减速、致盲、封字,以及全部平量增益(甲/闪/弹/攻/暴/锐)。
+            //
+            // 加新状态时按这条分:问「玩家盯着这个数字看,是在等它变小吗?」
+            void Decaying(StatusKind kind, string icon, Color bg)  // 量随回合变小,带数字
+            {
+                int n = st.TotalMagnitude(kind);
+                if (n > 0) chips.Add(new($"{n}", bg, Color.white, icon));
+            }
+            void Flag(StatusKind kind, string icon, Color bg)      // 挂着即生效,只出图标
+            {
+                if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Color.white, icon));
+            }
+
+            // ---- 负面:先出,不该被截断 ----
+            if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
+            Decaying(StatusKind.Bleed, "bleed", Theme.Cinnabar);
+            Flag(StatusKind.Curse, "curse", Theme.InkSoft);
+            Flag(StatusKind.ArmorBreak, "armorbreak", Theme.InkSoft);
+            // 速度:负向才出(与敌人格同口径),正向的「疾」是被动不是状态,已由 SummonPassiveChip 出
+            if (st.TotalMagnitude(StatusKind.SpeedModifier) < 0)
+                chips.Add(new("", Theme.InkSoft, Color.white, "slow"));
+
+            // ---- 正面 ----
+            Decaying(StatusKind.HealOverTime, "heal", Theme.Jade); // HOT:每回合回多少
+            Flag(StatusKind.Immunity, "immunity", Theme.Jade);
+            Flag(StatusKind.DefenseBuff, "defense", Theme.Jade);
+            Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
+            Flag(StatusKind.Reflect, "reflect", Theme.Jade);
+            Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
+            Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:层数每回合 −1,数字是倒计时
+            Flag(StatusKind.CritBuff, "crit", Theme.Gold);
+            Flag(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
+            if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)
+                chips.Add(new("", Theme.Jade, Color.white, "speed"));
         }
 
         // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
@@ -2204,12 +2427,16 @@ namespace Brushblade.Presentation
                 // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
                 // 行时从**尾部**丢弃,末尾补「+N」,所以越靠前的越保得住。
                 // 完整信息仍在敌人详情弹窗里。
+                // 2026-09-02 用户拍板:战场上的状态一律「图标 + 数字」,不用文字描述 ——
+                // 攻「攻 12」→ attack 图标 + 12,护甲「护甲 5」→ defense 图标 + 5。
+                // 全量说明在详情弹窗里(点这只怪就是)。`enemy.defense_chip` 那条文案没删:
+                // EnemyPreview(图鉴预览)还在用它,那儿是有空间摆文字的地方。
                 var chipSpecs = new List<Ui.ChipSpec>
                 {
-                    new(Strings.T("battle.label.enemy_attack", ("attack", enemy.Attack)), Theme.PaperDim, Theme.TextMain),
+                    new($"{enemy.Attack}", Theme.PaperDim, Theme.TextMain, "attack"),
                 };
                 if (enemy.Defense > 0)
-                    chipSpecs.Add(new(Strings.T("enemy.defense_chip", ("defense", enemy.Defense)), Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"{enemy.Defense}", Theme.InkSoft, Color.white, "defense"));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
@@ -2230,27 +2457,30 @@ namespace Brushblade.Presentation
                 // 不该在 ChipFlow 装不下时被从尾部丢掉。
                 if (enemy.Statuses.Has(StatusKind.Freeze))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "freeze"));
+                // 减速 / 致盲 / 诅咒都只出图标不带数字(2026-09-02 用户拍板):数字只留给
+                // 「跟随回合消亡」的 DOT/HOT(上面的灼烧就是),而这三条是**持续期间恒定的
+                // 修正值** —— 玩家要知道的是「挂上没挂上」,减多少去详情弹窗看。
                 // 只画负向:正向 SpeedModifier 眼下没有任何来源(唯一施加点是 EffectKind.Slow 的
-                // −50),画加速分支就是死代码。数字是**速度点数**不是百分比,故不带 %。
+                // −50),画加速分支就是死代码。
                 int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 if (speedMod < 0)
-                    chipSpecs.Add(new($"−{-speedMod}", Theme.InkSoft, Color.white, "slow"));
-                int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
-                if (blind > 0)
-                    chipSpecs.Add(new($"−{blind}%", Theme.InkSoft, Color.white, "blind"));
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "slow"));
+                if (enemy.Statuses.TotalMagnitude(StatusKind.Blind) > 0)
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "blind"));
                 if (enemy.Statuses.Has(StatusKind.Silence))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "silence"));
-                int curse = enemy.Statuses.TotalMagnitude(StatusKind.Curse);
-                if (curse > 0)
-                    chipSpecs.Add(new($"−{curse}%", Theme.InkSoft, Color.white, "curse"));
+                if (enemy.Statuses.TotalMagnitude(StatusKind.Curse) > 0)
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "curse"));
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)
                 {
-                    string abilityChip = EnemyInfo.AbilityChipText(enemy);
-                    if (abilityChip.Length > 0)
-                        chipSpecs.Add(new(abilityChip,
-                            Theme.AbilityChipColor(enemy.Def.Ability), Color.white));
+                    // 六种有图标的只出图标(文案为空),缺笔/标点/通假暂时还是文字 ——
+                    // 生效条件全在 AbilityChip 一处,这里只负责「两项都空就不画」。
+                    var (abilityText, abilityIcon) = EnemyInfo.AbilityChip(enemy);
+                    if (abilityText.Length > 0 || abilityIcon != null)
+                        chipSpecs.Add(new(abilityText,
+                            Theme.AbilityChipColor(enemy.Def.Ability), Color.white, abilityIcon));
                 }
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize,
@@ -2360,24 +2590,25 @@ namespace Brushblade.Presentation
             Ui.Sized(label.gameObject, width: CountCaptionW);
         }
 
-        /// <summary>手牌行末尾的广告扩容位(稿 .adslot):常驻显示,用过后转灰而不是消失——
-        /// 旧实现里 Ui.AdBadge 只在未扩容时画,扩过容之后这个位置直接空着,看不出「已经
-        /// 扩过容了」这条反馈;稿上明确是「已用过时转灰」的持续态,不是用完就撤。
-        /// 没有做稿上的虚线边框(dashed)——Unity UI 没有现成的虚线描边,与 Task 6 空敌人格
-        /// 同一个坑同一个取舍:实线圆角描边 + 素色近似,不为这一处引入资源或自定义 Shader。</summary>
+        /// <summary>手牌行末尾的广告扩容位(稿 .adslot)。
+        ///
+        /// **扩容之后整个撤掉,不留灰槽**(2026-09-02 用户拍板,推翻稿上的 `.adslot.used` 持续态)。
+        /// 稿原本的口径是「用过后转灰而不是消失」,理由是留一条「已经扩过容了」的反馈;
+        /// 但字库行本来就挤(满员 12 张时已经要靠等比压缩才排得下,见 BuildSkeleton 中区那段),
+        /// 一个点不动、只说「已扩容」的灰槽白占一格宽度,而扩容这件事**在容量数字上已经写着**
+        /// (标题就是「字库 5/11」),不需要第二处反馈。稿已同步改掉。
+        ///
+        /// 没有做稿上的虚线边框(dashed)——Unity UI 没有现成的虚线描边,与空敌人格同一个坑
+        /// 同一个取舍:实线圆角描边 + 素色近似,不为这一处引入资源或自定义 Shader。</summary>
         private void DrawHandAdSlot()
         {
-            bool used = _run.LibraryExpanded;
+            if (_run.LibraryExpanded) return; // 扩过容就没这一格了
             var outer = Ui.OutlinedPanel(_libraryRow, "HandAdSlot",
-                used ? Theme.LockedBg : Theme.AdGreenBg, used ? Theme.PanelBorder : Theme.AdGreen,
-                10, 1.5f, out var face);
+                Theme.AdGreenBg, Theme.AdGreen, 10, 1.5f, out var face);
             Ui.Sized(outer.gameObject, width: HandAdSlotW, height: HandAdSlotH);
             var stack = Ui.VStack(face.transform, "Stack", 4);
             Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform,
-                used ? Strings.T("battle.btn.hand_ad_used") : Strings.T("battle.btn.hand_ad_slot"),
-                11, used ? Theme.LockGray : Theme.AdGreenText);
-            if (used) return;
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.hand_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
             button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
@@ -2691,21 +2922,17 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)badge.transform, anchor, anchor, offsetMin, offsetMax);
         }
 
-        /// <summary>部件池行末尾的广告扩容位(稿 .adpart):常驻显示,用过后转灰而不是消失,
+        /// <summary>部件池行末尾的广告扩容位(稿 .adpart):扩容之后整个撤掉、不留灰槽,
         /// 与 <see cref="DrawHandAdSlot"/> 同一个理由、同一套取舍(实线近似虚线边框)。</summary>
         private void DrawPoolAdSlot()
         {
-            bool used = _run.PoolExpanded;
+            if (_run.PoolExpanded) return; // 扩过容就没这一格了,同 DrawHandAdSlot
             var outer = Ui.OutlinedPanel(_poolRow, "PoolAdSlot",
-                used ? Theme.LockedBg : Theme.AdGreenBg, used ? Theme.PanelBorder : Theme.AdGreen,
-                10, 1.5f, out var face);
+                Theme.AdGreenBg, Theme.AdGreen, 10, 1.5f, out var face);
             Ui.Sized(outer.gameObject, width: PoolAdSlotW, height: PoolAdSlotH);
             var stack = Ui.VStack(face.transform, "Stack", 2);
             Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform,
-                used ? Strings.T("battle.btn.pool_ad_used") : Strings.T("battle.btn.pool_ad_slot"),
-                11, used ? Theme.LockGray : Theme.AdGreenText);
-            if (used) return;
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.pool_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
             button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
@@ -3003,42 +3230,118 @@ namespace Brushblade.Presentation
             Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
         }
 
+        /// <summary>「字库已满,换掉哪一张」的唯一一版(2026-09-01,轮三 Task 2)。
+        /// 稿 <c>Replace.dc.html</c> 的 <c>.sources</c> 那行写明四个入口共用这一版:
+        /// 战利品 / 回合掉字 / 奇遇 / 广告复活。此前是四个近乎逐字重复的方法。
+        ///
+        /// **一横排不折行**:字牌铺在一行里,来牌在左、箭头、字库在右。折行之后最后一张
+        /// 孤零零掉到第二排,读起来像「还有别的选项」——稿把这条理由写死了,所以张数多到
+        /// 排不下时**缩牌不折行**(牌宽反算见下面的算术),而不是改成每行 N 张。
+        ///
+        /// **警告条标红**:这是全局内唯一一处不可逆的删除,按贯穿全轮的那条规矩
+        /// (凡是不可逆的都要在按下去之前说清楚),做成标红胶囊而不是一行灰色小字。
+        ///
+        /// 浮层名字固定 <c>"BattleSheet"</c> 且 <c>replaceSameName: true</c>:Task 3 的
+        /// 战利品/复活选字页会共用同一个名字,两张流程浮层的互斥因此自动成立,不必在
+        /// 每个入口手写 Destroy(见 <see cref="Ui.Sheet"/> 文档「同族排队」那段)。</summary>
+        /// <param name="onPick">玩家点了字库里第 N 张。调用方负责调 Core 并善后。</param>
+        /// <param name="cancelLabel">取消钮文案。四个入口语义不同(掉字是「不要,跳过」,
+        /// 其余是「算了,不换」一类),不能写死成一种。</param>
+        /// <returns>弹窗内容容器,供调用方(如战利品广告徽章)接着往里画东西。</returns>
+        private Transform DrawReplaceSheet(string title, string incoming,
+            System.Collections.Generic.IReadOnlyList<string> library,
+            System.Action<int> onPick, System.Action onCancel, string cancelLabel)
+        {
+            // 前置清场(2026-09-02 review Critical-1 修复后仍保留):这里销毁的是 _modal 而不是
+            // _sheet——掉字步由 BeginPlayerTurn 自动触发,不等玩家松手,此刻若正好有长按预览
+            // (CharPreview/UnitSheet)开着,这条强制决策(dismissable:false)不该让预览继续
+            // 叠在上面挡着;Reward/Revive 选字页那种「预览可以叠在流程浮层之上」的放行
+            // (见 DrawPickSheet)只对那两个可选流程成立,掉字/换字这条不可逆决策要更保守。
+            if (_modal != null) Object.Destroy(_modal);
+            _sheet = Ui.Sheet(transform, "BattleSheet", ReplaceSheetW, ReplaceSheetH,
+                dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
+            Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
+
+            var warn = Ui.Chip(content, Strings.T("battle.reward.replace_hint",
+                ("count", library.Count), ("capacity", Battle.LibraryCapacity)),
+                Theme.WarnBg, Theme.WarnText, 21, padX: 23, padY: 12);
+            Ui.Sized(warn, height: 46);   // 稿 .warn 22pt
+
+            const float incomingGap = 19f;   // 稿 .incoming gap 9pt
+            const float arrowW = 46f;        // 稿 .arrow 22pt
+
+            // 牌宽按**张数反算**(2026-09-02 收尾波):稿宽 780pt 只排得下 9 张原尺寸牌,
+            // 而字库真实上限是 12(见 ReplaceSheetW 常量处那笔账)。10 张起铺不下,
+            // HorizontalLayoutGroup 会照 min…preferred 等比压回去 —— 而 Ui.GlyphTile 的
+            // LayoutElement 只设了 preferredWidth/Height、minWidth 是 0,布局组压的只有**宽**,
+            // 高度照给,牌面比例从 0.8 掉到 0.65;稀有度框素材是 Image.Type.Simple,
+            // 直接跟着拉伸变形。压扁的根源就是「只压宽不压高」,所以这里自己把两个维度
+            // 同比缩小,布局组便再无可压之处。
+            //
+            //   净宽     = ReplaceSheetW − 描边内缩(Ui.SheetBorder×2) − 内边距(Ui.SheetPad×2)
+            //            = 1633 − 3 − 48 = 1582
+            //   来牌区   = 牌 130 + 箭头 46 + 两道间距 19×2 = 214(按原尺寸记账,留一点富余)
+            //   字库可用 = 1582 − 214 = 1368
+            //   每张宽   = min(TileW, (字库可用 − TileGap×(n−1)) / n)
+            //   每张高   = 每张宽 × TileH/TileW   ← 130:163 ≈ 0.8,同比缩才不变形
+            //
+            // 实算(n = 字库张数):9 → 130.0×163.0(不缩);10 → 123.3×154.6;
+            // 11 → 110.7×138.8;12 → 100.3×125.7。四档总占宽依次 1504 / 1575 / 1563 / 1552,
+            // 都在 1582 以内,布局组不会再触发压缩。
+            //
+            // ⚠ 来牌那张(左边不可点的那张)必须用**同一个** tileSize:它若留在 130 而字库
+            // 缩到 100,一行里两种大小,读起来像两类东西。
+            float netW = ReplaceSheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
+            float libAvail = netW - (TileW + arrowW + incomingGap * 2f);
+            int tileCount = Mathf.Max(library.Count, 1);   // 防 0 除;实际调用时字库必满
+            float tileW = Mathf.Min(TileW, (libAvail - TileGap * (tileCount - 1)) / tileCount);
+            var tileSize = new Vector2(tileW, tileW * (TileH / TileW));
+
+            var row = Ui.Row(content, "Incoming", incomingGap);
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.GlyphTile(row.transform, _graph.Get(incoming), true, null, tileSize);
+            var arrow = Ui.ThemedLabel(row.transform, "→", 40, Theme.LockGray);
+            Ui.Sized(arrow.gameObject, width: arrowW, height: 29);   // 稿 .arrow 22×14pt
+
+            var lib = Ui.Row(row.transform, "Library", TileGap);
+            lib.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            for (int i = 0; i < library.Count; i++)
+            {
+                int replaceIndex = i;
+                Ui.GlyphTile(lib.transform, _graph.Get(library[i]), false,
+                    () => onPick(replaceIndex), tileSize);
+            }
+
+            Ui.PillButton(content, cancelLabel, () => onCancel(),
+                Theme.LockedBg, Theme.TextMain, 25, new Vector2(300, 63));
+            return content;
+        }
+
         /// <summary>回合掉字遇满库(2026-08-04):停下让玩家选替换哪一张,或跳过这次掉落。
-        /// 结构照搬 DrawEventReplaceStep —— 同一个「满库换哪张」的心智模型。</summary>
+        /// 换字面板本体已四合一进 <see cref="DrawReplaceSheet"/>(2026-09-01,轮三 Task 2)。</summary>
         private void DrawDropChoiceStep()
         {
             string incoming = Battle.PendingDrop;
-
-            if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.ModalShell(transform, Strings.T("battle.drop.replace_title", ("charId", incoming)),
-                new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
-
-            Transform row = null;
-            for (int i = 0; i < Battle.Library.Count; i++)
-            {
-                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
-                int replaceIndex = i;
-                var def = _graph.Get(Battle.Library[i]);
-                Ui.GlyphTile(row, def, false, () =>
+            DrawReplaceSheet(
+                Strings.T("battle.drop.replace_title", ("charId", incoming)), incoming, Battle.Library,
+                replaceIndex =>
                 {
                     string dropped = Battle.Library[replaceIndex];
                     if (Battle.ResolveDrop(replaceIndex) == BattleError.None)
                     {
                         _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
-                        if (_modal != null) Object.Destroy(_modal);
+                        if (_sheet != null) Object.Destroy(_sheet);
                     }
                     Refresh();
-                }, new Vector2(74, 96));
-            }
-
-            Ui.PillButton(stack, Strings.T("battle.btn.drop_skip"), () =>
-            {
-                Battle.SkipDrop();
-                if (_modal != null) Object.Destroy(_modal);
-                _message = Strings.T("battle.drop.skip_msg", ("charId", incoming));
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
+                },
+                () =>
+                {
+                    Battle.SkipDrop();
+                    if (_sheet != null) Object.Destroy(_sheet);
+                    _message = Strings.T("battle.drop.skip_msg", ("charId", incoming));
+                    Refresh();
+                },
+                Strings.T("battle.btn.drop_skip"));
         }
 
         /// <summary>还有 AP 时先确认,避免误触把这回合的 AP 作废(2026-07-21)。
@@ -3063,19 +3366,54 @@ namespace Brushblade.Presentation
                 ShowVictoryBanner(); // 过关提示走屏幕中央横幅,自动推进(2026-07-21)
                 return;
             }
-            Ui.ThemedLabel(_centerRow, Strings.T("battle.phase.defeat_ellipsis"), 36, Theme.TextMain, Theme.TitleFont);
+            // 整屏纸罩(稿 RunEnd.dc.html),与 DrawRunEnd 同款版式——败北结算本质就是 RunEnd
+            // 提前露出的一支,只是多一个「看广告复活」的口子。挂在常驻的 _settleBanner 而非
+            // 每次现建现销:详见该字段声明处——看广告复活/点结算这两条退出路径都不会再
+            // 回头调用本方法,「建前 Find 销毁」永远等不到下一次执行的机会。
+            var overlay = Ui.Panel(_settleBanner, "Overlay");
+            Ui.Stretch((RectTransform)overlay.transform);
+            // ⚠ 纸罩**让开顶栏那一条带**(2026-09-02 收尾波)。
+            // _settleBanner 是 Frame 的兄弟且排在其后(BuildSkeleton:Backdrop → Frame →
+            // Message → EventBody → SettleBanner → RunEndBanner),所以铺在这里的整屏
+            // Image 既渲染在顶栏**之上**、又拿默认的 raycastTarget = true 把点击吃掉 ——
+            // 玩家在无尽塔阵亡后想点顶栏「退出」选挂起/弃塔就点不到了,而那是他离开
+            // 这座塔的唯一出口;顺带层数/墨锭/回合也被 72% 的纸罩糊住。
+            // 旧版败北 UI 画在 _centerRow 里,DrawTopBar() 照常画且可点,这是本轮的退化。
+            //
+            // 修法:overlay 自己**不挂 Image**(不挂就不接射线),纸罩改成它下面一件
+            // 从顶栏底边起铺到屏底的子物件。于是:
+            //   ① 顶栏那条带没有任何遮挡物,既看得清也点得到;
+            //   ② 顶栏以下仍然是一整块拦截层,玩家透不过去点到底下的残局卡面
+            //      —— 当初把罩设成拦截就是为了这条,不能简单地把 raycastTarget 关掉。
+            // 顶栏之下没有别的东西要露出来:Frame 是 VStack,顶栏之后紧接着就是 Arena。
+            // 不改成 CanvasGroup.blocksRaycasts = false(胜利横幅那条路):那张横幅是
+            // 1.2~2.1s 自动消失的纯提示,整屏放行没有代价;败北屏要一直停到玩家做决定,
+            // 放行等于把整个残局都变回可点。
+            var scrim = Ui.Panel(overlay.transform, "Scrim");
+            Ui.Anchor((RectTransform)scrim.transform, Vector2.zero, Vector2.one,
+                Vector2.zero, new Vector2(0f, -TopBarH));
+            scrim.AddComponent<Image>().color = Theme.ScrimPaper;
+            // Wrap 仍按**整屏**居中(不是按纸罩居中):大字压在屏幕正中是稿的读法,
+            // 让它跟着纸罩下移半个顶栏高会看出偏。它建在 Scrim 之后 → 天然盖在纸罩之上。
+            var wrap = Ui.VStack(overlay.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
+            Ui.Stretch((RectTransform)wrap.transform);
+            wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.ThemedLabel(wrap.transform, Strings.T("battle.phase.defeat_ellipsis"), BannerFont, Theme.CinnabarDark, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
-                Ui.AdBadge(_centerRow, Strings.T("battle.btn.ad_revive"), () =>
+                Ui.AdBadge(wrap.transform, Strings.T("battle.btn.ad_revive"), () =>
                 {
                     _previewRewardIndex = -1;
                     _run.TryRevive();
                     _onExpanded?.Invoke(); // 即时落盘:防「刚看完广告就挂起」白看
                     _message = Strings.T("battle.revive.full_hp_msg");
                     Refresh();
-                }, new Vector2(160, 60));
-            Ui.PillButton(_centerRow, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
-                Theme.Jade, Color.white, 26, new Vector2(150, 70));
+                }, new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
+            Ui.PillButton(wrap.transform, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
+                Theme.InkSoft, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill.ink;
+            // 与 DrawRunEnd 同语境的钮已改成 InkSoft(稿 RunEnd.dc.html 败北支是 .pill.ink,
+            // 不是绿色)——这里原来还是 Jade,两屏连续的败北画面一绿一蓝,读感不一致,
+            // 收尾批次一并改对(2026-09-02)。字号/宽度换算同上一行不变。
         }
 
         private bool _bannerRunning; // 横幅协程已起:Refresh 会反复走到这里,防重复
@@ -3091,18 +3429,29 @@ namespace Brushblade.Presentation
             foreach (var enemy in Battle.Enemies)
                 if (enemy.IsBoss) { boss = true; break; }
 
-            // 墨色横带压暗底下的血条/字牌:大字与背景分层,不再糊在一起(2026-07-21)
+            // 纸色罩铺满整屏(稿 RunEnd.dc.html:rgba(246,241,231,.72))。此前是压在中间
+            // 一条的墨色横带 —— 墨罩把战场压成深色,与「本段告捷」的明快读感相反,
+            // 且大字只在那条带里,余光扫不到。整屏罩 + 居中大字才是稿要的读法。
+            //
+            // 挂在 transform 下现建现销(不进 _settleBanner/_runEndBanner 那套常驻+Ui.Clear):
+            // 这里是纯计时协程自销毁的模型,与另外两个「每次 Refresh 都重画」的模型不同源——
+            // VictoryBannerRoutine 结束时自己 Destroy(banner) 再 AdvanceAfterSettle(),不依赖
+            // Refresh() 的清空节奏;反过来说,如果把它塞进常驻容器,某次淡出动画中途被
+            // Refresh() 的 Ui.Clear 打断,协程手里还攥着已被销毁的 group,下一帧
+            // group.alpha = ... 就是访问假 null,直接抛 MissingReferenceException。
             var banner = Ui.Panel(transform, "VictoryBanner");
-            Ui.Anchor((RectTransform)banner.transform,
-                new Vector2(0, boss ? 0.42f : 0.45f), new Vector2(1, boss ? 0.62f : 0.59f),
-                Vector2.zero, Vector2.zero);
+            Ui.Stretch((RectTransform)banner.transform);
             var scrim = banner.AddComponent<Image>();
-            scrim.color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, boss ? 0.88f : 0.8f);
+            scrim.color = Theme.ScrimPaper;
             var group = banner.AddComponent<CanvasGroup>();
-            group.blocksRaycasts = false; // 只是提示,不拦点击
-            var label = Ui.ThemedLabel(banner.transform, boss ? Strings.T("battle.phase.boss_broken_banner") : Strings.T("battle.phase.floor_cleared_banner"),
-                boss ? 72 : 44, boss ? Theme.Gold : Theme.CardWhite, Theme.TitleFont);
-            Ui.Stretch(label.rectTransform);
+            group.blocksRaycasts = false;   // 只是提示,不拦点击
+
+            var wrap = Ui.VStack(banner.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
+            Ui.Stretch((RectTransform)wrap.transform);
+            wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.ThemedLabel(wrap.transform,
+                boss ? Strings.T("battle.phase.boss_broken_banner") : Strings.T("battle.phase.floor_cleared_banner"),
+                BannerFont, boss ? Theme.CinnabarDark : Theme.TextMain, Theme.TitleFont);
             StartCoroutine(VictoryBannerRoutine(banner, group, boss ? 1.8f : 1.2f));
         }
 
@@ -3130,11 +3479,89 @@ namespace Brushblade.Presentation
             Refresh();
         }
 
+        /// <summary>战利品 / 复活补给的共用版面(2026-09-01,轮三 Task 3,稿 Reward.dc.html)。
+        /// 两页只差标题与回调,版面一模一样。
+        ///
+        /// **效果说明在牌下面,不在牌上、也不在标题行**:稿上的原话是「牌面只有 62px 宽,
+        /// 塞进一句效果必然截断」。所以留一条定高的 detail 横条,定高是为了**选中前后不跳版**。
+        /// ⚠ 2026-09-02 review 修 I3(原注释在说谎):这里不是「同一个横条内容在 hint 与效果
+        /// 之间切换」——稿上 <c>.hint</c> 与 <c>.detail</c> 本就是两个独立元素,hint 固定画在
+        /// picks 上方(下面这行 <c>Ui.ThemedLabel(content, hint, ...)</c>),detail 横条未选中
+        /// 时一个子物体都没有(靠 <c>Ui.Sized(...).minHeight</c> 撑住定高,不靠内容撑),选中
+        /// 时才由调用方(<see cref="DrawRewardCharStep"/>/<see cref="DrawReviveCharStep"/>)
+        /// 往 <paramref name="detailBar"/> 里塞效果文本 + 「再点一次收下」。
+        ///
+        /// 浮层名字固定 <c>"BattleSheet"</c> 且 <c>replaceSameName: true</c>(协调者 2026-09-02
+        /// 裁定):与 <see cref="DrawReplaceSheet"/> 共用同一个名字,选字页 → 换字页的互斥因此
+        /// 自动成立,玩家从选字步转入换字步时旧的选字弹窗自己被顶掉,不必在每个入口手写
+        /// Destroy——赋的字段是 <c>_sheet</c>,不是 <c>_modal</c>(见字段声明处 Critical-1 的
+        /// 教训:这里如果还赋 <c>_modal</c>,玩家长按候选牌看预览时 <see cref="ShowCharPreview"/>
+        /// 会把这张选字页自己销毁)。<c>_modal</c>(长按预览等只读浮层)允许叠在这张 <c>_sheet</c>
+        /// 之上,所以这里**不**兜底销毁 <c>_modal</c>——与 <see cref="DrawReplaceSheet"/> 开头
+        /// 仍会销毁 <c>_modal</c> 不同,那是掉字步的强制决策,不接受预览叠在上面。</summary>
+        private void DrawPickSheet(string title, string hint,
+            out Transform picksRow, out Transform detailBar, out Transform footRow)
+        {
+            if (_sheet != null) Object.Destroy(_sheet);
+            _sheet = Ui.Sheet(transform, "BattleSheet", PickSheetW, PickSheetH,
+                dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
+            Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);       // 稿 .h 16pt
+            Ui.ThemedLabel(content, hint, 21, Theme.TextDim);                          // 稿 .hint 10pt
+
+            var picks = Ui.Row(content, "Picks", 21);   // 稿 .picks gap 10pt
+            picks.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            picksRow = picks.transform;
+
+            // I2(2026-09-02 review 修):底色改用 PanelInset(#F1EBDE),不再是 PaperDim——
+            // PaperDim 与下面的描边色 PanelBorder 撞成同一个 #DED7C9,原先渲染出来是一块
+            // 没有描边的灰褐实心板。圆角/描边 17,2f 换算见下。
+            var detail = Ui.OutlinedPanel(content, "Detail", Theme.PanelInset, Theme.PanelBorder,
+                17, 2f, out var face);    // 稿 .detail 圆角 8pt / 描边 1pt
+            // PickSheetW - 48f:48 = Ui.Sheet 内部 SheetPad(24,private,不能公开引用那个常量)
+            // 的两侧——detail 横条与 foot 行都要贴平 Sheet 内容区的左右边缘,减掉这一圈内边距。
+            Ui.Sized(detail.gameObject, width: PickSheetW - 48f, height: PickDetailH).minHeight = PickDetailH;
+            var detailStack = Ui.Row(face.transform, "DetailRow", 12);   // 稿上没有对应 gap
+            // (.again 是 float:right,不占正常流的 gap),12 是新造的间距,给右浮"再点一次
+            // 收下"和效果文本之间留一点呼吸感。
+            detailStack.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            // 横向 23 = 稿 .detail padding 的 11pt(→23);纵向留 0 而不是稿的 7pt(→15pt≈15)——
+            // 稿的 padding 是给**自适应高度**(min-height:30px)的盒子撑内边距的,这里的盒子
+            // 反过来是**定高**且用 Ui.Stretch 铺满整块面板,子物体靠 MiddleLeft 垂直居中,
+            // 顶/底 padding 只会白白挤掉可用高度、不会让文字看起来更居中,故意留 0。
+            detailStack.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(23, 23, 0, 0);
+            Ui.Stretch((RectTransform)detailStack.transform);
+            detailBar = detailStack.transform;
+
+            var foot = Ui.Row(content, "Foot", 21);   // 稿 .foot gap 10pt
+            foot.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Sized(foot, width: PickSheetW - 48f);   // 同上,减掉 Ui.Sheet 内边距的两侧
+            footRow = foot.transform;
+        }
+
+        /// <summary>候选牌 + 牌下那行「火 · 蓝」(稿 .pick .name)。返回 Button 供调用方取
+        /// GameObject(如飞字动效要的起点)——按层级摸子物体是脆的,返回值稳。</summary>
+        private Button PickTile(Transform parent, string charId, bool selected, System.Action onTap)
+        {
+            var def = _graph.Get(charId);
+            var column = Ui.VStack(parent, $"Pick_{charId}", 8);   // 稿 .pick gap 4pt
+            var button = Ui.GlyphTile(column.transform, def, selected, onTap, new Vector2(TileW, TileH));
+            HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(charId));
+            // def.Element 是 Element?(部件/无属性字为 null)——同 :2913 敌人属性 chip 的既有写法,
+            // 空属性落到「中性」而不是让 CharInfo.ElementName 直接炸参数类型不匹配。
+            string elementName = def.Element is { } elem ? CharInfo.ElementName(elem) : Strings.T("char.element.neutral");
+            Ui.ThemedLabel(column.transform,
+                Strings.T("battle.reward.pick_name",
+                    ("element", elementName),
+                    ("rarity", CharInfo.RarityName(def.Rarity))),
+                19, Theme.TextDim);   // 稿 .pick .name 9pt
+            return button;
+        }
+
         /// <summary>战利品弹窗:字库满时就地转入「换掉哪一个」子步;额度用尽(2026-08-04 起
         /// 5 选 2)由 Core 侧 MaybeFinishRewards 自动开拔——走到这里时必然还有字可选。</summary>
         private void DrawReward()
         {
-            if (_rewardModal != null) Destroy(_rewardModal);
+            if (_sheet != null) Object.Destroy(_sheet);
 
             // 替换子步的前提会被广告扩容推翻(2026-08-18):+2 徽章就画在弹窗背后的字库行上
             // (case RunPhase.Reward 同时走 DrawLibrary),玩家正是为了不丢字才去看的广告。
@@ -3152,19 +3579,16 @@ namespace Brushblade.Presentation
 
         private void DrawRewardCharStep()
         {
-            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.reward.pick_title", ("left", _run.CharPicksLeft)),
-                new Vector2(340, 165), dismissable: false, out var content);
-            var preview = _previewRewardIndex >= 0
-                ? Brief(_run.RewardOptions[_previewRewardIndex]) + Strings.T("battle.reward.tap_again_suffix")
-                : Strings.T("battle.reward.pick_hint", ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity));
-            Ui.ThemedLabel(content, preview, 16, Theme.TextDim);
+            DrawPickSheet(
+                Strings.T("battle.reward.pick_title", ("left", _run.CharPicksLeft)),
+                Strings.T("battle.reward.pick_hint",
+                    ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity)),
+                out var picksRow, out var detailBar, out var footRow);
 
-            var row = Ui.Row(content, "Options", 10);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.RewardOptions[i];
-                var def = _graph.Get(id);
                 // 先声明后赋值:tap 要在闭包里读这张牌的位置(飞字起点),而 C# 不许 lambda
                 // 引用它后面才声明的局部变量
                 GameObject tile = null;
@@ -3185,7 +3609,19 @@ namespace Brushblade.Presentation
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.added_msg", ("charId", id));
                         MarkFresh(id);     // 记在重绘之前:光晕是重绘时照表套上的
-                        CancelSelection(); // 额度归零 → 下次 Refresh 由 Core 侧自动开拔
+                        // ⚠ M5(2026-09-02 review 修因果):不是「下面 CancelSelection() 触发的
+                        // 这次 Refresh() 里」才把 Phase 挪出 Reward——RunEngine.PickReward
+                        // (:592)在 return true 之前就**同步**调了 MaybeFinishRewards(),
+                        // 执行到这一行时 Phase 早就可能已经不是 Reward 了,与 Refresh 无关。
+                        // 但只要 Phase 挪出去,确实没有任何 Draw* 方法会再摸到这个 _sheet,
+                        // 不主动销毁就会被 Refresh() 末尾对 _modal 的 SetAsLastSibling 逻辑
+                        // 晾在原地(_sheet 没有类似的兜底重排,只会一直卡在画面上)。
+                        // Destroy 之后立即置空(同文件 :1155 UnitSheet 那处的既有写法)——
+                        // Unity 的 Object.Destroy 要到本帧末尾才真正生效,C# 侧 != null 判断
+                        // 在此之前仍会命中待销毁对象;显式置空不依赖那个时序,同帧内谁再摸
+                        // _sheet 都能立刻看到"没有"而不是一个即将失效的引用。
+                        if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
+                        CancelSelection();
                         // 选中的字从弹窗飞进字库并落位弹跳(2026-08-30):此前只有一行文字
                         // 说「已收入」,牌是凭空出现在字库里的 —— 玩家得自己去队尾找它。
                         // 光晕接着亮 2.4s,与拆合、奇遇同一套读法。
@@ -3214,40 +3650,53 @@ namespace Brushblade.Presentation
                     }
                     Refresh();
                 };
-                var button = Ui.GlyphTile(row.transform, def,
-                    index == _previewRewardIndex, tap);
-                tile = button.gameObject;
-                HoldToPreview.Attach(button.gameObject, () => ShowCharPreview(id));
+                tile = PickTile(picksRow, id, index == _previewRewardIndex, tap).gameObject;
             }
 
-            DrawRewardAdBadge(content);
-
-            Ui.RoundButton(content, Strings.T("battle.btn.reward_skip"), () =>
+            if (_previewRewardIndex >= 0)
             {
+                var picked = _run.RewardOptions[_previewRewardIndex];
+                var pickedDef = _graph.Get(picked);
+                // M3(2026-09-02 review):没开 Wrap——当前效果文案最长约 30 字,detailBar 可用宽
+                // 足够单行摆下(算法同 DrawReplaceSheet 那条不折行的思路),定高 63 也是照单行
+                // 预留的。这是有意选的上限,不是漏做:稿要求 detail 横条**定高不跳版**,若开
+                // Wrap 就得让面板跟着行数变高,反而违背这条要求;真长到需要换行时会静默溢出
+                // 压住右边的「再点一次收下」,目前没有测试盖(Presentation 层无自动化测试),
+                // 未来加长文案时留意这条。
+                Ui.ThemedLabel(detailBar,
+                    Strings.T("battle.reward.detail_line", ("charId", picked),
+                        ("brief", CharInfo.EffectsText(pickedDef, _run.CardLevel(picked)))),
+                    21, Theme.TextMain, align: TextAnchor.MiddleLeft);
+                // I1(2026-09-02 review 修):稿 .detail .again { float: right }——插一个
+                // flexWidth:1 的 spacer 把"再点一次收下"推到横条右缘,同 foot 行那枚 spacer
+                // 的同一手法;原来漏了这一步,两段文字挤在一起贴左边。
+                var detailSpacer = Ui.Panel(detailBar, "Spacer");
+                Ui.Sized(detailSpacer, flexWidth: 1f);
+                Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
+            }
+
+            DrawRewardAdBadge(footRow);
+            var spacer = Ui.Panel(footRow, "Spacer");
+            Ui.Sized(spacer, flexWidth: 1f);
+            Ui.RoundButton(footRow, Strings.T("battle.btn.reward_skip"), () =>
+            {
+                // 同上一个成功分支:立即置空,不依赖 Unity 假 null 的下帧时序。
+                if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                 _previewRewardIndex = -1;
                 _run.SkipReward();
                 _tutorial?.Notify(TutorialAction.PickReward); // 跳过也算完成节拍,引导不卡死
                 _message = Strings.T("battle.reward.skip_msg");
                 CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
+            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));   // 宽度 280 是估的:
+            // 稿 .pill.quiet 只给了 height:30pt(→63)与自适应 padding,没有定宽
         }
 
         private void DrawRewardReplaceStep()
         {
             var incoming = _run.RewardOptions[_pendingRewardIndex];
-            _rewardModal = Ui.ModalShell(transform,
-                Strings.T("battle.reward.replace_title", ("charId", incoming)),
-                new Vector2(360, 165), dismissable: false, out var content);
-            Ui.ThemedLabel(content,
-                Strings.T("battle.reward.replace_hint", ("count", _run.CarriedLibrary.Count), ("capacity", Battle.LibraryCapacity)),
-                16, Theme.TextDim);
-
-            var row = Ui.Row(content, "Library", 8);
-            for (int i = 0; i < _run.CarriedLibrary.Count; i++)
-            {
-                int replaceIndex = i;
-                var def = _graph.Get(_run.CarriedLibrary[i]);
-                Ui.GlyphTile(row.transform, def, false, () =>
+            var content = DrawReplaceSheet(
+                Strings.T("battle.reward.replace_title", ("charId", incoming)), incoming, _run.CarriedLibrary,
+                replaceIndex =>
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     if (_run.PickRewardReplacing(_pendingRewardIndex, replaceIndex))
@@ -3256,22 +3705,20 @@ namespace Brushblade.Presentation
                         _tutorial?.Notify(TutorialAction.PickReward);
                         _message = Strings.T("battle.reward.replaced_in_msg", ("incoming", incoming), ("dropped", dropped));
                         MarkFresh(incoming); // 换进来的那张也高亮:满库替换时更要看清换进了什么
+                        // 2026-09-02 review Critical-1 修:这条换字页由 DrawReplaceSheet 建,
+                        // 赋的是 _sheet 不是 _modal——销毁错字段等于没销毁,面板会卡屏。
+                        if (_sheet != null) Object.Destroy(_sheet);
                         CancelSelection();
                     }
-                }, new Vector2(74, 96));
-            }
-
+                },
+                () => { _pendingRewardIndex = -1; if (_sheet != null) Object.Destroy(_sheet); Refresh(); },
+                Strings.T("battle.btn.replace_cancel"));
             DrawRewardAdBadge(content);
-
-            Ui.RoundButton(content, Strings.T("battle.btn.replace_cancel"), () =>
-            {
-                _pendingRewardIndex = -1;
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(150, 46));
         }
 
         /// <summary>战利品弹窗内的广告扩容入口(2026-08-18)。
-        /// **必须画在弹窗内容里**:Ui.ModalShell 铺的是全屏 Image 遮罩(还挂着吞点击的 Button),
+        /// **必须画在弹窗内容里**:Ui.Sheet 铺的是全屏 Image 遮罩(还挂着吞点击的 Button,
+        /// 2026-09-02 review 修 M6:选字页早已从 Ui.ModalShell 换成 Ui.Sheet,注释类名没跟着改),
         /// DrawLibrary 画在弹窗背后的那枚 +2 徽章被整个盖住,满库时玩家根本够不着 ——
         /// 「不想丢字就看广告」这条路在最需要它的时刻是断的,只能被迫替换或弃字。
         /// 扩容后 DrawReward() 的容量复核会把替换子步退回选字步,直接收下。</summary>
@@ -3284,7 +3731,8 @@ namespace Brushblade.Presentation
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
                 _message = Strings.T("battle.label.library_cap_up");
                 Refresh();
-            }, new Vector2(190, 44));
+            }, new Vector2(280, 63));   // 高 63 = 稿 .adbadge 30pt;宽 280 是估的,稿只给了
+                                        // padding:0 12px 自适应宽,没有定宽(同 M1)
         }
 
         // ---- 复活补给(2026-07-24):以战利品展示方式给字,直接注入当前战斗字库。
@@ -3299,21 +3747,19 @@ namespace Brushblade.Presentation
             if (_pendingReviveIndex >= 0 && Battle.Library.Count < Battle.LibraryCapacity)
                 _pendingReviveIndex = -1;
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
-            if (_rewardModal != null) Destroy(_rewardModal);
+            if (_sheet != null) Object.Destroy(_sheet);
 
-            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
-                new Vector2(340, 165), dismissable: false, out var content);
-            Ui.ThemedLabel(content, _previewRewardIndex >= 0
-                ? Brief(_run.RewardOptions[_previewRewardIndex]) + Strings.T("battle.reward.tap_again_suffix")
-                : Strings.T("battle.reward.pick_hint", ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)), 16, Theme.TextDim);
+            DrawPickSheet(
+                Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
+                Strings.T("battle.reward.pick_hint",
+                    ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)),
+                out var picksRow, out var detailBar, out var footRow);
 
-            var row = Ui.Row(content, "Options", 10);
             for (int i = 0; i < _run.RewardOptions.Count; i++)
             {
                 int index = i;
                 var id = _run.RewardOptions[i];
-                var def = _graph.Get(id);
-                System.Action tap = () =>
+                PickTile(picksRow, id, index == _previewRewardIndex, () =>
                 {
                     if (_previewRewardIndex != index) { _previewRewardIndex = index; Refresh(); return; }
                     _previewRewardIndex = -1;
@@ -3321,19 +3767,41 @@ namespace Brushblade.Presentation
                         _pendingReviveIndex = index;             // 满库:转入「换掉哪一张」
                     else if (_run.PickReviveChar(index))
                         _message = Strings.T("battle.reward.added_msg", ("charId", id));
+                    // M5(2026-09-02 review 修因果):Phase 挪出 Reviving 是 RunEngine.
+                    // PickReviveChar(:465)在 return 之前**同步**调 MaybeFinishRevive() 做的,
+                    // 不是"下面这次 Refresh() 里"才发生;但只要挪出去就没有 Draw* 方法会再
+                    // 摸到这个 _sheet,理由同 DrawRewardCharStep 的 PickReward 成功分支。
+                    if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }   // 立即置空,理由同上
                     Refresh();
-                };
-                var tile = Ui.GlyphTile(row.transform, def, index == _previewRewardIndex, tap);
-                HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(id));
+                });
             }
 
-            Ui.RoundButton(content, Strings.T("battle.btn.revive_skip"), () =>
+            if (_previewRewardIndex >= 0)
             {
+                var picked = _run.RewardOptions[_previewRewardIndex];
+                var pickedDef = _graph.Get(picked);
+                // M3:同 DrawRewardCharStep 那条——没开 Wrap 是有意的,定高横条不能因为换行
+                // 跳版,现有数据单行够用,加长文案时留意会静默溢出。
+                Ui.ThemedLabel(detailBar,
+                    Strings.T("battle.reward.detail_line", ("charId", picked),
+                        ("brief", CharInfo.EffectsText(pickedDef, _run.CardLevel(picked)))),
+                    21, Theme.TextMain, align: TextAnchor.MiddleLeft);
+                // I1:右浮"再点一次收下",同 DrawRewardCharStep 的同一手 spacer。
+                var detailSpacer = Ui.Panel(detailBar, "Spacer");
+                Ui.Sized(detailSpacer, flexWidth: 1f);
+                Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
+            }
+
+            var spacer = Ui.Panel(footRow, "Spacer");
+            Ui.Sized(spacer, flexWidth: 1f);
+            Ui.RoundButton(footRow, Strings.T("battle.btn.revive_skip"), () =>
+            {
+                if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                 _previewRewardIndex = -1;
                 _run.SkipReviveReward();
                 _message = Strings.T("battle.revive.skip_msg");
                 CancelSelection();
-            }, Theme.LockedBg, Theme.TextMain, 17, new Vector2(190, 46));
+            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(280, 63));   // 宽度是估的,同 M1
         }
 
         /// <summary>复活补给满库替换(2026-08-04):结构同 DrawDropChoiceStep,
@@ -3341,33 +3809,19 @@ namespace Brushblade.Presentation
         private void DrawReviveReplaceStep()
         {
             string incoming = _run.RewardOptions[_pendingReviveIndex];
-
-            if (_rewardModal != null) Destroy(_rewardModal);
-            _rewardModal = Ui.ModalShell(transform, Strings.T("battle.revive.replace_title", ("charId", incoming)),
-                new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
-
-            Transform row = null;
-            for (int i = 0; i < Battle.Library.Count; i++)
-            {
-                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
-                int replaceIndex = i;
-                var def = _graph.Get(Battle.Library[i]);
-                Ui.GlyphTile(row, def, false, () =>
+            DrawReplaceSheet(
+                Strings.T("battle.revive.replace_title", ("charId", incoming)), incoming, Battle.Library,
+                replaceIndex =>
                 {
                     string dropped = Battle.Library[replaceIndex];
                     if (_run.PickReviveCharReplacing(_pendingReviveIndex, replaceIndex))
                         _message = Strings.T("battle.common.replaced_msg", ("incoming", incoming), ("dropped", dropped));
                     _pendingReviveIndex = -1;
+                    if (_sheet != null) Object.Destroy(_sheet);   // Critical-1:这条也是 DrawReplaceSheet 建的,销毁 _sheet
                     Refresh();
-                }, new Vector2(74, 96));
-            }
-
-            Ui.PillButton(stack, Strings.T("battle.btn.revive_replace_cancel"), () =>
-            {
-                _pendingReviveIndex = -1; // 退回候选列表,额度未动
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
+                },
+                () => { _pendingReviveIndex = -1; if (_sheet != null) Object.Destroy(_sheet); Refresh(); }, // 退回候选列表,额度未动
+                Strings.T("battle.btn.revive_replace_cancel"));
         }
 
         /// <summary>选中某个奇遇选项时画进底部提示行的那句话(2026-08-27 用户拍板)。
@@ -3405,18 +3859,31 @@ namespace Brushblade.Presentation
                 _previewEventOption = -1;   // 换了一层(或选项数变少):预览态不跨奇遇沿用
                 _previewEventFloor = _run.BattleIndex;
             }
-            // evt.Id 是奇遇事件配置数据里的 id/展示名,不是本文件的硬编码文案——这里只登记
-            // 「奇遇 · X」这层胶字模板本体。
-            Ui.ThemedLabel(_enemyFrontRow, Strings.T("battle.event.title", ("eventName", evt.Id)), 30, Theme.TextMain, Theme.TitleFont);
-            // 情境文案画在战场那一排,**不是** _statusRow(2026-08-20 修回):_statusRow 在屏幕
-            // 最底边,把文案放那儿会变成 选项钮 → 部件池 → 文案,玩家得先看见三个按钮、
-            // 再把视线甩到屏幕底边才读得到自己在选什么。这一排(0.431–0.543)在奇遇阶段本来
-            // 就是空的(四排只在战斗阶段画),且**高于**选项钮所在的 _centerRow(0.125–0.220),
-            // 阅读顺序因此是 文案 → 选项。2026-08-21 标题也搬到了左下,但这条理由与标题无关。
+            // 稿 Event.dc.html 的 .body:一整块垂直居中的内容,标题 → 正文 → 选项 → 部件池。
+            // 2026-09-02(轮三 Task 4)之前这四件散在 _enemyFrontRow / _summonFrontRow /
+            // _centerRow / _poolRow 四处 —— 阅读顺序碰巧是对的(那两排比 _centerRow 高),
+            // 但中间隔着整片空排,读起来是散的。稿的原话:「奇遇没有战场要让位,整块内容
+            // 居中才不会上半屏挤、下半屏空」。
+            // 也因此**不再**需要 2026-08-20 那条「文案画在战场那一排、不放 _statusRow」的
+            // 权宜:那条理由是「_statusRow 在屏幕最底边,放那儿会变成 选项钮 → 部件池 →
+            // 文案」,而现在正文就排在选项**上面**,同一块里,那个倒序根本不会发生。
+            // 效果说明**不在这里**:选中某个选项时才画进屏幕最底那条通栏提示行(_message),
+            // 也就是稿的 .say。
+            //
             // 正文直接用 evt.Text —— 它是事件数据,不套胶字模板(2026-08-27:此前还在正文尾部
             // 缀「(墨锭 N)」,而顶栏本来就有墨锭那一格,重复一遍反倒抢正文的注意力)。
-            // 效果说明**不在这里**:选中某个选项时才画进底部提示行,见选项钮的 onClick。
-            Ui.ThemedLabel(_summonFrontRow, evt.Text, 18, Theme.TextDim);
+            // evt.Id 同理是配置里的 id/展示名,这里只登记「奇遇 · X」那层胶字模板本体。
+            Ui.ThemedLabel(_eventBody, Strings.T("battle.event.title", ("eventName", evt.Id)),
+                EventTitleFont, Theme.TextMain, Theme.TitleFont);
+            // ⚠ 正文是长文本,宽度只能**算出来钉死**,不能靠 flexWidth:Text.preferredWidth
+            // 报的是不换行时的整句宽度,富余永远不会出现,布局组会把所有子物体按
+            // min…preferred 等比压回去,退化成「谁的字长谁就宽」。高度同理要预先估
+            // (Ui.WrappedTextHeight),否则单行高的 preferredHeight 会把折行的正文截掉。
+            var text = Ui.ThemedLabel(_eventBody, evt.Text, EventTextFont, Theme.TextDim);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            Ui.Sized(text.gameObject, width: EventTextW,
+                height: Ui.WrappedTextHeight(evt.Text, EventTextFont, EventTextW));
 
             if (_pendingEventOption >= 0)
             {
@@ -3427,31 +3894,36 @@ namespace Brushblade.Presentation
                     return;
                 }
                 bool needCharChoice = pending.GainCharChoices.Count > 0 && _pendingCharChoice < 0;
-                Ui.ThemedLabel(_centerRow, needCharChoice
+                // 子步的提示与取消也留在这一块里:它们占的正是「选项」那一档位置,
+                // 落回 _centerRow 就又把版面拆成上下两截了。
+                Ui.ThemedLabel(_eventBody, needCharChoice
                         ? Strings.T("battle.event.pick_char_prompt", ("optionLabel", pending.Label))
                         : Strings.T("battle.event.pick_components_prompt",
                             ("optionLabel", pending.Label), ("cost", pending.ComponentCost), ("picked", _eventPicks.Count)),
                     20, Theme.TextMain, Theme.TitleFont);
-                Ui.RoundButton(_centerRow, Strings.T("battle.btn.cancel"), () =>
+                var cancelRow = Ui.Row(_eventBody, "Actions", EventOptsGap).transform;
+                Ui.RoundButton(cancelRow, Strings.T("battle.btn.cancel"), () =>
                 {
                     ResetEventSelection();
                     _message = "";
                     Refresh();
                 }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(84, 48));
+                var pickRow = Ui.Row(_eventBody, "Pool", EventPoolGap).transform;
                 if (needCharChoice)
-                    DrawEventCharChoices(pending);
+                    DrawEventCharChoices(pending, pickRow);
                 else
-                    DrawEventPoolPicker(pending);
+                    DrawEventPoolPicker(pending, pickRow);
                 return;
             }
 
-            // ⚠ 钮上只画 option.Label 这个**名称**,效果说明由 EventOptionDetails 列在正文下方
-            // (2026-08-27 用户拍板)。标签是 horizontalOverflow = Overflow —— 超宽**不会换行也不会
-            // 省略号**,而是溢出到钮外被邻钮的底图盖掉,玩家看到的就是「描述展示不全」
-            // (旧口径把效果写进 label,「入炉淬骨(八成 上限 +30%,两成 反噬 −30%)」39 个半宽 = 429px,
-            // 钮宽 260 只装得下 23 个,后半截整个不见)。
+            // ⚠ 钮上只画 option.Label 这个**名称**,效果说明画进屏幕最底那条提示行
+            // (_message,稿的 .say;2026-08-27 用户拍板)。标签是 horizontalOverflow = Overflow
+            // —— 超宽**不会换行也不会省略号**,而是溢出到钮外被邻钮的底图盖掉,玩家看到的
+            // 就是「描述展示不全」(旧口径把效果写进 label,「入炉淬骨(八成 上限 +30%,
+            // 两成 反噬 −30%)」39 个半宽 = 429px,钮宽 260 只装得下 23 个,后半截整个不见)。
             // 钮宽 260 / 字号 22 的容量是 23 个半宽;EventLabelWidthTests 钉住这条,新增选项时
-            // 别再把效果塞回 label —— 那是同一个坑。
+            // 别再把效果塞回 label —— 那是同一个坑。稿上也把这条写死了。
+            var optionRow = Ui.Row(_eventBody, "Options", EventOptsGap).transform;
             for (int i = 0; i < evt.Options.Count; i++)
             {
                 int index = i;
@@ -3459,8 +3931,12 @@ namespace Brushblade.Presentation
                 bool affordable = option.InkCost <= _run.AvailableInk
                     && option.ComponentCost <= _run.CarriedPool.Count
                     && AnyGainable(option); // 给的字都不在出阵列表 → 整个选项置灰(2026-07-20)
-                var button = Ui.RoundButton(_centerRow, option.Label, () =>
+                var button = Ui.RoundButton(optionRow, option.Label, () =>
                 {
+                    // 结算飘字播放期间钮还在屏上(刻意不重绘,不然飘字当场被盖掉)——
+                    // 这时再点会二次调 ChooseEventOption,而 Core 的 CurrentEvent 已置空,
+                    // 返回 false 后一路落到「这个选不了」的告警,是个纯粹由动效窗口造出来的假错。
+                    if (_eventResolving) return;
                     // 首点只选中(2026-08-27 用户拍板):效果说明画进底部提示行,钮转高亮,
                     // **不结算**。奇遇是不可逆决策,而钮上只有名称 —— 不给这一步,玩家就是在
                     // 盲点。再点同一个才往下走;点另一个则换成那一个的说明。
@@ -3486,6 +3962,7 @@ namespace Brushblade.Presentation
                         return;
                     }
                     int inkBefore = _run.AvailableInk;
+                    int maxHpBefore = _run.EffectiveMaxHp; // 上限是掷出来的(MaxHpChancePercent),只能事后 diff
                     var beforeHoldings = SnapshotHoldings(); // 结算前拍一张,结算后 diff 出拿到了什么
                     if (_run.ChooseEventOption(index))
                     {
@@ -3495,6 +3972,14 @@ namespace Brushblade.Presentation
                                 : Strings.T("battle.event.gamble_lose"))
                             : $"{evt.Id}:{option.Label}";
                         MarkFreshSince(beforeHoldings); // 拿到的字/部件高亮,与战利品同一套读法
+                        // 生命上限 / 当前血的变化先飘出来再换屏(2026-09-02 试玩反馈:
+                        // 「当前看不到效果,最后也不知道到底是扣血还是加血上限了」)
+                        if (AnnounceEventHpOutcome(_run.EffectiveMaxHp - maxHpBefore, option.HpDelta))
+                        {
+                            _eventResolving = true;
+                            StartCoroutine(FinishEventAfterOutcome());
+                            return;
+                        }
                         CancelSelection();
                         return;
                     }
@@ -3517,32 +4002,23 @@ namespace Brushblade.Presentation
                             ("label", option.Label), ("cost", option.InkCost), ("available", _run.AvailableInk))
                         : Strings.T("battle.dialog.event_unaffordable.body_failed", ("label", option.Label)));
                 }, !affordable ? Theme.LockedBg : index == _previewEventOption ? Theme.Cinnabar : Theme.InkSoft,
-                    affordable ? Color.white : Theme.TextDim, 22, new Vector2(260, 72));
+                    affordable ? Color.white : Theme.TextDim, 22, new Vector2(EventOptW, EventOptH));
                 button.interactable = affordable;
             }
         }
 
         private bool _eventReplacing; // 字摊交易已备齐但字库满:等玩家选换掉哪一张
 
-        /// <summary>字摊满库替换(2026-07-22):走模态弹窗、字牌每行 4 个换行铺开(此前塞在
-        /// 拆合台一行里挤成一团)。字与部件都已选定,只补一个替换目标即成交;取消则部件不少。</summary>
+        /// <summary>字摊满库替换(2026-07-22):字与部件都已选定,只补一个替换目标即成交;
+        /// 取消则部件不少。换字面板本体已四合一进 <see cref="DrawReplaceSheet"/>
+        /// (2026-09-01,轮三 Task 2)。</summary>
         private void DrawEventReplaceStep(EventOption option)
         {
             string incoming = _pendingCharChoice >= 0
                 ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
-
-            if (_modal != null) Object.Destroy(_modal);
-            _modal = Ui.ModalShell(transform, Strings.T("battle.event.replace_title", ("charId", incoming)),
-                new Vector2(360, 240), dismissable: false, out var stack);
-            Ui.ThemedLabel(stack, Strings.T("battle.common.replace_warning"), 15, Theme.TextDim);
-
-            Transform row = null;
-            for (int i = 0; i < _run.CarriedLibrary.Count; i++)
-            {
-                if (i % 4 == 0) row = Ui.Row(stack, $"Row{i / 4}", 8).transform;
-                int replaceIndex = i;
-                var def = _graph.Get(_run.CarriedLibrary[i]);
-                Ui.GlyphTile(row, def, false, () =>
+            DrawReplaceSheet(
+                Strings.T("battle.event.replace_title", ("charId", incoming)), incoming, _run.CarriedLibrary,
+                replaceIndex =>
                 {
                     string dropped = _run.CarriedLibrary[replaceIndex];
                     var picks = _eventPicks.Count > 0 ? _eventPicks.ToArray() : null;
@@ -3551,23 +4027,71 @@ namespace Brushblade.Presentation
                     {
                         _message = Strings.T("battle.event.trade_replaced_msg", ("incoming", incoming), ("dropped", dropped));
                         MarkFreshSince(beforeHoldings);
-                        if (_modal != null) Object.Destroy(_modal);
+                        if (_sheet != null) Object.Destroy(_sheet);   // Critical-1:换字四路之一,销毁 _sheet 而非 _modal
                         ResetEventSelection();
                         CancelSelection();
                         return;
                     }
                     Refresh();
-                }, new Vector2(74, 96));
-            }
-
-            Ui.PillButton(stack, Strings.T("battle.btn.replace_cancel"), () =>
-            {
-                if (_modal != null) Object.Destroy(_modal);
-                ResetEventSelection();
-                _message = Strings.T("battle.event.trade_cancel_msg");
-                Refresh();
-            }, Theme.LockedBg, Theme.TextMain, 16, new Vector2(150, 46));
+                },
+                () =>
+                {
+                    if (_sheet != null) Object.Destroy(_sheet);
+                    ResetEventSelection();
+                    _message = Strings.T("battle.event.trade_cancel_msg");
+                    Refresh();
+                },
+                Strings.T("battle.btn.replace_cancel"));
         }
+
+        /// <summary>奇遇结算的飘字正在播:期间不重绘、也不接受第二次点击(2026-09-02)。</summary>
+        private bool _eventResolving;
+
+        /// <summary>奇遇结算的生命变化播成**血条起势**(与加血/加盾同一个 <see cref="Juice.BarPulse"/>),
+        /// 播了返回 true(调用方据此改走「先播完再换屏」)。
+        ///
+        /// 试玩反馈:「加 HP 上限的 case 先播放下动效再结束,当前看不到效果,最后也不知道到底是
+        /// 扣血还是加血上限了」。两条病根:
+        ///   1. 这类变化由 <c>RunEngine.ChooseEventOption</c> 直接算完就换相位,**一个 BattleEvent
+        ///      都不产生**,Juice 的常规通道(<see cref="Juice.Play"/>)根本经手不到 —— 屏上没有任何痕迹;
+        ///   2. 换屏在同一帧发生,就算画了也当场被下一屏盖掉。
+        ///
+        /// ⚠ **必须先把血条更新到新值再起势**,否则起势的是一条还画着旧数字的条,
+        /// 「看不到效果」这条反馈原样还在。而这时不能读 <c>PlayerMaxHp</c>(它走
+        /// <c>Battle?.MaxHp</c>,是**上一场**战斗的配置,奇遇的上限加成还没折进去),
+        /// 要读 run 的携带态 —— <c>CarriedHp</c> 正是为此开放的。
+        ///
+        /// 上限是**掷出来的**(MaxHpChancePercent,掷空则反向扣同样百分比),所以只能由调用方
+        /// 事后 diff <c>EffectiveMaxHp</c> 得到,不能读 option 上的配置值。</summary>
+        private bool AnnounceEventHpOutcome(int maxHpDelta, int hpDelta)
+        {
+            // 上限涨的那一刻当前血也跟着涨了同样的量(Core 里「拿到的是血也是容器」那一句),
+            // 所以两者合看一次涨跌即可,不分开播两遍。
+            int delta = maxHpDelta != 0 ? maxHpDelta : hpDelta;
+            if (delta == 0 || _playerHpBar.fill == null) return false;
+
+            SetHpBar(_playerHpBar, _run.CarriedHp, _run.EffectiveMaxHp);
+            // 涨:水系上浮起势,与治疗同一套(见 OnImpact 里 Healed 那一支)。
+            // 跌:同一个起势但转朱砂、不带水花 —— 元素微粒是「有东西涌进来」的语汇,
+            // 掉血/掉上限不该借用它,留一记红色脉冲把注意力钉在血条上就够了。
+            _juice.BarPulse(_playerHpBar.fill,
+                delta > 0 ? Theme.SplitBlue : Theme.Cinnabar,
+                delta > 0 ? Element.Water : null);
+            return true;
+        }
+
+        /// <summary>飘字停留够了再换屏。停留时长取 <see cref="EventOutcomeHold"/> ——
+        /// 飘字自身的生命周期约 1.1s,取 0.9 让它读完主体、尾巴的淡出与下一屏重叠,
+        /// 不至于把节奏拖成「点完还要等」。</summary>
+        private System.Collections.IEnumerator FinishEventAfterOutcome()
+        {
+            for (float t = 0; t < EventOutcomeHold; t += Time.unscaledDeltaTime)
+                yield return null;
+            _eventResolving = false;
+            CancelSelection(); // 与不播飘字那一支同一个出口
+        }
+
+        private const float EventOutcomeHold = 0.9f;
 
         private void ResetEventSelection()
         {
@@ -3601,8 +4125,11 @@ namespace Brushblade.Presentation
             return false;
         }
 
-        /// <summary>任选字:候选平铺(元素色字牌),点选即定;无部件成本则当场成交。</summary>
-        private void DrawEventCharChoices(EventOption option)
+        /// <summary>任选字:候选平铺(元素色字牌),点选即定;无部件成本则当场成交。
+        /// <paramref name="parent"/> 由 <see cref="DrawEvent"/> 传入 —— 2026-09-02(轮三 Task 4)
+        /// 之前这里自己找 _poolRow(屏幕下方那条部件池带),而奇遇的其余三件已经收进
+        /// 居中的 _eventBody,牌再落回 _poolRow 就会孤零零掉在整块内容的下面。</summary>
+        private void DrawEventCharChoices(EventOption option, Transform parent)
         {
             for (int i = 0; i < option.GainCharChoices.Count; i++)
             {
@@ -3611,12 +4138,12 @@ namespace Brushblade.Presentation
                 var def = _graph.Get(charId);
                 if (!CanGain(charId)) // 不在出阵列表:换到也白换,直接置灰(2026-07-20)
                 {
-                    var locked = Ui.RoundButton(_poolRow, charId, null,
-                        Theme.LockedBg, Theme.TextDim, 26, new Vector2(64, 64), 12);
+                    var locked = Ui.RoundButton(parent, charId, null,
+                        Theme.LockedBg, Theme.TextDim, EventPartGlyphFont, new Vector2(EventPartW, EventPartH), 12);
                     locked.interactable = false;
                     continue;
                 }
-                Ui.RoundButton(_poolRow, charId, () =>
+                Ui.RoundButton(parent, charId, () =>
                 {
                     _pendingCharChoice = choice;
                     if (option.ComponentCost > 0)
@@ -3646,21 +4173,23 @@ namespace Brushblade.Presentation
                     ShowAlert(Strings.T("battle.dialog.event_char_unaffordable.title"),
                         Strings.T("battle.dialog.event_char_unaffordable.body", ("charId", charId)));
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
-                    26, new Vector2(64, 64), 12);
+                    EventPartGlyphFont, new Vector2(EventPartW, EventPartH), 12);
             }
         }
 
-        /// <summary>抵价选件:携带池平铺,点选高亮,凑够数自动成交。</summary>
-        private void DrawEventPoolPicker(EventOption option)
+        /// <summary>抵价选件:携带池平铺,点选高亮,凑够数自动成交。
+        /// <paramref name="parent"/> 的来由同 <see cref="DrawEventCharChoices"/>。
+        /// 「部件池」这个标题仍排在牌之前,对应稿 .pool 里那个竖排的 .lbl。</summary>
+        private void DrawEventPoolPicker(EventOption option, Transform parent)
         {
-            Ui.ThemedLabel(_poolRow, Strings.T("battle.event.pool_title"), 16, Theme.TextDim, Theme.TitleFont);
+            Ui.ThemedLabel(parent, Strings.T("battle.event.pool_title"), 16, Theme.TextDim, Theme.TitleFont);
             for (int i = 0; i < _run.CarriedPool.Count; i++)
             {
                 int index = i;
                 string charId = _run.CarriedPool[i];
                 var def = _graph.Get(charId);
                 bool picked = _eventPicks.Contains(index);
-                Ui.RoundButton(_poolRow, charId, () =>
+                Ui.RoundButton(parent, charId, () =>
                 {
                     if (picked) _eventPicks.Remove(index);
                     else _eventPicks.Add(index);
@@ -3686,7 +4215,8 @@ namespace Brushblade.Presentation
                     }
                     Refresh();
                 }, picked ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
-                    picked ? Color.white : Theme.ElementSoftFg(def.Element), 22, new Vector2(56, 56), 12);
+                    picked ? Color.white : Theme.ElementSoftFg(def.Element), EventPartGlyphFont,
+                    new Vector2(EventPartW, EventPartH), 12);
             }
         }
 
@@ -3731,15 +4261,34 @@ namespace Brushblade.Presentation
         {
             bool won = _run.Phase == RunPhase.RunWon;
             bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
-            Ui.ThemedLabel(_centerRow, won
+
+            // 稿 RunEnd.dc.html:整屏纸罩 + 横幅 + 一句 msg + 一个大钮,胜负只换文案与色。
+            // 挂在常驻的 _runEndBanner(与 DrawBattleSettle 的 _settleBanner 同一套办法,
+            // 没有照抄任务书「建前 transform.Find 销毁」的原方案)——理由见该字段声明处:
+            // RunWon/RunLost 虽是终态、_onRunEnded 最终总会经 GameRoot.NewView() 把整个
+            // BattleView 连根拔起,但那份「安全」压在 GameRoot.cs 的外部约定上,不值得让
+            // 两个版式相同的横幅走两套生命周期模型。
+            var overlay = Ui.Panel(_runEndBanner, "Overlay");
+            Ui.Stretch((RectTransform)overlay.transform);
+            overlay.AddComponent<Image>().color = Theme.ScrimPaper;
+            var wrap = Ui.VStack(overlay.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
+            Ui.Stretch((RectTransform)wrap.transform);
+            wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+
+            Ui.ThemedLabel(wrap.transform, won
                     ? (tower ? Strings.T("battle.phase.run_won_tower_banner") : Strings.T("battle.phase.run_won_stage_banner"))
                     : Strings.T("battle.phase.defeat_banner"),
-                40, Theme.TextMain, Theme.TitleFont);
-            Ui.PillButton(_centerRow, won && tower ? Strings.T("battle.btn.to_safe_floor") : tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"),
-                () => _onRunEnded(won), Theme.Jade, Color.white, 26, new Vector2(190, 70));
-            _message = won
-                ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
-                : (tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg"));
+                BannerFont, won ? Theme.TextMain : Theme.CinnabarDark, Theme.TitleFont);
+            Ui.ThemedLabel(wrap.transform, won
+                    ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
+                    : (tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg")),
+                BannerMsgFont, Theme.TextDim);
+            Ui.PillButton(wrap.transform,
+                won && tower ? Strings.T("battle.btn.to_safe_floor")
+                    : tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"),
+                () => _onRunEnded(won), won ? Theme.Jade : Theme.InkSoft, Color.white, 36, // 稿 .pill font-size 17pt→36
+                new Vector2(400, BannerPillH)); // 稿 .pill 48pt;宽度非换算值,估的
+            _message = "";   // 那句话已经画在横幅里,底部提示行不再重复一遍
         }
 
         // ---- 交互 ----

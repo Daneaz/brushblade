@@ -97,7 +97,11 @@
        把效果写进 label 会溢出到钮外被邻钮盖掉（EventLabelWidthTests 钉着这条）。 */
     .opt {
       width: 124px; height: 44px; border-radius: 22px; border: 1.5px solid #DED7C9; cursor: pointer;
-      background: #FBF8F1; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600;
+      background: #FBF8F1; font-family: "Noto Serif SC", serif;
+      /* 2026-09-01 回填：此前写的是 14px（≈29 逻辑单位），与上面注释和
+         EventLabelWidthTests 钉死的「字号 22」自相矛盾——实现按测试口径保留了 22。
+         按 1pt=2.093 换算，22 ÷ 2.093 ≈ 10.5px。改这个数要连带改测试。 */
+      font-size: 10.5px; font-weight: 600;
       color: #2C333D; letter-spacing: 1px; display: flex; align-items: center; justify-content: center;
     }
     .opt.on { background: #C53637; border-color: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.24); }

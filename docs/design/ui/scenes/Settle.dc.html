@@ -87,7 +87,6 @@
     .head { font-size: 11px; color: #5D646F; letter-spacing: .5px; text-align: center; }
     .amount { display: flex; align-items: baseline; gap: 8px; }
     .amount .n { font-family: "Noto Serif SC", serif; font-size: 40px; font-weight: 600; line-height: 1; }
-    .amount .half { font-size: 10px; color: #B02D2E; font-weight: 700; letter-spacing: 1px; }
     .rec { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 9px;
       border-radius: 10px; background: #F6EDD5; border: 1px solid rgba(201,169,74,.55);
       font-size: 9.5px; font-weight: 700; color: #8F6B09; letter-spacing: 1px; }
@@ -111,6 +110,8 @@
         <div class="h">登 塔 结 算</div>
         <div class="head">第 45 层收官！墨锭 340 入账</div>
 
+        <!-- 2026-09-01 回填：此前这里有一枚「半额」小红字。半额 2026-08-30 已取消，
+             撤退、阵亡、弃塔拿到的墨锭完全一样（GameRoot.SettleTower）。 -->
         <div class="amount">
           <svg width="26" height="16" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path><path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="2.5"></path></svg>
           <span class="n">340</span>

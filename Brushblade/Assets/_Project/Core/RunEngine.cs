@@ -752,6 +752,11 @@ namespace Brushblade.Core
         /// <summary>本关生效的血量上限 = 局外基础 + 奇遇累加的局内加成(至少 1)。</summary>
         public int EffectiveMaxHp => Math.Max(1, _battleConfig.PlayerMaxHp + _maxHpBonus);
 
+        /// <summary>携带态的当前血量(战斗之间由 run 保管,与 <see cref="EffectiveMaxHp"/> 配对读)。
+        /// 2026-09-02 开放:奇遇结算改血/改上限后,表现层要把玩家血条**先更新到新值再起势**,
+        /// 而那时旧战斗的 <c>Battle.MaxHp</c> 还是改动前的值,读它会把条画错。</summary>
+        public int CarriedHp => _carriedHp;
+
         /// <summary>把局内上限加成折进配置再交给战斗。**恒拷贝**(2026-08-18):此前无加成时
         /// 原样共享引用、有加成时才拷贝,广告扩容靠「碰巧共享」才对当前战斗生效 —— 吃过加血
         /// 上限奇遇后就断线(扩容只改 run 手里的原对象,战斗读的是旧副本,Boss 层奖励页最常见)。

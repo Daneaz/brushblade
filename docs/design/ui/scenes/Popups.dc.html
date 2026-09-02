@@ -122,13 +122,16 @@
     战斗屏 2026-08-15 把顶部那条提示带撤了（搬到屏幕最底部只留一行），
     从那以后<b>「这一下打中没有、打了多少」全靠飘字</b>——它是局内唯一的即时反馈通道，
     所以口径必须固定：<b>颜色说的是「谁干的」，不是「好事坏事」</b>。<br>
+    <br><b>2026-09-01 回填</b>：直伤（普通 / 暴击 / 引爆 / 灼烧跳伤）的颜色 2026-08-30
+    起改成<b>按攻击方五行分色</b>（火系飘红、水系飘蓝，相克镶一圈金边），不再一律朱砂。
+    下面几格的「朱砂」标注是改版前的口径，保留作对照。被克那一记向纸色淡 42%、字号下限降到 0.78。<br>
     朱砂 = 你打出去的直伤；赭 = 持续伤害自己在烧；靛 = 护盾与治疗；翠玉 = 无效化与分裂；
     墨 = 击杀；赭金 = Boss 换相。小字号（13）留给<b>一拍里会连着冒好几条</b>的那些（灼烧跳伤、敌方自增益），
     免得糊成一团盖住战场。
   </div>
 
   <div class="grp">
-    <h3>18 种飘字（<code style="font-size:9px;color:#7A3F5C;">Presentation/Juice.cs</code>）</h3>
+    <h3>19 种飘字（<code style="font-size:9px;color:#7A3F5C;">Presentation/Juice.cs</code>）</h3>
     <div class="grid">
       <div class="pcell">
         <div class="stage"><span class="pop" style="color: #C53637; font-size: 17px;">-120</span></div>
@@ -220,27 +223,21 @@
         <div class="meta"><b>SplitBlue 靛</b> · 锚在敌人格</div>
         <div class="why">隐身敌人现形 · <code>enemy_revealed</code></div>
       </div>
+      <div class="pcell">
+        <div class="stage"><span class="pop" style="color: #2E7D46; font-size: 13px;">愈+40</span></div>
+        <div class="meta"><b>Jade 翠玉</b> · 锚在敌人格</div>
+        <div class="why">敌方自愈 · <code>enemy_mend</code>（2026-09-01 补：实现侧共 19 种，不是 18）</div>
+      </div>
     </div>
   </div>
 
   <div class="grp">
     <h3>五行速查环图 · 战斗屏两个下角常驻</h3>
+    <!-- 2026-09-01 回填：相生环图 2026-08-31 拍板整个撤掉，战斗屏左窄栏只留相克。
+         理由（见 BattleView.BuildSkeleton 的注释）：战斗中要实时查的是「我这张字克不克它」，
+         相生 ×3 由配方静态决定，属牌面信息，长按详情弹窗已经显示。
+         WuxingChart.Mount 的 sheng:true 分支保留未删，图鉴类页面仍可能用。 -->
     <div class="charts">
-      <div class="chart">
-        <div class="ct">相 生</div>
-        <div class="ring">
-          <span class="n" style="background:#348F4F; left:131px; top:22px;">木</span>
-          <span class="n" style="background:#C53637; left:195px; top:70px;">火</span>
-          <span class="n" style="background:#997C3C; left:171px; top:126px;">土</span>
-          <span class="n" style="background:#B3A382; left:91px; top:126px;">金</span>
-          <span class="n" style="background:#0F74C4; left:67px; top:70px;">水</span>
-          <svg width="240" height="148" viewBox="0 0 240 148" fill="none" stroke="#348F4F" stroke-width="1.6"
-               style="position:absolute; left:0; top:0; opacity:.55;">
-            <path d="M144 34 L182 62M188 88 L176 112M156 132 L116 132M96 128 L82 96M74 60 L118 30"></path>
-          </svg>
-        </div>
-        <div class="cn">木→火→土→金→水→木<br><b>×3 倍，去重不叠乘</b></div>
-      </div>
       <div class="chart">
         <div class="ct">相 克</div>
         <div class="ring">
@@ -258,9 +255,16 @@
       </div>
       <div class="flashnote">
         <b>心属中立</b>：既不生也不克，任何一边都吃基础倍率。<br><br>
-        <b>全屏闪</b>只有两处，都很短、都是白色，别再加第三处：<br>
-        · 引爆且伤害 ≥ 40 → 0.12s<br>
-        · 击杀 → 0.16s<br>
+        <!-- 2026-09-02 修正：上一版「三处、都是白色」漏了 EnemyAttack 那条——它无条件
+             触发、颜色跟来袭属性走，不是白色。逐条核对 Juice.cs 的全部 ScreenFlash
+             调用点（4 处）后改写，别再照抄给定清单当上限。 -->
+        <b>全屏闪</b>目前四处，多数很短：<br>
+        · 引爆且伤害 ≥ 40 → 0.12s，白色<br>
+        · 击杀 → 0.16s，白色<br>
+        · 敌方攻击我方（<code>Juice.EnemyAttack</code> 分支）→ 0.14s，颜色跟<b>来袭属性</b>走
+          （不是白色），且<b>无条件触发</b>、不看伤害量<br>
+        · 我方普通命中且伤害 ≥ 40（暴击 ≥ 20）→ 0.12s，白色（<code>Juice.HitFx</code>；
+          被克那一记不闪）<br>
         全屏闪是最贵的一种强调，用滥了就等于没有。数值口径的唯一来源是
         <code style="font-size:8.5px;color:#7A3F5C;">docs/design/wuxing-reference.md</code>，
         <b>不是这张图</b>——图只是把它画出来。

@@ -331,6 +331,7 @@ namespace Brushblade.Core.Tests
                     Pool = new List<string> { "木", "火" },
                     LibraryExpanded = true,
                     TopBossDepth = 10,
+                    BestDepthBeforeRun = 9,
                 },
             };
             meta.BandMilestones.Add("词渊");
@@ -343,6 +344,9 @@ namespace Brushblade.Core.Tests
             Assert.That(restored.EndlessV2.Library, Is.EqualTo(new[] { "焚", "灯" }));
             Assert.That(restored.EndlessV2.LibraryExpanded, Is.True);
             Assert.That(restored.EndlessV2.TopBossDepth, Is.EqualTo(10)); // 结算宝箱档位据此(2026-07-22)
+            // 登塔前的历史最高必须跟着快照落盘(2026-09-02):结算页「新纪录 43 → 45」的左边那个数
+            // 靠它。段末告捷会当场刷掉 meta.BestDepth,只留在内存里的话,挂起重进就再也取不回来
+            Assert.That(restored.EndlessV2.BestDepthBeforeRun, Is.EqualTo(9));
         }
 
         [Test]

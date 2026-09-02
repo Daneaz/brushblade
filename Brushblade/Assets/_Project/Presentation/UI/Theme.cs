@@ -18,6 +18,8 @@ namespace Brushblade.Presentation
         public static readonly Color CardWhite = Color.white;
         public static readonly Color Cinnabar = new(0.772f, 0.211f, 0.215f);    // 朱砂
         public static readonly Color CinnabarDark = new(0.607f, 0.117f, 0.135f);
+        public static readonly Color WarnBg = new(0.984f, 0.890f, 0.886f);   // 稿 #FBE3E2:不可逆告警条底
+        public static readonly Color WarnText = new(0.607f, 0.117f, 0.133f); // 稿 #9B1E22:告警条字色
         public static readonly Color Jade = new(0.264f, 0.58f, 0.347f);         // 翠玉
         public static readonly Color Gold = new(0.791f, 0.617f, 0.199f);        // 赭金
         public static readonly Color GoldBorder = new(0.56f, 0.421f, 0.037f);
@@ -31,6 +33,12 @@ namespace Brushblade.Presentation
         public static readonly Color ShopNav = new(0.654f, 0.349f, 0.241f);
         public static readonly Color PanelPaper = new(0.984f, 0.973f, 0.945f);   // 面板底(比宣纸底亮一档)
         public static readonly Color PanelBorder = new(0.871f, 0.843f, 0.788f);  // 面板描边(稿上统一 1pt)
+        // 稿 #F1EBDE:面板内嵌/凹槽条的底色(如 Reward 选字页牌下方那条 detail 横条)。
+        // ⚠ 2026-09-02 review 修:此前这类凹槽误用了 PaperDim(#DED7C9,进度条底)——
+        // PaperDim 与 PanelBorder(同样 #DED7C9)撞色,套进 OutlinedPanel 会变成一块
+        // 没有描边的灰褐实心板,正是 OutlinedPanel 自己文档里警告的「浅色卡融进浅色底」。
+        // PanelInset 单独占一个色阶,别跟 PanelPaper(卡片底)、PaperDim(进度条底)混用。
+        public static readonly Color PanelInset = new(0.945f, 0.922f, 0.871f);
         public static readonly Color LockedBg = new(0.856f, 0.843f, 0.816f);
         public static readonly Color LockGray = new(0.534f, 0.563f, 0.611f);
         public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);
@@ -41,6 +49,13 @@ namespace Brushblade.Presentation
         public static readonly Color UpgradeText = new(0.107f, 0.333f, 0.173f);
         public static readonly Color Shadow = new(0.088f, 0.105f, 0.132f, 0.08f);
         public static readonly Color Scrim = new(0.088f, 0.105f, 0.132f, 0.55f);  // 模态遮罩
+        /// <summary>局内浮层的浅遮罩(稿 rgba(22,27,34,.42))。战利品/换字这几张浮在战斗屏上,
+        /// 底下那半张脸要留着 —— 玩家才知道自己还在第几层、字库里有什么。
+        /// 全遮死就成了「不知从哪冒出来的窗」(Reward.dc.html / Replace.dc.html 的原话)。</summary>
+        public static readonly Color ScrimSoft = new(0.086f, 0.106f, 0.133f, 0.42f);
+        /// <summary>段末横幅的**纸色**罩(稿 rgba(246,241,231,.72))。胜负横幅压的是自家宣纸底,
+        /// 不是墨色 —— 墨罩会把战场压成深色,与「本段告捷」的明快读感相反(RunEnd.dc.html)。</summary>
+        public static readonly Color ScrimPaper = new(0.965f, 0.945f, 0.906f, 0.72f);
 
         // 层段背景基色(20.2 每段换景):字林竹绿/词渊黛蓝/文山赭石/墨海墨青
         private static readonly Color[] BandInks =

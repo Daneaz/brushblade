@@ -179,6 +179,47 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void RealConfig_BacklineChars_CanStrikeBackline()
+        {
+            // 偷袭(无视敌方前排)在 2026-08-25 刺 改贯穿之后一度**零字使用** —— 引擎、管线、
+            // 字符串表三处都还在,只是没有载体,漏配了不会有任何东西变红。
+            // 2026-09-02 按字意重新装配四张:砸(重物下击,抛物线越过前排)、冷(寒气弥漫)、
+            // 熣(火光晃眼,光照不被挡)、刲(割取、刺杀,潜入取要害)。数值一概不动。
+            // ⚠ 两面都要扫(2026-09-02 双方向合流):砸/冷 是水/土系,双方向改造把它们的伤害
+            // 搬进了 AttackEffects —— 偷袭本来就是攻击属性,搬过去反而是它该在的位置。
+            // 只扫 .Effects 会让这条不变量对全部 28 张双方向字半盲(熣/刲 是火/金系没改,
+            // 所以只扫单面时那两个照样绿,失效是**部分**的、更难发现)。
+            var graph = RealGraph();
+            var expected = new[] { "砸", "冷", "熣", "刲" };
+            foreach (var id in expected)
+            {
+                var def = graph.Get(id);
+                var hit = def.Effects.Concat(def.AttackEffects)
+                    .First(e => e.Kind == EffectKind.DamageSingle);
+                Assert.That(hit.CanStrikeBackline, Is.True, $"「{id}」应能直接点后排");
+            }
+
+            // 全集也钉住:偷袭是稀缺的战术位,新增载体时把它加进上表一起钉。
+            var carriers = graph.All
+                .Where(c => (c.Effects ?? Array.Empty<EffectDef>())
+                    .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())
+                    .Any(e => e.CanStrikeBackline))
+                .Select(c => c.Id).ToList();
+            Assert.That(carriers.Count, Is.EqualTo(expected.Length), "偷袭字的全集就是上表");
+        }
+
+        [Test]
+        public void RealConfig_Ci_IsSkewerNotBackline()
+        {
+            // 刺 的「够到后排」走的是贯穿几何(先点前排、串到同列后排),不是偷袭 ——
+            // 两条路径并存,别在装配偷袭时顺手把它也标上:那会让刺可以直接点后排,
+            // 而它是教程演示字,首层单怪的一击清场口径建立在「主目标在前排」之上。
+            var hit = RealGraph().Get("刺").Effects.First(e => e.Kind == EffectKind.DamageSingle);
+            Assert.That(hit.Shape, Is.EqualTo(TargetShape.Skewer));
+            Assert.That(hit.CanStrikeBackline, Is.False, "刺 靠贯穿够后排,不是偷袭");
+        }
+
+        [Test]
         public void RealConfig_SummonPassiveChars_CarryTheirPassive()
         {
             // passive 若没从 JSON 传到 EffectDef,这些字照常能召唤,但被动会静默消失
