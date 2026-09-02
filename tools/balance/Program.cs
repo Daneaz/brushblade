@@ -45,6 +45,16 @@ namespace Brushblade.Balance
         // (与上面「灯」那次同型的坑,已第二次踩)。
             { "灼", "焦", "灭", "热", "烧", "爆", "炸", "燥", "烈", "熣", "蒸", "炎", "灿", "焚", "焱", "燚", "锐" };
 
+        /// <summary>水系出阵表(2026-09-02 双方向对照组)。15 张实体字全列 ——
+        /// 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars),那一档观测点就是空的。
+        /// 从 chars.json 现读核对过,与 task-13-brief 给的表逐字一致。</summary>
+        private static readonly string[] WaterCards =
+            { "溃", "冻", "海", "冷", "浴", "湮", "沏", "澡", "沝", "冰", "沐", "淼", "淡", "淋", "㵘" };
+
+        /// <summary>土系出阵表(2026-09-02)。13 张实体字全列。同上核对过,与 brief 一致。</summary>
+        private static readonly string[] EarthCards =
+            { "碉", "砸", "碾", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓" };
+
         // ---- 阳性对照探针(spec §10.5,2026-08-12 E-b4/E-b5 T7)----
         // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
         // 判据只有一条:探针按预期方向动了。P50 的绝对值不是通过/失败判据。
@@ -130,6 +140,15 @@ namespace Brushblade.Balance
                 new Profile("探针·AOE专精(全 DamageAll,深启11)", new[] { "爆", "海", "崩", "剿" },
                     AoeCards.ToDictionary(c => c, _ => 5), level: 10,
                     deck: AoeCards, startDepth: ProbeStartDepth),
+
+                // 2026-09-02 双方向对照组:不加这两档就没有任何观测点能看见水/土的改动。
+                // ⚠ deck 必须显式传各自的出阵表 —— Profile.Deck 缺省落回 FireCards
+                // (回合掉字 + 合成锁都读它),漏传会重演「幽灵字/摸不到」那个坑,
+                // 只是这次是摸到了错误系的字。
+                new Profile("水系双方向(冻沝淼㵘,卡5级,10级)", new[] { "冻", "沝", "淼", "㵘" },
+                    WaterCards.ToDictionary(c => c, _ => 5), level: 10, deck: WaterCards),
+                new Profile("土系双方向(垒圭垚㙓,卡5级,10级)", new[] { "垒", "圭", "垚", "㙓" },
+                    EarthCards.ToDictionary(c => c, _ => 5), level: 10, deck: EarthCards),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
@@ -360,9 +379,12 @@ namespace Brushblade.Balance
                     case EffectKind.DamageAll: sum += e.Value * 3 / 2; break;
                     case EffectKind.BurnSingle: sum += e.Value * 2; break;
                     case EffectKind.BurnAll: sum += e.Value * 3; break;
-                    case EffectKind.Shield: sum += e.Value / 2; break;
+                    // 2026-09-02:护盾/治疗改记全额 —— 它们现在攒势/水势,
+                    // 折半记分是「防御没有进攻价值」那个旧模型的残留。
+                    case EffectKind.Shield: sum += e.Value; break;
                     case EffectKind.BurnPotency: sum += e.Value * 2; break;
-                    case EffectKind.HealSelf: sum += e.Value / 2; break;
+                    case EffectKind.HealSelf: sum += e.Value; break;
+                    case EffectKind.HealAll: sum += e.Value; break;
                     case EffectKind.Summon: sum += (e.Value + e.SummonAttack * 3) * e.SummonCount / 2; break;
                     // 穿透(2026-08-12,E-b4 T5,锐):按点数**等价折算成伤害**,不加权。
                     // 它本场持久、每次攻击都兑现,理应比一次性伤害值钱;但全表只有 墨渍(DEF 20)
@@ -377,6 +399,10 @@ namespace Brushblade.Balance
                     // ×2 的口径同 BurnSingle:本场持久、每记挥击都兑现,但只在挨打时兑现,
                     // 所以排在同数值的直伤之后(铠 12 → 24 分,仍低于 碾 的 60)。
                     case EffectKind.DefenseBuff: sum += e.Value * 2; break;
+                    // 势/水势的引爆(2026-09-02):按满层折算 —— 机器人不模拟攒层过程,
+                    // 给个中位估值让它至少会去出这张字。系数是多少不重要,**是不是 0 才重要**。
+                    case EffectKind.SpendMomentum: sum += e.Value * 5; break;
+                    case EffectKind.SpendWaterPower: sum += e.Value * 5; break;
                 }
             }
             return sum;
