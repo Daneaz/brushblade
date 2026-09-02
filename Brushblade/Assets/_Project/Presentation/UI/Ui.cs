@@ -254,6 +254,15 @@ namespace Brushblade.Presentation
         {
             var overlay = Sheet(root, "Modal", halfSize.x * 2f, halfSize.y * 2f,
                 dismissable, replaceSameName: false, out content);
+            // 内容改回垂直居中(2026-09-02 试玩反馈:「回合结束弹窗没有居中显示」)。
+            // Sheet 的默认是 UpperCenter,那是给**内容撑满整张卡**的那一类浮层定的
+            // (UnitSheet 的立绘+两列+底部提示行、战斗流程浮层的选字/换字页)——它们靠内容
+            // 自上而下排,居中反而会让整块内容在卡里浮起来。而 ModalShell 的这几个是
+            // 「标题 + 一两行正文 + 一排钮」的小弹窗,卡是按 halfSize 定死的、内容远填不满:
+            // 贴顶就变成上面挤、下面空一大块(620×300 的 Ui.Alert 内容约 135,底下空 114)。
+            // 重构前 ModalShell 直接用 VStack,而 VStack 的默认就是 MiddleCenter,所以这是
+            // 抽 Ui.Sheet 时被无声改掉的旧行为,不是新口径。
+            content.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             ThemedLabel(content, title, 24, Theme.TextMain, Theme.TitleFont);
             return overlay;
         }
