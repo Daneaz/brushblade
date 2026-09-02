@@ -3732,7 +3732,12 @@ namespace Brushblade.Presentation
 
         private void OnLibraryCharClicked(string charId, int index)
         {
-            if (_selectedChar == charId && _selectedIndex == index && !_targeting && !_allyTargeting)
+            // 方向按钮已经画出来时(2026-09-02 审阅 Important),再点字牌本体不该绕过它们
+            // 静默出字——玩家全程靠「选中→再点即出」这个手势操作,方向按钮刚出现时很容易
+            // 沿用同一手势再点一次牌本体,若不挡在这里会跳过「攻」「护」两个可见按钮,
+            // 静默按 CastInDirection 的默认分支(护)出字。
+            if (_selectedChar == charId && _selectedIndex == index
+                && !_targeting && !_allyTargeting && !_directionPicking)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
@@ -3749,7 +3754,10 @@ namespace Brushblade.Presentation
 
         private void OnPoolCharClicked(string charId)
         {
-            if (_selectedChar == charId && _selectedIndex < 0 && !_targeting && !_allyTargeting)
+            // 方向按钮已经画出来时(2026-09-02 审阅 Important),再点部件本体不该绕过它们
+            // 静默出字,理由同 OnLibraryCharClicked。
+            if (_selectedChar == charId && _selectedIndex < 0
+                && !_targeting && !_allyTargeting && !_directionPicking)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
                 return;
@@ -3784,7 +3792,13 @@ namespace Brushblade.Presentation
         ///
         /// 这就是原来 OnCastPressed 的整个函数体,只是把写死的 attackMode: false
         /// 变成参数 —— 免选判据、友方目标判据、最终 BeginCast 三处全部跟着这个参数走,
-        /// 否则会出现「选了攻击方向,却按治疗面判断要不要选目标」这种错位。</summary>
+        /// 否则会出现「选了攻击方向,却按治疗面判断要不要选目标」这种错位。
+        ///
+        /// ⚠ 良性冗余(2026-09-02 审阅提醒):下面进 _targeting/_allyTargeting 的两个分支
+        /// 没有顺手把 _directionPicking 复位回 false,它会残留为 true。这不是 bug ——
+        /// DrawActions 里 _targeting/_allyTargeting 的判断排在 _directionPicking 之前,
+        /// 不会画出按钮重叠;CancelSelection() 最终也会把它连同其余交互态一起清干净。
+        /// 留着不清是因为没有必要,不是漏改。</summary>
         private void CastInDirection(CharDef def, bool attackMode)
         {
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
