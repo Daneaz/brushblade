@@ -195,5 +195,25 @@ namespace Brushblade.Core.Tests
             battle.Cast("圭", -1);   // 默认 attackMode: false = 护盾面
             Assert.That(battle.PlayerShield, Is.EqualTo(340));
         }
+
+        [Test]
+        public void FireOrangeAndRed_HaveCorrectTierOrdering()
+        {
+            // 修档位倒挂:燚(红) 的 AOE 100 曾低于 焱(橙) 的 120。
+            var graph = LoadRealGraph();
+            int yan = graph.Get("焱").Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
+            int yi = graph.Get("燚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
+            int fen = graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
+            Assert.That(yan, Is.EqualTo(120));
+            Assert.That(fen, Is.EqualTo(120), "相生取消后的等值改写");
+            Assert.That(yi, Is.EqualTo(180), "红档 AOE 锚点 250 x0.7(带灼烧)");
+            Assert.That(yi, Is.GreaterThan(yan), "红档必须强于橙档");
+
+            // 焚 与 焱 数值相同,靠灼烧层数区分(焚 需要 林+火 跨系配方,更难合)
+            int fenBurn = graph.Get("焚").Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            int yanBurn = graph.Get("焱").Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            Assert.That(fenBurn, Is.EqualTo(4));
+            Assert.That(yanBurn, Is.EqualTo(3));
+        }
     }
 }

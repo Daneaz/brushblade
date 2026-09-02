@@ -36,7 +36,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 100
+          "value": 180
         },
         {
           "kind": "BurnAll",
@@ -59,7 +59,7 @@
         },
         {
           "kind": "BurnAll",
-          "value": 3
+          "value": 4
         }
       ]
     },
