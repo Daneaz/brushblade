@@ -468,7 +468,7 @@
   "root.map.tower_suspended_message": "登塔已挂起,随时回来继续",
   "root.safelayer.descend_button": "深入「{nextBandName}」第 {from}~{to} 层",
   "root.safelayer.descend_why": "滚存带进下一段继续累加\n墨锭赚到即入账,阵亡也不打折",
-  "root.safelayer.retreat_button": "收官撤退(全额结算)",
+  "root.safelayer.retreat_button": "收官撤退",
   "root.safelayer.retreat_why": "立即收官,本趟到此为止\n层数纪录保留,下次从第 1 层重来",
   "root.safelayer.risk": "深入只赚不赔——墨锭早已入账,再往下是多挣一笔还是空手,全看这一段",
   "root.safelayer.rollover_unit": "滚存墨锭",

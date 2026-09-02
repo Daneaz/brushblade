@@ -230,6 +230,16 @@ namespace Brushblade.Core
         public bool PoolExpanded { get; set; }
         public bool Revived { get; set; }        // 本次登塔已用过广告复活(一次性;2026-07-24)
         public int TopBossDepth { get; set; } // 本次爬塔已破的最高 Boss 层(0=未破);结算宝箱档位据此(2026-07-22)
+        /// <summary>**登塔那一刻**的历史最高层(2026-09-02):结算页「新纪录 · 43 → 45 层」左边那个数。
+        ///
+        /// 为什么不是结算时现读 <see cref="MetaState.BestDepth"/>:段末告捷在弹安全层**之前**就
+        /// 跑了 <c>UpdateBest</c>(GameRoot.OnSegmentEnded),等玩家点「收官撤退」走到结算页,
+        /// 纪录早被本次成绩刷掉了 —— 现读只会得到 45 → 45,新纪录条在唯一的胜利结局里永远不亮,
+        /// 反倒只在阵亡/弃塔时亮(那两条路没有前置 UpdateBest)。语义正好反了。
+        ///
+        /// 为什么存在快照里而不是 GameRoot 的静态字段:挂起重进(20.6)要能接着爬,
+        /// 静态字段进程一没就归零。跟着快照走,结算时快照作废,它也自然一起消失。</summary>
+        public int BestDepthBeforeRun { get; set; }
         public int NormalShield { get; set; }   // 普通护盾(断点续爬恢复;整场爬塔延续)
         public int PersistShield { get; set; }   // 堡型护盾(跨段保留)
         /// <summary>携带召唤物(2026-08-03):与普通盾同口径,整场爬塔延续,直到死亡,见 20.2。</summary>

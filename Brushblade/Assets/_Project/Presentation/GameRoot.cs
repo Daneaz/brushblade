@@ -166,6 +166,9 @@ namespace Brushblade.Presentation
                     Pool = new System.Collections.Generic.List<string>(MetaRules.RollStartingPool(
                         _meta.Deck, _graph, new GameRandom(System.Environment.TickCount))),
                     NormalShield = PerkRules.ShieldBonus(_meta), // 金汤:首段段首护盾
+                    // 结算页新纪录条的「旧纪录」只能在这里留:段末告捷会当场 UpdateBest,
+                    // 到结算时 _meta.BestDepth 已经是本次成绩了(见 EndlessSaveState 的注释)
+                    BestDepthBeforeRun = _meta.BestDepth,
                 };
                 MetaStore.Save(_meta);
             }
@@ -457,8 +460,11 @@ namespace Brushblade.Presentation
             // 标题 → 段位 → 滚存 → 三项状态 → 两条路(各占一半,取舍写在钮下面) → risk 行。
             // 换算 1pt = 2.093 逻辑单位(稿头注:932×430pt 对 1950×900 画布)。
             const float PanelW = 1340f;   // 稿 .panel 640pt
-            const float PanelH = 620f;    // 估:稿上 .panel 高度由内容撑开,没有标称值;
-                                          // 按下面这一列内容(约 490)留出余量,再多也不会让卡贴边
+            // 估:稿上 .panel 高度由内容撑开,没有标称值。按仓库自己的行高口径
+            // (Ui.WrappedTextHeight 的 1.35 倍字号)逐项加:内边距 80 + 标题 62 + 段位 30
+            // + 滚存行 96 + 状态行 28 + forks 151 + risk 26 + 5 段 gap 95 = 568,
+            // 再加 OutlinedPanel 上下各 2 的描边内缩 = 572。620 留 48 的余量(上下各 24)。
+            const float PanelH = 620f;
             var card = Ui.OutlinedPanel(view.transform, "Panel", Theme.PanelPaper, Theme.PanelBorder,
                 25, 2f, out var face);    // 稿 .card 圆角 12pt / 描边 1pt
             Ui.Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -508,7 +514,10 @@ namespace Brushblade.Presentation
             var forks = Ui.Row(stack.transform, "Forks", 29);      // 稿 .forks gap 14pt
             forks.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
             Ui.Sized(forks, width: PanelW - 108f,                  // 108 = 稿 .panel 左右各 26pt 内边距
-                height: 190f);                                     // 估:钮 40pt + gap 6pt + 两行 why(9.5pt×1.5 行高)
+                // 估:一列 = 钮 84(稿 40pt) + gap 13(稿 6pt) + why 两行 54
+                // (Ui.WrappedTextHeight(why, 20, 600) = 2 行 × 20 × 1.35)= 151。
+                // 先前写 190 是白吃 39 的高度(2026-09-02 审查 M7)
+                height: 151f);
             Fork(forks.transform,
                 Strings.T("root.safelayer.descend_button",
                     ("nextBandName", nextBand.Name), ("from", depth + 1), ("to", depth + endless.BossEvery)),
@@ -548,10 +557,13 @@ namespace Brushblade.Presentation
         private static void SettleTower(bool died, int clearedDepth, int totalEarned, bool abandoned = false)
         {
             int chestDepth = EndlessRules.SettleChestDepth(_meta.EndlessV2?.TopBossDepth ?? 0);
+            // 旧纪录读快照里登塔那一刻存下的那份,**不能**在这里现读 _meta.BestDepth:
+            // 段末告捷早在弹安全层之前就跑过 UpdateBest(OnSegmentEnded),从安全层点「收官撤退」
+            // 走到这里时 BestDepth 已经等于本次成绩,现读得到 45 > 45 = false —— 新纪录条会在
+            // 唯一的胜利结局里永不出现,却在阵亡/弃塔时照常出现(那两条没有前置 UpdateBest),
+            // 语义正好反了(2026-09-02 审查 Critical-1)。快照为空是防御分支,退化成不显示。
+            int previousBest = _meta.EndlessV2?.BestDepthBeforeRun ?? _meta.BestDepth;
             _meta.EndlessV2 = null;
-            // 旧纪录要在 UpdateBest **之前**留一份:新纪录 chip 上是「43 → 45」两个数,
-            // 刷完再读 _meta.BestDepth 就只剩新的那个了
-            int previousBest = _meta.BestDepth;
             EndlessRules.UpdateBest(_meta, clearedDepth);
             int ink = totalEarned; // 展示值:钱已在账户里,这里不再 +=
 
@@ -605,8 +617,14 @@ namespace Brushblade.Presentation
             // 稿 Settle.dc.html。宝箱行是这一屏的第二主角 ——
             // 一场爬塔只发一个箱,档位由本次最高 Boss 层定。换算 1pt = 2.093 逻辑单位。
             const float PanelW = 1172f;   // 稿 .panel 560pt
-            const float PanelH = 600f;    // 估:稿上 .panel 高度由内容撑开,没有标称值;
-                                          // 带新纪录 chip 时这一列约 572,取 600 留一档余量
+            // 估:稿上 .panel 高度由内容撑开,没有标称值。按仓库自己的行高口径
+            // (Ui.WrappedTextHeight 的 1.35 倍字号)逐项加,取**最满**的一屏
+            // (破纪录 + 有宝箱同时成立):内边距 88 + 标题 62 + head 31 + 墨锭行 113
+            // + 新纪录条 42 + 宝箱行 105 + 钮 84 + 5 段 gap 105 = 630,
+            // 再加 OutlinedPanel 上下各 2 的描边内缩 = 634。680 留 46 的余量(上下各 23)。
+            // 先前写 600 是估小了:VerticalLayoutGroup 会把各项按 min…preferred 等比压回去
+            // (Text 的 minHeight 是 0),文字不截断但会互相挤贴(2026-09-02 审查 M3)。
+            const float PanelH = 680f;
             var card = Ui.OutlinedPanel(view.transform, "Panel", Theme.PanelPaper, Theme.PanelBorder,
                 25, 2f, out var face);    // 稿 .card 圆角 12pt / 描边 1pt
             Ui.Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -646,8 +664,10 @@ namespace Brushblade.Presentation
             var row = Ui.OutlinedPanel(parent, "ChestRow",
                 has ? Theme.CardWhite : Theme.Paper, has ? Theme.PanelBorder : Theme.LockGray,
                 21, 2f, out var face);                             // 稿 .chestrow 圆角 10pt / 描边 1pt
-            Ui.Sized(row.gameObject, width: width,
-                height: 100f);                                     // 稿 .ic 30pt + 上下各 9pt 内边距 = 48pt
+            // 高度必须把描边也算进去:OutlinedPanel 的 face 上下各内缩 2,inner 贴着 face,
+            // 再减掉 19×2 的内边距才轮到色块 —— 只写 100 的话色块只剩 58 高,比稿的 30pt 矮一档
+            // (2026-09-02 审查 M6)。63(稿 .ic 30pt) + 38(稿上下各 9pt) + 4(描边) = 105
+            Ui.Sized(row.gameObject, width: width, height: 105f);
             var inner = Ui.Row(face.transform, "Inner", 23);       // 稿 .chestrow gap 11pt
             Ui.Stretch((RectTransform)inner.transform);
             var innerLayout = inner.GetComponent<HorizontalLayoutGroup>();
