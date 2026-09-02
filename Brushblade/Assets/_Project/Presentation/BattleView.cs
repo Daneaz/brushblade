@@ -2685,6 +2685,11 @@ namespace Brushblade.Presentation
             //     点友方 —— 与点「出字」那条路径同一个状态机,不写第二套。
             bool allyOnly = BattleEngine.NeedsAllyTarget(def, attackMode: true)
                 && !BattleEngine.NeedsTarget(def, attackMode: true);
+            // 双方向字(2026-09-03):起拖时**敌我两边一起点亮**,与双击那条路径同构 ——
+            // 拖到哪边就是哪边,可落点必须在起拖那一刻就看得见,否则玩家得靠猜。
+            // 排在 allyOnly 之后判:纯友方字(㵘/淼 这类没有单体攻击面的)仍走它自己那一支,
+            // 那边只点亮友方,因为它的攻击面压根不需要选敌人。
+            bool dualDirection = def.AttackEffects.Count > 0 && !allyOnly && !summons;
 
             // 字影是**纯文字**压在场景上,得用过了 WCAG 的 GlyphColor 而不是 UI 色块那套
             // ElementColor(金 #B3A382 对宣纸底只有 2.48,拖起来是一团糊的)
@@ -2706,7 +2711,22 @@ namespace Brushblade.Presentation
                         CancelSelection();
                         return;
                     }
-                    if (_allyTargeting)
+                    // 双向态(2026-09-03):敌我都点亮着,**落点决定方向** ——
+                    // 先试友方,命中即护面;没命中就往下走敌人那条,与双击路径同一套判据。
+                    // ⚠ 必须排在下面的纯友方分支之前:双向态也开着 _allyTargeting,
+                    // 落到那一支会被写死的 attackMode: true 判成攻击面(方向反),
+                    // 且拖到敌人时会因为取不到友方槽而直接 CancelSelection(字出不去)。
+                    if (_targeting && _allyTargeting)
+                    {
+                        if (TryGetAllySlotAt(screenPos, out int dualAllySlot))
+                        {
+                            BeginCast(def.Id, -1, attackMode: false, libraryIndex: libraryIndex,
+                                allySlot: dualAllySlot);
+                            return;
+                        }
+                        // 没落在友方 → 按攻击面继续往下判敌人,不在这里取消
+                    }
+                    else if (_allyTargeting)
                     {
                         // 纯友方字:落在自己或某只召唤物身上才算数,与召唤落位同一条纪律
                         if (TryGetAllySlotAt(screenPos, out int allySlot))
@@ -2732,9 +2752,22 @@ namespace Brushblade.Presentation
                     }
                     BeginCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
                 },
-                onBeginDrag: !summons && !allyOnly ? null : () =>
+                onBeginDrag: !summons && !allyOnly && !dualDirection ? null : () =>
                 {
                     if (Battle.Ap < def.ApCost) return;
+                    if (dualDirection)
+                    {
+                        // 敌我同时点亮:_targeting 与 _allyTargeting 一起开,与 OnCastPressed
+                        // 的双向态是同一套状态组合。松手时按落点决定走哪一面(见 onDrop)。
+                        _selectedChar = def.Id;
+                        _selectedIndex = libraryIndex;
+                        _targeting = true;
+                        _allyTargeting = true;
+                        _pendingAllyEnemyTarget = -1;
+                        _pendingAttackMode = true;   // 敌方侧置灰按攻击面算;落到友方时就地改回
+                        RedrawDualTargets();
+                        return;
+                    }
                     if (allyOnly)
                     {
                         // 纯友方字:点亮玩家血条区与可施的召唤格
@@ -4464,6 +4497,22 @@ namespace Brushblade.Presentation
             Ui.Clear(_summonBackRow);
             DrawSummons();
             _messageLabel.text = _message;
+        }
+
+        /// <summary>拖双方向字途中重画**敌我两侧**的落点(2026-09-03):敌人两排 + 召唤两排
+        /// + 玩家血条区。它是 <see cref="RedrawAllyTargets"/> 的超集,多出敌人区那一块。
+        ///
+        /// 双方向字起拖时敌我都是合法落点,只亮一边会让玩家以为另一边不能放 ——
+        /// 而"拖到哪边就是哪边"正是这类字的全部交互语义。
+        ///
+        /// 同样不走全量 <see cref="Refresh"/>:那会 Ui.Clear(_libraryRow) 销毁正被拖的字牌。
+        /// 敌人区、召唤两排、_bottomRow 与 _libraryRow 是互不包含的 section。</summary>
+        private void RedrawDualTargets()
+        {
+            Ui.Clear(_enemyFrontRow);
+            Ui.Clear(_enemyBackRow);
+            DrawEnemies();
+            RedrawAllyTargets();
         }
 
         /// <summary>拖治疗/加盾字途中重画友方落点(2026-08-27):召唤两排 **+ 玩家血条区**。
