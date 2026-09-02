@@ -51,17 +51,30 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   ——工装只编译 Core/Data,Presentation 的编译错会一路漏到用户打开 Unity 才炸(已发生过两次)。
   离线编译依赖 `Brushblade/Library/ScriptAssemblies/`(Unity 至少打开过本工程一次)。
   只看 `error CS`,`warning MSB3245` 是 Unity 程序集自带的无关引用,忽略。
-- ⚠️ **在 git worktree 里跑验证要补两条前置**——不入 git 的目录在新 worktree 里不存在。
-  进 worktree 后先建软链,再用参数覆盖程序集路径(2026-08-18 实测:补齐后 coretests 1072、
-  pytest 246、prescompile 全绿):
+- ⚠️ **离线编译只证明「能编过」,不证明「接上了」。** Presentation 没有自动化测试,
+  下面两类缺陷全绿的测试一条都抓不到,只能靠人看 —— 2026-09-02 势/水势那批**两样都栽了**:
+  1. **新增玩家可见的战斗状态,三处必须同时接**:`StatusText.Of` 的 `case`(不加就落
+     `default: return None`,详情弹窗静默跳过这一行)、`BattleView` 的状态 chip 列表(手写的
+     kind 列表,不在里面就不显示)、`CharInfo` 的效果文案(`EffectsText` 的 switch,缺分支会
+     在卡面上印出**英文枚举名**)。当时 1494 条测试全绿,而势/水势在游戏里从头到尾不可见。
+  2. **给共享的交互状态赋予新含义时,要回头查它所有的读取点。** 同一个字段被两条路径读、
+     只改了其中一条,是这一层最常见的静默 bug:`_pendingAttackMode` 曾被拖放路径漏设、
+     `_allyTargeting` 从「纯友方字专用」扩成「双向态也用」后 `onDrop` 那条旧分支没跟上,
+     两次都是**方向判反且 AP 照扣**。改完 `grep` 一遍那个字段的每一处读写,别只改手上这条路径。
+- ⚠️ **在 git worktree 里跑 prescompile 要覆盖程序集路径**——`Brushblade/Library/` 不入 git,
+  新 worktree 里不存在,得借主检出的(否则 CS0006 找不到 UI/TMP):
   ```bash
-  # pytest:tools/fonts/raw/ 不入 git,而 glyph_refs.py 把路径写死成 __file__/../raw,只能软链
-  ln -s /Users/eugenewu/code/game/tools/fonts/raw tools/fonts/raw   # 否则 fonts 测试挂 9 条
-  # prescompile:Brushblade/Library/ 不入 git,借主检出的程序集(否则 CS0006 找不到 UI/TMP)
   dotnet build --nologo -v q -p:ProjectAsm=/Users/eugenewu/code/game/Brushblade/Library/ScriptAssemblies
   ```
-  coretests 不依赖二者,worktree 里直接跑;`tools/pipeline/data/raw/` 也不用管(管线测试只吃
-  白名单里的 `ids.txt`)。
+  coretests 与 pytest 在 worktree 里直接跑,无需前置(`tools/fonts/raw/` 自 2026-08-25 起
+  已入 git —— 旧稿要求的那条软链**不再需要**,2026-09-02 实测确认;`tools/pipeline/data/raw/`
+  本来就不用管,管线测试只吃白名单里的 `ids.txt`)。
+- ⚠️ **worktree 与主检出共享同一个 stash 栈**:`git stash pop` 会弹出别人未提交的改动。
+  要对比改动前后用 `git show HEAD:<path>` 或 `git diff`,**别用 stash**(2026-09-02 有两个
+  agent 各踩一次,其中一次在 BattleView.cs 上留下了别的分支的冲突标记)。
+- ⚠️ **合并回 main 得先退出 worktree**:main 正被主检出 checkout 着,从 worktree 往它 push
+  会被 git 拒(`branch is currently checked out`),`cd`/`-C` 指向主检出也会被会话隔离拦下。
+  用 `ExitWorktree` 回到主检出再 merge —— 那是唯一一条通路。
 - ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
   NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
   集合子集用 `Has.All.Matches<T>`。
