@@ -1602,35 +1602,38 @@ namespace Brushblade.Presentation
             if (seal > 0) statusChips.Add(new($"−{seal}AP", Theme.InkSoft, Color.white, "seal"));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0) statusChips.Add(new($"{playerBurn}", Theme.Cinnabar, Color.white, "burn"));
-            int immunity = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity);
-            if (immunity > 0) statusChips.Add(new($"{immunity}", Theme.Jade, Color.white, "immunity"));
-            int reflect = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect);
-            if (reflect > 0) statusChips.Add(new($"{reflect}%", Theme.Jade, Color.white, "reflect"));
+            // 以下增益一律**只出图标、不带数字**(2026-09-02 用户拍板,与召唤物格同口径)。
+            // 分野是「这条要不要按量权衡」:负面(封字扣几 AP、灼烧几层、被减速多少)是决策依据,
+            // 数字留着;正面玩家只需知道「生效了」,攒了多少去详情看 —— 一排数字在 120pt 宽的
+            // 状态栏里糊成一团,反而读不出挂了哪几样。
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "immunity"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "reflect"));
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
-            int attackBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff);
-            if (attackBuff > 0) statusChips.Add(new($"+{attackBuff}", Theme.Gold, Color.white, "attack"));
-            int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
-            if (morale > 0) statusChips.Add(new($"{morale}", Theme.Gold, Color.white, "morale"));
-            // 暴击率(2026-08-12,锋):读 EffectiveCrit(已钳到 100)而不是状态总量 ——
-            // 叠 6 张锋时玩家该看到的是 100 不是 120
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff) > 0)
+                statusChips.Add(new("", Theme.Gold, Color.white, "attack"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale) > 0)
+                statusChips.Add(new("", Theme.Gold, Color.white, "morale"));
+            // 暴击(2026-08-12,锋):判据仍读 EffectiveCrit(已钳到 100)而不是状态总量 ——
+            // 数字虽然不显示了,但「叠满没叠满」的口径要与详情一致
             if (Battle.EffectiveCrit > 0)
-                statusChips.Add(new($"{Battle.EffectiveCrit}%", Theme.Gold, Color.white, "crit"));
-            // 穿透(2026-08-12,锐):读状态总量而不是某次结算的有效值 —— 穿透打谁减多少要看
-            // 那只怪的甲,玩家该看到的是自己攒了多少
-            int pierceBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff);
-            if (pierceBuff > 0) statusChips.Add(new($"{pierceBuff}", Theme.Gold, Color.white, "pierce"));
+                statusChips.Add(new("", Theme.Gold, Color.white, "crit"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff) > 0)
+                statusChips.Add(new("", Theme.Gold, Color.white, "pierce"));
             // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻——
             // 基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」(与穿透同口径)。
-            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见。
-            int defenseBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff);
-            if (defenseBuff > 0) statusChips.Add(new($"+{defenseBuff}", Theme.Jade, Color.white, "defense"));
-            int dodgeBuff = Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff);
-            if (dodgeBuff > 0) statusChips.Add(new($"+{dodgeBuff}%", Theme.Jade, Color.white, "dodge"));
+            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 ——
+            // 也因此速度是唯一一条「正向不带数字、负向带数字」的,它一条横跨两族。
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "defense"));
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff) > 0)
+                statusChips.Add(new("", Theme.Jade, Color.white, "dodge"));
             int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod != 0)
-                statusChips.Add(new(speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
+                statusChips.Add(new(speedMod > 0 ? "" : $"−{-speedMod}",
                     speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, 12, 2,
                 ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
@@ -2092,32 +2095,39 @@ namespace Brushblade.Presentation
         private static void AddSummonStatusChips(List<Ui.ChipSpec> chips, SummonState summon)
         {
             var st = summon.Statuses;
-            void Add(StatusKind kind, string icon, Color bg, string suffix = "")
+            // 负面带数字,正面只出图标(2026-09-02 用户拍板)。分野是「这条要不要按量权衡」:
+            // 负面直接影响它还能不能替你挡刀 —— 流血每回合掉多少、破了多少甲,数字是决策依据;
+            // 正面玩家只需知道「生效了」,攒了多少去详情弹窗看,格子上一排数字反而糊成一团。
+            void Debuff(StatusKind kind, string icon, Color bg, string suffix = "")
             {
                 int n = st.TotalMagnitude(kind);
                 if (n > 0) chips.Add(new($"{n}{suffix}", bg, Color.white, icon));
             }
+            void Buff(StatusKind kind, string icon, Color bg)
+            {
+                if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Color.white, icon));
+            }
 
             // ---- 负面:先出,不该被截断 ----
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
-            Add(StatusKind.Bleed, "bleed", Theme.Cinnabar);
-            Add(StatusKind.Curse, "curse", Theme.InkSoft, "%");
-            Add(StatusKind.ArmorBreak, "armorbreak", Theme.InkSoft);
+            Debuff(StatusKind.Bleed, "bleed", Theme.Cinnabar);
+            Debuff(StatusKind.Curse, "curse", Theme.InkSoft, "%");
+            Debuff(StatusKind.ArmorBreak, "armorbreak", Theme.InkSoft);
             // 速度:负向才出(与敌人格同口径),正向的「疾」是被动不是状态,已由 SummonPassiveChip 出
             int speedMod = st.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod < 0) chips.Add(new($"−{-speedMod}", Theme.InkSoft, Color.white, "slow"));
 
-            // ---- 正面 ----
-            Add(StatusKind.Immunity, "immunity", Theme.Jade);
-            Add(StatusKind.HealOverTime, "heal", Theme.Jade);
-            Add(StatusKind.DefenseBuff, "defense", Theme.Jade);
-            Add(StatusKind.DodgeBuff, "dodge", Theme.Jade, "%");
-            Add(StatusKind.Reflect, "reflect", Theme.Jade, "%");
-            Add(StatusKind.AttackBuff, "attack", Theme.Gold, "%");
-            Add(StatusKind.Morale, "morale", Theme.Gold);
-            Add(StatusKind.CritBuff, "crit", Theme.Gold, "%");
-            Add(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
-            if (speedMod > 0) chips.Add(new($"+{speedMod}", Theme.Jade, Color.white, "speed"));
+            // ---- 正面:只出图标 ----
+            Buff(StatusKind.Immunity, "immunity", Theme.Jade);
+            Buff(StatusKind.HealOverTime, "heal", Theme.Jade);
+            Buff(StatusKind.DefenseBuff, "defense", Theme.Jade);
+            Buff(StatusKind.DodgeBuff, "dodge", Theme.Jade);
+            Buff(StatusKind.Reflect, "reflect", Theme.Jade);
+            Buff(StatusKind.AttackBuff, "attack", Theme.Gold);
+            Buff(StatusKind.Morale, "morale", Theme.Gold);
+            Buff(StatusKind.CritBuff, "crit", Theme.Gold);
+            Buff(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
+            if (speedMod > 0) chips.Add(new("", Theme.Jade, Color.white, "speed"));
         }
 
         // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
