@@ -735,14 +735,34 @@ namespace Brushblade.Presentation
             return go;
         }
 
-        /// <summary>奖励式广告位:绿边圆角 + 播放三角 + 绿字。</summary>
+        /// <summary>奖励式广告位:绿边圆角 + 播放三角 + 绿字。
+        /// 内部字号/图标/圆角/间距原先是定死的 15/9×11/10/5——轮三 Task 4 把战利品弹窗那枚从
+        /// (190,44) 撑到 (280,63)(稿 .adbadge height 30pt→63)时没跟着改,撑大的胶囊里蜷着一行
+        /// 小字。改为按 <paramref name="size"/> 的高度相对稿本身的比例缩放:基准取稿 .adbadge
+        /// 自己的换算值——font-size 10pt→21、border-radius 15pt→31、gap 5pt→10、播放三角
+        /// svg 7×8pt→15×17,对应基准高度 30pt→63;其它调用点(战利品广告位以外的商城/地图/
+        /// 复活入口,高度都不是 63)按自己传入的高度与 63 的比例整体缩放,不传 size 时走的默认
+        /// (130,40) 同样落在这条缩放公式里,不会缺分支(2026-09-02)。</summary>
         public static Button AdBadge(Transform parent, string text, Action onClick, Vector2? size = null)
         {
             var s = size ?? new Vector2(130, 40);
+            const float RefHeight = 63f; // 稿 .adbadge height 30pt→63,做缩放基准
+            const float RefFont = 21f;   // 稿 font-size 10pt→21
+            const float RefRadius = 31f; // 稿 border-radius 15pt→31
+            const float RefGap = 10f;    // 稿 gap 5pt→10
+            const float RefIconW = 15f;  // 稿播放三角 svg width 7pt→15
+            const float RefIconH = 17f;  // 稿播放三角 svg height 8pt→17
+            float scale = s.y / RefHeight;
+            int fontSize = Mathf.RoundToInt(RefFont * scale);
+            int radius = Mathf.RoundToInt(RefRadius * scale);
+            float gap = RefGap * scale;
+            float iconW = RefIconW * scale;
+            float iconH = RefIconH * scale;
+
             var go = new GameObject("AdBadge", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var border = go.AddComponent<Image>();
-            border.sprite = Theme.Rounded(10);
+            border.sprite = Theme.Rounded(radius);
             border.type = Image.Type.Sliced;
             border.color = Theme.AdGreen;
             var element = go.AddComponent<LayoutElement>();
@@ -751,22 +771,22 @@ namespace Brushblade.Presentation
 
             var inner = Panel(go.transform, "Face");
             var face = inner.AddComponent<Image>();
-            face.sprite = Theme.Rounded(10);
+            face.sprite = Theme.Rounded(radius);
             face.type = Image.Type.Sliced;
             face.color = Theme.AdGreenBg;
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
                 new Vector2(1.5f, 1.5f), new Vector2(-1.5f, -1.5f));
 
-            var row = Row(inner.transform, "Content", 5);
+            var row = Row(inner.transform, "Content", gap);
             Stretch((RectTransform)row.transform);
             var icon = Panel(row.transform, "Play");
             var iconImage = icon.AddComponent<Image>();
             iconImage.sprite = Theme.Triangle;
             iconImage.color = Theme.AdGreen;
             var iconElement = icon.AddComponent<LayoutElement>();
-            iconElement.preferredWidth = 9;
-            iconElement.preferredHeight = 11;
-            ThemedLabel(row.transform, text, 15, Theme.AdGreenText, Theme.TitleFont);
+            iconElement.preferredWidth = iconW;
+            iconElement.preferredHeight = iconH;
+            ThemedLabel(row.transform, text, fontSize, Theme.AdGreenText, Theme.TitleFont);
 
             var button = go.AddComponent<Button>();
             button.targetGraphic = face;

@@ -64,6 +64,9 @@ namespace Brushblade.Presentation
         private const float EventOptH = 92f;      // 稿 .opt 44pt
         private const float EventPartW = 96f;     // 稿 .tile.sm 46pt
         private const float EventPartH = 121f;    // 稿 .tile.sm 58pt
+        // 收尾批次(2026-09-02):部件牌尺寸轮三 Task 4 已按稿放大,字号当时漏改,还是旧稿
+        // 22/26 那两个数——.tile.sm 里只画字形(没有拼音行),对应稿 .g font-size 21pt→44。
+        private const int EventPartGlyphFont = 44;// 稿 .tile.sm .g font-size 21pt→44
         private const int EventTitleFont = 40;    // 稿 .h font-size 19pt
         private const int EventTextFont = 25;     // 稿 .text font-size 12pt
         // VerticalLayoutGroup 只有一个 spacing,而稿上三段各自的 margin-top 是 8/14/13pt ——
@@ -240,8 +243,12 @@ namespace Brushblade.Presentation
         //     (不是 InBattle),下一次 Refresh 走 DrawReviveCharStep(),DrawBattleSettle
         //     再也不会被调用;
         //   · 点「结算」→ AdvanceAfterBattle() 把 Phase 改成 RunPhase.RunLost,下一次
-        //     Refresh 走 DrawRunEnd()——它只会 Find+Destroy 自己的 "RunEndBanner",认不得
-        //     "SettleBanner" 这个名字。
+        //     Refresh 走 DrawRunEnd(),不会再回到 DrawBattleSettle——写这条论证时(轮三
+        //     Task 2)DrawRunEnd 还是老办法,进来只 Find+Destroy 自己的 "RunEndBanner",
+        //     认不得 "SettleBanner" 这个名字;DrawRunEnd 后来也改成了常驻容器(同下面
+        //     _runEndBanner 那段的办法),但结论没变——这条路径本来就不会再进
+        //     DrawBattleSettle,「建前销毁」那句代码不管改成认哪个名字都没有第二次执行
+        //     的机会。
         // 两条路径都是「建前销毁那句代码再也没有机会执行第二次」的场景,横幅会原地变成
         // 一层永久拦点击的孤儿全屏罩。按 _eventBody 的办法(常驻 + Refresh 开头 Ui.Clear,
         // 见 Refresh 里对应那行)才对:清空这一步与「当前是不是败北结算」完全解耦。
@@ -760,7 +767,6 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)eventBodyGo.transform,
                 new Vector2(0f, EventBodyBottom), new Vector2(1f, EventBodyTop),
                 new Vector2(padSide, 0f), new Vector2(-padSide, 0f));
-            eventBodyGo.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             _eventBody = eventBodyGo.transform;
 
             // 段末横幅两个槽位,常驻 + 全屏拉伸,自己不挂 Image、清空后也没有子物件——
@@ -3236,7 +3242,10 @@ namespace Brushblade.Presentation
                     Refresh();
                 }, new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
             Ui.PillButton(wrap.transform, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
-                Theme.Jade, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill font-size 17pt→36;宽度非换算值,估的
+                Theme.InkSoft, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill.ink;
+            // 与 DrawRunEnd 同语境的钮已改成 InkSoft(稿 RunEnd.dc.html 败北支是 .pill.ink,
+            // 不是绿色)——这里原来还是 Jade,两屏连续的败北画面一绿一蓝,读感不一致,
+            // 收尾批次一并改对(2026-09-02)。字号/宽度换算同上一行不变。
         }
 
         private bool _bannerRunning; // 横幅协程已起:Refresh 会反复走到这里,防重复
@@ -3900,7 +3909,7 @@ namespace Brushblade.Presentation
                 if (!CanGain(charId)) // 不在出阵列表:换到也白换,直接置灰(2026-07-20)
                 {
                     var locked = Ui.RoundButton(parent, charId, null,
-                        Theme.LockedBg, Theme.TextDim, 26, new Vector2(EventPartW, EventPartH), 12);
+                        Theme.LockedBg, Theme.TextDim, EventPartGlyphFont, new Vector2(EventPartW, EventPartH), 12);
                     locked.interactable = false;
                     continue;
                 }
@@ -3934,7 +3943,7 @@ namespace Brushblade.Presentation
                     ShowAlert(Strings.T("battle.dialog.event_char_unaffordable.title"),
                         Strings.T("battle.dialog.event_char_unaffordable.body", ("charId", charId)));
                 }, Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element),
-                    26, new Vector2(EventPartW, EventPartH), 12);
+                    EventPartGlyphFont, new Vector2(EventPartW, EventPartH), 12);
             }
         }
 
@@ -3976,7 +3985,7 @@ namespace Brushblade.Presentation
                     }
                     Refresh();
                 }, picked ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
-                    picked ? Color.white : Theme.ElementSoftFg(def.Element), 22,
+                    picked ? Color.white : Theme.ElementSoftFg(def.Element), EventPartGlyphFont,
                     new Vector2(EventPartW, EventPartH), 12);
             }
         }
