@@ -1776,15 +1776,19 @@ namespace Brushblade.Presentation
                     null, TextAnchor.MiddleRight);
                 Ui.Stretch(hpLabel.rectTransform);
 
-                // chip 行(稿 .cps):被动 + 灼烧,横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑)。
-                // 2026-09-02 用户拍板改成一律「图标 + 数字」:被动从文字标签换成图标,
-                // 而**增益条数「益+2」整条撤掉** —— 它只是个计数,不说明是什么增益,
-                // 正是「全量说明只在详情里」那一类;召唤物详情弹窗会逐条列出每个增益。
+                // chip 行(稿 .cps):被动 + 灼烧 + 身上挂着的每条状态,一律「图标 + 数字」,
+                // 横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑:装不下 ChipMaxLines 行时
+                // 从**尾部**丢弃、末尾补「+N」,所以越靠前的越保得住)。
+                //
+                // 顺序即优先级:被动(它是什么怪)→ 灼烧(正在掉血)→ 其余状态(负面先于正面)。
+                // 2026-09-02:此前这里只有一个「益+2」的条数计数,而条数不告诉玩家是什么增益——
+                // 「锐」给的穿透、「壁」给的护甲都只是那个 2 里的一份,打出去生效没有看不出来。
                 var chipSpecs = new List<Ui.ChipSpec>();
                 var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
                 if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
+                AddSummonStatusChips(chipSpecs, summon);
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize, ChipMaxLines,
                     ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
 
@@ -2072,6 +2076,48 @@ namespace Brushblade.Presentation
             if (passive.Dodge > 0) return ($"{passive.Dodge}%", "dodge");
             if (passive.Speed > 100) return ("", "speed"); // 疾:有没有比快多少更要紧,不带数字
             return ("", null);
+        }
+
+        /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
+        ///
+        /// 此前这里只有一个「益+2」的**条数**计数,而条数不告诉玩家是什么增益 ——
+        /// 「锐」给召唤物加的穿透、「壁」加的护甲,在格子上都只是那个 2 里的一份,
+        /// 玩家看不出自己那几张字打出去到底生效了没有。改成逐条出图标,与玩家状态栏同一套
+        /// 图标与配色(玩家条那份是内联写的,含两处只有玩家才有的特例:暴击读 EffectiveCrit
+        /// 而非状态总量、AP 加成不出格因为 AP 格子数本身就是它的反馈 —— 所以没有合并成一个函数)。
+        ///
+        /// 顺序即优先级:<see cref="Ui.ChipFlow"/> 装不下时从**尾部**丢弃。先负面后正面 ——
+        /// 负面直接回答「它还能不能替我挡刀」,比「它变强了多少」更急。
+        /// 完整说明(每条的机制与时长)在召唤物详情弹窗里。</summary>
+        private static void AddSummonStatusChips(List<Ui.ChipSpec> chips, SummonState summon)
+        {
+            var st = summon.Statuses;
+            void Add(StatusKind kind, string icon, Color bg, string suffix = "")
+            {
+                int n = st.TotalMagnitude(kind);
+                if (n > 0) chips.Add(new($"{n}{suffix}", bg, Color.white, icon));
+            }
+
+            // ---- 负面:先出,不该被截断 ----
+            if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
+            Add(StatusKind.Bleed, "bleed", Theme.Cinnabar);
+            Add(StatusKind.Curse, "curse", Theme.InkSoft, "%");
+            Add(StatusKind.ArmorBreak, "armorbreak", Theme.InkSoft);
+            // 速度:负向才出(与敌人格同口径),正向的「疾」是被动不是状态,已由 SummonPassiveChip 出
+            int speedMod = st.TotalMagnitude(StatusKind.SpeedModifier);
+            if (speedMod < 0) chips.Add(new($"−{-speedMod}", Theme.InkSoft, Color.white, "slow"));
+
+            // ---- 正面 ----
+            Add(StatusKind.Immunity, "immunity", Theme.Jade);
+            Add(StatusKind.HealOverTime, "heal", Theme.Jade);
+            Add(StatusKind.DefenseBuff, "defense", Theme.Jade);
+            Add(StatusKind.DodgeBuff, "dodge", Theme.Jade, "%");
+            Add(StatusKind.Reflect, "reflect", Theme.Jade, "%");
+            Add(StatusKind.AttackBuff, "attack", Theme.Gold, "%");
+            Add(StatusKind.Morale, "morale", Theme.Gold);
+            Add(StatusKind.CritBuff, "crit", Theme.Gold, "%");
+            Add(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
+            if (speedMod > 0) chips.Add(new($"+{speedMod}", Theme.Jade, Color.white, "speed"));
         }
 
         // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
