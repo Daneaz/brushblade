@@ -689,18 +689,6 @@ namespace Brushblade.Presentation
             if (bar.label != null) bar.label.text = shield.ToString();
         }
 
-        /// <summary>召唤物身上挂着几条增益(2026-08-28)。按**条数**数而不是按 Magnitude 求和:
-        /// 那几条的单位互不相同(护甲是点数、暴击是百分点、免疫是次数),加在一起没有意义。
-        /// 走 Polarity 而不是列举 StatusKind —— 将来再让哪条增益能挂给召唤物,这里不用改。</summary>
-        private static int CountBuffs(SummonState summon)
-        {
-            int count = 0;
-            var all = summon.Statuses.All;
-            for (int i = 0; i < all.Count; i++)
-                if (all[i].Polarity == StatusPolarity.Buff && all[i].Magnitude > 0) count++;
-            return count;
-        }
-
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
         {
             if (bar.fill != null)
@@ -1788,17 +1776,15 @@ namespace Brushblade.Presentation
                     null, TextAnchor.MiddleRight);
                 Ui.Stretch(hpLabel.rectTransform);
 
-                // chip 行(稿 .cps):被动 + 灼烧 + 增益条数,从旧顶行右翼搬进信息列 ——
-                // 内容/判据完全不变(SummonPassiveTag/Burn/CountBuffs),只是从竖排小 chip
-                // 摞改成横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑,虽这三项几乎不会溢出)。
+                // chip 行(稿 .cps):被动 + 灼烧,横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑)。
+                // 2026-09-02 用户拍板改成一律「图标 + 数字」:被动从文字标签换成图标,
+                // 而**增益条数「益+2」整条撤掉** —— 它只是个计数,不说明是什么增益,
+                // 正是「全量说明只在详情里」那一类;召唤物详情弹窗会逐条列出每个增益。
                 var chipSpecs = new List<Ui.ChipSpec>();
-                string passiveTag = SummonPassiveTag(summon.Passive);
-                if (passiveTag.Length > 0) chipSpecs.Add(new(passiveTag, Theme.Cinnabar, Color.white));
+                var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
+                if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
-                int buffs = CountBuffs(summon);
-                if (buffs > 0)
-                    chipSpecs.Add(new(Strings.T("summon.buff_count", ("count", buffs)), Theme.Jade, Color.white));
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize, ChipMaxLines,
                     ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
 
@@ -2068,19 +2054,24 @@ namespace Brushblade.Presentation
         /// <summary>召唤物被动的一行提示,让玩家看得出这只树跟别的树不一样。
         /// 一只召唤物只有一种被动(数据侧如此),所以取第一个非零项即可。
         /// 禁用 emoji —— 字体子集补不出来,上线渲染成空框。</summary>
-        private static string SummonPassiveTag(SummonPassive passive)
+        /// <summary>召唤物格上的被动 chip:「图标 + 数字」,不出文字(2026-09-02 用户拍板)。
+        /// 六种被动都有现成图标,所以这一族一条文字都不剩;完整说明在召唤物详情弹窗里
+        /// (<c>SummonInfo</c> 用的是另一族 <c>summon.passive.*</c> 整句,没被本次改动波及)。
+        ///
+        /// ⚠ **附灼与全场灼在格子上看起来一样**(都是 burn 图标 + 层数)。区别是「刷目标」
+        /// 还是「刷全场」,一个图标带不出来,而这正是「全量说明只在详情里」那条口径的代价 ——
+        /// 详情弹窗的 <c>summon.passive.burn_all</c> / <c>burn_single</c> 把两者写得很清楚。
+        /// 将来若要在格子上分开,得新画一枚图标,别用文字绕回去。</summary>
+        private static (string Text, string IconKey) SummonPassiveChip(SummonPassive passive)
         {
-            if (passive == null) return "";
-            if (passive.OnHitBurn > 0)
-                return passive.OnHitBurnAll
-                    ? Strings.T("battle.summon.burn_all", ("n", passive.OnHitBurn))
-                    : Strings.T("battle.summon.burn_attach", ("n", passive.OnHitBurn));
-            if (passive.Thorns > 0) return Strings.T("battle.summon.thorns", ("n", passive.Thorns));
-            if (passive.HealAlly > 0) return Strings.T("battle.summon.heal", ("n", passive.HealAlly));
-            if (passive.OnHitCurse > 0) return Strings.T("battle.summon.curse", ("n", passive.OnHitCurse));
-            if (passive.Dodge > 0) return Strings.T("battle.summon.dodge", ("n", passive.Dodge));
-            if (passive.Speed > 100) return Strings.T("battle.summon.haste");
-            return "";
+            if (passive == null) return ("", null);
+            if (passive.OnHitBurn > 0) return ($"{passive.OnHitBurn}", "burn");
+            if (passive.Thorns > 0) return ($"{passive.Thorns}%", "thorns");
+            if (passive.HealAlly > 0) return ($"{passive.HealAlly}", "heal");
+            if (passive.OnHitCurse > 0) return ($"{passive.OnHitCurse}%", "curse");
+            if (passive.Dodge > 0) return ($"{passive.Dodge}%", "dodge");
+            if (passive.Speed > 100) return ("", "speed"); // 疾:有没有比快多少更要紧,不带数字
+            return ("", null);
         }
 
         // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
@@ -2335,12 +2326,16 @@ namespace Brushblade.Presentation
                 // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
                 // 行时从**尾部**丢弃,末尾补「+N」,所以越靠前的越保得住。
                 // 完整信息仍在敌人详情弹窗里。
+                // 2026-09-02 用户拍板:战场上的状态一律「图标 + 数字」,不用文字描述 ——
+                // 攻「攻 12」→ attack 图标 + 12,护甲「护甲 5」→ defense 图标 + 5。
+                // 全量说明在详情弹窗里(点这只怪就是)。`enemy.defense_chip` 那条文案没删:
+                // EnemyPreview(图鉴预览)还在用它,那儿是有空间摆文字的地方。
                 var chipSpecs = new List<Ui.ChipSpec>
                 {
-                    new(Strings.T("battle.label.enemy_attack", ("attack", enemy.Attack)), Theme.PaperDim, Theme.TextMain),
+                    new($"{enemy.Attack}", Theme.PaperDim, Theme.TextMain, "attack"),
                 };
                 if (enemy.Defense > 0)
-                    chipSpecs.Add(new(Strings.T("enemy.defense_chip", ("defense", enemy.Defense)), Theme.InkSoft, Color.white));
+                    chipSpecs.Add(new($"{enemy.Defense}", Theme.InkSoft, Color.white, "defense"));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
@@ -2378,10 +2373,12 @@ namespace Brushblade.Presentation
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)
                 {
-                    string abilityChip = EnemyInfo.AbilityChipText(enemy);
-                    if (abilityChip.Length > 0)
-                        chipSpecs.Add(new(abilityChip,
-                            Theme.AbilityChipColor(enemy.Def.Ability), Color.white));
+                    // 六种有图标的只出图标(文案为空),缺笔/标点/通假暂时还是文字 ——
+                    // 生效条件全在 AbilityChip 一处,这里只负责「两项都空就不画」。
+                    var (abilityText, abilityIcon) = EnemyInfo.AbilityChip(enemy);
+                    if (abilityText.Length > 0 || abilityIcon != null)
+                        chipSpecs.Add(new(abilityText,
+                            Theme.AbilityChipColor(enemy.Def.Ability), Color.white, abilityIcon));
                 }
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize,
