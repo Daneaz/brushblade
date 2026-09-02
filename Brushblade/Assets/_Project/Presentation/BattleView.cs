@@ -1598,14 +1598,15 @@ namespace Brushblade.Presentation
             // 一个没变,只是从「有则建」改成「恒定占位、内容为空时是一条空槽」——与
             // blk/info/ap 同为结构性四段之一,不能忽有忽无。
             var statusChips = new List<Ui.ChipSpec>();
-            int seal = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal);
-            if (seal > 0) statusChips.Add(new($"−{seal}AP", Theme.InkSoft, Color.white, "seal"));
+            // **只有「跟随回合消亡」的那一类带数字**(2026-09-02 用户拍板,三处同一条判据):
+            // 这一栏里只有灼烧算 —— 它每回合结算一次、层数还随回合衰减,数字回答「这一跳掉多少」。
+            // 其余一概只出图标:封字是**下回合一次性**扣 AP(不是每回合的量)、减速是持续期间恒定的
+            // 修正值、那一排增益更是挂着即生效 —— 玩家要知道的是「挂了哪几样」,
+            // 具体数值去详情弹窗看。一排数字在 120pt 宽的状态栏里糊成一团,反而读不出挂了什么。
+            if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal) > 0)
+                statusChips.Add(new("", Theme.InkSoft, Color.white, "seal"));
             int playerBurn = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Burn);
             if (playerBurn > 0) statusChips.Add(new($"{playerBurn}", Theme.Cinnabar, Color.white, "burn"));
-            // 以下增益一律**只出图标、不带数字**(2026-09-02 用户拍板,与召唤物格同口径)。
-            // 分野是「这条要不要按量权衡」:负面(封字扣几 AP、灼烧几层、被减速多少)是决策依据,
-            // 数字留着;正面玩家只需知道「生效了」,攒了多少去详情看 —— 一排数字在 120pt 宽的
-            // 状态栏里糊成一团,反而读不出挂了哪几样。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Immunity) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "immunity"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
@@ -1625,16 +1626,15 @@ namespace Brushblade.Presentation
                 statusChips.Add(new("", Theme.Gold, Color.white, "pierce"));
             // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻——
             // 基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」(与穿透同口径)。
-            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 ——
-            // 也因此速度是唯一一条「正向不带数字、负向带数字」的,它一条横跨两族。
+            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 —— 但正负都只出图标,
+            // 减了多少与加了多少同样是持续期间的恒定修正,不是每回合的结算量。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "defense"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "dodge"));
             int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod != 0)
-                statusChips.Add(new(speedMod > 0 ? "" : $"−{-speedMod}",
-                    speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
+                statusChips.Add(new("", speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, 12, 2,
                 ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
             stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
@@ -2071,13 +2071,17 @@ namespace Brushblade.Presentation
         /// 将来若要在格子上分开,得新画一枚图标,别用文字绕回去。</summary>
         private static (string Text, string IconKey) SummonPassiveChip(SummonPassive passive)
         {
+            // **特性一律只出图标,不带数字**(2026-09-02 用户拍板,与状态同一条判据):
+            // 数字只留给「跟随回合消亡」的 DOT/HOT。特性是这只召唤物**天生常驻**的,
+            // 不随回合衰减、也不会消失 —— 玩家要知道的是「它是哪一种」,
+            // 具体几层/几点/百分之几去详情弹窗看(summon.passive.* 那一族整句写得很清楚)。
             if (passive == null) return ("", null);
-            if (passive.OnHitBurn > 0) return ($"{passive.OnHitBurn}", "burn");
-            if (passive.Thorns > 0) return ($"{passive.Thorns}%", "thorns");
-            if (passive.HealAlly > 0) return ($"{passive.HealAlly}", "heal");
-            if (passive.OnHitCurse > 0) return ($"{passive.OnHitCurse}%", "curse");
-            if (passive.Dodge > 0) return ($"{passive.Dodge}%", "dodge");
-            if (passive.Speed > 100) return ("", "speed"); // 疾:有没有比快多少更要紧,不带数字
+            if (passive.OnHitBurn > 0) return ("", "burn");
+            if (passive.Thorns > 0) return ("", "thorns");
+            if (passive.HealAlly > 0) return ("", "heal");
+            if (passive.OnHitCurse > 0) return ("", "curse");
+            if (passive.Dodge > 0) return ("", "dodge");
+            if (passive.Speed > 100) return ("", "speed");
             return ("", null);
         }
 
@@ -2095,39 +2099,45 @@ namespace Brushblade.Presentation
         private static void AddSummonStatusChips(List<Ui.ChipSpec> chips, SummonState summon)
         {
             var st = summon.Statuses;
-            // 负面带数字,正面只出图标(2026-09-02 用户拍板)。分野是「这条要不要按量权衡」:
-            // 负面直接影响它还能不能替你挡刀 —— 流血每回合掉多少、破了多少甲,数字是决策依据;
-            // 正面玩家只需知道「生效了」,攒了多少去详情弹窗看,格子上一排数字反而糊成一团。
-            void Debuff(StatusKind kind, string icon, Color bg, string suffix = "")
+            // **只有「跟随回合消亡」的那一类带数字**(2026-09-02 用户拍板):
+            // DOT / HOT —— 灼烧、流血、持续治疗。它们的 Magnitude 是**每回合结算一次的量**,
+            // 数字回答的是「这一跳掉/回多少」,而层数还会随回合衰减,是要按量权衡的东西。
+            //
+            // 其余一概只出图标,包括负面的:诅咒 −30%、破甲 −20、减速 −40、封字 −2AP 都是
+            // **持续期间恒定的修正值**,不是每回合的结算量 —— 玩家要知道的是「挂着没挂着」,
+            // 具体减多少去详情弹窗看。这条判据比先前的「正面/负面」准:破甲是负面却不该带数字,
+            // 持续治疗是正面却该带。
+            void Tick(StatusKind kind, string icon, Color bg)   // 每回合结算,带数字
             {
                 int n = st.TotalMagnitude(kind);
-                if (n > 0) chips.Add(new($"{n}{suffix}", bg, Color.white, icon));
+                if (n > 0) chips.Add(new($"{n}", bg, Color.white, icon));
             }
-            void Buff(StatusKind kind, string icon, Color bg)
+            void Flag(StatusKind kind, string icon, Color bg)   // 挂着即生效,只出图标
             {
                 if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Color.white, icon));
             }
 
             // ---- 负面:先出,不该被截断 ----
             if (st.Has(StatusKind.Freeze)) chips.Add(new("", Theme.InkSoft, Color.white, "freeze"));
-            Debuff(StatusKind.Bleed, "bleed", Theme.Cinnabar);
-            Debuff(StatusKind.Curse, "curse", Theme.InkSoft, "%");
-            Debuff(StatusKind.ArmorBreak, "armorbreak", Theme.InkSoft);
+            Tick(StatusKind.Bleed, "bleed", Theme.Cinnabar);
+            Flag(StatusKind.Curse, "curse", Theme.InkSoft);
+            Flag(StatusKind.ArmorBreak, "armorbreak", Theme.InkSoft);
             // 速度:负向才出(与敌人格同口径),正向的「疾」是被动不是状态,已由 SummonPassiveChip 出
-            int speedMod = st.TotalMagnitude(StatusKind.SpeedModifier);
-            if (speedMod < 0) chips.Add(new($"−{-speedMod}", Theme.InkSoft, Color.white, "slow"));
+            if (st.TotalMagnitude(StatusKind.SpeedModifier) < 0)
+                chips.Add(new("", Theme.InkSoft, Color.white, "slow"));
 
-            // ---- 正面:只出图标 ----
-            Buff(StatusKind.Immunity, "immunity", Theme.Jade);
-            Buff(StatusKind.HealOverTime, "heal", Theme.Jade);
-            Buff(StatusKind.DefenseBuff, "defense", Theme.Jade);
-            Buff(StatusKind.DodgeBuff, "dodge", Theme.Jade);
-            Buff(StatusKind.Reflect, "reflect", Theme.Jade);
-            Buff(StatusKind.AttackBuff, "attack", Theme.Gold);
-            Buff(StatusKind.Morale, "morale", Theme.Gold);
-            Buff(StatusKind.CritBuff, "crit", Theme.Gold);
-            Buff(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
-            if (speedMod > 0) chips.Add(new("", Theme.Jade, Color.white, "speed"));
+            // ---- 正面 ----
+            Tick(StatusKind.HealOverTime, "heal", Theme.Jade); // HOT:每回合回多少,带数字
+            Flag(StatusKind.Immunity, "immunity", Theme.Jade);
+            Flag(StatusKind.DefenseBuff, "defense", Theme.Jade);
+            Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
+            Flag(StatusKind.Reflect, "reflect", Theme.Jade);
+            Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
+            Flag(StatusKind.Morale, "morale", Theme.Gold);
+            Flag(StatusKind.CritBuff, "crit", Theme.Gold);
+            Flag(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
+            if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)
+                chips.Add(new("", Theme.Jade, Color.white, "speed"));
         }
 
         // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
@@ -2412,19 +2422,20 @@ namespace Brushblade.Presentation
                 // 不该在 ChipFlow 装不下时被从尾部丢掉。
                 if (enemy.Statuses.Has(StatusKind.Freeze))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "freeze"));
+                // 减速 / 致盲 / 诅咒都只出图标不带数字(2026-09-02 用户拍板):数字只留给
+                // 「跟随回合消亡」的 DOT/HOT(上面的灼烧就是),而这三条是**持续期间恒定的
+                // 修正值** —— 玩家要知道的是「挂上没挂上」,减多少去详情弹窗看。
                 // 只画负向:正向 SpeedModifier 眼下没有任何来源(唯一施加点是 EffectKind.Slow 的
-                // −50),画加速分支就是死代码。数字是**速度点数**不是百分比,故不带 %。
+                // −50),画加速分支就是死代码。
                 int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 if (speedMod < 0)
-                    chipSpecs.Add(new($"−{-speedMod}", Theme.InkSoft, Color.white, "slow"));
-                int blind = enemy.Statuses.TotalMagnitude(StatusKind.Blind);
-                if (blind > 0)
-                    chipSpecs.Add(new($"−{blind}%", Theme.InkSoft, Color.white, "blind"));
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "slow"));
+                if (enemy.Statuses.TotalMagnitude(StatusKind.Blind) > 0)
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "blind"));
                 if (enemy.Statuses.Has(StatusKind.Silence))
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "silence"));
-                int curse = enemy.Statuses.TotalMagnitude(StatusKind.Curse);
-                if (curse > 0)
-                    chipSpecs.Add(new($"−{curse}%", Theme.InkSoft, Color.white, "curse"));
+                if (enemy.Statuses.TotalMagnitude(StatusKind.Curse) > 0)
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "curse"));
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)
