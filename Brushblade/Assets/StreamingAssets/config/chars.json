@@ -629,12 +629,12 @@
       ],
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 540
-        },
-        {
           "kind": "SpendWaterPower",
           "value": 80
+        },
+        {
+          "kind": "HealSelf",
+          "value": 540
         }
       ],
       "attackEffects": [
@@ -654,12 +654,12 @@
       ],
       "effects": [
         {
-          "kind": "HealSelf",
-          "value": 430
-        },
-        {
           "kind": "SpendWaterPower",
           "value": 50
+        },
+        {
+          "kind": "HealSelf",
+          "value": 430
         }
       ],
       "attackEffects": [
