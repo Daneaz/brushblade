@@ -160,31 +160,101 @@ namespace Brushblade.Presentation
             int radius = 20, float thickness = 2f) =>
             OutlinedPanel(parent, name, fill, border, radius, thickness, out _);
 
-        /// <summary>模态弹窗(2026-07-19 拍板:提示统一弹窗):墨色遮罩 + 宣纸卡 + 按钮行。
-        /// 点按钮或遮罩即关闭(按钮先关再执行动作);返回根节点供外部提前销毁。</summary>
-        /// <summary>模态外壳:墨遮罩 + 宣纸卡 + 标题,返回内容容器供调用方自由填充。
-        /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。</summary>
-        public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
-            bool dismissable, out Transform content)
+        /// <summary>统一浮层外壳(2026-09-01,轮三 Task 1):遮罩 + 宣纸描边卡 + 带内边距的竖排容器。
+        ///
+        /// `Dialogs.dc.html` 定死了一条:全站弹窗是**同一套**外壳 —— 半透遮罩 + 宣纸圆角卡
+        /// **带 1pt 描边**(#DED7C9)+ 内容。没有那条描边,浅色卡会直接融进同样浅色的宣纸底。
+        /// 此前 <see cref="ModalShell"/> 用的是无边 <see cref="CardPanel"/>,而 UnitSheet 自己
+        /// 手写了一份带描边的 —— 两套外壳各写各的,正是这次要收掉的东西。
+        ///
+        /// ⚠ 2026-09-02 review 修(Critical):「同屏只留一个」**只对显式共用同一个 <paramref
+        /// name="name"/> 的调用方生效**,不是全站任意两个浮层互斥——稿上「新的弹出前先销毁
+        /// 旧的,否则叠成一摞、点不到底下那层」说的是**同一族流程弹窗**排队,不是不同族的
+        /// 浮层也要互相清场。此前 <see cref="ModalShell"/> 把 name 硬编码成 <c>"Modal"</c>
+        /// 且无条件走销毁分支,导致当时的 11 个既有调用点互相残杀:战利品弹窗(<c>_rewardModal</c>)
+        /// 与长按预览(<c>_modal</c>)是<c>BattleView</c>刻意分层、要同屏共存的两张浮层,
+        /// 都经 <see cref="ModalShell"/> 建在同一个 <c>"Modal"</c> 名下,预览一弹出就把
+        /// 战利品弹窗自己销毁了(而且没有回调重建)。修法是加一个开关:调用方自己决定
+        /// 是否参与「按名互斥」——<see cref="ModalShell"/> 传 false(维持轮三之前「从不销毁」
+        /// 的既有行为),<see cref="UnitSheet.Show"/> 传 true(它的滚动位置保留机制本就
+        /// 建立在「销毁上一个同名实例」上)。后续 Task 2/3 的战斗流程浮层会共用同一个名字
+        /// <c>"BattleSheet"</c> 并传 true,那条「同族排队」的规矩落在那里,不落在这里。
+        ///
+        /// ⚠ 吃点击的 Button 必须挂在**外层**、targetGraphic 指向 <c>face</c>:
+        /// <see cref="OutlinedPanel"/> 对 face 无条件设了 raycastTarget = false,
+        /// 挂在 face 身上的 Button 永远吃不到点击,点击会穿透下去命中遮罩的关闭按钮。</summary>
+        /// <param name="dismissable">点遮罩是否关闭。必须做出选择的流程(战利品、换字)传 false。</param>
+        /// <param name="replaceSameName">true 时才会在建之前销毁 <paramref name="root"/> 下的
+        /// 同名节点——只给「显式共用同一个 name、要按名互斥排队」的调用方(如
+        /// <see cref="UnitSheet.Show"/>)传 true;不同族、要同屏共存的浮层各用各的 name,
+        /// 或者干脆传 false,不参与这条互斥。</param>
+        public static GameObject Sheet(Transform root, string name, float width, float height,
+            bool dismissable, bool replaceSameName, Color scrim, out Transform content)
         {
-            var overlay = new GameObject("Modal", typeof(RectTransform), typeof(Image));
+            if (replaceSameName)
+            {
+                var stale = root.Find(name);
+                if (stale != null) UnityEngine.Object.Destroy(stale.gameObject);
+            }
+
+            var overlay = new GameObject(name, typeof(RectTransform), typeof(Image));
             overlay.transform.SetParent(root, false);
             var mask = overlay.GetComponent<Image>();
-            mask.color = new Color(0.12f, 0.10f, 0.08f, 0.55f); // 墨色半透遮罩
+            mask.color = scrim;
             Stretch((RectTransform)overlay.transform);
             var maskButton = overlay.AddComponent<Button>();
             maskButton.targetGraphic = mask;
             if (dismissable)
                 maskButton.onClick.AddListener(() => UnityEngine.Object.Destroy(overlay));
 
-            var card = CardPanel(overlay.transform, "Dialog");
-            Anchor((RectTransform)card.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                -halfSize, halfSize);
+            var outer = OutlinedPanel(overlay.transform, "Card", Theme.PanelPaper, Theme.PanelBorder,
+                SheetRadius, SheetBorder, out var face);
+            Anchor((RectTransform)outer.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(-width / 2f, -height / 2f), new Vector2(width / 2f, height / 2f));
+            // 这个 Button 只为**吃掉**落在卡片本体上的点击(不让它穿透到遮罩去关掉弹窗),
+            // 不是一个可按的控件 —— 必须关掉过渡效果。Button 默认 ColorTint:按下整张卡面
+            // 乘 0.78、抬手后停在 selectedColor 0.96,于是点一下卡片本体、卡面就闪暗一下,
+            // 全站弹窗(含 UnitSheet / 两张 BattleSheet)一处不落。同款写法见 BattleView 的
+            // Backdrop(那块也是纯粹的「吃点击层」)。(2026-09-02 收尾波)
+            var faceButton = outer.gameObject.AddComponent<Button>();
+            faceButton.transition = Selectable.Transition.None;
+            faceButton.targetGraphic = face;
 
-            var stack = VStack(card.transform, "Stack", 12);
+            var stack = VStack(face.transform, "Stack", SheetSpacing);
             Stretch((RectTransform)stack.transform);
-            ThemedLabel(stack.transform, title, 24, Theme.TextMain, Theme.TitleFont);
+            var layout = stack.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.padding = new RectOffset(SheetPad, SheetPad, SheetPad, SheetPad);
             content = stack.transform;
+            return overlay;
+        }
+
+        public static GameObject Sheet(Transform root, string name, float width, float height,
+            bool dismissable, bool replaceSameName, out Transform content) =>
+            Sheet(root, name, width, height, dismissable, replaceSameName, Theme.Scrim, out content);
+
+        private const int SheetRadius = 18;    // 稿 9pt 圆角
+        // 这两个是 internal 而非 private:调用方要按「浮层还剩多少净宽」反算内容尺寸时
+        // (见 BattleView.DrawReplaceSheet 按字库张数反算牌宽),必须扣掉描边内缩与内边距。
+        // 抄一份常数到调用方那边会两边各改各的、悄悄漂开,索性让它们读同一个数。
+        internal const float SheetBorder = 1.5f; // 稿 1pt 描边(左右各内缩一次)
+        private const float SheetSpacing = 14f;
+        internal const int SheetPad = 24;        // 内容容器左右内边距(各一次)
+
+        /// <summary>模态外壳:坐在 <see cref="Sheet"/> 上,标题写进内容容器。
+        /// dismissable = 点遮罩是否关闭——必须做出选择的流程(战利品)传 false。
+        /// ⚠ 2026-09-02 review 修:对 <see cref="Sheet"/> 传 <c>replaceSameName: false</c>——
+        /// 所有调用点共用同一个 name("Modal"),但互相之间并不是「同族排队」关系
+        /// (战利品弹窗与长按预览要同屏共存),按名互斥会把其中一个误杀,详见 Sheet 的文档。
+        /// 数目:出问题那会儿(53ee2bf)直连本方法的是 11 处;轮三把战斗流程浮层(选字/换字)
+        /// 全迁去 Ui.Sheet 之后,今天只剩 5 处(PerkView / CollectionView / CharPreview /
+        /// EnemyPreview / 本文件的 Ui.Modal)。原注释写的「13」两处都不对(2026-09-02 收尾波)。</summary>
+        public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
+            bool dismissable, out Transform content)
+        {
+            var overlay = Sheet(root, "Modal", halfSize.x * 2f, halfSize.y * 2f,
+                dismissable, replaceSameName: false, out content);
+            ThemedLabel(content, title, 24, Theme.TextMain, Theme.TitleFont);
             return overlay;
         }
 
@@ -678,14 +748,34 @@ namespace Brushblade.Presentation
             return go;
         }
 
-        /// <summary>奖励式广告位:绿边圆角 + 播放三角 + 绿字。</summary>
+        /// <summary>奖励式广告位:绿边圆角 + 播放三角 + 绿字。
+        /// 内部字号/图标/圆角/间距原先是定死的 15/9×11/10/5——轮三 Task 4 把战利品弹窗那枚从
+        /// (190,44) 撑到 (280,63)(稿 .adbadge height 30pt→63)时没跟着改,撑大的胶囊里蜷着一行
+        /// 小字。改为按 <paramref name="size"/> 的高度相对稿本身的比例缩放:基准取稿 .adbadge
+        /// 自己的换算值——font-size 10pt→21、border-radius 15pt→31、gap 5pt→10、播放三角
+        /// svg 7×8pt→15×17,对应基准高度 30pt→63;其它调用点(战利品广告位以外的商城/地图/
+        /// 复活入口,高度都不是 63)按自己传入的高度与 63 的比例整体缩放,不传 size 时走的默认
+        /// (130,40) 同样落在这条缩放公式里,不会缺分支(2026-09-02)。</summary>
         public static Button AdBadge(Transform parent, string text, Action onClick, Vector2? size = null)
         {
             var s = size ?? new Vector2(130, 40);
+            const float RefHeight = 63f; // 稿 .adbadge height 30pt→63,做缩放基准
+            const float RefFont = 21f;   // 稿 font-size 10pt→21
+            const float RefRadius = 31f; // 稿 border-radius 15pt→31
+            const float RefGap = 10f;    // 稿 gap 5pt→10
+            const float RefIconW = 15f;  // 稿播放三角 svg width 7pt→15
+            const float RefIconH = 17f;  // 稿播放三角 svg height 8pt→17
+            float scale = s.y / RefHeight;
+            int fontSize = Mathf.RoundToInt(RefFont * scale);
+            int radius = Mathf.RoundToInt(RefRadius * scale);
+            float gap = RefGap * scale;
+            float iconW = RefIconW * scale;
+            float iconH = RefIconH * scale;
+
             var go = new GameObject("AdBadge", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var border = go.AddComponent<Image>();
-            border.sprite = Theme.Rounded(10);
+            border.sprite = Theme.Rounded(radius);
             border.type = Image.Type.Sliced;
             border.color = Theme.AdGreen;
             var element = go.AddComponent<LayoutElement>();
@@ -694,22 +784,22 @@ namespace Brushblade.Presentation
 
             var inner = Panel(go.transform, "Face");
             var face = inner.AddComponent<Image>();
-            face.sprite = Theme.Rounded(10);
+            face.sprite = Theme.Rounded(radius);
             face.type = Image.Type.Sliced;
             face.color = Theme.AdGreenBg;
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
                 new Vector2(1.5f, 1.5f), new Vector2(-1.5f, -1.5f));
 
-            var row = Row(inner.transform, "Content", 5);
+            var row = Row(inner.transform, "Content", gap);
             Stretch((RectTransform)row.transform);
             var icon = Panel(row.transform, "Play");
             var iconImage = icon.AddComponent<Image>();
             iconImage.sprite = Theme.Triangle;
             iconImage.color = Theme.AdGreen;
             var iconElement = icon.AddComponent<LayoutElement>();
-            iconElement.preferredWidth = 9;
-            iconElement.preferredHeight = 11;
-            ThemedLabel(row.transform, text, 15, Theme.AdGreenText, Theme.TitleFont);
+            iconElement.preferredWidth = iconW;
+            iconElement.preferredHeight = iconH;
+            ThemedLabel(row.transform, text, fontSize, Theme.AdGreenText, Theme.TitleFont);
 
             var button = go.AddComponent<Button>();
             button.targetGraphic = face;

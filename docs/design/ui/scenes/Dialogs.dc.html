@@ -126,11 +126,16 @@
     <h3>局内 · 不可逆抉择</h3>
     <div class="row">
       <div>
+        <!-- 2026-09-01 回填：原文「弃塔：墨锭半额结算」+ 按钮「弃塔（半额）」。半额 2026-08-30 已取消
+             （见 GameRoot.SettleTower 的注释：「半额取消后每笔收入都是赚到即结……撤退、阵亡、弃塔拿到的墨锭
+             完全一样」），文案与 strings 的 battle.dialog.suspend_tower.body / battle.btn.abandon 对齐。
+             标红从「墨锭半额结算」挪到「本趟到此为止」——半额取消后墨锭这半句不再是坏消息，真正不可逆的
+             是「弃塔即中断，回不去了」这半句，标红该落在这里。 -->
         <div class="dlg"><div class="inner">
           <div class="t">离 塔</div>
           <div class="b">挂起：保留进度，下次从本层继续
-弃塔：<em>墨锭半额结算</em>，层数纪录保留</div>
-          <div class="btns"><button class="btn ink">挂起离塔</button><button class="btn cinnabar">弃塔（半额）</button><button class="btn quiet">取消</button></div>
+弃塔：<em>本趟到此为止</em>；墨锭早已随赚随入账，层数纪录保留</div>
+          <div class="btns"><button class="btn ink">挂起离塔</button><button class="btn cinnabar">弃塔</button><button class="btn quiet">取消</button></div>
         </div></div>
         <div class="cap">战斗屏「退出」 · <code>battle.dialog.suspend_tower</code>｜无尽模式专有；关卡模式走下面那个</div>
       </div>

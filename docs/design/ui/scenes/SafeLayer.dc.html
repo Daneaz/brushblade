@@ -129,11 +129,14 @@
         <div class="forks">
           <div class="fork">
             <button class="pill cinnabar">深入「墨海」第 31~35 层</button>
-            <div class="why">滚存带进下一段继续累加<br>途中<b>阵亡则墨锭减半</b></div>
+            <!-- 2026-09-01 回填：原文是「途中阵亡则墨锭减半」。半额 2026-08-30 已取消
+                 （见 GameRoot.SettleTower 的注释：「半额取消后每笔收入都是赚到即结」），
+                 稿比代码旧，按现行规则改写。 -->
+            <div class="why">滚存带进下一段继续累加<br><i>墨锭赚到即入账，阵亡也不打折</i></div>
           </div>
           <div class="fork">
             <button class="pill ink">收官撤退</button>
-            <div class="why"><i>立即全额结算 340 墨</i><br>层数纪录保留，下次从第 1 层重来</div>
+            <div class="why"><i>立即收官，本趟到此为止</i><br>层数纪录保留，下次从第 1 层重来</div>
           </div>
         </div>
 
@@ -141,7 +144,7 @@
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#88909C" stroke-width="2">
             <circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5v.01"></path>
           </svg>
-          本次未撤退前，这 340 墨都还不是你的
+          深入只赚不赔——墨锭早已入账，再往下是多挣一笔还是空手，全看这一段
         </div>
       </div>
     </div>
