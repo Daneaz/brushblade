@@ -271,13 +271,17 @@ namespace Brushblade.Core.Tests
                 // 2026-08-14 第二批裁定移出字表:熔 / 锤(均为 20 点)。
                 // 2026-08-25 字表重构:溶 / 破 移出(与 碎 / 溃 同质);碎 升蓝 10 → 20、
                 // 溃 降白 20 → 10 —— 两个字的点数正好对调,破甲轴仍是「白 10 / 蓝 20」两级。
-                ["碎"] = 20, ["溃"] = 10,
+                ["碎"] = 20,
             };
             foreach (var pair in expected)
             {
                 var brk = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.ArmorBreak);
                 Assert.That(brk.Value, Is.EqualTo(pair.Value), $"「{pair.Key}」破甲削减点数");
             }
+            // 溃(2026-09-02 双方向重配):破甲随攻击面一起搬进 AttackEffects,不再挂在
+            // Effects 上 —— 点数本身不变(10),读取位置跟着改。
+            var kui = graph.Get("溃").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
+            Assert.That(kui.Value, Is.EqualTo(10), "「溃」破甲削减点数");
         }
 
         [Test]
@@ -344,7 +348,8 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(-1), "灭清全部");
             // 2026-08-14 第二批裁定移出字表:削(清一条)/ 刮(清全部)。
             // 「清一条」的载体现在只剩 淡(全体各清一条),见下。
-            var dan = graph.Get("淡").Effects.First(e => e.Kind == EffectKind.Dispel);
+            // 2026-09-02 双方向重配:淡 的驱散随攻击面搬进 AttackEffects,治疗面回归纯治疗。
+            var dan = graph.Get("淡").AttackEffects.First(e => e.Kind == EffectKind.Dispel);
             Assert.That(dan.TargetAll, Is.True, "淡是全体各清一条");
             Assert.That(dan.Value, Is.EqualTo(1));
         }
@@ -360,10 +365,14 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("浴").Effects.Any(e => e.Kind == EffectKind.Cleanse), Is.True);
             // 2026-08-25 字表重构:活 移出字表(词组归零),复活机制移交 浴(「浴火重生」)——
             // 浴 于是同时是净化与复活的载体,蓝档一张纯功能牌。
-            Assert.That(graph.Get("浴").Effects.First(e => e.Kind == EffectKind.Revive).Value,
+            // 2026-09-02 双方向重配:浴 拆成治疗面(HealSelf + Cleanse)/攻击面(Revive +
+            // DamageSingle)——复活随攻击面搬进 AttackEffects,净化仍留在治疗面。
+            Assert.That(graph.Get("浴").AttackEffects.First(e => e.Kind == EffectKind.Revive).Value,
                 Is.EqualTo(1));
             Assert.That(graph.All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
-                .Any(e => e.Kind == EffectKind.Revive)), Is.EqualTo(1), "复活当前只有 浴 一个载体");
+                    .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())
+                    .Any(e => e.Kind == EffectKind.Revive)),
+                Is.EqualTo(1), "复活当前只有 浴 一个载体");
         }
 
         [Test]

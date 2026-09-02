@@ -630,11 +630,17 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 350
+          "value": 540
         },
         {
+          "kind": "SpendWaterPower",
+          "value": 80
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageAll",
-          "value": 200
+          "value": 250
         }
       ]
     },
@@ -649,11 +655,17 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 210
+          "value": 430
         },
         {
+          "kind": "SpendWaterPower",
+          "value": 50
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageAll",
-          "value": 60
+          "value": 190
         }
       ]
     },
@@ -667,8 +679,14 @@
       ],
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 430
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageAll",
-          "value": 180
+          "value": 133
         },
         {
           "kind": "Dispel",
@@ -688,11 +706,13 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 160
-        },
+          "value": 340
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 135
+          "value": 340
         }
       ]
     },
@@ -706,8 +726,14 @@
       ],
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 150
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageSingle",
-          "value": 130
+          "value": 105
         },
         {
           "kind": "Dispel",
@@ -725,8 +751,14 @@
       ],
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 180
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageSingle",
-          "value": 70
+          "value": 180
         }
       ]
     },
@@ -739,6 +771,12 @@
         "每"
       ],
       "effects": [
+        {
+          "kind": "HealSelf",
+          "value": 70
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageAll",
           "value": 50
@@ -755,8 +793,14 @@
       ],
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 45
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageSingle",
-          "value": 30,
+          "value": 32,
           "shape": "Chain",
           "shots": 3,
           "shapePercent": 50
@@ -777,8 +821,14 @@
       ],
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 340
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageSingle",
-          "value": 220,
+          "value": 238,
           "doubleVs": "Controlled"
         },
         {
@@ -797,12 +847,18 @@
       ],
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 45
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "Freeze",
           "value": 1
         },
         {
           "kind": "DamageSingle",
-          "value": 30
+          "value": 32
         }
       ]
     },
@@ -816,12 +872,18 @@
       ],
       "effects": [
         {
+          "kind": "HealSelf",
+          "value": 110
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "Slow",
           "value": 2
         },
         {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 77
         }
       ]
     },
@@ -836,11 +898,13 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 210
-        },
+          "value": 430
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 70
+          "value": 190
         }
       ]
     },
@@ -855,7 +919,17 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 50
+          "value": 105
+        },
+        {
+          "kind": "Cleanse",
+          "value": 0
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 105
         },
         {
           "kind": "Cleanse",
@@ -874,12 +948,14 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 60,
+          "value": 113,
           "turns": 3
-        },
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 100
+          "value": 340
         }
       ]
     },
@@ -893,12 +969,22 @@
       ],
       "effects": [
         {
-          "kind": "Revive",
-          "value": 1
+          "kind": "HealSelf",
+          "value": 77
         },
         {
           "kind": "Cleanse",
           "value": 0
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "Revive",
+          "value": 1
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 77
         }
       ]
     },

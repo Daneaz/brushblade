@@ -132,7 +132,7 @@ def recipe_for(char, index):
 
 
 def build_chars(ids_text, values):
-    """values: {字: {element, rarity, effects, pinyin?, gloss?}} → {"chars": [...]}"""
+    """values: {字: {element, rarity, effects, attackEffects?, pinyin?, gloss?}} → {"chars": [...]}"""
     index = build_index(parse_ids_text(ids_text))
 
     # COMPONENT_RECIPES 的 key 必须是纯部件 —— 若某个 key 同时是可出牌字,它的配方会被
@@ -167,6 +167,8 @@ def build_chars(ids_text, values):
                 entry[optional] = spec[optional]
         if spec.get("effects"):
             entry["effects"] = [_output_effect(e) for e in spec["effects"]]
+        if spec.get("attackEffects"):
+            entry["attackEffects"] = [_output_effect(e) for e in spec["attackEffects"]]
         entries.append(entry)
 
     # 部件条目:先做闭包 —— 部件自己也可能有配方(COMPONENT_RECIPES),它的原料同样要落地。

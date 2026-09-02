@@ -1,0 +1,116 @@
+using System.Linq;
+using Brushblade.Core;
+using NUnit.Framework;
+
+namespace Brushblade.Core.Tests
+{
+    /// <summary>水/土两系「纯二选一」双方向字的形状与数值(2026-09-02,水土双方向)。
+    ///
+    /// 口径:<see cref="CharDef.Effects"/> = 治疗面(双击选「护」),
+    /// <see cref="CharDef.AttackEffects"/> = 攻击面(双击选「攻」/拖到敌人身上)。
+    ///
+    /// **本文件只写 Task 10(水系 15 字)的用例。** Task 11(土系)、Task 12(火系两个数)
+    /// 会往同一个文件里加自己的方法,互不冲突(见 progress.md 的 pre-flight 扫描)。</summary>
+    public sealed class DualDirectionTests
+    {
+        private static readonly string[] WaterChars =
+        {
+            "溃", "冻", "海", "冷", "浴", "湮", "沏", "澡",
+            "沝", "冰", "沐", "淼", "淡", "淋", "㵘",
+        };
+
+        private static RecipeGraph LoadRealGraph() => CharTableTests.RealGraph();
+
+        /// <summary>该字治疗面第一条治疗效果的 Value。</summary>
+        private static int HealValueOf(RecipeGraph graph, string id)
+        {
+            var healKinds = new[] { EffectKind.HealSelf, EffectKind.HealAll, EffectKind.HealOverTime };
+            var effect = graph.Get(id).Effects.First(e => healKinds.Contains(e.Kind));
+            return effect.Value;
+        }
+
+        [Test]
+        public void EveryWaterChar_HasBothDirections()
+        {
+            var graph = LoadRealGraph();
+            foreach (var id in WaterChars)
+            {
+                var def = graph.Get(id);
+                Assert.That(def.Effects.Count, Is.GreaterThan(0), $"{id} 缺治疗面");
+                Assert.That(def.AttackEffects.Count, Is.GreaterThan(0), $"{id} 缺攻击面");
+            }
+        }
+
+        [Test]
+        public void EveryWaterChar_HasHealOnSupportSide()
+        {
+            var graph = LoadRealGraph();
+            var healKinds = new[] { EffectKind.HealSelf, EffectKind.HealAll, EffectKind.HealOverTime };
+            foreach (var id in WaterChars)
+            {
+                var def = graph.Get(id);
+                bool heals = def.Effects.Any(e => healKinds.Contains(e.Kind));
+                Assert.That(heals, Is.True, $"{id} 的治疗面没有治疗效果");
+            }
+        }
+
+        [Test]
+        public void WaterCharValues_MatchRarityAnchors()
+        {
+            // 锚点表(spec §4.1):带附加特性的面 x0.7,纯效果取满值。
+            var graph = LoadRealGraph();
+            Assert.That(HealValueOf(graph, "沝"), Is.EqualTo(340), "金档满值");
+            Assert.That(HealValueOf(graph, "㵘"), Is.EqualTo(540), "红档满值");
+            Assert.That(HealValueOf(graph, "浴"), Is.EqualTo(77), "蓝档 110 x0.7(带净化)");
+            Assert.That(HealValueOf(graph, "沏"), Is.EqualTo(180), "紫档 150 x1.2(相生取消后的补偿)");
+        }
+
+        /// <summary>攻击面必须真的能打人 —— 全是伤害类效果(单体/全体),不是挂个状态就算数。
+        /// 钉的是「形状」:溃/冻/海/冷/浴/湮/沏/澡/沝/冰/沐/淼/淡/淋/㵘 的攻击面都带伤害,
+        /// 与 ConfigLoaderTests.ShippedCharsJson_StackedWaterAndEarth_BothDefendAndStrike
+        /// 守的是同一条不变量,只是这条覆盖全部 15 字而不只是 沝。</summary>
+        [Test]
+        public void EveryWaterChar_AttackSideDealsDamage()
+        {
+            var graph = LoadRealGraph();
+            var damageKinds = new[] { EffectKind.DamageSingle, EffectKind.DamageAll };
+            foreach (var id in WaterChars)
+            {
+                var def = graph.Get(id);
+                bool damages = def.AttackEffects.Any(e => damageKinds.Contains(e.Kind));
+                Assert.That(damages, Is.True, $"{id} 的攻击面没有伤害效果");
+            }
+        }
+
+        /// <summary>攻击面用 Cast(attackMode: true) 真的能打到敌人,不只是数据形状对 ——
+        /// 钉住 EffectsOf(def, attackMode: true) 接线,回归 attackEffects 被忽略的坑。</summary>
+        [Test]
+        public void Cast_AttackMode_DealsDamageToEnemy()
+        {
+            var graph = LoadRealGraph();
+            var battle = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
+                new[] { "沝" }, System.Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 100000, 0) }, seed: 1);
+            int before = battle.Enemies[0].Hp;
+            battle.Cast("沝", 0, attackMode: true);
+            Assert.That(battle.Enemies[0].Hp, Is.LessThan(before), "攻击面应打伤敌人");
+        }
+
+        /// <summary>护/治面用 Cast(默认 attackMode: false)真的能回血,与攻击面互斥 ——
+        /// 钉住默认路径没有被攻击面悄悄顶替。</summary>
+        [Test]
+        public void Cast_SupportMode_HealsSelf()
+        {
+            var graph = LoadRealGraph();
+            var battle = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = 1000, PlayerAttack = 100 },
+                new[] { "沝" }, System.Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 100000, 800) }, seed: 1);
+            battle.EndTurn();   // 挨一记,腾出治疗空间
+            int before = battle.PlayerHp;
+            battle.Cast("沝", 0);   // 默认 attackMode: false = 治疗面
+            Assert.That(battle.PlayerHp, Is.GreaterThan(before), "治疗面应回血");
+        }
+    }
+}

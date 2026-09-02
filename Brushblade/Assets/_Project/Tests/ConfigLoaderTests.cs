@@ -114,7 +114,12 @@ namespace Brushblade.Core.Tests
         /// 钉的是**形状**不是数字 —— 沝 曾经是全表唯一只有防御面的字,拖上去打不动人
         /// (2026-07-30 补齐)。数值可调,少了攻击面就是回归。
         /// (方法名与旧注释里的「绿档」已失真:沝 / 圭 随 2026-08-25 字表重构升到金档,
-        ///  但这条守的是「有没有攻击面」这个形状,与档位无关。)</summary>
+        ///  但这条守的是「有没有攻击面」这个形状,与档位无关。)
+        ///
+        /// 2026-09-02(水土双方向,Task 10):沝 的两面拆分成 <c>Effects</c>(治疗)/
+        /// <c>AttackEffects</c>(攻击)两个独立列表,不再挤在同一个 Effects 里 ——
+        /// 断言的读取位置跟着改,「两面都要有」这条不变量本身没变。圭 是 Task 11(土系)
+        /// 的字,仍是旧的合并结构,留到那次重配后再拆。</summary>
         [Test]
         public void ShippedCharsJson_StackedWaterAndEarth_BothDefendAndStrike()
         {
@@ -122,7 +127,8 @@ namespace Brushblade.Core.Tests
                 Path.Combine(Application.streamingAssetsPath, "config/chars.json"));
             var graph = ConfigLoader.LoadGraph(json);
 
-            AssertHasKinds(graph, "沝", EffectKind.HealSelf, EffectKind.DamageSingle);
+            AssertHasKinds(graph, "沝", EffectKind.HealSelf);
+            AssertHasAttackKinds(graph, "沝", EffectKind.DamageSingle);
             AssertHasKinds(graph, "圭", EffectKind.Shield, EffectKind.DamageSingle);
         }
 
@@ -135,6 +141,18 @@ namespace Brushblade.Core.Tests
                 foreach (var effect in def.Effects)
                     if (effect.Kind == kind) found = true;
                 Assert.That(found, Is.True, $"「{id}」缺 {kind}");
+            }
+        }
+
+        private static void AssertHasAttackKinds(RecipeGraph graph, string id, params EffectKind[] kinds)
+        {
+            Assert.That(graph.TryGet(id, out var def), Is.True, id);
+            foreach (var kind in kinds)
+            {
+                bool found = false;
+                foreach (var effect in def.AttackEffects)
+                    if (effect.Kind == kind) found = true;
+                Assert.That(found, Is.True, $"「{id}」缺攻击面 {kind}");
             }
         }
 

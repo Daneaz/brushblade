@@ -8,6 +8,10 @@ ELEMENT = {"火": "Fire", "木": "Wood", "水": "Water", "金": "Metal", "土": 
 RARITY = {"🟡金": "Gold", "🔴红": "Red", "🟠橙": "Orange", "🟣紫": "Purple",
           "🔵蓝": "Blue", "🟢绿": "Green", "⚪白": "White"}
 
+# 纯二选一双方向的系(2026-09-02):这些系的表多一格「攻击效果配置」,见 _parse_row。
+# 水系本批(Task 10)落地;土系留给同批的 Task 11。
+DUAL_DIRECTION_ELEMENTS = {"水"}
+
 # 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
 # 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。
 SUMMON_PASSIVE = {
@@ -106,7 +110,20 @@ def _parse_row(line, element):
     effects = _parse_effects(config, char)
     if not effects:
         return None
-    return char, {"element": ELEMENT[element], "rarity": rarity, "effects": effects}
+    entry = {"element": ELEMENT[element], "rarity": rarity, "effects": effects}
+
+    # 双方向字(2026-09-02,Task 10):水/土两系的表在「效果配置」右边多挂了一格
+    # 「攻击效果配置」——同一行的第二个反引号格,语法与治疗面完全一样,复用
+    # _parse_effects。⚠ 只对 DUAL_DIRECTION_ELEMENTS 生效:其余系的「实现」备注列
+    # 里常年散落着引用 token 名的反引号(如「装配 `DoubleVsControlled`」),不加这道
+    # 元素闸,通用的「第二个反引号格」判据会把那些说明文字误当成攻击效果去解析。
+    if element in DUAL_DIRECTION_ELEMENTS:
+        backticked = [c for c in cells if "`" in c]
+        if len(backticked) > 1:
+            attack_effects = _parse_effects(backticked[1], char)
+            if attack_effects:
+                entry["attackEffects"] = attack_effects
+    return char, entry
 
 
 def _parse_effects(config, char):

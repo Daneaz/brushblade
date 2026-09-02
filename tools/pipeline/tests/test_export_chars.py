@@ -97,9 +97,12 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
 
     2026-08-14 第三批:润(唯一的群体持续治疗)移出字表,targetAll 那半改用 淡 的
     `DispelEach 1` 守 —— 它走的是同一条括注解析路径,是现存唯一带 targetAll 的效果。
+
+    2026-09-02(水系双方向重配,Task 10):淡 的 Dispel 随攻击面独立拆分到
+    `attackEffects`,不再挂在 `effects` 上 —— 断言的读取位置跟着改,解析路径本身未变。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    dan = next(e for e in values["淡"]["effects"] if e["kind"] == "Dispel")
+    dan = next(e for e in values["淡"]["attackEffects"] if e["kind"] == "Dispel")
     assert dan["targetAll"] is True
 
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
@@ -435,8 +438,11 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     assert by_id["蕉"]["effects"][0]["passive"] == {"onHitSlowPercent": 50, "onHitSlowTurns": 2}
 
     # 条件加成(2026-08-25 由 doubleVsBurning 泛化):四系各一个收割位
+    # 2026-09-02:冰 的 doubleVs 随双方向重配(Task 10)挪进 attackEffects,
+    # 扫描范围跟着盖住两个列表 —— 载体本身没变,只是搬了个字段。
     assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
-            for e in c.get("effects", []) if e.get("doubleVs")} == {
+            for e in c.get("effects", []) + c.get("attackEffects", [])
+            if e.get("doubleVs")} == {
         "灼": "Burning", "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken"}
 
 

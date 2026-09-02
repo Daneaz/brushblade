@@ -449,13 +449,18 @@ namespace Brushblade.Core.Tests
         ///
         /// ⚠ attackMode 传 **true**:拖拽路径恒用攻击模式,而 EffectsOf 在 attackEffects
         /// 非空时**只用它、跳过 effects**。给这几张字配第二用法会让增益在拖拽下静默失效 ——
-        /// 这条断言连那个陷阱一起守住了。</summary>
+        /// 这条断言连那个陷阱一起守住了。
+        ///
+        /// 2026-09-02(水土双方向,Task 10):澡/浴 原本没配 attackEffects,拖拽下退回
+        /// effects(纯友方),所以曾经也在这份名单里。本批给它们真正配上了攻击面
+        /// (DamageSingle),它们不再是「纯友方字」——从名单里移出,与 铠/战/锋/锐/杜/壁
+        /// 这七条真正的纯增益字分开。</summary>
         [Test]
         public void ShippedBuffChars_AreAllyOnly_SoTheyCanBeDraggedOntoAllies()
         {
             var graph = RealGraph();
-            // 七条纯增益的载体 + 壁(护盾 + 反弹)。澡/浴 带治疗与复活,同样是纯友方字。
-            foreach (string id in new[] { "铠", "战", "锋", "锐", "杜", "壁", "澡", "浴" })
+            // 七条纯增益的载体 + 壁(护盾 + 反弹)。
+            foreach (string id in new[] { "铠", "战", "锋", "锐", "杜", "壁" })
             {
                 var def = graph.Get(id);
                 Assert.That(BattleEngine.NeedsAllyTarget(def, attackMode: true), Is.True,
