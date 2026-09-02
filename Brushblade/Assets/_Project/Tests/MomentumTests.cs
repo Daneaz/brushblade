@@ -156,16 +156,16 @@ namespace Brushblade.Core.Tests
         }
 
         // ---- 接入点:真实字表的施法路径(2026-09-02)----
-        // ⚠ 沝 已随 Task 10(2026-09-02 水系双方向重配)从 160 改成 340;圭 仍是
-        // Task 11(土系)的字,留到那次重配后再更新这条注释。
+        // ⚠ 沝 已随 Task 10(2026-09-02 水系双方向重配)从 160 改成 340;
+        // 圭 已随 Task 11(土系双方向重配)从 200 改成 340,与 沝 同为金档满值。
 
         [Test]
         public void Cast_ShieldChar_GainsMomentum()
         {
-            // 圭 = 护盾 200(卡 1 级)。MaxHp 500 → 阈值 50 → 4 层。
+            // 圭 = 护盾 340(卡 1 级,2026-09-02 双方向重配,旧值 200)。阈值 50 → 6 层 + 余 40。
             var battle = NewBattleWithChar("圭", maxHp: 500);
             battle.Cast("圭", -1);
-            Assert.That(battle.MomentumStacks, Is.EqualTo(4));
+            Assert.That(battle.MomentumStacks, Is.EqualTo(6));
         }
 
         [Test]
@@ -183,19 +183,19 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Shield_ScalesWithCharacterAttack()
         {
-            // 圭 = 护盾 200。ATK 150(26 级)→ 300。
+            // 圭 = 护盾 340(2026-09-02 双方向重配,旧值 200)。ATK 150(26 级)→ 510。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 150);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(300));
+            Assert.That(battle.PlayerShield, Is.EqualTo(510));
         }
 
         [Test]
         public void Shield_AtBaselineAttack_IsIdentical()
         {
-            // 恒等性硬线:ATK = 100 时一分不差
+            // 恒等性硬线:ATK = 100 时一分不差。圭 340(2026-09-02 双方向重配,旧值 200)。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(200));
+            Assert.That(battle.PlayerShield, Is.EqualTo(340));
         }
 
         [Test]
@@ -221,7 +221,8 @@ namespace Brushblade.Core.Tests
 
             battle.Cast("圭", -1);
             // 圭 加盾前已有的势带来的盾不算:这里断言的是这一次施放的增量
-            Assert.That(battle.PlayerShield, Is.EqualTo(200),
+            // (2026-09-02 双方向重配:圭 200 → 340)
+            Assert.That(battle.PlayerShield, Is.EqualTo(340),
                 "护盾只认 config.PlayerAttack,不吃势也不吃战意");
         }
 
@@ -337,16 +338,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        [Ignore("等 Task 11 给崩配发势")]
         public void SpendMomentum_AtZeroStacks_IsNoOp_ButSiblingEffectsStillFire()
         {
-            // 崩 = 全体伤害 + 发势。0 层时 AOE 那一半仍该打出来 ——
-            // 「0 层就整张字拒出」会把 AOE 一起吞掉。
+            // 崩 = 攻击面(全体伤害 + 发势),2026-09-02 双方向重配后挂在 AttackEffects 上,
+            // 需要 attackMode: true 才能打到(支持面/effects 现在是纯护盾)。
+            // 0 层时 AOE 那一半仍该打出来 —— 「0 层就整张字拒出」会把 AOE 一起吞掉。
             var battle = NewBattleWithChar("崩", maxHp: 500);
             Assert.That(battle.MomentumStacks, Is.EqualTo(0));
             int before = battle.Enemies[0].Hp;
 
-            battle.Cast("崩", 0);
+            battle.Cast("崩", 0, attackMode: true);
 
             Assert.That(battle.Enemies[0].Hp, Is.LessThan(before), "AOE 那一半照常生效");
             Assert.That(battle.MomentumStacks, Is.EqualTo(0));

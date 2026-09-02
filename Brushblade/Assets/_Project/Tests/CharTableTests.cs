@@ -197,10 +197,6 @@ namespace Brushblade.Core.Tests
                 ["荆"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Ranged, Is.False, "改前排肉盾,不再远程");
                                 Assert.That(p.Taunt, Is.True, "嘲讽是「挨打即输出」成立的前提"); },
                 ["蕉"] = p => Assert.That(p.OnHitSlowPercent, Is.EqualTo(50)),
-                // 碉/堡(2026-08-25):与 荆 同型的纯反伤肉盾,攻 0、反弹 50%。
-                // 嘲讽只给 堡(蓝)与 荆(紫) —— 白档的 碉 拿不到全套坦克包。
-                ["碉"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Taunt, Is.False, "白档不给嘲讽"); },
-                ["堡"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Taunt, Is.True); },
                 ["杖"] = p => Assert.That(p.HealAlly, Is.EqualTo(10)),
                 ["藤"] = p => { Assert.That(p.OnHitFreezeChance, Is.EqualTo(10)); Assert.That(p.OnSummonFreeze, Is.EqualTo(0)); },
                 ["锥"] = p => { Assert.That(p.Shape, Is.EqualTo(TargetShape.Volley)); Assert.That(p.Shots, Is.EqualTo(2)); },
@@ -213,6 +209,17 @@ namespace Brushblade.Core.Tests
                 Assert.That(summon.Passive, Is.Not.Null, $"「{pair.Key}」应带被动");
                 pair.Value(summon.Passive);
             }
+
+            // 碉/堡(2026-08-25):与 荆 同型的纯反伤肉盾,攻 0、反弹 50%。
+            // 嘲讽只给 堡(蓝)与 荆(紫) —— 白档的 碉 拿不到全套坦克包。
+            // 2026-09-02 双方向重配(Task 11):碉/堡 的 Summon 随攻击面搬进 AttackEffects
+            // (Effects 现在是纯护盾)——单独摘出来读,不再挤进上面共用 Effects 的字典循环。
+            var diaoSummon = graph.Get("碉").AttackEffects.First(e => e.Kind == EffectKind.Summon);
+            Assert.That(diaoSummon.Passive.Thorns, Is.EqualTo(50));
+            Assert.That(diaoSummon.Passive.Taunt, Is.False, "白档不给嘲讽");
+            var baoSummon = graph.Get("堡").AttackEffects.First(e => e.Kind == EffectKind.Summon);
+            Assert.That(baoSummon.Passive.Thorns, Is.EqualTo(50));
+            Assert.That(baoSummon.Passive.Taunt, Is.True);
 
             // 荆 的攻击力必须是 0:它的定位就是「靠挨打反伤输出」,给它补基础攻
             // 等于把这条设计悄悄抹平(2026-08-25 用户拍板)。
@@ -227,9 +234,11 @@ namespace Brushblade.Core.Tests
             // 2026-08-15:召唤物在场上显示 summonChar,原先全表填「木」/「火」,
             // 一排召唤物长得一模一样,玩家分不出哪只是梅哪只是荆。
             // ConfigLoader 的默认值又恰好是「木」—— 新字漏填就静默回到那个样子,故钉死。
+            // 2026-09-02 双方向重配(Task 11):碉/堡/塔 的 Summon 搬进了 AttackEffects,
+            // 扫描范围跟着盖住两个列表,否则这三个字会被这条不变量悄悄漏掉。
             var graph = RealGraph();
             foreach (var def in graph.All)
-                foreach (var effect in def.Effects)
+                foreach (var effect in def.Effects.Concat(def.AttackEffects))
                     if (effect.Kind == EffectKind.Summon)
                         Assert.That(effect.SummonChar, Is.EqualTo(def.Id),
                             $"「{def.Id}」的召唤物应显示本字,而不是「{effect.SummonChar}」");
@@ -266,22 +275,15 @@ namespace Brushblade.Core.Tests
             // ⚠ 语义反转(2026-08-12,E-b4 T3):value 从**回合数**(全部 6 字 = 2)
             // 变成**削减的护甲点数**。档位依据是战例二「三张蓝档削光坚壁 Boss(60)」。
             var graph = RealGraph();
-            var expected = new Dictionary<string, int>
-            {
-                // 2026-08-14 第二批裁定移出字表:熔 / 锤(均为 20 点)。
-                // 2026-08-25 字表重构:溶 / 破 移出(与 碎 / 溃 同质);碎 升蓝 10 → 20、
-                // 溃 降白 20 → 10 —— 两个字的点数正好对调,破甲轴仍是「白 10 / 蓝 20」两级。
-                ["碎"] = 20,
-            };
-            foreach (var pair in expected)
-            {
-                var brk = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.ArmorBreak);
-                Assert.That(brk.Value, Is.EqualTo(pair.Value), $"「{pair.Key}」破甲削减点数");
-            }
-            // 溃(2026-09-02 双方向重配):破甲随攻击面一起搬进 AttackEffects,不再挂在
-            // Effects 上 —— 点数本身不变(10),读取位置跟着改。
+            // 2026-08-14 第二批裁定移出字表:熔 / 锤(均为 20 点)。
+            // 2026-08-25 字表重构:溶 / 破 移出(与 碎 / 溃 同质);碎 升蓝 10 → 20、
+            // 溃 降白 20 → 10 —— 两个字的点数正好对调,破甲轴仍是「白 10 / 蓝 20」两级。
+            // 溃/碎(2026-09-02 双方向重配):破甲随攻击面一起搬进 AttackEffects,不再挂在
+            // Effects 上 —— 点数本身不变(10 / 20),读取位置跟着改。
             var kui = graph.Get("溃").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
             Assert.That(kui.Value, Is.EqualTo(10), "「溃」破甲削减点数");
+            var sui = graph.Get("碎").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
+            Assert.That(sui.Value, Is.EqualTo(20), "「碎」破甲削减点数");
         }
 
         [Test]
@@ -416,7 +418,9 @@ namespace Brushblade.Core.Tests
 
         /// <summary>壁(2026-08-25 字表重构)接手 铸 移出后无载体的 Reflect。
         /// 换载体的理由是语义:「墙壁反弹」比「铸造」贴 —— 而且 Reflect 是防御向机制,
-        /// 挂在土系防御字上比挂在金系攻击字上读得通。绿档预算:护盾 40 + 反弹计 0.30 ≈ 70。</summary>
+        /// 挂在土系防御字上比挂在金系攻击字上读得通。
+        /// 2026-09-02 双方向重配(Task 11):护盾 40 → 49(绿档满值 70 × 0.7,带反弹附加特性),
+        /// 攻击面(DamageSingle 49 + Reflect 30)另有 DualDirectionTests 覆盖,这里只钉护盾面。</summary>
         [Test]
         public void RealConfig_BiCarriesReflect()
         {
@@ -427,7 +431,7 @@ namespace Brushblade.Core.Tests
             var reflect = bi.Effects.Single(e => e.Kind == EffectKind.Reflect);
             Assert.That(reflect.Value, Is.EqualTo(30));
             Assert.That(reflect.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
-            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(40));
+            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(49));
             Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
                 .Any(e => e.Kind == EffectKind.Reflect)), Is.EqualTo(1), "反弹当前只有 壁 一个载体");
         }

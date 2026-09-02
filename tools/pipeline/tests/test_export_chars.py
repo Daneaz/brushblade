@@ -422,8 +422,10 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     ci = by_id["刺"]["effects"][0]
     assert ci["kind"] == "DamageSingle" and ci["shape"] == "Skewer" and ci["shapePercent"] == 60
     assert ci.get("backline") is None, "偷袭换成贯穿后不该还留着"
-    assert by_id["碾"]["effects"][0]["shape"] == "Sweep"
-    assert by_id["砸"]["effects"][0]["shape"] == "Cleave"
+    # 2026-09-02:碾/砸 的形状随双方向重配(Task 11)挪进 attackEffects,
+    # 与 冰 的 doubleVs 同一处理 —— 载体本身没变,只是搬了个字段。
+    assert by_id["碾"]["attackEffects"][0]["shape"] == "Sweep"
+    assert by_id["砸"]["attackEffects"][0]["shape"] == "Cleave"
 
     # 远程:2026-08-25 起唯一载体是 楸(荆 改前排肉盾让出;灶/烓 更早移出字表)
     qiu = by_id["楸"]["effects"][0]

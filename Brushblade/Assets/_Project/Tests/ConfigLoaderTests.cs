@@ -116,10 +116,9 @@ namespace Brushblade.Core.Tests
         /// (方法名与旧注释里的「绿档」已失真:沝 / 圭 随 2026-08-25 字表重构升到金档,
         ///  但这条守的是「有没有攻击面」这个形状,与档位无关。)
         ///
-        /// 2026-09-02(水土双方向,Task 10):沝 的两面拆分成 <c>Effects</c>(治疗)/
-        /// <c>AttackEffects</c>(攻击)两个独立列表,不再挤在同一个 Effects 里 ——
-        /// 断言的读取位置跟着改,「两面都要有」这条不变量本身没变。圭 是 Task 11(土系)
-        /// 的字,仍是旧的合并结构,留到那次重配后再拆。</summary>
+        /// 2026-09-02(水土双方向,Task 10/11):沝 与 圭 的两面都拆分成 <c>Effects</c>
+        /// (护/治)/ <c>AttackEffects</c>(攻)两个独立列表,不再挤在同一个 Effects 里 ——
+        /// 断言的读取位置跟着改,「两面都要有」这条不变量本身没变。</summary>
         [Test]
         public void ShippedCharsJson_StackedWaterAndEarth_BothDefendAndStrike()
         {
@@ -129,7 +128,8 @@ namespace Brushblade.Core.Tests
 
             AssertHasKinds(graph, "沝", EffectKind.HealSelf);
             AssertHasAttackKinds(graph, "沝", EffectKind.DamageSingle);
-            AssertHasKinds(graph, "圭", EffectKind.Shield, EffectKind.DamageSingle);
+            AssertHasKinds(graph, "圭", EffectKind.Shield);
+            AssertHasAttackKinds(graph, "圭", EffectKind.DamageSingle);
         }
 
         private static void AssertHasKinds(RecipeGraph graph, string id, params EffectKind[] kinds)

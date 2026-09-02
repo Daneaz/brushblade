@@ -9,7 +9,7 @@ namespace Brushblade.Core.Tests
     /// 口径:<see cref="CharDef.Effects"/> = 治疗面(双击选「护」),
     /// <see cref="CharDef.AttackEffects"/> = 攻击面(双击选「攻」/拖到敌人身上)。
     ///
-    /// **本文件只写 Task 10(水系 15 字)的用例。** Task 11(土系)、Task 12(火系两个数)
+    /// 本文件覆盖 Task 10(水系 15 字)与 Task 11(土系 13 字)的用例;Task 12(火系两个数)
     /// 会往同一个文件里加自己的方法,互不冲突(见 progress.md 的 pre-flight 扫描)。</summary>
     public sealed class DualDirectionTests
     {
@@ -19,7 +19,16 @@ namespace Brushblade.Core.Tests
             "沝", "冰", "沐", "淼", "淡", "淋", "㵘",
         };
 
+        private static readonly string[] EarthChars =
+        {
+            "碉", "砸", "碾", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓",
+        };
+
         private static RecipeGraph LoadRealGraph() => CharTableTests.RealGraph();
+
+        /// <summary>该字护盾面第一条 Shield 效果的 Value。</summary>
+        private static int ShieldValueOf(RecipeGraph graph, string id) =>
+            graph.Get(id).Effects.First(e => e.Kind == EffectKind.Shield).Value;
 
         /// <summary>该字治疗面第一条治疗效果的 Value。</summary>
         private static int HealValueOf(RecipeGraph graph, string id)
@@ -111,6 +120,80 @@ namespace Brushblade.Core.Tests
             int before = battle.PlayerHp;
             battle.Cast("沝", 0);   // 默认 attackMode: false = 治疗面
             Assert.That(battle.PlayerHp, Is.GreaterThan(before), "治疗面应回血");
+        }
+
+        // ---- Task 11:土系 13 字 ----
+
+        [Test]
+        public void EveryEarthChar_HasBothDirections()
+        {
+            var graph = LoadRealGraph();
+            foreach (var id in EarthChars)
+            {
+                var def = graph.Get(id);
+                Assert.That(def.Effects.Count, Is.GreaterThan(0), $"{id} 缺加盾面");
+                Assert.That(def.AttackEffects.Count, Is.GreaterThan(0), $"{id} 缺攻击面");
+            }
+        }
+
+        [Test]
+        public void EveryEarthChar_HasShieldOnSupportSide()
+        {
+            var graph = LoadRealGraph();
+            foreach (var id in EarthChars)
+            {
+                bool shields = graph.Get(id).Effects.Any(e => e.Kind == EffectKind.Shield);
+                Assert.That(shields, Is.True, $"{id} 的加盾面没有护盾效果");
+            }
+        }
+
+        [Test]
+        public void EarthCharValues_MatchRarityAnchors()
+        {
+            var graph = LoadRealGraph();
+            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(340), "金档满值");
+            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(540), "红档满值");
+            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(238), "金档 340 x0.7(带免疫)");
+        }
+
+        /// <summary>引爆每系两张载体(中档 + 红档):只挂红档五系四叠字的话,
+        /// 大部分玩家一局都摸不到这个机制。</summary>
+        [Test]
+        public void MomentumDetonators_AreOnGreenAndRed()
+        {
+            Assert.That(LoadRealGraph().Get("崩").AttackEffects.Any(e => e.Kind == EffectKind.SpendMomentum),
+                Is.True, "崩(绿)是前期就能拿到的引爆载体");
+            Assert.That(LoadRealGraph().Get("㙓").AttackEffects.Any(e => e.Kind == EffectKind.SpendMomentum),
+                Is.True);
+        }
+
+        /// <summary>攻击面用 Cast(attackMode: true) 真的能打到敌人,不只是数据形状对 ——
+        /// 与水系那条(沝)同一目的,覆盖土系的接线。</summary>
+        [Test]
+        public void Cast_AttackMode_DealsDamageToEnemy_Earth()
+        {
+            var graph = LoadRealGraph();
+            var battle = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
+                new[] { "圭" }, System.Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 100000, 0) }, seed: 1);
+            int before = battle.Enemies[0].Hp;
+            battle.Cast("圭", 0, attackMode: true);
+            Assert.That(battle.Enemies[0].Hp, Is.LessThan(before), "攻击面应打伤敌人");
+        }
+
+        /// <summary>护盾面用 Cast(默认 attackMode: false)真的能加盾,与攻击面互斥 ——
+        /// 钉住默认路径没有被攻击面悄悄顶替。</summary>
+        [Test]
+        public void Cast_SupportMode_GrantsShield_Earth()
+        {
+            var graph = LoadRealGraph();
+            var battle = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
+                new[] { "圭" }, System.Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 100000, 0) }, seed: 1);
+            battle.Cast("圭", -1);   // 默认 attackMode: false = 护盾面
+            Assert.That(battle.PlayerShield, Is.EqualTo(340));
         }
     }
 }

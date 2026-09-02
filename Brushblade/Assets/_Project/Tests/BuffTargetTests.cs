@@ -452,15 +452,17 @@ namespace Brushblade.Core.Tests
         /// 这条断言连那个陷阱一起守住了。
         ///
         /// 2026-09-02(水土双方向,Task 10):澡/浴 原本没配 attackEffects,拖拽下退回
-        /// effects(纯友方),所以曾经也在这份名单里。本批给它们真正配上了攻击面
-        /// (DamageSingle),它们不再是「纯友方字」——从名单里移出,与 铠/战/锋/锐/杜/壁
-        /// 这七条真正的纯增益字分开。</summary>
+        /// effects(纯友方),所以曾经也在这份名单里。Task 10 给它们真正配上了攻击面
+        /// (DamageSingle),从名单里移出。
+        ///
+        /// 2026-09-02(Task 11):杜/壁 同理 —— 土系双方向重配给它们的攻击面也配上了
+        /// DamageSingle,不再是「纯友方字」,一并移出。名单至此只剩 铠/战/锋/锐 四条
+        /// 真正的纯增益字(均为金系,不在本轮双方向重配范围内)。</summary>
         [Test]
         public void ShippedBuffChars_AreAllyOnly_SoTheyCanBeDraggedOntoAllies()
         {
             var graph = RealGraph();
-            // 七条纯增益的载体 + 壁(护盾 + 反弹)。
-            foreach (string id in new[] { "铠", "战", "锋", "锐", "杜", "壁" })
+            foreach (string id in new[] { "铠", "战", "锋", "锐" })
             {
                 var def = graph.Get(id);
                 Assert.That(BattleEngine.NeedsAllyTarget(def, attackMode: true), Is.True,
@@ -468,6 +470,19 @@ namespace Brushblade.Core.Tests
                 Assert.That(BattleEngine.NeedsTarget(def, attackMode: true), Is.False,
                     $"「{id}」不该还要选敌人 —— 带对敌效果就拖不到友方身上了");
             }
+        }
+
+        /// <summary>上一条守的是「没有攻击面时保持纯友方」的负面清单,没有正面覆盖过
+        /// 「配了攻击面之后真的需要选敌方目标」这一半(2026-09-02 review 带到 Task 11 的 Minor)。
+        /// 澡/浴(Task 10)、杜/壁(Task 11)现在都因为攻击面带 DamageSingle 而需要选敌人 ——
+        /// 拖到友方身上不再直接生效,须先选目标。</summary>
+        [Test]
+        public void ShippedDualDirectionBuffChars_NeedEnemyTargetOnAttackSide()
+        {
+            var graph = RealGraph();
+            foreach (string id in new[] { "澡", "浴", "杜", "壁" })
+                Assert.That(BattleEngine.NeedsTarget(graph.Get(id), attackMode: true), Is.True,
+                    $"「{id}」的攻击面带伤害,应该需要选敌方目标");
         }
 
         [Test]

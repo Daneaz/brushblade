@@ -9,8 +9,8 @@ RARITY = {"🟡金": "Gold", "🔴红": "Red", "🟠橙": "Orange", "🟣紫": "
           "🔵蓝": "Blue", "🟢绿": "Green", "⚪白": "White"}
 
 # 纯二选一双方向的系(2026-09-02):这些系的表多一格「攻击效果配置」,见 _parse_row。
-# 水系本批(Task 10)落地;土系留给同批的 Task 11。
-DUAL_DIRECTION_ELEMENTS = {"水"}
+# 水系(Task 10)、土系(Task 11)均已落地。
+DUAL_DIRECTION_ELEMENTS = {"水", "土"}
 
 # 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
 # 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。

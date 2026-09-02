@@ -1306,12 +1306,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 450,
+          "value": 540,
           "persistOnce": true
-        },
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 240
+          "value": 250
+        },
+        {
+          "kind": "SpendMomentum",
+          "value": 60
         }
       ]
     },
@@ -1326,11 +1332,13 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 240
-        },
+          "value": 430
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 100,
+          "value": 301,
           "doubleVs": "ArmorBroken"
         }
       ]
@@ -1346,11 +1354,13 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 200
-        },
+          "value": 340
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 135
+          "value": 340
         }
       ]
     },
@@ -1363,6 +1373,12 @@
         "荅"
       ],
       "effects": [
+        {
+          "kind": "Shield",
+          "value": 150
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "Summon",
           "value": 110,
@@ -1381,6 +1397,12 @@
         "周"
       ],
       "effects": [
+        {
+          "kind": "Shield",
+          "value": 45
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "Summon",
           "value": 120,
@@ -1404,11 +1426,13 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 50
-        },
+          "value": 70
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 30
+          "value": 70
         }
       ]
     },
@@ -1421,6 +1445,12 @@
         "土"
       ],
       "effects": [
+        {
+          "kind": "Shield",
+          "value": 110
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "Summon",
           "value": 240,
@@ -1445,7 +1475,18 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 40
+          "value": 49
+        },
+        {
+          "kind": "Reflect",
+          "value": 30,
+          "turns": 2
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 49
         },
         {
           "kind": "Reflect",
@@ -1464,8 +1505,22 @@
       ],
       "effects": [
         {
+          "kind": "Shield",
+          "value": 238
+        },
+        {
           "kind": "Immunity",
           "value": 2
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 238
+        },
+        {
+          "kind": "Immunity",
+          "value": 1
         }
       ]
     },
@@ -1479,8 +1534,18 @@
       ],
       "effects": [
         {
+          "kind": "Shield",
+          "value": 70
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageAll",
           "value": 50
+        },
+        {
+          "kind": "SpendMomentum",
+          "value": 30
         }
       ]
     },
@@ -1493,6 +1558,12 @@
         "匝"
       ],
       "effects": [
+        {
+          "kind": "Shield",
+          "value": 45
+        }
+      ],
+      "attackEffects": [
         {
           "kind": "DamageSingle",
           "value": 45,
@@ -1511,8 +1582,14 @@
       ],
       "effects": [
         {
+          "kind": "Shield",
+          "value": 45
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageSingle",
-          "value": 40,
+          "value": 45,
           "shape": "Sweep",
           "shapePercent": 60
         }
@@ -1528,8 +1605,14 @@
       ],
       "effects": [
         {
+          "kind": "Shield",
+          "value": 110
+        }
+      ],
+      "attackEffects": [
+        {
           "kind": "DamageSingle",
-          "value": 90
+          "value": 77
         },
         {
           "kind": "ArmorBreak",

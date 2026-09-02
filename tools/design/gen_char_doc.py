@@ -11,6 +11,12 @@ byid = {c['id']: c for c in chars}
 playable = [c for c in chars if not c.get('component')]
 components = [c for c in chars if c.get('component')]
 
+def all_effects(c):
+    """字的全部效果,不分护/治面(effects)与攻击面(attackEffects)——分类、统计这类
+    「这张字有什么机制」的问题不该在乎数值挂在哪一面,只有**展示**(功能列/攻击力列)
+    才需要按面拆开(2026-09-02,水土双方向 Task 11:gen_char_doc.py 补双方向渲染)。"""
+    return c['effects'] + c.get('attackEffects', [])
+
 # 二级拆解借管线的 IDS 拆解器,与配方生成同一套规则(只拆 ⿰⿱⿲⿳、子部件须是真实字)。
 # ids.txt 是不入 git 的原始数据 —— 缺失时二级降级为「只按字表配方展开」。
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'pipeline'))
@@ -317,6 +323,9 @@ def desc(e):
         'CritBuff': f"暴击率 +{v}%(本场)",
         'Summon': f"召唤 {e.get('count',1)} 只(血 {v}/攻 {e.get('attack',0)}"
                   + (f",{passive_txt(e['passive'])}" if e.get('passive') else "") + ")",
+        # 发势 / 泻(2026-09-02,水土双方向):清空全部势/水势,按层数 × value 打全体。
+        'SpendMomentum': f"发势:清空全部势,全体伤害 = 层数×{v}",
+        'SpendWaterPower': f"泻:清空全部水势,全体伤害 = 层数×{v}",
     }.get(k, f"{k} {v}")
     mods = []
     # 伤害侧的目标形状(2026-08-25 装配到 碾/砸/刺):与召唤被动侧共用 SHAPE 表。
@@ -343,14 +352,17 @@ def desc(e):
     return s + ("(" + "、".join(mods) + ")" if mods else "")
 
 def atk(c):
+    # 双方向字(水/土,2026-09-02):攻击力是它作为输出字的强度,取攻击面 ——
+    # 单方向字没有 attackEffects,这里退回原来的 effects,行为不变。
+    effects = c.get('attackEffects') or c['effects']
     parts = []
-    for e in c['effects']:
+    for e in effects:
         if e['kind'] in ('DamageSingle', 'DamageAll'):
             n = e.get('hitCount', 1)
             parts.append(f"{e['value']}" + (f"×{n} 段" if n > 1 else "")
                          + ("(AOE)" if e['kind'] == 'DamageAll' else ""))
     if parts: return '+'.join(parts)
-    for e in c['effects']:
+    for e in effects:
         if e['kind'] == 'Summon': return f"召 {e.get('attack',0)}×{e.get('count',1)}"
         if e['kind'] in ('BurnSingle', 'BurnAll'): return f"DOT {e['value']} 层"
         if e['kind'] == 'Bleed': return f"DOT {e['value']}/回合"
@@ -371,22 +383,33 @@ CATS = [
 ]
 
 def cat_of(c):
-    kinds = {e['kind'] for e in c['effects']}
-    if any(e.get('executeBelowPercent') for e in c['effects']): return '斩杀'
-    if any(e.get('pierce') for e in c['effects']) and 'ArmorBreak' not in kinds: return '破甲 / 穿透'
+    # 归类看的是「这张字有什么机制」,与机制挂在护/治面还是攻击面无关 ——
+    # 双方向字(水/土)用两面的并集,单方向字 all_effects 就等于 effects,行为不变。
+    effects = all_effects(c)
+    kinds = {e['kind'] for e in effects}
+    if any(e.get('executeBelowPercent') for e in effects): return '斩杀'
+    if any(e.get('pierce') for e in effects) and 'ArmorBreak' not in kinds: return '破甲 / 穿透'
     for nm, ks in CATS:
         if kinds & ks: return nm
     return '其他'
 
+def func_desc(c):
+    """功能列。双方向字(水/土,2026-09-02)选「护」走 effects、选「攻」走 attackEffects,
+    两面互斥地打出来才对得上真实玩法,格式定为 `攻:… / 护:…`;单方向字没有 attackEffects,
+    退回原来的单段拼接,字节不变。"""
+    support = "；".join(desc(e) for e in c['effects'])
+    if c.get('attackEffects'):
+        attack = "；".join(desc(e) for e in c['attackEffects'])
+        return f"攻:{attack} / 护:{support}"
+    return support
+
 def row5(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {EL[c['element']]} | {RA[c['rarity']]} | "
-            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
-            + "；".join(desc(e) for e in c['effects']) + " |")
+            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | " + func_desc(c) + " |")
 
 def row4(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {RA[c['rarity']]} | "
-            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
-            + "；".join(desc(e) for e in c['effects']) + " |")
+            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | " + func_desc(c) + " |")
 
 H5 = ("| 字 | 拼音 | 近代字意 | 五行 | 稀有度 | 词组 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
       "|---|---|---|---|---|---|---|---|---|---|")
@@ -396,7 +419,7 @@ H4 = ("| 字 | 拼音 | 近代字意 | 稀有度 | 词组 | 攻击力 | 一级�
 head = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
 rc = collections.Counter(c['rarity'] for c in playable)
 ec = collections.Counter(c['element'] for c in playable)
-kc = collections.Counter(e['kind'] for c in playable for e in c['effects'])
+kc = collections.Counter(e['kind'] for c in playable for e in all_effects(c))
 
 o = []
 A = o.append
@@ -410,6 +433,7 @@ A("")
 A(f"- **收录范围**:配置表 {len(chars)} 条中的 **{len(playable)} 个可出牌字**(有配方 + 有效果)。另 {len(components)} 个部件/枢纽字只作合成原料(其中部分自身也带配方,可再向下拆一层 —— 2026-09-01 二级拆解新增的中间层),`IsComponent` 会被奖励池过滤,玩家拿不到牌,故不入表。")
 A("- **攻击力**:字表没有独立的攻击力字段,此列取**直伤效果的 value**(已是 2026-08-12 全表 ×10 后的量级)。")
 A("  纯辅助字记 `—`;召唤字记 `召 攻×只数`(实际输出在召唤物身上);纯 DOT 字记 DOT 量。")
+A("  **双方向字(水/土,2026-09-02)取攻击面的值** —— 那是它作为输出字的强度,与功能列的护/治面分开算。")
 A("- **相克 ×1.5 / 被克 ×0.5**:配置表填的**就是实战值**——相生 ×3 已于 2026-09-02 取消")
 A("  (全表 74 字里原本只有 4 字吃得到,是条空转规则;焚/蒸/刲 已等值改写进基础值,战斗结果不变)。")
 A("  本表的攻击力与功能列因此不再需要 `70×3=210` 这类换算式,直接就是实战数字;卡面(CharInfo)同口径。")
@@ -450,8 +474,11 @@ A("| 维度 | 分布 |")
 A("|---|---|")
 A("| 稀有度 | " + " / ".join(f"{RA[r]} {rc[r]}" for r in RORDER if rc[r]) + " |")
 A("| 五行 | " + " / ".join(f"{EL[e]} {ec[e]}" for e in EORDER if ec[e]) + f" / 心 0 |")
-A(f"| 效果条目 | {sum(kc.values())} 条,覆盖 {len(kc)} 种 `EffectKind`(枚举共 29 种) |")
-A("| 单效果 / 双效果 / 三效果字 | " + " / ".join(str(collections.Counter(len(c['effects']) for c in playable)[n]) for n in (1, 2, 3)) + " |")
+# 枚举总数是手动同步的字面量(EffectDef.cs 的 EffectKind 不在本脚本的解析范围内)——
+# 2026-09-02 发现这里已经飘了(SpendMomentum/SpendWaterPower 上线后枚举实际是 32),
+# 顺手修正;以后新增 Kind 记得同步这个数。
+A(f"| 效果条目 | {sum(kc.values())} 条,覆盖 {len(kc)} 种 `EffectKind`(枚举共 32 种) |")
+A("| 单效果 / 双效果 / 三效果字 | " + " / ".join(str(collections.Counter(len(all_effects(c)) for c in playable)[n]) for n in (1, 2, 3)) + " |")
 A("")
 A("**心系 0 字** —— 第 5 章摄心流在字表侧没有任何载体。")
 A("")
@@ -507,8 +534,10 @@ A("   紫档的价值全押在血量上,牌面读感偏弱。")
 A("4. **远程召唤**:灶(攻 20)/ 烓(攻 30)是仅有的远程召唤物,无视敌方前排优先打后排;")
 A("   **2026-08-20** 前攻击力曾为 0,输出全在「命中挂灼烧」被动上,补基础攻后灼烧仍是主输出。")
 A("5. **心系空缺**:摄心流(第 5 章)与心属性的生克中立设定都已在引擎里,但没有一个心系字可出牌。")
-A("6. **`AttackEffects` 未启用**:`CharDef` 有「拖到敌人身上改用另一套效果」的字段(2026-07-26),")
-A("   但配置表里一条都没配,水 / 土 的「治疗/加盾之外多一个攻击选项」目前不存在。")
+A("6. **`AttackEffects` 双方向字**(2026-09-02):水系 15 字 + 土系 13 字共 28 个可出牌字")
+A("   配了 attackEffects —— 双击选「攻」/拖到敌人身上走这套,选「护」走 effects,两者互斥。")
+A("   功能列格式为 `攻:… / 护:…`;攻击力列取攻击面的值。碉/堡/塔 三张召唤字例外:")
+A("   攻击面沿用原有召唤效果(血/攻/被动),只是新增了护盾面。")
 A("")
 
 # 2026-08-23 文档被移进「字选型/」,这里的路径当时没跟着改 ——
