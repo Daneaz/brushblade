@@ -52,7 +52,8 @@
       "element": "Water",
       "maxHp": 140,
       "attack": 30,
-      "defense": 20
+      "defense": 20,
+      "minDepth": 6
     },
     {
       "id": "焦痕",
@@ -168,10 +169,17 @@
     { "id": "悬针", "element": "Metal", "maxHp": 90,  "attack": 45, "row": "Back", "range": "Ranged", "focus": "Player" },
     { "id": "败笔", "element": "Fire",  "maxHp": 150, "attack": 55, "focus": "Player" },
     { "id": "涂改", "element": "Heart", "maxHp": 130, "attack": 25, "ability": "Mend", "row": "Back", "range": "Ranged" },
-    { "id": "铁画", "element": "Metal", "maxHp": 150, "attack": 45, "ability": "Barb", "defense": 25 },
+    { "id": "铁画", "element": "Metal", "maxHp": 150, "attack": 45, "ability": "Barb", "defense": 40 },
     { "id": "镇纸", "element": "Earth", "maxHp": 240, "attack": 25, "defense": 40 },
     { "id": "洇痕", "element": "Water", "maxHp": 110, "attack": 35, "ability": "Split", "row": "Back", "range": "Ranged" },
-    { "id": "衍文", "element": "Wood",  "maxHp": 130, "attack": 40, "ability": "Regrow", "row": "Back", "range": "Ranged" }
+    { "id": "衍文", "element": "Wood",  "maxHp": 130, "attack": 40, "ability": "Regrow", "row": "Back", "range": "Ranged" },
+    { "id": "枯笔", "element": "Wood",  "maxHp": 150, "attack": 30, "defense": 18, "minDepth": 6 },
+    { "id": "版牍", "element": "Wood",  "maxHp": 260, "attack": 40, "defense": 45 },
+    { "id": "火漆", "element": "Fire",  "maxHp": 140, "attack": 35, "defense": 18, "minDepth": 6 },
+    { "id": "窑变", "element": "Fire",  "maxHp": 220, "attack": 50, "defense": 42 },
+    { "id": "砚台", "element": "Earth", "maxHp": 200, "attack": 22, "defense": 22, "minDepth": 6 },
+    { "id": "铜钤", "element": "Metal", "maxHp": 130, "attack": 40, "defense": 20, "minDepth": 6 },
+    { "id": "宿墨", "element": "Water", "maxHp": 240, "attack": 38, "defense": 45 }
   ],
   "dropTable": [
     "金",
@@ -690,7 +698,12 @@
         "enemyPool": [
           "错字鬼",
           "缺笔妖",
-          "标点小妖"
+          "标点小妖",
+          "枯笔",
+          "火漆",
+          "砚台",
+          "铜钤",
+          "墨渍"
         ],
         "bossPool": [
           "排山倒海"
@@ -715,7 +728,11 @@
           "败笔",
           "镇纸",
           "洇痕",
-          "衍文"
+          "衍文",
+          "枯笔",
+          "火漆",
+          "砚台",
+          "铜钤"
         ],
         "bossPool": [
           "排山倒海",
@@ -744,7 +761,14 @@
           "洇痕",
           "衍文",
           "涂改",
-          "铁画"
+          "铁画",
+          "枯笔",
+          "版牍",
+          "火漆",
+          "窑变",
+          "砚台",
+          "铜钤",
+          "宿墨"
         ],
         "bossPool": [
           "排山倒海",
@@ -774,7 +798,14 @@
           "洇痕",
           "衍文",
           "涂改",
-          "铁画"
+          "铁画",
+          "枯笔",
+          "版牍",
+          "火漆",
+          "窑变",
+          "砚台",
+          "铜钤",
+          "宿墨"
         ],
         "bossPool": [
           "排山倒海",

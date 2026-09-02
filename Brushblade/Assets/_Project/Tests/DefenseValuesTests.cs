@@ -317,14 +317,21 @@ namespace Brushblade.CoreTests
         ///
         /// **本条不删**,改守一条仍然有用的账:带甲杂兵占比不该失控。护甲是「需要专门带
         /// 破甲/穿透才打得动」的门槛,半数怪都带甲就等于把破甲从选项变成必需品。
-        /// 上界取全部杂兵的 1/3。</summary>
+        /// 上界取全部杂兵的 1/3。
+        ///
+        /// **2026-09-02 上界改 1/3 → 1/2(水土双方向与势 Task 9,spec §4.5)**:护甲怪按设计
+        /// 补齐到五行 × 低/高阶 = 10 只(枯笔/版牍/火漆/窑变/砚台/铜钤/宿墨新增,铁画
+        /// DEF 25→40 顶高阶位),全表 25 只杂兵里 10 只带甲 = 40%,原 1/3 上界必然被这个
+        /// **设计钦定**的数字冲破 —— 不是配置口径失控。1/2 仍然守住这条判据本来要守的东西
+        /// (带甲不是主流,破甲/穿透仍是「选项」不是「必需品」),只是把参照系从「3 只护甲怪
+        /// 时代」换成「10 只护甲怪时代」。</summary>
         [Test]
         public void RealConfig_ArmoredMinionsStayAMinority()
         {
             var minions = AllEnemies().Where(e => e.Phases.Count == 0).ToList();
             var armored = minions.Where(e => e.Defense > 0).Select(e => e.Id).ToList();
-            Assert.That(armored.Count * 3, Is.LessThanOrEqualTo(minions.Count),
-                $"带甲杂兵 {armored.Count}/{minions.Count} 只,超过 1/3:{string.Join("/", armored)}。"
+            Assert.That(armored.Count * 2, Is.LessThanOrEqualTo(minions.Count),
+                $"带甲杂兵 {armored.Count}/{minions.Count} 只,超过 1/2:{string.Join("/", armored)}。"
                 + "护甲是「得专门带破甲/穿透」的门槛,太多就等于把破甲从选项变成必需品");
             Assert.That(armored.Count, Is.GreaterThan(0), "一只带甲的都没有则下面那条并发判据失去判别力");
         }

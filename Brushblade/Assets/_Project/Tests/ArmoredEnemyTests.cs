@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Brushblade.Core;
@@ -29,13 +31,73 @@ namespace Brushblade.CoreTests
             ConfigLoader.LoadCampaign(File.ReadAllText(Path.Combine(ConfigDir(), "enemies.json")), RealGraph())
                 .Endless;
 
+        private static CampaignConfig LoadRealCampaign() =>
+            ConfigLoader.LoadCampaign(File.ReadAllText(Path.Combine(ConfigDir(), "enemies.json")), RealGraph());
+
+        /// <summary>enemies.json 里出现过的全部敌人(去重;照 DefenseValuesTests.AllEnemies 抄)——
+        /// 以 endless.bands 的 enemyPool/bossPool 为准,因为无尽层段是 v0.7 的唯一核心玩法。</summary>
+        private static List<EnemyDef> AllEnemies()
+        {
+            var campaign = LoadRealCampaign();
+            var seen = new Dictionary<string, EnemyDef>();
+            foreach (var band in campaign.Endless?.Bands ?? (IReadOnlyList<BandDef>)Array.Empty<BandDef>())
+            {
+                foreach (var enemy in band.EnemyPool) seen[enemy.Id] = enemy;
+                foreach (var boss in band.BossPool) seen[boss.Id] = boss;
+            }
+            return seen.Values.ToList();
+        }
+
+        [Test]
+        public void ArmoredEnemies_CoverAllFiveElementsAtBothTiers()
+        {
+            var armored = AllEnemies().Where(e => e.Defense > 0).ToList();
+            foreach (var element in new[]
+                     {
+                         Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water,
+                     })
+            {
+                var low = armored.Where(e => e.Element == element && e.Defense < 30).ToList();
+                var high = armored.Where(e => e.Element == element && e.Defense >= 30).ToList();
+                Assert.That(low.Count, Is.GreaterThanOrEqualTo(1), $"{element} 缺低阶护甲怪");
+                Assert.That(high.Count, Is.GreaterThanOrEqualTo(1), $"{element} 缺高阶护甲怪");
+            }
+        }
+
+        [Test]
+        public void LowTierArmoredEnemies_HaveMinDepthSix()
+        {
+            var all = AllEnemies();
+            foreach (var id in new[] { "枯笔", "火漆", "砚台", "铜钤", "墨渍" })
+            {
+                var enemy = all.First(e => e.Id == id);
+                Assert.That(enemy.MinDepth, Is.GreaterThanOrEqualTo(6),
+                    $"{id} 是低阶护甲怪,不该在 1-5 层出现");
+            }
+        }
+
+        [Test]
+        public void EveryFloor_HasAtMostOneArmoredEnemy()
+        {
+            // WithoutArmor 闸(既有)在补齐 10 只后仍须成立 ——
+            // 点数护甲对 AOE 有 N 倍惩罚,带甲成群会把 AOE 流派打废。
+            var config = LoadRealEndlessConfig();
+            for (int depth = 1; depth <= 60; depth++)
+            {
+                var segment = EndlessGenerator.BuildSegment(config, depth, seed: depth * 7919);
+                foreach (var floor in segment.Encounters)
+                    Assert.That(floor.Count(e => e.Defense > 0), Is.LessThanOrEqualTo(1),
+                        $"第 {depth} 层出现了多只带甲怪");
+            }
+        }
+
         [Test]
         public void MinDepth_FiltersEnemiesOutOfEarlyFloors()
         {
             var config = LoadRealEndlessConfig();
-            // 1-5 层不出任何带甲怪。眼下 enemies.json 里还没有任何怪配 minDepth
-            // (那是下一个 task 的事),所以这条在真实配置上是空操作 ——
-            // 它验证的是闸接好之后没有破坏既有编成,不是深度闸本身生效。
+            // 1-5 层不出任何带甲怪。2026-09-02 起 enemies.json 里 5 只低阶护甲怪
+            // (枯笔/火漆/砚台/铜钤/墨渍)都配了 minDepth: 6,这条在真实配置上
+            // 已经是深度闸真正生效的判据,不再是空操作。
             for (int depth = 1; depth <= 5; depth++)
             {
                 // Boss 层直接 return,不走深度闸(见 Endless.BuildFloor 的 IsBossDepth 分支)。
