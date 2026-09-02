@@ -19,10 +19,19 @@ namespace Brushblade.Core.Tests
             "沝", "冰", "沐", "淼", "淡", "淋", "㵘",
         };
 
+        /// <summary>做双方向的土系字。**不含召唤字**(碉/堡/塔)——2026-09-02 用户拍板:
+        /// 召唤本身就是「把防御摆到场上」,再叠一个护盾面是同一件事收两次钱;而且召唤要选
+        /// 落位槽,与「点敌人=攻 / 点我方=护」的目标语义打架。三张召唤字保持单方向。
+        /// 由 <see cref="SummonChars_StayOneDirectional"/> 反向钉住,防止哪天又被顺手加回来。</summary>
         private static readonly string[] EarthChars =
         {
-            "碉", "砸", "碾", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓",
+            "砸", "碾", "垒", "壁", "崩", "碎", "圭", "杜", "垚", "㙓",
         };
+
+        /// <summary>召唤字必须**没有**攻击面(2026-09-02)。这条与 <see cref="EarthChars"/>
+        /// 的注释是一对:那边说「不含召唤字」,这边说「而且不许有」。
+        /// 只写在清单注释里挡不住下一个人把它们加回去。</summary>
+        private static readonly string[] SummonOnlyChars = { "碉", "堡", "塔" };
 
         private static RecipeGraph LoadRealGraph() => CharTableTests.RealGraph();
 
@@ -123,6 +132,23 @@ namespace Brushblade.Core.Tests
         }
 
         // ---- Task 11:土系 13 字 ----
+
+        [Test]
+        public void SummonChars_StayOneDirectional()
+        {
+            // 召唤字不做双方向(2026-09-02 用户拍板)。反向钉住:有了 attackEffects 就是被
+            // 顺手加回来了 —— 清单注释挡不住这个,断言才行。
+            var graph = LoadRealGraph();
+            foreach (var id in SummonOnlyChars)
+            {
+                var def = graph.Get(id);
+                Assert.That(def.AttackEffects.Count, Is.EqualTo(0), $"{id} 是召唤字,不该有攻击面");
+                bool summons = def.Effects.Any(e => e.Kind == EffectKind.Summon);
+                Assert.That(summons, Is.True, $"{id} 的主效果应当是召唤");
+                bool shields = def.Effects.Any(e => e.Kind == EffectKind.Shield);
+                Assert.That(shields, Is.False, $"{id} 不该带护盾面");
+            }
+        }
 
         [Test]
         public void EveryEarthChar_HasBothDirections()

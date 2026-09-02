@@ -1377,12 +1377,6 @@
       ],
       "effects": [
         {
-          "kind": "Shield",
-          "value": 150
-        }
-      ],
-      "attackEffects": [
-        {
           "kind": "Summon",
           "value": 110,
           "count": 2,
@@ -1400,12 +1394,6 @@
         "周"
       ],
       "effects": [
-        {
-          "kind": "Shield",
-          "value": 45
-        }
-      ],
-      "attackEffects": [
         {
           "kind": "Summon",
           "value": 120,
@@ -1448,12 +1436,6 @@
         "土"
       ],
       "effects": [
-        {
-          "kind": "Shield",
-          "value": 110
-        }
-      ],
-      "attackEffects": [
         {
           "kind": "Summon",
           "value": 240,

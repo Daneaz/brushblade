@@ -160,7 +160,6 @@ namespace Brushblade.Presentation
         // 方向选择态(2026-09-02):水/土 双方向字选中后先问「攻」还是「护」,
         // 选完再进各自的目标态。与 _targeting / _allyTargeting 同构,
         // 只是这一态还没决定要打谁,只决定走哪套效果。
-        private bool _directionPicking;
         // 进目标选择态时记住选的是哪个方向(2026-09-02):点敌人/点友方那两条回调
         // 隔了一次用户交互才回来,不带着这个值会退回 attackMode: false。
         private bool _pendingAttackMode;
@@ -2032,8 +2031,14 @@ namespace Brushblade.Presentation
             string charId = _selectedChar;
             int libraryIndex = _selectedIndex;
             int enemyTarget = _pendingAllyEnemyTarget; // 第一段选过的敌人;纯友方字为 −1
+            // 双向态(2026-09-02):敌我同时点亮时,**点到友方这一下就定了方向 = 护面**。
+            // 判据是 _targeting 也还开着 —— 那是双向态的标志(单向的友方选择态不会开它)。
+            // 已经选过敌人的第二段(enemyTarget >= 0)不能改方向:那一段的方向在选敌人时就定了,
+            // 这里再覆盖会把「攻击面顺带选个友方落点」的字(澡/杜/壁)错判成护面。
+            bool attackMode = _pendingAttackMode;
+            if (_targeting && enemyTarget < 0) attackMode = false;
             _pendingAllyEnemyTarget = -1;
-            BeginCast(charId, enemyTarget, attackMode: _pendingAttackMode, libraryIndex: libraryIndex, allySlot: slot);
+            BeginCast(charId, enemyTarget, attackMode: attackMode, libraryIndex: libraryIndex, allySlot: slot);
         }
 
         /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称;
@@ -3186,6 +3191,13 @@ namespace Brushblade.Presentation
             }
 
             // 第二行(动作)
+            // 双向态(2026-09-02):_targeting 与 _allyTargeting 同时为真 —— 敌我都点亮,
+            // 点谁定方向。提示必须说清这件事,只说「点目标敌人」会让玩家以为不能点自己。
+            if (_targeting && _allyTargeting)
+            {
+                BenchHint(_actionRow, Strings.T("battle.hint.targeting_dual", ("charId", _selectedChar)), 16, Theme.TextMain);
+                return;
+            }
             if (_targeting)
             {
                 BenchHint(_actionRow, Strings.T("battle.hint.targeting_enemy", ("charId", _selectedChar)), 16, Theme.TextMain);
@@ -3196,18 +3208,6 @@ namespace Brushblade.Presentation
             if (_allyTargeting)
             {
                 BenchHint(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
-                return;
-            }
-            // 方向选择(2026-09-02):水/土 双方向字选中后画「攻」「护」两个钮,
-            // 点完各自进对应的目标态。与下面那排动作钮同尺寸,免得手指点位跳。
-            if (_directionPicking)
-            {
-                Ui.RoundButton(_actionRow, Strings.T("battle.btn.direction_attack"),
-                    () => CastInDirection(def, attackMode: true),
-                    Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
-                Ui.RoundButton(_actionRow, Strings.T("battle.btn.direction_support"),
-                    () => CastInDirection(def, attackMode: false),
-                    Theme.ElementColor(def.Element), Color.white, 17, new Vector2(76, 52));
                 return;
             }
             // 2026-08-21 用户拍板:动作名一律收成单字 —— 「出字 / 直出 / 兜底一击」三种情形
@@ -4300,7 +4300,7 @@ namespace Brushblade.Presentation
             // 沿用同一手势再点一次牌本体,若不挡在这里会跳过「攻」「护」两个可见按钮,
             // 静默按 CastInDirection 的默认分支(护)出字。
             if (_selectedChar == charId && _selectedIndex == index
-                && !_targeting && !_allyTargeting && !_directionPicking)
+                && !_targeting && !_allyTargeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中字 = 直接出字
                 return;
@@ -4310,8 +4310,7 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             _pendingAllyEnemyTarget = -1;
-            _directionPicking = false; // 改点了另一张字:上一张的方向选择作废(2026-09-02 终审修复)
-            _pendingAttackMode = false;
+            _pendingAttackMode = false; // 改点了另一张字:上一张待定的方向作废
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
             _message = Brief(charId) + Strings.T("battle.hint.suffix_tap_again_cast");
             Refresh();
@@ -4322,7 +4321,7 @@ namespace Brushblade.Presentation
             // 方向按钮已经画出来时(2026-09-02 审阅 Important),再点部件本体不该绕过它们
             // 静默出字,理由同 OnLibraryCharClicked。
             if (_selectedChar == charId && _selectedIndex < 0
-                && !_targeting && !_allyTargeting && !_directionPicking)
+                && !_targeting && !_allyTargeting)
             {
                 OnCastPressed(_graph.Get(charId)); // 再点一次选中部件 = 直出
                 return;
@@ -4332,8 +4331,7 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             _pendingAllyEnemyTarget = -1;
-            _directionPicking = false; // 改点了另一张字:上一张的方向选择作废(2026-09-02 终审修复)
-            _pendingAttackMode = false;
+            _pendingAttackMode = false; // 改点了另一张字:上一张待定的方向作废
             ResetSlotPicking();
             _message = Brief(charId) + Strings.T("battle.hint.suffix_direct_cast");
             Refresh();
@@ -4341,16 +4339,26 @@ namespace Brushblade.Presentation
 
         private void OnCastPressed(CharDef def)
         {
-            // 双方向字(2026-09-02):有 AttackEffects 就先问方向。
-            // AttackEffects 为空的字(火/金/木全部)一路直下,行为与改造前完全一致。
-            if (def.AttackEffects.Count > 0 && !_directionPicking)
+            // 双方向字(2026-09-02 用户拍板改版):**不再先问方向,直接把敌我两边一起点亮** ——
+            // 玩家点谁,谁就定了方向:点敌人 = 攻击面,点自己/召唤物 = 治疗·加盾面。
+            //
+            // 改版前是「双击 → 拆合台弹「攻」「护」两个钮 → 选完再选目标」,两步。
+            // 现在一步:目标本身携带方向信息,不需要玩家先在抽象的「方向」上做一次选择,
+            // 再在具体的「谁」上做第二次。与拖拽路径的语义也就此对齐 ——
+            // 拖到敌人 = 攻击、拖到我方 = 护,本来就是「落点决定方向」。
+            //
+            // 实现上不新增状态:_targeting 与 _allyTargeting **同时**为真即是双向态。
+            // 两条既有的点击回调各自在进入时把 _pendingAttackMode 定死,互不干扰。
+            if (def.AttackEffects.Count > 0)
             {
-                _directionPicking = true;
-                _message = Strings.T("battle.hint.pick_direction", ("charId", def.Id));
+                _targeting = true;
+                _allyTargeting = true;
+                _pendingAllyEnemyTarget = -1;
+                _pendingAttackMode = true;   // 敌方侧的置灰判据要按攻击面算(点友方时会就地改回 false)
+                _message = Strings.T("battle.hint.pick_dual_target", ("charId", def.Id));
                 Refresh();
                 return;
             }
-            _directionPicking = false;
             CastInDirection(def, attackMode: false);
         }
 
@@ -4361,11 +4369,8 @@ namespace Brushblade.Presentation
         /// 变成参数 —— 免选判据、友方目标判据、最终 BeginCast 三处全部跟着这个参数走,
         /// 否则会出现「选了攻击方向,却按治疗面判断要不要选目标」这种错位。
         ///
-        /// ⚠ 良性冗余(2026-09-02 审阅提醒):下面进 _targeting/_allyTargeting 的两个分支
-        /// 没有顺手把 _directionPicking 复位回 false,它会残留为 true。这不是 bug ——
-        /// DrawActions 里 _targeting/_allyTargeting 的判断排在 _directionPicking 之前,
-        /// 不会画出按钮重叠;CancelSelection() 最终也会把它连同其余交互态一起清干净。
-        /// 留着不清是因为没有必要,不是漏改。</summary>
+        /// 2026-09-02 改版后它只服务**单方向字**(AttackEffects 为空,恒走 attackMode: false)
+        /// 与拖拽路径;双方向字的双击走 OnCastPressed 里的双向目标态,不经过这里。</summary>
         private void CastInDirection(CharDef def, bool attackMode)
         {
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
@@ -4535,6 +4540,8 @@ namespace Brushblade.Presentation
                 // 那条同源:场上没有存活召唤物时引擎会自动锁玩家,弹一次没得选的选择纯属白点。
                 if (BattleEngine.NeedsAllyTarget(picked, _pendingAttackMode) && Battle.AliveSummonCount > 0)
                 {
+                    // 攻击面还要选友方落点(澡/杜/壁)。EnterAllyTargeting 会把 _targeting 关掉,
+                    // 双向态就此收敛成单纯的第二段 —— 方向已经由「点了敌人」这一下定死。
                     EnterAllyTargeting(picked, enemyTarget: index, attackMode: _pendingAttackMode);
                     Refresh();
                     return;
@@ -5071,7 +5078,6 @@ namespace Brushblade.Presentation
             _selectedIndex = -1;
             _targeting = false;
             _allyTargeting = false;
-            _directionPicking = false;
             _pendingAttackMode = false;
             _pendingAllyEnemyTarget = -1;
             ResetSlotPicking(); // 连选途中取消 = 整张字回滚:没调 Cast,AP 与字库一滴未动

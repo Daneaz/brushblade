@@ -253,12 +253,12 @@ namespace Brushblade.Core.Tests
 
             // 碉/堡(2026-08-25):与 荆 同型的纯反伤肉盾,攻 0、反弹 50%。
             // 嘲讽只给 堡(蓝)与 荆(紫) —— 白档的 碉 拿不到全套坦克包。
-            // 2026-09-02 双方向重配(Task 11):碉/堡 的 Summon 随攻击面搬进 AttackEffects
-            // (Effects 现在是纯护盾)——单独摘出来读,不再挤进上面共用 Effects 的字典循环。
-            var diaoSummon = graph.Get("碉").AttackEffects.First(e => e.Kind == EffectKind.Summon);
+            // ⚠ 2026-09-02:曾因双方向重配把 Summon 搬进 AttackEffects,这里一度改读那一侧;
+            // 同日用户拍板「召唤字不做双方向」后又搬回 Effects,故恢复成与上面同源的读法。
+            var diaoSummon = graph.Get("碉").Effects.First(e => e.Kind == EffectKind.Summon);
             Assert.That(diaoSummon.Passive.Thorns, Is.EqualTo(50));
             Assert.That(diaoSummon.Passive.Taunt, Is.False, "白档不给嘲讽");
-            var baoSummon = graph.Get("堡").AttackEffects.First(e => e.Kind == EffectKind.Summon);
+            var baoSummon = graph.Get("堡").Effects.First(e => e.Kind == EffectKind.Summon);
             Assert.That(baoSummon.Passive.Thorns, Is.EqualTo(50));
             Assert.That(baoSummon.Passive.Taunt, Is.True);
 
