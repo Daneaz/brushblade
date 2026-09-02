@@ -3892,6 +3892,10 @@ namespace Brushblade.Presentation
                     && AnyGainable(option); // 给的字都不在出阵列表 → 整个选项置灰(2026-07-20)
                 var button = Ui.RoundButton(optionRow, option.Label, () =>
                 {
+                    // 结算飘字播放期间钮还在屏上(刻意不重绘,不然飘字当场被盖掉)——
+                    // 这时再点会二次调 ChooseEventOption,而 Core 的 CurrentEvent 已置空,
+                    // 返回 false 后一路落到「这个选不了」的告警,是个纯粹由动效窗口造出来的假错。
+                    if (_eventResolving) return;
                     // 首点只选中(2026-08-27 用户拍板):效果说明画进底部提示行,钮转高亮,
                     // **不结算**。奇遇是不可逆决策,而钮上只有名称 —— 不给这一步,玩家就是在
                     // 盲点。再点同一个才往下走;点另一个则换成那一个的说明。
@@ -3917,6 +3921,7 @@ namespace Brushblade.Presentation
                         return;
                     }
                     int inkBefore = _run.AvailableInk;
+                    int maxHpBefore = _run.EffectiveMaxHp; // 上限是掷出来的(MaxHpChancePercent),只能事后 diff
                     var beforeHoldings = SnapshotHoldings(); // 结算前拍一张,结算后 diff 出拿到了什么
                     if (_run.ChooseEventOption(index))
                     {
@@ -3926,6 +3931,14 @@ namespace Brushblade.Presentation
                                 : Strings.T("battle.event.gamble_lose"))
                             : $"{evt.Id}:{option.Label}";
                         MarkFreshSince(beforeHoldings); // 拿到的字/部件高亮,与战利品同一套读法
+                        // 生命上限 / 当前血的变化先飘出来再换屏(2026-09-02 试玩反馈:
+                        // 「当前看不到效果,最后也不知道到底是扣血还是加血上限了」)
+                        if (AnnounceEventHpOutcome(_run.EffectiveMaxHp - maxHpBefore, option.HpDelta))
+                        {
+                            _eventResolving = true;
+                            StartCoroutine(FinishEventAfterOutcome());
+                            return;
+                        }
                         CancelSelection();
                         return;
                     }
@@ -3989,6 +4002,55 @@ namespace Brushblade.Presentation
                 },
                 Strings.T("battle.btn.replace_cancel"));
         }
+
+        /// <summary>奇遇结算的飘字正在播:期间不重绘、也不接受第二次点击(2026-09-02)。</summary>
+        private bool _eventResolving;
+
+        /// <summary>奇遇结算的生命变化播成**血条起势**(与加血/加盾同一个 <see cref="Juice.BarPulse"/>),
+        /// 播了返回 true(调用方据此改走「先播完再换屏」)。
+        ///
+        /// 试玩反馈:「加 HP 上限的 case 先播放下动效再结束,当前看不到效果,最后也不知道到底是
+        /// 扣血还是加血上限了」。两条病根:
+        ///   1. 这类变化由 <c>RunEngine.ChooseEventOption</c> 直接算完就换相位,**一个 BattleEvent
+        ///      都不产生**,Juice 的常规通道(<see cref="Juice.Play"/>)根本经手不到 —— 屏上没有任何痕迹;
+        ///   2. 换屏在同一帧发生,就算画了也当场被下一屏盖掉。
+        ///
+        /// ⚠ **必须先把血条更新到新值再起势**,否则起势的是一条还画着旧数字的条,
+        /// 「看不到效果」这条反馈原样还在。而这时不能读 <c>PlayerMaxHp</c>(它走
+        /// <c>Battle?.MaxHp</c>,是**上一场**战斗的配置,奇遇的上限加成还没折进去),
+        /// 要读 run 的携带态 —— <c>CarriedHp</c> 正是为此开放的。
+        ///
+        /// 上限是**掷出来的**(MaxHpChancePercent,掷空则反向扣同样百分比),所以只能由调用方
+        /// 事后 diff <c>EffectiveMaxHp</c> 得到,不能读 option 上的配置值。</summary>
+        private bool AnnounceEventHpOutcome(int maxHpDelta, int hpDelta)
+        {
+            // 上限涨的那一刻当前血也跟着涨了同样的量(Core 里「拿到的是血也是容器」那一句),
+            // 所以两者合看一次涨跌即可,不分开播两遍。
+            int delta = maxHpDelta != 0 ? maxHpDelta : hpDelta;
+            if (delta == 0 || _playerHpBar.fill == null) return false;
+
+            SetHpBar(_playerHpBar, _run.CarriedHp, _run.EffectiveMaxHp);
+            // 涨:水系上浮起势,与治疗同一套(见 OnImpact 里 Healed 那一支)。
+            // 跌:同一个起势但转朱砂、不带水花 —— 元素微粒是「有东西涌进来」的语汇,
+            // 掉血/掉上限不该借用它,留一记红色脉冲把注意力钉在血条上就够了。
+            _juice.BarPulse(_playerHpBar.fill,
+                delta > 0 ? Theme.SplitBlue : Theme.Cinnabar,
+                delta > 0 ? Element.Water : null);
+            return true;
+        }
+
+        /// <summary>飘字停留够了再换屏。停留时长取 <see cref="EventOutcomeHold"/> ——
+        /// 飘字自身的生命周期约 1.1s,取 0.9 让它读完主体、尾巴的淡出与下一屏重叠,
+        /// 不至于把节奏拖成「点完还要等」。</summary>
+        private System.Collections.IEnumerator FinishEventAfterOutcome()
+        {
+            for (float t = 0; t < EventOutcomeHold; t += Time.unscaledDeltaTime)
+                yield return null;
+            _eventResolving = false;
+            CancelSelection(); // 与不播飘字那一支同一个出口
+        }
+
+        private const float EventOutcomeHold = 0.9f;
 
         private void ResetEventSelection()
         {
