@@ -2491,24 +2491,25 @@ namespace Brushblade.Presentation
             Ui.Sized(label.gameObject, width: CountCaptionW);
         }
 
-        /// <summary>手牌行末尾的广告扩容位(稿 .adslot):常驻显示,用过后转灰而不是消失——
-        /// 旧实现里 Ui.AdBadge 只在未扩容时画,扩过容之后这个位置直接空着,看不出「已经
-        /// 扩过容了」这条反馈;稿上明确是「已用过时转灰」的持续态,不是用完就撤。
-        /// 没有做稿上的虚线边框(dashed)——Unity UI 没有现成的虚线描边,与 Task 6 空敌人格
-        /// 同一个坑同一个取舍:实线圆角描边 + 素色近似,不为这一处引入资源或自定义 Shader。</summary>
+        /// <summary>手牌行末尾的广告扩容位(稿 .adslot)。
+        ///
+        /// **扩容之后整个撤掉,不留灰槽**(2026-09-02 用户拍板,推翻稿上的 `.adslot.used` 持续态)。
+        /// 稿原本的口径是「用过后转灰而不是消失」,理由是留一条「已经扩过容了」的反馈;
+        /// 但字库行本来就挤(满员 12 张时已经要靠等比压缩才排得下,见 BuildSkeleton 中区那段),
+        /// 一个点不动、只说「已扩容」的灰槽白占一格宽度,而扩容这件事**在容量数字上已经写着**
+        /// (标题就是「字库 5/11」),不需要第二处反馈。稿已同步改掉。
+        ///
+        /// 没有做稿上的虚线边框(dashed)——Unity UI 没有现成的虚线描边,与空敌人格同一个坑
+        /// 同一个取舍:实线圆角描边 + 素色近似,不为这一处引入资源或自定义 Shader。</summary>
         private void DrawHandAdSlot()
         {
-            bool used = _run.LibraryExpanded;
+            if (_run.LibraryExpanded) return; // 扩过容就没这一格了
             var outer = Ui.OutlinedPanel(_libraryRow, "HandAdSlot",
-                used ? Theme.LockedBg : Theme.AdGreenBg, used ? Theme.PanelBorder : Theme.AdGreen,
-                10, 1.5f, out var face);
+                Theme.AdGreenBg, Theme.AdGreen, 10, 1.5f, out var face);
             Ui.Sized(outer.gameObject, width: HandAdSlotW, height: HandAdSlotH);
             var stack = Ui.VStack(face.transform, "Stack", 4);
             Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform,
-                used ? Strings.T("battle.btn.hand_ad_used") : Strings.T("battle.btn.hand_ad_slot"),
-                11, used ? Theme.LockGray : Theme.AdGreenText);
-            if (used) return;
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.hand_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
             button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
@@ -2822,21 +2823,17 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)badge.transform, anchor, anchor, offsetMin, offsetMax);
         }
 
-        /// <summary>部件池行末尾的广告扩容位(稿 .adpart):常驻显示,用过后转灰而不是消失,
+        /// <summary>部件池行末尾的广告扩容位(稿 .adpart):扩容之后整个撤掉、不留灰槽,
         /// 与 <see cref="DrawHandAdSlot"/> 同一个理由、同一套取舍(实线近似虚线边框)。</summary>
         private void DrawPoolAdSlot()
         {
-            bool used = _run.PoolExpanded;
+            if (_run.PoolExpanded) return; // 扩过容就没这一格了,同 DrawHandAdSlot
             var outer = Ui.OutlinedPanel(_poolRow, "PoolAdSlot",
-                used ? Theme.LockedBg : Theme.AdGreenBg, used ? Theme.PanelBorder : Theme.AdGreen,
-                10, 1.5f, out var face);
+                Theme.AdGreenBg, Theme.AdGreen, 10, 1.5f, out var face);
             Ui.Sized(outer.gameObject, width: PoolAdSlotW, height: PoolAdSlotH);
             var stack = Ui.VStack(face.transform, "Stack", 2);
             Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform,
-                used ? Strings.T("battle.btn.pool_ad_used") : Strings.T("battle.btn.pool_ad_slot"),
-                11, used ? Theme.LockGray : Theme.AdGreenText);
-            if (used) return;
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.pool_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
             button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
