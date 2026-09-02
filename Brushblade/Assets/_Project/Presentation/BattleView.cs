@@ -99,6 +99,13 @@ namespace Brushblade.Presentation
         // 与 _targeting 同构,只是点击面对象从敌人换成我方——选中的仍是 _selectedChar,
         // 落点走 Cast 的 allySlot 参数(Targeting.PlayerTarget = 玩家)。
         private bool _allyTargeting;
+        // 方向选择态(2026-09-02):水/土 双方向字选中后先问「攻」还是「护」,
+        // 选完再进各自的目标态。与 _targeting / _allyTargeting 同构,
+        // 只是这一态还没决定要打谁,只决定走哪套效果。
+        private bool _directionPicking;
+        // 进目标选择态时记住选的是哪个方向(2026-09-02):点敌人/点友方那两条回调
+        // 隔了一次用户交互才回来,不带着这个值会退回 attackMode: false。
+        private bool _pendingAttackMode;
         // 敌人 + 友方两段选目标(2026-08-26):圭/垚/垒 是「护盾 + 单体伤害」,沐/沝/澡 是
         // 「治疗 + 单体伤害」—— 两个目标都要选。先点敌人,下标暂存在这里,再进 _allyTargeting。
         // 改前 OnEnemyClicked 选完敌人直接 BeginCast,友方那一段根本进不去,治疗/护盾**永远落玩家**。
@@ -1857,7 +1864,7 @@ namespace Brushblade.Presentation
             int libraryIndex = _selectedIndex;
             int enemyTarget = _pendingAllyEnemyTarget; // 第一段选过的敌人;纯友方字为 −1
             _pendingAllyEnemyTarget = -1;
-            BeginCast(charId, enemyTarget, attackMode: false, libraryIndex: libraryIndex, allySlot: slot);
+            BeginCast(charId, enemyTarget, attackMode: _pendingAttackMode, libraryIndex: libraryIndex, allySlot: slot);
         }
 
         /// <summary>点召唤物 = 看详情(2026-08-15),与点敌人(<see cref="OnEnemyClicked"/>)对称;
@@ -2061,7 +2068,7 @@ namespace Brushblade.Presentation
                 // 「配置就在后排的怪 / 前排满员被改判到后排的怪 / 叠字分裂出的克隆」三种来源
                 // 一次覆盖;照 EnemyDef.Row 那个偏好自己算一套,后两种一定漏。
                 bool reachable = !_targeting || _selectedChar == null
-                    || Battle.CanTarget(_graph.Get(_selectedChar), index);
+                    || Battle.CanTarget(_graph.Get(_selectedChar), index, _pendingAttackMode);
 
                 // 格位守卫(2026-08-22 评审加固,2026-08-30 扩到跨列):Core 的不变式
                 // (每排 ≤ RowCapacity、列不重号)理应保证 enemy.Column/ColumnSpan 永远落在
@@ -2950,6 +2957,18 @@ namespace Brushblade.Presentation
                 BenchHint(_actionRow, Strings.T("battle.hint.targeting_ally", ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
+            // 方向选择(2026-09-02):水/土 双方向字选中后画「攻」「护」两个钮,
+            // 点完各自进对应的目标态。与下面那排动作钮同尺寸,免得手指点位跳。
+            if (_directionPicking)
+            {
+                Ui.RoundButton(_actionRow, Strings.T("battle.btn.direction_attack"),
+                    () => CastInDirection(def, attackMode: true),
+                    Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
+                Ui.RoundButton(_actionRow, Strings.T("battle.btn.direction_support"),
+                    () => CastInDirection(def, attackMode: false),
+                    Theme.ElementColor(def.Element), Color.white, 17, new Vector2(76, 52));
+                return;
+            }
             // 2026-08-21 用户拍板:动作名一律收成单字 —— 「出字 / 直出 / 兜底一击」三种情形
             // 统一叫「出」,「丢弃」叫「弃」。竖栏里按钮排一行,长标签会把整行挤换行;
             // 而三种「出」的差别(库里出 / 部件直出 / 无效果字的兜底一击)属于结算细节,
@@ -3747,12 +3766,34 @@ namespace Brushblade.Presentation
 
         private void OnCastPressed(CharDef def)
         {
+            // 双方向字(2026-09-02):有 AttackEffects 就先问方向。
+            // AttackEffects 为空的字(火/金/木全部)一路直下,行为与改造前完全一致。
+            if (def.AttackEffects.Count > 0 && !_directionPicking)
+            {
+                _directionPicking = true;
+                _message = Strings.T("battle.hint.pick_direction", ("charId", def.Id));
+                Refresh();
+                return;
+            }
+            _directionPicking = false;
+            CastInDirection(def, attackMode: false);
+        }
+
+        /// <summary>选定方向后的出字流程(2026-09-02)。<paramref name="attackMode"/>
+        /// true = 攻击面(走 AttackEffects),false = 治疗/加盾面(走 Effects)。
+        ///
+        /// 这就是原来 OnCastPressed 的整个函数体,只是把写死的 attackMode: false
+        /// 变成参数 —— 免选判据、友方目标判据、最终 BeginCast 三处全部跟着这个参数走,
+        /// 否则会出现「选了攻击方向,却按治疗面判断要不要选目标」这种错位。</summary>
+        private void CastInDirection(CharDef def, bool attackMode)
+        {
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
             // 出一张够不到后排的字本就没得选,还弹一次选目标纯属让玩家白点一下。
             // 与 Core 的 Cast 同口径 —— 那边合法目标恰好一个时会自动锁定。
-            if (BattleEngine.NeedsTarget(def) && LegalTargetCount(def, attackMode: false) > 1)
+            if (BattleEngine.NeedsTarget(def, attackMode) && LegalTargetCount(def, attackMode) > 1)
             {
                 _targeting = true;
+                _pendingAttackMode = attackMode;
                 _message = Strings.T("battle.hint.cast_pick_enemy_target", ("charId", def.Id));
                 Refresh();
                 return;
@@ -3760,13 +3801,14 @@ namespace Brushblade.Presentation
             // 友方目标(2026-08-22):场上有存活召唤物才进选目标态——没有的话引擎会自动锁玩家
             // (Cast 里 AliveSummons() == 0 那条免选口径),UI 弹一次没得选的选择纯属白点一下,
             // 与上面「单敌免选」同一条纪律。
-            if (BattleEngine.NeedsAllyTarget(def) && Battle.AliveSummonCount > 0)
+            if (BattleEngine.NeedsAllyTarget(def, attackMode) && Battle.AliveSummonCount > 0)
             {
+                _pendingAttackMode = attackMode;
                 EnterAllyTargeting(def, enemyTarget: -1);
                 Refresh();
                 return;
             }
-            BeginCast(def.Id, -1, attackMode: false, libraryIndex: _selectedIndex);
+            BeginCast(def.Id, -1, attackMode: attackMode, libraryIndex: _selectedIndex);
         }
 
         /// <summary>这张字现在有几只敌人点得动(2026-08-20)。判据走 <c>Battle.CanTarget</c>,
@@ -3908,16 +3950,16 @@ namespace Brushblade.Presentation
                 // 够不到的怪已经置灰且 interactable = false,走不到这;真走到了也直接忽略 ——
                 // 落到下面的「看详情」分支会让玩家以为自己点歪了
                 var picked = _graph.Get(_selectedChar);
-                if (!Battle.CanTarget(picked, index)) return;
+                if (!Battle.CanTarget(picked, index, _pendingAttackMode)) return;
                 // 还要选友方就转第二段,别在这里就出字(2026-08-26)。免选口径与 OnCastPressed
                 // 那条同源:场上没有存活召唤物时引擎会自动锁玩家,弹一次没得选的选择纯属白点。
-                if (BattleEngine.NeedsAllyTarget(picked) && Battle.AliveSummonCount > 0)
+                if (BattleEngine.NeedsAllyTarget(picked, _pendingAttackMode) && Battle.AliveSummonCount > 0)
                 {
                     EnterAllyTargeting(picked, enemyTarget: index);
                     Refresh();
                     return;
                 }
-                BeginCast(_selectedChar, index, attackMode: false, libraryIndex: _selectedIndex);
+                BeginCast(_selectedChar, index, attackMode: _pendingAttackMode, libraryIndex: _selectedIndex);
                 return;
             }
             // 非选目标态点怪 = 看详情(2026-07-22);此前这里什么也不做。
@@ -4449,6 +4491,8 @@ namespace Brushblade.Presentation
             _selectedIndex = -1;
             _targeting = false;
             _allyTargeting = false;
+            _directionPicking = false;
+            _pendingAttackMode = false;
             _pendingAllyEnemyTarget = -1;
             ResetSlotPicking(); // 连选途中取消 = 整张字回滚:没调 Cast,AP 与字库一滴未动
             Refresh();
