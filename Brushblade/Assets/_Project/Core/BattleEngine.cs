@@ -1682,7 +1682,7 @@ namespace Brushblade.Core
                 if (damage > 0)
                     // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle / DamageAll 两处
                     // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
-                    DamageEnemy(tgt, damage, Array.Empty<Element>(), summon.Element,
+                    DamageEnemy(tgt, damage, summon.Element,
                         crit: RollCritForSummon(summon), attackerBag: summon.Statuses);
                 ApplySummonOnHit(summon, tgt);
             }
@@ -1930,7 +1930,6 @@ namespace Brushblade.Core
         private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false,
             IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
         {
-            var recipeElements = _graph.RecipeElements(def.Id);
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
@@ -1995,7 +1994,7 @@ namespace Brushblade.Core
                                 // percent == 100 时**不做乘除**:x * 100 / 100 在整数下虽然等于 x,
                                 // 但跳过它才能让「缺省路径与改前逐字节相同」成为结构性保证而非算术巧合
                                 if (percent != 100) damage = damage * percent / 100;
-                                DamageEnemy(tgt, damage, recipeElements, attacker,
+                                DamageEnemy(tgt, damage, attacker,
                                     crit: RollCrit(),
                                     pierce: primary ? effect.Pierce : 0); // 多段:每段各减一次护甲(裁定 4)
                             }
@@ -2014,7 +2013,7 @@ namespace Brushblade.Core
                             // 那条战术分工的具体形状;代价靠配置口径(带甲怪不成群)兜
                             DamageEnemy(i,
                                 ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
-                                recipeElements, attacker, crit: RollCrit(),
+                                attacker, crit: RollCrit(),
                                 pierce: effect.Pierce);
                         }
                         break;
@@ -2193,10 +2192,10 @@ namespace Brushblade.Core
                         else if (targetIndex >= 0) Detonate(targetIndex);
                         break;
                     case EffectKind.SpendMomentum:
-                        SpendResource(StatusKind.Momentum, value, attacker, recipeElements);
+                        SpendResource(StatusKind.Momentum, value, attacker);
                         break;
                     case EffectKind.SpendWaterPower:
-                        SpendResource(StatusKind.WaterPower, value, attacker, recipeElements);
+                        SpendResource(StatusKind.WaterPower, value, attacker);
                         break;
                     case EffectKind.Empower:
                         // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
@@ -2274,7 +2273,7 @@ namespace Brushblade.Core
                         // 目标可选(2026-08-26):与 HealSelf 同一套 allySlot,生克照旧只看
                         // 配方内部的元素关系,与盾加给谁无关 —— 加召唤物与加玩家同值。
                         int shield = ScaleByBaseAttack(
-                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                            WuxingResolver.ResolveEffect(value));
                         if (allySlot == Targeting.PlayerTarget)
                         {
                             if (effect.PersistOnce) _shieldPersist += shield;
@@ -2294,12 +2293,12 @@ namespace Brushblade.Core
                     case EffectKind.BurnPotency:
                         _burnPerStack += value;
                         break;
-                    case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板);走生克(相生组合可增益)
+                    case EffectKind.HealSelf: // 水系主治疗(2026-07-19 拍板)
                     {
-                        // 目标可选(2026-08-22,spec §8):生克算的是配方内部的元素关系,
-                        // 与目标是谁无关 —— 治召唤物与治玩家同值
+                        // 目标可选(2026-08-22,spec §8):与目标是谁无关 —— 治召唤物与治玩家同值
+                        // (2026-09-02:相生 ×3 已取消,ResolveEffect 现在对这一支是恒等函数)
                         int healBase = ScaleByBaseAttack(
-                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                            WuxingResolver.ResolveEffect(value));
                         int amplified = AmplifyByWaterPower(healBase);  // 用**攒之前**的层数
                         GainWaterPower(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
                         HealAlly(allySlot, amplified);
@@ -2308,7 +2307,7 @@ namespace Brushblade.Core
                     case EffectKind.HealAll:
                     {
                         int healAllBase = ScaleByBaseAttack(
-                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                            WuxingResolver.ResolveEffect(value));
                         int amplifiedAll = AmplifyByWaterPower(healAllBase);
                         GainWaterPower(healAllBase);
                         HealPlayerAndSummons(amplifiedAll);
@@ -2321,7 +2320,7 @@ namespace Brushblade.Core
                         // 无条件 List.Add 的口径一致。不能用回合数做后缀:一回合 3 AP,同一回合
                         // 内完全可能连放两次,会被回合数误判成同一来源又变回刷新。
                         int perTurn = ScaleByBaseAttack(
-                            WuxingResolver.ResolveEffect(value, recipeElements, attacker));
+                            WuxingResolver.ResolveEffect(value));
                         int amplifiedPerTurn = AmplifyByWaterPower(perTurn);   // 用**攒之前**的层数
                         // 按**总量**攒水势:HoT 承诺的治疗总量就是 每回合量 × 回合数,
                         // 分几回合兑现不改变承诺量。攒的是基数(放大前),理由同 HealSelf。
@@ -2505,8 +2504,7 @@ namespace Brushblade.Core
         ///
         /// 走 DamageEnemy 而不是自己扣血:相克、护甲、暴击、反噬、分裂那一整套
         /// 都在那条链路上,绕过去就得抄一遍。</summary>
-        private void SpendResource(StatusKind kind, int perStack, Element attacker,
-            IReadOnlyCollection<Element> recipeElements)
+        private void SpendResource(StatusKind kind, int perStack, Element attacker)
         {
             int stacks = _playerStatuses.TotalMagnitude(kind);
             if (stacks <= 0 || perStack <= 0) return;
@@ -2519,7 +2517,7 @@ namespace Brushblade.Core
             int count = _enemies.Count;
             for (int i = 0; i < count; i++)
                 if (_enemies[i].Alive)
-                    DamageEnemy(i, damage, recipeElements, attacker, crit: RollCrit());
+                    DamageEnemy(i, damage, attacker, crit: RollCrit());
         }
 
         /// <summary>对一名敌人结算一次灼烧(2026-08-09 抽出):层数 × 系数 × 克制 掉血,然后 −1 层。
@@ -2932,13 +2930,12 @@ namespace Brushblade.Core
         // 焦痕加攻 / 叠字分裂)。名单与 bypassDefense 眼下重合,但刻意分成两个参数:
         // 那条问的是「吃不吃护甲」,这条问的是「算不算挥击」,日后出现「穿甲的挥击」时
         // 不该连带把反噬也关掉。
-        private void DamageEnemy(int enemyIndex, int baseValue,
-            IReadOnlyCollection<Element> recipeElements, Element attacker,
+        private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true)
         {
             var enemy = _enemies[enemyIndex];
-            int damage = WuxingResolver.ResolveEffect(baseValue, recipeElements, attacker, enemy.Element);
+            int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
             // 2026-08-12(E-b4 T3):这里原先有一整段乘法减伤 —— 承伤系数 enemy.DamageTaken、
             // 「减免遭克制失效」的补丁、穿甲的「只忽略减免 + 无条件 +15%」、破甲的「承伤 +25%」。
             // 四个乘数全部删除,守方侧从此没有任何乘数,只剩下面那一句点数减法(spec §4.1)。
@@ -3213,7 +3210,7 @@ namespace Brushblade.Core
             {
                 int bounced = damage * reflect / 100;
                 if (bounced > 0)
-                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
+                    DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
                         allowBarb: false);     // 同理也不算挥击:不触发铁画的反噬
             }
@@ -3253,7 +3250,7 @@ namespace Brushblade.Core
                 return false;
             }
 
-            int taken = WuxingResolver.ResolveEffect(damage, Array.Empty<Element>(), attacker, summon.Element);
+            int taken = WuxingResolver.ResolveEffect(damage, attacker, summon.Element);
             // 生克标记(2026-08-31):敌人打召唤物这一路本来就过生克(上面那句),标记跟着同一个倍率走。
             // 由 Core 标而不是让表现层拿两边属性自己推 —— 那会成为规则的第二个来源,
             // 与 SummonState.EffectiveAttack 那条注释说的是同一件事。
@@ -3299,7 +3296,7 @@ namespace Brushblade.Core
                 // 送出生僻字现形 / 焦痕加攻 / 叠字分裂。低百分比 × 小伤害整除到 0 时正会撞上。
                 int bounced = taken * thorns / 100;
                 if (bounced > 0)
-                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
+                    DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
                         allowBarb: false);     // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
             }
@@ -3327,7 +3324,7 @@ namespace Brushblade.Core
             {
                 int bounced = taken * reflect / 100;
                 if (bounced > 0)
-                    DamageEnemy(enemyIndex, bounced, Array.Empty<Element>(), Element.Heart,
+                    DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
                         allowBarb: false);     // 同玩家侧:折返不算挥击,不触发铁画的反噬
             }

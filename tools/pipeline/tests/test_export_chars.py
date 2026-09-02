@@ -83,9 +83,10 @@ def test_extract_pulls_74_implementable_chars():
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
     assert len(values) == 74
-    # 焚含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)
+    # 焚曾含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)。
+    # 2026-09-02:相生 ×3 取消,基础值改填等值改写后的实战值,40 → 120,战斗结果不变。
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
-    assert fen["value"] == 40
+    assert fen["value"] == 120
     assert values["焚"]["rarity"] == "Orange"
     assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"

@@ -124,7 +124,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Burn_RespectsKeMultiplier_NotShengMultiplier()
+        public void Burn_RespectsKeMultiplier_Only()
         {
             // 火克金 ×1.5:4 层 × 20 × 1.5 = 120。用金属性靶子才测得出克制,
             // 心属性对全属性都是 1.0x(子项目 D 的教训:同属性对同属性也是 1.0,同样测不出来)
@@ -584,7 +584,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Detonate_RespectsKeMultiplier_NotShengMultiplier()
+        public void Detonate_RespectsKeMultiplier_Only()
         {
             // 火克金 ×1.5:4 层引爆 = floor(4×5/2 × 20 × 1.5) = 300。
             // 必须用金属性靶子——心属性与同属性对同属性都是 1.0x,测不出来(子项目 D 的教训)

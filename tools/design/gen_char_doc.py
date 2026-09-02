@@ -202,17 +202,6 @@ PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge':
 SHAPE = {'Sweep': '横扫:整排', 'Cleave': '溅射:相邻',
          'Skewer': '贯穿:同列前后排', 'Volley': '连发', 'Chain': '弹射'}
 
-SHENG = {'Wood': 'Fire', 'Fire': 'Earth', 'Earth': 'Metal', 'Metal': 'Water', 'Water': 'Wood'}
-# 走生克结算的效果才吃相生 ×3,与 Core 的 WuxingResolver.ResolveEffect 覆盖面一致
-WUXING_SCALED = {'DamageSingle', 'DamageAll', 'Shield', 'HealSelf', 'HealAll', 'HealOverTime'}
-
-def sheng_mult(c):
-    """相生「他生我」:配方原料里含生本字属性的 → 3。配置表填的是基础值,×3 才是实战值。"""
-    mother = [k for k, v in SHENG.items() if v == c.get('element')]
-    if not mother:
-        return 1
-    return 3 if any(byid.get(p, {}).get('element') == mother[0] for p in c.get('recipe', [])) else 1
-
 def cname(c): return PUA.get(c['id'], c['id'])
 
 def lv1(c):
@@ -304,15 +293,9 @@ def passive_txt(p):
         out.append(shape)
     return '/'.join(out)
 
-def desc(e, mult=1):
+def desc(e):
     k, t, all_ = e['kind'], e.get('turns', 0), e.get('targetAll')
-    base = e.get('value', 0)
-    scaled = k in WUXING_SCALED and mult > 1
-    v = base * mult if scaled else base
-    # 相生字保留算式(70×3=210):只写最终值会让人以为配置表填的就是它,
-    # 只写基础值又与实战不符 —— 两个数都在,读表的人不用回头查倍率。
-    if scaled:
-        v = f"{base}×{mult}={base * mult}"
+    v = e.get('value', 0)
     s = {
         'DamageSingle': f"单体伤害 {v}", 'DamageAll': f"全体伤害 {v}",
         'BurnSingle': f"灼烧 {v} 层", 'BurnAll': f"全体灼烧 {v} 层",
@@ -360,13 +343,11 @@ def desc(e, mult=1):
     return s + ("(" + "、".join(mods) + ")" if mods else "")
 
 def atk(c):
-    m = sheng_mult(c)
     parts = []
     for e in c['effects']:
         if e['kind'] in ('DamageSingle', 'DamageAll'):
             n = e.get('hitCount', 1)
-            val = f"{e['value']}×{m}={e['value'] * m}" if m > 1 else f"{e['value']}"
-            parts.append(val + (f"×{n} 段" if n > 1 else "")
+            parts.append(f"{e['value']}" + (f"×{n} 段" if n > 1 else "")
                          + ("(AOE)" if e['kind'] == 'DamageAll' else ""))
     if parts: return '+'.join(parts)
     for e in c['effects']:
@@ -400,12 +381,12 @@ def cat_of(c):
 def row5(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {EL[c['element']]} | {RA[c['rarity']]} | "
             f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
-            + "；".join(desc(e, sheng_mult(c)) for e in c['effects']) + " |")
+            + "；".join(desc(e) for e in c['effects']) + " |")
 
 def row4(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {RA[c['rarity']]} | "
             f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | "
-            + "；".join(desc(e, sheng_mult(c)) for e in c['effects']) + " |")
+            + "；".join(desc(e) for e in c['effects']) + " |")
 
 H5 = ("| 字 | 拼音 | 近代字意 | 五行 | 稀有度 | 词组 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
       "|---|---|---|---|---|---|---|---|---|---|")

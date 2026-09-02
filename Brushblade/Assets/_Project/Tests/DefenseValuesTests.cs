@@ -256,16 +256,14 @@ namespace Brushblade.CoreTests
             // 但打出去的那一记用**中立(心)**探针字 —— 与 spec §6.3.2 的推导同口径。
             // 不直接出 蒸:它是火系带配方的字,对水系的墨渍会吃到生克乘数(实测 ×1.5),
             // 量到的就不再是「最低档 vs 护甲」而是「最低档 × 运气好的属性」,判据会被生克糊掉。
-            // 2026-08-15:取值要过一遍相生 —— 字表存的是**基础值**,相生字填基础值而实战 ×3。
-            // 不乘就会把基础值当成最低档,判据被一个不存在的量误导。
             // 2026-08-25 字表重构:最低档仍是 30(冻 / 利 / 烧);垒 的副伤原定 20,
             // 会把这条判据打穿(20 → 深度 20 归零),故改配成 盾 50 + 单体 30。
+            // 2026-09-02:相生 ×3 已取消,字表存的直接就是实战值,不再需要乘相生倍率。
             var realGraph = RealGraph();
             int lowestTier = realGraph.All
                 .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Where(e => e.Kind == EffectKind.DamageSingle && e.Pierce == 0)
-                    .Select(e => e.Value * WuxingResolver.ShengMultiplier(
-                        realGraph.RecipeElements(c.Id), c.Element ?? Element.Heart)))
+                    .Select(e => e.Value))
                 .Min();
             Assert.That(lowestTier, Is.EqualTo(30), "字表最低伤害档;它变了这条判据要重新标定");
 

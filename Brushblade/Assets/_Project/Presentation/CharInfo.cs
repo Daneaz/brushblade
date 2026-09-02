@@ -5,7 +5,7 @@ using Brushblade.Data;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>字卡简述:从定义机械生成(拼音/释义/属性/稀有度/AP/效果/配方/相生)。</summary>
+    /// <summary>字卡简述:从定义机械生成(拼音/释义/属性/稀有度/AP/效果/配方)。</summary>
     public static class CharInfo
     {
         /// <summary>cardLevel:局外卡等级,效果数值按 MetaRules.ScaleByCardLevel 缩放后显示,
@@ -31,11 +31,6 @@ namespace Brushblade.Presentation
 
             text.Append('|').Append(EffectsText(def, cardLevel, graph));
 
-            // 相生「他生我」:要拿本字属性去比对配方原料(中性字视作心,永不成对)
-            if (WuxingResolver.ShengMultiplier(
-                    graph.RecipeElements(def.Id), def.Element ?? Element.Heart) == 3)
-                text.Append('|').Append(Strings.T("char.summary.sheng"));  // 数值本身已乘,这里只解释它为何比同档高
-
             return text.ToString();
         }
 
@@ -43,26 +38,14 @@ namespace Brushblade.Presentation
         public static string Detail(CharDef def, RecipeGraph graph, int cardLevel = 1) =>
             Summary(def, graph, cardLevel).Replace("|", "\n");
 
-        /// <summary>走生克结算的效果 —— 只有这些吃相生 ×3,与 BattleEngine 里过
-        /// <see cref="WuxingResolver.ResolveEffect"/> 的那几支严格对应。灼烧层数、召唤血攻、
-        /// 流血、驱散条数等都是平值,不乘。</summary>
-        private static bool IsWuxingScaled(EffectKind kind) => kind is
-            EffectKind.DamageSingle or EffectKind.DamageAll or EffectKind.Shield or
-            EffectKind.HealSelf or EffectKind.HealAll or EffectKind.HealOverTime;
-
         /// <summary>效果串(升级 preview 取前后两级各调一次)。
         ///
-        /// <paramref name="graph"/> 给了就把**相生 ×3 也算进显示值**(2026-08-14)。
-        /// 此前恒显示配置基础值,而相生是「固有、永久生效」的 —— 燊(焱+木,木生火)卡面写
-        /// 「全体 80 伤」,实战打出去是 240,比同为全体伤的金档 焱(200)更高;光看卡面
-        /// 却像是橙档反被金档压着。传 null 时行为与旧版逐字相同。</summary>
+        /// <paramref name="graph"/> 相生 ×3 已取消(2026-09-02),显示值等于配置基础值,
+        /// 这个参数眼下没有再改写 <c>shown</c> 的用途,保留是为了不动其余调用点的签名。</summary>
         public static string EffectsText(CharDef def, int cardLevel = 1, RecipeGraph graph = null)
         {
             if (def.Effects.Count == 0)
                 return Strings.T("char.summary.noeffect");
-
-            int sheng = graph == null ? 1
-                : WuxingResolver.ShengMultiplier(graph.RecipeElements(def.Id), def.Element ?? Element.Heart);
 
             var parts = new StringBuilder();
             for (int i = 0; i < def.Effects.Count; i++)
@@ -76,11 +59,7 @@ namespace Brushblade.Presentation
                 if (i > 0) parts.Append(';');
                 var e = def.Effects[i];
                 int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
-                // 相生字把算式整个写出来(70×3=210):只显示最终值,玩家会以为字表就填的这个;
-                // 只显示基础值又与实战对不上 —— 燊 的卡面写 80、打出去 240 正是上一版的毛病。
-                string shown = IsWuxingScaled(e.Kind) && sheng > 1
-                    ? $"{v}×{sheng}={v * sheng}"
-                    : v.ToString();
+                string shown = v.ToString();
                 parts.Append(e.Kind switch
                 {
                     EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",

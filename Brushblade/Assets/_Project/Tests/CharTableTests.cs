@@ -75,13 +75,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_XiangShengCharsStoreBaseValue()
+        public void RealConfig_FormerXiangShengCharStoresFinalValue()
         {
-            // 焚含木生火,配置表填基础值 40,引擎结算时 ×3 = 120
-            // (2026-08-25 字表重构:随「3 部件 → 橙档」升档,全体锚点 200 → 240)
+            // 2026-08-25 字表重构:随「3 部件 → 橙档」升档,全体锚点 200 → 240(基础值 40,×3=120)。
+            // 2026-09-02:相生 ×3 取消(等值改写),焚 的配置值直接就是实战值 120,不再是基础值 40。
             Assert.That(RealGraph().Get("焚").Rarity, Is.EqualTo(CardRarity.Orange));
             var aoe = RealGraph().Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll);
-            Assert.That(aoe.Value, Is.EqualTo(40), "相生字必须填基础值,不是最终值");
+            Assert.That(aoe.Value, Is.EqualTo(120), "相生取消后,配置值必须等于实战值");
         }
 
         [Test]
@@ -637,23 +637,6 @@ namespace Brushblade.Core.Tests
             // tools/pipeline/tests/test_export_chars.py::test_real_table_entry_count)。
             Assert.That(playable, Is.EqualTo(74));
             Assert.That(components, Is.EqualTo(69));
-        }
-
-        /// <summary>相生倍率恒等(spec §五):荆 / 湮 换了配方原料,但倍率仍是 1。
-        ///
-        /// ⚠ 断在 <see cref="WuxingResolver.ShengMultiplier"/> 的真实计算上,不断「配方不含某属性」——
-        /// 后者把「木的母是水」这个前提藏在注释里,日后谁改了 荆 的 element,倍率真变了也不会红。
-        /// 这条守的是本分支「不动任何平衡」的核心主张,必须测那件事本身。</summary>
-        [Test]
-        public void RealConfig_JingAndYanKeepMultiplierOne()
-        {
-            var graph = RealGraph();
-            foreach (var id in new[] { "荆", "湮" })
-            {
-                var def = graph.Get(id);
-                Assert.That(WuxingResolver.ShengMultiplier(graph.RecipeElements(id), def.Element.Value),
-                    Is.EqualTo(1), $"{id} 换配方后相生倍率必须仍是 1(spec §五:不动任何平衡)");
-            }
         }
 
         /// <summary>叠字前置不因部件有了配方而收紧(spec §一列出的三个回归之一)。

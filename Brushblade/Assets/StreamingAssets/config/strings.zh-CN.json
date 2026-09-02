@@ -276,7 +276,6 @@
   "char.shape.chain.desc": "从主目标起按格子距离依次跳到不重复的其他目标，每跳一次伤害按比例衰减；目标不够就少跳，不循环回头。",
   "char.summary.noeffect": "无战斗效果(可兜底一击:单体3伤,或作合成材料)",
   "char.summary.recipe": "配方:",
-  "char.summary.sheng": "相生:效果已含 ×3",
   "collection.alert.already_maxed_body": "「{cardId}」已是 Lv.{maxLevel},无法再升。",
   "collection.alert.already_maxed_title": "已满级",
   "collection.alert.deck_add_fail_body": "「{cardId}」加不进来。\n出阵列表:{min}~{max} 字,每属性至多 {perElementLimit} 字。",

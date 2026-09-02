@@ -26,10 +26,10 @@ namespace Brushblade.Core.Tests
             new CharDef("然", null),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
                 effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
-            // 壁(土系,辟金+土):土生金是「我生他」→ 不吃相生,盾 8
+            // 壁(土系,辟金+土):盾 8(相生 ×3 已取消,元素与配方不再影响倍率)
             new CharDef("壁", Element.Earth, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
-            // 锢(金系,辟金+土):土生金 = 「他生我」→ 吃相生,盾 8×3 = 24
+            // 锢(金系,辟金+土):盾 8(同上)
             new CharDef("锢", Element.Metal, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
             new CharDef("灼", Element.Fire, new[] { "火", "勺" },
@@ -335,12 +335,12 @@ namespace Brushblade.Core.Tests
         // ---- 出字与生克结算(wuxing-reference 规格例) ----
 
         [Test]
-        public void Cast_Fen_VsMetal_Deals81() // 焚:floor(18×3×1.5)=81
+        public void Cast_Fen_VsMetal_Deals27() // 焚:floor(18×1.5)=27(相生 ×3 已取消)
         {
             var engine = Engine(library: new[] { "焚" }, enemies: new[] { MetalBoss(200) });
             var error = engine.Cast("焚");
             Assert.That(error, Is.EqualTo(BattleError.None));
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 81));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 27));
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(1)); // 附带灼烧层数为平值
         }
 
@@ -363,14 +363,6 @@ namespace Brushblade.Core.Tests
             Assert.That(error, Is.EqualTo(BattleError.None));
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 6)); // floor(4×1.5)=6,火克金
             Assert.That(engine.Pool, Does.Not.Contain("火"));
-        }
-
-        [Test]
-        public void Cast_Shield_UsesShengMultiplier() // 锢(金系,辟金+土):土生金 = 他生我,护盾 8×3 = 24
-        {
-            var engine = Engine(library: new[] { "锢" });
-            engine.Cast("锢");
-            Assert.That(engine.PlayerShield, Is.EqualTo(24));
         }
 
         [Test]
@@ -404,7 +396,7 @@ namespace Brushblade.Core.Tests
                 enemies: new[] { WoodMinion(), MetalBoss(200) });
             engine.Cast("焚");            // 木怪死,只剩金怪
             Assert.That(engine.Cast("灯"), Is.EqualTo(BattleError.None)); // 免选自动锁定金怪
-            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(200 - 81 - 9));
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(200 - 27 - 9));
         }
 
         // ---- 同字多张:按玩家点的卡位消耗(2026-08-17,此前 Remove(charId) 永远删第一张) ----
@@ -486,10 +478,10 @@ namespace Brushblade.Core.Tests
         public void EndTurn_EnemyAttacks_ShieldAbsorbsFirst_ShieldPersists() // 护盾段内持久,不再回合末全清
         {
             var engine = Engine(library: new[] { "锢" }, enemies: new[] { MetalBoss() }); // 攻 5
-            engine.Cast("锢"); // 护盾 24
+            engine.Cast("锢"); // 护盾 8(相生 ×3 已取消)
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 24 盾吸收攻 5,不掉血
-            Assert.That(engine.PlayerShield, Is.EqualTo(19)); // 护盾段内持久,剩余 19
+            Assert.That(engine.PlayerHp, Is.EqualTo(50)); // 8 盾吸收攻 5,不掉血
+            Assert.That(engine.PlayerShield, Is.EqualTo(3)); // 护盾段内持久,剩余 3
             Assert.That(engine.Turn, Is.EqualTo(2));
             Assert.That(engine.Ap, Is.EqualTo(3)); // AP 不跨回合保留,重置为 3
         }
@@ -531,9 +523,9 @@ namespace Brushblade.Core.Tests
         public void Shield_StacksWithinTurn() // 同回合多次筑盾累加
         {
             var engine = Engine(library: new[] { "锢" }, pool: new[] { "土" }, enemies: new[] { MetalBoss() });
-            engine.Cast("锢");            // 24(土生金 ×3)
-            engine.Cast("土");            // 部件直出 +3(无配方,无相生)
-            Assert.That(engine.PlayerShield, Is.EqualTo(27));
+            engine.Cast("锢");            // 8(相生 ×3 已取消)
+            engine.Cast("土");            // 部件直出 +3
+            Assert.That(engine.PlayerShield, Is.EqualTo(11));
         }
 
         // ---- 兜底出字(4.5 第二层「防卡手地板,永不 brick」):无效果的部件/字均可打出弱一击 ----
@@ -784,9 +776,9 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine(library: new[] { "焚", "灯" },
                 enemies: new[] { WoodMinion(), MetalBoss(200) });
-            engine.Cast("焚"); // 木怪(12)死于 54,金怪 200-81=119
+            engine.Cast("焚"); // 木怪(12)死于 18,金怪 200-27=173(相生 ×3 已取消)
             Assert.That(engine.Cast("灯", 0), Is.EqualTo(BattleError.None)); // 点尸体 → 自动转向唯一存活
-            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(119 - 9));
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(173 - 9));
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(45)); // 只有金怪(攻5)打了一下
         }

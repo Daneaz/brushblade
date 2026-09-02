@@ -1,10 +1,11 @@
-using System;
+using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>用例直接取自 docs/design/wuxing-reference.md 的规格例——规格即测试。</summary>
+    /// <summary>用例直接取自 docs/design/wuxing-reference.md 的规格例——规格即测试。
+    /// 相生 ×3 已于 2026-09-02 取消,本文件只覆盖相克。</summary>
     public class WuxingResolverTests
     {
         // ---- 相克:木克土,土克水,水克火,火克金,金克木 ----
@@ -35,120 +36,53 @@ namespace Brushblade.Core.Tests
             Assert.That(WuxingResolver.KeMultiplier(attacker, defender), Is.EqualTo(1.0f));
         }
 
-        // ---- 相生「他生我」:原料里含生本字属性的那个,才 ×3(2026-08-04 收紧) ----
+        // ---- 效果结算 ----
 
         [Test]
-        public void Sheng_MotherInRecipe_Triples() // 焚(火系,林+火 = 木+火):木生火
+        public void ResolveEffect_NoLongerAppliesSheng()
         {
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Wood, Element.Fire }, Element.Fire), Is.EqualTo(3));
+            // 相生 x3 已取消(2026-09-02 用户拍板):全表只有 4 张字吃得到,
+            // 是条空转规则。基础值直接写成实战值,配置值 = 实战值。
+            // 木生火,但这里不该再有任何倍率
+            Assert.That(WuxingResolver.ResolveEffect(100, Element.Fire, Element.Heart),
+                Is.EqualTo(100));
         }
 
         [Test]
-        public void Sheng_SelfGeneratesOther_DoesNotCount() // 淋(水系,氵+林 = 水+木):水生木是「我生他」
+        public void ResolveEffect_StillAppliesKe()
         {
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Water, Element.Wood }, Element.Water), Is.EqualTo(1));
+            // 相克保留:火克金 x1.5,火被水克 x0.5
+            Assert.That(WuxingResolver.ResolveEffect(100, Element.Fire, Element.Metal),
+                Is.EqualTo(150));
+            Assert.That(WuxingResolver.ResolveEffect(100, Element.Fire, Element.Water),
+                Is.EqualTo(50));
         }
 
         [Test]
-        public void Sheng_MotherAloneSuffices() // 蒸(火系,艹+烝 = 木):原料只有母属性也算
+        public void ResolveEffect_FloorsAfterMultiplication() // floor(7×0.5)=3
         {
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Wood }, Element.Fire), Is.EqualTo(3));
-        }
-
-        [Test]
-        public void Sheng_DuplicatesDeduped() // 焚(木木火)去重后仍含木生火
-        {
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Wood, Element.Wood, Element.Fire }, Element.Fire), Is.EqualTo(3));
-        }
-
-        [Test]
-        public void Sheng_EarthMetal_OrderInRecipeIrrelevant() // 刲(金系,圭+刂 = 土+金):土生金
-        {
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Metal, Element.Earth }, Element.Metal), Is.EqualTo(3));
-        }
-
-        [Test]
-        public void Sheng_MultipleMothers_NoStacking() // 母属性出现多次 → 仍 ×3
-        {
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Wood, Element.Wood, Element.Fire }, Element.Fire), Is.EqualTo(3));
-        }
-
-        [Test]
-        public void Sheng_NoMother_1x()
-        {
-            // 灶(火系,火+土):火生土是「我生他」
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Fire, Element.Earth }, Element.Fire), Is.EqualTo(1));
-            // 崟(土系,山+金 = 土+金):土生金是「我生他」
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Earth, Element.Metal }, Element.Earth), Is.EqualTo(1));
-            Assert.That(WuxingResolver.ShengMultiplier(
-                Array.Empty<Element>(), Element.Fire), Is.EqualTo(1));
-        }
-
-        [Test]
-        public void Sheng_HeartNeverForms_Pair() // 心不参与生克:既不被生,也不生人
-        {
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Wood, Element.Fire }, Element.Heart), Is.EqualTo(1));
-            Assert.That(WuxingResolver.ShengMultiplier(
-                new[] { Element.Heart }, Element.Fire), Is.EqualTo(1));
-        }
-
-        // ---- 效果结算:规格例 ----
-
-        [Test]
-        public void Resolve_Fen_Base7_VsMetal_31() // 焚 vs 金怪:floor(7×3×1.5)=31
-        {
-            var result = WuxingResolver.ResolveEffect(
-                7, new[] { Element.Wood, Element.Fire }, Element.Fire, Element.Metal);
-            Assert.That(result, Is.EqualTo(31));
-        }
-
-        [Test]
-        public void Resolve_Fen_Base7_VsNeutralTarget_21() // 焚:7×3
-        {
-            var result = WuxingResolver.ResolveEffect(
-                7, new[] { Element.Wood, Element.Fire }, Element.Fire, Element.Heart);
-            Assert.That(result, Is.EqualTo(21));
-        }
-
-        [Test]
-        public void Resolve_Kui_Base15_45() // 刲(金系,圭+刂 = 土+金):土生金,15×3
-        {
-            var result = WuxingResolver.ResolveEffect(
-                15, new[] { Element.Earth, Element.Metal }, Element.Metal, Element.Heart);
-            Assert.That(result, Is.EqualTo(45));
-        }
-
-        [Test]
-        public void Resolve_Lin_SelfGeneratesOther_NoTriple() // 淋(水系,水+木):我生他,群疗不翻倍
-        {
-            var result = WuxingResolver.ResolveEffect(
-                27, new[] { Element.Water, Element.Wood }, Element.Water);
-            Assert.That(result, Is.EqualTo(27));
-        }
-
-        [Test]
-        public void Resolve_Shield_NoTarget_TriplesOnMother() // 护盾无对抗目标:金系配方含土 → 8×3
-        {
-            var result = WuxingResolver.ResolveEffect(
-                8, new[] { Element.Metal, Element.Earth }, Element.Metal);
-            Assert.That(result, Is.EqualTo(24));
-        }
-
-        [Test]
-        public void Resolve_FloorsAfterMultiplication() // floor(7×0.5)=3
-        {
-            var result = WuxingResolver.ResolveEffect(
-                7, Array.Empty<Element>(), Element.Metal, Element.Fire);
+            var result = WuxingResolver.ResolveEffect(7, Element.Metal, Element.Fire);
             Assert.That(result, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ResolveEffect_NoTarget_IsIdentity() // 无对抗目标版本:相生取消后是恒等函数
+        {
+            Assert.That(WuxingResolver.ResolveEffect(27), Is.EqualTo(27));
+        }
+
+        [Test]
+        public void ShengRemoval_PreservesCombatValuesOfTheFourAffectedChars()
+        {
+            // 取消相生前这 4 张字靠 x3 达到的实战值,取消后由基础值直接表达。
+            // 沏 是例外:它在水系重配范围内,由 Task 10 的 DualDirectionTests 覆盖。
+            var graph = CharTableTests.RealGraph();
+            Assert.That(graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value,
+                Is.EqualTo(120), "原 40 x3");
+            Assert.That(graph.Get("蒸").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(135), "原 45 x3");
+            Assert.That(graph.Get("刲").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(450), "原 150 x3");
         }
     }
 }

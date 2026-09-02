@@ -1,29 +1,23 @@
 using System;
-using System.Collections.Generic;
 
 namespace Brushblade.Core
 {
-    /// <summary>五行生克结算。规则唯一来源:docs/design/wuxing-reference.md。</summary>
+    /// <summary>五行相克结算。规则唯一来源:docs/design/wuxing-reference.md。
+    ///
+    /// ⚠ **相生 ×3 已于 2026-09-02 取消**(用户拍板)。全表 74 张字里只有 4 张吃得到
+    /// (焚/蒸/沏/刲,土 0/13、木 0/14),是条空转规则:最大的乘区对两个系完全不可达。
+    /// 那 4 张字的基础值已直接写成 ×3 后的实战值,战斗结果一分不差。
+    /// 收益是配置值 = 实战值 —— 读字表不用再心算。</summary>
     public static class WuxingResolver
     {
         // 相克环:木克土,土克水,水克火,火克金,金克木(心不在环内)
-        private static readonly Dictionary<Element, Element> Ke = new()
+        private static readonly System.Collections.Generic.Dictionary<Element, Element> Ke = new()
         {
             { Element.Wood, Element.Earth },
             { Element.Earth, Element.Water },
             { Element.Water, Element.Fire },
             { Element.Fire, Element.Metal },
             { Element.Metal, Element.Wood },
-        };
-
-        // 相生环:木生火,火生土,土生金,金生水,水生木
-        private static readonly Dictionary<Element, Element> Sheng = new()
-        {
-            { Element.Wood, Element.Fire },
-            { Element.Fire, Element.Earth },
-            { Element.Earth, Element.Metal },
-            { Element.Metal, Element.Water },
-            { Element.Water, Element.Wood },
         };
 
         /// <summary>相克倍率:克制 1.5,被克 0.5,其余(含心)1.0。</summary>
@@ -36,29 +30,12 @@ namespace Brushblade.Core
             return 1.0f;
         }
 
-        /// <summary>相生倍率「他生我」:配方原料里含生 <paramref name="self"/> 的属性 → 3,多个不叠乘;否则 1。
-        /// 本字去生原料(我生他)不算 —— 如 灶(火系,火+土)的火生土。规格见 wuxing-reference.md。</summary>
-        public static int ShengMultiplier(IEnumerable<Element> recipeElements, Element self)
-        {
-            foreach (var mother in recipeElements)
-            {
-                if (Sheng.TryGetValue(mother, out var child) && child == self)
-                    return 3;
-            }
-            return 1;
-        }
+        /// <summary>效果结算:floor(基础值 × 相克)。</summary>
+        public static int ResolveEffect(int baseValue, Element attacker, Element defender) =>
+            (int)Math.Floor(baseValue * KeMultiplier(attacker, defender));
 
-        /// <summary>效果结算:floor(基础值 × 相生 × 相克)。<paramref name="attacker"/> 即本字属性。</summary>
-        public static int ResolveEffect(int baseValue, IEnumerable<Element> recipeElements, Element attacker, Element defender)
-        {
-            return (int)Math.Floor(
-                baseValue * ShengMultiplier(recipeElements, attacker) * KeMultiplier(attacker, defender));
-        }
-
-        /// <summary>无对抗目标的效果结算(护盾/治疗等):floor(基础值 × 相生)。</summary>
-        public static int ResolveEffect(int baseValue, IEnumerable<Element> recipeElements, Element self)
-        {
-            return baseValue * ShengMultiplier(recipeElements, self);
-        }
+        /// <summary>无对抗目标的效果结算(护盾/治疗等)。相生取消后这是恒等函数,
+        /// 保留它只为让调用点读起来仍然「过了一道五行结算」,将来要加别的规则有落点。</summary>
+        public static int ResolveEffect(int baseValue) => baseValue;
     }
 }

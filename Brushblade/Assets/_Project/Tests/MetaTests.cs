@@ -268,8 +268,8 @@ namespace Brushblade.Core.Tests
                 new[] { new EnemyDef("怔", Element.Heart, 200, 3) }, seed: 1,
                 cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["焚"] = 3 });
             engine.Cast("焚");
-            // 基础 18 → 3 级 ×1.2 = 21.6 → 向上取整 22 → 木生火 ×3 = 66
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 66));
+            // 基础 18 → 3 级 ×1.2 = 21.6 → 向上取整 22(相生 ×3 已取消,不再乘 3)
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 22));
         }
 
         // ---- 收集与出阵卡组(19.3.4) ----

@@ -12,7 +12,7 @@
 
 ## 规则的唯一来源
 
-- 五行生克(相克 ×1.5 / 相生 ×3 去重不叠乘 / 心中立):`docs/design/wuxing-reference.md`,其规格例即 `WuxingResolverTests` 用例。
+- 五行相克(相克 ×1.5 / 被克 ×0.5 / 心中立;**相生 ×3 已于 2026-09-02 取消**):`docs/design/wuxing-reference.md`,其规格例即 `WuxingResolverTests` 用例。
 - 数值:`docs/design/第10章-战斗数值框架.md`,字表数值为**基础值**,乘数结算时套用。
 - 配方拍板:一步合成(Mode A,Q1 已关闭)。
 

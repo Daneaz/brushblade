@@ -37,8 +37,8 @@ namespace Brushblade.Core.Tests
             var damage = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
             Assert.That(damage.Count, Is.EqualTo(2));
             Assert.That(damage[0].TargetIndex, Is.EqualTo(0));
-            Assert.That(damage[0].Amount, Is.EqualTo(81)); // 焚 vs 金:18×3×1.5
-            Assert.That(damage[1].Amount, Is.EqualTo(54)); // vs 心:18×3
+            Assert.That(damage[0].Amount, Is.EqualTo(27)); // 焚 vs 金:18×1.5(相生 ×3 已取消)
+            Assert.That(damage[1].Amount, Is.EqualTo(18)); // vs 心:18
 
             var burn = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Burn).ToList();
             Assert.That(burn.Count, Is.EqualTo(2));

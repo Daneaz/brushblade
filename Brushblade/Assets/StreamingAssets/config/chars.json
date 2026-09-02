@@ -55,7 +55,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 40
+          "value": 120
         },
         {
           "kind": "BurnAll",
@@ -259,7 +259,7 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 45
+          "value": 135
         }
       ]
     },
@@ -951,7 +951,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 150
+          "value": 450
         },
         {
           "kind": "Morale",
