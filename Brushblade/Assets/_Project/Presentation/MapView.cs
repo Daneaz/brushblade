@@ -462,7 +462,7 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)stack.transform);
 
             // 箱型立绘(Chests.dc.html):七只箱是七种材质,不是七种颜色
-            ChestArt(stack.transform, chest.Tier,
+            ChestArt.Draw(stack.transform, chest.Tier,
                 ready ? ChestView.State.Ready : chest.Timing ? ChestView.State.Timing : ChestView.State.Idle,
                 ChestArtSize);
 
@@ -507,31 +507,6 @@ namespace Brushblade.Presentation
                     Theme.Gold, Theme.GoldText, 19, new Vector2(72, 46), 14);
                 _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
             }
-        }
-
-        /// <summary>宝箱立绘 + 三态。素材缺失时回落成档位色块 + 首字(与 Icons.cs 的双轨同理):
-        /// 信息一点不丢,换 PNG 也不需要动这里一行。</summary>
-        private static void ChestArt(Transform parent, ChestTier tier, ChestView.State state, float size)
-        {
-            var row = Ui.Row(parent, "Art", 0);
-            if (ChestAssets.Has(tier))
-            {
-                var go = new GameObject("ChestArt", typeof(RectTransform));
-                go.transform.SetParent(row.transform, false);
-                var element = go.AddComponent<LayoutElement>();
-                element.preferredWidth = size;
-                element.preferredHeight = size;
-                go.AddComponent<ChestView>().Init(tier, state, size);
-                return;
-            }
-
-            var icon = Ui.CardPanel(row.transform, "Body", Theme.ChestColor(tier), 10);
-            var iconElement = icon.gameObject.AddComponent<LayoutElement>();
-            iconElement.preferredWidth = size;
-            iconElement.preferredHeight = size;
-            var glyph = Ui.ThemedLabel(icon.transform, ChestRules.TierName(tier).Substring(0, 1),
-                Mathf.RoundToInt(size * 0.44f), Color.white, Theme.TitleFont);
-            Ui.Stretch(glyph.rectTransform);
         }
 
         private static void DrawEmptySlot(Transform parent)
@@ -740,7 +715,7 @@ namespace Brushblade.Presentation
                 Strings.T("map.chest.result_title", ("tierName", ChestRules.TierName(tier))),
                 26, Theme.TextMain, Theme.TitleFont);
             // 开箱后箱已移除,这里画的是「刚才那只」——三态取 Ready,金光晕正是开箱的语气
-            ChestArt(left.transform, tier, ChestView.State.Ready, ResultArtSize);
+            ChestArt.Draw(left.transform, tier, ChestView.State.Ready, ResultArtSize);
 
             var inkPill = Ui.CardPanel(left.transform, "Ink", Theme.GoldSoft, 15);
             var inkElement = inkPill.gameObject.AddComponent<LayoutElement>();

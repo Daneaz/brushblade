@@ -579,9 +579,11 @@ namespace Brushblade.Presentation
             // 宝箱行拆成标题 + 说明两截(稿 Settle.dc.html 的 .chestrow):标题是宋体主行,
             // 说明是灰色小字,原先那一条长句在稿上排不下
             string chestTitle = null, chestDesc = null;
+            ChestTier? chestTier = null;   // 结算页要画这只箱的真立绘,不能只留个档位名
             if (chestDepth > 0)
             {
                 var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
+                chestTier = tier;
                 chestTitle = Strings.T("root.settle.chest_row_title", ("tierName", ChestRules.TierName(tier)));
                 if (ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time))
                     chestDesc = Strings.T("root.settle.chest_row_desc", ("chestDepth", chestDepth));
@@ -598,7 +600,7 @@ namespace Brushblade.Presentation
                     ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", ink))
                     : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", ink));
             MetaStore.Save(_meta);
-            ShowTowerSettle(headline, ink, chestTitle, chestDesc, previousBest, clearedDepth);
+            ShowTowerSettle(headline, ink, chestTitle, chestDesc, chestTier, previousBest, clearedDepth);
         }
 
         /// <summary>账户余额角标(2026-08-30):安全层与结算页这两个过场页本来没有余额栏,
@@ -617,6 +619,7 @@ namespace Brushblade.Presentation
         /// <summary>塔结算页(2026-07-22;2026-09-02 按稿 Settle.dc.html 改整屏版面):
         /// 墨锭 + 宝箱一并呈现,确认后回地图。</summary>
         private static void ShowTowerSettle(string headline, int ink, string chestTitle, string chestDesc,
+            ChestTier? chestTier,
             int previousBest, int clearedDepth)
         {
             var view = NewView("TowerSettleView");
@@ -658,7 +661,7 @@ namespace Brushblade.Presentation
                     padX: 19,                                      // 稿 .rec padding 0 9pt
                     padY: 22);                                     // 反推:ChipHeight = 字号 + padY,要凑够稿 .rec 高 20pt(=42)
 
-            ChestRow(stack.transform, chestTitle, chestDesc, PanelW - 118f); // 118 = 稿 .panel 左右各 28pt 内边距
+            ChestRow(stack.transform, chestTitle, chestDesc, chestTier, PanelW - 118f); // 118 = 稿 .panel 左右各 28pt 内边距
 
             Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(),
                 Theme.Cinnabar, Color.white, 31, new Vector2(544, 84));   // 稿 .pill 15pt / 260×40pt
@@ -667,9 +670,11 @@ namespace Brushblade.Presentation
         /// <summary>结算页的宝箱行(稿 Settle.dc.html 的 .chestrow):色块图标 + 标题 + 说明。
         /// 无箱走虚线的 .none 态 —— 一场爬塔只发一个箱,一个 Boss 都没破就没有。
         /// (uGUI 画不出虚线边,这里用 LockGray 细边 + 与页底同色的填充表达「空着」这层意思。)</summary>
-        private static void ChestRow(Transform parent, string title, string desc, float width)
+        private static void ChestRow(Transform parent, string title, string desc, ChestTier? tier, float width)
         {
-            bool has = title != null;
+            // 判空钉在 tier 上而不是 title:下面要 tier.Value 画立绘,两者在 SettleTower 里
+            // 是一起赋的,但用哪个判就该用哪个 —— 将来谁只改了一处,这里是 NRE 不是空白行
+            bool has = tier.HasValue;
             var row = Ui.OutlinedPanel(parent, "ChestRow",
                 has ? Theme.CardWhite : Theme.Paper, has ? Theme.PanelBorder : Theme.LockGray,
                 21, 2f, out var face);                             // 稿 .chestrow 圆角 10pt / 描边 1pt
@@ -688,11 +693,19 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(inner.transform, Strings.T("root.towersettle.no_chest"), 22, Theme.LockGray); // 稿 .none .t 10.5pt
                 return;
             }
-            // ⚠ 这块色块是 Image:没有 LayoutElement 时它会把 Theme.Rounded 生成的贴图尺寸
-            // 当成 preferred size 报给布局(能力卡曾因此恒 24 高)。Sized 的 LayoutElement
-            // 优先级更高,压住它;minWidth 再防父级 HorizontalLayoutGroup 把它挤扁
-            var icon = Ui.CardPanel(inner.transform, "Icon", Theme.Gold, 13);   // 稿 .ic 圆角 6pt
-            Ui.Sized(icon.gameObject, width: 84f, height: 63f).minWidth = 84f;  // 稿 .ic 40×30pt
+            // 真立绘,与主界面箱位、开箱结果页同一个 ChestArt(2026-09-02 试玩反馈:
+            // 此前这里是一块 Theme.Gold 纯色块,同一只「鎏金匣」在结算页和主界面长得完全不一样,
+            // 玩家读不出「我刚才拿到的就是它」)。素材缺失时 ChestArt 自己回落成档位色块 + 首字。
+            //
+            // 立绘是正方的,而稿 .ic 是 40×30pt 的横槽 —— 取槽高 63 作边长(不是槽宽 84),
+            // 否则箱子会超出这一行。外面套一个 84 宽的定宽槽,把行内其余元素的位置钉在原处。
+            var iconSlot = Ui.Row(inner.transform, "Icon", 0);
+            iconSlot.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.Sized(iconSlot, width: 84f, height: 63f).minWidth = 84f;         // 稿 .ic 40×30pt
+            // 取 Idle(原色满不透明)而不是 Ready:这只箱是刚发到手的,回地图后还要走计时,
+            // Ready 的金光晕在主界面的含义是「现在就能开」,画在这儿等于假承诺。
+            // (MapView 的开箱结果页用 Ready 是另一回事 —— 那只箱刚被开掉,金光晕是开箱的语气。)
+            ChestArt.Draw(iconSlot.transform, tier.Value, ChestView.State.Idle, 63f);
             var column = Ui.VStack(inner.transform, "Text", 4);    // 稿 .d margin-top 2pt
             column.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.ThemedLabel(column.transform, title, 26, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft); // 稿 .t 12.5pt
