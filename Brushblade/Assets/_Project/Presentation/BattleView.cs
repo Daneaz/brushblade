@@ -115,6 +115,9 @@ namespace Brushblade.Presentation
         // 与被形状溅到、临时改了色的格子(连同各自改色前的原值,松手/挪走时原样恢复)。
         private int _hoverPreviewPrimary = -1;
         private readonly System.Collections.Generic.List<(int index, Color original)> _hoverPreviewCells = new();
+        // 起拖时点亮的「这一发打得着谁」(2026-09-03)。与悬停预览是叠着的两层:这一层
+        // 在整个拖拽期间常亮、答「能打谁」;悬停那层临时压在它上面、答「松在这儿会打到哪几格」。
+        private readonly System.Collections.Generic.List<(int index, Color original)> _dragTargetCells = new();
         // 召唤物本体/血条按 _summons 下标索引(事件带 SecondIndex 定位承伤/发起者;死后仍在动画期可见)
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonRectByCore = new();
         // 槽位 → 整格矩形(2026-08-21,拖拽落位命中判定用)。与 _summonRectByCore 的区别有二:
@@ -583,13 +586,17 @@ namespace Brushblade.Presentation
             return (fill, label);
         }
 
-        /// <summary>速度 100 的单位从 0% 攒到 100% 所需毫秒(2026-08-17)。
-        /// 一次推进的条动画时长 = LastAdvanceTicks × 本值,所以速度 200 的走一半时间 ——
-        /// 「与速度挂钩」就落在这一条上。
+        /// <summary>一拍的毫秒数(2026-08-17)。一次推进的条动画时长 = LastAdvanceTicks × 本值,
+        /// 所以速度 200 的走一半时间 —— 「与速度挂钩」就落在这一条上。
         ///
-        /// ⚠ 这直接决定战斗节奏:每个行动者出手前都要等这么久,一轮五个单位就是 2.5 秒。
+        /// ⚠ 与 <see cref="TurnScheduler.Threshold"/> 是配套的两半,必须一起改:
+        /// 速度 100 的单位从 0% 攒到 100% 要 Threshold / 100 拍,总时长 = 那么多拍 × 本值。
+        /// Threshold 2026-09-03 从 100 抬到 10000(时间精度,见那边的注释),本值同步
+        /// 500 → 5,总时长仍是 500ms,一拍变细了 100 倍而已。
+        ///
+        /// ⚠ 这直接决定战斗节奏:每个行动者出手前都要等 500ms 左右,一轮五个单位就是 2.5 秒。
         /// 嫌拖就改这一个数。</summary>
-        private const float ActionBarBaseMs = 500f;
+        private const float ActionBarBaseMs = 5f;
 
         /// <summary>全场计量器快照(玩家 −1,召唤物与敌人按下标)。推进前拍一次、推进后拍一次,
         /// 条在两者之间插值 —— 这是把 Core 的离散跳跃反演成匀速流动的全部手法。</summary>
@@ -1811,6 +1818,7 @@ namespace Brushblade.Presentation
                 // 2026-09-02:此前这里只有一个「益+2」的条数计数,而条数不告诉玩家是什么增益——
                 // 「锐」给的穿透、「壁」给的护甲都只是那个 2 里的一份,打出去生效没有看不出来。
                 var chipSpecs = new List<Ui.ChipSpec>();
+                AddRangeChip(chipSpecs, summon.Passive?.Ranged ?? false);
                 var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
                 if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
@@ -2121,6 +2129,20 @@ namespace Brushblade.Presentation
             return ("", null);
         }
 
+        /// <summary>射程 chip(2026-09-03 用户拍板:战斗中的状态栏也要认得出近战/远程)。
+        /// 敌人格与召唤物格共用这一条,两边看到的是同一枚图标 —— 「前排挡不挡得住」
+        /// 是同一个规则的两个方向,不该长成两样。
+        ///
+        /// **只画远程**:近战是缺省,而且眼下只有 icon_ranged 一枚图标资产,没有近战图标。
+        /// 这与 StatusText 那条「只有偏离默认的才出条目」是同一条口径,不是将就 ——
+        /// 一排怪里真正要被一眼认出来的是那几只越得过前排的。近战的完整说明在详情弹窗里。
+        /// 排在 chip 行最前:它是常驻特性,回答的是「这一场它够不够得着谁」,
+        /// 优先级高于任何会过期的状态(ChipFlow 装不下时从尾部丢)。</summary>
+        private static void AddRangeChip(List<Ui.ChipSpec> chips, bool ranged)
+        {
+            if (ranged) chips.Add(new("", Theme.InkSoft, Color.white, "ranged"));
+        }
+
         /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
         ///
         /// 此前这里只有一个「益+2」的**条数**计数,而条数不告诉玩家是什么增益 ——
@@ -2278,6 +2300,7 @@ namespace Brushblade.Presentation
             // (拖拽中间只有 RedrawSummonRows 那条不动敌人区的路径),但保险起见清空防悬空引用。
             _hoverPreviewPrimary = -1;
             _hoverPreviewCells.Clear();
+            _dragTargetCells.Clear();
 
             var frontCells = new GameObject[Targeting.RowCapacity];
             var backCells = new GameObject[Targeting.RowCapacity];
@@ -2450,6 +2473,7 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
                             ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
+                AddRangeChip(chipSpecs, enemy.Def.Range == AttackRange.Ranged);
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0)
                     chipSpecs.Add(new($"{burnStacks}", Theme.Cinnabar, Color.white, "burn"));
@@ -2701,6 +2725,7 @@ namespace Brushblade.Presentation
                     // 三条分支(落位/取消/出字)都必须清干净,免得留下改过色的格子。
                     ClearHoverPreview();
                     _hoverPreviewPrimary = -1;
+                    ClearDragTargets();   // 常亮那一层也要收,每条分支都一样
                     if (_slotPicking)
                     {
                         int slot = SummonSlotAt(screenPos);
@@ -2752,9 +2777,17 @@ namespace Brushblade.Presentation
                     }
                     BeginCast(def.Id, target, attackMode: true, libraryIndex: libraryIndex);
                 },
-                onBeginDrag: !summons && !allyOnly && !dualDirection ? null : () =>
+                onBeginDrag: () =>
                 {
                     if (Battle.Ap < def.ApCost) return;
+                    if (!summons && !allyOnly && !dualDirection)
+                    {
+                        // 纯打人字:起拖就把「这一发够得着的敌人」全部压暗(2026-09-03 用户拍板)。
+                        // 此前只有把指针悬到某一只头上才有反馈,而「刺 只打得到同列的、
+                        // 冷 四只随便打」这条规则玩家得先猜中悬到哪儿才看得见。
+                        ShowDragTargets(def);
+                        return;
+                    }
                     if (dualDirection)
                     {
                         // 敌我同时点亮:_targeting 与 _allyTargeting 一起开,与 OnCastPressed
@@ -2766,6 +2799,7 @@ namespace Brushblade.Presentation
                         _pendingAllyEnemyTarget = -1;
                         _pendingAttackMode = true;   // 敌方侧置灰按攻击面算;落到友方时就地改回
                         RedrawDualTargets();
+                        ShowDragTargets(def);        // 敌方那一面同样标出「打得着哪几只」
                         return;
                     }
                     if (allyOnly)
@@ -2832,6 +2866,45 @@ namespace Brushblade.Presentation
                     _enemyHitAreas[i].color = original;
             _hoverPreviewCells.Clear();
         }
+
+        /// <summary>起拖时点亮「这一发打得着的全部敌人」(2026-09-03 用户拍板)。
+        ///
+        /// 判据一律走 <see cref="BattleEngine.CanTarget"/> —— 与松手时引擎真正的受理条件
+        /// 是同一个函数,不在表现层重推一遍排位规则(前排拦截 / 偷袭无视排位),
+        /// 否则「玩家看到能点」与「引擎认为能打」迟早分叉(Targeting.cs 开头那条纪律)。
+        ///
+        /// 只对**需要选敌人**的字点亮:群体伤害与不指定目标的字拖到哪只怪身上都一样,
+        /// 给它们涂一片阴影反而在暗示「要挑一只」。
+        ///
+        /// ⚠ 与 <see cref="OnDragHover"/> 一样只改已存在物件的颜色,不重绘任何 GameObject
+        /// —— 起拖回调里销毁正被拖的字牌会掐断 OnEndDrag(DragToAttack.cs 顶部整段警告)。
+        /// 两层的叠放顺序也靠这一点成立:悬停层存原色时存到的正是本层涂过的颜色,
+        /// 撤悬停自然落回本层,不需要谁记得重涂。</summary>
+        private void ShowDragTargets(CharDef def)
+        {
+            ClearDragTargets();
+            if (!BattleEngine.NeedsTarget(def, attackMode: true)) return;
+            for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
+            {
+                if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode: true)) continue;
+                _dragTargetCells.Add((i, _enemyHitAreas[i].color));
+                _enemyHitAreas[i].color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, DragTargetAlpha);
+            }
+        }
+
+        /// <summary>把「打得着」那一层改过色的格子原样还原。松手/取消时调。</summary>
+        private void ClearDragTargets()
+        {
+            foreach (var (i, original) in _dragTargetCells)
+                if (i < _enemyHitAreas.Count && _enemyHitAreas[i] != null)
+                    _enemyHitAreas[i].color = original;
+            _dragTargetCells.Clear();
+        }
+
+        /// <summary>「打得着」那一层的墨色不透明度。比溅射预览
+        /// (<see cref="HoverPreviewSplashAlpha"/>)再淡一档:它在整个拖拽期间常亮、
+        /// 一次可能盖住四格,与压在它上面的悬停层必须一眼分得开 —— 常亮的那层要退到底噪里去。</summary>
+        private const float DragTargetAlpha = 0.018f;
 
         /// <summary>该屏幕坐标落在第几个召唤槽上;都没命中返回 −1。
         /// 判定用整格(<see cref="_summonCellByCore"/>)而非字块 —— 与 EnemyIndexAt 同一条理由:
@@ -3048,8 +3121,11 @@ namespace Brushblade.Presentation
         /// <see cref="DrawNearMissHints"/> 的配字表。</summary>
         private void DrawCraftList()
         {
-            // 只提示已收集的字:合不出来的不该出现在拆合台(2026-07-19)
-            var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library, Battle.UnlockedChars);
+            // 只提示合得出来的字:合不出来的不该出现在拆合台(2026-07-19)。
+            // 用 ComposableChars 而不是 UnlockedChars(2026-09-03):后者是出阵列表,
+            // 拆出来的中间字(焦、烝)不在里面,拆合台会漏掉它们而引擎其实允许合
+            // —— 提示与判定必须同一个集合。
+            var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library, Battle.ComposableChars);
             DrawNearMissHints(suggest.NearMisses); // 左侧差字面板:与拆合台选中态无关,一直画
             if (suggest.Composable.Count == 0)
             {

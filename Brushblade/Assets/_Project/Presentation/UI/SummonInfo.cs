@@ -26,10 +26,16 @@ namespace Brushblade.Presentation
                 Element = summon.Element,
                 ElementUnknown = false, // 召唤物属性恒为已知(SummonState.Element 不可空),此字段定恒为 false
                 Name = summon.Char,
-                // 稿上第二枚标签是排位(「后排」)+ 稀有度(「白」),两者 SummonState 都没有——
-                // 排位是 BattleEngine._summons 的数组下标,稀有度在 CharDef 上,SummonState 一个
-                // 运行时战斗实体两样都不携带,Detail(SummonState) 这个签名够不到,只给类型标签。
-                Tags = new[] { Strings.T("summon.detail.tag_type") },
+                // 「召唤物」+ 射程(2026-09-03 用户拍板:与敌人详情同模板)。
+                // 稿上第二枚标签原是排位(「后排」)+ 稀有度(「白」):排位这一半连同敌人详情
+                // 那一半一起去掉了(战场上一眼就能看见站哪,写进标签只是重复,还挤掉真正
+                // 要紧的射程 —— 理由见 EnemyInfo.BuildTags);稀有度在 CharDef 上,
+                // SummonState 这个运行时实体不携带,Sheet(SummonState) 这个签名够不到。
+                Tags = new[]
+                {
+                    Strings.T("summon.detail.tag_type"),
+                    StatusText.OfSummonRange(summon.Passive?.Ranged ?? false).Name,
+                },
                 Flavor = null, // CharDef.Gloss(短释义)是候选来源,但要查 RecipeGraph,签名拿不到
                 Hp = summon.Hp,
                 MaxHp = summon.MaxHp,
@@ -71,8 +77,8 @@ namespace Brushblade.Presentation
             };
         }
 
-        /// <summary>「特性 · 被动」列:被动(至多一条,取第一个非零项,与 <see cref="PassiveText"/>
-        /// 同一优先级)+ 顶前排(老文本无条件追加,这里同理)。
+        /// <summary>「特性 · 被动」列:被动(至多一条,取第一个非零项)+ 射程(无条件)
+        /// + 出手形状(偏离单体时才出)。
         ///
         /// 被动的 Name 直接复用现成的 summon.passive.* 整句(标签+冒号+说明合一),Desc 留空——
         /// 那几个 key 本来就是「一句话」的形状,拆 Name/Desc 要么另开新 key、要么在运行时切
@@ -116,6 +122,17 @@ namespace Brushblade.Presentation
                     });
             }
 
+            // 射程(2026-09-03 用户拍板补:此前召唤物详情整个没有近战/远程标识,
+            // 而这正是玩家排兵布阵最要紧的一条 —— 与敌人详情的第一张卡同位置、同模板)。
+            // 无条件出条目,与 EnemyInfo.BuildAbilities 消费 OfRange 同理:近战不是「默认到
+            // 不值一提」,它决定这只召唤物够不够得着后排的怪。
+            var range = StatusText.OfSummonRange(summon.Passive?.Ranged ?? false);
+            list.Add(new AbilityEntry
+            {
+                IconKey = range.IconKey, ChipColor = UnitDetailChip.Positioning,
+                Name = range.Name, Desc = range.Desc,
+            });
+
             // 出手目标形状(2026-09-01 review 补:StatusText.OfShape 计划由本方法消费,
             // 但初版漏接,5 条 char.shape.*.desc 文案因此没有入口显示)。OfShape(Single) 返回
             // 全 null 的 None——与 EnemyInfo.BuildAbilities 消费 OfFocus 同一条规则,没有特殊
@@ -128,14 +145,9 @@ namespace Brushblade.Presentation
                     Name = shape.Name, Desc = shape.Desc,
                 });
 
-            // 顶前排是老文本 front_role 的原句,同样只放 Name——那句话本身就是「标签:说明」
-            // 一体的形状(见上面的理由),稿上还带一句「它现在在后排」,SummonState 没有排位信息
-            // (槽位是 BattleEngine._summons 的数组下标),够不到,略去。
-            list.Add(new AbilityEntry
-            {
-                IconKey = null, ChipColor = UnitDetailChip.Ability,
-                Name = Strings.T("summon.detail.front_role").TrimEnd('\n'), Desc = null,
-            });
+            // 2026-09-03 用户拍板:删掉老文本 front_role 那条「顶前排:排在最前时替你挡下
+            // 敌人的整次攻击」。它讲的是**当前排位**能干什么,而排位一格一格地写在战场上,
+            // 详情里重复一遍没有增量;真正该占这个位置的是上面那条射程。
             return list;
         }
     }

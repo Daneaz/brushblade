@@ -791,8 +791,29 @@ namespace Brushblade.Core
 
         internal void RaisePoolCapacity(int bonus) => _config.PoolCapacity += bonus;
 
-        /// <summary>可合成字集(= 出阵列表);null = 不限。表现层的拆合台提示按此过滤。</summary>
+        /// <summary>出阵列表;null = 不限。回合掉字与战利品按此取。
+        /// ⚠ 「能不能合出来」不看这个,看 <see cref="ComposableChars"/> —— 两者 2026-09-03 分家。</summary>
         public IReadOnlyCollection<string> UnlockedChars => _config.UnlockedChars;
+
+        /// <summary>可合成字集(2026-09-03):出阵列表 + 其配方原料的递归闭包。
+        /// 引擎的 <see cref="Compose"/> 与表现层的拆合台提示都按这个过滤 ——
+        /// 拆出来的中间字(蕉 → 焦 → 隹+灬)必须合得回去,理由见 ForgeEngine.ComposableSet。
+        /// 一场之内 UnlockedChars 不变,故算一次缓存住。</summary>
+        public IReadOnlyCollection<string> ComposableChars
+        {
+            get
+            {
+                if (!_composableComputed)
+                {
+                    _composableChars = ForgeEngine.ComposableSet(_graph, _config.UnlockedChars);
+                    _composableComputed = true;
+                }
+                return _composableChars;
+            }
+        }
+
+        private IReadOnlyCollection<string> _composableChars;
+        private bool _composableComputed;
         public IReadOnlyList<EnemyState> Enemies => _enemies;
         public IReadOnlyList<SummonState> Summons => _summons;
         public int SummonCapacity
@@ -845,7 +866,7 @@ namespace Brushblade.Core
             if (Ap < 1) return BattleError.NotEnoughAp;
 
             var result = ForgeEngine.TryCompose(charId, _graph, _forge, _config.LibraryCapacity,
-                _config.UnlockedChars);
+                ComposableChars, _config.PoolCapacity);
             if (!result.Success)
             {
                 LastForgeError = result.Error;

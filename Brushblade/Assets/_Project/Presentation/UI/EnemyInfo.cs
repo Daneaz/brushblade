@@ -238,35 +238,24 @@ namespace Brushblade.Presentation
             return title.ToString();
         }
 
-        /// <summary>Tags:小怪一枚「前排 · 近战」;Boss 再加一枚「第 N/M 阶段」在前面
+        /// <summary>Tags:小怪一枚「近战」/「远程」;Boss 再加一枚「第 N/M 阶段」在前面
         /// (老文本 PhaseDetail 的 enemy.phase.header,旧文本里是阶段信息,新结构挪进 Tags)。
+        ///
+        /// 2026-09-03 用户拍板:**去掉「前排/后排」那一半**。它讲的是「这只怪此刻站哪」,
+        /// 而玩家真正要按它决策的是「前排挡不挡得住它」—— 那是射程的事。站位在战场上一眼
+        /// 就能看见(它就画在那一排里),写进详情标签只是把一个已经可见的事实重复一遍,
+        /// 还会跟真正要紧的射程抢那半行。召唤物详情同步只留射程,两边模板因此对齐。
+        ///
         /// 稿上焦痕那条标签还有第二枚金色「文山 ×3.0」(层段深度缩放倍率)——那个倍率在
         /// Endless.cs 里现算现丢,不进 EnemyDef/EnemyState,Sheet(EnemyState) 这个签名拿不到,
         /// 故没有第二个 Tag(报告里点名跳过,不是漏掉)。</summary>
         private static string[] BuildTags(EnemyState enemy, bool isBoss)
         {
-            var position = PositionRangeTag(enemy);
-            if (!isBoss) return new[] { position };
+            var range = RangeName(enemy.Def.Range);
+            if (!isBoss) return new[] { range };
             string phaseTag = Strings.T("enemy.phase.tag",
                 ("phaseNumber", enemy.PhaseIndex + 1), ("phaseCount", enemy.Def.Phases.Count));
-            return new[] { phaseTag, position };
-        }
-
-        /// <summary>「前排 · 近战」标签。⚠ 站位读 <c>enemy.Row</c>,不是 <c>enemy.Def.Row</c>——
-        /// Def.Row 只是「偏好」,实际站位在开场分配(BattleEngine.AssignSlots)时可能因为
-        /// 偏好排满了被改判到另一排,之后 Targeting/前排拦截/Endless.cs 全部读的是
-        /// EnemyState.Row。这个标签存在的全部意义就是告诉玩家「它现在站哪」,读错字段会让
-        /// 一只实际在后排的怪显示成「前排」,判定与展示对不上(2026-09-01 review 抓到过一次,
-        /// 当时读的是 def.Row,已改)。</summary>
-        private static string PositionRangeTag(EnemyState enemy)
-        {
-            // 两支各写各的 Strings.T(字面量 key):StringsTableTests 扫的是紧跟在 T( 后面的
-            // 字符串字面量,key 从三元表达式的结果变量传进去它认不出来,会被判孤儿
-            // (StatusText.cs 的注释早就点过这个坑,这里再踩一次没必要)。
-            string rowName = enemy.Row == EnemyRow.Front
-                ? Strings.T("enemy.row.front.name")
-                : Strings.T("enemy.row.back.name");
-            return rowName + " · " + RangeName(enemy.Def.Range);
+            return new[] { phaseTag, range };
         }
 
         /// <summary>攻/甲/速/行动四格,口径见 task-3-report.md 的逐条对照表:
@@ -303,7 +292,10 @@ namespace Brushblade.Presentation
                 actionNote = Strings.T("detail.figure.action_charging");
             else
             {
-                actionValue = Strings.T("detail.chip.plain_pct", ("value", enemy.ActionMeter));
+                // ActionMeter 是刻度值不是百分比(2026-09-03 Threshold 100 → 10000 之后
+                // 两者不再巧合相等),要换算 —— 与 UnitSheet 画那条行动条同一个除数。
+                actionValue = Strings.T("detail.chip.plain_pct",
+                    ("value", enemy.ActionMeter * 100 / TurnScheduler.Threshold));
                 actionNote = null;
             }
 

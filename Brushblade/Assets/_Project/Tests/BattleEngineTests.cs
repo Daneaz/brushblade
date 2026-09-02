@@ -1897,22 +1897,22 @@ namespace Brushblade.Core.Tests
             engine.Cast("冷");
             // 2026-08-17:Cast 只能在构造之后打,这只敌人以默认 100 速参与了开场那一拍,构造完
             // 已满格 → 第 1 回合它照常行动(减速从第二拍起生效),所以它自己那一拍跑了,
-            // SpeedModifier 4 → 3;行动后计量器归零、末尾那一拍以半速 +50 停在 50。
+            // SpeedModifier 4 → 3;行动后计量器归零、末尾以半速只攒到半格。
             engine.EndTurn(); // 第 1 回合:行动(计量器归零后再攒 50;SpeedModifier 4 → 3)
 
             var snapshot = engine.Capture();
-            Assert.That(snapshot.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(snapshot.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold / 2));
             Assert.That(snapshot.Enemies[0].Statuses.Single(s => s.Kind == StatusKind.SpeedModifier).TurnsLeft,
                 Is.EqualTo(3));
 
             var restored = BattleEngine.Restore(snapshot, SlowGraph(), Config(), null,
                 new System.Collections.Generic.Dictionary<string, EnemyDef> { ["锈"] = enemyDef });
 
-            Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold / 2));
             Assert.That(restored.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
 
             int hp0 = restored.PlayerHp;
-            restored.EndTurn(); // 50 + 50 = 100 那一拍玩家也满格,并列玩家先 —— 还没轮到它
+            restored.EndTurn(); // 半格再攒半格那一刻玩家也满格,并列玩家先 —— 还没轮到它
             Assert.That(restored.PlayerHp, Is.EqualTo(hp0));
 
             // 这一拍它已经满格,不推进时间直接行动。**从零重攒的话这里还得再等一拍** ——
@@ -1951,20 +1951,20 @@ namespace Brushblade.Core.Tests
             // 那一拍,构造完计量器已满格 → 第 1 回合它照常行动(减速从第二拍起才生效)。
             // 整条测试的节拍因此整体前移一拍:它自己那一拍落在第 1/3/5/7 回合(奇数),
             // 偶数回合是「半速刚攒满 100 但同速并列玩家先」→ 没轮到自己。周期仍是 2。
-            engine.EndTurn(); // 第 1 回合:开场那一拍已满格,行动;之后半速再攒 50
+            engine.EndTurn(); // 第 1 回合:开场那一段已满格,行动;之后半速再攒半格
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "开场那一拍已满格,第 1 回合就出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold / 2));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3),
                 "轮到自己那拍,SpeedModifier 照常倒计时");
 
             engine.Cast("冻"); // 再冻结 2 回合
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
 
-            // 这一拍计量器 50 + 50 = 100 恰好攒满,但玩家同时也攒满,同速并列玩家(0)先于
+            // 这一刻计量器由半格攒到满格,但玩家同时也攒满,同速并列玩家(0)先于
             // 敌人(3)—— 所以还没轮到它,两个状态维持原值。与"冻结中"无关,单纯是"还没轮到"。
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(100), "攒满了但并列输给玩家,留在条上");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold), "攒满了但并列输给玩家,留在条上");
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(3));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(2));
 
@@ -1973,7 +1973,7 @@ namespace Brushblade.Core.Tests
             // (-100→0),Freeze 和 SpeedModifier 都在这一拍 -1(TickTurns() 一视同仁,不豁免)。
             engine.EndTurn(); // 轮到它自己那拍:冻结着跳过出手,但这拍照常被消耗、两个状态都 -1
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "冻结跳过,不出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50), "轮到自己那拍照常被消耗,不是暂停");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold / 2), "轮到自己那拍照常被消耗,不是暂停");
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(2),
                 "轮到自己那拍,SpeedModifier 照常倒计时");
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1),
@@ -1981,7 +1981,7 @@ namespace Brushblade.Core.Tests
 
             engine.EndTurn(); // 又是并列输给玩家的那一拍:未轮到自己,两个状态都不动
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(100));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(2));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.Freeze).TurnsLeft, Is.EqualTo(1));
 
@@ -1990,13 +1990,13 @@ namespace Brushblade.Core.Tests
             // 不是"下一拍才生效"。
             engine.EndTurn();
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6), "这一拍仍冻结,仍不出手");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold / 2));
             Assert.That(engine.Enemies[0].Statuses.Find(StatusKind.SpeedModifier).TurnsLeft, Is.EqualTo(1));
             Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Freeze), Is.False, "解冻");
 
             engine.EndTurn(); // 仍是"还没轮到自己"(并列输给玩家),与解冻与否无关
             Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 6));
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(100));
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold));
 
             // "轮到自己"与"是否冻结"是两件独立的事——解冻那一拍恰好也是"轮到自己"的拍
             // (被跳过),真正的下一次出手要等到*再次*轮到自己。
@@ -2006,7 +2006,40 @@ namespace Brushblade.Core.Tests
                 "这一拍把最后 1 回合的减速也消耗掉了");
         }
 
-        // ---- 行动计量器(2026-08-04):Speed 每回合累积,每满 100 行动一次 ----
+        // ---- 拆出来的中间字要合得回去(2026-09-03 用户报的 bug)----
+
+        [Test]
+        public void Compose_IngredientOfDeckChar_IsAllowed_AfterDismantling()
+        {
+            // 用户 2026-09-03:蕉 拆出 焦,焦 再拆出 隹 + 灬,可 隹 + 灬 合不回 焦 ——
+            // 因为 焦 不在出阵列表里,TryCompose 报 NotUnlocked,拆解成了一条不可逆的单行道。
+            // 这里用同构的 焚 = 林 + 火、林 = 木 + 木 复现整条来回路。
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, UnlockedChars = new[] { "焚" } },
+                new[] { "焚" }, Array.Empty<string>(), new[] { MetalBoss() }, seed: 42);
+
+            Assert.That(engine.Dismantle("焚"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Dismantle("林"), Is.EqualTo(BattleError.None), "二级拆解");
+            Assert.That(engine.Pool.Count(c => c == "木"), Is.EqualTo(2));
+
+            Assert.That(engine.Compose("林"), Is.EqualTo(BattleError.None), "拆得出来就该合得回去");
+            Assert.That(engine.Library, Does.Contain("林"));
+        }
+
+        [Test]
+        public void Compose_CharUnrelatedToDeck_StillRejected()
+        {
+            // 负向:闭包只放行「出阵字拆得出来的东西」,与卡组无关的字仍然合不出来。
+            // 出阵只有 灯(= 火 + 丁),手里备着 木 + 木,林 不在闭包里。
+            var engine = new BattleEngine(Graph(),
+                new BattleConfig { DropTable = new[] { "木" }, UnlockedChars = new[] { "灯" } },
+                Array.Empty<string>(), new[] { "木", "木" }, new[] { MetalBoss() }, seed: 42);
+
+            Assert.That(engine.Compose("林"), Is.EqualTo(BattleError.ForgeFailed));
+            Assert.That(engine.LastForgeError, Is.EqualTo(ForgeError.NotUnlocked));
+        }
+
+        // ---- 行动计量器(2026-08-04):Speed 每回合累积,每满一格行动一次 ----
 
         /// <summary>挂了 −50 速度修正的敌人(等价于旧的半速 Slow)。
         ///
@@ -2073,12 +2106,11 @@ namespace Brushblade.Core.Tests
             int hp0 = engine.PlayerHp;
             engine.EndTurn();
             Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(15));            // 攻 5 × 3 次,不再封顶
-            // 2026-08-17 重算:每回合仍恰好 3 次、不多不少(囤积会让第 2 回合变成 4 次),
-            // 但「读到 0」这个表征换了位置。旧模型:回合内先推 1 拍(敌人 +300)再连动 3 次
-            // 归零,所以回合末读到 0。新模型:那 300 是开场/上一回合末那一拍给的,回合内连动
-            // 3 次扣到 0,末尾还要再推 1 拍才能让玩家攒满 100 —— 敌人同一拍又拿 300。
-            // 300 = 恰好一拍的量,不是余额囤积。
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(300));
+            // 2026-09-03 重算(Threshold 100 → 10000,时间精度):每回合仍恰好 3 次、不多不少
+            // (囤积会让第 2 回合变成 4 次),但回合末读到的余额换了值。粗刻度下敌人一拍白拿
+            // 300(= 三整格),回合末停在 300;细刻度下它攒到**恰好一格**就轮到自己,
+            // 回合末停在满格等下一次 —— 满格不是余额囤积,是「下一个动的就是它」。
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold));
 
             // 「不囤积」不能只活在上面那段注释里。进回合的状态(玩家 0 / 敌人 300)与回合末
             // 状态逐字节相同 —— 是个不动点,所以第 2 回合必然还是恰好 3 次。囤积会在这里
@@ -2086,7 +2118,8 @@ namespace Brushblade.Core.Tests
             // 两回合 30 伤后剩 20,不会被打死变成 Lost 而提前收口。
             engine.EndTurn();
             Assert.That(hp0 - engine.PlayerHp, Is.EqualTo(30), "第 2 回合仍恰好 3 次:回合首末状态是不动点");
-            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(300), "不动点:回合末计量器仍是一拍的量");
+            Assert.That(engine.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold),
+                "不动点:回合末计量器仍停在满格");
         }
 
         [Test]
@@ -2125,17 +2158,17 @@ namespace Brushblade.Core.Tests
                 Magnitude = -50, TurnsLeft = 99, SourceId = "洼",
             });
             // 2026-08-17:减速是构造后挂的,开场那一拍它以 100 速攒满并行动了一次;
-            // 半速从第二拍起生效,这一回合末计量器停在 50。
+            // 半速从第二拍起生效,这一回合末计量器停在半格。
             engine.EndTurn();
 
             var restored = BattleEngine.Restore(engine.Capture(), graph, Config(), null,
                 new Dictionary<string, EnemyDef> { ["枯"] = enemyDef });
 
-            Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(50));
+            Assert.That(restored.Enemies[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold / 2));
             int hp0 = restored.PlayerHp;
-            // 50 + 50 = 100 那一拍玩家也同时攒满,同速并列玩家(0)赢敌人(3),所以这一回合还没轮到它
+            // 半格再攒半格那一刻玩家也同时攒满,同速并列玩家(0)赢敌人(3),所以这一回合还没轮到它
             restored.EndTurn();
-            Assert.That(restored.PlayerHp, Is.EqualTo(hp0), "50 → 100 那一拍并列,玩家先");
+            Assert.That(restored.PlayerHp, Is.EqualTo(hp0), "半格 → 满格那一刻并列,玩家先");
             restored.EndTurn();
             Assert.That(restored.PlayerHp, Is.LessThan(hp0),
                 "续爬后第 2 拍就行动 —— 若从零重攒要到第 3 拍才行动,这条就是那个差别");

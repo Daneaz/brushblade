@@ -120,12 +120,42 @@ namespace Brushblade.Core
             return ForgeResult.Ok(new ForgeState(library, pool));
         }
 
-        /// <summary>合:消耗配方全部原料 → 字入字库。原料优先取部件池,池中没有则消耗字库中的
-        /// 低阶字(4.2.3「原料可以是更低阶的汉字」,3.9 战例:合林 → 合焚)。
+        /// <summary>可合成集(2026-09-03):出阵列表 ∪ 这些字**配方原料的递归闭包**。
+        /// unlockedChars 为 null(不限)时原样返回 null。
+        ///
+        /// 为什么要闭包:出阵列表管的是「哪些字算你的牌」,而拆解会把它们变成中间产物 ——
+        /// 蕉 拆出 焦,焦 再拆出 隹+灬,可 焦 本身从来不在出阵列表里,于是
+        /// 隹+灬 合不回 焦,拆解成了一条不可逆的单行道(用户 2026-09-03 报的 bug)。
+        /// 闭包正好等于「凡是你能拆出来的,就能拆回去」,不会凭空多出与你卡组无关的字。
+        ///
+        /// 调用方(BattleEngine)算一次就够,<see cref="TryCompose"/> 与 <see cref="Suggest"/>
+        /// 本身仍只认「允许集」这一个概念,不在里面做图遍历。</summary>
+        public static IReadOnlyCollection<string> ComposableSet(RecipeGraph graph,
+            IReadOnlyCollection<string> unlockedChars)
+        {
+            if (unlockedChars == null) return null;
+            var set = new HashSet<string>(unlockedChars);
+            var pending = new Stack<string>(unlockedChars);
+            while (pending.Count > 0)
+            {
+                if (!graph.TryGet(pending.Pop(), out var def)) continue;
+                foreach (var ingredient in def.Recipe)
+                    if (set.Add(ingredient)) pending.Push(ingredient);
+            }
+            return set;
+        }
+
+        /// <summary>合:消耗配方全部原料 → 产物按**自身性质**归位(部件回池、可出牌字回字库,
+        /// 与 <see cref="TryDismantle"/> 的归位规则同一条)。原料优先取部件池,池中没有则消耗
+        /// 字库中的低阶字(4.2.3「原料可以是更低阶的汉字」,3.9 战例:合林 → 合焚)。
         /// unlockedChars 非空时只能合其中的字(2026-07-20 拍板:注入出阵列表,没编入就合不出来);
-        /// null = 不限。</summary>
+        /// null = 不限。真实注入的是 <see cref="ComposableSet"/> 算出的闭包,不是裸出阵列表。
+        ///
+        /// poolCapacity 只在**产物是部件**(烝 = 丞 + 灬 这类带配方的部件)时才用得上,
+        /// 故给了 int.MaxValue 缺省供不涉及这一支的既有调用与测试沿用;真实调用方
+        /// (BattleEngine.Compose)恒传真值。</summary>
         public static ForgeResult TryCompose(string charId, RecipeGraph graph, ForgeState state, int libraryCapacity,
-            IReadOnlyCollection<string> unlockedChars = null)
+            IReadOnlyCollection<string> unlockedChars = null, int poolCapacity = int.MaxValue)
         {
             if (!graph.TryGet(charId, out var def))
                 return ForgeResult.Fail(ForgeError.UnknownChar, state);
@@ -141,10 +171,18 @@ namespace Brushblade.Core
             }
 
             // 容量在消耗原料之后判定:用字库中的字升阶不占新位
-            if (library.Count >= libraryCapacity)
-                return ForgeResult.Fail(ForgeError.LibraryFull, state);
-
-            library.Add(charId);
+            if (def.IsComponent)
+            {
+                if (pool.Count >= poolCapacity)
+                    return ForgeResult.Fail(ForgeError.PoolWouldOverflow, state);
+                pool.Add(charId);
+            }
+            else
+            {
+                if (library.Count >= libraryCapacity)
+                    return ForgeResult.Fail(ForgeError.LibraryFull, state);
+                library.Add(charId);
+            }
             return ForgeResult.Ok(new ForgeState(library, pool));
         }
 

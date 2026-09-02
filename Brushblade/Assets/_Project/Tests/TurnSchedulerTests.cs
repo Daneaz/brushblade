@@ -98,13 +98,17 @@ namespace Brushblade.Core.Tests
         {
             // 已经满格的不该再推进时间:否则同一 tick 内的第二个行动者会白拿一次累积。
             // 两者都已满格时按优先级判并列:玩家(0)先于敌人(3)——2026-08-17 反转
-            var slots = new List<SchedulerSlot> { Player(100, meter: 120), Enemy(0, 100, meter: 110) };
+            var slots = new List<SchedulerSlot>
+            {
+                Player(100, meter: TurnScheduler.Threshold + 20),
+                Enemy(0, 100, meter: TurnScheduler.Threshold + 10),
+            };
 
             var step = TurnScheduler.Advance(slots);
 
             Assert.That(step.Actor.Kind, Is.EqualTo(ActorKind.Player));
-            Assert.That(step.Meters[0], Is.EqualTo(20), "行动者(玩家)扣 100");
-            Assert.That(step.Meters[1], Is.EqualTo(110), "其他人(敌人)原地不动");
+            Assert.That(step.Meters[0], Is.EqualTo(20), "行动者(玩家)扣掉一整格");
+            Assert.That(step.Meters[1], Is.EqualTo(TurnScheduler.Threshold + 10), "其他人(敌人)原地不动");
         }
 
         [Test]
@@ -207,10 +211,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Advance_ReportsTicksSpent()
         {
-            // 玩家速度 100 从 0 起步,一拍就攒满
+            // 玩家速度 100 从 0 起步,Threshold / 100 拍攒满(2026-09-03 刻度细化前是 1 拍)
             var step = TurnScheduler.Advance(new List<SchedulerSlot> { Player(100), Enemy(0, 50) });
 
-            Assert.That(step.Ticks, Is.EqualTo(1));
+            Assert.That(step.Ticks, Is.EqualTo(TurnScheduler.Threshold / 100));
         }
 
         [Test]
@@ -225,10 +229,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Advance_SlowUnitNeedsMoreTicks()
         {
-            // 速度 25(= MinSpeed)四拍才满 —— 这正是「慢的条涨得慢」在时长上的落点
+            // 速度 25(= MinSpeed)要四倍时间才满 —— 这正是「慢的条涨得慢」在时长上的落点
             var step = TurnScheduler.Advance(new List<SchedulerSlot> { Enemy(0, TurnScheduler.MinSpeed) });
 
-            Assert.That(step.Ticks, Is.EqualTo(4));
+            Assert.That(step.Ticks, Is.EqualTo(TurnScheduler.Threshold / TurnScheduler.MinSpeed));
         }
 
         [Test]
@@ -240,6 +244,25 @@ namespace Brushblade.Core.Tests
             var step = TurnScheduler.Advance(slots);
 
             Assert.That(step.Meters[1], Is.EqualTo(40 * step.Ticks));
+        }
+
+        [Test]
+        public void Advance_WinnerNeverBanksASecondFullAction()
+        {
+            // 2026-09-03 回归(用户报「速度条一动不动却连打两下」):一次推进最多让人**刚好**
+            // 满一格,不能白拿两格。这条是 Threshold 那个刻度存在的全部理由 ——
+            // 刻度取 100 时速度 400 的单位一拍涨 400,扣掉一格还剩 300(= 三次行动的存量),
+            // 而条钳在 100% 显示不出来,于是「条不动,它连着打」。
+            //
+            // 用 MinSpeed × MaxSpeed 这个最极端的速度差:它是全场最大的一次单拍涨幅。
+            var step = TurnScheduler.Advance(new List<SchedulerSlot>
+            {
+                Player(TurnScheduler.MinSpeed), Enemy(0, TurnScheduler.MaxSpeed),
+            });
+
+            Assert.That(step.Actor.Kind, Is.EqualTo(ActorKind.Enemy), "快的先满先动");
+            Assert.That(step.Meters[1], Is.LessThan(TurnScheduler.Threshold),
+                "行动者扣掉一格后不该还满着 —— 满着就意味着它下一次出手前条不会动");
         }
     }
 }

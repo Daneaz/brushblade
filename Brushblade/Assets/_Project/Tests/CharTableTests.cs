@@ -738,5 +738,21 @@ namespace Brushblade.Core.Tests
             Assert.That(dir, Is.Not.Null, "找不到仓库根");
             return dir.FullName;
         }
+        // ---- 拆出来的中间字要合得回去(2026-09-03 用户报的 bug,真实字表)----
+
+        [Test]
+        public void RealConfig_ComposableSet_CoversWhatDismantlingProduces()
+        {
+            // 用户原话:「蕉 = 焦 + 艹,拆后获得 焦 和 艹,焦 可以进一步拆为 隹 + 灬,
+            // 但 隹 + 灬 却无法再合成 焦。」根因是 焦 不在出阵列表里 —— 闭包补上这一层。
+            // 钉在**真实字表**上:夹具图谱证明不了 蕉/焦/隹/灬 这四个字的配方还长这样。
+            var set = ForgeEngine.ComposableSet(RealGraph(), new[] { "蕉" });
+
+            Assert.That(set.Contains("焦"), Is.True, "拆 蕉 就能拿到 焦,那就该合得回去");
+            Assert.That(set.Contains("艹"), Is.True);
+            Assert.That(set.Contains("隹"), Is.True, "焦 再拆一层的产物 —— 闭包是递归的");
+            Assert.That(set.Contains("灬"), Is.True);
+        }
+
     }
 }

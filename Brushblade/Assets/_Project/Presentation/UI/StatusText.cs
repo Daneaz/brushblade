@@ -245,6 +245,16 @@ namespace Brushblade.Presentation
             : new Info(null, Strings.T("enemy.range.melee.name"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("enemy.range.melee.desc"));
 
+        /// <summary>召唤物的射程(2026-09-03)。近战/远程这个**名字**与敌人共用一套
+        /// (`enemy.range.*.name`,同一个概念,玩家学一次就够),图标与「持续特性」时长同理;
+        /// 只有 Desc 必须另写:`enemy.range.*.desc` 的措辞是「无视**你的**前排、打**你**本人」,
+        /// 主客是从玩家视角写的,照抄到召唤物身上会变成「你的召唤物在打你自己」。</summary>
+        public static Info OfSummonRange(bool ranged) => ranged
+            ? new Info("ranged", Strings.T("enemy.range.ranged.name"),
+                Strings.T("status.duration.persistent_trait"), Strings.T("summon.range.ranged.desc"))
+            : new Info(null, Strings.T("enemy.range.melee.name"),
+                Strings.T("status.duration.persistent_trait"), Strings.T("summon.range.melee.desc"));
+
         /// <summary>够得着玩家时打谁。`enemy.focus.*` 是本任务新写的(AttackFocus 全项目没有
         /// 既有文案),命名跟 `enemy.range.*` 同一个家族。Default 是均匀随机的默认行为,不是
         /// 一个值得说明的特性——与 <see cref="TargetShape.Single"/> 同一处理,不出条目

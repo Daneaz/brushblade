@@ -44,18 +44,31 @@ namespace Brushblade.Core
         public static int PickAllyTarget(AttackRange range, AttackFocus focus,
             IReadOnlyList<SummonState> summons, int frontRow, GameRandom random)
         {
-            // 嘲讽(2026-08-25)压在最前:它要压过近战的前排拦截、远程的后排优先、
-            // 以及 Focus.Player 的死盯玩家 —— 三条都是排位规则,而嘲讽是排位之上的强制。
-            // 候选只有一个时不摇随机数,与下面那段同一条纪律(见方法头注释)。
-            var taunters = TauntingSlots(summons);
-            if (taunters != null)
-                return taunters.Count == 1 ? taunters[0] : taunters[random.Next(taunters.Count)];
-
+            // 站位先于嘲讽(2026-09-03 用户拍板,推翻 2026-08-25 的「嘲讽压过一切排位」):
+            // 嘲讽只决定「够得着的那些人里先打谁」,不决定「够不够得着」。后排的嘲讽者
+            // 因此仍要等前排清空才挨得上近战 —— 否则玩家把嘲讽物往后排一塞,前排的召唤物
+            // 就永远不会被近战碰到,站位这套规则整个失效(2026-09-03 实机反馈)。
+            //
+            // 嘲讽压过的只剩 Focus.Player 的死盯玩家 —— 那不是排位,是「打谁」的偏好。
             if (range == AttackRange.Melee)
             {
                 int blocker = FirstAliveSlot(summons, 0, frontRow);
-                if (blocker >= 0) return blocker;   // 被前排拦下,后面的规则一概不看
+                if (blocker >= 0)
+                {
+                    // 被前排拦下:候选池就是前排,嘲讽在这个池子里生效。
+                    // 前排没有嘲讽者时返回 blocker,与改前逐位相同(也不摇随机数)。
+                    var frontTaunters = TauntingSlots(summons, 0, frontRow);
+                    if (frontTaunters == null) return blocker;
+                    return frontTaunters.Count == 1
+                        ? frontTaunters[0] : frontTaunters[random.Next(frontTaunters.Count)];
+                }
             }
+
+            // 够得着后排了(远程,或近战但前排已空):嘲讽在后排这个候选池里生效。
+            // 候选只有一个时不摇随机数,与下面那段同一条纪律(见方法头注释)。
+            var taunters = TauntingSlots(summons, frontRow, summons.Count);
+            if (taunters != null)
+                return taunters.Count == 1 ? taunters[0] : taunters[random.Next(taunters.Count)];
 
             if (focus == AttackFocus.Player) return PlayerTarget;
 
@@ -66,12 +79,15 @@ namespace Brushblade.Core
             return pool.Count == 1 ? pool[0] : pool[random.Next(pool.Count)];
         }
 
-        /// <summary>全部**存活**的嘲讽召唤物槽位;一个都没有返回 null。
-        /// 死了的不算 —— 否则全场攻击会打进一个空槽,玩家反而无敌。</summary>
-        private static List<int> TauntingSlots(IReadOnlyList<SummonState> summons)
+        /// <summary>槽位区间 [from, toExclusive) 里全部**存活**的嘲讽召唤物;一个都没有返回 null。
+        /// 死了的不算 —— 否则全场攻击会打进一个空槽,玩家反而无敌。
+        /// 吃区间而不是扫全场(2026-09-03):嘲讽在「排位已经放行的那一段」里生效,
+        /// 段外的嘲讽者对这一击不存在。</summary>
+        private static List<int> TauntingSlots(IReadOnlyList<SummonState> summons,
+            int from, int toExclusive)
         {
             List<int> slots = null;
-            for (int s = 0; s < summons.Count; s++)
+            for (int s = from; s < toExclusive && s < summons.Count; s++)
             {
                 var summon = summons[s];
                 if (summon == null || !summon.Alive || summon.Passive == null || !summon.Passive.Taunt) continue;

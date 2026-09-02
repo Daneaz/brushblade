@@ -318,6 +318,67 @@ namespace Brushblade.Core.Tests
             Assert.That(ForgeEngine.TryCompose("炎", Graph(), state, 6).Success, Is.True);
         }
 
+        // ---- 可合成集闭包(2026-09-03:拆出来的中间字要合得回去)----
+
+        [Test]
+        public void ComposableSet_IncludesRecipeIngredientsTransitively()
+        {
+            // 用户 2026-09-03 报的 bug:蕉 拆出 焦,焦 再拆出 隹 + 灬,但 焦 不在出阵列表里,
+            // 于是 隹 + 灬 合不回 焦 —— 拆解成了一条不可逆的单行道。
+            // 这里用同构的 焚 = 林 + 火、林 = 木 + 木 复现:出阵只有 焚,闭包要连 林/木/火 一起收。
+            var set = ForgeEngine.ComposableSet(Graph(), new[] { "焚" });
+
+            Assert.That(set.Contains("焚"), Is.True);
+            Assert.That(set.Contains("林"), Is.True, "一级原料");
+            Assert.That(set.Contains("木"), Is.True, "二级原料 —— 闭包是递归的");
+            Assert.That(set.Contains("火"), Is.True);
+            Assert.That(set.Contains("炎"), Is.False, "与出阵字无关的字不该凭空多出来");
+        }
+
+        [Test]
+        public void ComposableSet_NullStaysUnlimited()
+        {
+            Assert.That(ForgeEngine.ComposableSet(Graph(), null), Is.Null);
+        }
+
+        [Test]
+        public void TryCompose_IngredientOfUnlockedChar_IsAllowed()
+        {
+            // 闭包接上之后:出阵只有 焚,手里两个 木 也能合回 林(此前报 NotUnlocked)
+            var state = State(Array.Empty<string>(), new[] { "木", "木" });
+            var result = ForgeEngine.TryCompose("林", Graph(), state, 6,
+                ForgeEngine.ComposableSet(Graph(), new[] { "焚" }));
+
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Library, Is.EquivalentTo(new[] { "林" }));
+        }
+
+        [Test]
+        public void TryCompose_ComponentProduct_GoesToPoolNotLibrary()
+        {
+            // 带配方的部件(烝 = 丞 + 灬)合出来仍是**部件**,该回部件池 ——
+            // 归位规则与 TryDismantle 同一条(部件回池、可出牌字回字库)。
+            var state = State(Array.Empty<string>(), new[] { "丞", "灬" });
+            var result = ForgeEngine.TryCompose("烝", ComponentGraph(), state, 6, poolCapacity: 6);
+
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "烝" }));
+            Assert.That(result.State.Library, Is.Empty, "部件不该占字库位");
+        }
+
+        [Test]
+        public void TryCompose_ComponentProduct_RespectsPoolCapacity()
+        {
+            // 池放不下时要报 PoolWouldOverflow(而不是错报 LibraryFull,更不能静默塞进字库)。
+            // 容量判在消耗原料之后,与字库那一支同口径。
+            var state = State(Array.Empty<string>(), new[] { "丞", "灬" });
+            var result = ForgeEngine.TryCompose("烝", ComponentGraph(), state, 6, poolCapacity: 0);
+
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Is.EqualTo(ForgeError.PoolWouldOverflow));
+            Assert.That(result.State.Pool, Is.EquivalentTo(new[] { "丞", "灬" }), "失败不动状态");
+        }
+
         [Test]
         public void Suggest_HidesLockedChars() // 合不出来的字不该出现在拆合台
         {

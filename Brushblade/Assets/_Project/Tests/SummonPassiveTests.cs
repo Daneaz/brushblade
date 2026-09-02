@@ -66,7 +66,8 @@ namespace Brushblade.Core.Tests
             new CharDef("缓", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
                     passive: new SummonPassive { OnHitSlowPercent = 50, OnHitSlowTurns = 2 }) }),
-            // 盯:嘲讽(2026-08-25)。站**后排**槽以证明嘲讽越过排位规则生效
+            // 盯:嘲讽(2026-08-25)。测试按需指定槽位:前排槽验「同排里先打嘲讽」,
+            // 后排槽(≥ BattleEngine.FrontRow = 4)验「站位在先,嘲讽够不着」
             new CharDef("盯", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 0, summonChar: "木",
                     passive: new SummonPassive { Taunt = true }) }),
@@ -145,30 +146,37 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Speed150_ActsOneThenTwoAlternating()
+        public void Speed150_ActsTwoThenOneAlternating()
         {
-            // 2026-08-17 召唤物上场即满格:出生那一格是现成的 100,不是靠攒来的,所以召出后的
-            // 第 1 回合它拿的是这 100(动 1 次、余 0),攒速要到第 2 回合才开始表达。此后
-            // 计量器:0+150=150 → 1 次(余 50);50+150=200 → 2 次(余 0);两回合一循环,
-            // 平均 1.5 次/回合 —— 这才是速度 150 的差异化。「当回合即可反击」照旧成立(第 1 回合)。
+            // 2026-08-17 召唤物上场即满格:出生那一格是现成的,不是靠攒来的。
+            //
+            // 2026-09-03 重算(Threshold 100 → 10000,时间精度):节拍变成 2 / 1 / 2 / 1,
+            // 计量器在半格与满格之间摆,平均仍是 1.5 次/回合 —— 这才是速度 150 的差异化。
+            // 粗刻度下是 1 / 1 / 2 / 1:速度 150 的单位一拍白拿 150,多出来的半格憋在条上
+            // (条钳在 100% 显示不出来),隔一回合一次性兑现成「连动两次而条一动不动」
+            // —— 用户 2026-09-03 报的正是这个观感。细刻度下那半格每一拍都在条上走,
+            // 两次出手之间条真的从 0 爬回满,「谁满谁动」重新对得上画面。
+            // 「当回合即可反击」照旧成立(第 1 回合)。
             var engine = Engine(new[] { "疾" }, new[] { Dummy(hp: 500) });
             engine.Cast("疾");
             int hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 1 回合:吃掉出生那一格,1 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(6), "第 1 回合:出生那一格 + 攒满一次,2 次");
+            Assert.That(engine.Summons[0].ActionMeter, Is.EqualTo(TurnScheduler.Threshold / 2),
+                "回合末停在半格 —— 那半格是看得见的进度,不是隐形余额");
             hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 2 回合:0+150,1 次(余 50)");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 2 回合:半格攒满,1 次");
             hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(6), "第 3 回合:50+150 = 200,2 次");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(6), "第 3 回合:回到 2 次 —— 两回合一循环");
             hp = engine.Enemies[0].Hp;
 
             engine.EndTurn();
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 4 回合回到 1 次 —— 两回合一循环");
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(3), "第 4 回合:1 次");
         }
 
         [Test]
@@ -786,16 +794,47 @@ namespace Brushblade.Core.Tests
         // ---- 嘲讽(2026-08-25,荆/堡)----
 
         [Test]
-        public void Taunt_PullsMeleeAttackEvenFromABackRowSlot()
+        public void Taunt_PullsMeleeAttackWithinTheSameRow()
         {
-            // 嘲讽压过一切排位规则:近战本来被前排拦下,有嘲讽时改打嘲讽的那只 ——
+            // 嘲讽在**排位已经放行的那一段**里生效:两只都在前排(槽 0..3 都是前排,
+            // BattleEngine.FrontRow = 4),近战本该打最前的槽 0,有嘲讽时改打嘲讽的那只 ——
             // 否则「攻 0 靠反伤输出」的肉盾挨不挨打全看运气。
+            //
+            // 这条 2026-09-03 之前叫 Taunt_PullsMeleeAttackEvenFromABackRowSlot,注释写着
+            // 槽 3 是「后排」—— 那是笔误(前排是 4 格,槽 3 在前排),它验的从来就是同排优先。
             var engine = Engine(new[] { "素", "盯" }, new[] { new EnemyDef("靶", Element.Heart, 200, 5) });
             engine.Cast("素", summonSlots: new[] { 0 });   // 前排槽 0:没有嘲讽时它会挡下这一击
-            engine.Cast("盯", summonSlots: new[] { 3 });   // 后排槽 3
+            engine.Cast("盯", summonSlots: new[] { 3 });   // 同为前排的槽 3
             engine.EndTurn();
             Assert.That(engine.Summons[3].Hp, Is.LessThan(100), "该打嘲讽的那只");
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "前排那只不该挨打");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "同排的另一只不该挨打");
+        }
+
+        [Test]
+        public void Taunt_FromBackRow_DoesNotOutrankFrontRowBlocking()
+        {
+            // 2026-09-03 用户拍板:**嘲讽优先级不能高于站位**。后排的嘲讽者够不着近战,
+            // 前排那只照旧挡下 —— 否则把嘲讽物往后排一塞,前排召唤物就永远不会被近战碰到,
+            // 站位这套规则整个失效(用户实机反馈)。
+            var engine = Engine(new[] { "素", "盯" }, new[] { new EnemyDef("靶", Element.Heart, 200, 5) });
+            engine.Cast("素", summonSlots: new[] { 0 });   // 前排槽 0
+            engine.Cast("盯", summonSlots: new[] { 4 });   // 后排槽 4(FrontRow = 4)
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.LessThan(10), "近战仍被前排拦下");
+            Assert.That(engine.Summons[4].Hp, Is.EqualTo(100), "后排的嘲讽者这一击够不着(盯 满血 100)");
+        }
+
+        [Test]
+        public void Taunt_FromBackRow_PullsOnceFrontRowIsEmpty()
+        {
+            // 反面:前排清空后近战够得着后排了,这时嘲讽照常把火力吸过去
+            // (吸不吸得动是「排位放行之后」的事,不是嘲讽失效)。
+            var engine = Engine(new[] { "素", "盯" }, new[] { new EnemyDef("靶", Element.Heart, 200, 5) });
+            engine.Cast("素", summonSlots: new[] { 5 });   // 两只都在后排,前排全空
+            engine.Cast("盯", summonSlots: new[] { 4 });
+            engine.EndTurn();
+            Assert.That(engine.Summons[4].Hp, Is.LessThan(100), "前排空了,嘲讽把这一击吸过来");
+            Assert.That(engine.Summons[5].Hp, Is.EqualTo(10), "同在后排的另一只不挨打");
         }
 
         [Test]

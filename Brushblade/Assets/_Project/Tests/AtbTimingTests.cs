@@ -550,10 +550,11 @@ namespace Brushblade.Core.Tests
         public void LastAdvanceTicks_RecordsOpeningAdvance()
         {
             // 2026-08-17:构造函数现在就会跑开场推进,所以「战斗刚开始 LastAdvanceTicks 为 0」
-            // 这个前提已经不成立。改为断言它记下了开场那一拍 —— 同速开局恰好 1 拍。
+            // 这个前提已经不成立。改为断言它记下了开场那一段 —— 速度 100 从 0 攒满
+            // 恰好 Threshold / 100 拍(2026-09-03 刻度细化后是 100 拍,此前是 1 拍)。
             var engine = Engine(new[] { Dummy() });
 
-            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(1));
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(TurnScheduler.Threshold / 100));
         }
 
         [Test]
@@ -571,13 +572,14 @@ namespace Brushblade.Core.Tests
 
             Assert.That(first, Is.EqualTo(0),
                 "敌人在开场那一拍已被顶到满格,它这一格不需要推进时间(FirstFull 分支)");
-            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(1), "全场归零后,再攒满要整整一拍");
+            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(TurnScheduler.Threshold / 100),
+                "全场归零后,再攒满要速度 100 的整整一次行动的时间");
         }
 
         [Test]
         public void LastAdvanceTicks_ReflectsSlowUnitMultipleTicks()
         {
-            // 速度 25(= MinSpeed)要四拍才攒满 —— 表现层据此把条动画拉长到四倍。
+            // 速度 25(= MinSpeed)要四倍时间才攒满 —— 表现层据此把条动画拉长到四倍。
             //
             // 2026-08-17:速度改成在 EnemyDef 里配好(Task 1 打开的通道)。原先「先构造、
             // 后改 Enemies[0].Speed」现在已经晚了 —— 构造函数会跑开场推进,敌人会以默认
@@ -586,8 +588,8 @@ namespace Brushblade.Core.Tests
             // 玩家速度也要压到同一档:若只压敌人、玩家仍是默认 100,玩家一拍就攒满,
             // ticks 恒为 1。两边都慢才会出现「四拍才有人攒满」。
             //
-            // 要推两次 AdvanceOnce:开场那一拍(4 拍)结束时敌人已满格,第一次推进是它吃掉
-            // 那一格(FirstFull 分支,0 拍),第二次才是全场从 0 重攒的四拍。四拍同时攒满时
+            // 要推两次 AdvanceOnce:开场那一段结束时敌人已满格,第一次推进是它吃掉
+            // 那一格(FirstFull 分支,0 拍),第二次才是全场从 0 重攒的那一段。同时攒满时
             // 按新 tie-break 玩家(0)赢敌人(3),所以这一格的行动者是玩家 —— 本条要验的是
             // **跨拍数**,不是谁赢(谁赢由 TurnSchedulerTests 的 TieBreak_* 守)。
             var engine = Engine(new[] { Dummy(speed: TurnScheduler.MinSpeed) },
@@ -598,7 +600,8 @@ namespace Brushblade.Core.Tests
             engine.AdvanceOnce();
 
             Assert.That(engine.LastActor.Kind, Is.EqualTo(ActorKind.Player));
-            Assert.That(engine.LastAdvanceTicks, Is.EqualTo(4));
+            Assert.That(engine.LastAdvanceTicks,
+                Is.EqualTo(TurnScheduler.Threshold / TurnScheduler.MinSpeed));
         }
 
         // ===== EnemyDef.Speed 配置通道(2026-08-17,spec §5.8)=====
@@ -638,11 +641,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Opening_EnemyFullInOneTickWhilePlayerIsNot_EnemyActsFirst()
         {
-            // 口径 7:tie-break 只管同速。但「敌人先动」的条件不是「敌人更快」——
-            // ticks 是**全场共用的最小值**,只要玩家一拍能攒满(speed >= 100),
-            // 敌人再快也是同拍满格、tie-break 生效、玩家赢。
-            // 真实条件是**玩家一拍攒不满而敌人能**:玩家 25 要 4 拍,敌人 400 只要 1 拍。
-            // 没有这条,后人把 priority 当成绝对顺序也不会变红。
+            // 口径 7:tie-break 只管**真正的同拍满格**。玩家 25 要 400 拍、敌人 400 只要 25 拍,
+            // 敌人自己先满,根本走不到 tie-break。没有这条,后人把 priority 当成绝对顺序
+            // 也不会变红。
             var engine = Engine(new[] { new EnemyDef("疾", Element.Heart, 999, 0, speed: 400) },
                 new BattleConfig { PlayerMaxHp = 999, PlayerSpeed = TurnScheduler.MinSpeed });
 
@@ -650,13 +651,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Opening_FasterEnemyButPlayerFullInOneTick_PlayerStillActsFirst()
+        public void Opening_FasterEnemy_ActsFirst()
         {
-            // 上一条的反面,也是最容易被误解的一条:敌人速度是玩家的 4 倍,**玩家仍先动** ——
-            // 双方都 1 拍满格,落到 tie-break。速度差体现为之后敌人连动两次,不是抢第一拍。
+            // 2026-09-03 改判(Threshold 100 → 10000,时间精度):**更快的就是先动**。
+            //
+            // 这条此前叫 Opening_FasterEnemyButPlayerFullInOneTick_PlayerStillActsFirst,
+            // 断言的是「敌人快 4 倍,玩家仍先动」—— 那不是设计,是粗粒度的副产物:
+            // 旧刻度下一拍给的量 = 速度,速度 ≥ 100 的一拍必满,于是 400 和 100 被抹成同拍,
+            // 再由 tie-break 判给玩家,快出来的那 300 点憋在条上看不见,之后突然连动两次
+            // (用户 2026-09-03 报的「速度条与行动不匹配」)。细化刻度后 400 只要 25 拍、
+            // 100 要 100 拍,先满的先动,条上也看得见 —— tie-break 回到它本来的位置:
+            // 只裁真正的并列(见上一条与 TurnSchedulerTests.TieBreak_*)。
             var engine = Engine(new[] { new EnemyDef("疾", Element.Heart, 999, 0, speed: 400) });
 
-            Assert.That(engine.OpeningSteps[0].Actor, Is.EqualTo(ActorRef.Player));
+            Assert.That(engine.OpeningSteps[0].Actor.Kind, Is.EqualTo(ActorKind.Enemy));
         }
 
         [Test]
