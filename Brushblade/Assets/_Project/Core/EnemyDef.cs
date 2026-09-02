@@ -132,11 +132,17 @@ namespace Brushblade.Core
         /// 同一条理由(见那条注释里「零新增快照字段」的推理)。</summary>
         public int ColumnSpan { get; }
 
+        /// <summary>最早出现层(2026-09-02);0 = 不限。
+        ///
+        /// 低阶护甲怪配 6:前 5 层是新手教学区,带甲怪会让还没有破甲手段的玩家直接卡死,
+        /// 而层段(band)整段共用一个 enemyPool,表达不了段内的深度差。</summary>
+        public int MinDepth { get; }
+
         public EnemyDef(string id, Element element, int maxHp, int attack,
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
             int defense = 0, int speed = 0,
             EnemyRow row = EnemyRow.Front, AttackRange range = AttackRange.Melee,
-            AttackFocus focus = AttackFocus.Default, int columnSpan = 1)
+            AttackFocus focus = AttackFocus.Default, int columnSpan = 1, int minDepth = 0)
         {
             Id = id;
             Element = element;
@@ -150,6 +156,7 @@ namespace Brushblade.Core
             Range = range;
             Focus = focus;
             ColumnSpan = columnSpan < 1 ? 1 : columnSpan;
+            MinDepth = minDepth;
         }
     }
 

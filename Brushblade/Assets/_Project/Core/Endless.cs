@@ -165,10 +165,15 @@ namespace Brushblade.Core
             // 闸叠在既有的「首位前排 / 辅助不单独成场」之后:先按老规矩选池,已经有一只带甲了
             // 再把带甲的从这一位的候选里摘掉 —— 顺序反过来会让首位强制前排失效。
 
+            // 深度闸排在最前(2026-09-02):先按层数收窄候选,再走既有的
+            // 「首位前排 / 辅助不单独成场 / 带甲去重」三道闸。顺序反过来的话
+            // frontOpeners 与 nonSupport 会是按未过滤的池子算出来的。
+            var depthPool = WithinDepth(band.EnemyPool, depth);
+
             // 辅助型(Buff)每场最多 1 只,且不单独成场(2026-07-19:标点小妖自己不打人,
             // 全辅助场零威胁)——首位强制从非辅助子池抽,保证场上至少 1 只能打的
             var nonSupport = new List<EnemyDef>();
-            foreach (var enemy in band.EnemyPool)
+            foreach (var enemy in depthPool)
                 if (enemy.Ability != EnemyAbility.Buff)
                     nonSupport.Add(enemy);
 
@@ -190,7 +195,7 @@ namespace Brushblade.Core
                 IReadOnlyList<EnemyDef> pool;
                 if (i == 0 && frontOpeners.Count > 0) pool = frontOpeners;
                 else if ((i == 0 || hasSupport) && nonSupport.Count > 0) pool = nonSupport;
-                else pool = band.EnemyPool;
+                else pool = depthPool;
                 pool = hasArmored ? WithoutArmor(pool) : pool;
                 var pick = pool[random.Next(pool.Count)];
                 if (pick.Ability == EnemyAbility.Buff)
@@ -211,6 +216,16 @@ namespace Brushblade.Core
             foreach (var enemy in pool)
                 if (enemy.Defense == 0) clean.Add(enemy);
             return clean.Count > 0 ? clean : pool;
+        }
+
+        /// <summary>摘掉还没到出场层的候选(2026-09-02);摘完为空时原样返回。
+        /// 与 <see cref="WithoutArmor"/> 同型 —— 抽不出来比放一只早到的更糟。</summary>
+        private static IReadOnlyList<EnemyDef> WithinDepth(IReadOnlyList<EnemyDef> pool, int depth)
+        {
+            var ok = new List<EnemyDef>(pool.Count);
+            foreach (var enemy in pool)
+                if (depth >= enemy.MinDepth) ok.Add(enemy);
+            return ok.Count > 0 ? ok : pool;
         }
     }
 
