@@ -539,7 +539,7 @@ namespace Brushblade.Presentation
             // 红点各有各的判据,都问 Core:亮着而点进去无事可做是最烦人的那种假消息
             NavTab(nav.transform, "nav_deck", Strings.T("map.nav.collection"),
                 Strings.T("map.nav.collection_sub", ("count", _meta.OwnedCards.Count)),
-                () => _onOpenCollection(), AnyCardUpgradable(), Theme.DeckTab);
+                () => _onOpenCollection(), CollectionHasRedDot(), Theme.DeckTab);
             NavTab(nav.transform, "nav_bestiary", Strings.T("map.nav.bestiary"),
                 Strings.T("map.nav.bestiary_sub", ("unlocked", unlockedEnemies), ("total", _enemies.Count)),
                 () => _onOpenBestiary(), BestiaryRules.HasUnclaimed(_meta), Theme.BestiaryTab);
@@ -610,8 +610,14 @@ namespace Brushblade.Presentation
                 new Vector2(-30, -30), new Vector2(-16, -16));
         }
 
-        private bool AnyCardUpgradable()
+        /// <summary>卡组页签的红点判据:有字能升,**或**有还没看过的新字(2026-09-03)。
+        ///
+        /// 新字这一支是随卡组页重写一起加的 —— 开箱开出一张没见过的字,主界面上必须有个去处,
+        /// 否则那张牌只在开箱面板上闪一下就沉进 74 张的网格里了。两条都在卡组页里能消掉:
+        /// 升级消掉前者,点开详情消掉后者。</summary>
+        private bool CollectionHasRedDot()
         {
+            if (MetaRules.UnseenCount(_meta) > 0) return true;
             foreach (var id in _meta.OwnedCards)
                 if (MetaRules.CanUpgradeCard(_meta, id, _graph.Get(id).Rarity))
                     return true;
@@ -735,8 +741,18 @@ namespace Brushblade.Presentation
             hint.alignment = TextAnchor.LowerCenter;
         }
 
+        /// <summary>翻牌要用的一格:牌背/牌面各一层,外面那层被 scaleX 立起来再展开。</summary>
+        private struct ResultTile
+        {
+            public GameObject Cell;
+            public RectTransform Flip;
+            public GameObject Front;
+            public GameObject Back;
+            public bool Rare;
+        }
+
         /// <summary>右栏:卡网格 + 收下。返回逐张翻卡要用的格子(先隐藏)。</summary>
-        private System.Collections.Generic.List<GameObject> BuildResultGrid(Transform parent,
+        private System.Collections.Generic.List<ResultTile> BuildResultGrid(Transform parent,
             ChestRewards rewards, System.Collections.Generic.HashSet<string> seen)
         {
             var right = Ui.VStack(parent, "Right", 17);
@@ -750,7 +766,7 @@ namespace Brushblade.Presentation
             int columns = narrow ? ResultNarrowColumns : ResultWideColumns;
             var cardSize = narrow ? ResultNarrowCard : ResultWideCard;
 
-            var tiles = new System.Collections.Generic.List<GameObject>();
+            var tiles = new System.Collections.Generic.List<ResultTile>();
             Transform row = null;
             for (int i = 0; i < rewards.Cards.Count; i++)
             {
@@ -772,11 +788,39 @@ namespace Brushblade.Presentation
                 var cellElement = cell.AddComponent<LayoutElement>();
                 cellElement.preferredWidth = cardSize.x;
                 cellElement.flexibleWidth = 0;
+                // 牌面与卡组页共用一套(2026-09-03):此前开箱这批牌连等级角标都没有,
+                // 稿上明明是同一张牌。翻牌要的「背面 → 正面」两层也建在这里
+                var flip = Ui.Panel(cell.transform, "Flip");
+                var flipElement = flip.AddComponent<LayoutElement>();
+                flipElement.preferredWidth = cardSize.x;
+                flipElement.preferredHeight = cardSize.y;
+
+                var front = Ui.Panel(flip.transform, "Front");
+                Ui.Stretch((RectTransform)front.transform);
                 // 点卡看详情(2026-08-17):与商城/收集同款 CharPreview,弹在结果面板之上
-                Ui.GlyphTile(cell.transform, def, false, () => ShowRewardPreview(cardId), cardSize);
+                var tile = Ui.GlyphTile(front.transform, def, false, () => ShowRewardPreview(cardId), cardSize);
+                Ui.Stretch((RectTransform)tile.transform); // 牌在 Front 里靠锚点铺满,不再由布局组摆
+                CardBadges.Apply(tile.gameObject, cardSize, new CardBadges.Spec
+                {
+                    Rarity = def.Rarity,
+                    Level = MetaRules.CardLevel(_meta, cardId),
+                    Maxed = MetaRules.CardLevel(_meta, cardId) >= MetaRules.MaxCardLevel,
+                    IsNew = isNew,
+                    // 出阵带与可升徽标刻意不挂:这一屏的牌脚已经把「新 / 升级 4/4 / 满级」说完了,
+                    // 同一件事印两遍反而看不出哪个才是重点(稿上的开箱牌也只有等级与稀有度)
+                });
+                var back = CardFlip.Back(flip.transform, cardSize, Strings.T("map.chest.card_back"));
+
                 ResultFoot(cell.transform, cardId, def, isNew, cardSize.x);
                 cell.SetActive(false);
-                tiles.Add(cell);
+                tiles.Add(new ResultTile
+                {
+                    Cell = cell,
+                    Flip = (RectTransform)flip.transform,
+                    Front = front,
+                    Back = back,
+                    Rare = def.Rarity >= CardRarity.Gold,
+                });
             }
 
             // 收下贴右栏底(稿上 margin-top:auto):撑开的是这块空白,不是按钮行本身 ——
@@ -842,23 +886,17 @@ namespace Brushblade.Presentation
             _modal = CharPreview.Show(transform, _graph.Get(cardId), _graph, MetaRules.CardLevel(_meta, cardId));
         }
 
-        private System.Collections.IEnumerator RevealTiles(System.Collections.Generic.List<GameObject> tiles)
+        /// <summary>逐张翻卡(2026-09-03 由「缩放弹入」改为真翻牌):牌先扣着,一张张翻开。
+        /// 金档以上翻开后多停一拍 —— 一个节拍翻完的话,那张橙卡与旁边的白卡在时间上毫无区别。</summary>
+        private System.Collections.IEnumerator RevealTiles(System.Collections.Generic.List<ResultTile> tiles)
         {
             foreach (var tile in tiles)
             {
-                if (tile == null) yield break; // 面板已被「收下」关闭
-                tile.SetActive(true);
-                var rect = (RectTransform)tile.transform;
-                float t = 0;
-                while (t < 0.12f)
-                {
-                    if (rect == null) yield break;
-                    t += Time.unscaledDeltaTime;
-                    rect.localScale = Vector3.one * Mathf.Lerp(0.5f, 1f, t / 0.12f);
-                    yield return null;
-                }
-                if (rect != null) rect.localScale = Vector3.one;
-                yield return new WaitForSecondsRealtime(0.08f);
+                if (tile.Cell == null) yield break; // 面板已被「收下」关闭
+                tile.Cell.SetActive(true);
+                yield return CardFlip.Flip(tile.Flip, tile.Back, tile.Front);
+                if (tile.Cell == null) yield break;
+                yield return new WaitForSecondsRealtime(tile.Rare ? CardFlip.RareHold : CardFlip.Gap);
             }
         }
 

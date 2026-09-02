@@ -13,6 +13,10 @@ namespace Brushblade.Core
         public Dictionary<string, int> PerkLevels { get; set; } = new();  // 技能 id → 等级;缺省 0=未解锁
         public Dictionary<string, int> CardCopies { get; set; } = new();  // 待消耗重复卡
         public List<string> OwnedCards { get; set; } = new();             // 收集(首次获得即入)
+        /// <summary>还没在卡组页点开看过的新字(2026-09-03):卡组页的「新」角旗、页签红点、
+        /// 顶栏计数都读它。首次获得即入(<see cref="MetaRules.AcquireCard"/>),点开详情即出。
+        /// 入档而不是内存里存一份 —— 关掉游戏再进来,没看过的那几张仍该是新的。</summary>
+        public List<string> UnseenCards { get; set; } = new();
         public List<string> Deck { get; set; } = new();                   // 出阵卡组(≤4,19.3.4)
         public List<int> ClearedStages { get; set; } = new();             // 每章已通关数
         public List<ChestState> Chests { get; set; } = new();             // 箱位队列(≤4,19.5.2)
@@ -367,15 +371,46 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>收下一张卡:首次获得入收集,再次获得转升级重复卡(19.3.4)。</summary>
+        /// <summary>收下一张卡:首次获得入收集并标为新字,再次获得转升级重复卡(19.3.4)。
+        ///
+        /// ⚠ 只有**首次**才标新:重复卡若也标,每开一次箱整页老字都会重新挂上红旗,
+        /// 「新」这个信号立刻失效。</summary>
         public static void AcquireCard(MetaState meta, string cardId)
         {
             if (!meta.OwnedCards.Contains(cardId))
             {
                 meta.OwnedCards.Add(cardId);
+                if (!meta.UnseenCards.Contains(cardId))
+                    meta.UnseenCards.Add(cardId);
                 return;
             }
             AddCardCopies(meta, cardId, 1);
+        }
+
+        /// <summary>这张字是不是「还没看过的新字」。</summary>
+        public static bool IsCardUnseen(MetaState meta, string cardId) =>
+            meta.UnseenCards.Contains(cardId);
+
+        /// <summary>点开详情即销号(幂等)。</summary>
+        public static void MarkCardSeen(MetaState meta, string cardId) =>
+            meta.UnseenCards.Remove(cardId);
+
+        /// <summary>新字张数(顶栏 chip 与页签红点用)。</summary>
+        public static int UnseenCount(MetaState meta) => meta.UnseenCards.Count;
+
+        /// <summary>起手收集保底:缺哪张补哪张,且**一律不标新字**。
+        ///
+        /// 起手 15 张不是玩家「开出来」的:一进游戏 15 面红旗在呼吸,新字这个信号就废了。
+        /// 独立成方法而不是让 GameRoot 自己循环 —— 那边写一遍 AcquireCard 就会把这条规则漏掉,
+        /// 而漏掉的表现是纯视觉的、没有任何测试会红。</summary>
+        public static void EnsureStartingCollection(MetaState meta)
+        {
+            foreach (var card in StartingCollection)
+            {
+                if (meta.OwnedCards.Contains(card)) continue;   // 已有的不当重复卡入账
+                AcquireCard(meta, card);
+                MarkCardSeen(meta, card);
+            }
         }
 
         /// <summary>设置出阵列表(2026-07-19 拍板):5~15 字、每属性≤5、全部已收集、无重复,
@@ -439,6 +474,7 @@ namespace Brushblade.Core
             bool Known(string id) => graph.TryGet(id, out _);
 
             meta.OwnedCards.RemoveAll(id => !Known(id));
+            meta.UnseenCards.RemoveAll(id => !Known(id));   // 下架的字不该还挂着新字红点
             meta.Deck.RemoveAll(id => !Known(id));
             RemoveUnknownKeys(meta.CardLevels, Known);
             RemoveUnknownKeys(meta.CardCopies, Known);

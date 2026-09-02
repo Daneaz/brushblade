@@ -20,6 +20,20 @@ namespace Brushblade.Core
             { Element.Metal, Element.Wood },
         };
 
+        /// <summary>这一系克谁(心不在环内 → null)。卡组页详情印「克 X ×1.5」用。
+        /// 从同一张 <c>Ke</c> 表读 —— 表现层另抄一份相克环,是这个项目栽过的那类分叉。</summary>
+        public static Element? Victim(Element attacker) =>
+            Ke.TryGetValue(attacker, out var victim) ? victim : (Element?)null;
+
+        /// <summary>这一系被谁克(心不在环内 → null)。</summary>
+        public static Element? Counter(Element defender)
+        {
+            foreach (var pair in Ke)
+                if (pair.Value == defender)
+                    return pair.Key;
+            return null;
+        }
+
         /// <summary>相克倍率:克制 1.5,被克 0.5,其余(含心)1.0。</summary>
         public static float KeMultiplier(Element attacker, Element defender)
         {
