@@ -1499,6 +1499,14 @@ namespace Brushblade.Presentation
             if (speedMod != 0)
                 statusChips.Add(new(speedMod > 0 ? $"+{speedMod}" : $"−{-speedMod}",
                     speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
+            // 势 / 水势(2026-09-02,终审修复):无图标资产,文字里自带字头区分——同「seal」
+            // 那行 AP 后缀同一处理,字头走字符串表。层数为 0 时不占格,与其余增益类 chip 同口径。
+            int momentum = Battle.MomentumStacks;
+            if (momentum > 0)
+                statusChips.Add(new($"{Strings.T("status.momentum.chip")}{momentum}", Theme.Gold, Color.white, null));
+            int waterPower = Battle.WaterPowerStacks;
+            if (waterPower > 0)
+                statusChips.Add(new($"{Strings.T("status.waterpower.chip")}{waterPower}", Theme.Jade, Color.white, null));
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, 12, 2,
                 ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
             stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
@@ -2596,7 +2604,7 @@ namespace Brushblade.Presentation
         private string Brief(string charId)
         {
             var def = _graph.Get(charId);
-            return $"「{charId}」{CharInfo.EffectsText(def, _run.CardLevel(charId), _graph)}";
+            return $"「{charId}」{CharInfo.EffectsText(def, _run.CardLevel(charId))}";
         }
 
         /// <summary>长按看详情:preview 只读,不动选中态。</summary>
@@ -2901,7 +2909,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(pickedInfo.transform, Strings.T("battle.label.picked_meta",
                 ("rarity", CharInfo.RarityName(def.Rarity)), ("element", elementName), ("level", cardLevel)),
                 12, Theme.TextDim, align: TextAnchor.UpperLeft);
-            var effectLabel = Ui.ThemedLabel(pickedInfo.transform, CharInfo.EffectsText(def, cardLevel, _graph),
+            var effectLabel = Ui.ThemedLabel(pickedInfo.transform, CharInfo.EffectsText(def, cardLevel),
                 13, Theme.TextMain, align: TextAnchor.UpperLeft);
             // 效果说明可能比两个字的部件名长得多,稿 .pv 是能换行的正文——这里是本文件
             // 唯一一处要求 Text 真的换行(其余标签/按钮标题按既有惯例任其单行溢出,

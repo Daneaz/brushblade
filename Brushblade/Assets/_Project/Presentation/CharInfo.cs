@@ -29,7 +29,7 @@ namespace Brushblade.Presentation
             if (cardLevel > 1)
                 text.Append("|Lv.").Append(cardLevel);
 
-            text.Append('|').Append(EffectsText(def, cardLevel, graph));
+            text.Append('|').Append(EffectsText(def, cardLevel));
 
             return text.ToString();
         }
@@ -40,15 +40,26 @@ namespace Brushblade.Presentation
 
         /// <summary>效果串(升级 preview 取前后两级各调一次)。
         ///
-        /// <paramref name="graph"/> 相生 ×3 已取消(2026-09-02),显示值等于配置基础值,
-        /// 这个参数眼下没有再改写 <c>shown</c> 的用途,保留是为了不动其余调用点的签名。</summary>
-        public static string EffectsText(CharDef def, int cardLevel = 1, RecipeGraph graph = null)
+        /// 双方向字(水/土,2026-09-02):<see cref="CharDef.AttackEffects"/> 非空时,
+        /// 卡面要把攻/护两面都印出来——玩家要在这张卡上选「攻」还是「护」,只显示
+        /// <see cref="CharDef.Effects"/>(护面)会让另一面在游戏里彻底不可见。格式与
+        /// tools/design/gen_char_doc.py 的 func_desc 同口径:`攻:… / 护:…`。</summary>
+        public static string EffectsText(CharDef def, int cardLevel = 1)
         {
-            if (def.Effects.Count == 0)
+            string support = OneSideEffectsText(def.Effects, def, cardLevel);
+            if (def.AttackEffects.Count == 0)
+                return support;
+            string attack = OneSideEffectsText(def.AttackEffects, def, cardLevel);
+            return Strings.T("char.summary.dual_direction", ("attack", attack), ("support", support));
+        }
+
+        private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel)
+        {
+            if (effects.Count == 0)
                 return Strings.T("char.summary.noeffect");
 
             var parts = new StringBuilder();
-            for (int i = 0; i < def.Effects.Count; i++)
+            for (int i = 0; i < effects.Count; i++)
             {
                 // 分隔符是分号,不是逗号(2026-08-10 还债):效果内部本来就带逗号
                 // ——Reflect 的「伤害,N回合」、HealOverTime 的「/回合,共N回合」、
@@ -57,7 +68,7 @@ namespace Brushblade.Presentation
                 // 分号的层级严格强于逗号(顿号反而更弱,当结构分隔符会把层级弄反),
                 // 所以各分支内部照常写逗号即可,不必再逐个改文案。
                 if (i > 0) parts.Append(';');
-                var e = def.Effects[i];
+                var e = effects[i];
                 int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
                 string shown = v.ToString();
                 parts.Append(e.Kind switch
@@ -128,6 +139,10 @@ namespace Brushblade.Presentation
                     // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
                     // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
                     EffectKind.PierceBuff => Strings.T("char.effect.piercebuff", ("value", shown)),
+                    // 发势 / 泻(2026-09-02,水土双方向):清空全部势/水势,按层数 × value 打全体。
+                    // 与 tools/design/gen_char_doc.py 的 desc() 同口径。
+                    EffectKind.SpendMomentum => Strings.T("char.effect.spendmomentum", ("value", shown)),
+                    EffectKind.SpendWaterPower => Strings.T("char.effect.spendwaterpower", ("value", shown)),
                     _ => e.Kind.ToString(),
                 });
             }

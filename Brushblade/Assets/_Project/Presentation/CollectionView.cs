@@ -190,7 +190,7 @@ namespace Brushblade.Presentation
             Ui.GlyphTile(stack, def, false, null, new Vector2(144, 180));
             Ui.ThemedLabel(stack, $"Lv.{level} → Lv.{level + 1}", 21, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(stack,
-                $"{CharInfo.EffectsText(def, level, _graph)}\n↓\n{CharInfo.EffectsText(def, level + 1, _graph)}",
+                $"{CharInfo.EffectsText(def, level)}\n↓\n{CharInfo.EffectsText(def, level + 1)}",
                 17, Theme.TextDim);
             Ui.ThemedLabel(stack,
                 Strings.T("collection.modal.upgrade_cost", ("needed", copiesNeeded), ("copies", copies),
