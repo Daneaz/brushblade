@@ -255,10 +255,15 @@
       </div>
       <div class="flashnote">
         <b>心属中立</b>：既不生也不克，任何一边都吃基础倍率。<br><br>
-        <b>全屏闪</b>目前三处，都很短、都是白色：<br>
-        · 引爆且伤害 ≥ 40 → 0.12s<br>
-        · 击杀 → 0.16s<br>
-        · 普通命中且伤害 ≥ 40（暴击 ≥ 20）→ 0.12s（<code>Juice.HitFx</code>；2026-09-01 补记，
+        <!-- 2026-09-02 修正：上一版「三处、都是白色」漏了 EnemyAttack 那条——它无条件
+             触发、颜色跟来袭属性走，不是白色。逐条核对 Juice.cs 的全部 ScreenFlash
+             调用点（4 处）后改写，别再照抄给定清单当上限。 -->
+        <b>全屏闪</b>目前四处，多数很短：<br>
+        · 引爆且伤害 ≥ 40 → 0.12s，白色<br>
+        · 击杀 → 0.16s，白色<br>
+        · 敌方攻击我方（<code>Juice.EnemyAttack</code> 分支）→ 0.14s，颜色跟<b>来袭属性</b>走
+          （不是白色），且<b>无条件触发</b>、不看伤害量<br>
+        · 我方普通命中且伤害 ≥ 40（暴击 ≥ 20）→ 0.12s，白色（<code>Juice.HitFx</code>；
           被克那一记不闪）<br>
         全屏闪是最贵的一种强调，用滥了就等于没有。数值口径的唯一来源是
         <code style="font-size:8.5px;color:#7A3F5C;">docs/design/wuxing-reference.md</code>，
