@@ -1825,14 +1825,20 @@ namespace Brushblade.Presentation
             button.onClick.AddListener(() => OnAllyTargetPicked(slot));
         }
 
-        /// <summary>进入友方选目标态(2026-08-27 抽出,三个入口共用:点「出字」、
-        /// 拖到敌人身上松手后的第二段、拖纯友方字)。
-        /// enemyTarget = 第一段已经选过的敌人下标;纯友方字传 −1。</summary>
-        private void EnterAllyTargeting(CharDef def, int enemyTarget)
+        /// <summary>进入友方选目标态(2026-08-27 抽出,四个入口共用:点「出字」、拖到敌人身上
+        /// 松手后的第二段、拖纯友方字、点敌人转第二段)。
+        /// enemyTarget = 第一段已经选过的敌人下标;纯友方字传 −1。
+        ///
+        /// <paramref name="attackMode"/> 在这里设 <see cref="_pendingAttackMode"/>(2026-09-02
+        /// 终审修复):此前靠每个调用方自己在调用前手动赋值,拖放路径漏了这一步,松手后
+        /// <see cref="OnAllyTargetPicked"/> 读到默认值 false,把攻击面(如 澡/杜/壁)当成了
+        /// 护面出。改成参数化,新调用方不会再有第二次漏掉的机会。</summary>
+        private void EnterAllyTargeting(CharDef def, int enemyTarget, bool attackMode)
         {
             _targeting = false;
             _allyTargeting = true;
             _pendingAllyEnemyTarget = enemyTarget;
+            _pendingAttackMode = attackMode;
             _message = Strings.T("battle.hint.cast_pick_ally_target", ("charId", def.Id));
         }
 
@@ -2484,7 +2490,7 @@ namespace Brushblade.Presentation
                     {
                         _selectedChar = def.Id;
                         _selectedIndex = libraryIndex;
-                        EnterAllyTargeting(def, enemyTarget: target);
+                        EnterAllyTargeting(def, enemyTarget: target, attackMode: true);
                         Refresh();
                         return;
                     }
@@ -2498,7 +2504,7 @@ namespace Brushblade.Presentation
                         // 纯友方字:点亮玩家血条区与可施的召唤格
                         _selectedChar = def.Id;
                         _selectedIndex = libraryIndex;
-                        EnterAllyTargeting(def, enemyTarget: -1);
+                        EnterAllyTargeting(def, enemyTarget: -1, attackMode: true);
                         RedrawAllyTargets();
                         return;
                     }
@@ -3755,6 +3761,8 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             _pendingAllyEnemyTarget = -1;
+            _directionPicking = false; // 改点了另一张字:上一张的方向选择作废(2026-09-02 终审修复)
+            _pendingAttackMode = false;
             ResetSlotPicking(); // 改主意点了别的字:上一张的落位作废
             _message = Brief(charId) + Strings.T("battle.hint.suffix_tap_again_cast");
             Refresh();
@@ -3775,6 +3783,8 @@ namespace Brushblade.Presentation
             _targeting = false;
             _allyTargeting = false;
             _pendingAllyEnemyTarget = -1;
+            _directionPicking = false; // 改点了另一张字:上一张的方向选择作废(2026-09-02 终审修复)
+            _pendingAttackMode = false;
             ResetSlotPicking();
             _message = Brief(charId) + Strings.T("battle.hint.suffix_direct_cast");
             Refresh();
@@ -3825,8 +3835,7 @@ namespace Brushblade.Presentation
             // 与上面「单敌免选」同一条纪律。
             if (BattleEngine.NeedsAllyTarget(def, attackMode) && Battle.AliveSummonCount > 0)
             {
-                _pendingAttackMode = attackMode;
-                EnterAllyTargeting(def, enemyTarget: -1);
+                EnterAllyTargeting(def, enemyTarget: -1, attackMode: attackMode);
                 Refresh();
                 return;
             }
@@ -3977,7 +3986,7 @@ namespace Brushblade.Presentation
                 // 那条同源:场上没有存活召唤物时引擎会自动锁玩家,弹一次没得选的选择纯属白点。
                 if (BattleEngine.NeedsAllyTarget(picked, _pendingAttackMode) && Battle.AliveSummonCount > 0)
                 {
-                    EnterAllyTargeting(picked, enemyTarget: index);
+                    EnterAllyTargeting(picked, enemyTarget: index, attackMode: _pendingAttackMode);
                     Refresh();
                     return;
                 }
