@@ -1,0 +1,342 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .icdefs { position: absolute; width: 0; height: 0; }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+
+    /* 字牌(与 CardStates / Main 同一套) */
+    .tile { position: relative; box-sizing: border-box; border-radius: 8px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 2px 6px rgba(22,27,34,.1);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .tile::before { content: ""; position: absolute; inset: 3px; border-radius: 5px;
+      border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent); }
+    .tile .g { font-family: "Noto Serif SC", serif; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .tile .py { font-size: 7.5px; color: #5D646F; letter-spacing: .5px; margin-top: 5px; }
+    .tile .lv { position: absolute; left: 4px; top: 4px; height: 13px; padding: 0 4px;
+      border-radius: 7px; background: #11161F; color: #fff; font-size: 7.5px;
+      display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+    .tile .rd { position: absolute; right: 4px; top: 4px; width: 11px; height: 11px;
+      border-radius: 50%; background: var(--rar); border: 1.5px solid #FFFDF7; }
+
+    /* 小节标题(与卡组右栏同一条:标题 + 一条横线) */
+    .ttl { flex: none; display: flex; align-items: center; gap: 6px;
+      font-size: 9px; letter-spacing: 2px; color: #88909C; }
+    .ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; color: #5D646F; letter-spacing: 0; }
+    .ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+
+    /* 图标 chip(与单位详情的 .cp 同一件东西);没有图标的退成纯文字 chip */
+    .cp { flex: none; height: 15px; padding: 0 5px; border-radius: 8px; color: #fff;
+      font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px;
+      font-variant-numeric: tabular-nums; }
+    .cp .ic { width: 10px; height: 10px; flex: none; display: block; }
+    .cp.word { background: #E4DDCE; color: #5D646F; font-weight: 500; letter-spacing: .5px; }
+
+    /* 特性 · 技能:一条一张小卡,头是「图标 chip + 名」,下面一行说明 —— 与
+       UnitFoe / UnitAlly 的 .abil 逐像素同款,玩家在两处读到的是同一种东西 */
+    .abil { background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 7px; padding: 6px 8px; }
+    .abil .h { display: flex; align-items: center; gap: 5px;
+      font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #2C333D; }
+    .abil .h .cp { font-family: "Noto Sans SC", sans-serif; }
+    .abil .t { font-size: 9.5px; color: #7A7261; line-height: 1.55; margin-top: 3px; }
+    .abil .t b { color: #2C333D; font-weight: 500; }
+
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+
+
+    .sheet2 { width: 1180px; height: 620px; box-sizing: border-box; padding: 26px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+      display: flex; flex-direction: column; gap: 18px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .sub { font-size: 13px; color: #5D646F; margin-top: 6px; line-height: 1.7; }
+    .sub b { color: #161B22; font-weight: 700; }
+    .row { display: flex; gap: 26px; align-items: flex-start; }
+
+    /* 右栏详情 1:1(卡组页右栏净宽 252pt,去掉左右各 10pt 内边距 = 232) */
+    .panel { width: 252px; flex: none; box-sizing: border-box; background: #FBF8F1;
+      border: 1px solid #DED7C9; border-radius: 10px; display: flex; flex-direction: column; }
+    .phead { height: 26px; flex: none; display: flex; align-items: center; gap: 6px;
+      padding: 0 8px; border-bottom: 1px solid #E7E1D4; font-size: 9px; color: #88909C; letter-spacing: 2px; }
+    .pbody { flex: 1; min-height: 0; padding: 10px; display: flex; flex-direction: column; gap: 11px; }
+    .pfoot { flex: none; display: flex; gap: 6px; padding: 8px; border-top: 1px solid #E7E1D4; background: #F6F1E7; }
+    .pfoot .b { flex: 1; height: 30px; border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 11px; letter-spacing: 1px; }
+    .pfoot .b.deck { background: #7A3F5C; color: #fff; }
+    .pfoot .b.up { background: #2E7D46; color: #fff; }
+
+    .idcard { display: flex; gap: 10px; }
+    .idcard .tile { width: 76px; height: 95px; flex: none; }
+    .idcard .tile .g { font-size: 38px; }
+    .idmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .idname { display: flex; align-items: baseline; gap: 6px; }
+    .idname .n { font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; }
+    .idname .p { font-size: 10px; color: #5D646F; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .chip { height: 18px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 9px; font-size: 9.5px; letter-spacing: .5px; }
+    .chip.rar { background: var(--rarSoft); color: color-mix(in srgb, var(--rar) 76%, #161B22);
+      border: 1px solid color-mix(in srgb, var(--rar) 40%, transparent); }
+    .chip.elm { background: var(--elSoft); color: var(--elFg); }
+    .gloss { font-size: 9.5px; color: #5D646F; line-height: 1.55; }
+
+    /* ① 数值:只留数字与名,下面那行小注(「单体,每次」)拿掉 —— 那句话现在由
+       ② 攻击模式整段来说,留在格子里是同一件事说两遍 */
+    .stats { display: flex; gap: 6px; }
+    .sbox { flex: 1; min-width: 0; background: #FFFDF7; border: 1px solid #E7E1D4;
+      border-radius: 8px; padding: 7px 8px; }
+    .sbox .k { font-size: 8.5px; color: #88909C; letter-spacing: 1px; }
+    .sbox .v { font-family: "Noto Serif SC", serif; font-size: 22px; font-weight: 600; line-height: 1.15;
+      font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .sbox.atk .v { color: #B02D2E; } .sbox.heal .v { color: #0A5E9E; }
+    .sbox.shield .v { color: #82552A; } .sbox.hp .v { color: #1F6333; }
+
+    /* ② 攻击模式:一格一条「打谁 / 护谁」。双方向字两面各占一格,前面那枚色点就是方向 */
+    .modes { display: flex; flex-direction: column; gap: 5px; }
+    .mode { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px;
+      border-radius: 7px; background: #F2EEE4; }
+    .mode .dir { flex: none; width: 15px; height: 15px; border-radius: 4px; color: #fff;
+      font-family: "Noto Serif SC", serif; font-size: 9px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; }
+    .mode .nm { font-size: 10px; color: #2C333D; }
+    .mode .ex { margin-left: auto; font-size: 9px; color: #88909C; }
+    .mode.atk { background: #FBE9E7; } .mode.atk .dir { background: #B02D2E; }
+    .mode.def { background: #EDF3EA; } .mode.def .dir { background: #2E7D46; }
+
+    /* ③ 召唤:只有召唤字才出这一段。它与「攻击模式」是两回事 ——
+       出去的不是一记伤害,是一只会自己行动的东西,数值也全是它的 */
+    .sum { display: flex; align-items: center; gap: 9px; background: #EDF3EA;
+      border: 1px solid #CFE1D2; border-radius: 8px; padding: 8px 9px; }
+    .sum .who { position: relative; width: 40px; height: 50px; flex: none; box-sizing: border-box;
+      border-radius: 6px; background: #FFFDF7; border: 2px solid var(--rar);
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; color: var(--glyph); }
+    .sum .cnt { position: absolute; right: -5px; bottom: -5px; height: 15px; padding: 0 5px;
+      border-radius: 8px; background: #2E7D46; color: #fff; font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; }
+    .sum .figs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .sum .fig { display: flex; align-items: baseline; gap: 5px; font-size: 9.5px; color: #5D646F;
+      font-variant-numeric: tabular-nums; }
+    .sum .fig b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #161B22; }
+    .sum .note { font-size: 9px; color: #7A7261; }
+
+    .abils { display: flex; flex-direction: column; gap: 5px; }
+
+    /* 右侧说明栏 */
+    .legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 13px; }
+    .lg { display: flex; gap: 11px; }
+    .lg .no { flex: none; width: 22px; height: 22px; border-radius: 11px; background: #3D4E69; color: #fff;
+      font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; }
+    .lg .tx { flex: 1; min-width: 0; }
+    .lg .tx h3 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; }
+    .lg .tx p { margin: 3px 0 0; font-size: 11px; color: #5D646F; line-height: 1.65; }
+    .lg .tx p b { color: #161B22; font-weight: 500; }
+    .lg .tx p em { font-style: normal; color: #9B1E22; }
+  </style>
+</helmet>
+
+<div class="sheet2">
+  <svg class="icdefs" aria-hidden="true"><defs><symbol id="ic-burn" viewBox="0 0 64 64"><path fill="#fff" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/></symbol><symbol id="ic-blind" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 50L50 14"/></symbol><symbol id="ic-skewer" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M6 32h44M40 22l10 10-10 10"/><circle cx="19" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/><circle cx="35" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/></symbol><symbol id="ic-pierce" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32h42M40 20l12 12-12 12"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M30 12v40"/></symbol><symbol id="ic-thorns" viewBox="0 0 64 64"><circle cx="32" cy="32" r="11" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/></symbol><symbol id="ic-ranged" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 10c13 8 13 36 0 44"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 32h33M39 22l10 10-10 10"/></symbol><symbol id="ic-morale" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 8v48"/><path fill="#fff" d="M18 12h30l-8 10 8 10H18z"/></symbol><symbol id="ic-attack" viewBox="0 0 64 64"><path fill="#fff" d="M52 8l-4 14-26 26-8-8L40 14z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 46l-8 8"/></symbol><symbol id="ic-shield" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/></symbol><symbol id="ic-armorbreak" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M37 17l-10 15h11l-10 15"/></symbol><symbol id="ic-heal" viewBox="0 0 64 64"><path fill="#fff" d="M26 12h12v14h14v12H38v14H26V38H12V26h14z"/></symbol></defs></svg>
+
+  <div>
+    <h2>字卡详情 · 重排</h2>
+    <div class="sub">卡组页右栏,<b>1:1 实际尺寸</b>(252pt 宽)。四段各回答一个问题:<b>多大 / 打谁 / 召什么 / 还带什么</b>。
+      左边是普通攻击字,右边是召唤字 —— 召唤那一段只有召唤字才出。</div>
+  </div>
+
+  <div class="row">
+    <!-- 普通攻击字 -->
+    <div class="panel r-Purple e-Fire">
+      <div class="phead">字牌详情</div>
+      <div class="pbody">
+        <div class="idcard">
+          <div class="tile"><span class="lv">Lv.4</span><span class="rd"></span><span class="g">熣</span><span class="py">suī</span></div>
+          <div class="idmeta">
+            <div class="idname"><span class="n">熣</span><span class="p">suī</span></div>
+            <div class="chips">
+              <span class="chip rar">紫</span>
+              <span class="chip elm">火系</span>
+            </div>
+            <div class="gloss">火光晃眼</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>数值</b> · Lv.4<i class="rule"></i></div>
+          <div class="stats" style="margin-top: 6px;">
+            <div class="sbox atk"><div class="k">攻击</div><div class="v">104</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>攻击模式</b><i class="rule"></i></div>
+          <div class="modes" style="margin-top: 6px;">
+            <div class="mode atk">
+              <span class="dir">攻</span><span class="nm">单体攻击</span>
+              <span class="ex">可越过前排</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>特性 · 技能</b><i class="rule"></i></div>
+          <div class="abils" style="margin-top: 6px;">
+            <div class="abil">
+              <div class="h">
+                <span class="cp" style="background: #C53637"><svg class="ic"><use href="#ic-burn"></use></svg>3</span>
+                灼烧
+              </div>
+              <div class="t">给目标叠 <b>3 层</b>,每回合末按层数掉血,层数逐回合递减</div>
+            </div>
+            <div class="abil">
+              <div class="h">
+                <span class="cp" style="background: #7A6BA8"><svg class="ic"><use href="#ic-blind"></use></svg>65%</span>
+                致盲
+              </div>
+              <div class="t">目标 <b>2 回合</b>内每次出手有 65% 打空</div>
+            </div>
+            <div class="abil">
+              <div class="h"><span class="cp word">偷袭</span>无视前排</div>
+              <div class="t">这一记直接落在后排,不必先清前面那一列</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pfoot">
+        <div class="b deck">编入出阵</div>
+        <div class="b up">升到 Lv.5</div>
+      </div>
+    </div>
+
+    <!-- 召唤字 -->
+    <div class="panel r-Purple e-Wood">
+      <div class="phead">字牌详情</div>
+      <div class="pbody">
+        <div class="idcard">
+          <div class="tile"><span class="lv">Lv.2</span><span class="rd"></span><span class="g">荆</span><span class="py">jīng</span></div>
+          <div class="idmeta">
+            <div class="idname"><span class="n">荆</span><span class="p">jīng</span></div>
+            <div class="chips">
+              <span class="chip rar">紫</span>
+              <span class="chip elm">木系</span>
+            </div>
+            <div class="gloss">多刺灌木</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>数值</b> · Lv.2<i class="rule"></i></div>
+          <div class="stats" style="margin-top: 6px;">
+            <div class="sbox hp"><div class="k">血量</div><div class="v">363</div></div>
+            <div class="sbox atk"><div class="k">攻击</div><div class="v">0</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>召唤</b><i class="rule"></i></div>
+          <div class="sum" style="margin-top: 6px;">
+            <div class="who">荆<span class="cnt">×2</span></div>
+            <div class="figs">
+              <div class="fig">血 <b>363</b> · 攻 <b>0</b></div>
+              <div class="note">落在前排,替你挨打;上面的数值就是它的</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>特性 · 技能</b><i class="rule"></i></div>
+          <div class="abils" style="margin-top: 6px;">
+            <div class="abil">
+              <div class="h">
+                <span class="cp" style="background: #348F4F"><svg class="ic"><use href="#ic-thorns"></use></svg>55%</span>
+                荆棘
+              </div>
+              <div class="t">被打时反弹 <b>55%</b> 伤害 —— 它攻 0,伤害全从这里出</div>
+            </div>
+            <div class="abil">
+              <div class="h"><span class="cp word">嘲讽</span>强制挨打</div>
+              <div class="t">敌人只能打它,直到它倒下</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pfoot">
+        <div class="b deck">编入出阵</div>
+        <div class="b up">升到 Lv.3</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="lg">
+        <span class="no">1</span>
+        <div class="tx">
+          <h3>数值</h3>
+          <p>攻击 / 治疗 / 护盾 / 血量,<b>有则出、无则不占位</b>。格子里<em>不再有下面那行小注</em>
+            (「单体,每次」之类)—— 那句话现在由第 2 段整段来说,留在格子里是同一件事说两遍。
+            数字已按本场卡等级缩放,印的就是这一级真正打出来的数。</p>
+        </div>
+      </div>
+      <div class="lg">
+        <span class="no">2</span>
+        <div class="tx">
+          <h3>攻击模式</h3>
+          <p>这一记<b>打谁、护谁</b>:单体攻击 / 全体攻击 / 单体护盾 / 全体护盾 / 单体治疗 / 全体治疗。
+            一格一条,行尾补一句形状上的限定(越过前排、贯穿溅射、共几段)。
+            双方向字(水 / 土)两面各占一格,前面那枚<b>色点就是方向</b> —— 朱砂是攻、翠玉是护。</p>
+        </div>
+      </div>
+      <div class="lg">
+        <span class="no">3</span>
+        <div class="tx">
+          <h3>召唤</h3>
+          <p><b>只有召唤字才出这一段。</b>它与攻击模式是两回事:出去的不是一记伤害,是一只会自己行动的东西,
+            上面那些数值也全是它的。所以单开一块,把「召几只、多大、落在哪」一次说完。</p>
+        </div>
+      </div>
+      <div class="lg">
+        <span class="no">4</span>
+        <div class="tx">
+          <h3>特性 · 技能</h3>
+          <p>原来的「<em>字卡功能</em>」整块文字换成这一段,与<b>召唤物 / 敌人详情</b>里那块逐像素同款:
+            一条一张小卡,头是「图标 chip + 名」,下面一行说明。玩家在三处读到的是同一种东西。</p>
+          <p>图标走 <b>Icons.cs</b> 那 30 枚(灼烧 / 致盲 / 荆棘 / 破甲 / 战意…);
+            没有图标的退成<b>纯文字 chip</b>(偷袭、嘲讽、斩杀、分段…),
+            宽度与带图标的一致,行与行仍然对得齐。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 1180, "height": 620}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

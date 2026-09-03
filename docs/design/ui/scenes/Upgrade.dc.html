@@ -1,0 +1,234 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .icdefs { position: absolute; width: 0; height: 0; }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue   { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+    .r-Purple { --rar: #7945AB; --rarSoft: #EBE2F5; }
+    .r-Gold   { --rar: #C9A94A; --rarSoft: #F6EDD5; }
+    .r-Orange { --rar: #E1791B; --rarSoft: #FAE7D3; }
+
+    /* 字牌(与 CardStates / Main 同一套) */
+    .tile { position: relative; box-sizing: border-box; border-radius: 8px; background: #FFFDF7;
+      border: 2px solid var(--rar); box-shadow: 0 2px 6px rgba(22,27,34,.1);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .tile::before { content: ""; position: absolute; inset: 3px; border-radius: 5px;
+      border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent); }
+    .tile .g { font-family: "Noto Serif SC", serif; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .tile .py { font-size: 7.5px; color: #5D646F; letter-spacing: .5px; margin-top: 5px; }
+    .tile .lv { position: absolute; left: 4px; top: 4px; height: 13px; padding: 0 4px;
+      border-radius: 7px; background: #11161F; color: #fff; font-size: 7.5px;
+      display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+    .tile .rd { position: absolute; right: 4px; top: 4px; width: 11px; height: 11px;
+      border-radius: 50%; background: var(--rar); border: 1.5px solid #FFFDF7; }
+
+    /* 小节标题(与卡组右栏同一条:标题 + 一条横线) */
+    .ttl { flex: none; display: flex; align-items: center; gap: 6px;
+      font-size: 9px; letter-spacing: 2px; color: #88909C; }
+    .ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; color: #5D646F; letter-spacing: 0; }
+    .ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+
+    /* 图标 chip(与单位详情的 .cp 同一件东西);没有图标的退成纯文字 chip */
+    .cp { flex: none; height: 15px; padding: 0 5px; border-radius: 8px; color: #fff;
+      font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px;
+      font-variant-numeric: tabular-nums; }
+    .cp .ic { width: 10px; height: 10px; flex: none; display: block; }
+    .cp.word { background: #E4DDCE; color: #5D646F; font-weight: 500; letter-spacing: .5px; }
+
+    /* 特性 · 技能:一条一张小卡,头是「图标 chip + 名」,下面一行说明 —— 与
+       UnitFoe / UnitAlly 的 .abil 逐像素同款,玩家在两处读到的是同一种东西 */
+    .abil { background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 7px; padding: 6px 8px; }
+    .abil .h { display: flex; align-items: center; gap: 5px;
+      font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #2C333D; }
+    .abil .h .cp { font-family: "Noto Sans SC", sans-serif; }
+    .abil .t { font-size: 9.5px; color: #7A7261; line-height: 1.55; margin-top: 3px; }
+    .abil .t b { color: #2C333D; font-weight: 500; }
+
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+
+    .dev { position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    .safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column; }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px;
+      display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    /* 背景:卡组页(只留弹窗盖不住的那几条) */
+    .top { height: 38px; flex: none; display: flex; align-items: center; gap: 10px; }
+    .top h1 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+    .top .sub { font-size: 11px; color: #5D646F; }
+    .filters { height: 27px; flex: none; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .ftab { height: 27px; padding: 0 11px; border-radius: 5px 5px 0 0; display: flex; align-items: center;
+      gap: 5px; font-size: 12px; color: #5D646F; }
+    .ftab.on { background: #FED2CE; color: #862726; border-bottom: 2px solid #C53637; }
+    .ftab .fn { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; }
+    .grid { flex: 1; display: grid; grid-template-columns: repeat(5, 103px); gap: 14px 8px;
+      align-content: start; }
+    .gcell { display: flex; flex-direction: column; gap: 4px; }
+    .gcell .tile { width: 103px; height: 128px; }
+    .gcell .tile .g { font-size: 46px; margin-top: 4px; }
+    .side { position: absolute; right: 0; top: 71px; bottom: 6px; width: 252px;
+      background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; }
+
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); z-index: 50; }
+    /* 卡按 Ui.Sheet 的真实口径:居中、宣纸卡 + 1pt 描边。520×320 是内容量出来的 ——
+       三个模块各自成段,再挤就要把「变化前 → 变化后」那一步压成一行文字,而那正是这一屏的全部意义 */
+    .sheet { position: absolute; left: 206px; top: 55px; width: 520px; height: 320px;
+      box-sizing: border-box; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 11px;
+      padding: 14px 16px 12px; box-shadow: 0 12px 38px rgba(22,27,34,.42);
+      display: flex; flex-direction: column; gap: 10px; z-index: 51; }
+    .sh { flex: none; display: flex; align-items: baseline; gap: 8px; }
+    .sh h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 600; letter-spacing: 2px; }
+    .sh .sub { font-size: 9.5px; color: #A8A08E; }
+
+    /* 牌行:两张牌 + 一支箭头。左边压暗 —— 「这是它现在的样子」 */
+    .step { flex: none; display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .step .tile { width: 62px; height: 78px; }
+    .step .tile .g { font-size: 30px; margin-top: 3px; }
+    .step .tile.was { opacity: .5; box-shadow: none; }
+    .step .arw { font-size: 17px; color: #7A3F5C; }
+    .step .lvto { height: 20px; padding: 0 9px; border-radius: 10px; background: #2E7D46; color: #fff;
+      font-size: 10px; font-weight: 700; display: flex; align-items: center; letter-spacing: .5px; }
+
+    .mods { flex: 1; min-height: 0; display: flex; gap: 12px; }
+    .mod { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    /* 数值提升:一行一条「名 旧 → 新 (+差)」。等宽数字,三行以内一眼扫完 */
+    .num { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px;
+      border-radius: 7px; background: #F2EEE4; font-variant-numeric: tabular-nums; }
+    .num .k { font-size: 9.5px; color: #5D646F; width: 34px; }
+    .num .was { font-family: "Noto Serif SC", serif; font-size: 13px; color: #A8A08E; }
+    .num .arw { font-size: 9px; color: #A09A8C; }
+    .num .now { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #B02D2E; }
+    .num .dlt { margin-left: auto; font-size: 9.5px; font-weight: 700; color: #1B552C; }
+    /* 层数与特性:同一条读法,但把图标 chip 摆在最前 —— 这一段说的是「哪一项功能变强了」 */
+    .fx { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px;
+      border-radius: 7px; background: #F2EEE4; font-variant-numeric: tabular-nums; }
+    .fx .nm { font-size: 9.5px; color: #5D646F; }
+    .fx .was { font-size: 11px; color: #A8A08E; margin-left: auto; }
+    .fx .arw { font-size: 9px; color: #A09A8C; }
+    .fx .now { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: #185C2E; }
+    .keep { font-size: 9px; color: #A8A08E; line-height: 1.5; margin-top: 2px; }
+    .keep b { color: #7A7261; font-weight: 500; }
+
+    .foot { flex: none; display: flex; align-items: center; gap: 10px; }
+    .btn { height: 34px; padding: 0 18px; border: none; border-radius: 17px; cursor: pointer;
+      font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 2px;
+      display: inline-flex; align-items: center; justify-content: center; }
+    .btn.jade { background: #2E7D46; color: #fff; flex: 1; }
+    .btn.quiet { background: #E4DDCE; color: #2C333D; width: 120px; }
+  </style>
+</helmet>
+
+<div class="dev">
+  <svg class="icdefs" aria-hidden="true"><defs><symbol id="ic-burn" viewBox="0 0 64 64"><path fill="#fff" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/></symbol><symbol id="ic-blind" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32c10-13 38-13 48 0-10 13-38 13-48 0z"/><circle cx="32" cy="32" r="6" fill="#fff"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 50L50 14"/></symbol><symbol id="ic-skewer" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M6 32h44M40 22l10 10-10 10"/><circle cx="19" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/><circle cx="35" cy="32" r="8" fill="none" stroke="#fff" stroke-width="4"/></symbol><symbol id="ic-pierce" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M8 32h42M40 20l12 12-12 12"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M30 12v40"/></symbol><symbol id="ic-thorns" viewBox="0 0 64 64"><circle cx="32" cy="32" r="11" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/></symbol><symbol id="ic-ranged" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 10c13 8 13 36 0 44"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M15 32h33M39 22l10 10-10 10"/></symbol><symbol id="ic-morale" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 8v48"/><path fill="#fff" d="M18 12h30l-8 10 8 10H18z"/></symbol><symbol id="ic-attack" viewBox="0 0 64 64"><path fill="#fff" d="M52 8l-4 14-26 26-8-8L40 14z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M18 46l-8 8"/></symbol><symbol id="ic-shield" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/></symbol><symbol id="ic-armorbreak" viewBox="0 0 64 64"><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 7l21 8v18c0 12-10 21-21 25-11-4-21-13-21-25V15z"/><path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M37 17l-10 15h11l-10 15"/></symbol><symbol id="ic-heal" viewBox="0 0 64 64"><path fill="#fff" d="M26 12h12v14h14v12H38v14H26V38H12V26h14z"/></symbol></defs></svg>
+
+  <!-- 背景:卡组页。弹窗从右栏底部那颗「升到 Lv.2」按上来 -->
+  <div class="safe">
+    <div class="top">
+      <h1 class="serif">卡组</h1>
+      <span class="sub">收集 46/74　出阵 8/15</span>
+    </div>
+    <div class="filters">
+      <div class="ftab on e-Fire"><span class="fn">火</span></div>
+      <div class="ftab"><span class="fn">金</span></div>
+      <div class="ftab"><span class="fn">木</span></div>
+      <div class="ftab"><span class="fn">水</span></div>
+      <div class="ftab"><span class="fn">土</span></div>
+    </div>
+    <div class="grid">
+      <div class="gcell"><div class="tile r-Purple e-Fire"><span class="lv">Lv.1</span><span class="rd"></span><span class="g">熣</span><span class="py">suī</span></div></div>
+      <div class="gcell"><div class="tile r-Green e-Fire"><span class="lv">Lv.2</span><span class="rd"></span><span class="g">烧</span><span class="py">shāo</span></div></div>
+      <div class="gcell"><div class="tile r-Blue e-Fire"><span class="lv">Lv.2</span><span class="rd"></span><span class="g">爆</span><span class="py">bào</span></div></div>
+      <div class="gcell"><div class="tile r-White e-Fire"><span class="lv">Lv.3</span><span class="rd"></span><span class="g">灼</span><span class="py">zhuó</span></div></div>
+      <div class="gcell"><div class="tile r-Gold e-Fire"><span class="lv">Lv.1</span><span class="rd"></span><span class="g">炎</span><span class="py">yán</span></div></div>
+    </div>
+    <div class="side"></div>
+  </div>
+
+  <div class="scrim"></div>
+
+  <div class="sheet">
+    <div class="sh">
+      <h2>升级「熣」</h2>
+      <span class="sub">确认后立刻扣除材料,不可撤销</span>
+    </div>
+
+    <div class="step">
+      <div class="tile was r-Purple e-Fire"><span class="lv">Lv.1</span><span class="rd"></span><span class="g">熣</span></div>
+      <span class="arw">→</span>
+      <div class="tile r-Purple e-Fire"><span class="lv">Lv.2</span><span class="rd"></span><span class="g">熣</span></div>
+      <span class="lvto">升到 Lv.2</span>
+    </div>
+
+    <div class="mods">
+      <div class="mod">
+        <div class="ttl"><b>数值提升</b><i class="rule"></i></div>
+        <div class="num">
+          <span class="k">攻击</span>
+          <span class="was">80</span><span class="arw">→</span><span class="now">88</span>
+          <span class="dlt">+8</span>
+        </div>
+      </div>
+
+      <div class="mod">
+        <div class="ttl"><b>层数与特性</b><i class="rule"></i></div>
+        <div class="fx">
+          <span class="cp" style="background: #C53637"><svg class="ic"><use href="#ic-burn"></use></svg></span>
+          <span class="nm">灼烧</span>
+          <span class="was">2 层</span><span class="arw">→</span><span class="now">3 层</span>
+        </div>
+        <div class="fx">
+          <span class="cp" style="background: #7A6BA8"><svg class="ic"><use href="#ic-blind"></use></svg></span>
+          <span class="nm">致盲</span>
+          <span class="was">50%</span><span class="arw">→</span><span class="now">55%</span>
+        </div>
+        <div class="keep">不变:<b>偷袭后排</b> · 致盲仍是 <b>2 回合</b></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <button class="btn jade tap">确认升级</button>
+      <button class="btn quiet tap">再想想</button>
+    </div>
+  </div>
+
+  <div class="guide"><i class="gl"></i><i class="gr"></i><i class="gb"></i></div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
