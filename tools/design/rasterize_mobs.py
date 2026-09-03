@@ -46,6 +46,19 @@ MINION_SLUGS = {
     "镇纸": "zhenzhi",
     "洇痕": "yinhen",
     "衍文": "yanwen",
+    # 2026-09-03 补的十一只:四只旧欠账(灯花/墨溅/悬针/败笔)+ 七只护甲怪。
+    # 至此 enemies.json 的 25 只杂兵全部有立绘,不再有回落到字牌格的怪。
+    "灯花": "denghua",
+    "墨溅": "mojian",
+    "悬针": "xuanzhen",
+    "败笔": "baibi",
+    "枯笔": "kubi",
+    "火漆": "huoqi",
+    "砚台": "yantai",
+    "铜钤": "tongqian",
+    "版牍": "bandu",
+    "窑变": "yaobian",
+    "宿墨": "sumo",
 }
 
 # Boss 形象按阶段出:同一只 Boss 四个阶段是四套图。

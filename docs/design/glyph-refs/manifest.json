@@ -143,6 +143,116 @@
       "note": "木系增生,笔画向外抽枝,越拖越长"
     },
     {
+      "file": "enemy_denghua.svg",
+      "char": "灯",
+      "kind": "minion",
+      "owners": [
+        "灯花"
+      ],
+      "weight": 500,
+      "note": "火系灼身,烛芯爆开的灯花,火星四溅"
+    },
+    {
+      "file": "enemy_mojian.svg",
+      "char": "溅",
+      "kind": "minion",
+      "owners": [
+        "墨溅"
+      ],
+      "weight": 500,
+      "note": "水系后排远程,一滴墨被弹开,墨点拖尾飞出"
+    },
+    {
+      "file": "enemy_xuanzhen.svg",
+      "char": "针",
+      "kind": "minion",
+      "owners": [
+        "悬针"
+      ],
+      "weight": 500,
+      "note": "金系后排锁人,悬针竖出锋如针垂悬,独眼"
+    },
+    {
+      "file": "enemy_baibi.svg",
+      "char": "败",
+      "kind": "minion",
+      "owners": [
+        "败笔"
+      ],
+      "weight": 500,
+      "note": "火系前排锁人,写坏的那一笔,笔锋炸开墨溃"
+    },
+    {
+      "file": "enemy_kubi.svg",
+      "char": "枯",
+      "kind": "minion",
+      "owners": [
+        "枯笔"
+      ],
+      "weight": 500,
+      "note": "木系低阶护甲,墨枯飞白最多,壳是干硬木质"
+    },
+    {
+      "file": "enemy_huoqi.svg",
+      "char": "漆",
+      "kind": "minion",
+      "owners": [
+        "火漆"
+      ],
+      "weight": 500,
+      "note": "火系低阶护甲,封缄火漆冷凝成壳,边缘钝圆"
+    },
+    {
+      "file": "enemy_yantai.svg",
+      "char": "砚",
+      "kind": "minion",
+      "owners": [
+        "砚台"
+      ],
+      "weight": 500,
+      "note": "土系低阶护甲,一方石砚,厚钝,攻最低"
+    },
+    {
+      "file": "enemy_tongqian.svg",
+      "char": "钤",
+      "kind": "minion",
+      "owners": [
+        "铜钤"
+      ],
+      "weight": 500,
+      "note": "金系低阶护甲,铜印方正,面有铸痕"
+    },
+    {
+      "file": "enemy_bandu.svg",
+      "char": "牍",
+      "kind": "minion",
+      "owners": [
+        "版牍"
+      ],
+      "weight": 500,
+      "note": "木系高阶护甲,简牍层层叠压,横向木纹"
+    },
+    {
+      "file": "enemy_yaobian.svg",
+      "char": "窑",
+      "kind": "minion",
+      "owners": [
+        "窑变"
+      ],
+      "weight": 500,
+      "note": "火系高阶护甲,窑火烧变形的陶,开片透火"
+    },
+    {
+      "file": "enemy_sumo.svg",
+      "char": "宿",
+      "kind": "minion",
+      "owners": [
+        "宿墨"
+      ],
+      "weight": 500,
+      "note": "水系高阶护甲,隔夜墨结壳,壳下渗稠墨"
+    },
+    {
       "file": "boss_paishandaohai_1_u6392.svg",
       "char": "排",
       "kind": "boss",
