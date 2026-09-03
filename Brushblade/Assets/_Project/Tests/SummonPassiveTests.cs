@@ -383,33 +383,37 @@ namespace Brushblade.Core.Tests
                 "后手召唤物没有敌人可打,不该对尸体挂灼烧");
         }
 
-        // ---- 光环灼烧:刷新到 N 层,不是累加(2026-08-06 I1) ----
+        // ---- 召唤物附带灼烧:**叠加** N 层(2026-09-04 用户拍板,推翻 2026-08-06 I1)----
 
-        // 2026-08-16 CTB 改造:原为「稳态 3 层」,现为「稳态 2 层」——与 OnHitBurnAll_BurnsEveryLivingEnemy
-        // 同一条因果链:召唤物在 CTB 调度里的优先级(1)比敌人(3)高,同速时先出手;这只敌人
-        // 紧接着在同一次 EndTurn() 内轮到自己,把召唤物刚刷新到的 3 层当场结算掉 1 层
-        // (SettleBurnOn 每次只 -1,不是清零),稳态从 3 变成 2。不影响本条真正要守的"不雪球"
-        // 不变量:若 RefreshBurn 退化回累加语义,层数会一路涨过 2,而不是稳稳停在 2。
+        // I1 当年把召唤物这一支定成「刷新到 N 层」,理由是烓 全体挂 3、每回合净 +2 会失控。
+        // 2026-09-04 用户实机反馈推翻:刷新语义下 楸(OnHitBurn 1)永远停在 1 层 ——
+        // 挂 1 层、敌人自己那拍又结算掉 1 层,净增长恒为 0,这条被动等于不存在。
+        // 玩家侧的 DOT 本来就该攒得起来(出字灼烧走的 ApplyBurn 一直是累加的),
+        // 召唤物没有理由是另一套。当年那个失控例 烓/灶 已随 2026-08-25 字表重构删除,
+        // 真实字表里带 OnHitBurn 的只剩单体 1 层的 楸。
+        // ⚠ 敌人侧的灯花(EnemyAbility.Sear)仍走 RefreshBurn 不动:那边是**打玩家**,
+        // 且 BuildFloor 有放回抽取,同场多只灯花累加会在玩家身上雪球(I1 的原始论据)。
         [Test]
-        public void OnHitBurnAll_RepeatedAcrossTurns_DoesNotAccumulate()
+        public void OnHitBurnAll_RepeatedAcrossTurns_Accumulates()
         {
-            // 烓(炬)连续 3 个回合出手,层数该稳定在 2,不该像 ApplyBurn 那样一路涨上去
-            // —— 这正是本轮修复要堵的失控口子。
+            // 炬(烓 的等价配置,全场 3 层)连打 3 个回合:每回合挂 3、敌人自己那拍结算掉 1,
+            // 净 +2 —— 2 / 4 / 6 一路涨上去,这正是「叠加」与「刷到」的分水岭。
             var engine = Engine(new[] { "炬" }, new[] { Dummy(hp: 500) });
             engine.Cast("炬");
 
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2), "第 1 回合刷新到 3 层,当场结算掉 1 层,剩 2");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2), "第 1 回合:挂 3,当场结算掉 1");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2), "第 2 回合仍是 2,不继续涨");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4), "第 2 回合:2 + 3 − 1");
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(2), "第 3 回合仍是 2");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(6), "第 3 回合:4 + 3 − 1");
         }
 
         [Test]
-        public void OnHitBurn_RefreshDoesNotLowerAnExistingHigherStack()
+        public void OnHitBurn_AddsOnTopOfAnExistingStack()
         {
-            // Math.Max 的下半边:出字灼烧先堆起来的高层数,光环(灶,OnHitBurn 2)不该把它削低。
+            // 与出字灼烧堆起来的层数**相加**,不再是 Math.Max 取大值。
+            // 5 层 → 敌人那拍结算掉 1 → 4,召唤物(焰,OnHitBurn 2)再叠 2 = 6。
             var engine = Engine(new[] { "焰" }, new[] { Dummy(hp: 500) });
             engine.Enemies[0].Statuses.Apply(new StatusEffect
             {
@@ -417,10 +421,35 @@ namespace Brushblade.Core.Tests
                 Magnitude = 5, TurnsLeft = -1,
             });
             engine.Cast("焰");
-            engine.EndTurn(); // 灼烧先结算(5→4 层,-1 衰减),随后召唤物出手 RefreshBurn(2):max(4,2)=4
+            engine.EndTurn();
 
-            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(4),
-                "光环打上去仍是 4(衰减后的已有层数),不会被削到 2");
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(6),
+                "已有层数照加,不是取大值(取大值会停在 4)");
+        }
+
+        [Test]
+        public void OnHitBurn_TwoOneStackSummons_GrowInsteadOfCancelingOut()
+        {
+            // 用户 2026-09-04 报的原症,按真实字表的 楸 复现:楸 一张召 **2 只**、每只
+            // OnHitBurn 1。刷新语义下两只挂的是同一个 max(cur, 1),层数被钉死在 1
+            // (敌人自己那拍再结算掉 1,回合末读到的其实是 0);叠加语义下两只各 +1、
+            // 衰减 −1,净 +1,层数这才涨得动。
+            //
+            // ⚠ 只召一只时**两种语义的结果相同**(挂 1 / 结算 1,净零)—— 所以这条必须
+            // 召两只才有区分度,别图省事改成一只。真正的语义分水岭由上面
+            // OnHitBurnAll_RepeatedAcrossTurns_Accumulates 与
+            // OnHitBurn_AddsOnTopOfAnExistingStack 两条守着。
+            var engine = Engine(new[] { "燎", "燎" }, new[] { Dummy(hp: 500) });
+            engine.Cast("燎");
+            engine.Cast("燎");
+
+            engine.EndTurn();
+            int first = engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn);
+            engine.EndTurn();
+            int second = engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn);
+
+            Assert.That(first, Is.GreaterThan(0), "两只各挂 1、结算掉 1,回合末该还剩一层");
+            Assert.That(second, Is.GreaterThan(first), "层数要一回合比一回合高,不是钉死在原地");
         }
 
         // ---- 攻 0 召唤物出手不再走 DamageEnemy(2026-08-06 I2/I3) ----

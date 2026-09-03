@@ -2661,12 +2661,15 @@ namespace Brushblade.Core
         }
 
         /// <summary>刷新灼烧层数到 N 层(取现有层数与 N 的较大值,而非像 ApplyBurn 那样累加,
-        /// 2026-08-06 I1):光环式来源(烓/灶,以及玩家侧的灯花 Sear)是每回合重复施加,若复用
-        /// ApplyBurn 的累加语义,每回合净增长 = 挂层数 − 衰减 1 层,没有上界(烓 全体挂 3、衰减 1,
-        /// 净 +2,十回合后失控;灯花本身单只是净 0,但 BuildFloor 有放回抽取,同场可能出现
-        /// 多只灯花,N 只就净 +(N−1)/回合)。
-        /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低出字灼烧已经堆起来的更高层数。
-        /// 接 <see cref="StatusBag"/> 而非敌人下标——玩家侧(灯花)与敌人侧(烓/灶)共用同一份实现。</summary>
+        /// 2026-08-06 I1)。
+        ///
+        /// **现在只剩灯花(EnemyAbility.Sear)一个调用方**(2026-09-04):召唤物的
+        /// OnHitBurn 已改回累加,理由见 <see cref="ApplySummonOnHit"/>。这里保持刷新语义的
+        /// 论据是 I1 的原始那半 —— 灯花打的是**玩家/召唤物**,单只净增长为 0,但 BuildFloor
+        /// 有放回抽取,同场可能出现多只灯花,累加语义下 N 只就净 +(N−1)/回合,玩家这边
+        /// 没有任何手段拆开这个雪球。
+        /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低别处已经堆起来的更高层数。
+        /// 接 <see cref="StatusBag"/> 而非敌人下标 —— 玩家与召唤物两侧共用同一份实现。</summary>
         private static void RefreshBurn(StatusBag statuses, int stacks)
         {
             int current = statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
@@ -2681,7 +2684,19 @@ namespace Brushblade.Core
         /// 攻 0 的召唤物(烓/灶)照样走到这里 —— 它们的输出全靠这一步,
         /// 所以上面的出手循环绝不能因为 Attack &lt;= 0 就提前跳过。
         /// 挂灼烧发 BattleEventKind.Burn 事件复用既有飘字;诅咒不发事件——
-        /// 表现层直接读敌人的 Statuses 画 chip,再加个只有一处消费的事件是多余的。</summary>
+        /// 表现层直接读敌人的 Statuses 画 chip,再加个只有一处消费的事件是多余的。
+        ///
+        /// ⚠ 灼烧走 <see cref="ApplyBurn"/> **累加**,不是 <see cref="RefreshBurn"/> 刷到 N
+        /// (2026-09-04 用户拍板,推翻 2026-08-06 I1 在召唤物这一侧的裁定)。
+        /// 刷新语义下 楸(OnHitBurn 1)是个净零循环:挂 1 层,敌人自己那拍又结算掉 1 层,
+        /// 层数永远回到起点,这条被动等于不存在(实机反馈:一直是 1,涨不动;
+        /// 工装实测回合末读到的其实是 0)。玩家侧的 DOT 本来就攒得起来 ——
+        /// 出字灼烧(EffectKind.BurnSingle/BurnAll)一直走 ApplyBurn 累加,
+        /// 召唤物没有理由是另一套。
+        /// I1 当年的失控例(烓 全体挂 3、净 +2/回合)随 2026-08-25 字表重构一起没了,
+        /// 真实字表里带 OnHitBurn 的只剩单体 1 层的 楸;OnHitBurnAll 这一支眼下**没有配置在用**,
+        /// 保持与单体同语义,将来谁要配全场光环得自己重新算这笔账。
+        /// 敌人侧的灯花(Sear)不在本方法内,仍走 RefreshBurn,理由见那边的注释。</summary>
         private void ApplySummonOnHit(SummonState summon, int targetIndex)
         {
             var passive = summon.Passive;
@@ -2692,17 +2707,17 @@ namespace Brushblade.Core
                 if (passive.OnHitBurnAll)
                 {
                     // 不取快照(2026-08-06 M4):这里没有哪一步会触发分裂——分裂只在 DamageEnemy
-                    // 里判定,而这个循环体内只调 RefreshBurn,不会扩表,直接读 _enemies.Count 即可。
+                    // 里判定,而这个循环体内只调 ApplyBurn,不会扩表,直接读 _enemies.Count 即可。
                     for (int i = 0; i < _enemies.Count; i++)
                     {
                         if (!_enemies[i].Alive) continue;
-                        RefreshBurn(_enemies[i].Statuses, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
+                        ApplyBurn(i, passive.OnHitBurn); // 累加(2026-09-04,见方法头注释)
                         _events.Add(new BattleEvent(BattleEventKind.Burn, i, passive.OnHitBurn));
                     }
                 }
                 else if (_enemies[targetIndex].Alive)
                 {
-                    RefreshBurn(_enemies[targetIndex].Statuses, passive.OnHitBurn); // 光环:刷新到 N 层,不是累加(I1)
+                    ApplyBurn(targetIndex, passive.OnHitBurn); // 累加(2026-09-04,见方法头注释)
                     _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, passive.OnHitBurn));
                 }
             }
