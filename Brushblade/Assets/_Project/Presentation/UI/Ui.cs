@@ -858,6 +858,15 @@ namespace Brushblade.Presentation
             var viewport = Panel(root.transform, "Viewport");
             Stretch((RectTransform)viewport.transform);
             viewport.AddComponent<RectMask2D>();
+            // ⚠ 视口要有一张**全透明但接射线**的图,否则「按在空白处拖不动」(2026-09-03 实机反馈)。
+            // uGUI 的拖拽是从**按下的那个物件**往上冒泡找 IDragHandler 的:按在列表项上能冒泡到
+            // ScrollRect,按在项与项之间的缝、最后一行下面的空白、或没铺满的那半行上,
+            // 射线什么都没打中 —— 事件根本不会产生,列表就纹丝不动。
+            // 卡组网格尤其明显:5 列牌之间全是缝,而拇指最自然的落点就是缝。
+            // alpha = 0 的 Graphic 照常参与射线检测(raycastTarget 才是开关),所以这张图
+            // 只兜住空白处;列表项画在它之上,点击照旧先命中列表项。
+            var catcher = viewport.AddComponent<Image>();
+            catcher.color = new Color(0, 0, 0, 0);
 
             var contentGo = VStack(viewport.transform, "Content", spacing);
             var contentLayout = contentGo.GetComponent<VerticalLayoutGroup>();

@@ -57,6 +57,11 @@ namespace Brushblade.Presentation
         private string _selected;
         private bool _upOnly;
         private bool _wantOnly;
+        /// <summary>网格的滚动位置(1 = 顶部)。整页是全量重建的,不记着它的话,
+        /// 点第三行某张牌 → Rebuild → 列表弹回顶部,那张牌当场从眼前消失(2026-09-03 实机反馈)。
+        /// 只在筛选变了时才归顶 —— 那时列表内容本来就换了一批。</summary>
+        private float _gridScroll = 1f;
+        private ScrollRect _grid;
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -73,8 +78,13 @@ namespace Brushblade.Presentation
 
         // ================= 骨架 =================
 
-        private void Rebuild()
+        /// <param name="keepScroll">false = 网格归顶。筛选/开关变了才传 false:
+        /// 那时列表换了一批内容,停在原来的位置没有意义。</param>
+        private void Rebuild(bool keepScroll = true)
         {
+            _gridScroll = keepScroll && _grid != null && !float.IsNaN(_grid.verticalNormalizedPosition)
+                ? _grid.verticalNormalizedPosition
+                : 1f;
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
@@ -147,10 +157,10 @@ namespace Brushblade.Presentation
             }
             Toggle(bar.transform, Strings.T("collection.filter.upgradable", ("count", upgradable)),
                 _upOnly, Theme.Jade, Theme.AdGreenBg, Theme.UpgradeText,
-                () => { _upOnly = !_upOnly; _wantOnly = false; Rebuild(); });
+                () => { _upOnly = !_upOnly; _wantOnly = false; Rebuild(keepScroll: false); });
             Toggle(bar.transform, Strings.T("collection.filter.wanted", ("count", locked)),
                 _wantOnly, Theme.LockGray, Theme.PanelInset, Theme.TextDim,
-                () => { _wantOnly = !_wantOnly; _upOnly = false; Rebuild(); });
+                () => { _wantOnly = !_wantOnly; _upOnly = false; Rebuild(keepScroll: false); });
 
             var spring = Ui.Panel(bar.transform, "Spring");
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
@@ -190,7 +200,7 @@ namespace Brushblade.Presentation
             {
                 _filterIsAll = isAll;
                 _filter = element;
-                Rebuild();
+                Rebuild(keepScroll: false);
             });
 
             var row = Ui.Row(go.transform, "Row", 10);
@@ -261,6 +271,7 @@ namespace Brushblade.Presentation
         private void BuildGrid(Transform parent)
         {
             var wrap = Ui.ScrollList(parent, "Grid", GridGapY, out var content);
+            _grid = wrap.GetComponent<ScrollRect>();
             // 左侧吃掉「整宽 − 右栏 − 间距」
             var rect = (RectTransform)wrap.transform;
             rect.anchorMin = Vector2.zero;
@@ -289,6 +300,12 @@ namespace Brushblade.Presentation
                 }
                 BuildCell(row, list[i]);
             }
+
+            // 还原滚动位置。必须先把布局算出来:ContentSizeFitter 要等下一帧才给出内容高度,
+            // 而 verticalNormalizedPosition 是按「内容高 − 视口高」换算的 —— 高度还是 0 时写进去
+            // 会被当场夹回顶部(这一步漏掉的话,上面记住的位置等于白记)。
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)content);
+            _grid.verticalNormalizedPosition = _gridScroll;
         }
 
         private void BuildCell(Transform parent, CharDef def)
@@ -402,6 +419,7 @@ namespace Brushblade.Presentation
                         _filter = null;
                         _upOnly = false;
                         _wantOnly = false;
+                        _gridScroll = 1f;   // 换了一批内容,停在原位置没有意义
                         Select(first);
                     },
                     upgradable > 0 ? Theme.Jade : Theme.PanelInset,

@@ -638,7 +638,7 @@
   "collection.side.cost.ink": "墨锭",
   "collection.side.recipe_plus": "＋",
   "collection.side.recipe_to": "→",
-  "collection.side.ke": "克 {element} ×1.5，并无视其护甲",
+  "collection.side.ke": "克 {element} ×1.5",
   "collection.side.bei": "被 {element} 克 ×0.5",
   "collection.side.slot_free": "＋",
   "collection.side.tip_body": "只有出阵的字才会上场。\n出阵 {min}～{max} 字，每系至多 {perElement} 字。\n改动下次登塔生效。",
