@@ -39,6 +39,9 @@ namespace Brushblade.Presentation
         private const float GridGapY = 29f;
         private static readonly Vector2 CardSize = new(216f, 268f);
         private static readonly Vector2 BigCardSize = new(159f, 199f); // 详情大牌 76×95pt
+        // 出阵格里的缩小版字卡:0.8 竖版比例(与框素材同比,拉了就变形);格高再加牌下那行等级
+        private static readonly Vector2 SlotTile = new(74f, 92f);
+        private const float SlotRowH = 117f;
 
         /// <summary>筛选栏的六个页签。null = 全部。</summary>
         private static readonly Element?[] FilterTabs =
@@ -584,8 +587,10 @@ namespace Brushblade.Presentation
                 if (i % 5 == 0)
                 {
                     var rowGo = Ui.Row(slots, $"SlotRow{i / 5}", 10);
-                    rowGo.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-                    Ui.Sized(rowGo, 0, 92, flexWidth: 1);
+                    var rowLayout = rowGo.GetComponent<HorizontalLayoutGroup>();
+                    rowLayout.childForceExpandWidth = true;
+                    rowLayout.childAlignment = TextAnchor.UpperCenter;
+                    Ui.Sized(rowGo, 0, SlotRowH, flexWidth: 1);
                     row = rowGo.transform;
                 }
                 BuildSlot(row, i < _meta.Deck.Count ? _meta.Deck[i] : null);
@@ -607,34 +612,34 @@ namespace Brushblade.Presentation
                 Ui.WrappedTextHeight(tipText, 19, SideW - SidePad * 2), flexWidth: 1);
         }
 
+        /// <summary>出阵表的一格 = **缩小版字卡**(稀有度框 + 字,不挂动效、不印拼音)+ 牌下等级。
+        ///
+        /// 2026-09-04:原先是属性色圆角格 + 字 + 等级,只说得出「什么系」,说不出「什么档」——
+        /// 而出阵表里最该一眼看见的正是稀有度。牌按 <see cref="SlotTile"/> 的 0.8 竖版比例定死,
+        /// 格子的富余宽度让给间距,不去拉牌 —— 拉了框上的纹样就变形。</summary>
         private void BuildSlot(Transform parent, string cardId)
         {
+            var cell = Ui.VStack(parent, cardId == null ? "Slot_Free" : $"Slot_{cardId}", 5);
+            cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+            Ui.Sized(cell, height: SlotRowH, flexWidth: 1);
+
             if (cardId == null || !_graph.TryGet(cardId, out var def))
             {
-                var free = Ui.OutlinedPanel(parent, "Slot_Free", Theme.PanelPaper, Theme.PanelBorder, 14, 2);
-                Ui.Sized(free.gameObject, 0, 92, flexWidth: 1);
+                var free = Ui.OutlinedPanel(cell.transform, "Free", Theme.PanelPaper, Theme.PanelBorder, 14, 2);
+                Ui.Sized(free.gameObject, SlotTile.x, SlotTile.y);
                 Ui.ThemedLabel(free.transform, Strings.T("collection.side.slot_free"), 24, Theme.LockGray);
                 return;
             }
 
-            var go = Ui.Panel(parent, $"Slot_{cardId}");
-            var image = go.AddComponent<Image>();
-            image.sprite = Theme.Rounded(14);
-            image.type = Image.Type.Sliced;
-            image.color = Theme.ElementSoft(def.Element);
-            Ui.Sized(go, 0, 92, flexWidth: 1);
-            var button = go.AddComponent<Button>();
-            button.targetGraphic = image;
+            var tile = Ui.MiniGlyphTile(cell.transform, def, SlotTile);
+            var button = tile.AddComponent<Button>();
+            button.targetGraphic = tile.GetComponent<Image>();
             button.onClick.AddListener(() => Select(cardId));
-
-            var stack = Ui.VStack(go.transform, "Stack", 2);
-            Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform, def.Id, 38, Theme.GlyphColor(def.Element), Theme.TitleFont);
-            Ui.ThemedLabel(stack.transform, $"Lv.{MetaRules.CardLevel(_meta, cardId)}", 16, Theme.TextDim);
+            Ui.ThemedLabel(cell.transform, $"Lv.{MetaRules.CardLevel(_meta, cardId)}", 16, Theme.TextDim);
 
             // 拖出右栏 = 卸下。这一格坐在右栏的滚动容器里,所以竖向手势照旧交给它滚动,
             // 横着拽才算「把这张字拿出来」——与网格那边同一条分流
-            DragToDeck.Attach(go, def.Id, Theme.GlyphColor(def.Element),
+            DragToDeck.Attach(tile, def.Id, Theme.GlyphColor(def.Element),
                 position => DropFromSlot(cardId, position),
                 () => ShowDropHint(Strings.T("collection.drag.off_deck"), Theme.ExitPink));
         }

@@ -236,8 +236,12 @@ namespace Brushblade.Presentation
             Ui.Stretch(value.rectTransform);
         }
 
-        /// <summary>出阵预览:属性色小格,**全量铺开**、每排 6 个折行(2026-08-28 反馈:不折叠成「+N」)。
-        /// 点不动,只是提示带了什么上塔。出阵上限 15,最多三排。</summary>
+        /// <summary>出阵预览:**缩小版字卡**,全量铺开、每排 6 个折行(2026-08-28 反馈:不折叠成「+N」)。
+        /// 点不动,只是提示带了什么上塔。出阵上限 15,最多三排。
+        ///
+        /// 2026-09-04:原先是属性色小格 + 字,只说得出「什么系」,说不出「什么档」——
+        /// 而出阵表里最该一眼看见的正是稀有度。改用 <see cref="Ui.MiniGlyphTile"/>(稀有度框 + 字,
+        /// 不挂动效、不印拼音);50×62 本来就是 0.8 竖版比例,框套上去不变形,排布一行没动。</summary>
         private void BuildDeckMini(Transform parent)
         {
             const int PerRow = 6;    // 50×6 + 8×5 = 340,正好塞进角色栏 392 − 左右各 20 − 描边的净宽
@@ -262,12 +266,7 @@ namespace Brushblade.Presentation
                     rowGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                     row = rowGo.transform;
                 }
-                var tile = Ui.CardPanel(row, $"Dm_{def.Id}", Theme.ElementSoft(def.Element), 10);
-                var element = tile.gameObject.AddComponent<LayoutElement>();
-                element.preferredWidth = TileW;
-                element.preferredHeight = TileH;
-                var glyph = Ui.ThemedLabel(tile.transform, def.Id, 31, Theme.GlyphColor(def.Element), Theme.TitleFont);
-                Ui.Stretch(glyph.rectTransform);
+                Ui.MiniGlyphTile(row, def, new Vector2(TileW, TileH));
                 shown++;
             }
         }

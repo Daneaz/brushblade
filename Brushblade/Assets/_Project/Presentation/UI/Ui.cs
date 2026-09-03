@@ -760,6 +760,52 @@ namespace Brushblade.Presentation
             return button;
         }
 
+        /// <summary>缩小版字牌:稀有度框 + 字形,**不挂动效、不印拼音**(2026-09-04)。
+        ///
+        /// 出阵列表两处用它 —— 卡组页右栏那 15 格,与主界面角色栏的出阵预览。那两处要回答的
+        /// 只有一件事:「我带了哪几张、都是什么档」。整张 <see cref="GlyphTile"/> 塞进 50 宽的格子里
+        /// 三样东西同时失效:拼音小到看不清、属性元件在 50px 上糊成一团、材质光效还在那儿
+        /// 一刻不停地跑(同屏 15 张)。
+        ///
+        /// 框走的是同一套稀有度素材,所以「缩小版」是真的同一张牌,不是另画一套小格子 ——
+        /// 素材缺失时回落成宣纸底 + 稀有度描边,那条边比什么都重要:这一屏认档全靠它。
+        ///
+        /// 字形比大牌上占得更满(0.46 牌高,大牌是 0.34):拼音那一行让出来的位置全给它。</summary>
+        public static GameObject MiniGlyphTile(Transform parent, Brushblade.Core.CharDef def, Vector2 size)
+        {
+            var go = Panel(parent, $"Mini_{def.Id}");
+            var element = go.AddComponent<LayoutElement>();
+            element.preferredWidth = size.x;
+            element.preferredHeight = size.y;
+            element.flexibleWidth = 0;
+
+            var frameSprite = CardFrames.Frame(def.Rarity);
+            var face = go.AddComponent<Image>();
+            if (frameSprite != null)
+            {
+                face.sprite = frameSprite;   // 素材自带牌面底色与那一档的框
+            }
+            else
+            {
+                // 回落:宣纸底 + 稀有度描边。描边是这一屏唯一的稀有度线索,不能省
+                face.sprite = Theme.Rounded(10);
+                face.type = Image.Type.Sliced;
+                face.color = Theme.RarityColor(def.Rarity);
+                var inner = CardPanel(go.transform, "Face", Theme.CardWhite, 8);
+                inner.raycastTarget = false;
+                Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
+                    new Vector2(3, 3), new Vector2(-3, -3));
+            }
+
+            // 内容区按各档边框厚度让位(与大牌同一张表):紫檀木框比素纸厚得多
+            var (insetX, insetY) = CardFrames.ContentInset(def.Rarity);
+            var glyph = ThemedLabel(go.transform, def.Id, Mathf.RoundToInt(size.y * 0.46f),
+                Theme.GlyphColor(def.Element), Theme.TitleFont);
+            Anchor(glyph.rectTransform, new Vector2(insetX, insetY),
+                new Vector2(1f - insetX, 1f - insetY), Vector2.zero, Vector2.zero);
+            return go;
+        }
+
         /// <summary>圆形字头像:实色圆底 + 居中单字。战斗怪物与图鉴怪牌共用,保证形象一致。</summary>
         public static GameObject CircleGlyph(Transform parent, string face, Color faceColor, Color glyphColor, float diameter)
         {
