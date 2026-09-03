@@ -42,6 +42,9 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `UnitSheetAlt.dc.html` | 详情承载方式取舍 | 低保真，无对应实现 |
 | `Chests.dc.html` | 七档宝箱立绘 | `Core/Chest.cs` · `MapView.DrawChest` |
 | `ChestOpen.dc.html` | 开箱 · 获字 | `ChestRules.TryOpen` · `MapView.ShowChestResult` |
+| `CharSheet.dc.html` | 字卡详情 · 字库牌 | `CharPreview.Show`(战斗长按) |
+| `CharSheetDual.dc.html` | 字卡详情 · 双方向字 | 同上,水/土 两面 |
+| `CharSheetPart.dc.html` | 字卡详情 · 部件 | 同上,部件池入口 |
 
 `canvas.json` 是画布布局（位置、分页、便签）。**分页按「屏」组织**（2026-08-29 在画布上重排）：
 主界面 / 卡组 / 战斗 / 局内流程 / 怪物图鉴 / 技能 / 商城 / 公共 —— 按「哪一屏用得着」找图，
@@ -67,6 +70,8 @@ node <skill>/seed-canvas.mjs \
   --artboard UnitFoe.dc.html --artboard UnitAlly.dc.html --artboard UnitMe.dc.html \
   --artboard StatusGlossary.dc.html --artboard UnitSheetAlt.dc.html \
   --artboard Chests.dc.html --artboard ChestOpen.dc.html \
+  --artboard CharSheet.dc.html --artboard CharSheetDual.dc.html \
+  --artboard CharSheetPart.dc.html \
   --image mob_jiaohen.png \
   --canvas canvas.json
 ```
@@ -140,6 +145,32 @@ node <skill>/seed-canvas.mjs \
 
 另外稿上没画、实现保留的一处:**升级前的确认弹窗**。升级是不可逆支出,
 弹窗族的口径是「凡是不可逆的,都要在按下去之前说清楚」。
+
+## 字卡详情弹窗补稿(2026-09-03)
+
+战斗里长按一张字牌弹出来的那个窗,此前**一张稿也没有** —— 而它有三个入口
+(字库牌 / 部件池牌 / 战利品候选牌),三处共用同一个 `CharPreview.Show`。
+现在的实现是「一张放大的牌 + `CharInfo.Detail` 那一整串文字 + 知道了」,
+拼音、释义、稀有度、属性、配方、等级、效果全挤在一个文本块里。
+
+补了三张,对应三类字:`CharSheet`(字库牌 · 单向)、`CharSheetDual`(双方向字 · 水土)、
+`CharSheetPart`(部件)。三处入口共用一套版面,只有内容不同。定下的口径:
+
+- **与单位详情同一族**:墨遮罩 + 宣纸圆角卡 + 右上角 ✕,**只读**。
+  「长按只看不出手」这条语义不变(`HoldToPreview` 松手不补发点击),所以卡里一个操作钮都没有。
+- **卡比 UnitFoe 那三张矮 38px**(760×312、顶边 12)是为了把**被长按的那一张牌**
+  留在弹窗下面看得见 —— 「我按的是哪张」与「这张字什么用」得能对上,
+  否则弹窗像凭空冒出来的。部件那张同理,底下留的是部件池行。
+- **生克对位**是这一屏独有的东西:卡组页只能说「金克木」,战斗里能直接说
+  「对场上这四只各是多少」。口径同 `WuxingResolver`(克 ×1.5 / 被克 ×0.5 / 其余 ×1.0);
+  护盾与治疗那一面不过生克。
+- **数值按本场卡等级缩放**,与卡组页数值格同口径(`MetaRules.ScaleByCardLevel`)——
+  卡面印的是这一级真正打出来的数,不是基础值。
+- 部件那张不列稀有度与等级(部件两样都没有),身子换成「能凑出什么」,
+  与拆合台的可合成列表同一套读法,缺料的标出缺哪一个。
+
+⚠ 尚未接线。落地要新增的文案不少(数值格标签、生克对位那三个词、两条底部提示),
+改完记得重跑 `tools/fonts/subset_fonts.py`。
 
 ## 2026-08-28 补齐：局内流程与弹窗
 

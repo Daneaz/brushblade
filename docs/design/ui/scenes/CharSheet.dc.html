@@ -1,0 +1,377 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21(Home Indicator)。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column; }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px;
+      display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+
+    .e-Metal { --el: #B3A382; --elSoft: #EEE3CF; --elFg: #64532C; --glyph: #6B6449; }
+    .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
+    .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
+    .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
+    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .r-White { --rar: #A19E98; --rarSoft: #EDEAE3; }
+    .r-Green { --rar: #2E9E52; --rarSoft: #E2F2E7; }
+    .r-Blue  { --rar: #0F74C4; --rarSoft: #DEEAF7; }
+
+    /* ---------- 背景战场(与 UnitFoe.dc.html 同源,只留弹窗盖不住的那几行) ---------- */
+    .bar { height: 22px; flex: none; display: flex; align-items: center; gap: 7px;
+      font-size: 10.5px; color: #5D646F; }
+    .bar .lv { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600;
+      color: #161B22; letter-spacing: 1px; }
+    .bar .seg { font-variant-numeric: tabular-nums; }
+    .turn { height: 18px; padding: 0 8px; border-radius: 9px; background: #3D4E69; color: #fff;
+      display: flex; align-items: center; font-size: 9.5px; letter-spacing: .5px; }
+    .erow { flex: none; display: flex; gap: 8px; justify-content: center; margin-top: 4px; }
+    .foe { display: flex; align-items: center; gap: 6px; width: 140px;
+      background: rgba(255,253,247,.5); border: 1px solid rgba(198,188,168,.5);
+      border-radius: 9px; padding: 3px; }
+    .foe .blk { position: relative; flex: none; width: 60px; height: 60px; border-radius: 7px;
+      background: var(--elSoft); border: 1.5px solid var(--el); overflow: hidden;
+      display: flex; align-items: center; justify-content: center; }
+    .foe .blk img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .foe .face { font-family: "Noto Serif SC", serif; font-size: 30px; font-weight: 600;
+      color: var(--glyph); line-height: 1; }
+    .foe .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .foe .nm { font-size: 9.5px; color: #2C333D; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; }
+    .foe .hpb { height: 7px; border-radius: 3px; background: #C6BCA8; overflow: hidden; }
+    .foe .hpb > span { display: block; height: 100%; background: #B02D2E; }
+    .foe .atb { height: 3px; border-radius: 2px; background: #C9C0AE; overflow: hidden; }
+    .foe .atb > span { display: block; height: 100%; background: #3D4E69; }
+    .me { flex: none; height: 40px; display: flex; align-items: center; gap: 8px;
+      background: rgba(255,253,247,.86); border: 1px solid #DED7C9; border-radius: 9px;
+      padding: 0 9px 0 4px; margin-top: 6px; }
+    .me .blk { position: relative; flex: none; width: 34px; height: 34px; border-radius: 7px;
+      background: #11161F; display: flex; align-items: center; justify-content: center; }
+    .me .blk .face { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600;
+      color: #F3EEE2; line-height: 1; }
+    .me .lvb { position: absolute; right: -3px; bottom: -3px; height: 11px; padding: 0 3px;
+      border-radius: 5px; background: #C9A94A; color: #2B2200; font-size: 6.5px; font-weight: 700;
+      display: flex; align-items: center; }
+    .me .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .me .who { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; letter-spacing: 1px; }
+    .me .hpb { height: 8px; border-radius: 4px; background: #D5CBB8; overflow: hidden; }
+    .me .hpb > span { display: block; height: 100%; background: #B02D2E; }
+    .me .shb { height: 5px; border-radius: 3px; background: #EFE7D2; overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(155,138,90,.3); }
+    .me .shb > span { display: block; height: 100%; background: #C9A94A; }
+
+    /* 手牌行:弹窗从这里长按出来,所以它必须留在弹窗**下面**看得见 ——
+       「我按的是哪一张」与「这张字什么用」得能对上,否则弹窗像凭空冒出来的。
+       这也是本稿的卡比 UnitFoe 那三张矮 38px 的唯一原因。 */
+    .hand { flex: none; margin-top: auto; display: flex; align-items: flex-end; gap: 6px; }
+    .htile { position: relative; width: 46px; height: 58px; flex: none; box-sizing: border-box;
+      border-radius: 6px; border: 2px solid var(--rar); background: #FFFDF7;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+    .htile .g { font-family: "Noto Serif SC", serif; font-size: 22px; font-weight: 600;
+      color: var(--glyph); line-height: 1; }
+    .htile .py { font-size: 6.5px; color: #88909C; }
+    .htile .lv { position: absolute; left: 2px; top: 2px; height: 10px; padding: 0 3px;
+      border-radius: 5px; background: #11161F; color: #fff; font-size: 6px;
+      display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+    /* 被长按的那一张:朱砂描边留在原位,与 UnitFoe 的 .foe.opened 同一条口径 */
+    .htile.opened { border-color: #C53637; box-shadow: 0 0 0 2px rgba(197,54,55,.35); }
+    .hand .lbl { font-size: 8.5px; color: #7A7261; letter-spacing: .5px; margin-left: 4px;
+      padding-bottom: 4px; }
+
+    /* ---------- 详情弹窗(本稿主体) ---------- */
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); z-index: 50; }
+    .sheet { position: absolute; left: 86px; top: 12px; width: 760px; height: 312px;
+      box-sizing: border-box; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 11px;
+      padding: 12px 14px 10px; box-shadow: 0 12px 38px rgba(22,27,34,.42);
+      display: flex; flex-direction: column; gap: 9px; z-index: 51; }
+
+    /* 头:牌 + 名 + 释义 + 标签。牌用 68×85(0.8 竖版,与框素材同比例) */
+    .hdr { flex: none; display: flex; gap: 11px; }
+    .tile { position: relative; width: 68px; height: 85px; flex: none; box-sizing: border-box;
+      border-radius: 8px; border: 2px solid var(--rar); background: #FFFDF7;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(22,27,34,.1); }
+    .tile::before { content: ""; position: absolute; inset: 3px; border-radius: 5px;
+      border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent); }
+    .tile .g { font-family: "Noto Serif SC", serif; font-size: 34px; font-weight: 600;
+      color: var(--glyph); line-height: 1; }
+    .tile .py { font-size: 7.5px; color: #5D646F; letter-spacing: .5px; margin-top: 5px; }
+    .tile .lv { position: absolute; left: 4px; top: 4px; height: 13px; padding: 0 4px;
+      border-radius: 7px; background: #11161F; color: #fff; font-size: 7.5px;
+      display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+    .tile .rd { position: absolute; right: 4px; top: 4px; width: 11px; height: 11px;
+      border-radius: 50%; background: var(--rar); border: 1.5px solid #FFFDF7; }
+
+    .hi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .nmrow { display: flex; align-items: center; gap: 7px; }
+    .nm { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 2px; }
+    .pyx { font-size: 10.5px; color: #5D646F; letter-spacing: .5px; }
+    .chip { height: 18px; padding: 0 8px; display: inline-flex; align-items: center;
+      border-radius: 9px; font-size: 9.5px; letter-spacing: .5px; white-space: nowrap; }
+    .chip.rar { background: var(--rarSoft); color: color-mix(in srgb, var(--rar) 78%, #161B22);
+      border: 1px solid color-mix(in srgb, var(--rar) 40%, transparent); }
+    .chip.elm { background: var(--elSoft); color: var(--elFg); }
+    .chip.ap  { background: #E4E8EF; color: #3D4E69; font-variant-numeric: tabular-nums; }
+    .chip.src { background: #EFEADF; color: #7A7261; }
+    /* 关闭钮视觉 22,靠 .tap 的透明边扩到 44pt 触控 */
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+    .xbtn { margin-left: auto; flex: none; width: 22px; height: 22px; border: none;
+      border-radius: 11px; background: #EFEADF; color: #5D646F; font-family: inherit;
+      font-size: 11px; cursor: pointer; line-height: 1; padding: 0; }
+    .flav { font-size: 10px; color: #7A7261; line-height: 1.6; }
+    .lvline { display: flex; align-items: center; gap: 7px; font-size: 9.5px; color: #88909C;
+      font-variant-numeric: tabular-nums; }
+    .lvline b { font-family: "Noto Serif SC", serif; font-size: 12px; color: #161B22; font-weight: 600; }
+    .lvline .sep { width: 1px; height: 10px; background: #E7E1D4; }
+
+    /* 身:左「出手会怎样」、右「此刻的场面」 */
+    .body { flex: 1; min-height: 0; display: flex; gap: 13px; }
+    .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .col.wide { flex: 1.12; }
+    .ttl { flex: none; display: flex; align-items: center; gap: 6px;
+      font-size: 9px; letter-spacing: 2px; color: #88909C; }
+    .ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; color: #5D646F; letter-spacing: 0; }
+    .ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+
+    .stats { flex: none; display: flex; gap: 7px; }
+    .sbox { flex: 1; min-width: 0; background: #FFFDF7; border: 1px solid #E7E1D4;
+      border-radius: 8px; padding: 5px 7px; }
+    .sbox .k { font-size: 8px; color: #88909C; letter-spacing: 1px; }
+    .sbox .v { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600;
+      line-height: 1.2; font-variant-numeric: tabular-nums; margin-top: 1px; }
+    .sbox .t { font-size: 7.5px; color: #A09A8C; margin-top: 1px; }
+    .sbox.atk .v { color: #B02D2E; }
+    .sbox.shield .v { color: #82552A; }
+    /* 效果整句:与卡组页 .desc 同一件东西(CharInfo.EffectsText 的整串) */
+    .desc { flex: 1; min-height: 0; background: #FFFDF7; border: 1px solid #E7E1D4;
+      border-left: 3px solid var(--el); border-radius: 0 8px 8px 0; padding: 7px 9px;
+      font-size: 10.5px; line-height: 1.65; color: #2C333D; }
+
+    /* 生克对位:这一屏**独有**的一件事 —— 卡组页只能说「克金」,战斗里能直接说
+       「对场上这四只各是多少」。玩家点开详情多半就为这个。 */
+    .wx { flex: none; display: flex; flex-direction: column; gap: 4px; }
+    .wxr { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px;
+      border-radius: 6px; background: #F2EEE4; }
+    .wxr .dot { width: 16px; height: 16px; flex: none; border-radius: 5px; background: var(--el);
+      color: #fff; font-family: "Noto Serif SC", serif; font-size: 9.5px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; }
+    .wxr .who { font-size: 9.5px; color: #2C333D; flex: 1; min-width: 0; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; }
+    .wxr .mul { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600;
+      font-variant-numeric: tabular-nums; }
+    .wxr .tag { font-size: 8.5px; letter-spacing: .5px; width: 34px; text-align: right; }
+    .wxr.up { background: #FBE9E7; } .wxr.up .mul, .wxr.up .tag { color: #9B1E22; }
+    .wxr.down .mul, .wxr.down .tag { color: #88909C; }
+    .wxr.flat .mul { color: #5D646F; } .wxr.flat .tag { color: #A8A08E; }
+
+    .recipe { flex: none; display: flex; align-items: center; gap: 5px; }
+    .part { width: 30px; height: 30px; flex: none; border-radius: 6px; background: var(--elSoft);
+      color: var(--elFg); display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; }
+    .part.p-None { background: #DAD7D0; color: #5D646F; }
+    .op { font-size: 10px; color: #A09A8C; }
+    .rcnote { font-size: 9px; color: #88909C; line-height: 1.5; margin-left: 2px; }
+
+    .foot { flex: none; height: 15px; display: flex; align-items: center; gap: 6px;
+      font-size: 9px; color: #A8A08E; letter-spacing: .3px; }
+    .foot b { color: #5D646F; font-weight: 500; }
+  </style>
+</helmet>
+
+<div class="dev">
+  <!-- 背景:真战场。弹窗盖住中段是 Ui.ModalShell 的常态;被长按的那张牌留在下面看得见 -->
+  <div class="safe">
+    <div class="bar">
+      <span class="lv">文山</span>
+      <span class="seg">44 层 · 第 2 场</span>
+      <div class="grow"></div>
+      <span class="turn">第 6 回合</span>
+    </div>
+    <div class="erow">
+      <div class="foe e-Fire">
+        <div class="blk"><img src="mob_jiaohen.png" alt=""></div>
+        <div class="info">
+          <div class="nm">焦痕</div>
+          <div class="hpb"><span style="width: 46%"></span></div>
+          <div class="atb"><span style="width: 55%"></span></div>
+        </div>
+      </div>
+      <div class="foe e-Wood">
+        <div class="blk"><span class="face">叠</span></div>
+        <div class="info">
+          <div class="nm">叠字怪</div>
+          <div class="hpb"><span style="width: 88%"></span></div>
+          <div class="atb"><span style="width: 22%"></span></div>
+        </div>
+      </div>
+      <div class="foe e-Earth">
+        <div class="blk"><span class="face">夯</span></div>
+        <div class="info">
+          <div class="nm">夯土妖</div>
+          <div class="hpb"><span style="width: 100%"></span></div>
+          <div class="atb"><span style="width: 12%"></span></div>
+        </div>
+      </div>
+      <div class="foe e-Fire">
+        <div class="blk"><span class="face">灯</span></div>
+        <div class="info">
+          <div class="nm">灯花</div>
+          <div class="hpb"><span style="width: 80%"></span></div>
+          <div class="atb"><span style="width: 68%"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="me">
+      <div class="blk"><span class="face">墨</span><span class="lvb">12</span></div>
+      <div class="info">
+        <div class="who">执笔人</div>
+        <div class="hpb"><span style="width: 66%"></span></div>
+        <div class="shb"><span style="width: 24%"></span></div>
+      </div>
+    </div>
+    <div class="hand">
+      <div class="htile opened r-Blue e-Metal">
+        <span class="lv">Lv.4</span><span class="g">刺</span><span class="py">cì</span>
+      </div>
+      <div class="htile r-Green e-Fire">
+        <span class="lv">Lv.2</span><span class="g">烧</span><span class="py">shāo</span>
+      </div>
+      <div class="htile r-Blue e-Earth">
+        <span class="lv">Lv.2</span><span class="g">碎</span><span class="py">suì</span>
+      </div>
+      <div class="htile r-White e-Water">
+        <span class="lv">Lv.1</span><span class="g">冻</span><span class="py">dòng</span>
+      </div>
+      <span class="lbl">字库 4 / 7</span>
+    </div>
+  </div>
+
+  <div class="scrim"></div>
+
+  <div class="sheet r-Blue e-Metal">
+    <div class="hdr">
+      <div class="tile">
+        <span class="lv">Lv.4</span><span class="rd"></span>
+        <span class="g">刺</span><span class="py">cì</span>
+      </div>
+      <div class="hi">
+        <div class="nmrow">
+          <span class="nm">刺</span>
+          <span class="pyx">cì</span>
+          <span class="chip rar">蓝</span>
+          <span class="chip elm">金系</span>
+          <span class="chip ap">AP 1</span>
+          <span class="chip src">字库</span>
+          <button class="xbtn tap">×</button>
+        </div>
+        <div class="flav">以尖物直入</div>
+        <div class="lvline">
+          <span>本场等级 <b>Lv.4</b></span>
+          <i class="sep"></i>
+          <span>基础值 ×1.3(卡等级缩放)</span>
+          <i class="sep"></i>
+          <span>下面的数字已是这一级打出来的实数</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="col wide">
+        <div class="ttl"><b>出手会怎样</b><i class="rule"></i></div>
+        <div class="stats">
+          <div class="sbox atk">
+            <div class="k">攻击</div>
+            <div class="v">130</div>
+            <div class="t">贯穿,主目标满额</div>
+          </div>
+          <div class="sbox">
+            <div class="k">溅射</div>
+            <div class="v">60%</div>
+            <div class="t">后一排同列</div>
+          </div>
+          <div class="sbox">
+            <div class="k">穿透</div>
+            <div class="v">15</div>
+            <div class="t">本次无视的护甲点</div>
+          </div>
+        </div>
+        <div class="desc">贯穿130伤(穿透 15:本次无视 15 点护甲)(溅60%);战意+2层(每层攻击+10%,上限 5 层)</div>
+      </div>
+
+      <div class="col">
+        <div class="ttl"><b>此刻的场面</b><i class="rule"></i></div>
+        <div class="wx">
+          <div class="wxr down e-Fire">
+            <span class="dot">火</span><span class="who">焦痕</span>
+            <span class="mul">×0.5</span><span class="tag">被克</span>
+          </div>
+          <div class="wxr up e-Wood">
+            <span class="dot">木</span><span class="who">叠字怪</span>
+            <span class="mul">×1.5</span><span class="tag">克制</span>
+          </div>
+          <div class="wxr flat e-Earth">
+            <span class="dot">土</span><span class="who">夯土妖</span>
+            <span class="mul">×1.0</span><span class="tag">平</span>
+          </div>
+          <div class="wxr down e-Fire">
+            <span class="dot">火</span><span class="who">灯花</span>
+            <span class="mul">×0.5</span><span class="tag">被克</span>
+          </div>
+        </div>
+        <div class="ttl" style="margin-top: 2px;"><b>配方</b><i class="rule"></i></div>
+        <div class="recipe">
+          <span class="part p-None">朿</span>
+          <span class="op">＋</span>
+          <span class="part e-Metal" style="background: #EEE3CF; color: #64532C;">刂</span>
+          <span class="op">→</span>
+          <span class="part e-Metal" style="background: #EEE3CF; color: #64532C; box-shadow: 0 0 0 2px #B3A382 inset;">刺</span>
+          <span class="rcnote">拆开退回<br>这两个部件</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span><b>长按只看,不出手</b> —— 松手回战场,再点这张牌才出手。</span>
+    </div>
+  </div>
+
+  <div class="guide">
+    <i class="gl"></i><i class="gr"></i><i class="gb"></i>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
