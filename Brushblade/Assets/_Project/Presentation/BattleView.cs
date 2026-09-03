@@ -755,13 +755,29 @@ namespace Brushblade.Presentation
             Ui.Sized(topBar, height: TopBarH);
             _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
             Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.26f, 1), Vector2.zero, Vector2.zero);
-            // 提示行:屏幕**最底部**通栏(2026-08-27 用户拍板)。与 _statusRow 同一条底边
-            // ——那一排眼下只剩教程指引,而教程将来要整体迁走。「结算中……」已经并进本行
-            // (见 Refresh 末尾),所以这两者不会叠字。
+            // 提示行:屏幕**最底部**通栏(2026-08-27 用户拍板)。「结算中……」也并进本行
+            // (见 Refresh 末尾),所以它与 _statusRow 的教程指引不会叠字。
             // 挂在 transform 下而不是 _statusRow 里:_statusRow 每次 Refresh 都被 Ui.Clear 清空,
             // 而这个 label 是常驻对象,靠 Refresh 末尾改 text 更新。
+            //
+            // 2026-09-04 iOS 实机反馈「提示压在部件池上」的修法:锚**在版面主干下缘之下**的
+            // 那条边缘带,而不是此前按屏幕高度取的 1.0%~5.3% 比例。
+            //
+            // 病根是那个比例锚与主干互不知情:编辑器/无刘海机上 MissingInset 补出 44 的下内缩,
+            // 主干止步于 y=44,提示落在那一段空带里,看着相安无事;而有 Home Indicator 的真机上
+            // SafeAreaFitter 已经把那一段让给了系统,MissingInset 因此补 0、主干一直铺到安全区
+            // 下缘 —— 部件池是主干最底下那一行,提示就正正压在它上面。
+            //
+            // 现在这条带恒为「主干下缘往下 BottomInset」:两种情形下它分别落在
+            //「MissingInset 补出来的那 44」与「SafeAreaFitter 让出去的那条边」上,
+            // 而这两段之和恒等于 BottomInset(MissingInset 的定义就是「设备给了多少就少补多少」),
+            // 所以带的绝对位置随机型自动挪,且**不占版面一分高度** —— 战场四排的纵向余量只有
+            // 约 30(见下面 Field 那段的预算口径),匀不出一条 40 的提示带来。
+            // 真机上它落在 Home Indicator 那一侧:提示只读不可点,不违反「可点元素避开边缘」。
             var messageGo = Ui.Panel(transform, "Message");
-            Ui.Anchor((RectTransform)messageGo.transform, new Vector2(0.02f, 0.010f), new Vector2(0.98f, 0.053f), Vector2.zero, Vector2.zero);
+            Ui.Anchor((RectTransform)messageGo.transform,
+                new Vector2(0.02f, 0f), new Vector2(0.98f, 0f),
+                new Vector2(0f, padBottom - SafeArea.BottomInset), new Vector2(0f, padBottom));
             _messageLabel = Ui.ThemedLabel(messageGo.transform, "", 19, Theme.TextDim);
             Ui.Stretch(_messageLabel.rectTransform);
 
