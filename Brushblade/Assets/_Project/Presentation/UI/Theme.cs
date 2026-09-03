@@ -40,6 +40,10 @@ namespace Brushblade.Presentation
         // PanelInset 单独占一个色阶,别跟 PanelPaper(卡片底)、PaperDim(进度条底)混用。
         public static readonly Color PanelInset = new(0.945f, 0.922f, 0.871f);
         public static readonly Color LockedBg = new(0.856f, 0.843f, 0.816f);
+        // 未拥有的字牌(2026-09-03,稿 Main.dc.html 的 .card.locked):牌面褪成宣纸灰、字形压浅。
+        // 两条都比 LockedBg 亮 —— 那个是按钮的禁用底,压在牌上会把整格看成一块死板
+        public static readonly Color LockedPaper = new(0.937f, 0.918f, 0.878f);  // 稿 #EFEAE0
+        public static readonly Color LockedGlyph = new(0.686f, 0.651f, 0.584f);  // 稿 #AFA695
         public static readonly Color LockGray = new(0.534f, 0.563f, 0.611f);
         public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);
         public static readonly Color NeutralPart = new(0.309f, 0.336f, 0.379f); // 中性部件底

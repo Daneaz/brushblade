@@ -33,6 +33,8 @@
         "火",
         "焱"
       ],
+      "pinyin": "yì",
+      "gloss": "火势极盛",
       "effects": [
         {
           "kind": "DamageAll",
@@ -52,6 +54,8 @@
         "林",
         "火"
       ],
+      "pinyin": "fén",
+      "gloss": "烧毁",
       "effects": [
         {
           "kind": "DamageAll",
@@ -71,6 +75,8 @@
         "火",
         "炎"
       ],
+      "pinyin": "yàn",
+      "gloss": "火花飞迸",
       "effects": [
         {
           "kind": "DamageAll",
@@ -90,6 +96,8 @@
         "火",
         "火"
       ],
+      "pinyin": "yán",
+      "gloss": "火苗上炎",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -109,6 +117,8 @@
         "火",
         "暴"
       ],
+      "pinyin": "bào",
+      "gloss": "迸裂炸开",
       "effects": [
         {
           "kind": "DamageAll",
@@ -128,6 +138,8 @@
         "火",
         "乍"
       ],
+      "pinyin": "zhà",
+      "gloss": "骤然爆开",
       "effects": [
         {
           "kind": "DamageAll",
@@ -148,6 +160,8 @@
         "列",
         "灬"
       ],
+      "pinyin": "liè",
+      "gloss": "火猛、气盛",
       "effects": [
         {
           "kind": "DamageAll",
@@ -167,6 +181,8 @@
         "火",
         "崔"
       ],
+      "pinyin": "suī",
+      "gloss": "火光晃眼",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -192,6 +208,8 @@
         "火",
         "山"
       ],
+      "pinyin": "càn",
+      "gloss": "光彩明亮",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -211,6 +229,8 @@
         "一",
         "火"
       ],
+      "pinyin": "miè",
+      "gloss": "火熄、尽绝",
       "effects": [
         {
           "kind": "DamageAll",
@@ -230,6 +250,8 @@
         "火",
         "喿"
       ],
+      "pinyin": "zào",
+      "gloss": "干而无润",
       "effects": [
         {
           "kind": "BurnSingle",
@@ -253,6 +275,8 @@
         "艹",
         "烝"
       ],
+      "pinyin": "zhēng",
+      "gloss": "水气上腾",
       "effects": [
         {
           "kind": "BurnSingle",
@@ -272,6 +296,8 @@
         "火",
         "尧"
       ],
+      "pinyin": "shāo",
+      "gloss": "使着火",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -291,6 +317,8 @@
         "隹",
         "灬"
       ],
+      "pinyin": "jiāo",
+      "gloss": "火燎而黑",
       "effects": [
         {
           "kind": "BurnSingle",
@@ -310,6 +338,8 @@
         "火",
         "勺"
       ],
+      "pinyin": "zhuó",
+      "gloss": "火烧、烫",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -330,6 +360,8 @@
         "执",
         "灬"
       ],
+      "pinyin": "rè",
+      "gloss": "温度高",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -367,6 +399,8 @@
         "木",
         "林"
       ],
+      "pinyin": "sēn",
+      "gloss": "树木丛生",
       "effects": [
         {
           "kind": "Summon",
@@ -385,6 +419,8 @@
         "木",
         "木"
       ],
+      "pinyin": "lín",
+      "gloss": "成片的树",
       "effects": [
         {
           "kind": "Summon",
@@ -403,6 +439,8 @@
         "木",
         "秋"
       ],
+      "pinyin": "qiū",
+      "gloss": "落叶乔木,材质坚",
       "effects": [
         {
           "kind": "Summon",
@@ -425,6 +463,8 @@
         "艹",
         "焦"
       ],
+      "pinyin": "jiāo",
+      "gloss": "芭蕉,阔叶草木",
       "effects": [
         {
           "kind": "Summon",
@@ -447,6 +487,8 @@
         "茾",
         "刂"
       ],
+      "pinyin": "jīng",
+      "gloss": "多刺灌木",
       "effects": [
         {
           "kind": "Summon",
@@ -469,6 +511,8 @@
         "木",
         "圭"
       ],
+      "pinyin": "guì",
+      "gloss": "桂树,花香馥郁",
       "effects": [
         {
           "kind": "Summon",
@@ -488,6 +532,8 @@
         "木",
         "石"
       ],
+      "pinyin": "zhè",
+      "gloss": "桑科乔木,木坚",
       "effects": [
         {
           "kind": "Summon",
@@ -506,6 +552,8 @@
         "木",
         "岂"
       ],
+      "pinyin": "qī",
+      "gloss": "桤木,生长极速",
       "effects": [
         {
           "kind": "Summon",
@@ -527,6 +575,8 @@
         "艹",
         "滕"
       ],
+      "pinyin": "téng",
+      "gloss": "蔓生木本,缠绕攀援",
       "effects": [
         {
           "kind": "Summon",
@@ -549,6 +599,8 @@
         "木",
         "白"
       ],
+      "pinyin": "bǎi",
+      "gloss": "常绿乔木,耐寒",
       "effects": [
         {
           "kind": "Summon",
@@ -567,6 +619,8 @@
         "木",
         "公"
       ],
+      "pinyin": "sōng",
+      "gloss": "针叶乔木,四时不凋",
       "effects": [
         {
           "kind": "Summon",
@@ -585,6 +639,8 @@
         "木",
         "丈"
       ],
+      "pinyin": "zhàng",
+      "gloss": "扶行的木棍",
       "effects": [
         {
           "kind": "Summon",
@@ -606,6 +662,8 @@
         "木",
         "仓"
       ],
+      "pinyin": "qiāng",
+      "gloss": "长柄尖兵",
       "effects": [
         {
           "kind": "Summon",
@@ -628,6 +686,8 @@
         "水",
         "淼"
       ],
+      "pinyin": "màn",
+      "gloss": "洪水滔天",
       "effects": [
         {
           "kind": "SpendWaterPower",
@@ -653,6 +713,8 @@
         "水",
         "沝"
       ],
+      "pinyin": "miǎo",
+      "gloss": "水大无际",
       "effects": [
         {
           "kind": "SpendWaterPower",
@@ -678,6 +740,8 @@
         "氵",
         "炎"
       ],
+      "pinyin": "dàn",
+      "gloss": "味薄、色浅",
       "effects": [
         {
           "kind": "HealSelf",
@@ -704,6 +768,8 @@
         "水",
         "水"
       ],
+      "pinyin": "zhuǐ",
+      "gloss": "二水并流",
       "effects": [
         {
           "kind": "HealSelf",
@@ -725,6 +791,8 @@
         "氵",
         "垔"
       ],
+      "pinyin": "yān",
+      "gloss": "没入水土而灭",
       "effects": [
         {
           "kind": "HealSelf",
@@ -750,6 +818,8 @@
         "氵",
         "切"
       ],
+      "pinyin": "qī",
+      "gloss": "以沸水冲",
       "effects": [
         {
           "kind": "HealSelf",
@@ -771,6 +841,8 @@
         "氵",
         "每"
       ],
+      "pinyin": "hǎi",
+      "gloss": "百川所归",
       "effects": [
         {
           "kind": "HealSelf",
@@ -792,6 +864,8 @@
         "氵",
         "贵"
       ],
+      "pinyin": "kuì",
+      "gloss": "堤破水散",
       "effects": [
         {
           "kind": "HealSelf",
@@ -820,6 +894,8 @@
         "冫",
         "水"
       ],
+      "pinyin": "bīng",
+      "gloss": "水凝而坚",
       "effects": [
         {
           "kind": "HealSelf",
@@ -846,6 +922,8 @@
         "冫",
         "东"
       ],
+      "pinyin": "dòng",
+      "gloss": "遇寒凝结",
       "effects": [
         {
           "kind": "HealSelf",
@@ -871,6 +949,8 @@
         "冫",
         "令"
       ],
+      "pinyin": "lěng",
+      "gloss": "寒而不温",
       "effects": [
         {
           "kind": "HealSelf",
@@ -897,6 +977,8 @@
         "氵",
         "林"
       ],
+      "pinyin": "lín",
+      "gloss": "水自上浇下",
       "effects": [
         {
           "kind": "HealAll",
@@ -918,6 +1000,8 @@
         "氵",
         "喿"
       ],
+      "pinyin": "zǎo",
+      "gloss": "洗涤全身",
       "effects": [
         {
           "kind": "HealSelf",
@@ -947,6 +1031,8 @@
         "氵",
         "木"
       ],
+      "pinyin": "mù",
+      "gloss": "以水濯发",
       "effects": [
         {
           "kind": "HealOverTime",
@@ -969,6 +1055,8 @@
         "氵",
         "谷"
       ],
+      "pinyin": "yù",
+      "gloss": "以水洗身",
       "effects": [
         {
           "kind": "HealSelf",
@@ -1017,6 +1105,8 @@
         "金",
         "鍂"
       ],
+      "pinyin": "xīn",
+      "gloss": "三金聚,大盛",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1036,6 +1126,8 @@
         "圭",
         "刂"
       ],
+      "pinyin": "kuī",
+      "gloss": "割取、刺杀",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1056,6 +1148,8 @@
         "金",
         "金"
       ],
+      "pinyin": "pēn",
+      "gloss": "双金相并,金气盛",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1075,6 +1169,8 @@
         "钅",
         "则"
       ],
+      "pinyin": "zhá",
+      "gloss": "闸刀截断",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1097,6 +1193,8 @@
         "朵",
         "刂"
       ],
+      "pinyin": "duò",
+      "gloss": "用力斩落",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1121,6 +1219,8 @@
         "辟",
         "刀"
       ],
+      "pinyin": "pī",
+      "gloss": "用刀斧纵向砍开",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1140,6 +1240,8 @@
         "朿",
         "刂"
       ],
+      "pinyin": "cì",
+      "gloss": "以尖物直入",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1162,6 +1264,8 @@
         "佥",
         "刂"
       ],
+      "pinyin": "jiàn",
+      "gloss": "两刃长兵",
       "effects": [
         {
           "kind": "Summon",
@@ -1184,6 +1288,8 @@
         "钅",
         "隹"
       ],
+      "pinyin": "zhuī",
+      "gloss": "钻孔的尖头利器",
       "effects": [
         {
           "kind": "Summon",
@@ -1206,6 +1312,8 @@
         "巢",
         "刂"
       ],
+      "pinyin": "jiǎo",
+      "gloss": "围而歼之",
       "effects": [
         {
           "kind": "DamageSingle",
@@ -1227,6 +1335,8 @@
         "钅",
         "岂"
       ],
+      "pinyin": "kǎi",
+      "gloss": "护身的甲",
       "effects": [
         {
           "kind": "DefenseBuff",
@@ -1242,6 +1352,8 @@
         "占",
         "戈"
       ],
+      "pinyin": "zhàn",
+      "gloss": "交锋、争斗",
       "effects": [
         {
           "kind": "Empower",
@@ -1257,6 +1369,8 @@
         "禾",
         "刂"
       ],
+      "pinyin": "lì",
+      "gloss": "锋刃锐、得其益",
       "effects": [
         {
           "kind": "ApBoost",
@@ -1276,6 +1390,8 @@
         "钅",
         "丰"
       ],
+      "pinyin": "fēng",
+      "gloss": "刀剑最尖处",
       "effects": [
         {
           "kind": "CritBuff",
@@ -1291,6 +1407,8 @@
         "钅",
         "兑"
       ],
+      "pinyin": "ruì",
+      "gloss": "刀刃尖而快",
       "effects": [
         {
           "kind": "PierceBuff",
@@ -1306,6 +1424,8 @@
         "土",
         "垚"
       ],
+      "pinyin": "lěi",
+      "gloss": "土垒极厚",
       "effects": [
         {
           "kind": "Shield",
@@ -1332,6 +1452,8 @@
         "土",
         "圭"
       ],
+      "pinyin": "yáo",
+      "gloss": "三土聚,山高",
       "effects": [
         {
           "kind": "Shield",
@@ -1354,6 +1476,8 @@
         "土",
         "土"
       ],
+      "pinyin": "guī",
+      "gloss": "二土相叠,厚实",
       "effects": [
         {
           "kind": "Shield",
@@ -1375,6 +1499,8 @@
         "土",
         "荅"
       ],
+      "pinyin": "tǎ",
+      "gloss": "层叠高耸的建筑",
       "effects": [
         {
           "kind": "Summon",
@@ -1393,6 +1519,8 @@
         "石",
         "周"
       ],
+      "pinyin": "diāo",
+      "gloss": "石砌的堡",
       "effects": [
         {
           "kind": "Summon",
@@ -1414,6 +1542,8 @@
         "厽",
         "土"
       ],
+      "pinyin": "lěi",
+      "gloss": "堆石成墙",
       "effects": [
         {
           "kind": "Shield",
@@ -1435,6 +1565,8 @@
         "保",
         "土"
       ],
+      "pinyin": "bǎo",
+      "gloss": "土石筑的防垒",
       "effects": [
         {
           "kind": "Summon",
@@ -1457,6 +1589,8 @@
         "辟",
         "土"
       ],
+      "pinyin": "bì",
+      "gloss": "墙、峭立",
       "effects": [
         {
           "kind": "Shield",
@@ -1488,6 +1622,8 @@
         "木",
         "土"
       ],
+      "pinyin": "dù",
+      "gloss": "堵塞、杜绝",
       "effects": [
         {
           "kind": "Shield",
@@ -1517,6 +1653,8 @@
         "山",
         "朋"
       ],
+      "pinyin": "bēng",
+      "gloss": "山石塌落",
       "effects": [
         {
           "kind": "Shield",
@@ -1542,6 +1680,8 @@
         "石",
         "匝"
       ],
+      "pinyin": "zá",
+      "gloss": "重物下击",
       "effects": [
         {
           "kind": "Shield",
@@ -1566,6 +1706,8 @@
         "石",
         "展"
       ],
+      "pinyin": "niǎn",
+      "gloss": "轧而使碎",
       "effects": [
         {
           "kind": "Shield",
@@ -1589,6 +1731,8 @@
         "石",
         "卒"
       ],
+      "pinyin": "suì",
+      "gloss": "击破成片",
       "effects": [
         {
           "kind": "Shield",

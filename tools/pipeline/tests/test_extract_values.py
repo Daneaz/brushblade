@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from extract_values import _parse_effects
+from extract_values import _parse_effects, extract
 
 
 def test_sweep_token_becomes_shape_field():
@@ -102,3 +102,43 @@ def test_summon_with_no_passive_tokens_has_no_passive_key_at_all():
     effects = _parse_effects("`Summon 1`(10 血/攻 3)", "刀")
     assert effects == [{"kind": "Summon", "value": 10, "count": 1, "attack": 3, "summonChar": "刀"}]
     assert "passive" not in effects[0]
+
+
+# ---- 拼音与释义(第九节,2026-09-03) ----
+
+_READINGS_MD = """## 二 · 火系
+
+| 字 | 稀 | 效果配置(基础值) | 相生 | **最终值** | 实现 |
+|---|---|---|---|---|---|
+| 灼 | ⚪白 | `DamageSingle 40` | — | 单体 40 | ✅ |
+
+## 七 · 引擎扩展需求清单
+
+## 九 · 拼音与释义
+
+| 字 | 拼音 | 释义 |
+|---|---|---|
+| 灼 | zhuó | 火烧、烫 |
+| 燚 | yì | 火势极盛 |
+"""
+
+
+def test_readings_section_fills_pinyin_and_gloss():
+    values = extract(_READINGS_MD)
+    assert values["灼"]["pinyin"] == "zhuó"
+    assert values["灼"]["gloss"] == "火烧、烫"
+
+
+def test_readings_for_chars_outside_the_spec_are_ignored():
+    """第九节多出来的字(已移出字表的、或还没标 ✅ 的)不该凭空造出条目。"""
+    values = extract(_READINGS_MD)
+    assert "燚" not in values
+
+
+def test_missing_readings_leave_no_keys():
+    """没在第九节列出的字不该多出空的 pinyin/gloss 键 —— export_chars 只在真值时落地,
+    但键存在与否会影响这一层的恒等性判断。"""
+    spec = _READINGS_MD.replace("| 灼 | zhuó | 火烧、烫 |\n", "")
+    values = extract(spec)
+    assert "pinyin" not in values["灼"]
+    assert "gloss" not in values["灼"]

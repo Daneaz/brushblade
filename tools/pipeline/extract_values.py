@@ -80,7 +80,7 @@ SHAPE_PERCENT_TOKEN = "ShapePercent"
 
 
 def extract(markdown):
-    """详表全文 → {字: {element, rarity, effects}},只收标 ✅ 的字。"""
+    """详表全文 → {字: {element, rarity, effects, pinyin?, gloss?}},只收标 ✅ 的字。"""
     body = markdown.split("## 二 · 火系")[1].split("## 七 · 引擎扩展")[0]
     parts = re.split(r"^## [三四五六] · (\S+?)系", body, flags=re.M)
     sections = [("火", parts[0])] + [(parts[i], parts[i + 1])
@@ -91,7 +91,42 @@ def extract(markdown):
             entry = _parse_row(line, element)
             if entry:
                 result[entry[0]] = entry[1]
+    _merge_readings(result, extract_readings(markdown))
     return result
+
+
+def extract_readings(markdown):
+    """第九节「拼音与释义」→ {字: (拼音, 释义)}。没有这一节就返回空表。
+
+    单独成节而不是给五张逐字表各加两列:那五张表的列数本来就不齐(水/土 多一格
+    「攻击效果配置」),而 _parse_row 靠「哪一格带反引号 / 哪一格是稀有度」认列 ——
+    往里塞自由文本列是给那套启发式添反例。这一节是纯查找表,与数值无关。"""
+    if "## 九 · 拼音与释义" not in markdown:
+        return {}
+    section = markdown.split("## 九 · 拼音与释义")[1].split("\n## ")[0]
+    readings = {}
+    for line in section.split("\n"):
+        if not line.startswith("| ") or line.startswith("|---"):
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) != 3 or len(cells[0]) != 1:
+            continue  # 表头「| 字 | 拼音 | 释义 |」在这里被滤掉
+        readings[cells[0]] = (cells[1], cells[2])
+    return readings
+
+
+def _merge_readings(values, readings):
+    """把拼音/释义并进已抽出的字条目。
+
+    ⚠ 只并**已在 values 里**的字:第九节列的是全字表,而 values 只含标 ✅ 的字 ——
+    拿第九节反过来建条目会把移出字表的字重新塞回 chars.json。
+    空串不写键:export_chars 只在真值时落地,这里也别留空键(恒等性)。"""
+    for char, spec in values.items():
+        pinyin, gloss = readings.get(char, ("", ""))
+        if pinyin:
+            spec["pinyin"] = pinyin
+        if gloss:
+            spec["gloss"] = gloss
 
 
 def _parse_row(line, element):

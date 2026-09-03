@@ -84,5 +84,36 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("刲").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
                 Is.EqualTo(450), "原 150 x3");
         }
+
+        // ---- 克/被克 的查表入口(2026-09-03,卡组页详情印「克 X ×1.5 / 被 Y 克 ×0.5」) ----
+
+        [Test]
+        public void Victim_FollowsTheKeRing()
+        {
+            Assert.That(WuxingResolver.Victim(Element.Wood), Is.EqualTo(Element.Earth));
+            Assert.That(WuxingResolver.Victim(Element.Earth), Is.EqualTo(Element.Water));
+            Assert.That(WuxingResolver.Victim(Element.Water), Is.EqualTo(Element.Fire));
+            Assert.That(WuxingResolver.Victim(Element.Fire), Is.EqualTo(Element.Metal));
+            Assert.That(WuxingResolver.Victim(Element.Metal), Is.EqualTo(Element.Wood));
+        }
+
+        [Test]
+        public void Counter_IsTheInverseOfVictim()
+        {
+            foreach (Element attacker in new[] { Element.Wood, Element.Earth, Element.Water,
+                Element.Fire, Element.Metal })
+            {
+                var victim = WuxingResolver.Victim(attacker);
+                Assert.That(WuxingResolver.Counter(victim.Value), Is.EqualTo(attacker));
+            }
+        }
+
+        [Test]
+        public void Heart_IsOutsideTheRingOnBothDirections()
+        {
+            Assert.That(WuxingResolver.Victim(Element.Heart), Is.Null);
+            Assert.That(WuxingResolver.Counter(Element.Heart), Is.Null);
+        }
+
     }
 }

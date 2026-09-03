@@ -133,10 +133,14 @@
     .foot.up   { background: #EDE7DA; color: #5D646F; font-variant-numeric: tabular-nums; }
     .foot.up.on { background: #E3F4E6; color: #1B552C; font-weight: 700; }
     .foot.maxed { background: #F6EDD5; color: #8F6B09; font-weight: 700; }
-    /* 逐张翻卡:0.12s 弹入、间隔 0.08s（RevealTiles 的实际节拍）。both 让静止态 = 终态,
-       导出 PNG/PDF 时即使动画已跑完也画得对。 */
-    @keyframes pop { from { transform: scale(.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    .cell { animation: pop .12s ease-out both; }
+    /* 逐张翻卡(2026-09-03 回填,真翻牌):牌先扣着,再一张张翻开 ——
+       牌背立起来 0.15s → 换面 → 正面展开 0.15s,两张之间隔 0.06s;
+       金档以上翻开后多停 0.34s(一个节拍翻完的话,橙卡与旁边的白卡在时间上毫无区别)。
+       实现走 scaleX 缩到 0 再展开,不是绕 Y 轴真旋转:uGUI 没有厚度,真旋转到 90°
+       附近会因背面剔除闪一下(与 InkPulse 同一条理由)。见 CardFlip.cs。
+       稿上这条 CSS 只是**静态示意**(直接落到终态),动画本身以 CardFlip 为准。 */
+    @keyframes pop { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .cell { animation: pop .3s ease-out both; }
     .claimrow { margin-top: auto; display: flex; align-items: center; gap: 10px; }
     .claimrow .tip { font-size: 9.5px; color: #88909C; }
     .pill {
@@ -262,7 +266,7 @@
               <i style="width:9px;height:12px;border-radius:2px;background:#C9A94A;"></i>
             </span>
           </div>
-          <div class="sb">遮罩挡住底下一切点击。墨锭先入账，字卡<b>逐张弹出</b>（0.12s 弹入、间隔 0.08s），点任一张看详情。</div>
+          <div class="sb">遮罩挡住底下一切点击。墨锭先入账，字卡<b>逐张翻开</b>（牌背立起 0.15s → 正面展开 0.15s，间隔 0.06s；金档以上多停 0.34s），点任一张看详情。</div>
         </div>
         <div class="arw">→</div>
         <div class="step">

@@ -662,8 +662,12 @@ namespace Brushblade.Presentation
         /// 自 2026-08-03 起**一律返回 1**(AP 与稀有度解耦),于是每张牌上都印一遍「1 AP」
         /// 是零信息量的噪音,却占着牌面 19% 的高度(原 cost 带 0.0–0.19)。腾出来的份额
         /// 分给字形与拼音,牌本身因此也能整体缩小 —— 战斗字库牌 105 → 85。</summary>
+        /// <summary><paramref name="locked"/> = 未拥有(2026-09-03,收集页把没拿到的字也列出来):
+        /// 牌面褪成宣纸灰、字形压浅、动效整套不挂 —— 但稀有度框仍留三成色相(角标那边同理),
+        /// 「那张红卡我还没拿到」是收集页最该说清的一件事,全灰掉就说不出来了。
+        /// 字形仍读得清:玩家要认得出这是哪个字。</summary>
         public static Button GlyphTile(Transform parent, Brushblade.Core.CharDef def,
-            bool selected, Action onClick, Vector2? size = null)
+            bool selected, Action onClick, Vector2? size = null, bool locked = false)
         {
             var s = size ?? new Vector2(96, 120); // 默认对齐素材 0.8 竖版比例
             var go = new GameObject($"Tile_{def.Id}", typeof(RectTransform));
@@ -685,13 +689,15 @@ namespace Brushblade.Presentation
             if (frameSprite != null)
             {
                 face.sprite = frameSprite;
-                face.color = Color.white; // 素材自带牌面底色,不再染色
+                // Image.color 是**相乘**:未拥有时乘一层暖灰,框上的花纹与稀有度色相原样保留、
+                // 只是整张退到宣纸背后。换成纯色板会把框也盖掉,那就分不出稀有度了
+                face.color = locked ? Theme.LockedPaper : Color.white; // 素材自带牌面底色,不再染色
             }
             else
             {
                 face.sprite = Theme.Rounded(12);
                 face.type = Image.Type.Sliced;
-                face.color = Theme.CardWhite;
+                face.color = locked ? Theme.LockedPaper : Theme.CardWhite;
             }
             // 左右 2.5、上下 3.125:留边本身也得守 0.8,否则牌面被压扁、四角纹样跟着变形
             Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
@@ -723,18 +729,23 @@ namespace Brushblade.Presentation
             // 属性识别只靠字形颜色(2026-07-28 拍板移除顶条):字形已是加深过的属性专用色板,
             // 再加一条色带是冗余。金系原色对浅底只有 2.48:1,故字形必走 GlyphColor 而非 ElementColor
             var glyph = ThemedLabel(content.transform, def.Id, Mathf.RoundToInt(s.y * 0.34f),
-                Theme.GlyphColor(def.Element), Theme.TitleFont);
+                locked ? Theme.LockedGlyph : Theme.GlyphColor(def.Element), Theme.TitleFont);
             // 费用带撤销后的重新分配(2026-08-21):字形 0.36–0.94 → 0.30–0.95,拼音 0.19–0.36 → 0.06–0.30。
             // 字号仍是 s.y * 0.34 —— 比例不动,是为了不改动其它调用方(图鉴 144×180、跑图 76×95)的观感;
             // 战斗字库牌靠**把牌整体调小**来缩,而不是靠改这个比例。
             Anchor(glyph.rectTransform, new Vector2(0, 0.30f), new Vector2(1, 0.95f), Vector2.zero, Vector2.zero);
 
-            var pinyin = ThemedLabel(content.transform, def.Pinyin ?? "", 12, Theme.TextDim);
+            var pinyin = ThemedLabel(content.transform, def.Pinyin ?? "", 12,
+                locked ? Theme.LockedGlyph : Theme.TextDim);
             Anchor(pinyin.rectTransform, new Vector2(0, 0.06f), new Vector2(1, 0.30f), Vector2.zero, Vector2.zero);
 
-            // 动效(§4):属性决定动什么、稀有度决定动多少。素材缺失时 Init 里自行退化为不动
-            go.AddComponent<CardFrameView>().Init(def.Rarity, def.Element,
-                new Vector2(s.x - 5f, s.y - 6.25f), motes.transform, face, glow, selected);
+            // 动效(§4):属性决定动什么、稀有度决定动多少。素材缺失时 Init 里自行退化为不动。
+            // 未拥有不挂:稿上「未拥有不发光」—— 一屏几十张没拿到的字全在动,会盖过真正到手的那些
+            if (!locked)
+                go.AddComponent<CardFrameView>().Init(def.Rarity, def.Element,
+                    new Vector2(s.x - 5f, s.y - 6.25f), motes.transform, face, glow, selected);
+            else if (glow != null)
+                glow.enabled = false;
 
             var button = go.AddComponent<Button>();
             button.targetGraphic = face;

@@ -216,7 +216,6 @@
     .chip.rar { background: var(--rarSoft); color: color-mix(in srgb, var(--rar) 76%, #161B22);
       border: 1px solid color-mix(in srgb, var(--rar) 40%, transparent); }
     .chip.elm { background: var(--elSoft); color: var(--elFg); }
-    .chip.sheng { background: #F6EDD5; color: #8F6B09; border: 1px solid rgba(201,169,74,.5); }
     .gloss { font-size: 9.5px; color: #5D646F; line-height: 1.55; }
 
     .sect { margin-top: 11px; }
@@ -424,9 +423,9 @@
                   <div class="chips">
                     <span class="chip rar">{{sel.rarName}}</span>
                     <span class="chip elm">{{sel.elName}}系</span>
-                    <sc-if value="{{sel.sheng}}" hint-placeholder-val="{{false}}">
-                      <span class="chip sheng">相生 ×3</span>
-                    </sc-if>
+                    <!-- 相生 ×3 徽标已移除(2026-09-03 回填):相生于 2026-09-02 全局取消
+                         (wuxing-reference.md v0.8),那 4 张字的基础值已改写成 ×3 后的实战值。
+                         CARDS 里的 "s" 字段留着没删 —— 只是不再有任何地方读它。 -->
                   </div>
                   <div class="gloss">{{sel.gloss}}</div>
                 </div>
@@ -500,9 +499,6 @@
                     <span class="pe">{{sel.elName}}</span>
                   </div>
                 </div>
-                <sc-if value="{{sel.sheng}}" hint-placeholder-val="{{false}}">
-                  <div class="leafnote" style="margin-top: 6px; color: #8F6B09;">{{sel.shengNote}}</div>
-                </sc-if>
               </div>
 
               <div class="sect">
@@ -602,8 +598,6 @@ var RAR_ORDER = ["White", "Green", "Blue", "Purple", "Gold", "Orange", "Red"];
 // 相克:木克土,土克水,水克火,火克金,金克木
 var KE = { Wood: "Earth", Earth: "Water", Water: "Fire", Fire: "Metal", Metal: "Wood" };
 var BEI = { Earth: "Wood", Water: "Earth", Fire: "Water", Metal: "Fire", Wood: "Metal" };
-// 相生「他生我」:母 → 本字
-var MOTHER = { Water: "Metal", Wood: "Water", Fire: "Wood", Earth: "Fire", Metal: "Earth" };
 
 // MetaRules 的真实升级公式
 var COPIES = [2, 4, 10, 20, 40, 80, 150, 300, 500];
@@ -771,8 +765,7 @@ class Component extends DCLogic {
         id: m.d.id, py: m.d.py, gloss: m.d.g, desc: m.d.d, lv: m.lv,
         owned: m.owned, locked: !m.owned, chestHint: CHEST_HINT[m.d.r],
         rarCls: "r-" + m.d.r, elCls: "e-" + m.d.e,
-        rarName: RAR_NAME[m.d.r], elName: EL_NAME[m.d.e], sheng: m.d.s,
-        shengNote: "配方含「" + EL_NAME[MOTHER[m.d.e]] + "」生「" + EL_NAME[m.d.e] + "」，伤害/护盾/治疗恒 ×3（已计入上方数值）",
+        rarName: RAR_NAME[m.d.r], elName: EL_NAME[m.d.e],
         pips: pips,
         copyOk: maxed ? "" : (m.copies >= m.need ? "ok" : "no"),
         inkOk: maxed ? "" : (PLAYER_INK >= m.ink ? "ok" : "no"),
