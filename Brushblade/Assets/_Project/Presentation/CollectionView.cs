@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Brushblade.Core;
 using Brushblade.Data;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Brushblade.Presentation
@@ -66,6 +67,7 @@ namespace Brushblade.Presentation
         // uGUI 的拖拽事件只发给起拖的那个对象,它一被销毁 OnEndDrag 就再也不来、字影卡在屏幕上。
         // 所以这几个引用是拿来**就地改色/改字**的,不是拿来重建的。
         private RectTransform _sideRect;
+        private RectTransform _gridRect;
         private Image _sideFrame;
         private Color _sideFrameRest;
         private GameObject _dropHint;
@@ -286,6 +288,7 @@ namespace Brushblade.Presentation
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = new Vector2(-(SideW + MainGap), 0);
+            _gridRect = rect;   // 拖拽落点判定要用:拖出这块 = 编入出阵
 
             var list = Visible();
             if (list.Count == 0)
@@ -357,7 +360,9 @@ namespace Brushblade.Presentation
         private void DropFromGrid(string cardId, Vector2 screenPosition)
         {
             HideDropHint();
-            if (!InsideSide(screenPosition)) return;              // 落在别处:什么都没发生,不必重绘
+            // 判据是「拖出了网格」,不是「精确落在右栏上」—— 与卸下那条对称,
+            // 也省得玩家非要够到那块面板才算数(右栏被详情占满时更难瞄)
+            if (Inside(_gridRect, screenPosition)) return;        // 没拖出网格:什么都没发生
             if (_meta.Deck.Contains(cardId)) return;              // 已经在阵上:重复拖入不算错,更不该当成卸下
             ToggleDeck(cardId);
         }
@@ -366,14 +371,31 @@ namespace Brushblade.Presentation
         private void DropFromSlot(string cardId, Vector2 screenPosition)
         {
             HideDropHint();
-            if (InsideSide(screenPosition)) return;               // 还在栏内:误触保护,不动出阵表
+            if (Inside(_sideRect, screenPosition)) return;        // 还在栏内:误触保护,不动出阵表
             ToggleDeck(cardId);
         }
 
-        private bool InsideSide(Vector2 screenPosition) =>
-            _sideRect != null &&
-            // Canvas 是 ScreenSpaceOverlay(GameRoot),摄像机传 null 才对得上屏幕坐标
-            RectTransformUtility.RectangleContainsScreenPoint(_sideRect, screenPosition, null);
+        private readonly List<RaycastResult> _dropHits = new();
+
+        /// <summary>松手处在不在 <paramref name="area"/> 这块里。
+        ///
+        /// ⚠ 走 <see cref="EventSystem.RaycastAll"/> 而不是
+        /// <c>RectTransformUtility.RectangleContainsScreenPoint</c>(2026-09-04 修):
+        /// 那条几何判断在这一屏上恒为 false —— 拖入怎么都不生效,而拖出(判的是「不在里面」)
+        /// 却像好的一样,两个方向的表现正好互补,病根藏得很深。射线判的是**真的点到了谁**,
+        /// 不依赖任何坐标系换算;网格视口那张 alpha=0 接射线的图(为「空白处也能拖动列表」加的)
+        /// 与右栏的描边底图正好各自铺满自己那块,两块都点得到。</summary>
+        private bool Inside(RectTransform area, Vector2 screenPosition)
+        {
+            if (area == null || EventSystem.current == null) return false;
+            var pointer = new PointerEventData(EventSystem.current) { position = screenPosition };
+            _dropHits.Clear();
+            EventSystem.current.RaycastAll(pointer, _dropHits);
+            foreach (var hit in _dropHits)
+                if (hit.gameObject != null && hit.gameObject.transform.IsChildOf(area))
+                    return true;
+            return false;
+        }
 
         /// <summary>起拖时点亮右栏并写明松手会发生什么。**就地改色改字**,不重绘 ——
         /// 理由见 <see cref="_sideRect"/> 那组字段的注释。</summary>
