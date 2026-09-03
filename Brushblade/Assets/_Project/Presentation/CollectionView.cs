@@ -377,7 +377,7 @@ namespace Brushblade.Presentation
             var headSpring = Ui.Panel(head.transform, "Spring");
             headSpring.AddComponent<LayoutElement>().flexibleWidth = 1;
             if (selected != null)
-                Ui.RoundButton(head.transform, Strings.T("collection.side.close"),
+                Ui.RoundButton(head.transform, Strings.T("common.close"),
                     () => { _selected = null; Rebuild(); }, new Color(0, 0, 0, 0), Theme.TextDim, 22,
                     new Vector2(44, 44));
 

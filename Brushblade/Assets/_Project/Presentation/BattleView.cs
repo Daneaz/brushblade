@@ -2955,11 +2955,21 @@ namespace Brushblade.Presentation
             return $"「{charId}」{CharInfo.EffectsText(def, _run.CardLevel(charId))}";
         }
 
-        /// <summary>长按看详情:preview 只读,不动选中态。</summary>
+        /// <summary>长按看详情:preview 只读,不动选中态。
+        ///
+        /// 战斗上下文一并传进去(2026-09-03,稿 CharSheet.dc.html):详情右栏要印
+        /// **这一击对场上每只敌人各是多少倍**,部件牌还要按部件池判「能凑出什么、缺哪个」。
+        /// 敌人属性由弹窗侧读 ApparentElement —— 伪装怪与生僻字没现形之前不能替玩家掀底。</summary>
         private void ShowCharPreview(string charId)
         {
             if (_modal != null) Object.Destroy(_modal);
-            _modal = CharPreview.Show(transform, _graph.Get(charId), _graph, _run.CardLevel(charId));
+            _modal = CharPreview.Show(transform, _graph.Get(charId), _graph, _run.CardLevel(charId),
+                new CharPreview.BattleContext
+                {
+                    Foes = Battle.Enemies,
+                    Pool = Battle.Pool,
+                    Craftable = Battle.ComposableChars,
+                });
         }
 
         /// <summary>奖励页点字库:看简述(替换已改在战利品弹窗内完成,2026-07-20)。</summary>

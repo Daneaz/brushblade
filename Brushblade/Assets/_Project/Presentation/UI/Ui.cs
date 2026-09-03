@@ -189,7 +189,14 @@ namespace Brushblade.Presentation
         /// <see cref="UnitSheet.Show"/>)传 true;不同族、要同屏共存的浮层各用各的 name,
         /// 或者干脆传 false,不参与这条互斥。</param>
         public static GameObject Sheet(Transform root, string name, float width, float height,
-            bool dismissable, bool replaceSameName, Color scrim, out Transform content)
+            bool dismissable, bool replaceSameName, Color scrim, out Transform content) =>
+            Sheet(root, name, width, height, dismissable, replaceSameName, scrim, 0f, out content);
+
+        /// <param name="lift">卡片相对屏幕中心上抬多少(逻辑单位)。默认 0 = 居中。
+        /// 字卡详情传正值,为的是把**被长按的那张牌**留在浮层下面看得见 ——
+        /// 「我按的是哪张」与「这张字什么用」得能对上(稿 CharSheet.dc.html)。</param>
+        public static GameObject Sheet(Transform root, string name, float width, float height,
+            bool dismissable, bool replaceSameName, Color scrim, float lift, out Transform content)
         {
             if (replaceSameName)
             {
@@ -210,7 +217,7 @@ namespace Brushblade.Presentation
             var outer = OutlinedPanel(overlay.transform, "Card", Theme.PanelPaper, Theme.PanelBorder,
                 SheetRadius, SheetBorder, out var face);
             Anchor((RectTransform)outer.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-width / 2f, -height / 2f), new Vector2(width / 2f, height / 2f));
+                new Vector2(-width / 2f, -height / 2f + lift), new Vector2(width / 2f, height / 2f + lift));
             // 这个 Button 只为**吃掉**落在卡片本体上的点击(不让它穿透到遮罩去关掉弹窗),
             // 不是一个可按的控件 —— 必须关掉过渡效果。Button 默认 ColorTint:按下整张卡面
             // 乘 0.78、抬手后停在 selectedColor 0.96,于是点一下卡片本体、卡面就闪暗一下,

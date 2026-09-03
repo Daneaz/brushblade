@@ -53,6 +53,11 @@ namespace Brushblade.Presentation
             return Strings.T("char.summary.dual_direction", ("attack", attack), ("support", support));
         }
 
+        /// <summary>只渲染一面的效果串。字卡详情弹窗的双方向版把攻、护画成两块,
+        /// 各自要一句自己的话 —— <see cref="EffectsText"/> 给的是「攻:… / 护:…」的合写。</summary>
+        public static string SideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel) =>
+            OneSideEffectsText(effects, def, cardLevel);
+
         private static string OneSideEffectsText(IReadOnlyList<EffectDef> effects, CharDef def, int cardLevel)
         {
             if (effects.Count == 0)
