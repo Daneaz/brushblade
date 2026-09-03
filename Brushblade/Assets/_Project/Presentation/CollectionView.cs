@@ -62,6 +62,14 @@ namespace Brushblade.Presentation
         /// 只在筛选变了时才归顶 —— 那时列表内容本来就换了一批。</summary>
         private float _gridScroll = 1f;
         private ScrollRect _grid;
+        // 拖拽落点区(2026-09-03):右栏整块就是「出阵表」。拖拽期间**不许重绘** ——
+        // uGUI 的拖拽事件只发给起拖的那个对象,它一被销毁 OnEndDrag 就再也不来、字影卡在屏幕上。
+        // 所以这几个引用是拿来**就地改色/改字**的,不是拿来重建的。
+        private RectTransform _sideRect;
+        private Image _sideFrame;
+        private Color _sideFrameRest;
+        private GameObject _dropHint;
+        private Text _dropHintLabel;
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -336,6 +344,55 @@ namespace Brushblade.Presentation
                 Locked = !owned,
             });
             CardBadges.Foot(cell.transform, CardSize, owned, copies, needed, maxed, canUpgrade);
+
+            // 拖到右栏 = 编入出阵(2026-09-03)。没拥有的字不给拖:它连编组的资格都没有。
+            // 竖向手势由 DragToDeck 转发给网格的 ScrollRect,列表照旧滚得动。
+            if (owned)
+                DragToDeck.Attach(tile.gameObject, def.Id, Theme.GlyphColor(def.Element),
+                    position => DropFromGrid(def.Id, position),
+                    () => ShowDropHint(Strings.T("collection.drag.to_deck"), Theme.Jade));
+        }
+
+        /// <summary>网格里的牌松手:落在右栏内 = 编入出阵,落在别处 = 什么都不做。</summary>
+        private void DropFromGrid(string cardId, Vector2 screenPosition)
+        {
+            HideDropHint();
+            if (!InsideSide(screenPosition)) return;              // 落在别处:什么都没发生,不必重绘
+            if (_meta.Deck.Contains(cardId)) return;              // 已经在阵上:重复拖入不算错,更不该当成卸下
+            ToggleDeck(cardId);
+        }
+
+        /// <summary>出阵格松手:拖出右栏 = 卸下,还在栏内 = 什么都不做(误触保护)。</summary>
+        private void DropFromSlot(string cardId, Vector2 screenPosition)
+        {
+            HideDropHint();
+            if (InsideSide(screenPosition)) return;               // 还在栏内:误触保护,不动出阵表
+            ToggleDeck(cardId);
+        }
+
+        private bool InsideSide(Vector2 screenPosition) =>
+            _sideRect != null &&
+            // Canvas 是 ScreenSpaceOverlay(GameRoot),摄像机传 null 才对得上屏幕坐标
+            RectTransformUtility.RectangleContainsScreenPoint(_sideRect, screenPosition, null);
+
+        /// <summary>起拖时点亮右栏并写明松手会发生什么。**就地改色改字**,不重绘 ——
+        /// 理由见 <see cref="_sideRect"/> 那组字段的注释。</summary>
+        private void ShowDropHint(string text, Color accent)
+        {
+            if (_sideFrame != null) _sideFrame.color = accent;
+            if (_dropHint == null) return;
+            _dropHint.SetActive(true);
+            if (_dropHintLabel != null)
+            {
+                _dropHintLabel.text = text;
+                _dropHintLabel.color = accent;
+            }
+        }
+
+        private void HideDropHint()
+        {
+            if (_sideFrame != null) _sideFrame.color = _sideFrameRest;
+            if (_dropHint != null) _dropHint.SetActive(false);
         }
 
         /// <summary>点一张牌 = 看它 + 销掉新字红旗(稿:「新字的红旗点一下就消」)。</summary>
@@ -361,6 +418,10 @@ namespace Brushblade.Presentation
             var side = Ui.OutlinedPanel(parent, "Side", Theme.PanelPaper, Theme.PanelBorder, 21, 2);
             Ui.Anchor((RectTransform)side.transform, new Vector2(1, 0), Vector2.one,
                 new Vector2(-SideW, 0), Vector2.zero);
+            // 右栏整块就是拖拽的落点区:描边在拖拽时换色,底部那条提示带写明松手会发生什么
+            _sideRect = (RectTransform)side.transform;
+            _sideFrame = side;
+            _sideFrameRest = side.color;
 
             // 头:标题 +(选中时)关闭
             var head = Ui.Row(side.transform, "Head", 12);
@@ -394,6 +455,19 @@ namespace Brushblade.Presentation
             else BuildDetail(content, selected, owned);
 
             BuildSideFoot(side.transform, selected, owned);
+            BuildDropHint(side.transform);
+        }
+
+        /// <summary>拖拽提示带:平时藏着,起拖那一刻就地点亮。建在右栏最后 = 画在最上层。</summary>
+        private void BuildDropHint(Transform parent)
+        {
+            var hint = Ui.CardPanel(parent, "DropHint", Theme.PanelInset, 16);
+            Ui.Anchor((RectTransform)hint.transform, Vector2.zero, new Vector2(1, 0),
+                new Vector2(17, SideFootH), new Vector2(-17, SideFootH + 63));
+            _dropHintLabel = Ui.ThemedLabel(hint.transform, "", 21, Theme.Jade, Theme.TitleFont);
+            Ui.Stretch(_dropHintLabel.rectTransform);
+            _dropHint = hint.gameObject;
+            _dropHint.SetActive(false);
         }
 
         private void BuildSideFoot(Transform parent, CharDef selected, bool owned)
@@ -535,6 +609,12 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)stack.transform);
             Ui.ThemedLabel(stack.transform, def.Id, 38, Theme.GlyphColor(def.Element), Theme.TitleFont);
             Ui.ThemedLabel(stack.transform, $"Lv.{MetaRules.CardLevel(_meta, cardId)}", 16, Theme.TextDim);
+
+            // 拖出右栏 = 卸下。这一格坐在右栏的滚动容器里,所以竖向手势照旧交给它滚动,
+            // 横着拽才算「把这张字拿出来」——与网格那边同一条分流
+            DragToDeck.Attach(go, def.Id, Theme.GlyphColor(def.Element),
+                position => DropFromSlot(cardId, position),
+                () => ShowDropHint(Strings.T("collection.drag.off_deck"), Theme.ExitPink));
         }
 
         private void BuildQuotaBar(Transform parent, Element element)

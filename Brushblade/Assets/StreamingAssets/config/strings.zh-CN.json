@@ -702,5 +702,7 @@
   "charsheet.foot.normal": "长按只看,不出手 —— 松手回战场。",
   "charsheet.foot.dual": "方向在出手那一刻定 —— 拖到敌人=攻,点自己或召唤物=护;长按看详情不消耗 AP。",
   "charsheet.foot.part": "长按只看,不出手 —— 松手回战场;要合字就去拆合台点这两个部件。",
-  "charsheet.foot.outside": "点空白处或右上角关掉。"
+  "charsheet.foot.outside": "点空白处或右上角关掉。",
+  "collection.drag.to_deck": "松手编入出阵",
+  "collection.drag.off_deck": "拖出这里卸下"
 }
