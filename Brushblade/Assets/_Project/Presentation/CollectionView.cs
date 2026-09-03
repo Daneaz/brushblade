@@ -41,6 +41,14 @@ namespace Brushblade.Presentation
         private static readonly Vector2 BigCardSize = new(159f, 199f); // 详情大牌 76×95pt
         // 出阵格里的缩小版字卡:0.8 竖版比例(与框素材同比,拉了就变形);格高再加牌下那行等级
         private static readonly Vector2 SlotTile = new(74f, 92f);
+        // 召唤那一段的小立绘:比出阵格再小一号,一排放得下四只(全表最多召 4)
+        private static readonly Vector2 SummonTile = new(52f, 65f);
+        private const float StatBoxH = 78f;   // 去掉格内小注后矮了 26
+        // 升级确认弹窗:520×320pt(稿 Upgrade.dc.html)。两段并排,再挤就要把
+        // 「变化前 → 变化后」压成一行文字,而那正是这一屏的全部意义
+        private const float UpgradeW = 1088f;
+        private const float UpgradeH = 670f;
+        private static readonly Vector2 UpgradeTile = new(130f, 163f);
         private const float SlotRowH = 117f;
 
         /// <summary>筛选栏的六个页签。null = 全部。</summary>
@@ -666,16 +674,44 @@ namespace Brushblade.Presentation
 
         // ---- 右栏 · 选中:字牌详情 ----
 
+        /// <summary>详情四段(稿 <c>CardDetail.dc.html</c>),各回答一个问题:
+        /// **多大 / 打谁 / 召什么 / 还带什么**。
+        ///
+        /// 召唤字是另一条顺序:**召唤排在最前** —— 那几只是这张字的一切,先看清召出来的是什么、
+        /// 几只,后面三段才有主语;它们的标题也点名「(召唤物)」,不点名的话玩家会把
+        /// 「攻击 44」读成这张牌自己的伤害。</summary>
         private void BuildDetail(Transform parent, CharDef def, bool owned)
         {
             int level = owned ? MetaRules.CardLevel(_meta, def.Id) : 1;
             BuildIdentity(parent, def, owned);
             if (!owned) BuildHowToGet(parent, def);
             if (owned) BuildLevel(parent, def);
-            BuildStats(parent, def, level, owned);
-            BuildFunction(parent, def, level);
+
+            bool summon = CollectionStats.SummonCount(def) > 0;
+            if (summon) BuildSummon(parent, def);
+            BuildStats(parent, def, level, owned, summon);
+            BuildModes(parent, def);
+            BuildTraits(parent, def, level, summon);
+
             if (!def.IsLeaf) BuildRecipe(parent, def);
             if (def.Element is { } element && element != Element.Heart) BuildWuxing(parent, element);
+        }
+
+        /// <summary>召唤:**召几只就画几只**,不写「×2」也不写说明 —— 数出来的比读出来的快,
+        /// 而它们的血与攻就在紧接着的「数值(召唤物)」里,再写一遍是同一件事说两遍。</summary>
+        private void BuildSummon(Transform parent, CharDef def)
+        {
+            int count = CollectionStats.SummonCount(def);
+            var section = Section(parent, Strings.T("collection.side.section.summon"));
+            var box = Ui.CardPanel(section, "Summons", Theme.AdGreenBg, 14);
+            Ui.Sized(box.gameObject, 0, 92, flexWidth: 1);
+            var row = Ui.Row(box.transform, "Row", 15);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.padding = new RectOffset(17, 17, 0, 0);
+            Ui.Stretch((RectTransform)row.transform);
+            for (int i = 0; i < count; i++)
+                Ui.MiniGlyphTile(row.transform, def, SummonTile);
         }
 
         private void BuildIdentity(Transform parent, CharDef def, bool owned)
@@ -807,50 +843,114 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform, value, 25, ok ? Theme.UpgradeText : Theme.CinnabarDark);
         }
 
-        private void BuildStats(Transform parent, CharDef def, int level, bool owned)
+        /// <summary>数值格。**格子里不再有下面那行小注**(「单体,每次」之类)——
+        /// 那句话现在由「攻击模式」整段来说,留在格子里是同一件事说两遍。
+        /// 格子因此矮了 26 单位(104 → 78)。</summary>
+        private void BuildStats(Transform parent, CharDef def, int level, bool owned, bool summon)
         {
             var stats = CollectionStats.Of(def, level);
             if (stats.Count == 0) return;
-            var section = Section(parent, owned
-                ? Strings.T("collection.side.section.stats", ("level", level))
-                : Strings.T("collection.side.section.stats_base"));
+            string title = summon
+                ? Strings.T("collection.side.section.stats_summon", ("level", level))
+                : (owned ? Strings.T("collection.side.section.stats", ("level", level))
+                         : Strings.T("collection.side.section.stats_base"));
+            var section = Section(parent, title);
 
             var row = Ui.Row(section, "Stats", 13);
             row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(row, 0, 104, flexWidth: 1);
+            Ui.Sized(row, 0, StatBoxH, flexWidth: 1);
             foreach (var stat in stats)
             {
                 var box = Ui.OutlinedPanel(row.transform, "Stat", Theme.CardWhite, Theme.PanelBorder, 14, 2);
-                Ui.Sized(box.gameObject, 0, 104, flexWidth: 1);
+                Ui.Sized(box.gameObject, 0, StatBoxH, flexWidth: 1);
                 var stack = Ui.VStack(box.transform, "Stack", 2);
                 Ui.Stretch((RectTransform)stack.transform);
                 Ui.ThemedLabel(stack.transform, stat.Label, 18, Theme.LockGray);
                 Ui.ThemedLabel(stack.transform, stat.Value.ToString(), 38, stat.Color, Theme.TitleFont);
-                Ui.ThemedLabel(stack.transform, stat.Note, 16, Theme.LockGray);
             }
         }
 
-        private void BuildFunction(Transform parent, CharDef def, int level)
+        /// <summary>攻击模式:这一记**打谁 / 护谁**。一格一条,前面那枚色点就是方向 ——
+        /// 朱砂是攻、翠玉是护。召唤字换成召唤物的近战 / 远程。</summary>
+        private void BuildModes(Transform parent, CharDef def)
         {
-            var section = Section(parent, Strings.T("collection.side.section.func"));
-            string text = CharInfo.EffectsText(def, level);
+            var modes = CardTraits.Modes(def);
+            if (modes.Count == 0) return;
+            var section = Section(parent, Strings.T("collection.side.section.mode"));
+            foreach (var mode in modes)
+            {
+                var row = Ui.Row(section, "Mode", 15);
+                var layout = row.GetComponent<HorizontalLayoutGroup>();
+                layout.childAlignment = TextAnchor.MiddleLeft;
+                layout.padding = new RectOffset(17, 17, 0, 0);
+                var image = row.AddComponent<Image>();
+                image.sprite = Theme.Rounded(12);
+                image.type = Image.Type.Sliced;
+                image.color = mode.Attack ? Theme.WarnBg : Theme.AdGreenBg;
+                Ui.Sized(row, 0, 54, flexWidth: 1);
+
+                var dot = Ui.CardPanel(row.transform, "Dir",
+                    mode.Attack ? Theme.GlyphColor(Element.Fire) : Theme.Jade, 8);
+                Ui.Sized(dot.gameObject, 31, 31);
+                Ui.ThemedLabel(dot.transform,
+                    mode.Attack ? Strings.T("collection.mode.dir_attack") : Strings.T("collection.mode.dir_support"),
+                    18, Color.white, Theme.TitleFont);
+
+                var name = Ui.ThemedLabel(row.transform, mode.Name, 21, Theme.TextMain);
+                name.alignment = TextAnchor.MiddleLeft;
+                Ui.Sized(name.gameObject, flexWidth: 1);
+                if (!string.IsNullOrEmpty(mode.Note))
+                    Ui.ThemedLabel(row.transform, mode.Note, 18, Theme.LockGray);
+            }
+        }
+
+        /// <summary>特性 · 技能:一条一张小卡,头是「图标 chip + 名」,下面一行说明 ——
+        /// 与召唤物 / 敌人详情的那块同款,玩家在三处读到的是同一种东西。
+        /// 没有图标的退成纯文字 chip,宽度对得齐。</summary>
+        private void BuildTraits(Transform parent, CharDef def, int level, bool summon)
+        {
+            var traits = CardTraits.Of(def, level);
+            var section = Section(parent, summon
+                ? Strings.T("collection.side.section.traits_summon")
+                : Strings.T("collection.side.section.traits"));
+            if (traits.Count == 0)
+            {
+                var empty = Ui.ThemedLabel(section, Strings.T("collection.side.no_traits"), 19, Theme.LockGray);
+                empty.alignment = TextAnchor.UpperLeft;
+                Ui.Sized(empty.gameObject, 0, 34, flexWidth: 1);
+                return;
+            }
+
             float width = SideW - SidePad * 2;
+            foreach (var trait in traits)
+            {
+                float descHeight = string.IsNullOrEmpty(trait.Desc)
+                    ? 0f : Ui.WrappedTextHeight(trait.Desc, 19, width - 34);
+                var card = Ui.OutlinedPanel(section, "Trait", Theme.CardWhite, Theme.PanelBorder, 14, 2);
+                Ui.Sized(card.gameObject, 0, 40 + descHeight + 24, flexWidth: 1);
 
-            var box = Ui.OutlinedPanel(section, "Func", Theme.CardWhite, Theme.PanelBorder, 14, 2);
-            Ui.Sized(box.gameObject, 0,
-                Mathf.Max(60, Ui.WrappedTextHeight(text, 21, width - 32) + 30), flexWidth: 1);
+                var stack = Ui.VStack(card.transform, "Stack", 5);
+                var layout = stack.GetComponent<VerticalLayoutGroup>();
+                layout.childAlignment = TextAnchor.UpperLeft;
+                layout.padding = new RectOffset(17, 17, 12, 12);
+                Ui.Stretch((RectTransform)stack.transform);
 
-            // 左边一条属性色的粗边(稿 .desc 的 border-left)
-            var edge = Ui.Panel(box.transform, "Edge");
-            edge.AddComponent<Image>().color = Theme.ElementColor(def.Element);
-            Ui.Anchor((RectTransform)edge.transform, Vector2.zero, new Vector2(0, 1),
-                Vector2.zero, new Vector2(6, 0));
+                var head = Ui.Row(stack.transform, "Head", 10);
+                head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                Ui.Sized(head, 0, 33, flexWidth: 1);
+                if (trait.IconKey != null)
+                    Ui.Chip(head.transform, trait.Amount, CardTraits.ChipColor(trait.IconKey),
+                        Color.white, 18, iconKey: trait.IconKey);
+                else
+                    Ui.Chip(head.transform, trait.Word, Theme.LockedBg, Theme.TextDim, 18);
+                Ui.ThemedLabel(head.transform, trait.Name, 22, Theme.TextMain, Theme.TitleFont);
 
-            var label = Ui.ThemedLabel(box.transform, text, 21, Theme.TextMain);
-            label.alignment = TextAnchor.UpperLeft;
-            label.horizontalOverflow = HorizontalWrapMode.Wrap;
-            Ui.Anchor(label.rectTransform, Vector2.zero, Vector2.one,
-                new Vector2(19, 15), new Vector2(-13, -15));
+                if (descHeight <= 0f) continue;
+                var desc = Ui.ThemedLabel(stack.transform, trait.Desc, 19, Theme.TextDim);
+                desc.alignment = TextAnchor.UpperLeft;
+                desc.horizontalOverflow = HorizontalWrapMode.Wrap;
+                Ui.Sized(desc.gameObject, 0, descHeight, flexWidth: 1);
+            }
         }
 
         private void BuildRecipe(Transform parent, CharDef def)
@@ -968,39 +1068,162 @@ namespace Brushblade.Presentation
                     ("perElementLimit", MetaRules.DeckPerElementLimit)));
         }
 
-        /// <summary>升级前 preview:前后两级效果对比 + 消耗,确认才扣(2026-07-20)。
-        /// 稿上没画这一层,但升级是**不可逆支出** —— 弹窗族的口径是「不可逆的都要在按下去之前说清楚」。</summary>
+        /// <summary>升级确认弹窗(稿 <c>docs/design/ui/scenes/Upgrade.dc.html</c>)。
+        ///
+        /// 2026-09-04 重写。原来是「Lv.1 → Lv.2」一行,加上前后两句 <see cref="CharInfo.EffectsText"/>
+        /// 全文对着看 —— 玩家得自己在两串长句子里找哪个数变了。现在拆成两段:
+        /// **数值提升**(攻/治/盾,一行一条「旧 → 新 (+差)」)与**层数与特性**(灼烧几层、致盲几成,
+        /// 同一条读法,前面挂图标 chip);没变的收成底下一行灰字,它回答的是「我会不会丢掉什么」。
+        ///
+        /// ⚠ **不印重复卡与墨锭消耗**(2026-09-04 用户拍板):不够根本走不到这一页 ——
+        /// 详情页那颗按钮就是灰的、点不动。印出来只是把「你付得起」再说一遍。</summary>
         private void ShowUpgradePreview(string cardId)
         {
             var def = _graph.Get(cardId);
             int level = MetaRules.CardLevel(_meta, cardId);
-            _meta.CardCopies.TryGetValue(cardId, out int copies);
-            int copiesNeeded = MetaRules.CopiesRequired(level, def.Rarity);
-            int inkNeeded = MetaRules.InkRequired(level, def.Rarity);
+            int next = level + 1;
 
             if (_modal != null) Destroy(_modal);
-            var overlay = Ui.ModalShell(transform, Strings.T("collection.modal.upgrade_title", ("cardId", cardId)),
-                new Vector2(340, 275), dismissable: true, out var stack);
+            var overlay = Ui.Sheet(transform, "UpgradeSheet", UpgradeW, UpgradeH,
+                dismissable: true, replaceSameName: true, Theme.Scrim, out var stack);
             _modal = overlay;
+            var stackLayout = stack.GetComponent<VerticalLayoutGroup>();
+            stackLayout.childAlignment = TextAnchor.UpperCenter;
+            stackLayout.childForceExpandWidth = true;
 
-            Ui.GlyphTile(stack, def, false, null, new Vector2(144, 180));
-            Ui.ThemedLabel(stack, $"Lv.{level} → Lv.{level + 1}", 21, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(stack,
-                $"{CharInfo.EffectsText(def, level)}\n↓\n{CharInfo.EffectsText(def, level + 1)}",
-                17, Theme.TextDim);
-            Ui.ThemedLabel(stack,
-                Strings.T("collection.modal.upgrade_cost", ("needed", copiesNeeded), ("copies", copies),
-                    ("inkNeeded", inkNeeded), ("ink", _meta.Ink)),
-                16, Theme.TextDim);
+            var head = Ui.Row(stack, "Head", 15);
+            head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.LowerLeft;
+            Ui.Sized(head, 0, 40, flexWidth: 1);
+            Ui.ThemedLabel(head.transform, Strings.T("collection.modal.upgrade_title", ("cardId", cardId)),
+                34, Theme.TextMain, Theme.TitleFont);
+            Ui.ThemedLabel(head.transform, Strings.T("collection.modal.upgrade_warn"), 19, Theme.LockGray);
 
-            var buttons = Ui.Row(stack, "Buttons", 14);
-            Ui.PillButton(buttons.transform, Strings.T("collection.modal.confirm_upgrade_button"), () =>
+            // 牌行:左边那张压暗 —— 「这是它现在的样子」
+            var step = Ui.Row(stack, "Step", 29);
+            step.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Ui.Sized(step, 0, UpgradeTile.y, flexWidth: 1);
+            var before = Ui.MiniGlyphTile(step.transform, def, UpgradeTile);
+            before.GetComponent<Image>().color = Theme.LockedPaper;
+            Ui.ThemedLabel(step.transform, Strings.T("collection.side.recipe_to"), 29, Theme.ExitPink);
+            Ui.MiniGlyphTile(step.transform, def, UpgradeTile);
+            Ui.Chip(step.transform, Strings.T("collection.button.upgrade", ("level", next)),
+                Theme.Jade, Color.white, 21);
+
+            var body = Ui.Row(stack, "Body", 25);
+            body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            Ui.Sized(body, flexWidth: 1, flexHeight: 1);
+            BuildUpgradeNumbers(body.transform, def, level, next);
+            BuildUpgradeTraits(body.transform, def, level, next);
+
+            var buttons = Ui.Row(stack, "Buttons", 21);
+            buttons.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
+            Ui.Sized(buttons, 0, 71, flexWidth: 1);
+            var confirm = Ui.PillButton(buttons.transform, Strings.T("collection.modal.confirm_upgrade_button"), () =>
             {
                 Destroy(overlay); // 先关弹窗:Upgrade 会 Rebuild 清根,顺序反了会留残影
                 Upgrade(cardId);
-            }, Theme.Jade, Color.white, 18, new Vector2(150, 52));
+            }, Theme.Jade, Color.white, 24, new Vector2(0, 71));
+            confirm.GetComponent<LayoutElement>().flexibleWidth = 1;
             Ui.PillButton(buttons.transform, Strings.T("common.reconsider"), () => Destroy(overlay),
-                Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 52));
+                Theme.LockedBg, Theme.TextMain, 24, new Vector2(250, 71));
+        }
+
+        /// <summary>数值提升:一行一条「旧 → 新 (+差)」。没有量级变化的字这一栏留空,
+        /// 整段不占位 —— 焦(只有灼烧)那类字升级动的本来就只有层数。</summary>
+        private void BuildUpgradeNumbers(Transform parent, CharDef def, int level, int next)
+        {
+            var col = Ui.VStack(parent, "Numbers", 11);
+            var layout = col.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childForceExpandWidth = true;
+            Ui.Sized(col, flexWidth: 1, flexHeight: 1);
+            var section = Section(col.transform, Strings.T("collection.modal.section.numbers"));
+
+            var was = CollectionStats.Of(def, level);
+            var now = CollectionStats.Of(def, next);
+            int shown = 0;
+            for (int i = 0; i < was.Count && i < now.Count; i++)
+            {
+                if (was[i].Value == now[i].Value) continue;
+                shown++;
+                DeltaRow(section, null, null, was[i].Label,
+                    was[i].Value.ToString(), now[i].Value.ToString(),
+                    Strings.T("collection.modal.delta", ("delta", now[i].Value - was[i].Value)));
+            }
+            if (shown == 0)
+                Ui.Sized(Ui.ThemedLabel(section, Strings.T("collection.modal.no_numbers"),
+                    19, Theme.LockGray).gameObject, 0, 40, flexWidth: 1);
+        }
+
+        /// <summary>层数与特性:与数值同一条读法,只是前面挂图标 chip。
+        /// 灼烧几层、致盲几成这类「功能强度」的变化,和伤害数字一样是玩家买单的理由。</summary>
+        private void BuildUpgradeTraits(Transform parent, CharDef def, int level, int next)
+        {
+            var col = Ui.VStack(parent, "Traits", 11);
+            var layout = col.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childForceExpandWidth = true;
+            Ui.Sized(col, flexWidth: 1, flexHeight: 1);
+            var section = Section(col.transform, Strings.T("collection.modal.section.traits"));
+
+            var was = CardTraits.Of(def, level);
+            var now = CardTraits.Of(def, next);
+            var unchanged = new List<string>();
+            int shown = 0;
+            for (int i = 0; i < was.Count && i < now.Count; i++)
+            {
+                if (was[i].Amount == now[i].Amount)
+                {
+                    unchanged.Add(now[i].Name);
+                    continue;
+                }
+                shown++;
+                DeltaRow(section, now[i].IconKey, now[i].Word, now[i].Name,
+                    was[i].Amount, now[i].Amount, null);
+            }
+            if (shown == 0)
+                Ui.Sized(Ui.ThemedLabel(section, Strings.T("collection.modal.no_traits"),
+                    19, Theme.LockGray).gameObject, 0, 40, flexWidth: 1);
+            if (unchanged.Count == 0) return;
+
+            // 没变的收成一行灰字 —— 它回答的是「我会不会丢掉什么」
+            string keep = Strings.T("collection.modal.unchanged", ("list", string.Join(" · ", unchanged)));
+            var label = Ui.ThemedLabel(section, keep, 18, Theme.LockGray);
+            label.alignment = TextAnchor.UpperLeft;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Ui.Sized(label.gameObject, 0,
+                Ui.WrappedTextHeight(keep, 18, UpgradeW * 0.5f - 50), flexWidth: 1);
+        }
+
+        /// <summary>「[chip] 名 旧 → 新 (+差)」一行。两段共用,读法因此完全一致。</summary>
+        private GameObject DeltaRow(Transform parent, string iconKey, string word, string name,
+            string was, string now, string delta)
+        {
+            var row = Ui.Row(parent, "Delta", 11);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.padding = new RectOffset(17, 17, 0, 0);
+            var image = row.AddComponent<Image>();
+            image.sprite = Theme.Rounded(12);
+            image.type = Image.Type.Sliced;
+            image.color = Theme.PanelInset;
+            Ui.Sized(row, 0, 54, flexWidth: 1);
+
+            if (iconKey != null)
+                Ui.Chip(row.transform, "", CardTraits.ChipColor(iconKey), Color.white, 18, iconKey: iconKey);
+            else if (word != null)
+                Ui.Chip(row.transform, word, Theme.LockedBg, Theme.TextDim, 18);
+
+            var label = Ui.ThemedLabel(row.transform, name, 19, Theme.TextDim);
+            label.alignment = TextAnchor.MiddleLeft;
+            Ui.Sized(label.gameObject, flexWidth: 1);
+
+            Ui.ThemedLabel(row.transform, was, 25, Theme.LockGray, Theme.TitleFont);
+            Ui.ThemedLabel(row.transform, Strings.T("collection.side.recipe_to"), 18, Theme.LockGray);
+            Ui.ThemedLabel(row.transform, now, 29, Theme.UpgradeText, Theme.TitleFont);
+            if (delta != null)
+                Ui.ThemedLabel(row.transform, delta, 19, Theme.Jade);
+            return row;
         }
 
         private void Upgrade(string cardId)

@@ -33,6 +33,15 @@ namespace Brushblade.Presentation
 
         private const int MaxBoxes = 3;
 
+        /// <summary>这张字召几只(不是召唤字返回 0)。详情页靠它决定要不要出「召唤」那一段,
+        /// 以及后面几段的标题要不要点名「(召唤物)」。</summary>
+        public static int SummonCount(CharDef def)
+        {
+            foreach (var effect in def.Effects)
+                if (effect.Kind == EffectKind.Summon) return effect.SummonCount;
+            return 0;
+        }
+
         /// <summary>取这张字在 <paramref name="cardLevel"/> 级的数值格,至多三格。
         ///
         /// 双方向字(水/土)把 <see cref="CharDef.AttackEffects"/> 也扫进来 ——

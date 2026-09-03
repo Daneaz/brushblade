@@ -130,20 +130,14 @@
 
     /* ③ 召唤:只有召唤字才出这一段。它与「攻击模式」是两回事 ——
        出去的不是一记伤害,是一只会自己行动的东西,数值也全是它的 */
-    .sum { display: flex; align-items: center; gap: 9px; background: #EDF3EA;
+    /* 召唤:召几只就画几只,**不写 ×N、不写说明** —— 数出来的比读出来的快,
+       而它们的血/攻就在下面那段「数值(召唤物)」里,再写一遍是同一件事说两遍 */
+    .sum { display: flex; align-items: center; gap: 8px; background: #EDF3EA;
       border: 1px solid #CFE1D2; border-radius: 8px; padding: 8px 9px; }
-    .sum .who { position: relative; width: 40px; height: 50px; flex: none; box-sizing: border-box;
+    .sum .who { width: 40px; height: 50px; flex: none; box-sizing: border-box;
       border-radius: 6px; background: #FFFDF7; border: 2px solid var(--rar);
       display: flex; align-items: center; justify-content: center;
       font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; color: var(--glyph); }
-    .sum .cnt { position: absolute; right: -5px; bottom: -5px; height: 15px; padding: 0 5px;
-      border-radius: 8px; background: #2E7D46; color: #fff; font-size: 9px; font-weight: 700;
-      display: flex; align-items: center; }
-    .sum .figs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-    .sum .fig { display: flex; align-items: baseline; gap: 5px; font-size: 9.5px; color: #5D646F;
-      font-variant-numeric: tabular-nums; }
-    .sum .fig b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #161B22; }
-    .sum .note { font-size: 9px; color: #7A7261; }
 
     .abils { display: flex; flex-direction: column; gap: 5px; }
 
@@ -239,49 +233,52 @@
       <div class="phead">字牌详情</div>
       <div class="pbody">
         <div class="idcard">
-          <div class="tile"><span class="lv">Lv.2</span><span class="rd"></span><span class="g">荆</span><span class="py">jīng</span></div>
+          <div class="tile"><span class="lv">Lv.2</span><span class="rd"></span><span class="g">楸</span><span class="py">qiū</span></div>
           <div class="idmeta">
-            <div class="idname"><span class="n">荆</span><span class="p">jīng</span></div>
+            <div class="idname"><span class="n">楸</span><span class="p">qiū</span></div>
             <div class="chips">
               <span class="chip rar">紫</span>
               <span class="chip elm">木系</span>
             </div>
-            <div class="gloss">多刺灌木</div>
-          </div>
-        </div>
-
-        <div>
-          <div class="ttl"><b>数值</b> · Lv.2<i class="rule"></i></div>
-          <div class="stats" style="margin-top: 6px;">
-            <div class="sbox hp"><div class="k">血量</div><div class="v">363</div></div>
-            <div class="sbox atk"><div class="k">攻击</div><div class="v">0</div></div>
+            <div class="gloss">落叶乔木,材质坚</div>
           </div>
         </div>
 
         <div>
           <div class="ttl"><b>召唤</b><i class="rule"></i></div>
           <div class="sum" style="margin-top: 6px;">
-            <div class="who">荆<span class="cnt">×2</span></div>
-            <div class="figs">
-              <div class="fig">血 <b>363</b> · 攻 <b>0</b></div>
-              <div class="note">落在前排,替你挨打;上面的数值就是它的</div>
+            <div class="who">楸</div>
+            <div class="who">楸</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>数值(召唤物)</b> · Lv.2<i class="rule"></i></div>
+          <div class="stats" style="margin-top: 6px;">
+            <div class="sbox hp"><div class="k">血量</div><div class="v">97</div></div>
+            <div class="sbox atk"><div class="k">攻击</div><div class="v">44</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ttl"><b>攻击模式</b><i class="rule"></i></div>
+          <div class="modes" style="margin-top: 6px;">
+            <div class="mode atk">
+              <span class="dir">远</span><span class="nm">远程</span>
+              <span class="ex">不必先清前排</span>
             </div>
           </div>
         </div>
 
         <div>
-          <div class="ttl"><b>特性 · 技能</b><i class="rule"></i></div>
+          <div class="ttl"><b>特性 · 技能(召唤物)</b><i class="rule"></i></div>
           <div class="abils" style="margin-top: 6px;">
             <div class="abil">
               <div class="h">
-                <span class="cp" style="background: #348F4F"><svg class="ic"><use href="#ic-thorns"></use></svg>55%</span>
-                荆棘
+                <span class="cp" style="background: #C53637"><svg class="ic"><use href="#ic-burn"></use></svg>2</span>
+                命中挂灼烧
               </div>
-              <div class="t">被打时反弹 <b>55%</b> 伤害 —— 它攻 0,伤害全从这里出</div>
-            </div>
-            <div class="abil">
-              <div class="h"><span class="cp word">嘲讽</span>强制挨打</div>
-              <div class="t">敌人只能打它,直到它倒下</div>
+              <div class="t">它每打中一次,给目标叠 <b>2 层</b>灼烧</div>
             </div>
           </div>
         </div>
@@ -315,8 +312,13 @@
         <span class="no">3</span>
         <div class="tx">
           <h3>召唤</h3>
-          <p><b>只有召唤字才出这一段。</b>它与攻击模式是两回事:出去的不是一记伤害,是一只会自己行动的东西,
-            上面那些数值也全是它的。所以单开一块,把「召几只、多大、落在哪」一次说完。</p>
+          <p><b>只有召唤字才出这一段,而且排在最前。</b>召唤字的一切都是这几只的 ——
+            先看清召出来的是什么、几只,后面那三段才有主语。</p>
+          <p><b>召几只就画几只</b>,不写「×2」也不写说明:数出来的比读出来的快,
+            血与攻就在下一段,再写一遍是同一件事说两遍。</p>
+          <p>这一支的另外两段标题都点名<em>(召唤物)</em> —— 数值(召唤物)、特性 · 技能(召唤物)。
+            召唤字自己不打人,不点名的话玩家会把「攻击 44」读成这张牌的伤害。
+            <b>攻击模式对召唤物是近战 / 远程</b>(它够不够得着后排),不是单体 / 全体。</p>
         </div>
       </div>
       <div class="lg">
