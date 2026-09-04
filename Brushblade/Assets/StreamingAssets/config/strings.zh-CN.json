@@ -399,6 +399,8 @@
   "juice.popup.ke_crit_damage": "暴克 {amount}",
   "juice.popup.ke_damage": "克 {amount}",
   "juice.popup.kill_mark": "正!",
+  "juice.popup.maxhp_down": "上限 -{amount}",
+  "juice.popup.maxhp_up": "上限 +{amount}",
   "juice.popup.miss": "空",
   "juice.popup.regrow_full": "补全!",
   "juice.popup.regrow_full_with_heal": "补全! +{amount}",

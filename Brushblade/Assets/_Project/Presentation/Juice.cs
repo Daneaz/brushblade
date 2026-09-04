@@ -1119,6 +1119,33 @@ namespace Brushblade.Presentation
         /// 再从条上浮起几枚属性元件。治疗、筑盾、补全都是「涨」,共用一套动作语言,
         /// 靠颜色与元件区分是哪一系 —— 元件直接复用字牌那批素材
         /// (《字牌形象关键词包》§4.3 本就是这么许诺的:一个元件同时服务字牌与战斗特效)。</summary>
+        /// <summary>奇遇改动血量上限的表现(2026-09-05 用户拍板:「应该是血条上涨 + 治疗特效」)。
+        ///
+        /// 涨的那一支与战斗里的 <see cref="BattleEventKind.Heal"/> **同一套语汇** ——
+        /// 飘量 + 治疗音 + 水系上浮起势。玩家看到的本来就是同一件事「血涨了」,
+        /// 唯一的差别是这一次的涨幅同时把容器也撑大了(Core 里「拿到的是血也是容器」那一句),
+        /// 而那一半靠血条自己的两拍动画讲(见 BattleView.MaxHpShiftRoutine)。
+        ///
+        /// 跌的那一支刻意**不借**这套:转朱砂、不带水花、不出治疗音 —— 元素微粒与治疗音
+        /// 都是「有东西涌进来」的语汇,掉上限借用它会把坏事演成好事。飘字仍要出,
+        /// 不然玩家只看见血条抖一下,不知道抖的是什么。</summary>
+        /// <param name="maxHp">这一次动的是**上限**还是单纯的当前血。上限那支要点名
+        /// (「上限 +30」)—— 光飘「+30」玩家会读成一次治疗,而这两件事的价值差着一个量级;
+        /// 纯血量走 `+N` / `-N`,与战斗里的治疗/伤害飘字逐字相同,不另起一套写法。</param>
+        public void MaxHpShift(RectTransform fill, int delta, bool maxHp)
+        {
+            if (delta == 0) return;
+            bool up = delta > 0;
+            int amount = Mathf.Abs(delta);
+            var color = up ? Theme.SplitBlue : Theme.Cinnabar;
+            Popup(maxHp
+                    ? Strings.T(up ? "juice.popup.maxhp_up" : "juice.popup.maxhp_down", ("amount", amount))
+                    : (up ? "+" : "-") + amount,
+                color, null);
+            if (up) PlayClip(_healClip, 0.7f);
+            BarPulse(fill, color, up ? Element.Water : null);
+        }
+
         public void BarPulse(RectTransform fill, Color color, Element? element = null)
         {
             if (fill == null || fill.parent == null) return;

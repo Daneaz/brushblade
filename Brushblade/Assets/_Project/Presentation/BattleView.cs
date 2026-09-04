@@ -4098,7 +4098,11 @@ namespace Brushblade.Presentation
                         return;
                     }
                     int inkBefore = _run.AvailableInk;
-                    int maxHpBefore = _run.EffectiveMaxHp; // 上限是掷出来的(MaxHpChancePercent),只能事后 diff
+                    // 上限是掷出来的(MaxHpChancePercent),只能事后 diff;当前血同样要 diff 而不是
+                    // 拿 option.HpDelta —— 那是**意图值**,真正落地的量被 Core 那几道
+                    // Clamp/Min/Max 削过(满血时治疗吃不满、扣上限时当前血被收回来)
+                    int maxHpBefore = _run.EffectiveMaxHp;
+                    int hpBefore = _run.CarriedHp;
                     var beforeHoldings = SnapshotHoldings(); // 结算前拍一张,结算后 diff 出拿到了什么
                     if (_run.ChooseEventOption(index))
                     {
@@ -4110,7 +4114,7 @@ namespace Brushblade.Presentation
                         MarkFreshSince(beforeHoldings); // 拿到的字/部件高亮,与战利品同一套读法
                         // 生命上限 / 当前血的变化先飘出来再换屏(2026-09-02 试玩反馈:
                         // 「当前看不到效果,最后也不知道到底是扣血还是加血上限了」)
-                        if (AnnounceEventHpOutcome(_run.EffectiveMaxHp - maxHpBefore, option.HpDelta))
+                        if (AnnounceEventHpOutcome(hpBefore, maxHpBefore))
                         {
                             _eventResolving = true;
                             StartCoroutine(FinishEventAfterOutcome());
@@ -4199,21 +4203,54 @@ namespace Brushblade.Presentation
         ///
         /// 上限是**掷出来的**(MaxHpChancePercent,掷空则反向扣同样百分比),所以只能由调用方
         /// 事后 diff <c>EffectiveMaxHp</c> 得到,不能读 option 上的配置值。</summary>
-        private bool AnnounceEventHpOutcome(int maxHpDelta, int hpDelta)
+        private bool AnnounceEventHpOutcome(int hpBefore, int maxHpBefore)
         {
+            int maxHpDelta = _run.EffectiveMaxHp - maxHpBefore;
+            int hpDelta = _run.CarriedHp - hpBefore;
             // 上限涨的那一刻当前血也跟着涨了同样的量(Core 里「拿到的是血也是容器」那一句),
             // 所以两者合看一次涨跌即可,不分开播两遍。
             int delta = maxHpDelta != 0 ? maxHpDelta : hpDelta;
             if (delta == 0 || _playerHpBar.fill == null) return false;
 
-            SetHpBar(_playerHpBar, _run.CarriedHp, _run.EffectiveMaxHp);
-            // 涨:水系上浮起势,与治疗同一套(见 OnImpact 里 Healed 那一支)。
-            // 跌:同一个起势但转朱砂、不带水花 —— 元素微粒是「有东西涌进来」的语汇,
-            // 掉血/掉上限不该借用它,留一记红色脉冲把注意力钉在血条上就够了。
-            _juice.BarPulse(_playerHpBar.fill,
-                delta > 0 ? Theme.SplitBlue : Theme.Cinnabar,
-                delta > 0 ? Element.Water : null);
+            _juice.MaxHpShift(_playerHpBar.fill, delta, maxHpDelta != 0);
+            // ⚠ **比例式血条画不出「容器变大」** —— 这是 2026-09-02 那版只飘一记脉冲、
+            // 用户仍说「看不到效果」的根因:上限 +30% 的同时当前血也 +30%,满血时
+            // 100/100 → 130/130 的**比值一模一样**,血条一动不动。掉上限同理:血被
+            // Clamp 回新上限,又是满格对满格。
+            //
+            // 所以分两拍演,中间插一个「空出一截」的中间态,让上涨/下跌真的看得见:
+            //   涨 → (旧血 100 / 新上限 130) = 77%,容器先撑大 → 再填到 100%
+            //   跌 → (新血 70  / 旧上限 100) = 70%,血先掉一截 → 容器再收到 70,回满
+            // 两支的中间态统一是「较小的血 / 较大的上限」,所以下面一个式子就够,
+            // 不必按方向分岔(涨取旧血、跌取新血,恰好都是 Min;上限那侧同理都是 Max)。
+            StartCoroutine(MaxHpShiftRoutine(
+                Mathf.Min(hpBefore, _run.CarriedHp), Mathf.Max(maxHpBefore, _run.EffectiveMaxHp),
+                _run.CarriedHp, _run.EffectiveMaxHp));
             return true;
+        }
+
+        private const float MaxHpShiftHold = 0.22f; // 中间态停留:容器变大/血掉一截要看得见
+        private const float MaxHpShiftRise = 0.42f; // 填回去的时长
+
+        /// <summary>血条两拍:先跳到「空出一截」的中间态停一下,再补回终态
+        /// (为什么要中间态见 <see cref="AnnounceEventHpOutcome"/> 里那段注释)。
+        /// 走 unscaledDeltaTime 与 <see cref="FinishEventAfterOutcome"/> 同一条时基;
+        /// 两者时长之和必须 ≤ <see cref="EventOutcomeHold"/>,否则换屏会把动画掐掉。</summary>
+        private System.Collections.IEnumerator MaxHpShiftRoutine(int midHp, int midMaxHp,
+            int endHp, int endMaxHp)
+        {
+            SetHpBar(_playerHpBar, midHp, midMaxHp);
+            for (float t = 0; t < MaxHpShiftHold; t += Time.unscaledDeltaTime)
+                yield return null;
+            for (float t = 0; t < MaxHpShiftRise; t += Time.unscaledDeltaTime)
+            {
+                if (_playerHpBar.fill == null) yield break; // 换屏把条销毁了(不该发生,但别拖着崩)
+                float k = t / MaxHpShiftRise;
+                SetHpBar(_playerHpBar, Mathf.RoundToInt(Mathf.Lerp(midHp, endHp, k)),
+                    Mathf.RoundToInt(Mathf.Lerp(midMaxHp, endMaxHp, k)));
+                yield return null;
+            }
+            if (_playerHpBar.fill != null) SetHpBar(_playerHpBar, endHp, endMaxHp);
         }
 
         /// <summary>飘字停留够了再换屏。停留时长取 <see cref="EventOutcomeHold"/> ——
