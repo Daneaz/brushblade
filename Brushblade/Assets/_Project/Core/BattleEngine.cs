@@ -324,9 +324,15 @@ namespace Brushblade.Core
         // 表现层按列取固定格位(BattleView.DrawEnemies),两处上限一旦分叉,
         // 分配出来的 Column 就会越过表现层的格位数组,静默变成一次崩溃(2026-08-22 评审)。
         private const int EnemyRowCap = Targeting.RowCapacity;
-        // 焦痕受击存活的加攻(**百分点**,2026-08-12 由「+2 点」换算而来:焦痕 BaseAttack = 4,
-        // 50% × 4 = 2,对任意层数逐位等价 —— AttackBuffUnitTests 的焦痕序列守着这条零行为变化)
-        private const int ScorchGain = 50;
+        /// <summary>焦痕受击存活的加攻(**百分点**,2026-08-12 由「+2 点」换算而来:焦痕
+        /// BaseAttack = 4,50% × 4 = 2,对任意层数逐位等价 —— AttackBuffUnitTests 的焦痕序列
+        /// 守着这条零行为变化)。
+        ///
+        /// public 是因为表现层要拿它当**分母**换算「烧到几成」(MobAssets.StateAmountFor 的
+        /// 火芯亮度):此前那边自己写死了一个 8,而 8 是 ×10 之前「基础攻 4、每次 +2、四次到顶」
+        /// 的旧数 —— 全表量级 ×10 后每次自燃变成 +20 点,一次受击就把亮度推满,后面三次全无变化。
+        /// 数值在两处各写一份就是这个 bug 的成因,现在只有这一份。</summary>
+        public const int ScorchGain = 50;
         // 标点小妖给同伴的加攻(百分点,2026-08-12 用户拍板)。改动前送的是「施加者自身攻击力」
         // = 固定 +2,而敌人平均攻击 ≈ 4,取 50% 恰好保住平均值,同时修掉「加给攻 2 的怪是 +100%、
         // 加给攻 8 的怪只有 +25%」这个 4 倍偏差。

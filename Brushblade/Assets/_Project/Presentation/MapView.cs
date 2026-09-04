@@ -46,6 +46,7 @@ namespace Brushblade.Presentation
         // 计时中箱位的倒计时/加速价标签引用:Tick 只改文本不重建,避免按钮每秒被销毁点不中
         private readonly System.Collections.Generic.List<(int index, Text countdown, Text skipCost)> _countdowns = new();
         private GameObject _resultPanel; // 开箱结果面板;打开期间禁止整页重建
+        private GameObject _helpPanel;   // 宝箱说明弹窗;同样禁止整页重建(见 Tick)
         private GameObject _modal;       // 当前告知弹窗(同屏仅一个)
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
@@ -86,7 +87,9 @@ namespace Brushblade.Presentation
                 if (countdown != null) countdown.text = Format(remaining);
                 if (skipCost != null) skipCost.text = Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining)));
             }
-            if (becameReady && _resultPanel == null)
+            // 说明弹窗与结果面板同一条守卫:Rebuild 会 Ui.Clear 掉整个根节点,而两者
+            // 都挂在根上 —— 读说明读到某只箱刚好就绪,弹窗会当着玩家的面消失。
+            if (becameReady && _resultPanel == null && _helpPanel == null)
                 Rebuild();
         }
 
@@ -419,6 +422,13 @@ namespace Brushblade.Presentation
             if (_meta.PendingChests.Count > 0) // 暂存箱等腾位(2026-07-22)
                 Ui.Chip(header.transform, Strings.T("map.chest.pending_chip", ("count", _meta.PendingChests.Count)),
                     Theme.Cinnabar, Color.white, 15);
+            // 「?」推到栏头右端(2026-09-04 用户拍板):开箱机制与保底口径全在弹窗里。
+            // 放栏头而不是每个箱位上 —— 说的是整套规则,不是这一只箱。
+            var headSpacer = Ui.Panel(header.transform, "Spacer");
+            headSpacer.AddComponent<LayoutElement>().flexibleWidth = 1;
+            Ui.RoundButton(header.transform, Strings.T("map.chest.help_button"), ShowChestHelp,
+                Theme.PanelInset, Theme.TextDim, 20, new Vector2(HelpBadge, HelpBadge),
+                (int)(HelpBadge / 2f));
 
             // 2×2 网格(稿上 .cgrid):两行各两格,行列都吃满剩下的空间
             var grid = Ui.VStack(stack.transform, "Grid", 13);
@@ -694,16 +704,21 @@ namespace Brushblade.Presentation
             var seen = new System.Collections.Generic.HashSet<string>(ownedBefore);
 
             BuildResultLeft(columns.transform, tier, rewards, fresh);
-            // 两栏之间那条竖线(稿上左栏的 border-right)。不走 CardPanel:Rounded(0) 会算出
-            // 一张 50% 半透的图,细线上看着像掉了色
-            var separator = Ui.Panel(columns.transform, "Rule");
-            separator.AddComponent<Image>().color = Theme.PanelBorder;
-            var separatorElement = separator.AddComponent<LayoutElement>();
-            separatorElement.preferredWidth = 2;
-            separatorElement.flexibleHeight = 1;
+            ColumnRule(columns.transform);
 
             var tiles = BuildResultGrid(columns.transform, rewards, seen);
             StartCoroutine(RevealTiles(tiles));
+        }
+
+        /// <summary>两栏之间那条竖线(稿上左栏的 border-right)。不走 CardPanel:Rounded(0)
+        /// 会算出一张 50% 半透的图,细线上看着像掉了色。开箱结果与宝箱说明两屏共用。</summary>
+        private static void ColumnRule(Transform parent)
+        {
+            var rule = Ui.Panel(parent, "Rule");
+            rule.AddComponent<Image>().color = Theme.PanelBorder;
+            var element = rule.AddComponent<LayoutElement>();
+            element.preferredWidth = 2;
+            element.flexibleHeight = 1;
         }
 
         /// <summary>左栏:哪只箱、多少墨、几张新字。立绘用的是与箱位同一张素材。</summary>
@@ -918,6 +933,166 @@ namespace Brushblade.Presentation
             if (_modal != null) Destroy(_modal);
             _modal = Ui.Alert(transform, title, body);
         }
+
+        // ---- 宝箱说明弹窗(2026-09-04 用户拍板:「?」把档位/开箱/保底连概率表一并交代) ----
+        //
+        // **一格数字都不许在这一屏里手抄**:档位时长、卡数、墨锭、单箱保底、计数保底阈值、
+        // 七档出货权重全部从 ChestRules 的那几张公开表读。抄一份的代价是它会安静地过期
+        // —— 玩家照着一张早就改过的概率表刷箱,比没有这一屏更糟。
+        // (GuaranteedRarityFor 就是为这一屏才从 private 提上来的,见 Chest.cs 那条注释。)
+
+        private const float HelpBadge = 40f;    // 栏头「?」的直径
+        private const float HelpLeftW = 520f;   // 左栏(机制说明)定宽,右栏吃余量
+        private const float HelpRowH = 40f;     // 表格行高
+        // 表格列宽:档名 / 时长 / 卡数 / 墨锭 / 保底,再加七档稀有度各一列
+        private const float HelpTierColW = 108f;
+        private const float HelpTimeColW = 84f;
+        private const float HelpCountColW = 62f;
+        private const float HelpInkColW = 78f;
+        private const float HelpGuardColW = 70f;
+        private const float HelpRarityColW = 76f;
+
+        private void ShowChestHelp()
+        {
+            var scrim = Ui.Panel(transform, "ChestHelp");
+            _helpPanel = scrim;
+            scrim.AddComponent<Image>().color = Theme.Scrim; // raycastTarget 默认 true:挡住底下点击
+            Ui.Stretch((RectTransform)scrim.transform);
+
+            var card = Ui.CardPanel(scrim.transform, "Panel");
+            Ui.Anchor((RectTransform)card.transform, Vector2.zero, Vector2.one,
+                new Vector2(0f, ResultInsetY), new Vector2(0f, -ResultInsetY));
+
+            var columns = Ui.Row(card.transform, "Columns", ResultPad);
+            var columnsLayout = columns.GetComponent<HorizontalLayoutGroup>();
+            columnsLayout.childForceExpandHeight = true;
+            columnsLayout.childAlignment = TextAnchor.UpperLeft;
+            columnsLayout.padding = new RectOffset((int)ResultPad, (int)ResultPad, (int)ResultPad, (int)ResultPad);
+            Ui.Stretch((RectTransform)columns.transform);
+
+            BuildHelpText(columns.transform);
+            ColumnRule(columns.transform);
+            BuildHelpTable(columns.transform);
+        }
+
+        /// <summary>左栏:箱子从哪来 / 怎么开 / 保底怎么玩,外加关掉这一屏的按钮。</summary>
+        private void BuildHelpText(Transform parent)
+        {
+            var left = Ui.VStack(parent, "Left", 9);
+            var leftLayout = left.GetComponent<VerticalLayoutGroup>();
+            leftLayout.childAlignment = TextAnchor.UpperLeft;
+            // 正文要按栏宽换行,所以定宽 + childForceExpandWidth:Text 拿不到宽度就算不出
+            // 该在哪断行(与 BattleView 那条「效果说明 Wrap 依赖这个」同一个坑)。
+            leftLayout.childForceExpandWidth = true;
+            Ui.Sized(left, width: HelpLeftW);
+
+            Ui.ThemedLabel(left.transform, Strings.T("map.chest.help.title"), 26, Theme.TextMain,
+                Theme.TitleFont, TextAnchor.UpperLeft);
+
+            HelpSection(left.transform, Strings.T("map.chest.help.drop_title"),
+                Strings.T("map.chest.help.drop_body", ("limit", ChestRules.SlotLimit)));
+            HelpSection(left.transform, Strings.T("map.chest.help.open_title"),
+                Strings.T("map.chest.help.open_body"));
+
+            HelpSection(left.transform, Strings.T("map.chest.help.pity_title"),
+                Strings.T("map.chest.help.pity_single"));
+            // 计数保底逐条列。PityRules 的数组序是**替换优先级**(高稀有度在前,同箱多条
+            // 同时触发时先放红),读起来该反过来:玩家先遇到的是金那一条。
+            for (int i = ChestRules.PityRules.Length - 1; i >= 0; i--)
+            {
+                var rule = ChestRules.PityRules[i];
+                HelpBody(left.transform, Strings.T("map.chest.help.pity_count",
+                    ("count", rule.Threshold),
+                    ("tierName", ChestRules.TierName(rule.MinTier)),
+                    ("rarity", CharInfo.RarityName(rule.Rarity))));
+            }
+            HelpBody(left.transform, Strings.T("map.chest.help.pity_note"));
+
+            var spacer = Ui.Panel(left.transform, "Spacer");
+            spacer.AddComponent<LayoutElement>().flexibleHeight = 1; // 按钮贴左栏底
+            Ui.PillButton(left.transform, Strings.T("map.chest.help.close"), () =>
+            {
+                Destroy(_helpPanel);
+                _helpPanel = null;
+                Rebuild(); // 弹窗期间押后的就绪跃迁在此补上(同结果面板)
+            }, Theme.Cinnabar, Color.white, 20, new Vector2(180, 50));
+        }
+
+        private static void HelpSection(Transform parent, string title, string body)
+        {
+            Ui.ThemedLabel(parent, title, 20, Theme.TextMain, Theme.TitleFont, TextAnchor.UpperLeft);
+            HelpBody(parent, body);
+        }
+
+        private static void HelpBody(Transform parent, string text)
+        {
+            var label = Ui.ThemedLabel(parent, text, 17, Theme.TextDim, align: TextAnchor.UpperLeft);
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+        }
+
+        /// <summary>右栏:七档 × (时长 / 卡数 / 墨锭 / 单箱保底 / 七色出货权重)。</summary>
+        private void BuildHelpTable(Transform parent)
+        {
+            var right = Ui.VStack(parent, "Right", 8);
+            var rightLayout = right.GetComponent<VerticalLayoutGroup>();
+            rightLayout.childAlignment = TextAnchor.UpperLeft;
+            Ui.Sized(right, flexWidth: 1);
+
+            Ui.ThemedLabel(right.transform, Strings.T("map.chest.help.table_title"), 22, Theme.TextMain,
+                Theme.TitleFont, TextAnchor.UpperLeft);
+
+            var head = Ui.Row(right.transform, "Head", 0);
+            HelpCell(head.transform, Strings.T("map.chest.help.col_tier"), HelpTierColW, Theme.LockGray);
+            HelpCell(head.transform, Strings.T("map.chest.help.col_time"), HelpTimeColW, Theme.LockGray);
+            HelpCell(head.transform, Strings.T("map.chest.help.col_cards"), HelpCountColW, Theme.LockGray);
+            HelpCell(head.transform, Strings.T("map.chest.help.col_ink"), HelpInkColW, Theme.LockGray);
+            HelpCell(head.transform, Strings.T("map.chest.help.col_guarantee"), HelpGuardColW, Theme.LockGray);
+            // 表头的七色用稀有度自己的颜色:表体里 76 宽一格只放得下三位数字,列的身份靠色认
+            for (int rarity = 1; rarity <= 7; rarity++)
+                HelpCell(head.transform, CharInfo.RarityName((CardRarity)rarity), HelpRarityColW,
+                    Theme.RarityColor((CardRarity)rarity));
+
+            for (int tierIndex = 1; tierIndex <= (int)ChestTier.Crimson; tierIndex++)
+            {
+                var tier = (ChestTier)tierIndex;
+                var row = Ui.Row(right.transform, $"Tier{tierIndex}", 0);
+                HelpCell(row.transform, ChestRules.TierName(tier), HelpTierColW, Theme.ChestColor(tier));
+                HelpCell(row.transform, HelpDuration(ChestRules.DurationSeconds[tierIndex - 1]),
+                    HelpTimeColW, Theme.TextDim);
+                HelpCell(row.transform, ChestRules.CardCount[tierIndex - 1].ToString(),
+                    HelpCountColW, Theme.TextMain);
+                HelpCell(row.transform, ChestRules.InkReward[tierIndex - 1].ToString(),
+                    HelpInkColW, Theme.GoldDeep);
+
+                var guaranteed = ChestRules.GuaranteedRarityFor(tier);
+                HelpCell(row.transform,
+                    guaranteed.HasValue ? CharInfo.RarityName(guaranteed.Value) : Strings.T("map.chest.help.none"),
+                    HelpGuardColW,
+                    guaranteed.HasValue ? Theme.RarityColor(guaranteed.Value) : Theme.LockGray);
+
+                var weights = ChestRules.CardRarityWeightsFor(tier);
+                for (int i = 0; i < weights.Count; i++)
+                    HelpCell(row.transform,
+                        weights[i] == 0 ? Strings.T("map.chest.help.none") : weights[i].ToString(),
+                        HelpRarityColW,
+                        weights[i] == 0 ? Theme.LockGray : Theme.RarityColor((CardRarity)(i + 1)));
+            }
+
+            HelpBody(right.transform, Strings.T("map.chest.help.table_note"));
+        }
+
+        private static void HelpCell(Transform row, string text, float width, Color color)
+        {
+            var label = Ui.ThemedLabel(row, text, 17, color);
+            Ui.Sized(label.gameObject, width: width, height: HelpRowH);
+        }
+
+        /// <summary>档位时长的人读法。七档全是整分或整时(300…43200),不需要「1 时 30 分」
+        /// 这种混合写法 —— 真加了这样一档,这里会显示成分钟数,不会错只会长。</summary>
+        private static string HelpDuration(long seconds) => seconds % 3600 == 0
+            ? Strings.T("map.chest.help.duration_hour", ("hours", seconds / 3600))
+            : Strings.T("map.chest.help.duration_min", ("minutes", seconds / 60));
 
         private static string Format(long seconds) =>
             seconds >= 3600 ? $"{seconds / 3600}:{seconds % 3600 / 60:00}:{seconds % 60:00}" : $"{seconds / 60}:{seconds % 60:00}";

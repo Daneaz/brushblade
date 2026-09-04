@@ -71,7 +71,8 @@ namespace Brushblade.Presentation
             {
                 var passive = summon.Passive;
                 bool ranged = passive != null && passive.Ranged;
-                // 近战 / 远程本身已经把「够不够得着后排」说完了,行尾不再补一句同义的小注
+                // 近战 / 远程本身已经把「够不够得着后排」说完了,行尾不再补一句同义的小注。
+                // 与 StatusText.OfRange / OfSummonRange 的 Desc 一并去掉,三处口径统一。
                 Add(modes, seen, new Mode(true,
                     ranged ? Strings.T("collection.mode.ranged") : Strings.T("collection.mode.melee")));
                 if (passive != null && passive.Shape != TargetShape.Single)
