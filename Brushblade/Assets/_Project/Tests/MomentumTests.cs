@@ -162,10 +162,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cast_ShieldChar_GainsMomentum()
         {
-            // 圭 = 护盾 340(卡 1 级,2026-09-02 双方向重配,旧值 200)。阈值 50 → 6 层 + 余 40。
+            // 圭 = 护盾 170(卡 1 级,2026-09-04 盾量砍半,旧值 340)。阈值 50 → 3 层 + 余 20。
+            // ⚠ 势的产出与盾量同比缩:砍盾等于把土系「堆盾涨势」的循环速度也砍了一半。
             var battle = NewBattleWithChar("圭", maxHp: 500);
             battle.Cast("圭", -1);
-            Assert.That(battle.MomentumStacks, Is.EqualTo(6));
+            Assert.That(battle.MomentumStacks, Is.EqualTo(3));
         }
 
         [Test]
@@ -183,19 +184,19 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Shield_ScalesWithCharacterAttack()
         {
-            // 圭 = 护盾 340(2026-09-02 双方向重配,旧值 200)。ATK 150(26 级)→ 510。
+            // 圭 = 护盾 170(2026-09-04 盾量砍半,旧值 340)。ATK 150(26 级)→ 255。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 150);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(510));
+            Assert.That(battle.PlayerShield, Is.EqualTo(255));
         }
 
         [Test]
         public void Shield_AtBaselineAttack_IsIdentical()
         {
-            // 恒等性硬线:ATK = 100 时一分不差。圭 340(2026-09-02 双方向重配,旧值 200)。
+            // 恒等性硬线:ATK = 100 时一分不差。圭 170(2026-09-04 盾量砍半,旧值 340)。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(340));
+            Assert.That(battle.PlayerShield, Is.EqualTo(170));
         }
 
         [Test]
@@ -221,8 +222,8 @@ namespace Brushblade.Core.Tests
 
             battle.Cast("圭", -1);
             // 圭 加盾前已有的势带来的盾不算:这里断言的是这一次施放的增量
-            // (2026-09-02 双方向重配:圭 200 → 340)
-            Assert.That(battle.PlayerShield, Is.EqualTo(340),
+            // (2026-09-04 盾量砍半:圭 340 → 170)
+            Assert.That(battle.PlayerShield, Is.EqualTo(170),
                 "护盾只认 config.PlayerAttack,不吃势也不吃战意");
         }
 

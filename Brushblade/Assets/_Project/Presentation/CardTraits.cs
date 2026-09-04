@@ -342,7 +342,7 @@ namespace Brushblade.Presentation
                         break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
-                        traits.Add(new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));
+                        AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));
                         break;
                 }
 
@@ -465,10 +465,27 @@ namespace Brushblade.Presentation
         /// 而拼出的前缀会被判成缺失(2026-09-04 当场踩到)。
         private static void AddTrait(List<Trait> traits, string iconKey, string amount,
             string name, string desc) =>
-            traits.Add(new Trait(iconKey, null, amount, name, desc));
+            AddUnique(traits, new Trait(iconKey, null, amount, name, desc));
 
         private static void AddWord(List<Trait> traits, string chip, string name, string desc) =>
-            traits.Add(new Trait(null, chip, "", name, desc));
+            AddUnique(traits, new Trait(null, chip, "", name, desc));
+
+        /// <summary>同一条特性只列一次(<see cref="Modes"/> 的 <c>seen</c> 是同一件事)。
+        ///
+        /// 双方向字(水/土,2026-09-02)的攻面与护面各带一份自己的效果表,两面**共有**的
+        /// 特性会被 <see cref="Of"/> 的两次 <see cref="Scan"/> 各加一遍 —— 澡 的净化、
+        /// 壁 的反弹在详情里因此印了两条一模一样的卡(2026-09-04 发现)。
+        /// 特性段回答的是「这张字还带什么」,不区分哪一面带,重复只是噪声。
+        ///
+        /// 去重键 = 除说明外的全部字段:同类不同量(灼烧 3 层 / 灼烧 5 层)照常各列一条。</summary>
+        private static void AddUnique(List<Trait> traits, Trait trait)
+        {
+            foreach (var t in traits)
+                if (t.IconKey == trait.IconKey && t.Word == trait.Word
+                    && t.Amount == trait.Amount && t.Name == trait.Name)
+                    return;
+            traits.Add(trait);
+        }
 
         /// <summary>图标 chip 的底色。按「这一条是什么性质」分组,不是按属性 ——
         /// 灼烧类朱砂、冰缓类水蓝、控制类紫、增益类墨蓝、防护类赭金、召唤物类木绿。</summary>

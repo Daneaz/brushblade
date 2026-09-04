@@ -177,9 +177,13 @@ namespace Brushblade.Core.Tests
         public void EarthCharValues_MatchRarityAnchors()
         {
             var graph = LoadRealGraph();
-            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(340), "金档满值");
-            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(540), "红档满值");
-            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(238), "金档 340 x0.7(带免疫)");
+            // 2026-09-04 用户拍板:土系护盾面盾量砍半(满值 340/540 → 170/270)。
+            // 攻击面不动 —— 砍的是「一次加多少盾」,不是这一系的整体强度。
+            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(170), "金档满值 340 砍半");
+            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(270), "红档满值 540 砍半");
+            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(119), "金档 170 x0.7(带免疫)");
+            Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(340), "攻击面不在砍半范围内");
         }
 
         /// <summary>引爆每系两张载体(中档 + 红档):只挂红档五系四叠字的话,
@@ -219,7 +223,7 @@ namespace Brushblade.Core.Tests
                 new[] { "圭" }, System.Array.Empty<string>(),
                 new[] { new EnemyDef("靶", Element.Heart, 100000, 0) }, seed: 1);
             battle.Cast("圭", -1);   // 默认 attackMode: false = 护盾面
-            Assert.That(battle.PlayerShield, Is.EqualTo(340));
+            Assert.That(battle.PlayerShield, Is.EqualTo(170));
         }
 
         [Test]

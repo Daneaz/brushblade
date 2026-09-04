@@ -266,7 +266,8 @@ namespace Brushblade.Core.Tests
             // 等于把这条设计悄悄抹平(2026-08-25 用户拍板)。
             var jingSummon = graph.Get("荆").Effects.First(e => e.Kind == EffectKind.Summon);
             Assert.That(jingSummon.SummonAttack, Is.EqualTo(0), "荆 靠反伤输出,不该有基础攻");
-            Assert.That(jingSummon.Value, Is.EqualTo(330), "血量翻倍换掉攻击力");
+            Assert.That(jingSummon.SummonCount, Is.EqualTo(1), "2026-09-04:多只召唤收归金档及以上");
+            Assert.That(jingSummon.Value, Is.EqualTo(660), "血量翻倍换掉攻击力;2026-09-04 又因只数 2→1 再翻倍");
         }
 
         [Test]
@@ -283,6 +284,24 @@ namespace Brushblade.Core.Tests
                     if (effect.Kind == EffectKind.Summon)
                         Assert.That(effect.SummonChar, Is.EqualTo(def.Id),
                             $"「{def.Id}」的召唤物应显示本字,而不是「{effect.SummonChar}」");
+        }
+
+        /// <summary>「一次召多只」是金档及以上的专属卖点(2026-09-04 用户拍板)。
+        ///
+        /// 紫档以下召 1 只 —— 开局只开 2 个召唤槽(<see cref="MetaRules.SummonSlotsFor"/>),
+        /// 一张紫卡召 2 只就把全场占满,第二张召唤字只能顶掉自己人。只数因此是**档位资源**,
+        /// 不是随手给的数值;总量补偿走单只的血/攻,不走只数。
+        ///
+        /// 新字漏看这条不会有任何报错 —— 只会在游戏里悄悄变成「紫卡也能铺场」。</summary>
+        [Test]
+        public void RealConfig_MultiSummon_IsGoldAndAbove()
+        {
+            var graph = RealGraph();
+            foreach (var def in graph.All)
+                foreach (var effect in def.Effects.Concat(def.AttackEffects))
+                    if (effect.Kind == EffectKind.Summon && effect.SummonCount > 1)
+                        Assert.That((int)def.Rarity, Is.GreaterThanOrEqualTo((int)CardRarity.Gold),
+                            $"「{def.Id}」({def.Rarity})召 {effect.SummonCount} 只——多只召唤只给金档及以上");
         }
 
         [Test]
@@ -302,9 +321,9 @@ namespace Brushblade.Core.Tests
             // 例外由用户指定,规则本身不变(其余木系召唤仍按部件定型)。
             var graph = RealGraph();
             var summon = graph.Get("蕉").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(summon.SummonCount, Is.EqualTo(2));
-            Assert.That(summon.Value, Is.EqualTo(110), "控制型系数 1.0,取紫档召唤锚点原值");
-            Assert.That(summon.SummonAttack, Is.EqualTo(50));
+            Assert.That(summon.SummonCount, Is.EqualTo(1), "2026-09-04:多只召唤收归金档及以上");
+            Assert.That(summon.Value, Is.EqualTo(220), "控制型系数 1.0(紫档锚点 110),只数 2→1 后 ×2 守恒");
+            Assert.That(summon.SummonAttack, Is.EqualTo(100));
             Assert.That(summon.Passive.OnHitSlowPercent, Is.EqualTo(50));
             Assert.That(summon.Passive.OnHitSlowTurns, Is.EqualTo(2));
             Assert.That(summon.Passive.OnHitBurn, Is.EqualTo(0), "改控制型后不该还挂着灼烧");
@@ -472,7 +491,11 @@ namespace Brushblade.Core.Tests
             var reflect = bi.Effects.Single(e => e.Kind == EffectKind.Reflect);
             Assert.That(reflect.Value, Is.EqualTo(30));
             Assert.That(reflect.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
-            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(49));
+            // 2026-09-04 土系护盾面砍半:绿档满值 70 → 35,带反弹 ×0.7 = 24.5,进位取 25。
+            // 攻击面的 DamageSingle 不在砍半范围内,仍是 49。
+            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(25));
+            Assert.That(bi.AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
+                Is.EqualTo(49), "砍的是盾,攻击面不动");
             Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
                 .Any(e => e.Kind == EffectKind.Reflect)), Is.EqualTo(1), "反弹当前只有 壁 一个载体");
         }

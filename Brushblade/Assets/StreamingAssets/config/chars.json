@@ -444,9 +444,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 88,
-          "count": 2,
-          "attack": 40,
+          "value": 176,
+          "count": 1,
+          "attack": 80,
           "summonChar": "楸",
           "passive": {
             "onHitBurn": 1,
@@ -468,9 +468,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 110,
-          "count": 2,
-          "attack": 50,
+          "value": 220,
+          "count": 1,
+          "attack": 100,
           "summonChar": "蕉",
           "passive": {
             "onHitSlowPercent": 50,
@@ -492,8 +492,8 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 330,
-          "count": 2,
+          "value": 660,
+          "count": 1,
           "attack": 0,
           "summonChar": "荆",
           "passive": {
@@ -557,9 +557,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 165,
-          "count": 2,
-          "attack": 25,
+          "value": 330,
+          "count": 1,
+          "attack": 50,
           "summonChar": "桤",
           "passive": {
             "speed": 150
@@ -1429,7 +1429,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 540,
+          "value": 270,
           "persistOnce": true
         }
       ],
@@ -1457,7 +1457,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 430
+          "value": 215
         }
       ],
       "attackEffects": [
@@ -1481,7 +1481,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 340
+          "value": 170
         }
       ],
       "attackEffects": [
@@ -1504,9 +1504,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 110,
-          "count": 2,
-          "attack": 50,
+          "value": 220,
+          "count": 1,
+          "attack": 100,
           "summonChar": "塔"
         }
       ]
@@ -1547,7 +1547,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 70
+          "value": 35
         }
       ],
       "attackEffects": [
@@ -1594,7 +1594,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 49
+          "value": 25
         },
         {
           "kind": "Reflect",
@@ -1627,7 +1627,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 238
+          "value": 119
         },
         {
           "kind": "Immunity",
@@ -1658,7 +1658,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 70
+          "value": 35
         }
       ],
       "attackEffects": [
@@ -1685,7 +1685,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 45
+          "value": 23
         }
       ],
       "attackEffects": [
@@ -1711,7 +1711,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 45
+          "value": 23
         }
       ],
       "attackEffects": [
@@ -1736,7 +1736,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 110
+          "value": 55
         }
       ],
       "attackEffects": [
