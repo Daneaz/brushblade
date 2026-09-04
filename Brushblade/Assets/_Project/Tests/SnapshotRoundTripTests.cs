@@ -472,6 +472,9 @@ namespace Brushblade.Core.Tests
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
             Assert.That(b.CarriedSummons.Count, Is.EqualTo(2));
             Assert.That(b.CarriedSummons[0].Char, Is.EqualTo("木"));
+            // 源字卡(2026-09-05):夹具正是「林」召「木」,读错字段这条就红 ——
+            // 战斗格头行显示的是这个名字,丢了就成空名
+            Assert.That(b.CarriedSummons[0].SourceChar, Is.EqualTo("林"));
             Assert.That(b.CarriedSummons[0].Attack, Is.EqualTo(2));
             Assert.That(b.CarriedSummons[0].Hp, Is.GreaterThan(0), "首只召唤物应挨过打但活着");
             Assert.That(b.CarriedSummons[0].Hp, Is.LessThan(b.CarriedSummons[0].MaxHp), "残血原样带走,不回满");

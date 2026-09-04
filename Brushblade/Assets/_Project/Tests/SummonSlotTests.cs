@@ -62,6 +62,31 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.AliveSummonCount, Is.EqualTo(1));
         }
 
+        /// <summary>召唤物记得**是哪张字卡召的它**(2026-09-05 用户拍板:战斗格头行显示这个名字)。
+        ///
+        /// 与 <see cref="SummonState.Char"/> 是两件事:Char 是它自己的字(字表 SummonChar 那一列),
+        /// SourceChar 是出的那张牌。字形归位后(2026-08-15)绝大多数字召的就是自己、两者相同 ——
+        /// 正因为如此,拿「梅召梅」这种夹具**验不出**接没接对(读错字段也全绿),
+        /// 所以这里刻意用一张召别的字的卡。</summary>
+        [Test]
+        public void Summon_RemembersTheCardThatCastIt()
+        {
+            var graph = new RecipeGraph(new List<CharDef>
+            {
+                new("木", Element.Wood),
+                // 「林」召的是「木」:源字卡与召唤物的字不同,才验得出两个字段没接反
+                new("林", Element.Wood, new[] { "木", "木" },
+                    new[] { new EffectDef(EffectKind.Summon, 60, summonCount: 1, summonAttack: 20, summonChar: "木") }),
+            });
+            var config = new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) };
+            var engine = new BattleEngine(graph, config, new[] { "林" }, new string[0],
+                new List<EnemyDef> { new("木桩", Element.Earth, 9999, 0) }, seed: 1);
+
+            Assert.That(engine.Cast("林"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Summons[0].Char, Is.EqualTo("木"), "Char = 召出来的那只是什么");
+            Assert.That(engine.Summons[0].SourceChar, Is.EqualTo("林"), "SourceChar = 哪张卡召的它");
+        }
+
         [Test]
         public void CarriedSummons_KeepTheirSlots_AcrossBattles()
         {

@@ -1793,11 +1793,11 @@ namespace Brushblade.Presentation
                 // 自然左对齐,所以那边没有这个问题(2026-09-05 用户点出这个空位)。
                 Ui.Sized(header, width: infoWidth, height: SummonHeaderHeight);
                 header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-                // 名字排在最前,与敌人格头行同位。取的就是 SummonState.Char ——
-                // 召唤字卡上写的 SummonChar,也就是这只召唤物自己的字(2026-08-15 字形归位后
-                // 绝大多数字召的是自己,「林」召「木」这种才会与卡名不同,那时该显示的是
-                // 场上这一只是什么,不是谁召的它)。
-                Ui.ThemedLabel(header.transform, summon.Char, 12, Theme.TextMain, Theme.TitleFont);
+                // 名字排在最前,与敌人格头行同位。取 **SourceChar**(召它的那张字卡)而不是
+                // Char(它自己的字)—— 后者已经写在左边的立绘上了,再印一遍是同一件事说两遍;
+                // 而玩家真正要认的是「我出的哪张牌变成了它」:一排里两只「木」可能一只是
+                // 「林」召的、一只是别的字召的(2026-09-05 用户拍板)。
+                Ui.ThemedLabel(header.transform, summon.SourceChar, 12, Theme.TextMain, Theme.TitleFont);
                 Ui.Chip(header.transform, CharInfo.ElementName(summon.Element),
                     Theme.ElementColor(summon.Element), Color.white,
                     ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY);

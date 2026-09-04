@@ -2381,7 +2381,8 @@ namespace Brushblade.Core
                             // 它不是补丁,是「玩家优先」那一整套设计的组成部分。
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
-                                ScalePassiveByCardLevel(effect.Passive, cardLevel));
+                                ScalePassiveByCardLevel(effect.Passive, cardLevel),
+                                sourceChar: def.Id); // 召它的那张牌(2026-09-05,战斗格头行显示这个)
                             newborn.ActionMeter = TurnScheduler.Threshold;
 
                             // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)。

@@ -164,6 +164,16 @@ namespace Brushblade.Core
     public sealed class SummonState
     {
         public string Char { get; }
+
+        /// <summary>召出它的那张字卡(2026-09-05)。与 <see cref="Char"/> 是两件事:
+        /// Char 是**它自己是什么**(字表 SummonChar 那一列),SourceChar 是**谁召的它**。
+        /// 字形归位后(2026-08-15)绝大多数字召的就是自己、两者相同,所以拿「梅召梅」
+        /// 那种数据验不出接线对不对 —— 守卫测试用的是「林」召「木」。
+        ///
+        /// 战斗格头行显示的是这一个:同一排里两只「木」可能一只是「林」召的、一只是别的字召的,
+        /// 玩家要认的是「我出的哪张牌变成了它」。</summary>
+        public string SourceChar { get; }
+
         public Element Element { get; }
         public int Hp { get; internal set; }
         public int MaxHp { get; }
@@ -211,10 +221,13 @@ namespace Brushblade.Core
             Statuses.TotalMagnitude(StatusKind.DefenseBuff)
             - Statuses.TotalMagnitude(StatusKind.ArmorBreak));
 
+        /// <param name="sourceChar">召它的那张字卡;省略则回落成 summonChar
+        /// (测试夹具里「谁召的」多半无关紧要,不必每处都写第二遍)。</param>
         public SummonState(string summonChar, Element element, int hp, int attack,
-            SummonPassive passive = null)
+            SummonPassive passive = null, string sourceChar = null)
         {
             Char = summonChar;
+            SourceChar = sourceChar ?? summonChar;
             Element = element;
             Hp = hp;
             MaxHp = hp;
@@ -225,9 +238,12 @@ namespace Brushblade.Core
 
         /// <summary>断点存档:MaxHp 与 Hp 会脱钩(挨过打),故分开存。</summary>
         private SummonState(string summonChar, Element element, int hp, int maxHp, int attack,
-            int actionMeter, int speed, int shield, SummonPassive passive)
+            int actionMeter, int speed, int shield, SummonPassive passive, string sourceChar)
         {
             Char = summonChar;
+            // 老存档没有这个字段 → Newtonsoft 填 null → 回落成自己的字。
+            // 空名字比「谁召的」显示得不准更糟:头行会整个空掉。
+            SourceChar = string.IsNullOrEmpty(sourceChar) ? summonChar : sourceChar;
             Element = element;
             Hp = hp;
             MaxHp = maxHp;
@@ -254,7 +270,8 @@ namespace Brushblade.Core
             return new SummonSnapshot
             {
                 Slot = slot,
-                Char = Char, Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
+                Char = Char, SourceChar = SourceChar,
+                Element = Element, Hp = Hp, MaxHp = MaxHp, Attack = Attack,
                 ActionMeter = ActionMeter, Speed = Speed, Shield = Shield,
                 Passive = Passive?.Clone(), Statuses = statuses,
             };
@@ -263,7 +280,7 @@ namespace Brushblade.Core
         internal static SummonState Restore(SummonSnapshot s)
         {
             var state = new SummonState(s.Char, s.Element, s.Hp, s.MaxHp, s.Attack, s.ActionMeter,
-                s.Speed, s.Shield, s.Passive?.Clone());
+                s.Speed, s.Shield, s.Passive?.Clone(), s.SourceChar);
             state.Statuses.CopyFrom(s.Statuses ?? new List<StatusEffect>());
             return state;
         }

@@ -77,6 +77,11 @@ namespace Brushblade.Core
     public sealed class SummonSnapshot
     {
         public string Char { get; set; }
+
+        /// <summary>召出它的那张字卡(2026-09-05)。老存档没有这个字段 → Newtonsoft 填 null
+        /// → <see cref="SummonState"/> 的恢复构造回落成 Char(见那边的注释)。</summary>
+        public string SourceChar { get; set; }
+
         public Element Element { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
