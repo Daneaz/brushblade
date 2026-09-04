@@ -26,6 +26,7 @@ SUMMON_PASSIVE = {
     "OnHitFreezeTurns": "onHitFreezeTurns",
     "OnHitSlow": "onHitSlowPercent",          # 幅度(速度点数),吃卡等级
     "OnHitSlowTurns": "onHitSlowTurns",
+    "Regen": "regen",                         # 自愈(2026-09-05,藻):每回合只回自己
 }
 
 
