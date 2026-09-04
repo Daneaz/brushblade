@@ -137,6 +137,16 @@ namespace Brushblade.Presentation
         private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
         // 血条 fill/label 引用:命中回调据此就地推进,不整屏重绘(重绘会毁掉进行中动画的锚点)
         private (RectTransform fill, UnityEngine.UI.Text label) _playerHpBar;
+
+        /// <summary>玩家头行右端那条「血 N/M」(2026-09-05 修 bug)。
+        ///
+        /// 玩家血条从 2026-08-31 起是**裸条**(数字搬去了头行),于是 _playerHpBar.label 是 null,
+        /// 而动画期间就地推进走的是 SetHpBar —— 它对 label == null 判空跳过。
+        /// 结果:条在动,数字一动不动,直到动画落幕后整屏重绘才跳到终值。
+        /// 用户在奇遇改上限那一屏上看见的就是这个(「动效有了,但是数值没有变化」),
+        /// 而掉血/治疗那两条路径其实一直有同样的毛病,只是幅度小、没人注意。
+        /// 敌人格与召唤格不受影响:它们的数字叠在条内,label 不为 null。</summary>
+        private UnityEngine.UI.Text _playerHpLabel;
         private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyHpBars = new();
 
         // 行动条(2026-08-17):每个参战单位一条,读各自的 ActionMeter。与血条同款持有
@@ -398,7 +408,7 @@ namespace Brushblade.Presentation
                         if (_playerHpBar.fill == null) break;
                         int burnBefore = _animPlayerHp;
                         _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - e.Amount);
-                        SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
+                        SetPlayerHp(_animPlayerHp, PlayerMaxHp);
                         ChipDamage(_playerHpBar, burnBefore, _animPlayerHp, PlayerMaxHp);
                         break;
                     }
@@ -422,7 +432,7 @@ namespace Brushblade.Presentation
                     if (_playerHpBar.fill == null) break;
                     int hitBefore = _animPlayerHp;
                     _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - (e.Amount - e.Absorbed));
-                    SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
+                    SetPlayerHp(_animPlayerHp, PlayerMaxHp);
                     ChipDamage(_playerHpBar, hitBefore, _animPlayerHp, PlayerMaxHp);
                     break;
                 // 筑盾:同上,只记账。盾条与那记土系起势一并去掉了(2026-09-05)——
@@ -449,7 +459,7 @@ namespace Brushblade.Presentation
                     }
                     if (_playerHpBar.fill == null) break;
                     _animPlayerHp = System.Math.Min(Battle.PlayerHp, _animPlayerHp + e.Amount);
-                    SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
+                    SetPlayerHp(_animPlayerHp, PlayerMaxHp);
                     _juice.BarPulse(_playerHpBar.fill, Theme.SplitBlue, Element.Water); // 水:血条起势
                     break;
                 case BattleEventKind.EnemySplit: // 分裂:原体当场减半(Amount = 减半后的血),动画血量直接按过去
@@ -665,6 +675,18 @@ namespace Brushblade.Presentation
             if (bar.fill != null)
                 Ui.Anchor(bar.fill, Vector2.zero, new Vector2(frac, 1), Vector2.zero, Vector2.zero);
             if (bar.label != null) bar.label.text = $"{Mathf.RoundToInt(frac * 100)}%";
+        }
+
+        /// <summary>推玩家的血条**和**头行那个数字。
+        ///
+        /// 玩家侧一律走这个、不要直接调 <see cref="SetHpBar"/> —— 那条只管条,
+        /// 而玩家的数字不在条上(见 <see cref="_playerHpLabel"/>)。上限也传进来:
+        /// 奇遇能改血量上限,分母不跟着动的话「上限 +30」这件事在数字上完全看不出来。</summary>
+        private void SetPlayerHp(int hp, int maxHp)
+        {
+            SetHpBar(_playerHpBar, hp, maxHp);
+            if (_playerHpLabel != null)
+                _playerHpLabel.text = Strings.T("battle.label.player_hp", ("hp", hp), ("hpMax", maxHp));
         }
 
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
@@ -1566,6 +1588,7 @@ namespace Brushblade.Presentation
                 Strings.T("battle.label.player_hp", ("hp", shownHp), ("hpMax", PlayerMaxHp)),
                 11, Theme.TextDim, null, TextAnchor.MiddleRight);
             Ui.Stretch(hpLabel.rectTransform);
+            _playerHpLabel = hpLabel; // 动画期间要就地改它(见字段注释)
 
             // 护盾角标(2026-09-05 用户拍板补齐:敌人格与召唤格早就有,玩家这一格一直漏着)。
             // 盾条整体移除之后,立绘角标是盾**唯一**的图形落点,三种单位必须长一样 ——
@@ -4262,18 +4285,18 @@ namespace Brushblade.Presentation
         private System.Collections.IEnumerator MaxHpShiftRoutine(int midHp, int midMaxHp,
             int endHp, int endMaxHp)
         {
-            SetHpBar(_playerHpBar, midHp, midMaxHp);
+            SetPlayerHp(midHp, midMaxHp);
             for (float t = 0; t < MaxHpShiftHold; t += Time.unscaledDeltaTime)
                 yield return null;
             for (float t = 0; t < MaxHpShiftRise; t += Time.unscaledDeltaTime)
             {
                 if (_playerHpBar.fill == null) yield break; // 换屏把条销毁了(不该发生,但别拖着崩)
                 float k = t / MaxHpShiftRise;
-                SetHpBar(_playerHpBar, Mathf.RoundToInt(Mathf.Lerp(midHp, endHp, k)),
+                SetPlayerHp(Mathf.RoundToInt(Mathf.Lerp(midHp, endHp, k)),
                     Mathf.RoundToInt(Mathf.Lerp(midMaxHp, endMaxHp, k)));
                 yield return null;
             }
-            if (_playerHpBar.fill != null) SetHpBar(_playerHpBar, endHp, endMaxHp);
+            if (_playerHpBar.fill != null) SetPlayerHp(endHp, endMaxHp);
         }
 
         /// <summary>飘字停留够了再换屏。停留时长取 <see cref="EventOutcomeHold"/> ——
