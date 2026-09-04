@@ -2959,7 +2959,6 @@ namespace Brushblade.Presentation
             _modal = CharPreview.Show(transform, _graph.Get(charId), _graph, _run.CardLevel(charId),
                 new CharPreview.BattleContext
                 {
-                    Foes = Battle.Enemies,
                     Pool = Battle.Pool,
                     Craftable = Battle.ComposableChars,
                 });

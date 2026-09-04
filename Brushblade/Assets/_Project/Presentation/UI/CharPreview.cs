@@ -36,9 +36,6 @@ namespace Brushblade.Presentation
         /// <summary>战斗侧的上下文。为 null 时(开箱 / 商城)右栏退回卡组页那种静态生克对照。</summary>
         public sealed class BattleContext
         {
-            /// <summary>场上敌人。属性一律读 <see cref="EnemyState.ApparentElement"/> ——
-            /// 伪装怪(通假字)与生僻字没现形之前那是 null 或**假**属性,详情弹窗不能替玩家掀底。</summary>
-            public IReadOnlyList<EnemyState> Foes;
             /// <summary>部件池(部件牌的「能凑出什么」按它判缺料)。</summary>
             public IReadOnlyList<string> Pool;
             /// <summary>本场能合出的字(出阵表 + 拆出来的中间字);口径同拆合台。</summary>
@@ -93,7 +90,7 @@ namespace Brushblade.Presentation
                 // 再看场面」切开 —— 左栏是这张字本身(等级/召唤/数值/打谁),
                 // 右栏是它与外界的关系(特性/配方/生克或此刻的场面)。
                 BuildSelfColumn(body.transform, def, cardLevel, meta, bodyW * 0.5f);
-                BuildFieldColumn(body.transform, def, graph, battle, cardLevel, bodyW * 0.5f);
+                BuildFieldColumn(body.transform, def, graph, cardLevel, bodyW * 0.5f);
             }
 
             if (footActions != null)
@@ -259,98 +256,20 @@ namespace Brushblade.Presentation
 
         // ================= 右栏:它与外界的关系 =================
 
-        /// <summary>特性 · 技能 → 配方 →(战斗里)此刻的场面 /(外面)静态生克。
+        /// <summary>特性 · 技能 → 配方 → 生克。
         ///
-        /// 战斗里用场面倍率**顶掉**静态生克,不是两者都画:场面那一段本就是按生克算出来的,
-        /// 而它直接回答「对眼前这几只各是多少倍」——同一条规则的具体答案摆在旁边时,
-        /// 抽象版那一段只会占地方(这也是这一屏在战斗里最值得点开的理由)。</summary>
+        /// 2026-09-05 用户拍板**移除「此刻的场面」那一段**(这一击对场上每只敌人各是多少倍)。
+        /// 它此前在战斗里顶掉静态生克,于是同一张字在战斗内外读到的右栏是两样东西 ——
+        /// 而这一轮统一详情的整个诉求就是「三处一致」。生克那一段本来也够用:
+        /// 玩家要判的是「我这一击对不对属性」,而每只怪的属性就摆在它自己的头行上。</summary>
         private static void BuildFieldColumn(Transform parent, CharDef def, RecipeGraph graph,
-            BattleContext battle, int cardLevel, float width)
+            int cardLevel, float width)
         {
             var col = Column(parent, "Field", width);
             CharSheetSections.Traits(col, def, cardLevel, CollectionStats.SummonCount(def) > 0, width);
             if (!def.IsLeaf) CharSheetSections.Recipe(col, def, graph);
-            if (battle != null)
-            {
-                SectionTitle(col, Strings.T("charsheet.section.field"));
-                BuildFoeMatchups(col, def, battle);
-            }
-            else if (def.Element is { } element && element != Element.Heart)
-            {
+            if (def.Element is { } element && element != Element.Heart)
                 CharSheetSections.Wuxing(col, element);
-            }
-        }
-
-
-        /// <summary>这一击对场上每只敌人各是多少倍 —— 本屏独有的一件事。
-        ///
-        /// ⚠ 属性一律读 <see cref="EnemyState.ApparentElement"/>:伪装怪显示的是**假**属性、
-        /// 生僻字受击两次前是 null(未现形)。读 Element 会让详情弹窗替玩家把底掀了,
-        /// 而这条错误是静默的 —— 屏上只是多出一个「克制」标签,没有任何测试会红。</summary>
-        private static void BuildFoeMatchups(Transform parent, CharDef def, BattleContext battle)
-        {
-            var scroll = Ui.ScrollList(parent, "Foes", 8, out var content);
-            Ui.Sized(scroll, flexWidth: 1, flexHeight: 1);
-
-            var attacker = def.Element ?? Element.Heart;   // 中性字视作心:全 1.0x,与引擎同口径
-            int drawn = 0;
-            foreach (var foe in battle.Foes)
-            {
-                if (!foe.Alive) continue;
-                drawn++;
-                var apparent = foe.ApparentElement;
-                float multiplier = apparent is { } shown ? WuxingResolver.KeMultiplier(attacker, shown) : 1f;
-                bool unknown = apparent == null;
-
-                var row = Ui.Row(content, $"Foe_{drawn}", 13);
-                var rowLayout = row.GetComponent<HorizontalLayoutGroup>();
-                rowLayout.childAlignment = TextAnchor.MiddleLeft;
-                rowLayout.padding = new RectOffset(13, 13, 0, 0);
-                var rowImage = row.AddComponent<Image>();
-                rowImage.sprite = Theme.Rounded(12);
-                rowImage.type = Image.Type.Sliced;
-                rowImage.color = !unknown && multiplier > 1f ? Theme.WarnBg : Theme.PanelInset;
-                Ui.Sized(row, flexWidth: 1, height: WxRowH);
-
-                var dot = Ui.CardPanel(row.transform, "Dot", Theme.ElementColor(apparent), 10);
-                Ui.Sized(dot.gameObject, 34, 34);
-                Ui.ThemedLabel(dot.transform,
-                    apparent is { } e ? CharInfo.ElementName(e) : Strings.T("char.element.unknown"),
-                    19, Color.white, Theme.TitleFont);
-
-                var name = Ui.ThemedLabel(row.transform, foe.Def.Id, 19, Theme.TextMain);
-                name.alignment = TextAnchor.MiddleLeft;
-                Ui.Sized(name.gameObject, flexWidth: 1);
-
-                var (mulColor, tag) = unknown
-                    ? (Theme.LockGray, Strings.T("charsheet.wx.unknown"))
-                    : multiplier > 1f ? (Theme.CinnabarDark, Strings.T("charsheet.wx.up"))
-                    : multiplier < 1f ? (Theme.LockGray, Strings.T("charsheet.wx.down"))
-                    : (Theme.TextDim, Strings.T("charsheet.wx.flat"));
-                if (!unknown)
-                    Ui.ThemedLabel(row.transform, $"×{multiplier:0.#}", 25, mulColor, Theme.TitleFont);
-                Ui.ThemedLabel(row.transform, tag, 17, mulColor);
-            }
-
-            if (drawn == 0)
-                Ui.ThemedLabel(content, Strings.T("charsheet.wx.none"), 19, Theme.LockGray);
-            // 护盾/治疗从来不吃倍率(WuxingResolver.ResolveEffect 的无目标重载是恒等函数)
-            if (def.AttackEffects.Count > 0 || HasSupport(def))
-            {
-                var note = Ui.ThemedLabel(content, Strings.T("charsheet.wx.note_support"), 17, Theme.LockGray);
-                note.alignment = TextAnchor.UpperLeft;
-                note.horizontalOverflow = HorizontalWrapMode.Wrap;
-                Ui.Sized(note.gameObject, flexWidth: 1, height: 34);
-            }
-        }
-
-        private static bool HasSupport(CharDef def)
-        {
-            foreach (var effect in def.Effects)
-                if (effect.Kind == EffectKind.Shield || effect.Kind == EffectKind.HealSelf
-                    || effect.Kind == EffectKind.HealAll || effect.Kind == EffectKind.HealOverTime)
-                    return true;
-            return false;
         }
 
 
