@@ -30,12 +30,62 @@ namespace Brushblade.Core.Tests
             // 兵:普通召唤物,当收盾方
             new CharDef("兵", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 3, summonChar: "木") }),
+            // 崩:群体加盾 17(2026-09-05)。攻面是全体伤害,护面因此对称成全体加盾
+            new CharDef("崩", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.ShieldAll, 17) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies = null, int seed = 1) =>
             new(Graph(), new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 500 },
                 library, Array.Empty<string>(),
                 enemies ?? new[] { new EnemyDef("靶", Element.Heart, 3000, 0) }, seed);
+
+        /// <summary>群体加盾(2026-09-05 用户拍板):玩家 + **全部存活召唤物**各得一份。
+        /// 与 <see cref="EffectKind.HealAll"/> 对称 —— 崩的攻面是全体伤害,护面就该是全体加盾。
+        /// 各得**一份**、不按人数分摊:与 HealAll 同一条口径。</summary>
+        [Test]
+        public void ShieldAll_CoversPlayerAndEverySummon()
+        {
+            var engine = Engine(new[] { "兵", "兵", "崩" });
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            int before = engine.PlayerShield;
+
+            Assert.That(engine.Cast("崩"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.PlayerShield, Is.GreaterThan(before), "玩家拿到盾");
+            int each = engine.PlayerShield - before;
+            foreach (var summon in engine.Summons)
+            {
+                if (summon == null || !summon.Alive) continue;
+                Assert.That(summon.Shield, Is.EqualTo(each), "每只召唤物与玩家同额,不按人数分摊");
+            }
+        }
+
+        /// <summary>不需要选友方目标 —— 它给所有人(与单体 Shield 的分别就在这里)。</summary>
+        [Test]
+        public void ShieldAll_NeedsNoAllyTarget()
+        {
+            Assert.That(BattleEngine.NeedsAllyTarget(Graph().Get("崩")), Is.False);
+        }
+
+        /// <summary>攒势按**单份**盾量,不乘人数(与 HealAll 攒水势同一条口径:
+        /// 那边 GainWaterPower 收的也是基础值)。否则场上召唤物越多、同一张字攒的势越多,
+        /// 而「势」记的是你堆了多少防御,不是堆给了几个人。</summary>
+        [Test]
+        public void ShieldAll_GainsMomentumOncePerCast()
+        {
+            var solo = Engine(new[] { "崩" });
+            Assert.That(solo.Cast("崩"), Is.EqualTo(BattleError.None));
+            int aloneStacks = solo.MomentumStacks;
+
+            var crowded = Engine(new[] { "兵", "兵", "崩" });
+            crowded.Cast("兵");
+            crowded.Cast("兵");
+            int beforeStacks = crowded.MomentumStacks;
+            Assert.That(crowded.Cast("崩"), Is.EqualTo(BattleError.None));
+            Assert.That(crowded.MomentumStacks - beforeStacks, Is.EqualTo(aloneStacks),
+                "有没有召唤物在场,这一张攒的势一样多");
+        }
 
         [Test]
         public void NeedsAllyTarget_TrueForShield()

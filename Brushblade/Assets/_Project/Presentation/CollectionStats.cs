@@ -94,6 +94,14 @@ namespace Brushblade.Presentation
                             MetaRules.ScaleByCardLevel(effect.Value, cardLevel),
                             Strings.T("collection.stat.note.shield"), Theme.GlyphColor(Element.Earth));
                         break;
+                    // 群体护盾(2026-09-05):与单体同一格 —— 格子答的是「盾多少」,
+                    // 「给谁」由注脚和上面那段「攻击模式」说(与 HealSelf/HealAll 并列同一格同理)
+                    case EffectKind.ShieldAll:
+                        Add(stats, seen, "collection.stat.shield",
+                            Strings.T("collection.stat.shield"),
+                            MetaRules.ScaleByCardLevel(effect.Value, cardLevel),
+                            Strings.T("collection.stat.note.shield_all"), Theme.GlyphColor(Element.Earth));
+                        break;
                     case EffectKind.HealSelf:
                     case EffectKind.HealAll:
                     case EffectKind.HealOverTime:

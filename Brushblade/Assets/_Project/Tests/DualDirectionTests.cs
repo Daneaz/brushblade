@@ -162,13 +162,19 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        /// <summary>土系每张双方向字的护面都得**真的在加盾**。
+        ///
+        /// 单体(Shield)与群体(ShieldAll)都算(2026-09-05):崩的护面改成了群体加盾 ——
+        /// 它的攻面是全体伤害,两面本就该同一个作用范围。这条测试守的是「护面不是别的东西」,
+        /// 不是「护面只能用某一个 Kind」。</summary>
         [Test]
         public void EveryEarthChar_HasShieldOnSupportSide()
         {
             var graph = LoadRealGraph();
             foreach (var id in EarthChars)
             {
-                bool shields = graph.Get(id).Effects.Any(e => e.Kind == EffectKind.Shield);
+                bool shields = graph.Get(id).Effects.Any(e =>
+                    e.Kind == EffectKind.Shield || e.Kind == EffectKind.ShieldAll);
                 Assert.That(shields, Is.True, $"{id} 的加盾面没有护盾效果");
             }
         }

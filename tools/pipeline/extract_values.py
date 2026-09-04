@@ -260,7 +260,9 @@ def _parse_effects(config, char):
                 # 只有没显式写形状时才当连发(保住 `Shots N` 单写即连发的旧口径)
                 effect.setdefault("shape", "Volley")
                 effect["shots"] = int(shots.group(1))
-        if kind == "Shield" and "PersistOnce" in config:
+        # 群体护盾(2026-09-05)也认这个修饰:引擎侧 ShieldAll 与 Shield 走同一个豁免桶判断,
+        # 只认单体会让「将来配一张带 PersistOnce 的群盾字」在管线这一层静默丢掉那个标志
+        if kind in ("Shield", "ShieldAll") and "PersistOnce" in config:
             effect["persistOnce"] = True
         effects.append(effect)
 

@@ -7,7 +7,9 @@ namespace Brushblade.Core
         DamageAll,    // 全体伤害(AOE)
         BurnSingle,   // 单体灼烧(叠层)
         BurnAll,      // 全体灼烧(叠层)
-        Shield,       // 自身护盾
+        Shield,       // 护盾:自身或指定一只召唤物(2026-08-26 起目标可选)
+        ShieldAll,    // 群体护盾:玩家 + 全部存活召唤物各一份(2026-09-05,崩)。
+                      // 与 HealSelf/HealAll 那一对同构 —— 崩的攻面是全体伤害,护面就该对称成全体。
         BurnPotency,  // 本场每层灼烧结算伤害 +Value(炽,可叠加,10.3.1)
         HealSelf,     // 治疗自身(不超上限;水系主打,2026-07-19 拍板)
         Summon,       // 召唤前排单位(Value=血量;木系主打,2026-07-19 拍板)

@@ -90,6 +90,10 @@ namespace Brushblade.Presentation
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
                         + (e.PersistOnce ? Strings.T("char.effect.shield.persistonce") : ""),
+                    // 群体护盾(2026-09-05,崩):与 HealAll 同款「(含召唤物)」的措辞 ——
+                    // 玩家要知道的是这一份盾不只给自己
+                    EffectKind.ShieldAll => Strings.T("char.effect.shieldall", ("value", shown))
+                        + (e.PersistOnce ? Strings.T("char.effect.shield.persistonce") : ""),
                     EffectKind.BurnPotency => Strings.T("char.effect.burnpotency", ("value", shown)),
                     EffectKind.HealSelf => Strings.T("char.effect.healself", ("value", shown)),
                     // 召唤物字形归位后(2026-08-15)绝大多数字召的就是自己,写成「梅:召1×「梅」」

@@ -107,6 +107,10 @@ namespace Brushblade.Presentation
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_shield"),
                             e.PersistOnce ? Strings.T("collection.mode.note.persist") : ""));
                         break;
+                    case EffectKind.ShieldAll:
+                        Add(modes, seen, new Mode(false, Strings.T("collection.mode.all_shield"),
+                            e.PersistOnce ? Strings.T("collection.mode.note.persist") : ""));
+                        break;
                     case EffectKind.HealSelf:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_heal")));
                         break;
@@ -199,6 +203,7 @@ namespace Brushblade.Presentation
                     case EffectKind.DamageSingle:
                     case EffectKind.DamageAll:
                     case EffectKind.Shield:
+                    case EffectKind.ShieldAll:
                     case EffectKind.HealSelf:
                     case EffectKind.HealAll:
                     case EffectKind.HealOverTime:

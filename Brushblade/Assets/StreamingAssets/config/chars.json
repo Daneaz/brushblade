@@ -845,7 +845,7 @@
       "gloss": "百川所归",
       "effects": [
         {
-          "kind": "HealSelf",
+          "kind": "HealAll",
           "value": 70
         }
       ],
@@ -1657,8 +1657,8 @@
       "gloss": "山石塌落",
       "effects": [
         {
-          "kind": "Shield",
-          "value": 35
+          "kind": "ShieldAll",
+          "value": 17
         }
       ],
       "attackEffects": [

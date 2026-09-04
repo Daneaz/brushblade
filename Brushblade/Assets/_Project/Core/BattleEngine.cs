@@ -2317,6 +2317,18 @@ namespace Brushblade.Core
                         GainMomentum(shield);
                         _events.Add(new BattleEvent(BattleEventKind.Shield, allySlot, shield));
                         break;
+                    case EffectKind.ShieldAll:
+                    {
+                        // 与 Shield 同一个基数算法(生克 + 攻击力缩放),只是落到所有人身上。
+                        // **不选目标**:它给全场,所以 NeedsAllyTarget 对它为 false。
+                        int shieldAll = ScaleByBaseAttack(WuxingResolver.ResolveEffect(value));
+                        // 攒势按**单份**盾量,不乘人数 —— 与 HealAll 攒水势同一条口径(那边
+                        // GainWaterPower 收的也是基础值)。按总量攒会让「场上召唤物越多、
+                        // 同一张字攒的势越多」,而势记的是你堆了多少防御,不是堆给了几个人。
+                        GainMomentum(shieldAll);
+                        ShieldPlayerAndSummons(shieldAll, effect.PersistOnce);
+                        break;
+                    }
                     case EffectKind.BurnPotency:
                         _burnPerStack += value;
                         break;
@@ -2775,6 +2787,25 @@ namespace Brushblade.Core
             {
                 if (summon == null || !summon.Alive) continue;
                 summon.Hp = Math.Min(summon.MaxHp, summon.Hp + amount);
+            }
+        }
+
+        /// <summary>群体护盾(2026-09-05):玩家 + 全部存活召唤物**各得一份**,不按人数分摊
+        /// (与 <see cref="HealPlayerAndSummons"/> 同一条口径)。
+        ///
+        /// 每个受盾方各发一条 Shield 事件 —— 表现层按事件给立绘角标/飘字,合成一条会让
+        /// 除玩家之外的人身上一点反馈都没有。玩家那一份仍分两桶(豁免/普通),召唤物只有
+        /// 一个桶(见 Shield 那一支的注释:豁免桶是玩家侧「倾覆清盾」的对策,召唤物不吃倾覆)。</summary>
+        private void ShieldPlayerAndSummons(int shield, bool persistOnce)
+        {
+            if (persistOnce) _shieldPersist += shield;
+            else _shieldNormal += shield;
+            _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, shield));
+            for (int slot = 0; slot < _summons.Length; slot++)
+            {
+                if (_summons[slot] == null || !_summons[slot].Alive) continue;
+                _summons[slot].Shield += shield;
+                _events.Add(new BattleEvent(BattleEventKind.Shield, slot, shield));
             }
         }
 
