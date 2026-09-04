@@ -1138,10 +1138,17 @@ namespace Brushblade.Presentation
             bool up = delta > 0;
             int amount = Mathf.Abs(delta);
             var color = up ? Theme.SplitBlue : Theme.Cinnabar;
-            Popup(maxHp
-                    ? Strings.T(up ? "juice.popup.maxhp_up" : "juice.popup.maxhp_down", ("amount", amount))
-                    : (up ? "+" : "-") + amount,
-                color, null);
+            // ⚠ 两支各自把 key 写成**紧跟取词调用左括号的字面量**,别收成三元
+            // (在实参位置上按 up 二选一那种写法)—— StringsTableTests 的 key 扫描正则
+            // 只认「左括号后紧跟字符串字面量」,三元里的字面量一个都抓不到,两条 key
+            // 会被判成孤儿(2026-09-05 就这么红过一次)。
+            // 这段注释也不能把那个调用形状**照着写出来**:同一条正则不认注释,会把
+            // 注释里的示例当成真调用点,反过来报「调用了表里没有的 key」(紧接着又红一次)。
+            string text;
+            if (!maxHp) text = (up ? "+" : "-") + amount;
+            else if (up) text = Strings.T("juice.popup.maxhp_up", ("amount", amount));
+            else text = Strings.T("juice.popup.maxhp_down", ("amount", amount));
+            Popup(text, color, null);
             if (up) PlayClip(_healClip, 0.7f);
             BarPulse(fill, color, up ? Element.Water : null);
         }

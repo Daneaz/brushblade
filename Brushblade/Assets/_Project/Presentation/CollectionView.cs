@@ -67,8 +67,15 @@ namespace Brushblade.Presentation
         private Element? _filter;
         private bool _filterIsAll = true;
         private string _selected;
-        private bool _upOnly;
-        private bool _wantOnly;
+        /// <summary>网格排序(2026-09-05 用户拍板,取代原先「仅看可升级」/「只看未拥有」
+        /// 两个筛选 chip):三选一,点击即换。
+        ///
+        /// 排序而不是筛选,是因为筛选把其余的字**藏起来** —— 而收集页的底色是「我手上有什么、
+        /// 还差什么」,藏起来正好把这一页最想让人看见的东西拿掉了。排序把要紧的顶到最前,
+        /// 其余仍在后面看得到,同一个诉求代价小得多。</summary>
+        private enum SortMode { Rarity, Upgradable, Fresh }
+
+        private SortMode _sort = SortMode.Rarity; // 默认稀有度(用户拍板)
         /// <summary>网格的滚动位置(1 = 顶部)。整页是全量重建的,不记着它的话,
         /// 点第三行某张牌 → Rebuild → 列表弹回顶部,那张牌当场从眼前消失(2026-09-03 实机反馈)。
         /// 只在筛选变了时才归顶 —— 那时列表内容本来就换了一批。</summary>
@@ -170,22 +177,25 @@ namespace Brushblade.Presentation
             separator.AddComponent<Image>().color = Theme.PanelBorder;
             Ui.Sized(separator, 2, FilterH * 0.5f);
 
-            int upgradable = 0, locked = 0;
+            int upgradable = 0, fresh = 0;
             foreach (var def in _all)
             {
-                if (!_meta.OwnedCards.Contains(def.Id)) { locked++; continue; }
+                if (!_meta.OwnedCards.Contains(def.Id)) continue;
                 if (MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity)) upgradable++;
+                if (MetaRules.IsCardUnseen(_meta, def.Id)) fresh++;
             }
-            Toggle(bar.transform, Strings.T("collection.filter.upgradable", ("count", upgradable)),
-                _upOnly, Theme.Jade, Theme.AdGreenBg, Theme.UpgradeText,
-                () => { _upOnly = !_upOnly; _wantOnly = false; Rebuild(keepScroll: false); });
-            Toggle(bar.transform, Strings.T("collection.filter.wanted", ("count", locked)),
-                _wantOnly, Theme.LockGray, Theme.PanelInset, Theme.TextDim,
-                () => { _wantOnly = !_wantOnly; _upOnly = false; Rebuild(keepScroll: false); });
+            // 三个排序钮取代原先那两个筛选 chip(见 SortMode 的注释)。计数只挂在可升级/新卡上
+            // —— 那两个数本来就在原 chip 上、玩家在用;稀有度没有对应的「有几个」。
+            Ui.ThemedLabel(bar.transform, Strings.T("collection.sort.label"), 19, Theme.LockGray);
+            SortToggle(bar.transform, Strings.T("collection.sort.rarity"), SortMode.Rarity,
+                Theme.InkSoft, Theme.PanelInset, Theme.TextDim);
+            SortToggle(bar.transform, Strings.T("collection.sort.upgradable", ("count", upgradable)),
+                SortMode.Upgradable, Theme.Jade, Theme.AdGreenBg, Theme.UpgradeText);
+            SortToggle(bar.transform, Strings.T("collection.sort.fresh", ("count", fresh)),
+                SortMode.Fresh, Theme.Cinnabar, Theme.PanelInset, Theme.TextDim);
 
             var spring = Ui.Panel(bar.transform, "Spring");
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
-            Ui.ThemedLabel(bar.transform, Strings.T("collection.sort_hint"), 19, Theme.LockGray);
         }
 
         /// <summary>一个属性页签:名 + 「已收集/总数」+ 未看过的红点。</summary>
@@ -259,30 +269,55 @@ namespace Brushblade.Presentation
                 new Vector2(Ui.ChipWidth(text, 20) + 20, 46), 23);
         }
 
+        /// <summary>一个排序钮:点已选中的那个不做事(不是三态循环,是三选一) ——
+        /// 点当前项要么该什么都不发生、要么该反序,反序稿上没有,那就什么都不发生,
+        /// 但**不能**悄悄换成别的排序。</summary>
+        private void SortToggle(Transform parent, string text, SortMode mode,
+            Color onBg, Color offBg, Color offFg)
+        {
+            Toggle(parent, text, _sort == mode, onBg, offBg, offFg, () =>
+            {
+                if (_sort == mode) return;
+                _sort = mode;
+                Rebuild(keepScroll: false); // 换了序 = 换了一批内容的先后,停在原滚动位没有意义
+            });
+        }
+
         // ================= 左:收集网格 =================
 
-        /// <summary>排序:未拥有一律沉底 → 可升级 → 未看过的新字 → 稀有度降序 → 字形。
-        /// 收集页首先是「我手上有什么」,其次才是「还差什么」。</summary>
+        /// <summary>网格内容 = 当前属性页签下的字,按 <see cref="_sort"/> 排。
+        ///
+        /// **「未拥有沉底」是三种排序共有的第一层**,不受排序钮影响:收集页首先是
+        /// 「我手上有什么」,其次才是「还差什么」——把没有的字混进已有的里面排,
+        /// 无论按什么排都会让人以为自己有。排序钮换的是它下面那一层主键:
+        ///   稀有度(默认) → 直接进稀有度降序
+        ///   可升级       → 能升的顶到最前
+        ///   新卡         → 未看过的顶到最前
+        /// 三者的末两层一律是「稀有度降序 → 字形」,所以主键相同的两张字在三种排序下
+        /// 相对位置一致 —— 换排序时视线不会整片乱掉。</summary>
         private List<CharDef> Visible()
         {
             var list = new List<CharDef>();
             foreach (var def in _all)
             {
                 if (!_filterIsAll && def.Element != _filter) continue;
-                bool owned = _meta.OwnedCards.Contains(def.Id);
-                if (_upOnly && !(owned && MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity))) continue;
-                if (_wantOnly && owned) continue;
                 list.Add(def);
             }
             list.Sort((a, b) =>
             {
                 bool ownedA = _meta.OwnedCards.Contains(a.Id), ownedB = _meta.OwnedCards.Contains(b.Id);
                 if (ownedA != ownedB) return ownedA ? -1 : 1;
-                bool upA = ownedA && MetaRules.CanUpgradeCard(_meta, a.Id, a.Rarity);
-                bool upB = ownedB && MetaRules.CanUpgradeCard(_meta, b.Id, b.Rarity);
-                if (upA != upB) return upA ? -1 : 1;
-                bool newA = MetaRules.IsCardUnseen(_meta, a.Id), newB = MetaRules.IsCardUnseen(_meta, b.Id);
-                if (newA != newB) return newA ? -1 : 1;
+                if (_sort == SortMode.Upgradable)
+                {
+                    bool upA = ownedA && MetaRules.CanUpgradeCard(_meta, a.Id, a.Rarity);
+                    bool upB = ownedB && MetaRules.CanUpgradeCard(_meta, b.Id, b.Rarity);
+                    if (upA != upB) return upA ? -1 : 1;
+                }
+                else if (_sort == SortMode.Fresh)
+                {
+                    bool newA = MetaRules.IsCardUnseen(_meta, a.Id), newB = MetaRules.IsCardUnseen(_meta, b.Id);
+                    if (newA != newB) return newA ? -1 : 1;
+                }
                 if (a.Rarity != b.Rarity) return b.Rarity.CompareTo(a.Rarity);
                 return string.CompareOrdinal(a.Id, b.Id);
             });
@@ -304,9 +339,10 @@ namespace Brushblade.Presentation
             var list = Visible();
             if (list.Count == 0)
             {
-                var empty = Ui.ThemedLabel(content, _wantOnly
-                    ? Strings.T("collection.empty.all_owned")
-                    : Strings.T("collection.empty.no_upgradable"), 22, Theme.LockGray);
+                // 排序取代筛选之后(2026-09-05)这一支现实中已经到不了:网格只受属性页签影响,
+                // 而每一系都有字。留着是给数据兜底 —— 哪天字表里某一系被清空,空白网格
+                // 比一句话更难判断是「没有」还是「加载失败」。旧的两条文案随筛选一起下架。
+                var empty = Ui.ThemedLabel(content, Strings.T("collection.empty.none"), 22, Theme.LockGray);
                 Ui.Sized(empty.gameObject, 0, 200, flexWidth: 1);
                 return;
             }
@@ -519,13 +555,14 @@ namespace Brushblade.Presentation
                     Strings.T("collection.button.goto_upgrade", ("count", upgradable)),
                     () =>
                     {
-                        // 顺带把筛选清回「全部」:那张字未必在当前这一系里,
-                        // 只换 _selected 的话右栏出了详情、左边网格里却找不到它
+                        // 顺带把属性页签清回「全部」:那张字未必在当前这一系里,
+                        // 只换 _selected 的话详情出来了、左边网格里却找不到它。
+                        // 排序也一并切到「可升级」(2026-09-05):这个钮的意图就是「带我去那张字」,
+                        // 而那个排序恰好把它顶到网格最前 —— 清了页签还要在几十张里找,等于没带到。
                         if (first == null) return;
                         _filterIsAll = true;
                         _filter = null;
-                        _upOnly = false;
-                        _wantOnly = false;
+                        _sort = SortMode.Upgradable;
                         _gridScroll = 1f;   // 换了一批内容,停在原位置没有意义
                         Select(first);
                     },
