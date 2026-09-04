@@ -132,6 +132,14 @@ namespace Brushblade.Core
         /// 同一条理由(见那条注释里「零新增快照字段」的推理)。</summary>
         public int ColumnSpan { get; }
 
+        /// <summary>占几排(2026-09-05)。1 = 只在 <see cref="Row"/> 那一排;
+        /// <see cref="Targeting.RowSpanBoth"/> = 同时占前后两排(跨排 Boss)。
+        ///
+        /// 与 <see cref="ColumnSpan"/> 不同,这里**不需要**起始排 + 长度那套区间语义:
+        /// 敌方只有两排,所以「跨排」必然是「两排都占」,没有第三种可能。
+        /// 一切占位裁定因此只问 <see cref="EnemyState.Occupies"/>,不做区间运算。</summary>
+        public int RowSpan { get; }
+
         /// <summary>最早出现层(2026-09-02);0 = 不限。
         ///
         /// 低阶护甲怪配 6:前 5 层是新手教学区,带甲怪会让还没有破甲手段的玩家直接卡死,
@@ -142,7 +150,8 @@ namespace Brushblade.Core
             EnemyAbility ability = EnemyAbility.None, IReadOnlyList<BossPhaseDef> phases = null,
             int defense = 0, int speed = 0,
             EnemyRow row = EnemyRow.Front, AttackRange range = AttackRange.Melee,
-            AttackFocus focus = AttackFocus.Default, int columnSpan = 1, int minDepth = 0)
+            AttackFocus focus = AttackFocus.Default, int columnSpan = 1, int minDepth = 0,
+            int rowSpan = 1)
         {
             Id = id;
             Element = element;
@@ -156,6 +165,8 @@ namespace Brushblade.Core
             Range = range;
             Focus = focus;
             ColumnSpan = columnSpan < 1 ? 1 : columnSpan;
+            // 只有两排,>2 一律按 2 收 —— 越界的配置比报错更该被夹回可表达的范围
+            RowSpan = rowSpan < 1 ? 1 : (rowSpan > Targeting.RowSpanBoth ? Targeting.RowSpanBoth : rowSpan);
             MinDepth = minDepth;
         }
     }
@@ -339,6 +350,22 @@ namespace Brushblade.Core
 
         /// <summary>占位区间的**右开端**= Column + ColumnSpan。裁定一律用 [Column, ColumnEnd)。</summary>
         public int ColumnEnd => Column + Def.ColumnSpan;
+
+        /// <summary>占几排(2026-09-05),转发 <see cref="EnemyDef.RowSpan"/>。不存快照 —— Def 里就有。</summary>
+        public int RowSpan => Def.RowSpan;
+
+        /// <summary>它占着这一排吗。**一切「在不在某排」的裁定都走这里**,不要写
+        /// <c>Row == 某排</c> —— 跨排 Boss 的 Row 只是它的起始排,而它两排都占,
+        /// 直接比 Row 会让它在另一排上凭空消失(近战够不着、横扫扫不到)。
+        ///
+        /// 只有两排,所以 RowSpan > 1 就是「两排都占」,不必算区间(见 EnemyDef.RowSpan)。</summary>
+        public bool Occupies(EnemyRow row) => RowSpan > 1 || Row == row;
+
+        /// <summary>两只怪有没有站在同一排上(排区间相交)。横扫、溅射、弹射距离都问这个 ——
+        /// 跨排 Boss 与**任何**一只怪都算同排,因为它在两排里都有一半。</summary>
+        public bool SharesRow(EnemyState other) =>
+            Occupies(EnemyRow.Front) && other.Occupies(EnemyRow.Front)
+            || Occupies(EnemyRow.Back) && other.Occupies(EnemyRow.Back);
 
         /// <summary>行动计量器:回合末累积有效速度,每满 100 行动一次。</summary>
         public int ActionMeter { get; internal set; }

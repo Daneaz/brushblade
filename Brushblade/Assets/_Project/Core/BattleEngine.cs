@@ -2872,12 +2872,15 @@ namespace Brushblade.Core
             {
                 var preferred = enemy.Def.Row;
                 var other = preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front;
-                int column = FreeColumnIn(preferred, enemy.Def.ColumnSpan);
+                int rowSpan = enemy.Def.RowSpan;
+                int column = FreeColumnIn(preferred, enemy.Def.ColumnSpan, rowSpan);
                 var row = preferred;
                 if (column < 0)
                 {
+                    // 跨排的怪换排没有意义(两排它都要),但仍走这一支 —— 让「放不下」
+                    // 走同一条兜底路径(下面那句挤在 0 列),而不是在这里多一个特例分支。
                     row = other;
-                    column = FreeColumnIn(other, enemy.Def.ColumnSpan);
+                    column = FreeColumnIn(other, enemy.Def.ColumnSpan, rowSpan);
                 }
                 // 两排都放不下:EnemyCap 8 = 4 + 4 且全员 Span 1 时走不到,
                 // 但跨列的怪会让「只数没超上限、宽度却超了」成为可能。落到 −1 就把它
@@ -3157,7 +3160,7 @@ namespace Brushblade.Core
         {
             int width = 0;
             foreach (var e in _enemies)
-                if (e.Row == preferred && e.Column != UnassignedColumn) width += e.ColumnSpan;
+                if (e.Occupies(preferred) && e.Column != UnassignedColumn) width += e.ColumnSpan;
             return width + span <= EnemyRowCap
                 ? preferred
                 : (preferred == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front);
@@ -3169,22 +3172,34 @@ namespace Brushblade.Core
         /// 开场分配与叠字怪分裂共用这一处 —— 两边对「哪里算空」必须是同一个判据,
         /// 分头写就有走岔的余地。已阵亡的怪**照样占位**(引擎从不移除阵亡敌人),
         /// 与表现层「尸体占格」一致。</summary>
-        private int FreeColumnIn(EnemyRow row, int span)
+        /// <param name="rowSpan">要放的这只占几排(2026-09-05)。>1 时要求**两排**的同一段列
+        /// 都空 —— 跨排 Boss 的 2×2 占位就是这么落的。</param>
+        private int FreeColumnIn(EnemyRow row, int span, int rowSpan = 1)
         {
+            var other = row == EnemyRow.Front ? EnemyRow.Back : EnemyRow.Front;
             foreach (int start in Targeting.ColumnOrder)
             {
                 if (start + span > EnemyRowCap) continue;
-                bool free = true;
-                foreach (var e in _enemies)
-                {
-                    if (e.Row != row) continue;
-                    if (e.Column == UnassignedColumn) continue;
-                    // 区间相交 = 放不下
-                    if (e.Column < start + span && start < e.ColumnEnd) { free = false; break; }
-                }
-                if (free) return start;
+                if (!ColumnsFreeIn(row, start, span)) continue;
+                if (rowSpan > 1 && !ColumnsFreeIn(other, start, span)) continue;
+                return start;
             }
             return -1;
+        }
+
+        /// <summary>这一排的 [start, start+span) 这段列上没有已落位的怪。
+        /// 判「在不在这一排」走 <see cref="EnemyState.Occupies"/> —— 已落位的跨排 Boss
+        /// 在两排都算占用,否则随从会落进它的格子里。</summary>
+        private bool ColumnsFreeIn(EnemyRow row, int start, int span)
+        {
+            foreach (var e in _enemies)
+            {
+                if (!e.Occupies(row)) continue;
+                if (e.Column == UnassignedColumn) continue;
+                // 区间相交 = 放不下
+                if (e.Column < start + span && start < e.ColumnEnd) return false;
+            }
+            return true;
         }
 
         private void ResolveDefeat(int enemyIndex)

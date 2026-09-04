@@ -408,7 +408,7 @@ namespace Brushblade.Data
 
                 enemyDefs[dto.Id] = new EnemyDef(dto.Id, element, dto.MaxHp, dto.Attack, ability, phases,
                     dto.Defense, speed: 0, row: row, range: range, focus: focus,
-                    columnSpan: dto.ColumnSpan, minDepth: dto.MinDepth);
+                    columnSpan: dto.ColumnSpan, minDepth: dto.MinDepth, rowSpan: dto.RowSpan);
             }
             return enemyDefs;
         }
@@ -426,6 +426,7 @@ namespace Brushblade.Data
             public string Range { get; set; }  // "Melee" / "Ranged";缺省近战
             public string Focus { get; set; }  // "Default" / "Player";缺省 Default
             public int ColumnSpan { get; set; }  // 占几列(2026-08-30);缺省 0 → EnemyDef 钳到 1
+            public int RowSpan { get; set; }     // 占几排(2026-09-05);缺省 0 → EnemyDef 钳到 1
             public int MinDepth { get; set; }  // 最早出现层(2026-09-02);缺省 0 = 不限
         }
 

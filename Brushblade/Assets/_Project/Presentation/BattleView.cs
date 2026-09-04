@@ -2387,7 +2387,10 @@ namespace Brushblade.Presentation
             {
                 var enemy = Battle.Enemies[i];
                 int index = i;
-                bool front = enemy.Row == EnemyRow.Front;
+                // 跨排的怪(Boss)一律从**后排**格位起画:它的可视块要向下溢出去盖住前排
+                // 那两格(见下面 crossRow 那一段),而向上溢出会顶进顶栏。
+                bool crossRow = enemy.RowSpan > 1;
+                bool front = !crossRow && enemy.Row == EnemyRow.Front;
                 // 死亡动画进行中的怪:重绘时仍保持着色挨打,置灰交给死亡节拍(GreyOut),别在重绘时就变灰
                 bool dying = _dyingEnemies.Contains(index);
                 bool showAlive = enemy.Alive || dying;
@@ -2433,18 +2436,40 @@ namespace Brushblade.Presentation
                     Object.Destroy(cells[c]);
                     cells[c] = null;
                 }
+                // 跨排(2026-09-05):前排同一段列也归它 —— 只标记已用、**不销毁**。
+                // 销毁会让前排少两格、剩下两只随从被 MiddleCenter 重新居中,列就与后排对不齐了;
+                // 留着的空格位继续撑宽度,Boss 的可视块从上面盖下来正好落在这两格上。
+                if (crossRow)
+                    for (int c = col; c < col + span && c < frontUsed.Length; c++)
+                        frontUsed[c] = true;
 
                 var cell = cells[col];
                 var cellElement = cell.GetComponent<LayoutElement>();
                 cellElement.preferredHeight = front ? EnemyCellHeightFront : EnemyCellHeightBack;
+                // 跨排的可视块:格位本身仍按后排的高度参与布局(不撑高整排),真正的画面
+                // 挂在一个**向下溢出**的子物体里 —— 多出来的正是「排间距 + 前排格高」,
+                // 于是它盖住前排那两格(上面已把它们标记为已用、没人会落进去)。
+                // 子物体溢出父容器在 uGUI 里是允许的(这一路没有 Mask/RectMask2D);
+                // 走「格位不变 + 子物体溢出」而不是「把格位撑高」,是因为后排 Row 的高度
+                // 由最高子项决定,撑高它会把前排整排往下推、整个战场的纵向布局跟着走形。
+                var box = cell.transform;
+                if (crossRow)
+                {
+                    var overflow = Ui.Panel(cell.transform, "CrossRow");
+                    Ui.Anchor((RectTransform)overflow.transform, Vector2.zero, Vector2.one,
+                        new Vector2(0f, -(RowGap + EnemyCellHeightFront)), Vector2.zero);
+                    box = overflow.transform;
+                }
                 // 宽度按 span 算,把被它吞掉的那几条格间距也算进去,否则会比整排窄
                 // (span-1) 个 RowGap
                 cellElement.preferredWidth = EnemyCellWidth * span + RowGap * (span - 1);
-                float portraitSize = front ? EnemyPortraitFront : EnemyPortraitBack;
+                // 跨排 Boss 用前排那一档更大的立绘:它的块高是「后排 109 + 排间距 + 前排 138」,
+                // 放得下;而跨两列让信息列宽到 599 − 126 − 13,头行那四样属性绰绰有余。
+                float portraitSize = front || crossRow ? EnemyPortraitFront : EnemyPortraitBack;
                 float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
                 // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),
                 // 2026-08-31 收口成 Ui.UnitBlock,与召唤格/玩家条同一套写法。
-                Ui.UnitBlock(cell.transform, "Block", portraitSize, infoWidth, EnemyBlkInfoGap,
+                Ui.UnitBlock(box, "Block", portraitSize, infoWidth, EnemyBlkInfoGap,
                     out var portraitMount, out var info);
                 info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
 
@@ -2494,7 +2519,7 @@ namespace Brushblade.Presentation
                 }
 
                 // 点击区盖满整格:形象各层不吃 raycast(见 MobView),没有它整格点不动
-                var hitArea = cell.AddComponent<Image>();
+                var hitArea = box.gameObject.AddComponent<Image>();
                 hitArea.color = _targeting && enemy.Alive && reachable
                     ? new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.07f) // 选目标时整格微亮,提示可点
                     : new Color(0, 0, 0, 0);
@@ -2619,7 +2644,7 @@ namespace Brushblade.Presentation
                     _enemyActionBars.Add((null, null));   // 下标与 _enemyHpBars 严格同步
                 }
 
-                var button = cell.AddComponent<Button>();
+                var button = box.gameObject.AddComponent<Button>();
                 button.targetGraphic = hitArea;
                 button.onClick.AddListener(() => OnEnemyClicked(index));
                 button.interactable = enemy.Alive && reachable; // 够不到:连详情都不弹,免得像点歪了

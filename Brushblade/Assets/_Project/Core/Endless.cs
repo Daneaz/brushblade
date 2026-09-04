@@ -123,8 +123,10 @@ namespace Brushblade.Core
                 new(idiom.Chars[2].ToString(), idiom.Elements[2], 180, 80, SkillAt(2)),
                 new(idiom.Chars[3].ToString(), idiom.Elements[3], 240, 100, SkillAt(3)),
             };
+            // 占位(2026-09-05 用户拍板):中间 2 列 × 两排,不再占满前排一整排 ——
+            // 两侧各留一列给随从(左右两列 × 两排 = EscortCap 那 4 格)。
             return new EnemyDef(idiom.Chars, idiom.Elements[0], 180, 60, EnemyAbility.None, phases,
-                columnSpan: Targeting.RowCapacity);
+                columnSpan: Targeting.BossColumnSpan, rowSpan: Targeting.RowSpanBoth);
         }
 
         private static IReadOnlyList<EnemyDef> Scaled(EndlessConfig config, int depth, params EnemyDef[] enemies)

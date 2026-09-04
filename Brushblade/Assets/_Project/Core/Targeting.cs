@@ -19,6 +19,18 @@ namespace Brushblade.Core
         /// 没有耦合,两者恰好同为 4 纯属巧合,不要以为改一个另一个也得跟着改(2026-08-22 评审)。</summary>
         public const int RowCapacity = 4;
 
+        /// <summary>跨两排 = 占满敌方纵深(2026-09-05)。只有两排,所以「跨排」只有这一档,
+        /// 不存在 3。写成常量而不是字面量 2,是为了让占位裁定读起来是「占满两排」
+        /// 而不是「某个数」。</summary>
+        public const int RowSpanBoth = 2;
+
+        /// <summary>Boss 的列宽(2026-09-05 用户拍板:中间 2×2)。
+        /// 从 <see cref="RowCapacity"/>(占满一整排)收到 2 —— 两侧各留一列给随从,
+        /// 左右两列 × 两排正好是 EndlessGenerator.EscortCap 的那 4 格。
+        /// 「居中」不需要给 Boss 开特例:<see cref="ColumnOrder"/> 的头两个就是 1、2,
+        /// 而 Boss 恒为 floor[0]、第一个落位,自然拿到中间两列。</summary>
+        public const int BossColumnSpan = 2;
+
         /// <summary>列号的分配顺序(2026-08-30):**居中往外**。4 列没有正中,取中间偏左先。
         ///
         /// 取代了旧的「两排都 ≤1 只就把该排折叠成一格」特例(RowCells,已删)——
@@ -174,14 +186,20 @@ namespace Brushblade.Core
             return subset;
         }
 
-        /// <summary>该列的前排与后排是否都还有活人 —— 贯穿要打满两只的前提。</summary>
+        /// <summary>该列的前排与后排是否都还有活人 —— 贯穿要打满两只的前提。
+        ///
+        /// 跨排 Boss **一只就让该列同时成立**(它占前后两排),这正是它该被贯穿打满的情形 ——
+        /// 用户 2026-09-05 拍板「贯穿打满两只」对它照算,那两下都落在同一个实体上
+        /// (下标重复两次由 ExpandTargets 负责,见那边的 Hits)。
+        /// 列判定同样改成区间相交:Boss 占 2 列,只比 <c>Column ==</c> 会漏掉它的右半列。</summary>
         private static bool HasBothRowsInColumn(IReadOnlyList<EnemyState> enemies, int column)
         {
             bool front = false, back = false;
             foreach (var e in enemies)
             {
-                if (!e.Alive || e.Column != column) continue;
-                if (e.Row == EnemyRow.Front) front = true; else back = true;
+                if (!e.Alive || column < e.Column || column >= e.ColumnEnd) continue;
+                if (e.Occupies(EnemyRow.Front)) front = true;
+                if (e.Occupies(EnemyRow.Back)) back = true;
             }
             return front && back;
         }
@@ -214,19 +232,20 @@ namespace Brushblade.Core
             if (shape == TargetShape.Chain) return ChainTargets(enemies, primaryIndex, shots);
             if (primaryIndex < 0 || primaryIndex >= enemies.Count) return System.Array.Empty<int>();
 
-            var result = new List<int> { primaryIndex };
-            if (shape == TargetShape.Single) return result;
+            var result = new List<int>();
+            if (shape == TargetShape.Single) { result.Add(primaryIndex); return result; }
 
             var primary = enemies[primaryIndex];
+            AddHits(result, primaryIndex, enemies[primaryIndex]);   // 首项恒为主目标
             for (int i = 0; i < enemies.Count; i++)
             {
                 if (i == primaryIndex || !enemies[i].Alive) continue;
                 bool hit = shape switch
                 {
-                    TargetShape.Sweep => enemies[i].Row == primary.Row,
+                    TargetShape.Sweep => enemies[i].SharesRow(primary),
                     // 相邻 = 一方的右开端正好顶着另一方的起始列(2026-08-30 列区间)。
                     // Span 全 1 时 ⟺ |ΔColumn| == 1,与旧写法逐字节相同。
-                    TargetShape.Cleave => enemies[i].Row == primary.Row
+                    TargetShape.Cleave => enemies[i].SharesRow(primary)
                         && (enemies[i].ColumnEnd == primary.Column
                             || primary.ColumnEnd == enemies[i].Column),
                     // 同列 = 两个列区间相交。Span 全 1 时 ⟺ Column 相等。
@@ -234,9 +253,25 @@ namespace Brushblade.Core
                         && primary.Column < enemies[i].ColumnEnd,
                     _ => false,
                 };
-                if (hit) result.Add(i);
+                if (hit) AddHits(result, i, enemies[i]);
             }
             return result;
+        }
+
+        /// <summary>把一只被形状覆盖的敌人记进结果表 —— **跨排 Boss 记两次**
+        /// (用户 2026-09-05 拍板「贯穿打满两只,横扫、溅射这些 boss 都打两次」)。
+        ///
+        /// 两次而不是四次:Boss 占中间 2×2 共四格,但任何一个形状覆盖它的都只是其中两格 ——
+        /// 横扫与溅射沿**列**方向扫过它在那一排的 2 列,贯穿沿**排**方向穿过它在那一列的 2 排。
+        /// 所以这个数与形状无关,恒为「它在被扫的那个方向上占几格」= RowSpan/ColumnSpan 的那个 2。
+        ///
+        /// 走「同一下标重复两次」而不是「一次算双倍伤害」:ExpandTargets 的既有约定就是
+        /// 「表内可含重复下标,调用方按每项一次结算」(连发早就在用),于是斩杀、多段、穿透、
+        /// 反伤、护盾吸收全都自然地各算两遍 —— 双倍伤害那种写法会把这些一次性效果吞掉一半。</summary>
+        private static void AddHits(List<int> result, int index, EnemyState enemy)
+        {
+            int hits = enemy.RowSpan > 1 ? RowSpanBoth : 1;
+            for (int h = 0; h < hits; h++) result.Add(index);
         }
 
         /// <summary>弹射的目标序列(2026-08-25):主目标打头,其余存活敌人按**离主目标的格子距离**
@@ -271,7 +306,7 @@ namespace Brushblade.Core
         /// 所以整体乘 2 是安全的:单调线性变换不改排序,Span 全 1 时排序结果与旧式子逐位相同。
         /// 列用中心距(半列为单位),排差记 2(= 旧式子的 1 乘 2)。</summary>
         private static int GridDistance(EnemyState a, EnemyState b) =>
-            System.Math.Abs(ColumnCenter2(a) - ColumnCenter2(b)) + (a.Row == b.Row ? 0 : 2);
+            System.Math.Abs(ColumnCenter2(a) - ColumnCenter2(b)) + (a.SharesRow(b) ? 0 : 2);
 
         /// <summary>连发的目标序列:后排优先、各排按列序排出候选,再从头循环取满 shots 发。
         /// 候选为空或 shots ≤ 0 返回空表。</summary>
@@ -295,9 +330,16 @@ namespace Brushblade.Core
         {
             for (int col = 0; col < RowCapacity; col++)
                 for (int i = 0; i < enemies.Count; i++)
-                    if (enemies[i].Alive && enemies[i].Row == row && enemies[i].Column == col)
+                    if (enemies[i].Alive && enemies[i].Occupies(row) && enemies[i].Column == col
+                        && !pool.Contains(i))
                         pool.Add(i);
         }
+
+        // ⚠ 连发**按只去重**,与横扫/贯穿那几个形状按格数重复(见 AddHits)刻意不同:
+        // 连发的口径是「轮着打每一只」(后排优先、各排按列序),不是几何覆盖 ——
+        // 跨排 Boss 在两排两列上共出现四次,不去重的话 4 发连射会全部砸在它身上、
+        // 旁边的随从一发都吃不到,而那正是连发这个形状要避免的。
+        // 去重靠 pool.Contains:候选表最多 8 项,线性查找的代价可以忽略。
 
         /// <summary>玩家的**单体直接伤害**能不能打这只敌人(spec §4.2)。
         /// ignoresRow = 该字标了偷袭(刺)。控制类、AOE 一律不调本函数——它们不受排位限制。
@@ -306,7 +348,9 @@ namespace Brushblade.Core
         public static bool CanPlayerHit(IReadOnlyList<EnemyState> enemies, int enemyIndex, bool ignoresRow)
         {
             if (enemyIndex < 0 || enemyIndex >= enemies.Count || !enemies[enemyIndex].Alive) return false;
-            if (ignoresRow || enemies[enemyIndex].Row == EnemyRow.Front) return true;
+            // Occupies 而不是 Row == Front:跨排 Boss 的 Row 只是起始排,而它两排都占 ——
+            // 比 Row 会让近战一开场够不着它(明明它就站在前排)。
+            if (ignoresRow || enemies[enemyIndex].Occupies(EnemyRow.Front)) return true;
             return FirstAliveInRow(enemies, EnemyRow.Front) < 0;
         }
 
@@ -317,10 +361,13 @@ namespace Brushblade.Core
             return -1;
         }
 
+        /// <summary>这一排第一个活人的下标;没有返回 −1。
+        /// 走 <see cref="EnemyState.Occupies"/> —— 跨排 Boss 在两排都算活人,
+        /// 所以「前排清空了吗」这个判定认得出它还站着(后排随从因此仍被挡)。</summary>
         private static int FirstAliveInRow(IReadOnlyList<EnemyState> enemies, EnemyRow row)
         {
             for (int i = 0; i < enemies.Count; i++)
-                if (enemies[i].Alive && enemies[i].Row == row) return i;
+                if (enemies[i].Alive && enemies[i].Occupies(row)) return i;
             return -1;
         }
     }

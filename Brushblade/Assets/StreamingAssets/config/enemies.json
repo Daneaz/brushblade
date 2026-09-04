@@ -68,7 +68,8 @@
       "element": "Water",
       "maxHp": 120,
       "attack": 60,
-      "columnSpan": 4,
+      "columnSpan": 2,
+    "rowSpan": 2,
       "phases": [
         {
           "char": "排",
@@ -102,7 +103,8 @@
       "element": "Water",
       "maxHp": 120,
       "attack": 70,
-      "columnSpan": 4,
+      "columnSpan": 2,
+    "rowSpan": 2,
       "phases": [
         {
           "char": "翻",
@@ -136,7 +138,8 @@
       "element": "Metal",
       "maxHp": 100,
       "attack": 80,
-      "columnSpan": 4,
+      "columnSpan": 2,
+    "rowSpan": 2,
       "phases": [
         {
           "char": "雷",
