@@ -1788,7 +1788,16 @@ namespace Brushblade.Presentation
                 //   核心机制,靠底色认属性等于让玩家背一遍色表。
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
                 var header = Ui.Row(info.transform, "Header", EnemyHeaderSpacing);
+                // MiddleLeft:头行定了宽(infoWidth),而 Ui.Row 的缺省 MiddleCenter 会把内容
+                // 挤到中间、左边空出一截 —— 敌人格的头行不设宽度,靠 VStack 的 UpperLeft
+                // 自然左对齐,所以那边没有这个问题(2026-09-05 用户点出这个空位)。
                 Ui.Sized(header, width: infoWidth, height: SummonHeaderHeight);
+                header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                // 名字排在最前,与敌人格头行同位。取的就是 SummonState.Char ——
+                // 召唤字卡上写的 SummonChar,也就是这只召唤物自己的字(2026-08-15 字形归位后
+                // 绝大多数字召的是自己,「林」召「木」这种才会与卡名不同,那时该显示的是
+                // 场上这一只是什么,不是谁召的它)。
+                Ui.ThemedLabel(header.transform, summon.Char, 12, Theme.TextMain, Theme.TitleFont);
                 Ui.Chip(header.transform, CharInfo.ElementName(summon.Element),
                     Theme.ElementColor(summon.Element), Color.white,
                     ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY);
