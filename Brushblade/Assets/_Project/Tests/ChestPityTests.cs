@@ -241,6 +241,45 @@ namespace Brushblade.Core.Tests
         /// <summary>单箱保底降级时按权重抽,不再均匀抽:池里没有紫,紫檀匣的保底只能在
         /// 金/橙/红里取 —— 按权重(金 20‰ / 橙 5‰ / 红 0‰)红永远不出、金显著多于橙;
         /// 旧的均匀抽会让三者各占三分之一,红也会冒出来。</summary>
+        /// <summary>单箱保底表的公开读法(2026-09-04 为宝箱说明弹窗加的入口)。
+        /// 与 <see cref="ChestRules.PityRules"/> 一起构成「保底怎么玩」那一屏的唯一数据源 ——
+        /// 弹窗不许自己抄一份档位→稀有度的对照,抄一份就会跟着这张表一起过期。</summary>
+        [TestCase(ChestTier.Paper, null)]
+        [TestCase(ChestTier.Bamboo, null)]
+        [TestCase(ChestTier.Celadon, CardRarity.Blue)]
+        [TestCase(ChestTier.Rosewood, CardRarity.Purple)]
+        [TestCase(ChestTier.Gilded, CardRarity.Purple)]
+        [TestCase(ChestTier.Vermilion, CardRarity.Purple)]
+        [TestCase(ChestTier.Crimson, CardRarity.Purple)]
+        public void GuaranteedRarityFor_MatchesSpec(ChestTier tier, CardRarity? expected)
+        {
+            Assert.That(ChestRules.GuaranteedRarityFor(tier), Is.EqualTo(expected));
+        }
+
+        /// <summary>公开出来的那张表要**真的**是开箱走的那张:光断言常量值,哪天开箱改读
+        /// 别的表就静默分叉了(说明弹窗照旧写着已经不生效的保底)。所以这里逐档实开,
+        /// 断言每一箱的结果里确实有一张 ≥ 声明的保底档。</summary>
+        [Test]
+        public void GuaranteedRarityFor_AgreesWithActualOpen()
+        {
+            var graph = RarityGraph();
+            for (int tier = 1; tier <= 7; tier++)
+            {
+                var chestTier = (ChestTier)tier;
+                var floor = ChestRules.GuaranteedRarityFor(chestTier);
+                if (floor == null) continue;
+                for (int seed = 1; seed <= 40; seed++)
+                {
+                    var rewards = OpenOn(new MetaState(), chestTier, seed, graph);
+                    bool met = false;
+                    foreach (var card in rewards.Cards)
+                        if (graph.Get(card).Rarity >= floor.Value) { met = true; break; }
+                    Assert.That(met, Is.True,
+                        $"{ChestRules.TierName(chestTier)} 声明保底 {floor} 却开出一箱没有(seed {seed})");
+                }
+            }
+        }
+
         [Test]
         public void Guarantee_FallbackDrawsByWeight_NotUniform()
         {

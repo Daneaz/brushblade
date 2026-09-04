@@ -255,6 +255,12 @@ namespace Brushblade.Core
             CardRarity.Purple, CardRarity.Purple, CardRarity.Purple,
         };
 
+        /// <summary>该档宝箱的单箱保底稀有度(null = 无保底)。开箱走的就是这张表
+        /// (<see cref="DrawWeighted"/> 里的 guaranteed),不是另抄的一份 —— 表现层的
+        /// 宝箱说明弹窗据此列「保底怎么玩」,规则改了那一屏自动跟着改。</summary>
+        public static CardRarity? GuaranteedRarityFor(ChestTier tier)
+            => GuaranteedRarity[(int)tier - 1];
+
         /// <summary>计数保底(2026-08-29 拍板):开满 Threshold 只 ≥MinTier 的箱还没见过该稀有度,
         /// 下一箱强制替一张进来。高档箱推进全部低档计数(赤霄箱同时是一次橙、一次金的进度),
         /// 出了就归零 —— 自然掉出的也算,所以保底只兜极端非酋,不抬总产出。
