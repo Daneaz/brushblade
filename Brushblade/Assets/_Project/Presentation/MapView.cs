@@ -897,7 +897,9 @@ namespace Brushblade.Presentation
         private void ShowRewardPreview(string cardId)
         {
             if (_modal != null) Destroy(_modal);
-            _modal = CharPreview.Show(transform, _graph.Get(cardId), _graph, MetaRules.CardLevel(_meta, cardId));
+            // 传 meta:详情里那段「等级 + 升级成本」按养成外层的账画(与卡组页同一份)
+            _modal = CharPreview.Show(transform, _graph.Get(cardId), _graph,
+                MetaRules.CardLevel(_meta, cardId), meta: _meta);
         }
 
         /// <summary>逐张翻卡(2026-09-03 由「缩放弹入」改为真翻牌):牌先扣着,一张张翻开。

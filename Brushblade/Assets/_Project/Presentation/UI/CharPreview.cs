@@ -9,19 +9,28 @@ namespace Brushblade.Presentation
     /// <summary>字卡详情弹窗。版式基线 = <c>docs/design/ui/scenes/CharSheet.dc.html</c>
     /// (及同族的 <c>CharSheetDual</c> / <c>CharSheetPart</c>)。
     ///
-    /// 五个入口共用:战斗里长按字库牌 / 部件池牌 / 战利品候选牌,以及开箱结果与商城的字卡。
+    /// 六个入口共用:战斗里长按字库牌 / 部件池牌 / 战利品候选牌,开箱结果、商城的字卡,
+    /// 以及卡组页点一张牌(2026-09-05 从右侧栏搬进来的,见下)。
     ///
     /// 2026-09-03 按稿重写。此前是「一张放大的牌 + <see cref="CharInfo.Detail"/> 那一整串文字
     /// + 知道了」——拼音、释义、稀有度、属性、配方、等级、效果全挤在一个文本块里。现在:
     /// · 头把身份信息摊开(牌 / 名 / 释义 / 稀有度 / 属性 / AP / 来源 / 本场等级);
-    /// · 左栏「出手会怎样」:数值格 + 效果整句;双方向字换成攻、护两块并排;
-    /// · 右栏「此刻的场面」:**这一击对场上每只敌人各是多少倍** —— 卡组页只能说「金克木」,
-    ///   这一屏能直接说对谁有用,玩家点开详情多半就为这个;
     /// · 部件没有等级与稀有度,右栏换成「能凑出什么」,与拆合台的可合成列表同一套读法。
     ///
-    /// ⚠ 与单位详情(<see cref="UnitSheet"/>)同一族:墨遮罩 + 宣纸圆角卡 + 右上角关闭,**只读**。
-    /// 「长按只看不出手」(<see cref="HoldToPreview"/> 松手不补发点击)是既有语义,
-    /// 所以卡里一个操作钮都没有 —— 加了就等于把长按变成出手的第二条路。</summary>
+    /// 2026-09-05 用户拍板「三处详情都采用卡组字卡详情的排版」:非部件那一支的两栏内容
+    /// 全部换成 <see cref="CharSheetSections"/> 的段落 —— 与卡组页**同一份实现**。
+    /// 原先这里另有一套「数值格 + 效果整句」,而卡组页把同一件事拆成了「攻击模式」+
+    /// 「特性 · 技能」两段结构化的读法,同一张字在两处读出来不一样。
+    /// · 左栏是这张字本身:等级(或未拥有时的「怎么获得」)/ 召唤 / 数值 / 攻击模式;
+    /// · 右栏是它与外界的关系:特性 · 技能 / 配方 / 生克,战斗里生克换成「此刻的场面」
+    ///   ——**这一击对场上每只敌人各是多少倍**,卡组页只能说「金克木」,这一屏直接说对谁有用,
+    ///   玩家在战斗里点开详情多半就为这个。
+    ///
+    /// ⚠ 与单位详情(<see cref="UnitSheet"/>)同一族:墨遮罩 + 宣纸圆角卡 + 右上角关闭。
+    /// **默认只读**:「长按只看不出手」(<see cref="HoldToPreview"/> 松手不补发点击)是既有语义,
+    /// 在战斗里给这张弹窗加钮就等于把长按变成出手的第二条路。唯一的例外是卡组页 ——
+    /// 它传 footActions 在脚上挂「编入出阵 / 升级」两个钮,那一处本来就是拿来改配置的,
+    /// 而且没有长按这条路径。</summary>
     public static class CharPreview
     {
         /// <summary>战斗侧的上下文。为 null 时(开箱 / 商城)右栏退回卡组页那种静态生克对照。</summary>
@@ -44,14 +53,20 @@ namespace Brushblade.Presentation
         private static readonly Vector2 TileSize = new(142f, 178f);  // 68×85pt
         private const float ColGap = 27f;       // 两栏间 13pt
         private const float SectionTitleH = 27f;
-        private const float StatBoxH = 96f;     // 46pt
         private const float WxRowH = 46f;       // 22pt
-        private const float RecipeH = 63f;      // 30pt
         private const float FootH = 31f;        // 15pt
+        private const float ActionsH = 100f;    // 卡组入口的操作钮带(同右栏底原来那条 48pt)
         private const float ContentW = SheetW - 2f * 1.5f - 2f * 24f;  // 扣描边与内边距
 
+        /// <param name="meta">养成外层存档。给了就画「等级(含升级成本)」或「怎么获得」那一段
+        /// —— 战斗里传 null:局内不能升级、也不谈获取,那一处的等级靠头上的角标交代。</param>
+        /// <param name="footActions">脚上的操作钮。只有卡组页传(编入出阵 / 升级),
+        /// 其余入口留 null 保持**纯只读** —— 「长按只看不出手」是既有语义,
+        /// 在战斗里给这张弹窗加钮就等于把长按变成出手的第二条路。
+        /// 收 <c>System.Action&lt;Transform&gt;</c> 而不是一串按钮参数:哪个钮能点、点了做什么,
+        /// 判据全在卡组页那边(出阵配额、份数、墨锭),搬进来只会让这里跟着长出一套规则。</param>
         public static GameObject Show(Transform root, CharDef def, RecipeGraph graph, int cardLevel = 1,
-            BattleContext battle = null)
+            BattleContext battle = null, MetaState meta = null, System.Action<Transform> footActions = null)
         {
             var overlay = Ui.Sheet(root, "CharSheet", SheetW, SheetH,
                 dismissable: true, replaceSameName: true, Theme.Scrim, SheetLift, out var content);
@@ -74,13 +89,26 @@ namespace Brushblade.Presentation
             }
             else
             {
-                BuildEffectColumn(body.transform, def, cardLevel, dual, bodyW * 0.53f);
-                BuildFieldColumn(body.transform, def, graph, battle, bodyW * 0.47f);
+                // 两栏等宽:卡组页那套段落是竖排的一长条,摆进横版时按「先算清自己、
+                // 再看场面」切开 —— 左栏是这张字本身(等级/召唤/数值/打谁),
+                // 右栏是它与外界的关系(特性/配方/生克或此刻的场面)。
+                BuildSelfColumn(body.transform, def, cardLevel, meta, bodyW * 0.5f);
+                BuildFieldColumn(body.transform, def, graph, battle, cardLevel, bodyW * 0.5f);
             }
 
-            var foot = Ui.ThemedLabel(content, FootText(def, dual, battle), 19, Theme.LockGray);
-            foot.alignment = TextAnchor.MiddleLeft;
-            Ui.Sized(foot.gameObject, flexWidth: 1, height: FootH);
+            if (footActions != null)
+            {
+                var actions = Ui.Row(content, "Actions", 17);
+                actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
+                Ui.Sized(actions, flexWidth: 1, height: ActionsH);
+                footActions(actions.transform);
+            }
+            else
+            {
+                var foot = Ui.ThemedLabel(content, FootText(def, dual, battle), 19, Theme.LockGray);
+                foot.alignment = TextAnchor.MiddleLeft;
+                Ui.Sized(foot.gameObject, flexWidth: 1, height: FootH);
+            }
             return overlay;
         }
 
@@ -183,103 +211,6 @@ namespace Brushblade.Presentation
 
         // ================= 左栏 =================
 
-        private static void BuildEffectColumn(Transform parent, CharDef def, int cardLevel,
-            bool dual, float width)
-        {
-            var col = Column(parent, "Effect", width);
-            SectionTitle(col, dual
-                ? Strings.T("charsheet.section.effect_dual")
-                : Strings.T("charsheet.section.effect"));
-
-            if (dual) BuildDualBlocks(col, def, cardLevel, width);
-            else BuildStatBoxes(col, def, cardLevel);
-
-            DescPanel(col, def, CharInfo.EffectsText(def, cardLevel), width);
-        }
-
-        /// <summary>数值格。前几格与卡组页同源(<see cref="CollectionStats"/>),后面补两格
-        /// **战斗才用得上**的:溅射比例与穿透点数。
-        ///
-        /// ⚠ 这是与 StatMapping 那条「穿甲、偷袭这些没量级的信息留在功能行里」的**刻意分歧**:
-        /// 那条口径是给卡组页定的,那里你在挑牌;这里你在**选目标**,溅多少、穿几点护甲
-        /// 正是这一下要算的账。功能行照旧把两件事都写全,数值格只是把数字挑出来先看见。</summary>
-        private static void BuildStatBoxes(Transform parent, CharDef def, int cardLevel)
-        {
-            var boxes = new List<(string label, string value, string note, Color color)>();
-            foreach (var stat in CollectionStats.Of(def, cardLevel))
-                boxes.Add((stat.Label, stat.Value.ToString(), stat.Note, stat.Color));
-
-            foreach (var effect in def.Effects)
-            {
-                if (boxes.Count >= 3) break;
-                if (effect.Kind != EffectKind.DamageSingle && effect.Kind != EffectKind.DamageAll) continue;
-                if (effect.Shape != TargetShape.Single && effect.Shape != TargetShape.Volley
-                    && effect.ShapePercent > 0 && effect.ShapePercent != 100)
-                    boxes.Add((Strings.T("charsheet.stat.splash"), $"{effect.ShapePercent}%",
-                        Strings.T("charsheet.stat.splash_note"), Theme.InkSoft));
-                if (boxes.Count < 3 && effect.Pierce > 0)
-                    boxes.Add((Strings.T("charsheet.stat.pierce"), effect.Pierce.ToString(),
-                        Strings.T("charsheet.stat.pierce_note"), Theme.GlyphColor(Element.Metal)));
-            }
-            if (boxes.Count == 0) return;
-
-            var row = Ui.Row(parent, "Stats", 15);
-            row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(row, flexWidth: 1, height: StatBoxH);
-            foreach (var box in boxes)
-            {
-                var panel = Ui.OutlinedPanel(row.transform, "Stat", Theme.CardWhite, Theme.PanelBorder, 14, 2);
-                Ui.Sized(panel.gameObject, flexWidth: 1, height: StatBoxH);
-                var stack = Ui.VStack(panel.transform, "Stack", 2);
-                Ui.Stretch((RectTransform)stack.transform);
-                Ui.ThemedLabel(stack.transform, box.label, 17, Theme.LockGray);
-                Ui.ThemedLabel(stack.transform, box.value, 36, box.color, Theme.TitleFont);
-                Ui.ThemedLabel(stack.transform, box.note, 16, Theme.LockGray);
-            }
-        }
-
-        /// <summary>双方向字:攻与护是**同一张牌的两个用法**,不是两张牌。
-        /// 各自带「怎么触发」的小标题 —— 玩家在这一屏要回答的就是「该拖过去还是点自己」。</summary>
-        private static void BuildDualBlocks(Transform parent, CharDef def, int cardLevel, float width)
-        {
-            var row = Ui.Row(parent, "Dual", 15);
-            row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(row, flexWidth: 1, height: 150);
-            DualBlock(row.transform, Strings.T("charsheet.dual.attack"),
-                def.AttackEffects, def, cardLevel, Theme.GlyphColor(Element.Fire));
-            DualBlock(row.transform, Strings.T("charsheet.dual.support"),
-                def.Effects, def, cardLevel, Theme.GlyphColor(Element.Earth));
-        }
-
-        private static void DualBlock(Transform parent, string title, IReadOnlyList<EffectDef> effects,
-            CharDef def, int cardLevel, Color accent)
-        {
-            var panel = Ui.OutlinedPanel(parent, "Side", Theme.CardWhite, Theme.PanelBorder, 14, 2);
-            Ui.Sized(panel.gameObject, flexWidth: 1, height: 150);
-            var edge = Ui.Panel(panel.transform, "Edge");
-            edge.AddComponent<Image>().color = accent;
-            Ui.Anchor((RectTransform)edge.transform, Vector2.zero, new Vector2(0, 1),
-                Vector2.zero, new Vector2(6, 0));
-
-            var stack = Ui.VStack(panel.transform, "Stack", 4);
-            var layout = stack.GetComponent<VerticalLayoutGroup>();
-            layout.childAlignment = TextAnchor.UpperLeft;
-            layout.padding = new RectOffset(19, 13, 11, 11);
-            Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform, title, 17, accent);
-
-            // 头一个有量级的效果放大字;其余归到下面那行小字里(与数值格同一条取法)
-            int headline = 0;
-            foreach (var effect in effects)
-                if (effect.Value > 0) { headline = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); break; }
-            if (headline > 0)
-                Ui.ThemedLabel(stack.transform, headline.ToString(), 36, accent, Theme.TitleFont);
-            var sub = Ui.ThemedLabel(stack.transform,
-                CharInfo.SideEffectsText(effects, def, cardLevel), 17, Theme.TextDim);
-            sub.alignment = TextAnchor.UpperLeft;
-            sub.horizontalOverflow = HorizontalWrapMode.Wrap;
-            Ui.Sized(sub.gameObject, flexWidth: 1, flexHeight: 1);
-        }
 
         /// <summary>效果整句(<see cref="CharInfo.EffectsText"/>),左边一条属性色粗边。
         /// 放进滚动容器:字表里最长的那几条(带召唤物被动的)在 232pt 宽下能到四五行。</summary>
@@ -302,25 +233,54 @@ namespace Brushblade.Presentation
             Ui.Sized(label.gameObject, flexWidth: 1, height: Ui.WrappedTextHeight(text, 21, inner));
         }
 
-        // ================= 右栏 =================
+        // ================= 左栏:这张字本身 =================
 
+        /// <summary>段落全部走 <see cref="CharSheetSections"/> —— 与卡组页**同一份实现**
+        /// (2026-09-05 用户拍板统一)。此前这里另有一套「效果整句 + 数值格」,
+        /// 而卡组页把同一件事拆成了「攻击模式」+「特性 · 技能」两段结构化的读法,
+        /// 同一张字在两处读出来不一样;现在只有卡组页那一套。</summary>
+        private static void BuildSelfColumn(Transform parent, CharDef def, int cardLevel,
+            MetaState meta, float width)
+        {
+            var col = Column(parent, "Self", width);
+            // meta 为 null(战斗里)时按「已拥有」走:局内手上这张字当然是有的,
+            // 而「怎么获得」在战斗中间弹出来是答非所问。
+            bool owned = meta == null || meta.OwnedCards.Contains(def.Id);
+            if (meta != null)
+            {
+                if (owned) CharSheetSections.Level(col, def, meta);
+                else CharSheetSections.HowToGet(col, def, width);
+            }
+            bool summon = CollectionStats.SummonCount(def) > 0;
+            if (summon) CharSheetSections.Summon(col, def);
+            CharSheetSections.Stats(col, def, cardLevel, owned, summon);
+            CharSheetSections.Modes(col, def);
+        }
+
+        // ================= 右栏:它与外界的关系 =================
+
+        /// <summary>特性 · 技能 → 配方 →(战斗里)此刻的场面 /(外面)静态生克。
+        ///
+        /// 战斗里用场面倍率**顶掉**静态生克,不是两者都画:场面那一段本就是按生克算出来的,
+        /// 而它直接回答「对眼前这几只各是多少倍」——同一条规则的具体答案摆在旁边时,
+        /// 抽象版那一段只会占地方(这也是这一屏在战斗里最值得点开的理由)。</summary>
         private static void BuildFieldColumn(Transform parent, CharDef def, RecipeGraph graph,
-            BattleContext battle, float width)
+            BattleContext battle, int cardLevel, float width)
         {
             var col = Column(parent, "Field", width);
-            SectionTitle(col, battle != null
-                ? Strings.T("charsheet.section.field")
-                : Strings.T("charsheet.section.wuxing"));
-
-            if (battle != null) BuildFoeMatchups(col, def, battle);
-            else BuildStaticWuxing(col, def);
-
-            if (!def.IsLeaf)
+            CharSheetSections.Traits(col, def, cardLevel, CollectionStats.SummonCount(def) > 0, width);
+            if (!def.IsLeaf) CharSheetSections.Recipe(col, def, graph);
+            if (battle != null)
             {
-                SectionTitle(col, Strings.T("charsheet.section.recipe"));
-                BuildRecipe(col, def, graph);
+                SectionTitle(col, Strings.T("charsheet.section.field"));
+                BuildFoeMatchups(col, def, battle);
+            }
+            else if (def.Element is { } element && element != Element.Heart)
+            {
+                CharSheetSections.Wuxing(col, element);
             }
         }
+
 
         /// <summary>这一击对场上每只敌人各是多少倍 —— 本屏独有的一件事。
         ///
@@ -393,69 +353,6 @@ namespace Brushblade.Presentation
             return false;
         }
 
-        /// <summary>不在战斗里(开箱 / 商城):没有场面可对,退回卡组页那种「克谁 / 被谁克」。</summary>
-        private static void BuildStaticWuxing(Transform parent, CharDef def)
-        {
-            if (def.Element is not { } element || element == Element.Heart)
-            {
-                Ui.ThemedLabel(parent, Strings.T("char.element.neutral"), 19, Theme.LockGray);
-                return;
-            }
-            var row = Ui.Row(parent, "Wuxing", 13);
-            row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(row, flexWidth: 1, height: 84);
-            if (WuxingResolver.Victim(element) is { } victim)
-                WuxingBox(row.transform, victim, Theme.WarnBg, Theme.WarnText,
-                    Strings.T("collection.side.ke", ("element", CharInfo.ElementName(victim))));
-            if (WuxingResolver.Counter(element) is { } counter)
-                WuxingBox(row.transform, counter, Theme.PanelInset, Theme.TextDim,
-                    Strings.T("collection.side.bei", ("element", CharInfo.ElementName(counter))));
-        }
-
-        private static void WuxingBox(Transform parent, Element element, Color bg, Color fg, string text)
-        {
-            var box = Ui.CardPanel(parent, "Wx", bg, 14);
-            Ui.Sized(box.gameObject, flexWidth: 1, height: 84);
-            var row = Ui.Row(box.transform, "Row", 13);
-            var layout = row.GetComponent<HorizontalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.padding = new RectOffset(15, 15, 0, 0);
-            Ui.Stretch((RectTransform)row.transform);
-            var dot = Ui.CardPanel(row.transform, "Dot", Theme.ElementColor(element), 10);
-            Ui.Sized(dot.gameObject, 36, 36);
-            Ui.ThemedLabel(dot.transform, CharInfo.ElementName(element), 21, Color.white, Theme.TitleFont);
-            var label = Ui.ThemedLabel(row.transform, text, 19, fg);
-            label.alignment = TextAnchor.MiddleLeft;
-            Ui.Sized(label.gameObject, flexWidth: 1, height: 84);
-        }
-
-        private static void BuildRecipe(Transform parent, CharDef def, RecipeGraph graph)
-        {
-            var row = Ui.Row(parent, "Recipe", 11);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Sized(row, flexWidth: 1, height: RecipeH);
-            for (int i = 0; i < def.Recipe.Count; i++)
-            {
-                string part = def.Recipe[i];
-                RecipePart(row.transform, part,
-                    graph.TryGet(part, out var partDef) ? partDef.Element : null, false);
-                Ui.ThemedLabel(row.transform,
-                    i == def.Recipe.Count - 1 ? Strings.T("collection.side.recipe_to")
-                                              : Strings.T("collection.side.recipe_plus"),
-                    21, Theme.LockGray);
-            }
-            RecipePart(row.transform, def.Id, def.Element, true);
-        }
-
-        private static void RecipePart(Transform parent, string id, Element? element, bool isOutput)
-        {
-            var go = isOutput
-                ? Ui.OutlinedPanel(parent, "Part", Theme.ElementSoft(element), Theme.ElementColor(element), 13, 3).gameObject
-                : Ui.CardPanel(parent, "Part", Theme.ElementSoft(element), 13).gameObject;
-            Ui.Sized(go, RecipeH, RecipeH);
-            var glyph = Ui.ThemedLabel(go.transform, id, 31, Theme.ElementSoftFg(element), Theme.TitleFont);
-            Ui.Stretch(glyph.rectTransform);
-        }
 
         // ================= 部件专属两栏 =================
 

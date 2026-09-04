@@ -135,7 +135,9 @@ namespace Brushblade.Presentation
         private void ShowPreview(Brushblade.Core.CharDef def)
         {
             if (_modal != null) Destroy(_modal);
-            _modal = CharPreview.Show(transform, def, _graph, MetaRules.CardLevel(_meta, def.Id));
+            // 传 meta:详情里那段「等级 + 升级成本」按养成外层的账画(与卡组页同一份)
+            _modal = CharPreview.Show(transform, def, _graph, MetaRules.CardLevel(_meta, def.Id),
+                meta: _meta);
         }
 
         /// <summary>被拒提示统一弹窗;须在 Rebuild 之后调用——Rebuild 会清空根节点。</summary>

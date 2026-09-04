@@ -17,7 +17,12 @@ namespace Brushblade.Presentation
     /// 2026-09-03 按稿重写。此前是每页 12 张的翻页网格,只列**已拥有**的字;现在:
     /// · 74 张可收集字全列出来,没拿到的走锁态沉底 —— 收集页的另一半是「还差什么」;
     /// · 网格内部滚动,不再翻页;
-    /// · 右栏常驻:没选中时是出阵编组(15 格 + 每系配额),选中了换成这张字的详情。
+    /// · 右栏常驻出阵编组(15 格 + 每系配额)+ 一个「去升级」钮。
+    ///
+    /// 2026-09-05 用户拍板:**字卡详情改走弹窗**(<see cref="CharPreview"/>),与开箱结果、
+    /// 战斗里长按看到的是同一屏。此前右栏是双身份的 —— 没选中画出阵表、选中了整栏换成详情,
+    /// 而那份详情的排版还与弹窗那一份各写了一套(配方 / 生克 / 数值格三段各有两个实现),
+    /// 同一张字在两处读出来不一样。段落现在只有一份,在 <see cref="CharSheetSections"/>。
     ///
     /// 稿上有而这里**刻意没做**的一处:字头的「相生 ×3」徽标 —— 相生已于 2026-09-02 取消
     /// (`docs/design/wuxing-reference.md` v0.8),稿子画的时候它还在。</summary>
@@ -38,12 +43,8 @@ namespace Brushblade.Presentation
         private const float GridGapX = 17f;
         private const float GridGapY = 29f;
         private static readonly Vector2 CardSize = new(216f, 268f);
-        private static readonly Vector2 BigCardSize = new(159f, 199f); // 详情大牌 76×95pt
         // 出阵格里的缩小版字卡:0.8 竖版比例(与框素材同比,拉了就变形);格高再加牌下那行等级
         private static readonly Vector2 SlotTile = new(74f, 92f);
-        // 召唤那一段的小立绘:比出阵格再小一号,一排放得下四只(全表最多召 4)
-        private static readonly Vector2 SummonTile = new(52f, 65f);
-        private const float StatBoxH = 78f;   // 去掉格内小注后矮了 26
         // 升级确认弹窗:520×320pt(稿 Upgrade.dc.html)。两段并排,再挤就要把
         // 「变化前 → 变化后」压成一行文字,而那正是这一屏的全部意义
         private const float UpgradeW = 1088f;
@@ -408,7 +409,7 @@ namespace Brushblade.Presentation
         {
             HideDropHint();
             // 判据是「拖出了网格」,不是「精确落在右栏上」—— 与卸下那条对称,
-            // 也省得玩家非要够到那块面板才算数(右栏被详情占满时更难瞄)
+            // 也省得玩家非要够到那块面板才算数
             if (Inside(_gridRect, screenPosition)) return;        // 没拖出网格:什么都没发生
             if (_meta.Deck.Contains(cardId)) return;              // 已经在阵上:重复拖入不算错,更不该当成卸下
             ToggleDeck(cardId);
@@ -464,7 +465,12 @@ namespace Brushblade.Presentation
             if (_dropHint != null) _dropHint.SetActive(false);
         }
 
-        /// <summary>点一张牌 = 看它 + 销掉新字红旗(稿:「新字的红旗点一下就消」)。</summary>
+        /// <summary>点一张牌 = 开详情弹窗 + 销掉新字红旗(稿:「新字的红旗点一下就消」)。
+        ///
+        /// **先 Rebuild 再开弹窗**:Rebuild 会 Ui.Clear 掉整个根节点,顺序反了弹窗当场没了。
+        /// 而这一次 Rebuild 是必须的 —— 红旗刚被销掉,网格里那张牌得跟着去掉角标
+        /// (「新卡」排序下它还要换位置)。
+        /// _selected 留着只为网格高亮:关掉弹窗后仍看得出刚点的是哪张。</summary>
         private void Select(string cardId)
         {
             _selected = cardId;
@@ -474,16 +480,17 @@ namespace Brushblade.Presentation
                 _save();
             }
             Rebuild();
+            if (_graph.TryGet(cardId, out var def)) ShowCharSheet(def);
         }
 
         // ================= 右栏 =================
 
+        /// <summary>右栏 = **只有出阵编组**(2026-09-05 用户拍板:字卡详情改走弹窗,与开箱/战斗
+        /// 那两处拉齐)。此前它是双身份的:没选中画出阵表、选中了整栏换成详情 —— 于是同一块
+        /// 面板既是拖拽落点又是详情页,而详情的排版还与弹窗那一份各写了一套。
+        /// 现在它只干一件事,详情全部走 <see cref="ShowCharSheet"/>。</summary>
         private void BuildSide(Transform parent)
         {
-            CharDef selected = null;
-            if (_selected != null) _graph.TryGet(_selected, out selected);
-            bool owned = selected != null && _meta.OwnedCards.Contains(selected.Id);
-
             var side = Ui.OutlinedPanel(parent, "Side", Theme.PanelPaper, Theme.PanelBorder, 21, 2);
             Ui.Anchor((RectTransform)side.transform, new Vector2(1, 0), Vector2.one,
                 new Vector2(-SideW, 0), Vector2.zero);
@@ -492,38 +499,27 @@ namespace Brushblade.Presentation
             _sideFrame = side;
             _sideFrameRest = side.color;
 
-            // 头:标题 +(选中时)关闭
+            // 头:只剩标题(关闭钮随详情一起搬去了弹窗右上角)
             var head = Ui.Row(side.transform, "Head", 12);
             var headLayout = head.GetComponent<HorizontalLayoutGroup>();
             headLayout.childAlignment = TextAnchor.MiddleLeft;
             headLayout.padding = new RectOffset(17, 17, 0, 0);
             Ui.Anchor((RectTransform)head.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -SideHeadH), Vector2.zero);
-            string title = selected == null
-                ? Strings.T("collection.side.title_deck")
-                : (owned ? Strings.T("collection.side.title_detail")
-                         : Strings.T("collection.side.title_detail_locked"));
-            Ui.ThemedLabel(head.transform, title, 19, Theme.LockGray);
-            var headSpring = Ui.Panel(head.transform, "Spring");
-            headSpring.AddComponent<LayoutElement>().flexibleWidth = 1;
-            if (selected != null)
-                Ui.RoundButton(head.transform, Strings.T("common.close"),
-                    () => { _selected = null; Rebuild(); }, new Color(0, 0, 0, 0), Theme.TextDim, 22,
-                    new Vector2(44, 44));
+            Ui.ThemedLabel(head.transform, Strings.T("collection.side.title_deck"), 19, Theme.LockGray);
 
             var separator = Ui.Panel(side.transform, "HeadRule");
             separator.AddComponent<Image>().color = Theme.PanelBorder;
             Ui.Anchor((RectTransform)separator.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -SideHeadH - 2), new Vector2(0, -SideHeadH));
 
-            // 身:内部滚动 —— 详情一条没删,靠滚动装下,两个操作钮固定在栏底不随滚动跑
+            // 身:内部滚动 —— 15 格出阵表 + 每系配额靠滚动装下,「去升级」钮固定在栏底
             var body = Ui.ScrollList(side.transform, "Body", 0, out var content);
             Ui.Anchor((RectTransform)body.transform, Vector2.zero, Vector2.one,
                 new Vector2(SidePad, SideFootH), new Vector2(-SidePad, -SideHeadH - 2));
-            if (selected == null) BuildDeckPanel(content);
-            else BuildDetail(content, selected, owned);
+            BuildDeckPanel(content);
 
-            BuildSideFoot(side.transform, selected, owned);
+            BuildSideFoot(side.transform);
             BuildDropHint(side.transform);
         }
 
@@ -539,7 +535,10 @@ namespace Brushblade.Presentation
             _dropHint.SetActive(false);
         }
 
-        private void BuildSideFoot(Transform parent, CharDef selected, bool owned)
+        /// <summary>右栏底:只剩「去升级」。字卡自己的两个钮(编入出阵 / 升级)随详情
+        /// 搬去了弹窗底部(<see cref="SheetActions"/>)—— 那两个钮作用于**某一张字**,
+        /// 而这一栏现在只讲出阵表,把它们留在这儿就没有主语了。</summary>
+        private void BuildSideFoot(Transform parent)
         {
             var foot = Ui.Row(parent, "Foot", 13);
             var footLayout = foot.GetComponent<HorizontalLayoutGroup>();
@@ -548,57 +547,77 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)foot.transform, Vector2.zero, new Vector2(1, 0),
                 Vector2.zero, new Vector2(0, SideFootH));
 
-            if (selected == null)
-            {
-                int upgradable = FirstUpgradable(out string first);
-                var button = Ui.PillButton(foot.transform,
-                    Strings.T("collection.button.goto_upgrade", ("count", upgradable)),
-                    () =>
-                    {
-                        // 顺带把属性页签清回「全部」:那张字未必在当前这一系里,
-                        // 只换 _selected 的话详情出来了、左边网格里却找不到它。
-                        // 排序也一并切到「可升级」(2026-09-05):这个钮的意图就是「带我去那张字」,
-                        // 而那个排序恰好把它顶到网格最前 —— 清了页签还要在几十张里找,等于没带到。
-                        if (first == null) return;
-                        _filterIsAll = true;
-                        _filter = null;
-                        _sort = SortMode.Upgradable;
-                        _gridScroll = 1f;   // 换了一批内容,停在原位置没有意义
-                        Select(first);
-                    },
-                    upgradable > 0 ? Theme.Jade : Theme.PanelInset,
-                    upgradable > 0 ? Color.white : Theme.LockGray, 24, new Vector2(0, 75));
-                button.GetComponent<LayoutElement>().flexibleWidth = 1;
-                button.interactable = upgradable > 0;
-                return;
-            }
+            int upgradable = FirstUpgradable(out string first);
+            var button = Ui.PillButton(foot.transform,
+                Strings.T("collection.button.goto_upgrade", ("count", upgradable)),
+                () =>
+                {
+                    // 顺带把属性页签清回「全部」:那张字未必在当前这一系里,
+                    // 弹窗开出来了、关掉之后左边网格里却找不到它。
+                    // 排序也一并切到「可升级」(2026-09-05):这个钮的意图就是「带我去那张字」,
+                    // 而那个排序恰好把它顶到网格最前 —— 清了页签还要在几十张里找,等于没带到。
+                    if (first == null) return;
+                    _filterIsAll = true;
+                    _filter = null;
+                    _sort = SortMode.Upgradable;
+                    _gridScroll = 1f;   // 换了一批内容,停在原位置没有意义
+                    Select(first);
+                },
+                upgradable > 0 ? Theme.Jade : Theme.PanelInset,
+                upgradable > 0 ? Color.white : Theme.LockGray, 24, new Vector2(0, 75));
+            button.GetComponent<LayoutElement>().flexibleWidth = 1;
+            button.interactable = upgradable > 0;
+        }
 
-            if (!owned)
+        // ---- 字卡详情弹窗(2026-09-05:与开箱 / 战斗共用 CharPreview) ----
+
+        /// <summary>开这张字的详情弹窗。段落与开箱 / 战斗那两处**同一份实现**
+        /// (<see cref="CharSheetSections"/>),差别只在脚上多一条操作钮带 ——
+        /// 那两处保持纯只读。</summary>
+        private void ShowCharSheet(CharDef def)
+        {
+            _modal = CharPreview.Show(transform, def, _graph,
+                MetaRules.CardLevel(_meta, def.Id), battle: null, meta: _meta,
+                footActions: row => SheetActions(row, def));
+        }
+
+        /// <summary>弹窗底部那条操作钮带。判据(拥有 / 出阵 / 份数 / 墨锭)全留在这里,
+        /// 没有搬进 CharPreview —— 那一屏不该跟着长出一套养成规则。
+        /// 两个钮点完都会 Rebuild 整页、弹窗随 Ui.Clear 一起消失,这是刻意的:
+        /// 编入出阵与升级都改了这张字的状态,原地留一张已经过期的详情比关掉更糟。</summary>
+        private void SheetActions(Transform parent, CharDef def)
+        {
+            if (!_meta.OwnedCards.Contains(def.Id))
             {
                 // 「去开宝箱」= 回主界面,那是宝箱的唯一入口
-                var button = Ui.PillButton(foot.transform, Strings.T("collection.button.locked"),
+                var locked = Ui.PillButton(parent, Strings.T("collection.button.locked"),
                     () => _onBack(), Theme.ShopNav, Color.white, 24, new Vector2(0, 75));
-                button.GetComponent<LayoutElement>().flexibleWidth = 1;
+                locked.GetComponent<LayoutElement>().flexibleWidth = 1;
                 return;
             }
 
-            bool inDeck = _meta.Deck.Contains(selected.Id);
-            var deckButton = Ui.PillButton(foot.transform,
+            bool inDeck = _meta.Deck.Contains(def.Id);
+            var deckButton = Ui.PillButton(parent,
                 inDeck ? Strings.T("collection.button.unequip") : Strings.T("collection.button.equip"),
-                () => ToggleDeck(selected.Id),
+                // 重开弹窗:ToggleDeck 内部会 Rebuild,而 Rebuild 会 Ui.Clear 掉这张详情 ——
+                // 原先详情在右栏里,改完状态它还在,玩家当场看得见「已编入」。改走弹窗之后
+                // 不补这一句,点完钮整屏就退回网格,反馈全丢了。
+                // 拖拽那两条路径(DropFromGrid / DropFromSlot)刻意不重开:那时玩家在拖牌,
+                // 手上没有详情这一屏,凭空弹一张出来是打断。
+                () => { ToggleDeck(def.Id); ShowCharSheet(def); },
                 inDeck ? Theme.LockedBg : Theme.ExitPink,
                 inDeck ? Theme.TextMain : Color.white, 24, new Vector2(0, 75));
             deckButton.GetComponent<LayoutElement>().flexibleWidth = 1;
 
-            int level = MetaRules.CardLevel(_meta, selected.Id);
+            int level = MetaRules.CardLevel(_meta, def.Id);
             bool maxed = level >= MetaRules.MaxCardLevel;
-            bool canUpgrade = MetaRules.CanUpgradeCard(_meta, selected.Id, selected.Rarity);
+            bool canUpgrade = MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity);
             string upText = maxed
                 ? Strings.T("collection.button.maxed")
                 : (canUpgrade ? Strings.T("collection.button.upgrade", ("level", level + 1))
                               : Strings.T("collection.button.upgrade_short"));
-            var upButton = Ui.PillButton(foot.transform, upText,
-                () => ShowUpgradePreview(selected.Id),
+            var upButton = Ui.PillButton(parent, upText,
+                () => ShowUpgradePreview(def.Id),
                 maxed ? Theme.GoldSoft : (canUpgrade ? Theme.Jade : Theme.PanelInset),
                 maxed ? Theme.GoldDeep : (canUpgrade ? Color.white : Theme.LockGray),
                 24, new Vector2(0, 75));
@@ -624,7 +643,7 @@ namespace Brushblade.Presentation
 
         private void BuildDeckPanel(Transform parent)
         {
-            var slots = Section(parent, Strings.T("collection.side.section.deck",
+            var slots = CharSheetSections.Section(parent, Strings.T("collection.side.section.deck",
                 ("count", _meta.Deck.Count), ("limit", MetaRules.DeckLimit)));
             Transform row = null;
             for (int i = 0; i < MetaRules.DeckLimit; i++)
@@ -641,12 +660,12 @@ namespace Brushblade.Presentation
                 BuildSlot(row, i < _meta.Deck.Count ? _meta.Deck[i] : null);
             }
 
-            var quota = Section(parent, Strings.T("collection.side.section.quota",
+            var quota = CharSheetSections.Section(parent, Strings.T("collection.side.section.quota",
                 ("limit", MetaRules.DeckPerElementLimit)));
             foreach (var element in new[] { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth })
                 BuildQuotaBar(quota, element);
 
-            var tip = Section(parent, Strings.T("collection.side.section.tip"));
+            var tip = CharSheetSections.Section(parent, Strings.T("collection.side.section.tip"));
             string tipText = Strings.T("collection.side.tip_body",
                 ("min", MetaRules.DeckMinimum), ("max", MetaRules.DeckLimit),
                 ("perElement", MetaRules.DeckPerElementLimit));
@@ -711,375 +730,6 @@ namespace Brushblade.Presentation
 
         // ---- 右栏 · 选中:字牌详情 ----
 
-        /// <summary>详情四段(稿 <c>CardDetail.dc.html</c>),各回答一个问题:
-        /// **多大 / 打谁 / 召什么 / 还带什么**。
-        ///
-        /// 召唤字是另一条顺序:**召唤排在最前** —— 那几只是这张字的一切,先看清召出来的是什么、
-        /// 几只,后面三段才有主语;它们的标题也点名「(召唤物)」,不点名的话玩家会把
-        /// 「攻击 44」读成这张牌自己的伤害。</summary>
-        private void BuildDetail(Transform parent, CharDef def, bool owned)
-        {
-            int level = owned ? MetaRules.CardLevel(_meta, def.Id) : 1;
-            BuildIdentity(parent, def, owned);
-            if (!owned) BuildHowToGet(parent, def);
-            if (owned) BuildLevel(parent, def);
-
-            bool summon = CollectionStats.SummonCount(def) > 0;
-            if (summon) BuildSummon(parent, def);
-            BuildStats(parent, def, level, owned, summon);
-            BuildModes(parent, def);
-            BuildTraits(parent, def, level, summon);
-
-            if (!def.IsLeaf) BuildRecipe(parent, def);
-            if (def.Element is { } element && element != Element.Heart) BuildWuxing(parent, element);
-        }
-
-        /// <summary>召唤:**召几只就画几只**,不写「×2」也不写说明 —— 数出来的比读出来的快,
-        /// 而它们的血与攻就在紧接着的「数值(召唤物)」里,再写一遍是同一件事说两遍。</summary>
-        private void BuildSummon(Transform parent, CharDef def)
-        {
-            int count = CollectionStats.SummonCount(def);
-            var section = Section(parent, Strings.T("collection.side.section.summon"));
-            var box = Ui.CardPanel(section, "Summons", Theme.AdGreenBg, 14);
-            Ui.Sized(box.gameObject, 0, 92, flexWidth: 1);
-            var row = Ui.Row(box.transform, "Row", 15);
-            var layout = row.GetComponent<HorizontalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.padding = new RectOffset(17, 17, 0, 0);
-            Ui.Stretch((RectTransform)row.transform);
-            for (int i = 0; i < count; i++)
-                Ui.MiniGlyphTile(row.transform, def, SummonTile);
-        }
-
-        private void BuildIdentity(Transform parent, CharDef def, bool owned)
-        {
-            float glossWidth = SideW - SidePad * 2 - BigCardSize.x - 21;
-            float glossHeight = string.IsNullOrEmpty(def.Gloss)
-                ? 0f : Ui.WrappedTextHeight(def.Gloss, 20, glossWidth) + 12;
-            var row = Ui.Row(parent, "Identity", 21);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            // 大牌与右侧信息谁高按谁:长释义不该被牌高截掉
-            Ui.Sized(row, 0, Mathf.Max(BigCardSize.y, 48 + 31 + 24 + glossHeight), flexWidth: 1);
-
-            Ui.GlyphTile(row.transform, def, false, null, BigCardSize, locked: !owned);
-
-            var meta = Ui.VStack(row.transform, "Meta", 12);
-            meta.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            meta.AddComponent<LayoutElement>().flexibleWidth = 1;
-            float metaWidth = glossWidth;
-
-            var nameRow = Ui.Row(meta.transform, "Name", 12);
-            nameRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.LowerLeft;
-            Ui.ThemedLabel(nameRow.transform, def.Id, 42, Theme.TextMain, Theme.TitleFont);
-            if (!string.IsNullOrEmpty(def.Pinyin))
-                Ui.ThemedLabel(nameRow.transform, def.Pinyin, 21, Theme.TextDim);
-
-            var chips = Ui.Row(meta.transform, "Chips", 8);
-            chips.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Chip(chips.transform, CharInfo.RarityName(def.Rarity),
-                Theme.RarityColor(def.Rarity), Color.white, 19);
-            string elementChip = def.Element is { } e
-                ? Strings.T("collection.side.element_chip", ("element", CharInfo.ElementName(e)))
-                : Strings.T("char.element.neutral");
-            Ui.Chip(chips.transform, elementChip,
-                Theme.ElementSoft(def.Element), Theme.ElementSoftFg(def.Element), 19);
-
-            if (!string.IsNullOrEmpty(def.Gloss))
-            {
-                var gloss = Ui.ThemedLabel(meta.transform, def.Gloss, 20, Theme.TextDim);
-                gloss.alignment = TextAnchor.UpperLeft;
-                gloss.horizontalOverflow = HorizontalWrapMode.Wrap;
-                Ui.Sized(gloss.gameObject, metaWidth, Ui.WrappedTextHeight(def.Gloss, 20, metaWidth));
-            }
-        }
-
-        /// <summary>未拥有:这张字**怎么才能拿到**。写的是真规则 —— 没收集过的字只出宝箱,
-        /// 商城字摊按 ShopView 的池子只卖部件和你已有的字。</summary>
-        private void BuildHowToGet(Transform parent, CharDef def)
-        {
-            var section = Section(parent, Strings.T("collection.side.section.get"));
-            GetRow(section, Theme.RarityColor(def.Rarity), Theme.TextDim,
-                Strings.T("collection.side.get.chest", ("hint", ChestHint(def.Rarity))));
-            GetRow(section, Theme.LockedBg, Theme.LockGray, Strings.T("collection.side.get.shop"));
-        }
-
-        private void GetRow(Transform parent, Color iconColor, Color fg, string text)
-        {
-            var row = Ui.Row(parent, "GetRow", 17);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            float width = SideW - SidePad * 2 - 54 - 17;
-            float height = Mathf.Max(54, Ui.WrappedTextHeight(text, 19, width));
-            Ui.Sized(row, 0, height, flexWidth: 1);
-
-            var icon = Ui.CardPanel(row.transform, "Icon", iconColor, 12);
-            Ui.Sized(icon.gameObject, 54, 54);
-
-            var label = Ui.ThemedLabel(row.transform, text, 19, fg);
-            label.alignment = TextAnchor.UpperLeft;
-            label.horizontalOverflow = HorizontalWrapMode.Wrap;
-            Ui.Sized(label.gameObject, width, height);
-        }
-
-        /// <summary>这一档从哪只匣子起开得出。口径同 <see cref="ChestRules"/> 的稀有度权重表。</summary>
-        private static string ChestHint(CardRarity rarity) => rarity switch
-        {
-            CardRarity.White => Strings.T("collection.chest_hint.common"),
-            CardRarity.Green => Strings.T("collection.chest_hint.common"),
-            CardRarity.Blue => Strings.T("collection.chest_hint.blue"),
-            CardRarity.Purple => Strings.T("collection.chest_hint.purple"),
-            CardRarity.Gold => Strings.T("collection.chest_hint.gold"),
-            CardRarity.Orange => Strings.T("collection.chest_hint.orange"),
-            _ => Strings.T("collection.chest_hint.red"),
-        };
-
-        private void BuildLevel(Transform parent, CharDef def)
-        {
-            int level = MetaRules.CardLevel(_meta, def.Id);
-            bool maxed = level >= MetaRules.MaxCardLevel;
-            _meta.CardCopies.TryGetValue(def.Id, out int copies);
-            var section = Section(parent, Strings.T("collection.side.section.level"));
-
-            var row = Ui.Row(section, "LevelRow", 15);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Sized(row, 0, 44, flexWidth: 1);
-            Ui.ThemedLabel(row.transform, $"Lv.{level}", 40, Theme.TextMain, Theme.TitleFont);
-            Ui.ThemedLabel(row.transform, $"/ {MetaRules.MaxCardLevel}", 21, Theme.LockGray);
-
-            var pips = Ui.Row(row.transform, "Pips", 4);
-            pips.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(pips, 0, 11, flexWidth: 1);
-            bool canUpgrade = MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity);
-            for (int i = 1; i <= MetaRules.MaxCardLevel; i++)
-            {
-                var pip = Ui.Panel(pips.transform, $"Pip{i}");
-                var image = pip.AddComponent<Image>();
-                image.sprite = Theme.Rounded(5);
-                image.type = Image.Type.Sliced;
-                image.color = i <= level ? Theme.InkSoft
-                    : (i == level + 1 && canUpgrade ? Theme.Jade : Theme.PaperDim);
-                Ui.Sized(pip, 0, 11, flexWidth: 1);
-            }
-
-            if (maxed) return;
-            int needed = MetaRules.CopiesRequired(level, def.Rarity);
-            int ink = MetaRules.InkRequired(level, def.Rarity);
-            var costs = Ui.Row(section, "Costs", 13);
-            costs.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(costs, 0, 75, flexWidth: 1);
-            CostBox(costs.transform, Strings.T("collection.side.cost.copies"), $"{copies} / {needed}", copies >= needed);
-            CostBox(costs.transform, Strings.T("collection.side.cost.ink"), $"{_meta.Ink} / {ink}", _meta.Ink >= ink);
-        }
-
-        private void CostBox(Transform parent, string key, string value, bool ok)
-        {
-            var box = Ui.CardPanel(parent, "Cost", ok ? Theme.AdGreenBg : Theme.PanelInset, 14);
-            Ui.Sized(box.gameObject, 0, 75, flexWidth: 1);
-            var stack = Ui.VStack(box.transform, "Stack", 4);
-            Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform, key, 18, Theme.LockGray);
-            Ui.ThemedLabel(stack.transform, value, 25, ok ? Theme.UpgradeText : Theme.CinnabarDark);
-        }
-
-        /// <summary>数值格。**格子里不再有下面那行小注**(「单体,每次」之类)——
-        /// 那句话现在由「攻击模式」整段来说,留在格子里是同一件事说两遍。
-        /// 格子因此矮了 26 单位(104 → 78)。</summary>
-        private void BuildStats(Transform parent, CharDef def, int level, bool owned, bool summon)
-        {
-            var stats = CollectionStats.Of(def, level);
-            if (stats.Count == 0) return;
-            string title = summon
-                ? Strings.T("collection.side.section.stats_summon", ("level", level))
-                : (owned ? Strings.T("collection.side.section.stats", ("level", level))
-                         : Strings.T("collection.side.section.stats_base"));
-            var section = Section(parent, title);
-
-            var row = Ui.Row(section, "Stats", 13);
-            row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(row, 0, StatBoxH, flexWidth: 1);
-            foreach (var stat in stats)
-            {
-                var box = Ui.OutlinedPanel(row.transform, "Stat", Theme.CardWhite, Theme.PanelBorder, 14, 2);
-                Ui.Sized(box.gameObject, 0, StatBoxH, flexWidth: 1);
-                var stack = Ui.VStack(box.transform, "Stack", 2);
-                Ui.Stretch((RectTransform)stack.transform);
-                Ui.ThemedLabel(stack.transform, stat.Label, 18, Theme.LockGray);
-                Ui.ThemedLabel(stack.transform, stat.Value.ToString(), 38, stat.Color, Theme.TitleFont);
-            }
-        }
-
-        /// <summary>攻击模式:这一记**打谁 / 护谁**。一格一条,前面那枚色点就是方向 ——
-        /// 朱砂是攻、翠玉是护。召唤字换成召唤物的近战 / 远程。</summary>
-        private void BuildModes(Transform parent, CharDef def)
-        {
-            var modes = CardTraits.Modes(def);
-            if (modes.Count == 0) return;
-            var section = Section(parent, Strings.T("collection.side.section.mode"));
-            foreach (var mode in modes)
-            {
-                var row = Ui.Row(section, "Mode", 15);
-                var layout = row.GetComponent<HorizontalLayoutGroup>();
-                layout.childAlignment = TextAnchor.MiddleLeft;
-                layout.padding = new RectOffset(17, 17, 0, 0);
-                var image = row.AddComponent<Image>();
-                image.sprite = Theme.Rounded(12);
-                image.type = Image.Type.Sliced;
-                image.color = mode.Attack ? Theme.WarnBg : Theme.AdGreenBg;
-                Ui.Sized(row, 0, 54, flexWidth: 1);
-
-                var dot = Ui.CardPanel(row.transform, "Dir",
-                    mode.Attack ? Theme.GlyphColor(Element.Fire) : Theme.Jade, 8);
-                Ui.Sized(dot.gameObject, 31, 31);
-                Ui.ThemedLabel(dot.transform,
-                    mode.Attack ? Strings.T("collection.mode.dir_attack") : Strings.T("collection.mode.dir_support"),
-                    18, Color.white, Theme.TitleFont);
-
-                var name = Ui.ThemedLabel(row.transform, mode.Name, 21, Theme.TextMain);
-                name.alignment = TextAnchor.MiddleLeft;
-                Ui.Sized(name.gameObject, flexWidth: 1);
-                if (!string.IsNullOrEmpty(mode.Note))
-                    Ui.ThemedLabel(row.transform, mode.Note, 18, Theme.LockGray);
-            }
-        }
-
-        /// <summary>特性 · 技能:一条一张小卡,头是「图标 chip + 名」,下面一行说明 ——
-        /// 与召唤物 / 敌人详情的那块同款,玩家在三处读到的是同一种东西。
-        /// 没有图标的退成纯文字 chip,宽度对得齐。</summary>
-        private void BuildTraits(Transform parent, CharDef def, int level, bool summon)
-        {
-            var traits = CardTraits.Of(def, level);
-            var section = Section(parent, summon
-                ? Strings.T("collection.side.section.traits_summon")
-                : Strings.T("collection.side.section.traits"));
-            if (traits.Count == 0)
-            {
-                var empty = Ui.ThemedLabel(section, Strings.T("collection.side.no_traits"), 19, Theme.LockGray);
-                empty.alignment = TextAnchor.UpperLeft;
-                Ui.Sized(empty.gameObject, 0, 34, flexWidth: 1);
-                return;
-            }
-
-            float width = SideW - SidePad * 2;
-            foreach (var trait in traits)
-            {
-                float descHeight = string.IsNullOrEmpty(trait.Desc)
-                    ? 0f : Ui.WrappedTextHeight(trait.Desc, 19, width - 34);
-                var card = Ui.OutlinedPanel(section, "Trait", Theme.CardWhite, Theme.PanelBorder, 14, 2);
-                Ui.Sized(card.gameObject, 0, 40 + descHeight + 24, flexWidth: 1);
-
-                var stack = Ui.VStack(card.transform, "Stack", 5);
-                var layout = stack.GetComponent<VerticalLayoutGroup>();
-                layout.childAlignment = TextAnchor.UpperLeft;
-                layout.padding = new RectOffset(17, 17, 12, 12);
-                Ui.Stretch((RectTransform)stack.transform);
-
-                var head = Ui.Row(stack.transform, "Head", 10);
-                head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-                Ui.Sized(head, 0, 33, flexWidth: 1);
-                if (trait.IconKey != null)
-                    Ui.Chip(head.transform, trait.Amount, CardTraits.ChipColor(trait.IconKey),
-                        Color.white, 18, iconKey: trait.IconKey);
-                else
-                    Ui.Chip(head.transform, trait.Word, Theme.LockedBg, Theme.TextDim, 18);
-                Ui.ThemedLabel(head.transform, trait.Name, 22, Theme.TextMain, Theme.TitleFont);
-
-                if (descHeight <= 0f) continue;
-                var desc = Ui.ThemedLabel(stack.transform, trait.Desc, 19, Theme.TextDim);
-                desc.alignment = TextAnchor.UpperLeft;
-                desc.horizontalOverflow = HorizontalWrapMode.Wrap;
-                Ui.Sized(desc.gameObject, 0, descHeight, flexWidth: 1);
-            }
-        }
-
-        private void BuildRecipe(Transform parent, CharDef def)
-        {
-            var section = Section(parent, Strings.T("collection.side.section.recipe"));
-            var row = Ui.Row(section, "Recipe", 13);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Sized(row, 0, 88, flexWidth: 1);
-
-            for (int i = 0; i < def.Recipe.Count; i++)
-            {
-                string part = def.Recipe[i];
-                Element? element = _graph.TryGet(part, out var partDef) ? partDef.Element : null;
-                RecipePart(row.transform, part, element, false);
-                Ui.ThemedLabel(row.transform,
-                    i == def.Recipe.Count - 1 ? Strings.T("collection.side.recipe_to")
-                                              : Strings.T("collection.side.recipe_plus"),
-                    24, Theme.LockGray);
-            }
-            RecipePart(row.transform, def.Id, def.Element, true);
-        }
-
-        private void RecipePart(Transform parent, string id, Element? element, bool isOutput)
-        {
-            var go = isOutput
-                ? Ui.OutlinedPanel(parent, "Part", Theme.ElementSoft(element), Theme.ElementColor(element), 16, 3).gameObject
-                : Ui.CardPanel(parent, "Part", Theme.ElementSoft(element), 16).gameObject;
-            Ui.Sized(go, 88, 88);
-            var stack = Ui.VStack(go.transform, "Stack", 2);
-            Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform, id, 40, Theme.ElementSoftFg(element), Theme.TitleFont);
-            Ui.ThemedLabel(stack.transform,
-                element is { } e ? CharInfo.ElementName(e) : Strings.T("char.element.neutral"),
-                16, Theme.ElementSoftFg(element));
-        }
-
-        private void BuildWuxing(Transform parent, Element element)
-        {
-            var section = Section(parent, Strings.T("collection.side.section.wuxing"));
-            var row = Ui.Row(section, "Wuxing", 13);
-            row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
-            Ui.Sized(row, 0, 84, flexWidth: 1);
-
-            var victim = WuxingResolver.Victim(element);
-            var counter = WuxingResolver.Counter(element);
-            if (victim is { } v)
-                WuxingBox(row.transform, v, Theme.WarnBg, Theme.WarnText,
-                    Strings.T("collection.side.ke", ("element", CharInfo.ElementName(v))));
-            if (counter is { } c)
-                WuxingBox(row.transform, c, Theme.PanelInset, Theme.TextDim,
-                    Strings.T("collection.side.bei", ("element", CharInfo.ElementName(c))));
-        }
-
-        private void WuxingBox(Transform parent, Element element, Color bg, Color fg, string text)
-        {
-            var box = Ui.CardPanel(parent, "Wx", bg, 14);
-            Ui.Sized(box.gameObject, 0, 84, flexWidth: 1);
-            var row = Ui.Row(box.transform, "Row", 13);
-            var layout = row.GetComponent<HorizontalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.padding = new RectOffset(15, 15, 0, 0);
-            Ui.Stretch((RectTransform)row.transform);
-
-            var dot = Ui.CardPanel(row.transform, "Dot", Theme.ElementColor(element), 10);
-            Ui.Sized(dot.gameObject, 36, 36);
-            Ui.ThemedLabel(dot.transform, CharInfo.ElementName(element), 21, Color.white, Theme.TitleFont);
-
-            var label = Ui.ThemedLabel(row.transform, text, 19, fg);
-            label.alignment = TextAnchor.MiddleLeft;
-            Ui.Sized(label.gameObject, 0, 84, flexWidth: 1);
-        }
-
-        /// <summary>右栏里的一个小节:标题 + 一条横线,下面是一个竖排容器(返回值)。</summary>
-        private static Transform Section(Transform parent, string title)
-        {
-            var head = Ui.Row(parent, "SectionHead", 13);
-            head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Sized(head, 0, 44, flexWidth: 1);
-            Ui.ThemedLabel(head.transform, title, 19, Theme.LockGray);
-            var rule = Ui.Panel(head.transform, "Rule");
-            rule.AddComponent<Image>().color = Theme.PanelBorder;
-            Ui.Sized(rule, 0, 2, flexWidth: 1);
-
-            var stack = Ui.VStack(parent, "Section", 11);
-            var layout = stack.GetComponent<VerticalLayoutGroup>();
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childForceExpandWidth = true;
-            // ⚠ 只给弹性宽,**不要**设 preferredHeight —— LayoutElement 的 layoutPriority 压过
-            // 布局组自己算出来的高,写个 0 会把整节压没(而且是静默的:节点还在,高度是 0)
-            Ui.Sized(stack, flexWidth: 1);
-            return stack.transform;
-        }
 
         // ================= 动作 =================
 
@@ -1174,7 +824,7 @@ namespace Brushblade.Presentation
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childForceExpandWidth = true;
             Ui.Sized(col, flexWidth: 1, flexHeight: 1);
-            var section = Section(col.transform, Strings.T("collection.modal.section.numbers"));
+            var section = CharSheetSections.Section(col.transform, Strings.T("collection.modal.section.numbers"));
 
             var was = CollectionStats.Of(def, level);
             var now = CollectionStats.Of(def, next);
@@ -1201,7 +851,7 @@ namespace Brushblade.Presentation
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childForceExpandWidth = true;
             Ui.Sized(col, flexWidth: 1, flexHeight: 1);
-            var section = Section(col.transform, Strings.T("collection.modal.section.traits"));
+            var section = CharSheetSections.Section(col.transform, Strings.T("collection.modal.section.traits"));
 
             var was = CardTraits.Of(def, level);
             var now = CardTraits.Of(def, next);
@@ -1270,6 +920,7 @@ namespace Brushblade.Presentation
             {
                 _save();
                 Rebuild();
+                ShowCharSheet(def); // 升完把详情重开:新等级/新数值就是这次操作的反馈
                 return;
             }
 
