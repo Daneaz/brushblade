@@ -28,8 +28,9 @@ namespace Brushblade.Core
     public sealed class Tutorial
     {
         /// <summary>首局演示字:必须在默认出阵里(StartingSetupTests 守这条),
-        /// 且配方是「部件+部件」——拆开就能原地合回,不依赖别的字。</summary>
-        public const string DemoChar = "刺";
+        /// 且配方是「部件+部件」——拆开就能原地合回,不依赖别的字。
+        /// 2026-09-05:刺 移出字表,换成同为金系蓝档纯直伤的 剿(配方 巢 + 刂)。</summary>
+        public const string DemoChar = "剿";
 
         private static readonly (TutorialStep step, TutorialAction action, string charId)[] Script =
         {

@@ -1,3 +1,4 @@
+using System.Linq;
 using Brushblade.Core;
 using Brushblade.Data;
 using NUnit.Framework;
@@ -518,6 +519,29 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.SpeedFor(1), Is.EqualTo(100), "1 级 = 基准 = 与敌人同速");
             Assert.That(MetaRules.SpeedFor(26), Is.EqualTo(125), "封顶级 +25%");
             Assert.That(MetaRules.SpeedFor(99), Is.EqualTo(125), "封顶后不再涨");
+        }
+
+        [Test]
+        public void StartingCollection_EveryCharExistsAndIsCraftable()
+        {
+            // 幽灵字守卫(2026-09-05):字表里没有的字放在这里不会报错,只会静默不生效。
+            // 「有配方」是 2026-08-05 拍板的口径 —— 拆了要回得来。
+            var graph = CharTableTests.RealGraph();
+            foreach (var id in MetaRules.StartingCollection)
+            {
+                Assert.That(graph.TryGet(id, out var def), Is.True, $"起始收藏的「{id}」不在字表里");
+                Assert.That(def.IsLeaf, Is.False, $"起始收藏的「{id}」没有配方,拆了回不来");
+                Assert.That(def.IsComponent, Is.False, $"起始收藏的「{id}」是部件,不该进收藏");
+            }
+        }
+
+        [Test]
+        public void StartingDeck_IsSubsetOfCollection_AndHoldsTheDemoChar()
+        {
+            foreach (var id in MetaRules.StartingDeck)
+                Assert.That(MetaRules.StartingCollection.Contains(id), Is.True, $"出阵的「{id}」不在起始收藏里");
+            Assert.That(MetaRules.StartingDeck.Contains(Tutorial.DemoChar), Is.True,
+                "教程要拆的字必须在起手字库里");
         }
     }
 }
