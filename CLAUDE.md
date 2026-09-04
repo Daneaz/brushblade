@@ -25,8 +25,9 @@
 ## 测试与验证(先测试后实现,TDD)
 
 ```bash
-# 管线(pytest)
-python3 -m pytest tools/pipeline/tests/ tools/fonts/tests/ -q
+# 管线(pytest)。⚠ 三个目录都要跑:漏掉 tools/icons/ 会让「手写了一张 PNG、
+# 绕过整条 SVG→PNG 管线」这种改法全绿通过(2026-09-04 栽过一次)
+python3 -m pytest tools/pipeline/tests/ tools/fonts/tests/ tools/icons/tests/ -q
 
 # Core/Data 单元测试(首选,不依赖编辑器锁,毫秒级;用 Unity 自带 dotnet SDK)
 cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet test --nologo -v q
@@ -46,6 +47,13 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   `python3 tools/fonts/subset_fonts.py`,然后复跑该测试。
   重新生成必然产生几百 KB 的时间戳 churn,**光看 diff 大小说明不了变没变,要比 cmap**。
   (2026-08-22「洞穿/横扫/连发/玩家」、2026-08-23「填」各栽过一次。)
+
+- ⚠️ **图标(`icon_*.png`)是产物,不能手写**:它们由 `tools/icons/build_icons.py` 从手写 SVG
+  生成。加一枚要同时改**三处** —— `build_icons.ICONS`(SVG 片段)、`test_icons.EXPECTED`、
+  `Icons.cs` 的 `Glyphs`(PNG 取不到时的兜底汉字,新汉字还要重跑字体子集)。缺任一处的后果
+  不是编译错,是上线渲染成「?」。改完跑 `python3 tools/icons/build_icons.py`(同时刷新
+  `svg/*.svg`,仓库里那份也在对账)。`.meta` 脚本不生成,从同目录别的 `icon_*.png.meta`
+  复制并换掉 `guid:`。(2026-09-04 加 icon_melee 时手写过一张 PNG,三处对账一处都没接。)
 
 - Core/Data 每个模块:先写失败测试再实现;Presentation 不强求自动化测试,**但改完必须过离线编译**
   ——工装只编译 Core/Data,Presentation 的编译错会一路漏到用户打开 Unity 才炸(已发生过两次)。
