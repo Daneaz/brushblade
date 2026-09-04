@@ -1560,11 +1560,27 @@ namespace Brushblade.Presentation
             var whoLabel = Ui.ThemedLabel(header.transform, Strings.T("battle.label.player_name"),
                 14, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
             Ui.Stretch(whoLabel.rectTransform);
+            // 头行右端只剩血/上限:盾挪到了立绘左下角那枚角标上(下面那段),
+            // 两处都印一遍是同一件事说两遍。
             var hpLabel = Ui.ThemedLabel(header.transform,
-                Strings.T("battle.label.player_hp_shield",
-                    ("hp", shownHp), ("hpMax", PlayerMaxHp), ("shield", shownShield)),
+                Strings.T("battle.label.player_hp", ("hp", shownHp), ("hpMax", PlayerMaxHp)),
                 11, Theme.TextDim, null, TextAnchor.MiddleRight);
             Ui.Stretch(hpLabel.rectTransform);
+
+            // 护盾角标(2026-09-05 用户拍板补齐:敌人格与召唤格早就有,玩家这一格一直漏着)。
+            // 盾条整体移除之后,立绘角标是盾**唯一**的图形落点,三种单位必须长一样 ——
+            // 少了这一枚,玩家自己身上的盾就成了三者里唯一看不见的。
+            // 读 shownShield 而不是 Battle.PlayerShield:动画期间画出手前值,与血条同一口径。
+            if (shownShield > 0)
+            {
+                var shieldBadge = Ui.Chip(portrait, shownShield.ToString(), Theme.Gold, Theme.GoldText,
+                    ShieldBadgeFontSize, ShieldBadgePadX, ShieldBadgePadY, "shield");
+                var shieldBadgeElement = shieldBadge.GetComponent<LayoutElement>();
+                Ui.Anchor((RectTransform)shieldBadge.transform, Vector2.zero, Vector2.zero,
+                    new Vector2(ShieldBadgeMargin, ShieldBadgeMargin),
+                    new Vector2(ShieldBadgeMargin + shieldBadgeElement.preferredWidth,
+                        ShieldBadgeMargin + shieldBadgeElement.preferredHeight));
+            }
 
             // 血条(裸条,2026-08-31 起不再叠字——数字已经在头行读到)
             var hpBarGo = Ui.Bar(info.transform, PlayerMaxHp > 0 ? shownHp / (float)PlayerMaxHp : 0f,

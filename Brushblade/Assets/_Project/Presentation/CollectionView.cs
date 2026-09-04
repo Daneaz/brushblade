@@ -77,6 +77,18 @@ namespace Brushblade.Presentation
         private enum SortMode { Rarity, Upgradable, Fresh }
 
         private SortMode _sort = SortMode.Rarity; // 默认稀有度(用户拍板)
+
+        /// <summary>拥有态筛选(2026-09-05 用户拍板补回:「除了当前的排序,还要保留之前的
+        /// filter。已拥有,未拥有」)。与 <see cref="SortMode"/> **并存**、各管一件事:
+        /// 排序决定「谁排在前」,筛选决定「谁出现」。
+        ///
+        /// 与 9-05 早先删掉的那两个 chip 不同:那两个是「仅看可升级」/「只看未拥有」,
+        /// 前者已经由「可升级」排序覆盖(顶到最前 = 一眼看见,还不用把其余的藏起来);
+        /// 补回的这一组是**拥有态**,而拥有与否是收集页的两半,排序顶不掉它 ——
+        /// 「还差哪些」需要把已有的整片挪走才看得清。</summary>
+        private enum OwnFilter { All, Owned, Wanted }
+
+        private OwnFilter _own = OwnFilter.All;
         /// <summary>网格的滚动位置(1 = 顶部)。整页是全量重建的,不记着它的话,
         /// 点第三行某张牌 → Rebuild → 列表弹回顶部,那张牌当场从眼前消失(2026-09-03 实机反馈)。
         /// 只在筛选变了时才归顶 —— 那时列表内容本来就换了一批。</summary>
@@ -178,13 +190,29 @@ namespace Brushblade.Presentation
             separator.AddComponent<Image>().color = Theme.PanelBorder;
             Ui.Sized(separator, 2, FilterH * 0.5f);
 
-            int upgradable = 0, fresh = 0;
+            int upgradable = 0, fresh = 0, owned = 0;
             foreach (var def in _all)
             {
                 if (!_meta.OwnedCards.Contains(def.Id)) continue;
+                owned++;
                 if (MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity)) upgradable++;
                 if (MetaRules.IsCardUnseen(_meta, def.Id)) fresh++;
             }
+            int wanted = _all.Count - owned;
+
+            // 拥有态筛选(见 OwnFilter 的注释):与排序并排,各管一件事。
+            // 计数按**全表**算而不是当前属性页签下 —— 与页签自己那个「已收集/总数」
+            // 各答一个问题:页签说「这一系集了多少」,这里说「全表还差多少」。
+            OwnToggle(bar.transform, Strings.T("collection.filter.all"), OwnFilter.All,
+                Theme.InkSoft, Theme.PanelInset, Theme.TextDim);
+            OwnToggle(bar.transform, Strings.T("collection.filter.owned", ("count", owned)),
+                OwnFilter.Owned, Theme.Jade, Theme.AdGreenBg, Theme.UpgradeText);
+            OwnToggle(bar.transform, Strings.T("collection.filter.wanted", ("count", wanted)),
+                OwnFilter.Wanted, Theme.LockGray, Theme.PanelInset, Theme.TextDim);
+
+            var filterRule = Ui.Panel(bar.transform, "Rule2");
+            filterRule.AddComponent<Image>().color = Theme.PanelBorder;
+            Ui.Sized(filterRule, 2, FilterH * 0.5f);
             // 三个排序钮取代原先那两个筛选 chip(见 SortMode 的注释)。计数只挂在可升级/新卡上
             // —— 那两个数本来就在原 chip 上、玩家在用;稀有度没有对应的「有几个」。
             Ui.ThemedLabel(bar.transform, Strings.T("collection.sort.label"), 19, Theme.LockGray);
@@ -270,6 +298,20 @@ namespace Brushblade.Presentation
                 new Vector2(Ui.ChipWidth(text, 20) + 20, 46), 23);
         }
 
+        /// <summary>一个拥有态筛选钮。与 <see cref="SortToggle"/> 同款三选一:
+        /// 点当前项什么都不发生,不做「点一下取消回全部」那种隐式跳转 ——
+        /// 要回全部就点「全部」,那一格一直在旁边。</summary>
+        private void OwnToggle(Transform parent, string text, OwnFilter mode,
+            Color onBg, Color offBg, Color offFg)
+        {
+            Toggle(parent, text, _own == mode, onBg, offBg, offFg, () =>
+            {
+                if (_own == mode) return;
+                _own = mode;
+                Rebuild(keepScroll: false); // 换了一批内容,停在原滚动位没有意义
+            });
+        }
+
         /// <summary>一个排序钮:点已选中的那个不做事(不是三态循环,是三选一) ——
         /// 点当前项要么该什么都不发生、要么该反序,反序稿上没有,那就什么都不发生,
         /// 但**不能**悄悄换成别的排序。</summary>
@@ -302,6 +344,9 @@ namespace Brushblade.Presentation
             foreach (var def in _all)
             {
                 if (!_filterIsAll && def.Element != _filter) continue;
+                bool has = _meta.OwnedCards.Contains(def.Id);
+                if (_own == OwnFilter.Owned && !has) continue;
+                if (_own == OwnFilter.Wanted && has) continue;
                 list.Add(def);
             }
             list.Sort((a, b) =>
@@ -340,9 +385,9 @@ namespace Brushblade.Presentation
             var list = Visible();
             if (list.Count == 0)
             {
-                // 排序取代筛选之后(2026-09-05)这一支现实中已经到不了:网格只受属性页签影响,
-                // 而每一系都有字。留着是给数据兜底 —— 哪天字表里某一系被清空,空白网格
-                // 比一句话更难判断是「没有」还是「加载失败」。旧的两条文案随筛选一起下架。
+                // 拥有态筛选补回来之后这一支**真会走到**:某一系全收集完了、又停在「未拥有」上,
+                // 网格就是空的(2026-09-05)。文案因此写成不预设原因的一句 ——
+                // 「这一系还没有字」在那种情形下是错的。
                 var empty = Ui.ThemedLabel(content, Strings.T("collection.empty.none"), 22, Theme.LockGray);
                 Ui.Sized(empty.gameObject, 0, 200, flexWidth: 1);
                 return;
@@ -559,6 +604,7 @@ namespace Brushblade.Presentation
                     if (first == null) return;
                     _filterIsAll = true;
                     _filter = null;
+                    _own = OwnFilter.All;   // 停在「未拥有」上时,那张能升的字被筛掉了
                     _sort = SortMode.Upgradable;
                     _gridScroll = 1f;   // 换了一批内容,停在原位置没有意义
                     Select(first);
