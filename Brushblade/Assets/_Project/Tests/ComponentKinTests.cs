@@ -1,3 +1,4 @@
+using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
 
@@ -14,13 +15,26 @@ namespace Brushblade.Core.Tests
             Assert.That(group, Is.EqualTo(new[] { "水", "氵", "冫" }));
         }
 
-        /// <summary>金系是最大的一组:5 个成员。这个数字有表现层含义 ——
-        /// 部件卡把同组其他成员各标一个角,除自己外 4 个刚好占满四角,再加成员就得换设计。</summary>
         [Test]
-        public void TryGetGroup_MetalHasFiveMembers()
+        public void MetalGroup_NoLongerHasDaoOrGe()
         {
-            Assert.That(ComponentKin.TryGetGroup("刀", out var group), Is.True);
-            Assert.That(group, Is.EqualTo(new[] { "金", "钅", "戈", "刂", "刀" }));
+            // 2026-09-05:戈/刀 随 战/劈/沏 移出字表而消失,清单必须同步 ——
+            // 留着会让 RealConfig_AllMembersAreLeavesInTheRealCharTable 报「不存在」
+            Assert.That(ComponentKin.TryGetGroup("刀", out _), Is.False);
+            Assert.That(ComponentKin.TryGetGroup("戈", out _), Is.False);
+            Assert.That(ComponentKin.TryGetGroup("刂", out var group), Is.True);
+            Assert.That(group.Contains("金"), Is.True);
+            Assert.That(group.Contains("钅"), Is.True);
+            Assert.That(group.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void WoodGroup_IncludesZhu()
+        {
+            // 2026-09-05:箭 = 竹 + 前 带 竹 进字表,竹 与 木/艹 在配方匹配上等价
+            Assert.That(ComponentKin.AreKin("木", "竹"), Is.True);
+            Assert.That(ComponentKin.AreKin("艹", "竹"), Is.True);
+            Assert.That(ComponentKin.AreKin("竹", "禾"), Is.False, "禾 仍然不是木系等价部件");
         }
 
         /// <summary>清单外的部件不参与:禾 是形声部件,element 虽为 Wood 也不该与 木 等价。</summary>

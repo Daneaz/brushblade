@@ -15,13 +15,13 @@ namespace Brushblade.Core
         private static readonly string[][] Groups =
         {
             new[] { "水", "氵", "冫" },
-            new[] { "木", "艹" },
-            new[] { "金", "钅", "戈", "刂", "刀" },
+            new[] { "木", "艹", "竹" },
+            new[] { "金", "钅", "刂" },
             new[] { "土", "山", "石" },
             new[] { "火", "灬" },
         };
 
-        /// <summary>五系清单里的全部 15 个成员(展开 <see cref="Groups"/>,守卫测试用:
+        /// <summary>五系清单里的全部 14 个成员(展开 <see cref="Groups"/>,守卫测试用:
         /// ComponentKinTests.RealConfig_AllMembersAreLeavesInTheRealCharTable ——
         /// 「部件等价」与「宝箱前置」互不干扰的唯一支点是这些字在真实字表里全都没有配方。</summary>
         public static IReadOnlyList<string> AllParts
