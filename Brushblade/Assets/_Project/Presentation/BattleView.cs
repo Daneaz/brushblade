@@ -125,12 +125,8 @@ namespace Brushblade.Presentation
         // 恰恰是空格,只记有人的格等于把主要用法排除在外。
         private readonly System.Collections.Generic.Dictionary<int, RectTransform> _summonCellByCore = new();
         private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonBarByCore = new();
-        // 召唤物盾条(2026-08-26):与 _summonBarByCore 同款,按**核心槽位**索引
-        private readonly System.Collections.Generic.Dictionary<int, (RectTransform fill, UnityEngine.UI.Text label)> _summonShieldBarByCore = new();
+        // 召唤物出手前血(2026-08-26):与 _summonBarByCore 同款,按**核心槽位**索引
         private readonly System.Collections.Generic.Dictionary<int, int> _summonAnimHp = new(); // 出手前血(下标→值);SummonHit 触达按承伤者下标逐记降
-        // 出手前盾(2026-08-26,下标→值)。与 _animShield 之于玩家同构:召唤格有了常驻盾条,
-        // 一段里连挨两记时不逐记推的话,条会在第一记就跳到整段的终值
-        private readonly System.Collections.Generic.Dictionary<int, int> _summonAnimShield = new();
         private readonly System.Collections.Generic.HashSet<int> _dyingEnemies = new(); // 死亡动画进行中的怪:重绘时维持着色,置灰交给死亡节拍(2026-07-25)
         private int _animsInFlight; // 在播的打击动画数;>0 = 锁输入 + 血条画在出手前值(2026-07-25),归零才放行重绘
         private bool Animating => _animsInFlight > 0;
@@ -141,7 +137,6 @@ namespace Brushblade.Presentation
         private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
         // 血条 fill/label 引用:命中回调据此就地推进,不整屏重绘(重绘会毁掉进行中动画的锚点)
         private (RectTransform fill, UnityEngine.UI.Text label) _playerHpBar;
-        private (RectTransform fill, UnityEngine.UI.Text label) _playerShieldBar;
         private readonly System.Collections.Generic.List<(RectTransform fill, UnityEngine.UI.Text label)> _enemyHpBars = new();
 
         // 行动条(2026-08-17):每个参战单位一条,读各自的 ActionMeter。与血条同款持有
@@ -376,12 +371,10 @@ namespace Brushblade.Presentation
             _animPlayerHp = Battle.PlayerHp;
             _animShield = Battle.PlayerShield;
             _summonAnimHp.Clear();
-            _summonAnimShield.Clear();
             for (int i = 0; i < Battle.Summons.Count; i++)
                 if (Battle.Summons[i] != null && Battle.Summons[i].Alive)
                 {
                     _summonAnimHp[i] = Battle.Summons[i].Hp; // 出手前存活者(下标→血);本回合被打死的仍画得出,旧尸不画
-                    _summonAnimShield[i] = Battle.Summons[i].Shield;
                 }
             _animEnemyHp.Clear();
             foreach (var e in Battle.Enemies) _animEnemyHp.Add(e.Hp);
@@ -421,33 +414,25 @@ namespace Brushblade.Presentation
                 // Missed 分支没调 onImpact,这条走不到,但显式空 case 比漏判更稳(与 ImmunityBlocked 同构)
                 case BattleEventKind.Missed:
                     break;
-                case BattleEventKind.EnemyAttack: // Amount 分账:Absorbed 走护盾条,余量才掉血,各自钳到终值
+                // Amount 分账:Absorbed 记到盾上、余量才掉血,各自钳到终值。
+                // 盾条 2026-09-05 移除后这一步只是**记账** —— _animShield 仍被下一次重绘的
+                // 头行读到(shownShield),所以不能因为「没有条要推」就省掉。
+                case BattleEventKind.EnemyAttack:
                     _animShield = System.Math.Max(Battle.PlayerShield, _animShield - e.Absorbed);
-                    SetShieldBar(_animShield);
                     if (_playerHpBar.fill == null) break;
                     int hitBefore = _animPlayerHp;
                     _animPlayerHp = System.Math.Max(Battle.PlayerHp, _animPlayerHp - (e.Amount - e.Absorbed));
                     SetHpBar(_playerHpBar, _animPlayerHp, PlayerMaxHp);
                     ChipDamage(_playerHpBar, hitBefore, _animPlayerHp, PlayerMaxHp);
                     break;
-                case BattleEventKind.Shield: // 筑盾触达才涨,与掉盾同一条推进(不整屏重绘)
-                    // TargetIndex ≥0 = 盾加在召唤物身上(2026-08-26),推那一格的盾条;−1 才是玩家
-                    if (e.TargetIndex >= 0)
-                    {
-                        int shieldSlot = e.TargetIndex;
-                        if (shieldSlot >= Battle.Summons.Count || Battle.Summons[shieldSlot] == null
-                            || !_summonAnimShield.ContainsKey(shieldSlot)
-                            || !_summonShieldBarByCore.TryGetValue(shieldSlot, out var ssb)
-                            || ssb.fill == null) break;
-                        _summonAnimShield[shieldSlot] = System.Math.Min(
-                            Battle.Summons[shieldSlot].Shield, _summonAnimShield[shieldSlot] + e.Amount);
-                        SetShieldBarOn(ssb, _summonAnimShield[shieldSlot]);
-                        _juice.BarPulse(ssb.fill, Theme.Jade, Element.Earth); // 土:盾条起势
-                        break;
-                    }
+                // 筑盾:同上,只记账。盾条与那记土系起势一并去掉了(2026-09-05)——
+                // 起势要有条可起,而盾的表达现在是立绘角标上的数字 + Juice 那一记飘字与音效。
+                case BattleEventKind.Shield:
+                    // TargetIndex ≥0 = 盾加在召唤物身上(2026-08-26),那一侧不必记账 ——
+                    // 召唤格的盾只有立绘角标一个落点,而角标画的是终值(summon.Shield),
+                    // 重绘时自然读到。玩家侧要记:头行的「盾 N」在动画期间读 _animShield。
+                    if (e.TargetIndex >= 0) break;
                     _animShield = System.Math.Min(Battle.PlayerShield, _animShield + e.Amount);
-                    SetShieldBar(_animShield);
-                    _juice.BarPulse(_playerShieldBar.fill, Theme.Jade, Element.Earth); // 土:盾条起势
                     break;
                 case BattleEventKind.Heal: // 水系治疗:与群攻同一记里触达,血条即时上推(此前只在末次重绘才涨)
                     // SecondIndex ≥0 = 治疗落在召唤物身上,推那只召唤物的血条(镜像 SummonHit,只是方向向上)
@@ -476,23 +461,17 @@ namespace Brushblade.Presentation
                     if (e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
                         _enemyMobs[e.TargetIndex].SetStateAmount(Mathf.Clamp01(e.SecondIndex / 3f)); // 状态层跟着补全长
                     break;
-                case BattleEventKind.ShieldBroken: // 倾覆技能把剩余护盾整个掀掉:直接推到 0,不等最终重绘才归零
+                case BattleEventKind.ShieldBroken: // 倾覆技能把剩余护盾整个掀掉:记账归零
                     _animShield = 0;
-                    SetShieldBar(_animShield);
                     break;
                 case BattleEventKind.SummonHit: // 敌人打召唤:按承伤者下标(SecondIndex)血条逐记降,钳到其终值(死了钳到 0)
                     int si = e.SecondIndex;
                     if (si < 0 || si >= Battle.Summons.Count || Battle.Summons[si] == null
                         || !_summonAnimHp.ContainsKey(si)
                         || !_summonBarByCore.TryGetValue(si, out var sbar) || sbar.fill == null) break;
-                    // Amount 分账与玩家侧 EnemyAttack 同口径:Absorbed 走盾条,余量才掉血
-                    if (e.Absorbed > 0 && _summonAnimShield.ContainsKey(si)
-                        && _summonShieldBarByCore.TryGetValue(si, out var hitShield))
-                    {
-                        _summonAnimShield[si] = System.Math.Max(
-                            Battle.Summons[si].Shield, _summonAnimShield[si] - e.Absorbed);
-                        SetShieldBarOn(hitShield, _summonAnimShield[si]);
-                    }
+                    // Amount 分账与玩家侧 EnemyAttack 同口径:Absorbed 被盾吃掉、余量才掉血。
+                    // 吸收量这里不必记账(理由同 Shield 那支):召唤格的盾只在立绘角标上,
+                    // 而角标读的是终值。下面掉血仍要扣掉 Absorbed。
                     int summonBefore = _summonAnimHp[si];
                     _summonAnimHp[si] = System.Math.Max(Battle.Summons[si].Hp,
                         _summonAnimHp[si] - (e.Amount - e.Absorbed));
@@ -548,9 +527,12 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>血条 + 血值叠加其上(带深色描边保对比度);返回 fill/label 供命中回调就地推进。</summary>
-        private (RectTransform fill, UnityEngine.UI.Text label) HpBar(Transform parent, int hp, int maxHp, Vector2 size)
+        /// <param name="fill">条的填充色。默认朱砂(敌人/玩家);召唤物传绿 ——
+        /// 稿用色区分敌我,红色会把友军读成类敌方单位(见 DrawSummons 那处的注释)。</param>
+        private (RectTransform fill, UnityEngine.UI.Text label) HpBar(Transform parent, int hp, int maxHp,
+            Vector2 size, Color? fillColor = null)
         {
-            var bar = Ui.Bar(parent, hp / (float)maxHp, Theme.Cinnabar, size);
+            var bar = Ui.Bar(parent, hp / (float)maxHp, fillColor ?? Theme.Cinnabar, size);
             var fill = (RectTransform)bar.transform.Find("Fill");
             var label = Ui.ThemedLabel(bar.transform, $"{hp}/{maxHp}", Mathf.Clamp((int)(size.y * 0.7f), 10, 13),
                 Color.white, Theme.TitleFont);
@@ -683,23 +665,6 @@ namespace Brushblade.Presentation
             if (bar.fill != null)
                 Ui.Anchor(bar.fill, Vector2.zero, new Vector2(frac, 1), Vector2.zero, Vector2.zero);
             if (bar.label != null) bar.label.text = $"{Mathf.RoundToInt(frac * 100)}%";
-        }
-
-        // 护盾条满格基准值(护盾本身无上限概念,取一个常见量级当刻度)。
-        // 2026-08-26:30 → 200。30 是 2026-08-12 全表数值 ×10 之前定的,现在最小的一张
-        // 垒 就有 50,任何一次加盾都直接顶满,条永远是满的、等于没有条。
-        // 200 之下:垒 50 = 1/4、圭 200 = 满、㙓 450 夹到满。
-        private const float ShieldBarFull = 200f;
-
-        /// <summary>玩家护盾条就地推进(2026-08-26 起条恒在,不会再有「没画出来」的情形)。</summary>
-        private void SetShieldBar(int shield) => SetShieldBarOn(_playerShieldBar, shield);
-
-        private static void SetShieldBarOn((RectTransform fill, UnityEngine.UI.Text label) bar, int shield)
-        {
-            if (bar.fill != null)
-                Ui.Anchor(bar.fill, Vector2.zero, new Vector2(Mathf.Clamp01(shield / ShieldBarFull), 1),
-                    Vector2.zero, Vector2.zero);
-            if (bar.label != null) bar.label.text = shield.ToString();
         }
 
         private static void SetHpBar((RectTransform fill, UnityEngine.UI.Text label) bar, int hp, int maxHp)
@@ -1505,7 +1470,6 @@ namespace Brushblade.Presentation
         private const float PlayerInfoSpacing = 4f;      // 稿 .me .info { gap: 2pt }
         private const float PlayerHeaderHeight = 18f;    // 容得下 14 号「执笔人」
         private const float PlayerHpBarHeight = 17f;     // 稿 .me .hpb { height: 8pt }
-        private const float PlayerShieldBarHeight = 10f; // 稿 .me .shb { height: 5pt }
         private const float PlayerActionBarHeight = 6f;  // 稿 .me .atb { height: 3pt },与敌人同口径
         private const float PlayerSttWidth = 251f;       // 稿 .stt { width: 120pt }
         private const float PlayerApGap = 10f;           // 稿 .ap { gap: 5pt }
@@ -1608,19 +1572,46 @@ namespace Brushblade.Presentation
             StretchWidth(hpBarGo);
             _playerHpBar = ((RectTransform)hpBarGo.transform.Find("Fill"), null);
 
-            // 护盾条(裸条,常驻——0 时是空条,不再「有盾才画」跳一下整块布局)
-            var shieldBarGo = Ui.Bar(info.transform, Mathf.Clamp01(shownShield / ShieldBarFull),
-                Theme.Gold, new Vector2(0f, PlayerShieldBarHeight));
-            StretchWidth(shieldBarGo);
-            _playerShieldBar = ((RectTransform)shieldBarGo.transform.Find("Fill"), null);
-
+            // 护盾条已整体移除(2026-09-05 用户拍板)。玩家的盾数值本来就印在头行右端
+            // (battle.label.player_hp_shield 那一句的「盾 N」),不是靠这条无刻度的进度条读的;
+            // 加盾/破盾的即时反馈在 Juice 的 Shield / ShieldBroken 两支(飘字 + 音效)。
             // 行动条(2026-08-17 加入,2026-08-31 改色):仍走共享 ActionBar helper,
             // 带百分比叠字——调度方明确要求这里只改颜色不改结构,见方法注释。
             _playerActionBar = ActionBar(info.transform, Battle.PlayerActionMeter,
                 new Vector2(0f, PlayerActionBarHeight), 8);
             StretchWidth(_playerActionBar.fill.parent.gameObject);
 
-            Divider(); // info | stt 分隔线
+            Divider(); // info | ap 分隔线
+
+            // AP 与状态栏的先后 2026-09-05 用户拍板互换过一次:AP 是**每一手都要看**的
+            // 资源(还剩几点决定这一手出不出得起),状态栏是「我身上挂了什么」——
+            // 前者紧贴血条那一列更顺手,后者退到最外侧。
+
+            // AP 竖笔画格(稿 .ap):满的是墨、空的是白格,像还没蘸墨的笔画——原先三颗
+            // 8px 小圆点分量还不如旁边的状态 chip。
+            //
+            // 2026-09-01 用户拍板去掉稿上的「3/3」数字(.ap .n):几根笔画格本来就是
+            // 「满了几根 / 一共几根」,数字是同一件事说第二遍。连带没了的是稿上唯一的
+            // dry 表现(.ap.dry .n 转深朱砂)——AP 见底时**每一根笔画格都是空的**,
+            // 这本身就是最一眼的 dry 反馈,不必再给标签或格子补一套变色规则。
+            // (稿另有 .ap.dry .pips i.on 一条,在当前 AP 语义下永远不触发:dry 恰好
+            //  意味着 Ap == 0,不会有任何一枚 pip 处于 on 态。落地一直没实现它。)
+            var apRow = Ui.Row(_bottomRow, "Ap", PlayerApGap);
+            Ui.ThemedLabel(apRow.transform, "AP", 12, Theme.TextDim);
+            var pips = Ui.Row(apRow.transform, "Pips", PlayerApPipGap);
+            for (int i = 0; i < Battle.ApPerTurn; i++)
+            {
+                var pip = Ui.Panel(pips.transform, $"Pip{i}");
+                var image = pip.AddComponent<Image>();
+                image.sprite = Theme.Rounded(4);
+                image.type = Image.Type.Sliced;
+                image.color = i < Battle.Ap ? Theme.Ink : Theme.PaperDim;
+                var element = pip.AddComponent<LayoutElement>();
+                element.preferredWidth = PlayerApPipWidth;
+                element.preferredHeight = PlayerApPipHeight;
+            }
+
+            Divider(); // ap | stt 分隔线
 
             // 状态栏(稿 .stt):定宽 120pt,超出收 +N —— 与敌人 chip 行同一套 Ui.ChipFlow,
             // 不再是旧版「都为 0 就不建、按需创建的无限宽单行」;内容/顺序/颜色/图标
@@ -1687,31 +1678,6 @@ namespace Brushblade.Presentation
             stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Ui.Sized(stt, width: PlayerSttWidth);
 
-            Divider(); // stt | ap 分隔线
-
-            // AP 竖笔画格(稿 .ap):满的是墨、空的是白格,像还没蘸墨的笔画——原先三颗
-            // 8px 小圆点分量还不如旁边的状态 chip。
-            //
-            // 2026-09-01 用户拍板去掉稿上的「3/3」数字(.ap .n):几根笔画格本来就是
-            // 「满了几根 / 一共几根」,数字是同一件事说第二遍。连带没了的是稿上唯一的
-            // dry 表现(.ap.dry .n 转深朱砂)——AP 见底时**每一根笔画格都是空的**,
-            // 这本身就是最一眼的 dry 反馈,不必再给标签或格子补一套变色规则。
-            // (稿另有 .ap.dry .pips i.on 一条,在当前 AP 语义下永远不触发:dry 恰好
-            //  意味着 Ap == 0,不会有任何一枚 pip 处于 on 态。落地一直没实现它。)
-            var apRow = Ui.Row(_bottomRow, "Ap", PlayerApGap);
-            Ui.ThemedLabel(apRow.transform, "AP", 12, Theme.TextDim);
-            var pips = Ui.Row(apRow.transform, "Pips", PlayerApPipGap);
-            for (int i = 0; i < Battle.ApPerTurn; i++)
-            {
-                var pip = Ui.Panel(pips.transform, $"Pip{i}");
-                var image = pip.AddComponent<Image>();
-                image.sprite = Theme.Rounded(4);
-                image.type = Image.Type.Sliced;
-                image.color = i < Battle.Ap ? Theme.Ink : Theme.PaperDim;
-                var element = pip.AddComponent<LayoutElement>();
-                element.preferredWidth = PlayerApPipWidth;
-                element.preferredHeight = PlayerApPipHeight;
-            }
 
             // 治疗选目标态(2026-08-22):玩家整条底栏点亮为「治玩家」的点击面——覆盖对象从
             // 原来的 hpStack(单个 VStack)换成 _bottomRow(整条横排的容器),结构改横排
@@ -1736,8 +1702,8 @@ namespace Brushblade.Presentation
         private const float SummonInfoSpacing = 4f;         // 稿 .ally .info { gap: 2pt }
         private const float SummonHeaderHeight = 16f;       // 容得下 12 号「攻 N」
         private const float SummonHpBarHeight = 13f;        // 稿 .ally .hpb { height: 6pt }
-        // 盾条 / 行动条与敌人格同一口径(稿 .shb/.atb 两种单位都是 height:3pt),
-        // 复用 EnemyShieldBarHeight/EnemyActionBarHeight(见敌人格常量),不重复定义。
+        // 行动条与敌人格同一口径(稿 .atb 两种单位都是 height:3pt),
+        // 复用 EnemyActionBarHeight(见敌人格常量),不重复定义。
         // DrawSummons 本体不再用它(格子内部改横排,不再是竖排 VStack),但锁格/空槽
         // (DrawLockedSummonSlot/DrawEmptySummonSlot)仍各自套一层单子物体的 VStack,
         // 留着这个常量给那两处用,省得再定义一份。
@@ -1755,7 +1721,6 @@ namespace Brushblade.Presentation
             _summonRectByCore.Clear();
             _summonCellByCore.Clear();
             _summonBarByCore.Clear();
-            _summonShieldBarByCore.Clear();
             _summonActionBarByCore.Clear();
             // 八格**常态化显示**(2026-08-27 用户拍板):未解锁的也画出来,印上「N 关解锁」——
             // 玩家因此一眼看得出还有几格没开、什么时候开,而不是打到第 10 层突然多出两格。
@@ -1813,18 +1778,23 @@ namespace Brushblade.Presentation
                 // 还不知道这个值(4f 与 VStack 默认值巧合相同,显式写出不依赖这个巧合)。
                 info.GetComponent<VerticalLayoutGroup>().spacing = SummonInfoSpacing;
 
-                // 头行:攻 N(左)+ 血/上限(右),稿 .ally .hd —— 与玩家条头行同一套
-                // 「同一块满宽面板叠两条 Stretch 文字」做法,取代旧版顶行的攻/字块/状态三段横排。
+                // 头行:属性徽章 + 「射程图标 + 攻」,与敌人格头行同构(2026-09-05 用户拍板)。
+                //
+                // 换掉的是「攻 N(左)+ 血/上限(右)」那两条文字:
+                // · 攻改成 chip,与射程图标合成一枚 —— 与敌人格同一套读法,一眼对得上;
+                // · 血/上限挪进血条里(HpBar 自带叠字),与敌方血条对齐 —— 数字贴着它描述的
+                //   那条进度条,比隔一行放在头行右端好读,也省下这一行的高度;
+                // · 属性徽章是**补上**的:此前召唤物的属性只体现在立绘底色上,而生克是本作
+                //   核心机制,靠底色认属性等于让玩家背一遍色表。
                 int shownHp = Animating && _summonAnimHp.TryGetValue(i, out var pre) ? pre : summon.Hp;
-                var header = Ui.Panel(info.transform, "Header");
+                var header = Ui.Row(info.transform, "Header", EnemyHeaderSpacing);
                 Ui.Sized(header, width: infoWidth, height: SummonHeaderHeight);
-                var atkLabel = Ui.ThemedLabel(header.transform,
-                    Strings.T("battle.label.summon_attack", ("attack", summon.Attack)), 12, Theme.TextMain,
-                    null, TextAnchor.MiddleLeft);
-                Ui.Stretch(atkLabel.rectTransform);
-                var hpLabel = Ui.ThemedLabel(header.transform, $"{shownHp}/{summon.MaxHp}", 11, Theme.TextDim,
-                    null, TextAnchor.MiddleRight);
-                Ui.Stretch(hpLabel.rectTransform);
+                Ui.Chip(header.transform, CharInfo.ElementName(summon.Element),
+                    Theme.ElementColor(summon.Element), Color.white,
+                    ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY);
+                Ui.Chip(header.transform, $"{summon.Attack}", Theme.PaperDim, Theme.TextMain,
+                    ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY,
+                    RangeIcon(summon.Passive?.Ranged ?? false));
 
                 // chip 行(稿 .cps):被动 + 灼烧 + 身上挂着的每条状态,一律「图标 + 数字」,
                 // 横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑:装不下 ChipMaxLines 行时
@@ -1834,7 +1804,6 @@ namespace Brushblade.Presentation
                 // 2026-09-02:此前这里只有一个「益+2」的条数计数,而条数不告诉玩家是什么增益——
                 // 「锐」给的穿透、「壁」给的护甲都只是那个 2 里的一份,打出去生效没有看不出来。
                 var chipSpecs = new List<Ui.ChipSpec>();
-                AddRangeChip(chipSpecs, summon.Passive?.Ranged ?? false);
                 var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
                 if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
@@ -1843,22 +1812,15 @@ namespace Brushblade.Presentation
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize, ChipMaxLines,
                     ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
 
-                // 三条(裸条,数字已在头行读到,与玩家条同一取舍):血、盾、行动条自上而下。
-                // 血条颜色刻意与玩家/敌人不同(稿 .ally .hpb > span { background: #2E7D46 } 是绿,
-                // .me/.foe 都是红):稿用色区分敌我——召唤物是友军,红色会被误读成类敌方单位。
-                var hpBarGo = Ui.Bar(info.transform, summon.MaxHp > 0 ? shownHp / (float)summon.MaxHp : 0f,
-                    Theme.DoneGreen, new Vector2(infoWidth, SummonHpBarHeight));
-                _summonBarByCore[i] = ((RectTransform)hpBarGo.transform.Find("Fill"), null);
+                // 血条:走与敌方同一个 HpBar helper —— 血/上限叠在条内(2026-09-05 用户拍板
+                // 「hp 量移动到血条内,与敌方血条对齐」)。填充色仍刻意与玩家/敌人不同
+                // (稿 .ally .hpb > span { background: #2E7D46 } 是绿,.me/.foe 都是红):
+                // 稿用色区分敌我 —— 召唤物是友军,红色会被误读成类敌方单位。
+                _summonBarByCore[i] = HpBar(info.transform, shownHp, summon.MaxHp,
+                    new Vector2(infoWidth, SummonHpBarHeight), Theme.DoneGreen);
 
-                // 盾条(2026-08-26)接在血条下面,**常驻** —— 0 时是一条空条,不再有无盾时
-                // 整格塌一行、加盾时又顶回来的跳动。动画期间画出手前值(与血条同理),
-                // Shield / SummonHit 触达才推
-                int shownShield = Animating && _summonAnimShield.TryGetValue(i, out var preShield)
-                    ? preShield : summon.Shield;
-                var shieldBarGo = Ui.Bar(info.transform, Mathf.Clamp01(shownShield / ShieldBarFull), Theme.Gold,
-                    new Vector2(infoWidth, EnemyShieldBarHeight));
-                _summonShieldBarByCore[i] = ((RectTransform)shieldBarGo.transform.Find("Fill"), null);
-
+                // 盾条已整体移除(2026-09-05 用户拍板):盾的数值留在立绘左下角那枚金角标上
+                // (见上面 summon.Shield > 0 那一段)。理由同敌人格那处的注释。
                 // 行动条:仍走共享 ActionBar helper(带百分比叠字),与玩家条同一取舍,
                 // 只是颜色/soon 态已经在 helper 里统一改过(见 ActionBar 方法注释)。
                 _summonActionBarByCore[i] = ActionBar(info.transform, summon.ActionMeter,
@@ -2145,20 +2107,16 @@ namespace Brushblade.Presentation
             return ("", null);
         }
 
-        /// <summary>射程 chip(2026-09-03 用户拍板:战斗中的状态栏也要认得出近战/远程)。
-        /// 敌人格与召唤物格共用这一条,两边看到的是同一枚图标 —— 「前排挡不挡得住」
-        /// 是同一个规则的两个方向,不该长成两样。
+        /// <summary>射程图标的 key。近战与远程**都有图标**(2026-09-04 用户拍板,同时补了
+        /// icon_melee 交叉双剑那枚资产):此前只画远程、近战按「默认不出 chip」省掉,于是一只
+        /// 近战单位的射程在战斗画面上是零标记的 —— 而「没有标记」既可能是近战、也可能是
+        /// 这一格根本没接射程显示,玩家分不出来。射程是二选一的常驻特性,两边都出才读得出对照。
         ///
-        /// **近战与远程都画**(2026-09-04 用户拍板,同时补了 icon_melee 交叉双剑那枚资产)。
-        /// 此前只画远程、近战按「默认不出 chip」省掉,于是一只近战单位的射程在战斗画面上
-        /// 是**零标记**的 —— 而「没有标记」既可能是近战,也可能是这一格根本没接射程显示,
-        /// 玩家分不出来。射程不是会过期的状态,是二选一的常驻特性:两边都出,对照才读得出。
-        /// 排在 chip 行最前:回答的是「这一场它够不够得着谁」,优先级高于任何会过期的状态
-        /// (ChipFlow 装不下时从尾部丢)。</summary>
-        private static void AddRangeChip(List<Ui.ChipSpec> chips, bool ranged)
-        {
-            chips.Add(new("", Theme.InkSoft, Color.white, ranged ? "ranged" : "melee"));
-        }
+        /// 2026-09-05 用户拍板:它不再单独占一枚 chip,而是与**攻击力**并成一枚
+        /// 「射程图标 + 攻击力」放进头行 —— 攻击力原先借的是 <c>attack</c> 那枚图标,
+        /// 而那枚在玩家状态栏里表示的是「攻击增益」,拿来标基础攻击力是两个语义共用一张图。
+        /// 敌人格与召唤物格共用这一条:「前排挡不挡得住」是同一个规则的两个方向。</summary>
+        private static string RangeIcon(bool ranged) => ranged ? "ranged" : "melee";
 
         /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
         ///
@@ -2236,10 +2194,10 @@ namespace Brushblade.Presentation
         private const float EnemyInfoSpacing = 4f;   // 2pt
         private const float EnemyHeaderSpacing = 8f; // 4pt
 
-        // 三条状态条的高度(稿:血条 7pt、护盾条/行动条各 3pt)。宽度不设常量——
+        // 两条状态条的高度(稿:血条 7pt、行动条 3pt)。宽度不设常量——
         // 前排、后排、Boss 跨列的信息列宽各不相同,在每只敌人的绘制现场按实际格宽算。
+        // 稿上血条与行动条之间还有一条 3pt 的护盾条,2026-09-05 用户拍板整体移除。
         private const float EnemyHpBarHeight = 15f;
-        private const float EnemyShieldBarHeight = 6f;
         private const float EnemyActionBarHeight = 6f;
 
         // 元素徽章(稿 .els):头行里跟名字并排的小胶囊,字号压到比状态 chip 还小——
@@ -2248,7 +2206,8 @@ namespace Brushblade.Presentation
         private const int ElementBadgePadX = 6;
         private const int ElementBadgePadY = 4;
 
-        // 护盾角标(稿 .sh):叠在立绘左下角,与护盾条同一判据——Shield > 0 才画。
+        // 护盾角标(稿 .sh):叠在立绘左下角,Shield > 0 才画。
+        // 2026-09-05 起这是盾的**唯一**表达(护盾条整体移除)。
         // 敌人 Shield 眼下恒为 0(2026-08-30 拍板,来源是将来的加盾辅助怪),真机看不到属预期,
         // 别因为试玩看不到就以为没接上,也别为了让它显形去给哪只怪配盾。
         private const int ShieldBadgeFontSize = 10;
@@ -2261,13 +2220,6 @@ namespace Brushblade.Presentation
         // 在屏上真正成立的那一半:打死一只怪之后,其余的不该跳位,空位也要看得见。
         private const int SlotFrameRadius = 12;
         private const float SlotFrameThickness = 2f;
-
-        /// <summary>护盾条的填充比例(稿 Battle.dc.html 的 shieldPct):按各自血量归一,
-        /// 盾达到自身血量的 1/4 时满格,与稿一致。玩家/召唤物那两条盾条走的是另一套
-        /// 绝对刻度(<see cref="ShieldBarFull"/>)——两套刻度并存是 2026-08-26 的既有决策,
-        /// 不是本轮引入,敌人这条沿用的仍是本函数的归一算法。</summary>
-        private static float ShieldFraction(int shield, int maxHp) =>
-            maxHp <= 0 ? 0f : Mathf.Min(1f, shield * 4f / maxHp);
 
         // 敌人格 chip 行(2026-08-11 换行改造)。比默认 chip 紧一档(字号 12→11、
         // 内边距 18/12→12/8、间距 5→4):实测「火 攻12 灼烧6 不灭」从 2 行降回 1 行,
@@ -2468,6 +2420,13 @@ namespace Brushblade.Presentation
                 string elementName = enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?";
                 Ui.Chip(header.transform, elementName, Theme.ElementColor(enemy.ApparentElement), Color.white,
                     ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY);
+                // 「射程图标 + 攻击力」(2026-09-05 用户拍板):两者合成一枚,并从 chip 行挪到这里。
+                // 攻击力是这只怪**是什么**的一部分(与名字、属性同族),不是会来会走的战况;
+                // 而 chip 行讲的是战况。图标换成射程那一枚,顺带修掉「基础攻击力借用 attack
+                // 图标」这件事 —— 那枚图标在玩家状态栏里表示的是攻击**增益**。
+                Ui.Chip(header.transform, $"{enemy.Attack}", Theme.PaperDim, Theme.TextMain,
+                    ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY,
+                    RangeIcon(enemy.Def.Range == AttackRange.Ranged));
 
                 // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
                 // 行时从**尾部**丢弃,末尾补「+N」,所以越靠前的越保得住。
@@ -2476,10 +2435,8 @@ namespace Brushblade.Presentation
                 // 攻「攻 12」→ attack 图标 + 12,护甲「护甲 5」→ defense 图标 + 5。
                 // 全量说明在详情弹窗里(点这只怪就是)。`enemy.defense_chip` 那条文案没删:
                 // EnemyPreview(图鉴预览)还在用它,那儿是有空间摆文字的地方。
-                var chipSpecs = new List<Ui.ChipSpec>
-                {
-                    new($"{enemy.Attack}", Theme.PaperDim, Theme.TextMain, "attack"),
-                };
+                // 攻击力与射程已并进头行(2026-09-05),这里只剩战况类
+                var chipSpecs = new List<Ui.ChipSpec>();
                 if (enemy.Defense > 0)
                     chipSpecs.Add(new($"{enemy.Defense}", Theme.InkSoft, Color.white, "defense"));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
@@ -2490,7 +2447,6 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
                             ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
-                AddRangeChip(chipSpecs, enemy.Def.Range == AttackRange.Ranged);
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0)
                     chipSpecs.Add(new($"{burnStacks}", Theme.Cinnabar, Color.white, "burn"));
@@ -2538,16 +2494,11 @@ namespace Brushblade.Presentation
                 {
                     int barHp = Animating && i < _animEnemyHp.Count ? _animEnemyHp[i] : enemy.Hp;
                     _enemyHpBars.Add(HpBar(info.transform, barHp, enemy.MaxHp, new Vector2(infoWidth, EnemyHpBarHeight)));
-                    // 护盾条(稿 .shb):盾 = 1/4 血时满格,盾为 0 时整条不画——与角标同一判据。
-                    // 填充色用 Theme.Gold(稿 #C9A94A,同一族,不为这条 6px 高的细条新增色值)。
-                    // 上一版这里误判「稿上 .shb/.atb 背景色相同」而临时改成翡翠避让——其实两者
-                    // 在稿上本就不同色,真正撞色的是下面那条行动条(抄错成了金色),已改正,
-                    // 两条各自照稿对色后不再冲突。
-                    // 敌人 Shield 眼下恒为 0,真机看不到属预期(见常量注释)。
-                    if (enemy.Shield > 0)
-                        Ui.Bar(info.transform, ShieldFraction(enemy.Shield, enemy.MaxHp), Theme.Gold,
-                            new Vector2(infoWidth, EnemyShieldBarHeight));
-                    // 行动条紧跟护盾条(2026-08-17,用户拍板放血条下方)。稿 .atb 无文字覆盖——
+                    // 护盾条已整体移除(2026-09-05 用户拍板):盾的数值留在立绘左下角那枚金角标上。
+                    // 一格里堆三条平行的细条(血/盾/行动)读不出层次,而盾在数值上本来就是
+                    // 「还能挨几下」这个量,一枚带数字的角标比一条无刻度的进度条说得更清楚。
+                    // 加盾/破盾的即时反馈仍在(Juice 的 Shield / ShieldBroken 两支各有飘字 + 音效)。
+                    // 行动条紧跟血条(2026-08-17,用户拍板放血条下方)。稿 .atb 无文字覆盖——
                     // 高度只有 6,塞百分比数字必糊,故直接调 Ui.Bar 出裸条而不是共享的 ActionBar
                     // helper(那个固定带文字,是给玩家/召唤物的更高条用的)。fill 仍存进
                     // _enemyActionBars 供动画期间就地推进,SetActionBar 对 label == null
@@ -4827,7 +4778,6 @@ namespace Brushblade.Presentation
                 if (e.Kind == BattleEventKind.Summon && e.SecondIndex >= 0)
                 {
                     _summonAnimHp.Remove(e.SecondIndex);
-                    _summonAnimShield.Remove(e.SecondIndex);
                 }
         }
 

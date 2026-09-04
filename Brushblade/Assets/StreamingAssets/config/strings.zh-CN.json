@@ -128,7 +128,6 @@
   "battle.label.player_name": "执笔人",
   "battle.label.pool_cap_up": "部件池上限 +2(本次登塔有效)",
   "battle.label.pool_count": "部件池 {count}/{capacity}",
-  "battle.label.summon_attack": "攻{attack}",
   "battle.label.turn": "回合 {turn}",
   "battle.label.workbench_title": "拆 合 台",
   "battle.msg.boss_charging": "  蓄力中——下回合「{skillName}」",
