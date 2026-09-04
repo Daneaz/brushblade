@@ -1538,7 +1538,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>一只召唤物的完整一拍(2026-08-16,ATB 时序归属搬迁,spec §4.3;
-        /// 2026-08-26 补齐状态那两步):自身灼烧 → 光环治疗 → 出手 → 自身状态递减。
+        /// 2026-08-26 补齐状态那两步):自身灼烧 → 光环治疗 → 自愈 → 出手 → 自身状态递减。
         /// 与 <see cref="ActEnemyTurn"/> 的六步同构,只是召唤物没有流血/自补全那两支。
         ///
         /// 光环治疗(2026-08-05,桃)从「玩家回合末全体召唤物集体先治疗」挪到这里,变成
@@ -1561,6 +1561,12 @@ namespace Brushblade.Core
             // 破坏「攒 → 泻」的节奏,而那个节奏正是这台引擎存在的理由。
             // 与 桂 的 SummonShield 要攒势不矛盾:桂 是玩家出的字,光环是召唤物的被动。
             if (heal > 0) HealPlayerAndSummons(heal);
+
+            int regen = summon.Passive?.Regen ?? 0;
+            // 自愈(2026-09-05,藻):只回自己。与上面的光环同序 —— 都排在出手之前,
+            // 于是「召唤物清场的那一拍照样回血」对两者一致(见 HealAlly_StillHealsOnTheTurnSummonsClearTheField)。
+            // 复用 HealAlly(slot, amount):它自带 MaxHp 夹取与 Heal 事件,表现层无需另加通道。
+            if (regen > 0) HealAlly(s, regen);
 
             if (_enemies.Any(e => e.Alive)) StrikeOnceWithSummon(s);
             summon.Statuses.TickTurns();

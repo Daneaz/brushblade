@@ -45,6 +45,10 @@ namespace Brushblade.Core.Tests
             new CharDef("荫", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
                     passive: new SummonPassive { HealAlly = 3 }) }),
+            // 苔:攻 0 + 每回合自愈 3(藻)。与 荫(HealAlly)成对 —— 那个外溢给全队,这个只回自己
+            new CharDef("苔", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { Regen = 3 }) }),
             // 棘:攻 0 + 反伤 3(荆)
             // 棘:反伤 50%(荆 的等价配置;2026-08-25 起 Thorns 的单位是**百分比**)
             new CharDef("棘", Element.Wood,
@@ -506,6 +510,75 @@ namespace Brushblade.Core.Tests
 
             Assert.That(engine.Phase, Is.EqualTo(BattlePhase.Won), "召唤段就该清场");
             Assert.That(engine.PlayerHp, Is.EqualTo(33), "清场那一拍的回血不能被判胜早退吞掉");
+        }
+
+        // ---- 自愈(2026-09-05,藻)----
+
+        [Test]
+        public void Regen_HealsOnlyItself_NotPlayerOrOtherSummons()
+        {
+            // 用**受伤的存档召唤物**开局,避开「敌人这一拍打谁」的随机(靶 攻 0,场上没有
+            // 别的血量变化):0 号带自愈 3、1 号不带,两只都是 4/10 血。
+            // 走 SaveSerializer 是这个文件既有的造快照手法(见 Snapshot_LegacySaveWithoutSpeedField)。
+            const string save =
+                "{\"EndlessV2\":{\"Depth\":1,\"PlayerHp\":40,\"Seed\":7,\"CarriedSummons\":[" +
+                "{\"Char\":\"木\",\"Element\":\"Wood\",\"Hp\":4,\"MaxHp\":10,\"Attack\":0," +
+                "\"Speed\":100,\"Slot\":0,\"Passive\":{\"Regen\":3}}," +
+                "{\"Char\":\"木\",\"Element\":\"Wood\",\"Hp\":4,\"MaxHp\":10,\"Attack\":0," +
+                "\"Speed\":100,\"Slot\":1}]}}";
+            var restored = Data.SaveSerializer.FromJson(save);
+            var engine = Engine(new[] { "素" }, new[] { Dummy() },
+                startingSummons: restored.EndlessV2.CarriedSummons);
+            int playerHp = engine.PlayerHp;
+
+            engine.EndTurn();
+
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(7), "自愈 3");
+            Assert.That(engine.Summons[1].Hp, Is.EqualTo(4), "自愈不该外溢给别的召唤物");
+            Assert.That(engine.PlayerHp, Is.EqualTo(playerHp), "自愈不该外溢给玩家");
+        }
+
+        [Test]
+        public void Regen_DoesNotExceedMaxHp()
+        {
+            var engine = Engine(new[] { "苔" }, new[] { Dummy() });   // 靶 攻 0,苔 一直满血
+            engine.Cast("苔");
+            engine.EndTurn();
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(10), "满血时自愈不溢出");
+        }
+
+        [Test]
+        public void Regen_ZeroIsNoOp()
+        {
+            // 素 没有 passive —— 自愈这条通道不该动它分毫(缺省等价性)
+            var engine = Engine(new[] { "素" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
+            engine.Cast("素");
+            engine.EndTurn();
+            int hp = engine.Summons[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(hp - 4), "无被动的召唤物只挨打,不回血");
+        }
+
+        [Test]
+        public void Regen_SurvivesSnapshotRoundTrip()
+        {
+            var engine = Engine(new[] { "苔" }, new[] { Dummy() });
+            engine.Cast("苔");
+
+            var meta = new MetaState
+            {
+                EndlessV2 = new EndlessSaveState { Depth = 3, PlayerHp = 40, Seed = 7 },
+            };
+            for (int s = 0; s < engine.Summons.Count; s++)
+                if (engine.Summons[s] != null) meta.EndlessV2.CarriedSummons.Add(engine.Summons[s].Capture(s));
+
+            var restored = Data.SaveSerializer.FromJson(Data.SaveSerializer.ToJson(meta));
+            var revived = Engine(new[] { "苔" }, new[] { Dummy() },
+                startingSummons: restored.EndlessV2.CarriedSummons);
+
+            Assert.That(revived.Summons[0].Passive, Is.Not.Null);
+            Assert.That(revived.Summons[0].Passive.Regen, Is.EqualTo(3));
         }
 
         // ---- 反伤 ----

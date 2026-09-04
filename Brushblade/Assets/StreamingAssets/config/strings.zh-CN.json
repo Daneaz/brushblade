@@ -281,6 +281,7 @@
   "char.passive.onhitslow": "出手减速 {value},持续 {turns} 回合",
   "char.passive.onsummonfreeze": "入场:冻结 1 名敌人 {value} 回合",
   "char.passive.ranged": "远程:无视敌方前排",
+  "char.passive.regen": "每回合自身回血 {value}",
   "char.passive.speed": "速度 {value}",
   "char.passive.taunt": "嘲讽:强制敌人攻击它",
   "char.passive.thorns": "被打反弹 {value}% 伤害",
