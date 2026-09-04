@@ -61,6 +61,7 @@ namespace Brushblade.Presentation
             { "obscure", "隐" },
             { "thorns", "刺" },
             { "ranged", "远" },
+            { "melee", "近" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

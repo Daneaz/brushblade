@@ -236,24 +236,33 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>攻击距离。文案取自既有 `enemy.range.*`(EnemyInfo.RangeName/RangeText 同一套)。
-        /// 近战是默认站位,不出图标(与稿子「近战是默认,不出 chip」同一条规则),但详情列表里
-        /// 仍然给出完整说明——图标省的是战斗画面里的小标签,不是详情弹窗的解释权。</summary>
+        /// <summary>攻击距离。文案取自既有 `enemy.range.*`(EnemyInfo.RangeName 同一套)。
+        ///
+        /// 2026-09-04 用户拍板改了两处:
+        /// 1. **近战也有图标**(`icon_melee`,交叉双剑)。此前近战按「默认不出 chip」处理,
+        ///    于是战斗画面上一只近战单位的射程是**没有任何标记**的 —— 玩家看不出「这一格
+        ///    到底是没标识,还是我漏看了」。射程是常驻特性、二选一,两边都出才读得出对照。
+        /// 2. **Desc 一律为 null**:近战/远程各自那句「需要清空前排才能攻击后排」讲的是
+        ///    当前排位能干什么,而排位一格一格地写在战场上,详情里重复一遍没有增量
+        ///    (与 SummonInfo 去掉 front_role 同一条理由)。图鉴那边空间宽裕,老文本
+        ///    <see cref="EnemyInfo.RangeText"/> 仍在用 `enemy.range.*.desc`,那两条不删。</summary>
         public static Info OfRange(AttackRange range) => range == AttackRange.Ranged
             ? new Info("ranged", Strings.T("enemy.range.ranged.name"),
-                Strings.T("status.duration.persistent_trait"), Strings.T("enemy.range.ranged.desc"))
-            : new Info(null, Strings.T("enemy.range.melee.name"),
-                Strings.T("status.duration.persistent_trait"), Strings.T("enemy.range.melee.desc"));
+                Strings.T("status.duration.persistent_trait"), null)
+            : new Info("melee", Strings.T("enemy.range.melee.name"),
+                Strings.T("status.duration.persistent_trait"), null);
 
         /// <summary>召唤物的射程(2026-09-03)。近战/远程这个**名字**与敌人共用一套
-        /// (`enemy.range.*.name`,同一个概念,玩家学一次就够),图标与「持续特性」时长同理;
-        /// 只有 Desc 必须另写:`enemy.range.*.desc` 的措辞是「无视**你的**前排、打**你**本人」,
-        /// 主客是从玩家视角写的,照抄到召唤物身上会变成「你的召唤物在打你自己」。</summary>
+        /// (`enemy.range.*.name`,同一个概念,玩家学一次就够),图标与「持续特性」时长同理。
+        /// 2026-09-04 起 Desc 也一并为 null(见 <see cref="OfRange"/> 第 2 条),于是这两支
+        /// 与敌人侧逐字段相同 —— 但**不合并**:射程在数据上是两个不同的东西
+        /// (敌人的 <see cref="AttackRange"/> 枚举 vs 召唤物的 <c>SummonPassive.Ranged</c> 布尔),
+        /// 合并会让调用方自己做这层转换,而那正是「主客视角写反」类 bug 的入口。</summary>
         public static Info OfSummonRange(bool ranged) => ranged
             ? new Info("ranged", Strings.T("enemy.range.ranged.name"),
-                Strings.T("status.duration.persistent_trait"), Strings.T("summon.range.ranged.desc"))
-            : new Info(null, Strings.T("enemy.range.melee.name"),
-                Strings.T("status.duration.persistent_trait"), Strings.T("summon.range.melee.desc"));
+                Strings.T("status.duration.persistent_trait"), null)
+            : new Info("melee", Strings.T("enemy.range.melee.name"),
+                Strings.T("status.duration.persistent_trait"), null);
 
         /// <summary>够得着玩家时打谁。`enemy.focus.*` 是本任务新写的(AttackFocus 全项目没有
         /// 既有文案),命名跟 `enemy.range.*` 同一个家族。Default 是均匀随机的默认行为,不是

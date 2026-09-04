@@ -71,9 +71,11 @@ namespace Brushblade.Presentation
             {
                 var passive = summon.Passive;
                 bool ranged = passive != null && passive.Ranged;
+                // 不带注脚(2026-09-04 用户拍板去掉「要先清前排」/「不必先清前排」那两句):
+                // 讲的是当前排位能干什么,而排位一格一格地写在战场上,卡面上重复一遍没有增量
+                // —— 与 StatusText.OfRange 的 Desc 一并去掉,三处口径统一。
                 Add(modes, seen, new Mode(true,
-                    ranged ? Strings.T("collection.mode.ranged") : Strings.T("collection.mode.melee"),
-                    ranged ? Strings.T("collection.mode.note.ranged") : Strings.T("collection.mode.note.melee")));
+                    ranged ? Strings.T("collection.mode.ranged") : Strings.T("collection.mode.melee")));
                 if (passive != null && passive.Shape != TargetShape.Single)
                     Add(modes, seen, new Mode(true, ShapeName(passive.Shape),
                         ShapeNote(passive.Shape, passive.ShapePercent, passive.Shots)));

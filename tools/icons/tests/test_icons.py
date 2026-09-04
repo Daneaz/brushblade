@@ -27,6 +27,9 @@ EXPECTED = {
     "scorch", "sear", "split", "obscure", "thorns",
     # 攻击模式 —— 远程 / 死盯玩家 / 横扫 / 贯穿
     "ranged", "focus", "sweep", "skewer",
+    # 第 31 枚(2026-09-04):近战。远程原先是「偏离默认才出 chip」的独苗,
+    # 现在射程改成近战/远程二选一都出,近战也得有自己的一枚(见 build_icons.ICONS 那条)。
+    "melee",
     # 第 30 枚(2026-08-30):持续治疗。StatusGlossary.dc.html 自己记着「29 枚里缺这一枚,
     # 落地要补第 30 枚」—— 稿上没有它的 SVG,这一枚是**新画的**,已回填进稿。
     "heal",

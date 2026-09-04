@@ -2149,14 +2149,15 @@ namespace Brushblade.Presentation
         /// 敌人格与召唤物格共用这一条,两边看到的是同一枚图标 —— 「前排挡不挡得住」
         /// 是同一个规则的两个方向,不该长成两样。
         ///
-        /// **只画远程**:近战是缺省,而且眼下只有 icon_ranged 一枚图标资产,没有近战图标。
-        /// 这与 StatusText 那条「只有偏离默认的才出条目」是同一条口径,不是将就 ——
-        /// 一排怪里真正要被一眼认出来的是那几只越得过前排的。近战的完整说明在详情弹窗里。
-        /// 排在 chip 行最前:它是常驻特性,回答的是「这一场它够不够得着谁」,
-        /// 优先级高于任何会过期的状态(ChipFlow 装不下时从尾部丢)。</summary>
+        /// **近战与远程都画**(2026-09-04 用户拍板,同时补了 icon_melee 交叉双剑那枚资产)。
+        /// 此前只画远程、近战按「默认不出 chip」省掉,于是一只近战单位的射程在战斗画面上
+        /// 是**零标记**的 —— 而「没有标记」既可能是近战,也可能是这一格根本没接射程显示,
+        /// 玩家分不出来。射程不是会过期的状态,是二选一的常驻特性:两边都出,对照才读得出。
+        /// 排在 chip 行最前:回答的是「这一场它够不够得着谁」,优先级高于任何会过期的状态
+        /// (ChipFlow 装不下时从尾部丢)。</summary>
         private static void AddRangeChip(List<Ui.ChipSpec> chips, bool ranged)
         {
-            if (ranged) chips.Add(new("", Theme.InkSoft, Color.white, "ranged"));
+            chips.Add(new("", Theme.InkSoft, Color.white, ranged ? "ranged" : "melee"));
         }
 
         /// <summary>召唤物身上挂着的状态,每条一枚「图标 + 数字」(2026-09-02 用户反馈补)。
