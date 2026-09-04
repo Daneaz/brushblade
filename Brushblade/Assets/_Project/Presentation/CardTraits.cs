@@ -71,9 +71,9 @@ namespace Brushblade.Presentation
             {
                 var passive = summon.Passive;
                 bool ranged = passive != null && passive.Ranged;
+                // 近战 / 远程本身已经把「够不够得着后排」说完了,行尾不再补一句同义的小注
                 Add(modes, seen, new Mode(true,
-                    ranged ? Strings.T("collection.mode.ranged") : Strings.T("collection.mode.melee"),
-                    ranged ? Strings.T("collection.mode.note.ranged") : Strings.T("collection.mode.note.melee")));
+                    ranged ? Strings.T("collection.mode.ranged") : Strings.T("collection.mode.melee")));
                 if (passive != null && passive.Shape != TargetShape.Single)
                     Add(modes, seen, new Mode(true, ShapeName(passive.Shape),
                         ShapeNote(passive.Shape, passive.ShapePercent, passive.Shots)));
@@ -132,9 +132,12 @@ namespace Brushblade.Presentation
         /// <summary>伤害那一条的形状限定:贯穿 / 横扫 / 溅射 / 连发 / 弹射,以及能不能越过前排。</summary>
         private static string DamageNote(EffectDef e)
         {
+            // 只留形状限定(贯穿 · 溅 60% · 共 3 发)—— 溅多少、几发是选目标时要算的账。
+            // 「可越过前排」那句去掉了(2026-09-04 改稿):偷袭已经在「特性 · 技能」里有一条,
+            // 行尾再写一遍是同一件事说两遍
             if (e.Shape != TargetShape.Single)
                 return ShapeName(e.Shape) + ShapeNote(e.Shape, e.ShapePercent, e.Shots);
-            return e.CanStrikeBackline ? Strings.T("collection.mode.note.backline") : "";
+            return "";
         }
 
         private static string ShapeName(TargetShape shape) => shape switch
