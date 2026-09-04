@@ -114,6 +114,59 @@ namespace Brushblade.Core.Tests
             Assert.That(floor[0].MaxHp, Is.EqualTo(12)); // 第 5 层 Boss scale 1.0(滞后缩放)
         }
 
+        /// <summary>Boss 带小怪(2026-09-05 用户拍板):第 20 层起,每个 Boss 层 +1 只,
+        /// 直到把 Boss 之外的格位填满。20 层之前的 Boss(5/10/15)照旧单独出场。
+        /// **首项恒为 Boss** —— 落位与表现层都靠这一条(与 BuildFloor 非 Boss 分支的
+        /// 「首位强制前排」同一种「第 0 项有特殊约定」的写法)。</summary>
+        [TestCase(5, 0)]
+        [TestCase(10, 0)]
+        [TestCase(15, 0)]
+        [TestCase(20, 1)]
+        [TestCase(25, 2)]
+        [TestCase(30, 3)]
+        [TestCase(35, 4)]
+        [TestCase(40, 4)]   // 带满之后恒为满,不再长
+        [TestCase(95, 4)]
+        public void BossFloor_EscortsGrowFromDepth20(int depth, int escorts)
+        {
+            var floor = EndlessGenerator.BuildFloor(Config(), depth, new GameRandom(7));
+            Assert.That(floor[0].Id, Is.EqualTo("排山倒海"), "首项恒为 Boss");
+            Assert.That(floor.Count, Is.EqualTo(1 + escorts));
+            for (int i = 1; i < floor.Count; i++)
+                Assert.That(floor[i].Phases.Count, Is.EqualTo(0), "随从只能是杂兵,不能又是个 Boss");
+        }
+
+        /// <summary>随从与 Boss 吃**同一个** scale —— 也就是 Boss 层的滞后缩放。
+        ///
+        /// 这比同深度的杂兵层略低(20 层:滞后 2.5 vs 杂兵 2.9),是刻意的:滞后缩放的口径是
+        /// 「这一层整体该多难」,Boss 层整层按同一个数算才自洽 —— 让随从按杂兵公式走会
+        /// 把 Boss 层的总难度顶上去,而滞后那一档本来就是为「四阶段 Boss ≈ 两倍深度的杂兵」
+        /// 校准出来的。真要给随从另一档缩放,得在 EndlessConfig 上另开口径,不是在这里改一个乘数。</summary>
+        [Test]
+        public void BossEscorts_TakeTheSameFloorScale()
+        {
+            var floor = EndlessGenerator.BuildFloor(Config(), 20, new GameRandom(7));
+            Assert.That(floor.Count, Is.EqualTo(2));
+            // 第 20 层 Boss 层 scale = (1 + 0.10 × (20 − 5)) × 1 = 2.5;池里三只的血 12/8/22
+            Assert.That(floor[1].MaxHp, Is.EqualTo(30).Or.EqualTo(20).Or.EqualTo(55));
+        }
+
+        /// <summary>随从也走「辅助不单独成场 / 带甲每场最多 1 只」那两道既有闸 ——
+        /// 它们是杂兵组场的规则,不因为旁边站了个 Boss 就失效。</summary>
+        [Test]
+        public void BossEscorts_RespectSupportAndArmorGates()
+        {
+            for (int seed = 0; seed < 30; seed++)
+            {
+                var floor = EndlessGenerator.BuildFloor(Config(), 95, new GameRandom(seed));
+                var escorts = floor.Skip(1).ToList();
+                Assert.That(escorts.Count(e => e.Ability == EnemyAbility.Buff),
+                    Is.LessThanOrEqualTo(1), $"seed {seed}:辅助超过 1 只");
+                Assert.That(escorts.Count(e => e.Defense > 0),
+                    Is.LessThanOrEqualTo(1), $"seed {seed}:带甲超过 1 只");
+            }
+        }
+
         [Test]
         public void SupportEnemy_AtMostOnePerFloor()
         {

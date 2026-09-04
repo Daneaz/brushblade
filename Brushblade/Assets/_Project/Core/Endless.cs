@@ -150,6 +150,16 @@ namespace Brushblade.Core
                     ? band.BossPool[pick]
                     : BuildIdiomBoss(band.IdiomBossPool[pick - band.BossPool.Count]);
                 floor.Add(CampaignConfig.Scale(boss, scale));
+                // 随从(2026-09-05 用户拍板):第 20 层起每个 Boss 层 +1 只,直到填满 Boss
+                // 之外的格位。**Boss 恒为首项** —— 落位与表现层都靠这一条。
+                // 随从吃的是**本层的杂兵缩放**(scale 那个值),不是 Boss 自己的滞后缩放:
+                // 20 层的杂兵在 Boss 层按 1.0 出场等于白送。
+                //
+                // ⚠ 缩放这里刻意与 Boss 用同一个 scale —— ScaleFor 对 Boss 层返回的**就是**
+                // 滞后值,而滞后是「Boss 该多强」的口径,不是「这一层多深」的口径。
+                // 两者在 Boss 层上恰好共用一个数,是既有设计留下的合流点(见 ScaleFor);
+                // 若哪天要把随从按非滞后的深度缩放算,得在 EndlessConfig 上另开一个口径。
+                AddEscorts(floor, config, band, depth, scale, random);
                 return floor;
             }
 
@@ -188,6 +198,61 @@ namespace Brushblade.Core
             // 每 6 层多一只而不是每 4 层(2026-08-27 用户拍板「提到 8 但放缓节奏」):
             // 总量抬高的同时把满员深度从 21 层推到 43 层,前中期体验接近改前。
             int count = 1 + Math.Min(7, (depth - 1) / 6);
+            DrawMinions(floor, depthPool, nonSupport, frontOpeners, count, scale, random);
+            return floor;
+        }
+
+        /// <summary>Boss 层的随从数(2026-09-05):第 20 层前为 0,之后每个 Boss 层 +1,
+        /// 上限 <see cref="EscortCap"/>。
+        ///
+        /// 除以 BossEvery 而不是写死 5 —— 这个函数只在 Boss 层被调,所以
+        /// 「(depth − 20) / BossEvery + 1」正好等于「从 20 层起这是第几个 Boss」,
+        /// 两种读法给出同一个数(用户拍板时确认过这一点),而写成 BossEvery 的话
+        /// 改 Boss 间隔时这里自动跟上。</summary>
+        public const int EscortFromDepth = 20;
+
+        /// <summary>随从上限 = 敌方总格位 − Boss 占的格位。Boss 占中间 2×2 = 4 格,
+        /// 两排共 <c>RowCapacity × 2 = 8</c> 格,故剩 4。</summary>
+        public const int EscortCap = Targeting.RowCapacity * 2 - 4;
+
+        public static int EscortCountFor(EndlessConfig config, int depth)
+        {
+            if (depth < EscortFromDepth) return 0;
+            return Math.Min(EscortCap, (depth - EscortFromDepth) / config.BossEvery + 1);
+        }
+
+        private static void AddEscorts(List<EnemyDef> floor, EndlessConfig config, BandDef band,
+            int depth, float scale, GameRandom random)
+        {
+            int escorts = EscortCountFor(config, depth);
+            if (escorts <= 0) return;
+
+            // 与杂兵层同一套候选收窄(深度闸 → 辅助子池 → 前排开场者),不另写一份 ——
+            // 「辅助不单独成场」「带甲每场最多 1 只」是杂兵组场的规则,
+            // 不因为旁边站了个 Boss 就失效。
+            var depthPool = WithinDepth(band.EnemyPool, depth);
+            var nonSupport = new List<EnemyDef>();
+            foreach (var enemy in depthPool)
+                if (enemy.Ability != EnemyAbility.Buff)
+                    nonSupport.Add(enemy);
+            var frontOpeners = new List<EnemyDef>();
+            foreach (var enemy in nonSupport)
+                if (enemy.Row == EnemyRow.Front)
+                    frontOpeners.Add(enemy);
+
+            DrawMinions(floor, depthPool, nonSupport, frontOpeners, escorts, scale, random);
+        }
+
+        /// <summary>抽 count 只杂兵进 floor,过三道闸:首位强制前排 → 辅助不单独成场 →
+        /// 带甲每场最多 1 只。杂兵层与 Boss 随从共用(2026-09-05 抽出来的,逻辑一字未改)。
+        ///
+        /// 「首位」指的是**这一批的第 0 只**:杂兵层里它就是全场首位;Boss 层里它是第一只随从
+        /// (Boss 自己占着 floor[0])。两处都要它强制前排,理由同一条 —— 全员后排的怪场会让
+        /// 我方单体直伤立刻全场可点,排位规则整场失效。</summary>
+        private static void DrawMinions(List<EnemyDef> floor, IReadOnlyList<EnemyDef> depthPool,
+            IReadOnlyList<EnemyDef> nonSupport, IReadOnlyList<EnemyDef> frontOpeners,
+            int count, float scale, GameRandom random)
+        {
             bool hasSupport = false;
             bool hasArmored = false;
             for (int i = 0; i < count; i++)
@@ -204,7 +269,6 @@ namespace Brushblade.Core
                     hasArmored = true;
                 floor.Add(CampaignConfig.Scale(pick, scale));
             }
-            return floor;
         }
 
         /// <summary>摘掉带甲的候选;摘完为空时原样返回(抽不出来比多一只带甲更糟)。
