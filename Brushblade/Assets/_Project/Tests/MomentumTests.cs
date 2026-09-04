@@ -158,6 +158,8 @@ namespace Brushblade.Core.Tests
         // ---- 接入点:真实字表的施法路径(2026-09-02)----
         // ⚠ 沝 已随 Task 10(2026-09-02 水系双方向重配)从 160 改成 340;
         // 圭 已随 Task 11(土系双方向重配)从 200 改成 340,与 沝 同为金档满值。
+        // 2026-09-05:沝 随字表调整移出,水系样本换成 冰 —— 冰 同为金档、双方向、
+        // HealSelf 满值同样是 340,下面涉及 沝 的断言/算式原样成立,只改字。
 
         [Test]
         public void Cast_ShieldChar_GainsMomentum()
@@ -172,9 +174,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cast_HealChar_GainsWaterPower()
         {
-            // 沝 = 治疗 340(卡 1 级,2026-09-02 双方向重配,旧值 160)。阈值 50 → 6 层 + 余 40。
-            var battle = NewBattleWithChar("沝", maxHp: 500);
-            battle.Cast("沝", 0);
+            // 冰(原 沝,2026-09-05 字表调整换字)= 治疗 340(卡 1 级)。阈值 50 → 6 层 + 余 40。
+            var battle = NewBattleWithChar("冰", maxHp: 500);
+            battle.Cast("冰", 0);
             Assert.That(battle.WaterPowerStacks, Is.EqualTo(6));
             Assert.That(battle.HealAccum, Is.EqualTo(40));
         }
@@ -237,14 +239,15 @@ namespace Brushblade.Core.Tests
             // maxHp 500 的封顶空间(会被满血上限吞掉,测不出真实放大量)。maxHp 改成 2000,
             // 阈值(MaxHp/10)随之变成 200 —— 满 10 层要用 GainWaterPowerForTest(200 * 10),
             // 放大比例本身(层数 × 10%)未变。
-            var battle = NewBattleWithCharTakingDamage("沝", maxHp: 2000, playerAttack: 100, enemyAttack: 1000);
+            // 2026-09-05:沝 随字表调整移出,换成 冰(HealSelf 满值同样是 340),算式不变。
+            var battle = NewBattleWithCharTakingDamage("冰", maxHp: 2000, playerAttack: 100, enemyAttack: 1000);
             battle.EndTurn();   // 敌人打一记,EffectiveDodge 默认 0,必中:2000 - 1000 = 1000
             Assert.That(battle.PlayerHp, Is.EqualTo(1000), "夹具前提:留出治疗空间");
             battle.GainWaterPowerForTest(200 * 10);    // 阈值 200(maxHp/10),满 10 层
             Assert.That(battle.WaterPowerStacks, Is.EqualTo(10), "夹具前提:满层");
             int before = battle.PlayerHp;
-            battle.Cast("沝", 0);
-            // 沝 治疗 340(卡 1 级,2026-09-02 双方向重配)→ ×(100+100)/100 = 680
+            battle.Cast("冰", 0);
+            // 冰(原 沝)治疗 340(卡 1 级)→ ×(100+100)/100 = 680
             Assert.That(battle.PlayerHp - before, Is.EqualTo(680));
         }
 
@@ -253,16 +256,17 @@ namespace Brushblade.Core.Tests
         {
             // 攒水势用的是**未经水势放大**的基数。否则:治疗 → 攒水势 →
             // 水势放大治疗 → 攒更多水势,又是一个正反馈环(与 §3.5 那个同型)。
-            var battleA = NewBattleWithChar("沝", maxHp: 500, playerAttack: 100);
-            battleA.Cast("沝", 0);
-            int stacksFromZero = battleA.WaterPowerStacks;   // 2026-09-02 双方向重配:340 / 50 = 6 层 + 余 40
+            // 2026-09-05:沝 随字表调整移出,换成 冰(HealSelf 满值同样是 340)。
+            var battleA = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
+            battleA.Cast("冰", 0);
+            int stacksFromZero = battleA.WaterPowerStacks;   // 340 / 50 = 6 层 + 余 40
 
-            var battleB = NewBattleWithChar("沝", maxHp: 500, playerAttack: 100);
+            var battleB = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
             // 3 层而非旧版的 5 层:5 + 6(stacksFromZero)会撞上 10 层上限,把差值悄悄钳平,
             // 测不出「已有水势不该让这一发攒得更多」这条不变量。3 + 6 = 9,留有余量。
             battleB.GainWaterPowerForTest(50 * 3);           // 先有 3 层
             int before = battleB.WaterPowerStacks;
-            battleB.Cast("沝", 0);
+            battleB.Cast("冰", 0);
             Assert.That(battleB.WaterPowerStacks - before, Is.EqualTo(stacksFromZero),
                 "已有水势不该让这一发治疗攒得更多 —— 攒的基数与水势层数无关");
         }
@@ -276,20 +280,21 @@ namespace Brushblade.Core.Tests
             // 这条改断言**单次施放的实际回血量**,并且用非零非满(5 层,MaxResourceStacks=10)
             // 的水势 —— 满层时 GainWaterPower 直接空转 return,顺序对结果毫无影响,测不出反转。
             //
-            // 沝 治前 3 层(阈值 50 × 3,整除,余数 0;2026-09-02 双方向重配 沝 160→340 后,
-            // 旧版的 5 层会让 amplified 的两种算法都逼近/撞上 maxHp 500 的封顶,故改用 3 层):
+            // 冰(原 沝,2026-09-05 字表调整换字,HealSelf 满值同样是 340)治前 3 层
+            // (阈值 50 × 3,整除,余数 0;旧版的 5 层会让 amplified 的两种算法都逼近/撞上
+            // maxHp 500 的封顶,故改用 3 层):
             //   正确顺序:amplified = AmplifyByWaterPower(340) 用旧层数 3 → 340 × 130 / 100 = 442
             //   反转顺序:先 GainWaterPower(340) 层数变 9(340 / 50 = 6 层 + 余 40,3+6=9),
             //             再用新层数 9 算 amplified → 340 × 190 / 100 = 646
             // 442 ≠ 646,反转时这条断言必须变红。
-            var battle = NewBattleWithCharTakingDamage("沝", maxHp: 500, playerAttack: 100, enemyAttack: 450);
+            var battle = NewBattleWithCharTakingDamage("冰", maxHp: 500, playerAttack: 100, enemyAttack: 450);
             battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 442 的回血空间不封顶
             Assert.That(battle.PlayerHp, Is.EqualTo(50), "夹具前提:留出的回血空间要盖过两种顺序的差值");
             battle.GainWaterPowerForTest(50 * 3);   // 先有 3 层(非零非满)
             Assert.That(battle.WaterPowerStacks, Is.EqualTo(3), "夹具前提:整除,层数刚好 3");
 
             int before = battle.PlayerHp;
-            battle.Cast("沝", 0);
+            battle.Cast("冰", 0);
             Assert.That(battle.PlayerHp - before, Is.EqualTo(442),
                 "放大值必须用施放前(旧)的层数算,不能用 GainWaterPower 攒完之后的新层数");
         }

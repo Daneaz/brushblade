@@ -118,7 +118,10 @@ namespace Brushblade.Core.Tests
         ///
         /// 2026-09-02(水土双方向,Task 10/11):沝 与 圭 的两面都拆分成 <c>Effects</c>
         /// (护/治)/ <c>AttackEffects</c>(攻)两个独立列表,不再挤在同一个 Effects 里 ——
-        /// 断言的读取位置跟着改,「两面都要有」这条不变量本身没变。</summary>
+        /// 断言的读取位置跟着改,「两面都要有」这条不变量本身没变。
+        ///
+        /// 2026-09-05:沝 随字表调整移出,水系样本换成 冰(链中新的 2叠环,冫+水)——
+        /// 它同样两面都有(HealSelf + DamageSingle),验证的不变量本身不变。</summary>
         [Test]
         public void ShippedCharsJson_StackedWaterAndEarth_BothDefendAndStrike()
         {
@@ -126,8 +129,8 @@ namespace Brushblade.Core.Tests
                 Path.Combine(Application.streamingAssetsPath, "config/chars.json"));
             var graph = ConfigLoader.LoadGraph(json);
 
-            AssertHasKinds(graph, "沝", EffectKind.HealSelf);
-            AssertHasAttackKinds(graph, "沝", EffectKind.DamageSingle);
+            AssertHasKinds(graph, "冰", EffectKind.HealSelf);
+            AssertHasAttackKinds(graph, "冰", EffectKind.DamageSingle);
             AssertHasKinds(graph, "圭", EffectKind.Shield);
             AssertHasAttackKinds(graph, "圭", EffectKind.DamageSingle);
         }
@@ -168,7 +171,7 @@ namespace Brushblade.Core.Tests
             {
                 new[] { "金", "鍂", "鑫", "" },
                 new[] { "木", "林", "森", "" },
-                new[] { "水", "沝", "淼", "㵘" },
+                new[] { "水", "冰", "淼", "㵘" },
                 new[] { "火", "炎", "焱", "燚" },
                 new[] { "土", "圭", "垚", "㙓" },
             };
@@ -187,7 +190,12 @@ namespace Brushblade.Core.Tests
                     if (i == 0) continue;
                     // 链式配方「部件在前、低阶字在后」(详表 1.5,2026-08-03 拍板):
                     // 读作「往低阶字上再加一个部件」。10 个字的顺序已随之修正。
-                    Assert.That(def.Recipe, Is.EqualTo(new[] { ladder[0], ladder[i - 1] }));
+                    //
+                    // 2026-09-05 例外:水系 2叠 冰 顶替移出的 沝,配方是 冫+水 而非 水+水 ——
+                    // 冫 是 ComponentKin 水组的同系部件,档位规则按「纯同系」判仍成立,
+                    // 只是这里前一个部件不是 ladder[0] 自身,单独钉一下。
+                    var component = (ladder[0] == "水" && i == 1) ? "冫" : ladder[0];
+                    Assert.That(def.Recipe, Is.EqualTo(new[] { component, ladder[i - 1] }), ladder[i]);
                 }
 
             // 出字 AP 一律 1,与稀有度解耦(2026-08-03 拍板;3/4 叠不再是 2 AP 的高阶字)
