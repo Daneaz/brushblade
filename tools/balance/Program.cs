@@ -58,6 +58,12 @@ namespace Brushblade.Balance
         private static readonly string[] EarthCards =
             { "碉", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓" };
 
+        /// <summary>木系出阵表(2026-09-05):召唤流此前在仿真里**一个观测点都没有**,
+        /// 而「木系每只召唤物必带被动」「召唤物攻击吃战意+厚」两条改动都落在这一系上。
+        /// 13 张实体字全列 —— 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars)。</summary>
+        private static readonly string[] WoodCards =
+            { "枪", "藤", "葬", "箭", "楸", "荆", "桤", "林", "柘", "森", "桂", "藻", "\ue625" };
+
         // ---- 阳性对照探针(spec §10.5,2026-08-12 E-b4/E-b5 T7)----
         // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
         // 判据只有一条:探针按预期方向动了。P50 的绝对值不是通过/失败判据。
@@ -125,6 +131,11 @@ namespace Brushblade.Balance
                     WaterCards.ToDictionary(c => c, _ => 5), level: 10, deck: WaterCards),
                 new Profile("土系双方向(垒圭垚㙓,卡5级,10级)", new[] { "垒", "圭", "垚", "㙓" },
                     EarthCards.ToDictionary(c => c, _ => 5), level: 10, deck: EarthCards),
+
+                // 2026-09-05 召唤流基线:定「召唤物基础攻」要先知道木系现在站在哪。
+                // 与水/土两档同参数(卡5级/10级/1层起爬),四系读数才可比。
+                new Profile("木系召唤(林柘森𣛧,卡5级,10级)", new[] { "林", "柘", "森", "\ue625" },
+                    WoodCards.ToDictionary(c => c, _ => 5), level: 10, deck: WoodCards),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
@@ -375,10 +386,15 @@ namespace Brushblade.Balance
                     // ×2 的口径同 BurnSingle:本场持久、每记挥击都兑现,但只在挨打时兑现,
                     // 所以排在同数值的直伤之后(铠 12 → 24 分,仍低于 碾 的 60)。
                     case EffectKind.DefenseBuff: sum += e.Value * 2; break;
-                    // 势/水势的引爆(2026-09-02):按满层折算 —— 机器人不模拟攒层过程,
-                    // 给个中位估值让它至少会去出这张字。系数是多少不重要,**是不是 0 才重要**。
-                    case EffectKind.SpendMomentum: sum += e.Value * 5; break;
-                    case EffectKind.SpendWaterPower: sum += e.Value * 5; break;
+                    // 厚/泉的终极技(2026-09-02;2026-09-04 由 SpendMomentum/SpendWaterPower 改名 ——
+                    // 工装没跟着改,自那天起整个仿真编译不过、无人可跑,2026-09-05 发现)。
+                    // 按满层折算:机器人不模拟攒层过程,给个中位估值让它至少会去出这张字。
+                    // 系数是多少不重要,**是不是 0 才重要**。
+                    case EffectKind.SpendHeft: sum += e.Value * 5; break;
+                    case EffectKind.SpendWellspring: sum += e.Value * 5; break;
+                    // 群体护盾(2026-09-05,崩):不记分的话 崩 的护面是 0 分,
+                    // 土系画像会握着它一张都不出 —— 与「没加进出阵表」等价。
+                    case EffectKind.ShieldAll: sum += e.Value; break;
                 }
             }
             return sum;
