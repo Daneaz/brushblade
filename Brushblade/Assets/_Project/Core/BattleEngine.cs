@@ -1989,8 +1989,10 @@ namespace Brushblade.Core
 
             // 战意每回合末消减一层(2026-08-15 拍板,原为本场持久)。
             // 单独处理而不是走 TickTurns:战意是**计数器式**状态 —— TurnsLeft = -1、层数记在
-            // Magnitude 上,TickTurns 只认 TurnsLeft,碰不到它。同理 ApBoost / CritBuff /
-            // PierceBuff / Empower 仍是本场持久,不在这里衰减。
+            // Magnitude 上,TickTurns 只认 TurnsLeft,碰不到它。ApBoost / PierceBuff 仍是
+            // 本场持久(TurnsLeft = -1),同样不受 TickTurns 影响;CritBuff / Empower
+            // 自 2026-09-05(平衡重做 P0 任务 7)起可携带 Turns > 0,此时 TurnsLeft 为正,
+            // 会随上面这行 TickTurns() 正常递减到期 —— 不再是无条件的「本场持久」。
             // 排在本回合全部结算之后:当回合出的 战 先按 3 层生效,回合末才掉到 2。
             //
             // 首回合宽限(2026-08-18 拍板):**从 0 层起手的那一回合不递减**,第二回合起才开始掉。
@@ -2334,7 +2336,11 @@ namespace Brushblade.Core
                         AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
-                            Magnitude = value, TurnsLeft = -1,
+                            Magnitude = value,
+                            // 限时增益(2026-09-05):turns > 0 时按回合到期,
+                            // **turns <= 0 仍为 -1(本场持久)** —— 既有字表全没填 turns,
+                            // 这条兜住它们逐字节不变。
+                            TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
@@ -2354,7 +2360,11 @@ namespace Brushblade.Core
                         AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
-                            Magnitude = value, TurnsLeft = -1,
+                            Magnitude = value,
+                            // 限时增益(2026-09-05):turns > 0 时按回合到期,
+                            // **turns <= 0 仍为 -1(本场持久)** —— 既有字表全没填 turns,
+                            // 这条兜住它们逐字节不变。
+                            TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
