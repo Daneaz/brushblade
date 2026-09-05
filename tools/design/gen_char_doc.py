@@ -326,9 +326,12 @@ def desc(e):
         'CritBuff': f"暴击率 +{v}%(本场)",
         'Summon': f"召唤 {e.get('count',1)} 只(血 {v}/攻 {e.get('attack',0)}"
                   + (f",{passive_txt(e['passive'])}" if e.get('passive') else "") + ")",
-        # 发势 / 泻(2026-09-02,水土双方向):清空全部势/水势,按层数 × value 打全体。
-        'SpendMomentum': f"发势:清空全部势,全体伤害 = 层数×{v}",
-        'SpendWaterPower': f"泻:清空全部水势,全体伤害 = 层数×{v}",
+        'ShieldAll': f"群体护盾 {v}(玩家 + 全部存活召唤物各一份)",
+        # 厚积薄发 / 涌泉相报(2026-09-02 上线,2026-09-04 由 势/水势 改名):
+        # 清空全部厚/泉,按层数 × value 打全体。名字以 strings.zh-CN.json 为准 ——
+        # 此处曾停留在旧名 SpendMomentum/SpendWaterPower,匹配不上,文档里印的是英文枚举名。
+        'SpendHeft': f"厚积薄发:清空全部厚,全体伤害 = 层数×{v}",
+        'SpendWellspring': f"涌泉相报:清空全部泉,全体伤害 = 层数×{v}",
     }.get(k, f"{k} {v}")
     mods = []
     # 伤害侧的目标形状(2026-08-25 装配到 碾/砸/刺):与召唤被动侧共用 SHAPE 表。
@@ -353,6 +356,117 @@ def desc(e):
                     + ("→直杀(Boss 改吃双倍)" if e.get('executeKills') else "→双倍"))
     if e.get('summonShield'): mods.append(f"全场召唤物 +{e['summonShield']} 盾")
     return s + ("(" + "、".join(mods) + ")" if mods else "")
+
+# ===== 特性 · 技能 =====
+# 「特性技能」列回答的是「这张字除了多大(数值)、打谁(攻击模式)之外**还带什么**」,
+# 与卡面详情的「特性 · 技能」段是同一件事 —— 那段由 `Presentation/CardTraits.Of` 生成,
+# 词表在 `strings.zh-CN.json` 的 `collection.trait.*`。此处逐条对着 CardTraits 抄,
+# 玩家在卡面读到的名字与本表读到的必须一致(2026-09-05 新增本列时定的口径)。
+#
+# ⚠ CardTraits 有分支的 EffectKind / SummonPassive 字段这里都要有一条 —— 漏一个的表现
+# 不是报错,是该字的特性列凭空少一项。兜底走 `f"{kind} {v}"`,好歹看得见英文枚举名。
+#
+# 不入本列的三类(它们在别的列):伤害/护盾/治疗的**量**在攻击力列与功能列;
+# 目标形状(横扫/贯穿/连发…)与召唤物的近战/远程是**攻击模式**;召唤只数在功能列。
+TRAITS = {
+    'BurnSingle': lambda e, v: f"灼烧 {v}",
+    'BurnAll': lambda e, v: f"全体灼烧 {v}",
+    'BurnPotency': lambda e, v: f"灼烧增威 +{v}",
+    'BurnNoDecay': lambda e, v: "灼烧不衰减",
+    'BurnSettleNow': lambda e, v: "立即结算灼烧",
+    'Detonate': lambda e, v: "全体引爆" if e.get('targetAll') else "引爆灼烧",
+    'Bleed': lambda e, v: f"流血 {v}",
+    'Freeze': lambda e, v: f"冻结 {v}",
+    'Slow': lambda e, v: f"减速 {v}",
+    'Blind': lambda e, v: f"致盲 {v}%",
+    'Silence': lambda e, v: "沉默",
+    'ArmorBreak': lambda e, v: f"破甲 {v}",
+    'Immunity': lambda e, v: f"免疫 {v}",
+    'Reflect': lambda e, v: f"反伤 {v}%",
+    'Morale': lambda e, v: f"战意 +{v}",
+    'CritBuff': lambda e, v: f"暴击 +{v}%",
+    'Empower': lambda e, v: f"增攻 +{v}",
+    'DefenseBuff': lambda e, v: f"增甲 +{v}",
+    'PierceBuff': lambda e, v: f"穿透 {v}",
+    'Cleanse': lambda e, v: "净化",
+    'ApBoost': lambda e, v: f"AP +{v}",
+    'SpendHeft': lambda e, v: "厚积薄发",
+    'SpendWellspring': lambda e, v: "涌泉相报",
+    'Dispel': lambda e, v: ("全体驱散" if e.get('targetAll') else "驱散")
+                           + ("" if v < 0 else f" {v}"),
+    # 有数值/有去向、但本身不是特性的:各归各列
+    'DamageSingle': None, 'DamageAll': None, 'Shield': None, 'ShieldAll': None,
+    'HealSelf': None, 'HealAll': None, 'HealOverTime': None, 'Revive': None, 'Summon': None,
+}
+
+DOUBLE_VS = {'Burning': "对灼烧", 'Bleeding': "对流血",
+             'Controlled': "对控制", 'ArmorBroken': "对破甲"}
+
+# 召唤物被动 → 特性名。顺序与 CardTraits.SummonTraits 一致。
+# shape / shapePercent / shots / ranged 不在这里 —— 它们是攻击模式。
+SUMMON_TRAITS = [
+    ('speed', lambda p, v: f"迅捷 {v}"),
+    ('thorns', lambda p, v: f"荆棘 {v}%"),
+    ('healAlly', lambda p, v: f"随行治疗 {v}"),
+    ('regen', lambda p, v: f"自愈 {v}"),
+    ('onHitBurn', lambda p, v: (f"命中挂全体灼烧 {v}" if p.get('onHitBurnAll')
+                                else f"命中挂灼烧 {v}")),
+    ('onHitCurse', lambda p, v: f"命中诅咒 {v}"),
+    ('dodge', lambda p, v: f"闪避 {v}%"),
+    ('taunt', lambda p, v: "嘲讽"),
+    ('onHitFreezeChance', lambda p, v: f"命中冻结 {v}%"),
+    ('onHitSlowPercent', lambda p, v: f"命中减速 {v}"),
+    ('onSummonFreeze', lambda p, v: f"入场冻结 {v}"),
+]
+
+
+def _dmg_mods(e):
+    """挂在一击上的修饰(穿透 / 偷袭 / 分段 / 斩杀 / 条件翻倍),与 CardTraits.DamageModifiers 同序。"""
+    out = []
+    if e.get('pierce'): out.append(f"穿透 {e['pierce']}")
+    if e.get('backline'): out.append("偷袭")
+    if e.get('hitCount', 1) > 1: out.append(f"分 {e['hitCount']} 段")
+    if e.get('executeBelowPercent'):
+        out.append("斩杀" if e.get('executeKills') else "残血加伤")
+    if e.get('doubleVs') in DOUBLE_VS: out.append(DOUBLE_VS[e['doubleVs']])
+    return out
+
+
+def traits(c):
+    """这个字的全部特性,已去重、保序。
+
+    召唤字列的是**那几只的被动**(与 CardTraits 一致:召唤字自己不出手,它带什么
+    等于召唤物带什么);`summonShield`(桂)是召唤字本体给全场加盾,不属于被动,单列。
+    """
+    out = []
+    def add(t):
+        if t and t not in out: out.append(t)
+
+    summon = next((e for e in c['effects'] if e['kind'] == 'Summon'), None)
+    if summon:
+        p = summon.get('passive') or {}
+        for k, fn in SUMMON_TRAITS:
+            if p.get(k): add(fn(p, p[k]))
+        if summon.get('summonShield'): add(f"全场加盾 {summon['summonShield']}")
+        return out
+
+    for e in c.get('attackEffects', []) + c['effects']:
+        k, v = e['kind'], e.get('value', 0)
+        if k in TRAITS:
+            fn = TRAITS[k]
+            if fn: add(fn(e, v))
+        else:
+            add(f"{k} {v}")
+        if k in ('DamageSingle', 'DamageAll'):
+            for m in _dmg_mods(e): add(m)
+        if e.get('summonShield'): add(f"全场加盾 {e['summonShield']}")
+    return out
+
+
+def traits_txt(c):
+    """特性技能列;纯数值字(只有伤害/护盾/治疗)记 `—`。"""
+    return ' / '.join(traits(c)) or '—'
+
 
 def atk(c):
     # 双方向字(水/土,2026-09-02):攻击力是它作为输出字的强度,取攻击面 ——
@@ -408,16 +522,16 @@ def func_desc(c):
 
 def row5(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {EL[c['element']]} | {RA[c['rarity']]} | "
-            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | " + func_desc(c) + " |")
+            f"{phrases(c)} | {atk(c)} | {traits_txt(c)} | {lv1(c)} | {lv2(c)} | " + func_desc(c) + " |")
 
 def row4(c):
     return (f"| {cname(c)} | {pinyin(c)} | {gloss(c)} | {RA[c['rarity']]} | "
-            f"{phrases(c)} | {atk(c)} | {lv1(c)} | {lv2(c)} | " + func_desc(c) + " |")
+            f"{phrases(c)} | {atk(c)} | {traits_txt(c)} | {lv1(c)} | {lv2(c)} | " + func_desc(c) + " |")
 
-H5 = ("| 字 | 拼音 | 近代字意 | 五行 | 稀有度 | 词组 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
+H5 = ("| 字 | 拼音 | 近代字意 | 五行 | 稀有度 | 词组 | 攻击力 | 特性技能 | 一级组成 | 二级组成 | 功能 |\n"
+      "|---|---|---|---|---|---|---|---|---|---|---|")
+H4 = ("| 字 | 拼音 | 近代字意 | 稀有度 | 词组 | 攻击力 | 特性技能 | 一级组成 | 二级组成 | 功能 |\n"
       "|---|---|---|---|---|---|---|---|---|---|")
-H4 = ("| 字 | 拼音 | 近代字意 | 稀有度 | 词组 | 攻击力 | 一级组成 | 二级组成 | 功能 |\n"
-      "|---|---|---|---|---|---|---|---|---|")
 
 head = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
 rc = collections.Counter(c['rarity'] for c in playable)
@@ -440,6 +554,12 @@ A("  **双方向字(水/土,2026-09-02)取攻击面的值** —— 那是它作�
 A("- **相克 ×1.5 / 被克 ×0.5**:配置表填的**就是实战值**——相生 ×3 已于 2026-09-02 取消")
 A("  (全表 74 字里原本只有 4 字吃得到,是条空转规则;焚/蒸/刲 已等值改写进基础值,战斗结果不变)。")
 A("  本表的攻击力与功能列因此不再需要 `70×3=210` 这类换算式,直接就是实战数字;卡面(CharInfo)同口径。")
+A("- **特性技能**:这个字除了「多大」(攻击力/功能列的数值)、「打谁」(功能列的单体/全体)之外**还带什么** ——")
+A("  灼烧、冻结、破甲、斩杀、偷袭、战意…… 与卡面详情的「特性 · 技能」段同一批名字")
+A("  (`Presentation/CardTraits.Of` + `strings.zh-CN.json` 的 `collection.trait.*`),读表与玩家读卡对得上。")
+A("  **召唤字列的是那几只召唤物的被动**(召唤字自己不出手,它带什么就等于召唤物带什么);")
+A("  目标形状(横扫 / 贯穿 / 连发 / 弹射)与召唤物的近战/远程算**攻击模式**、不算特性,故不入本列,仍见功能列。")
+A("  纯数值字(只有伤害/护盾/治疗、无任何附加机制)记 `—`。")
 A("- **AP 消耗**:全表一律 1(2026-08-03 拍板与稀有度解耦),故不设列。")
 A("- **稀有度**:白 < 绿 < 蓝 < 紫 < 金 < 橙 < 红,枚举名 = 皮肤色 = 强度序。")
 A("- **拼音 / 近代字意**:字表(`chars.json`)没有这两个字段,新华字典原始数据又不入 git、")
