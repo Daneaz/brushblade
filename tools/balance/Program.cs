@@ -136,6 +136,15 @@ namespace Brushblade.Balance
                 // 与水/土两档同参数(卡5级/10级/1层起爬),四系读数才可比。
                 new Profile("木系召唤(林柘森𣛧,卡5级,10级)", new[] { "林", "柘", "森", "\ue625" },
                     WoodCards.ToDictionary(c => c, _ => 5), level: 10, deck: WoodCards),
+
+                // 2026-09-05(P0 收尾):召唤物接战意+厚之后,纯木系卡组几乎不涨——
+                // 因为纯木里既没有金系攻击字(战意来源)也没有土系护盾字(厚来源)。
+                // 涨的是混色,而混色此前一个观测点都没有(计划「P0 收尾验收」待办)。
+                // WoodCards / EarthCards 两张出阵表核过没有交集,ToDictionary 合并不会因
+                // 重复 key 抛 ArgumentException;起手四字 柘/圭/垚/㙓 已用 chars.json 核实真实存在。
+                new Profile("木土混色(柘圭垚㙓,卡5级,10级)", new[] { "柘", "圭", "垚", "㙓" },
+                    WoodCards.Concat(EarthCards).ToDictionary(c => c, _ => 5), level: 10,
+                    deck: WoodCards.Concat(EarthCards).ToArray()),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
