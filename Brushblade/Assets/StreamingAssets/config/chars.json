@@ -717,10 +717,6 @@
       "gloss": "水大无际",
       "effects": [
         {
-          "kind": "SpendWellspring",
-          "value": 50
-        },
-        {
           "kind": "HealSelf",
           "value": 430
         }
@@ -858,7 +854,7 @@
     },
     {
       "id": "溃",
-      "rarity": "White",
+      "rarity": "Blue",
       "element": "Water",
       "recipe": [
         "氵",
@@ -868,21 +864,25 @@
       "gloss": "堤破水散",
       "effects": [
         {
+          "kind": "SpendWellspring",
+          "value": 20
+        },
+        {
           "kind": "HealSelf",
-          "value": 45
+          "value": 90
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 32,
+          "value": 77,
           "shape": "Chain",
           "shots": 3,
           "shapePercent": 50
         },
         {
           "kind": "ArmorBreak",
-          "value": 10
+          "value": 20
         }
       ]
     },
@@ -1647,7 +1647,7 @@
     },
     {
       "id": "崩",
-      "rarity": "Green",
+      "rarity": "Blue",
       "element": "Earth",
       "recipe": [
         "山",
@@ -1658,17 +1658,17 @@
       "effects": [
         {
           "kind": "ShieldAll",
-          "value": 17
+          "value": 27
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 50
+          "value": 70
         },
         {
           "kind": "SpendHeft",
-          "value": 30
+          "value": 40
         }
       ]
     },

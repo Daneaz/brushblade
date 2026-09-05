@@ -339,9 +339,12 @@ namespace Brushblade.Core.Tests
             // 2026-08-25 字表重构:溶 / 破 移出(与 碎 / 溃 同质);碎 升蓝 10 → 20、
             // 溃 降白 20 → 10 —— 两个字的点数正好对调,破甲轴仍是「白 10 / 蓝 20」两级。
             // 溃/碎(2026-09-02 双方向重配):破甲随攻击面一起搬进 AttackEffects,不再挂在
-            // Effects 上 —— 点数本身不变(10 / 20),读取位置跟着改。
+            // Effects 上 —— 读取位置跟着改。
+            // 2026-09-05 用户拍板把 溃 从白档升到蓝档,破甲**跟着档位走**,10 → 20 ——
+            // 「白 10 / 蓝 20」这条轴没变,变的是溃站在哪一档。于是两张字现在同为 20,
+            // 而这条测试守的本来就是「每张字带着与自己档位相符的点数」。
             var kui = graph.Get("溃").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
-            Assert.That(kui.Value, Is.EqualTo(10), "「溃」破甲削减点数");
+            Assert.That(kui.Value, Is.EqualTo(20), "「溃」破甲削减点数(蓝档)");
             var sui = graph.Get("碎").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
             Assert.That(sui.Value, Is.EqualTo(20), "「碎」破甲削减点数");
         }

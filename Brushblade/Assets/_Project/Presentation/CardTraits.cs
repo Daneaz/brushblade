@@ -345,9 +345,9 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.spend_heft.desc", ("value", v)));
                         break;
                     case EffectKind.SpendWellspring:
-                        AddWord(traits, Strings.T("collection.trait.spend_water.chip"),
-                            Strings.T("collection.trait.spend_water.name"),
-                            Strings.T("collection.trait.spend_water.desc", ("value", v)));
+                        AddWord(traits, Strings.T("collection.trait.spend_wellspring.chip"),
+                            Strings.T("collection.trait.spend_wellspring.name"),
+                            Strings.T("collection.trait.spend_wellspring.desc", ("value", v)));
                         break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
