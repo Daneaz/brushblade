@@ -13,20 +13,26 @@ namespace Brushblade.Core.Tests
     ///
     /// 2026-09-05 字表调整(移出 17 字)后,下列机制在全表**无载体**,规格 §1.3 已裁定
     /// 「休眠」而非找字硬凑;引擎/管线代码原样保留,只是暂时没有字用。原先钉这些机制的
-    /// 测试已删除(或摘掉相应断言),**将来有字重新装配时把测试加回来**:
-    /// - DefenseBuff(点数护甲,原唯一载体 铠)—— 原 RealConfig_KaiIsDefenseFive /
-    ///   RealConfig_DefenseChars_CarryTheirPoints
-    /// - pierce(穿透,原唯一载体 刺)—— 原 RealConfig_PierceChars_CarryPiercePoints
+    /// 测试**改钉空集**(而不是整条删掉不留守卫)——新字挂上时这几条会红,提醒把数值/
+    /// 唯一性守卫加回来;原文可从 git 历史找回(2026-09-05 终审 fix-wave 之前那个提交):
+    /// - DefenseBuff(点数护甲,原唯一载体 铠)—— 原 RealConfig_KaiIsDefenseFive(铠 的单值
+    ///   校验,随 铠 消失一并作废、无空集可钉) / RealConfig_DefenseChars_CarryTheirPoints
+    ///   (带「护甲字全集」唯一性断言)改钉空集,见 RealConfig_DefenseBuffHasNoCarrier
+    /// - pierce(一次性穿透 EffectDef.Pierce,原唯一载体 刺;锐 的 PierceBuff 是本场持久
+    ///   buff,另一条通道,不受影响)—— 原 RealConfig_PierceChars_CarryPiercePoints 改钉
+    ///   空集,见 RealConfig_PierceHasNoCarrier
     /// - Blind(致盲,原唯一载体 熣)—— 原 RealConfig_BlindCharsCarryTheirPercentAndTurns
-    ///   (同一裁定波及 DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True,见该文件)
+    ///   改钉空集,见 RealConfig_BlindHasNoCarrier(同一裁定波及
+    ///   DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True,见该文件)
     /// - BurnNoDecay(不灭灼烧,原唯一载体 焦)—— 原 RealConfig_JiaoCarriesBurnAndNoDecay 里
     ///   针对 焦 的那部分(其余 Bleed 梯度断言已迁到 RealConfig_BleedChars_CarryTheirGradient)
-    /// - 召唤被动 OnHitSlow(原唯一载体 蕉)—— 原 RealConfig_JiaoIsSlowSummon
+    /// - 召唤被动 OnHitSlow(原唯一载体 蕉)—— 原 RealConfig_JiaoIsSlowSummon 改钉空集,
+    ///   见 RealConfig_SummonOnHitSlowHasNoCarrier
     /// - 字卡攻击形状 Skewer(原唯一载体 刺,不含召唤被动的 Skewer——枪 仍在)——
-    ///   原 RealConfig_Ci_IsSkewerNotBackline
+    ///   原 RealConfig_Ci_IsSkewerNotBackline 改钉空集,见 RealConfig_CardSideSkewerHasNoCarrier
     /// - Dispel「清一条」(原唯一载体 淡;全表现只剩 灭/湮 两张「清全部」)——
     ///   原 RealConfig_DispelChars_CarryTheirCounts 里针对 淡 的那部分(灭 的断言仍保留)
-    /// 上述机制引擎侧仍有单元测试覆盖(BattleEngine/StatusOps 等),这里删的只是「真实字表
+    /// 上述机制引擎侧仍有单元测试覆盖(BattleEngine/StatusOps 等),这里守的只是「真实字表
     /// 里还有没有字用它」这一层。</summary>
     public class CharTableTests
     {
@@ -119,9 +125,20 @@ namespace Brushblade.Core.Tests
                 Assert.That(graph.Get(id), Is.Not.Null, $"{id} 应已收录");
         }
 
-        // 2026-09-05:RealConfig_KaiIsDefenseFive 与 RealConfig_DefenseChars_CarryTheirPoints
-        // 已删除 —— 铠 是 DefenseBuff 全表唯一载体,随字表调整移出后点数护甲机制休眠,
-        // 无字可钉。复活线索见类文档顶部的「机制休眠」清单。
+        // 2026-09-05:RealConfig_KaiIsDefenseFive(铠 的单值校验)随 铠 移出一并作废,
+        // 没有空集可钉。RealConfig_DefenseChars_CarryTheirPoints 原带的「护甲字全集」
+        // 唯一性断言改钉空集,见下。
+
+        [Test]
+        public void RealConfig_DefenseBuffHasNoCarrier()
+        {
+            // 2026-09-05:铠(DefenseBuff 全表唯一载体)随字表调整移出,点数护甲机制休眠。
+            // 钉住空集,保住「护甲字全集」那份唯一性护栏:哪天有新字接手 DefenseBuff,
+            // 本条会红,提醒把数值守卫(逐字典 + Count 唯一性断言)加回来 ——
+            // 与 Silence/Dodge 同口径(见 RealConfig_SilenceHasNoCarrier / RealConfig_DodgeHasNoCarrier)。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.DefenseBuff), Is.False, "DefenseBuff 当前应无载体");
+        }
 
         [Test]
         public void RealConfig_NoCharCarriesTargetAllHealOverTime()
@@ -146,9 +163,15 @@ namespace Brushblade.Core.Tests
             Assert.That(effect.TargetAll, Is.False);
         }
 
-        // 2026-09-05:RealConfig_PierceChars_CarryPiercePoints 已删除 —— 刺 是 pierce
-        // 全表唯一载体,随字表调整移出后穿透机制休眠,无字可钉。复活线索见类文档顶部的
-        // 「机制休眠」清单。
+        [Test]
+        public void RealConfig_PierceHasNoCarrier()
+        {
+            // 2026-09-05:刺(EffectDef.Pierce 一次性穿透,全表唯一载体)随字表调整移出,
+            // 穿透机制休眠。锐 的 PierceBuff(本场持久叠加 +20/张)是另一条通道,不受影响
+            // ——见第 10 章 §10.2。钉住空集:哪天有新字接手 Pierce,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Pierce > 0), Is.False, "一次性穿透(Pierce)当前应无载体");
+        }
 
         [Test]
         public void RealConfig_BacklineChars_CanStrikeBackline()
@@ -181,10 +204,17 @@ namespace Brushblade.Core.Tests
             Assert.That(carriers.Count, Is.EqualTo(expected.Length), "偷袭字的全集就是上表");
         }
 
-        // 2026-09-05:RealConfig_Ci_IsSkewerNotBackline 已删除 —— 刺 是字卡攻击面 Skewer
-        // 全表唯一载体,随字表调整移出后该形状在字卡侧休眠(枪 的召唤被动 Skewer 不受影响,
-        // 仍由 RealConfig_SummonPassiveChars_CarryTheirPassive 钉着)。复活线索见类文档顶部的
-        // 「机制休眠」清单。
+        [Test]
+        public void RealConfig_CardSideSkewerHasNoCarrier()
+        {
+            // 2026-09-05:刺(字卡攻击面 Skewer,全表唯一载体)随字表调整移出,该形状在
+            // 字卡侧休眠 —— 枪 的召唤被动 Skewer 不受影响,仍由
+            // RealConfig_SummonPassiveChars_CarryTheirPassive 钉着;这里钉的是出字直接效果
+            // (Effects / AttackEffects)的 Shape 字段。钉住空集:哪天有新字接手,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
+                    .Concat(c.AttackEffects ?? Array.Empty<EffectDef>()))
+                .Any(e => e.Shape == TargetShape.Skewer), Is.False, "字卡攻击面 Skewer 当前应无载体");
+        }
 
         [Test]
         public void RealConfig_SummonPassiveChars_CarryTheirPassive()
@@ -280,9 +310,15 @@ namespace Brushblade.Core.Tests
             Assert.That(summon.SummonCount, Is.EqualTo(3), "2026-08-25 升橙档:2 只 → 3 只");
         }
 
-        // 2026-09-05:RealConfig_JiaoIsSlowSummon 已删除 —— 蕉 是召唤被动 OnHitSlow 全表
-        // 唯一载体,随字表调整移出后该被动休眠,无字可钉。复活线索见类文档顶部的
-        // 「机制休眠」清单。
+        [Test]
+        public void RealConfig_SummonOnHitSlowHasNoCarrier()
+        {
+            // 2026-09-05:蕉(召唤被动 OnHitSlow,全表唯一载体)随字表调整移出,该被动休眠。
+            // 与 RealConfig_DodgeHasNoCarrier 同口径钉住空集:哪天有新字接手,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.Summon && e.Passive != null && e.Passive.OnHitSlowPercent > 0),
+                Is.False, "召唤被动 OnHitSlow 当前应无载体");
+        }
 
         [Test]
         public void RealConfig_ArmorBreakChars_CarryTheirPoints()
@@ -402,9 +438,15 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "垔" }));
         }
 
-        // 2026-09-05:RealConfig_BlindCharsCarryTheirPercentAndTurns 已删除 —— 熣 是 Blind
-        // 全表唯一载体,随字表调整移出后致盲机制休眠,无字可钉。复活线索见类文档顶部的
-        // 「机制休眠」清单。
+        [Test]
+        public void RealConfig_BlindHasNoCarrier()
+        {
+            // 2026-09-05:熣(Blind,全表唯一载体)随字表调整移出,致盲机制休眠。targetAll
+            // 那一半的守卫仍由 DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True
+            // 用构造的 CharDef 顶着。与 Silence 同口径钉住空集:哪天有新字接手,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.Blind), Is.False, "Blind 当前应无载体");
+        }
 
         [Test]
         public void RealConfig_SilenceHasNoCarrier()
