@@ -724,12 +724,16 @@ namespace Brushblade.Core
         public int ShieldAccum => _shieldAccum;
         public int HealAccum => _healAccum;
 
-        /// <summary>攒一层厚/泉需要的量 = 玩家生命上限的十分之一(2026-09-02)。
+        /// <summary>攒一层厚/泉需要的量 = 玩家生命上限的**五分之一**(2026-09-05,原为十分之一)。
         ///
         /// 用百分比而不是固定值:固定 100 点在早期(垒 50 盾)攒不出一层、在深层
         /// (㙓 630 盾)一次给 6 层。百分比口径自动跟着角色成长走。
-        /// 下钳 1:MaxHp &lt; 10 时整数除会得 0,那会让 while 循环永不终止。</summary>
-        private int ResourceThreshold => Math.Max(1, _config.PlayerMaxHp / 10);
+        ///
+        /// ⚠ 2026-09-05 由 /10 改 /5:旧阈值下 㵘 一张治 540 = 10.8 层,**一发攒满 10 层**,
+        /// 「攒」这个过程根本不存在。改后配合 P2 把治疗压回锚点(㵘 350),一张红档水字
+        /// 攒 3 层,满层要三张、跨几层楼 —— 即设计稿 §1 定的「几层楼攒一波,Boss 层倒出来」。
+        /// 下钳 1:MaxHp &lt; 5 时整数除会得 0,那会让 while 循环永不终止。</summary>
+        private int ResourceThreshold => Math.Max(1, _config.PlayerMaxHp / 5);
 
         /// <summary>获得护盾时攒厚(2026-09-02)。<paramref name="shieldAmount"/> 是
         /// **获得量**,不是实际吸伤量 —— 厚衡量的是"你堆了多少防御",不是"你挨了多少打"。
