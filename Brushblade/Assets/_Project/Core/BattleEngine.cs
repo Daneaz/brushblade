@@ -604,8 +604,14 @@ namespace Brushblade.Core
             // 携带的召唤物按原槽位落位(2026-08-20)。Slot 越界或撞车一律回落到最小空槽 ——
             // 携带态来源受控,这条只是防越界,不是会触发的分支。
             if (startingSummons != null)
+            {
                 foreach (var summon in startingSummons)
                     PlaceCarried(SummonState.Restore(summon), summon.Slot);
+                // 跨战斗携带的召唤物落位后要重算光环(2026-09-05):PlaceCarried 只管落位,
+                // AuraAttackBonus 缺省 0、不会自己补上 —— 否则带着 AuraAttack 被动跨场进来的
+                // 召唤物,新战斗开局那几拍会静默吃不到光环,直到本场再触发一次召唤/死亡才纠正。
+                RefreshSummonAura();
+            }
             // 减伤跨战斗保留(2026-08-04):与普通盾同口径,段内持久,到段末才清。
             if (startingStatuses != null)
                 _playerStatuses.CopyFrom(startingStatuses);
@@ -704,6 +710,8 @@ namespace Brushblade.Core
             }
             foreach (var summon in snapshot.Summons)
                 engine.PlaceCarried(SummonState.Restore(summon), summon.Slot);
+            // 断点读档同一条理由(2026-09-05):见构造函数里 startingSummons 那句注释。
+            engine.RefreshSummonAura();
             engine._playerStatuses.CopyFrom(snapshot.PlayerStatuses ?? new List<StatusEffect>());
             return engine;
         }
@@ -2215,6 +2223,10 @@ namespace Brushblade.Core
                             // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
                         }
+                        // 复活把一只召唤物从死亡拉回存活集合(2026-09-05):它自己要吃到
+                        // 「含自己」的光环,其余存活召唤物也要把它复活后的一份重新算进总量 ——
+                        // 与 Summon 分支同一条理由,循环外调一次即可(多只复活只需一次全量重算)。
+                        RefreshSummonAura();
                         break;
                     case EffectKind.Blind:
                         // SourceId 用字 ID:同字再出只刷新,不无限叠命中惩罚
@@ -3589,6 +3601,10 @@ namespace Brushblade.Core
                         int lost = victim.Hp;
                         victim.Hp = 0;
                         _events.Add(new BattleEvent(BattleEventKind.SummonHit, index, lost, front));
+                        // 吞噬完全绕开 DamageSummon(2026-09-05):它是自己的一条死亡路径,
+                        // 死者的光环份额要跟着摘掉,否则全场光环总和会停在旧数上直到下次
+                        // 真正触发刷新才纠正。
+                        RefreshSummonAura();
                     }
                     else
                     {
