@@ -605,7 +605,7 @@
   "status.heft.name": "厚",
   "status.heft.desc": "{magnitude} 是层数不是加成值：每层 +5% 伤害，上限 10 层（满层 +50%）。加护盾时攒。",
   "status.wellspring.name": "泉",
-  "status.wellspring.desc": "{magnitude} 是层数不是加成值：每层 +10% 治疗，上限 10 层（满层 +100%）。治疗时攒。",
+  "status.wellspring.desc": "{magnitude} 是层数不是加成值：每层 +5% 治疗，上限 10 层（满层 +50%）。治疗时攒。",
   "status.heft.chip": "厚",
   "status.wellspring.chip": "泉",
   "status.duration.turns": "剩 {value} 回合",

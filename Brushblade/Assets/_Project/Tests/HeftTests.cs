@@ -248,15 +248,14 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Heal_IsAmplifiedByWellspring()
         {
-            // 泉每层 +10% 治疗(spec §3.1)。满 10 层 = +100%。
+            // 泉每层 +5% 治疗(spec §3.1,2026-09-05 由 +10% 改)。满 10 层 = +50%。
             // 用真实攻击的敌人打掉一部分血,给治疗留出空间(优先用既有公开路径,不加测试钩子)。
             //
-            // 2026-09-02 双方向重配(Task 10):沝 治疗从 160 改成 340,放大后 680 > 原本
+            // 2026-09-02 双方向重配(Task 10):沝 治疗从 160 改成 340,放大后 > 原本
             // maxHp 500 的封顶空间(会被满血上限吞掉,测不出真实放大量)。maxHp 改成 2000,
-            // 阈值(MaxHp/N)随之变成 400 —— 满 10 层要用 GainWellspringForTest(400 * 10),
-            // 放大比例本身(层数 × 10%)未变。
+            // 阈值(MaxHp/N)随之变成 400 —— 满 10 层要用 GainWellspringForTest(400 * 10)。
             // 2026-09-05 阈值 /10 → /5:阈值从 200(2000/10)改成 400(2000/5),
-            // 满 10 层的份额从 200×10 改成 400×10 —— 已在满层封顶,放大后的数值(680)不变。
+            // 满 10 层的份额从 200×10 改成 400×10。
             // 2026-09-05:沝 随字表调整移出,换成 冰(HealSelf 满值同样是 340),算式不变。
             var battle = NewBattleWithCharTakingDamage("冰", maxHp: 2000, playerAttack: 100, enemyAttack: 1000);
             battle.EndTurn();   // 敌人打一记,EffectiveDodge 默认 0,必中:2000 - 1000 = 1000
@@ -265,8 +264,9 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.WellspringStacks, Is.EqualTo(10), "夹具前提:满层");
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
-            // 冰(原 沝)治疗 340(卡 1 级)→ ×(100+100)/100 = 680
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(680));
+            // 冰(原 沝)治疗 340(卡 1 级)→ ×(100+50)/100 = 510
+            // (2026-09-05 泉 10% → 5%:旧口径 ×(100+100)/100 = 680)
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(510));
         }
 
         [Test]
@@ -302,19 +302,20 @@ namespace Brushblade.Core.Tests
             // 冰 治前 3 层(2026-09-05 阈值 /10 → /5:阈值 50 → 100,阈值 100 × 3,整除,余数 0;
             // 2026-09-02 双方向重配 冰 160→340 后,旧版的 5 层会让 amplified 的两种算法都
             // 逼近/撞上 maxHp 500 的封顶,故改用 3 层):
-            //   正确顺序:amplified = AmplifyByWellspring(340) 用旧层数 3 → 340 × 130 / 100 = 442
+            //   正确顺序:amplified = AmplifyByWellspring(340) 用旧层数 3、泉 5%/层(2026-09-05 由
+            //             10% 改)→ 340 × 115 / 100 = 391
             //   反转顺序:先 GainWellspring(340) 层数变 6(340 / 100 = 3 层 + 余 40,3+3=6),
-            //             再用新层数 6 算 amplified → 340 × 160 / 100 = 544
-            // 442 ≠ 544,反转时这条断言必须变红。
+            //             再用新层数 6 算 amplified → 340 × 130 / 100 = 442
+            // 391 ≠ 442,反转时这条断言必须变红。
             var battle = NewBattleWithCharTakingDamage("冰", maxHp: 500, playerAttack: 100, enemyAttack: 450);
-            battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 442 的回血空间不封顶
+            battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 391 的回血空间不封顶
             Assert.That(battle.PlayerHp, Is.EqualTo(50), "夹具前提:留出的回血空间要盖过两种顺序的差值");
             battle.GainWellspringForTest(100 * 3);   // 先有 3 层(非零非满)
             Assert.That(battle.WellspringStacks, Is.EqualTo(3), "夹具前提:整除,层数刚好 3");
 
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(442),
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(391),
                 "放大值必须用施放前(旧)的层数算,不能用 GainWellspring 攒完之后的新层数");
         }
 
@@ -428,6 +429,32 @@ namespace Brushblade.Core.Tests
             battle.GainWellspringForTest(199);
             Assert.That(battle.WellspringStacks, Is.EqualTo(0), "199 < 1000/5 = 200,攒不满一层");
             Assert.That(battle.HealAccum, Is.EqualTo(199));
+        }
+
+        // ---- 泉倍率 10%/层 → 5%/层(2026-09-05,平衡重做 P0 任务 2)----
+
+        /// <summary>泉每层 +5% 治疗(2026-09-05,原 +10%)——与厚的 +5% 攻击对齐。
+        ///
+        /// 引擎注释原先声称两者「同顶」(泉 10×10 = 厚 5×10 = +50%),但那忽略了
+        /// **泉充得比厚快一倍**(治疗量普遍高于护盾量)。两条都拉到 5% 才真对齐。
+        ///
+        /// MaxHp 500 → 阈值 100。攒 400 治疗 = 4 层 → 下一次治疗 ×1.20。</summary>
+        [Test]
+        public void Wellspring_AmplifiesFivePercentPerStack()
+        {
+            var battle = NewBattle(500);
+            battle.GainWellspringForTest(400);
+            Assert.That(battle.WellspringStacks, Is.EqualTo(4));
+            Assert.That(battle.AmplifyByWellspringForTest(100), Is.EqualTo(120),
+                "4 层 × 5% = +20% → 100 → 120(旧口径是 +40% → 140)");
+        }
+
+        /// <summary>0 层时恒等 —— 这条是恒等性硬线,别让系数改动破了它。</summary>
+        [Test]
+        public void Wellspring_ZeroStacks_IsIdentity()
+        {
+            var battle = NewBattle(500);
+            Assert.That(battle.AmplifyByWellspringForTest(137), Is.EqualTo(137));
         }
     }
 }

@@ -365,8 +365,12 @@ namespace Brushblade.Core
         /// 与战意的 10 × 5 层 = +50% **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。</summary>
         private const int HeftPercentPerStack = 5;
 
-        /// <summary>泉每层的治疗加成(百分点,2026-09-02)。</summary>
-        private const int WellspringPercentPerStack = 10;
+        /// <summary>泉每层的治疗加成(百分点)。**2026-09-05 由 10 改 5**,与厚对齐。
+        ///
+        /// 原注释声称泉 10×10 与厚 5×10 「同顶 +50%」,但那只比了上限、忽略了**充电速度**:
+        /// 治疗量普遍高于护盾量,同一条 MaxHp/N 阈值下泉攒得比厚快一倍。
+        /// 两条都取 5% 才是真对齐(设计稿 §1)。</summary>
+        private const int WellspringPercentPerStack = 5;
 
         /// <summary>厚与泉的层数上限(2026-09-02)。</summary>
         private const int MaxResourceStacks = 10;
@@ -455,7 +459,7 @@ namespace Brushblade.Core
         private int ScaleByBaseAttack(int value) =>
             value * _config.PlayerAttack / BattleConfig.AttackBaseline;
 
-        /// <summary>按泉放大一个治疗量(2026-09-02,spec §3.1:每层 +10%)。
+        /// <summary>按泉放大一个治疗量(spec §3.1:每层 +5%,2026-09-05 由 +10% 改)。
         ///
         /// ⚠ **只放大实际治疗量,不放大攒泉的基数** —— 攒的基数必须是放大**之前**的值,
         /// 否则「治疗 → 攒泉 → 泉放大治疗 → 攒更多泉」就是一个正反馈环,
@@ -750,6 +754,10 @@ namespace Brushblade.Core
         /// **名义值**,不是实际回血量 —— 满血时治疗溢出照样攒,这是「满血奶自己不亏」的落点。
         /// 仅供测试与引擎内部调用。</summary>
         internal void GainWellspringForTest(int healAmount) => GainWellspring(healAmount);
+
+        /// <summary>泉放大治疗的测试钩子(2026-09-05)。与 <see cref="GainWellspringForTest"/>
+        /// 同理:不给引擎加新的生产可调用面,只把既有私有算式暴露给断言。</summary>
+        internal int AmplifyByWellspringForTest(int value) => AmplifyByWellspring(value);
 
         private void GainWellspring(int healAmount)
         {
