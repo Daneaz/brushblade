@@ -2337,10 +2337,13 @@ namespace Brushblade.Core
                         {
                             Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
-                            // 限时增益(2026-09-05):turns > 0 时按回合到期,
+                            // 限时增益(2026-09-05):turns > 0 时按回合到期(回合数吃卡等级,
+                            // 任务 8 的 ScaleTurnsByCardLevel,每 5 级 +1,与数值缩放分开算),
                             // **turns <= 0 仍为 -1(本场持久)** —— 既有字表全没填 turns,
                             // 这条兜住它们逐字节不变。
-                            TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
+                            TurnsLeft = effect.Turns > 0
+                                ? MetaRules.ScaleTurnsByCardLevel(effect.Turns, cardLevel)
+                                : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
@@ -2361,10 +2364,13 @@ namespace Brushblade.Core
                         {
                             Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
-                            // 限时增益(2026-09-05):turns > 0 时按回合到期,
+                            // 限时增益(2026-09-05):turns > 0 时按回合到期(回合数吃卡等级,
+                            // 任务 8 的 ScaleTurnsByCardLevel,每 5 级 +1,与数值缩放分开算),
                             // **turns <= 0 仍为 -1(本场持久)** —— 既有字表全没填 turns,
                             // 这条兜住它们逐字节不变。
-                            TurnsLeft = effect.Turns > 0 ? effect.Turns : -1,
+                            TurnsLeft = effect.Turns > 0
+                                ? MetaRules.ScaleTurnsByCardLevel(effect.Turns, cardLevel)
+                                : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;

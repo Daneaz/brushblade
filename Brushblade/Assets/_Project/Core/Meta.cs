@@ -515,6 +515,21 @@ namespace Brushblade.Core
             return (int)Math.Ceiling(baseValue * (1 + 0.1 * (cardLevel - 1)));
         }
 
+        /// <summary>卡等级回合数系数(2026-09-05):**每满 5 级 +1 回合**(5/10/15/…级门槛),
+        /// 1~4 级恒等。
+        ///
+        /// 刻意**不复用** <see cref="ScaleByCardLevel"/> 的 ×(1 + 0.1×(级−1)) + ceiling ——
+        /// 那条对回合数太快:2 回合的字 6 级就变 3、11 级变 4。回合数是节奏不是数值,
+        /// 一张限时增攻字在满级变成半永久会把「限时」这个设计整个抹掉。
+        ///
+        /// `baseTurns == 0` 原样返回 —— 0 在效果侧的语义是「本场持久」(见
+        /// BattleEngine 的 Empower/CritBuff case),被抬成 1 会把持久字改成 1 回合字。</summary>
+        public static int ScaleTurnsByCardLevel(int baseTurns, int cardLevel)
+        {
+            if (baseTurns <= 0) return baseTurns;
+            return baseTurns + Math.Max(cardLevel, 1) / 5;
+        }
+
         /// <summary>叠字前置(spec 2026-08-15 Part 2):配方里的**非部件**原料必须都已收集。
         ///
         /// 只查直接原料 —— `㙓 = 土+垚` 只要求 `垚`,而拿到 `垚` 本身就得先有 `圭`,

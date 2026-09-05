@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Brushblade.Core;
 
@@ -55,6 +56,60 @@ namespace Brushblade.Core.Tests
                 RebalanceFixture.Char("增", new EffectDef(kind, value, turns: turns)));
             return RebalanceFixture.Battle(graph, new[] { "增", "增", "增", "增" },
                 RebalanceFixture.Mob());
+        }
+
+        /// <summary>回合数吃卡等级(2026-09-05,平衡重做 P0 任务 8)。
+        ///
+        /// 现有 ScaleByCardLevel 是「基础值 × (1 + 0.1 × (等级 − 1)),向上取整」——
+        /// 那条给数值用没问题,给回合数用就太快了:2 回合的字在 6 级就变 3 回合、
+        /// 11 级变 4 回合。回合数是**节奏**,每 5 级 +1 才合适。</summary>
+        [TestCase(2, 1, 2)]
+        [TestCase(2, 4, 2)]
+        [TestCase(2, 5, 3)]
+        [TestCase(2, 10, 4)]
+        [TestCase(3, 1, 3)]
+        [TestCase(3, 5, 4)]
+        public void ScaleTurnsByCardLevel_AddsOnePerFiveLevels(int baseTurns, int level, int expected)
+        {
+            Assert.That(MetaRules.ScaleTurnsByCardLevel(baseTurns, level), Is.EqualTo(expected));
+        }
+
+        /// <summary>1 级恒等 —— 与 ScaleByCardLevel 同一条硬线。</summary>
+        [Test]
+        public void ScaleTurnsByCardLevel_LevelOne_IsIdentity()
+        {
+            Assert.That(MetaRules.ScaleTurnsByCardLevel(7, 1), Is.EqualTo(7));
+            Assert.That(MetaRules.ScaleTurnsByCardLevel(0, 1), Is.EqualTo(0), "0 回合(=本场持久)不许被抬成 1");
+        }
+
+        /// <summary>卡等级缩放接进 BattleEngine 真实链路的回归(2026-09-05,任务 8)——
+        /// 只测 MetaRules.ScaleTurnsByCardLevel 本身盖不住 BattleEngine 的 Empower/CritBuff
+        /// case 有没有真的把它接上;这条走 Cast() / EndTurn() 才能抓住「函数写对了但没接线」。
+        ///
+        /// 5 级:ScaleTurnsByCardLevel(2, 5) = 3,基础 2 回合的 Empower 应撑到第 3 个回合末才到期。</summary>
+        [Test]
+        public void Empower_WithTurns_ScalesByCardLevel_ThroughRealCast()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("增", new EffectDef(EffectKind.Empower, 30, turns: 2)));
+            var cardLevels = new Dictionary<string, int> { ["增"] = 5 };
+            var battle = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100 },
+                new[] { "增", "增", "增", "增" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1, cardLevels: cardLevels);
+
+            battle.Cast("增");
+            // Magnitude 也吃卡等级(ApplyEffects 的 ScaleByCardLevel,与回合数缩放是两条各自
+            // 独立的系数):5 级 → ceil(30 × 1.4) = 42,基准 100 + 42 = 142。
+            Assert.That(battle.EffectiveAttack, Is.EqualTo(142), "基准 100 + ScaleByCardLevel(30, 5)=42");
+
+            battle.EndTurn();
+            battle.EndTurn();
+            Assert.That(battle.EffectiveAttack, Is.EqualTo(142),
+                "5 级把 2 回合缩放成 3 回合 —— 第 2 个回合末不该到期");
+
+            battle.EndTurn();
+            Assert.That(battle.EffectiveAttack, Is.EqualTo(100), "第 3 个回合末到期");
         }
     }
 }
