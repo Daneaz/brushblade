@@ -2131,6 +2131,7 @@ namespace Brushblade.Presentation
             if (passive.OnHitBurn > 0) return ("", "burn");
             if (passive.Thorns > 0) return ("", "thorns");
             if (passive.HealAlly > 0) return ("", "heal");
+            if (passive.Regen > 0) return ("", "heal");
             if (passive.OnHitCurse > 0) return ("", "curse");
             if (passive.Dodge > 0) return ("", "dodge");
             if (passive.Speed > 100) return ("", "speed");
