@@ -910,8 +910,9 @@ namespace Brushblade.Core.Tests
             run.AdvanceAfterBattle();
             run.SkipReward();                 // 进入第二场
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
-            Assert.That(run.Battle.PlayerShield, Is.EqualTo(5)); // 护盾跨场保留
-            Assert.That(run.CarriedNormalShield, Is.EqualTo(5));
+            // 2026-09-05 护盾战斗结束衰减 50%:5 / 2 = 2(整数除,向下取整),不再是原样延续
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(2)); // 护盾跨场保留,但打对折
+            Assert.That(run.CarriedNormalShield, Is.EqualTo(2));
         }
 
         [Test]
@@ -926,7 +927,8 @@ namespace Brushblade.Core.Tests
             WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,护盾不变)
             run.AdvanceAfterBattle();
             run.SkipReward();                 // 进入第二关
-            Assert.That(run.Battle.PlayerShield, Is.EqualTo(7)); // 上关剩 5 + 每关 2
+            // 2026-09-05 护盾战斗结束衰减 50%:上关剩 5 先减半为 2,再叠加每关 2 = 4(不再是 5 + 2 = 7)
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(4)); // 上关剩 5/2=2 + 每关 2
         }
 
         [Test]

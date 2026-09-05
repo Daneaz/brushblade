@@ -537,8 +537,13 @@ namespace Brushblade.Core
             _carriedLibrary = new List<string>(Battle.Library);
             _carriedPool = new List<string>(Battle.Pool);
             _carriedHp = Battle.PlayerHp;
-            _carriedNormalShield = Battle.ShieldNormal;
-            _carriedPersistShield = Battle.ShieldPersist;
+            // 护盾战斗结束衰减 50%(2026-09-05):护盾此前只加不减、整场爬塔通吃,
+            // 是第二条血条而不是临时保护 —— 玩家一旦有一回合「获得 > 承伤」,那份盾
+            // 就永久留在身上,战斗不会输也打不死怪(中层刮痧)。整数除、向下取整。
+            // ⚠ 只衰减护盾,不动 _carriedShieldAccum / _carriedHealAccum:
+            // 那两个是厚/泉的攒层余数,不是护盾。
+            _carriedNormalShield = Battle.ShieldNormal / 2;
+            _carriedPersistShield = Battle.ShieldPersist / 2;
             _carriedShieldAccum = Battle.ShieldAccum;
             _carriedHealAccum = Battle.HealAccum;
             _carriedSummons = CaptureAliveSummons();
