@@ -74,21 +74,30 @@ namespace Brushblade.Presentation
             bool dual = def.AttackEffects.Count > 0;
             BuildHeader(content, def, cardLevel, dual, battle, overlay);
 
-            var body = Ui.Row(content, "Body", ColGap);
-            body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Ui.Sized(body, flexWidth: 1, flexHeight: 1);
-
             float bodyW = ContentW - ColGap;
             if (def.IsComponent)
             {
+                // 部件那两栏是**填满**式的:左栏效果整句、右栏「能凑出什么」各自带内滚动
+                // (见 DescPanel / BuildCraftColumn),内容再多也不会把这一层撑高,
+                // 所以照旧直接铺在卡里、吃掉剩下的高度。
+                var body = BodyRow(content, fill: true);
                 BuildSoloColumn(body.transform, def, cardLevel, bodyW * 0.46f);
                 BuildCraftColumn(body.transform, def, graph, battle, bodyW * 0.54f);
             }
             else
             {
+                // 2026-09-05:两栏塞进滚动视口。这一支的段落高度**由内容定**
+                // (特性 · 技能一条一张小卡,带召唤物被动的字能摞到七八条),而卡是定高的
+                // —— 直接铺在 VerticalLayoutGroup 里,超出的部分不会溢出、会按比例
+                // **反压所有兄弟**:头那一行(牌 / 名 / 释义)跟着一起被压扁,
+                // 字牌在卡组页尤其明显(那里脚上还多一条 100 高的操作钮带)。
+                // 改成滚动之后这一块对外只报 0 高、吃剩余空间,头与钮带各自守住自己的高度。
+                var scroll = Ui.ScrollList(content, "BodyScroll", 0, out var scrolled);
+                Ui.Sized(scroll, flexWidth: 1, flexHeight: 1);
                 // 两栏等宽:卡组页那套段落是竖排的一长条,摆进横版时按「先算清自己、
                 // 再看场面」切开 —— 左栏是这张字本身(等级/召唤/数值/打谁),
                 // 右栏是它与外界的关系(特性/配方/生克或此刻的场面)。
+                var body = BodyRow(scrolled, fill: false);
                 BuildSelfColumn(body.transform, def, cardLevel, meta, bodyW * 0.5f);
                 BuildFieldColumn(body.transform, def, graph, cardLevel, bodyW * 0.5f);
             }
@@ -107,6 +116,16 @@ namespace Brushblade.Presentation
                 Ui.Sized(foot.gameObject, flexWidth: 1, height: FootH);
             }
             return overlay;
+        }
+
+        /// <param name="fill">true = 吃掉卡里剩下的高度(部件那一支);
+        /// false = 高度由两栏内容撑,交给外面的滚动视口去裁。</param>
+        private static GameObject BodyRow(Transform parent, bool fill)
+        {
+            var body = Ui.Row(parent, "Body", ColGap);
+            body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            Ui.Sized(body, flexWidth: 1, flexHeight: fill ? 1 : 0);
+            return body;
         }
 
         private static string FootText(CharDef def, bool dual, BattleContext battle)

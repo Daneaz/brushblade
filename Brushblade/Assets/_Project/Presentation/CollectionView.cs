@@ -17,7 +17,10 @@ namespace Brushblade.Presentation
     /// 2026-09-03 按稿重写。此前是每页 12 张的翻页网格,只列**已拥有**的字;现在:
     /// · 74 张可收集字全列出来,没拿到的走锁态沉底 —— 收集页的另一半是「还差什么」;
     /// · 网格内部滚动,不再翻页;
-    /// · 右栏常驻出阵编组(15 格 + 每系配额)+ 一个「去升级」钮。
+    /// · 右栏常驻出阵编组(15 格 + 每系配额)。
+    ///   栏底原有一个「去升级 N 张」钮,2026-09-05 用户拍板移除:升级是**某一张字**的事,
+    ///   入口已经在那张字的详情弹窗底部(<see cref="SheetActions"/>),
+    ///   而「可升级」排序本来就把能升的顶到网格最前 —— 同一件事的第三个入口。
     ///
     /// 2026-09-05 用户拍板:**字卡详情改走弹窗**(<see cref="CharPreview"/>),与开箱结果、
     /// 战斗里长按看到的是同一屏。此前右栏是双身份的 —— 没选中画出阵表、选中了整栏换成详情,
@@ -35,7 +38,6 @@ namespace Brushblade.Presentation
         private const float SideW = 527f;       // 右栏 252pt
         private const float MainGap = 19f;      // 网格与右栏之间 9pt
         private const float SideHeadH = 54f;    // 右栏头 26pt
-        private const float SideFootH = 100f;   // 右栏底(8pt 内边距 + 36pt 按钮)
         private const float SidePad = 21f;      // 右栏内边距 10pt
 
         // 网格:5 列,每张 103×128pt;列距 8pt、行距 14pt
@@ -558,13 +560,12 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)separator.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -SideHeadH - 2), new Vector2(0, -SideHeadH));
 
-            // 身:内部滚动 —— 15 格出阵表 + 每系配额靠滚动装下,「去升级」钮固定在栏底
+            // 身:内部滚动 —— 15 格出阵表 + 每系配额靠滚动装下,一直铺到栏底
             var body = Ui.ScrollList(side.transform, "Body", 0, out var content);
             Ui.Anchor((RectTransform)body.transform, Vector2.zero, Vector2.one,
-                new Vector2(SidePad, SideFootH), new Vector2(-SidePad, -SideHeadH - 2));
+                new Vector2(SidePad, SidePad), new Vector2(-SidePad, -SideHeadH - 2));
             BuildDeckPanel(content);
 
-            BuildSideFoot(side.transform);
             BuildDropHint(side.transform);
         }
 
@@ -573,46 +574,11 @@ namespace Brushblade.Presentation
         {
             var hint = Ui.CardPanel(parent, "DropHint", Theme.PanelInset, 16);
             Ui.Anchor((RectTransform)hint.transform, Vector2.zero, new Vector2(1, 0),
-                new Vector2(17, SideFootH), new Vector2(-17, SideFootH + 63));
+                new Vector2(17, SidePad), new Vector2(-17, SidePad + 63));
             _dropHintLabel = Ui.ThemedLabel(hint.transform, "", 21, Theme.Jade, Theme.TitleFont);
             Ui.Stretch(_dropHintLabel.rectTransform);
             _dropHint = hint.gameObject;
             _dropHint.SetActive(false);
-        }
-
-        /// <summary>右栏底:只剩「去升级」。字卡自己的两个钮(编入出阵 / 升级)随详情
-        /// 搬去了弹窗底部(<see cref="SheetActions"/>)—— 那两个钮作用于**某一张字**,
-        /// 而这一栏现在只讲出阵表,把它们留在这儿就没有主语了。</summary>
-        private void BuildSideFoot(Transform parent)
-        {
-            var foot = Ui.Row(parent, "Foot", 13);
-            var footLayout = foot.GetComponent<HorizontalLayoutGroup>();
-            footLayout.padding = new RectOffset(17, 17, 17, 17);
-            footLayout.childForceExpandWidth = true;
-            Ui.Anchor((RectTransform)foot.transform, Vector2.zero, new Vector2(1, 0),
-                Vector2.zero, new Vector2(0, SideFootH));
-
-            int upgradable = FirstUpgradable(out string first);
-            var button = Ui.PillButton(foot.transform,
-                Strings.T("collection.button.goto_upgrade", ("count", upgradable)),
-                () =>
-                {
-                    // 顺带把属性页签清回「全部」:那张字未必在当前这一系里,
-                    // 弹窗开出来了、关掉之后左边网格里却找不到它。
-                    // 排序也一并切到「可升级」(2026-09-05):这个钮的意图就是「带我去那张字」,
-                    // 而那个排序恰好把它顶到网格最前 —— 清了页签还要在几十张里找,等于没带到。
-                    if (first == null) return;
-                    _filterIsAll = true;
-                    _filter = null;
-                    _own = OwnFilter.All;   // 停在「未拥有」上时,那张能升的字被筛掉了
-                    _sort = SortMode.Upgradable;
-                    _gridScroll = 1f;   // 换了一批内容,停在原位置没有意义
-                    Select(first);
-                },
-                upgradable > 0 ? Theme.Jade : Theme.PanelInset,
-                upgradable > 0 ? Color.white : Theme.LockGray, 24, new Vector2(0, 75));
-            button.GetComponent<LayoutElement>().flexibleWidth = 1;
-            button.interactable = upgradable > 0;
         }
 
         // ---- 字卡详情弹窗(2026-09-05:与开箱 / 战斗共用 CharPreview) ----
@@ -669,20 +635,6 @@ namespace Brushblade.Presentation
                 24, new Vector2(0, 75));
             upButton.GetComponent<LayoutElement>().flexibleWidth = 1;
             upButton.interactable = canUpgrade;
-        }
-
-        private int FirstUpgradable(out string cardId)
-        {
-            cardId = null;
-            int count = 0;
-            foreach (var def in _all)
-            {
-                if (!_meta.OwnedCards.Contains(def.Id)) continue;
-                if (!MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity)) continue;
-                count++;
-                cardId ??= def.Id;
-            }
-            return count;
         }
 
         // ---- 右栏 · 没选中:出阵编组 ----
