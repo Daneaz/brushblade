@@ -196,6 +196,10 @@ namespace Brushblade.Presentation
             if (p.Speed > 0) parts.Add(Strings.T("char.passive.speed", ("value", p.Speed)));
             if (p.Thorns > 0) parts.Add(Strings.T("char.passive.thorns", ("value", p.Thorns)));
             if (p.HealAlly > 0) parts.Add(Strings.T("char.passive.healally", ("value", p.HealAlly)));
+            // 自愈(2026-09-05,藻):与上面的 HealAlly 是一对,别合并成一句 —— 那个外溢给
+            // 全队,这个只回持有者自己,文案上也要分开说清楚。措辞刻意避开「愈」字:那个
+            // 字形不在现有字符串表的字符集里,用「自身回血」复用既有字形,免掉一次字体子集重跑。
+            if (p.Regen > 0) parts.Add(Strings.T("char.passive.regen", ("value", p.Regen)));
             if (p.OnHitBurn > 0)
                 parts.Add(p.OnHitBurnAll
                     ? Strings.T("char.passive.onhitburn.all", ("value", p.OnHitBurn))

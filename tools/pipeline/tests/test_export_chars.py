@@ -64,7 +64,7 @@ def test_recipe_dag_has_no_cycle():
         depth(cid)
 
 
-def test_extract_pulls_74_implementable_chars():
+def test_extract_pulls_60_implementable_chars():
     """详表里标 ✅ 的字应全部被抽出,且相生字取基础值。详表入 git,可直接读。
 
     2026-08-09:129 → 132,火系 DOT 三分化(炑/燥/灱)落地。
@@ -80,9 +80,10 @@ def test_extract_pulls_74_implementable_chars():
     2026-08-14 第三批:109 → 105,移出 沸/淹/润/滋/治 五字,新增 铸(绿·金,接手 Reflect)。
     2026-08-25 字表重构:105 → 74,移出 33 字、新增 杖/枪 两字
     (spec docs/superpowers/specs/2026-08-25-字表重构-design.md)。
+    2026-09-05 字表调整:74 → 60,移出 17 字、新增 藻/箭/葬(spec docs/superpowers/specs/2026-09-05-字表调整-design.md)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 74
+    assert len(values) == 60
     # 焚曾含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)。
     # 2026-09-02:相生 ×3 取消,基础值改填等值改写后的实战值,40 → 120,战斗结果不变。
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
@@ -100,10 +101,15 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
 
     2026-09-02(水系双方向重配,Task 10):淡 的 Dispel 随攻击面独立拆分到
     `attackEffects`,不再挂在 `effects` 上 —— 断言的读取位置跟着改,解析路径本身未变。
+
+    2026-09-05:淡 移出字表,Dispel 换成留存字 灭(`DispelAll` + `DamageAll 30`,单方向,
+    挂在 `effects` 上)。灭 的 `DispelAll` 是无括注的布尔标记,不带 targetAll —— 这半个
+    断言原先验证的「Dispel 走 targetAll 括注解析」现在只剩 test_dispel_each_becomes_target_all
+    的手打字符串覆盖,这里改断言 灭 的 Dispel 本身的值(-1,DispelAll 的标记值)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    dan = next(e for e in values["淡"]["attackEffects"] if e["kind"] == "Dispel")
-    assert dan["targetAll"] is True
+    mie = next(e for e in values["灭"]["effects"] if e["kind"] == "Dispel")
+    assert mie["value"] == -1
 
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
     assert mu["turns"] == 3
@@ -114,9 +120,12 @@ def test_extract_pierce_points_attach_to_damage_effect():
     """穿透字:`Pierce N` 要落到 DamageSingle 效果的 pierce 字段上,
     2026-08-25 字表重构后只剩 刺 一个载体(锥 转攻击型召唤、錰 移出字表)。
     不是生成独立的效果条目 —— EffectKind 里没有 Pierce 这个值,落成独立条目会让
-    ConfigLoader 在加载期直接抛 ConfigException(2026-08-12,E-b4 T3 替代旧的 ignoreArmor 布尔标记)。"""
+    ConfigLoader 在加载期直接抛 ConfigException(2026-08-12,E-b4 T3 替代旧的 ignoreArmor 布尔标记)。
+
+    2026-09-05:刺(全表唯一穿透字)移出字表,穿透机制自此休眠、无载体;
+    将来有字重新装配穿透时把它加回来。"""
     values = extract(SPEC.read_text(encoding="utf-8"))
-    expected = {"刺": 15}
+    expected = {}
     for char, points in expected.items():
         effects = values[char]["effects"]
         # 2026-08-15 金系批量挂战意:三字都多了一条 Morale,故断「第一条是伤害且只有一条伤害」
@@ -414,18 +423,13 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     """三张改造字在**出货的 chars.json 里**确实带上了新字段。
 
     上面几条喂的是手打字符串;这条读真实产物 —— token 表漏接线是无声的,
-    只有真产物能证明「详表写了」与「游戏读得到」之间没有断点。"""
+    只有真产物能证明「详表写了」与「游戏读得到」之间没有断点。
+
+    2026-09-05:刺/砸/蕉 随 17 字移出字表,字卡攻击形状 Skewer/Cleave 与召唤 onHitSlow
+    自此无载体(spec §1.3 明确裁定「休眠」)。碾 也移出,但字卡侧的 Sweep 载体不算孤儿——
+    召唤物被动那条 Sweep 通道(剑)仍在,断言挪去验证那条通道。"""
     shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
     by_id = {c["id"]: c for c in shipped["chars"]}
-
-    # 伤害侧的目标形状(2026-08-25 装配到 刺/碾/砸):Backline 已换成 Skewer
-    ci = by_id["刺"]["effects"][0]
-    assert ci["kind"] == "DamageSingle" and ci["shape"] == "Skewer" and ci["shapePercent"] == 60
-    assert ci.get("backline") is None, "偷袭换成贯穿后不该还留着"
-    # 2026-09-02:碾/砸 的形状随双方向重配(Task 11)挪进 attackEffects,
-    # 与 冰 的 doubleVs 同一处理 —— 载体本身没变,只是搬了个字段。
-    assert by_id["碾"]["attackEffects"][0]["shape"] == "Sweep"
-    assert by_id["砸"]["attackEffects"][0]["shape"] == "Cleave"
 
     # 远程:2026-08-25 起唯一载体是 楸(荆 改前排肉盾让出;灶/烓 更早移出字表)
     qiu = by_id["楸"]["effects"][0]
@@ -433,19 +437,20 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     assert qiu["passive"].get("ranged") is True, "楸 应为远程"
 
     # 召唤被动的形状与出手控场(2026-08-25):都是「token 表漏接线就静默丢」的字段
+    # 2026-09-05:碾 移出字表,字卡侧的 Sweep 载体没了,改验召唤物侧(剑)仍在。
     assert by_id["剑"]["effects"][0]["passive"] == {"shape": "Sweep", "shapePercent": 50}
     assert by_id["枪"]["effects"][0]["passive"] == {"shape": "Skewer", "shapePercent": 70}
     assert by_id["锥"]["effects"][0]["passive"] == {"shape": "Volley", "shots": 2}
     assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
-    assert by_id["蕉"]["effects"][0]["passive"] == {"onHitSlowPercent": 50, "onHitSlowTurns": 2}
 
-    # 条件加成(2026-08-25 由 doubleVsBurning 泛化):四系各一个收割位
+    # 条件加成(2026-08-25 由 doubleVsBurning 泛化)
     # 2026-09-02:冰 的 doubleVs 随双方向重配(Task 10)挪进 attackEffects,
     # 扫描范围跟着盖住两个列表 —— 载体本身没变,只是搬了个字段。
+    # 2026-09-05:灼 移出字表,DoubleVsBurning 自此无载体(spec §1.3),四个收割位缺一个。
     assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
             for e in c.get("effects", []) + c.get("attackEffects", [])
             if e.get("doubleVs")} == {
-        "灼": "Burning", "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken"}
+        "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken"}
 
 
 def test_component_entries_are_flagged():
@@ -462,10 +467,10 @@ def test_component_entries_are_flagged():
 
 
 def test_real_table_flags_every_component():
-    """实船字表:74 个可出牌字都不带 component,其余全部带。"""
+    """实船字表:60 个可出牌字都不带 component,其余全部带。"""
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = {c["id"] for c in chars if "effects" in c}
-    assert len(playable) == 74
+    assert len(playable) == 60
     for c in chars:
         if c["id"] in playable:
             assert "component" not in c, f"{c['id']} 是可出牌字,不该带 component"
@@ -474,34 +479,43 @@ def test_real_table_flags_every_component():
 
 
 def test_component_recipes_yield_one_element_part_each():
-    """选中的 12 条部件配方,每条都恰好产出 1 个五行部件。
+    """选中的 10 条部件配方,每条都恰好产出 1 个五行部件。
 
     这是范围的判据(spec §六):拆的价值 = 换五行部件,中性部件是残渣。
     文档「二级组成」的筛选条件「比一级多给出五行信息」与这个价值模型是同一件事。
+
+    2026-09-05:12 → 10,切/崔 随它们服务的 沏/熣 一并移出字表
+    (COMPONENT_RECIPES / COMPOUND_ATTR 两处均删)。
     """
     from export_chars import COMPONENT_RECIPES, COMPOUND_ATTR
     from filter_chars import attr_of
-    assert len(COMPONENT_RECIPES) == 12
+    assert len(COMPONENT_RECIPES) == 10
     for part, recipe in COMPONENT_RECIPES.items():
         hits = [p for p in recipe if attr_of(p) or p in COMPOUND_ATTR]
         assert len(hits) == 1, f"{part} = {' + '.join(recipe)} 产出 {hits},应当恰好 1 个五行部件"
 
 
 def test_real_table_has_component_recipes():
-    """实船字表:12 个部件带上了配方,10 个新部件条目在场。"""
+    """实船字表:10 个部件带上了配方,9 个新部件条目在场。
+
+    2026-09-05:崔(=山+隹,服务 熣)、切(=七+刀,服务 沏)随它们服务的字一并移出
+    COMPONENT_RECIPES;七 是 切 的唯一原料,没有别的字再引用它,随之从字表整体消失
+    (隹 还有 焦/锥 在用,不受影响,留在下面的终点部件清单外——它本来就不在这份清单里)。
+    """
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     byid = {c["id"]: c for c in chars}
     expected = {
-        "秋": ["禾", "火"], "崔": ["山", "隹"], "岂": ["山", "己"], "荅": ["艹", "合"],
+        "秋": ["禾", "火"], "岂": ["山", "己"], "荅": ["艹", "合"],
         "列": ["歹", "刂"], "喿": ["品", "木"], "烝": ["丞", "灬"], "则": ["贝", "刂"],
-        "朵": ["几", "木"], "切": ["七", "刀"], "茾": ["艹", "开"], "垔": ["覀", "土"],
+        "朵": ["几", "木"], "茾": ["艹", "开"], "垔": ["覀", "土"],
     }
     for part, recipe in expected.items():
         assert byid[part]["recipe"] == recipe, f"{part} 的配方不对"
         assert byid[part]["component"] is True, f"{part} 有了配方,但仍然必须是部件"
-    for part in "己合歹品丞贝几七开覀":
+    for part in "己合歹品丞贝几开覀":
         assert part in byid, f"新部件 {part} 不在字表里"
         assert "recipe" not in byid[part], f"{part} 是终点,不该有配方"
+    assert "七" not in byid, "七 曾是 切 的唯一原料,切 移出后应随之消失"
 
 
 def test_jing_and_yan_recipes_route_through_the_middle_layer():
@@ -518,7 +532,52 @@ def test_real_table_entry_count():
     # 一级配方(艹+刂、氷+土)绕开了它们,回收前 chars.json 里并不存在这两个部件。
     # 新增条目 = 12,不是「12 条配方」暗示的 10:任务纪要曾按「12 个部件带配方,
     # 新增 10 个终点部件」估算总数为 141,漏算了 茾/垔 自身也是新条目,实测 143。
+    #
+    # 2026-09-05:74 → 60(移出 17、新增 藻/箭/葬),部件 69 → 58。移出的 17 字里有 14 个
+    # 部件因此失去唯一引用而级联消失(七 丈 公 刀 切 勺 匝 占 尧 展 崔 戈 朿 白),
+    # 新增的 3 字带来 3 个新部件(前、死、竹)。净变化:69 − 14 + 3 = 58。
+    # 总条目 143 − 17 − 14 + 3 + 3 = 118(60 字 + 58 部件)。
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = [c for c in chars if "effects" in c]
-    assert len(playable) == 74
-    assert len(chars) == 143, "74 字 + 69 部件"
+    assert len(playable) == 60
+    assert len(chars) == 118, "60 字 + 58 部件"
+
+
+def _shipped():
+    return {c["id"]: c for c in json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]}
+
+
+def test_water_stack_chain_goes_through_bing_not_zhui():
+    """2026-09-05:沝 移出字表,水系叠字链的中间环换成 冰。"""
+    by_id = _shipped()
+    assert by_id["淼"]["recipe"] == ["水", "冰"]
+    assert "沝" not in by_id, "沝 已移出,且不该作为部件残留(没有任何配方再引用它)"
+
+
+def test_removed_chars_are_gone():
+    """2026-09-05 用户裁定移出的 17 字,一个都不该出现在 chars.json 里。"""
+    by_id = _shipped()
+    for char in "劈战刺铠杖松柏蕉沝淡沏碾砸烧焦灼熣":
+        assert char not in by_id, f"{char} 应已移出字表"
+    for part in "戈刀切崔":
+        assert part not in by_id, f"部件 {part} 已无字引用,应随之消失"
+
+
+def test_new_wood_chars_land_with_expected_recipes():
+    """藻/箭/葬 的配方:藻 与 箭 走 IDS 一级拆解,葬 走手写兜底(IDS 是三部件)。"""
+    by_id = _shipped()
+    assert by_id["藻"]["recipe"] == ["艹", "澡"]
+    assert by_id["箭"]["recipe"] == ["竹", "前"]
+    assert by_id["葬"]["recipe"] == ["艹", "死"]
+    assert by_id["竹"]["component"] is True
+    assert by_id["竹"]["element"] == "Wood"
+    assert "recipe" not in by_id["竹"], "竹 必须是叶子部件 —— ComponentKin 的守卫要求"
+
+
+def test_zao_carries_regen_passive():
+    """藻 的自愈落进 passive.regen(SUMMON_PASSIVE 那张手写映射表认不得就会静默丢弃)。"""
+    zao = _shipped()["藻"]["effects"][0]
+    assert zao["passive"] == {"regen": 60}
+    assert zao["count"] == 3
+    assert zao["value"] == 260
+    assert zao["attack"] == 50

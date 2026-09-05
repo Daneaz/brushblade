@@ -13,19 +13,22 @@ namespace Brushblade.Core.Tests
     /// 会往同一个文件里加自己的方法,互不冲突(见 progress.md 的 pre-flight 扫描)。</summary>
     public sealed class DualDirectionTests
     {
+        // 2026-09-05:沏 / 沝 / 淡 三张水系双方向字随字表调整移出,从下表删去
+        // (不找字顶替 —— 剩余 12 字仍覆盖白/绿/蓝/紫/金/红六档)。
         private static readonly string[] WaterChars =
         {
-            "溃", "冻", "海", "冷", "浴", "湮", "沏", "澡",
-            "沝", "冰", "沐", "淼", "淡", "淋", "㵘",
+            "溃", "冻", "海", "冷", "浴", "湮", "澡",
+            "冰", "沐", "淼", "淋", "㵘",
         };
 
         /// <summary>做双方向的土系字。**不含召唤字**(碉/堡/塔)——2026-09-02 用户拍板:
         /// 召唤本身就是「把防御摆到场上」,再叠一个护盾面是同一件事收两次钱;而且召唤要选
         /// 落位槽,与「点敌人=攻 / 点我方=护」的目标语义打架。三张召唤字保持单方向。
         /// 由 <see cref="SummonChars_StayOneDirectional"/> 反向钉住,防止哪天又被顺手加回来。</summary>
+        // 2026-09-05:砸 / 碾 两张土系双方向字随字表调整移出,从下表删去。
         private static readonly string[] EarthChars =
         {
-            "砸", "碾", "垒", "壁", "崩", "碎", "圭", "杜", "垚", "㙓",
+            "垒", "壁", "崩", "碎", "圭", "杜", "垚", "㙓",
         };
 
         /// <summary>召唤字必须**没有**攻击面(2026-09-02)。这条与 <see cref="EarthChars"/>
@@ -76,17 +79,21 @@ namespace Brushblade.Core.Tests
         public void WaterCharValues_MatchRarityAnchors()
         {
             // 锚点表(spec §4.1):带附加特性的面 x0.7,纯效果取满值。
+            // 2026-09-05:沝(金档样本)/ 沏(紫档样本)随字表调整移出,换成同档水系留存字 ——
+            // 冰 满值 340 与旧 沝 完全相同(金档满值锚点不变);湮 是纯效果紫档满值 150,
+            // 换掉 沏 那个「150 x1.2 相生取消补偿」的历史特例(该特例本身随 沏 一起作废)。
             var graph = LoadRealGraph();
-            Assert.That(HealValueOf(graph, "沝"), Is.EqualTo(340), "金档满值");
+            Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(340), "金档满值");
             Assert.That(HealValueOf(graph, "㵘"), Is.EqualTo(540), "红档满值");
             Assert.That(HealValueOf(graph, "浴"), Is.EqualTo(77), "蓝档 110 x0.7(带净化)");
-            Assert.That(HealValueOf(graph, "沏"), Is.EqualTo(180), "紫档 150 x1.2(相生取消后的补偿)");
+            Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(150), "紫档满值");
         }
 
         /// <summary>攻击面必须真的能打人 —— 全是伤害类效果(单体/全体),不是挂个状态就算数。
-        /// 钉的是「形状」:溃/冻/海/冷/浴/湮/沏/澡/沝/冰/沐/淼/淡/淋/㵘 的攻击面都带伤害,
+        /// 钉的是「形状」:溃/冻/海/冷/浴/湮/澡/冰/沐/淼/淋/㵘 的攻击面都带伤害,
         /// 与 ConfigLoaderTests.ShippedCharsJson_StackedWaterAndEarth_BothDefendAndStrike
-        /// 守的是同一条不变量,只是这条覆盖全部 15 字而不只是 沝。</summary>
+        /// 守的是同一条不变量,只是这条覆盖全部 12 字而不只是 冰。
+        /// (2026-09-05:沏/沝/淡 随字表调整移出,15 字降到 12 字。)</summary>
         [Test]
         public void EveryWaterChar_AttackSideDealsDamage()
         {
@@ -105,13 +112,14 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cast_AttackMode_DealsDamageToEnemy()
         {
+            // 2026-09-05:样本字 沝 随字表调整移出,换成同档水系留存字 冰。
             var graph = LoadRealGraph();
             var battle = new BattleEngine(graph,
                 new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
-                new[] { "沝" }, System.Array.Empty<string>(),
+                new[] { "冰" }, System.Array.Empty<string>(),
                 new[] { new EnemyDef("靶", Element.Heart, 100000, 0) }, seed: 1);
             int before = battle.Enemies[0].Hp;
-            battle.Cast("沝", 0, attackMode: true);
+            battle.Cast("冰", 0, attackMode: true);
             Assert.That(battle.Enemies[0].Hp, Is.LessThan(before), "攻击面应打伤敌人");
         }
 
@@ -120,14 +128,15 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cast_SupportMode_HealsSelf()
         {
+            // 2026-09-05:样本字 沝 随字表调整移出,换成同档水系留存字 冰。
             var graph = LoadRealGraph();
             var battle = new BattleEngine(graph,
                 new BattleConfig { PlayerMaxHp = 1000, PlayerAttack = 100 },
-                new[] { "沝" }, System.Array.Empty<string>(),
+                new[] { "冰" }, System.Array.Empty<string>(),
                 new[] { new EnemyDef("靶", Element.Heart, 100000, 800) }, seed: 1);
             battle.EndTurn();   // 挨一记,腾出治疗空间
             int before = battle.PlayerHp;
-            battle.Cast("沝", 0);   // 默认 attackMode: false = 治疗面
+            battle.Cast("冰", 0);   // 默认 attackMode: false = 治疗面
             Assert.That(battle.PlayerHp, Is.GreaterThan(before), "治疗面应回血");
         }
 
@@ -204,7 +213,7 @@ namespace Brushblade.Core.Tests
         }
 
         /// <summary>攻击面用 Cast(attackMode: true) 真的能打到敌人,不只是数据形状对 ——
-        /// 与水系那条(沝)同一目的,覆盖土系的接线。</summary>
+        /// 与水系那条(冰)同一目的,覆盖土系的接线。</summary>
         [Test]
         public void Cast_AttackMode_DealsDamageToEnemy_Earth()
         {

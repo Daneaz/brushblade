@@ -9,7 +9,31 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>实际出货字表(StreamingAssets/config/chars.json)的内容校验。
-    /// 与 ConfigLoaderTests 分开:那个文件引 UnityEngine,被 dotnet 工装排除。</summary>
+    /// 与 ConfigLoaderTests 分开:那个文件引 UnityEngine,被 dotnet 工装排除。
+    ///
+    /// 2026-09-05 字表调整(移出 17 字)后,下列机制在全表**无载体**,规格 §1.3 已裁定
+    /// 「休眠」而非找字硬凑;引擎/管线代码原样保留,只是暂时没有字用。原先钉这些机制的
+    /// 测试**改钉空集**(而不是整条删掉不留守卫)——新字挂上时这几条会红,提醒把数值/
+    /// 唯一性守卫加回来;原文可从 git 历史找回(2026-09-05 终审 fix-wave 之前那个提交):
+    /// - DefenseBuff(点数护甲,原唯一载体 铠)—— 原 RealConfig_KaiIsDefenseFive(铠 的单值
+    ///   校验,随 铠 消失一并作废、无空集可钉) / RealConfig_DefenseChars_CarryTheirPoints
+    ///   (带「护甲字全集」唯一性断言)改钉空集,见 RealConfig_DefenseBuffHasNoCarrier
+    /// - pierce(一次性穿透 EffectDef.Pierce,原唯一载体 刺;锐 的 PierceBuff 是本场持久
+    ///   buff,另一条通道,不受影响)—— 原 RealConfig_PierceChars_CarryPiercePoints 改钉
+    ///   空集,见 RealConfig_PierceHasNoCarrier
+    /// - Blind(致盲,原唯一载体 熣)—— 原 RealConfig_BlindCharsCarryTheirPercentAndTurns
+    ///   改钉空集,见 RealConfig_BlindHasNoCarrier(同一裁定波及
+    ///   DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True,见该文件)
+    /// - BurnNoDecay(不灭灼烧,原唯一载体 焦)—— 原 RealConfig_JiaoCarriesBurnAndNoDecay 里
+    ///   针对 焦 的那部分(其余 Bleed 梯度断言已迁到 RealConfig_BleedChars_CarryTheirGradient)
+    /// - 召唤被动 OnHitSlow(原唯一载体 蕉)—— 原 RealConfig_JiaoIsSlowSummon 改钉空集,
+    ///   见 RealConfig_SummonOnHitSlowHasNoCarrier
+    /// - 字卡攻击形状 Skewer(原唯一载体 刺,不含召唤被动的 Skewer——枪 仍在)——
+    ///   原 RealConfig_Ci_IsSkewerNotBackline 改钉空集,见 RealConfig_CardSideSkewerHasNoCarrier
+    /// - Dispel「清一条」(原唯一载体 淡;全表现只剩 灭/湮 两张「清全部」)——
+    ///   原 RealConfig_DispelChars_CarryTheirCounts 里针对 淡 的那部分(灭 的断言仍保留)
+    /// 上述机制引擎侧仍有单元测试覆盖(BattleEngine/StatusOps 等),这里守的只是「真实字表
+    /// 里还有没有字用它」这一层。</summary>
     public class CharTableTests
     {
         /// <summary>实际出货字表;同程序集的其他测试(StartingSetupTests)也用这一份。</summary>
@@ -61,10 +85,11 @@ namespace Brushblade.Core.Tests
             {
                 new[] { "金", "鍂", "鑫", "\ue626" },
                 new[] { "木", "林", "森", "\ue625" },
-                new[] { "水", "沝", "淼", "㵘" },
+                new[] { "水", "冰", "淼", "㵘" },
                 new[] { "火", "炎", "焱", "燚" },
                 new[] { "土", "圭", "垚", "㙓" },
             };
+            // 2026-09-05:沝 移出字表,水系 2叠环换成 冰(冫+水,冫 是水组同系部件)。
             var rarities = new[]
             {
                 CardRarity.White, CardRarity.Gold, CardRarity.Orange, CardRarity.Red,
@@ -92,44 +117,27 @@ namespace Brushblade.Core.Tests
             // 2026-08-14 第二批裁定移出 锯 / 磐 / 巍,从本列表删去。
             // 2026-08-14 第三批:润 / 滋 移出。
             // 2026-08-25 字表重构:洼 / 凝 / 崊 / 崟 / 漜 移出字表,换成留表的同系字。
+            // 2026-09-05 字表调整:淡 / 铠 随 17 字一并移出字表,从本列表删去(同 2026-08-14
+            // 的处理口径,不找字顶替)。
             foreach (var id in new[] { "淋", "沐", "冰", "冻",
-                                       "藤", "淡", "浴", "冷",
-                                       "铠", "垚", "圭", "塔" })
+                                       "藤", "浴", "冷",
+                                       "垚", "圭", "塔" })
                 Assert.That(graph.Get(id), Is.Not.Null, $"{id} 应已收录");
         }
 
-        [Test]
-        public void RealConfig_KaiIsDefenseFive()
-        {
-            var effect = RealGraph().Get("铠").Effects
-                .First(e => e.Kind == EffectKind.DefenseBuff);
-            // 2026-08-14 T9:12 → 5。金系不该在防御轴上压过同档土系(崟 = 6),
-            // 差额换成了单攻 80 —— 铠 现在是「带一点甲的金系攻击字」,不是防御字。
-            Assert.That(effect.Value, Is.EqualTo(5));
-        }
+        // 2026-09-05:RealConfig_KaiIsDefenseFive(铠 的单值校验)随 铠 移出一并作废,
+        // 没有空集可钉。RealConfig_DefenseChars_CarryTheirPoints 原带的「护甲字全集」
+        // 唯一性断言改钉空集,见下。
 
-        /// <summary>6 个护甲字的点数(spec §6.2 的折算表:旧减伤% × 0.6)。
-        /// 逐字钉住而不是只钉 铠 —— 折算表是设计裁定,漏改一个字不会有别的测试红。</summary>
         [Test]
-        public void RealConfig_DefenseChars_CarryTheirPoints()
+        public void RealConfig_DefenseBuffHasNoCarrier()
         {
-            var graph = RealGraph();
-            var expected = new Dictionary<string, int>
-            {
-                // 2026-08-14 T9:点数 ×0.65,腾出的预算换成各自的单攻(总预算守恒)。
-                // 2026-08-14 第二批裁定移出 巍(2)/ 磐(4)。
-                // 2026-08-25 字表重构:崟 / 崊 / 漜 移出字表(三张护甲字与 铠 同质),
-                // DefenseBuff 的载体自此只剩 铠 一张 —— 少一张就再没有横向对照,故一并断唯一性。
-                ["铠"] = 5,
-            };
-            foreach (var pair in expected)
-            {
-                var buff = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.DefenseBuff);
-                Assert.That(buff.Value, Is.EqualTo(pair.Value), $"「{pair.Key}」护甲点数");
-            }
-            Assert.That(graph.All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
-                    .Any(e => e.Kind == EffectKind.DefenseBuff)), Is.EqualTo(expected.Count),
-                "护甲字的全集就是上表;新增载体时把它加进来一起钉");
+            // 2026-09-05:铠(DefenseBuff 全表唯一载体)随字表调整移出,点数护甲机制休眠。
+            // 钉住空集,保住「护甲字全集」那份唯一性护栏:哪天有新字接手 DefenseBuff,
+            // 本条会红,提醒把数值守卫(逐字典 + Count 唯一性断言)加回来 ——
+            // 与 Silence/Dodge 同口径(见 RealConfig_SilenceHasNoCarrier / RealConfig_DodgeHasNoCarrier)。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.DefenseBuff), Is.False, "DefenseBuff 当前应无载体");
         }
 
         [Test]
@@ -156,26 +164,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_PierceChars_CarryPiercePoints()
+        public void RealConfig_PierceHasNoCarrier()
         {
-            // pierce 若没从 JSON 传到 EffectDef,字照常能打但穿透效果静默消失
-            // (2026-08-12,E-b4 T3:旧的 ignoreArmor 布尔标记换成点数)。
-            // 基础值同时钉住:旧「穿甲无条件 +15%」已固化进基础值(400→460 / 130→150 / 90→105),
-            // 那是**精确等价变换**,漏做的话对无甲目标的收益会静默缩水 15%。
-            var graph = RealGraph();
-            var expected = new Dictionary<string, (int Damage, int Pierce)>
-            {
-                // 2026-08-15 金系批量挂战意(计 0.10)。穿透点数不动 —— 它是防御轴的量,不参与战意计价。
-                // 2026-08-25 字表重构:锥 转攻击型召唤、錰 移出字表,穿透伤害字只剩 刺;
-                // 刺 随升蓝档 135 → 100(蓝档单攻锚点 130,穿透 15 与偷袭各占一份预算)。
-                ["刺"] = (100, 15),
-            };
-            foreach (var pair in expected)
-            {
-                var hit = graph.Get(pair.Key).Effects.First(e => e.Kind == EffectKind.DamageSingle);
-                Assert.That(hit.Value, Is.EqualTo(pair.Value.Damage), $"「{pair.Key}」基础值(含固化的 +15%)");
-                Assert.That(hit.Pierce, Is.EqualTo(pair.Value.Pierce), $"「{pair.Key}」穿透点数");
-            }
+            // 2026-09-05:刺(EffectDef.Pierce 一次性穿透,全表唯一载体)随字表调整移出,
+            // 穿透机制休眠。锐 的 PierceBuff(本场持久叠加 +20/张)是另一条通道,不受影响
+            // ——见第 10 章 §10.2。钉住空集:哪天有新字接手 Pierce,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Pierce > 0), Is.False, "一次性穿透(Pierce)当前应无载体");
         }
 
         [Test]
@@ -189,8 +184,9 @@ namespace Brushblade.Core.Tests
             // 搬进了 AttackEffects —— 偷袭本来就是攻击属性,搬过去反而是它该在的位置。
             // 只扫 .Effects 会让这条不变量对全部 28 张双方向字半盲(熣/刲 是火/金系没改,
             // 所以只扫单面时那两个照样绿,失效是**部分**的、更难发现)。
+            // 2026-09-05:砸(土)/熣(火)随字表调整移出,偷袭字只剩 冷/刲 两张。
             var graph = RealGraph();
-            var expected = new[] { "砸", "冷", "熣", "刲" };
+            var expected = new[] { "冷", "刲" };
             foreach (var id in expected)
             {
                 var def = graph.Get(id);
@@ -209,14 +205,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_Ci_IsSkewerNotBackline()
+        public void RealConfig_CardSideSkewerHasNoCarrier()
         {
-            // 刺 的「够到后排」走的是贯穿几何(先点前排、串到同列后排),不是偷袭 ——
-            // 两条路径并存,别在装配偷袭时顺手把它也标上:那会让刺可以直接点后排,
-            // 而它是教程演示字,首层单怪的一击清场口径建立在「主目标在前排」之上。
-            var hit = RealGraph().Get("刺").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(hit.Shape, Is.EqualTo(TargetShape.Skewer));
-            Assert.That(hit.CanStrikeBackline, Is.False, "刺 靠贯穿够后排,不是偷袭");
+            // 2026-09-05:刺(字卡攻击面 Skewer,全表唯一载体)随字表调整移出,该形状在
+            // 字卡侧休眠 —— 枪 的召唤被动 Skewer 不受影响,仍由
+            // RealConfig_SummonPassiveChars_CarryTheirPassive 钉着;这里钉的是出字直接效果
+            // (Effects / AttackEffects)的 Shape 字段。钉住空集:哪天有新字接手,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
+                    .Concat(c.AttackEffects ?? Array.Empty<EffectDef>()))
+                .Any(e => e.Shape == TargetShape.Skewer), Is.False, "字卡攻击面 Skewer 当前应无载体");
         }
 
         [Test]
@@ -237,8 +234,8 @@ namespace Brushblade.Core.Tests
                 // Thorns 的单位此时已是「受到伤害的百分比」,50 = 反弹一半。
                 ["荆"] = p => { Assert.That(p.Thorns, Is.EqualTo(50)); Assert.That(p.Ranged, Is.False, "改前排肉盾,不再远程");
                                 Assert.That(p.Taunt, Is.True, "嘲讽是「挨打即输出」成立的前提"); },
-                ["蕉"] = p => Assert.That(p.OnHitSlowPercent, Is.EqualTo(50)),
-                ["杖"] = p => Assert.That(p.HealAlly, Is.EqualTo(10)),
+                // 2026-09-05:蕉(OnHitSlow)/ 杖(HealAlly)随字表调整移出,两条断言删去 ——
+                // 复活线索见类文档顶部的「机制休眠」清单。
                 ["藤"] = p => { Assert.That(p.OnHitFreezeChance, Is.EqualTo(10)); Assert.That(p.OnSummonFreeze, Is.EqualTo(0)); },
                 ["锥"] = p => { Assert.That(p.Shape, Is.EqualTo(TargetShape.Volley)); Assert.That(p.Shots, Is.EqualTo(2)); },
                 ["剑"] = p => { Assert.That(p.Shape, Is.EqualTo(TargetShape.Sweep)); Assert.That(p.ShapePercent, Is.EqualTo(50)); },
@@ -314,19 +311,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_JiaoIsSlowSummon()
+        public void RealConfig_SummonOnHitSlowHasNoCarrier()
         {
-            // 2026-08-25 用户拍板:蕉 改控制型(出手减速),不再是灼烧型。
-            // ⚠ 这是「第二五行部件定型」的**例外** —— 艹+焦 的 焦 属火,按规则该是灼烧型。
-            // 例外由用户指定,规则本身不变(其余木系召唤仍按部件定型)。
-            var graph = RealGraph();
-            var summon = graph.Get("蕉").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(summon.SummonCount, Is.EqualTo(1), "2026-09-04:多只召唤收归金档及以上");
-            Assert.That(summon.Value, Is.EqualTo(220), "控制型系数 1.0(紫档锚点 110),只数 2→1 后 ×2 守恒");
-            Assert.That(summon.SummonAttack, Is.EqualTo(100));
-            Assert.That(summon.Passive.OnHitSlowPercent, Is.EqualTo(50));
-            Assert.That(summon.Passive.OnHitSlowTurns, Is.EqualTo(2));
-            Assert.That(summon.Passive.OnHitBurn, Is.EqualTo(0), "改控制型后不该还挂着灼烧");
+            // 2026-09-05:蕉(召唤被动 OnHitSlow,全表唯一载体)随字表调整移出,该被动休眠。
+            // 与 RealConfig_DodgeHasNoCarrier 同口径钉住空集:哪天有新字接手,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.Summon && e.Passive != null && e.Passive.OnHitSlowPercent > 0),
+                Is.False, "召唤被动 OnHitSlow 当前应无载体");
         }
 
         [Test]
@@ -412,11 +403,10 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("灭").Effects.First(e => e.Kind == EffectKind.Dispel).Value,
                 Is.EqualTo(-1), "灭清全部");
             // 2026-08-14 第二批裁定移出字表:削(清一条)/ 刮(清全部)。
-            // 「清一条」的载体现在只剩 淡(全体各清一条),见下。
-            // 2026-09-02 双方向重配:淡 的驱散随攻击面搬进 AttackEffects,治疗面回归纯治疗。
-            var dan = graph.Get("淡").AttackEffects.First(e => e.Kind == EffectKind.Dispel);
-            Assert.That(dan.TargetAll, Is.True, "淡是全体各清一条");
-            Assert.That(dan.Value, Is.EqualTo(1));
+            // 「清一条」的载体当时只剩 淡(全体各清一条)。
+            // 2026-09-05:淡 随字表调整移出,「清一条」自此也无载体(全表 Dispel
+            // 只剩 灭 与 湮,两张都是 Value=-1 清全部)—— 断言删去,复活线索见
+            // 类文档顶部的「机制休眠」清单。
         }
 
         [Test]
@@ -452,21 +442,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_BlindCharsCarryTheirPercentAndTurns()
+        public void RealConfig_BlindHasNoCarrier()
         {
-            var graph = RealGraph();
-            var sui = graph.Get("熣").Effects.First(e => e.Kind == EffectKind.Blind);
-            Assert.That(sui.Value, Is.EqualTo(50));
-            Assert.That(sui.Turns, Is.EqualTo(2), "turns 被静默丢掉的话会是 0——挂上去当场到期");
-            Assert.That(sui.TargetAll, Is.False);
-            Assert.That(graph.Get("熣").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(80), "2026-08-15:再挂 2 层 DOT(当量 60),80 + 60 + 致盲 60 = 紫档 200");
-            Assert.That(graph.Get("熣").Effects.Any(e => e.Kind == EffectKind.BurnSingle), Is.True,
-                "火系批量改造:攻击的同时挂 DOT");
-
-            // 2026-08-14 第二批裁定移出 烟(全体致盲 30/1 回合)——Blind 的载体现在只剩 熣 一张,
-            // targetAll 那一半的守卫改由 DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True
-            // 用构造的 CharDef 顶着。
+            // 2026-09-05:熣(Blind,全表唯一载体)随字表调整移出,致盲机制休眠。targetAll
+            // 那一半的守卫仍由 DamageVariantTests.NeedsTarget_BlindAll_False_BlindSingle_True
+            // 用构造的 CharDef 顶着。与 Silence 同口径钉住空集:哪天有新字接手,本条会红。
+            Assert.That(RealGraph().All.SelectMany(c => c.Effects ?? Array.Empty<EffectDef>())
+                .Any(e => e.Kind == EffectKind.Blind), Is.False, "Blind 当前应无载体");
         }
 
         [Test]
@@ -544,36 +526,26 @@ namespace Brushblade.Core.Tests
                 Is.False, "闪避当前应无载体");
         }
 
+        // 2026-09-05:本方法原名 RealConfig_JiaoCarriesBurnAndNoDecay,前半段钉 焦 的
+        // BurnNoDecay —— 焦 随字表调整移出,该机制休眠(复活线索见类文档顶部的
+        // 「机制休眠」清单),前半段断言已删。流血梯度断言与 焦 无关,保留并改名于此。
         [Test]
-        public void RealConfig_JiaoCarriesBurnAndNoDecay()
+        public void RealConfig_BleedChars_CarryTheirGradient()
         {
-            // 2026-08-25 字表重构:炑 移出字表,不灭机制移交 焦(「烧焦的痕迹不褪」)。
-            // 焦 是白档,故层数压到 1(当量 20)+ 不灭(计 40)= 白档锚点 60。
-            var jiao = RealGraph().Get("焦");
-            Assert.That(jiao.Rarity, Is.EqualTo(CardRarity.White));
-            // 断全序列(而非只断第一条)——否则行尾静默多挂一个效果不会被发现。
-            // BurnNoDecay 排在最后是 extract_values 的 VALUELESS_EFFECTS 统一追加所致,
-            // 与结算无关(不灭是标记位,不参与顺序敏感的兑现链)。
-            Assert.That(jiao.Effects.Select(e => e.Kind), Is.EqualTo(new[]
-            {
-                EffectKind.BurnSingle, EffectKind.BurnNoDecay,
-            }), "多一条效果就是超模——数组顺序即结算顺序");
-            Assert.That(jiao.Effects[0].Value, Is.EqualTo(1));
-            Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
-                .Any(e => e.Kind == EffectKind.BurnNoDecay)), Is.EqualTo(1), "不灭当前只有 焦 一个载体");
-
-            // 流血梯度:劈 白 10 / 剁 紫 20,收割者是 铡。
+            // 流血梯度:原为 劈 白 10 / 剁 紫 20,收割者是 铡。
             // 2026-08-25 曾是三档(锋 蓝 15 居中);2026-08-29 用户拍板把 锋 连同其余六张
             // buff 字一起去掉对敌效果、回归纯 buff,中间那一档因此空出来 —— 是已知缺口,
-            // 不是漏钉。要补就再找一张蓝档金系的字挂 Bleed 15。
+            // 不是漏钉。
+            // 2026-09-05:劈 随字表调整移出,流血梯度只剩 剁 一张 —— 白档那一级暂空
+            // (同属已知缺口,不是漏钉;要补就再找一张白档金系的字挂 Bleed 10)。
             var bleeders = RealGraph().All
                 .Where(c => (c.Effects ?? Array.Empty<EffectDef>()).Any(e => e.Kind == EffectKind.Bleed))
                 .ToDictionary(c => c.Id,
                     c => c.Effects.First(e => e.Kind == EffectKind.Bleed).Value);
             Assert.That(bleeders, Is.EquivalentTo(new Dictionary<string, int>
             {
-                ["劈"] = 10, ["剁"] = 20,
-            }), "铺流血的梯度就是这两张;新增载体时把它加进来一起钉");
+                ["剁"] = 20,
+            }), "铺流血的梯度就是这一张;新增载体时把它加进来一起钉");
         }
 
         [Test]
@@ -617,8 +589,9 @@ namespace Brushblade.Core.Tests
             // 配方部件补成叶子条目写进 chars.json,查得到不代表它是本批之前就已存在的字。
             // 2026-08-25 字表重构:炑 / 灱 移出字表,不灭与引爆分别移交 焦 / 炸 ——
             // 两个接手的字本来就在表里,同样不新增叶子。
+            // 2026-09-05:焦 随字表调整移出,对应断言删去(焦 已不在字表里,断它的配方
+            // 无意义)——燥/炸 两张不受影响,仍是本批(2026-08-25)新增的火系字。
             var graph = RealGraph();
-            Assert.That(graph.Get("焦").Recipe, Is.EqualTo(new[] { "隹", "灬" }));
             Assert.That(graph.Get("燥").Recipe, Is.EqualTo(new[] { "火", "喿" }));
             Assert.That(graph.Get("炸").Recipe, Is.EqualTo(new[] { "火", "乍" }));
         }
@@ -626,8 +599,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_NewBurnCharsHaveExpectedRarity()
         {
+            // 2026-09-05:焦 随字表调整移出,对应断言删去 —— 燥/炸 不受影响。
             var graph = RealGraph();
-            Assert.That(graph.Get("焦").Rarity, Is.EqualTo(CardRarity.White));
             Assert.That(graph.Get("燥").Rarity, Is.EqualTo(CardRarity.Purple));
             Assert.That(graph.Get("炸").Rarity, Is.EqualTo(CardRarity.Blue));
         }
@@ -650,14 +623,17 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_ComponentsWithRecipes_AreStillComponents()
         {
+            // 2026-09-05:崔(服务已移出的 熣)/ 切(服务已移出的 沏)随字表调整从
+            // COMPONENT_RECIPES 里一并删去,两个部件在 chars.json 里彻底消失(不是
+            // 改了配方,是条目本身不在了),故从下表移去。
             var graph = RealGraph();
             var expected = new (string Part, string[] Recipe)[]
             {
-                ("秋", new[] { "禾", "火" }), ("崔", new[] { "山", "隹" }),
+                ("秋", new[] { "禾", "火" }),
                 ("岂", new[] { "山", "己" }), ("荅", new[] { "艹", "合" }),
                 ("列", new[] { "歹", "刂" }), ("喿", new[] { "品", "木" }),
                 ("烝", new[] { "丞", "灬" }), ("则", new[] { "贝", "刂" }),
-                ("朵", new[] { "几", "木" }), ("切", new[] { "七", "刀" }),
+                ("朵", new[] { "几", "木" }),
                 ("茾", new[] { "艹", "开" }), ("垔", new[] { "覀", "土" }),
             };
             foreach (var (part, recipe) in expected)
@@ -673,8 +649,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RealConfig_NewComponentsAreTerminal()
         {
+            // 2026-09-05:七(原只服务 切→沏 这条链)随 切 一并从 chars.json 消失,从下表移去。
             var graph = RealGraph();
-            foreach (var part in new[] { "己", "合", "歹", "品", "丞", "贝", "几", "七", "开", "覀" })
+            foreach (var part in new[] { "己", "合", "歹", "品", "丞", "贝", "几", "开", "覀" })
             {
                 Assert.That(graph.TryGet(part, out var def), Is.True, $"{part} 不在字表里");
                 Assert.That(def.IsComponent, Is.True, $"{part} 该是部件");
@@ -692,7 +669,7 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("湮").Recipe, Is.EqualTo(new[] { "氵", "垔" }));
         }
 
-        /// <summary>74 个可出牌字一个都不是部件;部件一个都不是可出牌字。
+        /// <summary>60 个可出牌字一个都不是部件;部件一个都不是可出牌字。
         /// 库/池归属的 9 处判据全压在这条上。</summary>
         [Test]
         public void RealConfig_PlayableCharsAndComponentsDoNotOverlap()
@@ -715,8 +692,11 @@ namespace Brushblade.Core.Tests
             // 部件 57 → 69:12 条 COMPONENT_RECIPES 里 10 个原料是全新终点部件,另外 2 个
             // (茾、垔)本身也是全新条目——荆/湮 之前的一级配方绕开了它们(见
             // tools/pipeline/tests/test_export_chars.py::test_real_table_entry_count)。
-            Assert.That(playable, Is.EqualTo(74));
-            Assert.That(components, Is.EqualTo(69));
+            // 2026-09-05 字表调整:可出牌字 74 → 60(移出 17、新增 藻/箭/葬,74−17+3=60);
+            // 部件 69 → 58 —— 移出的 17 张里,不少字的专属部件(如 崔/切/七/戈/刀 及若干
+            // 只服务它们配方的中间字)随之从 chars.json 整个消失,净减 11 个。
+            Assert.That(playable, Is.EqualTo(60));
+            Assert.That(components, Is.EqualTo(58));
         }
 
         /// <summary>叠字前置不因部件有了配方而收紧(spec §一列出的三个回归之一)。
@@ -771,13 +751,15 @@ namespace Brushblade.Core.Tests
         {
             // 用户原话:「蕉 = 焦 + 艹,拆后获得 焦 和 艹,焦 可以进一步拆为 隹 + 灬,
             // 但 隹 + 灬 却无法再合成 焦。」根因是 焦 不在出阵列表里 —— 闭包补上这一层。
-            // 钉在**真实字表**上:夹具图谱证明不了 蕉/焦/隹/灬 这四个字的配方还长这样。
-            var set = ForgeEngine.ComposableSet(RealGraph(), new[] { "蕉" });
+            // 2026-09-05:蕉/焦 双双随字表调整移出,原样本失效,换到同形状的真实样本:
+            // 淼 = 水 + 冰(叠字链中间环),冰 本身可再拆为 冫 + 水 —— 冫 只能靠递归穿过
+            // 冰(一张可出牌字,不是裸部件)才能拿到,正是原 bug 要防的那类回归。
+            // 钉在**真实字表**上:夹具图谱证明不了 淼/冰/冫/水 这几个字的配方还长这样。
+            var set = ForgeEngine.ComposableSet(RealGraph(), new[] { "淼" });
 
-            Assert.That(set.Contains("焦"), Is.True, "拆 蕉 就能拿到 焦,那就该合得回去");
-            Assert.That(set.Contains("艹"), Is.True);
-            Assert.That(set.Contains("隹"), Is.True, "焦 再拆一层的产物 —— 闭包是递归的");
-            Assert.That(set.Contains("灬"), Is.True);
+            Assert.That(set.Contains("冰"), Is.True, "拆 淼 就能拿到 冰,那就该合得回去");
+            Assert.That(set.Contains("水"), Is.True);
+            Assert.That(set.Contains("冫"), Is.True, "冰 再拆一层的产物 —— 闭包是递归的");
         }
 
     }

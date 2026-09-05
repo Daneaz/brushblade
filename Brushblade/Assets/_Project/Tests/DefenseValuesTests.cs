@@ -22,7 +22,13 @@ namespace Brushblade.CoreTests
     /// R_in = 60(玩家挨的一击)、R_mob = 85(玩家打小怪)、R_boss = 120(玩家打 Boss)。
     ///
     /// ⚠ 本文件**读真实配置**(StreamingAssets/config/*.json),与 DefenseWiringTests 刻意相反 ——
-    /// 那个文件为了让接线可观测而与生产配置脱钩,这个文件的全部意义就是盯住生产配置的数字。</summary>
+    /// 那个文件为了让接线可观测而与生产配置脱钩,这个文件的全部意义就是盯住生产配置的数字。
+    ///
+    /// 2026-09-05 字表调整:铠(点数护甲全表唯一载体)与 刺(穿透全表唯一载体)随 17 字
+    /// 一并移出,两条机制随之休眠(规格 §1.3 裁定)。原 Calibration_DefenseChars_
+    /// AgainstIncomingReference("铠", 5) 与 Calibration_Ci_Pierce15_AgainstMoZhi 两条测试
+    /// 已整条删除 —— 没有别的字可以顶替,留着必红。**将来有字重新装配 DefenseBuff / pierce
+    /// 时,把这两条测试按原样加回来**(可从 git 历史 `git log -p` 这个文件找回原文)。</summary>
     public sealed class DefenseValuesTests
     {
         // ---- 真实配置读取 ----
@@ -179,26 +185,15 @@ namespace Brushblade.CoreTests
         // 现在改为精确钉住「点数 → 减伤」这条仍然成立的不变量,无容差、无已删的字。
         // 2026-08-25 字表重构:崟 / 漜 移出字表,DefenseBuff 只剩 铠 一个载体
         // (载体全集的守卫在 CharTableTests.RealConfig_DefenseChars_CarryTheirPoints)。
-        [TestCase("铠", 5)]
-        public void Calibration_DefenseChars_AgainstIncomingReference(string charId, int points)
-        {
-            var buff = RealGraph().Get(charId).Effects.First(e => e.Kind == EffectKind.DefenseBuff);
-            Assert.That(buff.Value, Is.EqualTo(points), $"「{charId}」的护甲点数");
-            Assert.That(PlayerHitAfterCasting(charId, 60), Is.EqualTo(60 - points),
-                "点数是直接从承伤里减的,不再走乘法减伤");
-        }
+        // 2026-09-05:Calibration_DefenseChars_AgainstIncomingReference("铠", 5) 已整条删除
+        // —— 铠 随字表调整移出,DefenseBuff 全表无载体。复活线索见类文档顶部。
 
         // ---- 穿透 3 条(打墨渍,DEF 20)----
 
         // 2026-08-25 字表重构:錰 移出字表、锥 转攻击型召唤,穿透伤害字只剩 刺 ——
         // 「穿透 ≥ DEF 全额落地」那一半自此在真字表里没有靶子,由 刺 这条继续钉减法本身。
-        [Test]
-        public void Calibration_Ci_Pierce15_AgainstMoZhi()
-        {
-            // 2026-08-25:刺 升蓝档 135 → 100;100 − max(0, 20 − 15) = 95。
-            var hit = RealGraph().Get("刺").Effects.First(e => e.Kind == EffectKind.DamageSingle);
-            Assert.That(HitFor(RealEnemy("墨渍"), hit.Value, hit.Pierce), Is.EqualTo(95));
-        }
+        // 2026-09-05:Calibration_Ci_Pierce15_AgainstMoZhi 已整条删除 —— 刺 随字表调整移出,
+        // pierce 全表无载体。复活线索见类文档顶部。
 
         // ============================================================
         // 裁定 11:护甲**半速**缩放(spec §6.3.1 / §6.3.2)

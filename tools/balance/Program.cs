@@ -43,17 +43,20 @@ namespace Brushblade.Balance
         // 就是幽灵字(那批裁定把它移出了详表,而这张表没跟着改),炽/炑/灱 则随本次重构移出 ——
         // 幽灵字进不了 RecipeGraph,机器人永远摸不到,等于那几档观测点是空的
         // (与上面「灯」那次同型的坑,已第二次踩)。
-            { "灼", "焦", "灭", "热", "烧", "爆", "炸", "燥", "烈", "熣", "蒸", "炎", "灿", "焚", "焱", "燚", "锐" };
+        // 2026-09-05 字表调整:灼/焦/烧/熣 本批移出(BurnNoDecay/DoubleVsBurning/Blind 随之休眠)。
+            { "灭", "热", "爆", "炸", "燥", "烈", "蒸", "炎", "灿", "焚", "焱", "燚", "锐" };
 
         /// <summary>水系出阵表(2026-09-02 双方向对照组)。15 张实体字全列 ——
         /// 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars),那一档观测点就是空的。
-        /// 从 chars.json 现读核对过,与 task-13-brief 给的表逐字一致。</summary>
+        /// 从 chars.json 现读核对过,与 task-13-brief 给的表逐字一致。
+        /// 2026-09-05 字表调整:沏/沝/淡 本批移出,不补新字(水系本批未新增)。</summary>
         private static readonly string[] WaterCards =
-            { "溃", "冻", "海", "冷", "浴", "湮", "沏", "澡", "沝", "冰", "沐", "淼", "淡", "淋", "㵘" };
+            { "溃", "冻", "海", "冷", "浴", "湮", "澡", "冰", "沐", "淼", "淋", "㵘" };
 
-        /// <summary>土系出阵表(2026-09-02)。13 张实体字全列。同上核对过,与 brief 一致。</summary>
+        /// <summary>土系出阵表(2026-09-02)。13 张实体字全列。同上核对过,与 brief 一致。
+        /// 2026-09-05 字表调整:砸/碾 本批移出(Sweep/Cleave 攻击形状随之休眠)。</summary>
         private static readonly string[] EarthCards =
-            { "碉", "砸", "碾", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓" };
+            { "碉", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓" };
 
         // ---- 阳性对照探针(spec §10.5,2026-08-12 E-b4/E-b5 T7)----
         // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
@@ -62,33 +65,7 @@ namespace Brushblade.Balance
         /// <summary>探针的起爬深度 = 词渊段首。带甲小怪墨渍(DEF 20)只在 11 层起的池子里。</summary>
         private const int ProbeStartDepth = 11;
 
-        /// <summary>护甲字。不同字 SourceId 不同 → **加法叠加**;同一个字再来只刷新。
-        ///
-        /// ⚠ **2026-08-25 起这档探针已经量不到「叠加」了** —— 磐/巍 早在 2026-08-14 移出字表
-        /// (这张表当时没跟着改,一直是幽灵字),漜/崊/崟 随本次字表重构移出,DefenseBuff
-        /// 只剩 铠 一个载体。一张字挂不出「加法叠加」,探针退化成「挂了 5 点甲」。
-        /// 留着是因为它仍能证明 DefenseBuff 接进了伤害链路;**但它不再是叠加的证据**。</summary>
-        private static readonly string[] ArmorCards = { "铠" };
-
-        /// <summary>土系堆甲探针的**起手四张** = 四张最厚的护甲字(铠12 漜15 崊12 崟9,
-        /// 卡 5 级后 17+21+17+13 = 68 点)。第一个回合 3 AP 就能挂上三张,DefenseBuff 是
-        /// <c>TurnsLeft = -1</c> 且 RunEngine 把它列进 CarriedStatuses,所以整段持久。
-        ///
-        /// ⚠ 这里刻意偏离了 spec §10.5 写的「铠漜崊磐巍崟 + 一个输出字」的**全防御卡组**。
-        /// 实测那套 P50 = 3,**低于对照组**,方向与预期相反 —— 而且不是因为 DefenseBuff
-        /// 没接上:六张护甲字占掉 6/7 的回合掉字,同字只刷新不叠加,第二张起全是废牌,
-        /// 机器人靠 1/7 的掉字打不动 140×scale 血的小怪,60 回合僵局被记成「卒于当层」。
-        /// 那套探针量到的是**僵局判定**,会把「接好了」误报成「接坏了」,比没有探针更糟。
-        ///
-        /// 现在这套把变量收敛到**一个**:起手四张换成护甲字。出阵卡组仍是 <see cref="FireCards"/>,
-        /// 与对照组**逐字相同** —— 掉字流、可合成集合、等级、卡等级、起爬深度全部一致,
-        /// 唯一的差别是开局那手牌。于是方向是净的:DefenseBuff 若真进了伤害链路,
-        /// 68 点甲对 30~50×scale 的怪攻压得过「少了四张开局输出」;若没接进去,
-        /// 剩下的就只有开局吃亏,P50 必然掉到对照组以下(实测正是如此,见任务报告)。</summary>
-        private static readonly string[] ArmorHand = { "铠" };
-
-        /// <summary>堆甲探针的卡等级表:得覆盖火系与护甲两边的字,漏掉哪边哪边就退回 1 级。</summary>
-        private static readonly string[] ArmorProbeCards = FireCards.Concat(ArmorCards).ToArray();
+        // 2026-09-05:铠 移出字表,点数护甲无载体,护甲画像随之下线。重新装配 DefenseBuff 时恢复。
 
         /// <summary>AOE 专精:全 DamageAll 且**不带任何附加效果**的字。
         /// 刻意避开 燚/焱/㵘 这类「AOE + 灼烧/治疗」的复合字 —— 混进 DOT 就分不清读数的变化
@@ -122,21 +99,20 @@ namespace Brushblade.Balance
                 // 2026-08-12 E-b4 T4 起 DEF 与闪避):画像的等级此前只体现在血量上,
                 // 其余恒为基准 —— 那会让 E-b5 重平衡看不见这些成长轴。等级只传一次,
                 // 从此不会出现「等级涨了但某条属性忘了跟着涨」。
-                new Profile("新手(灼,1级,HP500,ATK100,DEF0,闪0)", new[] { "灼" },
+                // 2026-09-05 字表调整:灼/烧 本批移出,起手牌换成 灭/灿(见 FireCards 同批注释)。
+                new Profile("新手(灭,1级,HP500,ATK100,DEF0,闪0)", new[] { "灭" },
                     new Dictionary<string, int>(), level: 1),
-                new Profile("小成长(灼炎烧热,卡3级,3级,HP540,ATK104,DEF1,闪2)", new[] { "灼", "炎", "烧", "热" },
+                new Profile("小成长(灭炎爆热,卡3级,3级,HP540,ATK104,DEF1,闪2)", new[] { "灭", "炎", "爆", "热" },
                     FireCards.ToDictionary(c => c, _ => 3), level: 3),
-                new Profile("养成(焚炎灼燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炎", "灼", "燚" },
+                new Profile("养成(焚炎灿燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炎", "灿", "燚" },
                     FireCards.ToDictionary(c => c, _ => 5), level: 10),
 
-                // ---- 探针三连(spec §10.5)。三档等级/卡等级/起爬深度逐项相同,只换起手牌与卡组 ----
+                // ---- 探针(spec §10.5)。等级/卡等级/起爬深度与上面基线相同,只换起手牌与卡组 ----
                 // ⚠ 对照这一档是**仪器的一部分**,不是第四个平衡目标:上面三档基线全部从 1 层起爬、
-                // 实测「带甲战/次」是 0.0/0.0/0.1 —— 拿它们当参照物,两个探针的方向都无从判起。
-                new Profile("探针·对照(火系,深启11)", new[] { "焚", "炎", "灼", "燚" },
+                // 实测「带甲战/次」是 0.0/0.0/0.1 —— 拿它当参照物,AOE 探针的方向才判得起。
+                // 2026-09-05:「探针·土系堆甲」随 ArmorCards/ArmorHand 一并下线(见上方护甲字注释)。
+                new Profile("探针·对照(火系,深启11)", new[] { "焚", "炎", "灿", "燚" },
                     FireCards.ToDictionary(c => c, _ => 5), level: 10, startDepth: ProbeStartDepth),
-                new Profile("探针·土系堆甲(起手四护甲,深启11)", ArmorHand,
-                    ArmorProbeCards.ToDictionary(c => c, _ => 5), level: 10,
-                    deck: FireCards, startDepth: ProbeStartDepth),
                 new Profile("探针·AOE专精(全 DamageAll,深启11)", new[] { "爆", "海", "崩", "剿" },
                     AoeCards.ToDictionary(c => c, _ => 5), level: 10,
                     deck: AoeCards, startDepth: ProbeStartDepth),
@@ -145,7 +121,7 @@ namespace Brushblade.Balance
                 // ⚠ deck 必须显式传各自的出阵表 —— Profile.Deck 缺省落回 FireCards
                 // (回合掉字 + 合成锁都读它),漏传会重演「幽灵字/摸不到」那个坑,
                 // 只是这次是摸到了错误系的字。
-                new Profile("水系双方向(冻沝淼㵘,卡5级,10级)", new[] { "冻", "沝", "淼", "㵘" },
+                new Profile("水系双方向(冻冰淼㵘,卡5级,10级)", new[] { "冻", "冰", "淼", "㵘" },
                     WaterCards.ToDictionary(c => c, _ => 5), level: 10, deck: WaterCards),
                 new Profile("土系双方向(垒圭垚㙓,卡5级,10级)", new[] { "垒", "圭", "垚", "㙓" },
                     EarthCards.ToDictionary(c => c, _ => 5), level: 10, deck: EarthCards),

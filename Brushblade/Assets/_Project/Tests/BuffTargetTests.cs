@@ -457,12 +457,15 @@ namespace Brushblade.Core.Tests
         ///
         /// 2026-09-02(Task 11):杜/壁 同理 —— 土系双方向重配给它们的攻击面也配上了
         /// DamageSingle,不再是「纯友方字」,一并移出。名单至此只剩 铠/战/锋/锐 四条
-        /// 真正的纯增益字(均为金系,不在本轮双方向重配范围内)。</summary>
+        /// 真正的纯增益字(均为金系,不在本轮双方向重配范围内)。
+        ///
+        /// 2026-09-05:铠(DefenseBuff)/ 战(Empower)随字表调整移出,从下表删去,
+        /// 只剩 锋(CritBuff)/ 锐(PierceBuff)两张。</summary>
         [Test]
         public void ShippedBuffChars_AreAllyOnly_SoTheyCanBeDraggedOntoAllies()
         {
             var graph = RealGraph();
-            foreach (string id in new[] { "铠", "战", "锋", "锐" })
+            foreach (string id in new[] { "锋", "锐" })
             {
                 var def = graph.Get(id);
                 Assert.That(BattleEngine.NeedsAllyTarget(def, attackMode: true), Is.True,

@@ -431,6 +431,9 @@ namespace Brushblade.Presentation
             if (p.HealAlly > 0) AddTrait(traits, "heal", p.HealAlly.ToString(),
                             Strings.T("collection.trait.summon_heal.name"),
                             Strings.T("collection.trait.summon_heal.desc", ("value", p.HealAlly)));
+            if (p.Regen > 0) AddTrait(traits, "heal", p.Regen.ToString(),
+                            Strings.T("collection.trait.summon_regen.name"),
+                            Strings.T("collection.trait.summon_regen.desc", ("value", p.Regen)));
             if (p.OnHitBurn > 0)
             {
                 if (p.OnHitBurnAll)

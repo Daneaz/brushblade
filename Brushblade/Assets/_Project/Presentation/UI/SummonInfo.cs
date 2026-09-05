@@ -102,6 +102,8 @@ namespace Brushblade.Presentation
                 }
                 else if (passive.HealAlly > 0)
                     name = Strings.T("summon.passive.heal_ally", ("heal", passive.HealAlly));
+                else if (passive.Regen > 0)
+                    name = Strings.T("summon.passive.regen", ("regen", passive.Regen));
                 else if (passive.OnHitCurse > 0)
                     name = Strings.T("summon.passive.curse", ("curse", passive.OnHitCurse));
                 else if (passive.Dodge > 0)

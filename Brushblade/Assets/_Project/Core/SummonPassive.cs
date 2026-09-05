@@ -22,6 +22,15 @@ namespace Brushblade.Core
         /// <summary>每回合给玩家 + 全部存活召唤物回血,与出手无关。桃 = 3。</summary>
         public int HealAlly { get; set; }
 
+        /// <summary>每回合给**自己**回血(2026-09-05,藻)。0 = 无。
+        ///
+        /// 与 <see cref="HealAlly"/> 是一对,别合并:那个是「给玩家 + 全部存活召唤物」的光环,
+        /// 这条只作用于持有者本身。藻 由用户指定做自愈型召唤,不外溢。
+        ///
+        /// 不吃卡等级 —— 回归 2026-08-05 的「被动数值是节奏,不随等级变」缺省
+        /// (吃等级的只有 OnHitFreezeChance / OnHitSlow 两项,是 2026-08-25 的显式例外)。</summary>
+        public int Regen { get; set; }
+
         /// <summary>出手时额外挂的灼烧层数。烓 = 3 / 灶 = 2 / 楸 = 1。</summary>
         public int OnHitBurn { get; set; }
 
@@ -96,7 +105,7 @@ namespace Brushblade.Core
 
         public SummonPassive Clone() => new()
         {
-            Speed = Speed, Thorns = Thorns, HealAlly = HealAlly,
+            Speed = Speed, Thorns = Thorns, HealAlly = HealAlly, Regen = Regen,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
             Dodge = Dodge, Ranged = Ranged, Taunt = Taunt, OnSummonFreeze = OnSummonFreeze,
             OnHitFreezeChance = OnHitFreezeChance, OnHitFreezeTurns = OnHitFreezeTurns,
