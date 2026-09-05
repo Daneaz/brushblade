@@ -17,7 +17,6 @@ namespace Brushblade.Presentation
         private const float FlowPeriodBright = 2.85f;// 橙:流光加强版 —— 周期比
                                                        // 金档快、比红档星芒慢,呼应「金<橙<红」的视觉层级递增
         private const float TwinklePeriod = 2.7f;    // 红:星芒明灭
-        private const float PlayablePeriod = 2.9f;   // 通用:可出手呼吸
 
         // 六系签名动效周期(§4.1)。金/土 刻意最慢:金是「瞬时、间隔长」,土是「几乎不动」
         private static float PeriodOf(Element? element) => element switch
@@ -62,15 +61,17 @@ namespace Brushblade.Presentation
         private float _alphaCeil;
         private float _alphaScale = 1f;
         private Color _frameBase;
-        /// <summary>出手状态三态。**Untracked 是关键的一档**:呼吸曾因「全屏都在闪」被砍,
-        /// 病根不在呼吸本身,而在只有战斗调 SetPlayable、别处所有牌都默认「可出手」——
-        /// 卡组同屏 12 张全在胀缩。分出「没人告诉过我」这一档,呼吸就只发生在真正需要
-        /// 表达可否出手的地方(战斗字库),其余界面一律安静。</summary>
+        /// <summary>出手状态三态。**Untracked 是关键的一档**:只有战斗调 SetPlayable,
+        /// 别处所有牌都默认「可出手」—— 卡组同屏 12 张会全部镶上属性色边,那条边就不再
+        /// 是信号而是装饰。分出「没人告诉过我」这一档,镶边就只发生在真正需要表达
+        /// 可否出手的地方(战斗字库),其余界面维持原来那圈素边。</summary>
         private enum Playability { Untracked, Playable, Blocked }
 
         private Playability _play = Playability.Untracked;
         private Playability _frameApplied = Playability.Untracked;
-        private RectTransform _self;
+        private Image _ring;
+        private Color _ringBase;
+        private bool _selected;
 
         /// <summary>低于这个 alpha 变化量就不写回 —— UI 的 color 每写一次就标脏一次 Canvas。</summary>
         private const float AlphaEpsilon = 0.004f;
@@ -78,10 +79,14 @@ namespace Brushblade.Presentation
         /// <summary>材质光效里掺多少属性色。掺多了稀有度就认不出了,三成是能看出系别的下限。</summary>
         private const float GlowTintStrength = 0.3f;
 
+        /// <param name="ring">牌根那圈镶边(<see cref="Ui.GlyphTile"/> 的最外层图)。
+        /// 报过「可出手」时换成属性色,其余情况维持调用方设的素边。</param>
         public void Init(CardRarity rarity, Element? element, Vector2 size,
-            Transform moteParent, Image frame, Image glow, bool selected)
+            Transform moteParent, Image frame, Image glow, bool selected, Image ring = null)
         {
-            _self = (RectTransform)transform;
+            _ring = ring;
+            _ringBase = ring != null ? ring.color : Color.clear;
+            _selected = selected;
             _rarity = rarity;
             _element = element;
             _size = size;
@@ -162,7 +167,7 @@ namespace Brushblade.Presentation
             _ => 0.26f,
         };
 
-        /// <summary>AP 够不够出这张(§4.4)。够:极轻微呼吸,提示「这张能打」;
+        /// <summary>AP 够不够出这张(§4.4)。够:牌根镶一圈属性色边,提示「这张能打」;
         /// 不够:去饱和压暗 + 属性动效停。不调这个方法的界面两样都不做。</summary>
         public void SetPlayable(bool playable) =>
             _play = playable ? Playability.Playable : Playability.Blocked;
@@ -173,25 +178,30 @@ namespace Brushblade.Presentation
             float attention = _focused == null || _focused == this ? 1f : UnfocusedAttention;
             float gate = _play == Playability.Blocked ? 0f : attention;
 
-            DriveFrame(t);
+            DriveFrame();
             DriveGlow(t, gate);
             DriveMotes(t, gate);
         }
 
-        /// <summary>通用层(§4.4):可出手呼吸 + AP 不足去饱和压暗。
-        /// 呼吸只作用在**明确报过可出手**的牌上(见 <see cref="Playability"/>):
-        /// 曾经因为「全屏都在闪」砍过一次,病根是别处的牌也默认在呼吸,不是呼吸本身。</summary>
-        private void DriveFrame(float t)
+        /// <summary>通用层(§4.4):可出手**镶属性色边** + AP 不足去饱和压暗。
+        ///
+        /// 2026-09-05 用户拍板把原来那条 ±1.5% 的缩放呼吸换成镶边:96×117 的牌上 1.5%
+        /// 只有 1 个像素多一点,同屏一排牌各自起相地微微胀缩,读出来是「有点糊」而不是
+        /// 「这几张能出」。镶边是静的,一眼扫过去就数得清能出几张,顺带把属性也说了 ——
+        /// 而属性此前全屏只由字形颜色一处承担(2026-07-28 移除顶条时留下的窟窿)。
+        ///
+        /// 只作用在**明确报过可出手**的牌上(见 <see cref="Playability"/>);
+        /// 选中态优先,那圈墨色边是「我正点着这张」,不能被属性色顶掉。</summary>
+        private void DriveFrame()
         {
-            if (_play == Playability.Playable)
-            {
-                float breathe = 1f + 0.015f * Mathf.Sin(t * Mathf.PI * 2f / PlayablePeriod);
-                _self.localScale = new Vector3(breathe, breathe, 1f);
-            }
-            // 框色只在出手状态翻转时写一次 —— 每帧无条件赋 color 会把整块 Canvas 每帧标脏
-            if (_frame == null || _play == _frameApplied) return;
+            // 只在出手状态翻转时写一次 —— 每帧无条件赋 color 会把整块 Canvas 每帧标脏
+            if (_play == _frameApplied) return;
             _frameApplied = _play;
-            if (_play != Playability.Playable) _self.localScale = Vector3.one;
+            if (_ring != null)
+                _ring.color = _play == Playability.Playable && !_selected
+                    ? Theme.GlyphColor(_element)   // 不用 ElementColor:金 #B3A382 在宣纸上糊成一片
+                    : _ringBase;
+            if (_frame == null) return;
             // 去饱和不能动 alpha:框素材自带牌面底色,压 alpha 会把牌变透明
             _frame.color = _play == Playability.Blocked
                 ? Color.Lerp(_frameBase, Theme.LockedBg, 0.62f)

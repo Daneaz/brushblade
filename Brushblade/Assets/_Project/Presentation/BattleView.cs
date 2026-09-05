@@ -3085,7 +3085,7 @@ namespace Brushblade.Presentation
         private const float PoolAdSlotW = 67f;        // 稿 .adpart { width: 32pt },与部件卡同宽
         private const float PoolAdSlotH = 80f;        // 稿 .adpart { height: 38pt },与部件卡同高
 
-        private const float PartRimThickness = 3f;    // 金边宽:67 宽的卡上再粗就压到字形了
+        private const float PartRimThickness = 3f;    // 银边宽:67 宽的卡上再粗就压到字形了
 
         /// <summary>部件卡(稿 .part):一个大字形。同源变体不写在卡面上,由
         /// <see cref="PlaceKinBadge"/> 贴到四角(2026-09-01 用户拍板还原四角设计)。
@@ -3093,7 +3093,7 @@ namespace Brushblade.Presentation
         /// 这里要的是稿上 67×80 的竖版卡,单独手搭。</summary>
         /// <param name="rim">给了就把卡改成**描边卡**:根图换成边色,卡面缩进
         /// <see cref="PartRimThickness"/> 另起一层(同 <see cref="Ui.OutlinedPanel"/> 的结构)。
-        /// 金边 = 还能再拆一层(2026-09-05 用户拍板),见 <see cref="DrawPool"/>。
+        /// 银边 = 还能再拆一层(2026-09-05 用户拍板),见 <see cref="DrawPool"/>。
         /// 不能拿一张子 Image 当边:uGUI 里父级的图先画、子物体一律盖在它之上,
         /// 而 9-slice 的 fillCenter=false 那条路边宽 = radius+2 = 14,这么小的卡会被吃掉大半
         /// (Theme.Halo 的注释里记着同一笔账)。</param>
@@ -3127,15 +3127,15 @@ namespace Brushblade.Presentation
             return button;
         }
 
-        /// <summary>还能再拆一层的部件:一圈**会呼吸的金色墨晕**,套在金边外面。
+        /// <summary>还能再拆一层的部件:一圈**会呼吸的银色墨晕**,套在银边外面。
         ///
         /// 与卡组页「这张字还没看过」是同一件小玩意(<see cref="CardBadges"/> 的 NewFlag
-        /// 走的也是 Halo + <see cref="CardHalo"/> + <see cref="Theme.Gold"/>)——
+        /// 走的也是 Halo + <see cref="CardHalo"/>,只是那边用金、这边用银)——
         /// 两处离得远,不会读混,而复用省下的是「第二套呼吸曲线」。
         ///
-        /// 首版只做了 <see cref="CardFrameView"/> 那条 ±1.5% 的缩放呼吸,用户反馈「不明显」:
-        /// 67×80 的卡上 1.5% 只有 1 个像素,而那条曲线本是为 96×117 的字库牌定的,
-        /// 且那里还有去饱和压暗一起表意。小卡上要靠**颜色**说话。</summary>
+        /// 首版借的是字库牌那条 ±1.5% 的缩放呼吸,用户反馈「不明显」——
+        /// 67×80 的卡上 1.5% 只有 1 个像素。小卡上要靠**颜色**说话。
+        /// (那条缩放呼吸本身也已于同日撤销,字库牌改成镶属性色边,见 <see cref="CardFrameView"/>。)</summary>
         private static void AttachSplittableGlow(Transform tile)
         {
             var halo = Ui.Panel(tile, "SplitHalo");
@@ -3151,7 +3151,7 @@ namespace Brushblade.Presentation
             // 外扩量必须与贴图里的 HaloPad 一致,否则渐变的峰值不落在卡沿上
             rect.offsetMin = new Vector2(-Theme.HaloPad, -Theme.HaloPad);
             rect.offsetMax = new Vector2(Theme.HaloPad, Theme.HaloPad);
-            halo.AddComponent<CardHalo>().Init(image, Theme.Gold);
+            halo.AddComponent<CardHalo>().Init(image, Theme.Silver);
         }
 
         /// <summary>把一个同源徽标贴到部件卡的某个角(2026-08-15 首版;2026-08-31 接稿时曾被
@@ -3227,13 +3227,13 @@ namespace Brushblade.Presentation
                     else OnPoolCharClicked(charId);
                 };
                 // 2026-08-31 接稿:56×56 的 RoundButton → 67×80 的 PartTile(稿 32×38pt)。
-                // 金边 = 还能再拆一层(烝 = 丞 + 灬)。拆按钮只在选中后才出现在拆合台上,
+                // 银边 = 还能再拆一层(烝 = 丞 + 灬)。拆按钮只在选中后才出现在拆合台上,
                 // 不点开根本看不出这一格还有得做。奖励页不给 —— 那一屏点部件只看说明、拆不了。
                 bool splittable = !rewardPhase && !def.IsLeaf;
                 var tile = PartTile(_poolRow, charId, tap,
                     selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     selected ? Color.white : Theme.ElementSoftFg(def.Element),
-                    splittable ? Theme.Gold : (Color?)null);
+                    splittable ? Theme.Silver : (Color?)null);
                 if (splittable) AttachSplittableGlow(tile.transform);
                 // 同源徽标(2026-08-15,部件五系通用;2026-09-01 用户拍板从卡面一行文字
                 // 还原回四角):同组**其他全部**成员各占一个角。判据用 TryGetGroup 而不是

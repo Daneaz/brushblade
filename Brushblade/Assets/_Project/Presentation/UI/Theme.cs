@@ -26,6 +26,10 @@ namespace Brushblade.Presentation
         public static readonly Color GoldText = new(0.251f, 0.161f, 0.0f);
         public static readonly Color GoldSoft = new(0.965f, 0.929f, 0.835f);    // 金系浅底(墨锭条/满级牌脚)
         public static readonly Color GoldDeep = new(0.561f, 0.42f, 0.035f);     // 压在 GoldSoft 上的字色
+        /// <summary>银边 `#A9AFB8`(2026-09-05 用户拍板):部件池「还能再拆一层」的镶边。
+        /// 冷灰,压在暖调宣纸上才认得出是金属而不是脏;刻意比 <see cref="Gold"/> 收敛得多 ——
+        /// 那一圈是**常驻**的,同屏可能有三五个,亮到金那个程度就成了抢戏。</summary>
+        public static readonly Color Silver = new(0.663f, 0.686f, 0.722f);
         public static readonly Color AdGreen = new(0.232f, 0.586f, 0.332f);
         public static readonly Color AdGreenBg = new(0.892f, 0.955f, 0.901f);
         public static readonly Color AdGreenText = new(0.044f, 0.364f, 0.165f);

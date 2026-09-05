@@ -679,6 +679,9 @@ namespace Brushblade.Presentation
             var s = size ?? new Vector2(96, 120); // 默认对齐素材 0.8 竖版比例
             var go = new GameObject($"Tile_{def.Id}", typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            // 牌根那圈镶边。素边(墨影)是默认;战斗字库里报过「这张出得起」的牌会被
+            // CardFrameView 换成属性色 —— 2026-09-05 用户拍板,取代原来那条看不见的缩放呼吸。
+            // 选中态的墨色边优先,属性色不顶它(「我正点着这张」比「这张能出」更要紧)。
             var ring = go.AddComponent<Image>();
             ring.sprite = Theme.Rounded(14);
             ring.type = Image.Type.Sliced;
@@ -750,7 +753,7 @@ namespace Brushblade.Presentation
             // 未拥有不挂:稿上「未拥有不发光」—— 一屏几十张没拿到的字全在动,会盖过真正到手的那些
             if (!locked)
                 go.AddComponent<CardFrameView>().Init(def.Rarity, def.Element,
-                    new Vector2(s.x - 5f, s.y - 6.25f), motes.transform, face, glow, selected);
+                    new Vector2(s.x - 5f, s.y - 6.25f), motes.transform, face, glow, selected, ring);
             else if (glow != null)
                 glow.enabled = false;
 
