@@ -31,6 +31,8 @@ tools/coretests/bin/
 tools/coretests/obj/
 tools/balance/bin/
 tools/balance/obj/
+tools/chestsim/bin/
+tools/chestsim/obj/
 tools/prescompile/bin/
 tools/prescompile/obj/
 tools/trace/bin/

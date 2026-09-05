@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 宝箱产出仿真(19.5.1 的期望张数表):链接 Core/Data 源码,跑真实的 ChestRules.TryOpen。
+       用法:tools/chestsim$ dotnet run -c Release(dotnet 用 Unity 自带 SDK,见 CLAUDE.md)。
+       字表一改,19.5.1 那张表就过期 —— 重跑本工装、把输出贴回文档。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Core/**/*.cs" />
+    <Compile Include="../../Brushblade/Assets/_Project/Data/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>
