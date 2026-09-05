@@ -87,10 +87,18 @@ namespace Brushblade.Core
                         Scaled(phase.MaxHp, scale), Scaled(phase.Attack, scale),
                         phase.Skill, ScaledDefense(phase.Defense, scale)));
             }
+            // ⚠ **这里是 EnemyDef 的重建点,不是「改几个数」** —— 每加一个字段都得在这一行
+            // 带上,漏掉的那个会静默回落成构造函数的默认值。而**每一只**上场的敌人都过这里
+            // (Endless.BuildFloor 逐只 Scale),所以漏一个就是全场失效,不是边角情形。
+            // 2026-09-05 rowSpan 就这么丢过一次:字表与 ConfigLoader 都配好了跨排 Boss,
+            // 缩放之后 RowSpan 回落成 1,Boss 在屏上只占前排两格 —— 而当时的测试全绿,
+            // 因为它们直接构造 EnemyDef、没有一条走过 Scale。
+            // 守卫:CampaignScaleTests.Scale_KeepsEveryNonNumericField。
             return new EnemyDef(enemy.Id, enemy.Element,
                 Scaled(enemy.MaxHp, scale), Scaled(enemy.Attack, scale),
                 enemy.Ability, phases, ScaledDefense(enemy.Defense, scale), enemy.Speed,
-                enemy.Row, enemy.Range, enemy.Focus, enemy.ColumnSpan, enemy.MinDepth);
+                enemy.Row, enemy.Range, enemy.Focus, enemy.ColumnSpan, enemy.MinDepth,
+                enemy.RowSpan);
         }
 
         /// <summary>护甲点数的深度缩放:**半速**(2026-08-12,E-b4 裁定 11)。
