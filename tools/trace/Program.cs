@@ -42,12 +42,14 @@ namespace Brushblade.Trace
         /// ⚠ 2026-08-12:原表里的「灯」是幽灵字 —— ids.txt 有拆解但《技能机制详表》没有它,
         /// 管线从没产出过,进不了 RecipeGraph。而它是「基准1级」画像的唯一起手字,那一档
         /// 因此是空手打。已移除;基准画像改用 灼(白档,单攻 60)。
+        /// ⚠ 2026-09-05:灼 本批随字表调整移出,基准画像的起手字再换成 灭(白档,群攻 30)。
         private static readonly string[] FireCards =
         // ⚠ 2026-08-25 字表重构:整表按现行火系 16 字重列。原表里 燃 自 2026-08-14 起
         // 就是幽灵字(那批裁定把它移出了详表,而这张表没跟着改),炽/炑/灱 则随本次重构移出 ——
         // 幽灵字进不了 RecipeGraph,机器人永远摸不到,等于那几档观测点是空的
         // (与上面「灯」那次同型的坑,已第二次踩)。
-            { "灼", "焦", "灭", "热", "烧", "爆", "炸", "燥", "烈", "熣", "蒸", "炎", "灿", "焚", "焱", "燚" };
+        // 2026-09-05 字表调整:灼/焦/烧/熣 本批移出,「基准1级」画像的起手字随之改用 灭(白档)。
+            { "灭", "热", "爆", "炸", "燥", "烈", "蒸", "炎", "灿", "焚", "焱", "燚" };
 
         /// <summary>杂食出阵表:纯火系打不出护盾/治疗/召唤/流血这几路事件,量级 ×10
         /// 在那些路径上就没有观测点。这张表专门为**事件种类覆盖**而配。
@@ -58,8 +60,10 @@ namespace Brushblade.Trace
         /// 暴击是 E-b2 已经守住的,减伤/破甲是 T3 的网 3 要专测的。</summary>
         // 2026-08-25 字表重构:城/治/滋/桃/锯/锁 早已是幽灵字(2026-08-14 那批移出时这张表
         // 没跟着改),柳/洼 随本次移出。下面全部是现行字表里真实存在的字。
+        // 2026-09-05 字表调整:杖/松 本批移出(木系),换成本批新增的木系三字 藻/箭/葬,
+        // 维持这张表对木系事件(召唤/直伤)的覆盖。
         private static readonly string[] MixedCards =
-            { "塔", "堡", "垒", "淋", "沐", "森", "林", "冰", "淼", "海", "崩", "杖", "松" };
+            { "塔", "堡", "垒", "淋", "沐", "森", "林", "冰", "淼", "海", "崩", "藻", "箭", "葬" };
 
         /// <summary>卡等级全 1:spec §10.2 的「基准切片」要求。<see cref="MetaRules.ScaleByCardLevel"/>
         /// 在 level &gt; 1 时带 ceil,ceil(10x·k) ≠ 10·ceil(x·k),等级一上去 ×10 恒等立刻不成立。</summary>
@@ -114,9 +118,9 @@ namespace Brushblade.Trace
             // 耐久档能爬得更深,深层档直接空降到 26 层去够到「文山」段与成语 Boss。
             var profiles = new[]
             {
-                new Profile("基准1级", new[] { "灼" }, MetaRules.MaxHpFor(1), 1, FireCards),
-                new Profile("基准耐久", new[] { "焚", "炎", "灼", "燚" }, MetaRules.MaxHpFor(26), 1, FireCards),
-                new Profile("基准深层", new[] { "焚", "炎", "灼", "燚" }, MetaRules.MaxHpFor(26), 26, FireCards),
+                new Profile("基准1级", new[] { "灭" }, MetaRules.MaxHpFor(1), 1, FireCards),
+                new Profile("基准耐久", new[] { "焚", "炎", "灿", "燚" }, MetaRules.MaxHpFor(26), 1, FireCards),
+                new Profile("基准深层", new[] { "焚", "炎", "灿", "燚" }, MetaRules.MaxHpFor(26), 26, FireCards),
                 new Profile("基准杂食", new[] { "塔", "堡", "森", "淋", "冰", "淼" },
                     MetaRules.MaxHpFor(26), 1, MixedCards),
             };
