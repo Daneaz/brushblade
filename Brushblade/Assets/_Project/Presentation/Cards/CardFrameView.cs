@@ -167,6 +167,12 @@ namespace Brushblade.Presentation
         public void SetPlayable(bool playable) =>
             _play = playable ? Playability.Playable : Playability.Blocked;
 
+        /// <summary>可出手呼吸的缩放值(<paramref name="t"/> 已含每张牌各自的起相)。
+        /// 公开只为让部件池那条同款呼吸(<see cref="PartBreath"/>)读同一条曲线 ——
+        /// 把周期与幅度抄一份过去,两边迟早各改各的。</summary>
+        public static float BreatheScale(float t) =>
+            1f + 0.015f * Mathf.Sin(t * Mathf.PI * 2f / PlayablePeriod);
+
         private void Update()
         {
             float t = Time.time + _phase;
@@ -185,7 +191,7 @@ namespace Brushblade.Presentation
         {
             if (_play == Playability.Playable)
             {
-                float breathe = 1f + 0.015f * Mathf.Sin(t * Mathf.PI * 2f / PlayablePeriod);
+                float breathe = BreatheScale(t);
                 _self.localScale = new Vector3(breathe, breathe, 1f);
             }
             // 框色只在出手状态翻转时写一次 —— 每帧无条件赋 color 会把整块 Canvas 每帧标脏

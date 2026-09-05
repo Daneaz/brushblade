@@ -3199,6 +3199,10 @@ namespace Brushblade.Presentation
                         PlaceKinBadge(tile.transform, kinPart, def.Element, corner++);
                     }
                 }
+                // 可拆的二级部件(烝 = 丞 + 灬)呼吸,与字库牌「这张出得起」同一条曲线:
+                // 拆按钮只在选中后才出现在拆合台上,不点开根本看不出这一格还能再拆一层。
+                // 奖励页不给 —— 那一屏点部件只看说明,拆不了(见上面 tap 的两支)。
+                if (!rewardPhase && !def.IsLeaf) tile.gameObject.AddComponent<PartBreath>();
                 HoldToPreview.Attach(tile.gameObject, () => ShowCharPreview(charId));
                 if (!rewardPhase) AttachDragToAttack(tile.gameObject, def); // 水/土 直出的攻击用法在这一排
                 _tileRects[charId] = (RectTransform)tile.transform; // 同名部件取最后一个,动效近似即可
