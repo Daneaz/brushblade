@@ -1571,8 +1571,10 @@ namespace Brushblade.Core
         }
 
         /// <summary>一只召唤物的完整一拍(2026-08-16,ATB 时序归属搬迁,spec §4.3;
-        /// 2026-08-26 补齐状态那两步):自身灼烧 → 光环治疗 → 自愈 → 出手 → 自身状态递减。
-        /// 与 <see cref="ActEnemyTurn"/> 的六步同构,只是召唤物没有流血/自补全那两支。
+        /// 2026-08-26 补齐状态那两步):刷战意/厚乘区 → 自身灼烧 → 光环治疗 → 自愈 → 出手
+        /// → 自身状态递减。与 <see cref="ActEnemyTurn"/> 的六步同构,只是召唤物没有
+        /// 流血/自补全那两支,多一步开头的 <see cref="RefreshSummonAura"/>(2026-09-05:
+        /// 战意/厚会在回合中途变化,只在召唤/死亡时刷不够)。
         ///
         /// 光环治疗(2026-08-05,桃)从「玩家回合末全体召唤物集体先治疗」挪到这里,变成
         /// 「该召唤物自己那拍先治疗再出手」——与出手无关,场上没有敌人可打时也照常回血。
@@ -1584,6 +1586,10 @@ namespace Brushblade.Core
         {
             var summon = _summons[s];
             if (summon == null || !summon.Alive) return;
+
+            // 战意/厚会在回合中途变化(玩家出一张金系字就 +1 层战意),只在召唤/死亡时刷
+            // 不够 —— 每只召唤物出手前都要重读一次当前乘区(2026-09-05)。
+            RefreshSummonAura();
 
             SettleSummonBurn(s);
             if (!summon.Alive) return;   // 烧死在出手之前:这一拍不再治疗、不再挥刀
@@ -1626,16 +1632,26 @@ namespace Brushblade.Core
             if (!summon.Alive) RefreshSummonAura();   // 自焚死亡也要摘掉它的光环份额
         }
 
+        /// <summary>注入给召唤物的攻击百分比乘区(2026-09-05)= 100 + 战意层×10 + 厚层×5。
+        /// 与玩家侧 <see cref="EffectiveAttack"/> 的 percent 同一个式子,故两处永远同步。</summary>
+        private int SummonAttackPercent => 100
+            + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
+            + _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack;
+
         /// <summary>刷新全场召唤物的光环加成(2026-09-05)。光环含自己,所以就是所有
         /// 存活召唤物 AuraAttack 之和,人人相同 —— 不需要「排除自己」的分支。
-        /// 召唤、死亡、替换之后都要调:后来入场的召唤物也吃得到既有光环。</summary>
+        /// 同一处也刷玩家侧的战意/厚百分比乘区(2026-09-05,推翻 2026-08-28 的「战意玩家
+        /// 专属」)—— 两件事都是「召唤物这一拍该吃多少」,合在一次遍历里刷。
+        /// 召唤、死亡、替换之后都要调:后来入场的召唤物也吃得到既有光环与当前乘区;
+        /// 战意/厚会在回合中途变化,故 <see cref="ActSummonTurn"/> 出手前也要再调一次。</summary>
         private void RefreshSummonAura()
         {
             int total = 0;
             foreach (var summon in _summons)
                 if (summon != null && summon.Alive) total += summon.Passive?.AuraAttack ?? 0;
+            int percent = SummonAttackPercent;
             foreach (var summon in _summons)
-                if (summon != null) summon.AuraAttackBonus = total;
+                if (summon != null) { summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent; }
         }
 
         /// <summary>一个敌人的完整一拍(2026-08-15,ATB 时序归属搬迁,spec §4.3「每个敌人那一拍」

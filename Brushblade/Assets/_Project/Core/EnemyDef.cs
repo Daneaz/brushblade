@@ -212,17 +212,27 @@ namespace Brushblade.Core
         /// 与 <c>ActEnemyTurn</c> 的六步同构。</summary>
         public StatusBag Statuses { get; } = new();
 
-        /// <summary>这一拍的有效攻击力(2026-08-28,增益改单体)= 基础攻击 + 自己袋子里的攻击增益。
+        /// <summary>玩家侧的攻击百分比乘区(2026-09-05):100 + 战意层×10 + 厚层×5,
+        /// 由 <c>BattleEngine</c> 在结算前注入。**缺省 100** —— 缺省 0 会把老存档里
+        /// 召唤物的攻击整体归零,而那是静默的。
         ///
-        /// 与玩家侧 <c>BattleEngine.EffectiveAttack</c> 同形,但刻意**不含战意那个乘区**:
-        /// 战意是玩家专属(连续出字的节奏奖励,召唤物不由玩家逐张出字驱动),用户 2026-08-28
-        /// 明确留在玩家侧。点数直接照搬、不按血量比缩放,也是同一次拍板。
+        /// ⚠ 这条推翻 2026-08-28 的「战意是玩家专属,召唤物不吃」。2026-09-05 用户重新裁定:
+        /// 召唤物攻击跟随战意与厚变动(基础 100 → 战意 1 层 110 → 5 层 150 → 归零回 100),
+        /// 木土/木金混色卡组因此成为一条真流派。</summary>
+        public int PlayerAttackPercent { get; internal set; } = 100;
+
+        /// <summary>这一拍的有效攻击力 = (基础攻击 + 自己袋子里的攻击增益 + 攻击光环)
+        /// × 玩家侧百分比乘区 ÷ 100。
+        ///
+        /// **先加后乘**,与玩家侧 <c>BattleEngine.EffectiveAttack</c> 同序 —— 反过来会让
+        /// 加点(剡 的 Empower、光环)吃不到战意的放大。
         /// 钳到 ≥0:负攻击力会打出负伤害 = 给敌人回血,且全程无声。
         ///
-        /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示同一个数,
-        /// 而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
+        /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示
+        /// 同一个数,而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
         public int EffectiveAttack => System.Math.Max(0,
-            Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus);
+            (Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus)
+            * System.Math.Max(0, PlayerAttackPercent) / 100);
 
         /// <summary>场上全部召唤物的攻击光环之和(2026-09-05),由 <c>BattleEngine</c>
         /// 在每次结算前刷新。长在这里而不是引擎里算:详情弹窗(Presentation.SummonInfo)

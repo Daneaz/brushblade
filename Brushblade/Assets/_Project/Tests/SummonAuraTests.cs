@@ -195,5 +195,48 @@ namespace Brushblade.Core.Tests
                     Assert.That(summon.EffectiveAttack, Is.EqualTo(90),
                         "读档复原后,PlaceCarried 不会自己补光环,Restore 必须显式刷新一次");
         }
+
+        /// <summary>召唤物攻击吃玩家的战意 + 厚(2026-09-05,推翻 2026-08-28 的「战意玩家专属」)。
+        ///
+        /// 战意 1 层 = +10%、5 层 = +50%;厚 1 层 = +5%、10 层 = +50%。满 buff = ×2。
+        /// 归零后回到基础值 —— 乘区是现读的,不是出手时冻结的。</summary>
+        [Test]
+        public void SummonAttack_ReadsMoraleAndHeft()
+        {
+            var summon = new SummonState("甲", Element.Heart, 100, 100);
+            summon.PlayerAttackPercent = 100;
+            Assert.That(summon.EffectiveAttack, Is.EqualTo(100), "无 buff 时恒等 —— 恒等性硬线");
+
+            summon.PlayerAttackPercent = 110;   // 战意 1 层
+            Assert.That(summon.EffectiveAttack, Is.EqualTo(110));
+
+            summon.PlayerAttackPercent = 150;   // 战意 5 层
+            Assert.That(summon.EffectiveAttack, Is.EqualTo(150));
+
+            summon.PlayerAttackPercent = 200;   // 战意 5 层 + 厚 10 层
+            Assert.That(summon.EffectiveAttack, Is.EqualTo(200));
+
+            summon.PlayerAttackPercent = 100;   // 战意衰减归零
+            Assert.That(summon.EffectiveAttack, Is.EqualTo(100), "归零回到基础值,乘区是现读的");
+        }
+
+        /// <summary>缺省 100:老存档里的召唤物没有这个字段,反序列化得 0 会把攻击归零。</summary>
+        [Test]
+        public void SummonAttack_DefaultPercent_IsHundred()
+        {
+            var summon = new SummonState("甲", Element.Heart, 100, 77);
+            Assert.That(summon.EffectiveAttack, Is.EqualTo(77), "没显式设 percent 也不能打成 0");
+        }
+
+        /// <summary>加点(AttackBuff / 光环)先加,百分比后乘 —— 与玩家侧
+        /// EffectiveAttack 的「先加后乘」同序。反过来会让加点吃不到战意的放大。</summary>
+        [Test]
+        public void SummonAttack_FlatBeforePercent()
+        {
+            var summon = new SummonState("甲", Element.Heart, 100, 100);
+            summon.AuraAttackBonus = 50;
+            summon.PlayerAttackPercent = 150;
+            Assert.That(summon.EffectiveAttack, Is.EqualTo(225), "(100 + 50) × 1.5,不是 100×1.5 + 50");
+        }
     }
 }
