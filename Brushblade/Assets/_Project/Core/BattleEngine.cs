@@ -1713,6 +1713,21 @@ namespace Brushblade.Core
                 return;
             }
 
+            // 魅惑(2026-09-05,花):这一记改打自己阵营。场上没有别的存活敌人就空转 ——
+            // 不自伤(那会让魅惑在单敌局面退化成纯伤害),也不打玩家。
+            // 走 DamageEnemy 而不是自造一条伤害通路:掉落、EnemyDied 事件、
+            // 分裂(叠字怪)、胜利判定全挂在那条通路上,绕过去会静默丢失。
+            if (enemy.Statuses.Has(StatusKind.Charm))
+            {
+                int victim = FirstOtherAliveEnemy(enemyIndex);
+                if (victim >= 0)
+                    DamageEnemy(victim, enemy.Attack, enemy.Element, crit: false);
+                // 状态回合递减不能漏——与 Freeze 分支同一条理由:提前 return 就跳过了方法
+                // 末尾那句 enemy.Statuses.TickTurns(),魅惑会因此永远不到期。
+                enemy.Statuses.TickTurns();
+                return;   // 这一拍用掉了,不再走正常攻击流程
+            }
+
             // 支援型能力优先于普攻:有活可干就不出手,没活干才亲自上(标点小妖的既有口径,
             // 涂改沿用同一条 —— 玩家因此可以靠「清光伤员」或「打断它」把它逼成普通怪)
             if (enemy.Def.Ability == EnemyAbility.Buff && !IsAbilitySilenced(enemy) && HasOtherAliveEnemy(enemy))
@@ -2197,6 +2212,17 @@ namespace Brushblade.Core
                                 Magnitude = -50, TurnsLeft = value, SourceId = def.Id,
                             });
                         }
+                        break;
+                    case EffectKind.Charm:
+                        if (targetIndex >= 0)
+                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            {
+                                Kind = StatusKind.Charm, Polarity = StatusPolarity.Debuff,
+                                Magnitude = 1,
+                                TurnsLeft = MetaRules.ScaleTurnsByCardLevel(
+                                    Math.Max(1, effect.Turns), cardLevel),
+                                SourceId = def.Id,
+                            });
                         break;
                     case EffectKind.ArmorBreak:
                         // 破甲 = 削目标护甲 Value **点**(2026-08-12,E-b4 T3 复原原始设计)。
@@ -2967,6 +2993,14 @@ namespace Brushblade.Core
             foreach (var enemy in _enemies)
                 if (enemy != self && enemy.Alive) return true;
             return false;
+        }
+
+        /// <summary>除自己以外第一只存活的敌人;没有则 −1(2026-09-05,魅惑)。</summary>
+        private int FirstOtherAliveEnemy(int selfIndex)
+        {
+            for (int i = 0; i < _enemies.Count; i++)
+                if (i != selfIndex && _enemies[i].Alive) return i;
+            return -1;
         }
 
         /// <summary>目标身上有封禁状态吗(纯查询,2026-09-05 起语义收窄为"有没有这条状态")。

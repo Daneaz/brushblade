@@ -56,6 +56,7 @@ namespace Brushblade.Core
         Wellspring,       // 泉(2026-09-02,水):Magnitude = **层数**,每层 +10% 治疗,上限 10。
                           // 来源是治疗的**名义值**(不是实际回血)——满血溢出照样攒,
                           // 这正是「满血奶自己不亏」那条诉求的落点。
+        Charm,            // 魅惑:持有者攻击自己阵营(2026-09-05,花)。Magnitude 不用,只看 TurnsLeft。
     }
 
     public enum StatusPolarity { Buff, Debuff }

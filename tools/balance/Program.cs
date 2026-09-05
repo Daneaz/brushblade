@@ -395,6 +395,10 @@ namespace Brushblade.Balance
                     // 群体护盾(2026-09-05,崩):不记分的话 崩 的护面是 0 分,
                     // 土系画像会握着它一张都不出 —— 与「没加进出阵表」等价。
                     case EffectKind.ShieldAll: sum += e.Value; break;
+                    // 魅惑(2026-09-05,花):按「一次敌人攻击转成对敌伤害」估值。
+                    // 系数是多少不重要,**是不是 0 才重要** —— 记 0 分的字机器人永远不会出,
+                    // 那与「没把它加进出阵表」完全等价(注释里那条踩过三次的坑)。
+                    case EffectKind.Charm: sum += 60; break;
                 }
             }
             return sum;
