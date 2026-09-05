@@ -46,6 +46,20 @@ namespace Brushblade.Presentation
         private const float SheetW = 1591f;     // 760pt
         private const float SheetH = 670f;      // 320pt
         private const float SheetLift = 90f;    // 卡心比屏心高 43pt:底下要留出手牌行
+
+        // ---- 非战斗入口的「铺满」版(2026-09-05 用户拍板:「下方还有不少空间可以利用」)----
+        //
+        // 稿上那张 760×320pt 是按**战斗**画的:底下压着手牌行,卡不能长。而卡组 / 开箱 /
+        // 商城这三处下面没有要留着看的东西,670 高摆在 900 的屏上,底下白扔掉 200 多 ——
+        // 而这一屏偏偏是最不够用的那张(特性 · 技能一多就得滚)。
+        //
+        // 高度与上抬量都从边距**推**出来,不各写一个数:抬多少完全由「上下各留多少」决定,
+        // 两个数分开写迟早对不上(改了高度忘了改 lift,卡就偏出屏幕)。
+        private const float ScreenH = 900f;          // CanvasScaler.referenceResolution 的高,match = 1(按高)
+        private const float TallTopMargin = 30f;
+        private const float TallBottomMargin = 52f;  // ≥ SafeArea.BottomInset(44 = Home Indicator)
+        private const float TallSheetH = ScreenH - TallTopMargin - TallBottomMargin;
+        private const float TallSheetLift = (TallBottomMargin - TallTopMargin) / 2f;
         private const float HeaderH = 178f;     // 牌 85pt
         private static readonly Vector2 TileSize = new(142f, 178f);  // 68×85pt
         private const float ColGap = 27f;       // 两栏间 13pt
@@ -65,8 +79,12 @@ namespace Brushblade.Presentation
         public static GameObject Show(Transform root, CharDef def, RecipeGraph graph, int cardLevel = 1,
             BattleContext battle = null, MetaState meta = null, System.Action<Transform> footActions = null)
         {
-            var overlay = Ui.Sheet(root, "CharSheet", SheetW, SheetH,
-                dismissable: true, replaceSameName: true, Theme.Scrim, SheetLift, out var content);
+            // 战斗里保持稿上那张矮卡:长按的那张牌得留在浮层下面看得见(「我按的是哪张」
+            // 与「这张字什么用」要能对上)。其余三处底下没有这层关系,铺满。
+            bool tall = battle == null;
+            var overlay = Ui.Sheet(root, "CharSheet", SheetW, tall ? TallSheetH : SheetH,
+                dismissable: true, replaceSameName: true, Theme.Scrim,
+                tall ? TallSheetLift : SheetLift, out var content);
             var layout = content.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childForceExpandWidth = true;
