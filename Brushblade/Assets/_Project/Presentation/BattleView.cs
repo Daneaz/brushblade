@@ -2456,8 +2456,11 @@ namespace Brushblade.Presentation
                 if (crossRow)
                 {
                     var overflow = Ui.Panel(cell.transform, "CrossRow");
+                    // ⚠ 向下多出的是 **FieldGap**(战场四排之间,4)+ 前排格高,
+                    // 不是 RowGap(同排格与格之间,17)—— 两个都叫「gap」,一字之差
+                    // 会让块的下缘比前排低 13px、四个格子对不齐(2026-09-05 初版就写错了这个)。
                     Ui.Anchor((RectTransform)overflow.transform, Vector2.zero, Vector2.one,
-                        new Vector2(0f, -(RowGap + EnemyCellHeightFront)), Vector2.zero);
+                        new Vector2(0f, -(FieldGap + EnemyCellHeightFront)), Vector2.zero);
                     box = overflow.transform;
                 }
                 // 宽度按 span 算,把被它吞掉的那几条格间距也算进去,否则会比整排窄
