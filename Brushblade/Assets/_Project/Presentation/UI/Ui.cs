@@ -680,8 +680,9 @@ namespace Brushblade.Presentation
             var go = new GameObject($"Tile_{def.Id}", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             // 牌根那圈镶边。素边(墨影)是默认;战斗字库里报过「这张出得起」的牌会被
-            // CardFrameView 换成属性色 —— 2026-09-05 用户拍板,取代原来那条看不见的缩放呼吸。
-            // 选中态的墨色边优先,属性色不顶它(「我正点着这张」比「这张能出」更要紧)。
+            // CardFrameView 换成**会呼吸的稀有度色** —— 2026-09-05 用户拍板,呼吸从原先的
+            // 缩放挪到这条边的颜色上(缩放那版在 96×117 的牌上只有 1 个像素多,看不出来)。
+            // 选中态的墨色边优先,稀有度色不顶它(「我正点着这张」比「这张能出」更要紧)。
             var ring = go.AddComponent<Image>();
             ring.sprite = Theme.Rounded(14);
             ring.type = Image.Type.Sliced;
