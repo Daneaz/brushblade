@@ -130,6 +130,42 @@ namespace Brushblade.Core.Tests
             Assert.That(damages[1].SameSwing, Is.True, "第二份是同一次挥击的第二格,不是第二次出手");
         }
 
+        /// <summary>召唤物横扫跨排 Boss:**出手事件只发一条,伤害发两条**。
+        ///
+        /// 「剑」就是这条路径 —— 它是召唤字,横扫是那只召唤物出的手,走 SummonAttack 而不是
+        /// 玩家侧的 Damage。SummonAttack 在表现层触发「召唤物的字飞过去」那段动作 + 一拍等待,
+        /// 跨排 Boss 记两次就会让它扑第二遍(用户:「剑的横扫还是有两次动作」)。
+        /// 上一轮的 SameSwing 只压住了玩家侧的节拍与打击感,漏了这条路径 ——
+        /// 因为那些测试断的都是 Damage 事件,没有一条数过 SummonAttack。</summary>
+        [Test]
+        public void SummonSweep_OnCrossRowBoss_SwingsOnceHitsTwice()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                // 召 1 只带横扫的召唤物(与「剑」同型:Sweep + 50% 溅射)
+                new CharDef("剑", Element.Metal, new[] { "木", "木" },
+                    new[] { new EffectDef(EffectKind.Summon, 50, summonCount: 1, summonAttack: 20,
+                        summonChar: "木", passive: new SummonPassive
+                        { Shape = TargetShape.Sweep, ShapePercent = 50 }) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 500 },
+                new[] { "剑" }, System.Array.Empty<string>(),
+                new[] { CrossRowBoss("霸") }, seed: 1);
+
+            Assert.That(engine.Cast("剑"), Is.EqualTo(BattleError.None));
+            engine.EndTurn();   // 召唤物在回合末出手
+
+            int swings = 0, damages = 0;
+            foreach (var e in engine.LastEvents)
+            {
+                if (e.Kind == BattleEventKind.SummonAttack) swings++;
+                if (e.Kind == BattleEventKind.Damage && e.TargetIndex == 0) damages++;
+            }
+            Assert.That(swings, Is.EqualTo(1), "出手一次 —— 再多就是召唤物扑了两遍");
+            Assert.That(damages, Is.EqualTo(2), "受击两次 —— 站位吃掉两格");
+        }
+
         /// <summary>普通怪不受影响:形状对它照旧一次。这一条防的是「给所有人都记了两次」。</summary>
         [Test]
         public void NormalEnemy_StillTakesOneHitFromSweep()

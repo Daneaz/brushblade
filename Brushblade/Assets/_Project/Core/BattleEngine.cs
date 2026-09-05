@@ -1721,7 +1721,14 @@ namespace Brushblade.Core
                 // 连发每发全额;形状类的非主目标按 ShapePercent 折算
                 if (t > 0 && shape != TargetShape.Volley && percent != 100)
                     damage = damage * percent / 100;
-                _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
+                // 出手事件**一次挥击只发一条**(2026-09-05):它在表现层触发的是「召唤物的字
+                // 飞向目标」那段动作 + 一拍等待,而跨排 Boss 的第二格是同一次挥击的另一半 ——
+                // 再发一条就会让那只召唤物扑第二次(用户:「剑的横扫还是有两次动作」)。
+                // 伤害不受影响:下面 DamageEnemy 照旧结算两次、飘两个数字。
+                // 「剑」正是这么被抓出来的 —— 它是召唤字,横扫走的是召唤物这条路径,
+                // 与玩家侧那条(sameSwing 只压节拍与打击感)是两套事件。
+                if (!sameSwing)
+                    _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
                 if (damage > 0)
                     // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle / DamageAll 两处
                     // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
