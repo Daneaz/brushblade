@@ -200,6 +200,9 @@ namespace Brushblade.Presentation
             // 全队,这个只回持有者自己,文案上也要分开说清楚。措辞刻意避开「愈」字:那个
             // 字形不在现有字符串表的字符集里,用「自身回血」复用既有字形,免掉一次字体子集重跑。
             if (p.Regen > 0) parts.Add(Strings.T("char.passive.regen", ("value", p.Regen)));
+            // 攻击光环(2026-09-05,平衡重做 P0 任务 4):持续加成,含自己 —— 与 HealAlly/
+            // Regen 那组「每回合」的被动放在一起,读感上都是「持续生效的场面效果」。
+            if (p.AuraAttack > 0) parts.Add(Strings.T("char.passive.auraattack", ("value", p.AuraAttack)));
             if (p.OnHitBurn > 0)
                 parts.Add(p.OnHitBurnAll
                     ? Strings.T("char.passive.onhitburn.all", ("value", p.OnHitBurn))

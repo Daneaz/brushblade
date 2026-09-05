@@ -222,7 +222,12 @@ namespace Brushblade.Core
         /// 长在这里而不是 BattleEngine 里:详情弹窗(Presentation.SummonInfo)要显示同一个数,
         /// 而表现层不该自己再推一遍规则 —— 那正是两处口径分叉的起点。</summary>
         public int EffectiveAttack => System.Math.Max(0,
-            Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff));
+            Attack + Statuses.TotalMagnitude(StatusKind.AttackBuff) + AuraAttackBonus);
+
+        /// <summary>场上全部召唤物的攻击光环之和(2026-09-05),由 <c>BattleEngine</c>
+        /// 在每次结算前刷新。长在这里而不是引擎里算:详情弹窗(Presentation.SummonInfo)
+        /// 要显示同一个数,表现层不该自己再推一遍规则。</summary>
+        public int AuraAttackBonus { get; internal set; }
 
         /// <summary>挨一记时的有效护甲(点数,2026-08-28)。召唤物**没有基础护甲**(没这个字段,
         /// 被动也不给),所以完全来自玩家挂上去的增益 —— 无 buff 时恒 0、减法退化成不减。

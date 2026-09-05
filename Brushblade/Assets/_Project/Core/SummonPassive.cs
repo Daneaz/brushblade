@@ -31,6 +31,18 @@ namespace Brushblade.Core
         /// (吃等级的只有 OnHitFreezeChance / OnHitSlow 两项,是 2026-08-25 的显式例外)。</summary>
         public int Regen { get; set; }
 
+        /// <summary>攻击光环:给场上**全部**召唤物 +N 攻,**含自己**(2026-09-05,𣛧)。
+        ///
+        /// 「含自己」是必要的配套:2026-09-05 召唤只数收归 1 只后,只加别人的光环
+        /// 在场上没有作用对象、纯空转。同场打出别的召唤字时光环照常外溢。
+        ///
+        /// 与 <see cref="EffectDef.SummonShield"/> 的区别:那个是**召唤当时**发一次性护盾,
+        /// 这条是**持续**加成 —— 由 <c>SummonState.EffectiveAttack</c> 每次出手时现读,
+        /// 所以后来入场的召唤物也吃得到。
+        ///
+        /// 不吃卡等级 —— 同 <see cref="Regen"/>,回归「被动数值是节奏,不随等级变」的缺省。</summary>
+        public int AuraAttack { get; set; }
+
         /// <summary>出手时额外挂的灼烧层数。烓 = 3 / 灶 = 2 / 楸 = 1。</summary>
         public int OnHitBurn { get; set; }
 
@@ -106,6 +118,7 @@ namespace Brushblade.Core
         public SummonPassive Clone() => new()
         {
             Speed = Speed, Thorns = Thorns, HealAlly = HealAlly, Regen = Regen,
+            AuraAttack = AuraAttack,
             OnHitBurn = OnHitBurn, OnHitBurnAll = OnHitBurnAll, OnHitCurse = OnHitCurse,
             Dodge = Dodge, Ranged = Ranged, Taunt = Taunt, OnSummonFreeze = OnSummonFreeze,
             OnHitFreezeChance = OnHitFreezeChance, OnHitFreezeTurns = OnHitFreezeTurns,

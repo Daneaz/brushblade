@@ -272,6 +272,7 @@
   "char.element.unknown": "?",
   "char.element.water": "水",
   "char.element.wood": "木",
+  "char.passive.auraattack": "全场召唤物 +{value} 攻(含自己)",
   "char.passive.dodge": "闪避 {value}%",
   "char.passive.healally": "每回合全体回血 {value}",
   "char.passive.onhitburn": "命中挂灼烧 {value}",

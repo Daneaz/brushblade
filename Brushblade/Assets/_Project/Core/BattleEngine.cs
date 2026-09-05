@@ -1615,6 +1615,19 @@ namespace Brushblade.Core
             burn.Magnitude -= 1;
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
+            if (!summon.Alive) RefreshSummonAura();   // 自焚死亡也要摘掉它的光环份额
+        }
+
+        /// <summary>刷新全场召唤物的光环加成(2026-09-05)。光环含自己,所以就是所有
+        /// 存活召唤物 AuraAttack 之和,人人相同 —— 不需要「排除自己」的分支。
+        /// 召唤、死亡、替换之后都要调:后来入场的召唤物也吃得到既有光环。</summary>
+        private void RefreshSummonAura()
+        {
+            int total = 0;
+            foreach (var summon in _summons)
+                if (summon != null && summon.Alive) total += summon.Passive?.AuraAttack ?? 0;
+            foreach (var summon in _summons)
+                if (summon != null) summon.AuraAttackBonus = total;
         }
 
         /// <summary>一个敌人的完整一拍(2026-08-15,ATB 时序归属搬迁,spec §4.3「每个敌人那一拍」
@@ -2498,6 +2511,7 @@ namespace Brushblade.Core
                         // (BattleEventKind 里那条 2026-08-06 M2 的注释)。
                         if (effect.Passive != null && effect.Passive.OnSummonFreeze > 0)
                             FreezeRandomLivingEnemy(effect.Passive.OnSummonFreeze);
+                        RefreshSummonAura();   // 新落位的召唤物也要吃到既有光环,顶替的也在这条路径上
                         break;
                 }
             }
@@ -3423,6 +3437,7 @@ namespace Brushblade.Core
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
+            if (!summon.Alive) RefreshSummonAura();   // 挨打死亡也要摘掉它的光环份额
 
             // 反伤(2026-08-05,荆):2026-08-25 用户拍板由**固定点数**改成**受到伤害的百分比**,
             // 与下面玩家侧的 Reflect 完全同一套算式 —— 荆 要靠反伤当输出手段,固定值在深层会被
