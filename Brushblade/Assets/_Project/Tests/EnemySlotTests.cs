@@ -100,6 +100,36 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(2));
         }
 
+        /// <summary>那两份伤害是**一次出手**打出来的,不是两次(用户 2026-09-05 澄清:
+        /// 「剑刺类应该是出手一次,但是 boss 受到两次伤害,因为站位的关系」)。
+        ///
+        /// 落到数据上:第二条 Damage 事件带 SameSwing —— 表现层据此不拉开节拍,
+        /// 否则两份伤害会被演成挥了两次刀(Juice 里那条「同一目标连续两记停一拍」
+        /// 本来是给**多段**的剁用的)。伤害本身仍是两次独立结算,只是同一拍打出。</summary>
+        [Test]
+        public void CrossRowBoss_TwoHitsAreOneSwing()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                // 横扫一记:主目标之外同排全扫,对跨排 Boss 覆盖两格
+                new CharDef("扫", Element.Metal, new[] { "木", "木" },
+                    new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Sweep) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 500 },
+                new[] { "扫" }, System.Array.Empty<string>(),
+                new[] { CrossRowBoss("霸") }, seed: 1);
+
+            Assert.That(engine.Cast("扫", 0), Is.EqualTo(BattleError.None));
+
+            var damages = new List<BattleEvent>();
+            foreach (var e in engine.LastEvents)
+                if (e.Kind == BattleEventKind.Damage && e.TargetIndex == 0) damages.Add(e);
+            Assert.That(damages.Count, Is.EqualTo(2), "两份伤害");
+            Assert.That(damages[0].SameSwing, Is.False, "第一份是这次挥击本身");
+            Assert.That(damages[1].SameSwing, Is.True, "第二份是同一次挥击的第二格,不是第二次出手");
+        }
+
         /// <summary>普通怪不受影响:形状对它照旧一次。这一条防的是「给所有人都记了两次」。</summary>
         [Test]
         public void NormalEnemy_StillTakesOneHitFromSweep()

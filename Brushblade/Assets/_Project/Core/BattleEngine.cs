@@ -259,9 +259,21 @@ namespace Brushblade.Core
         /// 是因为非法组合在构造点根本造不出来(三处赋值都读同一个倍率),而改动面小得多。</summary>
         public bool Countered { get; }
 
+        /// <summary>这一记与**上一记落在同一个目标上的伤害**属于同一次挥击(2026-09-05)。
+        ///
+        /// 唯一的来源是跨排 Boss:横扫/溅射/贯穿覆盖它的两个格位,于是同一个下标被结算两次。
+        /// 那是**一次出手、两份伤害**(用户原话:「剑刺类应该是出手一次,但是 boss 受到两次
+        /// 伤害,因为站位的关系」),而不是两次出手。
+        ///
+        /// 表现层据此**不拉开节拍** —— Juice 里那条「同一目标连续两记要停一拍」是给**多段**
+        /// (剁的 HitCount)用的,它要表达的正是「打了两下」;跨排的两份伤害借用那条就会
+        /// 演成挥了两次刀。两个飘字仍然各出一个(Popup 自己会往上错开),伤害也仍是两次
+        /// 独立结算 —— 变的只有节拍。</summary>
+        public bool SameSwing { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
             int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null,
-            bool countered = false)
+            bool countered = false, bool sameSwing = false)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -272,6 +284,7 @@ namespace Brushblade.Core
             Ke = ke;
             Attacker = attacker;
             Countered = countered;
+            SameSwing = sameSwing;
         }
     }
 
@@ -1701,6 +1714,9 @@ namespace Brushblade.Core
             {
                 int tgt = hits[t];
                 if (!_enemies[tgt].Alive) continue;
+                // 同一次挥击的第二格(2026-09-05),判据同玩家侧:AddHits 把跨排 Boss 的
+                // 下标连着记两次;连发的重复是「多发」,不算。
+                bool sameSwing = t > 0 && shape != TargetShape.Volley && hits[t - 1] == tgt;
                 int damage = summon.EffectiveAttack;
                 // 连发每发全额;形状类的非主目标按 ShapePercent 折算
                 if (t > 0 && shape != TargetShape.Volley && percent != 100)
@@ -1710,7 +1726,8 @@ namespace Brushblade.Core
                     // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle / DamageAll 两处
                     // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
                     DamageEnemy(tgt, damage, summon.Element,
-                        crit: RollCritForSummon(summon), attackerBag: summon.Statuses);
+                        crit: RollCritForSummon(summon), attackerBag: summon.Statuses,
+                        sameSwing: sameSwing);
                 ApplySummonOnHit(summon, tgt);
             }
         }
@@ -2004,6 +2021,12 @@ namespace Brushblade.Core
                                     ? ChainPercent(effect.ShapePercent, t)
                                     : effect.ShapePercent;
                             int hits = primary ? effect.HitCount : 1;
+                            // 同一次挥击的第二格(2026-09-05):AddHits 把跨排 Boss 的下标
+                            // **连着**记两次,所以「与上一项同下标」就是它。
+                            // 连发排除在外 —— 它的重复下标是「多发」(场上只剩一只时 [0,0,0,0]),
+                            // 那本来就该一发一拍。
+                            bool sameSwing = t > 0 && effect.Shape != TargetShape.Volley
+                                && shapeTargets[t - 1] == tgt;
                             // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
                             // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
                             for (int hit = 0; hit < hits; hit++)
@@ -2023,7 +2046,11 @@ namespace Brushblade.Core
                                 if (percent != 100) damage = damage * percent / 100;
                                 DamageEnemy(tgt, damage, attacker,
                                     crit: RollCrit(),
-                                    pierce: primary ? effect.Pierce : 0); // 多段:每段各减一次护甲(裁定 4)
+                                    pierce: primary ? effect.Pierce : 0, // 多段:每段各减一次护甲(裁定 4)
+                                    // 多段的第 2 段起也算同一次挥击的延续?**不算** ——
+                                    // 剁的两段本来就该看出是两下(那条拉拍就是为它加的),
+                                    // 只有跨排造成的重复才传 true。
+                                    sameSwing: sameSwing && hit == 0);
                             }
                         }
                         break;
@@ -3007,9 +3034,11 @@ namespace Brushblade.Core
         // 焦痕加攻 / 叠字分裂)。名单与 bypassDefense 眼下重合,但刻意分成两个参数:
         // 那条问的是「吃不吃护甲」,这条问的是「算不算挥击」,日后出现「穿甲的挥击」时
         // 不该连带把反噬也关掉。
+        /// <param name="sameSwing">这一记与上一记落在同一目标上的伤害是同一次挥击
+        /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。</param>
         private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
-            StatusBag attackerBag = null, bool allowBarb = true)
+            StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
@@ -3076,7 +3105,7 @@ namespace Brushblade.Core
             // (TargetIndex = −1),语义不同,挪用会让表现层分不清是谁的盾没了。
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage,
                 absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,
-                countered: countered));
+                countered: countered, sameSwing: sameSwing));
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
