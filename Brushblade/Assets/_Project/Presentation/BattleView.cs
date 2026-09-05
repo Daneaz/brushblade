@@ -2268,6 +2268,15 @@ namespace Brushblade.Presentation
         private const float EnemyPortraitFront = 126f;    // 稿 60pt
         private const float EnemyPortraitBack = 96f;      // 稿 46pt
 
+        /// <summary>跨排 Boss 的立绘(2026-09-05 用户拍板「放大一点加强压迫感」)。
+        ///
+        /// 上限是它那块可视区的**高度**:后排格 109 + 排间距 4 + 前排格 138 = 251,
+        /// 220 之后上下各留约 15 的余量(Ui.UnitBlock 的 Row 是 MiddleLeft,立绘垂直居中)。
+        /// 横向不构成约束 —— Boss 跨两列,块宽 293×2 + 17 = 603,扣掉立绘与间距仍有 370
+        /// 留给信息列,而头行那四样属性最紧只需要 154(见 EnemyHeaderSpacing 那段预算)。
+        /// 所以血条与 chip 行**不必**为它让路:它们与立绘是左右关系,不是上下之争。</summary>
+        private const float BossPortraitSize = 220f;
+
         // 立绘与信息列的间距(稿 .foe { gap: 6px })。信息列自身的行距(稿 .info { gap: 2px }),
         // 头行里名字与属性徽章的间距(稿 .hd { gap: 4px })——同一套 ×2.093 换算。
         private const float EnemyBlkInfoGap = 13f;   // 6pt
@@ -2466,9 +2475,8 @@ namespace Brushblade.Presentation
                 // 宽度按 span 算,把被它吞掉的那几条格间距也算进去,否则会比整排窄
                 // (span-1) 个 RowGap
                 cellElement.preferredWidth = EnemyCellWidth * span + RowGap * (span - 1);
-                // 跨排 Boss 用前排那一档更大的立绘:它的块高是「后排 109 + 排间距 + 前排 138」,
-                // 放得下;而跨两列让信息列宽到 599 − 126 − 13,头行那四样属性绰绰有余。
-                float portraitSize = front || crossRow ? EnemyPortraitFront : EnemyPortraitBack;
+                float portraitSize = crossRow ? BossPortraitSize
+                    : (front ? EnemyPortraitFront : EnemyPortraitBack);
                 float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
                 // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),
                 // 2026-08-31 收口成 Ui.UnitBlock,与召唤格/玩家条同一套写法。
