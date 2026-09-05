@@ -690,7 +690,7 @@
       "gloss": "洪水滔天",
       "effects": [
         {
-          "kind": "SpendWaterPower",
+          "kind": "SpendWellspring",
           "value": 80
         },
         {
@@ -717,7 +717,7 @@
       "gloss": "水大无际",
       "effects": [
         {
-          "kind": "SpendWaterPower",
+          "kind": "SpendWellspring",
           "value": 50
         },
         {
@@ -1439,7 +1439,7 @@
           "value": 250
         },
         {
-          "kind": "SpendMomentum",
+          "kind": "SpendHeft",
           "value": 60
         }
       ]
@@ -1667,7 +1667,7 @@
           "value": 50
         },
         {
-          "kind": "SpendMomentum",
+          "kind": "SpendHeft",
           "value": 30
         }
       ]

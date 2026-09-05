@@ -195,11 +195,11 @@ namespace Brushblade.Core.Tests
         /// <summary>引爆每系两张载体(中档 + 红档):只挂红档五系四叠字的话,
         /// 大部分玩家一局都摸不到这个机制。</summary>
         [Test]
-        public void MomentumDetonators_AreOnGreenAndRed()
+        public void HeftDetonators_AreOnGreenAndRed()
         {
-            Assert.That(LoadRealGraph().Get("崩").AttackEffects.Any(e => e.Kind == EffectKind.SpendMomentum),
+            Assert.That(LoadRealGraph().Get("崩").AttackEffects.Any(e => e.Kind == EffectKind.SpendHeft),
                 Is.True, "崩(绿)是前期就能拿到的引爆载体");
-            Assert.That(LoadRealGraph().Get("㙓").AttackEffects.Any(e => e.Kind == EffectKind.SpendMomentum),
+            Assert.That(LoadRealGraph().Get("㙓").AttackEffects.Any(e => e.Kind == EffectKind.SpendHeft),
                 Is.True);
         }
 

@@ -361,14 +361,14 @@ namespace Brushblade.Core
         // (26 级 ATK 150 满层:旧 +50 → 新 +75)。深层战意流因此明显变强。
         private const int MoralePercentPerStack = 10;
 
-        /// <summary>势每层的伤害加成(百分点,2026-09-02)。5 × 10 层 = +50%,
+        /// <summary>厚每层的伤害加成(百分点,2026-09-02)。5 × 10 层 = +50%,
         /// 与战意的 10 × 5 层 = +50% **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。</summary>
-        private const int MomentumPercentPerStack = 5;
+        private const int HeftPercentPerStack = 5;
 
-        /// <summary>水势每层的治疗加成(百分点,2026-09-02)。</summary>
-        private const int WaterPowerPercentPerStack = 10;
+        /// <summary>泉每层的治疗加成(百分点,2026-09-02)。</summary>
+        private const int WellspringPercentPerStack = 10;
 
-        /// <summary>势与水势的层数上限(2026-09-02)。</summary>
+        /// <summary>厚与泉的层数上限(2026-09-02)。</summary>
         private const int MaxResourceStacks = 10;
 
         /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
@@ -380,8 +380,8 @@ namespace Brushblade.Core
         private int _burnPerStack = 20;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
-        private int _shieldAccum;           // 势的余数:不足一层的护盾量(2026-09-02)
-        private int _healAccum;             // 水势的余数:不足一层的治疗名义值
+        private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
+        private int _healAccum;             // 泉的余数:不足一层的治疗名义值
 
         /// <summary>玩家的行动计量器(2026-08-15,ATB 改造):与敌人/召唤物同走一套模型,
         /// 攒满 TurnScheduler.Threshold 就轮到玩家。进 BattleSnapshot。恒非负——开局与所有人
@@ -428,9 +428,9 @@ namespace Brushblade.Core
                     + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff);
                 int percent = 100
                     + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
-                    // 势(2026-09-02):与战意同一个百分比乘区相加。「先加后乘」的既有顺序不动 ——
-                    // Empower / AttackBuff 是加点,战意与势是乘比例。
-                    + _playerStatuses.TotalMagnitude(StatusKind.Momentum) * MomentumPercentPerStack;
+                    // 厚(2026-09-02):与战意同一个百分比乘区相加。「先加后乘」的既有顺序不动 ——
+                    // Empower / AttackBuff 是加点,战意与厚是乘比例。
+                    + _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack;
                 return Math.Max(0, flat * percent / 100);
             }
         }
@@ -446,24 +446,24 @@ namespace Brushblade.Core
         /// <summary>按**角色等级的**攻击力缩放一个防御向输出(护盾/治疗,2026-09-02)。
         ///
         /// ⚠ 读的是 <c>_config.PlayerAttack</c>,**不是 <see cref="EffectiveAttack"/>**。
-        /// 用后者会造出一个正反馈环:势进 EffectiveAttack 的百分比乘区 → 护盾吃
-        /// EffectiveAttack → 堆盾涨势 → 势放大护盾 → 涨更多势。10 层上限能兜住不爆炸,
-        /// 但「战意(连续出字的节奏奖励)放大护盾」「势放大自己的来源」两条语义都荒谬。
+        /// 用后者会造出一个正反馈环:厚进 EffectiveAttack 的百分比乘区 → 护盾吃
+        /// EffectiveAttack → 堆盾涨厚 → 厚放大护盾 → 涨更多厚。10 层上限能兜住不爆炸,
+        /// 但「战意(连续出字的节奏奖励)放大护盾」「厚放大自己的来源」两条语义都荒谬。
         ///
         /// 要表达的是「笔力越深,写什么都更重」这一层等级成长,局内增益不在内。
         /// 基准值下逐字节恒等:<c>v * 100 / 100 == v</c>(E-b1 立的硬线)。</summary>
         private int ScaleByBaseAttack(int value) =>
             value * _config.PlayerAttack / BattleConfig.AttackBaseline;
 
-        /// <summary>按水势放大一个治疗量(2026-09-02,spec §3.1:每层 +10%)。
+        /// <summary>按泉放大一个治疗量(2026-09-02,spec §3.1:每层 +10%)。
         ///
-        /// ⚠ **只放大实际治疗量,不放大攒水势的基数** —— 攒的基数必须是放大**之前**的值,
-        /// 否则「治疗 → 攒水势 → 水势放大治疗 → 攒更多水势」就是一个正反馈环,
+        /// ⚠ **只放大实际治疗量,不放大攒泉的基数** —— 攒的基数必须是放大**之前**的值,
+        /// 否则「治疗 → 攒泉 → 泉放大治疗 → 攒更多泉」就是一个正反馈环,
         /// 与 <see cref="ScaleByBaseAttack"/> 注释里说的那个同型。
         /// 0 层时 <c>v * 100 / 100 == v</c>,恒等。</summary>
-        private int AmplifyByWaterPower(int value) =>
-            value * (100 + _playerStatuses.TotalMagnitude(StatusKind.WaterPower)
-                * WaterPowerPercentPerStack) / 100;
+        private int AmplifyByWellspring(int value) =>
+            value * (100 + _playerStatuses.TotalMagnitude(StatusKind.Wellspring)
+                * WellspringPercentPerStack) / 100;
 
         /// <summary>本场生效的暴击率(百分点)= 角色属性(config)+ 局内增益(锋),钳到 [0,100]。
         ///
@@ -718,41 +718,41 @@ namespace Brushblade.Core
         public string PendingDrop => _pendingDrop;
         public int PlayerShield => _shieldNormal + _shieldPersist;
 
-        /// <summary>势/水势的当前层数与余数(2026-09-02),给 UI 与测试。</summary>
-        public int MomentumStacks => _playerStatuses.TotalMagnitude(StatusKind.Momentum);
-        public int WaterPowerStacks => _playerStatuses.TotalMagnitude(StatusKind.WaterPower);
+        /// <summary>厚/泉的当前层数与余数(2026-09-02),给 UI 与测试。</summary>
+        public int HeftStacks => _playerStatuses.TotalMagnitude(StatusKind.Heft);
+        public int WellspringStacks => _playerStatuses.TotalMagnitude(StatusKind.Wellspring);
         public int ShieldAccum => _shieldAccum;
         public int HealAccum => _healAccum;
 
-        /// <summary>攒一层势/水势需要的量 = 玩家生命上限的十分之一(2026-09-02)。
+        /// <summary>攒一层厚/泉需要的量 = 玩家生命上限的十分之一(2026-09-02)。
         ///
         /// 用百分比而不是固定值:固定 100 点在早期(垒 50 盾)攒不出一层、在深层
         /// (㙓 630 盾)一次给 6 层。百分比口径自动跟着角色成长走。
         /// 下钳 1:MaxHp &lt; 10 时整数除会得 0,那会让 while 循环永不终止。</summary>
         private int ResourceThreshold => Math.Max(1, _config.PlayerMaxHp / 10);
 
-        /// <summary>获得护盾时攒势(2026-09-02)。<paramref name="shieldAmount"/> 是
-        /// **获得量**,不是实际吸伤量 —— 势衡量的是"你堆了多少防御",不是"你挨了多少打"。
+        /// <summary>获得护盾时攒厚(2026-09-02)。<paramref name="shieldAmount"/> 是
+        /// **获得量**,不是实际吸伤量 —— 厚衡量的是"你堆了多少防御",不是"你挨了多少打"。
         /// 满层后余数也不再攒:否则掉一层会立刻被余数补回,层数形同不掉。
         /// 仅供测试与引擎内部调用。</summary>
-        internal void GainMomentumForTest(int shieldAmount) => GainMomentum(shieldAmount);
+        internal void GainHeftForTest(int shieldAmount) => GainHeft(shieldAmount);
 
-        private void GainMomentum(int shieldAmount)
+        private void GainHeft(int shieldAmount)
         {
-            GainStacks(shieldAmount, StatusKind.Momentum, "势", ref _shieldAccum);
+            GainStacks(shieldAmount, StatusKind.Heft, "厚", ref _shieldAccum);
         }
 
-        /// <summary>治疗时攒水势(2026-09-02)。<paramref name="healAmount"/> 是
+        /// <summary>治疗时攒泉(2026-09-02)。<paramref name="healAmount"/> 是
         /// **名义值**,不是实际回血量 —— 满血时治疗溢出照样攒,这是「满血奶自己不亏」的落点。
         /// 仅供测试与引擎内部调用。</summary>
-        internal void GainWaterPowerForTest(int healAmount) => GainWaterPower(healAmount);
+        internal void GainWellspringForTest(int healAmount) => GainWellspring(healAmount);
 
-        private void GainWaterPower(int healAmount)
+        private void GainWellspring(int healAmount)
         {
-            GainStacks(healAmount, StatusKind.WaterPower, "水势", ref _healAccum);
+            GainStacks(healAmount, StatusKind.Wellspring, "泉", ref _healAccum);
         }
 
-        /// <summary>势与水势共用的攒层逻辑(2026-09-02)。两者只在 Kind、来源标识与
+        /// <summary>厚与泉共用的攒层逻辑(2026-09-02)。两者只在 Kind、来源标识与
         /// 余数字段上不同,规则一字不差 —— 写两份迟早分叉。</summary>
         private void GainStacks(int amount, StatusKind kind, string sourceId, ref int accum)
         {
@@ -1569,10 +1569,10 @@ namespace Brushblade.Core
             if (!summon.Alive) return;   // 烧死在出手之前:这一拍不再治疗、不再挥刀
 
             int heal = summon.Passive?.HealAlly ?? 0;
-            // 刻意**不**攒水势(2026-09-02):势/水势衡量的是玩家**主动投入**了多少防御资源,
-            // 而光环是每回合自动触发的 —— 接了会让玩家什么都不做也能攒满水势,
-            // 破坏「攒 → 泻」的节奏,而那个节奏正是这台引擎存在的理由。
-            // 与 桂 的 SummonShield 要攒势不矛盾:桂 是玩家出的字,光环是召唤物的被动。
+            // 刻意**不**攒泉(2026-09-02):厚/泉衡量的是玩家**主动投入**了多少防御资源,
+            // 而光环是每回合自动触发的 —— 接了会让玩家什么都不做也能攒满泉,
+            // 破坏「攒 → 发」的节奏,而那个节奏正是这台引擎存在的理由。
+            // 与 桂 的 SummonShield 要攒厚不矛盾:桂 是玩家出的字,光环是召唤物的被动。
             if (heal > 0) HealPlayerAndSummons(heal);
 
             if (_enemies.Any(e => e.Alive)) StrikeOnceWithSummon(s);
@@ -2245,11 +2245,11 @@ namespace Brushblade.Core
                         }
                         else if (targetIndex >= 0) Detonate(targetIndex);
                         break;
-                    case EffectKind.SpendMomentum:
-                        SpendResource(StatusKind.Momentum, value, attacker);
+                    case EffectKind.SpendHeft:
+                        SpendResource(StatusKind.Heft, value, attacker);
                         break;
-                    case EffectKind.SpendWaterPower:
-                        SpendResource(StatusKind.WaterPower, value, attacker);
+                    case EffectKind.SpendWellspring:
+                        SpendResource(StatusKind.Wellspring, value, attacker);
                         break;
                     case EffectKind.Empower:
                         // 剡(2026-08-12):本场攻击 +Value,复用 AttackBuff。
@@ -2339,9 +2339,9 @@ namespace Brushblade.Core
                             // 分两桶存也没有任何一处读得出区别。PersistOnce 在这一支被有意忽略。
                             _summons[allySlot].Shield += shield;
                         }
-                        // 攒势(2026-09-02):按获得量算,加给谁都一样 ——
+                        // 攒厚(2026-09-02):按获得量算,加给谁都一样 ——
                         // 给召唤物的盾同样是"你堆了防御"。
-                        GainMomentum(shield);
+                        GainHeft(shield);
                         _events.Add(new BattleEvent(BattleEventKind.Shield, allySlot, shield));
                         break;
                     case EffectKind.ShieldAll:
@@ -2349,10 +2349,10 @@ namespace Brushblade.Core
                         // 与 Shield 同一个基数算法(生克 + 攻击力缩放),只是落到所有人身上。
                         // **不选目标**:它给全场,所以 NeedsAllyTarget 对它为 false。
                         int shieldAll = ScaleByBaseAttack(WuxingResolver.ResolveEffect(value));
-                        // 攒势按**单份**盾量,不乘人数 —— 与 HealAll 攒水势同一条口径(那边
-                        // GainWaterPower 收的也是基础值)。按总量攒会让「场上召唤物越多、
-                        // 同一张字攒的势越多」,而势记的是你堆了多少防御,不是堆给了几个人。
-                        GainMomentum(shieldAll);
+                        // 攒厚按**单份**盾量,不乘人数 —— 与 HealAll 攒泉同一条口径(那边
+                        // GainWellspring 收的也是基础值)。按总量攒会让「场上召唤物越多、
+                        // 同一张字攒的厚越多」,而厚记的是你堆了多少防御,不是堆给了几个人。
+                        GainHeft(shieldAll);
                         ShieldPlayerAndSummons(shieldAll, effect.PersistOnce);
                         break;
                     }
@@ -2365,8 +2365,8 @@ namespace Brushblade.Core
                         // (2026-09-02:相生 ×3 已取消,ResolveEffect 现在对这一支是恒等函数)
                         int healBase = ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
-                        int amplified = AmplifyByWaterPower(healBase);  // 用**攒之前**的层数
-                        GainWaterPower(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
+                        int amplified = AmplifyByWellspring(healBase);  // 用**攒之前**的层数
+                        GainWellspring(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
                         HealAlly(allySlot, amplified);
                         break;
                     }
@@ -2374,8 +2374,8 @@ namespace Brushblade.Core
                     {
                         int healAllBase = ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
-                        int amplifiedAll = AmplifyByWaterPower(healAllBase);
-                        GainWaterPower(healAllBase);
+                        int amplifiedAll = AmplifyByWellspring(healAllBase);
+                        GainWellspring(healAllBase);
                         HealPlayerAndSummons(amplifiedAll);
                         break;
                     }
@@ -2387,14 +2387,14 @@ namespace Brushblade.Core
                         // 内完全可能连放两次,会被回合数误判成同一来源又变回刷新。
                         int perTurn = ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
-                        int amplifiedPerTurn = AmplifyByWaterPower(perTurn);   // 用**攒之前**的层数
-                        // 按**总量**攒水势:HoT 承诺的治疗总量就是 每回合量 × 回合数,
+                        int amplifiedPerTurn = AmplifyByWellspring(perTurn);   // 用**攒之前**的层数
+                        // 按**总量**攒泉:HoT 承诺的治疗总量就是 每回合量 × 回合数,
                         // 分几回合兑现不改变承诺量。攒的是基数(放大前),理由同 HealSelf。
-                        GainWaterPower(perTurn * Math.Max(1, effect.Turns));
+                        GainWellspring(perTurn * Math.Max(1, effect.Turns));
                         _playerStatuses.Apply(new StatusEffect
                         {
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
-                            Magnitude = amplifiedPerTurn,   // 每回合量,已吃水势放大
+                            Magnitude = amplifiedPerTurn,   // 每回合量,已吃泉放大
                             TurnsLeft = effect.Turns, TargetAll = effect.TargetAll,
                             TargetSlot = allySlot,
                             SourceId = $"{def.Id}#{_statusSerial++}",
@@ -2461,11 +2461,11 @@ namespace Brushblade.Core
                             int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);
                             foreach (var summon in _summons)
                                 if (summon != null && summon.Alive) summon.Shield += shieldGrant;
-                            // 桂 的全场加盾同样攒势(2026-09-02):它与 EffectKind.Shield
+                            // 桂 的全场加盾同样攒厚(2026-09-02):它与 EffectKind.Shield
                             // 一样是玩家出字换来的护盾,只是发给召唤物。不接就是同类不同待遇。
-                            // 按**单只量**而不是发出的总量攒:势衡量的是这张字提供了多厚的一层
-                            // 防御,不是它复制了几份 —— 场上召唤物越多不该让同一张字攒的势越多。
-                            GainMomentum(shieldGrant);
+                            // 按**单只量**而不是发出的总量攒:厚衡量的是这张字提供了多厚的一层
+                            // 防御,不是它复制了几份 —— 场上召唤物越多不该让同一张字攒的厚越多。
+                            GainHeft(shieldGrant);
                         }
                         // 入场冻结(2026-08-25,藤):这张字**整体**冻一个随机存活敌人,
                         // 不是每只召唤物各冻一个 —— 循环外触发就是为了守住这条(见 SummonPassive 注释)。
@@ -2564,7 +2564,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>引爆一条资源(2026-09-02):清空层数,对全体存活敌人造成
-        /// <c>层数 × perStack</c> 伤害。势与水势共用这一份 —— 两者规则一字不差。
+        /// <c>层数 × perStack</c> 伤害。厚与泉共用这一份 —— 两者规则一字不差。
         ///
         /// 0 层时**直接返回**:不发事件、不造成伤害,但调用方(ApplyEffects 的 foreach)
         /// 会继续走同一张字的其他效果 —— 崩 的 AOE 那一半不能被吞掉。

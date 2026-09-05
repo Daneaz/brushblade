@@ -243,11 +243,19 @@ namespace Brushblade.Presentation
                         else
                             Popup(Strings.T("juice.popup.shield_and_hp_loss", ("absorbed", e.Absorbed), ("hpLoss", enemyHpLoss)),
                                 DamageColor(e), hitAnchor, small: true);
-                        if (e.Ke) Ring(hitAnchor, Theme.GoldBorder);            // 相克:金环炸开
-                        else if (e.Countered) Ring(hitAnchor, Theme.InkSoft, inward: true); // 被克:环往里收
-                        // 被克的白闪也弱一档:目标「扛住了」,身上的反应就不该跟挨实一样狠
-                        if (!kills) HitReact(hitAnchor, e.Countered ? 0.45f : 1f); // 致死不白闪,让位给置灰
-                        HitFx(e.Amount, e.Crit, e.Ke, hitAnchor, e.Countered);
+                        // ⚠ **打击感只播一次**(2026-09-05):e.SameSwing 那一记是同一次挥击的
+                        // 第二格(跨排 Boss),飘字要出两个(受了两份伤害),但光环、白闪、震屏、
+                        // 打击音**不能**跟着来第二遍 —— 上一版只跳过了节拍,这四样仍在同一帧
+                        // 各播两次,听感与体感照旧是「打了两下」,用户因此说「剑还是攻击两次」。
+                        // 一次出手 = 一次打击感 + 两个伤害数字。
+                        if (!e.SameSwing)
+                        {
+                            if (e.Ke) Ring(hitAnchor, Theme.GoldBorder);            // 相克:金环炸开
+                            else if (e.Countered) Ring(hitAnchor, Theme.InkSoft, inward: true); // 被克:环往里收
+                            // 被克的白闪也弱一档:目标「扛住了」,身上的反应就不该跟挨实一样狠
+                            if (!kills) HitReact(hitAnchor, e.Countered ? 0.45f : 1f); // 致死不白闪,让位给置灰
+                            HitFx(e.Amount, e.Crit, e.Ke, hitAnchor, e.Countered);
+                        }
                         onImpact?.Invoke(e);
                         anyParallel = true;
                         break;
@@ -1114,7 +1122,7 @@ namespace Brushblade.Presentation
                 target.localScale = Vector3.one;
         }
 
-        // ---- 条上涨势(治疗 / 筑盾 / 补全)----
+        // ---- 条上涨厚(治疗 / 筑盾 / 补全)----
 
         private const float BarPulseDuration = 0.55f;
 

@@ -68,23 +68,23 @@ namespace Brushblade.Core.Tests
             Assert.That(BattleEngine.NeedsAllyTarget(Graph().Get("崩")), Is.False);
         }
 
-        /// <summary>攒势按**单份**盾量,不乘人数(与 HealAll 攒水势同一条口径:
-        /// 那边 GainWaterPower 收的也是基础值)。否则场上召唤物越多、同一张字攒的势越多,
-        /// 而「势」记的是你堆了多少防御,不是堆给了几个人。</summary>
+        /// <summary>攒厚按**单份**盾量,不乘人数(与 HealAll 攒泉同一条口径:
+        /// 那边 GainWellspring 收的也是基础值)。否则场上召唤物越多、同一张字攒的厚越多,
+        /// 而「厚」记的是你堆了多少防御,不是堆给了几个人。</summary>
         [Test]
-        public void ShieldAll_GainsMomentumOncePerCast()
+        public void ShieldAll_GainsHeftOncePerCast()
         {
             var solo = Engine(new[] { "崩" });
             Assert.That(solo.Cast("崩"), Is.EqualTo(BattleError.None));
-            int aloneStacks = solo.MomentumStacks;
+            int aloneStacks = solo.HeftStacks;
 
             var crowded = Engine(new[] { "兵", "兵", "崩" });
             crowded.Cast("兵");
             crowded.Cast("兵");
-            int beforeStacks = crowded.MomentumStacks;
+            int beforeStacks = crowded.HeftStacks;
             Assert.That(crowded.Cast("崩"), Is.EqualTo(BattleError.None));
-            Assert.That(crowded.MomentumStacks - beforeStacks, Is.EqualTo(aloneStacks),
-                "有没有召唤物在场,这一张攒的势一样多");
+            Assert.That(crowded.HeftStacks - beforeStacks, Is.EqualTo(aloneStacks),
+                "有没有召唤物在场,这一张攒的厚一样多");
         }
 
         [Test]

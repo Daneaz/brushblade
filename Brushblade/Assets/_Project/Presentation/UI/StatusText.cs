@@ -171,15 +171,15 @@ namespace Brushblade.Presentation
                     return new Info("pierce", Strings.T("status.pierce.name"),
                         Strings.T("status.duration.persistent"),
                         Strings.T("status.pierce.desc", ("magnitude", magnitude)));
-                case StatusKind.Momentum:
+                case StatusKind.Heft:
                     // 无 PNG/兜底字资产(与 ApBoost 同处理):IconKey 留 null,文字仍完整。
-                    return new Info(null, Strings.T("status.momentum.name"),
+                    return new Info(null, Strings.T("status.heft.name"),
                         Strings.T("status.duration.persistent"),
-                        Strings.T("status.momentum.desc", ("magnitude", magnitude)));
-                case StatusKind.WaterPower:
-                    return new Info(null, Strings.T("status.waterpower.name"),
+                        Strings.T("status.heft.desc", ("magnitude", magnitude)));
+                case StatusKind.Wellspring:
+                    return new Info(null, Strings.T("status.wellspring.name"),
                         Strings.T("status.duration.persistent"),
-                        Strings.T("status.waterpower.desc", ("magnitude", magnitude)));
+                        Strings.T("status.wellspring.desc", ("magnitude", magnitude)));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句

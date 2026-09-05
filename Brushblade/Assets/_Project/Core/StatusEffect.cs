@@ -44,11 +44,11 @@ namespace Brushblade.Core
         DodgeBuff,        // 玩家闪避加成(**百分点**,2026-08-12,E-b4 T4):进 EffectiveDodge 的加数。
                           // 序号 20 而非 spec §11.3 预留的 18 —— T2 的 DefenseBuff/PierceBuff 先合流,
                           // 按「新值一律追加在末尾」顺延,锁值测试写的是实际值
-        Momentum,         // 势(2026-09-02,土):Magnitude = **层数**,每层 +5% 伤害,上限 10。
+        Heft,         // 厚(2026-09-02,土):Magnitude = **层数**,每层 +5% 伤害,上限 10。
                           // 来源是**获得护盾的量**(不是挨打),每攒够 MaxHp/10 涨一层。
                           // 与 Morale 同型:Magnitude 是层数不是加成值,进 EffectiveAttack 的
                           // 百分比乘区;混进 AttackBuff 会既丢层数上限又让 +1 层被当成 +1 攻击。
-        WaterPower,       // 水势(2026-09-02,水):Magnitude = **层数**,每层 +10% 治疗,上限 10。
+        Wellspring,       // 泉(2026-09-02,水):Magnitude = **层数**,每层 +10% 治疗,上限 10。
                           // 来源是治疗的**名义值**(不是实际回血)——满血溢出照样攒,
                           // 这正是「满血奶自己不亏」那条诉求的落点。
     }

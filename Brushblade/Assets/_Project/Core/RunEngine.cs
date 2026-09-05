@@ -544,12 +544,12 @@ namespace Brushblade.Core
             _carriedSummons = CaptureAliveSummons();
             // 只取护甲增益:HoT 是本场限定,不随携带态跨战斗(2026-08-04;
             // 2026-08-12 E-b4 T3 随乘法减伤退场,载体从 DamageReduction 换成 DefenseBuff)
-            // 势/水势跟护盾同步跨战斗(2026-09-02):护盾本来就整场爬塔延续(_shieldNormal),
-            // 势不跟着延续的话每场重攒,而护盾还留着 —— 两者永远对不上。
+            // 厚/泉跟护盾同步跨战斗(2026-09-02):护盾本来就整场爬塔延续(_shieldNormal),
+            // 厚不跟着延续的话每场重攒,而护盾还留着 —— 两者永远对不上。
             _carriedStatuses = Battle.PlayerStatuses.All
                 .Where(s => s.Kind == StatusKind.DefenseBuff
-                    || s.Kind == StatusKind.Momentum
-                    || s.Kind == StatusKind.WaterPower)
+                    || s.Kind == StatusKind.Heft
+                    || s.Kind == StatusKind.Wellspring)
                 .Select(s => s.Clone())
                 .ToList();
 
@@ -753,7 +753,7 @@ namespace Brushblade.Core
         public int EffectiveMaxHp => Math.Max(1, _battleConfig.PlayerMaxHp + _maxHpBonus);
 
         /// <summary>携带态的当前血量(战斗之间由 run 保管,与 <see cref="EffectiveMaxHp"/> 配对读)。
-        /// 2026-09-02 开放:奇遇结算改血/改上限后,表现层要把玩家血条**先更新到新值再起势**,
+        /// 2026-09-02 开放:奇遇结算改血/改上限后,表现层要把玩家血条**先更新到新值再起厚**,
         /// 而那时旧战斗的 <c>Battle.MaxHp</c> 还是改动前的值,读它会把条画错。</summary>
         public int CarriedHp => _carriedHp;
 

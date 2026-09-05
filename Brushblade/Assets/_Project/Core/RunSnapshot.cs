@@ -38,12 +38,12 @@ namespace Brushblade.Core
         /// 不存的话续爬会在「从 0 层起手」的那一回合白掉一层。</summary>
         public bool MoraleGraceTurn { get; set; }
 
-        /// <summary>势的余数:不足一层的护盾量(2026-09-02)。
-        /// ⚠ 漏存是**静默**的 —— 续爬后余数归零,玩家丢掉最多一层势,而没有任何
+        /// <summary>厚的余数:不足一层的护盾量(2026-09-02)。
+        /// ⚠ 漏存是**静默**的 —— 续爬后余数归零,玩家丢掉最多一层厚,而没有任何
         /// 现有测试看得见(全部测试都建新对象,没有一条读旧快照字节)。</summary>
         public int ShieldAccum { get; set; }
 
-        /// <summary>水势的余数:不足一层的治疗名义值(2026-09-02)。同上,漏存静默。</summary>
+        /// <summary>泉的余数:不足一层的治疗名义值(2026-09-02)。同上,漏存静默。</summary>
         public int HealAccum { get; set; }
     }
 

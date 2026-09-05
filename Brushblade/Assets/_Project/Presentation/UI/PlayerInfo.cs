@@ -56,12 +56,12 @@ namespace Brushblade.Presentation
         /// MoralePercentPerStack、strings 表的 status.morale.desc、这里三处都要一起改。</summary>
         private const int MoralePercentPerStack = 10;
 
-        /// <summary>势每层的攻击加成(百分点)。与 <c>BattleEngine</c> 私有常量
-        /// <c>MomentumPercentPerStack</c> 数值必须保持一致,理由与上面 <see cref="MoralePercentPerStack"/>
-        /// 的注释同一条:status.momentum.desc 已经把「每层 +5% 伤害」写成玩家可见的公开事实,
-        /// 这里复制不是新泄露。⚠ 改这个数字时,BattleEngine.cs 的 MomentumPercentPerStack、
-        /// strings 表的 status.momentum.desc、这里三处都要一起改。</summary>
-        private const int MomentumPercentPerStack = 5;
+        /// <summary>厚每层的攻击加成(百分点)。与 <c>BattleEngine</c> 私有常量
+        /// <c>HeftPercentPerStack</c> 数值必须保持一致,理由与上面 <see cref="MoralePercentPerStack"/>
+        /// 的注释同一条:status.heft.desc 已经把「每层 +5% 伤害」写成玩家可见的公开事实,
+        /// 这里复制不是新泄露。⚠ 改这个数字时,BattleEngine.cs 的 HeftPercentPerStack、
+        /// strings 表的 status.heft.desc、这里三处都要一起改。</summary>
+        private const int HeftPercentPerStack = 5;
 
         /// <summary>攻/甲/暴击/速四格。攻直接读 <see cref="BattleEngine.EffectiveAttack"/>——
         /// 稿子点名要求的口径,不在这里重新拼一遍公式。基准值(角色成长曲线)另算,
@@ -86,12 +86,12 @@ namespace Brushblade.Presentation
             int attackBuffPts = statuses.TotalMagnitude(StatusKind.AttackBuff);
             int moraleLayers = statuses.TotalMagnitude(StatusKind.Morale);
             int moralePercent = moraleLayers * MoralePercentPerStack;
-            int momentumLayers = statuses.TotalMagnitude(StatusKind.Momentum);
-            int momentumPercent = momentumLayers * MomentumPercentPerStack;
+            int heftLayers = statuses.TotalMagnitude(StatusKind.Heft);
+            int heftPercent = heftLayers * HeftPercentPerStack;
             string attackNote = UnitDetailChip.BaseNote(MetaRules.AttackFor(level),
                 UnitDetailChip.DeltaBuffPts(Strings.T("status.attack.name"), attackBuffPts),
                 UnitDetailChip.DeltaBuffPct(Strings.T("status.morale.name"), moralePercent),
-                UnitDetailChip.DeltaBuffPct(Strings.T("status.momentum.name"), momentumPercent));
+                UnitDetailChip.DeltaBuffPct(Strings.T("status.heft.name"), heftPercent));
 
             int defenseBuff = statuses.TotalMagnitude(StatusKind.DefenseBuff);
             int armorBreak = statuses.TotalMagnitude(StatusKind.ArmorBreak);

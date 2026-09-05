@@ -122,8 +122,8 @@ namespace Brushblade.CoreTests
         {
             // 2026-09-02(护盾/治疗接上角色攻击成长,Task 5)语义改判:护盾吃
             // config.PlayerAttack(角色等级的基础攻击力),这条测试原先断言「不吃」,
-            // 现在改断言「吃的是基础值,不是 EffectiveAttack」——局内增益(战意/势)
-            // 不吃这条见 MomentumTests.Shield_IgnoresMomentumAndMorale_NoFeedbackLoop。
+            // 现在改断言「吃的是基础值,不是 EffectiveAttack」——局内增益(战意/厚)
+            // 不吃这条见 HeftTests.Shield_IgnoresHeftAndMorale_NoFeedbackLoop。
             var engine = Battle(150, "丙");
             engine.Cast("丙");
             Assert.That(engine.PlayerShield, Is.EqualTo(10), "floor(7 × 150 ÷ 100) = 10");
@@ -133,7 +133,7 @@ namespace Brushblade.CoreTests
         public void HighAttack_ScalesHealByBaseAttack()
         {
             // 2026-09-02(Task 5)语义改判,同 HighAttack_ScalesShieldByBaseAttack:
-            // 治疗吃 config.PlayerAttack。水势层数为 0,AmplifyByWaterPower 恒等,不干扰这条。
+            // 治疗吃 config.PlayerAttack。泉层数为 0,AmplifyByWellspring 恒等,不干扰这条。
             // PlayerHp 是 { get; private set; },不能用对象初始化器设 ——
             // 起始血量只能走构造参数 startingHp
             var engine = new BattleEngine(Graph(),

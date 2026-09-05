@@ -339,12 +339,12 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.apboost.name"),
                             Strings.T("collection.trait.apboost.desc", ("value", e.Value)));
                         break;
-                    case EffectKind.SpendMomentum:
-                        AddWord(traits, Strings.T("collection.trait.spend_momentum.chip"),
-                            Strings.T("collection.trait.spend_momentum.name"),
-                            Strings.T("collection.trait.spend_momentum.desc", ("value", v)));
+                    case EffectKind.SpendHeft:
+                        AddWord(traits, Strings.T("collection.trait.spend_heft.chip"),
+                            Strings.T("collection.trait.spend_heft.name"),
+                            Strings.T("collection.trait.spend_heft.desc", ("value", v)));
                         break;
-                    case EffectKind.SpendWaterPower:
+                    case EffectKind.SpendWellspring:
                         AddWord(traits, Strings.T("collection.trait.spend_water.chip"),
                             Strings.T("collection.trait.spend_water.name"),
                             Strings.T("collection.trait.spend_water.desc", ("value", v)));

@@ -435,7 +435,7 @@ namespace Brushblade.Presentation
                     SetPlayerHp(_animPlayerHp, PlayerMaxHp);
                     ChipDamage(_playerHpBar, hitBefore, _animPlayerHp, PlayerMaxHp);
                     break;
-                // 筑盾:同上,只记账。盾条与那记土系起势一并去掉了(2026-09-05)——
+                // 筑盾:同上,只记账。盾条与那记土系起厚一并去掉了(2026-09-05)——
                 // 起势要有条可起,而盾的表达现在是立绘角标上的数字 + Juice 那一记飘字与音效。
                 case BattleEventKind.Shield:
                     // TargetIndex ≥0 = 盾加在召唤物身上(2026-08-26),那一侧不必记账 ——
@@ -1696,22 +1696,22 @@ namespace Brushblade.Presentation
             int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod != 0)
                 statusChips.Add(new("", speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
-            // 势 / 水势(2026-09-02):**「状态只出图标」那条规矩的显式例外,带数字。**
+            // 厚 / 泉(2026-09-02):**「状态只出图标」那条规矩的显式例外,带数字。**
             //
-            // main 2026-09-02 的判据是「量本身会不会随回合变小」——势/水势不会(TurnsLeft = -1,
+            // main 2026-09-02 的判据是「量本身会不会随回合变小」——厚/泉不会(TurnsLeft = -1,
             // 只在引爆那一刻清零),按字面该只出图标。这里刻意破例,因为那条规矩要保护的东西
-            // 在这里反过来了:它挡的是「恒定修正值反复占用注意力」,而势/水势的层数**就是玩家
-            // 唯一的决策依据** —— 攒到几层才值得引爆、这一手该攒还是该泻,全看这个数。
-            // 藏了它,「攒→泻」整个机制就不可玩(2026-09-02 全分支终审 #2 的核心正是这一条)。
+            // 在这里反过来了:它挡的是「恒定修正值反复占用注意力」,而厚/泉的层数**就是玩家
+            // 唯一的决策依据** —— 攒到几层才值得引爆、这一手该攒还是该发,全看这个数。
+            // 藏了它,「攒→发」整个机制就不可玩(2026-09-02 全分支终审 #2 的核心正是这一条)。
             //
             // 无图标资产,故字头走字符串表自带区分(同 seal 那行 AP 后缀的处理)。
             // 层数为 0 不占格,与其余增益类 chip 同口径。
-            int momentum = Battle.MomentumStacks;
-            if (momentum > 0)
-                statusChips.Add(new($"{Strings.T("status.momentum.chip")}{momentum}", Theme.Gold, Color.white, null));
-            int waterPower = Battle.WaterPowerStacks;
+            int heft = Battle.HeftStacks;
+            if (heft > 0)
+                statusChips.Add(new($"{Strings.T("status.heft.chip")}{heft}", Theme.Gold, Color.white, null));
+            int waterPower = Battle.WellspringStacks;
             if (waterPower > 0)
-                statusChips.Add(new($"{Strings.T("status.waterpower.chip")}{waterPower}", Theme.Jade, Color.white, null));
+                statusChips.Add(new($"{Strings.T("status.wellspring.chip")}{waterPower}", Theme.Jade, Color.white, null));
             var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, 12, 2,
                 ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
             stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
@@ -4269,7 +4269,7 @@ namespace Brushblade.Presentation
         /// <summary>奇遇结算的飘字正在播:期间不重绘、也不接受第二次点击(2026-09-02)。</summary>
         private bool _eventResolving;
 
-        /// <summary>奇遇结算的生命变化播成**血条起势**(与加血/加盾同一个 <see cref="Juice.BarPulse"/>),
+        /// <summary>奇遇结算的生命变化播成**血条起厚**(与加血/加盾同一个 <see cref="Juice.BarPulse"/>),
         /// 播了返回 true(调用方据此改走「先播完再换屏」)。
         ///
         /// 试玩反馈:「加 HP 上限的 case 先播放下动效再结束,当前看不到效果,最后也不知道到底是
@@ -4278,7 +4278,7 @@ namespace Brushblade.Presentation
         ///      都不产生**,Juice 的常规通道(<see cref="Juice.Play"/>)根本经手不到 —— 屏上没有任何痕迹;
         ///   2. 换屏在同一帧发生,就算画了也当场被下一屏盖掉。
         ///
-        /// ⚠ **必须先把血条更新到新值再起势**,否则起势的是一条还画着旧数字的条,
+        /// ⚠ **必须先把血条更新到新值再起厚**,否则起势的是一条还画着旧数字的条,
         /// 「看不到效果」这条反馈原样还在。而这时不能读 <c>PlayerMaxHp</c>(它走
         /// <c>Battle?.MaxHp</c>,是**上一场**战斗的配置,奇遇的上限加成还没折进去),
         /// 要读 run 的携带态 —— <c>CarriedHp</c> 正是为此开放的。

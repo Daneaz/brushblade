@@ -148,10 +148,10 @@ namespace Brushblade.Presentation
                     // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
                     // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
                     EffectKind.PierceBuff => Strings.T("char.effect.piercebuff", ("value", shown)),
-                    // 发势 / 泻(2026-09-02,水土双方向):清空全部势/水势,按层数 × value 打全体。
+                    // 厚积薄发 / 涌泉相报(2026-09-02,水土双方向):清空全部厚/泉,按层数 × value 打全体。
                     // 与 tools/design/gen_char_doc.py 的 desc() 同口径。
-                    EffectKind.SpendMomentum => Strings.T("char.effect.spendmomentum", ("value", shown)),
-                    EffectKind.SpendWaterPower => Strings.T("char.effect.spendwaterpower", ("value", shown)),
+                    EffectKind.SpendHeft => Strings.T("char.effect.spendheft", ("value", shown)),
+                    EffectKind.SpendWellspring => Strings.T("char.effect.spendwellspring", ("value", shown)),
                     _ => e.Kind.ToString(),
                 });
             }
