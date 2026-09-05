@@ -540,8 +540,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Silence_CancelsBossChargeAndResetsCounter()
+        public void Silence_OnBoss_DoesNotCancelChargeOrResetCounter()
         {
+            // 2026-09-05(封禁,平衡重做 P0 任务 9):这条原名 Silence_CancelsBossChargeAndResetsCounter,
+            // 断言的是"沉默→蓄力取消,不放大招,交回普攻"。封禁扩到"特殊能力全部失效"后,
+            // 对 Boss 降级为"只削护甲",蓄力/大招不受影响——同斩杀对 Boss 从直杀降为
+            // 吃双倍一个纪律,此处反向改写全部三条断言。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
@@ -551,24 +555,19 @@ namespace Brushblade.Core.Tests
 
             engine.Cast("禁", 0);
             int hpBefore = engine.PlayerHp;
-            engine.EndTurn();                       // 沉默 → 蓄力取消,不放大招,交回普攻
+            engine.EndTurn();                       // 封禁不打断蓄力,倾覆照常放
 
-            Assert.That(engine.Enemies[0].IsCharging, Is.False, "蓄力被取消");
-            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "计数清零,解锁后从头攒");
-            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False, "倾覆没放出来");
-            // 评审 Important 3:上面三条只看了蓄力状态和倾覆的副作用(Seal),没看「沉默压的是
-            // 能力不是行动」这件事本身——若把 ResolveBossTurn 顶部的沉默短路从「交回普攻」
-            // 误改成「本回合什么都不干」，三条断言照样绿。补上普攻伤害断言堵死这条路。
-            Assert.That(engine.PlayerHp, Is.EqualTo(hpBefore - 4), "取消蓄力后交回普攻,照常打 4");
+            Assert.That(engine.Enemies[0].IsCharging, Is.False, "蓄力正常释放后归位(不是被打断清零)");
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.True, "倾覆照常放出来 —— 大招不受封禁影响");
+            Assert.That(engine.PlayerHp, Is.EqualTo(hpBefore - 8), "倾覆全额 Attack×2,封禁没有打折");
         }
 
         [Test]
-        public void Silence_CancelsBossChargeImmediately()
+        public void Silence_OnBoss_DoesNotCancelChargeImmediately()
         {
-            // 评审 Important 1(控制器裁定,2026-08-08,真洞):原实现的取消逻辑挂在
-            // ResolveBossTurn 里,只有敌人真的行动(actionCount>0)时才会跑到。这里不等
-            // EndTurn,直接在 Cast 之后当场断言——取消必须发生在「挂上沉默的那一刻」,
-            // 不能等到敌人下次行动才生效。
+            // 2026-09-05(封禁,平衡重做 P0 任务 9):原名 Silence_CancelsBossChargeImmediately,
+            // 断言"挂上沉默当场打断蓄力"(评审 Important 1,2026-08-08 的旧口径)。
+            // 封禁对 Boss 降级为"只削护甲",这条打断逻辑已删除——蓄力状态与计数都不受影响。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
@@ -576,18 +575,17 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();                       // Boss 进入蓄力
             Assert.That(engine.Enemies[0].IsCharging, Is.True);
 
-            engine.Cast("禁", 0);                    // 不 EndTurn,当场就该打断蓄力
-            Assert.That(engine.Enemies[0].IsCharging, Is.False, "蓄力当场被取消,不用等下次行动");
-            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "计数当场清零");
+            engine.Cast("禁", 0);                    // 不 EndTurn,当场断言:封禁不打断蓄力
+            Assert.That(engine.Enemies[0].IsCharging, Is.True, "蓄力不受封禁影响,继续保持");
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(1), "计数维持蓄力达成时的值,不被清零");
         }
 
         [Test]
-        public void Silence_CancelsBossChargeEvenThroughFreeze()
+        public void Silence_OnBoss_DoesNotCancelChargeEvenThroughFreeze()
         {
-            // 评审 Important 1 的复现场景:Boss 蓄力中 → 沉默 + 冻结同时压上 → 冻结期间
-            // actionCount 恒为 0,若取消逻辑挂在「行动时判」(ResolveBossTurn)就永远等不到
-            // 触发的机会 —— 沉默 2 回合早早过期,冻结 2 回合解开后 IsCharging 仍是 true,
-            // 一解冻就立刻放出倾覆(倾覆的 Seal 会挂上)。取消挂在 Cast 那一刻就不受冻结影响。
+            // 2026-09-05(封禁,平衡重做 P0 任务 9):原名 Silence_CancelsBossChargeEvenThroughFreeze,
+            // 断言"沉默取消蓄力的效果不受冻结影响,解冻后倾覆不会补放"。封禁对 Boss 现在根本
+            // 不取消蓄力,冻结与否都一样——蓄力保留到解冻,倾覆照常放出来。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
@@ -595,22 +593,22 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();                       // Boss 进入蓄力
             Assert.That(engine.Enemies[0].IsCharging, Is.True);
 
-            engine.Cast("禁", 0);                    // 沉默 2 回合
-            engine.Cast("冻", 0);                    // 冻结 2 回合,盖住沉默的整个窗口
+            engine.Cast("禁", 0);                    // 封禁 2 回合
+            engine.Cast("冻", 0);                    // 冻结 2 回合,盖住封禁的整个窗口
             engine.EndTurn();                       // 冻结中不行动(第 1 个被挡的敌方回合)
-            engine.EndTurn();                       // 冻结中不行动(第 2 个被挡的敌方回合,沉默也在这期间到期)
-            engine.EndTurn();                       // 冻结解开,恢复行动 —— 不该立刻放技能
+            engine.EndTurn();                       // 冻结中不行动(第 2 个被挡的敌方回合,封禁也在这期间到期)
+            engine.EndTurn();                       // 冻结解开,该释放大招了
 
-            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.False, "倾覆没有被放出来");
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.True, "倾覆照常放出来 —— 大招不受封禁/冻结影响");
         }
 
         [Test]
-        public void Silence_ResetsChargeCounterWhenNotYetCharging()
+        public void Silence_OnBoss_DoesNotResetChargeCounter()
         {
-            // 修复 4(Minor,2026-08-08):ResolveBossTurn 沉默短路里的 ChargeCounter = 0——
-            // 变异删掉这一行,737 全绿存活。真实行为差:Boss 计数为 1(还没进蓄力)时被沉默,
-            // 现实现在敌方回合把计数清 0(语义:沉默期间不攒力);删掉则保留 1,解锁后
-            // 早一回合放大招。BossChargeEvery=2:第一个敌方回合只攒到 1,还没进蓄力。
+            // 2026-09-05(封禁,平衡重做 P0 任务 9):原名 Silence_ResetsChargeCounterWhenNotYetCharging,
+            // 断言"沉默期间不攒力,计数清零"(修复 4,2026-08-08 的旧口径)。封禁对 Boss 现在完全
+            // 不碰蓄力计数——计数照常累加、照常进入蓄力态。BossChargeEvery=2:第一个敌方回合
+            // 只攒到 1,还没进蓄力。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 2 };
@@ -619,10 +617,11 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(1));
             Assert.That(engine.Enemies[0].IsCharging, Is.False);
 
-            engine.Cast("禁", 0);   // 沉默 2 回合
-            engine.EndTurn();      // 沉默期间的敌方回合:ResolveBossTurn 顶部短路应清零计数
+            engine.Cast("禁", 0);   // 封禁 2 回合
+            engine.EndTurn();      // 封禁期间的敌方回合:计数照常推进,不再清零
 
-            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "沉默期间不攒力,计数清零");
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(2), "封禁不影响蓄力计数,照常攒到阈值");
+            Assert.That(engine.Enemies[0].IsCharging, Is.True, "达到阈值即进入蓄力,封禁没有打断");
         }
 
         [Test]

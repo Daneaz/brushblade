@@ -209,6 +209,9 @@ namespace Brushblade.Core
                      // Library,没有卡位可飞;照发会让表现层拿 Amount 去索引卡位表越界。
         ActorActed,  // 阶段分隔:每个行动者的事件段以此开头(TargetIndex = 行动者下标,Amount = (int)ActorKind;
                      // 逐格驱动后表现层不再需要猜段边界,2026-08-16 换掉 EnemyTurnBegan)
+        SuppressDowngraded, // 封禁打在 Boss 身上、降级为「只削一半护甲」时发一条(TargetIndex = 该 Boss;2026-09-05)。
+                            // 不发的话玩家只会以为是 bug —— 卡面写着「特殊能力全部失效」,
+                            // Boss 身上却只掉一半甲、大招照放。
     }
 
     public readonly struct BattleEvent
@@ -552,10 +555,24 @@ namespace Brushblade.Core
         /// 此前这里写死 _playerStatuses,于是**玩家的穿透会替召唤物破甲** —— 召唤物每拍出手
         /// 都白吃玩家身上那份锐。那是穿透上线(2026-08-12)起就在的账,BuffTargetTests 的
         /// PierceBuff_OnPlayer_DoesNotHelpSummon 逮住的正是它。</summary>
+        /// <summary>**封禁(2026-09-05)**:目标带 <see cref="StatusKind.Silence"/> 时,
+        /// 杂兵的护甲按 0 算、**Boss 按一半算**(降级,见 <see cref="SuppressArmorOf"/>)。
+        /// 封禁挂在敌人身上,削的是它的防御,不是玩家的输出 —— 与穿透(已并入破甲、
+        /// 2026-09-05 休眠)那条「给我方挂 buff」的旧路子相反。</summary>
         private int EffectiveEnemyDefense(EnemyState enemy, int pierce, StatusBag attackerBag = null) => Math.Max(0,
-            enemy.Defense
+            SuppressArmorOf(enemy)
             - enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak)
             - (pierce + (attackerBag ?? _playerStatuses).TotalMagnitude(StatusKind.PierceBuff)));
+
+        /// <summary>封禁作用后的基础护甲(2026-09-05)。杂兵归零、Boss 减半、无封禁原值。
+        ///
+        /// Boss 降级而不是免疫:同斩杀对 Boss 从「直杀」降为「吃双倍」的纪律 ——
+        /// 高价值控制不该在最关键的战斗里变成废牌,但也不能全效。</summary>
+        private static int SuppressArmorOf(EnemyState enemy)
+        {
+            if (!enemy.Statuses.Has(StatusKind.Silence)) return enemy.Defense;
+            return enemy.IsBoss ? enemy.Defense / 2 : 0;
+        }
 
         /// <summary>玩家挨一记时的有效护甲(点数,2026-08-12,E-b4 T2)= 角色属性 + 局内护甲增益
         /// − 身上的破甲,下钳 0。与 <see cref="EffectiveAttack"/> / <see cref="EffectiveCrit"/> 同形:
@@ -1698,9 +1715,9 @@ namespace Brushblade.Core
 
             // 支援型能力优先于普攻:有活可干就不出手,没活干才亲自上(标点小妖的既有口径,
             // 涂改沿用同一条 —— 玩家因此可以靠「清光伤员」或「打断它」把它逼成普通怪)
-            if (enemy.Def.Ability == EnemyAbility.Buff && !IsSilenced(enemy) && HasOtherAliveEnemy(enemy))
+            if (enemy.Def.Ability == EnemyAbility.Buff && !IsAbilitySilenced(enemy) && HasOtherAliveEnemy(enemy))
                 ApplyEnemyBuffAura(enemyIndex);
-            else if (enemy.Def.Ability == EnemyAbility.Mend && !IsSilenced(enemy) && MostWoundedAlly(enemy) >= 0)
+            else if (enemy.Def.Ability == EnemyAbility.Mend && !IsAbilitySilenced(enemy) && MostWoundedAlly(enemy) >= 0)
                 MendOneAlly(enemyIndex);
             else
                 ActOneEnemy(enemyIndex, 1);
@@ -1822,7 +1839,7 @@ namespace Brushblade.Core
         private void ApplyEnemyBuffAura(int enemyIndex)
         {
             var enemy = _enemies[enemyIndex];
-            if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff || IsSilenced(enemy)) return;
+            if (!enemy.Alive || enemy.Def.Ability != EnemyAbility.Buff || IsAbilitySilenced(enemy)) return;
             if (!HasOtherAliveEnemy(enemy)) return; // 无人可加 → 交给下面的行动循环
             for (int j = 0; j < _enemies.Count; j++)
             {
@@ -1919,7 +1936,7 @@ namespace Brushblade.Core
                 // 仍算命中(hit=true),灼烧照挂——免疫挡的是伤害,不是攻击本身。
                 // 2026-08-26:打谁烧谁。改前无论这一下落在玩家还是召唤物身上,烧的都是玩家 ——
                 // 那时召唤物没有状态容器,只能这么写;现在有了,就该落在实际挨打的那个身上。
-                if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsSilenced(enemy))
+                if (hit && enemy.Def.Ability == EnemyAbility.Sear && !IsAbilitySilenced(enemy))
                 {
                     if (tankIdx == Targeting.PlayerTarget)
                     {
@@ -1956,7 +1973,7 @@ namespace Brushblade.Core
             var enemy = _enemies[enemyIndex];
             // 本回合已被灼烧/召唤物打死的不许回血 —— 死了还补就成了打不死的怪
             if (!enemy.Alive) return;
-            if (enemy.Def.Ability != EnemyAbility.Regrow || IsSilenced(enemy) || enemy.RegrowProgress >= 3) return;
+            if (enemy.Def.Ability != EnemyAbility.Regrow || IsAbilitySilenced(enemy) || enemy.RegrowProgress >= 3) return;
 
             int before = enemy.Hp;
             enemy.RegrowProgress += 1;
@@ -2275,16 +2292,14 @@ namespace Brushblade.Core
                                 Kind = StatusKind.Silence, Polarity = StatusPolarity.Debuff,
                                 Magnitude = 1, TurnsLeft = effect.Turns, SourceId = def.Id,
                             });
-                            // 沉默要在挂上的当下就打断蓄力(评审 Important 1,2026-08-08):
-                            // ResolveBossTurn 开头那处短路只在敌人真的行动(actionCount>0)时才跑,
-                            // 蓄力期间恰好被冻结/减速卡住不动的话,沉默会一路挂满到期都没触发,
-                            // 一解冻/解速立刻放出大招——与「锁住的是正在攒的那一下」的语义正相反。
+                            // 封禁(2026-09-05):取代了 2026-08-08 评审 Important 1 那条「挂上
+                            // 当下就打断蓄力」的旧处理 —— 那条打断的正是 Boss 的 IsCharging/
+                            // ChargeCounter(全代码库只有 ResolveBossTurn 会把它们置真,只有 Boss
+                            // 会进入蓄力态),而封禁现在对 Boss 降级为「只削护甲,大招照放」,
+                            // 所以这里不再打断蓄力,让它继续攒、到点照常释放。
                             var target = _enemies[targetIndex];
-                            if (target.IsCharging)
-                            {
-                                target.IsCharging = false;
-                                target.ChargeCounter = 0;
-                            }
+                            if (target.IsBoss)
+                                _events.Add(new BattleEvent(BattleEventKind.SuppressDowngraded, targetIndex, 0));
                         }
                         break;
                     case EffectKind.Reflect:
@@ -2954,10 +2969,19 @@ namespace Brushblade.Core
             return false;
         }
 
-        /// <summary>该敌人是否被沉默(2026-08-07,锁)。压的是**主动机制** ——
-        /// Boss 大招、缺笔妖补全、叠字分裂、标点加攻、焦痕自燃、灯花灼身。
-        /// 通假/生僻不在其列:那两个是信息隐藏,锁一下就看穿了不符合「锁」的语义。</summary>
+        /// <summary>目标身上有封禁状态吗(纯查询,2026-09-05 起语义收窄为"有没有这条状态")。
+        /// 别处若只是想知道「身上挂没挂这条状态」(不涉及要不要哑火某个主动机制),就该读这个,
+        /// 而不是下面的 <see cref="IsAbilitySilenced"/>。</summary>
         private static bool IsSilenced(EnemyState enemy) => enemy.Statuses.Has(StatusKind.Silence);
+
+        /// <summary>这只敌人的**主动机制**是否被封禁哑火(2026-09-05)。压的是
+        /// Boss 大招、缺笔妖补全、叠字分裂、标点加攻/涂改、焦痕自燃、灯花灼身、铁画反噬 ——
+        /// 通假/生僻不在其列:那两个是信息隐藏,锁一下就看穿了不符合"锁"的语义(2026-08-07 旧注)。
+        ///
+        /// Boss 不吃这一半 —— 封禁对 Boss 降级为「只削护甲」,大招照常放。
+        /// `EnemyAbility` 的每一处判断都要走这个方法,而不是裸 <see cref="IsSilenced"/>:
+        /// 漏一处的表现是那个 Boss 的那一条能力被封住了,而别的没有 —— 静默不一致。</summary>
+        private static bool IsAbilitySilenced(EnemyState enemy) => IsSilenced(enemy) && !enemy.IsBoss;
 
         private int AliveSummons()
         {
@@ -3222,7 +3246,7 @@ namespace Brushblade.Core
             CheckBossPhase(enemyIndex);
 
             // 焦痕:受击存活即自燃加攻(越磨越烫,宜速杀)
-            if (enemy.Def.Ability == EnemyAbility.Scorch && !IsSilenced(enemy))
+            if (enemy.Def.Ability == EnemyAbility.Scorch && !IsAbilitySilenced(enemy))
             {
                 // 一回合内可能连续多次命中同一目标(玩家多张牌接力打同一敌人),SourceId 必须
                 // 每次唯一,否则同回合第二次自燃会覆盖第一次而非叠加(Task 4 的 HoT 教训同型)。
@@ -3240,7 +3264,7 @@ namespace Brushblade.Core
             // 基数 damage 是过完生克、减完护甲后真正打进身体的量(与荆/镜「反的是落到身上的量」同口径)。
             // allowBarb 见 DamageEnemy 签名上方:回敬类的伤害不触发,免得与「镜」互相激发。
             // 反噬本身传 allowReflect: false —— 它不是敌人的挥击,是玩家自己撞上去的,镜反射不了自己的动作。
-            if (allowBarb && enemy.Def.Ability == EnemyAbility.Barb && !IsSilenced(enemy))
+            if (allowBarb && enemy.Def.Ability == EnemyAbility.Barb && !IsAbilitySilenced(enemy))
             {
                 int recoil = damage * BarbPercent / 100;
                 if (recoil > 0) DamagePlayerDirect(enemyIndex, recoil, allowReflect: false);
@@ -3248,7 +3272,7 @@ namespace Brushblade.Core
 
             // 叠字怪:首次受击存活 → 分裂成两个半血(8.3)。2026-08-20:克隆继承母体排位;
             // 母体那排满了就落另一排;两排都满(= 场上 6 只)才不分裂。
-            if (enemy.Def.Ability == EnemyAbility.Split && !IsSilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
+            if (enemy.Def.Ability == EnemyAbility.Split && !IsAbilitySilenced(enemy) && !enemy.HasSplit && _enemies.Count < EnemyCap)
             {
                 var cloneRow = RowWithSpace(enemy.Row, enemy.Def.ColumnSpan);
                 int cloneColumn = FreeColumnIn(cloneRow, enemy.Def.ColumnSpan);
@@ -3549,14 +3573,10 @@ namespace Brushblade.Core
         /// 返回 true = 本回合已处理,调用方跳过普通攻击。</summary>
         private bool ResolveBossTurn(int index, EnemyState enemy)
         {
-            // 沉默(2026-08-07):锁住的是「正在攒的那一下」——蓄力当场取消、计数清零,
-            // 解锁后从头攒,而不是解锁即放
-            if (IsSilenced(enemy))
-            {
-                enemy.IsCharging = false;
-                enemy.ChargeCounter = 0;
-                return false; // 交回普攻
-            }
+            // 封禁(2026-09-05):取代了 2026-08-07「沉默锁住正在攒的那一下」的旧口径 ——
+            // 这个方法只在 enemy.IsBoss 时被调用(见调用处 `enemy.IsBoss && ResolveBossTurn(...)`),
+            // 而封禁对 Boss 降级为「只削护甲,大招照放」,所以这里不再拿 IsSilenced/IsAbilitySilenced
+            // 去打断蓄力:蓄力计数照常推进、到点照常释放,同斩杀对 Boss 从直杀降为吃双倍一个纪律。
 
             if (enemy.IsCharging)
             {
