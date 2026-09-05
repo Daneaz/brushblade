@@ -58,11 +58,32 @@ namespace Brushblade.Balance
         private static readonly string[] EarthCards =
             { "碉", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓" };
 
+        /// <summary>土系「有护盾面」子集(2026-09-06,P0 收尾复核 —— 给下面「木土混色」
+        /// 画像专用)。从 <see cref="EarthCards"/> 里排除 `塔`/`碉`/`堡` —— 三字的 effects[].kind
+        /// 都是 Summon,不产生护盾,不会攒厚(攒厚只认 Shield / ShieldAll,见 BattleEngine 的
+        /// GainHeftForTest 调用点);混进来会稀释「护盾字密度」,削弱这一档观测厚层数的能力。
+        /// 剩下 8 字全部带 Shield 或 ShieldAll:垒(35)/壁(25+反伤30)/崩(ShieldAll 27)/
+        /// 碎(55)/圭(170)/杜(119+免疫2回合)/垚(215)/㙓(270)。</summary>
+        private static readonly string[] EarthShieldCards =
+            { "垒", "壁", "崩", "碎", "圭", "杜", "垚", "㙓" };
+
         /// <summary>木系出阵表(2026-09-05):召唤流此前在仿真里**一个观测点都没有**,
         /// 而「木系每只召唤物必带被动」「召唤物攻击吃战意+厚」两条改动都落在这一系上。
         /// 13 张实体字全列 —— 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars)。</summary>
         private static readonly string[] WoodCards =
             { "枪", "藤", "葬", "箭", "楸", "荆", "桤", "林", "柘", "森", "桂", "藻", "\ue625" };
+
+        /// <summary>木系「召唤且攻击非 0」子集(2026-09-06,P0 收尾复核 —— 给下面「木土混色」
+        /// 画像专用)。从 <see cref="WoodCards"/> 里排除两类字,已用 chars.json 逐字核过
+        /// effects[].kind / attack 字段:
+        /// - `箭`(DamageSingle)/ `葬`(DamageAll) —— 是伤害字不是召唤字,混进来测不到
+        ///   「厚放大召唤物攻击」这条链路;
+        /// - `荆`(Summon,attack 0) —— 召唤物攻击恒为 0,厚把 0 乘多少倍还是 0,
+        ///   吃了厚也看不出差别,留着会被它的「不动」稀释读数。
+        /// 剩下 10 字全部是 Summon 且 attack &gt; 0:枪(32)/藤(30)/楸(80)/桤(50)/
+        /// 林(90)/柘(45)/森(100)/桂(50)/藻(50)/𣛧(120)。</summary>
+        private static readonly string[] WoodSummonCards =
+            { "枪", "藤", "楸", "桤", "林", "柘", "森", "桂", "藻", "\ue625" };
 
         // ---- 阳性对照探针(spec §10.5,2026-08-12 E-b4/E-b5 T7)----
         // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
@@ -140,11 +161,25 @@ namespace Brushblade.Balance
                 // 2026-09-05(P0 收尾):召唤物接战意+厚之后,纯木系卡组几乎不涨——
                 // 因为纯木里既没有金系攻击字(战意来源)也没有土系护盾字(厚来源)。
                 // 涨的是混色,而混色此前一个观测点都没有(计划「P0 收尾验收」待办)。
-                // WoodCards / EarthCards 两张出阵表核过没有交集,ToDictionary 合并不会因
-                // 重复 key 抛 ArgumentException;起手四字 柘/圭/垚/㙓 已用 chars.json 核实真实存在。
-                new Profile("木土混色(柘圭垚㙓,卡5级,10级)", new[] { "柘", "圭", "垚", "㙓" },
-                    WoodCards.Concat(EarthCards).ToDictionary(c => c, _ => 5), level: 10,
-                    deck: WoodCards.Concat(EarthCards).ToArray()),
+                //
+                // ⚠ 2026-09-06 订正:起手牌原写 柘/圭/垚/㙓——后三字与「土系双方向」画像的
+                // 起手三字完全重复,那一档实质是「土系 + 一张木字」,测不到「厚放大召唤物攻击」
+                // 这条协同链路(读数因此贴着纯土系,而不是介于两者之间偏协同)。改为木系召唤字
+                // (攻击非 0)+ 土系护盾字(会攒厚)各半:
+                // 木侧 柘(Gold,攻45)/林(Gold,攻90)——都是 Summon 且 attack > 0;
+                // 土侧 圭(Gold,Shield 170)/垚(Orange,Shield 215)——都是 Shield 效果、会攒厚。
+                // 四字均已用 chars.json 核过 effects[].kind 与 attack 字段,不是凭名字猜的。
+                //
+                // deck 收窄成 WoodSummonCards(10 字)+ EarthShieldCards(8 字)= 18 张,
+                // 而不是 WoodCards/EarthCards 两张全表拼接的 24 张——全表拼接会把没被测的
+                // 伤害字(箭/葬)、攻 0 召唤字(荆)、纯召唤不攒厚字(塔/碉/堡)也混进抽卡池,
+                // 稀释「摸到厚的来源 / 摸到会被厚放大的召唤字」的概率;但也不收窄到只剩起手
+                // 那 4 张——那会把「一局里能不能连续摸到厚的来源」这个本身要观测的东西
+                // 直接消掉,变成另一种失真。两张子集互不相交,ToDictionary 合并不会因
+                // 重复 key 抛 ArgumentException。
+                new Profile("木土混色(柘林圭垚,卡5级,10级)", new[] { "柘", "林", "圭", "垚" },
+                    WoodSummonCards.Concat(EarthShieldCards).ToDictionary(c => c, _ => 5), level: 10,
+                    deck: WoodSummonCards.Concat(EarthShieldCards).ToArray()),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
