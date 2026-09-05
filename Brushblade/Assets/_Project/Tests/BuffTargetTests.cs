@@ -410,6 +410,12 @@ namespace Brushblade.Core.Tests
         {
             // 玩家身上的反弹在召唤物顶前排时本来就会结算(2026-08-08,镜 × 召唤物)。
             // 召唤物自己也挂一份时**两份都反** —— 它们是两个不同来源
+            //
+            // 2026-09-05(平衡重做 P0 任务 6):玩家 50% + 召唤物 50% 合计 100%,
+            // 撞上了新加的 BattleEngine.MaxReflectPercent(60)——这条测试用的 50% 是
+            // 本文件为凑整数选的**测试专用值**(真实字表 壁 是 30%),但它测的正是
+            // 「两个来源相加」这个总量,新钳位理应管到这里,数字因此从 15+15+3=33
+            // 改为 18(30 打过来的量 ×60% 钳位后)+3=21,不是钳位钳错了地方。
             var engine = Engine(new[] { "兵", "壁", "壁" },
                 new[] { new EnemyDef("拳", Element.Heart, 3000, 30) });
             engine.Cast("兵");
@@ -419,8 +425,8 @@ namespace Brushblade.Core.Tests
 
             engine.EndTurn();
 
-            Assert.That(enemyHp - engine.Enemies[0].Hp, Is.EqualTo(15 + 15 + 3),
-                "玩家那份 15 + 召唤物那份 15 + 召唤物自己那记 3");
+            Assert.That(enemyHp - engine.Enemies[0].Hp, Is.EqualTo(18 + 3),
+                "合 100% 被钳到 60%(30 × 60% = 18)+ 召唤物自己那记 3");
         }
 
         // ---- 真实字表:这几张必须是**纯友方字**,否则拖不到友方身上 ----

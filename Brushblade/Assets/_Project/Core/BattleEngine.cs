@@ -375,6 +375,14 @@ namespace Brushblade.Core
         /// <summary>厚与泉的层数上限(2026-09-02)。</summary>
         private const int MaxResourceStacks = 10;
 
+        /// <summary>反伤总量上限(百分点,2026-09-05)。
+        ///
+        /// 此前刻意不钳位,理由是「字表只有一个 Reflect 字,多来源叠加现实不可达」;
+        /// P2 让 壁(绿 30%)与 圭(金 50%)同时存在,那条前提失效。
+        /// 60 的依据:30 层一轮敌方总伤 936,×60% = 562 ≈ 红档单攻锚点 600 ——
+        /// 「站着挨满一整轮」的反伤收益约等于一张红档输出字(设计稿 §1.6)。</summary>
+        private const int MaxReflectPercent = 60;
+
         /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
         private const string SummonSlowSourceId = "summon.slow";
         private const int MoraleMaxStacks = 5;  // 战意层数上限:满层 +50 攻击,刚好追平剡单张的量
@@ -3387,10 +3395,10 @@ namespace Brushblade.Core
             // 与召唤物 荆 的反伤同口径(被打死的那一击也照样扎)。
             // 命中判定打空与免疫完全挡下都在方法更早处 return 了,走不到这里 —— 没吃到就没得反。
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」。
-            // 刻意不钳位(评审 Minor 2,2026-08-08):眼下字表只有「映」一个 Reflect 字,同字
-            // 再放走 SourceId 去重只刷新,多来源叠加现实不可达。日后加第二张反弹字之前,
-            // 先想清楚上限——两张 60% 同在身会反弹 120%,比挨的还多。
-            int reflect = allowReflect ? _playerStatuses.TotalMagnitude(StatusKind.Reflect) : 0;
+            // 总量钳 60%(2026-09-05,任务 6):见 MaxReflectPercent 注释。
+            int reflect = allowReflect
+                ? Math.Min(MaxReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect))
+                : 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
                 int bounced = damage * reflect / 100;
@@ -3504,8 +3512,12 @@ namespace Brushblade.Core
             // 两份反弹都算(2026-08-28,壁 可以挂给召唤物了):玩家身上那份管「我方挨的打」
             // (上面那段 2026-08-08 的裁定),召唤物自己那份管「它自己挨的打」。它们是两个
             // 不同来源,不是同一条的重复 —— 各按自己的百分比反,基数同为 taken。
-            int reflect = _playerStatuses.TotalMagnitude(StatusKind.Reflect)
-                + summon.Statuses.TotalMagnitude(StatusKind.Reflect);
+            // 总量钳 60%(2026-09-05,任务 6):见 MaxReflectPercent 注释。这一支的钳位
+            // 与玩家侧 DamagePlayerDirect 那支各自独立结算 —— 两条是分开的伤害管道,
+            // 合起来钳会让「打召唤物」意外吃到玩家身上的层数上限。
+            int reflect = Math.Min(MaxReflectPercent,
+                _playerStatuses.TotalMagnitude(StatusKind.Reflect)
+                + summon.Statuses.TotalMagnitude(StatusKind.Reflect));
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
                 int bounced = taken * reflect / 100;
