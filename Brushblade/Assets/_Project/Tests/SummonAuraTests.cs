@@ -238,5 +238,71 @@ namespace Brushblade.Core.Tests
             summon.PlayerAttackPercent = 150;
             Assert.That(summon.EffectiveAttack, Is.EqualTo(225), "(100 + 50) × 1.5,不是 100×1.5 + 50");
         }
+
+        /// <summary>集成路径(2026-09-06,评审 Important 补测):上面三条只对
+        /// <c>PlayerAttackPercent</c> 直接赋值,验证的只是 <c>EffectiveAttack</c> 这条纯算式,
+        /// 完全绕开了 <c>RefreshSummonAura()</c> → <c>SummonAttackPercent</c> → 注入这条集成链路
+        /// —— 把 <c>ActSummonTurn</c> 开头那句 <c>RefreshSummonAura()</c> 删掉,这三条照样全绿。
+        ///
+        /// 这一条走真实 <c>Cast()</c> → <c>EndTurn()</c>:召唤物先入场(此时无战意),
+        /// **同一回合内**再出一张战意字,战意是战斗中途才有的,不是召唤时就带着的。
+        /// 断言读它这一拍真正打出的 <see cref="BattleEventKind.SummonAttack"/> 伤害 ——
+        /// 只有 ActSummonTurn 开头调用了 RefreshSummonAura() 才能让这一拍出手吃到新战意。</summary>
+        [Test]
+        public void SummonAttack_ReactsToMoraleGrantedMidBattle()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("召甲", new EffectDef(EffectKind.Summon, 100,
+                    summonAttack: 100, summonChar: "甲")),
+                RebalanceFixture.Char("战", new EffectDef(EffectKind.Morale, 5)));
+            var battle = RebalanceFixture.Battle(graph, new[] { "召甲", "战" }, RebalanceFixture.Mob());
+
+            battle.Cast("召甲");
+            Assert.That(battle.Summons[0].EffectiveAttack, Is.EqualTo(100),
+                "入场时无战意,恒等 —— 恒等性硬线在集成层面的对应断言");
+
+            battle.Cast("战");   // 召唤**之后**才涨的战意,不是召唤时就带着的
+            Assert.That(battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(5));
+
+            battle.EndTurn();   // 推进到召唤物出手(ActSummonTurn)
+
+            var strike = battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack);
+            Assert.That(strike.Amount, Is.EqualTo(150),
+                "100 × (100 + 5 层 × 10%) / 100 = 150 —— 只有 ActSummonTurn 开头调用 " +
+                "RefreshSummonAura() 才能让这一拍吃到 Cast(\"战\") 才涨的战意");
+        }
+
+        /// <summary>反向(2026-09-06,评审 Important 补测第二条):战意衰减归零后,召唤物攻击
+        /// 回落到基础值 —— 用户需求原话「战意归零回到 100」。乘区是**现读**的,不是入场时冻结
+        /// 的一份快照,所以归零之后不能停留在曾经涨过的那个数上。
+        ///
+        /// 用 1 层(而不是上面那条的 5 层)把「归零」所需的 EndTurn() 次数降到最低:
+        /// 首回合宽限(<c>_moraleGraceTurn</c>)吃掉第一次该有的递减,第二个 EndTurn() 才真的
+        /// 把 1 层战意归零,第三个 EndTurn() 里召唤物读到的才是 0 层。</summary>
+        [Test]
+        public void SummonAttack_ReturnsToBaselineAfterMoraleFullyDecays()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("召甲", new EffectDef(EffectKind.Summon, 100,
+                    summonAttack: 100, summonChar: "甲")),
+                RebalanceFixture.Char("战", new EffectDef(EffectKind.Morale, 1)));
+            var battle = RebalanceFixture.Battle(graph, new[] { "召甲", "战" }, RebalanceFixture.Mob());
+
+            battle.Cast("召甲");
+            battle.Cast("战");
+
+            battle.EndTurn();   // 首回合宽限:这一拍战意 1 层不掉,召唤物这一拍吃到 +10%
+            Assert.That(battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack).Amount,
+                Is.EqualTo(110), "100 × 1.1");
+
+            battle.EndTurn();   // 宽限已耗尽,递减发生在 BeginPlayerTurn——晚于这一拍召唤物出手,
+                                 // 所以这一拍读到的仍是递减前的 1 层
+            Assert.That(battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack).Amount,
+                Is.EqualTo(110), "衰减发生在这一拍召唤物出手之后,这一拍仍读到 1 层");
+
+            battle.EndTurn();   // 战意已在上一拍末尾归零,这一拍召唤物读到的才是 0 层
+            Assert.That(battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack).Amount,
+                Is.EqualTo(100), "归零回到基础值 —— 用户需求原话:「战意归零回到 100」");
+        }
     }
 }
