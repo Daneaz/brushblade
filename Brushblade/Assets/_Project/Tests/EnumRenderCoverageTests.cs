@@ -145,7 +145,20 @@ namespace Brushblade.Core.Tests
         private static bool ContainsKindRef(string strippedSrc, string enumPrefix, string name) =>
             Regex.IsMatch(strippedSrc, Regex.Escape($"{enumPrefix}.{name}") + @"\b");
 
-        private static string Source(string relative) => StripComments(RawSource(relative));
+        /// <summary>⚠ <see cref="StripComments"/> 是一台手写状态机,不认识逐字符串
+        /// (<c>@"..."</c>)与 C# 11 原始字符串(<c>"""..."""</c>)——两者内部允许出现裸
+        /// 引号/反斜杠,会把状态机的字符串/转义判断带偏。当前三个源文件里两者命中均为 0,
+        /// 缺陷不可触发,但 BattleView.cs 是全仓最活跃的文件之一,谁写一条 `@"..."`(尤其
+        /// 结尾恰好是 `\` 挨着引号),这条护栏会静默退化回装饰品——不修状态机(过度工程),
+        /// 先把静默退化换成红灯,真出现时再补状态机。</summary>
+        private static string Source(string relative)
+        {
+            var raw = RawSource(relative);
+            Assert.That(raw.Contains("@\"") || raw.Contains("\"\"\""), Is.False,
+                $"{relative} 里出现了逐字/原始字符串,而 StripComments 的状态机处理不了它们 —— " +
+                "护栏会静默退化成假绿。先修状态机,再加这种字符串。");
+            return StripComments(raw);
+        }
 
         /// <summary>按大括号配平抠出一个方法的**方法体**(与 `CardFaceCoverageTests.MethodBody`
         /// 同手法)。`EveryEnemyDebuff_HasBattleViewChip` 用它把敌人格 chip 的方法体单独抠出来,
