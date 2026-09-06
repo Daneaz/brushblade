@@ -506,7 +506,10 @@ namespace Brushblade.Core
                 or EffectKind.Shield or EffectKind.ShieldAll
                 or EffectKind.Bleed
                 or EffectKind.SpendHeft or EffectKind.SpendWellspring
-                or EffectKind.Detonate or EffectKind.ArmorBreak => true,
+                or EffectKind.Detonate or EffectKind.ArmorBreak
+                or EffectKind.DefenseBuff
+                or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
+                or EffectKind.Blind => true,
             _ => false,
         };
 
