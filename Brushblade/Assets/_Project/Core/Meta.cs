@@ -277,6 +277,11 @@ namespace Brushblade.Core
                 ApPerTurn = BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap), // 一气
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
                 ElementEffectPercent = ElementEffectTable(meta), // 五行 L3(spec §3.3)
+                // 五行 L4 的四个天花板(spec §3.4)。缺省即现值 —— 一条没点时逐字节恒等。
+                MoraleCap = 5 + PerkRules.ElementBonus(meta, PerkEffect.MoraleCap, Element.Metal),
+                HeftCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.HeftCap, Element.Earth),
+                WellspringCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.WellspringCap, Element.Water),
+                BurnPerStack = 20 + PerkRules.ElementBonus(meta, PerkEffect.BurnPerStack, Element.Fire),
             };
         }
 

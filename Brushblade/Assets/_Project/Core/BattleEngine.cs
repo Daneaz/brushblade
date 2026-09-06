@@ -162,6 +162,21 @@ namespace Brushblade.Core
         /// 与战利品同源);null = 不限(工装与旧调用)。</summary>
         public IReadOnlyCollection<string> UnlockedChars { get; set; }
 
+        /// <summary>战意层数上限(五行金脉 L4,spec §3.4)。**缺省 5 = 现值**,逐字节恒等。</summary>
+        public int MoraleCap { get; set; } = 5;
+
+        /// <summary>厚的层数上限(土脉 L4)。**缺省 10 = 现值**。
+        /// ⚠ 与 <see cref="WellspringCap"/> 是两个独立字段,不可合并回一个常量 ——
+        /// 合着会让点水脉的玩家顺手拿到厚的上限,反之亦然(spec §7.1)。</summary>
+        public int HeftCap { get; set; } = 10;
+
+        /// <summary>泉的层数上限(水脉 L4)。**缺省 10 = 现值**。见 <see cref="HeftCap"/> 的警告。</summary>
+        public int WellspringCap { get; set; } = 10;
+
+        /// <summary>灼烧每层结算伤害的**起始值**(火脉 L4)。**缺省 20 = 现值**;
+        /// 局内的「炽」(BurnPotency)照旧在其上累加。</summary>
+        public int BurnPerStack { get; set; } = 20;
+
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
         public BattleConfig WithPlayerMaxHp(int playerMaxHp)
@@ -391,8 +406,14 @@ namespace Brushblade.Core
         /// 两条都取 5% 才是真对齐(设计稿 §1)。</summary>
         private const int WellspringPercentPerStack = 5;
 
-        /// <summary>厚与泉的层数上限(2026-09-02)。</summary>
-        private const int MaxResourceStacks = 10;
+        /// <summary>厚与泉的层数上限。**两者各有各的上限**(spec §7.1) ——
+        /// 改前它们共用一个 MaxResourceStacks 常量,而五行 L4 要求水脉只抬泉、土脉只抬厚。
+        /// 共用一个常量的话,一条技能会静默补贴另一条流派,且没有任何测试会红。
+        ///
+        /// 缺省下 CapFor(Heft) == CapFor(Wellspring) == 10,与改前逐字节相同。</summary>
+        private int CapFor(StatusKind kind) => kind == StatusKind.Heft
+            ? _config?.HeftCap ?? 10
+            : _config?.WellspringCap ?? 10;
 
         /// <summary>反伤总量上限(百分点,2026-09-05;2026-09-06 纳入荆棘 Thorns)。
         ///
@@ -408,11 +429,11 @@ namespace Brushblade.Core
 
         /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
         private const string SummonSlowSourceId = "summon.slow";
-        private const int MoraleMaxStacks = 5;  // 战意层数上限:满层 +50 攻击,刚好追平剡单张的量
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
-        private int _burnPerStack = 20;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
+        private int _burnPerStack;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
+                                        // 初值来自 config.BurnPerStack(火脉 L4),由构造函数设置
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
@@ -686,6 +707,7 @@ namespace Brushblade.Core
         {
             _graph = graph;
             _config = config;
+            _burnPerStack = config?.BurnPerStack ?? 20;
             _cardLevels = cardLevels;
             _random = new GameRandom(seed);
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
@@ -876,16 +898,17 @@ namespace Brushblade.Core
             if (amount <= 0) return;
             var existing = _playerStatuses.Find(kind);
             int stacks = existing?.Magnitude ?? 0;
-            if (stacks >= MaxResourceStacks) return;   // 满层:连余数都不攒
+            int cap = CapFor(kind);
+            if (stacks >= cap) return;   // 满层:连余数都不攒
 
             accum += amount;
             int threshold = ResourceThreshold;
-            while (accum >= threshold && stacks < MaxResourceStacks)
+            while (accum >= threshold && stacks < cap)
             {
                 accum -= threshold;
                 stacks++;
             }
-            if (stacks >= MaxResourceStacks) accum = 0; // 攒到顶,余数清掉
+            if (stacks >= cap) accum = 0; // 攒到顶,余数清掉
 
             _playerStatuses.Apply(new StatusEffect
             {
@@ -2485,7 +2508,8 @@ namespace Brushblade.Core
                         // 战/戮(2026-08-12):战意是一条**带上限的计数器**,战与戮往同一条上加。
                         // 所以既不能铸唯一序号(各挂各的会绕开上限),也不能走 Apply() 的
                         // 同源覆盖(那是刷新,出两张战还是 3 层)—— 只能就地累加再钳。
-                        AddPlayerCounter(StatusKind.Morale, value, MoraleMaxStacks);
+                        // 满层(缺省 5)+50 攻击,刚好追平剡单张的量;上限可由金脉 L4 抬到 7。
+                        AddPlayerCounter(StatusKind.Morale, value, _config?.MoraleCap ?? 5);
                         break;
                     case EffectKind.CritBuff:
                         // 锋(2026-08-12,E-b2):本场暴击率 +Value 个百分点。

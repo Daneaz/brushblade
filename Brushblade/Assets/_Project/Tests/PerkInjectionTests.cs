@@ -153,5 +153,59 @@ namespace Brushblade.Core.Tests
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(130));
             Assert.That(Build(meta).PlayerAttack, Is.Not.EqualTo(132));
         }
+
+        // ---- 五行 L4:四个天花板 ----
+
+        [Test]
+        public void EmptySave_KeepsEveryCapAtItsCurrentValue()
+        {
+            var cfg = Build(new MetaState());
+            Assert.That(cfg.MoraleCap, Is.EqualTo(5), "战意上限现值");
+            Assert.That(cfg.HeftCap, Is.EqualTo(10), "厚上限现值");
+            Assert.That(cfg.WellspringCap, Is.EqualTo(10), "泉上限现值");
+            Assert.That(cfg.BurnPerStack, Is.EqualTo(20), "灼烧每层现值");
+        }
+
+        [Test]
+        public void MetalTierFour_RaisesMoraleCapOnly()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("metal_4");
+            var cfg = Build(meta);
+            Assert.That(cfg.MoraleCap, Is.EqualTo(7));
+            Assert.That(cfg.HeftCap, Is.EqualTo(10));
+            Assert.That(cfg.WellspringCap, Is.EqualTo(10));
+            Assert.That(cfg.BurnPerStack, Is.EqualTo(20));
+        }
+
+        /// <summary>厚与泉共用 MaxResourceStacks 与 GainStacks —— 这两条守着那个陷阱。
+        /// 点水脉不许抬高厚的上限,点土脉不许抬高泉的上限。</summary>
+        [Test]
+        public void WaterTierFour_DoesNotRaiseTheHeftCap()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("water_4");
+            var cfg = Build(meta);
+            Assert.That(cfg.WellspringCap, Is.EqualTo(14));
+            Assert.That(cfg.HeftCap, Is.EqualTo(10), "厚与泉共用常量,拆分没做干净");
+        }
+
+        [Test]
+        public void EarthTierFour_DoesNotRaiseTheWellspringCap()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("earth_4");
+            var cfg = Build(meta);
+            Assert.That(cfg.HeftCap, Is.EqualTo(14));
+            Assert.That(cfg.WellspringCap, Is.EqualTo(10), "厚与泉共用常量,拆分没做干净");
+        }
+
+        [Test]
+        public void FireTierFour_RaisesBurnPerStack()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("fire_4");
+            Assert.That(Build(meta).BurnPerStack, Is.EqualTo(28));
+        }
     }
 }
