@@ -3756,10 +3756,20 @@ namespace Brushblade.Presentation
         private void AdvanceAfterSettle()
         {
             _bannerRunning = false;
+            // 护盾战斗结束衰减 50%(2026-09-05,RunEngine.AdvanceAfterBattle):Battle 这个
+            // 实例本身不会被刷新,战利品页照旧显示战前的满额护盾,减半是悄悄发生在
+            // _run 的携带态里——不提前记一句,玩家只会看见「上一战 300,下一战开局
+            // 忽然变 150」,中间没有任何过渡。只在打赢(Lost 分支不衰减)且战前确有
+            // 护盾时才播报。
+            bool won = Battle.Phase == BattlePhase.Won;
+            int shieldBefore = won ? Battle.PlayerShield : 0;
             _run.AdvanceAfterBattle();
             _pendingRewardIndex = -1;
             _previewRewardIndex = -1;
-            _message = "";
+            _message = (won && shieldBefore > 0)
+                ? Strings.T("battle.msg.shield_decay",
+                    ("from", shieldBefore), ("to", _run.CarriedNormalShield + _run.CarriedPersistShield))
+                : "";
             Refresh();
         }
 
