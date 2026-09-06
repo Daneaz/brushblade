@@ -2606,6 +2606,10 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "silence"));
                 if (enemy.Statuses.TotalMagnitude(StatusKind.Curse) > 0)
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "curse"));
+                // 魅惑(2026-09-05,花):无图标资产,暂时保留文字(与缺笔/标点/通假同处理)——
+                // 与冻结/减速当年零显示是同一个坑,这条不能漏。
+                if (enemy.Statuses.Has(StatusKind.Charm))
+                    chipSpecs.Add(new(Strings.T("status.charm.chip"), Theme.InkSoft, Color.white));
                 // 能力 chip 统一走 EnemyInfo(与详情弹窗同一套命名);
                 // 机制失效(叠字已分裂/通假已现形/生僻已读懂)时返回空串,不画
                 if (enemy.Alive)

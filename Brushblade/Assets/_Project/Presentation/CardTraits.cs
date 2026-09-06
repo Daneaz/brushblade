@@ -349,6 +349,11 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.spend_wellspring.name"),
                             Strings.T("collection.trait.spend_wellspring.desc", ("value", v)));
                         break;
+                    case EffectKind.Charm:
+                        AddWord(traits, Strings.T("collection.trait.charm.chip"),
+                            Strings.T("collection.trait.charm.name"),
+                            Strings.T("collection.trait.charm.desc", ("turns", e.Turns)));
+                        break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                         AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

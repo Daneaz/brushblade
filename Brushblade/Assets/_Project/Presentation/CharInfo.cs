@@ -152,6 +152,9 @@ namespace Brushblade.Presentation
                     // 与 tools/design/gen_char_doc.py 的 desc() 同口径。
                     EffectKind.SpendHeft => Strings.T("char.effect.spendheft", ("value", shown)),
                     EffectKind.SpendWellspring => Strings.T("char.effect.spendwellspring", ("value", shown)),
+                    // 魅惑(2026-09-05,花):持续 Turns 回合,Value 不用(与 Silence 同口径,
+                    // 都是靠 Turns 而不是 shown 报时长)。
+                    EffectKind.Charm => Strings.T("char.effect.charm", ("turns", e.Turns)),
                     _ => e.Kind.ToString(),
                 });
             }

@@ -296,7 +296,11 @@ namespace Brushblade.Presentation
                 // 两者不再巧合相等),要换算 —— 与 UnitSheet 画那条行动条同一个除数。
                 actionValue = Strings.T("detail.chip.plain_pct",
                     ("value", enemy.ActionMeter * 100 / TurnScheduler.Threshold));
-                actionNote = null;
+                // 魅惑(2026-09-05,花):不像冻结那样跳过行动——它照常出手,只是目标换成
+                // 自己阵营,所以 actionValue 仍要算,只是附一句提示(与蓄力同款,叠加在计量条上)。
+                actionNote = enemy.Statuses.Has(StatusKind.Charm)
+                    ? Strings.T("detail.figure.action_charmed")
+                    : null;
             }
 
             return new[]

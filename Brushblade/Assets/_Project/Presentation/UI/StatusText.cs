@@ -180,6 +180,12 @@ namespace Brushblade.Presentation
                     return new Info(null, Strings.T("status.wellspring.name"),
                         Strings.T("status.duration.persistent"),
                         Strings.T("status.wellspring.desc", ("magnitude", magnitude)));
+                case StatusKind.Charm:
+                    // 魅惑(2026-09-05,花):持有者本回合改打自己阵营。无 PNG 资产,IconKey
+                    // 留 null(与 Heft/Wellspring/ApBoost 同处理),文字仍完整。
+                    return new Info(null, Strings.T("status.charm.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.charm.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句
