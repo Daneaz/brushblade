@@ -146,9 +146,14 @@ namespace Brushblade.Core.Tests
         // ---- 实船:新初始字必须打得过首塔首层(否则新手一开局就卡死) ----
 
         /// <summary>用真实 chars.json + enemies.json 跑首层。ConfigLoaderTests 里那条同名守卫
-        /// 引了 UnityEngine.Application 被工装排除,这里用不依赖引擎的路径再守一遍。</summary>
+        /// 引了 UnityEngine.Application 被工装排除,这里用不依赖引擎的路径再守一遍。
+        ///
+        /// ⚠ 起手随机化后(2026-09-06,出阵废止),字库不再是固定的 <c>StartingDeck</c>,
+        /// 这条只验**种子 1** 下(演示字「剿」被抽进起手字库)打得过首层 —— 不再是
+        /// 「任意起手都打得过」的全局保证。种子 1-300 里含演示字的 141 个种子实测全部能清首层,
+        /// 没有出现「含演示字但打不过」的种子,所以固定种子非硬凑。</summary>
         [Test]
-        public void ShippedConfig_StartingDeck_ClearsFirstFloor()
+        public void ShippedConfig_StartingCollection_ClearsFirstFloor()
         {
             var graph = RealGraph();
             var campaign = ConfigLoader.LoadCampaign(
@@ -157,13 +162,22 @@ namespace Brushblade.Core.Tests
 
             var segment = EndlessGenerator.BuildFirstTowerSegment(campaign.Endless, seed: 7);
             var floorOne = segment.Encounters[0];
-            var deck = MetaRules.StartingDeck;
             var demo = Tutorial.DemoChar;
 
+            var meta = new MetaState();
+            MetaRules.EnsureStartingCollection(meta);
+            var random = new GameRandom(1); // 固定种子:抽出的起手字库含演示字「剿」
+            var library = MetaRules.StartingLibrary(meta, graph, random);
+
             var battle = new BattleEngine(graph,
-                new BattleConfig { DropTable = campaign.DropTable, UnlockedChars = deck },
-                new[] { demo },
-                MetaRules.RollStartingPool(deck, graph, new GameRandom(7)),
+                new BattleConfig
+                {
+                    DropTable = campaign.DropTable,
+                    UnlockedChars = meta.OwnedCards,
+                    LibraryCapacity = MetaRules.LibraryCapacityFor(meta),
+                },
+                library,
+                MetaRules.RollStartingPool(meta.OwnedCards, graph, random),
                 floorOne, seed: 7);
 
             Assert.That(battle.Dismantle(demo), Is.EqualTo(BattleError.None), "拆演示字");

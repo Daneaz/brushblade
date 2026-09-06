@@ -256,7 +256,7 @@ namespace Brushblade.Core
                 PlayerSpeed = SpeedFor(level),
                 // ⚠ 没有 PlayerCritChance:暴击**不随角色等级成长**(2026-08-12 用户裁定),
                 // 缺省 0 让 RollCrit 短路、一次随机都不摇。见 BattleConfig.PlayerCritChance。
-                UnlockedChars = meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
+                UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
                 ApPerTurn = BaseApPerTurn + PerkRules.ApBonus(meta), // 一气
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
             };

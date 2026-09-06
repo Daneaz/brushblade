@@ -13,7 +13,8 @@ namespace Brushblade.Core
         public IReadOnlyList<IdiomBossDef> IdiomBossPool { get; set; } = System.Array.Empty<IdiomBossDef>();
 
         /// <summary>层段字奖励池。⚠️ enemies.json 里**不再配这一项**(2026-08-05 清掉死配置):
-        /// 战利品只出自出阵表(2026-07-20 拍板),GameRoot 接线时无条件覆盖为 meta.Deck,
+        /// 战利品只出自已解锁卡池(2026-09-06,原「出阵表」),GameRoot 接线时无条件覆盖为
+        /// meta.OwnedCards,
         /// 层段写死的那份从来没生效过。ConfigLoader 对缺失项给空列表(不是 null),别往回填。</summary>
         public IReadOnlyList<string> RewardPool { get; set; } = System.Array.Empty<string>();
 

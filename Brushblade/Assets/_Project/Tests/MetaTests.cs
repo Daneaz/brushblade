@@ -711,5 +711,16 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.RarityOrder[0], Is.EqualTo(CardRarity.White));
             Assert.That(MetaRules.RarityOrder[6], Is.EqualTo(CardRarity.Red));
         }
+
+        [Test]
+        public void BuildBattleConfig_UnlockedChars_IsTheWholeCollection()
+        {
+            var meta = new MetaState();
+            meta.OwnedCards.Add("灯");
+            meta.OwnedCards.Add("炎");
+            var config = MetaRules.BuildBattleConfig(meta, new[] { "灯" });
+            Assert.That(config.UnlockedChars, Is.EqualTo(meta.OwnedCards),
+                "出阵废止后可合成集 = 整个已解锁卡池(2026-09-06)");
+        }
     }
 }

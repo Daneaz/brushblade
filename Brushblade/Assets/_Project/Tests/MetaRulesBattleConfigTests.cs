@@ -132,11 +132,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void UnlockedChars_IsTheDeck()
+        public void UnlockedChars_IsTheOwnedCards()
         {
-            // 合成与回合掉字都锁这份名单(2026-07-20):丢了这条注入 = 玩家能合出全字表
+            // 出阵废止后(2026-09-06):合成与回合掉字锁的是整个已解锁卡池,丢了这条注入 = 玩家能合出全字表
             var meta = LevelElevenWithPerks();
-            Assert.That(Build(meta).UnlockedChars, Is.EquivalentTo(meta.Deck));
+            meta.OwnedCards.Add("剑");
+            meta.OwnedCards.Add("城");
+            Assert.That(Build(meta).UnlockedChars, Is.EquivalentTo(meta.OwnedCards));
         }
 
         [Test]
