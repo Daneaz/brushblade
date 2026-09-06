@@ -448,7 +448,7 @@ namespace Brushblade.Presentation
 
         // ================= 右栏 =================
 
-        /// <summary>右栏 = **只有出阵编组**(2026-09-05 用户拍板:字卡详情改走弹窗,与开箱/战斗
+        /// <summary>右栏 = **只有卡池概览**(2026-09-05 用户拍板:字卡详情改走弹窗,与开箱/战斗
         /// 那两处拉齐)。此前它是双身份的:没选中画出阵表、选中了整栏换成详情 —— 于是同一块
         /// 面板既是拖拽落点又是详情页,而详情的排版还与弹窗那一份各写了一套。
         /// 现在它只干一件事,详情全部走 <see cref="ShowCharSheet"/>。</summary>
@@ -491,10 +491,10 @@ namespace Brushblade.Presentation
                 footActions: row => SheetActions(row, def));
         }
 
-        /// <summary>弹窗底部那条操作钮带。判据(拥有 / 出阵 / 份数 / 墨锭)全留在这里,
+        /// <summary>弹窗底部那条操作钮带。判据(拥有 / 份数 / 墨锭)全留在这里,
         /// 没有搬进 CharPreview —— 那一屏不该跟着长出一套养成规则。
-        /// 两个钮点完都会 Rebuild 整页、弹窗随 Ui.Clear 一起消失,这是刻意的:
-        /// 编入出阵与升级都改了这张字的状态,原地留一张已经过期的详情比关掉更糟。</summary>
+        /// 升级钮点完会 Rebuild 整页、弹窗随 Ui.Clear 一起消失,这是刻意的:
+        /// 升级改了这张字的状态,原地留一张已经过期的详情比关掉更糟。</summary>
         private void SheetActions(Transform parent, CharDef def)
         {
             if (!_meta.OwnedCards.Contains(def.Id))
@@ -576,7 +576,8 @@ namespace Brushblade.Presentation
 
             Ui.ThemedLabel(row.transform, CharInfo.RarityName(rarity), 19, Theme.TextMain,
                 null, TextAnchor.MiddleLeft);
-            Ui.Panel(row.transform, "Spring");
+            var spring = Ui.Panel(row.transform, "Spring");
+            spring.AddComponent<LayoutElement>().flexibleWidth = 1;
             Ui.ThemedLabel(row.transform,
                 Strings.T("collection.side.pool_row",
                     ("count", count), ("percent", $"{permille / 10}.{permille % 10}")),

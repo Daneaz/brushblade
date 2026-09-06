@@ -20,7 +20,7 @@ namespace Brushblade.Presentation
     {
         // 稿上的比例(除以 103×128pt)
         private const float PadRatio = 5f / 128f;        // 角标距牌边
-        private const float ChipHRatio = 15f / 128f;     // 等级/可升/出阵带的高度
+        private const float ChipHRatio = 15f / 128f;     // 等级/可升带的高度
         private const float FontRatio = 8.5f / 128f;     // 角标字号
         private const float DotRatio = 13f / 103f;       // 稀有度色点直径
         private const float FlagRatio = 34f / 103f;      // 新字角旗见方
@@ -28,7 +28,7 @@ namespace Brushblade.Presentation
         private const float BarHRatio = 4f / 128f;       // 牌脚进度条高度
 
         /// <summary>一张牌当前的状态。<see cref="Locked"/> 为真时其余角标一概不画 ——
-        /// 未拥有的字没有等级、没有出阵、也谈不上能不能升。</summary>
+        /// 未拥有的字没有等级,也谈不上能不能升。</summary>
         public struct Spec
         {
             public CardRarity Rarity;
@@ -132,7 +132,7 @@ namespace Brushblade.Presentation
                 new Vector2(-Ui.ChipWidth(text, font), -side * 0.5f), Vector2.zero);
         }
 
-        /// <summary>一枚实底圆角小标(等级 / 可升 / 出阵带 / 新字旗共用)。返回它的 rect,
+        /// <summary>一枚实底圆角小标(等级 / 可升 / 新字旗共用)。返回它的 rect,
         /// 由调用方钉到哪个角上 —— 角标之间的避让规则写在 <see cref="Apply"/> 里,不分散到各处。</summary>
         private static RectTransform Badge(Transform parent, string name, string text,
             int font, float height, Color bg, Color fg, int radius = 8)
