@@ -264,7 +264,10 @@ namespace Brushblade.Presentation
         private static (string, string, string)[] BuildFigures(EnemyState enemy)
         {
             int armorBreak = enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak);
-            int defenseValue = System.Math.Max(0, enemy.Defense - armorBreak);
+            // 封禁(2026-09-06,T3):杂兵护甲归零/Boss 减半,读 Core 的 SuppressArmorOf——
+            // 不在这里重新判一遍 StatusKind.Silence,那正是两处口径分叉的起点。
+            int suppressedDefense = BattleEngine.SuppressArmorOf(enemy);
+            int defenseValue = System.Math.Max(0, suppressedDefense - armorBreak);
             int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
             int speedValue = TurnScheduler.ClampSpeed(enemy.Speed + speedMod);
 
@@ -278,6 +281,7 @@ namespace Brushblade.Presentation
             // 「实际减多少看那只怪的甲」,即穿透是执笔人那一屏的属性,这一屏只显示敌人自身的甲。
             // 两者混进同一个数会让「这只怪的甲」这个概念含糊掉。
             string defenseNote = UnitDetailChip.BaseNote(enemy.Defense,
+                UnitDetailChip.DeltaDebuffPts(Strings.T("status.silence.name"), enemy.Defense - suppressedDefense),
                 UnitDetailChip.DeltaDebuffPts(Strings.T("status.armorbreak.name"), armorBreak));
             string speedNote = UnitDetailChip.BaseNote(enemy.Speed,
                 speedMod < 0

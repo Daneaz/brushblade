@@ -2569,8 +2569,12 @@ namespace Brushblade.Presentation
                 // 护甲同理并进头行(2026-09-05):它是配置在 EnemyDef 上的**基础属性**、
                 // 战斗中永不被写(见 EnemyState.Defense 那条硬约束),与攻击力同族,
                 // 不该混在讲战况的 chip 行里。0 甲不出 —— 与旧口径一致,没有的东西不占位。
-                if (enemy.Defense > 0)
-                    HeaderChip(header.transform, $"{enemy.Defense}", Theme.InkSoft, Color.white, "defense");
+                // 封禁(2026-09-06,T3):杂兵护甲归零/Boss 减半,读 Core 的 SuppressArmorOf——
+                // 不在这里重新判一遍 StatusKind.Silence,与 EnemyInfo.BuildFigures 读同一个数,
+                // 免得表现层两处口径分叉。0 甲不出的旧口径延续:封禁后杂兵归零,chip 随之消失。
+                int shownDefense = BattleEngine.SuppressArmorOf(enemy);
+                if (shownDefense > 0)
+                    HeaderChip(header.transform, $"{shownDefense}", Theme.InkSoft, Color.white, "defense");
 
                 // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
                 // 行时从**尾部**丢弃,末尾补「+N」,所以越靠前的越保得住。
@@ -4941,6 +4945,7 @@ namespace Brushblade.Presentation
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? Strings.T("battle.msg.cast_success", ("charId", charId)) : Describe(error);
             AppendBossPhaseMessage();
+            AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
             // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
             var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
@@ -5039,6 +5044,17 @@ namespace Brushblade.Presentation
                     _message += Strings.T("battle.msg.boss_phase_change",
                         ("char", enemy.Def.Phases[e.Amount].Char), ("element", CharInfo.ElementName(enemy.Element)));
                 }
+        }
+
+        /// <summary>封禁打在 Boss 身上会降级为「只削护甲减半」(2026-09-06,T3):卡面写着
+        /// 「特殊能力全部失效」,Boss 身上却只掉一半甲、大招照放——不发这条提示玩家只会
+        /// 当成 bug。数字与同屏的头行护甲 chip(读同一个 BattleEngine.SuppressArmorOf)对得上,
+        /// 不重复播报具体数值,只解释「为什么是减半、不是全无」。</summary>
+        private void AppendSuppressDowngradedMessage()
+        {
+            foreach (var e in Battle.LastEvents)
+                if (e.Kind == BattleEventKind.SuppressDowngraded)
+                    _message += Strings.T("battle.msg.suppress_downgraded");
         }
 
         private void AppendBossSkillMessage()

@@ -139,6 +139,7 @@
   "battle.msg.shield_broken": "  护盾被掀空({amount})",
   "battle.msg.shield_decay": "护盾减半留用 · {from} → {to}",
   "battle.msg.slot_occupied_pending": "选的位置上站着人,出字待确认",
+  "battle.msg.suppress_downgraded": "  封禁对首领降级——特殊能力仍会释放,只削护甲减半",
   "battle.phase.auto_end_turn_prefix": "AP 耗尽,自动结束回合 · ",
   "battle.phase.boss_broken_banner": "B O S S  已 破",
   "battle.phase.defeat_banner": "败北",

@@ -575,8 +575,13 @@ namespace Brushblade.Core
         /// <summary>封禁作用后的基础护甲(2026-09-05)。杂兵归零、Boss 减半、无封禁原值。
         ///
         /// Boss 降级而不是免疫:同斩杀对 Boss 从「直杀」降为「吃双倍」的纪律 ——
-        /// 高价值控制不该在最关键的战斗里变成废牌,但也不能全效。</summary>
-        private static int SuppressArmorOf(EnemyState enemy)
+        /// 高价值控制不该在最关键的战斗里变成废牌,但也不能全效。
+        ///
+        /// public(2026-09-06,T3):唯一的只读读取面,供 Presentation 的护甲显示
+        /// (EnemyInfo.BuildFigures / BattleView 头行护甲 chip)读同一个数,而不是
+        /// 在表现层重新判一遍 Silence——那正是两处口径分叉的起点(见
+        /// SummonState.EffectiveAttack 的同款注释)。纯提升可见性,行为不变。</summary>
+        public static int SuppressArmorOf(EnemyState enemy)
         {
             if (!enemy.Statuses.Has(StatusKind.Silence)) return enemy.Defense;
             return enemy.IsBoss ? enemy.Defense / 2 : 0;
