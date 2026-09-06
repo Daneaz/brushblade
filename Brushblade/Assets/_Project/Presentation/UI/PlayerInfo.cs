@@ -16,9 +16,15 @@ namespace Brushblade.Presentation
     {
         /// <summary>稿上「养成技能 · 局外」那四条(每回合行动点/字库容量/起始生命上限/每关护盾)
         /// 需要 <see cref="MetaState"/>——等级、技能等级都不在 BattleEngine 上,战斗引擎只吃
-        /// 养成算好的最终数值,不认识「哪一级」「哪个技能」这些养成层概念。</summary>
-        public static UnitDetail Sheet(BattleEngine battle, MetaState meta)
+        /// 养成算好的最终数值,不认识「哪一级」「哪个技能」这些养成层概念。
+        ///
+        /// <paramref name="shieldOverride"/>:战利品/奇遇页(2026-09-06 review 必修)——那两个
+        /// 阶段的 <paramref name="battle"/> 仍是上一场终局时的旧实例,<c>battle.PlayerShield</c>
+        /// 是战前满额,与同屏播报的「已减半」互相打脸。传非 null 时改显示这个衰减后的携带值;
+        /// 调用方判据见 <see cref="BattleView.ShowCarriedShield"/>,与角标读的是同一条。</summary>
+        public static UnitDetail Sheet(BattleEngine battle, MetaState meta, int? shieldOverride = null)
         {
+            int shield = shieldOverride ?? battle.PlayerShield;
             return new UnitDetail
             {
                 PortraitPrefix = null, // 执笔人没有立绘管线,稿子写着「立绘待补·现用墨底字块」
@@ -30,11 +36,11 @@ namespace Brushblade.Presentation
                 Flavor = Strings.T("player.detail.flavor"),
                 Hp = battle.PlayerHp,
                 MaxHp = battle.MaxHp,
-                Shield = battle.PlayerShield,
+                Shield = shield,
                 ActionMeter = battle.PlayerActionMeter,
                 Figures = BuildFigures(battle, meta),
                 Statuses = UnitDetailChip.BuildStatuses(battle.PlayerStatuses, isPlayer: true),
-                Abilities = BuildAbilities(battle, meta),
+                Abilities = BuildAbilities(battle, meta, shield),
                 Wuxing = null,
             };
         }
@@ -125,15 +131,15 @@ namespace Brushblade.Presentation
         /// <see cref="AbilityEntry.Section"/>,UnitSheet 据此画出那条分组标题(2026-09-01
         /// review 修:此前认为不加字段也不丢信息,但分组标题本身就是稿上要求的元素,
         /// 护盾与养成加成混排、无区分才是真的丢了信息)。</summary>
-        private static List<AbilityEntry> BuildAbilities(BattleEngine battle, MetaState meta)
+        private static List<AbilityEntry> BuildAbilities(BattleEngine battle, MetaState meta, int shield)
         {
             string growthSection = Strings.T("player.detail.perk_section");
             var list = new List<AbilityEntry>();
-            if (battle.PlayerShield > 0)
+            if (shield > 0)
                 list.Add(new AbilityEntry
                 {
                     IconKey = "shield", ChipColor = Theme.RarityColor(CardRarity.Gold),
-                    Name = Strings.T("player.detail.shield_name", ("value", battle.PlayerShield)),
+                    Name = Strings.T("player.detail.shield_name", ("value", shield)),
                     Desc = Strings.T("player.detail.shield_desc"),
                 });
 

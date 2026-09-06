@@ -1499,6 +1499,24 @@ namespace Brushblade.Presentation
         private const float PlayerApPipWidth = 17f;      // 稿 .ap .pips i { width: 8pt }
         private const float PlayerApPipHeight = 42f;     // 稿 .ap .pips i { height: 20pt }
 
+        /// <summary>护盾在战利品/奇遇页(2026-09-06 review 必修)要读衰减后的携带值——那两个
+        /// 阶段的 <see cref="Battle"/> 仍是上一场终局时的旧实例(要等 BeginNextBattle 重建才会
+        /// 换新),AdvanceAfterBattle 却已经把护盾减半写进 <see cref="_run"/> 的携带态,再读
+        /// <c>Battle.PlayerShield</c> 会显示战前满额,与 AdvanceAfterSettle 同屏播报的「已减半」
+        /// 提示互相打脸。战斗内(InBattle/Reviving)必须继续读 <c>Battle.PlayerShield</c>——
+        /// 那才是实时值,不能一刀切改成携带值。
+        ///
+        /// ⚠ 这个字段被两条路径读(角标 <see cref="DrawPlayerStats"/> / 详情弹窗
+        /// <see cref="OnPlayerClicked"/>),抽成共享判据是刻意的——CLAUDE.md 记的「共享状态
+        /// 被两条路径读、只改了其中一条」那条教训的原样场景:合并前两处各自算了一遍,
+        /// 结果角标读携带值、详情弹窗仍读 Battle.PlayerShield,同屏两个数直接打架。</summary>
+        private bool ShowCarriedShield => _run.Phase == RunPhase.Reward || _run.Phase == RunPhase.Event;
+
+        /// <summary>与 <see cref="ShowCarriedShield"/> 配套的携带值本身,详情弹窗
+        /// (<see cref="OnPlayerClicked"/>)传给 <see cref="PlayerInfo.Sheet"/> 用。</summary>
+        private int? CarriedShieldOverride =>
+            ShowCarriedShield ? (int?)(_run.CarriedNormalShield + _run.CarriedPersistShield) : null;
+
         /// <summary>玩家条(2026-08-31 改稿):与召唤/敌人格同构的一条——立绘块 + 信息列 +
         /// 状态栏 + AP,DOM 顺序取自稿 Battle.dc.html(blk→info→stt→ap;简报草稿把
         /// 3、4 段顺序写反了,以稿为准,2026-08-31 用户确认)。
@@ -1576,16 +1594,10 @@ namespace Brushblade.Presentation
             // 头行:执笔人(左)+ 血/上限 盾 N(右),与 MapView.StatCell 同一套「同一块
             // 满宽面板叠两条 Stretch 文字、靠 TextAnchor 分左右」的做法。
             int shownHp = Animating ? _animPlayerHp : Battle.PlayerHp;
-            // 护盾在战利品/奇遇页(2026-09-06 评审 Important)要读衰减后的携带值——那两个
-            // 阶段的 Battle 仍是上一场终局时的旧实例(要等 BeginNextBattle 重建才会换新),
-            // AdvanceAfterBattle 却已经把护盾减半写进 _run 的携带态,再读 Battle.PlayerShield
-            // 会显示战前满额,与 AdvanceAfterSettle 同屏播报的「已减半」提示互相打脸。
-            // 战斗内(InBattle/Reviving)必须继续读 Battle.PlayerShield——那才是实时值,
-            // 不能一刀切改成携带值。
-            bool showCarriedShield = _run.Phase == RunPhase.Reward || _run.Phase == RunPhase.Event;
+            // 判据见 ShowCarriedShield/CarriedShieldOverride 的字段注释——详情弹窗
+            // (OnPlayerClicked)读的是同一对属性,别在这里另起一份判断。
             int shownShield = Animating ? _animShield
-                : showCarriedShield ? _run.CarriedNormalShield + _run.CarriedPersistShield
-                : Battle.PlayerShield;
+                : CarriedShieldOverride ?? Battle.PlayerShield;
             var header = Ui.Panel(info.transform, "Header");
             Ui.Sized(header, height: PlayerHeaderHeight, flexWidth: 1f);
             var whoLabel = Ui.ThemedLabel(header.transform, Strings.T("battle.label.player_name"),
@@ -2138,7 +2150,9 @@ namespace Brushblade.Presentation
                 return;
             }
             if (_modal != null) Object.Destroy(_modal);
-            _unitSheetSource = () => PlayerInfo.Sheet(Battle, _meta);
+            // shieldOverride:判据见 ShowCarriedShield/CarriedShieldOverride 的字段注释——
+            // 与角标(DrawPlayerStats)读的是同一对属性,别在这里另起一份判断。
+            _unitSheetSource = () => PlayerInfo.Sheet(Battle, _meta, CarriedShieldOverride);
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 
