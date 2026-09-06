@@ -1576,7 +1576,16 @@ namespace Brushblade.Presentation
             // 头行:执笔人(左)+ 血/上限 盾 N(右),与 MapView.StatCell 同一套「同一块
             // 满宽面板叠两条 Stretch 文字、靠 TextAnchor 分左右」的做法。
             int shownHp = Animating ? _animPlayerHp : Battle.PlayerHp;
-            int shownShield = Animating ? _animShield : Battle.PlayerShield;
+            // 护盾在战利品/奇遇页(2026-09-06 评审 Important)要读衰减后的携带值——那两个
+            // 阶段的 Battle 仍是上一场终局时的旧实例(要等 BeginNextBattle 重建才会换新),
+            // AdvanceAfterBattle 却已经把护盾减半写进 _run 的携带态,再读 Battle.PlayerShield
+            // 会显示战前满额,与 AdvanceAfterSettle 同屏播报的「已减半」提示互相打脸。
+            // 战斗内(InBattle/Reviving)必须继续读 Battle.PlayerShield——那才是实时值,
+            // 不能一刀切改成携带值。
+            bool showCarriedShield = _run.Phase == RunPhase.Reward || _run.Phase == RunPhase.Event;
+            int shownShield = Animating ? _animShield
+                : showCarriedShield ? _run.CarriedNormalShield + _run.CarriedPersistShield
+                : Battle.PlayerShield;
             var header = Ui.Panel(info.transform, "Header");
             Ui.Sized(header, height: PlayerHeaderHeight, flexWidth: 1f);
             var whoLabel = Ui.ThemedLabel(header.transform, Strings.T("battle.label.player_name"),
