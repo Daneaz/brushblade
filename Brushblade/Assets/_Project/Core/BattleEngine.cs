@@ -370,7 +370,7 @@ namespace Brushblade.Core
 
         /// <summary>战意 + 厚的百分比乘区(2026-09-06,终审修复项 5,纯提取零行为变化)。
         /// <see cref="EffectiveAttack"/>(玩家侧)与 <see cref="SummonAttackPercent"/>(召唤物侧)
-        /// 此前是两份逐字拷贝的算式,注释里写着"同一个式子,故两处永远同步"——那句话是假的,
+        /// 此前是两份逐字拷贝的算式,注释里写着「同一个式子,故两处永远同步」——那句话是假的,
         /// 两处什么都没共享,日后加第三条乘性轴或改组合方式必然只改一处。抽出来后两边共用
         /// **同一个属性**,才是那句注释原本想描述的保证。</summary>
         private int AttackPercent => 100
@@ -777,7 +777,7 @@ namespace Brushblade.Core
         private int ResourceThreshold => Math.Max(1, _config.PlayerMaxHp / 5);
 
         /// <summary>获得护盾时攒厚(2026-09-02)。<paramref name="shieldAmount"/> 是
-        /// **获得量**,不是实际吸伤量 —— 厚衡量的是"你堆了多少防御",不是"你挨了多少打"。
+        /// **获得量**,不是实际吸伤量 —— 厚衡量的是「你堆了多少防御」,不是「你挨了多少打」。
         /// 满层后余数也不再攒:否则掉一层会立刻被余数补回,层数形同不掉。
         /// 仅供测试与引擎内部调用。</summary>
         internal void GainHeftForTest(int shieldAmount) => GainHeft(shieldAmount);
@@ -2101,7 +2101,7 @@ namespace Brushblade.Core
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
             // 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
             // 声明在方法头部(而不是 Summon 的 case 块内):同一个 CharDef 若有两条独立的
-            // EffectKind.Summon 效果(SummonCountOf 文档说的"多条召唤效果累加"),case 会命中
+            // EffectKind.Summon 效果(SummonCountOf 文档说的「多条召唤效果累加」),case 会命中
             // 两次;声明在 case 块内会让游标每次从 0 重新起算,顶掉第一条效果刚放进去的那只 ——
             // 这是 2026-08-20 review 抓出的收窄作用域回归,SummonSlotTests 的
             // Cast_MultiEffectSummon_ReplaceMode_AdvancesAcrossEffects 钉住这个语义。
@@ -2493,7 +2493,7 @@ namespace Brushblade.Core
                             _summons[allySlot].Shield += shield;
                         }
                         // 攒厚(2026-09-02):按获得量算,加给谁都一样 ——
-                        // 给召唤物的盾同样是"你堆了防御"。
+                        // 给召唤物的盾同样是「你堆了防御」。
                         GainHeft(shield);
                         _events.Add(new BattleEvent(BattleEventKind.Shield, allySlot, shield));
                         break;
@@ -2557,8 +2557,8 @@ namespace Brushblade.Core
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
                         for (int n = 0; n < effect.SummonCount; n++)
                         {
-                            // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些"资源"随等级涨,
-                            // 反伤/灼烧层/减攻百分比这些"节奏"保持不变,免得档位失控
+                            // 被动数值不吃卡等级(2026-08-05):只有血/攻/盾这些「资源」随等级涨,
+                            // 反伤/灼烧层/减攻百分比这些「节奏」保持不变,免得档位失控
                             // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
                             // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
                             // 之后再抬攻击力,已在场的这只不变
@@ -2608,7 +2608,7 @@ namespace Brushblade.Core
                         }
                         // 桂(2026-08-05):护盾发给出字时**全场**存活召唤物,含刚召出的这几只。
                         // 它是一次性额外血条 —— 吸完即无、不刷新、不随回合清空(召唤物本身就是
-                        // 消耗品,再加个衰减太碎)。盾是"资源",跟血/攻一样吃卡等级
+                        // 消耗品,再加个衰减太碎)。盾是「资源」,跟血/攻一样吃卡等级
                         if (effect.SummonShield > 0)
                         {
                             int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);
@@ -3025,14 +3025,14 @@ namespace Brushblade.Core
             return -1;
         }
 
-        /// <summary>目标身上有封禁状态吗(纯查询,2026-09-05 起语义收窄为"有没有这条状态")。
+        /// <summary>目标身上有封禁状态吗(纯查询,2026-09-05 起语义收窄为「有没有这条状态」)。
         /// 别处若只是想知道「身上挂没挂这条状态」(不涉及要不要哑火某个主动机制),就该读这个,
         /// 而不是下面的 <see cref="IsAbilitySilenced"/>。</summary>
         private static bool IsSilenced(EnemyState enemy) => enemy.Statuses.Has(StatusKind.Silence);
 
         /// <summary>这只敌人的**主动机制**是否被封禁哑火(2026-09-05)。压的是
         /// Boss 大招、缺笔妖补全、叠字分裂、标点加攻/涂改、焦痕自燃、灯花灼身、铁画反噬 ——
-        /// 通假/生僻不在其列:那两个是信息隐藏,锁一下就看穿了不符合"锁"的语义(2026-08-07 旧注)。
+        /// 通假/生僻不在其列:那两个是信息隐藏,锁一下就看穿了不符合「锁」的语义(2026-08-07 旧注)。
         ///
         /// Boss 不吃这一半 —— 封禁对 Boss 降级为「只削护甲」,大招照常放。
         /// `EnemyAbility` 的每一处判断都要走这个方法,而不是裸 <see cref="IsSilenced"/>:
@@ -3293,7 +3293,7 @@ namespace Brushblade.Core
                 return;
             }
 
-            // 生僻字:受击两次后被"读懂"(8.3);打死了就无所谓读不读得懂
+            // 生僻字:受击两次后被「读懂」(8.3);打死了就无所谓读不读得懂
             if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
             {
                 enemy.ApparentElement = enemy.Element;
@@ -3334,7 +3334,7 @@ namespace Brushblade.Core
                 int cloneColumn = FreeColumnIn(cloneRow, enemy.Def.ColumnSpan);
                 // 找不到空列则不分裂(spec §6.1)。当前理论不可达——RowWithSpace 只会返回
                 // 一排未满的排,同排列号又互不相同,必有空列——但代码得照 spec 说的话讲,
-                // 不能靠"反正走不到"当隐性前提(2026-08-22)。
+                // 不能靠「反正走不到」当隐性前提(2026-08-22)。
                 if (cloneColumn >= 0)
                 {
                     int half = (enemy.Hp + 1) / 2;

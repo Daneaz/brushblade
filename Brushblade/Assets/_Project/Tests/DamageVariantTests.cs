@@ -543,8 +543,8 @@ namespace Brushblade.Core.Tests
         public void Silence_OnBoss_DoesNotCancelChargeOrResetCounter()
         {
             // 2026-09-05(封禁,平衡重做 P0 任务 9):这条原名 Silence_CancelsBossChargeAndResetsCounter,
-            // 断言的是"沉默→蓄力取消,不放大招,交回普攻"。封禁扩到"特殊能力全部失效"后,
-            // 对 Boss 降级为"只削护甲",蓄力/大招不受影响——同斩杀对 Boss 从直杀降为
+            // 断言的是「沉默→蓄力取消,不放大招,交回普攻」。封禁扩到「特殊能力全部失效」后,
+            // 对 Boss 降级为「只削护甲」,蓄力/大招不受影响——同斩杀对 Boss 从直杀降为
             // 吃双倍一个纪律,此处反向改写全部三条断言。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
@@ -566,8 +566,8 @@ namespace Brushblade.Core.Tests
         public void Silence_OnBoss_DoesNotCancelChargeImmediately()
         {
             // 2026-09-05(封禁,平衡重做 P0 任务 9):原名 Silence_CancelsBossChargeImmediately,
-            // 断言"挂上沉默当场打断蓄力"(评审 Important 1,2026-08-08 的旧口径)。
-            // 封禁对 Boss 降级为"只削护甲",这条打断逻辑已删除——蓄力状态与计数都不受影响。
+            // 断言「挂上沉默当场打断蓄力」(评审 Important 1,2026-08-08 的旧口径)。
+            // 封禁对 Boss 降级为「只削护甲」,这条打断逻辑已删除——蓄力状态与计数都不受影响。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
             var config = new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 200, BossChargeEvery = 1 };
@@ -584,7 +584,7 @@ namespace Brushblade.Core.Tests
         public void Silence_OnBoss_DoesNotCancelChargeEvenThroughFreeze()
         {
             // 2026-09-05(封禁,平衡重做 P0 任务 9):原名 Silence_CancelsBossChargeEvenThroughFreeze,
-            // 断言"沉默取消蓄力的效果不受冻结影响,解冻后倾覆不会补放"。封禁对 Boss 现在根本
+            // 断言「沉默取消蓄力的效果不受冻结影响,解冻后倾覆不会补放」。封禁对 Boss 现在根本
             // 不取消蓄力,冻结与否都一样——蓄力保留到解冻,倾覆照常放出来。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,
                 phases: new[] { new BossPhaseDef("覆", Element.Heart, 300, 4, skill: BossSkill.Topple) });
@@ -606,7 +606,7 @@ namespace Brushblade.Core.Tests
         public void Silence_OnBoss_DoesNotResetChargeCounter()
         {
             // 2026-09-05(封禁,平衡重做 P0 任务 9):原名 Silence_ResetsChargeCounterWhenNotYetCharging,
-            // 断言"沉默期间不攒力,计数清零"(修复 4,2026-08-08 的旧口径)。封禁对 Boss 现在完全
+            // 断言「沉默期间不攒力,计数清零」(修复 4,2026-08-08 的旧口径)。封禁对 Boss 现在完全
             // 不碰蓄力计数——计数照常累加、照常进入蓄力态。BossChargeEvery=2:第一个敌方回合
             // 只攒到 1,还没进蓄力。
             var boss = new EnemyDef("覆", Element.Heart, 300, 4,

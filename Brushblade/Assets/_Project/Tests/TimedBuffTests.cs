@@ -48,7 +48,7 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.EffectiveCrit, Is.EqualTo(0), "3 个回合末后到期");
         }
 
-        /// <summary>一张纯增益字 "增" 的战斗。敌人血量给大值 —— 增益字不打伤害,
+        /// <summary>一张纯增益字「增」的战斗。敌人血量给大值 —— 增益字不打伤害,
         /// 但 EndTurn() 会让敌人反击,靶子不能被打死(死了 Phase 变 Won,EndTurn 就不再推进)。</summary>
         private static BattleEngine BuffBattle(EffectKind kind, int value, int turns)
         {

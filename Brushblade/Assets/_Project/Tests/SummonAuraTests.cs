@@ -248,7 +248,7 @@ namespace Brushblade.Core.Tests
         /// 与下面 <c>SummonAttack_ReactsToMoraleGrantedMidBattle</c> 的区别:那一条断言的是
         /// **EndTurn 之后真正打出的伤害**(结算层,ActSummonTurn 开头已经会刷新一次,足够
         /// 覆盖);这一条断言的是 **EndTurn 之前**这个字段本身,直接对应「点开详情弹窗」这个
-        /// 场景——不 EndTurn 就该看到新值,不能靠"反正出手前会刷"这个补偿掩盖显示滞后。</summary>
+        /// 场景——不 EndTurn 就该看到新值,不能靠「反正出手前会刷」这个补偿掩盖显示滞后。</summary>
         [Test]
         public void EffectiveAttack_RefreshesRightAfterCastWithoutEndingTurn()
         {

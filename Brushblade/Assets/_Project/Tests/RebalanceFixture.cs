@@ -15,7 +15,7 @@ namespace Brushblade.Core.Tests
     {
         public const int BaseMaxHp = 500;
 
-        /// <summary>图谱里总有一张 "甲"(单体 20)—— 秒杀 20 血靶子用它结束战斗。</summary>
+        /// <summary>图谱里总有一张「甲」(单体 20)—— 秒杀 20 血靶子用它结束战斗。</summary>
         public static RecipeGraph Graph(params CharDef[] extra) =>
             new(new[]
                 {
@@ -32,7 +32,7 @@ namespace Brushblade.Core.Tests
             new("怔", Element.Heart, hp, attack, ability, defense: armor);
 
         /// <summary>Boss 靶子。<c>EnemyState.IsBoss</c> 判的是 <c>Def.Phases.Count > 0</c>,
-        /// 所以**必须给 phases**,只给个 id 叫 "钧" 是不够的 —— 那是本任务最容易漏的一处。</summary>
+        /// 所以**必须给 phases**,只给个 id 叫「钧」是不够的 —— 那是本任务最容易漏的一处。</summary>
         public static EnemyDef Boss(int hp = 100000, int attack = 0, int armor = 0,
             EnemyAbility ability = EnemyAbility.None) =>
             new("钧", Element.Heart, hp, attack, ability, defense: armor,

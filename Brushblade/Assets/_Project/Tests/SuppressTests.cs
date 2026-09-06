@@ -106,7 +106,7 @@ namespace Brushblade.Core.Tests
         /// <summary>一场带「封」(封禁 N 回合)与「打」(单体 100)两张字的战斗。
         /// 靶子按 isBoss 选杂兵或 Boss —— Boss 必须带 phases,IsBoss 判的就是 Phases.Count > 0。
         /// 两条 EnemyAbility 测试要造**两只**带 ability 的靶子:Buff 的前置是
-        /// HasOtherAliveEnemy,单只时它本来就不发动,那样测试会双双"通过"而什么都没测到。
+        /// HasOtherAliveEnemy,单只时它本来就不发动,那样测试会双双「通过」而什么都没测到。
         /// 被封禁的是 index 0。</summary>
         private static BattleEngine SuppressBattle(int armor, bool isBoss, int turns = 1,
             int enemyAttack = 0, EnemyAbility ability = EnemyAbility.None)
@@ -147,10 +147,10 @@ namespace Brushblade.Core.Tests
         ///
         /// ⚠ 两只靶子都带 Buff(brief 的要求,免得单只不发动),这就意味着 index 1
         /// 自己的 Buff **也会**在同一回合独立触发,把 AttackBuff 挂到 index 0 身上 ——
-        /// 如果判据是"随便哪只敌人身上有没有 AttackBuff",index 0 就永远会被 index 1
-        /// 的独立动作误判成"发动了",两条测试因此双双测不出封禁有没有生效(实测:
+        /// 如果判据是「随便哪只敌人身上有没有 AttackBuff」,index 0 就永远会被 index 1
+        /// 的独立动作误判成「发动了」,两条测试因此双双测不出封禁有没有生效(实测:
         /// 按这个判据写,Suppress_OnMob_SilencesAbility 会稳定断言失败,即使
-        /// IsAbilitySilenced 实现完全正确)。真正能分辨"index 0 自己有没有发动"的
+        /// IsAbilitySilenced 实现完全正确)。真正能分辨「index 0 自己有没有发动」的
         /// 只有 index 1 有没有被 index 0 加成 —— index 1 收到 buff 只可能来自 index 0,
         /// 不受 index 1 自己那份独立动作干扰。</summary>
         private static bool AbilityFired(BattleEngine battle) =>
