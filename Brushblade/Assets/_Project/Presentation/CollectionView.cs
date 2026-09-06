@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Brushblade.Core;
 using Brushblade.Data;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Brushblade.Presentation
@@ -17,7 +16,7 @@ namespace Brushblade.Presentation
     /// 2026-09-03 按稿重写。此前是每页 12 张的翻页网格,只列**已拥有**的字;现在:
     /// · 74 张可收集字全列出来,没拿到的走锁态沉底 —— 收集页的另一半是「还差什么」;
     /// · 网格内部滚动,不再翻页;
-    /// · 右栏常驻出阵编组(15 格 + 每系配额)。
+    /// · 右栏常驻卡池概览(2026-09-06,取代出阵编组:出阵概念随抽卡池化一并废止)。
     ///   栏底原有一个「去升级 N 张」钮,2026-09-05 用户拍板移除:升级是**某一张字**的事,
     ///   入口已经在那张字的详情弹窗底部(<see cref="SheetActions"/>),
     ///   而「可升级」排序本来就把能升的顶到网格最前 —— 同一件事的第三个入口。
@@ -45,14 +44,11 @@ namespace Brushblade.Presentation
         private const float GridGapX = 17f;
         private const float GridGapY = 29f;
         private static readonly Vector2 CardSize = new(216f, 268f);
-        // 出阵格里的缩小版字卡:0.8 竖版比例(与框素材同比,拉了就变形);格高再加牌下那行等级
-        private static readonly Vector2 SlotTile = new(74f, 92f);
         // 升级确认弹窗:520×320pt(稿 Upgrade.dc.html)。两段并排,再挤就要把
         // 「变化前 → 变化后」压成一行文字,而那正是这一屏的全部意义
         private const float UpgradeW = 1088f;
         private const float UpgradeH = 670f;
         private static readonly Vector2 UpgradeTile = new(130f, 163f);
-        private const float SlotRowH = 117f;
 
         /// <summary>筛选栏的六个页签。null = 全部。</summary>
         private static readonly Element?[] FilterTabs =
@@ -96,15 +92,6 @@ namespace Brushblade.Presentation
         /// 只在筛选变了时才归顶 —— 那时列表内容本来就换了一批。</summary>
         private float _gridScroll = 1f;
         private ScrollRect _grid;
-        // 拖拽落点区(2026-09-03):右栏整块就是「出阵表」。拖拽期间**不许重绘** ——
-        // uGUI 的拖拽事件只发给起拖的那个对象,它一被销毁 OnEndDrag 就再也不来、字影卡在屏幕上。
-        // 所以这几个引用是拿来**就地改色/改字**的,不是拿来重建的。
-        private RectTransform _sideRect;
-        private RectTransform _gridRect;
-        private Image _sideFrame;
-        private Color _sideFrameRest;
-        private GameObject _dropHint;
-        private Text _dropHintLabel;
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -162,8 +149,7 @@ namespace Brushblade.Presentation
 
             Ui.ThemedLabel(top.transform, Strings.T("collection.header.title"), 40, Theme.TextMain, Theme.TitleFont);
             Ui.ThemedLabel(top.transform,
-                Strings.T("collection.header.stats", ("owned", owned), ("total", _all.Count),
-                    ("deckCount", _meta.Deck.Count), ("deckLimit", MetaRules.DeckLimit)),
+                Strings.T("collection.header.stats", ("owned", owned), ("total", _all.Count)),
                 23, Theme.TextDim);
             if (locked > 0)
                 Ui.Chip(top.transform, Strings.T("collection.header.locked_chip", ("count", locked)),
@@ -382,7 +368,6 @@ namespace Brushblade.Presentation
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = new Vector2(-(SideW + MainGap), 0);
-            _gridRect = rect;   // 拖拽落点判定要用:拖出这块 = 编入出阵
 
             var list = Visible();
             if (list.Count == 0)
@@ -436,80 +421,11 @@ namespace Brushblade.Presentation
                 Rarity = def.Rarity,
                 Level = level,
                 Maxed = maxed,
-                InDeck = _meta.Deck.Contains(def.Id),
                 CanUpgrade = canUpgrade,
                 IsNew = owned && MetaRules.IsCardUnseen(_meta, def.Id),
                 Locked = !owned,
             });
             CardBadges.Foot(cell.transform, CardSize, owned, copies, needed, maxed, canUpgrade);
-
-            // 拖到右栏 = 编入出阵(2026-09-03)。没拥有的字不给拖:它连编组的资格都没有。
-            // 竖向手势由 DragToDeck 转发给网格的 ScrollRect,列表照旧滚得动。
-            if (owned)
-                DragToDeck.Attach(tile.gameObject, def.Id, Theme.GlyphColor(def.Element),
-                    position => DropFromGrid(def.Id, position),
-                    () => ShowDropHint(Strings.T("collection.drag.to_deck"), Theme.Jade));
-        }
-
-        /// <summary>网格里的牌松手:落在右栏内 = 编入出阵,落在别处 = 什么都不做。</summary>
-        private void DropFromGrid(string cardId, Vector2 screenPosition)
-        {
-            HideDropHint();
-            // 判据是「拖出了网格」,不是「精确落在右栏上」—— 与卸下那条对称,
-            // 也省得玩家非要够到那块面板才算数
-            if (Inside(_gridRect, screenPosition)) return;        // 没拖出网格:什么都没发生
-            if (_meta.Deck.Contains(cardId)) return;              // 已经在阵上:重复拖入不算错,更不该当成卸下
-            ToggleDeck(cardId);
-        }
-
-        /// <summary>出阵格松手:拖出右栏 = 卸下,还在栏内 = 什么都不做(误触保护)。</summary>
-        private void DropFromSlot(string cardId, Vector2 screenPosition)
-        {
-            HideDropHint();
-            if (Inside(_sideRect, screenPosition)) return;        // 还在栏内:误触保护,不动出阵表
-            ToggleDeck(cardId);
-        }
-
-        private readonly List<RaycastResult> _dropHits = new();
-
-        /// <summary>松手处在不在 <paramref name="area"/> 这块里。
-        ///
-        /// ⚠ 走 <see cref="EventSystem.RaycastAll"/> 而不是
-        /// <c>RectTransformUtility.RectangleContainsScreenPoint</c>(2026-09-04 修):
-        /// 那条几何判断在这一屏上恒为 false —— 拖入怎么都不生效,而拖出(判的是「不在里面」)
-        /// 却像好的一样,两个方向的表现正好互补,病根藏得很深。射线判的是**真的点到了谁**,
-        /// 不依赖任何坐标系换算;网格视口那张 alpha=0 接射线的图(为「空白处也能拖动列表」加的)
-        /// 与右栏的描边底图正好各自铺满自己那块,两块都点得到。</summary>
-        private bool Inside(RectTransform area, Vector2 screenPosition)
-        {
-            if (area == null || EventSystem.current == null) return false;
-            var pointer = new PointerEventData(EventSystem.current) { position = screenPosition };
-            _dropHits.Clear();
-            EventSystem.current.RaycastAll(pointer, _dropHits);
-            foreach (var hit in _dropHits)
-                if (hit.gameObject != null && hit.gameObject.transform.IsChildOf(area))
-                    return true;
-            return false;
-        }
-
-        /// <summary>起拖时点亮右栏并写明松手会发生什么。**就地改色改字**,不重绘 ——
-        /// 理由见 <see cref="_sideRect"/> 那组字段的注释。</summary>
-        private void ShowDropHint(string text, Color accent)
-        {
-            if (_sideFrame != null) _sideFrame.color = accent;
-            if (_dropHint == null) return;
-            _dropHint.SetActive(true);
-            if (_dropHintLabel != null)
-            {
-                _dropHintLabel.text = text;
-                _dropHintLabel.color = accent;
-            }
-        }
-
-        private void HideDropHint()
-        {
-            if (_sideFrame != null) _sideFrame.color = _sideFrameRest;
-            if (_dropHint != null) _dropHint.SetActive(false);
         }
 
         /// <summary>点一张牌 = 开详情弹窗 + 销掉新字红旗(稿:「新字的红旗点一下就消」)。
@@ -541,10 +457,6 @@ namespace Brushblade.Presentation
             var side = Ui.OutlinedPanel(parent, "Side", Theme.PanelPaper, Theme.PanelBorder, 21, 2);
             Ui.Anchor((RectTransform)side.transform, new Vector2(1, 0), Vector2.one,
                 new Vector2(-SideW, 0), Vector2.zero);
-            // 右栏整块就是拖拽的落点区:描边在拖拽时换色,底部那条提示带写明松手会发生什么
-            _sideRect = (RectTransform)side.transform;
-            _sideFrame = side;
-            _sideFrameRest = side.color;
 
             // 头:只剩标题(关闭钮随详情一起搬去了弹窗右上角)
             var head = Ui.Row(side.transform, "Head", 12);
@@ -553,32 +465,18 @@ namespace Brushblade.Presentation
             headLayout.padding = new RectOffset(17, 17, 0, 0);
             Ui.Anchor((RectTransform)head.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -SideHeadH), Vector2.zero);
-            Ui.ThemedLabel(head.transform, Strings.T("collection.side.title_deck"), 19, Theme.LockGray);
+            Ui.ThemedLabel(head.transform, Strings.T("collection.side.title_pool"), 19, Theme.LockGray);
 
             var separator = Ui.Panel(side.transform, "HeadRule");
             separator.AddComponent<Image>().color = Theme.PanelBorder;
             Ui.Anchor((RectTransform)separator.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -SideHeadH - 2), new Vector2(0, -SideHeadH));
 
-            // 身:内部滚动 —— 15 格出阵表 + 每系配额靠滚动装下,一直铺到栏底
+            // 身:内部滚动 —— 卡池概览靠滚动装下,一直铺到栏底
             var body = Ui.ScrollList(side.transform, "Body", 0, out var content);
             Ui.Anchor((RectTransform)body.transform, Vector2.zero, Vector2.one,
                 new Vector2(SidePad, SidePad), new Vector2(-SidePad, -SideHeadH - 2));
-            BuildDeckPanel(content);
-
-            BuildDropHint(side.transform);
-        }
-
-        /// <summary>拖拽提示带:平时藏着,起拖那一刻就地点亮。建在右栏最后 = 画在最上层。</summary>
-        private void BuildDropHint(Transform parent)
-        {
-            var hint = Ui.CardPanel(parent, "DropHint", Theme.PanelInset, 16);
-            Ui.Anchor((RectTransform)hint.transform, Vector2.zero, new Vector2(1, 0),
-                new Vector2(17, SidePad), new Vector2(-17, SidePad + 63));
-            _dropHintLabel = Ui.ThemedLabel(hint.transform, "", 21, Theme.Jade, Theme.TitleFont);
-            Ui.Stretch(_dropHintLabel.rectTransform);
-            _dropHint = hint.gameObject;
-            _dropHint.SetActive(false);
+            BuildPoolPanel(content);
         }
 
         // ---- 字卡详情弹窗(2026-09-05:与开箱 / 战斗共用 CharPreview) ----
@@ -608,19 +506,6 @@ namespace Brushblade.Presentation
                 return;
             }
 
-            bool inDeck = _meta.Deck.Contains(def.Id);
-            var deckButton = Ui.PillButton(parent,
-                inDeck ? Strings.T("collection.button.unequip") : Strings.T("collection.button.equip"),
-                // 重开弹窗:ToggleDeck 内部会 Rebuild,而 Rebuild 会 Ui.Clear 掉这张详情 ——
-                // 原先详情在右栏里,改完状态它还在,玩家当场看得见「已编入」。改走弹窗之后
-                // 不补这一句,点完钮整屏就退回网格,反馈全丢了。
-                // 拖拽那两条路径(DropFromGrid / DropFromSlot)刻意不重开:那时玩家在拖牌,
-                // 手上没有详情这一屏,凭空弹一张出来是打断。
-                () => { ToggleDeck(def.Id); ShowCharSheet(def); },
-                inDeck ? Theme.LockedBg : Theme.ExitPink,
-                inDeck ? Theme.TextMain : Color.white, 24, new Vector2(0, 75));
-            deckButton.GetComponent<LayoutElement>().flexibleWidth = 1;
-
             int level = MetaRules.CardLevel(_meta, def.Id);
             bool maxed = level >= MetaRules.MaxCardLevel;
             bool canUpgrade = MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity);
@@ -637,36 +522,40 @@ namespace Brushblade.Presentation
             upButton.interactable = canUpgrade;
         }
 
-        // ---- 右栏 · 没选中:出阵编组 ----
+        // ---- 右栏 · 卡池概览(2026-09-06,取代出阵编组) ----
 
-        private void BuildDeckPanel(Transform parent)
+        /// <summary>按稀有度分档列出卡池:档位 / 字数 / 起手抽中率。
+        ///
+        /// 抽中率是**近似值**:真实的起手是「五行各一张 + 最高档保底一张」,各系内部独立加权,
+        /// 严格算要按系分开。这里给的是「全池加权抽一张时该档的命中率」——
+        /// 玩家要看的是「开箱怎么影响我的起手」这个方向,不是精确概率。</summary>
+        private void BuildPoolPanel(Transform parent)
         {
-            var slots = CharSheetSections.Section(parent, Strings.T("collection.side.section.deck",
-                ("count", _meta.Deck.Count), ("limit", MetaRules.DeckLimit)));
-            Transform row = null;
-            for (int i = 0; i < MetaRules.DeckLimit; i++)
+            var playable = MetaRules.PlayableCards(_meta, _graph);
+            var section = CharSheetSections.Section(parent,
+                Strings.T("collection.side.section.pool", ("count", playable.Count)));
+
+            // 各档字数
+            var counts = new int[MetaRules.RarityWeights.Length];
+            foreach (var id in playable)
+                counts[(int)_graph.Get(id).Rarity - 1]++;
+
+            // 分母只算「池里真有字」的档 —— 空档不参与加权
+            int total = 0;
+            for (int i = 0; i < counts.Length; i++)
+                if (counts[i] > 0) total += MetaRules.RarityWeights[i];
+
+            // 从高到低列:玩家最关心的是顶上那几档
+            for (int i = counts.Length - 1; i >= 0; i--)
             {
-                if (i % 5 == 0)
-                {
-                    var rowGo = Ui.Row(slots, $"SlotRow{i / 5}", 10);
-                    var rowLayout = rowGo.GetComponent<HorizontalLayoutGroup>();
-                    rowLayout.childForceExpandWidth = true;
-                    rowLayout.childAlignment = TextAnchor.UpperCenter;
-                    Ui.Sized(rowGo, 0, SlotRowH, flexWidth: 1);
-                    row = rowGo.transform;
-                }
-                BuildSlot(row, i < _meta.Deck.Count ? _meta.Deck[i] : null);
+                if (counts[i] == 0) continue;
+                var rarity = (CardRarity)(i + 1);
+                int permille = total > 0 ? MetaRules.RarityWeights[i] * 1000 / total : 0;
+                BuildPoolRow(section, rarity, counts[i], permille);
             }
 
-            var quota = CharSheetSections.Section(parent, Strings.T("collection.side.section.quota",
-                ("limit", MetaRules.DeckPerElementLimit)));
-            foreach (var element in new[] { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth })
-                BuildQuotaBar(quota, element);
-
             var tip = CharSheetSections.Section(parent, Strings.T("collection.side.section.tip"));
-            string tipText = Strings.T("collection.side.tip_body",
-                ("min", MetaRules.DeckMinimum), ("max", MetaRules.DeckLimit),
-                ("perElement", MetaRules.DeckPerElementLimit));
+            string tipText = Strings.T("collection.side.pool_tip_body");
             var text = Ui.ThemedLabel(tip, tipText, 19, Theme.TextDim);
             text.alignment = TextAnchor.UpperLeft;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -674,84 +563,29 @@ namespace Brushblade.Presentation
                 Ui.WrappedTextHeight(tipText, 19, SideW - SidePad * 2), flexWidth: 1);
         }
 
-        /// <summary>出阵表的一格 = **缩小版字卡**(稀有度框 + 字,不挂动效、不印拼音)+ 牌下等级。
-        ///
-        /// 2026-09-04:原先是属性色圆角格 + 字 + 等级,只说得出「什么系」,说不出「什么档」——
-        /// 而出阵表里最该一眼看见的正是稀有度。牌按 <see cref="SlotTile"/> 的 0.8 竖版比例定死,
-        /// 格子的富余宽度让给间距,不去拉牌 —— 拉了框上的纹样就变形。</summary>
-        private void BuildSlot(Transform parent, string cardId)
+        /// <summary>概览的一行:稀有度色条 + 档名 + 字数 + 抽中率。</summary>
+        private void BuildPoolRow(Transform parent, CardRarity rarity, int count, int permille)
         {
-            var cell = Ui.VStack(parent, cardId == null ? "Slot_Free" : $"Slot_{cardId}", 5);
-            cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
-            Ui.Sized(cell, height: SlotRowH, flexWidth: 1);
-
-            if (cardId == null || !_graph.TryGet(cardId, out var def))
-            {
-                var free = Ui.OutlinedPanel(cell.transform, "Free", Theme.PanelPaper, Theme.PanelBorder, 14, 2);
-                Ui.Sized(free.gameObject, SlotTile.x, SlotTile.y);
-                Ui.ThemedLabel(free.transform, Strings.T("collection.side.slot_free"), 24, Theme.LockGray);
-                return;
-            }
-
-            var tile = Ui.MiniGlyphTile(cell.transform, def, SlotTile);
-            var button = tile.AddComponent<Button>();
-            button.targetGraphic = tile.GetComponent<Image>();
-            button.onClick.AddListener(() => Select(cardId));
-            Ui.ThemedLabel(cell.transform, $"Lv.{MetaRules.CardLevel(_meta, cardId)}", 16, Theme.TextDim);
-
-            // 拖出右栏 = 卸下。这一格坐在右栏的滚动容器里,所以竖向手势照旧交给它滚动,
-            // 横着拽才算「把这张字拿出来」——与网格那边同一条分流
-            DragToDeck.Attach(tile, def.Id, Theme.GlyphColor(def.Element),
-                position => DropFromSlot(cardId, position),
-                () => ShowDropHint(Strings.T("collection.drag.off_deck"), Theme.ExitPink));
-        }
-
-        private void BuildQuotaBar(Transform parent, Element element)
-        {
-            int count = 0;
-            foreach (var id in _meta.Deck)
-                if (_graph.TryGet(id, out var def) && (def.Element ?? Element.Heart) == element)
-                    count++;
-            bool full = count >= MetaRules.DeckPerElementLimit;
-
-            var row = Ui.Row(parent, $"Quota_{element}", 15);
+            var row = Ui.Row(parent, $"PoolRow{(int)rarity}", 10);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Sized(row, 0, 34, flexWidth: 1);
-            Ui.ThemedLabel(row.transform, CharInfo.ElementName(element), 27,
-                Theme.GlyphColor(element), Theme.TitleFont);
-            var bar = Ui.Bar(row.transform, (float)count / MetaRules.DeckPerElementLimit,
-                Theme.ElementColor(element), new Vector2(0, 13));
-            bar.GetComponent<LayoutElement>().flexibleWidth = 1;
-            Ui.ThemedLabel(row.transform, $"{count}/{MetaRules.DeckPerElementLimit}", 19,
-                full ? Theme.CinnabarDark : Theme.TextDim);
+
+            var swatch = Ui.Panel(row.transform, "Swatch");
+            swatch.AddComponent<Image>().color = Theme.RarityColor(rarity);
+            Ui.Sized(swatch, 8, 22);
+
+            Ui.ThemedLabel(row.transform, CharInfo.RarityName(rarity), 19, Theme.TextMain,
+                null, TextAnchor.MiddleLeft);
+            Ui.Panel(row.transform, "Spring");
+            Ui.ThemedLabel(row.transform,
+                Strings.T("collection.side.pool_row",
+                    ("count", count), ("percent", $"{permille / 10}.{permille % 10}")),
+                19, Theme.TextDim, null, TextAnchor.MiddleRight);
         }
 
         // ---- 右栏 · 选中:字牌详情 ----
 
-
         // ================= 动作 =================
-
-        private void ToggleDeck(string cardId)
-        {
-            var deck = new List<string>(_meta.Deck);
-            bool removing = deck.Contains(cardId);
-            if (removing) deck.Remove(cardId);
-            else deck.Add(cardId);
-
-            if (MetaRules.TrySetDeck(_meta, deck, _graph))
-            {
-                _save();
-                Rebuild();
-                return;
-            }
-
-            Rebuild();
-            ShowAlert(Strings.T("collection.alert.deck_limited_title"), removing
-                ? Strings.T("collection.alert.deck_min_body", ("min", MetaRules.DeckMinimum))
-                : Strings.T("collection.alert.deck_add_fail_body", ("cardId", cardId),
-                    ("min", MetaRules.DeckMinimum), ("max", MetaRules.DeckLimit),
-                    ("perElementLimit", MetaRules.DeckPerElementLimit)));
-        }
 
         /// <summary>升级确认弹窗(稿 <c>docs/design/ui/scenes/Upgrade.dc.html</c>)。
         ///

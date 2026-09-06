@@ -34,7 +34,6 @@ namespace Brushblade.Presentation
             public CardRarity Rarity;
             public int Level;
             public bool Maxed;
-            public bool InDeck;
             public bool CanUpgrade;
             public bool IsNew;
             public bool Locked;
@@ -65,19 +64,11 @@ namespace Brushblade.Presentation
 
             RarityDot(tile.transform, spec.Rarity, pad, size.x * DotRatio, dimmed: false);
 
-            // 牌底一条藕荷色带:与稀有度框不抢层次
-            if (spec.InDeck)
-            {
-                var bar = Badge(tile.transform, "DeckBar", Strings.T("collection.card.deployed_bar"),
-                    font, chipH, Theme.ExitPink, Color.white, radius: 0);
-                Ui.Anchor(bar, Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, chipH));
-            }
-
-            // 左下:可升徽标。遇出阵带自动上移 —— 四种状态各占一角,互不遮挡
+            // 左下:可升徽标
             if (spec.CanUpgrade)
             {
                 string text = Strings.T("collection.card.upgradable_badge");
-                float bottom = spec.InDeck ? chipH + pad : pad;
+                float bottom = pad;
                 var badge = Badge(tile.transform, "Upgradable", text, font, chipH, Theme.Jade, Color.white);
                 Ui.Anchor(badge, Vector2.zero, Vector2.zero,
                     new Vector2(pad, bottom), new Vector2(pad + Ui.ChipWidth(text, font), bottom + chipH));
