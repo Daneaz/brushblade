@@ -272,6 +272,41 @@ namespace Brushblade.Core.Tests
                 "RefreshSummonAura() 才能让这一拍吃到 Cast(\"战\") 才涨的战意");
         }
 
+        /// <summary>集成路径,厚这一半(2026-09-06,终审修复项 1):上面
+        /// <c>SummonAttack_ReactsToMoraleGrantedMidBattle</c> 只走通了战意那一半的真实链路
+        /// (<c>Cast</c> → <c>RefreshSummonAura</c> → <c>SummonAttackPercent</c> → 注入)—— 厚
+        /// 那一半此前从未被任何真实链路测试断言过:把 <c>SummonAttackPercent</c> 里
+        /// <c>+ _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack</c>
+        /// 那一项删掉,1607 条既有测试照样全绿。
+        ///
+        /// 走 <see cref="EffectKind.Shield"/> **攒厚**而不是直接给 <c>PlayerAttackPercent</c>
+        /// 赋值(那正是 <c>SummonAttack_ReadsMoraleAndHeft</c> 绕开注入链的手法):阈值是
+        /// <c>MaxHp/5</c>,夹具 <see cref="RebalanceFixture.BaseMaxHp"/> 是 500 → 阈值 100,
+        /// 盾 200 正好攒出 2 层厚(每层 +5% = +10%)。</summary>
+        [Test]
+        public void SummonAttack_ReadsHeftFromRealShieldCast()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("召甲", new EffectDef(EffectKind.Summon, 100,
+                    summonAttack: 100, summonChar: "甲")),
+                RebalanceFixture.Char("盾", new EffectDef(EffectKind.Shield, 200)));
+            var battle = RebalanceFixture.Battle(graph, new[] { "召甲", "盾" }, RebalanceFixture.Mob());
+
+            battle.Cast("召甲");
+            Assert.That(battle.Summons[0].EffectiveAttack, Is.EqualTo(100),
+                "入场时无厚,恒等 —— 恒等性硬线在集成层面的对应断言");
+
+            battle.Cast("盾");   // 攒厚:阈值 500/5=100,盾 200 攒满 2 层
+            Assert.That(battle.HeftStacks, Is.EqualTo(2), "夹具前提:必须真的攒出 2 层厚");
+
+            battle.EndTurn();   // 推进到召唤物出手(ActSummonTurn)
+
+            var strike = battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack);
+            Assert.That(strike.Amount, Is.EqualTo(110),
+                "100 × (100 + 2 层 × 5%) / 100 = 110 —— 此前集成层从未断言过厚这一半," +
+                "只断言过 PlayerAttackPercent 被直接赋值的单元级算式");
+        }
+
         /// <summary>反向(2026-09-06,评审 Important 补测第二条):战意衰减归零后,召唤物攻击
         /// 回落到基础值 —— 用户需求原话「战意归零回到 100」。乘区是**现读**的,不是入场时冻结
         /// 的一份快照,所以归零之后不能停留在曾经涨过的那个数上。
