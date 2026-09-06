@@ -101,6 +101,13 @@ namespace Brushblade.Core
         /// 留这个字段是给将来的被动技能注入用,与 <see cref="PlayerAttack"/> 并排。</summary>
         public int PlayerCritChance { get; set; }
 
+        /// <summary>五行 L3「该系字效果值 +X%」(spec §3.3)。索引 = <c>(int)Element</c>,
+        /// 值是百分点;**null 或全 0 = 逐字节恒等**(x × 100 / 100 == x)。
+        ///
+        /// 判据是**打出的那张字的元素**(CharDef.Element),与木脉 L4 的 SourceChar 判据同源。
+        /// 只作用于连续量值,白名单见 <see cref="BattleEngine.TakesElementPercent"/>。</summary>
+        public int[] ElementEffectPercent { get; set; }
+
         /// <summary>玩家护甲**点数**(19.2.1 角色属性,2026-08-12,E-b4 T2)。
         /// 敌人每记挥击从伤害里减这么多,下钳 0。
         ///
@@ -487,6 +494,41 @@ namespace Brushblade.Core
         private int AmplifyByWellspring(int value) =>
             value * (100 + _playerStatuses.TotalMagnitude(StatusKind.Wellspring)
                 * WellspringPercentPerStack) / 100;
+
+        /// <summary>五行 L3 的白名单:**连续量值**吃加成,**离散层数/回合数**不吃(spec §3.3)。
+        ///
+        /// 理由:+15% 在小数值上会被整数除截断,读数不可预期 —— 战意 2 层 ×1.15 = 2.3 → 2
+        /// (毫无变化),7 层 → 8(凭空跳一级)。玩家看到的是「有时候有用有时候没用」。</summary>
+        public static bool TakesElementPercent(EffectKind kind) => kind switch
+        {
+            EffectKind.DamageSingle or EffectKind.DamageAll
+                or EffectKind.HealSelf or EffectKind.HealAll or EffectKind.HealOverTime
+                or EffectKind.Shield or EffectKind.ShieldAll
+                or EffectKind.Bleed
+                or EffectKind.SpendHeft or EffectKind.SpendWellspring
+                or EffectKind.Detonate or EffectKind.ArmorBreak => true,
+            _ => false,
+        };
+
+        /// <summary>把五行 L3 的百分比套在**最内层 value** 上(spec §3.3)。
+        ///
+        /// ⚠ 位置是硬要求:先于 <c>WuxingResolver</c> 与 <c>ScaleByAttack</c>。
+        /// 语义上它等价于「字表里那个数字变大」,所以自动惠及所有 effect kind,无需逐分支接线。
+        /// <paramref name="percent"/> = 0 时 <c>v × 100 / 100 == v</c>,逐字节恒等。</summary>
+        public static int ApplyElementPercent(int value, int percent, EffectKind kind)
+        {
+            if (percent == 0 || !TakesElementPercent(kind)) return value;
+            return value * (100 + percent) / 100;
+        }
+
+        /// <summary>该元素的五行 L3 加成(百分点);没有配置表或索引越界一律 0。</summary>
+        private int ElementPercentOf(Element element)
+        {
+            var table = _config?.ElementEffectPercent;
+            if (table == null) return 0;
+            int i = (int)element;
+            return i >= 0 && i < table.Length ? table[i] : 0;
+        }
 
         /// <summary>本场生效的暴击率(百分点)= 角色属性(config)+ 局内增益(锋),钳到 [0,100]。
         ///
@@ -2141,6 +2183,9 @@ namespace Brushblade.Core
             foreach (var effect in EffectsOf(def, attackMode))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
+                // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
+                // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
+                value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:

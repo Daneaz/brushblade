@@ -276,7 +276,24 @@ namespace Brushblade.Core
                 UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
                 ApPerTurn = BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap), // 一气
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
+                ElementEffectPercent = ElementEffectTable(meta), // 五行 L3(spec §3.3)
             };
+        }
+
+        /// <summary>五行 L3 的按元素加成表(spec §3.3)。一条都没点时返回 null ——
+        /// BattleEngine 对 null 直接返回 0,省掉一次数组分配,也让「没点技能 = 什么都没变」
+        /// 在调试器里一眼可见。</summary>
+        private static int[] ElementEffectTable(MetaState meta)
+        {
+            int[] table = null;
+            foreach (var element in StartingElements)
+            {
+                int pct = PerkRules.ElementBonus(meta, PerkEffect.ElementEffectPercent, element);
+                if (pct == 0) continue;
+                table ??= new int[System.Enum.GetValues(typeof(Element)).Length];
+                table[(int)element] = pct;
+            }
+            return table;
         }
 
         /// <summary>每回合基础 AP(10.1);一气技能在其上加。</summary>
