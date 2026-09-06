@@ -454,6 +454,17 @@ namespace Brushblade.Core
         private static readonly Element[] StartingElements =
             { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth };
 
+        /// <summary>点了 L2 的那几系(spec §3.2)。顺序固定走 <see cref="StartingElements"/> 同款
+        /// 的固定枚举顺序 —— 保证同种子同结果,不依赖 UnlockedPerks 的插入顺序。</summary>
+        public static IReadOnlyList<Element> GuaranteedLootElements(MetaState meta)
+        {
+            var result = new List<Element>();
+            foreach (var element in StartingElements)
+                if (PerkRules.ElementBonus(meta, PerkEffect.ElementLootGuarantee, element) > 0)
+                    result.Add(element);
+            return result;
+        }
+
         /// <summary>抽卡候选 = 已收集的**字**。
         ///
         /// 一道 <c>IsComponent</c> 同时滤掉两类东西:部件,以及「有配方但无属性无稀有度」的
