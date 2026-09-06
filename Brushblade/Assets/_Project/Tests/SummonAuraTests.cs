@@ -239,6 +239,34 @@ namespace Brushblade.Core.Tests
             Assert.That(summon.EffectiveAttack, Is.EqualTo(225), "(100 + 50) × 1.5,不是 100×1.5 + 50");
         }
 
+        /// <summary>终审修复项 4(2026-09-06):<c>SummonState.EffectiveAttack</c> 是详情弹窗
+        /// 直接读的字段(<c>Presentation/UI/SummonInfo.cs</c>),此前 <c>RefreshSummonAura()</c>
+        /// 只在召唤/死亡/复活/落位/该召唤物出手前调用——玩家出一张只涨战意、不碰召唤物的字
+        /// (剿/战)不触发那几处调用点,于是这个字段在整个玩家回合里都停在过期值,直到该
+        /// 召唤物下一次出手才被动纠正。
+        ///
+        /// 与下面 <c>SummonAttack_ReactsToMoraleGrantedMidBattle</c> 的区别:那一条断言的是
+        /// **EndTurn 之后真正打出的伤害**(结算层,ActSummonTurn 开头已经会刷新一次,足够
+        /// 覆盖);这一条断言的是 **EndTurn 之前**这个字段本身,直接对应「点开详情弹窗」这个
+        /// 场景——不 EndTurn 就该看到新值,不能靠"反正出手前会刷"这个补偿掩盖显示滞后。</summary>
+        [Test]
+        public void EffectiveAttack_RefreshesRightAfterCastWithoutEndingTurn()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("召甲", new EffectDef(EffectKind.Summon, 100,
+                    summonAttack: 100, summonChar: "甲")),
+                RebalanceFixture.Char("战", new EffectDef(EffectKind.Morale, 1)));
+            var battle = RebalanceFixture.Battle(graph, new[] { "召甲", "战" }, RebalanceFixture.Mob());
+
+            battle.Cast("召甲");
+            Assert.That(battle.Summons[0].EffectiveAttack, Is.EqualTo(100),
+                "入场时无战意,恒等");
+
+            battle.Cast("战");   // 只涨战意,不 EndTurn
+            Assert.That(battle.Summons[0].EffectiveAttack, Is.EqualTo(110),
+                "详情弹窗读的就是这个字段——出牌当下就该是新值,不能等到召唤物下次出手才刷新");
+        }
+
         /// <summary>集成路径(2026-09-06,评审 Important 补测):上面三条只对
         /// <c>PlayerAttackPercent</c> 直接赋值,验证的只是 <c>EffectiveAttack</c> 这条纯算式,
         /// 完全绕开了 <c>RefreshSummonAura()</c> → <c>SummonAttackPercent</c> → 注入这条集成链路

@@ -1024,6 +1024,12 @@ namespace Brushblade.Core
             }
 
             ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot);
+            // 终审修复项 4(2026-09-06):战意/厚会因这一次 Cast 而变化(剿/盾等),但
+            // RefreshSummonAura 此前只在召唤/死亡/复活/落位/该召唤物出手前调用——玩家出的
+            // 这些非召唤类字不会触发那几处调用点,于是 SummonState.EffectiveAttack(详情
+            // 弹窗读的就是它)在整个玩家回合里都停在过期值,直到该召唤物下一次出手才被动
+            // 纠正。这里每次 Cast 收尾都补一次:它是幂等全量重算,多调一次无副作用。
+            RefreshSummonAura();
             CheckWin();
             return BattleError.None;
         }
