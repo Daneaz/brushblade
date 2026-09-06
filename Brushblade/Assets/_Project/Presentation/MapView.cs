@@ -212,8 +212,8 @@ namespace Brushblade.Presentation
                 (Strings.T("map.hero.stat.speed"), stats.PlayerSpeed.ToString(), Theme.TextMain),
                 (Strings.T("map.hero.stat.ap"), stats.ApPerTurn.ToString(), Theme.TextMain));
 
-            Spring(stack.transform, vertical: true); // 出阵预览钉在面板底(稿上 margin-top:auto)
-            BuildDeckMini(stack.transform);
+            Spring(stack.transform, vertical: true); // 卡池摘要钉在面板底(稿上 margin-top:auto)
+            BuildPoolMini(stack.transform);
         }
 
         private static void StatRow(Transform parent,
@@ -239,33 +239,40 @@ namespace Brushblade.Presentation
             Ui.Stretch(value.rectTransform);
         }
 
-        /// <summary>出阵预览:**缩小版字卡**,全量铺开、每排 6 个折行(2026-08-28 反馈:不折叠成「+N」)。
-        /// 点不动,只是提示带了什么上塔。出阵上限 15,最多三排。
-        ///
-        /// 2026-09-04:原先是属性色小格 + 字,只说得出「什么系」,说不出「什么档」——
-        /// 而出阵表里最该一眼看见的正是稀有度。改用 <see cref="Ui.MiniGlyphTile"/>(稀有度框 + 字,
-        /// 不挂动效、不印拼音);50×62 本来就是 0.8 竖版比例,框套上去不变形,排布一行没动。</summary>
-        private void BuildDeckMini(Transform parent)
+        /// <summary>角色栏里的卡池摘要(2026-09-06,取代出阵表小牌墙):
+        /// 出阵废止后这里没有「玩家编好的名单」可展示,改成「卡池多大 + 顶上那一档长什么样」。
+        /// 顶档那几张正是起手第 6 格保底会抽到的池子。</summary>
+        private void BuildPoolMini(Transform parent)
         {
-            const int PerRow = 6;    // 50×6 + 8×5 = 340,正好塞进角色栏 392 − 左右各 20 − 描边的净宽
-            const float TileW = 50f; // 角色栏收窄后跟着缩(2026-08-28),排数与折行规则不变
+            const int PerRow = 6;
+            const float TileW = 50f;
             const float TileH = 62f;
 
+            var playable = MetaRules.PlayableCards(_meta, _graph);
             Ui.ThemedLabel(parent,
-                Strings.T("map.hero.deck_title", ("count", _meta.Deck.Count), ("limit", MetaRules.DeckLimit)),
+                Strings.T("map.hero.pool_title", ("count", playable.Count)),
                 19, Theme.LockGray, null, TextAnchor.MiddleLeft);
 
-            var rows = Ui.VStack(parent, "DeckRows", 8);
+            // 只画最高档那几张,最多一行
+            CardRarity best = 0;
+            foreach (var id in playable)
+            {
+                var rarity = _graph.Get(id).Rarity;
+                if (rarity > best) best = rarity;
+            }
+
+            var rows = Ui.VStack(parent, "PoolRows", 8);
             rows.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
 
             Transform row = null;
             int shown = 0;
-            foreach (string id in _meta.Deck)
+            foreach (string id in playable)
             {
-                if (!_graph.TryGet(id, out var def)) continue;
+                if (shown >= PerRow) break;
+                if (!_graph.TryGet(id, out var def) || def.Rarity != best) continue;
                 if (shown % PerRow == 0)
                 {
-                    var rowGo = Ui.Row(rows.transform, $"DeckRow{shown / PerRow}", 8);
+                    var rowGo = Ui.Row(rows.transform, "PoolRow0", 8);
                     rowGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                     row = rowGo.transform;
                 }
@@ -820,7 +827,7 @@ namespace Brushblade.Presentation
                     Level = MetaRules.CardLevel(_meta, cardId),
                     Maxed = MetaRules.CardLevel(_meta, cardId) >= MetaRules.MaxCardLevel,
                     IsNew = isNew,
-                    // 出阵带与可升徽标刻意不挂:这一屏的牌脚已经把「新 / 升级 4/4 / 满级」说完了,
+                    // 可升徽标刻意不挂:这一屏的牌脚已经把「新 / 升级 4/4 / 满级」说完了,
                     // 同一件事印两遍反而看不出哪个才是重点(稿上的开箱牌也只有等级与稀有度)
                 });
                 var back = CardFlip.Back(flip.transform, cardSize, Strings.T("map.chest.card_back"));

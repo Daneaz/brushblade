@@ -326,7 +326,7 @@ namespace Brushblade.Core.Tests
         };
 
         [Test]
-        public void RandomComponents_DrawsFromDeckComponents_IntoPool()
+        public void RandomComponents_DrawsFromPoolComponents_IntoPool()
         {
             var run = new RunEngine(Graph(),
                 OneOptionConfig(new EventOption { Label = "求墨", RandomComponents = 2 }),
@@ -335,8 +335,8 @@ namespace Brushblade.Core.Tests
             WinAndSkipReward(run);
             Assert.That(ChooseAndAdvance(run, 0), Is.True);
             Assert.That(run.Battle.Pool.Count, Is.EqualTo(2));
-            // 候选 = 出阵表(RewardPool=[炎])所需部件 = [火]
-            var allowed = MetaRules.DeckComponents(new[] { "炎" }, Graph()).ToList();
+            // 候选 = 卡池(RewardPool=[炎])所需部件 = [火]
+            var allowed = MetaRules.PoolComponents(new[] { "炎" }, Graph()).ToList();
             Assert.That(run.Battle.Pool, Has.All.Matches<string>(c => allowed.Contains(c)));
         }
 
@@ -352,7 +352,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(RunPhase.EventOverflow)); // 满池不再静默丢
             Assert.That(run.CarriedPool.Count, Is.EqualTo(2));          // 空位先填满
             Assert.That(run.PendingOverflow.Count, Is.EqualTo(2));      // 余下待玩家决议
-            var allowed = MetaRules.DeckComponents(new[] { "炎" }, Graph()).ToList();
+            var allowed = MetaRules.PoolComponents(new[] { "炎" }, Graph()).ToList();
             Assert.That(run.PendingOverflow, Has.All.Matches<string>(c => allowed.Contains(c)));
         }
 
@@ -668,7 +668,7 @@ namespace Brushblade.Core.Tests
             }", graph));
         }
 
-        // ---- 字摊口径:换来的字也须在出阵列表(2026-07-20;与战利品/合成同源) ----
+        // ---- 字摊口径:换来的字也须在卡池(2026-07-20;与战利品/合成同源) ----
 
         private static RunEngine StallRun(params string[] unlocked) =>
             new(Graph(), StallConfig(), new BattleConfig
@@ -706,9 +706,9 @@ namespace Brushblade.Core.Tests
         };
 
         [Test]
-        public void Stall_RejectsCharOutsideDeck_AndKeepsComponents()
+        public void Stall_RejectsCharOutsidePool_AndKeepsComponents()
         {
-            var run = StallRun("林"); // 出阵只有林,炎换不到
+            var run = StallRun("林"); // 卡池只有林,炎换不到
             WinAndSkipReward(run);
             Assert.That(run.ChooseEventOption(0, new[] { 0, 1 }, charChoiceIndex: 0), Is.False);
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));       // 停留在事件
@@ -716,7 +716,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Stall_AllowsCharInsideDeck()
+        public void Stall_AllowsCharInsidePool()
         {
             var run = StallRun("炎", "林");
             WinAndSkipReward(run);
@@ -725,13 +725,13 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void FixedGift_AlsoDeckGated() // 守卫是全局的:单字奇遇(测字先生等)同受出阵列表约束
+        public void FixedGift_AlsoPoolGated() // 守卫是全局的:单字奇遇(测字先生等)同受卡池约束
         {
             var run = new RunEngine(Graph(), Config(100),
                 new BattleConfig { UnlockedChars = new[] { "林" } },
                 new[] { "焚" }, Array.Empty<string>(), seed: 7);
             WinAndSkipReward(run);
-            Assert.That(run.ChooseEventOption(0), Is.False); // 「求字」得炎,炎不在出阵列表
+            Assert.That(run.ChooseEventOption(0), Is.False); // 「求字」得炎,炎不在卡池
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Event));
         }
 

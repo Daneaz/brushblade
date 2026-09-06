@@ -49,9 +49,6 @@ namespace Brushblade.Presentation
             // 2026-09-03 起改调 EnsureStartingCollection:起手这 15 张一律不标新字,
             // 规则连同「已有的不当重复卡入账」一起收在 Core 里,这边不再自己循环。
             MetaRules.EnsureStartingCollection(_meta);
-            // 出阵不足下限 → 播默认五系蓝档(补齐已废止,空出阵 = 空手登塔)
-            if (_meta.Deck.Count < MetaRules.DeckMinimum)
-                MetaRules.TrySetDeck(_meta, MetaRules.StartingDeck, _graph);
 
             ShowMap();
         }
@@ -154,17 +151,21 @@ namespace Brushblade.Presentation
             bool firstTower = _meta.BestDepth == 0 && snapshot == null;
             if (snapshot == null)
             {
+                // 起手字库与初始部件池共用一条随机流:各造一个 GameRandom 会让
+                // 「这一局」拆成两条互不相关的序列,将来要把登塔种子入档时没法复现
+                var startRandom = new GameRandom(System.Environment.TickCount);
                 _meta.EndlessV2 = new EndlessSaveState
                 {
                     Depth = 1,
                     // 满血登塔:与战斗配置的 PlayerMaxHp 同一个函数(此前两处各抄一遍表达式)
                     PlayerHp = MetaRules.PlayerMaxHpFor(_meta),
                     Seed = System.Environment.TickCount,
-                    Library = new System.Collections.Generic.List<string>(MetaRules.StartingLibrary(_meta)),
-                    // 初始部件从出阵表所需部件里随机(2026-08-05):拿到的部件必拼得出手里的字。
+                    Library = new System.Collections.Generic.List<string>(
+                        MetaRules.StartingLibrary(_meta, _graph, startRandom)),
+                    // 初始部件从已解锁卡池所需部件里随机(2026-09-06,原「出阵表」):
                     // 教程不靠这个池——拆演示字本身就产出它的两个部件。
                     Pool = new System.Collections.Generic.List<string>(MetaRules.RollStartingPool(
-                        _meta.Deck, _graph, new GameRandom(System.Environment.TickCount))),
+                        _meta.OwnedCards, _graph, startRandom)),
                     NormalShield = PerkRules.ShieldBonus(_meta), // 金汤:首段段首护盾
                     // 结算页新纪录条的「旧纪录」只能在这里留:段末告捷会当场 UpdateBest,
                     // 到结算时 _meta.BestDepth 已经是本次成绩了(见 EndlessSaveState 的注释)
@@ -193,9 +194,10 @@ namespace Brushblade.Presentation
             var runConfig = firstTowerSegment
                 ? EndlessGenerator.BuildFirstTowerSegment(endless, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent)
                 : EndlessGenerator.BuildSegment(endless, fromDepth, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent);
-            // 战利品的字只出自出阵列表(2026-07-20 拍板):补的是自己带上来的弹药,
-            // 抽取按稀有度加权(绿 80/蓝 15/紫 5,见 RunEngine.RewardRarityWeights)
-            runConfig.RewardPool = _meta.Deck;
+            // 战利品的字只出自已解锁卡池(2026-09-06,原「出阵列表」):
+            // 抽取按稀有度加权,白/金/橙/红也在候选之列(白 150/绿 350/蓝 300/紫 130/
+            // 金 50/橙 15/红 5,千分比,见 MetaRules.RarityWeights)
+            runConfig.RewardPool = _meta.OwnedCards;
 
             // ⚠ 角色属性一条都不在这里手写(2026-08-12,E-b4/E-b5 T7):Presentation 没有任何
             // 自动化测试,此处漏注入一条属性是**静默**的(实测删掉 PlayerDodge 那行,967 条

@@ -44,11 +44,10 @@ namespace Brushblade.Core
         private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 2,2026-08-04 起)
         private const int RewardPicks = 2;       // 普通战斗 5 选 2(2026-08-04;Boss 层奖励走宝箱,不经此)
 
-        /// <summary>奇遇随机部件的候选(2026-08-05 拍板):从**出阵表所需部件**里取,
-        /// 不再是固定的五行基础部件——出阵表换了候选跟着换,掉到的部件永远拼得出手里的字。
-        /// RewardPool 即出阵表(GameRoot 接线);空则无部件可给。</summary>
+        /// <summary>奇遇随机部件的候选(2026-09-06):从**已解锁卡池所需的部件**里取。
+        /// RewardPool 即卡池(GameRoot 接线);空则无部件可给。</summary>
         private IReadOnlyList<string> ComponentChoices() =>
-            new List<string>(MetaRules.DeckComponents(
+            new List<string>(MetaRules.PoolComponents(
                 _runConfig.RewardPool ?? Array.Empty<string>(), _graph));
 
         private readonly RecipeGraph _graph;
@@ -312,7 +311,7 @@ namespace Brushblade.Core
             }
             if (gainChar != null && _battleConfig.UnlockedChars != null
                 && !_battleConfig.UnlockedChars.Contains(gainChar))
-                return false; // 不在出阵列表(2026-07-20:字摊与战利品/合成同源,没编入就换不到)
+                return false; // 不在已解锁卡池(2026-07-20:字摊与战利品/合成同源,没编入就换不到)
             // 字库满:须指定换掉哪一张(2026-07-22,与战利品 PickRewardReplacing 同一口径);
             // 未指定则拒绝,由表现层转入「换掉哪一个」子步。先验后扣,部件不受损。
             bool replacing = gainChar != null && _carriedLibrary.Count >= _battleConfig.LibraryCapacity;
@@ -648,16 +647,12 @@ namespace Brushblade.Core
             BeginNextBattle();
         }
 
-        /// <summary>字奖励的稀有度权重(2026-07-20 拍板):绿 80% / 蓝 15% / 紫 5%;
-        /// 白(部件)与金橙红不参与。索引 = rarity − 1。</summary>
-        private static readonly int[] RewardRarityWeights = { 0, 80, 15, 5, 0, 0, 0 };
-
-        /// <summary>固定遍历顺序:保证同种子同结果(不依赖字典插入顺序)。必须按枚举数值升序。</summary>
-        private static readonly CardRarity[] RarityOrder =
-        {
-            CardRarity.White, CardRarity.Green, CardRarity.Blue,
-            CardRarity.Purple, CardRarity.Gold, CardRarity.Orange, CardRarity.Red,
-        };
+        /// <summary>字奖励的稀有度权重与遍历顺序都取自 <see cref="MetaRules"/>(2026-09-06):
+        /// 战后 5 选 2 与登塔起手抽卡共用同一条曲线。此前这里另有一份
+        /// {0, 80, 15, 5, 0, 0, 0},白与金橙红都是 0 —— Deck 放开成全卡池之后,
+        /// 那份权重会让玩家开出来的金/橙/红字永远进不了战利品候选。</summary>
+        private static int[] RewardRarityWeights => MetaRules.RarityWeights;
+        private static CardRarity[] RarityOrder => MetaRules.RarityOrder;
 
         private void RollRewardOptions()
         {

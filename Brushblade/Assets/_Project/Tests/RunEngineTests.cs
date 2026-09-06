@@ -551,14 +551,16 @@ namespace Brushblade.Core.Tests
                 }
             }
             Assert.That(green + blue + purple, Is.EqualTo(400));
-            Assert.That(green, Is.GreaterThan(blue));   // 80% vs 15%
-            Assert.That(blue, Is.GreaterThan(purple));  // 15% vs 5%
-            Assert.That(green, Is.GreaterThan(240));    // 期望 320,留足抽样余量
-            Assert.That(purple, Is.LessThan(80));       // 期望 20
+            // 2026-09-06:权重表改为 MetaRules.RarityWeights(白/绿/蓝/紫/金/橙/红 = 150/350/300/130/50/15/5)。
+            // 池里只有绿/蓝/紫,三档按 350:300:130 归一 ≈ 44.9%/38.5%/16.7%。
+            Assert.That(green, Is.GreaterThan(blue));   // 44.9% vs 38.5%
+            Assert.That(blue, Is.GreaterThan(purple));  // 38.5% vs 16.7%
+            Assert.That(green, Is.GreaterThan(140));    // 期望 ≈180,留足抽样余量
+            Assert.That(purple, Is.LessThan(110));      // 期望 ≈67
         }
 
         [Test]
-        public void Reward_OnlyDrawsFromGivenPool() // 池 = 出阵列表,外面的字不该冒出来
+        public void Reward_OnlyDrawsFromGivenPool() // 池 = 已解锁卡池,外面的字不该冒出来
         {
             var run = RarityRun(seed: 3, pool: new[] { "蓝1", "蓝2" });
             WinCurrentBattle(run);

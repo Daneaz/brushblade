@@ -17,7 +17,6 @@ namespace Brushblade.Core
         /// 顶栏计数都读它。首次获得即入(<see cref="MetaRules.AcquireCard"/>),点开详情即出。
         /// 入档而不是内存里存一份 —— 关掉游戏再进来,没看过的那几张仍该是新的。</summary>
         public List<string> UnseenCards { get; set; } = new();
-        public List<string> Deck { get; set; } = new();                   // 出阵卡组(≤4,19.3.4)
         public List<int> ClearedStages { get; set; } = new();             // 每章已通关数
         public List<ChestState> Chests { get; set; } = new();             // 箱位队列(≤4,19.5.2)
         public List<ChestTier> PendingChests { get; set; } = new();        // 结算时箱位满的暂存箱,开箱腾位后入位(2026-07-22)
@@ -46,14 +45,11 @@ namespace Brushblade.Core
     public static class MetaRules
     {
         public const int MaxCardLevel = 10;
-        public const int DeckLimit = 15;          // 出阵列表上限(2026-07-19 拍板:5×3,后续可调)
-        public const int DeckMinimum = 5;         // 出阵下限(2026-07-19:起手不得少于 5 字)
-        public const int DeckPerElementLimit = 5; // 每属性最多 5 字(属性种类不限,3 系上限已废止)
-        public const int StartingLibrarySize = 6; // 起手字库数量
+        public const int StartingLibrarySize = 6; // 起手字库数量 = 五行各一 + 最高档保底一(2026-09-06)
         // 字库容量比起手多一格,留给回合掉字(2026-08-04):否则开局即满库,第一回合必弹 DropChoice
         public const int LibraryCapacitySlack = 1;
 
-        /// <summary>初始收集(2026-08-05 拍板):五系 × 白/绿/蓝各一张,共 15 张 = DeckLimit。
+        /// <summary>初始收集(2026-08-05 拍板):五系 × 白/绿/蓝各一张,共 15 张。
         /// 此前是五系 2 叠紫档字(鍂/林/沝/炎/圭)——玩家一开局就握着紫档,升阶目标感缺失。
         /// 全部要求有配方(可拆可合),否则拆了回不来。</summary>
         public static readonly IReadOnlyList<string> StartingCollection = new[]
@@ -67,22 +63,17 @@ namespace Brushblade.Core
             "碉", "垒", "碎", // 土:防御与破防(白 召唤肉盾 / 绿 盾 55+20 伤 / 蓝 90 伤+破甲 20)
         };
 
-        /// <summary>默认出阵 = 五系蓝档各一张。恰好 5 张(≥ DeckMinimum 且 ≤ StartingLibrarySize),
-        /// 所以默认出阵全部进起手字库——教程要拆的字必在手上(见 <see cref="Tutorial.DemoChar"/>)。
-        /// 其余 10 张留在收集里,玩家自行换上(出阵上限 15 格装得下全部)。</summary>
-        public static readonly IReadOnlyList<string> StartingDeck = new[]
-        {
-            "剿", "葬", "冷", "爆", "碎",
-        };
-
-        /// <summary>出阵表所需的部件(2026-08-05 拍板):部件的一切来源都从这里取,
-        /// 不再是固定金木水火土——出阵表换了,能掉的部件跟着换,拿到的部件永远拼得出手里的字。
+        /// <summary>卡池所需的部件(2026-09-06,原 DeckComponents):部件的一切来源都从这里取。
+        /// 入参从「出阵表」换成「已解锁卡池」—— 出阵废止后,能掉的部件跟着整个卡池走。
+        ///
+        /// ⚠ 原先「掉到的部件永远拼得出手里的字」这条保证**不再成立**:卡池是全量的,
+        /// 而起手只有 6 张,拿到拼不出手上任何字的部件是合法结果(2026-09-06 用户裁定接受)。
         /// 只收叶子(部件);配方里的低阶字不算,那是靠合成得来的。</summary>
-        public static IEnumerable<string> DeckComponents(
-            IReadOnlyList<string> deck, RecipeGraph graph)
+        public static IEnumerable<string> PoolComponents(
+            IReadOnlyList<string> pool, RecipeGraph graph)
         {
             var seen = new List<string>();
-            foreach (var card in deck)
+            foreach (var card in pool)
             {
                 if (!graph.TryGet(card, out var def)) continue;
                 foreach (var part in def.Recipe)
@@ -92,17 +83,17 @@ namespace Brushblade.Core
             return seen;
         }
 
-        /// <summary>登塔初始部件池:从出阵表所需部件里随机掷 <paramref name="count"/> 个(可重复)。
-        /// 出阵表拼不出任何部件时返回空池——不回退到五行,那会把死牌塞回来。</summary>
-        public static IReadOnlyList<string> RollStartingPool(IReadOnlyList<string> deck,
+        /// <summary>登塔初始部件池:从卡池所需部件里随机掷 <paramref name="count"/> 个(可重复)。
+        /// 卡池拼不出任何部件时返回空池——不回退到五行,那会把死牌塞回来。</summary>
+        public static IReadOnlyList<string> RollStartingPool(IReadOnlyList<string> pool,
             RecipeGraph graph, GameRandom random, int count = StartingPoolSize)
         {
-            var choices = new List<string>(DeckComponents(deck, graph));
-            var pool = new List<string>();
-            if (choices.Count == 0) return pool;
+            var choices = new List<string>(PoolComponents(pool, graph));
+            var result = new List<string>();
+            if (choices.Count == 0) return result;
             for (int i = 0; i < count; i++)
-                pool.Add(choices[random.Next(choices.Count)]);
-            return pool;
+                result.Add(choices[random.Next(choices.Count)]);
+            return result;
         }
 
         public const int StartingPoolSize = 2; // 登塔起手部件数(沿用旧的两个)
@@ -111,6 +102,22 @@ namespace Brushblade.Core
         /// 只在这一处定义——GameRoot 接线时调这个,不要在那边散写 +1。</summary>
         public static int LibraryCapacityFor(MetaState meta) =>
             StartingLibrarySize + LibraryCapacitySlack + PerkRules.LibraryBonus(meta);
+
+        /// <summary>抽卡的稀有度权重(千分比,索引 = rarity − 1;2026-09-06 拍板)。
+        /// 重心在绿/蓝,两头稀:白档虽然最不稀有,但压在绿之下 —— 起手全是白字开不了局。
+        ///
+        /// ⚠ **起手抽卡与战后 5 选 2 共用这一张表。** 此前 RunEngine 另揣一份
+        /// {0, 80, 15, 5, 0, 0, 0},两套并存的后果是改一处漏一处,而漏掉的表现
+        /// (某一档字整档抽不出来)没有任何测试会红。</summary>
+        public static readonly int[] RarityWeights = { 150, 350, 300, 130, 50, 15, 5 };
+        //                                              白    绿    蓝    紫   金  橙  红
+
+        /// <summary>固定遍历顺序:保证同种子同结果(不依赖字典的枚举顺序)。必须按枚举数值升序。</summary>
+        public static readonly CardRarity[] RarityOrder =
+        {
+            CardRarity.White, CardRarity.Green, CardRarity.Blue,
+            CardRarity.Purple, CardRarity.Gold, CardRarity.Orange, CardRarity.Red,
+        };
 
         /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。</summary>
         public static readonly int[] CopiesToUpgrade = { 2, 4, 10, 20, 40, 80, 150, 300, 500 };
@@ -211,7 +218,8 @@ namespace Brushblade.Core
         public static int PlayerMaxHpFor(MetaState meta) =>
             MaxHpFor(CharacterLevel(meta.CharacterXp)) + PerkRules.HpBonus(meta);
 
-        /// <summary>登塔时的战斗配置 = 角色等级派生的属性 + 养成加成 + 出阵表(19.2.1)。
+        /// <summary>登塔时的战斗配置 = 角色等级派生的属性 + 养成加成 + 已解锁卡池(2026-09-06,
+        /// 原「出阵表」;19.2.1)。
         /// <paramref name="dropTable"/> 是战役内容(不是角色属性),只能由调用方传进来。
         ///
         /// ⚠ **这个函数存在的唯一理由是可测性。** 在它之前,这段映射手写在
@@ -237,7 +245,7 @@ namespace Brushblade.Core
                 PlayerSpeed = SpeedFor(level),
                 // ⚠ 没有 PlayerCritChance:暴击**不随角色等级成长**(2026-08-12 用户裁定),
                 // 缺省 0 让 RollCrit 短路、一次随机都不摇。见 BattleConfig.PlayerCritChance。
-                UnlockedChars = meta.Deck, // 只能合出阵列表里的字(2026-07-20;与战利品同源)
+                UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
                 ApPerTurn = BaseApPerTurn + PerkRules.ApBonus(meta), // 一气
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
             };
@@ -413,58 +421,120 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>设置出阵列表(2026-07-19 拍板):5~15 字、每属性≤5、全部已收集、无重复,
-        /// 否则 false 不动状态。属性种类不限(3 系上限已废止)。无属性字计作心系一类。</summary>
-        public static bool TrySetDeck(MetaState meta, IReadOnlyList<string> cards, RecipeGraph graph)
-        {
-            if (cards.Count > DeckLimit || cards.Count < DeckMinimum)
-                return false;
-            var seen = new HashSet<string>();
-            var perElement = new Dictionary<Element, int>();
-            foreach (var card in cards)
-            {
-                if (!meta.OwnedCards.Contains(card) || !seen.Add(card))
-                    return false;
-                var element = graph.Get(card).Element ?? Element.Heart;
-                perElement.TryGetValue(element, out var count);
-                perElement[element] = count + 1;
-                if (perElement[element] > DeckPerElementLimit)
-                    return false;
-            }
+        /// <summary>五行的抽取顺序:固定,保证同种子同结果。心系不在内 ——
+        /// 心系字只能经第 6 张(最高档保底)或战利品进场。</summary>
+        private static readonly Element[] StartingElements =
+            { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth };
 
-            meta.Deck.Clear();
-            meta.Deck.AddRange(cards);
-            return true;
+        /// <summary>抽卡候选 = 已收集的**字**。
+        ///
+        /// 一道 <c>IsComponent</c> 同时滤掉两类东西:部件,以及「有配方但无属性无稀有度」的
+        /// 中间产物字(列/则/喿/垔/岂/朵/烝/秋/茾/荅 —— chars.json 里这 10 个全部
+        /// <c>component: true</c>,2026-09-06 核过)。中间产物字的 Rarity 会缺省成白,
+        /// 不滤掉就会被当成白字抽进起手。
+        ///
+        /// 顺带把字表下架的幽灵字挡在外面(<c>TryGet</c> 取不到就跳过)。</summary>
+        public static List<string> PlayableCards(MetaState meta, RecipeGraph graph)
+        {
+            var cards = new List<string>();
+            foreach (var id in meta.OwnedCards)
+                if (graph.TryGet(id, out var def) && !def.IsComponent)
+                    cards.Add(id);
+            return cards;
         }
 
-        /// <summary>登塔起手字库:出阵列表按等级取前 6(StartingLibrarySize,起手数量);
-        /// 字库基础容量是 6+1=7(LibraryCapacityFor,多出的 1 格是掉字缓冲),起手不占满。
-        /// 只带自选出阵的字——自动补齐已废止(2026-07-19 拍板:没选就不上场)。</summary>
-        public static IReadOnlyList<string> StartingLibrary(MetaState meta)
+        /// <summary>从候选里按 <see cref="RarityWeights"/> 抽一张;候选为空返回 null。
+        ///
+        /// ⚠ **不从候选里移除抽中的那张** —— 起手允许重复(2026-09-06 拍板:第 6 张撞上前 5 张
+        /// 就是同一张字拿两份)。战后 5 选 2 那条路径要的是「不重复」,所以它在
+        /// <see cref="RunEngine"/> 里另有一份会移除候选的实现,两者不可合并。</summary>
+        public static string DrawWeighted(IReadOnlyList<string> candidates, RecipeGraph graph,
+            GameRandom random)
         {
-            var roster = new List<string>();
-            foreach (var card in meta.Deck)
-                if (meta.OwnedCards.Contains(card) && !roster.Contains(card))
-                    roster.Add(card);
-            SortByLevelDesc(meta, roster);
+            if (candidates.Count == 0) return null;
 
-            int startingCap = StartingLibrarySize + PerkRules.LibraryBonus(meta); // 博闻:+1 格/级(这里是起手数量上限,不吃 LibraryCapacitySlack)
+            // 按稀有度分组;遍历顺序走 RarityOrder,不依赖字典枚举顺序
+            var byRarity = new Dictionary<CardRarity, List<string>>();
+            foreach (var id in candidates)
+            {
+                var rarity = graph.Get(id).Rarity;
+                if (!byRarity.TryGetValue(rarity, out var group))
+                    byRarity[rarity] = group = new List<string>();
+                group.Add(id);
+            }
+
+            int total = 0;
+            foreach (var rarity in RarityOrder)
+                if (byRarity.TryGetValue(rarity, out var group) && group.Count > 0)
+                    total += RarityWeights[(int)rarity - 1];
+
+            if (total <= 0) return candidates[random.Next(candidates.Count)]; // 权重全零:均匀兜底
+
+            int roll = random.Next(total);
+            foreach (var rarity in RarityOrder)
+            {
+                if (!byRarity.TryGetValue(rarity, out var group) || group.Count == 0) continue;
+                roll -= RarityWeights[(int)rarity - 1];
+                if (roll < 0) return group[random.Next(group.Count)];
+            }
+            return candidates[candidates.Count - 1]; // 理论不可达(浮点无关,整数累加必然命中)
+        }
+
+        /// <summary>候选里稀有度最高的那一档的全部字。空候选返回空表。</summary>
+        private static List<string> TopRarityCards(IReadOnlyList<string> candidates, RecipeGraph graph)
+        {
+            var top = new List<string>();
+            CardRarity best = 0;
+            foreach (var id in candidates)
+            {
+                var rarity = graph.Get(id).Rarity;
+                if (rarity > best) { best = rarity; top.Clear(); }
+                if (rarity == best) top.Add(id);
+            }
+            return top;
+        }
+
+        /// <summary>登塔起手字库(2026-09-06 拍板,取代「出阵表按等级取前 6」):
+        ///
+        /// <list type="number">
+        ///   <item>前 5 张:金/木/水/火/土 各一张,每系在**本系已收集的字**里按
+        ///         <see cref="RarityWeights"/> 加权抽。某系一个字都没有就跳过 ——
+        ///         起手不足 6 是合法状态,不做补齐。</item>
+        ///   <item>第 6 张:候选里**实际存在的最高稀有度档**中均匀抽一张。卡池最高只到蓝,
+        ///         就从蓝里抽。</item>
+        ///   <item>博闻技能每级追加一张全池自由加权抽。</item>
+        /// </list>
+        ///
+        /// ⚠ **全程不去重。** 第 6 张撞上前 5 张里的字,就是同一张字拿两份;博闻那几张同理。
+        /// 字库本来就允许重复条目(见 <see cref="BattleEngine"/> 里「同字多张也不会认错卡位」
+        /// 那条注释),消耗按下标走,不需要额外改造。</summary>
+        public static IReadOnlyList<string> StartingLibrary(MetaState meta, RecipeGraph graph,
+            GameRandom random)
+        {
+            var candidates = PlayableCards(meta, graph);
             var library = new List<string>();
-            foreach (var card in roster)
-            {
-                if (library.Count >= startingCap) break;
-                library.Add(card);
-            }
-            return library;
-        }
+            if (candidates.Count == 0) return library;
 
-        private static void SortByLevelDesc(MetaState meta, List<string> cards)
-        {
-            cards.Sort((a, b) =>
+            foreach (var element in StartingElements)
             {
-                int byLevel = CardLevel(meta, b).CompareTo(CardLevel(meta, a));
-                return byLevel != 0 ? byLevel : string.CompareOrdinal(a, b);
-            });
+                var ofElement = new List<string>();
+                foreach (var id in candidates)
+                    if (graph.Get(id).Element == element) ofElement.Add(id);
+                var pick = DrawWeighted(ofElement, graph, random);
+                if (pick != null) library.Add(pick);
+            }
+
+            var top = TopRarityCards(candidates, graph);
+            if (top.Count > 0) library.Add(top[random.Next(top.Count)]);
+
+            for (int i = 0; i < PerkRules.LibraryBonus(meta); i++)
+            {
+                var extra = DrawWeighted(candidates, graph, random);
+                if (extra == null) break;
+                library.Add(extra);
+            }
+
+            return library;
         }
 
         /// <summary>字表裁剪后的存档清洗:移除一切引用已下架字的条目,防启动崩溃。
@@ -475,7 +545,6 @@ namespace Brushblade.Core
 
             meta.OwnedCards.RemoveAll(id => !Known(id));
             meta.UnseenCards.RemoveAll(id => !Known(id));   // 下架的字不该还挂着新字红点
-            meta.Deck.RemoveAll(id => !Known(id));
             RemoveUnknownKeys(meta.CardLevels, Known);
             RemoveUnknownKeys(meta.CardCopies, Known);
 

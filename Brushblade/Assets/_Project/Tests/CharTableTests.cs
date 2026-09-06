@@ -718,10 +718,10 @@ namespace Brushblade.Core.Tests
         /// <summary>登塔起手部件池仍然收得到带配方的部件(spec §一列出的三个回归之一)。
         /// 把 IsComponent 换回 IsLeaf,烝 不再算可掉落部件,蒸 的原料就掉不出来了。</summary>
         [Test]
-        public void RealConfig_ComponentWithRecipe_StillCountsAsDeckComponent()
+        public void RealConfig_ComponentWithRecipe_StillCountsAsPoolComponent()
         {
             var graph = RealGraph();
-            var parts = new List<string>(MetaRules.DeckComponents(new List<string> { "蒸" }, graph));
+            var parts = new List<string>(MetaRules.PoolComponents(new List<string> { "蒸" }, graph));
             Assert.That(parts.Contains("烝"), Is.True, "烝 有了配方,但它仍是 蒸 的可掉落部件");
             Assert.That(parts.Contains("艹"), Is.True);
         }
@@ -750,7 +750,7 @@ namespace Brushblade.Core.Tests
         public void RealConfig_ComposableSet_CoversWhatDismantlingProduces()
         {
             // 用户原话:「蕉 = 焦 + 艹,拆后获得 焦 和 艹,焦 可以进一步拆为 隹 + 灬,
-            // 但 隹 + 灬 却无法再合成 焦。」根因是 焦 不在出阵列表里 —— 闭包补上这一层。
+            // 但 隹 + 灬 却无法再合成 焦。」根因是 焦 不在已解锁卡池里 —— 闭包补上这一层。
             // 2026-09-05:蕉/焦 双双随字表调整移出,原样本失效,换到同形状的真实样本:
             // 淼 = 水 + 冰(叠字链中间环),冰 本身可再拆为 冫 + 水 —— 冫 只能靠递归穿过
             // 冰(一张可出牌字,不是裸部件)才能拿到,正是原 bug 要防的那类回归。

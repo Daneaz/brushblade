@@ -104,34 +104,42 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.Ink, Is.EqualTo(99999));
         }
 
-        [Test]
-        public void StartingLibrary_GrowsWithBowen() // 博闻:起手字库 +1 格/级
+        // StartingLibrary_GrowsWithBowen 已删除(2026-09-06,Task 2):它调用的
+        // MetaRules.StartingLibrary(meta) 单参重载已被三参重载取代,其规则(博闻每级 +1 格)
+        // 由 MetaTests.StartingLibrary_BowenPerkAppendsExtraDraws 等价覆盖。
+
+        /// <summary>五系齐全是这条断言成立的前提:StartingLibrary 前 5 张按元素各抽一张,
+        /// 元素不全就凑不满 6 张,「容量 − 起手数量恒为 1」这条断言就会假摔。
+        /// 池子沿用旧测试的 {火,木,水,金,土,心,林,炎}(五系本就齐全,详情见对应元素),
+        /// 但要挂进一张 <see cref="RecipeGraph"/> ——旧的单参 StartingLibrary 不需要图,
+        /// 三参版本需要用图查元素/稀有度,得给这 8 个字配上配方(否则被判成部件滤掉)。</summary>
+        private static RecipeGraph BowenCapacityGraph() => new(new[]
         {
-            // StartingLibrary 去重且要求字在 OwnedCards:备 8 个不同的已拥有出阵字,
-            // 验证截断上限 = StartingLibrarySize(6) + LibraryBonus
-            var meta = new MetaState();
-            foreach (var c in new[] { "火", "木", "水", "金", "土", "心", "林", "炎" })
-            {
-                meta.OwnedCards.Add(c);
-                meta.Deck.Add(c);
-            }
-            Assert.That(MetaRules.StartingLibrary(meta).Count, Is.EqualTo(6)); // 默认容量
-            meta.PerkLevels["bowen"] = 1;
-            Assert.That(MetaRules.StartingLibrary(meta).Count, Is.EqualTo(7)); // 博闻 +1 格
-        }
+            new CharDef("丶", null, new string[0], isComponent: true),
+            new CharDef("丿", null, new string[0], isComponent: true),
+            new CharDef("火", Element.Fire, new[] { "丶", "丿" }),
+            new CharDef("木", Element.Wood, new[] { "丶", "丿" }),
+            new CharDef("水", Element.Water, new[] { "丶", "丿" }),
+            new CharDef("金", Element.Metal, new[] { "丶", "丿" }),
+            new CharDef("土", Element.Earth, new[] { "丶", "丿" }),
+            new CharDef("心", Element.Heart, new[] { "丶", "丿" }),
+            new CharDef("林", Element.Wood, new[] { "丶", "丿" }),
+            new CharDef("炎", Element.Fire, new[] { "丶", "丿" }),
+        });
 
         [Test]
         public void LibraryCapacity_StaysOneAboveStarting_WithBowen() // 容量比起手多一格(2026-08-04);差值不被博闻吃掉
         {
+            var graph = BowenCapacityGraph();
             var meta = new MetaState();
             foreach (var c in new[] { "火", "木", "水", "金", "土", "心", "林", "炎" })
-            {
                 meta.OwnedCards.Add(c);
-                meta.Deck.Add(c);
-            }
-            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta).Count, Is.EqualTo(1));
+            var random = new GameRandom(11);
+            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta, graph, random).Count,
+                Is.EqualTo(1));
             meta.PerkLevels["bowen"] = 1;
-            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta).Count, Is.EqualTo(1));
+            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta, graph, random).Count,
+                Is.EqualTo(1));
         }
     }
 }

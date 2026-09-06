@@ -169,19 +169,19 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void RealConfig_Dui_IsReachable_ThroughRuiInTheDeck()
+        public void RealConfig_Dui_IsReachable_ThroughRuiInThePool()
         {
             // spec §12.2 的验收项:锐 可合成 **且** 兑 拿得到。
             //
             // 部件不进奖励池(RunEngine.RollRewardOptions 对 IsLeaf 直接 continue),
-            // 唯一来源是拆字,而可拆的候选派生自出阵表(MetaRules.DeckComponents,
-            // GameRoot 把 runConfig.RewardPool 接的就是 meta.Deck)。
+            // 唯一来源是拆字,而可拆的候选派生自已解锁卡池(MetaRules.PoolComponents,
+            // GameRoot 把 runConfig.RewardPool 接的就是 meta.OwnedCards)。
             // 于是 兑 的获取链是:锐 从宝箱进字库(ChestCardPool = 全部非叶子字)
-            // → 上出阵表 → 兑 成为可掉部件 → 局内合出更多 锐。
+            // → 入已解锁卡池 → 兑 成为可掉部件 → 局内合出更多 锐。
             // 不是死循环:进入这条链的第一张 锐 来自宝箱,不需要先合。
             var graph = RealGraph();
             Assert.That(graph.Get("锐").IsLeaf, Is.False, "锐 必须有配方,否则宝箱/奖励池都发不出它");
-            var components = MetaRules.DeckComponents(new[] { "锐" }, graph).ToList();
+            var components = MetaRules.PoolComponents(new[] { "锐" }, graph).ToList();
             Assert.That(components, Contains.Item("兑"));
             Assert.That(components, Contains.Item("钅"));
         }
