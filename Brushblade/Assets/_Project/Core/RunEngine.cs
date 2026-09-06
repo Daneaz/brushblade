@@ -643,16 +643,12 @@ namespace Brushblade.Core
             BeginNextBattle();
         }
 
-        /// <summary>字奖励的稀有度权重(2026-07-20 拍板):绿 80% / 蓝 15% / 紫 5%;
-        /// 白(部件)与金橙红不参与。索引 = rarity − 1。</summary>
-        private static readonly int[] RewardRarityWeights = { 0, 80, 15, 5, 0, 0, 0 };
-
-        /// <summary>固定遍历顺序:保证同种子同结果(不依赖字典插入顺序)。必须按枚举数值升序。</summary>
-        private static readonly CardRarity[] RarityOrder =
-        {
-            CardRarity.White, CardRarity.Green, CardRarity.Blue,
-            CardRarity.Purple, CardRarity.Gold, CardRarity.Orange, CardRarity.Red,
-        };
+        /// <summary>字奖励的稀有度权重与遍历顺序都取自 <see cref="MetaRules"/>(2026-09-06):
+        /// 战后 5 选 2 与登塔起手抽卡共用同一条曲线。此前这里另有一份
+        /// {0, 80, 15, 5, 0, 0, 0},白与金橙红都是 0 —— Deck 放开成全卡池之后,
+        /// 那份权重会让玩家开出来的金/橙/红字永远进不了战利品候选。</summary>
+        private static int[] RewardRarityWeights => MetaRules.RarityWeights;
+        private static CardRarity[] RarityOrder => MetaRules.RarityOrder;
 
         private void RollRewardOptions()
         {

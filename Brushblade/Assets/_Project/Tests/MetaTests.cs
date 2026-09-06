@@ -543,5 +543,31 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.StartingDeck.Contains(Tutorial.DemoChar), Is.True,
                 "教程要拆的字必须在起手字库里");
         }
+
+        [Test]
+        public void RarityWeights_AreMonotonicallyDecreasing_AndSumToThousand()
+        {
+            Assert.That(MetaRules.RarityWeights.Length, Is.EqualTo(7), "七档稀有度各一个权重");
+            int sum = 0;
+            foreach (var w in MetaRules.RarityWeights) sum += w;
+            Assert.That(sum, Is.EqualTo(1000), "千分比,合计 1000");
+            // 「稀有度越高概率越低」只从绿档往上单调 —— 白档刻意压在绿之下(2026-09-06 拍板)
+            for (int i = 1; i + 1 < MetaRules.RarityWeights.Length; i++)
+                Assert.That(MetaRules.RarityWeights[i], Is.GreaterThan(MetaRules.RarityWeights[i + 1]),
+                    $"第 {i} 档权重必须高于第 {i + 1} 档");
+            Assert.That(MetaRules.RarityWeights[(int)CardRarity.White - 1],
+                Is.LessThan(MetaRules.RarityWeights[(int)CardRarity.Green - 1]), "白档压在绿之下");
+        }
+
+        [Test]
+        public void RarityOrder_IsAscendingAndCoversEveryRarity()
+        {
+            Assert.That(MetaRules.RarityOrder.Length, Is.EqualTo(7));
+            for (int i = 0; i + 1 < MetaRules.RarityOrder.Length; i++)
+                Assert.That((int)MetaRules.RarityOrder[i], Is.LessThan((int)MetaRules.RarityOrder[i + 1]),
+                    "必须按枚举数值升序 —— 遍历顺序是同种子同结果的前提");
+            Assert.That(MetaRules.RarityOrder[0], Is.EqualTo(CardRarity.White));
+            Assert.That(MetaRules.RarityOrder[6], Is.EqualTo(CardRarity.Red));
+        }
     }
 }

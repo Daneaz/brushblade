@@ -112,6 +112,22 @@ namespace Brushblade.Core
         public static int LibraryCapacityFor(MetaState meta) =>
             StartingLibrarySize + LibraryCapacitySlack + PerkRules.LibraryBonus(meta);
 
+        /// <summary>抽卡的稀有度权重(千分比,索引 = rarity − 1;2026-09-06 拍板)。
+        /// 重心在绿/蓝,两头稀:白档虽然最不稀有,但压在绿之下 —— 起手全是白字开不了局。
+        ///
+        /// ⚠ **起手抽卡与战后 5 选 2 共用这一张表。** 此前 RunEngine 另揣一份
+        /// {0, 80, 15, 5, 0, 0, 0},两套并存的后果是改一处漏一处,而漏掉的表现
+        /// (某一档字整档抽不出来)没有任何测试会红。</summary>
+        public static readonly int[] RarityWeights = { 150, 350, 300, 130, 50, 15, 5 };
+        //                                              白    绿    蓝    紫   金  橙  红
+
+        /// <summary>固定遍历顺序:保证同种子同结果(不依赖字典的枚举顺序)。必须按枚举数值升序。</summary>
+        public static readonly CardRarity[] RarityOrder =
+        {
+            CardRarity.White, CardRarity.Green, CardRarity.Blue,
+            CardRarity.Purple, CardRarity.Gold, CardRarity.Orange, CardRarity.Red,
+        };
+
         /// <summary>集卡升级需求(升到下一级所需同名卡,白卡基准,19.3.3)。索引 = 当前等级 − 1。</summary>
         public static readonly int[] CopiesToUpgrade = { 2, 4, 10, 20, 40, 80, 150, 300, 500 };
 
