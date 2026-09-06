@@ -153,7 +153,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>目标形状(贯穿 / 横扫 / 溅射 / 连发 / 弹射)算特性技能,不算攻击模式
-        /// (spec §1.5,2026-09-06)。单体不算形状,不建卡。名字与后缀复用
+        /// (见设计稿 §0,2026-09-06 裁定)。单体不算形状,不建卡。名字与后缀复用
         /// <see cref="ShapeName"/> / <see cref="ShapeNote"/> ——两个渲染器保持不动,这里只是换了个挂载点。</summary>
         private static void AddShapeTrait(List<Trait> traits, TargetShape shape, int percent, int shots)
         {
