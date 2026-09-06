@@ -135,9 +135,11 @@ namespace Brushblade.Core.Tests
         public void UnlockedChars_IsTheOwnedCards()
         {
             // 出阵废止后(2026-09-06):合成与回合掉字锁的是整个已解锁卡池,丢了这条注入 = 玩家能合出全字表
+            // ⚠ 故意塞进跟夹具 meta.Deck(剑/城)不同的字 —— 若 UnlockedChars 被悄悄改回读
+            // meta.Deck,这条断言必须能看出来,不能因为两份名单凑巧同内容而失去判别力。
             var meta = LevelElevenWithPerks();
-            meta.OwnedCards.Add("剑");
-            meta.OwnedCards.Add("城");
+            meta.OwnedCards.Add("灯");
+            meta.OwnedCards.Add("炎");
             Assert.That(Build(meta).UnlockedChars, Is.EquivalentTo(meta.OwnedCards));
         }
 

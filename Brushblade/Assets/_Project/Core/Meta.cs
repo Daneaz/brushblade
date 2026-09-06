@@ -230,7 +230,8 @@ namespace Brushblade.Core
         public static int PlayerMaxHpFor(MetaState meta) =>
             MaxHpFor(CharacterLevel(meta.CharacterXp)) + PerkRules.HpBonus(meta);
 
-        /// <summary>登塔时的战斗配置 = 角色等级派生的属性 + 养成加成 + 出阵表(19.2.1)。
+        /// <summary>登塔时的战斗配置 = 角色等级派生的属性 + 养成加成 + 已解锁卡池(2026-09-06,
+        /// 原「出阵表」;19.2.1)。
         /// <paramref name="dropTable"/> 是战役内容(不是角色属性),只能由调用方传进来。
         ///
         /// ⚠ **这个函数存在的唯一理由是可测性。** 在它之前,这段映射手写在

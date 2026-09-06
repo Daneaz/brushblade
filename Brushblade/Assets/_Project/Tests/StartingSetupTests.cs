@@ -151,7 +151,8 @@ namespace Brushblade.Core.Tests
         /// ⚠ 起手随机化后(2026-09-06,出阵废止),字库不再是固定的 <c>StartingDeck</c>,
         /// 这条只验**种子 1** 下(演示字「剿」被抽进起手字库)打得过首层 —— 不再是
         /// 「任意起手都打得过」的全局保证。种子 1-300 里含演示字的 141 个种子实测全部能清首层,
-        /// 没有出现「含演示字但打不过」的种子,所以固定种子非硬凑。</summary>
+        /// 没有出现「含演示字但打不过」的种子,所以固定种子非硬凑。测试要的是确定性结果,
+        /// 固定种子而不取随机,正是为此。</summary>
         [Test]
         public void ShippedConfig_StartingCollection_ClearsFirstFloor()
         {
@@ -189,7 +190,8 @@ namespace Brushblade.Core.Tests
         }
 
         /// <summary>层段的 rewardPool 是死配置,2026-08-05 从 enemies.json 清掉:
-        /// 战利品只出自出阵表(GameRoot 无条件覆盖为 meta.Deck)。这里守两件事——
+        /// 战利品只出自已解锁卡池(2026-09-06,原「出阵表」;GameRoot 无条件覆盖为
+        /// meta.OwnedCards)。这里守两件事——
         /// 配置里没被填回去,且缺失项解析成**空列表而不是 null**(RollRewardOptions 直接 foreach 它)。</summary>
         [Test]
         public void ShippedConfig_BandRewardPools_AreEmptyNotNull()
