@@ -104,10 +104,24 @@ namespace Brushblade.Core
 
         public const int StartingPoolSize = 2; // 登塔起手部件数(沿用旧的两个)
 
-        /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻加成。「容量比起手多一格」这个关系
-        /// 只在这一处定义——GameRoot 接线时调这个,不要在那边散写 +1。</summary>
-        public static int LibraryCapacityFor(MetaState meta) =>
-            StartingLibrarySize + LibraryCapacitySlack + PerkRules.Bonus(meta, PerkEffect.LibraryCapacity);
+        /// <summary>登塔起手实际发几张字 = 五行各一 + 最高档保底一 + 广纳。
+        /// 「广纳」与「博闻」是两条独立的轴 —— 改前它们共用同一个 LibraryBonus。</summary>
+        public static int StartingHandSizeFor(MetaState meta) =>
+            StartingLibrarySize + PerkRules.Bonus(meta, PerkEffect.StartingCards);
+
+        /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻。「容量比起手多一格」这个关系
+        /// 只在这一处定义 —— GameRoot 接线时调这个,不要在那边散写 +1。
+        ///
+        /// ⚠ **下限钳到起手实际张数**(spec §5.1):拆分前 bowen 一条同时驱动两条公式、
+        /// 二者恒同步;拆开后这个不变量消失,点满广纳(起手 8)而不点博闻(容量 7)就会
+        /// 开局即溢出、第一回合必弹 DropChoice —— 静默的坏体验。</summary>
+        public static int LibraryCapacityFor(MetaState meta)
+        {
+            int declared = StartingLibrarySize + LibraryCapacitySlack
+                + PerkRules.Bonus(meta, PerkEffect.LibraryCapacity);
+            int hand = StartingHandSizeFor(meta);
+            return declared > hand ? declared : hand;
+        }
 
         /// <summary>抽卡的稀有度权重(千分比,索引 = rarity − 1;2026-09-06 拍板)。
         /// 重心在绿/蓝,两头稀:白档虽然最不稀有,但压在绿之下 —— 起手全是白字开不了局。
@@ -533,7 +547,7 @@ namespace Brushblade.Core
             var top = TopRarityCards(candidates, graph);
             if (top.Count > 0) library.Add(top[random.Next(top.Count)]);
 
-            for (int i = 0; i < PerkRules.Bonus(meta, PerkEffect.StartingCards); i++)
+            for (int i = StartingLibrarySize; i < StartingHandSizeFor(meta); i++)
             {
                 var extra = DrawWeighted(candidates, graph, random);
                 if (extra == null) break;

@@ -457,7 +457,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void StartingLibrary_BowenPerkAppendsExtraDraws()
+        public void StartingLibrary_WidePerkAppendsExtraDraws()
         {
             var graph = PoolGraph();
             var meta = PoolMeta(FullPool);
@@ -465,7 +465,20 @@ namespace Brushblade.Core.Tests
             Assert.That(baseline, Is.EqualTo(6));
             meta.UnlockedPerks.Add("wide_1");
             Assert.That(MetaRules.StartingLibrary(meta, graph, new GameRandom(9)).Count,
-                Is.EqualTo(7), "博闻每级追加一张自由加权抽");
+                Is.EqualTo(7), "广纳每级追加一张自由加权抽");
+        }
+
+        /// <summary>点满广纳(起手 8)而不点博闻(容量 7)时,容量必须钳到起手张数 ——
+        /// 否则开局即溢出、第一回合必弹 DropChoice(spec §5.1)。</summary>
+        [Test]
+        public void Capacity_IsClampedUpToTheStartingHandSize()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("wide_1");
+            meta.UnlockedPerks.Add("wide_2");
+            Assert.That(MetaRules.LibraryCapacityFor(meta),
+                Is.GreaterThanOrEqualTo(MetaRules.StartingHandSizeFor(meta)),
+                "容量不得低于起手张数");
         }
 
         [Test]
