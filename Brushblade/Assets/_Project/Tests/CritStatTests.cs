@@ -372,15 +372,17 @@ namespace Brushblade.CoreTests
         public void FullCrit_DoesNotCritThornsOrSummonSideReflect()
         {
             // 调用点 5(荆的反伤)与 6(召唤物顶前排时的镜反弹):一发敌人攻击同时走这两条。
-            // 反伤 3 + 反弹 floor(8 × 50%) = 4,合计 7;任一条误暴都会打出 8 或 9。
+            // 2026-09-06 荆棘纳入 60% 总量钳位:荆棘 50% 先扣满,反弹只剩 10% 的预算,
+            // floor(8×10%)=0,合计 4;任一条误暴都会把这个数顶大。
             var engine = Battle(new BattleConfig { PlayerCritChance = 100, PlayerMaxHp = 100 },
                 new[] { Attacker(8) }, "卯", "寅");
             engine.Cast("卯");
             engine.Cast("寅");
             int before = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 8),
-                "反伤 50% × 8 = 4,加反弹 4,都不暴击(暴击若漏进来会是 12)");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4),
+                "反伤 50% × 8 = 4;反弹预算被荆棘扣到只剩 10%,floor(8×10%)=0,都不暴击" +
+                "(2026-09-06 纳入钳位前是 4 + 4 = 8;暴击若漏进来会更大)");
         }
 
         [Test]

@@ -387,12 +387,16 @@ namespace Brushblade.Core
         /// <summary>厚与泉的层数上限(2026-09-02)。</summary>
         private const int MaxResourceStacks = 10;
 
-        /// <summary>反伤总量上限(百分点,2026-09-05)。
+        /// <summary>反伤总量上限(百分点,2026-09-05;2026-09-06 纳入荆棘 Thorns)。
         ///
         /// 此前刻意不钳位,理由是「字表只有一个 Reflect 字,多来源叠加现实不可达」;
         /// P2 让 壁(绿 30%)与 圭(金 50%)同时存在,那条前提失效。
         /// 60 的依据:30 层一轮敌方总伤 936,×60% = 562 ≈ 红档单攻锚点 600 ——
-        /// 「站着挨满一整轮」的反伤收益约等于一张红档输出字(设计稿 §1.6)。</summary>
+        /// 「站着挨满一整轮」的反伤收益约等于一张红档输出字(设计稿 §1.6)。
+        ///
+        /// 2026-09-06 前只钳了 Reflect,漏了召唤物的荆棘(DamageSummon 里独立的第二次弹射)——
+        /// 「玩家壁 + 召唤物壁(钳到 60)+ 荆棘 50%」这条打召唤物的管道仍能反弹 > 100%。
+        /// 现在两者合占同一份 60%,分配顺序「荆棘先扣满,反弹拿剩余」见 DamageSummon 里的注释。</summary>
         private const int MaxReflectPercent = 60;
 
         /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
@@ -3579,12 +3583,22 @@ namespace Brushblade.Core
             //(「按打过来的总伤害反,护盾吸掉的也反」)。反弹本身不再过第二次生克 ——
             // attacker 传 Element.Heart,心对全属性都是 1.0x。
             // 荆棘扎人不看自己死没死 —— 被打死的那一击照样反弹。
-            int thorns = summon.Passive?.Thorns ?? 0;
-            if (thorns > 0 && _enemies[enemyIndex].Alive)
+            //
+            // 总量钳 60%,荆棘与下面的反弹**合占同一份额**(2026-09-06,用户裁定):此前只钳了
+            // Reflect,漏了荆棘 —— 「玩家壁(30%)+ 召唤物壁(50%)+ 荆棘 50%」这条打召唤物的
+            // 管道仍能反弹 > 100%,MaxReflectPercent 注释描述的危险状态没被完全消灭。
+            // 分配顺序是「荆棘先扣满,反弹拿剩余」而不是按比例缩放:荆 这类字的设计定位就是
+            // 「攻 0,反伤是它唯一的输出手段」(见 SummonPassive.Thorns 注释),按比例缩放会让
+            // 后挂的 壁/圭 把荆的本体机制挤掉一部分 —— 一张字的固有能力不该被另一张字的 buff
+            // 稀释;反过来(反伤先扣)又会让荆在有 buff 时几乎打不出东西。且两次弹射本来就是
+            // 分开结算的,顺序分配比按比例缩放算出来的零碎数字更好解释、实现也更直白。
+            int thornsRaw = summon.Passive?.Thorns ?? 0;
+            int thornsEffective = Math.Min(MaxReflectPercent, thornsRaw);
+            if (thornsEffective > 0 && _enemies[enemyIndex].Alive)
             {
                 // bounced > 0 守卫与下面 Reflect 那段同理:0 伤反弹会白白推进 enemy.HitsTaken,
                 // 送出生僻字现形 / 焦痕加攻 / 叠字分裂。低百分比 × 小伤害整除到 0 时正会撞上。
-                int bounced = taken * thorns / 100;
+                int bounced = taken * thornsEffective / 100;
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
@@ -3608,10 +3622,12 @@ namespace Brushblade.Core
             // 两份反弹都算(2026-08-28,壁 可以挂给召唤物了):玩家身上那份管「我方挨的打」
             // (上面那段 2026-08-08 的裁定),召唤物自己那份管「它自己挨的打」。它们是两个
             // 不同来源,不是同一条的重复 —— 各按自己的百分比反,基数同为 taken。
-            // 总量钳 60%(2026-09-05,任务 6):见 MaxReflectPercent 注释。这一支的钳位
-            // 与玩家侧 DamagePlayerDirect 那支各自独立结算 —— 两条是分开的伤害管道,
-            // 合起来钳会让「打召唤物」意外吃到玩家身上的层数上限。
-            int reflect = Math.Min(MaxReflectPercent,
+            // 总量钳 60%(2026-09-05,任务 6;2026-09-06 纳入荆棘):见 MaxReflectPercent 注释。
+            // 这一支的钳位与玩家侧 DamagePlayerDirect 那支各自独立结算 —— 两条是分开的伤害
+            // 管道,合起来钳会让「打召唤物」意外吃到玩家身上的层数上限。
+            // 反弹只能拿荆棘扣完之后剩下的额度(reflectBudget)—— 分配顺序见上面荆棘那段注释。
+            int reflectBudget = MaxReflectPercent - thornsEffective;
+            int reflect = Math.Min(reflectBudget,
                 _playerStatuses.TotalMagnitude(StatusKind.Reflect)
                 + summon.Statuses.TotalMagnitude(StatusKind.Reflect));
             if (reflect > 0 && _enemies[enemyIndex].Alive)

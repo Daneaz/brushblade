@@ -839,9 +839,11 @@ namespace Brushblade.Core.Tests
             engine.Cast("映", 0);
             int enemyHpBefore = engine.Enemies[0].Hp;
             engine.EndTurn();
-            // taken = 8(心对心恒 1.0x);荆反伤平值 3;反弹 = taken(8) × 50% = 4;合计 7
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 8),
-                "反伤 50% × 8 = 4,加反弹 4,共 8(2026-08-25 反伤改百分比前是 3 + 4 = 7)");
+            // 2026-09-06 荆棘纳入 60% 总量钳位:荆棘 50% 先扣满(不受影响,50 ≤ 60),
+            // 反弹只剩 60-50=10% 的额度,floor(8×10/100)=0 —— 与钳位前「各自 50%,合计 8」不同。
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(enemyHpBefore - 4),
+                "反伤 50% × 8 = 4;反弹只剩 10% 的预算,floor(8×10%)=0,合计 4" +
+                "(2026-09-06 荆棘纳入 60% 总量钳位前是 4 + 4 = 8)");
 
             // 顺带钉住 EnemyDied 不重复:低血敌人构造「荆先打死」的场景 —— 荆的反伤(3)
             // 打死 3 血的敌人后,_enemies[enemyIndex].Alive 守卫必须挡住反弹再对死尸补刀。
