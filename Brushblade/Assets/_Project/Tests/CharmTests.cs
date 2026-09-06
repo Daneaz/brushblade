@@ -40,6 +40,31 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.PlayerHp, Is.EqualTo(playerHpBefore), "也不许打玩家");
         }
 
+        /// <summary>终审修复项 2(2026-09-06):回合数不吃卡等级。此前用
+        /// <c>MetaRules.ScaleTurnsByCardLevel</c> 缩放,10 级卡会把 1 回合的魅惑
+        /// 缩成 1+10/5=3 回合,打穿 spec §2.3 的封禁定价梯度(卡 10 级的绿档「花」
+        /// 会比橙档「淋」买的 2 回合封禁还长)。改法与 Silence/Blind/Freeze 同口径:
+        /// 直接读 <c>effect.Turns</c>,卡等级只影响数值(Value),不影响回合数。</summary>
+        [Test]
+        public void Charm_TurnsDoNotScaleWithCardLevel()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("魅", new EffectDef(EffectKind.Charm, 0, turns: 1)));
+            var battle = new BattleEngine(graph,
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100 },
+                new[] { "魅" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob(attack: 50), RebalanceFixture.Mob(attack: 0) },
+                seed: 1,
+                cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["魅"] = 10 });
+
+            battle.Cast("魅", 0);
+
+            var charm = battle.Enemies[0].Statuses.Find(StatusKind.Charm);
+            Assert.That(charm, Is.Not.Null, "夹具前提:魅惑必须已经挂上");
+            Assert.That(charm.TurnsLeft, Is.EqualTo(1),
+                "卡 10 级不该把 1 回合的魅惑缩放成 1+10/5=3 回合");
+        }
+
         [Test]
         public void Charm_Expires()
         {

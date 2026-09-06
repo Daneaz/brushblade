@@ -2214,13 +2214,18 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.Charm:
+                        // 回合数不吃卡等级(2026-09-06 终审修复项 2):spec §4.2 明写利/锋是
+                        // 养成侧**唯二**吃 turns 随卡等级成长的字;魅惑白拿回合数会打穿 §2.3
+                        // 的封禁定价梯度(卡 10 级的绿档「花」会魅惑到比橙档「淋」买的封禁还久)。
+                        // 与 Silence/Blind/Freeze 同口径:直接用 effect.Turns,不过
+                        // ScaleTurnsByCardLevel。Math.Max(1, …) 保留:字表若漏填 turns(=0)
+                        // 时兜底给 1 回合,而不是让魅惑当场到期。
                         if (targetIndex >= 0)
                             _enemies[targetIndex].Statuses.Apply(new StatusEffect
                             {
                                 Kind = StatusKind.Charm, Polarity = StatusPolarity.Debuff,
                                 Magnitude = 1,
-                                TurnsLeft = MetaRules.ScaleTurnsByCardLevel(
-                                    Math.Max(1, effect.Turns), cardLevel),
+                                TurnsLeft = Math.Max(1, effect.Turns),
                                 SourceId = def.Id,
                             });
                         break;
