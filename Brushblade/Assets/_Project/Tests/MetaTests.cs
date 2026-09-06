@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Brushblade.Core;
 using Brushblade.Data;
@@ -357,42 +358,183 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.Deck.Count, Is.EqualTo(5));
         }
 
-        [Test]
-        public void StartingLibrary_TakesTopSixByLevel_FromRoster()
+        // ---- Task 2(2026-09-06):起手字库改为卡池加权抽,以下三条旧测试测的规则
+        // (出阵表按等级取前 6 / 出阵不足不补 / 空出阵即空字库)已被废止,随新规则一并替换 ----
+
+        /// <summary>抽卡测试用图:五系各两张(白 + 蓝),外加一张紫档心系字。
+        /// 每个字都给配方(部件 + 部件),否则会被当成部件滤掉。</summary>
+        private static RecipeGraph PoolGraph() => new(new[]
         {
-            var graph = DeckGraph();
-            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "林", "杜", "圭");
-            meta.CardLevels["烧"] = 5;
-            meta.CardLevels["炎"] = 3;
-            meta.CardLevels["燃"] = 1;
-            meta.CardLevels["圭"] = 9; // 不在出阵列表,不该带出
-            MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼", "林", "杜" }, graph);
+            // 部件(无配方,component)
+            new CharDef("丶", null, new string[0], isComponent: true),
+            new CharDef("丿", null, new string[0], isComponent: true),
+            // 金
+            new CharDef("金白", Element.Metal, new[] { "丶", "丿" }, rarity: CardRarity.White),
+            new CharDef("金蓝", Element.Metal, new[] { "丶", "丿" }, rarity: CardRarity.Blue),
+            // 木
+            new CharDef("木白", Element.Wood, new[] { "丶", "丿" }, rarity: CardRarity.White),
+            new CharDef("木蓝", Element.Wood, new[] { "丶", "丿" }, rarity: CardRarity.Blue),
+            // 水
+            new CharDef("水白", Element.Water, new[] { "丶", "丿" }, rarity: CardRarity.White),
+            new CharDef("水蓝", Element.Water, new[] { "丶", "丿" }, rarity: CardRarity.Blue),
+            // 火
+            new CharDef("火白", Element.Fire, new[] { "丶", "丿" }, rarity: CardRarity.White),
+            new CharDef("火蓝", Element.Fire, new[] { "丶", "丿" }, rarity: CardRarity.Blue),
+            // 土
+            new CharDef("土白", Element.Earth, new[] { "丶", "丿" }, rarity: CardRarity.White),
+            new CharDef("土蓝", Element.Earth, new[] { "丶", "丿" }, rarity: CardRarity.Blue),
+            // 心系紫档:不参与前 5 张,只能经第 6 张进场
+            new CharDef("心紫", Element.Heart, new[] { "丶", "丿" }, rarity: CardRarity.Purple),
+        });
 
-            var library = MetaRules.StartingLibrary(meta);
-            Assert.That(library.Count, Is.EqualTo(6)); // 起手 = 起手字库数量 6(字库基础容量是 6+1 缓冲=7)
-            Assert.That(library, Does.Contain("烧").And.Contain("炎")); // 等级高者优先
-            Assert.That(library, Does.Not.Contain("圭")); // 列表外不带出(列表足 6 时)
-        }
-
-        [Test]
-        public void StartingLibrary_DeckOnly_NoAutoFill() // 补齐废止(2026-07-19):出阵没选就不上场
-        {
-            var graph = DeckGraph();
-            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "圭");
-            meta.CardLevels["圭"] = 9; // 等级最高但没出阵,仍不该带出
-            MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼" }, graph);
-
-            var library = MetaRules.StartingLibrary(meta);
-            Assert.That(library.Count, Is.EqualTo(5)); // 出阵几张就带几张,不补到 6
-            Assert.That(library, Does.Not.Contain("圭"));
-        }
-
-        [Test]
-        public void StartingLibrary_EmptyDeck_EmptyLibrary()
+        private static MetaState PoolMeta(params string[] owned)
         {
             var meta = new MetaState();
-            MetaRules.AcquireCard(meta, "灯");
-            Assert.That(MetaRules.StartingLibrary(meta), Is.Empty);
+            foreach (var id in owned) meta.OwnedCards.Add(id);
+            return meta;
+        }
+
+        private static readonly string[] FullPool =
+        {
+            "金白", "金蓝", "木白", "木蓝", "水白", "水蓝",
+            "火白", "火蓝", "土白", "土蓝", "心紫",
+        };
+
+        [Test]
+        public void StartingLibrary_CoversEveryElement_InFirstFive()
+        {
+            var graph = PoolGraph();
+            var meta = PoolMeta(FullPool);
+            // 多摇几个种子:五行覆盖是硬保证,不能只在某个幸运种子上成立
+            for (int seed = 1; seed <= 30; seed++)
+            {
+                var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(seed));
+                Assert.That(library.Count, Is.EqualTo(6), $"seed {seed}: 五行各一 + 最高档一张");
+                var elements = new List<Element>();
+                for (int i = 0; i < 5; i++) elements.Add(graph.Get(library[i]).Element.Value);
+                foreach (var e in new[] { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth })
+                    Assert.That(elements.Contains(e), Is.True, $"seed {seed}: 前 5 张缺 {e}");
+            }
+        }
+
+        [Test]
+        public void StartingLibrary_SixthCard_IsFromTopRarityInPool()
+        {
+            var graph = PoolGraph();
+            var meta = PoolMeta(FullPool);   // 池里最高档 = 心紫(Purple)
+            for (int seed = 1; seed <= 30; seed++)
+            {
+                var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(seed));
+                Assert.That(graph.Get(library[5]).Rarity, Is.EqualTo(CardRarity.Purple),
+                    $"seed {seed}: 第 6 张必须来自卡池里实际存在的最高档");
+            }
+        }
+
+        [Test]
+        public void StartingLibrary_SixthCard_FallsBackToLowerTier_WhenPoolTopsOutLower()
+        {
+            var graph = PoolGraph();
+            // 池里最高只到蓝(不含心紫)
+            var meta = PoolMeta("金白", "金蓝", "木白", "木蓝", "水白", "水蓝",
+                                "火白", "火蓝", "土白", "土蓝");
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(seed));
+                Assert.That(graph.Get(library[5]).Rarity, Is.EqualTo(CardRarity.Blue),
+                    $"seed {seed}: 最高档只到蓝就从蓝里抽");
+            }
+        }
+
+        [Test]
+        public void StartingLibrary_AllowsDuplicate_WhenSixthCollidesWithFirstFive()
+        {
+            var graph = PoolGraph();
+            // 金系只有一张蓝,且蓝是全池最高档 —— 前 5 张的金位与第 6 张必然都是「金蓝」
+            var meta = PoolMeta("金蓝", "木白", "水白", "火白", "土白");
+            var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(7));
+            Assert.That(library.Count, Is.EqualTo(6), "撞了也照收,不去重");
+            int golds = 0;
+            foreach (var id in library) if (id == "金蓝") golds++;
+            Assert.That(golds, Is.EqualTo(2), "同一张字拿两份(2026-09-06 拍板:不去重)");
+        }
+
+        [Test]
+        public void StartingLibrary_SkipsElementsWithNoOwnedCards()
+        {
+            var graph = PoolGraph();
+            var meta = PoolMeta("金白", "木白");   // 只有金木两系
+            var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(3));
+            Assert.That(library.Count, Is.EqualTo(3), "两系各一 + 最高档一张;缺的系直接跳过,不补齐");
+        }
+
+        [Test]
+        public void StartingLibrary_EmptyPool_IsEmpty()
+        {
+            var library = MetaRules.StartingLibrary(new MetaState(), PoolGraph(), new GameRandom(1));
+            Assert.That(library, Is.Empty);
+        }
+
+        [Test]
+        public void StartingLibrary_SameSeed_SameResult()
+        {
+            var graph = PoolGraph();
+            var meta = PoolMeta(FullPool);
+            var a = MetaRules.StartingLibrary(meta, graph, new GameRandom(42));
+            var b = MetaRules.StartingLibrary(meta, graph, new GameRandom(42));
+            Assert.That(a, Is.EqualTo(b), "同种子同结果 —— 断点续爬要靠这条");
+        }
+
+        [Test]
+        public void StartingLibrary_HeartCards_NeverEnterTheFirstFive()
+        {
+            var graph = PoolGraph();
+            var meta = PoolMeta(FullPool);
+            for (int seed = 1; seed <= 30; seed++)
+            {
+                var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(seed));
+                for (int i = 0; i < 5; i++)
+                    Assert.That(library[i], Is.Not.EqualTo("心紫"),
+                        $"seed {seed}: 心系不参与五行那 5 格");
+            }
+        }
+
+        [Test]
+        public void StartingLibrary_ExcludesComponents()
+        {
+            var graph = PoolGraph();
+            var meta = PoolMeta("金白", "丶", "丿");   // 部件混进 OwnedCards
+            var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(5));
+            foreach (var id in library)
+                Assert.That(graph.Get(id).IsComponent, Is.False, "部件与中间产物字不是抽卡候选");
+        }
+
+        [Test]
+        public void StartingLibrary_WeightsFavorCommonRarities()
+        {
+            var graph = PoolGraph();
+            // 金系一白一蓝:白 150‰ vs 蓝 300‰ —— 蓝该明显更多
+            var meta = PoolMeta("金白", "金蓝");
+            int blue = 0;
+            for (int seed = 1; seed <= 400; seed++)
+            {
+                var library = MetaRules.StartingLibrary(meta, graph, new GameRandom(seed));
+                if (library[0] == "金蓝") blue++;
+            }
+            // 理论 300/(150+300) ≈ 66.7%;给足余量,只守「明显偏向蓝」
+            Assert.That(blue, Is.GreaterThan(220), $"400 次里蓝只出了 {blue} 次,权重没生效");
+            Assert.That(blue, Is.LessThan(360), $"400 次里蓝出了 {blue} 次,白档像是被整档滤掉了");
+        }
+
+        [Test]
+        public void StartingLibrary_BowenPerkAppendsExtraDraws()
+        {
+            var graph = PoolGraph();
+            var meta = PoolMeta(FullPool);
+            int baseline = MetaRules.StartingLibrary(meta, graph, new GameRandom(9)).Count;
+            Assert.That(baseline, Is.EqualTo(6));
+            meta.PerkLevels["bowen"] = 1;
+            Assert.That(MetaRules.StartingLibrary(meta, graph, new GameRandom(9)).Count,
+                Is.EqualTo(7), "博闻每级追加一张自由加权抽");
         }
 
         [Test]

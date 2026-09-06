@@ -49,7 +49,7 @@ namespace Brushblade.Core
         public const int DeckLimit = 15;          // 出阵列表上限(2026-07-19 拍板:5×3,后续可调)
         public const int DeckMinimum = 5;         // 出阵下限(2026-07-19:起手不得少于 5 字)
         public const int DeckPerElementLimit = 5; // 每属性最多 5 字(属性种类不限,3 系上限已废止)
-        public const int StartingLibrarySize = 6; // 起手字库数量
+        public const int StartingLibrarySize = 6; // 起手字库数量 = 五行各一 + 最高档保底一(2026-09-06)
         // 字库容量比起手多一格,留给回合掉字(2026-08-04):否则开局即满库,第一回合必弹 DropChoice
         public const int LibraryCapacitySlack = 1;
 
@@ -453,34 +453,120 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>登塔起手字库:出阵列表按等级取前 6(StartingLibrarySize,起手数量);
-        /// 字库基础容量是 6+1=7(LibraryCapacityFor,多出的 1 格是掉字缓冲),起手不占满。
-        /// 只带自选出阵的字——自动补齐已废止(2026-07-19 拍板:没选就不上场)。</summary>
-        public static IReadOnlyList<string> StartingLibrary(MetaState meta)
-        {
-            var roster = new List<string>();
-            foreach (var card in meta.Deck)
-                if (meta.OwnedCards.Contains(card) && !roster.Contains(card))
-                    roster.Add(card);
-            SortByLevelDesc(meta, roster);
+        /// <summary>五行的抽取顺序:固定,保证同种子同结果。心系不在内 ——
+        /// 心系字只能经第 6 张(最高档保底)或战利品进场。</summary>
+        private static readonly Element[] StartingElements =
+            { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth };
 
-            int startingCap = StartingLibrarySize + PerkRules.LibraryBonus(meta); // 博闻:+1 格/级(这里是起手数量上限,不吃 LibraryCapacitySlack)
-            var library = new List<string>();
-            foreach (var card in roster)
-            {
-                if (library.Count >= startingCap) break;
-                library.Add(card);
-            }
-            return library;
+        /// <summary>抽卡候选 = 已收集的**字**。
+        ///
+        /// 一道 <c>IsComponent</c> 同时滤掉两类东西:部件,以及「有配方但无属性无稀有度」的
+        /// 中间产物字(列/则/喿/垔/岂/朵/烝/秋/茾/荅 —— chars.json 里这 10 个全部
+        /// <c>component: true</c>,2026-09-06 核过)。中间产物字的 Rarity 会缺省成白,
+        /// 不滤掉就会被当成白字抽进起手。
+        ///
+        /// 顺带把字表下架的幽灵字挡在外面(<c>TryGet</c> 取不到就跳过)。</summary>
+        public static List<string> PlayableCards(MetaState meta, RecipeGraph graph)
+        {
+            var cards = new List<string>();
+            foreach (var id in meta.OwnedCards)
+                if (graph.TryGet(id, out var def) && !def.IsComponent)
+                    cards.Add(id);
+            return cards;
         }
 
-        private static void SortByLevelDesc(MetaState meta, List<string> cards)
+        /// <summary>从候选里按 <see cref="RarityWeights"/> 抽一张;候选为空返回 null。
+        ///
+        /// ⚠ **不从候选里移除抽中的那张** —— 起手允许重复(2026-09-06 拍板:第 6 张撞上前 5 张
+        /// 就是同一张字拿两份)。战后 5 选 2 那条路径要的是「不重复」,所以它在
+        /// <see cref="RunEngine"/> 里另有一份会移除候选的实现,两者不可合并。</summary>
+        public static string DrawWeighted(IReadOnlyList<string> candidates, RecipeGraph graph,
+            GameRandom random)
         {
-            cards.Sort((a, b) =>
+            if (candidates.Count == 0) return null;
+
+            // 按稀有度分组;遍历顺序走 RarityOrder,不依赖字典枚举顺序
+            var byRarity = new Dictionary<CardRarity, List<string>>();
+            foreach (var id in candidates)
             {
-                int byLevel = CardLevel(meta, b).CompareTo(CardLevel(meta, a));
-                return byLevel != 0 ? byLevel : string.CompareOrdinal(a, b);
-            });
+                var rarity = graph.Get(id).Rarity;
+                if (!byRarity.TryGetValue(rarity, out var group))
+                    byRarity[rarity] = group = new List<string>();
+                group.Add(id);
+            }
+
+            int total = 0;
+            foreach (var rarity in RarityOrder)
+                if (byRarity.TryGetValue(rarity, out var group) && group.Count > 0)
+                    total += RarityWeights[(int)rarity - 1];
+
+            if (total <= 0) return candidates[random.Next(candidates.Count)]; // 权重全零:均匀兜底
+
+            int roll = random.Next(total);
+            foreach (var rarity in RarityOrder)
+            {
+                if (!byRarity.TryGetValue(rarity, out var group) || group.Count == 0) continue;
+                roll -= RarityWeights[(int)rarity - 1];
+                if (roll < 0) return group[random.Next(group.Count)];
+            }
+            return candidates[candidates.Count - 1]; // 理论不可达(浮点无关,整数累加必然命中)
+        }
+
+        /// <summary>候选里稀有度最高的那一档的全部字。空候选返回空表。</summary>
+        private static List<string> TopRarityCards(IReadOnlyList<string> candidates, RecipeGraph graph)
+        {
+            var top = new List<string>();
+            CardRarity best = 0;
+            foreach (var id in candidates)
+            {
+                var rarity = graph.Get(id).Rarity;
+                if (rarity > best) { best = rarity; top.Clear(); }
+                if (rarity == best) top.Add(id);
+            }
+            return top;
+        }
+
+        /// <summary>登塔起手字库(2026-09-06 拍板,取代「出阵表按等级取前 6」):
+        ///
+        /// <list type="number">
+        ///   <item>前 5 张:金/木/水/火/土 各一张,每系在**本系已收集的字**里按
+        ///         <see cref="RarityWeights"/> 加权抽。某系一个字都没有就跳过 ——
+        ///         起手不足 6 是合法状态,不做补齐。</item>
+        ///   <item>第 6 张:候选里**实际存在的最高稀有度档**中均匀抽一张。卡池最高只到蓝,
+        ///         就从蓝里抽。</item>
+        ///   <item>博闻技能每级追加一张全池自由加权抽。</item>
+        /// </list>
+        ///
+        /// ⚠ **全程不去重。** 第 6 张撞上前 5 张里的字,就是同一张字拿两份;博闻那几张同理。
+        /// 字库本来就允许重复条目(见 <see cref="BattleEngine"/> 里「同字多张也不会认错卡位」
+        /// 那条注释),消耗按下标走,不需要额外改造。</summary>
+        public static IReadOnlyList<string> StartingLibrary(MetaState meta, RecipeGraph graph,
+            GameRandom random)
+        {
+            var candidates = PlayableCards(meta, graph);
+            var library = new List<string>();
+            if (candidates.Count == 0) return library;
+
+            foreach (var element in StartingElements)
+            {
+                var ofElement = new List<string>();
+                foreach (var id in candidates)
+                    if (graph.Get(id).Element == element) ofElement.Add(id);
+                var pick = DrawWeighted(ofElement, graph, random);
+                if (pick != null) library.Add(pick);
+            }
+
+            var top = TopRarityCards(candidates, graph);
+            if (top.Count > 0) library.Add(top[random.Next(top.Count)]);
+
+            for (int i = 0; i < PerkRules.LibraryBonus(meta); i++)
+            {
+                var extra = DrawWeighted(candidates, graph, random);
+                if (extra == null) break;
+                library.Add(extra);
+            }
+
+            return library;
         }
 
         /// <summary>字表裁剪后的存档清洗:移除一切引用已下架字的条目,防启动崩溃。
