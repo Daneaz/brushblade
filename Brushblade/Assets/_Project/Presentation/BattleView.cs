@@ -2586,6 +2586,12 @@ namespace Brushblade.Presentation
                 // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系
                 if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
                     chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "burn_nodecay"));
+                // 流血(2026-09-06 补,与 AddSummonStatusChips 的 Decaying 同口径):每回合固定
+                // 掉血,带数字——此前这条在敌人身上零显示,只有召唤物格有(EnumRenderCoverageTests
+                // 的 EveryEnemyDebuff_HasBattleViewChip 收紧判据范围后抓到的真实缺陷)。
+                int bleedStacks = enemy.Statuses.TotalMagnitude(StatusKind.Bleed);
+                if (bleedStacks > 0)
+                    chipSpecs.Add(new($"{bleedStacks}", Theme.Cinnabar, Color.white, "bleed"));
                 // 冻结 / 减速(2026-08-13):此前这两个状态在敌人身上零显示 —— 冻结的怪不出手、
                 // 减速的怪隔回合才出手,玩家只能靠数它哪回合打了自己来倒推。
                 // 排在致盲之前:这两条直接回答「它下回合会不会打我」,信息价值高于减伤类,
@@ -2606,6 +2612,12 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "silence"));
                 if (enemy.Statuses.TotalMagnitude(StatusKind.Curse) > 0)
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "curse"));
+                // 破甲(2026-09-06 补,与 AddSummonStatusChips 的 Flag 同口径):量在挂着期间
+                // 恒定、不随回合衰减,只出图标不带数字——此前这条同样在敌人身上零显示,
+                // 破甲是 P0 跨系四级链(锥/碎 → 鍂 → 垚/䥱)的核心机制,玩家原本完全看不到
+                // 它生没生效(EnumRenderCoverageTests 收紧判据范围后抓到的真实缺陷)。
+                if (enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak) > 0)
+                    chipSpecs.Add(new("", Theme.InkSoft, Color.white, "armorbreak"));
                 // 魅惑(2026-09-05,花):无图标资产,暂时保留文字(与缺笔/标点/通假同处理)——
                 // 与冻结/减速当年零显示是同一个坑,这条不能漏。
                 if (enemy.Statuses.Has(StatusKind.Charm))
