@@ -220,10 +220,16 @@ namespace Brushblade.Balance
             {
                 var runConfig = EndlessGenerator.BuildSegment(endless, fromDepth, towerSeed,
                     campaign.Events, campaign.EventChancePercent);
+                // 2026-09-07 补:生产侧 GameRoot.StartSegment 自 2026-07-20 起就无条件覆盖这一项
+                // (层段写死的那份从来没生效过,见 Endless.cs 的 BandDef.RewardPool 注释)。
+                // 此前工装漏了这行 —— RewardPool 恒为空池,于是 RollRewardOptions 遍历空表、
+                // _rewardOptions 恒空、PickBestReward 那段循环一次都没跑过,
+                // 所有历史读数都不含「战后 5 选 2」这条成长路径。
+                runConfig.RewardPool = profile.OwnedCards;
                 // UnlockedChars(2026-08-04 起也是回合掉字的抽取源,见 BattleEngine.StartTurn)。
                 // 生产侧口径是 _meta.OwnedCards——玩家已解锁的整个卡池(2026-09-06 出阵废止后
                 // MetaRules.BuildBattleConfig 直接读它)。三个画像没有各自的卡池概念,只声明了
-                // 起手 Library + CardLevels,而 CardLevels 已经用 FireCards 这个 9 字火系名单
+                // 起手 Library + CardLevels,而 CardLevels 已经用 FireCards 这个 13 字火系名单
                 // 给两个成长画像定过级——用它顶 UnlockedChars 是同一套"这画像已经练熟的字"口径。
                 // 注意:UnlockedChars 非空时 ForgeEngine 也会用它锁合成目标(2026-07-20 拍板),
                 // 即画像现在只能合成 FireCards 里的字——比改造前"不限合成"更贴近生产,

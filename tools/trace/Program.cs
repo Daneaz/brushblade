@@ -171,10 +171,10 @@ namespace Brushblade.Trace
             public readonly IReadOnlyList<string> Library;
             public readonly int MaxHp;
             public readonly int StartDepth;
-            public readonly IReadOnlyCollection<string> OwnedCards;
+            public readonly IReadOnlyList<string> OwnedCards;
 
             public Profile(string name, IReadOnlyList<string> library, int maxHp, int startDepth,
-                IReadOnlyCollection<string> ownedCards)
+                IReadOnlyList<string> ownedCards)
             {
                 Name = name;
                 Library = library;
@@ -200,6 +200,12 @@ namespace Brushblade.Trace
             {
                 var runConfig = EndlessGenerator.BuildSegment(endless, fromDepth, towerSeed,
                     campaign.Events, campaign.EventChancePercent);
+                // 2026-09-07 补:生产侧 GameRoot.StartSegment 自 2026-07-20 起就无条件覆盖这一项
+                // (层段写死的那份从来没生效过,见 Endless.cs 的 BandDef.RewardPool 注释)。
+                // 此前工装漏了这行 —— RewardPool 恒为空池,于是 RollRewardOptions 遍历空表、
+                // _rewardOptions 恒空、PickBestReward 那段循环一次都没跑过,
+                // 所有历史读数都不含「战后 5 选 2」这条成长路径。
+                runConfig.RewardPool = profile.OwnedCards;
                 var battleConfig = new BattleConfig
                 {
                     DropTable = campaign.DropTable,
