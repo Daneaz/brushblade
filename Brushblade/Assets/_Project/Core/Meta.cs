@@ -508,6 +508,37 @@ namespace Brushblade.Core
             return candidates[candidates.Count - 1]; // 理论不可达(浮点无关,整数累加必然命中)
         }
 
+        /// <summary>抽 <paramref name="rolls"/> 次,留稀有度最高的那一张(spec §3.1)。
+        ///
+        /// 这是五行 L1(单系 +1 次)与机制树「慧眼」(全局 +1 次)共用的机制 ——
+        /// 「抽取次数」是全案唯一的稀有度调节手柄,基础 1 次、每条适用加成 +1,
+        /// 所以叠加规则不需要任何特判。
+        ///
+        /// ⚠ <paramref name="rolls"/> = 1 时**逐位等价**于 <see cref="DrawWeighted"/>:
+        /// 只摇一次、消耗同样多的随机数。这是「未点任何节点时起手序列逐字节不变」的凭据,
+        /// 所以循环必须写成「先抽一张再比较」而不是「抽满 rolls 张再挑」。
+        ///
+        /// 平局(两次抽到同档)保留**先抽到**的那张:后来者不顶替,读起来是「第一次就够好」。</summary>
+        public static string DrawBest(IReadOnlyList<string> candidates, RecipeGraph graph,
+            GameRandom random, int rolls)
+        {
+            if (rolls < 1) rolls = 1;   // 调用方失误:给最低档,不返回 null
+            string best = null;
+            CardRarity bestRarity = 0;
+            for (int i = 0; i < rolls; i++)
+            {
+                var pick = DrawWeighted(candidates, graph, random);
+                if (pick == null) return best;         // 候选为空:第一次就返回 null
+                var rarity = graph.Get(pick).Rarity;
+                if (best == null || rarity > bestRarity)
+                {
+                    best = pick;
+                    bestRarity = rarity;
+                }
+            }
+            return best;
+        }
+
         /// <summary>候选里稀有度最高的那一档的全部字。空候选返回空表。</summary>
         private static List<string> TopRarityCards(IReadOnlyList<string> candidates, RecipeGraph graph)
         {
@@ -543,12 +574,16 @@ namespace Brushblade.Core
             var library = new List<string>();
             if (candidates.Count == 0) return library;
 
+            int globalRolls = PerkRules.Bonus(meta, PerkEffect.DrawRolls); // 慧眼:全部格 +1
             foreach (var element in StartingElements)
             {
                 var ofElement = new List<string>();
                 foreach (var id in candidates)
                     if (graph.Get(id).Element == element) ofElement.Add(id);
-                var pick = DrawWeighted(ofElement, graph, random);
+                // 该系那一格的抽取次数 = 1 + 慧眼 + 该系五行 L1
+                int rolls = 1 + globalRolls
+                    + PerkRules.ElementBonus(meta, PerkEffect.ElementDrawRolls, element);
+                var pick = DrawBest(ofElement, graph, random, rolls);
                 if (pick != null) library.Add(pick);
             }
 
@@ -557,7 +592,8 @@ namespace Brushblade.Core
 
             for (int i = StartingLibrarySize; i < StartingHandSizeFor(meta); i++)
             {
-                var extra = DrawWeighted(candidates, graph, random);
+                // 广纳追加的那几张是全池自由抽,吃慧眼但不吃任何单系加成
+                var extra = DrawBest(candidates, graph, random, 1 + globalRolls);
                 if (extra == null) break;
                 library.Add(extra);
             }
