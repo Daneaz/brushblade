@@ -368,6 +368,15 @@ namespace Brushblade.Core
         /// 与战意的 10 × 5 层 = +50% **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。</summary>
         private const int HeftPercentPerStack = 5;
 
+        /// <summary>战意 + 厚的百分比乘区(2026-09-06,终审修复项 5,纯提取零行为变化)。
+        /// <see cref="EffectiveAttack"/>(玩家侧)与 <see cref="SummonAttackPercent"/>(召唤物侧)
+        /// 此前是两份逐字拷贝的算式,注释里写着"同一个式子,故两处永远同步"——那句话是假的,
+        /// 两处什么都没共享,日后加第三条乘性轴或改组合方式必然只改一处。抽出来后两边共用
+        /// **同一个属性**,才是那句注释原本想描述的保证。</summary>
+        private int AttackPercent => 100
+            + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
+            + _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack;
+
         /// <summary>泉每层的治疗加成(百分点)。**2026-09-05 由 10 改 5**,与厚对齐。
         ///
         /// 原注释声称泉 10×10 与厚 5×10 「同顶 +50%」,但那只比了上限、忽略了**充电速度**:
@@ -441,12 +450,7 @@ namespace Brushblade.Core
                 // 反过来会让 剡 的 +50 完全吃不到战意的放大(Morale_MultipliesAfterEmpower)。
                 int flat = _config.PlayerAttack
                     + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff);
-                int percent = 100
-                    + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
-                    // 厚(2026-09-02):与战意同一个百分比乘区相加。「先加后乘」的既有顺序不动 ——
-                    // Empower / AttackBuff 是加点,战意与厚是乘比例。
-                    + _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack;
-                return Math.Max(0, flat * percent / 100);
+                return Math.Max(0, flat * AttackPercent / 100);
             }
         }
 
@@ -1664,10 +1668,10 @@ namespace Brushblade.Core
         }
 
         /// <summary>注入给召唤物的攻击百分比乘区(2026-09-05)= 100 + 战意层×10 + 厚层×5。
-        /// 与玩家侧 <see cref="EffectiveAttack"/> 的 percent 同一个式子,故两处永远同步。</summary>
-        private int SummonAttackPercent => 100
-            + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
-            + _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack;
+        /// 与玩家侧 <see cref="EffectiveAttack"/> 共用同一个 <see cref="AttackPercent"/> 属性
+        /// (2026-09-06 终审修复项 5 抽取前,这里是一份逐字拷贝——两处「同步」全靠人工誊抄,
+        /// 现在是真正共享同一份实现)。</summary>
+        private int SummonAttackPercent => AttackPercent;
 
         /// <summary>刷新全场召唤物的光环加成(2026-09-05)。光环含自己,所以就是所有
         /// 存活召唤物 AuraAttack 之和,人人相同 —— 不需要「排除自己」的分支。
