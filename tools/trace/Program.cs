@@ -37,7 +37,7 @@ namespace Brushblade.Trace
         private const int DefaultDepthCap = 300;
         private static readonly int[] DefaultSeeds = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
-        /// <summary>出阵表 = 可合成集 + 回合掉字的抽取源。**钉死的副本**,不与
+        /// <summary>卡池表 = 可合成集 + 回合掉字的抽取源。**钉死的副本**,不与
         /// <c>tools/balance</c> 的 FireCards 共享(见类注释)。</summary>
         /// ⚠ 2026-08-12:原表里的「灯」是幽灵字 —— ids.txt 有拆解但《技能机制详表》没有它,
         /// 管线从没产出过,进不了 RecipeGraph。而它是「基准1级」画像的唯一起手字,那一档
@@ -51,7 +51,7 @@ namespace Brushblade.Trace
         // 2026-09-05 字表调整:灼/焦/烧/熣 本批移出,「基准1级」画像的起手字随之改用 灭(白档)。
             { "灭", "热", "爆", "炸", "燥", "烈", "蒸", "炎", "灿", "焚", "焱", "燚" };
 
-        /// <summary>杂食出阵表:纯火系打不出护盾/治疗/召唤/流血这几路事件,量级 ×10
+        /// <summary>杂食卡池表:纯火系打不出护盾/治疗/召唤/流血这几路事件,量级 ×10
         /// 在那些路径上就没有观测点。这张表专门为**事件种类覆盖**而配。
         ///
         /// ⚠ 刻意排除三类字:暴击(锋)、减伤(铠漜崊崟磐巍)、破甲(熔溃溶锤破碎)——
@@ -145,7 +145,7 @@ namespace Brushblade.Trace
                 rec.Comment($"attack = {MetaRules.AttackFor(1)}(基准 {BattleConfig.AttackBaseline})  cardLevels = 全 1");
                 foreach (var p in profiles)
                     rec.Comment($"profile {p.Name}: hp={p.MaxHp} startDepth={p.StartDepth} " +
-                                $"lib={string.Join("|", p.Library)} deck={string.Join("|", p.Deck)}");
+                                $"lib={string.Join("|", p.Library)} ownedCards={string.Join("|", p.OwnedCards)}");
                 rec.Comment($"chars.json sha256 = {Sha256(charsJson)}");
                 rec.Comment($"enemies.json sha256 = {Sha256(enemiesJson)}");
 
@@ -171,16 +171,16 @@ namespace Brushblade.Trace
             public readonly IReadOnlyList<string> Library;
             public readonly int MaxHp;
             public readonly int StartDepth;
-            public readonly IReadOnlyCollection<string> Deck;
+            public readonly IReadOnlyCollection<string> OwnedCards;
 
             public Profile(string name, IReadOnlyList<string> library, int maxHp, int startDepth,
-                IReadOnlyCollection<string> deck)
+                IReadOnlyCollection<string> ownedCards)
             {
                 Name = name;
                 Library = library;
                 MaxHp = maxHp;
                 StartDepth = startDepth;
-                Deck = deck;
+                OwnedCards = ownedCards;
             }
         }
 
@@ -205,7 +205,7 @@ namespace Brushblade.Trace
                     DropTable = campaign.DropTable,
                     PlayerMaxHp = profile.MaxHp,
                     PlayerAttack = MetaRules.AttackFor(1),
-                    UnlockedChars = profile.Deck,
+                    UnlockedChars = profile.OwnedCards,
                 };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
                     seed: unchecked(towerSeed * 17 + fromDepth), cardLevels: AllLevelOne,

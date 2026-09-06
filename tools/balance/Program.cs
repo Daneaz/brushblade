@@ -15,20 +15,20 @@ namespace Brushblade.Balance
         private const int StallTurns = 60;
         private const int DepthCap = 300;
 
-        // 三画像共享的"火系"出阵卡组(2026-08-04):补 UnlockedChars 时用它兜底——见下方
+        // 三画像共享的"火系"卡池(2026-08-04):补 UnlockedChars 时用它兜底——见下方
         // ClimbUntilDeath 里的说明。
         // 2026-08-10(task-6 二轮):追加 炑/燥/灱——此前这三个新字不在这张表里,导致回合掉字
         // (StartTurn 只从 UnlockedChars 抽)、合成(Compose 同样锁 UnlockedChars)都摸不到它们,
         // 仿真对火系 DOT 三分化完全没有判别力(见 task-6-report.md 第二节)。燃/炽 已经在表里,
-        // 不用重复加。真实游戏的战利品池 = 玩家出阵列表(enemies.json 的 endless.rewardPool
-        // 是 v0.7 前的废弃字段,不该填),所以这里直接扩这张"画像出阵表",不动游戏配置。
+        // 不用重复加。真实游戏的战利品池 = 玩家已解锁卡池(enemies.json 的 endless.rewardPool
+        // 是 v0.7 前的废弃字段,不该填),所以这里直接扩这张"画像卡池表",不动游戏配置。
         // ⚠ 2026-08-12:原表里的「灯」是个幽灵 —— ids.txt 有它的拆解,但《技能机制详表》
         // 里根本没有它这一行,管线从没产出过它,进不了 RecipeGraph。而它当时正是「新手」
         // 画像的**唯一**起手字,于是那一档量的是空手打(只能靠回合掉部件 + 兜底一击),
         // 与画像名声称的东西无关。换成 灼(白档,单攻 60,对灼烧目标翻倍)。
         // ⚠ 2026-08-12(E-b4 T5,spec §10.5):追加 锐 —— 不扩这张表就又重演 E-a 的
         // 「工装看不见新字」。锐 是金系而这三档画像是火系,故它是这张表里唯一的异色字:
-        // 表的语义是「画像的出阵卡组」,真实卡组本来就可以混色,而穿透那条轴在纯火表里
+        // 表的语义是「画像的已解锁卡池」,真实卡池本来就可以混色,而穿透那条轴在纯火表里
         // 一个观测点都没有。⚠ 光加进表还不够,Power() 必须同时给 PierceBuff 记分 ——
         // 记 0 分的字机器人永远不会出,那与没加进表**完全等价**(这正是 焰 变异检查
         // 轨迹毫无反应的那次踩过的坑)。
@@ -37,7 +37,7 @@ namespace Brushblade.Balance
         // (「五行部件只能靠拆字获得」,BattleEngine.cs:984),把叶子塞进 UnlockedChars
         // 等于给工装造一条生产里不存在的获取路径。这个机器人也从不拆字,兑 在工装里
         // 本就没有可达路径 —— 它的可达性由 PierceBuffCharTests 的
-        // RealConfig_Dui_IsReachable_ThroughRuiInTheDeck 在真实规则上钉住,不靠仿真。
+        // RealConfig_Dui_IsReachable_ThroughRuiInThePool 在真实规则上钉住,不靠仿真。
         private static readonly string[] FireCards =
         // ⚠ 2026-08-25 字表重构:整表按现行火系 16 字重列。原表里 燃 自 2026-08-14 起
         // 就是幽灵字(那批裁定把它移出了详表,而这张表没跟着改),炽/炑/灱 则随本次重构移出 ——
@@ -46,19 +46,19 @@ namespace Brushblade.Balance
         // 2026-09-05 字表调整:灼/焦/烧/熣 本批移出(BurnNoDecay/DoubleVsBurning/Blind 随之休眠)。
             { "灭", "热", "爆", "炸", "燥", "烈", "蒸", "炎", "灿", "焚", "焱", "燚", "锐" };
 
-        /// <summary>水系出阵表(2026-09-02 双方向对照组)。15 张实体字全列 ——
+        /// <summary>水系卡池表(2026-09-02 双方向对照组)。15 张实体字全列 ——
         /// 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars),那一档观测点就是空的。
         /// 从 chars.json 现读核对过,与 task-13-brief 给的表逐字一致。
         /// 2026-09-05 字表调整:沏/沝/淡 本批移出,不补新字(水系本批未新增)。</summary>
         private static readonly string[] WaterCards =
             { "溃", "冻", "海", "冷", "浴", "湮", "澡", "冰", "沐", "淼", "淋", "㵘" };
 
-        /// <summary>土系出阵表(2026-09-02)。13 张实体字全列。同上核对过,与 brief 一致。
+        /// <summary>土系卡池表(2026-09-02)。13 张实体字全列。同上核对过,与 brief 一致。
         /// 2026-09-05 字表调整:砸/碾 本批移出(Sweep/Cleave 攻击形状随之休眠)。</summary>
         private static readonly string[] EarthCards =
             { "碉", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓" };
 
-        /// <summary>木系出阵表(2026-09-05):召唤流此前在仿真里**一个观测点都没有**,
+        /// <summary>木系卡池表(2026-09-05):召唤流此前在仿真里**一个观测点都没有**,
         /// 而「木系每只召唤物必带被动」「召唤物攻击吃战意+厚」两条改动都落在这一系上。
         /// 13 张实体字全列 —— 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars)。</summary>
         private static readonly string[] WoodCards =
@@ -121,21 +121,21 @@ namespace Brushblade.Balance
                     FireCards.ToDictionary(c => c, _ => 5), level: 10, startDepth: ProbeStartDepth),
                 new Profile("探针·AOE专精(全 DamageAll,深启11)", new[] { "爆", "海", "崩", "剿" },
                     AoeCards.ToDictionary(c => c, _ => 5), level: 10,
-                    deck: AoeCards, startDepth: ProbeStartDepth),
+                    ownedCards: AoeCards, startDepth: ProbeStartDepth),
 
                 // 2026-09-02 双方向对照组:不加这两档就没有任何观测点能看见水/土的改动。
-                // ⚠ deck 必须显式传各自的出阵表 —— Profile.Deck 缺省落回 FireCards
+                // ⚠ ownedCards 必须显式传各自的卡池表 —— Profile.OwnedCards 缺省落回 FireCards
                 // (回合掉字 + 合成锁都读它),漏传会重演「幽灵字/摸不到」那个坑,
                 // 只是这次是摸到了错误系的字。
                 new Profile("水系双方向(冻冰淼㵘,卡5级,10级)", new[] { "冻", "冰", "淼", "㵘" },
-                    WaterCards.ToDictionary(c => c, _ => 5), level: 10, deck: WaterCards),
+                    WaterCards.ToDictionary(c => c, _ => 5), level: 10, ownedCards: WaterCards),
                 new Profile("土系双方向(垒圭垚㙓,卡5级,10级)", new[] { "垒", "圭", "垚", "㙓" },
-                    EarthCards.ToDictionary(c => c, _ => 5), level: 10, deck: EarthCards),
+                    EarthCards.ToDictionary(c => c, _ => 5), level: 10, ownedCards: EarthCards),
 
                 // 2026-09-05 召唤流基线:定「召唤物基础攻」要先知道木系现在站在哪。
                 // 与水/土两档同参数(卡5级/10级/1层起爬),四系读数才可比。
                 new Profile("木系召唤(林柘森𣛧,卡5级,10级)", new[] { "林", "柘", "森", "\ue625" },
-                    WoodCards.ToDictionary(c => c, _ => 5), level: 10, deck: WoodCards),
+                    WoodCards.ToDictionary(c => c, _ => 5), level: 10, ownedCards: WoodCards),
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
@@ -149,10 +149,10 @@ namespace Brushblade.Balance
         {
             public string Name;
             public IReadOnlyList<string> Library;
-            /// <summary>出阵卡组 = BattleConfig.UnlockedChars:回合掉字的抽取源,同时锁死合成目标
+            /// <summary>已解锁卡池 = BattleConfig.UnlockedChars:回合掉字的抽取源,同时锁死合成目标
             /// (2026-07-20)。此前写死成 <see cref="FireCards"/> —— 那样探针画像的起手字会被掉字
-            /// 一路稀释成火系,量到的根本不是它声称的那套卡组。</summary>
-            public IReadOnlyList<string> Deck;
+            /// 一路稀释成火系,量到的根本不是它声称的那套卡池。</summary>
+            public IReadOnlyList<string> OwnedCards;
             public Dictionary<string, int> CardLevels;
             public int MaxHp;
             public int Attack;
@@ -164,9 +164,9 @@ namespace Brushblade.Balance
             /// 探针量的不是「能爬多深」而是「某条机制在不在」,所以直接空投到有甲的水域。</summary>
             public int StartDepth;
             public Profile(string name, IReadOnlyList<string> library, Dictionary<string, int> cardLevels,
-                int level, IReadOnlyList<string> deck = null, int startDepth = 1)
+                int level, IReadOnlyList<string> ownedCards = null, int startDepth = 1)
             {
-                Name = name; Library = library; CardLevels = cardLevels; Deck = deck ?? FireCards;
+                Name = name; Library = library; CardLevels = cardLevels; OwnedCards = ownedCards ?? FireCards;
                 StartDepth = startDepth;
                 MaxHp = MetaRules.MaxHpFor(level);
                 Attack = MetaRules.AttackFor(level);
@@ -221,19 +221,19 @@ namespace Brushblade.Balance
                 var runConfig = EndlessGenerator.BuildSegment(endless, fromDepth, towerSeed,
                     campaign.Events, campaign.EventChancePercent);
                 // UnlockedChars(2026-08-04 起也是回合掉字的抽取源,见 BattleEngine.StartTurn)。
-                // 生产侧口径是 _meta.Deck——玩家自选的出阵卡组(GameRoot.cs)。三个画像没有各自的
-                // 出阵卡组概念,只声明了起手 Library + CardLevels,而 CardLevels 已经用 FireCards
-                // 这个 9 字火系名单给两个成长画像定过级——用它顶 UnlockedChars 是同一套"这画像
-                // 已经练熟的字"口径,数量上也落在真实出阵卡组的 5~15 张区间内(Meta.DeckMinimum/
-                // DeckLimit)。注意:UnlockedChars 非空时 ForgeEngine 也会用它锁合成目标(2026-07-20
-                // 拍板),即画像现在只能合成 FireCards 里的字——比改造前"不限合成"更贴近生产,
+                // 生产侧口径是 _meta.OwnedCards——玩家已解锁的整个卡池(2026-09-06 出阵废止后
+                // MetaRules.BuildBattleConfig 直接读它)。三个画像没有各自的卡池概念,只声明了
+                // 起手 Library + CardLevels,而 CardLevels 已经用 FireCards 这个 9 字火系名单
+                // 给两个成长画像定过级——用它顶 UnlockedChars 是同一套"这画像已经练熟的字"口径。
+                // 注意:UnlockedChars 非空时 ForgeEngine 也会用它锁合成目标(2026-07-20 拍板),
+                // 即画像现在只能合成 FireCards 里的字——比改造前"不限合成"更贴近生产,
                 // 但也是本次顺带激活的口径,如果后续要专门校准合成侧数值,这里可能要再调整。
                 var battleConfig = new BattleConfig
                 {
                     DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp,
                     PlayerAttack = profile.Attack,
                     PlayerDefense = profile.Defense, PlayerDodge = profile.Dodge,
-                    UnlockedChars = profile.Deck,
+                    UnlockedChars = profile.OwnedCards,
                 };
                 var run = new RunEngine(graph, runConfig, battleConfig, library, pool,
                     seed: unchecked(towerSeed * 17 + fromDepth), cardLevels: profile.CardLevels,
@@ -381,7 +381,7 @@ namespace Brushblade.Balance
                     // 护甲(2026-08-12,E-b4/E-b5 T7,土系堆甲探针):按点数 ×2 折算。
                     // ⚠ **系数是多少不重要,是不是 0 才重要**:记 0 分的字机器人永远不会去
                     // 合成它(Compose 那条分支要求 power 严格大于库里最强的),那与「没把它加进
-                    // 出阵表」完全等价 —— 正是 焰 变异检查轨迹毫无反应踩过的坑。没有这一条,
+                    // 卡池表」完全等价 —— 正是 焰 变异检查轨迹毫无反应踩过的坑。没有这一条,
                     // 土系堆甲探针就是个装饰品:它会握着一手防御字一张都不出。
                     // ×2 的口径同 BurnSingle:本场持久、每记挥击都兑现,但只在挨打时兑现,
                     // 所以排在同数值的直伤之后(铠 12 → 24 分,仍低于 碾 的 60)。
@@ -393,7 +393,7 @@ namespace Brushblade.Balance
                     case EffectKind.SpendHeft: sum += e.Value * 5; break;
                     case EffectKind.SpendWellspring: sum += e.Value * 5; break;
                     // 群体护盾(2026-09-05,崩):不记分的话 崩 的护面是 0 分,
-                    // 土系画像会握着它一张都不出 —— 与「没加进出阵表」等价。
+                    // 土系画像会握着它一张都不出 —— 与「没加进卡池表」等价。
                     case EffectKind.ShieldAll: sum += e.Value; break;
                 }
             }
