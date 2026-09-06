@@ -195,7 +195,8 @@ namespace Brushblade.Presentation
                 ? EndlessGenerator.BuildFirstTowerSegment(endless, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent)
                 : EndlessGenerator.BuildSegment(endless, fromDepth, snapshot.Seed, _campaign.Events, _campaign.EventChancePercent);
             // 战利品的字只出自已解锁卡池(2026-09-06,原「出阵列表」):
-            // 抽取按稀有度加权(绿 80/蓝 15/紫 5,见 RunEngine.RewardRarityWeights)
+            // 抽取按稀有度加权,白/金/橙/红也在候选之列(白 150/绿 350/蓝 300/紫 130/
+            // 金 50/橙 15/红 5,千分比,见 MetaRules.RarityWeights)
             runConfig.RewardPool = _meta.OwnedCards;
 
             // ⚠ 角色属性一条都不在这里手写(2026-08-12,E-b4/E-b5 T7):Presentation 没有任何
