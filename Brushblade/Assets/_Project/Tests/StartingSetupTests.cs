@@ -8,7 +8,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>开局装配(2026-08-05 拍板):初始收集 = 五系各白/绿/蓝一张;
-    /// 部件的一切来源(初始池、奇遇随机部件)都从**出阵表所需部件**里取,不再是固定金木水火土。</summary>
+    /// 部件的一切来源(初始池、奇遇随机部件)都从**已解锁卡池所需部件**里取,不再是固定金木水火土。</summary>
     public class StartingSetupTests
     {
         private static RecipeGraph RealGraph() => CharTableTests.RealGraph();
@@ -78,60 +78,60 @@ namespace Brushblade.Core.Tests
                 Assert.That(elements, Contains.Item(element), $"默认出阵缺 {element}");
         }
 
-        // ---- 部件来源:从出阵表派生 ----
+        // ---- 部件来源:从卡池派生 ----
 
         [Test]
-        public void DeckComponents_AreTheLeavesOfDeckRecipes()
+        public void PoolComponents_AreTheLeavesOfPoolRecipes()
         {
             var graph = RealGraph();
             // 2026-08-14:城 随第二批裁定移出字表,换同为土系蓝档护盾的 垒(厽+土)。
             var deck = new[] { "剑", "垒" }; // 佥+刂 / 厽+土
-            var components = MetaRules.DeckComponents(deck, graph);
+            var components = MetaRules.PoolComponents(deck, graph);
             Assert.That(components, Is.EquivalentTo(new[] { "佥", "刂", "厽", "土" }));
         }
 
         [Test]
-        public void DeckComponents_Deduplicates()
+        public void PoolComponents_Deduplicates()
         {
             var graph = RealGraph();
             var deck = new[] { "剁", "剑" }; // 朵+刂 / 佥+刂 —— 刂 共用(割 于 2026-08-14 移出)
-            Assert.That(MetaRules.DeckComponents(deck, graph).Count(c => c == "刂"), Is.EqualTo(1));
+            Assert.That(MetaRules.PoolComponents(deck, graph).Count(c => c == "刂"), Is.EqualTo(1));
         }
 
         [Test]
-        public void DeckComponents_SkipsNonLeafIngredients() // 只要部件,低阶字不算
+        public void PoolComponents_SkipsNonLeafIngredients() // 只要部件,低阶字不算
         {
             var graph = RealGraph();
-            var components = MetaRules.DeckComponents(new[] { "焱" }, graph); // 火+炎,炎是字
+            var components = MetaRules.PoolComponents(new[] { "焱" }, graph); // 火+炎,炎是字
             Assert.That(components, Contains.Item("火"));
             Assert.That(components, Does.Not.Contain("炎"));
         }
 
         [Test]
-        public void DeckComponents_EmptyDeck_IsEmpty()
+        public void PoolComponents_EmptyPool_IsEmpty()
         {
-            Assert.That(MetaRules.DeckComponents(new string[0], RealGraph()), Is.Empty);
+            Assert.That(MetaRules.PoolComponents(new string[0], RealGraph()), Is.Empty);
         }
 
         [Test]
-        public void DeckComponents_StartingDeck_CoversEveryStartingDeckRecipe()
+        public void PoolComponents_StartingDeck_CoversEveryStartingDeckRecipe()
         {
             var graph = RealGraph();
-            var components = MetaRules.DeckComponents(MetaRules.StartingDeck, graph);
+            var components = MetaRules.PoolComponents(MetaRules.StartingDeck, graph);
             // 默认出阵的每个字都能用池里的部件拼出来 —— 否则随机到的部件是死牌
             foreach (var id in MetaRules.StartingDeck)
                 foreach (var part in graph.Get(id).Recipe)
                     Assert.That(components, Contains.Item(part), $"{id} 的原料 {part} 不在派生部件池里");
         }
 
-        // ---- 奇遇随机部件只从出阵表派生的部件里取 ----
+        // ---- 奇遇随机部件只从卡池派生的部件里取 ----
 
         [Test]
-        public void EventRandomComponents_ComeFromDeckComponents()
+        public void EventRandomComponents_ComeFromPoolComponents()
         {
             var graph = RealGraph();
             var deck = new List<string> { "剑", "城" };
-            var allowed = MetaRules.DeckComponents(deck, graph).ToList();
+            var allowed = MetaRules.PoolComponents(deck, graph).ToList();
 
             // 多个种子都必须落在派生集合内
             for (int seed = 1; seed <= 30; seed++)

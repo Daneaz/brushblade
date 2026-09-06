@@ -718,10 +718,10 @@ namespace Brushblade.Core.Tests
         /// <summary>登塔起手部件池仍然收得到带配方的部件(spec §一列出的三个回归之一)。
         /// 把 IsComponent 换回 IsLeaf,烝 不再算可掉落部件,蒸 的原料就掉不出来了。</summary>
         [Test]
-        public void RealConfig_ComponentWithRecipe_StillCountsAsDeckComponent()
+        public void RealConfig_ComponentWithRecipe_StillCountsAsPoolComponent()
         {
             var graph = RealGraph();
-            var parts = new List<string>(MetaRules.DeckComponents(new List<string> { "蒸" }, graph));
+            var parts = new List<string>(MetaRules.PoolComponents(new List<string> { "蒸" }, graph));
             Assert.That(parts.Contains("烝"), Is.True, "烝 有了配方,但它仍是 蒸 的可掉落部件");
             Assert.That(parts.Contains("艹"), Is.True);
         }

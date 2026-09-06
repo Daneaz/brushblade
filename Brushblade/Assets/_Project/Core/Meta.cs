@@ -75,14 +75,17 @@ namespace Brushblade.Core
             "剿", "葬", "冷", "爆", "碎",
         };
 
-        /// <summary>出阵表所需的部件(2026-08-05 拍板):部件的一切来源都从这里取,
-        /// 不再是固定金木水火土——出阵表换了,能掉的部件跟着换,拿到的部件永远拼得出手里的字。
+        /// <summary>卡池所需的部件(2026-09-06,原 DeckComponents):部件的一切来源都从这里取。
+        /// 入参从「出阵表」换成「已解锁卡池」—— 出阵废止后,能掉的部件跟着整个卡池走。
+        ///
+        /// ⚠ 原先「掉到的部件永远拼得出手里的字」这条保证**不再成立**:卡池是全量的,
+        /// 而起手只有 6 张,拿到拼不出手上任何字的部件是合法结果(2026-09-06 用户裁定接受)。
         /// 只收叶子(部件);配方里的低阶字不算,那是靠合成得来的。</summary>
-        public static IEnumerable<string> DeckComponents(
-            IReadOnlyList<string> deck, RecipeGraph graph)
+        public static IEnumerable<string> PoolComponents(
+            IReadOnlyList<string> pool, RecipeGraph graph)
         {
             var seen = new List<string>();
-            foreach (var card in deck)
+            foreach (var card in pool)
             {
                 if (!graph.TryGet(card, out var def)) continue;
                 foreach (var part in def.Recipe)
@@ -92,17 +95,17 @@ namespace Brushblade.Core
             return seen;
         }
 
-        /// <summary>登塔初始部件池:从出阵表所需部件里随机掷 <paramref name="count"/> 个(可重复)。
-        /// 出阵表拼不出任何部件时返回空池——不回退到五行,那会把死牌塞回来。</summary>
-        public static IReadOnlyList<string> RollStartingPool(IReadOnlyList<string> deck,
+        /// <summary>登塔初始部件池:从卡池所需部件里随机掷 <paramref name="count"/> 个(可重复)。
+        /// 卡池拼不出任何部件时返回空池——不回退到五行,那会把死牌塞回来。</summary>
+        public static IReadOnlyList<string> RollStartingPool(IReadOnlyList<string> pool,
             RecipeGraph graph, GameRandom random, int count = StartingPoolSize)
         {
-            var choices = new List<string>(DeckComponents(deck, graph));
-            var pool = new List<string>();
-            if (choices.Count == 0) return pool;
+            var choices = new List<string>(PoolComponents(pool, graph));
+            var result = new List<string>();
+            if (choices.Count == 0) return result;
             for (int i = 0; i < count; i++)
-                pool.Add(choices[random.Next(choices.Count)]);
-            return pool;
+                result.Add(choices[random.Next(choices.Count)]);
+            return result;
         }
 
         public const int StartingPoolSize = 2; // 登塔起手部件数(沿用旧的两个)

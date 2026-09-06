@@ -326,7 +326,7 @@ namespace Brushblade.Core.Tests
         };
 
         [Test]
-        public void RandomComponents_DrawsFromDeckComponents_IntoPool()
+        public void RandomComponents_DrawsFromPoolComponents_IntoPool()
         {
             var run = new RunEngine(Graph(),
                 OneOptionConfig(new EventOption { Label = "求墨", RandomComponents = 2 }),
@@ -335,8 +335,8 @@ namespace Brushblade.Core.Tests
             WinAndSkipReward(run);
             Assert.That(ChooseAndAdvance(run, 0), Is.True);
             Assert.That(run.Battle.Pool.Count, Is.EqualTo(2));
-            // 候选 = 出阵表(RewardPool=[炎])所需部件 = [火]
-            var allowed = MetaRules.DeckComponents(new[] { "炎" }, Graph()).ToList();
+            // 候选 = 卡池(RewardPool=[炎])所需部件 = [火]
+            var allowed = MetaRules.PoolComponents(new[] { "炎" }, Graph()).ToList();
             Assert.That(run.Battle.Pool, Has.All.Matches<string>(c => allowed.Contains(c)));
         }
 
@@ -352,7 +352,7 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(RunPhase.EventOverflow)); // 满池不再静默丢
             Assert.That(run.CarriedPool.Count, Is.EqualTo(2));          // 空位先填满
             Assert.That(run.PendingOverflow.Count, Is.EqualTo(2));      // 余下待玩家决议
-            var allowed = MetaRules.DeckComponents(new[] { "炎" }, Graph()).ToList();
+            var allowed = MetaRules.PoolComponents(new[] { "炎" }, Graph()).ToList();
             Assert.That(run.PendingOverflow, Has.All.Matches<string>(c => allowed.Contains(c)));
         }
 

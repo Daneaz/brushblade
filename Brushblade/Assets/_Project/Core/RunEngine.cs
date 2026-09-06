@@ -44,11 +44,10 @@ namespace Brushblade.Core
         private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 2,2026-08-04 起)
         private const int RewardPicks = 2;       // 普通战斗 5 选 2(2026-08-04;Boss 层奖励走宝箱,不经此)
 
-        /// <summary>奇遇随机部件的候选(2026-08-05 拍板):从**出阵表所需部件**里取,
-        /// 不再是固定的五行基础部件——出阵表换了候选跟着换,掉到的部件永远拼得出手里的字。
-        /// RewardPool 即出阵表(GameRoot 接线);空则无部件可给。</summary>
+        /// <summary>奇遇随机部件的候选(2026-09-06):从**已解锁卡池所需的部件**里取。
+        /// RewardPool 即卡池(GameRoot 接线);空则无部件可给。</summary>
         private IReadOnlyList<string> ComponentChoices() =>
-            new List<string>(MetaRules.DeckComponents(
+            new List<string>(MetaRules.PoolComponents(
                 _runConfig.RewardPool ?? Array.Empty<string>(), _graph));
 
         private readonly RecipeGraph _graph;
