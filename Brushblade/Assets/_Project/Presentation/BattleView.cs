@@ -3281,7 +3281,7 @@ namespace Brushblade.Presentation
         private void DrawCraftList()
         {
             // 只提示合得出来的字:合不出来的不该出现在拆合台(2026-07-19)。
-            // 用 ComposableChars 而不是 UnlockedChars(2026-09-03):后者是出阵列表,
+            // 用 ComposableChars 而不是 UnlockedChars(2026-09-03):后者是已解锁卡池,
             // 拆出来的中间字(焦、烝)不在里面,拆合台会漏掉它们而引擎其实允许合
             // —— 提示与判定必须同一个集合。
             var suggest = ForgeEngine.Suggest(_graph, Battle.Pool, Battle.Library, Battle.ComposableChars);
@@ -4198,7 +4198,7 @@ namespace Brushblade.Presentation
                 var option = evt.Options[i];
                 bool affordable = option.InkCost <= _run.AvailableInk
                     && option.ComponentCost <= _run.CarriedPool.Count
-                    && AnyGainable(option); // 给的字都不在出阵列表 → 整个选项置灰(2026-07-20)
+                    && AnyGainable(option); // 给的字都不在已解锁卡池 → 整个选项置灰(2026-07-20)
                 var button = Ui.RoundButton(optionRow, option.Label, () =>
                 {
                     // 结算飘字播放期间钮还在屏上(刻意不重绘,不然飘字当场被盖掉)——
@@ -4420,7 +4420,7 @@ namespace Brushblade.Presentation
             return option.GainChar == null || CanGain(option.GainChar);
         }
 
-        /// <summary>此字能否入手:出阵列表之外的字换到也不能合、口径与战利品一致(RunEngine 会拒)。</summary>
+        /// <summary>此字能否入手:已解锁卡池之外的字换到也不能合、口径与战利品一致(RunEngine 会拒)。</summary>
         private bool CanGain(string charId)
         {
             var unlocked = Battle.UnlockedChars;
@@ -4441,7 +4441,7 @@ namespace Brushblade.Presentation
                 int choice = i;
                 string charId = option.GainCharChoices[i];
                 var def = _graph.Get(charId);
-                if (!CanGain(charId)) // 不在出阵列表:换到也白换,直接置灰(2026-07-20)
+                if (!CanGain(charId)) // 不在已解锁卡池:换到也白换,直接置灰(2026-07-20)
                 {
                     var locked = Ui.RoundButton(parent, charId, null,
                         Theme.LockedBg, Theme.TextDim, EventPartGlyphFont, new Vector2(EventPartW, EventPartH), 12);

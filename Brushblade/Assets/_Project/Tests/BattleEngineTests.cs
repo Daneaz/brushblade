@@ -2009,10 +2009,10 @@ namespace Brushblade.Core.Tests
         // ---- 拆出来的中间字要合得回去(2026-09-03 用户报的 bug)----
 
         [Test]
-        public void Compose_IngredientOfDeckChar_IsAllowed_AfterDismantling()
+        public void Compose_IngredientOfPoolChar_IsAllowed_AfterDismantling()
         {
             // 用户 2026-09-03:蕉 拆出 焦,焦 再拆出 隹 + 灬,可 隹 + 灬 合不回 焦 ——
-            // 因为 焦 不在出阵列表里,TryCompose 报 NotUnlocked,拆解成了一条不可逆的单行道。
+            // 因为 焦 不在卡池里,TryCompose 报 NotUnlocked,拆解成了一条不可逆的单行道。
             // 这里用同构的 焚 = 林 + 火、林 = 木 + 木 复现整条来回路。
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { DropTable = new[] { "木" }, UnlockedChars = new[] { "焚" } },
@@ -2027,10 +2027,10 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Compose_CharUnrelatedToDeck_StillRejected()
+        public void Compose_CharUnrelatedToPool_StillRejected()
         {
-            // 负向:闭包只放行「出阵字拆得出来的东西」,与卡组无关的字仍然合不出来。
-            // 出阵只有 灯(= 火 + 丁),手里备着 木 + 木,林 不在闭包里。
+            // 负向:闭包只放行「卡池字拆得出来的东西」,与卡池无关的字仍然合不出来。
+            // 卡池只有 灯(= 火 + 丁),手里备着 木 + 木,林 不在闭包里。
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { DropTable = new[] { "木" }, UnlockedChars = new[] { "灯" } },
                 Array.Empty<string>(), new[] { "木", "木" }, new[] { MetalBoss() }, seed: 42);
@@ -2207,7 +2207,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Drop_NoDeck_DoesNotDropNorSwitchPhase() // 工装与旧调用:UnlockedChars 为 null
+        public void Drop_NoPool_DoesNotDropNorSwitchPhase() // 工装与旧调用:UnlockedChars 为 null
         {
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { LibraryCapacity = 3, DropsPerTurn = 1 },
@@ -2286,7 +2286,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Drop_NoDeck_EmitsNoCharDrawn()
+        public void Drop_NoPool_EmitsNoCharDrawn()
         {
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { LibraryCapacity = 3, DropsPerTurn = 1 },

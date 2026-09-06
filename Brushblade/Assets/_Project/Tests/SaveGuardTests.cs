@@ -105,7 +105,7 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.PerkLevels["perk_hp"], Is.EqualTo(4));
             Assert.That(meta.CardCopies["剑"], Is.EqualTo(9));
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "剑", "城", "爆" }));
-            Assert.That(meta.Deck, Is.EqualTo(new[] { "剑", "城" }));
+            // 旧存档的 "Deck" 键(出阵已下架)变成未知键,Newtonsoft 直接忽略——不断言、不报错。
             Assert.That(meta.BestDepth, Is.EqualTo(17));
             Assert.That(meta.BandMilestones, Is.EqualTo(new[] { "band_1" }));
             Assert.That(meta.DefeatedEnemies, Is.EqualTo(new[] { "mo_zi", "deng_hua" }));

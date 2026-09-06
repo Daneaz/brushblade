@@ -827,7 +827,7 @@ namespace Brushblade.Presentation
                     Level = MetaRules.CardLevel(_meta, cardId),
                     Maxed = MetaRules.CardLevel(_meta, cardId) >= MetaRules.MaxCardLevel,
                     IsNew = isNew,
-                    // 出阵带与可升徽标刻意不挂:这一屏的牌脚已经把「新 / 升级 4/4 / 满级」说完了,
+                    // 可升徽标刻意不挂:这一屏的牌脚已经把「新 / 升级 4/4 / 满级」说完了,
                     // 同一件事印两遍反而看不出哪个才是重点(稿上的开箱牌也只有等级与稀有度)
                 });
                 var back = CardFlip.Back(flip.transform, cardSize, Strings.T("map.chest.card_back"));

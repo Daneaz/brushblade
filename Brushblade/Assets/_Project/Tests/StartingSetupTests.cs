@@ -48,35 +48,10 @@ namespace Brushblade.Core.Tests
                 Assert.That(graph.Get(id).Recipe, Is.Not.Empty, $"{id} 无配方,拆了合不回来");
         }
 
-        // ---- 默认出阵 ----
-
-        [Test]
-        public void StartingDeck_FitsStartingLibraryAndIsOwned()
-        {
-            Assert.That(MetaRules.StartingDeck.Count,
-                Is.GreaterThanOrEqualTo(MetaRules.DeckMinimum));
-            // 起手字库只装前 StartingLibrarySize 张:默认出阵不超过它,保证默认出阵全部上场
-            Assert.That(MetaRules.StartingDeck.Count,
-                Is.LessThanOrEqualTo(MetaRules.StartingLibrarySize));
-            foreach (var id in MetaRules.StartingDeck)
-                Assert.That(MetaRules.StartingCollection, Contains.Item(id));
-        }
-
-        [Test]
-        public void StartingDeck_ContainsTutorialChar() // 教程要拆它,必须在起手字库里
-        {
-            Assert.That(MetaRules.StartingDeck, Contains.Item(Tutorial.DemoChar));
-        }
-
-        [Test]
-        public void StartingDeck_CoversEveryElement()
-        {
-            var graph = RealGraph();
-            var elements = MetaRules.StartingDeck.Select(id => graph.Get(id).Element).ToList();
-            foreach (var element in new[] { Element.Metal, Element.Wood, Element.Water,
-                                            Element.Fire, Element.Earth })
-                Assert.That(elements, Contains.Item(element), $"默认出阵缺 {element}");
-        }
+        // TODO(2026-09-06):教程演示字的起手保证随出阵一起没了。
+        // 此前靠「默认出阵必含 Tutorial.DemoChar」保证首局起手拆得动它;起手改成随机抽之后
+        // 这个保证不存在,教程第一步可能无字可拆。用户将另行修改新游戏的起手解锁字卡与教程本身。
+        // 见 docs/superpowers/specs/2026-09-06-移除出阵-卡池抽卡-design.md 第五节。
 
         // ---- 部件来源:从卡池派生 ----
 
@@ -113,17 +88,6 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.PoolComponents(new string[0], RealGraph()), Is.Empty);
         }
 
-        [Test]
-        public void PoolComponents_StartingDeck_CoversEveryStartingDeckRecipe()
-        {
-            var graph = RealGraph();
-            var components = MetaRules.PoolComponents(MetaRules.StartingDeck, graph);
-            // 默认出阵的每个字都能用池里的部件拼出来 —— 否则随机到的部件是死牌
-            foreach (var id in MetaRules.StartingDeck)
-                foreach (var part in graph.Get(id).Recipe)
-                    Assert.That(components, Contains.Item(part), $"{id} 的原料 {part} 不在派生部件池里");
-        }
-
         // ---- 奇遇随机部件只从卡池派生的部件里取 ----
 
         [Test]
@@ -136,7 +100,7 @@ namespace Brushblade.Core.Tests
             // 多个种子都必须落在派生集合内
             for (int seed = 1; seed <= 30; seed++)
             {
-                var run = NewRunWithDeck(graph, deck, seed);
+                var run = NewRunWithPool(graph, deck, seed);
                 var pool = run.Battle.Pool;
                 Assert.That(pool, Has.All.Matches<string>(c => allowed.Contains(c)),
                     $"seed {seed}: 初始部件池 {string.Join(",", pool)} 越出 {string.Join(",", allowed)}");
@@ -230,8 +194,8 @@ namespace Brushblade.Core.Tests
             return dir.FullName;
         }
 
-        /// <summary>建一个出阵表为 deck 的 run;初始部件池按新规则从出阵表部件里随机。</summary>
-        private static RunEngine NewRunWithDeck(RecipeGraph graph, IReadOnlyList<string> deck, int seed)
+        /// <summary>建一个卡池为 deck 的 run;初始部件池按新规则从卡池部件里随机。</summary>
+        private static RunEngine NewRunWithPool(RecipeGraph graph, IReadOnlyList<string> deck, int seed)
         {
             var runConfig = new RunConfig
             {

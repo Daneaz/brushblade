@@ -35,8 +35,6 @@ namespace Brushblade.Core.Tests
             meta.PerkLevels["yiqi"] = 2;     // 一气:+1 AP/级
             meta.PerkLevels["bowen"] = 2;    // 博闻:+1 字库格/级
             meta.PerkLevels["jintang"] = 2;  // 金汤:+20 护盾/级(不进 BattleConfig,见下方护盾那条)
-            meta.Deck.Add("剑");
-            meta.Deck.Add("城");
             return meta;
         }
 
@@ -135,8 +133,6 @@ namespace Brushblade.Core.Tests
         public void UnlockedChars_IsTheOwnedCards()
         {
             // 出阵废止后(2026-09-06):合成与回合掉字锁的是整个已解锁卡池,丢了这条注入 = 玩家能合出全字表
-            // ⚠ 故意塞进跟夹具 meta.Deck(剑/城)不同的字 —— 若 UnlockedChars 被悄悄改回读
-            // meta.Deck,这条断言必须能看出来,不能因为两份名单凑巧同内容而失去判别力。
             var meta = LevelElevenWithPerks();
             meta.OwnedCards.Add("灯");
             meta.OwnedCards.Add("炎");

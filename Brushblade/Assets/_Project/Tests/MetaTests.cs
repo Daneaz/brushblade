@@ -274,7 +274,7 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 22));
         }
 
-        // ---- 收集与出阵卡组(19.3.4) ----
+        // ---- 收集(19.3.4) ----
 
         [Test]
         public void AcquireCard_FirstTimeOwns_RepeatBecomesCopies()
@@ -287,75 +287,6 @@ namespace Brushblade.Core.Tests
             MetaRules.AcquireCard(meta, "炎");
             Assert.That(meta.CardCopies["炎"], Is.EqualTo(2));
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "炎" })); // 不重复入收集
-        }
-
-        // 出阵列表(2026-07-19 拍板):5~15 字、每属性≤5;属性种类不限(3 系上限已废止)
-        private static RecipeGraph DeckGraph() => new(new[]
-        {
-            new CharDef("灯", Element.Fire), new CharDef("炎", Element.Fire),
-            new CharDef("烧", Element.Fire), new CharDef("燃", Element.Fire),
-            new CharDef("灼", Element.Fire), new CharDef("炽", Element.Fire),
-            new CharDef("林", Element.Wood), new CharDef("杜", Element.Wood),
-            new CharDef("汀", Element.Water), new CharDef("钉", Element.Metal),
-            new CharDef("圭", Element.Earth), new CharDef("焚", Element.Fire),
-        });
-
-        private static MetaState OwnAll(params string[] cards)
-        {
-            var meta = new MetaState();
-            foreach (var card in cards) MetaRules.AcquireCard(meta, card);
-            return meta;
-        }
-
-        [Test]
-        public void TrySetDeck_ValidatesOwnershipAndDuplicates()
-        {
-            var graph = DeckGraph();
-            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "焚");
-            var baseline = new[] { "灯", "炎", "烧", "燃", "灼" };
-
-            Assert.That(MetaRules.TrySetDeck(meta, baseline, graph), Is.True);
-            Assert.That(meta.Deck, Is.EqualTo(baseline));
-
-            // 未收集
-            Assert.That(MetaRules.TrySetDeck(meta,
-                new[] { "灯", "炎", "烧", "燃", "杜" }, graph), Is.False);
-            // 重复
-            Assert.That(MetaRules.TrySetDeck(meta,
-                new[] { "灯", "灯", "烧", "燃", "灼" }, graph), Is.False);
-            Assert.That(meta.Deck, Is.EqualTo(baseline)); // 失败不动状态
-        }
-
-        [Test]
-        public void TrySetDeck_PerElementLimitFive()
-        {
-            var graph = DeckGraph();
-            var meta = OwnAll("灯", "炎", "烧", "燃", "灼", "炽");
-            // 六张火:超「每属性最多 5」
-            Assert.That(MetaRules.TrySetDeck(meta,
-                new[] { "灯", "炎", "烧", "燃", "灼", "炽" }, graph), Is.False);
-            Assert.That(MetaRules.TrySetDeck(meta,
-                new[] { "灯", "炎", "烧", "燃", "灼" }, graph), Is.True);
-        }
-
-        [Test]
-        public void TrySetDeck_MinimumFive() // 2026-07-19 拍板:出阵不得少于 5 字
-        {
-            var graph = DeckGraph();
-            var meta = OwnAll("灯", "炎", "烧", "燃", "灼");
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃" }, graph), Is.False);
-            Assert.That(MetaRules.TrySetDeck(meta, System.Array.Empty<string>(), graph), Is.False);
-            Assert.That(meta.Deck, Is.Empty); // 失败不动状态
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "炎", "烧", "燃", "灼" }, graph), Is.True);
-        }
-
-        [Test]
-        public void TrySetDeck_AllFiveElements_Allowed() // 3 系上限废止(2026-07-19)
-        {
-            var graph = DeckGraph();
-            var meta = OwnAll("灯", "林", "汀", "钉", "圭");
-            Assert.That(MetaRules.TrySetDeck(meta, new[] { "灯", "林", "汀", "钉", "圭" }, graph), Is.True);
-            Assert.That(meta.Deck.Count, Is.EqualTo(5));
         }
 
         // ---- Task 2(2026-09-06):起手字库改为卡池加权抽,以下三条旧测试测的规则
@@ -610,7 +541,6 @@ namespace Brushblade.Core.Tests
             });
             var meta = new MetaState();
             meta.OwnedCards.AddRange(new[] { "炎", "灯" });
-            meta.Deck.AddRange(new[] { "炎", "灯" });
             meta.CardLevels["灯"] = 3;
             meta.CardCopies["灯"] = 5;
             meta.CardLevels["炎"] = 2;
@@ -627,7 +557,6 @@ namespace Brushblade.Core.Tests
             MetaRules.PruneUnknownCards(meta, graph);
 
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "炎" }));
-            Assert.That(meta.Deck, Is.EqualTo(new[] { "炎" }));
             Assert.That(meta.CardLevels.ContainsKey("灯"), Is.False);
             Assert.That(meta.CardLevels["炎"], Is.EqualTo(2));
             Assert.That(meta.CardCopies.ContainsKey("灯"), Is.False);
@@ -677,14 +606,10 @@ namespace Brushblade.Core.Tests
             }
         }
 
-        [Test]
-        public void StartingDeck_IsSubsetOfCollection_AndHoldsTheDemoChar()
-        {
-            foreach (var id in MetaRules.StartingDeck)
-                Assert.That(MetaRules.StartingCollection.Contains(id), Is.True, $"出阵的「{id}」不在起始收藏里");
-            Assert.That(MetaRules.StartingDeck.Contains(Tutorial.DemoChar), Is.True,
-                "教程要拆的字必须在起手字库里");
-        }
+        // TODO(2026-09-06):教程演示字的起手保证随出阵一起没了。
+        // 此前靠「默认出阵必含 Tutorial.DemoChar」保证首局起手拆得动它;起手改成随机抽之后
+        // 这个保证不存在,教程第一步可能无字可拆。用户将另行修改新游戏的起手解锁字卡与教程本身。
+        // 见 docs/superpowers/specs/2026-09-06-移除出阵-卡池抽卡-design.md 第五节。
 
         [Test]
         public void RarityWeights_AreMonotonicallyDecreasing_AndSumToThousand()

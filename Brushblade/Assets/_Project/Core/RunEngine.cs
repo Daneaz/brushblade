@@ -311,7 +311,7 @@ namespace Brushblade.Core
             }
             if (gainChar != null && _battleConfig.UnlockedChars != null
                 && !_battleConfig.UnlockedChars.Contains(gainChar))
-                return false; // 不在出阵列表(2026-07-20:字摊与战利品/合成同源,没编入就换不到)
+                return false; // 不在已解锁卡池(2026-07-20:字摊与战利品/合成同源,没编入就换不到)
             // 字库满:须指定换掉哪一张(2026-07-22,与战利品 PickRewardReplacing 同一口径);
             // 未指定则拒绝,由表现层转入「换掉哪一个」子步。先验后扣,部件不受损。
             bool replacing = gainChar != null && _carriedLibrary.Count >= _battleConfig.LibraryCapacity;

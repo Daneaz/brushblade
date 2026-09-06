@@ -17,7 +17,6 @@ namespace Brushblade.Core
         /// 顶栏计数都读它。首次获得即入(<see cref="MetaRules.AcquireCard"/>),点开详情即出。
         /// 入档而不是内存里存一份 —— 关掉游戏再进来,没看过的那几张仍该是新的。</summary>
         public List<string> UnseenCards { get; set; } = new();
-        public List<string> Deck { get; set; } = new();                   // 出阵卡组(≤4,19.3.4)
         public List<int> ClearedStages { get; set; } = new();             // 每章已通关数
         public List<ChestState> Chests { get; set; } = new();             // 箱位队列(≤4,19.5.2)
         public List<ChestTier> PendingChests { get; set; } = new();        // 结算时箱位满的暂存箱,开箱腾位后入位(2026-07-22)
@@ -46,14 +45,11 @@ namespace Brushblade.Core
     public static class MetaRules
     {
         public const int MaxCardLevel = 10;
-        public const int DeckLimit = 15;          // 出阵列表上限(2026-07-19 拍板:5×3,后续可调)
-        public const int DeckMinimum = 5;         // 出阵下限(2026-07-19:起手不得少于 5 字)
-        public const int DeckPerElementLimit = 5; // 每属性最多 5 字(属性种类不限,3 系上限已废止)
         public const int StartingLibrarySize = 6; // 起手字库数量 = 五行各一 + 最高档保底一(2026-09-06)
         // 字库容量比起手多一格,留给回合掉字(2026-08-04):否则开局即满库,第一回合必弹 DropChoice
         public const int LibraryCapacitySlack = 1;
 
-        /// <summary>初始收集(2026-08-05 拍板):五系 × 白/绿/蓝各一张,共 15 张 = DeckLimit。
+        /// <summary>初始收集(2026-08-05 拍板):五系 × 白/绿/蓝各一张,共 15 张。
         /// 此前是五系 2 叠紫档字(鍂/林/沝/炎/圭)——玩家一开局就握着紫档,升阶目标感缺失。
         /// 全部要求有配方(可拆可合),否则拆了回不来。</summary>
         public static readonly IReadOnlyList<string> StartingCollection = new[]
@@ -65,14 +61,6 @@ namespace Brushblade.Core
             "冻", "海", "冷", // 水:控制线(白 冻结+30 伤 / 绿 全体 50 / 蓝 减速+90 伤)
             "灭", "热", "爆", // 火:白 驱散+全体 30 / 绿 70 伤+1 层 / 蓝 全体 50+全体 1 层
             "碉", "垒", "碎", // 土:防御与破防(白 召唤肉盾 / 绿 盾 55+20 伤 / 蓝 90 伤+破甲 20)
-        };
-
-        /// <summary>默认出阵 = 五系蓝档各一张。恰好 5 张(≥ DeckMinimum 且 ≤ StartingLibrarySize),
-        /// 所以默认出阵全部进起手字库——教程要拆的字必在手上(见 <see cref="Tutorial.DemoChar"/>)。
-        /// 其余 10 张留在收集里,玩家自行换上(出阵上限 15 格装得下全部)。</summary>
-        public static readonly IReadOnlyList<string> StartingDeck = new[]
-        {
-            "剿", "葬", "冷", "爆", "碎",
         };
 
         /// <summary>卡池所需的部件(2026-09-06,原 DeckComponents):部件的一切来源都从这里取。
@@ -433,30 +421,6 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>设置出阵列表(2026-07-19 拍板):5~15 字、每属性≤5、全部已收集、无重复,
-        /// 否则 false 不动状态。属性种类不限(3 系上限已废止)。无属性字计作心系一类。</summary>
-        public static bool TrySetDeck(MetaState meta, IReadOnlyList<string> cards, RecipeGraph graph)
-        {
-            if (cards.Count > DeckLimit || cards.Count < DeckMinimum)
-                return false;
-            var seen = new HashSet<string>();
-            var perElement = new Dictionary<Element, int>();
-            foreach (var card in cards)
-            {
-                if (!meta.OwnedCards.Contains(card) || !seen.Add(card))
-                    return false;
-                var element = graph.Get(card).Element ?? Element.Heart;
-                perElement.TryGetValue(element, out var count);
-                perElement[element] = count + 1;
-                if (perElement[element] > DeckPerElementLimit)
-                    return false;
-            }
-
-            meta.Deck.Clear();
-            meta.Deck.AddRange(cards);
-            return true;
-        }
-
         /// <summary>五行的抽取顺序:固定,保证同种子同结果。心系不在内 ——
         /// 心系字只能经第 6 张(最高档保底)或战利品进场。</summary>
         private static readonly Element[] StartingElements =
@@ -581,7 +545,6 @@ namespace Brushblade.Core
 
             meta.OwnedCards.RemoveAll(id => !Known(id));
             meta.UnseenCards.RemoveAll(id => !Known(id));   // 下架的字不该还挂着新字红点
-            meta.Deck.RemoveAll(id => !Known(id));
             RemoveUnknownKeys(meta.CardLevels, Known);
             RemoveUnknownKeys(meta.CardCopies, Known);
 

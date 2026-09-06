@@ -26,7 +26,7 @@ namespace Brushblade.Core
         MissingIngredients,// 池中原料不足,无法锻造
         LibraryFull,       // 字库已满
         UnknownChar,       // 图谱中无此字
-        NotUnlocked,       // 此字不在可合成集(2026-07-20:只能合出阵列表里的字)
+        NotUnlocked,       // 此字不在可合成集(2026-07-20:只能合已解锁卡池里的字)
     }
 
     public readonly struct ForgeResult
@@ -120,13 +120,13 @@ namespace Brushblade.Core
             return ForgeResult.Ok(new ForgeState(library, pool));
         }
 
-        /// <summary>可合成集(2026-09-03):出阵列表 ∪ 这些字**配方原料的递归闭包**。
+        /// <summary>可合成集(2026-09-03):已解锁卡池 ∪ 这些字**配方原料的递归闭包**。
         /// unlockedChars 为 null(不限)时原样返回 null。
         ///
-        /// 为什么要闭包:出阵列表管的是「哪些字算你的牌」,而拆解会把它们变成中间产物 ——
-        /// 蕉 拆出 焦,焦 再拆出 隹+灬,可 焦 本身从来不在出阵列表里,于是
+        /// 为什么要闭包:已解锁卡池管的是「哪些字算你的牌」,而拆解会把它们变成中间产物 ——
+        /// 蕉 拆出 焦,焦 再拆出 隹+灬,可 焦 本身从来不在已解锁卡池里,于是
         /// 隹+灬 合不回 焦,拆解成了一条不可逆的单行道(用户 2026-09-03 报的 bug)。
-        /// 闭包正好等于「凡是你能拆出来的,就能拆回去」,不会凭空多出与你卡组无关的字。
+        /// 闭包正好等于「凡是你能拆出来的,就能拆回去」,不会凭空多出与你卡池无关的字。
         ///
         /// 调用方(BattleEngine)算一次就够,<see cref="TryCompose"/> 与 <see cref="Suggest"/>
         /// 本身仍只认「允许集」这一个概念,不在里面做图遍历。</summary>
@@ -148,8 +148,8 @@ namespace Brushblade.Core
         /// <summary>合:消耗配方全部原料 → 产物按**自身性质**归位(部件回池、可出牌字回字库,
         /// 与 <see cref="TryDismantle"/> 的归位规则同一条)。原料优先取部件池,池中没有则消耗
         /// 字库中的低阶字(4.2.3「原料可以是更低阶的汉字」,3.9 战例:合林 → 合焚)。
-        /// unlockedChars 非空时只能合其中的字(2026-07-20 拍板:注入出阵列表,没编入就合不出来);
-        /// null = 不限。真实注入的是 <see cref="ComposableSet"/> 算出的闭包,不是裸出阵列表。
+        /// unlockedChars 非空时只能合其中的字(2026-07-20 拍板:注入已解锁卡池,没解锁就合不出来);
+        /// null = 不限。真实注入的是 <see cref="ComposableSet"/> 算出的闭包,不是裸卡池。
         ///
         /// poolCapacity 只在**产物是部件**(烝 = 丞 + 灬 这类带配方的部件)时才用得上,
         /// 故给了 int.MaxValue 缺省供不涉及这一支的既有调用与测试沿用;真实调用方

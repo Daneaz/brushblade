@@ -28,9 +28,9 @@ namespace Brushblade.Core
     /// <summary>新手引导步骤机:动作通知驱动线性推进;文案由表现层按 Step 映射。</summary>
     public sealed class Tutorial
     {
-        /// <summary>首局演示字:必须在默认出阵里(StartingSetupTests 守这条),
-        /// 且配方是「部件+部件」——拆开就能原地合回,不依赖别的字。
-        /// 2026-09-05:刺 移出字表,换成同为金系蓝档纯直伤的 剿(配方 巢 + 刂)。</summary>
+        /// <summary>首局演示字:配方是「部件+部件」——拆开就能原地合回,不依赖别的字。
+        /// 2026-09-05:刺 移出字表,换成同为金系蓝档纯直伤的 剿(配方 巢 + 刂)。
+        /// ⚠ 出阵废止后(2026-09-06)起手已无「必在起手字库里」的保证,见 MetaTests 里的 TODO。</summary>
         public const string DemoChar = "剿";
 
         private static readonly (TutorialStep step, TutorialAction action, string charId)[] Script =

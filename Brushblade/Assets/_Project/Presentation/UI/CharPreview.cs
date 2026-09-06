@@ -29,7 +29,7 @@ namespace Brushblade.Presentation
     /// ⚠ 与单位详情(<see cref="UnitSheet"/>)同一族:墨遮罩 + 宣纸圆角卡 + 右上角关闭。
     /// **默认只读**:「长按只看不出手」(<see cref="HoldToPreview"/> 松手不补发点击)是既有语义,
     /// 在战斗里给这张弹窗加钮就等于把长按变成出手的第二条路。唯一的例外是卡组页 ——
-    /// 它传 footActions 在脚上挂「编入出阵 / 升级」两个钮,那一处本来就是拿来改配置的,
+    /// 它传 footActions 在脚上挂「升级」钮,那一处本来就是拿来改配置的,
     /// 而且没有长按这条路径。</summary>
     public static class CharPreview
     {
@@ -38,7 +38,7 @@ namespace Brushblade.Presentation
         {
             /// <summary>部件池(部件牌的「能凑出什么」按它判缺料)。</summary>
             public IReadOnlyList<string> Pool;
-            /// <summary>本场能合出的字(出阵表 + 拆出来的中间字);口径同拆合台。</summary>
+            /// <summary>本场能合出的字(已解锁卡池 + 拆出来的中间字);口径同拆合台。</summary>
             public IReadOnlyCollection<string> Craftable;
         }
 
@@ -71,11 +71,11 @@ namespace Brushblade.Presentation
 
         /// <param name="meta">养成外层存档。给了就画「等级(含升级成本)」或「怎么获得」那一段
         /// —— 战斗里传 null:局内不能升级、也不谈获取,那一处的等级靠头上的角标交代。</param>
-        /// <param name="footActions">脚上的操作钮。只有卡组页传(编入出阵 / 升级),
+        /// <param name="footActions">脚上的操作钮。只有卡组页传(升级),
         /// 其余入口留 null 保持**纯只读** —— 「长按只看不出手」是既有语义,
         /// 在战斗里给这张弹窗加钮就等于把长按变成出手的第二条路。
         /// 收 <c>System.Action&lt;Transform&gt;</c> 而不是一串按钮参数:哪个钮能点、点了做什么,
-        /// 判据全在卡组页那边(出阵配额、份数、墨锭),搬进来只会让这里跟着长出一套规则。</param>
+        /// 判据全在卡组页那边(份数、墨锭),搬进来只会让这里跟着长出一套规则。</param>
         public static GameObject Show(Transform root, CharDef def, RecipeGraph graph, int cardLevel = 1,
             BattleContext battle = null, MetaState meta = null, System.Action<Transform> footActions = null)
         {

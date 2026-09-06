@@ -560,7 +560,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Reward_OnlyDrawsFromGivenPool() // 池 = 出阵列表,外面的字不该冒出来
+        public void Reward_OnlyDrawsFromGivenPool() // 池 = 已解锁卡池,外面的字不该冒出来
         {
             var run = RarityRun(seed: 3, pool: new[] { "蓝1", "蓝2" });
             WinCurrentBattle(run);

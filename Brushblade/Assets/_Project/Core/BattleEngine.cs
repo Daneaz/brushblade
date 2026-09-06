@@ -151,7 +151,7 @@ namespace Brushblade.Core
         /// Core/Data/Presentation/配置校验四处引用,清理超出掉落改造本次范围。</summary>
         public IReadOnlyList<string> DropTable { get; set; } = Array.Empty<string>();
 
-        /// <summary>可合成的字集合 = 玩家的出阵列表(2026-07-20 拍板:没编入出阵就合不出来,
+        /// <summary>可合成的字集合 = 玩家已解锁卡池(2026-07-20 拍板:没解锁就合不出来,
         /// 与战利品同源);null = 不限(工装与旧调用)。</summary>
         public IReadOnlyCollection<string> UnlockedChars { get; set; }
 
@@ -810,11 +810,11 @@ namespace Brushblade.Core
 
         internal void RaisePoolCapacity(int bonus) => _config.PoolCapacity += bonus;
 
-        /// <summary>出阵列表;null = 不限。回合掉字与战利品按此取。
+        /// <summary>已解锁卡池;null = 不限。回合掉字与战利品按此取。
         /// ⚠ 「能不能合出来」不看这个,看 <see cref="ComposableChars"/> —— 两者 2026-09-03 分家。</summary>
         public IReadOnlyCollection<string> UnlockedChars => _config.UnlockedChars;
 
-        /// <summary>可合成字集(2026-09-03):出阵列表 + 其配方原料的递归闭包。
+        /// <summary>可合成字集(2026-09-03):已解锁卡池 + 其配方原料的递归闭包。
         /// 引擎的 <see cref="Compose"/> 与表现层的拆合台提示都按这个过滤 ——
         /// 拆出来的中间字(蕉 → 焦 → 隹+灬)必须合得回去,理由见 ForgeEngine.ComposableSet。
         /// 一场之内 UnlockedChars 不变,故算一次缓存住。</summary>

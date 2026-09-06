@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>卡组(收集与出阵,19.3)。版式基线 = <c>docs/design/ui/scenes/Main.dc.html</c>:
+    /// <summary>卡组(收集与卡池概览,19.3)。版式基线 = <c>docs/design/ui/scenes/Main.dc.html</c>:
     /// 顶栏 / 六系筛选栏 / 左网格右详情。
     ///
     /// ⚠ 尺寸常量都是**逻辑单位**,由稿子的 pt 换算而来(1pt = 2.093,见 Device.dc.html)。
