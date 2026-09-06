@@ -175,13 +175,6 @@ namespace Brushblade.Presentation
                     ("level", BranchLevel(meta, "vigor")),
                     ("value", MetaRules.PlayerMaxHpFor(meta))),
             });
-            // TODO(T2): 金汤废止,连同 perk_shield 这个条目删掉(见 GameRoot.cs 的同名 TODO)。
-            list.Add(new AbilityEntry
-            {
-                IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
-                Name = Strings.T("player.detail.perk_shield_name"),
-                Desc = Strings.T("player.detail.perk_shield_desc", ("level", 0), ("value", 0)),
-            });
             return list;
         }
 

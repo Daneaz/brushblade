@@ -166,7 +166,6 @@ namespace Brushblade.Presentation
                     // 教程不靠这个池——拆演示字本身就产出它的两个部件。
                     Pool = new System.Collections.Generic.List<string>(MetaRules.RollStartingPool(
                         _meta.OwnedCards, _graph, startRandom)),
-                    NormalShield = 0, // TODO(T2): 金汤废止,连同这一行删掉
                     // 结算页新纪录条的「旧纪录」只能在这里留:段末告捷会当场 UpdateBest,
                     // 到结算时 _meta.BestDepth 已经是本次成绩了(见 EndlessSaveState 的注释)
                     BestDepthBeforeRun = _meta.BestDepth,
@@ -216,8 +215,7 @@ namespace Brushblade.Presentation
                     // (这条在 2026-08-30 之前就错着,只是当时只有字摊净额走这本账,数额小、没人碰上;
                     //  爬塔层墨锭并进来之后每次挂起都会撞上,所以一并修掉。)
                     run = RunEngine.Restore(resume.Run, _graph, runConfig, battleConfig, _meta.CardLevels,
-                        startingInk: _meta.Ink - resume.CommittedEventInk,
-                        perFloorNormalShield: 0); // TODO(T2): 金汤废止,连同这一行删掉
+                        startingInk: _meta.Ink - resume.CommittedEventInk);
                     _committedEventInk = resume.CommittedEventInk; // 不接上会把已结的净额重复入账
                 }
                 catch (System.InvalidOperationException)
@@ -245,7 +243,6 @@ namespace Brushblade.Presentation
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
                 startingPersistShield: snapshot.PersistShield,
-                perFloorNormalShield: 0, // TODO(T2): 金汤废止,连同这一行删掉
                 startingSummons: snapshot.CarriedSummons, // 召唤物跨段延续(2026-08-03),与普通盾同口径
                 startingStatuses: snapshot.CarriedStatuses, // 减伤跨段延续(2026-08-04),同上
                 // 广告扩容走构造参数而非事后 TryExpand*(2026-08-18):RunEngine 的构造函数里就开打

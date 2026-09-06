@@ -260,11 +260,14 @@ namespace Brushblade.Core
                 // 生命是唯一吃养元加成的属性(19.2.1 + 第 A 章技能表)
                 PlayerMaxHp = PlayerMaxHpFor(meta),
                 PlayerAttack = AttackFor(level),
-                PlayerDefense = DefenseFor(level),
+                // 护甲 = 等级曲线 + 御枝(spec §4)。等级给 12、技能给 10 已到边界 ——
+                // DefenseFor 的注释写着再高会让等级压过字表、土系防御字失去意义。
+                PlayerDefense = DefenseFor(level) + PerkRules.Bonus(meta, PerkEffect.Defense),
                 PlayerDodge = DodgeFor(level),
                 PlayerSpeed = SpeedFor(level),
-                // ⚠ 没有 PlayerCritChance:暴击**不随角色等级成长**(2026-08-12 用户裁定),
-                // 缺省 0 让 RollCrit 短路、一次随机都不摇。见 BattleConfig.PlayerCritChance。
+                // 暴击**不随角色等级成长**(2026-08-12 用户裁定),锋枝是唯一来源。
+                // 缺省 0 让 RollCrit 短路、一次随机都不摇 —— 那是 E-b2 的验收硬线。
+                PlayerCritChance = PerkRules.Bonus(meta, PerkEffect.CritChance),
                 UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
                 ApPerTurn = BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap), // 一气
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
