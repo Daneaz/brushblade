@@ -4944,8 +4944,16 @@ namespace Brushblade.Presentation
             else
                 MaybeModalError(error, charId, _graph.Get(charId).ApCost);
             _message = error == BattleError.None ? Strings.T("battle.msg.cast_success", ("charId", charId)) : Describe(error);
-            AppendBossPhaseMessage();
-            AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
+            // 守卫(2026-09-06,T3 评审 Important):Battle.Cast() 的前置校验全部在
+            // _events.Clear() 之前 return(BattleEngine.cs:1019),失败时 LastEvents
+            // 仍是上一次成功施放遗留的陈旧事件——不加这条 error == None 守卫,两条播报
+            // 都会把上一次的 Boss 破阶/封禁降级安到这一次失败操作头上。两条一起修:
+            // 它们是同一个调用点、同一类缺陷,守卫写在这里比各自函数里各判一次更不会漏。
+            if (error == BattleError.None)
+            {
+                AppendBossPhaseMessage();
+                AppendSuppressDowngradedMessage(); // 封禁打在 Boss 身上会降级,同 AppendBossPhaseMessage 一样产自 Cast() 自己的 _events
+            }
             // 蓄力/释放/护盾被掀空事件只产自 EndTurn(见 OnEndTurn 处的 AppendBossSkillMessage),
             // Cast() 自己的 _events 永远不会有这三种——此前这里的调用是死代码(F4,2026-07-29)
             var deaths = error == BattleError.None ? DeathsThisAction() : new System.Collections.Generic.List<int>();
