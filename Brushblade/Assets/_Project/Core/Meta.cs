@@ -259,7 +259,12 @@ namespace Brushblade.Core
                 DropTable = dropTable,
                 // 生命是唯一吃养元加成的属性(19.2.1 + 第 A 章技能表)
                 PlayerMaxHp = PlayerMaxHpFor(meta),
-                PlayerAttack = AttackFor(level),
+                // 攻击 = 等级曲线 × (100 + 力枝) / 100(spec §4.3)。
+                // 加算后一次性乘,**不是**逐层复利 —— 1.05×1.10×1.15 = 1.328 会让第三层
+                // 悄悄超出标称的 +30%,且没有任何断言会红。
+                // pct = 0 时 x × 100 / 100 == x,逐字节恒等。
+                PlayerAttack = AttackFor(level)
+                    * (100 + PerkRules.Bonus(meta, PerkEffect.AttackPercent)) / 100,
                 // 护甲 = 等级曲线 + 御枝(spec §4)。等级给 12、技能给 10 已到边界 ——
                 // DefenseFor 的注释写着再高会让等级压过字表、土系防御字失去意义。
                 PlayerDefense = DefenseFor(level) + PerkRules.Bonus(meta, PerkEffect.Defense),

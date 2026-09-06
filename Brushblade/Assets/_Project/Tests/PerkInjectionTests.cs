@@ -100,5 +100,58 @@ namespace Brushblade.Core.Tests
                 Assert.That(def.Branch, Is.Not.EqualTo("jintang"),
                     "金汤职能被御枝(护甲)与土脉(护盾字)双重覆盖,已废止");
         }
+
+        // ---- 机制树:字库容量与起手张数是两条独立的轴 ----
+
+        /// <summary>「博闻」只加容量,不加起手张数。改前这两件事是同一个 LibraryBonus。</summary>
+        [Test]
+        public void LoreBranch_RaisesCapacityOnly()
+        {
+            var meta = new MetaState { CharacterXp = 0 };
+            int baseCap = MetaRules.LibraryCapacityFor(meta);
+            meta.UnlockedPerks.Add("lore_1");
+            Assert.That(MetaRules.LibraryCapacityFor(meta), Is.EqualTo(baseCap + 1));
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.StartingCards), Is.EqualTo(0),
+                "博闻不该动起手张数");
+        }
+
+        /// <summary>「广纳」只加起手张数。</summary>
+        [Test]
+        public void WideBranch_RaisesStartingCardsOnly()
+        {
+            var meta = new MetaState { CharacterXp = 0 };
+            meta.UnlockedPerks.Add("wide_1");
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.StartingCards), Is.EqualTo(1));
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.LibraryCapacity), Is.EqualTo(0),
+                "广纳不该动字库容量");
+        }
+
+        // ---- 被动树:力枝 ----
+
+        [Test]
+        public void PowerBranch_ScalesAttackByPercent()
+        {
+            var meta = new MetaState { CharacterXp = 0 };   // Lv.1,AttackFor(1) = 100
+            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(100), "夹具自检");
+            meta.UnlockedPerks.Add("power_1"); // +5%
+            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(105));
+            meta.UnlockedPerks.Add("power_2"); // 累计 +15%
+            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(115));
+            meta.UnlockedPerks.Add("power_3"); // 累计 +30%
+            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(130));
+        }
+
+        /// <summary>百分比是加算后一次性乘,不是逐层复利 —— 1.05×1.10×1.15 = 1.328 ≠ 1.30。
+        /// 复利会让第三层悄悄比标称值强,而没有任何断言会红。</summary>
+        [Test]
+        public void PowerBranch_IsAdditiveNotCompounding()
+        {
+            var meta = new MetaState { CharacterXp = 0 };
+            meta.UnlockedPerks.Add("power_1");
+            meta.UnlockedPerks.Add("power_2");
+            meta.UnlockedPerks.Add("power_3");
+            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(130));
+            Assert.That(Build(meta).PlayerAttack, Is.Not.EqualTo(132));
+        }
     }
 }
