@@ -75,9 +75,6 @@ namespace Brushblade.Presentation
                 // 与 StatusText.OfRange / OfSummonRange 的 Desc 一并去掉,三处口径统一。
                 Add(modes, seen, new Mode(true,
                     ranged ? Strings.T("collection.mode.ranged") : Strings.T("collection.mode.melee")));
-                if (passive != null && passive.Shape != TargetShape.Single)
-                    Add(modes, seen, new Mode(true, ShapeName(passive.Shape),
-                        ShapeNote(passive.Shape, passive.ShapePercent, passive.Shots)));
                 return modes;
             }
 
@@ -96,12 +93,10 @@ namespace Brushblade.Presentation
                 switch (e.Kind)
                 {
                     case EffectKind.DamageSingle:
-                        Add(modes, seen, new Mode(true, Strings.T("collection.mode.single_attack"),
-                            DamageNote(e)));
+                        Add(modes, seen, new Mode(true, Strings.T("collection.mode.single_attack")));
                         break;
                     case EffectKind.DamageAll:
-                        Add(modes, seen, new Mode(true, Strings.T("collection.mode.all_attack"),
-                            DamageNote(e)));
+                        Add(modes, seen, new Mode(true, Strings.T("collection.mode.all_attack")));
                         break;
                     case EffectKind.Shield:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_shield"),
@@ -134,17 +129,6 @@ namespace Brushblade.Presentation
             if (seen.Add(mode.Name)) modes.Add(mode);
         }
 
-        /// <summary>伤害那一条的形状限定:贯穿 / 横扫 / 溅射 / 连发 / 弹射,以及能不能越过前排。</summary>
-        private static string DamageNote(EffectDef e)
-        {
-            // 只留形状限定(贯穿 · 溅 60% · 共 3 发)—— 溅多少、几发是选目标时要算的账。
-            // 「可越过前排」那句去掉了(2026-09-04 改稿):偷袭已经在「特性 · 技能」里有一条,
-            // 行尾再写一遍是同一件事说两遍
-            if (e.Shape != TargetShape.Single)
-                return ShapeName(e.Shape) + ShapeNote(e.Shape, e.ShapePercent, e.Shots);
-            return "";
-        }
-
         private static string ShapeName(TargetShape shape) => shape switch
         {
             TargetShape.Sweep => Strings.T("char.shape.sweep"),
@@ -166,6 +150,16 @@ namespace Brushblade.Presentation
                     => Strings.T("char.shape.suffix.splash", ("percent", percent)),
                 _ => "",
             };
+        }
+
+        /// <summary>目标形状(贯穿 / 横扫 / 溅射 / 连发 / 弹射)算特性技能,不算攻击模式
+        /// (spec §1.5,2026-09-06)。单体不算形状,不建卡。名字与后缀复用
+        /// <see cref="ShapeName"/> / <see cref="ShapeNote"/> ——两个渲染器保持不动,这里只是换了个挂载点。</summary>
+        private static void AddShapeTrait(List<Trait> traits, TargetShape shape, int percent, int shots)
+        {
+            if (shape == TargetShape.Single) return;
+            var name = ShapeName(shape);
+            AddWord(traits, name, name, ShapeNote(shape, percent, shots));
         }
 
         // ================= 特性 · 技能 =================
@@ -362,7 +356,10 @@ namespace Brushblade.Presentation
 
                 // 伤害上的修饰(穿透 / 偷袭 / 分段 / 斩杀 / 条件翻倍):挂在这一击上,不是独立效果
                 if (e.Kind == EffectKind.DamageSingle || e.Kind == EffectKind.DamageAll)
+                {
                     DamageModifiers(traits, e);
+                    AddShapeTrait(traits, e.Shape, e.ShapePercent, e.Shots);
+                }
                 if (e.SummonShield > 0)
                     AddTrait(traits, "shield", e.SummonShield.ToString(),
                             Strings.T("collection.trait.summon_shield.name"),
@@ -473,6 +470,7 @@ namespace Brushblade.Presentation
                 AddTrait(traits, "freeze", p.OnSummonFreeze.ToString(),
                             Strings.T("collection.trait.summon_onsummonfreeze.name"),
                             Strings.T("collection.trait.summon_onsummonfreeze.desc", ("value", p.OnSummonFreeze)));
+            AddShapeTrait(traits, p.Shape, p.ShapePercent, p.Shots);
         }
 
         // ---- 建条目:名与说明各一个 key,拼在一起的话翻译者拿不到完整句子 ----
