@@ -587,6 +587,20 @@ namespace Brushblade.Core
             return enemy.IsBoss ? enemy.Defense / 2 : 0;
         }
 
+        /// <summary>封禁 + 破甲叠加后、玩家实际看到的护甲数(2026-09-06,终审必修 7)。
+        ///
+        /// public(纯只读读取面,不改行为):此前 <c>Presentation.EnemyInfo.BuildFigures</c> 自己拼了
+        /// 这条 `Max(0, SuppressArmorOf(enemy) - ArmorBreak)`,而 <c>BattleView</c> 头行护甲 chip
+        /// 只读了 <see cref="SuppressArmorOf"/>——同一屏两个数,对封禁都响应、只有详情弹窗那个
+        /// 对破甲响应,玩家出破甲字只看见 chip 图标却看不见数字变化。两处现在都读这一个函数,
+        /// 不在表现层各自拼一遍(与 <see cref="SuppressArmorOf"/> 自己的注释同一条纪律)。
+        ///
+        /// ⚠ 不含穿透(<see cref="EffectiveEnemyDefense"/> 才含):穿透是攻击方视角的属性,
+        /// 按既有设计分工(2026-09-01 review 追加裁定,见 <c>EnemyInfo.BuildFigures</c> 的
+        /// defenseNote 注释)不该出现在「这只怪的甲」这个数里,别把两个函数合并。</summary>
+        public static int DisplayedEnemyDefense(EnemyState enemy) => Math.Max(0,
+            SuppressArmorOf(enemy) - enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak));
+
         /// <summary>玩家挨一记时的有效护甲(点数,2026-08-12,E-b4 T2)= 角色属性 + 局内护甲增益
         /// − 身上的破甲,下钳 0。与 <see cref="EffectiveAttack"/> / <see cref="EffectiveCrit"/> 同形:
         /// **基础值来自 config(战中不可变),变动量全在 <c>_playerStatuses</c> 里**。

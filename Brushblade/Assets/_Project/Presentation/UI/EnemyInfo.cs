@@ -267,7 +267,10 @@ namespace Brushblade.Presentation
             // 封禁(2026-09-06,T3):杂兵护甲归零/Boss 减半,读 Core 的 SuppressArmorOf——
             // 不在这里重新判一遍 StatusKind.Silence,那正是两处口径分叉的起点。
             int suppressedDefense = BattleEngine.SuppressArmorOf(enemy);
-            int defenseValue = System.Math.Max(0, suppressedDefense - armorBreak);
+            // defenseValue 改读 DisplayedEnemyDefense(终审必修 7,2026-09-06):与 BattleView
+            // 头行护甲 chip 读同一个函数,不在这里自己拼 Max(0, suppressedDefense - armorBreak)——
+            // 此前只有这里减了破甲、头行没减,玩家出破甲字只看见 chip 图标、数字却不变。
+            int defenseValue = BattleEngine.DisplayedEnemyDefense(enemy);
             int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
             int speedValue = TurnScheduler.ClampSpeed(enemy.Speed + speedMod);
 

@@ -2580,13 +2580,14 @@ namespace Brushblade.Presentation
                 // 图标」这件事 —— 那枚图标在玩家状态栏里表示的是攻击**增益**。
                 HeaderChip(header.transform, $"{enemy.Attack}", Theme.PaperDim, Theme.TextMain,
                     RangeIcon(enemy.Def.Range == AttackRange.Ranged));
-                // 护甲同理并进头行(2026-09-05):它是配置在 EnemyDef 上的**基础属性**、
-                // 战斗中永不被写(见 EnemyState.Defense 那条硬约束),与攻击力同族,
-                // 不该混在讲战况的 chip 行里。0 甲不出 —— 与旧口径一致,没有的东西不占位。
-                // 封禁(2026-09-06,T3):杂兵护甲归零/Boss 减半,读 Core 的 SuppressArmorOf——
-                // 不在这里重新判一遍 StatusKind.Silence,与 EnemyInfo.BuildFigures 读同一个数,
-                // 免得表现层两处口径分叉。0 甲不出的旧口径延续:封禁后杂兵归零,chip 随之消失。
-                int shownDefense = BattleEngine.SuppressArmorOf(enemy);
+                // 护甲同理并进头行(2026-09-05):EnemyDef 上的基础属性只是起点,与攻击力
+                // 同族,不该混在讲战况的 chip 行里。0 甲不出 —— 与旧口径一致,没有的东西不占位。
+                // 封禁 + 破甲(2026-09-06,终审必修 7):这里显示的是**当前实际护甲**,会同时
+                // 响应封禁(杂兵归零/Boss 减半)与破甲——读 Core 的 DisplayedEnemyDefense,不在
+                // 这里重新拼一遍,与 EnemyInfo.BuildFigures 的 defenseValue 读同一个数。此前这里
+                // 只读了 SuppressArmorOf(只减封禁、不减破甲),详情弹窗却两者都减,玩家出破甲字
+                // 头行数字纹丝不动、点开详情才发现变了。0 甲不出的旧口径延续:归零后 chip 消失。
+                int shownDefense = BattleEngine.DisplayedEnemyDefense(enemy);
                 if (shownDefense > 0)
                     HeaderChip(header.transform, $"{shownDefense}", Theme.InkSoft, Color.white, "defense");
 
