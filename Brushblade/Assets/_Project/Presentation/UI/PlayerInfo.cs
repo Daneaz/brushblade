@@ -147,7 +147,8 @@ namespace Brushblade.Presentation
             // StringsTableTests 扫的是紧跟在 T( 后面的字符串字面量,key 从变量传进去它认不出来,
             // 会被判成没人用的孤儿(StatusText.cs 的注释早就点过这个坑;第一版这里图省事把
             // key 做成了参数,工装跑一遍就红,改回逐条直写)。
-            // 等级读 PerkRules.PerkLevel;数值走各自的 MetaRules/PerkRules 公式——与
+            // 技能树重构(2026-09-07,T1 临时接线):「等级」换成「该枝已点亮节点数」——
+            // 单级节点没有等级维度,数值走各自的 MetaRules/PerkRules 公式,与
             // MetaRules.BuildBattleConfig 当初把这些值写进战斗配置时用的是同一条公式,不另起
             // 一套算法。稿上的 Lv.3/Lv.4/Lv.6/Lv.2 只是画图时的示例数字,这里一律读 meta 现算。
             list.Add(new AbilityEntry
@@ -155,15 +156,15 @@ namespace Brushblade.Presentation
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_ap_name"),
                 Desc = Strings.T("player.detail.perk_ap_desc",
-                    ("level", PerkRules.PerkLevel(meta, "yiqi")),
-                    ("value", MetaRules.BaseApPerTurn + PerkRules.ApBonus(meta))),
+                    ("level", BranchLevel(meta, "qi")),
+                    ("value", MetaRules.BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap))),
             });
             list.Add(new AbilityEntry
             {
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_library_name"),
                 Desc = Strings.T("player.detail.perk_library_desc",
-                    ("level", PerkRules.PerkLevel(meta, "bowen")),
+                    ("level", BranchLevel(meta, "lore")),
                     ("value", MetaRules.LibraryCapacityFor(meta))),
             });
             list.Add(new AbilityEntry
@@ -171,18 +172,27 @@ namespace Brushblade.Presentation
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_hp_name"),
                 Desc = Strings.T("player.detail.perk_hp_desc",
-                    ("level", PerkRules.PerkLevel(meta, "yangyuan")),
+                    ("level", BranchLevel(meta, "vigor")),
                     ("value", MetaRules.PlayerMaxHpFor(meta))),
             });
+            // TODO(T2): 金汤废止,连同 perk_shield 这个条目删掉(见 GameRoot.cs 的同名 TODO)。
             list.Add(new AbilityEntry
             {
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_shield_name"),
-                Desc = Strings.T("player.detail.perk_shield_desc",
-                    ("level", PerkRules.PerkLevel(meta, "jintang")),
-                    ("value", PerkRules.ShieldBonus(meta))),
+                Desc = Strings.T("player.detail.perk_shield_desc", ("level", 0), ("value", 0)),
             });
             return list;
+        }
+
+        /// <summary>该枝已点亮的节点数(0..枝长)。技能树重构后节点单级,没有「等级」这个概念——
+        /// 这里借「已点几层」在角色详情页临时顶替旧的 PerkLevel 显示,T9 重新设计详情页时再改。</summary>
+        private static int BranchLevel(MetaState meta, string branch)
+        {
+            int n = 0;
+            foreach (var def in PerkRules.Nodes)
+                if (def.Branch == branch && PerkRules.IsUnlocked(meta, def.Id)) n++;
+            return n;
         }
     }
 }

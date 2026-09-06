@@ -463,7 +463,7 @@ namespace Brushblade.Core.Tests
             var meta = PoolMeta(FullPool);
             int baseline = MetaRules.StartingLibrary(meta, graph, new GameRandom(9)).Count;
             Assert.That(baseline, Is.EqualTo(6));
-            meta.PerkLevels["bowen"] = 1;
+            meta.UnlockedPerks.Add("wide_1");
             Assert.That(MetaRules.StartingLibrary(meta, graph, new GameRandom(9)).Count,
                 Is.EqualTo(7), "博闻每级追加一张自由加权抽");
         }
@@ -508,14 +508,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Save_RoundTrips_PerkLevels()
+        public void Save_RoundTrips_UnlockedPerks()
         {
             var meta = new MetaState();
-            meta.PerkLevels["yangyuan"] = 3;
-            meta.PerkLevels["yiqi"] = 1;
+            meta.UnlockedPerks.Add("vigor_1");
+            meta.UnlockedPerks.Add("qi_1");
             var restored = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
-            Assert.That(PerkRules.PerkLevel(restored, "yangyuan"), Is.EqualTo(3));
-            Assert.That(PerkRules.PerkLevel(restored, "yiqi"), Is.EqualTo(1));
+            Assert.That(PerkRules.IsUnlocked(restored, "vigor_1"), Is.True);
+            Assert.That(PerkRules.IsUnlocked(restored, "qi_1"), Is.True);
         }
 
         [TestCase(null)]

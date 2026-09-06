@@ -10,7 +10,13 @@ namespace Brushblade.Core
         public int CharacterXp { get; set; }
         public int Ink { get; set; }                                    // 墨锭
         public Dictionary<string, int> CardLevels { get; set; } = new();  // 缺省 1 级
-        public Dictionary<string, int> PerkLevels { get; set; } = new();  // 技能 id → 等级;缺省 0=未解锁
+        /// <summary>已点亮的技能节点 id(spec 2026-09-07)。节点是**单级**的,只需记「点没点」。
+        ///
+        /// 换形自 <c>PerkLevels</c>(id → 等级):项目未上线,**不写迁移**。改键名后旧的
+        /// PerkLevels 键变成未知键,Newtonsoft 直接忽略 —— 技能清零、墨锭/卡等级/图鉴/经验
+        /// 照常读出。走的是 EndlessV2 那次改名的同一条路径,**不是**抛 JsonException
+        /// 被 SaveSerializer.FromJson 兜底成整份存档清空。</summary>
+        public List<string> UnlockedPerks { get; set; } = new();
         public Dictionary<string, int> CardCopies { get; set; } = new();  // 待消耗重复卡
         public List<string> OwnedCards { get; set; } = new();             // 收集(首次获得即入)
         /// <summary>还没在卡组页点开看过的新字(2026-09-03):卡组页的「新」角旗、页签红点、
@@ -101,7 +107,7 @@ namespace Brushblade.Core
         /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻加成。「容量比起手多一格」这个关系
         /// 只在这一处定义——GameRoot 接线时调这个,不要在那边散写 +1。</summary>
         public static int LibraryCapacityFor(MetaState meta) =>
-            StartingLibrarySize + LibraryCapacitySlack + PerkRules.LibraryBonus(meta);
+            StartingLibrarySize + LibraryCapacitySlack + PerkRules.Bonus(meta, PerkEffect.LibraryCapacity);
 
         /// <summary>抽卡的稀有度权重(千分比,索引 = rarity − 1;2026-09-06 拍板)。
         /// 重心在绿/蓝,两头稀:白档虽然最不稀有,但压在绿之下 —— 起手全是白字开不了局。
@@ -216,7 +222,7 @@ namespace Brushblade.Core
         /// <c>MaxHpFor(level) + PerkRules.HpBonus(meta)</c> —— 将来生命再加第二个 Bonus 项,
         /// 改一处漏一处不会有任何东西报错。</summary>
         public static int PlayerMaxHpFor(MetaState meta) =>
-            MaxHpFor(CharacterLevel(meta.CharacterXp)) + PerkRules.HpBonus(meta);
+            MaxHpFor(CharacterLevel(meta.CharacterXp)) + PerkRules.Bonus(meta, PerkEffect.MaxHp);
 
         /// <summary>登塔时的战斗配置 = 角色等级派生的属性 + 养成加成 + 已解锁卡池(2026-09-06,
         /// 原「出阵表」;19.2.1)。
@@ -246,7 +252,7 @@ namespace Brushblade.Core
                 // ⚠ 没有 PlayerCritChance:暴击**不随角色等级成长**(2026-08-12 用户裁定),
                 // 缺省 0 让 RollCrit 短路、一次随机都不摇。见 BattleConfig.PlayerCritChance。
                 UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
-                ApPerTurn = BaseApPerTurn + PerkRules.ApBonus(meta), // 一气
+                ApPerTurn = BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap), // 一气
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
             };
         }
@@ -527,7 +533,7 @@ namespace Brushblade.Core
             var top = TopRarityCards(candidates, graph);
             if (top.Count > 0) library.Add(top[random.Next(top.Count)]);
 
-            for (int i = 0; i < PerkRules.LibraryBonus(meta); i++)
+            for (int i = 0; i < PerkRules.Bonus(meta, PerkEffect.StartingCards); i++)
             {
                 var extra = DrawWeighted(candidates, graph, random);
                 if (extra == null) break;

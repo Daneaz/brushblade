@@ -549,8 +549,8 @@ namespace Brushblade.Presentation
             foreach (var def in _enemies)
                 if (BestiaryRules.IsUnlocked(_meta, def.Id)) unlockedEnemies++;
             int unlockedPerks = 0;
-            foreach (var perk in PerkRules.All)
-                if (PerkRules.PerkLevel(_meta, perk.Id) > 0) unlockedPerks++;
+            foreach (var perk in PerkRules.Nodes)
+                if (PerkRules.IsUnlocked(_meta, perk.Id)) unlockedPerks++;
 
             // 红点各有各的判据,都问 Core:亮着而点进去无事可做是最烦人的那种假消息
             NavTab(nav.transform, "nav_deck", Strings.T("map.nav.collection"),
@@ -560,7 +560,7 @@ namespace Brushblade.Presentation
                 Strings.T("map.nav.bestiary_sub", ("unlocked", unlockedEnemies), ("total", _enemies.Count)),
                 () => _onOpenBestiary(), BestiaryRules.HasUnclaimed(_meta), Theme.BestiaryTab);
             NavTab(nav.transform, "nav_perks", Strings.T("map.nav.perks"),
-                Strings.T("map.nav.perks_sub", ("unlocked", unlockedPerks), ("total", PerkRules.All.Count)),
+                Strings.T("map.nav.perks_sub", ("unlocked", unlockedPerks), ("total", PerkRules.Nodes.Count)),
                 () => _onOpenPerks(), PerkRules.HasUpgradable(_meta), Theme.PerkTab);
             NavTab(nav.transform, "nav_shop", Strings.T("map.nav.shop"), Strings.T("map.nav.shop_sub"),
                 () => _onOpenShop(), ShopRules.HasRedDot(_meta, _time), Theme.ShopTab);

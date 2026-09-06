@@ -1,56 +1,23 @@
-using System.Text;
 using Brushblade.Core;
 using Brushblade.Data;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>技能简述:从定义机械生成(效果短语 / 详情作用)。牌面与详情弹窗共用。</summary>
+    /// <summary>技能节点简述:从定义机械生成。临时可编译版(T1,技能树重构)——
+    /// 新增的那些 PerkEffect 暂时全部落到一个通用文案,逐条效果文案是 T9 的事。</summary>
     public static class PerkInfo
     {
-        /// <summary>牌面底部一行:每级效果短语(如「AP +1」)。</summary>
-        public static string ShortEffect(PerkDef def) => def.Effect switch
+        /// <summary>一行短语(如「AP +1」)。</summary>
+        public static string ShortEffect(PerkNodeDef def) => def.Effect switch
         {
-            PerkEffect.MaxHp => Strings.T("perk.info.effect.max_hp", ("value", def.PerLevelValue)),
-            PerkEffect.Shield => Strings.T("perk.info.effect.shield", ("value", def.PerLevelValue)),
-            PerkEffect.Library => Strings.T("perk.info.effect.library", ("value", def.PerLevelValue)),
-            PerkEffect.Ap => Strings.T("perk.info.effect.ap", ("value", def.PerLevelValue)),
-            _ => "",
+            PerkEffect.MaxHp => Strings.T("perk.info.effect.max_hp", ("value", def.Value)),
+            PerkEffect.Ap => Strings.T("perk.info.effect.ap", ("value", def.Value)),
+            PerkEffect.LibraryCapacity => Strings.T("perk.info.effect.library", ("value", def.Value)),
+            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)),
         };
 
-        /// <summary>详情弹窗:类别 + 当前/上限等级 + 作用说明 + 具体数值。</summary>
-        public static string Detail(PerkDef def, int level)
-        {
-            var text = new StringBuilder();
-            text.Append('「').Append(def.Name).Append("」· ").Append(Category(def)).Append('\n');
-            text.Append("Lv").Append(level).Append('/').Append(def.MaxLevel).Append('\n');
-            text.Append(Action(def)).Append('\n');
-            text.Append(Strings.T("perk.info.detail.per_level_current",
-                ("perLevel", def.PerLevelValue), ("current", level * def.PerLevelValue)));
-            if (level < def.MaxLevel)
-                text.Append('\n').Append(Strings.T("perk.info.detail.next_level",
-                        ("nextValue", (level + 1) * def.PerLevelValue), ("cost", def.InkCosts[level])))
-                    .Append(Strings.T("perk.info.unit.ink"));
-            else
-                text.Append('\n').Append(Strings.T("perk.info.detail.max_level"));
-            return text.ToString();
-        }
-
-        private static string Category(PerkDef def) => def.Effect switch
-        {
-            PerkEffect.MaxHp => Strings.T("perk.info.category.max_hp"),
-            PerkEffect.Shield => Strings.T("perk.info.category.shield"),
-            PerkEffect.Library => Strings.T("perk.info.category.library"),
-            PerkEffect.Ap => Strings.T("perk.info.category.ap"),
-            _ => "",
-        };
-
-        private static string Action(PerkDef def) => def.Effect switch
-        {
-            PerkEffect.MaxHp => Strings.T("perk.info.action.max_hp"),
-            PerkEffect.Shield => Strings.T("perk.info.action.shield"),
-            PerkEffect.Library => Strings.T("perk.info.action.library"),
-            PerkEffect.Ap => Strings.T("perk.info.action.ap"),
-            _ => "",
-        };
+        /// <summary>详情:节点 id + 效果短语 + 门槛/价格。</summary>
+        public static string Detail(PerkNodeDef def) =>
+            $"{def.Id} · {ShortEffect(def)} · Lv.{def.UnlockLevel} · {def.InkCost}{Strings.T("perk.info.unit.ink")}";
     }
 }

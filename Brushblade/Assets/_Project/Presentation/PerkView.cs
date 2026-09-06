@@ -5,15 +5,16 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>技能页(第 A 章):技能以牌呈现(2×2),按效果配主题色;墨锭买断解锁与升级。</summary>
+    /// <summary>技能页。临时可编译版(T1,技能树重构)——40 节点按 <see cref="PerkTree"/>
+    /// 分三段,竖排一列滚动列表(2×2 牌阵/树状网格是 T9 的事)。锁着的节点置灰;
+    /// 点行看详情,点按钮解锁扣墨锭。</summary>
     public sealed class PerkView : MonoBehaviour
     {
-        private static readonly Vector2 TileSize = new(156, 150);
+        private const float RowHeight = 62f;
 
         private MetaState _meta;
         private System.Action _save;
         private System.Action _onBack;
-        private GameObject _modal;
 
         public void Init(MetaState meta, System.Action save, System.Action onBack)
         {
@@ -38,103 +39,64 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(header.transform, Strings.T("perk.view.title"), 28, Theme.TextMain, Theme.TitleFont);
             Ui.InkCounter(header.transform, _meta.Ink, 20);
 
+            var scroll = Ui.ScrollList(stack.transform, "List", 8, out var content);
+            Ui.Sized(scroll, flexWidth: 1, flexHeight: 1);
+
             int charLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
-            var all = PerkRules.All;
-            for (int i = 0; i < all.Count; i += 2)
+            PerkTree? currentTree = null;
+            foreach (var def in PerkRules.Nodes)
             {
-                var row = Ui.Row(stack.transform, $"Row{i}", 16);
-                BuildPerkCell(row.transform, all[i], charLevel);
-                if (i + 1 < all.Count) BuildPerkCell(row.transform, all[i + 1], charLevel);
+                if (def.Tree != currentTree)
+                {
+                    currentTree = def.Tree;
+                    var sectionLabel = Ui.ThemedLabel(content, currentTree.ToString(), 18, Theme.TextDim);
+                    Ui.Sized(sectionLabel.gameObject, flexWidth: 1, height: 26);
+                }
+                BuildPerkRow(content, def, charLevel);
             }
 
             Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => _onBack(), Theme.ExitPink, Color.white, 20, new Vector2(180, 50));
         }
 
-        private void BuildPerkCell(Transform parent, PerkDef def, int charLevel)
+        private void BuildPerkRow(Transform parent, PerkNodeDef def, int charLevel)
         {
-            int level = PerkRules.PerkLevel(_meta, def.Id);
-            var cell = Ui.VStack(parent, def.Id, 6);
+            bool owned = PerkRules.IsUnlocked(_meta, def.Id);
+            bool can = PerkRules.CanUnlock(_meta, def.Id);
 
-            // 牌可点/长按看详情(短按也开,牌本身无其它点击动作)
-            var tile = PerkTile(cell.transform, def, level, TileSize);
-            var tileButton = tile.AddComponent<Button>();
-            tileButton.targetGraphic = tile.GetComponent<Image>();
-            tileButton.onClick.AddListener(() => ShowDetail(def));
-            HoldToPreview.Attach(tile, () => ShowDetail(def));
+            var row = Ui.Row(parent, $"Perk_{def.Id}", 10);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.padding = new RectOffset(15, 15, 0, 0);
+            var frame = row.AddComponent<Image>();
+            frame.sprite = Theme.Rounded(14);
+            frame.type = Image.Type.Sliced;
+            frame.color = owned ? Theme.AdGreenBg : Theme.PanelInset;
+            Ui.Sized(row, flexWidth: 1, height: RowHeight);
 
-            if (level >= def.MaxLevel)
+            var button = row.gameObject.AddComponent<Button>();
+            button.targetGraphic = frame;
+            button.onClick.AddListener(() => Ui.Alert(transform, def.Id, PerkInfo.Detail(def)));
+
+            var textCol = Ui.VStack(row.transform, "Text", 2);
+            Ui.Sized(textCol, flexWidth: 1);
+            var nameLabel = Ui.ThemedLabel(textCol.transform, def.Id, 18, owned ? Theme.TextMain : Theme.LockGray);
+            nameLabel.alignment = TextAnchor.MiddleLeft;
+            var subLabel = Ui.ThemedLabel(textCol.transform, PerkInfo.ShortEffect(def), 14, Theme.TextDim);
+            subLabel.alignment = TextAnchor.MiddleLeft;
+
+            bool levelGated = !owned && charLevel < def.UnlockLevel;
+            string actionLabel = owned ? Strings.T("common.maxed")
+                : levelGated ? Strings.T("perk.view.locked_requirement", ("level", def.UnlockLevel))
+                : Strings.T("perk.view.unlock_button", ("cost", def.InkCost));
+            var actionButton = Ui.PillButton(row.transform, actionLabel, () =>
             {
-                Ui.ThemedLabel(cell.transform, Strings.T("common.maxed"), 15, Theme.UpgradeText);
-                return;
-            }
-
-            bool gated = level == 0 && charLevel < def.UnlockLevel;
-            int cost = def.InkCosts[level];
-            string label = gated ? Strings.T("perk.view.locked_requirement", ("level", def.UnlockLevel))
-                                  : (level == 0 ? Strings.T("perk.view.unlock_button", ("cost", cost)) : Strings.T("perk.view.upgrade_button", ("cost", cost)));
-            var button = Ui.PillButton(cell.transform, label, () =>
-            {
-                if (PerkRules.TryUpgradePerk(_meta, def.Id))
+                if (PerkRules.TryUnlock(_meta, def.Id))
                 {
                     _save();
                     Build(); // 成功后刷新
                 }
-            }, gated ? Theme.InkSoft : Theme.Cinnabar, Color.white, 15, new Vector2(TileSize.x, 40));
-            button.interactable = !gated;
+            }, can ? Theme.Cinnabar : Theme.InkSoft, Color.white, 15, new Vector2(140, 40));
+            actionButton.interactable = can;
         }
-
-        private void ShowDetail(PerkDef def)
-        {
-            if (_modal != null) Destroy(_modal);
-            int level = PerkRules.PerkLevel(_meta, def.Id);
-            var overlay = Ui.ModalShell(transform, Strings.T("perk.view.title"), new Vector2(330, 260), dismissable: true, out var stack);
-            PerkTile(stack, def, level, new Vector2(150, 150));
-            Ui.ThemedLabel(stack, PerkInfo.Detail(def, level), 17, Theme.TextDim);
-            Ui.PillButton(stack, Strings.T("common.ok"), () => Destroy(overlay),
-                Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 48));
-            _modal = overlay;
-        }
-
-        /// <summary>技能牌:圆角方牌 + 主题色淡染底 + 两字名 + 当前等级 + 效果短语。参考字库牌与怪牌。</summary>
-        private static GameObject PerkTile(Transform parent, PerkDef def, int level, Vector2 size)
-        {
-            Color theme = PerkColor(def.Effect);
-
-            var go = Ui.Panel(parent, $"Perk_{def.Id}");
-            var frame = go.AddComponent<Image>();
-            frame.sprite = Theme.Rounded(14);
-            frame.type = Image.Type.Sliced;
-            frame.color = Theme.Shadow;
-            var element = go.AddComponent<LayoutElement>();
-            element.preferredWidth = size.x;
-            element.preferredHeight = size.y;
-
-            var inner = Ui.Panel(go.transform, "Face");
-            var face = inner.AddComponent<Image>();
-            face.sprite = Theme.Rounded(12);
-            face.type = Image.Type.Sliced;
-            face.color = Color.Lerp(theme, Theme.CardWhite, 0.86f);
-            Ui.Anchor((RectTransform)inner.transform, Vector2.zero, Vector2.one,
-                new Vector2(3f, 3f), new Vector2(-3f, -3f));
-
-            var name = Ui.ThemedLabel(inner.transform, def.Name, 40, theme, Theme.TitleFont);
-            Ui.Anchor(name.rectTransform, new Vector2(0, 0.5f), new Vector2(1, 0.9f), Vector2.zero, Vector2.zero);
-
-            var lv = Ui.ThemedLabel(inner.transform, $"Lv{level}", 16, Theme.TextMain);
-            Ui.Anchor(lv.rectTransform, new Vector2(0, 0.28f), new Vector2(1, 0.5f), Vector2.zero, Vector2.zero);
-
-            var effect = Ui.ThemedLabel(inner.transform, PerkInfo.ShortEffect(def), 14, Theme.TextDim);
-            Ui.Anchor(effect.rectTransform, new Vector2(0, 0.05f), new Vector2(1, 0.26f), Vector2.zero, Vector2.zero);
-            return go;
-        }
-
-        private static Color PerkColor(PerkEffect effect) => effect switch
-        {
-            PerkEffect.MaxHp => Theme.Cinnabar,   // 养元:朱(生命)
-            PerkEffect.Shield => Theme.Gold,      // 金汤:金(护盾)
-            PerkEffect.Library => Theme.SplitBlue, // 博闻:墨蓝(字库)
-            PerkEffect.Ap => Theme.Jade,          // 一气:青(AP)
-            _ => Theme.InkSoft,
-        };
     }
 }

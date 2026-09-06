@@ -79,7 +79,7 @@ namespace Brushblade.Core.Tests
         private const string LegacySaveJson =
             "{\"CharacterXp\":4321,\"Ink\":12345," +
             "\"CardLevels\":{\"剑\":7,\"城\":3}," +
-            "\"PerkLevels\":{\"perk_hp\":4}," +
+            "\"UnlockedPerks\":[\"vigor_1\"]," +
             "\"CardCopies\":{\"剑\":9}," +
             "\"OwnedCards\":[\"剑\",\"城\",\"爆\"]," +
             "\"Deck\":[\"剑\",\"城\"]," +
@@ -102,7 +102,7 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.Ink, Is.EqualTo(12345));
             Assert.That(meta.CardLevels["剑"], Is.EqualTo(7));
             Assert.That(meta.CardLevels["城"], Is.EqualTo(3));
-            Assert.That(meta.PerkLevels["perk_hp"], Is.EqualTo(4));
+            Assert.That(meta.UnlockedPerks.Contains("vigor_1"), Is.True);
             Assert.That(meta.CardCopies["剑"], Is.EqualTo(9));
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "剑", "城", "爆" }));
             // 旧存档的 "Deck" 键(出阵已下架)变成未知键,Newtonsoft 直接忽略——不断言、不报错。
