@@ -199,7 +199,7 @@ EL = {'Metal': '金', 'Wood': '木', 'Water': '水', 'Fire': '火', 'Earth': '�
 RA = {'White': '白', 'Green': '绿', 'Blue': '蓝', 'Purple': '紫', 'Gold': '金', 'Orange': '橙', 'Red': '红'}
 RORDER = ['White', 'Green', 'Blue', 'Purple', 'Gold', 'Orange', 'Red']
 EORDER = ['Wood', 'Fire', 'Earth', 'Metal', 'Water', 'Heart']
-PUA = {'': '𣛧(木四叠·PUA)', '': '䥱(金四叠·PUA)'}
+PUA = {'': '𣛧(木四叠·PUA)', '': '𨰻(金四叠·PUA)'}
 PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge': '闪避',
            'speed': '速度', 'onHitBurn': '命中挂灼烧',
            'onHitBurnAll': '灼烧转全体', 'ranged': '远程:无视敌方前排',
