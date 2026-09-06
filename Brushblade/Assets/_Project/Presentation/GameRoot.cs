@@ -420,7 +420,7 @@ namespace Brushblade.Presentation
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
             // 段末护盾照常延续(2026-07-26 拍板:盾叠加本场爬塔通吃,不再 5 关一清),
-            // 与挂起快照同口径;金汤每关另补,见 RunEngine
+            // 由土系护盾字与御枝护甲提供;NormalShield 无生产代码路径赋值(金汤已废止)
             snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);

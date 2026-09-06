@@ -61,21 +61,6 @@ namespace Brushblade.Core.Tests
             Assert.That(Build(meta).PlayerCritChance, Is.EqualTo(30));
         }
 
-        /// <summary>锋枝的 30 点与锋字的 CritBuff 相加后仍钳 100 —— 既有行为,本设计不动它。
-        /// (spec 原 §4.2 要求钳 75%,2026-09-07 撤销:那会让 RollCrit 的 ≥100 短路永远
-        /// 不可达,并废掉「6 张锋叠满必暴」这条既有 build。见 spec §4.2 的撤销记录。)</summary>
-        [Test]
-        public void EdgeBranch_StillClampsAtOneHundredWithFengStacked()
-        {
-            var meta = new MetaState { CharacterXp = 100000 };
-            meta.UnlockedPerks.Add("edge_1");
-            meta.UnlockedPerks.Add("edge_2");
-            meta.UnlockedPerks.Add("edge_3");
-            // 技能只喂 config;与字的 CritBuff 相加后的钳位在 BattleEngine.EffectiveCrit,
-            // 由 CritStatTests 既有的两条守着,这里只确认技能侧没有自带钳位。
-            Assert.That(Build(meta).PlayerCritChance, Is.EqualTo(30));
-        }
-
         [Test]
         public void GuardBranch_AddsArmorOnTopOfTheLevelCurve()
         {
