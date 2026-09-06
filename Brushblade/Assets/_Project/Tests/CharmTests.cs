@@ -65,6 +65,57 @@ namespace Brushblade.Core.Tests
                 "卡 10 级不该把 1 回合的魅惑缩放成 1+10/5=3 回合");
         }
 
+        /// <summary>终审修复项 3(2026-09-06):被魅惑的敌人打自己队友这一记,不该算成
+        /// 「我方主动的挥击」—— <c>allowBarb</c> 缺省 <c>true</c> 时,若队友带铁画
+        /// (<c>EnemyAbility.Barb</c>),铁画的受击反噬会走 <c>DamagePlayerDirect</c>
+        /// 打到一个全程没出手的玩家身上。改法是显式传 <c>allowBarb: false</c>。</summary>
+        [Test]
+        public void Charm_DoesNotTriggerBarbRecoilOnPlayer()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("魅", new EffectDef(EffectKind.Charm, 0, turns: 1)));
+            var enemies = new[]
+            {
+                RebalanceFixture.Mob(attack: 50),
+                RebalanceFixture.Mob(hp: 100000, attack: 0, ability: EnemyAbility.Barb),
+            };
+            var battle = RebalanceFixture.Battle(graph, new[] { "魅", "魅", "魅" }, enemies);
+            battle.Cast("魅", 0);
+            int playerHpBefore = battle.PlayerHp;
+
+            battle.EndTurn();
+
+            Assert.That(battle.PlayerHp, Is.EqualTo(playerHpBefore),
+                "被魅惑的杂兵打自己队友(带铁画)不该反噬到没出手的玩家");
+        }
+
+        /// <summary>终审修复项 3(2026-09-06):<c>attackerBag</c> 缺省 <c>null</c> 时,
+        /// <c>EffectiveEnemyDefense</c> 会落到 <c>_playerStatuses</c>——玩家身上的穿透
+        /// (锐)会帮被魅惑的敌人破它队友的甲。改法是显式传 <c>attackerBag: enemy.Statuses</c>
+        /// (攻击者/被魅惑者自己的袋子,目前恒为空)。</summary>
+        [Test]
+        public void Charm_DamageIgnoresPlayersPierceBuff()
+        {
+            var graph = RebalanceFixture.Graph(
+                RebalanceFixture.Char("魅", new EffectDef(EffectKind.Charm, 0, turns: 1)),
+                RebalanceFixture.Char("锐", new EffectDef(EffectKind.PierceBuff, 20)));
+            var enemies = new[]
+            {
+                RebalanceFixture.Mob(attack: 50),
+                RebalanceFixture.Mob(hp: 100000, attack: 0, armor: 8),
+            };
+            var battle = RebalanceFixture.Battle(graph, new[] { "魅", "锐" }, enemies);
+
+            battle.Cast("锐");     // 玩家身上挂 20 点穿透
+            battle.Cast("魅", 0);
+            int allyHpBefore = battle.Enemies[1].Hp;
+
+            battle.EndTurn();
+
+            Assert.That(battle.Enemies[1].Hp, Is.EqualTo(allyHpBefore - (50 - 8)),
+                "应扣 50-8=42(队友自身 8 点甲全额生效);玩家的穿透不该帮被魅惑的敌人破队友的甲");
+        }
+
         [Test]
         public void Charm_Expires()
         {

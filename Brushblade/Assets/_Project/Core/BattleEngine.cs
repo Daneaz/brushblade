@@ -1721,7 +1721,14 @@ namespace Brushblade.Core
             {
                 int victim = FirstOtherAliveEnemy(enemyIndex);
                 if (victim >= 0)
-                    DamageEnemy(victim, enemy.Attack, enemy.Element, crit: false);
+                    // allowBarb: false(2026-09-06 终审修复项 3):这一记不是我方主动的挥击 ——
+                    // 默认 true 会让受害者的铁画反噬打到一个全程没出手的玩家身上。
+                    // attackerBag: enemy.Statuses(同一修复):缺省会落到 _playerStatuses,
+                    // 让玩家身上的穿透帮被魅惑的敌人破队友的甲;传攻击者(被魅惑者)自己的
+                    // 袋子,与「敌人打敌人不读玩家袋子」的语义一致(它目前没有 PierceBuff
+                    // 来源,读到的就是 0,行为上等价于「不吃玩家穿透」)。
+                    DamageEnemy(victim, enemy.Attack, enemy.Element, crit: false,
+                        attackerBag: enemy.Statuses, allowBarb: false);
                 // 状态回合递减不能漏——与 Freeze 分支同一条理由:提前 return 就跳过了方法
                 // 末尾那句 enemy.Statuses.TickTurns(),魅惑会因此永远不到期。
                 enemy.Statuses.TickTurns();
