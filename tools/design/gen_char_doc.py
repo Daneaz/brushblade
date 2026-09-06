@@ -315,6 +315,7 @@ def desc(e):
         'HealOverTime': f"持续治疗 {v}×{t} 回合" + ("(含召唤物)" if all_ else ""),
         'Revive': f"复活 {v} 名召唤物(回半血)", 'Freeze': f"冻结 {v} 回合",
         'Slow': f"减速 {v} 回合", 'Silence': f"沉默 {t} 回合",
+        'Charm': f"魅惑 {t} 回合(本回合改攻己方阵营)",
         'Blind': f"致盲 −{v}% 命中×{t} 回合" + ("(全体)" if all_ else ""),
         'Dispel': ("驱散敌方全部增益" if v == -1 else f"驱散敌方 {v} 条增益") + ("(全体各清)" if all_ else ""),
         'Cleanse': "净化自身全部减益", 'Immunity': f"免疫 {v} 次伤害",
@@ -366,8 +367,10 @@ def desc(e):
 # ⚠ CardTraits 有分支的 EffectKind / SummonPassive 字段这里都要有一条 —— 漏一个的表现
 # 不是报错,是该字的特性列凭空少一项。兜底走 `f"{kind} {v}"`,好歹看得见英文枚举名。
 #
-# 不入本列的三类(它们在别的列):伤害/护盾/治疗的**量**在攻击力列与功能列;
-# 目标形状(横扫/贯穿/连发…)与召唤物的近战/远程是**攻击模式**;召唤只数在功能列。
+# 不入本列的两类(它们在别的列):伤害/护盾/治疗的**量**在攻击力列与功能列;召唤只数
+# 在功能列。目标形状(横扫/贯穿/溅射/连发/弹射)2026-09-05 起改判为**特性**(spec §1.5,
+# 形状随之进了 §2.3 价目表);召唤物的近战/远程仍是**攻击模式**,不入本列 —— 两者判法不同,
+# 前者是「打谁」之外的机制,后者只是「怎么打」。
 TRAITS = {
     'BurnSingle': lambda e, v: f"灼烧 {v}",
     'BurnAll': lambda e, v: f"全体灼烧 {v}",
@@ -380,6 +383,7 @@ TRAITS = {
     'Slow': lambda e, v: f"减速 {v}",
     'Blind': lambda e, v: f"致盲 {v}%",
     'Silence': lambda e, v: "沉默",
+    'Charm': lambda e, v: "魅惑",
     'ArmorBreak': lambda e, v: f"破甲 {v}",
     'Immunity': lambda e, v: f"免疫 {v}",
     'Reflect': lambda e, v: f"反伤 {v}%",
@@ -403,7 +407,8 @@ DOUBLE_VS = {'Burning': "对灼烧", 'Bleeding': "对流血",
              'Controlled': "对控制", 'ArmorBroken': "对破甲"}
 
 # 召唤物被动 → 特性名。顺序与 CardTraits.SummonTraits 一致。
-# shape / shapePercent / shots / ranged 不在这里 —— 它们是攻击模式。
+# shape / shapePercent / shots 不在这里 —— 三个字段要合成一句(见 `_shape_trait`),
+# 这份表只做「一个字段 → 一句话」的简单映射,合不进来;ranged(近战/远程)仍是攻击模式,不入特性列。
 SUMMON_TRAITS = [
     ('speed', lambda p, v: f"迅捷 {v}"),
     ('thorns', lambda p, v: f"荆棘 {v}%"),
@@ -432,6 +437,17 @@ def _dmg_mods(e):
     return out
 
 
+def _shape_trait(shape, shots=None, pct=None):
+    """目标形状的特性文案(贯穿/横扫/溅射/连发/弹射,2026-09-06 spec §1.5 改判为特性)。
+    与 `desc()` 伤害侧的形状渲染共用同一份 `SHAPE` 表与后缀规则,别再另写一份。"""
+    label = SHAPE.get(shape, shape)
+    if shape == 'Volley' and shots: label += f" {shots} 发"
+    if shape == 'Chain' and shots: label += f" {shots} 跳"
+    if pct and pct != 100:
+        label += (f",每跳 ×{pct}%" if shape == 'Chain' else f",非主目标 {pct}%")
+    return label
+
+
 def traits(c):
     """这个字的全部特性,已去重、保序。
 
@@ -447,11 +463,14 @@ def traits(c):
         p = summon.get('passive') or {}
         for k, fn in SUMMON_TRAITS:
             if p.get(k): add(fn(p, p[k]))
+        if p.get('shape'): add(_shape_trait(p['shape'], p.get('shots'), p.get('shapePercent')))
         if summon.get('summonShield'): add(f"全场加盾 {summon['summonShield']}")
         return out
 
     for e in c.get('attackEffects', []) + c['effects']:
         k, v = e['kind'], e.get('value', 0)
+        if e.get('shape') and e['shape'] != 'Single':
+            add(_shape_trait(e['shape'], e.get('shots'), e.get('shapePercent')))
         if k in TRAITS:
             fn = TRAITS[k]
             if fn: add(fn(e, v))
@@ -558,7 +577,8 @@ A("- **特性技能**:这个字除了「多大」(攻击力/功能列的数值)�
 A("  灼烧、冻结、破甲、斩杀、偷袭、战意…… 与卡面详情的「特性 · 技能」段同一批名字")
 A("  (`Presentation/CardTraits.Of` + `strings.zh-CN.json` 的 `collection.trait.*`),读表与玩家读卡对得上。")
 A("  **召唤字列的是那几只召唤物的被动**(召唤字自己不出手,它带什么就等于召唤物带什么);")
-A("  目标形状(横扫 / 贯穿 / 连发 / 弹射)与召唤物的近战/远程算**攻击模式**、不算特性,故不入本列,仍见功能列。")
+A("  目标形状(横扫 / 贯穿 / 溅射 / 连发 / 弹射)2026-09-05 起改判为**特性**(spec §1.5),故入本列;")
+A("  召唤物的近战/远程仍算**攻击模式**,不入本列,仍见功能列。")
 A("  纯数值字(只有伤害/护盾/治疗、无任何附加机制)记 `—`。")
 A("- **AP 消耗**:全表一律 1(2026-08-03 拍板与稀有度解耦),故不设列。")
 A("- **稀有度**:白 < 绿 < 蓝 < 紫 < 金 < 橙 < 红,枚举名 = 皮肤色 = 强度序。")
