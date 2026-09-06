@@ -177,6 +177,17 @@ namespace Brushblade.Core
         /// 局内的「炽」(BurnPotency)照旧在其上累加。</summary>
         public int BurnPerStack { get; set; } = 20;
 
+        /// <summary>木脉 L4:由**木系字**召出的召唤物速度 +N 点(spec §3.4.1)。缺省 0 = 恒等。
+        ///
+        /// 用加算而非乘算:乘算会让本就快的桤(Speed 150)滚到 210、慢的拉不开;
+        /// 加算对缺省 100 的是 +40%、对桤是 +27%,压住滚雪球,与 TurnScheduler.MaxSpeed
+        /// 的距离也可控。
+        ///
+        /// 敢给 40% 的依据:MetaRules.SpeedFor 把玩家速度斜率压到最小(满级 +25%),是因为
+        /// 「速度是唯一同时翻倍输出与资源产出的属性 —— 一次行动 = 3 AP + 1 掉字」。
+        /// **召唤物出手两样都不产**,那条顾虑整个不成立。</summary>
+        public int WoodSummonSpeedBonus { get; set; }
+
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
         public BattleConfig WithPlayerMaxHp(int playerMaxHp)
@@ -2669,7 +2680,13 @@ namespace Brushblade.Core
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 ScalePassiveByCardLevel(effect.Passive, cardLevel),
-                                sourceChar: def.Id); // 召它的那张牌(2026-09-05,战斗格头行显示这个)
+                                sourceChar: def.Id, // 召它的那张牌(2026-09-05,战斗格头行显示这个)
+                                // 木脉 L4(spec §3.4.1):判据是**打出的那张字**的元素(attacker,
+                                // 即 def.Element ?? Heart),不是召唤物自己的 Element —— 与五行
+                                // L3 的乘区(ElementPercentOf(attacker))同一判据,两处口径不分叉。
+                                // 与 SummonState.Attack 同为快照语义:召唤那一刻算完写进去,
+                                // 运行期不再查表,之后再点技能已在场的这只不变。
+                                speedBonus: attacker == Element.Wood ? _config?.WoodSummonSpeedBonus ?? 0 : 0);
                             newborn.ActionMeter = TurnScheduler.Threshold;
 
                             // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)。

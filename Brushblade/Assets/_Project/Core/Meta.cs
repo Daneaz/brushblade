@@ -282,6 +282,7 @@ namespace Brushblade.Core
                 HeftCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.HeftCap, Element.Earth),
                 WellspringCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.WellspringCap, Element.Water),
                 BurnPerStack = 20 + PerkRules.ElementBonus(meta, PerkEffect.BurnPerStack, Element.Fire),
+                WoodSummonSpeedBonus = PerkRules.ElementBonus(meta, PerkEffect.SummonSpeed, Element.Wood),
             };
         }
 

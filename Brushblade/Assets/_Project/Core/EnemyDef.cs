@@ -249,8 +249,12 @@ namespace Brushblade.Core
 
         /// <param name="sourceChar">召它的那张字卡;省略则回落成 summonChar
         /// (测试夹具里「谁召的」多半无关紧要,不必每处都写第二遍)。</param>
+        /// <param name="speedBonus">木脉 L4(spec §3.4.1):木系字召出的召唤物 +N 速度。
+        /// 加在被动速度**兜底之后**(先 EffectiveSpeed 夹回 100,再加这一份),不是并进被动值
+        /// 本身再夹 —— 否则无被动召唤物的 0 会先被 speedBonus 垫成正数,让 EffectiveSpeed
+        /// 误判成「有速度被动」而放弃兜底 100。缺省 0 时与不带这个参数逐字节相同。</param>
         public SummonState(string summonChar, Element element, int hp, int attack,
-            SummonPassive passive = null, string sourceChar = null)
+            SummonPassive passive = null, string sourceChar = null, int speedBonus = 0)
         {
             Char = summonChar;
             SourceChar = sourceChar ?? summonChar;
@@ -259,7 +263,7 @@ namespace Brushblade.Core
             MaxHp = hp;
             Attack = attack;
             Passive = passive;
-            Speed = EffectiveSpeed(passive?.Speed ?? 0);
+            Speed = EffectiveSpeed(passive?.Speed ?? 0) + speedBonus;
         }
 
         /// <summary>断点存档:MaxHp 与 Hp 会脱钩(挨过打),故分开存。</summary>

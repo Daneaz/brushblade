@@ -207,5 +207,31 @@ namespace Brushblade.Core.Tests
             meta.UnlockedPerks.Add("fire_4");
             Assert.That(Build(meta).BurnPerStack, Is.EqualTo(28));
         }
+
+        // ---- 木脉 L4:木系召唤物速度 +40(spec §3.4.1) ----
+
+        [Test]
+        public void EmptySave_GivesNoSummonSpeedBonus()
+        {
+            Assert.That(Build(new MetaState()).WoodSummonSpeedBonus, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void WoodTierFour_GrantsFortySpeed()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("wood_4");
+            Assert.That(Build(meta).WoodSummonSpeedBonus, Is.EqualTo(40));
+        }
+
+        /// <summary>只有木脉给这个加成 —— 土/金也有召唤字,但它们不该吃木系专精的回报。</summary>
+        [Test]
+        public void OtherBranches_DoNotGrantSummonSpeed()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("earth_4");
+            meta.UnlockedPerks.Add("metal_4");
+            Assert.That(Build(meta).WoodSummonSpeedBonus, Is.EqualTo(0));
+        }
     }
 }
