@@ -107,7 +107,6 @@ def test_roster_matches_target():
         f"字集与目标不符 ——\n  目标表有、配置里缺:{missing}\n  配置里有、目标表已移出:{extra}")
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_rarity_matches_target():
     target, actual = _target(), _actual()
     bad = [(k, actual[k]["rarity"], RARITY[target[k][2]])

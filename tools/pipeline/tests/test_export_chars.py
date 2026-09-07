@@ -439,7 +439,11 @@ def test_shipped_chars_json_carries_the_new_row_fields():
 
     2026-09-05:刺/砸/蕉 随 17 字移出字表,字卡攻击形状 Skewer/Cleave 与召唤 onHitSlow
     自此无载体(spec §1.3 明确裁定「休眠」)。碾 也移出,但字卡侧的 Sweep 载体不算孤儿——
-    召唤物被动那条 Sweep 通道(剑)仍在,断言挪去验证那条通道。"""
+    召唤物被动那条 Sweep 通道(剑)仍在,断言挪去验证那条通道。
+
+    2026-09-07(P2 Task 4a):锥 由召唤字改攻击字(spec §3 第 2 项),连发形状 `Volley`
+    随之无载体、休眠(锥 是全表唯一载体,见 spec §2.2 休眠清单)——原 Volley 断言删除,
+    改验锥 现在是纯攻击效果(带破甲修饰)。"""
     shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
     by_id = {c["id"]: c for c in shipped["chars"]}
 
@@ -452,7 +456,8 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # 2026-09-05:碾 移出字表,字卡侧的 Sweep 载体没了,改验召唤物侧(剑)仍在。
     assert by_id["剑"]["effects"][0]["passive"] == {"shape": "Sweep", "shapePercent": 50}
     assert by_id["枪"]["effects"][0]["passive"] == {"shape": "Skewer", "shapePercent": 70}
-    assert by_id["锥"]["effects"][0]["passive"] == {"shape": "Volley", "shots": 2}
+    assert by_id["锥"]["effects"][0]["kind"] == "DamageSingle", "锥 已改攻击字,不再是 Summon"
+    assert "passive" not in by_id["锥"]["effects"][0]
     assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
 
     # 条件加成(2026-08-25 由 doubleVsBurning 泛化)

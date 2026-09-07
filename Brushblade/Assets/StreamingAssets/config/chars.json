@@ -601,7 +601,7 @@
     },
     {
       "id": "海",
-      "rarity": "Green",
+      "rarity": "Blue",
       "element": "Water",
       "recipe": [
         "氵",
@@ -686,7 +686,7 @@
     },
     {
       "id": "冻",
-      "rarity": "White",
+      "rarity": "Green",
       "element": "Water",
       "recipe": [
         "冫",
@@ -713,7 +713,7 @@
     },
     {
       "id": "冷",
-      "rarity": "Blue",
+      "rarity": "White",
       "element": "Water",
       "recipe": [
         "冫",
@@ -976,7 +976,7 @@
     },
     {
       "id": "锥",
-      "rarity": "White",
+      "rarity": "Blue",
       "element": "Metal",
       "recipe": [
         "钅",
@@ -986,15 +986,16 @@
       "gloss": "钻孔的尖头利器",
       "effects": [
         {
-          "kind": "Summon",
-          "value": 24,
-          "count": 1,
-          "attack": 32,
-          "summonChar": "锥",
-          "passive": {
-            "shape": "Volley",
-            "shots": 2
-          }
+          "kind": "DamageSingle",
+          "value": 91
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 20
+        },
+        {
+          "kind": "Morale",
+          "value": 1
         }
       ]
     },
@@ -1023,7 +1024,7 @@
     },
     {
       "id": "利",
-      "rarity": "Green",
+      "rarity": "White",
       "element": "Metal",
       "recipe": [
         "禾",
@@ -1044,7 +1045,7 @@
     },
     {
       "id": "锋",
-      "rarity": "Blue",
+      "rarity": "Green",
       "element": "Metal",
       "recipe": [
         "钅",
