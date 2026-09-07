@@ -145,6 +145,11 @@ namespace Brushblade.Presentation
         /// 当前这个 = 空心圆 + 主色粗描边,未点 = 灰色实心圆。</summary>
         private static void BuildChain(Transform parent, MetaState meta, PerkNodeDef def)
         {
+            // 跨树节点的前置是「任一五行 L3 + 任一被动 L2」这样的谓词,不是同枝直链 ——
+            // 这里的逐层圆点画法表达不了它。完整的双前置显示见 Task 7;在那之前先不画,
+            // 免得渲染成一个没有意义的孤立圆点。
+            if (def.Tree == PerkTree.Cross) return;
+
             int maxDepth = BranchMaxDepth(def.Branch);
             var main = PerkView.BranchColor(def);
 

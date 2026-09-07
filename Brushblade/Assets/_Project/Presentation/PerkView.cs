@@ -236,12 +236,15 @@ namespace Brushblade.Presentation
         /// <summary>判据顺序与 <see cref="PerkRules.CanUnlock"/> 内部完全一致(已点 → 前置 →
         /// 等级 → 墨锭),只是把「不能点」拆成三种理由分别显示——同源判据,不是另一套规则。
         /// internal static(而非 private 实例方法):<see cref="PerkNodeSheet"/> 的底部操作钮
-        /// 要用同一份判据决定「解锁 / 置灰 + 理由」,不能另起一份读 meta 的逻辑。</summary>
+        /// 要用同一份判据决定「解锁 / 置灰 + 理由」,不能另起一份读 meta 的逻辑。
+        ///
+        /// ⚠ 前置判定走 <see cref="PerkRules.PrereqMet"/> 而**不是**在这里重抄一份同枝推导:
+        /// 跨树节点的 Depth 恒为 1,抄来的 `def.Depth > 1 && …` 那行对它恒不成立,
+        /// 会把前置一个都没满足的相济显示成「可解锁」,点下去毫无反应(2026-09-08)。</summary>
         internal static NodeState StateOf(MetaState meta, PerkNodeDef def, int charLevel)
         {
             if (PerkRules.IsUnlocked(meta, def.Id)) return NodeState.Owned;
-            if (def.Depth > 1 && !PerkRules.IsUnlocked(meta, $"{def.Branch}_{def.Depth - 1}"))
-                return NodeState.GatedPrereq;
+            if (!PerkRules.PrereqMet(meta, def)) return NodeState.GatedPrereq;
             if (charLevel < def.UnlockLevel) return NodeState.GatedLevel;
             if (meta.Ink < def.InkCost) return NodeState.PoorInk;
             return NodeState.CanUnlock;
