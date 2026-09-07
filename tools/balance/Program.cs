@@ -202,8 +202,10 @@ namespace Brushblade.Balance
             };
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
-            Console.WriteLine("| 画像 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) | 带甲战/次 | 带甲多怪战/次 |");
-            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|");
+            // 末两列是**机器人自检**,不是平衡指标(见 BotProbe):攻面出字恒 0 = 双方向字
+            // 的攻面又断了;僵局判死高企 = 机器人打不死人、靠 60 回合上限判死收场。
+            Console.WriteLine("| 画像 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) | 带甲战/次 | 带甲多怪战/次 | 攻面出字/局 | 僵局判死/300 |");
+            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var profile in profiles)
                 SimulateProfile(graph, campaign, endless, profile);
         }
@@ -250,13 +252,29 @@ namespace Brushblade.Balance
             public int ArmoredMultiBattles; // 且同场敌人 ≥2 —— 点数 DEF 的 N 倍惩罚只在这种场里兑现
         }
 
+        /// <summary>机器人自身行为的探针(2026-09-08,P3 attackMode 缺口)。
+        ///
+        /// ⚠ 为什么非要它:2026-09-07 之前这份仿真的机器人从未以 attackMode=true 调用过
+        /// <c>BattleEngine.Cast</c>,双方向字(水系 11 张全是、土系 8/12 张是)的攻面
+        /// **一次都没被执行过**——而读数看上去只是「水系偏弱」,谁也看不出机器人握着半套
+        /// 机制没用。<see cref="AttackFaceCasts"/> 就是这件事的分母:它为 0 就说明攻面
+        /// 又断了,不必再靠猜某档读数「是不是有点低」。
+        /// <see cref="Stalls"/> 同理——「60 回合分不出胜负」和「被打死」在卒层数字里长得
+        /// 一模一样,只有把僵局单独数出来,才看得见「只会奶不会打」这种残废打法。</summary>
+        private sealed class BotProbe
+        {
+            public int AttackFaceCasts; // 以 attackMode=true 出字的次数(全部种子累计)
+            public int Stalls;          // 以「僵局判死」告终的局数(分母 = Seeds)
+        }
+
         private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
             EndlessConfig endless, Profile profile)
         {
             var deaths = new List<int>();
             var exposure = new DefExposure();
+            var probe = new BotProbe();
             foreach (int seed in Enumerable.Range(0, Seeds))
-                deaths.Add(ClimbUntilDeath(graph, campaign, endless, profile, seed, exposure));
+                deaths.Add(ClimbUntilDeath(graph, campaign, endless, profile, seed, exposure, probe));
 
             deaths.Sort();
             double avg = deaths.Average();
@@ -266,12 +284,14 @@ namespace Brushblade.Balance
             Console.WriteLine($"| {profile.Name} | {avg:F1} | {p50} | {p90} | {deaths[^1]} " +
                               $"| {Reach(11)} | {Reach(26)} | {Reach(51)} " +
                               $"| {exposure.ArmoredBattles / (double)Seeds:F1} " +
-                              $"| {exposure.ArmoredMultiBattles / (double)Seeds:F1} |");
+                              $"| {exposure.ArmoredMultiBattles / (double)Seeds:F1} " +
+                              $"| {probe.AttackFaceCasts / (double)Seeds:F1} " +
+                              $"| {probe.Stalls} |");
         }
 
         /// <summary>一路深入直到阵亡,返回卒层(= 阵亡所在层)。</summary>
         private static int ClimbUntilDeath(RecipeGraph graph, CampaignConfig campaign,
-            EndlessConfig endless, Profile profile, int seed, DefExposure exposure)
+            EndlessConfig endless, Profile profile, int seed, DefExposure exposure, BotProbe probe)
         {
             int towerSeed = seed * 7919 + 17;
             int fromDepth = profile.StartDepth;
@@ -329,10 +349,13 @@ namespace Brushblade.Balance
                         if (battle.Phase == BattlePhase.DropChoice) { ResolveDropChoice(graph, battle); continue; }
                         if (battle.Phase != BattlePhase.PlayerTurn) break;
                         turns++;
-                        PlayTurn(graph, battle);
+                        PlayTurn(graph, battle, probe);
                     }
                     if (turns > StallTurns)
+                    {
+                        probe.Stalls++;
                         return fromDepth + run.BattleIndex; // 僵局计为卒于当前层
+                    }
                     run.AdvanceAfterBattle();
                 }
 
@@ -350,7 +373,7 @@ namespace Brushblade.Balance
 
         // ---- 贪心机器人(与关卡制版同策略) ----
 
-        private static void PlayTurn(RecipeGraph graph, BattleEngine battle)
+        private static void PlayTurn(RecipeGraph graph, BattleEngine battle, BotProbe probe)
         {
             while (battle.Ap >= 2)
             {
@@ -359,14 +382,14 @@ namespace Brushblade.Balance
                 int bestPower = BestCastablePower(graph, battle);
                 foreach (var id in suggest.Composable)
                 {
-                    int power = Power(graph, id);
+                    int power = CardValue(graph, id);
                     if (power > bestPower) { bestPower = power; best = id; }
                 }
                 if (best == null) break;
 
                 if (battle.Compose(best) == BattleError.ForgeFailed)
                 {
-                    var weakest = battle.Library.OrderBy(id => Power(graph, id)).FirstOrDefault();
+                    var weakest = battle.Library.OrderBy(id => CardValue(graph, id)).FirstOrDefault();
                     if (weakest == null || battle.Discard(weakest) != BattleError.None) break;
                     if (battle.Compose(best) != BattleError.None) break;
                 }
@@ -374,19 +397,46 @@ namespace Brushblade.Balance
 
             while (battle.Phase == BattlePhase.PlayerTurn && battle.Ap > 0)
             {
+                // ---- 双方向字的选面规则(2026-09-08,P3;design §10.5)----
+                // 水/土 的双方向字有两面:护面(CharDef.Effects,治疗/护盾,挂自己)和
+                // 攻面(CharDef.AttackEffects,伤害/控制,打敌人)。真人玩家拖给自己出护面、
+                // 拖给敌人出攻面;此前这个机器人**只有护面这一条路**(从不给 Cast 传
+                // attackMode),于是水系 11 张双方向字整场只会奶,60 回合僵局判死 259/300。
+                //
+                // 规则整句如下,只此一条,每次出字前重新判一次:
+                //
+                //   **血量还在半血以上 → 双方向字出攻面(打输出);
+                //     血量掉到半血或以下 → 双方向字出护面(治疗/护盾),
+                //     把血救回半血以上,下一次出字自然又切回攻面。**
+                //
+                // 刻意不写成「两面各打分、取分高的那面」:那种规则的读数没人解释得清,
+                // 权重一动全盘变,也没人维护得动。半血这条线是真人的打法(血线安全就输出、
+                // 告急就补),读数变了立刻知道是哪一条在动。
+                // 只有一面的字(纯攻击字/纯护盾字/召唤字)不受影响 —— 它们 AttackEffects 为空,
+                // Power/EffectsOf 都会退回唯一的那一面。
+                bool preferAttackFace = battle.PlayerHp * 2 > battle.MaxHp;
+
                 string pick = null;
                 int pickPower = -1;
+                bool pickAttackFace = false;
                 foreach (var id in battle.Library.Concat(battle.Pool.Where(p => IsCastableLeaf(graph, p, battle))))
                 {
                     if (!graph.TryGet(id, out var def) || def.ApCost > battle.Ap) continue;
-                    int power = Power(graph, id);
-                    if (power > pickPower) { pickPower = power; pick = id; }
+                    // 先按上面那条规则定面,再用**这一面**的分去排序:用另一面的分排序会造出
+                    // 「按攻面挑的牌、按护面结算」的错位(brief 点名的那类静默 bug)。
+                    bool attackFace = preferAttackFace && def.AttackEffects.Count > 0;
+                    int power = Power(graph, id, attackFace);
+                    if (power > pickPower) { pickPower = power; pick = id; pickAttackFace = attackFace; }
                 }
                 if (pick == null) break;
 
                 graph.TryGet(pick, out var pickDef);
-                int target = BattleEngine.NeedsTarget(pickDef) ? PickTarget(battle) : -1;
-                if (battle.Cast(pick, target) != BattleError.None) break;
+                // ⚠ NeedsTarget 必须跟着传同一个 attackMode:护面通常不需要选敌人、攻面需要,
+                // 传错就会「想打敌人却按护面判定成不用选目标」,targetIndex 停在 −1,
+                // ApplyEffects 里 ExpandTargets 返回空表 —— 静默打空(BattleEngine.cs:1382 那条注释)。
+                int target = BattleEngine.NeedsTarget(pickDef, pickAttackFace) ? PickTarget(battle) : -1;
+                if (battle.Cast(pick, target, attackMode: pickAttackFace) != BattleError.None) break;
+                if (pickAttackFace) probe.AttackFaceCasts++;
             }
 
             if (battle.Phase == BattlePhase.PlayerTurn)
@@ -398,11 +448,11 @@ namespace Brushblade.Balance
         /// 「战利品换入」「掉落换入」两条注入路径上的策略一致(评审建议)。</summary>
         private static void ResolveDropChoice(RecipeGraph graph, BattleEngine battle)
         {
-            int droppedPower = Power(graph, battle.PendingDrop);
+            int droppedPower = CardValue(graph, battle.PendingDrop);
             int weakest = 0, weakestPower = int.MaxValue;
             for (int i = 0; i < battle.Library.Count; i++)
             {
-                int power = Power(graph, battle.Library[i]);
+                int power = CardValue(graph, battle.Library[i]);
                 if (power < weakestPower) { weakestPower = power; weakest = i; }
             }
             if (droppedPower > weakestPower)
@@ -418,16 +468,33 @@ namespace Brushblade.Balance
         {
             int best = 0;
             foreach (var id in battle.Library)
-                best = Math.Max(best, Power(graph, id));
+                best = Math.Max(best, CardValue(graph, id));
             return best;
         }
 
-        private static int Power(RecipeGraph graph, string id)
+        /// <summary>这张字**在库里值多少** = 两面里更值钱的那一面(2026-09-08,P3)。
+        /// 「值不值得合成 / 是不是库中最弱该弃掉 / 战利品换不换」这几处判定用它:玩家两面
+        /// 都用得上,只按护面估值会让「攻面强、护面薄」的双方向字被当成库中最弱优先弃掉、
+        /// 永远不去合成 —— 与 §2.8「0 分的字机器人永远不会去出/合成」同一个坑的另一面。
+        ///
+        /// ⚠ 出字时**不**用它选面:选哪一面由 <see cref="PlayTurn"/> 里那条血量规则决定
+        /// (取分高的那面是打分调参,brief 明确不要)。这里的 Max 只用来给「留哪张字」排序。</summary>
+        private static int CardValue(RecipeGraph graph, string id) =>
+            Math.Max(Power(graph, id, attackMode: false), Power(graph, id, attackMode: true));
+
+        /// <summary>一张字**某一面**的威力评分。
+        /// attackMode=true 读 <c>CharDef.AttackEffects</c>(双方向字的攻面),该字没有攻面时
+        /// 退回 <c>Effects</c> —— 与 <c>BattleEngine.EffectsOf</c> 逐字同口径。两边口径必须一致,
+        /// 否则会出现「按攻面算的分、按护面结算的效果」。
+        /// ⚠ 2026-09-08 之前这个函数只扫 <c>def.Effects</c>,attackMode 这一路根本不存在,
+        /// AttackEffects 这个字段在整份仿真里从未被读过一次(交接文档 §0)。</summary>
+        private static int Power(RecipeGraph graph, string id, bool attackMode = false)
         {
             if (!graph.TryGet(id, out var def)) return 0;
-            if (def.Effects.Count == 0) return 3;
+            var effects = attackMode && def.AttackEffects.Count > 0 ? def.AttackEffects : def.Effects;
+            if (effects.Count == 0) return 3;
             int sum = 0;
-            foreach (var e in def.Effects)
+            foreach (var e in effects)
             {
                 switch (e.Kind)
                 {
@@ -479,13 +546,12 @@ namespace Brushblade.Balance
                     // 的价目表,只求方向对、非零,不追求跟实付价目分毫不差。
                     //
                     // ⚠ 这批 case 全部只读 e.Value/e.Turns 这些**字段**,不读“这条效果具体挂在哪张
-                    // 字身上”——所以它们对**双方向字的攻击面**(AttackEffects,水系 11 张的 Silence/
-                    // Freeze/Slow/ArmorBreak 全在这里)没有任何效果:Power() 的 foreach 只扫
-                    // `def.Effects`,双方向字的 AttackEffects 从来不在这个循环里出现过一次。
-                    // 这不是本次改动的疏漏,是本次改动能触及的范围的边界——详见 T5 报告「头号任务」
-                    // 一节:真正锁死水系输出的是 tools/balance 的机器人从未以 attackMode=true 调用过
-                    // battle.Cast,那是 PlayTurn 的选字/施放逻辑,不是 Power() 的计分逻辑,brief 只
-                    // 放行「补齐 Power() 的计分」,没有放行改 PlayTurn。
+                    // 字身上”——所以在 2026-09-07 那天,它们对**双方向字的攻击面**(AttackEffects,
+                    // 水系 11 张的 Silence/Freeze/Slow/ArmorBreak 全在这里)一点作用都没有:当时
+                    // Power() 的 foreach 只扫 `def.Effects`,而机器人也从不以 attackMode=true 调用
+                    // battle.Cast(交接文档 §0)。
+                    // 2026-09-08(P3)两处一起补上了:本函数改成按 attackMode 选面扫,PlayTurn 按
+                    // 血量规则真的会出攻面 —— 于是下面这批控制类计分从这天起才真正开始生效。
 
                     // 冻结(design §2.2「冻结 1 回合 0.35」)≈52 分/回合,按 Value(跳过的回合数)计。
                     case EffectKind.Freeze: sum += e.Value * 50; break;
@@ -564,7 +630,7 @@ namespace Brushblade.Balance
                 int best = 0, bestPower = -1;
                 for (int i = 0; i < run.RewardOptions.Count; i++)
                 {
-                    int power = Power(graph, run.RewardOptions[i]);
+                    int power = CardValue(graph, run.RewardOptions[i]);
                     if (power > bestPower) { bestPower = power; best = i; }
                 }
                 if (run.PickReward(best)) continue;
@@ -572,7 +638,7 @@ namespace Brushblade.Balance
                 int weakest = 0, weakestPower = int.MaxValue;
                 for (int i = 0; i < run.CarriedLibrary.Count; i++)
                 {
-                    int power = Power(graph, run.CarriedLibrary[i]);
+                    int power = CardValue(graph, run.CarriedLibrary[i]);
                     if (power < weakestPower) { weakestPower = power; weakest = i; }
                 }
                 if (bestPower <= weakestPower || !run.PickRewardReplacing(best, weakest))
