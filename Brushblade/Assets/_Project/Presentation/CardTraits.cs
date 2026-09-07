@@ -286,12 +286,12 @@ namespace Brushblade.Presentation
                     case EffectKind.CritBuff:
                         AddTrait(traits, "crit", "+" + v + "%",
                             Strings.T("collection.trait.crit.name"),
-                            Strings.T("collection.trait.crit.desc", ("value", v)));
+                            Strings.T("collection.trait.crit.desc", ("value", v), ("turns", e.Turns)));
                         break;
                     case EffectKind.Empower:
                         AddTrait(traits, "attack", "+" + v,
                             Strings.T("collection.trait.empower.name"),
-                            Strings.T("collection.trait.empower.desc", ("value", v)));
+                            Strings.T("collection.trait.empower.desc", ("value", v), ("turns", e.Turns)));
                         break;
                     case EffectKind.DefenseBuff:
                         AddTrait(traits, "defense", "+" + v,

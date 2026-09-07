@@ -135,7 +135,7 @@ namespace Brushblade.Presentation
                     EffectKind.Detonate => Strings.T("char.effect.detonate"),
                     // 不写「(基准 100)」:那是内部常量,玩家不该看见,而且为它多占 2 个字体码位。
                     // 跑图界面的角色栏已经在显示「攻击 N」,+50 对玩家是可解释的增量。
-                    EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown)),
+                    EffectKind.Empower => Strings.T("char.effect.empower", ("value", shown), ("turns", e.Turns)),
                     EffectKind.Morale => Strings.T("char.effect.morale",
                         ("stacks", shown), ("per", 10), ("max", 5)),   // per 是百分数,文案里带 %
                     // ApBoost 不吃卡等级(与 BattleEngine 的 EffectKind.ApBoost 分支同口径:
@@ -144,7 +144,8 @@ namespace Brushblade.Presentation
                     // 倍率读常量而不是写死「×1.5」:E-b5 重平衡会改那个常量,写死了卡面就会骗人
                     EffectKind.CritBuff => Strings.T("char.effect.critbuff",
                         ("value", shown),
-                        ("mult", (BattleConfig.CritMultiplierPercent / 100f).ToString("0.##"))),
+                        ("mult", (BattleConfig.CritMultiplierPercent / 100f).ToString("0.##")),
+                        ("turns", e.Turns)),
                     // 与 PierceText 同一套措辞(「无视 N 点护甲」),差别只在存续:那条是本次,这条是本场。
                     // 锐 身上没有伤害效果,PierceText 不会出现,所以这里必须把口径自己说全。
                     EffectKind.PierceBuff => Strings.T("char.effect.piercebuff", ("value", shown)),
