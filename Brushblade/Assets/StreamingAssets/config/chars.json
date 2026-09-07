@@ -548,6 +548,8 @@
         "艹",
         "化"
       ],
+      "pinyin": "huā",
+      "gloss": "植物的繁殖器官,姹紫嫣红",
       "effects": [
         {
           "kind": "DamageSingle",
