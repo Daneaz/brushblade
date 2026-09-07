@@ -54,21 +54,6 @@ namespace Brushblade.Presentation
             Strings.T("player.detail.tag_ap_cost", ("cost", CharDef.ApCostFor(CardRarity.White))),
         };
 
-        /// <summary>战意每层的攻击加成(百分点)。与 <c>BattleEngine</c> 私有常量
-        /// <c>MoralePercentPerStack</c> 数值必须保持一致,但那个常量是 private,这里拿不到——
-        /// 复制这个数字是有意的,不是偷懒:既有文案 status.morale.desc 里已经把「每层 +10% 攻击」
-        /// 写成了玩家可见的事实(等于说这个数字本来就是公开的),PlayerInfo 这里再抄一份不算
-        /// 新泄露信息,只是同一个已公开事实又写了一份。⚠ 这个数字改的话,BattleEngine.cs 的
-        /// MoralePercentPerStack、strings 表的 status.morale.desc、这里三处都要一起改。</summary>
-        private const int MoralePercentPerStack = 10;
-
-        /// <summary>厚每层的攻击加成(百分点)。与 <c>BattleEngine</c> 私有常量
-        /// <c>HeftPercentPerStack</c> 数值必须保持一致,理由与上面 <see cref="MoralePercentPerStack"/>
-        /// 的注释同一条:status.heft.desc 已经把「每层 +5% 伤害」写成玩家可见的公开事实,
-        /// 这里复制不是新泄露。⚠ 改这个数字时,BattleEngine.cs 的 HeftPercentPerStack、
-        /// strings 表的 status.heft.desc、这里三处都要一起改。</summary>
-        private const int HeftPercentPerStack = 5;
-
         /// <summary>攻/甲/暴击/速四格。攻直接读 <see cref="BattleEngine.EffectiveAttack"/>——
         /// 稿子点名要求的口径,不在这里重新拼一遍公式。基准值(角色成长曲线)另算,
         /// 因为 BattleEngine 不对外报 config 里的原始 PlayerAttack/PlayerDefense/PlayerSpeed——
@@ -91,9 +76,9 @@ namespace Brushblade.Presentation
             // 用的是同一个 StatusKind.AttackBuff,口径却不一样,不能照抄敌人那边的格式化。
             int attackBuffPts = statuses.TotalMagnitude(StatusKind.AttackBuff);
             int moraleLayers = statuses.TotalMagnitude(StatusKind.Morale);
-            int moralePercent = moraleLayers * MoralePercentPerStack;
+            int moralePercent = moraleLayers * BattleConfig.MoralePercentPerStack;
             int heftLayers = statuses.TotalMagnitude(StatusKind.Heft);
-            int heftPercent = heftLayers * HeftPercentPerStack;
+            int heftPercent = heftLayers * BattleConfig.HeftPercentPerStack;
             string attackNote = UnitDetailChip.BaseNote(MetaRules.AttackFor(level),
                 UnitDetailChip.DeltaBuffPts(Strings.T("status.attack.name"), attackBuffPts),
                 UnitDetailChip.DeltaBuffPct(Strings.T("status.morale.name"), moralePercent),

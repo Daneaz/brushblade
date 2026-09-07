@@ -35,8 +35,8 @@ namespace Brushblade.Core.Tests
             meta.UnlockedPerks.Add("vigor_2"); // 元 L2:+200 HP(合计 +300)
             meta.UnlockedPerks.Add("qi_1");    // 一气 L1:+1 AP
             meta.UnlockedPerks.Add("qi_2");    // 一气 L2:+1 AP(合计 +2)
-            meta.UnlockedPerks.Add("lore_1");  // 慧闻 L1:+1 字库格
-            meta.UnlockedPerks.Add("lore_2");  // 慧闻 L2:+1 字库格(合计 +2)
+            meta.UnlockedPerks.Add("lore_1");  // 博闻 L1:+1 字库格
+            meta.UnlockedPerks.Add("lore_2");  // 博闻 L2:+1 字库格(合计 +2)
             return meta;
         }
 
