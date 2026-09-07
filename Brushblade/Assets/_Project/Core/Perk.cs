@@ -158,6 +158,46 @@ namespace Brushblade.Core
             list.Add(new PerkNodeDef("qi_2", PerkTree.Mechanic, "qi", null,
                 2, MechanicGates[1], 4000, PerkEffect.Ap, 1));
 
+            // ---- 跨树节点:3 个(spec 2026-09-08 §3)----
+            // 各在两棵树的扇区交界上,要两侧各一个前置才开。效果是**缩放器**:
+            // 值 = BaseValue + Value × 已投资量。它放大你已有的投资,而不要求特定组合 ——
+            // 写死「金脉 L3 + 锋枝 L2 = 某个具体加成」会把它变成第四棵树的固定路径。
+            //
+            // BaseValue 的存在理由不是「避免 +0」(前置本就保证计数 ≥ 1),而是
+            // 「纯缩放下的入门档配不上定价」:相济 1,200 墨只换 +2%,同价的力 L3 给 +15%。
+            // 保底值按「下限对标同价位的被动节点」定(spec §3.2)。
+            list.Add(new PerkNodeDef("cross_vigor", PerkTree.Cross, "xvigor", null,
+                depth: 1, unlockLevel: 16, inkCost: 1200,
+                effect: PerkEffect.AttackPercent, value: 3,
+                baseValue: 8, scaling: PerkScaling.PerDeepWuxingNode,
+                prereq: new[]
+                {
+                    new PerkRequirement(PerkTree.Wuxing, minDepth: 3),
+                    new PerkRequirement(PerkTree.Passive, minDepth: 2),
+                }));
+            list.Add(new PerkNodeDef("cross_edge", PerkTree.Cross, "xedge", null,
+                depth: 1, unlockLevel: 8, inkCost: 900,
+                effect: PerkEffect.CritChance, value: 3,
+                baseValue: 6, scaling: PerkScaling.PerMechanicNode,
+                prereq: new[]
+                {
+                    new PerkRequirement(PerkTree.Passive, minDepth: 2),
+                    new PerkRequirement(PerkTree.Mechanic, minDepth: 1),
+                }));
+            // ⚠ 前置只要五行 L2,缩放却数 L3 —— 这个错位是刻意的(spec §3.4):
+            // L2 口径下 1,800 墨就能吃满 +3 起手抽取,会变成预算内的标配;
+            // 而前置若也提到 L3,门槛就撞上相济的 Lv16,三个跨树节点的等级梯度塌掉。
+            // 保底 1 正好兜住「刚点亮时缩放计数为 0」这一档。
+            list.Add(new PerkNodeDef("cross_draw", PerkTree.Cross, "xdraw", null,
+                depth: 1, unlockLevel: 10, inkCost: 900,
+                effect: PerkEffect.DrawRolls, value: 1,
+                baseValue: 1, scaling: PerkScaling.PerDeepElement,
+                prereq: new[]
+                {
+                    new PerkRequirement(PerkTree.Mechanic, minDepth: 1),
+                    new PerkRequirement(PerkTree.Wuxing, minDepth: 2),
+                }));
+
             return list;
         }
 
