@@ -93,7 +93,6 @@ def _sum(effects, kinds):
     return sum(e["value"] for e in effects if e["kind"] in kinds)
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_roster_matches_target():
     """字表的字集与目标一致 —— 多一个少一个都要报出来。
 
@@ -117,7 +116,6 @@ def test_rarity_matches_target():
     assert not bad, "稀有度与目标表不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_element_matches_target():
     """系(五行)与目标表一致 —— 系决定生克,漏改是玩法级的错(如 桂 木→土)。"""
     target, actual = _target(), _actual()

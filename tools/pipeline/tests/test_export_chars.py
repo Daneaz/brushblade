@@ -83,9 +83,11 @@ def test_extract_pulls_60_implementable_chars():
     2026-08-25 字表重构:105 → 74,移出 33 字、新增 杖/枪 两字
     (spec docs/superpowers/specs/2026-08-25-字表重构-design.md)。
     2026-09-05 字表调整:74 → 60,移出 17 字、新增 藻/箭/葬(spec docs/superpowers/specs/2026-09-05-字表调整-design.md)。
+    2026-09-07 字表平衡重做 P2:60 → 57,移出 桤/浴/葬/锐 四字、新增 花(spec
+    docs/superpowers/specs/2026-09-05-字表平衡重做-design.md §3 第 8 项)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 60
+    assert len(values) == 57
     # 焚曾含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)。
     # 2026-09-02:相生 ×3 取消,基础值改填等值改写后的实战值,40 → 120,战斗结果不变。
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
@@ -477,10 +479,10 @@ def test_component_entries_are_flagged():
 
 
 def test_real_table_flags_every_component():
-    """实船字表:60 个可出牌字都不带 component,其余全部带。"""
+    """实船字表:57 个可出牌字都不带 component,其余全部带(2026-09-07 P2:60 → 57)。"""
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = {c["id"] for c in chars if "effects" in c}
-    assert len(playable) == 60
+    assert len(playable) == 57
     for c in chars:
         if c["id"] in playable:
             assert "component" not in c, f"{c['id']} 是可出牌字,不该带 component"
@@ -506,26 +508,33 @@ def test_component_recipes_yield_one_element_part_each():
 
 
 def test_real_table_has_component_recipes():
-    """实船字表:10 个部件带上了配方,9 个新部件条目在场。
+    """实船字表:9 个部件带上了配方,8 个终点部件条目在场。
 
     2026-09-05:崔(=山+隹,服务 熣)、切(=七+刀,服务 沏)随它们服务的字一并移出
     COMPONENT_RECIPES;七 是 切 的唯一原料,没有别的字再引用它,随之从字表整体消失
     (隹 还有 焦/锥 在用,不受影响,留在下面的终点部件清单外——它本来就不在这份清单里)。
+    2026-09-07(P2 Task 4a):桤 移出字表,岂(=山+己,COMPONENT_RECIPES 里注明只服务
+    桤/铠 两字,铠 早于 2026-09-05 已移出)随之失去唯一引用而级联消失;己 是 岂 的
+    唯一原料,同样消失。COMPONENT_RECIPES 里那条 `"岂": ["山", "己"]` 仍原样留着——
+    它是静态配方表,不是字表本身,只是这批之后没有任何 recipe 再引用到它,闭包算法
+    自然不会把它收进产物(同 七/戈/刀/切/崔 那批的处理方式一致,不用手动摘除条目)。
     """
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     byid = {c["id"]: c for c in chars}
     expected = {
-        "秋": ["禾", "火"], "岂": ["山", "己"], "荅": ["艹", "合"],
+        "秋": ["禾", "火"], "荅": ["艹", "合"],
         "列": ["歹", "刂"], "喿": ["品", "木"], "烝": ["丞", "灬"], "则": ["贝", "刂"],
         "朵": ["几", "木"], "茾": ["艹", "开"], "垔": ["覀", "土"],
     }
     for part, recipe in expected.items():
         assert byid[part]["recipe"] == recipe, f"{part} 的配方不对"
         assert byid[part]["component"] is True, f"{part} 有了配方,但仍然必须是部件"
-    for part in "己合歹品丞贝几开覀":
+    for part in "合歹品丞贝几开覀":
         assert part in byid, f"新部件 {part} 不在字表里"
         assert "recipe" not in byid[part], f"{part} 是终点,不该有配方"
     assert "七" not in byid, "七 曾是 切 的唯一原料,切 移出后应随之消失"
+    assert "岂" not in byid, "岂 曾是 桤/铠 的唯一原料,两字都移出后应随之消失"
+    assert "己" not in byid, "己 是 岂 的唯一原料,岂 消失后应随之消失"
 
 
 def test_jing_and_yan_recipes_route_through_the_middle_layer():
@@ -547,10 +556,16 @@ def test_real_table_entry_count():
     # 部件因此失去唯一引用而级联消失(七 丈 公 刀 切 勺 匝 占 尧 展 崔 戈 朿 白),
     # 新增的 3 字带来 3 个新部件(前、死、竹)。净变化:69 − 14 + 3 = 58。
     # 总条目 143 − 17 − 14 + 3 + 3 = 118(60 字 + 58 部件)。
+    #
+    # 2026-09-07(P2 Task 4a):60 → 57(移出 桤/浴/葬/锐、新增 花),部件 58 → 54。
+    # 移出的 4 字级联带走 5 个失去唯一引用的部件(兑 岂 己 死 谷 —— 兑 服务 锐、
+    # 岂/己 服务 桤、死 服务 葬、谷 服务 浴),新增的 花 带来 1 个新部件(化,
+    # 亻+匕,无五行属性)。净变化:58 − 5 + 1 = 54。
+    # 总条目 118 − 4 − 5 + 1 + 1 = 111(57 字 + 54 部件)。
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = [c for c in chars if "effects" in c]
-    assert len(playable) == 60
-    assert len(chars) == 118, "60 字 + 58 部件"
+    assert len(playable) == 57
+    assert len(chars) == 111, "57 字 + 54 部件"
 
 
 def _shipped():
@@ -574,14 +589,34 @@ def test_removed_chars_are_gone():
 
 
 def test_new_wood_chars_land_with_expected_recipes():
-    """藻/箭/葬 的配方:藻 与 箭 走 IDS 一级拆解,葬 走手写兜底(IDS 是三部件)。"""
+    """藻/箭 的配方走 IDS 一级拆解。
+
+    2026-09-07(P2 Task 4a):葬 随本批移出字表(见 test_p2_task4_roster_changes),
+    对应断言一并删除;竹 仍由 箭 的配方带入字表,不受影响。
+    """
     by_id = _shipped()
     assert by_id["藻"]["recipe"] == ["艹", "澡"]
     assert by_id["箭"]["recipe"] == ["竹", "前"]
-    assert by_id["葬"]["recipe"] == ["艹", "死"]
     assert by_id["竹"]["component"] is True
     assert by_id["竹"]["element"] == "Wood"
     assert "recipe" not in by_id["竹"], "竹 必须是叶子部件 —— ComponentKin 的守卫要求"
+
+
+def test_p2_task4_roster_changes():
+    """2026-09-07 P2 Task 4a:桤/浴/葬/锐 四字移出,花(艹+化)新增。
+
+    花 的配方走 IDS 一级拆解(⿱艹化);化 是本批新部件,无五行属性(亻+匕,不落
+    ATTR_MAP 也不在 COMPOUND_ATTR 里,与 己/合/歹 等中性终点部件同一口径)。
+    """
+    by_id = _shipped()
+    for char in "桤浴葬锐":
+        assert char not in by_id, f"{char} 应已移出字表(P2 Task 4a)"
+    for part in "兑岂己死谷":
+        assert part not in by_id, f"部件 {part} 已无字引用,应随之消失(P2 Task 4a)"
+    assert by_id["花"]["recipe"] == ["艹", "化"]
+    assert by_id["化"]["component"] is True
+    assert "element" not in by_id["化"], "化 是中性部件,不带五行属性"
+    assert "recipe" not in by_id["化"], "化 是叶子部件"
 
 
 def test_zao_carries_regen_passive():

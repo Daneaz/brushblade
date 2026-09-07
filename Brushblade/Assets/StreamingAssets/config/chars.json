@@ -341,6 +341,29 @@
       ]
     },
     {
+      "id": "箭",
+      "rarity": "Blue",
+      "element": "Wood",
+      "recipe": [
+        "竹",
+        "前"
+      ],
+      "pinyin": "jiàn",
+      "gloss": "弓弩发射的尖头长杆",
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 80,
+          "count": 1,
+          "attack": 28,
+          "summonChar": "箭",
+          "passive": {
+            "ranged": true
+          }
+        }
+      ]
+    },
+    {
       "id": "楸",
       "rarity": "Purple",
       "element": "Wood",
@@ -355,7 +378,7 @@
           "kind": "Summon",
           "value": 176,
           "count": 1,
-          "attack": 80,
+          "attack": 39,
           "summonChar": "楸",
           "passive": {
             "onHitBurn": 1,
@@ -385,27 +408,6 @@
             "thorns": 50,
             "taunt": true
           }
-        }
-      ]
-    },
-    {
-      "id": "桂",
-      "rarity": "Orange",
-      "element": "Wood",
-      "recipe": [
-        "木",
-        "圭"
-      ],
-      "pinyin": "guì",
-      "gloss": "桂树,花香馥郁",
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 390,
-          "count": 3,
-          "attack": 50,
-          "summonChar": "桂",
-          "summonShield": 60
         }
       ]
     },
@@ -449,29 +451,6 @@
           "count": 2,
           "attack": 45,
           "summonChar": "柘"
-        }
-      ]
-    },
-    {
-      "id": "桤",
-      "rarity": "Purple",
-      "element": "Wood",
-      "recipe": [
-        "木",
-        "岂"
-      ],
-      "pinyin": "qī",
-      "gloss": "桤木,生长极速",
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 330,
-          "count": 1,
-          "attack": 50,
-          "summonChar": "桤",
-          "passive": {
-            "speed": 150
-          }
         }
       ]
     },
@@ -524,36 +503,22 @@
       ]
     },
     {
-      "id": "箭",
-      "rarity": "Purple",
-      "element": "Wood",
-      "recipe": [
-        "竹",
-        "前"
-      ],
-      "pinyin": "jiàn",
-      "gloss": "弓弩发射的尖头长杆",
-      "effects": [
-        {
-          "kind": "DamageSingle",
-          "value": 200
-        }
-      ]
-    },
-    {
-      "id": "葬",
-      "rarity": "Blue",
+      "id": "花",
+      "rarity": "Green",
       "element": "Wood",
       "recipe": [
         "艹",
-        "死"
+        "化"
       ],
-      "pinyin": "zàng",
-      "gloss": "掩埋亡者",
       "effects": [
         {
-          "kind": "DamageAll",
-          "value": 70
+          "kind": "DamageSingle",
+          "value": 54
+        },
+        {
+          "kind": "Charm",
+          "value": 0,
+          "turns": 1
         }
       ]
     },
@@ -853,37 +818,6 @@
       ]
     },
     {
-      "id": "浴",
-      "rarity": "Blue",
-      "element": "Water",
-      "recipe": [
-        "氵",
-        "谷"
-      ],
-      "pinyin": "yù",
-      "gloss": "以水洗身",
-      "effects": [
-        {
-          "kind": "HealSelf",
-          "value": 77
-        },
-        {
-          "kind": "Cleanse",
-          "value": 0
-        }
-      ],
-      "attackEffects": [
-        {
-          "kind": "Revive",
-          "value": 1
-        },
-        {
-          "kind": "DamageSingle",
-          "value": 77
-        }
-      ]
-    },
-    {
       "id": "",
       "rarity": "Red",
       "element": "Metal",
@@ -1126,23 +1060,6 @@
       ]
     },
     {
-      "id": "锐",
-      "rarity": "Green",
-      "element": "Metal",
-      "recipe": [
-        "钅",
-        "兑"
-      ],
-      "pinyin": "ruì",
-      "gloss": "刀刃尖而快",
-      "effects": [
-        {
-          "kind": "PierceBuff",
-          "value": 20
-        }
-      ]
-    },
-    {
       "id": "㙓",
       "rarity": "Red",
       "element": "Earth",
@@ -1234,6 +1151,29 @@
           "count": 1,
           "attack": 100,
           "summonChar": "塔"
+        }
+      ]
+    },
+    {
+      "id": "桂",
+      "rarity": "Orange",
+      "element": "Earth",
+      "recipe": [
+        "木",
+        "圭"
+      ],
+      "pinyin": "guì",
+      "gloss": "桂树,花香馥郁",
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 790,
+          "count": 1,
+          "attack": 67,
+          "summonChar": "桂",
+          "passive": {
+            "thorns": 50
+          }
         }
       ]
     },
@@ -1462,11 +1402,6 @@
       "component": true
     },
     {
-      "id": "兑",
-      "element": "Metal",
-      "component": true
-    },
-    {
       "id": "冫",
       "element": "Water",
       "component": true
@@ -1498,6 +1433,10 @@
     },
     {
       "id": "前",
+      "component": true
+    },
+    {
+      "id": "化",
       "component": true
     },
     {
@@ -1542,19 +1481,7 @@
       "component": true
     },
     {
-      "id": "岂",
-      "component": true,
-      "recipe": [
-        "山",
-        "己"
-      ]
-    },
-    {
       "id": "巢",
-      "component": true
-    },
-    {
-      "id": "己",
       "component": true
     },
     {
@@ -1583,10 +1510,6 @@
     },
     {
       "id": "歹",
-      "component": true
-    },
-    {
-      "id": "死",
       "component": true
     },
     {
@@ -1660,10 +1583,6 @@
     },
     {
       "id": "覀",
-      "component": true
-    },
-    {
-      "id": "谷",
       "component": true
     },
     {
