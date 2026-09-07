@@ -219,7 +219,6 @@ def test_heal_matches_target():
     assert not bad, "治疗列不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_armor_matches_target():
     """护甲列 → DefenseBuff(点数制护甲增益,尚未被任何字使用过)。"""
     target, actual = _target_rows(), _actual()

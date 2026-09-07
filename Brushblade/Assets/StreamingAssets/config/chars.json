@@ -1148,6 +1148,10 @@
           "kind": "Shield",
           "value": 157,
           "persistOnce": true
+        },
+        {
+          "kind": "DefenseBuff",
+          "value": 13
         }
       ],
       "attackEffects": [
@@ -1175,6 +1179,10 @@
         {
           "kind": "Shield",
           "value": 149
+        },
+        {
+          "kind": "DefenseBuff",
+          "value": 11
         }
       ],
       "attackEffects": [
