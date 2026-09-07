@@ -337,9 +337,7 @@ Passed!  - Failed:     0, Passed:  1676, Skipped:     0, Total:  1676, Duration:
 
 与基线 1676 / 0 一致。
 
-## 7 · `git show --stat HEAD` 自查
-
-见 §8(提交后追记)。提交前 `git status --short` 确认:
+## 7 · 提交前 `git status --short` 确认
 
 ```
  M Brushblade/Assets/StreamingAssets/config/chars.json
@@ -355,18 +353,30 @@ Passed!  - Failed:     0, Passed:  1676, Skipped:     0, Total:  1676, Duration:
 `tools/balance/` 零改动(并发 agent 的地盘);`progress.md` 不是我的文件,
 按共享 index 的纪律**不 `git add`**,只逐个 add 上面 7 个 + 本报告。
 
-## 8 · 提交自查
+## 8 · `git show --stat HEAD` 自查
+
+提交:**`21fda03`** `feat(chartable): 金/土两条系印记落地 + 光环盾按血量定价`
 
 ```
-commit <见 §8 追记>
- .superpowers/sdd/2026-09-08-字表平衡重做-P3/task-2-report.md | ...
- Brushblade/Assets/StreamingAssets/config/chars.json          |  20 +-
- Brushblade/Assets/_Project/Tests/CharTableTests.cs           |  27 +-
- docs/design/字选型/字表功能解析.md                            |  42 +-
- docs/design/字选型/技能机制详表.md                            |  12 +-
- docs/superpowers/specs/2026-09-05-字表平衡重做-design.md      |  18 +-
- tools/design/rebalance_2026_09_05.py                         |  32 +-
- tools/design/tests/test_rebalance_reconcile.py               |  51 +-
+ .../task-2-report.md"                              | 382 +++++++++++++++++++++
+ .../Assets/StreamingAssets/config/chars.json       |  20 +-
+ Brushblade/Assets/_Project/Tests/CharTableTests.cs |  25 +-
+ ...212\237\350\203\275\350\247\243\346\236\220.md" |  42 +--
+ ...234\272\345\210\266\350\257\246\350\241\250.md" |  12 +-
+ ...\350\241\241\351\207\215\345\201\232-design.md" |  19 +-
+ tools/design/rebalance_2026_09_05.py               |  32 +-
+ tools/design/tests/test_rebalance_reconcile.py     |  51 ++-
+ 8 files changed, 524 insertions(+), 59 deletions(-)
+```
+
+八个文件,全是我改的:`tools/balance/` 零命中(并发 agent 的地盘),
+`progress.md` 未被裹进来(共享 index,逐个 `git add` 而非裸 `git commit`)。
+
+提交后又完整复跑一遍两套测试,确认提交的这份树是绿的:
+
+```
+344 passed in 3.45s
+Passed!  - Failed: 0, Passed: 1676, Skipped: 0, Total: 1676
 ```
 
 ## 9 · 顾虑 / 交给你判断的三件事
