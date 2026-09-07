@@ -258,18 +258,17 @@ namespace Brushblade.Presentation
             "wide" => ElementColor(Element.Water),
             "insight" => Gold,
             "qi" => Jade,
-            // 跨树节点(2026-09-08)。不补这三条会全部兜底成 TextMain,三个节点同色 ——
-            // 不是编译错,是上线看不出区别。各取它所放大的那棵树的代表色。
+            // 跨树节点(2026-09-08 定色)。三条**共用一个色**,取心的紫 ——
             //
-            // ⚠ 占位取色,人眼验收时可换,但**必须是本文件已有的常量**。已知两处与
-            // 环形布局上的**紧邻枝**撞色(PerkLayout 的角度算出来的):相济 0° 挨着
-            // 元 13.5°(同为 Cinnabar)、博采 180° 挨着一气 171°(同为 Jade);
-            // 融会 108° 的两个邻居是御 94.5°(InkSoft)与博闻 117°(SplitBlue),不撞。
-            // 真要换,ElementColor(Element.Heart) 的紫与 SplitBlue 的蓝是仅剩的两个
-            // 在这一圈上不与任何枝相邻同色的选择。
-            "xvigor" => Cinnabar,
-            "xedge" => Gold,
-            "xdraw" => Jade,
+            // 1. 它们是同一类(PerkTree.Cross),同色正是在说这件事;区分靠外圈虚线环
+            //    与各自的效果图标,不靠色相。
+            // 2. 紫在上面 13 条枝色与 5 个五行元素色里一条都没用过,所以放在环上的
+            //    任何角度都不会与邻枝撞色 —— 初稿按角度逐个躲(相济=Cinnabar 撞元 13.5°、
+            //    博采=Jade 撞一气 171°),那是打地鼠,枝一改角度就得重躲一遍。
+            // 3. 与主界面「技能」页签的 PerkTab(同样 FromElement(Element.Heart))同源。
+            "xvigor" => ElementColor(Element.Heart),
+            "xedge" => ElementColor(Element.Heart),
+            "xdraw" => ElementColor(Element.Heart),
             _ => TextMain,
         };
 

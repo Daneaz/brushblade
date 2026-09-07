@@ -67,6 +67,12 @@ namespace Brushblade.Presentation
         private const float LegendBoldBorder = 3.5f;
         private const float LegendW = 740f;
         private const float LegendH = 34f;
+        private const float LegendGap = 8f;      // 图例底沿离跳转胶囊顶沿多远
+
+        /// <summary>底部浮层(跳转胶囊 + 其上的图例)总高。视口是铺满整张卡的,
+        /// 这一条是「视口底部有多少像素被浮层盖住」—— <see cref="FitCrossZoom"/> 要用它
+        /// 算可见范围,别让它与 <see cref="BuildLegend"/> 的摆放各写各的。</summary>
+        private const float BottomChromeH = EdgePad + JumpPillH + LegendGap + LegendH;
 
         private MetaState _meta;
         private Action _save;
@@ -75,9 +81,11 @@ namespace Brushblade.Presentation
         private RectTransform _viewport;   // 裁剪框
         private RectTransform _canvas;     // 1120×1120 的内容层,平移缩放作用在它上面
 
-        /// <summary>画布缩放。**写入点只有两处**:<see cref="Build"/> 的初值,与
-        /// <see cref="OnZoomChanged"/>(手势唯一的回写口)。读取点见
-        /// <see cref="UpdateMinimapFrame"/> 与 <see cref="JumpTo"/> 的注释。</summary>
+        /// <summary>画布缩放。**写入点只有三处**:<see cref="Build"/> 的初值、
+        /// <see cref="OnZoomChanged"/>(手势唯一的回写口),以及 <see cref="ZoomTo"/>
+        /// (跨树跳转要压缩放,见 <see cref="FitCrossZoom"/>)—— 后者也是走 OnZoomChanged
+        /// 落地的,不绕过那条阈值切换。读取点见 <see cref="UpdateMinimapFrame"/> 与
+        /// <see cref="JumpTo"/> 的注释。</summary>
         private float _zoom = 0.7f;
 
         /// <summary>重建前记下的视口落点。<see cref="Build"/> 会把整棵层级删掉重建
@@ -552,10 +560,63 @@ namespace Brushblade.Presentation
         private void JumpTo(PerkTree tree)
         {
             if (_canvas == null) return;
+            // 跨树是唯一一个「目标不是一处、而是散在三边」的锚点:平移到中心并不保证
+            // 三个都进得来,放大着点它会把融会(108°,anchored y ≈ −504)甩出视口下沿。
+            // 先把倍率压到装得下,再按**压完之后**的 _zoom 算落点(顺序反了会偏)。
+            // 其余三个锚点各自只对着一个扇区,不动缩放。
+            if (tree == PerkTree.Cross) ZoomTo(Mathf.Min(_zoom, FitCrossZoom()));
             var target = ToAnchored(PerkLayout.JumpTarget(tree));
             _canvas.anchoredPosition = -target * _zoom;
             // 缩略图的红框下一帧由 LateUpdate 照读 _canvas.anchoredPosition 更新,
             // 不需要在这里再通知一次(见 UpdateMinimapFrame 的注释)。
+        }
+
+        /// <summary>非手势路径改缩放的唯一入口。写 localScale 之外**必须**走
+        /// <see cref="OnZoomChanged"/>,否则 <see cref="_zoom"/> 与图标/名字的显隐会与
+        /// 画布实际倍率脱节。<see cref="PerkCanvasPan"/> 那边不缓存倍率(每次从
+        /// <c>localScale.x</c> 现读),所以这里改完手势自动接得上。</summary>
+        private void ZoomTo(float zoom)
+        {
+            if (_canvas == null || Mathf.Approximately(zoom, _zoom)) return;
+            _canvas.localScale = Vector3.one * zoom;
+            OnZoomChanged(zoom);
+        }
+
+        /// <summary>「三个跨树节点同时在屏」所允许的最大倍率。
+        ///
+        /// 推导(视口居中在画布中心,即 <see cref="PerkLayout.JumpTarget"/> 给 Cross 的落点):
+        /// 1. 需要覆盖的画布半跨度 = 三个 Cross 节点 anchored 坐标的 |x|/|y| 最大值 + 节点半径。
+        ///    半径 530 的 0° / 108° / 180° 三点翻 y 后是 (530,0)、(−163.8,−504.1)、(−530,0),
+        ///    加上 <see cref="PerkLayout.NodeDiameter"/>/2 = 26 → 需要 halfX 556、halfY 530.1。
+        ///    这里不写死这三个数,直接从 <see cref="PerkRules.Nodes"/> 现算 —— 角度一改自动跟上。
+        /// 2. 视口铺满整张卡,但上有顶栏、下有图例+跳转胶囊两层浮层。可见区要**居中**
+        ///    (画布中心就落在视口中心),所以上下都按更厚的那层扣:
+        ///    <see cref="BottomChromeH"/> = 100 > <see cref="TopBarH"/> = 76。
+        ///    横向只扣 EdgePad —— 0°/180° 两个节点正落在垂直中线上,缩略图与浮层都在下半边,挡不着。
+        /// 3. 倍率 = min(availX/halfX, availY/halfY),夹回 [MinZoom, MaxZoom]。
+        ///    1600×900 参考机上视口 1408×810 → availY = 810/2 − 100 = 305,
+        ///    305 / 530.1 ≈ 0.575;availX = 1408/2 − 20 = 684,684 / 556 ≈ 1.23 —— 纵向是瓶颈。
+        ///    最窄的 4:3(视口 1056×810)横向 508/556 ≈ 0.914,仍然纵向先卡住,结果同为 0.575。
+        ///    即:点「跨树」会从默认 0.7 或放大到底的 1.15 压到约 0.575。</summary>
+        private float FitCrossZoom()
+        {
+            if (_viewport == null) return _zoom;
+
+            float halfX = 0f, halfY = 0f;
+            foreach (var def in PerkRules.Nodes)
+            {
+                if (def.Tree != PerkTree.Cross) continue;
+                var a = ToAnchored(PerkLayout.Place(def));
+                halfX = Mathf.Max(halfX, Mathf.Abs(a.x));
+                halfY = Mathf.Max(halfY, Mathf.Abs(a.y));
+            }
+            halfX += PerkLayout.NodeDiameter / 2f;
+            halfY += PerkLayout.NodeDiameter / 2f;
+
+            float availX = _viewport.rect.width / 2f - EdgePad;
+            float availY = _viewport.rect.height / 2f - BottomChromeH;
+            if (halfX <= 0f || halfY <= 0f || availX <= 0f || availY <= 0f) return _zoom;
+            return Mathf.Clamp(Mathf.Min(availX / halfX, availY / halfY), MinZoom, MaxZoom);
         }
 
         // ================= 缩略图(右下圆形) =================
@@ -642,16 +703,22 @@ namespace Brushblade.Presentation
         ///
         /// ⚠ 环形改造保留了这一条(而不是随页签一起删掉):节点仍然是形状编码五态,
         /// 删掉图例等于把上面那条 review 结论又退回去。位置从「页面底部一行」改成
-        /// 底边正中的浮条,夹在跳转锚点与缩略图之间。</summary>
+        /// 左下浮条,**摞在跳转胶囊正上方**(摆放推导见方法体里的注释)。</summary>
         private void BuildLegend(Transform parent)
         {
             var block = Ui.CardPanel(parent, "Legend",
                 new Color(Theme.PanelPaper.r, Theme.PanelPaper.g, Theme.PanelPaper.b, 0.92f), 16);
             var rect = (RectTransform)block.transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
-            rect.pivot = new Vector2(0.5f, 0f);
+            // ⚠ **贴左下、摞在跳转胶囊之上**,不是底边正中。居中摆过一版,在窄屏上必压胶囊:
+            // CanvasScaler 按高匹配(逻辑高恒为 900),所以逻辑宽 = 900 × aspect,
+            // 卡宽 = 0.88 × 逻辑宽 —— 4:3 上卡宽只有 1056,居中的 740 宽图例左沿落在
+            // (1056−740)/2 = 158,而胶囊行右沿在 332,直接压掉 174px。
+            // 改成与胶囊同样左对齐后,图例横向占 20..760,右边留给缩略图
+            // (缩略图左沿 = 卡宽 − 20 − 156,4:3 上是 880),最窄的 4:3 也还剩 120px 空隙。
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 0f);
+            rect.pivot = new Vector2(0f, 0f);
             rect.sizeDelta = new Vector2(LegendW, LegendH);
-            rect.anchoredPosition = new Vector2(0f, EdgePad);
+            rect.anchoredPosition = new Vector2(EdgePad, EdgePad + JumpPillH + LegendGap);
             block.raycastTarget = false;
 
             var row = Ui.Row(block.transform, "Items", 16);
