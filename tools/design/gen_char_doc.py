@@ -205,6 +205,7 @@ PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge':
            'speed': '速度', 'onHitBurn': '命中挂灼烧',
            'onHitBurnAll': '灼烧转全体', 'ranged': '远程:无视敌方前排',
            'taunt': '嘲讽:强制敌人攻击它',
+           'auraAttack': '光环攻',
            }
 
 # 召唤物的攻击形状(2026-08-22 引擎侧落地,2026-08-25 起字表里才有载体:剑 / 枪 / 蕉)。
@@ -322,10 +323,14 @@ def desc(e):
         'Cleanse': "净化自身全部减益", 'Immunity': f"免疫 {v} 次伤害",
         'Reflect': f"反弹 {v}% 伤害×{t} 回合", 'DefenseBuff': f"护甲 +{v}(本场)",
         # 破甲 2026-08-13 起是「削目标护甲 v 点」,不再是「承伤 +25% 持续 t 回合」
-        'ArmorBreak': f"破甲 {v}(削目标护甲,本场,可叠)", 'Empower': f"攻击力 +{v}(本场)",
+        # 利/锋 是限时增益(spec §4.2:养成侧唯二吃 turns 随卡等级成长的字),
+        # 管线已强制它们必须带 turns(P2 Task 4a 把两者移进 DURATION_KINDS),
+        # 所以不留「本场」那一支 —— 与 CharInfo.cs / CardTraits.cs 两处同口径
+        # (2026-09-07 P2 Task 4d 修的是那两处,这里是同一个 bug 的第三个读取点)。
+        'ArmorBreak': f"破甲 {v}(削目标护甲,本场,可叠)", 'Empower': f"攻击力 +{v},{t} 回合",
         'PierceBuff': f"穿透 +{v}(本场)", 'DodgeBuff': f"闪避 +{v}%(本场)",
         'Morale': f"战意 +{v} 层(每层 +10% 攻,上限 5)", 'ApBoost': f"AP 上限 +{v}(本场)",
-        'CritBuff': f"暴击率 +{v}%(本场)",
+        'CritBuff': f"暴击率 +{v}%,{t} 回合",
         'Summon': f"召唤 {e.get('count',1)} 只(血 {v}/攻 {e.get('attack',0)}"
                   + (f",{passive_txt(e['passive'])}" if e.get('passive') else "") + ")",
         'ShieldAll': f"群体护盾 {v}(玩家 + 全部存活召唤物各一份)",
@@ -415,6 +420,7 @@ SUMMON_TRAITS = [
     ('thorns', lambda p, v: f"荆棘 {v}%"),
     ('healAlly', lambda p, v: f"随行治疗 {v}"),
     ('regen', lambda p, v: f"自愈 {v}"),
+    ('auraAttack', lambda p, v: f"光环攻 +{v}"),
     ('onHitBurn', lambda p, v: (f"命中挂全体灼烧 {v}" if p.get('onHitBurnAll')
                                 else f"命中挂灼烧 {v}")),
     ('onHitCurse', lambda p, v: f"命中诅咒 {v}"),
@@ -479,6 +485,10 @@ def traits(c):
             add(f"{k} {v}")
         if k in ('DamageSingle', 'DamageAll'):
             for m in _dmg_mods(e): add(m)
+        # 免一次清盾(㙓):挂在护盾上的修饰字段,不是独立 kind,所以 TRAITS 那张
+        # 按 kind 索引的表接不到它 —— 此前只在「功能」列露过面,特性技能列一直漏
+        # (2026-09-07 P2 Task 4c 全表逐行核对时查出)。
+        if e.get('persistOnce'): add("免一次清盾")
         if e.get('summonShield'): add(f"全场加盾 {e['summonShield']}")
     return out
 

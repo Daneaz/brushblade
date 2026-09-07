@@ -812,6 +812,8 @@
   "collection.trait.summon_heal.desc": "每回合治疗己方 {value} 点",
   "collection.trait.summon_regen.name": "自愈",
   "collection.trait.summon_regen.desc": "每回合自身回血 {value} 点",
+  "collection.trait.summon_auraattack.name": "光环攻",
+  "collection.trait.summon_auraattack.desc": "全场召唤物 +{value} 攻(含自己)",
   "collection.trait.summon_onhitburn.name": "命中挂灼烧",
   "collection.trait.summon_onhitburn.desc": "它每打中一次,给目标叠 {value} 层灼烧",
   "collection.trait.summon_onhitburn_all.name": "命中挂全体灼烧",
