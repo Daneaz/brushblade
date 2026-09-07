@@ -33,6 +33,12 @@ EXPECTED = {
     # 第 30 枚(2026-08-30):持续治疗。StatusGlossary.dc.html 自己记着「29 枚里缺这一枚,
     # 落地要补第 30 枚」—— 稿上没有它的 SVG,这一枚是**新画的**,已回填进稿。
     "heal",
+    # 技能树节点图标 9 枚(2026-09-08,spec 技能树环形星域 §7.2)。
+    # 15 枚撑起 43 个节点:这 9 枚 + 复用既有的 morale/speed/burn/attack/crit/defense。
+    # 五行 L1/L2/L3 三层**跨五系共用同一枚** —— 图形表达「效果类型」,颜色表达「哪一系」,
+    # 正是 build_icons.ICONS 开头那条「图形一律白色,底色由 C# 上色」的约定。
+    "perk_draw", "perk_loot", "perk_amplify", "perk_wellspring", "perk_heft",
+    "perk_hp", "perk_library", "perk_hand", "perk_ap",
 }
 
 
