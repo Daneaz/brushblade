@@ -227,15 +227,20 @@ def test_critbuff_with_turns_attaches_turns():
         {"kind": "CritBuff", "value": 20, "turns": 3}]
 
 
-def test_critbuff_without_turns_still_parses_as_persistent():
-    """⚠ 恒等性关键回归:既有字「锋」现在就是 `CritBuff 20` 不写 turns(本场持久,
-    已在 chars.json 里)。CritBuff/Empower 的 turns 是**可选**的(OPTIONAL_DURATION_KINDS,
-    不在强制的 DURATION_KINDS 里)——不写 turns 绝不能报错,否则会砸穿恒等性硬线。"""
-    assert _parse_effects("`CritBuff 20`", "锋") == [{"kind": "CritBuff", "value": 20}]
+def test_critbuff_without_turns_now_raises():
+    """2026-09-07(P2 Task 4a,追加 2):`Empower`/`CritBuff` 从 OPTIONAL_DURATION_KINDS
+    移进 DURATION_KINDS(P2 落地完成后 利/锋 均已改写成限时版,不再需要那个过渡期口子,
+    见 extract_values.py 里的注释)。turns 现在是**强制**的——不写就报错,与 `Reflect`/
+    `Silence`/`HealOverTime` 等其余 DURATION_KINDS 成员同一条纪律。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`CritBuff 20`", "锋")
+    assert "CritBuff" in str(err.value)
 
 
-def test_empower_without_turns_still_parses_as_persistent():
-    assert _parse_effects("`Empower 50`", "剡") == [{"kind": "Empower", "value": 50}]
+def test_empower_without_turns_now_raises():
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Empower 50`", "剡")
+    assert "Empower" in str(err.value)
 
 
 def test_turns_lost_on_optional_duration_kind_alone_still_raises():

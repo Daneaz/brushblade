@@ -61,19 +61,20 @@ EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 # 魅惑(2026-09-07,花):EffectKind.Charm 的 Value 不用,Turns 才是回合数
 # (BattleEngine.cs `Math.Max(1, effect.Turns)`)——漏填 turns 会被引擎兜成 1 回合,
 # 看起来能用、实际回合数写死且不吃卡等级,必须强制要求写。
-DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm"}
+#
+# 限时增益(2026-09-05 引擎已支持,2026-09-07 P2 Task 4a 收紧):`Empower` / `CritBuff`
+# 曾经历一段 turns **可选**的过渡期(见下方 git blame / task-2-report.md)——当时既有字
+# 「锋」是 `CritBuff 20` 不写 turns(本场持久),硬塞进 DURATION_KINDS 会让它当场报错,
+# 砸穿恒等性硬线,故临时开了个 OPTIONAL_DURATION_KINDS 口子。P2 落地完成后 利/锋 两字
+# 均已改写成限时版(带 `(turns N)`,回合数随卡等级成长,spec §4.2 明写这两个是养成侧
+# 唯二吃 turns 的字),不再需要那个口子——并回 DURATION_KINDS,让 T1 的反方向防线
+# (「在表里就必须有 turns」)重新覆盖它们,补住「利/锋 漏写 turns」这类错的防护
+# (与 spec §3 第 20 项记的 `壁` 历史 bug 同一个形状:漏 turns → TurnsLeft=0 →
+# 状态施加当场清空,卡面照印)。
+DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff"}
 
-# 限时增益(2026-09-05 引擎已支持):`Empower` / `CritBuff` 的 turns **可选**——
-# 写了就限时(按 MetaRules.ScaleTurnsByCardLevel 随卡等级成长,利/锋专属),不写则
-# `effect.Turns` 缺省 0,引擎按 `TurnsLeft = effect.Turns > 0 ? … : -1` 退回本场持久。
-# ⚠ 不能并进 DURATION_KINDS:那张表下面 missing_turns 反向检查要求「在表里就必须有
-# turns」,而既有字「锋」现在就是 `CritBuff 20` 不写 turns(本场持久,已在 chars.json
-# 里)—— 并进去会让现有这一行当场报错,砸穿恒等性硬线(实测过,见 task-2-report.md)。
-OPTIONAL_DURATION_KINDS = {"Empower", "CritBuff"}
-
-# 会被 turns 正则认领的全部 Kind(强制 + 可选二者之并),仅用于「turns 写了但没人吃」
-# 这条反向检查——可选组同样不能让回合数静默消失。
-TURN_TAKING_KINDS = DURATION_KINDS | OPTIONAL_DURATION_KINDS
+# 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
+TURN_TAKING_KINDS = DURATION_KINDS
 
 # 支持 targetAll 的 Kind
 TARGET_ALL_KINDS = {"HealOverTime", "Blind"}
@@ -377,13 +378,13 @@ def _parse_effects(config, char):
         if effect["kind"] in TARGET_ALL_KINDS and "targetAll" in config:
             effect["targetAll"] = True
     # turns 挂在不吃它的 kind 上(2026-09-07,P2 Task 1 第 2 类静默丢失):上面这段循环
-    # 只会把 turns 写进 TURN_TAKING_KINDS(强制 + 可选)里的效果,若本行压根没有一个吃
+    # 只会把 turns 写进 TURN_TAKING_KINDS 里的效果,若本行压根没有一个吃
     # turns 的效果,这个回合数就静默消失,卡面却可能仍印着它。
     if turns and not any(e["kind"] in TURN_TAKING_KINDS for e in effects):
         raise ValueError(
             f"{char}:配置里写了 turns {turns.group(1)},但本行没有任何吃 turns 的效果"
             f"(TURN_TAKING_KINDS = {sorted(TURN_TAKING_KINDS)})—— 那个回合数会静默消失。"
-            "要么把这个 kind 加进 DURATION_KINDS / OPTIONAL_DURATION_KINDS,要么删掉 turns。")
+            "要么把这个 kind 加进 DURATION_KINDS,要么删掉 turns。")
 
     # 反方向(2026-09-07,追加):DURATION_KINDS 里的效果**没拿到** turns 也要报错——
     # 这才是 spec §1.5 第 20 项描述的那个历史 bug(`壁` 攻面写了 `Reflect 30` 却漏了
