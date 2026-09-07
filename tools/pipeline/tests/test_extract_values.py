@@ -165,7 +165,19 @@ def test_turns_on_kind_without_duration_raises():
     assert "turns" in str(err.value)
 
 
+def test_duration_kind_without_turns_raises():
+    """反方向(2026-09-07 追加):DURATION_KINDS 效果本身没拿到 turns 也必须报错 ——
+    这正是 spec §1.5 第 20 项的历史 bug(`壁` 攻面漏写 turns,TurnsLeft=0 当场清空)。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Reflect 30`", "测")
+    assert "turns" in str(err.value)
+    assert "Reflect" in str(err.value)
+
+
 def test_known_tokens_still_parse():
-    """恒等性:既有写法一个都不能被新防线误伤。"""
+    """恒等性:既有写法一个都不能被新防线误伤。
+
+    ⚠ 这里的 238/`冰` 只是手打的构造样本,不是从详表抄的快照——T4 改数值时这条测试
+    不会因此变红,也不该被当成「详表当前长这样」的参照去同步改动。"""
     got = _parse_effects("`DamageSingle 238` + `DoubleVsControlled`", "冰")
     assert got == [{"kind": "DamageSingle", "value": 238, "doubleVs": "Controlled"}]

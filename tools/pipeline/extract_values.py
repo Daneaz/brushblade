@@ -349,14 +349,28 @@ def _parse_effects(config, char):
                 effect["turns"] = int(turns.group(1))
         if effect["kind"] in TARGET_ALL_KINDS and "targetAll" in config:
             effect["targetAll"] = True
-    # turns 挂在不吃它的 kind 上(2026-09-07,P2 Task 1 第 2 类静默丢失,spec §3 第 20 项
-    # 关注的正是这条):上面这段循环只会把 turns 写进 DURATION_KINDS 里的效果,若本行
-    # 压根没有一个吃 turns 的效果,这个回合数就静默消失,卡面却可能仍印着它。
+    # turns 挂在不吃它的 kind 上(2026-09-07,P2 Task 1 第 2 类静默丢失):上面这段循环
+    # 只会把 turns 写进 DURATION_KINDS 里的效果,若本行压根没有一个吃 turns 的效果,
+    # 这个回合数就静默消失,卡面却可能仍印着它。
     if turns and not any(e["kind"] in DURATION_KINDS for e in effects):
         raise ValueError(
             f"{char}:配置里写了 turns {turns.group(1)},但本行没有任何吃 turns 的效果"
             f"(DURATION_KINDS = {sorted(DURATION_KINDS)})—— 那个回合数会静默消失。"
             "要么把这个 kind 加进 DURATION_KINDS,要么删掉 turns。")
+
+    # 反方向(2026-09-07,追加):DURATION_KINDS 里的效果**没拿到** turns 也要报错——
+    # 这才是 spec §1.5 第 20 项描述的那个历史 bug(`壁` 攻面写了 `Reflect 30` 却漏了
+    # `(turns N)`,TurnsLeft = 0 会被 TickTurns 当场清掉,卡面照印着这个效果,状态施加
+    # 那一刻就已经失效)。比「turns 挂错 kind」更常见,是详表最容易漏写的一种笔误。
+    missing_turns = [e["kind"] for e in effects
+                     if e["kind"] in DURATION_KINDS and "turns" not in e]
+    if missing_turns:
+        raise ValueError(
+            f"{char}:`{missing_turns[0]}` 是需要 turns 的效果(在 DURATION_KINDS 里),"
+            f"但配置格「{config}」没写 turns —— TurnsLeft 会是 0,状态施加当场就被 "
+            "TickTurns 清空,卡面还照印着这个效果,实际大概率不生效(`壁` 攻面漏过一次)。"
+            "两条修法二选一——① 这是详表笔误:在配置格里补上 `(turns N)`;"
+            "② 这个效果本来就该瞬发/无持续:把它的 kind 从 DURATION_KINDS 里移除。")
 
     unknown = all_tokens - consumed
     if unknown:
