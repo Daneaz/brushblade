@@ -252,7 +252,6 @@ def test_summon_matches_target():
     assert not bad, "召唤列不符(字, 实际(只/血/攻), 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_ultimate_matches_target():
     """终极技/层列 → SpendHeft(土)/ SpendWellspring(水)的 value(每层伤害)。"""
     target, actual = _target_rows(), _actual()

@@ -588,7 +588,7 @@
         },
         {
           "kind": "SpendWellspring",
-          "value": 80
+          "value": 60
         }
       ]
     },
@@ -707,7 +707,7 @@
         },
         {
           "kind": "SpendWellspring",
-          "value": 20
+          "value": 14
         }
       ]
     },
