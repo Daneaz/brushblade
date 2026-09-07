@@ -258,6 +258,18 @@ namespace Brushblade.Presentation
             "wide" => ElementColor(Element.Water),
             "insight" => Gold,
             "qi" => Jade,
+            // 跨树节点(2026-09-08)。不补这三条会全部兜底成 TextMain,三个节点同色 ——
+            // 不是编译错,是上线看不出区别。各取它所放大的那棵树的代表色。
+            //
+            // ⚠ 占位取色,人眼验收时可换,但**必须是本文件已有的常量**。已知两处与
+            // 环形布局上的**紧邻枝**撞色(PerkLayout 的角度算出来的):相济 0° 挨着
+            // 元 13.5°(同为 Cinnabar)、博采 180° 挨着一气 171°(同为 Jade);
+            // 融会 108° 的两个邻居是御 94.5°(InkSoft)与博闻 117°(SplitBlue),不撞。
+            // 真要换,ElementColor(Element.Heart) 的紫与 SplitBlue 的蓝是仅剩的两个
+            // 在这一圈上不与任何枝相邻同色的选择。
+            "xvigor" => Cinnabar,
+            "xedge" => Gold,
+            "xdraw" => Jade,
             _ => TextMain,
         };
 

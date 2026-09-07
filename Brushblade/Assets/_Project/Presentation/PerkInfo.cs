@@ -52,7 +52,12 @@ namespace Brushblade.Presentation
             "insight_2" => Strings.T("perk.node.insight_2.name"),
             "qi_1" => Strings.T("perk.node.qi_1.name"),
             "qi_2" => Strings.T("perk.node.qi_2.name"),
-            _ => def.Id, // 兜底:40 个 id 已穷举,理论不可达
+            // 跨树三个(2026-09-08)。少了这三条不是编译错,是节点面与详情弹窗标题
+            // 直接印出英文 id「cross_vigor」——兜底那一支本来就是给「理论不可达」留的。
+            "cross_vigor" => Strings.T("perk.node.cross_vigor.name"),
+            "cross_edge" => Strings.T("perk.node.cross_edge.name"),
+            "cross_draw" => Strings.T("perk.node.cross_draw.name"),
+            _ => def.Id, // 兜底:43 个 id 已穷举,理论不可达
         };
 
         /// <summary>一句效果描述,数值一律从 <see cref="PerkNodeDef.Value"/> 取、模板里用占位符
@@ -102,6 +107,15 @@ namespace Brushblade.Presentation
             "insight_2" => Strings.T("perk.node.insight_2.desc", ("value", def.Value)),
             "qi_1" or "qi_2" =>
                 Strings.T("perk.info.effect.ap", ("value", def.Value)),
+            // 跨树三个:它们是**缩放器**,一句话里同时要保底值与每级增量,所以两个占位符
+            // 都得给(其余 40 个节点只有 {value})。走 BaseValue/Value 而不是把算好的合计
+            // 印上去 —— 合计随存档变,拆开的这两个数才是节点自身的定义(spec §5.1)。
+            "cross_vigor" => Strings.T("perk.node.cross_vigor.desc",
+                ("base", def.BaseValue), ("value", def.Value)),
+            "cross_edge" => Strings.T("perk.node.cross_edge.desc",
+                ("base", def.BaseValue), ("value", def.Value)),
+            "cross_draw" => Strings.T("perk.node.cross_draw.desc",
+                ("base", def.BaseValue), ("value", def.Value)),
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达
         };
 
