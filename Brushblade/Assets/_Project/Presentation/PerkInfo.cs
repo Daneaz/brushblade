@@ -104,5 +104,42 @@ namespace Brushblade.Presentation
                 Strings.T("perk.info.effect.ap", ("value", def.Value)),
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达
         };
+
+        /// <summary>节点详情弹窗(<see cref="PerkNodeSheet"/>)的「说明」段:解释这条效果实际
+        /// 意味着什么(review 举的例子:鏖战「战意每层 +10% 攻击,满层由 +50% 抬到 +70%。
+        /// 战意只有金系字给得出,所以这一条不会外溢到别的流派」)。
+        ///
+        /// 40 个节点按 <see cref="PerkEffect"/> 分类只写 17 条——同一种效果(如三枝被动树
+        /// 各自的三层)结构完全相同、只是数值不同,共用一条说明比 40 条各写各的**更不容易过时**
+        /// (卡面那句机械描述才需要每节点各写各的,这里不需要)。三条五行 L1/L2/L3
+        /// (<see cref="PerkEffect.ElementDrawRolls"/> 等)横跨五个元素,用 {element} 占位符
+        /// 填该系名词,而不是拆成五条元素各写各的。</summary>
+        public static string DetailText(PerkNodeDef def) => def.Effect switch
+        {
+            PerkEffect.MaxHp => Strings.T("perk.detail.max_hp"),
+            PerkEffect.AttackPercent => Strings.T("perk.detail.attack_percent"),
+            PerkEffect.CritChance => Strings.T("perk.detail.crit_chance"),
+            PerkEffect.Defense => Strings.T("perk.detail.defense"),
+            PerkEffect.LibraryCapacity => Strings.T("perk.detail.library_capacity"),
+            PerkEffect.StartingCards => Strings.T("perk.detail.starting_cards"),
+            PerkEffect.DrawRolls => Strings.T("perk.detail.draw_rolls", ("value", def.Value)),
+            PerkEffect.LootDrawRolls => Strings.T("perk.detail.loot_draw_rolls", ("value", def.Value)),
+            PerkEffect.Ap => Strings.T("perk.detail.ap", ("value", def.Value)),
+            PerkEffect.ElementDrawRolls => Strings.T("perk.detail.element_draw_rolls",
+                ("element", ElementNameOf(def)), ("value", def.Value)),
+            PerkEffect.ElementLootGuarantee => Strings.T("perk.detail.element_loot_guarantee",
+                ("element", ElementNameOf(def))),
+            PerkEffect.ElementEffectPercent => Strings.T("perk.detail.element_effect_percent",
+                ("element", ElementNameOf(def)), ("value", def.Value)),
+            PerkEffect.MoraleCap => Strings.T("perk.detail.morale_cap"),
+            PerkEffect.SummonSpeed => Strings.T("perk.detail.summon_speed", ("value", def.Value)),
+            PerkEffect.WellspringCap => Strings.T("perk.detail.wellspring_cap"),
+            PerkEffect.BurnPerStack => Strings.T("perk.detail.burn_per_stack", ("value", def.Value)),
+            PerkEffect.HeftCap => Strings.T("perk.detail.heft_cap"),
+            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(17 个 case 已穷举 PerkEffect 全部成员)
+        };
+
+        private static string ElementNameOf(PerkNodeDef def) =>
+            def.Element is { } el ? CharInfo.ElementName(el) : "";
     }
 }

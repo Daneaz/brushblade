@@ -15,7 +15,13 @@ namespace Brushblade.Presentation
     /// 节点五态(与设计规格 §8 一致):已点亮 / 可解锁 / 墨锭不足 / 前置未点 / 等级未到——
     /// 临时版只把后三态一律「置灰」,玩家看不出点不了的原因;这里逐态给了不同的底色/描边/文案。
     /// 判据全部走 <see cref="PerkRules"/> 现成的 <c>IsUnlocked</c>/<c>CanUnlock</c>,
-    /// 不在这一层另起一套解锁逻辑。</summary>
+    /// 不在这一层另起一套解锁逻辑。
+    ///
+    /// ⚠ 收尾波(2026-09-07):点任意状态的节点卡一律先开 <see cref="PerkNodeSheet"/> 详情弹窗,
+    /// 解锁动作搬进了那张弹窗里,卡面本身不再直接出手扣钱 —— 40 个节点、单次不可撤销地花
+    /// 几百到几千墨锭,卡面误触代价太高。<see cref="NodeState"/>/<see cref="StateOf"/>/
+    /// <see cref="BranchColor"/> 等改成 internal,供 <see cref="PerkNodeSheet"/> 复用同一份
+    /// 判据与配色,不在那边另起一套。</summary>
     public sealed class PerkView : MonoBehaviour
     {
         private static readonly PerkTree[] Tabs = { PerkTree.Wuxing, PerkTree.Passive, PerkTree.Mechanic };
@@ -141,7 +147,8 @@ namespace Brushblade.Presentation
             }
         }
 
-        private static string TreeName(PerkTree tree) => tree switch
+        // internal:PerkNodeSheet 的面包屑同样要读树名,理由同 BranchName。
+        internal static string TreeName(PerkTree tree) => tree switch
         {
             PerkTree.Wuxing => Strings.T("perk.tree.wuxing"),
             PerkTree.Passive => Strings.T("perk.tree.passive"),
@@ -224,23 +231,25 @@ namespace Brushblade.Presentation
                 new Vector2(-1.5f, 0f), new Vector2(1.5f, 0f));
         }
 
-        private enum NodeState { Owned, CanUnlock, PoorInk, GatedPrereq, GatedLevel }
+        internal enum NodeState { Owned, CanUnlock, PoorInk, GatedPrereq, GatedLevel }
 
         /// <summary>判据顺序与 <see cref="PerkRules.CanUnlock"/> 内部完全一致(已点 → 前置 →
-        /// 等级 → 墨锭),只是把「不能点」拆成三种理由分别显示——同源判据,不是另一套规则。</summary>
-        private NodeState StateOf(PerkNodeDef def, int charLevel)
+        /// 等级 → 墨锭),只是把「不能点」拆成三种理由分别显示——同源判据,不是另一套规则。
+        /// internal static(而非 private 实例方法):<see cref="PerkNodeSheet"/> 的底部操作钮
+        /// 要用同一份判据决定「解锁 / 置灰 + 理由」,不能另起一份读 meta 的逻辑。</summary>
+        internal static NodeState StateOf(MetaState meta, PerkNodeDef def, int charLevel)
         {
-            if (PerkRules.IsUnlocked(_meta, def.Id)) return NodeState.Owned;
-            if (def.Depth > 1 && !PerkRules.IsUnlocked(_meta, $"{def.Branch}_{def.Depth - 1}"))
+            if (PerkRules.IsUnlocked(meta, def.Id)) return NodeState.Owned;
+            if (def.Depth > 1 && !PerkRules.IsUnlocked(meta, $"{def.Branch}_{def.Depth - 1}"))
                 return NodeState.GatedPrereq;
             if (charLevel < def.UnlockLevel) return NodeState.GatedLevel;
-            if (_meta.Ink < def.InkCost) return NodeState.PoorInk;
+            if (meta.Ink < def.InkCost) return NodeState.PoorInk;
             return NodeState.CanUnlock;
         }
 
         private void BuildNode(Transform parent, PerkNodeDef def, int charLevel)
         {
-            var state = StateOf(def, charLevel);
+            var state = StateOf(_meta, def, charLevel);
             var main = BranchColor(def);
             var soft = BranchSoft(def);
 
@@ -276,10 +285,12 @@ namespace Brushblade.Presentation
                     face = poorPanel;
                     break;
                 case NodeState.GatedPrereq:
-                    // uGUI 没有内建虚线描边;用比等级门槛态更深一档的实线描边 + 专属文案区分两种
-                    // 「点不了」,核心诉求(玩家能分清原因)已经满足,虚线本身是可接受的简化。
-                    var prereqOuter = Ui.OutlinedPanel(parent, $"Node_{def.Id}", Theme.LockedBg, Theme.LockGray, NodeRadius, 1.5f, out face);
-                    cell = clickTarget = prereqOuter.gameObject;
+                    // 真虚线描边(2026-09-07 收尾波,回应图例对账 review):此前这里用「深一档实线
+                    // 描边」将就,导致图例画出的虚线样例与节点实际渲染对不上——图例必须照抄节点
+                    // 真实画法,而不是另画一套「看着差不多」的示意,所以改成 DashedPanel 与
+                    // BuildLegend 共用同一份实现(见该方法注释)。
+                    face = DashedPanel(parent, $"Node_{def.Id}", Theme.LockedBg, Theme.LockGray, NodeRadius);
+                    cell = clickTarget = face.gameObject;
                     break;
                 default: // GatedLevel:纯灰底,不描边——与「前置未点」在视觉上刻意分开
                     var levelPanel = Ui.CardPanel(parent, $"Node_{def.Id}", Theme.LockedBg, NodeRadius);
@@ -292,16 +303,15 @@ namespace Brushblade.Presentation
 
             var button = clickTarget.AddComponent<Button>();
             button.targetGraphic = face;
-            button.interactable = state == NodeState.CanUnlock;
-            if (state == NodeState.CanUnlock)
-                button.onClick.AddListener(() =>
+            // 五态统一打开详情弹窗(2026-09-07 收尾波)——解锁动作也在弹窗里,卡面本身
+            // 不再直接出手扣钱。之前只有 CanUnlock 可点、其余四态点了没反应,玩家读不到
+            // 完整效果文案(卡面定高截断)也看不到「差多少」。
+            button.onClick.AddListener(() =>
+                PerkNodeSheet.Show(transform, _meta, def, () =>
                 {
-                    if (PerkRules.TryUnlock(_meta, def.Id))
-                    {
-                        _save();
-                        Build(); // 成功后刷新(墨锭计数/页签红点/网格状态全部同步)
-                    }
-                });
+                    _save();
+                    Build(); // 成功后刷新(墨锭计数/页签红点/网格状态全部同步)
+                }));
 
             var content = Ui.VStack(face.transform, "Content", 3);
             Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
@@ -356,35 +366,116 @@ namespace Brushblade.Presentation
 
         // ================= 图例 =================
 
+        private const float LegendSwatchSize = 22f;
+        private const int LegendSwatchRadius = 6;
+        // 图例「可解锁」用比「已点亮」更粗的描边代表节点实际的「描边 + 主色外发光」双重强调——
+        // 缩略图画不出发光,用描边粗细近似那份额外强调,不要求两处线宽字节相同。
+        private const float LegendBoldBorder = 3.5f;
+
+        /// <summary>2026-09-07 收尾波(review 修 Critical):五态图例此前给了五个**固定色块**
+        /// (绿/金/灰/…),但节点实际是按枝取色(<see cref="BranchColor"/>,13 种)——玩家照
+        /// 「已点亮=绿」去认,回头看火脉已点亮的节点是暗红、水脉是蓝,图例在事实层面就是错的。
+        ///
+        /// 改法:五个色块统一用中性色(<see cref="Theme.TextDim"/> 描边 / <see cref="Theme.PanelInset"/>
+        /// 系浅底),靠**边框样式**区分五态,且直接复用 <see cref="BuildNode"/> 实际画节点用的那几个
+        /// 图元(<see cref="Ui.OutlinedPanel"/> / <see cref="Ui.CardPanel"/> / <see cref="DashedPanel"/>)——
+        /// 保证图例的形状真的是节点的形状,不是另画一套「看着差不多」的示意。末尾补一句「颜色随枝而变,
+        /// 形状表示状态」,把「为什么这里的颜色是中性的」讲清楚。</summary>
         private void BuildLegend(Transform parent)
         {
-            var row = Ui.Row(parent, "Legend", 20);
+            var block = Ui.VStack(parent, "Legend", 8);
+            Ui.Sized(block, flexWidth: 1);
+            var row = Ui.Row(block.transform, "Items", 22);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            LegendItem(row.transform, Theme.DoneGreen, Strings.T("perk.legend.owned"));
-            LegendItem(row.transform, Theme.Gold, Strings.T("perk.legend.unlockable"));
-            LegendItem(row.transform, Theme.LockGray, Strings.T("perk.legend.poor_ink"));
-            LegendItem(row.transform, Theme.InkSoft, Strings.T("perk.legend.gated_prereq"));
-            LegendItem(row.transform, Theme.PanelBorder, Strings.T("perk.legend.gated_level"));
+
+            // 已点亮:浅色实心底 + 实线描边(与 NodeState.Owned 同一套 OutlinedPanel)
+            LegendItem(row.transform,
+                s => Ui.OutlinedPanel(s, "Swatch", Theme.PanelInset, Theme.TextDim, LegendSwatchRadius, 2f),
+                Strings.T("perk.legend.owned"));
+            // 可解锁:白底 + 粗实线描边(同一套 OutlinedPanel,描边加粗)
+            LegendItem(row.transform,
+                s => Ui.OutlinedPanel(s, "Swatch", Theme.CardWhite, Theme.TextDim, LegendSwatchRadius, LegendBoldBorder),
+                Strings.T("perk.legend.unlockable"));
+            // 墨锭不足:常规底,无描边(与 NodeState.PoorInk 同一套 CardPanel)
+            LegendItem(row.transform,
+                s => Ui.CardPanel(s, "Swatch", Theme.PanelPaper, LegendSwatchRadius),
+                Strings.T("perk.legend.poor_ink"));
+            // 前置未点:灰底 + 虚线描边(与 NodeState.GatedPrereq 同一套 DashedPanel)
+            LegendItem(row.transform,
+                s => DashedPanel(s, "Swatch", Theme.LockedBg, Theme.LockGray, LegendSwatchRadius, dashCountH: 3, dashCountV: 2),
+                Strings.T("perk.legend.gated_prereq"));
+            // 等级未到:灰底,无描边(与 NodeState.GatedLevel 同一套 CardPanel)
+            LegendItem(row.transform,
+                s => Ui.CardPanel(s, "Swatch", Theme.LockedBg, LegendSwatchRadius),
+                Strings.T("perk.legend.gated_level"));
+
+            var note = Ui.ThemedLabel(block.transform, Strings.T("perk.legend.note"), 12, Theme.TextDim);
+            note.alignment = TextAnchor.MiddleLeft;
+            Ui.Sized(note.gameObject, flexWidth: 1);
         }
 
-        private static void LegendItem(Transform parent, Color color, string text)
+        private static void LegendItem(Transform parent, Func<Transform, Image> swatch, string text)
         {
             var item = Ui.Row(parent, "Item", 6);
-            var swatch = Ui.Panel(item.transform, "Swatch");
-            var image = swatch.AddComponent<Image>();
-            image.sprite = Theme.Rounded(4);
-            image.type = Image.Type.Sliced;
-            image.color = color;
-            Ui.Sized(swatch, width: 14, height: 14);
+            var image = swatch(item.transform);
+            Ui.Sized(image.gameObject, width: LegendSwatchSize, height: LegendSwatchSize);
             Ui.ThemedLabel(item.transform, text, 12, Theme.TextDim);
+        }
+
+        /// <summary>虚线描边:圆角底 + 沿四边分数锚点摆的短线段。uGUI 没有内建虚线描边,
+        /// 也没有现成的「变宽仍保持虚线间距」的 9-slice 技巧;节点宽度由
+        /// <c>HorizontalLayoutGroup</c> 的 <c>flexWidth</c> 在运行期分配、构建时并不知道
+        /// 具体像素宽(高度 <see cref="NodeH"/> 倒是常量),所以四条边都按**分数**锚点摆
+        /// (而不是像素偏移)——不管最终分到多宽,虚线段都跟着等比重新分布,不需要等一帧
+        /// 布局出结果再摆。<paramref name="dashCountH"/>/<paramref name="dashCountV"/> 分开传:
+        /// 节点卡横向明显更宽,图例小色块则两个方向都给更少的段数。
+        ///
+        /// <see cref="BuildLegend"/> 与 <see cref="BuildNode"/> 的 <c>GatedPrereq</c> 分支共用
+        /// 这一份实现(只有 dashCount 不同)——图例画的虚线因此是节点真实的虚线,不是另一套
+        /// 「看着像」的示意。</summary>
+        private static Image DashedPanel(Transform parent, string name, Color fill, Color border,
+            int radius, int dashCountH = 5, int dashCountV = 3)
+        {
+            var face = Ui.CardPanel(parent, name, fill, radius);
+
+            void Dash(bool horizontal, float crossMin, float crossMax, float along0, float along1)
+            {
+                var dash = Ui.Panel(face.transform, "Dash");
+                var image = dash.AddComponent<Image>();
+                image.color = border;
+                image.raycastTarget = false;
+                var (min, max) = horizontal
+                    ? (new Vector2(along0, crossMin), new Vector2(along1, crossMax))
+                    : (new Vector2(crossMin, along0), new Vector2(crossMax, along1));
+                Ui.Anchor((RectTransform)dash.transform, min, max, Vector2.zero, Vector2.zero);
+            }
+
+            const float edge = 0.07f;   // 描边厚度(占短边的分数)
+            const float run = 0.7f;     // 每段虚线占自己格位的比例,留 30% 当间隙
+            void Edge(bool horizontal, float crossMin, float crossMax, int count)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    float slot = 1f / count;
+                    Dash(horizontal, crossMin, crossMax, i * slot, i * slot + slot * run);
+                }
+            }
+            Edge(true, 1f - edge, 1f, dashCountH);   // 顶边
+            Edge(true, 0f, edge, dashCountH);        // 底边
+            Edge(false, 0f, edge, dashCountV);       // 左边
+            Edge(false, 1f - edge, 1f, dashCountV);  // 右边
+
+            return face;
         }
 
         // ================= Core 数据的只读派生(不重复 PerkRules 的私有门槛表) =================
 
-        private static Color BranchColor(PerkNodeDef def) =>
+        // internal(而非 private):PerkNodeSheet 详情弹窗的头部水印/chip 要用同一份按枝配色,
+        // 不在那边另起一套——否则枝色又会出现「两处不一致」的老问题(见图例那条 review)。
+        internal static Color BranchColor(PerkNodeDef def) =>
             def.Element is { } el ? Theme.ElementColor(el) : Theme.PerkBranchColor(def.Branch);
 
-        private static Color BranchSoft(PerkNodeDef def) =>
+        internal static Color BranchSoft(PerkNodeDef def) =>
             def.Element is { } el ? Theme.ElementSoft(el) : Theme.PerkBranchSoft(def.Branch);
 
         /// <summary>某树的枝列表,顺序取自 <see cref="PerkRules.Nodes"/> 里各枝首次出现的顺序——
@@ -415,7 +506,9 @@ namespace Brushblade.Presentation
             return 0;
         }
 
-        private static string BranchName(string branch) => branch switch
+        // internal:PerkNodeSheet 的面包屑(「五行树 · 金脉 · 第 4 层」)要读同一份枝名,
+        // 不在那边重抄一份列表(列表变了两处会悄悄漂开)。
+        internal static string BranchName(string branch) => branch switch
         {
             "metal" => Strings.T("perk.branch.metal"),
             "wood" => Strings.T("perk.branch.wood"),
