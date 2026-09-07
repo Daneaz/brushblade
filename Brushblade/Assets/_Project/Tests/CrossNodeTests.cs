@@ -168,9 +168,15 @@ namespace Brushblade.Core.Tests
                     $"{id} 的门槛不该超过全开等级");
         }
 
-        /// <summary>跨树节点没有「同枝上一层」。若哪天有人把 Prereq 改回 null,
-        /// PrereqMet 会去找 "xvigor_0" 这个不存在的 id 并恒返回 false —— 节点永远点不亮
-        /// 且不报错。这条守着那个静默失效。</summary>
+        /// <summary>烟雾测试:三个跨树节点在两侧前置都齐了时,真的点得亮。
+        ///
+        /// ⚠ 这条守不住「Prereq 被误改回 null」的回归 —— 它只断言 True 分支,而那个回归下
+        /// 这里依然是 True。跨树节点 Depth 恒为 1,Prereq 一旦变 null,<c>PrerequisiteOf</c>
+        /// 会因 <c>Depth &lt;= 1</c> 短路直接返回 null(根本走不到 "xvigor_0" 这种不存在的 id),
+        /// <c>PrereqMet</c> 的 <c>prereq == null</c> 分支随即恒真 —— 后果是前置被整个绕过、
+        /// 节点随时可点(过度放行),而不是永远点不亮。真正兜住这个回归的是断了 False 分支的
+        /// <see cref="Xvigor_NeedsBothSides"/>、<see cref="Xedge_NeedsPassiveDepthTwoAndAnyMechanic"/>、
+        /// <see cref="Xdraw_NeedsMechanicL1AndWuxingL2"/> 那三条 —— 改表时别把它们删了只留这条当哨兵。</summary>
         [Test]
         public void CrossNodes_AreReachableAtAll()
         {
