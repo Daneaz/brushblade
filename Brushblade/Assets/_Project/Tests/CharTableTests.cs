@@ -333,21 +333,24 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_GuiCarriesThornsNotSummonShield()
+        public void RealConfig_GuiCarriesThornsAndSummonShield()
         {
-            // ⚠ 2026-09-07 二次审阅改名(原 RealConfig_GuiGrantsSummonShield):旧名字断言
-            // 「有 SummonShield」,但字表重做 P2 把 桂 的特性配额收窄成「光环盾 / 荆棘」两条
-            // (spec §6)——一次性 SummonShield 60 不在新表里了,旧名字继续叫
-            // 「GrantsSummonShield」就是一句假话,按「方法名必须反映断言」的原则改名。
-            // 只数也从 2026-08-25 的 3 只收回到全系统一的 1 只(2026-09-04/09-05 两次收紧
+            // 名字改过两轮,前提各反转一次(「方法名必须反映断言」):
+            //   ① 原 RealConfig_GuiGrantsSummonShield —— 断言 桂 有一次性 SummonShield 60。
+            //   ② 2026-09-07(P2)改 RealConfig_GuiCarriesThornsNotSummonShield —— P2 把
+            //      桂 的特性收窄成「光环盾 / 荆棘」,而当时判定「光环盾」在引擎侧无字段
+            //      (P2 Task 2),于是那 60 被删掉,断言翻成 SummonShield == 0。
+            //   ③ 2026-09-08(P3)改回本名:用户拍板「光环盾」就用既有的 SummonShield 落地
+            //      (spec §10.2 查实——「入场护盾」与「光环盾」只能落到 EffectDef.SummonShield
+            //      这一个字段上,一个 Summon 效果只有一份,不可能并存两份,故合并成一个数值)。
+            //      桂 的 150 = 土系印记 20 + 光环盾 130(血量 892 ×15% 取整到 10 的倍数)。
+            // 只数从 2026-08-25 的 3 只收回到全系统一的 1 只(2026-09-04/09-05 两次收紧
             // 「除 𣛧 外一律 1 只」的口径,见 rebalance_2026_09_05.py 的召唤只数注释)。
-            // ⚠ 用户正在另行裁定「光环盾」能否用 SummonShield 顶替——若改判会另行通知,
-            // 不阻塞本任务。
             var graph = RealGraph();
             var summon = graph.Get("桂").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(summon.SummonShield, Is.EqualTo(0), "一次性 SummonShield 已不在新表里");
+            Assert.That(summon.SummonShield, Is.EqualTo(150), "光环盾 130 + 土系印记 20");
             Assert.That(summon.SummonCount, Is.EqualTo(1), "只数收归全系统一的 1 只");
-            Assert.That(summon.Passive.Thorns, Is.EqualTo(50), "荆棘是 桂 现在的第二条特性");
+            Assert.That(summon.Passive.Thorns, Is.EqualTo(50), "荆棘是 桂 的第二条特性");
         }
 
         [Test]

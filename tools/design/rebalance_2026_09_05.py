@@ -51,12 +51,23 @@ PRICE = {
  '战意+2':0.20,'战意+3':0.30,'护甲':0.33,'免一次清盾':0.20,
  '溅射':0.20,'贯穿':0.20,'横扫':0.30,'连发2':0.15,'弹射3':0.25,'终极技':0.50,
  '嘲讽':0.30,'荆棘':0.30,'迅捷':0.20,'自愈':0.25,'命中挂灼烧':0.25,'命中冻结':0.20,
- '光环攻':0.35,'光环盾':0.35,   # 2026-09-05 起含自己(只数收归 1 只后,只加别人会空转)
+ '光环攻':0.35,
+ # 光环盾 2026-09-08 由 0.35 降到 0.20(§10.3):0.35 是按「**持续**光环」定的,而引擎实现
+ # (EffectDef.SummonShield)是「召唤当时发一次性护盾」——不恢复、不外溢给后来入场的召唤物。
+ # 一次性效果的价值远低于持续加成,0.35 是付持续的钱拿一次性的货。0.20 与「免一次清盾 0.20」
+ # 对齐:同样是一次性、条件触发的防御效果。
+ '光环盾':0.20,   # 2026-09-05 起含自己(只数收归 1 只后,只加别人会空转)
  '叠战意':0.20,'随行治疗':0.30,'闪避':0.25,'远程':0.25,
  '入场护盾':0.25,
 }
 FORM_MOD = {'群疗','群盾','持续治疗'}      # 形态,不是特性
 MARK_TRAIT = {'金':'叠战意','土':'入场护盾'}  # 系印记(召唤字侧),免配额免计价
+# 系印记的数值(2026-09-08 用户拍板,§10.1)。两者都免配额免计价,故**不改动任何 ratio**。
+MARK_MORALE = 1     # 🟡金:所有 atk 形态字自带战意 1 层
+MARK_SHIELD = 20    # 🟤土:所有 sum 形态字入场护盾 20 点
+# 光环盾的加成量 = 召唤物血量 × 15%,取整到 10 的倍数(§10.3)。
+# 15% 有历史锚:旧 桂 是 3 只 390 血 + 盾 60,盾/血 = 15.4%。
+AURA_SHIELD_F = 0.15
 
 R=[]
 # 召唤只数(2026-09-05 用户裁定,二次收紧):**除 𣛧(2 只)外全系一律 1 只**。
@@ -179,6 +190,11 @@ for c in R:
 
     def bud(base): return max(0,int(round(base*(1-ratio)))-dot_abs)
     atk=sh=hl=sm=ar=ul=''
+    # 召唤护盾点数(§10.1 + §10.3)与金系战意层数(§10.1)—— 都是印记落地要产出的数值。
+    ss=mo=0
+    # 金系印记的战意层数 = 免费 1 层(印记)+ 价目表买来的层数(战意+2 / 战意+3)。
+    # ⚠ 这一列**不吃 ratio** —— 印记免计价,买来的那几层已经在 ratio 里付过钱了。
+    mo=(MARK_MORALE if marked and el=='金' else 0)+sum(int(t[3:]) for t in ts if t.startswith('战意+'))
     if form=='atk': atk=bud(A['单攻'])
     elif form=='aoe': atk=bud(A['全体'])
     elif form=='sum':
@@ -189,7 +205,16 @@ for c in R:
         hp_tot=A['召数']*A['召血']; at_tot=A['召数']*A['召攻']
         hp=int(round((hp_tot/n+at_tot/n*ATK_TO_HP*r)*(1-keep)))
         at=int(round(at_tot/n*(1-r)*SUM_ATK_F*(1-keep)))
-        sm=f"{n} 只 · {hp} 血 / {at} 攻"
+        # 召唤护盾(2026-09-08,§10.2 订正):「入场护盾」(土系印记)与「光环盾」是**同一个
+        # 机制** —— 两者都只能落到 EffectDef.SummonShield 这一个字段上,而一个 Summon 效果
+        # 只有一个该字段,不可能同时存在两份,必须**合并成一个数值**。
+        # 它给召唤物护盾的同时让玩家攒厚(BattleEngine 那行 GainHeft(shieldGrant)),
+        # 是土系召唤字唯一能攒厚的路径。
+        # ⚠ 顺序是硬的:盾量依赖血量、血量依赖 ratio、ratio 依赖光环盾**价格**(常量)——
+        # 先定价 → 出血攻 → 再按血量算盾量,反过来算不出。
+        ss=(MARK_SHIELD if marked else 0)
+        if '光环盾' in ts: ss+=int(round(hp*AURA_SHIELD_F/10.0))*10
+        sm=f"{n} 只 · {hp} 血 / {at} 攻"+(f" · 盾 {ss}" if ss else "")
     elif form=='dual_s':
         g=GROUP_F if '群盾' in c['traits'] else 1.0
         atk=bud(A['全体'] if g<1 else A['单攻'])
@@ -202,7 +227,8 @@ for c in R:
     if '护甲' in ts: ar=A['护甲']
     if '流血' in ts: pass
     if '终极技' in ts: ul=A['全体']//5
-    rows.append(dict(**c,atk=atk,sh=sh,hl=hl,sm=sm,ar=ar,ul=ul,burn=burn,ratio=ratio,dot=dot_abs,ts=ts,mark=mark if marked else ''))
+    rows.append(dict(**c,atk=atk,sh=sh,hl=hl,sm=sm,ar=ar,ul=ul,burn=burn,ratio=ratio,dot=dot_abs,ts=ts,
+                     ss=ss,mo=mo,mark=mark if marked else ''))
 
 # 档位单调性:同系同形态,高档不得低于低档
 def total(r):

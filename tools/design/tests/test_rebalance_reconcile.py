@@ -22,6 +22,12 @@ test_atk_mode_matches_target 的说明)。理由:T4 是逐列落地的(brief 建
 3. 攻击列拆成总量/模式两条 —— spec §6.0(2026-09-07 补,「攻击模式口径」)裁定
    dual_s/dual_h 型攻面默认单体,只有带群盾/群疗才落全体;总量测不出 kind 挂反
    (如 㙓/㵘/淼 三字当前拿单攻锚点配了全体打击面,是隐形超标)。
+
+2026-09-08(P3)补的两处**系印记**盲区 —— 两者都是「落了值但没人比」的同一类:
+1. 召唤列此前只比(只数, 血, 攻),**盾量没人看** —— P2 正因此把 桂 唯一的
+   `SummonShield 60` 删掉而九条对账全绿(P2 Task 4a G 类)。现并入
+   test_summon_matches_target。
+2. 金系印记的战意层数同属此类,新增 test_morale_mark_matches_target。
 """
 import importlib.util
 import contextlib
@@ -46,7 +52,7 @@ RARITY = {"白": "White", "绿": "Green", "蓝": "Blue", "紫": "Purple",
           "金": "Gold", "橙": "Orange", "红": "Red"}
 ELEMENT = {"金": "Metal", "木": "Wood", "水": "Water", "火": "Fire", "土": "Earth"}
 
-_SUMMON_RE = re.compile(r"(\d+) 只 · (\d+) 血 / (\d+) 攻")
+_SUMMON_RE = re.compile(r"(\d+) 只 · (\d+) 血 / (\d+) 攻(?: · 盾 (\d+))?")
 _HEAL_OT_RE = re.compile(r"(\d+)×(\d+)")
 _BURN_RE = re.compile(r"(全体)?灼烧 (\d+)")
 
@@ -233,23 +239,54 @@ def test_armor_matches_target():
 
 
 def test_summon_matches_target():
-    """召唤列「N 只 · H 血 / A 攻」→ Summon(count, value=血, attack)。"""
+    """召唤列「N 只 · H 血 / A 攻[ · 盾 S]」→ Summon(count, value=血, attack, summonShield)。
+
+    ⚠ 2026-09-08(P3)补上 `summonShield`:此前本列只比(只数, 血, 攻),**盾量完全没人看**
+    —— P2 正因此把 桂 唯一的 `SummonShield 60` 按「不在新表里」删掉,而九条对账测试
+    全绿通过(P2 Task 4a G 类)。P3 要给 碉/堡/塔/桂 四个字落盾,先补这一列再落地,
+    否则同一个盲区会再吃一次。
+
+    盾量的两个来源(土系印记「入场护盾」20 点 + 「光环盾」= 血量 ×15%)在引擎里是
+    **同一个字段** `EffectDef.SummonShield`,一个 Summon 效果只有一份,故目标列产出的
+    也是合并后的**单个数值**(spec §10.2)。
+    """
     target, actual = _target_rows(), _actual()
     bad = []
     for k in sorted(set(target) & set(actual)):
         r, c = target[k], actual[k]
         sm = r["sm"]
         summons = [e for e in _effects(c) if e["kind"] == "Summon"]
-        got = ((summons[0].get("count", 1), summons[0]["value"], summons[0].get("attack", 0))
-               if summons else (0, 0, 0))
+        got = ((summons[0].get("count", 1), summons[0]["value"], summons[0].get("attack", 0),
+                summons[0].get("summonShield", 0)) if summons else (0, 0, 0, 0))
         if sm:
             m = _SUMMON_RE.fullmatch(sm)
-            want = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            want = (int(m.group(1)), int(m.group(2)), int(m.group(3)),
+                    int(m.group(4) or 0))
         else:
-            want = (0, 0, 0)
+            want = (0, 0, 0, 0)
         if got != want:
             bad.append((k, got, want))
-    assert not bad, "召唤列不符(字, 实际(只/血/攻), 目标):\n  " + "\n  ".join(map(str, bad))
+    assert not bad, "召唤列不符(字, 实际(只/血/攻/盾), 目标):\n  " + "\n  ".join(map(str, bad))
+
+
+def test_morale_mark_matches_target():
+    """金系印记(战意层数)→ Morale 的 value。
+
+    ⚠ 2026-09-08(P3)新增。与 summonShield 是同一类盲区:金系印记要给全部 11 张 `atk`
+    形态字各挂 `Morale 1`,而战意层数不落在 §6 的任何数值列里 —— 漏挂两张(P3 落地前
+    利 / 锋 就是漏的)不会让任何一条测试变红,只会让「金系每张攻击字自带战意」这条
+    系特色在游戏里少两个载体。
+
+    目标值 = 印记免费的 1 层 + 价目表买来的层数(战意+2 / 战意+3),故 鑫 = 3、𨰻 = 4。
+    """
+    target, actual = _target_rows(), _actual()
+    bad = []
+    for k in sorted(set(target) & set(actual)):
+        r, c = target[k], actual[k]
+        got = _sum(_effects(c), ("Morale",))
+        if got != r["mo"]:
+            bad.append((k, got, r["mo"]))
+    assert not bad, "战意列不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
 
 
 def test_ultimate_matches_target():

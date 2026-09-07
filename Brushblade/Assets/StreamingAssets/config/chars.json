@@ -1129,6 +1129,10 @@
         {
           "kind": "DamageSingle",
           "value": 45
+        },
+        {
+          "kind": "Morale",
+          "value": 1
         }
       ]
     },
@@ -1151,6 +1155,10 @@
         {
           "kind": "DamageSingle",
           "value": 63
+        },
+        {
+          "kind": "Morale",
+          "value": 1
         }
       ]
     },
@@ -1256,10 +1264,11 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 182,
+          "value": 221,
           "count": 1,
-          "attack": 14,
+          "attack": 17,
           "summonChar": "塔",
+          "summonShield": 50,
           "passive": {
             "speed": 150
           }
@@ -1279,10 +1288,11 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 790,
+          "value": 892,
           "count": 1,
-          "attack": 67,
+          "attack": 76,
           "summonChar": "桂",
+          "summonShield": 150,
           "passive": {
             "thorns": 50
           }
@@ -1306,6 +1316,7 @@
           "count": 1,
           "attack": 0,
           "summonChar": "碉",
+          "summonShield": 20,
           "passive": {
             "thorns": 50
           }
@@ -1356,6 +1367,7 @@
           "count": 1,
           "attack": 0,
           "summonChar": "堡",
+          "summonShield": 20,
           "passive": {
             "thorns": 50,
             "taunt": true
