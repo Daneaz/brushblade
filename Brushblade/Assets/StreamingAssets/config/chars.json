@@ -1146,7 +1146,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 270,
+          "value": 157,
           "persistOnce": true
         }
       ],
@@ -1174,7 +1174,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 215
+          "value": 149
         }
       ],
       "attackEffects": [

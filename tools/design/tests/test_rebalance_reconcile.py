@@ -169,7 +169,6 @@ def test_atk_mode_matches_target():
     assert not bad, "攻击列(模式)不符(字, 实际(单体,全体), 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_shield_matches_target():
     """护盾列 → 带「群盾」期望 ShieldAll(给全队每人一份),不带期望 Shield(只给自己)。
 
