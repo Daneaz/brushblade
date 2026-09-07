@@ -312,10 +312,15 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 300,
-          "count": 4,
-          "attack": 120,
-          "summonChar": ""
+          "value": 465,
+          "count": 2,
+          "attack": 130,
+          "summonChar": "",
+          "passive": {
+            "speed": 150,
+            "thorns": 50,
+            "auraAttack": 20
+          }
         }
       ]
     },
@@ -332,10 +337,15 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 260,
-          "count": 3,
-          "attack": 100,
-          "summonChar": "森"
+          "value": 587,
+          "count": 1,
+          "attack": 158,
+          "summonChar": "森",
+          "passive": {
+            "speed": 150,
+            "thorns": 50,
+            "regen": 60
+          }
         }
       ]
     },
@@ -352,10 +362,14 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 220,
-          "count": 2,
-          "attack": 90,
-          "summonChar": "林"
+          "value": 368,
+          "count": 1,
+          "attack": 106,
+          "summonChar": "林",
+          "passive": {
+            "speed": 150,
+            "regen": 60
+          }
         }
       ]
     },
@@ -419,7 +433,7 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 660,
+          "value": 430,
           "count": 1,
           "attack": 0,
           "summonChar": "荆",
@@ -443,11 +457,12 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 260,
-          "count": 3,
-          "attack": 50,
+          "value": 694,
+          "count": 1,
+          "attack": 187,
           "summonChar": "藻",
           "passive": {
+            "speed": 150,
             "regen": 60
           }
         }
@@ -466,10 +481,14 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 330,
-          "count": 2,
-          "attack": 45,
-          "summonChar": "柘"
+          "value": 980,
+          "count": 1,
+          "attack": 0,
+          "summonChar": "柘",
+          "passive": {
+            "thorns": 50,
+            "taunt": true
+          }
         }
       ]
     },
@@ -488,7 +507,7 @@
           "kind": "Summon",
           "value": 60,
           "count": 1,
-          "attack": 30,
+          "attack": 21,
           "summonChar": "藤",
           "passive": {
             "onHitFreezeChance": 10,
@@ -510,9 +529,9 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 24,
+          "value": 40,
           "count": 1,
-          "attack": 32,
+          "attack": 14,
           "summonChar": "枪",
           "passive": {
             "shape": "Skewer",
@@ -1235,10 +1254,13 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 220,
+          "value": 182,
           "count": 1,
-          "attack": 100,
-          "summonChar": "塔"
+          "attack": 14,
+          "summonChar": "塔",
+          "passive": {
+            "speed": 150
+          }
         }
       ]
     },
@@ -1278,7 +1300,7 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 120,
+          "value": 100,
           "count": 1,
           "attack": 0,
           "summonChar": "碉",
@@ -1328,7 +1350,7 @@
       "effects": [
         {
           "kind": "Summon",
-          "value": 240,
+          "value": 200,
           "count": 1,
           "attack": 0,
           "summonChar": "堡",

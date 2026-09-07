@@ -644,9 +644,13 @@ def test_p2_task4_roster_changes():
 
 
 def test_zao_carries_regen_passive():
-    """藻 的自愈落进 passive.regen(SUMMON_PASSIVE 那张手写映射表认不得就会静默丢弃)。"""
+    """藻 的自愈落进 passive.regen(SUMMON_PASSIVE 那张手写映射表认不得就会静默丢弃)。
+
+    2026-09-07(P2 Task 4a):只数收归 1(spec §6.1 二次收紧),总量守恒摊到 1 只;
+    补迅捷(`SummonSpeed`,spec §6 特性技能列「自愈/迅捷」)。
+    """
     zao = _shipped()["藻"]["effects"][0]
-    assert zao["passive"] == {"regen": 60}
-    assert zao["count"] == 3
-    assert zao["value"] == 260
-    assert zao["attack"] == 50
+    assert zao["passive"] == {"regen": 60, "speed": 150}
+    assert zao["count"] == 1
+    assert zao["value"] == 694
+    assert zao["attack"] == 187

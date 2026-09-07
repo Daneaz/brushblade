@@ -232,7 +232,6 @@ def test_armor_matches_target():
     assert not bad, "护甲列不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_summon_matches_target():
     """召唤列「N 只 · H 血 / A 攻」→ Summon(count, value=血, attack)。"""
     target, actual = _target_rows(), _actual()
