@@ -9,9 +9,19 @@ P2 要改 57 字的数值与特性。人肉比对必错,所以把「改对了没
 落地完成的列/项会先转绿,strict 会在那一刻报 XPASS 提醒删掉对应的 xfail 标记,
 而不是让整条测试静默地继续通过。
 
-七列数值对账每列一条测试(直伤 / 护盾 / 治疗 / 护甲 / 召唤 / 终极技 / 灼烧),
-理由:T4 是逐列落地的(brief 建议的顺序),逐条挂 xfail 才能让每一列独立转绿,
-而不是等 57 字全改完才看到唯一一次 XPASS。
+字集 / 稀有度 / 系 三条 + 七列数值对账(直伤 / 护盾 / 治疗 / 护甲 / 召唤 / 终极技 / 灼烧)
+各一条测试,攻击列额外拆出「总量」「模式」两条(见 test_atk_total_matches_target /
+test_atk_mode_matches_target 的说明)。理由:T4 是逐列落地的(brief 建议的顺序),
+逐条挂 xfail 才能让每一列独立转绿,而不是等 57 字全改完才看到唯一一次 XPASS。
+
+2026-09-07 复评补的三处:
+1. 系(element)此前完全没对账,而系决定五行相克,是玩法级的错(见 test_element_matches_target)。
+2. 护盾 / 治疗列原先把 Shield+ShieldAll、HealSelf+HealAll 各自求和比较,总量对了但
+   kind 挂反(给自己一份 vs 给全队每人一份)测不出来 —— 现按 spec §6.0 同款的
+   「期望 kind 有值、另一个为 0」写法改写(与灼烧列一致)。
+3. 攻击列拆成总量/模式两条 —— spec §6.0(2026-09-07 补,「攻击模式口径」)裁定
+   dual_s/dual_h 型攻面默认单体,只有带群盾/群疗才落全体;总量测不出 kind 挂反
+   (如 㙓/㵘/淼 三字当前拿单攻锚点配了全体打击面,是隐形超标)。
 """
 import importlib.util
 import contextlib
@@ -34,6 +44,7 @@ SCRIPT = ROOT / "tools/design/rebalance_2026_09_05.py"
 PUA_BACK = {"": "𣛧", "": "𨰻"}
 RARITY = {"白": "White", "绿": "Green", "蓝": "Blue", "紫": "Purple",
           "金": "Gold", "橙": "Orange", "红": "Red"}
+ELEMENT = {"金": "Metal", "木": "Wood", "水": "Water", "火": "Fire", "土": "Earth"}
 
 _SUMMON_RE = re.compile(r"(\d+) 只 · (\d+) 血 / (\d+) 攻")
 _HEAL_OT_RE = re.compile(r"(\d+)×(\d+)")
@@ -100,8 +111,26 @@ def test_rarity_matches_target():
 
 
 @pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
-def test_atk_matches_target():
-    """攻击列:atk 形态期望 DamageSingle,aoe/群疗/群盾期望 DamageAll。
+def test_element_matches_target():
+    """系(五行)与目标表一致 —— 系决定生克,漏改是玩法级的错(如 桂 木→土)。"""
+    target, actual = _target(), _actual()
+    bad = [(k, actual[k]["element"], ELEMENT[target[k][1]])
+           for k in sorted(set(target) & set(actual))
+           if actual[k]["element"] != ELEMENT[target[k][1]]]
+    assert not bad, "系与目标表不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
+
+
+def _atk_expected_kind(r):
+    """spec §6.0「攻击模式口径」:atk→单体;aoe→全体;dual_s/dual_h 带群盾/群疗→全体,
+    不带→单体。"""
+    is_group = r["form"] == "aoe" or ({"群疗", "群盾"} & set(r["traits"]))
+    return "DamageAll" if is_group else "DamageSingle"
+
+
+@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
+def test_atk_total_matches_target():
+    """攻击列:只比总量(DamageSingle + DamageAll 之和),不管落在哪个 kind ——
+    模式对不对由 test_atk_mode_matches_target 另管。
 
     分 N 段(hitCount)按总伤害折算 —— 目标列是折算前的总量,不是单段。
     """
@@ -110,31 +139,64 @@ def test_atk_matches_target():
     for k in sorted(set(target) & set(actual)):
         r, c = target[k], actual[k]
         want = r["atk"] if isinstance(r["atk"], int) else 0
-        is_group = r["form"] == "aoe" or ({"群疗", "群盾"} & set(r["traits"]))
-        kind = "DamageAll" if is_group else "DamageSingle"
-        got = sum(e["value"] * e.get("hitCount", 1) for e in _effects(c) if e["kind"] == kind)
+        got = sum(e["value"] * e.get("hitCount", 1) for e in _effects(c)
+                  if e["kind"] in ("DamageSingle", "DamageAll"))
         if got != want:
             bad.append((k, got, want))
-    assert not bad, "攻击列不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
+    assert not bad, "攻击列(总量)不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
 
 
 @pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
-def test_shield_matches_target():
-    """护盾列 → Shield / ShieldAll。"""
+def test_atk_mode_matches_target():
+    """攻击列:只比模式(单体/全体落在哪个 kind),依据 spec §6.0——总量算对了但
+    kind 挂反(单体价钱配全体打击面,如 㙓/㵘/淼)是隐形超标,总量测试独立看不出来。
+    """
     target, actual = _target_rows(), _actual()
     bad = []
     for k in sorted(set(target) & set(actual)):
         r, c = target[k], actual[k]
-        want = r["sh"] if isinstance(r["sh"], int) else 0
-        got = _sum(_effects(c), ("Shield", "ShieldAll"))
-        if got != want:
-            bad.append((k, got, want))
-    assert not bad, "护盾列不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
+        if not isinstance(r["atk"], int):
+            continue
+        effects = _effects(c)
+        want_kind = _atk_expected_kind(r)
+        want = (r["atk"], 0) if want_kind == "DamageSingle" else (0, r["atk"])
+        got_single = sum(e["value"] * e.get("hitCount", 1) for e in effects if e["kind"] == "DamageSingle")
+        got_all = sum(e["value"] * e.get("hitCount", 1) for e in effects if e["kind"] == "DamageAll")
+        if (got_single, got_all) != want:
+            bad.append((k, (got_single, got_all), want))
+    assert not bad, "攻击列(模式)不符(字, 实际(单体,全体), 目标):\n  " + "\n  ".join(map(str, bad))
+
+
+@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
+def test_shield_matches_target():
+    """护盾列 → 带「群盾」期望 ShieldAll(给全队每人一份),不带期望 Shield(只给自己)。
+
+    只比总量会漏掉「给自己一份」与「给全队每人一份」这种数量级差异的 kind swap
+    (同 test_atk_mode_matches_target 的道理),所以另一个 kind 要断言为 0。
+    """
+    target, actual = _target_rows(), _actual()
+    bad = []
+    for k in sorted(set(target) & set(actual)):
+        r, c = target[k], actual[k]
+        want_val = r["sh"] if isinstance(r["sh"], int) else 0
+        want_kind = "ShieldAll" if "群盾" in r["traits"] else "Shield"
+        want = (want_val, 0) if want_kind == "Shield" else (0, want_val)
+        got_single = _sum(_effects(c), ("Shield",))
+        got_all = _sum(_effects(c), ("ShieldAll",))
+        if (got_single, got_all) != want:
+            bad.append((k, (got_single, got_all), want))
+    assert not bad, "护盾列不符(字, 实际(Shield,ShieldAll), 目标):\n  " + "\n  ".join(map(str, bad))
 
 
 @pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_heal_matches_target():
-    """治疗列 → HealSelf / HealAll,持续治疗(「N×3」)→ HealOverTime(value=N, turns=3)。"""
+    """治疗列 → 带「群疗」期望 HealAll(全队),不带期望 HealSelf(只回自己);
+    持续治疗(「N×3」)→ HealOverTime(value=N, turns=3),此批没有「群疗+持续治疗」
+    的组合,故 HealOverTime 分支不再细分 kind。
+
+    与护盾列同理:只比总量看不出「回自己」与「回全队」这种 kind swap,另一个
+    kind 要断言为 0。
+    """
     target, actual = _target_rows(), _actual()
     bad = []
     for k in sorted(set(target) & set(actual)):
@@ -146,8 +208,12 @@ def test_heal_matches_target():
             hot = [e for e in effects if e["kind"] == "HealOverTime"]
             got = (hot[0]["value"], hot[0].get("turns")) if hot else (0, 0)
         else:
-            want = hl if isinstance(hl, int) else 0
-            got = _sum(effects, ("HealSelf", "HealAll"))
+            want_val = hl if isinstance(hl, int) else 0
+            want_kind = "HealAll" if "群疗" in r["traits"] else "HealSelf"
+            want = (want_val, 0) if want_kind == "HealSelf" else (0, want_val)
+            got_self = _sum(effects, ("HealSelf",))
+            got_all = _sum(effects, ("HealAll",))
+            got = (got_self, got_all)
         if got != want:
             bad.append((k, got, want))
     assert not bad, "治疗列不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
