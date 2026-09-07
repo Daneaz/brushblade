@@ -465,31 +465,39 @@ namespace Brushblade.Core.Tests
         /// DamageSingle,不再是「纯友方字」,一并移出。名单至此只剩 铠/战/锋/锐 四条
         /// 真正的纯增益字(均为金系,不在本轮双方向重配范围内)。
         ///
-        /// 2026-09-05:铠(DefenseBuff)/ 战(Empower)随字表调整移出,从下表删去,
-        /// 只剩 锋(CritBuff)/ 锐(PierceBuff)两张。</summary>
+        /// 2026-09-05:铠(DefenseBuff)/ 战(Empower)随字表调整移出,一度只剩 锋(CritBuff)/
+        /// 锐(PierceBuff)两张。
+        ///
+        /// ⚠ 2026-09-07 字表重做 P2:锐 也删了,而 锋 本身被并进了「攻击 + 附带特性」的
+        /// 卡型(design §6:蓝/绿档攻击字都挂着一条增益特性,如 锋 的「暴击20限时」、
+        /// 利 的「增攻30限时」)——它们现在都带 DamageSingle,不再是「挂了增益、
+        /// 没有对敌效果」的纯增益字。全表现在的增益载体(利/锋/垒/壁/杜/垚/㙓/圭)
+        /// 无一例外都是双属性卡。这不是漏配,是这批设计的方向:纯增益卡已经从字表里
+        /// 退场了。测试改钉空集,与「机制休眠」的其余测试同口径——哪天又出现一张
+        /// 纯增益字,这条会红,提醒把正面覆盖的具体断言加回来。</summary>
         [Test]
         public void ShippedBuffChars_AreAllyOnly_SoTheyCanBeDraggedOntoAllies()
         {
             var graph = RealGraph();
-            foreach (string id in new[] { "锋", "锐" })
-            {
-                var def = graph.Get(id);
-                Assert.That(BattleEngine.NeedsAllyTarget(def, attackMode: true), Is.True,
-                    $"「{id}」要选友方目标");
-                Assert.That(BattleEngine.NeedsTarget(def, attackMode: true), Is.False,
-                    $"「{id}」不该还要选敌人 —— 带对敌效果就拖不到友方身上了");
-            }
+            var pureBuffCarriers = graph.All
+                .Where(d => BattleEngine.NeedsAllyTarget(d, attackMode: true)
+                         && !BattleEngine.NeedsTarget(d, attackMode: true))
+                .Select(d => d.Id).ToList();
+            Assert.That(pureBuffCarriers, Is.Empty,
+                "纯增益字(挂了增益却不带对敌效果、可以直接拖给友方)当前应无载体");
         }
 
         /// <summary>上一条守的是「没有攻击面时保持纯友方」的负面清单,没有正面覆盖过
         /// 「配了攻击面之后真的需要选敌方目标」这一半(2026-09-02 review 带到 Task 11 的 Minor)。
         /// 澡/浴(Task 10)、杜/壁(Task 11)现在都因为攻击面带 DamageSingle 而需要选敌人 ——
-        /// 拖到友方身上不再直接生效,须先选目标。</summary>
+        /// 拖到友方身上不再直接生效,须先选目标。
+        /// 2026-09-07 字表重做 P2:浴 随字表调整移出,从下表删去(不找字顶替,同「删四字」
+        /// 那批的处理口径)。</summary>
         [Test]
         public void ShippedDualDirectionBuffChars_NeedEnemyTargetOnAttackSide()
         {
             var graph = RealGraph();
-            foreach (string id in new[] { "澡", "浴", "杜", "壁" })
+            foreach (string id in new[] { "澡", "杜", "壁" })
                 Assert.That(BattleEngine.NeedsTarget(graph.Get(id), attackMode: true), Is.True,
                     $"「{id}」的攻击面带伤害,应该需要选敌方目标");
         }

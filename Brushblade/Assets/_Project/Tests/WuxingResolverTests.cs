@@ -74,15 +74,23 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ShengRemoval_PreservesCombatValuesOfTheFourAffectedChars()
         {
-            // 取消相生前这 4 张字靠 x3 达到的实战值,取消后由基础值直接表达。
+            // 取消相生前这几张字靠 x3 达到的实战值,取消后由基础值直接表达。
             // 沏 是例外:它在水系重配范围内,由 Task 10 的 DualDirectionTests 覆盖。
+            //
+            // 2026-09-07 字表重做 P2:这三张字的实战值随全表重新标定又变了(不再是当年
+            // x3 折算的产物 —— 焚/蒸 是 spec §6 的新预算落地值,刲 更是整个换了形状:
+            // 从单段 450 变成 154 × 2 段(斩杀 + 偷袭 + 分 2 段,design 表 §6)。这条测试
+            // 守的不变量没变,还是同一条:CharDef.Effects 存的是玩家看到的实战值,不是又一次
+            // 经过任何相生倍率折算的基础值(相生本身已删,ResolveEffect 也不再吃它,
+            // 见 ResolveEffect_NoLongerAppliesSheng)——只是把「原 40/45/150 x3」这个
+            // 已经不成立的历史推导,换成直接钉当前配置值。
             var graph = CharTableTests.RealGraph();
             Assert.That(graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value,
-                Is.EqualTo(120), "原 40 x3");
+                Is.EqualTo(108));
             Assert.That(graph.Get("蒸").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(135), "原 45 x3");
+                Is.EqualTo(120));
             Assert.That(graph.Get("刲").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(450), "原 150 x3");
+                Is.EqualTo(154), "刲 改分 2 段 + 偷袭 + 斩杀后,单段值从 450 降到 154");
         }
 
         // ---- 克/被克 的查表入口(2026-09-03,卡组页详情印「克 X ×1.5 / 被 Y 克 ×0.5」) ----

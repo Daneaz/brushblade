@@ -247,20 +247,28 @@ namespace Brushblade.CoreTests
             const int playerLevel = 12;
             const int cardLevel = 4;
 
-            // 「最低伤害档」取真实字表里最小的 DamageSingle 基础值(今天是 蒸 的 30);
+            // 「最低伤害档」取真实字表里最小的 DamageSingle 基础值(今天是 利 的 45);
             // 但打出去的那一记用**中立(心)**探针字 —— 与 spec §6.3.2 的推导同口径。
-            // 不直接出 蒸:它是火系带配方的字,对水系的墨渍会吃到生克乘数(实测 ×1.5),
-            // 量到的就不再是「最低档 vs 护甲」而是「最低档 × 运气好的属性」,判据会被生克糊掉。
-            // 2026-08-25 字表重构:最低档仍是 30(冻 / 利 / 烧);垒 的副伤原定 20,
-            // 会把这条判据打穿(20 → 深度 20 归零),故改配成 盾 50 + 单体 30。
+            // 不直接出 利:它是金系带配方的字,对水系的墨渍会吃到生克乘数,量到的就不再是
+            // 「最低档 vs 护甲」而是「最低档 × 运气好的属性」,判据会被生克糊掉。
             // 2026-09-02:相生 ×3 已取消,字表存的直接就是实战值,不再需要乘相生倍率。
+            //
+            // ⚠ 这个查询的取值范围是**字面意义上的最低**——只扫 CharDef.Effects(支援/主效果
+            // 面)里的 DamageSingle,不扫 AttackEffects(双方向字的攻击面,如 冷 的 49)、
+            // 也不扫 DamageAll(如 灭 的 19)。2026-09-07 字表重做 P2 复核过这条范围是否
+            // 该扩大 —— 结论是不用扩:实测(见 task-4b 报告)灭(DamageAll 19,火)打
+            // 水系墨渍会先用自己的 Silence 把目标护甲清零(封禁在同一次施放内先结算),
+            // 深度 1~25 全程稳定打出 15 点,不受护甲缩放影响,不是「破不动」的隐患;
+            // 真正的隐患是 AttackEffects 里的伤害值(双方向字的攻击面,如 冷 49)在离色
+            // 且带甲的目标面前会更早归零,但那类字**都不是「独苗」**——玩家永远还有别的
+            // 元素/字可用,不属于这条测试要守的「字库被护甲整体掐死」场景。
             var realGraph = RealGraph();
             int lowestTier = realGraph.All
                 .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Where(e => e.Kind == EffectKind.DamageSingle && e.Pierce == 0)
                     .Select(e => e.Value))
                 .Min();
-            Assert.That(lowestTier, Is.EqualTo(30), "字表最低伤害档;它变了这条判据要重新标定");
+            Assert.That(lowestTier, Is.EqualTo(45), "字表最低伤害档;它变了这条判据要重新标定");
 
             var mob = CampaignConfig.Scale(RealEnemy("墨渍"), DepthScale(20));
             Assert.That(mob.Defense, Is.EqualTo(39));
@@ -285,8 +293,8 @@ namespace Brushblade.CoreTests
 
             Assert.That(dealt, Is.GreaterThan(0),
                 "深度 20 的带甲小怪必须还能被最低档的字磨动 —— 归零就等于护甲把字库掐死了");
-            Assert.That(dealt, Is.EqualTo(8),
-                "ceil(30×1.3) = 39 → 39×122/100 = 47 → 47 − 39 = 8(spec §6.3.2 的推导)");
+            Assert.That(dealt, Is.EqualTo(32),
+                "ceil(45×1.3) = 59 → 59×122/100 = 71 → 71 − 39 = 32(spec §6.3.2 的推导)");
         }
 
         /// <summary>无尽深度缩放系数(<c>Endless.cs</c> 的 <c>1 + 0.1×(depth−1)</c>)。

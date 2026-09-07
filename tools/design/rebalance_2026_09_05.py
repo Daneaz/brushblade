@@ -142,8 +142,20 @@ for c in R:
     ra,el,form,k=c['ra'],c['el'],c['form'],K[c['ra']]
     A=dict(zip('单攻 全体 护盾 治疗 召数 召血 召攻 流血 护甲'.split(),ANCHOR[ra]))
     ts=[t for t in c['traits'] if t not in FORM_MOD]
+    # 系印记(2026-09-07 改为**按规则**判定):免配额免计价,但**要留在表上**。
+    #
+    # 两处此前的毛病,一起修:
+    # ① 印记被 remove 之后就从「特性技能」列里消失了 —— 而 §6 是 P2 落地的施工图,
+    #    表上没写就落不了地(P2 Task 4a 正因此漏掉土系召唤字的入场护盾);
+    # ② 印记原先靠 roster 逐字写对,于是漏了一片 —— 金系 9 个攻击字(利/锋/锥/剑/剿/
+    #    铡/剁/鍂/刲)一个都没写「叠战意」,`桂` 也漏了「入场护盾」。而用户的要求是
+    #    「金系**每张**攻击字自带战意」,那是规则不是逐字配置(本节标题就叫「规则的产物」)。
+    #
+    # 所以改成按形态判定:金系 atk 一律带战意印,土系 sum 一律带入场护盾印。
+    # roster 里显式写了的照旧摘掉,避免重复计价。
     mark=MARK_TRAIT.get(el)
-    if mark and mark in ts: ts.remove(mark)          # 系印记:免配额免计价
+    marked=bool(mark) and ((el=='金' and form=='atk') or (el=='土' and form=='sum'))
+    if mark and mark in ts: ts.remove(mark)
     lo,hi=QUOTA[ra]
     if not (lo<=len(ts)<=hi): problems.append(f"{c['id']}({ra}) {len(ts)} 条 vs 配额 {lo}~{hi}:{ts}")
 
@@ -190,7 +202,7 @@ for c in R:
     if '护甲' in ts: ar=A['护甲']
     if '流血' in ts: pass
     if '终极技' in ts: ul=A['全体']//5
-    rows.append(dict(**c,atk=atk,sh=sh,hl=hl,sm=sm,ar=ar,ul=ul,burn=burn,ratio=ratio,dot=dot_abs,ts=ts))
+    rows.append(dict(**c,atk=atk,sh=sh,hl=hl,sm=sm,ar=ar,ul=ul,burn=burn,ratio=ratio,dot=dot_abs,ts=ts,mark=mark if marked else ''))
 
 # 档位单调性:同系同形态,高档不得低于低档
 def total(r):
@@ -235,5 +247,5 @@ EL={'金':0,'木':1,'水':2,'火':3,'土':4}
 for r in sorted(rows,key=lambda r:(EL[r['el']],ORDER.index(r['ra']))):
     print('| '+' | '.join(str(x) if x!='' else '—' for x in
       [r['id'],r['el'],r['ra'],r['atk'],r['sh'],r['hl'],r['ar'],r['sm'],r['ul'],r['burn'],
-       ' / '.join(r['ts']) or '—', f"{r['ratio']:.2f}"+(f"+D{r['dot']}" if r['dot'] else '')])+' |')
+       ' / '.join(([f"{r['mark']}(印)"] if r['mark'] else [])+list(r['ts'])) or '—', f"{r['ratio']:.2f}"+(f"+D{r['dot']}" if r['dot'] else '')])+' |')
 print(f"\n共 {len(rows)} 字")

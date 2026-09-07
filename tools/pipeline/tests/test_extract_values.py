@@ -5,6 +5,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extract_values import _parse_effects, extract
@@ -142,3 +144,135 @@ def test_missing_readings_leave_no_keys():
     values = extract(spec)
     assert "pinyin" not in values["灼"]
     assert "gloss" not in values["灼"]
+
+
+# ---- 消费记账:未被消费的 token 与孤立的 turns 一律报错(2026-09-07,P2 Task 1) ----
+#
+# extract_values 是一串 re.search 找已知 token,认不得的一律静默忽略 ——
+# 而 P2 要通过它改 57 行数据。项目已因「手写映射表认不得的标记无声消失」栽过一次。
+
+def test_unknown_valueless_token_raises():
+    """无数值的未知 token 必须报错,不能静默忽略。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`DamageSingle 100` + `TotallyBogus`", "测")
+    assert "TotallyBogus" in str(err.value)
+
+
+def test_turns_on_kind_without_duration_raises():
+    """turns 挂在不吃它的 kind 上必须报错 —— 否则那个回合数静默消失。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`DamageSingle 100`(turns 2)", "测")
+    assert "turns" in str(err.value)
+
+
+def test_duration_kind_without_turns_raises():
+    """反方向(2026-09-07 追加):DURATION_KINDS 效果本身没拿到 turns 也必须报错 ——
+    这正是 spec §1.5 第 20 项的历史 bug(`壁` 攻面漏写 turns,TurnsLeft=0 当场清空)。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Reflect 30`", "测")
+    assert "turns" in str(err.value)
+    assert "Reflect" in str(err.value)
+
+
+def test_known_tokens_still_parse():
+    """恒等性:既有写法一个都不能被新防线误伤。
+
+    ⚠ 这里的 238/`冰` 只是手打的构造样本,不是从详表抄的快照——T4 改数值时这条测试
+    不会因此变红,也不该被当成「详表当前长这样」的参照去同步改动。"""
+    got = _parse_effects("`DamageSingle 238` + `DoubleVsControlled`", "冰")
+    assert got == [{"kind": "DamageSingle", "value": 238, "doubleVs": "Controlled"}]
+
+
+# ---- P2 Task 2:补 Charm / AuraAttack / 限时增益 turns / 召唤行并存效果(2026-09-07) ----
+
+def test_charm_takes_turns_not_value():
+    """魅惑(花):Value 不用,Turns 才是回合数——写法 `Charm 0`(turns 1)。"""
+    assert _parse_effects("`Charm 0`(turns 1)", "花") == [
+        {"kind": "Charm", "value": 0, "turns": 1}]
+
+
+def test_charm_without_turns_raises():
+    """Charm 漏填 turns 必须报错——引擎侧 Math.Max(1, effect.Turns) 会把它兜成 1 回合,
+    看起来能用、实际回合数写死且不吃卡等级,这是最容易被忽略的一种笔误。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Charm 0`", "测")
+    assert "turns" in str(err.value)
+    assert "Charm" in str(err.value)
+
+
+def test_slow_value_is_the_turn_count_directly():
+    """减速(冷/冻/淋):EffectKind.Slow 的 Value 本身就是持续回合数(引擎固定 -50%
+    速度、TurnsLeft = value,见 BattleEngine.cs 的 EffectKind.Slow 分支)——不走
+    `(turns N)` 机制,不需要进 DURATION_KINDS,通用正则已经能解析,写成 `Slow N` 即可。"""
+    assert _parse_effects("`Slow 2`", "冻") == [{"kind": "Slow", "value": 2}]
+
+
+def test_freeze_value_is_the_turn_count_directly():
+    """冻结(冰/淼/㵘):EffectKind.Freeze 同 Slow 同口径,Value 直接是 TurnsLeft
+    (BattleEngine.cs 的 EffectKind.Freeze 分支:`TurnsLeft = value`),同样不需要
+    `(turns N)`、不需要进 DURATION_KINDS。"""
+    assert _parse_effects("`Freeze 2`", "淼") == [{"kind": "Freeze", "value": 2}]
+
+
+def test_empower_with_turns_attaches_turns():
+    """限时增攻(利):`Empower 30`(turns 2)——回合数随卡等级成长(§4.2),但管线层
+    只管把 turns 原样落进 effect,缩放是引擎的事。"""
+    assert _parse_effects("`Empower 30`(turns 2)", "利") == [
+        {"kind": "Empower", "value": 30, "turns": 2}]
+
+
+def test_critbuff_with_turns_attaches_turns():
+    """限时暴击(锋):`CritBuff 20`(turns 3)。"""
+    assert _parse_effects("`CritBuff 20`(turns 3)", "锋") == [
+        {"kind": "CritBuff", "value": 20, "turns": 3}]
+
+
+def test_critbuff_without_turns_now_raises():
+    """2026-09-07(P2 Task 4a,追加 2):`Empower`/`CritBuff` 从 OPTIONAL_DURATION_KINDS
+    移进 DURATION_KINDS(P2 落地完成后 利/锋 均已改写成限时版,不再需要那个过渡期口子,
+    见 extract_values.py 里的注释)。turns 现在是**强制**的——不写就报错,与 `Reflect`/
+    `Silence`/`HealOverTime` 等其余 DURATION_KINDS 成员同一条纪律。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`CritBuff 20`", "锋")
+    assert "CritBuff" in str(err.value)
+
+
+def test_empower_without_turns_now_raises():
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Empower 50`", "剡")
+    assert "Empower" in str(err.value)
+
+
+def test_turns_lost_on_optional_duration_kind_alone_still_raises():
+    """turns 写了、但本行唯一的效果是「不需要 turns 但也认得 turns」之外的东西——
+    仍要走「turns 没人吃」这条反向检查(与 DURATION_KINDS 同一张账,只是白名单变宽)。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`DamageSingle 10`(turns 3)", "测")
+    assert "turns" in str(err.value)
+
+
+def test_aura_attack_summon_passive():
+    """攻击光环(𣛧):`AuraAttack N` → passive.auraAttack,字段名对齐
+    SummonPassive.AuraAttack(EnemyDef.cs / SummonPassive.cs),不另起名字。"""
+    effects = _parse_effects("`Summon 2`(465 血/攻 130) + `AuraAttack 20`", "𣛧")
+    assert effects == [{"kind": "Summon", "value": 465, "count": 2, "attack": 130,
+                         "summonChar": "𣛧", "passive": {"auraAttack": 20}}]
+
+
+def test_summon_row_also_parses_shield():
+    """土系召唤字要补入场护盾(spec §2)——召唤分支不能提前 return 把它吞掉,
+    Shield 是给玩家的独立效果,与 Summon 并存于同一个 effects 数组。"""
+    got = _parse_effects("`Summon 1`(100 血/攻 0) + `Thorns 50` + `Shield 40`", "碉")
+    assert got == [
+        {"kind": "Summon", "value": 100, "count": 1, "attack": 0, "summonChar": "碉",
+         "passive": {"thorns": 50}},
+        {"kind": "Shield", "value": 40},
+    ]
+
+
+def test_summon_row_unknown_token_still_raises():
+    """召唤分支不再提前 return 之后,消费记账的收尾挪到了函数末尾——
+    真正认不得的 token 在召唤行上仍必须报错,不能被「继续走通用循环」误放行。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Summon 1`(100 血/攻 0) + `TotallyBogus`", "测")
+    assert "TotallyBogus" in str(err.value)

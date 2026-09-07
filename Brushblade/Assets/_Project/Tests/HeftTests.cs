@@ -185,15 +185,19 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cast_HealChar_GainsWellspring()
         {
-            // 冰 = 治疗 340(卡 1 级,2026-09-02 双方向重配,旧值 160)。
-            // 2026-09-05 字表调整:原用 沝,沝 随本批移出字表,换成同为金档水系、
-            // HealSelf 同为 340 的 冰(它也接手了水系叠字链的中间环)。
-            // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,340 / 100 = 3 层 + 余 40
-            // (原为 6 层 + 余 40 —— 余数恰好同为 40,是巧合:340 − 6×50 = 340 − 3×100 = 40)。
+            // 2026-09-07 字表重做 P2:冰 按 spec §1.4 公式重新标定,治疗 340 → 146
+            // (金档治疗锚点240 × HEAL_F × (1 − (冻结1+对控制)×K金),见
+            // DualDirectionTests.WaterCharValues_MatchRarityAnchors 的推导)。
+            // 阈值仍是 maxHp/5 = 100:146 / 100 = 1 层 + 余 46。
+            //
+            // ⚠ 观测点留给 T5:旧值 340 能攒 3 层,新值 146 只攒 1 层——泉层数掉了不止一半,
+            // 是「治疗值下调」与「阈值 2026-09-05 已经从 /10 改到 /5」两次调整叠加的结果,
+            // 不是本次改动本身引入的新账。1 层是否太慢、要不要在 T5 仿真里再调阈值或
+            // 治疗值,留给仿真读数判断,这里只钉当前配置下的真实产出。
             var battle = NewBattleWithChar("冰", maxHp: 500);
             battle.Cast("冰", 0);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(3));
-            Assert.That(battle.HealAccum, Is.EqualTo(40));
+            Assert.That(battle.WellspringStacks, Is.EqualTo(1));
+            Assert.That(battle.HealAccum, Is.EqualTo(46));
         }
 
         // ---- 护盾/治疗接上角色攻击成长(2026-09-02,Task 5)----
@@ -201,19 +205,22 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Shield_ScalesWithCharacterAttack()
         {
-            // 圭 = 护盾 170(2026-09-04 盾量砍半,旧值 340)。ATK 150(26 级)→ 255。
+            // 2026-09-07 字表重做 P2:圭 护盾按 spec §1.4 公式重新标定,170 → 119(见
+            // DualDirectionTests.EarthCharValues_MatchRarityAnchors 的推导)。ATK 150(26 级)
+            // 相对基准 100 的比例不变:119 × 150 / 100 = 178.5,向下取整 178。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 150);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(255));
+            Assert.That(battle.PlayerShield, Is.EqualTo(178));
         }
 
         [Test]
         public void Shield_AtBaselineAttack_IsIdentical()
         {
-            // 恒等性硬线:ATK = 100 时一分不差。圭 170(2026-09-04 盾量砍半,旧值 340)。
+            // 恒等性硬线:ATK = 100 时一分不差。
+            // 2026-09-07 字表重做 P2:圭 护盾按公式重新标定,170 → 119。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(170));
+            Assert.That(battle.PlayerShield, Is.EqualTo(119));
         }
 
         [Test]
@@ -240,8 +247,8 @@ namespace Brushblade.Core.Tests
 
             battle.Cast("圭", -1);
             // 圭 加盾前已有的厚带来的盾不算:这里断言的是这一次施放的增量
-            // (2026-09-04 盾量砍半:圭 340 → 170)
-            Assert.That(battle.PlayerShield, Is.EqualTo(170),
+            // (2026-09-07 字表重做 P2:圭 护盾按公式重新标定,170 → 119)
+            Assert.That(battle.PlayerShield, Is.EqualTo(119),
                 "护盾只认 config.PlayerAttack,不吃厚也不吃战意");
         }
 
@@ -264,9 +271,9 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.WellspringStacks, Is.EqualTo(10), "夹具前提:满层");
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
-            // 冰(原 沝)治疗 340(卡 1 级)→ ×(100+50)/100 = 510
-            // (2026-09-05 泉 10% → 5%:旧口径 ×(100+100)/100 = 680)
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(510));
+            // 2026-09-07 字表重做 P2:冰 治疗 340 → 146(公式重新标定,见
+            // DualDirectionTests.WaterCharValues_MatchRarityAnchors)→ ×(100+50)/100 = 219
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(219));
         }
 
         [Test]
@@ -299,23 +306,23 @@ namespace Brushblade.Core.Tests
             // 这条改断言**单次施放的实际回血量**,并且用非零非满(5 层,MaxResourceStacks=10)
             // 的泉 —— 满层时 GainWellspring 直接空转 return,顺序对结果毫无影响,测不出反转。
             //
-            // 冰 治前 3 层(2026-09-05 阈值 /10 → /5:阈值 50 → 100,阈值 100 × 3,整除,余数 0;
-            // 2026-09-02 双方向重配 冰 160→340 后,旧版的 5 层会让 amplified 的两种算法都
-            // 逼近/撞上 maxHp 500 的封顶,故改用 3 层):
-            //   正确顺序:amplified = AmplifyByWellspring(340) 用旧层数 3、泉 5%/层(2026-09-05 由
-            //             10% 改)→ 340 × 115 / 100 = 391
-            //   反转顺序:先 GainWellspring(340) 层数变 6(340 / 100 = 3 层 + 余 40,3+3=6),
-            //             再用新层数 6 算 amplified → 340 × 130 / 100 = 442
-            // 391 ≠ 442,反转时这条断言必须变红。
+            // 2026-09-07 字表重做 P2:冰 治疗 340 → 146(公式重新标定,见
+            // DualDirectionTests.WaterCharValues_MatchRarityAnchors)。冰 治前 3 层(阈值
+            // maxHp/5 = 100,3 层是非零非满的夹具前提,与冰 自身的治疗值无关,继续用 3):
+            //   正确顺序:amplified = AmplifyByWellspring(146) 用旧层数 3、泉 5%/层 →
+            //             146 × 115 / 100 = 167(floor)
+            //   反转顺序:先 GainWellspring(146) 层数变 4(146 / 100 = 1 层 + 余 46,3+1=4),
+            //             再用新层数 4 算 amplified → 146 × 120 / 100 = 175(floor)
+            // 167 ≠ 175,反转时这条断言必须变红。
             var battle = NewBattleWithCharTakingDamage("冰", maxHp: 500, playerAttack: 100, enemyAttack: 450);
-            battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 391 的回血空间不封顶
+            battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 167 的回血空间不封顶
             Assert.That(battle.PlayerHp, Is.EqualTo(50), "夹具前提:留出的回血空间要盖过两种顺序的差值");
             battle.GainWellspringForTest(100 * 3);   // 先有 3 层(非零非满)
             Assert.That(battle.WellspringStacks, Is.EqualTo(3), "夹具前提:整除,层数刚好 3");
 
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(391),
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(167),
                 "放大值必须用施放前(旧)的层数算,不能用 GainWellspring 攒完之后的新层数");
         }
 

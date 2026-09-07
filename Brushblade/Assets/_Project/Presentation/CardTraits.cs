@@ -286,12 +286,12 @@ namespace Brushblade.Presentation
                     case EffectKind.CritBuff:
                         AddTrait(traits, "crit", "+" + v + "%",
                             Strings.T("collection.trait.crit.name"),
-                            Strings.T("collection.trait.crit.desc", ("value", v)));
+                            Strings.T("collection.trait.crit.desc", ("value", v), ("turns", e.Turns)));
                         break;
                     case EffectKind.Empower:
                         AddTrait(traits, "attack", "+" + v,
                             Strings.T("collection.trait.empower.name"),
-                            Strings.T("collection.trait.empower.desc", ("value", v)));
+                            Strings.T("collection.trait.empower.desc", ("value", v), ("turns", e.Turns)));
                         break;
                     case EffectKind.DefenseBuff:
                         AddTrait(traits, "defense", "+" + v,
@@ -436,6 +436,11 @@ namespace Brushblade.Presentation
             if (p.Regen > 0) AddTrait(traits, "heal", p.Regen.ToString(),
                             Strings.T("collection.trait.summon_regen.name"),
                             Strings.T("collection.trait.summon_regen.desc", ("value", p.Regen)));
+            // 光环攻(2026-09-05,𣛧,平衡重做 P0):此前只接了 CharInfo 一处,徽章列表漏接
+            // 导致卡面详情能看到一句话文案、召唤被动那排小卡却凭空少一条(P2 Task 4c 查漏)。
+            if (p.AuraAttack > 0) AddTrait(traits, "attack", "+" + p.AuraAttack,
+                            Strings.T("collection.trait.summon_auraattack.name"),
+                            Strings.T("collection.trait.summon_auraattack.desc", ("value", p.AuraAttack)));
             if (p.OnHitBurn > 0)
             {
                 if (p.OnHitBurnAll)

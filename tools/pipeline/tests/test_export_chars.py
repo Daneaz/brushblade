@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from export_chars import STACK_RECIPES, build_chars
@@ -81,13 +83,17 @@ def test_extract_pulls_60_implementable_chars():
     2026-08-25 字表重构:105 → 74,移出 33 字、新增 杖/枪 两字
     (spec docs/superpowers/specs/2026-08-25-字表重构-design.md)。
     2026-09-05 字表调整:74 → 60,移出 17 字、新增 藻/箭/葬(spec docs/superpowers/specs/2026-09-05-字表调整-design.md)。
+    2026-09-07 字表平衡重做 P2:60 → 57,移出 桤/浴/葬/锐 四字、新增 花(spec
+    docs/superpowers/specs/2026-09-05-字表平衡重做-design.md §3 第 8 项)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 60
+    assert len(values) == 57
     # 焚曾含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)。
     # 2026-09-02:相生 ×3 取消,基础值改填等值改写后的实战值,40 → 120,战斗结果不变。
+    # 2026-09-07(P2 Task 4a):补对灼烧(灼烧梯队·高),预算扣除 + DOT 当量扣除后 120 → 108。
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
-    assert fen["value"] == 120
+    assert fen["value"] == 108
+    assert fen["doubleVs"] == "Burning"
     assert values["焚"]["rarity"] == "Orange"
     assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"
@@ -106,10 +112,15 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
     挂在 `effects` 上)。灭 的 `DispelAll` 是无括注的布尔标记,不带 targetAll —— 这半个
     断言原先验证的「Dispel 走 targetAll 括注解析」现在只剩 test_dispel_each_becomes_target_all
     的手打字符串覆盖,这里改断言 灭 的 Dispel 本身的值(-1,DispelAll 的标记值)。
+
+    2026-09-07(P2 Task 4a):净化/驱散并入封禁(spec §3 第 12/13 项),灭 与 湮(此前
+    净化的另一载体)都改用 `Silence`,`DispelAll` 自此在真实字表里无载体、休眠 ——
+    targetAll 括注解析的覆盖收窄到只剩 test_dispel_each_becomes_target_all 的手打字符串,
+    这里删除对 灭 的 Dispel 断言,只保留 沐 那半(HealOverTime 的 turns 解析,不受影响)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    mie = next(e for e in values["灭"]["effects"] if e["kind"] == "Dispel")
-    assert mie["value"] == -1
+    mie = next(e for e in values["灭"]["effects"] if e["kind"] == "Silence")
+    assert mie["turns"] == 1
 
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
     assert mu["turns"] == 3
@@ -348,13 +359,21 @@ def test_turns_and_target_all_do_not_leak_to_non_duration_kinds():
     # Silence 在 DURATION_KINDS 里但不在 TARGET_ALL_KINDS 里——拿 turns 但不该拿 targetAll。
     assert _parse_effects("`Silence 0`(turns 1, targetAll)", "金") == [
         {"kind": "Silence", "value": 0, "turns": 1}]
-    # Immunity 完全不在 DURATION_KINDS 里(它的 value 是挡伤次数,不是回合数)——不该拿 turns。
-    assert _parse_effects("`Immunity 2`(turns 3)", "土") == [
-        {"kind": "Immunity", "value": 2}]
+    # Immunity 完全不在 DURATION_KINDS 里(它的 value 是挡伤次数,不是回合数)——turns 3
+    # 曾经被静默丢弃;2026-09-07(P2 Task 1)起这类「turns 挂在不吃它的 kind 上」改为报错,
+    # 断言挪到下面 test_turns_on_non_duration_kind_raises_instead_of_silently_dropping。
     # HitCount 只修饰伤害效果,同行的非伤害效果(灼烧)不该被误挂。
     assert _parse_effects("`DamageSingle 10` + `Burn 3` + `HitCount 2`", "火") == [
         {"kind": "DamageSingle", "value": 10, "hitCount": 2},
         {"kind": "Burn", "value": 3}]
+
+
+def test_turns_on_non_duration_kind_raises_instead_of_silently_dropping():
+    """2026-09-07(P2 Task 1):Immunity 完全不在 DURATION_KINDS 里(它的 value 是挡伤
+    次数,不是回合数)——turns 3 曾经被静默丢弃,现在必须报错,不能再悄悄消失。"""
+    from extract_values import _parse_effects
+    with pytest.raises(Exception, match="turns"):
+        _parse_effects("`Immunity 2`(turns 3)", "土")
 
 
 def test_shipped_chars_json_is_regenerable_from_spec():
@@ -427,7 +446,14 @@ def test_shipped_chars_json_carries_the_new_row_fields():
 
     2026-09-05:刺/砸/蕉 随 17 字移出字表,字卡攻击形状 Skewer/Cleave 与召唤 onHitSlow
     自此无载体(spec §1.3 明确裁定「休眠」)。碾 也移出,但字卡侧的 Sweep 载体不算孤儿——
-    召唤物被动那条 Sweep 通道(剑)仍在,断言挪去验证那条通道。"""
+    召唤物被动那条 Sweep 通道(剑)仍在,断言挪去验证那条通道。
+
+    2026-09-07(P2 Task 4a):锥 由召唤字改攻击字(spec §3 第 2 项),连发形状 `Volley`
+    随之无载体、休眠(锥 是全表唯一载体,见 spec §2.2 休眠清单)——原 Volley 断言删除,
+    改验锥 现在是纯攻击效果(带破甲修饰)。剑 同批也改攻击字(§3 第 2 项),横扫形状
+    从召唤物 `passive` 挪到直伤效果本身的 `shape`/`shapePercent` 字段(与 溃/碎 等带
+    形状修饰的攻击字同一套通道),原 `passive` 断言随之删除。
+    """
     shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
     by_id = {c["id"]: c for c in shipped["chars"]}
 
@@ -438,19 +464,29 @@ def test_shipped_chars_json_carries_the_new_row_fields():
 
     # 召唤被动的形状与出手控场(2026-08-25):都是「token 表漏接线就静默丢」的字段
     # 2026-09-05:碾 移出字表,字卡侧的 Sweep 载体没了,改验召唤物侧(剑)仍在。
-    assert by_id["剑"]["effects"][0]["passive"] == {"shape": "Sweep", "shapePercent": 50}
+    # 2026-09-07(P2 Task 4a):剑 改攻击字,横扫改验直伤效果自身的 shape 字段。
+    assert by_id["剑"]["effects"][0]["kind"] == "DamageSingle", "剑 已改攻击字,不再是 Summon"
+    assert by_id["剑"]["effects"][0]["shape"] == "Sweep"
+    assert by_id["剑"]["effects"][0]["shapePercent"] == 50
     assert by_id["枪"]["effects"][0]["passive"] == {"shape": "Skewer", "shapePercent": 70}
-    assert by_id["锥"]["effects"][0]["passive"] == {"shape": "Volley", "shots": 2}
+    assert by_id["锥"]["effects"][0]["kind"] == "DamageSingle", "锥 已改攻击字,不再是 Summon"
+    assert "passive" not in by_id["锥"]["effects"][0]
     assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
 
     # 条件加成(2026-08-25 由 doubleVsBurning 泛化)
     # 2026-09-02:冰 的 doubleVs 随双方向重配(Task 10)挪进 attackEffects,
     # 扫描范围跟着盖住两个列表 —— 载体本身没变,只是搬了个字段。
     # 2026-09-05:灼 移出字表,DoubleVsBurning 自此无载体(spec §1.3),四个收割位缺一个。
+    # 2026-09-07(P2 Task 4a):按 spec §6 全表补齐一批条件加成 —— 对灼烧(炎/烈/焚/燚)、
+    # 对控制(㵘/淼/湮,冰 已有)、对破甲(圭/𨰻,垚 已有)。
+    from export_chars import PUA_PROXY
     assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
             for e in c.get("effects", []) + c.get("attackEffects", [])
             if e.get("doubleVs")} == {
-        "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken"}
+        "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken",
+        "㵘": "Controlled", "淼": "Controlled", "湮": "Controlled", "圭": "ArmorBroken",
+        "炎": "Burning", "烈": "Burning", "焚": "Burning", "燚": "Burning",
+        PUA_PROXY["𨰻"]: "ArmorBroken"}
 
 
 def test_component_entries_are_flagged():
@@ -467,10 +503,10 @@ def test_component_entries_are_flagged():
 
 
 def test_real_table_flags_every_component():
-    """实船字表:60 个可出牌字都不带 component,其余全部带。"""
+    """实船字表:57 个可出牌字都不带 component,其余全部带(2026-09-07 P2:60 → 57)。"""
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = {c["id"] for c in chars if "effects" in c}
-    assert len(playable) == 60
+    assert len(playable) == 57
     for c in chars:
         if c["id"] in playable:
             assert "component" not in c, f"{c['id']} 是可出牌字,不该带 component"
@@ -496,26 +532,33 @@ def test_component_recipes_yield_one_element_part_each():
 
 
 def test_real_table_has_component_recipes():
-    """实船字表:10 个部件带上了配方,9 个新部件条目在场。
+    """实船字表:9 个部件带上了配方,8 个终点部件条目在场。
 
     2026-09-05:崔(=山+隹,服务 熣)、切(=七+刀,服务 沏)随它们服务的字一并移出
     COMPONENT_RECIPES;七 是 切 的唯一原料,没有别的字再引用它,随之从字表整体消失
     (隹 还有 焦/锥 在用,不受影响,留在下面的终点部件清单外——它本来就不在这份清单里)。
+    2026-09-07(P2 Task 4a):桤 移出字表,岂(=山+己,COMPONENT_RECIPES 里注明只服务
+    桤/铠 两字,铠 早于 2026-09-05 已移出)随之失去唯一引用而级联消失;己 是 岂 的
+    唯一原料,同样消失。COMPONENT_RECIPES 里那条 `"岂": ["山", "己"]` 仍原样留着——
+    它是静态配方表,不是字表本身,只是这批之后没有任何 recipe 再引用到它,闭包算法
+    自然不会把它收进产物(同 七/戈/刀/切/崔 那批的处理方式一致,不用手动摘除条目)。
     """
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     byid = {c["id"]: c for c in chars}
     expected = {
-        "秋": ["禾", "火"], "岂": ["山", "己"], "荅": ["艹", "合"],
+        "秋": ["禾", "火"], "荅": ["艹", "合"],
         "列": ["歹", "刂"], "喿": ["品", "木"], "烝": ["丞", "灬"], "则": ["贝", "刂"],
         "朵": ["几", "木"], "茾": ["艹", "开"], "垔": ["覀", "土"],
     }
     for part, recipe in expected.items():
         assert byid[part]["recipe"] == recipe, f"{part} 的配方不对"
         assert byid[part]["component"] is True, f"{part} 有了配方,但仍然必须是部件"
-    for part in "己合歹品丞贝几开覀":
+    for part in "合歹品丞贝几开覀":
         assert part in byid, f"新部件 {part} 不在字表里"
         assert "recipe" not in byid[part], f"{part} 是终点,不该有配方"
     assert "七" not in byid, "七 曾是 切 的唯一原料,切 移出后应随之消失"
+    assert "岂" not in byid, "岂 曾是 桤/铠 的唯一原料,两字都移出后应随之消失"
+    assert "己" not in byid, "己 是 岂 的唯一原料,岂 消失后应随之消失"
 
 
 def test_jing_and_yan_recipes_route_through_the_middle_layer():
@@ -537,10 +580,16 @@ def test_real_table_entry_count():
     # 部件因此失去唯一引用而级联消失(七 丈 公 刀 切 勺 匝 占 尧 展 崔 戈 朿 白),
     # 新增的 3 字带来 3 个新部件(前、死、竹)。净变化:69 − 14 + 3 = 58。
     # 总条目 143 − 17 − 14 + 3 + 3 = 118(60 字 + 58 部件)。
+    #
+    # 2026-09-07(P2 Task 4a):60 → 57(移出 桤/浴/葬/锐、新增 花),部件 58 → 54。
+    # 移出的 4 字级联带走 5 个失去唯一引用的部件(兑 岂 己 死 谷 —— 兑 服务 锐、
+    # 岂/己 服务 桤、死 服务 葬、谷 服务 浴),新增的 花 带来 1 个新部件(化,
+    # 亻+匕,无五行属性)。净变化:58 − 5 + 1 = 54。
+    # 总条目 118 − 4 − 5 + 1 + 1 = 111(57 字 + 54 部件)。
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = [c for c in chars if "effects" in c]
-    assert len(playable) == 60
-    assert len(chars) == 118, "60 字 + 58 部件"
+    assert len(playable) == 57
+    assert len(chars) == 111, "57 字 + 54 部件"
 
 
 def _shipped():
@@ -564,20 +613,44 @@ def test_removed_chars_are_gone():
 
 
 def test_new_wood_chars_land_with_expected_recipes():
-    """藻/箭/葬 的配方:藻 与 箭 走 IDS 一级拆解,葬 走手写兜底(IDS 是三部件)。"""
+    """藻/箭 的配方走 IDS 一级拆解。
+
+    2026-09-07(P2 Task 4a):葬 随本批移出字表(见 test_p2_task4_roster_changes),
+    对应断言一并删除;竹 仍由 箭 的配方带入字表,不受影响。
+    """
     by_id = _shipped()
     assert by_id["藻"]["recipe"] == ["艹", "澡"]
     assert by_id["箭"]["recipe"] == ["竹", "前"]
-    assert by_id["葬"]["recipe"] == ["艹", "死"]
     assert by_id["竹"]["component"] is True
     assert by_id["竹"]["element"] == "Wood"
     assert "recipe" not in by_id["竹"], "竹 必须是叶子部件 —— ComponentKin 的守卫要求"
 
 
+def test_p2_task4_roster_changes():
+    """2026-09-07 P2 Task 4a:桤/浴/葬/锐 四字移出,花(艹+化)新增。
+
+    花 的配方走 IDS 一级拆解(⿱艹化);化 是本批新部件,无五行属性(亻+匕,不落
+    ATTR_MAP 也不在 COMPOUND_ATTR 里,与 己/合/歹 等中性终点部件同一口径)。
+    """
+    by_id = _shipped()
+    for char in "桤浴葬锐":
+        assert char not in by_id, f"{char} 应已移出字表(P2 Task 4a)"
+    for part in "兑岂己死谷":
+        assert part not in by_id, f"部件 {part} 已无字引用,应随之消失(P2 Task 4a)"
+    assert by_id["花"]["recipe"] == ["艹", "化"]
+    assert by_id["化"]["component"] is True
+    assert "element" not in by_id["化"], "化 是中性部件,不带五行属性"
+    assert "recipe" not in by_id["化"], "化 是叶子部件"
+
+
 def test_zao_carries_regen_passive():
-    """藻 的自愈落进 passive.regen(SUMMON_PASSIVE 那张手写映射表认不得就会静默丢弃)。"""
+    """藻 的自愈落进 passive.regen(SUMMON_PASSIVE 那张手写映射表认不得就会静默丢弃)。
+
+    2026-09-07(P2 Task 4a):只数收归 1(spec §6.1 二次收紧),总量守恒摊到 1 只;
+    补迅捷(`SummonSpeed`,spec §6 特性技能列「自愈/迅捷」)。
+    """
     zao = _shipped()["藻"]["effects"][0]
-    assert zao["passive"] == {"regen": 60}
-    assert zao["count"] == 3
-    assert zao["value"] == 260
-    assert zao["attack"] == 50
+    assert zao["passive"] == {"regen": 60, "speed": 150}
+    assert zao["count"] == 1
+    assert zao["value"] == 694
+    assert zao["attack"] == 187
