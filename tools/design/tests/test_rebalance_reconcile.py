@@ -95,10 +95,17 @@ def _sum(effects, kinds):
 
 @pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_roster_matches_target():
-    """字表的字集与目标一致 —— 多一个少一个都要报出来。"""
+    """字表的字集与目标一致 —— 多一个少一个都要报出来。
+
+    两个方向先都收集再一次 assert —— 分两条独立 assert 会让第一条失败时
+    第二条根本不执行,永远看不到「该删的字」那一半(2026-09-07 复评发现:
+    当时只报了「目标表有、配置里缺:['花']」,而「配置里有、目标表已移出」
+    那半边——桤/浴/葬/锐——被完全遮住)。
+    """
     target, actual = set(_target()), set(_actual())
-    assert not (target - actual), f"目标表有、配置里缺:{sorted(target - actual)}"
-    assert not (actual - target), f"配置里有、目标表已移出:{sorted(actual - target)}"
+    missing, extra = sorted(target - actual), sorted(actual - target)
+    assert not (missing or extra), (
+        f"字集与目标不符 ——\n  目标表有、配置里缺:{missing}\n  配置里有、目标表已移出:{extra}")
 
 
 @pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
