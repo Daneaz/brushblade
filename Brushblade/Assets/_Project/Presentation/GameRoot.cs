@@ -166,7 +166,6 @@ namespace Brushblade.Presentation
                     // 教程不靠这个池——拆演示字本身就产出它的两个部件。
                     Pool = new System.Collections.Generic.List<string>(MetaRules.RollStartingPool(
                         _meta.OwnedCards, _graph, startRandom)),
-                    NormalShield = PerkRules.ShieldBonus(_meta), // 金汤:首段段首护盾
                     // 结算页新纪录条的「旧纪录」只能在这里留:段末告捷会当场 UpdateBest,
                     // 到结算时 _meta.BestDepth 已经是本次成绩了(见 EndlessSaveState 的注释)
                     BestDepthBeforeRun = _meta.BestDepth,
@@ -198,6 +197,8 @@ namespace Brushblade.Presentation
             // 抽取按稀有度加权,白/金/橙/红也在候选之列(白 150/绿 350/蓝 300/紫 130/
             // 金 50/橙 15/红 5,千分比,见 MetaRules.RarityWeights)
             runConfig.RewardPool = _meta.OwnedCards;
+            runConfig.GuaranteedElements = MetaRules.GuaranteedLootElements(_meta);
+            runConfig.RewardDrawRolls = 1 + PerkRules.Bonus(_meta, PerkEffect.LootDrawRolls);
 
             // ⚠ 角色属性一条都不在这里手写(2026-08-12,E-b4/E-b5 T7):Presentation 没有任何
             // 自动化测试,此处漏注入一条属性是**静默**的(实测删掉 PlayerDodge 那行,967 条
@@ -216,8 +217,7 @@ namespace Brushblade.Presentation
                     // (这条在 2026-08-30 之前就错着,只是当时只有字摊净额走这本账,数额小、没人碰上;
                     //  爬塔层墨锭并进来之后每次挂起都会撞上,所以一并修掉。)
                     run = RunEngine.Restore(resume.Run, _graph, runConfig, battleConfig, _meta.CardLevels,
-                        startingInk: _meta.Ink - resume.CommittedEventInk,
-                        perFloorNormalShield: PerkRules.ShieldBonus(_meta));
+                        startingInk: _meta.Ink - resume.CommittedEventInk);
                     _committedEventInk = resume.CommittedEventInk; // 不接上会把已结的净额重复入账
                 }
                 catch (System.InvalidOperationException)
@@ -245,7 +245,6 @@ namespace Brushblade.Presentation
                 startingHp: snapshot.PlayerHp,
                 startingNormalShield: snapshot.NormalShield,
                 startingPersistShield: snapshot.PersistShield,
-                perFloorNormalShield: PerkRules.ShieldBonus(_meta), // 金汤:每关开战补盾(段首由 NormalShield 注入)
                 startingSummons: snapshot.CarriedSummons, // 召唤物跨段延续(2026-08-03),与普通盾同口径
                 startingStatuses: snapshot.CarriedStatuses, // 减伤跨段延续(2026-08-04),同上
                 // 广告扩容走构造参数而非事后 TryExpand*(2026-08-18):RunEngine 的构造函数里就开打
@@ -423,7 +422,7 @@ namespace Brushblade.Presentation
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
             // 段末护盾照常延续(2026-07-26 拍板:盾叠加本场爬塔通吃,不再 5 关一清),
-            // 与挂起快照同口径;金汤每关另补,见 RunEngine
+            // 由土系护盾字与御枝护甲提供;NormalShield 无生产代码路径赋值(金汤已废止)
             snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);

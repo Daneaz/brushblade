@@ -31,10 +31,12 @@ namespace Brushblade.Core.Tests
         private static MetaState LevelElevenWithPerks()
         {
             var meta = new MetaState { CharacterXp = XpForLevel(11) };
-            meta.PerkLevels["yangyuan"] = 2; // 养元:+100 HP/级
-            meta.PerkLevels["yiqi"] = 2;     // 一气:+1 AP/级
-            meta.PerkLevels["bowen"] = 2;    // 博闻:+1 字库格/级
-            meta.PerkLevels["jintang"] = 2;  // 金汤:+20 护盾/级(不进 BattleConfig,见下方护盾那条)
+            meta.UnlockedPerks.Add("vigor_1"); // 元 L1:+100 HP
+            meta.UnlockedPerks.Add("vigor_2"); // 元 L2:+200 HP(合计 +300)
+            meta.UnlockedPerks.Add("qi_1");    // 一气 L1:+1 AP
+            meta.UnlockedPerks.Add("qi_2");    // 一气 L2:+1 AP(合计 +2)
+            meta.UnlockedPerks.Add("lore_1");  // 博闻 L1:+1 字库格
+            meta.UnlockedPerks.Add("lore_2");  // 博闻 L2:+1 字库格(合计 +2)
             return meta;
         }
 
@@ -53,10 +55,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlayerMaxHp_IsLevelCurvePlusYangyuan()
         {
-            // 生命是唯一吃技能加成的角色属性:700(11 级曲线)+ 200(养元 2 级)
+            // 生命是唯一吃技能加成的角色属性:700(11 级曲线)+ 300(元 L1+L2)
             Assert.That(Build(LevelElevenWithPerks()).PlayerMaxHp,
-                Is.EqualTo(MetaRules.MaxHpFor(11) + 200));
-            Assert.That(Build(LevelElevenWithPerks()).PlayerMaxHp, Is.EqualTo(900));
+                Is.EqualTo(MetaRules.MaxHpFor(11) + 300));
+            Assert.That(Build(LevelElevenWithPerks()).PlayerMaxHp, Is.EqualTo(1000));
         }
 
         [Test]
@@ -166,7 +168,8 @@ namespace Brushblade.Core.Tests
             Assert.That(config.DropTable, Is.Not.Empty);      // 缺省空表
         }
 
-        // ---- 另外三处不进 BattleConfig 的养成注入 ----
+        // ---- 另外一处不进 BattleConfig 的养成注入(金汤/护盾已随技能树重构废止,
+        // 见 Perk.cs 与 GameRoot.cs 的 TODO(T2)) ----
 
         [Test]
         public void StartingHp_IsTheSameExpressionAsBattleConfigMaxHp()
@@ -176,18 +179,7 @@ namespace Brushblade.Core.Tests
             // 第二个 Bonus 项,改一处漏一处不会有任何东西报错。现在两处同源,这条钉住同源。
             var meta = LevelElevenWithPerks();
             Assert.That(MetaRules.PlayerMaxHpFor(meta), Is.EqualTo(Build(meta).PlayerMaxHp));
-            Assert.That(MetaRules.PlayerMaxHpFor(meta), Is.EqualTo(900));
-        }
-
-        [Test]
-        public void ShieldBonus_TracksJintangLevel()
-        {
-            // 金汤的护盾不进 BattleConfig,而是喂给 RunEngine 的三条路径(段首 NormalShield、
-            // 续爬 perFloorNormalShield、新开 perFloorNormalShield)。三条路径都在 GameRoot 里,
-            // Core 侧测不到「有没有喂到」;能测的是**喂的值**,这条把它钉住 ——
-            // 每级 20 点被改动时,三条路径会一起错,至少这里会红。
-            Assert.That(PerkRules.ShieldBonus(LevelElevenWithPerks()), Is.EqualTo(40));
-            Assert.That(PerkRules.ShieldBonus(new MetaState()), Is.EqualTo(0));
+            Assert.That(MetaRules.PlayerMaxHpFor(meta), Is.EqualTo(1000));
         }
     }
 }

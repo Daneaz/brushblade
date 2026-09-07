@@ -5,141 +5,212 @@ namespace Brushblade.Core.Tests
 {
     public class PerkTests
     {
-        // ---- 主界面技能红点(2026-08-28):有任意一条现在就能升 ----
+        /// <summary>够等级、够墨锭,但同枝上一层没点 —— 前置是硬门。</summary>
+        [Test]
+        public void CanUnlock_FalseWhenPrerequisiteNotOwned()
+        {
+            var meta = new MetaState { CharacterXp = 100000, Ink = 100000 };
+            Assert.That(PerkRules.CanUnlock(meta, "metal_1"), Is.True, "夹具自检:第一层无前置");
+            Assert.That(PerkRules.CanUnlock(meta, "metal_2"), Is.False);
+        }
 
         [Test]
-        public void HasUpgradable_FalseForBrandNewSave() // 1 级、0 墨:一条都够不着
+        public void CanUnlock_TrueOncePrerequisiteOwned()
+        {
+            var meta = new MetaState { CharacterXp = 100000, Ink = 100000 };
+            Assert.That(PerkRules.TryUnlock(meta, "metal_1"), Is.True);
+            Assert.That(PerkRules.CanUnlock(meta, "metal_2"), Is.True);
+        }
+
+        /// <summary>前置只看**同一枝**,不跨枝 —— 点了金脉不该开木脉第二层。</summary>
+        [Test]
+        public void CanUnlock_PrerequisiteIsPerBranch()
+        {
+            var meta = new MetaState { CharacterXp = 100000, Ink = 100000 };
+            PerkRules.TryUnlock(meta, "metal_1");
+            Assert.That(PerkRules.CanUnlock(meta, "wood_2"), Is.False);
+        }
+
+        // ---- 门槛 ----
+
+        [Test]
+        public void CanUnlock_FalseWhenCharacterLevelTooLow()
+        {
+            var meta = new MetaState { CharacterXp = 0, Ink = 100000 }; // Lv.1
+            Assert.That(PerkRules.CanUnlock(meta, "metal_1"), Is.False, "金脉 L1 需 Lv.4");
+            Assert.That(PerkRules.CanUnlock(meta, "vigor_1"), Is.False, "元 L1 需 Lv.2");
+        }
+
+        /// <summary>门槛表本身:步长 6、三树错开 2 级、Lv22 全开。
+        /// 写死在测试里是刻意的 —— 曲线一改这条就该红,让人重新想一遍节奏。</summary>
+        [Test]
+        public void UnlockLevels_FollowTheStaggeredSchedule()
+        {
+            Assert.That(PerkRules.Get("vigor_1").UnlockLevel, Is.EqualTo(2));
+            Assert.That(PerkRules.Get("metal_1").UnlockLevel, Is.EqualTo(4));
+            Assert.That(PerkRules.Get("lore_1").UnlockLevel, Is.EqualTo(6));
+            Assert.That(PerkRules.Get("vigor_2").UnlockLevel, Is.EqualTo(8));
+            Assert.That(PerkRules.Get("metal_2").UnlockLevel, Is.EqualTo(10));
+            Assert.That(PerkRules.Get("lore_2").UnlockLevel, Is.EqualTo(12));
+            Assert.That(PerkRules.Get("vigor_3").UnlockLevel, Is.EqualTo(14));
+            Assert.That(PerkRules.Get("metal_3").UnlockLevel, Is.EqualTo(16));
+            Assert.That(PerkRules.Get("metal_4").UnlockLevel, Is.EqualTo(22));
+        }
+
+        [Test]
+        public void AllNodes_UnlockByLevel22()
+        {
+            foreach (var def in PerkRules.Nodes)
+                Assert.That(def.UnlockLevel, Is.LessThanOrEqualTo(22),
+                    $"{def.Id} 的门槛超过 Lv.22,全开层就不是 22 了");
+        }
+
+        // ---- 墨锭 ----
+
+        [Test]
+        public void CanUnlock_FalseWhenInkInsufficient()
+        {
+            var meta = new MetaState { CharacterXp = 100000, Ink = 299 };
+            Assert.That(PerkRules.CanUnlock(meta, "metal_1"), Is.False, "金脉 L1 要 300");
+        }
+
+        [Test]
+        public void TryUnlock_SpendsInkAndRecordsNode()
+        {
+            var meta = new MetaState { CharacterXp = 100000, Ink = 1000 };
+            Assert.That(PerkRules.TryUnlock(meta, "metal_1"), Is.True);
+            Assert.That(meta.Ink, Is.EqualTo(700));
+            Assert.That(meta.UnlockedPerks.Contains("metal_1"), Is.True);
+        }
+
+        [Test]
+        public void TryUnlock_FalseWhenAlreadyOwned()
+        {
+            var meta = new MetaState { CharacterXp = 100000, Ink = 100000 };
+            Assert.That(PerkRules.TryUnlock(meta, "metal_1"), Is.True);
+            int inkAfterFirst = meta.Ink;
+            Assert.That(PerkRules.TryUnlock(meta, "metal_1"), Is.False, "重复点不该再扣钱");
+            Assert.That(meta.Ink, Is.EqualTo(inkAfterFirst));
+        }
+
+        [Test]
+        public void TotalCost_MatchesTheSpecBudget()
+        {
+            int total = 0;
+            foreach (var def in PerkRules.Nodes) total += def.InkCost;
+            Assert.That(total, Is.EqualTo(43600), "全树总价(spec §2.4)");
+        }
+
+        // ---- 表的形状 ----
+
+        [Test]
+        public void Nodes_AreFortyAcrossThreeTrees()
+        {
+            Assert.That(PerkRules.Nodes.Count, Is.EqualTo(40));
+            int wuxing = 0, passive = 0, mechanic = 0;
+            foreach (var def in PerkRules.Nodes)
+            {
+                if (def.Tree == PerkTree.Wuxing) wuxing++;
+                else if (def.Tree == PerkTree.Passive) passive++;
+                else mechanic++;
+            }
+            Assert.That(wuxing, Is.EqualTo(20));
+            Assert.That(passive, Is.EqualTo(12));
+            Assert.That(mechanic, Is.EqualTo(8));
+        }
+
+        /// <summary>五行树每一枝都要绑一个元素,其余两棵树都不许绑 ——
+        /// ElementBonus 靠这个字段筛选,绑错会静默串系。</summary>
+        [Test]
+        public void OnlyWuxingNodes_CarryAnElement()
+        {
+            foreach (var def in PerkRules.Nodes)
+                Assert.That(def.Element.HasValue, Is.EqualTo(def.Tree == PerkTree.Wuxing),
+                    $"{def.Id} 的 Element 与所属树不一致");
+        }
+
+        [Test]
+        public void EveryBranch_IsAContiguousChainFromDepthOne()
+        {
+            var byBranch = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<int>>();
+            foreach (var def in PerkRules.Nodes)
+            {
+                if (!byBranch.TryGetValue(def.Branch, out var depths))
+                    byBranch[def.Branch] = depths = new System.Collections.Generic.List<int>();
+                depths.Add(def.Depth);
+            }
+            foreach (var pair in byBranch)
+            {
+                pair.Value.Sort();
+                for (int i = 0; i < pair.Value.Count; i++)
+                    Assert.That(pair.Value[i], Is.EqualTo(i + 1),
+                        $"枝 {pair.Key} 的层数不连续,前置推导会断");
+            }
+        }
+
+        // ---- 聚合 ----
+
+        [Test]
+        public void Bonus_IsZeroOnABrandNewSave()
+        {
+            var meta = new MetaState();
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.MaxHp), Is.EqualTo(0));
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.Ap), Is.EqualTo(0));
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.AttackPercent), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Bonus_SumsTheOwnedNodesOfThatEffect()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("vigor_1"); // +100
+            meta.UnlockedPerks.Add("vigor_2"); // +200
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.MaxHp), Is.EqualTo(300));
+        }
+
+        [Test]
+        public void ElementBonus_DoesNotLeakAcrossElements()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("metal_3"); // 金系字效果 +15%
+            Assert.That(PerkRules.ElementBonus(meta, PerkEffect.ElementEffectPercent, Element.Metal),
+                Is.EqualTo(15));
+            Assert.That(PerkRules.ElementBonus(meta, PerkEffect.ElementEffectPercent, Element.Wood),
+                Is.EqualTo(0), "点金脉不该给木系加成");
+        }
+
+        [Test]
+        public void ElementBonus_IgnoresUnknownIdsLeftInAnOldSave()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("a_node_that_no_longer_exists");
+            Assert.That(PerkRules.ElementBonus(meta, PerkEffect.MoraleCap, Element.Metal),
+                Is.EqualTo(0), "未知 id 必须跳过,不能抛");
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.MaxHp), Is.EqualTo(0));
+        }
+
+        // ---- 红点 ----
+
+        [Test]
+        public void HasUpgradable_FalseForBrandNewSave()
         {
             Assert.That(PerkRules.HasUpgradable(new MetaState()), Is.False);
         }
 
         [Test]
-        public void HasUpgradable_TrueOnceOnePerkIsAffordable()
+        public void HasUpgradable_TrueOnceOneNodeIsAffordable()
         {
-            var meta = new MetaState { CharacterXp = 100, Ink = 200 }; // 2 级 + 养元首级 200 墨
-            Assert.That(PerkRules.CanUpgradePerk(meta, "yangyuan"), Is.True, "夹具自检");
+            var meta = new MetaState { CharacterXp = 100000, Ink = 300 };
+            Assert.That(PerkRules.CanUnlock(meta, "metal_1"), Is.True, "夹具自检");
             Assert.That(PerkRules.HasUpgradable(meta), Is.True);
         }
 
         [Test]
-        public void HasUpgradable_FalseWhenInkIsOneShort() // 只差 1 墨也不亮
+        public void HasUpgradable_FalseWhenEveryNodeIsOwned()
         {
-            var meta = new MetaState { CharacterXp = 100, Ink = 199 };
+            var meta = new MetaState { CharacterXp = 100000, Ink = 100000 };
+            foreach (var def in PerkRules.Nodes) meta.UnlockedPerks.Add(def.Id);
             Assert.That(PerkRules.HasUpgradable(meta), Is.False);
-        }
-
-        [Test]
-        public void HasUpgradable_FalseWhenLevelGateBlocksTheOnlyAffordableOne()
-        {
-            // 墨锭管够,但 1 级角色一条都没解锁(最低的养元要 2 级)
-            var meta = new MetaState { Ink = 999_999 };
-            Assert.That(PerkRules.HasUpgradable(meta), Is.False);
-        }
-
-        [Test]
-        public void HasUpgradable_FalseWhenEveryPerkIsMaxed()
-        {
-            var meta = new MetaState { CharacterXp = 999_999, Ink = 999_999 };
-            foreach (var def in PerkRules.All)
-                meta.PerkLevels[def.Id] = def.MaxLevel;
-            Assert.That(PerkRules.HasUpgradable(meta), Is.False);
-        }
-
-        [Test]
-        public void PerkLevel_DefaultsToZero()
-        {
-            var meta = new MetaState();
-            Assert.That(PerkRules.PerkLevel(meta, "yangyuan"), Is.EqualTo(0));
-        }
-
-        [Test]
-        public void Bonus_EqualsLevelTimesPerLevelValue()
-        {
-            var meta = new MetaState();
-            meta.PerkLevels["yangyuan"] = 3;  // 养元 +100/级
-            meta.PerkLevels["yiqi"] = 2;      // 一气 +1/级
-            Assert.That(PerkRules.HpBonus(meta), Is.EqualTo(300));
-            Assert.That(PerkRules.ApBonus(meta), Is.EqualTo(2));
-            Assert.That(PerkRules.ShieldBonus(meta), Is.EqualTo(0));
-        }
-
-        [Test]
-        public void Yiqi_MaxLevelIsTwo() // 平衡硬线:AP 上限 2
-        {
-            Assert.That(PerkRules.Get("yiqi").MaxLevel, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void Upgrade_RejectedBelowUnlockLevel() // 角色等级不足→拒(仅 0→1 校验)
-        {
-            var meta = new MetaState { Ink = 9999, CharacterXp = 0 }; // 1 级
-            Assert.That(PerkRules.TryUpgradePerk(meta, "yiqi"), Is.False); // 一气需 6 级
-            Assert.That(PerkRules.PerkLevel(meta, "yiqi"), Is.EqualTo(0));
-            Assert.That(meta.Ink, Is.EqualTo(9999)); // 拒绝不扣墨锭
-        }
-
-        [Test]
-        public void Upgrade_RejectedWithoutInk()
-        {
-            var meta = new MetaState { Ink = 100, CharacterXp = 100 }; // 2 级,养元解锁 200
-            Assert.That(PerkRules.TryUpgradePerk(meta, "yangyuan"), Is.False);
-            Assert.That(PerkRules.PerkLevel(meta, "yangyuan"), Is.EqualTo(0));
-        }
-
-        [Test]
-        public void Upgrade_SucceedsAndDeductsInk()
-        {
-            var meta = new MetaState { Ink = 300, CharacterXp = 100 }; // 2 级
-            Assert.That(PerkRules.TryUpgradePerk(meta, "yangyuan"), Is.True); // 解锁到 1 级,扣 200
-            Assert.That(PerkRules.PerkLevel(meta, "yangyuan"), Is.EqualTo(1));
-            Assert.That(meta.Ink, Is.EqualTo(100));
-        }
-
-        [Test]
-        public void Upgrade_RejectedAtMaxLevel()
-        {
-            var meta = new MetaState { Ink = 99999, CharacterXp = 100 };
-            meta.PerkLevels["yiqi"] = 2; // 一气已满(上限 2)
-            Assert.That(PerkRules.TryUpgradePerk(meta, "yiqi"), Is.False);
-            Assert.That(meta.Ink, Is.EqualTo(99999));
-        }
-
-        // StartingLibrary_GrowsWithBowen 已删除(2026-09-06,Task 2):它调用的
-        // MetaRules.StartingLibrary(meta) 单参重载已被三参重载取代,其规则(博闻每级 +1 格)
-        // 由 MetaTests.StartingLibrary_BowenPerkAppendsExtraDraws 等价覆盖。
-
-        /// <summary>五系齐全是这条断言成立的前提:StartingLibrary 前 5 张按元素各抽一张,
-        /// 元素不全就凑不满 6 张,「容量 − 起手数量恒为 1」这条断言就会假摔。
-        /// 池子沿用旧测试的 {火,木,水,金,土,心,林,炎}(五系本就齐全,详情见对应元素),
-        /// 但要挂进一张 <see cref="RecipeGraph"/> ——旧的单参 StartingLibrary 不需要图,
-        /// 三参版本需要用图查元素/稀有度,得给这 8 个字配上配方(否则被判成部件滤掉)。</summary>
-        private static RecipeGraph BowenCapacityGraph() => new(new[]
-        {
-            new CharDef("丶", null, new string[0], isComponent: true),
-            new CharDef("丿", null, new string[0], isComponent: true),
-            new CharDef("火", Element.Fire, new[] { "丶", "丿" }),
-            new CharDef("木", Element.Wood, new[] { "丶", "丿" }),
-            new CharDef("水", Element.Water, new[] { "丶", "丿" }),
-            new CharDef("金", Element.Metal, new[] { "丶", "丿" }),
-            new CharDef("土", Element.Earth, new[] { "丶", "丿" }),
-            new CharDef("心", Element.Heart, new[] { "丶", "丿" }),
-            new CharDef("林", Element.Wood, new[] { "丶", "丿" }),
-            new CharDef("炎", Element.Fire, new[] { "丶", "丿" }),
-        });
-
-        [Test]
-        public void LibraryCapacity_StaysOneAboveStarting_WithBowen() // 容量比起手多一格(2026-08-04);差值不被博闻吃掉
-        {
-            var graph = BowenCapacityGraph();
-            var meta = new MetaState();
-            foreach (var c in new[] { "火", "木", "水", "金", "土", "心", "林", "炎" })
-                meta.OwnedCards.Add(c);
-            var random = new GameRandom(11);
-            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta, graph, random).Count,
-                Is.EqualTo(1));
-            meta.PerkLevels["bowen"] = 1;
-            Assert.That(MetaRules.LibraryCapacityFor(meta) - MetaRules.StartingLibrary(meta, graph, random).Count,
-                Is.EqualTo(1));
         }
     }
 }

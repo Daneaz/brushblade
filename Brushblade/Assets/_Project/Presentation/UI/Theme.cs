@@ -245,6 +245,27 @@ namespace Brushblade.Presentation
             _ => TextDim,
         };
 
+        /// <summary>被动/机制两棵技能树没有元素,按枝分配既有语义色(2026-09-07,技能树重构 T9)。
+        /// 元(生命)=朱砂、力(攻击)=商城赭、锋(暴击)=赭金、御(减伤)=深灰蓝;
+        /// 博闻(字库)=拆蓝、广纳(起手)=水系色、慧眼(稀有度)=赭金、一气(AP)=翠玉。</summary>
+        public static Color PerkBranchColor(string branch) => branch switch
+        {
+            "vigor" => Cinnabar,
+            "power" => ShopNav,
+            "edge" => Gold,
+            "guard" => InkSoft,
+            "lore" => SplitBlue,
+            "wide" => ElementColor(Element.Water),
+            "insight" => Gold,
+            "qi" => Jade,
+            _ => TextMain,
+        };
+
+        /// <summary>上面那支色的浅底版,派生法与 <see cref="TabPalette.FromElement"/> 同一套
+        /// (PanelPaper 往主色走一段),供技能树节点的「已点亮」态底色用。</summary>
+        public static Color PerkBranchSoft(string branch) =>
+            Color.Lerp(PanelPaper, PerkBranchColor(branch), 0.18f);
+
         // ---- 字体 ----
         private static Font _title, _body;
 

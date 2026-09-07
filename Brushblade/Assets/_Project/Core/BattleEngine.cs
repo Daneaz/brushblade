@@ -101,6 +101,13 @@ namespace Brushblade.Core
         /// 留这个字段是给将来的被动技能注入用,与 <see cref="PlayerAttack"/> 并排。</summary>
         public int PlayerCritChance { get; set; }
 
+        /// <summary>五行 L3「该系字效果值 +X%」(spec §3.3)。索引 = <c>(int)Element</c>,
+        /// 值是百分点;**null 或全 0 = 逐字节恒等**(x × 100 / 100 == x)。
+        ///
+        /// 判据是**打出的那张字的元素**(CharDef.Element),与木脉 L4 的 SourceChar 判据同源。
+        /// 只作用于连续量值,白名单见 <see cref="BattleEngine.TakesElementPercent"/>。</summary>
+        public int[] ElementEffectPercent { get; set; }
+
         /// <summary>玩家护甲**点数**(19.2.1 角色属性,2026-08-12,E-b4 T2)。
         /// 敌人每记挥击从伤害里减这么多,下钳 0。
         ///
@@ -154,6 +161,53 @@ namespace Brushblade.Core
         /// <summary>可合成的字集合 = 玩家已解锁卡池(2026-07-20 拍板:没解锁就合不出来,
         /// 与战利品同源);null = 不限(工装与旧调用)。</summary>
         public IReadOnlyCollection<string> UnlockedChars { get; set; }
+
+        /// <summary>四个天花板/换算常量的基础值(现值)。公开成常量而不是留在属性缺省的字面量里,
+        /// 是因为 <see cref="PerkInfo.DetailText"/>(Presentation)要把「加成前 → 加成后」的
+        /// 具体数字摊开给玩家看——属性缺省与 UI 换算各写一份字面量必然分叉(2026-09-07 收尾波
+        /// review 抓到:UI 那份就真的焊死过)。下面四个属性的缺省直接引用同一批常量。</summary>
+        public const int BaseMoraleCap = 5;
+        public const int BaseHeftCap = 10;
+        public const int BaseWellspringCap = 10;
+        public const int BaseBurnPerStack = 20;
+
+        /// <summary>战意/厚/泉每层的百分比乘区。与 <see cref="BattleEngine"/> 内
+        /// <c>AttackPercent</c>、泉治疗算式引用同一批常量,UI 换算「满层加成」时也读这里,
+        /// 不再各写各的字面量。**厚与泉都是 5,不是 10**——2026-09-05 泉从 10 改 5 与厚对齐后,
+        /// 旧注释里还留着「10」,UI 侧照抄过一次(2026-09-07 收尾波已修)。</summary>
+        public const int MoralePercentPerStack = 10;
+        public const int HeftPercentPerStack = 5;
+        public const int WellspringPercentPerStack = 5;
+
+        /// <summary>召唤物出手速度的兜底基础值,与 <see cref="SummonState"/> 的
+        /// <c>EffectiveSpeed</c> 兜底引用同一个常量。</summary>
+        public const int BaseSummonSpeed = 100;
+
+        /// <summary>战意层数上限(五行金脉 L4,spec §3.4)。**缺省 5 = 现值**,逐字节恒等。</summary>
+        public int MoraleCap { get; set; } = BaseMoraleCap;
+
+        /// <summary>厚的层数上限(土脉 L4)。**缺省 10 = 现值**。
+        /// ⚠ 与 <see cref="WellspringCap"/> 是两个独立字段,不可合并回一个常量 ——
+        /// 合着会让点水脉的玩家顺手拿到厚的上限,反之亦然(spec §7.1)。</summary>
+        public int HeftCap { get; set; } = BaseHeftCap;
+
+        /// <summary>泉的层数上限(水脉 L4)。**缺省 10 = 现值**。见 <see cref="HeftCap"/> 的警告。</summary>
+        public int WellspringCap { get; set; } = BaseWellspringCap;
+
+        /// <summary>灼烧每层结算伤害的**起始值**(火脉 L4)。**缺省 20 = 现值**;
+        /// 局内的「炽」(BurnPotency)照旧在其上累加。</summary>
+        public int BurnPerStack { get; set; } = BaseBurnPerStack;
+
+        /// <summary>木脉 L4:由**木系字**召出的召唤物速度 +N 点(spec §3.4.1)。缺省 0 = 恒等。
+        ///
+        /// 用加算而非乘算:乘算会让本就快的桤(Speed 150)滚到 210、慢的拉不开;
+        /// 加算对缺省 100 的是 +40%、对桤是 +27%,压住滚雪球,与 TurnScheduler.MaxSpeed
+        /// 的距离也可控。
+        ///
+        /// 敢给 40% 的依据:MetaRules.SpeedFor 把玩家速度斜率压到最小(满级 +25%),是因为
+        /// 「速度是唯一同时翻倍输出与资源产出的属性 —— 一次行动 = 3 AP + 1 掉字」。
+        /// **召唤物出手两样都不产**,那条顾虑整个不成立。</summary>
+        public int WoodSummonSpeedBonus { get; set; }
 
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
@@ -362,11 +416,11 @@ namespace Brushblade.Core
         // 战意每层的攻击加成:2026-08-25 用户拍板从「+10 点」改为「**+10%**」。
         // 基准攻击力恰好是 100,所以基准下两种口径同值 —— 只有非基准玩家看得出差别
         // (26 级 ATK 150 满层:旧 +50 → 新 +75)。深层战意流因此明显变强。
-        private const int MoralePercentPerStack = 10;
-
-        /// <summary>厚每层的伤害加成(百分点,2026-09-02)。5 × 10 层 = +50%,
-        /// 与战意的 10 × 5 层 = +50% **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。</summary>
-        private const int HeftPercentPerStack = 5;
+        // 厚每层的伤害加成(百分点,2026-09-02)。5 × 10 层 = +50%,与战意的 10 × 5 层 = +50%
+        // **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。
+        // 两个常量本体挪去 BattleConfig.MoralePercentPerStack / HeftPercentPerStack
+        // (2026-09-07 收尾波:PerkInfo.DetailText 换算「满层加成」也要读同一个数,
+        // 留在这里是 private 会逼 UI 侧另起一份字面量)。
 
         /// <summary>战意 + 厚的百分比乘区(2026-09-06,终审修复项 5,纯提取零行为变化)。
         /// <see cref="EffectiveAttack"/>(玩家侧)与 <see cref="SummonAttackPercent"/>(召唤物侧)
@@ -374,18 +428,22 @@ namespace Brushblade.Core
         /// 两处什么都没共享,日后加第三条乘性轴或改组合方式必然只改一处。抽出来后两边共用
         /// **同一个属性**,才是那句注释原本想描述的保证。</summary>
         private int AttackPercent => 100
-            + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
-            + _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack;
+            + _playerStatuses.TotalMagnitude(StatusKind.Morale) * BattleConfig.MoralePercentPerStack
+            + _playerStatuses.TotalMagnitude(StatusKind.Heft) * BattleConfig.HeftPercentPerStack;
 
-        /// <summary>泉每层的治疗加成(百分点)。**2026-09-05 由 10 改 5**,与厚对齐。
+        // 泉每层的治疗加成(百分点)。**2026-09-05 由 10 改 5**,与厚对齐。
+        // 原注释声称泉 10×10 与厚 5×10 「同顶 +50%」,但那只比了上限、忽略了**充电速度**:
+        // 治疗量普遍高于护盾量,同一条 MaxHp/N 阈值下泉攒得比厚快一倍。
+        // 两条都取 5% 才是真对齐(设计稿 §1)。常量本体见上方注释,挪去了 BattleConfig。
+
+        /// <summary>厚与泉的层数上限。**两者各有各的上限**(spec §7.1) ——
+        /// 改前它们共用一个 MaxResourceStacks 常量,而五行 L4 要求水脉只抬泉、土脉只抬厚。
+        /// 共用一个常量的话,一条技能会静默补贴另一条流派,且没有任何测试会红。
         ///
-        /// 原注释声称泉 10×10 与厚 5×10 「同顶 +50%」,但那只比了上限、忽略了**充电速度**:
-        /// 治疗量普遍高于护盾量,同一条 MaxHp/N 阈值下泉攒得比厚快一倍。
-        /// 两条都取 5% 才是真对齐(设计稿 §1)。</summary>
-        private const int WellspringPercentPerStack = 5;
-
-        /// <summary>厚与泉的层数上限(2026-09-02)。</summary>
-        private const int MaxResourceStacks = 10;
+        /// 缺省下 CapFor(Heft) == CapFor(Wellspring) == 10,与改前逐字节相同。</summary>
+        private int CapFor(StatusKind kind) => kind == StatusKind.Heft
+            ? _config?.HeftCap ?? 10
+            : _config?.WellspringCap ?? 10;
 
         /// <summary>反伤总量上限(百分点,2026-09-05;2026-09-06 纳入荆棘 Thorns)。
         ///
@@ -401,11 +459,11 @@ namespace Brushblade.Core
 
         /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
         private const string SummonSlowSourceId = "summon.slow";
-        private const int MoraleMaxStacks = 5;  // 战意层数上限:满层 +50 攻击,刚好追平剡单张的量
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
-        private int _burnPerStack = 20;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
+        private int _burnPerStack;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
+                                        // 初值来自 config.BurnPerStack(火脉 L4),由构造函数设置
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
@@ -486,7 +544,45 @@ namespace Brushblade.Core
         /// 0 层时 <c>v * 100 / 100 == v</c>,恒等。</summary>
         private int AmplifyByWellspring(int value) =>
             value * (100 + _playerStatuses.TotalMagnitude(StatusKind.Wellspring)
-                * WellspringPercentPerStack) / 100;
+                * BattleConfig.WellspringPercentPerStack) / 100;
+
+        /// <summary>五行 L3 的白名单:**连续量值**吃加成,**离散层数/回合数**不吃(spec §3.3)。
+        ///
+        /// 理由:+15% 在小数值上会被整数除截断,读数不可预期 —— 战意 2 层 ×1.15 = 2.3 → 2
+        /// (毫无变化),7 层 → 8(凭空跳一级)。玩家看到的是「有时候有用有时候没用」。</summary>
+        public static bool TakesElementPercent(EffectKind kind) => kind switch
+        {
+            EffectKind.DamageSingle or EffectKind.DamageAll
+                or EffectKind.HealSelf or EffectKind.HealAll or EffectKind.HealOverTime
+                or EffectKind.Shield or EffectKind.ShieldAll
+                or EffectKind.Bleed
+                or EffectKind.SpendHeft or EffectKind.SpendWellspring
+                or EffectKind.Detonate or EffectKind.ArmorBreak
+                or EffectKind.DefenseBuff
+                or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
+                or EffectKind.Blind => true,
+            _ => false,
+        };
+
+        /// <summary>把五行 L3 的百分比套在**最内层 value** 上(spec §3.3)。
+        ///
+        /// ⚠ 位置是硬要求:先于 <c>WuxingResolver</c> 与 <c>ScaleByAttack</c>。
+        /// 语义上它等价于「字表里那个数字变大」,所以自动惠及所有 effect kind,无需逐分支接线。
+        /// <paramref name="percent"/> = 0 时 <c>v × 100 / 100 == v</c>,逐字节恒等。</summary>
+        public static int ApplyElementPercent(int value, int percent, EffectKind kind)
+        {
+            if (percent == 0 || !TakesElementPercent(kind)) return value;
+            return value * (100 + percent) / 100;
+        }
+
+        /// <summary>该元素的五行 L3 加成(百分点);没有配置表或索引越界一律 0。</summary>
+        private int ElementPercentOf(Element element)
+        {
+            var table = _config?.ElementEffectPercent;
+            if (table == null) return 0;
+            int i = (int)element;
+            return i >= 0 && i < table.Length ? table[i] : 0;
+        }
 
         /// <summary>本场生效的暴击率(百分点)= 角色属性(config)+ 局内增益(锋),钳到 [0,100]。
         ///
@@ -641,6 +737,7 @@ namespace Brushblade.Core
         {
             _graph = graph;
             _config = config;
+            _burnPerStack = config?.BurnPerStack ?? 20;
             _cardLevels = cardLevels;
             _random = new GameRandom(seed);
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
@@ -831,16 +928,17 @@ namespace Brushblade.Core
             if (amount <= 0) return;
             var existing = _playerStatuses.Find(kind);
             int stacks = existing?.Magnitude ?? 0;
-            if (stacks >= MaxResourceStacks) return;   // 满层:连余数都不攒
+            int cap = CapFor(kind);
+            if (stacks >= cap) return;   // 满层:连余数都不攒
 
             accum += amount;
             int threshold = ResourceThreshold;
-            while (accum >= threshold && stacks < MaxResourceStacks)
+            while (accum >= threshold && stacks < cap)
             {
                 accum -= threshold;
                 stacks++;
             }
-            if (stacks >= MaxResourceStacks) accum = 0; // 攒到顶,余数清掉
+            if (stacks >= cap) accum = 0; // 攒到顶,余数清掉
 
             _playerStatuses.Apply(new StatusEffect
             {
@@ -2141,6 +2239,9 @@ namespace Brushblade.Core
             foreach (var effect in EffectsOf(def, attackMode))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
+                // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
+                // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
+                value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
@@ -2437,7 +2538,8 @@ namespace Brushblade.Core
                         // 战/戮(2026-08-12):战意是一条**带上限的计数器**,战与戮往同一条上加。
                         // 所以既不能铸唯一序号(各挂各的会绕开上限),也不能走 Apply() 的
                         // 同源覆盖(那是刷新,出两张战还是 3 层)—— 只能就地累加再钳。
-                        AddPlayerCounter(StatusKind.Morale, value, MoraleMaxStacks);
+                        // 满层(缺省 5)+50 攻击,刚好追平剡单张的量;上限可由金脉 L4 抬到 7。
+                        AddPlayerCounter(StatusKind.Morale, value, _config?.MoraleCap ?? 5);
                         break;
                     case EffectKind.CritBuff:
                         // 锋(2026-08-12,E-b2):本场暴击率 +Value 个百分点。
@@ -2597,7 +2699,13 @@ namespace Brushblade.Core
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 ScalePassiveByCardLevel(effect.Passive, cardLevel),
-                                sourceChar: def.Id); // 召它的那张牌(2026-09-05,战斗格头行显示这个)
+                                sourceChar: def.Id, // 召它的那张牌(2026-09-05,战斗格头行显示这个)
+                                // 木脉 L4(spec §3.4.1):判据是**打出的那张字**的元素(attacker,
+                                // 即 def.Element ?? Heart),不是召唤物自己的 Element —— 与五行
+                                // L3 的乘区(ElementPercentOf(attacker))同一判据,两处口径不分叉。
+                                // 与 SummonState.Attack 同为快照语义:召唤那一刻算完写进去,
+                                // 运行期不再查表,之后再点技能已在场的这只不变。
+                                speedBonus: attacker == Element.Wood ? _config?.WoodSummonSpeedBonus ?? 0 : 0);
                             newborn.ActionMeter = TurnScheduler.Threshold;
 
                             // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)。

@@ -10,7 +10,13 @@ namespace Brushblade.Core
         public int CharacterXp { get; set; }
         public int Ink { get; set; }                                    // 墨锭
         public Dictionary<string, int> CardLevels { get; set; } = new();  // 缺省 1 级
-        public Dictionary<string, int> PerkLevels { get; set; } = new();  // 技能 id → 等级;缺省 0=未解锁
+        /// <summary>已点亮的技能节点 id(spec 2026-09-07)。节点是**单级**的,只需记「点没点」。
+        ///
+        /// 换形自 <c>PerkLevels</c>(id → 等级):项目未上线,**不写迁移**。改键名后旧的
+        /// PerkLevels 键变成未知键,Newtonsoft 直接忽略 —— 技能清零、墨锭/卡等级/图鉴/经验
+        /// 照常读出。走的是 EndlessV2 那次改名的同一条路径,**不是**抛 JsonException
+        /// 被 SaveSerializer.FromJson 兜底成整份存档清空。</summary>
+        public List<string> UnlockedPerks { get; set; } = new();
         public Dictionary<string, int> CardCopies { get; set; } = new();  // 待消耗重复卡
         public List<string> OwnedCards { get; set; } = new();             // 收集(首次获得即入)
         /// <summary>还没在卡组页点开看过的新字(2026-09-03):卡组页的「新」角旗、页签红点、
@@ -98,10 +104,24 @@ namespace Brushblade.Core
 
         public const int StartingPoolSize = 2; // 登塔起手部件数(沿用旧的两个)
 
-        /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻加成。「容量比起手多一格」这个关系
-        /// 只在这一处定义——GameRoot 接线时调这个,不要在那边散写 +1。</summary>
-        public static int LibraryCapacityFor(MetaState meta) =>
-            StartingLibrarySize + LibraryCapacitySlack + PerkRules.LibraryBonus(meta);
+        /// <summary>登塔起手实际发几张字 = 五行各一 + 最高档保底一 + 广纳。
+        /// 「广纳」与「博闻」是两条独立的轴 —— 改前它们共用同一个 LibraryBonus。</summary>
+        public static int StartingHandSizeFor(MetaState meta) =>
+            StartingLibrarySize + PerkRules.Bonus(meta, PerkEffect.StartingCards);
+
+        /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻。「容量比起手多一格」这个关系
+        /// 只在这一处定义 —— GameRoot 接线时调这个,不要在那边散写 +1。
+        ///
+        /// ⚠ **下限钳到起手实际张数**(spec §5.1):拆分前 bowen 一条同时驱动两条公式、
+        /// 二者恒同步;拆开后这个不变量消失,点满广纳(起手 8)而不点博闻(容量 7)就会
+        /// 开局即溢出、第一回合必弹 DropChoice —— 静默的坏体验。</summary>
+        public static int LibraryCapacityFor(MetaState meta)
+        {
+            int declared = StartingLibrarySize + LibraryCapacitySlack
+                + PerkRules.Bonus(meta, PerkEffect.LibraryCapacity);
+            int hand = StartingHandSizeFor(meta);
+            return declared > hand ? declared : hand;
+        }
 
         /// <summary>抽卡的稀有度权重(千分比,索引 = rarity − 1;2026-09-06 拍板)。
         /// 重心在绿/蓝,两头稀:白档虽然最不稀有,但压在绿之下 —— 起手全是白字开不了局。
@@ -216,7 +236,7 @@ namespace Brushblade.Core
         /// <c>MaxHpFor(level) + PerkRules.HpBonus(meta)</c> —— 将来生命再加第二个 Bonus 项,
         /// 改一处漏一处不会有任何东西报错。</summary>
         public static int PlayerMaxHpFor(MetaState meta) =>
-            MaxHpFor(CharacterLevel(meta.CharacterXp)) + PerkRules.HpBonus(meta);
+            MaxHpFor(CharacterLevel(meta.CharacterXp)) + PerkRules.Bonus(meta, PerkEffect.MaxHp);
 
         /// <summary>登塔时的战斗配置 = 角色等级派生的属性 + 养成加成 + 已解锁卡池(2026-09-06,
         /// 原「出阵表」;19.2.1)。
@@ -239,16 +259,47 @@ namespace Brushblade.Core
                 DropTable = dropTable,
                 // 生命是唯一吃养元加成的属性(19.2.1 + 第 A 章技能表)
                 PlayerMaxHp = PlayerMaxHpFor(meta),
-                PlayerAttack = AttackFor(level),
-                PlayerDefense = DefenseFor(level),
+                // 攻击 = 等级曲线 × (100 + 力枝) / 100(spec §4.3)。
+                // 加算后一次性乘,**不是**逐层复利 —— 1.05×1.10×1.15 = 1.328 会让第三层
+                // 悄悄超出标称的 +30%,且没有任何断言会红。
+                // pct = 0 时 x × 100 / 100 == x,逐字节恒等。
+                PlayerAttack = AttackFor(level)
+                    * (100 + PerkRules.Bonus(meta, PerkEffect.AttackPercent)) / 100,
+                // 护甲 = 等级曲线 + 御枝(spec §4)。等级给 12、技能给 10 已到边界 ——
+                // DefenseFor 的注释写着再高会让等级压过字表、土系防御字失去意义。
+                PlayerDefense = DefenseFor(level) + PerkRules.Bonus(meta, PerkEffect.Defense),
                 PlayerDodge = DodgeFor(level),
                 PlayerSpeed = SpeedFor(level),
-                // ⚠ 没有 PlayerCritChance:暴击**不随角色等级成长**(2026-08-12 用户裁定),
-                // 缺省 0 让 RollCrit 短路、一次随机都不摇。见 BattleConfig.PlayerCritChance。
+                // 暴击**不随角色等级成长**(2026-08-12 用户裁定),锋枝是唯一来源。
+                // 缺省 0 让 RollCrit 短路、一次随机都不摇 —— 那是 E-b2 的验收硬线。
+                PlayerCritChance = PerkRules.Bonus(meta, PerkEffect.CritChance),
                 UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
-                ApPerTurn = BaseApPerTurn + PerkRules.ApBonus(meta), // 一气
+                ApPerTurn = BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap), // 一气
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
+                ElementEffectPercent = ElementEffectTable(meta), // 五行 L3(spec §3.3)
+                // 五行 L4 的四个天花板(spec §3.4)。缺省即现值 —— 一条没点时逐字节恒等。
+                MoraleCap = 5 + PerkRules.ElementBonus(meta, PerkEffect.MoraleCap, Element.Metal),
+                HeftCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.HeftCap, Element.Earth),
+                WellspringCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.WellspringCap, Element.Water),
+                BurnPerStack = 20 + PerkRules.ElementBonus(meta, PerkEffect.BurnPerStack, Element.Fire),
+                WoodSummonSpeedBonus = PerkRules.ElementBonus(meta, PerkEffect.SummonSpeed, Element.Wood),
             };
+        }
+
+        /// <summary>五行 L3 的按元素加成表(spec §3.3)。一条都没点时返回 null ——
+        /// BattleEngine 对 null 直接返回 0,省掉一次数组分配,也让「没点技能 = 什么都没变」
+        /// 在调试器里一眼可见。</summary>
+        private static int[] ElementEffectTable(MetaState meta)
+        {
+            int[] table = null;
+            foreach (var element in StartingElements)
+            {
+                int pct = PerkRules.ElementBonus(meta, PerkEffect.ElementEffectPercent, element);
+                if (pct == 0) continue;
+                table ??= new int[System.Enum.GetValues(typeof(Element)).Length];
+                table[(int)element] = pct;
+            }
+            return table;
         }
 
         /// <summary>每回合基础 AP(10.1);一气技能在其上加。</summary>
@@ -426,6 +477,17 @@ namespace Brushblade.Core
         private static readonly Element[] StartingElements =
             { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth };
 
+        /// <summary>点了 L2 的那几系(spec §3.2)。顺序固定走 <see cref="StartingElements"/> 同款
+        /// 的固定枚举顺序 —— 保证同种子同结果,不依赖 UnlockedPerks 的插入顺序。</summary>
+        public static IReadOnlyList<Element> GuaranteedLootElements(MetaState meta)
+        {
+            var result = new List<Element>();
+            foreach (var element in StartingElements)
+                if (PerkRules.ElementBonus(meta, PerkEffect.ElementLootGuarantee, element) > 0)
+                    result.Add(element);
+            return result;
+        }
+
         /// <summary>抽卡候选 = 已收集的**字**。
         ///
         /// 一道 <c>IsComponent</c> 同时滤掉两类东西:部件,以及「有配方但无属性无稀有度」的
@@ -480,6 +542,37 @@ namespace Brushblade.Core
             return candidates[candidates.Count - 1]; // 理论不可达(浮点无关,整数累加必然命中)
         }
 
+        /// <summary>抽 <paramref name="rolls"/> 次,留稀有度最高的那一张(spec §3.1)。
+        ///
+        /// 这是五行 L1(单系 +1 次)与机制树「慧眼」(全局 +1 次)共用的机制 ——
+        /// 「抽取次数」是全案唯一的稀有度调节手柄,基础 1 次、每条适用加成 +1,
+        /// 所以叠加规则不需要任何特判。
+        ///
+        /// ⚠ <paramref name="rolls"/> = 1 时**逐位等价**于 <see cref="DrawWeighted"/>:
+        /// 只摇一次、消耗同样多的随机数。这是「未点任何节点时起手序列逐字节不变」的凭据,
+        /// 所以循环必须写成「先抽一张再比较」而不是「抽满 rolls 张再挑」。
+        ///
+        /// 平局(两次抽到同档)保留**先抽到**的那张:后来者不顶替,读起来是「第一次就够好」。</summary>
+        public static string DrawBest(IReadOnlyList<string> candidates, RecipeGraph graph,
+            GameRandom random, int rolls)
+        {
+            if (rolls < 1) rolls = 1;   // 调用方失误:给最低档,不返回 null
+            string best = null;
+            CardRarity bestRarity = 0;
+            for (int i = 0; i < rolls; i++)
+            {
+                var pick = DrawWeighted(candidates, graph, random);
+                if (pick == null) return best;         // 候选为空:第一次就返回 null
+                var rarity = graph.Get(pick).Rarity;
+                if (best == null || rarity > bestRarity)
+                {
+                    best = pick;
+                    bestRarity = rarity;
+                }
+            }
+            return best;
+        }
+
         /// <summary>候选里稀有度最高的那一档的全部字。空候选返回空表。</summary>
         private static List<string> TopRarityCards(IReadOnlyList<string> candidates, RecipeGraph graph)
         {
@@ -515,21 +608,26 @@ namespace Brushblade.Core
             var library = new List<string>();
             if (candidates.Count == 0) return library;
 
+            int globalRolls = PerkRules.Bonus(meta, PerkEffect.DrawRolls); // 慧眼:全部格 +1
             foreach (var element in StartingElements)
             {
                 var ofElement = new List<string>();
                 foreach (var id in candidates)
                     if (graph.Get(id).Element == element) ofElement.Add(id);
-                var pick = DrawWeighted(ofElement, graph, random);
+                // 该系那一格的抽取次数 = 1 + 慧眼 + 该系五行 L1
+                int rolls = 1 + globalRolls
+                    + PerkRules.ElementBonus(meta, PerkEffect.ElementDrawRolls, element);
+                var pick = DrawBest(ofElement, graph, random, rolls);
                 if (pick != null) library.Add(pick);
             }
 
             var top = TopRarityCards(candidates, graph);
             if (top.Count > 0) library.Add(top[random.Next(top.Count)]);
 
-            for (int i = 0; i < PerkRules.LibraryBonus(meta); i++)
+            for (int i = StartingLibrarySize; i < StartingHandSizeFor(meta); i++)
             {
-                var extra = DrawWeighted(candidates, graph, random);
+                // 广纳追加的那几张是全池自由抽,吃慧眼但不吃任何单系加成
+                var extra = DrawBest(candidates, graph, random, 1 + globalRolls);
                 if (extra == null) break;
                 library.Add(extra);
             }

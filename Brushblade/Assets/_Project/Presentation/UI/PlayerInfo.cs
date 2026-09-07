@@ -54,21 +54,6 @@ namespace Brushblade.Presentation
             Strings.T("player.detail.tag_ap_cost", ("cost", CharDef.ApCostFor(CardRarity.White))),
         };
 
-        /// <summary>战意每层的攻击加成(百分点)。与 <c>BattleEngine</c> 私有常量
-        /// <c>MoralePercentPerStack</c> 数值必须保持一致,但那个常量是 private,这里拿不到——
-        /// 复制这个数字是有意的,不是偷懒:既有文案 status.morale.desc 里已经把「每层 +10% 攻击」
-        /// 写成了玩家可见的事实(等于说这个数字本来就是公开的),PlayerInfo 这里再抄一份不算
-        /// 新泄露信息,只是同一个已公开事实又写了一份。⚠ 这个数字改的话,BattleEngine.cs 的
-        /// MoralePercentPerStack、strings 表的 status.morale.desc、这里三处都要一起改。</summary>
-        private const int MoralePercentPerStack = 10;
-
-        /// <summary>厚每层的攻击加成(百分点)。与 <c>BattleEngine</c> 私有常量
-        /// <c>HeftPercentPerStack</c> 数值必须保持一致,理由与上面 <see cref="MoralePercentPerStack"/>
-        /// 的注释同一条:status.heft.desc 已经把「每层 +5% 伤害」写成玩家可见的公开事实,
-        /// 这里复制不是新泄露。⚠ 改这个数字时,BattleEngine.cs 的 HeftPercentPerStack、
-        /// strings 表的 status.heft.desc、这里三处都要一起改。</summary>
-        private const int HeftPercentPerStack = 5;
-
         /// <summary>攻/甲/暴击/速四格。攻直接读 <see cref="BattleEngine.EffectiveAttack"/>——
         /// 稿子点名要求的口径,不在这里重新拼一遍公式。基准值(角色成长曲线)另算,
         /// 因为 BattleEngine 不对外报 config 里的原始 PlayerAttack/PlayerDefense/PlayerSpeed——
@@ -91,9 +76,9 @@ namespace Brushblade.Presentation
             // 用的是同一个 StatusKind.AttackBuff,口径却不一样,不能照抄敌人那边的格式化。
             int attackBuffPts = statuses.TotalMagnitude(StatusKind.AttackBuff);
             int moraleLayers = statuses.TotalMagnitude(StatusKind.Morale);
-            int moralePercent = moraleLayers * MoralePercentPerStack;
+            int moralePercent = moraleLayers * BattleConfig.MoralePercentPerStack;
             int heftLayers = statuses.TotalMagnitude(StatusKind.Heft);
-            int heftPercent = heftLayers * HeftPercentPerStack;
+            int heftPercent = heftLayers * BattleConfig.HeftPercentPerStack;
             string attackNote = UnitDetailChip.BaseNote(MetaRules.AttackFor(level),
                 UnitDetailChip.DeltaBuffPts(Strings.T("status.attack.name"), attackBuffPts),
                 UnitDetailChip.DeltaBuffPct(Strings.T("status.morale.name"), moralePercent),
@@ -147,7 +132,8 @@ namespace Brushblade.Presentation
             // StringsTableTests 扫的是紧跟在 T( 后面的字符串字面量,key 从变量传进去它认不出来,
             // 会被判成没人用的孤儿(StatusText.cs 的注释早就点过这个坑;第一版这里图省事把
             // key 做成了参数,工装跑一遍就红,改回逐条直写)。
-            // 等级读 PerkRules.PerkLevel;数值走各自的 MetaRules/PerkRules 公式——与
+            // 技能树重构(2026-09-07,T1 临时接线):「等级」换成「该枝已点亮节点数」——
+            // 单级节点没有等级维度,数值走各自的 MetaRules/PerkRules 公式,与
             // MetaRules.BuildBattleConfig 当初把这些值写进战斗配置时用的是同一条公式,不另起
             // 一套算法。稿上的 Lv.3/Lv.4/Lv.6/Lv.2 只是画图时的示例数字,这里一律读 meta 现算。
             list.Add(new AbilityEntry
@@ -155,15 +141,15 @@ namespace Brushblade.Presentation
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_ap_name"),
                 Desc = Strings.T("player.detail.perk_ap_desc",
-                    ("level", PerkRules.PerkLevel(meta, "yiqi")),
-                    ("value", MetaRules.BaseApPerTurn + PerkRules.ApBonus(meta))),
+                    ("level", BranchLevel(meta, "qi")),
+                    ("value", MetaRules.BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap))),
             });
             list.Add(new AbilityEntry
             {
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_library_name"),
                 Desc = Strings.T("player.detail.perk_library_desc",
-                    ("level", PerkRules.PerkLevel(meta, "bowen")),
+                    ("level", BranchLevel(meta, "lore")),
                     ("value", MetaRules.LibraryCapacityFor(meta))),
             });
             list.Add(new AbilityEntry
@@ -171,18 +157,20 @@ namespace Brushblade.Presentation
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_hp_name"),
                 Desc = Strings.T("player.detail.perk_hp_desc",
-                    ("level", PerkRules.PerkLevel(meta, "yangyuan")),
+                    ("level", BranchLevel(meta, "vigor")),
                     ("value", MetaRules.PlayerMaxHpFor(meta))),
             });
-            list.Add(new AbilityEntry
-            {
-                IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
-                Name = Strings.T("player.detail.perk_shield_name"),
-                Desc = Strings.T("player.detail.perk_shield_desc",
-                    ("level", PerkRules.PerkLevel(meta, "jintang")),
-                    ("value", PerkRules.ShieldBonus(meta))),
-            });
             return list;
+        }
+
+        /// <summary>该枝已点亮的节点数(0..枝长)。技能树重构后节点单级,没有「等级」这个概念——
+        /// 这里借「已点几层」在角色详情页临时顶替旧的 PerkLevel 显示,T9 重新设计详情页时再改。</summary>
+        private static int BranchLevel(MetaState meta, string branch)
+        {
+            int n = 0;
+            foreach (var def in PerkRules.Nodes)
+                if (def.Branch == branch && PerkRules.IsUnlocked(meta, def.Id)) n++;
+            return n;
         }
     }
 }

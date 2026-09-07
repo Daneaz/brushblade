@@ -68,6 +68,33 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.EndlessV2.Depth, Is.EqualTo(3));
         }
 
+        // ---- 技能树重构(2026-09-07):MetaState.PerkLevels(Dictionary<string,int>)改名为
+        // UnlockedPerks(List<string>)。spec §6:项目未上线,不写迁移——旧的 "PerkLevels" 键
+        // 变成未知键,Newtonsoft 直接忽略,技能清零、墨锭/卡等级/图鉴/经验照常读出。走的是
+        // EndlessV2 那次改名验证过的同一条路径,不是抛 JsonException 被 SaveSerializer.FromJson
+        // 兜底成整份存档清空。 ----
+
+        [Test]
+        public void LegacyPerkLevelsKey_IsIgnored_KeepsMetaProgress()
+        {
+            var legacyJson = "{\"CharacterXp\":4321,\"Ink\":12345," +
+                "\"CardLevels\":{\"剑\":7,\"城\":3}," +
+                "\"ClaimedBestiary\":[\"mo_zi\"]," +
+                "\"PerkLevels\":{\"perk_hp\":4}}";
+
+            var meta = SaveSerializer.FromJson(legacyJson);
+
+            Assert.That(meta, Is.Not.Null, "旧键改名后不应把整份存档兜底成 null");
+            Assert.That(meta.CharacterXp, Is.EqualTo(4321));
+            Assert.That(meta.Ink, Is.EqualTo(12345));
+            Assert.That(meta.CardLevels["剑"], Is.EqualTo(7));
+            Assert.That(meta.CardLevels["城"], Is.EqualTo(3));
+            Assert.That(meta.ClaimedBestiary, Is.EqualTo(new[] { "mo_zi" }));
+
+            // 旧键没有被误解析成新字段:技能清零,不是照旧值读出
+            Assert.That(meta.UnlockedPerks.Count, Is.EqualTo(0), "旧 PerkLevels 不应被误读成 UnlockedPerks");
+        }
+
         // ---- E-b4+E-b5 T6(2026-08-12):MetaState.Endless 改名为 EndlessV2。量级 ×10 与
         // 「减伤百分比 → 护甲点数」让整份登塔快照的数字全部作废,逐字段迁移没有旧存档样本可测。
         // 走的是上面那条已验证过的路径:改键名 → 旧的 "Endless" 变未知键 → Newtonsoft 忽略 →
@@ -79,7 +106,7 @@ namespace Brushblade.Core.Tests
         private const string LegacySaveJson =
             "{\"CharacterXp\":4321,\"Ink\":12345," +
             "\"CardLevels\":{\"剑\":7,\"城\":3}," +
-            "\"PerkLevels\":{\"perk_hp\":4}," +
+            "\"UnlockedPerks\":[\"vigor_1\"]," +
             "\"CardCopies\":{\"剑\":9}," +
             "\"OwnedCards\":[\"剑\",\"城\",\"爆\"]," +
             "\"Deck\":[\"剑\",\"城\"]," +
@@ -102,7 +129,7 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.Ink, Is.EqualTo(12345));
             Assert.That(meta.CardLevels["剑"], Is.EqualTo(7));
             Assert.That(meta.CardLevels["城"], Is.EqualTo(3));
-            Assert.That(meta.PerkLevels["perk_hp"], Is.EqualTo(4));
+            Assert.That(meta.UnlockedPerks.Contains("vigor_1"), Is.True);
             Assert.That(meta.CardCopies["剑"], Is.EqualTo(9));
             Assert.That(meta.OwnedCards, Is.EqualTo(new[] { "剑", "城", "爆" }));
             // 旧存档的 "Deck" 键(出阵已下架)变成未知键,Newtonsoft 直接忽略——不断言、不报错。
