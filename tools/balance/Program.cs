@@ -468,6 +468,76 @@ namespace Brushblade.Balance
                     // 系数是多少不重要,**是不是 0 才重要** —— 记 0 分的字机器人永远不会出,
                     // 那与「没把它加进出阵表」完全等价(注释里那条踩过三次的坑)。
                     case EffectKind.Charm: sum += 60; break;
+
+                    // ================== 2026-09-08(T5 头号任务)补齐控制类/增益类计分 ==================
+                    // 在此之前,下面这些 kind 一律落到 switch 的默认分支、贡献 0 分——Power() 自己的
+                    // 三条既有注释都点名过同一条规矩:「系数是多少不重要,是不是 0 才重要」。0 分的
+                    // 字机器人永远不会去合成(Compose 要求 power 严格大于库存最强的)、永远优先被
+                    // 当「库中最弱」弃掉(ResolveDropChoice/PickTarget 前那个弃字循环)。这里统一借用
+                    // 已有的 Charm 案例反推一把换算尺:Charm 定价 0.40(design §2.2)记 60 分,
+                    // 即 **150 分 / 1.0 价格单位**,下面每一条都用这同一把尺子换算 design §2.2/§1.4.1
+                    // 的价目表,只求方向对、非零,不追求跟实付价目分毫不差。
+                    //
+                    // ⚠ 这批 case 全部只读 e.Value/e.Turns 这些**字段**,不读“这条效果具体挂在哪张
+                    // 字身上”——所以它们对**双方向字的攻击面**(AttackEffects,水系 11 张的 Silence/
+                    // Freeze/Slow/ArmorBreak 全在这里)没有任何效果:Power() 的 foreach 只扫
+                    // `def.Effects`,双方向字的 AttackEffects 从来不在这个循环里出现过一次。
+                    // 这不是本次改动的疏漏,是本次改动能触及的范围的边界——详见 T5 报告「头号任务」
+                    // 一节:真正锁死水系输出的是 tools/balance 的机器人从未以 attackMode=true 调用过
+                    // battle.Cast,那是 PlayTurn 的选字/施放逻辑,不是 Power() 的计分逻辑,brief 只
+                    // 放行「补齐 Power() 的计分」,没有放行改 PlayTurn。
+
+                    // 冻结(design §2.2「冻结 1 回合 0.35」)≈52 分/回合,按 Value(跳过的回合数)计。
+                    case EffectKind.Freeze: sum += e.Value * 50; break;
+                    // 减速(design §2.2「减速 2 回合 0.30」≈45 分对应 2 回合,即 ~22 分/回合)。
+                    case EffectKind.Slow: sum += e.Value * 25; break;
+                    // 破甲:与 DefenseBuff 同一条价目轴(design §2.2 两条都是 0.33),对称给
+                    // 同样的 ×2 折算——护甲增/减本质是同一个点数机制的正负两面。
+                    case EffectKind.ArmorBreak: sum += e.Value * 2; break;
+                    // 免疫(design §2.2「免疫 1 次 0.35 · 2 次 0.60」),按挡住的次数计,
+                    // 第 1 次≈52、第 2 次边际下降到≈38,这里不追求分段精确,按每次 50 折算。
+                    case EffectKind.Immunity: sum += e.Value * 50; break;
+                    // 复活(design §2.2「复活 1 名 0.40」)与 Charm 同一档价格,直接复用 60 分/名。
+                    case EffectKind.Revive: sum += e.Value * 60; break;
+                    // 致盲(design §2.2「致盲 0.30」,当前 0 载体——按 CritBuff 同款「每点命中率
+                    // 换 3 分」估值,预防将来复活时又落回 0 分)。
+                    case EffectKind.Blind: sum += e.Value * 3; break;
+                    // 封禁(design §2.2「封禁 1 回合 / 2 回合 0.38 / 0.52」)。现存载体 Value 恒为 0
+                    // (强度全在 Turns 上),按回合数分段估值:1 回合≈57、2 回合≈78。
+                    case EffectKind.Silence: sum += e.Turns >= 2 ? 78 : 57; break;
+                    // 反弹(design §2.2「反弹 50%×2 0.35」≈52.5,对应 圭 的 Value=50/Turns=2 那一档,
+                    // 折算成 Value×Turns/2,壁 的 30%×2 按同公式给 30 分)。
+                    case EffectKind.Reflect: sum += e.Value * Math.Max(1, e.Turns) / 2; break;
+                    // 引爆:design §2.2 没有单独定价这一条(它是「灼烧威力」轴上的收网动作,
+                    // 真正的伤害当量已经由同一张字前面铺的 BurnAll/BurnPotency 计过分)。
+                    // 这里给一个适中的固定估值,只为避免「引爆」这个 kind 本身挂零分。
+                    case EffectKind.Detonate: sum += 40; break;
+                    // 增攻(design §2.2「攻击 +50 0.45」≈67.5/50 ≈ 1.35 分每点,取 1.5 就近折算)。
+                    case EffectKind.Empower: sum += e.Value * 3 / 2; break;
+                    // 战意(design §2.2「战意(印记外)0.10 每层」≈15 分/层,Value = 施放当下
+                    // 立即获得的层数)。
+                    case EffectKind.Morale: sum += e.Value * 15; break;
+                    // 暴击(design §2.2「暴击 +20% 0.40」,20%→60 分,与 Charm 同一价格,
+                    // 即每点百分比 3 分)。
+                    case EffectKind.CritBuff: sum += e.Value * 3; break;
+                    // 流血:每回合固定伤害、本场持久直到清理,同 BurnSingle 的 ×2 口径
+                    // (一次性数值但反复兑现,理应比一次性同值的直伤更值钱)。
+                    case EffectKind.Bleed: sum += e.Value * 2; break;
+                    // 持续治疗:总收益 = 每回合值 × 持续回合数,与 HealSelf 记账口径一致
+                    // (HealSelf 是「一次性治疗全额记分」,HealOverTime 只是把同一笔账摊开在多回合)。
+                    // ⚠ 沐(水系金档)目前 effects 只有 HealOverTime+Revive、没有 HealSelf——
+                    // 这一条修好之前 沐 的 Power() 恒为 0,机器人会把它当全表最弱、优先弃掉/
+                    // 永不合成,与「没有这张字」等价。
+                    case EffectKind.HealOverTime: sum += e.Value * Math.Max(1, e.Turns); break;
+                    // 下面三条(design §2.2「本次休眠清单」)当前全表 0 载体,只为将来复活时
+                    // 不再落回 0 分预先占位,估值全部粗放:
+                    case EffectKind.Dispel: sum += e.Value < 0 ? 90 : e.Value * 30; break; // -1=清全部
+                    case EffectKind.Cleanse: sum += 50; break; // 净化玩家自身全部减益,Value 不用
+                    // AP 上限(design §2.2「AP 上限 +1 0.50」≈75 分/点)。
+                    case EffectKind.ApBoost: sum += e.Value * 75; break;
+                    // 不灭 / 立即结算(design 未单列价,取模拟 Detonate 的量级,只求非零)。
+                    case EffectKind.BurnNoDecay: sum += 40; break;
+                    case EffectKind.BurnSettleNow: sum += 30; break;
                 }
             }
             return sum;
