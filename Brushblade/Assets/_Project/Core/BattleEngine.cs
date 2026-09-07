@@ -162,20 +162,41 @@ namespace Brushblade.Core
         /// 与战利品同源);null = 不限(工装与旧调用)。</summary>
         public IReadOnlyCollection<string> UnlockedChars { get; set; }
 
+        /// <summary>四个天花板/换算常量的基础值(现值)。公开成常量而不是留在属性缺省的字面量里,
+        /// 是因为 <see cref="PerkInfo.DetailText"/>(Presentation)要把「加成前 → 加成后」的
+        /// 具体数字摊开给玩家看——属性缺省与 UI 换算各写一份字面量必然分叉(2026-09-07 收尾波
+        /// review 抓到:UI 那份就真的焊死过)。下面四个属性的缺省直接引用同一批常量。</summary>
+        public const int BaseMoraleCap = 5;
+        public const int BaseHeftCap = 10;
+        public const int BaseWellspringCap = 10;
+        public const int BaseBurnPerStack = 20;
+
+        /// <summary>战意/厚/泉每层的百分比乘区。与 <see cref="BattleEngine"/> 内
+        /// <c>AttackPercent</c>、泉治疗算式引用同一批常量,UI 换算「满层加成」时也读这里,
+        /// 不再各写各的字面量。**厚与泉都是 5,不是 10**——2026-09-05 泉从 10 改 5 与厚对齐后,
+        /// 旧注释里还留着「10」,UI 侧照抄过一次(2026-09-07 收尾波已修)。</summary>
+        public const int MoralePercentPerStack = 10;
+        public const int HeftPercentPerStack = 5;
+        public const int WellspringPercentPerStack = 5;
+
+        /// <summary>召唤物出手速度的兜底基础值,与 <see cref="SummonState"/> 的
+        /// <c>EffectiveSpeed</c> 兜底引用同一个常量。</summary>
+        public const int BaseSummonSpeed = 100;
+
         /// <summary>战意层数上限(五行金脉 L4,spec §3.4)。**缺省 5 = 现值**,逐字节恒等。</summary>
-        public int MoraleCap { get; set; } = 5;
+        public int MoraleCap { get; set; } = BaseMoraleCap;
 
         /// <summary>厚的层数上限(土脉 L4)。**缺省 10 = 现值**。
         /// ⚠ 与 <see cref="WellspringCap"/> 是两个独立字段,不可合并回一个常量 ——
         /// 合着会让点水脉的玩家顺手拿到厚的上限,反之亦然(spec §7.1)。</summary>
-        public int HeftCap { get; set; } = 10;
+        public int HeftCap { get; set; } = BaseHeftCap;
 
         /// <summary>泉的层数上限(水脉 L4)。**缺省 10 = 现值**。见 <see cref="HeftCap"/> 的警告。</summary>
-        public int WellspringCap { get; set; } = 10;
+        public int WellspringCap { get; set; } = BaseWellspringCap;
 
         /// <summary>灼烧每层结算伤害的**起始值**(火脉 L4)。**缺省 20 = 现值**;
         /// 局内的「炽」(BurnPotency)照旧在其上累加。</summary>
-        public int BurnPerStack { get; set; } = 20;
+        public int BurnPerStack { get; set; } = BaseBurnPerStack;
 
         /// <summary>木脉 L4:由**木系字**召出的召唤物速度 +N 点(spec §3.4.1)。缺省 0 = 恒等。
         ///
@@ -395,11 +416,11 @@ namespace Brushblade.Core
         // 战意每层的攻击加成:2026-08-25 用户拍板从「+10 点」改为「**+10%**」。
         // 基准攻击力恰好是 100,所以基准下两种口径同值 —— 只有非基准玩家看得出差别
         // (26 级 ATK 150 满层:旧 +50 → 新 +75)。深层战意流因此明显变强。
-        private const int MoralePercentPerStack = 10;
-
-        /// <summary>厚每层的伤害加成(百分点,2026-09-02)。5 × 10 层 = +50%,
-        /// 与战意的 10 × 5 层 = +50% **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。</summary>
-        private const int HeftPercentPerStack = 5;
+        // 厚每层的伤害加成(百分点,2026-09-02)。5 × 10 层 = +50%,与战意的 10 × 5 层 = +50%
+        // **同顶** —— 两条乘性轴一高一低会让堆盾直接压过战意。
+        // 两个常量本体挪去 BattleConfig.MoralePercentPerStack / HeftPercentPerStack
+        // (2026-09-07 收尾波:PerkInfo.DetailText 换算「满层加成」也要读同一个数,
+        // 留在这里是 private 会逼 UI 侧另起一份字面量)。
 
         /// <summary>战意 + 厚的百分比乘区(2026-09-06,终审修复项 5,纯提取零行为变化)。
         /// <see cref="EffectiveAttack"/>(玩家侧)与 <see cref="SummonAttackPercent"/>(召唤物侧)
@@ -407,15 +428,13 @@ namespace Brushblade.Core
         /// 两处什么都没共享,日后加第三条乘性轴或改组合方式必然只改一处。抽出来后两边共用
         /// **同一个属性**,才是那句注释原本想描述的保证。</summary>
         private int AttackPercent => 100
-            + _playerStatuses.TotalMagnitude(StatusKind.Morale) * MoralePercentPerStack
-            + _playerStatuses.TotalMagnitude(StatusKind.Heft) * HeftPercentPerStack;
+            + _playerStatuses.TotalMagnitude(StatusKind.Morale) * BattleConfig.MoralePercentPerStack
+            + _playerStatuses.TotalMagnitude(StatusKind.Heft) * BattleConfig.HeftPercentPerStack;
 
-        /// <summary>泉每层的治疗加成(百分点)。**2026-09-05 由 10 改 5**,与厚对齐。
-        ///
-        /// 原注释声称泉 10×10 与厚 5×10 「同顶 +50%」,但那只比了上限、忽略了**充电速度**:
-        /// 治疗量普遍高于护盾量,同一条 MaxHp/N 阈值下泉攒得比厚快一倍。
-        /// 两条都取 5% 才是真对齐(设计稿 §1)。</summary>
-        private const int WellspringPercentPerStack = 5;
+        // 泉每层的治疗加成(百分点)。**2026-09-05 由 10 改 5**,与厚对齐。
+        // 原注释声称泉 10×10 与厚 5×10 「同顶 +50%」,但那只比了上限、忽略了**充电速度**:
+        // 治疗量普遍高于护盾量,同一条 MaxHp/N 阈值下泉攒得比厚快一倍。
+        // 两条都取 5% 才是真对齐(设计稿 §1)。常量本体见上方注释,挪去了 BattleConfig。
 
         /// <summary>厚与泉的层数上限。**两者各有各的上限**(spec §7.1) ——
         /// 改前它们共用一个 MaxResourceStacks 常量,而五行 L4 要求水脉只抬泉、土脉只抬厚。
@@ -525,7 +544,7 @@ namespace Brushblade.Core
         /// 0 层时 <c>v * 100 / 100 == v</c>,恒等。</summary>
         private int AmplifyByWellspring(int value) =>
             value * (100 + _playerStatuses.TotalMagnitude(StatusKind.Wellspring)
-                * WellspringPercentPerStack) / 100;
+                * BattleConfig.WellspringPercentPerStack) / 100;
 
         /// <summary>五行 L3 的白名单:**连续量值**吃加成,**离散层数/回合数**不吃(spec §3.3)。
         ///

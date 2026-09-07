@@ -141,10 +141,8 @@ namespace Brushblade.Presentation
 
         // ================= 前置链 =================
 
-        /// <summary>该枝从 L1 到本节点所在树的最深层,一串圆点:已点亮 = 主色实心圆,
-        /// 当前这个 = 空心圆 + 主色粗描边,未点 = 灰色实心圆。不画勾号——项目字体是按
-        /// strings.zh-CN.json 里出现过的字重新子集的,勾号(✓)这类符号是否在源字体里都有
-        /// 没有把握,颜色/描边已经能三态分清,不为了一个装饰符号引入字体覆盖风险。</summary>
+        /// <summary>该枝从 L1 到本节点所在树的最深层,一串圆点:已点亮 = 主色实心圆 + 勾号,
+        /// 当前这个 = 空心圆 + 主色粗描边,未点 = 灰色实心圆。</summary>
         private static void BuildChain(Transform parent, MetaState meta, PerkNodeDef def)
         {
             int maxDepth = BranchMaxDepth(def.Branch);
@@ -187,6 +185,14 @@ namespace Brushblade.Presentation
                     img.sprite = Theme.Circle;
                     img.color = unlocked ? main : Theme.LockedBg;
                     Ui.Sized(circle, width: ChainCircle, height: ChainCircle);
+
+                    if (unlocked)
+                    {
+                        var check = Ui.ThemedLabel(circle.transform, "✓", 18, Theme.CardWhite);
+                        Ui.Anchor((RectTransform)check.transform, Vector2.zero, Vector2.one,
+                            Vector2.zero, Vector2.zero);
+                        check.raycastTarget = false;
+                    }
                 }
 
                 var label = Ui.ThemedLabel(cell.transform, PerkInfo.Name(node), 12,

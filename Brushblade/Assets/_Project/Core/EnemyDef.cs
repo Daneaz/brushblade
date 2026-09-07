@@ -284,9 +284,10 @@ namespace Brushblade.Core
             Speed = EffectiveSpeed(speed);
         }
 
-        /// <summary>速度兜底:0 或负数一律回 100。子项目 0 加 Speed 时漏了存档接线,
-        /// 老存档没有这个字段 → Newtonsoft 填 0 → 召唤物永远攒不满计量器,一辈子不出手。</summary>
-        private static int EffectiveSpeed(int speed) => speed > 0 ? speed : 100;
+        /// <summary>速度兜底:0 或负数一律回 <see cref="BattleConfig.BaseSummonSpeed"/>。
+        /// 子项目 0 加 Speed 时漏了存档接线,老存档没有这个字段 → Newtonsoft 填 0 →
+        /// 召唤物永远攒不满计量器,一辈子不出手。</summary>
+        private static int EffectiveSpeed(int speed) => speed > 0 ? speed : BattleConfig.BaseSummonSpeed;
 
         /// <summary>槽位由持有者传入 —— SummonState 自己不知道它站在哪一格
         /// (槽位是 BattleEngine._summons 的数组下标,不是这只召唤物的属性,

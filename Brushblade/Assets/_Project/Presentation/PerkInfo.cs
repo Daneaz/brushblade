@@ -131,15 +131,65 @@ namespace Brushblade.Presentation
                 ("element", ElementNameOf(def))),
             PerkEffect.ElementEffectPercent => Strings.T("perk.detail.element_effect_percent",
                 ("element", ElementNameOf(def)), ("value", def.Value)),
-            PerkEffect.MoraleCap => Strings.T("perk.detail.morale_cap"),
-            PerkEffect.SummonSpeed => Strings.T("perk.detail.summon_speed", ("value", def.Value)),
-            PerkEffect.WellspringCap => Strings.T("perk.detail.wellspring_cap"),
-            PerkEffect.BurnPerStack => Strings.T("perk.detail.burn_per_stack", ("value", def.Value)),
-            PerkEffect.HeftCap => Strings.T("perk.detail.heft_cap"),
+            PerkEffect.MoraleCap => MoraleCapText(def),
+            PerkEffect.SummonSpeed => SummonSpeedText(def),
+            PerkEffect.WellspringCap => WellspringCapText(def),
+            PerkEffect.BurnPerStack => BurnPerStackText(def),
+            PerkEffect.HeftCap => HeftCapText(def),
             _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(17 个 case 已穷举 PerkEffect 全部成员)
         };
 
         private static string ElementNameOf(PerkNodeDef def) =>
             def.Element is { } el ? CharInfo.ElementName(el) : "";
+
+        // 下面五个:「加成前 → 加成后」的每一个数字都从 BattleConfig 的常量 + def.Value 现算,
+        // 不手算焊死(2026-09-07 收尾波修复项——review 抓到旧版把换算结果焊成字面文本,
+        // 策划调 Core/Perk.cs 里 AddWuxing 的数值会被弹窗静默显示旧数字)。
+
+        private static string MoraleCapText(PerkNodeDef def)
+        {
+            int b = BattleConfig.BaseMoraleCap;
+            int after = b + def.Value;
+            int rate = BattleConfig.MoralePercentPerStack;
+            return Strings.T("perk.detail.morale_cap",
+                ("rate", rate), ("base", b), ("after", after),
+                ("basePct", b * rate), ("afterPct", after * rate));
+        }
+
+        private static string HeftCapText(PerkNodeDef def)
+        {
+            int b = BattleConfig.BaseHeftCap;
+            int after = b + def.Value;
+            int rate = BattleConfig.HeftPercentPerStack;
+            return Strings.T("perk.detail.heft_cap",
+                ("base", b), ("after", after), ("basePct", b * rate), ("afterPct", after * rate));
+        }
+
+        private static string WellspringCapText(PerkNodeDef def)
+        {
+            int b = BattleConfig.BaseWellspringCap;
+            int after = b + def.Value;
+            int rate = BattleConfig.WellspringPercentPerStack;
+            return Strings.T("perk.detail.wellspring_cap",
+                ("base", b), ("after", after), ("basePct", b * rate), ("afterPct", after * rate));
+        }
+
+        private static string BurnPerStackText(PerkNodeDef def)
+        {
+            int b = BattleConfig.BaseBurnPerStack;
+            int after = b + def.Value;
+            double multiplier = (double)after / b;
+            return Strings.T("perk.detail.burn_per_stack",
+                ("base", b), ("after", after), ("value", def.Value),
+                ("multiplier", multiplier.ToString("0.0")));
+        }
+
+        private static string SummonSpeedText(PerkNodeDef def)
+        {
+            int b = BattleConfig.BaseSummonSpeed;
+            int after = b + def.Value;
+            return Strings.T("perk.detail.summon_speed",
+                ("value", def.Value), ("base", b), ("after", after));
+        }
     }
 }
