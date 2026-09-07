@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
@@ -15,9 +17,11 @@ namespace Brushblade.Core.Tests
     {
         // 2026-09-05:沏 / 沝 / 淡 三张水系双方向字随字表调整移出,从下表删去
         // (不找字顶替 —— 剩余 12 字仍覆盖白/绿/蓝/紫/金/红六档)。
+        // 2026-09-07 字表重做 P2:浴 也随字表调整移出,同口径删去,不找字顶替 ——
+        // 蓝档仍有 溃/海 两张守着,六档覆盖不受影响。
         private static readonly string[] WaterChars =
         {
-            "溃", "冻", "海", "冷", "浴", "湮", "澡",
+            "溃", "冻", "海", "冷", "湮", "澡",
             "冰", "沐", "淼", "淋", "㵘",
         };
 
@@ -50,6 +54,61 @@ namespace Brushblade.Core.Tests
             return effect.Value;
         }
 
+        // ---- 护盾/治疗/攻击的锚点公式(2026-09-07 字表重做 P2,C 类修复)----
+        //
+        // ⚠ 这几个常量与算法节选自 tools/design/rebalance_2026_09_05.py(那份脚本是数值的
+        // 唯一权威源,tools/design/tests/test_rebalance_reconcile.py 在 Python 侧直接 import
+        // 它来避免抄数字;C# 侧不能 import Python,所以这里手抄了公式本身——只抄下面两条
+        // 测试实际用到的档位/特性,不是整张价目表。**如果这两张字将来换了特性,要先去
+        // rebalance 脚本核对新特性的定价再补进 Price;如果 rebalance 脚本自己的
+        // SHIELD_F/HEAL_F/K/ANCHOR 常量变了,这里必须手动跟着改 —— 两边没有共享的单一
+        // 来源,这条测试挡得住「配置值算错了」,挡不住「公式本身两边不同步」。**
+        //
+        // 公式(design §1.4/§1.4.1/§2):
+        //   护盾 = A[护盾] × SHIELD_F(0.65) × 群体系数 × (1 − 特性预算 ratio)
+        //   治疗 = A[治疗] × HEAL_F(1.00) × 群体系数 × (1 − 特性预算 ratio)
+        //   攻击 = A[单攻或全体] × (1 − 特性预算 ratio)
+        //   ratio = Σ(特性单价 × 该档位系数 K)
+        private const double ShieldF = 0.65, HealF = 1.00;
+
+        private static readonly Dictionary<CardRarity, double> RarityK = new()
+        {
+            [CardRarity.Green] = 1.00,
+            [CardRarity.Purple] = 0.80,
+            [CardRarity.Gold] = 0.65,
+            [CardRarity.Red] = 0.45,
+        };
+
+        private static readonly Dictionary<CardRarity, (int Single, int All, int Shield, int Heal)> RarityAnchor = new()
+        {
+            [CardRarity.Green] = (90, 50, 70, 60),
+            [CardRarity.Purple] = (200, 100, 150, 120),
+            [CardRarity.Gold] = (400, 200, 300, 240),
+            [CardRarity.Red] = (600, 300, 450, 350),
+        };
+
+        /// <summary>只收了下面两条测试用到的特性单价,不是全表价目(见上方大注释)。</summary>
+        private static readonly Dictionary<string, double> TraitPrice = new()
+        {
+            ["反伤30"] = 0.22, ["反伤50"] = 0.35, ["对破甲"] = 0.25, ["终极技"] = 0.50,
+            ["免一次清盾"] = 0.20, ["护甲"] = 0.33, ["免疫1"] = 0.35,
+            ["冻结1"] = 0.35, ["冻结2"] = 0.55, ["对控制"] = 0.25, ["封禁"] = 0.38,
+        };
+
+        private static double Ratio(CardRarity rarity, params string[] traits) =>
+            traits.Sum(t => TraitPrice[t]) * RarityK[rarity];
+
+        private static int Round(double v) => (int)Math.Round(v, MidpointRounding.AwayFromZero);
+
+        private static int ExpectedShield(CardRarity rarity, params string[] traits) =>
+            Round(RarityAnchor[rarity].Shield * ShieldF * (1 - Ratio(rarity, traits)));
+
+        private static int ExpectedHeal(CardRarity rarity, params string[] traits) =>
+            Round(RarityAnchor[rarity].Heal * HealF * (1 - Ratio(rarity, traits)));
+
+        private static int ExpectedSingleAttack(CardRarity rarity, params string[] traits) =>
+            Round(RarityAnchor[rarity].Single * (1 - Ratio(rarity, traits)));
+
         [Test]
         public void EveryWaterChar_HasBothDirections()
         {
@@ -75,18 +134,21 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        /// <summary>2026-09-07 字表重做 P2 重写:旧版直接钉「满值 340」「x0.7 带净化」这类
+        /// 硬编码结果,那套折算规则(锚点砍半 / 满值 x0.7)已经被 spec §1.4 的公式取代
+        /// (护盾/治疗 = 锚点 × F 系数 × 群体系数 × (1 − 特性预算)),继续钉旧结果会把测试
+        /// 退化成「抄一遍当前配置」,数值再变就守不住任何规则了。改从**公式**推导期望值 ——
+        /// 见上方 ExpectedHeal 一带的大注释。</summary>
         [Test]
         public void WaterCharValues_MatchRarityAnchors()
         {
-            // 锚点表(spec §4.1):带附加特性的面 x0.7,纯效果取满值。
-            // 2026-09-05:沝(金档样本)/ 沏(紫档样本)随字表调整移出,换成同档水系留存字 ——
-            // 冰 满值 340 与旧 沝 完全相同(金档满值锚点不变);湮 是纯效果紫档满值 150,
-            // 换掉 沏 那个「150 x1.2 相生取消补偿」的历史特例(该特例本身随 沏 一起作废)。
             var graph = LoadRealGraph();
-            Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(340), "金档满值");
-            Assert.That(HealValueOf(graph, "㵘"), Is.EqualTo(540), "红档满值");
-            Assert.That(HealValueOf(graph, "浴"), Is.EqualTo(77), "蓝档 110 x0.7(带净化)");
-            Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(150), "紫档满值");
+            Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(ExpectedHeal(CardRarity.Gold, "冻结1", "对控制")),
+                "金档:治疗锚点240 × HEAL_F × (1 − (冻结1+对控制)×K金)");
+            Assert.That(HealValueOf(graph, "㵘"), Is.EqualTo(ExpectedHeal(CardRarity.Red, "终极技", "冻结2", "对控制")),
+                "红档:治疗锚点350 × HEAL_F × (1 − (终极技+冻结2+对控制)×K红)");
+            Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(ExpectedHeal(CardRarity.Purple, "封禁", "对控制")),
+                "紫档:治疗锚点120 × HEAL_F × (1 − (封禁+对控制)×K紫)");
         }
 
         /// <summary>攻击面必须真的能打人 —— 全是伤害类效果(单体/全体),不是挂个状态就算数。
@@ -188,17 +250,24 @@ namespace Brushblade.Core.Tests
             }
         }
 
+        /// <summary>2026-09-07 字表重做 P2 重写:旧版钉的是「满值砍半」这条已作废的折算规则,
+        /// 现在护盾/攻击都走 spec §1.4 的公式(锚点 × 系数 × (1 − 特性预算))—— 同
+        /// WaterCharValues_MatchRarityAnchors 的理由,改成从公式推导,不抄当前配置的
+        /// 数字。护盾与攻击面用的是**同一个** ratio(同一张字的特性预算只算一次),
+        /// 这条测试顺带钉住了这一点:两个数不是各自独立拍的。</summary>
         [Test]
         public void EarthCharValues_MatchRarityAnchors()
         {
             var graph = LoadRealGraph();
-            // 2026-09-04 用户拍板:土系护盾面盾量砍半(满值 340/540 → 170/270)。
-            // 攻击面不动 —— 砍的是「一次加多少盾」,不是这一系的整体强度。
-            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(170), "金档满值 340 砍半");
-            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(270), "红档满值 540 砍半");
-            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(119), "金档 170 x0.7(带免疫)");
+            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "反伤50", "对破甲")),
+                "金档:护盾锚点300 × SHIELD_F × (1 − (反伤50+对破甲)×K金)");
+            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(ExpectedShield(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
+                "红档:护盾锚点450 × SHIELD_F × (1 − (终极技+免一次清盾+护甲)×K红)");
+            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1", "护甲")),
+                "金档:护盾锚点300 × SHIELD_F × (1 − (免疫1+护甲)×K金)");
             Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(340), "攻击面不在砍半范围内");
+                Is.EqualTo(ExpectedSingleAttack(CardRarity.Gold, "反伤50", "对破甲")),
+                "攻击面与护盾面用同一个特性预算 ratio,只是套的是单攻锚点不是护盾锚点");
         }
 
         /// <summary>引爆每系两张载体(中档 + 红档):只挂红档五系四叠字的话,
@@ -238,27 +307,50 @@ namespace Brushblade.Core.Tests
                 new[] { "圭" }, System.Array.Empty<string>(),
                 new[] { new EnemyDef("靶", Element.Heart, 100000, 0) }, seed: 1);
             battle.Cast("圭", -1);   // 默认 attackMode: false = 护盾面
-            Assert.That(battle.PlayerShield, Is.EqualTo(170));
+            // 2026-09-07 字表重做 P2:圭 的护盾按 spec §1.4 公式重新标定,170 → 119
+            // (见 EarthCharValues_MatchRarityAnchors 的 ExpectedShield 推导)。
+            Assert.That(battle.PlayerShield, Is.EqualTo(119));
         }
 
+        /// <summary>修档位倒挂:燚(红) 的 AOE 曾低于 焱(橙)。
+        ///
+        /// 2026-09-07 字表重做 P2:焱/燚/焚 现在带的灼烧层数各不相同(焱 3 层 + 灼烧增威、
+        /// 燚 5 层 + 全体引爆、焚 4 层),灼烧层数越多、当面直接伤害的预算就被扣得越多
+        /// (design §1.4:每层灼烧按三角数折成等价伤害、从直接伤害预算里倒扣)——于是三张字
+        /// 的 DamageAll 数字本身**不再可比**:红档 燚 的当面数字反而比橙档 焱 低,这不是
+        /// 倒挂,是它把强度大头压在灼烧总当量上而不是当面数字上。
+        ///
+        /// 继续钉「DamageAll 必须红 > 橙」会把这条测试变成谎言,得换成
+        /// tools/design/rebalance_2026_09_05.py 的 total() 用的口径:总当量 = 直接伤害 +
+        /// 灼烧层数按三角数(dot_equiv)折算的等价伤害。这才是这条测试原本想守住的
+        /// 不变量本身。</summary>
         [Test]
         public void FireOrangeAndRed_HaveCorrectTierOrdering()
         {
-            // 修档位倒挂:燚(红) 的 AOE 100 曾低于 焱(橙) 的 120。
             var graph = LoadRealGraph();
-            int yan = graph.Get("焱").Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
-            int yi = graph.Get("燚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
-            int fen = graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
-            Assert.That(yan, Is.EqualTo(120));
-            Assert.That(fen, Is.EqualTo(120), "相生取消后的等值改写");
-            Assert.That(yi, Is.EqualTo(180), "红档 AOE 锚点 250 x0.7(带灼烧)");
-            Assert.That(yi, Is.GreaterThan(yan), "红档必须强于橙档");
-
-            // 焚 与 焱 数值相同,靠灼烧层数区分(焚 需要 林+火 跨系配方,更难合)
-            int fenBurn = graph.Get("焚").Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
-            int yanBurn = graph.Get("焱").Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
-            Assert.That(fenBurn, Is.EqualTo(4));
+            var yanDef = graph.Get("焱");
+            var yiDef = graph.Get("燚");
+            var fenDef = graph.Get("焚");
+            int yan = yanDef.Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
+            int yi = yiDef.Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
+            int fen = fenDef.Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
+            int yanBurn = yanDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            int yiBurn = yiDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            int fenBurn = fenDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
+            Assert.That(yan, Is.EqualTo(126));
+            Assert.That(fen, Is.EqualTo(108), "相生取消后的等值改写");
+            Assert.That(yi, Is.EqualTo(86),
+                "红档当面数字比橙档低——强度大头压在灼烧总当量上,不是当面数字,见类方法文档");
             Assert.That(yanBurn, Is.EqualTo(3));
+            Assert.That(fenBurn, Is.EqualTo(4));
+            Assert.That(yiBurn, Is.EqualTo(5));
+
+            // 真正的档位不变量:总当量(直接伤害 + 灼烧层数按三角数折算的等价伤害)
+            // 必须红档 > 橙档 —— dot_equiv(n) = n(n+1)/2 × 20,与 rebalance 脚本同公式。
+            int DotEquiv(int n) => n * (n + 1) / 2 * 20;
+            int yanTotal = yan + DotEquiv(yanBurn);
+            int yiTotal = yi + DotEquiv(yiBurn);
+            Assert.That(yiTotal, Is.GreaterThan(yanTotal), "红档总当量(含灼烧)必须强于橙档");
         }
     }
 }
