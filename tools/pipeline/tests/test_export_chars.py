@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from export_chars import STACK_RECIPES, build_chars
@@ -348,13 +350,21 @@ def test_turns_and_target_all_do_not_leak_to_non_duration_kinds():
     # Silence 在 DURATION_KINDS 里但不在 TARGET_ALL_KINDS 里——拿 turns 但不该拿 targetAll。
     assert _parse_effects("`Silence 0`(turns 1, targetAll)", "金") == [
         {"kind": "Silence", "value": 0, "turns": 1}]
-    # Immunity 完全不在 DURATION_KINDS 里(它的 value 是挡伤次数,不是回合数)——不该拿 turns。
-    assert _parse_effects("`Immunity 2`(turns 3)", "土") == [
-        {"kind": "Immunity", "value": 2}]
+    # Immunity 完全不在 DURATION_KINDS 里(它的 value 是挡伤次数,不是回合数)——turns 3
+    # 曾经被静默丢弃;2026-09-07(P2 Task 1)起这类「turns 挂在不吃它的 kind 上」改为报错,
+    # 断言挪到下面 test_turns_on_non_duration_kind_raises_instead_of_silently_dropping。
     # HitCount 只修饰伤害效果,同行的非伤害效果(灼烧)不该被误挂。
     assert _parse_effects("`DamageSingle 10` + `Burn 3` + `HitCount 2`", "火") == [
         {"kind": "DamageSingle", "value": 10, "hitCount": 2},
         {"kind": "Burn", "value": 3}]
+
+
+def test_turns_on_non_duration_kind_raises_instead_of_silently_dropping():
+    """2026-09-07(P2 Task 1):Immunity 完全不在 DURATION_KINDS 里(它的 value 是挡伤
+    次数,不是回合数)——turns 3 曾经被静默丢弃,现在必须报错,不能再悄悄消失。"""
+    from extract_values import _parse_effects
+    with pytest.raises(Exception, match="turns"):
+        _parse_effects("`Immunity 2`(turns 3)", "土")
 
 
 def test_shipped_chars_json_is_regenerable_from_spec():

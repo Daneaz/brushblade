@@ -5,6 +5,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extract_values import _parse_effects, extract
@@ -142,3 +144,28 @@ def test_missing_readings_leave_no_keys():
     values = extract(spec)
     assert "pinyin" not in values["灼"]
     assert "gloss" not in values["灼"]
+
+
+# ---- 消费记账:未被消费的 token 与孤立的 turns 一律报错(2026-09-07,P2 Task 1) ----
+#
+# extract_values 是一串 re.search 找已知 token,认不得的一律静默忽略 ——
+# 而 P2 要通过它改 57 行数据。项目已因「手写映射表认不得的标记无声消失」栽过一次。
+
+def test_unknown_valueless_token_raises():
+    """无数值的未知 token 必须报错,不能静默忽略。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`DamageSingle 100` + `TotallyBogus`", "测")
+    assert "TotallyBogus" in str(err.value)
+
+
+def test_turns_on_kind_without_duration_raises():
+    """turns 挂在不吃它的 kind 上必须报错 —— 否则那个回合数静默消失。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`DamageSingle 100`(turns 2)", "测")
+    assert "turns" in str(err.value)
+
+
+def test_known_tokens_still_parse():
+    """恒等性:既有写法一个都不能被新防线误伤。"""
+    got = _parse_effects("`DamageSingle 238` + `DoubleVsControlled`", "冰")
+    assert got == [{"kind": "DamageSingle", "value": 238, "doubleVs": "Controlled"}]
