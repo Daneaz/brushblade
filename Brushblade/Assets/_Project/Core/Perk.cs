@@ -2,11 +2,14 @@ using System.Collections.Generic;
 
 namespace Brushblade.Core
 {
-    /// <summary>三棵技能树(spec 2026-09-07)。
+    /// <summary>三棵技能树(spec 2026-09-07)+ 跨树节点(spec 2026-09-08 §3.0)。
     ///
     /// ⚠ 「机制树」= 改玩法交互逻辑(字库/起手/稀有度/AP),「被动树」= 被动数值强化
-    /// (生命/攻击/暴击/护甲)。用户 2026-09-07 明确对调过一次命名,勿按字面直觉互换。</summary>
-    public enum PerkTree { Wuxing, Passive, Mechanic }
+    /// (生命/攻击/暴击/护甲)。用户 2026-09-07 明确对调过一次命名,勿按字面直觉互换。
+    ///
+    /// Cross 不是第四棵树,是**不属于任何一棵树**的三个咬合节点。它们的 Depth 恒为 1、
+    /// Branch 各自独立,前置走 PerkNodeDef.Prereq 的显式谓词而不是同枝推导。</summary>
+    public enum PerkTree { Wuxing, Passive, Mechanic, Cross }
 
     /// <summary>节点效果类别。前四条落在既有 BattleConfig 字段上;Element* 三条按元素筛选;
     /// 末尾五条对应五行 L4,各自挂靠 BattleEngine 里一个原本硬编码的天花板。</summary>
@@ -20,6 +23,38 @@ namespace Brushblade.Core
         ElementDrawRolls, ElementLootGuarantee, ElementEffectPercent,
         // 五行树 L4(各系专属天花板)
         MoraleCap, SummonSpeed, WellspringCap, BurnPerStack, HeftCap,
+    }
+
+    /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 40 个普通节点)。
+    /// 其余三种:值 = BaseValue + Value × 计数,计数由本枚举决定。
+    ///
+    /// ⚠ PerDeepWuxingNode 数**节点**,PerDeepElement 数**系** —— 两者都叫 "deep" 但口径不同:
+    /// 一系点满 4 层,前者算 2(L3、L4 各一个),后者算 1。Node / Element 这对后缀是刻意的,
+    /// 别在别处简写掉。</summary>
+    public enum PerkScaling
+    {
+        None,
+        PerDeepWuxingNode,
+        PerMechanicNode,
+        PerDeepElement,
+    }
+
+    /// <summary>跨树节点的一条前置谓词(spec 2026-09-08 §4.1)。
+    ///
+    /// 是**谓词**而不是「某个具体节点的 id」—— 跨树节点要的是「任一五行 L3」,不是「金脉 L3」。
+    /// 写成 id 列表就等于把它绑死在某一枝上,那正是 §3.1 要避免的「第四棵树的固定路径」。</summary>
+    public sealed class PerkRequirement
+    {
+        public PerkTree Tree { get; }
+        /// <summary>至少点到第几层(1 起)。</summary>
+        public int MinDepth { get; }
+        /// <summary>至少几个。</summary>
+        public int Count { get; }
+
+        public PerkRequirement(PerkTree tree, int minDepth, int count = 1)
+        {
+            Tree = tree; MinDepth = minDepth; Count = count;
+        }
     }
 
     /// <summary>一个技能节点。**单级** —— 点一次即满,没有等级维度。
@@ -40,12 +75,33 @@ namespace Brushblade.Core
         public PerkEffect Effect { get; }
         public int Value { get; }
 
+        /// <summary>缩放节点的保底值(spec 2026-09-08 §3.2);Scaling == None 时恒为 0。
+        ///
+        /// 存在的理由不是「避免 +0」(前置本就保证计数 ≥ 1),而是「纯缩放下的入门档
+        /// 配不上定价」—— 相济 1,200 墨锭只换 +2% 攻击,同价的力 L3 给 +15%。</summary>
+        public int BaseValue { get; }
+
+        public PerkScaling Scaling { get; }
+
+        /// <summary>显式前置谓词;**null = 走「同枝 Depth−1」的隐式推导**(40 个普通节点)。
+        /// 空列表 ≠ null:空列表表示「显式声明了没有前置」。</summary>
+        public IReadOnlyList<PerkRequirement> Prereq { get; }
+
         public PerkNodeDef(string id, PerkTree tree, string branch, Element? element,
             int depth, int unlockLevel, int inkCost, PerkEffect effect, int value)
+            : this(id, tree, branch, element, depth, unlockLevel, inkCost, effect, value,
+                   baseValue: 0, scaling: PerkScaling.None, prereq: null)
+        {
+        }
+
+        public PerkNodeDef(string id, PerkTree tree, string branch, Element? element,
+            int depth, int unlockLevel, int inkCost, PerkEffect effect, int value,
+            int baseValue, PerkScaling scaling, IReadOnlyList<PerkRequirement> prereq)
         {
             Id = id; Tree = tree; Branch = branch; Element = element;
             Depth = depth; UnlockLevel = unlockLevel; InkCost = inkCost;
             Effect = effect; Value = value;
+            BaseValue = baseValue; Scaling = scaling; Prereq = prereq;
         }
     }
 
@@ -152,16 +208,65 @@ namespace Brushblade.Core
 
         public static bool IsUnlocked(MetaState meta, string id) => meta.UnlockedPerks.Contains(id);
 
-        /// <summary>同枝上一层的 id;第一层返回 null。</summary>
+        /// <summary>同枝上一层的 id;第一层返回 null。仅用于隐式前置的节点。</summary>
         private static string PrerequisiteOf(PerkNodeDef def) =>
             def.Depth <= 1 ? null : $"{def.Branch}_{def.Depth - 1}";
+
+        /// <summary>该节点的前置是否已满足(spec 2026-09-08 §4.1)。
+        ///
+        /// public 而非 private:<c>Presentation.PerkView.StateOf</c> 要用**同一份**判据把
+        /// 「点不了」拆成理由显示。此前那边抄了一份同枝推导,跨树节点(Depth == 1)会被它
+        /// 误判成可解锁 —— 同一份逻辑两条路径,是这一层最常见的静默 bug。</summary>
+        public static bool PrereqMet(MetaState meta, PerkNodeDef def)
+        {
+            if (def.Prereq == null)
+            {
+                var prereq = PrerequisiteOf(def);
+                return prereq == null || IsUnlocked(meta, prereq);
+            }
+            foreach (var req in def.Prereq)
+                if (CountOwned(meta, req.Tree, req.MinDepth) < req.Count) return false;
+            return true;
+        }
+
+        /// <summary>已点亮的、属于该树且 Depth ≥ minDepth 的节点数。
+        ///
+        /// ⚠ 遍历固定顺序的 <see cref="Nodes"/> 而不是 <c>meta.UnlockedPerks</c> ——
+        /// 后者的顺序取决于玩家点技能的先后。这里只是计数、顺序不影响结果,但与
+        /// <c>MetaRules.GuaranteedLootElements</c> 保持同一条遍历习惯,免得下一个人重新推一遍。
+        /// 顺带白拿一条:未知 id(改表后的旧档)自动被忽略,不会抛。</summary>
+        public static int CountOwned(MetaState meta, PerkTree tree, int minDepth)
+        {
+            int n = 0;
+            foreach (var def in Nodes)
+                if (def.Tree == tree && def.Depth >= minDepth && IsUnlocked(meta, def.Id))
+                    n++;
+            return n;
+        }
+
+        /// <summary>点到 L3 或更深的五行**系**数(一系点满 4 层也只算 1)。
+        ///
+        /// ⚠ 遍历 <see cref="Nodes"/> 去重收集元素,而**不是** <c>Enum.GetValues(typeof(Element))</c> ——
+        /// 后者的顺序由枚举声明决定,和表无关;这里要的是「表里真有的五行枝」。
+        /// (`MetaRules.StartingElements` 是 private,够不着;它自己也是这个固定顺序。)</summary>
+        private static int CountDeepElements(MetaState meta)
+        {
+            var counted = new List<Element>();
+            foreach (var def in Nodes)
+            {
+                if (def.Tree != PerkTree.Wuxing || def.Element is not { } element) continue;
+                if (def.Depth < 3 || !IsUnlocked(meta, def.Id)) continue;
+                if (counted.Contains(element)) continue;   // 数系不数节点
+                counted.Add(element);
+            }
+            return counted.Count;
+        }
 
         public static bool CanUnlock(MetaState meta, string id)
         {
             var def = Get(id);
             if (IsUnlocked(meta, id)) return false;                                   // 已点
-            var prereq = PrerequisiteOf(def);
-            if (prereq != null && !IsUnlocked(meta, prereq)) return false;            // 前置未点
+            if (!PrereqMet(meta, def)) return false;                                  // 前置未满足
             if (MetaRules.CharacterLevel(meta.CharacterXp) < def.UnlockLevel) return false; // 等级不足
             return meta.Ink >= def.InkCost;                                            // 墨锭足够
         }
@@ -185,15 +290,37 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>已点节点里该效果的值之和(不分元素)。</summary>
+        /// <summary>已点节点里该效果的值之和(不分元素)。
+        ///
+        /// ⚠ Scaling == None 那一支与改前**逐字相同**(sum += def.Value)—— 恒等性硬线
+        /// 就靠这一行:40 个普通节点走的还是原来那条路。</summary>
         public static int Bonus(MetaState meta, PerkEffect effect)
         {
             int sum = 0;
             foreach (var id in meta.UnlockedPerks)
                 if (ById.TryGetValue(id, out var def) && def.Effect == effect)
-                    sum += def.Value;
+                    sum += def.Scaling == PerkScaling.None
+                        ? def.Value
+                        : def.BaseValue + def.Value * ScaleCountOf(meta, def);
             return sum;
         }
+
+        /// <summary>缩放节点的计数;非缩放节点恒返回 1。
+        ///
+        /// public 而非 private:详情面板要把「基础 +8% / 已点亮 2 个 → +6%」拆成两行显示,
+        /// 得拿到分量。**别让 Presentation 自己重算一遍计数** —— 那就是同一份逻辑两条路径。</summary>
+        public static int ScaleCountOf(MetaState meta, PerkNodeDef def) => def.Scaling switch
+        {
+            // 已点亮的五行 L3/L4 **节点**个数(只数深层,L1/L2 是供给不是强化)
+            PerkScaling.PerDeepWuxingNode => CountOwned(meta, PerkTree.Wuxing, 3),
+            // 已点亮的机制树节点个数(该树只有两层,全算)
+            PerkScaling.PerMechanicNode => CountOwned(meta, PerkTree.Mechanic, 1),
+            // 点到 L3 或更深的五行**系**数,夹上限 2。
+            // ⚠ 上限夹在这里而不是调用点:起手抽取次数有四个来源(基础 1 + 慧眼 +
+            // 该系五行 L1 + 博采),夹在调用点会漏掉其中几条。
+            PerkScaling.PerDeepElement => System.Math.Min(2, CountDeepElements(meta)),
+            _ => 1,
+        };
 
         /// <summary>已点节点里该效果**且属于该元素**的值之和。五行树 L1/L2/L3 与
         /// 五个 L4 都走这条 —— 它们的作用域是单系,拿 <see cref="Bonus"/> 求和会串系。
