@@ -189,7 +189,6 @@ def test_shield_matches_target():
     assert not bad, "护盾列不符(字, 实际(Shield,ShieldAll), 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_heal_matches_target():
     """治疗列 → 带「群疗」期望 HealAll(全队),不带期望 HealSelf(只回自己);
     持续治疗(「N×3」)→ HealOverTime(value=N, turns=3),此批没有「群疗+持续治疗」

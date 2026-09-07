@@ -554,7 +554,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 540
+          "value": 145
         }
       ],
       "attackEffects": [
@@ -586,7 +586,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 430
+          "value": 157
         }
       ],
       "attackEffects": [
@@ -614,7 +614,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 150
+          "value": 60
         }
       ],
       "attackEffects": [
@@ -643,7 +643,7 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 70
+          "value": 32
         }
       ],
       "attackEffects": [
@@ -671,7 +671,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 90
+          "value": 44
         }
       ],
       "attackEffects": [
@@ -705,7 +705,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 340
+          "value": 146
         }
       ],
       "attackEffects": [
@@ -733,7 +733,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 45
+          "value": 42
         }
       ],
       "attackEffects": [
@@ -760,7 +760,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 110
+          "value": 33
         }
       ],
       "attackEffects": [
@@ -787,7 +787,7 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 430
+          "value": 92
         }
       ],
       "attackEffects": [
@@ -819,7 +819,7 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 105
+          "value": 60
         }
       ],
       "attackEffects": [
