@@ -35,9 +35,9 @@ namespace Brushblade.Core.Tests
     /// 反过来,以下两个机制这一批**从「无载体」变成「有载体」**,原「应无载体」的测试已
     /// 反转为断言真实载体(方法名保留,内容已不是「无载体」了——见各自方法体的说明):
     /// - DefenseBuff(点数护甲):垒(绿4)/ 杜(金9)/ 垚(橙11)/ 㙓(红13),
-    ///   见 RealConfig_DefenseBuffHasNoCarrier
+    ///   见 RealConfig_DefenseBuffChars_CarryTheirPoints
     /// - Silence(封禁,2026-09-05 语义从「主动机制哑火」扩到「护甲/被动/大招全禁,对 Boss
-    ///   降级为护甲减半」):灭/湮/海/淋/沐/澡 六字,见 RealConfig_SilenceHasNoCarrier
+    ///   降级为护甲减半」):灭/湮/海/淋/沐/澡 六字,见 RealConfig_SilenceChars_CarryTheirTurns
     /// 上述机制引擎侧仍有单元测试覆盖(BattleEngine/StatusOps 等),这里守的只是「真实字表
     /// 里还有没有字用它」这一层。</summary>
     public class CharTableTests
@@ -140,12 +140,14 @@ namespace Brushblade.Core.Tests
         // 唯一性断言改钉空集,见下。
 
         [Test]
-        public void RealConfig_DefenseBuffHasNoCarrier()
+        public void RealConfig_DefenseBuffChars_CarryTheirPoints()
         {
-            // ⚠ 方法名沿用旧名,但断言已反转:2026-09-05 铠(DefenseBuff 原唯一载体)移出后,
-            // 点数护甲机制休眠了一批;2026-09-07 字表重做 P2 给了它**四个**新载体
-            // ——这是 DefenseBuff 的首次真正落地,不是「铠 复活」。逐字典 + Count
-            // 唯一性断言按 D 类口径补回来(与 RealConfig_SilenceHasNoCarrier 同一批反转)。
+            // ⚠ 2026-09-07 改名(原 RealConfig_DefenseBuffHasNoCarrier):旧名字断言的是
+            // 「无载体」,但 2026-09-05 铠(DefenseBuff 原唯一载体)移出后点数护甲机制休眠
+            // 了一批,2026-09-07 字表重做 P2 又给了它**四个**新载体——这是 DefenseBuff 的
+            // 首次真正落地,不是「铠 复活」。旧名字沿用下去会变成一句假话,与
+            // RealConfig_SilenceChars_CarryTheirTurns 一起按「方法名必须反映断言」的原则
+            // 改名(2026-09-07 二次审阅拍板)。逐字典 + Count 唯一性断言按 D 类口径补回来。
             var carriers = RealGraph().All
                 .Where(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Any(e => e.Kind == EffectKind.DefenseBuff))
@@ -331,10 +333,12 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_GuiGrantsSummonShield()
+        public void RealConfig_GuiCarriesThornsNotSummonShield()
         {
-            // ⚠ 方法名沿用旧名,但断言内容已改:2026-09-07 字表重做 P2 把 桂 的特性配额收窄成
-            // 「光环盾 / 荆棘」两条(spec §6)——一次性 SummonShield 60 不在新表里了,
+            // ⚠ 2026-09-07 二次审阅改名(原 RealConfig_GuiGrantsSummonShield):旧名字断言
+            // 「有 SummonShield」,但字表重做 P2 把 桂 的特性配额收窄成「光环盾 / 荆棘」两条
+            // (spec §6)——一次性 SummonShield 60 不在新表里了,旧名字继续叫
+            // 「GrantsSummonShield」就是一句假话,按「方法名必须反映断言」的原则改名。
             // 只数也从 2026-08-25 的 3 只收回到全系统一的 1 只(2026-09-04/09-05 两次收紧
             // 「除 𣛧 外一律 1 只」的口径,见 rebalance_2026_09_05.py 的召唤只数注释)。
             // ⚠ 用户正在另行裁定「光环盾」能否用 SummonShield 顶替——若改判会另行通知,
@@ -496,14 +500,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_SilenceHasNoCarrier()
+        public void RealConfig_SilenceChars_CarryTheirTurns()
         {
-            // ⚠ 方法名沿用旧名,但断言已反转:2026-08-14 第二批裁定移出 锁 之后 Silence
-            // 一度无载体。2026-09-05「封禁」上线(语义从「主动机制哑火」扩到「护甲/被动/
-            // 大招全禁,对 Boss 降级为护甲减半」,见 BattleEngine.SuppressArmorOf),
-            // 2026-09-07 字表重做 P2 把「净化 + 驱散并入封禁」也落了地(灭/湮 从 Dispel/
-            // Cleanse 改挂 Silence)—— 六张字挂着它,不再是无载体,按 D 类口径反转
-            // 断言为「有这六个载体」(与 RealConfig_DefenseBuffHasNoCarrier 同一批反转)。
+            // ⚠ 2026-09-07 二次审阅改名(原 RealConfig_SilenceHasNoCarrier):2026-08-14
+            // 第二批裁定移出 锁 之后 Silence 一度无载体。2026-09-05「封禁」上线(语义从
+            // 「主动机制哑火」扩到「护甲/被动/大招全禁,对 Boss 降级为护甲减半」,见
+            // BattleEngine.SuppressArmorOf),2026-09-07 字表重做 P2 把「净化 + 驱散并入
+            // 封禁」也落了地(灭/湮 从 Dispel/Cleanse 改挂 Silence)—— 六张字挂着它,
+            // 不再是无载体。旧名字继续叫「HasNoCarrier」是一句假话,与
+            // RealConfig_DefenseBuffChars_CarryTheirPoints 一起按「方法名必须反映断言」的
+            // 原则改名,断言按 D 类口径反转为「有这六个载体」。
             var carriers = RealGraph().All
                 .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())
