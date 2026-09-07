@@ -90,8 +90,10 @@ def test_extract_pulls_60_implementable_chars():
     assert len(values) == 57
     # 焚曾含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)。
     # 2026-09-02:相生 ×3 取消,基础值改填等值改写后的实战值,40 → 120,战斗结果不变。
+    # 2026-09-07(P2 Task 4a):补对灼烧(灼烧梯队·高),预算扣除 + DOT 当量扣除后 120 → 108。
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
-    assert fen["value"] == 120
+    assert fen["value"] == 108
+    assert fen["doubleVs"] == "Burning"
     assert values["焚"]["rarity"] == "Orange"
     assert values["燚"]["rarity"] == "Red"
     assert values["燚"]["element"] == "Fire"
@@ -110,10 +112,15 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
     挂在 `effects` 上)。灭 的 `DispelAll` 是无括注的布尔标记,不带 targetAll —— 这半个
     断言原先验证的「Dispel 走 targetAll 括注解析」现在只剩 test_dispel_each_becomes_target_all
     的手打字符串覆盖,这里改断言 灭 的 Dispel 本身的值(-1,DispelAll 的标记值)。
+
+    2026-09-07(P2 Task 4a):净化/驱散并入封禁(spec §3 第 12/13 项),灭 与 湮(此前
+    净化的另一载体)都改用 `Silence`,`DispelAll` 自此在真实字表里无载体、休眠 ——
+    targetAll 括注解析的覆盖收窄到只剩 test_dispel_each_becomes_target_all 的手打字符串,
+    这里删除对 灭 的 Dispel 断言,只保留 沐 那半(HealOverTime 的 turns 解析,不受影响)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    mie = next(e for e in values["灭"]["effects"] if e["kind"] == "Dispel")
-    assert mie["value"] == -1
+    mie = next(e for e in values["灭"]["effects"] if e["kind"] == "Silence")
+    assert mie["turns"] == 1
 
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
     assert mu["turns"] == 3
@@ -443,7 +450,10 @@ def test_shipped_chars_json_carries_the_new_row_fields():
 
     2026-09-07(P2 Task 4a):锥 由召唤字改攻击字(spec §3 第 2 项),连发形状 `Volley`
     随之无载体、休眠(锥 是全表唯一载体,见 spec §2.2 休眠清单)——原 Volley 断言删除,
-    改验锥 现在是纯攻击效果(带破甲修饰)。"""
+    改验锥 现在是纯攻击效果(带破甲修饰)。剑 同批也改攻击字(§3 第 2 项),横扫形状
+    从召唤物 `passive` 挪到直伤效果本身的 `shape`/`shapePercent` 字段(与 溃/碎 等带
+    形状修饰的攻击字同一套通道),原 `passive` 断言随之删除。
+    """
     shipped = json.loads(CHARS_JSON.read_text(encoding="utf-8"))
     by_id = {c["id"]: c for c in shipped["chars"]}
 
@@ -454,7 +464,10 @@ def test_shipped_chars_json_carries_the_new_row_fields():
 
     # 召唤被动的形状与出手控场(2026-08-25):都是「token 表漏接线就静默丢」的字段
     # 2026-09-05:碾 移出字表,字卡侧的 Sweep 载体没了,改验召唤物侧(剑)仍在。
-    assert by_id["剑"]["effects"][0]["passive"] == {"shape": "Sweep", "shapePercent": 50}
+    # 2026-09-07(P2 Task 4a):剑 改攻击字,横扫改验直伤效果自身的 shape 字段。
+    assert by_id["剑"]["effects"][0]["kind"] == "DamageSingle", "剑 已改攻击字,不再是 Summon"
+    assert by_id["剑"]["effects"][0]["shape"] == "Sweep"
+    assert by_id["剑"]["effects"][0]["shapePercent"] == 50
     assert by_id["枪"]["effects"][0]["passive"] == {"shape": "Skewer", "shapePercent": 70}
     assert by_id["锥"]["effects"][0]["kind"] == "DamageSingle", "锥 已改攻击字,不再是 Summon"
     assert "passive" not in by_id["锥"]["effects"][0]
@@ -464,10 +477,16 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # 2026-09-02:冰 的 doubleVs 随双方向重配(Task 10)挪进 attackEffects,
     # 扫描范围跟着盖住两个列表 —— 载体本身没变,只是搬了个字段。
     # 2026-09-05:灼 移出字表,DoubleVsBurning 自此无载体(spec §1.3),四个收割位缺一个。
+    # 2026-09-07(P2 Task 4a):按 spec §6 全表补齐一批条件加成 —— 对灼烧(炎/烈/焚/燚)、
+    # 对控制(㵘/淼/湮,冰 已有)、对破甲(圭/𨰻,垚 已有)。
+    from export_chars import PUA_PROXY
     assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
             for e in c.get("effects", []) + c.get("attackEffects", [])
             if e.get("doubleVs")} == {
-        "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken"}
+        "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken",
+        "㵘": "Controlled", "淼": "Controlled", "湮": "Controlled", "圭": "ArmorBroken",
+        "炎": "Burning", "烈": "Burning", "焚": "Burning", "燚": "Burning",
+        PUA_PROXY["𨰻"]: "ArmorBroken"}
 
 
 def test_component_entries_are_flagged():

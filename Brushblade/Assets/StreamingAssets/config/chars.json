@@ -38,11 +38,17 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 180
+          "value": 86,
+          "doubleVs": "Burning"
         },
         {
           "kind": "BurnAll",
           "value": 5
+        },
+        {
+          "kind": "Detonate",
+          "value": 0,
+          "targetAll": true
         }
       ]
     },
@@ -59,7 +65,8 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 120
+          "value": 108,
+          "doubleVs": "Burning"
         },
         {
           "kind": "BurnAll",
@@ -80,11 +87,15 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 120
+          "value": 126
         },
         {
           "kind": "BurnAll",
           "value": 3
+        },
+        {
+          "kind": "BurnPotency",
+          "value": 20
         }
       ]
     },
@@ -101,11 +112,12 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 340
+          "value": 270,
+          "doubleVs": "Burning"
         },
         {
           "kind": "BurnSingle",
-          "value": 2
+          "value": 3
         }
       ]
     },
@@ -122,11 +134,11 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 50
+          "value": 34
         },
         {
           "kind": "BurnAll",
-          "value": 1
+          "value": 2
         }
       ]
     },
@@ -143,7 +155,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 50
+          "value": 45
         },
         {
           "kind": "Detonate",
@@ -165,7 +177,8 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 70
+          "value": 48,
+          "doubleVs": "Burning"
         },
         {
           "kind": "BurnAll",
@@ -186,11 +199,12 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 380
+          "value": 309,
+          "backline": true
         },
         {
           "kind": "BurnSingle",
-          "value": 1
+          "value": 2
         }
       ]
     },
@@ -206,12 +220,13 @@
       "gloss": "火熄、尽绝",
       "effects": [
         {
-          "kind": "DamageAll",
-          "value": 30
+          "kind": "Silence",
+          "value": 0,
+          "turns": 1
         },
         {
-          "kind": "Dispel",
-          "value": -1
+          "kind": "DamageAll",
+          "value": 19
         }
       ]
     },
@@ -227,15 +242,15 @@
       "gloss": "干而无润",
       "effects": [
         {
+          "kind": "DamageSingle",
+          "value": 120
+        },
+        {
           "kind": "BurnSingle",
-          "value": 3
+          "value": 2
         },
         {
-          "kind": "BurnPotency",
-          "value": 10
-        },
-        {
-          "kind": "BurnSettleNow",
+          "kind": "Detonate",
           "value": 0
         }
       ]
@@ -252,12 +267,16 @@
       "gloss": "水气上腾",
       "effects": [
         {
+          "kind": "DamageSingle",
+          "value": 120
+        },
+        {
           "kind": "BurnSingle",
           "value": 2
         },
         {
-          "kind": "DamageSingle",
-          "value": 135
+          "kind": "BurnPotency",
+          "value": 10
         }
       ]
     },
@@ -274,7 +293,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 70
+          "value": 90
         },
         {
           "kind": "BurnSingle",
@@ -534,18 +553,23 @@
       "gloss": "洪水滔天",
       "effects": [
         {
-          "kind": "SpendWellspring",
-          "value": 80
-        },
-        {
           "kind": "HealSelf",
           "value": 540
         }
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 250
+          "kind": "DamageSingle",
+          "value": 249,
+          "doubleVs": "Controlled"
+        },
+        {
+          "kind": "Freeze",
+          "value": 2
+        },
+        {
+          "kind": "SpendWellspring",
+          "value": 80
         }
       ]
     },
@@ -567,8 +591,13 @@
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 190
+          "kind": "DamageSingle",
+          "value": 269,
+          "doubleVs": "Controlled"
+        },
+        {
+          "kind": "Freeze",
+          "value": 2
         }
       ]
     },
@@ -591,11 +620,13 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 105
+          "value": 99,
+          "doubleVs": "Controlled"
         },
         {
-          "kind": "Dispel",
-          "value": -1
+          "kind": "Silence",
+          "value": 0,
+          "turns": 1
         }
       ]
     },
@@ -618,7 +649,12 @@
       "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 50
+          "value": 46
+        },
+        {
+          "kind": "Silence",
+          "value": 0,
+          "turns": 1
         }
       ]
     },
@@ -634,10 +670,6 @@
       "gloss": "堤破水散",
       "effects": [
         {
-          "kind": "SpendWellspring",
-          "value": 20
-        },
-        {
           "kind": "HealSelf",
           "value": 90
         }
@@ -645,13 +677,17 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 77,
+          "value": 72,
           "shape": "Chain",
           "shots": 3,
           "shapePercent": 50
         },
         {
           "kind": "ArmorBreak",
+          "value": 20
+        },
+        {
+          "kind": "SpendWellspring",
           "value": 20
         }
       ]
@@ -675,7 +711,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 238,
+          "value": 244,
           "doubleVs": "Controlled"
         },
         {
@@ -702,12 +738,12 @@
       ],
       "attackEffects": [
         {
-          "kind": "Freeze",
-          "value": 1
+          "kind": "Slow",
+          "value": 2
         },
         {
           "kind": "DamageSingle",
-          "value": 32
+          "value": 63
         }
       ]
     },
@@ -730,12 +766,11 @@
       "attackEffects": [
         {
           "kind": "Slow",
-          "value": 2
+          "value": 1
         },
         {
           "kind": "DamageSingle",
-          "value": 77,
-          "backline": true
+          "value": 49
         }
       ]
     },
@@ -758,7 +793,16 @@
       "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 190
+          "value": 132
+        },
+        {
+          "kind": "Silence",
+          "value": 0,
+          "turns": 2
+        },
+        {
+          "kind": "Slow",
+          "value": 2
         }
       ]
     },
@@ -776,20 +820,20 @@
         {
           "kind": "HealSelf",
           "value": 105
-        },
-        {
-          "kind": "Cleanse",
-          "value": 0
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 105
+          "value": 99,
+          "shape": "Chain",
+          "shots": 3,
+          "shapePercent": 50
         },
         {
-          "kind": "Cleanse",
-          "value": 0
+          "kind": "Silence",
+          "value": 0,
+          "turns": 1
         }
       ]
     },
@@ -806,14 +850,23 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 113,
+          "value": 39,
           "turns": 3
+        },
+        {
+          "kind": "Revive",
+          "value": 1
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 340
+          "value": 197
+        },
+        {
+          "kind": "Silence",
+          "value": 0,
+          "turns": 1
         }
       ]
     },
@@ -828,11 +881,16 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 540
+          "value": 362,
+          "doubleVs": "ArmorBroken"
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 40
         },
         {
           "kind": "Morale",
-          "value": 1
+          "value": 4
         }
       ]
     },
@@ -849,11 +907,13 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 430
+          "value": 348,
+          "shape": "Sweep",
+          "shapePercent": 50
         },
         {
           "kind": "Morale",
-          "value": 1
+          "value": 3
         }
       ]
     },
@@ -870,8 +930,11 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 450,
-          "backline": true
+          "value": 154,
+          "backline": true,
+          "executeBelowPercent": 25,
+          "executeKills": true,
+          "hitCount": 2
         },
         {
           "kind": "Morale",
@@ -892,7 +955,12 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 180
+          "value": 131,
+          "hitCount": 2
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 30
         },
         {
           "kind": "Morale",
@@ -913,7 +981,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 110,
+          "value": 128,
           "doubleVs": "Bleeding",
           "executeBelowPercent": 25,
           "executeKills": true
@@ -937,7 +1005,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 70,
+          "value": 64,
           "hitCount": 2
         },
         {
@@ -962,15 +1030,14 @@
       "gloss": "两刃长兵",
       "effects": [
         {
-          "kind": "Summon",
-          "value": 48,
-          "count": 1,
-          "attack": 64,
-          "summonChar": "剑",
-          "passive": {
-            "shape": "Sweep",
-            "shapePercent": 50
-          }
+          "kind": "DamageSingle",
+          "value": 95,
+          "shape": "Sweep",
+          "shapePercent": 50
+        },
+        {
+          "kind": "Morale",
+          "value": 1
         }
       ]
     },
@@ -1012,7 +1079,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 100,
+          "value": 112,
           "executeBelowPercent": 25,
           "executeKills": false
         },
@@ -1034,12 +1101,13 @@
       "gloss": "锋刃锐、得其益",
       "effects": [
         {
-          "kind": "ApBoost",
-          "value": 1
+          "kind": "Empower",
+          "value": 30,
+          "turns": 2
         },
         {
           "kind": "DamageSingle",
-          "value": 30
+          "value": 45
         }
       ]
     },
@@ -1056,7 +1124,12 @@
       "effects": [
         {
           "kind": "CritBuff",
-          "value": 20
+          "value": 20,
+          "turns": 3
+        },
+        {
+          "kind": "DamageSingle",
+          "value": 63
         }
       ]
     },
@@ -1079,8 +1152,8 @@
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 250
+          "kind": "DamageSingle",
+          "value": 322
         },
         {
           "kind": "SpendHeft",
@@ -1107,7 +1180,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 301,
+          "value": 306,
           "doubleVs": "ArmorBroken"
         }
       ]
@@ -1125,13 +1198,19 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 170
+          "value": 119
+        },
+        {
+          "kind": "Reflect",
+          "value": 50,
+          "turns": 2
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 340
+          "value": 244,
+          "doubleVs": "ArmorBroken"
         }
       ]
     },
@@ -1214,13 +1293,17 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 35
+          "value": 30
+        },
+        {
+          "kind": "DefenseBuff",
+          "value": 4
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 70
+          "value": 60
         }
       ]
     },
@@ -1261,7 +1344,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 25
+          "value": 35
         },
         {
           "kind": "Reflect",
@@ -1272,12 +1355,7 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 49
-        },
-        {
-          "kind": "Reflect",
-          "value": 30,
-          "turns": 2
+          "value": 70
         }
       ]
     },
@@ -1294,17 +1372,21 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 119
+          "value": 109
         },
         {
           "kind": "Immunity",
           "value": 2
+        },
+        {
+          "kind": "DefenseBuff",
+          "value": 9
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 238
+          "value": 223
         },
         {
           "kind": "Immunity",
@@ -1325,17 +1407,17 @@
       "effects": [
         {
           "kind": "ShieldAll",
-          "value": 27
+          "value": 21
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 70
+          "value": 38
         },
         {
           "kind": "SpendHeft",
-          "value": 40
+          "value": 14
         }
       ]
     },
@@ -1352,13 +1434,13 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 55
+          "value": 46
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 77
+          "value": 91
         },
         {
           "kind": "ArmorBreak",

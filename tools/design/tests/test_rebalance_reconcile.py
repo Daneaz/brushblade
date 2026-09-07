@@ -131,7 +131,6 @@ def _atk_expected_kind(r):
     return "DamageAll" if is_group else "DamageSingle"
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_atk_total_matches_target():
     """攻击列:只比总量(DamageSingle + DamageAll 之和),不管落在哪个 kind ——
     模式对不对由 test_atk_mode_matches_target 另管。
@@ -150,7 +149,6 @@ def test_atk_total_matches_target():
     assert not bad, "攻击列(总量)不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_atk_mode_matches_target():
     """攻击列:只比模式(单体/全体落在哪个 kind),依据 spec §6.0——总量算对了但
     kind 挂反(单体价钱配全体打击面,如 㙓/㵘/淼)是隐形超标,总量测试独立看不出来。
@@ -272,7 +270,6 @@ def test_ultimate_matches_target():
     assert not bad, "终极技/层列不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
 
 
-@pytest.mark.xfail(reason="P2 落地完成前预期失败,见 docs/superpowers/plans/2026-09-07-字表平衡重做-P2-数值落地.md Task 4", strict=True)
 def test_burn_matches_target():
     """灼烧列「(全体)?灼烧 N」→ BurnSingle / BurnAll 的 value=N。"""
     target, actual = _target_rows(), _actual()
