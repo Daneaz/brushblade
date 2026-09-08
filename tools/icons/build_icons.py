@@ -24,6 +24,9 @@ CANVAS = 64
 STROKE = 'fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"'
 FILL = 'fill="#fff"'
 
+# 细描边:技能树图标的构件比状态图标多(两张牌、四个格),6 的线宽在 46px 节点上糊成一坨
+STROKE4 = 'fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"'
+
 # 导航图标(nav_*)另一套:路径直接抄 Home.dc.html,那边是 24 的 viewBox,
 # 这里只加一层缩放撑到 64,坐标一个不改 —— 手改坐标必然和稿漂开。
 # 线宽也照稿的 1.7(在 24 空间里)而不是上面的 6:导航图标显示在 36 逻辑单位上,
@@ -204,6 +207,55 @@ ICONS = {
     # 与 defense(实心盾)、immunity(盾+对勾)刻意都不像 —— 那两个是「挡」,这个是「回」。
     "heal": (
         f'<path {FILL} d="M26 12h12v14h14v12H38v14H26V38H12V26h14z"/>'
+    ),
+
+    # ---- 技能树节点 9 枚(2026-09-08)----
+    # 抽取次数 +1:两张错位的签,前面那张顶端尖出来 = 抽两次取更好的
+    "perk_draw": (
+        f'<path {STROKE4} d="M14 22h16v34H14z"/>'
+        f'<path {STROKE} d="M36 18h14v38H36z"/>'
+        f'<path {FILL} d="M43 6l7 11H36z"/>'
+    ),
+    # 战利品保底:一排候选,中间那个实心 = 必有一个是你要的
+    "perk_loot": (
+        f'<circle cx="14" cy="40" r="6" {STROKE4}/>'
+        f'<circle cx="32" cy="40" r="9" {FILL}/>'
+        f'<circle cx="50" cy="40" r="6" {STROKE4}/>'
+        f'<path {STROKE4} d="M32 10v12"/>'
+    ),
+    # 效果放大:实心核 + 两道外扩的弧
+    "perk_amplify": (
+        f'<circle cx="32" cy="32" r="9" {FILL}/>'
+        f'<path {STROKE4} d="M46 18a20 20 0 0 1 0 28M18 46a20 20 0 0 1 0-28"/>'
+    ),
+    # 泉:承水的凹弧 + 向上涌的三点
+    "perk_wellspring": (
+        f'<path {STROKE} d="M12 38a20 20 0 0 0 40 0"/>'
+        f'<path {STROKE} d="M32 30V10M22 24l4-8M42 24l-4-8"/>'
+    ),
+    # 厚:自下而上收窄的三层 = 堆叠的厚度
+    "perk_heft": f'<path {STROKE} d="M10 50h44M15 36h34M21 22h22"/>',
+    # 生命上限:容器 + 内部液面 + 顶上的加号
+    "perk_hp": (
+        f'<path {STROKE} d="M16 22v24a16 16 0 0 0 32 0V22"/>'
+        f'<path {STROKE4} d="M17 38h30"/>'
+        f'<path {STROKE4} d="M32 8v10M27 13h10"/>'
+    ),
+    # 字库容量:四格 + 一个虚位(右下角空着 = 还能再放)
+    "perk_library": (
+        f'<path {STROKE4} d="M12 12h18v18H12zM34 12h18v18H34zM12 34h18v18H12z"/>'
+        f'<path {STROKE4} stroke-dasharray="5 5" d="M34 34h18v18H34z"/>'
+    ),
+    # 起手张数:扇形展开的三张牌
+    "perk_hand": (
+        f'<path {STROKE4} d="M26 54V20h12v34" transform="rotate(-22 32 54)"/>'
+        f'<path {STROKE4} d="M26 54V20h12v34" transform="rotate(22 32 54)"/>'
+        f'<path {STROKE} d="M25 52V16h14v36z"/>'
+    ),
+    # 行动点:三格槽,填了两格
+    "perk_ap": (
+        f'<path {STROKE4} d="M10 24h44v16H10z"/>'
+        f'<path {FILL} d="M14 28h10v8H14zM27 28h10v8H27z"/>'
     ),
 }
 

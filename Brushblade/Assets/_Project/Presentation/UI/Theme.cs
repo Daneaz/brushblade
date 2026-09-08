@@ -258,6 +258,17 @@ namespace Brushblade.Presentation
             "wide" => ElementColor(Element.Water),
             "insight" => Gold,
             "qi" => Jade,
+            // 跨树节点(2026-09-08 定色)。三条**共用一个色**,取心的紫 ——
+            //
+            // 1. 它们是同一类(PerkTree.Cross),同色正是在说这件事;区分靠外圈虚线环
+            //    与各自的效果图标,不靠色相。
+            // 2. 紫在上面 13 条枝色与 5 个五行元素色里一条都没用过,所以放在环上的
+            //    任何角度都不会与邻枝撞色 —— 初稿按角度逐个躲(相济=Cinnabar 撞元 13.5°、
+            //    博采=Jade 撞一气 171°),那是打地鼠,枝一改角度就得重躲一遍。
+            // 3. 与主界面「技能」页签的 PerkTab(同样 FromElement(Element.Heart))同源。
+            "xvigor" => ElementColor(Element.Heart),
+            "xedge" => ElementColor(Element.Heart),
+            "xdraw" => ElementColor(Element.Heart),
             _ => TextMain,
         };
 

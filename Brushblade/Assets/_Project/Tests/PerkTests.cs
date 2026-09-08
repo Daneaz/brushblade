@@ -98,25 +98,27 @@ namespace Brushblade.Core.Tests
         {
             int total = 0;
             foreach (var def in PerkRules.Nodes) total += def.InkCost;
-            Assert.That(total, Is.EqualTo(43600), "全树总价(spec §2.4)");
+            Assert.That(total, Is.EqualTo(46600), "全树总价(spec 2026-09-08 §6)");
         }
 
         // ---- 表的形状 ----
 
         [Test]
-        public void Nodes_AreFortyAcrossThreeTrees()
+        public void Nodes_AreFortyThreeAcrossFourCategories()
         {
-            Assert.That(PerkRules.Nodes.Count, Is.EqualTo(40));
-            int wuxing = 0, passive = 0, mechanic = 0;
+            Assert.That(PerkRules.Nodes.Count, Is.EqualTo(43));
+            int wuxing = 0, passive = 0, mechanic = 0, cross = 0;
             foreach (var def in PerkRules.Nodes)
             {
                 if (def.Tree == PerkTree.Wuxing) wuxing++;
                 else if (def.Tree == PerkTree.Passive) passive++;
-                else mechanic++;
+                else if (def.Tree == PerkTree.Mechanic) mechanic++;
+                else cross++;
             }
             Assert.That(wuxing, Is.EqualTo(20));
             Assert.That(passive, Is.EqualTo(12));
             Assert.That(mechanic, Is.EqualTo(8));
+            Assert.That(cross, Is.EqualTo(3), "跨树节点不属于任何一棵树(spec 2026-09-08 §3.0)");
         }
 
         /// <summary>五行树每一枝都要绑一个元素,其余两棵树都不许绑 ——

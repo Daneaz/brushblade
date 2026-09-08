@@ -67,6 +67,18 @@ namespace Brushblade.Presentation
             { "skewer", "贯" },
             // 第 30 枚(2026-08-30):持续治疗
             { "heal", "愈" },
+            // 技能树节点 9 枚(2026-09-08)。PNG 取不到时回落成汉字徽章。
+            // ⚠ 这几个字必须在字体子集里 —— subset_fonts.py 扫 .cs 的字符串字面量,
+            // 写在这里就自动收进去,但**改完必须重跑一次** subset_fonts.py。
+            { "perk_draw", "抽" },
+            { "perk_loot", "获" },
+            { "perk_amplify", "增" },
+            { "perk_wellspring", "泉" },
+            { "perk_heft", "厚" },
+            { "perk_hp", "命" },
+            { "perk_library", "库" },
+            { "perk_hand", "手" },
+            { "perk_ap", "点" },
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new();
