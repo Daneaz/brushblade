@@ -471,7 +471,9 @@ namespace Brushblade.CoreTests
             var armorBreak = engine.Enemies[0].Statuses.Find(StatusKind.ArmorBreak);
             Assert.That(armorBreak, Is.Not.Null);
             Assert.That(armorBreak.Magnitude, Is.EqualTo(2), "破甲削减点数不吃暴击");
-            Assert.That(armorBreak.TurnsLeft, Is.EqualTo(-1), "破甲本场持久");
+            // 2026-09-08 破甲限时:夹具没写 turns,走兜底 1 回合(本条测的是「点数不吃暴击」,
+            // 存续多久与它无关 —— 只是顺带把口径钉住,免得下次改动静默溜过去)
+            Assert.That(armorBreak.TurnsLeft, Is.EqualTo(1), "破甲限时:缺 turns 兜底 1 回合");
         }
 
         // ---- 快照:目标是零新增字段 ----

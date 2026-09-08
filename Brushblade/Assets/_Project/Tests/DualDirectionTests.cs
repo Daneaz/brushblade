@@ -46,6 +46,10 @@ namespace Brushblade.Core.Tests
         private static int ShieldValueOf(RecipeGraph graph, string id) =>
             graph.Get(id).Effects.First(e => e.Kind == EffectKind.Shield).Value;
 
+        /// <summary>该字护盾面第一条 ShieldAll 效果的 Value(群盾字:崩 / 㙓)。</summary>
+        private static int ShieldAllValueOf(RecipeGraph graph, string id) =>
+            graph.Get(id).Effects.First(e => e.Kind == EffectKind.ShieldAll).Value;
+
         /// <summary>该字治疗面第一条治疗效果的 Value。</summary>
         private static int HealValueOf(RecipeGraph graph, string id)
         {
@@ -87,13 +91,25 @@ namespace Brushblade.Core.Tests
             [CardRarity.Red] = (600, 300, 450, 350),
         };
 
-        /// <summary>只收了下面两条测试用到的特性单价,不是全表价目(见上方大注释)。</summary>
+        /// <summary>只收了下面两条测试用到的特性单价,不是全表价目(见上方大注释)。
+        ///
+        /// 2026-09-08(P4)三处改价,与 spec §2.3 同步:
+        /// - **终极技 0.50 → 0.00**:用户裁定它不是通用技能,是厚/泉构筑的唯一入口
+        ///   (红卡太难拿,发挥厚与泉基本必须靠 溃 / 崩 两张蓝卡),不该再收构筑级的钱;
+        /// - **护甲 0.33 → 0.28**(限时 4 回合,持久 × 0.85)、**破甲 0.33 → 0.25**
+        ///   (限时 3 回合,持久 × 0.75):两条随「所有 buff 类必须附带回合数」限时化,
+        ///   限时的东西不该按持久的价收。</summary>
         private static readonly Dictionary<string, double> TraitPrice = new()
         {
-            ["反伤30"] = 0.22, ["反伤50"] = 0.35, ["对破甲"] = 0.25, ["终极技"] = 0.50,
-            ["免一次清盾"] = 0.20, ["护甲"] = 0.33, ["免疫1"] = 0.35,
+            ["反伤30"] = 0.22, ["反伤50"] = 0.35, ["对破甲"] = 0.25, ["终极技"] = 0.00,
+            ["免一次清盾"] = 0.20, ["护甲"] = 0.28, ["免疫1"] = 0.35,
             ["冻结1"] = 0.35, ["冻结2"] = 0.55, ["对控制"] = 0.25, ["封禁"] = 0.38,
         };
+
+        /// <summary>群体形态系数(spec §1.4 的 GROUP_F):群疗 / 群盾按 0.60 折。
+        /// 2026-09-08 起**带终极技的字一律群体形态** —— 放电(SpendHeft / SpendWellspring)
+        /// 本来就是打全体,攻护两面跟着对称。</summary>
+        private const double GroupF = 0.60;
 
         private static double Ratio(CardRarity rarity, params string[] traits) =>
             traits.Sum(t => TraitPrice[t]) * RarityK[rarity];
@@ -108,6 +124,17 @@ namespace Brushblade.Core.Tests
 
         private static int ExpectedSingleAttack(CardRarity rarity, params string[] traits) =>
             Round(RarityAnchor[rarity].Single * (1 - Ratio(rarity, traits)));
+
+        /// <summary>群疗 / 群盾:同一条公式再乘 GROUP_F。攻面走的是**全体锚点**(不再乘一次
+        /// GROUP_F —— 全体锚点本身已经是单攻的折价档,见 spec §6.0)。</summary>
+        private static int ExpectedGroupHeal(CardRarity rarity, params string[] traits) =>
+            Round(RarityAnchor[rarity].Heal * HealF * GroupF * (1 - Ratio(rarity, traits)));
+
+        private static int ExpectedGroupShield(CardRarity rarity, params string[] traits) =>
+            Round(RarityAnchor[rarity].Shield * ShieldF * GroupF * (1 - Ratio(rarity, traits)));
+
+        private static int ExpectedAllAttack(CardRarity rarity, params string[] traits) =>
+            Round(RarityAnchor[rarity].All * (1 - Ratio(rarity, traits)));
 
         [Test]
         public void EveryWaterChar_HasBothDirections()
@@ -145,8 +172,10 @@ namespace Brushblade.Core.Tests
             var graph = LoadRealGraph();
             Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(ExpectedHeal(CardRarity.Gold, "冻结1", "对控制")),
                 "金档:治疗锚点240 × HEAL_F × (1 − (冻结1+对控制)×K金)");
-            Assert.That(HealValueOf(graph, "㵘"), Is.EqualTo(ExpectedHeal(CardRarity.Red, "终极技", "冻结2", "对控制")),
-                "红档:治疗锚点350 × HEAL_F × (1 − (终极技+冻结2+对控制)×K红)");
+            // 㵘 2026-09-08 起是群疗(带终极技的字一律群体形态),多乘一道 GROUP_F
+            Assert.That(HealValueOf(graph, "㵘"),
+                Is.EqualTo(ExpectedGroupHeal(CardRarity.Red, "终极技", "冻结2", "对控制")),
+                "红档:治疗锚点350 × HEAL_F × GROUP_F × (1 − (冻结2+对控制)×K红);终极技不计价");
             Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(ExpectedHeal(CardRarity.Purple, "封禁", "对控制")),
                 "紫档:治疗锚点120 × HEAL_F × (1 − (封禁+对控制)×K紫)");
         }
@@ -261,8 +290,13 @@ namespace Brushblade.Core.Tests
             var graph = LoadRealGraph();
             Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "反伤50", "对破甲")),
                 "金档:护盾锚点300 × SHIELD_F × (1 − (反伤50+对破甲)×K金)");
-            Assert.That(ShieldValueOf(graph, "㙓"), Is.EqualTo(ExpectedShield(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
-                "红档:护盾锚点450 × SHIELD_F × (1 − (终极技+免一次清盾+护甲)×K红)");
+            // 㙓 2026-09-08 起是群盾 + 群攻(与 崩 对称:红档的厚积薄发载体也该打全场)
+            Assert.That(ShieldAllValueOf(graph, "㙓"),
+                Is.EqualTo(ExpectedGroupShield(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
+                "红档:护盾锚点450 × SHIELD_F × GROUP_F × (1 − (免一次清盾+护甲)×K红);终极技不计价");
+            Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageAll).Value,
+                Is.EqualTo(ExpectedAllAttack(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
+                "攻面走全体锚点,与护盾面同一个 ratio");
             Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1", "护甲")),
                 "金档:护盾锚点300 × SHIELD_F × (1 − (免疫1+护甲)×K金)");
             Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,

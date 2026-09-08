@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Brushblade.Core;
@@ -103,7 +104,7 @@ namespace Brushblade.Presentation
                             : Strings.T("char.effect.summon.other", ("count", e.SummonCount)) + "「" + e.SummonChar + "」") +
                         Strings.T("char.effect.summon.stats",
                             ("hp", shown), ("atk", MetaRules.ScaleByCardLevel(e.SummonAttack, cardLevel)))
-                        + PassiveText(e.Passive) + SummonShieldText(e),
+                        + PassiveText(e.Passive) + SummonShieldText(e) + SummonDefenseText(e),
                     EffectKind.Bleed => Strings.T("char.effect.bleed", ("value", shown)),
                     EffectKind.HealAll => Strings.T("char.effect.healall", ("value", shown)),
                     EffectKind.HealOverTime => e.TargetAll
@@ -111,8 +112,12 @@ namespace Brushblade.Presentation
                         : Strings.T("char.effect.healovertime.single", ("value", shown), ("turns", e.Turns)),
                     EffectKind.Freeze => Strings.T("char.effect.freeze", ("value", shown)),
                     EffectKind.Slow => Strings.T("char.effect.slow", ("value", shown)),
-                    EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff", ("value", shown)),
-                    EffectKind.ArmorBreak => Strings.T("char.effect.armorbreak", ("value", shown)),
+                    // 护甲/破甲 2026-09-08 起限时,回合数要印在卡面上 —— 玩家看不到时限
+                    // 就会当成本场持久去规划出牌顺序(这两条以前确实是持久的)
+                    EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",
+                        ("value", shown), ("turns", Math.Max(1, e.Turns))),
+                    EffectKind.ArmorBreak => Strings.T("char.effect.armorbreak",
+                        ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
                     // 用 e.Value 而不是 v:真正的约束是正数条数不能被 ScaleByCardLevel 缩放
                     // (Lv.10 系数 1.9,「驱散 2 条」会被算成 ceil(2×1.9)=4 条,与 Core 实际驱散数不符;
@@ -240,6 +245,12 @@ namespace Brushblade.Presentation
         /// 它作用于出字时已在场的其他召唤物,不是这只召唤物自带的被动。</summary>
         private static string SummonShieldText(EffectDef e) =>
             e.SummonShield > 0 ? Strings.T("char.effect.summonshield", ("value", e.SummonShield)) : "";
+
+        /// <summary>召唤物**入场自带**的护甲(2026-09-08,塔 = 7)。与 SummonShieldText 分开:
+        /// 那条发给全场已在场的召唤物,这条只是新召出这几只自己的属性。
+        /// 也不并进 PassiveText —— 它不走 SummonPassive,而是往召唤物状态袋里挂 DefenseBuff。</summary>
+        private static string SummonDefenseText(EffectDef e) =>
+            e.SummonDefense > 0 ? Strings.T("char.effect.summondefense", ("value", e.SummonDefense)) : "";
 
         /// <summary>穿透后缀(2026-08-12,E-b4 T3)。口径从「穿甲:无视减伤,额外 +15%」换成
         /// 点数 —— 旧的 +15% 已固化进这三个字的基础值,卡面上的伤害数字自己涨了,

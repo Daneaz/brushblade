@@ -362,6 +362,14 @@ namespace Brushblade.Presentation
                         onImpact?.Invoke(e); // 触达才扣召唤血
                         serialPending = true;
                         break;
+                    case BattleEventKind.CharmedAttack: // 被魅惑的怪打自己人:只做攻击者那一半
+                        // 受害者那一半(飘伤害/受击/震屏)由紧随其后的 Damage 事件照常出 ——
+                        // 这条只补上「谁出的手」。不补的话伤害凭空落在队友头上,像 bug。
+                        // 不 HitStop、不震屏:那些是触达的表达,归 Damage 那一条。
+                        if (serialPending) yield return Beat(StepGap);
+                        Lunge(enemyAnchor(e.TargetIndex));
+                        PlayClip(_hitClip, 0.5f);
+                        break;
                     case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
                         if (serialPending) yield return Beat(StepGap);
                         Lunge(enemyAnchor(e.TargetIndex));

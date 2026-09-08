@@ -38,7 +38,7 @@ namespace Brushblade.Core.Tests
             // 护甲 2 点(测试本地值,真实字表是 12):这里的 Boss 攻击力只有 5,
             // 拿 12 会把普攻直接归零,断言看不出「大招也吃护甲」这件事
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 2) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 2, turns: 4) }),
         });
 
         private static BattleEngine Engine(BossSkill skill) =>

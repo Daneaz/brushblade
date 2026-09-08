@@ -49,6 +49,7 @@ namespace Brushblade.Data
             public int Pierce { get; set; }            // 穿透:本次攻击视目标护甲少 N 点(2026-08-12,E-b4)
             public SummonPassive Passive { get; set; }  // 召唤:被动(null = 无)
             public int SummonShield { get; set; }       // 召唤:出字给全场召唤物各 +N 盾(桂)
+            public int SummonDefense { get; set; }      // 召唤:本次召出的这几只入场自带 N 点护甲(塔,2026-09-08)
             public int ExecuteBelowPercent { get; set; } // 斩杀:目标 HP 低于此百分比时触发
             public bool ExecuteKills { get; set; }       // true = 直接击杀(Boss 免疫);false = 伤害 ×2
             public int HitCount { get; set; } = 1;  // 多段:伤害分几段打(剁 = 2)
@@ -524,7 +525,7 @@ namespace Brushblade.Data
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,
                     effect.Count, effect.Attack, effect.SummonChar,
                     effect.Turns, effect.TargetAll,
-                    effect.Passive, effect.SummonShield,
+                    effect.Passive, effect.SummonShield, effect.SummonDefense,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
                     effect.HitCount, effect.Pierce, effect.Backline,
                     shape, effect.ShapePercent, effect.Shots));

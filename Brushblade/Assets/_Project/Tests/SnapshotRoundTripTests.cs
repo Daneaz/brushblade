@@ -30,7 +30,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Shield, 10, persistOnce: true) }),
             new CharDef("呆", null),
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12, turns: 4) }),
             new CharDef("锯", Element.Metal,
                 effects: new[] { new EffectDef(EffectKind.Bleed, 3) }),
         });
@@ -490,8 +490,11 @@ namespace Brushblade.Core.Tests
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 
+        /// <summary>护甲限时化之后(2026-09-08)携带态里**不再有**护甲增益 —— 这条测试随之
+        /// 从「护甲跨战斗结转」翻成「护甲留在本场,而存盘/读盘两侧对这件事的看法一致」。
+        /// 往返本身仍是重点:两个引擎在段间断点前后必须逐位同摘要,包括携带态为空这一情形。</summary>
         [Test]
-        public void CarriedDefenseBuffs_RoundTrip_AcrossFloorBreak() // 护甲增益跨战斗结转:段内持久
+        public void CarriedDefenseBuffs_DoNotSurviveFloorBreak()
         {
             var def = new EnemyDef("枯", Element.Wood, 4, 1);
             var config = TwoBattles(def);
@@ -500,16 +503,17 @@ namespace Brushblade.Core.Tests
             a.Battle.Cast("铠");
             a.Battle.Cast("炎", 0); // 一发清场
             Assert.That(a.Battle.Phase, Is.EqualTo(BattlePhase.Won));
-            a.AdvanceAfterBattle();     // 打完第一场:携带态已含护甲增益来源
-            Assert.That(a.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(12));
+            a.AdvanceAfterBattle();
+            Assert.That(a.CarriedStatuses.Any(s => s.SourceId == "铠"), Is.False,
+                "限时增益不进携带态");
 
             var b = Reload(a, config);
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
-            Assert.That(b.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(12));
+            Assert.That(b.CarriedStatuses.Any(s => s.SourceId == "铠"), Is.False);
 
             foreach (var r in new[] { a, b }) r.SkipReward(); // 进入第二场
-            Assert.That(a.Battle.EffectivePlayerDefense, Is.EqualTo(12), "跨战斗仍在生效");
-            Assert.That(b.Battle.EffectivePlayerDefense, Is.EqualTo(12));
+            Assert.That(a.Battle.EffectivePlayerDefense, Is.EqualTo(0), "第二场从零开始");
+            Assert.That(b.Battle.EffectivePlayerDefense, Is.EqualTo(0));
             Assert.That(Digest(b), Is.EqualTo(Digest(a)));
         }
 

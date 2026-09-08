@@ -20,7 +20,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 6), new EffectDef(EffectKind.BurnSingle, 1) }),
             new CharDef("丁", null),
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 12, turns: 4) }),
         });
 
         private static EnemyDef Weak(int hp = 4) => new("枯", Element.Wood, hp, 2);
@@ -933,20 +933,26 @@ namespace Brushblade.Core.Tests
             Assert.That(run.Battle.PlayerShield, Is.EqualTo(4)); // 上关剩 5/2=2 + 每关 2
         }
 
+        /// <summary>护甲**不再**跨战斗(2026-09-08 语义反转)。原先它与护盾同口径「段内持久」,
+        /// 而护甲随「所有 buff 必须附带回合数」改成限时之后,这条口径自相矛盾 ——
+        /// 「4 回合内有效」的东西跨过一整场战斗还剩几回合,没有一个说得通的答案。
+        /// RunEngine 的携带筛选因此按**存续**排除(TurnsLeft < 0),而不是按 Kind:
+        /// 厚/泉是层数(恒 -1)照旧跨场,任何限时增益一律留在本场。</summary>
         [Test]
-        public void DefenseBuff_CarriesToNextBattle() // 段内持久:护甲增益跨层保留(与护盾同口径)
+        public void DefenseBuff_DoesNotCarryToNextBattle()
         {
             var run = new RunEngine(Graph(), TwoBattles(),
                 new BattleConfig { DropTable = new[] { "木" } },
                 startingLibrary: new[] { "焚", "铠" }, startingPool: Array.Empty<string>(), seed: 7);
             run.Battle.Cast("铠");
-            Assert.That(run.Battle.EffectivePlayerDefense, Is.EqualTo(12));
+            Assert.That(run.Battle.EffectivePlayerDefense, Is.EqualTo(12), "本场当然有效");
             WinCurrentBattle(run);            // 焚一发清场(不 EndTurn,护甲增益不变)
             run.AdvanceAfterBattle();
-            Assert.That(run.CarriedStatuses.First(s => s.SourceId == "铠").Magnitude, Is.EqualTo(12));
+            Assert.That(run.CarriedStatuses.Any(s => s.SourceId == "铠"), Is.False,
+                "限时增益不进携带态");
             run.SkipReward();                 // 进入第二关
             Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
-            Assert.That(run.Battle.EffectivePlayerDefense, Is.EqualTo(12), "护甲增益跨场保留");
+            Assert.That(run.Battle.EffectivePlayerDefense, Is.EqualTo(0), "第二场从零开始");
         }
 
         // ---- 召唤物跨战斗保留(2026-08-03 拍板):与普通盾同口径全程延续,直到死亡 ----

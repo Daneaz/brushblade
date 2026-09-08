@@ -47,7 +47,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.PierceBuff, 8) }),
             // 铠:护甲 +8 点
             new CharDef("铠", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 8) }),
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 8, turns: 4) }),
             // 壁:反弹 50%(真实字表的 壁 还带 Shield,盾会把伤害吃掉、看不出反弹,所以这里只留反弹)
             new CharDef("壁", Element.Earth,
                 effects: new[] { new EffectDef(EffectKind.Reflect, 50, turns: 3) }),

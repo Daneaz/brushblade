@@ -375,12 +375,16 @@ namespace Brushblade.Core.Tests
             // 溃/碎(2026-09-02 双方向重配):破甲随攻击面一起搬进 AttackEffects,不再挂在
             // Effects 上 —— 读取位置跟着改。
             // 2026-09-05 用户拍板把 溃 从白档升到蓝档,破甲**跟着档位走**,10 → 20 ——
-            // 「白 10 / 蓝 20」这条轴没变,变的是溃站在哪一档。于是两张字现在同为 20,
-            // 而这条测试守的本来就是「每张字带着与自己档位相符的点数」。
-            var kui = graph.Get("溃").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
-            Assert.That(kui.Value, Is.EqualTo(20), "「溃」破甲削减点数(蓝档)");
+            // 「白 10 / 蓝 20」这条轴没变,变的是溃站在哪一档。
+            // 2026-09-08(P4):溃 的破甲**卸掉** —— spec §6 的溃只列了「终极技」一条特性、
+            // 预算也是照那个算的,弹射与破甲从来没付过钱(弹射按用户裁定移交 海)。
+            // 破甲的蓝档载体因此只剩 碎 一张,这条测试跟着只钉它。
+            Assert.That(graph.Get("溃").AttackEffects.Any(e => e.Kind == EffectKind.ArmorBreak),
+                Is.False, "「溃」不再带破甲");
             var sui = graph.Get("碎").AttackEffects.First(e => e.Kind == EffectKind.ArmorBreak);
             Assert.That(sui.Value, Is.EqualTo(20), "「碎」破甲削减点数");
+            // 破甲 2026-09-08 起限时(用户裁定「所有 buff 类必须附带回合数」;护甲那一边同批)
+            Assert.That(sui.Turns, Is.EqualTo(3), "破甲 3 回合");
         }
 
         [Test]
@@ -467,8 +471,13 @@ namespace Brushblade.Core.Tests
             // 移出了字表,净化本身也随「净化并入封禁」的裁定不再保留(见
             // RealConfig_DispelAndCleanseHaveNoCarrier)——这条测试现在只钉 免疫 与 复活。
             var graph = RealGraph();
+            // 2026-09-08(P4):免疫次数 2 → 1 —— spec §6 与预算都按「免疫1」(0.35)算的,
+            // 那第 2 次从没付过钱;同批把 杜 攻面白挂的 Immunity 1 删掉(自身增益只该在护面,
+            // spec §1.5),攻面现在是纯伤害。
             Assert.That(graph.Get("杜").Effects.First(e => e.Kind == EffectKind.Immunity).Value,
-                Is.EqualTo(2));
+                Is.EqualTo(1));
+            Assert.That(graph.Get("杜").AttackEffects.Any(e => e.Kind == EffectKind.Immunity),
+                Is.False, "攻面不带免疫:要么攻击、要么护");
             // 2026-08-14 第二批裁定移出字表:塞(免疫 1)/ 岿(免疫 1 + 净化)。
             // 免疫的载体现在只剩 杜 一张。
             // 2026-09-07:复活机制从 浴(已移出)移交 沐(design §6:水/金档,「持续治疗 /

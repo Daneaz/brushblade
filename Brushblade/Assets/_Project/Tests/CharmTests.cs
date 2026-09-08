@@ -25,6 +25,33 @@ namespace Brushblade.Core.Tests
             Assert.That(battle.PlayerHp, Is.EqualTo(playerHpBefore), "没打玩家");
         }
 
+        /// <summary>被魅惑的那一记要发 `CharmedAttack`(2026-09-08,用户实测报「魅惑后的怪
+        /// 攻击无动效」)。原因是它走 DamageEnemy,只发 Damage(TargetIndex = 受害者),
+        /// 而 Damage 分支不做攻击者动效 —— 平时那是玩家出牌的伤害,出手表演由出牌那条路负责。
+        /// 于是被魅惑的怪站着不动、伤害凭空落在队友头上。TargetIndex 取**攻击者**,
+        /// 与 EnemyAttack / SummonHit / Missed 同口径。</summary>
+        [Test]
+        public void Charm_EmitsAttackerEvent()
+        {
+            var battle = CharmBattle(enemyCount: 2, attack: 50);
+            battle.Cast("魅", 0);
+            battle.EndTurn();
+
+            var events = battle.LastEvents;   // 每次动作开始时清空,这里就是 EndTurn 那一拍的
+            int at = -1;
+            for (int i = 0; i < events.Count; i++)
+                if (events[i].Kind == BattleEventKind.CharmedAttack) { at = i; break; }
+            Assert.That(at, Is.GreaterThanOrEqualTo(0), "发了出手事件");
+            Assert.That(events[at].TargetIndex, Is.EqualTo(0), "TargetIndex = 攻击者(被魅惑的那只)");
+            Assert.That(events[at].SecondIndex, Is.EqualTo(1), "SecondIndex = 受害者");
+
+            bool damageAfter = false;
+            for (int i = at + 1; i < events.Count; i++)
+                if (events[i].Kind == BattleEventKind.Damage && events[i].TargetIndex == 1)
+                    { damageAfter = true; break; }
+            Assert.That(damageAfter, Is.True, "下扑排在受害者飘字之前");
+        }
+
         [Test]
         public void Charm_SoleEnemy_DoesNothing()
         {
