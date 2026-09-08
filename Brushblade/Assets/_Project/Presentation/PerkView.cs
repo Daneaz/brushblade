@@ -51,7 +51,9 @@ namespace Brushblade.Presentation
         private const float CrossRingDot = 5f;
         private const int CrossRingDashes = 16;
 
-        private const float TopBarH = 76f;
+        // 88 而不是 76:返回键与其余顶栏对齐后是 63 高,row 上下各留 6 → 顶栏至少要 75,
+        // 留 1px 余量会顶满。88 仍小于 BottomChromeH(100),FitCrossZoom「取更厚的那层」不变。
+        private const float TopBarH = 88f;
         private const float JumpPillW = 72f;
         private const float JumpPillH = 38f;
         private const float JumpGap = 8f;
@@ -520,9 +522,12 @@ namespace Brushblade.Presentation
                 13, Theme.TextDim);
             zoomHint.raycastTarget = false;
 
-            Ui.InkCounter(row.transform, _meta.Ink, 20);
+            // ⚠ 墨锭字号与返回键规格**与其余顶栏一致**,别为了给画布腾地方就在这里缩一档:
+            // 图鉴 / 收藏 / 地图都是 InkCounter 25,图鉴 / 收藏的返回键都是 25 + (130, 63)。
+            // 这一页此前是 20 + 18 + (150, 44),是全项目唯一的偏差项(2026-09-08 用户指出)。
+            Ui.InkCounter(row.transform, _meta.Ink, 25);
             Ui.PillButton(row.transform, Strings.T("common.back_to_map"), () => _onBack(),
-                Theme.ExitPink, Color.white, 18, new Vector2(150, 44));
+                Theme.ExitPink, Color.white, 25, new Vector2(130, 63));
         }
 
         private static void Fade(Transform parent, float alpha, float anchorMinY, float anchorMaxY)
@@ -596,7 +601,7 @@ namespace Brushblade.Presentation
         ///    这里不写死这三个数,直接从 <see cref="PerkRules.Nodes"/> 现算 —— 角度一改自动跟上。
         /// 2. 视口铺满整张卡,但上有顶栏、下有图例+跳转胶囊两层浮层。可见区要**居中**
         ///    (画布中心就落在视口中心),所以上下都按更厚的那层扣:
-        ///    <see cref="BottomChromeH"/> = 100 > <see cref="TopBarH"/> = 76。
+        ///    <see cref="BottomChromeH"/> = 100 > <see cref="TopBarH"/> = 88。
         ///    横向只扣 EdgePad —— 0°/180° 两个节点正落在垂直中线上,缩略图与浮层都在下半边,挡不着。
         /// 3. 倍率 = min(availX/halfX, availY/halfY),夹回 [MinZoom, MaxZoom]。
         ///    1600×900 参考机上视口 1408×810 → availY = 810/2 − 100 = 305,
