@@ -16,13 +16,20 @@ namespace Brushblade.Presentation
     /// 枝间距只剩 32px(节点直径 20),机制树压到 16px —— 直接重叠。</summary>
     public static class PerkLayout
     {
-        public const float CanvasSize = 1120f;
+        public const float CanvasSize = 1220f;
         public const float Center = CanvasSize / 2f;
 
         public const float HubRadius = 44f;
         public const float RootRadius = 100f;
         public const float OuterRadius = 475f;
-        public const float CrossRadius = 530f;
+
+        /// <summary>跨树节点的半径。要比 <see cref="OuterRadius"/> 多出一整个节点直径还有余,
+        /// 三个跨树节点才**读得出是另起的一组**而不是某棵树多长了一层。
+        /// 545 − 475 = 70,直径 52 → 径向余 18;实测与最近邻的中心距 100~106(余 48~54)。
+        ///
+        /// ⚠ 画布 1120 → 1220 就是被这条撑大的:顶上那对在 545 半径上,
+        /// 1120 的画布里节点上沿会落到 −6(出界)。</summary>
+        public const float CrossRadius = 545f;
 
         /// <summary>节点直径。spec §2.3:最紧处枝距 88px,直径 52 留 36px 余量,
         /// 节点里放得下两个字的名字。</summary>
@@ -65,13 +72,26 @@ namespace Brushblade.Presentation
             return max;
         }
 
-        /// <summary>跨树节点的角度:各在两棵树的扇区交界上。</summary>
+        /// <summary>跨树节点的角度。**不再摆在两棵树的扇区交界上**(2026-09-08 用户裁定)。
+        ///
+        /// 初版让每个跨树节点落在它所连两棵树的交界角,再从两棵树的**树根**(半径 100,
+        /// 紧挨中心)各拉一条虚线过去 —— 那两条线要横穿整个扇区,把沿途每个节点都串一遍,
+        /// 画面被切得稀碎。现在改成:跨树节点**贴着它取材最多的那棵树的外沿另起一组,
+        /// 一条连线都不画**(<c>PerkView.BuildConnectors</c> 对 Cross 直接跳过)。
+        ///
+        /// 分组依据是「它数的是谁」:
+        ///   相济(每个五行 L3/L4)与博采(每个点到 L3 的五行系)都数五行 → 并排摆在五行正上方
+        ///     (五行占 180°~360° 的上半,正上是 270°),对称错开 ±8°,中心距 152。
+        ///   融会数的是机制节点 → 摆在机制扇区(108°~180°,左下)的中线 144° 外沿。
+        ///
+        /// 前置关系不靠连线表达,靠详情面板的「跨树前置」两栏 —— 它本来就是谓词
+        /// (「五行任一 L3」),连到某个具体节点反而是撒谎(spec §3.1)。</summary>
         private static float CrossAngle(string branch) => branch switch
         {
-            "xvigor" => 0f,     // 五行 ↔ 被动
-            "xedge" => 108f,    // 被动 ↔ 机制
-            "xdraw" => 180f,    // 机制 ↔ 五行
-            _ => 0f,
+            "xvigor" => 262f,   // 相济:五行正上方偏左
+            "xdraw" => 278f,    // 博采:五行正上方偏右
+            "xedge" => 144f,    // 融会:机制扇区中线
+            _ => 270f,
         };
 
         public static Vector2 Place(PerkNodeDef def)

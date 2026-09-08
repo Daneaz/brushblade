@@ -8,16 +8,16 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>技能页(环形星域,spec 2026-09-08):**一张 1120×1120 的极坐标画布**,
+    /// <summary>技能页(环形星域,spec 2026-09-08):**一张 1220×1220 的极坐标画布**,
     /// 屏幕只是它的视口 —— 可平移、可缩放。
     ///
     /// 取代 2026-09-07 的三页签规则网格。换掉的理由不是「网格不好看」,而是那一版把
     /// 43 个节点塞进 350px 的垂直空间里,所有布局努力都在和空间搏斗;把画布做得比屏幕大,
     /// 拥挤问题就从根上没有了。
     ///
-    /// ⚠ 左下四个胶囊是**跳转锚点,不是页签**。跨树节点本来就跨在两棵树的扇区交界上,
-    /// 切页会把它切碎 —— 那正是这次重做要消灭的东西。画布始终是同一张,四个胶囊只是
-    /// 把视口平移过去。
+    /// ⚠ 左下四个胶囊是**跳转锚点,不是页签**。切页会把「三棵树摆在同一张图上、互相咬合」
+    /// 这件事切碎 —— 那正是这次重做要消灭的东西。画布始终是同一张,四个胶囊只是
+    /// 把视口平移过去(点「跨树」还会顺带压一档缩放,见 <see cref="FitCrossZoom"/>)。
     ///
     /// 节点五态(与设计规格 §8 一致):已点亮 / 可解锁 / 墨锭不足 / 前置未点 / 等级未到——
     /// 逐态给不同的底色/描边,判据全部走 <see cref="PerkRules"/> 现成的 <c>IsUnlocked</c>/
@@ -79,7 +79,7 @@ namespace Brushblade.Presentation
         private Action _onBack;
 
         private RectTransform _viewport;   // 裁剪框
-        private RectTransform _canvas;     // 1120×1120 的内容层,平移缩放作用在它上面
+        private RectTransform _canvas;     // 1220×1220 的内容层,平移缩放作用在它上面
 
         /// <summary>画布缩放。**写入点只有三处**:<see cref="Build"/> 的初值、
         /// <see cref="OnZoomChanged"/>(手势唯一的回写口),以及 <see cref="ZoomTo"/>
@@ -258,14 +258,15 @@ namespace Brushblade.Presentation
             foreach (var def in PerkRules.Nodes)
             {
                 var to = PerkLayout.Place(def);
-                if (def.Tree == PerkTree.Cross)
-                {
-                    var crossColor = PerkRules.PrereqMet(_meta, def)
-                        ? BranchColor(def) : Theme.PanelBorder;
-                    foreach (var req in def.Prereq)
-                        DrawLine(parent, PerkLayout.RootPlace(req.Tree), to, crossColor, dashed: true);
-                    continue;
-                }
+                // 跨树节点**一条连线都不画**(2026-09-08 用户裁定)。此前是从它所连两棵树的
+                // 树根(半径 100,紧挨中心)各拉一条虚线到半径 545 —— 那两条线要横穿整个扇区,
+                // 把沿途每个节点都串一遍,画面被切得稀碎。
+                //
+                // 前置关系改由详情面板的「跨树前置」两栏表达,那也更准:它的前置是谓词
+                // (「五行任一 L3」),连到树根只是把「跟这棵树有关」画成了一条假的依赖边。
+                // 它们现在靠**位置**(贴着取材最多的那棵树的外沿另起一组)与**外圈虚线环**
+                // 说明自己是另一类,见 PerkLayout.CrossAngle 的注释。
+                if (def.Tree == PerkTree.Cross) continue;
 
                 Vector2 from;
                 bool lit;
@@ -932,7 +933,7 @@ namespace Brushblade.Presentation
 
         /// <summary>以**视口中心**为不动点缩放:anchoredPosition 与 zoom 同比走,
         /// 中心底下那块画布不动。不动点取两指中点会让双指微抖把整张图带着漂,
-        /// 而这块画布只有 1120 见方、缩放范围也窄,取中心足够。</summary>
+        /// 而这块画布只有 1220 见方、缩放范围也窄,取中心足够。</summary>
         private void ApplyZoom(float factor)
         {
             if (_canvas == null || factor <= 0f) return;
