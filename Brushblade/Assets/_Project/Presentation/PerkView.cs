@@ -15,9 +15,8 @@ namespace Brushblade.Presentation
     /// 43 个节点塞进 350px 的垂直空间里,所有布局努力都在和空间搏斗;把画布做得比屏幕大,
     /// 拥挤问题就从根上没有了。
     ///
-    /// ⚠ 左下四个胶囊是**跳转锚点,不是页签**。切页会把「三棵树摆在同一张图上、互相咬合」
-    /// 这件事切碎 —— 那正是这次重做要消灭的东西。画布始终是同一张,四个胶囊只是
-    /// 把视口平移过去(点「跨树」还会顺带压一档缩放,见 <see cref="FitCrossZoom"/>)。
+    /// ⚠ **没有页签,也没有跳转胶囊与状态图例**(2026-09-08 用户裁定:DAG 本身一目了然,
+    /// 左下角那两块是多余的解释)。画布始终是同一张,靠拖拽 / 捏合 / 右下缩略图导航。
     ///
     /// 节点五态(与设计规格 §8 一致):已点亮 / 可解锁 / 墨锭不足 / 前置未点 / 等级未到——
     /// 逐态给不同的底色/描边,判据全部走 <see cref="PerkRules"/> 现成的 <c>IsUnlocked</c>/
@@ -51,30 +50,12 @@ namespace Brushblade.Presentation
         private const float CrossRingDot = 5f;
         private const int CrossRingDashes = 16;
 
-        // 88 而不是 76:返回键与其余顶栏对齐后是 63 高,row 上下各留 6 → 顶栏至少要 75,
-        // 留 1px 余量会顶满。88 仍小于 BottomChromeH(100),FitCrossZoom「取更厚的那层」不变。
-        private const float TopBarH = 88f;
-        private const float JumpPillW = 72f;
-        private const float JumpPillH = 38f;
-        private const float JumpGap = 8f;
+        // 80 = BestiaryView / CollectionView 的 TopH,同一套顶栏就用同一个高度。
+        private const float TopBarH = 80f;
         private const float EdgePad = 20f;
 
         private const float MinimapSize = 156f;
         private const float MinimapDot = 5f;
-
-        private const float LegendSwatchSize = 18f;
-        private const int LegendSwatchRadius = 5;
-        // 图例「可解锁」用比「已点亮」更粗的描边代表节点实际的「描边 + 主色外发光」双重强调——
-        // 缩略图画不出发光,用描边粗细近似那份额外强调,不要求两处线宽字节相同。
-        private const float LegendBoldBorder = 3.5f;
-        private const float LegendW = 470f;   // 三格 + 尾注;五格时代是 740
-        private const float LegendH = 34f;
-        private const float LegendGap = 8f;      // 图例底沿离跳转胶囊顶沿多远
-
-        /// <summary>底部浮层(跳转胶囊 + 其上的图例)总高。视口是铺满整张卡的,
-        /// 这一条是「视口底部有多少像素被浮层盖住」—— <see cref="FitCrossZoom"/> 要用它
-        /// 算可见范围,别让它与 <see cref="BuildLegend"/> 的摆放各写各的。</summary>
-        private const float BottomChromeH = EdgePad + JumpPillH + LegendGap + LegendH;
 
         private MetaState _meta;
         private Action _save;
@@ -83,11 +64,10 @@ namespace Brushblade.Presentation
         private RectTransform _viewport;   // 裁剪框
         private RectTransform _canvas;     // 1220×1220 的内容层,平移缩放作用在它上面
 
-        /// <summary>画布缩放。**写入点只有三处**:<see cref="Build"/> 的初值、
-        /// <see cref="OnZoomChanged"/>(手势唯一的回写口),以及 <see cref="ZoomTo"/>
-        /// (跨树跳转要压缩放,见 <see cref="FitCrossZoom"/>)—— 后者也是走 OnZoomChanged
-        /// 落地的,不绕过那条阈值切换。读取点见 <see cref="UpdateMinimapFrame"/> 与
-        /// <see cref="JumpTo"/> 的注释。</summary>
+        /// <summary>画布缩放。**写入点只有两处**:<see cref="Build"/> 的初值,
+        /// 与 <see cref="OnZoomChanged"/>(手势唯一的回写口)。读取点只有
+        /// <see cref="UpdateMinimapFrame"/>。跳转胶囊删掉后,非手势改缩放的那条路径
+        /// (ZoomTo / FitCrossZoom)一并没了。</summary>
         private float _zoom = 0.7f;
 
         /// <summary>重建前记下的视口落点。<see cref="Build"/> 会把整棵层级删掉重建
@@ -121,15 +101,20 @@ namespace Brushblade.Presentation
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
-            var card = Ui.CardPanel(transform, "Panel");
-            Ui.Anchor((RectTransform)card.transform,
-                new Vector2(0.06f, 0.05f), new Vector2(0.94f, 0.95f), Vector2.zero, Vector2.zero);
+            // ⚠ **满屏铺开,不套内缩的 CardPanel**(2026-09-08 用户指出排版对不齐)。
+            // 此前外面裹了一层 0.06~0.94 / 0.05~0.95 的卡,于是这一页的「左上角」其实落在
+            // 屏幕的 6% / 5% 处,标题与返回键跟图鉴/收藏/商城差了一截。
+            // 宣纸底由 GameRoot.NewView 全屏铺好了,这里不需要再垫一张卡。
+            // 结构与 BestiaryView / CollectionView 逐字同款:SafeArea 补差额 → 全幅 Content。
+            var (padSide, padBottom) = SafeArea.MissingInset();
+            var content = Ui.Panel(transform, "Content");
+            Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
+                new Vector2(padSide, padBottom), new Vector2(-padSide, 0));
+            var frame = content.transform;
 
-            BuildCanvasViewport(card.transform);   // 先铺画布,其余四块浮在它之上
-            BuildTopBar(card.transform);
-            BuildJumpAnchors(card.transform);
-            BuildLegend(card.transform);
-            BuildMinimap(card.transform);
+            BuildCanvasViewport(frame);   // 先铺画布,其余四块浮在它之上
+            BuildTopBar(frame);
+            BuildMinimap(frame);
         }
 
         private void OnNodeChanged()
@@ -482,45 +467,49 @@ namespace Brushblade.Presentation
         /// 这次重做的前提(屏幕只是视口)也就没了。底下垫两层半透明宣纸当渐隐
         /// (uGUI 没有渐变,也不在这个 Task 里往 Theme 新造资源),免得节点滑到标题
         /// 后面糊成一团(spec §8.4)。</summary>
+        /// <summary>顶栏:标题左上、墨锭与返回键右上 —— **与图鉴 / 收藏 / 商城同一套排布**
+        /// (2026-09-08 用户指出对不齐)。行距 21、childAlignment MiddleLeft、
+        /// 标题 40 + TitleFont、副标题 23 TextDim、右侧 Spring → InkCounter 25 →
+        /// 返回键 25/(130,63),全部照抄 <c>BestiaryView.BuildTopBar</c>,一个数都别自己改。
+        ///
+        /// 与那两页唯一的不同是**底下垫一道宣纸渐隐**:那两页顶栏下面是留白,这一页下面是
+        /// 会滑动的画布,不垫的话节点滑到标题背后会糊成一团。</summary>
         private void BuildTopBar(Transform parent)
         {
             var bar = Ui.Panel(parent, "TopBar");
-            Ui.Anchor((RectTransform)bar.transform, new Vector2(0f, 1f), new Vector2(1f, 1f),
+            Ui.Anchor((RectTransform)bar.transform, new Vector2(0f, 1f), Vector2.one,
                 new Vector2(0f, -TopBarH), Vector2.zero);
 
             Fade(bar.transform, 0.90f, 0.45f, 1f);   // 上半段近乎实底
             Fade(bar.transform, 0.45f, 0f, 0.45f);   // 下半段淡出
 
-            var row = Ui.Row(bar.transform, "Bar", 14);
-            Ui.Anchor((RectTransform)row.transform, Vector2.zero, Vector2.one,
-                new Vector2(EdgePad, 6f), new Vector2(-EdgePad, -6f));
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            var top = Ui.Row(bar.transform, "Top", 21);
+            Ui.Stretch((RectTransform)top.transform);
+            top.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
 
-            var titles = Ui.VStack(row.transform, "Titles", 2);
-            titles.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            var title = Ui.ThemedLabel(titles.transform, Strings.T("perk.view.title"), 26,
+            var title = Ui.ThemedLabel(top.transform, Strings.T("perk.view.title"), 40,
                 Theme.TextMain, Theme.TitleFont);
-            title.alignment = TextAnchor.MiddleLeft;
             title.raycastTarget = false;   // 顶栏三个标签都不吃射线,否则按在标题上拖不动画布
+
             int charLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
-            var subtitle = Ui.ThemedLabel(titles.transform,
-                Strings.T("perk.view.subtitle", ("level", charLevel)), 14, Theme.TextDim);
-            subtitle.alignment = TextAnchor.MiddleLeft;
+            var subtitle = Ui.ThemedLabel(top.transform,
+                Strings.T("perk.view.subtitle", ("level", charLevel)), 23, Theme.TextDim);
             subtitle.raycastTarget = false;
 
-            var spring = Ui.Panel(row.transform, "Spring");
-            spring.AddComponent<LayoutElement>().flexibleWidth = 1;
-
-            // 手势提示:画布能拖能缩这件事本身没有任何视觉线索,不说玩家不会试
-            var zoomHint = Ui.ThemedLabel(row.transform, Strings.T("perk.view.zoom_hint"),
-                13, Theme.TextDim);
+            // 手势提示:画布能拖能缩这件事本身没有任何视觉线索,不说玩家不会试。
+            // 摆在左簇尾巴上(而不是右侧),右边留给「墨锭 + 返回」那对固定组合 ——
+            // 那对在每一页的位置都必须一样,中间插东西就破了。字号取图鉴筛选行提示的同款 19。
+            var zoomHint = Ui.ThemedLabel(top.transform, Strings.T("perk.view.zoom_hint"),
+                19, Theme.LockGray);
             zoomHint.raycastTarget = false;
+
+            var spring = Ui.Panel(top.transform, "Spring");
+            spring.AddComponent<LayoutElement>().flexibleWidth = 1;
 
             // ⚠ 墨锭字号与返回键规格**与其余顶栏一致**,别为了给画布腾地方就在这里缩一档:
             // 图鉴 / 收藏 / 地图都是 InkCounter 25,图鉴 / 收藏的返回键都是 25 + (130, 63)。
-            // 这一页此前是 20 + 18 + (150, 44),是全项目唯一的偏差项(2026-09-08 用户指出)。
-            Ui.InkCounter(row.transform, _meta.Ink, 25);
-            Ui.PillButton(row.transform, Strings.T("common.back_to_map"), () => _onBack(),
+            Ui.InkCounter(top.transform, _meta.Ink, 25);
+            Ui.PillButton(top.transform, Strings.T("common.back_to_map"), () => _onBack(),
                 Theme.ExitPink, Color.white, 25, new Vector2(130, 63));
         }
 
@@ -532,95 +521,6 @@ namespace Brushblade.Presentation
             image.raycastTarget = false;
             Ui.Anchor((RectTransform)go.transform, new Vector2(0f, anchorMinY),
                 new Vector2(1f, anchorMaxY), Vector2.zero, Vector2.zero);
-        }
-
-        // ================= 跳转锚点(左下四个胶囊) =================
-
-        /// <summary>左下四个胶囊 = 跳转锚点,点一下把视口平移过去。
-        ///
-        /// ⚠ **不是页签**。跨树节点本来就跨在两棵树的边界上,切页会把它切碎 ——
-        /// 那正是这次重做要消灭的东西。</summary>
-        private void BuildJumpAnchors(Transform parent)
-        {
-            var row = Ui.Row(parent, "Jump", JumpGap);
-            float rowW = 4f * JumpPillW + 3f * JumpGap;
-            Ui.Anchor((RectTransform)row.transform, Vector2.zero, Vector2.zero,
-                new Vector2(EdgePad, EdgePad), new Vector2(EdgePad + rowW, EdgePad + JumpPillH));
-
-            foreach (var tree in new[] { PerkTree.Wuxing, PerkTree.Passive,
-                                         PerkTree.Mechanic, PerkTree.Cross })
-            {
-                var t = tree;
-                Ui.PillButton(row.transform, JumpName(t), () => JumpTo(t),
-                    Theme.PanelPaper, Theme.TextMain, 16, new Vector2(JumpPillW, JumpPillH));
-            }
-        }
-
-        /// <summary>把视口居中到目标点:canvas 反向平移 目标点 × 当前缩放。
-        ///
-        /// ⚠ 乘的是 <see cref="_zoom"/> 的**当前值**,不是初值 —— 缩放后再跳转,
-        /// 用旧倍率算出来的落点会偏(偏移量正比于缩放变化率)。<see cref="_zoom"/>
-        /// 由 <see cref="OnZoomChanged"/> 在手势改完的同一帧同步回来,这里读到的一定是新值。</summary>
-        private void JumpTo(PerkTree tree)
-        {
-            if (_canvas == null) return;
-            // 跨树是唯一一个「目标不是一处、而是散在三边」的锚点:平移到中心并不保证
-            // 三个都进得来,放大着点它会把融会(108°,anchored y ≈ −504)甩出视口下沿。
-            // 先把倍率压到装得下,再按**压完之后**的 _zoom 算落点(顺序反了会偏)。
-            // 其余三个锚点各自只对着一个扇区,不动缩放。
-            if (tree == PerkTree.Cross) ZoomTo(Mathf.Min(_zoom, FitCrossZoom()));
-            var target = ToAnchored(PerkLayout.JumpTarget(tree));
-            _canvas.anchoredPosition = -target * _zoom;
-            // 缩略图的红框下一帧由 LateUpdate 照读 _canvas.anchoredPosition 更新,
-            // 不需要在这里再通知一次(见 UpdateMinimapFrame 的注释)。
-        }
-
-        /// <summary>非手势路径改缩放的唯一入口。写 localScale 之外**必须**走
-        /// <see cref="OnZoomChanged"/>,否则 <see cref="_zoom"/> 与图标/名字的显隐会与
-        /// 画布实际倍率脱节。<see cref="PerkCanvasPan"/> 那边不缓存倍率(每次从
-        /// <c>localScale.x</c> 现读),所以这里改完手势自动接得上。</summary>
-        private void ZoomTo(float zoom)
-        {
-            if (_canvas == null || Mathf.Approximately(zoom, _zoom)) return;
-            _canvas.localScale = Vector3.one * zoom;
-            OnZoomChanged(zoom);
-        }
-
-        /// <summary>「三个跨树节点同时在屏」所允许的最大倍率。
-        ///
-        /// 推导(视口居中在画布中心,即 <see cref="PerkLayout.JumpTarget"/> 给 Cross 的落点):
-        /// 1. 需要覆盖的画布半跨度 = 三个 Cross 节点 anchored 坐标的 |x|/|y| 最大值 + 节点半径。
-        ///    半径 530 的 0° / 108° / 180° 三点翻 y 后是 (530,0)、(−163.8,−504.1)、(−530,0),
-        ///    加上 <see cref="PerkLayout.NodeDiameter"/>/2 = 26 → 需要 halfX 556、halfY 530.1。
-        ///    这里不写死这三个数,直接从 <see cref="PerkRules.Nodes"/> 现算 —— 角度一改自动跟上。
-        /// 2. 视口铺满整张卡,但上有顶栏、下有图例+跳转胶囊两层浮层。可见区要**居中**
-        ///    (画布中心就落在视口中心),所以上下都按更厚的那层扣:
-        ///    <see cref="BottomChromeH"/> = 100 > <see cref="TopBarH"/> = 88。
-        ///    横向只扣 EdgePad —— 0°/180° 两个节点正落在垂直中线上,缩略图与浮层都在下半边,挡不着。
-        /// 3. 倍率 = min(availX/halfX, availY/halfY),夹回 [MinZoom, MaxZoom]。
-        ///    1600×900 参考机上视口 1408×810 → availY = 810/2 − 100 = 305,
-        ///    305 / 530.1 ≈ 0.575;availX = 1408/2 − 20 = 684,684 / 556 ≈ 1.23 —— 纵向是瓶颈。
-        ///    最窄的 4:3(视口 1056×810)横向 508/556 ≈ 0.914,仍然纵向先卡住,结果同为 0.575。
-        ///    即:点「跨树」会从默认 0.7 或放大到底的 1.15 压到约 0.575。</summary>
-        private float FitCrossZoom()
-        {
-            if (_viewport == null) return _zoom;
-
-            float halfX = 0f, halfY = 0f;
-            foreach (var def in PerkRules.Nodes)
-            {
-                if (def.Tree != PerkTree.Cross) continue;
-                var a = ToAnchored(PerkLayout.Place(def));
-                halfX = Mathf.Max(halfX, Mathf.Abs(a.x));
-                halfY = Mathf.Max(halfY, Mathf.Abs(a.y));
-            }
-            halfX += PerkLayout.NodeDiameter / 2f;
-            halfY += PerkLayout.NodeDiameter / 2f;
-
-            float availX = _viewport.rect.width / 2f - EdgePad;
-            float availY = _viewport.rect.height / 2f - BottomChromeH;
-            if (halfX <= 0f || halfY <= 0f || availX <= 0f || availY <= 0f) return _zoom;
-            return Mathf.Clamp(Mathf.Min(availX / halfX, availY / halfY), MinZoom, MaxZoom);
         }
 
         // ================= 缩略图(右下圆形) =================
@@ -696,75 +596,6 @@ namespace Brushblade.Presentation
 
         // ================= 图例 =================
 
-        /// <summary>2026-09-07 收尾波(review 修 Critical):五态图例此前给了五个**固定色块**
-        /// (绿/金/灰/…),但节点实际是按枝取色(<see cref="BranchColor"/>,16 种)——玩家照
-        /// 「已点亮=绿」去认,回头看火脉已点亮的节点是暗红、水脉是蓝,图例在事实层面就是错的。
-        ///
-        /// 改法:色块统一用中性色,靠**边框样式**区分状态,且直接复用 <see cref="BuildNode"/>
-        /// 实际画节点用的那两个图元(<see cref="Ui.OutlinedPanel"/> / <see cref="Ui.CardPanel"/>)
-        /// —— 保证图例的形状真的是节点的形状,不是另画一套「看着差不多」的示意。
-        /// 末尾补一句「颜色随枝而变,形状表示状态」。
-        ///
-        /// ⚠ 环形改造保留了这一条(而不是随页签一起删掉):节点仍然是形状编码状态,
-        /// 删掉图例等于把上面那条 review 结论又退回去。位置从「页面底部一行」改成
-        /// 左下浮条,**摞在跳转胶囊正上方**(摆放推导见方法体里的注释)。
-        ///
-        /// 2026-09-08:五格 → **三格**(用户裁定「太多了,只需要区分三类」)。
-        /// 随之 PoorInk / GatedPrereq / GatedLevel 三档在画布上收敛成同一种画法,
-        /// 点不了的**具体原因**改在详情面板里说。</summary>
-        private void BuildLegend(Transform parent)
-        {
-            var block = Ui.CardPanel(parent, "Legend",
-                new Color(Theme.PanelPaper.r, Theme.PanelPaper.g, Theme.PanelPaper.b, 0.92f), 16);
-            var rect = (RectTransform)block.transform;
-            // ⚠ **贴左下、摞在跳转胶囊之上**,不是底边正中。居中摆过一版,在窄屏上必压胶囊:
-            // CanvasScaler 按高匹配(逻辑高恒为 900),所以逻辑宽 = 900 × aspect,
-            // 卡宽 = 0.88 × 逻辑宽 —— 4:3 上卡宽只有 1056,居中的图例左沿会落在
-            // (卡宽 − 图例宽)/2,而胶囊行右沿在 332,直接压掉 174px。
-            // 改成与胶囊同样左对齐后,图例横向占 20..490,右边留给缩略图
-            // (缩略图左沿 = 卡宽 − 20 − 156,4:3 上是 880),最窄的 4:3 也还剩 390px 空隙。
-            rect.anchorMin = rect.anchorMax = new Vector2(0f, 0f);
-            rect.pivot = new Vector2(0f, 0f);
-            rect.sizeDelta = new Vector2(LegendW, LegendH);
-            rect.anchoredPosition = new Vector2(EdgePad, EdgePad + JumpPillH + LegendGap);
-            block.raycastTarget = false;
-
-            var row = Ui.Row(block.transform, "Items", 16);
-            Ui.Stretch((RectTransform)row.transform);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-
-            // 三格,与 BuildNode 的三种画法**逐一对应**(2026-09-08 用户裁定「只需要区分三类」)。
-            // ⚠ 图例必须照抄节点的真实画法,不能另画一套「看着差不多」的示意 ——
-            // 2026-09-07 那波 review 的 Critical 修复项就是这条,改格数时别把它退回去。
-            //
-            // 已激活:浅色实心底 + 实线描边(同 NodeState.Owned 的 OutlinedPanel)
-            LegendItem(row.transform,
-                s => Ui.OutlinedPanel(s, "Swatch", Theme.PanelInset, Theme.TextDim, LegendSwatchRadius, 2f),
-                Strings.T("perk.legend.owned"));
-            // 已解锁:白底 + 粗实线描边(同 NodeState.CanUnlock;节点上还多一圈主色外发光,
-            // 18px 的小色块画不出发光,用加粗描边近似那份额外强调)
-            LegendItem(row.transform,
-                s => Ui.OutlinedPanel(s, "Swatch", Theme.CardWhite, Theme.TextDim, LegendSwatchRadius, LegendBoldBorder),
-                Strings.T("perk.legend.unlockable"));
-            // 未解锁:纯灰底,无描边(同 PoorInk / GatedPrereq / GatedLevel 三档共用的那张 CardPanel)
-            LegendItem(row.transform,
-                s => Ui.CardPanel(s, "Swatch", Theme.LockedBg, LegendSwatchRadius),
-                Strings.T("perk.legend.locked"));
-
-            var note = Ui.ThemedLabel(row.transform, Strings.T("perk.legend.note"), 12, Theme.TextDim);
-            note.raycastTarget = false;
-        }
-
-        private static void LegendItem(Transform parent, Func<Transform, Image> swatch, string text)
-        {
-            var item = Ui.Row(parent, "Item", 5);
-            var image = swatch(item.transform);
-            image.raycastTarget = false;
-            Ui.Sized(image.gameObject, width: LegendSwatchSize, height: LegendSwatchSize);
-            var label = Ui.ThemedLabel(item.transform, text, 12, Theme.TextDim);
-            label.raycastTarget = false;
-        }
-
         // ================= Core 数据的只读派生(不重复 PerkRules 的私有门槛表) =================
 
         // internal(而非 private):PerkNodeSheet 详情弹窗的头部水印/chip 要用同一份按枝配色,
@@ -806,16 +637,6 @@ namespace Brushblade.Presentation
             "xedge" => Strings.T("perk.branch.xedge"),
             "xdraw" => Strings.T("perk.branch.xdraw"),
             _ => branch,
-        };
-
-        /// <summary>跳转胶囊上的字。逐条写字面 key 而不是 <c>Strings.T($"perk.view.jump.{…}")</c>——
-        /// 字符串表对账只认字面量,拼出来的 key 会让那四条被判成孤儿(CLAUDE.md)。</summary>
-        private static string JumpName(PerkTree tree) => tree switch
-        {
-            PerkTree.Wuxing => Strings.T("perk.view.jump.wuxing"),
-            PerkTree.Passive => Strings.T("perk.view.jump.passive"),
-            PerkTree.Mechanic => Strings.T("perk.view.jump.mechanic"),
-            _ => Strings.T("perk.view.jump.cross"),
         };
 
         /// <summary>树根标记上的字。同上,逐条字面 key。</summary>

@@ -123,11 +123,6 @@ namespace Brushblade.Presentation
 
         public static Vector2 HubPlace() => new Vector2(Center, Center);
 
-        /// <summary>某树扇区的中心方向 + 最外层半径,给跳转锚点用(把视口平移到那儿)。</summary>
-        public static Vector2 JumpTarget(PerkTree tree) => tree == PerkTree.Cross
-            ? new Vector2(Center, Center)   // 三个跨树节点散在三边,跳到中心才看得全
-            : Polar(SectorOf(tree).MidDeg, (SectorOf(tree).FirstRadius + OuterRadius) / 2f);
-
         private static Vector2 Polar(float degrees, float radius)
         {
             float rad = degrees * Mathf.Deg2Rad;
