@@ -67,7 +67,7 @@ namespace Brushblade.Presentation
         // 图例「可解锁」用比「已点亮」更粗的描边代表节点实际的「描边 + 主色外发光」双重强调——
         // 缩略图画不出发光,用描边粗细近似那份额外强调,不要求两处线宽字节相同。
         private const float LegendBoldBorder = 3.5f;
-        private const float LegendW = 740f;
+        private const float LegendW = 470f;   // 三格 + 尾注;五格时代是 740
         private const float LegendH = 34f;
         private const float LegendGap = 8f;      // 图例底沿离跳转胶囊顶沿多远
 
@@ -289,7 +289,7 @@ namespace Brushblade.Presentation
 
         /// <summary>画布上的一条线段:一张按长度定宽、按方向旋转的细长 Image。
         /// 虚线拆成若干短段 —— uGUI 没有内建虚线,而这里的线长各不相同(极坐标上的
-        /// 每一条都不一样长),没法像 <see cref="DashedPanel"/> 那样按分数锚点铺。</summary>
+        /// 每一条都不一样长),没法像四边描边那样按分数锚点均匀铺。</summary>
         private static void DrawLine(Transform parent, Vector2 fromCanvas, Vector2 toCanvas,
             Color color, bool dashed)
         {
@@ -383,20 +383,14 @@ namespace Brushblade.Presentation
                     cell = glowHost;
                     clickTarget = faceOuter.gameObject;
                     break;
-                case NodeState.PoorInk:
-                    var poorPanel = Ui.CardPanel(parent, $"Node_{def.Id}", Theme.PanelPaper, NodeRadius);
-                    cell = clickTarget = poorPanel.gameObject;
-                    face = poorPanel;
-                    break;
-                case NodeState.GatedPrereq:
-                    // 真虚线描边(2026-09-07 收尾波,回应图例对账 review):此前这里用「深一档实线
-                    // 描边」将就,导致图例画出的虚线样例与节点实际渲染对不上——图例必须照抄节点
-                    // 真实画法,而不是另画一套「看着差不多」的示意,所以改成 DashedPanel 与
-                    // BuildLegend 共用同一份实现(见该方法注释)。
-                    face = DashedPanel(parent, $"Node_{def.Id}", Theme.LockedBg, Theme.LockGray, NodeRadius);
-                    cell = clickTarget = face.gameObject;
-                    break;
-                default: // GatedLevel:纯灰底,不描边——与「前置未点」在视觉上刻意分开
+                // PoorInk / GatedPrereq / GatedLevel 三档**共用同一种画法**(2026-09-08 用户裁定
+                // 「只需要区分三类」)。此前它们各画各的(常规底 / 灰底虚线描边 / 纯灰底),
+                // 加上前两态一共五种,图例得排五格,画布上也读不出层次。
+                //
+                // ⚠ NodeState 仍保留五个值 —— **点不了的具体原因不在画布上说,在详情面板里说**
+                // (等级差几级、还差多少墨、缺哪一侧前置)。那是一次点击的距离,而画布要的是
+                // 「能点 / 不能点 / 已经点了」这一眼的层次。
+                default: // 未解锁(PoorInk / GatedPrereq / GatedLevel):纯灰底,不描边
                     var levelPanel = Ui.CardPanel(parent, $"Node_{def.Id}", Theme.LockedBg, NodeRadius);
                     cell = clickTarget = levelPanel.gameObject;
                     face = levelPanel;
@@ -706,14 +700,18 @@ namespace Brushblade.Presentation
         /// (绿/金/灰/…),但节点实际是按枝取色(<see cref="BranchColor"/>,16 种)——玩家照
         /// 「已点亮=绿」去认,回头看火脉已点亮的节点是暗红、水脉是蓝,图例在事实层面就是错的。
         ///
-        /// 改法:五个色块统一用中性色,靠**边框样式**区分五态,且直接复用 <see cref="BuildNode"/>
-        /// 实际画节点用的那几个图元(<see cref="Ui.OutlinedPanel"/> / <see cref="Ui.CardPanel"/> /
-        /// <see cref="DashedPanel"/>)—— 保证图例的形状真的是节点的形状,不是另画一套
-        /// 「看着差不多」的示意。末尾补一句「颜色随枝而变,形状表示状态」。
+        /// 改法:色块统一用中性色,靠**边框样式**区分状态,且直接复用 <see cref="BuildNode"/>
+        /// 实际画节点用的那两个图元(<see cref="Ui.OutlinedPanel"/> / <see cref="Ui.CardPanel"/>)
+        /// —— 保证图例的形状真的是节点的形状,不是另画一套「看着差不多」的示意。
+        /// 末尾补一句「颜色随枝而变,形状表示状态」。
         ///
-        /// ⚠ 环形改造保留了这一条(而不是随页签一起删掉):节点仍然是形状编码五态,
+        /// ⚠ 环形改造保留了这一条(而不是随页签一起删掉):节点仍然是形状编码状态,
         /// 删掉图例等于把上面那条 review 结论又退回去。位置从「页面底部一行」改成
-        /// 左下浮条,**摞在跳转胶囊正上方**(摆放推导见方法体里的注释)。</summary>
+        /// 左下浮条,**摞在跳转胶囊正上方**(摆放推导见方法体里的注释)。
+        ///
+        /// 2026-09-08:五格 → **三格**(用户裁定「太多了,只需要区分三类」)。
+        /// 随之 PoorInk / GatedPrereq / GatedLevel 三档在画布上收敛成同一种画法,
+        /// 点不了的**具体原因**改在详情面板里说。</summary>
         private void BuildLegend(Transform parent)
         {
             var block = Ui.CardPanel(parent, "Legend",
@@ -721,10 +719,10 @@ namespace Brushblade.Presentation
             var rect = (RectTransform)block.transform;
             // ⚠ **贴左下、摞在跳转胶囊之上**,不是底边正中。居中摆过一版,在窄屏上必压胶囊:
             // CanvasScaler 按高匹配(逻辑高恒为 900),所以逻辑宽 = 900 × aspect,
-            // 卡宽 = 0.88 × 逻辑宽 —— 4:3 上卡宽只有 1056,居中的 740 宽图例左沿落在
-            // (1056−740)/2 = 158,而胶囊行右沿在 332,直接压掉 174px。
-            // 改成与胶囊同样左对齐后,图例横向占 20..760,右边留给缩略图
-            // (缩略图左沿 = 卡宽 − 20 − 156,4:3 上是 880),最窄的 4:3 也还剩 120px 空隙。
+            // 卡宽 = 0.88 × 逻辑宽 —— 4:3 上卡宽只有 1056,居中的图例左沿会落在
+            // (卡宽 − 图例宽)/2,而胶囊行右沿在 332,直接压掉 174px。
+            // 改成与胶囊同样左对齐后,图例横向占 20..490,右边留给缩略图
+            // (缩略图左沿 = 卡宽 − 20 − 156,4:3 上是 880),最窄的 4:3 也还剩 390px 空隙。
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 0f);
             rect.pivot = new Vector2(0f, 0f);
             rect.sizeDelta = new Vector2(LegendW, LegendH);
@@ -735,26 +733,23 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)row.transform);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
 
-            // 已点亮:浅色实心底 + 实线描边(与 NodeState.Owned 同一套 OutlinedPanel)
+            // 三格,与 BuildNode 的三种画法**逐一对应**(2026-09-08 用户裁定「只需要区分三类」)。
+            // ⚠ 图例必须照抄节点的真实画法,不能另画一套「看着差不多」的示意 ——
+            // 2026-09-07 那波 review 的 Critical 修复项就是这条,改格数时别把它退回去。
+            //
+            // 已激活:浅色实心底 + 实线描边(同 NodeState.Owned 的 OutlinedPanel)
             LegendItem(row.transform,
                 s => Ui.OutlinedPanel(s, "Swatch", Theme.PanelInset, Theme.TextDim, LegendSwatchRadius, 2f),
                 Strings.T("perk.legend.owned"));
-            // 可解锁:白底 + 粗实线描边(同一套 OutlinedPanel,描边加粗)
+            // 已解锁:白底 + 粗实线描边(同 NodeState.CanUnlock;节点上还多一圈主色外发光,
+            // 18px 的小色块画不出发光,用加粗描边近似那份额外强调)
             LegendItem(row.transform,
                 s => Ui.OutlinedPanel(s, "Swatch", Theme.CardWhite, Theme.TextDim, LegendSwatchRadius, LegendBoldBorder),
                 Strings.T("perk.legend.unlockable"));
-            // 墨锭不足:常规底,无描边(与 NodeState.PoorInk 同一套 CardPanel)
-            LegendItem(row.transform,
-                s => Ui.CardPanel(s, "Swatch", Theme.PanelPaper, LegendSwatchRadius),
-                Strings.T("perk.legend.poor_ink"));
-            // 前置未点:灰底 + 虚线描边(与 NodeState.GatedPrereq 同一套 DashedPanel)
-            LegendItem(row.transform,
-                s => DashedPanel(s, "Swatch", Theme.LockedBg, Theme.LockGray, LegendSwatchRadius, dashCountH: 3, dashCountV: 2),
-                Strings.T("perk.legend.gated_prereq"));
-            // 等级未到:灰底,无描边(与 NodeState.GatedLevel 同一套 CardPanel)
+            // 未解锁:纯灰底,无描边(同 PoorInk / GatedPrereq / GatedLevel 三档共用的那张 CardPanel)
             LegendItem(row.transform,
                 s => Ui.CardPanel(s, "Swatch", Theme.LockedBg, LegendSwatchRadius),
-                Strings.T("perk.legend.gated_level"));
+                Strings.T("perk.legend.locked"));
 
             var note = Ui.ThemedLabel(row.transform, Strings.T("perk.legend.note"), 12, Theme.TextDim);
             note.raycastTarget = false;
@@ -768,49 +763,6 @@ namespace Brushblade.Presentation
             Ui.Sized(image.gameObject, width: LegendSwatchSize, height: LegendSwatchSize);
             var label = Ui.ThemedLabel(item.transform, text, 12, Theme.TextDim);
             label.raycastTarget = false;
-        }
-
-        /// <summary>虚线描边:圆角底 + 沿四边分数锚点摆的短线段。uGUI 没有内建虚线描边,
-        /// 四条边都按**分数**锚点摆(而不是像素偏移)——不管最终分到多宽,虚线段都跟着
-        /// 等比重新分布,不需要等一帧布局出结果再摆。<paramref name="dashCountH"/>/
-        /// <paramref name="dashCountV"/> 分开传:节点是正方,图例小色块两个方向都给更少的段数。
-        ///
-        /// <see cref="BuildLegend"/> 与 <see cref="BuildNode"/> 的 <c>GatedPrereq</c> 分支共用
-        /// 这一份实现(只有 dashCount 不同)——图例画的虚线因此是节点真实的虚线,不是另一套
-        /// 「看着像」的示意。</summary>
-        private static Image DashedPanel(Transform parent, string name, Color fill, Color border,
-            int radius, int dashCountH = 4, int dashCountV = 4)
-        {
-            var face = Ui.CardPanel(parent, name, fill, radius);
-
-            void Dash(bool horizontal, float crossMin, float crossMax, float along0, float along1)
-            {
-                var dash = Ui.Panel(face.transform, "Dash");
-                var image = dash.AddComponent<Image>();
-                image.color = border;
-                image.raycastTarget = false;
-                var (min, max) = horizontal
-                    ? (new Vector2(along0, crossMin), new Vector2(along1, crossMax))
-                    : (new Vector2(crossMin, along0), new Vector2(crossMax, along1));
-                Ui.Anchor((RectTransform)dash.transform, min, max, Vector2.zero, Vector2.zero);
-            }
-
-            const float edge = 0.07f;   // 描边厚度(占短边的分数)
-            const float run = 0.7f;     // 每段虚线占自己格位的比例,留 30% 当间隙
-            void Edge(bool horizontal, float crossMin, float crossMax, int count)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    float slot = 1f / count;
-                    Dash(horizontal, crossMin, crossMax, i * slot, i * slot + slot * run);
-                }
-            }
-            Edge(true, 1f - edge, 1f, dashCountH);   // 顶边
-            Edge(true, 0f, edge, dashCountH);        // 底边
-            Edge(false, 0f, edge, dashCountV);       // 左边
-            Edge(false, 1f - edge, 1f, dashCountV);  // 右边
-
-            return face;
         }
 
         // ================= Core 数据的只读派生(不重复 PerkRules 的私有门槛表) =================
