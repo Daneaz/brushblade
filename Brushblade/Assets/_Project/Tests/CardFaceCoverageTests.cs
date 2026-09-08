@@ -58,6 +58,54 @@ namespace Brushblade.Core.Tests
             ["Shots"] = "发数/跳数,与 Shape 合成一句由 PassiveText 印",
         };
 
+        /// <summary>CardTraits.cs 的源码。理由同 CharInfoSource:Tests asmdef 引不到
+        /// Presentation 程序集,只能读源码文本。</summary>
+        private static string CardTraitsSource()
+        {
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Brushblade")))
+                dir = dir.Parent;
+            Assert.That(dir, Is.Not.Null, "找不到含 Brushblade/ 的仓库根");
+            var path = Path.Combine(dir.FullName, "Brushblade", "Assets", "_Project",
+                "Presentation", "CardTraits.cs");
+            Assert.That(File.Exists(path), Is.True, $"找不到 {path}");
+            return File.ReadAllText(path);
+        }
+
+        /// <summary>字卡详情的「打谁 / 护谁」那一段(CardSheetSections.Modes → CardTraits.Modes)
+        /// 必须**两面都说得出话**。
+        ///
+        /// 2026-09-08 用户实测:利 / 锋 拆成攻护两面之后,详情卡上看起来还是单面字 ——
+        /// `ScanModes` 的 switch 当时只认伤害 / 护盾 / 治疗 / 复活,而这两张的护面**只有**
+        /// Empower / CritBuff,于是整整一面在这一段里不出现。数据与引擎都对,只有描述没跟上。
+        ///
+        /// 这条测试守的就是那一类:真实字表里任何一面,只要它的效果种类一个都没在
+        /// ScanModes 里出现,这一面在详情里就是隐形的。召唤字例外 —— Modes 对它们提前
+        /// return 成近战 / 远程,不走这个 switch。</summary>
+        [Test]
+        public void EveryCharSide_ProducesAtLeastOneMode()
+        {
+            var body = MethodBody(CardTraitsSource(), "void ScanModes(");
+            var invisible = new List<string>();
+            foreach (var def in CharTableTests.RealGraph().All)
+            {
+                if (def.IsComponent) continue;
+                // 召唤字走 Modes 里的提前 return(近战 / 远程),不经 ScanModes
+                if (def.Effects.Any(e => e.Kind == EffectKind.Summon)) continue;
+                foreach (var (side, effects) in new[]
+                    { ("护面", def.Effects), ("攻面", (IReadOnlyList<EffectDef>)def.AttackEffects) })
+                {
+                    if (effects == null || effects.Count == 0) continue;
+                    if (effects.Any(e => body.Contains("EffectKind." + e.Kind))) continue;
+                    invisible.Add($"{def.Id} 的{side}({string.Join(" / ", effects.Select(e => e.Kind))})");
+                }
+            }
+            Assert.That(invisible, Is.Empty,
+                "这些面在字卡详情的「打谁 / 护谁」里一条都不出现,玩家看不到它存在:\n  "
+                + string.Join("\n  ", invisible)
+                + "\n给 CardTraits.ScanModes 补上对应的分支(记得同时补字符串表)。");
+        }
+
         private static string CharInfoSource()
         {
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);

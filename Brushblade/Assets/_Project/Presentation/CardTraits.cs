@@ -120,6 +120,26 @@ namespace Brushblade.Presentation
                     case EffectKind.Revive:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.revive")));
                         break;
+                    // 纯增益面(2026-09-08):利 / 锋 拆成攻护两面之后,它们的护面**只有** buff
+                    // ——而这个 switch 原先只认伤害 / 护盾 / 治疗 / 复活,于是那一面在
+                    // 「打谁 / 护谁」这一段里彻底不出现,详情卡上看起来还是单面字
+                    // (用户 2026-09-08 实测报的就是这个:两面已经拆了,卡面描述没跟上)。
+                    //
+                    // 这几条与 BattleEngine.NeedsAllyTarget 的名单同源 —— 那张名单说的正是
+                    // 「挂上就真生效、且能指定给玩家或某只召唤物」的增益,拿它当判据不会分叉。
+                    case EffectKind.Empower:
+                    case EffectKind.CritBuff:
+                        Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_buff")));
+                        break;
+                    case EffectKind.DefenseBuff:
+                        Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_armor")));
+                        break;
+                    case EffectKind.Immunity:
+                        Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_immunity")));
+                        break;
+                    case EffectKind.Reflect:
+                        Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_reflect")));
+                        break;
                 }
             }
         }
