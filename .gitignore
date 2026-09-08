@@ -57,3 +57,10 @@ Brushblade/Builds/
 #     --out <名字>.html --title "..." --artboard Main.dc.html ... --canvas canvas.json
 docs/design/ui/**/*.html
 !docs/design/ui/**/*.dc.html
+
+# SDD 过程报告(subagent 的逐任务执行报告与协调账本):不入 git。
+# 正式溯源已经在 docs/superpowers/{specs,plans}/ 与 commit message 里,这些是过程记录,
+# 入库会让每批多出几千行没人回头看的文本(P3 那批四份就有 1361 行)。
+# ⚠ 2026-09-08 发现:此前**根本没有这条规则**,于是每个 agent 各自判断要不要 git add ——
+# P2 那批四份没入库、P3 那批四份入了库,同一类文件两种命运。加规则统一掉。
+.superpowers/
