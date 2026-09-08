@@ -25,10 +25,14 @@ namespace Brushblade.Presentation
     /// 保证这张弹窗与网格上的节点读到的是**同一份**状态与颜色,不是另起一套判断。</summary>
     public static class PerkNodeSheet
     {
-        private const float SheetW = 620f;
-        private const float SheetH = 700f;
+        // 396 = spec 2026-09-08 §8.3。原先是 620×700 的居中弹窗;画布改成能平移缩放之后,
+        // 居中弹窗会把玩家正在看的那一片画布整个盖住 —— 改成右侧贴边推出、上下铺满,
+        // 左边那块画布仍然看得见(遮罩只盖住它,不盖面板本身)。
+        private const float SheetW = 396f;
         private const float HeaderH = 150f;
         private const float ChainCircle = 34f;
+        private const float CrossReqBoxH = 62f;   // 跨树前置竖排:一格的高
+        private const float CrossReqGap = 10f;
         private const float FooterH = 56f;
         private const float CloseW = 120f;
 
@@ -37,8 +41,13 @@ namespace Brushblade.Presentation
 
         public static GameObject Show(Transform root, MetaState meta, PerkNodeDef def, Action onChanged)
         {
-            var overlay = Ui.Sheet(root, "PerkNodeSheet", SheetW, SheetH,
+            // 高度传 0:紧接着这次 Anchor 会把卡片改锚成「右缘 SheetW 宽、上下铺满」,
+            // Ui.Sheet 按 width/height 算出来的那个居中矩形会被整个覆盖掉,传什么都不影响结果。
+            var overlay = Ui.Sheet(root, "PerkNodeSheet", SheetW, 0f,
                 dismissable: true, replaceSameName: true, Theme.Scrim, out var content);
+            Ui.Anchor((RectTransform)overlay.transform.Find("Card"),
+                new Vector2(1f, 0f), new Vector2(1f, 1f),
+                new Vector2(-SheetW, 0f), new Vector2(0f, 0f));
 
             BuildHeader(content, def);
 
@@ -48,7 +57,11 @@ namespace Brushblade.Presentation
             SectionLabel(content, Strings.T("perk.detail.section.explain"));
             BuildParagraph(content, PerkInfo.DetailText(def), 15, Theme.TextDim);
 
-            SectionLabel(content, Strings.T("perk.detail.section.chain"));
+            BuildScalingBreakdown(content, meta, def);
+
+            // ⚠ 「前置链 / 跨树前置」的分区标题发在 BuildChain **里面**,不在这里 ——
+            // 两种节点用的是两套画法、两条标题文案,标题留在调用点会让跨树节点同时印出
+            // 一个空的「前置链」和一个「跨树前置」。
             BuildChain(content, meta, def);
 
             SectionLabel(content, Strings.T("perk.detail.section.requirement"));
@@ -91,9 +104,14 @@ namespace Brushblade.Presentation
                 new Vector2(20, 14), new Vector2(-20, -14));
             info.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
 
-            var crumb = Ui.ThemedLabel(info.transform, Strings.T("perk.detail.breadcrumb",
-                ("tree", PerkView.TreeName(def.Tree)), ("branch", PerkView.BranchName(def.Branch)),
-                ("depth", def.Depth)), 13, Theme.TextDim);
+            // 跨树节点的 Depth 恒为 1,但它不在任何一条直链上 —— 印「第1层」是在说一件
+            // 表里没有的事。两条 key 都写成字面量(动态拼后缀会被 EveryTableKey_IsUsed 判成孤儿)。
+            var crumb = Ui.ThemedLabel(info.transform, def.Tree == PerkTree.Cross
+                ? Strings.T("perk.detail.breadcrumb.cross",
+                    ("tree", PerkView.TreeName(def.Tree)), ("branch", PerkView.BranchName(def.Branch)))
+                : Strings.T("perk.detail.breadcrumb",
+                    ("tree", PerkView.TreeName(def.Tree)), ("branch", PerkView.BranchName(def.Branch)),
+                    ("depth", def.Depth)), 13, Theme.TextDim);
             crumb.alignment = TextAnchor.MiddleLeft;
             Ui.Sized(crumb.gameObject, flexWidth: 1, height: 18);
 
@@ -111,8 +129,9 @@ namespace Brushblade.Presentation
                 Theme.PanelInset, Theme.TextDim, 13);
         }
 
-        /// <summary>五行树的代表字就是它的元素本身(如金脉 → 「金」);被动/机制树没有元素,
-        /// 取枝名的首字(「养元」枝名字符串是「元」,「博闻」是「博闻」取首字「博」)。
+        /// <summary>五行树的代表字就是它的元素本身(如金脉 → 「金」);被动/机制/跨树没有元素,
+        /// 取枝名的首字(「养元」枝名字符串是「元」,「博闻」是「博闻」取首字「博」;
+        /// 跨树三条的枝名就是节点名,取到相/融/博)。
         /// 不是新文案——直接截取已经在字符串表里的 <see cref="PerkView.BranchName"/>。</summary>
         private static string WatermarkChar(PerkNodeDef def)
         {
@@ -139,16 +158,68 @@ namespace Brushblade.Presentation
             Ui.Sized(label.gameObject, flexWidth: 1, height: Ui.WrappedTextHeight(text, fontSize, ContentW));
         }
 
-        // ================= 前置链 =================
+        // ================= 数值构成 =================
+
+        /// <summary>数值构成:把「基础 + 计数 × 增量」拆成三行(spec 2026-09-08 §5.1)。
+        /// 只对缩放节点(三个跨树节点)显示,普通节点整段不出现。
+        ///
+        /// 不能只印合计值 —— 玩家看到「攻击 +14%」无从判断该不该再投。
+        ///
+        /// ⚠ 计数走 <see cref="PerkRules.ScaleCountOf"/>,**别在这一层重算一遍** ——
+        /// 重算就是同一份逻辑两条路径,是这一层最常见的静默 bug。合计同理:
+        /// <c>BaseValue + Value × 计数</c> 与 <see cref="PerkRules.Bonus"/> 里的算式逐字一致。</summary>
+        private static void BuildScalingBreakdown(Transform parent, MetaState meta, PerkNodeDef def)
+        {
+            if (def.Scaling == PerkScaling.None) return;
+
+            SectionLabel(parent, Strings.T("perk.detail.section.scaling"));
+
+            int count = PerkRules.ScaleCountOf(meta, def);
+            int scaled = def.Value * count;
+
+            BuildParagraph(parent, Strings.T("perk.detail.scaling.base", ("value", def.BaseValue)),
+                16, Theme.TextMain);
+            BuildParagraph(parent,
+                count > 0 ? CountLine(def.Scaling, count, scaled) : CountHint(def.Scaling),
+                count > 0 ? 16 : 15,
+                count > 0 ? Theme.TextMain : Theme.TextDim);
+            BuildParagraph(parent,
+                Strings.T("perk.detail.scaling.total", ("value", def.BaseValue + scaled)),
+                17, Theme.TextMain);
+        }
+
+        /// <summary>⚠ 逐条字面 key,**不是** <c>Strings.T($"perk.detail.scaling.count.{suffix}")</c>:
+        /// StringsTableTests 只认字面量,拼出来的 key 会让这三条全被判成孤儿
+        /// (本轮改造前一步已经栽过一次)。<see cref="CountHint"/> 同理。</summary>
+        private static string CountLine(PerkScaling scaling, int count, int scaled) => scaling switch
+        {
+            PerkScaling.PerMechanicNode =>
+                Strings.T("perk.detail.scaling.count.mechanic", ("count", count), ("value", scaled)),
+            PerkScaling.PerDeepElement =>
+                Strings.T("perk.detail.scaling.count.deep_element", ("count", count), ("value", scaled)),
+            _ => Strings.T("perk.detail.scaling.count.deep_wuxing", ("count", count), ("value", scaled)),
+        };
+
+        /// <summary>计数为 0 时的替代行。博采是唯一真会落在这一档的节点:前置只要五行 L2,
+        /// 缩放却数 L3(spec §3.4)。印「+0」会被当成 bug,要说清「再深一层就涨」。</summary>
+        private static string CountHint(PerkScaling scaling) => scaling switch
+        {
+            PerkScaling.PerMechanicNode => Strings.T("perk.detail.scaling.hint.mechanic"),
+            PerkScaling.PerDeepElement => Strings.T("perk.detail.scaling.hint.deep_element"),
+            _ => Strings.T("perk.detail.scaling.hint.deep_wuxing"),
+        };
+
+        // ================= 前置链 / 跨树前置 =================
 
         /// <summary>该枝从 L1 到本节点所在树的最深层,一串圆点:已点亮 = 主色实心圆 + 勾号,
         /// 当前这个 = 空心圆 + 主色粗描边,未点 = 灰色实心圆。</summary>
         private static void BuildChain(Transform parent, MetaState meta, PerkNodeDef def)
         {
             // 跨树节点的前置是「任一五行 L3 + 任一被动 L2」这样的谓词,不是同枝直链 ——
-            // 这里的逐层圆点画法表达不了它。完整的双前置显示见 Task 7;在那之前先不画,
-            // 免得渲染成一个没有意义的孤立圆点。
-            if (def.Tree == PerkTree.Cross) return;
+            // 这里的逐层圆点画法表达不了它,换一套画法、换一条分区标题。
+            if (def.Tree == PerkTree.Cross) { BuildCrossPrereq(parent, meta, def); return; }
+
+            SectionLabel(parent, Strings.T("perk.detail.section.chain"));
 
             int maxDepth = BranchMaxDepth(def.Branch);
             var main = PerkView.BranchColor(def);
@@ -205,6 +276,45 @@ namespace Brushblade.Presentation
                 Ui.Sized(label.gameObject, flexWidth: 1);
             }
         }
+
+        /// <summary>跨树节点的前置是**谓词**(「五行任一枝点到第 3 层」),不是同枝直链。
+        /// 逐条列出并标满足度 —— 玩家要能看出「差哪一侧、还差几个」(画布上那两条连线只回答
+        /// 「能不能点」、一整条一起变色,逐侧的账在这里算)。
+        ///
+        /// 复用 <see cref="BuildRequirementBox"/>:跨树前置在语义上就是第三、第四条解锁条件。
+        /// 但摆成**竖排**而不是「解锁条件」那样的两栏 —— 面板宽只剩 396,
+        /// 「五行任一枝点到第3层」这行字在半宽的格子里放不下。
+        ///
+        /// ⚠ 满足度走 <see cref="PerkRules.CountOwned"/>,与 <c>PerkRules.PrereqMet</c> 同一份计数。</summary>
+        private static void BuildCrossPrereq(Transform parent, MetaState meta, PerkNodeDef def)
+        {
+            SectionLabel(parent, Strings.T("perk.detail.section.cross_prereq"));
+
+            int n = def.Prereq.Count;
+            var stack = Ui.VStack(parent, "CrossPrereq", CrossReqGap);
+            Ui.Sized(stack, flexWidth: 1, height: n * CrossReqBoxH + (n - 1) * CrossReqGap);
+
+            foreach (var req in def.Prereq)
+            {
+                int have = PerkRules.CountOwned(meta, req.Tree, req.MinDepth);
+                bool met = have >= req.Count;
+                BuildRequirementBox(stack.transform, CrossReqLabel(req),
+                    met
+                        ? Strings.T("perk.detail.cross_req.met", ("count", have), ("need", req.Count))
+                        : Strings.T("perk.detail.cross_req.gap",
+                            ("gap", req.Count - have), ("count", have), ("need", req.Count)),
+                    met);
+            }
+        }
+
+        /// <summary>⚠ 逐条字面 key(理由同 <see cref="CountLine"/>)。<c>PerkTree.Cross</c>
+        /// 落到兜底那一支:跨树节点的前置里不会再出现跨树本身。</summary>
+        private static string CrossReqLabel(PerkRequirement req) => req.Tree switch
+        {
+            PerkTree.Passive => Strings.T("perk.detail.cross_req.passive", ("depth", req.MinDepth)),
+            PerkTree.Mechanic => Strings.T("perk.detail.cross_req.mechanic", ("depth", req.MinDepth)),
+            _ => Strings.T("perk.detail.cross_req.wuxing", ("depth", req.MinDepth)),
+        };
 
         private static int BranchMaxDepth(string branch)
         {
@@ -304,7 +414,10 @@ namespace Brushblade.Presentation
             PerkView.NodeState.Owned => Strings.T("perk.node.badge.owned"),
             PerkView.NodeState.CanUnlock => Strings.T("perk.view.unlock_button", ("cost", def.InkCost)),
             PerkView.NodeState.PoorInk => Strings.T("perk.detail.footer.poor_ink", ("cost", def.InkCost)),
-            PerkView.NodeState.GatedPrereq => Strings.T("perk.node.badge.gated_prereq"),
+            // 「需先点上一层」对跨树节点是错的 —— 它不在任何一条直链上,卡住它的是两侧谓词。
+            PerkView.NodeState.GatedPrereq => def.Tree == PerkTree.Cross
+                ? Strings.T("perk.node.badge.gated_cross")
+                : Strings.T("perk.node.badge.gated_prereq"),
             _ => Strings.T("perk.view.locked_requirement", ("level", def.UnlockLevel)), // GatedLevel
         };
     }

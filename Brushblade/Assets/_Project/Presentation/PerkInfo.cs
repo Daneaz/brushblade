@@ -127,8 +127,25 @@ namespace Brushblade.Presentation
         /// 各自的三层)结构完全相同、只是数值不同,共用一条说明比 40 条各写各的**更不容易过时**
         /// (卡面那句机械描述才需要每节点各写各的,这里不需要)。三条五行 L1/L2/L3
         /// (<see cref="PerkEffect.ElementDrawRolls"/> 等)横跨五个元素,用 {element} 占位符
-        /// 填该系名词,而不是拆成五条元素各写各的。</summary>
-        public static string DetailText(PerkNodeDef def) => def.Effect switch
+        /// 填该系名词,而不是拆成五条元素各写各的。
+        ///
+        /// ⚠ 跨树三条**按 id 取词、不走 <see cref="PerkEffect"/>**:它们复用了普通节点的效果类型
+        /// (相济 = AttackPercent、融会 = CritChance、博采 = DrawRolls),按效果取会拿到被动树
+        /// 那三条说明 —— 讲的是「固定百分比加成」,而跨树节点讲的是「按你已投资量放大」,
+        /// 两件事。逐条字面 key,不拼 $"perk.detail.{def.Id}"(拼出来的 key 会被
+        /// StringsTableTests 判成孤儿)。</summary>
+        public static string DetailText(PerkNodeDef def) =>
+            def.Tree == PerkTree.Cross ? CrossDetailText(def) : EffectDetailText(def);
+
+        private static string CrossDetailText(PerkNodeDef def) => def.Id switch
+        {
+            "cross_vigor" => Strings.T("perk.detail.cross_vigor"),
+            "cross_edge" => Strings.T("perk.detail.cross_edge"),
+            "cross_draw" => Strings.T("perk.detail.cross_draw"),
+            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(表里只有这三条跨树)
+        };
+
+        private static string EffectDetailText(PerkNodeDef def) => def.Effect switch
         {
             PerkEffect.MaxHp => Strings.T("perk.detail.max_hp"),
             PerkEffect.AttackPercent => Strings.T("perk.detail.attack_percent"),

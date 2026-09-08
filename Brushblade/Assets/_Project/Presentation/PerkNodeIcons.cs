@@ -11,8 +11,10 @@ namespace Brushblade.Presentation
     /// 跨树节点用它**所放大的那个效果**的图标(外圈虚线环由 PerkView 画,不进图标管线)——
     /// 图标本身就说明了它放大什么。
     ///
-    /// 单独一个文件:PerkView 与 PerkNodeSheet 都要用同一份映射,放哪一边都会变成
-    /// 「另一边去 reach 进来」。</summary>
+    /// 单独一个文件:眼下唯一的调用点是 PerkView(画布上的节点面),详情面板用的是
+    /// 「枝主色浅底 + 代表字水印」那一套、不取图标。留在自己的文件里而不是并进 PerkView,
+    /// 是因为它是一张**表**(43 个节点 → 15 枚图标),与那边的画法/手势/布局不是一类东西;
+    /// 哪天详情面板要用同一枚图标,直接调 <see cref="KeyFor"/> 即可,不必先做一次搬家。</summary>
     public static class PerkNodeIcons
     {
         public static string KeyFor(PerkNodeDef def)
