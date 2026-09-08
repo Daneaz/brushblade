@@ -196,7 +196,19 @@ namespace Brushblade.Presentation
         /// 字卡详情传正值,为的是把**被长按的那张牌**留在浮层下面看得见 ——
         /// 「我按的是哪张」与「这张字什么用」得能对上(稿 CharSheet.dc.html)。</param>
         public static GameObject Sheet(Transform root, string name, float width, float height,
-            bool dismissable, bool replaceSameName, Color scrim, float lift, out Transform content)
+            bool dismissable, bool replaceSameName, Color scrim, float lift, out Transform content) =>
+            Sheet(root, name, width, height, dismissable, replaceSameName, scrim, lift,
+                out content, out _);
+
+        /// <param name="card">卡片本体的 RectTransform。调用方要把卡片**改锚**成居中矩形以外的
+        /// 形状时(<see cref="PerkNodeSheet"/> 把它贴到右缘、上下铺满)必须拿到它。
+        /// 此前那边是 <c>overlay.transform.Find("Card")</c> —— 反向摸这里的私有命名约定,
+        /// 改个名字就 <c>Find</c> 返回 null、<see cref="Anchor"/> 运行时 NRE,而离线编译一个字
+        /// 都不报。同 <see cref="SheetBorder"/>/<see cref="SheetPad"/> 做成 internal 的理由:
+        /// 两边靠约定对齐迟早漂开,索性把它从这里交出去。</param>
+        public static GameObject Sheet(Transform root, string name, float width, float height,
+            bool dismissable, bool replaceSameName, Color scrim, float lift,
+            out Transform content, out RectTransform card)
         {
             if (replaceSameName)
             {
@@ -233,19 +245,30 @@ namespace Brushblade.Presentation
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.padding = new RectOffset(SheetPad, SheetPad, SheetPad, SheetPad);
             content = stack.transform;
+            card = (RectTransform)outer.transform;
             return overlay;
         }
+
+        /// <summary>带 <paramref name="card"/> 的贴边重载(<c>lift</c> 恒为 0 —— 要改锚的调用方
+        /// 本来就会把居中矩形整个覆盖掉,上抬多少没有意义)。</summary>
+        public static GameObject Sheet(Transform root, string name, float width, float height,
+            bool dismissable, bool replaceSameName, Color scrim,
+            out Transform content, out RectTransform card) =>
+            Sheet(root, name, width, height, dismissable, replaceSameName, scrim, 0f,
+                out content, out card);
 
         public static GameObject Sheet(Transform root, string name, float width, float height,
             bool dismissable, bool replaceSameName, out Transform content) =>
             Sheet(root, name, width, height, dismissable, replaceSameName, Theme.Scrim, out content);
 
         private const int SheetRadius = 18;    // 稿 9pt 圆角
-        // 这两个是 internal 而非 private:调用方要按「浮层还剩多少净宽」反算内容尺寸时
-        // (见 BattleView.DrawReplaceSheet 按字库张数反算牌宽),必须扣掉描边内缩与内边距。
+        // 这三个是 internal 而非 private:调用方要按「浮层还剩多少净宽」反算内容尺寸时
+        // (见 BattleView.DrawReplaceSheet 按字库张数反算牌宽),必须扣掉描边内缩与内边距;
+        // 把内容改摞进一个 ScrollList 的调用方(PerkNodeSheet)还要让列表的行距与浮层自己的
+        // 行距对上,否则同一张卡上会出现两种间距。
         // 抄一份常数到调用方那边会两边各改各的、悄悄漂开,索性让它们读同一个数。
         internal const float SheetBorder = 1.5f; // 稿 1pt 描边(左右各内缩一次)
-        private const float SheetSpacing = 14f;
+        internal const float SheetSpacing = 14f; // 内容容器的行距
         internal const int SheetPad = 24;        // 内容容器左右内边距(各一次)
 
         /// <summary>模态外壳:坐在 <see cref="Sheet"/> 上,标题写进内容容器。

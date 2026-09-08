@@ -504,16 +504,20 @@ namespace Brushblade.Presentation
             var title = Ui.ThemedLabel(titles.transform, Strings.T("perk.view.title"), 26,
                 Theme.TextMain, Theme.TitleFont);
             title.alignment = TextAnchor.MiddleLeft;
+            title.raycastTarget = false;   // 顶栏三个标签都不吃射线,否则按在标题上拖不动画布
             int charLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
             var subtitle = Ui.ThemedLabel(titles.transform,
                 Strings.T("perk.view.subtitle", ("level", charLevel)), 14, Theme.TextDim);
             subtitle.alignment = TextAnchor.MiddleLeft;
+            subtitle.raycastTarget = false;
 
             var spring = Ui.Panel(row.transform, "Spring");
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
 
             // 手势提示:画布能拖能缩这件事本身没有任何视觉线索,不说玩家不会试
-            Ui.ThemedLabel(row.transform, Strings.T("perk.view.zoom_hint"), 13, Theme.TextDim);
+            var zoomHint = Ui.ThemedLabel(row.transform, Strings.T("perk.view.zoom_hint"),
+                13, Theme.TextDim);
+            zoomHint.raycastTarget = false;
 
             Ui.InkCounter(row.transform, _meta.Ink, 20);
             Ui.PillButton(row.transform, Strings.T("common.back_to_map"), () => _onBack(),

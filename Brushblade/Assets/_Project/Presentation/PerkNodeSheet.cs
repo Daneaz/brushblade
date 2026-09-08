@@ -39,33 +39,49 @@ namespace Brushblade.Presentation
         // 内容可用宽度(与 CharPreview.ContentW 同一套算法:扣描边内缩 + 内容内边距)
         private const float ContentW = SheetW - 2f * 1.5f - 2f * 24f;
 
+        /// <summary>⚠ 内容摞进 <see cref="Ui.ScrollList"/>、底部操作钮**留在滚动区之外**。
+        ///
+        /// 面板从 620×700 的居中弹窗改成「右缘 396 宽、上下铺满」之后,固定高度的内容区
+        /// 两头都不对(1600×900 下按 <see cref="Ui.WrappedTextHeight"/> 实算:内容区净高
+        /// 900 − 3 描边 − 48 内边距 − 14 行距 − 56 footer = **779**):40 个普通节点占
+        /// 553~593,底部空 186~226px、「解锁」钮悬在面板中间;三个跨树节点多了「数值构成」
+        /// 与「跨树前置」两整段,占 795~837,**溢出 16~58px**。而 <see cref="Ui.Sized"/>
+        /// 只设 preferredHeight、minHeight 为 0,Unity 会把各项按比例压矮,段落却因为
+        /// <c>verticalOverflow = Overflow</c> 照旧把字画出去,压到下一段标题上。
+        ///
+        /// 只在 footer 前塞一个 <c>flexibleHeight = 1</c> 的 spring **只解决普通节点那一半**:
+        /// flexible 只撑不压,跨树的溢出照旧。滚动一次解决两头 —— 内容短就整段贴顶不滚,
+        /// 内容长就滚,而 footer 是内容容器的直接子物体,不在滚动区里,永远贴底可点。</summary>
         public static GameObject Show(Transform root, MetaState meta, PerkNodeDef def, Action onChanged)
         {
             // 高度传 0:紧接着这次 Anchor 会把卡片改锚成「右缘 SheetW 宽、上下铺满」,
             // Ui.Sheet 按 width/height 算出来的那个居中矩形会被整个覆盖掉,传什么都不影响结果。
             var overlay = Ui.Sheet(root, "PerkNodeSheet", SheetW, 0f,
-                dismissable: true, replaceSameName: true, Theme.Scrim, out var content);
-            Ui.Anchor((RectTransform)overlay.transform.Find("Card"),
-                new Vector2(1f, 0f), new Vector2(1f, 1f),
+                dismissable: true, replaceSameName: true, Theme.Scrim, out var content, out var card);
+            Ui.Anchor(card, new Vector2(1f, 0f), new Vector2(1f, 1f),
                 new Vector2(-SheetW, 0f), new Vector2(0f, 0f));
 
-            BuildHeader(content, def);
+            // 行距跟 Ui.Sheet 自己的内容容器取同一个数,否则滚动区内外两种间距。
+            var scroll = Ui.ScrollList(content, "Body", Ui.SheetSpacing, out var body);
+            Ui.Sized(scroll, flexWidth: 1, flexHeight: 1);
 
-            SectionLabel(content, Strings.T("perk.detail.section.effect"));
-            BuildParagraph(content, PerkInfo.Desc(def), 18, Theme.TextMain);
+            BuildHeader(body, def);
 
-            SectionLabel(content, Strings.T("perk.detail.section.explain"));
-            BuildParagraph(content, PerkInfo.DetailText(def), 15, Theme.TextDim);
+            SectionLabel(body, Strings.T("perk.detail.section.effect"));
+            BuildParagraph(body, PerkInfo.Desc(def), 18, Theme.TextMain);
 
-            BuildScalingBreakdown(content, meta, def);
+            SectionLabel(body, Strings.T("perk.detail.section.explain"));
+            BuildParagraph(body, PerkInfo.DetailText(def), 15, Theme.TextDim);
+
+            BuildScalingBreakdown(body, meta, def);
 
             // ⚠ 「前置链 / 跨树前置」的分区标题发在 BuildChain **里面**,不在这里 ——
             // 两种节点用的是两套画法、两条标题文案,标题留在调用点会让跨树节点同时印出
             // 一个空的「前置链」和一个「跨树前置」。
-            BuildChain(content, meta, def);
+            BuildChain(body, meta, def);
 
-            SectionLabel(content, Strings.T("perk.detail.section.requirement"));
-            BuildRequirements(content, meta, def);
+            SectionLabel(body, Strings.T("perk.detail.section.requirement"));
+            BuildRequirements(body, meta, def);
 
             BuildFooter(content, meta, def, overlay, onChanged);
 
@@ -176,29 +192,48 @@ namespace Brushblade.Presentation
 
             int count = PerkRules.ScaleCountOf(meta, def);
             int scaled = def.Value * count;
+            string unit = UnitOf(def);
 
-            BuildParagraph(parent, Strings.T("perk.detail.scaling.base", ("value", def.BaseValue)),
+            BuildParagraph(parent,
+                Strings.T("perk.detail.scaling.base", ("value", def.BaseValue), ("unit", unit)),
                 16, Theme.TextMain);
             BuildParagraph(parent,
-                count > 0 ? CountLine(def.Scaling, count, scaled) : CountHint(def.Scaling),
+                count > 0 ? CountLine(def.Scaling, count, scaled, unit) : CountHint(def.Scaling),
                 count > 0 ? 16 : 15,
                 count > 0 ? Theme.TextMain : Theme.TextDim);
             BuildParagraph(parent,
-                Strings.T("perk.detail.scaling.total", ("value", def.BaseValue + scaled)),
+                Strings.T("perk.detail.scaling.total", ("value", def.BaseValue + scaled),
+                    ("unit", unit)),
                 17, Theme.TextMain);
         }
+
+        /// <summary>数值构成三行的单位。三条 key 被三种缩放共用、模板里带不了单位,于是
+        /// 用一个 {unit} 占位符从调用点带进去 —— 相济的效果描述印的是「攻击 +8%…再 +3%」,
+        /// 而紧接着的三行若印「基础 +8 / → +6 / 合计 +14」,玩家读不出 14 是 14% 还是 14 点。
+        ///
+        /// 判据是**效果**而不是缩放方式:单位说的是「这个数是什么」,与「数的是什么」无关
+        /// (融会数机制节点、博采数系,但两者的值都是点数/次数,不带单位)。
+        /// ⚠ 两条都走字符串表(空串也占一个 key):StringsTableTests 要求每个 key 都有
+        /// 字面量调用点,同时也不许 Presentation 里出现玩家可见的硬编码文案。</summary>
+        private static string UnitOf(PerkNodeDef def) => def.Effect == PerkEffect.AttackPercent
+            ? Strings.T("perk.detail.scaling.unit.percent")
+            : Strings.T("perk.detail.scaling.unit.none");
 
         /// <summary>⚠ 逐条字面 key,**不是** <c>Strings.T($"perk.detail.scaling.count.{suffix}")</c>:
         /// StringsTableTests 只认字面量,拼出来的 key 会让这三条全被判成孤儿
         /// (本轮改造前一步已经栽过一次)。<see cref="CountHint"/> 同理。</summary>
-        private static string CountLine(PerkScaling scaling, int count, int scaled) => scaling switch
-        {
-            PerkScaling.PerMechanicNode =>
-                Strings.T("perk.detail.scaling.count.mechanic", ("count", count), ("value", scaled)),
-            PerkScaling.PerDeepElement =>
-                Strings.T("perk.detail.scaling.count.deep_element", ("count", count), ("value", scaled)),
-            _ => Strings.T("perk.detail.scaling.count.deep_wuxing", ("count", count), ("value", scaled)),
-        };
+        private static string CountLine(PerkScaling scaling, int count, int scaled, string unit) =>
+            scaling switch
+            {
+                PerkScaling.PerMechanicNode =>
+                    Strings.T("perk.detail.scaling.count.mechanic",
+                        ("count", count), ("value", scaled), ("unit", unit)),
+                PerkScaling.PerDeepElement =>
+                    Strings.T("perk.detail.scaling.count.deep_element",
+                        ("count", count), ("value", scaled), ("unit", unit)),
+                _ => Strings.T("perk.detail.scaling.count.deep_wuxing",
+                    ("count", count), ("value", scaled), ("unit", unit)),
+            };
 
         /// <summary>计数为 0 时的替代行。博采是唯一真会落在这一档的节点:前置只要五行 L2,
         /// 缩放却数 L3(spec §3.4)。印「+0」会被当成 bug,要说清「再深一层就涨」。</summary>
