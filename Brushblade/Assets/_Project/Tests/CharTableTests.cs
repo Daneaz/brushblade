@@ -529,8 +529,10 @@ namespace Brushblade.Core.Tests
                 .ToDictionary(x => x.Id, x => x.Turns);
             Assert.That(carriers, Is.EquivalentTo(new Dictionary<string, int>
             {
-                ["灭"] = 1, ["湮"] = 1, ["海"] = 1, ["淋"] = 2, ["沐"] = 1, ["澡"] = 1,
-            }), "封禁(Silence)的全集就是这六张字,连带各自的持续回合数");
+                // 2026-09-08(P4):海 的封禁按用户裁定换成弹射(接手 溃 卸下的那条),
+                // 封禁载体从六张减到五张。
+                ["灭"] = 1, ["湮"] = 1, ["淋"] = 2, ["沐"] = 1, ["澡"] = 1,
+            }), "封禁(Silence)的全集就是这五张字,连带各自的持续回合数");
         }
 
         /// <summary>壁(2026-08-25 字表重构)接手 铸 移出后无载体的 Reflect。

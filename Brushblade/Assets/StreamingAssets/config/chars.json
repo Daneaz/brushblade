@@ -663,19 +663,17 @@
       "gloss": "百川所归",
       "effects": [
         {
-          "kind": "HealAll",
-          "value": 32
+          "kind": "HealSelf",
+          "value": 62
         }
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 46
-        },
-        {
-          "kind": "Silence",
-          "value": 0,
-          "turns": 1
+          "kind": "DamageSingle",
+          "value": 101,
+          "shape": "Chain",
+          "shots": 3,
+          "shapePercent": 50
         }
       ]
     },

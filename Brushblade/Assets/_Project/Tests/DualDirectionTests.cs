@@ -136,6 +136,65 @@ namespace Brushblade.Core.Tests
         private static int ExpectedAllAttack(CardRarity rarity, params string[] traits) =>
             Round(RarityAnchor[rarity].All * (1 - Ratio(rarity, traits)));
 
+        /// <summary>利 / 锋 的攻护两面(2026-09-08 用户裁定:「不能既加攻又能攻击,还给我方
+        /// +buff」)。这两张此前是**单面**字 —— 一次触发同时吃到伤害 + 自身增益,正是 §1.5
+        /// 「打敌人的进攻面、挂自己的进护面、不许两面都挂」的漏网。
+        ///
+        /// 钉的是**归属**而不是数值:数值刻意没动(价目表里 buff 的价格与它落在哪一面无关,
+        /// 拆面本身就是净削弱)。战意印记留在攻面 —— 依「金系攻击字出手叠战意」的设定。
+        ///
+        /// 表现层不需要任何金系专用分支:BattleView 的双向态判据是
+        /// `def.AttackEffects.Count > 0`,与元素无关,拆完这两张字自动走双向拖拽/双击那条路。</summary>
+        [Test]
+        public void MetalBuffChars_SplitIntoBothDirections()
+        {
+            var graph = LoadRealGraph();
+            foreach (var (id, buff) in new[] { ("利", EffectKind.Empower), ("锋", EffectKind.CritBuff) })
+            {
+                var def = graph.Get(id);
+                Assert.That(def.AttackEffects.Count, Is.GreaterThan(0), $"{id} 缺攻击面");
+
+                // 护面 = 自身增益,且必须限时(2026-09-08 全表规则)
+                var b = def.Effects.First(e => e.Kind == buff);
+                Assert.That(b.Turns, Is.GreaterThan(0), $"{id} 的增益要带回合数");
+                Assert.That(def.Effects.Any(e => e.Kind == EffectKind.DamageSingle), Is.False,
+                    $"{id} 的护面不该带伤害");
+
+                // 攻面 = 伤害 + 战意印,不得再挂自身增益
+                Assert.That(def.AttackEffects.Any(e => e.Kind == EffectKind.DamageSingle), Is.True,
+                    $"{id} 的攻面要能打人");
+                Assert.That(def.AttackEffects.Any(e => e.Kind == EffectKind.Morale), Is.True,
+                    $"{id} 的战意印记留在攻面");
+                Assert.That(def.AttackEffects.Any(e => e.Kind == buff), Is.False,
+                    $"{id} 的攻面不该带自身增益");
+            }
+        }
+
+        /// <summary>两面真的能各自施放,而且**互不夹带**(2026-09-08)。上一条只看配置,
+        /// 这条走引擎:拖到敌人只吃伤害、拖到自己只吃 buff。</summary>
+        [Test]
+        public void MetalBuffChars_EachSideCastsAlone()
+        {
+            var graph = LoadRealGraph();
+            var enemies = new[] { new EnemyDef("桩", Element.Heart, 5000, 0) };
+
+            var attack = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 1000 },
+                new[] { "利" }, Array.Empty<string>(), enemies, seed: 1);
+            int hp0 = attack.Enemies[0].Hp;
+            Assert.That(attack.Cast("利", 0, attackMode: true), Is.EqualTo(BattleError.None));
+            Assert.That(attack.Enemies[0].Hp, Is.LessThan(hp0), "攻面打得动人");
+            Assert.That(attack.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0),
+                "攻面不该顺带给玩家增攻");
+
+            var buff = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 1000 },
+                new[] { "利" }, Array.Empty<string>(), enemies, seed: 1);
+            int hp1 = buff.Enemies[0].Hp;
+            Assert.That(buff.Cast("利", allySlot: Targeting.PlayerTarget), Is.EqualTo(BattleError.None));
+            Assert.That(buff.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff), Is.GreaterThan(0),
+                "护面真的给了增攻");
+            Assert.That(buff.Enemies[0].Hp, Is.EqualTo(hp1), "护面不该顺带打人");
+        }
+
         [Test]
         public void EveryWaterChar_HasBothDirections()
         {
