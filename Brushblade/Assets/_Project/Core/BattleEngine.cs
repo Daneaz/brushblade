@@ -266,6 +266,14 @@ namespace Brushblade.Core
         SuppressDowngraded, // 封禁打在 Boss 身上、降级为「只削一半护甲」时发一条(TargetIndex = 该 Boss;2026-09-05)。
                             // 不发的话玩家只会以为是 bug —— 卡面写着「特殊能力全部失效」,
                             // Boss 身上却只掉一半甲、大招照放。
+        CharmedAttack, // 被魅惑的敌人打自己人(TargetIndex = **攻击者**下标,SecondIndex = 受害者下标;2026-09-08)。
+                       // TargetIndex 取攻击者,与 EnemyAttack / SummonHit / Missed 同口径 ——
+                       // 表现层拿它下扑并按它的五行上色。
+                       //
+                       // 为什么必须单发一条:魅惑那一记走的是 DamageEnemy,只会发 Damage
+                       // (TargetIndex = 受害者),而 Damage 分支**不做攻击者动效** —— 它平时是玩家
+                       // 出牌的伤害,出手表演由出牌那条路自己负责。于是被魅惑的怪站着不动,
+                       // 伤害凭空落在队友头上(2026-09-08 用户实测报的就是这个)。
     }
 
     public readonly struct BattleEvent
@@ -1852,6 +1860,10 @@ namespace Brushblade.Core
             {
                 int victim = FirstOtherAliveEnemy(enemyIndex);
                 if (victim >= 0)
+                {
+                    // 先发出手事件,再造伤害:表现层按事件顺序播,下扑要排在受害者飘字之前
+                    // (与 SummonHit 那条同构 —— 那边也是「攻击者下扑 + 承伤者飘字」两段)。
+                    _events.Add(new BattleEvent(BattleEventKind.CharmedAttack, enemyIndex, 0, victim));
                     // allowBarb: false(2026-09-06 终审修复项 3):这一记不是我方主动的挥击 ——
                     // 默认 true 会让受害者的铁画反噬打到一个全程没出手的玩家身上。
                     // attackerBag: enemy.Statuses(同一修复):缺省会落到 _playerStatuses,
@@ -1860,6 +1872,7 @@ namespace Brushblade.Core
                     // 来源,读到的就是 0,行为上等价于「不吃玩家穿透」)。
                     DamageEnemy(victim, enemy.Attack, enemy.Element, crit: false,
                         attackerBag: enemy.Statuses, allowBarb: false);
+                }
                 // 状态回合递减不能漏——与 Freeze 分支同一条理由:提前 return 就跳过了方法
                 // 末尾那句 enemy.Statuses.TickTurns(),魅惑会因此永远不到期。
                 enemy.Statuses.TickTurns();
@@ -2372,16 +2385,19 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.ArmorBreak:
                         // 破甲 = 削目标护甲 Value **点**(2026-08-12,E-b4 T3 复原原始设计)。
-                        // TurnsLeft = -1:**本场持久**,依据第 10 章 :56「破甲永久降护甲」。
-                        // SourceId 铸唯一序号 → **可叠加**:不叠只刷新的话六个破甲字互相排斥,
-                        // 先出削 20 的再出削 10 的会变弱,而战例二的「三张接力削光坚壁 Boss」
+                        // **限时**(2026-09-08 用户裁定):第 10 章 :56「破甲永久降护甲」随之作废 ——
+                        // 护甲(DefenseBuff)那一边同批限时了,只改一边会让护甲轴的正负两半不对称。
+                        // 缺 turns 退化成 1 回合而不是永久:管线侧 extract_values 已把本 Kind 列进
+                        // 「带 turns 的效果缺 turns 直接报错」名单,所以配置漏写会在管线红,不会静默。
+                        // SourceId 铸唯一序号 → **可叠加**且**各自计时**:不叠只刷新的话六个破甲字
+                        // 互相排斥,先出削 20 的再出削 10 的会变弱,而战例二的「三张接力削光坚壁 Boss」
                         // 整套玩法就建立在叠加上。上限由 EffectiveEnemyDefense 的 max(0,…) 天然给出。
                         _enemies[targetIndex].Statuses.Apply(new StatusEffect
                         {
                             Kind = StatusKind.ArmorBreak,
                             Polarity = StatusPolarity.Debuff,
                             Magnitude = value,
-                            TurnsLeft = -1,
+                            TurnsLeft = Math.Max(1, effect.Turns),
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
@@ -2573,10 +2589,13 @@ namespace Brushblade.Core
                         // 护甲 +Value **点**(2026-08-12,E-b4 T3):多字**加法**叠加(旧乘法层是
                         // 连乘,天然趋近但不达 0;点数是直接相加),同字仍按 SourceId 覆盖 = 只刷新。
                         // 2026-08-28:改单体;召唤物侧由 SummonState.EffectiveDefense 读走。
+                        // **限时**(2026-09-08 用户裁定「所有 buff 类必须附带回合数,不存在本场生效」)。
+                        // 缺 turns 退化成 1 回合而不是永久,理由同 ArmorBreak 那条。
+                        // 例外只有 EffectDef.SummonDefense —— 那条是单位属性,见它的注释。
                         AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
-                            Magnitude = value, TurnsLeft = -1, SourceId = def.Id, // 段内持久
+                            Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
                         });
                         break;
                     case EffectKind.PierceBuff:
@@ -2707,6 +2726,19 @@ namespace Brushblade.Core
                                 // 运行期不再查表,之后再点技能已在场的这只不变。
                                 speedBonus: attacker == Element.Wood ? _config?.WoodSummonSpeedBonus ?? 0 : 0);
                             newborn.ActionMeter = TurnScheduler.Threshold;
+
+                            // 入场自带护甲(2026-09-08,塔):挂进这只召唤物自己的状态袋,
+                            // 由现成的 SummonState.EffectiveDefense 读走 —— 不新建减伤路径。
+                            // 只给本次召出的这几只(与发给全场的 SummonShield 不同,见 EffectDef 注释)。
+                            // TurnsLeft = -1 是刻意的:它随单位存在,不是场上飘着的玩家 buff。
+                            // 吃卡等级 —— 与玩家侧 DefenseBuff 同口径(护甲点数是「资源」)。
+                            if (effect.SummonDefense > 0)
+                                newborn.Statuses.Apply(new StatusEffect
+                                {
+                                    Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
+                                    Magnitude = MetaRules.ScaleByCardLevel(effect.SummonDefense, cardLevel),
+                                    TurnsLeft = -1, SourceId = def.Id,
+                                });
 
                             // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)。
                             // 下标取 summonCursor 而非内层的 n —— 见方法头部那条注释

@@ -561,10 +561,17 @@ namespace Brushblade.Core
             // 2026-08-12 E-b4 T3 随乘法减伤退场,载体从 DamageReduction 换成 DefenseBuff)
             // 厚/泉跟护盾同步跨战斗(2026-09-02):护盾本来就整场爬塔延续(_shieldNormal),
             // 厚不跟着延续的话每场重攒,而护盾还留着 —— 两者永远对不上。
+            //
+            // ⚠ 2026-09-08 加的 `TurnsLeft < 0`:护甲随「所有 buff 必须带回合数」改成限时之后,
+            // 这张名单里的 DefenseBuff 已经**没有**永久条目了 —— 于是护甲事实上不再跨战斗,
+            // 上面那句「只取护甲增益」如今只对厚/泉(层数,恒 -1)有实际作用。
+            // 不按 Kind 排除而按存续排除,是为了让将来任何新的限时增益自动落在正确的一边:
+            // 「几回合内有效」的东西跨过一整场战斗还剩几回合,没有一个说得通的答案。
             _carriedStatuses = Battle.PlayerStatuses.All
-                .Where(s => s.Kind == StatusKind.DefenseBuff
-                    || s.Kind == StatusKind.Heft
-                    || s.Kind == StatusKind.Wellspring)
+                .Where(s => (s.Kind == StatusKind.DefenseBuff
+                        || s.Kind == StatusKind.Heft
+                        || s.Kind == StatusKind.Wellspring)
+                    && s.TurnsLeft < 0)
                 .Select(s => s.Clone())
                 .ToList();
 

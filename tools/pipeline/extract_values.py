@@ -10,7 +10,11 @@ RARITY = {"🟡金": "Gold", "🔴红": "Red", "🟠橙": "Orange", "🟣紫": "
 
 # 纯二选一双方向的系(2026-09-02):这些系的表多一格「攻击效果配置」,见 _parse_row。
 # 水系(Task 10)、土系(Task 11)均已落地。
-DUAL_DIRECTION_ELEMENTS = {"水", "土"}
+# 金系(2026-09-08):只为 BUFF 组的 利 / 锋 —— 用户裁定「不能既加攻又能攻击,还给我方 +buff」,
+# 两字拆成攻护两面(伤害进攻面、增攻/暴击进护面)。金系其余表全是单面字,多出来的那格
+# 一律 —— ,解析侧不受影响(_parse_row 现在把「实现」列排除在反引号候选之外,
+# 那才是这条闸原先真正防的东西,见那里的注释)。
+DUAL_DIRECTION_ELEMENTS = {"水", "土", "金"}
 
 # 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
 # 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。
@@ -71,7 +75,13 @@ EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 # (「在表里就必须有 turns」)重新覆盖它们,补住「利/锋 漏写 turns」这类错的防护
 # (与 spec §3 第 20 项记的 `壁` 历史 bug 同一个形状:漏 turns → TurnsLeft=0 →
 # 状态施加当场清空,卡面照印)。
-DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff"}
+# 护甲/破甲(2026-09-08 用户裁定「所有 buff 类必须附带回合数,不存在本场生效」):
+# 两条都从 TurnsLeft = -1 改成读 turns,只改一边会让护甲轴的正负两半不对称。
+# 引擎兜底是 `Math.Max(1, effect.Turns)`,漏写不会崩、只会静默变成 1 回合 ——
+# 正是这张白名单存在的理由(同 `壁` 那个历史 bug 的形状)。
+# ⚠ 一格只支持一个 turns 值:护甲在护面、破甲在攻面,全表没有同格并存的行(垚/㙓 都是两面分开)。
+DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
+                  "DefenseBuff", "ArmorBreak"}
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 TURN_TAKING_KINDS = DURATION_KINDS
@@ -190,7 +200,11 @@ def _parse_row(line, element):
     # 里常年散落着引用 token 名的反引号(如「装配 `DoubleVsControlled`」),不加这道
     # 元素闸,通用的「第二个反引号格」判据会把那些说明文字误当成攻击效果去解析。
     if element in DUAL_DIRECTION_ELEMENTS:
-        backticked = [c for c in cells if "`" in c]
+        # 排除「实现」那一格(2026-09-08):它的备注文字里常年散落着引用 token 名的反引号
+        # (如「装配 `DoubleVsControlled`」),不排掉的话「第二个反引号格」会把说明文字
+        # 当成攻击效果解析 —— 这正是这道元素闸原先要防的东西,现在按格排除更直接,
+        # 金系才能安全地加进来。
+        backticked = [c for c in cells if "`" in c and c != impl]
         if len(backticked) > 1:
             attack_effects = _parse_effects(backticked[1], char)
             if attack_effects:
@@ -224,6 +238,13 @@ def _parse_effects(config, char):
         if shield:
             effect["summonShield"] = int(shield.group(1))
             consumed.add("SummonShield")
+        # 塔(2026-09-08):这几只**自带**的护甲,与上面发给全场的护盾不是一回事。
+        # 落地是往召唤物自己的状态袋挂 DefenseBuff,由 SummonState.EffectiveDefense 读走。
+        # 不进 DURATION_KINDS:它随单位存在(TurnsLeft = -1),不是场上飘着的玩家 buff。
+        summon_def = re.search(r"`SummonDefense (\d+)`", config)
+        if summon_def:
+            effect["summonDefense"] = int(summon_def.group(1))
+            consumed.add("SummonDefense")
         passive = {}
         for token, field in SUMMON_PASSIVE.items():
             found = re.search(rf"`{token} (\d+)`", config)
@@ -276,7 +297,7 @@ def _parse_effects(config, char):
     # 收录「已经在召唤分支里消费过数值的 token 名」——`Summon` 本身、桂的 SummonShield、
     # 以及全部 SUMMON_PASSIVE token——不跳过的话会被这条通用正则重新匹配一遍,产出
     # 一条残缺的独立效果(比如缺 count/attack/summonChar 的 kind="Summon")。
-    SUMMON_HANDLED = {"Summon", "SummonShield"} | set(SUMMON_PASSIVE)
+    SUMMON_HANDLED = {"Summon", "SummonShield", "SummonDefense"} | set(SUMMON_PASSIVE)
     for kind, value in re.findall(r"`(\w+) (\d+)`", config):
         if kind in SUMMON_HANDLED:
             continue

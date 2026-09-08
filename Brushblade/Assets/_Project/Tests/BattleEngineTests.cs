@@ -1410,18 +1410,24 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(StatusPolarity.Debuff));
         }
 
-        /// <summary>T3-V2(spec §4.5.2):破甲**本场持久**,依据第 10 章 :56「破甲永久降护甲」。
-        /// 这条测试是 ArmorBreak_ExpiresAfterTwoTurns 的**语义反转**(2026-08-12)——
-        /// 名字与断言方向都反过来了,不是回归。</summary>
+        /// <summary>破甲**限时**(2026-09-08 用户裁定「所有 buff 类必须附带回合数」;护甲那一边
+        /// 同批限时,只改一边会让护甲轴的正负两半不对称)。第 10 章 :56「破甲永久降护甲」作废。
+        ///
+        /// 这是同一条断言的**第三次语义反转**:2026-08-05「2 回合」→ 2026-08-12「本场持久」
+        /// → 本次「按配置的回合数」。每次都是改名 + 改方向,不是回归。
+        /// 夹具的 碎 没写 turns,走 `Math.Max(1, effect.Turns)` 的兜底 = 1 回合;
+        /// 「按配置的回合数真的生效」由 TimedDefenseTests 守。</summary>
         [Test]
-        public void ArmorBreak_PersistsForTheWholeBattle()
+        public void ArmorBreak_ExpiresAfterItsTurns()
         {
             var engine = ArmorBreakEngine(enemyDefense: 30);
             engine.Cast("碎", 0);
-            for (int i = 0; i < 5; i++) engine.EndTurn();
-
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.ArmorBreak),
-                Is.EqualTo(10), "过 5 个回合仍在,且量值不衰减");
+                Is.EqualTo(10), "刚挂上");
+
+            for (int i = 0; i < 5; i++) engine.EndTurn();
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.ArmorBreak),
+                Is.EqualTo(0), "缺 turns 兜底 1 回合,到期即消 —— 不再本场持久");
         }
 
         // ---- 穿透(2026-08-12,E-b4 T3:替代旧的「穿甲 = 无视减免 + 15%」布尔标记)----

@@ -268,7 +268,11 @@ namespace Brushblade.CoreTests
                     .Where(e => e.Kind == EffectKind.DamageSingle && e.Pierce == 0)
                     .Select(e => e.Value))
                 .Min();
-            Assert.That(lowestTier, Is.EqualTo(45), "字表最低伤害档;它变了这条判据要重新标定");
+            // 2026-09-08(P4)45 → 54:原先的最低档是 利 的 45,而 利 随「不能既加攻又能攻击、
+            // 还给我方 +buff」的裁定拆成了攻护两面,那 45 挪进了 AttackEffects —— 按上面那条
+            // 范围说明,攻击面不在本判据内。现在的最低档是 花(魅惑,单体 54)。
+            // 判据本身反而更宽松(54 > 45),不影响这条测试要守的东西。
+            Assert.That(lowestTier, Is.EqualTo(54), "字表最低伤害档;它变了这条判据要重新标定");
 
             var mob = CampaignConfig.Scale(RealEnemy("墨渍"), DepthScale(20));
             Assert.That(mob.Defense, Is.EqualTo(39));
@@ -293,8 +297,9 @@ namespace Brushblade.CoreTests
 
             Assert.That(dealt, Is.GreaterThan(0),
                 "深度 20 的带甲小怪必须还能被最低档的字磨动 —— 归零就等于护甲把字库掐死了");
-            Assert.That(dealt, Is.EqualTo(32),
-                "ceil(45×1.3) = 59 → 59×122/100 = 71 → 71 − 39 = 32(spec §6.3.2 的推导)");
+            Assert.That(dealt, Is.EqualTo(47),
+                "ceil(54×1.3) = 71 → 71×122/100 = 86 → 86 − 39 = 47(spec §6.3.2 的推导;"
+                + "2026-09-08 最低档由 利 45 换成 花 54,见上方注释)");
         }
 
         /// <summary>无尽深度缩放系数(<c>Endless.cs</c> 的 <c>1 + 0.1×(depth−1)</c>)。
