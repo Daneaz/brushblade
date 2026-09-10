@@ -209,9 +209,14 @@ namespace Brushblade.Presentation
             }
             Ui.ThemedLabel(lvRow.transform,
                 Strings.T("charsheet.lv.current", ("level", cardLevel)), 19, Theme.TextDim);
-            // 缩放倍数照 MetaRules.ScaleByCardLevel 的定义写,别另算一份
+            // 缩放倍数**从 MetaRules.ScaleByCardLevel 本身反推**,不另抄公式(2026-09-11):
+            // 此前这里硬写了一份 (1 + 0.1×(级−1)),而注释就在上一行叮嘱"别另算一份" ——
+            // 系数改成 0.117 那次,引擎按新系数结算、这一行仍印旧倍数,5 级卡实际 ×1.468
+            // 而卡面印 ×1.4。Presentation 无自动化测试,离线编译与 Core 单测都抓不到。
+            // 拿 10000 当基数取整误差 < 0.01%,够印一位小数。
             Ui.ThemedLabel(lvRow.transform,
-                Strings.T("charsheet.lv.scale", ("mult", (1 + 0.1 * (cardLevel - 1)).ToString("0.#"))),
+                Strings.T("charsheet.lv.scale",
+                    ("mult", (MetaRules.ScaleByCardLevel(10000, cardLevel) / 10000.0).ToString("0.#"))),
                 19, Theme.LockGray);
             Ui.ThemedLabel(lvRow.transform,
                 dual ? Strings.T("charsheet.lv.note_dual") : Strings.T("charsheet.lv.note"),

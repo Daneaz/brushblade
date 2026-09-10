@@ -7,23 +7,27 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>开局装配(2026-08-05 拍板):初始收集 = 五系各白/绿/蓝一张;
+    /// <summary>开局装配(2026-09-11 改口径):初始收集 = 五系各 2 张(白 + 一张更高档);
     /// 部件的一切来源(初始池、奇遇随机部件)都从**已解锁卡池所需部件**里取,不再是固定金木水火土。</summary>
     public class StartingSetupTests
     {
         private static RecipeGraph RealGraph() => CharTableTests.RealGraph();
 
-        // ---- 初始收集:五系 × 白绿蓝 ----
+        // ---- 初始收集:五系 × (白 + 一张更高档) ----
 
         [Test]
-        public void StartingCollection_IsFifteenCards()
+        public void StartingCollection_IsTenCards()
         {
-            Assert.That(MetaRules.StartingCollection.Count, Is.EqualTo(15));
-            Assert.That(MetaRules.StartingCollection.Distinct().Count(), Is.EqualTo(15), "不得重复");
+            Assert.That(MetaRules.StartingCollection.Count, Is.EqualTo(10));
+            Assert.That(MetaRules.StartingCollection.Distinct().Count(), Is.EqualTo(10), "不得重复");
         }
 
+        /// <summary>2026-09-11(档位差距与升级替代 T2):15 → 10 张,
+        /// 「每系白/绿/蓝各一张」这条旧前提作废。新口径是**每系恰好 2 张**:
+        /// 1 张白(保证 <c>StartingLibrary</c> 的「五行各一格」不空)+ 1 张绿或蓝。
+        /// 全表白 5 / 绿 3 / 蓝 2 —— 金(剿)与土(碎)配蓝,其余三系配绿。</summary>
         [Test]
-        public void StartingCollection_EachElementHasWhiteGreenBlue()
+        public void StartingCollection_EachElementHasWhitePlusOneHigherTier()
         {
             var graph = RealGraph();
             foreach (var element in new[] { Element.Metal, Element.Wood, Element.Water,
@@ -33,11 +37,18 @@ namespace Brushblade.Core.Tests
                     .Select(graph.Get)
                     .Where(d => d.Element == element)
                     .ToList();
-                Assert.That(ofElement.Count, Is.EqualTo(3), $"{element} 应恰好 3 张");
-                foreach (var rarity in new[] { CardRarity.White, CardRarity.Green, CardRarity.Blue })
-                    Assert.That(ofElement.Count(d => d.Rarity == rarity), Is.EqualTo(1),
-                        $"{element} 的 {rarity} 档应恰好 1 张");
+                Assert.That(ofElement.Count, Is.EqualTo(2), $"{element} 应恰好 2 张");
+                Assert.That(ofElement.Count(d => d.Rarity == CardRarity.White), Is.EqualTo(1),
+                    $"{element} 的白档应恰好 1 张");
+                Assert.That(ofElement.Count(d => d.Rarity == CardRarity.Green
+                                              || d.Rarity == CardRarity.Blue), Is.EqualTo(1),
+                    $"{element} 应恰好 1 张绿或蓝");
             }
+
+            var all = MetaRules.StartingCollection.Select(graph.Get).ToList();
+            Assert.That(all.Count(d => d.Rarity == CardRarity.White), Is.EqualTo(5), "全表白 5");
+            Assert.That(all.Count(d => d.Rarity == CardRarity.Green), Is.EqualTo(3), "全表绿 3");
+            Assert.That(all.Count(d => d.Rarity == CardRarity.Blue), Is.EqualTo(2), "全表蓝 2");
         }
 
         [Test]

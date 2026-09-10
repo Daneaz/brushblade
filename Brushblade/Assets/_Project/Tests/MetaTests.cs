@@ -122,9 +122,9 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { Ink = 100 };
             MetaRules.AddCardCopies(meta, "焚", 3);
-            Assert.That(MetaRules.TryUpgradeCard(meta, "焚"), Is.True); // 需 2 卡 + 20 墨锭
+            Assert.That(MetaRules.TryUpgradeCard(meta, "焚"), Is.True); // 需 1 卡 + 20 墨锭
             Assert.That(MetaRules.CardLevel(meta, "焚"), Is.EqualTo(2));
-            Assert.That(meta.CardCopies["焚"], Is.EqualTo(1));
+            Assert.That(meta.CardCopies["焚"], Is.EqualTo(2));
             Assert.That(meta.Ink, Is.EqualTo(80));
         }
 
@@ -150,10 +150,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void UpgradeCard_InsufficientCopies_Fails()
         {
+            // 2026-09-11:1 级只要 1 张,「不够」得从 2 级(要 2 张)起才测得出来
             var meta = new MetaState { Ink = 1000 };
+            meta.CardLevels["焚"] = 2;
             MetaRules.AddCardCopies(meta, "焚", 1);
             Assert.That(MetaRules.TryUpgradeCard(meta, "焚"), Is.False);
-            Assert.That(MetaRules.CardLevel(meta, "焚"), Is.EqualTo(1));
+            Assert.That(MetaRules.CardLevel(meta, "焚"), Is.EqualTo(2));
             Assert.That(meta.Ink, Is.EqualTo(1000)); // 不动状态
         }
 
@@ -175,14 +177,50 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.TryUpgradeCard(meta, "焚"), Is.False);
         }
 
+        /// <summary>2026-09-11(档位差距与升级替代,拍板第 6 条):前四档
+        /// <c>{2,4,10,20}</c> → <c>{1,2,3,5}</c>,白卡升到 5 级从 36 张降到 **11 张**。
+        ///
+        /// 「11」是这条改动的整个理由 —— 拍板第 2 条把 5 级定成「≈ 下一档 1 级」,
+        /// 而白卡拿 36 张同名卡在掉率下等于 1200 只紫檀箱,升级替代路径物理上不成立。
+        /// 5 级以后(索引 4 起 = 40/80/150/300/500)一字未改:那是长线,不在本批范围。</summary>
+        [Test]
+        public void CopiesToUpgrade_WhiteReachesLevelFiveInElevenCopies()
+        {
+            int total = 0;
+            for (int level = 1; level <= 4; level++)
+                total += MetaRules.CopiesRequired(level, CardRarity.White);
+            Assert.That(total, Is.EqualTo(11), "白卡 1→5 级的同名卡总量");
+
+            Assert.That(MetaRules.CopiesRequired(5, CardRarity.White), Is.EqualTo(40),
+                "5 级以后的长线不在本批范围");
+        }
+
         [TestCase(10, 1, 10)]
-        [TestCase(18, 3, 22)]   // 18 × 1.2 = 21.6 → 22(向上取整)
-        [TestCase(18, 10, 35)]  // 18 × 1.9 = 34.2 → 35
+        [TestCase(18, 3, 23)]   // 18 × 1.234 = 22.212 → 23(向上取整)
+        [TestCase(18, 10, 37)]  // 18 × 2.053 = 36.954 → 37
         [TestCase(6, 2, 7)]     // 低数值字升 1 级即 +1 可感(2026-07-19:floor 吞增幅的修正)
         [TestCase(3, 2, 4)]
-        public void ScaleByCardLevel_TenPercentPerLevel_Ceiled(int baseValue, int level, int expected)
+        [TestCase(100, 5, 147)] // 5 级 = ×1.468 = 档位倍率 G(2026-09-11:升到 5 级 ≈ 下一档 1 级)
+        public void ScaleByCardLevel_ElevenPointSevenPercentPerLevel_Ceiled(
+            int baseValue, int level, int expected)
         {
             Assert.That(MetaRules.ScaleByCardLevel(baseValue, level), Is.EqualTo(expected));
+        }
+
+        /// <summary>2026-09-11(档位差距与升级替代,拍板第 2 条):系数 0.1 → 0.117,
+        /// 使 5 级系数 = 1 + 0.117×4 = 1.468 = 档位倍率 G = 10^(1/6)。
+        /// 规则表述:**升到 5 级 ≈ 下一档 1 级**。这条守的是那个等式本身 ——
+        /// 只有上面那张 TestCase 表的话,把系数改回 0.1 再顺手改期望值就不会有任何东西变红。</summary>
+        [Test]
+        public void ScaleByCardLevel_AtLevelFive_MatchesOneTierGap()
+        {
+            const double tierGap = 1.4678; // 10^(1/6)
+            for (int baseValue = 40; baseValue <= 600; baseValue += 40)
+            {
+                int scaled = MetaRules.ScaleByCardLevel(baseValue, 5);
+                Assert.That(scaled / (double)baseValue, Is.EqualTo(tierGap).Within(0.02),
+                    $"基础值 {baseValue}:5 级应约等于跨一档");
+            }
         }
 
         [TestCase(1, 100)]   // 1 级 = 基准,伤害与引入攻击力之前逐字节相同
@@ -270,8 +308,8 @@ namespace Brushblade.Core.Tests
                 new[] { new EnemyDef("怔", Element.Heart, 200, 3) }, seed: 1,
                 cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["焚"] = 3 });
             engine.Cast("焚");
-            // 基础 18 → 3 级 ×1.2 = 21.6 → 向上取整 22(相生 ×3 已取消,不再乘 3)
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 22));
+            // 基础 18 → 3 级 ×1.234 = 22.212 → 向上取整 23(相生 ×3 已取消,不再乘 3)
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 23));
         }
 
         // ---- 收集(19.3.4) ----
@@ -498,8 +536,8 @@ namespace Brushblade.Core.Tests
                 new BattleConfig(), new string[0], new[] { "火" }, seed: 1,
                 cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["火"] = 6 });
             run.Battle.Cast("火", 0);
-            // 10 × (1 + 0.5) = 15
-            Assert.That(run.Battle.Enemies[0].Hp, Is.EqualTo(85));
+            // 10 × (1 + 0.117×5) = 15.85 → 向上取整 16
+            Assert.That(run.Battle.Enemies[0].Hp, Is.EqualTo(84));
         }
 
         // ---- 存档序列化 ----

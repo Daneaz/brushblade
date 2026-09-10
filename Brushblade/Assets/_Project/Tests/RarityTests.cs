@@ -41,8 +41,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void UpgradeCosts_ScaleByRarity()
         {
-            // 白卡 1 级:2 卡 / 20 墨锭(基准)
-            Assert.That(MetaRules.CopiesRequired(1, CardRarity.White), Is.EqualTo(2));
+            // 白卡 1 级:1 卡 / 20 墨锭(基准;2026-09-11 前四档由 {2,4,10,20} 降到 {1,2,3,5},
+            // 白卡升到 5 级从 36 张降到 11 张 —— 墨锭成本不动)
+            Assert.That(MetaRules.CopiesRequired(1, CardRarity.White), Is.EqualTo(1));
             Assert.That(MetaRules.InkRequired(1, CardRarity.White), Is.EqualTo(20));
             // 红卡(最高档)需卡 ≈ 白的 1/20(向上取整,最少 1),墨锭 ×6
             Assert.That(MetaRules.CopiesRequired(1, CardRarity.Red), Is.EqualTo(1));

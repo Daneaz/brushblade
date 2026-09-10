@@ -243,7 +243,8 @@ namespace Brushblade.CoreTests
         [Test]
         public void LowestTierChar_StillDentsArmoredMobAtDepth20()
         {
-            // 典型玩家画像(spec §6.3.2):角色 12 级 → ATK 122;卡等级 4 → ×1.3
+            // 典型玩家画像(spec §6.3.2):角色 12 级 → ATK 122;卡等级 4 → ×1.351
+            // (2026-09-11:卡等级系数 0.1 → 0.117,4 级由 ×1.3 变 ×1.351)
             const int playerLevel = 12;
             const int cardLevel = 4;
 
@@ -297,9 +298,10 @@ namespace Brushblade.CoreTests
 
             Assert.That(dealt, Is.GreaterThan(0),
                 "深度 20 的带甲小怪必须还能被最低档的字磨动 —— 归零就等于护甲把字库掐死了");
-            Assert.That(dealt, Is.EqualTo(47),
-                "ceil(54×1.3) = 71 → 71×122/100 = 86 → 86 − 39 = 47(spec §6.3.2 的推导;"
-                + "2026-09-08 最低档由 利 45 换成 花 54,见上方注释)");
+            Assert.That(dealt, Is.EqualTo(50),
+                "ceil(54×1.351) = 73 → 73×122/100 = 89 → 89 − 39 = 50(spec §6.3.2 的推导;"
+                + "2026-09-08 最低档由 利 45 换成 花 54,见上方注释;"
+                + "2026-09-11 卡等级系数 0.1 → 0.117)");
         }
 
         /// <summary>无尽深度缩放系数(<c>Endless.cs</c> 的 <c>1 + 0.1×(depth−1)</c>)。
