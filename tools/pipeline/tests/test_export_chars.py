@@ -91,8 +91,10 @@ def test_extract_pulls_60_implementable_chars():
     # 焚曾含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)。
     # 2026-09-02:相生 ×3 取消,基础值改填等值改写后的实战值,40 → 120,战斗结果不变。
     # 2026-09-07(P2 Task 4a):补对灼烧(灼烧梯队·高),预算扣除 + DOT 当量扣除后 120 → 108。
+    # 2026-09-11(档位统一 G=1.468,T3):橙档全体锚点 240 → 204,预算与 DOT 当量 D99 都没动,
+    # (108+99)×(204/240)−99 = 76.95 → 108 → 77。
     fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
-    assert fen["value"] == 108
+    assert fen["value"] == 77
     assert fen["doubleVs"] == "Burning"
     assert values["焚"]["rarity"] == "Orange"
     assert values["燚"]["rarity"] == "Red"
@@ -652,5 +654,7 @@ def test_zao_carries_regen_passive():
     zao = _shipped()["藻"]["effects"][0]
     assert zao["passive"] == {"regen": 60, "speed": 150}
     assert zao["count"] == 1
-    assert zao["value"] == 694
-    assert zao["attack"] == 187
+    # 2026-09-11(档位统一 G=1.468,T3):橙档召唤血锚点 780 → 706,694×(706/780) = 628.2 → 628。
+    assert zao["value"] == 628
+    # 同上:橙档召唤攻锚点 300 → 184(r=0.45 锁死),187×(184/300) = 114.7 → 115。
+    assert zao["attack"] == 115

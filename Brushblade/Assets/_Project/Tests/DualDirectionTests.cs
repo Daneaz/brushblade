@@ -83,11 +83,15 @@ namespace Brushblade.Core.Tests
             [CardRarity.Red] = 0.45,
         };
 
+        /// <summary>2026-09-11「档位差距与升级替代」T3:锚点四列整体重定标 —— 保红档端点、
+        /// 按 G = 10^(1/6) = 1.4678 反推至白档(旧表 紫→金 2.00 是断崖,金→橙 1.20 / 橙→红 1.25
+        /// 近乎持平)。与 tools/design/rebalance_2026_09_05.py 的 ANCHOR 手工同步 —— 见上方大注释,
+        /// 两边没有共享来源。</summary>
         private static readonly Dictionary<CardRarity, (int Single, int All, int Shield, int Heal)> RarityAnchor = new()
         {
-            [CardRarity.Green] = (90, 50, 70, 60),
-            [CardRarity.Purple] = (200, 100, 150, 120),
-            [CardRarity.Gold] = (400, 200, 300, 240),
+            [CardRarity.Green] = (88, 44, 66, 51),
+            [CardRarity.Purple] = (190, 95, 142, 111),
+            [CardRarity.Gold] = (278, 139, 209, 162),
             [CardRarity.Red] = (600, 300, 450, 350),
         };
 
@@ -402,7 +406,8 @@ namespace Brushblade.Core.Tests
             battle.Cast("圭", -1);   // 默认 attackMode: false = 护盾面
             // 2026-09-07 字表重做 P2:圭 的护盾按 spec §1.4 公式重新标定,170 → 119
             // (见 EarthCharValues_MatchRarityAnchors 的 ExpectedShield 推导)。
-            Assert.That(battle.PlayerShield, Is.EqualTo(119));
+            // 2026-09-11(T3):金档护盾锚点 300 → 209,119 → 83。
+            Assert.That(battle.PlayerShield, Is.EqualTo(83));
         }
 
         /// <summary>修档位倒挂:燚(红) 的 AOE 曾低于 焱(橙)。
@@ -430,8 +435,10 @@ namespace Brushblade.Core.Tests
             int yanBurn = yanDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
             int yiBurn = yiDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
             int fenBurn = fenDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
-            Assert.That(yan, Is.EqualTo(126));
-            Assert.That(fen, Is.EqualTo(108), "相生取消后的等值改写");
+            // 2026-09-11(T3):橙档全体锚点 240 → 204(焱 126 → 99、焚 108 → 77);
+            // 红档全体锚点 300 不变,燚 的 86 原样。
+            Assert.That(yan, Is.EqualTo(99));
+            Assert.That(fen, Is.EqualTo(77), "相生取消后的等值改写");
             Assert.That(yi, Is.EqualTo(86),
                 "红档当面数字比橙档低——强度大头压在灼烧总当量上,不是当面数字,见类方法文档");
             Assert.That(yanBurn, Is.EqualTo(3));
