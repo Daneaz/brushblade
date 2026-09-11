@@ -81,8 +81,10 @@ namespace Brushblade.Core.Tests
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,80 已不够攒出一层(旧口径下是 1 层 + 余 30),
             // 改用 100 保证仍然实打实攒出 1 层——本测试断言的是 Kind 存在与否,不是层数,
             // 但用一个确实产出层数的输入更贴合「携带态里应含厚/泉」这句设计意图。
-            run.Battle.GainHeftForTest(100);    // 阈值 100 → 1 层 + 余 0
-            run.Battle.GainWellspringForTest(100);
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,100 仍能攒出 1 层(余 29),
+            // 断言不会变红;改成 71 只是让「1 层 + 余 0」这句注释继续为真。
+            run.Battle.GainHeftForTest(71);    // 阈值 71 → 1 层 + 余 0
+            run.Battle.GainWellspringForTest(71);
             run.Battle.Cast("甲", 0);
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won), "夹具前提:必须一发秒杀");
             run.AdvanceAfterBattle();
@@ -93,8 +95,10 @@ namespace Brushblade.Core.Tests
         public void Shield_AtThreshold_GainsOneHeftStack()
         {
             // MaxHp 500 → 阈值 100(2026-09-05 阈值 /10 → /5,原阈值 50)。加 100 盾 = 1 层。
+            // **2026-09-11(阈值 /5 → /7)**:500/7 = 71。这条守的是「整除时余数归零」,
+            // 所以要换一个**能被 71 整除**的量(71),不是把余数断言改成 29。
             var battle = NewBattle(maxHp: 500);
-            battle.GainHeftForTest(100);
+            battle.GainHeftForTest(71);
             Assert.That(battle.HeftStacks, Is.EqualTo(1));
             Assert.That(battle.ShieldAccum, Is.EqualTo(0), "整除时余数归零");
         }
@@ -113,19 +117,24 @@ namespace Brushblade.Core.Tests
         {
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,原先两次各 30(合计 60 越过旧阈值 50)
             // 已不够跨过新阈值,改成两次各 60(合计 120 = 1 层 + 余 20)。
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71。这条守的是「单次都跨不过、
+            // 合起来才跨过」,60 < 71 仍然满足,输入不用动;只有余数跟着阈值走:
+            // 120 − 71 = 49。
             var battle = NewBattle(maxHp: 500);
             battle.GainHeftForTest(60);
-            battle.GainHeftForTest(60);   // 合计 120 = 1 层 + 余 20
+            battle.GainHeftForTest(60);   // 合计 120 = 1 层 + 余 49
             Assert.That(battle.HeftStacks, Is.EqualTo(1));
-            Assert.That(battle.ShieldAccum, Is.EqualTo(20));
+            Assert.That(battle.ShieldAccum, Is.EqualTo(49));
         }
 
         [Test]
         public void Heft_CapsAtTenStacks_AndStopsAccumulatingRemainder()
         {
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,12 层份额从 50×12 改成 100×12。
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,12 层份额改成 71×12
+            // (100×12 仍会撞上限、断言不会红,改是为了让注释里的「12 层」继续为真)。
             var battle = NewBattle(maxHp: 500);
-            battle.GainHeftForTest(100 * 12);   // 够 12 层
+            battle.GainHeftForTest(71 * 12);   // 够 12 层
             Assert.That(battle.HeftStacks, Is.EqualTo(10), "上限 10 层");
             Assert.That(battle.ShieldAccum, Is.EqualTo(0),
                 "满层后余数也不再攒 —— 否则掉层时会瞬间跳回满层");
@@ -136,10 +145,11 @@ namespace Brushblade.Core.Tests
         {
             // 2026-09-05 阈值 /10 → /5:满 10 层份额从 50×10 改成 100×10;
             // HeftPercentPerStack 本身未变(仍是 5%),满层结果依旧 150。
+            // **2026-09-11(阈值 /5 → /7)**:满 10 层份额改成 71×10,同上——只为注释为真。
             var battle = NewBattle(maxHp: 500);   // PlayerAttack = 100 基准
             int baseline = battle.EffectiveAttack;
             Assert.That(baseline, Is.EqualTo(100));
-            battle.GainHeftForTest(100 * 10);  // 满 10 层
+            battle.GainHeftForTest(71 * 10);  // 满 10 层
             Assert.That(battle.HeftStacks, Is.EqualTo(10));
             Assert.That(battle.EffectiveAttack, Is.EqualTo(150), "10 层 = +50%,与战意同顶");
         }
@@ -149,9 +159,10 @@ namespace Brushblade.Core.Tests
         {
             // 这条是整套改动的核心诉求:满血时治疗一分不亏。
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,100 名义治疗从「2 层」变成「1 层整除」。
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,名义治疗改 71 保持「1 层整除」。
             var battle = NewBattle(maxHp: 500);   // 满血
             Assert.That(battle.PlayerHp, Is.EqualTo(500));
-            battle.GainWellspringForTest(100);    // 名义治疗 100,实际回血 0
+            battle.GainWellspringForTest(71);     // 名义治疗 71,实际回血 0
             Assert.That(battle.PlayerHp, Is.EqualTo(500), "满血不会超上限");
             Assert.That(battle.WellspringStacks, Is.EqualTo(1), "溢出的治疗照样攒泉");
         }
@@ -160,8 +171,9 @@ namespace Brushblade.Core.Tests
         public void Wellspring_CapsAtTenStacks()
         {
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,12 层份额从 50×12 改成 100×12。
+            // **2026-09-11(阈值 /5 → /7)**:12 层份额改成 71×12,同 Heft 那条——只为注释为真。
             var battle = NewBattle(maxHp: 500);
-            battle.GainWellspringForTest(100 * 12);
+            battle.GainWellspringForTest(71 * 12);
             Assert.That(battle.WellspringStacks, Is.EqualTo(10));
         }
 
@@ -182,13 +194,22 @@ namespace Brushblade.Core.Tests
             // 这不是接线坏了,是「金档砍 31%」撞上「阈值按 maxHp 定」的直接后果:
             // 土系「堆盾涨厚」现在要两张牌才起一层。断言改钉余数,层数钉 0 ——
             // 若哪天调阈值或调护盾值让它重新跨线,这条会以 XFAIL 的方式提醒重新标定。
+            // **2026-09-11(阈值 /5 → /7)**:那一天就是今天。用户裁定「3 次圭该叠 3 层厚」,
+            // 即金档单发就该有 1 层;阈值 100 → 71(5/7 = 0.714 ≈ 金档锚点同批的 ×0.695,
+            // 是按锚点同幅度回调,不是拍的),83 ≥ 71 → 单发 1 层 + 余 12。方向反过来钉:
+            // 层数钉 1,并把「3 次圭 = 3 层」这条裁定直接写成断言。
+            // ⚠ 攒层本来就跨施放累计(GainStacks 的 accum 是字段不是局部量,余数不丢),
+            // 本次改的是**单发够不够一层**的门槛,不是累计与否。
             var battle = NewBattleWithChar("圭", maxHp: 500);
             battle.Cast("圭", -1);
-            Assert.That(battle.HeftStacks, Is.EqualTo(0), "83 < 阈值 100,单发攒不满一层");
-            Assert.That(battle.ShieldAccum, Is.EqualTo(83), "但余数照攒 —— 再攒 17 点就跨线");
-            // 余数真的能跨线(出字即耗字,同一张字没法连出第二次,用测试钩子补那 17 点)
-            battle.GainHeftForTest(17);
-            Assert.That(battle.HeftStacks, Is.EqualTo(1), "83 + 17 = 100 → 刚好 1 层");
+            Assert.That(battle.HeftStacks, Is.EqualTo(1), "圭 的盾 83 ≥ 阈值 71,单发就是 1 层");
+            Assert.That(battle.ShieldAccum, Is.EqualTo(12), "83 − 71 = 12,余数留着接着攒");
+            // 用户裁定:3 次圭 = 3 层厚。出字即耗字,同一张字没法连出第二次,
+            // 用测试钩子补上后两发的同等盾量(83 × 3 = 249 = 71×3 + 36)。
+            battle.GainHeftForTest(83);
+            battle.GainHeftForTest(83);
+            Assert.That(battle.HeftStacks, Is.EqualTo(3), "3 次圭该叠 3 层厚(用户裁定)");
+            Assert.That(battle.ShieldAccum, Is.EqualTo(36), "249 − 71×3 = 36");
         }
 
         [Test]
@@ -205,13 +226,18 @@ namespace Brushblade.Core.Tests
             // 治疗值,留给仿真读数判断,这里只钉当前配置下的真实产出。
             // ⚠ 2026-09-11(档位统一 T3):金档治疗锚点 240 → 162,冰 的治疗 146 → 99,
             // 同 Cast_ShieldChar_GainsHeft —— **单发跨不过阈值 100**,只留 99 点余数(差 1)。
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,99 ≥ 71 → 单发 1 层 + 余 28。
+            // 与 Cast_ShieldChar_GainsHeft 同批同因(见那条的账),方向一并反过来钉:
+            // 层数钉 1,并把「三发」的累计结果一起钉住(99 × 3 = 297 = 71×4 + 13 → 4 层)。
             var battle = NewBattleWithChar("冰", maxHp: 500);
             battle.Cast("冰", 0);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(0), "99 < 阈值 100,单发差 1 点攒不满一层");
-            Assert.That(battle.HealAccum, Is.EqualTo(99));
-            // 差的就是那 1 点(出字即耗字,同一张字没法连出第二次,用测试钩子补上)
-            battle.GainWellspringForTest(1);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(1), "99 + 1 = 100 → 刚好 1 层");
+            Assert.That(battle.WellspringStacks, Is.EqualTo(1), "冰 的治疗 99 ≥ 阈值 71,单发就是 1 层");
+            Assert.That(battle.HealAccum, Is.EqualTo(28), "99 − 71 = 28");
+            // 三发的累计(出字即耗字,用测试钩子补后两发的同等治疗量)
+            battle.GainWellspringForTest(99);
+            battle.GainWellspringForTest(99);
+            Assert.That(battle.WellspringStacks, Is.EqualTo(4), "297 / 71 = 4 层(治疗值比盾量高,攒得比厚快)");
+            Assert.That(battle.HealAccum, Is.EqualTo(13), "297 − 71×4 = 13");
         }
 
         // ---- 护盾/治疗接上角色攻击成长(2026-09-02,Task 5)----
@@ -258,7 +284,8 @@ namespace Brushblade.Core.Tests
                     Polarity = StatusPolarity.Buff, TurnsLeft = -1, SourceId = "test",
                 } });
             // 2026-09-05 阈值 /10 → /5:满 10 层厚份额从 50×10 改成 100×10,保持「满 10 层」不变。
-            battle.GainHeftForTest(100 * 10);           // 满 10 层厚
+            // **2026-09-11(阈值 /5 → /7)**:份额改成 71×10,保持「满 10 层」不变。
+            battle.GainHeftForTest(71 * 10);            // 满 10 层厚
             Assert.That(battle.EffectiveAttack, Is.GreaterThan(100), "伤害侧确实被放大了");
 
             battle.Cast("圭", -1);
@@ -283,7 +310,9 @@ namespace Brushblade.Core.Tests
             var battle = NewBattleWithCharTakingDamage("冰", maxHp: 2000, playerAttack: 100, enemyAttack: 1000);
             battle.EndTurn();   // 敌人打一记,EffectiveDodge 默认 0,必中:2000 - 1000 = 1000
             Assert.That(battle.PlayerHp, Is.EqualTo(1000), "夹具前提:留出治疗空间");
-            battle.GainWellspringForTest(400 * 10);    // 阈值 400(maxHp/5),满 10 层
+            // **2026-09-11(阈值 /5 → /7)**:maxHp 2000 的阈值从 400 变成 285(2000/7),
+            // 满 10 层的份额随之改成 285×10。放大量本身不变(泉仍是 5%/层)。
+            battle.GainWellspringForTest(285 * 10);   // 阈值 285(maxHp/7),满 10 层
             Assert.That(battle.WellspringStacks, Is.EqualTo(10), "夹具前提:满层");
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
@@ -301,13 +330,15 @@ namespace Brushblade.Core.Tests
             var battleA = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
             battleA.Cast("冰", 0);
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,340 / 100 = 3 层 + 余 40(原为 6 层)。
+            // **2026-09-11(阈值 /5 → /7)**:冰 治疗已是 99,99 / 71 = 1 层 + 余 28。
             int stacksFromZero = battleA.WellspringStacks;
 
             var battleB = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
-            // 3 层:3 + 3(stacksFromZero)= 6,不会撞上 10 层上限,不会把差值悄悄钳平,
+            // 3 层:3 + 1(stacksFromZero)= 4,不会撞上 10 层上限,不会把差值悄悄钳平,
             // 测得出「已有泉不该让这一发攒得更多」这条不变量。
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,先攒 3 层的份额从 50×3 改成 100×3。
-            battleB.GainWellspringForTest(100 * 3);          // 先有 3 层
+            // **2026-09-11(阈值 /5 → /7)**:份额改成 71×3(整除,余数 0,让「先有 3 层」为真)。
+            battleB.GainWellspringForTest(71 * 3);           // 先有 3 层
             int before = battleB.WellspringStacks;
             battleB.Cast("冰", 0);
             Assert.That(battleB.WellspringStacks - before, Is.EqualTo(stacksFromZero),
@@ -334,17 +365,37 @@ namespace Brushblade.Core.Tests
             //   反转顺序:先 GainWellspring(99) 余数 90+99=189 跨线,层数变 4,
             //             再用新层数 4 算 amplified → 99 × 120 / 100 = 118(floor)
             // 113 ≠ 118,反转时这条断言必须变红。
+            //
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,上面那个「3 层 + 余 90」的夹具
+            // 直接失效(390 / 71 = 5 层)。重挑:71×3 = 213 → 层数 3、余数 0。
+            // 余数不再需要预留 —— 冰 的一发治疗 99 本身就 ≥ 71,单发必跨线,这正是
+            // 本次阈值回调的意思。两种顺序仍给出**不同**的数:
+            //   正确顺序:AmplifyByWellspring(99) 用旧层数 3 → 99 × 115 / 100 = 113(floor)
+            //   反转顺序:先 GainWellspring(99) → 0 + 99 跨线,层数 4、余 28,
+            //             再放大 → 99 × 120 / 100 = 118(floor)
+            // 113 ≠ 118 —— 下面「反转顺序对照」那三行用同样的钩子把 118 实算了一遍,
+            // 夹具没有退化成「两种顺序同值」的永远绿。
             var battle = NewBattleWithCharTakingDamage("冰", maxHp: 500, playerAttack: 100, enemyAttack: 450);
             battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 118 的回血空间不封顶
             Assert.That(battle.PlayerHp, Is.EqualTo(50), "夹具前提:留出的回血空间要盖过两种顺序的差值");
-            battle.GainWellspringForTest(100 * 3 + 90);   // 先有 3 层(非零非满)+ 余 90
+            battle.GainWellspringForTest(71 * 3);        // 先有 3 层(非零非满),余数 0
             Assert.That(battle.WellspringStacks, Is.EqualTo(3), "夹具前提:层数刚好 3");
-            Assert.That(battle.HealAccum, Is.EqualTo(90), "夹具前提:余数 90,再来 99 就跨线");
+            Assert.That(battle.HealAccum, Is.EqualTo(0), "夹具前提:余数 0,这一发 99 自己就跨得过 71");
 
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
             Assert.That(battle.PlayerHp - before, Is.EqualTo(113),
                 "放大值必须用施放前(旧)的层数算,不能用 GainWellspring 攒完之后的新层数");
+            Assert.That(battle.WellspringStacks, Is.EqualTo(4),
+                "夹具有效性:这一发确实跨过了一层,两种顺序才会读到不同的层数");
+
+            // 反转顺序对照:同样的起点,先攒(层数 3 → 4)再放大,得 118 ≠ 113。
+            // 这三行是**防夹具退化的哨兵** —— 若哪天数值再变到两种顺序同值,它会先红。
+            var reversed = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
+            reversed.GainWellspringForTest(71 * 3);
+            reversed.GainWellspringForTest(99);          // 先攒:0 + 99 跨线 → 4 层
+            Assert.That(reversed.AmplifyByWellspringForTest(99), Is.EqualTo(118),
+                "反转顺序会算出 118;与上面的 113 不同,夹具区分得开两种顺序");
         }
 
         // ---- 快照往返(2026-09-02,Task 3)----
@@ -355,9 +406,12 @@ namespace Brushblade.Core.Tests
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100。
             // 130 / 100 = 1 层 + 余 30(原为 2 层 + 余 30,余数巧合相同:130 − 2×50 = 130 − 1×100 = 30)。
             // 70 / 100 = 0 层 + 余 70(原为 1 层 + 余 20)。
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71。这条守的是「有层数时余数也要
+            // 原样带过存档」,所以保住「1 层 + 余 30」这个形状,输入从 130 改成 101
+            // (= 71 + 30);70 仍 < 71,零层那一半的构造不用动。
             var battle = NewBattle(maxHp: 500);
-            battle.GainHeftForTest(130);      // 1 层 + 余 30
-            battle.GainWellspringForTest(70);     // 0 层 + 余 70
+            battle.GainHeftForTest(101);      // 1 层 + 余 30
+            battle.GainWellspringForTest(70);     // 0 层 + 余 70(70 < 71)
             var snapshot = battle.Capture();
             var restored = NewBattleFromSnapshot(snapshot, maxHp: 500);
 
@@ -385,8 +439,9 @@ namespace Brushblade.Core.Tests
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,4 层份额从 50×4 改成 100×4
             // (本测试不断言具体层数,只断言有伤害与引爆后清零,原输入其实仍会通过,
             // 这里改是为了让注释里的「4 层」继续为真)。
+            // **2026-09-11(阈值 /5 → /7)**:4 层份额改成 71×4,同理只为注释为真。
             var battle = NewSpendBattle("崩测", maxHp: 500);
-            battle.GainHeftForTest(100 * 4);   // 4 层
+            battle.GainHeftForTest(71 * 4);    // 4 层
             int hp0 = battle.Enemies[0].Hp, hp1 = battle.Enemies[1].Hp;
 
             battle.Cast("崩测", -1);
@@ -419,8 +474,9 @@ namespace Brushblade.Core.Tests
             // 2026-09-05 阈值 /10 → /5:阈值 50 → 100,5 层份额从 50×5 改成 100×5
             // (本测试不断言具体层数,只断言引爆后清零,原输入其实仍会通过,
             // 这里改是为了让注释里的「5 层」继续为真)。
+            // **2026-09-11(阈值 /5 → /7)**:5 层份额改成 71×5,同理只为注释为真。
             var battle = NewSpendBattle("发测", maxHp: 500);
-            battle.GainWellspringForTest(100 * 5);   // 5 层
+            battle.GainWellspringForTest(71 * 5);    // 5 层
             battle.Cast("发测", -1);
             Assert.That(battle.WellspringStacks, Is.EqualTo(0));
         }
@@ -435,28 +491,43 @@ namespace Brushblade.Core.Tests
         }
 
         // ---- 攒层阈值 MaxHp/10 → MaxHp/5(2026-09-05,平衡重做 P0 任务 1)----
+        // ---- 再 → MaxHp/7(2026-09-11,档位差距与升级替代)----
 
-        /// <summary>攒层阈值 = MaxHp/5(2026-09-05,平衡重做 P0 任务 1;原为 MaxHp/10)。
+        /// <summary>攒层阈值 = MaxHp/7(2026-09-11;2026-09-05 曾为 MaxHp/5,更早是 MaxHp/10)。
         ///
-        /// MaxHp 500 → 阈值 100。给 199 点护盾应当只攒 1 层、余数 99;
-        /// 按旧阈值(50)那会是 3 层。断的是「一张高档字不再一发攒满」。</summary>
+        /// MaxHp 500 → 阈值 71。给 141 点护盾应当只攒 1 层、余数 70;
+        /// 按 /5 的旧阈值(100)余数会是 41、按 /6(83)会是 58 —— 余数那条断言就是
+        /// 「阈值确实是七分之一」的判别式(层数三者都是 1,单看层数分不出来)。
+        ///
+        /// **2026-09-11(阈值 /5 → /7)**:改名去掉 Fifth。阈值是照**旧锚点**标定的,
+        /// 而「档位差距与升级替代」那批把金档锚点整列 ×0.695,金系三张双方向字的
+        /// 防御面(圭 83 / 冰 99 / 杜 80)全跌到旧阈值 100 以下,变成「单发 0 层」。
+        /// 用户裁定「3 次圭该叠 3 层厚」即金档单发就该有 1 层;取 /7 不取 /6 是因为
+        /// 最低的 杜 80 够不着 /6 的 83,而 5/7 = 0.714 ≈ 锚点的 ×0.695,同幅度回调。
+        ///
+        /// 141 这个输入与下面的 ResourceThreshold_ScalesWithMaxHp 共用:同一个数在
+        /// MaxHp 500 下攒 1 层、在 MaxHp 1000 下攒 0 层,两条合起来钉住「跟着 MaxHp 走」。</summary>
         [Test]
-        public void ResourceThreshold_IsOneFifthOfMaxHp()
+        public void ResourceThreshold_IsOneSeventhOfMaxHp()
         {
             var battle = NewBattle(500);
-            battle.GainHeftForTest(199);
-            Assert.That(battle.HeftStacks, Is.EqualTo(1), "199 / (500/5) = 1 层");
-            Assert.That(battle.ShieldAccum, Is.EqualTo(99), "余数 199 − 100");
+            battle.GainHeftForTest(141);
+            Assert.That(battle.HeftStacks, Is.EqualTo(1), "141 / (500/7 = 71) = 1 层(差 1 点不到 2 层)");
+            Assert.That(battle.ShieldAccum, Is.EqualTo(70), "余数 141 − 71;按 /5 会是 41、按 /6 会是 58");
         }
 
-        /// <summary>阈值随 MaxHp 走,不是写死的常量。MaxHp 1000 → 阈值 200。</summary>
+        /// <summary>阈值随 MaxHp 走,不是写死的常量。MaxHp 1000 → 阈值 142。
+        ///
+        /// **2026-09-11(阈值 /5 → /7)**:构造从「199 对 1000/5 = 200 差 1 点」改成
+        /// 「141 对 1000/7 = 142 差 1 点」,守的不变量原样:刚好差一点就是不给层数。</summary>
         [Test]
         public void ResourceThreshold_ScalesWithMaxHp()
         {
             var battle = NewBattle(1000);
-            battle.GainWellspringForTest(199);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(0), "199 < 1000/5 = 200,攒不满一层");
-            Assert.That(battle.HealAccum, Is.EqualTo(199));
+            battle.GainWellspringForTest(141);
+            Assert.That(battle.WellspringStacks, Is.EqualTo(0),
+                "141 < 1000/7 = 142,差 1 点攒不满一层 —— 同一个 141 在 MaxHp 500 下是 1 层");
+            Assert.That(battle.HealAccum, Is.EqualTo(141));
         }
 
         // ---- 泉倍率 10%/层 → 5%/层(2026-09-05,平衡重做 P0 任务 2)----
@@ -466,12 +537,16 @@ namespace Brushblade.Core.Tests
         /// 引擎注释原先声称两者「同顶」(泉 10×10 = 厚 5×10 = +50%),但那忽略了
         /// **泉充得比厚快一倍**(治疗量普遍高于护盾量)。两条都拉到 5% 才真对齐。
         ///
-        /// MaxHp 500 → 阈值 100。攒 400 治疗 = 4 层 → 下一次治疗 ×1.20。</summary>
+        /// MaxHp 500 → 阈值 100。攒 400 治疗 = 4 层 → 下一次治疗 ×1.20。
+        ///
+        /// **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,400 会攒出 5 层。这条守的是
+        /// 「每层 +5%」这个系数,层数只是载体 —— 输入改成 71×4 = 284 把层数钉回 4,
+        /// 断言 120 原样不动(改成 5 层 / 125 会把系数与层数两件事搅在一起)。</summary>
         [Test]
         public void Wellspring_AmplifiesFivePercentPerStack()
         {
             var battle = NewBattle(500);
-            battle.GainWellspringForTest(400);
+            battle.GainWellspringForTest(71 * 4);
             Assert.That(battle.WellspringStacks, Is.EqualTo(4));
             Assert.That(battle.AmplifyByWellspringForTest(100), Is.EqualTo(120),
                 "4 层 × 5% = +20% → 100 → 120(旧口径是 +40% → 140)");

@@ -122,6 +122,12 @@ namespace Brushblade.Balance
         /// 现有字表凑不出来 —— 那是 T8 抬 AOE 数值时要顺带补的。
         /// 留着它是因为删了就连 0.2 层的观测点都没有,但**它的绿不构成任何证据**。</summary>
         // 2026-08-25 字表重构:淹 早已是幽灵字,洪/涛 随本次移出;纯 DamageAll 只剩 海/崩。
+        // 2026-09-11:金系此前**一个卡池都没有**,于是「战意」这条轴在全部画像里都没有
+        // 观测点 —— 战意是金系独占(全 11 张金系字都挂 Morale,已用 chars.json 核过),
+        // 而此前的画像只有火/水/土/木四系。下面三条混色画像要用它。
+        private static readonly string[] MetalCards =
+            { "利", "锋", "剑", "锥", "剿", "铡", "剁", "鍂", "鑫", "刲", "\ue626" };
+
         private static readonly string[] AoeCards =
             { "爆", "海", "崩", "剿" };
 
@@ -199,7 +205,37 @@ namespace Brushblade.Balance
                 new Profile("木土混色(林森圭垚,卡5级,10级)", new[] { "林", "森", "圭", "垚" },
                     WoodSummonCards.Concat(EarthShieldCards).ToDictionary(c => c, _ => 5), level: 10,
                     ownedCards: WoodSummonCards.Concat(EarthShieldCards).ToArray()),
+                // ---- 多系混色(2026-09-11 用户裁定:「仿真要搞多系混合的,不要单看一个系」)----
+                // ⚠ 这三条不是补充观测点,是**把仪器校回真实**:起手抽卡本来就是
+                // 「金/木/水/火/土 各一张 + 最高档保底一张」(MetaRules.StartingLibrary),
+                // 真实牌组**永远是混色的**。上面那批单系画像反而是全表最不真实的构型 ——
+                // 拿单系读数下「某系超模」的结论,量的是一个玩家碰不到的局面。
+                //
+                // ⚠ 卡池拼接一律走 Distinct():FireCards 里混着异色探针字「花」
+                // (见 FireCards 的 2026-09-07 注释),它同时在 WoodCards 里,
+                // 不去重会让 ToDictionary 因重复 key 抛 ArgumentException。
+
+                // 五系均衡 = 每系一张金档字,卡池是五系全表。这是最贴近真实牌组的一条,
+                // 读数该当作**基线**看,而不是又一个探针。
+                new Profile("五系均衡(鍂林冰灿圭,卡5级,10级)", new[] { "鍂", "林", "冰", "灿", "圭" },
+                    MetalCards.Concat(WoodCards).Concat(WaterCards).Concat(FireCards).Concat(EarthCards)
+                        .Distinct().ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: MetalCards.Concat(WoodCards).Concat(WaterCards)
+                        .Concat(FireCards).Concat(EarthCards).Distinct().ToArray()),
+
+                // 金土(战意 + 厚):战意放大攻击、厚放大防御,两条资源轴都在,
+                // 且都只在混色里才凑得齐 —— 纯金没有厚的来源,纯土没有战意的来源。
+                new Profile("金土混色·战意+厚(鍂剁圭垚,卡5级,10级)", new[] { "鍂", "剁", "圭", "垚" },
+                    MetalCards.Concat(EarthShieldCards).ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: MetalCards.Concat(EarthShieldCards).ToArray()),
+
+                // 金水(战意 + 泉):泉放大治疗。与金土那条配对,用来分辨
+                // 「混色的收益来自资源轴协同」还是「只是牌池大了摸得更顺」。
+                new Profile("金水混色·战意+泉(鍂剁冰淼,卡5级,10级)", new[] { "鍂", "剁", "冰", "淼" },
+                    MetalCards.Concat(WaterCards).ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: MetalCards.Concat(WaterCards).ToArray()),
             };
+
 
             Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
             // 末两列是**机器人自检**,不是平衡指标(见 BotProbe):攻面出字恒 0 = 双方向字
