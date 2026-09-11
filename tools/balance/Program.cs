@@ -249,6 +249,27 @@ namespace Brushblade.Balance
                 new Profile("金水混色·战意+泉(鍂剁冰淼,卡5级,10级)", new[] { "鍂", "剁", "冰", "淼" },
                     MetalCards.Concat(WaterCards).ToDictionary(c => c, _ => 5), level: 10,
                     ownedCards: MetalCards.Concat(WaterCards).ToArray()),
+
+                // 水木 / 火木(2026-09-11):补齐水与火的「带拦截搭档」读数。
+                // 与金木那条同一个判别式 —— 此前水/火只有**纯单系**画像(水系双方向、
+                // 火系养成),而纯单系正是玩家碰不到的构型(起手强制五行各一)。
+                // 不补这两条,「水/火弱」与「纯单系构型弱」就分不开,
+                // 金土那次(13.4 → 17.0)已经栽过一回。
+                new Profile("水木混色·泉+拦截(冰淼林森,卡5级,10级)", new[] { "冰", "淼", "林", "森" },
+                    WaterCards.Concat(WoodCards).ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: WaterCards.Concat(WoodCards).ToArray()),
+
+                // ⚠ FireCards 里混着异色探针字「花」,它也在 WoodCards 里 —— 必须 Distinct(),
+                // 否则 ToDictionary 因重复 key 抛 ArgumentException(五系均衡那条同理)。
+                new Profile("火木混色·灼烧+拦截(灿焚林森,卡5级,10级)", new[] { "灿", "焚", "林", "森" },
+                    FireCards.Concat(WoodCards).Distinct().ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: FireCards.Concat(WoodCards).Distinct().ToArray()),
+
+                // 水火(两个都没有拦截的系配在一起):用来钉死「拦截才是变量」这条 ——
+                // 若它落在全表最低,那么「某系弱」的真正内容就是「这一组没有拦截」。
+                new Profile("水火混色·无拦截(冰淼灿焚,卡5级,10级)", new[] { "冰", "淼", "灿", "焚" },
+                    WaterCards.Concat(FireCards).ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: WaterCards.Concat(FireCards).ToArray()),
             };
 
 
