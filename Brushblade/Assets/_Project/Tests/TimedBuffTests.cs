@@ -60,9 +60,9 @@ namespace Brushblade.Core.Tests
 
         /// <summary>回合数吃卡等级(2026-09-05,平衡重做 P0 任务 8)。
         ///
-        /// 现有 ScaleByCardLevel 是「基础值 × (1 + 0.1 × (等级 − 1)),向上取整」——
-        /// 那条给数值用没问题,给回合数用就太快了:2 回合的字在 6 级就变 3 回合、
-        /// 11 级变 4 回合。回合数是**节奏**,每 5 级 +1 才合适。</summary>
+        /// 现有 ScaleByCardLevel 是「基础值 × (1 + 0.117 × (等级 − 1)),向上取整」——
+        /// 那条给数值用没问题,给回合数用就太快了:2 回合的字在 5 级就变 3 回合、
+        /// 10 级变 4 回合。回合数是**节奏**,每 5 级 +1 才合适。</summary>
         [TestCase(2, 1, 2)]
         [TestCase(2, 4, 2)]
         [TestCase(2, 5, 3)]
@@ -100,12 +100,12 @@ namespace Brushblade.Core.Tests
 
             battle.Cast("增");
             // Magnitude 也吃卡等级(ApplyEffects 的 ScaleByCardLevel,与回合数缩放是两条各自
-            // 独立的系数):5 级 → ceil(30 × 1.4) = 42,基准 100 + 42 = 142。
-            Assert.That(battle.EffectiveAttack, Is.EqualTo(142), "基准 100 + ScaleByCardLevel(30, 5)=42");
+            // 独立的系数):5 级 → ceil(30 × 1.468) = 45,基准 100 + 45 = 145。
+            Assert.That(battle.EffectiveAttack, Is.EqualTo(145), "基准 100 + ScaleByCardLevel(30, 5)=45");
 
             battle.EndTurn();
             battle.EndTurn();
-            Assert.That(battle.EffectiveAttack, Is.EqualTo(142),
+            Assert.That(battle.EffectiveAttack, Is.EqualTo(145),
                 "5 级把 2 回合缩放成 3 回合 —— 第 2 个回合末不该到期");
 
             battle.EndTurn();

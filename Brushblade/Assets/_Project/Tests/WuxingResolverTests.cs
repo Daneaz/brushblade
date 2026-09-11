@@ -85,12 +85,15 @@ namespace Brushblade.Core.Tests
             // 见 ResolveEffect_NoLongerAppliesSheng)——只是把「原 40/45/150 x3」这个
             // 已经不成立的历史推导,换成直接钉当前配置值。
             var graph = CharTableTests.RealGraph();
+            // 2026-09-11(档位统一 G=1.468,T3):三张字随锚点重定标又变了一次 ——
+            // 焚 橙档全体 240→204(108→77)、蒸 紫档单攻 200→190(120→112)、
+            // 刲 橙档单攻 480→409(单段 154→131)。不变量仍是同一条:存的是实战值。
             Assert.That(graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value,
-                Is.EqualTo(108));
+                Is.EqualTo(77));
             Assert.That(graph.Get("蒸").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(120));
+                Is.EqualTo(112));
             Assert.That(graph.Get("刲").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(154), "刲 改分 2 段 + 偷袭 + 斩杀后,单段值从 450 降到 154");
+                Is.EqualTo(131), "刲 改分 2 段 + 偷袭 + 斩杀后,单段值从 450 降到 131");
         }
 
         // ---- 克/被克 的查表入口(2026-09-03,卡组页详情印「克 X ×1.5 / 被 Y 克 ×0.5」) ----

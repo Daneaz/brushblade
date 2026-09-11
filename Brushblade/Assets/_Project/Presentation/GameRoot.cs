@@ -45,8 +45,9 @@ namespace Brushblade.Presentation
             _meta = MetaStore.Load();
             MetaRules.PruneUnknownCards(_meta, _graph); // 字表裁剪后清洗旧存档引用
 
-            // 初始收集保底 = 五系各白/绿/蓝一张(2026-08-05 拍板;缺哪张补哪张,唯一来源见 MetaRules)。
-            // 2026-09-03 起改调 EnsureStartingCollection:起手这 15 张一律不标新字,
+            // 初始收集保底 = 五系各 2 张,白 + 一张更高档(2026-09-11 拍板,原为五系各白/绿/蓝
+            // 一张共 15 张;缺哪张补哪张,唯一来源见 MetaRules.StartingCollection)。
+            // 2026-09-03 起改调 EnsureStartingCollection:起手这 10 张一律不标新字,
             // 规则连同「已有的不当重复卡入账」一起收在 Core 里,这边不再自己循环。
             MetaRules.EnsureStartingCollection(_meta);
 

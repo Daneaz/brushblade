@@ -243,7 +243,8 @@ namespace Brushblade.CoreTests
         [Test]
         public void LowestTierChar_StillDentsArmoredMobAtDepth20()
         {
-            // 典型玩家画像(spec §6.3.2):角色 12 级 → ATK 122;卡等级 4 → ×1.3
+            // 典型玩家画像(spec §6.3.2):角色 12 级 → ATK 122;卡等级 4 → ×1.351
+            // (2026-09-11:卡等级系数 0.1 → 0.117,4 级由 ×1.3 变 ×1.351)
             const int playerLevel = 12;
             const int cardLevel = 4;
 
@@ -272,7 +273,9 @@ namespace Brushblade.CoreTests
             // 还给我方 +buff」的裁定拆成了攻护两面,那 45 挪进了 AttackEffects —— 按上面那条
             // 范围说明,攻击面不在本判据内。现在的最低档是 花(魅惑,单体 54)。
             // 判据本身反而更宽松(54 > 45),不影响这条测试要守的东西。
-            Assert.That(lowestTier, Is.EqualTo(54), "字表最低伤害档;它变了这条判据要重新标定");
+            // 2026-09-11(档位统一 T3)54 → 53:绿档单攻锚点 90 → 88,花 的 90×0.60 = 54
+            // 随之变成 88×0.60 = 52.8 → 53。最低档仍是 花。
+            Assert.That(lowestTier, Is.EqualTo(53), "字表最低伤害档;它变了这条判据要重新标定");
 
             var mob = CampaignConfig.Scale(RealEnemy("墨渍"), DepthScale(20));
             Assert.That(mob.Defense, Is.EqualTo(39));
@@ -297,9 +300,10 @@ namespace Brushblade.CoreTests
 
             Assert.That(dealt, Is.GreaterThan(0),
                 "深度 20 的带甲小怪必须还能被最低档的字磨动 —— 归零就等于护甲把字库掐死了");
-            Assert.That(dealt, Is.EqualTo(47),
-                "ceil(54×1.3) = 71 → 71×122/100 = 86 → 86 − 39 = 47(spec §6.3.2 的推导;"
-                + "2026-09-08 最低档由 利 45 换成 花 54,见上方注释)");
+            Assert.That(dealt, Is.EqualTo(48),
+                "ceil(53×1.351) = 72 → 72×122/100 = 87 → 87 − 39 = 48(spec §6.3.2 的推导;"
+                + "2026-09-08 最低档由 利 45 换成 花 54,见上方注释;"
+                + "2026-09-11 卡等级系数 0.1 → 0.117、锚点统一后 花 54 → 53)");
         }
 
         /// <summary>无尽深度缩放系数(<c>Endless.cs</c> 的 <c>1 + 0.1×(depth−1)</c>)。

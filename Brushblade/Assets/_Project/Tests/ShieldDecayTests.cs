@@ -40,8 +40,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ResourceAccumulators_DoNotHalve()
         {
-            var snap = WinAndCapture(normal: 0, persist: 0, shieldAccum: 77, healAccum: 33);
-            Assert.That(snap.CarriedShieldAccum, Is.EqualTo(77), "余数是厚的进度条,不是护盾");
+            // **2026-09-11(阈值 /5 → /7)**:阈值 100 → 71,原来的 77 已经跨过一层
+            // (变成 1 层 + 余 6),那样断的就不是「余数」了。这条守的是「余数不减半」,
+            // 输入必须**纯粹是余数**:改成 55(< 71,且是奇数 —— 真被减半会变 27,看得出来)。
+            var snap = WinAndCapture(normal: 0, persist: 0, shieldAccum: 55, healAccum: 33);
+            Assert.That(snap.CarriedShieldAccum, Is.EqualTo(55), "余数是厚的进度条,不是护盾");
             Assert.That(snap.CarriedHealAccum, Is.EqualTo(33));
         }
 

@@ -115,7 +115,8 @@ namespace Brushblade.Core.Tests
             // 一带同批改动的口径)。
             Assert.That(RealGraph().Get("焚").Rarity, Is.EqualTo(CardRarity.Orange));
             var aoe = RealGraph().Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll);
-            Assert.That(aoe.Value, Is.EqualTo(108), "相生取消后,配置值必须等于实战值");
+            // 2026-09-11(档位统一 G=1.468,T3):橙档全体锚点 240 → 204,预算与 DOT 当量 D99 都没动,108 → 77。
+            Assert.That(aoe.Value, Is.EqualTo(77), "相生取消后,配置值必须等于实战值");
         }
 
         [Test]
@@ -295,7 +296,10 @@ namespace Brushblade.Core.Tests
             Assert.That(jingSummon.SummonCount, Is.EqualTo(1), "2026-09-04:多只召唤收归金档及以上");
             // 2026-09-07 字表重做 P2:召唤血/攻按总量守恒重新摊到 1 只(spec §6 落地值),
             // 660 → 430。
-            Assert.That(jingSummon.Value, Is.EqualTo(430), "血量随全表召唤重新标定");
+            // 2026-09-11(档位统一 G=1.468,T3):紫档召唤锚点 220/70 → 241/86。荆 是 r=100% 的攻血转换字,
+            // 血量 =(召血锚点 + 召攻锚点 × 3)×(1 − 预算),不是只把旧血量等比放大:
+            // (241 + 86×3) × 1.00 = 499(纯肉盾被动免计价)。
+            Assert.That(jingSummon.Value, Is.EqualTo(499), "血量随全表召唤重新标定");
         }
 
         [Test]
@@ -348,7 +352,10 @@ namespace Brushblade.Core.Tests
             // 「除 𣛧 外一律 1 只」的口径,见 rebalance_2026_09_05.py 的召唤只数注释)。
             var graph = RealGraph();
             var summon = graph.Get("桂").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(summon.SummonShield, Is.EqualTo(150), "光环盾 130 + 土系印记 20");
+            // 2026-09-11(档位统一 G=1.468,T3):橙档召唤锚点 780/300 → 706/184(且旧表的「只数」列已并进单只体量),
+            // 桂 是 r=50% 的攻血转换字:血 =(706 + 184×3×0.5) ×(1 − 0.28)= 712。
+            // 光环盾**跟着血量走**(血量 × 15% 取整到 10 的倍数):712×0.15 → 110,+ 印记 20 = 130。
+            Assert.That(summon.SummonShield, Is.EqualTo(130), "光环盾 110 + 土系印记 20");
             Assert.That(summon.SummonCount, Is.EqualTo(1), "只数收归全系统一的 1 只");
             Assert.That(summon.Passive.Thorns, Is.EqualTo(50), "荆棘是 桂 的第二条特性");
         }
@@ -554,9 +561,11 @@ namespace Brushblade.Core.Tests
             // 护盾 = 绿档护盾锚点 70 × SHIELD_F(0.65) × (1 − 反伤30 的预算 0.22) ≈ 35;
             // 攻击 = 绿档单攻锚点 90 × (1 − 0.22) ≈ 70(见 tools/design/rebalance_2026_09_05.py,
             // PRICE['反伤30']=0.22、K[绿]=1.00)。不再是旧版「满值砍半」的说法。
-            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(35));
+            // 2026-09-11(档位统一 G=1.468,T3):绿档护盾锚点 70 → 66、单攻锚点 90 → 88,预算 0.22 不变:
+            // 盾 66×0.65×0.78 = 33.5 → 33;攻 88×0.78 = 68.6 → 69。
+            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(33));
             Assert.That(bi.AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(70), "同一条预算算式算出来的攻击面,不是另外「不动」");
+                Is.EqualTo(69), "同一条预算算式算出来的攻击面,不是另外「不动」");
             // 2026-09-07 字表重做 P2:圭(金档,反伤50)也挂了 Reflect,反弹的载体从 1 → 2。
             Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
                 .Any(e => e.Kind == EffectKind.Reflect)), Is.EqualTo(2), "反弹当前是 壁/圭 两个载体");
@@ -587,8 +596,10 @@ namespace Brushblade.Core.Tests
             // 2026-09-07 字表重做 P2:紫档单攻锚点 200 ×(1 − (分2段0.20 + 流血0.25) × K[紫]0.80)
             // = 200 ×(1 − 0.36) = 128 总量,两段平摊 → 每段 64(design 表 §6 的落地值,
             // 与 tools/design/rebalance_2026_09_05.py 的 PRICE/K 算式对得上)。
-            Assert.That(duo.Value, Is.EqualTo(64), "2026-09-07 每段 70 → 64");
-            Assert.That(duo.Value * duo.HitCount, Is.EqualTo(128), "两段合计 128");
+            // 2026-09-11(档位统一 G=1.468,T3):紫档单攻锚点 200 → 190,预算 0.36 不变:190×0.64 = 121.6 → 122,
+            // 两段平摊 → 每段 61。
+            Assert.That(duo.Value, Is.EqualTo(61), "2026-09-11 每段 64 → 61");
+            Assert.That(duo.Value * duo.HitCount, Is.EqualTo(122), "两段合计 122");
             Assert.That(RealGraph().Get("剁").Effects.Any(e => e.Kind == EffectKind.Bleed), Is.True,
                 "剁 是流血的紫档载体");
         }
@@ -639,7 +650,8 @@ namespace Brushblade.Core.Tests
             {
                 EffectKind.DamageSingle, EffectKind.BurnSingle, EffectKind.Detonate,
             }), "顺序错了引爆就吃不到自己刚铺的这层灼烧");
-            Assert.That(effects[0].Value, Is.EqualTo(120));  // 单攻
+            // 2026-09-11(档位统一 G=1.468,T3):紫档单攻锚点 200 → 190,预算 0.24 与 DOT 当量 D32 不变:190×0.76 − 32 = 112.4 → 112。
+            Assert.That(effects[0].Value, Is.EqualTo(112));  // 单攻
             Assert.That(effects[1].Value, Is.EqualTo(2));    // 灼烧层数,不吃 ×10
         }
 
@@ -656,7 +668,8 @@ namespace Brushblade.Core.Tests
             {
                 EffectKind.DamageAll, EffectKind.Detonate,
             }), "多一条效果就是超模——数组顺序即结算顺序");
-            Assert.That(effects[0].Value, Is.EqualTo(45));
+            // 2026-09-11(档位统一 G=1.468,T3):蓝档全体锚点 70 → 65,预算 0.36 不变:65×0.64 = 41.6 → 42。
+            Assert.That(effects[0].Value, Is.EqualTo(42));
             // 2026-08-26:引爆必须是**全体**(详表:「引爆全部剩余灼烧」)。落成单体会让
             // 一张 AOE 字反过来要求玩家选目标 —— 交互与语义两头都错
             Assert.That(effects[1].TargetAll, Is.True, "炸 是全体引爆,不是只炸主目标");
