@@ -225,9 +225,24 @@ namespace Brushblade.Balance
 
                 // 金土(战意 + 厚):战意放大攻击、厚放大防御,两条资源轴都在,
                 // 且都只在混色里才凑得齐 —— 纯金没有厚的来源,纯土没有战意的来源。
+                //
+                // ⚠ 2026-09-11 订正:卡池原写 EarthShieldCards(垒壁崩碎圭杜垚㙓),
+                // 那张子集**刻意排除了土系全部召唤字**(塔/碉/堡/桂)。于是这一档实际量的是
+                // 「金 + 土盾、**全场零拦截**」,而不是「金土混色」—— 读数 13.4 比纯土系的
+                // 19.4 还低 6 层,一大半是这个卡池artifact,不是金系本身弱。
+                // 前排召唤物对近战是硬拦截(Targeting.PickAllyTarget),是这个模型里最强的
+                // 减伤手段,把它整类排除等于给这一档单独调了难度。改用 EarthCards 全表。
                 new Profile("金土混色·战意+厚(鍂剁圭垚,卡5级,10级)", new[] { "鍂", "剁", "圭", "垚" },
-                    MetalCards.Concat(EarthShieldCards).ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: MetalCards.Concat(EarthShieldCards).ToArray()),
+                    MetalCards.Concat(EarthCards).ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: MetalCards.Concat(EarthCards).ToArray()),
+
+                // 金木(战意 + 拦截):2026-09-11 新增。上面两条金系画像的搭档(土盾/水疗)
+                // 都不提供拦截,于是「金系弱」与「这两个组合弱」分不开。木系是拦截的主要载体,
+                // 这一档就是那个判别式 —— 若金木回到 20 以上,说明金系需要的是拦截搭档,
+                // 而不是把它自己的数值抬上去。
+                new Profile("金木混色·战意+拦截(鍂剁林森,卡5级,10级)", new[] { "鍂", "剁", "林", "森" },
+                    MetalCards.Concat(WoodCards).ToDictionary(c => c, _ => 5), level: 10,
+                    ownedCards: MetalCards.Concat(WoodCards).ToArray()),
 
                 // 金水(战意 + 泉):泉放大治疗。与金土那条配对,用来分辨
                 // 「混色的收益来自资源轴协同」还是「只是牌池大了摸得更顺」。
