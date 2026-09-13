@@ -79,7 +79,10 @@ namespace Brushblade.Core.Tests
         {
             // 恒等性硬线:关掉时一次随机都不许摇。RandomState 是 GameRandom 的内部游标,
             // 摇一次就变 —— 直接断它,比数掉字精确得多(出牌本身也会改库存,数掉字断不住)。
-            var engine = Engine(0);
+            // enemyCount 用 2 与 PerkOn_ConsumesExactlyOneDrawToPickTheTarget 同理:
+            // Next(1) 会短路,即便有人意外多摇一次,RandomState 也不变;2 个敌人时
+            // PickRandomLivingEnemy 的 Next(2) 才能真实证明「即便开关关闭也决不摇」。
+            var engine = Engine(0, enemyCount: 2);
             uint before = engine.Capture().RandomState;
             Assert.That(engine.Cast("治"), Is.EqualTo(BattleError.None));
             Assert.That(engine.Capture().RandomState, Is.EqualTo(before),
