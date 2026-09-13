@@ -4094,9 +4094,10 @@ namespace Brushblade.Core
                         victim.Hp = 0;
                         _events.Add(new BattleEvent(BattleEventKind.SummonHit, index, lost, front));
                         // 吞噬完全绕开 DamageSummon(2026-09-05):它是自己的一条死亡路径,
-                        // 死者的光环份额要跟着摘掉,否则全场光环总和会停在旧数上直到下次
-                        // 真正触发刷新才纠正。
-                        RefreshSummonAura();
+                        // 死者的光环份额、木脉 L2「归根」都要跟着接上,否则全场光环总和会停在
+                        // 旧数上直到下次真正触发刷新才纠正,归根也会在 Boss 吞噬时静默失效
+                        // (2026-09-13:补接 OnSummonDeath)。
+                        OnSummonDeath(front);
                     }
                     else
                     {

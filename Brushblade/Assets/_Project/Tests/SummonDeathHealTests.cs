@@ -96,6 +96,56 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "没点水脉就只是浪费掉");
         }
 
+        // 吞噬(BossSkill.Devour)是召唤物死亡的第三条路径(2026-09-13 补接前,曾绕开
+        // OnSummonDeath 只刷光环):Boss 无视血量直接把最前一只砍到 0。这里照
+        // BossSkillTests 的写法搭一只单阶段 Devour Boss,断这条路径也接了归根。
+        private static EnemyDef DevourBoss() => new("噬", Element.Heart, 200, 5,
+            phases: new[] { new BossPhaseDef("甲", Element.Heart, 200, 5, skill: BossSkill.Devour) });
+
+        private static BattleEngine DevourEngine(int healPercent, int startingHp = 400) =>
+            new(Graph(), new BattleConfig
+                {
+                    DropTable = new[] { "木" }, PlayerMaxHp = 500, ApPerTurn = 20,
+                    SummonDeathHealPercent = healPercent, BossPhaseJitterPercent = 0,
+                },
+                new[] { "兵" }, Array.Empty<string>(),
+                new[] { DevourBoss() },
+                seed: 1, startingHp: startingHp);
+
+        [Test]
+        public void DevouredSummon_AlsoHealsThePlayer()
+        {
+            var engine = DevourEngine(20, startingHp: 400);
+            engine.EndTurn();   // 先走掉普攻回合(场上尚无召唤物,吃满攻击),免得召唤物先挨打
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            Assert.That(slot, Is.GreaterThanOrEqualTo(0));
+            int beforeDevour = engine.PlayerHp;
+
+            engine.EndTurn();   // 蓄力回合,不出手
+            engine.EndTurn();   // 释放吞噬:无视血量必杀最前一只
+
+            Assert.That(engine.Summons[slot].Alive, Is.False, "召唤物被吞噬阵亡");
+            Assert.That(engine.PlayerHp, Is.EqualTo(beforeDevour + 40),
+                "200×20% = 40,吞噬绕开 DamageSummon 但一样要算阵亡");
+        }
+
+        [Test]
+        public void DevouredSummon_HealsNothingWhenPerkOff()
+        {
+            var engine = DevourEngine(0, startingHp: 400);
+            engine.EndTurn();
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            int beforeDevour = engine.PlayerHp;
+
+            engine.EndTurn();
+            engine.EndTurn();
+
+            Assert.That(engine.Summons[slot].Alive, Is.False, "召唤物被吞噬阵亡");
+            Assert.That(engine.PlayerHp, Is.EqualTo(beforeDevour), "未点亮,吞噬也不回血");
+        }
+
         [Test]
         public void ReviveThenDieAgain_HealsAgain()
         {
