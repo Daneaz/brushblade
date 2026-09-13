@@ -3764,6 +3764,10 @@ namespace Brushblade.Core
             int target = PickRandomLivingEnemy();
             if (target < 0) return;   // 场上没有别人可以接手,层数就此消散
             ApplyBurn(target, moved);
+            // spec 用词是「转移」不是「复制」:死者身上不该再留一份。今天无害
+            // (SettleBurnOn 先判 Alive、敌人不会复活),但留着是快照里的死数据 ——
+            // 只摘这具尸体自己的,不碰 target 刚接手的那份。
+            _enemies[enemyIndex].Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.Burn, target, moved));
         }
 

@@ -36,8 +36,10 @@ namespace Brushblade.Core.Tests
                 seed: 1, startingHp: startingHp);
 
         [Test]
-        public void SummonKilledByDamage_HealsThePlayer()
+        public void SummonDeath_HealsThePlayer()
         {
+            // 汇流点本身:走测试钩子直达 OnSummonDeath,不经 SettleSummonBurn / DamageSummon
+            // 任何一条真实死亡路径——那两条各自有专门的测试(见下方 SelfBurn_/KilledByEnemyDamage_)。
             // 玩家缺 100 血,召唤物 200 上限 → 回 40
             var engine = Engine(20, startingHp: 400);
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
@@ -45,6 +47,46 @@ namespace Brushblade.Core.Tests
             Assert.That(slot, Is.GreaterThanOrEqualTo(0));
             engine.KillSummonForTest(slot);
             Assert.That(engine.PlayerHp, Is.EqualTo(440), "400 + 200×20% = 440");
+        }
+
+        [Test]
+        public void SelfBurn_SummonDeath_HealsThePlayer()
+        {
+            // 走真实的自焚路径(SettleSummonBurn → OnSummonDeath),不借 KillSummonForTest。
+            // 用 AdvanceOnce() 精确停在召唤物那一拍,不用 EndTurn()——它一次跑完所有非玩家
+            // 行动者,这里虽只有一只召唤物,仍照 CLAUDE.md 的既有教训统一走 AdvanceOnce。
+            var engine = Engine(20, startingHp: 400);
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            Assert.That(slot, Is.GreaterThanOrEqualTo(0));
+            // 15 层 × 20/层 = 300 > 200 血上限,一拍烧死
+            engine.Summons[slot].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
+                Magnitude = 15, TurnsLeft = -1,
+            });
+
+            engine.YieldTurn();
+            while (engine.AdvanceOnce() && engine.LastActor.Kind != ActorKind.Summon) { }
+
+            Assert.That(engine.Summons[slot].Alive, Is.False, "前提:被自己身上的火烧死");
+            Assert.That(engine.PlayerHp, Is.EqualTo(440), "400 + 200×20% = 440,走的是自焚路径");
+        }
+
+        [Test]
+        public void KilledByEnemyDamage_HealsThePlayer()
+        {
+            // 走真实的挨打路径(DamageSummon → OnSummonDeath),不借 KillSummonForTest。
+            // enemyAttack=250 一击必杀 200 血的召唤物(靶心元素与木无生克,原样吃满)。
+            var engine = Engine(20, enemyAttack: 250, startingHp: 400);
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            Assert.That(slot, Is.GreaterThanOrEqualTo(0));
+
+            engine.EndTurn();   // 场上只有一只召唤物、一只敌人,没有低血量夹具连锁的风险
+
+            Assert.That(engine.Summons[slot].Alive, Is.False, "前提:被敌人一击打死");
+            Assert.That(engine.PlayerHp, Is.EqualTo(440), "400 + 200×20% = 440,走的是挨打路径");
         }
 
         [Test]
@@ -69,6 +111,21 @@ namespace Brushblade.Core.Tests
             // 这里只断"确实走了攒泉通道"——余数不外露,故用连续多只验证。
             Assert.That(engine.HealAccum, Is.EqualTo(40),
                 "走的是统一治疗入口,余数进 _healAccum");
+        }
+
+        [Test]
+        public void AmplifiedByWellspring_WhenStacksArePresent()
+        {
+            // TheHealGainsWellspring 只断了攒泉侧(HealAccum),没有一条在泉**已有**层数时
+            // 断放大真的生效 —— 把 HealFromSummonDeath 里的 amplified 换成 healBase 全绿。
+            var engine = Engine(20, startingHp: 400);
+            engine.GainWellspringForTest(400);   // 阈值 = PlayerMaxHp/5 = 100 → 攒满 4 层
+            Assert.That(engine.WellspringStacks, Is.EqualTo(4), "前提:攒够 4 层");
+            Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            engine.KillSummonForTest(slot);
+            // healBase = 200×20% = 40;泉 4 层 × 5%/层 = +20% → 40×120% = 48
+            Assert.That(engine.PlayerHp, Is.EqualTo(448), "40 的名义值要经泉放大成 48,不是原样回 40");
         }
 
         [Test]

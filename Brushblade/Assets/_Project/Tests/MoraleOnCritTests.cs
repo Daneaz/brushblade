@@ -114,5 +114,41 @@ namespace Brushblade.Core.Tests
                 Assert.That(engine.Cast("刺", 0), Is.EqualTo(BattleError.None));
             Assert.That(Morale(engine), Is.EqualTo(7), "鏖战抬到 7 后照样能攒到 7");
         }
+
+        // ---- 召唤物的暴击不算(spec §2.3)----
+
+        private static RecipeGraph SummonGraph() => new(new[]
+        {
+            new CharDef("木", Element.Wood),
+            new CharDef("卒", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 20, summonChar: "木") }),
+            // 锋:暴击 +100 个百分点 = 必暴(照 BuffTargetTests 的写法,取 100 而不是真实字表的值,
+            // RollCritWith 在 ≥100 时短路不摇骰)
+            new CharDef("锋", Element.Metal,
+                effects: new[] { new EffectDef(EffectKind.CritBuff, 100) }),
+        });
+
+        private static BattleEngine SummonEngine(int moraleOnCrit) =>
+            new(SummonGraph(), new BattleConfig
+                {
+                    DropTable = new[] { "木" }, PlayerMaxHp = 500, ApPerTurn = 20,
+                    MoraleOnCrit = moraleOnCrit,
+                },
+                new[] { "卒", "锋" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 3000, 0) }, seed: 1);
+
+        [Test]
+        public void SummonCrit_DoesNotGrantMorale()
+        {
+            // 给召唤物挂必暴(锋 CritBuff),它出手那一拍必然 RollCritForSummon 命中——
+            // 但那条判定只改召唤物自己的伤害,一字不碰玩家战意(RollCrit 才接锋芒)。
+            var engine = SummonEngine(1);
+            Assert.That(engine.Cast("卒"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Cast("锋", allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(Morale(engine), Is.EqualTo(0), "前提:两次施法都没有玩家攻击暴击");
+            engine.EndTurn();   // 召唤物这一拍必暴
+            Assert.That(Morale(engine), Is.EqualTo(0),
+                "召唤物暴击不读玩家战意——RollCritForSummon 与锋芒(RollCrit)是两条互不相连的判定");
+        }
     }
 }

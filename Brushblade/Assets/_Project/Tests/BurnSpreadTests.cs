@@ -53,6 +53,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void KilledByPlayerDamage_ClearsBurnOffTheCorpse()
+        {
+            // 转移不是复制(2026-09-13 review):死者身上不该再留一份灼烧数据
+            var engine = Engine(100);
+            Assert.That(engine.Cast("燃", 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Cast("刺", 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Alive, Is.False, "前提:0 号被打死");
+            Assert.That(BurnOn(engine, 0), Is.EqualTo(0), "尸体上不该留着死数据");
+            Assert.That(BurnOn(engine, 1), Is.EqualTo(5), "接手的那份不受影响");
+        }
+
+        [Test]
         public void PerkOff_BurnJustDisappears()
         {
             var engine = Engine(0);
@@ -148,6 +160,47 @@ namespace Brushblade.Core.Tests
             engine.AdvanceOnce();   // 敌方段结算灼烧:5 × 20 = 100 伤害,10 血必死
             Assert.That(engine.Enemies[0].Alive, Is.False, "前提:被自己身上的火烧死");
             Assert.That(BurnOn(engine, 1), Is.EqualTo(4), "刚结算过的那一层不跟着蔓延");
+        }
+
+        /// <summary>斩杀(<see cref="EffectDef.ExecuteKills"/>)走的是与普通伤害不同的分支——
+        /// 直接把 Hp 清零再 ResolveDefeat(TryExecuteKill),不经过 DamageEnemy 的死亡判定。
+        /// 五条死亡路径(灼烧/流血/引爆/斩杀/普通伤害)里独缺这一条的覆盖,单独补。</summary>
+        private static RecipeGraph KillGraph() => new(new[]
+        {
+            new CharDef("燃", Element.Fire,
+                effects: new[] { new EffectDef(EffectKind.BurnSingle, 5) }),
+            // 凿:80 点普通伤害,不带斩杀——只用来把目标削到执行阈值以下
+            new CharDef("凿", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 80) }),
+            // 斩:HP<30% 时直接击杀(非 Boss)
+            new CharDef("斩", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 1,
+                    executeBelowPercent: 30, executeKills: true) }),
+        });
+
+        private static BattleEngine KillEngine(int spreadPercent, int enemyCount = 2, int enemyHp = 100) =>
+            new(KillGraph(), new BattleConfig
+                {
+                    DropTable = new[] { "火" }, PlayerMaxHp = 500, ApPerTurn = 20,
+                    BurnSpreadPercent = spreadPercent,
+                },
+                new[] { "燃", "凿", "斩" }, Array.Empty<string>(),
+                Enumerable.Range(0, enemyCount)
+                    .Select(i => new EnemyDef($"靶{i}", Element.Heart, enemyHp, 0))
+                    .ToArray(),
+                seed: 1);
+
+        [Test]
+        public void ExecuteKill_AlsoSpreadsRemainingBurn()
+        {
+            var engine = KillEngine(100);
+            Assert.That(engine.Cast("燃", 0), Is.EqualTo(BattleError.None));
+            Assert.That(BurnOn(engine, 0), Is.EqualTo(5), "前提:0 号身上 5 层");
+            Assert.That(engine.Cast("凿", 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Alive, Is.True, "前提:削进阈值但还没打死");
+            Assert.That(engine.Cast("斩", 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Alive, Is.False, "前提:被斩杀直接清零");
+            Assert.That(BurnOn(engine, 1), Is.EqualTo(5), "斩杀致死同样要走 ResolveDefeat 的蔓延");
         }
     }
 }

@@ -154,7 +154,11 @@ namespace Brushblade.Core
                 PerkEffect.OverhealDamagePercent, 50,  // 溢流:治疗溢出 ×50% 转伤害
                 PerkEffect.WellspringCap, 4);          // 涌泉:泉上限 10→14
             AddWuxing(list, "fire",  Element.Fire,
-                PerkEffect.BurnSpreadPercent, 100,     // 余烬:死亡时全额转移剩余灼烧层数
+                // 余烬:死亡时全额转移剩余灼烧层数。⚠ 改这个数值(或改成非 100)要同步改
+                // 字符串表的 perk.detail.burn_spread 与 perk.node.fire_2.desc 两条文案 ——
+                // 它们都写死了「全部/原样转移给一名随机敌人」的口径,没有任何测试能抓到
+                // 文案与数值不同步(2026-09-13 review 发现过一次「转移给下一个」的旧文案)。
+                PerkEffect.BurnSpreadPercent, 100,
                 PerkEffect.BurnPerStack, 8);           // 燎原:灼烧每层 20→28
             AddWuxing(list, "earth", Element.Earth,
                 PerkEffect.ShieldReflectPercent, 20,   // 反震:护盾吸收量的 20% 反弹

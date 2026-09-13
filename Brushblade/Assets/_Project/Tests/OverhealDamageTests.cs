@@ -159,8 +159,10 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Cast("藻"), Is.EqualTo(BattleError.None));
             int before = TotalEnemyHpLost(engine);
             engine.EndTurn();   // 召唤物那一拍会走自愈
-            Assert.That(TotalEnemyHpLost(engine), Is.GreaterThan(before),
-                "自愈算治疗——用户裁定的边界只排除光环那一条");
+            // 藻 召出时已满血(MaxHp 100),自愈 300 全额溢出 → 300 × 50% = 150,可以算死,
+            // 不必只断「变多了」
+            Assert.That(TotalEnemyHpLost(engine) - before, Is.EqualTo(150),
+                "自愈算治疗——用户裁定的边界只排除光环那一条;300 溢出 × 50% = 150");
         }
     }
 }

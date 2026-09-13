@@ -98,5 +98,38 @@ namespace Brushblade.Core.Tests
             Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(70),
                 "镜 50 + 反震 20 = 70,没有被 60% 总量钳并轴砍掉");
         }
+
+        // ---- allowReflect: false 时不触发反震(spec §2.5)----
+
+        private static RecipeGraph BarbGraph() => new(new[]
+        {
+            new CharDef("刺", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
+        });
+
+        [Test]
+        public void BarbRecoil_DoesNotTriggerShieldReflect()
+        {
+            // 铁画(EnemyAbility.Barb)受击存活即反噬:DamagePlayerDirect(enemyIndex, recoil,
+            // allowReflect: false)。那不是敌人的挥击,是玩家自己撞上去的——反震要跟着
+            // allowReflect 一起被 gate 掉,否则「玩家打铁画 → 铁画反噬 → 玩家的盾吸收
+            // 反噬伤害 → 反震把这份反噬伤害再弹回铁画身上」会凭空多出一份从未发生过的挥击。
+            var engine = new BattleEngine(BarbGraph(), new BattleConfig
+                {
+                    DropTable = new[] { "土" }, PlayerMaxHp = 500, ApPerTurn = 20,
+                    ShieldReflectPercent = 20,
+                },
+                new[] { "刺" }, Array.Empty<string>(),
+                new[] { new EnemyDef("铁画", Element.Heart, 9000, 0, EnemyAbility.Barb) },
+                seed: 1, startingNormalShield: 1000);
+
+            int before = engine.Enemies[0].Hp;
+            Assert.That(engine.Cast("刺", 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Alive, Is.True, "前提:没打死,铁画才会反噬");
+            // 100 伤 → 铁画反噬 30 → 全被 1000 点护盾吸收。若反震未被 allowReflect gate 掉,
+            // 这里会多扣 30×20% = 6 点血,变成 106 而不是 100。
+            Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(100),
+                "只掉这一记本身的伤害,铁画的反噬(allowReflect:false)不该经反震再弹回一次");
+        }
     }
 }
