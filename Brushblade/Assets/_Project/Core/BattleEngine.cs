@@ -517,6 +517,16 @@ namespace Brushblade.Core
         /// 起手那一回合会白掉一层。</summary>
         private bool _moraleGraceTurn;
 
+        /// <summary>金脉 L2「锋芒」的**每张字一次**闸门(2026-09-13)。<see cref="ApplyEffects"/>
+        /// 进门时置 false,<see cref="RollCrit"/> 首次摇到暴击时兑现并置 true。
+        ///
+        /// 为什么要这道闸:DamageAll 分支对每个目标各摇一次暴击,不限制的话一张群攻字
+        /// 暴击 5 个目标就能顶满战意上限,战意从「维持型资源」退化成「开局一张群攻就满」。
+        ///
+        /// **不进快照**:生命周期只有一次 ApplyEffects 调用,跨不出一张字,更跨不出
+        /// 存档边界(spec §3.4)。</summary>
+        private bool _critMoraleGrantedThisCast;
+
         /// <summary>玩家侧状态容器(HoT / 减伤,2026-08-04 统一迁入状态容器)。减伤 SourceId = 字
         /// ID,同字覆盖 = 只刷新不叠加;TurnsLeft = -1 段内持久,跨战斗携带见 RunEngine._carriedStatuses。</summary>
         private readonly StatusBag _playerStatuses = new();
@@ -637,7 +647,30 @@ namespace Brushblade.Core
         /// 同样不扰动随机流,也让测试可以在不注入 RNG 的前提下断言必暴。
         ///
         /// 比较式抄 AttackHits:Next(100) 吐 [0,99],chance = 1 即 1%、99 即 99%,无偏。</summary>
-        private bool RollCrit() => RollCritWith(EffectiveCrit);
+        /// <summary>玩家侧暴击判定。金脉 L2「锋芒」(2026-09-13)挂在这里 ——
+        /// 玩家攻击**永远必中**(AttackHits 只服务敌人侧),所以摇到暴击就等于暴击落地,
+        /// 不需要再等结算回执。
+        ///
+        /// ⚠ 召唤物侧的 <see cref="RollCritForSummon"/> **一字不动**:召唤物读自己的
+        /// 暴击袋子,把它算进玩家战意会让木+金 build 白拿双份(spec §2.3)。</summary>
+        private bool RollCrit()
+        {
+            bool crit = RollCritWith(EffectiveCrit);
+            if (crit) GrantMoraleFromCrit();
+            return crit;
+        }
+
+        /// <summary>锋芒的兑现。缺省 0 时整条短路 —— 不摸状态容器、不改 _moraleGraceTurn,
+        /// 与改前逐字节相同。</summary>
+        private void GrantMoraleFromCrit()
+        {
+            if (_config == null || _config.MoraleOnCrit <= 0) return;
+            if (_critMoraleGrantedThisCast) return;
+            _critMoraleGrantedThisCast = true;
+            // 复用 AddPlayerCounter:它自带 MoraleCap 夹取,以及「从 0 起手免一次递减」
+            // 的战意宽限(_moraleGraceTurn)。别绕开它直接改 Magnitude。
+            AddPlayerCounter(StatusKind.Morale, _config.MoraleOnCrit, _config.MoraleCap);
+        }
 
         /// <summary>召唤物的暴击判定(2026-08-28,锋 可以挂给召唤物了)。
         ///
@@ -2259,6 +2292,7 @@ namespace Brushblade.Core
         private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false,
             IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
         {
+            _critMoraleGrantedThisCast = false;   // 金脉 L2「锋芒」:每张字至多兑现一层
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
