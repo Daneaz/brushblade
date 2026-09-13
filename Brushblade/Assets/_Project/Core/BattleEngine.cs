@@ -3648,6 +3648,35 @@ namespace Brushblade.Core
         private void ResolveDefeat(int enemyIndex)
         {
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
+            SpreadEmbers(enemyIndex);
+        }
+
+        /// <summary>火脉 L2「余烬」(spec 2026-09-13 §2.2):死者身上剩余的灼烧层数
+        /// 按 <see cref="BattleConfig.BurnSpreadPercent"/>% 转给一名随机存活敌人。
+        ///
+        /// 挂在 <see cref="ResolveDefeat"/> 是刻意的 —— 它是灼烧致死、流血致死、引爆致死、
+        /// 斩杀、普通伤害致死**五条路径唯一的汇流点**,写在这里就自动覆盖「玩家打死」
+        /// 「召唤物打死」「DOT 烧死」全部情形(用户 2026-09-13 要求的正是「不只是烧死的」)。
+        ///
+        /// 两条看起来像 bug、实际正确的行为,不要"修"它们:
+        /// ① **引爆致死不蔓延** —— Detonate 分支在调 ResolveDefeat 之前已经
+        ///    `Remove(StatusKind.Burn)`,那些层数的伤害已经一次性兑现过了。
+        /// ② **灼烧结算致死蔓延的是已减 1 之后的层数** —— SettleBurnOn 先
+        ///    `burn.Magnitude -= 1` 再判死,刚结算过的那一层不该再跟着走。
+        ///
+        /// ⚠ 三道短路全部排在 <see cref="PickRandomLivingEnemy"/> 之前:关闭时、没有层数时、
+        /// 折算被整数除截断成 0 时,都必须一次随机都不摇(恒等性硬线)。</summary>
+        private void SpreadEmbers(int enemyIndex)
+        {
+            if (_config == null || _config.BurnSpreadPercent <= 0) return;
+            int stacks = _enemies[enemyIndex].Statuses.TotalMagnitude(StatusKind.Burn);
+            if (stacks <= 0) return;
+            int moved = stacks * _config.BurnSpreadPercent / 100;
+            if (moved <= 0) return;
+            int target = PickRandomLivingEnemy();
+            if (target < 0) return;   // 场上没有别人可以接手,层数就此消散
+            ApplyBurn(target, moved);
+            _events.Add(new BattleEvent(BattleEventKind.Burn, target, moved));
         }
 
         /// <summary>命中判定(2026-08-07):命中率 = 100 − 攻击者致盲 − 目标闪避,钳到 [0,100]。
