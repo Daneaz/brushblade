@@ -233,5 +233,103 @@ namespace Brushblade.Core.Tests
             meta.UnlockedPerks.Add("metal_4");
             Assert.That(Build(meta).WoodSummonSpeedBonus, Is.EqualTo(0));
         }
+
+        // ---- 五行 L2:五条各系专属机制(spec 2026-09-13 §3.3)----
+        // 每条两侧都断:本系点亮 → 本字段变;别系点亮 → 本字段不变。
+        // ElementBonus 的第三个参数传错系既不会编译错、也不会有别的测试自然变红,
+        // 这一组是唯一的守卫。
+
+        [Test]
+        public void EmptySave_LeavesAllFiveTierTwoFieldsAtZero()
+        {
+            var cfg = Build(new MetaState());
+            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "水脉 L2 未点");
+            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "火脉 L2 未点");
+            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "金脉 L2 未点");
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "木脉 L2 未点");
+            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "土脉 L2 未点");
+        }
+
+        [Test]
+        public void WaterTierTwo_SetsOverhealDamageOnly()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("water_2");
+            var cfg = Build(meta);
+            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(50));
+            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
+        }
+
+        [Test]
+        public void FireTierTwo_SetsBurnSpreadOnly()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("fire_2");
+            var cfg = Build(meta);
+            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(100));
+            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
+        }
+
+        [Test]
+        public void MetalTierTwo_SetsMoraleOnCritOnly()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("metal_2");
+            var cfg = Build(meta);
+            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(1));
+            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
+        }
+
+        [Test]
+        public void WoodTierTwo_SetsSummonDeathHealOnly()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("wood_2");
+            var cfg = Build(meta);
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(20));
+            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
+        }
+
+        [Test]
+        public void EarthTierTwo_SetsShieldReflectOnly()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("earth_2");
+            var cfg = Build(meta);
+            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(20));
+            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "串系了");
+        }
+
+        [Test]
+        public void TierTwoNodes_DoNotDisturbTierFourFields()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("metal_2");
+            meta.UnlockedPerks.Add("wood_2");
+            meta.UnlockedPerks.Add("water_2");
+            meta.UnlockedPerks.Add("fire_2");
+            meta.UnlockedPerks.Add("earth_2");
+            var cfg = Build(meta);
+            Assert.That(cfg.MoraleCap, Is.EqualTo(5), "战意上限仍是现值");
+            Assert.That(cfg.HeftCap, Is.EqualTo(10), "厚上限仍是现值");
+            Assert.That(cfg.WellspringCap, Is.EqualTo(10), "泉上限仍是现值");
+            Assert.That(cfg.BurnPerStack, Is.EqualTo(20), "灼烧每层仍是现值");
+            Assert.That(cfg.WoodSummonSpeedBonus, Is.EqualTo(0), "召唤速度仍是现值");
+        }
     }
 }

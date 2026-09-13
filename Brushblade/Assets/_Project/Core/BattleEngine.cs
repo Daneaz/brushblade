@@ -209,6 +209,29 @@ namespace Brushblade.Core
         /// **召唤物出手两样都不产**,那条顾虑整个不成立。</summary>
         public int WoodSummonSpeedBonus { get; set; }
 
+        // ---- 五行 L2:五条各系专属机制(spec 2026-09-13)----
+        // 五个全部**缺省 0 = 关**。这是恒等性硬线:一条都没点时引擎行为与改前逐字节相同。
+        // 引擎里每个读取点都必须先判 > 0 再做事,尤其是要摇随机数的那两条(溢流/余烬)——
+        // GameRandom 多摇一次会平移整条随机序列,让所有依赖种子的既有测试一起变红。
+
+        /// <summary>水脉 L2「溢流」:治疗溢出的部分 ×N% 对一名随机存活敌人造成伤害。0 = 未点亮。</summary>
+        public int OverhealDamagePercent { get; set; }
+
+        /// <summary>火脉 L2「余烬」:敌人死亡时,把它身上剩余的灼烧层数按 N% 转给一名
+        /// 随机存活敌人。0 = 未点亮;100 = 全额转移。</summary>
+        public int BurnSpreadPercent { get; set; }
+
+        /// <summary>金脉 L2「锋芒」:玩家暴击时战意 +N 层,**每张字至多兑现一次**。0 = 未点亮。</summary>
+        public int MoraleOnCrit { get; set; }
+
+        /// <summary>木脉 L2「归根」:召唤物阵亡时,玩家回复该召唤物最大生命的 N%。0 = 未点亮。</summary>
+        public int SummonDeathHealPercent { get; set; }
+
+        /// <summary>土脉 L2「反震」:被护盾吸掉的伤害按 N% 反弹给攻击者。0 = 未点亮。
+        /// **不并入「镜」的 60% 总量钳**:镜按打过来的总伤害折返,反震按被护盾吸掉的量
+        /// 折返,基数不同不能并轴;反震自己被护盾存量天然限制住。</summary>
+        public int ShieldReflectPercent { get; set; }
+
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
         public BattleConfig WithPlayerMaxHp(int playerMaxHp)
@@ -494,6 +517,16 @@ namespace Brushblade.Core
         /// 起手那一回合会白掉一层。</summary>
         private bool _moraleGraceTurn;
 
+        /// <summary>金脉 L2「锋芒」的**每张字一次**闸门(2026-09-13)。<see cref="ApplyEffects"/>
+        /// 进门时置 false,<see cref="RollCrit"/> 首次摇到暴击时兑现并置 true。
+        ///
+        /// 为什么要这道闸:DamageAll 分支对每个目标各摇一次暴击,不限制的话一张群攻字
+        /// 暴击 5 个目标就能顶满战意上限,战意从「维持型资源」退化成「开局一张群攻就满」。
+        ///
+        /// **不进快照**:生命周期只有一次 ApplyEffects 调用,跨不出一张字,更跨不出
+        /// 存档边界(spec §3.4)。</summary>
+        private bool _critMoraleGrantedThisCast;
+
         /// <summary>玩家侧状态容器(HoT / 减伤,2026-08-04 统一迁入状态容器)。减伤 SourceId = 字
         /// ID,同字覆盖 = 只刷新不叠加;TurnsLeft = -1 段内持久,跨战斗携带见 RunEngine._carriedStatuses。</summary>
         private readonly StatusBag _playerStatuses = new();
@@ -614,7 +647,30 @@ namespace Brushblade.Core
         /// 同样不扰动随机流,也让测试可以在不注入 RNG 的前提下断言必暴。
         ///
         /// 比较式抄 AttackHits:Next(100) 吐 [0,99],chance = 1 即 1%、99 即 99%,无偏。</summary>
-        private bool RollCrit() => RollCritWith(EffectiveCrit);
+        /// <summary>玩家侧暴击判定。金脉 L2「锋芒」(2026-09-13)挂在这里 ——
+        /// 玩家攻击**永远必中**(AttackHits 只服务敌人侧),所以摇到暴击就等于暴击落地,
+        /// 不需要再等结算回执。
+        ///
+        /// ⚠ 召唤物侧的 <see cref="RollCritForSummon"/> **一字不动**:召唤物读自己的
+        /// 暴击袋子,把它算进玩家战意会让木+金 build 白拿双份(spec §2.3)。</summary>
+        private bool RollCrit()
+        {
+            bool crit = RollCritWith(EffectiveCrit);
+            if (crit) GrantMoraleFromCrit();
+            return crit;
+        }
+
+        /// <summary>锋芒的兑现。缺省 0 时整条短路 —— 不摸状态容器、不改 _moraleGraceTurn,
+        /// 与改前逐字节相同。</summary>
+        private void GrantMoraleFromCrit()
+        {
+            if (_config == null || _config.MoraleOnCrit <= 0) return;
+            if (_critMoraleGrantedThisCast) return;
+            _critMoraleGrantedThisCast = true;
+            // 复用 AddPlayerCounter:它自带 MoraleCap 夹取,以及「从 0 起手免一次递减」
+            // 的战意宽限(_moraleGraceTurn)。别绕开它直接改 Magnitude。
+            AddPlayerCounter(StatusKind.Morale, _config.MoraleOnCrit, _config.MoraleCap);
+        }
 
         /// <summary>召唤物的暴击判定(2026-08-28,锋 可以挂给召唤物了)。
         ///
@@ -937,6 +993,32 @@ namespace Brushblade.Core
         /// <summary>泉放大治疗的测试钩子(2026-09-05)。与 <see cref="GainWellspringForTest"/>
         /// 同理:不给引擎加新的生产可调用面,只把既有私有算式暴露给断言。</summary>
         internal int AmplifyByWellspringForTest(int value) => AmplifyByWellspring(value);
+
+        /// <summary>把玩家血量直接扣到指定量的测试钩子(2026-09-13,水脉 L2「溢流」的部分溢出用例)。
+        /// 与 <see cref="GainWellspringForTest"/> 同理:不给引擎加新的生产可调用面,只把既有私有
+        /// 算式暴露给断言。</summary>
+        internal void DamagePlayerForTest(int amount) => PlayerHp = Math.Max(0, PlayerHp - amount);
+
+        /// <summary>把一只召唤物打死(2026-09-13,木脉 L2 测试用)。走 <see cref="DamageSummon"/>
+        /// 的死亡分支太绕(要造敌人、排行动顺序),这里直接把血打空并触发死亡汇流点。
+        /// 仅供测试与引擎内部调用。</summary>
+        internal void KillSummonForTest(int slot)
+        {
+            var summon = _summons[slot];
+            if (summon == null || !summon.Alive) return;
+            summon.Hp = 0;
+            OnSummonDeath(slot);
+        }
+
+        /// <summary>把一只阵亡召唤物救回半血(2026-09-13):与 EffectKind.Revive 同口径。
+        /// 仅供测试与引擎内部调用。</summary>
+        internal void ReviveSummonForTest(int slot)
+        {
+            var summon = _summons[slot];
+            if (summon == null || summon.Alive) return;
+            summon.Hp = (summon.MaxHp + 1) / 2;
+            RefreshSummonAura();
+        }
 
         private void GainWellspring(int healAmount)
         {
@@ -1777,7 +1859,9 @@ namespace Brushblade.Core
             // 而光环是每回合自动触发的 —— 接了会让玩家什么都不做也能攒满泉,
             // 破坏「攒 → 发」的节奏,而那个节奏正是这台引擎存在的理由。
             // 与 桂 的 SummonShield 要攒厚不矛盾:桂 是玩家出的字,光环是召唤物的被动。
-            if (heal > 0) HealPlayerAndSummons(heal);
+            // 同理**不**触发水脉 L2「溢流」(2026-09-13):与不攒泉是同一条理由 ——
+            // 光环是每回合自动触发的被动,不是玩家主动投入。
+            if (heal > 0) HealPlayerAndSummons(heal, overflowToDamage: false);
 
             int regen = summon.Passive?.Regen ?? 0;
             // 自愈(2026-09-05,藻):只回自己。与上面的光环同序 —— 都排在出手之前,
@@ -1807,7 +1891,7 @@ namespace Brushblade.Core
             burn.Magnitude -= 1;
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
-            if (!summon.Alive) RefreshSummonAura();   // 自焚死亡也要摘掉它的光环份额
+            if (!summon.Alive) OnSummonDeath(slot);   // 自焚死亡:摘光环份额 + 木脉 L2 归根
         }
 
         /// <summary>注入给召唤物的攻击百分比乘区(2026-09-05)= 100 + 战意层×10 + 厚层×5。
@@ -1830,6 +1914,39 @@ namespace Brushblade.Core
             int percent = SummonAttackPercent;
             foreach (var summon in _summons)
                 if (summon != null) { summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent; }
+        }
+
+        /// <summary>召唤物死亡的统一汇流点(2026-09-13)。
+        ///
+        /// 抽出它不是顺手重构:此前召唤物死亡散在两处(<see cref="SettleSummonBurn"/> 的
+        /// 自焚、<see cref="DamageSummon"/> 的挨打),两处各自调 RefreshSummonAura。
+        /// 木脉 L2「归根」要在死亡时治疗,没有汇流点就必然写两份 —— 而「同一份逻辑
+        /// 两条路径、只改了其中一条」正是这一层最常见的静默 bug。**日后再有第三条
+        /// 死亡路径,接这里。**
+        ///
+        /// 顺序:先治疗、后刷光环。两种顺序结果相同(治疗只影响玩家与敌人,
+        /// 光环只读召唤物存活集合),固定成这一种是为了测试可断言。</summary>
+        private void OnSummonDeath(int slot)
+        {
+            HealFromSummonDeath(slot);
+            RefreshSummonAura();
+        }
+
+        /// <summary>木脉 L2「归根」(spec 2026-09-13 §2.4):玩家回复该召唤物最大生命的 N%。
+        ///
+        /// **是一次完整治疗**(用户 2026-09-13 裁定):吃泉放大、攒泉(按放大前的基数,
+        /// 与 HealSelf 同口径)、也吃水脉 L2 的溢流转伤害 —— 所以走
+        /// <see cref="HealAlly"/> 的缺省路径,不另开通路。</summary>
+        private void HealFromSummonDeath(int slot)
+        {
+            if (_config == null || _config.SummonDeathHealPercent <= 0) return;
+            var summon = _summons[slot];
+            if (summon == null) return;
+            int healBase = summon.MaxHp * _config.SummonDeathHealPercent / 100;
+            if (healBase <= 0) return;
+            int amplified = AmplifyByWellspring(healBase);   // 用**攒之前**的层数
+            GainWellspring(healBase);                        // 攒的是基数,与 HealSelf 同口径
+            HealAlly(Targeting.PlayerTarget, amplified);
         }
 
         /// <summary>一个敌人的完整一拍(2026-08-15,ATB 时序归属搬迁,spec §4.3「每个敌人那一拍」
@@ -2243,6 +2360,7 @@ namespace Brushblade.Core
         private void ApplyEffects(CharDef def, int targetIndex, bool replaceSummon = false, bool attackMode = false,
             IReadOnlyList<int> summonSlots = null, int allySlot = Targeting.PlayerTarget)
         {
+            _critMoraleGrantedThisCast = false;   // 金脉 L2「锋芒」:每张字至多兑现一层
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
@@ -2463,6 +2581,8 @@ namespace Brushblade.Core
                             if (slot < 0) break; // 没有阵亡召唤物 → 空放(与无敌人时出 AOE 同口径)
                             var revived = _summons[slot];
                             revived.Hp = (revived.MaxHp + 1) / 2; // 半血,向上取整
+                            // 复活不走治疗入口、也永不溢出(半血 ≤ 上限),所以水脉 L2
+                            // 「溢流」对它天然不涉及 —— 不是漏接(2026-09-13)。
                             revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
                             revived.Shield = 0;                   // 盾不跟着复活
                             // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
@@ -2865,16 +2985,28 @@ namespace Brushblade.Core
             return percent;
         }
 
+        /// <summary>随机挑一个**存活**敌人的下标;全场无存活返回 −1。
+        ///
+        /// ⚠ **本方法无条件消耗一次随机数**(只要有存活敌人)。调用方必须先把
+        /// 「功能没开」「没有要打的量」这类分支短路掉再进来 —— GameRandom 的既有消费方
+        /// 只有 StartTurn 的回合掉字、AttackHits、EnemyState 构造时的 Boss 阈值浮动,
+        /// 多摇一次会平移整条随机序列,让所有依赖种子的既有测试一起变红。</summary>
+        private int PickRandomLivingEnemy()
+        {
+            var living = new List<int>();
+            for (int i = 0; i < _enemies.Count; i++)
+                if (_enemies[i].Alive) living.Add(i);
+            if (living.Count == 0) return -1;
+            return living[_random.Next(living.Count)];
+        }
+
         /// <summary>随机冻结一个**存活**敌人 N 回合(2026-08-25,藤的入场冻结)。
         /// 全场无存活敌人时静默返回 —— 召唤本身照常落位,不该因为没人可冻就抛异常。
         /// 随机走引擎内带种子的 RNG,保证同种子可复现(Core 禁用 UnityEngine.Random)。</summary>
         private void FreezeRandomLivingEnemy(int turns)
         {
-            var living = new List<int>();
-            for (int i = 0; i < _enemies.Count; i++)
-                if (_enemies[i].Alive) living.Add(i);
-            if (living.Count == 0) return;
-            int pick = living[_random.Next(living.Count)];
+            int pick = PickRandomLivingEnemy();
+            if (pick < 0) return;
             _enemies[pick].Statuses.Apply(new StatusEffect
             {
                 // Magnitude 不赋值:与 EffectKind.Freeze 分支同口径(没有任何读取方)
@@ -3135,16 +3267,49 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>群体治疗:玩家 + 全部存活召唤物,各回 amount(玩家不超上限)。</summary>
-        private void HealPlayerAndSummons(int amount)
+        /// <summary>水脉 L2「溢流」(spec 2026-09-13 §2.1):把一份治疗溢出量折成伤害,
+        /// 打一名随机存活敌人。
+        ///
+        /// <paramref name="overflow"/> 是**单个受治疗单位**的溢出量(名义治疗量 − 实际回血量),
+        /// 名义值已经吃过泉的放大。群体治疗时每个单位各调一次本方法 —— 各打各的、
+        /// 各摇各的目标(用户 2026-09-13 在「求和打一下」与「各打一下」之间选了后者,
+        /// 别在这里"顺手优化"成合并)。
+        ///
+        /// 伤害口径与灼烧结算同款:不吃生克、不吃攻击力缩放、不能暴击、不吃敌人护甲 ——
+        /// 溢出量本身已经是被攻击力和生克塑造过的治疗量,再乘一次是双重计价。
+        ///
+        /// ⚠ **四道短路的顺序不能换**,全部排在 PickRandomLivingEnemy 之前:
+        /// 关闭时、溢出为 0 时、折算被整数除截断成 0 时,都必须一次随机都不摇。</summary>
+        private void SettleOverheal(int overflow)
+        {
+            if (_config == null || _config.OverhealDamagePercent <= 0) return;
+            if (overflow <= 0) return;
+            int damage = overflow * _config.OverhealDamagePercent / 100;
+            if (damage <= 0) return;
+            int target = PickRandomLivingEnemy();
+            if (target < 0) return;
+            DamageEnemy(target, damage, Element.Heart,   // 心对全属性 1.0x = 不走生克
+                bypassDefense: true,                      // 折返/溢出不是挥击,不吃护甲
+                allowBarb: false);                        // 同理不算挥击,不触发铁画的反噬
+        }
+
+        /// <param name="overflowToDamage">这一份治疗的溢出要不要折成伤害(水脉 L2「溢流」)。
+        /// **缺省 true** —— 用户 2026-09-13 裁定的边界是「所有治疗类,只排除召唤物光环」,
+        /// 排除项只有一处,把缺省放在多数那边能让日后新增的治疗来源自动接上。
+        /// 唯一传 false 的调用点是 <see cref="ActSummonTurn"/> 的光环那一行。</param>
+        private void HealPlayerAndSummons(int amount, bool overflowToDamage = true)
         {
             int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
             PlayerHp += healed;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+            if (overflowToDamage) SettleOverheal(amount - healed);
             foreach (var summon in _summons)
             {
                 if (summon == null || !summon.Alive) continue;
-                summon.Hp = Math.Min(summon.MaxHp, summon.Hp + amount);
+                // 每只各算各的溢出、各打一下(spec §2.1)。先算再写 Hp:写完就看不出缺多少了。
+                int given = Math.Min(summon.MaxHp - summon.Hp, amount);
+                summon.Hp += given;
+                if (overflowToDamage) SettleOverheal(amount - given);
             }
         }
 
@@ -3170,13 +3335,15 @@ namespace Brushblade.Core
         /// <summary>把治疗打到一个友方目标上(2026-08-22)。slot = −1 治玩家,否则治该槽召唤物。
         /// 溢出部分丢弃。事件的 SecondIndex 带槽位 —— 与 Summon 事件报落位槽同一套写法,
         /// 不为治疗新增事件类型。</summary>
-        private void HealAlly(int slot, int amount)
+        /// <param name="overflowToDamage">见 <see cref="HealPlayerAndSummons"/> 的同名参数。</param>
+        private void HealAlly(int slot, int amount, bool overflowToDamage = true)
         {
             if (slot == Targeting.PlayerTarget)
             {
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
                 _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed, Targeting.PlayerTarget));
+                if (overflowToDamage) SettleOverheal(amount - healed);
                 return;
             }
             var summon = _summons[slot];
@@ -3184,6 +3351,7 @@ namespace Brushblade.Core
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
+            if (overflowToDamage) SettleOverheal(amount - given);
         }
 
         /// <summary>场上除 self 外还有存活敌人吗(辅助型据此决定加攻还是出手)。</summary>
@@ -3582,6 +3750,39 @@ namespace Brushblade.Core
         private void ResolveDefeat(int enemyIndex)
         {
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
+            SpreadEmbers(enemyIndex);
+        }
+
+        /// <summary>火脉 L2「余烬」(spec 2026-09-13 §2.2):死者身上剩余的灼烧层数
+        /// 按 <see cref="BattleConfig.BurnSpreadPercent"/>% 转给一名随机存活敌人。
+        ///
+        /// 挂在 <see cref="ResolveDefeat"/> 是刻意的 —— 它是灼烧致死、流血致死、引爆致死、
+        /// 斩杀、普通伤害致死**五条路径唯一的汇流点**,写在这里就自动覆盖「玩家打死」
+        /// 「召唤物打死」「DOT 烧死」全部情形(用户 2026-09-13 要求的正是「不只是烧死的」)。
+        ///
+        /// 两条看起来像 bug、实际正确的行为,不要"修"它们:
+        /// ① **引爆致死不蔓延** —— Detonate 分支在调 ResolveDefeat 之前已经
+        ///    `Remove(StatusKind.Burn)`,那些层数的伤害已经一次性兑现过了。
+        /// ② **灼烧结算致死蔓延的是已减 1 之后的层数** —— SettleBurnOn 先
+        ///    `burn.Magnitude -= 1` 再判死,刚结算过的那一层不该再跟着走。
+        ///
+        /// ⚠ 三道短路全部排在 <see cref="PickRandomLivingEnemy"/> 之前:关闭时、没有层数时、
+        /// 折算被整数除截断成 0 时,都必须一次随机都不摇(恒等性硬线)。</summary>
+        private void SpreadEmbers(int enemyIndex)
+        {
+            if (_config == null || _config.BurnSpreadPercent <= 0) return;
+            int stacks = _enemies[enemyIndex].Statuses.TotalMagnitude(StatusKind.Burn);
+            if (stacks <= 0) return;
+            int moved = stacks * _config.BurnSpreadPercent / 100;
+            if (moved <= 0) return;
+            int target = PickRandomLivingEnemy();
+            if (target < 0) return;   // 场上没有别人可以接手,层数就此消散
+            ApplyBurn(target, moved);
+            // spec 用词是「转移」不是「复制」:死者身上不该再留一份。今天无害
+            // (SettleBurnOn 先判 Alive、敌人不会复活),但留着是快照里的死数据 ——
+            // 只摘这具尸体自己的,不碰 target 刚接手的那份。
+            _enemies[enemyIndex].Statuses.Remove(StatusKind.Burn);
+            _events.Add(new BattleEvent(BattleEventKind.Burn, target, moved));
         }
 
         /// <summary>命中判定(2026-08-07):命中率 = 100 − 攻击者致盲 − 目标闪避,钳到 [0,100]。
@@ -3680,6 +3881,24 @@ namespace Brushblade.Core
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
                         allowBarb: false);     // 同理也不算挥击:不触发铁画的反噬
             }
+
+            // 土脉 L2「反震」(2026-09-13):按**护盾实际吸掉的量**折返,与上面的「镜」
+            // (按打过来的总伤害折返)是两个基数,所以**不并进 MaxReflectPercent 那根
+            // 60% 总量钳** —— 并轴会把两个不同基数的百分比当成同一根轴相加。反震自己被
+            // 护盾存量天然限制住:吸不了就反不了。
+            //
+            // 跟着 allowReflect 一起 gate:false 的那条路径(铁画的反噬)本就不是敌人的
+            // 挥击,不该触发反震。
+            if (allowReflect && absorbed > 0
+                && _config != null && _config.ShieldReflectPercent > 0
+                && _enemies[enemyIndex].Alive)
+            {
+                int bouncedByShield = absorbed * _config.ShieldReflectPercent / 100;
+                if (bouncedByShield > 0)
+                    DamageEnemy(enemyIndex, bouncedByShield, Element.Heart,
+                        bypassDefense: true,   // 折返不是挥击,不吃敌人护甲
+                        allowBarb: false);     // 同理不算挥击,不触发铁画的反噬
+            }
             return true;
         }
 
@@ -3746,7 +3965,7 @@ namespace Brushblade.Core
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
-            if (!summon.Alive) RefreshSummonAura();   // 挨打死亡也要摘掉它的光环份额
+            if (!summon.Alive) OnSummonDeath(summonIndex);   // 挨打死亡:摘光环份额 + 木脉 L2 归根
 
             // 反伤(2026-08-05,荆):2026-08-25 用户拍板由**固定点数**改成**受到伤害的百分比**,
             // 与下面玩家侧的 Reflect 完全同一套算式 —— 荆 要靠反伤当输出手段,固定值在深层会被
@@ -3911,9 +4130,10 @@ namespace Brushblade.Core
                         victim.Hp = 0;
                         _events.Add(new BattleEvent(BattleEventKind.SummonHit, index, lost, front));
                         // 吞噬完全绕开 DamageSummon(2026-09-05):它是自己的一条死亡路径,
-                        // 死者的光环份额要跟着摘掉,否则全场光环总和会停在旧数上直到下次
-                        // 真正触发刷新才纠正。
-                        RefreshSummonAura();
+                        // 死者的光环份额、木脉 L2「归根」都要跟着接上,否则全场光环总和会停在
+                        // 旧数上直到下次真正触发刷新才纠正,归根也会在 Boss 吞噬时静默失效
+                        // (2026-09-13:补接 OnSummonDeath)。
+                        OnSummonDeath(front);
                     }
                     else
                     {

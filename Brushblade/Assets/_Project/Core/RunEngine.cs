@@ -24,12 +24,6 @@ namespace Brushblade.Core
         /// <summary>战后字奖励池(抽 5 选 1)。</summary>
         public IReadOnlyList<string> RewardPool { get; set; }
 
-        /// <summary>战利品候选里要**定向保底**的元素(spec §3.2,五行 L2)。
-        /// 每个元素占 1 个候选坑,剩下的照旧全池自由抽;占满 5 坑为止。
-        /// 空 = 全部自由抽,与引入保底之前逐字节相同。</summary>
-        public IReadOnlyList<Element> GuaranteedElements { get; set; }
-            = System.Array.Empty<Element>();
-
         /// <summary>每个候选坑的抽取次数(机制树「慧眼」L2);缺省 1 = 与改前一致。
         /// 与起手那条共用「抽取次数」概念(spec §3.1),但**各自独立计数** ——
         /// 慧眼 L1 管起手、L2 管战利品,点了 L1 不影响这里。</summary>
@@ -688,39 +682,12 @@ namespace Brushblade.Core
                     group.Add(id);
             }
 
-            // 定向保底先占坑(spec §3.2):每个元素 1 坑,占满 RewardOptionCount 为止。
-            // ⚠ 该系在奖池里一张都没有时**静默让位**给自由抽 —— 凑不齐不能少发候选。
-            foreach (var element in _runConfig.GuaranteedElements)
-            {
-                if (_rewardOptions.Count >= RewardOptionCount) break;
-                var pick = DrawWeightedRewardOfElement(byRarity, element);
-                if (pick != null) _rewardOptions.Add(pick);
-            }
-
             while (_rewardOptions.Count < RewardOptionCount)
             {
                 var pick = DrawBestReward(byRarity, _runConfig.RewardDrawRolls);
                 if (pick == null) break; // 候选枯竭
                 _rewardOptions.Add(pick);
             }
-        }
-
-        /// <summary>只在指定元素里按稀有度权重抽一个并移除;该系没有候选返回 null。</summary>
-        private string DrawWeightedRewardOfElement(
-            Dictionary<CardRarity, List<string>> byRarity, Element element)
-        {
-            var subset = new Dictionary<CardRarity, List<string>>();
-            foreach (var pair in byRarity)
-            {
-                var group = new List<string>();
-                foreach (var id in pair.Value)
-                    if (_graph.Get(id).Element == element) group.Add(id);
-                if (group.Count > 0) subset[pair.Key] = group;
-            }
-            var pick = DrawWeightedReward(subset);
-            if (pick != null)
-                foreach (var group in byRarity.Values) group.Remove(pick); // 从主池同步移除
-            return pick;
         }
 
         /// <summary>抽 rolls 次留最高档(慧眼 L2)。rolls = 1 时与 DrawWeightedReward

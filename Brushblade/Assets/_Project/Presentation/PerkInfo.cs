@@ -71,11 +71,12 @@ namespace Brushblade.Presentation
             "water_1" => Strings.T("perk.node.water_1.desc", ("value", def.Value)),
             "fire_1" => Strings.T("perk.node.fire_1.desc", ("value", def.Value)),
             "earth_1" => Strings.T("perk.node.earth_1.desc", ("value", def.Value)),
-            // 五行 L2:战利品候选保底
+            // 五行 L2:各系专属机制(spec 2026-09-13)
             "metal_2" => Strings.T("perk.node.metal_2.desc", ("value", def.Value)),
             "wood_2" => Strings.T("perk.node.wood_2.desc", ("value", def.Value)),
             "water_2" => Strings.T("perk.node.water_2.desc", ("value", def.Value)),
-            "fire_2" => Strings.T("perk.node.fire_2.desc", ("value", def.Value)),
+            // 火脉的 100 是「全额」,模板里没有 {value}(印成「转移 100%」反而费解)。
+            "fire_2" => Strings.T("perk.node.fire_2.desc"),
             "earth_2" => Strings.T("perk.node.earth_2.desc", ("value", def.Value)),
             // 五行 L3:该系字效果值 +N%
             "metal_3" => Strings.T("perk.node.metal_3.desc", ("value", def.Value)),
@@ -123,11 +124,12 @@ namespace Brushblade.Presentation
         /// 意味着什么(review 举的例子:鏖战「战意每层 +10% 攻击,满层由 +50% 抬到 +70%。
         /// 战意只有金系字给得出,所以这一条不会外溢到别的流派」)。
         ///
-        /// 40 个节点按 <see cref="PerkEffect"/> 分类只写 17 条——同一种效果(如三枝被动树
+        /// 40 个节点按 <see cref="PerkEffect"/> 分类只写 21 条——同一种效果(如三枝被动树
         /// 各自的三层)结构完全相同、只是数值不同,共用一条说明比 40 条各写各的**更不容易过时**
-        /// (卡面那句机械描述才需要每节点各写各的,这里不需要)。三条五行 L1/L2/L3
-        /// (<see cref="PerkEffect.ElementDrawRolls"/> 等)横跨五个元素,用 {element} 占位符
-        /// 填该系名词,而不是拆成五条元素各写各的。
+        /// (卡面那句机械描述才需要每节点各写各的,这里不需要)。两条五行 L1/L3
+        /// (<see cref="PerkEffect.ElementDrawRolls"/> 等)横跨五个元素,
+        /// 用 {element} 占位符填该系名词;**五行 L2 自 2026-09-13 起五枝各不相同**,
+        /// 各占一条 PerkEffect,不共用模板。
         ///
         /// ⚠ 跨树三条**按 id 取词、不走 <see cref="PerkEffect"/>**:它们复用了普通节点的效果类型
         /// (相济 = AttackPercent、融会 = CritChance、博采 = DrawRolls),按效果取会拿到被动树
@@ -158,8 +160,6 @@ namespace Brushblade.Presentation
             PerkEffect.Ap => Strings.T("perk.detail.ap", ("value", def.Value)),
             PerkEffect.ElementDrawRolls => Strings.T("perk.detail.element_draw_rolls",
                 ("element", ElementNameOf(def)), ("value", def.Value)),
-            PerkEffect.ElementLootGuarantee => Strings.T("perk.detail.element_loot_guarantee",
-                ("element", ElementNameOf(def))),
             PerkEffect.ElementEffectPercent => Strings.T("perk.detail.element_effect_percent",
                 ("element", ElementNameOf(def)), ("value", def.Value)),
             PerkEffect.MoraleCap => MoraleCapText(def),
@@ -167,7 +167,18 @@ namespace Brushblade.Presentation
             PerkEffect.WellspringCap => WellspringCapText(def),
             PerkEffect.BurnPerStack => BurnPerStackText(def),
             PerkEffect.HeftCap => HeftCapText(def),
-            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(17 个 case 已穷举 PerkEffect 全部成员)
+            // 五行 L2:五条各系专属机制(spec 2026-09-13)。**逐条字面量 key**,
+            // 不要拼 $"perk.detail.{...}" —— 拼出来的会被 StringsTableTests 判成孤儿。
+            PerkEffect.OverhealDamagePercent =>
+                Strings.T("perk.detail.overheal_damage", ("value", def.Value)),
+            PerkEffect.BurnSpreadPercent => Strings.T("perk.detail.burn_spread"),
+            PerkEffect.MoraleOnCrit =>
+                Strings.T("perk.detail.morale_on_crit", ("value", def.Value)),
+            PerkEffect.SummonDeathHealPercent =>
+                Strings.T("perk.detail.summon_death_heal", ("value", def.Value)),
+            PerkEffect.ShieldReflectPercent =>
+                Strings.T("perk.detail.shield_reflect", ("value", def.Value)),
+            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(21 个 case 已穷举 PerkEffect 全部成员)
         };
 
         private static string ElementNameOf(PerkNodeDef def) =>
