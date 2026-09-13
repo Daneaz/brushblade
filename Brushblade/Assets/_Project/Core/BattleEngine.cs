@@ -3863,6 +3863,24 @@ namespace Brushblade.Core
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
                         allowBarb: false);     // 同理也不算挥击:不触发铁画的反噬
             }
+
+            // 土脉 L2「反震」(2026-09-13):按**护盾实际吸掉的量**折返,与上面的「镜」
+            // (按打过来的总伤害折返)是两个基数,所以**不并进 MaxReflectPercent 那根
+            // 60% 总量钳** —— 并轴会把两个不同基数的百分比当成同一根轴相加。反震自己被
+            // 护盾存量天然限制住:吸不了就反不了。
+            //
+            // 跟着 allowReflect 一起 gate:false 的那条路径(铁画的反噬)本就不是敌人的
+            // 挥击,不该触发反震。
+            if (allowReflect && absorbed > 0
+                && _config != null && _config.ShieldReflectPercent > 0
+                && _enemies[enemyIndex].Alive)
+            {
+                int bouncedByShield = absorbed * _config.ShieldReflectPercent / 100;
+                if (bouncedByShield > 0)
+                    DamageEnemy(enemyIndex, bouncedByShield, Element.Heart,
+                        bypassDefense: true,   // 折返不是挥击,不吃敌人护甲
+                        allowBarb: false);     // 同理不算挥击,不触发铁画的反噬
+            }
             return true;
         }
 
