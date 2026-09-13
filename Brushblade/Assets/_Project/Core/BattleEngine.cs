@@ -947,6 +947,11 @@ namespace Brushblade.Core
         /// 同理:不给引擎加新的生产可调用面,只把既有私有算式暴露给断言。</summary>
         internal int AmplifyByWellspringForTest(int value) => AmplifyByWellspring(value);
 
+        /// <summary>把玩家血量直接扣到指定量的测试钩子(2026-09-13,水脉 L2「溢流」的部分溢出用例)。
+        /// 与 <see cref="GainWellspringForTest"/> 同理:不给引擎加新的生产可调用面,只把既有私有
+        /// 算式暴露给断言。</summary>
+        internal void DamagePlayerForTest(int amount) => PlayerHp = Math.Max(0, PlayerHp - amount);
+
         private void GainWellspring(int healAmount)
         {
             GainStacks(healAmount, StatusKind.Wellspring, "泉", ref _healAccum);
@@ -1786,7 +1791,9 @@ namespace Brushblade.Core
             // 而光环是每回合自动触发的 —— 接了会让玩家什么都不做也能攒满泉,
             // 破坏「攒 → 发」的节奏,而那个节奏正是这台引擎存在的理由。
             // 与 桂 的 SummonShield 要攒厚不矛盾:桂 是玩家出的字,光环是召唤物的被动。
-            if (heal > 0) HealPlayerAndSummons(heal);
+            // 同理**不**触发水脉 L2「溢流」(2026-09-13):与不攒泉是同一条理由 ——
+            // 光环是每回合自动触发的被动,不是玩家主动投入。
+            if (heal > 0) HealPlayerAndSummons(heal, overflowToDamage: false);
 
             int regen = summon.Passive?.Regen ?? 0;
             // 自愈(2026-09-05,藻):只回自己。与上面的光环同序 —— 都排在出手之前,
@@ -2472,6 +2479,8 @@ namespace Brushblade.Core
                             if (slot < 0) break; // 没有阵亡召唤物 → 空放(与无敌人时出 AOE 同口径)
                             var revived = _summons[slot];
                             revived.Hp = (revived.MaxHp + 1) / 2; // 半血,向上取整
+                            // 复活不走治疗入口、也永不溢出(半血 ≤ 上限),所以水脉 L2
+                            // 「溢流」对它天然不涉及 —— 不是漏接(2026-09-13)。
                             revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
                             revived.Shield = 0;                   // 盾不跟着复活
                             // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
@@ -2874,16 +2883,28 @@ namespace Brushblade.Core
             return percent;
         }
 
+        /// <summary>随机挑一个**存活**敌人的下标;全场无存活返回 −1。
+        ///
+        /// ⚠ **本方法无条件消耗一次随机数**(只要有存活敌人)。调用方必须先把
+        /// 「功能没开」「没有要打的量」这类分支短路掉再进来 —— GameRandom 的既有消费方
+        /// 只有 StartTurn 的回合掉字、AttackHits、EnemyState 构造时的 Boss 阈值浮动,
+        /// 多摇一次会平移整条随机序列,让所有依赖种子的既有测试一起变红。</summary>
+        private int PickRandomLivingEnemy()
+        {
+            var living = new List<int>();
+            for (int i = 0; i < _enemies.Count; i++)
+                if (_enemies[i].Alive) living.Add(i);
+            if (living.Count == 0) return -1;
+            return living[_random.Next(living.Count)];
+        }
+
         /// <summary>随机冻结一个**存活**敌人 N 回合(2026-08-25,藤的入场冻结)。
         /// 全场无存活敌人时静默返回 —— 召唤本身照常落位,不该因为没人可冻就抛异常。
         /// 随机走引擎内带种子的 RNG,保证同种子可复现(Core 禁用 UnityEngine.Random)。</summary>
         private void FreezeRandomLivingEnemy(int turns)
         {
-            var living = new List<int>();
-            for (int i = 0; i < _enemies.Count; i++)
-                if (_enemies[i].Alive) living.Add(i);
-            if (living.Count == 0) return;
-            int pick = living[_random.Next(living.Count)];
+            int pick = PickRandomLivingEnemy();
+            if (pick < 0) return;
             _enemies[pick].Statuses.Apply(new StatusEffect
             {
                 // Magnitude 不赋值:与 EffectKind.Freeze 分支同口径(没有任何读取方)
@@ -3144,16 +3165,49 @@ namespace Brushblade.Core
             }
         }
 
-        /// <summary>群体治疗:玩家 + 全部存活召唤物,各回 amount(玩家不超上限)。</summary>
-        private void HealPlayerAndSummons(int amount)
+        /// <summary>水脉 L2「溢流」(spec 2026-09-13 §2.1):把一份治疗溢出量折成伤害,
+        /// 打一名随机存活敌人。
+        ///
+        /// <paramref name="overflow"/> 是**单个受治疗单位**的溢出量(名义治疗量 − 实际回血量),
+        /// 名义值已经吃过泉的放大。群体治疗时每个单位各调一次本方法 —— 各打各的、
+        /// 各摇各的目标(用户 2026-09-13 在「求和打一下」与「各打一下」之间选了后者,
+        /// 别在这里"顺手优化"成合并)。
+        ///
+        /// 伤害口径与灼烧结算同款:不吃生克、不吃攻击力缩放、不能暴击、不吃敌人护甲 ——
+        /// 溢出量本身已经是被攻击力和生克塑造过的治疗量,再乘一次是双重计价。
+        ///
+        /// ⚠ **四道短路的顺序不能换**,全部排在 PickRandomLivingEnemy 之前:
+        /// 关闭时、溢出为 0 时、折算被整数除截断成 0 时,都必须一次随机都不摇。</summary>
+        private void SettleOverheal(int overflow)
+        {
+            if (_config == null || _config.OverhealDamagePercent <= 0) return;
+            if (overflow <= 0) return;
+            int damage = overflow * _config.OverhealDamagePercent / 100;
+            if (damage <= 0) return;
+            int target = PickRandomLivingEnemy();
+            if (target < 0) return;
+            DamageEnemy(target, damage, Element.Heart,   // 心对全属性 1.0x = 不走生克
+                bypassDefense: true,                      // 折返/溢出不是挥击,不吃护甲
+                allowBarb: false);                        // 同理不算挥击,不触发铁画的反噬
+        }
+
+        /// <param name="overflowToDamage">这一份治疗的溢出要不要折成伤害(水脉 L2「溢流」)。
+        /// **缺省 true** —— 用户 2026-09-13 裁定的边界是「所有治疗类,只排除召唤物光环」,
+        /// 排除项只有一处,把缺省放在多数那边能让日后新增的治疗来源自动接上。
+        /// 唯一传 false 的调用点是 <see cref="ActSummonTurn"/> 的光环那一行。</param>
+        private void HealPlayerAndSummons(int amount, bool overflowToDamage = true)
         {
             int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
             PlayerHp += healed;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
+            if (overflowToDamage) SettleOverheal(amount - healed);
             foreach (var summon in _summons)
             {
                 if (summon == null || !summon.Alive) continue;
-                summon.Hp = Math.Min(summon.MaxHp, summon.Hp + amount);
+                // 每只各算各的溢出、各打一下(spec §2.1)。先算再写 Hp:写完就看不出缺多少了。
+                int given = Math.Min(summon.MaxHp - summon.Hp, amount);
+                summon.Hp += given;
+                if (overflowToDamage) SettleOverheal(amount - given);
             }
         }
 
@@ -3179,13 +3233,15 @@ namespace Brushblade.Core
         /// <summary>把治疗打到一个友方目标上(2026-08-22)。slot = −1 治玩家,否则治该槽召唤物。
         /// 溢出部分丢弃。事件的 SecondIndex 带槽位 —— 与 Summon 事件报落位槽同一套写法,
         /// 不为治疗新增事件类型。</summary>
-        private void HealAlly(int slot, int amount)
+        /// <param name="overflowToDamage">见 <see cref="HealPlayerAndSummons"/> 的同名参数。</param>
+        private void HealAlly(int slot, int amount, bool overflowToDamage = true)
         {
             if (slot == Targeting.PlayerTarget)
             {
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
                 _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed, Targeting.PlayerTarget));
+                if (overflowToDamage) SettleOverheal(amount - healed);
                 return;
             }
             var summon = _summons[slot];
@@ -3193,6 +3249,7 @@ namespace Brushblade.Core
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
+            if (overflowToDamage) SettleOverheal(amount - given);
         }
 
         /// <summary>场上除 self 外还有存活敌人吗(辅助型据此决定加攻还是出手)。</summary>
