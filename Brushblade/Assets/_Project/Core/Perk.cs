@@ -19,10 +19,22 @@ namespace Brushblade.Core
         MaxHp, AttackPercent, CritChance, Defense,
         // 机制树
         LibraryCapacity, StartingCards, DrawRolls, LootDrawRolls, Ap,
-        // 五行树 L1/L2/L3(按元素筛选)
-        ElementDrawRolls, ElementLootGuarantee, ElementEffectPercent,
+        // 五行树 L1/L3(按元素筛选)
+        ElementDrawRolls, ElementEffectPercent,
         // 五行树 L4(各系专属天花板)
         MoraleCap, SummonSpeed, WellspringCap, BurnPerStack, HeftCap,
+        // 五行树 L2(各系专属机制,spec 2026-09-13)。同样按元素筛选,走
+        // PerkRules.ElementBonus 而不是 Bonus —— 作用域是单系。
+        //
+        // ⚠ 这里删掉了 ElementLootGuarantee(五枝共用的战利品保底)。删枚举成员在
+        // PerkEffect 上是安全的:它**从不进存档**(存的是 UnlockedPerks 里的节点 id
+        // 字符串),序号变动不影响任何已有存档。这与 StatusKind / EffectKind 那两条
+        // 「序号锁存档兼容」的纪律不同源,别混用。
+        OverhealDamagePercent,      // 水:治疗溢出 ×N% 转伤害
+        BurnSpreadPercent,          // 火:敌人死亡时转移剩余灼烧层数的 N%
+        MoraleOnCrit,               // 金:暴击 +N 层战意(每张字至多兑现一次)
+        SummonDeathHealPercent,     // 木:召唤物阵亡时玩家回复其最大生命的 N%
+        ShieldReflectPercent,       // 土:被护盾吸掉的伤害按 N% 反弹
     }
 
     /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 40 个普通节点)。
@@ -130,11 +142,23 @@ namespace Brushblade.Core
             // 每枝结构对称:L1/L2 治供给(改造抽卡随机)、L3/L4 谈强化。
             // 这个顺序是必须的 —— 起手强制五系各一张、战利品不筛元素,直接加成「某系字」
             // 覆盖率只有 1/5 且玩家不可控(spec §1.3)。
-            AddWuxing(list, "metal", Element.Metal, PerkEffect.MoraleCap, 2);      // 战意上限 5→7
-            AddWuxing(list, "wood",  Element.Wood,  PerkEffect.SummonSpeed, 40);   // 木系召唤速度 +40
-            AddWuxing(list, "water", Element.Water, PerkEffect.WellspringCap, 4);  // 泉上限 10→14
-            AddWuxing(list, "fire",  Element.Fire,  PerkEffect.BurnPerStack, 8);   // 灼烧每层 20→28
-            AddWuxing(list, "earth", Element.Earth, PerkEffect.HeftCap, 4);        // 厚上限 10→14
+            // L2 与 L4 都按枝传入(spec 2026-09-13:L2 从五枝共用的战利品保底
+            // 拆成五条各不相同的机制);只有 L1/L3 还是五枝同构。
+            AddWuxing(list, "metal", Element.Metal,
+                PerkEffect.MoraleOnCrit, 1,            // 锋芒:暴击 +1 层战意
+                PerkEffect.MoraleCap, 2);              // 鏖战:战意上限 5→7
+            AddWuxing(list, "wood",  Element.Wood,
+                PerkEffect.SummonDeathHealPercent, 20, // 归根:召唤物阵亡回复其最大生命 20%
+                PerkEffect.SummonSpeed, 40);           // 蕃息:木系召唤速度 +40
+            AddWuxing(list, "water", Element.Water,
+                PerkEffect.OverhealDamagePercent, 50,  // 溢流:治疗溢出 ×50% 转伤害
+                PerkEffect.WellspringCap, 4);          // 涌泉:泉上限 10→14
+            AddWuxing(list, "fire",  Element.Fire,
+                PerkEffect.BurnSpreadPercent, 100,     // 余烬:死亡时全额转移剩余灼烧层数
+                PerkEffect.BurnPerStack, 8);           // 燎原:灼烧每层 20→28
+            AddWuxing(list, "earth", Element.Earth,
+                PerkEffect.ShieldReflectPercent, 20,   // 反震:护盾吸收量的 20% 反弹
+                PerkEffect.HeftCap, 4);                // 磐固:厚上限 10→14
 
             // ---- 被动树:4 枝 × 3 层 ----
             // 数值锚点:不压过等级曲线(Lv1→26 给 HP +500、ATK +50%、DEF 0→12)。
@@ -201,17 +225,20 @@ namespace Brushblade.Core
             return list;
         }
 
-        /// <summary>一条五行枝:L1 该系起手格抽取次数 +1、L2 战利品保底 1 张该系、
-        /// L3 该系字效果值 +15%、L4 该系专属天花板。</summary>
+        /// <summary>一条五行枝:L1 该系起手格抽取次数 +1、**L2 该系专属机制**、
+        /// L3 该系字效果值 +15%、L4 该系专属天花板。
+        ///
+        /// ⚠ L2 在 2026-09-13 之前是五枝共用的「战利品保底 1 张该系」,所以是写死的;
+        /// 现在它和 L4 一样按枝传入。改这里时两个参数要成对给,别只改一个。</summary>
         private static void AddWuxing(List<PerkNodeDef> list, string branch, Element element,
-            PerkEffect topEffect, int topValue)
+            PerkEffect tierTwoEffect, int tierTwoValue, PerkEffect topEffect, int topValue)
         {
             var effects = new[]
             {
-                PerkEffect.ElementDrawRolls, PerkEffect.ElementLootGuarantee,
+                PerkEffect.ElementDrawRolls, tierTwoEffect,
                 PerkEffect.ElementEffectPercent, topEffect,
             };
-            var values = new[] { 1, 1, 15, topValue };
+            var values = new[] { 1, tierTwoValue, 15, topValue };
             for (int i = 0; i < 4; i++)
                 list.Add(new PerkNodeDef($"{branch}_{i + 1}", PerkTree.Wuxing, branch, element,
                     i + 1, WuxingGates[i], WuxingCosts[i], effects[i], values[i]));
@@ -272,8 +299,8 @@ namespace Brushblade.Core
         /// <summary>已点亮的、属于该树且 Depth ≥ minDepth 的节点数。
         ///
         /// ⚠ 遍历固定顺序的 <see cref="Nodes"/> 而不是 <c>meta.UnlockedPerks</c> ——
-        /// 后者的顺序取决于玩家点技能的先后。这里只是计数、顺序不影响结果,但与
-        /// <c>MetaRules.GuaranteedLootElements</c> 保持同一条遍历习惯,免得下一个人重新推一遍。
+        /// 后者的顺序取决于玩家点技能的先后。这里只是计数、顺序不影响结果,但保持固定
+        /// 遍历顺序这条习惯,免得下一个人重新推一遍。
         /// 顺带白拿一条:未知 id(改表后的旧档)自动被忽略,不会抛。</summary>
         public static int CountOwned(MetaState meta, PerkTree tree, int minDepth)
         {

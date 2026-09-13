@@ -291,6 +291,14 @@ namespace Brushblade.Core
                 WellspringCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.WellspringCap, Element.Water),
                 BurnPerStack = 20 + PerkRules.ElementBonus(meta, PerkEffect.BurnPerStack, Element.Fire),
                 WoodSummonSpeedBonus = PerkRules.ElementBonus(meta, PerkEffect.SummonSpeed, Element.Wood),
+                // 五行 L2 的五条专属机制(spec 2026-09-13 §3.3)。缺省 0 = 关 —— 一条没点时逐字节恒等。
+                // ⚠ 第三个参数传错系不会编译错、也不会有测试自然变红,守卫在
+                // PerkInjectionTests 的 *TierTwo_Sets*Only 那五条串系隔离断言。
+                OverhealDamagePercent  = PerkRules.ElementBonus(meta, PerkEffect.OverhealDamagePercent,  Element.Water),
+                BurnSpreadPercent      = PerkRules.ElementBonus(meta, PerkEffect.BurnSpreadPercent,      Element.Fire),
+                MoraleOnCrit           = PerkRules.ElementBonus(meta, PerkEffect.MoraleOnCrit,           Element.Metal),
+                SummonDeathHealPercent = PerkRules.ElementBonus(meta, PerkEffect.SummonDeathHealPercent, Element.Wood),
+                ShieldReflectPercent   = PerkRules.ElementBonus(meta, PerkEffect.ShieldReflectPercent,   Element.Earth),
             };
         }
 
@@ -484,17 +492,6 @@ namespace Brushblade.Core
         /// 心系字只能经第 6 张(最高档保底)或战利品进场。</summary>
         private static readonly Element[] StartingElements =
             { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth };
-
-        /// <summary>点了 L2 的那几系(spec §3.2)。顺序固定走 <see cref="StartingElements"/> 同款
-        /// 的固定枚举顺序 —— 保证同种子同结果,不依赖 UnlockedPerks 的插入顺序。</summary>
-        public static IReadOnlyList<Element> GuaranteedLootElements(MetaState meta)
-        {
-            var result = new List<Element>();
-            foreach (var element in StartingElements)
-                if (PerkRules.ElementBonus(meta, PerkEffect.ElementLootGuarantee, element) > 0)
-                    result.Add(element);
-            return result;
-        }
 
         /// <summary>抽卡候选 = 已收集的**字**。
         ///

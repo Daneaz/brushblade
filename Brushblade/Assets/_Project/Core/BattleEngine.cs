@@ -209,6 +209,29 @@ namespace Brushblade.Core
         /// **召唤物出手两样都不产**,那条顾虑整个不成立。</summary>
         public int WoodSummonSpeedBonus { get; set; }
 
+        // ---- 五行 L2:五条各系专属机制(spec 2026-09-13)----
+        // 五个全部**缺省 0 = 关**。这是恒等性硬线:一条都没点时引擎行为与改前逐字节相同。
+        // 引擎里每个读取点都必须先判 > 0 再做事,尤其是要摇随机数的那两条(溢流/余烬)——
+        // GameRandom 多摇一次会平移整条随机序列,让所有依赖种子的既有测试一起变红。
+
+        /// <summary>水脉 L2「溢流」:治疗溢出的部分 ×N% 对一名随机存活敌人造成伤害。0 = 未点亮。</summary>
+        public int OverhealDamagePercent { get; set; }
+
+        /// <summary>火脉 L2「余烬」:敌人死亡时,把它身上剩余的灼烧层数按 N% 转给一名
+        /// 随机存活敌人。0 = 未点亮;100 = 全额转移。</summary>
+        public int BurnSpreadPercent { get; set; }
+
+        /// <summary>金脉 L2「锋芒」:玩家暴击时战意 +N 层,**每张字至多兑现一次**。0 = 未点亮。</summary>
+        public int MoraleOnCrit { get; set; }
+
+        /// <summary>木脉 L2「归根」:召唤物阵亡时,玩家回复该召唤物最大生命的 N%。0 = 未点亮。</summary>
+        public int SummonDeathHealPercent { get; set; }
+
+        /// <summary>土脉 L2「反震」:被护盾吸掉的伤害按 N% 反弹给攻击者。0 = 未点亮。
+        /// **不并入「镜」的 60% 总量钳**:镜按打过来的总伤害折返,反震按被护盾吸掉的量
+        /// 折返,基数不同不能并轴;反震自己被护盾存量天然限制住。</summary>
+        public int ShieldReflectPercent { get; set; }
+
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
         public BattleConfig WithPlayerMaxHp(int playerMaxHp)
