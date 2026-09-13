@@ -985,6 +985,27 @@ namespace Brushblade.Core
         /// 算式暴露给断言。</summary>
         internal void DamagePlayerForTest(int amount) => PlayerHp = Math.Max(0, PlayerHp - amount);
 
+        /// <summary>把一只召唤物打死(2026-09-13,木脉 L2 测试用)。走 <see cref="DamageSummon"/>
+        /// 的死亡分支太绕(要造敌人、排行动顺序),这里直接把血打空并触发死亡汇流点。
+        /// 仅供测试与引擎内部调用。</summary>
+        internal void KillSummonForTest(int slot)
+        {
+            var summon = _summons[slot];
+            if (summon == null || !summon.Alive) return;
+            summon.Hp = 0;
+            OnSummonDeath(slot);
+        }
+
+        /// <summary>把一只阵亡召唤物救回半血(2026-09-13):与 EffectKind.Revive 同口径。
+        /// 仅供测试与引擎内部调用。</summary>
+        internal void ReviveSummonForTest(int slot)
+        {
+            var summon = _summons[slot];
+            if (summon == null || summon.Alive) return;
+            summon.Hp = (summon.MaxHp + 1) / 2;
+            RefreshSummonAura();
+        }
+
         private void GainWellspring(int healAmount)
         {
             GainStacks(healAmount, StatusKind.Wellspring, "泉", ref _healAccum);
@@ -1856,7 +1877,7 @@ namespace Brushblade.Core
             burn.Magnitude -= 1;
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
-            if (!summon.Alive) RefreshSummonAura();   // 自焚死亡也要摘掉它的光环份额
+            if (!summon.Alive) OnSummonDeath(slot);   // 自焚死亡:摘光环份额 + 木脉 L2 归根
         }
 
         /// <summary>注入给召唤物的攻击百分比乘区(2026-09-05)= 100 + 战意层×10 + 厚层×5。
@@ -1879,6 +1900,39 @@ namespace Brushblade.Core
             int percent = SummonAttackPercent;
             foreach (var summon in _summons)
                 if (summon != null) { summon.AuraAttackBonus = total; summon.PlayerAttackPercent = percent; }
+        }
+
+        /// <summary>召唤物死亡的统一汇流点(2026-09-13)。
+        ///
+        /// 抽出它不是顺手重构:此前召唤物死亡散在两处(<see cref="SettleSummonBurn"/> 的
+        /// 自焚、<see cref="DamageSummon"/> 的挨打),两处各自调 RefreshSummonAura。
+        /// 木脉 L2「归根」要在死亡时治疗,没有汇流点就必然写两份 —— 而「同一份逻辑
+        /// 两条路径、只改了其中一条」正是这一层最常见的静默 bug。**日后再有第三条
+        /// 死亡路径,接这里。**
+        ///
+        /// 顺序:先治疗、后刷光环。两种顺序结果相同(治疗只影响玩家与敌人,
+        /// 光环只读召唤物存活集合),固定成这一种是为了测试可断言。</summary>
+        private void OnSummonDeath(int slot)
+        {
+            HealFromSummonDeath(slot);
+            RefreshSummonAura();
+        }
+
+        /// <summary>木脉 L2「归根」(spec 2026-09-13 §2.4):玩家回复该召唤物最大生命的 N%。
+        ///
+        /// **是一次完整治疗**(用户 2026-09-13 裁定):吃泉放大、攒泉(按放大前的基数,
+        /// 与 HealSelf 同口径)、也吃水脉 L2 的溢流转伤害 —— 所以走
+        /// <see cref="HealAlly"/> 的缺省路径,不另开通路。</summary>
+        private void HealFromSummonDeath(int slot)
+        {
+            if (_config == null || _config.SummonDeathHealPercent <= 0) return;
+            var summon = _summons[slot];
+            if (summon == null) return;
+            int healBase = summon.MaxHp * _config.SummonDeathHealPercent / 100;
+            if (healBase <= 0) return;
+            int amplified = AmplifyByWellspring(healBase);   // 用**攒之前**的层数
+            GainWellspring(healBase);                        // 攒的是基数,与 HealSelf 同口径
+            HealAlly(Targeting.PlayerTarget, amplified);
         }
 
         /// <summary>一个敌人的完整一拍(2026-08-15,ATB 时序归属搬迁,spec §4.3「每个敌人那一拍」
@@ -3875,7 +3929,7 @@ namespace Brushblade.Core
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
-            if (!summon.Alive) RefreshSummonAura();   // 挨打死亡也要摘掉它的光环份额
+            if (!summon.Alive) OnSummonDeath(summonIndex);   // 挨打死亡:摘光环份额 + 木脉 L2 归根
 
             // 反伤(2026-08-05,荆):2026-08-25 用户拍板由**固定点数**改成**受到伤害的百分比**,
             // 与下面玩家侧的 Reflect 完全同一套算式 —— 荆 要靠反伤当输出手段,固定值在深层会被
