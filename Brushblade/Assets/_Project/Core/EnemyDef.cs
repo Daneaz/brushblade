@@ -27,13 +27,15 @@ namespace Brushblade.Core
     /// 排位只决定**能不能被够到**,不决定这只单位自己能不能出手——后排照常攻击。</summary>
     public enum EnemyRow { Front, Back }
 
-    /// <summary>攻击距离(2026-08-20)。Ranged 无视对方前排。
+    /// <summary>攻击距离(2026-08-20;2026-09-13 改口径)。Ranged 够得着我方全场
+    /// (前排召唤物也在候选里,不再只打后排)。
     /// 与 <see cref="EnemyAbility"/> 正交:做成 Ability 的取值会与灯花/焦痕互斥,
     /// 而「远程的灯花」是完全合理的组合。</summary>
     public enum AttackRange { Melee, Ranged }
 
-    /// <summary>够得着玩家时打谁(2026-08-20)。
-    /// Default = 在「对方存活后排 ∪ 玩家」里均匀随机;Player = 死盯玩家。</summary>
+    /// <summary>够得着玩家时打谁(2026-08-20;2026-09-13 改口径)。
+    /// Default = 在「够得着的那一段(Melee 被前排拦下时是前排,前排清空或 Ranged 时是全场)
+    /// 里的存活召唤物 ∪ 玩家」里均匀随机;Player = 死盯玩家。</summary>
     public enum AttackFocus { Default, Player }
 
     /// <summary>Boss 阶段技能(spec 2026-07-28):蓄力一回合后释放。

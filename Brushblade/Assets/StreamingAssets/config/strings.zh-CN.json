@@ -376,7 +376,7 @@
   "enemy.preview.title_with_hp": "{enemyId} · 总血 {totalHp}",
   "enemy.range.melee.desc": "需要清空前排才能攻击后排",
   "enemy.range.melee.name": "近战",
-  "enemy.range.ranged.desc": "远程:无视你的前排,直接打后排召唤物或你本人",
+  "enemy.range.ranged.desc": "远程:不受你前排阻挡,全场召唤物或你本人都打得到",
   "enemy.range.ranged.name": "远程",
   "enemy.skill.bulwark.desc": "该阶段不放大招",
   "enemy.skill.bulwark.name": "坚壁",
