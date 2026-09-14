@@ -75,9 +75,9 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   还有三个工程 `Compile Include` Core 的源码**——`tools/balance`、`tools/chestsim`、`tools/trace`,
   CLAUDE.md 现有的验证命令清单扫不到它们,得逐个 build:
   ```bash
-  cd tools/balance   && dotnet build --nologo -v q
-  cd tools/chestsim  && dotnet build --nologo -v q
-  cd tools/trace     && dotnet build --nologo -v q
+  cd tools/balance   && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet build --nologo -v q
+  cd tools/chestsim  && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet build --nologo -v q
+  cd tools/trace     && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet build --nologo -v q
   ```
 - ⚠️ **在 git worktree 里跑 prescompile 要覆盖程序集路径**——`Brushblade/Library/` 不入 git,
   新 worktree 里不存在,得借主检出的(否则 CS0006 找不到 UI/TMP):
