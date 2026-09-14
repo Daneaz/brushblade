@@ -2216,10 +2216,12 @@ namespace Brushblade.Core
                     continue; // 已蓄力或已放大招,本回合不走普攻
 
                 int damage = enemy.Attack; // 减护甲(点数)在 DamagePlayerDirect 里,护盾吸收再在其后
-                // 目标裁定(2026-08-20):近战被我方前排拦下;前排清空后在「后排 ∪ 玩家」里均匀随机;
-                // 远程无视前排;Focus.Player 的够得着玩家时死盯玩家。规则全在 Targeting,这里只执行。
+                // 目标裁定(2026-08-20,2026-09-13 重写):近战被我方前排拦下、段内随机;
+                // 远程够得着全场;嘲讽在够得着的那一段里收窄候选;Focus.Player 的够得着玩家时
+                // 死盯玩家。规则全在 Targeting,这里只执行。走 _targetRandom 而不是 _random,
+                // 见该字段的注释。
                 int tankIdx = Targeting.PickAllyTarget(enemy.Def.Range, enemy.Def.Focus,
-                    _summons, FrontRowSize, _random);
+                    _summons, FrontRowSize, _targetRandom);
                 // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
                 // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
                 bool hit;

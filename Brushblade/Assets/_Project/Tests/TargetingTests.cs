@@ -18,12 +18,85 @@ namespace Brushblade.Core.Tests
             return slots;
         }
 
-        [Test]
-        public void Melee_HitsFrontmostFrontRowSummon()
+        // ---- 2026-09-13:够得着的那一段里均匀随机 ----
+
+        /// <summary>同 Line,但 tauntSlots 里的槽位带嘲讽被动。
+        /// Passive 是只读属性,只能走构造参数(`SummonState(char, element, hp, attack, passive)`)。</summary>
+        private static SummonState[] TauntLine(int[] aliveSlots, params int[] tauntSlots)
         {
+            var slots = new SummonState[6];
+            foreach (int s in aliveSlots)
+                slots[s] = new SummonState($"木{s}", Element.Wood, 100, 10,
+                    System.Array.IndexOf(tauntSlots, s) >= 0
+                        ? new SummonPassive { Taunt = true } : null);
+            return slots;
+        }
+
+        [Test]
+        public void Melee_HitsTheOnlyFrontRowSummon()
+        {
+            // 前排只有一只时候选池退化成单元素 —— 守的是「近战被前排拦下」,不是「取槽序最小」。
+            // 前排多只时的随机分布另有 Melee_PicksRandomlyAmongFrontRowSummons 守。
             Assert.That(Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default,
-                Line(1, 2, 4), FrontRow, new GameRandom(1)), Is.EqualTo(1),
-                "前排里槽序最小的那只");
+                Line(1, 4), FrontRow, new GameRandom(1)), Is.EqualTo(1),
+                "前排那只挡下这一击");
+        }
+
+        [Test]
+        public void Melee_PicksRandomlyAmongFrontRowSummons()
+        {
+            // 改前恒打前排槽序最小的那只(槽 1),前排站两只时第二只永远不挨打。
+            var seen = new HashSet<int>();
+            var random = new GameRandom(5);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default,
+                    Line(1, 2, 4), FrontRow, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "前排两只都摇得到,后排那只不该进池");
+            Assert.That(seen.Contains(1), Is.True);
+            Assert.That(seen.Contains(2), Is.True);
+        }
+
+        [Test]
+        public void Ranged_CanHitFrontRowSummons()
+        {
+            // 改前远程的候选池从 frontRow 起算,前排召唤物一次都打不到(spec §0)。
+            var seen = new HashSet<int>();
+            var random = new GameRandom(11);
+            for (int i = 0; i < 300; i++)
+                seen.Add(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Default,
+                    Line(0, 1, 5), FrontRow, random));
+            Assert.That(seen.Count, Is.EqualTo(4), "前排两只 + 后排一只 + 玩家,全在池里");
+            Assert.That(seen.Contains(0), Is.True, "前排槽 0 也该挨得着");
+            Assert.That(seen.Contains(1), Is.True);
+            Assert.That(seen.Contains(5), Is.True);
+            Assert.That(seen.Contains(Targeting.PlayerTarget), Is.True);
+        }
+
+        [Test]
+        public void RangedFocusPlayer_IsPulledByFrontRowTaunt()
+        {
+            // 用户 2026-09-13 第 5 条诉求:锁人要先吃嘲讽,再打玩家。
+            // 改前嘲讽扫描区间是 [frontRow, Count),前排的嘲讽者对远程完全不可见。
+            var line = TauntLine(new[] { 0, 5 }, 0);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Player,
+                    line, FrontRow, new GameRandom(i + 1)), Is.EqualTo(0),
+                    "前排嘲讽把锁人拉过去");
+        }
+
+        [Test]
+        public void Ranged_PicksRandomlyAmongTauntersAcrossBothRows()
+        {
+            // 两个嘲讽者分居前后排,远程够得着两个 —— 该在两者之间随机,不能恒定一个。
+            var line = TauntLine(new[] { 0, 5 }, 0, 5);
+            var seen = new HashSet<int>();
+            var random = new GameRandom(13);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Default,
+                    line, FrontRow, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "只在两个嘲讽者之间随机,玩家不进池");
+            Assert.That(seen.Contains(0), Is.True);
+            Assert.That(seen.Contains(5), Is.True);
         }
 
         [Test]
@@ -82,19 +155,6 @@ namespace Brushblade.Core.Tests
                 Assert.That(Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Player,
                     Line(4, 5), FrontRow, random), Is.EqualTo(Targeting.PlayerTarget),
                     "后排还有人也不管,死盯玩家");
-        }
-
-        [Test]
-        public void Ranged_IgnoresFrontRow()
-        {
-            var seen = new HashSet<int>();
-            var random = new GameRandom(11);
-            for (int i = 0; i < 200; i++)
-                seen.Add(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Default,
-                    Line(0, 1, 2, 5), FrontRow, random));
-            Assert.That(seen.Count, Is.EqualTo(2), "前排三只全被跳过");
-            Assert.That(seen.Contains(5), Is.True);
-            Assert.That(seen.Contains(Targeting.PlayerTarget), Is.True);
         }
 
         [Test]

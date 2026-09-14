@@ -43,53 +43,62 @@ namespace Brushblade.Core
 
         /// <summary>敌人选我方目标。返回召唤物槽位,或 <see cref="PlayerTarget"/>。
         ///
-        /// 均匀随机的口径(spec §4.1):把**全部存活后排召唤物与玩家**放进同一个候选池抽一个,
-        /// 不是先五五开决定「打后排还是打玩家」。后排站 2 只时玩家挨打概率是 1/3——
-        /// 站位越厚玩家越安全。
+        /// 一条口径(2026-09-13 重写):**先按排位定出「这一击够得着的那一段」,
+        /// 段内有嘲讽就收窄到嘲讽者,再在剩下的候选里均匀随机**。
         ///
-        /// ⚠ 候选只有一个时**不摇随机数**——这一保证是两层叠的:第一层是
-        /// <see cref="GameRandom.Next"/> 自己的性质(maxExclusive ≤ 1 直接 return 0,
-        /// 不碰内部状态,见 GameRandomTests.NextZeroOrOne_DoesNotAdvanceState);
-        /// `pool.Count == 1 ? pool[0] : …` 这句短路是第二层纵深防御,不是唯一防线,
-        /// 两层任一在位都够。绝大多数既有战斗(没有后排召唤物)因此完全不消耗随机数,
-        /// 随机流与改前逐位相同,上千条带种子的既有测试才不会整体位移。</summary>
+        /// 站位先于嘲讽(2026-09-03 用户拍板):嘲讽只决定「够得着的那些人里先打谁」,
+        /// 不决定「够不够得着」。后排的嘲讽者因此仍要等前排清空才挨得上近战 —— 否则玩家把
+        /// 嘲讽物往后排一塞,前排的召唤物就永远不会被近战碰到,站位这套规则整个失效。
+        ///
+        /// 均匀随机的口径(spec §4.1):候选池是**一个**池子,不是先五五开决定「打召唤物
+        /// 还是打玩家」。池子越厚玩家越安全。
+        ///
+        /// ⚠ 2026-09-13 之前,远程的候选池与嘲讽扫描都从 <paramref name="frontRow"/> 起算,
+        /// 前排召唤物对远程攻击完全不可见 —— 玩家把嘲讽肉盾摆在前排,远程「锁人」照样直穿打脸。
+        /// 现在远程够得着全场,所以这两处都从 0 起算。近战那一支不受影响:它被前排拦下时
+        /// 走上面的前排分支,前排清空后下面这段扫全场也等价于扫后排(前排已无活人)。
+        ///
+        /// ⚠ 候选只有一个时**不摇随机数**(<see cref="PickOne"/>)——这一保证是两层叠的:
+        /// 第一层是 <see cref="GameRandom.Next"/> 自己的性质(maxExclusive ≤ 1 直接 return 0,
+        /// 不碰内部状态),PickOne 里的短路是第二层纵深防御。两层任一在位都够,但两层都要在。</summary>
         public static int PickAllyTarget(AttackRange range, AttackFocus focus,
             IReadOnlyList<SummonState> summons, int frontRow, GameRandom random)
         {
-            // 站位先于嘲讽(2026-09-03 用户拍板,推翻 2026-08-25 的「嘲讽压过一切排位」):
-            // 嘲讽只决定「够得着的那些人里先打谁」,不决定「够不够得着」。后排的嘲讽者
-            // 因此仍要等前排清空才挨得上近战 —— 否则玩家把嘲讽物往后排一塞,前排的召唤物
-            // 就永远不会被近战碰到,站位这套规则整个失效(2026-09-03 实机反馈)。
-            //
-            // 嘲讽压过的只剩 Focus.Player 的死盯玩家 —— 那不是排位,是「打谁」的偏好。
             if (range == AttackRange.Melee)
             {
-                int blocker = FirstAliveSlot(summons, 0, frontRow);
-                if (blocker >= 0)
-                {
-                    // 被前排拦下:候选池就是前排,嘲讽在这个池子里生效。
-                    // 前排没有嘲讽者时返回 blocker,与改前逐位相同(也不摇随机数)。
-                    var frontTaunters = TauntingSlots(summons, 0, frontRow);
-                    if (frontTaunters == null) return blocker;
-                    return frontTaunters.Count == 1
-                        ? frontTaunters[0] : frontTaunters[random.Next(frontTaunters.Count)];
-                }
+                var front = AliveSlots(summons, 0, frontRow);
+                if (front != null)
+                    // 被前排拦下:候选段就是前排,嘲讽在这个段里生效。
+                    return PickOne(TauntingSlots(summons, 0, frontRow) ?? front, random);
             }
 
-            // 够得着后排了(远程,或近战但前排已空):嘲讽在后排这个候选池里生效。
-            // 候选只有一个时不摇随机数,与下面那段同一条纪律(见方法头注释)。
-            var taunters = TauntingSlots(summons, frontRow, summons.Count);
-            if (taunters != null)
-                return taunters.Count == 1 ? taunters[0] : taunters[random.Next(taunters.Count)];
+            // 够得着全场了(远程,或近战但前排已空)。
+            var taunters = TauntingSlots(summons, 0, summons.Count);
+            if (taunters != null) return PickOne(taunters, random);
 
+            // 嘲讽压过的只剩 Focus.Player 的死盯玩家 —— 那不是排位,是「打谁」的偏好。
             if (focus == AttackFocus.Player) return PlayerTarget;
 
-            var pool = new List<int>();
-            for (int s = frontRow; s < summons.Count; s++)
-                if (summons[s] != null && summons[s].Alive) pool.Add(s);
+            var pool = AliveSlots(summons, 0, summons.Count) ?? new List<int>();
             pool.Add(PlayerTarget);
-            return pool.Count == 1 ? pool[0] : pool[random.Next(pool.Count)];
+            return PickOne(pool, random);
         }
+
+        /// <summary>槽位区间 [from, toExclusive) 里全部**存活**召唤物的槽号;一个都没有返回 null。
+        /// 返回**新表**,调用方可以直接往里 Add(玩家那一项就是这么加的)。</summary>
+        private static List<int> AliveSlots(IReadOnlyList<SummonState> summons,
+            int from, int toExclusive)
+        {
+            List<int> slots = null;
+            for (int s = from; s < toExclusive && s < summons.Count; s++)
+                if (summons[s] != null && summons[s].Alive) (slots ??= new List<int>()).Add(s);
+            return slots;
+        }
+
+        /// <summary>候选表里抽一个。**单候选不摇随机数** —— 见 PickAllyTarget 的方法头注释,
+        /// 上千条带种子的既有测试靠这条不位移。</summary>
+        private static int PickOne(IReadOnlyList<int> candidates, GameRandom random) =>
+            candidates.Count == 1 ? candidates[0] : candidates[random.Next(candidates.Count)];
 
         /// <summary>槽位区间 [from, toExclusive) 里全部**存活**的嘲讽召唤物;一个都没有返回 null。
         /// 死了的不算 —— 否则全场攻击会打进一个空槽,玩家反而无敌。

@@ -105,18 +105,31 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RangedEnemy_SkipsFrontRow()
+        public void RangedEnemy_CanHitFrontRowSummon()
         {
-            // 后排没人 → 远程的候选池只剩玩家 → 必打玩家(确定性,不摇随机)
+            // 2026-09-13 之前:远程候选池只从后排起算,后排没人时必打玩家、前排召唤物整个
+            // 被跳过(旧断言"前排被整个跳过")——这正是本次改动要修的缺陷,前排现在也在
+            // 候选池里,与玩家共享同一池。结果非确定,用多个种子验证两种候选都摇得到,
+            // 而不是钉死某个具体种子的产物(纪律见 Targeting.PickAllyTarget 同类替换,
+            // TargetingTests.Ranged_CanHitFrontRowSummons)。
             var sniper = new EnemyDef("墨溅", Element.Water, 500, 40,
                 row: EnemyRow.Back, range: AttackRange.Ranged);
-            var engine = SummonEngine(sniper);
-            engine.Cast("梅", summonSlots: new[] { 0 });
-            int playerBefore = engine.PlayerHp;
-            int summonBefore = engine.Summons[0].Hp;
-            engine.EndTurn();
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(summonBefore), "前排被整个跳过");
-            Assert.That(engine.PlayerHp, Is.LessThan(playerBefore));
+            bool summonWasHit = false, playerWasHit = false;
+            for (int seed = 1; seed <= 20 && !(summonWasHit && playerWasHit); seed++)
+            {
+                var engine = new BattleEngine(SummonGraph(),
+                    new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
+                    new string[0], new[] { "梅", "梅", "梅", "梅" },
+                    new List<EnemyDef> { sniper }, seed: seed);
+                engine.Cast("梅", summonSlots: new[] { 0 });
+                int playerBefore = engine.PlayerHp;
+                int summonBefore = engine.Summons[0].Hp;
+                engine.EndTurn();
+                if (engine.Summons[0].Hp < summonBefore) summonWasHit = true;
+                if (engine.PlayerHp < playerBefore) playerWasHit = true;
+            }
+            Assert.That(summonWasHit, Is.True, "前排召唤物现在也该挨得到(spec §0)");
+            Assert.That(playerWasHit, Is.True, "玩家依旧在候选池里");
         }
 
         [Test]

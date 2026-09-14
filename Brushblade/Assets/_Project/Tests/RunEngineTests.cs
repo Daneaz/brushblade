@@ -1013,12 +1013,16 @@ namespace Brushblade.Core.Tests
         [Test]
         public void DeadSummons_AreNotCarried_AndSlotsRepack()
         {
-            // 敌人 20 血:够挨一轮召唤物反击(2 只×2)还活着,好让敌方回合打死首只木偶
+            // 敌人 20 血:够挨一轮召唤物反击(2 只×2)还活着,好让敌方回合打死首只木偶。
+            // 2026-09-13:两只木偶显式钉在槽 0(前排)、槽 4(后排)——前排现在若站两只
+            // 敌方近战会在其间随机,槽 0 就不再是钉死会挨打的那只;拆到前后两排各一只,
+            // 前排单元素、候选池退化不摇随机,复现改前的确定性,同时仍然验证
+            // "非相邻槽位"的站位保留(比原先的 0/1 相邻槽更能看出不前移)。
             var run = SummonRun(new EnemyDef("枯", Element.Wood, 20, 2), new[] { "林", "焚" });
-            Assert.That(run.Battle.Cast("林"), Is.EqualTo(BattleError.None)); // 2 只 1 血木偶
+            Assert.That(run.Battle.Cast("林", summonSlots: new[] { 0, 4 }), Is.EqualTo(BattleError.None)); // 2 只 1 血木偶
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(2));
 
-            run.Battle.EndTurn();       // 回合末反击 → 敌方回合整次攻击由首只承受(2 伤 > 1 血)
+            run.Battle.EndTurn();       // 回合末反击 → 敌方回合整次攻击由前排唯一那只承受(2 伤 > 1 血)
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(1));
 
             Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
@@ -1029,8 +1033,8 @@ namespace Brushblade.Core.Tests
 
             Assert.That(run.Battle.AliveSummonCount, Is.EqualTo(1), "死尸不带走");
             Assert.That(run.Battle.Summons[0], Is.Null, "站位保留:原槽 0 的死尸不带走,活着的那只不前移");
-            Assert.That(run.Battle.Summons[1].Alive, Is.True);
-            Assert.That(run.Battle.Summons[1].Hp, Is.EqualTo(1), "残血原样带走,不回满");
+            Assert.That(run.Battle.Summons[4].Alive, Is.True);
+            Assert.That(run.Battle.Summons[4].Hp, Is.EqualTo(1), "残血原样带走,不回满");
         }
 
         [Test]

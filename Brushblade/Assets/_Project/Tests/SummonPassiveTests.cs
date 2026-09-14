@@ -485,10 +485,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void HealAlly_HealsPlayerAndSummonsEachTurn()
         {
+            // 2026-09-13:素显式钉在后排(槽 4)——前排若站两只,敌方近战会在其间随机,
+            // 「荫必挨这一下」就不再确定。前排只留荫一只,候选池退化不摇随机,
+            // 复现改前的确定性;素依旧在场验证 HealAlly 外溢到"全部存活召唤物"。
             var engine = Engine(new[] { "荫", "素" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
-            engine.Cast("荫");
-            engine.Cast("素");
-            engine.EndTurn(); // 荫(下标 0,先召先顶前排)被打 4,同时给双方回 3
+            engine.Cast("荫", summonSlots: new[] { 0 });
+            engine.Cast("素", summonSlots: new[] { 4 });
+            engine.EndTurn(); // 荫(前排唯一那只)被打 4,同时给双方回 3
             int summonHp = engine.Summons[0].Hp;
             engine.EndTurn();
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(Math.Min(10, summonHp + 3 - 4)));
@@ -694,8 +697,11 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SummonShield_OnceDepleted_DoesNotRefresh()
         {
+            // 2026-09-13:盾召 2 只,显式钉在槽 0(前排)与槽 4(后排)——前排若站两只,
+            // 敌方近战会在其间随机,「槽 0 必挨这几下」就不再确定。前排只留一只,
+            // 候选池退化不摇随机,复现改前的确定性。
             var engine = Engine(new[] { "盾" }, new[] { new EnemyDef("靶", Element.Heart, 200, 4) });
-            engine.Cast("盾");
+            engine.Cast("盾", summonSlots: new[] { 0, 4 });
             engine.EndTurn(); // 盾 6 → 2
             engine.EndTurn(); // 盾 2 → 0,溢出的 2 点进血
             Assert.That(engine.Summons[0].Shield, Is.EqualTo(0));
