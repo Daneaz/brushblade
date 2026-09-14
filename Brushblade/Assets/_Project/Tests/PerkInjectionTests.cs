@@ -208,31 +208,8 @@ namespace Brushblade.Core.Tests
             Assert.That(Build(meta).BurnPerStack, Is.EqualTo(28));
         }
 
-        // ---- 木脉 L4:木系召唤物速度 +40(spec §3.4.1) ----
-
-        [Test]
-        public void EmptySave_GivesNoSummonSpeedBonus()
-        {
-            Assert.That(Build(new MetaState()).WoodSummonSpeedBonus, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void WoodTierFour_GrantsFortySpeed()
-        {
-            var meta = new MetaState();
-            meta.UnlockedPerks.Add("wood_4");
-            Assert.That(Build(meta).WoodSummonSpeedBonus, Is.EqualTo(40));
-        }
-
-        /// <summary>只有木脉给这个加成 —— 土/金也有召唤字,但它们不该吃木系专精的回报。</summary>
-        [Test]
-        public void OtherBranches_DoNotGrantSummonSpeed()
-        {
-            var meta = new MetaState();
-            meta.UnlockedPerks.Add("earth_4");
-            meta.UnlockedPerks.Add("metal_4");
-            Assert.That(Build(meta).WoodSummonSpeedBonus, Is.EqualTo(0));
-        }
+        // 木脉 L4(择伐,2026-09-13)的三条注入守卫搬去了 CounterTargetingTests ——
+        // 那边还顺带钉住了「配置有没有被引擎读走」这一段。
 
         // ---- 五行 L2:五条各系专属机制(spec 2026-09-13 §3.3)----
         // 每条两侧都断:本系点亮 → 本字段变;别系点亮 → 本字段不变。
@@ -329,7 +306,7 @@ namespace Brushblade.Core.Tests
             Assert.That(cfg.HeftCap, Is.EqualTo(10), "厚上限仍是现值");
             Assert.That(cfg.WellspringCap, Is.EqualTo(10), "泉上限仍是现值");
             Assert.That(cfg.BurnPerStack, Is.EqualTo(20), "灼烧每层仍是现值");
-            Assert.That(cfg.WoodSummonSpeedBonus, Is.EqualTo(0), "召唤速度仍是现值");
+            Assert.That(cfg.CounterTargeting, Is.False, "择伐仍是关的");
         }
     }
 }

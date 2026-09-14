@@ -12,7 +12,7 @@ namespace Brushblade.Core
     public enum PerkTree { Wuxing, Passive, Mechanic, Cross }
 
     /// <summary>节点效果类别。前四条落在既有 BattleConfig 字段上;Element* 三条按元素筛选;
-    /// 末尾五条对应五行 L4,各自挂靠 BattleEngine 里一个原本硬编码的天花板。</summary>
+    /// 末尾五条对应五行 L4 —— 四条是各系专属天花板,木系那条(择伐)是择敌规则的开关。</summary>
     public enum PerkEffect
     {
         // 被动树:落在既有 BattleConfig 字段
@@ -21,8 +21,8 @@ namespace Brushblade.Core
         LibraryCapacity, StartingCards, DrawRolls, LootDrawRolls, Ap,
         // 五行树 L1/L3(按元素筛选)
         ElementDrawRolls, ElementEffectPercent,
-        // 五行树 L4(各系专属天花板)
-        MoraleCap, SummonSpeed, WellspringCap, BurnPerStack, HeftCap,
+        // 五行树 L4(四条各系专属天花板 + 木系的择敌开关)
+        MoraleCap, CounterTargeting, WellspringCap, BurnPerStack, HeftCap,
         // 五行树 L2(各系专属机制,spec 2026-09-13)。同样按元素筛选,走
         // PerkRules.ElementBonus 而不是 Bonus —— 作用域是单系。
         //
@@ -149,7 +149,7 @@ namespace Brushblade.Core
                 PerkEffect.MoraleCap, 2);              // 鏖战:战意上限 5→7
             AddWuxing(list, "wood",  Element.Wood,
                 PerkEffect.SummonDeathHealPercent, 20, // 归根:召唤物阵亡回复其最大生命 20%
-                PerkEffect.SummonSpeed, 40);           // 蕃息:木系召唤速度 +40
+                PerkEffect.CounterTargeting, 1);       // 择伐:召唤物优先打自己克得动的敌人
             AddWuxing(list, "water", Element.Water,
                 PerkEffect.OverhealDamagePercent, 50,  // 溢流:治疗溢出 ×50% 转伤害
                 PerkEffect.WellspringCap, 4);          // 涌泉:泉上限 10→14

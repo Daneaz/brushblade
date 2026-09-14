@@ -27,13 +27,15 @@ namespace Brushblade.Core
     /// 排位只决定**能不能被够到**,不决定这只单位自己能不能出手——后排照常攻击。</summary>
     public enum EnemyRow { Front, Back }
 
-    /// <summary>攻击距离(2026-08-20)。Ranged 无视对方前排。
+    /// <summary>攻击距离(2026-08-20;2026-09-13 改口径)。Ranged 够得着我方全场
+    /// (前排召唤物也在候选里,不再只打后排)。
     /// 与 <see cref="EnemyAbility"/> 正交:做成 Ability 的取值会与灯花/焦痕互斥,
     /// 而「远程的灯花」是完全合理的组合。</summary>
     public enum AttackRange { Melee, Ranged }
 
-    /// <summary>够得着玩家时打谁(2026-08-20)。
-    /// Default = 在「对方存活后排 ∪ 玩家」里均匀随机;Player = 死盯玩家。</summary>
+    /// <summary>够得着玩家时打谁(2026-08-20;2026-09-13 改口径)。
+    /// Default = 在「够得着的那一段(Melee 被前排拦下时是前排,前排清空或 Ranged 时是全场)
+    /// 里的存活召唤物 ∪ 玩家」里均匀随机;Player = 死盯玩家。</summary>
     public enum AttackFocus { Default, Player }
 
     /// <summary>Boss 阶段技能(spec 2026-07-28):蓄力一回合后释放。
@@ -249,12 +251,8 @@ namespace Brushblade.Core
 
         /// <param name="sourceChar">召它的那张字卡;省略则回落成 summonChar
         /// (测试夹具里「谁召的」多半无关紧要,不必每处都写第二遍)。</param>
-        /// <param name="speedBonus">木脉 L4(spec §3.4.1):木系字召出的召唤物 +N 速度。
-        /// 加在被动速度**兜底之后**(先 EffectiveSpeed 夹回 100,再加这一份),不是并进被动值
-        /// 本身再夹 —— 否则无被动召唤物的 0 会先被 speedBonus 垫成正数,让 EffectiveSpeed
-        /// 误判成「有速度被动」而放弃兜底 100。缺省 0 时与不带这个参数逐字节相同。</param>
         public SummonState(string summonChar, Element element, int hp, int attack,
-            SummonPassive passive = null, string sourceChar = null, int speedBonus = 0)
+            SummonPassive passive = null, string sourceChar = null)
         {
             Char = summonChar;
             SourceChar = sourceChar ?? summonChar;
@@ -263,7 +261,7 @@ namespace Brushblade.Core
             MaxHp = hp;
             Attack = attack;
             Passive = passive;
-            Speed = EffectiveSpeed(passive?.Speed ?? 0) + speedBonus;
+            Speed = EffectiveSpeed(passive?.Speed ?? 0);
         }
 
         /// <summary>断点存档:MaxHp 与 Hp 会脱钩(挨过打),故分开存。</summary>

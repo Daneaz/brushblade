@@ -34,10 +34,10 @@ namespace Brushblade.Presentation
                     1 => "perk_draw",       // 该系起手格抽取次数 +1
                     2 => "perk_loot",       // 战利品保底 1 张该系
                     3 => "perk_amplify",    // 该系字效果值 +15%
-                    _ => def.Branch switch  // L4:各系专属天花板,各不相同
+                    _ => def.Branch switch  // L4:四系各自的专属天花板 + 木系的择敌开关
                     {
                         "metal" => "morale",
-                        "wood" => "speed",
+                        "wood" => "focus",  // 择伐:按生克择敌,不是速度(2026-09-13 蕃息废止)
                         "water" => "perk_wellspring",
                         "fire" => "burn",
                         "earth" => "perk_heft",

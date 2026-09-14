@@ -198,16 +198,15 @@ namespace Brushblade.Core
         /// 局内的「炽」(BurnPotency)照旧在其上累加。</summary>
         public int BurnPerStack { get; set; } = BaseBurnPerStack;
 
-        /// <summary>木脉 L4:由**木系字**召出的召唤物速度 +N 点(spec §3.4.1)。缺省 0 = 恒等。
+        /// <summary>木脉 L4「择伐」:场上**全部**召唤物出手时按生克三档择敌
+        /// (相克 > 中立 > 被克)。缺省 false = 关,行为与改前一致。
         ///
-        /// 用加算而非乘算:乘算会让本就快的桤(Speed 150)滚到 210、慢的拉不开;
-        /// 加算对缺省 100 的是 +40%、对桤是 +27%,压住滚雪球,与 TurnScheduler.MaxSpeed
-        /// 的距离也可控。
+        /// 作用域是全量召唤物而不是只木系 —— 用户 2026-09-13 拍板。节点仍挂在木枝上、
+        /// 仍走 ElementBonus(…, Element.Wood) 读取,但读出的值当**全局开关**用。
         ///
-        /// 敢给 40% 的依据:MetaRules.SpeedFor 把玩家速度斜率压到最小(满级 +25%),是因为
-        /// 「速度是唯一同时翻倍输出与资源产出的属性 —— 一次行动 = 3 AP + 1 掉字」。
-        /// **召唤物出手两样都不产**,那条顾虑整个不成立。</summary>
-        public int WoodSummonSpeedBonus { get; set; }
+        /// ⚠ 排在排位**之后**生效(Targeting.PickEnemyTargetForSummon):三档是全覆盖的,
+        /// 放到控场偏好那一层会把排位整个压掉。</summary>
+        public bool CounterTargeting { get; set; }
 
         // ---- 五行 L2:五条各系专属机制(spec 2026-09-13)----
         // 五个全部**缺省 0 = 关**。这是恒等性硬线:一条都没点时引擎行为与改前逐字节相同。
@@ -382,6 +381,16 @@ namespace Brushblade.Core
         private readonly RecipeGraph _graph;
         private readonly BattleConfig _config;
         private readonly GameRandom _random;
+
+        /// <summary>择敌专用随机流(2026-09-13)。见 <see cref="BattleSnapshot.TargetRandomState"/>。
+        /// 唯一消费方是 <see cref="Targeting.PickAllyTarget"/> 与 <see cref="Targeting.PickEnemyTargetForSummon"/>
+        /// 这两个择敌函数,别拿它摇别的 —— 效果类的随机挑人(<see cref="PickRandomLivingEnemy"/>)
+        /// 不属于择敌,仍走 <see cref="_random"/>。</summary>
+        private readonly GameRandom _targetRandom;
+
+        /// <summary>择敌流的种子偏移。与主种子异或即可 —— GameRandom 构造时会再 Scramble 一道,
+        /// 两条流不会因为种子只差一个常数而相关。</summary>
+        private const int TargetSeedSalt = 0x5BF03635;
         private readonly List<EnemyState> _enemies = new();
         /// <summary>召唤物槽位(2026-08-20):**定长 6,下标即槽位**。0/1/2 = 前排,3/4/5 = 后排。
         /// null = 空槽;Hp &lt;= 0 = 尸体,仍占槽,可被复活就地救回(引擎从不移除阵亡召唤物)。
@@ -804,6 +813,7 @@ namespace Brushblade.Core
             _burnPerStack = config?.BurnPerStack ?? 20;
             _cardLevels = cardLevels;
             _random = new GameRandom(seed);
+            _targetRandom = new GameRandom(seed ^ TargetSeedSalt);
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
                 _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
@@ -853,13 +863,14 @@ namespace Brushblade.Core
 
         /// <summary>断点存档专用构造:不发牌、不开回合,状态全部由 <see cref="Restore"/> 灌进来。</summary>
         private BattleEngine(RecipeGraph graph, BattleConfig config,
-            IReadOnlyDictionary<string, int> cardLevels, GameRandom random)
+            IReadOnlyDictionary<string, int> cardLevels, GameRandom random, GameRandom targetRandom)
         {
             _graph = graph;
             _config = config;
             _slotMask = ClampSlotMask(config);
             _cardLevels = cardLevels;
             _random = random;
+            _targetRandom = targetRandom;
             _forge = new ForgeState(new List<string>(), new List<string>());
         }
 
@@ -877,6 +888,7 @@ namespace Brushblade.Core
                 ShieldPersist = _shieldPersist,
                 BurnPerStack = _burnPerStack,
                 RandomState = _random.State,
+                TargetRandomState = _targetRandom.State,
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
                 PendingDrop = _pendingDrop,
@@ -898,7 +910,9 @@ namespace Brushblade.Core
         public static BattleEngine Restore(BattleSnapshot snapshot, RecipeGraph graph, BattleConfig config,
             IReadOnlyDictionary<string, int> cardLevels, IReadOnlyDictionary<string, EnemyDef> enemyDefs)
         {
-            var engine = new BattleEngine(graph, config, cardLevels, GameRandom.FromState(snapshot.RandomState))
+            var engine = new BattleEngine(graph, config, cardLevels,
+                GameRandom.FromState(snapshot.RandomState),
+                GameRandom.FromState(snapshot.TargetRandomState))
             {
                 PlayerHp = snapshot.PlayerHp,
                 Ap = snapshot.Ap,
@@ -2074,13 +2088,20 @@ namespace Brushblade.Core
             // 表现层却照播一遍攻击动画(2026-08-26 实机反馈)。
             if (!HasStrikeOutput(summon)) return;
             var passive = summon.Passive;
-            // 近战打敌方前排、远程优先打后排(2026-08-20)。全部敌人默认前排时,
-            // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
+            // 近战打敌方前排、远程优先打后排(2026-08-20);2026-09-13 起同排内均匀随机,
+            // 走 _targetRandom。敌人只剩一只时短路不摇随机数,那一档仍与改前逐位等价。
             var shape = passive?.Shape ?? TargetShape.Single;
             int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
-                shape,
+                _targetRandom, shape,
                 preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
-                preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0);
+                preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0,
+                // 择伐(木 L4):判据是**这只召唤物自己**的元素,不是召它的那张字 ——
+                // 它问的是「谁打谁划算」,而生克乘区算的就是召唤物 vs 敌人。
+                // ⚠ 今天引擎唯一的构造点 `new SummonState(…, attacker, …)` 让 summon.Element
+                // 与「召它的那张字」的元素恒等,没有任何测试能分辨这两个口径 —— 这行写成
+                // summon.Element 是为将来两者分叉时钉住正确口径,不要因为「反正现在一样」
+                // 就改写成 attacker 的元素。
+                counterTargeting: (_config?.CounterTargeting ?? false) ? summon.Element : null);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
             if (target < 0 && shape != TargetShape.Volley) return;
 
@@ -2203,10 +2224,12 @@ namespace Brushblade.Core
                     continue; // 已蓄力或已放大招,本回合不走普攻
 
                 int damage = enemy.Attack; // 减护甲(点数)在 DamagePlayerDirect 里,护盾吸收再在其后
-                // 目标裁定(2026-08-20):近战被我方前排拦下;前排清空后在「后排 ∪ 玩家」里均匀随机;
-                // 远程无视前排;Focus.Player 的够得着玩家时死盯玩家。规则全在 Targeting,这里只执行。
+                // 目标裁定(2026-08-20,2026-09-13 重写):近战被我方前排拦下、段内随机;
+                // 远程够得着全场;嘲讽在够得着的那一段里收窄候选;Focus.Player 的够得着玩家时
+                // 死盯玩家。规则全在 Targeting,这里只执行。走 _targetRandom 而不是 _random,
+                // 见该字段的注释。
                 int tankIdx = Targeting.PickAllyTarget(enemy.Def.Range, enemy.Def.Focus,
-                    _summons, FrontRowSize, _random);
+                    _summons, FrontRowSize, _targetRandom);
                 // hit:这次攻击有没有命中(2026-08-08)。打空为 false,免疫挡下也算 true——
                 // 见 DamagePlayerDirect/DamageSummon 的返回值口径注释。下面的灯花用它 gate。
                 bool hit;
@@ -2852,13 +2875,7 @@ namespace Brushblade.Core
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 ScalePassiveByCardLevel(effect.Passive, cardLevel),
-                                sourceChar: def.Id, // 召它的那张牌(2026-09-05,战斗格头行显示这个)
-                                // 木脉 L4(spec §3.4.1):判据是**打出的那张字**的元素(attacker,
-                                // 即 def.Element ?? Heart),不是召唤物自己的 Element —— 与五行
-                                // L3 的乘区(ElementPercentOf(attacker))同一判据,两处口径不分叉。
-                                // 与 SummonState.Attack 同为快照语义:召唤那一刻算完写进去,
-                                // 运行期不再查表,之后再点技能已在场的这只不变。
-                                speedBonus: attacker == Element.Wood ? _config?.WoodSummonSpeedBonus ?? 0 : 0);
+                                sourceChar: def.Id); // 召它的那张牌(2026-09-05,战斗格头行显示这个)
                             newborn.ActionMeter = TurnScheduler.Threshold;
 
                             // 入场自带护甲(2026-09-08,塔):挂进这只召唤物自己的状态袋,

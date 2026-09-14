@@ -86,7 +86,7 @@ namespace Brushblade.Presentation
             "earth_3" => Strings.T("perk.node.earth_3.desc", ("value", def.Value)),
             // 五行 L4:各系专属天花板,效果各不相同
             "metal_4" => Strings.T("perk.node.metal_4.desc", ("value", def.Value)),
-            "wood_4" => Strings.T("perk.node.wood_4.desc", ("value", def.Value)),
+            "wood_4" => Strings.T("perk.node.wood_4.desc"),
             "water_4" => Strings.T("perk.node.water_4.desc", ("value", def.Value)),
             "fire_4" => Strings.T("perk.node.fire_4.desc", ("value", def.Value)),
             "earth_4" => Strings.T("perk.node.earth_4.desc", ("value", def.Value)),
@@ -163,7 +163,7 @@ namespace Brushblade.Presentation
             PerkEffect.ElementEffectPercent => Strings.T("perk.detail.element_effect_percent",
                 ("element", ElementNameOf(def)), ("value", def.Value)),
             PerkEffect.MoraleCap => MoraleCapText(def),
-            PerkEffect.SummonSpeed => SummonSpeedText(def),
+            PerkEffect.CounterTargeting => Strings.T("perk.detail.counter_targeting"),
             PerkEffect.WellspringCap => WellspringCapText(def),
             PerkEffect.BurnPerStack => BurnPerStackText(def),
             PerkEffect.HeftCap => HeftCapText(def),
@@ -184,7 +184,7 @@ namespace Brushblade.Presentation
         private static string ElementNameOf(PerkNodeDef def) =>
             def.Element is { } el ? CharInfo.ElementName(el) : "";
 
-        // 下面五个:「加成前 → 加成后」的每一个数字都从 BattleConfig 的常量 + def.Value 现算,
+        // 下面四个:「加成前 → 加成后」的每一个数字都从 BattleConfig 的常量 + def.Value 现算,
         // 不手算焊死(2026-09-07 收尾波修复项——review 抓到旧版把换算结果焊成字面文本,
         // 策划调 Core/Perk.cs 里 AddWuxing 的数值会被弹窗静默显示旧数字)。
 
@@ -224,14 +224,6 @@ namespace Brushblade.Presentation
             return Strings.T("perk.detail.burn_per_stack",
                 ("base", b), ("after", after), ("value", def.Value),
                 ("multiplier", multiplier.ToString("0.0")));
-        }
-
-        private static string SummonSpeedText(PerkNodeDef def)
-        {
-            int b = BattleConfig.BaseSummonSpeed;
-            int after = b + def.Value;
-            return Strings.T("perk.detail.summon_speed",
-                ("value", def.Value), ("base", b), ("after", after));
         }
     }
 }

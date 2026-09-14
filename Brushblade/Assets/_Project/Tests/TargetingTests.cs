@@ -18,12 +18,85 @@ namespace Brushblade.Core.Tests
             return slots;
         }
 
-        [Test]
-        public void Melee_HitsFrontmostFrontRowSummon()
+        // ---- 2026-09-13:够得着的那一段里均匀随机 ----
+
+        /// <summary>同 Line,但 tauntSlots 里的槽位带嘲讽被动。
+        /// Passive 是只读属性,只能走构造参数(`SummonState(char, element, hp, attack, passive)`)。</summary>
+        private static SummonState[] TauntLine(int[] aliveSlots, params int[] tauntSlots)
         {
+            var slots = new SummonState[6];
+            foreach (int s in aliveSlots)
+                slots[s] = new SummonState($"木{s}", Element.Wood, 100, 10,
+                    System.Array.IndexOf(tauntSlots, s) >= 0
+                        ? new SummonPassive { Taunt = true } : null);
+            return slots;
+        }
+
+        [Test]
+        public void Melee_HitsTheOnlyFrontRowSummon()
+        {
+            // 前排只有一只时候选池退化成单元素 —— 守的是「近战被前排拦下」,不是「取槽序最小」。
+            // 前排多只时的随机分布另有 Melee_PicksRandomlyAmongFrontRowSummons 守。
             Assert.That(Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default,
-                Line(1, 2, 4), FrontRow, new GameRandom(1)), Is.EqualTo(1),
-                "前排里槽序最小的那只");
+                Line(1, 4), FrontRow, new GameRandom(1)), Is.EqualTo(1),
+                "前排那只挡下这一击");
+        }
+
+        [Test]
+        public void Melee_PicksRandomlyAmongFrontRowSummons()
+        {
+            // 改前恒打前排槽序最小的那只(槽 1),前排站两只时第二只永远不挨打。
+            var seen = new HashSet<int>();
+            var random = new GameRandom(5);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default,
+                    Line(1, 2, 4), FrontRow, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "前排两只都摇得到,后排那只不该进池");
+            Assert.That(seen.Contains(1), Is.True);
+            Assert.That(seen.Contains(2), Is.True);
+        }
+
+        [Test]
+        public void Ranged_CanHitFrontRowSummons()
+        {
+            // 改前远程的候选池从 frontRow 起算,前排召唤物一次都打不到(spec §0)。
+            var seen = new HashSet<int>();
+            var random = new GameRandom(11);
+            for (int i = 0; i < 300; i++)
+                seen.Add(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Default,
+                    Line(0, 1, 5), FrontRow, random));
+            Assert.That(seen.Count, Is.EqualTo(4), "前排两只 + 后排一只 + 玩家,全在池里");
+            Assert.That(seen.Contains(0), Is.True, "前排槽 0 也该挨得着");
+            Assert.That(seen.Contains(1), Is.True);
+            Assert.That(seen.Contains(5), Is.True);
+            Assert.That(seen.Contains(Targeting.PlayerTarget), Is.True);
+        }
+
+        [Test]
+        public void RangedFocusPlayer_IsPulledByFrontRowTaunt()
+        {
+            // 用户 2026-09-13 第 5 条诉求:锁人要先吃嘲讽,再打玩家。
+            // 改前嘲讽扫描区间是 [frontRow, Count),前排的嘲讽者对远程完全不可见。
+            var line = TauntLine(new[] { 0, 5 }, 0);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Player,
+                    line, FrontRow, new GameRandom(i + 1)), Is.EqualTo(0),
+                    "前排嘲讽把锁人拉过去");
+        }
+
+        [Test]
+        public void Ranged_PicksRandomlyAmongTauntersAcrossBothRows()
+        {
+            // 两个嘲讽者分居前后排,远程够得着两个 —— 该在两者之间随机,不能恒定一个。
+            var line = TauntLine(new[] { 0, 5 }, 0, 5);
+            var seen = new HashSet<int>();
+            var random = new GameRandom(13);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Default,
+                    line, FrontRow, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "只在两个嘲讽者之间随机,玩家不进池");
+            Assert.That(seen.Contains(0), Is.True);
+            Assert.That(seen.Contains(5), Is.True);
         }
 
         [Test]
@@ -85,19 +158,6 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Ranged_IgnoresFrontRow()
-        {
-            var seen = new HashSet<int>();
-            var random = new GameRandom(11);
-            for (int i = 0; i < 200; i++)
-                seen.Add(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Default,
-                    Line(0, 1, 2, 5), FrontRow, random));
-            Assert.That(seen.Count, Is.EqualTo(2), "前排三只全被跳过");
-            Assert.That(seen.Contains(5), Is.True);
-            Assert.That(seen.Contains(Targeting.PlayerTarget), Is.True);
-        }
-
-        [Test]
         public void RangedFocusPlayer_AlwaysHitsPlayer()
         {
             Assert.That(Targeting.PickAllyTarget(AttackRange.Ranged, AttackFocus.Player,
@@ -107,12 +167,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void BlockedByFrontRow_ConsumesNoRandomness()
         {
-            // 前排有人 → FirstAliveSlot 命中后提前返回,根本走不到候选池构造那一步。
+            // 前排有人 → AliveSlots(summons, 0, frontRow) 命中,候选段收窄成前排单元素
+            // {0},PickOne 单候选不摇随机数。
             // 用 Line() 全空阵去测「不摇随机数」是重言式:候选池此时必然退化成
             // {PlayerTarget} 一个元素,pool.Count == 1 恒真,测不出短路是否被删掉。
-            // 这里前排槽 0 有人、后排槽 4/5 各有人——候选池若真被构造出来会有
-            // {4, 5, PlayerTarget} 三个候选,Next(3) 会真的推进 _state。
-            // 谁把「先判前排提前返回」重构成「先建池再判前排」,这条就会红。
+            // 这里前排槽 0 有人、后排槽 4/5 各有人——候选段若不按排位收窄、直接建整场
+            // 候选池会有 {0, 4, 5, PlayerTarget} 四个候选,Next(4) 会真的推进 _state。
+            // 谁把「先按排位收窄候选段」删掉、变成不分排位直接建整场候选池,这条就会红。
             var a = new GameRandom(42);
             var b = new GameRandom(42);
             Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default, Line(0, 4, 5), FrontRow, a);
@@ -329,6 +390,110 @@ namespace Brushblade.Core.Tests
             return list;
         }
 
+        /// <summary>同 Grid,但每项还指定元素 —— 择伐的三档裁定要用。</summary>
+        private static List<EnemyState> ElementGrid(
+            params (EnemyRow Row, int Column, Element Element)[] slots)
+        {
+            var list = new List<EnemyState>();
+            foreach (var (row, column, element) in slots)
+            {
+                var def = new EnemyDef($"怪{list.Count}", element, 100, 10, row: row);
+                list.Add(new EnemyState(def, 0, null) { Row = row, Column = column });
+            }
+            return list;
+        }
+
+        // ---- 2026-09-13:召唤物同排随机 ----
+
+        [Test]
+        public void SummonMelee_PicksRandomlyAmongFrontRowEnemies()
+        {
+            // 改前恒取 _enemies 下标序最小的存活者,前排三只时后两只永远不挨打。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Front, 2));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(17);
+            for (int i = 0; i < 300; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random));
+            Assert.That(seen.Count, Is.EqualTo(3), "前排三只都摇得到");
+        }
+
+        [Test]
+        public void SummonRanged_PicksRandomlyAmongBackRowEnemies()
+        {
+            var enemies = Grid((EnemyRow.Back, 0), (EnemyRow.Back, 1));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(19);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: true, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "后排两只都摇得到");
+        }
+
+        [Test]
+        public void SummonMelee_StillPrefersFrontRow()
+        {
+            // 排位仍然算数:前排还有人时,近战召唤物一次都不该摸到后排。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 0), (EnemyRow.Back, 1));
+            var random = new GameRandom(23);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random),
+                    Is.EqualTo(0), "前排那只挡着,近战够不着后排");
+        }
+
+        [Test]
+        public void SummonTargeting_SingleCandidate_ConsumesNoRandomness()
+        {
+            // 单候选短路:场上只有一只敌人时一个随机数都不该摇,
+            // 否则每一拍召唤物出手都会推着整条择敌流走,分流的意义打折。
+            var enemies = Grid((EnemyRow.Front, 0));
+            var a = new GameRandom(42);
+            var b = new GameRandom(42);
+            Targeting.PickEnemyTargetForSummon(enemies, ranged: false, a);
+            Assert.That(a.Next(1000), Is.EqualTo(b.Next(1000)), "单候选不消耗随机数");
+        }
+
+        [Test]
+        public void SummonTargeting_NoEnemies_ReturnsMinusOne()
+        {
+            Assert.That(Targeting.PickEnemyTargetForSummon(new List<EnemyState>(),
+                ranged: false, new GameRandom(1)), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void SummonMelee_PreferUnfrozen_RowStillOverridesPreference()
+        {
+            // 排位压过筛子(2026-09-13 拍板的核心口径):前排唯一那只已冻结,后排有一只
+            // 没冻结。筛子只在「排位选定的那一排」内生效——前排在自己这一排里筛不出
+            // 未冻结的,退回前排全体,仍然打前排那只被冻的,绝不会为了躲开冻结目标
+            // 越排去打后排。若实现退化成「筛子压过排位」(改前的次序),这条会红:
+            // 它会跑去打后排那只没冻的。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 0));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff, TurnsLeft = 3,
+            });
+            var random = new GameRandom(29);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnfrozen: true), Is.EqualTo(0), "前排那只挡着,即使已冻结也不该越排去打后排没冻的");
+        }
+
+        [Test]
+        public void SummonMelee_PreferUnslowed_RowStillOverridesPreference()
+        {
+            // 与上面 PreferUnfrozen 同一形状,盖 preferUnslowed 那条独立代码路径:
+            // 前排唯一那只已减速,后排有一只没减速,排位仍然压过筛子,该打前排那只。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 0));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 5, SourceId = "测试",
+            });
+            var random = new GameRandom(31);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnslowed: true), Is.EqualTo(0), "前排那只挡着,即使已减速也不该越排去打后排没减速的");
+        }
+
         /// <summary>带列宽的阵:span &gt; 1 的怪横跨 [Column, Column + span) 若干列。
         /// Boss 是目前唯一的 span &gt; 1 —— 编成里 Boss 独占一场,所以这些用例是**构造出来**的,
         /// 真机上跑不到。构造它们正是本条测试的意义:等真给 Boss 配了小怪,裁定已经是对的。</summary>
@@ -501,6 +666,138 @@ namespace Brushblade.Core.Tests
             Assert.That(seen.Count, Is.EqualTo(Targeting.RowCapacity), "不许重号");
             foreach (int c in Targeting.ColumnOrder)
                 Assert.That(c >= 0 && c < Targeting.RowCapacity, Is.True, $"列 {c} 越界");
+        }
+
+        // ---- 2026-09-13:择伐(木 L4)三档择敌 ----
+
+        [Test]
+        public void CounterTargeting_PrefersTheElementItCounters()
+        {
+            // 木系召唤物:克土,被金克,对火/水/心中立。三档 = 土 > 火 > 金。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Fire), (EnemyRow.Front, 2, Element.Earth));
+            var random = new GameRandom(29);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood), Is.EqualTo(2), "只打被它克的土");
+        }
+
+        [Test]
+        public void CounterTargeting_FallsToNeutralWhenNoVictimAlive()
+        {
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Fire));
+            var random = new GameRandom(31);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood), Is.EqualTo(1), "没有土就打中立的火,不打克它的金");
+        }
+
+        [Test]
+        public void CounterTargeting_StillAttacksWhenOnlyCounteredRemain()
+        {
+            // 三档全空不是「不出手」:只剩克它的敌人时照打。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Metal));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(37);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood));
+            Assert.That(seen.Count, Is.EqualTo(2), "同档两只之间仍然随机");
+        }
+
+        [Test]
+        public void CounterTargeting_DoesNotOutrankRowPosition()
+        {
+            // spec §3.3:排位压过三档。相克的土在后排,近战召唤物仍打前排的金。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Back, 0, Element.Earth));
+            var random = new GameRandom(41);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood), Is.EqualTo(0),
+                    "不为了追相克敌人越过前排");
+        }
+
+        [Test]
+        public void CounterTargeting_HeartSummonHasNoPreference()
+        {
+            // 心不在生克环内 —— 全部敌人同档,退化成均匀随机。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Earth), (EnemyRow.Front, 2, Element.Water));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(43);
+            for (int i = 0; i < 300; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Heart));
+            Assert.That(seen.Count, Is.EqualTo(3), "三只都摇得到");
+        }
+
+        [Test]
+        public void CounterTargeting_Off_IsUnchanged()
+        {
+            // 未点择伐(counterTargeting 缺省 null)时,分布与 Task 3 完全一致。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Earth));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(47);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "不挑元素,两只都摇得到");
+        }
+
+        [Test]
+        public void CounterTargeting_HardFilterPrecedesPreferUnfrozen()
+        {
+            // 三档是硬筛(取最高非空档,不退回),preferUnfrozen 是退回式弱筛
+            // (筛不出来就退回原池)——三档必须排在前面。
+            // 前排两只:被木克的土(已冻结)+ 中立的火(未冻结)。
+            // 正确次序:三档先把候选收成「只剩土」,preferUnfrozen 在这唯一候选里
+            // 筛不出未冻的 → 退回 → 仍打土。
+            // 若次序颠倒(preferUnfrozen 先跑):候选先收成「只剩火」,三档在单候选
+            // 里必然通过 → 会打火。这条测试就是钉住「不能颠倒」。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Earth), (EnemyRow.Front, 1, Element.Fire));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff, TurnsLeft = 3,
+            });
+            var random = new GameRandom(53);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnfrozen: true, counterTargeting: Element.Wood), Is.EqualTo(0),
+                    "三档先收成土,preferUnfrozen 在唯一候选里筛不出未冻的就该退回,不该跳去打火");
+        }
+
+        [Test]
+        public void CounterTargeting_HardFilterPrecedesPreferUnslowed()
+        {
+            // 与上面同一形状,盖 preferUnslowed 那条独立代码路径。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Earth), (EnemyRow.Front, 1, Element.Fire));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 5, SourceId = "测试",
+            });
+            var random = new GameRandom(59);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnslowed: true, counterTargeting: Element.Wood), Is.EqualTo(0),
+                    "三档先收成土,preferUnslowed 在唯一候选里筛不出未减速的就该退回,不该跳去打火");
+        }
+
+        // ---- 择敌随机流(2026-09-13)----
+
+        [Test]
+        public void TargetRandomStream_SurvivesSnapshotRoundTrip()
+        {
+            // 择敌走独立的一条流,它必须跟 RandomState 一样进存档 —— 不存的话
+            // 挂起再进,择敌序列会从头重来,断点续爬前后分叉。
+            var snapshot = Trio().Capture();
+            Assert.That(snapshot.TargetRandomState, Is.Not.EqualTo(0u),
+                "择敌流的状态要真的存进去");
+            Assert.That(snapshot.TargetRandomState, Is.Not.EqualTo(snapshot.RandomState),
+                "两条流必须是各自独立的状态,不能是同一个对象");
         }
 }
 }
