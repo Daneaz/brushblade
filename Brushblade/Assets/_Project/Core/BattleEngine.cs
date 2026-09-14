@@ -382,6 +382,14 @@ namespace Brushblade.Core
         private readonly RecipeGraph _graph;
         private readonly BattleConfig _config;
         private readonly GameRandom _random;
+
+        /// <summary>择敌专用随机流(2026-09-13)。见 <see cref="BattleSnapshot.TargetRandomState"/>。
+        /// 唯一消费方是 <see cref="Targeting"/> 的三个择敌函数,别拿它摇别的。</summary>
+        private readonly GameRandom _targetRandom;
+
+        /// <summary>择敌流的种子偏移。与主种子异或即可 —— GameRandom 构造时会再 Scramble 一道,
+        /// 两条流不会因为种子只差一个常数而相关。</summary>
+        private const int TargetSeedSalt = 0x5BF03635;
         private readonly List<EnemyState> _enemies = new();
         /// <summary>召唤物槽位(2026-08-20):**定长 6,下标即槽位**。0/1/2 = 前排,3/4/5 = 后排。
         /// null = 空槽;Hp &lt;= 0 = 尸体,仍占槽,可被复活就地救回(引擎从不移除阵亡召唤物)。
@@ -804,6 +812,7 @@ namespace Brushblade.Core
             _burnPerStack = config?.BurnPerStack ?? 20;
             _cardLevels = cardLevels;
             _random = new GameRandom(seed);
+            _targetRandom = new GameRandom(seed ^ TargetSeedSalt);
             _forge = new ForgeState(new List<string>(startingLibrary), new List<string>(startingPool));
             foreach (var def in enemies)
                 _enemies.Add(new EnemyState(def, config.BossPhaseJitterPercent, _random));
@@ -853,13 +862,14 @@ namespace Brushblade.Core
 
         /// <summary>断点存档专用构造:不发牌、不开回合,状态全部由 <see cref="Restore"/> 灌进来。</summary>
         private BattleEngine(RecipeGraph graph, BattleConfig config,
-            IReadOnlyDictionary<string, int> cardLevels, GameRandom random)
+            IReadOnlyDictionary<string, int> cardLevels, GameRandom random, GameRandom targetRandom)
         {
             _graph = graph;
             _config = config;
             _slotMask = ClampSlotMask(config);
             _cardLevels = cardLevels;
             _random = random;
+            _targetRandom = targetRandom;
             _forge = new ForgeState(new List<string>(), new List<string>());
         }
 
@@ -877,6 +887,7 @@ namespace Brushblade.Core
                 ShieldPersist = _shieldPersist,
                 BurnPerStack = _burnPerStack,
                 RandomState = _random.State,
+                TargetRandomState = _targetRandom.State,
                 Library = new List<string>(_forge.Library),
                 Pool = new List<string>(_forge.Pool),
                 PendingDrop = _pendingDrop,
@@ -898,7 +909,9 @@ namespace Brushblade.Core
         public static BattleEngine Restore(BattleSnapshot snapshot, RecipeGraph graph, BattleConfig config,
             IReadOnlyDictionary<string, int> cardLevels, IReadOnlyDictionary<string, EnemyDef> enemyDefs)
         {
-            var engine = new BattleEngine(graph, config, cardLevels, GameRandom.FromState(snapshot.RandomState))
+            var engine = new BattleEngine(graph, config, cardLevels,
+                GameRandom.FromState(snapshot.RandomState),
+                GameRandom.FromState(snapshot.TargetRandomState))
             {
                 PlayerHp = snapshot.PlayerHp,
                 Ap = snapshot.Ap,

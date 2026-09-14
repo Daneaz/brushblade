@@ -18,6 +18,11 @@ namespace Brushblade.Core
         public int ShieldPersist { get; set; }
         public int BurnPerStack { get; set; }   // 炽可抬高,本场累计
         public uint RandomState { get; set; }
+
+        /// <summary>择敌专用随机流的状态(2026-09-13)。与 <see cref="RandomState"/> 并列而不是合并:
+        /// 择敌的随机量随召唤物只数、敌人只数波动,混进主流会让暴击/命中/掉字的序列跟着漂,
+        /// 上千条带种子的既有测试会一起位移。两条流由同一颗 Seed 派生,可复现性不变。</summary>
+        public uint TargetRandomState { get; set; }
         public List<string> Library { get; set; } = new();
         public List<string> Pool { get; set; } = new();
         public List<EnemySnapshot> Enemies { get; set; } = new();

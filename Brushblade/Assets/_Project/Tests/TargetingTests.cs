@@ -502,5 +502,19 @@ namespace Brushblade.Core.Tests
             foreach (int c in Targeting.ColumnOrder)
                 Assert.That(c >= 0 && c < Targeting.RowCapacity, Is.True, $"列 {c} 越界");
         }
+
+        // ---- 择敌随机流(2026-09-13)----
+
+        [Test]
+        public void TargetRandomStream_SurvivesSnapshotRoundTrip()
+        {
+            // 择敌走独立的一条流,它必须跟 RandomState 一样进存档 —— 不存的话
+            // 挂起再进,择敌序列会从头重来,断点续爬前后分叉。
+            var snapshot = Trio().Capture();
+            Assert.That(snapshot.TargetRandomState, Is.Not.EqualTo(0u),
+                "择敌流的状态要真的存进去");
+            Assert.That(snapshot.TargetRandomState, Is.Not.EqualTo(snapshot.RandomState),
+                "两条流必须是各自独立的状态,不能是同一个对象");
+        }
 }
 }
