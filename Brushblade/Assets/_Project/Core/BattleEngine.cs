@@ -2087,11 +2087,11 @@ namespace Brushblade.Core
             // 表现层却照播一遍攻击动画(2026-08-26 实机反馈)。
             if (!HasStrikeOutput(summon)) return;
             var passive = summon.Passive;
-            // 近战打敌方前排、远程优先打后排(2026-08-20)。全部敌人默认前排时,
-            // 本行与改前的「从 0 扫到第一个存活」逐位等价 —— 既有战斗零行为变化。
+            // 近战打敌方前排、远程优先打后排(2026-08-20);2026-09-13 起同排内均匀随机,
+            // 走 _targetRandom。敌人只剩一只时短路不摇随机数,那一档仍与改前逐位等价。
             var shape = passive?.Shape ?? TargetShape.Single;
             int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
-                shape,
+                _targetRandom, shape,
                 preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
                 preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标

@@ -128,71 +128,76 @@ namespace Brushblade.Core
             return front >= 0 ? front : FirstAliveSlot(summons, frontRow, summons.Count);
         }
 
-        /// <summary>召唤物出手选敌。近战打敌方前排(全清则打全场序最靠前的存活者);
-        /// 远程优先打后排(后排空了才按近战规则来)。无敌可打返回 −1。
+        /// <summary>召唤物出手选敌。近战打敌方前排(全清则打后排);远程优先打后排(后排空了才打前排)。
+        /// 无敌可打返回 −1。
         ///
-        /// 排位不影响召唤物**自己**能不能出手:站后排的近战照常攻击(用户 2026-08-20 拍板)。</summary>
+        /// 排位不影响召唤物**自己**能不能出手:站后排的近战照常攻击(用户 2026-08-20 拍板)。
+        ///
+        /// 裁定次序(2026-09-13 重写):
+        /// <code>
+        /// 排位先筛(远程→后排 / 近战→前排)
+        ///   → 控场偏好(冻结/减速;筛不出来退回本排全体)
+        ///     → 贯穿选列
+        ///       → 剩余候选里均匀随机
+        /// </code>
+        /// ⚠ 改前这三道筛子作用于**全体敌人**、筛完才走排位,也就是筛子压过排位 ——
+        /// 近战召唤物会为了追一只没被冻住的后排怪而越过前排。2026-09-13 用户拍板
+        /// 「排位先筛,同排内随机」,故整体移到排位之后。
+        ///
+        /// 控场偏好的顺序理由不变:冻结/减速都是刷新而非叠加,打已中招的目标等于白费;
+        /// 贯穿选列只关乎「能不能多打一个」,排在后面。
+        ///
+        /// 候选只有一个时不摇随机数(<see cref="PickOne"/>),与 PickAllyTarget 同一条纪律。</summary>
         public static int PickEnemyTargetForSummon(IReadOnlyList<EnemyState> enemies, bool ranged,
+            GameRandom random,
             TargetShape shape = TargetShape.Single,
             bool preferUnfrozen = false, bool preferUnslowed = false)
         {
-            // 三条偏好都是**在原有排位规则之上的筛子**,不是替代:先按偏好缩小候选,
-            // 缩不出来就退回全体,再走原来的「远程先后排 / 近战先前排」。
-            // 顺序是 控场偏好 → 贯穿选列:前者关乎「这一下有没有用」(冻结/减速都是
-            // 刷新而非叠加,打已中招的目标等于白费),后者只关乎「能不能多打一个」。
-            var pool = enemies;
+            var pool = RowCandidates(enemies, ranged);
+            if (pool == null) return -1;
+
             if (preferUnfrozen)
-            {
-                var unfrozen = Subset(pool, i => !pool[i].Statuses.Has(StatusKind.Freeze));
-                if (unfrozen != null) pool = unfrozen;
-            }
+                pool = Prefer(enemies, pool, e => !e.Statuses.Has(StatusKind.Freeze));
             if (preferUnslowed)
-            {
                 // 「已减速」= 速度修正为负,与 DamageCondition.Controlled 的减速那一半同判据。
                 // 不看是谁挂的:别人挂的减速同样让这一下失去意义。
-                var unslowed = Subset(pool, i => pool[i].Statuses.TotalMagnitude(StatusKind.SpeedModifier) >= 0);
-                if (unslowed != null) pool = unslowed;
-            }
+                pool = Prefer(enemies, pool, e => e.Statuses.TotalMagnitude(StatusKind.SpeedModifier) >= 0);
             if (shape == TargetShape.Skewer)
-            {
                 // 贯穿打的是整列。优先挑**前后排都有人**的那一列 —— 挑到空对位的列
                 // 只会中一只,贯穿就白给了。挑不出来(没有任何列是满的)就不挑。
-                var aligned = Subset(pool, i => HasBothRowsInColumn(pool, pool[i].Column));
-                if (aligned != null) pool = aligned;
-            }
-            if (!ReferenceEquals(pool, enemies))
-            {
-                int picked = PickByRow(pool, ranged);
-                // 候选池里的下标是子集自己的下标,要翻回原表
-                if (picked >= 0) return IndexIn(enemies, pool[picked]);
-            }
-            return PickByRow(enemies, ranged);
+                pool = Prefer(enemies, pool, e => HasBothRowsInColumn(enemies, e.Column));
+
+            return PickOne(pool, random);
         }
 
-        /// <summary>按排位挑一个存活目标:远程先后排,近战先前排,都没有就退另一排。</summary>
-        private static int PickByRow(IReadOnlyList<EnemyState> enemies, bool ranged)
+        /// <summary>这一击够得着的那一排的存活者下标:远程先后排、近战先前排,该排空了退另一排。
+        /// 两排都空返回 null。
+        ///
+        /// 跨排 Boss 两排都占,所以它在两种情形下都进得了候选 —— 走 <see cref="EnemyState.Occupies"/>
+        /// 而不是 <c>Row ==</c>,与 <see cref="FirstAliveInRow"/> 同判据。</summary>
+        private static List<int> RowCandidates(IReadOnlyList<EnemyState> enemies, bool ranged)
         {
-            if (ranged)
-            {
-                int back = FirstAliveInRow(enemies, EnemyRow.Back);
-                if (back >= 0) return back;
-            }
-            int front = FirstAliveInRow(enemies, EnemyRow.Front);
-            if (front >= 0) return front;
-            return FirstAliveInRow(enemies, EnemyRow.Back);
+            var first = AliveInRow(enemies, ranged ? EnemyRow.Back : EnemyRow.Front);
+            return first ?? AliveInRow(enemies, ranged ? EnemyRow.Front : EnemyRow.Back);
         }
 
-        /// <summary>满足谓词的存活敌人子集;一个都没有返回 null(调用方据此退回全体)。</summary>
-        private static List<EnemyState> Subset(IReadOnlyList<EnemyState> enemies,
-            System.Func<int, bool> keep)
+        /// <summary>这一排全部存活者的下标;一个都没有返回 null。</summary>
+        private static List<int> AliveInRow(IReadOnlyList<EnemyState> enemies, EnemyRow row)
         {
-            List<EnemyState> subset = null;
+            List<int> slots = null;
             for (int i = 0; i < enemies.Count; i++)
-            {
-                if (!enemies[i].Alive || !keep(i)) continue;
-                (subset ??= new List<EnemyState>()).Add(enemies[i]);
-            }
-            return subset;
+                if (enemies[i].Alive && enemies[i].Occupies(row)) (slots ??= new List<int>()).Add(i);
+            return slots;
+        }
+
+        /// <summary>候选里满足谓词的那些;**一个都没有就原样退回**(偏好是筛子,不是硬性条件)。</summary>
+        private static List<int> Prefer(IReadOnlyList<EnemyState> enemies, List<int> pool,
+            System.Func<EnemyState, bool> keep)
+        {
+            List<int> kept = null;
+            foreach (int i in pool)
+                if (keep(enemies[i])) (kept ??= new List<int>()).Add(i);
+            return kept ?? pool;
         }
 
         /// <summary>该列的前排与后排是否都还有活人 —— 贯穿要打满两只的前提。
@@ -211,14 +216,6 @@ namespace Brushblade.Core
                 if (e.Occupies(EnemyRow.Back)) back = true;
             }
             return front && back;
-        }
-
-        /// <summary>实例在原表里的下标(子集筛选后翻回来用);找不到返回 −1。</summary>
-        private static int IndexIn(IReadOnlyList<EnemyState> enemies, EnemyState target)
-        {
-            for (int i = 0; i < enemies.Count; i++)
-                if (ReferenceEquals(enemies[i], target)) return i;
-            return -1;
         }
 
         /// <summary>把「主目标 + 形状」展开成实际要结算的敌人下标表(2026-08-22,spec §4)。

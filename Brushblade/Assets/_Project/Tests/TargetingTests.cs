@@ -389,6 +389,61 @@ namespace Brushblade.Core.Tests
             return list;
         }
 
+        // ---- 2026-09-13:召唤物同排随机 ----
+
+        [Test]
+        public void SummonMelee_PicksRandomlyAmongFrontRowEnemies()
+        {
+            // 改前恒取 _enemies 下标序最小的存活者,前排三只时后两只永远不挨打。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Front, 2));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(17);
+            for (int i = 0; i < 300; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random));
+            Assert.That(seen.Count, Is.EqualTo(3), "前排三只都摇得到");
+        }
+
+        [Test]
+        public void SummonRanged_PicksRandomlyAmongBackRowEnemies()
+        {
+            var enemies = Grid((EnemyRow.Back, 0), (EnemyRow.Back, 1));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(19);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: true, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "后排两只都摇得到");
+        }
+
+        [Test]
+        public void SummonMelee_StillPrefersFrontRow()
+        {
+            // 排位仍然算数:前排还有人时,近战召唤物一次都不该摸到后排。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 0), (EnemyRow.Back, 1));
+            var random = new GameRandom(23);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random),
+                    Is.EqualTo(0), "前排那只挡着,近战够不着后排");
+        }
+
+        [Test]
+        public void SummonTargeting_SingleCandidate_ConsumesNoRandomness()
+        {
+            // 单候选短路:场上只有一只敌人时一个随机数都不该摇,
+            // 否则每一拍召唤物出手都会推着整条择敌流走,分流的意义打折。
+            var enemies = Grid((EnemyRow.Front, 0));
+            var a = new GameRandom(42);
+            var b = new GameRandom(42);
+            Targeting.PickEnemyTargetForSummon(enemies, ranged: false, a);
+            Assert.That(a.Next(1000), Is.EqualTo(b.Next(1000)), "单候选不消耗随机数");
+        }
+
+        [Test]
+        public void SummonTargeting_NoEnemies_ReturnsMinusOne()
+        {
+            Assert.That(Targeting.PickEnemyTargetForSummon(new List<EnemyState>(),
+                ranged: false, new GameRandom(1)), Is.EqualTo(-1));
+        }
+
         /// <summary>带列宽的阵:span &gt; 1 的怪横跨 [Column, Column + span) 若干列。
         /// Boss 是目前唯一的 span &gt; 1 —— 编成里 Boss 独占一场,所以这些用例是**构造出来**的,
         /// 真机上跑不到。构造它们正是本条测试的意义:等真给 Boss 配了小怪,裁定已经是对的。</summary>
