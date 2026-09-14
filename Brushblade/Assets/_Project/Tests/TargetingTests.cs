@@ -746,6 +746,45 @@ namespace Brushblade.Core.Tests
             Assert.That(seen.Count, Is.EqualTo(2), "不挑元素,两只都摇得到");
         }
 
+        [Test]
+        public void CounterTargeting_HardFilterPrecedesPreferUnfrozen()
+        {
+            // 三档是硬筛(取最高非空档,不退回),preferUnfrozen 是退回式弱筛
+            // (筛不出来就退回原池)——三档必须排在前面。
+            // 前排两只:被木克的土(已冻结)+ 中立的火(未冻结)。
+            // 正确次序:三档先把候选收成「只剩土」,preferUnfrozen 在这唯一候选里
+            // 筛不出未冻的 → 退回 → 仍打土。
+            // 若次序颠倒(preferUnfrozen 先跑):候选先收成「只剩火」,三档在单候选
+            // 里必然通过 → 会打火。这条测试就是钉住「不能颠倒」。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Earth), (EnemyRow.Front, 1, Element.Fire));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff, TurnsLeft = 3,
+            });
+            var random = new GameRandom(53);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnfrozen: true, counterTargeting: Element.Wood), Is.EqualTo(0),
+                    "三档先收成土,preferUnfrozen 在唯一候选里筛不出未冻的就该退回,不该跳去打火");
+        }
+
+        [Test]
+        public void CounterTargeting_HardFilterPrecedesPreferUnslowed()
+        {
+            // 与上面同一形状,盖 preferUnslowed 那条独立代码路径。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Earth), (EnemyRow.Front, 1, Element.Fire));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 5, SourceId = "测试",
+            });
+            var random = new GameRandom(59);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnslowed: true, counterTargeting: Element.Wood), Is.EqualTo(0),
+                    "三档先收成土,preferUnslowed 在唯一候选里筛不出未减速的就该退回,不该跳去打火");
+        }
+
         // ---- 择敌随机流(2026-09-13)----
 
         [Test]
