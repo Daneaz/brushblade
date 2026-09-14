@@ -151,10 +151,16 @@ namespace Brushblade.Core
         public static int PickEnemyTargetForSummon(IReadOnlyList<EnemyState> enemies, bool ranged,
             GameRandom random,
             TargetShape shape = TargetShape.Single,
-            bool preferUnfrozen = false, bool preferUnslowed = false)
+            bool preferUnfrozen = false, bool preferUnslowed = false,
+            Element? counterTargeting = null)
         {
             var pool = RowCandidates(enemies, ranged);
             if (pool == null) return -1;
+
+            // 择伐(木 L4,2026-09-13):排内按生克三档取最高的非空档。
+            // 排在排位**之后**是硬次序 —— 三档是全覆盖的(任何敌人必落入某一档),
+            // 放到控场偏好那一层会永远生效、把排位整个压掉(spec §3.3)。
+            if (counterTargeting.HasValue) pool = TopKeTier(enemies, pool, counterTargeting.Value);
 
             if (preferUnfrozen)
                 pool = Prefer(enemies, pool, e => !e.Statuses.Has(StatusKind.Freeze));
@@ -198,6 +204,35 @@ namespace Brushblade.Core
             foreach (int i in pool)
                 if (keep(enemies[i])) (kept ??= new List<int>()).Add(i);
             return kept ?? pool;
+        }
+
+        /// <summary>候选里生克档位最高的那些(择伐,2026-09-13)。
+        /// 相克 > 中立 > 被克,取最高的非空档 —— 三档全覆盖,所以返回值恒非空。
+        ///
+        /// 走整数档而不是直接比 <see cref="WuxingResolver.KeMultiplier"/> 的 float:
+        /// 浮点相等比较在不同运行时下是雷(见 float 精度那一条教训),而这里要的本来
+        /// 就只是序关系。判据仍然读同一张 Ke 表(Victim / Counter),没有第二份相克环。</summary>
+        private static List<int> TopKeTier(IReadOnlyList<EnemyState> enemies, List<int> pool,
+            Element attacker)
+        {
+            int best = int.MinValue;
+            foreach (int i in pool)
+            {
+                int tier = KeTier(attacker, enemies[i].Element);
+                if (tier > best) best = tier;
+            }
+            var top = new List<int>();
+            foreach (int i in pool)
+                if (KeTier(attacker, enemies[i].Element) == best) top.Add(i);
+            return top;
+        }
+
+        /// <summary>生克档位:2 = 我克它,1 = 互不克(含心),0 = 它克我。</summary>
+        private static int KeTier(Element attacker, Element defender)
+        {
+            if (WuxingResolver.Victim(attacker) == defender) return 2;
+            if (WuxingResolver.Counter(attacker) == defender) return 0;
+            return 1;
         }
 
         /// <summary>该列的前排与后排是否都还有活人 —— 贯穿要打满两只的前提。

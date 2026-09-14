@@ -389,6 +389,19 @@ namespace Brushblade.Core.Tests
             return list;
         }
 
+        /// <summary>同 Grid,但每项还指定元素 —— 择伐的三档裁定要用。</summary>
+        private static List<EnemyState> ElementGrid(
+            params (EnemyRow Row, int Column, Element Element)[] slots)
+        {
+            var list = new List<EnemyState>();
+            foreach (var (row, column, element) in slots)
+            {
+                var def = new EnemyDef($"怪{list.Count}", element, 100, 10, row: row);
+                list.Add(new EnemyState(def, 0, null) { Row = row, Column = column });
+            }
+            return list;
+        }
+
         // ---- 2026-09-13:召唤物同排随机 ----
 
         [Test]
@@ -652,6 +665,85 @@ namespace Brushblade.Core.Tests
             Assert.That(seen.Count, Is.EqualTo(Targeting.RowCapacity), "不许重号");
             foreach (int c in Targeting.ColumnOrder)
                 Assert.That(c >= 0 && c < Targeting.RowCapacity, Is.True, $"列 {c} 越界");
+        }
+
+        // ---- 2026-09-13:择伐(木 L4)三档择敌 ----
+
+        [Test]
+        public void CounterTargeting_PrefersTheElementItCounters()
+        {
+            // 木系召唤物:克土,被金克,对火/水/心中立。三档 = 土 > 火 > 金。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Fire), (EnemyRow.Front, 2, Element.Earth));
+            var random = new GameRandom(29);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood), Is.EqualTo(2), "只打被它克的土");
+        }
+
+        [Test]
+        public void CounterTargeting_FallsToNeutralWhenNoVictimAlive()
+        {
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Fire));
+            var random = new GameRandom(31);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood), Is.EqualTo(1), "没有土就打中立的火,不打克它的金");
+        }
+
+        [Test]
+        public void CounterTargeting_StillAttacksWhenOnlyCounteredRemain()
+        {
+            // 三档全空不是「不出手」:只剩克它的敌人时照打。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Metal));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(37);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood));
+            Assert.That(seen.Count, Is.EqualTo(2), "同档两只之间仍然随机");
+        }
+
+        [Test]
+        public void CounterTargeting_DoesNotOutrankRowPosition()
+        {
+            // spec §3.3:排位压过三档。相克的土在后排,近战召唤物仍打前排的金。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Back, 0, Element.Earth));
+            var random = new GameRandom(41);
+            for (int i = 0; i < 100; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Wood), Is.EqualTo(0),
+                    "不为了追相克敌人越过前排");
+        }
+
+        [Test]
+        public void CounterTargeting_HeartSummonHasNoPreference()
+        {
+            // 心不在生克环内 —— 全部敌人同档,退化成均匀随机。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Earth), (EnemyRow.Front, 2, Element.Water));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(43);
+            for (int i = 0; i < 300; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    counterTargeting: Element.Heart));
+            Assert.That(seen.Count, Is.EqualTo(3), "三只都摇得到");
+        }
+
+        [Test]
+        public void CounterTargeting_Off_IsUnchanged()
+        {
+            // 未点择伐(counterTargeting 缺省 null)时,分布与 Task 3 完全一致。
+            var enemies = ElementGrid((EnemyRow.Front, 0, Element.Metal),
+                (EnemyRow.Front, 1, Element.Earth));
+            var seen = new HashSet<int>();
+            var random = new GameRandom(47);
+            for (int i = 0; i < 200; i++)
+                seen.Add(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random));
+            Assert.That(seen.Count, Is.EqualTo(2), "不挑元素,两只都摇得到");
         }
 
         // ---- 择敌随机流(2026-09-13)----
