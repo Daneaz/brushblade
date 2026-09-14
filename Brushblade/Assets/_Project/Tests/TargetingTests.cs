@@ -444,6 +444,42 @@ namespace Brushblade.Core.Tests
                 ranged: false, new GameRandom(1)), Is.EqualTo(-1));
         }
 
+        [Test]
+        public void SummonMelee_PreferUnfrozen_RowStillOverridesPreference()
+        {
+            // 排位压过筛子(2026-09-13 拍板的核心口径):前排唯一那只已冻结,后排有一只
+            // 没冻结。筛子只在「排位选定的那一排」内生效——前排在自己这一排里筛不出
+            // 未冻结的,退回前排全体,仍然打前排那只被冻的,绝不会为了躲开冻结目标
+            // 越排去打后排。若实现退化成「筛子压过排位」(改前的次序),这条会红:
+            // 它会跑去打后排那只没冻的。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 0));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff, TurnsLeft = 3,
+            });
+            var random = new GameRandom(29);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnfrozen: true), Is.EqualTo(0), "前排那只挡着,即使已冻结也不该越排去打后排没冻的");
+        }
+
+        [Test]
+        public void SummonMelee_PreferUnslowed_RowStillOverridesPreference()
+        {
+            // 与上面 PreferUnfrozen 同一形状,盖 preferUnslowed 那条独立代码路径:
+            // 前排唯一那只已减速,后排有一只没减速,排位仍然压过筛子,该打前排那只。
+            var enemies = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 0));
+            enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
+                Magnitude = -50, TurnsLeft = 5, SourceId = "测试",
+            });
+            var random = new GameRandom(31);
+            for (int i = 0; i < 50; i++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(enemies, ranged: false, random,
+                    preferUnslowed: true), Is.EqualTo(0), "前排那只挡着,即使已减速也不该越排去打后排没减速的");
+        }
+
         /// <summary>带列宽的阵:span &gt; 1 的怪横跨 [Column, Column + span) 若干列。
         /// Boss 是目前唯一的 span &gt; 1 —— 编成里 Boss 独占一场,所以这些用例是**构造出来**的,
         /// 真机上跑不到。构造它们正是本条测试的意义:等真给 Boss 配了小怪,裁定已经是对的。</summary>
