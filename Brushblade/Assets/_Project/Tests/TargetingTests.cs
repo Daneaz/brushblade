@@ -167,12 +167,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void BlockedByFrontRow_ConsumesNoRandomness()
         {
-            // 前排有人 → FirstAliveSlot 命中后提前返回,根本走不到候选池构造那一步。
+            // 前排有人 → AliveSlots(summons, 0, frontRow) 命中,候选段收窄成前排单元素
+            // {0},PickOne 单候选不摇随机数。
             // 用 Line() 全空阵去测「不摇随机数」是重言式:候选池此时必然退化成
             // {PlayerTarget} 一个元素,pool.Count == 1 恒真,测不出短路是否被删掉。
-            // 这里前排槽 0 有人、后排槽 4/5 各有人——候选池若真被构造出来会有
-            // {4, 5, PlayerTarget} 三个候选,Next(3) 会真的推进 _state。
-            // 谁把「先判前排提前返回」重构成「先建池再判前排」,这条就会红。
+            // 这里前排槽 0 有人、后排槽 4/5 各有人——候选段若不按排位收窄、直接建整场
+            // 候选池会有 {0, 4, 5, PlayerTarget} 四个候选,Next(4) 会真的推进 _state。
+            // 谁把「先按排位收窄候选段」删掉、变成不分排位直接建整场候选池,这条就会红。
             var a = new GameRandom(42);
             var b = new GameRandom(42);
             Targeting.PickAllyTarget(AttackRange.Melee, AttackFocus.Default, Line(0, 4, 5), FrontRow, a);

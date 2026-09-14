@@ -383,7 +383,9 @@ namespace Brushblade.Core
         private readonly GameRandom _random;
 
         /// <summary>择敌专用随机流(2026-09-13)。见 <see cref="BattleSnapshot.TargetRandomState"/>。
-        /// 唯一消费方是 <see cref="Targeting"/> 的三个择敌函数,别拿它摇别的。</summary>
+        /// 唯一消费方是 <see cref="Targeting.PickAllyTarget"/> 与 <see cref="Targeting.PickEnemyTargetForSummon"/>
+        /// 这两个择敌函数,别拿它摇别的 —— 效果类的随机挑人(<see cref="PickRandomLivingEnemy"/>)
+        /// 不属于择敌,仍走 <see cref="_random"/>。</summary>
         private readonly GameRandom _targetRandom;
 
         /// <summary>择敌流的种子偏移。与主种子异或即可 —— GameRandom 构造时会再 Scramble 一道,
@@ -2095,6 +2097,10 @@ namespace Brushblade.Core
                 preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0,
                 // 择伐(木 L4):判据是**这只召唤物自己**的元素,不是召它的那张字 ——
                 // 它问的是「谁打谁划算」,而生克乘区算的就是召唤物 vs 敌人。
+                // ⚠ 今天引擎唯一的构造点 `new SummonState(…, attacker, …)` 让 summon.Element
+                // 与「召它的那张字」的元素恒等,没有任何测试能分辨这两个口径 —— 这行写成
+                // summon.Element 是为将来两者分叉时钉住正确口径,不要因为「反正现在一样」
+                // 就改写成 attacker 的元素。
                 counterTargeting: (_config?.CounterTargeting ?? false) ? summon.Element : null);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
             if (target < 0 && shape != TargetShape.Volley) return;

@@ -71,6 +71,14 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
      只改了其中一条,是这一层最常见的静默 bug:`_pendingAttackMode` 曾被拖放路径漏设、
      `_allyTargeting` 从「纯友方字专用」扩成「双向态也用」后 `onDrop` 那条旧分支没跟上,
      两次都是**方向判反且 AP 照扣**。改完 `grep` 一遍那个字段的每一处读写,别只改手上这条路径。
+- ⚠️ **改 Core 的公开签名或删除 Core 的公开成员时,`tools/coretests`/`tools/prescompile` 之外
+  还有三个工程 `Compile Include` Core 的源码**——`tools/balance`、`tools/chestsim`、`tools/trace`,
+  CLAUDE.md 现有的验证命令清单扫不到它们,得逐个 build:
+  ```bash
+  cd tools/balance   && dotnet build --nologo -v q
+  cd tools/chestsim  && dotnet build --nologo -v q
+  cd tools/trace     && dotnet build --nologo -v q
+  ```
 - ⚠️ **在 git worktree 里跑 prescompile 要覆盖程序集路径**——`Brushblade/Library/` 不入 git,
   新 worktree 里不存在,得借主检出的(否则 CS0006 找不到 UI/TMP):
   ```bash
