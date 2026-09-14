@@ -306,7 +306,9 @@ namespace Brushblade.Core
                 HeftCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.HeftCap, Element.Earth),
                 WellspringCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.WellspringCap, Element.Water),
                 BurnPerStack = 20 + PerkRules.ElementBonus(meta, PerkEffect.BurnPerStack, Element.Fire),
-                WoodSummonSpeedBonus = PerkRules.ElementBonus(meta, PerkEffect.SummonSpeed, Element.Wood),
+                // 木脉 L4「择伐」:节点在木枝上、按木系读,但读出的值当**全局开关**用
+                // (作用域是全量召唤物,用户 2026-09-13 拍板)。
+                CounterTargeting = PerkRules.ElementBonus(meta, PerkEffect.CounterTargeting, Element.Wood) > 0,
                 // 五行 L2 的五条专属机制(spec 2026-09-13 §3.3)。缺省 0 = 关 —— 一条没点时逐字节恒等。
                 // ⚠ 第三个参数传错系不会编译错、也不会有测试自然变红,守卫在
                 // PerkInjectionTests 的 *TierTwo_Sets*Only 那五条串系隔离断言。

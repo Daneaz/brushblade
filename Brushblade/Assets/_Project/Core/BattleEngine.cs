@@ -198,16 +198,15 @@ namespace Brushblade.Core
         /// 局内的「炽」(BurnPotency)照旧在其上累加。</summary>
         public int BurnPerStack { get; set; } = BaseBurnPerStack;
 
-        /// <summary>木脉 L4:由**木系字**召出的召唤物速度 +N 点(spec §3.4.1)。缺省 0 = 恒等。
+        /// <summary>木脉 L4「择伐」:场上**全部**召唤物出手时按生克三档择敌
+        /// (相克 > 中立 > 被克)。缺省 false = 关,行为与改前一致。
         ///
-        /// 用加算而非乘算:乘算会让本就快的桤(Speed 150)滚到 210、慢的拉不开;
-        /// 加算对缺省 100 的是 +40%、对桤是 +27%,压住滚雪球,与 TurnScheduler.MaxSpeed
-        /// 的距离也可控。
+        /// 作用域是全量召唤物而不是只木系 —— 用户 2026-09-13 拍板。节点仍挂在木枝上、
+        /// 仍走 ElementBonus(…, Element.Wood) 读取,但读出的值当**全局开关**用。
         ///
-        /// 敢给 40% 的依据:MetaRules.SpeedFor 把玩家速度斜率压到最小(满级 +25%),是因为
-        /// 「速度是唯一同时翻倍输出与资源产出的属性 —— 一次行动 = 3 AP + 1 掉字」。
-        /// **召唤物出手两样都不产**,那条顾虑整个不成立。</summary>
-        public int WoodSummonSpeedBonus { get; set; }
+        /// ⚠ 排在排位**之后**生效(Targeting.PickEnemyTargetForSummon):三档是全覆盖的,
+        /// 放到控场偏好那一层会把排位整个压掉。</summary>
+        public bool CounterTargeting { get; set; }
 
         // ---- 五行 L2:五条各系专属机制(spec 2026-09-13)----
         // 五个全部**缺省 0 = 关**。这是恒等性硬线:一条都没点时引擎行为与改前逐字节相同。
@@ -2093,7 +2092,10 @@ namespace Brushblade.Core
             int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
                 _targetRandom, shape,
                 preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
-                preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0);
+                preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0,
+                // 择伐(木 L4):判据是**这只召唤物自己**的元素,不是召它的那张字 ——
+                // 它问的是「谁打谁划算」,而生克乘区算的就是召唤物 vs 敌人。
+                counterTargeting: (_config?.CounterTargeting ?? false) ? summon.Element : null);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
             if (target < 0 && shape != TargetShape.Volley) return;
 
@@ -2867,13 +2869,7 @@ namespace Brushblade.Core
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
                                 ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 ScalePassiveByCardLevel(effect.Passive, cardLevel),
-                                sourceChar: def.Id, // 召它的那张牌(2026-09-05,战斗格头行显示这个)
-                                // 木脉 L4(spec §3.4.1):判据是**打出的那张字**的元素(attacker,
-                                // 即 def.Element ?? Heart),不是召唤物自己的 Element —— 与五行
-                                // L3 的乘区(ElementPercentOf(attacker))同一判据,两处口径不分叉。
-                                // 与 SummonState.Attack 同为快照语义:召唤那一刻算完写进去,
-                                // 运行期不再查表,之后再点技能已在场的这只不变。
-                                speedBonus: attacker == Element.Wood ? _config?.WoodSummonSpeedBonus ?? 0 : 0);
+                                sourceChar: def.Id); // 召它的那张牌(2026-09-05,战斗格头行显示这个)
                             newborn.ActionMeter = TurnScheduler.Threshold;
 
                             // 入场自带护甲(2026-09-08,塔):挂进这只召唤物自己的状态袋,
