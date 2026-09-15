@@ -3634,7 +3634,7 @@ namespace Brushblade.Presentation
         private void DrawDropChoiceStep()
         {
             string incoming = Battle.PendingDrop;
-            DrawReplaceSheet(
+            var content = DrawReplaceSheet(
                 Strings.T("battle.drop.replace_title", ("charId", incoming)), incoming, Battle.Library,
                 replaceIndex =>
                 {
@@ -3654,6 +3654,9 @@ namespace Brushblade.Presentation
                     Refresh();
                 },
                 Strings.T("battle.btn.drop_skip"));
+            // 满库时的广告扩容口(2026-09-15 用户报:回合掉字这一侧一直漏着)。理由与战利品
+            // 那侧一字不差 —— 字库行背后的 +2 徽章被弹窗遮罩盖死,不画在弹窗里就够不着。
+            DrawAdExpandBadge(content);
         }
 
         /// <summary>还有 AP 时先确认,避免误触把这回合的 AP 作废(2026-07-21)。
@@ -3997,7 +4000,7 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
             }
 
-            DrawRewardAdBadge(footRow);
+            DrawAdExpandBadge(footRow);
             var spacer = Ui.Panel(footRow, "Spacer");
             Ui.Sized(spacer, flexWidth: 1f);
             Ui.RoundButton(footRow, Strings.T("battle.btn.reward_skip"), () =>
@@ -4035,16 +4038,20 @@ namespace Brushblade.Presentation
                 },
                 () => { _pendingRewardIndex = -1; if (_sheet != null) Object.Destroy(_sheet); Refresh(); },
                 Strings.T("battle.btn.replace_cancel"));
-            DrawRewardAdBadge(content);
+            DrawAdExpandBadge(content);
         }
 
-        /// <summary>战利品弹窗内的广告扩容入口(2026-08-18)。
+        /// <summary>满库换字弹窗内的广告扩容入口(2026-08-18 战利品;2026-09-15 补上回合掉字)。
         /// **必须画在弹窗内容里**:Ui.Sheet 铺的是全屏 Image 遮罩(还挂着吞点击的 Button,
         /// 2026-09-02 review 修 M6:选字页早已从 Ui.ModalShell 换成 Ui.Sheet,注释类名没跟着改),
         /// DrawLibrary 画在弹窗背后的那枚 +2 徽章被整个盖住,满库时玩家根本够不着 ——
         /// 「不想丢字就看广告」这条路在最需要它的时刻是断的,只能被迫替换或弃字。
-        /// 扩容后 DrawReward() 的容量复核会把替换子步退回选字步,直接收下。</summary>
-        private void DrawRewardAdBadge(Transform content)
+        ///
+        /// 扩容之后两条入口的善后不同,所以这里显式销毁 _sheet 而不是指望重绘顶掉它:
+        /// 战利品侧 DrawReward() 的容量复核会把替换子步退回选字步、重新建一张同名浮层;
+        /// 回合掉字侧 Core 的 RaiseLibraryCapacity 会当场收下挂起的那张并回到 PlayerTurn,
+        /// 于是**没有任何 Draw* 会再建浮层**,不销毁的话换字弹窗会留在屏幕上挡住操作区。</summary>
+        private void DrawAdExpandBadge(Transform content)
         {
             if (_run.LibraryExpanded) return;
             Ui.AdBadge(content, Strings.T("battle.btn.ad_expand_library"), () =>
@@ -4052,6 +4059,7 @@ namespace Brushblade.Presentation
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
                 _message = Strings.T("battle.label.library_cap_up");
+                if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                 Refresh();
             }, new Vector2(280, 63));   // 高 63 = 稿 .adbadge 30pt;宽 280 是估的,稿只给了
                                         // padding:0 12px 自适应宽,没有定宽(同 M1)

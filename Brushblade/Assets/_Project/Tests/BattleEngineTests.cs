@@ -2255,6 +2255,23 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void DropChoice_RaiseCapacity_TakesPendingDropAndResumes()
+        {
+            // 满库挂起是在**旧上限**下判的。看广告扩容(RunEngine.TryExpandLibrary → 本方法)
+            // 抬高上限后若已放得下就直接收下 —— 否则玩家看着 3/5 仍被要求「换掉哪一张」,
+            // 广告白看。掉字弹窗里那枚广告徽章(2026-09-15 补)整条路都靠这一步兑现。
+            var engine = DropEngine(libraryCount: 3, deck: "林");
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.DropChoice));
+
+            engine.RaiseLibraryCapacity(2);
+
+            Assert.That(engine.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(engine.PendingDrop, Is.Null);
+            Assert.That(engine.Library.Contains("林"), Is.True, "扩容后挂起的那张直接入库");
+            Assert.That(engine.Library.Count, Is.EqualTo(4));
+        }
+
+        [Test]
         public void DropChoice_BlocksCastAndEndTurn() // 阶段机强制决议:操作入口自动拒绝
         {
             var engine = DropEngine(libraryCount: 3, deck: "林");
