@@ -693,6 +693,28 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Opening_RecordsEnemyHpBeforeOpening()
+        {
+            // 开场推进在构造函数里就跑完了,表现层拿到引擎时敌人血量已经是**开场后**的值。
+            // 回放那几拍时血条的起点必须是开场**前**的血,否则 OnImpact 会把它从终值再往下
+            // 推一段 —— 携带满格召唤物开局时就是「怪还活着、血条却空了」(用户 2026-09-15 报)。
+            // Core 不记这一笔,表现层无从复原。
+            var carried = new[]
+            {
+                new SummonSnapshot { Slot = 0, Char = "木", Element = Element.Wood,
+                    Hp = 10, MaxHp = 10, Attack = 30, Speed = 100,
+                    ActionMeter = TurnScheduler.Threshold },
+            };
+            var engine = new BattleEngine(Graph(), new BattleConfig { PlayerMaxHp = 999 },
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { Dummy() }, seed: 1, startingSummons: carried);
+
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(999), "满格召唤物开场先打了一记");
+            Assert.That(engine.OpeningPreEnemyHp.Count, Is.EqualTo(engine.Enemies.Count));
+            Assert.That(engine.OpeningPreEnemyHp[0], Is.EqualTo(999), "开场前是满血");
+        }
+
+        [Test]
         public void Opening_SnapshotRestore_HasNoOpeningSteps()
         {
             // 口径 8:断点续爬恢复的是战斗中途,没有「开场」可回放 —— 表现层据此跳过回放

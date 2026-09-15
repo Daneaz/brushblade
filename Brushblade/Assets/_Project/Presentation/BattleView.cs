@@ -5244,10 +5244,12 @@ namespace Brushblade.Presentation
         /// 行动者的条单独按到 Threshold 再播,不依赖这里的 pre 值(2026-08-18 修 I3)。
         /// 之后每拍的 pre 是上一拍的 post,这段是精确的——Core 逐拍记的就是真实计量器。
         ///
-        /// ⚠ 血条只能画在开场**结束后**的值上:Core 没记开场前的血量,表现层无从复原。
-        /// 于是开场里挨了打却没死的怪,其血条会被 OnImpact 从终值再往下推一段(PushEnemyHp
-        /// 刻意不钳终值),由收尾的 Refresh 兜回去。玩家/召唤物侧的 OnImpact 钳的是终值下限,
-        /// 不会偏。开场通常只有一拍(玩家自己),这条只在携带满格召唤物时才看得见。
+        /// ⚠ 敌人血条的起点走 <see cref="BattleEngine.OpeningPreEnemyHp"/>,不是 SnapshotPreHp
+        /// 取到的终值(2026-09-15 修):构造函数已经把开场跑完,Enemies[i].Hp 是开场**后**的值,
+        /// 拿它当起点会被 OnImpact 从终值再往下推一段(PushEnemyHp 刻意不钳终值)——
+        /// 携带满格召唤物开局就演成「怪还活着、血条已空」,直到收尾的 Refresh 才兜回去。
+        /// 玩家/召唤物侧的 OnImpact 钳的是终值下限、不会画错,仍画在终值上(开场里挨的那记
+        /// 不重演),故不跟着改。
         ///
         /// ⚠ 当前配速下(全部字怪 Speed = 100)本方法还有两条限制没处理,一旦给敌人配速就要
         /// 一起补(详见 Core.EnemyDef.Speed 的文档):没接 AppendBossSkillMessage(Boss 蓄力
@@ -5275,6 +5277,12 @@ namespace Brushblade.Presentation
             // SnapshotPreHp 也必须在这次重绘之前:Animating 期间血条画的是 _anim*Hp,
             // 首战它是默认 0(玩家血条整段回放画成 0/50),第二场起是上一场的陈旧值。
             SnapshotPreHp();
+            // 敌人血条改画开场**前**的血(见上面那条 ⚠):SnapshotPreHp 取的是终值,
+            // 回放会把它再往下推一段。开场中途分裂出来的新怪不在 OpeningPreEnemyHp 里
+            // (它开场前不存在),那几个下标保持终值 —— EnemySplit 事件回放时会按到正确值。
+            var openingPreHp = Battle.OpeningPreEnemyHp;
+            for (int i = 0; i < _animEnemyHp.Count && i < openingPreHp.Count; i++)
+                _animEnemyHp[i] = openingPreHp[i];
             Refresh();
             // Draw* 建条时读的是开场**结束后**的计量器,按回全 0 只是近似起点——携带满格
             // 召唤物时不准(它当前值就是 Threshold),但该拍会在下面播放前单独按满,见下。

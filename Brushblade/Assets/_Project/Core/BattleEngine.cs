@@ -853,6 +853,7 @@ namespace Brushblade.Core
             //
             // ⚠ 这个循环可能让战斗在构造函数返回前就分出胜负(携带满格召唤物秒掉弱敌),
             // Phase 会是 Won —— 表现层必须兜住(spec §5.7)。
+            foreach (var enemy in _enemies) _openingPreEnemyHp.Add(enemy.Hp);
             bool more;
             do
             {
@@ -1624,6 +1625,16 @@ namespace Brushblade.Core
         /// (2026-08-18 订正:「敌人更快」不是准确条件,见 BuildSlots 的优先级注释)。
         /// **不进快照** —— 断点续爬恢复的是战斗中途,没有「开场」可回放。</summary>
         public IReadOnlyList<OpeningStep> OpeningSteps => _openingSteps;
+
+        private readonly List<int> _openingPreEnemyHp = new();
+
+        /// <summary>开场推进**之前**各怪的血量,与 <see cref="Enemies"/> 同序(2026-09-15)。
+        /// 回放开场时血条只能从这里起步:构造函数已经把开场跑完了,<c>Enemies[i].Hp</c> 是开场
+        /// **后**的值,拿它当起点会让 OnImpact 把血条从终值再往下推一段 —— 携带满格召唤物
+        /// 开局时就演成「怪还活着、血条已空」。开场中途分裂出来的新怪不在本表内(它开场前
+        /// 不存在),表现层按下标取、越界回落到当前血即可。
+        /// **不进快照** —— 断点续爬恢复的是战斗中途,没有「开场」可回放。</summary>
+        public IReadOnlyList<int> OpeningPreEnemyHp => _openingPreEnemyHp;
 
         /// <summary>把当前这一拍的状态拷成回放数据。必须逐个拷值 ——
         /// `_events` 下一拍开头就被 Clear,存引用会拿到空列表。</summary>
