@@ -308,23 +308,29 @@ namespace Brushblade.Core.Tests
         /// 那一项删掉,1607 条既有测试照样全绿。
         ///
         /// 走 <see cref="EffectKind.Shield"/> **攒厚**而不是直接给 <c>PlayerAttackPercent</c>
-        /// 赋值(那正是 <c>SummonAttack_ReadsMoraleAndHeft</c> 绕开注入链的手法):阈值是
-        /// <c>MaxHp/5</c>,夹具 <see cref="RebalanceFixture.BaseMaxHp"/> 是 500 → 阈值 100,
-        /// 盾 200 正好攒出 2 层厚(每层 +5% = +10%)。</summary>
+        /// 赋值(那正是 <c>SummonAttack_ReadsMoraleAndHeft</c> 绕开注入链的手法):阈值
+        /// 曾是 <c>MaxHp/5</c>(夹具 <see cref="RebalanceFixture.BaseMaxHp"/> 是 500 → 阈值 100),
+        /// 盾 200 当时正好攒出 2 层厚(每层 +5% = +10%)。
+        ///
+        /// **2026-09-16(土水系机制重做任务 4,阈值 100 → 固定 200)**:阈值不再挂在 MaxHp 上
+        /// (见 <see cref="BattleEngine.ResourceThresholdValue"/> 的 xml 注释),盾 200 已经
+        /// 不再够 2 层(200/200=1 层)。这张字是本文件自造的测试字、不是字表真实数值,
+        /// 把盾量按阈值同幅度翻倍到 400,继续攒出 2 层(200 → 400 是 Task 11 之前的临时
+        /// 测试夹具,不代表真实字表数值也翻倍)。</summary>
         [Test]
         public void SummonAttack_ReadsHeftFromRealShieldCast()
         {
             var graph = RebalanceFixture.Graph(
                 RebalanceFixture.Char("召甲", new EffectDef(EffectKind.Summon, 100,
                     summonAttack: 100, summonChar: "甲")),
-                RebalanceFixture.Char("盾", new EffectDef(EffectKind.Shield, 200)));
+                RebalanceFixture.Char("盾", new EffectDef(EffectKind.Shield, 400)));
             var battle = RebalanceFixture.Battle(graph, new[] { "召甲", "盾" }, RebalanceFixture.Mob());
 
             battle.Cast("召甲");
             Assert.That(battle.Summons[0].EffectiveAttack, Is.EqualTo(100),
                 "入场时无厚,恒等 —— 恒等性硬线在集成层面的对应断言");
 
-            battle.Cast("盾");   // 攒厚:阈值 500/5=100,盾 200 攒满 2 层
+            battle.Cast("盾");   // 攒厚:阈值固定 200,盾 400 攒满 2 层
             Assert.That(battle.HeftStacks, Is.EqualTo(2), "夹具前提:必须真的攒出 2 层厚");
 
             battle.EndTurn();   // 推进到召唤物出手(ActSummonTurn)
