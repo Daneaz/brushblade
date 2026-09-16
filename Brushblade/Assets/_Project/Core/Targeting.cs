@@ -307,6 +307,36 @@ namespace Brushblade.Core
             return result;
         }
 
+        /// <summary>治疗弹射的落点(2026-09-16,水,海/澡对偶)。返回**HP 不满的**我方召唤物槽位,
+        /// 按槽位升序,至多 <paramref name="bounces"/> 个;召唤物不足 <paramref name="bounces"/>
+        /// 个就少弹几下,不递补、不报错。<paramref name="mainTargetSlot"/> 排除在外——
+        /// 主目标已经在这一击里满额治过,弹射要弹给**别的**目标,而不是把刚治过的那个再收回来
+        /// (与 ChainTargets 排除 primaryIndex 同一条理由);主目标是玩家(<see cref="PlayerTarget"/>)
+        /// 时这个排除天然不命中任何召唤物槽位。
+        ///
+        /// 「HP 不满」这条谓词是必要的:弹到满血的召唤物等于空转,而弹射的跳数是有限资源。
+        /// 与 <see cref="EffectKind.HealAll"/>(群疗,人人有份且不打折)是两条路 ——
+        /// 那边覆盖全,这边溢出少。
+        ///
+        /// ⚠ **不摇随机数**,按槽位升序取——弹射伤害(ChainTargets)按几何距离排序是因为它有
+        /// 主目标、「离得近先跳」是设计意图;治疗弹射没有几何主目标,槽位序本身就是唯一确定序。
+        /// 计划草稿给这个方法留了 <c>GameRandom random</c> 参数,但摇随机数会平移既有种子序列
+        /// (解封那条立的纪律),与「落点必须确定」这条硬约束直接冲突——本实现按硬约束为准,
+        /// 不接受 random 参数。</summary>
+        public static IReadOnlyList<int> PickChainHealTargets(
+            IReadOnlyList<SummonState> summons, int bounces, int mainTargetSlot)
+        {
+            var result = new List<int>();
+            if (bounces <= 0) return result;
+            for (int s = 0; s < summons.Count && result.Count < bounces; s++)
+            {
+                if (s == mainTargetSlot) continue;
+                var summon = summons[s];
+                if (summon != null && summon.Alive && summon.Hp < summon.MaxHp) result.Add(s);
+            }
+            return result;
+        }
+
         /// <summary>把一只被形状覆盖的敌人记进结果表 —— **跨排 Boss 记两次**
         /// (用户 2026-09-05 拍板「贯穿打满两只,横扫、溅射这些 boss 都打两次」)。
         ///

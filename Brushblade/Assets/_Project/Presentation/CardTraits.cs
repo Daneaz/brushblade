@@ -402,10 +402,13 @@ namespace Brushblade.Presentation
 
                 // 伤害上的修饰(穿透 / 偷袭 / 分段 / 斩杀 / 条件翻倍):挂在这一击上,不是独立效果
                 if (e.Kind == EffectKind.DamageSingle || e.Kind == EffectKind.DamageAll)
-                {
                     DamageModifiers(traits, e);
+                // 形状特性(2026-09-16 起 HealSelf 也认):治疗弹射(海/澡)配 Chain 的那一支,
+                // AddShapeTrait 内部对 Single 早退,既有 HealSelf 字(Shape 恒 Single)因此
+                // 不受影响。
+                if (e.Kind == EffectKind.DamageSingle || e.Kind == EffectKind.DamageAll
+                    || e.Kind == EffectKind.HealSelf)
                     AddShapeTrait(traits, e.Shape, e.ShapePercent, e.Shots);
-                }
                 if (e.SummonShield > 0)
                     AddTrait(traits, "shield", e.SummonShield.ToString(),
                             Strings.T("collection.trait.summon_shield.name"),

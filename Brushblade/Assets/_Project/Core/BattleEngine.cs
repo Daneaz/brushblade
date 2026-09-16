@@ -2988,6 +2988,25 @@ namespace Brushblade.Core
                         int amplified = AmplifyByWellspring(healBase);  // 用**攒之前**的层数
                         GainWellspring(healBase);   // 攒的是基数(名义值),不是放大值:满血溢出照样攒(2026-09-02)
                         HealAlly(allySlot, amplified);
+
+                        // 治疗弹射(2026-09-16,水,海/澡对偶攻面「弹射」的那一条):主目标满额
+                        // 之后,再弹至多 Shots-1 个 HP 不满的我方召唤物,各按 ShapePercent 打一次折 ——
+                        // 不像伤害弹射(ChainPercent)那样逐跳累乘衰减,治疗本就靠满血溢出兜底,
+                        // 不需要再用衰减去限制价值。落点交给 Targeting.PickChainHealTargets
+                        // (按槽位升序、不摇随机数,同种子同结果)。
+                        if (effect.Shape == TargetShape.Chain && effect.Shots > 1)
+                        {
+                            var bounceSlots = Targeting.PickChainHealTargets(
+                                _summons, effect.Shots - 1, allySlot);
+                            int bounceBase = healBase * effect.ShapePercent / 100;
+                            int bounceAmplified = amplified * effect.ShapePercent / 100;
+                            foreach (int bounceSlot in bounceSlots)
+                            {
+                                // 每一跳都攒泉(名义值),与主目标同口径。
+                                GainWellspring(bounceBase);
+                                HealAlly(bounceSlot, bounceAmplified);
+                            }
+                        }
                         break;
                     }
                     case EffectKind.HealAll:

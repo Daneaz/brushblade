@@ -171,7 +171,9 @@ namespace Brushblade.Core
 
         /// <summary>目标形状(2026-08-22,spec §3)。缺省 <see cref="TargetShape.Single"/> ——
         /// 缺省值即恒等性:现有 87 张伤害字不写这个字段,展开后目标表长度恒为 1,
-        /// 结算路径与改造前逐位相同。只对 <see cref="EffectKind.DamageSingle"/> 有意义。</summary>
+        /// 结算路径与改造前逐位相同。对 <see cref="EffectKind.DamageSingle"/> 有意义;
+        /// 2026-09-16 起 <see cref="EffectKind.HealSelf"/> 配 <see cref="TargetShape.Chain"/>
+        /// 也有意义(治疗弹射,见 BattleEngine 的 HealSelf 分支)。</summary>
         public TargetShape Shape { get; }
 
         /// <summary>非主目标的伤害百分比(2026-08-22)。主目标恒 100%。

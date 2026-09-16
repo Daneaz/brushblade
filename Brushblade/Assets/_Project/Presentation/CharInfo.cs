@@ -96,7 +96,12 @@ namespace Brushblade.Presentation
                     EffectKind.ShieldAll => Strings.T("char.effect.shieldall", ("value", shown))
                         + (e.PersistOnce ? Strings.T("char.effect.shield.persistonce") : ""),
                     EffectKind.BurnPotency => Strings.T("char.effect.burnpotency", ("value", shown)),
-                    EffectKind.HealSelf => Strings.T("char.effect.healself", ("value", shown)),
+                    // 治疗弹射(2026-09-16,水,海/澡):Shape 只在配 Chain 时才有意义,
+                    // 缺省 Single 时这两截都要吐空串——不然全体既有治疗字都会平白多出「单体」
+                    // 前缀(与 DamageSingle 那份「单体也印」的既有口径不同,这里不能照抄)。
+                    EffectKind.HealSelf => (e.Shape == TargetShape.Single ? "" : ShapeLabel(e))
+                        + Strings.T("char.effect.healself", ("value", shown))
+                        + ShapeSuffix(e),
                     // 召唤物字形归位后(2026-08-15)绝大多数字召的就是自己,写成「梅:召1×「梅」」
                     // 纯属绕口;只有召别的字时才点名。数据侧的默认值仍是「木」,不同名照旧显示
                     EffectKind.Summon => (e.SummonChar == def.Id

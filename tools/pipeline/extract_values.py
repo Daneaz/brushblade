@@ -359,11 +359,14 @@ def _parse_effects(config, char):
         if kind.startswith("Damage") and f"`{TRUE_DAMAGE_TOKEN}`" in config:
             effect["trueDamage"] = True
             consumed.add(TRUE_DAMAGE_TOKEN)
-        # 目标形状(2026-08-22,spec §9.1):只修饰单体直伤,与 Backline / Pierce / HitCount 同为**修饰位**。
+        # 目标形状(2026-08-22,spec §9.1):修饰单体直伤,与 Backline / Pierce / HitCount 同为**修饰位**。
         # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Sweep" 的独立效果,
         #   而 EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException
         #   (与 PIERCE_TOKEN / Backline 头上那两条注释同一个坑)。
-        if kind == "DamageSingle":
+        # HealSelf 也认(2026-09-16,水,治疗弹射「海/澡」对偶):此前这里只判 DamageSingle,
+        # 治疗面写 `Chain N` + `ShapePercent N` 会被上面的通用循环吞进 consumed、却从没被
+        # 挂到 HealSelf 这条 effect 上——config 里的 token 静默消失,不报错也看不出来。
+        if kind in ("DamageSingle", "HealSelf"):
             for token in ("Sweep", "Cleave", "Skewer"):
                 if f"`{token}`" in config:
                     effect["shape"] = token

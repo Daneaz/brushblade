@@ -102,6 +102,22 @@ def test_armor_strike_does_not_become_a_standalone_effect():
     assert len(effects) == 1
 
 
+# 治疗弹射(2026-09-16,水,海/澡对偶):Chain/ShapePercent 此前只挂在 DamageSingle 上,
+# 治疗面(HealSelf)写同样的 token 会被通用循环吞进 consumed、却从没接到 HealSelf 这条
+# effect 上 —— 静默丢字段,不报错。
+
+def test_chain_token_becomes_shape_field_on_heal_self():
+    assert _parse_effects("`HealSelf 58` + `Chain 3` + `ShapePercent 50`", "水") == [
+        {"kind": "HealSelf", "value": 58, "shape": "Chain", "shots": 3, "shapePercent": 50}]
+
+
+def test_no_shape_marker_leaves_shape_field_absent_on_heal_self():
+    """缺省不写 shape —— 恒等性:既有治疗字重新生成后必须逐字节不变。"""
+    effects = _parse_effects("`HealSelf 58`", "水")
+    assert effects == [{"kind": "HealSelf", "value": 58}]
+    assert "shape" not in effects[0]
+
+
 # 召唤物自动攻击的形状(2026-08-22):同一套 token,落进 passive 的 shape/shots/shapePercent,
 # 而不是独立 effect —— BattleEngine.cs:1276-1284 读的就是 passive 上这三个字段。
 
