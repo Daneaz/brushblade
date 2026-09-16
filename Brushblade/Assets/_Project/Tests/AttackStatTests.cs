@@ -28,6 +28,9 @@ namespace Brushblade.CoreTests
             new CharDef("庚", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 20, summonCount: 1,
                     summonAttack: 6, summonChar: "木") }),
+            // 2026-09-16:验「出崩清空厚 → 召唤物加成同时清空」。Value 取 1 免得把靶子打死。
+            new CharDef("崩", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.SpendHeft, 1) }),
             new CharDef("辛", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 3) }),
             new CharDef("壬", Element.Heart,
@@ -205,6 +208,62 @@ namespace Brushblade.CoreTests
             engine.Cast("庚");
             engine.ApplyPlayerAttackBuff(100);
             Assert.That(engine.Summons[0].Attack, Is.EqualTo(6), "已在场的召唤物不回溯");
+        }
+
+        // ---- 召唤物:战意/厚的乘区不进出生快照,只在出手那一刻实时套(2026-09-16)----
+
+        /// <summary>同一张召唤字,召唤那一刻的厚层数**不该**改变它的基础攻击。
+        ///
+        /// 用户 2026-09-16 报「两只召唤物吃的加成不同」「攻击力显示与实伤对不上」。病根是
+        /// 创建时走 ScaleByAttack —— 那个属性含战意/厚的百分比乘区,于是当时的层数被永久烘进
+        /// SummonState.Attack(只读字段),而出手时 SummonState.EffectiveAttack 会按**当前**
+        /// 层数**再乘一次**:厚 2 层时召出的那只基础攻击变成 55(50×110%),打出去再 ×150%。
+        /// 同一张字召出的两只因此永远对不齐,先召的吃亏。</summary>
+        [Test]
+        public void SummonBirth_IgnoresHeft_NoBakedInMultiplier()
+        {
+            var engine = Battle(BattleConfig.AttackBaseline, "庚", "庚");
+            engine.Cast("庚");                       // 厚 0 时召出
+            int atBirthWithoutHeft = engine.Summons[0].Attack;
+
+            engine.GainHeftForTest(100000);          // 攒满厚
+            Assert.That(engine.HeftStacks, Is.GreaterThan(0), "前提:厚真的攒上了");
+            engine.Cast("庚");                       // 厚 >0 时召出
+
+            Assert.That(engine.Summons[1].Attack, Is.EqualTo(atBirthWithoutHeft),
+                "基础攻击是出生快照,不该随召唤那一刻的厚层数变 —— 乘区归出手时实时算");
+        }
+
+        /// <summary>召唤物的有效攻击随厚层数实时变,且只乘**一次**。</summary>
+        [Test]
+        public void SummonEffectiveAttack_FollowsHeftLive_MultipliedOnce()
+        {
+            var engine = Battle(BattleConfig.AttackBaseline, "庚", "甲", "崩");
+            engine.Cast("庚");
+            int flat = engine.Summons[0].Attack;
+            Assert.That(engine.Summons[0].EffectiveAttack, Is.EqualTo(flat), "厚 0 层:不享有加成");
+
+            engine.GainHeftForTest(100000);
+            engine.Cast("甲", 0);   // 任意一张字:Cast 收尾会把当前乘区刷进召唤物
+            int stacks = engine.HeftStacks;
+            Assert.That(stacks, Is.GreaterThan(0), "前提:厚真的攒上了");
+            Assert.That(engine.Summons[0].EffectiveAttack,
+                Is.EqualTo(flat * (100 + stacks * BattleConfig.HeftPercentPerStack) / 100),
+                "厚 N 层:按当前层数放大,且只乘一次");
+        }
+
+        /// <summary>出「崩」清空厚,召唤物的加成同时归零(用户 2026-09-16 点名的那一条)。</summary>
+        [Test]
+        public void SpendHeft_ClearsSummonBonusToo()
+        {
+            var engine = Battle(BattleConfig.AttackBaseline, "庚", "崩");
+            engine.Cast("庚");
+            int flat = engine.Summons[0].Attack;
+            engine.GainHeftForTest(100000);
+            engine.Cast("崩");
+
+            Assert.That(engine.HeftStacks, Is.EqualTo(0), "前提:崩 把厚清空了");
+            Assert.That(engine.Summons[0].EffectiveAttack, Is.EqualTo(flat), "加成跟着清空");
         }
 
         // ---- 快照 ----

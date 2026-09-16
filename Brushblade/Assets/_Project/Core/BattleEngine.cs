@@ -554,17 +554,18 @@ namespace Brushblade.Core
         /// 混进 AttackBuff 会既丢掉层数上限又让 +1 层被当成 +1 攻击。
         /// 钳到 ≥0 与 <see cref="EnemyState.Attack"/> 同口径:负攻击力会打出负伤害,
         /// 等于给敌人回血,且全程无声。</summary>
-        public int EffectiveAttack
-        {
-            get
-            {
-                // 顺序定死:**先加后乘**。Empower / AttackBuff 是加点,战意是乘比例;
-                // 反过来会让 剡 的 +50 完全吃不到战意的放大(Morale_MultipliesAfterEmpower)。
-                int flat = _config.PlayerAttack
-                    + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff);
-                return Math.Max(0, flat * AttackPercent / 100);
-            }
-        }
+        public int EffectiveAttack => Math.Max(0, FlatAttack * AttackPercent / 100);
+
+        /// <summary>「先加后乘」里的**加**那一半:角色等级攻击力 + 局内攻击加点(剡 的 Empower、
+        /// 标点小妖那类 <see cref="StatusKind.AttackBuff"/>),**不含**战意/厚那条百分比乘区。
+        ///
+        /// 顺序定死:先加后乘。反过来会让 剡 的 +50 完全吃不到战意的放大
+        /// (Morale_MultipliesAfterEmpower)。
+        ///
+        /// 抽成独立属性是为了召唤物(2026-09-16,见 <see cref="ScaleSummonAttack"/>)——
+        /// 出生快照要的正是这一半。</summary>
+        private int FlatAttack =>
+            _config.PlayerAttack + _playerStatuses.TotalMagnitude(StatusKind.AttackBuff);
 
         /// <summary>按玩家攻击力缩放一个输出值。**整数除**:
         /// <c>EffectiveAttack == AttackBaseline</c> 时 <c>value * 100 / 100 == value</c>,逐字节恒等。
@@ -573,6 +574,25 @@ namespace Brushblade.Core
         /// 方向是错的。低数值字在攻击成长前期没反应是已知副作用,
         /// 真解法是 E-b5 抬高字表数值量级(见 spec 第十节)。</summary>
         private int ScaleByAttack(int value) => value * EffectiveAttack / BattleConfig.AttackBaseline;
+
+        /// <summary>召唤物**出生攻击**的缩放(2026-09-16)。同 <see cref="ScaleByAttack"/>,
+        /// 但吃的是 <see cref="FlatAttack"/> 而不是 <see cref="EffectiveAttack"/> ——
+        /// 少的正是战意/厚那条百分比乘区。
+        ///
+        /// ⚠ 这不是口味问题,是**双重计算**:<c>SummonState.Attack</c> 是只读字段(出生即定),
+        /// 而它出手时 <c>SummonState.EffectiveAttack</c> 会按 <c>PlayerAttackPercent</c>
+        /// (由 <see cref="RefreshSummonAura"/> 注入的**当前**乘区)再乘一次。出生时若套上
+        /// 乘区,召唤那一刻的层数就被永久烘死:同一张召唤字在厚 0 与厚 2 时召出来的基础攻击
+        /// 是 50 与 55,先召的那只永远吃亏,而那 10% 还会在每次出手时被放大第二遍
+        /// (用户 2026-09-16 报的「两只召唤物吃的加成不同」「攻击力显示与实伤对不上」)。
+        ///
+        /// 2026-08-05 旁边那句「套上即为快照语义」写在「召唤物跟随战意/厚」裁定
+        /// (2026-09-05)**之前** —— 那时乘区不会被套第二次,快照语义成立;两套机制撞上之后
+        /// 它就不成立了。角色等级攻击力与攻击加点仍照旧进快照(那两者本来就该快照:
+        /// AttackStatTests.HigherAttack_ScalesSummonAttackAtBirth /
+        /// ExistingSummon_DoesNotRetroactivelyScale 两条钉的就是这个)。</summary>
+        private int ScaleSummonAttack(int value) =>
+            value * Math.Max(0, FlatAttack) / BattleConfig.AttackBaseline;
 
         /// <summary>按**角色等级的**攻击力缩放一个防御向输出(护盾/治疗,2026-09-02)。
         ///
@@ -2873,7 +2893,9 @@ namespace Brushblade.Core
                             // 反伤/灼烧层/减攻百分比这些「节奏」保持不变,免得档位失控
                             // 召唤时吃攻击力:只作用于攻击力,血量(value)是防御资源不吃。
                             // SummonState.Attack 本来就是创建时常量,套上即为快照语义 ——
-                            // 之后再抬攻击力,已在场的这只不变
+                            // 之后再抬攻击力,已在场的这只不变。
+                            // ⚠ 2026-09-16 起走 ScaleSummonAttack 而不是 ScaleByAttack:快照
+                            // **不含**战意/厚的乘区,那条归出手那一刻实时算。理由见那个方法。
                             // 新召唤物**上场即满格**(2026-08-17 用户拍板):召唤术的价值就在
                             // 「立刻有个肉盾并反击」,从 0 起攒会让它召出那一轮完全不动。
                             //
@@ -2884,7 +2906,7 @@ namespace Brushblade.Core
                             // 成为必需:实测它让失败测试从 32 条降到 16 条(spec §2.3)。
                             // 它不是补丁,是「玩家优先」那一整套设计的组成部分。
                             var newborn = new SummonState(effect.SummonChar, attacker, value,
-                                ScaleByAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
+                                ScaleSummonAttack(MetaRules.ScaleByCardLevel(effect.SummonAttack, cardLevel)),
                                 ScalePassiveByCardLevel(effect.Passive, cardLevel),
                                 sourceChar: def.Id); // 召它的那张牌(2026-09-05,战斗格头行显示这个)
                             newborn.ActionMeter = TurnScheduler.Threshold;
