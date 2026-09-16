@@ -80,26 +80,27 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlayerDefense_IsLevelCurve()
         {
-            // 5 ≠ 缺省 0:这正是 T4 变异检查里删掉后无人发现的那一类
+            // 2 ≠ 缺省 0:这正是 T4 变异检查里删掉后无人发现的那一类
+            // (2026-09-16 曲线放慢,11 级 5 → 2;仍非缺省值,判别力不变)
             Assert.That(Build(LevelElevenWithPerks()).PlayerDefense, Is.EqualTo(MetaRules.DefenseFor(11)));
-            Assert.That(Build(LevelElevenWithPerks()).PlayerDefense, Is.EqualTo(5));
+            Assert.That(Build(LevelElevenWithPerks()).PlayerDefense, Is.EqualTo(2));
         }
 
         [Test]
         public void PlayerDodge_IsLevelCurve()
         {
-            // 10 ≠ 缺省 0:实测被删掉时 967 条测试无一变红的那条
+            // 5 ≠ 缺省 0:实测被删掉时 967 条测试无一变红的那条(2026-09-16 曲线放慢,11 级 10 → 5)
             Assert.That(Build(LevelElevenWithPerks()).PlayerDodge, Is.EqualTo(MetaRules.DodgeFor(11)));
-            Assert.That(Build(LevelElevenWithPerks()).PlayerDodge, Is.EqualTo(10));
+            Assert.That(Build(LevelElevenWithPerks()).PlayerDodge, Is.EqualTo(5));
         }
 
         [Test]
         public void PlayerSpeed_IsLevelCurve()
         {
-            // 110 ≠ 缺省 100(BattleConfig.PlayerSpeed 的默认值):必须用非 1 级的夹具断言,
+            // 105 ≠ 缺省 100(BattleConfig.PlayerSpeed 的默认值;2026-09-16 曲线放慢,11 级 110 → 105):必须用非 1 级的夹具断言,
             // 否则 SpeedFor(1) == 100 会跟缺省值撞在一起,删掉这行注入也照样绿(2026-08-15 实测踩过)。
             Assert.That(Build(LevelElevenWithPerks()).PlayerSpeed, Is.EqualTo(MetaRules.SpeedFor(11)));
-            Assert.That(Build(LevelElevenWithPerks()).PlayerSpeed, Is.EqualTo(110));
+            Assert.That(Build(LevelElevenWithPerks()).PlayerSpeed, Is.EqualTo(105));
         }
 
         [Test]

@@ -71,7 +71,9 @@ namespace Brushblade.Core.Tests
         [TestCase(1, 500)]
         [TestCase(6, 600)]
         [TestCase(26, 1000)]
-        [TestCase(40, 1000)] // 上限 1000
+        [TestCase(49, 1460)]
+        [TestCase(50, 1480)] // 2026-09-16 封顶级 26 → 50,上限 1000 → 1480
+        [TestCase(80, 1480)] // 自然值 2080,远离封顶值,删掉 Math.Min 必红
         public void MaxHp_GrowsWithLevel_Capped(int level, int hp)
         {
             Assert.That(MetaRules.MaxHpFor(level), Is.EqualTo(hp));
@@ -226,10 +228,11 @@ namespace Brushblade.Core.Tests
         [TestCase(1, 100)]   // 1 级 = 基准,伤害与引入攻击力之前逐字节相同
         [TestCase(2, 102)]
         [TestCase(11, 120)]
-        [TestCase(25, 148)]
-        [TestCase(26, 150)]  // 与 MaxHpFor 同在 26 级触顶
-        [TestCase(40, 150)]  // 封顶后不再涨
-        public void AttackFor_GrowsTwoPerLevel_CapsAt150(int level, int expected)
+        [TestCase(26, 150)]
+        [TestCase(49, 196)]
+        [TestCase(50, 198)]  // 与 MaxHpFor 同在 50 级触顶(2026-09-16 由 26 级推迟)
+        [TestCase(80, 198)]  // 封顶后不再涨;自然值 258
+        public void AttackFor_GrowsTwoPerLevel_CapsAt198(int level, int expected)
         {
             Assert.That(MetaRules.AttackFor(level), Is.EqualTo(expected));
         }
@@ -239,31 +242,37 @@ namespace Brushblade.Core.Tests
         {
             // 两条角色属性曲线刻意同形同封顶级(19.2.1),口径一致才好记也好平衡。
             // 分开写死会在改了一条忘了另一条时静默漂移,这条守住它们的耦合。
-            Assert.That(MetaRules.AttackFor(26), Is.EqualTo(150));
-            Assert.That(MetaRules.MaxHpFor(26), Is.EqualTo(1000));
-            Assert.That(MetaRules.AttackFor(25), Is.LessThan(150));
-            Assert.That(MetaRules.MaxHpFor(25), Is.LessThan(1000));
+            Assert.That(MetaRules.AttackFor(50), Is.EqualTo(198));
+            Assert.That(MetaRules.MaxHpFor(50), Is.EqualTo(1480));
+            Assert.That(MetaRules.AttackFor(49), Is.LessThan(198));
+            Assert.That(MetaRules.MaxHpFor(49), Is.LessThan(1480));
         }
 
         // ---- 防御轴的两条角色属性曲线(E-b4 T4,2026-08-12)----
 
+        // 2026-09-16:封顶级 26 → 50,上限值不变,斜率放慢(每 4 级 +1,首次在 6 级)
         [TestCase(1, 0)]    // 起点 0:护甲是土系字给的,不是白送的 —— 1 级行为与引入 DEF 之前逐字节相同
-        [TestCase(2, 0)]    // 整数除表达 k = 1/2:每两级 +1
-        [TestCase(3, 1)]
-        [TestCase(11, 5)]
-        [TestCase(25, 12)]  // (25−1)/2 = 12,恰好触顶
-        [TestCase(26, 12)]
-        public void DefenseFor_GrowsHalfPerLevel_CapsAt12(int level, int expected)
+        [TestCase(2, 0)]
+        [TestCase(5, 0)]
+        [TestCase(6, 1)]    // (6−2)/4 = 1
+        [TestCase(11, 2)]
+        [TestCase(26, 6)]
+        [TestCase(49, 11)]
+        [TestCase(50, 12)]  // (50−2)/4 = 12,恰好触顶
+        public void DefenseFor_GrowsOnePerFourLevels_CapsAt12(int level, int expected)
         {
             Assert.That(MetaRules.DefenseFor(level), Is.EqualTo(expected));
         }
 
+        // 2026-09-16:封顶级 26 → 50,上限 25% 不变(spec 8.3 硬上限),每 2 级 +1%
         [TestCase(1, 0)]    // 起点 0,同 DefenseFor
-        [TestCase(2, 1)]    // k = 1:闪避是概率轴,满级 25% 与 DEF 12 对 R_in=60 的 −20% 同量级
-        [TestCase(11, 10)]
-        [TestCase(25, 24)]
-        [TestCase(26, 25)]  // 与 MaxHpFor / AttackFor 同在 26 级触顶
-        public void DodgeFor_GrowsOnePerLevel_CapsAt25(int level, int expected)
+        [TestCase(2, 1)]
+        [TestCase(3, 1)]
+        [TestCase(11, 5)]
+        [TestCase(26, 13)]
+        [TestCase(49, 24)]
+        [TestCase(50, 25)]  // 与其余四条同在 50 级触顶
+        public void DodgeFor_GrowsOnePerTwoLevels_CapsAt25(int level, int expected)
         {
             Assert.That(MetaRules.DodgeFor(level), Is.EqualTo(expected));
         }
@@ -273,9 +282,10 @@ namespace Brushblade.Core.Tests
         {
             // 封顶必须用**远超封顶级**的等级来证:E-b1 的评审教训是 TestCase(26, 150) 那种
             // 「自然公式值恰好等于封顶值」的用例,把 Math.Min 整个删掉它照样绿,零判别力。
-            // 40 级的自然值是 DEF 19 / 闪避 39,与封顶值差得远,删掉封顶这条必红。
-            Assert.That(MetaRules.DefenseFor(40), Is.EqualTo(12));
-            Assert.That(MetaRules.DodgeFor(40), Is.EqualTo(25));
+            // 80 级的自然值是 DEF 19 / 闪避 40,与封顶值差得远,删掉封顶这条必红。
+            // (2026-09-16 封顶级推到 50 后,原来的 40 级已在封顶之前,换成 80。)
+            Assert.That(MetaRules.DefenseFor(80), Is.EqualTo(12));
+            Assert.That(MetaRules.DodgeFor(80), Is.EqualTo(25));
             Assert.That(MetaRules.DefenseFor(200), Is.EqualTo(12));
             Assert.That(MetaRules.DodgeFor(200), Is.EqualTo(25));
         }
@@ -639,8 +649,27 @@ namespace Brushblade.Core.Tests
         {
             // 速度是最强属性(同时翻倍输出与资源产出,spec 口径 5),成长必须压得很慢
             Assert.That(MetaRules.SpeedFor(1), Is.EqualTo(100), "1 级 = 基准 = 与敌人同速");
-            Assert.That(MetaRules.SpeedFor(26), Is.EqualTo(125), "封顶级 +25%");
-            Assert.That(MetaRules.SpeedFor(99), Is.EqualTo(125), "封顶后不再涨");
+            Assert.That(MetaRules.SpeedFor(26), Is.EqualTo(113), "每 2 级 +1(2026-09-16 放慢)");
+            Assert.That(MetaRules.SpeedFor(49), Is.EqualTo(124));
+            Assert.That(MetaRules.SpeedFor(50), Is.EqualTo(125), "封顶级 +25%");
+            Assert.That(MetaRules.SpeedFor(99), Is.EqualTo(125), "封顶后不再涨;自然值 149");
+        }
+
+        [Test]
+        public void AllFiveCurves_CapTogetherAtLevel50()
+        {
+            // 2026-09-16:封顶级 26 → 50。五条曲线刻意同一级触顶 —— 升级弹窗在这一级给五行都挂「满」,
+            // 之后只发宝箱。有一条早一级、晚一级,弹窗就会出现「四满一不满」的中间态。
+            Assert.That(MetaRules.MaxHpFor(50), Is.EqualTo(1480));
+            Assert.That(MetaRules.AttackFor(50), Is.EqualTo(198));
+            Assert.That(MetaRules.DefenseFor(50), Is.EqualTo(12));
+            Assert.That(MetaRules.DodgeFor(50), Is.EqualTo(25));
+            Assert.That(MetaRules.SpeedFor(50), Is.EqualTo(125));
+            Assert.That(MetaRules.MaxHpFor(49), Is.LessThan(1480));
+            Assert.That(MetaRules.AttackFor(49), Is.LessThan(198));
+            Assert.That(MetaRules.DefenseFor(49), Is.LessThan(12));
+            Assert.That(MetaRules.DodgeFor(49), Is.LessThan(25));
+            Assert.That(MetaRules.SpeedFor(49), Is.LessThan(125));
         }
 
         [Test]
