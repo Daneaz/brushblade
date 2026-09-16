@@ -217,6 +217,7 @@
   "bestiary.sort_hint": "排序：待领赏 › 已录 › 未遭遇",
   "char.effect.apboost": "本场每回合 AP 上限+{value}",
   "char.effect.armorbreak": "破甲 {value}(削目标护甲 {turns} 回合)",
+  "char.effect.armorstrike": "(镇压:额外造成自身护甲 {percent}% 的伤害)",
   "char.effect.backline": "(偷袭:无视敌方前排)",
   "char.effect.bleed": "流血{value}/回合(无属性)",
   "char.effect.blind.all": "全体致盲−{value}% {turns}回合",

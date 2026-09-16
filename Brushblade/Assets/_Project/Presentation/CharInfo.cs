@@ -83,7 +83,7 @@ namespace Brushblade.Presentation
                             ("shape", ShapeLabel(e)), ("value", shown))
                         + DoubleVsText(e)
                         + PierceText(e) + BacklineText(e) + HitCountText(e) + ExecuteText(e)
-                        + TrueDamageText(e) + ShapeSuffix(e),
+                        + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e),
                     EffectKind.DamageAll => Strings.T("char.effect.damageall", ("value", shown))
                         + DoubleVsText(e)
                         + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e),
@@ -277,6 +277,16 @@ namespace Brushblade.Presentation
         /// 与只作用于单体的 <see cref="BacklineText"/> 不同。</summary>
         private static string TrueDamageText(EffectDef e) =>
             e.TrueDamage ? Strings.T("char.effect.truedamage") : "";
+
+        /// <summary>镇压后缀(2026-09-16,土):与碾/穿透同构的伤害修饰,只挂在
+        /// <see cref="EffectKind.DamageSingle"/> 上 —— spec §5 的镇压字(塔/壁/圭)全是单体。
+        /// 数值读的是 <see cref="EffectDef.ArmorStrikePercent"/> 本身(百分比),不吃卡等级 ——
+        /// 与 <see cref="EffectDef.Pierce"/>/<see cref="EffectDef.TrueDamage"/> 同款:
+        /// 这一档由玩家局内的护甲现算,不是随等级成长的基础值。</summary>
+        private static string ArmorStrikeText(EffectDef e) =>
+            e.ArmorStrikePercent > 0
+                ? Strings.T("char.effect.armorstrike", ("percent", e.ArmorStrikePercent))
+                : "";
 
         /// <summary>目标形状前缀(2026-08-22,spec §7)。Single 沿用原「单体」——87 张既有
         /// DamageSingle 卡面因此逐字节不变。

@@ -105,6 +105,13 @@ PIERCE_TOKEN = "Pierce"
 # (与 PIERCE_TOKEN / Backline 头上那两条注释同一个坑)。
 TRUE_DAMAGE_TOKEN = "TrueDamage"
 
+# 镇压(2026-09-16,土):伤害修饰 —— 额外打出自己有效护甲点数的 N%(不走生克、不吃目标减伤),
+# 与穿透同型(数值型,写法 `ArmorStrike N`),不是布尔标记(与 TrueDamage 不同型)。
+# 不挂白名单会被通用正则 `(\w+) (\d+)` 当成一条独立效果 kind=ArmorStrike 落进 chars.json,
+# 而 EffectKind 里没有这个值 —— ConfigLoader 会在加载期直接抛 ConfigException
+# (与 PIERCE_TOKEN 头上那条注释同一个坑)。
+ARMOR_STRIKE_TOKEN = "ArmorStrike"
+
 # 目标形状的两个带数值 token,同样是伤害的修饰(2026-08-22,spec §9.1)。
 # 不挂白名单会被通用正则 `(\w+) (\d+)` 当成独立效果 kind=Shots/ShapePercent 落进 chars.json,
 # 而 EffectKind 里没有这两个值 —— ConfigLoader 会在加载期直接抛 ConfigException
@@ -316,6 +323,8 @@ def _parse_effects(config, char):
             continue  # 分段数是修饰而非效果,下面统一挂到伤害上
         if kind == PIERCE_TOKEN:
             continue  # 穿透点数是修饰而非效果,下面统一挂到伤害上
+        if kind == ARMOR_STRIKE_TOKEN:
+            continue  # 镇压百分比是修饰而非效果,下面统一挂到伤害上
         if kind in (SHOTS_TOKEN, SHAPE_PERCENT_TOKEN, CHAIN_TOKEN):
             continue  # 目标形状的修饰,下面统一挂到伤害上
         effect = {"kind": kind, "value": int(value)}
@@ -404,6 +413,13 @@ def _parse_effects(config, char):
         for effect in effects:
             if effect["kind"].startswith("Damage"):
                 effect["pierce"] = int(pierce.group(1))
+
+    armor_strike = re.search(rf"`{ARMOR_STRIKE_TOKEN} (\d+)`", config)
+    if armor_strike:
+        consumed.add(ARMOR_STRIKE_TOKEN)
+        for effect in effects:
+            if effect["kind"].startswith("Damage"):
+                effect["armorStrikePercent"] = int(armor_strike.group(1))
 
     turns = re.search(r"turns (\d+)", config)
     for effect in effects:

@@ -232,5 +232,43 @@ namespace Brushblade.CoreTests
             engine.Cast("甲", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 50), "不带碾时护甲照常生效");
         }
+
+        // ---- 镇压(ArmorStrikePercent,2026-09-16 土):按玩家自己的有效护甲加码伤害 ----
+        //
+        // 心系测试字,道理同上一节:KeMultiplier 恒为 1.0,不搅动生克;PlayerCritChance
+        // 默认 0,RollCrit() 恒为 false,不搅动暴击。
+
+        // 镇:100 伤,心系中立,镇压 50% —— 主伤害之后按玩家自己的 EffectivePlayerDefense 加码。
+        private static RecipeGraph ArmorStrikeGraph() => new(new[]
+        {
+            new CharDef("镇", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, armorStrikePercent: 50) }),
+        });
+
+        private static BattleEngine ArmorStrikeEngine(EnemyDef enemy, int playerDefense) =>
+            new(ArmorStrikeGraph(), new BattleConfig { PlayerMaxHp = 1000, PlayerDefense = playerDefense },
+                new[] { "镇" }, Array.Empty<string>(), new[] { enemy }, seed: 1);
+
+        [Test]
+        public void ArmorStrike_AddsDamageFromOwnArmor_NotAffectedByWuxingOrTargetArmor()
+        {
+            // 玩家甲 40、敌人甲 100(DR 50%)、无盾。
+            // 主伤害 100×100/(100+100)=50,镇压 40×50%=20 全额(不吃敌方护甲、不走生克)→ 共 70
+            var engine = ArmorStrikeEngine(new EnemyDef("靶", Element.Earth, 1000, 0, defense: 100),
+                playerDefense: 40);
+            engine.Cast("镇", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 70),
+                "主伤害 50 + 镇压 20(全额,不吃敌方护甲)= 70");
+        }
+
+        [Test]
+        public void ArmorStrike_IsNoOp_WhenPlayerHasNoArmor()
+        {
+            // 玩家甲 0 → 镇压额度 0×50%=0,只剩主伤害 50,空转不报错
+            var engine = ArmorStrikeEngine(new EnemyDef("靶", Element.Earth, 1000, 0, defense: 100),
+                playerDefense: 0);
+            engine.Cast("镇", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 50), "无甲时镇压空转,主伤害照常");
+        }
     }
 }

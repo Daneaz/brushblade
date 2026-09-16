@@ -58,6 +58,7 @@ namespace Brushblade.Data
             public int ShapePercent { get; set; } = 100; // 非主目标伤害百分比
             public int Shots { get; set; }         // 连发发数
             public bool TrueDamage { get; set; }   // 碾:本次伤害完全跳过护甲(2026-09-16,土)
+            public int ArmorStrikePercent { get; set; } // 镇压:额外打出自己有效护甲 N%(2026-09-16,土)
         }
 
         private sealed class CampaignFileDto
@@ -529,7 +530,8 @@ namespace Brushblade.Data
                     effect.Passive, effect.SummonShield, effect.SummonDefense,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
                     effect.HitCount, effect.Pierce, effect.Backline,
-                    shape, effect.ShapePercent, effect.Shots, effect.TrueDamage));
+                    shape, effect.ShapePercent, effect.Shots, effect.TrueDamage,
+                    effect.ArmorStrikePercent));
             }
             return effects;
         }

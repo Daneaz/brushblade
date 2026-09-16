@@ -2522,6 +2522,20 @@ namespace Brushblade.Core
                                     sameSwing: sameSwing && hit == 0);
                             }
                         }
+                        // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
+                        // EffectivePlayerDefense(含 DefenseBuff/破甲那部分,不是角色基础护甲)。
+                        // 只对主目标生效——spec §5 的镇压字目前全是单体(dual_s)。放在这里而不是
+                        // 上面的循环里:主伤害可能已经杀死主目标,这一发借同一条 DamageEnemy 的
+                        // 存活判定挡下,不会对尸体补刀;放在主伤害之前则会让镇压抢在斩杀判定之前触发。
+                        if (effect.ArmorStrikePercent > 0 && _enemies[targetIndex].Alive)
+                        {
+                            int armorStrikeBonus = EffectivePlayerDefense * effect.ArmorStrikePercent / 100;
+                            if (armorStrikeBonus > 0)
+                                // Element.Heart:不走生克,与反弹(DamageEnemy 那几处 bypassDefense: true
+                                // 的调用)同口径——折返/加码都不是挥击。
+                                DamageEnemy(targetIndex, armorStrikeBonus, Element.Heart,
+                                    bypassDefense: true); // 镇压不吃目标护甲
+                        }
                         break;
                     }
                     case EffectKind.DamageAll:

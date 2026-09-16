@@ -159,6 +159,17 @@ namespace Brushblade.Core
         /// 与「相克即破甲」「反弹不吃甲」走同一个开关。</summary>
         public bool TrueDamage { get; }
 
+        /// <summary>镇压(2026-09-16,土):本次攻击额外打出**自己有效护甲点数的 N%** 作为伤害。
+        /// 0 = 不启用。
+        ///
+        /// 不走生克、不吃目标减伤 —— 与反弹(<see cref="EffectKind.Reflect"/>)同口径:
+        /// 折返/加码都不是挥击。土系攻面对偶「反弹」的那一条(spec §5),
+        /// 两档 50% / 30% 与反伤的两档一一对齐。
+        ///
+        /// 读的是 <c>BattleEngine.EffectivePlayerDefense</c>(含 DefenseBuff 与破甲),
+        /// **不是**角色基础护甲 —— 「越肥打得越疼」这条流派靠的正是局内堆起来的那部分。</summary>
+        public int ArmorStrikePercent { get; }
+
         public EffectDef(EffectKind kind, int value,
             DamageCondition doubleVs = DamageCondition.None, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
@@ -167,7 +178,7 @@ namespace Brushblade.Core
             int executeBelowPercent = 0, bool executeKills = false,
             int hitCount = 1, int pierce = 0, bool canStrikeBackline = false,
             TargetShape shape = TargetShape.Single, int shapePercent = 100, int shots = 0,
-            bool trueDamage = false)
+            bool trueDamage = false, int armorStrikePercent = 0)
         {
             Kind = kind;
             Value = value;
@@ -190,6 +201,7 @@ namespace Brushblade.Core
             ShapePercent = shapePercent <= 0 ? 100 : shapePercent;
             Shots = shots;
             TrueDamage = trueDamage;
+            ArmorStrikePercent = armorStrikePercent;
         }
     }
 }

@@ -80,6 +80,28 @@ def test_true_damage_does_not_become_a_standalone_effect():
     assert len(effects) == 1
 
 
+# 镇压(2026-09-16,土):伤害修饰 —— 额外打出自己有效护甲点数的 N%,数值型(同 Pierce 型,
+# 不是布尔标记)。
+
+def test_armor_strike_token_becomes_armor_strike_percent_field():
+    assert _parse_effects("`DamageSingle 10` + `ArmorStrike 50`", "土") == [
+        {"kind": "DamageSingle", "value": 10, "armorStrikePercent": 50}]
+
+
+def test_no_armor_strike_marker_leaves_field_absent():
+    """缺省不写 armorStrikePercent —— 恒等性:既有伤害字重新生成后必须逐字节不变。"""
+    effects = _parse_effects("`DamageSingle 10`", "土")
+    assert "armorStrikePercent" not in effects[0]
+
+
+def test_armor_strike_does_not_become_a_standalone_effect():
+    """不挂白名单会被通用正则 `(\\w+) (\\d+)` 当成独立效果 kind=ArmorStrike 收走 ——
+    EffectKind 里没有这个值,会让 ConfigLoader 在加载期直接抛 ConfigException。"""
+    effects = _parse_effects("`DamageSingle 10` + `ArmorStrike 50`", "土")
+    assert all(e["kind"] != "ArmorStrike" for e in effects)
+    assert len(effects) == 1
+
+
 # 召唤物自动攻击的形状(2026-08-22):同一套 token,落进 passive 的 shape/shots/shapePercent,
 # 而不是独立 effect —— BattleEngine.cs:1276-1284 读的就是 passive 上这三个字段。
 
