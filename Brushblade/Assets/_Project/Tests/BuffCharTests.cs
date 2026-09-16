@@ -34,6 +34,9 @@ namespace Brushblade.CoreTests
             // 把「误套 ScaleByAttack」(2 × 150 ÷ 100 = 3)与正确值区分开
             new CharDef("壬", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.ApBoost, 2) }),
+            // 癸:验 DefenseBuff 可叠加(2026-09-16,任务 2),不对应任何正式字
+            new CharDef("癸", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DefenseBuff, 8, turns: 4) }),
         });
 
         private static EnemyDef Dummy(int hp = 500) => new("怔", Element.Heart, hp, 0);
@@ -354,6 +357,20 @@ namespace Brushblade.CoreTests
             Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.ApBoost),
                 Is.EqualTo(2), "AP 上限加成不吃攻击力");
             Assert.That(engine.ApPerTurn, Is.EqualTo(5));
+        }
+
+        // ---- 癸:DefenseBuff 可叠加(2026-09-16,任务 2)----
+
+        [Test]
+        public void DefenseBuff_StacksInsteadOfRefreshing()
+        {
+            // 2026-09-16:百分比减伤上线后甲永远到不了 100%,可叠加不再有无敌风险
+            // (StatusEffect.SourceId 用法 2,同 剡/破甲一样铸唯一序号)。
+            var engine = Battle(BattleConfig.AttackBaseline, "癸", "癸");
+            engine.Cast("癸");
+            engine.Cast("癸");
+            Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(16),
+                "同一张护甲字出两次应叠加,不是刷新:8 × 2");
         }
 
         // ---- 快照:目标是零新增字段 ----

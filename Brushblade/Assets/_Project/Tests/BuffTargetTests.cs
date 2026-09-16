@@ -383,15 +383,16 @@ namespace Brushblade.Core.Tests
         public void DefenseBuff_OnSummon_CannotPushDamageBelowZero()
         {
             // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100))后,「甲厚过攻击力」不再意味着归零:
-            // 5 × 100 ÷ 108 = 4,伤害照样进得去。本条改守新公式下的底线 ——
-            // **只会变小,永远不会变成负数(倒着给召唤物回血)**。
+            // 伤害照样进得去,只会变小、永远不会变成负数(倒着给召唤物回血)。
+            // 同字现在可叠加(见 DefenseBuff 改可叠加任务):4 张铠合计 32 甲,
+            // 5 × 100 ÷ 132 = 3。
             var engine = Engine(new[] { "兵", "铠", "铠", "铠", "铠" },
                 new[] { new EnemyDef("轻", Element.Heart, 3000, 5) });
             engine.Cast("兵");
-            for (int n = 0; n < 4; n++) engine.Cast("铠", allySlot: 0);  // 同字按 SourceId 只刷新
+            for (int n = 0; n < 4; n++) engine.Cast("铠", allySlot: 0);  // 同字可叠加,4 张合计 32 甲
             int hp = engine.Summons[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(hp - 4), "5 攻被 8 甲压到 4,不是归零也不是回血");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(hp - 3), "5 攻被 32 甲压到 3,不是归零也不是回血");
         }
 
         [Test]

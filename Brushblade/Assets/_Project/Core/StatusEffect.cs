@@ -92,12 +92,15 @@ namespace Brushblade.Core
         public int TurnsLeft { get; set; }
 
         /// <summary>来源标识,两种相反用法并存,加新状态时先想清楚要哪种(2026-08-05 M3):
-        /// 1) **去重键**——直接传字 ID(如 "铠"):同字再放视为同一来源,Apply() 覆盖刷新不叠加
-        ///    (DefenseBuff 走这条)。
+        /// 1) **去重键**——直接传字 ID(如 "花"):同字再放视为同一来源,Apply() 覆盖刷新不叠加。
         /// 2) **铸唯一序号使其可叠**——传 "字#序号"(如 "滋#7",序号取自 BattleEngine._statusSerial /
         ///    RunSnapshot.StatusSerial):每次施放序号不同,天然绕开 Apply() 的同源覆盖,叠加而非刷新
-        ///    (HealOverTime、AttackBuff、ArmorBreak 走这条)。
-        /// 忘记铸序号、误传裸字 ID 会让本该可叠的状态静默退化成刷新——Task 4 的 Critical 就是这么踩的。</summary>
+        ///    (HealOverTime、AttackBuff、ArmorBreak、<see cref="StatusKind.DefenseBuff"/> 走这条)。
+        /// 忘记铸序号、误传裸字 ID 会让本该可叠的状态静默退化成刷新——Task 4 的 Critical 就是这么踩的。
+        ///
+        /// ⚠ DefenseBuff 2026-09-16 从用法 1) 挪到用法 2):护甲改百分比减伤
+        /// (DR = 甲/(甲+100))之后,DR 永远到不了 100%,「同字不叠」这条约束当初存在
+        /// 只是为了防止点数减法叠满即无敌,理由随之消失,遂放开可叠。</summary>
         public string SourceId { get; set; }
         public bool TargetAll { get; set; }  // 仅 HealOverTime 用
 
@@ -145,7 +148,8 @@ namespace Brushblade.Core
         }
 
         /// <summary>施加一条。同 Kind 且同 SourceId 视为同一来源,覆盖刷新而非叠加
-        /// (口径来自 P0:同字减伤不叠加,重复施放只刷新)。SourceId 为 null 时按 Kind 去重。
+        /// (口径来自 P0:同字减伤不叠加,重复施放只刷新——2026-09-16 起 DefenseBuff 已移出这条,
+        /// 见 <see cref="StatusEffect.SourceId"/> 的用法说明)。SourceId 为 null 时按 Kind 去重。
         /// 要允许同源可叠(如 HoT/AttackBuff),调用方得给 SourceId 铸唯一序号——见
         /// <see cref="StatusEffect.SourceId"/> 的两种用法说明。</summary>
         public void Apply(StatusEffect effect)

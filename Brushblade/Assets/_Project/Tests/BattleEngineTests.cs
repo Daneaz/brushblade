@@ -109,7 +109,7 @@ namespace Brushblade.Core.Tests
         }
 
         // ---- 护甲增益(土系,2026-08-03 起为减伤%;2026-08-12 E-b4 T3 改点数):
-        //      **加法**叠加、同字不叠、段内持久 ----
+        //      **加法**叠加、段内持久;2026-09-16 起同字也可叠加(见 DefenseBuff_SameCharStacks)----
 
         private static RecipeGraph ArmorGraph() => new(new[]
         {
@@ -132,15 +132,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void DefenseBuff_SameCharDoesNotStack()
+        public void DefenseBuff_SameCharStacks()
         {
+            // 2026-09-16:护甲改百分比减伤后 DR 到不了 100%,「同字不叠」这条约束的唯一理由
+            // (点数减法叠满即无敌)随之消失 —— SourceId 改铸唯一序号,同字也叠加(见 BuffCharTests
+            // 的 DefenseBuff_StacksInsteadOfRefreshing,同款断言)。
             var engine = new BattleEngine(ArmorGraph(), Config(), new[] { "铠", "铠" },
                 Array.Empty<string>(), new[] { new EnemyDef("锈", Element.Metal, 500, 10) }, 42);
             engine.Cast("铠");
             engine.Cast("铠");
 
-            Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(12),
-                "同字重复施放只刷新,不叠加");
+            Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(24),
+                "同一张护甲字出两次应叠加,不是刷新:12 × 2");
         }
 
         [Test]

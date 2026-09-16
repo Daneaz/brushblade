@@ -2797,15 +2797,19 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.DefenseBuff:
                         // 护甲 +Value **点**(2026-08-12,E-b4 T3):多字**加法**叠加(旧乘法层是
-                        // 连乘,天然趋近但不达 0;点数是直接相加),同字仍按 SourceId 覆盖 = 只刷新。
+                        // 连乘,天然趋近但不达 0;点数是直接相加)。
                         // 2026-08-28:改单体;召唤物侧由 SummonState.EffectiveDefense 读走。
                         // **限时**(2026-09-08 用户裁定「所有 buff 类必须附带回合数,不存在本场生效」)。
                         // 缺 turns 退化成 1 回合而不是永久,理由同 ArmorBreak 那条。
                         // 例外只有 EffectDef.SummonDefense —— 那条是单位属性,见它的注释。
+                        // SourceId 铸唯一序号 → **同字也可叠加**(2026-09-16,与 ArmorBreak 同款):
+                        // 护甲改百分比减伤(DR = 甲/(甲+100))之后 DR 永远到不了 100%,「同字不叠」
+                        // 这条约束当初只是为了防止点数减法叠满即无敌,理由随之消失。
                         AllyStatuses(allySlot).Apply(new StatusEffect
                         {
                             Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
-                            Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns), SourceId = def.Id,
+                            Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns),
+                            SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
                     case EffectKind.PierceBuff:
