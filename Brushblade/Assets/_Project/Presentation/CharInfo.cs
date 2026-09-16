@@ -164,6 +164,12 @@ namespace Brushblade.Presentation
                     // 蓄热(2026-09-16):清空目标灼烧层数,每层转成本场永久的灼烧威力。
                     // 与 Detonate(引爆)的分界:引爆兑现伤害,蓄热只夺层数、不打伤害。
                     EffectKind.Quench => Strings.T("char.effect.quench", ("value", shown)),
+                    // 加速/急速(2026-09-16,水):同一条效果两档,按**未缩放的基础值**分档
+                    // (Value 50=加速、100=急速)——v/shown 已被 ScaleByCardLevel 抬高,用它判档
+                    // 会让满级的「加速」跨过 100 误判成「急速」,这里必须用 e.Value 原始值。
+                    EffectKind.Haste => e.Value >= 100
+                        ? Strings.T("char.effect.rapid", ("value", shown), ("turns", e.Turns))
+                        : Strings.T("char.effect.haste", ("value", shown), ("turns", e.Turns)),
                     _ => e.Kind.ToString(),
                 });
             }

@@ -149,6 +149,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.DefenseBuff,
                 EffectKind.Empower, EffectKind.CritBuff, EffectKind.PierceBuff,
                 EffectKind.Blind,
+                // 加速/急速(2026-09-16,水):百分比连续量值,与 CritBuff/PierceBuff 同型。
+                EffectKind.Haste,
             };
             var doesNotTake = new System.Collections.Generic.HashSet<EffectKind>
             {

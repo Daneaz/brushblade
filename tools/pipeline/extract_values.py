@@ -80,8 +80,11 @@ EXECUTE_TOKENS = {"ExecuteKill": True, "ExecuteBonus": False}
 # 引擎兜底是 `Math.Max(1, effect.Turns)`,漏写不会崩、只会静默变成 1 回合 ——
 # 正是这张白名单存在的理由(同 `壁` 那个历史 bug 的形状)。
 # ⚠ 一格只支持一个 turns 值:护甲在护面、破甲在攻面,全表没有同格并存的行(垚/㙓 都是两面分开)。
+# 加速/急速(2026-09-16,水,EffectKind.Haste):Value=百分比(50/100)、Turns=持续回合数,
+# 与 CritBuff/DefenseBuff 同型——带数值又带 turns,漏进这张白名单的后果同 `壁` 那次:
+# turns 写了没人吃,静默消失。
 DURATION_KINDS = {"HealOverTime", "Blind", "Silence", "Reflect", "Charm", "Empower", "CritBuff",
-                  "DefenseBuff", "ArmorBreak"}
+                  "DefenseBuff", "ArmorBreak", "Haste"}
 
 # 会被 turns 正则认领的全部 Kind,仅用于「turns 写了但没人吃」这条反向检查。
 TURN_TAKING_KINDS = DURATION_KINDS

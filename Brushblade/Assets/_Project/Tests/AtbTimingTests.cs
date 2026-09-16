@@ -176,6 +176,189 @@ namespace Brushblade.Core.Tests
                 "半速的怪流血次数少一半,应该更健康");
         }
 
+        // ==================== 加速 / 急速(2026-09-16,水,EffectKind.Haste) ====================
+        //
+        // SpeedModifier 此前只出现负值(减速)。这是它第一次取正——按接线复查清单挨个核对过
+        // (BattleEngine.ConditionMet「对控制」判据、Targeting.PickEnemyTargetForSummon 的
+        // preferUnslowed 早已是 `< 0`/`>= 0`),下面 Haste_DoesNotCountAsSlowed_ForControlledCondition
+        // 单独钉住第一条。复查还额外抓到一个真实缺陷:BuildSlots() 给召唤物排调度顺序时只读
+        // Speed 裸值、不加 Statuses 里的 SpeedModifier(与敌人分支不对称)——此前无害,因为
+        // 从没有效果把 SpeedModifier 挂到召唤物自己的状态袋上,Haste 是第一个真正踩上去的,
+        // 已在 BattleEngine.BuildSlots 里补上一行,SummonInfo.BuildFigures 的详情面板同一口径补齐。
+
+        /// <summary>加速/急速换算基数用测试图谱:兵(底速 100,攻 5——非零攻击是为了
+        /// Haste_OnSummon_SpeedsUpActualTurnOrder_ThroughScheduling 能靠 SummonAttack
+        /// 事件数数出手次数,前四条只看 Speed/Statuses 的测试不受这个改动影响)、
+        /// 捷(底速 150,与桤/森/藻/林同型)、速(加速 50%,2 回合)、疾(急速 100%,1 回合)。
+        /// 拆成 HasteGraph()/HasteEngine() 两层是为了快照往返测试能拿到**同一份**图谱
+        /// 传给 BattleEngine.Restore(graph, …)。</summary>
+        private static RecipeGraph HasteGraph() => new(new[]
+        {
+            new CharDef("木", Element.Wood),
+            new CharDef("兵", Element.Wood, effects: new[]
+            {
+                new EffectDef(EffectKind.Summon, 999, summonCount: 1, summonAttack: 5, summonChar: "木"),
+            }),
+            new CharDef("捷", Element.Wood, effects: new[]
+            {
+                new EffectDef(EffectKind.Summon, 999, summonCount: 1, summonAttack: 0, summonChar: "木",
+                    passive: new SummonPassive { Speed = 150 }),
+            }),
+            new CharDef("速", Element.Water, effects: new[] { new EffectDef(EffectKind.Haste, 50, turns: 2) }),
+            new CharDef("疾", Element.Water, effects: new[] { new EffectDef(EffectKind.Haste, 100, turns: 5) }),
+        });
+
+        private static EnemyDef HasteTarget() => new("靶", Element.Heart, 999999, 0);
+
+        private static BattleEngine HasteEngine() => new(HasteGraph(),
+            new BattleConfig { PlayerMaxHp = 999, ApPerTurn = 9 },
+            new[] { "兵", "兵", "捷", "速", "速", "速", "疾" }, Array.Empty<string>(),
+            new[] { HasteTarget() }, seed: 1);
+
+        [Test]
+        public void Haste_AddsPercentageOfTargetBaseSpeed_AsPositiveSpeedModifier()
+        {
+            // 加速 50% 挂在 100 底速的召唤物上 → +50 点;挂在 150 底速的上 → +75 点——
+            // 换算基数是目标自己的基础速度,不是固定数(brief「换算基数」一节)。
+            var engine = HasteEngine();
+            engine.Cast("兵");              // slot 0,底速 100
+            engine.Cast("捷");              // slot 1,底速 150
+            engine.Cast("速", allySlot: 0); // 加速 50%:100 底速 → +50
+            engine.Cast("速", allySlot: 1); // 加速 50%:150 底速 → +75
+
+            Assert.That(engine.Summons[0].Statuses.TotalMagnitude(StatusKind.SpeedModifier), Is.EqualTo(50));
+            Assert.That(engine.Summons[1].Statuses.TotalMagnitude(StatusKind.SpeedModifier), Is.EqualTo(75));
+            Assert.That(engine.Summons[0].Speed + engine.Summons[0].Statuses.TotalMagnitude(StatusKind.SpeedModifier),
+                Is.EqualTo(150), "100 底速召唤物的有效速度");
+            Assert.That(engine.Summons[1].Speed + engine.Summons[1].Statuses.TotalMagnitude(StatusKind.SpeedModifier),
+                Is.EqualTo(225), "150 底速召唤物的有效速度");
+        }
+
+        [Test]
+        public void Haste_HundredPercent_IsRapid()
+        {
+            // 急速 100%:100 底速 → 200
+            var engine = HasteEngine();
+            engine.Cast("兵");              // slot 0,底速 100
+            engine.Cast("疾", allySlot: 0); // 急速 100%:100 底速 → +100
+
+            Assert.That(engine.Summons[0].Statuses.TotalMagnitude(StatusKind.SpeedModifier), Is.EqualTo(100));
+            Assert.That(engine.Summons[0].Speed + engine.Summons[0].Statuses.TotalMagnitude(StatusKind.SpeedModifier),
+                Is.EqualTo(200));
+        }
+
+        [Test]
+        public void Haste_DoesNotCountAsSlowed_ForControlledCondition()
+        {
+            // 「对控制」的双倍判据只认负的 SpeedModifier —— 这里直接在敌人身上模拟一次正值
+            // (真实规则里 Haste 只会挂在我方身上,这里只测 ConditionMet 这个共享判据本身没有
+            // 「挂着 SpeedModifier 就是被控制了」这类误判)。
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("斩", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, doubleVs: DamageCondition.Controlled) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 999, PlayerAttack = 100 },
+                new[] { "斩" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 999, 0) }, seed: 1);
+            engine.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Buff,
+                Magnitude = 50, TurnsLeft = -1, SourceId = "测",
+            });
+
+            int hpBefore = engine.Enemies[0].Hp;
+            engine.Cast("斩", 0);
+            int damage = hpBefore - engine.Enemies[0].Hp;
+
+            Assert.That(damage, Is.EqualTo(100),
+                "挂着正的 SpeedModifier(加速)不该让敌人吃到「对控制」双倍伤害(200)");
+        }
+
+        [Test]
+        public void Haste_ExpiresAfterTurns()
+        {
+            // 落在玩家身上测到期:玩家侧状态递减挂在 BeginPlayerTurn,一次 EndTurn() 正好一拍,
+            // 与 TimedBuffTests 的 Empower/CritBuff 到期测试同一口径——不挑召唤物,是为了避开
+            // ATB 下召唤物自身速度可能让它一次 EndTurn() 内出手不止一次的时序复杂度。
+            var engine = HasteEngine();
+            Assert.That(engine.EffectivePlayerSpeed, Is.EqualTo(100), "基准");
+
+            engine.Cast("速"); // 默认 allySlot = 玩家;加速 50%,2 回合:100 → 150
+            Assert.That(engine.EffectivePlayerSpeed, Is.EqualTo(150));
+
+            engine.EndTurn();
+            Assert.That(engine.EffectivePlayerSpeed, Is.EqualTo(150), "第 1 个回合末还在");
+
+            engine.EndTurn();
+            Assert.That(engine.EffectivePlayerSpeed, Is.EqualTo(100), "第 2 个回合末到期,速度回落到基准");
+        }
+
+        [Test]
+        public void Haste_OnSummon_SpeedsUpActualTurnOrder_ThroughScheduling()
+        {
+            // I-1(评审复审):前四条 Haste 测试全部在断言里手算「Speed + TotalMagnitude」,
+            // 相当于把 BuildSlots() 里那一行公式在测试里重写了一遍,没有一条真的经过
+            // BuildSlots()/TurnScheduler —— 把 BuildSlots() 里那两行加法删掉退回裸 Speed,
+            // 前四条与另外 1799 条测试仍会全绿,而那正是"加速挂上了、调度顺序纹丝不动"这个
+            // 静默空转本身。这一条改成从**可观测行为**(谁真的出手更多次)反推调度顺序。
+            var engine = HasteEngine();
+            engine.Cast("兵");              // slot 0,底速 100,攻 5
+            engine.Cast("兵");              // slot 1,底速 100,攻 5(同底速对照组,不吃急速)
+            engine.Cast("疾", allySlot: 0); // 只给 slot 0 挂急速 100%:100 → 200,是 slot 1 的两倍
+
+            var events = new List<BattleEvent>();
+            for (int i = 0; i < 8; i++)
+            {
+                engine.EndTurn();
+                events.AddRange(engine.LastEvents);
+            }
+
+            int hastedActs = events.Count(e => e.Kind == BattleEventKind.SummonAttack && e.SecondIndex == 0);
+            int normalActs = events.Count(e => e.Kind == BattleEventKind.SummonAttack && e.SecondIndex == 1);
+            Assert.That(hastedActs, Is.GreaterThan(normalActs),
+                "急速把 slot 0 的有效速度顶到 slot 1 的两倍,它应当出手更多次 —— " +
+                "把 BuildSlots() 里 SpeedModifier 那一行加法删掉退回裸 Speed,这条必须变红");
+        }
+
+        [Test]
+        public void Haste_StacksInsteadOfRefreshing()
+        {
+            // N-3(评审复审):规格第 4 条「SourceId 铸序号使其可叠」有实现无断言 —— 补上,
+            // 与 BuffCharTests.DefenseBuff_StacksInsteadOfRefreshing(癸,同款 SourceId 铸序号)
+            // 同一口径:同字连出两次应叠加,不是刷新回同一个值。
+            var engine = HasteEngine();
+            engine.Cast("速"); // 玩家:加速 50%,+50
+            engine.Cast("速"); // 再来一张同字:应叠成 +100,不是刷新回 +50
+
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier), Is.EqualTo(100),
+                "同字连出两次应叠加(50+50),SourceId 若退化成裸字 ID 会被 Apply() 判成同源刷新,停在 50");
+        }
+
+        [Test]
+        public void Haste_StackedMagnitude_SurvivesSnapshotRoundTrip()
+        {
+            // N-3(评审复审)后半句:把 _statusSerial 快照往返那条链带上——不仅叠加后的
+            // 总量要在 Capture()/Restore() 之后保住,续爬后再出一张同字也必须继续走「新增」
+            // 分支,而不是撞上快照里没存对的旧序号、被 Apply() 误判成同源刷新。
+            var engine = HasteEngine();
+            engine.Cast("速");
+            engine.Cast("速");
+            Assert.That(engine.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier), Is.EqualTo(100));
+
+            var defs = new Dictionary<string, EnemyDef> { ["靶"] = HasteTarget() };
+            var restored = BattleEngine.Restore(engine.Capture(), HasteGraph(),
+                new BattleConfig { PlayerMaxHp = 999, ApPerTurn = 9 }, null, defs);
+
+            Assert.That(restored.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier), Is.EqualTo(100),
+                "叠加后的总量要在快照往返后保住");
+
+            restored.Cast("速"); // 续爬后再出一张同字
+            Assert.That(restored.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier), Is.EqualTo(150),
+                "_statusSerial 若没有正确写进快照,这一张会撞上旧序号被判成同源刷新," +
+                "总量会停在 100 而不是 150");
+        }
+
         [Test]
         public void SummonAura_HealsOnItsOwnTurn_NotAtPlayerTurnEnd()
         {

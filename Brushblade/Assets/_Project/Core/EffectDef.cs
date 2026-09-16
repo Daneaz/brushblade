@@ -65,6 +65,17 @@ namespace Brushblade.Core
                       // ⚠ 纯夺火,**不自带挂层**(2026-09-16 用户裁定):目标无灼烧时这张字
                       // 只剩伤害面,空转是接受的代价。因此它是继 炸 之后第二个
                       // 「语义例外:不挂 DOT」,火系印记的免计价层不适用。
+        Haste,        // 加速 / 急速(2026-09-16,水):给**被治疗的那个目标**挂正的 SpeedModifier,
+                      // 量 = 目标**基础速度** × Value%,持续 Turns 回合。
+                      // Value 50 = 加速、100 = 急速 —— 同一条载体两档,别拆成两个 kind。
+                      //
+                      // 换算基数是目标自己的基础速度(SummonState.Speed / config.PlayerSpeed),
+                      // 所以 150 底速的召唤物吃加速是 +75、100 底速的是 +50 —— 符合「×50%」的字面。
+                      //
+                      // ⚠ SpeedModifier 此前**只出现负值**。这是本字段第一次取正——凡是按
+                      // 「有 SpeedModifier 就是被减速了」判断的地方都必须收紧成 `< 0`
+                      // (BattleEngine.ConditionMet 的 Controlled 判据、Targeting 的 preferUnslowed
+                      // 早已是 `< 0`/`>= 0`,2026-09-16 复核过一遍,全部正确)。
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

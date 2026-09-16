@@ -67,13 +67,25 @@ namespace Brushblade.Presentation
                 ? Strings.T("summon.detail.figure_defense_note")
                 : null; // 召唤物没有基础护甲字段,EffectiveDefense 全部来自增益,这句恒成立
 
+            // 速度(2026-09-16,加速/急速接线复查补):此前这里只印 summon.Speed 裸值,
+            // SpeedModifier(减速/加速)挂上去之后这一格纹丝不动——与 EnemyInfo.BuildFigures
+            // 的 speedValue/speedNote 同一口径地补齐,否则玩家在召唤物详情里永远看不出
+            // 加速生效了没有(2026-09-16 之前也从没有效果会给召唤物挂 SpeedModifier,
+            // 这条缺口一直无害地潜伏着,Haste 是第一个真正踩上去的)。
+            int speedMod = summon.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
+            int speedValue = TurnScheduler.ClampSpeed(summon.Speed + speedMod);
+            string speedNote = UnitDetailChip.BaseNote(summon.Speed,
+                speedMod < 0
+                    ? UnitDetailChip.DeltaDebuffPts(Strings.T("status.slow.name"), -speedMod)
+                    : UnitDetailChip.DeltaBuffPts(Strings.T("status.speed.name"), speedMod));
+
             return new[]
             {
                 (Strings.T("char.stat.attack"), summon.EffectiveAttack.ToString(), attackNote),
                 (Strings.T("char.stat.shield"), summon.Shield.ToString(), (string)null),
                 (Strings.T("char.stat.defense"),
                     defenseValue > 0 ? "+" + defenseValue : "0", defenseNote),
-                (Strings.T("char.stat.speed"), summon.Speed.ToString(), (string)null),
+                (Strings.T("char.stat.speed"), speedValue.ToString(), speedNote),
             };
         }
 

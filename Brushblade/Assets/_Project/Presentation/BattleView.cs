@@ -1718,15 +1718,23 @@ namespace Brushblade.Presentation
                 statusChips.Add(new("", Theme.Gold, Color.white, "pierce"));
             // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻——
             // 基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」(与穿透同口径)。
-            // speed 取 != 0 而非 > 0:被减速是坏消息,恰恰更该让玩家看见 —— 但正负都只出图标,
-            // 减了多少与加了多少同样是持续期间的恒定修正,不是每回合的结算量。
+            // speed 取 != 0 而非 > 0、正负都只出图标,减了多少与加了多少同样是持续期间的
+            // 恒定修正,不是每回合的结算量。
+            // ⚠ 2026-09-16 前这句话曾断言「被减速是坏消息,恰恰更该让玩家看见」并把这当成
+            // != 0 的理由——那时全仓没有任何效果会把 SpeedModifier 挂到玩家身上
+            // (EffectKind.Slow 与召唤物 OnHitSlowPercent 都只打敌人),这一段在此之前是彻底的
+            // 死代码,「被减速」那句话描述的是一个不可达的情形。EffectKind.Haste 落地后唯一
+            // 可达的取值是正的,图标改成按符号分叉(与召唤物格/敌人格三处统一),提前拆掉
+            // 哪天配一只能减速玩家的怪、却发现图标一直是错的这个陷阱——本项目已经在
+            // 共享字段第一次真被读到这个形状上栽过两次(_pendingAttackMode / _allyTargeting)。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "defense"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.DodgeBuff) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "dodge"));
             int speedMod = Battle.PlayerStatuses.TotalMagnitude(StatusKind.SpeedModifier);
             if (speedMod != 0)
-                statusChips.Add(new("", speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white, "speed"));
+                statusChips.Add(new("", speedMod > 0 ? Theme.Jade : Theme.InkSoft, Color.white,
+                    speedMod > 0 ? "speed" : "slow"));
             // 厚 / 泉(2026-09-02):**「状态只出图标」那条规矩的显式例外,带数字。**
             //
             // main 2026-09-02 的判据是「量本身会不会随回合变小」——厚/泉不会(TurnsLeft = -1,
@@ -1894,6 +1902,13 @@ namespace Brushblade.Presentation
                 // 「锐」给的穿透、「壁」给的护甲都只是那个 2 里的一份,打出去生效没有看不出来。
                 var chipSpecs = new List<Ui.ChipSpec>();
                 var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
+                // N-1(2026-09-16 复审):桤/森/藻/林(底速 150,SummonPassiveChip 恒出 "speed"
+                // 被动格)吃到 Haste 之后,AddSummonStatusChips 的正向 SpeedModifier 分支也会
+                // 出一枚 "speed" 格——同一行两枚一模一样的图标,玩家分不清是天生快还是临时加速。
+                // 两者同时挂着时只留状态格(临时、更该被看见的那一条),被动身份仍能在召唤物
+                // 详情弹窗里看到(SummonInfo.BuildAbilities 的 summon.passive.haste 那句)。
+                if (passiveIcon == "speed" && summon.Statuses.TotalMagnitude(StatusKind.SpeedModifier) > 0)
+                    passiveIcon = null;
                 if (passiveIcon != null) chipSpecs.Add(new(passiveText, Theme.Cinnabar, Color.white, passiveIcon));
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
@@ -2278,7 +2293,11 @@ namespace Brushblade.Presentation
             Decaying(StatusKind.Bleed, "bleed", Theme.Cinnabar);
             Flag(StatusKind.Curse, "curse", Theme.InkSoft);
             Flag(StatusKind.ArmorBreak, "armorbreak", Theme.InkSoft);
-            // 速度:负向才出(与敌人格同口径),正向的「疾」是被动不是状态,已由 SummonPassiveChip 出
+            // 速度(负向这一支):与敌人格同口径,只画减速。
+            // ⚠ 2026-09-16 前这句话曾是「正向的「疾」是被动不是状态,已由 SummonPassiveChip 出」——
+            // 加速/急速(EffectKind.Haste)落地后正向 SpeedModifier 也是一条真实状态了,
+            // 在下面「---- 正面 ----」那一段有独立分支(与被动 chip 的重复由调用方去重,
+            // 见 DrawSummons 里 passiveIcon 那处 N-1 修复),这句旧注释已经不再成立,改掉。
             if (st.TotalMagnitude(StatusKind.SpeedModifier) < 0)
                 chips.Add(new("", Theme.InkSoft, Color.white, "slow"));
 
@@ -2655,8 +2674,10 @@ namespace Brushblade.Presentation
                 // 减速 / 致盲 / 诅咒都只出图标不带数字(2026-09-02 用户拍板):数字只留给
                 // 「跟随回合消亡」的 DOT/HOT(上面的灼烧就是),而这三条是**持续期间恒定的
                 // 修正值** —— 玩家要知道的是「挂上没挂上」,减多少去详情弹窗看。
-                // 只画负向:正向 SpeedModifier 眼下没有任何来源(唯一施加点是 EffectKind.Slow 的
-                // −50),画加速分支就是死代码。
+                // 只画负向:敌人身上仍然没有正向 SpeedModifier 的来源——2026-09-16 新增的
+                // EffectKind.Haste 只进 NeedsAllyTarget(落在我方身上),不会打到敌人;
+                // 这句前提没有被 Haste 打破,画加速分支在这里仍然是死代码,别被
+                // 「加速已经落地」误导去乱加。
                 int speedMod = enemy.Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 if (speedMod < 0)
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "slow"));

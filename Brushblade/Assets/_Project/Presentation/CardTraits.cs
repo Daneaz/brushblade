@@ -375,6 +375,18 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.quench.name"),
                             Strings.T("collection.trait.quench.desc", ("value", v)));
                         break;
+                    case EffectKind.Haste:
+                        // 加速/急速(2026-09-16,水):与 BattleView/SummonInfo 的正向速度 chip
+                        // 共用 "speed" 图标。按**未缩放的基础值**分档(e.Value,与 CharInfo 同口径)
+                        // ——v 已被 ScaleByCardLevel 抬高,用它判档会让满级的「加速」误判成「急速」。
+                        AddTrait(traits, "speed", "+" + v + "%",
+                            e.Value >= 100
+                                ? Strings.T("collection.trait.rapid.name")
+                                : Strings.T("collection.trait.haste.name"),
+                            e.Value >= 100
+                                ? Strings.T("collection.trait.rapid.desc", ("value", v), ("turns", e.Turns))
+                                : Strings.T("collection.trait.haste.desc", ("value", v), ("turns", e.Turns)));
+                        break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                         AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

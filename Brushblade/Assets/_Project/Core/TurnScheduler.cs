@@ -106,7 +106,10 @@ namespace Brushblade.Core
         public const int MinSpeed = 25;
 
         /// <summary>有效速度上限:防养成与叠加失控。CTB 下没有「单回合行动次数封顶」这回事,
-        /// 上限全靠这条(旧的 MaxActionsPerTurn = 2 随本次改造删除)。</summary>
+        /// 上限全靠这条(旧的 MaxActionsPerTurn = 2 随本次改造删除)。
+        ///
+        /// ⚠ 加速/急速(2026-09-16,水,EffectKind.Haste)叠加会撞这条顶:150 底速的召唤物
+        /// 吃两次急速(各 +150)已经到 450,钳到 400 只是少赚一点,不是 bug——既有硬线,不改。</summary>
         public const int MaxSpeed = 400;
 
         public static int ClampSpeed(int raw) => Math.Clamp(raw, MinSpeed, MaxSpeed);

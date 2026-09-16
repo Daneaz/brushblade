@@ -630,7 +630,9 @@ namespace Brushblade.Core
                 or EffectKind.Detonate or EffectKind.ArmorBreak
                 or EffectKind.DefenseBuff
                 or EffectKind.Empower or EffectKind.CritBuff or EffectKind.PierceBuff
-                or EffectKind.Blind => true,
+                or EffectKind.Blind
+                // 加速/急速(2026-09-16,水):百分比连续量值,与 CritBuff/PierceBuff 同型
+                or EffectKind.Haste => true,
             _ => false,
         };
 
@@ -1591,7 +1593,9 @@ namespace Brushblade.Core
                     // 玩家专属的四条**不在这张名单上,别顺手加**:战意(连续出字的节奏奖励,
                     // 召唤物不由玩家逐张出字驱动)、利(AP 是玩家资源)、燥(召唤物不施加灼烧)、
                     // 淋(群体治疗本就覆盖全场)。
-                    || effect.Kind == EffectKind.DefenseBuff || effect.Kind == EffectKind.Reflect)
+                    || effect.Kind == EffectKind.DefenseBuff || effect.Kind == EffectKind.Reflect
+                    // 加速/急速(2026-09-16,水):落在被治疗的那个目标身上,与 HealSelf 同名单。
+                    || effect.Kind == EffectKind.Haste)
                     return true;
             return false;
         }
@@ -1607,6 +1611,16 @@ namespace Brushblade.Core
                 || _summons[allySlot] == null || !_summons[allySlot].Alive
                 ? _playerStatuses
                 : _summons[allySlot].Statuses;
+
+        /// <summary>加速/急速(2026-09-16,水)换算基数用:与 <see cref="AllyStatuses"/> 同一套
+        /// 「这个 allySlot 到底是谁」判据 —— 落到玩家身上读 <c>_config.PlayerSpeed</c>,
+        /// 落到召唤物身上读它自己的 <see cref="SummonState.Speed"/>(桤/森/藻/林是 150,
+        /// 其余缺省 100)。两处判据一旦分叉,状态挂对了袋子、基数却算错,后果比落错袋子更隐蔽。</summary>
+        private int AllyBaseSpeed(int allySlot) =>
+            allySlot == Targeting.PlayerTarget || allySlot < 0 || allySlot >= SummonCap
+                || _summons[allySlot] == null || !_summons[allySlot].Alive
+                ? _config.PlayerSpeed
+                : _summons[allySlot].Speed;
 
         /// <summary>这个槽位现在能不能作为**友方目标**(表现层据此置灰;引擎在 Cast 里用同一条判据)。
         /// 玩家(−1)恒可选;召唤物要活着 —— 尸体归复活管,治疗救不回来、增益也不给尸体挂。
@@ -1729,8 +1743,15 @@ namespace Brushblade.Core
             for (int s = 0; s < SummonCap; s++)
             {
                 if (_summons[s] == null || !_summons[s].Alive) continue;
+                // 加速/急速(2026-09-16,水)接线复查抓到的漏项:此前这里只读 Speed 裸值,
+                // 不加 Statuses 里的 SpeedModifier —— 与下面敌人分支的
+                // `enemy.Speed + enemy.Statuses.TotalMagnitude(...)` 不对称。此前无害
+                // (从没有效果把 SpeedModifier 挂到召唤物自己的状态袋上),Haste 是第一个,
+                // 不补上这一行,加速挂上了但调度顺序纹丝不动,是最隐蔽的一种静默空转。
+                int summonSpeed = _summons[s].Speed
+                    + _summons[s].Statuses.TotalMagnitude(StatusKind.SpeedModifier);
                 slots.Add(new SchedulerSlot(new ActorRef(ActorKind.Summon, s),
-                    _summons[s].Speed, _summons[s].ActionMeter, 1));
+                    summonSpeed, _summons[s].ActionMeter, 1));
             }
             for (int i = 0; i < _enemies.Count; i++)
             {
@@ -2867,6 +2888,21 @@ namespace Brushblade.Core
                         {
                             Kind = StatusKind.PierceBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1,
+                            SourceId = $"{def.Id}#{_statusSerial++}",
+                        });
+                        break;
+                    case EffectKind.Haste:
+                        // 加速/急速(2026-09-16,水):落在被治疗的那个目标身上,与 HealSelf
+                        // 同一张名单(NeedsAllyTarget)。挂正的 SpeedModifier —— SpeedModifier
+                        // 此前只出现负值,这是它第一次取正;换算基数是目标**自己的**基础速度
+                        // (AllyBaseSpeed),不是固定数,所以同一个 Value 挂在不同底速的召唤物上
+                        // 点数不同(150 底速 +75、100 底速 +50)。
+                        // SourceId 铸唯一序号(与 DefenseBuff/PierceBuff 同款,用法 2)才能叠。
+                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        {
+                            Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Buff,
+                            Magnitude = AllyBaseSpeed(allySlot) * value / 100,
+                            TurnsLeft = Math.Max(1, effect.Turns),
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
                         break;
