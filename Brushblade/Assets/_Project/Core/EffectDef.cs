@@ -76,6 +76,21 @@ namespace Brushblade.Core
                       // 「有 SpeedModifier 就是被减速了」判断的地方都必须收紧成 `< 0`
                       // (BattleEngine.ConditionMet 的 Controlled 判据、Targeting 的 preferUnslowed
                       // 早已是 `< 0`/`>= 0`,2026-09-16 复核过一遍,全部正确)。
+        Unseal,       // 解封(2026-09-16,水):被治疗的那只召唤物的属性在 6 类中纯随机
+                      // 重掷一次,永久。Value 不用。
+                      //
+                      // 纯随机 = 含当前属性、含 Heart(2026-09-05 用户裁定):可能没变、
+                      // 可能变差(本来克敌人的变成被克)。这是设计,不是 bug —— 它是赌。
+                      //
+                      // 落到玩家槽位时**空转**:玩家没有五行属性,也不该有。⚠ 空转分支必须
+                      // 写在 BattleEngine.ApplyEffects 摇随机数**之前** return —— _random 是
+                      // 带种子的全局流,摇了不用的一次也会平移掉后面全部依赖种子的既有测试
+                      // (与 AttackHits 的 hitRate ≥ 100 短路同一条纪律)。
+                      //
+                      // ⚠ 重掷后择敌(Targeting.KeTier / TopKeTier)、生克结算(WuxingResolver.
+                      // KeMultiplier 系)、UI 显色(BattleView.DrawSummons / SummonInfo)三条路径
+                      // 全部现读 SummonState.Element,不需要各自接线——但改完要 grep 复查,
+                      // 别假设只有这三条。
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

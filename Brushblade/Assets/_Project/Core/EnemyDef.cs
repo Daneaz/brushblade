@@ -187,7 +187,12 @@ namespace Brushblade.Core
         /// 玩家要认的是「我出的哪张牌变成了它」。</summary>
         public string SourceChar { get; }
 
-        public Element Element { get; }
+        /// <summary>破例可写(解封,2026-09-16,水):全场唯一写入点是
+        /// <c>BattleEngine.ApplyEffects</c> 的 <see cref="EffectKind.Unseal"/> 分支——
+        /// 6 类纯随机重掷一次,永久生效。此前与 <see cref="EnemyState.Element"/>(Boss 换阶段
+        /// 会变,早已是 internal set)不对称,是因为召唤物属性此前从来不会变;解封落地后
+        /// 两者同型。</summary>
+        public Element Element { get; internal set; }
         public int Hp { get; internal set; }
         public int MaxHp { get; }
         public int Attack { get; }

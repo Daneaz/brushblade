@@ -296,6 +296,9 @@ namespace Brushblade.Core
                        // (TargetIndex = 受害者),而 Damage 分支**不做攻击者动效** —— 它平时是玩家
                        // 出牌的伤害,出手表演由出牌那条路自己负责。于是被魅惑的怪站着不动,
                        // 伤害凭空落在队友头上(2026-09-08 用户实测报的就是这个)。
+        Unseal,        // 解封:召唤物属性重掷(TargetIndex = 召唤物槽位,Amount = 新属性的
+                       // (int)Element;2026-09-16)。玩家槽位空转不发这条 —— 与 Shield/Heal
+                       // 等只在真正落到召唤物/玩家身上才发事件的既有纪律同型。
     }
 
     public readonly struct BattleEvent
@@ -1595,7 +1598,11 @@ namespace Brushblade.Core
                     // 淋(群体治疗本就覆盖全场)。
                     || effect.Kind == EffectKind.DefenseBuff || effect.Kind == EffectKind.Reflect
                     // 加速/急速(2026-09-16,水):落在被治疗的那个目标身上,与 HealSelf 同名单。
-                    || effect.Kind == EffectKind.Haste)
+                    || effect.Kind == EffectKind.Haste
+                    // 解封(2026-09-16,水):作用于**我方召唤物**,必须登记进这张名单 ——
+                    // 漏了的后果与上面 C1/Quench 同型:UI 判不出要选目标,allySlot 恒为
+                    // Targeting.PlayerTarget,ApplyEffects 的 Unseal 分支永远走玩家空转分支。
+                    || effect.Kind == EffectKind.Unseal)
                     return true;
             return false;
         }
@@ -2905,6 +2912,26 @@ namespace Brushblade.Core
                             TurnsLeft = Math.Max(1, effect.Turns),
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });
+                        break;
+                    case EffectKind.Unseal:
+                        // 解封(2026-09-16,水):落在被治疗的那个目标身上,与 Haste 同一张名单
+                        // (NeedsAllyTarget)。玩家没有五行属性,落到玩家槽位时空转 ——
+                        // ⚠ 必须在碰 _random 之前 return:_random 是带种子的全局流,哪怕摇出来的
+                        // 数不用,摇了这一次也会把序列往后平移,让所有依赖种子的既有测试变红
+                        // (与 AttackHits 的 hitRate ≥ 100 短路同一条纪律)。
+                        if (allySlot == Targeting.PlayerTarget) break;
+                        {
+                            // 纵深防御(同 HealAlly):Cast 里的 NeedsAllyTarget 校验已经保证
+                            // allySlot 是活着的召唤物,这里再判一次不依赖调用方守住。
+                            var unsealTarget = _summons[allySlot];
+                            if (unsealTarget == null || !unsealTarget.Alive) break;
+                            // 6 类纯随机重掷,含当前属性、含 Heart(2026-09-05 用户裁定)——
+                            // 可能没变、可能变差,这是设计,是「赌」。永久:直接改字段,
+                            // 不进 StatusBag,不随回合递减。
+                            var rerolled = (Element)_random.Next(6);
+                            unsealTarget.Element = rerolled;
+                            _events.Add(new BattleEvent(BattleEventKind.Unseal, allySlot, (int)rerolled));
+                        }
                         break;
                     case EffectKind.BurnAll:
                         for (int i = 0; i < _enemies.Count; i++)

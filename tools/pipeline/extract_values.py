@@ -50,6 +50,10 @@ VALUELESS_EFFECTS = {
     # 全体引爆(2026-08-26,炸)。必须排在 `Detonate` 之后**且**用整串带反引号匹配 ——
     # `f"\`{token}\`" in config` 拿 "`Detonate`" 去配 "`DetonateAll`" 配不上,两者互不吞。
     "DetonateAll": {"kind": "Detonate", "value": 0, "targetAll": True},
+    # 解封(2026-09-16,水):独立效果(与 Cleanse 同型,不是挂在 Damage* 上的修饰位),
+    # 6 类纯随机重掷召唤物属性、永久,不带数值。本任务只造机制不配字,这里先补上
+    # token 映射,免得 Task 10/11 配字时才发现这张表漏了它。
+    "Unseal": {"kind": "Unseal", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。

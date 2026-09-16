@@ -387,6 +387,13 @@ namespace Brushblade.Presentation
                                 ? Strings.T("collection.trait.rapid.desc", ("value", v), ("turns", e.Turns))
                                 : Strings.T("collection.trait.haste.desc", ("value", v), ("turns", e.Turns)));
                         break;
+                    case EffectKind.Unseal:
+                        // 解封(2026-09-16,水):没有对应图标(不进 tools/icons 三件套,
+                        // 走纯文字 chip,与净化/魅惑同款 AddWord)。Value 不用。
+                        AddWord(traits, Strings.T("collection.trait.unseal.chip"),
+                            Strings.T("collection.trait.unseal.name"),
+                            Strings.T("collection.trait.unseal.desc"));
+                        break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                         AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

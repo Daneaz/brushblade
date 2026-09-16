@@ -170,6 +170,8 @@ namespace Brushblade.Presentation
                     EffectKind.Haste => e.Value >= 100
                         ? Strings.T("char.effect.rapid", ("value", shown), ("turns", e.Turns))
                         : Strings.T("char.effect.haste", ("value", shown), ("turns", e.Turns)),
+                    // 解封(2026-09-16,水):6 类纯随机重掷,永久,Value 不用(与 Cleanse 同口径)。
+                    EffectKind.Unseal => Strings.T("char.effect.unseal"),
                     _ => e.Kind.ToString(),
                 });
             }

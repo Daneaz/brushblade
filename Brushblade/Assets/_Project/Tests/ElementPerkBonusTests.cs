@@ -163,6 +163,9 @@ namespace Brushblade.Core.Tests
                 EffectKind.Summon,
                 EffectKind.BurnPotency, EffectKind.BurnSettleNow, EffectKind.BurnNoDecay,
                 EffectKind.ApBoost, EffectKind.Quench,
+                // 解封(2026-09-16,水):Value 不用(纯随机重掷属性,无量值可放大),
+                // 与 Cleanse/BurnSettleNow 那批「Value 不用」的独立效果同口径。
+                EffectKind.Unseal,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))
