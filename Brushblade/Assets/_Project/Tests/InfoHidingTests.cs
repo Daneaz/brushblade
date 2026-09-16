@@ -88,6 +88,23 @@ namespace Brushblade.Core.Tests
 
         // ---- 生僻字 ----
 
+        /// <summary>2026-09-16 用户拍板:生僻字的隐藏属性**每次遭遇现摇**,与通假字同口径 ——
+        /// 配置里的 element 对它不作数。不摇的话「隐藏」只在第一次遭遇成立:玩家记住了
+        /// (或翻一次图鉴)之后,"?" 背后永远是同一个答案,这条机制就形同虚设。</summary>
+        [Test]
+        public void Obscure_RollsRealElementPerEncounter_NeverHeart()
+        {
+            var seen = new System.Collections.Generic.HashSet<Element>();
+            for (int seed = 0; seed < 40; seed++)
+            {
+                var enemy = Engine(ShengPi(), seed).Enemies[0];
+                Assert.That(enemy.ApparentElement, Is.Null, $"seed {seed}:摇归摇,显示仍是 ?");
+                Assert.That(FiveElements, Has.Member(enemy.Element)); // 心不参与生克,藏它没意义
+                seen.Add(enemy.Element);
+            }
+            Assert.That(seen.Count, Is.GreaterThan(1), "40 个种子摇出同一个属性 = 根本没摇");
+        }
+
         [Test]
         public void Obscure_HiddenInitially()
         {
@@ -102,7 +119,10 @@ namespace Brushblade.Core.Tests
             engine.Cast("火", 0);
             Assert.That(engine.Enemies[0].ApparentElement, Is.Null); // 一击还没读懂
             engine.Cast("火", 0);
-            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(Element.Earth)); // 读懂了
+            // 读懂了 —— 断言「显示 == 真实属性」而不是配置里那个 Earth:属性 2026-09-16 起
+            // 每次遭遇现摇(见 Obscure_RollsRealElementPerEncounter_NeverHeart),
+            // 写死配置值等于把这条测试钉在「没摇」上。
+            Assert.That(engine.Enemies[0].ApparentElement, Is.EqualTo(engine.Enemies[0].Element));
             Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.EnemyRevealed), Is.True);
         }
 
@@ -114,7 +134,7 @@ namespace Brushblade.Core.Tests
             var engine = new BattleEngine(Graph(), new BattleConfig(), Array.Empty<string>(),
                 new[] { "火", "火" }, new[] { new EnemyDef("生僻字", Element.Earth, 20, 2, EnemyAbility.Obscure) },
                 seed: 1);
-            engine.Cast("火", 0);  // 第 1 击:20 → 10,未读懂
+            engine.Cast("火", 0);  // 第 1 击:未读懂(掉多少取决于现摇出来的属性,见下)
             engine.Cast("火", 0);  // 第 2 击:致死,同时满足「受击两次」的现形条件
 
             var kinds = engine.LastEvents.Select(e => e.Kind).ToList();

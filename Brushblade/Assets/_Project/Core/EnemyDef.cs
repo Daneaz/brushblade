@@ -550,9 +550,21 @@ namespace Brushblade.Core
                     if (fake >= Array.IndexOf(Wuxing, Element)) fake++; // 跳过真身那一格:均匀且必不撞车
                     ApparentElement = Wuxing[fake];
                 }
+                else if (def.Ability == EnemyAbility.Obscure && random != null)
+                {
+                    // 生僻字(2026-09-16 用户拍板):真实属性也**每次遭遇现摇**,配置里的
+                    // element 对它同样不作数 —— 与通假字一个道理。不摇的话「隐藏」只在第一次
+                    // 遭遇成立:玩家记住了(或翻一次图鉴)之后,"?" 背后永远是同一个答案,
+                    // 这条机制就只剩一个问号的皮。不取「心」同通假字:心不参与生克,藏它没意义。
+                    // ApparentElement 仍是 null —— 摇的是**答案**,不是「藏不藏」。
+                    Element = Wuxing[random.Next(Wuxing.Length)];
+                    ApparentElement = null;
+                }
                 else
                 {
-                    ApparentElement = def.Ability == EnemyAbility.Obscure ? null : def.Element; // 生僻字:属性隐藏
+                    // random == null 的生僻字(Restore 走的那条空构造)仍落这里:ApparentElement
+                    // 照旧置 null,Element 随后由快照原样灌回 —— 不在复原路径上重摇任何随机量。
+                    ApparentElement = def.Ability == EnemyAbility.Obscure ? null : def.Element;
                 }
             }
         }

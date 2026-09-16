@@ -135,6 +135,16 @@ namespace Brushblade.Presentation
         private int _animPlayerHp;
         private int _animShield;    // 出手前护盾:与血条同理,敌方一记打来时按吸收量逐记降(2026-07-25)
         private readonly System.Collections.Generic.List<int> _animEnemyHp = new();
+
+        /// <summary>开场回放期间**允许画出来**的敌人数;−1 = 不设限(回放之外恒为 −1)。
+        ///
+        /// 构造函数已经把开场推进跑完了,<c>Battle.Enemies</c> 是开场**后**的列表 ——
+        /// 叠字怪在开场里分裂出来的克隆已经在里面了。不设限的话回放第一帧就把分裂体画出来,
+        /// 玩家看到的是「战斗一开始场上就多了一只,分裂动画随后才播」(2026-09-16 用户报)。
+        /// 与 <see cref="BattleEngine.OpeningPreEnemyHp"/> 是同一条病根的另一半:那条管**血量**
+        /// 的起点,这条管**数量**。克隆一律 append 在列表末尾,所以「前 N 只」就是开场前的全体,
+        /// 每replay 到一条 EnemySplit 就放行一只。</summary>
+        private int _openingEnemyCap = -1;
         // 血条 fill/label 引用:命中回调据此就地推进,不整屏重绘(重绘会毁掉进行中动画的锚点)
         private (RectTransform fill, UnityEngine.UI.Text label) _playerHpBar;
 
@@ -2425,6 +2435,17 @@ namespace Brushblade.Presentation
             {
                 var enemy = Battle.Enemies[i];
                 int index = i;
+                // 开场回放里还没「分裂出来」的克隆:不画,但四个下标对齐的列表照样占位 ——
+                // 理由同下面 col < 0 那一支,漏占会让后续敌人的下标全部错位。
+                if (_openingEnemyCap >= 0 && i >= _openingEnemyCap)
+                {
+                    _enemyMobs.Add(null);
+                    _enemyHpBars.Add((null, null));
+                    _enemyActionBars.Add((null, null));
+                    _enemyRects.Add(null);
+                    _enemyHitAreas.Add(null);
+                    continue;
+                }
                 // 跨排的怪(Boss)一律从**后排**格位起画:它的可视块要向下溢出去盖住前排
                 // 那两格(见下面 crossRow 那一段),而向上溢出会顶进顶栏。
                 bool crossRow = enemy.RowSpan > 1;
@@ -5349,6 +5370,8 @@ namespace Brushblade.Presentation
             // SnapshotPreHp 也必须在这次重绘之前:Animating 期间血条画的是 _anim*Hp,
             // 首战它是默认 0(玩家血条整段回放画成 0/50),第二场起是上一场的陈旧值。
             SnapshotPreHp();
+            // 开场里分裂出来的克隆先不画,等回放到那条 EnemySplit 再逐只放行(见字段注释)
+            _openingEnemyCap = Battle.OpeningPreEnemyHp.Count;
             // 敌人血条改画开场**前**的血(见上面那条 ⚠):SnapshotPreHp 取的是终值,
             // 回放会把它再往下推一段。开场中途分裂出来的新怪不在 OpeningPreEnemyHp 里
             // (它开场前不存在),那几个下标保持终值 —— EnemySplit 事件回放时会按到正确值。
@@ -5402,9 +5425,31 @@ namespace Brushblade.Presentation
                     yield return _juice.Wait(0.12f);
                 }
                 DropActingBar(step.Actor, post);
+                // 这一拍分裂了就放行那几只克隆,并重绘让它们**此刻**登场 —— 放行必须排在
+                // 本拍的 _juice.Play 之后:重绘会重建敌人格(血条 fill 引用一并作废),
+                // 动画还在播的时候动它就是那条「期间不重绘」的禁忌。循环里其余的拍不重绘,
+                // 免得平白多出一次全屏重建。
+                foreach (var split in step.Events.Where(e => e.Kind == BattleEventKind.EnemySplit))
+                {
+                    // 克隆按分裂发生的次序 append 在末尾,所以当前上限就是它的下标。
+                    // 顺带把它的动画血量按到分裂那一刻的值(Amount = 减半后的血,原体与克隆同值)
+                    // —— 不按的话它会带着开场**结束时**的血登场,后续伤害再从那个值往下推。
+                    if (_openingEnemyCap < _animEnemyHp.Count)
+                        _animEnemyHp[_openingEnemyCap] = split.Amount;
+                    _openingEnemyCap++;
+                }
+                if (step.Events.Any(e => e.Kind == BattleEventKind.EnemySplit))
+                {
+                    Refresh();
+                    // ⚠ 重绘按**开场结束后**的计量器建条(Draw* 读的是 Battle.*ActionMeter),
+                    // 而回放才走到第 k 拍 —— 不补这一笔,全场行动条会当场跳到终值。
+                    // 取 post 而不是 pre:本拍已经演完,DropActingBar 也已把行动者按回余额。
+                    PaintActionBars(post);
+                }
                 pre = post;
             }
 
+            _openingEnemyCap = -1;   // 回放结束,解除限流:收尾这次重绘要把全场画全
             Refresh();
             OnAnimDone(allDeaths); // 解锁输入 + 清死亡着色 + 归零后重绘(Battle 已 Won 时才出结算)
             yield return DealRoutine(drawnIndices); // 首回合的发牌同样要飞一遍(顺序同 AdvanceRoutine)
