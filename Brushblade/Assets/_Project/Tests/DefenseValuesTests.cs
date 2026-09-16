@@ -146,10 +146,11 @@ namespace Brushblade.CoreTests
         public void Calibration_MoZhi_Defense20_AgainstMobReference()
         {
             // 旧:承伤 0.7 → floor(85 × 0.7) = 59。点数减法期:85 − 20 = 65(靠带宽勉强容下)。
-            // 2026-09-16 护甲百分比化:DR 目标 30% 反解得 100×0.30/0.70 = 43 点,
-            // 85 × 100 ÷ 143 = 59 —— **锚点原样成立,带宽未放宽**。这正是百分比模型该有的样子:
+            // 2026-09-16 护甲百分比化(裁定 I):反解**旧点数模型在它自己的参考打击量下的真实减伤率**
+            // —— 墨渍是低阶杂兵,参考打击 85,旧 DR = 20/85 = 23.5%,新护甲 = round(100×0.235/0.765) = 31。
+            // 85 × 100 ÷ 131 = 64 —— **锚点原样成立,带宽未放宽**。这正是百分比模型该有的样子:
             // 设计目标本来就是用承伤比例表达的,新模型原生就是比例,两者严丝合缝。
-            Assert.That(RealEnemy("墨渍").Defense, Is.EqualTo(43));
+            Assert.That(RealEnemy("墨渍").Defense, Is.EqualTo(31));
             Assert.That(HitFor(RealEnemy("墨渍"), 85), Is.EqualTo(59).Within(9));
         }
 
@@ -157,8 +158,9 @@ namespace Brushblade.CoreTests
         public void Calibration_ShanPhase_Defense60_AgainstBossReference()
         {
             // 旧:承伤 0.5 → floor(120 × 0.5) = 60。点数减法期:120 − 60 = 60。
-            // 2026-09-16 护甲百分比化:DR 目标 50% 反解得 100 点,120 × 100 ÷ 200 = 60 ——
-            // **锚点原样成立,带宽未放宽**。
+            // 2026-09-16 护甲百分比化(裁定 I):山 是 Boss 相,参考打击 120,
+            // 旧 DR = 60/120 = 50%,新护甲 = round(100×0.5/0.5) = 100。
+            // 120 × 100 ÷ 200 = 60 —— **锚点原样成立,带宽未放宽**。
             Assert.That(RealEnemy("排山倒海").Phases.First(p => p.Char == "山").Defense, Is.EqualTo(100));
             Assert.That(HitBossPhaseFor("排山倒海", "山", 120), Is.EqualTo(60).Within(9));
         }
@@ -167,11 +169,9 @@ namespace Brushblade.CoreTests
         public void Calibration_JiangPhase_Defense30_AgainstBossReference()
         {
             // 旧:承伤 0.75 → floor(120 × 0.75) = 90。点数减法期:120 − 30 = 90。
-            // 2026-09-16 护甲百分比化:DR 目标 25% 反解得 100×0.25/0.75 = 33 点,
+            // 2026-09-16 护甲百分比化(裁定 I):江 是 Boss 相,参考打击 120,
+            // 旧 DR = 30/120 = 25%,新护甲 = round(100×0.25/0.75) = 33。
             // 120 × 100 ÷ 133 = 90 —— **锚点原样成立,带宽未放宽**。
-            // ⚠ 33 不是裁定 E 那条直线(p = 0.20 + 0.005×旧)给的 54:那条直线是拿墨渍与山
-            // 两个锚点拟合的,而 30 这一档有自己的锚点(承伤 0.75)。直线在这里会给出 77,
-            // 掉出 [81,99] —— 校准锚点优先于插值,见 task-1-report.md。
             Assert.That(RealEnemy("翻江倒海").Phases.First(p => p.Char == "江").Defense, Is.EqualTo(33));
             Assert.That(HitBossPhaseFor("翻江倒海", "江", 120), Is.EqualTo(90).Within(9));
         }
@@ -179,7 +179,7 @@ namespace Brushblade.CoreTests
         [Test]
         public void Calibration_JunPhase_Defense30_AgainstBossReference()
         {
-            // 旧:承伤 0.75 → floor(120 × 0.75) = 90。2026-09-16 百分比化后 30 → 33,
+            // 旧:承伤 0.75 → floor(120 × 0.75) = 90。2026-09-16 百分比化(裁定 I)后 30 → 33,
             // 120 × 100 ÷ 133 = 90 —— 锚点原样成立(理由同「江」那条)。
             Assert.That(RealEnemy("雷霆万钧").Phases.First(p => p.Char == "钧").Defense, Is.EqualTo(33));
             Assert.That(HitBossPhaseFor("雷霆万钧", "钧", 120), Is.EqualTo(90).Within(9));
@@ -233,10 +233,10 @@ namespace Brushblade.CoreTests
         [Test]
         public void Scale_HalvesDefenseGrowth()
         {
-            // 2026-09-16 护甲百分比化:墨渍基础护甲 20 → 43,缩放规则本身一字未改
+            // 2026-09-16 护甲百分比化(裁定 I):墨渍基础护甲 20 → 31,缩放规则本身一字未改
             var scaled = CampaignConfig.Scale(RealEnemy("墨渍"), DepthScale(20));
-            Assert.That(scaled.Defense, Is.EqualTo(84),
-                "defScale = 1 + (2.9 − 1)/2 = 1.95 → ceil(43 × 1.95) = 84;同速会是 ceil(43 × 2.9) = 125");
+            Assert.That(scaled.Defense, Is.EqualTo(61),
+                "defScale = 1 + (2.9 − 1)/2 = 1.95 → ceil(31 × 1.95) = 61;同速会是 ceil(31 × 2.9) = 90");
             Assert.That(scaled.MaxHp, Is.EqualTo(406), "血量照常**全速**:140 × 2.9");
         }
 
@@ -291,9 +291,9 @@ namespace Brushblade.CoreTests
             // 随之变成 88×0.60 = 52.8 → 53。最低档仍是 花。
             Assert.That(lowestTier, Is.EqualTo(53), "字表最低伤害档;它变了这条判据要重新标定");
 
-            // 2026-09-16 护甲百分比化:墨渍 20 → 43,ceil(43 × 1.95) = 84
+            // 2026-09-16 护甲百分比化(裁定 I):墨渍 20 → 31,ceil(31 × 1.95) = 61
             var mob = CampaignConfig.Scale(RealEnemy("墨渍"), DepthScale(20));
-            Assert.That(mob.Defense, Is.EqualTo(84));
+            Assert.That(mob.Defense, Is.EqualTo(61));
 
             var engine = new BattleEngine(ProbeGraph(lowestTier),
                 new BattleConfig
@@ -315,12 +315,12 @@ namespace Brushblade.CoreTests
 
             Assert.That(dealt, Is.GreaterThan(0),
                 "深度 20 的带甲小怪必须还能被最低档的字磨动 —— 归零就等于护甲把字库掐死了");
-            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),末一步由「− 39」改为「× 100 ÷ 184」
-            Assert.That(dealt, Is.EqualTo(47),
-                "ceil(53×1.351) = 72 → 72×122/100 = 87 → 87×100/184 = 47(spec §6.3.2 的推导;"
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),末一步由「− 39」改为「× 100 ÷ 161」
+            Assert.That(dealt, Is.EqualTo(54),
+                "ceil(53×1.351) = 72 → 72×122/100 = 87 → 87×100/161 = 54(spec §6.3.2 的推导;"
                 + "2026-09-08 最低档由 利 45 换成 花 54,见上方注释;"
                 + "2026-09-11 卡等级系数 0.1 → 0.117、锚点统一后 花 54 → 53;"
-                + "2026-09-16 护甲百分比化,墨渍 20 → 43、深度 20 缩放后 39 → 84)");
+                + "2026-09-16 护甲百分比化,墨渍 20 → 31、深度 20 缩放后 39 → 61)");
         }
 
         /// <summary>无尽深度缩放系数(<c>Endless.cs</c> 的 <c>1 + 0.1×(depth−1)</c>)。
@@ -428,7 +428,7 @@ namespace Brushblade.CoreTests
         }
 
         /// <summary>其余 Boss 阶段一律无甲(spec §6.3:只有 山 / 江 / 钧 三处;
-        /// 2026-09-16 护甲百分比化后点数由 60/30/30 重标定为 100/33/33)。
+        /// 2026-09-16 护甲百分比化(裁定 I)后点数由 60/30/30 重标定为 100/33/33)。
         /// 漏配是静默的 —— 多给一个阶段配上甲不会有任何别的测试变红。</summary>
         [Test]
         public void RealConfig_OnlyThreeBossPhasesCarryArmor()

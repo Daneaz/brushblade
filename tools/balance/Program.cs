@@ -102,7 +102,7 @@ namespace Brushblade.Balance
         // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
         // 判据只有一条:探针按预期方向动了。P50 的绝对值不是通过/失败判据。
 
-        /// <summary>探针的起爬深度 = 词渊段首。带甲小怪墨渍(DEF 20)只在 11 层起的池子里。</summary>
+        /// <summary>探针的起爬深度 = 词渊段首。带甲小怪墨渍(DEF 31)只在 11 层起的池子里。</summary>
         private const int ProbeStartDepth = 11;
 
         // 2026-09-05:铠 移出字表,点数护甲无载体,护甲画像随之下线。重新装配 DefenseBuff 时恢复。
@@ -113,7 +113,8 @@ namespace Brushblade.Balance
         ///
         /// ⚠⚠ **这档探针是「因为错误的原因通过的」,T8 不得拿它校准 AOE 轴。**
         /// 它满足 spec §10.5 写的方向(P50 低于对照),但 2026-08-13 实测变异
-        /// (墨渍 DEF 20 → 0)只让它从 12.4 动到 12.6 —— 与对照那 ~2 层的差距**主要来自
+        /// (墨渍 DEF 31 → 0;这个读数是 2026-09-16 护甲百分比化**之前**测的,未重测)
+        /// 只让它从 12.4 动到 12.6 —— 与对照那 ~2 层的差距**主要来自
         /// 字表数值**(AOE 池 50~70 vs 火系 炎 200 / 燚 300),点数 DEF 的 N 倍惩罚
         /// 只值约 **0.2 层**,淹没在噪声里。
         ///
@@ -407,7 +408,7 @@ namespace Brushblade.Balance
 
                     var battle = run.Battle;
                     // 「见没见到甲」的分母(每场战斗记一次;这一行不消耗任何随机数)。
-                    // ⚠ 只数**开战时**就带甲的敌人 = 小怪墨渍(词渊 11 层起,DEF 20)。
+                    // ⚠ 只数**开战时**就带甲的敌人 = 小怪墨渍(词渊 11 层起,DEF 31)。
                     // Boss 的带甲阶段(山 60 / 江 30 / 钧 30)不计:它们是单敌战,
                     // 点数 DEF 的 N 倍惩罚在单敌场里根本不兑现,对 AOE 探针没有判别力。
                     if (battle.Enemies.Any(e => e.Defense > 0))
@@ -582,7 +583,7 @@ namespace Brushblade.Balance
                     case EffectKind.HealAll: sum += e.Value; break;
                     case EffectKind.Summon: sum += (e.Value + e.SummonAttack * 3) * e.SummonCount / 2; break;
                     // 穿透(2026-08-12,E-b4 T5,锐):按点数**等价折算成伤害**,不加权。
-                    // 它本场持久、每次攻击都兑现,理应比一次性伤害值钱;但全表只有 墨渍(DEF 20)
+                    // 它本场持久、每次攻击都兑现,理应比一次性伤害值钱;但全表只有 墨渍(DEF 31)
                     // 与 3 个 Boss 阶段(30/30/60)有甲,对其余敌人它一分钱不值。等价折算是这两头
                     // 之间的保守中点 —— 排在 灼(60)之后,机器人先打伤害再攒穿透。
                     case EffectKind.PierceBuff: sum += e.Value; break;

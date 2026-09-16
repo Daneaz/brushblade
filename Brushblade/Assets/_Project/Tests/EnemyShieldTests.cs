@@ -6,7 +6,8 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>敌人护盾(2026-08-30):护甲减法之后、扣血之前吸收。
+    /// <summary>敌人护盾(2026-08-30):护甲折算之后、扣血之前吸收
+    /// (2026-09-16 护甲由点数减法改为百分比减伤,顺序口径不变)。
     ///
     /// ⚠ **来源留白**(用户 2026-08-30 拍板):enemies.json 没有护盾字段,也没有结盾技能——
     /// 盾的来源将来是「加盾辅助怪给同伴挂 buff」,那类小怪还没设计。所以真机上
@@ -16,7 +17,7 @@ namespace Brushblade.Core.Tests
         // 弹:心系 50 伤,心中立(全属性 ×1.0),用来测护盾本身而不搅动生克(同 DefenseWiringTests 的口径)。
         // 斫:木系 50 伤,木克土 ×1.5,专门用来触发相克(绕护甲、但不该绕盾)。
         // 掴:心系 40 伤,心中立;专门配合护甲 30 / 盾 20 这组「顺序反转会被拦住」的数字
-        // (Review 2026-08-30 指出「弹」的 50 配不出判别力,见下方 Shield_AbsorbsAfterDefenseSubtraction
+        // (Review 2026-08-30 指出「弹」的 50 配不出判别力,见下方 Shield_AbsorbsAfterDefenseReduction
         // 的算式注释——不能与「弹」共用基础值,数字是这条测试判别力的一部分)。
         private static RecipeGraph Graph() => new(new[]
         {
@@ -45,7 +46,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Shield_AbsorbsAfterDefenseSubtraction()
+        public void Shield_AbsorbsAfterDefenseReduction()
         {
             // 护甲 30、盾 20、血 100,挨一记 40(心系中立)。
             //

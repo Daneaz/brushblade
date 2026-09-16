@@ -5,10 +5,12 @@ using NUnit.Framework;
 
 namespace Brushblade.CoreTests
 {
-    /// <summary>点数制护甲的**接线**(E-b4/E-b5 的 T2,2026-08-12)。
+    /// <summary>护甲的**接线**(E-b4/E-b5 的 T2,2026-08-12;
+    /// 2026-09-16 护甲由点数减法改为百分比减伤 DR = 甲/(甲+100),本文件的期望值整体重算过,
+    /// 接线结构与用例构造一字未动 —— 变的只是最后那一步怎么算)。
     ///
-    /// 本步只把减法层接进结算点,**不给任何字或敌人配点数** —— 生产配置里护甲恒 0,
-    /// 于是 <c>max(0, x − max(0, 0 − 0)) == x</c>,黄金轨迹与接线之前逐字节相同,
+    /// 本步只把减伤层接进结算点,**不给任何字或敌人配点数** —— 当时生产配置里护甲恒 0,
+    /// 于是这一层是恒等变换,黄金轨迹与接线之前逐字节相同,
     /// 887 条既有断言一条都不该红。这就是把「接线」与「配值」拆成两步的全部理由:
     /// **T2 的任何一条红都 100% 是接线 bug**,而不是折算率算错。
     ///
@@ -17,7 +19,7 @@ namespace Brushblade.CoreTests
     /// 或直接注入状态条目造出来。否则接线对不对要等 T3 才知道,拆分就白拆了。
     ///
     /// 测试字一律 <see cref="Element.Heart"/> 且不给配方(同 CritStatTests / AttackStatTests):
-    /// 心对全属性生克都是 1.0x,没有配方就不会触发相生 ×3 —— 断言里看到的数字就是减法本身。</summary>
+    /// 心对全属性生克都是 1.0x,没有配方就不会触发相生 ×3 —— 断言里看到的数字就是减伤本身。</summary>
     public sealed class DefenseWiringTests
     {
         private static RecipeGraph Graph() => new(new[]
@@ -96,13 +98,13 @@ namespace Brushblade.CoreTests
             var engine = Battle(new[] { Armored(0) }, "甲");
             engine.Cast("甲", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 100),
-                "护甲 0 时点数层是恒等变换:max(0, 100 − max(0, 0 − 0)) == 100");
+                "护甲 0 时减伤层是恒等变换:100 × 100 ÷ (100 + 0) == 100");
         }
 
-        // ---- 减法层本身 ----
+        // ---- 减伤层本身 ----
 
         [Test]
-        public void Defense_SubtractsFlatFromEachHit()
+        public void Defense_ScalesDownEachHit()
         {
             var engine = Battle(new[] { Armored(30) }, "甲");
             engine.Cast("甲", 0);
@@ -111,9 +113,10 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void Defense_ClampsAtZero_NeverHealsTheEnemy()
+        public void Defense_StaysPositive_NeverHealsTheEnemy()
         {
-            // 2026-09-16 护甲改百分比减伤后,裁定 10 的「堆甲可以把伤害打到 0」不再成立:
+            // 2026-09-16 护甲改百分比减伤后,裁定 10 的「堆甲可以把伤害打到 0」**连同「钳到 0」
+            // 这个行为本身一起没了**(ApplyDefense 对正伤害的下限是 1,不是 0),测试名随之改掉。
             // 200 甲只是把 100 压到 100 × 100 ÷ 300 = 33。本条改守**伤害永远为正、永不给敌人回血**
             // —— 那正是选百分比减伤的理由(见 BattleEngine.ApplyDefense)。
             var engine = Battle(new[] { Armored(200, hp: 500) }, "甲");
@@ -147,10 +150,10 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void Aoe_SubtractsDefensePerTarget()
+        public void Aoe_AppliesDefensePerTarget()
         {
-            // spec §4.4(a):打 N 个目标就各减各的,不是总量只减一次。
-            // 两只护甲不同的怪:只减一次的写法会让第二只吃到第一只的数(或干脆不减)。
+            // spec §4.4(a):打 N 个目标就各折各的,不是总量只折一次。
+            // 两只护甲不同的怪:只折一次的写法会让第二只吃到第一只的比例(或干脆不折)。
             var engine = Battle(new[] { Armored(10), Armored(30) }, "乙");
             engine.Cast("乙");
             // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),期望值按新公式重算
@@ -193,8 +196,11 @@ namespace Brushblade.CoreTests
         [Test]
         public void Defense_DoesNotAffectBurnTick()
         {
-            // 硬约束(spec §4.2):点数减法作用在「每层一跳」这个小数字上是**开关**不是削减 ——
-            // 每层 20、护甲 30 时,2 层打 0、6 层还是 0,火系对带甲怪整条归零。
+            // 硬约束(spec §4.2):灼烧跳伤不吃护甲。
+            // ⚠ 2026-09-16:原立论(点数减法对「每层一跳」这个小数字是**开关**不是削减,
+            // 每层 20 对护甲 30 会 2 层打 0、6 层还是 0,火系对带甲怪整条归零)已随百分比化作废 ——
+            // 乘区模型下小数字只会被按比例压薄,何况 ApplyDefense 对正伤害还有下限 1。
+            // 规则本身不变(灼烧仍然不吃护甲),但它现在是一条设计选择,不再有「否则归零」撑着。
             // 缺这条测试,把护甲加到灼烧上不会有任何一条断言变红。
             var engine = Battle(new[] { Armored(30) }, "庚");
             engine.Cast("庚", 0);
@@ -251,7 +257,7 @@ namespace Brushblade.CoreTests
         [Test]
         public void Defense_DoesNotBlockExecuteKill()
         {
-            // 斩杀是抹血不是伤害,不经减法层。护甲 999 也照斩。
+            // 斩杀是抹血不是伤害,不经减伤层。护甲 999 也照斩。
             // 2026-09-16 护甲改百分比减伤后 999 甲也吃不光伤害(100 × 100 ÷ 1099 = 9),
             // 前置改成「伤害链路被护甲压到只剩 9」;下面那半(斩杀不走伤害链路)才是本条要守的
             var engine = Battle(new[] { Armored(999, hp: 100) }, "甲", "寅");
@@ -267,7 +273,7 @@ namespace Brushblade.CoreTests
         [Test]
         public void Defense_DoesNotAffectShieldOrHeal()
         {
-            // 护盾与治疗是我方资源,与「敌人的皮多厚」无关 —— 防的是减法层泄漏到防御资源上。
+            // 护盾与治疗是我方资源,与「敌人的皮多厚」无关 —— 防的是减伤层泄漏到防御资源上。
             var engine = new BattleEngine(Graph(), new BattleConfig { PlayerMaxHp = 1000 },
                 new[] { "丁", "戊" }, Array.Empty<string>(), new[] { Armored(30) }, seed: 1,
                 startingHp: 100);
@@ -298,7 +304,8 @@ namespace Brushblade.CoreTests
         public void Pierce_OnlyOffsets_NeverOverflows()
         {
             // 穿透只把护甲抵掉,穿过头**不倒贴增伤**:护甲 5 + 穿透 99 打 100,
-            // 打出的是 100 而不是 100 + 94。外层 max(0, …) 就是干这个的。
+            // 打出的是 100 而不是 100 + 94。EffectiveEnemyDefense 的 max(0, …) 就是干这个的
+            // —— 那一层 2026-09-16 一字未改,穿过头仍然只是把护甲抵到 0。
             var engine = Battle(new[] { Armored(5) }, "丑");
             engine.Cast("丑", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 100), "max(0, 5 − 99) = 0,不是 −94");
@@ -308,6 +315,8 @@ namespace Brushblade.CoreTests
         public void PierceBuff_Status_OffsetsDefenseToo()
         {
             // 锐 的通道(本场持续的穿透):与效果自带的穿透相加,一起从同一个基础护甲里减。
+            // 2026-09-16 百分比化后这个数**恰好没变**(100 × 100 ÷ 110 = 90,与旧的 100 − 10 同值),
+            // 别据此以为这条没受影响 —— 算式换了,见下方断言消息。
             var engine = Battle(new BattleConfig { PlayerMaxHp = 1000 }, new[] { Armored(30) },
                 new[] { new StatusEffect
                 {
@@ -315,13 +324,13 @@ namespace Brushblade.CoreTests
                     Magnitude = 20, TurnsLeft = -1, SourceId = "锐",
                 } }, "甲");
             engine.Cast("甲", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 90), "100 − max(0, 30 − 20) = 90");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 90), "100 × 100 ÷ (100 + max(0, 30 − 20)) = 90");
         }
 
         // ---- 玩家侧 ----
 
         [Test]
-        public void PlayerDefense_SubtractsFromEnemyAttack()
+        public void PlayerDefense_ScalesDownEnemyAttack()
         {
             var engine = Battle(new BattleConfig { PlayerMaxHp = 1000, PlayerDefense = 3 },
                 new[] { Armored(0, attack: 10) }, null);
@@ -332,10 +341,11 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void PlayerDefense_ClampsAtZero_NeverHealsThePlayer()
+        public void PlayerDefense_StaysPositive_NeverHealsThePlayer()
         {
-            // 2026-09-16 护甲改百分比减伤后,50 点甲只把 10 压到 10 × 100 ÷ 150 = 6,不再归零。
-            // 本条改守**伤害永远非负**:负伤害会先被护盾吸收段吃掉(Math.Min(护盾, −40) = −40,
+            // 2026-09-16 护甲改百分比减伤后,50 点甲只把 10 压到 10 × 100 ÷ 150 = 6,不再归零 ——
+            // 「钳到 0」这个行为本身也没了(ApplyDefense 对正伤害的下限是 1),测试名随之改掉。
+            // 本条改守**伤害永远为正**:负伤害会先被护盾吸收段吃掉(Math.Min(护盾, −40) = −40,
             // 护盾反而凭空涨 40,血量看上去纹丝不动),所以护盾那条断言才是真正的观测点。
             var engine = Battle(new BattleConfig { PlayerMaxHp = 1000, PlayerDefense = 50 },
                 new[] { Armored(0, attack: 10) }, null);

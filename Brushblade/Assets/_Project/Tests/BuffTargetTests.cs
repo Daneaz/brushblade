@@ -32,7 +32,8 @@ namespace Brushblade.Core.Tests
             // 杜:免疫 2 次(真实字表的 杜 还带 DamageSingle,那张要先选敌人再选友方)
             new CharDef("杜", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Immunity, 2) }),
-            // 攻 20 的召唤物:20 这个数便于逐位核对(+50 → 70,×1.5 → 30,减甲 8 → 12)
+            // 攻 20 的召唤物:20 这个数便于逐位核对(+50 → 70,×1.5 → 30,
+            // 过 8 点甲 → 18;2026-09-16 百分比化前这里是「减甲 8 → 12」)
             new CharDef("卒", Element.Wood,
                 effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 1, summonAttack: 20, summonChar: "木") }),
             // 战:攻击 +50 点(真实字表的 战 还带 DamageSingle)

@@ -330,7 +330,8 @@ namespace Brushblade.Core
         /// Bleed/Freeze/SpeedModifier 用 TurnsLeft 正常回合递减。</summary>
         public StatusBag Statuses { get; } = new();
 
-        /// <summary>敌人护盾(2026-08-30):一次性额外血条,在护甲减法**之后**、扣血**之前**吸收;
+        /// <summary>敌人护盾(2026-08-30):一次性额外血条,在护甲折算**之后**、扣血**之前**吸收
+        /// (2026-09-16 护甲由点数减法改为百分比减伤,顺序口径不变);
         /// 吸完即无、不刷新、不随回合清空。与 <see cref="SummonState.Shield"/> 同型。
         ///
         /// ⚠ **眼下没有来源**(用户 2026-08-30 拍板):enemies.json 不配、也没有结盾技能。

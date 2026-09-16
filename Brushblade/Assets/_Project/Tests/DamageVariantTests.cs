@@ -998,7 +998,9 @@ namespace Brushblade.Core.Tests
             var engine = MultiHitArmorEngine(enemyDefense: 4);
             engine.Cast("裂", 0);   // 破甲 3 → 有效护甲 4 − 3 = 1
             engine.Cast("斫", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(182), "(10 − 1) × 2 段 = 18");
+            // 2026-09-16 护甲改百分比减伤:(10 × 100 ÷ 101) × 2 段 = 9 × 2 = 18。
+            // ⚠ 总数恰好与旧算式「(10 − 1) × 2 = 18」同值,所以本条没红 —— 算式已经换了。
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(182), "(10 × 100 ÷ 101) × 2 段 = 18");
         }
 
 
@@ -1165,9 +1167,9 @@ namespace Brushblade.Core.Tests
                 "两侧仍只挨一下");
         }
 
-        /// <summary>形状类逐目标各减各自护甲(与 AOE 同口径,spec §5)。</summary>
+        /// <summary>形状类逐目标各折各自护甲(与 AOE 同口径,spec §5)。</summary>
         [Test]
-        public void Sweep_EachTargetSubtractsItsOwnDefense()
+        public void Sweep_EachTargetAppliesItsOwnDefense()
         {
             var bare = new EnemyDef("裸", Element.Heart, 200, 0);
             var armored = new EnemyDef("甲", Element.Heart, 200, 0, defense: 10);

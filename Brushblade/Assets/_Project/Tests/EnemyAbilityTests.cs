@@ -332,7 +332,7 @@ namespace Brushblade.Core.Tests
                 EnemyAbility.Barb, defense: 20));
             int before = engine.PlayerHp;
             engine.Cast("火", 0);
-            Assert.That(engine.PlayerHp, Is.EqualTo(before - 40 * 100 / 120 * 30 / 100));
+            Assert.That(engine.PlayerHp, Is.EqualTo(before - 9));
         }
 
         [Test]

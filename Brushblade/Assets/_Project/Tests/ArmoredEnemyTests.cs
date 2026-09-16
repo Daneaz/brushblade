@@ -57,11 +57,14 @@ namespace Brushblade.CoreTests
                          Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water,
                      })
             {
-                // 低/高阶分界随护甲整列重标定一起换算(2026-09-16):
-                // 旧分界 30 点,按裁定 E 的直线 p = 0.20 + 0.005×30 = 35% → 100×0.35/0.65 = 54。
-                // 换算后低阶是 41/41/43/43/45、高阶是 67/67/69/74/74,分界落在中间。
-                var low = armored.Where(e => e.Element == element && e.Defense < 54).ToList();
-                var high = armored.Where(e => e.Element == element && e.Defense >= 54).ToList();
+                // 低/高阶分界随护甲整列重标定一起换算(2026-09-16 裁定 I)。
+                // ⚠ 刻意**不去换算旧的 30 点分界**:那需要一把给无锚点档位配的尺子,
+                // 而裁定 E 的直线正是栽在这上面。分界只要落在「最高的低阶怪」与
+                // 「最低的高阶怪」之间即可 —— 换算后低阶是 27/27/31/31/35、高阶是
+                // 50/50/54/60/60,取 40 落在 35 与 50 之间,离两边都远。
+                const int tierSplit = 40;
+                var low = armored.Where(e => e.Element == element && e.Defense < tierSplit).ToList();
+                var high = armored.Where(e => e.Element == element && e.Defense >= tierSplit).ToList();
                 Assert.That(low.Count, Is.GreaterThanOrEqualTo(1), $"{element} 缺低阶护甲怪");
                 Assert.That(high.Count, Is.GreaterThanOrEqualTo(1), $"{element} 缺高阶护甲怪");
             }
