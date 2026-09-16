@@ -1860,7 +1860,12 @@ namespace Brushblade.Presentation
                 HeaderName(header.transform, summon.SourceChar, SummonHeaderNameFontSize);
                 HeaderChip(header.transform, CharInfo.ElementName(summon.Element),
                     Theme.ElementColor(summon.Element), Color.white);
-                HeaderChip(header.transform, $"{summon.Attack}", Theme.PaperDim, Theme.TextMain,
+                // 读 EffectiveAttack 而不是 Attack(2026-09-16 用户报):战意/厚的百分比乘区、
+                // 攻击光环、身上挂的攻击增益全在那个属性里,而它们**回合中途就在变**
+                // (出一张金系字 +1 层战意,出「崩」清空厚)。印基础值的话头行数字纹丝不动,
+                // 点开详情弹窗(SummonInfo 一直读的就是 EffectiveAttack)才发现是另一个数 ——
+                // 与敌人格的护甲 chip 2026-09-06 修掉的是同一类分叉,那边也已统一读有效值。
+                HeaderChip(header.transform, $"{summon.EffectiveAttack}", Theme.PaperDim, Theme.TextMain,
                     RangeIcon(summon.Passive?.Ranged ?? false));
                 // 护甲(2026-09-05 用户拍板:「后续有些召唤物会直接带上护甲」)。
                 // 读 EffectiveDefense —— 眼下它只由玩家挂上去的增益构成(SummonState 没有基础
@@ -4417,6 +4422,16 @@ namespace Brushblade.Presentation
             //   跌 → (新血 70  / 旧上限 100) = 70%,血先掉一截 → 容器再收到 70,回满
             // 两支的中间态统一是「较小的血 / 较大的上限」,所以下面一个式子就够,
             // 不必按方向分岔(涨取旧血、跌取新血,恰好都是 Min;上限那侧同理都是 Max)。
+            // 上限**变小**那一支单独走(2026-09-16 用户报:「应该是血条上限缩短的动效,
+            // 当前是上升」)。两支共用 MaxHpShiftRoutine 是错的 —— 比例条的终态恒是
+            // 新血/新上限,掉上限时血被 Clamp 回新上限、又是满格对满格,于是最后那一拍
+            // **必然是上升**,读起来像「掉了血又被治好了」。见 MaxHpShrinkRoutine。
+            if (maxHpDelta < 0)
+            {
+                StartCoroutine(MaxHpShrinkRoutine(hpBefore, maxHpBefore,
+                    _run.CarriedHp, _run.EffectiveMaxHp));
+                return true;
+            }
             StartCoroutine(MaxHpShiftRoutine(
                 Mathf.Min(hpBefore, _run.CarriedHp), Mathf.Max(maxHpBefore, _run.EffectiveMaxHp),
                 _run.CarriedHp, _run.EffectiveMaxHp));
@@ -4445,6 +4460,55 @@ namespace Brushblade.Presentation
                 yield return null;
             }
             if (_playerHpBar.fill != null) SetPlayerHp(endHp, endMaxHp);
+        }
+
+        /// <summary>上限**变小**的表现:把血条本身缩短(2026-09-16)。
+        ///
+        /// 比例条画不出「容器变小」——<see cref="MaxHpShiftRoutine"/> 的中间态手法只对
+        /// 「涨」成立:涨能演成「先空出一截、再填满」,而跌演出来是「先掉一截、再涨回满」,
+        /// 最后那一拍的方向是**上升**,把坏事讲成了好事。所以这一支不碰比例,直接动
+        /// **条的宽度**:从旧上限对应的满宽收到 新上限/旧上限 的宽度,fill 的比例同步推到
+        /// 终值 —— 满血时红条与底槽同比缩短,就是「上限缩了一截」这句话的字面表达。
+        ///
+        /// 收完**不还原**:奇遇结算完这一屏就换掉(<see cref="FinishEventAfterOutcome"/>),
+        /// 下一屏重绘照自然宽度重建。还原反而会在屏上多演一记「又长回去了」。
+        ///
+        /// 条在 VStack 里是 childAlignment: MiddleCenter,所以收缩是**两端同时内收**而不是
+        /// 只掉右端 —— 改对齐会连带挪动同一列的头行/行动条,不值当。
+        ///
+        /// 时基与时长口径同 <see cref="MaxHpShiftRoutine"/>:走 unscaledDeltaTime,
+        /// 两段之和必须 ≤ <see cref="EventOutcomeHold"/>,否则换屏会把动画掐掉。</summary>
+        private System.Collections.IEnumerator MaxHpShrinkRoutine(int fromHp, int fromMaxHp,
+            int endHp, int endMaxHp)
+        {
+            if (_playerHpBar.fill == null || _playerHpBar.fill.parent == null || fromMaxHp <= 0)
+                yield break;
+            var bar = (RectTransform)_playerHpBar.fill.parent;
+            var element = bar.GetComponent<LayoutElement>();
+            SetPlayerHp(fromHp, fromMaxHp);
+            yield return null;   // 等这一帧的布局定下来,才量得到条被拉伸后的真实宽度
+            // 期间被重绘换掉了(条是 flexibleWidth 拉满的,量不到就没得缩):放弃动画,
+            // 数值仍由下面的收尾兜到终值。捕获的 bar/element 此时是已销毁对象,不能再碰。
+            if (element == null || _playerHpBar.fill == null) yield break;
+            float fullWidth = bar.rect.width;
+            float endWidth = fullWidth * endMaxHp / (float)fromMaxHp;
+            element.flexibleWidth = 0f;          // 交出拉伸权,下面按帧给宽度
+            element.preferredWidth = fullWidth;
+
+            for (float t = 0; t < MaxHpShiftHold; t += Time.unscaledDeltaTime)
+                yield return null;
+            for (float t = 0; t < MaxHpShiftRise; t += Time.unscaledDeltaTime)
+            {
+                if (element == null || _playerHpBar.fill == null) yield break;
+                float k = t / MaxHpShiftRise;
+                element.preferredWidth = Mathf.Lerp(fullWidth, endWidth, k);
+                SetPlayerHp(Mathf.RoundToInt(Mathf.Lerp(fromHp, endHp, k)),
+                    Mathf.RoundToInt(Mathf.Lerp(fromMaxHp, endMaxHp, k)));
+                yield return null;
+            }
+            if (element == null || _playerHpBar.fill == null) yield break;
+            element.preferredWidth = endWidth;
+            SetPlayerHp(endHp, endMaxHp);
         }
 
         /// <summary>飘字停留够了再换屏。停留时长取 <see cref="EventOutcomeHold"/> ——
