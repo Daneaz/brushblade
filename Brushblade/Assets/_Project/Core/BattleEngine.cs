@@ -2183,10 +2183,12 @@ namespace Brushblade.Core
                 preferUnslowed: (passive?.OnHitSlowPercent ?? 0) > 0,
                 // 择伐(木 L4):判据是**这只召唤物自己**的元素,不是召它的那张字 ——
                 // 它问的是「谁打谁划算」,而生克乘区算的就是召唤物 vs 敌人。
-                // ⚠ 今天引擎唯一的构造点 `new SummonState(…, attacker, …)` 让 summon.Element
-                // 与「召它的那张字」的元素恒等,没有任何测试能分辨这两个口径 —— 这行写成
-                // summon.Element 是为将来两者分叉时钉住正确口径,不要因为「反正现在一样」
-                // 就改写成 attacker 的元素。
+                // ⚠ 引擎唯一的构造点 `new SummonState(…, attacker, …)` 让 summon.Element
+                // 出生时与「召它的那张字」的元素恒等;这行写成 summon.Element 是为两者分叉时
+                // 钉住正确口径,不要因为「反正现在一样」就改写成 attacker 的元素。
+                // 2026-09-16 起解封(EffectKind.Unseal)落地,两者从此**真会**分叉——出生时相等,
+                // 解封重掷之后 summon.Element 可以变成任何一类而 attacker(召它的那张字的元素)
+                // 原样不动,这一行的口径也就第一次变得可测(UnsealTests 钉的正是这条)。
                 counterTargeting: (_config?.CounterTargeting ?? false) ? summon.Element : null);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
             if (target < 0 && shape != TargetShape.Volley) return;

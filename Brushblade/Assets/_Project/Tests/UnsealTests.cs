@@ -33,9 +33,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Unseal_RerollsSummonElement_AmongAllSixIncludingCurrent()
         {
-            // 纯随机:含当前属性(木)、含 Heart(2026-09-05 用户裁定)。多种子重掷应覆盖到
-            // 6 类中的多种,且 Heart 必须出现在候选里 —— 排除 Heart 是本任务明确不许做的
-            // 自作主张(brief「设计要点」一节)。
+            // 纯随机:含当前属性(木)、含 Heart(2026-09-05 用户裁定)。200 个固定种子下
+            // 结果是确定的、不会抖 —— 断言必须是 6(全覆盖),不能只写「> 3」:一个「排除了
+            // 当前属性」的错误实现同样能摇出 {Fire, Earth, Metal, Water, Heart} 这 5 类,
+            // 只判「> 3」或只判「含 Heart」都抓不住这类回归(2026-09-17 评审 I-1)。
             var seen = new HashSet<Element>();
             for (int seed = 0; seed < 200; seed++)
             {
@@ -44,9 +45,8 @@ namespace Brushblade.Core.Tests
                 engine.Cast("解", allySlot: 0); // 解封
                 seen.Add(engine.Summons[0].Element);
             }
-            Assert.That(seen.Count, Is.GreaterThan(3),
-                "6 类纯随机,200 个种子应覆盖到 4 种以上");
-            Assert.That(seen.Contains(Element.Heart), Is.True, "心也在候选里,不能被自作主张排除");
+            Assert.That(seen.Count, Is.EqualTo(6),
+                "6 类一个都不能被排除 —— 含当前属性、含心,是用户 2026-09-16 的显式裁定");
         }
 
         [Test]
@@ -59,7 +59,10 @@ namespace Brushblade.Core.Tests
             engine.Cast("兵"); // slot 0,场上有活着的召唤物,不会被 AliveSummons()==0 那条免选自动改判
             uint before = engine.Capture().RandomState;
 
-            Assert.DoesNotThrow(() => engine.Cast("解", allySlot: Targeting.PlayerTarget));
+            // 断返回值而不是 DoesNotThrow(2026-09-17 评审 M-1):DoesNotThrow 只要没抛异常就绿,
+            // 哪怕这张字被前置校验(AP 不足/目标不合法)拒在 Unseal 分支之前也一样绿 ——
+            // 那样 _random 确实没被摇,但摇点前 return 这条纪律根本没被验证到。
+            Assert.That(engine.Cast("解", allySlot: Targeting.PlayerTarget), Is.EqualTo(BattleError.None));
 
             uint after = engine.Capture().RandomState;
             Assert.That(after, Is.EqualTo(before),
@@ -101,6 +104,61 @@ namespace Brushblade.Core.Tests
 
             Assert.That(restored.Summons[0].Element, Is.EqualTo(rerolled),
                 "召唤物属性重掷后必须随快照正确往返");
+        }
+
+        // ---- 跨战斗携带(2026-09-17 评审 M-2)----
+        //
+        // 上面的 SummonElement_SurvivesSnapshotRoundTrip 走的是**战内**断点存档
+        // (BattleEngine.Capture → BattleEngine.Restore),而玩家真正体感到的「永久」是
+        // **下一场战斗**里属性还是新的那条路:RunEngine.CaptureAliveSummons()
+        // → RunSnapshot.CarriedSummons → PlaceCarried(SummonState.Restore(...))。
+        // 两条路共用同一个 SummonState.Capture()/Restore(),但没有被同一条断言覆盖过,
+        // 单独补一条过场测试。
+
+        private static RecipeGraph RunGraph() => new(new[]
+        {
+            new CharDef("木", Element.Wood),
+            new CharDef("兵", Element.Wood, effects: new[]
+            {
+                new EffectDef(EffectKind.Summon, 999, summonCount: 1, summonAttack: 0, summonChar: "木"),
+            }),
+            new CharDef("解", Element.Water, effects: new[] { new EffectDef(EffectKind.Unseal, 0) }),
+            // 焚:AOE 只打敌人,不碰召唤物(与 RunEngineTests.SummonGraph 的「焚」同一条理由)。
+            new CharDef("焚", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageAll, 999) }),
+        });
+
+        private static EnemyDef WeakTarget() => new("靶", Element.Wood, 1, 0);
+
+        private static RunEngine UnsealRun() => new(RunGraph(),
+            new RunConfig
+            {
+                Encounters = new[] { new[] { WeakTarget() }, new[] { WeakTarget() } },
+                RewardPool = new[] { "焚" },
+                // 解锁槽 0:开局(depth 1)只开槽 1/2,槽 0 要到 16 层才开
+                // (Meta.SlotUnlockDepth,与 RunEngineTests.SummonRun 同一条理由)。
+                FromDepth = 16,
+            },
+            new BattleConfig { PlayerMaxHp = 999, ApPerTurn = 9, DropTable = new[] { "木" } },
+            startingLibrary: new[] { "兵", "解", "焚" }, startingPool: Array.Empty<string>(), seed: 5);
+
+        [Test]
+        public void Unseal_IsPermanent_AcrossRunEngineCarryToNextBattle()
+        {
+            var run = UnsealRun();
+            Assert.That(run.Battle.Cast("兵"), Is.EqualTo(BattleError.None));              // slot 0,木系
+            Assert.That(run.Battle.Cast("解", allySlot: 0), Is.EqualTo(BattleError.None)); // 解封
+            var rerolled = run.Battle.Summons[0].Element;
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));              // AOE 清场
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+
+            run.AdvanceAfterBattle();                    // CaptureAliveSummons() 抓取携带态就在这一步
+            Assert.That(run.CarriedSummons.Count, Is.EqualTo(1));
+            run.SkipReward();                            // 开下一层:PlaceCarried(SummonState.Restore(...))
+
+            Assert.That(run.Battle.Summons[0], Is.Not.Null);
+            Assert.That(run.Battle.Summons[0].Element, Is.EqualTo(rerolled),
+                "跨战斗携带也要保住重掷后的属性 —— 这是玩家真正体感到的「永久」," +
+                "不只是战内断点存档那条路");
         }
     }
 }
