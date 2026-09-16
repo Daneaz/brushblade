@@ -249,14 +249,15 @@ namespace Brushblade.Core.Tests
             engine.Cast("铠"); // 护甲 +2
             int full = engine.PlayerHp;
 
-            engine.EndTurn(); // 敌方回合 1:普攻 5 → 5 − 2 = 3
-            Assert.That(full - engine.PlayerHp, Is.EqualTo(3), "普攻基线未被破坏");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),两处期望值按新公式重算
+            engine.EndTurn(); // 敌方回合 1:普攻 5 → 5 × 100 ÷ 102 = 4
+            Assert.That(full - engine.PlayerHp, Is.EqualTo(4), "普攻基线未被破坏");
 
             engine.EndTurn(); // 敌方回合 2:蓄力,不出手
-            engine.EndTurn(); // 敌方回合 3:释放淹没,玩家份 Attack×2=10 → 10 − 2 = 8
+            engine.EndTurn(); // 敌方回合 3:释放淹没,玩家份 Attack×2=10 → 10 × 100 ÷ 102 = 9
 
-            Assert.That(full - engine.PlayerHp, Is.EqualTo(3 + 8),
-                "大招也吃护甲:玩家份 10 减 2 点,不是全额 10");
+            Assert.That(full - engine.PlayerHp, Is.EqualTo(4 + 9),
+                "大招也吃护甲:玩家份 10 被 2 点甲压到 9,不是全额 10");
         }
 
         /// <summary>召唤物**不借用玩家的护甲**(spec §4.2:召唤物没有 DEF)。

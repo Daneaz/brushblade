@@ -87,8 +87,9 @@ namespace Brushblade.Core.Tests
             var engine = Engine();
             engine.Cast("火", 0);  // 40 血进「山」
             engine.EndTurn();
-            engine.Cast("火", 0);  // 火 vs 土:1.0 → 10 − 护甲 6 = 4
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(40 - 4));
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)):10 × 100 ÷ 106 = 9
+            engine.Cast("火", 0);  // 火 vs 土:1.0 → 10 过护甲 6 = 9
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(40 - 9));
         }
 
         [Test]

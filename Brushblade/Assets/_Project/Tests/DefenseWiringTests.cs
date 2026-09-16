@@ -106,31 +106,44 @@ namespace Brushblade.CoreTests
         {
             var engine = Battle(new[] { Armored(30) }, "甲");
             engine.Cast("甲", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 70), "100 − 30 = 70,点数不是百分比");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),推翻 E-b4 的点数减法
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 76), "100 × 100 ÷ 130 = 76");
         }
 
         [Test]
         public void Defense_ClampsAtZero_NeverHealsTheEnemy()
         {
-            // 裁定 10:堆甲可以把伤害打到 0,但**只是归零**。
-            // 缺了外层 max(0, …),200 护甲挨 100 伤会打出 −100 —— 给敌人回血,而且全程无声。
+            // 2026-09-16 护甲改百分比减伤后,裁定 10 的「堆甲可以把伤害打到 0」不再成立:
+            // 200 甲只是把 100 压到 100 × 100 ÷ 300 = 33。本条改守**伤害永远为正、永不给敌人回血**
+            // —— 那正是选百分比减伤的理由(见 BattleEngine.ApplyDefense)。
             var engine = Battle(new[] { Armored(200, hp: 500) }, "甲");
             engine.Cast("甲", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500), "打出 0,不是负伤害");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(500 - 33), "打出 33,既不归零也不是负伤害");
         }
 
         [Test]
         public void Order_CritBeforeDefense()
         {
-            // 结算式是 floor(基础 × 生克 × 暴击) − 护甲(spec §4.1)。
-            // 反过来(先减护甲再暴击)= (100 − 30) × 1.5 = 105,等价于「暴击时护甲变薄」。
+            // 结算式是 floor(基础 × 生克 × 暴击) × 100 ÷ (100 + 护甲)(spec §4.1;
+            // 2026-09-16 护甲改百分比减伤,推翻 E-b4 的点数减法)。
+            // 正确:floor(100 × 1.5) = 150 → 150 × 100 ÷ 130 = 115。
+            // 反过来(先折护甲再暴击)= floor(100 × 100 ÷ 130) × 1.5 = 76 × 1.5 = 114。
+            //
+            // ⚠⚠ **2026-09-16 起本条的判别力只剩 1 点血,而且是借来的。** 百分比减伤是乘区,
+            // 实数下与暴击可交换 —— 115 对 114 这个差额完全来自整数截断,不是顺序本身的后果。
+            // 这里找不到「不受数值大小影响的性质」可断:顺序在新模型下**本就不改变结果**,
+            // 只改变截断点。故老实记在这里:
+            //   · Task 3 把等级护甲封顶 12 → 30、guard 枝抬到 10/15/25 之后,本条随时可能
+            //     因为两边截断到同一个数而**静默失去全部判别力**;
+            //   · 谁动这一段(BattleEngine.DamageEnemy 的护甲落点位置),别指望本条兜得住,
+            //     要靠读代码和 BattleEngine 那段注释。
             // ⚠ 这条搬错在生产配置上**不会有任何测试变红**(T2 全场护甲 0),
             // 只有这里显式构造的非 0 护甲能把它逼出来。
             // 暴击率 100 走 RollCrit 的上端短路:必暴且一次随机都不摇。
             var engine = Battle(new BattleConfig { PlayerMaxHp = 1000, PlayerCritChance = 100 },
                 new[] { Armored(30) }, null, "甲");
             engine.Cast("甲", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 120), "floor(100 × 1.5) − 30 = 120");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 115), "floor(100 × 1.5) × 100 ÷ 130 = 115");
         }
 
         [Test]
@@ -140,18 +153,39 @@ namespace Brushblade.CoreTests
             // 两只护甲不同的怪:只减一次的写法会让第二只吃到第一只的数(或干脆不减)。
             var engine = Battle(new[] { Armored(10), Armored(30) }, "乙");
             engine.Cast("乙");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 40), "50 − 10");
-            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(1000 - 20), "50 − 30,各减各的");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),期望值按新公式重算
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 45), "50 × 100 ÷ 110 = 45");
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(1000 - 38), "50 × 100 ÷ 130 = 38,各折各的");
         }
 
         [Test]
-        public void MultiHit_SubtractsDefensePerSegment()
+        public void MultiHit_AppliesDefensePerSegment()
         {
-            // 裁定 4:每段各减一次,与既有「每段完全独立过生克/破甲/斩杀」同口径。
-            // 只在整发之后减一次的话是 100 − 10 = 90。
+            // 裁定 4:每段各折一次,与既有「每段完全独立过生克/破甲/斩杀」同口径。
+            //
+            // ⚠ **2026-09-16 改断结构不断数值**:百分比减伤是乘区,对多段满足分配律 ——
+            // 旧模型下「每段各减」(80)与「整发减一次」(90)数值不同,本条靠那个差值守顺序;
+            // 百分比化后两条路径合流(45×2 = 90 与 100×100÷110 = 90 逐位相同),
+            // 那个判据永久消失了。本条因此改断**仍然成立的那条性质**:
+            // 每一段都各自过一次减伤,基数是段伤不是整发。
+            //
+            // 判别表(护甲 10,50 伤 ×2 段):
+            //   每段各折(正确)    50→45,×2 = 90
+            //   只第一段折          45 + 50   = 95   ← 抓得住
+            //   一段都不折          50 + 50   = 100  ← 抓得住
+            //   整发合并折一次      100→90         ← **抓不住**(分配律,见上)
             var engine = Battle(new[] { Armored(10) }, "丙");
             engine.Cast("丙", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 80), "(50 − 10) × 2 = 80");
+
+            // 参照组:乙 是 50 伤全体,单只敌人时就是一记 50 —— 与 丙 的**一段**同形。
+            // 用它算出「一段过完减伤是多少」,而不是在断言里写死一个算好的数。
+            var single = Battle(new[] { Armored(10) }, "乙");
+            single.Cast("乙");
+            int oneSegment = 1000 - single.Enemies[0].Hp;
+
+            Assert.That(1000 - engine.Enemies[0].Hp, Is.EqualTo(oneSegment * 2),
+                "两段各自过一次减伤:总伤 = 单段过甲后的值 × 2");
+            Assert.That(oneSegment, Is.EqualTo(45), "夹具基线:50 × 100 ÷ 110 = 45(不是未减的 50)");
         }
 
         // ---- 负向清单:什么**不**吃护甲(spec §4.2)----
@@ -218,9 +252,11 @@ namespace Brushblade.CoreTests
         public void Defense_DoesNotBlockExecuteKill()
         {
             // 斩杀是抹血不是伤害,不经减法层。护甲 999 也照斩。
+            // 2026-09-16 护甲改百分比减伤后 999 甲也吃不光伤害(100 × 100 ÷ 1099 = 9),
+            // 前置改成「伤害链路被护甲压到只剩 9」;下面那半(斩杀不走伤害链路)才是本条要守的
             var engine = Battle(new[] { Armored(999, hp: 100) }, "甲", "寅");
-            engine.Cast("甲", 0);                                   // 100 → 0 伤(被护甲吃光),血不动
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100), "前置:护甲把伤害吃光了");
+            engine.Cast("甲", 0);                                   // 100 → 9 伤(被护甲压薄)
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(100 - 9), "前置:护甲把伤害压到 9");
 
             var engine2 = Battle(new[] { Armored(999, hp: 1000) }, "寅");
             engine2.Enemies[0].Hp = 100;                            // 10% < 25% 阈值
@@ -252,7 +288,8 @@ namespace Brushblade.CoreTests
             engine.Cast("癸", replaceSummon: true);
             int before = engine.Enemies[0].Hp;
             engine.EndTurn();
-            Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(15), "召唤物攻 20 − 护甲 5");
+            // 2026-09-16 护甲改百分比减伤:20 × 100 ÷ 105 = 19
+            Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(19), "召唤物攻 20 过护甲 5 = 19");
         }
 
         // ---- 穿透 ----
@@ -290,20 +327,21 @@ namespace Brushblade.CoreTests
                 new[] { Armored(0, attack: 10) }, null);
             int before = engine.PlayerHp;
             engine.EndTurn();
-            Assert.That(before - engine.PlayerHp, Is.EqualTo(7), "10 − 3");
+            // 2026-09-16 护甲改百分比减伤:10 × 100 ÷ 103 = 9
+            Assert.That(before - engine.PlayerHp, Is.EqualTo(9), "10 × 100 ÷ 103 = 9");
         }
 
         [Test]
         public void PlayerDefense_ClampsAtZero_NeverHealsThePlayer()
         {
+            // 2026-09-16 护甲改百分比减伤后,50 点甲只把 10 压到 10 × 100 ÷ 150 = 6,不再归零。
+            // 本条改守**伤害永远非负**:负伤害会先被护盾吸收段吃掉(Math.Min(护盾, −40) = −40,
+            // 护盾反而凭空涨 40,血量看上去纹丝不动),所以护盾那条断言才是真正的观测点。
             var engine = Battle(new BattleConfig { PlayerMaxHp = 1000, PlayerDefense = 50 },
                 new[] { Armored(0, attack: 10) }, null);
             int before = engine.PlayerHp;
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(before), "打出 0,不是负伤害倒着回血");
-            // 血量那条断言单独守不住钳位:负伤害会先被护盾吸收段吃掉 ——
-            // Math.Min(护盾, −40) = −40,护盾反而**凭空涨 40**,血量看上去纹丝不动。
-            // 玩家侧的 max(0, …) 真正的观测点在这里。
+            Assert.That(engine.PlayerHp, Is.EqualTo(before - 6), "掉 6,不是负伤害倒着回血");
             Assert.That(engine.PlayerShield, Is.EqualTo(0), "更不能凭空长出护盾");
         }
 
@@ -321,7 +359,8 @@ namespace Brushblade.CoreTests
             Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(8), "3 + 5");
             int before = engine.PlayerHp;
             engine.EndTurn();
-            Assert.That(before - engine.PlayerHp, Is.EqualTo(2), "10 − 8");
+            // 2026-09-16 护甲改百分比减伤:10 × 100 ÷ 108 = 9
+            Assert.That(before - engine.PlayerHp, Is.EqualTo(9), "10 × 100 ÷ 108 = 9");
         }
 
         [Test]
@@ -340,20 +379,23 @@ namespace Brushblade.CoreTests
             Assert.That(engine.EffectivePlayerDefense, Is.EqualTo(6), "10 − 4");
             int before = engine.PlayerHp;
             engine.EndTurn();
-            Assert.That(before - engine.PlayerHp, Is.EqualTo(4), "10 − 6");
+            // 2026-09-16 护甲改百分比减伤:10 × 100 ÷ 106 = 9。⚠ 这个数与「破甲没生效」(甲 8 → 9)
+            // 撞在一起,掉血这条断言已无判别力 —— 真正守破甲的是上面 EffectivePlayerDefense == 6。
+            Assert.That(before - engine.PlayerHp, Is.EqualTo(9), "10 × 100 ÷ 106 = 9");
         }
 
         [Test]
         public void PlayerDefense_AppliesBeforeShield()
         {
             // 顺序口径:护甲决定有多少真正落到身上,护盾是把落下来的那部分吃掉的资源。
-            // 反过来的话护盾会替护甲挡掉本就不该进来的伤害(这里会剩 0 而不是 4)。
+            // 2026-09-16 护甲改百分比减伤:10 × 100 ÷ 104 = 9,10 点盾被吃掉 9 剩 1。
+            // 反过来的话护盾会替护甲挡掉本就不该进来的伤害(这里会剩 0 而不是 1)。
             var engine = Battle(new BattleConfig { PlayerMaxHp = 1000, PlayerDefense = 4 },
                 new[] { Armored(0, attack: 10) }, null, "丁");
             engine.Cast("丁");
             int before = engine.PlayerHp;
             engine.EndTurn();
-            Assert.That(engine.PlayerShield, Is.EqualTo(4), "护盾 10 只被吃掉 6");
+            Assert.That(engine.PlayerShield, Is.EqualTo(1), "护盾 10 只被吃掉 9");
             Assert.That(engine.PlayerHp, Is.EqualTo(before), "血没掉");
         }
 
@@ -385,7 +427,8 @@ namespace Brushblade.CoreTests
             Assert.That(restored.Enemies[0].Defense, Is.EqualTo(30));
             Assert.That(restored.EffectivePlayerDefense, Is.EqualTo(3));
             restored.Cast("甲", 0);
-            Assert.That(restored.Enemies[0].Hp, Is.EqualTo(1000 - 70), "复原后减法照旧");
+            // 2026-09-16 护甲改百分比减伤:100 × 100 ÷ 130 = 76
+            Assert.That(restored.Enemies[0].Hp, Is.EqualTo(1000 - 76), "复原后折算照旧");
         }
 
         [Test]
@@ -401,7 +444,8 @@ namespace Brushblade.CoreTests
             var engine = Battle(new[] { boss }, "甲");
             Assert.That(engine.Enemies[0].Defense, Is.EqualTo(20), "首阶段的护甲");
             engine.Cast("甲", 0);
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 80), "100 − 20");
+            // 2026-09-16 护甲改百分比减伤:100 × 100 ÷ 120 = 83
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 83), "100 × 100 ÷ 120 = 83");
         }
     }
 }

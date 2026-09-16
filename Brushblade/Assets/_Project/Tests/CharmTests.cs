@@ -139,8 +139,9 @@ namespace Brushblade.Core.Tests
 
             battle.EndTurn();
 
-            Assert.That(battle.Enemies[1].Hp, Is.EqualTo(allyHpBefore - (50 - 8)),
-                "应扣 50-8=42(队友自身 8 点甲全额生效);玩家的穿透不该帮被魅惑的敌人破队友的甲");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)):50 × 100 ÷ 108 = 46
+            Assert.That(battle.Enemies[1].Hp, Is.EqualTo(allyHpBefore - 50 * 100 / 108),
+                "应扣 46(队友自身 8 点甲全额生效);玩家的穿透不该帮被魅惑的敌人破队友的甲");
         }
 
         [Test]

@@ -307,7 +307,8 @@ namespace Brushblade.Core.Tests
 
             var plain = Engine(new[] { "卒" }, armored);
             plain.Cast("卒");
-            Assert.That(SummonDamageInOneTurn(plain), Is.EqualTo(12), "夹具基线:20 − 8 点甲");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)):20 × 100 ÷ 108 = 18
+            Assert.That(SummonDamageInOneTurn(plain), Is.EqualTo(18), "夹具基线:20 过 8 点甲 = 18");
 
             var engine = Engine(new[] { "卒", "锐" }, armored);
             engine.Cast("卒");
@@ -322,7 +323,8 @@ namespace Brushblade.Core.Tests
                 new[] { new EnemyDef("甲", Element.Heart, 3000, 0, defense: 8) });
             engine.Cast("卒");
             engine.Cast("锐");   // 给玩家
-            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(12),
+            // 2026-09-16 护甲改百分比减伤:20 × 100 ÷ 108 = 18(穿透没生效的那个数)
+            Assert.That(SummonDamageInOneTurn(engine), Is.EqualTo(18),
                 "玩家的穿透不该帮召唤物破甲");
         }
 
@@ -346,7 +348,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void DefenseBuff_OnSummon_CutsIncomingDamage()
         {
-            // 30 攻的敌人打 100 血的召唤物:无甲掉 30,挂 8 点甲掉 22
+            // 30 攻的敌人打 100 血的召唤物:无甲掉 30,挂 8 点甲掉 27
+            // (2026-09-16 护甲改百分比减伤,DR = 甲/(甲+100):30 × 100 ÷ 108 = 27)
             var puncher = new[] { new EnemyDef("拳", Element.Heart, 3000, 30) };
 
             var plain = Engine(new[] { "兵" }, puncher);
@@ -360,7 +363,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("铠", allySlot: 0);
             int hp1 = engine.Summons[0].Hp;
             engine.EndTurn();
-            Assert.That(hp1 - engine.Summons[0].Hp, Is.EqualTo(22), "30 − 8 点甲");
+            Assert.That(hp1 - engine.Summons[0].Hp, Is.EqualTo(27), "30 × 100 ÷ 108 = 27");
         }
 
         [Test]
@@ -378,14 +381,16 @@ namespace Brushblade.Core.Tests
         [Test]
         public void DefenseBuff_OnSummon_CannotPushDamageBelowZero()
         {
-            // 甲厚过攻击力时下钳 0,不给召唤物回血
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100))后,「甲厚过攻击力」不再意味着归零:
+            // 5 × 100 ÷ 108 = 4,伤害照样进得去。本条改守新公式下的底线 ——
+            // **只会变小,永远不会变成负数(倒着给召唤物回血)**。
             var engine = Engine(new[] { "兵", "铠", "铠", "铠", "铠" },
                 new[] { new EnemyDef("轻", Element.Heart, 3000, 5) });
             engine.Cast("兵");
             for (int n = 0; n < 4; n++) engine.Cast("铠", allySlot: 0);  // 同字按 SourceId 只刷新
             int hp = engine.Summons[0].Hp;
             engine.EndTurn();
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(hp), "5 攻打不穿 8 甲,血量分毫不动");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(hp - 4), "5 攻被 8 甲压到 4,不是归零也不是回血");
         }
 
         [Test]

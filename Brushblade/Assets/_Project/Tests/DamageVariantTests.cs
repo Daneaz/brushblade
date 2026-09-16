@@ -1132,7 +1132,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cleave_PierceAppliesToPrimaryOnly()
         {
-            // 三只同排、各带 10 点护甲。主目标 pierce 10 视同无甲,两侧照常减 10
+            // 三只同排、各带 10 点护甲。主目标 pierce 10 视同无甲,两侧照常吃满 10 点甲的减伤。
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)):主目标 40(穿光了甲),
+            // 不带穿透那张是 40 × 100 ÷ 110 = 36,差 4 —— 此前点数减法下差的正好是 10 点甲。
             var armored = new EnemyDef("甲", Element.Heart, 200, 0, defense: 10);
             var plain = Engine(new[] { "劈" }, new[] { armored, armored, armored });
             plain.Cast("劈", targetIndex: 1);
@@ -1141,8 +1143,8 @@ namespace Brushblade.Core.Tests
             var pierced = Engine(new[] { "劈锐" }, new[] { armored, armored, armored });
             pierced.Cast("劈锐", targetIndex: 1);
 
-            Assert.That(200 - pierced.Enemies[1].Hp, Is.EqualTo(plainPrimaryLoss + 10),
-                "主目标穿掉 10 点甲");
+            Assert.That(200 - pierced.Enemies[1].Hp, Is.EqualTo(plainPrimaryLoss + 4),
+                "主目标穿掉 10 点甲:40 对 36");
             Assert.That(200 - pierced.Enemies[0].Hp, Is.EqualTo(200 - plain.Enemies[0].Hp),
                 "两侧一点没穿,与不带穿透的那张字掉一样多");
         }
@@ -1174,7 +1176,9 @@ namespace Brushblade.Core.Tests
 
             int bareLoss = 200 - engine.Enemies[0].Hp;
             int armoredLoss = 200 - engine.Enemies[1].Hp;
-            Assert.That(bareLoss - armoredLoss, Is.EqualTo(10), "带甲那只正好少掉自己的护甲点数");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)):裸的吃满 40,
+            // 带甲那只 40 × 100 ÷ 110 = 36,差 4(此前点数减法下差的正好是 10 点甲)
+            Assert.That(bareLoss - armoredLoss, Is.EqualTo(4), "带甲那只按自己的甲少掉一截");
         }
 
         /// <summary>连发每一发全额、不吃 ShapePercent;目标不足时循环补足。</summary>

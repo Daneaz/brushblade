@@ -57,8 +57,11 @@ namespace Brushblade.CoreTests
                          Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water,
                      })
             {
-                var low = armored.Where(e => e.Element == element && e.Defense < 30).ToList();
-                var high = armored.Where(e => e.Element == element && e.Defense >= 30).ToList();
+                // 低/高阶分界随护甲整列重标定一起换算(2026-09-16):
+                // 旧分界 30 点,按裁定 E 的直线 p = 0.20 + 0.005×30 = 35% → 100×0.35/0.65 = 54。
+                // 换算后低阶是 41/41/43/43/45、高阶是 67/67/69/74/74,分界落在中间。
+                var low = armored.Where(e => e.Element == element && e.Defense < 54).ToList();
+                var high = armored.Where(e => e.Element == element && e.Defense >= 54).ToList();
                 Assert.That(low.Count, Is.GreaterThanOrEqualTo(1), $"{element} 缺低阶护甲怪");
                 Assert.That(high.Count, Is.GreaterThanOrEqualTo(1), $"{element} 缺高阶护甲怪");
             }
@@ -79,8 +82,10 @@ namespace Brushblade.CoreTests
         [Test]
         public void EveryFloor_HasAtMostOneArmoredEnemy()
         {
-            // WithoutArmor 闸(既有)在补齐 10 只后仍须成立 ——
-            // 点数护甲对 AOE 有 N 倍惩罚,带甲成群会把 AOE 流派打废。
+            // WithoutArmor 闸(既有)在补齐 10 只后仍须成立。
+            // ⚠ 2026-09-16 护甲百分比化后,「点数护甲对 AOE 有 N 倍惩罚、带甲成群会把 AOE
+            // 流派打废」这条原始理由已经失效(减伤成了乘区,每个目标各折各的)。
+            // 闸子与本条判据保留原样,但它现在没有数值上的理由撑着 —— 见 Endless.BuildFloor 的注释。
             var config = LoadRealEndlessConfig();
             for (int depth = 1; depth <= 60; depth++)
             {
@@ -156,6 +161,31 @@ namespace Brushblade.CoreTests
             var segment = EndlessGenerator.BuildFirstTowerSegment(config, seed: 1);
             Assert.That(segment.Encounters[0][0].Id, Is.EqualTo("错字鬼"));
             Assert.That(segment.Encounters[0][0].Defense, Is.EqualTo(0));
+        }
+
+        // ---- 护甲折算:百分比减伤(2026-09-16,推翻 E-b4 的点数减法) ----
+
+        [Test]
+        public void ApplyDefense_IsPercentageReduction_NotSubtraction()
+        {
+            // DR = 甲/(甲+100):甲 100 → 减半;甲 0 → 不减
+            Assert.That(BattleEngine.ApplyDefense(200, 100), Is.EqualTo(100), "甲 100 应减伤 50%");
+            Assert.That(BattleEngine.ApplyDefense(200, 0), Is.EqualTo(200), "甲 0 应不减伤");
+            Assert.That(BattleEngine.ApplyDefense(200, 300), Is.EqualTo(50), "甲 300 应减伤 75%");
+        }
+
+        [Test]
+        public void ApplyDefense_NeverReachesZero_EvenWithHugeArmor()
+        {
+            // 这是选百分比减伤的全部理由:甲可以随便叠,伤害永远进得去
+            Assert.That(BattleEngine.ApplyDefense(1000, 100000), Is.GreaterThan(0),
+                "百分比减伤永远到不了 100%,10 万点甲也要让 1000 伤害留下至少 1 点");
+        }
+
+        [Test]
+        public void ApplyDefense_ClampsNegativeArmorToZero()
+        {
+            Assert.That(BattleEngine.ApplyDefense(200, -50), Is.EqualTo(200), "负护甲不许倒贴增伤");
         }
     }
 }

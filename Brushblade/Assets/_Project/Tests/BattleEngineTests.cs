@@ -153,7 +153,8 @@ namespace Brushblade.Core.Tests
 
             engine.EndTurn();
 
-            Assert.That(hpBefore - engine.PlayerHp, Is.EqualTo(18), "30 伤减 12 点护甲 = 18");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)):30 × 100 ÷ 112 = 26
+            Assert.That(hpBefore - engine.PlayerHp, Is.EqualTo(26), "30 伤过 12 点甲 = 26");
         }
 
         [Test]
@@ -1262,7 +1263,8 @@ namespace Brushblade.Core.Tests
                 new[] { "击" }, Array.Empty<string>(),
                 new[] { new EnemyDef("湿", Element.Water, 1000, 0, defense: 50) }, seed: 1);
             engine.Cast("击");
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(950)); // 100 × 1.0(心) − 50 = 50
+            // 2026-09-16 护甲改百分比减伤:100 × 1.0(心) × 100 ÷ 150 = 66
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(934));
         }
 
         /// <summary>攻方被克(×0.5)时护甲照常只减一次,减的还是同一个 30 点 ——
@@ -1271,13 +1273,29 @@ namespace Brushblade.Core.Tests
         /// ⚠ 本条现在**独自**守着「护甲减法排在生克乘法之后」(spec §4.1):原先由
         /// Defense_SubtractsAfterElementMultiplier(木克土,期望 880)从相克方向守,
         /// 2026-08-13「相克即破甲」落地后相克方向根本没有护甲可减,那条随之删除。
-        /// 顺序搬错(先减 DEF 再乘生克)在这里会得到 floor((100−30)×0.5) = 35 而不是 20。</summary>
+        /// ⚠ **2026-09-16 改断结构不断数值。** 护甲改百分比减伤(DR = 甲/(甲+100))后,
+        /// 减伤自己是一个乘区、与生克乘法可交换 —— floor(floor(100×0.5)×100÷130) = 38 与
+        /// 反过来的 floor(floor(100×100÷130)×0.5) = 38 逐位相同,原来靠 20 对 35 守的顺序
+        /// 判据永久消失了,连带名字里的 IsFlat(点数时代「护甲不随生克倍率伸缩」的措辞)
+        /// 也不再成立 —— 故一并改名。
+        ///
+        /// 改断**仍然成立的那条性质**:被克(×0.5)方向的护甲**照常全额生效**。
+        /// 「相克即破甲」(2026-08-13)只该绕过相克那一头,误伤到被克/中立方向就会在这里红。</summary>
         [Test]
-        public void Defense_IsFlat_WhenAttackerIsCountered()
+        public void Defense_StillApplies_WhenAttackerIsCountered()
         {
-            var engine = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0, defense: 30));
-            engine.Cast("涓"); // 土克水 ×0.5:floor(100 × 0.5) − 30 = 20
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(980));
+            var bare = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0));
+            bare.Cast("涓");
+            int bareHit = 1000 - bare.Enemies[0].Hp;
+
+            var armored = CounterEngine(new EnemyDef("垒", Element.Earth, 1000, 0, defense: 30));
+            armored.Cast("涓");
+            int armoredHit = 1000 - armored.Enemies[0].Hp;
+
+            Assert.That(bareHit, Is.EqualTo(50), "土克水 ×0.5:floor(100 × 0.5) = 50,无甲吃满");
+            Assert.That(armoredHit, Is.LessThan(bareHit),
+                "被克方向的护甲照常生效 —— 相克即破甲不许误伤到这一头");
+            Assert.That(armoredHit, Is.EqualTo(38), "50 × 100 ÷ 130 = 38");
         }
 
         // ---- 护甲与生克的关系(2026-08-12,E-b4 T3:替代旧的「减免遭克失效」补丁)----
@@ -1309,7 +1327,8 @@ namespace Brushblade.Core.Tests
 
             Assert.That(bareNeutral, Is.EqualTo(100));
             Assert.That(bareCounter, Is.EqualTo(150));
-            Assert.That(armoredNeutral, Is.EqualTo(70));
+            // 2026-09-16 护甲改百分比减伤:100 × 100 ÷ 130 = 76(此前点数减法是 100 − 30 = 70)
+            Assert.That(armoredNeutral, Is.EqualTo(76));
             Assert.That(armoredCounter, Is.EqualTo(150));
             Assert.That(armoredCounter, Is.EqualTo(bareCounter),
                 "相克即破甲:那 30 点甲对打对属性的一击完全不存在");
@@ -1369,13 +1388,14 @@ namespace Brushblade.Core.Tests
             var engine = ArmorBreakEngine(enemyDefense: 30);
             int hp0 = engine.Enemies[0].Hp;
 
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),两处期望值按新公式重算
             engine.Cast("碎", 0);                 // DamageSingle 40 + ArmorBreak 10
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10),
-                "第一击本身不吃自己的破甲(破甲在伤害之后施加):40 − 30 = 10");
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(30),
+                "第一击本身不吃自己的破甲(破甲在伤害之后施加):40 × 100 ÷ 130 = 30");
 
             int hp1 = engine.Enemies[0].Hp;
             engine.Cast("碎", 0);                 // 目标已被削 10 点甲
-            Assert.That(hp1 - engine.Enemies[0].Hp, Is.EqualTo(20), "40 − (30 − 10) = 20");
+            Assert.That(hp1 - engine.Enemies[0].Hp, Is.EqualTo(33), "40 × 100 ÷ (100 + 30 − 10) = 33");
         }
 
         /// <summary>T3-V1(spec §4.5.2):破甲**必须可叠**。不叠只刷新的话六个破甲字互相排斥
@@ -1397,8 +1417,9 @@ namespace Brushblade.Core.Tests
 
             int hp = engine.Enemies[0].Hp;
             engine.Cast("碎", 0);
-            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(20),
-                "40 − (50 − 30) = 20;若退回「只刷新」则只削 20,打出 40 − 30 = 10");
+            // 2026-09-16 护甲改百分比减伤,期望值按新公式重算;判别力仍在(33 ≠ 30)
+            Assert.That(hp - engine.Enemies[0].Hp, Is.EqualTo(33),
+                "40 × 100 ÷ (100 + 50 − 30) = 33;若退回「只刷新」则只削 20,打出 40 × 100 ÷ 130 = 30");
         }
 
         [Test]
@@ -1470,7 +1491,8 @@ namespace Brushblade.Core.Tests
 
             engine.Cast("锥", 0);   // DamageSingle 105,穿透 10
 
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(85), "105 − max(0, 30 − 10) = 85");
+            // 2026-09-16 护甲改百分比减伤:105 × 100 ÷ (100 + max(0, 30 − 10)) = 87
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(87), "105 × 100 ÷ 120 = 87");
         }
 
         /// <summary>T3-V3(裁定 4.1.2):破甲与穿透**从同一个基础护甲里减**,一个 max(0,…)。
@@ -1512,7 +1534,8 @@ namespace Brushblade.Core.Tests
 
             engine.Cast("碎", 0);   // 无穿透,DamageSingle 40
 
-            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(10), "40 − 30 = 10");
+            // 2026-09-16 护甲改百分比减伤:40 × 100 ÷ 130 = 30
+            Assert.That(hp0 - engine.Enemies[0].Hp, Is.EqualTo(30), "40 × 100 ÷ 130 = 30");
         }
 
         [Test]

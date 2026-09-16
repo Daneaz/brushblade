@@ -325,13 +325,14 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Barb_CountsDamageAfterDefense()
         {
-            // 基数是**打进身体的量**,不是名义伤害:40 − 20 甲 = 20,反噬 6。
+            // 基数是**打进身体的量**,不是名义伤害。2026-09-16 护甲改百分比减伤
+            // (DR = 甲/(甲+100)):40 × 100 ÷ 120 = 33 打进身体,反噬 33 × 30% = 9。
             // 这里刻意用木系带甲的怪:火克金时护甲整个失效(既有口径),那条路上验不到减甲
             var engine = Engine(new EnemyDef("铁画", Element.Wood, 300, 45,
                 EnemyAbility.Barb, defense: 20));
             int before = engine.PlayerHp;
             engine.Cast("火", 0);
-            Assert.That(engine.PlayerHp, Is.EqualTo(before - 20 * 30 / 100));
+            Assert.That(engine.PlayerHp, Is.EqualTo(before - 40 * 100 / 120 * 30 / 100));
         }
 
         [Test]

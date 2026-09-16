@@ -25,7 +25,8 @@ namespace Brushblade.Core.Tests
         {
             var battle = SuppressBattle(armor: 60, isBoss: true);
             battle.Cast("封", 0);
-            Assert.That(HitFor(battle), Is.EqualTo(70), "Boss 降级:护甲 60 → 30,100 − 30 = 70");
+            // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)):100 × 100 ÷ 130 = 76
+            Assert.That(HitFor(battle), Is.EqualTo(76), "Boss 降级:护甲 60 → 30,100 × 100 ÷ 130 = 76");
         }
 
         [Test]
@@ -66,7 +67,8 @@ namespace Brushblade.Core.Tests
             var battle = SuppressBattle(armor: 20, isBoss: false);
             battle.Cast("封", 0);
             battle.EndTurn();
-            Assert.That(HitFor(battle), Is.EqualTo(80), "到期后护甲 20 回来");
+            // 2026-09-16 护甲改百分比减伤:100 × 100 ÷ 120 = 83
+            Assert.That(HitFor(battle), Is.EqualTo(83), "到期后护甲 20 回来");
         }
 
         /// <summary>Boss 的蓄力/大招机制(ResolveBossTurn 的三态 + Silence case 挂状态那一拍
