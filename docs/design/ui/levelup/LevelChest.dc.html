@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+
+    .sheet { width: 1180px; box-sizing: border-box; padding: 26px 30px 30px;
+      background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    h2 { margin: 0; display: flex; align-items: center; gap: 10px;
+      font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .draft { height: 20px; padding: 0 8px; border-radius: 10px; background: #FBE3E2; color: #9B1E22;
+      font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      display: inline-flex; align-items: center; }
+    .lede { font-size: 12px; color: #5D646F; margin-top: 7px; line-height: 1.75; max-width: 940px; text-wrap: pretty; }
+    .lede b { color: #161B22; font-weight: 500; }
+    .tiers { margin-top: 18px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+    .tier { background: #FBF8F1; border: 1px solid #E7E1D4; border-radius: 10px;
+      padding: 8px 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .tier svg { width: 88px; height: 88px; display: block; }
+    .tier .rg { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .tier .tn { display: flex; align-items: center; gap: 5px; font-family: "Noto Serif SC", serif;
+      font-size: 12.5px; font-weight: 600; color: #2C333D; }
+    .dot { width: 8px; height: 8px; border-radius: 3px; background: var(--c); display: block; }
+    .tier .y { font-size: 9.5px; color: #88909C; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .curves { margin-top: 20px; background: #FBF8F1; border: 1px solid #E7E1D4; border-radius: 10px; padding: 12px 16px 10px; }
+    .curves h3 { margin: 0 0 4px; font-family: "Noto Serif SC", serif; font-size: 13.5px; font-weight: 600; letter-spacing: 2px; color: #2C333D; }
+    table { border-collapse: collapse; width: 100%; font-size: 11px; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid #EDE7DA; }
+    tr:last-child td { border-bottom: none; }
+    th { font-size: 9.5px; font-weight: 500; letter-spacing: 2px; color: #88909C; border-bottom-color: #CFC7B6; }
+    td.k { font-family: "Noto Serif SC", serif; font-weight: 600; }
+    td.old { color: #A8A08E; text-decoration: line-through; text-decoration-color: rgba(168,160,142,.6); }
+    td.new { color: #161B22; font-weight: 500; }
+    td.w { color: #5D646F; }
+    .rules { margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .rule { background: #FBF8F1; border: 1px solid #E7E1D4; border-radius: 10px; padding: 12px 14px 14px; }
+    .rule h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 13.5px; font-weight: 600; letter-spacing: 2px; color: #2C333D; }
+    .rule p { margin: 0; font-size: 10.5px; line-height: 1.75; color: #5D646F; text-wrap: pretty; }
+    .rule p b { color: #161B22; font-weight: 500; }
+    .rule code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; color: #7A3F5C; }
+  </style>
+</helmet>
+<div class="sheet">
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs><symbol id="chest-paper" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="33" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 30 h68 v62 h-68 z" fill="#FFFDF7" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 30 h68 v15 h-68 z" fill="var(--c)" fill-opacity=".55" stroke="#111622" stroke-width="2"/>
+        <path d="M82 50 v36 M86 50 v36 M90 50 v36" stroke="#C6BCA8" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="32" y="52" width="17" height="30" rx="1.5" fill="#F6F1E7" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40.5 57 v20" stroke="#111622" stroke-width="1.4" opacity=".4" stroke-dasharray="2 3.5"/>
+        <path d="M26 64 h68" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M66 30 v62" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>
+        <circle cx="66" cy="64" r="4.6" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+        <path d="M26 92 q5.7 4 11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.5 0" fill="none"
+              stroke="#111622" stroke-width="2.2" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ② 竹简匣:竹片竖排 + 两道编绳。轮廓最"瘦",一眼与纸函分得开 -->
+      <symbol id="chest-bamboo" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="32" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 32 h68 v60 h-68 z" fill="var(--c)" fill-opacity=".30" stroke="#111622" stroke-width="2.6"/>
+        <path d="M26 32 h68 v12 h-68 z" fill="var(--c)" fill-opacity=".72" stroke="#111622" stroke-width="2"/>
+        <path d="M34.5 44 v48 M43 44 v48 M51.5 44 v48 M60 44 v48 M68.5 44 v48 M77 44 v48 M85.5 44 v48"
+              stroke="#111622" stroke-width="1.5" opacity=".34"/>
+        <path d="M30 60 h8 M47 60 h8 M64 60 h8 M81 60 h8" stroke="#111622" stroke-width="1.5" opacity=".3"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#6B5B3E" stroke-width="3.6" stroke-linecap="round"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#111622" stroke-width="1" opacity=".35"/>
+        <circle cx="60" cy="80" r="4.4" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+      </symbol>
+
+      <!-- ③ 青瓷匣:半圆盖 + 冰裂纹 + 圈足。唯一的圆顶轮廓 -->
+      <symbol id="chest-celadon" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="31" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M28 58 h64 v26 a7 7 0 0 1 -7 7 h-50 a7 7 0 0 1 -7 -7 z"
+              fill="var(--c)" fill-opacity=".13" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M28 58 a32 26 0 0 1 64 0 z" fill="var(--c)" fill-opacity=".52" stroke="#111622" stroke-width="2.6"/>
+        <path d="M52 32 h16 v5 h-16 z" fill="var(--c)" fill-opacity=".6" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40 56 l6 -14 M56 50 l-4 -12 M72 56 l-3 -16 M84 54 l-8 -9" stroke="#111622"
+              stroke-width="1.2" opacity=".28" fill="none"/>
+        <path d="M38 66 l9 8 M62 64 l-6 12 M76 68 l8 6" stroke="#111622" stroke-width="1.2" opacity=".24" fill="none"/>
+        <path d="M28 58 h64" stroke="#111622" stroke-width="2.2"/>
+        <path d="M36 91 h48" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M40 50 a24 20 0 0 1 12 -14" fill="none" stroke="#FFFFFF" stroke-width="3.4"
+              stroke-linecap="round" opacity=".75"/>
+      </symbol>
+
+      <!-- ④ 紫檀匣:硬木 + 四角包角 + 云头扣。第一只"带五金"的箱 -->
+      <symbol id="chest-rosewood" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="26" y="44" width="68" height="48" rx="3" fill="var(--c)" fill-opacity=".30"
+              stroke="#111622" stroke-width="2.6"/>
+        <rect x="22" y="30" width="76" height="15" rx="3" fill="var(--c)" fill-opacity=".64"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M32 56 q14 5 28 0 t28 0 M32 68 q14 -5 28 0 t28 0 M32 80 q14 5 28 0 t28 0"
+              fill="none" stroke="#111622" stroke-width="1.3" opacity=".26"/>
+        <path d="M26 54 v-10 h10 M94 54 v-10 h-10 M26 82 v10 h10 M94 82 v10 h-10"
+              fill="none" stroke="#8A7B5A" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M52 45 h16 v11 a8 8 0 0 1 -16 0 z" fill="#C9A94A" stroke="#111622" stroke-width="1.9"/>
+        <circle cx="60" cy="53" r="2.2" fill="#111622"/>
+      </symbol>
+
+      <!-- ⑤ 鎏金匣:盝顶盖 + 錾花 + 如意锁牌。轮廓从这一档开始"起脊" -->
+      <symbol id="chest-gilded" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="27" y="52" width="66" height="40" rx="2" fill="var(--c)" fill-opacity=".32"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M36 28 h48 l10 22 h-68 z" fill="var(--c)" fill-opacity=".70"
+              stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 50 h68" stroke="#111622" stroke-width="2.4"/>
+        <circle cx="44" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="54" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="66" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="76" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <path d="M53 52 h14 v13 a7 7 0 0 1 -14 0 z" fill="#F6EDD5" stroke="#111622" stroke-width="1.9"/>
+        <path d="M60 58 v5" stroke="#111622" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="60" cy="56" r="2.4" fill="#111622"/>
+        <path d="M33 84 h54" stroke="#C9A94A" stroke-width="2.4" opacity=".9"/>
+        <path d="M27 92 h66" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ⑥ 朱漆匣:剔红卷草 + 铜包角。圆角最饱满,漆面用一层高光带出"厚" -->
+      <symbol id="chest-vermilion" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="25" y="36" width="70" height="56" rx="8" fill="var(--c)" fill-opacity=".50"
+              stroke="#111622" stroke-width="2.8"/>
+        <path d="M25 58 h70" stroke="#111622" stroke-width="2.4"/>
+        <path d="M32 50 c8 -8 18 -2 22 -8 c4 -6 14 -6 18 1 c3 5 10 5 13 1" fill="none" stroke="#111622"
+              stroke-width="1.8" opacity=".42" stroke-linecap="round"/>
+        <path d="M44 46 c-3 -4 -8 -3 -8 1 c0 3 4 4 5 1" fill="none" stroke="#111622"
+              stroke-width="1.6" opacity=".38" stroke-linecap="round"/>
+        <path d="M30 74 c9 -7 19 -1 25 -6 c6 -5 16 -3 20 3 c3 4 9 4 12 1" fill="none" stroke="#111622"
+              stroke-width="1.6" opacity=".28" stroke-linecap="round"/>
+        <path d="M25 48 h12 M83 48 h12" stroke="#C9A94A" stroke-width="3" stroke-linecap="round"/>
+        <path d="M25 82 h12 M83 82 h12" stroke="#C9A94A" stroke-width="3" stroke-linecap="round"/>
+        <rect x="53" y="52" width="14" height="12" rx="2.5" fill="#C9A94A" stroke="#111622" stroke-width="1.9"/>
+        <circle cx="60" cy="58" r="2.2" fill="#111622"/>
+        <path d="M33 42 q10 -4 20 -1" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".38" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ⑦ 赤霄匣:铁函 + 交叉封符 + 缝里透出来的光。全表唯一"关不住"的一只 -->
+      <symbol id="chest-crimson" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="35" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="24" y="34" width="72" height="58" rx="2" fill="var(--c)" fill-opacity=".42"
+              stroke="#111622" stroke-width="3"/>
+        <path d="M24 58 h72" stroke="#FFD470" stroke-width="6" opacity=".6"/>
+        <path d="M24 58 h72" stroke="#FFF3CF" stroke-width="2.4"/>
+        <path d="M24 56 h72" stroke="#111622" stroke-width="2.2"/>
+        <!-- 封符裁进箱体,只留 3px 折边 —— 不裁的话交叉那两道会甩出箱外,
+             与另外六只的画幅对不齐(2026-08-29 修:原先整只箱比同排高出 12px) -->
+        <g clip-path="url(#clip-crimson)">
+          <path d="M22 28 l76 74" stroke="#F6F1E7" stroke-width="9"/>
+          <path d="M22 28 l76 74" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+          <path d="M98 28 l-76 74" stroke="#F6F1E7" stroke-width="9"/>
+          <path d="M98 28 l-76 74" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+        </g>
+        <rect x="50" y="47" width="20" height="20" rx="2" fill="#9B1E22" stroke="#111622" stroke-width="2"/>
+        <path d="M55 53 h10 M55 57 h10 M55 61 h10" stroke="#F6F1E7" stroke-width="1.6" opacity=".85"/>
+        <path d="M24 92 h72" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+      </symbol>
+
+      <clipPath id="clip-crimson"><rect x="21" y="31" width="78" height="64" rx="2"/></clipPath></defs></svg>
+  <h2>升级奖励 · 等级区间 → 宝箱<span class="draft">草案 · 待拍板</span></h2>
+  <div class="lede">
+    每升一级发一只宝箱,档位只看<b>升到的那一级</b>落在哪个区间,不掷随机 —— 升级是确定的事,奖励也该是确定的。
+    前 10 级沿用 <b>ChestRules.TierWeightBands</b> 的「每 5 级一档」,之后 10 级一档,朱漆匣正好落在属性封顶的 <b>Lv.41–50</b>,过了封顶才是赤霄。
+    箱内产出与开启时长取自现行 <b>ChestRules</b>,未改。
+  </div>
+
+  <div class="tiers">
+    <div class="tier" style="--c: #A19E98">
+      <svg viewBox="0 0 120 120"><use href="#chest-paper"></use></svg>
+      <div class="rg">Lv.2–5</div>
+      <div class="tn"><i class="dot"></i>素纸匣</div>
+      <div class="y">3 字 · 15 墨 · 5 分钟</div>
+    </div>
+    <div class="tier" style="--c: #2E9E52">
+      <svg viewBox="0 0 120 120"><use href="#chest-bamboo"></use></svg>
+      <div class="rg">Lv.6–10</div>
+      <div class="tn"><i class="dot"></i>竹简匣</div>
+      <div class="y">4 字 · 30 墨 · 30 分钟</div>
+    </div>
+    <div class="tier" style="--c: #0F74C4">
+      <svg viewBox="0 0 120 120"><use href="#chest-celadon"></use></svg>
+      <div class="rg">Lv.11–20</div>
+      <div class="tn"><i class="dot"></i>青瓷匣</div>
+      <div class="y">6 字 · 60 墨 · 2 小时</div>
+    </div>
+    <div class="tier" style="--c: #7945AB">
+      <svg viewBox="0 0 120 120"><use href="#chest-rosewood"></use></svg>
+      <div class="rg">Lv.21–30</div>
+      <div class="tn"><i class="dot"></i>紫檀匣</div>
+      <div class="y">8 字 · 120 墨 · 4 小时</div>
+    </div>
+    <div class="tier" style="--c: #C9A94A">
+      <svg viewBox="0 0 120 120"><use href="#chest-gilded"></use></svg>
+      <div class="rg">Lv.31–40</div>
+      <div class="tn"><i class="dot"></i>鎏金匣</div>
+      <div class="y">12 字 · 250 墨 · 8 小时</div>
+    </div>
+    <div class="tier" style="--c: #E1791B">
+      <svg viewBox="0 0 120 120"><use href="#chest-vermilion"></use></svg>
+      <div class="rg">Lv.41–50</div>
+      <div class="tn"><i class="dot"></i>朱漆匣</div>
+      <div class="y">14 字 · 320 墨 · 10 小时</div>
+    </div>
+    <div class="tier" style="--c: #CD262E">
+      <svg viewBox="0 0 120 120"><use href="#chest-crimson"></use></svg>
+      <div class="rg">Lv.51+</div>
+      <div class="tn"><i class="dot"></i>赤霄匣</div>
+      <div class="y">16 字 · 400 墨 · 12 小时</div>
+    </div>
+  </div>
+
+  <div class="curves">
+    <h3>属性曲线 · 封顶 Lv.26 → Lv.50</h3>
+    <table>
+      <tr><th>属性</th><th>现行(Lv.26 封顶)</th><th>草案(Lv.50 封顶)</th><th>Lv.1</th><th>上限</th><th>为什么这样改</th></tr>
+      <tr><td class="k">生命</td><td class="old">500 + 20×(L−1),≤ 1000</td><td class="new">500 + 20×(L−1),≤ 1480</td><td>500</td><td>1000 → <b>1480</b></td><td class="w">斜率不变、上限抬高,每级都有 +20</td></tr>
+      <tr><td class="k">攻击</td><td class="old">100 + 2×(L−1),≤ 150</td><td class="new">100 + 2×(L−1),≤ 198</td><td>100</td><td>150 → <b>198</b></td><td class="w">同上,每级都有 +2</td></tr>
+      <tr><td class="k">护甲</td><td class="old">⌊(L−1)/2⌋,≤ 12</td><td class="new">⌊(L−2)/4⌋,≤ 12</td><td>0</td><td>12 不变</td><td class="w">再高会压过土系防御字;改成每 4 级 +1</td></tr>
+      <tr><td class="k">闪避</td><td class="old">L−1 %,≤ 25%</td><td class="new">⌊L/2⌋ %,≤ 25%</td><td>0</td><td>25% 不变</td><td class="w">spec 8.3 硬上限;改成每 2 级 +1%</td></tr>
+      <tr><td class="k">速度</td><td class="old">100 + (L−1),≤ 125</td><td class="new">100 + ⌊L/2⌋,≤ 125</td><td>100</td><td>125 不变</td><td class="w">速度同时加输出与出牌资源,不宜更高;每 2 级 +1</td></tr>
+    </table>
+  </div>
+
+  <div class="rules">
+    <div class="rule">
+      <h3>什么时候弹</h3>
+      <p>经验每清一层就入账,但属性要到<b>下一段开打</b>才重算(<code>StartSegment → BuildBattleConfig</code>)。
+      所以弹窗不打断战斗,攒到<b>段末安全层</b>或<b>登塔结算之后</b>再弹,一次说清这一段升了几级 —— 正好是新属性开始生效的那一刻。</p>
+    </div>
+    <div class="rule">
+      <h3>连升多级</h3>
+      <p>属性写<b>合计差值</b>;宝箱仍是每级一只,各按自己那一级定档,<b>同档合并</b>成一行「×N」,所以右栏最多两三行。
+      箱位满的走现有的暂存队列(<code>PendingChests</code>),开箱腾位后按顺序补入 —— 升级箱不会因为箱位满而蒸发。</p>
+    </div>
+    <div class="rule">
+      <h3>满级之后</h3>
+      <p>五条属性曲线同在 <b>Lv.50</b> 触顶。触顶那一级每行挂「满」;再往后「属性提升」整段<b>收成一行灰字</b>,
+      弹窗只剩宝箱。闪避/速度隔一级、护甲隔四级才 +1,没涨的那一级<b>行照列、差值写「—」</b>,不藏 —— 藏了玩家会以为属性丢了。</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1180, "height": 740}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

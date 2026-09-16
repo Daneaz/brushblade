@@ -148,9 +148,9 @@ namespace Brushblade.Balance
                 // 2026-09-05 字表调整:灼/烧 本批移出,起手牌换成 灭/灿(见 FireCards 同批注释)。
                 new Profile("新手(灭,1级,HP500,ATK100,DEF0,闪0)", new[] { "灭" },
                     new Dictionary<string, int>(), level: 1),
-                new Profile("小成长(灭炎爆热,卡3级,3级,HP540,ATK104,DEF1,闪2)", new[] { "灭", "炎", "爆", "热" },
+                new Profile("小成长(灭炎爆热,卡3级,3级,HP540,ATK104,DEF0,闪1)", new[] { "灭", "炎", "爆", "热" },
                     FireCards.ToDictionary(c => c, _ => 3), level: 3),
-                new Profile("养成(焚炎灿燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炎", "灿", "燚" },
+                new Profile("养成(焚炎灿燚,卡5级,10级,HP680,ATK118,DEF2,闪5)", new[] { "焚", "炎", "灿", "燚" },
                     FireCards.ToDictionary(c => c, _ => 5), level: 10),
 
                 // ---- 探针(spec §10.5)。等级/卡等级/起爬深度与上面基线相同,只换起手牌与卡组 ----

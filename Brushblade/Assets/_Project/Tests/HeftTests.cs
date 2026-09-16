@@ -552,8 +552,8 @@ namespace Brushblade.Core.Tests
         /// **2026-09-11(阈值 /7 → 固定 100)**:这条原名 ResourceThreshold_IsOneSeventhOfMaxHp,
         /// 守的是「阈值确实是 MaxHp 的七分之一」—— **那个前提整个作废了**,不是改个除数的事。
         /// 沿革 /10 → /5 → /7 三次都挂在 PlayerMaxHp 上,而那是结构性错配:被阈值 gate 的
-        /// 盾/治疗走 ScaleByBaseAttack(值 × PlayerAttack / 100),MaxHpFor 26 级 ×2.0、
-        /// AttackFor 26 级 ×1.5,阈值涨得比它卡的东西快一倍;养元技能 vigor 再累计
+        /// 盾/治疗走 ScaleByBaseAttack(值 × PlayerAttack / 100),MaxHpFor 50 级封顶 ×2.96、
+        /// AttackFor 50 级封顶 ×1.98,阈值涨得比它卡的东西快一倍;养元技能 vigor 再累计
         /// +600 MaxHp 且只加血不加攻。固定值一次斩断这条耦合。
         ///
         /// 这条改钉常量本身:给 141 点护盾 = 1 层 + 余 41。余数是判别式 ——
