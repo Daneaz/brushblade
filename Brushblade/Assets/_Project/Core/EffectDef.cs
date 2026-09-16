@@ -150,6 +150,15 @@ namespace Brushblade.Core
         /// <summary>连发的发数(2026-08-22)。只对 <see cref="TargetShape.Volley"/> 有意义。</summary>
         public int Shots { get; }
 
+        /// <summary>碾(2026-09-16,土):本次伤害**完全跳过目标的护甲减伤**;仍吃护盾。
+        ///
+        /// 与 <see cref="Pierce"/> 是**两档**,别合并:穿透削一部分甲值再算 DR,
+        /// 碾直接跳过整条 DR。土系攻面对偶「免疫」的那一条(spec §5)。
+        ///
+        /// 落地不新建减伤路径 —— 直接进 <c>DamageEnemy</c> 既有的 <c>bypassDefense</c> 参数,
+        /// 与「相克即破甲」「反弹不吃甲」走同一个开关。</summary>
+        public bool TrueDamage { get; }
+
         public EffectDef(EffectKind kind, int value,
             DamageCondition doubleVs = DamageCondition.None, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
@@ -157,7 +166,8 @@ namespace Brushblade.Core
             SummonPassive passive = null, int summonShield = 0, int summonDefense = 0,
             int executeBelowPercent = 0, bool executeKills = false,
             int hitCount = 1, int pierce = 0, bool canStrikeBackline = false,
-            TargetShape shape = TargetShape.Single, int shapePercent = 100, int shots = 0)
+            TargetShape shape = TargetShape.Single, int shapePercent = 100, int shots = 0,
+            bool trueDamage = false)
         {
             Kind = kind;
             Value = value;
@@ -179,6 +189,7 @@ namespace Brushblade.Core
             Shape = shape;
             ShapePercent = shapePercent <= 0 ? 100 : shapePercent;
             Shots = shots;
+            TrueDamage = trueDamage;
         }
     }
 }

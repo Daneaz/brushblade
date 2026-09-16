@@ -83,10 +83,10 @@ namespace Brushblade.Presentation
                             ("shape", ShapeLabel(e)), ("value", shown))
                         + DoubleVsText(e)
                         + PierceText(e) + BacklineText(e) + HitCountText(e) + ExecuteText(e)
-                        + ShapeSuffix(e),
+                        + TrueDamageText(e) + ShapeSuffix(e),
                     EffectKind.DamageAll => Strings.T("char.effect.damageall", ("value", shown))
                         + DoubleVsText(e)
-                        + PierceText(e) + HitCountText(e) + ExecuteText(e),
+                        + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e),
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
@@ -270,6 +270,13 @@ namespace Brushblade.Presentation
 
         private static string PierceText(EffectDef e) =>
             e.Pierce > 0 ? Strings.T("char.effect.piercetext", ("pierce", e.Pierce)) : "";
+
+        /// <summary>碾后缀(2026-09-16,土):与 <see cref="PierceText"/> 是同族的伤害修饰,
+        /// 但两者**是两档**——穿透削一部分甲值再算 DR,碾直接跳过整条 DR
+        /// (<see cref="EffectDef.TrueDamage"/> 的注释)。单体/AOE 两种伤害都能挂,
+        /// 与只作用于单体的 <see cref="BacklineText"/> 不同。</summary>
+        private static string TrueDamageText(EffectDef e) =>
+            e.TrueDamage ? Strings.T("char.effect.truedamage") : "";
 
         /// <summary>目标形状前缀(2026-08-22,spec §7)。Single 沿用原「单体」——87 张既有
         /// DamageSingle 卡面因此逐字节不变。

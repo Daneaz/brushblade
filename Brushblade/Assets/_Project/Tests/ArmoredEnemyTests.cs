@@ -190,5 +190,47 @@ namespace Brushblade.CoreTests
         {
             Assert.That(BattleEngine.ApplyDefense(200, -50), Is.EqualTo(200), "负护甲不许倒贴增伤");
         }
+
+        // ---- 碾(TrueDamage,2026-09-16 土):跳过整条 DR,但仍吃护盾 ----
+        //
+        // ⚠ 本文件其余测试只读真实配置(chars.json/enemies.json)或直接调 ApplyDefense 这个静态
+        // 方法,没有可复用的「造一局战斗」夹具 —— 下面这套 Graph()/Engine() 是新起的,照抄
+        // EnemyShieldTests.cs 的既有写法(心系测试字 + Element.Heart 保证 KeMultiplier 恒为
+        // 1.0,不搅动生克;PlayerCritChance 默认 0,RollCrit() 恒为 false,不搅动暴击)。
+
+        // 甲:100 伤,心系中立,不带碾 —— 验护甲照常生效。
+        // 碾:100 伤,心系中立,trueDamage:true —— 验完全跳过护甲但护盾照吃。
+        private static RecipeGraph TrueDamageGraph() => new(new[]
+        {
+            new CharDef("甲", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
+            new CharDef("碾", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100, trueDamage: true) }),
+        });
+
+        private static BattleEngine TrueDamageEngine(EnemyDef enemy) =>
+            new(TrueDamageGraph(), new BattleConfig { PlayerMaxHp = 1000 },
+                new[] { "甲", "碾" }, Array.Empty<string>(), new[] { enemy }, seed: 1);
+
+        [Test]
+        public void TrueDamage_SkipsArmorEntirely_ButStillEatsShield()
+        {
+            // 敌人甲 100(DR 50%)、盾 30。碾:伤害 100 全额进入 → 盾吃 30 → 血扣 70
+            var engine = TrueDamageEngine(new EnemyDef("靶", Element.Earth, 1000, 0, defense: 100));
+            engine.Enemies[0].Shield = 30;
+            engine.Cast("碾", 0);
+            Assert.That(engine.Enemies[0].Shield, Is.EqualTo(0), "30 点盾被吃满");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 70),
+                "碾跳过护甲但不跳过护盾:100 − 30 盾 = 70");
+        }
+
+        [Test]
+        public void WithoutTrueDamage_ArmorStillApplies()
+        {
+            // 敌人甲 100、无盾 → 100 × 100/(100+100) = 50
+            var engine = TrueDamageEngine(new EnemyDef("靶", Element.Earth, 1000, 0, defense: 100));
+            engine.Cast("甲", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 50), "不带碾时护甲照常生效");
+        }
     }
 }

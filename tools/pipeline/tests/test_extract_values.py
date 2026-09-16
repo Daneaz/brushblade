@@ -54,6 +54,32 @@ def test_shots_and_shape_percent_do_not_become_standalone_effects():
     assert len(effects) == 1
 
 
+# 碾(2026-09-16,土):真伤修饰 —— 跳过整条 DR,单体/AOE 两种伤害都能挂。
+
+def test_true_damage_token_becomes_true_damage_field_on_damage_single():
+    assert _parse_effects("`DamageSingle 10` + `TrueDamage`", "土") == [
+        {"kind": "DamageSingle", "value": 10, "trueDamage": True}]
+
+
+def test_true_damage_token_becomes_true_damage_field_on_damage_all():
+    assert _parse_effects("`DamageAll 10` + `TrueDamage`", "土") == [
+        {"kind": "DamageAll", "value": 10, "trueDamage": True}]
+
+
+def test_no_true_damage_marker_leaves_field_absent():
+    """缺省不写 trueDamage —— 恒等性:既有伤害字重新生成后必须逐字节不变。"""
+    effects = _parse_effects("`DamageSingle 10`", "土")
+    assert "trueDamage" not in effects[0]
+
+
+def test_true_damage_does_not_become_a_standalone_effect():
+    """不挂白名单会被通用正则当成独立效果 kind=TrueDamage 收走 —— EffectKind 里没有这个值,
+    会让 ConfigLoader 在加载期直接抛 ConfigException。"""
+    effects = _parse_effects("`DamageSingle 10` + `TrueDamage`", "土")
+    assert all(e["kind"] != "TrueDamage" for e in effects)
+    assert len(effects) == 1
+
+
 # 召唤物自动攻击的形状(2026-08-22):同一套 token,落进 passive 的 shape/shots/shapePercent,
 # 而不是独立 effect —— BattleEngine.cs:1276-1284 读的就是 passive 上这三个字段。
 

@@ -97,6 +97,14 @@ HIT_COUNT_TOKEN = "HitCount"
 # 而 EffectKind 里没有这个值 —— ConfigLoader 会在加载期直接抛 ConfigException。
 PIERCE_TOKEN = "Pierce"
 
+# 碾(2026-09-16,土):真伤修饰 —— 本次伤害完全跳过目标护甲(仍吃护盾),与穿透是两档
+# (穿透削一部分甲值再算 DR,碾直接跳过整条 DR),同样是伤害的修饰而非独立效果。
+# 无数值的布尔标记(与 Backline 同型),写法 `TrueDamage`。
+# ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="TrueDamage" 的独立效果,
+# 而 EffectKind 里没有这个值 —— ConfigLoader 会在加载期直接抛 ConfigException
+# (与 PIERCE_TOKEN / Backline 头上那两条注释同一个坑)。
+TRUE_DAMAGE_TOKEN = "TrueDamage"
+
 # 目标形状的两个带数值 token,同样是伤害的修饰(2026-08-22,spec §9.1)。
 # 不挂白名单会被通用正则 `(\w+) (\d+)` 当成独立效果 kind=Shots/ShapePercent 落进 chars.json,
 # 而 EffectKind 里没有这两个值 —— ConfigLoader 会在加载期直接抛 ConfigException
@@ -329,6 +337,12 @@ def _parse_effects(config, char):
         if kind == "DamageSingle" and "`Backline`" in config:
             effect["backline"] = True
             consumed.add("Backline")
+        # 碾(2026-09-16,土):跳过整条 DR,单体/AOE 两种伤害都能挂(与只限单体的
+        # Backline 不同 —— BattleEngine 的 DamageSingle/DamageAll 两个分支都已接了
+        # effect.TrueDamage → bypassDefense)。
+        if kind.startswith("Damage") and f"`{TRUE_DAMAGE_TOKEN}`" in config:
+            effect["trueDamage"] = True
+            consumed.add(TRUE_DAMAGE_TOKEN)
         # 目标形状(2026-08-22,spec §9.1):只修饰单体直伤,与 Backline / Pierce / HitCount 同为**修饰位**。
         # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Sweep" 的独立效果,
         #   而 EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException

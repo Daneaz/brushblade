@@ -2513,6 +2513,9 @@ namespace Brushblade.Core
                                 DamageEnemy(tgt, damage, attacker,
                                     crit: RollCrit(),
                                     pierce: primary ? effect.Pierce : 0, // 多段:每段各减一次护甲(裁定 4)
+                                    // 碾(2026-09-16,土):跳过整条 DR,与穿透是两档 —— 对这一效果
+                                    // 打中的每个目标(含形状展开的非主目标)都生效,不像 Pierce 只给主目标。
+                                    bypassDefense: effect.TrueDamage,
                                     // 多段的第 2 段起也算同一次挥击的延续?**不算** ——
                                     // 剁的两段本来就该看出是两下(那条拉拍就是为它加的),
                                     // 只有跨排造成的重复才传 true。
@@ -2534,7 +2537,8 @@ namespace Brushblade.Core
                             DamageEnemy(i,
                                 ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
                                 attacker, crit: RollCrit(),
-                                pierce: effect.Pierce);
+                                pierce: effect.Pierce,
+                                bypassDefense: effect.TrueDamage); // 碾:AOE 每个目标都跳过整条 DR
                         }
                         break;
                     case EffectKind.BurnSingle:
