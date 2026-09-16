@@ -83,6 +83,21 @@ namespace Brushblade.Presentation
         /// 调用方按自己是谁传这个参数选(目前只有 PlayerInfo 传 true;召唤物身上出现 AttackBuff
         /// 时——如剡挂在召唤物身上——仍走敌人那条百分比措辞,是本轮审查明确限定的范围,
         /// 没有跟着改,见 final-fix-report.md D 条)。</summary>
+        /// <summary>时长措辞**按 TurnsLeft 走**,不按 StatusKind 写死(2026-09-16)。
+        ///
+        /// 有三个 Kind 两种时长都可能出现,写死任一边都会对另一边撒谎:
+        /// · CritBuff —— 锋 带 turns 3(用户 2026-09-16 报:卡面写 3 回合,状态却印「本场持久」),
+        ///   而旧字表不填 turns 时仍是 -1;
+        /// · AttackBuff —— 剡 带 turns,标点小妖加攻 / 焦痕自燃 / ApplyPlayerAttackBuff 是 -1
+        ///   (写死成「剩 N 回合」的话,-1 会直接印成「剩 -1 回合」);
+        /// · DefenseBuff —— 字卡给的是 Math.Max(1, turns) 的限时,塔 的入场护甲是 -1。
+        ///
+        /// 判据只看 TurnsLeft 这一个数,与 <see cref="StatusEffect"/> 的字段语义一致:
+        /// 正数 = 还剩几回合,-1 = 本场持久。0 不该出现(到期即移除),兜进持久那一支。</summary>
+        private static string Duration(int turnsLeft) => turnsLeft > 0
+            ? Strings.T("status.duration.turns", ("value", turnsLeft))
+            : Strings.T("status.duration.persistent");
+
         public static Info Of(StatusKind kind, int magnitude, int turnsLeft, bool isPlayer = false)
         {
             switch (kind)
@@ -135,7 +150,7 @@ namespace Brushblade.Presentation
                         Strings.T("status.seal.desc", ("magnitude", magnitude)));
                 case StatusKind.DefenseBuff:
                     return new Info("defense", Strings.T("status.defense.name"),
-                        Strings.T("status.duration.persistent"),
+                        Duration(turnsLeft),
                         Strings.T("status.defense.desc", ("magnitude", magnitude)));
                 case StatusKind.Immunity:
                     return new Info("immunity", Strings.T("status.immunity.name"),
@@ -155,7 +170,7 @@ namespace Brushblade.Presentation
                         Strings.T("status.heal.desc", ("magnitude", magnitude)));
                 case StatusKind.AttackBuff:
                     return new Info("attack", Strings.T("status.attack.name"),
-                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Duration(turnsLeft),
                         isPlayer
                             ? Strings.T("status.attack.desc.player", ("magnitude", magnitude))
                             : Strings.T("status.attack.desc", ("magnitude", magnitude)));
@@ -165,7 +180,7 @@ namespace Brushblade.Presentation
                         Strings.T("status.morale.desc", ("magnitude", magnitude)));
                 case StatusKind.CritBuff:
                     return new Info("crit", Strings.T("status.crit.name"),
-                        Strings.T("status.duration.persistent"),
+                        Duration(turnsLeft),
                         Strings.T("status.crit.desc", ("magnitude", magnitude)));
                 case StatusKind.PierceBuff:
                     return new Info("pierce", Strings.T("status.pierce.name"),
