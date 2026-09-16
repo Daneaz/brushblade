@@ -226,12 +226,15 @@ namespace Brushblade.Core
         /// 基准 100:<c>伤害 = 值 × ATK ÷ 100</c>,1 级时恒等于引入攻击力之前。</summary>
         public static int AttackFor(int level) => Math.Min(150, 100 + 2 * (level - 1));
 
-        /// <summary>防御成长:0 + 0.5×(等级−1),上限 12(19.2.1 角色属性,2026-08-12 E-b4 T4)。
-        /// 整数除表达 k = 1/2。**起点 0**:护甲是土系字给的,不是白送的 —— 也正因为起点 0,
+        /// <summary>防御成长:0 + 1.5×(等级−1),上限 30,Lv21 到顶(19.2.1 角色属性,
+        /// 2026-08-12 E-b4 T4 定形;2026-09-16 随护甲百分比化抬升:封顶 12 → 30)。
+        /// 整数除表达 k = 3/2。**起点 0**:护甲是土系字给的,不是白送的 —— 也正因为起点 0,
         /// 1 级角色的战斗行为与引入这条曲线之前逐字节相同(<c>max(0, x − 0) == x</c>)。
-        /// 上限 12:对参考打击量 R_in = 60 是 −20%,与 ATK 的 +50%、HP 的 +100% 同一个
-        /// 「成长感」量级;再高会让等级压过字表,土系防御字失去存在意义。</summary>
-        public static int DefenseFor(int level) => Math.Min(12, (level - 1) / 2);
+        /// 上限 30:护甲已改百分比减伤(DR = 甲/(甲+100)),30 点对应 DR 23%。
+        /// 旧注释在这里写过「再高会让等级压过字表、土系防御字失去意义」——那是点数减法年代的
+        /// 顾虑,百分比减伤下不再成立(字表护甲锚点将随 Task 11 同批抬到 15~100,
+        /// 等级给的 30 点不会压过字表)。</summary>
+        public static int DefenseFor(int level) => Math.Min(30, (level - 1) * 3 / 2);
 
         /// <summary>闪避成长:0 + 1×(等级−1),上限 25(19.2.1 角色属性,2026-08-12 E-b4 T4)。
         /// 起点 0 与 <see cref="DefenseFor"/> 一致(防御资源不白送,且 0 时命中判定短路、
@@ -289,8 +292,8 @@ namespace Brushblade.Core
                 // pct = 0 时 x × 100 / 100 == x,逐字节恒等。
                 PlayerAttack = AttackFor(level)
                     * (100 + PerkRules.Bonus(meta, PerkEffect.AttackPercent)) / 100,
-                // 护甲 = 等级曲线 + 御枝(spec §4)。等级给 12、技能给 10 已到边界 ——
-                // DefenseFor 的注释写着再高会让等级压过字表、土系防御字失去意义。
+                // 护甲 = 等级曲线 + 御枝(spec §4)。2026-09-16 随护甲百分比化抬升:
+                // 等级给 30、技能给 50,累计上限 80(DR 44%),见 DefenseFor 的注释。
                 PlayerDefense = DefenseFor(level) + PerkRules.Bonus(meta, PerkEffect.Defense),
                 PlayerDodge = DodgeFor(level),
                 PlayerSpeed = SpeedFor(level),

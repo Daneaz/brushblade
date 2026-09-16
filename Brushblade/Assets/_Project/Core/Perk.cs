@@ -165,11 +165,13 @@ namespace Brushblade.Core
                 PerkEffect.HeftCap, 4);                // 磐固:厚上限 10→14
 
             // ---- 被动树:4 枝 × 3 层 ----
-            // 数值锚点:不压过等级曲线(Lv1→26 给 HP +500、ATK +50%、DEF 0→12)。
+            // 数值锚点:不压过等级曲线(Lv1→26 给 HP +500、ATK +50%)。
+            // 2026-09-16:御枝随护甲百分比化抬升,不再受这条锚点约束 —— 累计 50 点已高于
+            // 等级曲线的 30 点封顶,见 guard 那行与 Meta.cs 的 DefenseFor 注释。
             AddPassive(list, "vigor", PerkEffect.MaxHp,         100, 200, 300); // 累计 +600 HP
             AddPassive(list, "power", PerkEffect.AttackPercent,   5,  10,  15); // 累计 +30%
             AddPassive(list, "edge",  PerkEffect.CritChance,      5,  10,  15); // 累计 +30 百分点
-            AddPassive(list, "guard", PerkEffect.Defense,         2,   3,   5); // 累计 +10 点
+            AddPassive(list, "guard", PerkEffect.Defense,        10,  15,  25); // 累计 +50 点(DR 33%)
 
             // ---- 机制树:4 枝 × 2 层 ----
             AddMechanic(list, "lore",    PerkEffect.LibraryCapacity, 1, 1); // 容量 7→9

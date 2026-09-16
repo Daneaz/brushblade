@@ -27,7 +27,7 @@ namespace Brushblade.Core.Tests
         }
 
         /// <summary>11 级:四条曲线在这一级的取值**两两不同且都不等于缺省**
-        /// (HP 700 / ATK 120 / DEF 5 / 闪避 10),一条注入丢了必然看得出来。</summary>
+        /// (HP 700 / ATK 120 / DEF 15 / 闪避 10),一条注入丢了必然看得出来。</summary>
         private static MetaState LevelElevenWithPerks()
         {
             var meta = new MetaState { CharacterXp = XpForLevel(11) };
@@ -80,9 +80,9 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlayerDefense_IsLevelCurve()
         {
-            // 5 ≠ 缺省 0:这正是 T4 变异检查里删掉后无人发现的那一类
+            // 15 ≠ 缺省 0:这正是 T4 变异检查里删掉后无人发现的那一类
             Assert.That(Build(LevelElevenWithPerks()).PlayerDefense, Is.EqualTo(MetaRules.DefenseFor(11)));
-            Assert.That(Build(LevelElevenWithPerks()).PlayerDefense, Is.EqualTo(5));
+            Assert.That(Build(LevelElevenWithPerks()).PlayerDefense, Is.EqualTo(15));
         }
 
         [Test]

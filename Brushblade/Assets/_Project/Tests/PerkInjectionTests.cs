@@ -66,10 +66,20 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 0 };
             int baseline = Build(meta).PlayerDefense;
-            meta.UnlockedPerks.Add("guard_1"); // +2
-            meta.UnlockedPerks.Add("guard_2"); // +3
-            meta.UnlockedPerks.Add("guard_3"); // +5
-            Assert.That(Build(meta).PlayerDefense, Is.EqualTo(baseline + 10));
+            meta.UnlockedPerks.Add("guard_1"); // +10
+            meta.UnlockedPerks.Add("guard_2"); // +15
+            meta.UnlockedPerks.Add("guard_3"); // +25
+            Assert.That(Build(meta).PlayerDefense, Is.EqualTo(baseline + 50));
+        }
+
+        /// <summary>2026-09-16 随护甲百分比化抬升:guard 三层累计 50 点 = DR 33%。</summary>
+        [Test]
+        public void GuardBranch_TotalsFiftyPoints()
+        {
+            int total = 0;
+            foreach (var n in PerkRules.Nodes)
+                if (n.Branch == "guard") total += n.Value;
+            Assert.That(total, Is.EqualTo(50), "guard 三层累计 50 点 = 33% 减伤");
         }
 
         [Test]
