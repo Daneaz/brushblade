@@ -64,6 +64,15 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 4),
                                  new EffectDef(EffectKind.BurnSettleNow, 0),
                                  new EffectDef(EffectKind.Detonate, 0) }),
+            // 焠:只有蓄热(Value=4,每层增威点数)——专门用来给 NeedsTarget 白名单
+            // 提供判别力,与「煸」只有 Detonate 同一个理由
+            new CharDef("焠", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Quench, 4) }),
+            // 焞:单体伤害 + 蓄热(自制变异验证辅助字,非规格产物)——专门验证
+            // 「蓄热 0 层空转时,同字的其他效果照常生效」这条与 SpendHeft 一致的纪律
+            new CharDef("焞", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 100),
+                                 new EffectDef(EffectKind.Quench, 4) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -863,6 +872,97 @@ namespace Brushblade.Core.Tests
             engine.Cast("煿");
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0));
             Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1 - 200));
+        }
+
+        // ---- 蓄热(2026-09-16,焠)----
+
+        [Test]
+        public void Quench_ConvertsBurnStacksIntoPermanentPotency()
+        {
+            // 灸:3 层灼烧;焠:蓄热(每层 +4 增威)。3 层 × 4 = 12,系数 20 → 32(本场永久)。
+            // 出字即消耗(3.8.1):库里备两张「灸」,第二张用来验证抬高后的系数。
+            var engine = Engine(new[] { "灸", "焠", "灸" }, new[] { Dummy() });
+            engine.Cast("灸", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
+
+            engine.Cast("焠", 0);
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.Burn), Is.False, "蓄热清空目标灼烧");
+
+            // 系数是否真的抬到了 32:再挂 3 层结算一次
+            engine.Cast("灸", 0);
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 96),
+                "3 层 × 系数 32(基础 20 + 夺来的 3 层 × 4 = 12)");
+        }
+
+        [Test]
+        public void Quench_IsNoOp_WhenTargetHasNoBurn()
+        {
+            var engine = Engine(new[] { "灸", "焠" }, new[] { Dummy() });
+            engine.Cast("焠", 0); // 目标无灼烧,空转
+            engine.Cast("灸", 0); // 挂 3 层,验证系数没被抬动
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 60),
+                "3 层 × 系数 20(空转:0 层时不改 _burnPerStack)");
+        }
+
+        [Test]
+        public void Quench_DoesNotDealImmediateDamage()
+        {
+            // 与 Detonate 的分界:引爆兑现伤害,蓄热只夺层数、不打伤害
+            var engine = Engine(new[] { "灸", "焠" }, new[] { Dummy() });
+            engine.Cast("灸", 0);
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("焠", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "蓄热不打伤害,只夺层数");
+        }
+
+        [Test]
+        public void Quench_OtherEffectsOnSameCard_StillFire_WhenNoOp()
+        {
+            // 焞:单体伤害 + 蓄热。目标无灼烧时蓄热空转,但不该拦住同字的伤害效果——
+            // 与 SpendHeft「0 层空转不吞掉同字其他效果」同一条纪律。
+            var engine = Engine(new[] { "焞" }, new[] { Dummy() });
+            int before = engine.Enemies[0].Hp;
+            engine.Cast("焞", 0);
+            Assert.That(engine.Enemies[0].Hp, Is.LessThan(before), "蓄热空转不该拦住同字的伤害效果");
+        }
+
+        [Test]
+        public void Quench_NeedsExplicitTarget_WhenMultipleEnemiesAlive()
+        {
+            // 「焠」只有 Quench、不带 BurnSingle,是 NeedsTarget 白名单的判别力来源——
+            // 与「煸」只有 Detonate 同一个理由
+            Assert.That(BattleEngine.NeedsTarget(Graph().Get("焠")), Is.True,
+                "蓄热是单体效果,UI 必须让玩家选目标;漏进白名单会让 targetIndex 停在 -1");
+
+            var engine = Engine(new[] { "灸", "灸", "焠" }, new[] { Dummy(), Dummy() });
+            engine.Cast("灸", 0);
+            engine.Cast("灸", 1);
+            int before0 = engine.Enemies[0].Hp;
+            int before1 = engine.Enemies[1].Hp;
+            var error = engine.Cast("焠"); // 不传目标
+            Assert.That(error, Is.EqualTo(BattleError.InvalidTarget));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before0));
+            Assert.That(engine.Enemies[1].Hp, Is.EqualTo(before1));
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
+                "没解析到目标,层数不该被夺走");
+            Assert.That(engine.Enemies[1].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Quench_TargetsTheCorrectEnemy_NotHardcodedToZero()
+        {
+            var engine = Engine(new[] { "灸", "灸", "焠" }, new[] { Dummy(), Dummy() });
+            engine.Cast("灸", 0); // 0 号 3 层
+            engine.Cast("灸", 1); // 1 号 3 层
+            engine.Cast("焠", 1); // 只夺 1 号的灼烧
+
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.Burn), Is.EqualTo(3),
+                "0 号没被点中,层数不该被夺走");
+            Assert.That(engine.Enemies[1].Statuses.Has(StatusKind.Burn), Is.False, "1 号被夺走灼烧");
         }
 }
 }

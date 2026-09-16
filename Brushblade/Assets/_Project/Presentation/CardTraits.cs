@@ -368,6 +368,13 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.charm.name"),
                             Strings.T("collection.trait.charm.desc", ("turns", e.Turns)));
                         break;
+                    case EffectKind.Quench:
+                        // 蓄热(2026-09-16):与 BurnPotency 共用 "burn" 图标 —— 两者都是抬高
+                        // _burnPerStack 的效果,差别只在数值来源(固定 vs 夺目标层数)。
+                        AddTrait(traits, "burn", "+" + v,
+                            Strings.T("collection.trait.quench.name"),
+                            Strings.T("collection.trait.quench.desc", ("value", v)));
+                        break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                         AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

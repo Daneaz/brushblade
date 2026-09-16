@@ -1556,7 +1556,12 @@ namespace Brushblade.Core
                     || effect.Kind == EffectKind.BurnNoDecay
                     || effect.Kind == EffectKind.BurnSettleNow
                     // 全体引爆(炸)不选目标,与全体驱散/全体致盲同处理(2026-08-26)
-                    || (effect.Kind == EffectKind.Detonate && !effect.TargetAll))
+                    || (effect.Kind == EffectKind.Detonate && !effect.TargetAll)
+                    // 蓄热(2026-09-16):清空的是**目标**的灼烧层数,单体、无 TargetAll 变体 ——
+                    // 漏在白名单外的后果与上面 C1 那次同型:UI 判定成不需要选目标,
+                    // targetIndex 停在 -1,ApplyEffects 的 Quench 分支永远读不到敌人,悄悄变成
+                    // 每次都空转(见 ApplyEffects 里 EffectKind.Quench 分支的 `targetIndex >= 0` 判断)。
+                    || effect.Kind == EffectKind.Quench)
                     return true;
             return false;
         }
@@ -2751,6 +2756,27 @@ namespace Brushblade.Core
                             for (int i = 0; i < blastCount; i++) Detonate(i);
                         }
                         else if (targetIndex >= 0) Detonate(targetIndex);
+                        break;
+                    case EffectKind.Quench:
+                        // 蓄热(2026-09-16,热):清空目标灼烧层数,每层转成本场永久的 _burnPerStack
+                        // += value(与 BurnPotency 分支同一个字段、同一种写法)。
+                        //
+                        // 与 Detonate 的分界:引爆是把剩余层数的未来伤害一次兑现并造成伤害,
+                        // 蓄热**不打伤害**,只把层数转成永久增威。
+                        //
+                        // 0 层时整条分支空转(同 SpendHeft/SpendResource 那条纪律):不改
+                        // _burnPerStack、不发事件,但同字的其他效果照常生效 —— 纯夺火,
+                        // 不自带挂层,目标无灼烧时这张字只剩伤害面,空转是接受的代价。
+                        if (targetIndex >= 0 && _enemies[targetIndex].Alive)
+                        {
+                            var quenchTarget = _enemies[targetIndex];
+                            int quenchStacks = quenchTarget.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+                            if (quenchStacks > 0)
+                            {
+                                quenchTarget.Statuses.Remove(StatusKind.Burn);
+                                _burnPerStack += quenchStacks * value;
+                            }
+                        }
                         break;
                     case EffectKind.SpendHeft:
                         SpendResource(StatusKind.Heft, value, attacker);

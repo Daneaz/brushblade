@@ -161,6 +161,9 @@ namespace Brushblade.Presentation
                     // 魅惑(2026-09-05,花):持续 Turns 回合,Value 不用(与 Silence 同口径,
                     // 都是靠 Turns 而不是 shown 报时长)。
                     EffectKind.Charm => Strings.T("char.effect.charm", ("turns", e.Turns)),
+                    // 蓄热(2026-09-16):清空目标灼烧层数,每层转成本场永久的灼烧威力。
+                    // 与 Detonate(引爆)的分界:引爆兑现伤害,蓄热只夺层数、不打伤害。
+                    EffectKind.Quench => Strings.T("char.effect.quench", ("value", shown)),
                     _ => e.Kind.ToString(),
                 });
             }

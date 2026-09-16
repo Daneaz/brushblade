@@ -160,7 +160,7 @@ namespace Brushblade.Core.Tests
                 EffectKind.Cleanse, EffectKind.Dispel, EffectKind.Revive,
                 EffectKind.Summon,
                 EffectKind.BurnPotency, EffectKind.BurnSettleNow, EffectKind.BurnNoDecay,
-                EffectKind.ApBoost,
+                EffectKind.ApBoost, EffectKind.Quench,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))
