@@ -1,0 +1,342 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21。与 scenes/base.css 同一套 */
+    .dev { position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #EFE9DA; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    .safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px;
+      display: flex; flex-direction: column; }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px;
+      display: flex; justify-content: center; z-index: 60; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+    .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; box-sizing: border-box; }
+    .pill { height: 40px; padding: 0 22px; border: none; border-radius: 20px; cursor: pointer;
+      font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 2px;
+      display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+    .pill.cinnabar { background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); }
+    .pill.ink { background: #3D4E69; color: #fff; }
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+
+    /* ---- 背景屏(被遮罩压住,只留个轮廓让人知道弹窗是从哪一屏冒出来的) ---- */
+    .mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      font-family: "Noto Serif SC", serif; font-size: 300px; font-weight: 600; line-height: 1;
+      color: rgba(94,74,49,.075); pointer-events: none; user-select: none; }
+    .bgwrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    .bgpanel { width: 640px; padding: 18px 26px 20px; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+    .bgpanel .h { font-family: "Noto Serif SC", serif; font-size: 22px; font-weight: 600; letter-spacing: 4px; }
+    .bgpanel .sub { font-size: 10.5px; color: #5D646F; letter-spacing: 1px; }
+    .bgpanel .n { font-family: "Noto Serif SC", serif; font-size: 34px; font-weight: 600; color: #8F6B09; line-height: 1; }
+    .bgpanel .row { display: flex; gap: 14px; width: 100%; }
+    .bgpanel .row .pill { flex: 1; }
+    .bgpanel .chestrow { width: 100%; height: 48px; border-radius: 10px; background: #FFFDF7; border: 1px solid #E7E1D4; }
+
+    .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); z-index: 50; }
+
+    /* ---- 升级弹窗 ----
+       尺寸口径同 Upgrade.dc.html 的 .sheet(Ui.Sheet):居中宣纸卡 + 1pt 描边。
+       600×348 是内容量出来的:头部 74 + 两栏 188 + 按钮 36,再挤就要把五行属性压成两列 */
+    .pop { position: absolute; left: 166px; top: 30px; width: 600px; height: 348px;
+      box-sizing: border-box; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 11px;
+      padding: 14px 18px 14px; box-shadow: 0 12px 38px rgba(22,27,34,.42);
+      display: flex; flex-direction: column; gap: 11px; z-index: 51; }
+
+    /* 头部:等级是这一屏的主角 —— 旧级压灰、新级放大,中间一支箭头 */
+    .hd { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .kick { display: flex; align-items: center; gap: 10px;
+      font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; letter-spacing: 8px; color: #9B1E22; }
+    .kick::before, .kick::after { content: ""; width: 34px; height: 1px; background: #DED7C9; }
+    .kick span { margin-right: -8px; }
+    .lvrow { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+    .lvrow .was { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; color: #A8A08E; }
+    .lvrow .arw { font-size: 14px; color: #7A3F5C; }
+    .lvrow .now { font-family: "Noto Serif SC", serif; font-size: 38px; font-weight: 700; color: #161B22; line-height: 1; }
+    .lvrow .now i { font-style: normal; font-size: 16px; font-weight: 600; color: #5D646F; margin-right: 2px; }
+    .lvrow .jump { align-self: center; height: 18px; padding: 0 8px; border-radius: 9px;
+      background: #C53637; color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: 1px;
+      display: inline-flex; align-items: center; }
+    .xp { width: 260px; display: flex; align-items: center; gap: 6px; font-size: 9px; color: #88909C;
+      font-variant-numeric: tabular-nums; }
+    .xp .t { flex: 1; height: 4px; border-radius: 2px; background: #E4DDCE; overflow: hidden; }
+    .xp .t span { display: block; height: 100%; background: #C9A94A; }
+
+    .mods { flex: 1; min-height: 0; display: flex; gap: 14px; }
+    .mod { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .mod.stats { flex: 1; }
+    .mod.gift { width: 218px; flex: none; }
+    /* 小节标题(与卡组右栏 / Upgrade 同一条:标题 + 一条横线) */
+    .ttl { flex: none; display: flex; align-items: center; gap: 6px; }
+    .ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; color: #5D646F; }
+    .ttl span { font-size: 9px; color: #A8A08E; }
+    .ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+
+    /* 属性行:与 Upgrade.dc.html 的 .num 同一种读法「名 旧 → 新 (+差)」 */
+    .num { display: flex; align-items: center; gap: 7px; height: 24px; padding: 0 8px;
+      border-radius: 7px; background: #F2EEE4; font-variant-numeric: tabular-nums; }
+    .num .k { font-size: 9.5px; color: #5D646F; width: 30px; }
+    .num .was { font-family: "Noto Serif SC", serif; font-size: 12px; color: #A8A08E; }
+    .num .arw { font-size: 9px; color: #A09A8C; }
+    .num .now { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; color: #161B22; }
+    .num.hp .now { color: #B02D2E; }
+    .num .dlt { margin-left: auto; font-size: 9.5px; font-weight: 700; color: #1B552C; }
+    /* 这一级没涨(护甲隔级 +1)—— 行照列,不藏:藏了玩家会以为护甲丢了 */
+    .num.same .now { color: #88909C; }
+    .num.same .dlt { color: #B3AB9B; font-weight: 400; }
+    /* 触顶:金系小牌,与主界面「新纪录」同色 */
+    .capt { height: 14px; padding: 0 5px; border-radius: 7px; background: #F6EDD5;
+      border: 1px solid rgba(201,169,74,.55); color: #8F6B09; font-size: 8.5px; font-weight: 700;
+      display: inline-flex; align-items: center; letter-spacing: .5px; }
+
+    /* 奖励:单箱一张卡,箱子立绘是主体 */
+    .box { position: relative; flex: 1; min-height: 0; overflow: hidden; box-sizing: border-box;
+      background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 10px; padding: 6px 10px 9px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+    .box::before { content: ""; position: absolute; left: 50%; top: 2px; width: 150px; height: 96px;
+      transform: translateX(-50%);
+      background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 22%, transparent), transparent); }
+    .box .art { position: relative; width: 90px; height: 90px; display: block; }
+    .box .nm { position: relative; display: flex; align-items: center; gap: 6px;
+      font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+    .dot { width: 8px; height: 8px; border-radius: 3px; background: var(--c); display: block; flex: none; }
+    .band { height: 16px; padding: 0 6px; border-radius: 8px; background: #EFEADF; border: 1px solid #DED7C9;
+      font-family: "Noto Sans SC", sans-serif; font-size: 8.5px; font-weight: 500; color: #5D646F;
+      letter-spacing: 0; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; }
+    .box .yield { font-size: 9.5px; color: #7A7261; font-variant-numeric: tabular-nums; }
+    .box .slot { font-size: 9px; color: #88909C; }
+    .box .slot b { color: #1B552C; font-weight: 700; }
+
+    /* 连升多级:同档合并成一行「×N」,档位再多也不会撑破 */
+    .glist { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; }
+    .gl { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 10px 0 5px; box-sizing: border-box;
+      background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 9px; }
+    .gl svg { width: 40px; height: 40px; flex: none; display: block; }
+    .gl .t { font-family: "Noto Serif SC", serif; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+    .gl .d { font-size: 9px; color: #88909C; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .gl .x { margin-left: auto; font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 700; color: #161B22; }
+    .gl .x i { font-style: normal; font-size: 10px; color: #88909C; margin-right: 1px; }
+    .gnote { display: flex; gap: 5px; align-items: flex-start; font-size: 9px; line-height: 1.5; color: #88909C; margin-top: auto; }
+    .gnote b { color: #9B1E22; font-weight: 700; }
+    .gnote svg { flex: none; margin-top: 2px; }
+
+    .foot { flex: none; display: flex; justify-content: center; }
+    .foot .pill { width: 240px; height: 36px; font-size: 14px; letter-spacing: 6px; }
+  </style>
+</helmet>
+<div class="dev">
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs><symbol id="chest-paper" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="33" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 30 h68 v62 h-68 z" fill="#FFFDF7" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 30 h68 v15 h-68 z" fill="var(--c)" fill-opacity=".55" stroke="#111622" stroke-width="2"/>
+        <path d="M82 50 v36 M86 50 v36 M90 50 v36" stroke="#C6BCA8" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="32" y="52" width="17" height="30" rx="1.5" fill="#F6F1E7" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40.5 57 v20" stroke="#111622" stroke-width="1.4" opacity=".4" stroke-dasharray="2 3.5"/>
+        <path d="M26 64 h68" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M66 30 v62" stroke="#8B7E63" stroke-width="3.4" stroke-linecap="round"/>
+        <circle cx="66" cy="64" r="4.6" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+        <path d="M26 92 q5.7 4 11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.3 0 t11.5 0" fill="none"
+              stroke="#111622" stroke-width="2.2" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ② 竹简匣:竹片竖排 + 两道编绳。轮廓最"瘦",一眼与纸函分得开 -->
+      <symbol id="chest-bamboo" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="32" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 32 h68 v60 h-68 z" fill="var(--c)" fill-opacity=".30" stroke="#111622" stroke-width="2.6"/>
+        <path d="M26 32 h68 v12 h-68 z" fill="var(--c)" fill-opacity=".72" stroke="#111622" stroke-width="2"/>
+        <path d="M34.5 44 v48 M43 44 v48 M51.5 44 v48 M60 44 v48 M68.5 44 v48 M77 44 v48 M85.5 44 v48"
+              stroke="#111622" stroke-width="1.5" opacity=".34"/>
+        <path d="M30 60 h8 M47 60 h8 M64 60 h8 M81 60 h8" stroke="#111622" stroke-width="1.5" opacity=".3"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#6B5B3E" stroke-width="3.6" stroke-linecap="round"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#111622" stroke-width="1" opacity=".35"/>
+        <circle cx="60" cy="80" r="4.4" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+      </symbol>
+
+      <!-- ③ 青瓷匣:半圆盖 + 冰裂纹 + 圈足。唯一的圆顶轮廓 -->
+      <symbol id="chest-celadon" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="31" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M28 58 h64 v26 a7 7 0 0 1 -7 7 h-50 a7 7 0 0 1 -7 -7 z"
+              fill="var(--c)" fill-opacity=".13" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M28 58 a32 26 0 0 1 64 0 z" fill="var(--c)" fill-opacity=".52" stroke="#111622" stroke-width="2.6"/>
+        <path d="M52 32 h16 v5 h-16 z" fill="var(--c)" fill-opacity=".6" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40 56 l6 -14 M56 50 l-4 -12 M72 56 l-3 -16 M84 54 l-8 -9" stroke="#111622"
+              stroke-width="1.2" opacity=".28" fill="none"/>
+        <path d="M38 66 l9 8 M62 64 l-6 12 M76 68 l8 6" stroke="#111622" stroke-width="1.2" opacity=".24" fill="none"/>
+        <path d="M28 58 h64" stroke="#111622" stroke-width="2.2"/>
+        <path d="M36 91 h48" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M40 50 a24 20 0 0 1 12 -14" fill="none" stroke="#FFFFFF" stroke-width="3.4"
+              stroke-linecap="round" opacity=".75"/>
+      </symbol>
+
+      <!-- ④ 紫檀匣:硬木 + 四角包角 + 云头扣。第一只"带五金"的箱 -->
+      <symbol id="chest-rosewood" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="26" y="44" width="68" height="48" rx="3" fill="var(--c)" fill-opacity=".30"
+              stroke="#111622" stroke-width="2.6"/>
+        <rect x="22" y="30" width="76" height="15" rx="3" fill="var(--c)" fill-opacity=".64"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M32 56 q14 5 28 0 t28 0 M32 68 q14 -5 28 0 t28 0 M32 80 q14 5 28 0 t28 0"
+              fill="none" stroke="#111622" stroke-width="1.3" opacity=".26"/>
+        <path d="M26 54 v-10 h10 M94 54 v-10 h-10 M26 82 v10 h10 M94 82 v10 h-10"
+              fill="none" stroke="#8A7B5A" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M52 45 h16 v11 a8 8 0 0 1 -16 0 z" fill="#C9A94A" stroke="#111622" stroke-width="1.9"/>
+        <circle cx="60" cy="53" r="2.2" fill="#111622"/>
+      </symbol>
+
+      <!-- ⑤ 鎏金匣:盝顶盖 + 錾花 + 如意锁牌。轮廓从这一档开始"起脊" -->
+      <symbol id="chest-gilded" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="27" y="52" width="66" height="40" rx="2" fill="var(--c)" fill-opacity=".32"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M36 28 h48 l10 22 h-68 z" fill="var(--c)" fill-opacity=".70"
+              stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 50 h68" stroke="#111622" stroke-width="2.4"/>
+        <circle cx="44" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="54" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="66" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="76" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <path d="M53 52 h14 v13 a7 7 0 0 1 -14 0 z" fill="#F6EDD5" stroke="#111622" stroke-width="1.9"/>
+        <path d="M60 58 v5" stroke="#111622" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="60" cy="56" r="2.4" fill="#111622"/>
+        <path d="M33 84 h54" stroke="#C9A94A" stroke-width="2.4" opacity=".9"/>
+        <path d="M27 92 h66" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ⑥ 朱漆匣:剔红卷草 + 铜包角。圆角最饱满,漆面用一层高光带出"厚" -->
+      <symbol id="chest-vermilion" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="25" y="36" width="70" height="56" rx="8" fill="var(--c)" fill-opacity=".50"
+              stroke="#111622" stroke-width="2.8"/>
+        <path d="M25 58 h70" stroke="#111622" stroke-width="2.4"/>
+        <path d="M32 50 c8 -8 18 -2 22 -8 c4 -6 14 -6 18 1 c3 5 10 5 13 1" fill="none" stroke="#111622"
+              stroke-width="1.8" opacity=".42" stroke-linecap="round"/>
+        <path d="M44 46 c-3 -4 -8 -3 -8 1 c0 3 4 4 5 1" fill="none" stroke="#111622"
+              stroke-width="1.6" opacity=".38" stroke-linecap="round"/>
+        <path d="M30 74 c9 -7 19 -1 25 -6 c6 -5 16 -3 20 3 c3 4 9 4 12 1" fill="none" stroke="#111622"
+              stroke-width="1.6" opacity=".28" stroke-linecap="round"/>
+        <path d="M25 48 h12 M83 48 h12" stroke="#C9A94A" stroke-width="3" stroke-linecap="round"/>
+        <path d="M25 82 h12 M83 82 h12" stroke="#C9A94A" stroke-width="3" stroke-linecap="round"/>
+        <rect x="53" y="52" width="14" height="12" rx="2.5" fill="#C9A94A" stroke="#111622" stroke-width="1.9"/>
+        <circle cx="60" cy="58" r="2.2" fill="#111622"/>
+        <path d="M33 42 q10 -4 20 -1" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".38" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- ⑦ 赤霄匣:铁函 + 交叉封符 + 缝里透出来的光。全表唯一"关不住"的一只 -->
+      <symbol id="chest-crimson" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="35" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="24" y="34" width="72" height="58" rx="2" fill="var(--c)" fill-opacity=".42"
+              stroke="#111622" stroke-width="3"/>
+        <path d="M24 58 h72" stroke="#FFD470" stroke-width="6" opacity=".6"/>
+        <path d="M24 58 h72" stroke="#FFF3CF" stroke-width="2.4"/>
+        <path d="M24 56 h72" stroke="#111622" stroke-width="2.2"/>
+        <!-- 封符裁进箱体,只留 3px 折边 —— 不裁的话交叉那两道会甩出箱外,
+             与另外六只的画幅对不齐(2026-08-29 修:原先整只箱比同排高出 12px) -->
+        <g clip-path="url(#clip-crimson)">
+          <path d="M22 28 l76 74" stroke="#F6F1E7" stroke-width="9"/>
+          <path d="M22 28 l76 74" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+          <path d="M98 28 l-76 74" stroke="#F6F1E7" stroke-width="9"/>
+          <path d="M98 28 l-76 74" stroke="#111622" stroke-width="1.6" opacity=".5" fill="none"/>
+        </g>
+        <rect x="50" y="47" width="20" height="20" rx="2" fill="#9B1E22" stroke="#111622" stroke-width="2"/>
+        <path d="M55 53 h10 M55 57 h10 M55 61 h10" stroke="#F6F1E7" stroke-width="1.6" opacity=".85"/>
+        <path d="M24 92 h72" stroke="#111622" stroke-width="3" stroke-linecap="round"/>
+      </symbol>
+
+      <clipPath id="clip-crimson"><rect x="21" y="31" width="78" height="64" rx="2"/></clipPath></defs></svg>
+  <!-- 升一级:段末安全层弹出。属性是 MetaRules.*For(13) − *For(12);生命含技能加成 200(与 Home 稿 920 对齐) -->
+  <div class="mark serif">山</div>
+  <div class="safe">
+    <div class="bgwrap">
+      <div class="card bgpanel">
+        <div class="h">安全层 · 第 30 层告捷</div>
+        <div class="sub">段位「秀才」 · 历史最高第 43 层</div>
+        <span class="n">340</span>
+        <div class="sub">生命 612 / 920　字库 7 / 9</div>
+        <div class="row"><button class="pill cinnabar">深入下一段</button><button class="pill ink">收官撤退</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scrim"></div>
+
+  <div class="pop">
+    <div class="hd">
+      <div class="kick"><span>升级</span></div>
+      <div class="lvrow">
+        <span class="was">Lv.12</span><span class="arw">→</span><span class="now"><i>Lv.</i>13</span>
+      </div>
+      <div class="xp"><span>经验</span><span class="t"><span style="width: 26%"></span></span><span>180 / 700</span></div>
+    </div>
+
+    <div class="mods">
+      <div class="mod stats">
+        <div class="ttl"><b>属性提升</b><span>下一段开打时生效</span><i class="rule"></i></div>
+        <div class="num hp">
+          <span class="k">生命</span>
+          <span class="was">920</span><span class="arw">→</span><span class="now">940</span>
+          <span class="dlt">+20</span>
+        </div>
+        <div class="num">
+          <span class="k">攻击</span>
+          <span class="was">122</span><span class="arw">→</span><span class="now">124</span>
+          <span class="dlt">+2</span>
+        </div>
+        <div class="num">
+          <span class="k">护甲</span>
+          <span class="was">5</span><span class="arw">→</span><span class="now">6</span>
+          <span class="dlt">+1</span>
+        </div>
+        <div class="num">
+          <span class="k">闪避</span>
+          <span class="was">11%</span><span class="arw">→</span><span class="now">12%</span>
+          <span class="dlt">+1%</span>
+        </div>
+        <div class="num">
+          <span class="k">速度</span>
+          <span class="was">111</span><span class="arw">→</span><span class="now">112</span>
+          <span class="dlt">+1</span>
+        </div>
+      </div>
+      <div class="mod gift">
+        <div class="ttl"><b>升级奖励</b><i class="rule"></i></div>
+        <div class="box" style="--c: #0F74C4">
+          <svg class="art" viewBox="0 0 120 120" style="--c: #0F74C4"><use href="#chest-celadon"></use></svg>
+          <div class="nm"><i class="dot"></i>青瓷匣<span class="band">Lv.11–15</span></div>
+          <div class="yield">6 张字 · 60 墨锭 · 开启 2 小时</div>
+          <div class="slot">已放入箱位 <b>3 / 4</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot"><button class="pill cinnabar tap">收下</button></div>
+  </div>
+
+  <div class="guide"><i class="gl"></i><i class="gr"></i><i class="gb"></i></div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

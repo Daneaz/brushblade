@@ -1,0 +1,39 @@
+{
+ "artboards": [
+  {
+   "file": "Main.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 932,
+   "h": 430,
+   "title": "升一级 · 安全层"
+  },
+  {
+   "file": "MultiLevel.dc.html",
+   "x": 1052,
+   "y": 0,
+   "w": 932,
+   "h": 430,
+   "title": "连升 3 级 · 箱位已满"
+  },
+  {
+   "file": "Capped.dc.html",
+   "x": 2104,
+   "y": 0,
+   "w": 932,
+   "h": 430,
+   "title": "升到 Lv.26 · 属性封顶"
+  },
+  {
+   "file": "LevelChest.dc.html",
+   "x": 0,
+   "y": 560,
+   "w": 1180,
+   "h": 400,
+   "title": "等级区间 → 宝箱(草案)"
+  }
+ ],
+ "launch": {
+  "view": "canvas"
+ }
+}
