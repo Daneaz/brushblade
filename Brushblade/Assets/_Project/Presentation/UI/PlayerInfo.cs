@@ -21,8 +21,11 @@ namespace Brushblade.Presentation
         /// <paramref name="shieldOverride"/>:战利品/奇遇页(2026-09-06 review 必修)——那两个
         /// 阶段的 <paramref name="battle"/> 仍是上一场终局时的旧实例,<c>battle.PlayerShield</c>
         /// 是战前满额,与同屏播报的「已减半」互相打脸。传非 null 时改显示这个衰减后的携带值;
-        /// 调用方判据见 <see cref="BattleView.ShowCarriedShield"/>,与角标读的是同一条。</summary>
-        public static UnitDetail Sheet(BattleEngine battle, MetaState meta, int? shieldOverride = null)
+        /// 调用方判据见 <see cref="BattleView.ShowCarriedShield"/>,与角标读的是同一条。
+        /// <paramref name="hpOverride"/>/<paramref name="maxHpOverride"/> 同理(2026-09-18):
+        /// 旧实例的血量不含奇遇的回血/扣血与上限增减。</summary>
+        public static UnitDetail Sheet(BattleEngine battle, MetaState meta, int? shieldOverride = null,
+            int? hpOverride = null, int? maxHpOverride = null)
         {
             int shield = shieldOverride ?? battle.PlayerShield;
             return new UnitDetail
@@ -34,8 +37,8 @@ namespace Brushblade.Presentation
                 Name = Strings.T("battle.label.player_name"), // 复用战场小名牌同一个词(执笔人)
                 Tags = BuildTags(battle),
                 Flavor = Strings.T("player.detail.flavor"),
-                Hp = battle.PlayerHp,
-                MaxHp = battle.MaxHp,
+                Hp = hpOverride ?? battle.PlayerHp,
+                MaxHp = maxHpOverride ?? battle.MaxHp,
                 Shield = shield,
                 ActionMeter = battle.PlayerActionMeter,
                 Figures = BuildFigures(battle, meta),

@@ -1527,6 +1527,14 @@ namespace Brushblade.Presentation
         private int? CarriedShieldOverride =>
             ShowCarriedShield ? (int?)(_run.CarriedNormalShield + _run.CarriedPersistShield) : null;
 
+        /// <summary>血量/上限与护盾同一个坑、同一条判据(2026-09-18):战利品/奇遇页的
+        /// <see cref="Battle"/> 是上一场的旧实例,<c>Battle.PlayerHp</c> 不含奇遇的回血/扣血,
+        /// <c>Battle.MaxHp</c> 不含奇遇刚改的上限 —— 奇遇掉上限的缩短动画播完换到选字页,
+        /// 头行又变回旧上限,读起来像「又长回去了」。这两页改读携带态。
+        /// 同样被角标/血条与详情弹窗两条路径读,别拆开各算一遍。</summary>
+        private int? CarriedHpOverride => ShowCarriedShield ? (int?)_run.CarriedHp : null;
+        private int? CarriedMaxHpOverride => ShowCarriedShield ? (int?)_run.EffectiveMaxHp : null;
+
         /// <summary>玩家条(2026-08-31 改稿):与召唤/敌人格同构的一条——立绘块 + 信息列 +
         /// 状态栏 + AP,DOM 顺序取自稿 Battle.dc.html(blk→info→stt→ap;简报草稿把
         /// 3、4 段顺序写反了,以稿为准,2026-08-31 用户确认)。
@@ -1603,7 +1611,8 @@ namespace Brushblade.Presentation
 
             // 头行:执笔人(左)+ 血/上限 盾 N(右),与 MapView.StatCell 同一套「同一块
             // 满宽面板叠两条 Stretch 文字、靠 TextAnchor 分左右」的做法。
-            int shownHp = Animating ? _animPlayerHp : Battle.PlayerHp;
+            int shownHp = Animating ? _animPlayerHp : CarriedHpOverride ?? Battle.PlayerHp;
+            int shownMaxHp = CarriedMaxHpOverride ?? PlayerMaxHp;
             // 判据见 ShowCarriedShield/CarriedShieldOverride 的字段注释——详情弹窗
             // (OnPlayerClicked)读的是同一对属性,别在这里另起一份判断。
             int shownShield = Animating ? _animShield
@@ -1616,7 +1625,7 @@ namespace Brushblade.Presentation
             // 头行右端只剩血/上限:盾挪到了立绘左下角那枚角标上(下面那段),
             // 两处都印一遍是同一件事说两遍。
             var hpLabel = Ui.ThemedLabel(header.transform,
-                Strings.T("battle.label.player_hp", ("hp", shownHp), ("hpMax", PlayerMaxHp)),
+                Strings.T("battle.label.player_hp", ("hp", shownHp), ("hpMax", shownMaxHp)),
                 11, Theme.TextDim, null, TextAnchor.MiddleRight);
             Ui.Stretch(hpLabel.rectTransform);
             _playerHpLabel = hpLabel; // 动画期间要就地改它(见字段注释)
@@ -1637,7 +1646,7 @@ namespace Brushblade.Presentation
             }
 
             // 血条(裸条,2026-08-31 起不再叠字——数字已经在头行读到)
-            var hpBarGo = Ui.Bar(info.transform, PlayerMaxHp > 0 ? shownHp / (float)PlayerMaxHp : 0f,
+            var hpBarGo = Ui.Bar(info.transform, shownMaxHp > 0 ? shownHp / (float)shownMaxHp : 0f,
                 Theme.Cinnabar, new Vector2(0f, PlayerHpBarHeight));
             StretchWidth(hpBarGo);
             _playerHpBar = ((RectTransform)hpBarGo.transform.Find("Fill"), null);
@@ -2182,7 +2191,8 @@ namespace Brushblade.Presentation
             if (_modal != null) Object.Destroy(_modal);
             // shieldOverride:判据见 ShowCarriedShield/CarriedShieldOverride 的字段注释——
             // 与角标(DrawPlayerStats)读的是同一对属性,别在这里另起一份判断。
-            _unitSheetSource = () => PlayerInfo.Sheet(Battle, _meta, CarriedShieldOverride);
+            _unitSheetSource = () => PlayerInfo.Sheet(Battle, _meta, CarriedShieldOverride,
+                CarriedHpOverride, CarriedMaxHpOverride);
             _modal = UnitSheet.Show(transform, _unitSheetSource());
         }
 
