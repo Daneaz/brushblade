@@ -380,9 +380,17 @@ namespace Brushblade.Core
         /// 与 <see cref="Crit"/> 同理长在事件上,不另发事件让表现层配对。</summary>
         public DamageSource Source { get; }
 
+        /// <summary>Heal 事件专用:这份治疗被水脉 L2「溢流」折成伤害的溢出量(2026-09-18);没触发为 0。
+        ///
+        /// 表现层靠它决定「实际回血 0 也要播回血动效」:满血的 林 自愈 60,Amount 是 0,
+        /// 不看这个字段动效就整个跳过,紧接着的溢流伤害像是凭空冒出来的(用户实机反馈)。
+        /// 只在溢流**真的打出伤害**时填,未点亮/没溢出/没活着的敌人一律 0 —— 与改前事件逐条相同。</summary>
+        public int Overflow { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
             int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null,
-            bool countered = false, bool sameSwing = false, DamageSource source = DamageSource.None)
+            bool countered = false, bool sameSwing = false, DamageSource source = DamageSource.None,
+            int overflow = 0)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -395,6 +403,7 @@ namespace Brushblade.Core
             Countered = countered;
             SameSwing = sameSwing;
             Source = source;
+            Overflow = overflow;
         }
     }
 
@@ -3518,18 +3527,32 @@ namespace Brushblade.Core
         ///
         /// ⚠ **四道短路的顺序不能换**,全部排在 PickRandomLivingEnemy 之前:
         /// 关闭时、溢出为 0 时、折算被整数除截断成 0 时,都必须一次随机都不摇。</summary>
-        private void SettleOverheal(int overflow)
+        /// <returns>真的打出了伤害。调用方据此给前面那条治疗事件补上溢出量(见 <see cref="MarkOverflow"/>)。</returns>
+        /// <param name="sourceSlot">溢出的是谁:−1 玩家,否则召唤物槽位。进伤害事件的 SecondIndex,
+        /// 表现层让那一发溢流从它身上飞出去。</param>
+        private bool SettleOverheal(int overflow, int sourceSlot)
         {
-            if (_config == null || _config.OverhealDamagePercent <= 0) return;
-            if (overflow <= 0) return;
+            if (_config == null || _config.OverhealDamagePercent <= 0) return false;
+            if (overflow <= 0) return false;
             int damage = overflow * _config.OverhealDamagePercent / 100;
-            if (damage <= 0) return;
+            if (damage <= 0) return false;
             int target = PickRandomLivingEnemy();
-            if (target < 0) return;
+            if (target < 0) return false;
             DamageEnemy(target, damage, Element.Heart,   // 心对全属性 1.0x = 不走生克
                 bypassDefense: true,                      // 折返/溢出不是挥击,不吃护甲
                 allowBarb: false,                         // 同理不算挥击,不触发铁画的反噬
-                source: DamageSource.Overheal);
+                source: DamageSource.Overheal, sourceSlot: sourceSlot);
+            return true;
+        }
+
+        /// <summary>给 <paramref name="index"/> 处那条治疗事件补上溢出量(2026-09-18)。
+        /// 治疗事件必须排在溢流伤害**之前**(表现层按事件序演),而溢流打没打出来要结算完才知道,
+        /// 所以先发事件、事后回填 —— 事件是只读结构,整条换掉。</summary>
+        private void MarkOverflow(int index, int overflow)
+        {
+            var e = _events[index];
+            _events[index] = new BattleEvent(e.Kind, e.TargetIndex, e.Amount, e.SecondIndex,
+                e.Absorbed, e.Crit, e.Ke, e.Attacker, e.Countered, e.SameSwing, e.Source, overflow);
         }
 
         /// <param name="overflowToDamage">这一份治疗的溢出要不要折成伤害(水脉 L2「溢流」)。
@@ -3540,15 +3563,24 @@ namespace Brushblade.Core
         {
             int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
             PlayerHp += healed;
+            int playerEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed));
-            if (overflowToDamage) SettleOverheal(amount - healed);
-            foreach (var summon in _summons)
+            if (overflowToDamage && SettleOverheal(amount - healed, Targeting.PlayerTarget))
+                MarkOverflow(playerEvent, amount - healed);
+            for (int slot = 0; slot < _summons.Length; slot++)
             {
+                var summon = _summons[slot];
                 if (summon == null || !summon.Alive) continue;
                 // 每只各算各的溢出、各打一下(spec §2.1)。先算再写 Hp:写完就看不出缺多少了。
                 int given = Math.Min(summon.MaxHp - summon.Hp, amount);
                 summon.Hp += given;
-                if (overflowToDamage) SettleOverheal(amount - given);
+                // 群治此前不给召唤物发治疗事件;溢流打出伤害时补一条并**插在那发伤害之前**
+                // (2026-09-18)—— 否则满血召唤物身上毫无动静,伤害凭空冒出来。没触发溢流时
+                // 仍然不发,事件流与改前逐条相同。
+                int at = _events.Count;
+                if (overflowToDamage && SettleOverheal(amount - given, slot))
+                    _events.Insert(at, new BattleEvent(BattleEventKind.Heal, -1, given, slot,
+                        overflow: amount - given));
             }
         }
 
@@ -3581,16 +3613,20 @@ namespace Brushblade.Core
             {
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
+                int playerEvent = _events.Count;
                 _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed, Targeting.PlayerTarget));
-                if (overflowToDamage) SettleOverheal(amount - healed);
+                if (overflowToDamage && SettleOverheal(amount - healed, Targeting.PlayerTarget))
+                    MarkOverflow(playerEvent, amount - healed);
                 return;
             }
             var summon = _summons[slot];
             if (summon == null || !summon.Alive) return; // Cast 已拦下,这里是纵深防御
             int given = Math.Min(summon.MaxHp - summon.Hp, amount);
             summon.Hp += given;
+            int summonEvent = _events.Count;
             _events.Add(new BattleEvent(BattleEventKind.Heal, -1, given, slot));
-            if (overflowToDamage) SettleOverheal(amount - given);
+            if (overflowToDamage && SettleOverheal(amount - given, slot))
+                MarkOverflow(summonEvent, amount - given);
         }
 
         /// <summary>场上除 self 外还有存活敌人吗(辅助型据此决定加攻还是出手)。</summary>
@@ -3794,7 +3830,7 @@ namespace Brushblade.Core
         private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
-            DamageSource source = DamageSource.None)
+            DamageSource source = DamageSource.None, int sourceSlot = -1)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
@@ -3866,7 +3902,7 @@ namespace Brushblade.Core
             // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
             // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「倾覆清空玩家护盾」
             // (TargetIndex = −1),语义不同,挪用会让表现层分不清是谁的盾没了。
-            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage,
+            _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, sourceSlot,
                 absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,
                 countered: countered, sameSwing: sameSwing, source: source));
 

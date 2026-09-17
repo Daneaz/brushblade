@@ -195,6 +195,31 @@ namespace Brushblade.Presentation
                 switch (e.Kind)
                 {
                     case BattleEventKind.Damage: // 直接伤害:全体攻击并行 —— 本记不 yield,组末统一停一拍
+                        // 溢流(2026-09-18,用户要求单独一种扣血表现):串行、从溢出者身上飞一注水过去 ——
+                        // 它不是挥击,和召唤物/字卡那一记挤在同帧就读不出先后。
+                        // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
+                        // 这里先停一拍 → 水飞过去 → 落地飘「溢流 N」+ 水花 + 掉血;之后召唤物出手再停一拍。
+                        if (e.Source == DamageSource.Overheal)
+                        {
+                            if (serialPending) yield return Beat(StepGap);
+                            var overhealTarget = enemyAnchor(e.TargetIndex);
+                            var overhealFrom = e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null;
+                            if (overhealTarget != null)
+                            {
+                                FlyOverheal(AnchorPoint(overhealFrom), overhealTarget.position);
+                                yield return Beat(OverhealFlyDuration);
+                            }
+                            Popup(DamageText(e), Theme.GlyphColor(Element.Water), overhealTarget,
+                                sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                            WaterSplash(overhealTarget);
+                            if (!kills) HitReact(overhealTarget, 0.6f);
+                            PlayClip(_hitClip, 0.55f, 1.25f); // 水声偏脆:比挥击高、比挥击轻
+                            HitStop(HitStopLight);
+                            onImpact?.Invoke(e);
+                            lastDamageTarget = e.TargetIndex;
+                            serialPending = true;
+                            break;
+                        }
                         // 多段(2026-08-07,剁;2026-08-08 评审修复):同一目标连续两记伤害要拉开一拍,
                         // 否则一拍打完两段,玩家看不出是两段。用「上一记 Damage 的目标」而不是
                         // 「events[idx-1] 是否紧邻」判断 —— DamageEnemy 在两记伤害之间可能插
@@ -312,6 +337,9 @@ namespace Brushblade.Presentation
                     // (伤害走 Damage,紧随其后)。原先由 PlayRoutine 的 strikes 循环
                     // 单独驱动,三段切分删除后(2026-08-16)搬进这里,否则召唤反击的飞字动画会随切分一起消失。
                     case BattleEventKind.SummonAttack:
+                        // 前面刚演完串行单位(溢流那一发、召唤物自身灼烧)就先停一拍再挥刀(2026-09-18)——
+                        // 不停的话水花还没落,飞字已经砸出去,两记伤害读成同一下。
+                        if (serialPending) yield return Beat(StepGap);
                         var from = summonAnchor?.Invoke(e.SecondIndex);
                         var toRect = enemyAnchor(e.TargetIndex);
                         if (from != null && toRect != null)
@@ -434,11 +462,18 @@ namespace Brushblade.Presentation
                     // 治疗:刻意**不 yield、不置 serialPending** —— 群攻与回血是同一记里的两件事,
                     // 分开演就成了「先打完,血条才慢半拍地涨」(2026-07-29 实测)
                     case BattleEventKind.Heal:
-                        if (e.Amount <= 0) break;
-                        Popup($"+{e.Amount}", Theme.SplitBlue, e.SecondIndex >= 0
-                            ? summonAnchor?.Invoke(e.SecondIndex) : null);
+                        // e.Overflow > 0 = 这份治疗被「溢流」折成了伤害(2026-09-18):满血、实际回血 0
+                        // 也要播回血动效,否则紧接着那发溢流像是凭空冒出来的(用户实机反馈)。
+                        if (e.Amount <= 0 && e.Overflow <= 0) break;
+                        var healAnchor = e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null;
+                        if (e.Amount > 0) Popup($"+{e.Amount}", Theme.SplitBlue, healAnchor);
                         PlayClip(_healClip, 0.7f);
-                        onImpact?.Invoke(e); // 触达才涨血条
+                        onImpact?.Invoke(e); // 触达才涨血条(满血时这一下只剩血条起势那一闪)
+                        if (e.Overflow > 0)
+                        {
+                            HealBloom(AnchorPoint(healAnchor));
+                            serialPending = true; // 回血看完,溢流再飞出去 —— 见 Damage 那一支
+                        }
                         break;
                     // 缺笔妖补全:串行占一拍 —— 它是敌方回合里独立发生的事,
                     // 与那一记攻击挤在同帧就会被当成攻击的一部分
@@ -876,6 +911,123 @@ namespace Brushblade.Presentation
         };
 
         /// <summary>火系 DoT 火焰:怪物本体窜起几簇火苗,上升摇曳收缩淡出(程序生成,无资产)。</summary>
+        // ---- 溢流(2026-09-18):回血涌起 → 一注水飞向敌人 → 落地溅开 ----
+
+        private const float OverhealFlyDuration = 0.3f; // 比出字(0.22)慢一点:是「涌过去」,不是「砸过去」
+
+        private static readonly Color[] WaterPalette =
+        {
+            new Color(0.039f, 0.369f, 0.620f), new Color(0.180f, 0.520f, 0.760f),
+            new Color(0.520f, 0.760f, 0.900f), new Color(0.264f, 0.58f, 0.347f),
+        };
+
+        /// <summary>锚点的世界坐标;null = 玩家,取屏幕中下(与 <see cref="Popup"/> 的 null 口径同一个点)。</summary>
+        private Vector3 AnchorPoint(RectTransform anchor)
+        {
+            if (anchor != null) return anchor.position;
+            if (_shakeTarget == null) return Vector3.zero;
+            var r = _shakeTarget.rect;
+            return _shakeTarget.TransformPoint(new Vector3(
+                Mathf.Lerp(r.xMin, r.xMax, 0.5f), Mathf.Lerp(r.yMin, r.yMax, 0.32f), 0f));
+        }
+
+        /// <summary>回血涌起:一圈水色环外扩 + 几粒水珠往上冒。满血时画面上唯一的「回过血」证据。</summary>
+        private void HealBloom(Vector3 at)
+        {
+            if (_shakeTarget == null) return;
+            var ring = new GameObject("HealRing", typeof(RectTransform));
+            ring.transform.SetParent(_shakeTarget, false);
+            var ringRect = (RectTransform)ring.transform;
+            ringRect.sizeDelta = new Vector2(64f, 64f);
+            ringRect.position = at;
+            var ringImage = ring.AddComponent<Image>();
+            ringImage.sprite = Theme.Rounded(16);
+            ringImage.type = Image.Type.Sliced;
+            ringImage.fillCenter = false;
+            ringImage.raycastTarget = false;
+            ringImage.color = Theme.Jade;
+            StartCoroutine(RingRoutine(ringRect, ringImage, Theme.Jade, inward: false));
+
+            for (int n = 0; n < 6; n++)
+            {
+                var go = new GameObject("HealDrop", typeof(RectTransform));
+                go.transform.SetParent(_shakeTarget, false);
+                var rect = (RectTransform)go.transform;
+                float size = UnityEngine.Random.Range(8f, 13f);
+                rect.sizeDelta = new Vector2(size, size);
+                rect.position = at;
+                rect.anchoredPosition += new Vector2(UnityEngine.Random.Range(-26f, 26f), UnityEngine.Random.Range(-16f, 6f));
+                var image = go.AddComponent<Image>();
+                image.sprite = Theme.Rounded(8);
+                image.type = Image.Type.Sliced;
+                image.color = WaterPalette[UnityEngine.Random.Range(1, WaterPalette.Length)];
+                image.raycastTarget = false;
+                StartCoroutine(EmberRoutine(rect, image)); // 上升 + 摇曳 + 淡出,与火星同一条轨迹
+            }
+        }
+
+        /// <summary>溢出的那一注水:无字的圆珠带拖尾,从溢出者飞向敌人。
+        /// 刻意不用 <see cref="FlyGlyph"/>(那是「出字」的语汇,飞的是字);溢流不是出手,飞的是水。</summary>
+        private void FlyOverheal(Vector3 from, Vector3 to)
+        {
+            if (_shakeTarget == null) return;
+            var go = new GameObject("OverhealDrop", typeof(RectTransform));
+            go.transform.SetParent(_shakeTarget, false);
+            var rect = (RectTransform)go.transform;
+            rect.sizeDelta = new Vector2(30f, 30f);
+            rect.position = from;
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(15);
+            image.type = Image.Type.Sliced;
+            image.color = WaterPalette[0];
+            image.raycastTarget = false;
+            StartCoroutine(FlyRoutine(rect, from, to, null, OverhealFlyDuration, easeOut: false, WaterPalette[1]));
+        }
+
+        /// <summary>水花:落点处水珠向四周溅开、带一点下坠,边飞边淡。</summary>
+        private void WaterSplash(RectTransform target)
+        {
+            if (target == null || _shakeTarget == null) return;
+            for (int n = 0; n < 9; n++)
+            {
+                var go = new GameObject("Splash", typeof(RectTransform));
+                go.transform.SetParent(_shakeTarget, false);
+                var rect = (RectTransform)go.transform;
+                float size = UnityEngine.Random.Range(7f, 14f);
+                rect.sizeDelta = new Vector2(size, size);
+                rect.position = target.position;
+                var image = go.AddComponent<Image>();
+                image.sprite = Theme.Rounded(7);
+                image.type = Image.Type.Sliced;
+                image.color = WaterPalette[UnityEngine.Random.Range(0, 3)];
+                image.raycastTarget = false;
+                float angle = UnityEngine.Random.Range(20f, 160f) * Mathf.Deg2Rad; // 主要往上半圈溅
+                var velocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * UnityEngine.Random.Range(90f, 170f);
+                StartCoroutine(SplashRoutine(rect, image, velocity));
+            }
+        }
+
+        private static IEnumerator SplashRoutine(RectTransform rect, Image image, Vector2 velocity)
+        {
+            Vector2 start = rect.anchoredPosition;
+            Color from = image.color;
+            const float duration = 0.45f;
+            const float gravity = 420f;
+            float t = 0f;
+            while (t < duration && rect != null)
+            {
+                t += UnityEngine.Time.unscaledDeltaTime;
+                float k = t / duration;
+                rect.anchoredPosition = start + velocity * t + new Vector2(0f, -0.5f * gravity * t * t);
+                rect.localScale = Vector3.one * (1f - 0.4f * k);
+                var c = from;
+                c.a = 1f - k;
+                image.color = c;
+                yield return null;
+            }
+            if (rect != null) UnityEngine.Object.Destroy(rect.gameObject);
+        }
+
         private void FlameBurst(RectTransform target)
         {
             if (target == null) return;

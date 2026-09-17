@@ -37,6 +37,13 @@ namespace Brushblade.Core.Tests
                     new EffectDef(EffectKind.Summon, 100, summonAttack: 0, summonChar: "木",
                         passive: new SummonPassive { Regen = 300 }),
                 }),
+            // 召唤一只满血、带自愈 300 且会出手的(攻 10)—— 「林」那种:自愈溢流之后还要挥刀
+            new CharDef("森", Element.Wood,
+                effects: new[]
+                {
+                    new EffectDef(EffectKind.Summon, 100, summonAttack: 10, summonChar: "木",
+                        passive: new SummonPassive { Regen = 300 }),
+                }),
         });
 
         /// <summary>玩家满血起手 —— 治疗全部溢出。敌人血厚,不会被溢流打死而干扰后续断言。</summary>
@@ -46,7 +53,7 @@ namespace Brushblade.Core.Tests
                     DropTable = new[] { "水" }, PlayerMaxHp = 500, ApPerTurn = 20,
                     OverhealDamagePercent = overhealPercent,
                 },
-                new[] { "治", "沽", "桃", "藻" }, Array.Empty<string>(),
+                new[] { "治", "沽", "桃", "藻", "森" }, Array.Empty<string>(),
                 Enumerable.Range(0, enemyCount)
                     .Select(i => new EnemyDef($"靶{i}", Element.Heart, 9000, 0))
                     .ToArray(),
@@ -175,6 +182,74 @@ namespace Brushblade.Core.Tests
             // 不必只断「变多了」
             Assert.That(TotalEnemyHpLost(engine) - before, Is.EqualTo(150),
                 "自愈算治疗——用户裁定的边界只排除光环那一条;300 溢出 × 50% = 150");
+        }
+
+        // ---- 事件次序与动效所需的字段(2026-09-18):表现层按「回血 → 溢流打人 → 召唤物出手」三拍演 ----
+
+        private static int IndexOf(BattleEngine engine, Func<BattleEvent, bool> match)
+        {
+            for (int i = 0; i < engine.LastEvents.Count; i++)
+                if (match(engine.LastEvents[i])) return i;
+            return -1;
+        }
+
+        [Test]
+        public void SummonRegen_FullHp_HealEventThenOverhealHitThenAttack()
+        {
+            var engine = Engine(Pct);
+            Assert.That(engine.Cast("森"), Is.EqualTo(BattleError.None));
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            engine.EndTurn();
+
+            int heal = IndexOf(engine, e => e.Kind == BattleEventKind.Heal && e.SecondIndex == slot);
+            int hit = IndexOf(engine, e => e.Kind == BattleEventKind.Damage && e.Source == DamageSource.Overheal);
+            int attack = IndexOf(engine, e => e.Kind == BattleEventKind.SummonAttack && e.SecondIndex == slot);
+            Assert.That(heal, Is.GreaterThanOrEqualTo(0), "满血自愈也要发治疗事件,表现层靠它播回血动效");
+            Assert.That(engine.LastEvents[heal].Amount, Is.EqualTo(0), "满血,实际回血 0");
+            Assert.That(engine.LastEvents[heal].Overflow, Is.EqualTo(300), "溢出 300 全部折成了伤害");
+            Assert.That(hit, Is.GreaterThan(heal), "先回血、再溢流打人");
+            Assert.That(engine.LastEvents[hit].SecondIndex, Is.EqualTo(slot), "溢流伤害带上溢出者的槽位,飞水从它身上出发");
+            Assert.That(attack, Is.GreaterThan(hit), "溢流之后才轮到召唤物挥刀");
+        }
+
+        [Test]
+        public void SelfHeal_FullHp_HealEventCarriesOverflow_HitComesFromPlayer()
+        {
+            var engine = Engine(Pct);
+            engine.Cast("治");
+            int heal = IndexOf(engine, e => e.Kind == BattleEventKind.Heal);
+            int hit = IndexOf(engine, e => e.Kind == BattleEventKind.Damage);
+            Assert.That(engine.LastEvents[heal].Overflow, Is.EqualTo(200));
+            Assert.That(hit, Is.GreaterThan(heal));
+            Assert.That(engine.LastEvents[hit].SecondIndex, Is.EqualTo(Targeting.PlayerTarget), "−1 = 玩家溢出");
+        }
+
+        [Test]
+        public void GroupHeal_OverflowingSummon_GetsItsOwnHealEventBeforeItsHit()
+        {
+            // 群治此前只给玩家发一条治疗事件,召唤物默默回血 —— 满血召唤物溢流打人时
+            // 画面上就只有一发凭空冒出来的伤害。溢流触发时给它补一条。
+            var engine = Engine(Pct);
+            engine.Cast("藻");
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            engine.Cast("沽");
+            int heal = IndexOf(engine, e => e.Kind == BattleEventKind.Heal && e.SecondIndex == slot);
+            int hit = IndexOf(engine, e => e.Kind == BattleEventKind.Damage && e.SecondIndex == slot);
+            Assert.That(heal, Is.GreaterThanOrEqualTo(0));
+            Assert.That(engine.LastEvents[heal].Overflow, Is.EqualTo(200));
+            Assert.That(hit, Is.GreaterThan(heal));
+        }
+
+        [Test]
+        public void PerkOff_HealEventsCarryNoOverflow_GroupHealAddsNoSummonEvents()
+        {
+            // 未点亮时事件流与改前逐条相同:溢出量不填,群治也不多发召唤物那条
+            var engine = Engine(0);
+            engine.Cast("藻");
+            engine.Cast("沽");
+            var heals = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Heal).ToList();
+            Assert.That(heals.Count, Is.EqualTo(1));
+            Assert.That(heals[0].Overflow, Is.EqualTo(0));
         }
     }
 }
