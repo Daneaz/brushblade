@@ -4504,53 +4504,78 @@ namespace Brushblade.Presentation
             if (_playerHpBar.fill != null) SetPlayerHp(endHp, endMaxHp);
         }
 
-        /// <summary>上限**变小**的表现:把血条本身缩短(2026-09-16)。
+        /// <summary>上限**变小**的表现:把血条本身缩短(2026-09-16),是 <see cref="MaxHpShiftRoutine"/>
+        /// 的反向 —— 涨是「容器撑长、血填进去」,跌是「容器连同血一起收短」。
         ///
-        /// 比例条画不出「容器变小」——<see cref="MaxHpShiftRoutine"/> 的中间态手法只对
-        /// 「涨」成立:涨能演成「先空出一截、再填满」,而跌演出来是「先掉一截、再涨回满」,
-        /// 最后那一拍的方向是**上升**,把坏事讲成了好事。所以这一支不碰比例,直接动
-        /// **条的宽度**:从旧上限对应的满宽收到 新上限/旧上限 的宽度,fill 的比例同步推到
-        /// 终值 —— 满血时红条与底槽同比缩短,就是「上限缩了一截」这句话的字面表达。
+        /// 比例条画不出「容器变小」:掉上限时血被 Clamp 回新上限,满格对满格,中间态手法
+        /// 最后一拍**必然上升**,把坏事讲成了好事。所以这一支动的是**条的长度**:
+        /// 从满长收到 新上限/旧上限,fill 的比例同步推到终值。
+        ///
+        /// ⚠ 2026-09-18 用户报「看不见这个动效」。09-16 那版有两处会静默失效,都改掉了:
+        ///   1. 条长交给 LayoutElement.preferredWidth,依赖布局重建才生效;
+        ///   2. 协程开头就把 bar/element 捕获下来,期间条一旦被重绘换掉就 yield break,
+        ///      一帧都不演 —— 而涨那一支每帧重读 <c>_playerHpBar</c>,不受影响。
+        /// 现在不碰布局:条自己的底图藏掉,在条**内部**用锚点画一截短底槽(见
+        /// <see cref="ShrinkPlayerHpBar"/>),且每帧重读 <c>_playerHpBar</c>。
         ///
         /// 收完**不还原**:奇遇结算完这一屏就换掉(<see cref="FinishEventAfterOutcome"/>),
-        /// 下一屏重绘照自然宽度重建。还原反而会在屏上多演一记「又长回去了」。
-        ///
-        /// 条在 VStack 里是 childAlignment: MiddleCenter,所以收缩是**两端同时内收**而不是
-        /// 只掉右端 —— 改对齐会连带挪动同一列的头行/行动条,不值当。
+        /// 下一屏重绘照自然长度重建。还原反而会在屏上多演一记「又长回去了」。
         ///
         /// 时基与时长口径同 <see cref="MaxHpShiftRoutine"/>:走 unscaledDeltaTime,
         /// 两段之和必须 ≤ <see cref="EventOutcomeHold"/>,否则换屏会把动画掐掉。</summary>
         private System.Collections.IEnumerator MaxHpShrinkRoutine(int fromHp, int fromMaxHp,
             int endHp, int endMaxHp)
         {
-            if (_playerHpBar.fill == null || _playerHpBar.fill.parent == null || fromMaxHp <= 0)
-                yield break;
-            var bar = (RectTransform)_playerHpBar.fill.parent;
-            var element = bar.GetComponent<LayoutElement>();
+            if (fromMaxHp <= 0) yield break;
+            float endLength = endMaxHp / (float)fromMaxHp;
             SetPlayerHp(fromHp, fromMaxHp);
-            yield return null;   // 等这一帧的布局定下来,才量得到条被拉伸后的真实宽度
-            // 期间被重绘换掉了(条是 flexibleWidth 拉满的,量不到就没得缩):放弃动画,
-            // 数值仍由下面的收尾兜到终值。捕获的 bar/element 此时是已销毁对象,不能再碰。
-            if (element == null || _playerHpBar.fill == null) yield break;
-            float fullWidth = bar.rect.width;
-            float endWidth = fullWidth * endMaxHp / (float)fromMaxHp;
-            element.flexibleWidth = 0f;          // 交出拉伸权,下面按帧给宽度
-            element.preferredWidth = fullWidth;
-
             for (float t = 0; t < MaxHpShiftHold; t += Time.unscaledDeltaTime)
                 yield return null;
             for (float t = 0; t < MaxHpShiftRise; t += Time.unscaledDeltaTime)
             {
-                if (element == null || _playerHpBar.fill == null) yield break;
                 float k = t / MaxHpShiftRise;
-                element.preferredWidth = Mathf.Lerp(fullWidth, endWidth, k);
-                SetPlayerHp(Mathf.RoundToInt(Mathf.Lerp(fromHp, endHp, k)),
-                    Mathf.RoundToInt(Mathf.Lerp(fromMaxHp, endMaxHp, k)));
+                int hp = Mathf.RoundToInt(Mathf.Lerp(fromHp, endHp, k));
+                int maxHp = Mathf.RoundToInt(Mathf.Lerp(fromMaxHp, endMaxHp, k));
+                SetPlayerHp(hp, maxHp);
+                ShrinkPlayerHpBar(Mathf.Lerp(1f, endLength, k), hp / (float)maxHp);
                 yield return null;
             }
-            if (element == null || _playerHpBar.fill == null) yield break;
-            element.preferredWidth = endWidth;
             SetPlayerHp(endHp, endMaxHp);
+            ShrinkPlayerHpBar(endLength, endHp / (float)endMaxHp);
+        }
+
+        /// <summary>把玩家血条画成只剩左侧 <paramref name="length"/>(0~1)那么长,
+        /// 其中血占 <paramref name="frac"/>。
+        ///
+        /// 条自身的 RectTransform 归布局组管(宽度每次重建都会被写回),所以不动它:
+        /// 条的底图改成透明,在条里补一截按锚点定长的底槽「ShrunkTrack」,fill 与
+        /// Juice 的脉冲层(BarPulse,全条铺开的那层)一并按同一长度收。
+        /// 每次都从 <c>_playerHpBar</c> 现取,条被重绘换掉也照样接着演。</summary>
+        private void ShrinkPlayerHpBar(float length, float frac)
+        {
+            if (_playerHpBar.fill == null || _playerHpBar.fill.parent == null) return;
+            var bar = (RectTransform)_playerHpBar.fill.parent;
+            var track = bar.Find("ShrunkTrack") as RectTransform;
+            if (track == null)
+            {
+                var barImage = bar.GetComponent<Image>();
+                var trackGo = new GameObject("ShrunkTrack", typeof(RectTransform), typeof(Image));
+                trackGo.transform.SetParent(bar, false);
+                trackGo.transform.SetAsFirstSibling(); // 压在 Fill 之下
+                var trackImage = trackGo.GetComponent<Image>();
+                trackImage.sprite = barImage.sprite;
+                trackImage.type = barImage.type;
+                trackImage.color = barImage.color;
+                trackImage.raycastTarget = false;
+                barImage.color = Color.clear; // 不 disable:Image 也是布局元素,关掉会改条的布局输入
+                track = (RectTransform)trackGo.transform;
+            }
+            Ui.Anchor(track, Vector2.zero, new Vector2(length, 1), Vector2.zero, Vector2.zero);
+            Ui.Anchor(_playerHpBar.fill, Vector2.zero,
+                new Vector2(length * Mathf.Clamp01(frac), 1), Vector2.zero, Vector2.zero);
+            var pulse = bar.Find("BarPulse") as RectTransform;
+            if (pulse != null)
+                Ui.Anchor(pulse, Vector2.zero, new Vector2(length, 1), Vector2.zero, Vector2.zero);
         }
 
         /// <summary>飘字停留够了再换屏。停留时长取 <see cref="EventOutcomeHold"/> ——
