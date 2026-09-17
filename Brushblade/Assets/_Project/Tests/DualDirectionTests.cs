@@ -25,20 +25,24 @@ namespace Brushblade.Core.Tests
             "冰", "沐", "淼", "淋", "㵘",
         };
 
-        /// <summary>做双方向的土系字。**不含召唤字**(碉/堡/塔)——2026-09-02 用户拍板:
-        /// 召唤本身就是「把防御摆到场上」,再叠一个护盾面是同一件事收两次钱;而且召唤要选
-        /// 落位槽,与「点敌人=攻 / 点我方=护」的目标语义打架。三张召唤字保持单方向。
-        /// 由 <see cref="SummonChars_StayOneDirectional"/> 反向钉住,防止哪天又被顺手加回来。</summary>
+        /// <summary>做双方向的土系字。2026-09-02~2026-09-11 曾**不含召唤字**(碉/堡/塔)——
+        /// 当时的裁定是「召唤本身就是把防御摆到场上,再叠一个护盾面是同一件事收两次钱」。
+        ///
+        /// 2026-09-16(土水系机制重做,spec §6):土系交出召唤位,碉/堡/塔 彻底改成与
+        /// 垒/壁/圭/杜/垚/㙓 同款的双方向字,不再是召唤字 —— 三张并入下表,土系从此
+        /// **没有任何** sum 形态字。<see cref="SummonChars_StayOneDirectional"/> 的清单
+        /// 随之改钉空集(机制退休,不是找字顶替)。</summary>
         // 2026-09-05:砸 / 碾 两张土系双方向字随字表调整移出,从下表删去。
         private static readonly string[] EarthChars =
         {
-            "垒", "壁", "崩", "碎", "圭", "杜", "垚", "㙓",
+            "垒", "壁", "崩", "碎", "圭", "杜", "垚", "㙓", "碉", "堡", "塔",
         };
 
-        /// <summary>召唤字必须**没有**攻击面(2026-09-02)。这条与 <see cref="EarthChars"/>
-        /// 的注释是一对:那边说「不含召唤字」,这边说「而且不许有」。
-        /// 只写在清单注释里挡不住下一个人把它们加回去。</summary>
-        private static readonly string[] SummonOnlyChars = { "碉", "堡", "塔" };
+        /// <summary>召唤字必须**没有**攻击面(2026-09-02)。
+        /// 2026-09-16(土水系机制重做):碉/堡/塔 三张原召唤字全部改成 dual_s 双方向字
+        /// (见 <see cref="EarthChars"/> 的说明),土系「不做双方向的召唤字」这个类别
+        /// 自此**无载体** —— 钉住空集:哪天土系又出现纯召唤字,把它加回这张表。</summary>
+        private static readonly string[] SummonOnlyChars = Array.Empty<string>();
 
         private static RecipeGraph LoadRealGraph() => CharTableTests.RealGraph();
 
@@ -69,11 +73,14 @@ namespace Brushblade.Core.Tests
         // 来源,这条测试挡得住「配置值算错了」,挡不住「公式本身两边不同步」。**
         //
         // 公式(design §1.4/§1.4.1/§2):
-        //   护盾 = A[护盾] × SHIELD_F(0.65) × 群体系数 × (1 − 特性预算 ratio)
+        //   护盾 = A[护盾] × SHIELD_F(1.00) × 群体系数 × (1 − 特性预算 ratio)
         //   治疗 = A[治疗] × HEAL_F(1.00) × 群体系数 × (1 − 特性预算 ratio)
         //   攻击 = A[单攻或全体] × (1 − 特性预算 ratio)
         //   ratio = Σ(特性单价 × 该档位系数 K)
-        private const double ShieldF = 0.65, HealF = 1.00;
+        //
+        // 2026-09-16(土水系机制重做,Task 11):SHIELD_F 0.65 → 1.00(用户裁定「盾与攻
+        // 1:1 等值」),GROUP_F 0.60 → 0.50(与「全体锚点 = 单攻 ÷ 2」对齐)。
+        private const double ShieldF = 1.00, HealF = 1.00;
 
         private static readonly Dictionary<CardRarity, double> RarityK = new()
         {
@@ -87,12 +94,14 @@ namespace Brushblade.Core.Tests
         /// 按 G = 10^(1/6) = 1.4678 反推至白档(旧表 紫→金 2.00 是断崖,金→橙 1.20 / 橙→红 1.25
         /// 近乎持平)。与 tools/design/rebalance_2026_09_05.py 的 ANCHOR 手工同步 —— 见上方大注释,
         /// 两边没有共享来源。</summary>
+        /// 2026-09-16(土水系机制重做,Task 11 §1①):护盾/治疗两列改按单攻列 1:1 定标,
+        /// 不再是单攻打折 —— Shield/Heal 两列现在与 Single 列同值。
         private static readonly Dictionary<CardRarity, (int Single, int All, int Shield, int Heal)> RarityAnchor = new()
         {
-            [CardRarity.Green] = (88, 44, 66, 51),
-            [CardRarity.Purple] = (190, 95, 142, 111),
-            [CardRarity.Gold] = (278, 139, 209, 162),
-            [CardRarity.Red] = (600, 300, 450, 350),
+            [CardRarity.Green] = (88, 44, 88, 88),
+            [CardRarity.Purple] = (190, 95, 190, 190),
+            [CardRarity.Gold] = (278, 139, 278, 278),
+            [CardRarity.Red] = (600, 300, 600, 600),
         };
 
         /// <summary>只收了下面两条测试用到的特性单价,不是全表价目(见上方大注释)。
@@ -103,17 +112,22 @@ namespace Brushblade.Core.Tests
         /// - **护甲 0.33 → 0.28**(限时 4 回合,持久 × 0.85)、**破甲 0.33 → 0.25**
         ///   (限时 3 回合,持久 × 0.75):两条随「所有 buff 类必须附带回合数」限时化,
         ///   限时的东西不该按持久的价收。</summary>
+        /// 2026-09-16(土水系机制重做,Task 11):新增六个合并计价键——攻面的控制/封禁与
+        /// 守面对偶的加速/急速/解封是同一个机制的两个面,不分开计价(见
+        /// rebalance_2026_09_05.py 那段「合并键」大注释)。旧的单独条目("反伤50"/"冻结1"/
+        /// "免疫1"/"封禁")在真实字表里已经没有字只挂半边,故直接替换而不是并存。
         private static readonly Dictionary<string, double> TraitPrice = new()
         {
-            ["反伤30"] = 0.22, ["反伤50"] = 0.35, ["对破甲"] = 0.25, ["终极技"] = 0.00,
-            ["免一次清盾"] = 0.20, ["护甲"] = 0.28, ["免疫1"] = 0.35,
-            ["冻结1"] = 0.35, ["冻结2"] = 0.55, ["对控制"] = 0.25, ["封禁"] = 0.38,
+            ["反伤30+镇压30"] = 0.32, ["反伤50+镇压50"] = 0.40, ["对破甲"] = 0.25, ["终极技"] = 0.00,
+            ["免一次清盾"] = 0.20, ["护甲"] = 0.28, ["免疫1+碾"] = 0.55,
+            ["冻结1+急速"] = 0.45, ["冻结2+急速"] = 0.68, ["对控制"] = 0.25, ["封禁+解封"] = 0.42,
         };
 
-        /// <summary>群体形态系数(spec §1.4 的 GROUP_F):群疗 / 群盾按 0.60 折。
+        /// <summary>群体形态系数(spec §1.4 的 GROUP_F):群疗 / 群盾按 0.50 折
+        /// (2026-09-16 由 0.60 降到 0.50,与「全体锚点 = 单攻 ÷ 2」对齐,Task 11 §1②)。
         /// 2026-09-08 起**带终极技的字一律群体形态** —— 放电(SpendHeft / SpendWellspring)
         /// 本来就是打全体,攻护两面跟着对称。</summary>
-        private const double GroupF = 0.60;
+        private const double GroupF = 0.50;
 
         private static double Ratio(CardRarity rarity, params string[] traits) =>
             traits.Sum(t => TraitPrice[t]) * RarityK[rarity];
@@ -233,14 +247,16 @@ namespace Brushblade.Core.Tests
         public void WaterCharValues_MatchRarityAnchors()
         {
             var graph = LoadRealGraph();
-            Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(ExpectedHeal(CardRarity.Gold, "冻结1", "对控制")),
-                "金档:治疗锚点240 × HEAL_F × (1 − (冻结1+对控制)×K金)");
+            // 2026-09-16(土水系机制重做):冰/湮/㵘 的守面各补了对偶的急速/解封,与攻面的
+            // 冻结/封禁不再分开计价,改用合并键(见上方 TraitPrice 大注释)。
+            Assert.That(HealValueOf(graph, "冰"), Is.EqualTo(ExpectedHeal(CardRarity.Gold, "冻结1+急速", "对控制")),
+                "金档:治疗锚点278 × HEAL_F × (1 − (冻结1+急速+对控制)×K金)");
             // 㵘 2026-09-08 起是群疗(带终极技的字一律群体形态),多乘一道 GROUP_F
             Assert.That(HealValueOf(graph, "㵘"),
-                Is.EqualTo(ExpectedGroupHeal(CardRarity.Red, "终极技", "冻结2", "对控制")),
-                "红档:治疗锚点350 × HEAL_F × GROUP_F × (1 − (冻结2+对控制)×K红);终极技不计价");
-            Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(ExpectedHeal(CardRarity.Purple, "封禁", "对控制")),
-                "紫档:治疗锚点120 × HEAL_F × (1 − (封禁+对控制)×K紫)");
+                Is.EqualTo(ExpectedGroupHeal(CardRarity.Red, "终极技", "冻结2+急速", "对控制")),
+                "红档:治疗锚点600 × HEAL_F × GROUP_F × (1 − (冻结2+急速+对控制)×K红);终极技不计价");
+            Assert.That(HealValueOf(graph, "湮"), Is.EqualTo(ExpectedHeal(CardRarity.Purple, "封禁+解封", "对控制")),
+                "紫档:治疗锚点190 × HEAL_F × (1 − (封禁+解封+对控制)×K紫)");
         }
 
         /// <summary>攻击面必须真的能打人 —— 全是伤害类效果(单体/全体),不是挂个状态就算数。
@@ -351,19 +367,21 @@ namespace Brushblade.Core.Tests
         public void EarthCharValues_MatchRarityAnchors()
         {
             var graph = LoadRealGraph();
-            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "反伤50", "对破甲")),
-                "金档:护盾锚点300 × SHIELD_F × (1 − (反伤50+对破甲)×K金)");
+            // 2026-09-16(土水系机制重做):圭/杜 的攻面各补了对偶的镇压/碾,与守面的
+            // 反伤/免疫不再分开计价,改用合并键(见上方 TraitPrice 大注释)。
+            Assert.That(ShieldValueOf(graph, "圭"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "反伤50+镇压50", "对破甲")),
+                "金档:护盾锚点278 × SHIELD_F × (1 − (反伤50+镇压50+对破甲)×K金)");
             // 㙓 2026-09-08 起是群盾 + 群攻(与 崩 对称:红档的厚积薄发载体也该打全场)
             Assert.That(ShieldAllValueOf(graph, "㙓"),
                 Is.EqualTo(ExpectedGroupShield(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
-                "红档:护盾锚点450 × SHIELD_F × GROUP_F × (1 − (免一次清盾+护甲)×K红);终极技不计价");
+                "红档:护盾锚点600 × SHIELD_F × GROUP_F × (1 − (免一次清盾+护甲)×K红);终极技不计价");
             Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageAll).Value,
                 Is.EqualTo(ExpectedAllAttack(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
                 "攻面走全体锚点,与护盾面同一个 ratio");
-            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1", "护甲")),
-                "金档:护盾锚点300 × SHIELD_F × (1 − (免疫1+护甲)×K金)");
+            Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1+碾", "护甲")),
+                "金档:护盾锚点278 × SHIELD_F × (1 − (免疫1+碾+护甲)×K金)");
             Assert.That(graph.Get("圭").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(ExpectedSingleAttack(CardRarity.Gold, "反伤50", "对破甲")),
+                Is.EqualTo(ExpectedSingleAttack(CardRarity.Gold, "反伤50+镇压50", "对破甲")),
                 "攻击面与护盾面用同一个特性预算 ratio,只是套的是单攻锚点不是护盾锚点");
         }
 
@@ -407,7 +425,9 @@ namespace Brushblade.Core.Tests
             // 2026-09-07 字表重做 P2:圭 的护盾按 spec §1.4 公式重新标定,170 → 119
             // (见 EarthCharValues_MatchRarityAnchors 的 ExpectedShield 推导)。
             // 2026-09-11(T3):金档护盾锚点 300 → 209,119 → 83。
-            Assert.That(battle.PlayerShield, Is.EqualTo(83));
+            // 2026-09-16(土水系机制重做):SHIELD_F 0.65 → 1.00、护盾锚点改按单攻列 1:1
+            // 定标(209 → 278),攻面补镇压后合并计价 0.4225,83 → 161。
+            Assert.That(battle.PlayerShield, Is.EqualTo(161));
         }
 
         /// <summary>修档位倒挂:燚(红) 的 AOE 曾低于 焱(橙)。

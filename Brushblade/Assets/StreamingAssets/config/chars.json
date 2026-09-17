@@ -123,7 +123,7 @@
     },
     {
       "id": "爆",
-      "rarity": "Blue",
+      "rarity": "Green",
       "element": "Fire",
       "recipe": [
         "火",
@@ -134,7 +134,7 @@
       "effects": [
         {
           "kind": "DamageAll",
-          "value": 29
+          "value": 4
         },
         {
           "kind": "BurnAll",
@@ -209,28 +209,6 @@
       ]
     },
     {
-      "id": "灭",
-      "rarity": "White",
-      "element": "Fire",
-      "recipe": [
-        "一",
-        "火"
-      ],
-      "pinyin": "miè",
-      "gloss": "火熄、尽绝",
-      "effects": [
-        {
-          "kind": "Silence",
-          "value": 0,
-          "turns": 1
-        },
-        {
-          "kind": "DamageAll",
-          "value": 19
-        }
-      ]
-    },
-    {
       "id": "燥",
       "rarity": "Purple",
       "element": "Fire",
@@ -282,7 +260,7 @@
     },
     {
       "id": "热",
-      "rarity": "Green",
+      "rarity": "White",
       "element": "Fire",
       "recipe": [
         "执",
@@ -293,11 +271,11 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 88
+          "value": 45
         },
         {
-          "kind": "BurnSingle",
-          "value": 1
+          "kind": "Quench",
+          "value": 4
         }
       ]
     },
@@ -469,6 +447,30 @@
       ]
     },
     {
+      "id": "桂",
+      "rarity": "Orange",
+      "element": "Wood",
+      "recipe": [
+        "木",
+        "圭"
+      ],
+      "pinyin": "guì",
+      "gloss": "桂树,花香馥郁",
+      "effects": [
+        {
+          "kind": "Summon",
+          "value": 820,
+          "count": 1,
+          "attack": 54,
+          "summonChar": "桂",
+          "summonShield": 120,
+          "passive": {
+            "thorns": 50
+          }
+        }
+      ]
+    },
+    {
       "id": "柘",
       "rarity": "Gold",
       "element": "Wood",
@@ -517,32 +519,8 @@
       ]
     },
     {
-      "id": "枪",
-      "rarity": "White",
-      "element": "Wood",
-      "recipe": [
-        "木",
-        "仓"
-      ],
-      "pinyin": "qiāng",
-      "gloss": "长柄尖兵",
-      "effects": [
-        {
-          "kind": "Summon",
-          "value": 48,
-          "count": 1,
-          "attack": 19,
-          "summonChar": "枪",
-          "passive": {
-            "shape": "Skewer",
-            "shapePercent": 70
-          }
-        }
-      ]
-    },
-    {
       "id": "花",
-      "rarity": "Green",
+      "rarity": "White",
       "element": "Wood",
       "recipe": [
         "艹",
@@ -553,7 +531,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 53
+          "value": 36
         },
         {
           "kind": "Charm",
@@ -575,13 +553,18 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 134
+          "value": 174
+        },
+        {
+          "kind": "Haste",
+          "value": 100,
+          "turns": 2
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 192,
+          "value": 174,
           "doubleVs": "Controlled"
         },
         {
@@ -607,13 +590,18 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 133
+          "value": 200
+        },
+        {
+          "kind": "Haste",
+          "value": 100,
+          "turns": 2
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 229,
+          "value": 200,
           "doubleVs": "Controlled"
         },
         {
@@ -635,13 +623,17 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 55
+          "value": 88
+        },
+        {
+          "kind": "Unseal",
+          "value": 0
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 94,
+          "value": 88,
           "doubleVs": "Controlled"
         },
         {
@@ -664,13 +656,16 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 58
+          "value": 88,
+          "shape": "Chain",
+          "shots": 3,
+          "shapePercent": 50
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 100,
+          "value": 88,
           "shape": "Chain",
           "shots": 3,
           "shapePercent": 50
@@ -690,7 +685,7 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 45
+          "value": 64
         }
       ],
       "attackEffects": [
@@ -717,13 +712,18 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 99
+          "value": 152
+        },
+        {
+          "kind": "Haste",
+          "value": 100,
+          "turns": 1
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 170,
+          "value": 152,
           "doubleVs": "Controlled"
         },
         {
@@ -745,7 +745,12 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 36
+          "value": 55
+        },
+        {
+          "kind": "Haste",
+          "value": 50,
+          "turns": 2
         }
       ],
       "attackEffects": [
@@ -755,7 +760,7 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 62
+          "value": 55
         }
       ]
     },
@@ -772,7 +777,12 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 29
+          "value": 45
+        },
+        {
+          "kind": "Haste",
+          "value": 50,
+          "turns": 1
         }
       ],
       "attackEffects": [
@@ -782,7 +792,7 @@
         },
         {
           "kind": "DamageSingle",
-          "value": 49
+          "value": 45
         }
       ]
     },
@@ -799,13 +809,22 @@
       "effects": [
         {
           "kind": "HealAll",
-          "value": 78
+          "value": 90
+        },
+        {
+          "kind": "Haste",
+          "value": 50,
+          "turns": 2
+        },
+        {
+          "kind": "Unseal",
+          "value": 0
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageAll",
-          "value": 112
+          "value": 90
         },
         {
           "kind": "Silence",
@@ -831,21 +850,26 @@
       "effects": [
         {
           "kind": "HealSelf",
-          "value": 55
+          "value": 103
+        },
+        {
+          "kind": "Unseal",
+          "value": 0
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 94,
-          "shape": "Chain",
-          "shots": 3,
-          "shapePercent": 50
+          "value": 103
         },
         {
           "kind": "Silence",
           "value": 0,
           "turns": 1
+        },
+        {
+          "kind": "Dispel",
+          "value": 1
         }
       ]
     },
@@ -862,18 +886,22 @@
       "effects": [
         {
           "kind": "HealOverTime",
-          "value": 26,
+          "value": 43,
           "turns": 3
         },
         {
           "kind": "Revive",
           "value": 1
+        },
+        {
+          "kind": "Unseal",
+          "value": 0
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 137
+          "value": 130
         },
         {
           "kind": "Silence",
@@ -1068,12 +1096,9 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 100
-        },
-        {
-          "kind": "ArmorBreak",
-          "value": 20,
-          "turns": 3
+          "value": 106,
+          "shape": "Skewer",
+          "shapePercent": 70
         },
         {
           "kind": "Morale",
@@ -1173,12 +1198,12 @@
       "effects": [
         {
           "kind": "ShieldAll",
-          "value": 138,
+          "value": 235,
           "persistOnce": true
         },
         {
           "kind": "DefenseBuff",
-          "value": 13,
+          "value": 100,
           "turns": 4
         }
       ],
@@ -1206,19 +1231,23 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 141
+          "value": 290
         },
         {
           "kind": "DefenseBuff",
-          "value": 11,
+          "value": 75,
           "turns": 4
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 290,
-          "doubleVs": "ArmorBroken"
+          "value": 290
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 35,
+          "turns": 3
         }
       ]
     },
@@ -1235,7 +1264,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 83
+          "value": 161
         },
         {
           "kind": "Reflect",
@@ -1246,8 +1275,9 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 170,
-          "doubleVs": "ArmorBroken"
+          "value": 161,
+          "doubleVs": "ArmorBroken",
+          "armorStrikePercent": 50
         }
       ]
     },
@@ -1263,40 +1293,22 @@
       "gloss": "层叠高耸的建筑",
       "effects": [
         {
-          "kind": "Summon",
-          "value": 171,
-          "count": 1,
-          "attack": 25,
-          "summonChar": "塔",
-          "summonShield": 20,
-          "summonDefense": 7,
-          "passive": {
-            "thorns": 50
-          }
-        }
-      ]
-    },
-    {
-      "id": "桂",
-      "rarity": "Orange",
-      "element": "Earth",
-      "recipe": [
-        "木",
-        "圭"
-      ],
-      "pinyin": "guì",
-      "gloss": "桂树,花香馥郁",
-      "effects": [
+          "kind": "Shield",
+          "value": 106
+        },
         {
-          "kind": "Summon",
-          "value": 712,
-          "count": 1,
-          "attack": 47,
-          "summonChar": "桂",
-          "summonShield": 130,
-          "passive": {
-            "thorns": 50
-          }
+          "kind": "Reflect",
+          "value": 50,
+          "turns": 2
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 106,
+          "shape": "Volley",
+          "shots": 2,
+          "armorStrikePercent": 50
         }
       ]
     },
@@ -1312,15 +1324,14 @@
       "gloss": "石砌的堡",
       "effects": [
         {
-          "kind": "Summon",
-          "value": 129,
-          "count": 1,
-          "attack": 0,
-          "summonChar": "碉",
-          "summonShield": 20,
-          "passive": {
-            "thorns": 50
-          }
+          "kind": "Shield",
+          "value": 60
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 60
         }
       ]
     },
@@ -1337,11 +1348,11 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 31
+          "value": 63
         },
         {
           "kind": "DefenseBuff",
-          "value": 4,
+          "value": 20,
           "turns": 4
         }
       ],
@@ -1364,16 +1375,24 @@
       "gloss": "土石筑的防垒",
       "effects": [
         {
-          "kind": "Summon",
-          "value": 315,
-          "count": 1,
-          "attack": 0,
-          "summonChar": "堡",
-          "summonShield": 20,
-          "passive": {
-            "thorns": 50,
-            "taunt": true
-          }
+          "kind": "Shield",
+          "value": 67
+        },
+        {
+          "kind": "DefenseBuff",
+          "value": 28,
+          "turns": 4
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 67
+        },
+        {
+          "kind": "ArmorBreak",
+          "value": 20,
+          "turns": 3
         }
       ]
     },
@@ -1390,7 +1409,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 33
+          "value": 60
         },
         {
           "kind": "Reflect",
@@ -1401,7 +1420,8 @@
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 69
+          "value": 60,
+          "armorStrikePercent": 30
         }
       ]
     },
@@ -1418,7 +1438,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 80
+          "value": 128
         },
         {
           "kind": "Immunity",
@@ -1426,14 +1446,15 @@
         },
         {
           "kind": "DefenseBuff",
-          "value": 9,
+          "value": 55,
           "turns": 4
         }
       ],
       "attackEffects": [
         {
           "kind": "DamageSingle",
-          "value": 164
+          "value": 128,
+          "trueDamage": true
         }
       ]
     },
@@ -1450,7 +1471,7 @@
       "effects": [
         {
           "kind": "ShieldAll",
-          "value": 38
+          "value": 64
         }
       ],
       "attackEffects": [
@@ -1477,7 +1498,7 @@
       "effects": [
         {
           "kind": "Shield",
-          "value": 49
+          "value": 100
         }
       ],
       "attackEffects": [
@@ -1493,10 +1514,6 @@
       ]
     },
     {
-      "id": "一",
-      "component": true
-    },
-    {
       "id": "东",
       "component": true
     },
@@ -1510,10 +1527,6 @@
     },
     {
       "id": "乍",
-      "component": true
-    },
-    {
-      "id": "仓",
       "component": true
     },
     {

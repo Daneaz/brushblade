@@ -245,15 +245,20 @@ namespace Brushblade.Core.Tests
             // 见任务简报),单发 83 < 阈值 200,首发结论不变(仍是 0 层 + 余 83)。
             // 变的是**累计**那一半:三发合计 249,249 / 200 = 1 层 + 余 49(不是 2 层)——
             // 阈值翻倍、盾量还没跟上,是简报里明说的过渡态,不是本任务要修的 bug。
+            // 2026-09-16(土水系机制重做,Task 12):圭 的盾 83 → 161(护盾列改按单攻列
+            // 1:1 定标 + 补对偶「镇压」,见 DualDirectionTests
+            // .EarthCharValues_MatchRarityAnchors,是数值重定标,不是本条阈值改动的事)。
+            // 单发 161 < 阈值 200,结论形状不变(0 层 + 全留余数);三发 483 = 200×2 + 83
+            // → 2 层 + 余 83(不再是 1 层)。
             var battle = NewBattleWithChar("圭", maxHp: 500);
             battle.Cast("圭", -1);
-            Assert.That(battle.HeftStacks, Is.EqualTo(0), "圭 的盾 83 < 阈值 200,单发攒不满一层");
-            Assert.That(battle.ShieldAccum, Is.EqualTo(83), "83 全留成余数,下一发接着攒");
+            Assert.That(battle.HeftStacks, Is.EqualTo(0), "圭 的盾 161 < 阈值 200,单发攒不满一层");
+            Assert.That(battle.ShieldAccum, Is.EqualTo(161), "161 全留成余数,下一发接着攒");
             // 出字即耗字,同一张字没法连出第二次,用测试钩子补上后两发的同等盾量。
-            battle.GainHeftForTest(83);
-            battle.GainHeftForTest(83);
-            Assert.That(battle.HeftStacks, Is.EqualTo(1), "三发 圭 249 = 1 层(阈值翻倍后的过渡态,见上)");
-            Assert.That(battle.ShieldAccum, Is.EqualTo(49), "249 − 200×1 = 49,余数继续留着");
+            battle.GainHeftForTest(161);
+            battle.GainHeftForTest(161);
+            Assert.That(battle.HeftStacks, Is.EqualTo(2), "三发 圭 483 = 200×2 + 83 → 2 层");
+            Assert.That(battle.ShieldAccum, Is.EqualTo(83), "483 − 200×2 = 83,余数继续留着");
         }
 
         [Test]
@@ -280,15 +285,19 @@ namespace Brushblade.Core.Tests
             // 单发 99 < 阈值 200,首发结论不变。累计:三发合计 297,297 / 200 = 1 层 + 余 97
             // (不是 2 层)——同 Cast_ShieldChar_GainsHeft,是阈值先翻倍、治疗量还没跟上
             // 的过渡态。
+            // 2026-09-16(土水系机制重做,Task 12):冰 的治疗 99 → 152(护盾/治疗列改按
+            // 单攻列 1:1 定标 + 补对偶「急速」,见 DualDirectionTests
+            // .WaterCharValues_MatchRarityAnchors,是数值重定标,不是本条阈值改动的事)。
+            // 单发 152 < 阈值 200,结论形状不变;三发 456 = 200×2 + 56 → 2 层 + 余 56。
             var battle = NewBattleWithChar("冰", maxHp: 500);
             battle.Cast("冰", 0);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(0), "冰 的治疗 99 < 阈值 200,单发差 1 点");
-            Assert.That(battle.HealAccum, Is.EqualTo(99), "99 全留成余数");
+            Assert.That(battle.WellspringStacks, Is.EqualTo(0), "冰 的治疗 152 < 阈值 200,单发攒不满一层");
+            Assert.That(battle.HealAccum, Is.EqualTo(152), "152 全留成余数");
             // 三发的累计(出字即耗字,用测试钩子补后两发的同等治疗量)
-            battle.GainWellspringForTest(99);
-            battle.GainWellspringForTest(99);
-            Assert.That(battle.WellspringStacks, Is.EqualTo(1), "三发 冰 297 = 1 层(阈值翻倍后的过渡态,见上)");
-            Assert.That(battle.HealAccum, Is.EqualTo(97), "297 − 200×1 = 97");
+            battle.GainWellspringForTest(152);
+            battle.GainWellspringForTest(152);
+            Assert.That(battle.WellspringStacks, Is.EqualTo(2), "三发 冰 456 = 200×2 + 56 → 2 层");
+            Assert.That(battle.HealAccum, Is.EqualTo(56), "456 − 200×2 = 56");
         }
 
         // ---- 护盾/治疗接上角色攻击成长(2026-09-02,Task 5)----
@@ -300,9 +309,11 @@ namespace Brushblade.Core.Tests
             // DualDirectionTests.EarthCharValues_MatchRarityAnchors 的推导)。ATK 150(26 级)
             // 相对基准 100 的比例不变:119 × 150 / 100 = 178.5,向下取整 178。
             // 2026-09-11(T3):金档护盾锚点 300 → 209,圭 119 → 83;83 × 150 / 100 = 124.5 → 124。
+            // 2026-09-16(土水系机制重做,Task 12):圭 83 → 161(护盾列改按单攻列 1:1 定标 +
+            // 补对偶「镇压」);161 × 150 / 100 = 241.5 → 241。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 150);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(124));
+            Assert.That(battle.PlayerShield, Is.EqualTo(241));
         }
 
         [Test]
@@ -311,9 +322,10 @@ namespace Brushblade.Core.Tests
             // 恒等性硬线:ATK = 100 时一分不差。
             // 2026-09-07 字表重做 P2:圭 护盾按公式重新标定,170 → 119。
             // 2026-09-11(T3):119 → 83。
+            // 2026-09-16(土水系机制重做,Task 12):83 → 161。
             var battle = NewBattleWithChar("圭", maxHp: 500, playerAttack: 100);
             battle.Cast("圭", -1);
-            Assert.That(battle.PlayerShield, Is.EqualTo(83));
+            Assert.That(battle.PlayerShield, Is.EqualTo(161));
         }
 
         [Test]
@@ -343,8 +355,9 @@ namespace Brushblade.Core.Tests
 
             battle.Cast("圭", -1);
             // 圭 加盾前已有的厚带来的盾不算:这里断言的是这一次施放的增量
-            // (2026-09-07 字表重做 P2:圭 护盾按公式重新标定,170 → 119)
-            Assert.That(battle.PlayerShield, Is.EqualTo(83),
+            // (2026-09-07 字表重做 P2:圭 护盾按公式重新标定,170 → 119;
+            // 2026-09-16 土水系机制重做:119 的后继值 83 → 161)
+            Assert.That(battle.PlayerShield, Is.EqualTo(161),
                 "护盾只认 config.PlayerAttack,不吃厚也不吃战意");
         }
 
@@ -377,7 +390,9 @@ namespace Brushblade.Core.Tests
             // 2026-09-07 字表重做 P2:冰 治疗 340 → 146(公式重新标定,见
             // DualDirectionTests.WaterCharValues_MatchRarityAnchors)→ ×(100+50)/100 = 219
             // 2026-09-11(T3):金档治疗锚点 240 → 162,冰 146 → 99;99 × 150 / 100 = 148.5 → 148。
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(148));
+            // 2026-09-16(土水系机制重做,Task 12):冰 99 → 152(护盾/治疗列改按单攻列 1:1
+            // 定标 + 补对偶「急速」);152 × 150 / 100 = 228。
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(228));
         }
 
         [Test]
@@ -392,6 +407,9 @@ namespace Brushblade.Core.Tests
             // **2026-09-11(阈值 /7 → 固定 100)**:99 < 100 → 0 层 + 余 99。
             // **2026-09-16(阈值 100 → 200,Task 4)**:冰 的治疗量不动(Task 11 的事),
             // 99 < 200,结论不变:0 层 + 余 99。
+            // **2026-09-16(土水系机制重做,Task 12)**:冰 99 → 152(数值重定标,见
+            // DualDirectionTests.WaterCharValues_MatchRarityAnchors),152 仍 < 200,
+            // 结论形状不变:0 层 + 余 152。
             int stacksFromZero = battleA.WellspringStacks;
 
             var battleB = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
@@ -402,18 +420,19 @@ namespace Brushblade.Core.Tests
             // **2026-09-11(阈值 /7 → 固定 100)**:份额改回 100×3(整除,余数 0)。
             // **2026-09-16(阈值 100 → 200,Task 4)**:份额改成 200×3(整除,余数 0),
             // 同理保持「先有 3 层」。
-            // ⚠ 余数必须是 0,否则 battleB 那一发是「余数 + 99」跨的线,与 battleA 的
-            // 「0 + 99」不同源,层数差就不再只反映放大与否了。
+            // ⚠ 余数必须是 0,否则 battleB 那一发是「余数 + 152」跨的线,与 battleA 的
+            // 「0 + 152」不同源,层数差就不再只反映放大与否了。
             battleB.GainWellspringForTest(200 * 3);          // 先有 3 层,余数 0
             Assert.That(battleB.HealAccum, Is.EqualTo(0), "夹具前提:起点余数为 0,与 battleA 同源");
             int before = battleB.WellspringStacks;
             battleB.Cast("冰", 0);
             Assert.That(battleB.WellspringStacks - before, Is.EqualTo(stacksFromZero),
                 "已有泉不该让这一发治疗攒得更多 —— 攒的基数与泉层数无关");
-            // 判别式:若攒的基数走了放大后的值(3 层 → 99 × 115/100 = 113 ≥ 100),
-            // 上面那句会读到 +1 层、这句会读到余数 13。两句一起钉,夹具退化不了。
-            Assert.That(battleB.HealAccum, Is.EqualTo(99),
-                "攒进去的是未放大的 99,不是 3 层泉放大后的 113");
+            // 2026-09-16(土水系机制重做,Task 12):冰 99 → 152,3 层放大 = 152×115/100=174。
+            // ⚠ 判别式的窗口随阈值 100 → 200(Task 4)已经收窄:174/152 都小于 200,不再会
+            // 撞出层数差,只剩 HealAccum 这一句能分辨「攒的是放大前还是放大后的值」。
+            Assert.That(battleB.HealAccum, Is.EqualTo(152),
+                "攒进去的是未放大的 152,不是 3 层泉放大后的 174");
         }
 
         [Test]
@@ -462,27 +481,37 @@ namespace Brushblade.Core.Tests
             //   反转顺序:先 GainWellspring(99) → 190 + 99 跨线,层数 4、余 89,
             //             再放大 → 99 × 120 / 100 = 118(floor,不变)
             // 113 ≠ 118 照旧 —— 放大结果与阈值无关,只是触发跨线所需的余数变了。
+            //
+            // **2026-09-16(土水系机制重做,Task 12)**:冰 的治疗量 99 → 152(护盾/治疗列
+            // 改按单攻列 1:1 定标 + 补对偶「急速」,见 DualDirectionTests
+            // .WaterCharValues_MatchRarityAnchors,是数值重定标,不是本条阈值改动的事)。
+            // 余 190 这个夹具数字不用动(它只是手动预设的起点,与冰的治疗量无关)——
+            // 190 + 152 = 342,仍然必跨 200 这条线,只是跨线后的余数从 89 变成 142。
+            //   正确顺序:AmplifyByWellspring(152) 用旧层数 3 → 152 × 115 / 100 = 174(floor)
+            //   反转顺序:先 GainWellspring(152) → 190 + 152 跨线,层数 4、余 142,
+            //             再放大 → 152 × 120 / 100 = 182(floor)
+            // 174 ≠ 182,反转时这条断言必须变红,判别力不变。
             var battle = NewBattleWithCharTakingDamage("冰", maxHp: 500, playerAttack: 100, enemyAttack: 450);
-            battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 118 的回血空间不封顶
+            battle.EndTurn();   // 敌人打一记,必中:500 - 450 = 50,留够 182 的回血空间不封顶
             Assert.That(battle.PlayerHp, Is.EqualTo(50), "夹具前提:留出的回血空间要盖过两种顺序的差值");
             battle.GainWellspringForTest(200 * 3 + 190);  // 先有 3 层(非零非满)+ 余 190
             Assert.That(battle.WellspringStacks, Is.EqualTo(3), "夹具前提:层数刚好 3");
-            Assert.That(battle.HealAccum, Is.EqualTo(190), "夹具前提:余数 190,这一发 99 必跨线");
+            Assert.That(battle.HealAccum, Is.EqualTo(190), "夹具前提:余数 190,这一发 152 必跨线");
 
             int before = battle.PlayerHp;
             battle.Cast("冰", 0);
-            Assert.That(battle.PlayerHp - before, Is.EqualTo(113),
+            Assert.That(battle.PlayerHp - before, Is.EqualTo(174),
                 "放大值必须用施放前(旧)的层数算,不能用 GainWellspring 攒完之后的新层数");
             Assert.That(battle.WellspringStacks, Is.EqualTo(4),
                 "夹具有效性:这一发确实跨过了一层,两种顺序才会读到不同的层数");
 
-            // 反转顺序对照:同样的起点,先攒(层数 3 → 4)再放大,得 118 ≠ 113。
+            // 反转顺序对照:同样的起点,先攒(层数 3 → 4)再放大,得 182 ≠ 174。
             // 这三行是**防夹具退化的哨兵** —— 若哪天数值再变到两种顺序同值,它会先红。
             var reversed = NewBattleWithChar("冰", maxHp: 500, playerAttack: 100);
             reversed.GainWellspringForTest(200 * 3 + 190);
-            reversed.GainWellspringForTest(99);          // 先攒:190 + 99 跨线 → 4 层
-            Assert.That(reversed.AmplifyByWellspringForTest(99), Is.EqualTo(118),
-                "反转顺序会算出 118;与上面的 113 不同,夹具区分得开两种顺序");
+            reversed.GainWellspringForTest(152);          // 先攒:190 + 152 跨线 → 4 层
+            Assert.That(reversed.AmplifyByWellspringForTest(152), Is.EqualTo(182),
+                "反转顺序会算出 182;与上面的 174 不同,夹具区分得开两种顺序");
         }
 
         // ---- 快照往返(2026-09-02,Task 3)----

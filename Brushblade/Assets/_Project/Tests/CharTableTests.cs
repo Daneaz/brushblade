@@ -154,10 +154,13 @@ namespace Brushblade.Core.Tests
                     .Any(e => e.Kind == EffectKind.DefenseBuff))
                 .ToDictionary(c => c.Id,
                     c => c.Effects.First(e => e.Kind == EffectKind.DefenseBuff).Value);
+            // 2026-09-16(土水系机制重做):护甲列从「点数直接扣减」改为百分比减伤
+            // DR=甲/(甲+100)(Task 11 §1③),整列重定标,数值随之全部变大;堡(蓝)
+            // 同批由 sum 改 dual_s,补上护甲作为破甲的对偶载体,护甲梯队从 4 张变 5 张。
             Assert.That(carriers, Is.EquivalentTo(new Dictionary<string, int>
             {
-                ["垒"] = 4, ["杜"] = 9, ["垚"] = 11, ["㙓"] = 13,
-            }), "DefenseBuff 的全集就是土系这四张护甲梯队字;新增载体时把它加进来一起钉");
+                ["垒"] = 20, ["堡"] = 28, ["杜"] = 55, ["垚"] = 75, ["㙓"] = 100,
+            }), "DefenseBuff 的全集就是土系这五张护甲梯队字;新增载体时把它加进来一起钉");
         }
 
         [Test]
@@ -227,15 +230,20 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_CardSideSkewerHasNoCarrier()
+        public void RealConfig_CardSideSkewerCarrier()
         {
-            // 2026-09-05:刺(字卡攻击面 Skewer,全表唯一载体)随字表调整移出,该形状在
-            // 字卡侧休眠 —— 枪 的召唤被动 Skewer 不受影响,仍由
-            // RealConfig_SummonPassiveChars_CarryTheirPassive 钉着;这里钉的是出字直接效果
-            // (Effects / AttackEffects)的 Shape 字段。钉住空集:哪天有新字接手,本条会红。
-            Assert.That(RealGraph().All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
-                    .Concat(c.AttackEffects ?? Array.Empty<EffectDef>()))
-                .Any(e => e.Shape == TargetShape.Skewer), Is.False, "字卡攻击面 Skewer 当前应无载体");
+            // ⚠ 方法名反转(2026-09-16,土水系机制重做,原 RealConfig_CardSideSkewerHasNoCarrier):
+            // 2026-09-05:刺(字卡攻击面 Skewer,原唯一载体)随字表调整移出,该形状在字卡侧
+            // 休眠了一批。2026-09-16 锥 破甲 → 贯穿(spec §7.4),接住 枪(召唤被动 Skewer,
+            // 同批移出字表)让出的形状语义 —— 字卡侧 Skewer 从此不再是空集,枪 的召唤被动
+            // Skewer 断言随枪一起从 RealConfig_SummonPassiveChars_CarryTheirPassive 删除。
+            var carriers = RealGraph().All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
+                    .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())
+                    .Where(e => e.Shape == TargetShape.Skewer).Select(e => c.Id))
+                .ToList();
+            Assert.That(carriers, Is.EquivalentTo(new[] { "锥" }), "字卡攻击面 Skewer 的全集就是 锥");
+            var zhui = RealGraph().Get("锥").Effects.First(e => e.Shape == TargetShape.Skewer);
+            Assert.That(zhui.ShapePercent, Is.EqualTo(70));
         }
 
         [Test]
@@ -265,11 +273,10 @@ namespace Brushblade.Core.Tests
                 ["藤"] = p => { Assert.That(p.OnHitFreezeChance, Is.EqualTo(10)); Assert.That(p.OnSummonFreeze, Is.EqualTo(0)); },
                 // 2026-09-07 字表重做 P2:锥/剑 都不再是召唤字 —— 锥 改蓝档单体攻击 + 破甲
                 // (design §6:「破甲链·蓝」),剑 改蓝档单体攻击 + 横扫(design §6:「横扫链·低」),
-                // 两条 SummonPassive.Shape 样本(Volley/Sweep)随之删去。全表现在唯一还在挂
-                // SummonPassive.Shape 的只剩 枪(Skewer)—— Volley/Sweep 作为**召唤被动**形状
-                // 暂时无载体(横扫本身作为**字卡攻击**形状仍在,剑 自己就是新样本,
-                // 见 RealConfig_ArmorBreakChars_CarryTheirPoints 一带的攻击面断言口径)。
-                ["枪"] = p => { Assert.That(p.Shape, Is.EqualTo(TargetShape.Skewer)); Assert.That(p.ShapePercent, Is.EqualTo(70)); },
+                // 两条 SummonPassive.Shape 样本(Volley/Sweep)随之删去。
+                // 2026-09-16(土水系机制重做,spec §7.1):枪(全表唯一还挂 SummonPassive.Shape
+                // 的字,Skewer)移出字表,召唤被动 Shape 自此无载体 —— 字卡攻击侧的 Skewer
+                // 由 锥 接住(见 RealConfig_CardSideSkewerCarrier),两条通道不是一回事。
             };
             foreach (var pair in expected)
             {
@@ -277,18 +284,14 @@ namespace Brushblade.Core.Tests
                 Assert.That(summon.Passive, Is.Not.Null, $"「{pair.Key}」应带被动");
                 pair.Value(summon.Passive);
             }
+            // 2026-09-16(土水系机制重做,spec §6):召唤被动 Shape 全表无载体,钉住空集。
+            Assert.That(graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>()))
+                .Where(e => e.Kind == EffectKind.Summon && e.Passive != null)
+                .Any(e => e.Passive.Shape != TargetShape.Single), Is.False,
+                "召唤被动 Shape 当前应无载体(枪 已移出字表)");
 
-            // 碉/堡(2026-08-25):与 荆 同型的纯反伤肉盾,攻 0、反弹 50%。
-            // 嘲讽只给 堡(蓝)与 荆(紫) —— 白档的 碉 拿不到全套坦克包。
-            // ⚠ 2026-09-02:曾因双方向重配把 Summon 搬进 AttackEffects,这里一度改读那一侧;
-            // 同日用户拍板「召唤字不做双方向」后又搬回 Effects,故恢复成与上面同源的读法。
-            var diaoSummon = graph.Get("碉").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(diaoSummon.Passive.Thorns, Is.EqualTo(50));
-            Assert.That(diaoSummon.Passive.Taunt, Is.False, "白档不给嘲讽");
-            var baoSummon = graph.Get("堡").Effects.First(e => e.Kind == EffectKind.Summon);
-            Assert.That(baoSummon.Passive.Thorns, Is.EqualTo(50));
-            Assert.That(baoSummon.Passive.Taunt, Is.True);
-
+            // 碉/堡(2026-09-16 土水系机制重做):土系交出召唤位,彻底改成 dual_s 双方向字,
+            // 不再是 Summon —— 与 荆 同型的纯反伤肉盾坦克包(碉/堡)随之整个作废,原断言删除。
             // 荆 的攻击力必须是 0:它的定位就是「靠挨打反伤输出」,给它补基础攻
             // 等于把这条设计悄悄抹平(2026-08-25 用户拍板)。
             var jingSummon = graph.Get("荆").Effects.First(e => e.Kind == EffectKind.Summon);
@@ -352,10 +355,12 @@ namespace Brushblade.Core.Tests
             // 「除 𣛧 外一律 1 只」的口径,见 rebalance_2026_09_05.py 的召唤只数注释)。
             var graph = RealGraph();
             var summon = graph.Get("桂").Effects.First(e => e.Kind == EffectKind.Summon);
-            // 2026-09-11(档位统一 G=1.468,T3):橙档召唤锚点 780/300 → 706/184(且旧表的「只数」列已并进单只体量),
-            // 桂 是 r=50% 的攻血转换字:血 =(706 + 184×3×0.5) ×(1 − 0.28)= 712。
-            // 光环盾**跟着血量走**(血量 × 15% 取整到 10 的倍数):712×0.15 → 110,+ 印记 20 = 130。
-            Assert.That(summon.SummonShield, Is.EqualTo(130), "光环盾 110 + 土系印记 20");
+            // 2026-09-16(土水系机制重做,spec §6):桂 退回木系(它本就是 2026-09-07 从
+            // 木系移入土系的),配方 木+圭 不变。木系没有「入场护盾」印记(那是土系印记,
+            // 随桂迁出一并作废,只免第 1 条被动的计价),桂 的盾量因此不再叠加土系印记的
+            // 20 点 —— 光环盾单独跟着血量走(血量 820 × 15% 取整到 10 的倍数 = 120)。
+            Assert.That(graph.Get("桂").Element, Is.EqualTo(Element.Wood), "退回木系");
+            Assert.That(summon.SummonShield, Is.EqualTo(120), "光环盾 = 血量 820 × 15%,不再叠加土系印记");
             Assert.That(summon.SummonCount, Is.EqualTo(1), "只数收归全系统一的 1 只");
             Assert.That(summon.Passive.Thorns, Is.EqualTo(50), "荆棘是 桂 的第二条特性");
         }
@@ -454,18 +459,23 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_DispelAndCleanseHaveNoCarrier()
+        public void RealConfig_DispelHasOneCarrier_CleanseHasNone()
         {
-            // ⚠ 方法名与断言方向都已改:原 RealConfig_DispelChars_CarryTheirCounts 钉的是
-            // 灭/湮 两张 Dispel(Value=-1 清全部)。2026-09-07 字表重做 P2 把「净化 + 驱散
-            // 并入封禁」(design §1.3.1,用户裁定「不保留净化」),灭/湮 现在挂的是
-            // Silence(封禁),Dispel/Cleanse 两个机制全表都没有载体了 —— 与
-            // RealConfig_BlindHasNoCarrier 等「机制休眠」测试同口径,钉住空集:
-            // 哪天有新字接手,这两条会红,提醒把数值/唯一性守卫加回来。
+            // ⚠ 方法名与断言方向已第二次改(原 RealConfig_DispelAndCleanseHaveNoCarrier):
+            // 原 RealConfig_DispelChars_CarryTheirCounts 钉的是 灭/湮 两张 Dispel(Value=-1
+            // 清全部)。2026-09-07 字表重做 P2 把「净化 + 驱散并入封禁」(design §1.3.1,
+            // 用户裁定「不保留净化」),灭/湮 现在挂的是 Silence(封禁),Dispel/Cleanse
+            // 两个机制全表都没有载体了。
+            // 2026-09-16(土水系机制重做):澡(紫)砍掉弹射,第二条特性改配「驱散1」
+            // (design 用户 2026-09-17 复核:紫档扛不住两条对偶,驱散1 是价目表里现成、
+            // 有真实引擎载体、且全表没人用过的最便宜档),挂在攻击面(目标是敌人)——
+            // Dispel 从此不再是空集,只有 Cleanse 仍然无载体。
             var graph = RealGraph();
+            var dispel = graph.Get("澡").AttackEffects.Single(e => e.Kind == EffectKind.Dispel);
+            Assert.That(dispel.Value, Is.EqualTo(1));
             Assert.That(graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Concat(c.AttackEffects ?? Array.Empty<EffectDef>()))
-                .Any(e => e.Kind == EffectKind.Dispel), Is.False, "Dispel 当前应无载体(并入封禁)");
+                .Count(e => e.Kind == EffectKind.Dispel), Is.EqualTo(1), "Dispel 当前只有 澡 一个载体");
             Assert.That(graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Concat(c.AttackEffects ?? Array.Empty<EffectDef>()))
                 .Any(e => e.Kind == EffectKind.Cleanse), Is.False, "Cleanse 当前应无载体(不保留净化)");
@@ -538,8 +548,10 @@ namespace Brushblade.Core.Tests
             {
                 // 2026-09-08(P4):海 的封禁按用户裁定换成弹射(接手 溃 卸下的那条),
                 // 封禁载体从六张减到五张。
-                ["灭"] = 1, ["湮"] = 1, ["淋"] = 2, ["沐"] = 1, ["澡"] = 1,
-            }), "封禁(Silence)的全集就是这五张字,连带各自的持续回合数");
+                // 2026-09-16(土水系机制重做,spec §7.3):灭(火·白)移出字表 —— 封禁已是
+                // 水系的标识机制(湮/澡/沐/淋 四张),火系不该再占一张,载体减到四张。
+                ["湮"] = 1, ["淋"] = 2, ["沐"] = 1, ["澡"] = 1,
+            }), "封禁(Silence)的全集就是这四张字,连带各自的持续回合数");
         }
 
         /// <summary>壁(2026-08-25 字表重构)接手 铸 移出后无载体的 Reflect。
@@ -563,12 +575,20 @@ namespace Brushblade.Core.Tests
             // PRICE['反伤30']=0.22、K[绿]=1.00)。不再是旧版「满值砍半」的说法。
             // 2026-09-11(档位统一 G=1.468,T3):绿档护盾锚点 70 → 66、单攻锚点 90 → 88,预算 0.22 不变:
             // 盾 66×0.65×0.78 = 33.5 → 33;攻 88×0.78 = 68.6 → 69。
-            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(33));
-            Assert.That(bi.AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle).Value,
-                Is.EqualTo(69), "同一条预算算式算出来的攻击面,不是另外「不动」");
+            // 2026-09-16(土水系机制重做):护盾列改按单攻列 1:1 定标(Task 11 §1①),绿档护盾
+            // 锚点从 66 提到与单攻同源的 88,预算 0.22 不变:盾 88×0.78 = 68.6 → 69,与攻击面
+            // 首次相等。攻击面同批补对偶「镇压」(spec §5,ArmorStrikePercent 30,对偶护盾面的
+            // 反弹 30%),但价目「反伤30+镇压30」合并计价 0.32,与旧价 0.22 不同,数值随之重算:
+            // 88×(1−0.32)=59.84→60。
+            Assert.That(bi.Effects.Single(e => e.Kind == EffectKind.Shield).Value, Is.EqualTo(60));
+            var biAttack = bi.AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle);
+            Assert.That(biAttack.Value, Is.EqualTo(60), "同一条预算算式算出来的攻击面,不是另外「不动」");
+            Assert.That(biAttack.ArmorStrikePercent, Is.EqualTo(30), "镇压是反弹的攻面对偶");
             // 2026-09-07 字表重做 P2:圭(金档,反伤50)也挂了 Reflect,反弹的载体从 1 → 2。
+            // 2026-09-16(土水系机制重做):塔(土·紫)从召唤字改双方向后,护盾面补了
+            // 「反伤50」(与攻面的镇压互为对偶,spec §5),反弹的载体从 2 → 3。
             Assert.That(RealGraph().All.Count(c => (c.Effects ?? Array.Empty<EffectDef>())
-                .Any(e => e.Kind == EffectKind.Reflect)), Is.EqualTo(2), "反弹当前是 壁/圭 两个载体");
+                .Any(e => e.Kind == EffectKind.Reflect)), Is.EqualTo(3), "反弹当前是 壁/圭/塔 三个载体");
         }
 
         /// <summary>剁 是全表唯一的多段字,数值走 spec §4.4(b) 的**多段补偿规则**
@@ -819,8 +839,11 @@ namespace Brushblade.Core.Tests
             // (60 − 4 + 1 = 57,与 spec 通篇说的「57 字」对上)。删的四字级联孤儿化了
             // 5 个部件(桤→岂→己、锐→兑、葬→死、浴→谷,浴/葬各自专属部件链只有一层),
             // 花 的配方(艹+化)带来 1 个新部件 化,部件 58 → 54(58 − 5 + 1 = 54)。
-            Assert.That(playable, Is.EqualTo(57));
-            Assert.That(components, Is.EqualTo(54));
+            // 2026-09-16(土水系机制重做 Task 12):再删 枪/灭 两字、不新增,可出牌字 57 → 55。
+            // 两字各自的专属部件(仓 服务 枪、一 服务 灭)随之孤儿化并从 chars.json 消失,
+            // 部件 54 → 52。
+            Assert.That(playable, Is.EqualTo(55));
+            Assert.That(components, Is.EqualTo(52));
         }
 
         /// <summary>叠字前置不因部件有了配方而收紧(spec §一列出的三个回归之一)。

@@ -85,9 +85,12 @@ def test_extract_pulls_60_implementable_chars():
     2026-09-05 字表调整:74 → 60,移出 17 字、新增 藻/箭/葬(spec docs/superpowers/specs/2026-09-05-字表调整-design.md)。
     2026-09-07 字表平衡重做 P2:60 → 57,移出 桤/浴/葬/锐 四字、新增 花(spec
     docs/superpowers/specs/2026-09-05-字表平衡重做-design.md §3 第 8 项)。
+    2026-09-16 土水系机制重做 Task 12:57 → 55,移出 枪(木·白·召唤,土系交出召唤位后
+    木系白档由 花 补位)/ 灭(火·白,封禁已是水系标识机制)两字,不新增(花 只是绿→白
+    换档,桂 只是土→木搬家,均非新增)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    assert len(values) == 57
+    assert len(values) == 55
     # 焚曾含木生火,配置表填基础值(引擎结算时 ×3);2026-08-25 升橙档:30(×3=90) → 40(×3=120)。
     # 2026-09-02:相生 ×3 取消,基础值改填等值改写后的实战值,40 → 120,战斗结果不变。
     # 2026-09-07(P2 Task 4a):补对灼烧(灼烧梯队·高),预算扣除 + DOT 当量扣除后 120 → 108。
@@ -119,10 +122,13 @@ def test_extract_heal_over_time_parses_turns_and_target_all():
     净化的另一载体)都改用 `Silence`,`DispelAll` 自此在真实字表里无载体、休眠 ——
     targetAll 括注解析的覆盖收窄到只剩 test_dispel_each_becomes_target_all 的手打字符串,
     这里删除对 灭 的 Dispel 断言,只保留 沐 那半(HealOverTime 的 turns 解析,不受影响)。
+
+    2026-09-16(土水系机制重做 Task 12):灭 移出字表(封禁已是水系标识机制),`Silence`
+    的 turns 解析覆盖改用 湮(水·紫,攻击面 `Silence 0`(turns 1),封禁语义与 灭 当年一致)。
     """
     values = extract(SPEC.read_text(encoding="utf-8"))
-    mie = next(e for e in values["灭"]["effects"] if e["kind"] == "Silence")
-    assert mie["turns"] == 1
+    yan = next(e for e in values["湮"]["attackEffects"] if e["kind"] == "Silence")
+    assert yan["turns"] == 1
 
     mu = next(e for e in values["沐"]["effects"] if e["kind"] == "HealOverTime")
     assert mu["turns"] == 3
@@ -470,9 +476,14 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     assert by_id["剑"]["effects"][0]["kind"] == "DamageSingle", "剑 已改攻击字,不再是 Summon"
     assert by_id["剑"]["effects"][0]["shape"] == "Sweep"
     assert by_id["剑"]["effects"][0]["shapePercent"] == 50
-    assert by_id["枪"]["effects"][0]["passive"] == {"shape": "Skewer", "shapePercent": 70}
+    # 2026-09-16(土水系机制重做 Task 12):枪(唯一的召唤被动 Skewer 载体)移出字表,
+    # 召唤侧的 Skewer 通道自此无载体、休眠;贯穿这个形状语义转移给 锥(攻击侧,见下一断言)。
+    assert "枪" not in by_id, "枪 已移出字表(spec §7.1)"
     assert by_id["锥"]["effects"][0]["kind"] == "DamageSingle", "锥 已改攻击字,不再是 Summon"
     assert "passive" not in by_id["锥"]["effects"][0]
+    # 2026-09-16(土水系机制重做):锥 破甲 → 贯穿(spec §7.4),攻击侧接住 枪 让出的 Skewer 形状。
+    assert by_id["锥"]["effects"][0]["shape"] == "Skewer"
+    assert by_id["锥"]["effects"][0]["shapePercent"] == 70
     assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
 
     # 条件加成(2026-08-25 由 doubleVsBurning 泛化)
@@ -481,11 +492,14 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # 2026-09-05:灼 移出字表,DoubleVsBurning 自此无载体(spec §1.3),四个收割位缺一个。
     # 2026-09-07(P2 Task 4a):按 spec §6 全表补齐一批条件加成 —— 对灼烧(炎/烈/焚/燚)、
     # 对控制(㵘/淼/湮,冰 已有)、对破甲(圭/𨰻,垚 已有)。
+    # 2026-09-16(土水系机制重做):垚 的第二条特性由「对破甲」(DoubleVsArmorBroken,吃破甲)
+    # 订正为「破甲」(ArmorBreak,施加破甲,与 碎/鍂/𨰻 组成同一条破甲点数梯队,spec §1.4③
+    # 的机制订正,不只是数值)——垚 自此不再产出 doubleVs,从期望字典里删除。
     from export_chars import PUA_PROXY
     assert {c["id"]: e["doubleVs"] for c in shipped["chars"]
             for e in c.get("effects", []) + c.get("attackEffects", [])
             if e.get("doubleVs")} == {
-        "铡": "Bleeding", "冰": "Controlled", "垚": "ArmorBroken",
+        "铡": "Bleeding", "冰": "Controlled",
         "㵘": "Controlled", "淼": "Controlled", "湮": "Controlled", "圭": "ArmorBroken",
         "炎": "Burning", "烈": "Burning", "焚": "Burning", "燚": "Burning",
         PUA_PROXY["𨰻"]: "ArmorBroken"}
@@ -505,10 +519,11 @@ def test_component_entries_are_flagged():
 
 
 def test_real_table_flags_every_component():
-    """实船字表:57 个可出牌字都不带 component,其余全部带(2026-09-07 P2:60 → 57)。"""
+    """实船字表:55 个可出牌字都不带 component,其余全部带(2026-09-07 P2:60 → 57;
+    2026-09-16 土水系机制重做 Task 12:57 → 55,移出 枪/灭)。"""
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = {c["id"] for c in chars if "effects" in c}
-    assert len(playable) == 57
+    assert len(playable) == 55
     for c in chars:
         if c["id"] in playable:
             assert "component" not in c, f"{c['id']} 是可出牌字,不该带 component"
@@ -588,10 +603,14 @@ def test_real_table_entry_count():
     # 岂/己 服务 桤、死 服务 葬、谷 服务 浴),新增的 花 带来 1 个新部件(化,
     # 亻+匕,无五行属性)。净变化:58 − 5 + 1 = 54。
     # 总条目 118 − 4 − 5 + 1 + 1 = 111(57 字 + 54 部件)。
+    #
+    # 2026-09-16(土水系机制重做 Task 12):57 → 55(移出 枪/灭,不新增),部件 54 → 52。
+    # 移出的 2 字级联带走 2 个失去唯一引用的部件(仓 服务 枪、一 服务 灭)。
+    # 净变化:54 − 2 = 52。总条目 111 − 2 − 2 = 107(55 字 + 52 部件)。
     chars = json.loads(CHARS_JSON.read_text(encoding="utf-8"))["chars"]
     playable = [c for c in chars if "effects" in c]
-    assert len(playable) == 57
-    assert len(chars) == 111, "57 字 + 54 部件"
+    assert len(playable) == 55
+    assert len(chars) == 107, "55 字 + 52 部件"
 
 
 def _shipped():
