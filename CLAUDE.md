@@ -27,9 +27,10 @@
 ## 测试与验证(先测试后实现,TDD)
 
 ```bash
-# 管线(pytest)。⚠ 三个目录都要跑:漏掉 tools/icons/ 会让「手写了一张 PNG、
-# 绕过整条 SVG→PNG 管线」这种改法全绿通过(2026-09-04 栽过一次)
-python3 -m pytest tools/pipeline/tests/ tools/fonts/tests/ tools/icons/tests/ -q
+# 管线(pytest)。⚠ 四个目录都要跑:漏掉 tools/icons/ 会让「手写了一张 PNG、
+# 绕过整条 SVG→PNG 管线」这种改法全绿通过(2026-09-04 栽过一次);漏掉 tools/design/
+# 就看不到数值脚本(rebalance_2026_09_05.py)与 chars.json 的对账测试
+python3 -m pytest tools/pipeline/tests/ tools/fonts/tests/ tools/icons/tests/ tools/design/tests/ -q
 
 # Core/Data 单元测试(首选,不依赖编辑器锁,毫秒级;用 Unity 自带 dotnet SDK)
 cd tools/coretests && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet test --nologo -v q
