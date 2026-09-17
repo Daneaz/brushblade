@@ -15,130 +15,29 @@ namespace Brushblade.Balance
         private const int StallTurns = 60;
         private const int DepthCap = 300;
 
-        // 三画像共享的"火系"卡池(2026-08-04):补 UnlockedChars 时用它兜底——见下方
-        // ClimbUntilDeath 里的说明。
-        // 2026-08-10(task-6 二轮):追加 炑/燥/灱——此前这三个新字不在这张表里,导致回合掉字
-        // (StartTurn 只从 UnlockedChars 抽)、合成(Compose 同样锁 UnlockedChars)都摸不到它们,
-        // 仿真对火系 DOT 三分化完全没有判别力(见 task-6-report.md 第二节)。燃/炽 已经在表里,
-        // 不用重复加。真实游戏的战利品池 = 玩家已解锁卡池(enemies.json 的 endless.rewardPool
-        // 是 v0.7 前的废弃字段,不该填),所以这里直接扩这张"画像卡池表",不动游戏配置。
-        // ⚠ 2026-08-12:原表里的「灯」是个幽灵 —— ids.txt 有它的拆解,但《技能机制详表》
-        // 里根本没有它这一行,管线从没产出过它,进不了 RecipeGraph。而它当时正是「新手」
-        // 画像的**唯一**起手字,于是那一档量的是空手打(只能靠回合掉部件 + 兜底一击),
-        // 与画像名声称的东西无关。换成 灼(白档,单攻 60,对灼烧目标翻倍)。
-        // ⚠ 2026-08-12(E-b4 T5,spec §10.5):追加 锐 —— 不扩这张表就又重演 E-a 的
-        // 「工装看不见新字」。锐 是金系而这三档画像是火系,故它是这张表里唯一的异色字:
-        // 表的语义是「画像的已解锁卡池」,真实卡池本来就可以混色。
-        // ⚠ 2026-09-07 字表重做 P2:锐 随字表删除,PierceBuff 全表归零载体(见
-        // task-4b 报告「PierceBuff 死分支」一节)—— 这个探针原本要守的机制本身没了,
-        // 不必再找字延续。但**异色字防回归**这件事本身仍然值得留 —— 那是 T5 真踩过的坑
-        // (三档画像分别真实出牌 332/352/427 次)。换成本批新增的 花(木系/绿档,
-        // DamageSingle 54 + Charm):既是异色字,又顺带验证「新字能被工装看见」这件事本身
-        // ——花 是这一批唯一的新增字,选它当异色探针比选一张老字更贴合「防回归」的初衷。
-        // Power() 的 DamageSingle/Charm 两条分支都已有记分(Charm 固定 60,魅惑注释见 Power()),
-        // 不需要再补新分支。
-        //
-        // 兑 **不加**:它是部件不是字,而 StartTurn 的回合掉字明确只掉字
-        // (「五行部件只能靠拆字获得」,BattleEngine.cs:984),把叶子塞进 UnlockedChars
-        // 等于给工装造一条生产里不存在的获取路径。兑 本身也已随 锐 一并从 chars.json 移出。
-        private static readonly string[] FireCards =
-        // ⚠ 2026-08-25 字表重构:整表按现行火系 16 字重列。原表里 燃 自 2026-08-14 起
-        // 就是幽灵字(那批裁定把它移出了详表,而这张表没跟着改),炽/炑/灱 则随本次重构移出 ——
-        // 幽灵字进不了 RecipeGraph,机器人永远摸不到,等于那几档观测点是空的
-        // (与上面「灯」那次同型的坑,已第二次踩)。
-        // 2026-09-05 字表调整:灼/焦/烧/熣 本批移出(BurnNoDecay/DoubleVsBurning/Blind 随之休眠)。
-        // 2026-09-16(土水系机制重做):灭 移出字表(封禁已是水系标识机制),白档位置由 热 顶替,
-        // 从下表删去(热 本来就在表里,不用重复加)。
-            { "热", "爆", "炸", "燥", "烈", "蒸", "炎", "灿", "焚", "焱", "燚", "花" };
+        /// <summary>画像统一的养成档:卡 5 级、角色 10 级(沿用 2026-09 系列画像的中段养成口径)。</summary>
+        private const int CardLevel = 5;
+        private const int CharacterLevel = 10;
 
-        /// <summary>水系卡池表(2026-09-02 双方向对照组)。15 张实体字全列 ——
-        /// 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars),那一档观测点就是空的。
-        /// 从 chars.json 现读核对过,与 task-13-brief 给的表逐字一致。
-        /// 2026-09-05 字表调整:沏/沝/淡 本批移出,不补新字(水系本批未新增)。
-        /// 2026-09-07 字表重做 P2:浴 本批移出,同口径不补新字(水系本批也未新增)。</summary>
-        private static readonly string[] WaterCards =
-            { "溃", "冻", "海", "冷", "湮", "澡", "冰", "沐", "淼", "淋", "㵘" };
+        /// <summary>起手抽卡的五行顺序,与 <c>MetaRules.StartingElements</c> 一致。</summary>
+        private static readonly Element[] Elements =
+            { Element.Metal, Element.Wood, Element.Water, Element.Fire, Element.Earth };
 
-        /// <summary>土系卡池表(2026-09-02)。同上核对过,与 brief 一致。
-        /// 2026-09-05 字表调整:砸/碾 本批移出(Sweep/Cleave 攻击形状随之休眠)。
-        /// 2026-09-07 字表重做 P2:桂 从木系移入土系(design §6:「移入土系;入场护盾=
-        /// 土系印记」),12 张实体字全列。
-        /// 2026-09-16(土水系机制重做):桂 退回木系(见 WoodCards),从下表删去,土系恢复
-        /// 11 张实体字(碉/堡/塔 三张同批彻底脱离召唤形态,改成与其余字同款的护盾/攻击
-        /// 双方向字)。</summary>
-        private static readonly string[] EarthCards =
-            { "碉", "垒", "壁", "崩", "堡", "碎", "塔", "圭", "杜", "垚", "㙓" };
+        private static readonly Dictionary<Element, string> ElementName = new()
+        {
+            [Element.Metal] = "金", [Element.Wood] = "木", [Element.Water] = "水",
+            [Element.Fire] = "火", [Element.Earth] = "土",
+        };
 
-        /// <summary>土系「有护盾面」子集(2026-09-06,P0 收尾复核 —— 给下面「木土混色」
-        /// 画像专用)。2026-09-02~2026-09-11 曾排除 `塔`/`碉`/`堡`/`桂` —— 那四字当时
-        /// effects[].kind 都是 Summon,不产生护盾。
-        /// 2026-09-16(土水系机制重做):塔/碉/堡 彻底改成双方向字(护盾/攻击),同批全部带
-        /// 真实的 Shield/ShieldAll——桂 退回木系(见 EarthCards),已不在 <see cref="EarthCards"/>
-        /// 里。<see cref="EarthCards"/> 现在**每一张**都带护盾面,这份子集与全集重合,
-        /// 直接等于 EarthCards。</summary>
-        private static readonly string[] EarthShieldCards = EarthCards;
-
-        /// <summary>木系卡池表(2026-09-05):召唤流此前在仿真里**一个观测点都没有**,
-        /// 而「木系每只召唤物必带被动」「召唤物攻击吃战意+厚」两条改动都落在这一系上。
-        /// 实体字全列 —— 漏掉的字机器人摸不到(回合掉字与合成都锁 UnlockedChars)。
-        /// 2026-09-07 字表重做 P2:葬/桤 本批移出;桂 移入土系(见 EarthCards),从下表删去;
-        /// 花 是本批新增的木系字,补进来。11 张。
-        /// 2026-09-16(土水系机制重做):枪(木·白·召唤)移出字表,土系交出召唤位后 桂
-        /// 退回木系(见 EarthCards 的说明)顶上,实体字仍是 11 张。</summary>
-        private static readonly string[] WoodCards =
-            { "藤", "箭", "楸", "荆", "林", "柘", "森", "桂", "藻", "花", "\ue625" };
-
-        /// <summary>木系「召唤且攻击非 0」子集(2026-09-06,P0 收尾复核 —— 给下面「木土混色」
-        /// 画像专用)。从 <see cref="WoodCards"/> 里排除三类字,已用 chars.json 逐字核过
-        /// effects[].kind / attack 字段:
-        /// - `花`(atk 形态,DamageSingle + Charm)—— 不是召唤字,混进来测不到「厚放大召唤物
-        ///   攻击」这条链路;
-        /// - `荆`/`柘`(Summon,attack 0)—— 2026-09-07 字表重做 P2 后 柘 也变成了
-        ///   attack 恒 0 的纯肉盾(荆棘 + 嘲讽,design §6:tank=100,与 荆 同型),厚把 0
-        ///   乘多少倍还是 0,留着会被「不动」稀释读数。
-        /// - `箭` 2026-09-07 之前是伤害字(不在这份子集),4a 已把它改成召唤字(design §6:
-        ///   「降蓝档补木系空缺;召唤·远程」)—— 现在**应该**进这份子集,注释与代码一起补上,
-        ///   这是「注释与代码同时过时」的一个例子。
-        /// 2026-09-16(土水系机制重做):枪 移出字表(从下表删去),桂 退回木系补上 ——
-        /// 桂 是 Summon 且 attack 54(&gt; 0,半肉光环位,不是纯肉盾),满足这份子集的判据。
-        /// 剩下 8 字全部是 Summon 且 attack &gt; 0:藤(28)/箭(41)/楸(48)/林(73)/森(97)/
-        /// 藻(115)/𣛧(146)/桂(54)。</summary>
-        private static readonly string[] WoodSummonCards =
-            { "藤", "箭", "楸", "林", "森", "藻", "\ue625", "桂" };
-
-        // ---- 阳性对照探针(spec §10.5,2026-08-12 E-b4/E-b5 T7)----
-        // 这两张卡组**不是平衡目标,是仪器的自检**:先让工装证明它能看见 DEF,再用它读数。
-        // 判据只有一条:探针按预期方向动了。P50 的绝对值不是通过/失败判据。
-
-        /// <summary>探针的起爬深度 = 词渊段首。带甲小怪墨渍(DEF 31)只在 11 层起的池子里。</summary>
-        private const int ProbeStartDepth = 11;
-
-        // 2026-09-05:铠 移出字表,点数护甲无载体,护甲画像随之下线。重新装配 DefenseBuff 时恢复。
-
-        /// <summary>AOE 专精:全 DamageAll 且**不带任何附加效果**的字。
-        /// 刻意避开 燚/焱/㵘 这类「AOE + 灼烧/治疗」的复合字 —— 混进 DOT 就分不清读数的变化
-        /// 来自点数 DEF 的 N 倍惩罚还是来自灼烧,那又是一个「没变化 = 测不出来」的位置。
+        /// <summary>某系全部**可出牌字**,从 chars.json 现读(2026-09-17 画像重做)。
         ///
-        /// ⚠⚠ **这档探针是「因为错误的原因通过的」,T8 不得拿它校准 AOE 轴。**
-        /// 它满足 spec §10.5 写的方向(P50 低于对照),但 2026-08-13 实测变异
-        /// (墨渍 DEF 31 → 0;这个读数是 2026-09-16 护甲百分比化**之前**测的,未重测)
-        /// 只让它从 12.4 动到 12.6 —— 与对照那 ~2 层的差距**主要来自
-        /// 字表数值**(AOE 池 50~70 vs 火系 炎 200 / 燚 300),点数 DEF 的 N 倍惩罚
-        /// 只值约 **0.2 层**,淹没在噪声里。
-        ///
-        /// 换句话说:它测的是「AOE 字比单体字弱」,不是「点数 DEF 惩罚 AOE」。
-        /// 要真正观测后者,需要一档**数值对齐的单体对照**(同基础值、同稀有度、单体 vs 群体),
-        /// 现有字表凑不出来 —— 那是 T8 抬 AOE 数值时要顺带补的。
-        /// 留着它是因为删了就连 0.2 层的观测点都没有,但**它的绿不构成任何证据**。</summary>
-        // 2026-08-25 字表重构:淹 早已是幽灵字,洪/涛 随本次移出;纯 DamageAll 只剩 海/崩。
-        // 2026-09-11:金系此前**一个卡池都没有**,于是「战意」这条轴在全部画像里都没有
-        // 观测点 —— 战意是金系独占(全 11 张金系字都挂 Morale,已用 chars.json 核过),
-        // 而此前的画像只有火/水/土/木四系。下面三条混色画像要用它。
-        private static readonly string[] MetalCards =
-            { "利", "锋", "剑", "锥", "剿", "铡", "剁", "鍂", "鑫", "刲", "\ue626" };
-
-        private static readonly string[] AoeCards =
-            { "爆", "海", "崩", "剿" };
+        /// ⚠ 为什么不再写死字名表:旧的 FireCards/WaterCards/… 每次字表调整都要手改,
+        /// 漏改就成幽灵字 —— 「灯」(2026-08-12)、「燃」(2026-08-25)两次都是这样当了半个月空观测点,
+        /// 而且写死的表只能在当前字表上跑,拿不到改动前的基线做对比。
+        /// 判据与 CharTableTests 的「可出牌字」同口径:有效果即是字,部件没有效果。</summary>
+        private static List<string> CardsOf(RecipeGraph graph, params Element[] elements) =>
+            graph.All.Where(d => d.Effects.Count > 0 && !d.IsComponent && d.Element is { } el && elements.Contains(el))
+                .Select(d => d.Id).ToList();
 
         public static void Main()
         {
@@ -148,146 +47,27 @@ namespace Brushblade.Balance
             var campaign = ConfigLoader.LoadCampaign(File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
             var endless = campaign.Endless ?? throw new InvalidOperationException("enemies.json 缺少 endless 段");
 
-            var profiles = new[]
-            {
-                // 四条角色属性一律由**同一个角色等级**派生(2026-08-11 E-b1 起攻击、
-                // 2026-08-12 E-b4 T4 起 DEF 与闪避):画像的等级此前只体现在血量上,
-                // 其余恒为基准 —— 那会让 E-b5 重平衡看不见这些成长轴。等级只传一次,
-                // 从此不会出现「等级涨了但某条属性忘了跟着涨」。
-                // 2026-09-05 字表调整:灼/烧 本批移出,起手牌换成 灭/灿(见 FireCards 同批注释)。
-                // 2026-09-16(土水系机制重做):灭 移出字表,起手牌换成 热(白档顶替 灭 的
-                // 位置,见 FireCards 同批注释)。
-                new Profile("新手(热,1级,HP500,ATK100,DEF0,闪0)", new[] { "热" },
-                    new Dictionary<string, int>(), level: 1),
-                new Profile("小成长(热炎爆灿,卡3级,3级,HP540,ATK104,DEF1,闪2)", new[] { "热", "炎", "爆", "灿" },
-                    FireCards.ToDictionary(c => c, _ => 3), level: 3),
-                new Profile("养成(焚炎灿燚,卡5级,10级,HP680,ATK118,DEF4,闪9)", new[] { "焚", "炎", "灿", "燚" },
-                    FireCards.ToDictionary(c => c, _ => 5), level: 10),
+            // 画像三组(2026-09-17 用户拍板重做,取代此前手挑起手字的 16 档):
+            //   1. 单系 ×5 —— 基线,不是核心评估;
+            //   2. 木 + 其余四系 ×4 —— 木系是字表里唯一的召唤(前排拦截)来源,
+            //      这一组量「别的系配上前排」各自能到哪;
+            //   3. 五系混合 —— 核心评估点,起手照搬游戏真实逻辑(MetaRules.StartingLibrary)。
+            // 三组的起手都是 6 张、每个种子各抽一次,牌数与稀有度分布一致,读数可以横向比。
+            var profiles = new List<Profile>();
+            foreach (var e in Elements)
+                profiles.Add(new Profile($"单系·{ElementName[e]}", CardsOf(graph, e),
+                    Enumerable.Repeat(e, 5).Select(x => new[] { x }).ToArray()));
+            foreach (var e in Elements.Where(x => x != Element.Wood))
+                profiles.Add(new Profile($"木混·木{ElementName[e]}", CardsOf(graph, Element.Wood, e),
+                    new[] { new[] { Element.Wood }, new[] { e }, new[] { Element.Wood }, new[] { e },
+                            new[] { Element.Wood, e } }));
+            profiles.Add(new Profile("五系随机(核心)", CardsOf(graph, Elements), slots: null));
 
-                // ---- 探针(spec §10.5)。等级/卡等级/起爬深度与上面基线相同,只换起手牌与卡组 ----
-                // ⚠ 对照这一档是**仪器的一部分**,不是第四个平衡目标:上面三档基线全部从 1 层起爬、
-                // 实测「带甲战/次」是 0.0/0.0/0.1 —— 拿它当参照物,AOE 探针的方向才判得起。
-                // 2026-09-05:「探针·土系堆甲」随 ArmorCards/ArmorHand 一并下线(见上方护甲字注释)。
-                new Profile("探针·对照(火系,深启11)", new[] { "焚", "炎", "灿", "燚" },
-                    FireCards.ToDictionary(c => c, _ => 5), level: 10, startDepth: ProbeStartDepth),
-                new Profile("探针·AOE专精(全 DamageAll,深启11)", new[] { "爆", "海", "崩", "剿" },
-                    AoeCards.ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: AoeCards, startDepth: ProbeStartDepth),
-
-                // 2026-09-02 双方向对照组:不加这两档就没有任何观测点能看见水/土的改动。
-                // ⚠ ownedCards 必须显式传各自的卡池表 —— Profile.OwnedCards 缺省落回 FireCards
-                // (回合掉字 + 合成锁都读它),漏传会重演「幽灵字/摸不到」那个坑,
-                // 只是这次是摸到了错误系的字。
-                new Profile("水系双方向(冻冰淼㵘,卡5级,10级)", new[] { "冻", "冰", "淼", "㵘" },
-                    WaterCards.ToDictionary(c => c, _ => 5), level: 10, ownedCards: WaterCards),
-                new Profile("土系双方向(垒圭垚㙓,卡5级,10级)", new[] { "垒", "圭", "垚", "㙓" },
-                    EarthCards.ToDictionary(c => c, _ => 5), level: 10, ownedCards: EarthCards),
-
-                // 2026-09-05 召唤流基线:定「召唤物基础攻」要先知道木系现在站在哪。
-                // 与水/土两档同参数(卡5级/10级/1层起爬),四系读数才可比。
-                // 2026-09-07 字表重做 P2:柘 从「攻 45」变成了「attack 恒 0」的纯肉盾
-                // (荆棘+嘲讽,design §6 tank=100,与 荆 同型)——起手换成同为 Summon 且
-                // attack > 0 的 森(Orange),桂 已移入土系(见 EarthCards),不再属于木系。
-                new Profile("木系召唤(林森藻𣛧,卡5级,10级)", new[] { "林", "森", "藻", "\ue625" },
-                    WoodCards.ToDictionary(c => c, _ => 5), level: 10, ownedCards: WoodCards),
-
-                // 2026-09-05(P0 收尾):召唤物接战意+厚之后,纯木系卡组几乎不涨——
-                // 因为纯木里既没有金系攻击字(战意来源)也没有土系护盾字(厚来源)。
-                // 涨的是混色,而混色此前一个观测点都没有(计划「P0 收尾验收」待办)。
-                //
-                // ⚠ 2026-09-06 订正:起手牌原写 柘/圭/垚/㙓——后三字与「土系双方向」画像的
-                // 起手三字完全重复,那一档实质是「土系 + 一张木字」,测不到「厚放大召唤物攻击」
-                // 这条协同链路(读数因此贴着纯土系,而不是介于两者之间偏协同)。改为木系召唤字
-                // (攻击非 0)+ 土系护盾字(会攒厚)各半:
-                // ⚠ 2026-09-07 字表重做 P2 订正:柘 也变成了 attack 恒 0 的纯肉盾(同 荆),
-                // 不再满足「攻击非 0」这条选字标准(见上面 WoodSummonCards 的类文档),换成
-                // 同为 Gold 档、attack > 0 的 林;垚 也换配对档位对齐的 森(Orange 配 Orange),
-                // 木侧 林(Gold,攻106)/森(Orange,攻158)——都是 Summon 且 attack > 0;
-                // 土侧 圭(Gold,Shield 119)/垚(Orange,Shield 149)——都是 Shield 效果、会攒厚。
-                // 四字均已用 chars.json 核过 effects[].kind 与 attack 字段,不是凭名字猜的。
-                //
-                // 卡池收窄成 WoodSummonCards(8 字)+ EarthShieldCards(8 字)= 16 张,
-                // 而不是 WoodCards/EarthCards 两张全表拼接——全表拼接会把没被测的
-                // 非召唤字(花)、攻 0 召唤字(荆/柘)、纯召唤不攒厚字(塔/碉/堡/桂)也混进
-                // 抽卡池,稀释「摸到厚的来源 / 摸到会被厚放大的召唤字」的概率;但也不收窄到
-                // 只剩起手那 4 张——那会把「一局里能不能连续摸到厚的来源」这个本身要观测的
-                // 东西直接消掉,变成另一种失真。两张子集互不相交,ToDictionary 合并不会因
-                // 重复 key 抛 ArgumentException。
-                new Profile("木土混色(林森圭垚,卡5级,10级)", new[] { "林", "森", "圭", "垚" },
-                    WoodSummonCards.Concat(EarthShieldCards).ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: WoodSummonCards.Concat(EarthShieldCards).ToArray()),
-                // ---- 多系混色(2026-09-11 用户裁定:「仿真要搞多系混合的,不要单看一个系」)----
-                // ⚠ 这三条不是补充观测点,是**把仪器校回真实**:起手抽卡本来就是
-                // 「金/木/水/火/土 各一张 + 最高档保底一张」(MetaRules.StartingLibrary),
-                // 真实牌组**永远是混色的**。上面那批单系画像反而是全表最不真实的构型 ——
-                // 拿单系读数下「某系超模」的结论,量的是一个玩家碰不到的局面。
-                //
-                // ⚠ 卡池拼接一律走 Distinct():FireCards 里混着异色探针字「花」
-                // (见 FireCards 的 2026-09-07 注释),它同时在 WoodCards 里,
-                // 不去重会让 ToDictionary 因重复 key 抛 ArgumentException。
-
-                // 五系均衡 = 每系一张金档字,卡池是五系全表。这是最贴近真实牌组的一条,
-                // 读数该当作**基线**看,而不是又一个探针。
-                new Profile("五系均衡(鍂林冰灿圭,卡5级,10级)", new[] { "鍂", "林", "冰", "灿", "圭" },
-                    MetalCards.Concat(WoodCards).Concat(WaterCards).Concat(FireCards).Concat(EarthCards)
-                        .Distinct().ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: MetalCards.Concat(WoodCards).Concat(WaterCards)
-                        .Concat(FireCards).Concat(EarthCards).Distinct().ToArray()),
-
-                // 金土(战意 + 厚):战意放大攻击、厚放大防御,两条资源轴都在,
-                // 且都只在混色里才凑得齐 —— 纯金没有厚的来源,纯土没有战意的来源。
-                //
-                // ⚠ 2026-09-11 订正:卡池原写 EarthShieldCards(垒壁崩碎圭杜垚㙓),
-                // 那张子集**刻意排除了土系全部召唤字**(塔/碉/堡/桂)。于是这一档实际量的是
-                // 「金 + 土盾、**全场零拦截**」,而不是「金土混色」—— 读数 13.4 比纯土系的
-                // 19.4 还低 6 层,一大半是这个卡池artifact,不是金系本身弱。
-                // 前排召唤物对近战是硬拦截(Targeting.PickAllyTarget),是这个模型里最强的
-                // 减伤手段,把它整类排除等于给这一档单独调了难度。改用 EarthCards 全表。
-                new Profile("金土混色·战意+厚(鍂剁圭垚,卡5级,10级)", new[] { "鍂", "剁", "圭", "垚" },
-                    MetalCards.Concat(EarthCards).ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: MetalCards.Concat(EarthCards).ToArray()),
-
-                // 金木(战意 + 拦截):2026-09-11 新增。上面两条金系画像的搭档(土盾/水疗)
-                // 都不提供拦截,于是「金系弱」与「这两个组合弱」分不开。木系是拦截的主要载体,
-                // 这一档就是那个判别式 —— 若金木回到 20 以上,说明金系需要的是拦截搭档,
-                // 而不是把它自己的数值抬上去。
-                new Profile("金木混色·战意+拦截(鍂剁林森,卡5级,10级)", new[] { "鍂", "剁", "林", "森" },
-                    MetalCards.Concat(WoodCards).ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: MetalCards.Concat(WoodCards).ToArray()),
-
-                // 金水(战意 + 泉):泉放大治疗。与金土那条配对,用来分辨
-                // 「混色的收益来自资源轴协同」还是「只是牌池大了摸得更顺」。
-                new Profile("金水混色·战意+泉(鍂剁冰淼,卡5级,10级)", new[] { "鍂", "剁", "冰", "淼" },
-                    MetalCards.Concat(WaterCards).ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: MetalCards.Concat(WaterCards).ToArray()),
-
-                // 水木 / 火木(2026-09-11):补齐水与火的「带拦截搭档」读数。
-                // 与金木那条同一个判别式 —— 此前水/火只有**纯单系**画像(水系双方向、
-                // 火系养成),而纯单系正是玩家碰不到的构型(起手强制五行各一)。
-                // 不补这两条,「水/火弱」与「纯单系构型弱」就分不开,
-                // 金土那次(13.4 → 17.0)已经栽过一回。
-                new Profile("水木混色·泉+拦截(冰淼林森,卡5级,10级)", new[] { "冰", "淼", "林", "森" },
-                    WaterCards.Concat(WoodCards).ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: WaterCards.Concat(WoodCards).ToArray()),
-
-                // ⚠ FireCards 里混着异色探针字「花」,它也在 WoodCards 里 —— 必须 Distinct(),
-                // 否则 ToDictionary 因重复 key 抛 ArgumentException(五系均衡那条同理)。
-                new Profile("火木混色·灼烧+拦截(灿焚林森,卡5级,10级)", new[] { "灿", "焚", "林", "森" },
-                    FireCards.Concat(WoodCards).Distinct().ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: FireCards.Concat(WoodCards).Distinct().ToArray()),
-
-                // 水火(两个都没有拦截的系配在一起):用来钉死「拦截才是变量」这条 ——
-                // 若它落在全表最低,那么「某系弱」的真正内容就是「这一组没有拦截」。
-                new Profile("水火混色·无拦截(冰淼灿焚,卡5级,10级)", new[] { "冰", "淼", "灿", "焚" },
-                    WaterCards.Concat(FireCards).ToDictionary(c => c, _ => 5), level: 10,
-                    ownedCards: WaterCards.Concat(FireCards).ToArray()),
-            };
-
-
-            Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子\n");
+            Console.WriteLine($"scalePerDepth={endless.ScalePerDepth} bossBonus={endless.BossScaleBonus} × {Seeds} 种子"
+                + $" · 卡 {CardLevel} 级 · 角色 {CharacterLevel} 级 · 起手 6 张随机\n");
             // 末两列是**机器人自检**,不是平衡指标(见 BotProbe):攻面出字恒 0 = 双方向字
             // 的攻面又断了;僵局判死高企 = 机器人打不死人、靠 60 回合上限判死收场。
-            Console.WriteLine("| 画像 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) | 带甲战/次 | 带甲多怪战/次 | 攻面出字/局 | 僵局判死/300 |");
+            Console.WriteLine("| 画像 | 卡池 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/300 |");
             Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var profile in profiles)
                 SimulateProfile(graph, campaign, endless, profile);
@@ -296,43 +76,49 @@ namespace Brushblade.Balance
         private sealed class Profile
         {
             public string Name;
-            public IReadOnlyList<string> Library;
-            /// <summary>已解锁卡池 = BattleConfig.UnlockedChars:回合掉字的抽取源,同时锁死合成目标
-            /// (2026-07-20)。此前写死成 <see cref="FireCards"/> —— 那样探针画像的起手字会被掉字
-            /// 一路稀释成火系,量到的根本不是它声称的那套卡池。</summary>
+            /// <summary>已解锁卡池 = BattleConfig.UnlockedChars = 战后奖励池:回合掉字的抽取源,
+            /// 同时锁死合成目标(2026-07-20)。</summary>
             public IReadOnlyList<string> OwnedCards;
             public Dictionary<string, int> CardLevels;
+            /// <summary>起手前 5 张每张从哪几系里加权抽;第 6 张固定从卡池最高档保底。
+            /// null = 五系混合,直接走 <c>MetaRules.StartingLibrary</c>(游戏真实逻辑)。</summary>
+            public Element[][] Slots;
             public int MaxHp;
             public int Attack;
             public int Defense;
             public int Dodge;
-            /// <summary>起爬深度。三档基线一律从 1 起(它们量的是「一个号能爬多深」);
-            /// 探针从 11 起(词渊段首)—— 唯一带甲的小怪墨渍只在 11 层起的池子里,
-            /// 从 1 层起爬的画像**根本走不到那里**(实测三档基线的「带甲战/次」是 0.0/0.0/0.1)。
-            /// 探针量的不是「能爬多深」而是「某条机制在不在」,所以直接空投到有甲的水域。</summary>
-            public int StartDepth;
-            public Profile(string name, IReadOnlyList<string> library, Dictionary<string, int> cardLevels,
-                int level, IReadOnlyList<string> ownedCards = null, int startDepth = 1)
+            public Profile(string name, IReadOnlyList<string> ownedCards, Element[][] slots)
             {
-                Name = name; Library = library; CardLevels = cardLevels; OwnedCards = ownedCards ?? FireCards;
-                StartDepth = startDepth;
-                MaxHp = MetaRules.MaxHpFor(level);
-                Attack = MetaRules.AttackFor(level);
-                Defense = MetaRules.DefenseFor(level);
-                Dodge = MetaRules.DodgeFor(level);
+                Name = name; OwnedCards = ownedCards; Slots = slots;
+                CardLevels = ownedCards.ToDictionary(c => c, _ => CardLevel);
+                MaxHp = MetaRules.MaxHpFor(CharacterLevel);
+                Attack = MetaRules.AttackFor(CharacterLevel);
+                Defense = MetaRules.DefenseFor(CharacterLevel);
+                Dodge = MetaRules.DodgeFor(CharacterLevel);
             }
         }
 
-        /// <summary>一次画像跑完攒下的「见没见到甲」证据(2026-08-12,E-b4/E-b5 T7)。
-        ///
-        /// ⚠ 为什么非要它:T5 刚踩过 —— 工装能**看见** 锐(三档画像分别真实出牌 332/352/427 次),
-        /// 却**量不出**它,因为三档只爬到 10~16 层,唯一带甲的小怪(墨渍,词渊 11 层起)出现太少,
-        /// PierceBuff 从 20 改到 5 读数完全不动。「没变化」和「测不出来」在仿真数据里长得一模一样,
-        /// 唯一的分辨办法就是**把分母也印出来**:探针到底遇到了几次带甲目标。</summary>
-        private sealed class DefExposure
+        /// <summary>起手 6 张(2026-09-17)。五系混合调游戏本体的 <c>MetaRules.StartingLibrary</c>;
+        /// 单系/木混没有「五系各一」可言,改为按 <see cref="Profile.Slots"/> 逐格加权抽
+        /// (<c>MetaRules.DrawWeighted</c>,同一张 RarityWeights),第 6 张同样从最高档保底 ——
+        /// 与真实逻辑只差「每格限定哪几系」这一处。全程不去重,同真实逻辑。</summary>
+        private static List<string> DrawStartingLibrary(RecipeGraph graph, Profile profile, GameRandom random)
         {
-            public int ArmoredBattles;      // 含至少一只带甲敌人的战斗数
-            public int ArmoredMultiBattles; // 且同场敌人 ≥2 —— 点数 DEF 的 N 倍惩罚只在这种场里兑现
+            if (profile.Slots == null)
+                return MetaRules.StartingLibrary(new MetaState { OwnedCards = profile.OwnedCards.ToList() },
+                    graph, random).ToList();
+
+            var library = new List<string>();
+            foreach (var slot in profile.Slots)
+            {
+                var pick = MetaRules.DrawWeighted(
+                    profile.OwnedCards.Where(id => graph.Get(id).Element is { } el && slot.Contains(el)).ToList(), graph, random);
+                if (pick != null) library.Add(pick);
+            }
+            var top = profile.OwnedCards.GroupBy(id => graph.Get(id).Rarity)
+                .OrderByDescending(g => g.Key).First().ToList();
+            library.Add(top[random.Next(top.Count)]);
+            return library;
         }
 
         /// <summary>机器人自身行为的探针(2026-09-08,P3 attackMode 缺口)。
@@ -348,38 +134,41 @@ namespace Brushblade.Balance
         {
             public int AttackFaceCasts; // 以 attackMode=true 出字的次数(全部种子累计)
             public int Stalls;          // 以「僵局判死」告终的局数(分母 = Seeds)
+            // 出召唤字的次数(2026-09-17):土系交出召唤位后,前排只剩木系能给 ——
+            // 这一列让「这档到底有没有前排」直接可读,不用从卡池反推。
+            public int SummonCasts;
         }
 
         private static void SimulateProfile(RecipeGraph graph, CampaignConfig campaign,
             EndlessConfig endless, Profile profile)
         {
             var deaths = new List<int>();
-            var exposure = new DefExposure();
             var probe = new BotProbe();
             foreach (int seed in Enumerable.Range(0, Seeds))
-                deaths.Add(ClimbUntilDeath(graph, campaign, endless, profile, seed, exposure, probe));
+                deaths.Add(ClimbUntilDeath(graph, campaign, endless, profile, seed, probe));
 
             deaths.Sort();
             double avg = deaths.Average();
             int p50 = deaths[deaths.Count / 2];
             int p90 = deaths[(int)(deaths.Count * 0.9)];
             string Reach(int band) => $"{deaths.Count(d => d >= band) * 100 / deaths.Count}%";
-            Console.WriteLine($"| {profile.Name} | {avg:F1} | {p50} | {p90} | {deaths[^1]} " +
+            Console.WriteLine($"| {profile.Name} | {profile.OwnedCards.Count} | {avg:F1} | {p50} | {p90} | {deaths[^1]} " +
                               $"| {Reach(11)} | {Reach(26)} | {Reach(51)} " +
-                              $"| {exposure.ArmoredBattles / (double)Seeds:F1} " +
-                              $"| {exposure.ArmoredMultiBattles / (double)Seeds:F1} " +
                               $"| {probe.AttackFaceCasts / (double)Seeds:F1} " +
+                              $"| {probe.SummonCasts / (double)Seeds:F1} " +
                               $"| {probe.Stalls} |");
         }
 
         /// <summary>一路深入直到阵亡,返回卒层(= 阵亡所在层)。</summary>
         private static int ClimbUntilDeath(RecipeGraph graph, CampaignConfig campaign,
-            EndlessConfig endless, Profile profile, int seed, DefExposure exposure, BotProbe probe)
+            EndlessConfig endless, Profile profile, int seed, BotProbe probe)
         {
             int towerSeed = seed * 7919 + 17;
-            int fromDepth = profile.StartDepth;
-            IReadOnlyList<string> library = profile.Library;
-            IReadOnlyList<string> pool = new[] { "木", "木" };
+            int fromDepth = 1;
+            // 起手字库与部件池都按种子现抽(与塔种子错开,不共用随机流)
+            var deckRandom = new GameRandom(unchecked(seed * 104729 + 3));
+            IReadOnlyList<string> library = DrawStartingLibrary(graph, profile, deckRandom);
+            IReadOnlyList<string> pool = MetaRules.RollStartingPool(library, graph, deckRandom);
             int hp = profile.MaxHp;
 
             while (fromDepth <= DepthCap)
@@ -394,12 +183,8 @@ namespace Brushblade.Balance
                 runConfig.RewardPool = profile.OwnedCards;
                 // UnlockedChars(2026-08-04 起也是回合掉字的抽取源,见 BattleEngine.StartTurn)。
                 // 生产侧口径是 _meta.OwnedCards——玩家已解锁的整个卡池(2026-09-06 出阵废止后
-                // MetaRules.BuildBattleConfig 直接读它)。三个画像没有各自的卡池概念,只声明了
-                // 起手 Library + CardLevels,而 CardLevels 已经用 FireCards 这个 13 字火系名单
-                // 给两个成长画像定过级——用它顶 UnlockedChars 是同一套"这画像已经练熟的字"口径。
-                // 注意:UnlockedChars 非空时 ForgeEngine 也会用它锁合成目标(2026-07-20 拍板),
-                // 即画像现在只能合成 FireCards 里的字——比改造前"不限合成"更贴近生产,
-                // 但也是本次顺带激活的口径,如果后续要专门校准合成侧数值,这里可能要再调整。
+                // MetaRules.BuildBattleConfig 直接读它),画像的卡池就是它。
+                // 注意:UnlockedChars 非空时 ForgeEngine 也会用它锁合成目标(2026-07-20 拍板)。
                 var battleConfig = new BattleConfig
                 {
                     DropTable = campaign.DropTable, PlayerMaxHp = profile.MaxHp,
@@ -417,15 +202,6 @@ namespace Brushblade.Balance
                     if (run.Phase == RunPhase.Event) { ChooseBestEvent(run); continue; }
 
                     var battle = run.Battle;
-                    // 「见没见到甲」的分母(每场战斗记一次;这一行不消耗任何随机数)。
-                    // ⚠ 只数**开战时**就带甲的敌人 = 小怪墨渍(词渊 11 层起,DEF 31)。
-                    // Boss 的带甲阶段(山 60 / 江 30 / 钧 30)不计:它们是单敌战,
-                    // 点数 DEF 的 N 倍惩罚在单敌场里根本不兑现,对 AOE 探针没有判别力。
-                    if (battle.Enemies.Any(e => e.Defense > 0))
-                    {
-                        exposure.ArmoredBattles++;
-                        if (battle.Enemies.Count >= 2) exposure.ArmoredMultiBattles++;
-                    }
                     int turns = 0;
                     while (turns <= StallTurns)
                     {
@@ -497,7 +273,10 @@ namespace Brushblade.Balance
                 // 告急就补),读数变了立刻知道是哪一条在动。
                 // 只有一面的字(纯攻击字/纯护盾字/召唤字)不受影响 —— 它们 AttackEffects 为空,
                 // Power/EffectsOf 都会退回唯一的那一面。
-                bool preferAttackFace = battle.PlayerHp * 2 > battle.MaxHp;
+                // 2026-09-17(用户拍板):补一条「身上已有盾 → 出攻面」。土系护面只加盾不回血,
+                // 原规则下一掉到半血就永远只出盾不出手(土系画像僵局判死 187/300),量的是机器人
+                // 自缚而不是土系强弱。水系护面回血会把血线拉回来,这一条对它基本不触发。
+                bool preferAttackFace = battle.PlayerHp * 2 > battle.MaxHp || battle.PlayerShield > 0;
 
                 string pick = null;
                 int pickPower = -1;
@@ -520,6 +299,10 @@ namespace Brushblade.Balance
                 int target = BattleEngine.NeedsTarget(pickDef, pickAttackFace) ? PickTarget(battle) : -1;
                 if (battle.Cast(pick, target, attackMode: pickAttackFace) != BattleError.None) break;
                 if (pickAttackFace) probe.AttackFaceCasts++;
+                // 取面口径同 Power():有攻面且选了攻面才读 AttackEffects
+                var castEffects = pickAttackFace && pickDef.AttackEffects.Count > 0 ? pickDef.AttackEffects : pickDef.Effects;
+                if (castEffects.Any(e => e.Kind == EffectKind.Summon))
+                    probe.SummonCasts++;
             }
 
             if (battle.Phase == BattlePhase.PlayerTurn)
