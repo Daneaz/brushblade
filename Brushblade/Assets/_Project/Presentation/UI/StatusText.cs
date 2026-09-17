@@ -46,6 +46,14 @@ namespace Brushblade.Presentation
     ///   Task 3 到时直接读那三个字段配现成 key,本类不重复开路。</summary>
     public static class StatusText
     {
+        /// <summary>护甲点数 → 减伤百分比(2026-09-16)。与 Core 的
+        /// <c>BattleEngine.ApplyDefense</c> 同源:DR = 甲/(甲+100)。
+        ///
+        /// 抽成一个函数是必须的:PerkInfo 的技能树详情与卡面的护甲文案都要显示这个数,
+        /// 各写一份必然分叉(2026-09-07 收尾波 review 抓到 UI 那份真的焊死过)。</summary>
+        public static int DefenseToReductionPercent(int armor)
+            => armor <= 0 ? 0 : armor * 100 / (armor + 100);
+
         /// <summary>一条状态/能力/攻击模式的展示四元组。IconKey 为 null 表示这条没有图标
         /// (稿上「四条不出图标」的那几条,以及没有对应 icon 资产的 TargetShape 值);
         /// 四个字段全 null 表示这条压根不该出现在详情列表里(护盾式的「跳过」信号)。</summary>
@@ -151,7 +159,8 @@ namespace Brushblade.Presentation
                 case StatusKind.DefenseBuff:
                     return new Info("defense", Strings.T("status.defense.name"),
                         Duration(turnsLeft),
-                        Strings.T("status.defense.desc", ("magnitude", magnitude)));
+                        Strings.T("status.defense.desc", ("magnitude", magnitude),
+                            ("percent", DefenseToReductionPercent(magnitude))));
                 case StatusKind.Immunity:
                     return new Info("immunity", Strings.T("status.immunity.name"),
                         Strings.T("status.duration.charges", ("value", magnitude)),

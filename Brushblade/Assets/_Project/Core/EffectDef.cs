@@ -18,7 +18,7 @@ namespace Brushblade.Core
         HealOverTime,   // 持续治疗:每回合 Value,持续 Turns 回合;TargetAll 则含召唤物
         Freeze,       // 冻结:目标跳过 Value 个回合(2026-08-03;藤的「束缚」也走这个)
         Slow,         // 减速:半速,每 2 回合才行动一次,持续 Value 回合(2026-08-03)
-        DefenseBuff,  // 护甲增益:自身护甲 +Value **点**,同字不叠、段内持久
+        DefenseBuff,  // 护甲增益:自身护甲 +Value **点**,限时、可叠加(2026-09-16 起;此前同字不叠、段内持久)
                       // (2026-08-03 起名 DamageReduction 走乘法减伤,2026-08-12 E-b4 T3 改点数并改名。
                       //  EffectKind 只从 chars.json 按**名字**解析、从不进存档,故可以就地改名)
         ArmorBreak,   // 破甲:目标护甲 −Value **点**,本场持久、可叠加

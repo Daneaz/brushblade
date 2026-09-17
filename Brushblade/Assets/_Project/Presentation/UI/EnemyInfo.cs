@@ -125,7 +125,8 @@ namespace Brushblade.Presentation
         /// 减法对乘法透明,克制的加成原封不动落到血条,与无甲时完全相同。
         /// 反过来要告诉玩家的是护甲怎么削:破甲(本场)与穿透(本次)。</summary>
         public static string DefenseText(int defense) =>
-            Strings.T("enemy.defense.desc", ("defense", defense));
+            Strings.T("enemy.defense.desc", ("defense", defense),
+                ("percent", StatusText.DefenseToReductionPercent(defense)));
 
         // ============ 形态详情 ============
 
@@ -415,7 +416,8 @@ namespace Brushblade.Presentation
         private static AbilityEntry DefenseEntry(int defense) => new()
         {
             IconKey = "defense", ChipColor = UnitDetailChip.ColorFor(StatusKind.DefenseBuff, defense),
-            Name = Strings.T("status.defense.name"), Desc = Strings.T("enemy.defense.desc", ("defense", defense)),
+            Name = Strings.T("status.defense.name"), Desc = Strings.T("enemy.defense.desc", ("defense", defense),
+                ("percent", StatusText.DefenseToReductionPercent(defense))),
         };
     }
 }

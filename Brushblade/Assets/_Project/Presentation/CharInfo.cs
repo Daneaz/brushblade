@@ -120,7 +120,8 @@ namespace Brushblade.Presentation
                     // 护甲/破甲 2026-09-08 起限时,回合数要印在卡面上 —— 玩家看不到时限
                     // 就会当成本场持久去规划出牌顺序(这两条以前确实是持久的)
                     EffectKind.DefenseBuff => Strings.T("char.effect.defensebuff",
-                        ("value", shown), ("turns", Math.Max(1, e.Turns))),
+                        ("value", shown), ("percent", StatusText.DefenseToReductionPercent(v)),
+                        ("turns", Math.Max(1, e.Turns))),
                     EffectKind.ArmorBreak => Strings.T("char.effect.armorbreak",
                         ("value", shown), ("turns", Math.Max(1, e.Turns))),
                     // 驱散条数不吃卡等级(与 BattleEngine 的 EffectKind.Dispel 分支同口径)——
@@ -266,7 +267,8 @@ namespace Brushblade.Presentation
         /// 那条发给全场已在场的召唤物,这条只是新召出这几只自己的属性。
         /// 也不并进 PassiveText —— 它不走 SummonPassive,而是往召唤物状态袋里挂 DefenseBuff。</summary>
         private static string SummonDefenseText(EffectDef e) =>
-            e.SummonDefense > 0 ? Strings.T("char.effect.summondefense", ("value", e.SummonDefense)) : "";
+            e.SummonDefense > 0 ? Strings.T("char.effect.summondefense", ("value", e.SummonDefense),
+                ("percent", StatusText.DefenseToReductionPercent(e.SummonDefense))) : "";
 
         /// <summary>穿透后缀(2026-08-12,E-b4 T3)。口径从「穿甲:无视减伤,额外 +15%」换成
         /// 点数 —— 旧的 +15% 已固化进这三个字的基础值,卡面上的伤害数字自己涨了,

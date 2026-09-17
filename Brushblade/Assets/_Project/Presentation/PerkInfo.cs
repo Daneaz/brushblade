@@ -98,7 +98,8 @@ namespace Brushblade.Presentation
             "edge_1" or "edge_2" or "edge_3" =>
                 Strings.T("perk.node.edge.desc", ("value", def.Value)),
             "guard_1" or "guard_2" or "guard_3" =>
-                Strings.T("perk.node.guard.desc", ("value", def.Value)),
+                Strings.T("perk.node.guard.desc", ("value", def.Value),
+                    ("percent", StatusText.DefenseToReductionPercent(def.Value))),
             // 机制树:博闻/广纳/一气同枝两层同构共用模板;慧眼两层效果不同,各写各的
             "lore_1" or "lore_2" =>
                 Strings.T("perk.info.effect.library", ("value", def.Value)),
@@ -152,7 +153,8 @@ namespace Brushblade.Presentation
             PerkEffect.MaxHp => Strings.T("perk.detail.max_hp"),
             PerkEffect.AttackPercent => Strings.T("perk.detail.attack_percent"),
             PerkEffect.CritChance => Strings.T("perk.detail.crit_chance"),
-            PerkEffect.Defense => Strings.T("perk.detail.defense"),
+            PerkEffect.Defense => Strings.T("perk.detail.defense", ("value", def.Value),
+                ("percent", StatusText.DefenseToReductionPercent(def.Value))),
             PerkEffect.LibraryCapacity => Strings.T("perk.detail.library_capacity"),
             PerkEffect.StartingCards => Strings.T("perk.detail.starting_cards"),
             PerkEffect.DrawRolls => Strings.T("perk.detail.draw_rolls", ("value", def.Value)),
