@@ -352,7 +352,8 @@ namespace Brushblade.Presentation
                 25, Theme.TextMain, Theme.TitleFont);
 
             // 进行中:血条 + 三项本趟账目 + 断点说明
-            int maxHp = MetaRules.PlayerMaxHpFor(_meta);
+            // 上限 = 养成态现算 + 奇遇累计加成(本次登塔生效,2026-09-18),与 RunEngine.EffectiveMaxHp 同式
+            int maxHp = System.Math.Max(1, MetaRules.PlayerMaxHpFor(_meta) + snapshot.MaxHpBonus);
             var hpRow = Ui.Row(stack.transform, "RunBar");
             Ui.Bar(hpRow.transform, maxHp > 0 ? (float)snapshot.PlayerHp / maxHp : 0f,
                 Theme.CinnabarDark, new Vector2(523, 10));

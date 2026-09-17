@@ -85,9 +85,10 @@ namespace Brushblade.Core
             int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
             int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null,
-            bool libraryExpanded = false, bool poolExpanded = false)
+            bool libraryExpanded = false, bool poolExpanded = false, int maxHpBonus = 0)
         {
             _startingInk = startingInk;
+            _maxHpBonus = maxHpBonus; // 奇遇上限加成跨段延续(2026-09-18):必须赶在开第一场之前
             _graph = graph;
             _runConfig = runConfig;
             _battleConfig = battleConfig;
@@ -119,7 +120,7 @@ namespace Brushblade.Core
             // 且省掉一处 null 陷阱(AdvanceAfterBattle 会照常整体覆盖)
             _carriedLibrary = new List<string>(startingLibrary);
             _carriedPool = new List<string>(startingPool);
-            _carriedHp = startingHp ?? battleConfig.PlayerMaxHp;
+            _carriedHp = startingHp ?? EffectiveMaxHp;
             Battle = NewBattle(startingLibrary, startingPool, startingHp); // 断点续爬恢复血量(20.6)
         }
 
@@ -793,6 +794,10 @@ namespace Brushblade.Core
 
         /// <summary>本关生效的血量上限 = 局外基础 + 奇遇累加的局内加成(至少 1)。</summary>
         public int EffectiveMaxHp => Math.Max(1, _battleConfig.PlayerMaxHp + _maxHpBonus);
+
+        /// <summary>奇遇累计的上限加成(可为负)。**本次登塔**生效(2026-09-18 用户拍板):
+        /// 外层段末写进 EndlessSaveState,下一段经构造参数 maxHpBonus 传回。</summary>
+        public int MaxHpBonus => _maxHpBonus;
 
         /// <summary>携带态的当前血量(战斗之间由 run 保管,与 <see cref="EffectiveMaxHp"/> 配对读)。
         /// 2026-09-02 开放:奇遇结算改血/改上限后,表现层要把玩家血条**先更新到新值再起厚**,

@@ -205,7 +205,6 @@ namespace Brushblade.Presentation
             // 测试全绿、零编译错)。整段映射下沉进 MetaRules.BuildBattleConfig,由
             // MetaRulesBattleConfigTests 逐条盯着 —— 新属性加在那边,不要加回这里。
             var battleConfig = MetaRules.BuildBattleConfig(_meta, _campaign.DropTable);
-            int maxHp = battleConfig.PlayerMaxHp;
             RunEngine run = null;
             if (resume != null)
             {
@@ -252,7 +251,9 @@ namespace Brushblade.Presentation
                 // 第一场按未扩容的上限判满库,把 DropChoice 焊死,玩家看着 7/9 却被要求换字。
                 // 从断点恢复(resume != null)时不走这里:Restore 自己会补容量,重复传会抬两次。
                 libraryExpanded: resume == null && snapshot.LibraryExpanded,
-                poolExpanded: resume == null && snapshot.PoolExpanded);
+                poolExpanded: resume == null && snapshot.PoolExpanded,
+                // 奇遇上限加成本次登塔生效(2026-09-18):与 PlayerHp 同一次落盘,一起传回
+                maxHpBonus: snapshot.MaxHpBonus);
             if (resume == null && snapshot.Revived)
                 run.MarkRevived(); // 防重进本层二次复活(2026-07-24)
 
@@ -281,7 +282,7 @@ namespace Brushblade.Presentation
             var view = NewView("BattleView", paper, band.Name.Substring(band.Name.Length - 1), bandIndex);
             view.AddComponent<BattleView>().Init(_graph, run, _meta,
                 won => OnSegmentEnded(run, fromDepth, segmentEnd, carriedInk, won),
-                tutorial, Strings.T("root.battleview.segment_title", ("bandName", band.Name), ("fromDepth", fromDepth), ("segmentEnd", segmentEnd)), maxHp,
+                tutorial, Strings.T("root.battleview.segment_title", ("bandName", band.Name), ("fromDepth", fromDepth), ("segmentEnd", segmentEnd)), run.EffectiveMaxHp,
                 onNewFloor: () => OnFloorAdvanced(run, carriedInk),
                 onFloorCleared: () => OnFloorCleared(run, fromDepth, carriedInk),
                 onExit: () => // 挂起离塔:此前只切视图不落盘,靠上一次写盘兜底(2026-07-22 补)
@@ -361,6 +362,7 @@ namespace Brushblade.Presentation
             if (snapshot == null) return;
             CommitEventInk(run); // 本段净额(层清算 + 字摊)即时结进账户
             snapshot.PlayerHp = run.Battle.PlayerHp;
+            snapshot.MaxHpBonus = run.MaxHpBonus;
             snapshot.Library = new System.Collections.Generic.List<string>(run.Battle.Library);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.Battle.Pool);
             snapshot.EarnedInk = carriedInk + run.EarnedInk; // 展示用累计,钱本身已入账
@@ -375,6 +377,7 @@ namespace Brushblade.Presentation
         private static void WriteCarriedSnapshot(RunEngine run, EndlessSaveState snapshot, int earnedSoFar)
         {
             snapshot.PlayerHp = run.Battle.PlayerHp;
+            snapshot.MaxHpBonus = run.MaxHpBonus;
             snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);
             snapshot.EarnedInk = earnedSoFar; // 展示用累计,钱本身已入账
@@ -414,6 +417,7 @@ namespace Brushblade.Presentation
             snapshot.TopBossDepth = segmentEnd; // 逐段递增,即本次已破最高 Boss 层
             snapshot.Depth = segmentEnd + 1;
             snapshot.PlayerHp = run.Battle.PlayerHp;
+            snapshot.MaxHpBonus = run.MaxHpBonus; // 奇遇上限加成跨段延续(本次登塔生效,2026-09-18)
             // 用携带态而非 Battle:Boss 层战利品(2026-07-20)加在携带态上,读 Battle 会把它丢掉
             snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary); // 出字即消耗,无回归(v0.7)
             snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);
@@ -494,17 +498,12 @@ namespace Brushblade.Presentation
             var state = Ui.Row(stack.transform, "State", 33);      // 稿 .state gap 16pt
             state.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             var snap = _meta.EndlessV2;
-            // 生命上限:EndlessSaveState 只存当前 HP,上限一直是从养成态现算的
-            // (MetaRules.BuildBattleConfig 里的 PlayerMaxHp 走的也是这一条),这里同源。
-            // ⚠ 分子必须 clamp(2026-09-02 收尾波):段内的奇遇能把上限抬到
-            // EffectiveMaxHp = PlayerMaxHp + _maxHpBonus(RunEngine 的「+N% 生命上限」那支),
-            // _carriedHp 跟着涨到那个高位;而段末落盘的 snapshot.PlayerHp = run.Battle.PlayerHp
-            // 不做 clamp,_maxHpBonus 又**不跨段** —— 于是「拿了 +15% 上限的奇遇并回满血」
-            // 走到安全层就会显示「生命 1058 / 920」,分子大于分母。
-            // 只在这一屏 clamp:安全层是整趟里玩家唯一逐项读数值的一屏,读到这种数会当 bug 报。
-            // MapView 断点续爬那行(MapView.cs:346)是同一口径的既有写法,但那是另一个界面的
-            // 一行小字、不在本轮范围,暂不动 —— 真要统一得两处一起改,那是单独一笔。
-            int maxHp = MetaRules.PlayerMaxHpFor(_meta);
+            // 生命上限:本体从养成态现算(MetaRules.BuildBattleConfig 里的 PlayerMaxHp 同源),
+            // 再加奇遇累计的 MaxHpBonus —— 它本次登塔生效、跨段延续(2026-09-18),
+            // 与 RunEngine.EffectiveMaxHp 同一条式子。
+            // 分子仍 clamp:安全层可能刚升过级之外还有别的口径差,这一屏是玩家逐项读数的一屏,
+            // 「生命 1058 / 920」这种分子大于分母的数会被当 bug 报(2026-09-02 收尾波)。
+            int maxHp = System.Math.Max(1, MetaRules.PlayerMaxHpFor(_meta) + snap.MaxHpBonus);
             Ui.ThemedLabel(state.transform,
                 Strings.T("root.safelayer.state_hp",
                     ("hp", Mathf.Min(snap.PlayerHp, maxHp)), ("maxHp", maxHp)),

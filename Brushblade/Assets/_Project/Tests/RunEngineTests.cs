@@ -722,6 +722,27 @@ namespace Brushblade.Core.Tests
             return run;
         }
 
+        /// <summary>奇遇的上限加成**本次登塔**生效(2026-09-18 用户拍板「本次爬楼生效」):
+        /// 此前 _maxHpBonus 只活在 RunEngine 里,过安全层新起一段就归零 —— 段末写进
+        /// EndlessSaveState,下一段构造时经 maxHpBonus 传回,第一场就得按加成后的上限开打。</summary>
+        [Test]
+        public void MaxHpBonus_CarriesIntoNextSegment()
+        {
+            var run = RunWithMaxHpEventBetweenBattles();
+            Assert.That(run.MaxHpBonus, Is.GreaterThan(0));
+
+            var next = new RunEngine(Graph(),
+                new RunConfig { Encounters = new[] { new[] { Weak() } }, RewardPool = new[] { "灯" } },
+                new BattleConfig { DropTable = new[] { "木" } },
+                startingLibrary: new[] { "焚", "焚" }, startingPool: Array.Empty<string>(), seed: 3,
+                startingHp: run.CarriedHp, maxHpBonus: run.MaxHpBonus);
+
+            Assert.That(next.MaxHpBonus, Is.EqualTo(run.MaxHpBonus));
+            Assert.That(next.EffectiveMaxHp, Is.EqualTo(run.EffectiveMaxHp));
+            Assert.That(next.Battle.MaxHp, Is.EqualTo(run.EffectiveMaxHp));
+            Assert.That(next.Battle.PlayerHp, Is.EqualTo(run.CarriedHp)); // 满上限的血不被旧上限截断
+        }
+
         [Test]
         public void ExpandAfterMaxHpEvent_AffectsCurrentBattle()
         {

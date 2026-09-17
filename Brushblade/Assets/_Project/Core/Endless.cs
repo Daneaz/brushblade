@@ -306,6 +306,9 @@ namespace Brushblade.Core
     {
         public int Depth { get; set; }
         public int PlayerHp { get; set; }
+        /// <summary>奇遇累计的血量上限加成(可为负),本次登塔生效、跨段延续(2026-09-18)。
+        /// 上限本体仍从养成态现算,真实上限 = PlayerMaxHpFor(meta) + MaxHpBonus。</summary>
+        public int MaxHpBonus { get; set; }
         public List<string> Library { get; set; } = new();
         public List<string> Pool { get; set; } = new();
         /// <summary>本次登塔累计已挣的墨锭,**纯展示量**(2026-08-30 起)——安全层与结算弹窗
