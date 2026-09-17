@@ -202,15 +202,17 @@ namespace Brushblade.Presentation
                         // 它不是挥击,和召唤物/字卡那一记挤在同帧就读不出先后。
                         // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
                         // 这里先停一拍 → 水飞过去 → 落地飘「溢流 N」+ 水花 + 掉血;之后召唤物出手再停一拍。
-                        // 反震(2026-09-18):敌人那一击砸在护盾上 → 停一拍 → 碎石从玩家处砸回攻击者。
-                        // TargetIndex 就是攻击者(反震只打出手的那只)。
+                        // 反震(2026-09-18):敌人那一击砸在护盾上 → 停一拍 → 碎石从挡刀者处砸回攻击者。
+                        // TargetIndex 就是攻击者(反震只打出手的那只);SecondIndex ≥0 = 挡刀的召唤物槽位,
+                        // −1 = 玩家本人。
                         if (e.Source == EffectSource.ShieldReflect)
                         {
                             if (serialPending) yield return Beat(StepGap);
                             var quakeTarget = enemyAnchor(e.TargetIndex);
                             if (quakeTarget != null)
                             {
-                                FlyOrb(AnchorPoint(null), quakeTarget.position,
+                                FlyOrb(AnchorPoint(e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null),
+                                    quakeTarget.position,
                                     Theme.GlyphColor(Element.Earth), RockPalette[1], 30f, square: true);
                                 yield return Beat(ProcFlyDuration);
                             }

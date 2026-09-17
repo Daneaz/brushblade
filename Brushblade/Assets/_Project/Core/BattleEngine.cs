@@ -4353,6 +4353,22 @@ namespace Brushblade.Core
                         allowBarb: false,      // 同玩家侧:折返不算挥击,不触发铁画的反噬
                         source: EffectSource.Reflect);
             }
+
+            // 土脉 L2「反震」召唤物侧(2026-09-18 用户裁定「反震也要接召唤物身上」):前排有召唤物时
+            // 敌人打的是召唤物,玩家本人的盾吸不到伤害 —— 只接玩家那一路,带召唤物的土系 build 里反震
+            // 等于没点(与上面「镜」2026-08-08 接进这条路是同一条理由)。口径逐条照抄玩家侧
+            // DamagePlayerDirect:基数 = **护盾实际吸掉的量**、不进 MaxReflectPercent 那根钳、
+            // 排在镜之后、不吃护甲、不算挥击。SourceSlot 带这只召唤物,表现层从它身上砸回去。
+            if (absorbed > 0 && _config != null && _config.ShieldReflectPercent > 0
+                && _enemies[enemyIndex].Alive)
+            {
+                int bouncedByShield = absorbed * _config.ShieldReflectPercent / 100;
+                if (bouncedByShield > 0)
+                    DamageEnemy(enemyIndex, bouncedByShield, Element.Heart,
+                        bypassDefense: true,
+                        allowBarb: false,
+                        source: EffectSource.ShieldReflect, sourceSlot: summonIndex);
+            }
             return true;
         }
 

@@ -142,5 +142,66 @@ namespace Brushblade.Core.Tests
             Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(100),
                 "只掉这一记本身的伤害,铁画的反噬(allowReflect:false)不该经反震再弹回一次");
         }
+
+        // ---- 召唤物身上的护盾(2026-09-18 用户裁定「反震也要接召唤物身上」)----
+        // 前排有召唤物时敌人打的是召唤物,玩家本人的盾根本吸不到伤害 —— 只接玩家那一路,
+        // 带召唤物的土系 build 里反震等于没点。与「镜」2026-08-08 接进召唤物承伤是同一条理由。
+
+        private static RecipeGraph SummonGraph() => new(new[]
+        {
+            new CharDef("兵", Element.Heart,
+                effects: new[] { new EffectDef(EffectKind.Summon, 1000, summonAttack: 0, summonChar: "木") }),
+            new CharDef("壁", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.Shield, 1000) }),
+        });
+
+        private static BattleEngine SummonEngine(int reflectPercent, bool shieldTheSummon)
+        {
+            var engine = new BattleEngine(SummonGraph(), new BattleConfig
+                {
+                    DropTable = new[] { "土" }, PlayerMaxHp = 500, ApPerTurn = 20,
+                    ShieldReflectPercent = reflectPercent,
+                },
+                new[] { "兵", "壁" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 9000, 100) },
+                seed: 1);
+            Assert.That(engine.Cast("兵", summonSlots: new[] { 0 }), Is.EqualTo(BattleError.None));
+            if (shieldTheSummon)
+                Assert.That(engine.Cast("壁", allySlot: 0), Is.EqualTo(BattleError.None));
+            return engine;
+        }
+
+        [Test]
+        public void ShieldOnSummon_AbsorbedDamage_BouncesBack_FromThatSummon()
+        {
+            var engine = SummonEngine(20, shieldTheSummon: true);
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();   // 敌人打前排召唤物,100 全被它身上的盾吸掉
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(1000), "前提:召唤物的盾全吸");
+            Assert.That(engine.PlayerHp, Is.EqualTo(500), "前提:玩家没挨打");
+            Assert.That(before - engine.Enemies[0].Hp, Is.EqualTo(20), "吸掉 100 × 20% = 20");
+            var hit = engine.LastEvents.Single(e => e.Kind == BattleEventKind.Damage);
+            Assert.That(hit.Source, Is.EqualTo(EffectSource.ShieldReflect));
+            Assert.That(hit.SecondIndex, Is.EqualTo(0), "起点 = 挡刀的那只召唤物,表现层从它身上砸回去");
+        }
+
+        [Test]
+        public void ShieldOnSummon_PerkOff_BouncesNothing()
+        {
+            var engine = SummonEngine(0, shieldTheSummon: true);
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before));
+        }
+
+        [Test]
+        public void SummonWithoutShield_BouncesNothing()
+        {
+            var engine = SummonEngine(20, shieldTheSummon: false);
+            int before = engine.Enemies[0].Hp;
+            engine.EndTurn();
+            Assert.That(engine.Summons[0].Hp, Is.LessThan(1000), "前提:没盾,实打实挨了");
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "没吸到就没得反");
+        }
     }
 }
