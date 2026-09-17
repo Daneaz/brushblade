@@ -223,7 +223,11 @@ namespace Brushblade.Presentation
                             HitStop(HitStopLight);
                             if (quakeTarget != null) StartCoroutine(Shake(9f, AttackDir(quakeTarget)));
                             onImpact?.Invoke(e);
-                            lastDamageTarget = e.TargetIndex;
+                            // ⚠ 清掉而不是记成 e.TargetIndex(2026-09-18 修):lastDamageTarget 是给
+                            // **多段**拉拍用的,记上的话,紧接着同一目标的召唤物攻击会被当成第二段,
+                            // 飞字落地后先干等一个 StepGap 才飘字掉血(用户报「林 的攻击落地后卡一下」)。
+                            // 这一记是独立的串行单位,自己的节拍由 serialPending 管。
+                            lastDamageTarget = int.MinValue;
                             serialPending = true;
                             break;
                         }
@@ -244,7 +248,11 @@ namespace Brushblade.Presentation
                             PlayClip(_hitClip, 0.55f, 1.25f); // 水声偏脆:比挥击高、比挥击轻
                             HitStop(HitStopLight);
                             onImpact?.Invoke(e);
-                            lastDamageTarget = e.TargetIndex;
+                            // ⚠ 清掉而不是记成 e.TargetIndex(2026-09-18 修):lastDamageTarget 是给
+                            // **多段**拉拍用的,记上的话,紧接着同一目标的召唤物攻击会被当成第二段,
+                            // 飞字落地后先干等一个 StepGap 才飘字掉血(用户报「林 的攻击落地后卡一下」)。
+                            // 这一记是独立的串行单位,自己的节拍由 serialPending 管。
+                            lastDamageTarget = int.MinValue;
                             serialPending = true;
                             break;
                         }
