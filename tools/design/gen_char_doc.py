@@ -404,6 +404,11 @@ TRAITS = {
     'SpendWellspring': lambda e, v: "涌泉相报",
     'Dispel': lambda e, v: ("全体驱散" if e.get('targetAll') else "驱散")
                            + ("" if v < 0 else f" {v}"),
+    # 2026-09-16「土水系机制重做」Task 11 新增三条,对着 CardTraits.cs 抄(:371-396)
+    'Quench': lambda e, v: f"蓄热 +{v}",
+    'Haste': lambda e, v: (f"急速 +{v}%" if v >= 100 else f"加速 +{v}%"),  # 阈值同 CardTraits:
+                                                                          # 未缩放基础值 ≥100 记急速
+    'Unseal': lambda e, v: "解封",
     # 有数值/有去向、但本身不是特性的:各归各列
     'DamageSingle': None, 'DamageAll': None, 'Shield': None, 'ShieldAll': None,
     'HealSelf': None, 'HealAll': None, 'HealOverTime': None, 'Revive': None, 'Summon': None,
@@ -630,8 +635,9 @@ A("| 稀有度 | " + " / ".join(f"{RA[r]} {rc[r]}" for r in RORDER if rc[r]) + "
 A("| 五行 | " + " / ".join(f"{EL[e]} {ec[e]}" for e in EORDER if ec[e]) + f" / 心 0 |")
 # 枚举总数是手动同步的字面量(EffectDef.cs 的 EffectKind 不在本脚本的解析范围内)——
 # 2026-09-02 发现这里已经飘了(SpendMomentum/SpendWaterPower 上线后枚举实际是 32),
-# 顺手修正;以后新增 Kind 记得同步这个数。
-A(f"| 效果条目 | {sum(kc.values())} 条,覆盖 {len(kc)} 种 `EffectKind`(枚举共 32 种) |")
+# 顺手修正;2026-09-16 Task 11 新增 Quench/Haste/Unseal 后实际是 37,一并订正;
+# 以后新增 Kind 记得同步这个数。
+A(f"| 效果条目 | {sum(kc.values())} 条,覆盖 {len(kc)} 种 `EffectKind`(枚举共 37 种) |")
 A("| 单效果 / 双效果 / 三效果字 | " + " / ".join(str(collections.Counter(len(all_effects(c)) for c in playable)[n]) for n in (1, 2, 3)) + " |")
 A("")
 A("**心系 0 字** —— 第 5 章摄心流在字表侧没有任何载体。")
