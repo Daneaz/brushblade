@@ -470,7 +470,31 @@ namespace Brushblade.Balance
                     // 不灭 / 立即结算(design 未单列价,取模拟 Detonate 的量级,只求非零)。
                     case EffectKind.BurnNoDecay: sum += 40; break;
                     case EffectKind.BurnSettleNow: sum += 30; break;
+
+                    // ================== 2026-09-17 土水系重做的新机制补计分 ==================
+                    // 同一把尺子(150 分 / 1.0 价格单位)。新机制在 rebalance 脚本里多数**没有单独价**,
+                    // 只有「合并键」(如 减速1+加速 0.25 vs 减速1 0.18)—— 取「合并价 − 单独价」的边际换算。
+                    // 此前这些全落默认分支记 0:热 的蓄热面、冷/冻/冰/淼 守面的加速、湮/澡/沐/淋 守面的
+                    // 解封在机器人眼里一文不值,土系镇压/碾字的攻面只按裸伤害算。
+                    //
+                    // 蓄热(热,单独价 0.25 ≈ 38):夺层数的实际收益取决于目标身上挂了几层,机器人不模拟,
+                    // 按价目给固定值。
+                    case EffectKind.Quench: sum += 38; break;
+                    // 加速/急速:边际 0.07~0.13 ≈ 10~20 分。Value(50/100) × 回合数 ÷ 6,
+                    // 加速1回合 8、加速2回合 16、急速1回合 16、急速2回合 33 —— 与边际价同序。
+                    case EffectKind.Haste: sum += e.Value * Math.Max(1, e.Turns) / 6; break;
+                    // 解封:边际 0.04~0.12 ≈ 6~18 分,纯随机重掷(可能变差),取中间 10。
+                    case EffectKind.Unseal: sum += 10; break;
                 }
+                // 挂在伤害/治疗效果**字段**上的新机制(不是独立 kind,switch 覆盖不到):
+                // 碾(免疫1+碾 0.55 vs 免疫1 0.35,边际 0.20 ≈ 30 分)
+                if (e.TrueDamage) sum += 30;
+                // 镇压:实际加码 = 玩家有效护甲 × N%,Power 没有战斗上下文,按价目边际
+                // (镇压30 边际 0.10 ≈ 15、镇压50 边际 0.05 ≈ 8)取 N÷4 就近折算,只求非零、同量级。
+                if (e.ArmorStrikePercent > 0) sum += e.ArmorStrikePercent / 4;
+                // 治疗弹射(海,弹射3+治疗弹射3 0.35 vs 弹射3 0.25,边际 0.10 ≈ 15 分)
+                if ((e.Kind == EffectKind.HealSelf || e.Kind == EffectKind.HealAll) && e.Shape == TargetShape.Chain)
+                    sum += 15;
             }
             return sum;
         }
