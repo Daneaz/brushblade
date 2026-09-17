@@ -262,6 +262,20 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
+        public void ArmorStrike_DamageEvents_MainHitUntagged_BonusTaggedArmorStrike()
+        {
+            var engine = ArmorStrikeEngine(new EnemyDef("靶", Element.Earth, 1000, 0, defense: 100),
+                playerDefense: 40);
+            engine.Cast("镇", 0);
+            var hits = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
+            Assert.That(hits.Count, Is.EqualTo(2));
+            Assert.That(hits[0].Source, Is.EqualTo(DamageSource.None), "主伤害是普通挥击,不标来源");
+            Assert.That(hits[0].Amount, Is.EqualTo(50));
+            Assert.That(hits[1].Source, Is.EqualTo(DamageSource.ArmorStrike));
+            Assert.That(hits[1].Amount, Is.EqualTo(20));
+        }
+
+        [Test]
         public void ArmorStrike_IsNoOp_WhenPlayerHasNoArmor()
         {
             // 玩家甲 0 → 镇压额度 0×50%=0,只剩主伤害 50,空转不报错

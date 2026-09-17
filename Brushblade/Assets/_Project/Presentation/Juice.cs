@@ -721,6 +721,17 @@ namespace Brushblade.Presentation
         /// 这四种要在**同一个** Popup 调用里选,散在三元表达式里读不出来。</summary>
         private static string DamageText(BattleEvent e)
         {
+            // 附加机制的伤害标出来源(2026-09-18):它们全是心属性紫字,不标就只剩一个裸数字,
+            // 玩家读不出是哪条机制打的(实机报「召唤物出手时多了一个紫色 -30」,其实是溢流)。
+            // 这几条都不走生克、不暴击,所以排在最前、与下面四种互不相交。逐条字面量 key,不拼接。
+            switch (e.Source)
+            {
+                case DamageSource.Overheal: return Strings.T("juice.popup.source.overheal", ("amount", e.Amount));
+                case DamageSource.Thorns: return Strings.T("juice.popup.source.thorns", ("amount", e.Amount));
+                case DamageSource.Reflect: return Strings.T("juice.popup.source.reflect", ("amount", e.Amount));
+                case DamageSource.ShieldReflect: return Strings.T("juice.popup.source.shield_reflect", ("amount", e.Amount));
+                case DamageSource.ArmorStrike: return Strings.T("juice.popup.source.armor_strike", ("amount", e.Amount));
+            }
             if (e.Crit && e.Ke) return Strings.T("juice.popup.ke_crit_damage", ("amount", e.Amount));
             if (e.Crit) return Strings.T("juice.popup.crit_damage", ("amount", e.Amount));
             if (e.Ke) return Strings.T("juice.popup.ke_damage", ("amount", e.Amount));

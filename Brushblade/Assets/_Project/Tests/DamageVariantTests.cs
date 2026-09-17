@@ -673,6 +673,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Reflect_DamageEvent_IsTaggedWithItsSource()
+        {
+            var engine = Engine(new[] { "映" }, new[] { Attacker(attack: 8) });
+            engine.Cast("映", 0);
+            engine.EndTurn();
+            var hits = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
+            Assert.That(hits.Count, Is.EqualTo(1));
+            Assert.That(hits[0].Source, Is.EqualTo(DamageSource.Reflect));
+            Assert.That(hits[0].Amount, Is.EqualTo(4));
+        }
+
+        [Test]
         public void Reflect_UsesTotalDamage_NotHpActuallyLost()
         {
             // 护盾吸掉的部分也照样照回去 —— 「镜」是把东西原样反射,不管你挡没挡住。

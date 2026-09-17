@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Brushblade.Core;
 using NUnit.Framework;
 
@@ -383,6 +384,18 @@ namespace Brushblade.CoreTests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before - 4),
                 "反伤 50% × 8 = 4;反弹预算被荆棘扣到只剩 10%,floor(8×10%)=0,都不暴击" +
                 "(2026-09-06 纳入钳位前是 4 + 4 = 8;暴击若漏进来会更大)");
+        }
+
+        [Test]
+        public void ThornsDamageEvent_IsTaggedWithItsSource()
+        {
+            var engine = Battle(new BattleConfig { PlayerMaxHp = 100 }, new[] { Attacker(8) }, "卯");
+            engine.Cast("卯");
+            engine.EndTurn();
+            var hits = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
+            Assert.That(hits.Count, Is.EqualTo(1));
+            Assert.That(hits[0].Source, Is.EqualTo(DamageSource.Thorns));
+            Assert.That(hits[0].Amount, Is.EqualTo(4));
         }
 
         [Test]

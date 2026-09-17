@@ -39,6 +39,17 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void ShieldReflectDamageEvent_IsTaggedWithItsSource()
+        {
+            var engine = Engine(20, startingShield: 1000, enemyAttack: 100);
+            engine.EndTurn();
+            var hits = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
+            Assert.That(hits.Count, Is.EqualTo(1));
+            Assert.That(hits[0].Source, Is.EqualTo(DamageSource.ShieldReflect));
+            Assert.That(hits[0].Amount, Is.EqualTo(20));
+        }
+
+        [Test]
         public void PerkOff_BouncesNothing()
         {
             var engine = Engine(0, startingShield: 1000, enemyAttack: 100);

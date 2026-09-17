@@ -67,6 +67,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void OverhealDamageEvent_IsTaggedWithItsSource()
+        {
+            // 2026-09-18:溢流的伤害是心属性紫字,不标来源玩家读不出这一记打哪来(用户实机报「多了一个紫色 -30」)
+            var engine = Engine(Pct);
+            engine.Cast("治");
+            var hits = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
+            Assert.That(hits.Count, Is.EqualTo(1));
+            Assert.That(hits[0].Source, Is.EqualTo(DamageSource.Overheal));
+            Assert.That(hits[0].Amount, Is.EqualTo(100));
+        }
+
+        [Test]
         public void PerkOff_DealsNoDamageAtAll()
         {
             var engine = Engine(0);

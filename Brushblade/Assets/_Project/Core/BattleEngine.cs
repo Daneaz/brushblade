@@ -301,6 +301,21 @@ namespace Brushblade.Core
                        // 等只在真正落到召唤物/玩家身上才发事件的既有纪律同型。
     }
 
+    /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
+    ///
+    /// 这几条全都以心属性结算(不走生克),飘字是同一种紫色、只有一个裸数字 —— 玩家看到
+    /// 召唤物出手时多冒一个紫色 -30,读不出它是「溢流」把自愈溢出折成了伤害(用户实机报告)。
+    /// 普通挥击(字卡伤害、召唤物出手、灼烧/流血结算)一律 <see cref="None"/>。</summary>
+    public enum DamageSource
+    {
+        None,
+        Overheal,       // 水脉 L2「溢流」:治疗溢出折伤害
+        Thorns,         // 召唤物被动反伤(荆/桂 的荆棘)
+        Reflect,        // 反弹(镜/壁/圭 挂的 StatusKind.Reflect,玩家侧与召唤物侧两条管道)
+        ShieldReflect,  // 土脉 L2「反震」:护盾吸掉的量折返
+        ArmorStrike,    // 镇压:按玩家有效护甲加码
+    }
+
     public readonly struct BattleEvent
     {
         public BattleEventKind Kind { get; }
@@ -361,9 +376,13 @@ namespace Brushblade.Core
         /// 独立结算 —— 变的只有节拍。</summary>
         public bool SameSwing { get; }
 
+        /// <summary>Damage 事件专用:这记伤害来自哪条附加机制,见 <see cref="DamageSource"/>;其余事件恒 None。
+        /// 与 <see cref="Crit"/> 同理长在事件上,不另发事件让表现层配对。</summary>
+        public DamageSource Source { get; }
+
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
             int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null,
-            bool countered = false, bool sameSwing = false)
+            bool countered = false, bool sameSwing = false, DamageSource source = DamageSource.None)
         {
             Kind = kind;
             TargetIndex = targetIndex;
@@ -375,6 +394,7 @@ namespace Brushblade.Core
             Attacker = attacker;
             Countered = countered;
             SameSwing = sameSwing;
+            Source = source;
         }
     }
 
@@ -2582,7 +2602,8 @@ namespace Brushblade.Core
                                 // Element.Heart:不走生克,与反弹(DamageEnemy 那几处 bypassDefense: true
                                 // 的调用)同口径——折返/加码都不是挥击。
                                 DamageEnemy(shapeTargets[0], armorStrikeBonus, Element.Heart,
-                                    bypassDefense: true); // 镇压不吃目标护甲
+                                    bypassDefense: true, // 镇压不吃目标护甲
+                                    source: DamageSource.ArmorStrike);
                         }
                         break;
                     }
@@ -3507,7 +3528,8 @@ namespace Brushblade.Core
             if (target < 0) return;
             DamageEnemy(target, damage, Element.Heart,   // 心对全属性 1.0x = 不走生克
                 bypassDefense: true,                      // 折返/溢出不是挥击,不吃护甲
-                allowBarb: false);                        // 同理不算挥击,不触发铁画的反噬
+                allowBarb: false,                         // 同理不算挥击,不触发铁画的反噬
+                source: DamageSource.Overheal);
         }
 
         /// <param name="overflowToDamage">这一份治疗的溢出要不要折成伤害(水脉 L2「溢流」)。
@@ -3771,7 +3793,8 @@ namespace Brushblade.Core
         /// (跨排 Boss 被形状覆盖两格),表现层据此不拉开节拍 —— 见 BattleEvent.SameSwing。</param>
         private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
-            StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false)
+            StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
+            DamageSource source = DamageSource.None)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
@@ -3845,7 +3868,7 @@ namespace Brushblade.Core
             // (TargetIndex = −1),语义不同,挪用会让表现层分不清是谁的盾没了。
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage,
                 absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,
-                countered: countered, sameSwing: sameSwing));
+                countered: countered, sameSwing: sameSwing, source: source));
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
@@ -4104,7 +4127,8 @@ namespace Brushblade.Core
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
-                        allowBarb: false);     // 同理也不算挥击:不触发铁画的反噬
+                        allowBarb: false,      // 同理也不算挥击:不触发铁画的反噬
+                        source: DamageSource.Reflect);
             }
 
             // 土脉 L2「反震」(2026-09-13):按**护盾实际吸掉的量**折返,与上面的「镜」
@@ -4122,7 +4146,8 @@ namespace Brushblade.Core
                 if (bouncedByShield > 0)
                     DamageEnemy(enemyIndex, bouncedByShield, Element.Heart,
                         bypassDefense: true,   // 折返不是挥击,不吃敌人护甲
-                        allowBarb: false);     // 同理不算挥击,不触发铁画的反噬
+                        allowBarb: false,      // 同理不算挥击,不触发铁画的反噬
+                        source: DamageSource.ShieldReflect);
             }
             return true;
         }
@@ -4221,7 +4246,8 @@ namespace Brushblade.Core
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
-                        allowBarb: false);     // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
+                        allowBarb: false,      // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
+                        source: DamageSource.Thorns);
             }
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
@@ -4255,7 +4281,8 @@ namespace Brushblade.Core
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
-                        allowBarb: false);     // 同玩家侧:折返不算挥击,不触发铁画的反噬
+                        allowBarb: false,      // 同玩家侧:折返不算挥击,不触发铁画的反噬
+                        source: DamageSource.Reflect);
             }
             return true;
         }
