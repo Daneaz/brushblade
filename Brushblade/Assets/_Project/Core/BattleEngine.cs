@@ -299,14 +299,20 @@ namespace Brushblade.Core
         Unseal,        // 解封:召唤物属性重掷(TargetIndex = 召唤物槽位,Amount = 新属性的
                        // (int)Element;2026-09-16)。玩家槽位空转不发这条 —— 与 Shield/Heal
                        // 等只在真正落到召唤物/玩家身上才发事件的既有纪律同型。
+        MoraleGain,    // 战意实际增加(2026-09-18;Amount = 实际涨的层数,Source 标来源)。
+                       // 目前**只有**金脉 L2「锋芒」发 —— 字卡自带的战意照旧不发,事件流与改前一致。
+                       // 顶到上限实际没涨时不发。
     }
 
     /// <summary>一记 <see cref="BattleEventKind.Damage"/> 是不是某条**附加机制**打出来的(2026-09-18)。
     ///
     /// 这几条全都以心属性结算(不走生克),飘字是同一种紫色、只有一个裸数字 —— 玩家看到
     /// 召唤物出手时多冒一个紫色 -30,读不出它是「溢流」把自愈溢出折成了伤害(用户实机报告)。
-    /// 普通挥击(字卡伤害、召唤物出手、灼烧/流血结算)一律 <see cref="None"/>。</summary>
-    public enum DamageSource
+    /// 普通挥击(字卡伤害、召唤物出手、灼烧/流血结算)一律 <see cref="None"/>。
+    ///
+    /// 2026-09-18 由 DamageSource 改名:五行 L2 四条(余烬/归根/锋芒 + 反震)也要单独演出,
+    /// 它们挂在 Burn / Heal / MoraleGain 事件上,不只是伤害。</summary>
+    public enum EffectSource
     {
         None,
         Overheal,       // 水脉 L2「溢流」:治疗溢出折伤害
@@ -314,6 +320,9 @@ namespace Brushblade.Core
         Reflect,        // 反弹(镜/壁/圭 挂的 StatusKind.Reflect,玩家侧与召唤物侧两条管道)
         ShieldReflect,  // 土脉 L2「反震」:护盾吸掉的量折返
         ArmorStrike,    // 镇压:按玩家有效护甲加码
+        Embers,         // 火脉 L2「余烬」:Burn 事件,SecondIndex = 死者下标
+        SummonDeathHeal,// 木脉 L2「归根」:Heal 事件,TargetIndex = 阵亡召唤物槽位
+        CritMorale,     // 金脉 L2「锋芒」:MoraleGain 事件,TargetIndex = 那记暴击的落点
     }
 
     public readonly struct BattleEvent
@@ -376,9 +385,9 @@ namespace Brushblade.Core
         /// 独立结算 —— 变的只有节拍。</summary>
         public bool SameSwing { get; }
 
-        /// <summary>Damage 事件专用:这记伤害来自哪条附加机制,见 <see cref="DamageSource"/>;其余事件恒 None。
+        /// <summary>Damage 事件专用:这记伤害来自哪条附加机制,见 <see cref="EffectSource"/>;其余事件恒 None。
         /// 与 <see cref="Crit"/> 同理长在事件上,不另发事件让表现层配对。</summary>
-        public DamageSource Source { get; }
+        public EffectSource Source { get; }
 
         /// <summary>Heal 事件专用:这份治疗被水脉 L2「溢流」折成伤害的溢出量(2026-09-18);没触发为 0。
         ///
@@ -389,7 +398,7 @@ namespace Brushblade.Core
 
         public BattleEvent(BattleEventKind kind, int targetIndex, int amount, int secondIndex = -1,
             int absorbed = 0, bool crit = false, bool ke = false, Element? attacker = null,
-            bool countered = false, bool sameSwing = false, DamageSource source = DamageSource.None,
+            bool countered = false, bool sameSwing = false, EffectSource source = EffectSource.None,
             int overflow = 0)
         {
             Kind = kind;
@@ -732,7 +741,24 @@ namespace Brushblade.Core
             _critMoraleGrantedThisCast = true;
             // 复用 AddPlayerCounter:它自带 MoraleCap 夹取,以及「从 0 起手免一次递减」
             // 的战意宽限(_moraleGraceTurn)。别绕开它直接改 Magnitude。
+            int before = _playerStatuses.TotalMagnitude(StatusKind.Morale);
             AddPlayerCounter(StatusKind.Morale, _config.MoraleOnCrit, _config.MoraleCap);
+            _pendingCritMorale = _playerStatuses.TotalMagnitude(StatusKind.Morale) - before;
+        }
+
+        /// <summary>锋芒这一次实际涨了几层,等那记暴击的伤害事件发完再发 MoraleGain(2026-09-18)。
+        /// RollCrit 是在 DamageEnemy 的**实参里**摇的,摇的那一刻伤害事件还没发 ——
+        /// 直接发会让「战意+1」演在暴击之前。由 <see cref="FlushCritMorale"/> 在 DamageEnemy 里补发。</summary>
+        private int _pendingCritMorale;
+
+        /// <summary>补发锋芒的 MoraleGain。放在 DamageEnemy 的死亡结算**之后**:
+        /// EnemyDied 必须紧跟致死伤害(见该处注释),不能被这条插进去。</summary>
+        private void FlushCritMorale(int enemyIndex)
+        {
+            if (_pendingCritMorale <= 0) return;
+            _events.Add(new BattleEvent(BattleEventKind.MoraleGain, enemyIndex, _pendingCritMorale,
+                source: EffectSource.CritMorale));
+            _pendingCritMorale = 0;
         }
 
         /// <summary>召唤物的暴击判定(2026-08-28,锋 可以挂给召唤物了)。
@@ -2083,7 +2109,7 @@ namespace Brushblade.Core
             if (healBase <= 0) return;
             int amplified = AmplifyByWellspring(healBase);   // 用**攒之前**的层数
             GainWellspring(healBase);                        // 攒的是基数,与 HealSelf 同口径
-            HealAlly(Targeting.PlayerTarget, amplified);
+            HealAlly(Targeting.PlayerTarget, amplified, source: EffectSource.SummonDeathHeal, originSlot: slot);
         }
 
         /// <summary>一个敌人的完整一拍(2026-08-15,ATB 时序归属搬迁,spec §4.3「每个敌人那一拍」
@@ -2612,7 +2638,7 @@ namespace Brushblade.Core
                                 // 的调用)同口径——折返/加码都不是挥击。
                                 DamageEnemy(shapeTargets[0], armorStrikeBonus, Element.Heart,
                                     bypassDefense: true, // 镇压不吃目标护甲
-                                    source: DamageSource.ArmorStrike);
+                                    source: EffectSource.ArmorStrike);
                         }
                         break;
                     }
@@ -3541,7 +3567,7 @@ namespace Brushblade.Core
             DamageEnemy(target, damage, Element.Heart,   // 心对全属性 1.0x = 不走生克
                 bypassDefense: true,                      // 折返/溢出不是挥击,不吃护甲
                 allowBarb: false,                         // 同理不算挥击,不触发铁画的反噬
-                source: DamageSource.Overheal, sourceSlot: sourceSlot);
+                source: EffectSource.Overheal, sourceSlot: sourceSlot);
             return true;
         }
 
@@ -3607,14 +3633,18 @@ namespace Brushblade.Core
         /// 溢出部分丢弃。事件的 SecondIndex 带槽位 —— 与 Summon 事件报落位槽同一套写法,
         /// 不为治疗新增事件类型。</summary>
         /// <param name="overflowToDamage">见 <see cref="HealPlayerAndSummons"/> 的同名参数。</param>
-        private void HealAlly(int slot, int amount, bool overflowToDamage = true)
+        /// <param name="source">这份治疗来自哪条附加机制(2026-09-18,目前只有归根);只作用于玩家那一支。</param>
+        /// <param name="originSlot">治疗从哪来(归根 = 阵亡召唤物槽位),进事件的 TargetIndex;缺省 −1 与改前相同。</param>
+        private void HealAlly(int slot, int amount, bool overflowToDamage = true,
+            EffectSource source = EffectSource.None, int originSlot = -1)
         {
             if (slot == Targeting.PlayerTarget)
             {
                 int healed = Math.Min(_config.PlayerMaxHp - PlayerHp, amount);
                 PlayerHp += healed;
                 int playerEvent = _events.Count;
-                _events.Add(new BattleEvent(BattleEventKind.Heal, -1, healed, Targeting.PlayerTarget));
+                _events.Add(new BattleEvent(BattleEventKind.Heal, originSlot, healed, Targeting.PlayerTarget,
+                    source: source));
                 if (overflowToDamage && SettleOverheal(amount - healed, Targeting.PlayerTarget))
                     MarkOverflow(playerEvent, amount - healed);
                 return;
@@ -3830,7 +3860,7 @@ namespace Brushblade.Core
         private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
-            DamageSource source = DamageSource.None, int sourceSlot = -1)
+            EffectSource source = EffectSource.None, int sourceSlot = -1)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
@@ -3914,12 +3944,14 @@ namespace Brushblade.Core
             if (!enemy.Alive)
             {
                 ResolveDefeat(enemyIndex);
+                FlushCritMorale(enemyIndex);
                 // 立即判胜(Task 12):这一记(含反弹/反伤这类回敬)可能就是清场的最后一击,
                 // 不等到下一次 BeginPlayerTurn 才收口。CheckWin() 内部会挡住「玩家同时也死了」
                 // 的情形——同归于尽时玩家阵亡优先,既有口径不变。
                 CheckWin();
                 return;
             }
+            FlushCritMorale(enemyIndex);
 
             // 生僻字:受击两次后被「读懂」(8.3);打死了就无所谓读不读得懂
             if (enemy.Def.Ability == EnemyAbility.Obscure && enemy.ApparentElement == null && enemy.HitsTaken >= 2)
@@ -4065,7 +4097,8 @@ namespace Brushblade.Core
             // (SettleBurnOn 先判 Alive、敌人不会复活),但留着是快照里的死数据 ——
             // 只摘这具尸体自己的,不碰 target 刚接手的那份。
             _enemies[enemyIndex].Statuses.Remove(StatusKind.Burn);
-            _events.Add(new BattleEvent(BattleEventKind.Burn, target, moved));
+            _events.Add(new BattleEvent(BattleEventKind.Burn, target, moved, enemyIndex,
+                source: EffectSource.Embers));
         }
 
         /// <summary>命中判定(2026-08-07):命中率 = 100 − 攻击者致盲 − 目标闪避,钳到 [0,100]。
@@ -4164,7 +4197,7 @@ namespace Brushblade.Core
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
                         allowBarb: false,      // 同理也不算挥击:不触发铁画的反噬
-                        source: DamageSource.Reflect);
+                        source: EffectSource.Reflect);
             }
 
             // 土脉 L2「反震」(2026-09-13):按**护盾实际吸掉的量**折返,与上面的「镜」
@@ -4183,7 +4216,7 @@ namespace Brushblade.Core
                     DamageEnemy(enemyIndex, bouncedByShield, Element.Heart,
                         bypassDefense: true,   // 折返不是挥击,不吃敌人护甲
                         allowBarb: false,      // 同理不算挥击,不触发铁画的反噬
-                        source: DamageSource.ShieldReflect);
+                        source: EffectSource.ShieldReflect);
             }
             return true;
         }
@@ -4283,7 +4316,7 @@ namespace Brushblade.Core
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
                         allowBarb: false,      // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
-                        source: DamageSource.Thorns);
+                        source: EffectSource.Thorns);
             }
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
@@ -4318,7 +4351,7 @@ namespace Brushblade.Core
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
                         allowBarb: false,      // 同玩家侧:折返不算挥击,不触发铁画的反噬
-                        source: DamageSource.Reflect);
+                        source: EffectSource.Reflect);
             }
             return true;
         }

@@ -182,6 +182,9 @@ namespace Brushblade.Presentation
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null)
         {
             bool anyParallel = false;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
+            // 五行 L2 里会发生在群攻**中途**的两条(余烬、锋芒)挪到这批演完之后再播(2026-09-18):
+            // 当场播就得在群攻飘字中间停一拍,把「同帧齐出」拆成两截。
+            var deferred = new List<BattleEvent>();
             bool serialPending = false; // 上一记串行单位已出,下一记串行单位前先停一拍
             int lastDamageTarget = int.MinValue; // 上一记 Damage 的目标:跨过分裂/加攻/现形这些伴随事件,
                                                   // 不能只看 events[idx-1] 是否紧邻(2026-08-08 评审修复)
@@ -199,7 +202,32 @@ namespace Brushblade.Presentation
                         // 它不是挥击,和召唤物/字卡那一记挤在同帧就读不出先后。
                         // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
                         // 这里先停一拍 → 水飞过去 → 落地飘「溢流 N」+ 水花 + 掉血;之后召唤物出手再停一拍。
-                        if (e.Source == DamageSource.Overheal)
+                        // 反震(2026-09-18):敌人那一击砸在护盾上 → 停一拍 → 碎石从玩家处砸回攻击者。
+                        // TargetIndex 就是攻击者(反震只打出手的那只)。
+                        if (e.Source == EffectSource.ShieldReflect)
+                        {
+                            if (serialPending) yield return Beat(StepGap);
+                            var quakeTarget = enemyAnchor(e.TargetIndex);
+                            if (quakeTarget != null)
+                            {
+                                FlyOrb(AnchorPoint(null), quakeTarget.position,
+                                    Theme.GlyphColor(Element.Earth), RockPalette[1], 30f, square: true);
+                                yield return Beat(ProcFlyDuration);
+                            }
+                            Popup(DamageText(e), Theme.GlyphColor(Element.Earth), quakeTarget,
+                                sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
+                            RockBurst(quakeTarget);
+                            Ring(quakeTarget, Theme.GlyphColor(Element.Earth));
+                            if (!kills) HitReact(quakeTarget, 0.8f);
+                            PlayClip(_thudClip, 0.8f, 0.85f); // 闷而沉:土
+                            HitStop(HitStopLight);
+                            if (quakeTarget != null) StartCoroutine(Shake(9f, AttackDir(quakeTarget)));
+                            onImpact?.Invoke(e);
+                            lastDamageTarget = e.TargetIndex;
+                            serialPending = true;
+                            break;
+                        }
+                        if (e.Source == EffectSource.Overheal)
                         {
                             if (serialPending) yield return Beat(StepGap);
                             var overhealTarget = enemyAnchor(e.TargetIndex);
@@ -417,6 +445,7 @@ namespace Brushblade.Presentation
                         serialPending = true;
                         break;
                     case BattleEventKind.Burn:
+                        if (e.Source == EffectSource.Embers) { deferred.Add(e); break; }
                         Popup(Strings.T("juice.popup.burn_stack", ("amount", e.Amount)),
                             Theme.GlyphColor(Element.Fire), enemyAnchor(e.TargetIndex), small: true);
                         break;
@@ -462,6 +491,25 @@ namespace Brushblade.Presentation
                     // 治疗:刻意**不 yield、不置 serialPending** —— 群攻与回血是同一记里的两件事,
                     // 分开演就成了「先打完,血条才慢半拍地涨」(2026-07-29 实测)
                     case BattleEventKind.Heal:
+                        // 归根(2026-09-18):召唤物倒下 → 停一拍 → 一团翠光从它的位置流回玩家 → 回血动效。
+                        // TargetIndex = 阵亡召唤物槽位。满血没回到血也照演 —— 机制确实触发了。
+                        if (e.Source == EffectSource.SummonDeathHeal)
+                        {
+                            if (serialPending) yield return Beat(StepGap);
+                            var playerPoint = AnchorPoint(null);
+                            FlyOrb(AnchorPoint(summonAnchor?.Invoke(e.TargetIndex)), playerPoint,
+                                Theme.GlyphColor(Element.Wood), Theme.Jade, 26f);
+                            yield return Beat(ProcFlyDuration);
+                            Popup(e.Amount > 0
+                                    ? Strings.T("juice.popup.source.summon_death_heal", ("amount", e.Amount))
+                                    : Strings.T("perk.node.wood_2.name"),
+                                Theme.GlyphColor(Element.Wood), null);
+                            HealBloom(playerPoint);
+                            PlayClip(_healClip, 0.8f, 0.9f);
+                            onImpact?.Invoke(e);
+                            serialPending = true; // 接下来若还有溢流,它再停一拍飞出去
+                            break;
+                        }
                         // e.Overflow > 0 = 这份治疗被「溢流」折成了伤害(2026-09-18):满血、实际回血 0
                         // 也要播回血动效,否则紧接着那发溢流像是凭空冒出来的(用户实机反馈)。
                         if (e.Amount <= 0 && e.Overflow <= 0) break;
@@ -521,10 +569,50 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.ActorActed: // 段首标记,不播(2026-08-16)
                         break;
+                    case BattleEventKind.MoraleGain: // 锋芒:批末再播,见 PlayDeferredProc
+                        deferred.Add(e);
+                        break;
                 }
             }
             if (anyParallel) // 全体伤害同帧齐出后,统一停一拍(看清飘字/掉血)再进下一阶段
                 yield return Beat(StepGap);
+            foreach (var d in deferred)
+                yield return PlayDeferredProc(d, enemyAnchor);
+        }
+
+        /// <summary>批末回放余烬/锋芒(2026-09-18)。各自一拍:飞过去 → 落地表现 → 停一拍。</summary>
+        private IEnumerator PlayDeferredProc(BattleEvent e, Func<int, RectTransform> enemyAnchor)
+        {
+            if (e.Source == EffectSource.Embers)
+            {
+                // 余烬:一粒火星从死者身上飞到接手的那只,落地炸开 —— 读成「火没灭,跳过去了」
+                var corpse = enemyAnchor(e.SecondIndex);
+                var heir = enemyAnchor(e.TargetIndex);
+                if (heir == null) yield break;
+                FlyOrb(AnchorPoint(corpse), heir.position, Theme.GlyphColor(Element.Fire), FlamePalette[1], 26f);
+                yield return Beat(ProcFlyDuration);
+                Popup(Strings.T("juice.popup.source.embers", ("amount", e.Amount)),
+                    Theme.GlyphColor(Element.Fire), heir);
+                FlameBurst(heir);
+                FlameBurst(heir);
+                Ring(heir, Theme.GlyphColor(Element.Fire));
+                PlayClip(_hitClip, 0.5f, 0.8f);
+                yield return Beat(StepGap);
+            }
+            else if (e.Source == EffectSource.CritMorale)
+            {
+                // 锋芒:暴击落点迸出一道金光飞回玩家,在玩家处炸一圈金花 —— 读成「这一刀磨快了下一刀」
+                var struck = enemyAnchor(e.TargetIndex);
+                var player = AnchorPoint(null);
+                FlyOrb(AnchorPoint(struck), player, Theme.GoldBorder, SparkPalette[0], 22f);
+                yield return Beat(ProcFlyDuration);
+                Popup(Strings.T("juice.popup.source.crit_morale", ("amount", e.Amount)),
+                    Theme.GlyphColor(Element.Metal), null);
+                RingAt(player, Theme.GoldBorder);
+                Sparks(player);
+                PlayClip(_hitClip, 0.45f, 1.6f); // 金属的「叮」:高而短
+                yield return Beat(StepGap);
+            }
         }
 
         /// <summary>这记伤害是否打死了目标:向后扫到下一记伤害为止,期间出现本目标的 EnemyDied 即算。
@@ -761,11 +849,11 @@ namespace Brushblade.Presentation
             // 这几条都不走生克、不暴击,所以排在最前、与下面四种互不相交。逐条字面量 key,不拼接。
             switch (e.Source)
             {
-                case DamageSource.Overheal: return Strings.T("juice.popup.source.overheal", ("amount", e.Amount));
-                case DamageSource.Thorns: return Strings.T("juice.popup.source.thorns", ("amount", e.Amount));
-                case DamageSource.Reflect: return Strings.T("juice.popup.source.reflect", ("amount", e.Amount));
-                case DamageSource.ShieldReflect: return Strings.T("juice.popup.source.shield_reflect", ("amount", e.Amount));
-                case DamageSource.ArmorStrike: return Strings.T("juice.popup.source.armor_strike", ("amount", e.Amount));
+                case EffectSource.Overheal: return Strings.T("juice.popup.source.overheal", ("amount", e.Amount));
+                case EffectSource.Thorns: return Strings.T("juice.popup.source.thorns", ("amount", e.Amount));
+                case EffectSource.Reflect: return Strings.T("juice.popup.source.reflect", ("amount", e.Amount));
+                case EffectSource.ShieldReflect: return Strings.T("juice.popup.source.shield_reflect", ("amount", e.Amount));
+                case EffectSource.ArmorStrike: return Strings.T("juice.popup.source.armor_strike", ("amount", e.Amount));
             }
             if (e.Crit && e.Ke) return Strings.T("juice.popup.ke_crit_damage", ("amount", e.Amount));
             if (e.Crit) return Strings.T("juice.popup.crit_damage", ("amount", e.Amount));
@@ -966,22 +1054,97 @@ namespace Brushblade.Presentation
             }
         }
 
-        /// <summary>溢出的那一注水:无字的圆珠带拖尾,从溢出者飞向敌人。
-        /// 刻意不用 <see cref="FlyGlyph"/>(那是「出字」的语汇,飞的是字);溢流不是出手,飞的是水。</summary>
-        private void FlyOverheal(Vector3 from, Vector3 to)
+        /// <summary>溢出的那一注水:无字的圆珠带拖尾,从溢出者飞向敌人。</summary>
+        private void FlyOverheal(Vector3 from, Vector3 to) =>
+            FlyOrb(from, to, WaterPalette[0], WaterPalette[1], 30f, duration: OverhealFlyDuration);
+
+        // ---- 五行 L2 另外三条(2026-09-18):反震 / 余烬 / 归根 / 锋芒 共用的飞行物与落点效果 ----
+
+        private const float ProcFlyDuration = 0.28f;
+
+        private static readonly Color[] RockPalette =
+        {
+            new Color(0.451f, 0.349f, 0.227f), new Color(0.600f, 0.478f, 0.318f),
+            new Color(0.329f, 0.286f, 0.243f), new Color(0.702f, 0.620f, 0.470f),
+        };
+
+        private static readonly Color[] SparkPalette =
+        {
+            new Color(0.95f, 0.80f, 0.35f), new Color(1f, 0.93f, 0.62f), new Color(0.80f, 0.78f, 0.74f),
+        };
+
+        /// <summary>五行机制的「飞过去」:无字的珠/块带拖尾。刻意不用 <see cref="FlyGlyph"/> ——
+        /// 那是「出字」的语汇,飞的是字;这些都不是出手,飞的是水、石、火星、光。</summary>
+        private void FlyOrb(Vector3 from, Vector3 to, Color core, Color trail, float size,
+            float duration = ProcFlyDuration, bool square = false)
         {
             if (_shakeTarget == null) return;
-            var go = new GameObject("OverhealDrop", typeof(RectTransform));
+            var go = new GameObject("ProcOrb", typeof(RectTransform));
             go.transform.SetParent(_shakeTarget, false);
             var rect = (RectTransform)go.transform;
-            rect.sizeDelta = new Vector2(30f, 30f);
+            rect.sizeDelta = new Vector2(size, size);
             rect.position = from;
             var image = go.AddComponent<Image>();
-            image.sprite = Theme.Rounded(15);
+            image.sprite = Theme.Rounded(square ? 4 : Mathf.RoundToInt(size / 2f));
             image.type = Image.Type.Sliced;
-            image.color = WaterPalette[0];
+            image.color = core;
             image.raycastTarget = false;
-            StartCoroutine(FlyRoutine(rect, from, to, null, OverhealFlyDuration, easeOut: false, WaterPalette[1]));
+            StartCoroutine(FlyRoutine(rect, from, to, null, duration, easeOut: false, trail));
+        }
+
+        /// <summary>同 <see cref="Ring"/>,但给没有 RectTransform 的点用(玩家 = 屏幕中下)。</summary>
+        private void RingAt(Vector3 at, Color color)
+        {
+            if (_shakeTarget == null) return;
+            var go = new GameObject("Ring", typeof(RectTransform));
+            go.transform.SetParent(_shakeTarget, false);
+            var rect = (RectTransform)go.transform;
+            rect.sizeDelta = new Vector2(64f, 64f);
+            rect.position = at;
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(16);
+            image.type = Image.Type.Sliced;
+            image.fillCenter = false;
+            image.raycastTarget = false;
+            image.color = color;
+            StartCoroutine(RingRoutine(rect, image, color, inward: false));
+        }
+
+        /// <summary>碎石:方块向四周崩开、下坠,比水花重(块大、落得快)。</summary>
+        private void RockBurst(RectTransform target)
+        {
+            if (target == null || _shakeTarget == null) return;
+            for (int n = 0; n < 8; n++)
+                SpawnBurstBit(target.position, UnityEngine.Random.Range(8f, 15f), 4,
+                    RockPalette[UnityEngine.Random.Range(0, RockPalette.Length)],
+                    UnityEngine.Random.Range(0f, 180f), UnityEngine.Random.Range(110f, 200f), gravity: 620f);
+        }
+
+        /// <summary>金花:细碎亮点快速四射、几乎不下坠。</summary>
+        private void Sparks(Vector3 at)
+        {
+            if (_shakeTarget == null) return;
+            for (int n = 0; n < 10; n++)
+                SpawnBurstBit(at, UnityEngine.Random.Range(5f, 9f), 3,
+                    SparkPalette[UnityEngine.Random.Range(0, SparkPalette.Length)],
+                    UnityEngine.Random.Range(0f, 360f), UnityEngine.Random.Range(160f, 260f), gravity: 80f);
+        }
+
+        private void SpawnBurstBit(Vector3 at, float size, int radius, Color color, float angleDeg, float speed,
+            float gravity)
+        {
+            var go = new GameObject("BurstBit", typeof(RectTransform));
+            go.transform.SetParent(_shakeTarget, false);
+            var rect = (RectTransform)go.transform;
+            rect.sizeDelta = new Vector2(size, size);
+            rect.position = at;
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Rounded(radius);
+            image.type = Image.Type.Sliced;
+            image.color = color;
+            image.raycastTarget = false;
+            float a = angleDeg * Mathf.Deg2Rad;
+            StartCoroutine(SplashRoutine(rect, image, new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * speed, gravity));
         }
 
         /// <summary>水花:落点处水珠向四周溅开、带一点下坠,边飞边淡。</summary>
@@ -1003,16 +1166,15 @@ namespace Brushblade.Presentation
                 image.raycastTarget = false;
                 float angle = UnityEngine.Random.Range(20f, 160f) * Mathf.Deg2Rad; // 主要往上半圈溅
                 var velocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * UnityEngine.Random.Range(90f, 170f);
-                StartCoroutine(SplashRoutine(rect, image, velocity));
+                StartCoroutine(SplashRoutine(rect, image, velocity, 420f));
             }
         }
 
-        private static IEnumerator SplashRoutine(RectTransform rect, Image image, Vector2 velocity)
+        private static IEnumerator SplashRoutine(RectTransform rect, Image image, Vector2 velocity, float gravity)
         {
             Vector2 start = rect.anchoredPosition;
             Color from = image.color;
             const float duration = 0.45f;
-            const float gravity = 420f;
             float t = 0f;
             while (t < duration && rect != null)
             {

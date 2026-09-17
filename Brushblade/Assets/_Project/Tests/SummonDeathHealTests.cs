@@ -218,5 +218,21 @@ namespace Brushblade.Core.Tests
             engine.KillSummonForTest(slot);
             Assert.That(engine.PlayerHp, Is.EqualTo(380), "每一次真实死亡都算一次,不去重");
         }
+
+        // ---- 事件(2026-09-18):表现层要演「阵亡召唤物化作生机流回玩家」----
+
+        [Test]
+        public void DeathHealEvent_IsTaggedSummonDeathHeal_FromTheFallenSlot()
+        {
+            var engine = Engine(20, startingHp: 400);
+            engine.Cast("兵");
+            int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
+            engine.KillSummonForTest(slot);
+            var heal = engine.LastEvents.Last(e => e.Kind == BattleEventKind.Heal);
+            Assert.That(heal.Source, Is.EqualTo(EffectSource.SummonDeathHeal));
+            Assert.That(heal.TargetIndex, Is.EqualTo(slot), "起点 = 阵亡召唤物的槽位");
+            Assert.That(heal.SecondIndex, Is.EqualTo(Targeting.PlayerTarget), "落点仍是玩家");
+            Assert.That(heal.Amount, Is.EqualTo(40));
+        }
     }
 }

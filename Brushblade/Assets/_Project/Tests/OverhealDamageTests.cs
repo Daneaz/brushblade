@@ -81,7 +81,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("治");
             var hits = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
             Assert.That(hits.Count, Is.EqualTo(1));
-            Assert.That(hits[0].Source, Is.EqualTo(DamageSource.Overheal));
+            Assert.That(hits[0].Source, Is.EqualTo(EffectSource.Overheal));
             Assert.That(hits[0].Amount, Is.EqualTo(100));
         }
 
@@ -202,7 +202,7 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
 
             int heal = IndexOf(engine, e => e.Kind == BattleEventKind.Heal && e.SecondIndex == slot);
-            int hit = IndexOf(engine, e => e.Kind == BattleEventKind.Damage && e.Source == DamageSource.Overheal);
+            int hit = IndexOf(engine, e => e.Kind == BattleEventKind.Damage && e.Source == EffectSource.Overheal);
             int attack = IndexOf(engine, e => e.Kind == BattleEventKind.SummonAttack && e.SecondIndex == slot);
             Assert.That(heal, Is.GreaterThanOrEqualTo(0), "满血自愈也要发治疗事件,表现层靠它播回血动效");
             Assert.That(engine.LastEvents[heal].Amount, Is.EqualTo(0), "满血,实际回血 0");

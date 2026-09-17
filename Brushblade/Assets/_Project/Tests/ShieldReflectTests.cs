@@ -45,7 +45,7 @@ namespace Brushblade.Core.Tests
             engine.EndTurn();
             var hits = engine.LastEvents.Where(e => e.Kind == BattleEventKind.Damage).ToList();
             Assert.That(hits.Count, Is.EqualTo(1));
-            Assert.That(hits[0].Source, Is.EqualTo(DamageSource.ShieldReflect));
+            Assert.That(hits[0].Source, Is.EqualTo(EffectSource.ShieldReflect));
             Assert.That(hits[0].Amount, Is.EqualTo(20));
         }
 

@@ -202,5 +202,26 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Alive, Is.False, "前提:被斩杀直接清零");
             Assert.That(BurnOn(engine, 1), Is.EqualTo(5), "斩杀致死同样要走 ResolveDefeat 的蔓延");
         }
+
+        // ---- 事件(2026-09-18):表现层要演「死者身上的火星飞到下一只」,需要来源与起点 ----
+
+        [Test]
+        public void SpreadBurnEvent_IsTaggedEmbers_FromTheCorpse_AfterItsDeath()
+        {
+            var engine = Engine(100);
+            engine.Cast("燃", 0);
+            var plain = engine.LastEvents.Single(e => e.Kind == BattleEventKind.Burn);
+            Assert.That(plain.Source, Is.EqualTo(EffectSource.None), "字卡挂的灼烧不打标");
+
+            engine.Cast("刺", 0);
+            var events = engine.LastEvents.ToList();
+            int died = events.FindIndex(e => e.Kind == BattleEventKind.EnemyDied && e.TargetIndex == 0);
+            int spread = events.FindIndex(e => e.Kind == BattleEventKind.Burn);
+            Assert.That(spread, Is.GreaterThan(died), "先死,火星再飞");
+            Assert.That(events[spread].Source, Is.EqualTo(EffectSource.Embers));
+            Assert.That(events[spread].SecondIndex, Is.EqualTo(0), "起点 = 死者下标");
+            Assert.That(events[spread].TargetIndex, Is.EqualTo(1));
+            Assert.That(events[spread].Amount, Is.EqualTo(5));
+        }
     }
 }

@@ -150,5 +150,55 @@ namespace Brushblade.Core.Tests
             Assert.That(Morale(engine), Is.EqualTo(0),
                 "召唤物暴击不读玩家战意——RollCritForSummon 与锋芒(RollCrit)是两条互不相连的判定");
         }
+
+        // ---- 事件(2026-09-18):锋芒此前没有任何事件,战意涨了画面上看不见 ----
+
+        [Test]
+        public void CritMorale_EmitsMoraleGainAfterTheCritHit()
+        {
+            var engine = Engine(1);
+            engine.Cast("刺", 0);
+            var events = engine.LastEvents.ToList();
+            int hit = events.FindIndex(e => e.Kind == BattleEventKind.Damage && e.Crit);
+            int gain = events.FindIndex(e => e.Kind == BattleEventKind.MoraleGain);
+            Assert.That(hit, Is.GreaterThanOrEqualTo(0));
+            Assert.That(gain, Is.GreaterThan(hit), "先看见暴击,再看见战意涨");
+            Assert.That(events[gain].Source, Is.EqualTo(EffectSource.CritMorale));
+            Assert.That(events[gain].Amount, Is.EqualTo(1));
+            Assert.That(events[gain].TargetIndex, Is.EqualTo(events[hit].TargetIndex), "起点 = 暴击落点");
+        }
+
+        [Test]
+        public void AoeCrit_EmitsExactlyOneMoraleGain()
+        {
+            var engine = Engine(1);
+            engine.Cast("扫");
+            Assert.That(engine.LastEvents.Count(e => e.Kind == BattleEventKind.MoraleGain), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PerkOff_EmitsNoMoraleGain()
+        {
+            var engine = Engine(0);
+            engine.Cast("刺", 0);
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.MoraleGain), Is.False);
+        }
+
+        [Test]
+        public void AtCap_EmitsNoMoraleGain()
+        {
+            // 顶满后再暴击实际没涨,不该演一次「战意+1」
+            var engine = new BattleEngine(Graph(), new BattleConfig
+                {
+                    DropTable = new[] { "金" }, PlayerMaxHp = 500, ApPerTurn = 20,
+                    PlayerCritChance = 100, MoraleOnCrit = 1, MoraleCap = 1,
+                },
+                new[] { "刺", "刺" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 9000, 0) }, seed: 1);
+            engine.Cast("刺", 0);
+            Assert.That(Morale(engine), Is.EqualTo(1));
+            engine.Cast("刺", 0);
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.MoraleGain), Is.False);
+        }
     }
 }
