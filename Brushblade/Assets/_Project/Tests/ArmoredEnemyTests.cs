@@ -270,5 +270,28 @@ namespace Brushblade.CoreTests
             engine.Cast("镇", 0);
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 50), "无甲时镇压空转,主伤害照常");
         }
+
+        [Test]
+        public void ArmorStrike_WithVolley_NoTargetCast_AppliesOnceOnFirstShotTarget()
+        {
+            // 塔(2026-09-16):连发2 + 镇压50。连发不选目标(NeedsTarget 排除 Volley),
+            // targetIndex 恒为 -1 —— 镇压曾直接读 _enemies[targetIndex] 越界崩溃(balance 仿真撞出)。
+            // 口径:镇压只在目标表首项结算**一次**,不按发数翻倍(价目「镇压50」只计一次)。
+            // 玩家甲 40、敌人甲 100:每发 100×100/200=50,两发 100,镇压 40×50%=20 → 共 120
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("塔", Element.Heart, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 100, shape: TargetShape.Volley, shots: 2,
+                        armorStrikePercent: 50),
+                }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 1000, PlayerDefense = 40 },
+                new[] { "塔" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Earth, 1000, 0, defense: 100) }, seed: 1);
+            Assert.That(BattleEngine.NeedsTarget(graph.Get("塔")), Is.False, "前提:连发不选目标");
+            Assert.That(engine.Cast("塔"), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 120), "两发 50×2 + 镇压 20 只结算一次");
+        }
     }
 }

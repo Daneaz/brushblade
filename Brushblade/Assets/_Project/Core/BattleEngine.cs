@@ -2562,13 +2562,18 @@ namespace Brushblade.Core
                         // 只对主目标生效——spec §5 的镇压字目前全是单体(dual_s)。放在这里而不是
                         // 上面的循环里:主伤害可能已经杀死主目标,这一发借同一条 DamageEnemy 的
                         // 存活判定挡下,不会对尸体补刀;放在主伤害之前则会让镇压抢在斩杀判定之前触发。
-                        if (effect.ArmorStrikePercent > 0 && _enemies[targetIndex].Alive)
+                        // ⚠ 主目标取**目标表首项**,不能读 targetIndex:连发(塔,连发2+镇压50)不选目标,
+                        // targetIndex 恒为 -1,直接索引曾越界崩溃(2026-09-17 balance 仿真撞出)。
+                        // Single 形状下首项就是 targetIndex,逐字节不变;连发时是第一发的落点,
+                        // 镇压只结算一次、不按发数翻倍(价目「镇压50」只计一次)。
+                        if (effect.ArmorStrikePercent > 0 && shapeTargets.Count > 0
+                            && _enemies[shapeTargets[0]].Alive)
                         {
                             int armorStrikeBonus = EffectivePlayerDefense * effect.ArmorStrikePercent / 100;
                             if (armorStrikeBonus > 0)
                                 // Element.Heart:不走生克,与反弹(DamageEnemy 那几处 bypassDefense: true
                                 // 的调用)同口径——折返/加码都不是挥击。
-                                DamageEnemy(targetIndex, armorStrikeBonus, Element.Heart,
+                                DamageEnemy(shapeTargets[0], armorStrikeBonus, Element.Heart,
                                     bypassDefense: true); // 镇压不吃目标护甲
                         }
                         break;
