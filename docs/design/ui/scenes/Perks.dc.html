@@ -44,7 +44,7 @@
     .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
     .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
-    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
     .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
 
@@ -107,12 +107,12 @@
       margin-top: 11px; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px;
       padding: 8px 9px; display: flex; align-items: center; gap: 8px;
     }
-    .now .k { font-size: 9px; color: #88909C; letter-spacing: 1px; }
+    .now .k { font-size: 9px; color: #676F7A; letter-spacing: 1px; }
     .now .a { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .now .ar { font-size: 11px; color: #B3AB9B; }
+    .now .ar { font-size: 11px; color: #928B7B; }
     .now .b { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600;
       font-variant-numeric: tabular-nums; color: var(--pk); }
-    .note { font-size: 9.5px; color: #88909C; line-height: 1.6; margin-top: 9px; }
+    .note { font-size: 9.5px; color: #676F7A; line-height: 1.6; margin-top: 9px; }
     .note b { color: #5D646F; font-weight: 500; }
 
     .buy {
@@ -124,7 +124,7 @@
     .buy .cost { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
     .buy.poor { background: #E7E1D4; color: #A09A8C; cursor: not-allowed; }
     .buy.gated { background: #DAD7D0; color: #5D646F; cursor: not-allowed; }
-    .buy.maxed { background: #F6EDD5; color: #8F6B09; }
+    .buy.maxed { background: #F6EDD5; color: #8A6600; }
 
     /* 合计 */
     .sum {
@@ -133,16 +133,16 @@
     }
     .sm { flex: 1; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
     .sm + .sm { border-left: 1px solid #E7E1D4; }
-    .sm .k { font-size: 9px; color: #88909C; letter-spacing: 1px; }
+    .sm .k { font-size: 9px; color: #676F7A; letter-spacing: 1px; }
     .sm .v { display: flex; align-items: baseline; gap: 5px; }
-    .sm .base { font-size: 13px; color: #B3AB9B; font-variant-numeric: tabular-nums; }
+    .sm .base { font-size: 13px; color: #928B7B; font-variant-numeric: tabular-nums; }
     .sm .ar { font-size: 10px; color: #CFC7B6; }
     .sm .out { font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600;
       font-variant-numeric: tabular-nums; }
     .sm .gain { font-size: 9.5px; color: #1B552C; background: #E3F4E6; border-radius: 6px; padding: 1px 5px; }
-    .sm.flat .out { color: #B3AB9B; }
+    .sm.flat .out { color: #928B7B; }
     .sumhead { width: 92px; flex: none; padding-left: 10px; }
-    .sumhead .t { font-size: 9px; color: #88909C; letter-spacing: 2px; }
+    .sumhead .t { font-size: 9px; color: #676F7A; letter-spacing: 2px; }
     .sumhead .s { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; margin-top: 3px; }
   </style>
 </helmet>
@@ -230,7 +230,7 @@
           </button>
         </div>
 
-        <div class="perk" style="--pk: #439458;">
+        <div class="perk" style="--pk: #34864B;">
           <span class="mark">一</span>
           <div class="ph">
             <span class="nm">一气</span>
@@ -261,7 +261,7 @@
         </div>
         <div class="sm">
           <div class="k">开局护盾</div>
-          <div class="v"><span class="base">0</span><span class="ar">→</span><span class="out" style="color:#8F6B09;">20</span><span class="gain">+20</span></div>
+          <div class="v"><span class="base">0</span><span class="ar">→</span><span class="out" style="color:#8A6600;">20</span><span class="gain">+20</span></div>
         </div>
         <div class="sm flat">
           <div class="k">字库容量</div>

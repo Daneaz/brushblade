@@ -44,7 +44,7 @@
     .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
     .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
-    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
     .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
 
@@ -94,11 +94,11 @@
     .ftab.on { color: var(--elFg); background: var(--elSoft); border-bottom-color: var(--el); }
     .ftab.on .fc { background: color-mix(in srgb, var(--el) 26%, #fff); color: var(--elFg); }
     /* Boss 档:墨底金字,与怪牌右上的「四相」标同一套 —— 它不是第五个层段,是另一条轴 */
-    .ftab.boss .fn { color: #8F6B09; }
+    .ftab.boss .fn { color: #8A6600; }
     .ftab.boss.on { color: #C9A94A; background: #11161F; border-bottom-color: #C9A94A; }
     .ftab.boss.on .fn { color: #C9A94A; }
     .ftab.boss.on .fc { background: rgba(201,169,74,.24); color: #C9A94A; }
-    .pr.boss .pn { color: #8F6B09; }
+    .pr.boss .pn { color: #8A6600; }
     .pr.boss .pt > span { background: #11161F; }
     .ftab .nd { position: absolute; top: 2px; right: 4px; width: 6px; height: 6px; border-radius: 50%;
       background: #C53637; box-shadow: 0 0 0 1.5px #F6F1E7; }
@@ -139,8 +139,8 @@
       display: flex; align-items: center; gap: 2px; animation: breathe 2.6s ease-in-out infinite; }
     @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
     .mob.lock .blk { background: #E4DFD4; border-color: #CFC7B6; }
-    .mob.lock .face { color: #B3AB9B; }
-    .mob.lock .nm { color: #B3AB9B; }
+    .mob.lock .face { color: #928B7B; }
+    .mob.lock .nm { color: #928B7B; }
     .lockicon { position: absolute; bottom: 4px; right: 4px; width: 16px; height: 16px; border-radius: 50%;
       background: rgba(122,114,98,.18); display: flex; align-items: center; justify-content: center; }
 
@@ -149,7 +149,7 @@
       border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
     .sidehead { height: 26px; flex: none; display: flex; align-items: center; gap: 6px;
       padding: 0 8px; border-bottom: 1px solid #E7E1D4; }
-    .sidehead .lbl { font-size: 9px; color: #88909C; letter-spacing: 2px; }
+    .sidehead .lbl { font-size: 9px; color: #676F7A; letter-spacing: 2px; }
     .iconbtn { width: 22px; height: 22px; border: none; border-radius: 6px; background: transparent;
       color: #5D646F; cursor: pointer; font-size: 12px; font-family: inherit; padding: 0; }
     .iconbtn:hover { background: #EFEADF; color: #161B22; }
@@ -166,21 +166,21 @@
     .hero .meta { flex: 1; min-width: 0; }
     .hero .nm { font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 600; letter-spacing: 1px; }
     .hero .cs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .hero .where { font-size: 9px; color: #88909C; margin-top: 6px; line-height: 1.55; }
+    .hero .where { font-size: 9px; color: #676F7A; margin-top: 6px; line-height: 1.55; }
     .hero .where b { color: #5D646F; font-weight: 500; }
 
     .sect { margin-top: 11px; }
-    .sect > h4 { margin: 0 0 6px; font-size: 9px; font-weight: 500; letter-spacing: 2px; color: #88909C;
+    .sect > h4 { margin: 0 0 6px; font-size: 9px; font-weight: 500; letter-spacing: 2px; color: #676F7A;
       display: flex; align-items: center; gap: 6px; }
     .sect > h4::after { content: ""; flex: 1; height: 1px; background: #E7E1D4; }
     .sect > h4 .sc { flex: none; font-size: 8.5px; color: #A09A8C; letter-spacing: 0; }
 
     .nums { display: flex; gap: 5px; }
     .nb { flex: 1; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 7px; padding: 5px 6px; }
-    .nb .k { font-size: 8px; color: #88909C; letter-spacing: 1px; }
+    .nb .k { font-size: 8px; color: #676F7A; letter-spacing: 1px; }
     .nb .v { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600; line-height: 1.2;
       font-variant-numeric: tabular-nums; margin-top: 1px; }
-    .nb .s { font-size: 7.5px; color: #B3AB9B; margin-top: 1px; }
+    .nb .s { font-size: 7.5px; color: #928B7B; margin-top: 1px; }
     .nb.hp .v { color: #B02D2E; } .nb.atk .v { color: #82552A; } .nb.def .v { color: #3D4E69; }
     .nb.def.zero .v { color: #C2BAAA; }
 
@@ -227,7 +227,7 @@
     .pr .pt > span { display: block; height: 100%; background: var(--el); border-radius: 4px; }
     .pr .pc { width: 28px; text-align: right; color: #5D646F; font-variant-numeric: tabular-nums; }
     .pr.done .pc { color: #1B552C; font-weight: 700; }
-    .tip { font-size: 9.5px; color: #88909C; line-height: 1.8; }
+    .tip { font-size: 9.5px; color: #676F7A; line-height: 1.8; }
     .tip b { color: #5D646F; font-weight: 500; }
   </style>
 </helmet>
@@ -464,11 +464,11 @@
 
 <script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
 var EL_NAME = { Metal: "金", Wood: "木", Water: "水", Fire: "火", Earth: "土", Heart: "心" };
-var EL_MAIN = { Metal: "#B3A382", Wood: "#348F4F", Water: "#0F74C4", Fire: "#C53637", Earth: "#997C3C", Heart: "#9750A7" };
+var EL_MAIN = { Metal: "#B3A382", Wood: "#348F4F", Water: "#0F74C4", Fire: "#C53637", Earth: "#8F7332", Heart: "#9750A7" };
 // 相克圈只含五行,心中立(docs/design/wuxing-reference.md)
 var KE = { Wood: "Earth", Earth: "Water", Water: "Fire", Fire: "Metal", Metal: "Wood" };
 var BEI = { Earth: "Wood", Water: "Earth", Fire: "Water", Metal: "Fire", Wood: "Metal" };
-var CHIP_BG = { dot: "#C53637", heal: "#2E7D46", ctrl: "#19507F", mode: "#997C3C", info: "#3D4E69" };
+var CHIP_BG = { dot: "#C53637", heal: "#2E7D46", ctrl: "#19507F", mode: "#8F7332", info: "#3D4E69" };
 
 // 能力名与说明逐字取自 strings.zh-CN.json 的 enemy.ability.*
 var ABILITY = {

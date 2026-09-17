@@ -20,12 +20,13 @@ namespace Brushblade.Presentation
         public static readonly Color CinnabarDark = new(0.607f, 0.117f, 0.135f);
         public static readonly Color WarnBg = new(0.984f, 0.890f, 0.886f);   // 稿 #FBE3E2:不可逆告警条底
         public static readonly Color WarnText = new(0.607f, 0.117f, 0.133f); // 稿 #9B1E22:告警条字色
-        public static readonly Color Jade = new(0.264f, 0.58f, 0.347f);         // 翠玉
+        // 2026-09-18 对比度调整(设计系统「字·斗」WCAG AA):六个色调深,原值写在各行注释里
+        public static readonly Color Jade = new(0.204f, 0.525f, 0.294f);        // 翠玉 #34864B(原 #439458:「可升」白字 3.7 → 4.5:1)
         public static readonly Color Gold = new(0.791f, 0.617f, 0.199f);        // 赭金
         public static readonly Color GoldBorder = new(0.56f, 0.421f, 0.037f);
         public static readonly Color GoldText = new(0.251f, 0.161f, 0.0f);
         public static readonly Color GoldSoft = new(0.965f, 0.929f, 0.835f);    // 金系浅底(墨锭条/满级牌脚)
-        public static readonly Color GoldDeep = new(0.561f, 0.42f, 0.035f);     // 压在 GoldSoft 上的字色
+        public static readonly Color GoldDeep = new(0.541f, 0.400f, 0.000f);    // 压在 GoldSoft 上的字色 #8A6600(原 #8F6B09:4.2 → 4.5:1)
         /// <summary>银边 `#A9AFB8`(2026-09-05 用户拍板):部件池「还能再拆一层」的镶边。
         /// 冷灰,压在暖调宣纸上才认得出是金属而不是脏;刻意比 <see cref="Gold"/> 收敛得多 ——
         /// 那一圈是**常驻**的,同屏可能有三五个,亮到金那个程度就成了抢戏。</summary>
@@ -34,7 +35,7 @@ namespace Brushblade.Presentation
         public static readonly Color AdGreenBg = new(0.892f, 0.955f, 0.901f);
         public static readonly Color AdGreenText = new(0.044f, 0.364f, 0.165f);
         public static readonly Color ExitPink = new(0.477f, 0.246f, 0.362f);
-        public static readonly Color ShopNav = new(0.654f, 0.349f, 0.241f);
+        public static readonly Color ShopNav = new(0.627f, 0.325f, 0.216f);     // #A05337(原 #A7593D:商城页签字/底 4.1 → 4.5:1)
         public static readonly Color PanelPaper = new(0.984f, 0.973f, 0.945f);   // 面板底(比宣纸底亮一档)
         public static readonly Color PanelBorder = new(0.871f, 0.843f, 0.788f);  // 面板描边(稿上统一 1pt)
         // 稿 #F1EBDE:面板内嵌/凹槽条的底色(如 Reward 选字页牌下方那条 detail 横条)。
@@ -47,8 +48,8 @@ namespace Brushblade.Presentation
         // 未拥有的字牌(2026-09-03,稿 Main.dc.html 的 .card.locked):牌面褪成宣纸灰、字形压浅。
         // 两条都比 LockedBg 亮 —— 那个是按钮的禁用底,压在牌上会把整格看成一块死板
         public static readonly Color LockedPaper = new(0.937f, 0.918f, 0.878f);  // 稿 #EFEAE0
-        public static readonly Color LockedGlyph = new(0.686f, 0.651f, 0.584f);  // 稿 #AFA695
-        public static readonly Color LockGray = new(0.534f, 0.563f, 0.611f);
+        public static readonly Color LockedGlyph = new(0.557f, 0.525f, 0.459f);  // 稿 #8E8675(原 #AFA695:LockedPaper 上 2.0 → 3:1,只用于大字形)
+        public static readonly Color LockGray = new(0.404f, 0.435f, 0.478f);    // #676F7A(原 #88909C:宣纸上 2.9 → 4.5:1)
         public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);
         public static readonly Color NeutralPart = new(0.309f, 0.336f, 0.379f); // 中性部件底
         public static readonly Color IngotDark = new(0.1f, 0.122f, 0.17f);      // 墨锭图标
@@ -138,7 +139,7 @@ namespace Brushblade.Presentation
             Element.Fire => new Color(0.772f, 0.211f, 0.215f),
             Element.Water => new Color(0.06f, 0.455f, 0.771f),
             Element.Wood => new Color(0.204f, 0.561f, 0.309f),
-            Element.Earth => new Color(0.6f, 0.486f, 0.235f),
+            Element.Earth => new Color(0.561f, 0.451f, 0.196f), // #8F7332(原 #997C3C:攻击模式 chip 白字 4.0 → 4.5:1)
             Element.Metal => new Color(0.702f, 0.638f, 0.507f),
             Element.Heart => new Color(0.592f, 0.312f, 0.655f),
             _ => NeutralPart,
