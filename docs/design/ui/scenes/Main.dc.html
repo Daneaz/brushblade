@@ -46,7 +46,7 @@
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
     .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -99,16 +99,16 @@
       border: 1px solid #C6DCCB; background: #E3F4E6; color: #1B552C;
     }
     .toggle.on { background: #34864B; border-color: #34864B; color: #fff; }
-    .toggle.wanted { border-color: #DED7C9; background: #EFEAE0; color: #8C8474; margin-left: 4px; }
+    .toggle.wanted { border-color: #DED7C9; background: #EFEAE0; color: #696151; margin-left: 4px; }
     .toggle.wanted.on { background: #5D5545; border-color: #5D5545; color: #fff; }
-    .sorthint { align-self: center; font-size: 9px; color: #A09A8C; letter-spacing: .3px; }
+    .sorthint { align-self: center; font-size: 9px; color: #696151; letter-spacing: .3px; }
 
     main { flex: 1; display: flex; gap: 9px; min-height: 0; padding-bottom: 6px; }
     .gridwrap { flex: 1; min-width: 0; overflow-y: auto; padding-right: 5px; }
     .gridwrap::-webkit-scrollbar { width: 4px; }
     .gridwrap::-webkit-scrollbar-thumb { background: #D3CBBA; border-radius: 2px; }
     .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 8px; }
-    .empty { padding: 50px 0; text-align: center; color: #A09A8C; font-size: 11px; }
+    .empty { padding: 50px 0; text-align: center; color: #696151; font-size: 11px; }
 
     /* 字牌 */
     .cell { display: flex; flex-direction: column; gap: 4px; }
@@ -165,7 +165,7 @@
       position: absolute; top: 5px; left: 5px; width: 17px; height: 17px; border-radius: 50%;
       background: rgba(122,114,98,.16); display: flex; align-items: center; justify-content: center;
     }
-    .foot .src { font-size: 8.5px; color: #A8A08E; letter-spacing: .5px; }
+    .foot .src { font-size: 8.5px; color: #696151; letter-spacing: .5px; }
 
     .card.isnew { border-color: #C9A94A; }
     .card.isnew::before { border-color: rgba(201,169,74,.55); }
@@ -226,7 +226,7 @@
     .lvrow { display: flex; align-items: flex-end; gap: 7px; }
     .lvnow { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; line-height: 1;
       font-variant-numeric: tabular-nums; }
-    .lvmax { font-size: 10px; color: #A09A8C; padding-bottom: 1px; }
+    .lvmax { font-size: 10px; color: #696151; padding-bottom: 1px; }
     .pips { display: flex; gap: 2px; flex: 1; padding-bottom: 3px; }
     .pips i { flex: 1; height: 5px; border-radius: 2px; background: #E1DACB; }
     .pips i.f { background: #3D4E69; }
@@ -243,7 +243,7 @@
     .sbox .k { font-size: 8.5px; color: #676F7A; letter-spacing: 1px; }
     .sbox .v { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; line-height: 1.2;
       font-variant-numeric: tabular-nums; margin-top: 2px; }
-    .sbox .t { font-size: 7.5px; color: #A09A8C; margin-top: 1px; }
+    .sbox .t { font-size: 7.5px; color: #696151; margin-top: 1px; }
     .sbox.atk .v { color: #B02D2E; } .sbox.hp .v { color: #1F6333; }
     .sbox.shield .v { color: #82552A; } .sbox.heal .v { color: #0A5E9E; }
 
@@ -256,7 +256,7 @@
       background: var(--pSoft); color: var(--pFg); }
     .part .pg { font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; line-height: 1; }
     .part .pe { font-size: 7.5px; letter-spacing: .5px; margin-top: 2px; opacity: .8; }
-    .op { font-size: 12px; color: #A09A8C; }
+    .op { font-size: 12px; color: #696151; }
     .part.out { background: var(--elSoft); color: var(--elFg); box-shadow: 0 0 0 2px var(--el) inset; }
     .leafnote { font-size: 9px; line-height: 1.55; }
 
@@ -277,15 +277,15 @@
       font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: #fff; }
     .getrow .tx { font-size: 9.5px; line-height: 1.55; color: #5D646F; }
     .getrow .tx b { color: #161B22; font-weight: 500; }
-    .getrow.no .ic { background: #D5CDBC; color: #8C8474; }
-    .getrow.no .tx { color: #A8A08E; }
+    .getrow.no .ic { background: #D5CDBC; color: #696151; }
+    .getrow.no .tx { color: #696151; }
 
     .abtn { flex: 1; height: 36px; border: none; border-radius: 8px; cursor: pointer;
       font-family: inherit; font-size: 12px; letter-spacing: 1px; font-weight: 500; }
     .abtn.deck { background: #7A3F5C; color: #fff; }
     .abtn.deck.off { background: #DAD7D0; color: #161B22; }
     .abtn.up { background: #34864B; color: #fff; }
-    .abtn.up.dis { background: #E7E1D4; color: #A09A8C; cursor: not-allowed; }
+    .abtn.up.dis { background: #E7E1D4; color: #696151; cursor: not-allowed; }
     .abtn.up.maxed { background: #F6EDD5; color: #8A6600; }
 
     .slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
@@ -293,8 +293,8 @@
       align-items: center; justify-content: center; gap: 1px; background: var(--elSoft);
       color: var(--glyph); cursor: pointer; }
     .slot .sg { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; line-height: 1; }
-    .slot .sl { font-size: 7.5px; color: #5D646F; font-variant-numeric: tabular-nums; }
-    .slot.free { background: transparent; border: 1px dashed #CFC7B6; color: #928B7B; font-size: 13px; cursor: default; }
+    .slot .sl { font-size: 7.5px; color: #2C333D; font-variant-numeric: tabular-nums; }
+    .slot.free { background: transparent; border: 1px dashed #CFC7B6; color: #696151; font-size: 13px; cursor: default; }
     .elbars { display: flex; flex-direction: column; gap: 5px; }
     .elbar { display: flex; align-items: center; gap: 7px; font-size: 9.5px; }
     .elbar .en { width: 14px; font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: var(--glyph); }
@@ -314,7 +314,7 @@
       <h1 class="serif">卡组</h1>
       <span class="sub">收集 <b>{{ownedCount}}</b>/{{totalCount}}　出阵 <b>{{deckCount}}</b>/15</span>
       <sc-if value="{{hasLocked}}" hint-placeholder-val="{{true}}">
-        <span class="chip" style="background:#EFEAE0;color:#8C8474;border:1px solid #DED7C9;">未拥有 {{lockedCount}}</span>
+        <span class="chip" style="background:#EFEAE0;color:#696151;border:1px solid #DED7C9;">未拥有 {{lockedCount}}</span>
       </sc-if>
       <sc-if value="{{hasNew}}" hint-placeholder-val="{{true}}">
         <span class="chip" style="background:#C53637;color:#fff;">新字 {{newCount}}</span>

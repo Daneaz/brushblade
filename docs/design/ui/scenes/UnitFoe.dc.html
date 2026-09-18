@@ -40,7 +40,7 @@
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
     .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
     .r-White { --rar: #A19E98; } .r-Green { --rar: #2E9E52; } .r-Blue { --rar: #0F74C4; }
 
     /* ---------- 背景战场(与 Battle.dc.html 同源,只留弹窗盖不住的那几行) ---------- */
@@ -137,18 +137,18 @@
       background: var(--el); border-radius: 4px; padding: 1px 5px; line-height: 1.3; }
     .tagx { height: 17px; padding: 0 7px; border-radius: 9px; background: #E9E5DB; color: #5D646F;
       font-size: 9.5px; display: inline-flex; align-items: center; letter-spacing: .5px; }
-    .tagx.gold { background: #F4EAD2; color: #8A6600; }
+    .tagx.gold { background: #F6EDD5; color: #8A6600; }
     /* 关闭钮视觉 22,靠 .tap 的透明边扩到 44pt 触控 */
     .xbtn { margin-left: auto; flex: none; width: 22px; height: 22px; border: none; border-radius: 11px;
       background: #EFEADF; color: #5D646F; font-family: inherit; font-size: 11px; cursor: pointer;
       line-height: 1; padding: 0; }
-    .flav { font-size: 10px; color: #7A7261; line-height: 1.6; }
+    .flav { font-size: 10px; color: #696151; line-height: 1.6; }
     .bars { display: flex; flex-direction: column; gap: 2px; margin-top: 1px; }
     .hpb2 { position: relative; height: 10px; border-radius: 5px; background: #C6BCA8; overflow: hidden; }
     .hpb2 > span { display: block; height: 100%; }
     .hpb2 u { position: absolute; inset: 0; font-style: normal; font-size: 7px; color: #fff;
       display: flex; align-items: center; justify-content: center;
-      text-shadow: 0 0 2px rgba(0,0,0,.55); font-variant-numeric: tabular-nums; }
+      text-shadow: 0 0 1px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.8); font-variant-numeric: tabular-nums; }
     .shb2 { position: relative; height: 5px; border-radius: 3px; background: #EFE7D2;
       box-shadow: inset 0 0 0 1px rgba(155,138,90,.3); overflow: hidden; }
     .shb2 > span { display: block; height: 100%; background: #C9A94A; }
@@ -191,7 +191,7 @@
     .sd { min-width: 0; }
     .sd .n { font-size: 10.5px; color: #2C333D; font-weight: 500; line-height: 1.25; }
     .sd .n em { font-style: normal; font-weight: 400; font-size: 9px; color: #676F7A; margin-left: 5px; }
-    .sd .d { font-size: 9.5px; color: #7A7261; line-height: 1.45; margin-top: 1px; }
+    .sd .d { font-size: 9.5px; color: #696151; line-height: 1.45; margin-top: 1px; }
     .sd .d b { color: #2C333D; font-weight: 500; }
     /* 段小标题(2026-09-01):同一段里连续的卡片共用一个标题,内容不变则不重画。
        眼下唯一的用处是成语 Boss 的「阶段 · 共 4 段」—— 见下面 .list 的说明。 */
@@ -200,7 +200,7 @@
     .abil .h { display: flex; align-items: center; gap: 5px;
       font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #2C333D; }
     .abil .h .cp { font-family: "Noto Sans SC", sans-serif; }
-    .abil .t { font-size: 9.5px; color: #7A7261; line-height: 1.55; margin-top: 3px; }
+    .abil .t { font-size: 9.5px; color: #696151; line-height: 1.55; margin-top: 3px; }
     .abil .t b { color: #2C333D; font-weight: 500; }
     /* 两行(2026-09-01 用户拍板):一行「克 X ×1.5」,一行「被 Y 克,承伤 ×1.5」。
        原先挤在一行、且「被克」那半只说关系不给倍率 —— 玩家最想知道的恰恰是
@@ -208,13 +208,13 @@
        也一并去掉:两行各自把话说全了,标题不再承担信息。 */
     .wx { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 10px; color: #5D646F;
       background: #F3EFE4; border-radius: 7px; padding: 5px 8px; }
-    .wx .k { font-size: 9px; letter-spacing: 1px; color: #676F7A; }
+    .wx .k { font-size: 9px; letter-spacing: 1px; color: #5D646F; }
     .wx b { font-family: "Noto Serif SC", serif; font-size: 11px; color: #161B22; }
     .wx .ke { color: #9B1E22; } .wx .by { color: #0E4F86; }
 
     .foot { flex: none; display: flex; align-items: center; gap: 8px;
       padding-top: 8px; border-top: 1px solid #EDE7DA; }
-    .foot .hint { font-size: 9px; color: #A8A08E; }
+    .foot .hint { font-size: 9px; color: #696151; }
     .btn { height: 26px; padding: 0 14px; border: none; border-radius: 13px; cursor: pointer;
       font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; letter-spacing: 1px;
       display: inline-flex; align-items: center; }
@@ -223,7 +223,7 @@
     .tap { position: relative; }
     .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
       height: 44px; transform: translateY(-50%); }
-    .foot .hint b { color: #7A7261; font-weight: 500; }
+    .foot .hint b { color: #696151; font-weight: 500; }
     /* 执笔人没有五行,立绘位也还没有形象:沿用战场那块墨底字块,不套属性色 */
     .port.hero { background: #11161F; border-color: #3A414D; }
     .port.hero .glyph { color: #F3EEE2; }
@@ -231,7 +231,7 @@
       border-radius: 7px; background: #C9A94A; color: #2B2200; font-size: 8px; font-weight: 700;
       display: flex; align-items: center; }
     .perks { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
-    .perks span { display: flex; font-size: 9.5px; color: #7A7261; }
+    .perks span { display: flex; font-size: 9.5px; color: #696151; }
     .perks span b { margin-left: auto; color: #2C333D; font-weight: 500;
       font-variant-numeric: tabular-nums; }
   </style>

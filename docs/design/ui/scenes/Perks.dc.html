@@ -46,7 +46,7 @@
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
     .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -94,7 +94,7 @@
     }
     .perk > * { position: relative; }
     .ph { display: flex; align-items: baseline; gap: 8px; }
-    .ph .nm { font-family: "Noto Serif SC", serif; font-size: 26px; font-weight: 600; letter-spacing: 3px; color: var(--pk); }
+    .ph .nm { font-family: "Noto Serif SC", serif; font-size: 26px; font-weight: 600; letter-spacing: 3px; color: var(--pkText, var(--pk)); }
     .ph .lv { margin-left: auto; font-size: 10px; color: #5D646F; font-variant-numeric: tabular-nums; }
     .ph .lv b { font-size: 14px; color: #161B22; font-family: "Noto Serif SC", serif; }
     .peff { font-size: 11px; color: #5D646F; margin-top: 5px; letter-spacing: .3px; }
@@ -109,9 +109,9 @@
     }
     .now .k { font-size: 9px; color: #676F7A; letter-spacing: 1px; }
     .now .a { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .now .ar { font-size: 11px; color: #928B7B; }
+    .now .ar { font-size: 11px; color: #696151; }
     .now .b { font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 600;
-      font-variant-numeric: tabular-nums; color: var(--pk); }
+      font-variant-numeric: tabular-nums; color: var(--pkText, var(--pk)); }
     .note { font-size: 9.5px; color: #676F7A; line-height: 1.6; margin-top: 9px; }
     .note b { color: #5D646F; font-weight: 500; }
 
@@ -119,10 +119,10 @@
       margin-top: auto; height: 40px; border: none; border-radius: 9px; cursor: pointer;
       font-family: inherit; font-size: 13px; letter-spacing: 1px; font-weight: 500;
       display: flex; align-items: center; justify-content: center; gap: 6px;
-      background: var(--pk); color: #fff;
+      background: var(--pkText, var(--pk)); color: #fff;
     }
     .buy .cost { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
-    .buy.poor { background: #E7E1D4; color: #A09A8C; cursor: not-allowed; }
+    .buy.poor { background: #E7E1D4; color: #696151; cursor: not-allowed; }
     .buy.gated { background: #DAD7D0; color: #5D646F; cursor: not-allowed; }
     .buy.maxed { background: #F6EDD5; color: #8A6600; }
 
@@ -135,12 +135,12 @@
     .sm + .sm { border-left: 1px solid #E7E1D4; }
     .sm .k { font-size: 9px; color: #676F7A; letter-spacing: 1px; }
     .sm .v { display: flex; align-items: baseline; gap: 5px; }
-    .sm .base { font-size: 13px; color: #928B7B; font-variant-numeric: tabular-nums; }
-    .sm .ar { font-size: 10px; color: #CFC7B6; }
+    .sm .base { font-size: 13px; color: #696151; font-variant-numeric: tabular-nums; }
+    .sm .ar { font-size: 10px; color: #696151; }
     .sm .out { font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600;
       font-variant-numeric: tabular-nums; }
     .sm .gain { font-size: 9.5px; color: #1B552C; background: #E3F4E6; border-radius: 6px; padding: 1px 5px; }
-    .sm.flat .out { color: #928B7B; }
+    .sm.flat .out { color: #696151; }
     .sumhead { width: 92px; flex: none; padding-left: 10px; }
     .sumhead .t { font-size: 9px; color: #676F7A; letter-spacing: 2px; }
     .sumhead .s { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; margin-top: 3px; }
@@ -186,7 +186,7 @@
           </button>
         </div>
 
-        <div class="perk" style="--pk: #C99E33;">
+        <div class="perk" style="--pk: #C99E33; --pkText: #8A6600;">
           <span class="mark">金</span>
           <div class="ph">
             <span class="nm">金汤</span>
@@ -230,7 +230,7 @@
           </button>
         </div>
 
-        <div class="perk" style="--pk: #34864B;">
+        <div class="perk" style="--pk: #34864B; --pkText: #1B552C;">
           <span class="mark">一</span>
           <div class="ph">
             <span class="nm">一气</span>

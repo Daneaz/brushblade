@@ -46,7 +46,7 @@
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
     .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -86,10 +86,10 @@
     /* 层段筛选:与卡组的六系 tab 同一套 */
     .filters { height: 27px; flex: none; display: flex; align-items: stretch; gap: 2px; margin-bottom: 6px; }
     .ftab { position: relative; display: flex; align-items: center; gap: 5px; padding: 0 11px;
-      border: none; background: transparent; cursor: pointer; font-family: inherit; color: #5D646F;
+      border: none; background: transparent; cursor: pointer; font-family: inherit; color: #2C333D;
       border-bottom: 2px solid transparent; border-radius: 5px 5px 0 0; }
     .ftab .fn { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
-    .ftab .fc { font-size: 9px; padding: 0 5px; border-radius: 7px; background: #E7E1D4; color: #5D646F;
+    .ftab .fc { font-size: 9px; padding: 0 5px; border-radius: 7px; background: #E7E1D4; color: #2C333D;
       font-variant-numeric: tabular-nums; }
     .ftab.on { color: var(--elFg); background: var(--elSoft); border-bottom-color: var(--el); }
     .ftab.on .fc { background: color-mix(in srgb, var(--el) 26%, #fff); color: var(--elFg); }
@@ -102,14 +102,14 @@
     .pr.boss .pt > span { background: #11161F; }
     .ftab .nd { position: absolute; top: 2px; right: 4px; width: 6px; height: 6px; border-radius: 50%;
       background: #C53637; box-shadow: 0 0 0 1.5px #F6F1E7; }
-    .sorthint { margin-left: auto; align-self: center; font-size: 9px; color: #A09A8C; }
+    .sorthint { margin-left: auto; align-self: center; font-size: 9px; color: #696151; }
 
     main { flex: 1; display: flex; gap: 9px; min-height: 0; padding-bottom: 6px; }
     .gridwrap { flex: 1; min-width: 0; overflow-y: auto; padding-right: 5px; }
     .gridwrap::-webkit-scrollbar { width: 4px; }
     .gridwrap::-webkit-scrollbar-thumb { background: #D3CBBA; border-radius: 2px; }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; }
-    .empty { padding: 50px 0; text-align: center; color: #A09A8C; font-size: 11px; }
+    .empty { padding: 50px 0; text-align: center; color: #696151; font-size: 11px; }
 
     /* 怪牌:立绘 1:1(mob 素材 512×512)+ 名字 + 能力 chip */
     .mob { display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -124,13 +124,13 @@
     .mob.on .blk { box-shadow: 0 0 0 2px #3D4E69; }
     .mob .nm { font-size: 10px; color: #2C333D; letter-spacing: .2px; }
     .mob .el { position: absolute; top: 4px; left: 4px; width: 15px; height: 15px; border-radius: 4px;
-      background: var(--el); color: #fff; font-family: "Noto Serif SC", serif; font-size: 9px;
+      background: var(--glyph); color: #fff; font-family: "Noto Serif SC", serif; font-size: 9px;
       font-weight: 600; display: flex; align-items: center; justify-content: center; }
     .mob .boss { position: absolute; top: 4px; right: 4px; height: 15px; padding: 0 5px; border-radius: 7px;
       background: #11161F; color: #C9A94A; font-size: 7.5px; font-weight: 700; letter-spacing: 1px;
       display: flex; align-items: center; }
     .mob .row { position: absolute; bottom: 4px; left: 4px; height: 14px; padding: 0 4px; border-radius: 6px;
-      background: rgba(22,27,34,.5); color: #fff; font-size: 7px; display: flex; align-items: center; gap: 1px; }
+      background: rgba(22,27,34,.72); color: #fff; font-size: 7px; display: flex; align-items: center; gap: 1px; }
     .mob .row .ic { width: 8px; height: 8px; display: block; }
     /* 赏钱未领:朱砂角旗 + 呼吸,与卡组新字同一套提示语言 */
     .mob.bounty .blk { border-color: #C53637; }
@@ -138,9 +138,9 @@
       border-radius: 8px; background: #C53637; color: #fff; font-size: 7.5px; font-weight: 700;
       display: flex; align-items: center; gap: 2px; animation: breathe 2.6s ease-in-out infinite; }
     @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-    .mob.lock .blk { background: #E4DFD4; border-color: #CFC7B6; }
-    .mob.lock .face { color: #928B7B; }
-    .mob.lock .nm { color: #928B7B; }
+    .mob.lock .blk { background: #E4DFD4; border-color: #696151; }
+    .mob.lock .face { color: #696151; }
+    .mob.lock .nm { color: #696151; }
     .lockicon { position: absolute; bottom: 4px; right: 4px; width: 16px; height: 16px; border-radius: 50%;
       background: rgba(122,114,98,.18); display: flex; align-items: center; justify-content: center; }
 
@@ -173,14 +173,14 @@
     .sect > h4 { margin: 0 0 6px; font-size: 9px; font-weight: 500; letter-spacing: 2px; color: #676F7A;
       display: flex; align-items: center; gap: 6px; }
     .sect > h4::after { content: ""; flex: 1; height: 1px; background: #E7E1D4; }
-    .sect > h4 .sc { flex: none; font-size: 8.5px; color: #A09A8C; letter-spacing: 0; }
+    .sect > h4 .sc { flex: none; font-size: 8.5px; color: #696151; letter-spacing: 0; }
 
     .nums { display: flex; gap: 5px; }
     .nb { flex: 1; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 7px; padding: 5px 6px; }
     .nb .k { font-size: 8px; color: #676F7A; letter-spacing: 1px; }
     .nb .v { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600; line-height: 1.2;
       font-variant-numeric: tabular-nums; margin-top: 1px; }
-    .nb .s { font-size: 7.5px; color: #928B7B; margin-top: 1px; }
+    .nb .s { font-size: 7.5px; color: #696151; margin-top: 1px; }
     .nb.hp .v { color: #B02D2E; } .nb.atk .v { color: #82552A; } .nb.def .v { color: #3D4E69; }
     .nb.def.zero .v { color: #C2BAAA; }
 
@@ -191,7 +191,7 @@
     .ability .an .ic { width: 11px; height: 11px; display: block; }
     .ability .aic { width: 15px; height: 15px; border-radius: 4px; background: #C53637;
       display: flex; align-items: center; justify-content: center; flex: none; }
-    .none { font-size: 9.5px; color: #A8A08E; line-height: 1.6; }
+    .none { font-size: 9.5px; color: #696151; line-height: 1.6; }
 
     .weak { display: flex; gap: 5px; }
     .wk { flex: 1; border-radius: 7px; padding: 5px 7px; font-size: 9px; line-height: 1.4;
@@ -208,21 +208,21 @@
       background: #FFFDF7; font-family: inherit; padding: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
     .ph .g { font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 600; color: var(--phEl); line-height: 1; }
-    .ph .i { font-size: 7px; color: #A09A8C; }
+    .ph .i { font-size: 7px; color: #696151; }
     .ph.on { background: var(--phSoft); border-color: var(--phEl); box-shadow: 0 0 0 1px var(--phEl); }
 
     .claim { width: 100%; height: 34px; border: none; border-radius: 8px; cursor: pointer;
       background: #C53637; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px;
       display: flex; align-items: center; justify-content: center; gap: 5px; }
-    .claimed { width: 100%; height: 34px; border-radius: 8px; background: #E9E5DB; color: #A09A8C;
+    .claimed { width: 100%; height: 34px; border-radius: 8px; background: #E9E5DB; color: #696151;
       display: flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 1px; }
-    .lockmsg { width: 100%; height: 34px; border-radius: 8px; background: #EFEAE0; color: #8C8474;
+    .lockmsg { width: 100%; height: 34px; border-radius: 8px; background: #EFEAE0; color: #696151;
       display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10.5px; }
 
     /* 未选中:进度总览 */
     .prog { display: flex; flex-direction: column; gap: 6px; }
     .pr { display: flex; align-items: center; gap: 7px; font-size: 9.5px; }
-    .pr .pn { width: 30px; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--el); }
+    .pr .pn { width: 30px; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--glyph); }
     .pr .pt { flex: 1; height: 7px; border-radius: 4px; background: #E7E1D4; overflow: hidden; }
     .pr .pt > span { display: block; height: 100%; background: var(--el); border-radius: 4px; }
     .pr .pc { width: 28px; text-align: right; color: #5D646F; font-variant-numeric: tabular-nums; }

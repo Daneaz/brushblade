@@ -46,7 +46,7 @@
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
     .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -351,12 +351,12 @@
       align-items: center; justify-content: center; background: var(--elFg); color: #fff;
       font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; }
     .kinnote { flex: none; font-size: 8px; color: #676F7A; letter-spacing: .3px; }
-    .empty { flex: none; font-size: 9.5px; color: #A8A08E; line-height: 1.7; padding: 4px 2px; }
+    .empty { flex: none; font-size: 9.5px; color: #696151; line-height: 1.7; padding: 4px 2px; }
     .acts { display: flex; gap: 4px; flex: none; }
     .act { flex: 1; height: 32px; border: none; border-radius: 6px; cursor: pointer;
       font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
     .act.cast { background: #C53637; color: #fff; }
-    .act.cast.no { background: #E0D9CB; color: #A8A08E; cursor: not-allowed; }
+    .act.cast.no { background: #E0D9CB; color: #696151; cursor: not-allowed; }
     .act.split { background: #19507F; color: #fff; }
     .act.drop { background: #DAD7D0; color: #40454D; }
     .craft { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
@@ -370,7 +370,7 @@
     .cr .src { font-family: "Noto Serif SC", serif; font-size: 11px; color: #5D646F; }
     .cr .ar { font-size: 9px; color: #1B552C; }
     .cr .out { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600; color: var(--glyph); }
-    .crempty { font-size: 9px; color: #A8A08E; text-align: center; padding: 8px 2px; line-height: 1.6; }
+    .crempty { font-size: 9px; color: #696151; text-align: center; padding: 8px 2px; line-height: 1.6; }
     /* ---------- 新手引导:屏幕中央,固定故事模板 ----------
        三段恒定:一句道理(旁白) → 一个动作(指令) → 一句结果(预告)。
        遮罩只压到 38%,要看得见被点名的那张牌/那只怪。 */
@@ -388,13 +388,13 @@
     .coach .doit .k { flex: none; font-size: 9px; letter-spacing: 2px; color: #8A6600;
       background: #F4EAD2; border-radius: 4px; padding: 2px 6px; }
     .coach .doit b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #9B1E22; }
-    .coach .then { font-size: 11px; color: #7A7261; line-height: 1.6; margin-top: 8px; padding-left: 2px; }
+    .coach .then { font-size: 11px; color: #696151; line-height: 1.6; margin-top: 8px; padding-left: 2px; }
     .coach .foot { display: flex; align-items: center; gap: 9px; margin-top: 14px; }
     .coach .dots { display: flex; gap: 4px; }
     .coach .dots i { width: 6px; height: 6px; border-radius: 50%; background: #E0D5B8; display: block; }
     .coach .dots i.on { background: #C9A94A; }
     .coach .dots i.done { background: #A89468; }
-    .coach .skip { border: none; background: transparent; color: #A09A8C; font-family: inherit;
+    .coach .skip { border: none; background: transparent; color: #696151; font-family: inherit;
       font-size: 11px; cursor: pointer; padding: 4px 2px; }
     .coach .next { margin-left: auto; height: 34px; padding: 0 20px; border: none; border-radius: 17px;
       background: #C53637; color: #fff; font-family: inherit; font-size: 13px;
