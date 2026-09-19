@@ -44,9 +44,9 @@
     .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
     .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
-    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -100,7 +100,7 @@
     }
     .who .nm { font-family: "Noto Serif SC", serif; font-size: 16px; font-weight: 600; letter-spacing: 1px; }
     .who .rk { font-size: 10px; color: #5D646F; margin-top: 2px; letter-spacing: 1px; }
-    .xp { display: flex; align-items: center; gap: 6px; font-size: 9px; color: #88909C; }
+    .xp { display: flex; align-items: center; gap: 6px; font-size: 9px; color: #676F7A; }
     .xp .t { flex: 1; height: 4px; border-radius: 2px; background: #E4DDCE; overflow: hidden; }
     .xp .t span { display: block; height: 100%; background: #C9A94A; }
     .attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
@@ -108,7 +108,7 @@
     .at b { font-size: 13px; font-weight: 700; color: #161B22; font-variant-numeric: tabular-nums; margin-left: auto; }
     .at.hp b { color: #B02D2E; }
     .deckmini { margin-top: auto; }
-    .deckmini .h { font-size: 9px; color: #88909C; letter-spacing: 2px; margin-bottom: 5px; }
+    .deckmini .h { font-size: 9px; color: #676F7A; letter-spacing: 2px; margin-bottom: 5px; }
     /* 出阵**全量**铺开，每排 6 个折行（上限 15 → 最多三排）。不再折叠成「+N」：
        出阵表是「我这趟带了什么」，折起来等于把最该看的那半藏了（2026-08-28） */
     .dmrow { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -139,14 +139,14 @@
     .rank b { font-family: "Noto Serif SC", serif; font-size: 14px; color: #9B1E22; letter-spacing: 2px; }
     .bands { display: flex; gap: 3px; width: 100%; }
     .bd { flex: 1; }
-    .bd .bn { font-size: 9px; letter-spacing: 1px; color: #88909C; text-align: center; margin-bottom: 4px; }
+    .bd .bn { font-size: 9px; letter-spacing: 1px; color: #676F7A; text-align: center; margin-bottom: 4px; }
     .bd .bt { height: 6px; border-radius: 3px; background: #E4DDCE; overflow: hidden; }
     .bd .bt span { display: block; height: 100%; }
     .bd.done .bn { color: #5D646F; }
     .bd.done .bt span { width: 100%; background: #6E7B92; }
     .bd.now .bn { color: #161B22; font-weight: 700; }
     .bd.now .bt span { background: #9B1E22; }
-    .bd .df { font-size: 8px; color: #B3AB9B; text-align: center; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .bd .df { font-size: 8px; color: #676F7A; text-align: center; margin-top: 3px; font-variant-numeric: tabular-nums; }
     /* 按钮上只放动作。层段与层数是**详情**，搬到 .resumedetail ——
        「续爬 · 文山 44 层」在 250px 的胶囊里排不下，字会被挤成一条（2026-08-28） */
     .resume {
@@ -163,13 +163,13 @@
     .runstate b { font-variant-numeric: tabular-nums; color: #161B22; }
     .runbar { width: 250px; height: 5px; border-radius: 3px; background: #E4DDCE; overflow: hidden; }
     .runbar span { display: block; height: 100%; background: #B02D2E; }
-    .fresh { font-size: 10px; color: #88909C; letter-spacing: .5px; }
+    .fresh { font-size: 10px; color: #676F7A; letter-spacing: .5px; }
 
     /* 宝箱。2026-08-28 二轮：195 → 232。格内两颗 mini 并排一行要 47.5 + 4 + 38.5 ≈ 90px，
        195 时格内净宽只有 85，「18墨」被挤到第二行、把按钮撑高、整行错位。
        宽度从书塔那边匀 —— 书塔内容 273px 在 319px 的面板里本来就有富余。 */
     .chests { width: 232px; flex: none; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-    .ch { font-size: 9px; color: #88909C; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; }
+    .ch { font-size: 9px; color: #676F7A; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; }
     .cgrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .box {
       background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 5px;
@@ -197,11 +197,11 @@
       display: flex; align-items: center; justify-content: center; gap: 3px;
     }
     .mini.ad { background: #E3F4E6; color: #1B552C; border: 1px solid #C6DCCB; }
-    .mini.ink { background: #F6EDD5; color: #8F6B09; border: 1px solid rgba(201,169,74,.5); }
+    .mini.ink { background: #F6EDD5; color: #8A6600; border: 1px solid rgba(201,169,74,.5); }
     .mini.start { background: #3D4E69; color: #fff; }
     .mini.open { background: #C9A94A; color: #40340A; font-weight: 700; font-size: 11px; height: 24px; }
     .box.empty { background: transparent; border: 1px dashed #CFC7B6; justify-content: center; }
-    .box.empty .t { font-size: 10px; color: #B3AB9B; letter-spacing: 1px; }
+    .box.empty .t { font-size: 10px; color: #928B7B; letter-spacing: 1px; }
 
     /* 底部导航 */
     .nav { height: 44px; flex: none; display: flex; gap: 8px; }
@@ -212,7 +212,7 @@
     }
     .tab:hover { filter: brightness(.97); }
     .tab .tn { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 2px; }
-    .tab .td { font-size: 9px; color: #88909C; }
+    .tab .td { font-size: 9px; color: #5D646F; }
     .tab .rd { position: absolute; top: 7px; right: 9px; }
     .tab svg { display: block; }
 
@@ -222,11 +222,11 @@
 
        ⚠ 描边**不能**直接用 elSoft：那样边线对宣纸底只有 1.19 的对比度，比素色描边（1.27）还弱，
        页签一上色反而更塌 —— 与「靠边线立起来」的初衷相反。压过之后是 1.65。
-       字/底对比度实测 7.35 / 7.04 / 7.74 / 4.15，商城那格最低但页签名是 14px 宋体，过 AA-large。 */
+       字/底对比度实测 7.35 / 7.04 / 7.74 / 4.51（2026-09-18 商城赭色 #A7593D → #A05337，此前 4.15 只过 AA-large）。 */
     .tab.deck     { background: #E9F0F5; border-color: #9FC1E2; color: #0E4F86; }
     .tab.bestiary { background: #EBF2E6; border-color: #A5C8AD; color: #195C2E; }
     .tab.perks    { background: #F6ECF1; border-color: #CFB2D5; color: #673672; }
-    .tab.shop     { background: #F1E6DD; border-color: #D5B0A0; color: #A75A3D; }
+    .tab.shop     { background: #F1E6DC; border-color: #D0AB9A; color: #A05337; }
   </style>
 </helmet>
 
@@ -422,7 +422,7 @@
           <div class="box" style="--c:#2E9E52;">
             <svg class="art" viewBox="0 0 120 120" aria-hidden="true"><use href="#chest-bamboo"></use></svg>
             <div class="bn">竹简匣</div>
-            <div class="cd" style="color:#88909C;">3 小时</div>
+            <div class="cd" style="color:#676F7A;">3 小时</div>
             <div class="acts"><button class="mini start">排队等位</button></div>
           </div>
           <div class="box empty">

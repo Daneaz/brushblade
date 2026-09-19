@@ -39,9 +39,9 @@
     .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
     .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
-    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -58,7 +58,7 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
     }
     .tile .g { font-family: "Noto Serif SC", serif; font-size: 28px; font-weight: 600; color: var(--glyph); line-height: 1; }
-    .tile .py { font-size: 8px; color: #88909C; letter-spacing: .5px; }
+    .tile .py { font-size: 8px; color: #676F7A; letter-spacing: .5px; }
     .tile.sel { border-color: #161B22; box-shadow: 0 0 0 2px rgba(22,27,34,.18); }
     .tile.dim { opacity: .42; }
 
@@ -78,7 +78,7 @@
       font-weight: 700; font-variant-numeric: tabular-nums; }
     .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; box-sizing: border-box; }
     .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
-    .k { font-size: 8px; color: #B3AB9B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+    .k { font-size: 8px; color: #928B7B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 
     /* 层段染色宣纸 + 巨字水印（GameRoot 用 Theme.BandPaper(bandIndex, segmentInBand) 给底染色，
        每破一次 Boss 深一档 —— 这是「越往下越沉」的唯一体感来源，别在这屏里丢掉） */
@@ -93,8 +93,8 @@
     .h { font-family: "Noto Serif SC", serif; font-size: 22px; font-weight: 600; letter-spacing: 4px; }
     .sub { font-size: 10.5px; color: #5D646F; letter-spacing: 1px; }
     .roll { display: flex; align-items: baseline; gap: 7px; }
-    .roll .n { font-family: "Noto Serif SC", serif; font-size: 34px; font-weight: 600; color: #8F6B09; line-height: 1; }
-    .roll .u { font-size: 10px; color: #88909C; letter-spacing: 1px; }
+    .roll .n { font-family: "Noto Serif SC", serif; font-size: 34px; font-weight: 600; color: #8A6600; line-height: 1; }
+    .roll .u { font-size: 10px; color: #676F7A; letter-spacing: 1px; }
     .state { display: flex; gap: 16px; font-size: 10px; color: #5D646F; }
     .state b { color: #161B22; font-variant-numeric: tabular-nums; }
     /* 两条路各占一半，取舍写在钮下面 —— 这一屏的全部意义就是把这个取舍讲清楚 */
@@ -104,7 +104,7 @@
     .fork .why { font-size: 9.5px; line-height: 1.5; color: #5D646F; text-align: center; }
     .fork .why b { color: #B02D2E; font-weight: 700; }
     .fork .why i { font-style: normal; color: #1B552C; font-weight: 700; }
-    .risk { display: flex; align-items: center; gap: 5px; font-size: 9px; color: #88909C; letter-spacing: .5px; }
+    .risk { display: flex; align-items: center; gap: 5px; font-size: 9px; color: #676F7A; letter-spacing: .5px; }
   </style>
 </helmet>
 
@@ -141,7 +141,7 @@
         </div>
 
         <div class="risk">
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#88909C" stroke-width="2">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#676F7A" stroke-width="2">
             <circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5v.01"></path>
           </svg>
           深入只赚不赔——墨锭早已入账，再往下是多挣一笔还是空手，全看这一段

@@ -25,7 +25,7 @@
     h3 { margin: 0 0 10px; font-family: "Noto Serif SC", serif; font-size: 14px;
       font-weight: 600; letter-spacing: 2px; color: #2C333D; }
     h3 span { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400;
-      letter-spacing: 0; color: #88909C; margin-left: 8px; }
+      letter-spacing: 0; color: #676F7A; margin-left: 8px; }
     .blk { margin-top: 26px; }
 
     /* 七档一排 */
@@ -37,13 +37,13 @@
       font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
     .dot { width: 9px; height: 9px; border-radius: 3px; background: var(--c); display: block; }
     .hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px;
-      color: #A8A08E; margin-top: 2px; letter-spacing: .3px; }
-    .mat { font-size: 9.5px; color: #7A7261; line-height: 1.55; margin-top: 6px; text-align: center;
+      color: #696151; margin-top: 2px; letter-spacing: .3px; }
+    .mat { font-size: 9.5px; color: #696151; line-height: 1.55; margin-top: 6px; text-align: center;
       min-height: 44px; }
     .mat b { color: #2C333D; font-weight: 500; }
     .num { margin-top: 6px; width: 100%; display: flex; flex-direction: column; gap: 2px;
       padding-top: 7px; border-top: 1px solid #EDE7DA; }
-    .num span { display: flex; font-size: 9.5px; color: #88909C; }
+    .num span { display: flex; font-size: 9.5px; color: #676F7A; }
     .num span b { margin-left: auto; color: #2C333D; font-weight: 500; font-variant-numeric: tabular-nums; }
 
     /* 三态 + 落位 */
@@ -54,7 +54,7 @@
     .state { text-align: center; width: 128px; }
     .state svg { width: 108px; height: 108px; display: block; margin: 0 auto; }
     .state .sn { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; margin-top: 2px; }
-    .state .sd { font-size: 9px; color: #7A7261; line-height: 1.5; margin-top: 3px; }
+    .state .sd { font-size: 9px; color: #696151; line-height: 1.5; margin-top: 3px; }
     /* 已就绪是主界面唯一的动效,要压得过另外三个箱位:光晕呼吸 + 箱身起伏 + 盖缝透光。
        只用叠加层,底图一张不换。 */
     @keyframes glow { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
@@ -67,7 +67,7 @@
     /* 主界面宝箱格实尺 */
     .slotdemo { width: 232px; box-sizing: border-box; background: #FFFDF7; border: 1px solid #E7E1D4;
       border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-    .ch { font-size: 9px; color: #88909C; letter-spacing: 2px; }
+    .ch { font-size: 9px; color: #676F7A; letter-spacing: 2px; }
     .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .box { background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px; padding: 5px;
       display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -80,7 +80,7 @@
     .mini.open { background: #C9A94A; color: #40340A; font-weight: 700; font-size: 11px; height: 24px; }
     .box.empty { background: transparent; border: 1px dashed #CFC7B6; justify-content: center;
       min-height: 96px; }
-    .box.empty .t { font-size: 10px; color: #B3AB9B; letter-spacing: 1px; }
+    .box.empty .t { font-size: 10px; color: #928B7B; letter-spacing: 1px; }
 
     .note { font-size: 10.5px; color: #5D646F; line-height: 1.7; }
     .note b { color: #161B22; font-weight: 500; }
@@ -91,9 +91,9 @@
     /* 出图关键词 */
     table { border-collapse: collapse; width: 100%; font-size: 10.5px; }
     th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid #E4DDCE; vertical-align: top; }
-    th { font-size: 9.5px; font-weight: 500; letter-spacing: 2px; color: #88909C; border-bottom-color: #CFC7B6; }
+    th { font-size: 9.5px; font-weight: 500; letter-spacing: 2px; color: #676F7A; border-bottom-color: #696151; }
     td.k { font-family: "Noto Serif SC", serif; font-weight: 600; white-space: nowrap; }
-    td.c { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; color: #7A7261; white-space: nowrap; }
+    td.c { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; color: #696151; white-space: nowrap; }
     td.t { color: #5D646F; line-height: 1.6; }
     td.t b { color: #2C333D; font-weight: 500; }
   </style>

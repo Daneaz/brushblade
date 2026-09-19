@@ -44,9 +44,9 @@
     .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
     .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
-    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -86,7 +86,7 @@
     .bar .lv { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: #161B22; letter-spacing: 1px; }
     .bar .seg { font-variant-numeric: tabular-nums; }
     .coachbtn { width: 20px; height: 20px; border: none; border-radius: 10px; padding: 0;
-      background: rgba(201,169,74,.22); color: #8F6B09; font-family: "Noto Serif SC", serif;
+      background: rgba(201,169,74,.22); color: #402900; font-family: "Noto Serif SC", serif;
       font-size: 12px; font-weight: 600; cursor: pointer; line-height: 1; }
     .turn { height: 18px; padding: 0 8px; border-radius: 9px; background: #3D4E69; color: #fff;
       display: flex; align-items: center; font-size: 9.5px; letter-spacing: .5px; }
@@ -98,11 +98,11 @@
     /* ---------- 左窄栏 ---------- */
     .rail { width: 68px; flex: none; display: flex; flex-direction: column; gap: 5px; min-height: 0; }
     .railbox { background: rgba(255,253,247,.66); border-radius: 7px; padding: 4px; }
-    .railbox .t { font-size: 7.5px; color: #88909C; letter-spacing: 1px; text-align: center; margin-bottom: 2px; }
+    .railbox .t { font-size: 7.5px; color: #676F7A; letter-spacing: 1px; text-align: center; margin-bottom: 2px; }
     .missing { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 3px; }
     .mrow { display: flex; align-items: center; gap: 3px; font-size: 8.5px; }
     .mrow .g { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: var(--glyph); }
-    .mrow .need { color: #9A927F; }
+    .mrow .need { color: #676F7A; }
     .mrow .need b { color: #9B1E22; font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; }
 
     /* ---------- 中区 ---------- */
@@ -144,7 +144,7 @@
     .foe .nm { font-size: 9.5px; color: #2C333D; letter-spacing: .2px; line-height: 1;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .foe .els { flex: none; font-family: "Noto Serif SC", serif; font-size: 9px; font-weight: 600;
-      color: #fff; background: var(--el); border-radius: 3px; padding: 0 3px; line-height: 1.35; }
+      color: #fff; background: var(--glyph); border-radius: 3px; padding: 0 3px; line-height: 1.35; }
     /* 攻击模式 / 技能特性 / debuff / DoT 全部并进这一行,一格最多 3 枚,超出收成 +N */
     .cps { display: flex; gap: 2px; align-items: center; }
     .icdefs { position: absolute; width: 0; height: 0; overflow: hidden; }
@@ -154,12 +154,12 @@
       font-size: 7.5px; font-weight: 700; letter-spacing: .1px;
       display: flex; align-items: center; gap: 1.5px; font-variant-numeric: tabular-nums; }
     .cp .ic { width: 9px; height: 9px; flex: none; display: block; }
-    .cp.more { background: #B3AB9B; font-weight: 400; }
+    .cp.more { background: #928B7B; font-weight: 400; }
     .foe .hpb { position: relative; height: 7px; border-radius: 3px; background: #C6BCA8; overflow: hidden; }
     .foe .hpb > span { display: block; height: 100%; background: #B02D2E; }
     .foe .hpb u { position: absolute; inset: 0; font-style: normal; font-size: 6px; color: #fff;
       display: flex; align-items: center; justify-content: center;
-      text-shadow: 0 0 2px rgba(0,0,0,.55); font-variant-numeric: tabular-nums; }
+      text-shadow: 0 0 1px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.8); font-variant-numeric: tabular-nums; }
     .foe .shb { height: 3px; border-radius: 2px; background: #EFE7D2; overflow: hidden; }
     .foe .shb > span { display: block; height: 100%; background: #C9A94A; }
     .foe .atb { height: 3px; border-radius: 2px; background: #C9C0AE; overflow: hidden; }
@@ -179,7 +179,7 @@
       background: rgba(155,30,34,.94); color: #fff; font-size: 10px; font-weight: 700;
       padding: 1px 5px; border-radius: 7px; white-space: nowrap; font-variant-numeric: tabular-nums;
       animation: pop .18s ease-out; }
-    .foe .dmg.ke { background: #8F6B09; box-shadow: 0 0 0 1.5px rgba(201,169,74,.6); }
+    .foe .dmg.ke { background: #8A6600; box-shadow: 0 0 0 1.5px rgba(201,169,74,.6); }
     @keyframes pop { from { transform: translate(-50%, 5px); opacity: 0; } }
     /* 空格位:每排恒定 4 格,空的也占位 —— 贯穿/横扫按列结算,列不能因为死了怪就塌 */
     .foeslot { border-radius: 9px; border: 1px dashed #C6BCA8; opacity: .45; }
@@ -200,13 +200,13 @@
     .ally .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .ally .hd { display: flex; align-items: baseline; gap: 4px; }
     .ally .atk { font-size: 9px; color: #2C333D; font-weight: 500; font-variant-numeric: tabular-nums; }
-    .ally .hpn { margin-left: auto; font-size: 8px; color: #7A7261; font-variant-numeric: tabular-nums; }
+    .ally .hpn { margin-left: auto; font-size: 8px; color: #5D646F; font-variant-numeric: tabular-nums; }
 
     .ally .hpb { position: relative; height: 6px; border-radius: 3px; background: #C6BCA8; overflow: hidden; }
     .ally .hpb > span { display: block; height: 100%; background: #2E7D46; }
     .ally .hpb u { position: absolute; inset: 0; font-style: normal; font-size: 5.5px; color: #fff;
       display: flex; align-items: center; justify-content: center;
-      text-shadow: 0 0 2px rgba(0,0,0,.5); font-variant-numeric: tabular-nums; }
+      text-shadow: 0 0 1px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.8); font-variant-numeric: tabular-nums; }
     .ally .shb { height: 3px; border-radius: 2px; background: #EFE7D2; overflow: hidden; }
     .ally .shb > span { display: block; height: 100%; background: #C9A94A; }
     .ally .atb { height: 3px; border-radius: 2px; background: #C9C0AE; overflow: hidden; }
@@ -261,7 +261,7 @@
        任何一枚 on),落地也一直没实现它,留着只为记住这条规则曾经存在。 */
     .ap { flex: none; display: flex; align-items: center; gap: 5px; padding-left: 8px;
       border-left: 1px solid #E4DDCE; align-self: stretch; }
-    .ap .k { font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
+    .ap .k { font-size: 8px; color: #676F7A; letter-spacing: 1.5px; }
     .ap .pips { display: flex; gap: 3px; }
     .ap .pips i { display: block; width: 8px; height: 20px; border-radius: 3px;
       background: #EFEADF; box-shadow: inset 0 0 0 1px #D5CBB8; }
@@ -282,7 +282,7 @@
        堆起来比整条手牌带(56px)还高,一个字一个字往下读确实别扭。2026-09-01 改回横排
        一行。定宽 46px 不是为了标题自己好看,是为了让两行的第一张牌落在同一个 x 上
        ——「字库 5/9」与「部件池 12/12」的自然宽度差着一大截。 */
-    .handlbl { flex: none; width: 46px; font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
+    .handlbl { flex: none; width: 46px; font-size: 8px; color: #5D646F; letter-spacing: 1.5px; }
     .tile { position: relative; width: 46px; height: 56px; border-radius: 7px; background: #FFFDF7;
       border: 2px solid var(--rar); box-shadow: 0 1px 3px rgba(22,27,34,.1); cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -306,7 +306,7 @@
     /* ---------- 部件池 ---------- */
     .pool { flex: none; width: 584px; align-self: center; display: flex;
       align-items: center; justify-content: flex-start; gap: 4px; }
-    .pool .lbl { flex: none; width: 46px; font-size: 8px; color: #88909C; letter-spacing: 1.5px; }
+    .pool .lbl { flex: none; width: 46px; font-size: 8px; color: #5D646F; letter-spacing: 1.5px; }
     .part { position: relative; width: 32px; height: 38px; border-radius: 7px; cursor: pointer;
       background: var(--elSoft); border: 1.5px solid transparent; padding: 0; font-family: inherit;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
@@ -336,27 +336,27 @@
     /* ---------- 右栏 拆合台 ---------- */
     .bench { width: 132px; flex: none; background: rgba(255,253,247,.84); border: 1px solid #DED7C9;
       border-radius: 9px; padding: 7px; display: flex; flex-direction: column; gap: 5px; min-height: 0; }
-    .bench .t { font-size: 8px; color: #88909C; letter-spacing: 2px; text-align: center; flex: none; }
+    .bench .t { font-size: 8px; color: #676F7A; letter-spacing: 2px; text-align: center; flex: none; }
     .picked { display: flex; align-items: center; gap: 6px; flex: none; }
     .picked .pt { width: 34px; height: 43px; flex: none; border-radius: 5px; background: #FFFDF7;
       border: 2px solid var(--rar); display: flex; align-items: center; justify-content: center;
       font-family: "Noto Serif SC", serif; font-size: 20px; font-weight: 600; color: var(--glyph); }
     .picked .pi { min-width: 0; }
-    .picked .pn { font-size: 9px; color: #88909C; letter-spacing: .3px; }
+    .picked .pn { font-size: 9px; color: #676F7A; letter-spacing: .3px; }
     .picked .pv { font-size: 9.5px; color: #2C333D; line-height: 1.45; margin-top: 2px; }
     .picked .pv b { color: #B02D2E; }
     .kinrow { display: flex; align-items: center; gap: 3px; flex: none; }
-    .kinrow .ar { font-size: 11px; color: #88909C; }
+    .kinrow .ar { font-size: 11px; color: #676F7A; }
     .kinrow .kp { width: 18px; height: 18px; border-radius: 4px; display: flex;
       align-items: center; justify-content: center; background: var(--elFg); color: #fff;
       font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; }
-    .kinnote { flex: none; font-size: 8px; color: #88909C; letter-spacing: .3px; }
-    .empty { flex: none; font-size: 9.5px; color: #A8A08E; line-height: 1.7; padding: 4px 2px; }
+    .kinnote { flex: none; font-size: 8px; color: #676F7A; letter-spacing: .3px; }
+    .empty { flex: none; font-size: 9.5px; color: #696151; line-height: 1.7; padding: 4px 2px; }
     .acts { display: flex; gap: 4px; flex: none; }
     .act { flex: 1; height: 32px; border: none; border-radius: 6px; cursor: pointer;
       font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
     .act.cast { background: #C53637; color: #fff; }
-    .act.cast.no { background: #E0D9CB; color: #A8A08E; cursor: not-allowed; }
+    .act.cast.no { background: #E0D9CB; color: #696151; cursor: not-allowed; }
     .act.split { background: #19507F; color: #fff; }
     .act.drop { background: #DAD7D0; color: #40454D; }
     .craft { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
@@ -368,9 +368,9 @@
       background: #E9F3EB; box-shadow: inset 0 0 0 1px #B9D6C0; cursor: pointer;
       border: none; font-family: inherit; width: 100%; }
     .cr .src { font-family: "Noto Serif SC", serif; font-size: 11px; color: #5D646F; }
-    .cr .ar { font-size: 9px; color: #A8B5AA; }
+    .cr .ar { font-size: 9px; color: #1B552C; }
     .cr .out { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600; color: var(--glyph); }
-    .crempty { font-size: 9px; color: #A8A08E; text-align: center; padding: 8px 2px; line-height: 1.6; }
+    .crempty { font-size: 9px; color: #696151; text-align: center; padding: 8px 2px; line-height: 1.6; }
     /* ---------- 新手引导:屏幕中央,固定故事模板 ----------
        三段恒定:一句道理(旁白) → 一个动作(指令) → 一句结果(预告)。
        遮罩只压到 38%,要看得见被点名的那张牌/那只怪。 */
@@ -385,16 +385,16 @@
       letter-spacing: 2px; color: #161B22; line-height: 1.5; }
     .coach .rule { height: 1px; background: #E4DBC5; margin: 11px 0 10px; }
     .coach .doit { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #2C333D; }
-    .coach .doit .k { flex: none; font-size: 9px; letter-spacing: 2px; color: #8F6B09;
+    .coach .doit .k { flex: none; font-size: 9px; letter-spacing: 2px; color: #8A6600;
       background: #F4EAD2; border-radius: 4px; padding: 2px 6px; }
     .coach .doit b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: #9B1E22; }
-    .coach .then { font-size: 11px; color: #7A7261; line-height: 1.6; margin-top: 8px; padding-left: 2px; }
+    .coach .then { font-size: 11px; color: #696151; line-height: 1.6; margin-top: 8px; padding-left: 2px; }
     .coach .foot { display: flex; align-items: center; gap: 9px; margin-top: 14px; }
     .coach .dots { display: flex; gap: 4px; }
     .coach .dots i { width: 6px; height: 6px; border-radius: 50%; background: #E0D5B8; display: block; }
     .coach .dots i.on { background: #C9A94A; }
     .coach .dots i.done { background: #A89468; }
-    .coach .skip { border: none; background: transparent; color: #A09A8C; font-family: inherit;
+    .coach .skip { border: none; background: transparent; color: #696151; font-family: inherit;
       font-size: 11px; cursor: pointer; padding: 4px 2px; }
     .coach .next { margin-left: auto; height: 34px; padding: 0 20px; border: none; border-radius: 17px;
       background: #C53637; color: #fff; font-family: inherit; font-size: 13px;
@@ -814,7 +814,7 @@ var CHARS = {
 // 与 60 盾的 Boss 看起来一样长,横着比就没意义了。
 // chip 配色与 Theme.AbilityChipColor 同口径:朱砂 = 增长的威胁 / DoT,翠玉 = 恢复,
 // 墨蓝 = 控制类 debuff,土黄 = 攻击模式,深灰蓝 = 防御与信息(远程、锁人、护甲、特性)
-var CHIP_BG = { dot: "#C53637", heal: "#2E7D46", ctrl: "#19507F", mode: "#997C3C", info: "#3D4E69" };
+var CHIP_BG = { dot: "#C53637", heal: "#2E7D46", ctrl: "#19507F", mode: "#8F7332", info: "#3D4E69" };
 function chipsOf(list) {
   var src = list || [];
   var cap = 4;

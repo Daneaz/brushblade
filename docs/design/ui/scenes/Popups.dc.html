@@ -39,9 +39,9 @@
     .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
     .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
-    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -58,7 +58,7 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
     }
     .tile .g { font-family: "Noto Serif SC", serif; font-size: 28px; font-weight: 600; color: var(--glyph); line-height: 1; }
-    .tile .py { font-size: 8px; color: #88909C; letter-spacing: .5px; }
+    .tile .py { font-size: 8px; color: #676F7A; letter-spacing: .5px; }
     .tile.sel { border-color: #161B22; box-shadow: 0 0 0 2px rgba(22,27,34,.18); }
     .tile.dim { opacity: .42; }
 
@@ -78,7 +78,7 @@
       font-weight: 700; font-variant-numeric: tabular-nums; }
     .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; box-sizing: border-box; }
     .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
-    .k { font-size: 8px; color: #B3AB9B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+    .k { font-size: 8px; color: #928B7B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 
     .sheet { position: relative; width: 1180px; box-sizing: border-box; padding: 22px 26px 26px;
       background: #F6F1E7; color: #161B22;
@@ -92,12 +92,12 @@
     .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 11px; }
     .pcell { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 9px; padding: 8px 9px 9px; }
     .stage { height: 40px; display: flex; align-items: center; justify-content: center;
-      border-radius: 6px; background: #EFE9DA; }
+      border-radius: 6px; background: #F6F1E7; }
     .pop { font-family: "Noto Serif SC", serif; font-weight: 600; letter-spacing: .5px; line-height: 1;
       text-shadow: 0 1px 0 rgba(255,255,255,.7); }
     .meta { margin-top: 6px; font-size: 8.5px; color: #2C333D; }
     .meta b { font-weight: 700; }
-    .why { margin-top: 3px; font-size: 8px; line-height: 1.5; color: #88909C; }
+    .why { margin-top: 3px; font-size: 8px; line-height: 1.5; color: #676F7A; }
     .why code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 7.5px; color: #7A3F5C; }
 
     /* 五行环图：战斗屏两个下角常驻（2026-07-29 由「小按钮 + 弹窗」改成常驻） */
@@ -209,7 +209,7 @@
         <div class="why">敌人分裂 · <code>enemy_split</code></div>
       </div>
       <div class="pcell">
-        <div class="stage"><span class="pop" style="color: #8F6B09; font-size: 17px;">破阶！</span></div>
+        <div class="stage"><span class="pop" style="color: #8A6600; font-size: 17px;">破阶！</span></div>
         <div class="meta"><b>GoldBorder 赭金</b> · 锚在敌人格</div>
         <div class="why">Boss 换相 · <code>boss_phase</code></div>
       </div>
@@ -241,11 +241,11 @@
       <div class="chart">
         <div class="ct">相 克</div>
         <div class="ring">
-          <span class="n" style="background:#348F4F; left:131px; top:22px;">木</span>
-          <span class="n" style="background:#C53637; left:195px; top:70px;">火</span>
-          <span class="n" style="background:#997C3C; left:171px; top:126px;">土</span>
-          <span class="n" style="background:#B3A382; left:91px; top:126px;">金</span>
-          <span class="n" style="background:#0F74C4; left:67px; top:70px;">水</span>
+          <span class="n" style="background:#1F6333; left:131px; top:22px;">木</span>
+          <span class="n" style="background:#B02D2E; left:195px; top:70px;">火</span>
+          <span class="n" style="background:#82552A; left:171px; top:126px;">土</span>
+          <span class="n" style="background:#6B6449; left:91px; top:126px;">金</span>
+          <span class="n" style="background:#0A5E9E; left:67px; top:70px;">水</span>
           <svg width="240" height="148" viewBox="0 0 240 148" fill="none" stroke="#C53637" stroke-width="1.6"
                style="position:absolute; left:0; top:0; opacity:.55;">
             <path d="M136 44 L168 116M180 90 L106 122M164 128 L84 74M96 110 L128 40M84 84 L182 78"></path>

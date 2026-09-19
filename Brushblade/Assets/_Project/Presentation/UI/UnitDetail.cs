@@ -73,7 +73,7 @@ namespace Brushblade.Presentation
     ///   #2E7D46 我方增益 · 守(Theme 里没有精确匹配,新增一个字面量;DoneGreen 是另一支近似色,
     ///            数值对不上,不能借)
     ///   #C9A94A 我方增益 · 攻(= Theme.RarityColor(CardRarity.Gold),核对过)
-    ///   #997C3C 攻击模式与站位(= Theme.ElementColor(Element.Earth),数值巧合相同,核对过)
+    ///   #8F7332 攻击模式与站位(= Theme.ElementColor(Element.Earth);稿原为 #997C3C,2026-09-18 两边一起为白字对比度调深)
     ///   #3D4E69 能力与被动(= Theme.InkSoft,核对过;与 Theme.AbilityChipColor 的默认分支同色)</summary>
     internal static class UnitDetailChip
     {
@@ -82,7 +82,7 @@ namespace Brushblade.Presentation
 
         /// <summary>攻击模式与站位(远程/横扫/穿刺/锁人……)这一类词条的底色,OfRange/OfShape/
         /// OfFocus 的调用方直接读这个常量,不必逐个 switch。</summary>
-        public static readonly Color Positioning = Theme.ElementColor(Element.Earth); // #997C3C
+        public static readonly Color Positioning = Theme.ElementColor(Element.Earth); // #8F7332
 
         /// <summary>能力/被动类词条(召唤物反伤/闪避/疾,以及找不到更合适分组时的兜底)。</summary>
         public static readonly Color Ability = Theme.InkSoft; // #3D4E69

@@ -39,9 +39,9 @@
     .e-Wood  { --el: #348F4F; --elSoft: #CCE6D0; --elFg: #185C2E; --glyph: #1F6333; }
     .e-Water { --el: #0F74C4; --elSoft: #C8E1FB; --elFg: #0E4F86; --glyph: #0A5E9E; }
     .e-Fire  { --el: #C53637; --elSoft: #FED2CE; --elFg: #862726; --glyph: #B02D2E; }
-    .e-Earth { --el: #997C3C; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
+    .e-Earth { --el: #8F7332; --elSoft: #ECDCBD; --elFg: #634800; --glyph: #82552A; }
     .e-Heart { --el: #9750A7; --elSoft: #ECD5F1; --elFg: #67366D; --glyph: #7E4190; }
-    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #5D646F; --glyph: #161B22; }
+    .e-None  { --el: #4F5661; --elSoft: #DAD7D0; --elFg: #2C333D; --glyph: #161B22; }
 
     .r-White  { --rar: #A19E98; --rarSoft: #EDEAE3; }
     .r-Green  { --rar: #2E9E52; --rarSoft: #E2F2E7; }
@@ -58,7 +58,7 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
     }
     .tile .g { font-family: "Noto Serif SC", serif; font-size: 28px; font-weight: 600; color: var(--glyph); line-height: 1; }
-    .tile .py { font-size: 8px; color: #88909C; letter-spacing: .5px; }
+    .tile .py { font-size: 8px; color: #5D646F; letter-spacing: .5px; }
     .tile.sel { border-color: #161B22; box-shadow: 0 0 0 2px rgba(22,27,34,.18); }
     .tile.dim { opacity: .42; }
 
@@ -78,7 +78,7 @@
       font-weight: 700; font-variant-numeric: tabular-nums; }
     .card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 12px; box-sizing: border-box; }
     .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); }
-    .k { font-size: 8px; color: #B3AB9B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+    .k { font-size: 8px; color: #928B7B; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 
     /* 规范板，不是一屏 UI：把散在各处的弹窗排在一起，为的是看清它们**是不是同一套**。
        尺寸按 Ui.Modal 的真实半宽换算：halfSize (310,150) → 620×300 逻辑单位 → 296×143pt。 */
@@ -108,7 +108,7 @@
     .btn.ink { background: #3D4E69; color: #fff; }
     .btn.gold { background: #C9A94A; color: #40340A; }
     .btn.quiet { background: #E4DDCE; color: #2C333D; }
-    .cap { margin-top: 6px; font-size: 8.5px; line-height: 1.5; color: #88909C; }
+    .cap { margin-top: 6px; font-size: 8.5px; line-height: 1.5; color: #676F7A; }
     .cap code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px; color: #7A3F5C; }
   </style>
 </helmet>
@@ -279,7 +279,7 @@
             </div>
             <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
               <div class="tile r-White e-Metal"><span class="g">刺</span><span class="py">cì</span></div>
-              <span class="chip" style="background:#EFEADF;color:#88909C;">满级</span>
+              <span class="chip" style="background:#EFEADF;color:#5D646F;">满级</span>
             </div>
           </div>
           <div class="btns"><button class="btn cinnabar">收 下</button></div>
