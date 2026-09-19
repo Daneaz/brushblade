@@ -1787,8 +1787,8 @@ namespace Brushblade.Presentation
         private const float SummonPortraitBack = 75f;       // 稿 .ally.rear .blk { 36×36 }
         private const float SummonBlkInfoGap = 10f;         // 稿 .ally { gap: 5pt }
         private const float SummonInfoSpacing = 4f;         // 稿 .ally .info { gap: 2pt }
-        private const float SummonHeaderHeight = 16f;       // 容得下 12 号「攻 N」
-        private const float SummonHpBarHeight = 13f;        // 稿 .ally .hpb { height: 6pt }
+        private const float SummonHeaderHeight = 24f;       // 容得下 19 号名字与 20 高的属性徽章
+        private const float SummonHpBarHeight = 19f;        // 与敌人血条同高,血值叠字才读得清(2026-09-19)
         // 行动条与敌人格同一口径(稿 .atb 两种单位都是 height:3pt),
         // 复用 EnemyActionBarHeight(见敌人格常量),不重复定义。
         // DrawSummons 本体不再用它(格子内部改横排,不再是竖排 VStack),但锁格/空槽
@@ -1885,22 +1885,9 @@ namespace Brushblade.Presentation
                 // 而玩家真正要认的是「我出的哪张牌变成了它」:一排里两只「木」可能一只是
                 // 「林」召的、一只是别的字召的(2026-09-05 用户拍板)。
                 HeaderName(header.transform, summon.SourceChar, SummonHeaderNameFontSize);
+                // 底色用字形色(2026-09-19),理由同敌人格
                 HeaderChip(header.transform, CharInfo.ElementName(summon.Element),
-                    Theme.ElementColor(summon.Element), Color.white);
-                // 读 EffectiveAttack 而不是 Attack(2026-09-16 用户报):战意/厚的百分比乘区、
-                // 攻击光环、身上挂的攻击增益全在那个属性里,而它们**回合中途就在变**
-                // (出一张金系字 +1 层战意,出「崩」清空厚)。印基础值的话头行数字纹丝不动,
-                // 点开详情弹窗(SummonInfo 一直读的就是 EffectiveAttack)才发现是另一个数 ——
-                // 与敌人格的护甲 chip 2026-09-06 修掉的是同一类分叉,那边也已统一读有效值。
-                HeaderChip(header.transform, $"{summon.EffectiveAttack}", Theme.PaperDim, Theme.TextMain,
-                    RangeIcon(summon.Passive?.Ranged ?? false));
-                // 护甲(2026-09-05 用户拍板:「后续有些召唤物会直接带上护甲」)。
-                // 读 EffectiveDefense —— 眼下它只由玩家挂上去的增益构成(SummonState 没有基础
-                // 护甲字段),所以平时是 0、不出格;等字表给召唤物配了基础护甲,那个属性把两者
-                // 加在一起,这一行**不用改**就跟着显示。这也是不直接读某个基础字段的原因。
-                if (summon.EffectiveDefense > 0)
-                    HeaderChip(header.transform, $"{summon.EffectiveDefense}",
-                        Theme.InkSoft, Color.white, "defense");
+                    Theme.GlyphColor(summon.Element), Color.white);
 
                 // chip 行(稿 .cps):被动 + 灼烧 + 身上挂着的每条状态,一律「图标 + 数字」,
                 // 横排 Ui.ChipFlow(与敌人 chip 行同一套截断逻辑:装不下 ChipMaxLines 行时
@@ -1910,6 +1897,15 @@ namespace Brushblade.Presentation
                 // 2026-09-02:此前这里只有一个「益+2」的条数计数,而条数不告诉玩家是什么增益——
                 // 「锐」给的穿透、「壁」给的护甲都只是那个 2 里的一份,打出去生效没有看不出来。
                 var chipSpecs = new List<Ui.ChipSpec>();
+                // 「射程图标 + 攻」与护甲排在最前(2026-09-19 头行拆两行,与敌人格同构)。
+                // 读 EffectiveAttack 而不是 Attack(2026-09-16 用户报):战意/厚的乘区、攻击光环、
+                // 身上的攻击增益回合中途就在变,印基础值会与详情弹窗(SummonInfo)对不上。
+                chipSpecs.Add(new($"{summon.EffectiveAttack}", Theme.PaperDim, Theme.TextMain,
+                    RangeIcon(summon.Passive?.Ranged ?? false)));
+                // 护甲读 EffectiveDefense:眼下只由玩家挂的增益构成,平时 0 不出;字表将来给召唤物
+                // 配基础护甲时这一行不用改(2026-09-05 用户拍板「后续有些召唤物会直接带上护甲」)。
+                if (summon.EffectiveDefense > 0)
+                    chipSpecs.Add(new($"{summon.EffectiveDefense}", Theme.InkSoft, Color.white, "defense"));
                 var (passiveText, passiveIcon) = SummonPassiveChip(summon.Passive);
                 // N-1(2026-09-16 复审):桤/森/藻/林(底速 150,SummonPassiveChip 恒出 "speed"
                 // 被动格)吃到 Haste 之后,AddSummonStatusChips 的正向 SpeedModifier 分支也会
@@ -1922,8 +1918,9 @@ namespace Brushblade.Presentation
                 int burn = summon.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burn > 0) chipSpecs.Add(new($"{burn}", Theme.Cinnabar, Color.white, "burn"));
                 AddSummonStatusChips(chipSpecs, summon);
-                Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize, ChipMaxLines,
-                    ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
+                Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
+                    front ? ChipMaxLines : SummonBackChipMaxLines,
+                    UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 血条:走与敌方同一个 HpBar helper —— 血/上限叠在条内(2026-09-05 用户拍板
                 // 「hp 量移动到血条内,与敌方血条对齐」)。填充色仍刻意与玩家/敌人不同
@@ -2229,13 +2226,13 @@ namespace Brushblade.Presentation
         /// minWidth = preferredWidth 是关键:HorizontalLayoutGroup 一旦发现子项的 preferred
         /// 之和超过行宽,就按各自的 (preferred − min) 比例把**所有**子项压回 min ——
         /// 两者同值 = 回退量 0 = 压不到它。于是超出的部分全由旁边那个吃弹性宽的名字承担,
-        /// 属性/攻/甲三样一个都不会被挤掉或挤换行(2026-09-05 用户拍板)。
+        /// 属性徽章不会被挤掉(2026-09-05 用户拍板;攻/甲 2026-09-19 已挪到第二行的 chip 流)。
         /// 同一手法见拆合台 PickedTileW 那处,那边的注释把 uGUI 这条压缩规则讲得更细。</summary>
         private static GameObject HeaderChip(Transform parent, string text, Color bg, Color fg,
             string iconKey = null)
         {
             var chip = Ui.Chip(parent, text, bg, fg,
-                ElementBadgeFontSize, ElementBadgePadX, ElementBadgePadY, iconKey);
+                UnitChipFontSize, UnitChipPadX, UnitChipPadY, iconKey);
             var element = chip.GetComponent<LayoutElement>();
             element.minWidth = element.preferredWidth;
             return chip;
@@ -2349,39 +2346,40 @@ namespace Brushblade.Presentation
         // 头行里名字与属性徽章的间距(稿 .hd { gap: 4px })——同一套 ×2.093 换算。
         private const float EnemyBlkInfoGap = 13f;   // 6pt
         private const float EnemyInfoSpacing = 4f;   // 2pt
-        // 头行的排版预算(2026-09-05 用户拍板「这几样属性必须在同一行不可以 overflow」)。
+        // 头行拆两行(2026-09-19 用户拍板,取代 2026-09-05「四样必须同一行」)。
         //
-        // 最紧的一处是**前排敌人格**:infoWidth = 293 − 126(立绘) − 13(gap) = 154,
-        // 而头行要装 名字 + 属性 + (射程+攻) + 甲。字号与间距因此各收一档(15→13 / 8→6),
-        // 腾出的约 15px 正是那枚护甲 chip 的宽度。按 Ui.ChipWidth 的公式实算最坏情况:
-        //   2 字名 26 + 属性 16 + 攻(2位) 47 + 甲(2位) 47 + 间距 6×3 = 154 —— 刚好装下。
-        // 这个「刚好」不是巧合而是数据的事实:enemies.json 里**带护甲的 10 只名字全是 2 字**,
-        // 3 字的 6 只都不带甲(只有三样,114),4 字的 4 只是成语 Boss、跨两列(可用宽 599)。
-        // ⚠ 所以立绘尺寸不必动;但**给一只 3 字怪配上护甲就会越线**(167 > 154)——
-        // 真要配,先收 EnemyPortraitFront(126 → 112 可把可用宽抬到 168)或再收一档字号。
-        // 越线也不会换行/溢出(见 HeaderChip:chip 钉死不可压,名字吃弹性宽先让位),
-        // 代价是那只怪的名字被截一个字。
-        private const float EnemyHeaderSpacing = 6f;   // 原 8(稿 4pt);见上
-        private const int HeaderNameFontSize = 13;     // 原 15
-        private const int SummonHeaderNameFontSize = 12;
+        // 起因是可读性:旧版为了把 名字 + 属性 + (射程+攻) + 甲 塞进前排信息列的 154,
+        // 字号一路收到名字 13、chip 10(换算成真机只有 6.2pt / 4.8pt),而且深层攻击力与
+        // 护甲一到 3 位数就照样越线。放大到可读字号后一行至少要 223,除非把立绘缩到 27pt,
+        // 所以改结构而不是再抠字号:
+        //   第一行:名字 + 属性徽章(「这是谁」);
+        //   第二行起:「射程+攻」「甲」排在 chip 流**最前面**,后面接战况 chip,
+        //   装不下就换行、从尾部丢并补「+N」—— 攻/甲在最前,永远不会被丢。
+        // 纵向预算(逻辑单位):头行 ≈24 + chip 两行 20+3+20 + 血条 19 + 行动条 6 + 间距 4×3
+        // ≈ 104,前排敌人格 138、后排 109、前排召唤格 113 都装得下;后排召唤格只有 88,
+        // chip 限一行(≈81),见 SummonBackChipMaxLines。
+        private const float EnemyHeaderSpacing = 6f;
+        private const int HeaderNameFontSize = 19;         // ≈ 9pt
+        private const int SummonHeaderNameFontSize = 19;   // 与敌人格同一口径
 
         // 两条状态条的高度(稿:血条 7pt、行动条 3pt)。宽度不设常量——
         // 前排、后排、Boss 跨列的信息列宽各不相同,在每只敌人的绘制现场按实际格宽算。
         // 稿上血条与行动条之间还有一条 3pt 的护盾条,2026-09-05 用户拍板整体移除。
-        private const float EnemyHpBarHeight = 15f;
+        private const float EnemyHpBarHeight = 19f;   // 血值叠字取 HpBar 的上限 13(≈ 6.2pt)
         private const float EnemyActionBarHeight = 6f;
 
-        // 元素徽章(稿 .els):头行里跟名字并排的小胶囊,字号压到比状态 chip 还小——
-        // 它只需要装得下最长的单字元素名(火/水/木/金/土/问号),不必跟 chip 抢可读性预算。
-        private const int ElementBadgeFontSize = 10;
-        private const int ElementBadgePadX = 6;
-        private const int ElementBadgePadY = 4;
+        // 单位格 chip(2026-09-19):头行的属性徽章与第二行的 攻/甲/战况 共用一套尺寸 ——
+        // 字号 15(≈ 7.2pt),高 = 15 + 5 = 20,刚好容下 18 的图标(Icons.Size)不出框。
+        // 玩家状态栏那组 chip 不在此列,仍用 ChipPadX/ChipPadY。
+        private const int UnitChipFontSize = 15;
+        private const int UnitChipPadX = 10;
+        private const int UnitChipPadY = 5;
 
         // 护盾角标(稿 .sh):叠在立绘左下角,Shield > 0 才画。
         // 2026-09-05 起这是盾的**唯一**表达(护盾条整体移除)。
         // 敌人 Shield 眼下恒为 0(2026-08-30 拍板,来源是将来的加盾辅助怪),真机看不到属预期,
         // 别因为试玩看不到就以为没接上,也别为了让它显形去给哪只怪配盾。
-        private const int ShieldBadgeFontSize = 10;
+        private const int ShieldBadgeFontSize = 14;   // 2026-09-19:10 → 14(≈ 6.7pt),三种单位共用
         private const int ShieldBadgePadX = 4;
         private const int ShieldBadgePadY = 3;
         private const float ShieldBadgeMargin = 4f;
@@ -2399,12 +2397,13 @@ namespace Brushblade.Presentation
         // 上限 2 行:3 行要再吃 22px,超出的按列表顺序从尾部丢,末尾补「+N」。
         // 2026-08-30:横排后可用宽度不再是整格宽,是信息列宽(前/后排、Boss 跨列各不相同),
         // 在绘制现场算,不设常量。
-        private const int ChipFontSize = 11;
         private const int ChipPadX = 12;
         private const int ChipPadY = 8;
         private const float ChipSpacing = 4f;
         private const float ChipLineSpacing = 3f;
         private const int ChipMaxLines = 2;
+        // 后排召唤格只有 88 高,两行 chip 装不下(见头行拆两行那段的纵向预算)
+        private const int SummonBackChipMaxLines = 1;
 
         // 拖字打人悬停预览(2026-08-22):主目标复用「选目标态整格微亮」的既有强度(0.07f,
         // 见 DrawEnemies 的 hitArea.color),被形状溅到的用更淡一档,与主目标拉开区分。
@@ -2627,24 +2626,11 @@ namespace Brushblade.Presentation
                 HeaderName(header.transform, BossTitle(enemy), HeaderNameFontSize);
                 // 显示用的元素名走 CharInfo.ElementName(查表)。
                 string elementName = enemy.ApparentElement is { } apparent ? CharInfo.ElementName(apparent) : "?";
+                // 底色用字形色(2026-09-19):属性原色压白字金 2.5:1、土 4.0:1,字形色六系都 ≥4.5:1。
+                // 未读懂(「?」)仍是中性灰。
                 HeaderChip(header.transform, elementName,
-                    Theme.ElementColor(enemy.ApparentElement), Color.white);
-                // 「射程图标 + 攻击力」(2026-09-05 用户拍板):两者合成一枚,并从 chip 行挪到这里。
-                // 攻击力是这只怪**是什么**的一部分(与名字、属性同族),不是会来会走的战况;
-                // 而 chip 行讲的是战况。图标换成射程那一枚,顺带修掉「基础攻击力借用 attack
-                // 图标」这件事 —— 那枚图标在玩家状态栏里表示的是攻击**增益**。
-                HeaderChip(header.transform, $"{enemy.Attack}", Theme.PaperDim, Theme.TextMain,
-                    RangeIcon(enemy.Def.Range == AttackRange.Ranged));
-                // 护甲同理并进头行(2026-09-05):EnemyDef 上的基础属性只是起点,与攻击力
-                // 同族,不该混在讲战况的 chip 行里。0 甲不出 —— 与旧口径一致,没有的东西不占位。
-                // 封禁 + 破甲(2026-09-06,终审必修 7):这里显示的是**当前实际护甲**,会同时
-                // 响应封禁(杂兵归零/Boss 减半)与破甲——读 Core 的 DisplayedEnemyDefense,不在
-                // 这里重新拼一遍,与 EnemyInfo.BuildFigures 的 defenseValue 读同一个数。此前这里
-                // 只读了 SuppressArmorOf(只减封禁、不减破甲),详情弹窗却两者都减,玩家出破甲字
-                // 头行数字纹丝不动、点开详情才发现变了。0 甲不出的旧口径延续:归零后 chip 消失。
-                int shownDefense = BattleEngine.DisplayedEnemyDefense(enemy);
-                if (shownDefense > 0)
-                    HeaderChip(header.transform, $"{shownDefense}", Theme.InkSoft, Color.white, "defense");
+                    enemy.ApparentElement is { } shownElement ? Theme.GlyphColor(shownElement) : Theme.NeutralPart,
+                    Color.white);
 
                 // chip 行:攻击模式/技能特性/debuff/DoT。列表顺序即优先级:装不下 ChipMaxLines
                 // 行时从**尾部**丢弃,末尾补「+N」,所以越靠前的越保得住。
@@ -2655,6 +2641,18 @@ namespace Brushblade.Presentation
                 // EnemyPreview(图鉴预览)还在用它,那儿是有空间摆文字的地方。
                 // 攻击力、射程、护甲已并进头行(2026-09-05),这里只剩战况类
                 var chipSpecs = new List<Ui.ChipSpec>();
+                // 「射程图标 + 攻击力」与护甲排在最前(2026-09-19 头行拆两行,从头行挪下来)。
+                // 它们是这只怪**是什么**(与名字、属性同族),战况 chip 跟在后面;ChipFlow 从尾部丢,
+                // 所以这两枚永远保得住。图标用射程那一枚而不是 attack —— 后者在玩家状态栏里
+                // 表示攻击**增益**(2026-09-05)。
+                chipSpecs.Add(new($"{enemy.Attack}", Theme.PaperDim, Theme.TextMain,
+                    RangeIcon(enemy.Def.Range == AttackRange.Ranged)));
+                // 当前实际护甲:同时响应封禁(杂兵归零/Boss 减半)与破甲,读 Core 的
+                // DisplayedEnemyDefense,与 EnemyInfo.BuildFigures 同一个数(2026-09-06 终审必修 7)。
+                // 0 甲不出。
+                int shownDefense = BattleEngine.DisplayedEnemyDefense(enemy);
+                if (shownDefense > 0)
+                    chipSpecs.Add(new($"{shownDefense}", Theme.InkSoft, Color.white, "defense"));
                 // 读 ChargingSkill 而不是当前阶段的技能:蓄力期间玩家可能把 Boss 推过阶段,
                 // 那时阶段技能已经变了,但预告过的大招不改口(2026-07-29)
                 if (enemy.IsCharging && enemy.IsBoss)
@@ -2719,8 +2717,8 @@ namespace Brushblade.Presentation
                             Theme.AbilityChipColor(enemy.Def.Ability), Color.white, abilityIcon));
                 }
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
-                Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, ChipFontSize,
-                    ChipMaxLines, ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
+                Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
+                    ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
 
                 // 存活或濒死(死亡动画中)都画血条:动画期间画出手前值,伤害触达才逐记掉血;
                 // 濒死者随死亡节拍置灰,真正死透(动画完)才转「已正」。血值上条,带描边保对比度。
