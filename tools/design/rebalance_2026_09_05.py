@@ -304,6 +304,11 @@ for c in R:
     if '护甲' in ts or '护甲(召)' in ts: ar=A['护甲']
     if '流血' in ts: pass
     if '终极技' in ts: ul=A['全体']//5
+    # 分 N 段:落地是「单段 value × hitCount N」,总量必须是 N 的整数倍。奇数总量分不成两段时
+    # 每段向下取整、总量差几点计入取整 —— 这是详表 刲/鍂 两行 2026-09-08 / 09-11 写明的处置,
+    # 此前只落在了详表与 chars.json 上,脚本仍输出 263/197,对账测试因此常年两条红(2026-09-20 补)。
+    seg=next((int(t[1:-1]) for t in c['traits'] if re.fullmatch(r'分\d+段',t)),1)
+    if isinstance(atk,int) and seg>1: atk-=atk%seg
     rows.append(dict(**c,atk=atk,sh=sh,hl=hl,sm=sm,ar=ar,ul=ul,burn=burn,ratio=ratio,dot=dot_abs,ts=ts,
                      ss=ss,mo=mo,mark=mark if marked else ''))
 
