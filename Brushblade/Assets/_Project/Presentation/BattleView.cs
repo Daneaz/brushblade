@@ -550,11 +550,14 @@ namespace Brushblade.Presentation
         /// <param name="fill">条的填充色。默认朱砂(敌人/玩家);召唤物传绿 ——
         /// 稿用色区分敌我,红色会把友军读成类敌方单位(见 DrawSummons 那处的注释)。</param>
         private (RectTransform fill, UnityEngine.UI.Text label) HpBar(Transform parent, int hp, int maxHp,
-            Vector2 size, Color? fillColor = null)
+            Vector2 size, Color? fillColor = null, int? labelFontSize = null)
         {
             var bar = Ui.Bar(parent, hp / (float)maxHp, fillColor ?? Theme.Cinnabar, size);
             var fill = (RectTransform)bar.transform.Find("Fill");
-            var label = Ui.ThemedLabel(bar.transform, $"{hp}/{maxHp}", Mathf.Clamp((int)(size.y * 0.7f), 10, 13),
+            // labelFontSize:召唤格的血条为给行动条让高度压到 17,按 0.7 推出来只有 11,
+            // 叠字就回到读不清的那一档 —— 让调用方直接给字号(2026-09-19)。
+            var label = Ui.ThemedLabel(bar.transform, $"{hp}/{maxHp}",
+                labelFontSize ?? Mathf.Clamp((int)(size.y * 0.7f), 10, 13),
                 Color.white, Theme.TitleFont);
             Ui.Stretch(label.rectTransform);
             var outline = label.gameObject.AddComponent<Outline>(); // 深色描边:浅底/满色底都读得清
@@ -1500,9 +1503,14 @@ namespace Brushblade.Presentation
         // 算一个固定 infoWidth。
         private const float PlayerBlkSize = 71f;         // 稿 .me .blk { 34×34 }
         private const float PlayerInfoSpacing = 4f;      // 稿 .me .info { gap: 2pt }
-        private const float PlayerHeaderHeight = 18f;    // 容得下 14 号「执笔人」
+        private const float PlayerHeaderHeight = 24f;    // 容得下 19 号「执笔人」(2026-09-19 与单位格同一口径)
         private const float PlayerHpBarHeight = 17f;     // 稿 .me .hpb { height: 8pt }
-        private const float PlayerActionBarHeight = 6f;  // 稿 .me .atb { height: 3pt },与敌人同口径
+        // 2026-09-19:6 → 15,百分比叠字才放得下 13 号(≈ 6.2pt)。纵向账:头行 24 + 血条 17
+        // + 行动条 15 + 间距 4×2 = 64 ≤ 玩家条 84。
+        private const float PlayerActionBarHeight = 15f;
+        private const int PlayerNameFontSize = 19;       // ≈ 9pt,与单位格名字同号
+        private const int PlayerHpFontSize = 15;         // ≈ 7.2pt,与单位格 chip 同号
+        private const int PlayerApLabelFontSize = 15;
         private const float PlayerSttWidth = 251f;       // 稿 .stt { width: 120pt }
         private const float PlayerApGap = 10f;           // 稿 .ap { gap: 5pt }
         private const float PlayerApPipGap = 6f;         // 稿 .ap .pips { gap: 3pt }
@@ -1620,13 +1628,13 @@ namespace Brushblade.Presentation
             var header = Ui.Panel(info.transform, "Header");
             Ui.Sized(header, height: PlayerHeaderHeight, flexWidth: 1f);
             var whoLabel = Ui.ThemedLabel(header.transform, Strings.T("battle.label.player_name"),
-                14, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
+                PlayerNameFontSize, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleLeft);
             Ui.Stretch(whoLabel.rectTransform);
             // 头行右端只剩血/上限:盾挪到了立绘左下角那枚角标上(下面那段),
             // 两处都印一遍是同一件事说两遍。
             var hpLabel = Ui.ThemedLabel(header.transform,
                 Strings.T("battle.label.player_hp", ("hp", shownHp), ("hpMax", shownMaxHp)),
-                11, Theme.TextDim, null, TextAnchor.MiddleRight);
+                PlayerHpFontSize, Theme.TextDim, null, TextAnchor.MiddleRight);
             Ui.Stretch(hpLabel.rectTransform);
             _playerHpLabel = hpLabel; // 动画期间要就地改它(见字段注释)
 
@@ -1657,7 +1665,7 @@ namespace Brushblade.Presentation
             // 行动条(2026-08-17 加入,2026-08-31 改色):仍走共享 ActionBar helper,
             // 带百分比叠字——调度方明确要求这里只改颜色不改结构,见方法注释。
             _playerActionBar = ActionBar(info.transform, Battle.PlayerActionMeter,
-                new Vector2(0f, PlayerActionBarHeight), 8);
+                new Vector2(0f, PlayerActionBarHeight), UnitBarLabelFontSize);
             StretchWidth(_playerActionBar.fill.parent.gameObject);
 
             Divider(); // info | ap 分隔线
@@ -1676,7 +1684,7 @@ namespace Brushblade.Presentation
             // (稿另有 .ap.dry .pips i.on 一条,在当前 AP 语义下永远不触发:dry 恰好
             //  意味着 Ap == 0,不会有任何一枚 pip 处于 on 态。落地一直没实现它。)
             var apRow = Ui.Row(_bottomRow, "Ap", PlayerApGap);
-            Ui.ThemedLabel(apRow.transform, "AP", 12, Theme.TextDim);
+            Ui.ThemedLabel(apRow.transform, "AP", PlayerApLabelFontSize, Theme.TextDim);
             var pips = Ui.Row(apRow.transform, "Pips", PlayerApPipGap);
             for (int i = 0; i < Battle.ApPerTurn; i++)
             {
@@ -1714,17 +1722,17 @@ namespace Brushblade.Presentation
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff) > 0)
-                statusChips.Add(new("", Theme.Gold, Color.white, "attack"));
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "attack"));
             // 战意带数字:Magnitude 每回合 −1(BattleEngine 的 EndTurn 那段),数字是倒计时,
             // 玩家要按「还剩几层」决定这回合梭不梭 —— 与灼烧同族,和旁边那排平量增益不同。
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
-            if (morale > 0) statusChips.Add(new($"{morale}", Theme.Gold, Color.white, "morale"));
+            if (morale > 0) statusChips.Add(new($"{morale}", Theme.Gold, Theme.GoldText, "morale"));
             // 暴击(2026-08-12,锋):判据仍读 EffectiveCrit(已钳到 100)而不是状态总量 ——
             // 数字虽然不显示了,但「叠满没叠满」的口径要与详情一致
             if (Battle.EffectiveCrit > 0)
-                statusChips.Add(new("", Theme.Gold, Color.white, "crit"));
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "crit"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff) > 0)
-                statusChips.Add(new("", Theme.Gold, Color.white, "pierce"));
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "pierce"));
             // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻——
             // 基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」(与穿透同口径)。
             // speed 取 != 0 而非 > 0、正负都只出图标,减了多少与加了多少同样是持续期间的
@@ -1756,12 +1764,13 @@ namespace Brushblade.Presentation
             // 层数为 0 不占格,与其余增益类 chip 同口径。
             int heft = Battle.HeftStacks;
             if (heft > 0)
-                statusChips.Add(new($"{Strings.T("status.heft.chip")}{heft}", Theme.Gold, Color.white, null));
+                statusChips.Add(new($"{Strings.T("status.heft.chip")}{heft}", Theme.Gold, Theme.GoldText, null));
             int waterPower = Battle.WellspringStacks;
             if (waterPower > 0)
                 statusChips.Add(new($"{Strings.T("status.wellspring.chip")}{waterPower}", Theme.Jade, Color.white, null));
-            var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, 12, 2,
-                ChipPadX, ChipPadY, ChipSpacing, ChipLineSpacing);
+            // 2026-09-19:与单位格 chip 同一套尺寸(字号 12 → 15)
+            var stt = Ui.ChipFlow(_bottomRow, "Status", statusChips, PlayerSttWidth - 4f, UnitChipFontSize, 2,
+                UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
             stt.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             Ui.Sized(stt, width: PlayerSttWidth);
 
@@ -1788,7 +1797,13 @@ namespace Brushblade.Presentation
         private const float SummonBlkInfoGap = 10f;         // 稿 .ally { gap: 5pt }
         private const float SummonInfoSpacing = 4f;         // 稿 .ally .info { gap: 2pt }
         private const float SummonHeaderHeight = 24f;       // 容得下 19 号名字与 20 高的属性徽章
-        private const float SummonHpBarHeight = 19f;        // 与敌人血条同高,血值叠字才读得清(2026-09-19)
+        // 血条 17 + 行动条 15(2026-09-19 行动条百分比放大)。后排格 88 的纵向账:
+        // 头行 24 + chip 一行 20 + 血条 17 + 行动条 15 + 间距 4×3 = 88,正好装满;
+        // 前排两行 chip 时 111 ≤ 113。改这几个数之前先把这笔账重算一遍。
+        private const float SummonHpBarHeight = 17f;
+        private const float SummonActionBarHeight = 15f;
+        // 单位血条与行动条的叠字字号(≈ 6.2pt),召唤格与玩家条共用
+        private const int UnitBarLabelFontSize = 13;
         // 行动条与敌人格同一口径(稿 .atb 两种单位都是 height:3pt),
         // 复用 EnemyActionBarHeight(见敌人格常量),不重复定义。
         // DrawSummons 本体不再用它(格子内部改横排,不再是竖排 VStack),但锁格/空槽
@@ -1927,14 +1942,14 @@ namespace Brushblade.Presentation
                 // (稿 .ally .hpb > span { background: #2E7D46 } 是绿,.me/.foe 都是红):
                 // 稿用色区分敌我 —— 召唤物是友军,红色会被误读成类敌方单位。
                 _summonBarByCore[i] = HpBar(info.transform, shownHp, summon.MaxHp,
-                    new Vector2(infoWidth, SummonHpBarHeight), Theme.DoneGreen);
+                    new Vector2(infoWidth, SummonHpBarHeight), Theme.DoneGreen, UnitBarLabelFontSize);
 
                 // 盾条已整体移除(2026-09-05 用户拍板):盾的数值留在立绘左下角那枚金角标上
                 // (见上面 summon.Shield > 0 那一段)。理由同敌人格那处的注释。
                 // 行动条:仍走共享 ActionBar helper(带百分比叠字),与玩家条同一取舍,
                 // 只是颜色/soon 态已经在 helper 里统一改过(见 ActionBar 方法注释)。
                 _summonActionBarByCore[i] = ActionBar(info.transform, summon.ActionMeter,
-                    new Vector2(infoWidth, EnemyActionBarHeight), 8);
+                    new Vector2(infoWidth, SummonActionBarHeight), UnitBarLabelFontSize);
 
                 if (_slotPicking) AttachSlotPicker(cell.transform, summonIndex);
                 // 友方选目标态(2026-08-22 治疗;2026-08-26 起护盾同走这条):判据走
@@ -2285,14 +2300,16 @@ namespace Brushblade.Presentation
             //     诅咒、破甲、减速、致盲、封字,以及全部平量增益(甲/闪/弹/攻/暴/锐)。
             //
             // 加新状态时按这条分:问「玩家盯着这个数字看,是在等它变小吗?」
+            // 前景跟底色走:赭金底上白字/白图标只有 2.3:1,改压 GoldText(2026-09-19)
+            Color Fg(Color bg) => bg == Theme.Gold ? Theme.GoldText : Color.white;
             void Decaying(StatusKind kind, string icon, Color bg)  // 量随回合变小,带数字
             {
                 int n = st.TotalMagnitude(kind);
-                if (n > 0) chips.Add(new($"{n}", bg, Color.white, icon));
+                if (n > 0) chips.Add(new($"{n}", bg, Fg(bg), icon));
             }
             void Flag(StatusKind kind, string icon, Color bg)      // 挂着即生效,只出图标
             {
-                if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Color.white, icon));
+                if (st.TotalMagnitude(kind) > 0) chips.Add(new("", bg, Fg(bg), icon));
             }
 
             // ---- 负面:先出,不该被截断 ----
@@ -2370,7 +2387,7 @@ namespace Brushblade.Presentation
 
         // 单位格 chip(2026-09-19):头行的属性徽章与第二行的 攻/甲/战况 共用一套尺寸 ——
         // 字号 15(≈ 7.2pt),高 = 15 + 5 = 20,刚好容下 18 的图标(Icons.Size)不出框。
-        // 玩家状态栏那组 chip 不在此列,仍用 ChipPadX/ChipPadY。
+        // 玩家状态栏也用这一套(2026-09-19 起,原先是字号 12、padX 12、padY 8)。
         private const int UnitChipFontSize = 15;
         private const int UnitChipPadX = 10;
         private const int UnitChipPadY = 5;
@@ -2397,8 +2414,7 @@ namespace Brushblade.Presentation
         // 上限 2 行:3 行要再吃 22px,超出的按列表顺序从尾部丢,末尾补「+N」。
         // 2026-08-30:横排后可用宽度不再是整格宽,是信息列宽(前/后排、Boss 跨列各不相同),
         // 在绘制现场算,不设常量。
-        private const int ChipPadX = 12;
-        private const int ChipPadY = 8;
+        // 2026-09-19:字号与内边距统一换成 UnitChipFontSize/UnitChipPadX/UnitChipPadY,这里只剩间距与行数。
         private const float ChipSpacing = 4f;
         private const float ChipLineSpacing = 3f;
         private const int ChipMaxLines = 2;
