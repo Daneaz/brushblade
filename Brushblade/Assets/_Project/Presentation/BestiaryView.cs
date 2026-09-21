@@ -265,9 +265,12 @@ namespace Brushblade.Presentation
                 ? (on ? Theme.Gold : Theme.GoldDeep)
                 : (on ? (tint is { } t2 ? Theme.ElementSoftFg(t2) : Theme.TextMain) : Theme.TextDim);
             Ui.ThemedLabel(row.transform, name, 29, fg, Theme.TitleFont);
+            // 同 CollectionView:选中的「全部」页签底也是 PanelInset,不带描边就看不见 chip。
+            // 层段页签铺 <el>-soft、Boss 页签铺 ink,两者都分得开,不用描边。
             Ui.Chip(row.transform, countText,
                 isBossTab && on ? Theme.Gold : Theme.PanelInset,
-                isBossTab && on ? Theme.GoldText : Theme.TextDim, 18);
+                isBossTab && on ? Theme.GoldText : Theme.TextDim, 18,
+                border: on && !isBossTab && tint == null ? Theme.PanelBorder : null);
 
             if (on)
             {

@@ -256,7 +256,10 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)row.transform);
             var fg = on ? (isAll ? Theme.TextMain : Theme.ElementSoftFg(element)) : Theme.TextDim;
             Ui.ThemedLabel(row.transform, tabName, 29, fg, Theme.TitleFont);
-            Ui.Chip(row.transform, countText, Theme.PanelInset, Theme.TextDim, 18);
+            // 选中「全部」时页签底也是 PanelInset,chip 不带描边就与它糊成一片、
+            // 形状整个消失(2026-09-21)。属性页签铺的是 <el>-soft,本来就分得开。
+            Ui.Chip(row.transform, countText, Theme.PanelInset, Theme.TextDim, 18,
+                border: on && isAll ? Theme.PanelBorder : null);
 
             // 选中态底下那条属性色的粗线(稿 .ftab.on 的 border-bottom)
             if (on && !isAll)

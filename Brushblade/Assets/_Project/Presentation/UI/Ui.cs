@@ -353,15 +353,36 @@ namespace Brushblade.Presentation
         /// (敌人格 chip 行),默认值即原尺寸,其余 20 多个调用点不受影响。
         ///
         /// iconKey 非空时在文字左侧画图标(2026-08-17):PNG 有就画图,没有就画
-        /// <see cref="Icons.Fallback"/> 的汉字 —— 两条路占同样的宽,布局不受资产有无影响。</summary>
+        /// <see cref="Icons.Fallback"/> 的汉字 —— 两条路占同样的宽,布局不受资产有无影响。
+        ///
+        /// border 非空时在 chip 外圈留一条 <paramref name="borderThickness"/> 的边线
+        /// (2026-09-21):做法与 <see cref="OutlinedPanel"/> 同 —— 外层换成描边色、内层
+        /// 填充色内缩。**给「浅卡压浅底」用**:品牌规则要求浅色卡压浅色底必须带描边,
+        /// 而此前 Chip 做不到,于是收集页/图鉴选中「全部」页签时,计数 chip 的 PanelInset
+        /// 底与同为 PanelInset 的页签底糊成一片、胶囊形状整个消失。换底色治不了这件事 ——
+        /// 这一层可选的几支浅色(PaperDim / LockedBg)对 PanelInset 都只有 1.21 的对比度。
+        ///
+        /// ⚠ 描边**不吃宽高**:尺寸仍是 <see cref="ChipWidth"/>/<see cref="ChipHeight"/> 的
+        /// 纯函数,边线画在原尺寸之内。<see cref="ChipFlow"/> 因此不受影响,排版口径不变。</summary>
         public static GameObject Chip(Transform parent, string text, Color bg, Color fg,
-            int fontSize = 14, int padX = ChipPadX, int padY = ChipPadY, string iconKey = null)
+            int fontSize = 14, int padX = ChipPadX, int padY = ChipPadY, string iconKey = null,
+            Color? border = null, float borderThickness = 1f)
         {
             var go = Panel(parent, "Chip");
             var image = go.AddComponent<Image>();
             image.sprite = Theme.Rounded(14);
             image.type = Image.Type.Sliced;
-            image.color = bg;
+            image.color = border ?? bg;
+            if (border is { } edge)
+            {
+                // 外层已经是描边色,内层铺真正的底色、四边内缩 —— 图标与文字是更靠后的
+                // 兄弟节点,画在填充之上,不会被它盖住(同 OutlinedPanel 的注释)。
+                var face = CardPanel(go.transform, "Face", bg, 14);
+                face.raycastTarget = false;
+                Anchor((RectTransform)face.transform, Vector2.zero, Vector2.one,
+                    new Vector2(borderThickness, borderThickness),
+                    new Vector2(-borderThickness, -borderThickness));
+            }
 
             float iconSpan = 0f;
             if (iconKey != null)
