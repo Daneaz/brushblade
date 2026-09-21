@@ -585,7 +585,7 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)row.transform);
             NavIcon(row.transform, iconKey, palette.Fg);
             Ui.ThemedLabel(row.transform, name, 29, palette.Fg, Theme.TitleFont);
-            Ui.ThemedLabel(row.transform, sub, 19, Theme.LockGray);
+            Ui.ThemedLabel(row.transform, sub, 19, Theme.TextDim);
             if (dot) RedDot(tab.transform);
         }
 

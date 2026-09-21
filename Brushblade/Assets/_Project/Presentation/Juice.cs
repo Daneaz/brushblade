@@ -487,7 +487,7 @@ namespace Brushblade.Presentation
                     // **攻击者**头上,玩家读成「敌人免疫了」,正好反过来。
                     case BattleEventKind.ImmunityBlocked:
                         Lunge(enemyAnchor(e.TargetIndex));
-                        Popup(Strings.T("juice.popup.immune"), Theme.Jade, e.SecondIndex >= 0
+                        Popup(Strings.T("juice.popup.immune"), Theme.UpgradeText, e.SecondIndex >= 0
                             ? summonAnchor?.Invoke(e.SecondIndex) : null);
                         break;
                     // 打空(2026-08-07,致盲/闪避):敌人照常下扑,但什么都没打到。
@@ -540,7 +540,7 @@ namespace Brushblade.Presentation
                         Popup(e.SecondIndex >= 3
                                 ? (e.Amount > 0 ? Strings.T("juice.popup.regrow_full_with_heal", ("amount", e.Amount)) : Strings.T("juice.popup.regrow_full"))
                                 : (e.Amount > 0 ? Strings.T("juice.popup.regrow_partial_with_heal", ("index", e.SecondIndex), ("amount", e.Amount)) : Strings.T("juice.popup.regrow_partial", ("index", e.SecondIndex))),
-                            Theme.Jade, enemyAnchor(e.TargetIndex), small: e.SecondIndex < 3);
+                            Theme.UpgradeText, enemyAnchor(e.TargetIndex), small: e.SecondIndex < 3);
                         PlayClip(_healClip, 0.6f);
                         onImpact?.Invoke(e); // 触达才回血
                         serialPending = true;
@@ -556,10 +556,10 @@ namespace Brushblade.Presentation
                         onImpact?.Invoke(e); // 触达才把护盾条推到 0(倾覆专用,BattleView.OnImpact 处理)
                         break;
                     case BattleEventKind.EnemySplit:
-                        Popup(Strings.T("juice.popup.enemy_split"), Theme.Jade, enemyAnchor(e.TargetIndex));
+                        Popup(Strings.T("juice.popup.enemy_split"), Theme.UpgradeText, enemyAnchor(e.TargetIndex));
                         break;
                     case BattleEventKind.BossPhase:
-                        Popup(Strings.T("juice.popup.boss_phase"), Theme.GoldBorder, enemyAnchor(e.TargetIndex));
+                        Popup(Strings.T("juice.popup.boss_phase"), Theme.GoldDeep, enemyAnchor(e.TargetIndex));
                         PlayClip(_thudClip, 1f);
                         break;
                     case BattleEventKind.EnemyBuff:
@@ -571,7 +571,7 @@ namespace Brushblade.Presentation
                     // 玩家要看见的是「谁被奶回去了」,才知道该先打谁
                     case BattleEventKind.EnemyMend:
                         Popup(Strings.T("juice.popup.enemy_mend", ("amount", e.Amount)),
-                            Theme.Jade, enemyAnchor(e.TargetIndex), small: true);
+                            Theme.UpgradeText, enemyAnchor(e.TargetIndex), small: true);
                         PlayClip(_healClip, 0.5f);
                         break;
                     case BattleEventKind.EnemyRevealed:

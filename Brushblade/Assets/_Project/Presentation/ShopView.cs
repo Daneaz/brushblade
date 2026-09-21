@@ -304,7 +304,7 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)stack.transform);
 
             ChestArt.Draw(stack.transform, tier, ChestView.State.Idle, 84f);
-            Ui.ThemedLabel(stack.transform, chestName, 23, Theme.ChestColor(tier), Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, chestName, 23, Theme.TextMain, Theme.TitleFont);
 
             // 三枚事实 chip:张数 · 开启时长 · 当前箱位。都是「买之前该知道的事实」,不是促销话术
             var facts = Ui.Row(stack.transform, "Facts", 7);

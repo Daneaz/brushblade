@@ -200,7 +200,7 @@ namespace Brushblade.Presentation
             if (detail.Element != null || detail.ElementUnknown)
             {
                 string text = detail.Element is { } el ? CharInfo.ElementName(el) : Strings.T("char.element.unknown");
-                Ui.Chip(row.transform, text, Theme.ElementColor(detail.Element), Color.white, 13, 8, 4);
+                Ui.Chip(row.transform, text, Theme.GlyphColor(detail.Element), Color.white, 13, 8, 4);
             }
 
             if (detail.Tags != null)

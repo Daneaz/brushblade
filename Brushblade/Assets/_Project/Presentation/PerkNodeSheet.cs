@@ -435,7 +435,7 @@ namespace Brushblade.Presentation
                 if (!PerkRules.TryUnlock(meta, def.Id)) return; // 五态可能在弹窗开着时被别处改变,双保险
                 UnityEngine.Object.Destroy(overlay);
                 onChanged();
-            }, canUnlock ? Theme.Gold : Theme.LockedBg, canUnlock ? Color.white : Theme.LockGray,
+            }, canUnlock ? Theme.Gold : Theme.LockedBg, canUnlock ? Theme.GoldText : Theme.LockGray,
                 18, new Vector2(primaryW, FooterH));
             primary.interactable = canUnlock;
 

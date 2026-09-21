@@ -153,7 +153,7 @@ namespace Brushblade.Presentation
                 23, Theme.TextDim);
             if (locked > 0)
                 Ui.Chip(top.transform, Strings.T("collection.header.locked_chip", ("count", locked)),
-                    Theme.PanelInset, Theme.LockGray, 20);
+                    Theme.PanelInset, Theme.TextDim, 20);
             if (unseen > 0)
                 Ui.Chip(top.transform, Strings.T("collection.header.new_chip", ("count", unseen)),
                     Theme.Cinnabar, Color.white, 20);
@@ -642,7 +642,7 @@ namespace Brushblade.Presentation
             {
                 Destroy(overlay); // 先关弹窗:Upgrade 会 Rebuild 清根,顺序反了会留残影
                 Upgrade(cardId);
-            }, Theme.Jade, Color.white, 24, new Vector2(0, 71));
+            }, Theme.Gold, Theme.GoldText, 24, new Vector2(0, 71));
             confirm.GetComponent<LayoutElement>().flexibleWidth = 1;
             Ui.PillButton(buttons.transform, Strings.T("common.reconsider"), () => Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 24, new Vector2(250, 71));
@@ -732,7 +732,7 @@ namespace Brushblade.Presentation
             if (iconKey != null)
                 Ui.Chip(row.transform, "", CardTraits.ChipColor(iconKey), Color.white, 18, iconKey: iconKey);
             else if (word != null)
-                Ui.Chip(row.transform, word, Theme.LockedBg, Theme.TextDim, 18);
+                Ui.Chip(row.transform, word, Theme.LockedBg, Theme.TextMain, 18);
 
             var label = Ui.ThemedLabel(row.transform, name, 19, Theme.TextDim);
             label.alignment = TextAnchor.MiddleLeft;
@@ -742,7 +742,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(row.transform, Strings.T("collection.side.recipe_to"), 18, Theme.LockGray);
             Ui.ThemedLabel(row.transform, now, 29, Theme.UpgradeText, Theme.TitleFont);
             if (delta != null)
-                Ui.ThemedLabel(row.transform, delta, 19, Theme.Jade);
+                Ui.ThemedLabel(row.transform, delta, 19, Theme.UpgradeText);
             return row;
         }
 

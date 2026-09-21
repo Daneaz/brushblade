@@ -254,7 +254,7 @@ namespace Brushblade.Presentation
                     Ui.Chip(head.transform, trait.Amount, CardTraits.ChipColor(trait.IconKey),
                         Color.white, 18, iconKey: trait.IconKey);
                 else
-                    Ui.Chip(head.transform, trait.Word, Theme.LockedBg, Theme.TextDim, 18);
+                    Ui.Chip(head.transform, trait.Word, Theme.LockedBg, Theme.TextMain, 18);
                 Ui.ThemedLabel(head.transform, trait.Name, 22, Theme.TextMain, Theme.TitleFont);
 
                 if (descHeight <= 0f) continue;

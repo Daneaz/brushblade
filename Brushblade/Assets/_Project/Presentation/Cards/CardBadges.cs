@@ -103,7 +103,7 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)go.transform, new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(pad, -pad - diameter), new Vector2(pad + diameter, -pad));
             var glyph = Ui.ThemedLabel(go.transform, Strings.T("collection.card.lock_icon"),
-                Mathf.Max(10, Mathf.RoundToInt(diameter * 0.62f)), Theme.LockGray);
+                Mathf.Max(10, Mathf.RoundToInt(diameter * 0.62f)), Theme.InkSoft);
             Ui.Stretch(glyph.rectTransform);
         }
 

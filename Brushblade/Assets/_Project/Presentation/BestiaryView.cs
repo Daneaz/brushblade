@@ -262,12 +262,12 @@ namespace Brushblade.Presentation
             row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(16, 16, 0, 0);
             Ui.Stretch((RectTransform)row.transform);
             Color fg = isBossTab
-                ? (on ? Theme.Gold : Theme.GoldBorder)
+                ? (on ? Theme.Gold : Theme.GoldDeep)
                 : (on ? (tint is { } t2 ? Theme.ElementSoftFg(t2) : Theme.TextMain) : Theme.TextDim);
             Ui.ThemedLabel(row.transform, name, 29, fg, Theme.TitleFont);
             Ui.Chip(row.transform, countText,
-                isBossTab && on ? Theme.GoldBorder : Theme.PanelInset,
-                isBossTab && on ? Theme.Gold : Theme.TextDim, 18);
+                isBossTab && on ? Theme.Gold : Theme.PanelInset,
+                isBossTab && on ? Theme.GoldText : Theme.TextDim, 18);
 
             if (on)
             {
@@ -422,7 +422,7 @@ namespace Brushblade.Presentation
 
             if (known)
                 Corner(block.transform, "El", CharInfo.ElementName(element), 19,
-                    Theme.ElementColor(element), Color.white, new Vector2(0, 1), new Vector2(8, -8));
+                    Theme.GlyphColor(element), Color.white, new Vector2(0, 1), new Vector2(8, -8));
             if (known && def.Range == AttackRange.Ranged)
                 Corner(block.transform, "Range", Strings.T("enemy.range.ranged.name"), 15,
                     Theme.Scrim, Color.white, Vector2.zero, new Vector2(8, 8));
@@ -674,7 +674,7 @@ namespace Brushblade.Presentation
                 var element = PhaseElement(def, _phase);
                 chips.Add(new Ui.ChipSpec(
                     Strings.T("collection.side.element_chip", ("element", CharInfo.ElementName(element))),
-                    Theme.ElementColor(element), Color.white));
+                    Theme.GlyphColor(element), Color.white));
                 if (def.Range == AttackRange.Ranged)
                     chips.Add(new Ui.ChipSpec(Strings.T("enemy.range.ranged.name"),
                         Theme.InkSoft, Color.white, "ranged"));
@@ -889,7 +889,7 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(15, 12, 0, 0);
             Ui.Stretch((RectTransform)row.transform);
 
-            var dot = Ui.CardPanel(row.transform, "Dot", Theme.ElementColor(element), 10);
+            var dot = Ui.CardPanel(row.transform, "Dot", Theme.GlyphColor(element), 10);
             Ui.Sized(dot.gameObject, 36, 36);
             Ui.ThemedLabel(dot.transform, CharInfo.ElementName(element), 21, Color.white, Theme.TitleFont);
 

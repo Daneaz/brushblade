@@ -48,7 +48,7 @@ namespace Brushblade.Presentation
                     if (phase.Defense > 0)
                         chips.Add((Strings.T("enemy.defense_chip", ("defense", phase.Defense)), Theme.InkSoft));
                     forms.Add(new FormTab(phase.Char, i, EnemyInfo.PhaseDetail(def, i),
-                        Theme.ElementColor(phase.Element), chips));
+                        Theme.GlyphColor(phase.Element), chips));
                 }
             }
             else
@@ -60,7 +60,7 @@ namespace Brushblade.Presentation
                 else if (def.Defense > 0)
                     chips.Add((Strings.T("enemy.defense_chip", ("defense", def.Defense)), Theme.InkSoft)); // 墨渍:没能力,护甲就是它的特征
                 forms.Add(new FormTab(EnemyInfo.FaceChar(def, 0), 0,
-                    EnemyInfo.MinionDetail(def), Theme.ElementColor(def.Element), chips));
+                    EnemyInfo.MinionDetail(def), Theme.GlyphColor(def.Element), chips));
             }
             return forms;
         }
@@ -122,7 +122,7 @@ namespace Brushblade.Presentation
             if (isBoss)
                 Ui.ThemedLabel(stack, EnemyInfo.ChargeRuleText(), 14, Theme.TextDim);
             if (bounty > 0)
-                Ui.ThemedLabel(stack, Strings.T("enemy.preview.bounty_line", ("bounty", bounty)), 18, Theme.GoldBorder, Theme.TitleFont);
+                Ui.ThemedLabel(stack, Strings.T("enemy.preview.bounty_line", ("bounty", bounty)), 18, Theme.GoldDeep, Theme.TitleFont);
             Ui.PillButton(stack, Strings.T("common.ok"), () => Object.Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 48));
             return overlay;
@@ -176,7 +176,7 @@ namespace Brushblade.Presentation
                 locked ? "?" : EnemyInfo.FaceChar(def, phaseIndex),
                 // 回落颜色取该形态(phaseIndex)的五行,不是恒取首阶段——否则六只成语 Boss
                 // 换字不换色,跟 tab 底色/"X系"文字互相矛盾(Finding 3)。小怪 Phases 为空,兼容取 def.Element。
-                locked ? Theme.LockedBg : Theme.ElementColor(
+                locked ? Theme.LockedBg : Theme.GlyphColor(
                     def.Phases.Count > 0 ? def.Phases[phaseIndex].Element : def.Element),
                 locked ? Theme.LockGray : Color.white, diameter);
             Ui.Anchor((RectTransform)portrait.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),

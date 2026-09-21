@@ -4193,6 +4193,7 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(detailBar, Strings.T("battle.reward.tap_again_suffix"), 19, Theme.CinnabarDark);
             }
 
+            DrawAdExpandBadge(footRow);   // 2026-09-21 补:战利品选字页一直有,这页漏着
             var spacer = Ui.Panel(footRow, "Spacer");
             Ui.Sized(spacer, flexWidth: 1f);
             Ui.RoundButton(footRow, Strings.T("battle.btn.revive_skip"), () =>
@@ -4210,7 +4211,7 @@ namespace Brushblade.Presentation
         private void DrawReviveReplaceStep()
         {
             string incoming = _run.RewardOptions[_pendingReviveIndex];
-            DrawReplaceSheet(
+            var content = DrawReplaceSheet(
                 Strings.T("battle.revive.replace_title", ("charId", incoming)), incoming, Battle.Library,
                 replaceIndex =>
                 {
@@ -4223,6 +4224,10 @@ namespace Brushblade.Presentation
                 },
                 () => { _pendingReviveIndex = -1; if (_sheet != null) Object.Destroy(_sheet); Refresh(); }, // 退回候选列表,额度未动
                 Strings.T("battle.btn.revive_replace_cancel"));
+            // 2026-09-21:四条换字路里这一条与奇遇那条一直漏着 +2 徽章。理由同 DrawAdExpandBadge
+            // 的注释 —— Ui.Sheet 的全屏遮罩把字库行背后那枚盖死,不画在弹窗里玩家就够不着,
+            // 只剩「被迫永久删字」一条路。扩容后的善后走 DrawReviveCharStep 开头那条容量复核。
+            DrawAdExpandBadge(content);
         }
 
         /// <summary>选中某个奇遇选项时画进底部提示行的那句话(2026-08-27 用户拍板)。
@@ -4289,6 +4294,11 @@ namespace Brushblade.Presentation
             if (_pendingEventOption >= 0)
             {
                 var pending = evt.Options[_pendingEventOption];
+                // 容量复核,口径同战利品侧(见 DrawReward 里 _pendingRewardIndex 那条):
+                // _eventReplacing 是粘滞 UI 状态,只在换成功/取消时才清。看广告扩容腾出空位后
+                // 若不在这里复核,弹窗依旧扣着「字库已满」要求换字,广告等于白看。
+                if (_eventReplacing && _run.CarriedLibrary.Count < Battle.LibraryCapacity)
+                    _eventReplacing = false;
                 if (_eventReplacing) // 字与部件都备齐,只差「换掉哪一张」(2026-07-22)
                 {
                     DrawEventReplaceStep(pending);
@@ -4421,7 +4431,7 @@ namespace Brushblade.Presentation
         {
             string incoming = _pendingCharChoice >= 0
                 ? option.GainCharChoices[_pendingCharChoice] : option.GainChar;
-            DrawReplaceSheet(
+            var content = DrawReplaceSheet(
                 Strings.T("battle.event.replace_title", ("charId", incoming)), incoming, _run.CarriedLibrary,
                 replaceIndex =>
                 {
@@ -4447,6 +4457,7 @@ namespace Brushblade.Presentation
                     Refresh();
                 },
                 Strings.T("battle.btn.replace_cancel"));
+            DrawAdExpandBadge(content);   // 同 DrawReviveReplaceStep,2026-09-21 补
         }
 
         /// <summary>奇遇结算的飘字正在播:期间不重绘、也不接受第二次点击(2026-09-02)。</summary>
