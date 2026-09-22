@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using Brushblade.Core;
 using Brushblade.Data;
+using Brushblade.Platform;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -2856,13 +2857,13 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.hand_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
-            button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
+            button.onClick.AddListener(() => AdGate.Watch(AdPlacement.BattleLibrary, () =>
             {
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke();
                 _message = Strings.T("battle.label.library_cap_up");
                 Refresh();
-            });
+            }));
         }
 
         private void DrawLibrary()
@@ -3787,14 +3788,15 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(wrap.transform, Strings.T("battle.phase.defeat_ellipsis"), BannerFont, Theme.CinnabarDark, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
-                Ui.AdBadge(wrap.transform, Strings.T("battle.btn.ad_revive"), () =>
+                Ui.AdBadge(wrap.transform, Strings.T("battle.btn.ad_revive"),
+                    () => AdGate.Watch(AdPlacement.Revive, () =>
                 {
                     _previewRewardIndex = -1;
                     _run.TryRevive();
                     _onExpanded?.Invoke(); // 即时落盘:防「刚看完广告就挂起」白看
                     _message = Strings.T("battle.revive.full_hp_msg");
                     Refresh();
-                }, new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
+                }), new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
             Ui.PillButton(wrap.transform, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
                 Theme.InkSoft, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill.ink;
             // 与 DrawRunEnd 同语境的钮已改成 InkSoft(稿 RunEnd.dc.html 败北支是 .pill.ink,
@@ -4125,14 +4127,15 @@ namespace Brushblade.Presentation
         private void DrawAdExpandBadge(Transform content)
         {
             if (_run.LibraryExpanded) return;
-            Ui.AdBadge(content, Strings.T("battle.btn.ad_expand_library"), () =>
+            Ui.AdBadge(content, Strings.T("battle.btn.ad_expand_library"),
+                () => AdGate.Watch(AdPlacement.BattleLibrary, () =>
             {
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
                 _message = Strings.T("battle.label.library_cap_up");
                 if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                 Refresh();
-            }, new Vector2(280, 63));   // 高 63 = 稿 .adbadge 30pt;宽 280 是估的,稿只给了
+            }), new Vector2(280, 63));   // 高 63 = 稿 .adbadge 30pt;宽 280 是估的,稿只给了
                                         // padding:0 12px 自适应宽,没有定宽(同 M1)
         }
 

@@ -1,6 +1,7 @@
 using System;
 using Brushblade.Core;
 using Brushblade.Data;
+using Brushblade.Platform;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -513,8 +514,9 @@ namespace Brushblade.Presentation
                 if (!chest.AdUsed)
                 {
                     long cut = ChestRules.AdReductionSeconds[(int)chest.Tier - 1];
-                    Ui.AdBadge(actions.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
-                        () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(72, 46));
+                    Ui.AdBadge(actions.transform, $"-{cut / 60}m",
+                        () => AdGate.Watch(AdPlacement.ChestBoost,
+                            () => Do(() => ChestRules.TryApplyAdBoost(chest))), new Vector2(72, 46));
                 }
                 var skip = Ui.RoundButton(actions.transform, Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining))),
                     () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), Strings.T("map.chest.skip_fail_title"),

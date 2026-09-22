@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Brushblade.Core;
 using Brushblade.Data;
+using Brushblade.Platform;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -230,7 +231,13 @@ namespace Brushblade.Presentation
         /// <summary>月订阅条(第 14 章 14.3)。**只占版面,点了说去向** —— 订阅的四条权益
         /// (广告位免看直领 / 箱位 4→5 / 每日墨锭礼包 / 开箱时长 −25%)在 Core 里一条都还没有,
         /// 画成可买的按钮就是「屏上写着玩家点不到的功能」(README 的品牌硬规矩)。
-        /// 与顶栏设置钮同一种处理:占位 + 说明弹窗,接上时只换回调、版面不动。</summary>
+        /// 与顶栏设置钮同一种处理:占位 + 说明弹窗,接上时只换回调、版面不动。
+        ///
+        /// ⚠️ 2026-09-22:Platform 层已有 <see cref="Brushblade.Platform.IBillingService"/>,
+        /// 但**这里刻意不接** —— 计费通了也不能卖,因为四条权益还不存在,
+        /// 卖出去就是收了钱不给货。解锁条件是**先把权益做进 Core**(箱位上限与开箱时长
+        /// 要能按订阅态变,广告位要能免看直领),再把这个回调换成
+        /// `Monetization.Billing.Purchase(...)`。顺序反了就是事故。</summary>
         private void BuildSubscriptionBar(Transform parent)
         {
             var bar = Ui.CardPanel(parent, "Subscription", Theme.GoldSoft, 15);
@@ -347,8 +354,9 @@ namespace Brushblade.Presentation
                 _meta.Shop.InkAdClaimed
                     ? Strings.T("shop.supply.used_label")
                     : Strings.T("shop.ink_ad.claim_label", ("amount", ShopRules.InkAdAmount)),
-                () => Do(() => ShopRules.TryClaimInkAd(_meta), Strings.T("shop.ink_ad.claim_success"),
-                    Strings.T("shop.ink_ad.already_claimed_title"), Strings.T("shop.ink_ad.already_claimed_body")),
+                () => AdGate.Watch(AdPlacement.ShopInk,
+                    () => Do(() => ShopRules.TryClaimInkAd(_meta), Strings.T("shop.ink_ad.claim_success"),
+                        Strings.T("shop.ink_ad.already_claimed_title"), Strings.T("shop.ink_ad.already_claimed_body"))),
                 new Vector2(0, 64));
             inkAd.GetComponent<LayoutElement>().flexibleWidth = 1;
             inkAd.interactable = !_meta.Shop.InkAdClaimed;
@@ -357,9 +365,10 @@ namespace Brushblade.Presentation
                 _meta.Shop.AdRefreshUsed
                     ? Strings.T("shop.supply.used_label")
                     : Strings.T("shop.refresh.action_label"),
-                () => Do(() => ShopRules.TryAdRefresh(_meta, _cardPool, new GameRandom(Environment.TickCount)),
-                    Strings.T("shop.refresh.success"),
-                    Strings.T("shop.refresh.done_label"), Strings.T("shop.refresh.already_done_body")),
+                () => AdGate.Watch(AdPlacement.ShopRefresh,
+                    () => Do(() => ShopRules.TryAdRefresh(_meta, _cardPool, new GameRandom(Environment.TickCount)),
+                        Strings.T("shop.refresh.success"),
+                        Strings.T("shop.refresh.done_label"), Strings.T("shop.refresh.already_done_body"))),
                 new Vector2(0, 64));
             refresh.GetComponent<LayoutElement>().flexibleWidth = 1;
             refresh.interactable = !_meta.Shop.AdRefreshUsed;
