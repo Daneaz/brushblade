@@ -26,7 +26,7 @@ GRANTING_CALLS = [
     "TryAdRefresh(",       # 商城免费刷新
     "TryApplyAdBoost(",    # 宝箱加速
     "TryExpandLibrary(",   # 局内扩容·字库
-    "TryExpandParts(",     # 局内扩容·部件池
+    "TryExpandPool(",      # 局内扩容·部件池
     "TryRevive(",          # 复活位
 ]
 
@@ -36,10 +36,12 @@ EXPECTED_PLACEMENTS = {
     "BattleLibrary", "BattleParts", "Revive",
 }
 
-# 已接进 UI 的广告位。BattleParts 尚无调用点(部件池扩容按钮还没做),
-# 接上时把它挪进来 —— 这张表存在就是为了让「接了但忘了记」变成红灯
+# 已接进 UI 的广告位 —— 六位全接。这张表存在就是为了让「接了但忘了记」变成红灯。
+# 2026-09-23:BattleParts 曾被我误判为「没有 UI 入口」,实际一直有
+# (DrawPoolAdSlot);见下面 test_发奖方法名都真实存在 的注释
 WIRED_PLACEMENTS = {
-    "ChestBoost", "ShopRefresh", "ShopInk", "BattleLibrary", "Revive",
+    "ChestBoost", "ShopRefresh", "ShopInk",
+    "BattleLibrary", "BattleParts", "Revive",
 }
 
 GATE_WINDOW = 8  # 发奖调用离 AdGate.Watch( 最多隔几行
@@ -109,3 +111,98 @@ def test_占位实现还在但有明确警示():
     assert "IsUsingPlaceholders" in text, "少了占位实现的自检开关"
     ads = (PLATFORM / "Ads.cs").read_text(encoding="utf-8")
     assert "出包给玩家之前必须换成真实现" in ads, "占位实现少了出包前的警示注释"
+
+
+def test_发奖方法名都真实存在():
+    """GRANTING_CALLS 里的名字必须真能在 Core 里找到。
+
+    2026-09-23 教训:这张表原本写的是 `TryExpandParts(`,而 Core 里的真名是
+    `TryExpandPool(` —— 一个不存在的名字**匹配不到任何东西,于是那条扫描恒绿**,
+    部件池广告位没过闸门却一路全绿。打错一个方法名就让守卫静默失效,
+    这种测试比没有测试更危险,所以这里反过来钉死:名字对不上就红。
+    """
+    core = ROOT / "Brushblade/Assets/_Project/Core"
+    haystack = "\n".join(p.read_text(encoding="utf-8") for p in core.rglob("*.cs"))
+    missing = [c for c in GRANTING_CALLS if c.rstrip("(") not in haystack]
+    assert not missing, (
+        f"这些方法名在 Core 里不存在,对应的扫描是空过的:{missing}")
+
+
+# ---- 广告 SDK 接入(2026-09-23)----
+
+ADS_DIR = PLATFORM
+
+
+def test_AdMob_适配器整份被_define_包起来():
+    """SDK 不在工程里,不加 define 时这个文件必须等于空文件,否则工程编不过。
+
+    这是「装了 SDK 的机器上绿、没装的机器上红」那类环境差异 bug 的源头,
+    而本仓库的离线编译工装**不装 SDK**,所以漏了这道 guard 会当场炸。
+    """
+    text = (ADS_DIR / "AdMobAdService.cs").read_text(encoding="utf-8")
+    code = [l for l in text.splitlines()
+            if l.strip() and not l.strip().startswith("//")]
+    assert code[0].strip() == "#if BRUSHBLADE_ADMOB", \
+        "AdMobAdService.cs 的第一行有效代码必须是 #if BRUSHBLADE_ADMOB"
+    assert code[-1].strip() == "#endif", "AdMobAdService.cs 必须以 #endif 收尾"
+    assert "using GoogleMobileAds" in text, "适配器没引用 SDK,那它适配的是什么?"
+
+
+def test_测试单元_ID_是_Google_官方那几个():
+    """拿真单元做开发测试会被判无效流量,严重的会封号。
+
+    这几个是 Google 公开的测试常量(developers.google.com/admob/unity/test-ads),
+    被人「顺手」换成真 ID 就得红。
+    """
+    text = (ADS_DIR / "AdUnitIds.cs").read_text(encoding="utf-8")
+    official = {
+        "TestAppIdAndroid": "ca-app-pub-3940256099942544~3347511713",
+        "TestAppIdIos": "ca-app-pub-3940256099942544~1458002511",
+        "TestRewardedAndroid": "ca-app-pub-3940256099942544/5224354917",
+        "TestRewardedIos": "ca-app-pub-3940256099942544/1712485313",
+    }
+    for name, value in official.items():
+        assert re.search(rf'{name}\s*=\s*"{re.escape(value)}"', text), \
+            f"{name} 不是 Google 官方测试单元(应为 {value})"
+
+
+def test_每个广告位都有生产单元的位置():
+    """生产表必须六位齐全 —— 少一位就意味着那位永远用测试单元,一分钱不进账。"""
+    text = (ADS_DIR / "AdUnitIds.cs").read_text(encoding="utf-8")
+    listed = set(re.findall(r"\[AdPlacement\.([A-Z][A-Za-z]*)\]", text))
+    assert listed == EXPECTED_PLACEMENTS, \
+        f"生产单元表与广告位对不上:少了 {EXPECTED_PLACEMENTS - listed}"
+
+
+def test_白名单后门不发广告请求():
+    """白名单绕过的是**广告请求**,不是发奖逻辑。
+
+    绕开请求 = 不产生曝光,没问题;若改成「照常请求但伪造结果」那就是伪造曝光,
+    属于广告欺诈。这条测试钉的就是这个边界:bypass 分支里不能调 _inner。
+    """
+    text = (ADS_DIR / "DeviceWhitelist.cs").read_text(encoding="utf-8")
+    body = re.search(r"public void ShowRewarded\((.*?)\n        \}", text, re.S).group(1)
+    bypass = body.split("_inner.ShowRewarded")[0]
+    assert "IsWhitelisted" in bypass and "AdResult.Rewarded" in bypass, \
+        "白名单分支没有直接发奖"
+    assert bypass.count("_inner") == 0, \
+        "白名单分支不该碰内层服务 —— 那会真的发出广告请求"
+
+
+def test_回调恰好一次的闸在():
+    """AdMob 会同时触发「拿到奖励」和「全屏关闭」,不加闸就发两次奖。"""
+    text = (ADS_DIR / "AdMobAdService.cs").read_text(encoding="utf-8")
+    assert "bool done = false" in text and "if (done) return;" in text, \
+        "ShowRewarded 少了「恰好回调一次」的闸"
+
+
+def test_装配链把白名单套在最外层():
+    # 去注释:文档注释里有 `Monetization.Ads = new AdMobAdService(...)` 的示例,
+    # 那是说明文字不是装配代码,扫进来会误报(2026-09-23 当场踩到)
+    text = "\n".join(strip_comments(l)
+                     for l in (ADS_DIR / "Monetization.cs")
+                     .read_text(encoding="utf-8").splitlines()
+                     if not l.strip().startswith("///"))
+    for branch in re.findall(r"Ads = ([^;]+);", text):
+        assert branch.strip().startswith("new WhitelistBypassAdService("), \
+            f"这条装配分支没套白名单装饰器:{branch.strip()}"

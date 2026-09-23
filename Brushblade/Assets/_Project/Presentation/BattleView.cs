@@ -3316,13 +3316,13 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.pool_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
-            button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
+            button.onClick.AddListener(() => AdGate.Watch(AdPlacement.BattleParts, () =>
             {
                 _run.TryExpandPool();
                 _onExpanded?.Invoke();
                 _message = Strings.T("battle.label.pool_cap_up");
                 Refresh();
-            });
+            }));
         }
 
         private void DrawPool()

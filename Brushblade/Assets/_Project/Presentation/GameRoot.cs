@@ -1,6 +1,7 @@
 using System.IO;
 using Brushblade.Core;
 using Brushblade.Data;
+using Brushblade.Platform;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -31,6 +32,10 @@ namespace Brushblade.Presentation
             Application.targetFrameRate = 60; // 移动端默认可能锁 30,点按反馈要跟手
 
             EnsureSceneInfrastructure();
+
+            // 变现服务装配(第 14 章):没装 SDK 时是占位实现,行为与接 SDK 前一致。
+            // 放在建任何 UI 之前 —— 广告按钮的可用态要读 Monetization.Ads
+            Monetization.InstallDefault();
 
             // 启动校时(19.9):失败则本会话退化为设备时间
             new GameObject("TimeSync").AddComponent<TimeSyncFetcher>().Begin(Time);

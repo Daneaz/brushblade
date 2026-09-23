@@ -36,5 +36,26 @@ namespace Brushblade.Platform
         /// 免得「忘了接 SDK 就出包」这种事悄无声息地过去。</summary>
         public static bool IsUsingPlaceholders
             => Ads is DirectGrantAdService || Billing is StubBillingService;
+
+        /// <summary>装配变现服务。启动时(GameRoot.Boot)调一次。
+        ///
+        /// 链路是:<c>白名单装饰器 → (AdMob 或 占位)</c>。白名单套在最外层,
+        /// 所以名单内的设备连广告请求都不会发 —— 既快,也不会拿真单元刷出无效流量。
+        ///
+        /// 订阅**故意不装真实现**:四条权益在 Core 里一条都没有,计费通了也不能卖。
+        /// 见 ShopView.BuildSubscriptionBar 的注释。</summary>
+        public static void InstallDefault()
+        {
+#if BRUSHBLADE_ADMOB
+            var admob = new AdMobAdService();
+            admob.Initialize();
+            Ads = new WhitelistBypassAdService(admob);
+#else
+            // 没装 SDK:仍然套白名单装饰器,这样两种构建的代码路径一致 ——
+            // 「只在正式包里才走到的分支」是最容易藏 bug 的地方
+            Ads = new WhitelistBypassAdService(new DirectGrantAdService());
+#endif
+            DeviceWhitelist.LogCurrentDeviceId();
+        }
     }
 }
