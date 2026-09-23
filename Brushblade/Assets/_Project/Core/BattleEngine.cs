@@ -3600,13 +3600,19 @@ namespace Brushblade.Core
                 // 每只各算各的溢出、各打一下(spec §2.1)。先算再写 Hp:写完就看不出缺多少了。
                 int given = Math.Min(summon.MaxHp - summon.Hp, amount);
                 summon.Hp += given;
-                // 群治此前不给召唤物发治疗事件;溢流打出伤害时补一条并**插在那发伤害之前**
-                // (2026-09-18)—— 否则满血召唤物身上毫无动静,伤害凭空冒出来。没触发溢流时
-                // 仍然不发,事件流与改前逐条相同。
+                // 每只被治疗的召唤物各发一条治疗事件,**插在自己那发溢流伤害之前**。
+                //
+                // 2026-09-18 只补了「溢流」那一支(满血召唤物 given=0,不发事件的话伤害凭空冒出来),
+                // 真回了血的那支仍然不发 —— 于是群体治疗的特效只在玩家身上播,召唤物那边
+                // 从头到尾毫无动静(2026-09-23 用户实机反馈)。血是加上了,只是看不见。
+                //
+                // given == 0 且没溢流时仍然不发:那种情况什么都没发生(满血 + 未点亮溢流),
+                // 发一条空事件只会让表现层多走一趟 no-op。
                 int at = _events.Count;
-                if (overflowToDamage && SettleOverheal(amount - given, slot))
+                bool overflowed = overflowToDamage && SettleOverheal(amount - given, slot);
+                if (given > 0 || overflowed)
                     _events.Insert(at, new BattleEvent(BattleEventKind.Heal, -1, given, slot,
-                        overflow: amount - given));
+                        overflow: overflowed ? amount - given : 0));
             }
         }
 

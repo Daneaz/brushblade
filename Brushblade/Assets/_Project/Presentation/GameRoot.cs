@@ -261,6 +261,8 @@ namespace Brushblade.Presentation
                 maxHpBonus: snapshot.MaxHpBonus);
             if (resume == null && snapshot.Revived)
                 run.MarkRevived(); // 防重进本层二次复活(2026-07-24)
+            if (resume == null && snapshot.Restocked)
+                run.MarkRestocked(); // 防重进本层二次领字库补给(2026-09-23)
 
             var tutorial = firstTowerSegment && resume == null ? new Tutorial() : null;
             // 段前累计:**纯展示量**(2026-08-30)——钱早已随赚随进账户,这个数只用来在安全层与
@@ -322,6 +324,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
+            snapshot.Restocked = run.Restocked; // 字库补给同为整次登塔一次(2026-09-23)
             SaveNow();
         }
 
@@ -374,6 +377,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
+            snapshot.Restocked = run.Restocked; // 字库补给同为整次登塔一次(2026-09-23)
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             MetaStore.Save(_meta);
         }
@@ -389,6 +393,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded;
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
+            snapshot.Restocked = run.Restocked; // 字库补给同为整次登塔一次(2026-09-23)
             snapshot.NormalShield = run.CarriedNormalShield;
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
@@ -430,6 +435,7 @@ namespace Brushblade.Presentation
             snapshot.LibraryExpanded = run.LibraryExpanded; // 扩容跟随整次登塔(一局一次),结算随快照清除
             snapshot.PoolExpanded = run.PoolExpanded;
             snapshot.Revived = run.Revived; // 复活跟随整次登塔(一次性),结算随快照清除
+            snapshot.Restocked = run.Restocked; // 字库补给同为整次登塔一次(2026-09-23)
             // 段末护盾照常延续(2026-07-26 拍板:盾叠加本场爬塔通吃,不再 5 关一清),
             // 由土系护盾字与御枝护甲提供;NormalShield 无生产代码路径赋值(金汤已废止)
             snapshot.NormalShield = run.CarriedNormalShield;

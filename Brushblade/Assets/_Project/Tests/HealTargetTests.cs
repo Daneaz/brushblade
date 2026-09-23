@@ -192,5 +192,50 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0].Hp, Is.EqualTo(50), "HoT 落在召唤物身上");
             Assert.That(engine.PlayerHp, Is.EqualTo(50), "玩家一分不回,不是静默落在玩家身上");
         }
+        [Test]
+        public void GroupHeal_HealedSummon_GetsItsOwnHealEvent()
+        {
+            // 群治此前只在**溢流**时才给召唤物发治疗事件,真回了血反而一声不吭 ——
+            // 于是群体治疗的特效只在玩家身上播,召唤物那边毫无动静(2026-09-23 用户实机反馈)。
+            // 血确实加上了,所以单看数值测试全绿,这是典型的「算对了但看不见」。
+            var engine = Engine(startingHp: 50);
+            engine.Cast("素");
+            engine.Summons[0].Hp = 50;      // 磨掉一半,群治能真的回上去(满血那支走溢流分支)
+            engine.Cast("涌");
+
+            int summonHeal = -1, playerHeal = -1;
+            var events = engine.LastEvents;
+            for (int i = 0; i < events.Count; i++)
+            {
+                if (events[i].Kind != BattleEventKind.Heal) continue;
+                if (events[i].SecondIndex == 0) summonHeal = i;
+                else if (events[i].SecondIndex < 0) playerHeal = i;
+            }
+
+            Assert.That(playerHeal, Is.GreaterThanOrEqualTo(0), "玩家那条治疗事件");
+            Assert.That(summonHeal, Is.GreaterThanOrEqualTo(0),
+                "被治疗的召唤物没有治疗事件 —— 表现层就没有东西可播");
+            Assert.That(events[summonHeal].Amount, Is.EqualTo(30),
+                "回血量要写进事件:表现层靠 Amount 飘 +N");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(80), "血本身照旧加上");
+        }
+
+        [Test]
+        public void GroupHeal_FullHpSummon_StillFiresNoEventWithoutOverflow()
+        {
+            // 反向边界:满血 + 未点亮溢流 = 什么都没发生,不该多发一条空事件。
+            // (溢流那一支由 OverhealDamageTests 守着,这里只钉「没事发生就别出声」。)
+            var engine = Engine(startingHp: 50);
+            engine.Cast("素");              // 召唤物满血
+            engine.Cast("涌");
+
+            int summonHeals = 0;
+            var events = engine.LastEvents;
+            for (int i = 0; i < events.Count; i++)
+                if (events[i].Kind == BattleEventKind.Heal && events[i].SecondIndex == 0)
+                    summonHeals++;
+            Assert.That(summonHeals, Is.EqualTo(0), "满血召唤物不该收到治疗事件");
+        }
+
     }
 }

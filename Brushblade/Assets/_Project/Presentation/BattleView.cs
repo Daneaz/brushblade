@@ -2904,6 +2904,35 @@ namespace Brushblade.Presentation
                 ApplyFreshGlow(charId, (RectTransform)tile.transform, Theme.ElementColor(def.Element));
             }
             DrawHandAdSlot();
+            DrawRestockAdSlot();
+        }
+
+        /// <summary>字库补给位(2026-09-23):持有字跌破 <see cref="RunEngine.RestockThreshold"/>
+        /// 时出现,看一次广告补一轮 5 选 2,整次登塔一次。
+        ///
+        /// 与 <see cref="DrawHandAdSlot"/>(扩容 +2 格)是两件事,可以同屏:一个加**上限**,
+        /// 一个加**牌**。字库空到 2 张时上限根本不是瓶颈,只给扩容等于没给。
+        ///
+        /// 可用性整个交给 <see cref="RunEngine.RestockAvailable"/> 判断 —— 条件有四条
+        /// (阶段、回合、张数、是否已用),散到表现层来拼迟早漏一条。</summary>
+        private void DrawRestockAdSlot()
+        {
+            if (!_run.RestockAvailable) return;
+            var outer = Ui.OutlinedPanel(_libraryRow, "RestockAdSlot",
+                Theme.AdGreenBg, Theme.AdGreen, 10, 1.5f, out var face);
+            Ui.Sized(outer.gameObject, width: HandAdSlotW, height: HandAdSlotH);
+            var stack = Ui.VStack(face.transform, "Stack", 4);
+            Ui.Stretch((RectTransform)stack.transform);
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.restock_ad_slot"), 11, Theme.AdGreenText);
+            var button = outer.gameObject.AddComponent<Button>();
+            button.targetGraphic = outer;
+            button.onClick.AddListener(() => AdGate.Watch(AdPlacement.BattleRestock, () =>
+            {
+                _run.TryRestock();
+                _onExpanded?.Invoke(); // 即时落盘:与扩容/复活同口径,防「刚看完广告就挂起」白看
+                _message = Strings.T("battle.restock.msg");
+                Refresh();
+            }));
         }
 
         /// <summary>拖字打人(2026-07-26):拖到敌人身上松手 = 攻击那个敌人。
@@ -4153,8 +4182,14 @@ namespace Brushblade.Presentation
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
             if (_sheet != null) Object.Destroy(_sheet);
 
+            // Reviving 阶段被两条路径共用(复活补给 / 字库补给),标题按来源分叉。
+            // 判据只认 RunEngine.CurrentSupply —— 别去猜 Battle 的阶段:字库补给发生在
+            // 玩家回合中,复活发生在败北后,看着能分开,但那是**巧合**不是契约
             DrawPickSheet(
-                Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
+                Strings.T(_run.CurrentSupply == SupplyKind.Restock
+                        ? "battle.restock.pick_title"
+                        : "battle.revive.pick_title",
+                    ("left", _run.ReviveCharPicksLeft)),
                 Strings.T("battle.reward.pick_hint",
                     ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)),
                 out var picksRow, out var detailBar, out var footRow);

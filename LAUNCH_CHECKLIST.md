@@ -53,12 +53,13 @@ Steam Deck 兼容 / 国区定价 / 首发折扣** 全部移出首发范围,不�
 
 ### A4. 变现(首发只做广告)
 
-- [x] Platform 层骨架 + `AdGate`,7 个调用点全部过闸门 · 完成:2026-09-22
+- [x] Platform 层骨架 + `AdGate`,8 个调用点全部过闸门 · 完成:2026-09-22
+- [x] 字库补给广告位(持有字跌破 3 张,整次登塔 1 次,5 选 2)· 完成:2026-09-23
 - [x] AdMob 适配器 + 官方测试单元 + IDFV 白名单后门 · 完成:2026-09-23
 - [ ] **装 Google Mobile Ads Unity SDK** + 加 `BRUSHBLADE_ADMOB` define · 截止: ______
-- [ ] **AdMob 后台建六个奖励式单元**,ID 填进 `AdUnitIds.Production` · 截止: ______
+- [ ] **AdMob 后台建七个奖励式单元**,ID 填进 `AdUnitIds.Production` · 截止: ______
 - [ ] App ID 写进 `AndroidManifest.xml` / `Info.plist` · 截止: ______
-- [ ] 真机验证六个广告位(白名单外的机器)· 截止: ______
+- [ ] 真机验证七个广告位(白名单外的机器)· 截止: ______
 - [ ] **出包前置 `AdUnitIds.UseTestUnits = false`** —— 忘了就是一分钱不进账,且没有编译错提示 · 截止: ______
 - [ ] **出包前确认 `Monetization.IsUsingPlaceholders == false`** · 截止: ______
 - [ ] **确认白名单里只有自己的设备** · 截止: ______

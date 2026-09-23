@@ -14,6 +14,7 @@ namespace Brushblade.Platform
         BattleLibrary,  // 局内扩容·字库:每关 1 次(+2)
         BattleParts,    // 局内扩容·部件池:每关 1 次(+2)
         Revive,         // 复活位:整次登塔 1 次
+        BattleRestock,  // 字库补给:持有字跌破 3 张时,整次登塔 1 次(5 选 2;2026-09-23)
     }
 
     /// <summary>一次广告播放的结局。**只有 Rewarded 能发奖**。</summary>

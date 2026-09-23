@@ -523,15 +523,19 @@ namespace Brushblade.Presentation
                         // e.Overflow > 0 = 这份治疗被「溢流」折成了伤害(2026-09-18):满血、实际回血 0
                         // 也要播回血动效,否则紧接着那发溢流像是凭空冒出来的(用户实机反馈)。
                         if (e.Amount <= 0 && e.Overflow <= 0) break;
+                        // 锚在**被治疗的那一个**身上:SecondIndex >= 0 是召唤物槽位,
+                        // −1 是玩家(群治会逐个发事件,每只各锚各的)
                         var healAnchor = e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null;
                         if (e.Amount > 0) Popup($"+{e.Amount}", Theme.SplitBlue, healAnchor);
                         PlayClip(_healClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨血条(满血时这一下只剩血条起势那一闪)
+                        // 治疗光效:**真回了血**或溢流都要播(2026-09-23)。
+                        // 此前只在溢流分支播 —— 于是正常治疗只剩一个 +N 飘字,没有光效;
+                        // 群治时召唤物那边更是连飘字都没有(Core 压根没发事件,已一并修)。
+                        // 「血条上涨 + 治疗特效」是 2026-09-05 用户给奇遇定的同一套语汇。
+                        if (e.Amount > 0 || e.Overflow > 0) HealBloom(AnchorPoint(healAnchor));
                         if (e.Overflow > 0)
-                        {
-                            HealBloom(AnchorPoint(healAnchor));
                             serialPending = true; // 回血看完,溢流再飞出去 —— 见 Damage 那一支
-                        }
                         break;
                     // 缺笔妖补全:串行占一拍 —— 它是敌方回合里独立发生的事,
                     // 与那一记攻击挤在同帧就会被当成攻击的一部分
