@@ -56,6 +56,11 @@ namespace Brushblade.Presentation
             // 规则连同「已有的不当重复卡入账」一起收在 Core 里,这边不再自己循环。
             MetaRules.EnsureStartingCollection(_meta);
 
+            // 设置与背景音乐(2026-09-24)。必须在 _meta 读出来之后 ——
+            // 设置跟着存档走,Bind 之前 GameSettings 用的是一份缺省值
+            new GameObject("Music").AddComponent<MusicPlayer>();
+            GameSettings.Bind(_meta.Settings);
+
             ShowMap();
         }
 
@@ -90,7 +95,8 @@ namespace Brushblade.Presentation
         {
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
-                onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary, onOpenPerks: ShowPerks);
+                onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary,
+                onOpenPerks: ShowPerks, onOpenSettings: ShowSettings);
         }
 
         private static void ShowCollection()
@@ -103,6 +109,12 @@ namespace Brushblade.Presentation
         {
             var view = NewView("BestiaryView");
             view.AddComponent<BestiaryView>().Init(_campaign, _meta, () => MetaStore.Save(_meta), () => ShowMap());
+        }
+
+        private static void ShowSettings()
+        {
+            var view = NewView("SettingsView");
+            view.AddComponent<SettingsView>().Init(_meta, () => MetaStore.Save(_meta), () => ShowMap());
         }
 
         private static void ShowPerks()

@@ -46,6 +46,9 @@ namespace Brushblade.Presentation
         /// 每次叠一点随机微扰 —— 同一记打击音一模一样地重复几十遍,人耳会把它听成机械噪声而不是打击。</summary>
         private void PlayClip(AudioClip clip, float volume, float pitch = 1f)
         {
+            // 音效总开关(2026-09-24)。拦在这一处就够 —— 全部音效都经由这里发声,
+            // 各调用点不用各判一次(判漏一处就是「关了还在响」)
+            if (!GameSettings.Current.SfxEnabled) return;
             if (_voices == null || clip == null) return;
             _voice = (_voice + 1) % _voices.Length;
             var source = _voices[_voice];
@@ -112,13 +115,17 @@ namespace Brushblade.Presentation
         /// 能到好几秒,看过一遍之后就只是在等 —— 但节拍本身不能删,它是「看得清」的唯一保障。
         ///
         /// 做成**按住**而不是点一下切换:玩家随时能松手回到正常速度,不会误触之后整段糊过去。
-        /// 结算期间外层是锁输入的,所以这个按住不跟任何点击抢。</summary>
-        private const float FastForwardRate = 3f;
+        /// 结算期间外层是锁输入的,所以这个按住不跟任何点击抢。
+        ///
+        /// 2026-09-24:倍率不再写死。改由 <see cref="SpeedRules"/> 给 ——
+        /// 免费 ×2 / 订阅 ×3,且设置里可以「固定加速」免得一直按着。
+        /// 每帧现取而不是缓存:设置页里一改,回到战斗立刻是新值,不用重进。</summary>
         private float _rate = 1f;
 
         private void Update()
         {
-            _rate = Input.GetMouseButton(0) || Input.touchCount > 0 ? FastForwardRate : 1f;
+            bool holding = Input.GetMouseButton(0) || Input.touchCount > 0;
+            _rate = SpeedRules.RateFor(GameSettings.Current, holding, GameSettings.Subscribed);
         }
 
         /// <summary>结算节拍的等待。不用 WaitForSecondsRealtime —— 那个一旦 yield 出去时长就锁死了,

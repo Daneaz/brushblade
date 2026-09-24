@@ -45,6 +45,9 @@ namespace Brushblade.Core
         public EndlessSaveState EndlessV2 { get; set; }
         public List<string> DefeatedEnemies { get; set; } = new();        // 图鉴已解锁(击败即入)
         public List<string> ClaimedBestiary { get; set; } = new();        // 图鉴已查阅领赏(主动点开才发)
+        /// <summary>玩家设置(2026-09-24)。旧存档没有这一项,反序列化后留缺省值,
+        /// 所以初值必须是「开箱即用」的那一套(音效音乐开、加速关)。</summary>
+        public SettingsState Settings { get; set; } = new();
     }
 
     /// <summary>养成规则(19.2/19.3 首版基准)。纯函数,状态进出。</summary>
