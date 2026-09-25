@@ -11,18 +11,26 @@ namespace Brushblade.Presentation
     {
         private static Font _font;
 
-        /// <summary>CJK 可用的动态字体:默认字体无中文字形,从系统字体加载。
-        /// ⚠️ TODO(Q22 / R15,上线前必验):系统字体全取不到时会落到 LegacyRuntime.ttf,
-        /// 那里没有 CJK 字形 —— Android 真机上中文会变豆腐块,且 PUA 叠字(四木/四金)任何
-        /// 系统字体都没有。新代码一律用 Theme.TitleFont / Theme.BodyFont(项目子集字体);
-        /// 存量用点(Juice.Popup 的战斗飘字)待迁,详见 docs/design/第18章 R15。</summary>
+        /// <summary>CJK 可用的字体:**项目子集字体优先**,系统字体只作兜底(R15 / Q22)。
+        ///
+        /// 2026-09-22 修:此前这里先取系统字体,于是战斗飘字(Juice.Popup)和地图水印
+        /// (Ui.Label)在 Android 上会变豆腐块 —— 系统字体名一个都匹配不上时会落到
+        /// LegacyRuntime.ttf,那里没有 CJK 字形;而且 PUA 叠字(四木 U+E625 / 四金 U+E626)
+        /// 是子集脚本合成的,**任何系统字体都没有**,那两个字在真机上从来就没显示对过。
+        /// 子集字体由 tools/fonts/subset_fonts.py 扫全部代码字面量 + 配置表生成,
+        /// 玩家可见的字都在里面,所以这里优先它是安全的。
+        ///
+        /// ⚠️ 不要改成 `Theme.BodyFont`:那一头的兜底又是 `Ui.Font`,会绕成死循环。
+        /// 这里直接 Resources.Load 同一份资源,取不到才往下走系统字体。</summary>
         public static Font Font
         {
             get
             {
                 if (_font != null) return _font;
-                // 覆盖 iOS/macOS(PingFang)、Windows(YaHei)、Android(Noto/Droid);
-                // 真机若仍缺字形,则内嵌开源 CJK 字体子集(移动端适配 TODO)
+                _font = Resources.Load<Font>("NotoSansSC-Subset");
+                if (_font != null) return _font;
+                // 子集资源缺失才退到系统字体:覆盖 iOS/macOS(PingFang)、Windows(YaHei)、
+                // Android(Noto/Droid)。真机走到这一步基本就是打包漏了 Fonts/Resources。
                 foreach (var name in new[] { "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
                     "Noto Sans SC", "Source Han Sans SC", "Droid Sans Fallback", "Hiragino Sans GB" })
                 {

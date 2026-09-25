@@ -1,6 +1,7 @@
 using System;
 using Brushblade.Core;
 using Brushblade.Data;
+using Brushblade.Platform;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -40,6 +41,7 @@ namespace Brushblade.Presentation
         private Action _onOpenShop;
         private Action _onOpenBestiary;
         private Action _onOpenPerks;
+        private Action _onOpenSettings;
         private string _message;
         private System.Collections.Generic.List<EnemyDef> _enemies; // 图鉴全集(页签计数用),口径与图鉴页同源
 
@@ -51,7 +53,7 @@ namespace Brushblade.Presentation
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
             Action onStartTower, Action save, string message, Action onOpenCollection, Action onOpenShop,
-            Action onOpenBestiary, Action onOpenPerks)
+            Action onOpenBestiary, Action onOpenPerks, Action onOpenSettings)
         {
             _graph = graph;
             _onOpenShop = onOpenShop;
@@ -63,6 +65,7 @@ namespace Brushblade.Presentation
             _onOpenCollection = onOpenCollection;
             _onOpenBestiary = onOpenBestiary;
             _onOpenPerks = onOpenPerks;
+            _onOpenSettings = onOpenSettings;
             _message = message ?? "";
             _enemies = BestiaryView.CollectEnemies(campaign);
             Rebuild();
@@ -151,9 +154,9 @@ namespace Brushblade.Presentation
                 23, Theme.TextDim);
             Spring(top.transform);
             Ui.InkCounter(top.transform, _meta.Ink, 25);
-            // 设置界面尚未实现(2026-08-28 拍板):先占位,点了说明去向,不留死按钮
+            // 设置页 2026-09-24 落地(战斗加速 / 音效 / 音乐三个开关),占位弹窗撤掉
             Ui.RoundButton(top.transform, Strings.T("map.header.settings"),
-                () => ShowAlert(Strings.T("map.settings.soon_title"), Strings.T("map.settings.soon_body")),
+                () => _onOpenSettings(),
                 Theme.ExitPink, Color.white, 25, new Vector2(130, 63), 16);
         }
 
@@ -513,8 +516,9 @@ namespace Brushblade.Presentation
                 if (!chest.AdUsed)
                 {
                     long cut = ChestRules.AdReductionSeconds[(int)chest.Tier - 1];
-                    Ui.AdBadge(actions.transform, $"-{cut / 60}m", // 原型:直接生效,广告 SDK 后接
-                        () => Do(() => ChestRules.TryApplyAdBoost(chest)), new Vector2(72, 46));
+                    Ui.AdBadge(actions.transform, $"-{cut / 60}m",
+                        () => AdGate.Watch(AdPlacement.ChestBoost,
+                            () => Do(() => ChestRules.TryApplyAdBoost(chest))), new Vector2(72, 46));
                 }
                 var skip = Ui.RoundButton(actions.transform, Strings.T("map.chest.skip_cost", ("cost", ChestRules.InkCostToSkip(remaining))),
                     () => Do(() => ChestRules.TrySkipWithInk(_meta, index, _time), Strings.T("map.chest.skip_fail_title"),

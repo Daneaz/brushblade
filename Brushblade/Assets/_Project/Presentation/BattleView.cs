@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using Brushblade.Core;
 using Brushblade.Data;
+using Brushblade.Platform;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -2856,13 +2857,13 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.hand_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
-            button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
+            button.onClick.AddListener(() => AdGate.Watch(AdPlacement.BattleLibrary, () =>
             {
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke();
                 _message = Strings.T("battle.label.library_cap_up");
                 Refresh();
-            });
+            }));
         }
 
         private void DrawLibrary()
@@ -2903,6 +2904,35 @@ namespace Brushblade.Presentation
                 ApplyFreshGlow(charId, (RectTransform)tile.transform, Theme.ElementColor(def.Element));
             }
             DrawHandAdSlot();
+            DrawRestockAdSlot();
+        }
+
+        /// <summary>字库补给位(2026-09-23):持有字跌破 <see cref="RunEngine.RestockThreshold"/>
+        /// 时出现,看一次广告补一轮 5 选 2,整次登塔一次。
+        ///
+        /// 与 <see cref="DrawHandAdSlot"/>(扩容 +2 格)是两件事,可以同屏:一个加**上限**,
+        /// 一个加**牌**。字库空到 2 张时上限根本不是瓶颈,只给扩容等于没给。
+        ///
+        /// 可用性整个交给 <see cref="RunEngine.RestockAvailable"/> 判断 —— 条件有四条
+        /// (阶段、回合、张数、是否已用),散到表现层来拼迟早漏一条。</summary>
+        private void DrawRestockAdSlot()
+        {
+            if (!_run.RestockAvailable) return;
+            var outer = Ui.OutlinedPanel(_libraryRow, "RestockAdSlot",
+                Theme.AdGreenBg, Theme.AdGreen, 10, 1.5f, out var face);
+            Ui.Sized(outer.gameObject, width: HandAdSlotW, height: HandAdSlotH);
+            var stack = Ui.VStack(face.transform, "Stack", 4);
+            Ui.Stretch((RectTransform)stack.transform);
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.restock_ad_slot"), 11, Theme.AdGreenText);
+            var button = outer.gameObject.AddComponent<Button>();
+            button.targetGraphic = outer;
+            button.onClick.AddListener(() => AdGate.Watch(AdPlacement.BattleRestock, () =>
+            {
+                _run.TryRestock();
+                _onExpanded?.Invoke(); // 即时落盘:与扩容/复活同口径,防「刚看完广告就挂起」白看
+                _message = Strings.T("battle.restock.msg");
+                Refresh();
+            }));
         }
 
         /// <summary>拖字打人(2026-07-26):拖到敌人身上松手 = 攻击那个敌人。
@@ -3315,13 +3345,13 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.pool_ad_slot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
-            button.onClick.AddListener(() => // 原型:点击即生效,SDK 后接
+            button.onClick.AddListener(() => AdGate.Watch(AdPlacement.BattleParts, () =>
             {
                 _run.TryExpandPool();
                 _onExpanded?.Invoke();
                 _message = Strings.T("battle.label.pool_cap_up");
                 Refresh();
-            });
+            }));
         }
 
         private void DrawPool()
@@ -3787,14 +3817,15 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(wrap.transform, Strings.T("battle.phase.defeat_ellipsis"), BannerFont, Theme.CinnabarDark, Theme.TitleFont);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
             if (_onExit != null && _run.ReviveAvailable)
-                Ui.AdBadge(wrap.transform, Strings.T("battle.btn.ad_revive"), () =>
+                Ui.AdBadge(wrap.transform, Strings.T("battle.btn.ad_revive"),
+                    () => AdGate.Watch(AdPlacement.Revive, () =>
                 {
                     _previewRewardIndex = -1;
                     _run.TryRevive();
                     _onExpanded?.Invoke(); // 即时落盘:防「刚看完广告就挂起」白看
                     _message = Strings.T("battle.revive.full_hp_msg");
                     Refresh();
-                }, new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
+                }), new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
             Ui.PillButton(wrap.transform, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
                 Theme.InkSoft, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill.ink;
             // 与 DrawRunEnd 同语境的钮已改成 InkSoft(稿 RunEnd.dc.html 败北支是 .pill.ink,
@@ -4125,14 +4156,15 @@ namespace Brushblade.Presentation
         private void DrawAdExpandBadge(Transform content)
         {
             if (_run.LibraryExpanded) return;
-            Ui.AdBadge(content, Strings.T("battle.btn.ad_expand_library"), () =>
+            Ui.AdBadge(content, Strings.T("battle.btn.ad_expand_library"),
+                () => AdGate.Watch(AdPlacement.BattleLibrary, () =>
             {
                 _run.TryExpandLibrary();
                 _onExpanded?.Invoke(); // 即时落盘,与字库行那枚徽章同口径
                 _message = Strings.T("battle.label.library_cap_up");
                 if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }
                 Refresh();
-            }, new Vector2(280, 63));   // 高 63 = 稿 .adbadge 30pt;宽 280 是估的,稿只给了
+            }), new Vector2(280, 63));   // 高 63 = 稿 .adbadge 30pt;宽 280 是估的,稿只给了
                                         // padding:0 12px 自适应宽,没有定宽(同 M1)
         }
 
@@ -4150,8 +4182,14 @@ namespace Brushblade.Presentation
             if (_pendingReviveIndex >= 0) { DrawReviveReplaceStep(); return; }
             if (_sheet != null) Object.Destroy(_sheet);
 
+            // Reviving 阶段被两条路径共用(复活补给 / 字库补给),标题按来源分叉。
+            // 判据只认 RunEngine.CurrentSupply —— 别去猜 Battle 的阶段:字库补给发生在
+            // 玩家回合中,复活发生在败北后,看着能分开,但那是**巧合**不是契约
             DrawPickSheet(
-                Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
+                Strings.T(_run.CurrentSupply == SupplyKind.Restock
+                        ? "battle.restock.pick_title"
+                        : "battle.revive.pick_title",
+                    ("left", _run.ReviveCharPicksLeft)),
                 Strings.T("battle.reward.pick_hint",
                     ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)),
                 out var picksRow, out var detailBar, out var footRow);

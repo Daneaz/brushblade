@@ -46,6 +46,9 @@ namespace Brushblade.Presentation
         /// 每次叠一点随机微扰 —— 同一记打击音一模一样地重复几十遍,人耳会把它听成机械噪声而不是打击。</summary>
         private void PlayClip(AudioClip clip, float volume, float pitch = 1f)
         {
+            // 音效总开关(2026-09-24)。拦在这一处就够 —— 全部音效都经由这里发声,
+            // 各调用点不用各判一次(判漏一处就是「关了还在响」)
+            if (!GameSettings.Current.SfxEnabled) return;
             if (_voices == null || clip == null) return;
             _voice = (_voice + 1) % _voices.Length;
             var source = _voices[_voice];
@@ -112,13 +115,17 @@ namespace Brushblade.Presentation
         /// 能到好几秒,看过一遍之后就只是在等 —— 但节拍本身不能删,它是「看得清」的唯一保障。
         ///
         /// 做成**按住**而不是点一下切换:玩家随时能松手回到正常速度,不会误触之后整段糊过去。
-        /// 结算期间外层是锁输入的,所以这个按住不跟任何点击抢。</summary>
-        private const float FastForwardRate = 3f;
+        /// 结算期间外层是锁输入的,所以这个按住不跟任何点击抢。
+        ///
+        /// 2026-09-24:倍率不再写死。改由 <see cref="SpeedRules"/> 给 ——
+        /// 免费 ×2 / 订阅 ×3,且设置里可以「固定加速」免得一直按着。
+        /// 每帧现取而不是缓存:设置页里一改,回到战斗立刻是新值,不用重进。</summary>
         private float _rate = 1f;
 
         private void Update()
         {
-            _rate = Input.GetMouseButton(0) || Input.touchCount > 0 ? FastForwardRate : 1f;
+            bool holding = Input.GetMouseButton(0) || Input.touchCount > 0;
+            _rate = SpeedRules.RateFor(GameSettings.Current, holding, GameSettings.Subscribed);
         }
 
         /// <summary>结算节拍的等待。不用 WaitForSecondsRealtime —— 那个一旦 yield 出去时长就锁死了,
@@ -523,15 +530,19 @@ namespace Brushblade.Presentation
                         // e.Overflow > 0 = 这份治疗被「溢流」折成了伤害(2026-09-18):满血、实际回血 0
                         // 也要播回血动效,否则紧接着那发溢流像是凭空冒出来的(用户实机反馈)。
                         if (e.Amount <= 0 && e.Overflow <= 0) break;
+                        // 锚在**被治疗的那一个**身上:SecondIndex >= 0 是召唤物槽位,
+                        // −1 是玩家(群治会逐个发事件,每只各锚各的)
                         var healAnchor = e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null;
                         if (e.Amount > 0) Popup($"+{e.Amount}", Theme.SplitBlue, healAnchor);
                         PlayClip(_healClip, 0.7f);
                         onImpact?.Invoke(e); // 触达才涨血条(满血时这一下只剩血条起势那一闪)
+                        // 治疗光效:**真回了血**或溢流都要播(2026-09-23)。
+                        // 此前只在溢流分支播 —— 于是正常治疗只剩一个 +N 飘字,没有光效;
+                        // 群治时召唤物那边更是连飘字都没有(Core 压根没发事件,已一并修)。
+                        // 「血条上涨 + 治疗特效」是 2026-09-05 用户给奇遇定的同一套语汇。
+                        if (e.Amount > 0 || e.Overflow > 0) HealBloom(AnchorPoint(healAnchor));
                         if (e.Overflow > 0)
-                        {
-                            HealBloom(AnchorPoint(healAnchor));
                             serialPending = true; // 回血看完,溢流再飞出去 —— 见 Damage 那一支
-                        }
                         break;
                     // 缺笔妖补全:串行占一拍 —— 它是敌方回合里独立发生的事,
                     // 与那一记攻击挤在同帧就会被当成攻击的一部分
