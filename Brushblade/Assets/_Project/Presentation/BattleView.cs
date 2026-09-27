@@ -2047,7 +2047,10 @@ namespace Brushblade.Presentation
             // 玩家因此看得出召唤物落下来会长在哪儿、多大。
             //
             // 平时什么都不画也不会让布局跳动 —— 撑住格子的是上面那个 LayoutElement,不是这块图。
-            if (_slotPicking)
+            // 复活选尸体(2026-09-27,沐):带复活的那一面在友方选目标态下,尸体也画出来并可点 ——
+            // 此前尸体平时什么都不画,沐 的复活根本没有落点可选。
+            bool revivePick = corpse != null && CanPickCorpse(slot);
+            if (_slotPicking || revivePick)
             {
                 float glyphSize = front ? SummonPortraitFront : SummonPortraitBack;
                 bool showCorpse = corpse != null;
@@ -2070,9 +2073,27 @@ namespace Brushblade.Presentation
                         Mathf.RoundToInt(glyphSize * 0.46f), Theme.LockGray, Theme.TitleFont);
                     Ui.Stretch(corpseGlyph.rectTransform);
                 }
-                AttachSlotPicker(cell.transform, slot);
+                if (_slotPicking) AttachSlotPicker(cell.transform, slot);
+                else AttachAllyTargetPicker(cell.transform, slot);   // 点尸体 = 复活它
             }
         }
+
+        /// <summary>友方选目标态里「友方那一面」走哪套效果(2026-09-27 抽出)。双向态(敌我同时点亮)
+        /// 下友方一侧恒是护面 —— _pendingAttackMode 在那一态存的是**敌方**一侧的口径(true),
+        /// 直接拿来判友方会把 沐 的护面(带复活)误判成攻面(不带)。</summary>
+        private bool AllyFaceAttackMode => !(_targeting && _allyTargeting) && _pendingAttackMode;
+
+        /// <summary>这具尸体现在能不能点(2026-09-27,沐 的复活):友方选目标态 + 选中的字在友方那一面
+        /// 带复活 + 引擎认它是可救的尸体(<see cref="BattleEngine.CanReviveSlot"/>,与 Cast 同一条判据)。</summary>
+        private bool CanPickCorpse(int slot) =>
+            _allyTargeting && _selectedChar != null
+            && _graph.TryGet(_selectedChar, out var def)
+            && BattleEngine.HasRevive(def, AllyFaceAttackMode)
+            && Battle.CanReviveSlot(slot);
+
+        /// <summary>友方落点的统一判据:活着的(治疗/加盾/增益)或可救的尸体(复活)。
+        /// 覆盖层、点击回调、拖放落点三处都走它,别再各判各的(本文件栽过两次的那类分叉)。</summary>
+        private bool CanPickAllySlot(int slot) => Battle.CanHealSlot(slot) || CanPickCorpse(slot);
 
         /// <summary>选位子态的整格点击层(2026-08-20):盖满一格吃下点击。
         /// 整格而不是只有字块 —— 移动端手指落点粗,180×98 的格比 56 的字块好点得多。
@@ -2142,7 +2163,7 @@ namespace Brushblade.Presentation
         private bool TryGetAllySlotAt(Vector2 screenPos, out int slot)
         {
             foreach (var pair in _summonCellByCore)
-                if (pair.Value != null && Battle.CanHealSlot(pair.Key)
+                if (pair.Value != null && CanPickAllySlot(pair.Key)
                     && RectTransformUtility.RectangleContainsScreenPoint(pair.Value, screenPos, null))
                 {
                     slot = pair.Key;
@@ -2164,7 +2185,7 @@ namespace Brushblade.Presentation
         private void OnAllyTargetPicked(int slot)
         {
             if (!_allyTargeting || _selectedChar == null) return;
-            if (!Battle.CanHealSlot(slot)) return;
+            if (!CanPickAllySlot(slot)) return;
             string charId = _selectedChar;
             int libraryIndex = _selectedIndex;
             int enemyTarget = _pendingAllyEnemyTarget; // 第一段选过的敌人;纯友方字为 −1
@@ -2189,7 +2210,7 @@ namespace Brushblade.Presentation
             var summon = Battle.Summons[index];
             if (_allyTargeting)
             {
-                if (!Battle.CanHealSlot(index)) return;
+                if (!CanPickAllySlot(index)) return;
                 OnAllyTargetPicked(index);
                 return;
             }
@@ -2966,7 +2987,10 @@ namespace Brushblade.Presentation
         /// 2026-08-21 拖字召唤:拖的若是召唤字,**起拖那一刻就点亮 6 个槽位**,松手落在哪一格
         /// 就安置在哪一格。此前只有「松手落在敌人身上」才会进落位态,落在槽位上反而算取消 ——
         /// 而召唤字根本不携带目标信息(全 15 张都是纯召唤,没有 attackEffects),
-        /// 「拖到敌人身上才召得出」是把唯一无意义的落点定成了唯一有效的落点。</summary>
+        /// 「拖到敌人身上才召得出」是把唯一无意义的落点定成了唯一有效的落点。
+        ///
+        /// 2026-09-27 木系改双面:召唤字多了攻面(单体伤害),起拖时敌人与召唤位一起点亮
+        /// (<see cref="IsSummonDual"/>),落在位子上 = 召唤,落在敌人身上 = 攻。</summary>
         private void AttachDragToAttack(GameObject tile, CharDef def, int libraryIndex = -1)
         {
             // 召唤只数与 AP 都按 attackMode 口径先算一遍:两条都过才点亮槽位。
@@ -2985,6 +3009,9 @@ namespace Brushblade.Presentation
             // 排在 allyOnly 之后判:纯友方字(㵘/淼 这类没有单体攻击面的)仍走它自己那一支,
             // 那边只点亮友方,因为它的攻击面压根不需要选敌人。
             bool dualDirection = def.AttackEffects.Count > 0 && !allyOnly && !summons;
+            // 攻/召双面(2026-09-27,木系):起拖时敌人与召唤位一起点亮,落在哪边就是哪一面。
+            // 排在 dualDirection 前面判 —— 它也满足 dualDirection,但友方那侧要的是落位格而不是治疗落点。
+            bool summonDual = IsSummonDual(def);
 
             // 字影是**纯文字**压在场景上,得用过了 WCAG 的 GlyphColor 而不是 UI 色块那套
             // ElementColor(金 #B3A382 对宣纸底只有 2.48,拖起来是一团糊的)
@@ -3002,10 +3029,19 @@ namespace Brushblade.Presentation
                         int slot = SummonSlotAt(screenPos);
                         // 落在槽位上才算数(2026-08-21 用户拍板):多只召唤从这一格起顺延。
                         if (slot >= 0) { OnSlotPicked(slot); return; }
-                        // 落在敌人身上或空白处 = 取消。召唤字不携带目标信息,拖到敌人身上
-                        // 本就没有意义,不给它兜底语义;AP 与字库一滴未动,重拖即可。
-                        CancelSelection();
-                        return;
+                        // 「攻/召」双向态(2026-09-27,木系):没落在位子上,就按攻面往下判敌人 ——
+                        // 先把落位态收掉,下面那条攻击分支才不会带着残留的 _slotPicking 出字。
+                        if (_targeting)
+                        {
+                            ResetSlotPicking();
+                        }
+                        else
+                        {
+                            // 落在敌人身上或空白处 = 取消。纯召唤字不携带目标信息,拖到敌人身上
+                            // 本就没有意义,不给它兜底语义;AP 与字库一滴未动,重拖即可。
+                            CancelSelection();
+                            return;
+                        }
                     }
                     // 双向态(2026-09-03):敌我都点亮着,**落点决定方向** ——
                     // 先试友方,命中即护面;没命中就往下走敌人那条,与双击路径同一套判据。
@@ -3051,6 +3087,16 @@ namespace Brushblade.Presentation
                 onBeginDrag: () =>
                 {
                     if (Battle.Ap < def.ApCost) return;
+                    if (summonDual)
+                    {
+                        EnterSummonDual(def, libraryIndex);
+                        Ui.Clear(_enemyFrontRow);   // 敌方侧按攻击面重画置灰(同 RedrawDualTargets 的前半)
+                        Ui.Clear(_enemyBackRow);
+                        DrawEnemies();
+                        RedrawSummonRows();          // 只重画召唤两排:全量 Refresh 会销毁正被拖的这张字牌
+                        ShowDragTargets(def);        // 敌方那一面同样标出「打得着哪几只」
+                        return;
+                    }
                     if (!summons && !allyOnly && !dualDirection)
                     {
                         // 纯打人字:起拖就把「这一发够得着的敌人」全部压暗(2026-09-03 用户拍板)。
@@ -3096,10 +3142,11 @@ namespace Brushblade.Presentation
         /// FallbackEffects」那一支)。攻击模式恒传 <c>attackMode: true</c>,与 onDrop 那边传给
         /// <see cref="BeginCast"/> 的值一致(拖字打人这条路径本就是 attackMode)。
         ///
-        /// 连发(Volley)没有主目标(<see cref="BattleEngine.NeedsTarget"/> 对它就返回 false),
-        /// 这里选择仍然预览它固定会打到的那几格(<c>primaryIndex: -1</c> 求出的表与悬停在
-        /// 哪只敌人上无关)——只要指针落在任意一只敌人身上(与松手判定同一条门槛),就整体
-        /// 亮出连发会覆盖的格子,不特别标「主目标」(它本来就没有主目标概念)。
+        /// 连发(Volley)不强制选目标(<see cref="BattleEngine.NeedsTarget"/> 对它返回 false,
+        /// 点「出字」时自动施放),但 2026-09-27 起**拖到哪只,首发就落在哪只**(塔 的用户报告),
+        /// 预览因此与其余形状同口径:悬停那只标主目标,其余发数标溅射色。
+        /// 表里可能有重复下标(连发循环补足、跨排 Boss),同一格只记一次原色,否则还原时会
+        /// 把第一次改过的颜色当成「原色」写回去。
         ///
         /// ⚠ 每帧都会调用:只改已存在的 <see cref="_enemyHitAreas"/> 颜色,不重绘任何 GameObject
         /// ——DragToAttack.cs 顶部有整段警告解释为什么(销毁正被拖的对象会掐断 OnEndDrag)。
@@ -3107,7 +3154,8 @@ namespace Brushblade.Presentation
         private void OnDragHover(Vector2 screenPos, CharDef def)
         {
             // 召唤字走落位预览(起拖已点亮 6 槽),不叠加打人预览
-            int target = _slotPicking ? -1 : EnemyIndexAt(screenPos);
+            // 「攻/召」双向态(2026-09-27)敌人也点亮着,照常出打人预览
+            int target = _slotPicking && !_targeting ? -1 : EnemyIndexAt(screenPos);
             if (target == _hoverPreviewPrimary) return; // 悬停格没变,别做无用功
             _hoverPreviewPrimary = target;
             ClearHoverPreview();
@@ -3115,14 +3163,16 @@ namespace Brushblade.Presentation
             if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
 
             var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
-            var hits = shape == TargetShape.Volley
-                ? Targeting.ExpandTargets(Battle.Enemies, -1, shape, shots) // 连发无主目标,与悬停格无关
-                : Targeting.ExpandTargets(Battle.Enemies, target, shape, shots);
+            // 连发(2026-09-27):松手时引擎让首发落在这只身上(volleyLeadsWithPrimary),
+            // 预览必须走同一个口径 —— 此前这里传 −1,预览与实际落点双双无视玩家指的那只。
+            var hits = Targeting.ExpandTargets(Battle.Enemies, target, shape, shots,
+                volleyLeadsWithPrimary: true);
             for (int n = 0; n < hits.Count; n++)
             {
                 int i = hits[n];
                 if (i < 0 || i >= _enemyHitAreas.Count || _enemyHitAreas[i] == null) continue;
-                bool primary = shape != TargetShape.Volley && n == 0; // 首项即主目标,Volley 除外
+                if (_hoverPreviewCells.Exists(c => c.index == i)) continue; // 重复下标:保住首次记下的原色与主目标色
+                bool primary = n == 0; // 首项即主目标(连发的首发也落在悬停那只身上)
                 _hoverPreviewCells.Add((i, _enemyHitAreas[i].color)); // 先存原色,清预览时原样还原
                 _enemyHitAreas[i].color = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b,
                     primary ? HoverPreviewPrimaryAlpha : HoverPreviewSplashAlpha);
@@ -3154,7 +3204,10 @@ namespace Brushblade.Presentation
         private void ShowDragTargets(CharDef def)
         {
             ClearDragTargets();
-            if (!BattleEngine.NeedsTarget(def, attackMode: true)) return;
+            // 连发不强制选目标(点「出字」时自动),但拖到哪只首发就打哪只(2026-09-27),
+            // 所以拖拽时照样要把能落的敌人标出来。
+            if (!BattleEngine.NeedsTarget(def, attackMode: true)
+                && BattleEngine.AttackShapeOf(def, attackMode: true).Shape != TargetShape.Volley) return;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
                 if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode: true)) continue;
@@ -3546,7 +3599,11 @@ namespace Brushblade.Presentation
             // 「取消」按钮 2026-08-21 随整排一起移除 —— 点空白即取消(Backdrop)。
             if (_slotPicking)
             {
-                BenchHint(_actionRow, Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar)), 16, Theme.TextMain);
+                // 「攻/召」双向态(2026-09-27):敌人也点亮着,提示得说清两边各是什么
+                string slotHint = _targeting
+                    ? Strings.T("battle.hint.targeting_dual_summon", ("charId", _pendingSummonChar))
+                    : Strings.T("battle.hint.slot_picking_dragging", ("charId", _pendingSummonChar));
+                BenchHint(_actionRow, slotHint, 16, Theme.TextMain);
                 return;
             }
             if (_selectedChar == null) return;
@@ -3633,7 +3690,10 @@ namespace Brushblade.Presentation
             // 点谁定方向。提示必须说清这件事,只说「点目标敌人」会让玩家以为不能点自己。
             if (_targeting && _allyTargeting)
             {
-                BenchHint(_actionRow, Strings.T("battle.hint.targeting_dual", ("charId", _selectedChar)), 16, Theme.TextMain);
+                // 护面带复活(2026-09-27,沐):尸体也点亮着,提示补一句「点尸体=复活」
+                string dualKey = BattleEngine.HasRevive(def, attackMode: false)
+                    ? "battle.hint.targeting_dual_revive" : "battle.hint.targeting_dual";
+                BenchHint(_actionRow, Strings.T(dualKey, ("charId", _selectedChar)), 16, Theme.TextMain);
                 return;
             }
             if (_targeting)
@@ -4945,6 +5005,16 @@ namespace Brushblade.Presentation
             //
             // 实现上不新增状态:_targeting 与 _allyTargeting **同时**为真即是双向态。
             // 两条既有的点击回调各自在进入时把 _pendingAttackMode 定死,互不干扰。
+            // 木系双面(2026-09-27):护面是**召唤**,友方那一侧点亮的不是「治谁」而是「落哪格」——
+            // 敌人与召唤位同时点亮(_targeting + _slotPicking),点敌人 = 攻、点位置 = 召唤。
+            // AP 不够时不进这一态,走下面的通用双向态,由引擎当场报「AP 不够」(同 BeginCast 的守卫)。
+            if (IsSummonDual(def) && Battle.Ap >= def.ApCost)
+            {
+                EnterSummonDual(def, _selectedIndex);
+                _message = Strings.T("battle.hint.pick_dual_summon", ("charId", def.Id));
+                Refresh();
+                return;
+            }
             if (def.AttackEffects.Count > 0)
             {
                 _targeting = true;
@@ -5000,6 +5070,25 @@ namespace Brushblade.Presentation
             for (int i = 0; i < Battle.Enemies.Count; i++)
                 if (Battle.CanTarget(def, i, attackMode)) count++;
             return count;
+        }
+
+        /// <summary>攻/召双面字(2026-09-27,木系):攻面单体伤害、护面召唤。
+        /// 判据走 Core 的 <c>SummonCountOf</c>,不在表现层按元素写死 —— 哪天别的系也有召唤护面,
+        /// 这里自动跟上。</summary>
+        private bool IsSummonDual(CharDef def) =>
+            def.AttackEffects.Count > 0 && Battle.SummonCountOf(def, attackMode: false) > 0;
+
+        /// <summary>进「攻/召」双向态(2026-09-27):_slotPicking(护面 = 召唤,落位)与 _targeting
+        /// (攻面,点敌人)同时为真。只置位不重绘 —— 拖拽路径调它时不能销毁正被拖的字牌。
+        /// EnterSlotPicking 会把 _targeting 清掉,所以必须**先**进选位态、再开 _targeting。</summary>
+        private void EnterSummonDual(CharDef def, int libraryIndex)
+        {
+            _selectedChar = def.Id;
+            _selectedIndex = libraryIndex;
+            EnterSlotPicking(def.Id, -1, attackMode: false, libraryIndex,
+                Battle.SummonCountOf(def, attackMode: false));
+            _targeting = true;
+            _pendingAttackMode = true;   // 敌方侧置灰按攻击面算;落位那一侧走 _pendingSummonAttackMode(false)
         }
 
         // ---- 召唤落位(2026-08-20) ----
@@ -5148,6 +5237,9 @@ namespace Brushblade.Presentation
                 // 落到下面的「看详情」分支会让玩家以为自己点歪了
                 var picked = _graph.Get(_selectedChar);
                 if (!Battle.CanTarget(picked, index, _pendingAttackMode)) return;
+                // 「攻/召」双向态(2026-09-27,木系):点了敌人 = 走攻面,落位那一侧作废。
+                // 不清的话 _slotPicking 残留,出完字召唤两排还挂着落位层。
+                if (_slotPicking) ResetSlotPicking();
                 // 还要选友方就转第二段,别在这里就出字(2026-08-26)。免选口径与 OnCastPressed
                 // 那条同源:场上没有存活召唤物时引擎会自动锁玩家,弹一次没得选的选择纯属白点。
                 if (BattleEngine.NeedsAllyTarget(picked, _pendingAttackMode) && Battle.AliveSummonCount > 0)

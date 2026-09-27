@@ -49,6 +49,11 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 1) }),
             new CharDef("苏", Element.Heart,   // 活:复活一名阵亡召唤物
                 effects: new[] { new EffectDef(EffectKind.Revive, 1) }),
+            new CharDef("沐", Element.Water,   // 沐 同构:持续治疗 + 复活 + 解封(护面),攻面单体伤
+                effects: new[] { new EffectDef(EffectKind.HealOverTime, 4, turns: 3),
+                                 new EffectDef(EffectKind.Revive, 1),
+                                 new EffectDef(EffectKind.Unseal, 0) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 9) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -685,6 +690,83 @@ namespace Brushblade.Core.Tests
             var engine = Engine(new[] { "苏" }, new[] { Dummy() });
             Assert.That(engine.Cast("苏", 0), Is.EqualTo(BattleError.None));
             Assert.That(engine.AliveSummonCount, Is.EqualTo(0));
+        }
+
+        // ---- 复活选尸体(2026-09-27 用户报:沐 的复活选不中召唤物)----
+
+        /// <summary>两具尸体时点哪具救哪具,不是一律救最前那具。</summary>
+        [Test]
+        public void Revive_TargetedCorpse_RevivesThatOne()
+        {
+            var engine = Engine(new[] { "素", "素", "苏" }, new[] { Dummy() },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50, ApPerTurn = 10 });
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.Cast("素", summonSlots: new[] { 1 });
+            engine.KillSummonForTest(0);
+            engine.KillSummonForTest(1);
+
+            Assert.That(engine.CanReviveSlot(1), Is.True, "尸体槽可作复活目标");
+            Assert.That(engine.Cast("苏", allySlot: 1), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Summons[1].Alive, Is.True, "点的是槽 1,救的就是槽 1");
+            Assert.That(engine.Summons[0].Alive, Is.False, "槽 0 不该被顺手救起");
+        }
+
+        /// <summary>沐 点尸体:先救活,持续治疗与解封落在**被救的那只**身上 —— 效果表里
+        /// 解封排在复活后面但判的是「目标活着」,持续治疗记的是 TargetSlot,两者都得指向它。</summary>
+        [Test]
+        public void MuOnCorpse_RevivesAndHealsTheRevived()
+        {
+            var engine = Engine(new[] { "素", "沐" }, new[] { Dummy() },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50, ApPerTurn = 10 });
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.KillSummonForTest(0);
+
+            Assert.That(engine.Cast("沐", allySlot: 0), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Summons[0].Alive, Is.True);
+            var hot = engine.PlayerStatuses.All.Single(e => e.Kind == StatusKind.HealOverTime);
+            Assert.That(hot.TargetSlot, Is.EqualTo(0), "持续治疗治的是复活的那只,不是玩家");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.Unseal && e.TargetIndex == 0),
+                Is.True, "解封落在复活的那只身上(它被先救活,解封分支才认它是活的)");
+        }
+
+        /// <summary>治疗类字(没有复活)点尸体照旧拒 —— 尸体归复活管。</summary>
+        [Test]
+        public void HealOnlyChar_OnCorpse_StillInvalid()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("木", Element.Wood),
+                new CharDef("素", Element.Wood,
+                    effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木") }),
+                new CharDef("泉", Element.Water, effects: new[] { new EffectDef(EffectKind.HealSelf, 5) }),
+            });
+            var engine = new BattleEngine(graph, new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
+                new[] { "素", "泉" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1);
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.KillSummonForTest(0);
+            Assert.That(engine.Cast("泉", allySlot: 0), Is.EqualTo(BattleError.InvalidTarget));
+        }
+
+        [Test]
+        public void CanReviveSlot_OnlyForCorpses()
+        {
+            var engine = Engine(new[] { "素", "素" }, new[] { Dummy() },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50, ApPerTurn = 10 });
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.Cast("素", summonSlots: new[] { 1 });
+            engine.KillSummonForTest(1);
+            Assert.That(engine.CanReviveSlot(0), Is.False, "活着的不是尸体");
+            Assert.That(engine.CanReviveSlot(1), Is.True);
+            Assert.That(engine.CanReviveSlot(2), Is.False, "空槽不是尸体");
+            Assert.That(engine.CanReviveSlot(Targeting.PlayerTarget), Is.False, "玩家不是尸体");
+        }
+
+        [Test]
+        public void HasRevive_ReadsTheChosenFace()
+        {
+            var mu = Graph().Get("沐");
+            Assert.That(BattleEngine.HasRevive(mu), Is.True, "护面带复活");
+            Assert.That(BattleEngine.HasRevive(mu, attackMode: true), Is.False, "攻面没有");
         }
 
         [Test]

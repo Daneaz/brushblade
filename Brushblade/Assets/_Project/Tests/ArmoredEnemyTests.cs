@@ -307,5 +307,36 @@ namespace Brushblade.CoreTests
             Assert.That(engine.Cast("塔"), Is.EqualTo(BattleError.None));
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(1000 - 120), "两发 50×2 + 镇压 20 只结算一次");
         }
+
+        [Test]
+        public void Volley_WithChosenTarget_HitsThatTarget()
+        {
+            // 2026-09-27 用户报:「塔」拖到敌人身上松手,选中的那只没挨打 —— 连发曾完全无视
+            // targetIndex,只按「后排优先」自己挑。现在玩家指了谁,首发就落在谁身上。
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("塔", Element.Heart, effects: new[]
+                {
+                    new EffectDef(EffectKind.DamageSingle, 100, shape: TargetShape.Volley, shots: 2),
+                }),
+            });
+            // 三只同排的靶:老序列按列序从 0 起,打 [0, 1];指定 2 之后应打 [2, 0]
+            var engine = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 1000 },
+                new[] { "塔" }, Array.Empty<string>(),
+                new[]
+                {
+                    new EnemyDef("甲", Element.Heart, 1000, 0),
+                    new EnemyDef("乙", Element.Heart, 1000, 0),
+                    new EnemyDef("丙", Element.Heart, 1000, 0),
+                }, seed: 1);
+            // 选老序列里**排在最后**的那只:两发的老口径根本轮不到它,修之前这条必红
+            var oldOrder = Targeting.ExpandTargets(engine.Enemies, -1, TargetShape.Volley, 3);
+            int chosen = oldOrder[2];
+            int bystander = oldOrder[1];
+            Assert.That(engine.Cast("塔", chosen), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Enemies[chosen].Hp, Is.LessThan(1000), "选中的目标必须挨到连发");
+            Assert.That(engine.Enemies[oldOrder[0]].Hp, Is.LessThan(1000), "第二发从序列头接着轮");
+            Assert.That(engine.Enemies[bystander].Hp, Is.EqualTo(1000), "两发:选中的一发 + 序列头一发");
+        }
     }
 }

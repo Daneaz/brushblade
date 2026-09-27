@@ -641,6 +641,40 @@ namespace Brushblade.Core.Tests
             Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3), Is.Empty);
         }
 
+        /// <summary>玩家指定了目标的连发(2026-09-27,「塔」拖到敌人身上却没打到那只):
+        /// 首发落在选中的那只,其余发数沿原候选序列(后排优先、按列)从它之后接着轮。
+        /// 召唤物普攻不传 leadWithPrimary,照旧走无主目标的老序列。</summary>
+        [Test]
+        public void Expand_Volley_WithChosenTarget_LeadsWithIt()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
+            // 老序列是 [2, 1, 0];选中前排的 0 → 首发打 0,再从序列头接着轮
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Volley, 2, volleyLeadsWithPrimary: true),
+                Is.EqualTo(new[] { 0, 2 }), "首发必中选中的目标");
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Volley, 4, volleyLeadsWithPrimary: true),
+                Is.EqualTo(new[] { 1, 0, 2, 1 }), "从选中那只起沿原序列循环");
+        }
+
+        [Test]
+        public void Expand_Volley_WithoutLeadFlag_IgnoresPrimary()
+        {
+            // 召唤物普攻那条路径(不传旗标)的老口径不能被这次改动带跑
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Volley, 3),
+                Is.EqualTo(new[] { 2, 1, 0 }));
+        }
+
+        [Test]
+        public void Expand_Volley_LeadFlag_WithDeadOrMissingPrimary_FallsBackToOldOrder()
+        {
+            var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3, volleyLeadsWithPrimary: true),
+                Is.EqualTo(new[] { 2, 1, 0 }), "没选目标(点「出字」自动施放)照旧");
+            grid[0].Hp = 0;
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Volley, 2, volleyLeadsWithPrimary: true),
+                Is.EqualTo(new[] { 2, 1 }), "选中的已经死了:退回老序列,不打尸体");
+        }
+
         [Test]
         public void Expand_IsDeterministic()
         {
