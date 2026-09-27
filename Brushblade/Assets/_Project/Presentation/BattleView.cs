@@ -1864,6 +1864,7 @@ namespace Brushblade.Presentation
                     Mathf.RoundToInt(portraitSize * 0.46f), new Vector2(portraitSize, portraitSize), 12);
                 Ui.Stretch((RectTransform)glyph.transform); // 挂载点已按 portraitSize 定好尺寸,铺满即可
                 _summonRectByCore[i] = (RectTransform)glyph.transform;
+                MountSummonView(glyph, summon);
 
                 // 护盾角标(稿 .ally .sh,与敌人格同一判据):叠在立绘左下角,Shield > 0 才画
                 if (summon.Shield > 0)
@@ -1959,6 +1960,30 @@ namespace Brushblade.Presentation
                 else if (_allyTargeting && Battle.CanHealSlot(summonIndex))
                     AttachAllyTargetPicker(cell.transform, summonIndex);
             }
+        }
+
+        /// <summary>召唤物形象(2026-09-27):在字牌按钮里垫一层草木立绘(<see cref="SummonView"/>),
+        /// 字仍是按钮自己那枚 Text、排在最上层。按钮本身不动 —— 底色、点击、护盾角标、
+        /// Juice 的受击白闪/前冲全挂在它上面,换掉它等于把这些读取点全改一遍。
+        ///
+        /// 没有形象资产的召唤字(字表新增了而管线没跑)安静回落成纯字牌格,与字怪同一条兜底。
+        /// 叶色取当前属性的字形色:解封会重掷属性,颜色不烤进图里。</summary>
+        private static void MountSummonView(Button glyph, SummonState summon)
+        {
+            string prefix = SummonAssets.PrefixFor(summon.Char);
+            if (prefix == null) return;
+            var go = new GameObject("SummonView", typeof(RectTransform));
+            go.transform.SetParent(glyph.transform, false);
+            go.transform.SetAsFirstSibling(); // 垫在字下面
+            Ui.Stretch((RectTransform)go.transform);
+            var view = go.AddComponent<SummonView>();
+            if (!view.Init(prefix, Theme.GlyphColor(summon.Element))) { Destroy(go); return; }
+            // 字压在枝叶上:描一圈底色,枝叶从字后面穿过时笔画不糊
+            var label = glyph.GetComponentInChildren<Text>();
+            if (label == null) return;
+            var outline = label.gameObject.AddComponent<Outline>();
+            outline.effectColor = Theme.ElementSoft(summon.Element);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
         }
 
         /// <summary>未解锁的槽位(2026-08-27 用户拍板「常态化显示」):画一块压暗的占位 +
