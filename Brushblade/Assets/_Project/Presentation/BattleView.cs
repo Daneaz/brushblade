@@ -3037,7 +3037,13 @@ namespace Brushblade.Presentation
             Ui.Sized(outer.gameObject, width: HandAdSlotW, height: HandAdSlotH);
             var stack = Ui.VStack(face.transform, "Stack", 4);
             Ui.Stretch((RectTransform)stack.transform);
-            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.restock_ad_slot"), 11, Theme.AdGreenText);
+            // 竖排三行(2026-09-30 用户报溢出):格子只有 88 宽,原来那句「字库告急 · 看广告补字」
+            // 是 11 个字的单行,Ui.Label 横向不换行、直接溢出到牌格外面。
+            // 拆成「告急 / 补字 / 看广告」三截,中间那截是动作本身,放大用宋体
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.restock_ad_head"), 11, Theme.AdGreenText);
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.restock_ad_action"), 20, Theme.AdGreenText,
+                Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.restock_ad_foot"), 11, Theme.AdGreenText);
             var button = outer.gameObject.AddComponent<Button>();
             button.targetGraphic = outer;
             button.onClick.AddListener(() => AdGate.Watch(AdPlacement.BattleRestock, () =>
