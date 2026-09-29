@@ -39,10 +39,6 @@ namespace Brushblade.Core
         /// 而敌人侧的 ActionMeter 早就在存了 —— 这条是补齐。恒非负,进出快照都不需要任何特例。</summary>
         public int PlayerActionMeter { get; set; }
 
-        /// <summary>战意首回合宽限标记(2026-08-18):见 BattleEngine._moraleGraceTurn。
-        /// 不存的话续爬会在「从 0 层起手」的那一回合白掉一层。</summary>
-        public bool MoraleGraceTurn { get; set; }
-
         /// <summary>厚的余数:不足一层的护盾量(2026-09-02)。
         /// ⚠ 漏存是**静默**的 —— 续爬后余数归零,玩家丢掉最多一层厚,而没有任何
         /// 现有测试看得见(全部测试都建新对象,没有一条读旧快照字节)。</summary>

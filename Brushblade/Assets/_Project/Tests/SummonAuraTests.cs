@@ -343,37 +343,36 @@ namespace Brushblade.Core.Tests
                 "只断言过 PlayerAttackPercent 被直接赋值的单元级算式");
         }
 
-        /// <summary>反向(2026-09-06,评审 Important 补测第二条):战意衰减归零后,召唤物攻击
-        /// 回落到基础值 —— 用户需求原话「战意归零回到 100」。乘区是**现读**的,不是入场时冻结
-        /// 的一份快照,所以归零之后不能停留在曾经涨过的那个数上。
+        /// <summary>反向(2026-09-06,评审 Important 补测第二条;2026-09-30 随战意不衰减改写):
+        /// 召唤物攻击的战意乘区是**现读**的,不是入场时冻结的一份快照。
         ///
-        /// 用 1 层(而不是上面那条的 5 层)把「归零」所需的 EndTurn() 次数降到最低:
-        /// 首回合宽限(<c>_moraleGraceTurn</c>)吃掉第一次该有的递减,第二个 EndTurn() 才真的
-        /// 把 1 层战意归零,第三个 EndTurn() 里召唤物读到的才是 0 层。</summary>
+        /// 原版靠「战意衰减归零 → 召唤物回落到 100」来证明现读;2026-09-30 起战意本场不衰减,
+        /// 归零这条路没了,改成反方向:中途再叠一层,召唤物下一拍就跟着涨 —— 冻结快照的实现
+        /// 会停在 110。顺带钉住新规则:跨回合不掉层,召唤物读到的乘区也不掉。</summary>
         [Test]
-        public void SummonAttack_ReturnsToBaselineAfterMoraleFullyDecays()
+        public void SummonAttack_TracksMoraleLive_AndKeepsItAcrossTurns()
         {
             var graph = RebalanceFixture.Graph(
                 RebalanceFixture.Char("召甲", new EffectDef(EffectKind.Summon, 100,
                     summonAttack: 100, summonChar: "甲")),
                 RebalanceFixture.Char("战", new EffectDef(EffectKind.Morale, 1)));
-            var battle = RebalanceFixture.Battle(graph, new[] { "召甲", "战" }, RebalanceFixture.Mob());
+            var battle = RebalanceFixture.Battle(graph, new[] { "召甲", "战", "战" }, RebalanceFixture.Mob());
 
             battle.Cast("召甲");
             battle.Cast("战");
 
-            battle.EndTurn();   // 首回合宽限:这一拍战意 1 层不掉,召唤物这一拍吃到 +10%
+            battle.EndTurn();
             Assert.That(battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack).Amount,
                 Is.EqualTo(110), "100 × 1.1");
 
-            battle.EndTurn();   // 宽限已耗尽,递减发生在 BeginPlayerTurn——晚于这一拍召唤物出手,
-                                 // 所以这一拍读到的仍是递减前的 1 层
+            battle.EndTurn();
             Assert.That(battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack).Amount,
-                Is.EqualTo(110), "衰减发生在这一拍召唤物出手之后,这一拍仍读到 1 层");
+                Is.EqualTo(110), "战意本场不衰减,下一回合仍是 1 层");
 
-            battle.EndTurn();   // 战意已在上一拍末尾归零,这一拍召唤物读到的才是 0 层
+            battle.Cast("战");  // 1 → 2 层
+            battle.EndTurn();
             Assert.That(battle.LastEvents.First(e => e.Kind == BattleEventKind.SummonAttack).Amount,
-                Is.EqualTo(100), "归零回到基础值 —— 用户需求原话:「战意归零回到 100」");
+                Is.EqualTo(120), "现读:中途叠上去的那一层召唤物立刻吃到");
         }
     }
 }

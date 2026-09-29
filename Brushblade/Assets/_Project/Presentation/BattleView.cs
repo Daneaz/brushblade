@@ -1776,7 +1776,7 @@ namespace Brushblade.Presentation
             var statusChips = new List<Ui.ChipSpec>();
             // **判据:这条状态的「量」本身会不会随回合变小 —— 会的才带数字**(2026-09-02
             // 用户拍板,与召唤物格、敌人格同一条;完整说明见 AddSummonStatusChips 的注释)。
-            // 这一栏里符合的是灼烧(层数每回合衰减)与战意(Magnitude 每回合 −1);
+            // 这一栏里符合的是灼烧(层数每回合衰减)与战意(层数;2026-09-30 起本场不衰减,见下);
             // 封字是**下回合一次性**扣 AP、减速是持续期间恒定的修正值、那一排增益挂着即生效,
             // 都只出图标 —— 一排数字在 120pt 宽的状态栏里糊成一团,反而读不出挂了哪几样。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Seal) > 0)
@@ -1792,8 +1792,8 @@ namespace Brushblade.Presentation
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff) > 0)
                 statusChips.Add(new("", Theme.Gold, Theme.GoldText, "attack"));
-            // 战意带数字:Magnitude 每回合 −1(BattleEngine 的 EndTurn 那段),数字是倒计时,
-            // 玩家要按「还剩几层」决定这回合梭不梭 —— 与灼烧同族,和旁边那排平量增益不同。
+            // 战意带数字:数字是层数(2026-09-30 起本场保留不衰减、战斗结束清零,不再是倒计时),
+            // 层数直接决定攻击乘区,玩家要看「叠到几层了」—— 和旁边那排平量增益不同。
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
             if (morale > 0) statusChips.Add(new($"{morale}", Theme.Gold, Theme.GoldText, "morale"));
             // 暴击(2026-08-12,锋):判据仍读 EffectiveCrit(已钳到 100)而不是状态总量 ——
@@ -2409,7 +2409,7 @@ namespace Brushblade.Presentation
             //
             //   带数字(数字是**倒计时**,玩家要按它权衡):
             //     · 灼烧 —— 层数每回合衰减(所以才有 BurnNoDecay 这条「不灭」来对着干)
-            //     · 战意 —— Magnitude 每回合 −1(BattleEngine.cs 的 EndTurn 那段)
+            //     · 战意 —— 层数(2026-09-30 起不衰减,但层数本身就是乘区,仍要看数字)
             //     · 流血 / 持续治疗 —— 每回合结算一次的量,数字回答「这一跳掉/回多少」
             //   只出图标(挂着期间量恒定,到期整条消失):
             //     诅咒、破甲、减速、致盲、封字,以及全部平量增益(甲/闪/弹/攻/暴/锐)。
@@ -2447,7 +2447,7 @@ namespace Brushblade.Presentation
             Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
             Flag(StatusKind.Reflect, "reflect", Theme.Jade);
             Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
-            Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:层数每回合 −1,数字是倒计时
+            Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
             Flag(StatusKind.CritBuff, "crit", Theme.Gold);
             Flag(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
             if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)

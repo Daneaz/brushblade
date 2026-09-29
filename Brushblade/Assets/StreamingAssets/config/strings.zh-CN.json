@@ -789,7 +789,7 @@
   "status.attack.desc": "攻击 +{magnitude}%，以自身基础攻击为底的百分比。",
   "status.attack.desc.player": "攻击 +{magnitude}，直接加在攻击力上的点数，不是百分比。",
   "status.morale.name": "战意",
-  "status.morale.desc": "{magnitude} 是层数不是加成值：每层 +10% 攻击，上限 5 层（满层 +50%）。",
+  "status.morale.desc": "{magnitude} 是层数不是加成值：每层 +10% 攻击，上限 5 层（满层 +50%）。本场战斗内不衰减，战斗结束清零。",
   "status.crit.name": "暴击",
   "status.crit.desc": "暴击率 +{magnitude}%（百分点）。暴击伤害恒 ×1.5；显示读的是已经钳到 100 的有效值。",
   "status.pierce.name": "穿透",

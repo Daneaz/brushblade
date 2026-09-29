@@ -561,12 +561,6 @@ namespace Brushblade.Core
         // 回合掉字遇满库时挂起的那个字;Phase == DropChoice 期间非 null
         private string _pendingDrop;
 
-        /// <summary>战意首回合宽限(2026-08-18):本回合是「从 0 层起手」的那一回合,
-        /// 回合末免一次递减。<see cref="AddPlayerCounter"/> 新建战意时置起,
-        /// <see cref="TickPlayerStatuses"/> 消费掉。要进快照 —— 不存的话续爬后
-        /// 起手那一回合会白掉一层。</summary>
-        private bool _moraleGraceTurn;
-
         /// <summary>金脉 L2「锋芒」的**每张字一次**闸门(2026-09-13)。<see cref="ApplyEffects"/>
         /// 进门时置 false,<see cref="RollCrit"/> 首次摇到暴击时兑现并置 true。
         ///
@@ -732,15 +726,13 @@ namespace Brushblade.Core
             return crit;
         }
 
-        /// <summary>锋芒的兑现。缺省 0 时整条短路 —— 不摸状态容器、不改 _moraleGraceTurn,
-        /// 与改前逐字节相同。</summary>
+        /// <summary>锋芒的兑现。缺省 0 时整条短路 —— 不摸状态容器,与改前逐字节相同。</summary>
         private void GrantMoraleFromCrit()
         {
             if (_config == null || _config.MoraleOnCrit <= 0) return;
             if (_critMoraleGrantedThisCast) return;
             _critMoraleGrantedThisCast = true;
-            // 复用 AddPlayerCounter:它自带 MoraleCap 夹取,以及「从 0 起手免一次递减」
-            // 的战意宽限(_moraleGraceTurn)。别绕开它直接改 Magnitude。
+            // 复用 AddPlayerCounter:它自带 MoraleCap 夹取。别绕开它直接改 Magnitude。
             int before = _playerStatuses.TotalMagnitude(StatusKind.Morale);
             AddPlayerCounter(StatusKind.Morale, _config.MoraleOnCrit, _config.MoraleCap);
             _pendingCritMorale = _playerStatuses.TotalMagnitude(StatusKind.Morale) - before;
@@ -997,7 +989,6 @@ namespace Brushblade.Core
                 PendingDrop = _pendingDrop,
                 StatusSerial = _statusSerial,
                 PlayerActionMeter = PlayerActionMeter,
-                MoraleGraceTurn = _moraleGraceTurn,
                 ShieldAccum = _shieldAccum,
                 HealAccum = _healAccum,
             };
@@ -1027,7 +1018,6 @@ namespace Brushblade.Core
                 _pendingDrop = snapshot.PendingDrop,
                 _statusSerial = snapshot.StatusSerial,
                 PlayerActionMeter = snapshot.PlayerActionMeter,
-                _moraleGraceTurn = snapshot.MoraleGraceTurn,
                 _shieldAccum = snapshot.ShieldAccum,
                 _healAccum = snapshot.HealAccum,
             };
@@ -2499,27 +2489,10 @@ namespace Brushblade.Core
             // 玩家侧没有冻结概念,整袋统一递减即可(HoT 到期移除;减伤 TurnsLeft = -1 段内持久,不受影响)。
             _playerStatuses.TickTurns();
 
-            // 战意每回合末消减一层(2026-08-15 拍板,原为本场持久)。
-            // 单独处理而不是走 TickTurns:战意是**计数器式**状态 —— TurnsLeft = -1、层数记在
-            // Magnitude 上,TickTurns 只认 TurnsLeft,碰不到它。ApBoost / PierceBuff 仍是
-            // 本场持久(TurnsLeft = -1),同样不受 TickTurns 影响;CritBuff / Empower
-            // 自 2026-09-05(平衡重做 P0 任务 7)起可携带 Turns > 0,此时 TurnsLeft 为正,
-            // 会随上面这行 TickTurns() 正常递减到期 —— 不再是无条件的「本场持久」。
-            // 排在本回合全部结算之后:当回合出的 战 先按 3 层生效,回合末才掉到 2。
-            //
-            // 首回合宽限(2026-08-18 拍板):**从 0 层起手的那一回合不递减**,第二回合起才开始掉。
-            // 身上已有战意时再叠,则照常当回合递减。没有这条的话 戮 那一层等于白给 ——
-            // 当回合生效、同一个回合末就归零。标记由 AddPlayerCounter 在「新建」那一支置起。
-            var morale = _playerStatuses.Find(StatusKind.Morale);
-            if (_moraleGraceTurn)
-            {
-                _moraleGraceTurn = false;
-            }
-            else if (morale != null)
-            {
-                morale.Magnitude -= 1;
-                if (morale.Magnitude <= 0) _playerStatuses.Remove(StatusKind.Morale);
-            }
+            // 战意(2026-09-30 用户拍板):**本场战斗保留、不衰减,战斗结束清零**。
+            // 推翻 2026-08-15「每回合末消减一层」与 2026-08-18「从 0 起手首回合宽限」。
+            // 它是计数器式状态(TurnsLeft = -1、层数记在 Magnitude 上),上面的 TickTurns 碰不到它;
+            // 清零靠的是 RunEngine 的跨战斗携带态不收它(_carriedStatuses 只收护甲/厚/泉)。
         }
 
         private void StartTurn()
@@ -3247,9 +3220,6 @@ namespace Brushblade.Core
                 existing.Magnitude = Math.Min(existing.Magnitude + amount, cap);
                 return;
             }
-            // 从 0 起手:战意本回合免一次递减(2026-08-18,见 TickPlayerStatuses)。
-            // 只对战意置标记 —— ApBoost 走同一个方法但本来就不递减。
-            if (kind == StatusKind.Morale) _moraleGraceTurn = true;
             _playerStatuses.Apply(new StatusEffect
             {
                 Kind = kind, Polarity = StatusPolarity.Buff,
