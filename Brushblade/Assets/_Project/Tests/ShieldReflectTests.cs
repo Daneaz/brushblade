@@ -203,5 +203,33 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Summons[0].Hp, Is.LessThan(1000), "前提:没盾,实打实挨了");
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(before), "没吸到就没得反");
         }
+
+        /// <summary>2026-09-30 用户报:带盾召唤物被一记打死时,反震与归根的顺序反了。
+        /// 反震是**这一记攻击**的一部分(盾吸 → 折返),归根是死后才发生的事 ——
+        /// 事件次序必须是「挨打 → 反震 → 归根」,表现层照事件次序演。</summary>
+        [Test]
+        public void ShieldOnSummon_DyingHit_ReflectsBeforeDeathHeal()
+        {
+            var engine = new BattleEngine(SummonGraph(), new BattleConfig
+                {
+                    DropTable = new[] { "土" }, PlayerMaxHp = 500, ApPerTurn = 20,
+                    ShieldReflectPercent = 20, SummonDeathHealPercent = 50,
+                },
+                new[] { "兵", "壁" }, Array.Empty<string>(),
+                new[] { new EnemyDef("靶", Element.Heart, 9000, 2500) },
+                seed: 1);
+            Assert.That(engine.Cast("兵", summonSlots: new[] { 0 }), Is.EqualTo(BattleError.None));
+            Assert.That(engine.Cast("壁", allySlot: 0), Is.EqualTo(BattleError.None));
+            engine.EndTurn();   // 2500:盾吸 1000(反 200),余 1500 > 1000 血 → 死
+
+            var events = engine.LastEvents.ToList();
+            int reflect = events.FindIndex(e => e.Kind == BattleEventKind.Damage
+                && e.Source == EffectSource.ShieldReflect);
+            int heal = events.FindIndex(e => e.Kind == BattleEventKind.Heal
+                && e.Source == EffectSource.SummonDeathHeal);
+            Assert.That(reflect, Is.GreaterThanOrEqualTo(0), "前提:反震触发了");
+            Assert.That(heal, Is.GreaterThanOrEqualTo(0), "前提:召唤物死了、归根触发了");
+            Assert.That(reflect, Is.LessThan(heal), "反震随这一记攻击结算,归根在死后");
+        }
     }
 }

@@ -4336,7 +4336,8 @@ namespace Brushblade.Core
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
-            if (!summon.Alive) OnSummonDeath(summonIndex);   // 挨打死亡:摘光环份额 + 木脉 L2 归根
+            // ⚠ 挨打死亡的 OnSummonDeath(归根)挪到本方法末尾(2026-09-30 用户报):荆棘/镜/反震
+            // 是**这一记攻击**的反应,归根是死后的事 —— 写在这里的话归根先出、反震后出,次序是反的。
 
             // 反伤(2026-08-05,荆):2026-08-25 用户拍板由**固定点数**改成**受到伤害的百分比**,
             // 与下面玩家侧的 Reflect 完全同一套算式 —— 荆 要靠反伤当输出手段,固定值在深层会被
@@ -4420,6 +4421,9 @@ namespace Brushblade.Core
                         allowBarb: false,
                         source: EffectSource.ShieldReflect, sourceSlot: summonIndex);
             }
+            // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
+            // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。
+            if (!summon.Alive) OnSummonDeath(summonIndex);
             return true;
         }
 
