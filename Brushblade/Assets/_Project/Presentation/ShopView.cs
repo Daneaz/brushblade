@@ -185,8 +185,11 @@ namespace Brushblade.Presentation
             int needed = maxed ? 0 : MetaRules.CopiesRequired(level, def.Rarity);
             if (!component)
             {
+                // 一份几张 → 右下角数量角标「10张」(2026-09-30)。数量属于这份货,不写在钮上
+                // (「看广告 ×5」读起来像要看 5 次广告);走 CardBadges 与等级/可升同一套尺寸
                 CardBadges.Apply(tile.gameObject, CardSize, new CardBadges.Spec
                 {
+                    QuantityText = Strings.T("shop.slot.bundle_count", ("count", bundle)),
                     Rarity = def.Rarity,
                     Level = level,
                     Maxed = maxed,
@@ -197,9 +200,6 @@ namespace Brushblade.Presentation
                 CardBadges.Foot(cell.transform, CardSize, owned, copies, needed, maxed,
                     MetaRules.CanUpgradeCard(_meta, card, def.Rarity));
             }
-            // 一份几张 → 牌面右下角的数量角标「10 张」(2026-09-30 二版)。
-            // 原先写在钮上(「看广告 ×5」),读起来像要看 5 次广告;数量属于这份货,不属于买法
-            QuantityTag(tile.gameObject, bundle);
             // 已售 / 已领:牌面盖一枚朱砂印,看得出哪格今天已经拿走了
             if (done) SoldSeal(tile.gameObject, doneSeal);
 
@@ -286,21 +286,6 @@ namespace Brushblade.Presentation
                         Strings.T("shop.card_ad.already_title"), Strings.T("shop.card_ad.already_body"))),
                 new Vector2(CardSize.x, BuyH));
             badge.interactable = !claimed;
-        }
-
-        /// <summary>数量角标:牌面右下角一枚墨底白字「N 张」。右下角是 CardBadges 唯一空着的角
-        /// (左上等级/锁、右上稀有度点/新字旗、左下可升)。字号按牌宽取,与其余角标同一套缩放。</summary>
-        private void QuantityTag(GameObject tile, int count)
-        {
-            int font = Mathf.RoundToInt(CardSize.x * 0.13f);
-            var tag = Ui.Chip(tile.transform, Strings.T("shop.slot.bundle_count", ("count", count)),
-                Theme.Ink, Color.white, font, padX: 8, padY: 3);
-            foreach (var graphic in tag.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
-            var element = tag.GetComponent<LayoutElement>();
-            float pad = CardSize.x * 0.05f;
-            Ui.Anchor((RectTransform)tag.transform, new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-pad - element.preferredWidth, pad),
-                new Vector2(-pad, pad + element.preferredHeight));
         }
 
         /// <summary>还没解锁的摊位(2026-09-30 二版):与字牌同尺寸的描边卡,宋体大字「Lv.N」+「解锁」。

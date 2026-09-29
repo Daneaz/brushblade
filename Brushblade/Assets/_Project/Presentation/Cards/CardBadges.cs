@@ -37,6 +37,9 @@ namespace Brushblade.Presentation
             public bool CanUpgrade;
             public bool IsNew;
             public bool Locked;
+            /// <summary>右下角数量角标(2026-09-30,商城一份几张,如「10张」)。null = 不画。
+            /// 锁住(未拥有)也照画 —— 紫档广告位可以是没拥有的字,张数一样要说清楚。</summary>
+            public string QuantityText;
         }
 
         /// <summary>把角标贴到 <see cref="Ui.GlyphTile"/> 建出来的牌上。
@@ -47,6 +50,16 @@ namespace Brushblade.Presentation
             float pad = size.y * PadRatio;
             int font = Mathf.Max(10, Mathf.RoundToInt(size.y * FontRatio));
             float chipH = size.y * ChipHRatio;
+
+            // 右下:数量。与左下「可升」同高同字号,各占一角 —— 此前商城在牌里自己叠一枚 chip,
+            // 字号按牌宽另算、比角标大一圈,双位数时横着压到左下的「可升」上(2026-09-30 用户报)
+            if (!string.IsNullOrEmpty(spec.QuantityText))
+            {
+                var quantity = Badge(tile.transform, "Quantity", spec.QuantityText, font, chipH,
+                    Theme.Ink, Color.white);
+                Ui.Anchor(quantity, new Vector2(1, 0), new Vector2(1, 0),
+                    new Vector2(-pad - Ui.ChipWidth(spec.QuantityText, font), pad), new Vector2(-pad, pad + chipH));
+            }
 
             if (spec.Locked)
             {
@@ -132,7 +145,7 @@ namespace Brushblade.Presentation
                 new Vector2(-Ui.ChipWidth(text, font), -side * 0.5f), Vector2.zero);
         }
 
-        /// <summary>一枚实底圆角小标(等级 / 可升 / 新字旗共用)。返回它的 rect,
+        /// <summary>一枚实底圆角小标(等级 / 可升 / 数量 / 新字旗共用)。返回它的 rect,
         /// 由调用方钉到哪个角上 —— 角标之间的避让规则写在 <see cref="Apply"/> 里,不分散到各处。</summary>
         private static RectTransform Badge(Transform parent, string name, string text,
             int font, float height, Color bg, Color fg, int radius = 8)
