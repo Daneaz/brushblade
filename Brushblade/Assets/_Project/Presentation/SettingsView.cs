@@ -56,7 +56,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>整块重画 —— 开关的字要跟着状态变,逐个去找 Text 组件改反而更易漏。
-        /// 三行内容,重画的代价可以忽略。</summary>
+        /// 两行内容(音效 / 音乐;战斗加速 2026-09-30 移到战斗顶栏),重画的代价可以忽略。</summary>
         private void Rebuild()
         {
             for (int i = _list.childCount - 1; i >= 0; i--)
@@ -68,22 +68,14 @@ namespace Brushblade.Presentation
 
             var s = _meta.Settings;
 
-            ToggleRow(Strings.T("settings.fast_battle"),
-                Strings.T("settings.fast_battle.desc",
-                    ("rate", SpeedRules.FastRate(GameSettings.Subscribed).ToString("0.#"))),
-                s.FastBattle, () => s.FastBattle = !s.FastBattle);
+            // 战斗加速 2026-09-30 移出设置页(用户要求):只留战斗顶栏那一颗速度钮,
+            // 两处入口改的是同一个 FastBattle,留两份只是让玩家在两个地方找同一个开关
 
             ToggleRow(Strings.T("settings.sfx"), null,
                 s.SfxEnabled, () => s.SfxEnabled = !s.SfxEnabled);
 
             ToggleRow(Strings.T("settings.music"), null,
                 s.MusicEnabled, () => s.MusicEnabled = !s.MusicEnabled);
-
-            // 订阅那一档 ×3 还没实装(第 14 章 14.3.1),这里只写一句说明、不画成可买的钮 ——
-            // 「屏上写着玩家点不到的功能」是 README 的硬规矩
-            var note = Ui.ThemedLabel(_list, Strings.T("settings.subscriber_speed_note"), 17,
-                Theme.TextDim, null, TextAnchor.MiddleCenter);
-            note.gameObject.name = "Note";
 
             var back = Ui.PillButton(_list, Strings.T("settings.back"), () => _onBack?.Invoke(),
                 Theme.InkSoft, Color.white, 26, new Vector2(240, 66));
