@@ -62,7 +62,7 @@ namespace Brushblade.Presentation
             for (int i = _list.childCount - 1; i >= 0; i--)
             {
                 var child = _list.GetChild(i);
-                if (child.name == "Row" || child.name == "Note" || child.name == "Back")
+                if (child.name == "Row" || child.name == "Note" || child.name == "Spacer" || child.name == "Back")
                     Destroy(child.gameObject);
             }
 
@@ -76,6 +76,11 @@ namespace Brushblade.Presentation
 
             ToggleRow(Strings.T("settings.music"), null,
                 s.MusicEnabled, () => s.MusicEnabled = !s.MusicEnabled);
+
+            // 返回钮钉在面板底部(2026-09-30 用户要求):中间塞一段弹性占位吃掉剩余高度。
+            // 此前它紧跟开关行,设置项变少后悬在面板半中间
+            var spacer = Ui.Panel(_list, "Spacer");
+            spacer.AddComponent<LayoutElement>().flexibleHeight = 1f;
 
             var back = Ui.PillButton(_list, Strings.T("settings.back"), () => _onBack?.Invoke(),
                 Theme.InkSoft, Color.white, 26, new Vector2(240, 66));
