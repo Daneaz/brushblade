@@ -202,13 +202,19 @@ namespace Brushblade.Core
                 if (enemy.Row == EnemyRow.Front)
                     frontOpeners.Add(enemy);
 
-            // 上限 8(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4)。
-            // 每 6 层多一只而不是每 4 层(2026-08-27 用户拍板「提到 8 但放缓节奏」):
-            // 总量抬高的同时把满员深度从 21 层推到 43 层,前中期体验接近改前。
-            int count = 1 + Math.Min(7, (depth - 1) / 6);
+            int count = MinionCountFor(depth);
             DrawMinions(floor, depthPool, nonSupport, frontOpeners, count, scale, random);
             return floor;
         }
+
+        /// <summary>普通层的敌人数。上限 8(2026-08-03:4 → 6;2026-08-27:6 → 8 = 前 4 + 后 4)。
+        /// 每 6 层多一只而不是每 4 层(2026-08-27 用户拍板「提到 8 但放缓节奏」):
+        /// 总量抬高的同时把满员深度从 21 层推到 43 层,前中期体验接近改前。
+        ///
+        /// ⚠ 召唤槽解锁表(<see cref="MetaRules.SummonSlotsFor"/>)与它逐层对齐
+        /// (2026-09-30:召唤物不超过本层敌人数),改这里要同步改那张表 ——
+        /// SummonSlotUnlockTests 的两条对账测试守着。</summary>
+        public static int MinionCountFor(int depth) => 1 + Math.Min(7, (depth - 1) / 6);
 
         /// <summary>Boss 层的随从数(2026-09-05):第 20 层前为 0,之后每个 Boss 层 +1,
         /// 上限 <see cref="EscortCap"/>。

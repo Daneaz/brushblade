@@ -134,9 +134,9 @@ namespace Brushblade.Core.Tests
             {
                 Encounters = new[] { new[] { WeakTarget() }, new[] { WeakTarget() } },
                 RewardPool = new[] { "焚" },
-                // 解锁槽 0:开局(depth 1)只开槽 1/2,槽 0 要到 16 层才开
-                // (Meta.SlotUnlockDepth,与 RunEngineTests.SummonRun 同一条理由)。
-                FromDepth = 16,
+                // 解锁槽 0:开局(depth 1)只开槽 1,槽 0 要到 25 层才开
+                // (Meta.SlotUnlockDepth,2026-09-30 起;与 RunEngineTests.SummonRun 同一条理由)。
+                FromDepth = 25,
             },
             new BattleConfig { PlayerMaxHp = 999, ApPerTurn = 9, DropTable = new[] { "木" } },
             startingLibrary: new[] { "兵", "解", "焚" }, startingPool: Array.Empty<string>(), seed: 5);

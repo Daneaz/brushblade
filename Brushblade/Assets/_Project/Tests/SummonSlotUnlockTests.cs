@@ -5,16 +5,20 @@ using NUnit.Framework;
 
 namespace Brushblade.Core.Tests
 {
-    /// <summary>召唤槽位按层解锁(2026-08-27 用户拍板)。解锁的是**位置**,不是「前 N 格」——
-    /// 从每排中间两格往两侧开:
+    /// <summary>召唤槽位按层解锁(2026-08-27 用户拍板;2026-09-30 改为每档一格)。解锁的是
+    /// **位置**,不是「前 N 格」—— 从每排中间往两侧开:
     ///
     /// <code>
     ///   槽位   0    1    2    3        4    5    6    7
     ///   位置  前1  前2  前3  前4      后1  后2  后3  后4
-    ///   层数   16    1    1   30       16   11   11   30
+    ///   层数   25    1    7   37       31   13   19   43
     /// </code>
     ///
-    /// 累计开放格数仍是 2 / 4 / 6 / 8,但开放集合**不是连续前缀** —— 落位、顶替、携带回位
+    /// 2026-09-30 用户拍板:召唤物不超过本层敌人总数(Boss 按占格算 4 只)。档位线
+    /// 1/7/13/.../43 正是普通层敌人数 1+min(7,(d−1)/6) 的跳变层,见
+    /// <see cref="SummonSlots_NeverExceedTheFloorsEnemyCount"/>。
+    ///
+    /// 累计开放格数 1…8,开放集合**不是连续前缀** —— 落位、顶替、携带回位
     /// 一律要按集合判,不能拿「下标 &lt; 开放数」当判据。
     ///
     /// 硬上限(数组长度)恒 8。<see cref="BattleConfig.UnlockedSummonSlots"/> 缺省全开,
@@ -23,13 +27,17 @@ namespace Brushblade.Core.Tests
     {
         // ---- 曲线本身 ----
 
-        [TestCase(1, 2)]
-        [TestCase(10, 2)]
-        [TestCase(11, 4)]
-        [TestCase(15, 4)]
-        [TestCase(16, 6)]
-        [TestCase(29, 6)]
-        [TestCase(30, 8)]
+        [TestCase(1, 1)]
+        [TestCase(6, 1)]
+        [TestCase(7, 2)]
+        [TestCase(12, 2)]
+        [TestCase(13, 3)]
+        [TestCase(19, 4)]
+        [TestCase(25, 5)]
+        [TestCase(31, 6)]
+        [TestCase(37, 7)]
+        [TestCase(42, 7)]
+        [TestCase(43, 8)]
         [TestCase(200, 8)]
         public void SummonSlotsFor_FollowsTheUnlockBands(int depth, int slots)
         {
@@ -40,8 +48,36 @@ namespace Brushblade.Core.Tests
         public void SummonSlotsFor_ClampsNonPositiveDepthToTheFirstBand()
         {
             // 层号理应从 1 起;0 / 负数是调用方失误,给最低档比给 8 槽安全
-            Assert.That(MetaRules.SummonSlotsFor(0), Is.EqualTo(2));
-            Assert.That(MetaRules.SummonSlotsFor(-5), Is.EqualTo(2));
+            Assert.That(MetaRules.SummonSlotsFor(0), Is.EqualTo(1));
+            Assert.That(MetaRules.SummonSlotsFor(-5), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SummonSlots_NeverExceedTheFloorsEnemyCount()
+        {
+            // 2026-09-30 用户拍板:召唤物不超过本层敌人总数。纯静态表,所以要对**每一层**成立,
+            // 包括敌人最少的 Boss 层 —— Boss 按占格算 4 只(= 敌方总格位 − 随从上限)。
+            // 分裂在战中加敌不算:表只对开场阵容负责。
+            var config = new EndlessConfig();
+            int bossWeight = Targeting.RowCapacity * 2 - EndlessGenerator.EscortCap;
+            Assert.That(bossWeight, Is.EqualTo(4), "夹具前提:Boss 占 2×2");
+            for (int depth = 1; depth <= 200; depth++)
+            {
+                int enemies = config.IsBossDepth(depth)
+                    ? bossWeight + EndlessGenerator.EscortCountFor(config, depth)
+                    : EndlessGenerator.MinionCountFor(depth);
+                Assert.That(MetaRules.SummonSlotsFor(depth), Is.LessThanOrEqualTo(enemies),
+                    $"第 {depth} 层:召唤格多于敌人数 {enemies}");
+            }
+        }
+
+        [Test]
+        public void SummonSlots_TrackTheNormalFloorEnemyCountExactly()
+        {
+            // 反方向:不许比敌人数「少」得太多 —— 普通层两者逐层相等,档位表才没有白白压格
+            for (int depth = 1; depth <= 200; depth++)
+                Assert.That(MetaRules.SummonSlotsFor(depth),
+                    Is.EqualTo(EndlessGenerator.MinionCountFor(depth)), $"第 {depth} 层");
         }
 
         [Test]
@@ -102,17 +138,17 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void OpeningDepth_FillsTheTwoMiddleFrontSlots()
+        public void OpeningDepths_FillTheTwoMiddleFrontSlots()
         {
-            // 开放集合不是连续前缀:开局开的是槽 1、2(前排中间两格),槽 0 是锁着的。
+            // 开放集合不是连续前缀:第 7 层开的是槽 1、2(前排中间两格),槽 0 是锁着的。
             // 「找最小空槽」若按下标从 0 起扫,第一只就会落进锁着的槽 0。
-            var engine = AtDepth(1, "兵", "兵");
+            var engine = AtDepth(7, "兵", "兵");
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
-            Assert.That(engine.Summons[0], Is.Null, "前 1 号位第 16 层才开");
+            Assert.That(engine.Summons[0], Is.Null, "前 1 号位第 25 层才开");
             Assert.That(engine.Summons[1], Is.Not.Null);
             Assert.That(engine.Summons[2], Is.Not.Null);
-            Assert.That(engine.Summons[3], Is.Null, "前 4 号位第 30 层才开");
+            Assert.That(engine.Summons[3], Is.Null, "前 4 号位第 37 层才开");
         }
 
         [Test]
@@ -141,8 +177,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlanSummonSlots_WalksOnlyOpenSlots()
         {
-            // 落位环只能踩开着的格。11 层开放 {1,2,5,6},从 2 起顺延 3 只 = 2 → 5 → 6
-            var engine = AtDepth(11, "兵");
+            // 落位环只能踩开着的格。19 层开放 {1,2,5,6},从 2 起顺延 3 只 = 2 → 5 → 6
+            var engine = AtDepth(19, "兵");
             Assert.That(engine.PlanSummonSlots(2, 3), Is.EqualTo(new[] { 2, 5, 6 }));
             Assert.That(engine.PlanSummonSlots(6, 3), Is.EqualTo(new[] { 6, 1, 2 }), "环回到最小的开放格");
             Assert.That(engine.PlanSummonSlots(0, 2), Is.EqualTo(new[] { 1, 2 }),
@@ -151,14 +187,14 @@ namespace Brushblade.Core.Tests
 
         // ---- 每一格是第几层解锁 ----
 
-        [TestCase(0, 16)]   // 前 1
+        [TestCase(0, 25)]   // 前 1
         [TestCase(1, 1)]    // 前 2 —— 开局就有
-        [TestCase(2, 1)]    // 前 3 —— 开局就有
-        [TestCase(3, 30)]   // 前 4
-        [TestCase(4, 16)]   // 后 1
-        [TestCase(5, 11)]   // 后 2
-        [TestCase(6, 11)]   // 后 3
-        [TestCase(7, 30)]   // 后 4
+        [TestCase(2, 7)]    // 前 3
+        [TestCase(3, 37)]   // 前 4
+        [TestCase(4, 31)]   // 后 1
+        [TestCase(5, 13)]   // 后 2
+        [TestCase(6, 19)]   // 后 3
+        [TestCase(7, 43)]   // 后 4
         public void UnlockDepthForSlot_MatchesTheBands(int slot, int depth)
         {
             Assert.That(MetaRules.UnlockDepthForSlot(slot), Is.EqualTo(depth));
@@ -167,11 +203,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void UnlockedSlots_OpenFromTheMiddleOutwards()
         {
-            Assert.That(Open(1), Is.EquivalentTo(new[] { 1, 2 }), "开局:前排中间两格");
-            Assert.That(Open(10), Is.EquivalentTo(new[] { 1, 2 }), "第 10 层还没到线");
-            Assert.That(Open(11), Is.EquivalentTo(new[] { 1, 2, 5, 6 }), "11 层补后排中间两格");
-            Assert.That(Open(16), Is.EquivalentTo(new[] { 0, 1, 2, 4, 5, 6 }), "16 层补前后排 1 号");
-            Assert.That(Open(30), Is.EquivalentTo(new[] { 0, 1, 2, 3, 4, 5, 6, 7 }), "30 层补 4 号");
+            Assert.That(Open(1), Is.EquivalentTo(new[] { 1 }), "开局:前排中间一格");
+            Assert.That(Open(6), Is.EquivalentTo(new[] { 1 }), "第 6 层还没到线");
+            Assert.That(Open(7), Is.EquivalentTo(new[] { 1, 2 }), "7 层补齐前排中间");
+            Assert.That(Open(19), Is.EquivalentTo(new[] { 1, 2, 5, 6 }), "13/19 层补后排中间两格");
+            Assert.That(Open(31), Is.EquivalentTo(new[] { 0, 1, 2, 4, 5, 6 }), "25/31 层补前后排 1 号");
+            Assert.That(Open(43), Is.EquivalentTo(new[] { 0, 1, 2, 3, 4, 5, 6, 7 }), "37/43 层补 4 号");
         }
 
         [Test]
@@ -227,7 +264,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void TwoSlots_ThirdSummonNeedsReplacement()
         {
-            var engine = AtDepth(1, "兵", "兵", "兵");
+            var engine = AtDepth(7, "兵", "兵", "兵");
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.SummonCapFull),
@@ -238,14 +275,14 @@ namespace Brushblade.Core.Tests
         public void TwoSlots_MultiSummonCharIsCappedToTheOpenSlots()
         {
             // 桂 那类召 3 只的字在 2 槽时只召得下 2 只 —— 封顶而不是溢出崩溃
-            var engine = AtDepth(1, "群");
+            var engine = AtDepth(7, "群");
             Assert.That(engine.SummonCountOf(Graph().Get("群")), Is.EqualTo(2));
         }
 
         [Test]
-        public void DepthSixteen_OpensSixSlots_ThreePerRow()
+        public void DepthThirtyOne_OpensSixSlots_ThreePerRow()
         {
-            var engine = AtDepth(16, "兵");
+            var engine = AtDepth(31, "兵");
             Assert.That(engine.SummonCapacity, Is.EqualTo(6));
             Assert.That(engine.IsSlotOpen(0), Is.True);   // 前 1
             Assert.That(engine.IsSlotOpen(3), Is.False);  // 前 4 还锁着
@@ -258,12 +295,12 @@ namespace Brushblade.Core.Tests
         [Test]
         public void RunEngine_UsesTheCurrentFloorDepthNotTheSegmentStart()
         {
-            // 段从第 10 层起:第 1 场是 10 层(2 槽),第 2 场是 11 层(4 槽)。
+            // 段从第 12 层起:第 1 场是 12 层(2 槽),第 2 场是 13 层(3 槽)。
             // 拿段起始层当依据的话,整段都停在 2 槽,跨过解锁线也不涨。
             var floor = new[] { new EnemyDef("靶", Element.Heart, 1, 0) };
             var runConfig = new RunConfig
             {
-                FromDepth = 10,
+                FromDepth = 12,
                 Encounters = new List<IReadOnlyList<EnemyDef>> { floor, floor },
                 RewardPool = new[] { "兵" },
             };
@@ -271,14 +308,14 @@ namespace Brushblade.Core.Tests
                 new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 500, ApPerTurn = 9 },
                 startingLibrary: new[] { "扫", "扫" }, startingPool: Array.Empty<string>(), seed: 7);
 
-            Assert.That(run.Battle.SummonCapacity, Is.EqualTo(2), "第 10 层");
+            Assert.That(run.Battle.SummonCapacity, Is.EqualTo(2), "第 12 层");
 
             Assert.That(run.Battle.Cast("扫"), Is.EqualTo(BattleError.None));
             Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
             run.AdvanceAfterBattle();
             run.SkipReward();
 
-            Assert.That(run.Battle.SummonCapacity, Is.EqualTo(4), "第 11 层跨过解锁线");
+            Assert.That(run.Battle.SummonCapacity, Is.EqualTo(3), "第 13 层跨过解锁线");
         }
 
         [Test]

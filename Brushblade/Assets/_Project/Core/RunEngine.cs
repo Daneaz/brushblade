@@ -838,6 +838,7 @@ namespace Brushblade.Core
                 if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
                 var snapshot = summon.Capture(s);   // 槽位随之带走
                 snapshot.ActionMeter = 0;
+                snapshot.Shield /= 2;   // 战后护盾衰减对我方所有持盾单位一致(2026-09-30),同玩家
                 alive.Add(snapshot);
             }
             return alive;
