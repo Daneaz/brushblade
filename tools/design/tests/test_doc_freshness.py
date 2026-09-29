@@ -73,7 +73,6 @@ def test_doc_is_fresh():
 # 字段本身是否有卡面渲染由 CardFaceCoverageTests 守。
 PAIRED_CONCEPTS = {
     "executeKills": ("char.effect.execute.kill", {"Boss", "双倍", "斩杀"}),
-    "backline": ("char.effect.backline", {"偷袭", "前排"}),
     "hitCount": ("char.effect.hitcount", {"段"}),
     "summonShield": ("char.effect.summonshield", {"盾"}),
     # pierce 只要「穿透」:文档紧凑表格写「穿透 15」,卡面弹窗写「无视 15 点护甲」——

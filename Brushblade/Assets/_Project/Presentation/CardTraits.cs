@@ -400,7 +400,7 @@ namespace Brushblade.Presentation
                         break;
                 }
 
-                // 伤害上的修饰(穿透 / 偷袭 / 分段 / 斩杀 / 条件翻倍):挂在这一击上,不是独立效果
+                // 伤害上的修饰(穿透 / 分段 / 斩杀 / 条件翻倍):挂在这一击上,不是独立效果
                 if (e.Kind == EffectKind.DamageSingle || e.Kind == EffectKind.DamageAll)
                     DamageModifiers(traits, e);
                 // 形状特性(2026-09-16 起 HealSelf 也认):治疗弹射(海/澡)配 Chain 的那一支,
@@ -422,10 +422,6 @@ namespace Brushblade.Presentation
                 AddTrait(traits, "pierce", e.Pierce.ToString(),
                             Strings.T("collection.trait.pierce.name"),
                             Strings.T("collection.trait.pierce.desc", ("value", e.Pierce)));
-            if (e.CanStrikeBackline)
-                AddWord(traits, Strings.T("collection.trait.backline.chip"),
-                            Strings.T("collection.trait.backline.name"),
-                            Strings.T("collection.trait.backline.desc"));
             if (e.HitCount > 1)
                 AddWord(traits, Strings.T("collection.trait.hitcount.chip", ("count", e.HitCount)),
                             Strings.T("collection.trait.hitcount.name"),

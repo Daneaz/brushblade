@@ -188,13 +188,11 @@ namespace Brushblade.Core.Tests
             Assert.That(Targeting.FrontmostSummon(Line(), FrontRow), Is.EqualTo(-1));
         }
 
-        /// <summary>四张叶子字直出:剑=纯直伤、刺=带偷袭的直伤、藤=纯冻结、湮=直伤+驱散(混合字)。</summary>
+        /// <summary>三张叶子字直出:剑=纯直伤、藤=纯冻结、湮=直伤+驱散(混合字)。</summary>
         private static RecipeGraph DamageGraph() => new(new[]
         {
             new CharDef("剑", Element.Heart, effects: new[] {
                 new EffectDef(EffectKind.DamageSingle, 50) }),
-            new CharDef("刺", Element.Heart, effects: new[] {
-                new EffectDef(EffectKind.DamageSingle, 50, canStrikeBackline: true) }),
             new CharDef("藤", Element.Heart, effects: new[] {
                 new EffectDef(EffectKind.Freeze, 2) }),
             new CharDef("湮", Element.Heart, effects: new[] {
@@ -204,7 +202,7 @@ namespace Brushblade.Core.Tests
         /// <summary>前甲(厚)/ 前乙(40 血,一剑即死)/ 后手。敌人攻 0,不会回手。</summary>
         private static BattleEngine Trio() => new(DamageGraph(),
             new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
-            new string[0], new[] { "剑", "剑", "刺", "藤", "湮" },
+            new string[0], new[] { "剑", "剑", "藤", "湮" },
             new[]
             {
                 new EnemyDef("前甲", Element.Heart, 400, 0),
@@ -212,15 +210,16 @@ namespace Brushblade.Core.Tests
                 new EnemyDef("后手", Element.Heart, 400, 0, row: EnemyRow.Back),
             }, seed: 1);
 
+        /// <summary>2026-09-30 用户拍板:取消「偷袭」—— **只有召唤物和敌人有前后排的概念**,
+        /// 我方攻类字卡不受排位限制。此前单体直伤在前排还活着时点不了后排(偷袭字除外)。</summary>
         [Test]
-        public void Cast_SingleDamage_RejectsBackRow_WhileTwoFrontAlive()
+        public void Cast_SingleDamage_ReachesBackRow_EvenWithFrontAlive()
         {
             var engine = Trio();
-            int ap = engine.Ap;
-            int backHp = engine.Enemies[2].Hp;
-            Assert.That(engine.Cast("剑", 2), Is.EqualTo(BattleError.InvalidTarget));
-            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(backHp), "被拒的这次一点伤害也不该落下");
-            Assert.That(engine.Ap, Is.EqualTo(ap), "AP 不扣");
+            Assert.That(engine.Cast("剑", 2), Is.EqualTo(BattleError.None), "前排两只都活着,照样点得到后排");
+            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(350));
+            Assert.That(engine.CanTarget(DamageGraph().Get("剑"), 2), Is.True,
+                "表现层置灰的判据(CanTarget)同口径");
         }
 
         [Test]
@@ -232,25 +231,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Cast_BackstabDamage_ReachesBackRow()
-        {
-            var engine = Trio();
-            Assert.That(engine.Cast("刺", 2), Is.EqualTo(BattleError.None));
-            Assert.That(engine.Enemies[2].Hp, Is.LessThan(400), "偷袭字够得着后排");
-        }
-
-        [Test]
         public void Cast_BacklineCleave_SplashesWithinTheBackRow()
         {
-            // 砸 = 溅射 + 偷袭(2026-09-02)。两个修饰位并存时的落点:偷袭把主目标解放到后排,
-            // 溅射再按**主目标所在那一排**取相邻 —— 溅到的是另一只后排怪,不是前排。
-            // RestrictedToFrontRow 里 CanStrikeBackline 判在形状之前,这条口径才成立;
-            // 谁把那两句调换顺序,或让溅射改按前排取相邻,这条就会红。
+            // 溅射点后排(2026-09-02 起;2026-09-30 取消偷袭后任何攻类字都能点后排):
+            // 溅射按**主目标所在那一排**取相邻 —— 溅到的是另一只后排怪,不是前排。
+            // 谁让溅射改按前排取相邻,这条就会红。
             var graph = new RecipeGraph(new[]
             {
                 new CharDef("砸", Element.Heart, effects: new[] {
                     new EffectDef(EffectKind.DamageSingle, 50,
-                        shape: TargetShape.Cleave, shapePercent: 50, canStrikeBackline: true) }),
+                        shape: TargetShape.Cleave, shapePercent: 50) }),
             });
             var engine = new BattleEngine(graph,
                 new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
@@ -263,7 +253,7 @@ namespace Brushblade.Core.Tests
                     new EnemyDef("后乙", Element.Heart, 400, 0, row: EnemyRow.Back),
                 }, seed: 1);
 
-            Assert.That(engine.Cast("砸", 2), Is.EqualTo(BattleError.None), "偷袭字点得动后排");
+            Assert.That(engine.Cast("砸", 2), Is.EqualTo(BattleError.None), "攻类字点得动后排");
             Assert.That(engine.Enemies[2].Hp, Is.EqualTo(350), "主目标吃全额");
             Assert.That(engine.Enemies[3].Hp, Is.EqualTo(375), "同排相邻吃 50%");
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(400), "前排一点都不该沾");
@@ -271,23 +261,21 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Cast_MixedCard_TakesTheStrictestRule()
+        public void Cast_MixedCard_ReachesBackRow()
         {
             var engine = Trio();
-            Assert.That(engine.Cast("湮", 2), Is.EqualTo(BattleError.InvalidTarget),
-                "含单体直伤就受限,哪怕它还带一条驱散");
+            Assert.That(engine.Cast("湮", 2), Is.EqualTo(BattleError.None), "直伤 + 驱散的混合字同样不受排位限制");
         }
 
         [Test]
-        public void Cast_AutoLocks_WhenExactlyOneLegalTargetRemains()
+        public void Cast_WithoutTarget_AsksToChoose_WhenSeveralAlive()
         {
+            // 取消排位限制后「合法目标」= 「存活目标」:前排死一只还剩两只活的(前甲、后手),
+            // 两只都点得到,不指定目标就不能替玩家猜 —— 交给 UI 选
             var engine = Trio();
             engine.Cast("剑", 1);                       // 50 伤打死 40 血的前乙
             Assert.That(engine.Enemies[1].Alive, Is.False);
-            // 现在存活的有两只(前甲、后手),但**合法的**只有前甲一只 → 不指定目标应自动锁它
-            Assert.That(engine.Cast("剑"), Is.EqualTo(BattleError.None));
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(350), "自动锁的是前甲");
-            Assert.That(engine.Enemies[2].Hp, Is.EqualTo(400), "后手没被碰到");
+            Assert.That(engine.Cast("剑"), Is.EqualTo(BattleError.InvalidTarget));
         }
 
         private static RecipeGraph SummonRangeGraph() => new(new[]
@@ -345,8 +333,7 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Cast_SingleDamage_ReachesBackRow_AfterFrontRowCleared()
         {
-            // CanPlayerHit 里 FirstAliveInRow(Front) < 0 的取反分支——「前排已清空」与
-            // 「前排从未有过」被同等对待——此前全仓库零覆盖,评审 Minor 破格补上。
+            // 排位限制取消(2026-09-30)后这条是平凡成立的,留着当回归哨兵。
             var engine = ThinFrontTrio();
             Assert.That(engine.Cast("剑", 0), Is.EqualTo(BattleError.None));
             Assert.That(engine.Cast("剑", 1), Is.EqualTo(BattleError.None));
@@ -358,7 +345,7 @@ namespace Brushblade.Core.Tests
         }
 
         /// <summary>整场没有前排(两只都是 EnemyRow.Back),钉「前排从未有过」这条口径——
-        /// 与上面「前排已清空」是 CanPlayerHit 里同一句判断的两种成因,分开钉才不会漏。</summary>
+        /// 排位限制取消(2026-09-30)后平凡成立,留着当回归哨兵。</summary>
         private static BattleEngine AllBackRowDuel() => new(DamageGraph(),
             new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
             new string[0], new[] { "剑" },

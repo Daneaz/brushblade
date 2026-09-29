@@ -164,11 +164,6 @@ namespace Brushblade.Core
         /// 是真会发生的涌现,不是 bug。</summary>
         public int HitCount { get; }
 
-        /// <summary>偷袭(2026-08-20):这一发单体伤害无视敌方前排,可直接点后排。
-        /// 只对 <see cref="EffectKind.DamageSingle"/> 有意义——其余单体效果本来就不受排位限制。
-        /// 全字表眼下只有「刺」标了它(spec §12)。</summary>
-        public bool CanStrikeBackline { get; }
-
         /// <summary>目标形状(2026-08-22,spec §3)。缺省 <see cref="TargetShape.Single"/> ——
         /// 缺省值即恒等性:现有 87 张伤害字不写这个字段,展开后目标表长度恒为 1,
         /// 结算路径与改造前逐位相同。对 <see cref="EffectKind.DamageSingle"/> 有意义;
@@ -213,7 +208,7 @@ namespace Brushblade.Core
             int turns = 0, bool targetAll = false,
             SummonPassive passive = null, int summonShield = 0, int summonDefense = 0,
             int executeBelowPercent = 0, bool executeKills = false,
-            int hitCount = 1, int pierce = 0, bool canStrikeBackline = false,
+            int hitCount = 1, int pierce = 0,
             TargetShape shape = TargetShape.Single, int shapePercent = 100, int shots = 0,
             bool trueDamage = false, int armorStrikePercent = 0)
         {
@@ -233,7 +228,6 @@ namespace Brushblade.Core
             ExecuteKills = executeKills;
             HitCount = hitCount <= 0 ? 1 : hitCount;
             Pierce = pierce;
-            CanStrikeBackline = canStrikeBackline;
             Shape = shape;
             ShapePercent = shapePercent <= 0 ? 100 : shapePercent;
             Shots = shots;

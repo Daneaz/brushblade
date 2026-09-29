@@ -423,20 +423,13 @@ def test_no_playable_char_is_uncraftable():
         "或在详表里标 ⚠ 移出字表")
 
 
-def test_backline_token_attaches_to_single_damage():
+def test_backline_token_is_rejected_after_removal():
+    """偷袭(`Backline`)2026-09-30 取消:我方字卡不再有前后排限制。详表里残留这个 token
+    必须大声报错,不能被悄悄吞掉 —— 否则会生成一张卡面上看不出、玩家以为还带偷袭的字。"""
+    import pytest
     from extract_values import _parse_effects
-    assert _parse_effects("`DamageSingle 135`,`Pierce 15` + `Backline` + `Morale 1`", "金") == [
-        {"kind": "DamageSingle", "value": 135, "pierce": 15, "backline": True},
-        {"kind": "Morale", "value": 1}]
-
-
-def test_backline_does_not_become_a_standalone_effect():
-    """Backline 是伤害的修饰,不是效果。若它落成一条独立效果,
-    EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException。"""
-    from extract_values import _parse_effects
-    effects = _parse_effects("`DamageSingle 50` + `Backline`", "金")
-    assert all(e["kind"] != "Backline" for e in effects)
-    assert len(effects) == 1
+    with pytest.raises(ValueError):
+        _parse_effects("`DamageSingle 50` + `Backline`", "金")
 
 
 def test_ranged_token_lands_in_summon_passive():

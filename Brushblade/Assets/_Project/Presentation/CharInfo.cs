@@ -82,7 +82,7 @@ namespace Brushblade.Presentation
                     EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
                             ("shape", ShapeLabel(e)), ("value", shown))
                         + DoubleVsText(e)
-                        + PierceText(e) + BacklineText(e) + HitCountText(e) + ExecuteText(e)
+                        + PierceText(e) + HitCountText(e) + ExecuteText(e)
                         + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e),
                     EffectKind.DamageAll => Strings.T("char.effect.damageall", ("value", shown))
                         + DoubleVsText(e)
@@ -203,15 +203,6 @@ namespace Brushblade.Presentation
         private static string HitCountText(EffectDef e) =>
             e.HitCount > 1 ? Strings.T("char.effect.hitcount", ("count", e.HitCount)) : "";
 
-        /// <summary>偷袭后缀(2026-08-23)。与召唤物被动的「远程」是同一件事的两侧:
-        /// 那条挂在召唤物身上,这条作用于玩家出的这一记单体伤害。
-        ///
-        /// 载体:砸 / 冷 / 熣 / 刲(2026-09-02 按字意装配)。2026-08-25 刺 改贯穿之后
-        /// 到此之前**一张字都没标**,这条后缀有半个月是渲染不出来的死路径 ——
-        /// 全集由 CharTableTests.RealConfig_BacklineChars_CanStrikeBackline 钉住。</summary>
-        private static string BacklineText(EffectDef e) =>
-            e.CanStrikeBackline ? Strings.T("char.effect.backline") : "";
-
         /// <summary>召唤物被动(2026-08-23)。此前**卡面完全不印**,导致柳(血80/攻30)与
         /// 松(血120/攻30)除血量外毫无区别 —— 而柳实际带 50% 闪避,玩家没法判断该留哪张。
         /// 顺序与 SummonPassive 的字段声明一致,措辞与 gen_char_doc.py 的 PASSIVE 表同口径。</summary>
@@ -292,7 +283,7 @@ namespace Brushblade.Presentation
         /// <summary>碾后缀(2026-09-16,土):与 <see cref="PierceText"/> 是同族的伤害修饰,
         /// 但两者**是两档**——穿透削一部分甲值再算 DR,碾直接跳过整条 DR
         /// (<see cref="EffectDef.TrueDamage"/> 的注释)。单体/AOE 两种伤害都能挂,
-        /// 与只作用于单体的 <see cref="BacklineText"/> 不同。</summary>
+        /// 与只作用于单体的 <see cref="ArmorStrikeText"/> 不同。</summary>
         private static string TrueDamageText(EffectDef e) =>
             e.TrueDamage ? Strings.T("char.effect.truedamage") : "";
 

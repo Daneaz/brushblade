@@ -188,7 +188,7 @@ namespace Brushblade.Core
         /// 两排都空返回 null。
         ///
         /// 跨排 Boss 两排都占,所以它在两种情形下都进得了候选 —— 走 <see cref="EnemyState.Occupies"/>
-        /// 而不是 <c>Row ==</c>,与 <see cref="FirstAliveInRow"/> 同判据。</summary>
+        /// 而不是 <c>Row ==</c>。</summary>
         private static List<int> RowCandidates(IReadOnlyList<EnemyState> enemies, bool ranged)
         {
             var first = AliveInRow(enemies, ranged ? EnemyRow.Back : EnemyRow.Front);
@@ -431,33 +431,10 @@ namespace Brushblade.Core
         // 旁边的随从一发都吃不到,而那正是连发这个形状要避免的。
         // 去重靠 pool.Contains:候选表最多 8 项,线性查找的代价可以忽略。
 
-        /// <summary>玩家的**单体直接伤害**能不能打这只敌人(spec §4.2)。
-        /// ignoresRow = 该字标了偷袭(刺)。控制类、AOE 一律不调本函数——它们不受排位限制。
-        ///
-        /// 「前排从未有过」与「前排已被清空」同等对待:一场若全是后排怪,玩家直接全场可点。</summary>
-        public static bool CanPlayerHit(IReadOnlyList<EnemyState> enemies, int enemyIndex, bool ignoresRow)
-        {
-            if (enemyIndex < 0 || enemyIndex >= enemies.Count || !enemies[enemyIndex].Alive) return false;
-            // Occupies 而不是 Row == Front:跨排 Boss 的 Row 只是起始排,而它两排都占 ——
-            // 比 Row 会让近战一开场够不着它(明明它就站在前排)。
-            if (ignoresRow || enemies[enemyIndex].Occupies(EnemyRow.Front)) return true;
-            return FirstAliveInRow(enemies, EnemyRow.Front) < 0;
-        }
-
         private static int FirstAliveSlot(IReadOnlyList<SummonState> summons, int from, int toExclusive)
         {
             for (int s = from; s < toExclusive && s < summons.Count; s++)
                 if (summons[s] != null && summons[s].Alive) return s;
-            return -1;
-        }
-
-        /// <summary>这一排第一个活人的下标;没有返回 −1。
-        /// 走 <see cref="EnemyState.Occupies"/> —— 跨排 Boss 在两排都算活人,
-        /// 所以「前排清空了吗」这个判定认得出它还站着(后排随从因此仍被挡)。</summary>
-        private static int FirstAliveInRow(IReadOnlyList<EnemyState> enemies, EnemyRow row)
-        {
-            for (int i = 0; i < enemies.Count; i++)
-                if (enemies[i].Alive && enemies[i].Occupies(row)) return i;
             return -1;
         }
     }

@@ -1309,21 +1309,18 @@ namespace Brushblade.Core
             if (!fromLibrary && !fromPool) return BattleError.NotCastable;
             if (Ap < def.ApCost) return BattleError.NotEnoughAp;
 
-            // 单体效果需要有效的存活目标;未指定或不合法时,**合法目标**恰好一个则自动锁定
-            // (3.8.3 单敌免选;2026-08-20 从「存活目标」改口径为「合法目标」——前排还剩一只时
-            //  点后排的字应当直接锁那一只,而不是弹一次没得选的选目标)
+            // 单体效果需要有效的存活目标;未指定或不合法时,存活目标恰好一个则自动锁定(3.8.3 单敌免选)。
+            // 2026-09-30 取消「偷袭」:**只有召唤物和敌人有前后排的概念**,我方字卡不受排位限制,
+            // 合法目标 = 存活目标(2026-08-20 的「前排阻挡单体直伤」一并废止)。
             if (NeedsTarget(def, attackMode))
             {
-                bool restricted = RestrictedToFrontRow(def, attackMode);
-                bool legal = targetIndex >= 0 && targetIndex < _enemies.Count && _enemies[targetIndex].Alive
-                    && (!restricted || Targeting.CanPlayerHit(_enemies, targetIndex, ignoresRow: false));
+                bool legal = targetIndex >= 0 && targetIndex < _enemies.Count && _enemies[targetIndex].Alive;
                 if (!legal)
                 {
                     int sole = -1;
                     for (int i = 0; i < _enemies.Count; i++)
                     {
                         if (!_enemies[i].Alive) continue;
-                        if (restricted && !Targeting.CanPlayerHit(_enemies, i, ignoresRow: false)) continue;
                         if (sole >= 0) { sole = -1; break; } // 合法目标多于一个:交给 UI 去选
                         sole = i;
                     }
@@ -1497,7 +1494,7 @@ namespace Brushblade.Core
         /// 两个效果列表都空的字,实际打出去的是 <see cref="FallbackEffects"/> 那一发兜底一击,
         /// 表现层自己重写选取逻辑必然漏掉这一支(2026-08-22 评审 Finding 2 命中的正是这条)。
         ///
-        /// 只取**第一条** DamageSingle 的 Shape/Shots——与 NeedsTarget/RestrictedToFrontRow
+        /// 只取**第一条** DamageSingle 的 Shape/Shots——与 NeedsTarget
         /// 一样只看首条,不聚合多条直伤(混合多形状直伤字眼下不存在,真出现时预览会只显示
         /// 第一发,是已知的当前局限而非本次改动引入的新账)。没有单体直伤则返回 (Single, 0)。</summary>
         public static (TargetShape Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false)
@@ -1718,37 +1715,11 @@ namespace Brushblade.Core
             slot >= 0 && slot < SummonCap && _summons[slot] != null && !_summons[slot].Alive
             && AliveSummons() < SummonCapacity;
 
-        /// <summary>本次出字是否受敌方前排阻挡(2026-08-20,spec §4.2)。
-        ///
-        /// **只有 DamageSingle 受限**:控制、减益、灼烧、AOE 一律不受排位限制
-        /// ——「打不到后面,但够得着冻住、破甲、下毒」。
-        ///
-        /// 混合字按最严的算:效果里只要含一条 DamageSingle 就受限(如湮 = 直伤 + 全体驱散)。
-        /// 但只要有任一条直伤标了偷袭,整张字就是偷袭字——偷袭是字的身份,不是单条效果的属性。
-        ///
-        /// 连发(Volley)不受限——它是远程形状,与偷袭一样越阵。</summary>
-        public static bool RestrictedToFrontRow(CharDef def, bool attackMode = false)
-        {
-            bool hasDirectDamage = false;
-            foreach (var effect in EffectsOf(def, attackMode))
-            {
-                if (effect.Kind != EffectKind.DamageSingle) continue;
-                if (effect.CanStrikeBackline) return false;
-                // 连发是远程,天然越阵(2026-08-22,spec §3.4)。横扫/溅射/贯穿照旧受限 ——
-                // 它们只判主目标,溅到的必然在主目标够得着的范围内
-                if (effect.Shape == TargetShape.Volley) return false;
-                hasDirectDamage = true;
-            }
-            return hasDirectDamage;
-        }
-
-        /// <summary>这张字现在能不能点这只敌人(表现层据此置灰;引擎在 Cast 里用同一条判据)。</summary>
-        public bool CanTarget(CharDef def, int enemyIndex, bool attackMode = false)
-        {
-            if (enemyIndex < 0 || enemyIndex >= _enemies.Count || !_enemies[enemyIndex].Alive) return false;
-            if (!RestrictedToFrontRow(def, attackMode)) return true;
-            return Targeting.CanPlayerHit(_enemies, enemyIndex, ignoresRow: false);
-        }
+        /// <summary>这张字现在能不能点这只敌人(表现层据此置灰;引擎在 Cast 里用同一条判据)。
+        /// 2026-09-30 起我方字卡不受排位限制(取消偷袭),存活即可点;def / attackMode 留着给调用方
+        /// 同一个签名,将来再有按字区分的目标规则时接在这里。</summary>
+        public bool CanTarget(CharDef def, int enemyIndex, bool attackMode = false) =>
+            enemyIndex >= 0 && enemyIndex < _enemies.Count && _enemies[enemyIndex].Alive;
 
         /// <summary>最近一次 AdvanceOnce 执行的行动者(表现层据此高亮行动条那一格)。</summary>
         public ActorRef LastActor { get; private set; } = ActorRef.Player;

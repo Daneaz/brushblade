@@ -1211,21 +1211,19 @@ namespace Brushblade.Core.Tests
             Assert.That(volleyLoss, Is.EqualTo(singleLoss * 3), "3 发全额,单敌时正好是单发的三倍");
         }
 
-        /// <summary>连发不受前排阻挡(远程);形状类照旧受限。</summary>
+        /// <summary>连发目标全自动,不进选目标态;横扫要选主目标。
+        /// (排位限制那一半随 2026-09-30 取消偷袭一并删除:我方字卡不再受前排阻挡。)</summary>
         [Test]
-        public void Volley_IsNotRestrictedToFrontRow()
+        public void Volley_NeedsNoTarget_SweepDoes()
         {
             var volley = new CharDef("连测", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
                     shape: TargetShape.Volley, shots: 3) });
-            Assert.That(BattleEngine.RestrictedToFrontRow(volley), Is.False);
             Assert.That(BattleEngine.NeedsTarget(volley), Is.False, "连发目标全自动,不进选目标态");
 
             var sweep = new CharDef("扫测", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
                     shape: TargetShape.Sweep) });
-            Assert.That(BattleEngine.RestrictedToFrontRow(sweep), Is.True,
-                "横扫只判主目标,而主目标照旧受前排阻挡");
             Assert.That(BattleEngine.NeedsTarget(sweep), Is.True);
         }
 

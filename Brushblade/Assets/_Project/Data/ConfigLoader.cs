@@ -53,7 +53,6 @@ namespace Brushblade.Data
             public int ExecuteBelowPercent { get; set; } // 斩杀:目标 HP 低于此百分比时触发
             public bool ExecuteKills { get; set; }       // true = 直接击杀(Boss 免疫);false = 伤害 ×2
             public int HitCount { get; set; } = 1;  // 多段:伤害分几段打(剁 = 2)
-            public bool Backline { get; set; }   // 偷袭:该发单体直伤无视敌方前排(2026-08-20)
             public string Shape { get; set; }      // 目标形状(2026-08-22):null = Single
             public int ShapePercent { get; set; } = 100; // 非主目标伤害百分比
             public int Shots { get; set; }         // 连发发数
@@ -529,7 +528,7 @@ namespace Brushblade.Data
                     effect.Turns, effect.TargetAll,
                     effect.Passive, effect.SummonShield, effect.SummonDefense,
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
-                    effect.HitCount, effect.Pierce, effect.Backline,
+                    effect.HitCount, effect.Pierce,
                     shape, effect.ShapePercent, effect.Shots, effect.TrueDamage,
                     effect.ArmorStrikePercent));
             }

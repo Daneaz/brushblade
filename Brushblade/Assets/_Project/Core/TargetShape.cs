@@ -4,7 +4,7 @@ namespace Brushblade.Core
     /// 它回答「打谁」,EffectKind 回答「做什么」。
     ///
     /// 做成修饰字段而不是五个新的 EffectKind:那样 ApplyEffects 里含斩杀/暴击/护甲/多段
-    /// 四层逻辑的伤害循环要复制五份,而 NeedsTarget / RestrictedToFrontRow / CanTarget
+    /// 四层逻辑的伤害循环要复制五份,而 NeedsTarget / CanTarget
     /// 三处白名单要各加一笔 —— 2026-08-06 单体驱散漏在白名单外导致 _enemies[-1] 越界崩溃,
     /// 记的就是这类账(BattleEngine.cs 的 NeedsTarget 注释)。
     ///

@@ -356,7 +356,6 @@ def desc(e):
     if e.get('persistOnce'): mods.append("免一次清盾")
     # mods 会被外层括号整体包住,这里不能再带括号,否则嵌套成「(穿透 10(…))」
     if e.get('pierce'): mods.append(f"穿透 {e['pierce']}")
-    if e.get('backline'): mods.append("偷袭:无视敌方前排")
     if e.get('hitCount', 1) > 1: mods.append(f"{e['hitCount']} 段独立结算")
     if e.get('executeBelowPercent'):
         mods.append(f"斩杀线 {e['executeBelowPercent']}%"
@@ -438,10 +437,9 @@ SUMMON_TRAITS = [
 
 
 def _dmg_mods(e):
-    """挂在一击上的修饰(穿透 / 偷袭 / 分段 / 斩杀 / 条件翻倍),与 CardTraits.DamageModifiers 同序。"""
+    """挂在一击上的修饰(穿透 / 分段 / 斩杀 / 条件翻倍),与 CardTraits.DamageModifiers 同序。"""
     out = []
     if e.get('pierce'): out.append(f"穿透 {e['pierce']}")
-    if e.get('backline'): out.append("偷袭")
     if e.get('hitCount', 1) > 1: out.append(f"分 {e['hitCount']} 段")
     if e.get('executeBelowPercent'):
         out.append("斩杀" if e.get('executeKills') else "残血加伤")
@@ -590,7 +588,7 @@ A("- **相克 ×1.5 / 被克 ×0.5**:配置表填的**就是实战值**——相
 A("  (全表 74 字里原本只有 4 字吃得到,是条空转规则;焚/蒸/刲 已等值改写进基础值,战斗结果不变)。")
 A("  本表的攻击力与功能列因此不再需要 `70×3=210` 这类换算式,直接就是实战数字;卡面(CharInfo)同口径。")
 A("- **特性技能**:这个字除了「多大」(攻击力/功能列的数值)、「打谁」(功能列的单体/全体)之外**还带什么** ——")
-A("  灼烧、冻结、破甲、斩杀、偷袭、战意…… 与卡面详情的「特性 · 技能」段同一批名字")
+A("  灼烧、冻结、破甲、斩杀、战意…… 与卡面详情的「特性 · 技能」段同一批名字")
 A("  (`Presentation/CardTraits.Of` + `strings.zh-CN.json` 的 `collection.trait.*`),读表与玩家读卡对得上。")
 A("  **召唤字列的是那几只召唤物的被动**(召唤字自己不出手,它带什么就等于召唤物带什么);")
 A("  目标形状(横扫 / 贯穿 / 溅射 / 连发 / 弹射)2026-09-05 起改判为**特性**(见设计稿 §0),故入本列;")

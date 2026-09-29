@@ -199,8 +199,9 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 207,
-          "backline": true
+          "value": 216,
+          "shape": "Cleave",
+          "shapePercent": 50
         },
         {
           "kind": "BurnSingle",
@@ -1031,8 +1032,7 @@
       "effects": [
         {
           "kind": "DamageSingle",
-          "value": 131,
-          "backline": true,
+          "value": 159,
           "executeBelowPercent": 25,
           "executeKills": true,
           "hitCount": 2

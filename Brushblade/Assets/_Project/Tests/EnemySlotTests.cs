@@ -57,24 +57,17 @@ namespace Brushblade.Core.Tests
             }
         }
 
-        /// <summary>Boss 占着前排,所以近战一开场就打得到它 ——
-        /// 不必先清掉那几只随从(它占的两列里前排那一半就是它自己)。</summary>
+        /// <summary>Boss 占着前排,所以近战召唤物一开场就打得到它,而且只打它 ——
+        /// Boss 活着就等于「前排还有人」,后排的随从够不到。
+        /// 2026-09-30 取消偷袭后玩家字卡不再有排位限制,这条改钉召唤物近战那一路
+        /// (原来钉的是玩家侧的 CanPlayerHit,已删)。</summary>
         [Test]
-        public void CrossRowBoss_IsReachableByMelee_EvenWithEscortsAlive()
+        public void CrossRowBoss_CountsAsFrontRow_ForMeleeSummons()
         {
             var engine = Engine(CrossRowBoss(), Mob("卒", EnemyRow.Back));
-            Assert.That(Targeting.CanPlayerHit(engine.Enemies, 0, ignoresRow: false), Is.True,
-                "Boss 占前排,近战够得着");
-        }
-
-        /// <summary>反过来:Boss 活着就等于「前排还有人」,后排的随从因此打不到。
-        /// 这一条是上一条的另一半 —— 前排清空的判定也要认得跨排 Boss。</summary>
-        [Test]
-        public void CrossRowBoss_BlocksBackRowEscorts()
-        {
-            var engine = Engine(CrossRowBoss(), Mob("卒", EnemyRow.Back));
-            Assert.That(Targeting.CanPlayerHit(engine.Enemies, 1, ignoresRow: false), Is.False,
-                "Boss 还站着,后排的随从够不到");
+            for (int seed = 1; seed <= 20; seed++)
+                Assert.That(Targeting.PickEnemyTargetForSummon(engine.Enemies, ranged: false, new GameRandom(seed)),
+                    Is.EqualTo(0), "Boss 占前排:近战召唤物打它,够不到后排随从");
         }
 
         /// <summary>横扫(同排全打)对跨排 Boss:**打哪一排都扫到它,而且打两次**

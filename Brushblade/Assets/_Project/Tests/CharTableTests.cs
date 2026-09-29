@@ -220,39 +220,6 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void RealConfig_BacklineChars_CanStrikeBackline()
-        {
-            // 偷袭(无视敌方前排)在 2026-08-25 刺 改贯穿之后一度**零字使用** —— 引擎、管线、
-            // 字符串表三处都还在,只是没有载体,漏配了不会有任何东西变红。
-            // 2026-09-02 按字意重新装配四张:砸(重物下击,抛物线越过前排)、冷(寒气弥漫)、
-            // 熣(火光晃眼,光照不被挡)、刲(割取、刺杀,潜入取要害)。数值一概不动。
-            // ⚠ 两面都要扫(2026-09-02 双方向合流):砸/冷 是水/土系,双方向改造把它们的伤害
-            // 搬进了 AttackEffects —— 偷袭本来就是攻击属性,搬过去反而是它该在的位置。
-            // 只扫 .Effects 会让这条不变量对全部 28 张双方向字半盲(熣/刲 是火/金系没改,
-            // 所以只扫单面时那两个照样绿,失效是**部分**的、更难发现)。
-            // 2026-09-05:砸(土)/熣(火)随字表调整移出,偷袭字只剩 冷/刲 两张。
-            // 2026-09-07 字表重做 P2:冷 改单纯「减速 1 回合」,不再带偷袭(design §6 水系
-            // 白档只留控制链定位);偷袭改挂 灿(火/金档,灼烧2 + 偷袭),偷袭字变成 灿/刲。
-            var graph = RealGraph();
-            var expected = new[] { "灿", "刲" };
-            foreach (var id in expected)
-            {
-                var def = graph.Get(id);
-                var hit = def.Effects.Concat(def.AttackEffects)
-                    .First(e => e.Kind == EffectKind.DamageSingle);
-                Assert.That(hit.CanStrikeBackline, Is.True, $"「{id}」应能直接点后排");
-            }
-
-            // 全集也钉住:偷袭是稀缺的战术位,新增载体时把它加进上表一起钉。
-            var carriers = graph.All
-                .Where(c => (c.Effects ?? Array.Empty<EffectDef>())
-                    .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())
-                    .Any(e => e.CanStrikeBackline))
-                .Select(c => c.Id).ToList();
-            Assert.That(carriers.Count, Is.EqualTo(expected.Length), "偷袭字的全集就是上表");
-        }
-
-        [Test]
         public void RealConfig_CardSideSkewerCarrier()
         {
             // ⚠ 方法名反转(2026-09-16,土水系机制重做,原 RealConfig_CardSideSkewerHasNoCarrier):

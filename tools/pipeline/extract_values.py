@@ -350,15 +350,11 @@ def _parse_effects(config, char):
                     effect["doubleVs"] = token
                     consumed.add(f"DoubleVs{token}")
                     break
-        # 偷袭(2026-08-20):无视敌方前排。只修饰单体直伤 —— 其余单体效果本就不受排位限制。
-        # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Backline" 的独立效果,
-        #   而 EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException
-        #   (与 PIERCE_TOKEN 头上那条注释同一个坑)。
-        if kind == "DamageSingle" and "`Backline`" in config:
-            effect["backline"] = True
-            consumed.add("Backline")
-        # 碾(2026-09-16,土):跳过整条 DR,单体/AOE 两种伤害都能挂(与只限单体的
-        # Backline 不同 —— BattleEngine 的 DamageSingle/DamageAll 两个分支都已接了
+        # 偷袭(`Backline`)2026-09-30 取消:我方字卡不再有前后排限制,这个修饰位随之删除。
+        # 不留解析分支是刻意的 —— 详表里再写 `Backline` 会落进 _raise_unconsumed_tokens 大声报错,
+        # 而不是被悄悄吞掉、生成一张「以为能偷袭」的字。
+        # 碾(2026-09-16,土):跳过整条 DR,单体/AOE 两种伤害都能挂(BattleEngine 的
+        # DamageSingle/DamageAll 两个分支都已接了
         # effect.TrueDamage → bypassDefense)。
         if kind.startswith("Damage") and f"`{TRUE_DAMAGE_TOKEN}`" in config:
             effect["trueDamage"] = True
