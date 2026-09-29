@@ -263,7 +263,8 @@ namespace Brushblade.Core
 
         /// <summary>把「主目标 + 形状」展开成实际要结算的敌人下标表(2026-08-22,spec §4)。
         ///
-        /// **首项恒为主目标**(Volley 除外——它没有主目标),调用方靠这一条区分
+        /// **首项恒为主目标**(Volley 除外——它没有主目标;玩家指定了目标时首发落在它身上,
+        /// 见 volleyLeadsWithPrimary),调用方靠这一条区分
         /// 「吃斩杀/多段/穿透的那一发」与「只吃 ShapePercent 的溅射」。
         ///
         /// **表内可含重复下标**:Volley 循环补足时同一只怪会出现多次,调用方按
@@ -273,11 +274,17 @@ namespace Brushblade.Core
         /// 才不会整体变红(与本文件 PickAllyTarget 那条「候选只有一个时不摇」同一套纪律)。
         ///
         /// 空位不递补:溅射打边格只溅一侧,整排只剩一只横扫就只中一只。
-        /// 形状是几何,不是「保证打满 K 个」。</summary>
+        /// 形状是几何,不是「保证打满 K 个」。
+        ///
+        /// <paramref name="volleyLeadsWithPrimary"/>(2026-09-27,「塔」拖到敌人身上却没打到那只):
+        /// 只对 Volley 有意义。玩家出字时传 true —— 玩家亲手指了一只活着的敌人,首发就落在它身上,
+        /// 其余发数从它在候选序列里的位置起接着轮;没指(−1)或指的已死,退回老序列。
+        /// 召唤物普攻不传:它的 primaryIndex 是自己挑的,连发召唤物一直按「后排优先」打,不改。</summary>
         public static IReadOnlyList<int> ExpandTargets(IReadOnlyList<EnemyState> enemies,
-            int primaryIndex, TargetShape shape, int shots)
+            int primaryIndex, TargetShape shape, int shots, bool volleyLeadsWithPrimary = false)
         {
-            if (shape == TargetShape.Volley) return VolleyTargets(enemies, shots);
+            if (shape == TargetShape.Volley)
+                return VolleyTargets(enemies, shots, volleyLeadsWithPrimary ? primaryIndex : -1);
             if (shape == TargetShape.Chain) return ChainTargets(enemies, primaryIndex, shots);
             if (primaryIndex < 0 || primaryIndex >= enemies.Count) return System.Array.Empty<int>();
 
@@ -389,7 +396,8 @@ namespace Brushblade.Core
 
         /// <summary>连发的目标序列:后排优先、各排按列序排出候选,再从头循环取满 shots 发。
         /// 候选为空或 shots ≤ 0 返回空表。</summary>
-        private static IReadOnlyList<int> VolleyTargets(IReadOnlyList<EnemyState> enemies, int shots)
+        private static IReadOnlyList<int> VolleyTargets(IReadOnlyList<EnemyState> enemies, int shots,
+            int lead = -1)
         {
             if (shots <= 0) return System.Array.Empty<int>();
             var pool = new List<int>();
@@ -397,8 +405,11 @@ namespace Brushblade.Core
             CollectRowByColumn(enemies, EnemyRow.Front, pool);
             if (pool.Count == 0) return System.Array.Empty<int>();
 
+            // 玩家指定的首发(2026-09-27):把序列转到从它开始,循环顺序不变。
+            // 不在候选里(尸体 / −1)时 IndexOf 给 −1,start 归 0,即老序列。
+            int start = System.Math.Max(0, pool.IndexOf(lead));
             var result = new List<int>(shots);
-            for (int n = 0; n < shots; n++) result.Add(pool[n % pool.Count]);
+            for (int n = 0; n < shots; n++) result.Add(pool[(start + n) % pool.Count]);
             return result;
         }
 

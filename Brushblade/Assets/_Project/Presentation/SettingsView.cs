@@ -106,7 +106,7 @@ namespace Brushblade.Presentation
 
             // 开=翠玉,关=灰。只靠颜色分不够(色觉障碍 + 强光下),所以**文字也写明**开/关
             Ui.RoundButton(row.transform,
-                Strings.T(on ? "settings.on" : "settings.off"),
+                on ? Strings.T("settings.on") : Strings.T("settings.off"),   // 字面量各写一次,StringsTableTests 才扫得到
                 () => { toggle(); Commit(); Rebuild(); },
                 on ? Theme.Jade : Theme.LockGray, Color.white, 22, new Vector2(132, 58), 14);
         }

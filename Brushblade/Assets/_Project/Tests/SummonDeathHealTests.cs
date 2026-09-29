@@ -107,7 +107,7 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.WellspringStacks, Is.EqualTo(0), "前提:起手 0 层");
             int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);
             engine.KillSummonForTest(slot);
-            // 攒泉阈值固定 200(2026-09-16 起,原 100):一次 40 攒不满一层,但余数要记进去。
+            // 攒泉阈值固定 100(2026-09-27 起,原 200):一次 40 攒不满一层,但余数要记进去。
             // 这里只断"确实走了攒泉通道"——余数不外露,故用连续多只验证。
             Assert.That(engine.HealAccum, Is.EqualTo(40),
                 "走的是统一治疗入口,余数进 _healAccum");
@@ -122,7 +122,8 @@ namespace Brushblade.Core.Tests
             // 阈值 2026-09-11 起已改为固定值、不再随 PlayerMaxHp/5 推导;
             // 2026-09-16(土水系机制重做任务 4)固定值本身又从 100 → 200,
             // 400 这个「4 层份额」的构造值同步翻倍成 800,继续攒满 4 层。
-            engine.GainWellspringForTest(800);   // 阈值固定 200 → 攒满 4 层
+            // 2026-09-27(积攒速度 ×2)又从 200 → 100,构造值改走常量,不再逐次跟着改。
+            engine.GainWellspringForTest(BattleEngine.ResourceThresholdValue * 4);   // 攒满 4 层
             Assert.That(engine.WellspringStacks, Is.EqualTo(4), "前提:攒够 4 层");
             Assert.That(engine.Cast("兵"), Is.EqualTo(BattleError.None));
             int slot = Array.FindIndex(engine.Summons.ToArray(), s => s != null);

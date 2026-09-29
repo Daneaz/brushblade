@@ -1066,10 +1066,12 @@ namespace Brushblade.Core
         public int ShieldAccum => _shieldAccum;
         public int HealAccum => _healAccum;
 
-        /// <summary>攒一层厚/泉需要的量 = **固定 200**(2026-09-16,土水系机制重做任务 4)。
+        /// <summary>攒一层厚/泉需要的量 = **固定 100**(2026-09-27,积攒速度 ×2)。
         ///
         /// 沿革:/10(2026-09-02) → /5(2026-09-05) → /7(2026-09-11) → 固定 100(2026-09-11)
-        /// → **固定 200**(2026-09-16)。
+        /// → 固定 200(2026-09-16) → **固定 100**(2026-09-27)。
+        /// 2026-09-27 用户拍板「泉和厚的积攒速度 ×2,让玩家多用大招」:盾/治疗量不动,
+        /// 阈值减半即攒速翻倍。下面 200 那一段是上一轮的沿革,保留作背景。
         /// 前三次都挂在 <c>PlayerMaxHp</c> 上,而**那是个结构性错配**:被这个阈值 gate 的
         /// 盾/治疗值走的是 <see cref="ScaleByBaseAttack"/>(值 × PlayerAttack / 100),
         /// 两条成长曲线斜率差一倍 —— <c>MaxHpFor</c> 是 500 + 20×(L−1)(50 级封顶 ×2.96),
@@ -1095,7 +1097,7 @@ namespace Brushblade.Core
         /// (举例数字按 Task 11 前的字表:金档护盾锚点单发 83,低于阈值 200,
         /// 三发合计 249 才攒出 1 层 + 余 49;Task 11 落地后该锚点会调整,读这个例子时
         /// 认它讲的是「累计不丢」这个机制,不要照抄这两个数字)。</summary>
-        public const int ResourceThresholdValue = 200;
+        public const int ResourceThresholdValue = 100;
 
         private int ResourceThreshold => ResourceThresholdValue;
 
@@ -1344,10 +1346,16 @@ namespace Brushblade.Core
             // 场上没有存活召唤物时自动锁玩家,不让 UI 弹一次没得选的选择。
             // 但尸体拒治优先于免选——allySlot 点着的是一具占槽的尸体(哪怕它是场上唯一
             // 一只召唤物),这是玩家明确点错了目标,不能被「反正没得选」悄悄改判成治玩家。
-            if (NeedsAllyTarget(def, attackMode))
+            // 复活选尸体(2026-09-27,沐):带复活的那一面点尸体 = 救这一具,其余友方效果
+            // (持续治疗/解封)一并落在它身上;救不了(满员)照样拒,不悄悄改判成治玩家。
+            bool corpseSlot = allySlot >= 0 && allySlot < SummonCap
+                && _summons[allySlot] != null && !_summons[allySlot].Alive;
+            if (corpseSlot && HasRevive(def, attackMode))
             {
-                bool corpseSlot = allySlot >= 0 && allySlot < SummonCap
-                    && _summons[allySlot] != null && !_summons[allySlot].Alive;
+                if (!CanReviveSlot(allySlot)) return BattleError.InvalidTarget;
+            }
+            else if (NeedsAllyTarget(def, attackMode))
+            {
                 if (corpseSlot) return BattleError.InvalidTarget;
                 if (AliveSummons() == 0) allySlot = Targeting.PlayerTarget;
                 else if (!CanHealSlot(allySlot)) return BattleError.InvalidTarget;
@@ -1703,6 +1711,22 @@ namespace Brushblade.Core
             if (slot == Targeting.PlayerTarget) return true;
             return slot >= 0 && slot < SummonCap && _summons[slot] != null && _summons[slot].Alive;
         }
+
+        /// <summary>这一面带不带复活(2026-09-27,沐):表现层据此在友方选目标态下把**尸体**
+        /// 也点亮成可选落点。与 <see cref="NeedsAllyTarget"/> 同样建在 <see cref="EffectsOf"/> 上。</summary>
+        public static bool HasRevive(CharDef def, bool attackMode = false)
+        {
+            foreach (var effect in EffectsOf(def, attackMode))
+                if (effect.Kind == EffectKind.Revive) return true;
+            return false;
+        }
+
+        /// <summary>这个槽位现在能不能作为**复活目标**(2026-09-27):躺着一具尸体,且复活后
+        /// 不超存活上限。与 <see cref="CanHealSlot"/> 恰好互补 —— 那边只认活的,这边只认死的。
+        /// 表现层据此画尸体的点选层;引擎在 Cast 里用同一条判据。</summary>
+        public bool CanReviveSlot(int slot) =>
+            slot >= 0 && slot < SummonCap && _summons[slot] != null && !_summons[slot].Alive
+            && AliveSummons() < SummonCapacity;
 
         /// <summary>本次出字是否受敌方前排阻挡(2026-08-20,spec §4.2)。
         ///
@@ -2555,6 +2579,16 @@ namespace Brushblade.Core
             // 单条 effect 用 count 表示只数),但半个家族的修法比不修更误导后来者。
             int summonCursor = 0;
 
+            // 复活选尸体(2026-09-27,沐):allySlot 点着一具尸体时**先**把它救回来,再跑效果表 ——
+            // 持续治疗/解封排在效果表里复活的前后都有可能,先救才能让它们都认得这只是活的。
+            // 这一具算进 Revive 效果的只数里(下面 Revive 分支会少救一只)。
+            bool reviveTargetPending = false;
+            if (allySlot >= 0 && HasRevive(def, attackMode) && CanReviveSlot(allySlot))
+            {
+                ReviveAt(allySlot);
+                reviveTargetPending = true;
+            }
+
             foreach (var effect in EffectsOf(def, attackMode))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
@@ -2568,8 +2602,10 @@ namespace Brushblade.Core
                         // 形状展开(2026-08-22,spec §5):目标表首项是主目标,只有它吃
                         // 斩杀/多段/穿透;其余按 ShapePercent 折算。Shape 缺省 Single 时
                         // 表长恒为 1,整段逐位等价于改造前 —— 恒等性硬线就落在这里。
+                        // 连发(2026-09-27):玩家指了谁(拖到/点到那只),首发就落在谁身上 ——
+                        // 「塔」拖到敌人身上松手,选中的那只曾一发都没挨到。没指(−1)时照旧自动。
                         var shapeTargets = Targeting.ExpandTargets(
-                            _enemies, targetIndex, effect.Shape, effect.Shots);
+                            _enemies, targetIndex, effect.Shape, effect.Shots, volleyLeadsWithPrimary: true);
                         for (int t = 0; t < shapeTargets.Count; t++)
                         {
                             int tgt = shapeTargets[t];
@@ -2771,21 +2807,16 @@ namespace Brushblade.Core
                         });
                         break;
                     case EffectKind.Revive:
-                        for (int n = 0; n < value; n++)
+                        // 玩家点了尸体(见方法头):那一具已经救过,算第一只
+                        for (int n = reviveTargetPending ? 1 : 0; n < value; n++)
                         {
                             // 死尸占着槽位,复活不新增条目但存活数 +1 —— 满员时停手,免得超上限
                             if (AliveSummons() >= SummonCapacity) break;
                             int slot = FirstDeadSummonIndex();
                             if (slot < 0) break; // 没有阵亡召唤物 → 空放(与无敌人时出 AOE 同口径)
-                            var revived = _summons[slot];
-                            revived.Hp = (revived.MaxHp + 1) / 2; // 半血,向上取整
-                            // 复活不走治疗入口、也永不溢出(半血 ≤ 上限),所以水脉 L2
-                            // 「溢流」对它天然不涉及 —— 不是漏接(2026-09-13)。
-                            revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
-                            revived.Shield = 0;                   // 盾不跟着复活
-                            // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
-                            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
+                            ReviveAt(slot);
                         }
+                        reviveTargetPending = false;
                         // 复活把一只召唤物从死亡拉回存活集合(2026-09-05):它自己要吃到
                         // 「含自己」的光环,其余存活召唤物也要把它复活后的一份重新算进总量 ——
                         // 与 Summon 分支同一条理由,循环外调一次即可(多只复活只需一次全量重算)。
@@ -3747,6 +3778,20 @@ namespace Brushblade.Core
         /// <summary>第一具尸体的槽位;没有返回 −1。引擎从不移除阵亡召唤物
         /// (表现层只是不画它们),所以复活直接就地救回。null 不是尸体,
         /// 复活救不回一个从未存在过的召唤物。</summary>
+        /// <summary>把这一格的尸体救回半血(EffectKind.Revive 的单只口径,2026-09-27 抽出:
+        /// 自动救最前一具与玩家点名救某一具共用)。调用方负责判「是尸体、未满员」。</summary>
+        private void ReviveAt(int slot)
+        {
+            var revived = _summons[slot];
+            revived.Hp = (revived.MaxHp + 1) / 2; // 半血,向上取整
+            // 复活不走治疗入口、也永不溢出(半血 ≤ 上限),所以水脉 L2
+            // 「溢流」对它天然不涉及 —— 不是漏接(2026-09-13)。
+            revived.ActionMeter = 0;              // 重新攒节拍,不继承死前余额
+            revived.Shield = 0;                   // 盾不跟着复活
+            // Passive 是只读属性,天然保留 —— 它是这只召唤物的身份
+            _events.Add(new BattleEvent(BattleEventKind.Summon, -1, revived.Hp, slot));
+        }
+
         private int FirstDeadSummonIndex()
         {
             for (int s = 0; s < SummonCap; s++)

@@ -290,6 +290,11 @@ for c in R:
         ss=(MARK_SHIELD if marked else 0)
         if '光环盾' in ts: ss+=int(round(hp*AURA_SHIELD_F/10.0))*10
         sm=f"{n} 只 · {hp} 血 / {at} 攻"+(f" · 盾 {ss}" if ss else "")
+        # 木系双面(2026-09-27 用户拍板「木系也改两面,护面为召唤,攻面就是攻击,参考土系和水系」):
+        # 护面 = 上面这只召唤物,攻面 = 单体伤害。攻面取值与 dual_s/dual_h 同口径 —— 单攻锚点
+        # 按本字的特性预算打折(木系印记免计价那一条已在 ratio 里扣掉)。纯肉盾(tank=100)
+        # 的召唤物免计价只作用于召唤那一面,攻面照常按 ratio 付特性费,不白拿满额。
+        if el=='木': atk=bud(A['单攻'])
     elif form=='dual_s':
         g=GROUP_F if '群盾' in c['traits'] else 1.0
         atk=bud(A['全体'] if g<1 else A['单攻'])

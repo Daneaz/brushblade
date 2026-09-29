@@ -64,6 +64,29 @@ namespace Brushblade.Core.Tests
             Assert.That(graph.Get("㙓").Recipe, Is.EqualTo(new[] { "土", "垚" }));
         }
 
+        /// <summary>木系召唤字双面(2026-09-27 用户拍板「木系也改两面,护面为召唤,攻面就是攻击,
+        /// 参考土系和水系」):护面(Effects)召唤、攻面(AttackEffects)单体伤害,两面互不串 ——
+        /// 攻面要是也带召唤,表现层拖到敌人身上会进落位态而不是出手。</summary>
+        [Test]
+        public void RealConfig_WoodSummonChars_AreDualFaced()
+        {
+            var graph = RealGraph();
+            var woodSummons = graph.All
+                .Where(d => d.Element == Element.Wood && d.Effects.Any(e => e.Kind == EffectKind.Summon))
+                .ToList();
+            Assert.That(woodSummons.Count, Is.GreaterThanOrEqualTo(10), "夹具有效性:木系召唤字一张都没漏读");
+            foreach (var def in woodSummons)
+            {
+                Assert.That(def.AttackEffects.Count, Is.GreaterThan(0), $"{def.Id} 缺攻面");
+                Assert.That(def.AttackEffects.Any(e => e.Kind == EffectKind.DamageSingle), Is.True,
+                    $"{def.Id} 攻面应是单体伤害");
+                Assert.That(def.AttackEffects.Any(e => e.Kind == EffectKind.Summon), Is.False,
+                    $"{def.Id} 攻面不该再召唤");
+                Assert.That(BattleEngine.NeedsTarget(def, attackMode: true), Is.True,
+                    $"{def.Id} 攻面要选敌人");
+            }
+        }
+
         [Test]
         public void RealConfig_FiveStackCharsAreTopRarity()
         {

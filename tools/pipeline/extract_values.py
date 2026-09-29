@@ -14,7 +14,9 @@ RARITY = {"🟡金": "Gold", "🔴红": "Red", "🟠橙": "Orange", "🟣紫": "
 # 两字拆成攻护两面(伤害进攻面、增攻/暴击进护面)。金系其余表全是单面字,多出来的那格
 # 一律 —— ,解析侧不受影响(_parse_row 现在把「实现」列排除在反引号候选之外,
 # 那才是这条闸原先真正防的东西,见那里的注释)。
-DUAL_DIRECTION_ELEMENTS = {"水", "土", "金"}
+# 木系(2026-09-27):召唤字改双面 —— 护面 = 召唤,攻面 = 单体伤害(详表 §三 三张召唤表
+# 多挂的那格「攻击效果配置」)。纯攻击字 花 只有一个反引号格,不受影响。
+DUAL_DIRECTION_ELEMENTS = {"水", "土", "金", "木"}
 
 # 召唤被动 token → chars.json 里 passive 对象的字段名(详表 §召唤·单体·带被动)。
 # 「光环」与「攻击附灼烧」是同一个字段:烓/灶 攻 0 靠 OnHitBurn 输出,楸 攻 6 附带 1 层。
@@ -226,7 +228,9 @@ def _parse_row(line, element):
         # (如「装配 `DoubleVsControlled`」),不排掉的话「第二个反引号格」会把说明文字
         # 当成攻击效果解析 —— 这正是这道元素闸原先要防的东西,现在按格排除更直接,
         # 金系才能安全地加进来。
-        backticked = [c for c in cells if "`" in c and c != impl]
+        # 2026-09-27(木系双面):「实现」格**之后**的续写格同理要排掉 —— 详表里有行在
+        # 实现格后面又用 `|` 接了一段沿革(如 花/𣛧),那一段同样散落着反引号。
+        backticked = [c for c in cells[:cells.index(impl)] if "`" in c]
         if len(backticked) > 1:
             attack_effects = _parse_effects(backticked[1], char)
             if attack_effects:

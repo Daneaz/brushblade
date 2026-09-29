@@ -300,6 +300,12 @@
             "auraAttack": 20
           }
         }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 465
+        }
       ]
     },
     {
@@ -325,6 +331,12 @@
             "regen": 60
           }
         }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 308
+        }
       ]
     },
     {
@@ -349,6 +361,12 @@
             "regen": 60
           }
         }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 233
+        }
       ]
     },
     {
@@ -371,6 +389,12 @@
           "passive": {
             "ranged": true
           }
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 129
         }
       ]
     },
@@ -396,6 +420,12 @@
             "ranged": true
           }
         }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 152
+        }
       ]
     },
     {
@@ -419,6 +449,12 @@
             "thorns": 50,
             "taunt": true
           }
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 144
         }
       ]
     },
@@ -444,6 +480,12 @@
             "regen": 60
           }
         }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 364
+        }
       ]
     },
     {
@@ -467,6 +509,12 @@
           "passive": {
             "thorns": 50
           }
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 342
         }
       ]
     },
@@ -492,6 +540,12 @@
             "taunt": true
           }
         }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 224
+        }
       ]
     },
     {
@@ -515,6 +569,12 @@
             "onHitFreezeChance": 10,
             "onHitFreezeTurns": 1
           }
+        }
+      ],
+      "attackEffects": [
+        {
+          "kind": "DamageSingle",
+          "value": 88
         }
       ]
     },

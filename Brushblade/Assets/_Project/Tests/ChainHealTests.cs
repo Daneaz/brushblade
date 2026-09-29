@@ -100,8 +100,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void ChainHeal_EachBounceAccumulatesWellspring()
         {
-            // 主 100(名义)+ 弹 50 + 弹 50 = 200 名义值,阈值恰好 200 → 1 层、余数清零。
-            // 若弹射两跳没有各自攒泉,总名义值只有 100,凑不满一层——这条测试能吃出漏记账。
+            // 主 100(名义)+ 弹 50 + 弹 50 = 200 名义值,阈值 100(2026-09-27 起,原 200)→ 2 层、余数清零。
+            // 若弹射两跳没有各自攒泉,总名义值只有 100,只够 1 层——这条测试能吃出漏记账。
             var engine = Engine();
             engine.Cast("召", summonSlots: new[] { 0 });
             engine.Cast("召", summonSlots: new[] { 1 });
@@ -110,7 +110,7 @@ namespace Brushblade.Core.Tests
 
             engine.Cast("海");
 
-            Assert.That(engine.WellspringStacks, Is.EqualTo(1), "主 100 + 两跳各 50 = 200,凑满一层阈值");
+            Assert.That(engine.WellspringStacks, Is.EqualTo(2), "主 100 + 两跳各 50 = 200,凑满两层阈值");
             Assert.That(engine.HealAccum, Is.EqualTo(0), "满层后余数清零(GainStacks 既有口径)");
         }
 
