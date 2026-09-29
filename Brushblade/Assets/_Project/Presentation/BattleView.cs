@@ -296,6 +296,13 @@ namespace Brushblade.Presentation
         private Transform _runEndBanner;
         private GameObject _rowDivider;  // 敌我前排之间的墨线:只在战斗阶段现身(2026-08-20)
         private Text _messageLabel;
+        // 顶栏「速度」开关(2026-09-30):点击就地改色改字,**不走 Refresh** —— 动画锁期间
+        // 随时可点,而 Refresh 会重建敌人/召唤物格,演出协程手上还拿着那些格的 RectTransform。
+        private Image _speedToggleBg;
+        private Text _speedToggleLabel;
+        // 局内设置浮层(2026-09-30):与地图同一个 SettingsView,叠在战斗之上而不是换视图 ——
+        // GameRoot.ShowSettings 走 NewView 会把整个 BattleView 连根销毁。
+        private GameObject _settingsOverlay;
         private bool _resolvingHint;    // 本次重绘落在动画锁里:底部提示行画「结算中……」而非播报
 
         private Tutorial _tutorial;      // 新手引导(11.2);null = 不引导
@@ -803,8 +810,11 @@ namespace Brushblade.Presentation
             _runEndBanner = Ui.Panel(transform, "RunEndBanner").transform;
             Ui.Stretch((RectTransform)_runEndBanner);
 
+            // 2026-09-30:右段多了「速度」「设置」两颗钮,0.70 起放不下 —— 左沿放到 0.50
+            // (中段本来就腾空,见上),改靠右排,退出钮仍贴最右
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
-            Ui.Anchor((RectTransform)_topRight, new Vector2(0.70f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
+            _topRight.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
+            Ui.Anchor((RectTransform)_topRight, new Vector2(0.50f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
 
             // 稿 .arena:左窄栏定宽、中区吃余量、右栏定宽,三栏都铺满顶栏以下的整条带。
             var arena = Ui.Row(frame.transform, "Arena", ArenaGap);
@@ -1306,6 +1316,9 @@ namespace Brushblade.Presentation
             }
             // 长按 preview 置顶:重绘后 preview 须盖在战斗 UI 之上
             if (_modal != null) _modal.transform.SetAsLastSibling();
+            // 设置浮层开着时压在一切之上(含上一行的 _modal、动画落幕后才建的选字页 _sheet):
+            // 它的全屏遮罩就是「设置期间拖拽/出字点不到」的唯一保障
+            if (_settingsOverlay != null) _settingsOverlay.transform.SetAsLastSibling();
             // 底部提示行现在是全屏唯一的提示位,动画期间让给「结算中……」——播报要等整轮推进
             // 完才有完整内容(蓄力/释放/护盾被掀空按批累加),动画落幕后 OnAnimDone 那次重绘
             // 自然会把它显示出来。两者不能叠在同一行。
@@ -1434,6 +1447,9 @@ namespace Brushblade.Presentation
             // 正是想要的时序;每条离塔路径都先 CommitEventInk,所以切回外层时两边必然相等。
             Ui.InkCounter(_topRight, _run.AvailableInk, 18);
             Ui.ThemedLabel(_topRight, Strings.T("battle.label.turn", ("turn", Battle.Turn)), 18, Theme.TextDim);
+            DrawSpeedToggle(_topRight);
+            Ui.PillButton(_topRight, Strings.T("battle.btn.settings"), OpenSettings,
+                Theme.InkSoft, Color.white, 15, new Vector2(72, 38));
             DrawCoachButton(_topRight);
             bool suspend = _onExit != null; // 无尽:退出可挂起/弃塔(2026-07-19);否则=认输
             Ui.PillButton(_topRight, Strings.T("battle.btn.exit"), () => // 统一弹窗确认(2026-07-19 拍板)
@@ -1449,6 +1465,54 @@ namespace Brushblade.Presentation
                         (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Theme.Cinnabar, Color.white),
                         (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
             }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
+        }
+
+        /// <summary>顶栏「速度 ×N」开关(2026-09-30):与设置页「战斗加速」读写同一个
+        /// <see cref="SettingsState.FastBattle"/>,不另存一份。Juice 每帧现取倍率,点下即生效,
+        /// 动画锁期间也能点(DrawTopBar 在锁期间照画)。</summary>
+        private void DrawSpeedToggle(Transform parent)
+        {
+            var button = Ui.PillButton(parent, "", ToggleFastBattle, Theme.LockedBg, Color.white, 15,
+                new Vector2(96, 38));
+            _speedToggleBg = button.targetGraphic as Image;
+            _speedToggleLabel = button.GetComponentInChildren<Text>();
+            UpdateSpeedToggle();
+        }
+
+        private void ToggleFastBattle()
+        {
+            _meta.Settings.FastBattle = !_meta.Settings.FastBattle;
+            GameSettings.Bind(_meta.Settings); // 与 SettingsView.Commit 同口径
+            _onProgress?.Invoke();
+            UpdateSpeedToggle();
+        }
+
+        /// <summary>开=翠玉 + 「×2」,关=灰底 + 「×1」:字面写明当前倍率,不只靠颜色。</summary>
+        private void UpdateSpeedToggle()
+        {
+            if (_speedToggleBg == null || _speedToggleLabel == null) return;
+            bool on = _meta.Settings.FastBattle;
+            float rate = on ? SpeedRules.FastRate(GameSettings.Subscribed) : SpeedRules.NormalRate;
+            _speedToggleLabel.text = Strings.T("battle.btn.speed", ("rate", rate.ToString("0.#")));
+            _speedToggleLabel.color = on ? Color.white : Theme.TextMain;
+            _speedToggleBg.color = on ? Theme.Jade : Theme.LockedBg;
+        }
+
+        /// <summary>局内打开设置(2026-09-30):同一个 <see cref="SettingsView"/>,挂在一层全屏遮罩里
+        /// 叠在战斗之上。遮罩吃掉所有点击/拖拽起手;演出不暂停(与详情弹窗同口径,
+        /// 结算照常播完,只是玩家这期间碰不到战场)。关掉时同步顶栏开关 —— 设置页里也能改加速。</summary>
+        private void OpenSettings()
+        {
+            if (_settingsOverlay != null) return;
+            _settingsOverlay = Ui.Panel(transform, "SettingsOverlay");
+            _settingsOverlay.AddComponent<Image>().color = Theme.Scrim; // raycastTarget 缺省为真:拦截层
+            var host = _settingsOverlay;
+            _settingsOverlay.AddComponent<SettingsView>().Init(_meta, _onProgress, () =>
+            {
+                Object.Destroy(host);
+                _settingsOverlay = null;
+                UpdateSpeedToggle();
+            });
         }
 
         /// <summary>「?」引导钮(稿 .coachbtn):重新打开当前这步的引导弹层(2026-08-31 接上
