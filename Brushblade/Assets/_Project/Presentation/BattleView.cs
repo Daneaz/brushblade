@@ -4211,10 +4211,11 @@ namespace Brushblade.Presentation
             // 判据只认 RunEngine.CurrentSupply —— 别去猜 Battle 的阶段:字库补给发生在
             // 玩家回合中,复活发生在败北后,看着能分开,但那是**巧合**不是契约
             DrawPickSheet(
-                Strings.T(_run.CurrentSupply == SupplyKind.Restock
-                        ? "battle.restock.pick_title"
-                        : "battle.revive.pick_title",
-                    ("left", _run.ReviveCharPicksLeft)),
+                // 两个分支各写一次完整的 T 调用、key 直接写成字面量:StringsTableTests 只认这个形状,
+                // 把 key 放进三元表达式里它就扫不到,两个 key 会被判成孤儿(2026-09-29 修)
+                _run.CurrentSupply == SupplyKind.Restock
+                    ? Strings.T("battle.restock.pick_title", ("left", _run.ReviveCharPicksLeft))
+                    : Strings.T("battle.revive.pick_title", ("left", _run.ReviveCharPicksLeft)),
                 Strings.T("battle.reward.pick_hint",
                     ("count", Battle.Library.Count), ("capacity", Battle.LibraryCapacity)),
                 out var picksRow, out var detailBar, out var footRow);

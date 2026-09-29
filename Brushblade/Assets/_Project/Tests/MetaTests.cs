@@ -627,6 +627,17 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.EndlessV2.Pool, Is.EqualTo(new[] { "火" }));
         }
 
+        /// <summary>字库补给的一次性标记要跟着存档走(2026-09-29):断点续爬回来若丢了它,
+        /// 同一次登塔能再领一次。走真实的 SaveSerializer 入口,不直接碰 JSON 库。</summary>
+        [Test]
+        public void EndlessSave_RestockedFlag_SurvivesRoundTrip()
+        {
+            var meta = new MetaState { EndlessV2 = new EndlessSaveState { Restocked = true, Revived = false } };
+            var restored = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
+            Assert.That(restored.EndlessV2.Restocked, Is.True);
+            Assert.That(restored.EndlessV2.Revived, Is.False, "两个一次性标记互不串");
+        }
+
         [Test]
         public void PruneUnknownCards_CleanState_Untouched()
         {
