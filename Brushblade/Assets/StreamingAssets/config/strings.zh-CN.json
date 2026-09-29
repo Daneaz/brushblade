@@ -693,7 +693,7 @@
   "root.towersettle.title": "登 塔 结 算",
   "settings.back": "返回",
   "settings.fast_battle": "战斗加速",
-  "settings.fast_battle.desc": "开启后演出常驻 ×{rate} 速,不必按住屏幕",
+  "settings.fast_battle.desc": "开启后演出常驻 ×{rate} 速,不必按住屏幕;此时按住屏幕则临时恢复正常速度",
   "settings.music": "背景音乐",
   "settings.off": "关",
   "settings.on": "开",

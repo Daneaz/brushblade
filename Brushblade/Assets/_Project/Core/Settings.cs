@@ -35,13 +35,14 @@ namespace Brushblade.Core
 
         /// <summary>当前该用的演出倍率。
         ///
-        /// 「长按」与「设置里固定开」是**或**的关系:固定开了之后再长按不会叠成 ×4 ——
-        /// 加速是给「看过一遍了想快点」用的,不是数值,叠加没有意义还会糊成一片。</summary>
+        /// 「长按」与「固定加速」是**切换**关系(2026-09-30 用户拍板):没开固定加速时按住 = 加速;
+        /// 已开固定加速时按住 = 临时恢复正常速度(想看清这一段就按住)。取代 2026-09-24 的「或」——
+        /// 那一版在固定加速时长按什么都不做。两者都不会叠成 ×4:按住是切到另一档,不是再加一档。</summary>
         /// <param name="holding">此刻手指/鼠标是否按住屏幕。</param>
         /// <param name="subscribed">订阅是否生效(订阅模块落地前恒 false)。</param>
         public static float RateFor(SettingsState settings, bool holding, bool subscribed)
         {
-            bool fast = holding || (settings != null && settings.FastBattle);
+            bool fast = holding != (settings != null && settings.FastBattle);
             return fast ? FastRate(subscribed) : NormalRate;
         }
     }

@@ -43,14 +43,15 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void FixedAndHolding_DoNotStack()
+        public void HoldingWhileFixed_ReturnsToNormalSpeed()
         {
-            // 加速是「看过一遍想快点」,不是数值。叠成 ×4 只会糊成一片,
-            // 而且松手时会从 ×4 掉到 ×2,观感是「越按越怪」
+            // 2026-09-30 用户拍板:已经在加速中时,长按 = 恢复正常速度(想看清这一段时按住就慢下来)。
+            // 取代 2026-09-24「固定开 + 长按不叠加、仍是 ×2」—— 那条下长按在固定加速时什么都不做。
+            // 仍然不会叠成 ×4:按住是「切到另一档」,不是「再加一档」。
             Assert.That(SpeedRules.RateFor(Fixed(), holding: true, subscribed: false),
-                Is.EqualTo(2f));
+                Is.EqualTo(SpeedRules.NormalRate));
             Assert.That(SpeedRules.RateFor(Fixed(), holding: true, subscribed: true),
-                Is.EqualTo(3f));
+                Is.EqualTo(SpeedRules.NormalRate));
         }
 
         [Test]
