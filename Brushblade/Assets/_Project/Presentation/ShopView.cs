@@ -197,6 +197,9 @@ namespace Brushblade.Presentation
                 CardBadges.Foot(cell.transform, CardSize, owned, copies, needed, maxed,
                     MetaRules.CanUpgradeCard(_meta, card, def.Rarity));
             }
+            // 一份几张 → 牌面右下角的数量角标「10 张」(2026-09-30 二版)。
+            // 原先写在钮上(「看广告 ×5」),读起来像要看 5 次广告;数量属于这份货,不属于买法
+            QuantityTag(tile.gameObject, bundle);
             // 已售 / 已领:牌面盖一枚朱砂印,看得出哪格今天已经拿走了
             if (done) SoldSeal(tile.gameObject, doneSeal);
 
@@ -243,8 +246,7 @@ namespace Brushblade.Presentation
 
             var cell = CardFace(parent, $"Slot{index}", card, bundle, sold, Strings.T("shop.slot.sold"));
             BuyButton(cell, CardSize.x, sold, price,
-                sold ? Strings.T("shop.slot.sold_today")
-                    : Strings.T("shop.slot.bundle_price", ("count", bundle), ("price", price)),
+                sold ? Strings.T("shop.slot.sold_today") : price.ToString(),
                 () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
                     Strings.T("shop.card.buy_success", ("card", card), ("count", bundle)),
                     Strings.T("shop.card.buy_fail_title"),
@@ -273,9 +275,10 @@ namespace Brushblade.Presentation
 
             bool isNew = !_meta.OwnedCards.Contains(card);
             var cell = CardFace(parent, $"AdSlot{tier}", card, count, claimed, Strings.T("shop.slot.claimed"));
+            // 钮只写买法,不写数量(数量在牌面角标上)—— 否则「看广告 ×5」像是要看 5 次
             string label = claimed ? Strings.T("shop.card_ad.claimed_label")
                 : isNew ? Strings.T("shop.card_ad.claim_new_label")
-                : Strings.T("shop.card_ad.claim_label", ("count", count));
+                : Strings.T("shop.card_ad.claim_label");
             var badge = Ui.AdBadge(cell, label,
                 () => AdGate.Watch(CardAdPlacements[tier],
                     () => Do(() => ShopRules.TryClaimCardAd(_meta, tier),
@@ -283,6 +286,21 @@ namespace Brushblade.Presentation
                         Strings.T("shop.card_ad.already_title"), Strings.T("shop.card_ad.already_body"))),
                 new Vector2(CardSize.x, BuyH));
             badge.interactable = !claimed;
+        }
+
+        /// <summary>数量角标:牌面右下角一枚墨底白字「N 张」。右下角是 CardBadges 唯一空着的角
+        /// (左上等级/锁、右上稀有度点/新字旗、左下可升)。字号按牌宽取,与其余角标同一套缩放。</summary>
+        private void QuantityTag(GameObject tile, int count)
+        {
+            int font = Mathf.RoundToInt(CardSize.x * 0.13f);
+            var tag = Ui.Chip(tile.transform, Strings.T("shop.slot.bundle_count", ("count", count)),
+                Theme.Ink, Color.white, font, padX: 8, padY: 3);
+            foreach (var graphic in tag.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
+            var element = tag.GetComponent<LayoutElement>();
+            float pad = CardSize.x * 0.05f;
+            Ui.Anchor((RectTransform)tag.transform, new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-pad - element.preferredWidth, pad),
+                new Vector2(-pad, pad + element.preferredHeight));
         }
 
         /// <summary>还没解锁的摊位(2026-09-30 二版):与字牌同尺寸的描边卡,宋体大字「Lv.N」+「解锁」。
