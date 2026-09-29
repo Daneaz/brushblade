@@ -63,10 +63,8 @@ namespace Brushblade.Core.Tests
         {
             var summons = new[]
             {
-                new SummonSnapshot { Slot = 0, Char = "木", Element = Element.Wood,
-                    Hp = 10, MaxHp = 10, Attack = 0, Speed = 100, Shield = 301 },
                 new SummonSnapshot { Slot = 1, Char = "木", Element = Element.Wood,
-                    Hp = 10, MaxHp = 10, Attack = 0, Speed = 100, Shield = 1 },
+                    Hp = 10, MaxHp = 10, Attack = 0, Speed = 100, Shield = 301 },
             };
             var run = RebalanceFixture.Run(normalShield: 40, summons: summons);
             run.Battle.Cast("甲", 0);
@@ -75,9 +73,8 @@ namespace Brushblade.Core.Tests
             var snap = run.Capture();
 
             Assert.That(snap.CarriedNormalShield, Is.EqualTo(20), "玩家照旧减半");
-            Assert.That(snap.CarriedSummons.Count, Is.EqualTo(2));
+            Assert.That(snap.CarriedSummons.Count, Is.EqualTo(1), "夹具第 1 层只开 1 格");
             Assert.That(snap.CarriedSummons[0].Shield, Is.EqualTo(150), "召唤物护盾同样 301 / 2 = 150");
-            Assert.That(snap.CarriedSummons[1].Shield, Is.EqualTo(0), "1 / 2 = 0,不留残渣");
         }
     }
 }

@@ -459,6 +459,7 @@ namespace Brushblade.Core.Tests
         {
             var def = new EnemyDef("枯", Element.Wood, 8, 3);
             var config = TwoBattles(def);
+            config.FromDepth = 7;       // 林 召 2 只:第 7 层起才开到 2 格(2026-09-30 解锁表每档一格)
             var a = new RunEngine(Graph(), config, Config(), new[] { "林", "炎" }, new[] { "火" }, 3,
                 startingInk: 50, perFloorNormalShield: 2);
             a.Battle.Cast("林");        // 召 2 只 6 血木偶
@@ -482,8 +483,8 @@ namespace Brushblade.Core.Tests
 
             foreach (var r in new[] { a, b }) r.SkipReward(); // 读档接着打:召唤物照样上场
             Assert.That(b.Battle.AliveSummonCount, Is.EqualTo(2));
-            // 首只落**槽 1** 而不是槽 0(2026-08-27 按位置解锁):第 1 层开的是前排中间两格
-            // (槽 1、2),槽 0 是前排 1 号位,第 16 层才开
+            // 首只落**槽 1** 而不是槽 0(2026-08-27 按位置解锁):第 7 层开的是前排中间两格
+            // (槽 1、2),槽 0 是前排 1 号位,第 25 层才开
             Assert.That(b.Battle.Summons[0], Is.Null, "前排 1 号位这一层还锁着");
             Assert.That(b.Battle.Summons[1].Hp, Is.EqualTo(3), "残血原样入场,不回满");
             Assert.That(b.Battle.Summons[1].MaxHp, Is.EqualTo(6), "MaxHp 与 Hp 脱钩");

@@ -362,18 +362,21 @@ namespace Brushblade.Core
         /// <summary>每回合基础 AP(10.1);一气技能在其上加。</summary>
         public const int BaseApPerTurn = 3;
 
-        /// <summary>召唤槽位的解锁层(2026-08-27 用户拍板),**按下标**排:
+        /// <summary>召唤槽位的解锁层(2026-08-27 用户拍板;2026-09-30 改为每档一格),**按下标**排:
         ///
         /// <code>
         ///   槽位   0    1    2    3        4    5    6    7
         ///   位置  前1  前2  前3  前4      后1  后2  后3  后4
-        ///   层数   16    1    1   30       16   11   11   30
+        ///   层数   25    1    7   37       31   13   19   43
         /// </code>
         ///
-        /// 从每排中间两格往两侧开:开局前排 2/3 号 → 11 层后排 2/3 号 → 16 层前后排 1 号
-        /// → 30 层前后排 4 号。累计 2 / 4 / 6 / 8 格。
+        /// 2026-09-30 用户拍板:召唤物不超过本层敌人总数(Boss 按占格算 4 只)。
+        /// 档位线 1/7/13/19/25/31/37/43 就是普通层敌人数
+        /// <see cref="EndlessGenerator.MinionCountFor"/> 的跳变层,累计 1…8 格逐层相等;
+        /// Boss 层敌人数 ≥ 4 + 随从,同样压得住。开格次序沿用旧表的「从中间往两侧」:
+        /// 前 2 → 前 3 → 后 2 → 后 3 → 前 1 → 后 1 → 前 4 → 后 4。
         ///
-        /// ⚠ 开放集合**不是连续前缀** —— 开局能用的是槽 1、2,槽 0 还锁着。
+        /// ⚠ 开放集合**不是连续前缀** —— 开局能用的是槽 1,槽 0 还锁着。
         /// 引擎里凡是找空位、顶替、携带回位的地方都要按集合判,拿「下标 &lt; 开放数」当判据
         /// 会让第一只召唤物落进锁着的槽 0(SummonSlotUnlockTests 的
         /// OpeningDepth_FillsTheTwoMiddleFrontSlots 守着这条)。
@@ -382,7 +385,7 @@ namespace Brushblade.Core
         /// <see cref="SummonSlotsFor"/>(这层开几格)、<see cref="UnlockDepthForSlot"/>
         /// (这格第几层开,UI 印它)。写成三串独立常量迟早分叉,而分叉的表现是 UI 提示一个
         /// 错的层数 —— 静默、只有肉眼能发现。</summary>
-        private static readonly int[] SlotUnlockDepth = { 16, 1, 1, 30, 16, 11, 11, 30 };
+        private static readonly int[] SlotUnlockDepth = { 25, 1, 7, 37, 31, 13, 19, 43 };
 
         /// <summary>这一层开放哪几个召唤槽位,按位表示(bit i = 槽 i)。
         ///
