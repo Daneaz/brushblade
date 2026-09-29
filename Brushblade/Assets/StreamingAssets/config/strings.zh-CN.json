@@ -741,7 +741,7 @@
   "shop.slot.sold": "已售",
   "shop.slot.sold_today": "今日已购",
   "shop.slot.unlocks_upgrade": "买下即可升 Lv.{level}",
-  "shop.subscription.perks": "广告位免看直领 · 同时开箱 1→2 · 每日墨锭礼包 · 开箱时长 −25%",
+  "shop.subscription.perks": "广告位免看直领 · 开箱计时位 1→2 · 每日墨锭礼包 · 开箱时长 −25%",
   "shop.subscription.promise": "不卖数值、不卖卡、不卖抽数",
   "shop.subscription.soon_body": "订阅还没接上,这里先占个位。\n四条权益一条都还没生效,不会先收你钱。",
   "shop.subscription.soon_title": "尚未开放",
