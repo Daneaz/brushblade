@@ -110,7 +110,9 @@ namespace Brushblade.Core.Tests
         [TestCase(25, 7)]
         [TestCase(34, 7)]
         [TestCase(35, 8)]
-        [TestCase(200, 8)]
+        [TestCase(44, 8)]
+        [TestCase(45, 9)]
+        [TestCase(200, 9)]
         public void SlotCount_UnlocksByLevel(int level, int slots)
         {
             Assert.That(ShopRules.SlotCountFor(level), Is.EqualTo(slots));

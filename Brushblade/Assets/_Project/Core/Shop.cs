@@ -41,9 +41,10 @@ namespace Brushblade.Core
         /// <summary>一份的价格。</summary>
         public static int BundlePriceFor(CardRarity rarity) => BundlePrices[(int)rarity - 1];
 
-        // ---- 货架槽位随角色等级解锁(2026-09-30):Lv1/8/15/25/35 → 4/5/6/7/8 格 ----
-        public const int MaxCardSlots = 8;
-        private static readonly int[] SlotUnlockLevel = { 1, 1, 1, 1, 8, 15, 25, 35 };
+        // ---- 货架槽位随角色等级解锁(2026-09-30):Lv1/8/15/25/35/45 → 4/5/6/7/8/9 格 ----
+        // 9 格 + 3 个字卡广告位 = 货架 2 行 × 6 列铺满左侧(2026-09-30 用户要求字卡广告位并入字摊)
+        public const int MaxCardSlots = 9;
+        private static readonly int[] SlotUnlockLevel = { 1, 1, 1, 1, 8, 15, 25, 35, 45 };
 
         public static int SlotCountFor(int level)
         {

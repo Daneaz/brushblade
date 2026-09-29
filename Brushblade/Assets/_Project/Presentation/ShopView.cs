@@ -9,7 +9,8 @@ using UnityEngine.UI;
 namespace Brushblade.Presentation
 {
     /// <summary>每日商城页(19.6)。2026-09-20 按设计系统的 ShopScreen 重设计稿重写:
-    /// 左「今日字摊」四摊位 + 右栏「今日箱位 / 免费补给」,顶栏与收集 / 图鉴 / 技能逐数同款。
+    /// 左「今日字摊」(2026-09-30 起 2 行 × 6 列:3 个字卡广告位 + 4–9 个墨锭摊位)
+    /// + 右栏「今日补给」(宝箱位 / 免费补给),顶栏与收集 / 图鉴 / 技能逐数同款。
     ///
     /// 旧版(按屏幕比例锚点摆的三行)被换掉的三件事:
     ///   ① 不走外层页骨架 —— 顶栏高度、标题字号、返回钮尺寸各是一套,也没有安全区内缩;
@@ -27,11 +28,13 @@ namespace Brushblade.Presentation
         private const float SidePad = 21f;     // 右栏内边距 10pt
         private const float Gap = 13f;         // 行距 6pt
 
-        private static readonly Vector2 CardSize = new(144f, 180f); // 摊位字牌(与旧版同尺寸)
+        // 摊位字牌:宽按左侧实际可用宽度 6 列等分,夹在 [96, 144],高 = 宽 × 1.25(Rebuild 里算)。
+        // 画布按高适配,左侧宽度随屏幕比例与安全区补边变:16:9 非刘海屏只有约 808,
+        // 定宽 144 × 6 会溢出(2026-09-30 并入广告位、铺满 6 列时发现)
+        private const float CardMaxW = 144f, CardMinW = 96f, CardAspect = 1.25f;
+        private Vector2 CardSize = new(CardMaxW, CardMaxW * CardAspect);
         private const float SlotGap = 21f;
-        private const int SlotsPerRow = 4;     // 8 格排两行(2026-09-30 槽位随等级 4→8)
-        private const float SlotRowH = 280f;   // 一行 = 字牌 180 + 预告 + 价格钮 46 + 间距
-        private static readonly Vector2 AdTileSize = new(46f, 56f); // 字卡广告位左侧的小字牌
+        private const float SlotRowH = 280f;   // 一行 = 字牌 180 + 牌脚 + 预告 + 价格钮 46 + 间距
         private const float BuyH = 46f;        // 价格钮高(宝箱格同款)
         private const float SubBarH = 96f;     // 订阅条
 
@@ -65,6 +68,10 @@ namespace Brushblade.Presentation
 
             // 安全区内缩与其余外层页同一条(SafeArea 只有这一份,别另抄)
             var (padSide, padBottom) = SafeArea.MissingInset();
+            float canvasW = Screen.height > 0 ? 900f * Screen.width / Screen.height : 1600f;
+            float shelfW = canvasW - 2f * padSide - SideW - MainGap;
+            float cardW = Mathf.Clamp((shelfW - (ShelfColumns - 1) * SlotGap) / ShelfColumns, CardMinW, CardMaxW);
+            CardSize = new Vector2(cardW, cardW * CardAspect);
             var content = Ui.Panel(transform, "Content");
             Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
                 new Vector2(padSide, padBottom), new Vector2(-padSide, 0));
@@ -114,6 +121,13 @@ namespace Brushblade.Presentation
         }
 
         // ---- 左:今日字摊 ----
+        //
+        // 2026-09-30 二版(用户要求):三个字卡广告位并入字摊,只是买法换成看广告;货架铺满整个左侧。
+        // 版面 = 2 行 × 6 列 = 3 个广告位 + 9 个墨锭摊位(随角色等级 4→9 格),没开的摊位排在最后。
+        // 每一列是**弹性等分**的 —— 画布按高适配,宽屏手机左侧会更宽,定宽排会在右边空出一截。
+
+        private const int ShelfColumns = 6;
+        private const int ShelfRows = 2;
 
         private void BuildShelf(Transform parent)
         {
@@ -127,36 +141,39 @@ namespace Brushblade.Presentation
                 new Vector2(0, -SideHeadH), Vector2.zero);
             Ui.ThemedLabel(head.transform, Strings.T("shop.shelf.title"), 19, Theme.LockGray);
 
-            // 两行各 4 格(2026-09-30):已开的格摆货,没开的格印「Lv N 解锁」—— 玩家看得到还能多几格
-            for (int r = 0; r < ShopRules.MaxCardSlots / SlotsPerRow; r++)
+            int cell = 0;
+            for (int r = 0; r < ShelfRows; r++)
             {
-                var row = Ui.Row(shelf.transform, $"Slots{r}", SlotGap);
+                var row = Ui.Row(shelf.transform, $"Row{r}", SlotGap);
                 row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
                 float top = SideHeadH + Gap + r * (SlotRowH + Gap);
                 Ui.Anchor((RectTransform)row.transform, new Vector2(0, 1), Vector2.one,
                     new Vector2(0, -(top + SlotRowH)), new Vector2(0, -top));
-                for (int i = r * SlotsPerRow; i < (r + 1) * SlotsPerRow; i++)
+                for (int c = 0; c < ShelfColumns; c++, cell++)
                 {
-                    if (i < _meta.Shop.CardSlots.Count) BuildSlot(row.transform, i);
-                    else LockedSlot(row.transform, i);
+                    var column = Ui.VStack(row.transform, $"Col{cell}", 0);
+                    column.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+                    column.AddComponent<LayoutElement>().flexibleWidth = 1;
+
+                    if (cell < ShopRules.AdOfferCount) { BuildAdSlot(column.transform, cell); continue; }
+                    int slot = cell - ShopRules.AdOfferCount;
+                    if (slot < _meta.Shop.CardSlots.Count) BuildSlot(column.transform, slot);
+                    else LockedSlot(column.transform, slot, next: slot == _meta.Shop.CardSlots.Count);
                 }
             }
 
             BuildSubscriptionBar(shelf.transform);
         }
 
-        /// <summary>一个摊位:字牌(角标 + 牌脚进度)→ 买下后的进度预告 → 价格钮。</summary>
-        private void BuildSlot(Transform parent, int index)
+        /// <summary>摊位牌面(墨锭摊位与广告位共用):字牌 + 角标 + 牌脚进度 + 买下后的进度预告。
+        /// 返回这一格的竖排容器,调用方再往里放各自的按钮。</summary>
+        private Transform CardFace(Transform parent, string name, string card, int bundle, bool done, string doneSeal)
         {
-            string card = _meta.Shop.CardSlots[index];
-            bool sold = _meta.Shop.CardSold[index];
             var def = _graph.Get(card);
-            int price = ShopRules.BundlePriceFor(def.Rarity);
-            int bundle = ShopRules.BundleSizeFor(def.Rarity);   // 一份几张(2026-09-30 按稀有度打包)
             bool owned = _meta.OwnedCards.Contains(card);
             bool component = def.IsComponent;
 
-            var cell = Ui.VStack(parent, $"Slot{index}", 8);
+            var cell = Ui.VStack(parent, name, 8);
             cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
             Ui.Sized(cell, width: CardSize.x, flexWidth: 0);
 
@@ -180,16 +197,21 @@ namespace Brushblade.Presentation
                 CardBadges.Foot(cell.transform, CardSize, owned, copies, needed, maxed,
                     MetaRules.CanUpgradeCard(_meta, card, def.Rarity));
             }
-            // 已售:牌面盖一枚朱砂印。与旧版不同 —— 旧版只把钮置灰,牌面看不出哪张已经买走
-            if (sold) SoldSeal(tile.gameObject);
+            // 已售 / 已领:牌面盖一枚朱砂印,看得出哪格今天已经拿走了
+            if (done) SoldSeal(tile.gameObject, doneSeal);
 
-            // 进度预告:买下这张之后会怎样。部件没有等级,写它的定位
+            // 进度预告:拿下这一份之后会怎样。没拥有的字(紫档广告位)第一张是解锁,不写进度
             string forecast;
             Color forecastColor;
             if (component)
             {
                 forecast = Strings.T("shop.slot.component_note");
                 forecastColor = Theme.TextDim;
+            }
+            else if (!owned)
+            {
+                forecast = Strings.T("shop.slot.new_card_note");
+                forecastColor = Theme.UpgradeText;
             }
             else if (maxed)
             {
@@ -207,8 +229,20 @@ namespace Brushblade.Presentation
                 forecastColor = Theme.TextDim;
             }
             Ui.ThemedLabel(cell.transform, forecast, 19, forecastColor);
+            return cell.transform;
+        }
 
-            BuyButton(cell.transform, CardSize.x, sold, price,
+        /// <summary>墨锭摊位:牌面 → 价格钮(写明「×张数 · 价格」)。</summary>
+        private void BuildSlot(Transform parent, int index)
+        {
+            string card = _meta.Shop.CardSlots[index];
+            bool sold = _meta.Shop.CardSold[index];
+            var def = _graph.Get(card);
+            int price = ShopRules.BundlePriceFor(def.Rarity);
+            int bundle = ShopRules.BundleSizeFor(def.Rarity);   // 一份几张(2026-09-30 按稀有度打包)
+
+            var cell = CardFace(parent, $"Slot{index}", card, bundle, sold, Strings.T("shop.slot.sold"));
+            BuyButton(cell, CardSize.x, sold, price,
                 sold ? Strings.T("shop.slot.sold_today")
                     : Strings.T("shop.slot.bundle_price", ("count", bundle), ("price", price)),
                 () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
@@ -217,18 +251,73 @@ namespace Brushblade.Presentation
                     Strings.T("shop.card.buy_fail_body", ("card", card), ("price", price), ("ink", _meta.Ink))));
         }
 
-        /// <summary>还没解锁的格(2026-09-30):与摊位同尺寸的凹槽 + 「Lv N 解锁」。</summary>
-        private void LockedSlot(Transform parent, int index)
+        private static readonly AdPlacement[] CardAdPlacements =
+            { AdPlacement.ShopCardGreen, AdPlacement.ShopCardBlue, AdPlacement.ShopCardPurple };
+
+        /// <summary>字卡广告位(2026-09-30 并入字摊):牌面与墨锭摊位同一套,只是钮换成看广告。
+        /// 绿 ×10 / 蓝 ×5 只出已拥有的字;紫 ×1 可以是没拥有的字 —— 那种钮上写「看广告解锁」。</summary>
+        private void BuildAdSlot(Transform parent, int tier)
         {
+            var shop = _meta.Shop;
+            string card = tier < shop.AdOffers.Count ? shop.AdOffers[tier] : "";
+            bool claimed = tier < shop.AdOfferClaimed.Count && shop.AdOfferClaimed[tier];
+            int count = ShopRules.AdOfferCards[tier];
+
+            if (card == "")
+            {
+                // 这一档今天没得出(例如还一张绿字都没有):留一个空格说清楚,不让版面缺一块
+                var empty = EmptyWell(parent, $"AdSlot{tier}", Theme.PanelBorder);
+                Ui.ThemedLabel(empty, Strings.T("shop.card_ad.none_label"), 19, Theme.LockGray);
+                return;
+            }
+
+            bool isNew = !_meta.OwnedCards.Contains(card);
+            var cell = CardFace(parent, $"AdSlot{tier}", card, count, claimed, Strings.T("shop.slot.claimed"));
+            string label = claimed ? Strings.T("shop.card_ad.claimed_label")
+                : isNew ? Strings.T("shop.card_ad.claim_new_label")
+                : Strings.T("shop.card_ad.claim_label", ("count", count));
+            var badge = Ui.AdBadge(cell, label,
+                () => AdGate.Watch(CardAdPlacements[tier],
+                    () => Do(() => ShopRules.TryClaimCardAd(_meta, tier),
+                        Strings.T("shop.card_ad.claim_success", ("card", card), ("count", count)),
+                        Strings.T("shop.card_ad.already_title"), Strings.T("shop.card_ad.already_body"))),
+                new Vector2(CardSize.x, BuyH));
+            badge.interactable = !claimed;
+        }
+
+        /// <summary>还没解锁的摊位(2026-09-30 二版):与字牌同尺寸的描边卡,宋体大字「Lv.N」+「解锁」。
+        /// **下一格**描金边、底下写「还差 N 级」—— 那是玩家眼下在追的目标;更远的几格淡一档,
+        /// 只告诉你「后面还有」,不和眼前那格抢视线。</summary>
+        private void LockedSlot(Transform parent, int index, bool next)
+        {
+            int unlockLevel = ShopRules.UnlockLevelForSlot(index);
             var cell = Ui.VStack(parent, $"Locked{index}", 8);
             cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
             Ui.Sized(cell, width: CardSize.x, flexWidth: 0);
-            var well = Ui.CardPanel(cell.transform, "Well", Theme.PanelInset, 14);
-            well.gameObject.AddComponent<LayoutElement>().preferredHeight = CardSize.y;
-            var label = Ui.ThemedLabel(well.transform,
-                Strings.T("shop.slot.locked_level", ("level", ShopRules.UnlockLevelForSlot(index))),
-                19, Theme.LockGray);
-            Ui.Stretch((RectTransform)label.transform);
+
+            var face = EmptyWell(cell.transform, "Well", next ? Theme.Gold : Theme.PanelBorder);
+            var stack = Ui.VStack(face, "Stack", 2);
+            Ui.Stretch((RectTransform)stack.transform);
+            Ui.ThemedLabel(stack.transform, Strings.T("shop.slot.locked_title", ("level", unlockLevel)),
+                34, next ? Theme.GoldDeep : Theme.LockGray, Theme.TitleFont);
+            Ui.ThemedLabel(stack.transform, Strings.T("shop.slot.locked_sub"), 19,
+                next ? Theme.GoldDeep : Theme.LockGray);
+
+            if (next)
+            {
+                int gap = unlockLevel - MetaRules.CharacterLevel(_meta.CharacterXp);
+                Ui.ThemedLabel(cell.transform, Strings.T("shop.slot.locked_gap", ("levels", gap)), 19, Theme.GoldDeep);
+            }
+        }
+
+        /// <summary>字牌大小的空描边卡(锁位 / 广告位今日无货共用),返回内层填充面。</summary>
+        private Transform EmptyWell(Transform parent, string name, Color border)
+        {
+            var outer = Ui.OutlinedPanel(parent, name, Theme.PanelInset, border, 14, 2, out var face);
+            var element = outer.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = CardSize.x;
+            element.preferredHeight = CardSize.y;
+            return face.transform;
         }
 
         /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 「差 N」;
@@ -246,9 +335,9 @@ namespace Brushblade.Presentation
 
         /// <summary>已售印:朱砂斜标改成正放的一枚方印 —— uGUI 旋转会连带旋转裁剪矩形
         /// (与 CardBadges 那枚角旗同一个坑,见该处说明)。</summary>
-        private static void SoldSeal(GameObject tile)
+        private static void SoldSeal(GameObject tile, string text)
         {
-            var seal = Ui.Chip(tile.transform, Strings.T("shop.slot.sold"), Theme.Cinnabar, Color.white, 21);
+            var seal = Ui.Chip(tile.transform, text, Theme.Cinnabar, Color.white, 21);
             var element = seal.GetComponent<LayoutElement>();
             Ui.Anchor((RectTransform)seal.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(-element.preferredWidth / 2f, -element.preferredHeight / 2f),
@@ -401,52 +490,6 @@ namespace Brushblade.Presentation
             refresh.GetComponent<LayoutElement>().flexibleWidth = 1;
             refresh.interactable = !_meta.Shop.AdRefreshUsed;
 
-            for (int tier = 0; tier < ShopRules.AdOfferCount; tier++) BuildCardAd(parent, tier);
-        }
-
-        private static readonly AdPlacement[] CardAdPlacements =
-            { AdPlacement.ShopCardGreen, AdPlacement.ShopCardBlue, AdPlacement.ShopCardPurple };
-
-        /// <summary>看广告领字卡(2026-09-30):左一枚小字牌(点开看详情),右一枚广告钮。
-        /// 绿 ×10 / 蓝 ×5 只出已拥有的字;紫 ×1 可以是没拥有的字 —— 那种钮上写「解锁新字」。</summary>
-        private void BuildCardAd(Transform parent, int tier)
-        {
-            var shop = _meta.Shop;
-            string card = tier < shop.AdOffers.Count ? shop.AdOffers[tier] : "";
-            bool claimed = tier < shop.AdOfferClaimed.Count && shop.AdOfferClaimed[tier];
-            int count = ShopRules.AdOfferCards[tier];
-
-            var row = Ui.Row(parent, $"CardAd{tier}", 10);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            row.AddComponent<LayoutElement>().preferredHeight = AdTileSize.y;
-
-            if (card == "")
-            {
-                // 这一档今天没得出(例如还一张绿字都没有):钮照画、置灰,说清楚为什么
-                var none = Ui.AdBadge(row.transform, Strings.T("shop.card_ad.none_label"), () => { },
-                    new Vector2(0, AdTileSize.y));
-                none.GetComponent<LayoutElement>().flexibleWidth = 1;
-                none.interactable = false;
-                return;
-            }
-
-            var def = _graph.Get(card);
-            var tile = Ui.GlyphTile(row.transform, def, false, () => ShowPreview(def), AdTileSize,
-                locked: !_meta.OwnedCards.Contains(card));
-            Ui.Sized(tile.gameObject, width: AdTileSize.x, flexWidth: 0);
-
-            bool isNew = !_meta.OwnedCards.Contains(card);
-            string label = claimed ? Strings.T("shop.supply.used_label")
-                : isNew ? Strings.T("shop.card_ad.claim_new_label", ("card", card))
-                : Strings.T("shop.card_ad.claim_label", ("card", card), ("count", count));
-            var badge = Ui.AdBadge(row.transform, label,
-                () => AdGate.Watch(CardAdPlacements[tier],
-                    () => Do(() => ShopRules.TryClaimCardAd(_meta, tier),
-                        Strings.T("shop.card_ad.claim_success", ("card", card), ("count", count)),
-                        Strings.T("shop.card_ad.already_title"), Strings.T("shop.card_ad.already_body"))),
-                new Vector2(0, AdTileSize.y));
-            badge.GetComponent<LayoutElement>().flexibleWidth = 1;
-            badge.interactable = !claimed;
         }
 
         // ---- 反馈 ----
