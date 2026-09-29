@@ -364,6 +364,10 @@ namespace Brushblade.Presentation
         private Element? EnemyElement(int i) =>
             i >= 0 && i < Battle.Enemies.Count ? Battle.Enemies[i].ApparentElement : null;
 
+        /// <summary>第 i 只怪是否远程(2026-09-30):Juice 据此放墨弹还是残影突进。</summary>
+        private bool EnemyRanged(int i) =>
+            i >= 0 && i < Battle.Enemies.Count && Battle.Enemies[i].Def.Range == AttackRange.Ranged;
+
         /// <summary>本次结算里死亡的怪(下标取自 LastEvents 的 EnemyDied)。</summary>
         private System.Collections.Generic.List<int> DeathsThisAction()
         {
@@ -379,7 +383,7 @@ namespace Brushblade.Presentation
             System.Collections.Generic.List<int> deaths)
         {
             _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact, SummonAt,
-                EnemyElement);
+                EnemyElement, EnemyRanged);
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
@@ -5626,7 +5630,7 @@ namespace Brushblade.Presentation
                 {
                     bool done = false;
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt,
-                        EnemyElement);
+                        EnemyElement, EnemyRanged);
                     while (!done) yield return null;
                     yield return _juice.Wait(0.12f); // 行动者之间的停顿(替代已删的 Juice.PhaseGap);走 Juice 的节拍才吃快进
                 }
@@ -5741,7 +5745,7 @@ namespace Brushblade.Presentation
                 {
                     bool done = false;
                     _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact,
-                        enemyElement: EnemyElement);
+                        enemyElement: EnemyElement, enemyRanged: EnemyRanged);
                     while (!done) yield return null;
                     yield return _juice.Wait(0.12f);
                 }

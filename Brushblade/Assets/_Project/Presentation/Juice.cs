@@ -153,15 +153,16 @@ namespace Brushblade.Presentation
         /// 召唤反击逐个顺序播、伤害与「正!」分节拍(2026-07-24):此前同帧齐发相互重叠、只见一次。</summary>
         public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null,
-            Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null)
+            Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
+            Func<int, bool> enemyRanged = null)
         {
             StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact,
-                summonInfo, enemyElement));
+                summonInfo, enemyElement, enemyRanged));
         }
 
         private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action onComplete, Action<BattleEvent> onImpact,
-            Func<int, SummonState> summonInfo, Func<int, Element?> enemyElement)
+            Func<int, SummonState> summonInfo, Func<int, Element?> enemyElement, Func<int, bool> enemyRanged)
         {
             // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
@@ -178,7 +179,7 @@ namespace Brushblade.Presentation
             // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
             // 段间停顿由 BattleView 的驱动协程控制。
-            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement);
+            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement, enemyRanged);
 
             yield return Beat(TailGap);
             onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
@@ -189,8 +190,14 @@ namespace Brushblade.Presentation
         /// 并行组(Damage 同帧齐出)组末停一拍;串行单位(DoT/敌攻/SummonHit)在下一记前才停一拍,好让致死伤害与正同帧。</summary>
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact,
-            Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null)
+            Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
+            Func<int, bool> enemyRanged = null)
         {
+            // 敌人出手的统一入口:近战残影突进、远程墨弹(2026-09-30,取代原地下扑 Lunge)
+            IEnumerator Swing(int attacker, RectTransform target, bool slash) =>
+                EnemySwing(enemyAnchor(attacker), target, Theme.GlyphColor(enemyElement?.Invoke(attacker)),
+                    enemyRanged?.Invoke(attacker) ?? false, slash);
+
             bool anyParallel = false;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
             // 五行 L2 里会发生在群攻**中途**的两条(余烬、锋芒)挪到这批演完之后再播(2026-09-18):
             // 当场播就得在群攻飘字中间停一拍,把「同帧齐出」拆成两截。
@@ -416,7 +423,7 @@ namespace Brushblade.Presentation
                     case BattleEventKind.SummonHit: // 敌人打召唤物:攻击者(TargetIndex)下扑 + 飘伤害在承伤召唤(SecondIndex)身上
                         if (serialPending) yield return Beat(StepGap);
                         var tank = summonAnchor?.Invoke(e.SecondIndex); // 承伤者(坦克死后前移到下一个)
-                        Lunge(enemyAnchor(e.TargetIndex));
+                        yield return Swing(e.TargetIndex, tank, slash: true);
                         // 敌方那一记同样按**攻击者**的五行上色(2026-08-30):这两类事件的 TargetIndex
                         // 就是攻击者下标,属性顺着它查得到,所以 Core 侧刻意没给它们加 Attacker 字段。
                         // 查不到(伪装怪未现形)时回落中性色 —— 玩家本来就还不知道它是什么属性。
@@ -453,7 +460,7 @@ namespace Brushblade.Presentation
                         break;
                     case BattleEventKind.EnemyAttack: // 敌人打我方:攻击者下扑 + 飘伤害 + 闷响 + 震屏 + 屏缘朱砂微闪
                         if (serialPending) yield return Beat(StepGap);
-                        Lunge(enemyAnchor(e.TargetIndex));
+                        yield return Swing(e.TargetIndex, null, slash: true);
                         // 飘字分账(2026-07-25):护盾吃掉多少、血实掉多少分开写,与两条同步
                         int hpLoss = e.Amount - e.Absorbed;
                         // 掉血那一路按攻击者属性上色;被盾吃掉的那一路仍是盾的语义色(SplitBlue)——
@@ -501,7 +508,7 @@ namespace Brushblade.Presentation
                     // 飘屏幕中下 —— 与 Missed / EnemyAttack 同口径。不锚的话「免」会飘在
                     // **攻击者**头上,玩家读成「敌人免疫了」,正好反过来。
                     case BattleEventKind.ImmunityBlocked:
-                        Lunge(enemyAnchor(e.TargetIndex));
+                        yield return Swing(e.TargetIndex, e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null, slash: false);
                         Popup(Strings.T("juice.popup.immune"), Theme.UpgradeText, e.SecondIndex >= 0
                             ? summonAnchor?.Invoke(e.SecondIndex) : null);
                         break;
@@ -509,7 +516,7 @@ namespace Brushblade.Presentation
                     // 没有反馈的话玩家只会以为敌人这回合没动。SecondIndex ≥0 = 打空的召唤物,
                     // 飘字锚在那只召唤物身上;玩家为 −1,与 EnemyAttack/ImmunityBlocked 同口径飘屏幕中下
                     case BattleEventKind.Missed:
-                        Lunge(enemyAnchor(e.TargetIndex));
+                        yield return Swing(e.TargetIndex, e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null, slash: false);
                         Popup(Strings.T("juice.popup.miss"), Theme.InkSoft, e.SecondIndex >= 0
                             ? summonAnchor?.Invoke(e.SecondIndex) : null);
                         break;
@@ -782,16 +789,14 @@ namespace Brushblade.Presentation
         // ---- 召唤物出手(2026-09-27)----
         //
         // 此前召唤物出手 = 把它的字当飞牌砸过去,与玩家出牌同一个动作 —— 读起来是「玩家又出了
-        // 一张」,而不是「那只召唤物动手了」。现在出手的是召唤物本体:整格朝目标位移、
-        // 立绘枝叶一扬(SummonView.PlayAttack),落点处是它自己的刀口/箭矢 + 迸散的叶。
+        // 一张」,而不是「那只召唤物动手了」。现在出手的是召唤物本体:近战放残影突进
+        // (2026-09-30,见下方 GhostStrike)、远程后坐射箭,立绘枝叶一扬(SummonView.PlayAttack),落点处是它自己的刀口/箭矢 + 迸散的叶。
         // 近战与远程分两套,判据是 Passive.Ranged —— 与 Core 选目标(远程打后排)同一个字段。
         //
         // 时间全走 _rate(按住屏幕/固定加速会一起快),颜色全取攻击者当前属性的字形色。
 
         private const float StrikeWindup = 0.07f;   // 蓄:往回收一点
-        private const float StrikeThrust = 0.08f;   // 冲:ease-in 扑出去,末端即命中
         private const float StrikeRecover = 0.16f;  // 收:命中后退回原位(不阻塞时间线)
-        private const float StrikeReach = 30f;      // 前冲距离(本地单位)
         private const float ShootDraw = 0.08f;      // 拉弓后坐
         private const float ShootFlight = 0.16f;    // 箭矢飞行
         private const float SlashDuration = 0.24f;
@@ -825,76 +830,253 @@ namespace Brushblade.Presentation
             return token;
         }
 
-        /// <summary>近战:蓄 → 前冲 → 刀口在目标身上劈开 + 叶片迸散;命中那一刻返回。</summary>
+        /// <summary>近战:残影突进 + 笔锋拖尾(<see cref="GhostStrike"/>)→ 刀口 + 叶片迸散;命中那一刻返回。</summary>
         private IEnumerator SummonStrike(RectTransform from, RectTransform to, Element element)
         {
             var color = Theme.GlyphColor(element);
             SummonViewOf(from)?.PlayAttack();
-            Vector2 home = HomeOf(from);
-            int token = NextMoveToken(from);
-            Vector2 dir = LocalDir(from, to);
-            yield return Tween(StrikeWindup, k =>
-            {
-                if (from != null) from.anchoredPosition = home - dir * (8f * k);
-            });
-            yield return Tween(StrikeThrust, k =>
-            {
-                if (from != null) from.anchoredPosition = home + dir * Mathf.Lerp(-8f, StrikeReach, k * k);
-            });
-            if (to != null)
-            {
-                Slash(to, color);
-                LeafBurst(to.position, color, 6);
-            }
+            yield return GhostStrike(from, to, AnchorPoint(to), color, slash: true);
+            if (to != null) LeafBurst(to.position, color, 6);
             PlayClip(_hitClip, 0.55f, 1.15f);
-            StartCoroutine(ReturnHome(from, home, StrikeRecover, token));
         }
 
-        /// <summary>远程:往后一坐拉弓 → 箭矢沿直线射出(带残影)→ 命中处叶片迸散;命中那一刻返回。
-        /// 后坐的回弹与箭的飞行并行,不额外占时间线。</summary>
+        /// <summary>远程:往后一坐拉弓 → 箭矢沿直线射出(带残影)→ 命中处叶片迸散;命中那一刻返回。</summary>
         private IEnumerator SummonShoot(RectTransform from, RectTransform to, Element element)
         {
             var color = Theme.GlyphColor(element);
             SummonViewOf(from)?.PlayAttack();
+            if (to == null) yield break;
+            yield return Shoot(from, to.position, color, "arrow", new Vector2(52f, 52f));
+            if (to != null) LeafBurst(to.position, color, 5);
+        }
+
+        /// <summary>敌人出手(2026-09-30):近战与召唤物同一套残影突进,远程射一团墨弹。
+        /// 此前敌人不分远近一律原地下扑(<see cref="Lunge"/>),<c>AttackRange</c> 只在图标上看得出来。
+        /// target 为 null = 打玩家(落点取屏幕中下,与玩家侧飘字同一个锚)。
+        /// slash:打空/被免疫挡下时不劈刀口 —— 这一记确实出手了,但没砍到。</summary>
+        private IEnumerator EnemySwing(RectTransform attacker, RectTransform target, Color color, bool ranged, bool slash)
+        {
+            if (attacker == null) yield break;
+            Vector3 point = AnchorPoint(target);
+            if (ranged) yield return Shoot(attacker, point, color, null, new Vector2(EnemyBoltSize, EnemyBoltSize));
+            else yield return GhostStrike(attacker, target, point, color, slash);
+        }
+
+        /// <summary>后坐 → 弹体沿直线飞到 end(带拖尾点);命中那一刻返回,后坐回弹与飞行并行。
+        /// fx 为 null 时弹体是一团圆墨(敌人用)。</summary>
+        private IEnumerator Shoot(RectTransform from, Vector3 end, Color color, string fx, Vector2 size)
+        {
             Vector2 home = HomeOf(from);
             int token = NextMoveToken(from);
-            Vector2 dir = LocalDir(from, to);
+            Vector2 dir = LocalDir(from, end);
             yield return Tween(ShootDraw, k =>
             {
                 if (from != null) from.anchoredPosition = home - dir * (10f * k);
             });
-            if (from == null || to == null || _shakeTarget == null) yield break;
+            if (from == null || _shakeTarget == null) yield break;
             StartCoroutine(ReturnHome(from, home, StrikeRecover, token));
             PlayClip(_hitClip, 0.45f, 1.35f); // 弦响:高而短
 
-            Vector3 start = from.position, end = to.position;
-            var arrow = FxImage("arrow", new Vector2(52f, 52f), color, start, out _);
+            Vector3 start = from.position;
+            var bolt = FxImage(fx, size, color, start, out var boltImage);
+            if (fx == null)
+            {
+                boltImage.sprite = Theme.Rounded(Mathf.RoundToInt(size.x * 0.5f)); // 圆墨,不是圆角方块
+                boltImage.type = Image.Type.Sliced;
+                bolt.sizeDelta = size;
+            }
             Vector3 local = _shakeTarget.InverseTransformVector(end - start);
-            arrow.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(local.y, local.x) * Mathf.Rad2Deg);
+            bolt.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(local.y, local.x) * Mathf.Rad2Deg);
             float t = 0f, nextTrail = 0f;
-            while (t < ShootFlight && arrow != null)
+            while (t < ShootFlight && bolt != null)
             {
                 t += UnityEngine.Time.unscaledDeltaTime * _rate;
                 float k = Mathf.Clamp01(t / ShootFlight);
-                arrow.position = Vector3.Lerp(start, end, k * (0.6f + 0.4f * k)); // 微微加速
+                bolt.position = Vector3.Lerp(start, end, k * (0.6f + 0.4f * k)); // 微微加速
                 if (t >= nextTrail)
                 {
                     nextTrail = t + TrailInterval * 0.7f;
-                    var dotRect = FxImage(null, new Vector2(7f, 7f), color, arrow.position, out var dotImage);
+                    var dotRect = FxImage(null, new Vector2(7f, 7f), color, bolt.position, out var dotImage);
                     StartCoroutine(TrailRoutine(dotRect, dotImage, color));
                 }
                 yield return null;
             }
-            if (arrow != null) UnityEngine.Object.Destroy(arrow.gameObject);
-            if (to != null) LeafBurst(to.position, color, 5);
+            if (bolt != null) UnityEngine.Object.Destroy(bolt.gameObject);
+        }
+
+        // ---- 近战:残影突进 + 笔锋拖尾(2026-09-30 用户在 demo 里拍板 A+B)----
+        //
+        // 原先的近战只是整格往前冲 30、刀口凭空出现在目标身上 —— 远程有箭飞过去,近战的
+        // 出手者与挨打者之间什么都没有,看不出谁砍了谁。现在:本体只小冲一下(布局不动),
+        // 克隆一个半透明残影冲到目标面前挥砍;残影身后同一条缓动拖出一笔墨迹,笔尖停在残影
+        // 挥砍的位置。挥完残影淡出、墨迹褪去。召唤物与敌人的近战共用这一套。
+
+        private const float GhostDash = 0.09f;     // 残影冲到目标面前(与笔触同一条 ease-in)
+        private const float GhostSwing = 0.08f;    // 挥砍:-18° → 24°
+        private const float GhostFade = 0.2f;
+        private const float StrokeFade = 0.48f;
+        private const float GhostAlpha = 0.62f;
+        private const float GhostStopFactor = 0.42f;   // 停在目标前 0.42 个目标宽:贴脸但不重叠
+        private const float PlayerTargetSize = 120f;   // 打玩家时没有目标格,按这么大一个目标算落点
+        private const float EnemyBoltSize = 20f;
+
+        /// <summary>蓄 → 本体小冲(不阻塞)+ 残影拖着笔冲到目标面前 → 挥砍,命中那一刻返回。
+        /// slash 为 true 时在目标身上劈刀口;叶片、音效由调用方按各自口径补。</summary>
+        private IEnumerator GhostStrike(RectTransform from, RectTransform to, Vector3 toPoint, Color color, bool slash)
+        {
+            if (from == null || _shakeTarget == null) yield break;
+            Vector2 home = HomeOf(from);
+            int token = NextMoveToken(from);
+            Vector2 dir = LocalDir(from, toPoint);
+            yield return Tween(StrikeWindup, k =>
+            {
+                if (from != null) from.anchoredPosition = home - dir * (8f * k);
+            });
+            if (from == null) yield break;
+            StartCoroutine(NudgeThenHome(from, home, dir, token));
+
+            // 笔触铺满震屏层,端点直接用它自己的本地坐标 —— 不用关心震屏层的 pivot 在哪
+            var strokeGo = new GameObject("BrushStroke", typeof(RectTransform));
+            strokeGo.transform.SetParent(_shakeTarget, false);
+            var space = (RectTransform)strokeGo.transform;
+            space.anchorMin = Vector2.zero;
+            space.anchorMax = Vector2.one;
+            space.offsetMin = Vector2.zero;
+            space.offsetMax = Vector2.zero;
+            var stroke = strokeGo.AddComponent<BrushStroke>();
+
+            Vector2 a = space.InverseTransformPoint(from.position);
+            Vector2 b = space.InverseTransformPoint(toPoint);
+            Vector2 delta = b - a;
+            float len = Mathf.Max(1f, delta.magnitude);
+            Vector2 u = delta / len;
+            float fromSize = LocalSize(from, space, PlayerTargetSize);
+            float toSize = to != null ? LocalSize(to, space, PlayerTargetSize) : PlayerTargetSize;
+            float stop = Mathf.Max(len * 0.3f, len - toSize * GhostStopFactor);
+            Vector2 p0 = a + u * (fromSize * 0.1f), p2 = a + u * stop;
+            // 墨色:攻击者属性色往墨里压一截 —— 纯属性色在宣纸上太跳,读成特效而不是墨
+            var ink = Color.Lerp(color, Theme.Ink, 0.4f);
+            ink.a = 0.9f;
+            stroke.color = ink;
+            stroke.Setup(p0, (p0 + p2) * 0.5f, p2, fromSize * 0.2f);
+
+            var ghost = MakeGhost(from, out var ghostGroup);
+            yield return Tween(GhostDash, k =>
+            {
+                float kk = k * k;
+                if (ghost != null) ghost.position = space.TransformPoint(a + u * (stop * kk));
+                if (ghostGroup != null) ghostGroup.alpha = Mathf.Lerp(0.2f, GhostAlpha, k);
+                if (stroke != null) stroke.Progress = kk;
+            });
+            if (stroke != null) stroke.Progress = 1f;
+
+            float baseScale = ghost != null ? ghost.localScale.x : 1f;
+            yield return Tween(GhostSwing, k =>
+            {
+                if (ghost == null) return;
+                float kk = k * k;
+                ghost.position = space.TransformPoint(a + u * (stop + 10f * kk));
+                ghost.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-18f, 24f, kk));
+                ghost.localScale = Vector3.one * (baseScale * Mathf.Lerp(1f, 1.08f, kk));
+            });
+
+            if (slash)
+            {
+                if (to != null) Slash(to, color);
+                else SlashAt(toPoint, PlayerTargetSize, color);
+            }
+            if (space != null)
+                StartCoroutine(FadeGhost(ghost, ghostGroup, space.TransformPoint(a + u * (stop - 6f)), baseScale));
+            StartCoroutine(FadeStroke(stroke));
+        }
+
+        /// <summary>本体在残影冲出去的同时往前顶一下再回原位(蓄 -8 → +12 → 0)。</summary>
+        private IEnumerator NudgeThenHome(RectTransform rect, Vector2 home, Vector2 dir, int token)
+        {
+            bool Current() => rect != null && _summonMoveToken.TryGetValue(rect, out int t) && t == token;
+            yield return Tween(0.1f, k =>
+            {
+                if (Current()) rect.anchoredPosition = home + dir * Mathf.Lerp(-8f, 12f, 1f - (1f - k) * (1f - k));
+            });
+            if (Current()) yield return ReturnHome(rect, home, StrikeRecover, token);
+        }
+
+        /// <summary>克隆出手者当残影:挂到震屏层、关掉一切点击、摘掉角标(护盾/状态 chip)。
+        /// 克隆里 SummonView/MobView 的层引用是运行时赋的、不会被复制,所以残影是静止的一帧,
+        /// 不会跟着本体一起呼吸/抖动。</summary>
+        private RectTransform MakeGhost(RectTransform from, out CanvasGroup group)
+        {
+            var go = Instantiate(from.gameObject, _shakeTarget, true);
+            go.name = "Ghost";
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = from.rect.size;
+            rect.position = from.position;
+            var layout = go.GetComponent<LayoutElement>();
+            if (layout == null) layout = go.AddComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            var chips = new List<GameObject>();
+            foreach (Transform child in rect)
+                if (child.name == "Chip") chips.Add(child.gameObject);
+            foreach (var chip in chips) Destroy(chip);
+            foreach (var graphic in go.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
+            group = go.GetComponent<CanvasGroup>();
+            if (group == null) group = go.AddComponent<CanvasGroup>();
+            group.alpha = 0.2f;
+            group.blocksRaycasts = false;
+            group.interactable = false;
+            return rect;
+        }
+
+        private IEnumerator FadeGhost(RectTransform ghost, CanvasGroup group, Vector3 driftTo, float baseScale)
+        {
+            if (ghost == null) yield break;
+            Vector3 at = ghost.position;
+            yield return Tween(GhostFade, k =>
+            {
+                if (ghost == null) return;
+                float e = 1f - (1f - k) * (1f - k);
+                ghost.position = Vector3.Lerp(at, driftTo, e);
+                ghost.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(24f, 10f, e));
+                ghost.localScale = Vector3.one * (baseScale * Mathf.Lerp(1.08f, 1.15f, e));
+                if (group != null) group.alpha = GhostAlpha * (1f - e);
+            });
+            if (ghost != null) UnityEngine.Object.Destroy(ghost.gameObject);
+        }
+
+        private IEnumerator FadeStroke(BrushStroke stroke)
+        {
+            if (stroke == null) yield break;
+            var c = stroke.color;
+            float alpha = c.a;
+            yield return Tween(StrokeFade, k =>
+            {
+                if (stroke == null) return;
+                c.a = alpha * (1f - k) * (1f - k); // ease-out 褪去
+                stroke.color = c;
+            });
+            if (stroke != null) UnityEngine.Object.Destroy(stroke.gameObject);
+        }
+
+        /// <summary>rect 的边长(取宽高较大者)换算到 space 的本地单位;rect 为 null 返回 fallback。</summary>
+        private static float LocalSize(RectTransform rect, RectTransform space, float fallback)
+        {
+            if (rect == null || space == null) return fallback;
+            float world = Mathf.Max(rect.rect.width * rect.lossyScale.x, rect.rect.height * rect.lossyScale.y);
+            float unit = Mathf.Abs(space.lossyScale.x) < 1e-6f ? 1f : space.lossyScale.x;
+            return world / unit;
         }
 
         /// <summary>刀口:一记弧形笔锋在目标身上张开再淡掉。随机转角、一半概率镜像,连打几下不重样。</summary>
-        private void Slash(RectTransform target, Color color)
+        private void Slash(RectTransform target, Color color) =>
+            SlashAt(target.position, Mathf.Max(target.rect.width, target.rect.height), color);
+
+        /// <summary>按点位劈刀口(打玩家时没有目标格)。targetSize = 目标边长,刀口取它的 1.1 倍、夹在 80–160。</summary>
+        private void SlashAt(Vector3 at, float targetSize, Color color)
         {
             if (_shakeTarget == null) return;
-            float size = Mathf.Clamp(Mathf.Max(target.rect.width, target.rect.height) * 1.1f, 80f, 160f);
-            var rect = FxImage("slash", new Vector2(size, size), color, target.position, out var image);
+            float size = Mathf.Clamp(targetSize * 1.1f, 80f, 160f);
+            var rect = FxImage("slash", new Vector2(size, size), color, at, out var image);
             rect.localRotation = Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-25f, 25f));
             float mirror = UnityEngine.Random.value < 0.5f ? -1f : 1f;
             StartCoroutine(SlashRoutine(rect, image, color, mirror));
@@ -979,10 +1161,10 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>from → to 的方向,换算到 from 父节点的本地坐标(anchoredPosition 住在那里)。</summary>
-        private static Vector2 LocalDir(RectTransform from, RectTransform to)
+        private static Vector2 LocalDir(RectTransform from, Vector3 to)
         {
-            if (from == null || to == null || from.parent == null) return Vector2.up;
-            Vector2 d = from.parent.InverseTransformVector(to.position - from.position);
+            if (from == null || from.parent == null) return Vector2.up;
+            Vector2 d = from.parent.InverseTransformVector(to - from.position);
             return d.sqrMagnitude < 1f ? Vector2.up : d.normalized;
         }
 
