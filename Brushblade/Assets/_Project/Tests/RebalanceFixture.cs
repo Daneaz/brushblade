@@ -49,7 +49,8 @@ namespace Brushblade.Core.Tests
         /// <summary>一场「一发就能打完」的爬塔,起始护盾可指定 ——
         /// RunEngine 的构造函数本来就有 startingNormalShield / startingPersistShield 两个参数,
         /// 不需要给引擎开新口子。</summary>
-        public static RunEngine Run(int normalShield = 0, int persistShield = 0)
+        public static RunEngine Run(int normalShield = 0, int persistShield = 0,
+            IReadOnlyList<SummonSnapshot> summons = null)
         {
             var config = new RunConfig
             {
@@ -59,7 +60,8 @@ namespace Brushblade.Core.Tests
             return new RunEngine(Graph(), config,
                 new BattleConfig { PlayerMaxHp = BaseMaxHp, PlayerAttack = 100 },
                 new[] { "甲" }, Array.Empty<string>(), seed: 1,
-                startingNormalShield: normalShield, startingPersistShield: persistShield);
+                startingNormalShield: normalShield, startingPersistShield: persistShield,
+                startingSummons: summons);
         }
     }
 }

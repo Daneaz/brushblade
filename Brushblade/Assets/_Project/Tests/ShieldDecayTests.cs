@@ -54,5 +54,30 @@ namespace Brushblade.Core.Tests
             var snap = WinAndCapture(normal: 1, persist: 0);
             Assert.That(snap.CarriedNormalShield, Is.EqualTo(0), "1 / 2 = 0,不留残渣");
         }
+
+        /// <summary>2026-09-30 bugfix:衰减只写了玩家的两个桶,召唤物的 Shield 随
+        /// CaptureAliveSummons 原样带过场 —— 召唤物成了「第二条血条」的漏网通道。
+        /// 衰减口径对我方所有持盾单位一致:玩家 + 每只存活召唤物。</summary>
+        [Test]
+        public void SummonShield_AlsoHalvesAfterBattle()
+        {
+            var summons = new[]
+            {
+                new SummonSnapshot { Slot = 0, Char = "木", Element = Element.Wood,
+                    Hp = 10, MaxHp = 10, Attack = 0, Speed = 100, Shield = 301 },
+                new SummonSnapshot { Slot = 1, Char = "木", Element = Element.Wood,
+                    Hp = 10, MaxHp = 10, Attack = 0, Speed = 100, Shield = 1 },
+            };
+            var run = RebalanceFixture.Run(normalShield: 40, summons: summons);
+            run.Battle.Cast("甲", 0);
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won), "夹具前提:必须一发秒杀");
+            run.AdvanceAfterBattle();
+            var snap = run.Capture();
+
+            Assert.That(snap.CarriedNormalShield, Is.EqualTo(20), "玩家照旧减半");
+            Assert.That(snap.CarriedSummons.Count, Is.EqualTo(2));
+            Assert.That(snap.CarriedSummons[0].Shield, Is.EqualTo(150), "召唤物护盾同样 301 / 2 = 150");
+            Assert.That(snap.CarriedSummons[1].Shield, Is.EqualTo(0), "1 / 2 = 0,不留残渣");
+        }
     }
 }
