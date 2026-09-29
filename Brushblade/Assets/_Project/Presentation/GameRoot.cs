@@ -609,12 +609,18 @@ namespace Brushblade.Presentation
                 var tier = EndlessRules.ChestTierFor(chestDepth, new GameRandom(System.Environment.TickCount));
                 chestTier = tier;
                 chestTitle = Strings.T("root.settle.chest_row_title", ("tierName", ChestRules.TierName(tier)));
-                if (ChestRules.TryAwardChest(_meta, tier, ChestCardPool(), Time))
-                    chestDesc = Strings.T("root.settle.chest_row_desc", ("chestDepth", chestDepth));
-                else
+                // 箱位 4 格 + 暂存最多 1 只(2026-09-30):暂存也满了这只作废,结算页照实说
+                switch (ChestRules.AwardOrHold(_meta, tier, ChestCardPool(), Time))
                 {
-                    _meta.PendingChests.Add(tier); // 满位不丢:暂存,回地图开箱腾位后自动入位
-                    chestDesc = Strings.T("root.settle.chest_row_pending_desc");
+                    case ChestAward.Slotted:
+                        chestDesc = Strings.T("root.settle.chest_row_desc", ("chestDepth", chestDepth));
+                        break;
+                    case ChestAward.Held:
+                        chestDesc = Strings.T("root.settle.chest_row_pending_desc");
+                        break;
+                    default:
+                        chestDesc = Strings.T("root.settle.chest_row_lost_desc");
+                        break;
                 }
             }
 

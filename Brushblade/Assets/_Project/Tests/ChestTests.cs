@@ -43,6 +43,48 @@ namespace Brushblade.Core.Tests
             Assert.That(ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time), Is.False);
         }
 
+        // ---- 战后掉箱:箱位 4 格 + 暂存最多 1 只(2026-09-30 用户拍板)----
+        // 此前暂存没有上限,箱位满了照样一只只往暂存里堆 —— 「箱位 4 格」这道节奏阀形同虚设。
+
+        private static MetaState FullSlots(FakeTime time)
+        {
+            var meta = new MetaState();
+            for (int i = 0; i < ChestRules.SlotLimit; i++)
+                ChestRules.TryAwardChest(meta, ChestTier.Paper, Pool, time);
+            return meta;
+        }
+
+        [Test]
+        public void AwardOrHold_FreeSlot_GoesStraightIn()
+        {
+            var meta = new MetaState();
+            Assert.That(ChestRules.AwardOrHold(meta, ChestTier.Bamboo, Pool, new FakeTime()),
+                Is.EqualTo(ChestAward.Slotted));
+            Assert.That(meta.Chests.Count, Is.EqualTo(1));
+            Assert.That(meta.PendingChests.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AwardOrHold_SlotsFull_HoldsExactlyOne()
+        {
+            var time = new FakeTime();
+            var meta = FullSlots(time);
+            Assert.That(ChestRules.AwardOrHold(meta, ChestTier.Gilded, Pool, time), Is.EqualTo(ChestAward.Held));
+            Assert.That(meta.PendingChests, Is.EqualTo(new[] { ChestTier.Gilded }));
+
+            Assert.That(ChestRules.AwardOrHold(meta, ChestTier.Crimson, Pool, time), Is.EqualTo(ChestAward.Lost),
+                "暂存只留一只,第二只作废");
+            Assert.That(meta.PendingChests, Is.EqualTo(new[] { ChestTier.Gilded }), "先到的那只不被顶掉");
+            Assert.That(meta.Chests.Count, Is.EqualTo(ChestRules.SlotLimit));
+        }
+
+        [Test]
+        public void PendingLimit_IsOne()
+        {
+            Assert.That(ChestRules.SlotLimit, Is.EqualTo(4));
+            Assert.That(ChestRules.PendingLimit, Is.EqualTo(1));
+        }
+
         [Test]
         public void DrainPending_FillsFreedSlots_KeepsRest()
         {

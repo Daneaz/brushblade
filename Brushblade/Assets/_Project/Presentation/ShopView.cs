@@ -256,7 +256,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>月订阅条(第 14 章 14.3)。**只占版面,点了说去向** —— 订阅的四条权益
-        /// (广告位免看直领 / 箱位 4→5 / 每日墨锭礼包 / 开箱时长 −25%)在 Core 里一条都还没有,
+        /// (广告位免看直领 / 同时开箱 1→2 / 每日墨锭礼包 / 开箱时长 −25%)在 Core 里一条都还没有,
         /// 画成可买的按钮就是「屏上写着玩家点不到的功能」(README 的品牌硬规矩)。
         /// 与顶栏设置钮同一种处理:占位 + 说明弹窗,接上时只换回调、版面不动。
         ///
@@ -340,18 +340,18 @@ namespace Brushblade.Presentation
             ChestArt.Draw(stack.transform, tier, ChestView.State.Idle, 84f);
             Ui.ThemedLabel(stack.transform, chestName, 23, Theme.TextMain, Theme.TitleFont);
 
-            // 三枚事实 chip:张数 · 开启时长 · 当前箱位。都是「买之前该知道的事实」,不是促销话术
+            // 两枚事实 chip:张数 · 开启时长。都是「买之前该知道的事实」,不是促销话术。
+            // 「箱位 N/4」那枚 2026-09-30 按用户要求撤掉 —— 满位时下面的按钮本来就写着「箱位已满」
             var facts = Ui.Row(stack.transform, "Facts", 7);
             facts.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             Ui.Chip(facts.transform, Strings.T("shop.chest.cards_chip", ("count", ChestRules.CardCount[tierIndex])),
                 Theme.PanelInset, Theme.TextDim, 18);
-            Ui.Chip(facts.transform, Strings.T("shop.chest.duration_chip",
-                    ("hours", ChestRules.DurationSeconds[tierIndex] / 3600f)),
+            // 不满 1 小时按分钟写(2026-09-30 用户报:素纸匣 5 分钟曾显示成「0.0833333 小时」)
+            long seconds = ChestRules.DurationSeconds[tierIndex];
+            Ui.Chip(facts.transform, seconds < 3600
+                    ? Strings.T("shop.chest.duration_chip_min", ("minutes", seconds / 60))
+                    : Strings.T("shop.chest.duration_chip", ("hours", seconds / 3600f)),
                 Theme.PanelInset, Theme.TextDim, 18);
-            Ui.Chip(facts.transform, Strings.T("shop.chest.slots_chip",
-                    ("count", _meta.Chests.Count), ("limit", ChestRules.SlotLimit)),
-                slotsFull ? Theme.WarnBg : Theme.PanelInset,
-                slotsFull ? Theme.WarnText : Theme.TextDim, 18);
 
             // 箱位满时不可买:按钮直接写清楚为什么,别让玩家点了才弹窗
             string label = sold ? Strings.T("shop.slot.sold_today")

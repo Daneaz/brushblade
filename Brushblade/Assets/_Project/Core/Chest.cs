@@ -23,6 +23,14 @@ namespace Brushblade.Core
         Crimson = 7,   // 赤霄匣(红)
     }
 
+    /// <summary>战后掉箱去了哪(2026-09-30,<see cref="ChestRules.AwardOrHold"/>)。</summary>
+    public enum ChestAward
+    {
+        Slotted, // 入箱位
+        Held,    // 箱位满,暂存(开箱腾位后自动补入)
+        Lost,    // 箱位满且暂存也满,作废
+    }
+
     /// <summary>箱位中的一只宝箱(存档友好:纯数据)。</summary>
     public sealed class ChestState
     {
@@ -120,6 +128,21 @@ namespace Brushblade.Core
 
             meta.Chests.Add(new ChestState { Tier = tier, CardPool = new List<string>(cardPool) });
             return true;
+        }
+
+        /// <summary>箱位满时最多暂存几只(2026-09-30 用户拍板)。此前暂存没有上限,箱位满了照样
+        /// 一只只往暂存里堆,「箱位 4 格」这道节奏阀形同虚设;现在战后只替你多留一只,再多就作废。</summary>
+        public const int PendingLimit = 1;
+
+        /// <summary>战后掉箱的统一入口:有空位就入位,满位则暂存(最多 <see cref="PendingLimit"/> 只),
+        /// 暂存也满了这只就作废。结算页按返回值说明这只箱去哪了。</summary>
+        public static ChestAward AwardOrHold(MetaState meta, ChestTier tier,
+            IReadOnlyList<string> cardPool, ITimeSource time)
+        {
+            if (TryAwardChest(meta, tier, cardPool, time)) return ChestAward.Slotted;
+            if (meta.PendingChests.Count >= PendingLimit) return ChestAward.Lost;
+            meta.PendingChests.Add(tier);
+            return ChestAward.Held;
         }
 
         /// <summary>把暂存箱(结算时箱位满而挂起的)先进先出补进空出的箱位;返回入位数量
