@@ -29,12 +29,14 @@ GRANTING_CALLS = [
     "TryExpandPool(",      # 局内扩容·部件池
     "TryRevive(",          # 复活位
     "TryRestock(",         # 字库补给(2026-09-23)
+    "TryClaimCardAd(",     # 商城字卡位 绿/蓝/紫(2026-09-30)
 ]
 
 # 第 14 章 14.2 那张表,一位一枚。改这里要同步改 Platform/Ads.cs 的枚举
 EXPECTED_PLACEMENTS = {
     "ChestBoost", "ShopRefresh", "ShopInk",
     "BattleLibrary", "BattleParts", "Revive", "BattleRestock",
+    "ShopCardGreen", "ShopCardBlue", "ShopCardPurple",
 }
 
 # 已接进 UI 的广告位 —— 六位全接。这张表存在就是为了让「接了但忘了记」变成红灯。
@@ -43,6 +45,7 @@ EXPECTED_PLACEMENTS = {
 WIRED_PLACEMENTS = {
     "ChestBoost", "ShopRefresh", "ShopInk",
     "BattleLibrary", "BattleParts", "Revive", "BattleRestock",
+    "ShopCardGreen", "ShopCardBlue", "ShopCardPurple",
 }
 
 GATE_WINDOW = 8  # 发奖调用离 AdGate.Watch( 最多隔几行

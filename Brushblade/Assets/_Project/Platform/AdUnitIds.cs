@@ -34,6 +34,9 @@ namespace Brushblade.Platform
                 [AdPlacement.BattleParts] = ("", ""),
                 [AdPlacement.Revive] = ("", ""),
                 [AdPlacement.BattleRestock] = ("", ""),
+                [AdPlacement.ShopCardGreen] = ("", ""),
+                [AdPlacement.ShopCardBlue] = ("", ""),
+                [AdPlacement.ShopCardPurple] = ("", ""),
             };
 
         /// <summary>取某个广告位在当前平台的奖励式单元 ID。</summary>

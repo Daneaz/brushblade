@@ -29,12 +29,15 @@ namespace Brushblade.Presentation
 
         private static readonly Vector2 CardSize = new(144f, 180f); // 摊位字牌(与旧版同尺寸)
         private const float SlotGap = 21f;
+        private const int SlotsPerRow = 4;     // 8 格排两行(2026-09-30 槽位随等级 4→8)
+        private const float SlotRowH = 280f;   // 一行 = 字牌 180 + 预告 + 价格钮 46 + 间距
+        private static readonly Vector2 AdTileSize = new(46f, 56f); // 字卡广告位左侧的小字牌
         private const float BuyH = 46f;        // 价格钮高(宝箱格同款)
         private const float SubBarH = 96f;     // 订阅条
 
         private RecipeGraph _graph;
         private MetaState _meta;
-        private IReadOnlyList<string> _cardPool;  // 卡位池:部件 + 已拥有的字
+        private IReadOnlyList<string> _cardPool;  // 卡位池:已拥有的非部件字
         private IReadOnlyList<string> _chestPool; // 宝箱池:全部可收集字(未拥有的字只出宝箱)
         private ITimeSource _time;
         private Action _save;
@@ -124,12 +127,20 @@ namespace Brushblade.Presentation
                 new Vector2(0, -SideHeadH), Vector2.zero);
             Ui.ThemedLabel(head.transform, Strings.T("shop.shelf.title"), 19, Theme.LockGray);
 
-            var row = Ui.Row(shelf.transform, "Slots", SlotGap);
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            Ui.Anchor((RectTransform)row.transform, new Vector2(0, 1), Vector2.one,
-                new Vector2(0, -(SideHeadH + Gap + CardSize.y + BuyH + 62f)), new Vector2(0, -(SideHeadH + Gap)));
-
-            for (int i = 0; i < _meta.Shop.CardSlots.Count; i++) BuildSlot(row.transform, i);
+            // 两行各 4 格(2026-09-30):已开的格摆货,没开的格印「Lv N 解锁」—— 玩家看得到还能多几格
+            for (int r = 0; r < ShopRules.MaxCardSlots / SlotsPerRow; r++)
+            {
+                var row = Ui.Row(shelf.transform, $"Slots{r}", SlotGap);
+                row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+                float top = SideHeadH + Gap + r * (SlotRowH + Gap);
+                Ui.Anchor((RectTransform)row.transform, new Vector2(0, 1), Vector2.one,
+                    new Vector2(0, -(top + SlotRowH)), new Vector2(0, -top));
+                for (int i = r * SlotsPerRow; i < (r + 1) * SlotsPerRow; i++)
+                {
+                    if (i < _meta.Shop.CardSlots.Count) BuildSlot(row.transform, i);
+                    else LockedSlot(row.transform, i);
+                }
+            }
 
             BuildSubscriptionBar(shelf.transform);
         }
@@ -140,7 +151,8 @@ namespace Brushblade.Presentation
             string card = _meta.Shop.CardSlots[index];
             bool sold = _meta.Shop.CardSold[index];
             var def = _graph.Get(card);
-            int price = ShopRules.CardPriceFor(def.Rarity);
+            int price = ShopRules.BundlePriceFor(def.Rarity);
+            int bundle = ShopRules.BundleSizeFor(def.Rarity);   // 一份几张(2026-09-30 按稀有度打包)
             bool owned = _meta.OwnedCards.Contains(card);
             bool component = def.IsComponent;
 
@@ -184,24 +196,39 @@ namespace Brushblade.Presentation
                 forecast = Strings.T("shop.slot.maxed_note");
                 forecastColor = Theme.TextDim;
             }
-            else if (copies + 1 >= needed)
+            else if (copies + bundle >= needed)
             {
                 forecast = Strings.T("shop.slot.unlocks_upgrade", ("level", level + 1));
                 forecastColor = Theme.UpgradeText;
             }
             else
             {
-                forecast = Strings.T("shop.slot.copies_after", ("copies", copies + 1), ("needed", needed));
+                forecast = Strings.T("shop.slot.copies_after", ("copies", copies + bundle), ("needed", needed));
                 forecastColor = Theme.TextDim;
             }
             Ui.ThemedLabel(cell.transform, forecast, 19, forecastColor);
 
             BuyButton(cell.transform, CardSize.x, sold, price,
-                sold ? Strings.T("shop.slot.sold_today") : price.ToString(),
+                sold ? Strings.T("shop.slot.sold_today")
+                    : Strings.T("shop.slot.bundle_price", ("count", bundle), ("price", price)),
                 () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
-                    Strings.T("shop.card.buy_success", ("card", card)),
+                    Strings.T("shop.card.buy_success", ("card", card), ("count", bundle)),
                     Strings.T("shop.card.buy_fail_title"),
                     Strings.T("shop.card.buy_fail_body", ("card", card), ("price", price), ("ink", _meta.Ink))));
+        }
+
+        /// <summary>还没解锁的格(2026-09-30):与摊位同尺寸的凹槽 + 「Lv N 解锁」。</summary>
+        private void LockedSlot(Transform parent, int index)
+        {
+            var cell = Ui.VStack(parent, $"Locked{index}", 8);
+            cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+            Ui.Sized(cell, width: CardSize.x, flexWidth: 0);
+            var well = Ui.CardPanel(cell.transform, "Well", Theme.PanelInset, 14);
+            well.gameObject.AddComponent<LayoutElement>().preferredHeight = CardSize.y;
+            var label = Ui.ThemedLabel(well.transform,
+                Strings.T("shop.slot.locked_level", ("level", ShopRules.UnlockLevelForSlot(index))),
+                19, Theme.LockGray);
+            Ui.Stretch((RectTransform)label.transform);
         }
 
         /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 「差 N」;
@@ -366,12 +393,60 @@ namespace Brushblade.Presentation
                     ? Strings.T("shop.supply.used_label")
                     : Strings.T("shop.refresh.action_label"),
                 () => AdGate.Watch(AdPlacement.ShopRefresh,
-                    () => Do(() => ShopRules.TryAdRefresh(_meta, _cardPool, new GameRandom(Environment.TickCount)),
+                    () => Do(() => ShopRules.TryAdRefresh(_meta, _cardPool, new GameRandom(Environment.TickCount),
+                            id => _graph.Get(id).Rarity, _chestPool),
                         Strings.T("shop.refresh.success"),
                         Strings.T("shop.refresh.done_label"), Strings.T("shop.refresh.already_done_body"))),
                 new Vector2(0, 64));
             refresh.GetComponent<LayoutElement>().flexibleWidth = 1;
             refresh.interactable = !_meta.Shop.AdRefreshUsed;
+
+            for (int tier = 0; tier < ShopRules.AdOfferCount; tier++) BuildCardAd(parent, tier);
+        }
+
+        private static readonly AdPlacement[] CardAdPlacements =
+            { AdPlacement.ShopCardGreen, AdPlacement.ShopCardBlue, AdPlacement.ShopCardPurple };
+
+        /// <summary>看广告领字卡(2026-09-30):左一枚小字牌(点开看详情),右一枚广告钮。
+        /// 绿 ×10 / 蓝 ×5 只出已拥有的字;紫 ×1 可以是没拥有的字 —— 那种钮上写「解锁新字」。</summary>
+        private void BuildCardAd(Transform parent, int tier)
+        {
+            var shop = _meta.Shop;
+            string card = tier < shop.AdOffers.Count ? shop.AdOffers[tier] : "";
+            bool claimed = tier < shop.AdOfferClaimed.Count && shop.AdOfferClaimed[tier];
+            int count = ShopRules.AdOfferCards[tier];
+
+            var row = Ui.Row(parent, $"CardAd{tier}", 10);
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            row.AddComponent<LayoutElement>().preferredHeight = AdTileSize.y;
+
+            if (card == "")
+            {
+                // 这一档今天没得出(例如还一张绿字都没有):钮照画、置灰,说清楚为什么
+                var none = Ui.AdBadge(row.transform, Strings.T("shop.card_ad.none_label"), () => { },
+                    new Vector2(0, AdTileSize.y));
+                none.GetComponent<LayoutElement>().flexibleWidth = 1;
+                none.interactable = false;
+                return;
+            }
+
+            var def = _graph.Get(card);
+            var tile = Ui.GlyphTile(row.transform, def, false, () => ShowPreview(def), AdTileSize,
+                locked: !_meta.OwnedCards.Contains(card));
+            Ui.Sized(tile.gameObject, width: AdTileSize.x, flexWidth: 0);
+
+            bool isNew = !_meta.OwnedCards.Contains(card);
+            string label = claimed ? Strings.T("shop.supply.used_label")
+                : isNew ? Strings.T("shop.card_ad.claim_new_label", ("card", card))
+                : Strings.T("shop.card_ad.claim_label", ("card", card), ("count", count));
+            var badge = Ui.AdBadge(row.transform, label,
+                () => AdGate.Watch(CardAdPlacements[tier],
+                    () => Do(() => ShopRules.TryClaimCardAd(_meta, tier),
+                        Strings.T("shop.card_ad.claim_success", ("card", card), ("count", count)),
+                        Strings.T("shop.card_ad.already_title"), Strings.T("shop.card_ad.already_body"))),
+                new Vector2(0, AdTileSize.y));
+            badge.GetComponent<LayoutElement>().flexibleWidth = 1;
+            badge.interactable = !claimed;
         }
 
         // ---- 反馈 ----

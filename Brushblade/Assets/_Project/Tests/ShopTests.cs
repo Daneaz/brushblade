@@ -89,7 +89,7 @@ namespace Brushblade.Core.Tests
         {
             var time = new FakeTime();
             var meta = Fresh(time);
-            Assert.That(meta.Shop.CardSlots.Count, Is.EqualTo(ShopRules.CardSlotCount));
+            Assert.That(meta.Shop.CardSlots.Count, Is.EqualTo(ShopRules.SlotCountFor(1)), "Lv1 开 4 格");
             Assert.That(meta.Shop.CardSlots,
                 Has.All.Matches<string>(c => System.Array.IndexOf(Pool, c) >= 0)); // Unity 版 NUnit 无 AnyOf
 
@@ -123,11 +123,11 @@ namespace Brushblade.Core.Tests
         public void BuyCard_DeductsAcquiresMarksSold()
         {
             var meta = Fresh(new FakeTime());
-            meta.Ink = 100;
+            meta.Ink = 1000;
             string card = meta.Shop.CardSlots[1];
 
             Assert.That(ShopRules.TryBuyCard(meta, 1), Is.True);
-            Assert.That(meta.Ink, Is.EqualTo(100 - ShopRules.CardPrice));
+            Assert.That(meta.Ink, Is.EqualTo(1000 - ShopRules.BundlePriceFor(CardRarity.White)));
             Assert.That(meta.OwnedCards, Does.Contain(card));
             Assert.That(ShopRules.TryBuyCard(meta, 1), Is.False); // 已售
         }
@@ -136,9 +136,9 @@ namespace Brushblade.Core.Tests
         public void BuyCard_InsufficientInk_Fails()
         {
             var meta = Fresh(new FakeTime());
-            meta.Ink = ShopRules.CardPrice - 1;
+            meta.Ink = ShopRules.BundlePriceFor(CardRarity.White) - 1;
             Assert.That(ShopRules.TryBuyCard(meta, 0), Is.False);
-            Assert.That(meta.Ink, Is.EqualTo(ShopRules.CardPrice - 1));
+            Assert.That(meta.Ink, Is.EqualTo(ShopRules.BundlePriceFor(CardRarity.White) - 1));
         }
 
         [Test]
@@ -196,14 +196,18 @@ namespace Brushblade.Core.Tests
         public void ShopState_SurvivesSaveRoundTrip()
         {
             var meta = Fresh(new FakeTime());
-            meta.Ink = 100;
-            ShopRules.TryBuyCard(meta, 2);
+            meta.Ink = 1000;   // 2026-09-30 起白卡一份 200
+            Assert.That(ShopRules.TryBuyCard(meta, 2), Is.True);
+            meta.Shop.AdOffers.AddRange(new[] { "炎", "", "圭" });
+            meta.Shop.AdOfferClaimed.AddRange(new[] { true, false, false });
 
             var restored = Brushblade.Data.SaveSerializer.FromJson(
                 Brushblade.Data.SaveSerializer.ToJson(meta));
             Assert.That(restored.Shop.CardSlots, Is.EqualTo(meta.Shop.CardSlots));
             Assert.That(restored.Shop.CardSold[2], Is.True);
             Assert.That(restored.Shop.DayStamp, Is.EqualTo(meta.Shop.DayStamp));
+            Assert.That(restored.Shop.AdOffers, Is.EqualTo(meta.Shop.AdOffers), "字卡广告位(2026-09-30)跟着存档走");
+            Assert.That(restored.Shop.AdOfferClaimed, Is.EqualTo(meta.Shop.AdOfferClaimed));
         }
     }
 }

@@ -15,6 +15,9 @@ namespace Brushblade.Platform
         BattleParts,    // 局内扩容·部件池:每关 1 次(+2)
         Revive,         // 复活位:整次登塔 1 次
         BattleRestock,  // 字库补给:持有字跌破 3 张时,整次登塔 1 次(5 选 2;2026-09-23)
+        ShopCardGreen,  // 商城字卡位·绿:1 次/日,已拥有的绿字 ×10(2026-09-30)
+        ShopCardBlue,   // 商城字卡位·蓝:1 次/日,已拥有的蓝字 ×5
+        ShopCardPurple, // 商城字卡位·紫:1 次/日,紫字 ×1,不要求已拥有(没有就解锁)
     }
 
     /// <summary>一次广告播放的结局。**只有 Rewarded 能发奖**。</summary>

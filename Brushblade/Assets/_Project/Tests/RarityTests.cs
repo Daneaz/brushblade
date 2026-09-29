@@ -73,15 +73,7 @@ namespace Brushblade.Core.Tests
 
         // ---- 商城价格按稀有度(19.6) ----
 
-        [Test]
-        public void ShopPrice_ScalesByRarity()
-        {
-            Assert.That(ShopRules.CardPriceFor(CardRarity.White), Is.EqualTo(40));
-            Assert.That(ShopRules.CardPriceFor(CardRarity.Red), Is.EqualTo(600));
-            for (var rarity = CardRarity.White; rarity < CardRarity.Red; rarity++)
-                Assert.That(ShopRules.CardPriceFor(rarity + 1),
-                    Is.GreaterThan(ShopRules.CardPriceFor(rarity)));
-        }
+        // 2026-09-30 改为按稀有度打包卖:逐档定价与「单张价随稀有度递增」见 ShopBundleTests
 
         [Test]
         public void BuyCard_ChargesByRarity()
@@ -210,7 +202,8 @@ namespace Brushblade.Core.Tests
         {
             Assert.That(MetaRules.CopiesRequired(1, CardRarity.Red), Is.GreaterThan(0));
             Assert.That(MetaRules.InkRequired(1, CardRarity.Red), Is.GreaterThan(0));
-            Assert.That(ShopRules.CardPriceFor(CardRarity.Red), Is.GreaterThan(0));
+            Assert.That(ShopRules.BundlePriceFor(CardRarity.Red), Is.GreaterThan(0));
+            Assert.That(ShopRules.BundleSizeFor(CardRarity.Red), Is.GreaterThan(0));
         }
 
         [Test]
@@ -220,8 +213,8 @@ namespace Brushblade.Core.Tests
                 Is.LessThanOrEqualTo(MetaRules.CopiesRequired(1, CardRarity.Orange)));
             Assert.That(MetaRules.InkRequired(1, CardRarity.Red),
                 Is.GreaterThan(MetaRules.InkRequired(1, CardRarity.Orange)));
-            Assert.That(ShopRules.CardPriceFor(CardRarity.Red),
-                Is.GreaterThan(ShopRules.CardPriceFor(CardRarity.Orange)));
+            Assert.That(ShopRules.BundlePriceFor(CardRarity.Red),
+                Is.GreaterThan(ShopRules.BundlePriceFor(CardRarity.Orange)));
         }
     }
 }
