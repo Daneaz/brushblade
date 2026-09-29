@@ -15,16 +15,20 @@ namespace Brushblade.Core.Tests
     /// ② 字库补给是**一轮**(复活是两轮),轮次用尽要回到 InBattle。</summary>
     public class RestockSupplyTests
     {
-        /// <summary>六张纯伤害字:够 RollRewardOptions 抽满 5 个候选(去重后仍有余)。</summary>
+        /// <summary>六张纯伤害字:够 RollRewardOptions 抽满 5 个候选(去重后仍有余)。
+        ///
+        /// ⚠ 必须显式 isComponent: false(2026-09-29 修):这些夹具字没有配方,不传的话
+        /// CharDef 按 IsLeaf 回退判成**部件**,而 RollRewardOptions 会把部件整个滤掉 ——
+        /// 候选恒为 0,本文件三条测试因此从提交那天起就是红的。</summary>
         private static RecipeGraph Graph() => new(new[]
         {
-            new CharDef("甲", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 30) }),
-            new CharDef("乙", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }),
-            new CharDef("丙", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }),
-            new CharDef("丁", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }),
-            new CharDef("戊", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }),
-            new CharDef("己", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }),
-            new CharDef("庚", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }),
+            new CharDef("甲", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 30) }, isComponent: false),
+            new CharDef("乙", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }, isComponent: false),
+            new CharDef("丙", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }, isComponent: false),
+            new CharDef("丁", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }, isComponent: false),
+            new CharDef("戊", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }, isComponent: false),
+            new CharDef("己", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }, isComponent: false),
+            new CharDef("庚", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 3) }, isComponent: false),
         });
 
         private static RunConfig Config() => new()

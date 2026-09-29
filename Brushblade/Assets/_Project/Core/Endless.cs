@@ -319,6 +319,10 @@ namespace Brushblade.Core
         public bool LibraryExpanded { get; set; }
         public bool PoolExpanded { get; set; }
         public bool Revived { get; set; }        // 本次登塔已用过广告复活(一次性;2026-07-24)
+        /// <summary>本次登塔已用过字库补给(一次性;2026-09-23 功能,2026-09-29 补字段)。
+        /// 与 <see cref="Revived"/> 同口径:断点续爬回来靠它防二次领取。f4c0608 在 GameRoot 里
+        /// 接了 1 处恢复 + 4 处落盘,却漏了这个字段本身 —— Unity 打开工程直接编译失败。</summary>
+        public bool Restocked { get; set; }
         public int TopBossDepth { get; set; } // 本次爬塔已破的最高 Boss 层(0=未破);结算宝箱档位据此(2026-07-22)
         /// <summary>**登塔那一刻**的历史最高层(2026-09-02):结算页「新纪录 · 43 → 45 层」左边那个数。
         ///
