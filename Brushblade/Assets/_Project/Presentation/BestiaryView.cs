@@ -416,7 +416,7 @@ namespace Brushblade.Presentation
                     var portrait = new GameObject($"Mob_{def.Id}", typeof(RectTransform));
                     portrait.transform.SetParent(block.transform, false);
                     var mob = portrait.AddComponent<MobView>();
-                    mob.Init(prefix, size * 0.82f);
+                    mob.Init(prefix, size * 0.82f, def, phase);
                     // 图鉴展示机制特征(缺笔的残笔、通假的面具、生僻的墨雾、焦痕的火芯):
                     // 战斗里这一层由实际状态驱动,这里只是静态露出
                     mob.SetStateAmount(0.55f);

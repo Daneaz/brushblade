@@ -69,34 +69,12 @@ MINION_SLUGS = {
     "晕染": "yunran",
 }
 
-# Boss 形象按阶段出:同一只 Boss 四个阶段是四套图。
-# 值 = 每阶段的资产前缀;「倒」「海」两阶段复用排山倒海的稿(设计侧已去重)。
-BOSS_STAGES = {
-    "排山倒海": [
-        "boss_paishandaohai_1pai", "boss_paishandaohai_2shan",
-        "boss_paishandaohai_3dao", "boss_paishandaohai_4hai",
-    ],
-    "翻江倒海": [
-        "boss_fanjiangdaohai_1fan", "boss_fanjiangdaohai_2jiang",
-        "boss_paishandaohai_3dao", "boss_paishandaohai_4hai",  # ♻ 复用
-    ],
-    "雷霆万钧": [
-        "boss_leitingwanjun_1lei", "boss_leitingwanjun_2ting",
-        "boss_leitingwanjun_3wan", "boss_leitingwanjun_4jun",
-    ],
-}
+# Boss 不走这里(2026-09-30):成语 Boss 一只一张「讹熔」立绘,由 build_boss_art.py 直接生成分层 PNG。
 
 
 def expected_prefixes():
-    """全部资产前缀(不含层后缀)。Boss 复用阶段去重。"""
-    prefixes = [f"enemy_{slug}" for slug in MINION_SLUGS.values()]
-    seen = set(prefixes)
-    for stages in BOSS_STAGES.values():
-        for stage in stages:
-            if stage not in seen:
-                seen.add(stage)
-                prefixes.append(stage)
-    return prefixes
+    """全部杂兵资产前缀(不含层后缀)。"""
+    return [f"enemy_{slug}" for slug in MINION_SLUGS.values()]
 
 
 def present_layers(prefix):

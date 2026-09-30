@@ -166,7 +166,7 @@ namespace Brushblade.Presentation
                     portrait = new GameObject($"Mob_{def.Id}", typeof(RectTransform));
                     portrait.transform.SetParent(inner.transform, false);
                     var mob = portrait.AddComponent<MobView>();
-                    mob.Init(prefix, diameter);
+                    mob.Init(prefix, diameter, def, phaseIndex);
                     // 图鉴展示机制特征:缺笔妖的残笔、通假字的面具、生僻字的墨雾、焦痕的火芯。
                     // 战斗里这一层由实际状态驱动(MobView.SetStateAmount),这里只是静态露出
                     mob.SetStateAmount(0.55f);

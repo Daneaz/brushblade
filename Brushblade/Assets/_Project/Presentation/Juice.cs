@@ -155,6 +155,13 @@ namespace Brushblade.Presentation
         /// 由 BattleView 接到 RunEngine.KillInkFor —— 数额只有 Core 那一处定义。</summary>
         public Func<int, int> KillInkAt { get; set; }
 
+        /// <summary>成语 Boss 破阶的飘字(2026-09-30):(敌人下标, 新阶段下标) → 文案;null 回落「破阶!」。
+        /// 由 BattleView 拼 —— 它手里有 Boss 的阶段表,Juice 只管演。</summary>
+        public Func<int, int, string> BossPhaseTextAt { get; set; }
+
+        /// <summary>破阶后停一拍:让立绘把「字被正出来 → 下一个字亮起」演完再往下播。</summary>
+        private const float BossPhaseBeat = 1.0f;
+
         public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null,
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
@@ -592,8 +599,11 @@ namespace Brushblade.Presentation
                         Popup(Strings.T("juice.popup.enemy_split"), Theme.UpgradeText, enemyAnchor(e.TargetIndex));
                         break;
                     case BattleEventKind.BossPhase:
-                        Popup(Strings.T("juice.popup.boss_phase"), Theme.GoldDeep, enemyAnchor(e.TargetIndex));
+                        onImpact?.Invoke(e);   // 立绘演切阶段(MobView.PlayBossPhase)
+                        Popup(BossPhaseTextAt?.Invoke(e.TargetIndex, e.Amount) ?? Strings.T("juice.popup.boss_phase"),
+                            Theme.GoldDeep, enemyAnchor(e.TargetIndex));
                         PlayClip(_thudClip, 1f);
+                        yield return Beat(BossPhaseBeat);
                         break;
                     case BattleEventKind.EnemyBuff:
                         // Amount 是百分点(2026-08-12 敌我 AttackBuff 单位统一),飘「攻+50%」

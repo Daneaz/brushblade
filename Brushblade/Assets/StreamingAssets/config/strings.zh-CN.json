@@ -408,6 +408,8 @@
   "enemy.skill.topple.desc": "对你造 攻×2,清空你全部护盾,下回合 AP −1",
   "enemy.skill.topple.name": "倾覆",
   "juice.popup.boss_phase": "破阶!",
+  "juice.popup.boss_phase_same": "「{char}」已正 · 仍是{element}相",
+  "juice.popup.boss_phase_shift": "「{char}」已正 · {from}→{to}",
   "juice.popup.burn_stack": "灼+{amount}",
   "juice.popup.countered_damage": "抗 {amount}",
   "juice.popup.crit_damage": "暴 {amount}",
