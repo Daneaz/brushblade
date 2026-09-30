@@ -204,9 +204,7 @@ namespace Brushblade.Presentation
             var band = endless.BandFor(fromDepth);
             int segmentEnd = (fromDepth - 1) / endless.BossEvery * endless.BossEvery + endless.BossEvery;
 
-            // 层段首破里程碑(20.3):层段边界都是段首,踏入即发,断点重入不重复
-            if (EndlessRules.TryAwardMilestone(_meta, band))
-                MetaStore.Save(_meta);
+            // 层段首破里程碑(20.3)2026-09-30 起改在打赢本段主题 Boss 时发,见 OnSegmentEnded
 
             bool firstTowerSegment = resume?.FirstTowerSegment ?? (firstTower && fromDepth <= 1);
             var runConfig = firstTowerSegment
@@ -324,6 +322,11 @@ namespace Brushblade.Presentation
                     SettleTower(died: true, fromDepth + run.ClearedBattleIndex,
                         carriedInk + run.EarnedInk, abandoned: true);
                 });
+
+            // 进段标题卡(2026-09-30,十层一主题):新踏入一个层段时亮一下段名。断点重进不再亮;
+            // 首塔第 1 层有引导教学占着屏幕,不叠这一层
+            if (resume == null && fromDepth == band.FromDepth && !firstTowerSegment)
+                BandTitleCard.Show(view.transform, band, endless.BossEvery);
         }
 
         /// <summary>广告扩容即时落盘:挂起/杀进程也不丢已看广告换来的容量。
@@ -436,6 +439,13 @@ namespace Brushblade.Presentation
             CommitEventInk(run);
             int totalEarned = carriedInk + run.EarnedInk; // 整趟已挣(展示用;钱已在账户里)
             EndlessRules.UpdateBest(_meta, segmentEnd);
+            // 层段首破(20.3,2026-09-30 改):打赢本段第 10 层主题 Boss 时发,一次性,撤退也照拿。
+            // 直接进账户(与此前同一条 TryAwardMilestone);下面 MetaStore.Save 一并落盘,
+            // 安全层顶栏的墨锭翻牌会把它与 Boss 层墨锭一起翻出来,再由弹窗说清来由
+            var clearedBand = endless.BandFor(segmentEnd);
+            BandDef milestone = EndlessRules.IsThemeBossDepth(endless, segmentEnd)
+                && EndlessRules.TryAwardMilestone(_meta, clearedBand) && clearedBand.MilestoneInk > 0
+                ? clearedBand : null;
             var snapshot = _meta.EndlessV2;
             snapshot.TopBossDepth = segmentEnd; // 逐段递增,即本次已破最高 Boss 层
             snapshot.Depth = segmentEnd + 1;
@@ -456,7 +466,7 @@ namespace Brushblade.Presentation
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
             MetaStore.Save(_meta);
-            ShowSafeLayer(segmentEnd, totalEarned);
+            ShowSafeLayer(segmentEnd, totalEarned, milestone);
         }
 
         /// <summary>该深度所在层段的下标(背景色板索引)。</summary>
@@ -472,7 +482,7 @@ namespace Brushblade.Presentation
 
         /// <summary>安全层(20.5):继续深入 or 收官撤退的主动抉择。
         /// 塔内休整(段间调整字库)已废止(2026-07-20 拍板):字库只在登塔前定,塔内靠拆合与战利品经营。</summary>
-        private static void ShowSafeLayer(int depth, int totalEarned)
+        private static void ShowSafeLayer(int depth, int totalEarned, BandDef milestone = null)
         {
             var endless = _campaign.Endless;
             var nextBand = endless.BandFor(depth + 1);
@@ -562,6 +572,13 @@ namespace Brushblade.Presentation
                 () => SettleTower(died: false, depth, totalEarned));
 
             Ui.ThemedLabel(stack.transform, Strings.T("root.safelayer.risk"), 19, Theme.LockGray); // 稿 .risk 9pt
+
+            // 首破弹窗(2026-09-30):此前这笔钱进段时静默入账,玩家完全感知不到
+            if (milestone != null)
+                Ui.Modal(view.transform,
+                    Strings.T("root.safelayer.milestone_title", ("bandName", milestone.Name)),
+                    Strings.T("root.safelayer.milestone_body", ("ink", milestone.MilestoneInk)),
+                    (Strings.T("common.ok"), null, Theme.Cinnabar, Color.white));
         }
 
         /// <summary>安全层的一条岔路:钮 + 钮**下面**那句取舍说明(稿 SafeLayer.dc.html 的 .fork)。

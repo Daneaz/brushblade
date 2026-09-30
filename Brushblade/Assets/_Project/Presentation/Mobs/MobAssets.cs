@@ -42,28 +42,49 @@ namespace Brushblade.Presentation
             { "版牍", "bandu" },
             { "窑变", "yaobian" },
             { "宿墨", "sumo" },
+            // 2026-09-30 十层一主题补的七只
+            { "炭笔", "tanbi" },
+            { "拓片", "tapian" },
+            { "印泥", "yinni" },
+            { "刻刀", "kedao" },
+            { "铭文", "mingwen" },
+            { "泼墨", "pomo" },
+            { "晕染", "yunran" },
         };
 
-        /// <summary>Boss 形象按阶段出:四个阶段是四套图。「倒」「海」复用排山倒海的稿。</summary>
-        private static readonly Dictionary<string, string[]> BossStages = new()
+        /// <summary>成语 Boss 立绘(2026-09-30 改):**一个成语一张「讹熔」立绘**,不再按阶段分四套图。
+        /// 四个字各是一层(c0~c3),阶段只决定哪层亮、哪层已被「正」走 —— 见 MobView 的 Boss 骨架。
+        /// 与 tools/design/build_boss_art.py 的 BOSSES 表逐条相同(test_mob_assets.py 守着)。</summary>
+        private static readonly Dictionary<string, string> BossSlugs = new()
         {
-            { "排山倒海", new[] { "boss_paishandaohai_1pai", "boss_paishandaohai_2shan",
-                                  "boss_paishandaohai_3dao", "boss_paishandaohai_4hai" } },
-            { "翻江倒海", new[] { "boss_fanjiangdaohai_1fan", "boss_fanjiangdaohai_2jiang",
-                                  "boss_paishandaohai_3dao", "boss_paishandaohai_4hai" } },
-            { "雷霆万钧", new[] { "boss_leitingwanjun_1lei", "boss_leitingwanjun_2ting",
-                                  "boss_leitingwanjun_3wan", "boss_leitingwanjun_4jun" } },
+            { "排山倒海", "paishandaohai" },
+            { "翻江倒海", "fanjiangdaohai" },
+            { "雷霆万钧", "leitingwanjun" },
+            { "刀山火海", "daoshanhuohai" },
+            { "山崩海啸", "shanbenghaixiao" },
+            { "冰天雪地", "bingtianxuedi" },
+            { "烈火干柴", "liehuoganchai" },
+            { "飞沙走石", "feishazoushi" },
+            { "气吞山河", "qitunshanhe" },
+            { "草木皆兵", "caomujiebing" },
+            { "枯木逢春", "kumufengchun" },
+            { "星火燎原", "xinghuoliaoyuan" },
+            { "积土成山", "jituchengshan" },
+            { "山崩地裂", "shanbengdilie" },
+            { "铜墙铁壁", "tongqiangtiebi" },
+            { "惊涛骇浪", "jingtaohailang" },
         };
 
-        /// <summary>该怪(该阶段)的资产前缀;没有对应形象返回 null —— 调用方回落到字牌格。</summary>
+        /// <summary>这套资产是不是 Boss 骨架(四个字各一层)。静态场合(单位详情页)照旧叠 body/face/wisp。</summary>
+        public static bool IsBossRig(string prefix) => Layer(prefix, "c0") != null;
+
+        /// <summary>该怪的资产前缀;没有对应形象返回 null —— 调用方回落到字牌格。
+        /// phaseIndex 自 2026-09-30 起不再影响前缀(Boss 一只一张图),参数留着给调用方同一个签名。</summary>
         public static string PrefixFor(EnemyDef def, int phaseIndex = 0)
         {
             if (def == null) return null;
             if (def.Phases.Count > 0)
-            {
-                if (!BossStages.TryGetValue(def.Id, out var stages)) return null;
-                return stages[Mathf.Clamp(phaseIndex, 0, stages.Length - 1)];
-            }
+                return BossSlugs.TryGetValue(def.Id, out var bossSlug) ? "boss_" + bossSlug : null;
             return MinionSlugs.TryGetValue(def.Id, out var slug) ? "enemy_" + slug : null;
         }
 

@@ -45,6 +45,43 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void ParsesElitePools_AndAllowsIdiomOnlyBossPool()
+        {
+            var json = BaseJson.Replace(
+                @"""bossPool"": [ ""排山倒海"" ], ""rewardPool"": [ ""灼"" ], ""milestoneInk"": 0 }",
+                @"""bossPool"": [], ""idiomBosses"": [ { ""chars"": ""枯木逢春"", ""elements"": [ ""Wood"", ""Wood"", ""Heart"", ""Wood"" ] } ],
+                  ""eliteBossPool"": [ ""排山倒海"" ],
+                  ""eliteIdiomBosses"": [ { ""chars"": ""草木皆兵"", ""elements"": [ ""Wood"", ""Wood"", ""Heart"", ""Metal"" ] } ],
+                  ""rewardPool"": [ ""灼"" ], ""milestoneInk"": 0 }");
+            var band = ConfigLoader.LoadCampaign(json, Graph()).Endless.Bands[0];
+            Assert.That(band.BossPool.Count, Is.EqualTo(0), "Boss 池可以只配成语 Boss");
+            Assert.That(band.IdiomBossPool[0].Chars, Is.EqualTo("枯木逢春"));
+            Assert.That(band.EliteBossPool[0].Id, Is.EqualTo("排山倒海"));
+            Assert.That(band.EliteIdiomBossPool[0].Chars, Is.EqualTo("草木皆兵"));
+        }
+
+        [Test]
+        public void ParsesBandElementAndFlavor()
+        {
+            var json = BaseJson.Replace(
+                @"""name"": ""字林"", ""fromDepth"": 1,",
+                @"""name"": ""字林"", ""fromDepth"": 1, ""element"": ""Wood"", ""flavor"": ""笔墨成林"",");
+            var bands = ConfigLoader.LoadCampaign(json, Graph()).Endless.Bands;
+            Assert.That(bands[0].Element, Is.EqualTo(Element.Wood));
+            Assert.That(bands[0].Flavor, Is.EqualTo("笔墨成林"));
+            Assert.That(bands[1].Element, Is.Null, "不配就是混合段");
+        }
+
+        [Test]
+        public void NoBossAtAll_Throws()
+        {
+            var json = BaseJson.Replace(
+                @"""bossPool"": [ ""排山倒海"" ], ""rewardPool"": [ ""灼"" ], ""milestoneInk"": 0 }",
+                @"""bossPool"": [], ""rewardPool"": [ ""灼"" ], ""milestoneInk"": 0 }");
+            Assert.Throws<ConfigException>(() => ConfigLoader.LoadCampaign(json, Graph()));
+        }
+
+        [Test]
         public void MissingEndlessSection_LeavesNull()
         {
             var json = BaseJson.Substring(0, BaseJson.IndexOf(@"""endless""")).TrimEnd().TrimEnd(',') + "}";

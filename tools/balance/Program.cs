@@ -67,7 +67,7 @@ namespace Brushblade.Balance
                 + $" · 卡 {CardLevel} 级 · 角色 {CharacterLevel} 级 · 起手 6 张随机\n");
             // 末两列是**机器人自检**,不是平衡指标(见 BotProbe):攻面出字恒 0 = 双方向字
             // 的攻面又断了;僵局判死高企 = 机器人打不死人、靠 60 回合上限判死收场。
-            Console.WriteLine("| 画像 | 卡池 | 均卒层 | P50 | P90 | 最深 | 达词渊(11) | 达文山(26) | 达墨海(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/300 |");
+            Console.WriteLine("| 画像 | 卡池 | 均卒层 | P50 | P90 | 最深 | 达朱砂(11) | 达金石(31) | 达词渊(51) | 攻面出字/局 | 召唤出字/局 | 僵局判死/300 |");
             Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var profile in profiles)
                 SimulateProfile(graph, campaign, endless, profile);
@@ -153,7 +153,7 @@ namespace Brushblade.Balance
             int p90 = deaths[(int)(deaths.Count * 0.9)];
             string Reach(int band) => $"{deaths.Count(d => d >= band) * 100 / deaths.Count}%";
             Console.WriteLine($"| {profile.Name} | {profile.OwnedCards.Count} | {avg:F1} | {p50} | {p90} | {deaths[^1]} " +
-                              $"| {Reach(11)} | {Reach(26)} | {Reach(51)} " +
+                              $"| {Reach(11)} | {Reach(31)} | {Reach(51)} " +
                               $"| {probe.AttackFaceCasts / (double)Seeds:F1} " +
                               $"| {probe.SummonCasts / (double)Seeds:F1} " +
                               $"| {probe.Stalls} |");

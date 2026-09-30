@@ -26,6 +26,60 @@ namespace Brushblade.Core.Tests
             },
         };
 
+        // ---- 主题层段:第 5 层精英 / 第 10 层主题 Boss(2026-09-30)----
+
+        private static EnemyDef Elite() => new("草木皆兵", Element.Wood, 12, 6,
+            phases: new[] { new BossPhaseDef("草", Element.Wood, 12, 6) });
+        private static EnemyDef ThemeBoss() => new("枯木逢春", Element.Wood, 12, 6,
+            phases: new[] { new BossPhaseDef("枯", Element.Wood, 12, 6) });
+
+        private static EndlessConfig ThemedConfig() => new()
+        {
+            Bands = new[]
+            {
+                new BandDef { Name = "字林", FromDepth = 1,
+                    EnemyPool = new[] { Ghost() },
+                    EliteBossPool = new[] { Elite() },
+                    BossPool = new[] { ThemeBoss() } },
+                new BandDef { Name = "词渊", FromDepth = 11,
+                    EnemyPool = new[] { Ghost() },
+                    BossPool = new[] { Boss() } },
+            },
+        };
+
+        [Test]
+        public void EliteDepth_DrawsFromElitePool_ThemeDepth_FromBossPool()
+        {
+            var config = ThemedConfig();
+            for (int seed = 0; seed < 20; seed++)
+            {
+                Assert.That(EndlessGenerator.BuildFloor(config, 5, new GameRandom(seed))[0].Id,
+                    Is.EqualTo("草木皆兵"), "段内第一个 Boss 层(第 5 层)出精英");
+                Assert.That(EndlessGenerator.BuildFloor(config, 10, new GameRandom(seed))[0].Id,
+                    Is.EqualTo("枯木逢春"), "段末(第 10 层)出主题 Boss");
+            }
+        }
+
+        [Test]
+        public void NoElitePool_FallsBackToBossPool()
+        {
+            var config = ThemedConfig();
+            Assert.That(EndlessGenerator.BuildFloor(config, 15, new GameRandom(1))[0].Id,
+                Is.EqualTo("排山倒海"), "没配精英池的层段(无尽混合段)两种 Boss 层都走 Boss 池");
+        }
+
+        [Test]
+        public void EliteIdiomPool_BuildsIdiomBoss()
+        {
+            var config = ThemedConfig();
+            config.Bands[0].EliteBossPool = System.Array.Empty<EnemyDef>();
+            config.Bands[0].EliteIdiomBossPool = new[] { new IdiomBossDef { Chars = "草木皆兵",
+                Elements = new[] { Element.Wood, Element.Wood, Element.Heart, Element.Metal } } };
+            var boss = EndlessGenerator.BuildFloor(config, 5, new GameRandom(3))[0];
+            Assert.That(boss.Id, Is.EqualTo("草木皆兵"));
+            Assert.That(boss.Phases.Count, Is.EqualTo(4));
+        }
+
         // ---- 层段与缩放 ----
 
         [Test]
@@ -400,6 +454,19 @@ namespace Brushblade.Core.Tests
             // 登塔前的历史最高必须跟着快照落盘(2026-09-02):结算页「新纪录 43 → 45」的左边那个数
             // 靠它。段末告捷会当场刷掉 meta.BestDepth,只留在内存里的话,挂起重进就再也取不回来
             Assert.That(restored.EndlessV2.BestDepthBeforeRun, Is.EqualTo(9));
+        }
+
+        /// <summary>首破里程碑改在「击败本段主题 Boss」时发(2026-09-30):第 10/20… 层是主题 Boss 层,
+        /// 第 5/15… 层是精英层,普通层都不是。</summary>
+        [Test]
+        public void ThemeBossDepth_IsEveryTenth()
+        {
+            var config = Config();
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 10), Is.True);
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 20), Is.True);
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 5), Is.False, "精英层不发首破");
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 15), Is.False);
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 9), Is.False);
         }
 
         [Test]

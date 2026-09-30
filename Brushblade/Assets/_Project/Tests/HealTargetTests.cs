@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using Brushblade.Core;
 using NUnit.Framework;
@@ -146,7 +147,7 @@ namespace Brushblade.Core.Tests
             engine.Cast("滋", allySlot: 0);
             engine.EndTurn();
 
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(50), "每回合治这只召唤物");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(60), "出手一跳 + 下回合一跳,都治这只召唤物");
             Assert.That(engine.PlayerHp, Is.EqualTo(50), "玩家不吃这条 HoT");
         }
 
@@ -173,7 +174,7 @@ namespace Brushblade.Core.Tests
             var engine = Engine(startingHp: 50);
             engine.Cast("滋");
             engine.EndTurn();
-            Assert.That(engine.PlayerHp, Is.EqualTo(60), "不传槽位时治玩家,与改前一致");
+            Assert.That(engine.PlayerHp, Is.EqualTo(70), "不传槽位时治玩家(出手一跳 + 下回合一跳)");
         }
 
         [Test]
@@ -189,9 +190,42 @@ namespace Brushblade.Core.Tests
             engine.Cast("滋", allySlot: 0);
             engine.EndTurn();
 
-            Assert.That(engine.Summons[0].Hp, Is.EqualTo(50), "HoT 落在召唤物身上");
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(60), "HoT 落在召唤物身上(出手一跳 + 下回合一跳)");
             Assert.That(engine.PlayerHp, Is.EqualTo(50), "玩家一分不回,不是静默落在玩家身上");
         }
+        // ---- 出手即跳第一跳(2026-09-30 用户报:沐 护面选中我方「无效、不加血」)----
+        // 此前 HoT 施放那一刻 0 回血,第一跳要等下一个我方回合开始 —— 玩家看到的就是「没反应」。
+        // 改为:出手当下跳第一次,余下 turns−1 次照旧在之后的我方回合开始时跳,总次数不变。
+
+        [Test]
+        public void Hot_FirstTickLandsOnCast_ThenTotalStaysAtTurns()
+        {
+            var engine = Engine(startingHp: 50);
+            engine.Cast("滋");
+            Assert.That(engine.PlayerHp, Is.EqualTo(60), "出手当下就回第一跳");
+            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.Heal && e.Amount == 10),
+                Is.True, "第一跳要有治疗事件,表现层才播得出回血");
+
+            engine.EndTurn();
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(80), "余下两跳在之后两个我方回合开始时跳");
+            engine.EndTurn();
+            Assert.That(engine.PlayerHp, Is.EqualTo(80), "共 3 跳,不因提前而多跳一次");
+        }
+
+        [Test]
+        public void Hot_FirstTickOnCast_LandsOnChosenSummon()
+        {
+            var engine = Engine(startingHp: 50);
+            engine.Cast("素", summonSlots: new[] { 0 });
+            engine.Summons[0].Hp = 40;
+
+            engine.Cast("滋", allySlot: 0);
+
+            Assert.That(engine.Summons[0].Hp, Is.EqualTo(50), "第一跳落在选中的召唤物身上");
+            Assert.That(engine.PlayerHp, Is.EqualTo(50), "玩家一分不回");
+        }
+
         [Test]
         public void GroupHeal_HealedSummon_GetsItsOwnHealEvent()
         {

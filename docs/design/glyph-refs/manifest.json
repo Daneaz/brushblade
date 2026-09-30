@@ -253,6 +253,76 @@
       "note": "水系高阶护甲,隔夜墨结壳,壳下渗稠墨"
     },
     {
+      "file": "enemy_tanbi.svg",
+      "char": "炭",
+      "kind": "minion",
+      "owners": [
+        "炭笔"
+      ],
+      "weight": 500,
+      "note": "火系后排灼身,烧成炭的笔杆,炭粒里透暗红余烬"
+    },
+    {
+      "file": "enemy_tapian.svg",
+      "char": "拓",
+      "kind": "minion",
+      "owners": [
+        "拓片"
+      ],
+      "weight": 500,
+      "note": "土系分裂,碑上拓下的纸,墨色斑驳留白,可一拍两张"
+    },
+    {
+      "file": "enemy_yinni.svg",
+      "char": "印",
+      "kind": "minion",
+      "owners": [
+        "印泥"
+      ],
+      "weight": 500,
+      "note": "土系肉盾,一盒压实的朱红印泥,方钝厚重"
+    },
+    {
+      "file": "enemy_kedao.svg",
+      "char": "刻",
+      "kind": "minion",
+      "owners": [
+        "刻刀"
+      ],
+      "weight": 500,
+      "note": "金系后排锁人,刻印的刀,立刀旁出锋如刃,独眼"
+    },
+    {
+      "file": "enemy_mingwen.svg",
+      "char": "铭",
+      "kind": "minion",
+      "owners": [
+        "铭文"
+      ],
+      "weight": 500,
+      "note": "金系深藏,青铜古铭,铜绿锈蚀;L4=锈斑遮字"
+    },
+    {
+      "file": "enemy_pomo.svg",
+      "char": "泼",
+      "kind": "minion",
+      "owners": [
+        "泼墨"
+      ],
+      "weight": 500,
+      "note": "水系前排,一砚泼出的墨,四溅成团"
+    },
+    {
+      "file": "enemy_yunran.svg",
+      "char": "晕",
+      "kind": "minion",
+      "owners": [
+        "晕染"
+      ],
+      "weight": 500,
+      "note": "水系后排治疗,墨在水里晕开,边缘渐淡"
+    },
+    {
       "file": "boss_paishandaohai_1_u6392.svg",
       "char": "排",
       "kind": "boss",

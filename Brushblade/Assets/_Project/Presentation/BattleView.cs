@@ -349,6 +349,8 @@ namespace Brushblade.Presentation
             BuildSkeleton();
             _juice = gameObject.AddComponent<Juice>();
             _juice.Init((RectTransform)transform);
+            _juice.KillInkAt = index => _run.KillInkFor(index);
+            _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
         }
 
@@ -441,6 +443,11 @@ namespace Brushblade.Presentation
                     PushEnemyHp(e.TargetIndex, -(e.Amount - e.Absorbed));
                     break;
                 case BattleEventKind.ImmunityBlocked: // 完全挡下:血条护盾条都不动,表达交给 Juice 的飘字
+                    break;
+                // 成语 Boss 破阶(2026-09-30):立绘把上一个字「正」出来、下一个字亮起本属性色
+                case BattleEventKind.BossPhase:
+                    if (e.TargetIndex >= 0 && e.TargetIndex < _enemyMobs.Count && _enemyMobs[e.TargetIndex] != null)
+                        _enemyMobs[e.TargetIndex].PlayBossPhase(e.Amount);
                     break;
                 // 打空:血条护盾条都不动,表达交给 Juice 的飘字。防御性占位——目前 Juice 的
                 // Missed 分支没调 onImpact,这条走不到,但显式空 case 比漏判更稳(与 ImmunityBlocked 同构)
@@ -1344,6 +1351,23 @@ namespace Brushblade.Presentation
             _onProgress();
         }
 
+        /// <summary>破阶飘字(2026-09-30):「『草』已正 木→心」,属性没变时写「仍是木相」。
+        /// newPhase = BossPhase 事件的 Amount(新阶段下标)。</summary>
+        private string BossPhaseText(int enemyIndex, int newPhase)
+        {
+            if (enemyIndex < 0 || enemyIndex >= Battle.Enemies.Count) return null;
+            var phases = Battle.Enemies[enemyIndex].Def.Phases;
+            if (newPhase <= 0 || newPhase >= phases.Count) return null;
+            var from = phases[newPhase - 1];
+            var to = phases[newPhase];
+            // 两支各写各的 Strings.T(字面量 key):StringsTableTests 只认紧跟在 T( 后面的字面量
+            if (from.Element == to.Element)
+                return Strings.T("juice.popup.boss_phase_same", ("char", from.Char),
+                    ("element", CharInfo.ElementName(to.Element)));
+            return Strings.T("juice.popup.boss_phase_shift", ("char", from.Char),
+                ("from", CharInfo.ElementName(from.Element)), ("to", CharInfo.ElementName(to.Element)));
+        }
+
         /// <summary>进度指纹:任何一次真实行动都会改变其中至少一项。</summary>
         private string ProgressFingerprint()
         {
@@ -1449,6 +1473,9 @@ namespace Brushblade.Presentation
             // 共用同一套增减飘字 —— 打完一层当场就能看见 +N,而不是等回到地图才补一个总数。
             // 差额只会在「刚挣到、还没走到下一个存档点」的那一小段里存在,飘字因此比账户更早,
             // 正是想要的时序;每条离塔路径都先 CommitEventInk,所以切回外层时两边必然相等。
+            // 击杀墨锭(2026-09-30):每次重绘把新倒下的敌人结进 EarnedInk(幂等),
+            // InkCounter 随之翻出「+N」;进度指纹含 EarnedInk,这一笔会跟着落盘。
+            _run.SyncKillInk();
             Ui.InkCounter(_topRight, _run.AvailableInk, 18);
             Ui.ThemedLabel(_topRight, Strings.T("battle.label.turn", ("turn", Battle.Turn)), 18, Theme.TextDim);
             DrawSpeedToggle(_topRight);
@@ -2706,7 +2733,7 @@ namespace Brushblade.Presentation
                     portrait = portraitMount.gameObject;
                     portrait.name = $"Mob{i}";
                     mob = portrait.AddComponent<MobView>();
-                    mob.Init(prefix, portraitSize);
+                    mob.Init(prefix, portraitSize, enemy.Def, enemy.PhaseIndex);   // 成语 Boss 按阶段亮字
                     mob.SetStateAmount(MobAssets.StateAmountFor(enemy)); // L4 绑战斗状态
                     if (!showAlive || !reachable) mob.ApplyTint(Theme.LockedBg);
                 }

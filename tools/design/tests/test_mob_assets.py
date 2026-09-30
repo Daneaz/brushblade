@@ -19,6 +19,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import build_boss_art as bba  # noqa: E402
 import rasterize_mobs as rm
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -50,10 +51,23 @@ def test_python_and_csharp_slug_tables_agree():
     assert _csharp_slugs() == rm.MINION_SLUGS
 
 
+# 待出图(2026-09-30 十层一主题新增,用户拍板「先上数值,形象后补」):这几只在真机上
+# 回落成字头像。是一笔**待补的账**,不是「不需要」—— 出完图、接进两张 slug 表后从这里删掉,
+# 下面 test_art_pending_is_really_pending 会逼你删。
+ART_PENDING: set = set()   # 2026-09-30 那七只已出图(build_mob_drafts.py),清空
+
+
 def test_every_minion_in_config_has_a_slug():
     """enemies.json 里的每只杂兵都要认领一个 slug,否则真机上它回落成字牌格。"""
-    missing = [i for i in _minion_ids() if i not in rm.MINION_SLUGS]
+    missing = [i for i in _minion_ids() if i not in rm.MINION_SLUGS and i not in ART_PENDING]
     assert missing == [], f"这些怪没有立绘 slug:{missing}"
+
+
+def test_art_pending_is_really_pending():
+    """豁免名单不许过期:已经删掉的怪、或者已经接上 slug 的怪,都得从 ART_PENDING 里拿掉。"""
+    ids = set(_minion_ids())
+    assert sorted(ART_PENDING - ids) == [], "豁免名单里有 enemies.json 已经没有的怪"
+    assert sorted(ART_PENDING & set(rm.MINION_SLUGS)) == [], "这些怪已经有 slug 了,从 ART_PENDING 删掉"
 
 
 def test_no_slug_points_at_a_retired_enemy():
@@ -72,16 +86,55 @@ def test_every_slug_has_all_three_layers_in_resources(layer):
     assert missing == [], f"这些怪缺 {layer} 层:{missing}"
 
 
-def test_every_boss_stage_has_all_three_layers():
-    """Boss 按阶段出图,四个阶段是四套;「倒」「海」两阶段是复用的,不重复要求。"""
-    missing = []
-    for stages in rm.BOSS_STAGES.values():
-        for prefix in stages:
-            for layer in ("body", "face", "wisp"):
-                png = RESOURCES / f"{prefix}_{layer}.png"
-                if not png.exists():
-                    missing.append(png.name)
-    assert sorted(set(missing)) == []
+def _boss_ids():
+    """enemies.json 里的全部 Boss:带 phases 的固定 Boss + 各层段(含精英池)的成语 Boss。"""
+    cfg = _config()
+    ids = {e["id"] for e in cfg["enemies"] if e.get("phases")}
+    for band in cfg["endless"]["bands"]:
+        for key in ("idiomBosses", "eliteIdiomBosses"):
+            ids.update(i["chars"] for i in band.get(key, []))
+    return ids
+
+
+def _csharp_boss_slugs():
+    src = CSHARP.read_text(encoding="utf-8")
+    block = re.search(r"BossSlugs = new\(\)\s*\{(.*?)\n        \};", src, re.S)
+    assert block, "MobAssets.cs 里找不到 BossSlugs 字典"
+    return dict(re.findall(r'\{\s*"([^"]+)",\s*"([^"]+)"\s*\}', block.group(1)))
+
+
+def test_boss_slug_tables_agree_and_cover_every_boss():
+    """成语 Boss 立绘(2026-09-30,一只一张):build_boss_art.BOSSES 与 MobAssets.BossSlugs
+    是同一份事实的两个副本;enemies.json 里的每只 Boss 都要有,且不留已删 Boss 的幽灵条目。"""
+    python = {name: slug for name, slug, _, _ in bba.BOSSES}
+    assert _csharp_boss_slugs() == python
+    assert set(python) == _boss_ids()
+
+
+def test_boss_elements_match_config():
+    """立绘不烤属性色,但 face 静态层的虹膜取首阶段属性 —— 与配置对不上说明表抄错了。"""
+    cfg = _config()
+    phases = {e["id"]: [p["element"] for p in e["phases"]] for e in cfg["enemies"] if e.get("phases")}
+    for band in cfg["endless"]["bands"]:
+        for key in ("idiomBosses", "eliteIdiomBosses"):
+            phases.update({i["chars"]: i["elements"] for i in band.get(key, [])})
+    for name, _, elements, _ in bba.BOSSES:
+        assert list(elements) == phases[name], name
+
+
+@pytest.mark.parametrize("layer", bba.LAYER_NAMES)
+def test_every_boss_has_every_layer(layer):
+    """四个字层缺一层,那个阶段就没有字可亮;iris/eyes 缺了 Boss 没有眼睛。"""
+    missing = [slug for _, slug, _, _ in bba.BOSSES
+               if not (RESOURCES / f"boss_{slug}_{layer}.png").exists()]
+    assert missing == [], f"这些 Boss 缺 {layer} 层:{missing}"
+    assert (RESOURCES / "fx_boss_ring.png").exists()
+
+
+def test_no_stale_boss_assets():
+    """旧的「按阶段出图」资产(boss_<slug>_<n><字>_*)已退役,别让它们残留在包里。"""
+    stale = [p.name for p in RESOURCES.glob("boss_*.png") if re.match(r"boss_[a-z]+_\d", p.name)]
+    assert stale == []
 
 
 def test_every_png_has_a_unity_meta():

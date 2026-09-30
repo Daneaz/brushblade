@@ -86,8 +86,12 @@ namespace Brushblade.Data
             public List<string> EnemyPool { get; set; }
             public List<string> BossPool { get; set; }
             public List<IdiomBossDto> IdiomBosses { get; set; }
+            public List<string> EliteBossPool { get; set; }
+            public List<IdiomBossDto> EliteIdiomBosses { get; set; }
             public List<string> RewardPool { get; set; }
             public int MilestoneInk { get; set; }
+            public string Element { get; set; }
+            public string Flavor { get; set; }
         }
 
         private sealed class IdiomBossDto
@@ -283,41 +287,27 @@ namespace Brushblade.Data
                 if (enemyPool.Count == 0)
                     throw new ConfigException($"层段「{bandDto.Name}」杂兵池为空");
 
-                var bossPool = new List<EnemyDef>();
-                foreach (var id in bandDto.BossPool ?? new List<string>())
+                List<EnemyDef> ParseBossIds(List<string> ids)
                 {
-                    if (!enemyDefs.TryGetValue(id, out var def))
-                        throw new ConfigException($"层段「{bandDto.Name}」Boss 池引用了未定义的敌人:{id}");
-                    bossPool.Add(def);
+                    var pool = new List<EnemyDef>();
+                    foreach (var id in ids ?? new List<string>())
+                    {
+                        if (!enemyDefs.TryGetValue(id, out var def))
+                            throw new ConfigException($"层段「{bandDto.Name}」Boss 池引用了未定义的敌人:{id}");
+                        pool.Add(def);
+                    }
+                    return pool;
                 }
-                if (bossPool.Count == 0)
-                    throw new ConfigException($"层段「{bandDto.Name}」Boss 池为空");
 
                 foreach (var reward in bandDto.RewardPool ?? new List<string>())
                     if (!graph.TryGet(reward, out _))
                         throw new ConfigException($"层段「{bandDto.Name}」字池引用了不存在的字:{reward}");
 
-                var idiomBosses = new List<IdiomBossDef>();
-                foreach (var idiomDto in bandDto.IdiomBosses ?? new List<IdiomBossDto>())
-                {
-                    if (idiomDto.Chars == null || idiomDto.Chars.Length != 4 ||
-                        idiomDto.Elements == null || idiomDto.Elements.Count != 4)
-                        throw new ConfigException($"层段「{bandDto.Name}」成语 Boss「{idiomDto.Chars}」需恰好四字四属性");
-                    var elements = new List<Element>();
-                    foreach (var name in idiomDto.Elements)
-                    {
-                        if (!Enum.TryParse<Element>(name, out var element))
-                            throw new ConfigException($"成语 Boss「{idiomDto.Chars}」属性未知:{name}");
-                        elements.Add(element);
-                    }
-                    var skills = new List<BossSkill>();
-                    foreach (var c in idiomDto.Chars)
-                        skills.Add(bossSkills.TryGetValue(c.ToString(), out var s) ? s : BossSkill.None);
-                    idiomBosses.Add(new IdiomBossDef
-                    {
-                        Chars = idiomDto.Chars, Elements = elements, Skills = skills,
-                    });
-                }
+                var bossPool = ParseBossIds(bandDto.BossPool);
+                var idiomBosses = ParseIdioms(bandDto.Name, bandDto.IdiomBosses, bossSkills);
+                // 2026-09-30 起主题 Boss 可以只配成语 Boss(bossPool 为空),但两者不能都空
+                if (bossPool.Count + idiomBosses.Count == 0)
+                    throw new ConfigException($"层段「{bandDto.Name}」Boss 池为空");
 
                 bands.Add(new BandDef
                 {
@@ -326,8 +316,12 @@ namespace Brushblade.Data
                     EnemyPool = enemyPool,
                     BossPool = bossPool,
                     IdiomBossPool = idiomBosses,
+                    EliteBossPool = ParseBossIds(bandDto.EliteBossPool),
+                    EliteIdiomBossPool = ParseIdioms(bandDto.Name, bandDto.EliteIdiomBosses, bossSkills),
                     RewardPool = bandDto.RewardPool ?? new List<string>(),
                     MilestoneInk = bandDto.MilestoneInk,
+                    Element = ParseBandElement(bandDto),
+                    Flavor = bandDto.Flavor,
                 });
             }
             if (bands[0].FromDepth != 1)
@@ -340,6 +334,41 @@ namespace Brushblade.Data
                 ScalePerDepth = dto.ScalePerDepth,
                 BossScaleBonus = dto.BossScaleBonus,
             };
+        }
+
+        private static Element? ParseBandElement(BandDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.Element)) return null;
+            if (!Enum.TryParse<Element>(dto.Element, out var element))
+                throw new ConfigException($"层段「{dto.Name}」属性未知:{dto.Element}");
+            return element;
+        }
+
+        private static List<IdiomBossDef> ParseIdioms(string bandName, List<IdiomBossDto> dtos,
+            Dictionary<string, BossSkill> bossSkills)
+        {
+            var idiomBosses = new List<IdiomBossDef>();
+            foreach (var idiomDto in dtos ?? new List<IdiomBossDto>())
+            {
+                if (idiomDto.Chars == null || idiomDto.Chars.Length != 4 ||
+                    idiomDto.Elements == null || idiomDto.Elements.Count != 4)
+                    throw new ConfigException($"层段「{bandName}」成语 Boss「{idiomDto.Chars}」需恰好四字四属性");
+                var elements = new List<Element>();
+                foreach (var name in idiomDto.Elements)
+                {
+                    if (!Enum.TryParse<Element>(name, out var element))
+                        throw new ConfigException($"成语 Boss「{idiomDto.Chars}」属性未知:{name}");
+                    elements.Add(element);
+                }
+                var skills = new List<BossSkill>();
+                foreach (var c in idiomDto.Chars)
+                    skills.Add(bossSkills.TryGetValue(c.ToString(), out var s) ? s : BossSkill.None);
+                idiomBosses.Add(new IdiomBossDef
+                {
+                    Chars = idiomDto.Chars, Elements = elements, Skills = skills,
+                });
+            }
+            return idiomBosses;
         }
 
         /// <summary>字 → Boss 技能表(spec 2026-07-28)。查不到的字一律 None,
