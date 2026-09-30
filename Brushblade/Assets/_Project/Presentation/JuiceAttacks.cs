@@ -485,8 +485,12 @@ namespace Brushblade.Presentation
 
         // ---- 召唤物专属出手 ----
 
-        /// <summary>藤:藤蔓(一串圆节)沿弯弧甩到目标,再在目标身上缠两圈;命中那一刻返回,
-        /// 缠住的藤停一会儿再淡掉(不阻塞时间线)。</summary>
+        /// <summary>藤:一条**实心**藤蔓沿弯弧甩到目标,再在目标身上缠两圈;命中那一刻返回,
+        /// 缠住的藤停一会儿、从末端往回收并淡掉(不阻塞时间线)。
+        ///
+        /// 2026-09-30 二版(用户报「虚线点当藤条,有点虚」):一版是一串圆点,点与点之间有缝。
+        /// 现在相邻路径点之间各铺一段旋转过的圆角条,首尾相接成实线,三层叠出体积 ——
+        /// 深绿描边 / 藤身(根粗梢细)/ 偏一侧的浅绿高光;缠到目标背后的那半圈压暗变细,读得出「绕在身上」。</summary>
         private IEnumerator SummonVine(RectTransform from, RectTransform to)
         {
             if (from == null || to == null || _shakeTarget == null) yield break;
@@ -494,53 +498,141 @@ namespace Brushblade.Presentation
             Vector2 a = Local(from.position), b = Local(to.position);
             Vector2 d = b - a, n = new Vector2(-d.y, d.x).normalized;
             Vector2 ctrl = (a + b) * 0.5f + n * d.magnitude * 0.3f;
-            var parts = new List<(RectTransform rect, Image image)>();
-            const int whipSegs = 22, coilSegs = 30;
-            var whip = new Vector2[whipSegs];
-            for (int i = 0; i < whipSegs; i++) whip[i] = Bez(a, ctrl, b, (i + 1f) / whipSegs);
-            float rx = Mathf.Max(40f, SizeOf(to) * 0.42f), ry = rx * 0.38f, tall = SizeOf(to) * 0.5f;
-            var coil = new Vector2[coilSegs];
-            for (int i = 0; i < coilSegs; i++)
+
+            const int whipSegs = 36, coilSegs = 56;
+            var whip = new Vector2[whipSegs + 1];
+            for (int i = 0; i <= whipSegs; i++) whip[i] = Bez(a, ctrl, b, i / (float)whipSegs);
+            float rx = Mathf.Max(40f, SizeOf(to) * 0.44f), ry = rx * 0.36f, tall = SizeOf(to) * 0.5f;
+            var coil = new Vector2[coilSegs + 1];
+            var front = new bool[coilSegs + 1];
+            for (int i = 0; i <= coilSegs; i++)
             {
-                float t = (i + 1f) / coilSegs, ang = t * Mathf.PI * 4f - Mathf.PI / 2f;
+                float t = i / (float)coilSegs, ang = t * Mathf.PI * 4f - Mathf.PI / 2f;
                 coil[i] = b + new Vector2(Mathf.Cos(ang) * rx, Mathf.Sin(ang) * ry + (0.5f - t) * tall);
+                front[i] = Mathf.Sin(ang) < 0f; // 椭圆下半圈 = 朝向镜头的那一面
             }
 
-            int shown = 0;
-            yield return Tween(0.22f, k =>
+            var vine = new VineStroke(this);
+            // 藤身:根粗梢细。梢头停在目标身上,缠绕接着从那里开始
+            yield return Tween(0.22f, k => vine.Grow(whip, k, i => Mathf.Lerp(13f, 8f, i / (float)whipSegs), _ => true));
+            vine.Grow(whip, 1f, i => Mathf.Lerp(13f, 8f, i / (float)whipSegs), _ => true);
+            // 叶片与小刺:顺着藤的走向长出来
+            for (int i = 6; i < whipSegs; i += 7)
             {
-                int upto = Mathf.CeilToInt(k * whipSegs);
-                for (; shown < upto; shown++)
-                {
-                    float w = Mathf.Lerp(11f, 6f, shown / (float)whipSegs);
-                    parts.Add((Bit(null, new Vector2(w, w), VineGreen, whip[shown], out var img, circle: true), img));
-                    if (shown % 7 == 3)
-                    {
-                        var leaf = Bit("leaf", new Vector2(18f, 18f), VineGreen, whip[shown] + n * 8f, out var leafImg);
-                        leaf.localRotation = Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(0f, 360f));
-                        parts.Add((leaf, leafImg));
-                    }
-                }
-            });
-            shown = 0;
-            yield return Tween(0.2f, k =>
-            {
-                int upto = Mathf.CeilToInt(k * coilSegs);
-                for (; shown < upto; shown++)
-                {
-                    bool front = Mathf.Sin((shown + 1f) / coilSegs * Mathf.PI * 4f - Mathf.PI / 2f) > 0f;
-                    var c = front ? VineGreen : new Color(VineGreen.r, VineGreen.g, VineGreen.b, 0.45f);
-                    parts.Add((Bit(null, new Vector2(front ? 9f : 6f, front ? 9f : 6f), c, coil[shown], out var img, circle: true), img));
-                }
-            });
-            PlayClip(_hitClip, 0.5f, 0.9f);
-            StartCoroutine(VineRelease(parts));
+                Vector2 dir = (whip[i + 1] - whip[i]).normalized, side = new Vector2(-dir.y, dir.x) * (i % 2 == 0 ? 1f : -1f);
+                var leaf = Bit("leaf", new Vector2(26f, 26f), new Color(0.24f, 0.56f, 0.28f), whip[i] + side * 10f, out var leafImg);
+                leaf.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(side.y, side.x) * Mathf.Rad2Deg - 45f);
+                vine.Adopt(leaf, leafImg);
+                StartCoroutine(PopIn(leaf));
+            }
+            var coilVine = new VineStroke(this);
+            yield return Tween(0.24f, k => coilVine.Grow(coil, k, i => front[i] ? 9f : 6f, i => front[i]));
+            coilVine.Grow(coil, 1f, i => front[i] ? 9f : 6f, i => front[i]);
+
+            // 缠紧:目标被勒一下
+            HitReact(to, 0.6f);
+            PlayClip(_thudClip, 0.55f, 1.1f);
+            StartCoroutine(VineRelease(vine, coilVine));
         }
 
-        private IEnumerator VineRelease(List<(RectTransform rect, Image image)> parts)
+        private IEnumerator PopIn(RectTransform rect)
+        {
+            yield return Tween(0.14f, k => { if (rect != null) rect.localScale = Vector3.one * Mathf.Lerp(0f, 1f, 1f - (1f - k) * (1f - k)); });
+        }
+
+        /// <summary>缠住停一会儿,再从梢头往回收、边收边淡。</summary>
+        private IEnumerator VineRelease(VineStroke whip, VineStroke coil)
         {
             yield return Beat(0.5f);
-            foreach (var p in parts) if (p.rect != null) StartCoroutine(FadeAndKill(p.rect, p.image, 0.25f));
+            yield return Tween(0.26f, k =>
+            {
+                coil.Retract(1f - k);
+                whip.Retract(1f - k * 0.7f);
+                coil.Fade(1f - k);
+                whip.Fade(1f - k);
+            });
+            coil.Destroy();
+            whip.Destroy();
+        }
+
+        /// <summary>一条实心描边线:相邻两点之间各一段旋转过的圆角条,描边 / 本体 / 高光三层。
+        /// Grow(k) 按进度把线段一段段点亮,最末一段按余数拉长,伸出去是连续的,不是一格一格跳。</summary>
+        private sealed class VineStroke
+        {
+            private static readonly Color Outline = new(0.09f, 0.25f, 0.12f);
+            private static readonly Color Body = new(0.18f, 0.48f, 0.24f);
+            private static readonly Color Shine = new(0.47f, 0.73f, 0.42f);
+
+            private readonly Juice _juice;
+            private readonly List<(RectTransform rect, Image image, float length, float alpha)> _segments = new();
+            private readonly List<(RectTransform rect, Image image)> _extras = new();
+            private int _built;
+            private int _lastGroupStart;   // 最末一段在 _segments 里从哪个下标开始(正面三层、背面两层)
+
+            public VineStroke(Juice juice) { _juice = juice; }
+
+            public void Grow(Vector2[] points, float k, Func<int, float> width, Func<int, bool> isFront)
+            {
+                int segs = points.Length - 1;
+                float reach = Mathf.Clamp01(k) * segs;
+                int full = Mathf.FloorToInt(reach);
+                while (_built < Mathf.Min(segs, full + 1))
+                {
+                    int i = _built++;
+                    Vector2 p0 = points[i], p1 = points[i + 1], dir = p1 - p0;
+                    float len = dir.magnitude, w = width(i), ang = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+                    bool fr = isFront(i);
+                    float alpha = fr ? 1f : 0.5f;
+                    _lastGroupStart = _segments.Count;
+                    Vector2 nrm = new Vector2(-dir.y, dir.x).normalized;
+                    Add(p0, ang, len, w + 4f, Outline, alpha);
+                    Add(p0, ang, len, w, Body, alpha);
+                    if (fr) Add(p0 + nrm * w * 0.22f, ang, len, Mathf.Max(2f, w * 0.28f), Shine, alpha);
+                }
+                // 最末一段按余数拉长
+                float frac = reach - full;
+                foreach (var s in _segments)
+                    if (s.rect != null) s.rect.localScale = Vector3.one;
+                if (full < segs)
+                    for (int j = _lastGroupStart; j < _segments.Count; j++)
+                        if (_segments[j].rect != null) _segments[j].rect.localScale = new Vector3(Mathf.Max(0.05f, frac), 1f, 1f);
+            }
+
+            private void Add(Vector2 at, float angle, float length, float width, Color color, float alpha)
+            {
+                var rect = _juice.Bit(null, new Vector2(length + width * 0.6f, width), new Color(color.r, color.g, color.b, alpha), at, out var image);
+                image.sprite = Theme.Rounded(Mathf.Max(2, Mathf.RoundToInt(width * 0.5f)));
+                image.type = Image.Type.Sliced;
+                rect.pivot = new Vector2(0f, 0.5f);
+                rect.localPosition = at;
+                rect.localRotation = Quaternion.Euler(0f, 0f, angle);
+                _segments.Add((rect, image, length, alpha));
+            }
+
+            public void Adopt(RectTransform rect, Image image) => _extras.Add((rect, image));
+
+            /// <summary>只留前 keep(0–1)那一截,梢头先收。</summary>
+            public void Retract(float keep)
+            {
+                int visible = Mathf.CeilToInt(_segments.Count * Mathf.Clamp01(keep));
+                for (int j = 0; j < _segments.Count; j++)
+                    if (_segments[j].rect != null) _segments[j].rect.gameObject.SetActive(j < visible);
+            }
+
+            public void Fade(float alpha)
+            {
+                foreach (var s in _segments)
+                    if (s.image != null) { var c = s.image.color; s.image.color = new Color(c.r, c.g, c.b, s.alpha * alpha); }
+                foreach (var e in _extras)
+                    if (e.image != null) { var c = e.image.color; e.image.color = new Color(c.r, c.g, c.b, alpha); }
+            }
+
+            public void Destroy()
+            {
+                foreach (var s in _segments) if (s.rect != null) UnityEngine.Object.Destroy(s.rect.gameObject);
+                foreach (var e in _extras) if (e.rect != null) UnityEngine.Object.Destroy(e.rect.gameObject);
+                _segments.Clear(); _extras.Clear();
+            }
         }
 
         /// <summary>楸:三片叶扇形甩出、各走一条弯弧,在目标身上汇合;首片到达即命中返回。</summary>
