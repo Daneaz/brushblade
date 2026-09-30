@@ -2795,7 +2795,7 @@ namespace Brushblade.Presentation
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0)
                     chipSpecs.Add(new($"{burnStacks}", Theme.Cinnabar, Color.white, "burn"));
-                // 不灭(2026-08-09,炑):灼烧层数不衰减,与灼烧同朱砂系
+                // 不灭(2026-08-09):灼烧层数不衰减,与灼烧同朱砂系
                 if (enemy.Statuses.Has(StatusKind.BurnNoDecay))
                     chipSpecs.Add(new("", Theme.Cinnabar, Color.white, "burn_nodecay"));
                 // 流血(2026-09-06 补,与 AddSummonStatusChips 的 Decaying 同口径):每回合固定

@@ -16,7 +16,7 @@ namespace Brushblade.Core
         public BattlePhase Phase { get; set; }
         public int ShieldNormal { get; set; }
         public int ShieldPersist { get; set; }
-        public int BurnPerStack { get; set; }   // 炽可抬高,本场累计
+        public int BurnPerStack { get; set; }   // BurnPotency 可抬高,本场累计
         public uint RandomState { get; set; }
 
         /// <summary>择敌专用随机流的状态(2026-09-13)。与 <see cref="RandomState"/> 并列而不是合并:

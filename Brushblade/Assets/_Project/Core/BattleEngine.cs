@@ -195,7 +195,7 @@ namespace Brushblade.Core
         public int WellspringCap { get; set; } = BaseWellspringCap;
 
         /// <summary>灼烧每层结算伤害的**起始值**(火脉 L4)。**缺省 20 = 现值**;
-        /// 局内的「炽」(BurnPotency)照旧在其上累加。</summary>
+        /// 局内的 BurnPotency 照旧在其上累加。</summary>
         public int BurnPerStack { get; set; } = BaseBurnPerStack;
 
         /// <summary>木脉 L4「择伐」:场上**全部**召唤物出手时按生克三档择敌
@@ -543,7 +543,7 @@ namespace Brushblade.Core
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
-        private int _burnPerStack;     // 灼烧每层结算伤害(10.2;炽 +10,可叠加;2026-08-12 随全表量级 ×10)
+        private int _burnPerStack;     // 灼烧每层结算伤害(10.2;BurnPotency 可叠加;2026-08-12 随全表量级 ×10)
                                         // 初值来自 config.BurnPerStack(火脉 L4),由构造函数设置
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
@@ -3306,7 +3306,7 @@ namespace Brushblade.Core
             if (!enemy.Alive) return;
             var burn = enemy.Statuses.Find(StatusKind.Burn);
             if (burn == null || burn.Magnitude <= 0) return;
-            // 攻击力**结算时读**,回溯生效 —— 与炽/BurnPotency 同口径:每层伤害从来不是
+            // 攻击力**结算时读**,回溯生效 —— 与 BurnPotency 同口径:每层伤害从来不是
             // 出牌时冻结的量,它是 _burnPerStack 这个全局标量。层数(Magnitude)不吃攻击力。
             // 不复用 ScaleByAttack:那是整数除(早截断),这里要插进既有的浮点式子里晚截断,
             // 才能在基准值下保住逐字节恒等
@@ -3319,7 +3319,7 @@ namespace Brushblade.Core
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
             RevealDisguise(enemyIndex); // 通假字:灼烧扣血也算挨打(2026-08-15 口径 7)
-            // 不灭(2026-08-09,炑):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
+            // 不灭(2026-08-09):带 BurnNoDecay 时层数不衰减 —— 伤害算式一个字不动,
             // 只挡这一步。Task 3 的 BurnSettleNow 同样复用这里,所以「免费兑现」
             // (立即结算也不掉层)也一并生效——这是规格 §4.2 那条爆发链的根
             if (!enemy.Statuses.Has(StatusKind.BurnNoDecay))
