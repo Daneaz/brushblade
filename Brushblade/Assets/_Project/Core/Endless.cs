@@ -25,6 +25,12 @@ namespace Brushblade.Core
         public IReadOnlyList<string> RewardPool { get; set; } = System.Array.Empty<string>();
 
         public int MilestoneInk { get; set; }
+
+        /// <summary>本段主属性(2026-09-30 十层一主题);混合段(词渊)为 null。进段标题卡据此配色。</summary>
+        public Element? Element { get; set; }
+
+        /// <summary>进段标题卡上的一句风味文案(配置数据,与层段名同源)。</summary>
+        public string Flavor { get; set; }
     }
 
     /// <summary>成语 Boss 定义(20.7):四字成语 → 四阶段,逐字属性由配置指定。</summary>
@@ -155,7 +161,7 @@ namespace Brushblade.Core
             if (config.IsBossDepth(depth))
             {
                 // 精英层(2026-09-30):第 5/15/25… 层 —— 从 1 数起的第奇数个 Boss 层
-                bool eliteDepth = (depth / config.BossEvery) % 2 == 1;
+                bool eliteDepth = !EndlessRules.IsThemeBossDepth(config, depth);
                 bool useElite = eliteDepth && band.EliteBossPool.Count + band.EliteIdiomBossPool.Count > 0;
                 var fixedPool = useElite ? band.EliteBossPool : band.BossPool;
                 var idiomPool = useElite ? band.EliteIdiomBossPool : band.IdiomBossPool;
@@ -409,6 +415,11 @@ namespace Brushblade.Core
             int baseInk = config.IsBossDepth(depth) ? 5 : 2;
             return baseInk << tier;
         }
+
+        /// <summary>主题 Boss 层(2026-09-30,十层一主题):第 10/20/30… 层 —— 从 1 数起的第偶数个
+        /// Boss 层;第 5/15… 层是精英层。层段首破里程碑在打赢这一层时发。</summary>
+        public static bool IsThemeBossDepth(EndlessConfig config, int depth) =>
+            config.IsBossDepth(depth) && (depth / config.BossEvery) % 2 == 0;
 
         /// <summary>击杀墨锭(2026-09-30):每只 1 + ⌊层/10⌋,Boss 一只顶五只 ——
         /// 1 层 1、10 层 2、50 层 6;Boss 5/10/30。逐十层线性涨,与层墨锭(每十层翻倍)叠加。</summary>

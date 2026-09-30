@@ -61,6 +61,18 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void ParsesBandElementAndFlavor()
+        {
+            var json = BaseJson.Replace(
+                @"""name"": ""字林"", ""fromDepth"": 1,",
+                @"""name"": ""字林"", ""fromDepth"": 1, ""element"": ""Wood"", ""flavor"": ""笔墨成林"",");
+            var bands = ConfigLoader.LoadCampaign(json, Graph()).Endless.Bands;
+            Assert.That(bands[0].Element, Is.EqualTo(Element.Wood));
+            Assert.That(bands[0].Flavor, Is.EqualTo("笔墨成林"));
+            Assert.That(bands[1].Element, Is.Null, "不配就是混合段");
+        }
+
+        [Test]
         public void NoBossAtAll_Throws()
         {
             var json = BaseJson.Replace(

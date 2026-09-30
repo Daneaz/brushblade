@@ -40,6 +40,9 @@ namespace Brushblade.CoreTests
             {
                 Assert.That(bands[i].Name, Is.EqualTo(Themes[i].Name));
                 Assert.That(bands[i].FromDepth, Is.EqualTo(Themes[i].From));
+                Assert.That(bands[i].Element, Is.EqualTo(Themes[i].Element), $"{Themes[i].Name} 的段属性");
+                Assert.That(bands[i].Flavor, Is.Not.Null.And.Not.Empty, $"{Themes[i].Name} 进段标题卡的风味文案");
+                Assert.That(bands[i].MilestoneInk, Is.GreaterThan(0), $"{Themes[i].Name} 首破有奖励(弹窗才有内容)");
             }
             Assert.That(bands[^1].Name, Is.EqualTo("词渊"));
             Assert.That(bands[^1].FromDepth, Is.EqualTo(51));

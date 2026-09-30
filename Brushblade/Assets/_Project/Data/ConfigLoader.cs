@@ -90,6 +90,8 @@ namespace Brushblade.Data
             public List<IdiomBossDto> EliteIdiomBosses { get; set; }
             public List<string> RewardPool { get; set; }
             public int MilestoneInk { get; set; }
+            public string Element { get; set; }
+            public string Flavor { get; set; }
         }
 
         private sealed class IdiomBossDto
@@ -318,6 +320,8 @@ namespace Brushblade.Data
                     EliteIdiomBossPool = ParseIdioms(bandDto.Name, bandDto.EliteIdiomBosses, bossSkills),
                     RewardPool = bandDto.RewardPool ?? new List<string>(),
                     MilestoneInk = bandDto.MilestoneInk,
+                    Element = ParseBandElement(bandDto),
+                    Flavor = bandDto.Flavor,
                 });
             }
             if (bands[0].FromDepth != 1)
@@ -330,6 +334,14 @@ namespace Brushblade.Data
                 ScalePerDepth = dto.ScalePerDepth,
                 BossScaleBonus = dto.BossScaleBonus,
             };
+        }
+
+        private static Element? ParseBandElement(BandDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.Element)) return null;
+            if (!Enum.TryParse<Element>(dto.Element, out var element))
+                throw new ConfigException($"层段「{dto.Name}」属性未知:{dto.Element}");
+            return element;
         }
 
         private static List<IdiomBossDef> ParseIdioms(string bandName, List<IdiomBossDto> dtos,

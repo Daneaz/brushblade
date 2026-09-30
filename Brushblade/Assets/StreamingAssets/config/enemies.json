@@ -712,6 +712,8 @@
     "bands": [
       {
         "name": "字林",
+        "element": "Wood",
+        "flavor": "笔画生根，字字成林。",
         "fromDepth": 1,
         "enemyPool": [
           "错字鬼",
@@ -747,10 +749,12 @@
             ]
           }
         ],
-        "milestoneInk": 0
+        "milestoneInk": 100
       },
       {
         "name": "朱砂",
+        "element": "Fire",
+        "flavor": "朱笔批红，一点即燃。",
         "fromDepth": 11,
         "enemyPool": [
           "焦痕",
@@ -790,6 +794,8 @@
       },
       {
         "name": "文山",
+        "element": "Earth",
+        "flavor": "字垒成山，一步一碑。",
         "fromDepth": 21,
         "enemyPool": [
           "夯土妖",
@@ -829,6 +835,8 @@
       },
       {
         "name": "金石",
+        "element": "Metal",
+        "flavor": "刀刻金铭，锋芒难当。",
         "fromDepth": 31,
         "enemyPool": [
           "缺笔妖",
@@ -859,6 +867,8 @@
       },
       {
         "name": "墨海",
+        "element": "Water",
+        "flavor": "一砚倾出，墨浪滔天。",
         "fromDepth": 41,
         "enemyPool": [
           "墨渍",
@@ -890,6 +900,7 @@
       },
       {
         "name": "词渊",
+        "flavor": "万字归渊，深不见底。",
         "fromDepth": 51,
         "enemyPool": [
           "错字鬼",

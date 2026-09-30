@@ -1,4 +1,7 @@
 {
+  "band.card.subtitle": "第 {from}–{to} 层 · {element}",
+  "band.card.subtitle_mixed": "第 {from} 层起 · 五行混杂",
+  "band.card.tap_to_skip": "轻触跳过",
   "battle.btn.abandon": "弃塔",
   "battle.btn.ad_expand_library": "看广告 · 字库 +2",
   "battle.btn.ad_revive": "看广告复活",
@@ -677,6 +680,8 @@
   "root.map.tower_suspended_message": "登塔已挂起,随时回来继续",
   "root.safelayer.descend_button": "深入「{nextBandName}」第 {from}~{to} 层",
   "root.safelayer.descend_why": "滚存带进下一段继续累加\n墨锭赚到即入账,阵亡也不打折",
+  "root.safelayer.milestone_body": "击败本段主题 Boss，首破奖励 {ink} 墨锭已入账。",
+  "root.safelayer.milestone_title": "首破 · {bandName}",
   "root.safelayer.retreat_button": "收官撤退",
   "root.safelayer.retreat_why": "立即收官,本趟到此为止\n层数纪录保留,下次从第 1 层重来",
   "root.safelayer.risk": "深入只赚不赔——墨锭早已入账,再往下是多挣一笔还是空手,全看这一段",

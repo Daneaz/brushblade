@@ -456,6 +456,19 @@ namespace Brushblade.Core.Tests
             Assert.That(restored.EndlessV2.BestDepthBeforeRun, Is.EqualTo(9));
         }
 
+        /// <summary>首破里程碑改在「击败本段主题 Boss」时发(2026-09-30):第 10/20… 层是主题 Boss 层,
+        /// 第 5/15… 层是精英层,普通层都不是。</summary>
+        [Test]
+        public void ThemeBossDepth_IsEveryTenth()
+        {
+            var config = Config();
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 10), Is.True);
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 20), Is.True);
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 5), Is.False, "精英层不发首破");
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 15), Is.False);
+            Assert.That(EndlessRules.IsThemeBossDepth(config, 9), Is.False);
+        }
+
         [Test]
         public void BandMilestone_AwardedOnce()
         {
