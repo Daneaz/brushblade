@@ -139,6 +139,7 @@ namespace Brushblade.Core
         public List<string> ComponentOptions { get; set; } = new();
         public string CurrentEventId { get; set; } // 停在奇遇页挂起时非空
         public int EarnedInk { get; set; }
+        public List<int> KillInkCredited { get; set; } = new(); // 本场已结墨锭的敌人下标(2026-09-30)
         public bool LibraryExpanded { get; set; }
         public bool PoolExpanded { get; set; }
         public bool Revived { get; set; }

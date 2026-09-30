@@ -89,6 +89,7 @@ namespace Brushblade.Core
                 EventPool = events ?? Array.Empty<EventDef>(),
                 EventChancePercent = eventChancePercent,
                 FromDepth = fromDepth,   // 召唤槽位按当前层解锁,RunEngine 靠它换算绝对层号
+                KillInkDrops = true,
             };
         }
 
@@ -408,6 +409,10 @@ namespace Brushblade.Core
             int baseInk = config.IsBossDepth(depth) ? 5 : 2;
             return baseInk << tier;
         }
+
+        /// <summary>击杀墨锭(2026-09-30):每只 1 + ⌊层/10⌋,Boss 一只顶五只 ——
+        /// 1 层 1、10 层 2、50 层 6;Boss 5/10/30。逐十层线性涨,与层墨锭(每十层翻倍)叠加。</summary>
+        public static int KillInk(int depth, bool isBoss) => (isBoss ? 5 : 1) * (1 + depth / 10);
 
         /// <summary>角色经验(20.8):每层 10,Boss 层 50。</summary>
         public static int XpFor(EndlessConfig config, int depth) =>

@@ -349,6 +349,7 @@ namespace Brushblade.Presentation
             BuildSkeleton();
             _juice = gameObject.AddComponent<Juice>();
             _juice.Init((RectTransform)transform);
+            _juice.KillInkAt = index => _run.KillInkFor(index);
             Refresh();
         }
 
@@ -1449,6 +1450,9 @@ namespace Brushblade.Presentation
             // 共用同一套增减飘字 —— 打完一层当场就能看见 +N,而不是等回到地图才补一个总数。
             // 差额只会在「刚挣到、还没走到下一个存档点」的那一小段里存在,飘字因此比账户更早,
             // 正是想要的时序;每条离塔路径都先 CommitEventInk,所以切回外层时两边必然相等。
+            // 击杀墨锭(2026-09-30):每次重绘把新倒下的敌人结进 EarnedInk(幂等),
+            // InkCounter 随之翻出「+N」;进度指纹含 EarnedInk,这一笔会跟着落盘。
+            _run.SyncKillInk();
             Ui.InkCounter(_topRight, _run.AvailableInk, 18);
             Ui.ThemedLabel(_topRight, Strings.T("battle.label.turn", ("turn", Battle.Turn)), 18, Theme.TextDim);
             DrawSpeedToggle(_topRight);

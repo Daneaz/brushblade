@@ -48,6 +48,11 @@ namespace Brushblade.Core
         ///
         /// 缺省 1:章节关卡路径与测试夹具不填这个字段,落在第一档比落进「0 层」有意义。</summary>
         public int FromDepth { get; set; } = 1;
+
+        /// <summary>击杀掉墨锭(2026-09-30):只有无尽层段(<see cref="EndlessGenerator.BuildSegment"/>)
+        /// 打开;章节关卡与测试夹具缺省关,账目与改前逐字节一致。每只的数额见
+        /// <see cref="EndlessRules.KillInk"/>。</summary>
+        public bool KillInkDrops { get; set; }
     }
 
     /// <summary>连战状态机:战斗 → 奖励 → 下一战。
@@ -170,6 +175,7 @@ namespace Brushblade.Core
                 ComponentOptions = new List<string>(_componentOptions),
                 CurrentEventId = CurrentEvent?.Id,
                 EarnedInk = EarnedInk,
+                KillInkCredited = _killInkCredited.OrderBy(i => i).ToList(),
                 LibraryExpanded = LibraryExpanded,
                 PoolExpanded = PoolExpanded,
                 Revived = Revived,
@@ -214,6 +220,7 @@ namespace Brushblade.Core
             run._rewardOptions.AddRange(snapshot.RewardOptions);
             run._componentOptions.AddRange(snapshot.ComponentOptions);
             run._defeatedEnemyIds.AddRange(snapshot.DefeatedEnemyIds);
+            foreach (int credited in snapshot.KillInkCredited ?? new List<int>()) run._killInkCredited.Add(credited);
             // 扩容是构造 BattleConfig 时算进容量的,复原后要补回上限(容量本身不入快照)
             if (snapshot.LibraryExpanded) battleConfig.LibraryCapacity += ExpandBonus;
             if (snapshot.PoolExpanded) battleConfig.PoolCapacity += ExpandBonus;
@@ -303,6 +310,34 @@ namespace Brushblade.Core
         /// 这里只负责入账 —— 与奇遇收支共用同一本账,于是它立刻进 <see cref="AvailableInk"/>
         /// 成为字摊预算,也立刻被外层的即时入账通道结进玩家账户。</summary>
         public void AddInk(int amount) => EarnedInk += amount;
+
+        /// <summary>本场已结过墨锭的敌人下标(2026-09-30,击杀掉墨锭)。引擎从不移除死掉的敌人,
+        /// 分裂只往后追加,所以下标在一场之内稳定;换场清空。进快照 —— 挂起重进后尸体不再结一次。</summary>
+        private readonly HashSet<int> _killInkCredited = new();
+
+        /// <summary>把本场新倒下的敌人按当前层结成墨锭,入 <see cref="EarnedInk"/>;返回这次新结的数额。
+        /// 幂等:表现层每次重绘都调它(顶栏墨锭计数随之翻出「+N」),结算前 <see cref="AdvanceAfterBattle"/>
+        /// 再兜一次底。分裂出来的那一半同样算一只 —— 它确实是又一个要打倒的目标。</summary>
+        public int SyncKillInk()
+        {
+            if (!_runConfig.KillInkDrops || Battle == null) return 0;
+            int gained = 0;
+            var enemies = Battle.Enemies;
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                if (enemies[i].Alive || !_killInkCredited.Add(i)) continue;
+                gained += KillInkFor(i);
+            }
+            EarnedInk += gained;
+            return gained;
+        }
+
+        /// <summary>打倒这只敌人值多少墨锭(表现层据此在它身上飘「墨+N」;<see cref="SyncKillInk"/>
+        /// 用同一个数入账)。没开击杀墨锭或下标越界时为 0。</summary>
+        public int KillInkFor(int enemyIndex) =>
+            !_runConfig.KillInkDrops || Battle == null || enemyIndex < 0 || enemyIndex >= Battle.Enemies.Count
+                ? 0
+                : EndlessRules.KillInk(CurrentDepth, Battle.Enemies[enemyIndex].IsBoss);
 
         /// <summary>奇遇选择:应用后果并进入下一战(治疗不超上限,损伤至少留 1,9.6)。
         /// 消费付不起时返回 false,停留在事件中。部件抵价(ComponentCost)须由玩家指定
@@ -569,6 +604,7 @@ namespace Brushblade.Core
         public void AdvanceAfterBattle()
         {
             if (Phase != RunPhase.InBattle) return;
+            SyncKillInk();   // 最后一击到结算之间表现层可能没重绘过,别让那几只的墨锭丢了
 
             if (Battle.Phase == BattlePhase.Lost)
             {
@@ -814,6 +850,7 @@ namespace Brushblade.Core
             BattleIndex += 1;
             _carriedNormalShield += _perFloorNormalShield; // 金汤每关补盾,叠加上关剩余
             Battle = NewBattle(_carriedLibrary, _carriedPool, _carriedHp);
+            _killInkCredited.Clear();
             Phase = RunPhase.InBattle;
         }
 

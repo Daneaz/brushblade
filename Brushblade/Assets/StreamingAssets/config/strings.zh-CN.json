@@ -417,6 +417,7 @@
   "juice.popup.immune": "免",
   "juice.popup.ke_crit_damage": "暴克 {amount}",
   "juice.popup.ke_damage": "克 {amount}",
+  "juice.popup.kill_ink": "墨+{amount}",
   "juice.popup.kill_mark": "正!",
   "juice.popup.maxhp_down": "上限 -{amount}",
   "juice.popup.maxhp_up": "上限 +{amount}",
