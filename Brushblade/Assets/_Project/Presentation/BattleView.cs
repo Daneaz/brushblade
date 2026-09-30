@@ -382,10 +382,10 @@ namespace Brushblade.Presentation
         /// <summary>播放打击感:登记死亡怪(重绘保持着色)+ 计数在播动画(锁输入、血条画在出手前值)。
         /// 须在 Refresh 之前 BeginAnim,Play 回调 OnAnimDone 归零才放行。</summary>
         private void PlayAnimated(System.Collections.Generic.IReadOnlyList<BattleEvent> events,
-            System.Collections.Generic.List<int> deaths)
+            System.Collections.Generic.List<int> deaths, CastStyle castStyle = CastStyle.Glyph)
         {
             _juice.Play(events, EnemyAnchor, SummonAnchor, () => OnAnimDone(deaths), OnImpact, SummonAt,
-                EnemyElement, EnemyRanged);
+                EnemyElement, EnemyRanged, castStyle);
         }
 
         /// <summary>一段打击动画开演:计数 +1(锁输入、血条改画出手前值),须在 Refresh 前调用。</summary>
@@ -5414,8 +5414,15 @@ namespace Brushblade.Presentation
                 // 飞牌到首个受击敌人,到达才播结算表现;事件快照防连点串场
                 var events = new System.Collections.Generic.List<BattleEvent>(Battle.LastEvents);
                 var toRect = CastTargetRect(events);
-                if (hasFrom && toRect != null)
-                    _juice.FlyGlyph(charId, Theme.ElementColor(_graph.Get(charId).Element), fromPos, toRect.position,
+                // 招式动效(2026-09-30):攻击字按招式演「打过去」(刀光 / 火球 / 冰刺 / 落石……),
+                // 打到才开始结算,结算里每记伤害再补招式的落点;非攻击字仍是字牌飞过去
+                var castDef = _graph.Get(charId);
+                var style = CastStyles.For(castDef, attackMode);
+                if (hasFrom && toRect != null && style != CastStyle.Glyph)
+                    _juice.CastAttack(style, fromPos, CastTargetRects(events),
+                        () => PlayAnimated(events, deaths, style));
+                else if (hasFrom && toRect != null)
+                    _juice.FlyGlyph(charId, Theme.ElementColor(castDef.Element), fromPos, toRect.position,
                         () => PlayAnimated(events, deaths));
                 else
                     PlayAnimated(events, deaths); // 无伤害目标(纯护盾等)或起点缺失:即时表现
@@ -5466,6 +5473,20 @@ namespace Brushblade.Presentation
                     && e.TargetIndex >= 0 && e.TargetIndex < _enemyRects.Count)
                     return _enemyRects[e.TargetIndex];
             return null;
+        }
+
+        /// <summary>本次出字打到的全部敌人格(伤害 / 灼烧,按事件先后、去重),首个是主目标。
+        /// 招式动效要知道打到了谁:横扫扫那一排、连跳依次弹过去、地震每个头顶砸一块。</summary>
+        private System.Collections.Generic.List<RectTransform> CastTargetRects(
+            System.Collections.Generic.IReadOnlyList<BattleEvent> events)
+        {
+            var list = new System.Collections.Generic.List<RectTransform>();
+            foreach (var e in events)
+                if ((e.Kind == BattleEventKind.Damage || e.Kind == BattleEventKind.Burn)
+                    && e.TargetIndex >= 0 && e.TargetIndex < _enemyRects.Count
+                    && _enemyRects[e.TargetIndex] != null && !list.Contains(_enemyRects[e.TargetIndex]))
+                    list.Add(_enemyRects[e.TargetIndex]);
+            return list;
         }
 
         private float _autoEndDueAt; // AP 耗尽后自动结束回合的时点;每次动作重置,给连续丢弃留手

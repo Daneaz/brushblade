@@ -11,7 +11,7 @@ namespace Brushblade.Presentation
     /// <summary>打击感(13.3):有序时间线播放战斗事件——飞牌、伤害飘字(随伤害缩放)、受击白闪+缩放冲击、
     /// 命中顿帧、震屏、全屏微闪、击杀后坐、程序合成音效;播完回调供结算标语等待。
     /// 消费 BattleEngine.LastEvents,不反向驱动逻辑。</summary>
-    public sealed class Juice : MonoBehaviour
+    public sealed partial class Juice : MonoBehaviour
     {
         private RectTransform _shakeTarget;
         private Vector2 _shakeHome; // 震屏基准位:并发震屏都以此复位,避免读实时位置累积漂移
@@ -165,15 +165,16 @@ namespace Brushblade.Presentation
         public void Play(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor = null, Action onComplete = null, Action<BattleEvent> onImpact = null,
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
-            Func<int, bool> enemyRanged = null)
+            Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph)
         {
             StartCoroutine(PlayRoutine(events, enemyAnchor, summonAnchor, onComplete, onImpact,
-                summonInfo, enemyElement, enemyRanged));
+                summonInfo, enemyElement, enemyRanged, castStyle));
         }
 
         private IEnumerator PlayRoutine(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action onComplete, Action<BattleEvent> onImpact,
-            Func<int, SummonState> summonInfo, Func<int, Element?> enemyElement, Func<int, bool> enemyRanged)
+            Func<int, SummonState> summonInfo, Func<int, Element?> enemyElement, Func<int, bool> enemyRanged,
+            CastStyle castStyle)
         {
             // 读锚点世界坐标前先结算本帧布局:敌人格挂布局组,新建/重排后同帧读到的是未结算值,
             // DoT/召唤伤害会飘到屏幕中间而非怪物本体(2026-07-24)。
@@ -191,7 +192,7 @@ namespace Brushblade.Presentation
             // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
             // 段间停顿由 BattleView 的驱动协程控制。
-            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement, enemyRanged);
+            yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement, enemyRanged, castStyle);
 
             yield return Beat(TailGap);
             onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
@@ -203,11 +204,11 @@ namespace Brushblade.Presentation
         private IEnumerator ApplyBatch(IReadOnlyList<BattleEvent> events, Func<int, RectTransform> enemyAnchor,
             Func<int, RectTransform> summonAnchor, Action<BattleEvent> onImpact,
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
-            Func<int, bool> enemyRanged = null)
+            Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph)
         {
-            // 敌人出手的统一入口:近战真身冲脸、远程墨弹(2026-09-30,取代原地下扑 Lunge)
+            // 敌人出手的统一入口:近战真身冲脸、远程按五行分弹道(2026-09-30,取代原地下扑 Lunge)
             IEnumerator Swing(int attacker, RectTransform target, bool slash) =>
-                EnemySwing(enemyAnchor(attacker), target, Theme.GlyphColor(enemyElement?.Invoke(attacker)),
+                EnemySwing(enemyAnchor(attacker), target, enemyElement?.Invoke(attacker),
                     enemyRanged?.Invoke(attacker) ?? false, slash);
 
             bool anyParallel = false;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
@@ -347,6 +348,7 @@ namespace Brushblade.Presentation
                             // 被克的白闪也弱一档:目标「扛住了」,身上的反应就不该跟挨实一样狠
                             if (!kills) HitReact(hitAnchor, e.Countered ? 0.45f : 1f); // 致死不白闪,让位给置灰
                             HitFx(e.Amount, e.Crit, e.Ke, hitAnchor, e.Countered);
+                            CastImpact(castStyle, hitAnchor); // 招式落点(刀口/火焰/冰屑……);非出字结算为 Glyph,不画
                         }
                         onImpact?.Invoke(e);
                         anyParallel = true;
@@ -416,10 +418,19 @@ namespace Brushblade.Presentation
                             // 紧随其后的 Damage 因此与刀口/箭头同帧,节拍与原来的飞字相同。
                             var attacker = summonInfo?.Invoke(e.SecondIndex);
                             var element = attacker?.Element ?? Element.Wood;
-                            if (attacker?.Passive?.Ranged ?? false)
-                                yield return SummonShoot(from, toRect, element);
-                            else
-                                yield return SummonStrike(from, toRect, element);
+                            // 招牌召唤物各有专属出手(2026-09-30):藤缠绕、楸甩叶、荆带刺冲脸
+                            switch (attacker?.Char)
+                            {
+                                case "藤": yield return SummonVine(from, toRect); break;
+                                case "楸": yield return SummonLeaves(from, toRect, element); break;
+                                case "荆": yield return SummonThornStrike(from, toRect, element); break;
+                                default:
+                                    if (attacker?.Passive?.Ranged ?? false)
+                                        yield return SummonShoot(from, toRect, element);
+                                    else
+                                        yield return SummonStrike(from, toRect, element);
+                                    break;
+                            }
                         }
                         break;
                     case BattleEventKind.EnemyDied: // 受击致死:与刚才那记伤害同帧,飘「正!」+ 立刻置灰(分别显示)
@@ -868,15 +879,16 @@ namespace Brushblade.Presentation
             if (to != null) LeafBurst(to.position, color, 5);
         }
 
-        /// <summary>敌人出手(2026-09-30):近战与召唤物同一套真身冲脸,远程射一团墨弹。
+        /// <summary>敌人出手(2026-09-30):近战与召唤物同一套真身冲脸,远程按五行分弹道(EnemyBolt)。
         /// 此前敌人不分远近一律原地下扑(<see cref="Lunge"/>),<c>AttackRange</c> 只在图标上看得出来。
         /// target 为 null = 打玩家(落点取屏幕中下,与玩家侧飘字同一个锚)。
         /// slash:打空/被免疫挡下时不劈刀口 —— 这一记确实出手了,但没砍到。</summary>
-        private IEnumerator EnemySwing(RectTransform attacker, RectTransform target, Color color, bool ranged, bool slash)
+        private IEnumerator EnemySwing(RectTransform attacker, RectTransform target, Element? element, bool ranged, bool slash)
         {
             if (attacker == null) yield break;
+            var color = Theme.GlyphColor(element);
             Vector3 point = AnchorPoint(target);
-            if (ranged) yield return Shoot(attacker, point, color, null, new Vector2(EnemyBoltSize, EnemyBoltSize));
+            if (ranged) yield return EnemyBolt(attacker, point, element, color); // 五行各一种弹道(JuiceAttacks)
             else yield return BodyStrike(attacker, target, point, color, slash);
         }
 
