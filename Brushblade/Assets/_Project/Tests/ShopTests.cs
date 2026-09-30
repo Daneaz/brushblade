@@ -173,9 +173,98 @@ namespace Brushblade.Core.Tests
         public void InkAd_OncePerDay()
         {
             var meta = Fresh(new FakeTime());
+            int amount = meta.Shop.InkAdAmount;
             Assert.That(ShopRules.TryClaimInkAd(meta), Is.True);
-            Assert.That(meta.Ink, Is.EqualTo(ShopRules.InkAdAmount));
+            Assert.That(meta.Ink, Is.EqualTo(amount));
             Assert.That(ShopRules.TryClaimInkAd(meta), Is.False);
+        }
+
+        // ---- 墨锭广告位随机档(2026-10-01):按角色等级走宝箱档位权重,30~400 ----
+
+        [Test]
+        public void InkAd_AmountsSpan30To400_OnePerChestTier()
+        {
+            Assert.That(ShopRules.InkAdAmounts.Length, Is.EqualTo(7));
+            Assert.That(ShopRules.InkAdAmounts[0], Is.EqualTo(30));
+            Assert.That(ShopRules.InkAdAmounts[6], Is.EqualTo(400));
+            for (int i = 1; i < ShopRules.InkAdAmounts.Length; i++)
+                Assert.That(ShopRules.InkAdAmounts[i], Is.GreaterThan(ShopRules.InkAdAmounts[i - 1]));
+        }
+
+        [Test]
+        public void InkAd_AmountRolledOnShelf_IsATableValue()
+        {
+            var meta = Fresh(new FakeTime());
+            Assert.That(System.Array.IndexOf(ShopRules.InkAdAmounts, meta.Shop.InkAdAmount), Is.GreaterThanOrEqualTo(0));
+        }
+
+        [Test]
+        public void InkAd_AmountFollowsLevel_HighLevelAveragesHigher()
+        {
+            long low = 0, high = 0;
+            for (int seed = 0; seed < 400; seed++)
+            {
+                var a = new MetaState();
+                ShopRules.EnsureShelf(a, Pool, new FakeTime(), new GameRandom(seed));
+                low += a.Shop.InkAdAmount;
+                var b = new MetaState { CharacterXp = 200_000 }; // 远超 26 级,落在最高权重段
+                ShopRules.EnsureShelf(b, Pool, new FakeTime(), new GameRandom(seed));
+                high += b.Shop.InkAdAmount;
+            }
+            Assert.That(high, Is.GreaterThan(low * 2));
+        }
+
+        [Test]
+        public void InkAd_Lv1_NeverRollsTopTwoTiers()
+        {
+            // Lv1~5 权重段橙/红为 0 —— 与宝箱同一张表
+            for (int seed = 0; seed < 300; seed++)
+            {
+                var meta = new MetaState();
+                ShopRules.EnsureShelf(meta, Pool, new FakeTime(), new GameRandom(seed));
+                Assert.That(meta.Shop.InkAdAmount, Is.LessThan(ShopRules.InkAdAmounts[5]));
+            }
+        }
+
+        [Test]
+        public void AdRefresh_RerollsUnclaimedInkAdAmount()
+        {
+            bool changed = false;
+            for (int seed = 0; seed < 50 && !changed; seed++)
+            {
+                var meta = new MetaState { CharacterXp = 200_000 };
+                ShopRules.EnsureShelf(meta, Pool, new FakeTime(), new GameRandom(seed));
+                int before = meta.Shop.InkAdAmount;
+                ShopRules.TryAdRefresh(meta, Pool, new GameRandom(seed + 1000));
+                changed = meta.Shop.InkAdAmount != before;
+            }
+            Assert.That(changed, Is.True, "刷新应重掷未领取的墨锭档");
+        }
+
+        [Test]
+        public void AdRefresh_KeepsClaimedInkAdAmount()
+        {
+            var meta = new MetaState { CharacterXp = 200_000 };
+            ShopRules.EnsureShelf(meta, Pool, new FakeTime(), new GameRandom(5));
+            ShopRules.TryClaimInkAd(meta);
+            int claimed = meta.Shop.InkAdAmount;
+            for (int seed = 0; seed < 20; seed++)
+            {
+                meta.Shop.AdRefreshUsed = false;
+                ShopRules.TryAdRefresh(meta, Pool, new GameRandom(seed));
+                Assert.That(meta.Shop.InkAdAmount, Is.EqualTo(claimed), "已领的那一档不该被改写");
+            }
+        }
+
+        [Test]
+        public void InkAd_SameDayShelfWithoutAmount_GetsRolled()
+        {
+            // 版本更新当天:旧货架没有墨锭档(0),补掷一次,不必等到明天
+            var time = new FakeTime();
+            var meta = Fresh(time);
+            meta.Shop.InkAdAmount = 0;
+            Assert.That(ShopRules.EnsureShelf(meta, Pool, time, new GameRandom(9)), Is.True);
+            Assert.That(meta.Shop.InkAdAmount, Is.GreaterThan(0));
         }
 
         [Test]

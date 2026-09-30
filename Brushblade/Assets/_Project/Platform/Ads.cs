@@ -10,7 +10,7 @@ namespace Brushblade.Platform
     {
         ChestBoost,     // 开箱加速:每个宝箱 1 次
         ShopRefresh,    // 商城免费刷新:1 次/日
-        ShopInk,        // 商城墨锭位:1 次/日(+30 墨锭)
+        ShopInk,        // 商城墨锭位:1 次/日(30~400 墨锭,按等级随机档,2026-10-01)
         BattleLibrary,  // 局内扩容·字库:每关 1 次(+2)
         BattleParts,    // 局内扩容·部件池:每关 1 次(+2)
         Revive,         // 复活位:整次登塔 1 次

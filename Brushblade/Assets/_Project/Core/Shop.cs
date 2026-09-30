@@ -15,6 +15,7 @@ namespace Brushblade.Core
         public ChestTier ChestSlot { get; set; }
         public bool ChestSold { get; set; }
         public bool InkAdClaimed { get; set; }               // 墨锭广告位(每日一次)
+        public int InkAdAmount { get; set; }                 // 墨锭广告位本期档额(0 = 旧存档未掷,见 EnsureShelf)
         public bool AdRefreshUsed { get; set; }              // 广告刷新(每日一次)
         public long VisitedDayStamp { get; set; } = -1;      // 最后一次进商城的 UTC 日(主界面红点用)
     }
@@ -22,7 +23,10 @@ namespace Brushblade.Core
     /// <summary>每日商城规则(19.6 首版基准)。货架卡池由调用方按已解锁章节合成(F3)。</summary>
     public static class ShopRules
     {
-        public const int InkAdAmount = 30;        // 墨锭广告位领取量
+        // ---- 墨锭广告位按档随机(2026-10-01 用户拍板):30~400 ----
+        // 档位走宝箱同一张「按角色等级」权重表(ChestRules.TierWeightsFor),一档一额;
+        // 刷新时未领的那一档跟着重掷,已领的不动。
+        public static readonly int[] InkAdAmounts = { 30, 50, 80, 120, 200, 300, 400 };
 
         // ---- 字摊按稀有度打包卖(2026-09-30 用户拍板)----
         //
@@ -82,6 +86,12 @@ namespace Brushblade.Core
             if (meta.Shop.DayStamp == today)
             {
                 bool changed = TopUpSlots(meta, unlockedPool, random);
+                // 版本更新当天:旧货架没有墨锭档,补掷一次
+                if (meta.Shop.InkAdAmount <= 0)
+                {
+                    RollInkAd(meta, random);
+                    changed = true;
+                }
                 // 版本更新当天:旧货架没有字卡广告位,补摆一次(不必等到明天)
                 if (meta.Shop.AdOffers.Count == 0 && rarityOf != null)
                 {
@@ -97,7 +107,14 @@ namespace Brushblade.Core
             RollShelf(meta, unlockedPool, random);
             if (rarityOf != null)
                 RollAdOffers(meta, unlockedPool, random, rarityOf, allCards, keepClaimed: false);
+            RollInkAd(meta, random);
             return true;
+        }
+
+        private static void RollInkAd(MetaState meta, GameRandom random)
+        {
+            var tier = ChestRules.RollTier(MetaRules.CharacterLevel(meta.CharacterXp), random);
+            meta.Shop.InkAdAmount = InkAdAmounts[(int)tier - 1];
         }
 
         private static void RollShelf(MetaState meta, IReadOnlyList<string> unlockedPool, GameRandom random)
@@ -210,12 +227,12 @@ namespace Brushblade.Core
             return true;
         }
 
-        /// <summary>墨锭广告位:每日一次,领 InkAdAmount。</summary>
+        /// <summary>墨锭广告位:每日一次,领本期掷出的 Shop.InkAdAmount。</summary>
         public static bool TryClaimInkAd(MetaState meta)
         {
             if (meta.Shop.InkAdClaimed)
                 return false;
-            meta.Ink += InkAdAmount;
+            meta.Ink += meta.Shop.InkAdAmount;
             meta.Shop.InkAdClaimed = true;
             return true;
         }
@@ -229,6 +246,7 @@ namespace Brushblade.Core
             RollShelf(meta, unlockedPool, random);
             if (rarityOf != null)
                 RollAdOffers(meta, unlockedPool, random, rarityOf, allCards, keepClaimed: true);
+            if (!meta.Shop.InkAdClaimed) RollInkAd(meta, random);
             meta.Shop.AdRefreshUsed = true;
             return true;
         }

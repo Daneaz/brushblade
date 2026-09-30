@@ -472,7 +472,7 @@ namespace Brushblade.Presentation
             var inkAd = Ui.AdBadge(parent,
                 _meta.Shop.InkAdClaimed
                     ? Strings.T("shop.supply.used_label")
-                    : Strings.T("shop.ink_ad.claim_label", ("amount", ShopRules.InkAdAmount)),
+                    : Strings.T("shop.ink_ad.claim_label", ("amount", _meta.Shop.InkAdAmount)),
                 () => AdGate.Watch(AdPlacement.ShopInk,
                     () => Do(() => ShopRules.TryClaimInkAd(_meta), Strings.T("shop.ink_ad.claim_success"),
                         Strings.T("shop.ink_ad.already_claimed_title"), Strings.T("shop.ink_ad.already_claimed_body"))),
