@@ -139,10 +139,18 @@ namespace Brushblade.Presentation
             float t = 0f;
             while (t < seconds)
             {
-                t += UnityEngine.Time.unscaledDeltaTime * _rate;
+                t += Dt;
                 yield return null;
             }
         }
+
+        /// <summary>招式顿帧(2026-09-30,华彩档起):到点前 <see cref="Dt"/> 归零,
+        /// 走 Tween / Beat 的演出一起按住。与 <see cref="HitStop"/> 不同 —— 那条冻的是
+        /// Time.timeScale,而这里的演出全走 unscaledDeltaTime,冻不住。</summary>
+        private float _freezeUntil;
+
+        /// <summary>演出用的帧间隔:按住屏幕加速乘 _rate,招式顿帧期间为 0。</summary>
+        private float Dt => UnityEngine.Time.unscaledTime < _freezeUntil ? 0f : UnityEngine.Time.unscaledDeltaTime * _rate;
 
         private const float StepGap = 0.42f;     // 一记结算与下一记之间的间隔(串行看得清的关键;DoT/召唤/敌方通用)
         private const float TailGap = 0.3f;      // 末次打击到「播完回调」的收尾停顿
@@ -193,6 +201,8 @@ namespace Brushblade.Presentation
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
             // 段间停顿由 BattleView 的驱动协程控制。
             yield return ApplyBatch(events, enemyAnchor, summonAnchor, onImpact, summonInfo, enemyElement, enemyRanged, castStyle);
+            if (castStyle != CastStyle.Glyph) yield return CastFinisher(castStyle); // 奥义 / 绝技的收尾(JuiceAttacks)
+            ResetCastTier();
 
             yield return Beat(TailGap);
             onComplete?.Invoke();                                                       // 关卡胜利标语(外层)
@@ -1143,7 +1153,7 @@ namespace Brushblade.Presentation
             float t = 0f;
             while (t < duration)
             {
-                t += UnityEngine.Time.unscaledDeltaTime * _rate;
+                t += Dt;
                 step(Mathf.Clamp01(t / duration));
                 yield return null;
             }

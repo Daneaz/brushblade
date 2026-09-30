@@ -5419,8 +5419,8 @@ namespace Brushblade.Presentation
                 var castDef = _graph.Get(charId);
                 var style = CastStyles.For(castDef, attackMode);
                 if (hasFrom && toRect != null && style != CastStyle.Glyph)
-                    _juice.CastAttack(style, fromPos, CastTargetRects(events),
-                        () => PlayAnimated(events, deaths, style));
+                    _juice.CastAttack(style, castDef.Rarity, charId, FirstFlourishThisTurn(castDef), fromPos,
+                        CastTargetRects(events), () => PlayAnimated(events, deaths, style));
                 else if (hasFrom && toRect != null)
                     _juice.FlyGlyph(charId, Theme.ElementColor(castDef.Element), fromPos, toRect.position,
                         () => PlayAnimated(events, deaths));
@@ -5473,6 +5473,18 @@ namespace Brushblade.Presentation
                     && e.TargetIndex >= 0 && e.TargetIndex < _enemyRects.Count)
                     return _enemyRects[e.TargetIndex];
             return null;
+        }
+
+        // 绝技(红卡)写大字的节奏保护(2026-09-30):同一回合第二次出同一张字跳过写大字
+        private int _flourishTurn = -1;
+        private readonly System.Collections.Generic.HashSet<string> _flourishShown = new();
+
+        /// <summary>这张红卡本回合是不是第一次出(是才写大字)。非红卡恒为真(用不到)。</summary>
+        private bool FirstFlourishThisTurn(CharDef def)
+        {
+            if (def.Rarity != CardRarity.Red) return true;
+            if (_flourishTurn != Battle.Turn) { _flourishTurn = Battle.Turn; _flourishShown.Clear(); }
+            return _flourishShown.Add(def.Id);
         }
 
         /// <summary>本次出字打到的全部敌人格(伤害 / 灼烧,按事件先后、去重),首个是主目标。

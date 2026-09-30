@@ -90,7 +90,7 @@ namespace Brushblade.Presentation
             const float life = 0.5f;
             while (t < life && rect != null)
             {
-                t += UnityEngine.Time.unscaledDeltaTime * _rate;
+                t += Dt;
                 float k = t / life;
                 rect.localPosition = at + v * t + new Vector2(0f, -0.5f * gravity * t * t);
                 rect.localRotation = Quaternion.Euler(0f, 0f, spin * t);
@@ -114,28 +114,34 @@ namespace Brushblade.Presentation
         // ---- 出手段 ----
 
         /// <summary>我方出字的出手段:按招式把「打过去」演完再回调 onArrive(外层据此开始结算)。
-        /// targets = 本次伤害 / 灼烧落到的敌人格,首个是主目标;为空时直接回调。</summary>
-        public void CastAttack(CastStyle style, Vector3 from, IReadOnlyList<RectTransform> targets,
-            Action onArrive)
+        /// targets = 本次伤害 / 灼烧落到的敌人格,首个是主目标;为空时直接回调。
+        /// rarity 决定档位(<see cref="TierOf"/>,JuiceTiers);glyph 是绝技写大字要写的字;
+        /// flourish 为假时绝技跳过写大字(同一回合第二次出同一张字,由调用方判)。</summary>
+        public void CastAttack(CastStyle style, CardRarity rarity, string glyph, bool flourish, Vector3 from,
+            IReadOnlyList<RectTransform> targets, Action onArrive)
         {
             if (_shakeTarget == null || targets == null || targets.Count == 0) { onArrive?.Invoke(); return; }
             _castHit = 0;
-            StartCoroutine(CastRoutine(style, from, targets, onArrive));
+            SetCastTier(rarity);
+            StartCoroutine(CastRoutine(style, glyph, flourish, from, targets, onArrive));
         }
 
-        private IEnumerator CastRoutine(CastStyle style, Vector3 fromWorld,
+        private IEnumerator CastRoutine(CastStyle style, string glyph, bool flourish, Vector3 fromWorld,
             IReadOnlyList<RectTransform> targets, Action onArrive)
         {
             Vector2 from = Local(fromWorld);
             var primary = targets[0];
             Vector2 to = primary != null ? Local(primary.position) : from + Vector2.up * 300f;
+            yield return TierPrelude(from, glyph, flourish);   // 华彩蓄势 / 奥义巨笔 / 绝技写大字
+            if (_tier == CastTier.Arcane && (style == CastStyle.Fireball || style == CastStyle.Blast))
+                CompanionOrbs(from, to, 34f * TS, 0.3f);           // 奥义:火球分身夹击
             switch (style)
             {
                 case CastStyle.Sweep: yield return SweepLead(primary, to); break;
                 case CastStyle.Thrust: yield return ThrustLead(from, to); break;
-                case CastStyle.Fireball: yield return OrbLead(from, to, FireCore, FireDeep, 34f, 0.3f, embers: true); break;
+                case CastStyle.Fireball: yield return OrbLead(from, to, FireCore, FireDeep, 34f * TS, 0.3f, embers: true); break;
                 case CastStyle.Blast:
-                    yield return OrbLead(from, to, FireCore, FireDeep, 30f, 0.26f, embers: true);
+                    yield return OrbLead(from, to, FireCore, FireDeep, 30f * TS, 0.26f, embers: true);
                     RingAt(World(to), FireCore);
                     ScreenFlash(0.14f, FireCore);
                     break;
@@ -165,7 +171,7 @@ namespace Brushblade.Presentation
         private IEnumerator SweepLead(RectTransform primary, Vector2 to)
         {
             var area = _shakeTarget.rect;
-            float size = Mathf.Clamp(SizeOf(primary) * 1.2f, 90f, 170f);
+            float size = Mathf.Clamp(SizeOf(primary) * 1.2f, 90f, 170f) * TS;
             float x0 = area.xMin + area.width * 0.06f, x1 = area.xMax - area.width * 0.06f;
             var blades = new List<(RectTransform rect, Image image, float lag, float alpha)>();
             float[] lags = { 0f, size * 0.22f, size * 0.44f };
@@ -222,7 +228,9 @@ namespace Brushblade.Presentation
                 if (embers && t >= next)
                 {
                     next = t + TrailInterval;
-                    var e = Bit(null, new Vector2(7f, 7f), UnityEngine.Random.value < 0.5f ? core : deep, p, out var eImage, circle: true);
+                    var emberColor = _tier >= CastTier.Splendid && UnityEngine.Random.value < 0.5f ? _tierColor   // 华彩起:金色拖尾
+                        : UnityEngine.Random.value < 0.5f ? core : deep;
+                    var e = Bit(null, new Vector2(7f, 7f) * TS, emberColor, p, out var eImage, circle: true);
                     StartCoroutine(RiseAndFade(e, eImage, 22f, 0.35f));
                 }
             });
@@ -283,7 +291,7 @@ namespace Brushblade.Presentation
         private IEnumerator ShardLead(Vector2 from, Vector2 to)
         {
             Vector2 d = (to - from).normalized;
-            var shard = Bit(null, new Vector2(46f, 10f), IceCore, from, out _);
+            var shard = Bit(null, new Vector2(46f, 10f) * TS, IceCore, from, out _);
             shard.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
             float next = 0f;
             yield return Tween(0.18f, k =>
@@ -363,7 +371,7 @@ namespace Brushblade.Presentation
         private IEnumerator RockLead(Vector2 from, Vector2 to, float duration, float delay = 0f)
         {
             if (delay > 0f) yield return Beat(delay);
-            var rock = Bit(null, new Vector2(34f, 30f), RockBrown, from, out var image);
+            var rock = Bit(null, new Vector2(34f, 30f) * TS, RockBrown, from, out var image);
             image.sprite = Theme.Rounded(9);
             float lift = Mathf.Max(120f, (to - from).magnitude * 0.45f);
             yield return Tween(duration, k =>
@@ -424,9 +432,10 @@ namespace Brushblade.Presentation
         private void CastImpact(CastStyle style, RectTransform target)
         {
             if (target == null || _shakeTarget == null || style == CastStyle.Glyph) return;
-            float size = Mathf.Clamp(SizeOf(target) * 1.15f, 80f, 160f);
+            float size = Mathf.Clamp(SizeOf(target) * 1.15f, 80f, 160f) * TS;
             Vector2 at = Local(target.position);
             int index = _castHit++;
+            TierImpact(target);   // 档位加码:光环 / 金屑 / 屏闪 / 顿帧推镜(JuiceTiers)
             switch (style)
             {
                 case CastStyle.Slash:
@@ -559,7 +568,7 @@ namespace Brushblade.Presentation
                     if (kk >= 1f) Destroy(l.rect.gameObject);
                 }
             }
-            while (elapsed < flight) { elapsed += UnityEngine.Time.unscaledDeltaTime * _rate; Step(); yield return null; }
+            while (elapsed < flight) { elapsed += Dt; Step(); yield return null; }
             LeafBurst(to.position, color, 5);
             StartCoroutine(LeavesFinish(leaves, a, b, elapsed, flight));
         }
@@ -571,7 +580,7 @@ namespace Brushblade.Presentation
             float end = flight + 0.2f;
             while (elapsed < end)
             {
-                elapsed += UnityEngine.Time.unscaledDeltaTime * _rate;
+                elapsed += Dt;
                 foreach (var l in leaves)
                 {
                     if (l.rect == null) continue;
