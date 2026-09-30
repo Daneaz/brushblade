@@ -349,6 +349,8 @@ namespace Brushblade.Presentation
             BuildSkeleton();
             _juice = gameObject.AddComponent<Juice>();
             _juice.Init((RectTransform)transform);
+            // 召唤物动效的档位按召出它的那张字的稀有度算(JuiceSummons)
+            _juice.RarityOf = id => _graph.TryGet(id, out var d) ? d.Rarity : CardRarity.White;
             _juice.KillInkAt = index => _run.KillInkFor(index);
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();
@@ -5810,7 +5812,9 @@ namespace Brushblade.Presentation
                 if (events.Any(e => e.Kind != BattleEventKind.ActorActed))
                 {
                     bool done = false;
-                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact,
+                    // 补上 SummonAt(2026-09-30):不传的话开场回放里召唤物的招牌动作 / 防守三拍全认不出是谁。
+                    // 开场中途死掉的召唤物实例仍留在 Summons 里(按下标照样查得到 Char)
+                    _juice.Play(events, EnemyAnchor, SummonAnchor, () => done = true, OnImpact, SummonAt,
                         enemyElement: EnemyElement, enemyRanged: EnemyRanged);
                     while (!done) yield return null;
                     yield return _juice.Wait(0.12f);

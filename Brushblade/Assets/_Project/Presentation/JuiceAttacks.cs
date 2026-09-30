@@ -559,9 +559,8 @@ namespace Brushblade.Presentation
         /// Grow(k) 按进度把线段一段段点亮,最末一段按余数拉长,伸出去是连续的,不是一格一格跳。</summary>
         private sealed class VineStroke
         {
-            private static readonly Color Outline = new(0.09f, 0.25f, 0.12f);
-            private static readonly Color Body = new(0.18f, 0.48f, 0.24f);
-            private static readonly Color Shine = new(0.47f, 0.73f, 0.42f);
+            // 缺省是藤绿;藻鞭(青绿)、四木的根(棕)各传一套
+            private readonly Color Outline, Body, Shine;
 
             private readonly Juice _juice;
             private readonly List<(RectTransform rect, Image image, float length, float alpha)> _segments = new();
@@ -569,7 +568,13 @@ namespace Brushblade.Presentation
             private int _built;
             private int _lastGroupStart;   // 最末一段在 _segments 里从哪个下标开始(正面三层、背面两层)
 
-            public VineStroke(Juice juice) { _juice = juice; }
+            public VineStroke(Juice juice, Color? outline = null, Color? body = null, Color? shine = null)
+            {
+                _juice = juice;
+                Outline = outline ?? new Color(0.09f, 0.25f, 0.12f);
+                Body = body ?? new Color(0.18f, 0.48f, 0.24f);
+                Shine = shine ?? new Color(0.47f, 0.73f, 0.42f);
+            }
 
             public void Grow(Vector2[] points, float k, Func<int, float> width, Func<int, bool> isFront)
             {
@@ -684,20 +689,6 @@ namespace Brushblade.Presentation
                 yield return null;
             }
             foreach (var l in leaves) if (l.rect != null) Destroy(l.rect.gameObject);
-        }
-
-        /// <summary>荆:真身冲脸,落点再迸一圈荆刺。</summary>
-        private IEnumerator SummonThornStrike(RectTransform from, RectTransform to, Element element)
-        {
-            var color = Theme.GlyphColor(element);
-            SummonViewOf(from)?.PlayAttack();
-            yield return BodyStrike(from, to, AnchorPoint(to), color, slash: true);
-            if (to != null)
-            {
-                Shards(Local(to.position), 10, VineGreen, new Vector2(5f, 9f), 140f, 230f, 120f);
-                Ring(to, VineGreen, inward: true);
-            }
-            PlayClip(_hitClip, 0.55f, 1.15f);
         }
 
         // ---- 敌人远程:按五行分弹道 ----

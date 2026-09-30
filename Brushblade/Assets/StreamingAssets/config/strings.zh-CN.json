@@ -432,6 +432,7 @@
   "juice.popup.regrow_full_with_heal": "补全! +{amount}",
   "juice.popup.regrow_partial": "补全 {index}/3",
   "juice.popup.regrow_partial_with_heal": "补全 {index}/3 +{amount}",
+  "juice.popup.taunt": "嘲讽",
   "juice.popup.shield_absorbed": "盾-{absorbed}",
   "juice.popup.source.armor_strike": "镇压 {amount}",
   "juice.popup.source.crit_morale": "锋芒 战意+{amount}",
