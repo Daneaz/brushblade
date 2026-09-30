@@ -175,6 +175,7 @@ namespace Brushblade.Presentation
             // 整表清掉会让上一段还在归位的格子把半路位置记成原位
             PruneDestroyed(_summonHome);
             PruneDestroyed(_summonMoveToken);
+            _lifted.RemoveWhere(c => c == null); // 冲刺置顶 Canvas 随格子重绘一起销毁了
 
             // 逐格驱动后(2026-08-15 ATB 改造),每批事件天生属于一个行动者,
             // 不再需要猜段边界 —— 原先靠 SummonAttack / EnemyTurnBegan 划界的三段切分已删除,
@@ -193,7 +194,7 @@ namespace Brushblade.Presentation
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
             Func<int, bool> enemyRanged = null)
         {
-            // 敌人出手的统一入口:近战残影突进、远程墨弹(2026-09-30,取代原地下扑 Lunge)
+            // 敌人出手的统一入口:近战真身冲脸、远程墨弹(2026-09-30,取代原地下扑 Lunge)
             IEnumerator Swing(int attacker, RectTransform target, bool slash) =>
                 EnemySwing(enemyAnchor(attacker), target, Theme.GlyphColor(enemyElement?.Invoke(attacker)),
                     enemyRanged?.Invoke(attacker) ?? false, slash);
@@ -789,8 +790,8 @@ namespace Brushblade.Presentation
         // ---- 召唤物出手(2026-09-27)----
         //
         // 此前召唤物出手 = 把它的字当飞牌砸过去,与玩家出牌同一个动作 —— 读起来是「玩家又出了
-        // 一张」,而不是「那只召唤物动手了」。现在出手的是召唤物本体:近战放残影突进
-        // (2026-09-30,见下方 GhostStrike)、远程后坐射箭,立绘枝叶一扬(SummonView.PlayAttack),落点处是它自己的刀口/箭矢 + 迸散的叶。
+        // 一张」,而不是「那只召唤物动手了」。现在出手的是召唤物本体:近战真身冲脸
+        // (2026-09-30,见下方 BodyStrike)、远程后坐射箭,立绘枝叶一扬(SummonView.PlayAttack),落点处是它自己的刀口/箭矢 + 迸散的叶。
         // 近战与远程分两套,判据是 Passive.Ranged —— 与 Core 选目标(远程打后排)同一个字段。
         //
         // 时间全走 _rate(按住屏幕/固定加速会一起快),颜色全取攻击者当前属性的字形色。
@@ -830,12 +831,12 @@ namespace Brushblade.Presentation
             return token;
         }
 
-        /// <summary>近战:残影突进 + 笔锋拖尾(<see cref="GhostStrike"/>)→ 刀口 + 叶片迸散;命中那一刻返回。</summary>
+        /// <summary>近战:真身冲脸(<see cref="BodyStrike"/>)→ 刀口 + 叶片迸散;命中那一刻返回。</summary>
         private IEnumerator SummonStrike(RectTransform from, RectTransform to, Element element)
         {
             var color = Theme.GlyphColor(element);
             SummonViewOf(from)?.PlayAttack();
-            yield return GhostStrike(from, to, AnchorPoint(to), color, slash: true);
+            yield return BodyStrike(from, to, AnchorPoint(to), color, slash: true);
             if (to != null) LeafBurst(to.position, color, 6);
             PlayClip(_hitClip, 0.55f, 1.15f);
         }
@@ -850,7 +851,7 @@ namespace Brushblade.Presentation
             if (to != null) LeafBurst(to.position, color, 5);
         }
 
-        /// <summary>敌人出手(2026-09-30):近战与召唤物同一套残影突进,远程射一团墨弹。
+        /// <summary>敌人出手(2026-09-30):近战与召唤物同一套真身冲脸,远程射一团墨弹。
         /// 此前敌人不分远近一律原地下扑(<see cref="Lunge"/>),<c>AttackRange</c> 只在图标上看得出来。
         /// target 为 null = 打玩家(落点取屏幕中下,与玩家侧飘字同一个锚)。
         /// slash:打空/被免疫挡下时不劈刀口 —— 这一记确实出手了,但没砍到。</summary>
@@ -859,7 +860,7 @@ namespace Brushblade.Presentation
             if (attacker == null) yield break;
             Vector3 point = AnchorPoint(target);
             if (ranged) yield return Shoot(attacker, point, color, null, new Vector2(EnemyBoltSize, EnemyBoltSize));
-            else yield return GhostStrike(attacker, target, point, color, slash);
+            else yield return BodyStrike(attacker, target, point, color, slash);
         }
 
         /// <summary>后坐 → 弹体沿直线飞到 end(带拖尾点);命中那一刻返回,后坐回弹与飞行并行。
@@ -904,80 +905,46 @@ namespace Brushblade.Presentation
             if (bolt != null) UnityEngine.Object.Destroy(bolt.gameObject);
         }
 
-        // ---- 近战:残影突进 + 笔锋拖尾(2026-09-30 用户在 demo 里拍板 A+B)----
+        // ---- 近战:真身冲脸(2026-09-30 用户在 demo 里改选 D,取代同日的「残影突进 + 笔锋拖尾」)----
         //
-        // 原先的近战只是整格往前冲 30、刀口凭空出现在目标身上 —— 远程有箭飞过去,近战的
-        // 出手者与挨打者之间什么都没有,看不出谁砍了谁。现在:本体只小冲一下(布局不动),
-        // 克隆一个半透明残影冲到目标面前挥砍;残影身后同一条缓动拖出一笔墨迹,笔尖停在残影
-        // 挥砍的位置。挥完残影淡出、墨迹褪去。召唤物与敌人的近战共用这一套。
+        // 出手者本体整个冲到目标面前(停在 0.45 个目标宽之外,贴脸不重叠),命中那一刻返回,
+        // 回撤不阻塞时间线。召唤物与敌人的近战共用这一套。
+        //
+        // ⚠ 冲出去的那一段要**压在别的格子上面**画:召唤格与敌人格各在自己的排里,uGUI 按兄弟序
+        // 画,冲过去会被后画的那一排盖住。冲刺期间临时给出手者挂一个 overrideSorting 的 Canvas,
+        // 回到原位后摘掉 —— 它本来就有 Canvas 的(不该有,但防一手)就不动它的。
 
-        private const float GhostDash = 0.09f;     // 残影冲到目标面前(与笔触同一条 ease-in)
-        private const float GhostSwing = 0.08f;    // 挥砍:-18° → 24°
-        private const float GhostFade = 0.2f;
-        private const float StrokeFade = 0.48f;
-        private const float GhostAlpha = 0.62f;
-        private const float GhostStopFactor = 0.42f;   // 停在目标前 0.42 个目标宽:贴脸但不重叠
+        private const float BodyDraw = 0.08f;          // 蓄:往回收 10
+        private const float BodyDash = 0.12f;          // 冲:ease-in 扑到目标面前,末端即命中
+        private const float BodyRecover = 0.24f;       // 收:退回原位(不阻塞时间线)
+        private const float BodyStopFactor = 0.45f;    // 停在目标前 0.45 个目标宽
         private const float PlayerTargetSize = 120f;   // 打玩家时没有目标格,按这么大一个目标算落点
         private const float EnemyBoltSize = 20f;
+        private const int DashSortingBoost = 50;
 
-        /// <summary>蓄 → 本体小冲(不阻塞)+ 残影拖着笔冲到目标面前 → 挥砍,命中那一刻返回。
+        /// <summary>蓄 → 本体冲到目标面前 → 命中那一刻返回(回撤另起协程)。
         /// slash 为 true 时在目标身上劈刀口;叶片、音效由调用方按各自口径补。</summary>
-        private IEnumerator GhostStrike(RectTransform from, RectTransform to, Vector3 toPoint, Color color, bool slash)
+        private IEnumerator BodyStrike(RectTransform from, RectTransform to, Vector3 toPoint, Color color, bool slash)
         {
             if (from == null || _shakeTarget == null) yield break;
+            var space = from.parent as RectTransform;
             Vector2 home = HomeOf(from);
             int token = NextMoveToken(from);
             Vector2 dir = LocalDir(from, toPoint);
-            yield return Tween(StrikeWindup, k =>
+
+            // 冲刺距离按 from 父节点的本地单位算(anchoredPosition 住在那里)
+            float len = space != null ? ((Vector2)space.InverseTransformVector(toPoint - from.position)).magnitude : 0f;
+            float toSize = LocalSize(to, space, PlayerTargetSize);   // to 为 null(打玩家)时取 PlayerTargetSize
+            float stop = Mathf.Max(len * 0.3f, len - toSize * BodyStopFactor);
+
+            var lift = LiftAbove(from);
+            yield return Tween(BodyDraw, k =>
             {
-                if (from != null) from.anchoredPosition = home - dir * (8f * k);
+                if (from != null) from.anchoredPosition = home - dir * (10f * k);
             });
-            if (from == null) yield break;
-            StartCoroutine(NudgeThenHome(from, home, dir, token));
-
-            // 笔触铺满震屏层,端点直接用它自己的本地坐标 —— 不用关心震屏层的 pivot 在哪
-            var strokeGo = new GameObject("BrushStroke", typeof(RectTransform));
-            strokeGo.transform.SetParent(_shakeTarget, false);
-            var space = (RectTransform)strokeGo.transform;
-            space.anchorMin = Vector2.zero;
-            space.anchorMax = Vector2.one;
-            space.offsetMin = Vector2.zero;
-            space.offsetMax = Vector2.zero;
-            var stroke = strokeGo.AddComponent<BrushStroke>();
-
-            Vector2 a = space.InverseTransformPoint(from.position);
-            Vector2 b = space.InverseTransformPoint(toPoint);
-            Vector2 delta = b - a;
-            float len = Mathf.Max(1f, delta.magnitude);
-            Vector2 u = delta / len;
-            float fromSize = LocalSize(from, space, PlayerTargetSize);
-            float toSize = to != null ? LocalSize(to, space, PlayerTargetSize) : PlayerTargetSize;
-            float stop = Mathf.Max(len * 0.3f, len - toSize * GhostStopFactor);
-            Vector2 p0 = a + u * (fromSize * 0.1f), p2 = a + u * stop;
-            // 墨色:攻击者属性色往墨里压一截 —— 纯属性色在宣纸上太跳,读成特效而不是墨
-            var ink = Color.Lerp(color, Theme.Ink, 0.4f);
-            ink.a = 0.9f;
-            stroke.color = ink;
-            stroke.Setup(p0, (p0 + p2) * 0.5f, p2, fromSize * 0.2f);
-
-            var ghost = MakeGhost(from, out var ghostGroup);
-            yield return Tween(GhostDash, k =>
+            yield return Tween(BodyDash, k =>
             {
-                float kk = k * k;
-                if (ghost != null) ghost.position = space.TransformPoint(a + u * (stop * kk));
-                if (ghostGroup != null) ghostGroup.alpha = Mathf.Lerp(0.2f, GhostAlpha, k);
-                if (stroke != null) stroke.Progress = kk;
-            });
-            if (stroke != null) stroke.Progress = 1f;
-
-            float baseScale = ghost != null ? ghost.localScale.x : 1f;
-            yield return Tween(GhostSwing, k =>
-            {
-                if (ghost == null) return;
-                float kk = k * k;
-                ghost.position = space.TransformPoint(a + u * (stop + 10f * kk));
-                ghost.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-18f, 24f, kk));
-                ghost.localScale = Vector3.one * (baseScale * Mathf.Lerp(1f, 1.08f, kk));
+                if (from != null) from.anchoredPosition = home + dir * Mathf.Lerp(-10f, stop, k * k);
             });
 
             if (slash)
@@ -985,77 +952,38 @@ namespace Brushblade.Presentation
                 if (to != null) Slash(to, color);
                 else SlashAt(toPoint, PlayerTargetSize, color);
             }
-            if (space != null)
-                StartCoroutine(FadeGhost(ghost, ghostGroup, space.TransformPoint(a + u * (stop - 6f)), baseScale));
-            StartCoroutine(FadeStroke(stroke));
+            StartCoroutine(BodyReturn(from, home, token, lift));
         }
 
-        /// <summary>本体在残影冲出去的同时往前顶一下再回原位(蓄 -8 → +12 → 0)。</summary>
-        private IEnumerator NudgeThenHome(RectTransform rect, Vector2 home, Vector2 dir, int token)
+        /// <summary>命中后停一拍再退回原位;回到原位才摘掉临时的置顶 Canvas。
+        /// 令牌过期(连发时下一记已经开始)就放手,不与新一记抢坐标,也不摘置顶。</summary>
+        private IEnumerator BodyReturn(RectTransform rect, Vector2 home, int token, Canvas lift)
         {
-            bool Current() => rect != null && _summonMoveToken.TryGetValue(rect, out int t) && t == token;
-            yield return Tween(0.1f, k =>
+            yield return Beat(0.06f);
+            yield return ReturnHome(rect, home, BodyRecover, token);
+            bool current = rect != null && _summonMoveToken.TryGetValue(rect, out int t) && t == token;
+            if (current && lift != null)
             {
-                if (Current()) rect.anchoredPosition = home + dir * Mathf.Lerp(-8f, 12f, 1f - (1f - k) * (1f - k));
-            });
-            if (Current()) yield return ReturnHome(rect, home, StrikeRecover, token);
+                _lifted.Remove(lift);
+                Destroy(lift);
+            }
         }
 
-        /// <summary>克隆出手者当残影:挂到震屏层、关掉一切点击、摘掉角标(护盾/状态 chip)。
-        /// 克隆里 SummonView/MobView 的层引用是运行时赋的、不会被复制,所以残影是静止的一帧,
-        /// 不会跟着本体一起呼吸/抖动。</summary>
-        private RectTransform MakeGhost(RectTransform from, out CanvasGroup group)
-        {
-            var go = Instantiate(from.gameObject, _shakeTarget, true);
-            go.name = "Ghost";
-            var rect = (RectTransform)go.transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = from.rect.size;
-            rect.position = from.position;
-            var layout = go.GetComponent<LayoutElement>();
-            if (layout == null) layout = go.AddComponent<LayoutElement>();
-            layout.ignoreLayout = true;
-            var chips = new List<GameObject>();
-            foreach (Transform child in rect)
-                if (child.name == "Chip") chips.Add(child.gameObject);
-            foreach (var chip in chips) Destroy(chip);
-            foreach (var graphic in go.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
-            group = go.GetComponent<CanvasGroup>();
-            if (group == null) group = go.AddComponent<CanvasGroup>();
-            group.alpha = 0.2f;
-            group.blocksRaycasts = false;
-            group.interactable = false;
-            return rect;
-        }
+        /// <summary>冲刺时临时挂上的置顶 Canvas —— 只摘自己挂的,不碰本来就有的。</summary>
+        private readonly HashSet<Canvas> _lifted = new();
 
-        private IEnumerator FadeGhost(RectTransform ghost, CanvasGroup group, Vector3 driftTo, float baseScale)
+        /// <summary>冲刺期间把出手者画在所有格子之上:临时挂一个 overrideSorting 的 Canvas。
+        /// 返回这个临时 Canvas(已经挂着的就返回它,由上一记负责摘);本来就有 Canvas 的返回 null。</summary>
+        private Canvas LiftAbove(RectTransform rect)
         {
-            if (ghost == null) yield break;
-            Vector3 at = ghost.position;
-            yield return Tween(GhostFade, k =>
-            {
-                if (ghost == null) return;
-                float e = 1f - (1f - k) * (1f - k);
-                ghost.position = Vector3.Lerp(at, driftTo, e);
-                ghost.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(24f, 10f, e));
-                ghost.localScale = Vector3.one * (baseScale * Mathf.Lerp(1.08f, 1.15f, e));
-                if (group != null) group.alpha = GhostAlpha * (1f - e);
-            });
-            if (ghost != null) UnityEngine.Object.Destroy(ghost.gameObject);
-        }
-
-        private IEnumerator FadeStroke(BrushStroke stroke)
-        {
-            if (stroke == null) yield break;
-            var c = stroke.color;
-            float alpha = c.a;
-            yield return Tween(StrokeFade, k =>
-            {
-                if (stroke == null) return;
-                c.a = alpha * (1f - k) * (1f - k); // ease-out 褪去
-                stroke.color = c;
-            });
-            if (stroke != null) UnityEngine.Object.Destroy(stroke.gameObject);
+            var existing = rect.GetComponent<Canvas>();
+            if (existing != null) return _lifted.Contains(existing) ? existing : null; // 连发:沿用上一记挂的
+            var root = rect.GetComponentInParent<Canvas>();
+            var canvas = rect.gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = (root != null ? root.sortingOrder : 0) + DashSortingBoost;
+            _lifted.Add(canvas);
+            return canvas;
         }
 
         /// <summary>rect 的边长(取宽高较大者)换算到 space 的本地单位;rect 为 null 返回 fallback。</summary>
