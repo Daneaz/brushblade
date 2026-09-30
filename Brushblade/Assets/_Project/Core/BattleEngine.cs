@@ -3074,11 +3074,18 @@ namespace Brushblade.Core
                         // 按**总量**攒泉:HoT 承诺的治疗总量就是 每回合量 × 回合数,
                         // 分几回合兑现不改变承诺量。攒的是基数(放大前),理由同 HealSelf。
                         GainWellspring(perTurn * Math.Max(1, effect.Turns));
+                        // 出手即跳第一跳(2026-09-30 用户报 沐「选中我方无效、不加血」):
+                        // 此前施放那一刻 0 回血,第一跳要等下一个我方回合开始,玩家看到的就是没反应。
+                        // 当下跳一次(与 SettlePlayerHots 同一条结算),余下 turns−1 次照旧挂状态,总次数不变。
+                        if (effect.TargetAll) HealPlayerAndSummons(amplifiedPerTurn);
+                        else HealAlly(allySlot, amplifiedPerTurn);
+                        int remainingTicks = Math.Max(1, effect.Turns) - 1;
+                        if (remainingTicks <= 0) break;
                         _playerStatuses.Apply(new StatusEffect
                         {
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
                             Magnitude = amplifiedPerTurn,   // 每回合量,已吃泉放大
-                            TurnsLeft = effect.Turns, TargetAll = effect.TargetAll,
+                            TurnsLeft = remainingTicks, TargetAll = effect.TargetAll,
                             TargetSlot = allySlot,
                             SourceId = $"{def.Id}#{_statusSerial++}",
                         });

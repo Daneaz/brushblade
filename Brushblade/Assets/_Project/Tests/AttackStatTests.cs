@@ -418,7 +418,8 @@ namespace Brushblade.CoreTests
             var hot = engine.PlayerStatuses.Find(StatusKind.HealOverTime);
             Assert.That(hot, Is.Not.Null);
             Assert.That(hot.Magnitude, Is.EqualTo(12), "floor(8 × 150 ÷ 100) = 12");
-            Assert.That(hot.TurnsLeft, Is.EqualTo(3), "持续回合数不吃攻击力");
+            // 2026-09-30 出手即跳第一跳:挂上的是余下 turns−1 = 2 跳
+            Assert.That(hot.TurnsLeft, Is.EqualTo(2), "持续回合数不吃攻击力");
         }
 
         [Test]
