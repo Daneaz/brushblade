@@ -66,13 +66,16 @@ namespace Brushblade.Presentation
         /// 不是墨色 —— 墨罩会把战场压成深色,与「本段告捷」的明快读感相反(RunEnd.dc.html)。</summary>
         public static readonly Color ScrimPaper = new(0.965f, 0.945f, 0.906f, 0.72f);
 
-        // 层段背景基色(20.2 每段换景):字林竹绿/词渊黛蓝/文山赭石/墨海墨青
+        // 层段背景基色(20.2 每段换景;2026-09-30 十层一主题,按段属性取色):
+        // 字林竹绿 / 朱砂丹红 / 文山赭石 / 金石铜灰 / 墨海墨青 / 词渊黛蓝
         private static readonly Color[] BandInks =
         {
             new(0.42f, 0.58f, 0.38f),
-            new(0.36f, 0.48f, 0.64f),
+            new(0.70f, 0.36f, 0.30f),
             new(0.66f, 0.52f, 0.34f),
+            new(0.55f, 0.52f, 0.42f),
             new(0.28f, 0.32f, 0.42f),
+            new(0.36f, 0.48f, 0.64f),
         };
 
         private static Color BandInk(int bandIndex) =>

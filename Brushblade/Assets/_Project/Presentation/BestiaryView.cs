@@ -49,11 +49,11 @@ namespace Brushblade.Presentation
         private const int FilterAll = -1;
         private const int FilterBoss = -2;
 
-        /// <summary>层段页签的配色。层段本身没有五行属性,这只是给四段各一个可辨识的色相
-        /// (稿 BAND_EL:字林木 / 词渊水 / 文山土 / 墨海金)。</summary>
+        /// <summary>层段页签的配色。2026-09-30 起 1~50 层按相生序各段一个主属性,页签就取它;
+        /// 词渊是全池混合段,取心。</summary>
         private static readonly Element[] BandTint =
         {
-            Element.Wood, Element.Water, Element.Earth, Element.Metal,
+            Element.Wood, Element.Fire, Element.Earth, Element.Metal, Element.Water, Element.Heart,
         };
 
         private EndlessConfig _endless;
@@ -99,6 +99,9 @@ namespace Brushblade.Presentation
                 foreach (var band in campaign.Endless.Bands)
                 {
                     foreach (var enemy in band.EnemyPool) Add(enemy);
+                    foreach (var boss in band.EliteBossPool) Add(boss);   // 精英(2026-09-30)
+                    foreach (var idiom in band.EliteIdiomBossPool)
+                        Add(EndlessGenerator.BuildIdiomBoss(idiom));
                     foreach (var boss in band.BossPool) Add(boss);
                     foreach (var idiom in band.IdiomBossPool)
                         Add(EndlessGenerator.BuildIdiomBoss(idiom));
@@ -125,6 +128,11 @@ namespace Brushblade.Presentation
                 foreach (var enemy in band.EnemyPool)
                     Note(enemy.Id, b, Mathf.Max(band.FromDepth, enemy.MinDepth));
                 int bossDepth = FirstBossDepth(band.FromDepth);
+                // 十层一主题(2026-09-30):精英占段内第一个 Boss 层,主题 Boss 顺延到下一个
+                bool hasElite = band.EliteBossPool.Count + band.EliteIdiomBossPool.Count > 0;
+                foreach (var boss in band.EliteBossPool) Note(boss.Id, b, bossDepth);
+                foreach (var idiom in band.EliteIdiomBossPool) Note(idiom.Chars, b, bossDepth);
+                if (hasElite) bossDepth += Mathf.Max(1, _endless.BossEvery);
                 foreach (var boss in band.BossPool) Note(boss.Id, b, bossDepth);
                 foreach (var idiom in band.IdiomBossPool) Note(idiom.Chars, b, bossDepth);
             }
@@ -218,7 +226,10 @@ namespace Brushblade.Presentation
 
             var spring = Ui.Panel(bar.transform, "Spring");
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
-            Ui.ThemedLabel(bar.transform, Strings.T("bestiary.sort_hint"), 19, Theme.LockGray);
+            // 2026-09-30 层段 4 → 6 段:全部 + 6 段 + Boss 八个页签(每个约 160)已占满 1600 宽,
+            // 排序提示再挤进来会溢出屏幕右缘 —— 段多时让位给页签。
+            if (BandCount <= 4)
+                Ui.ThemedLabel(bar.transform, Strings.T("bestiary.sort_hint"), 19, Theme.LockGray);
         }
 
         /// <summary>一个筛选页签:名 + 「已录/总数」+ 有待领赏时的红点。
@@ -696,13 +707,13 @@ namespace Brushblade.Presentation
             Ui.Sized(whereLabel.gameObject, metaWidth, whereHeight);
         }
 
-        /// <summary>出没:哪一段、从第几层起。Boss 只在段末出,且自该段起进入 Boss 池轮替。</summary>
+        /// <summary>出没:哪一段、从第几层起。Boss 标出它在本段的那一层(精英第 5 层 / 主题第 10 层)。</summary>
         private string WhereText(EnemyDef def, bool known)
         {
             if (!_band.TryGetValue(def.Id, out int band)) return "";
             string name = _endless.Bands[band].Name;
             if (IsBoss(def))
-                return Strings.T("bestiary.side.where_boss", ("band", name)) + "\n"
+                return Strings.T("bestiary.side.where_boss", ("band", name), ("depth", _depth[def.Id])) + "\n"
                     + Strings.T("bestiary.side.where_note_boss");
             // 两支各写各的 Strings.T(字面量 key):StringsTableTests 只认紧跟在 T( 后面的
             // 字符串字面量,key 从三元表达式传进去会被判成孤儿(EnemyInfo 那里有同一条注释)

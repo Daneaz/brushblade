@@ -50,10 +50,23 @@ def test_python_and_csharp_slug_tables_agree():
     assert _csharp_slugs() == rm.MINION_SLUGS
 
 
+# 待出图(2026-09-30 十层一主题新增,用户拍板「先上数值,形象后补」):这几只在真机上
+# 回落成字头像。是一笔**待补的账**,不是「不需要」—— 出完图、接进两张 slug 表后从这里删掉,
+# 下面 test_art_pending_is_really_pending 会逼你删。
+ART_PENDING = {"炭笔", "拓片", "印泥", "刻刀", "铭文", "泼墨", "晕染"}
+
+
 def test_every_minion_in_config_has_a_slug():
     """enemies.json 里的每只杂兵都要认领一个 slug,否则真机上它回落成字牌格。"""
-    missing = [i for i in _minion_ids() if i not in rm.MINION_SLUGS]
+    missing = [i for i in _minion_ids() if i not in rm.MINION_SLUGS and i not in ART_PENDING]
     assert missing == [], f"这些怪没有立绘 slug:{missing}"
+
+
+def test_art_pending_is_really_pending():
+    """豁免名单不许过期:已经删掉的怪、或者已经接上 slug 的怪,都得从 ART_PENDING 里拿掉。"""
+    ids = set(_minion_ids())
+    assert sorted(ART_PENDING - ids) == [], "豁免名单里有 enemies.json 已经没有的怪"
+    assert sorted(ART_PENDING & set(rm.MINION_SLUGS)) == [], "这些怪已经有 slug 了,从 ART_PENDING 删掉"
 
 
 def test_no_slug_points_at_a_retired_enemy():

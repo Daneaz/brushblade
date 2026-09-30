@@ -25,7 +25,8 @@
       "element": "Wood",
       "maxHp": 160,
       "attack": 50,
-      "ability": "Split"
+      "ability": "Split",
+      "minDepth": 3
     },
     {
       "id": "夯土妖",
@@ -38,7 +39,8 @@
       "element": "Wood",
       "maxHp": 140,
       "attack": 40,
-      "ability": "Disguise"
+      "ability": "Disguise",
+      "minDepth": 4
     },
     {
       "id": "生僻字",
@@ -175,14 +177,21 @@
     { "id": "铁画", "element": "Metal", "maxHp": 150, "attack": 45, "ability": "Barb", "defense": 50 },
     { "id": "镇纸", "element": "Earth", "maxHp": 240, "attack": 25, "defense": 50 },
     { "id": "洇痕", "element": "Water", "maxHp": 110, "attack": 35, "ability": "Split", "row": "Back", "range": "Ranged" },
-    { "id": "衍文", "element": "Wood",  "maxHp": 130, "attack": 40, "ability": "Regrow", "row": "Back", "range": "Ranged" },
+    { "id": "衍文", "element": "Wood",  "maxHp": 130, "attack": 40, "ability": "Regrow", "row": "Back", "range": "Ranged", "minDepth": 6 },
     { "id": "枯笔", "element": "Wood",  "maxHp": 150, "attack": 30, "defense": 27, "minDepth": 6 },
-    { "id": "版牍", "element": "Wood",  "maxHp": 260, "attack": 40, "defense": 60 },
+    { "id": "版牍", "element": "Wood",  "maxHp": 260, "attack": 40, "defense": 60, "minDepth": 8 },
     { "id": "火漆", "element": "Fire",  "maxHp": 140, "attack": 35, "defense": 27, "minDepth": 6 },
     { "id": "窑变", "element": "Fire",  "maxHp": 220, "attack": 50, "defense": 54 },
     { "id": "砚台", "element": "Earth", "maxHp": 200, "attack": 22, "defense": 35, "minDepth": 6 },
     { "id": "铜钤", "element": "Metal", "maxHp": 130, "attack": 40, "defense": 31, "minDepth": 6 },
-    { "id": "宿墨", "element": "Water", "maxHp": 240, "attack": 38, "defense": 60 }
+    { "id": "宿墨", "element": "Water", "maxHp": 240, "attack": 38, "defense": 60 },
+    { "id": "炭笔", "element": "Fire",  "maxHp": 130, "attack": 35, "ability": "Sear", "row": "Back", "range": "Ranged", "minDepth": 11 },
+    { "id": "拓片", "element": "Earth", "maxHp": 180, "attack": 30, "ability": "Split", "minDepth": 21 },
+    { "id": "印泥", "element": "Earth", "maxHp": 230, "attack": 28, "minDepth": 21 },
+    { "id": "刻刀", "element": "Metal", "maxHp": 100, "attack": 50, "row": "Back", "range": "Ranged", "focus": "Player", "minDepth": 31 },
+    { "id": "铭文", "element": "Metal", "maxHp": 170, "attack": 35, "ability": "Obscure", "minDepth": 31 },
+    { "id": "泼墨", "element": "Water", "maxHp": 160, "attack": 42, "minDepth": 41 },
+    { "id": "晕染", "element": "Water", "maxHp": 120, "attack": 28, "ability": "Mend", "row": "Back", "range": "Ranged", "minDepth": 41 }
   ],
   "dropTable": [
     "金",
@@ -192,6 +201,12 @@
     "土"
   ],
   "bossSkills": {
+    "草": "Devour", "木": "Bulwark", "皆": "Deluge", "兵": "Impale",
+    "枯": "Topple", "春": "Deluge",
+    "星": "Impale", "燎": "Deluge", "原": "Bulwark",
+    "积": "Topple", "土": "Bulwark", "成": "Deluge", "裂": "Impale",
+    "铜": "Impale", "墙": "Bulwark", "铁": "Topple", "壁": "Bulwark",
+    "惊": "Topple", "涛": "Deluge", "骇": "Impale", "浪": "Deluge",
     "海": "Deluge", "江": "Deluge", "河": "Deluge", "啸": "Deluge",
     "崩": "Deluge", "雪": "Deluge", "沙": "Deluge", "气": "Deluge", "万": "Deluge",
     "雷": "Impale", "霆": "Impale", "钧": "Impale",
@@ -702,86 +717,179 @@
           "错字鬼",
           "缺笔妖",
           "标点小妖",
+          "叠字怪",
+          "通假字",
           "枯笔",
-          "火漆",
-          "砚台",
-          "铜钤",
-          "墨渍"
+          "衍文",
+          "版牍",
+          "火漆"
         ],
-        "bossPool": [
-          "排山倒海"
+        "eliteIdiomBosses": [
+          {
+            "chars": "草木皆兵",
+            "elements": [
+              "Wood",
+              "Wood",
+              "Heart",
+              "Metal"
+            ]
+          }
+        ],
+        "bossPool": [],
+        "idiomBosses": [
+          {
+            "chars": "枯木逢春",
+            "elements": [
+              "Wood",
+              "Wood",
+              "Heart",
+              "Wood"
+            ]
+          }
         ],
         "milestoneInk": 0
       },
       {
-        "name": "词渊",
+        "name": "朱砂",
         "fromDepth": 11,
         "enemyPool": [
-          "错字鬼",
-          "缺笔妖",
-          "标点小妖",
-          "叠字怪",
-          "夯土妖",
-          "通假字",
-          "墨渍",
           "焦痕",
           "灯花",
-          "墨溅",
-          "悬针",
           "败笔",
-          "镇纸",
-          "洇痕",
-          "衍文",
-          "枯笔",
           "火漆",
-          "砚台",
-          "铜钤"
+          "窑变",
+          "炭笔",
+          "错字鬼",
+          "枯笔",
+          "标点小妖"
         ],
-        "bossPool": [
-          "排山倒海",
-          "翻江倒海"
+        "eliteIdiomBosses": [
+          {
+            "chars": "星火燎原",
+            "elements": [
+              "Heart",
+              "Fire",
+              "Fire",
+              "Earth"
+            ]
+          }
+        ],
+        "bossPool": [],
+        "idiomBosses": [
+          {
+            "chars": "烈火干柴",
+            "elements": [
+              "Fire",
+              "Fire",
+              "Heart",
+              "Wood"
+            ]
+          }
         ],
         "milestoneInk": 200
       },
       {
         "name": "文山",
-        "fromDepth": 26,
+        "fromDepth": 21,
         "enemyPool": [
-          "错字鬼",
-          "缺笔妖",
-          "标点小妖",
-          "叠字怪",
           "夯土妖",
-          "通假字",
           "生僻字",
-          "墨渍",
-          "焦痕",
-          "灯花",
-          "墨溅",
-          "悬针",
-          "败笔",
           "镇纸",
-          "洇痕",
-          "衍文",
-          "涂改",
-          "铁画",
-          "枯笔",
-          "版牍",
-          "火漆",
-          "窑变",
           "砚台",
+          "拓片",
+          "印泥",
+          "焦痕",
+          "窑变",
+          "涂改"
+        ],
+        "eliteIdiomBosses": [
+          {
+            "chars": "积土成山",
+            "elements": [
+              "Earth",
+              "Earth",
+              "Heart",
+              "Earth"
+            ]
+          }
+        ],
+        "bossPool": [],
+        "idiomBosses": [
+          {
+            "chars": "山崩地裂",
+            "elements": [
+              "Earth",
+              "Earth",
+              "Earth",
+              "Metal"
+            ]
+          }
+        ],
+        "milestoneInk": 350
+      },
+      {
+        "name": "金石",
+        "fromDepth": 31,
+        "enemyPool": [
+          "缺笔妖",
+          "悬针",
+          "铁画",
           "铜钤",
-          "宿墨"
+          "刻刀",
+          "铭文",
+          "镇纸",
+          "夯土妖",
+          "标点小妖"
+        ],
+        "eliteIdiomBosses": [
+          {
+            "chars": "铜墙铁壁",
+            "elements": [
+              "Metal",
+              "Earth",
+              "Metal",
+              "Earth"
+            ]
+          }
         ],
         "bossPool": [
-          "排山倒海",
-          "翻江倒海",
           "雷霆万钧"
         ],
         "milestoneInk": 500
       },
       {
         "name": "墨海",
+        "fromDepth": 41,
+        "enemyPool": [
+          "墨渍",
+          "墨溅",
+          "洇痕",
+          "宿墨",
+          "泼墨",
+          "晕染",
+          "铁画",
+          "悬针",
+          "涂改"
+        ],
+        "eliteBossPool": [
+          "翻江倒海"
+        ],
+        "bossPool": [],
+        "idiomBosses": [
+          {
+            "chars": "惊涛骇浪",
+            "elements": [
+              "Water",
+              "Water",
+              "Heart",
+              "Water"
+            ]
+          }
+        ],
+        "milestoneInk": 750
+      },
+      {
+        "name": "词渊",
         "fromDepth": 51,
         "enemyPool": [
           "错字鬼",
@@ -797,25 +905,31 @@
           "墨溅",
           "悬针",
           "败笔",
+          "涂改",
+          "铁画",
           "镇纸",
           "洇痕",
           "衍文",
-          "涂改",
-          "铁画",
           "枯笔",
           "版牍",
           "火漆",
           "窑变",
           "砚台",
           "铜钤",
-          "宿墨"
+          "宿墨",
+          "炭笔",
+          "拓片",
+          "印泥",
+          "刻刀",
+          "铭文",
+          "泼墨",
+          "晕染"
         ],
         "bossPool": [
           "排山倒海",
           "翻江倒海",
           "雷霆万钧"
         ],
-        "milestoneInk": 1000,
         "idiomBosses": [
           {
             "chars": "刀山火海",
@@ -870,8 +984,72 @@
               "Earth",
               "Water"
             ]
+          },
+          {
+            "chars": "草木皆兵",
+            "elements": [
+              "Wood",
+              "Wood",
+              "Heart",
+              "Metal"
+            ]
+          },
+          {
+            "chars": "枯木逢春",
+            "elements": [
+              "Wood",
+              "Wood",
+              "Heart",
+              "Wood"
+            ]
+          },
+          {
+            "chars": "星火燎原",
+            "elements": [
+              "Heart",
+              "Fire",
+              "Fire",
+              "Earth"
+            ]
+          },
+          {
+            "chars": "积土成山",
+            "elements": [
+              "Earth",
+              "Earth",
+              "Heart",
+              "Earth"
+            ]
+          },
+          {
+            "chars": "山崩地裂",
+            "elements": [
+              "Earth",
+              "Earth",
+              "Earth",
+              "Metal"
+            ]
+          },
+          {
+            "chars": "铜墙铁壁",
+            "elements": [
+              "Metal",
+              "Earth",
+              "Metal",
+              "Earth"
+            ]
+          },
+          {
+            "chars": "惊涛骇浪",
+            "elements": [
+              "Water",
+              "Water",
+              "Heart",
+              "Water"
+            ]
           }
-        ]
+        ],
+        "milestoneInk": 1000
       }
     ]
   }

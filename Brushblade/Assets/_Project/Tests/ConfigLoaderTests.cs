@@ -260,21 +260,28 @@ namespace Brushblade.Core.Tests
             var campaign = ConfigLoader.LoadCampaign(
                 File.ReadAllText(Path.Combine(configDir, "enemies.json")), graph);
 
-            var paiShan = campaign.Endless.Bands[0].BossPool[0];
+            // 2026-09-30 十层一主题:排山倒海 只留在末段「词渊」的混合 Boss 池
+            var ciYuan = campaign.Endless.Bands[campaign.Endless.Bands.Count - 1];
+            var paiShan = ciYuan.BossPool[0];
             Assert.That(paiShan.Id, Is.EqualTo("排山倒海"));
             Assert.That(paiShan.Phases[0].Skill, Is.EqualTo(BossSkill.Topple));  // 排
             Assert.That(paiShan.Phases[1].Skill, Is.EqualTo(BossSkill.Bulwark)); // 山
             Assert.That(paiShan.Phases[2].Skill, Is.EqualTo(BossSkill.Topple));  // 倒
             Assert.That(paiShan.Phases[3].Skill, Is.EqualTo(BossSkill.Deluge));  // 海
 
-            // 墨海层段(最后一个 band)的成语 Boss 也要拿到技能
-            var moHai = campaign.Endless.Bands[campaign.Endless.Bands.Count - 1];
-            var daoShan = moHai.IdiomBossPool[0];
+            // 词渊层段(最后一个 band)的成语 Boss 也要拿到技能
+            var daoShan = ciYuan.IdiomBossPool[0];
             Assert.That(daoShan.Chars, Is.EqualTo("刀山火海"));
             Assert.That(daoShan.Skills[0], Is.EqualTo(BossSkill.Impale));  // 刀
             Assert.That(daoShan.Skills[1], Is.EqualTo(BossSkill.Bulwark)); // 山
             Assert.That(daoShan.Skills[2], Is.EqualTo(BossSkill.Devour));  // 火
             Assert.That(daoShan.Skills[3], Is.EqualTo(BossSkill.Deluge));  // 海
+
+            // 字林的精英(第 5 层)是成语 Boss,技能同样查字表
+            var caoMu = campaign.Endless.Bands[0].EliteIdiomBossPool[0];
+            Assert.That(caoMu.Chars, Is.EqualTo("草木皆兵"));
+            Assert.That(caoMu.Skills[0], Is.EqualTo(BossSkill.Devour));   // 草
+            Assert.That(caoMu.Skills[1], Is.EqualTo(BossSkill.Bulwark));  // 木
         }
 
         [Test]
