@@ -59,6 +59,14 @@ MINION_SLUGS = {
     "版牍": "bandu",
     "窑变": "yaobian",
     "宿墨": "sumo",
+    # 2026-09-30 十层一主题补的七只(合并稿由 build_mob_drafts.py 生成)
+    "炭笔": "tanbi",
+    "拓片": "tapian",
+    "印泥": "yinni",
+    "刻刀": "kedao",
+    "铭文": "mingwen",
+    "泼墨": "pomo",
+    "晕染": "yunran",
 }
 
 # Boss 形象按阶段出:同一只 Boss 四个阶段是四套图。

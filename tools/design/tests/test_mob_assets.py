@@ -53,7 +53,7 @@ def test_python_and_csharp_slug_tables_agree():
 # 待出图(2026-09-30 十层一主题新增,用户拍板「先上数值,形象后补」):这几只在真机上
 # 回落成字头像。是一笔**待补的账**,不是「不需要」—— 出完图、接进两张 slug 表后从这里删掉,
 # 下面 test_art_pending_is_really_pending 会逼你删。
-ART_PENDING = {"炭笔", "拓片", "印泥", "刻刀", "铭文", "泼墨", "晕染"}
+ART_PENDING: set = set()   # 2026-09-30 那七只已出图(build_mob_drafts.py),清空
 
 
 def test_every_minion_in_config_has_a_slug():

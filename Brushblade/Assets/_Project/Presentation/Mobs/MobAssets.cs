@@ -42,6 +42,14 @@ namespace Brushblade.Presentation
             { "版牍", "bandu" },
             { "窑变", "yaobian" },
             { "宿墨", "sumo" },
+            // 2026-09-30 十层一主题补的七只
+            { "炭笔", "tanbi" },
+            { "拓片", "tapian" },
+            { "印泥", "yinni" },
+            { "刻刀", "kedao" },
+            { "铭文", "mingwen" },
+            { "泼墨", "pomo" },
+            { "晕染", "yunran" },
         };
 
         /// <summary>Boss 形象按阶段出:四个阶段是四套图。「倒」「海」复用排山倒海的稿。</summary>
