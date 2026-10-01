@@ -54,6 +54,7 @@ Id 规则:单段节点 `{branch}_{depth}`(不变);三段节点 `{branch}_{depth}
 - 深根:召唤物生成时按百分比放大 MaxHp 与初始 Hp(向下取整)。
 - 甘霖:乘在水系字的治疗量(含 HoT 每跳、复活回血)上;**不**放大归根的阵亡回血(那是木系来源)。
 - 添薪:**只作用于敌人身上的灼烧**。新增 `BattleConfig.EnemyBurnPerStackBonus`,仅在敌人侧结算(`SettleBurnOn`)时加到每层伤害上:`层数 × (_burnPerStack + bonus)`。玩家侧 `SettlePlayerBurn` 与召唤物侧 `SettleSummonBurn` 不读它 —— 敌方给我方上的灼烧不享有添薪。`BattleConfig.BurnPerStack` 恢复为纯基础值 20,不再由 perk 写入。
+- 同一条线顺带修正既有行为(用户 2026-10-02 拍板):**局内灼烧加成(BurnPotency 火系字)也只作用于敌人**。拆成两个基数:敌人侧 `_burnPerStack`(基础 20 + BurnPotency 累加,进快照,另加添薪)与我方侧固定基础值 `BattleConfig.BurnPerStack`(玩家/召唤物结算读它,不受 BurnPotency 与添薪影响)。需补测试:BurnPotency 后玩家/召唤物身上的灼烧每层仍为 20。
 - 新增 `PerkEffect`:`ElementCritChance`、`SummonHpPercent`、`HealPercent`、`ShieldPercent`、`EnemyBurnBonus`(原 `BurnPerStack` 效果删除)。BattleConfig 新增对应字段;**缺省 0 = 逐字节恒等**。
 
 ### 2.2 L2(原 L3,改三段)
