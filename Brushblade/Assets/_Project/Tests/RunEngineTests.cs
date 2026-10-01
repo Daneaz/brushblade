@@ -953,10 +953,39 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void ShieldCarry_DefaultMatchesOldHalving()
+        public void ShieldCarry_DefaultIsFifty()
         {
             Assert.That(new BattleConfig().ShieldCarryPercent, Is.EqualTo(50));
-            Assert.That(5 * new BattleConfig().ShieldCarryPercent / 100, Is.EqualTo(5 / 2));
+        }
+
+        [Test]
+        public void ShieldCarry_SummonShield_KeepsConfiguredPercent()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("兵", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.Summon, 1, summonCount: 1, summonAttack: 0, summonChar: "木") }),
+                new CharDef("壁", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
+                new CharDef("焚", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+            });
+            var run = new RunEngine(graph,
+                new RunConfig
+                {
+                    Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+                    RewardPool = new[] { "焚" },
+                    FromDepth = 31,
+                },
+                new BattleConfig { DropTable = new[] { "木" }, ShieldCarryPercent = 75, ApPerTurn = 20 },
+                startingLibrary: new[] { "兵", "壁", "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+            Assert.That(run.Battle.Cast("兵", summonSlots: new[] { 0 }), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("壁", allySlot: 0), Is.EqualTo(BattleError.None));
+            int shield = run.Battle.Summons[0].Shield;
+            Assert.That(shield, Is.GreaterThan(0), "前提:召唤物确实挂上了盾");
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.Summons[0].Shield, Is.EqualTo(shield * 75 / 100));
         }
 
         [Test]
