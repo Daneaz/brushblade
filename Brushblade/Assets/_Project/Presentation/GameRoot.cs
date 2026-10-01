@@ -400,7 +400,7 @@ namespace Brushblade.Presentation
         /// <summary>写入战斗之间的携带态(战利品已并入其中)。净额入账由调用方负责。</summary>
         private static void WriteCarriedSnapshot(RunEngine run, EndlessSaveState snapshot, int earnedSoFar)
         {
-            snapshot.PlayerHp = run.Battle.PlayerHp;
+            snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:含调息/吐纳胜利回血(2026-10-02),此时 Battle 是刚打完的那场(回血前)
             snapshot.MaxHpBonus = run.MaxHpBonus;
             snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary);
             snapshot.Pool = new System.Collections.Generic.List<string>(run.CarriedPool);
@@ -448,7 +448,7 @@ namespace Brushblade.Presentation
             var snapshot = _meta.EndlessV2;
             snapshot.TopBossDepth = segmentEnd; // 逐段递增,即本次已破最高 Boss 层
             snapshot.Depth = segmentEnd + 1;
-            snapshot.PlayerHp = run.Battle.PlayerHp;
+            snapshot.PlayerHp = run.CarriedHp; // 读携带态而非 Battle:含调息/吐纳胜利回血(2026-10-02),此时 Battle 是刚打完的那场(回血前)
             snapshot.MaxHpBonus = run.MaxHpBonus; // 奇遇上限加成跨段延续(本次登塔生效,2026-09-18)
             // 用携带态而非 Battle:Boss 层战利品(2026-07-20)加在携带态上,读 Battle 会把它丢掉
             snapshot.Library = new System.Collections.Generic.List<string>(run.CarriedLibrary); // 出字即消耗,无回归(v0.7)

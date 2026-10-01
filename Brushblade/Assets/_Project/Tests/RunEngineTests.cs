@@ -70,6 +70,21 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void VictoryHeal_AppliesOnFinalBattle_CarriedHp()
+        {
+            var run = new RunEngine(Graph(),
+                new RunConfig { Encounters = new[] { new[] { Weak() } }, RewardPool = new[] { "灯", "焚", "林" } },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 500);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            if (run.Phase == RunPhase.Reward) run.SkipReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon));
+            Assert.That(run.CarriedHp, Is.EqualTo(600));
+        }
+
+        [Test]
         public void Run_StartsInFirstBattle()
         {
             var run = Run();
