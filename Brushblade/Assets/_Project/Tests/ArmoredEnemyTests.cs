@@ -99,6 +99,15 @@ namespace Brushblade.CoreTests
             }
         }
 
+        /// <summary>2026-09-30 用户拍板:标点小妖改为远程 —— 它的招式是「一个大『!』从天砸下」,
+        /// 是远程的意思,配近战冲脸不对味。挂在这里是因为本类已有读真实 enemies.json 的夹具。</summary>
+        [Test]
+        public void RealConfig_PunctuationImp_IsRanged()
+        {
+            var imp = AllEnemies().Single(e => e.Id == "标点小妖");
+            Assert.That(imp.Range, Is.EqualTo(AttackRange.Ranged));
+        }
+
         [Test]
         public void MinDepth_FiltersEnemiesOutOfEarlyFloors()
         {

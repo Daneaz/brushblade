@@ -18,7 +18,8 @@
       "element": "Heart",
       "maxHp": 100,
       "attack": 20,
-      "ability": "Buff"
+      "ability": "Buff",
+      "range": "Ranged"
     },
     {
       "id": "叠字怪",
