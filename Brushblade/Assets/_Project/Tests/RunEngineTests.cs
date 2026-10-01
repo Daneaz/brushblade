@@ -44,6 +44,32 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void VictoryHeal_RestoresPercentOfMaxHp()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 500);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(600), "500 + 1000 × 10%");
+        }
+
+        [Test]
+        public void VictoryHeal_ClampsAtMaxHp()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 980);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(1000));
+        }
+
+        [Test]
         public void Run_StartsInFirstBattle()
         {
             var run = Run();

@@ -338,6 +338,7 @@ namespace Brushblade.Core
                 ShieldCarryPercent = 50 + PerkRules.ElementBonus(meta, PerkEffect.ShieldCarryPercent, Element.Earth),
                 RewardOptionCount = 5 + PerkRules.Bonus(meta, PerkEffect.RewardOptions),   // 慧眼
                 RewardRerolls = PerkRules.Bonus(meta, PerkEffect.RewardRerolls),           // 明察
+                VictoryHealPercent = PerkRules.Bonus(meta, PerkEffect.VictoryHealPercent), // 调息/吐纳
                 // 五行 L1 专精(2026-10-02),各按本系读
                 MoraleReleasePercent = PerkRules.ElementBonus(meta, PerkEffect.MoraleRelease, Element.Metal),
                 HeftSpendPercent = PerkRules.ElementBonus(meta, PerkEffect.HeftSpendPercent, Element.Earth),

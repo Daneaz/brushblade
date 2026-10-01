@@ -82,6 +82,17 @@ namespace Brushblade.Core.Tests
             Assert.That(Build(meta).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn));
         }
 
+        [Test]
+        public void QiBranch_VictoryHealPercent_5Then10()
+        {
+            var meta = new MetaState { CharacterXp = 0 };
+            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(0));
+            meta.UnlockedPerks.Add("qi_1");
+            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(5));
+            meta.UnlockedPerks.Add("qi_2");
+            Assert.That(Build(meta).VictoryHealPercent, Is.EqualTo(10));
+        }
+
         /// <summary>金汤已废止:表里不许再有产出护盾的节点。</summary>
         [Test]
         public void ShieldPerk_IsGone()
