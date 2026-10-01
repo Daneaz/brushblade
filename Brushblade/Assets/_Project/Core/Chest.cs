@@ -285,6 +285,17 @@ namespace Brushblade.Core
             new[] { 173, 138, 231, 346,  80, 24,  8 },  // 赤霄
         };
 
+        /// <summary>该档宝箱平均开出几张(保底前):捆数 × Σ 每捆权重 × 每捆张数,四舍五入。
+        /// 商城宝箱位「5 捆 约 40 张」的后半句(2026-10-01)—— 「捆」是新概念,不说张数玩家没法和字摊比价。</summary>
+        public static int ExpectedCards(ChestTier tier)
+        {
+            var weights = CardRarityWeights[(int)tier - 1];
+            double perStack = 0;
+            for (int r = 0; r < weights.Length; r++)
+                perStack += weights[r] * ShopRules.BundleSizeFor((CardRarity)(r + 1));
+            return (int)Math.Round(StackCount[(int)tier - 1] * perStack / RarityWeightTotal);
+        }
+
         /// <summary>该档宝箱的卡稀有度权重(千分比,索引 = rarity−1)。</summary>
         public static IReadOnlyList<int> CardRarityWeightsFor(ChestTier tier)
             => CardRarityWeights[(int)tier - 1];

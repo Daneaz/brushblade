@@ -45,6 +45,19 @@ namespace Brushblade.Core.Tests
             Assert.That(ChestRules.StackCount, Is.EqualTo(new[] { 1, 2, 3, 5, 12, 16, 20 }));
         }
 
+        /// <summary>商城宝箱位「5 捆 约 40 张」的张数(2026-10-01):捆数 × Σ 权重 × 每捆张数,四舍五入。</summary>
+        [TestCase(ChestTier.Paper, 13)]
+        [TestCase(ChestTier.Bamboo, 22)]
+        [TestCase(ChestTier.Celadon, 27)]
+        [TestCase(ChestTier.Rosewood, 40)]
+        [TestCase(ChestTier.Gilded, 91)]
+        [TestCase(ChestTier.Vermilion, 115)]
+        [TestCase(ChestTier.Crimson, 136)]
+        public void ExpectedCards_PerTier(ChestTier tier, int expected)
+        {
+            Assert.That(ChestRules.ExpectedCards(tier), Is.EqualTo(expected));
+        }
+
         [Test]
         public void EveryTier_StillYieldsWhiteAndGreen()
         {

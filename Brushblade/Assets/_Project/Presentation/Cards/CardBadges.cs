@@ -40,6 +40,10 @@ namespace Brushblade.Presentation
             /// <summary>右下角数量角标(2026-09-30,商城一份几张,如「10张」)。null = 不画。
             /// 锁住(未拥有)也照画 —— 紫档广告位可以是没拥有的字,张数一样要说清楚。</summary>
             public string QuantityText;
+            /// <summary>上沿正中的折扣价签(2026-10-01,商城每日随机打折,如「5折」)。null = 不画。
+            /// 四个角已被等级/稀有度/可升/张数占满,上沿正中是牌上唯一的空位;价签骑在牌框上
+            /// (一半出框),货架上一眼扫得到哪格便宜。</summary>
+            public string DiscountText;
         }
 
         /// <summary>把角标贴到 <see cref="Ui.GlyphTile"/> 建出来的牌上。
@@ -59,6 +63,17 @@ namespace Brushblade.Presentation
                     Theme.Ink, Color.white);
                 Ui.Anchor(quantity, new Vector2(1, 0), new Vector2(1, 0),
                     new Vector2(-pad - Ui.ChipWidth(spec.QuantityText, font), pad), new Vector2(-pad, pad + chipH));
+            }
+
+            if (!string.IsNullOrEmpty(spec.DiscountText))
+            {
+                int tagFont = Mathf.RoundToInt(font * 1.2f);
+                float tagH = chipH * 1.3f;
+                float half = Ui.ChipWidth(spec.DiscountText, tagFont) / 2f;
+                var tag = Badge(tile.transform, "Discount", spec.DiscountText, tagFont, tagH,
+                    Theme.Cinnabar, Color.white, radius: 4);
+                Ui.Anchor(tag, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                    new Vector2(-half, -tagH / 2f), new Vector2(half, tagH / 2f));
             }
 
             if (spec.Locked)

@@ -167,7 +167,8 @@ namespace Brushblade.Presentation
 
         /// <summary>摊位牌面(墨锭摊位与广告位共用):字牌 + 角标 + 牌脚进度 + 买下后的进度预告。
         /// 返回这一格的竖排容器,调用方再往里放各自的按钮。</summary>
-        private Transform CardFace(Transform parent, string name, string card, int bundle, bool done, string doneSeal)
+        private Transform CardFace(Transform parent, string name, string card, int bundle, bool done, string doneSeal,
+            string discountText = null)
         {
             var def = _graph.Get(card);
             bool owned = _meta.OwnedCards.Contains(card);
@@ -190,6 +191,7 @@ namespace Brushblade.Presentation
                 CardBadges.Apply(tile.gameObject, CardSize, new CardBadges.Spec
                 {
                     QuantityText = Strings.T("shop.slot.bundle_count", ("count", bundle)),
+                    DiscountText = done ? null : discountText, // 已售/已领不挂价签
                     Rarity = def.Rarity,
                     Level = level,
                     Maxed = maxed,
@@ -246,13 +248,15 @@ namespace Brushblade.Presentation
             int discount = ShopRules.DiscountPercent(ShopRules.IsPremium(def.Rarity),
                 index < _meta.Shop.CardDiscountRoll.Count ? _meta.Shop.CardDiscountRoll[index] : 0);
 
-            var cell = CardFace(parent, $"Slot{index}", card, bundle, sold, Strings.T("shop.slot.sold"));
+            var cell = CardFace(parent, $"Slot{index}", card, bundle, sold, Strings.T("shop.slot.sold"),
+                DiscountTag(discount));
             BuyButton(cell, CardSize.x, sold, price,
-                sold ? Strings.T("shop.slot.sold_today") : DiscountedLabel(price, discount),
+                sold ? Strings.T("shop.slot.sold_today") : price.ToString(),
                 () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
                     Strings.T("shop.card.buy_success", ("card", card), ("count", bundle)),
                     Strings.T("shop.card.buy_fail_title"),
-                    Strings.T("shop.card.buy_fail_body", ("card", card), ("price", price), ("ink", _meta.Ink))));
+                    Strings.T("shop.card.buy_fail_body", ("card", card), ("price", price), ("ink", _meta.Ink))),
+                original: ShopRules.BundlePriceFor(def.Rarity));
         }
 
         private static readonly AdPlacement[] CardAdPlacements =
@@ -325,13 +329,15 @@ namespace Brushblade.Presentation
             return face.transform;
         }
 
-        /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 「差 N」;
-        /// 已售 = 锁灰底 + 「今日已购」。差多少写出来,玩家才知道要不要去看那条领墨锭的广告。</summary>
-        /// <summary>价格钮文案:折后价 + 几折(2026-10-01 每日随机打折)。</summary>
-        private static string DiscountedLabel(int price, int discountPercent) =>
-            Strings.T("shop.price_discounted", ("price", price), ("zhe", discountPercent / 10));
+        /// <summary>折扣价签文案「5折」(2026-10-01 每日随机打折;稿 商城折扣与捆数标记 · 方案 A)。</summary>
+        private static string DiscountTag(int discountPercent) =>
+            Strings.T("shop.discount_tag", ("zhe", discountPercent / 10));
 
-        private void BuyButton(Transform parent, float width, bool sold, int price, string label, Action onClick)
+        /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 「差 N」;
+        /// 已售 = 锁灰底 + 「今日已购」。差多少写出来,玩家才知道要不要去看那条领墨锭的广告。
+        /// <paramref name="original"/> 高于 price 时,买得起那一态在折后价后面跟一个划线原价。</summary>
+        private void BuyButton(Transform parent, float width, bool sold, int price, string label, Action onClick,
+            int original = 0)
         {
             bool poor = !sold && _meta.Ink < price;
             var button = Ui.RoundButton(parent, poor ? Strings.T("shop.slot.short_by", ("amount", price - _meta.Ink)) : label,
@@ -340,6 +346,27 @@ namespace Brushblade.Presentation
                 sold ? Theme.LockGray : poor ? Theme.CinnabarDark : Color.white,
                 19, new Vector2(width, BuyH), 14);
             button.interactable = !sold && !poor;
+            if (!sold && !poor && original > price) StrikePrice(button, original, Color.white);
+        }
+
+        /// <summary>把钮上那行「折后价」改成「折后价 + 划线原价」并排居中。
+        /// uGUI 的 Text 富文本没有删除线,线是原价标签里一条横贯的细 Image —— 标签由布局组
+        /// 按自身 preferredWidth 定宽,线跟着标签宽走,不用估字宽。</summary>
+        private static void StrikePrice(Button button, int original, Color fg)
+        {
+            var price = button.GetComponentInChildren<Text>();
+            int font = price.fontSize;
+            var row = Ui.Row(button.transform, "Price", 8);
+            Ui.Stretch((RectTransform)row.transform);
+            price.transform.SetParent(row.transform, false);
+            var dim = new Color(fg.r, fg.g, fg.b, 0.6f);
+            var orig = Ui.ThemedLabel(row.transform, original.ToString(), Mathf.RoundToInt(font * 0.7f), dim);
+            var line = Ui.Panel(orig.transform, "Strike");
+            var image = line.AddComponent<Image>();
+            image.color = dim;
+            image.raycastTarget = false;
+            Ui.Anchor((RectTransform)line.transform, new Vector2(0, 0.5f), new Vector2(1, 0.5f),
+                new Vector2(-1, -1), new Vector2(1, 1));
         }
 
         /// <summary>已售印:朱砂斜标改成正放的一枚方印 —— uGUI 旋转会连带旋转裁剪矩形
@@ -422,6 +449,7 @@ namespace Brushblade.Presentation
             int tierIndex = (int)tier - 1;
             int price = ShopRules.ChestPrice(_meta);   // 当日折后价(2026-10-01)
             int discount = ShopRules.DiscountPercent(ShopRules.IsPremium(tier), Math.Max(0, _meta.Shop.ChestDiscountRoll));
+            int original = ShopRules.ChestBasePrice[tierIndex];
             string chestName = ChestRules.TierName(tier);
             bool sold = _meta.Shop.ChestSold;
             bool slotsFull = _meta.Chests.Count >= ChestRules.SlotLimit;
@@ -443,7 +471,7 @@ namespace Brushblade.Presentation
             // 「箱位 N/4」那枚 2026-09-30 按用户要求撤掉 —— 满位时下面的按钮本来就写着「箱位已满」
             var facts = Ui.Row(stack.transform, "Facts", 7);
             facts.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.Chip(facts.transform, Strings.T("shop.chest.cards_chip", ("count", ChestRules.StackCount[tierIndex])),
+            Ui.Chip(facts.transform, Strings.T("shop.chest.cards_chip", ("count", ChestRules.StackCount[tierIndex]), ("cards", ChestRules.ExpectedCards(tier))),
                 Theme.PanelInset, Theme.TextDim, 18);
             // 不满 1 小时按分钟写(2026-09-30 用户报:素纸匣 5 分钟曾显示成「0.0833333 小时」)
             long seconds = ChestRules.DurationSeconds[tierIndex];
@@ -455,7 +483,7 @@ namespace Brushblade.Presentation
             // 箱位满时不可买:按钮直接写清楚为什么,别让玩家点了才弹窗
             string label = sold ? Strings.T("shop.slot.sold_today")
                 : slotsFull ? Strings.T("shop.chest.slots_full_label")
-                : DiscountedLabel(price, discount);
+                : price.ToString();
             var buy = Ui.RoundButton(stack.transform, label,
                 () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time),
                     Strings.T("shop.chest.buy_success", ("chestName", chestName)),
@@ -468,6 +496,30 @@ namespace Brushblade.Presentation
                 19, new Vector2(0, BuyH), 14);
             buy.GetComponent<LayoutElement>().flexibleWidth = 1;
             buy.interactable = !sold && !slotsFull && _meta.Ink >= price;
+            if (!sold && !slotsFull && original > price)
+                StrikePrice(buy, original, _meta.Ink < price ? Theme.CinnabarDark : Color.white);
+            // 旗子最后建:兄弟序靠后才画在箱卡内容之上
+            if (!sold) ChestDiscountFlag(card.transform, DiscountTag(discount));
+        }
+
+        /// <summary>宝箱位的折扣:箱卡右上角一面朱砂垂旗(稿 方案 A),顶边贴齐卡沿往下垂。
+        /// 卡里是竖排布局组,旗子 ignoreLayout,只靠锚点定位。</summary>
+        private static void ChestDiscountFlag(Transform card, string text)
+        {
+            const int font = 21;
+            const float h = 38f, inset = 21f;
+            float w = Ui.ChipWidth(text, font);
+            var flag = Ui.Panel(card, "DiscountFlag");
+            flag.AddComponent<LayoutElement>().ignoreLayout = true;
+            var image = flag.AddComponent<Image>();
+            image.sprite = Theme.Rounded(6);
+            image.type = Image.Type.Sliced;
+            image.color = Theme.Cinnabar;
+            image.raycastTarget = false;
+            var label = Ui.ThemedLabel(flag.transform, text, font, Color.white, Theme.TitleFont);
+            Ui.Stretch(label.rectTransform);
+            Ui.Anchor((RectTransform)flag.transform, Vector2.one, Vector2.one,
+                new Vector2(-inset - w, -h), new Vector2(-inset, 0));
         }
 
         /// <summary>免费补给:两条奖励式广告(领墨锭 / 刷新字摊)。用过的转灰写「已用完」——
