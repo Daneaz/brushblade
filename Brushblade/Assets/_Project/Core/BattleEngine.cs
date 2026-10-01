@@ -233,6 +233,8 @@ namespace Brushblade.Core
         public int ShieldPercent { get; set; }     // 筑垒:土系字护盾量 +N%
         /// <summary>添薪(火 L1,2026-10-02):敌人身上灼烧每层伤害 +N,仅敌人侧结算与引爆读取。</summary>
         public int EnemyBurnPerStackBonus { get; set; }
+        /// <summary>燎原(火 L4,2026-10-02):敌人自己结算灼烧后仍有层数,向上下左右相邻存活敌人各 +1 层。缺省 false。</summary>
+        public bool BurnSpreadAdjacent { get; set; }
 
         /// <summary>土脉 L2「反震」:被护盾吸掉的伤害按 N% 反弹给攻击者。0 = 未点亮。
         /// **不并入「镜」的 60% 总量钳**:镜按打过来的总伤害折返,反震按被护盾吸掉的量
@@ -3373,6 +3375,19 @@ namespace Brushblade.Core
             }
             _events.Add(new BattleEvent(BattleEventKind.BurnTick, enemyIndex, tick, ke: burnKe,
                 attacker: Element.Fire, countered: burnCountered));
+            // 燎原(2026-10-02):触发点只有这一处 —— 敌人自己结算灼烧之后仍有层数才扩散。
+            // 扩散用 ApplyBurn 直接加层,施加本身不是触发点,所以不会同拍连锁。
+            // 烧死的不扩散(余烬那条照常转移);不灭下层数不减,有层即扩散。
+            if (_config != null && _config.BurnSpreadAdjacent && enemy.Alive)
+            {
+                int remaining = enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
+                if (remaining > 0)
+                    foreach (int n in Targeting.AdjacentEnemies(_enemies, enemyIndex))
+                    {
+                        ApplyBurn(n, 1);
+                        _events.Add(new BattleEvent(BattleEventKind.Burn, n, 1));
+                    }
+            }
             if (!enemy.Alive)
                 ResolveDefeat(enemyIndex);
             else

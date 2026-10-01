@@ -337,6 +337,7 @@ namespace Brushblade.Core
                 // 五行 L1 专精(2026-10-02),各按本系读
                 MetalCritChance = PerkRules.ElementBonus(meta, PerkEffect.ElementCritChance, Element.Metal),
                 EnemyBurnPerStackBonus = PerkRules.ElementBonus(meta, PerkEffect.EnemyBurnBonus, Element.Fire),
+                BurnSpreadAdjacent = PerkRules.ElementBonus(meta, PerkEffect.BurnSpreadAdjacent, Element.Fire) > 0,
                 SummonHpPercent = PerkRules.ElementBonus(meta, PerkEffect.SummonHpPercent, Element.Wood),
                 HealPercent     = PerkRules.ElementBonus(meta, PerkEffect.HealPercent,     Element.Water),
                 ShieldPercent   = PerkRules.ElementBonus(meta, PerkEffect.ShieldPercent,   Element.Earth),

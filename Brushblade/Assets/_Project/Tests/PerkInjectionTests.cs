@@ -284,5 +284,14 @@ namespace Brushblade.Core.Tests
             Assert.That(cfg.EnemyBurnPerStackBonus, Is.EqualTo(10), "添薪 3+3+4");
             Assert.That(cfg.BurnPerStack, Is.EqualTo(BattleConfig.BaseBurnPerStack), "基础值不再由 perk 写入");
         }
+
+        [Test]
+        public void FireL4_InjectsBurnSpreadAdjacent()
+        {
+            var meta = new MetaState();
+            Assert.That(Build(meta).BurnSpreadAdjacent, Is.False);
+            meta.UnlockedPerks.Add("fire_4");
+            Assert.That(Build(meta).BurnSpreadAdjacent, Is.True);
+        }
     }
 }
