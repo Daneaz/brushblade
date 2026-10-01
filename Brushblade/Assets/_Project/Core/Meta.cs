@@ -236,6 +236,18 @@ namespace Brushblade.Core
             return level;
         }
 
+        /// <summary>达到 <paramref name="level"/> 级所需的累计经验(与 <see cref="CharacterLevel"/> 同一条曲线)。</summary>
+        public static int XpToReach(int level)
+        {
+            int xp = 0, cost = 100;
+            for (int lv = 1; lv < level; lv++)
+            {
+                xp += cost;
+                cost += 50;
+            }
+            return xp;
+        }
+
         /// <summary>生命成长:500 + 20×(等级−1),上限 1480(50 级)。
         /// 2026-08-12(E-b4/T1)全表量级 ×10:整数除 <c>值 × ATK ÷ 100</c> 会吃掉低数值字的
         /// 成长,被乘数必须够大才有分辨率。
