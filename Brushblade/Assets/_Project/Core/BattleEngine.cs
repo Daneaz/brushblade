@@ -226,9 +226,16 @@ namespace Brushblade.Core
         /// <summary>木脉 L2「归根」:召唤物阵亡时,玩家回复该召唤物最大生命的 N%。0 = 未点亮。</summary>
         public int SummonDeathHealPercent { get; set; }
 
-        /// <summary>五行 L1(2026-10-02)。只对打出那张字的元素 = 本系生效,缺省 0 = 逐字节恒等。</summary>
         /// <summary>断金(金脉 L4):战意 ≥ MoraleCap 时,金系**字**本张伤害 +N%,结算后清空战意;部件不算。</summary>
         public int MoraleReleasePercent { get; set; }
+
+        /// <summary>积土 / 涌泉(土/水 L4,2026-10-02):厚积薄发 / 涌泉相报伤害 +N%;>0 时结算后返还
+        /// 所耗层数的 <see cref="SpendRefundPercent"/>(向下取整)。缺省 0 = 逐字节恒等。</summary>
+        public int HeftSpendPercent { get; set; }
+        public int WellspringSpendPercent { get; set; }
+        public const int SpendRefundPercent = 50;
+
+        // 五行 L1(2026-10-02)。只对打出那张字的元素 = 本系生效,缺省 0 = 逐字节恒等。
         public int MetalCritChance { get; set; }   // 砺刃:金系字暴击率 +N 百分点
         public int SummonHpPercent { get; set; }   // 深根:木系字召唤物生命 +N%
         public int HealPercent { get; set; }       // 甘霖:水系字治疗量 +N%
@@ -3350,13 +3357,23 @@ namespace Brushblade.Core
 
             _playerStatuses.Remove(kind);
 
-            int damage = ScaleByAttack(stacks * perStack);
+            int spendPercent = _config == null ? 0
+                : kind == StatusKind.Heft ? _config.HeftSpendPercent : _config.WellspringSpendPercent;
+            int damage = ScaleByAttack(stacks * perStack * (100 + spendPercent) / 100);
             // 取 Count 快照:分裂(叠字怪)会在循环里往 _enemies 追加,
             // 新生成的克隆不该被同一发引爆再打一次(与 DamageAll 同口径)。
             int count = _enemies.Count;
             for (int i = 0; i < count; i++)
                 if (_enemies[i].Alive)
                     DamageEnemy(i, damage, attacker, crit: RollCrit());
+
+            // 积土/涌泉(2026-10-02):返还发生在清空与伤害之后 —— 返还的层数不参与本次伤害。
+            // 走 AddPlayerCounter 直接加层(不经 GainHeft 的护盾折算,不触发「获盾攒厚」)。
+            if (spendPercent > 0)
+            {
+                int refund = stacks * BattleConfig.SpendRefundPercent / 100;
+                if (refund > 0) AddPlayerCounter(kind, refund, CapFor(kind));
+            }
         }
 
         /// <summary>对一名敌人结算一次灼烧(2026-08-09 抽出):层数 × 系数 × 克制 掉血,然后 −1 层。

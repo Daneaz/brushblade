@@ -162,6 +162,19 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SpendPercent_InjectedOnlyByOwnElementTierFour()
+        {
+            var water = new MetaState();
+            water.UnlockedPerks.Add("water_4");
+            var earth = new MetaState();
+            earth.UnlockedPerks.Add("earth_4");
+            Assert.That(Build(water).WellspringSpendPercent, Is.EqualTo(150), "涌泉注入水系");
+            Assert.That(Build(water).HeftSpendPercent, Is.EqualTo(0), "串系了");
+            Assert.That(Build(earth).HeftSpendPercent, Is.EqualTo(150), "积土注入土系");
+            Assert.That(Build(earth).WellspringSpendPercent, Is.EqualTo(0), "串系了");
+        }
+
+        [Test]
         public void MoraleRelease_NotInjectedByOtherTierFour()
         {
             var meta = new MetaState();
