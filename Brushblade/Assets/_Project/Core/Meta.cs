@@ -48,6 +48,18 @@ namespace Brushblade.Core
         /// <summary>玩家设置(2026-09-24)。旧存档没有这一项,反序列化后留缺省值,
         /// 所以初值必须是「开箱即用」的那一套(音效音乐开、加速关)。</summary>
         public SettingsState Settings { get; set; } = new();
+        /// <summary>跨局统计(2026-10-02 角色页)。</summary>
+        public StatsState Stats { get; set; } = new();
+        /// <summary>每级宝箱已发到第几级(1 = 一只都没发)。只在宝箱真正入位/暂存后才前进 ——
+        /// 箱位与暂存都满时停住、欠着,见 <see cref="LevelRewardRules.GrantLevelChests"/>。</summary>
+        public int LevelRewardGranted { get; set; } = 1;
+        /// <summary>升级弹窗上次展示到的等级。0 = 尚未初始化(老存档 / 新号首次启动),
+        /// 首次读取时静默对齐到当前等级,不弹「Lv.1 → N」。</summary>
+        public int LastSeenLevel { get; set; }
+        /// <summary>已领取的等级里程碑(等级)。</summary>
+        public List<int> ClaimedMilestones { get; set; } = new();
+        /// <summary>已生成、未领取的里程碑 3 选 1 候选(等级 → 字 id)。第一次打开领取弹窗时生成并落档,防刷。</summary>
+        public Dictionary<int, List<string>> MilestoneOffers { get; set; } = new();
     }
 
     /// <summary>养成规则(19.2/19.3 首版基准)。纯函数,状态进出。</summary>
