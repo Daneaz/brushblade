@@ -55,5 +55,55 @@ namespace Brushblade.Core
                 list.Add(new MilestoneDef(lv, After.Ink, After.Rarity));
             return list;
         }
+
+        public static bool IsClaimable(MetaState meta, int level) =>
+            ForLevel(level).HasValue
+            && level <= MetaRules.CharacterLevel(meta.CharacterXp)
+            && !meta.ClaimedMilestones.Contains(level);
+
+        public static bool HasClaimable(MetaState meta)
+        {
+            foreach (var m in MilestonesUpTo(MetaRules.CharacterLevel(meta.CharacterXp)))
+                if (!meta.ClaimedMilestones.Contains(m.Level)) return true;
+            return false;
+        }
+
+        /// <summary>取(或第一次生成)该里程碑的候选。已生成过就原样返回、不碰随机 ——
+        /// 关掉重进候选不变,防刷。候选池 = 与开箱同一份池,按稀有度筛、去掉图谱里没有的 id;
+        /// 不足 <see cref="OfferSize"/> 张就全给。</summary>
+        public static IReadOnlyList<string> GetOrCreateOffer(MetaState meta, int level,
+            IReadOnlyList<string> cardPool, RecipeGraph graph, GameRandom random)
+        {
+            if (meta.MilestoneOffers.TryGetValue(level, out var existing)) return existing;
+            var def = ForLevel(level);
+            var offer = new List<string>();
+            if (def.HasValue)
+            {
+                var candidates = new List<string>();
+                foreach (var id in cardPool)
+                    if (graph.TryGet(id, out var c) && c.Rarity == def.Value.Rarity && !candidates.Contains(id))
+                        candidates.Add(id);
+                while (offer.Count < OfferSize && candidates.Count > 0)
+                {
+                    int i = random.Next(candidates.Count);
+                    offer.Add(candidates[i]);
+                    candidates.RemoveAt(i);
+                }
+            }
+            meta.MilestoneOffers[level] = offer;
+            return offer;
+        }
+
+        public static bool TryClaim(MetaState meta, int level, string pickedId, RecipeGraph graph)
+        {
+            if (!IsClaimable(meta, level)) return false;
+            if (!meta.MilestoneOffers.TryGetValue(level, out var offer) || !offer.Contains(pickedId)) return false;
+            if (!graph.TryGet(pickedId, out _)) return false;
+            MetaRules.GainInk(meta, ForLevel(level).Value.Ink);
+            MetaRules.AcquireCard(meta, pickedId);
+            meta.ClaimedMilestones.Add(level);
+            meta.MilestoneOffers.Remove(level);
+            return true;
+        }
     }
 }
