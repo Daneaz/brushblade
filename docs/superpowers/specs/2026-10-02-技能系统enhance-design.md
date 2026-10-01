@@ -52,7 +52,7 @@ Id 规则:单段节点 `{branch}_{depth}`(不变);三段节点 `{branch}_{depth}
 
 - 判据与 L2「本系效果值」同源:`CharDef.Element`。现有字表中灼烧/治疗/护盾/召唤分别只出现在火/水/土/木字上。
 - 深根:召唤物生成时按百分比放大 MaxHp 与初始 Hp(向下取整)。
-- 甘霖:乘在水系字的治疗量(含 HoT 每跳、复活回血)上;**不**放大归根的阵亡回血(那是木系来源)。
+- 甘霖:乘在水系字的治疗量(HealSelf/HealAll/HealOverTime,含弹射与 HoT 每跳)上,复活按只数计、不涉及治疗量;**不**放大归根的阵亡回血(那是木系来源)。
 - 添薪:**只作用于敌人身上的灼烧**。新增 `BattleConfig.EnemyBurnPerStackBonus`,仅在敌人侧结算(`SettleBurnOn`)时加到每层伤害上:`层数 × (_burnPerStack + bonus)`。玩家侧 `SettlePlayerBurn` 与召唤物侧 `SettleSummonBurn` 不读它 —— 敌方给我方上的灼烧不享有添薪。`BattleConfig.BurnPerStack` 恢复为纯基础值 20,不再由 perk 写入。
 - 同一条线顺带修正既有行为(用户 2026-10-02 拍板):**局内灼烧加成(BurnPotency 火系字)也只作用于敌人**。拆成两个基数:敌人侧 `_burnPerStack`(基础 20 + BurnPotency 累加,进快照,另加添薪)与我方侧固定基础值 `BattleConfig.BurnPerStack`(玩家/召唤物结算读它,不受 BurnPotency 与添薪影响)。需补测试:BurnPotency 后玩家/召唤物身上的灼烧每层仍为 20。
 - 新增 `PerkEffect`:`ElementCritChance`、`SummonHpPercent`、`HealPercent`、`ShieldPercent`、`EnemyBurnBonus`(原 `BurnPerStack` 效果删除)。BattleConfig 新增对应字段;**缺省 0 = 逐字节恒等**。
@@ -93,7 +93,17 @@ Id 规则:单段节点 `{branch}_{depth}`(不变);三段节点 `{branch}_{depth}
 
 ## 3. 被动树
 
-元枝 HP:100/200/300 → **300/500/1000,不叠加**:生命加成取已点亮的最高一档(点满 = +1000)。实现:元枝三层 Value 存档位值,`MetaRules` 对 `MaxHp` 取已点节点的最大值而非求和(新增 `PerkRules.MaxBonus`)。⚠ +1000 仍超出原「不压过等级曲线 +500」锚点 —— 用户拍板,同步删改 Perk.cs 那条锚点注释。
+**被动树全部改为不叠加**(用户 2026-10-02 拍板):每枝的加成取**已点亮的最高一档**,而不是三层求和。
+
+| 枝 | 三层档位 | 点满 | 改前(叠加)点满 |
+|---|---|---|---|
+| 元 养元/固元/还元 | 300 / 500 / 1000 生命 | +1000 | +600 |
+| 力 运力/蓄力/极力 | 5 / 10 / 15 % 攻击 | +15% | +30% |
+| 锋 藏锋/露锋/破锋 | 5 / 10 / 15 暴击率 | +15 | +30 |
+| 御 披甲/重铠/金城 | 10 / 15 / 25 护甲 | +25 | +50 |
+
+实现:`PerkRules.Bonus` 内对 `Tree == Passive` 的节点按 Branch 取最大值,其余节点(含跨树相济/融会的攻击/暴击加成)照旧求和后与之相加。一处改,MetaRules 各调用点不动。
+⚠ 元枝 +1000 超出原「不压过等级曲线 +500」锚点 —— 用户拍板,同步删改 Perk.cs 那条锚点注释与「累计 +N」注释。力/锋/御的点满值因此**减半**,属于有意的削弱。
 
 ## 4. 机制树
 
