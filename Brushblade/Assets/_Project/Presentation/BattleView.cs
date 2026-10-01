@@ -351,6 +351,8 @@ namespace Brushblade.Presentation
             _juice.Init((RectTransform)transform);
             // 召唤物动效的档位按召出它的那张字的稀有度算(JuiceSummons)
             _juice.RarityOf = id => _graph.TryGet(id, out var d) ? d.Rarity : CardRarity.White;
+            // 敌方动效分层(小妖家族 / 首领)要知道是哪只怪(JuiceEnemies)
+            _juice.EnemyAt = i => i >= 0 && i < Battle.Enemies.Count ? Battle.Enemies[i] : null;
             _juice.KillInkAt = index => _run.KillInkFor(index);
             _juice.BossPhaseTextAt = BossPhaseText;
             Refresh();

@@ -216,10 +216,14 @@ namespace Brushblade.Presentation
             Func<int, SummonState> summonInfo = null, Func<int, Element?> enemyElement = null,
             Func<int, bool> enemyRanged = null, CastStyle castStyle = CastStyle.Glyph)
         {
-            // 敌人出手的统一入口:近战真身冲脸、远程按五行分弹道(2026-09-30,取代原地下扑 Lunge)
+            // 敌人出手的统一入口(2026-09-30,JuiceEnemies):小妖按家族、首领加前摇残影顿帧;
+            // 刚放完大招的首领,同批后续受击不再冲脸(大招已经演过「打过去」)
+            _skillCaster = -1;
             IEnumerator Swing(int attacker, RectTransform target, bool slash) =>
-                EnemySwing(enemyAnchor(attacker), target, enemyElement?.Invoke(attacker),
-                    enemyRanged?.Invoke(attacker) ?? false, slash);
+                attacker == _skillCaster
+                    ? Beat(0.02f)
+                    : EnemySwingTiered(enemyAnchor(attacker), target, EnemyAt?.Invoke(attacker), enemyElement?.Invoke(attacker),
+                        enemyRanged?.Invoke(attacker) ?? false, slash);
 
             bool anyParallel = false;
             // 上一记挨打的召唤物:紧随其后的荆棘反伤(Source = Thorns)从它身上射回攻击者
@@ -366,6 +370,7 @@ namespace Brushblade.Presentation
                             if (!kills) HitReact(hitAnchor, e.Countered ? 0.45f : 1f); // 致死不白闪,让位给置灰
                             HitFx(e.Amount, e.Crit, e.Ke, hitAnchor, e.Countered);
                             CastImpact(castStyle, hitAnchor); // 招式落点(刀口/火焰/冰屑……);非出字结算为 Glyph,不画
+                            if (InBulwark(EnemyAt?.Invoke(e.TargetIndex))) BulwarkClank(hitAnchor); // 坚壁:金属挡下
                         }
                         onImpact?.Invoke(e);
                         anyParallel = true;
@@ -442,6 +447,24 @@ namespace Brushblade.Presentation
                             yield return SummonSignature(attacker, from, toRect, element);
                         }
                         break;
+                    // 首领蓄力 / 放大招(2026-09-30):此前这两条在 Juice 里没有任何表现,大招看上去和普攻一样
+                    case BattleEventKind.BossCharging:
+                        if (serialPending) yield return Beat(StepGap);
+                        yield return BossChargeTelegraph(enemyAnchor(e.TargetIndex), (BossSkill)e.Amount);
+                        serialPending = true;
+                        break;
+                    case BattleEventKind.BossSkillCast:
+                    {
+                        if (serialPending) yield return Beat(StepGap);
+                        RectTransform front = null;   // 吞噬 / 洞穿打的最前一只召唤物 = 紧随其后那条 SummonHit 的承伤者
+                        for (int j = idx + 1; j < events.Count; j++)
+                            if (events[j].Kind == BattleEventKind.SummonHit && events[j].TargetIndex == e.TargetIndex)
+                            { front = summonAnchor?.Invoke(events[j].SecondIndex); break; }
+                        yield return BossSkillCast(enemyAnchor(e.TargetIndex), EnemyAt?.Invoke(e.TargetIndex), (BossSkill)e.Amount, front);
+                        _skillCaster = e.TargetIndex;
+                        serialPending = false;
+                        break;
+                    }
                     case BattleEventKind.EnemyDied: // 受击致死:与刚才那记伤害同帧,飘「正!」+ 立刻置灰(分别显示)
                         var dead = enemyAnchor(e.TargetIndex);
                         Popup(Strings.T("juice.popup.kill_mark"), Theme.Ink, dead);
@@ -894,19 +917,6 @@ namespace Brushblade.Presentation
             if (to == null) yield break;
             yield return Shoot(from, to.position, color, "arrow", new Vector2(52f, 52f));
             if (to != null) LeafBurst(to.position, color, 5);
-        }
-
-        /// <summary>敌人出手(2026-09-30):近战与召唤物同一套真身冲脸,远程按五行分弹道(EnemyBolt)。
-        /// 此前敌人不分远近一律原地下扑(<see cref="Lunge"/>),<c>AttackRange</c> 只在图标上看得出来。
-        /// target 为 null = 打玩家(落点取屏幕中下,与玩家侧飘字同一个锚)。
-        /// slash:打空/被免疫挡下时不劈刀口 —— 这一记确实出手了,但没砍到。</summary>
-        private IEnumerator EnemySwing(RectTransform attacker, RectTransform target, Element? element, bool ranged, bool slash)
-        {
-            if (attacker == null) yield break;
-            var color = Theme.GlyphColor(element);
-            Vector3 point = AnchorPoint(target);
-            if (ranged) yield return EnemyBolt(attacker, point, element, color); // 五行各一种弹道(JuiceAttacks)
-            else yield return BodyStrike(attacker, target, point, color, slash);
         }
 
         /// <summary>后坐 → 弹体沿直线飞到 end(带拖尾点);命中那一刻返回,后坐回弹与飞行并行。
