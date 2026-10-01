@@ -687,6 +687,9 @@ namespace Brushblade.Presentation
         private const int ResultNarrowColumns = 8;
         private static readonly Vector2 ResultWideCard = new(174f, 218f);
         private static readonly Vector2 ResultNarrowCard = new(126f, 158f);
+        // 2026-10-01 宝箱成捆:赤霄 20 捆 > 两排 8 列,再加一档十列两排
+        private const int ResultDenseColumns = 10;
+        private static readonly Vector2 ResultDenseCard = new(104f, 130f);
 
         private void ShowChestResult(ChestTier tier, ChestRewards rewards,
             System.Collections.Generic.HashSet<string> ownedBefore)
@@ -715,10 +718,22 @@ namespace Brushblade.Presentation
                 if (counted.Add(id)) fresh++;
             var seen = new System.Collections.Generic.HashSet<string>(ownedBefore);
 
-            BuildResultLeft(columns.transform, tier, rewards, fresh);
+            // 同一个字开出两捆就并成一格「×40」(2026-10-01 宝箱成捆):一格一个字,张数写在角标上
+            var ids = new System.Collections.Generic.List<string>();
+            var counts = new System.Collections.Generic.List<int>();
+            int total = 0;
+            for (int i = 0; i < rewards.Cards.Count; i++)
+            {
+                int at = ids.IndexOf(rewards.Cards[i]);
+                if (at < 0) { ids.Add(rewards.Cards[i]); counts.Add(rewards.Counts[i]); }
+                else counts[at] += rewards.Counts[i];
+                total += rewards.Counts[i];
+            }
+
+            BuildResultLeft(columns.transform, tier, rewards, total, fresh);
             ColumnRule(columns.transform);
 
-            var tiles = BuildResultGrid(columns.transform, rewards, seen);
+            var tiles = BuildResultGrid(columns.transform, ids, counts, seen);
             StartCoroutine(RevealTiles(tiles));
         }
 
@@ -734,7 +749,7 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>左栏:哪只箱、多少墨、几张新字。立绘用的是与箱位同一张素材。</summary>
-        private void BuildResultLeft(Transform parent, ChestTier tier, ChestRewards rewards, int fresh)
+        private void BuildResultLeft(Transform parent, ChestTier tier, ChestRewards rewards, int total, int fresh)
         {
             var left = Ui.VStack(parent, "Left", 8);
             var leftLayout = left.GetComponent<VerticalLayoutGroup>();
@@ -758,7 +773,7 @@ namespace Brushblade.Presentation
             inkRow.GetComponentInChildren<Text>().color = Theme.GoldDeep;
 
             Ui.ThemedLabel(left.transform,
-                Strings.T("map.chest.result_count", ("count", rewards.Cards.Count), ("fresh", fresh)),
+                Strings.T("map.chest.result_count", ("count", total), ("fresh", fresh)),
                 18, Theme.TextDim);
 
             var spacer = Ui.Panel(left.transform, "Spacer");
@@ -779,7 +794,8 @@ namespace Brushblade.Presentation
 
         /// <summary>右栏:卡网格 + 收下。返回逐张翻卡要用的格子(先隐藏)。</summary>
         private System.Collections.Generic.List<ResultTile> BuildResultGrid(Transform parent,
-            ChestRewards rewards, System.Collections.Generic.HashSet<string> seen)
+            System.Collections.Generic.IReadOnlyList<string> ids, System.Collections.Generic.IReadOnlyList<int> counts,
+            System.Collections.Generic.HashSet<string> seen)
         {
             var right = Ui.VStack(parent, "Right", 17);
             var rightLayout = right.GetComponent<VerticalLayoutGroup>();
@@ -788,16 +804,17 @@ namespace Brushblade.Presentation
             var rightElement = right.AddComponent<LayoutElement>();
             rightElement.flexibleWidth = 1;
 
-            bool narrow = rewards.Cards.Count > ResultWideColumns * 2;
-            int columns = narrow ? ResultNarrowColumns : ResultWideColumns;
-            var cardSize = narrow ? ResultNarrowCard : ResultWideCard;
+            bool dense = ids.Count > ResultNarrowColumns * 2;
+            bool narrow = ids.Count > ResultWideColumns * 2;
+            int columns = dense ? ResultDenseColumns : narrow ? ResultNarrowColumns : ResultWideColumns;
+            var cardSize = dense ? ResultDenseCard : narrow ? ResultNarrowCard : ResultWideCard;
 
             var tiles = new System.Collections.Generic.List<ResultTile>();
             Transform row = null;
-            for (int i = 0; i < rewards.Cards.Count; i++)
+            for (int i = 0; i < ids.Count; i++)
             {
                 if (i % columns == 0) row = Ui.Row(right.transform, $"CardRow{i / columns}", 17).transform;
-                string cardId = rewards.Cards[i];
+                string cardId = ids[i];
                 var def = _graph.Get(cardId);
                 bool isNew = seen.Add(cardId);
 
@@ -832,6 +849,7 @@ namespace Brushblade.Presentation
                     Level = MetaRules.CardLevel(_meta, cardId),
                     Maxed = MetaRules.CardLevel(_meta, cardId) >= MetaRules.MaxCardLevel,
                     IsNew = isNew,
+                    QuantityText = Strings.T("shop.slot.bundle_count", ("count", counts[i])),
                     // 可升徽标刻意不挂:这一屏的牌脚已经把「新 / 升级 4/4 / 满级」说完了,
                     // 同一件事印两遍反而看不出哪个才是重点(稿上的开箱牌也只有等级与稀有度)
                 });
@@ -1074,7 +1092,7 @@ namespace Brushblade.Presentation
                 HelpCell(row.transform, ChestRules.TierName(tier), HelpTierColW, Theme.ChestColor(tier));
                 HelpCell(row.transform, HelpDuration(ChestRules.DurationSeconds[tierIndex - 1]),
                     HelpTimeColW, Theme.TextDim);
-                HelpCell(row.transform, ChestRules.CardCount[tierIndex - 1].ToString(),
+                HelpCell(row.transform, ChestRules.StackCount[tierIndex - 1].ToString(),
                     HelpCountColW, Theme.TextMain);
                 HelpCell(row.transform, ChestRules.InkReward[tierIndex - 1].ToString(),
                     HelpInkColW, Theme.GoldDeep);

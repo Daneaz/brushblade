@@ -82,7 +82,8 @@ namespace Brushblade.Core.Tests
             var meta = new MetaState { Ink = 1000 };
             ShopRules.EnsureShelf(meta, new[] { "燚" }, new FakeTime(), new GameRandom(1)); // 货架全是红卡
             Assert.That(ShopRules.TryBuyCard(meta, 0, CardRarity.Red), Is.True);
-            Assert.That(meta.Ink, Is.EqualTo(1000 - 600));
+            Assert.That(meta.Ink, Is.EqualTo(1000 - 600 * ShopRules.DiscountPercent(true, meta.Shop.CardDiscountRoll[0]) / 100),
+                "红一份底价 600,按当日 6~8 折扣");
         }
 
         // ---- 宝箱抽取:稀有度权重 + 保底(19.5.1) ----
@@ -146,14 +147,16 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void HighTierChests_NeverDropWhite() // 首发三档:白权重 0
+        public void HighTierChests_AlsoDropWhite() // 2026-10-01 起高档箱也出白(白卡升满要 1081 张)
         {
             var graph = MixedGraph();
-            for (int seed = 0; seed < 50; seed++)
+            bool white = false;
+            for (int seed = 0; seed < 50 && !white; seed++)
             {
                 OpenChest(ChestTier.Gilded, graph, seed, out var rewards);
-                Assert.That(rewards.Cards, Does.Not.Contain("灯"), $"seed={seed}");
+                white = rewards.Cards.Contains("灯");
             }
+            Assert.That(white, Is.True, "鎏金 12 捆 × 白 197‰,50 箱不该一张白都没有");
         }
 
         [Test]

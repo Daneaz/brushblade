@@ -42,16 +42,26 @@ def table(name, file):
 
 # ---- 源码数值表 ----
 CHEST_INK = arr("InkReward", "Chest.cs")
-CHEST_CARDS = arr("CardCount", "Chest.cs")
+CHEST_STACKS = arr("StackCount", "Chest.cs")  # 2026-10-01 起每箱开 S 捆,每捆张数 = 字摊同档一份
 CHEST_SECONDS = arr("DurationSeconds", "Chest.cs")
 CHEST_AD_SECONDS = arr("AdReductionSeconds", "Chest.cs")
 TIER_BANDS = table("TierWeightBands", "Chest.cs")
 CARD_RARITY_W = table("CardRarityWeights =", "Chest.cs")
 INK_AD = arr("InkAdAmounts", "Shop.cs")
-SHOP_CHEST_PRICE = arr("ChestPrice", "Shop.cs")
+SHOP_CHEST_BASE = arr("ChestBasePrice", "Shop.cs")
 BUNDLE_SIZE = arr("BundleSizes", "Shop.cs")
 BUNDLE_PRICE = arr("BundlePrices", "Shop.cs")
 SHOP_SLOT_LV = arr("SlotUnlockLevel", "Shop.cs")
+REGULAR_OFF = arr("RegularDiscounts", "Shop.cs")
+PREMIUM_OFF = arr("PremiumDiscounts", "Shop.cs")
+
+
+def avg_discount(premium):
+    t = PREMIUM_OFF if premium else REGULAR_OFF
+    return sum(t) / len(t) / 100
+
+
+SHOP_CHEST_PRICE = [p * avg_discount(i >= 5) for i, p in enumerate(SHOP_CHEST_BASE)]  # 当日折后均价
 COPIES_UP = arr("CopiesToUpgrade", "Meta.cs")
 INK_UP = arr("InkToUpgrade", "Meta.cs")
 COPIES_MUL = arr("CopiesMultiplier", "Meta.cs")
@@ -157,7 +167,7 @@ def chest_value(dist):
     for i, p in enumerate(dist):
         hours += p * max(0, CHEST_SECONDS[i] - CHEST_AD_SECONDS[i]) / 3600  # 每箱看一次加速广告
         for r in range(7):
-            cards[r] += p * CHEST_CARDS[i] * CARD_RARITY_W[i][r] / 1000
+            cards[r] += p * CHEST_STACKS[i] * CARD_RARITY_W[i][r] / 1000 * BUNDLE_SIZE[r]
     return ink, cards, hours
 
 
@@ -170,6 +180,10 @@ def upgrade_cost(rarity, to_level):
     ink = sum(int(INK_UP[l] * INK_MUL[rarity]) for l in range(to_level - 1))
     return copies, ink
 
+
+# 墨锭并行培养的主力字数:墨锭可以集中投,卡张数是随机散落的 —— 平衡线取
+# 「一张主力字升满,攒卡天数 ≈ 墨锭分给 FOCUS 张主力字时的攒墨天数」(2026-10-01 宝箱成捆定档依据)
+FOCUS = 8
 
 # ---- 玩家画像:角色等级 ↔ 一趟典型能爬到的层 ----
 STAGES = [("新手", 5, 10), ("中期", 15, 25), ("后期", 30, 45)]
@@ -231,14 +245,14 @@ def main():
         print(f"  商城箱:均价 {price:.0f},开出墨锭 {sh_ink:.0f} + {sh_c:.1f} 张卡 → 每张卡净价 {(price - sh_ink) / sh_c:.0f}")
         # 升级进度:一张该稀有度卡,平均每天分到多少张同名(按该稀有度字数均分)
         d3 = day(lv, depth, 3)
-        print("  N=3 时一张卡的升级天数(卡张数瓶颈 / 墨锭瓶颈,均分到该档每一个字):")
+        print(f"  N=3 时一张卡的升级天数(卡张数瓶颈 / 墨锭瓶颈;卡均分到该档每一个字,墨锭分给 {FOCUS} 张主力字):")
         for r in range(7):
             per_card = d3["cards"][r] / max(1, CARDS_BY_RARITY[r])
             row = []
             for to in (5, 10):
                 c, i = upgrade_cost(r, to)
                 dc = c / per_card if per_card > 0 else float("inf")
-                di = i / d3["ink_total"]
+                di = i * FOCUS / d3["ink_total"]
                 row.append(f"→{to}级 卡{dc:,.0f}d/墨{di:,.0f}d")
             print(f"    {RARITIES[r]}: 每字 {per_card:.2f} 张/日  " + "  ".join(row))
         print()

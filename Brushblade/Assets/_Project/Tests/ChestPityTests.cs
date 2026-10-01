@@ -70,9 +70,9 @@ namespace Brushblade.Core.Tests
             Assert.That((int)ChestTier.Crimson, Is.EqualTo(tiers), "赤霄是最高档");
             Assert.That(ChestRules.DurationSeconds.Length, Is.EqualTo(tiers));
             Assert.That(ChestRules.AdReductionSeconds.Length, Is.EqualTo(tiers));
-            Assert.That(ChestRules.CardCount.Length, Is.EqualTo(tiers));
+            Assert.That(ChestRules.StackCount.Length, Is.EqualTo(tiers));
             Assert.That(ChestRules.InkReward.Length, Is.EqualTo(tiers));
-            Assert.That(ShopRules.ChestPrice.Length, Is.EqualTo(tiers));
+            Assert.That(ShopRules.ChestBasePrice.Length, Is.EqualTo(tiers));
             for (int tier = 1; tier <= tiers; tier++)
             {
                 Assert.That(ChestRules.TierName((ChestTier)tier), Is.Not.EqualTo("?"),
@@ -95,16 +95,18 @@ namespace Brushblade.Core.Tests
             }
         }
 
-        /// <summary>用户拍板的九个数(2026-08-29),单位千分比。</summary>
-        [TestCase(ChestTier.Celadon, CardRarity.Gold, 10)]
-        [TestCase(ChestTier.Rosewood, CardRarity.Gold, 20)]
+        /// <summary>金/橙/红九个数,单位千分比。2026-08-29 拍板的是**每张卡**的权重;2026-10-01 改成捆后
+        /// 权重抽的是**每捆**,按「每箱期望张数不变」折算成下面的值(旧口径的期望张数由
+        /// ChestBundleTests.HighRarityExpectationPerChest_Unchanged 钉着)。</summary>
+        [TestCase(ChestTier.Celadon, CardRarity.Gold, 20)]
+        [TestCase(ChestTier.Rosewood, CardRarity.Gold, 32)]
         [TestCase(ChestTier.Gilded, CardRarity.Gold, 50)]
-        [TestCase(ChestTier.Rosewood, CardRarity.Orange, 5)]
+        [TestCase(ChestTier.Rosewood, CardRarity.Orange, 8)]
         [TestCase(ChestTier.Gilded, CardRarity.Orange, 10)]
-        [TestCase(ChestTier.Vermilion, CardRarity.Orange, 20)]
+        [TestCase(ChestTier.Vermilion, CardRarity.Orange, 18)]
         [TestCase(ChestTier.Gilded, CardRarity.Red, 1)]
-        [TestCase(ChestTier.Vermilion, CardRarity.Red, 5)]
-        [TestCase(ChestTier.Crimson, CardRarity.Red, 10)]
+        [TestCase(ChestTier.Vermilion, CardRarity.Red, 4)]
+        [TestCase(ChestTier.Crimson, CardRarity.Red, 8)]
         public void CardRarityWeights_MatchPinnedNumbers(ChestTier tier, CardRarity rarity, int expected)
         {
             Assert.That(ChestRules.CardRarityWeightsFor(tier)[(int)rarity - 1], Is.EqualTo(expected));
@@ -134,7 +136,7 @@ namespace Brushblade.Core.Tests
             var rewards = OpenOn(meta, ChestTier.Crimson, seed, graph);
 
             Assert.That(CountOf(rewards, CardRarity.Red, graph), Is.EqualTo(1), "保底该补上一张红");
-            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.CardCount[(int)ChestTier.Crimson - 1]),
+            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.StackCount[(int)ChestTier.Crimson - 1]),
                 "保底是替掉一张,不是额外加一张");
             Assert.That(meta.RedPity, Is.Zero, "出了红就归零");
         }

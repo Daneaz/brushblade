@@ -127,7 +127,7 @@ namespace Brushblade.Core.Tests
             string card = meta.Shop.CardSlots[1];
 
             Assert.That(ShopRules.TryBuyCard(meta, 1), Is.True);
-            Assert.That(meta.Ink, Is.EqualTo(1000 - ShopRules.BundlePriceFor(CardRarity.White)));
+            Assert.That(meta.Ink, Is.EqualTo(1000 - ShopRules.CardPrice(meta, 1, CardRarity.White)));
             Assert.That(meta.OwnedCards, Does.Contain(card));
             Assert.That(ShopRules.TryBuyCard(meta, 1), Is.False); // 已售
         }
@@ -136,9 +136,9 @@ namespace Brushblade.Core.Tests
         public void BuyCard_InsufficientInk_Fails()
         {
             var meta = Fresh(new FakeTime());
-            meta.Ink = ShopRules.BundlePriceFor(CardRarity.White) - 1;
+            meta.Ink = ShopRules.CardPrice(meta, 0, CardRarity.White) - 1;
             Assert.That(ShopRules.TryBuyCard(meta, 0), Is.False);
-            Assert.That(meta.Ink, Is.EqualTo(ShopRules.BundlePriceFor(CardRarity.White) - 1));
+            Assert.That(meta.Ink, Is.EqualTo(ShopRules.CardPrice(meta, 0, CardRarity.White) - 1));
         }
 
         [Test]
@@ -147,7 +147,7 @@ namespace Brushblade.Core.Tests
             var time = new FakeTime();
             var meta = Fresh(time);
             meta.Ink = 5000;
-            int price = ShopRules.ChestPrice[(int)meta.Shop.ChestSlot - 1];
+            int price = ShopRules.ChestPrice(meta);
 
             Assert.That(ShopRules.TryBuyChest(meta, Pool, time), Is.True);
             Assert.That(meta.Ink, Is.EqualTo(5000 - price));
