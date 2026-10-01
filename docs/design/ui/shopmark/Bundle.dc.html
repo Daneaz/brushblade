@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>宝箱位捆数与折扣</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#9B1E22}a:hover{color:#7A3F5C}
+sc-for,sc-if{display:contents}
+.serif{font-family:"Noto Serif SC","Songti SC",serif}
+.box{position:relative;width:464px;box-sizing:border-box;background:#FFFDF7;border:2px solid #DED7C9;border-radius:16px;padding:20px 20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.box.sold{filter:grayscale(.8);opacity:.6}
+.flag{position:absolute;top:-2px;right:22px;height:38px;padding:0 12px;border-radius:0 0 6px 6px;background:#B3282D;color:#fff;display:flex;align-items:center;font-family:"Noto Serif SC",serif;font-size:21px;font-weight:700}
+.art{width:120px;height:96px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.name{font-family:"Noto Serif SC",serif;font-size:25px;font-weight:600;letter-spacing:2px}
+.chips{display:flex;gap:8px;align-items:center}
+.chip{height:32px;padding:0 12px;border-radius:16px;background:#EFEADF;display:flex;align-items:center;gap:6px;font-size:17px;color:#5D646F;white-space:nowrap}
+.chip b{color:#2C333D}
+.stacks{display:flex;gap:4px;align-items:center}
+.btn{width:100%;height:46px;box-sizing:border-box;border:none;border-radius:12px;background:#11161F;color:#fff;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;font-variant-numeric:tabular-nums;padding:0}
+.btn b{font-size:20px}
+.btn s{font-size:14px;color:rgba(255,255,255,.6)}
+.btn i{font-style:normal;font-size:16px;color:#FFB4AE;font-weight:700}
+.btn.sold{background:#E9E5DB;color:#696151;font-size:16px;letter-spacing:2px}
+</style>
+</helmet>
+<div style="width: 1600px; height: 1060px; box-sizing: border-box; padding: 48px; background: #F6F1E7; color: #161B22; font-family: &quot;Noto Sans SC&quot;, &quot;PingFang SC&quot;, system-ui, sans-serif; display: flex; flex-direction: column; gap: 56px">
+
+<div style="display: flex; gap: 56px">
+<sc-for list="{{opts}}" as="o" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; gap: 10px; height: 34px">
+<span class="serif" style="font-size: 28px; font-weight: 700">{{o.key}}</span>
+<span class="serif" style="font-size: 21px; font-weight: 600">{{o.name}}</span>
+<sc-if value="{{o.pick}}" hint-placeholder-val="{{false}}"><span style="height: 24px; padding: 0 10px; border-radius: 12px; background: #11161F; color: #fff; font-size: 13px; display: flex; align-items: center">推荐</span></sc-if>
+</div>
+<div class="box">
+<sc-if value="{{o.flag}}" hint-placeholder-val="{{false}}"><span class="flag">6折</span></sc-if>
+<div class="art" style="background: #EBE2F5; border: 2px solid #7945AB; color: #4D2A70">[紫檀匣立绘]</div>
+<span class="name">紫檀匣</span>
+<sc-if value="{{o.chipA}}" hint-placeholder-val="{{false}}">
+<div class="chips"><span class="chip"><b>5 捆</b>约 40 张</span><span class="chip">4 小时</span></div>
+</sc-if>
+<sc-if value="{{o.chipB}}" hint-placeholder-val="{{false}}">
+<div class="chips"><span class="chip">5 捆</span><span class="chip">4 小时</span></div>
+</sc-if>
+<sc-if value="{{o.chipC}}" hint-placeholder-val="{{false}}">
+<div class="chips">
+<div class="stacks">
+<sc-for list="{{five}}" as="k" hint-placeholder-count="5">
+<svg width="22" height="26" viewBox="0 0 22 26" aria-hidden="true"><rect x="5" y="1" width="15" height="19" rx="2" fill="#EBE2F5" stroke="#7945AB" stroke-width="1.5"></rect><rect x="2" y="5" width="15" height="19" rx="2" fill="#FFFDF7" stroke="#7945AB" stroke-width="1.5"></rect></svg>
+</sc-for>
+</div>
+<span class="chip">约 40 张</span><span class="chip">4 小时</span>
+</div>
+</sc-if>
+<sc-if value="{{o.btnA}}" hint-placeholder-val="{{false}}"><button class="btn"><svg width="20" height="12" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg><b>708</b><s>1180</s></button></sc-if>
+<sc-if value="{{o.btnB}}" hint-placeholder-val="{{false}}"><button class="btn"><svg width="20" height="12" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg><b>708</b><i>· 6折</i></button></sc-if>
+</div>
+<span style="font-size: 15px; color: #4F5661; line-height: 1.6; width: 464px">{{o.line}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; gap: 10px; height: 34px">
+<span class="serif" style="font-size: 21px; font-weight: 600">方案 A 套到其它档</span>
+<span style="font-size: 15px; color: #4F5661">最少 1 捆 / 最多 20 捆;朱漆、赤霄 6~8 折;已购</span>
+</div>
+<div style="display: flex; gap: 56px">
+<sc-for list="{{tiers}}" as="t" hint-placeholder-count="3">
+<div class="{{t.cls}}">
+<sc-if value="{{t.live}}" hint-placeholder-val="{{true}}"><span class="flag">{{t.zhe}}折</span></sc-if>
+<div class="art" style="{{t.artStyle}}">[{{t.name}}立绘]</div>
+<span class="name">{{t.name}}</span>
+<div class="chips"><span class="chip"><b>{{t.stacks}} 捆</b>约 {{t.cards}} 张</span><span class="chip">{{t.time}}</span></div>
+<sc-if value="{{t.live}}" hint-placeholder-val="{{true}}"><button class="btn"><svg width="20" height="12" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg><b>{{t.price}}</b><s>{{t.orig}}</s></button></sc-if>
+<sc-if value="{{t.sold}}" hint-placeholder-val="{{false}}"><button class="btn sold">今日已购</button></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      five: [1, 2, 3, 4, 5],
+      opts: [
+        { key: 'A', name: '捆数 chip 带张数', pick: true, flag: true, chipA: true, btnA: true,
+          line: '「5 捆」加粗,后跟「约 40 张」;折扣是箱卡右上一面朱砂垂旗,钮里折后价 + 划线原价(与字摊格同一套)' },
+        { key: 'B', name: '只写捆数', pick: false, chipB: true, btnB: true,
+          line: '现实现:chip 只写「5 捆」,折扣在钮里「· 6折」' },
+        { key: 'C', name: '捆图标排开', pick: false, flag: true, chipC: true, btnA: true,
+          line: '一捆一枚小图标排开 + 约张数;20 捆排不下,超过 6 捆要改成「×N」' }
+      ],
+      tiers: [
+        { cls: 'box', live: true, sold: false, zhe: 3, name: '素纸匣', stacks: 1, cards: 13, time: '5 分钟', price: 69, orig: 230,
+          artStyle: 'background: #EDEAE3; border: 2px solid #A19E98; color: #4F5661' },
+        { cls: 'box', live: true, sold: false, zhe: 7, name: '朱漆匣', stacks: 16, cards: 115, time: '10 小时', price: 2695, orig: 3850,
+          artStyle: 'background: #FAE7D3; border: 2px solid #E1791B; color: #7A3C05' },
+        { cls: 'box sold', live: false, sold: true, zhe: 0, name: '赤霄匣', stacks: 20, cards: 136, time: '12 小时', price: 0, orig: 0,
+          artStyle: 'background: #F9DFDF; border: 2px solid #CD262E; color: #7A1418' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

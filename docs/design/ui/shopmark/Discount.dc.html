@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>字摊格折扣标记</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#9B1E22}a:hover{color:#7A3F5C}
+sc-for,sc-if{display:contents}
+.r-White{--rar:#A19E98}.r-Blue{--rar:#0F74C4}.r-Gold{--rar:#C9A94A}.r-Orange{--rar:#E1791B}
+.e-Fire{--glyph:#B02D2E}
+.serif{font-family:"Noto Serif SC","Songti SC",serif}
+.card{position:relative;width:138px;height:172px;box-sizing:border-box;border-radius:12px;background:#FFFDF7;border:3px solid var(--rar);box-shadow:0 2px 6px rgba(22,27,34,.10);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.card .g{font-family:"Noto Serif SC",serif;font-size:60px;font-weight:600;line-height:1;color:var(--glyph)}
+.card .p{font-size:14px;color:#5D646F;margin-top:6px}
+.card .lv{position:absolute;top:6px;left:6px;height:20px;padding:0 6px;border-radius:10px;background:#EFEADF;color:#2C333D;font-size:13px;font-weight:700;display:flex;align-items:center}
+.card .dot{position:absolute;top:8px;right:8px;width:12px;height:12px;border-radius:50%;background:var(--rar)}
+.card .qty{position:absolute;bottom:6px;right:6px;height:20px;padding:0 6px;border-radius:10px;background:#11161F;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center}
+.card .tag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);height:24px;padding:0 8px;border-radius:4px;background:#B3282D;color:#fff;font-family:"Noto Serif SC",serif;font-size:16px;font-weight:700;display:flex;align-items:center;box-shadow:0 0 0 3px #F6F1E7;white-space:nowrap}
+.card.sold{filter:grayscale(.8);opacity:.55}
+.card .seal{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#C53637;color:#fff;font-size:18px;padding:2px 10px;border-radius:6px;font-family:"Noto Serif SC",serif}
+.foot{width:138px;display:flex;align-items:center;gap:6px;font-size:13px;color:#5D646F;font-variant-numeric:tabular-nums}
+.foot .bar{flex:1;height:6px;border-radius:3px;background:#E4DDCE;overflow:hidden}
+.foot .bar i{display:block;height:100%;background:#2E9E52}
+.fc{width:138px;font-size:13px;color:#5D646F;text-align:center;white-space:nowrap}
+.btn{width:138px;height:44px;box-sizing:border-box;border:none;border-radius:12px;background:#11161F;color:#fff;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;font-variant-numeric:tabular-nums;padding:0}
+.btn b{font-size:19px}
+.btn s{font-size:13px;color:rgba(255,255,255,.6)}
+.btn i{font-style:normal;font-size:15px;color:#FFB4AE;font-weight:700}
+.btn.poor{background:#E7E1D4;color:#8A2A2A;font-size:15px}
+.btn.sold{background:#E9E5DB;color:#696151;font-size:15px;letter-spacing:2px}
+.ribbon{width:138px;height:26px;box-sizing:border-box;border-radius:6px;background:#FBE3E1;color:#8A1E22;font-size:13px;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+.ribbon s{color:#8A5A5A}
+.ribbon.off{background:transparent}
+</style>
+</helmet>
+<div style="width: 1240px; height: 1060px; box-sizing: border-box; padding: 48px; background: #F6F1E7; color: #161B22; font-family: &quot;Noto Sans SC&quot;, &quot;PingFang SC&quot;, system-ui, sans-serif; display: flex; flex-direction: column; gap: 36px">
+<sc-for list="{{rows}}" as="row" hint-placeholder-count="3">
+<div style="display: flex; gap: 40px; align-items: flex-start; padding-bottom: 32px; border-bottom: 1px solid #E4DDCE">
+<div style="width: 250px; flex: none; display: flex; flex-direction: column; gap: 8px; padding-top: 18px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span class="serif" style="font-size: 30px; font-weight: 700">{{row.key}}</span>
+<span class="serif" style="font-size: 22px; font-weight: 600">{{row.name}}</span>
+</div>
+<sc-if value="{{row.pick}}" hint-placeholder-val="{{false}}">
+<span style="align-self: flex-start; height: 24px; padding: 0 10px; border-radius: 12px; background: #11161F; color: #fff; font-size: 13px; display: flex; align-items: center">推荐</span>
+</sc-if>
+<span style="font-size: 15px; color: #4F5661; line-height: 1.6">{{row.line}}</span>
+</div>
+<div style="display: flex; gap: 40px; padding-top: 14px">
+<sc-for list="{{row.slots}}" as="s" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+<div class="{{s.cls}}">
+<sc-if value="{{s.tag}}" hint-placeholder-val="{{false}}"><span class="tag">{{s.zhe}}折</span></sc-if>
+<span class="lv">Lv.{{s.lv}}</span><span class="dot"></span>
+<span class="g">{{s.glyph}}</span><span class="p">{{s.py}}</span>
+<span class="qty">{{s.qty}}张</span>
+<sc-if value="{{s.sold}}" hint-placeholder-val="{{false}}"><span class="seal">已售</span></sc-if>
+</div>
+<div class="foot"><div class="bar"><i style="width: {{s.pct}}"></i></div><span>{{s.have}}/{{s.need}}</span></div>
+<div class="fc">{{s.fc}}</div>
+<sc-if value="{{s.ribbon}}" hint-placeholder-val="{{false}}"><div class="ribbon">今日 <b>{{s.zhe}}折</b> · 原价 <s>{{s.orig}}</s></div></sc-if>
+<sc-if value="{{s.ribbonGap}}" hint-placeholder-val="{{false}}"><div class="ribbon off"></div></sc-if>
+<sc-if value="{{s.btnA}}" hint-placeholder-val="{{false}}"><button class="btn"><svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg><b>{{s.price}}</b><s>{{s.orig}}</s></button></sc-if>
+<sc-if value="{{s.btnB}}" hint-placeholder-val="{{false}}"><button class="btn"><svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg><b>{{s.price}}</b><i>· {{s.zhe}}折</i></button></sc-if>
+<sc-if value="{{s.btnC}}" hint-placeholder-val="{{false}}"><button class="btn"><svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#fff" opacity=".85"></path></svg><b>{{s.price}}</b></button></sc-if>
+<sc-if value="{{s.poor}}" hint-placeholder-val="{{false}}"><button class="btn poor">还差 {{s.short}}</button></sc-if>
+<sc-if value="{{s.sold}}" hint-placeholder-val="{{false}}"><button class="btn sold">今日已购</button></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1240,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const base = [
+      { glyph: '热', py: 'rè', r: 'White', lv: 6, qty: 20, have: 22, need: 80, zhe: 5, price: 100, orig: 200 },
+      { glyph: '炸', py: 'zhà', r: 'Blue', lv: 3, qty: 5, have: 1, need: 2, zhe: 7, price: 175, orig: 250, poor: true, short: 75 },
+      { glyph: '焚', py: 'fén', r: 'Orange', lv: 1, qty: 1, have: 0, need: 1, zhe: 8, price: 320, orig: 400 },
+      { glyph: '灿', py: 'càn', r: 'Gold', lv: 1, qty: 1, have: 0, need: 1, zhe: 6, price: 156, orig: 260, sold: true }
+    ];
+    const build = (mode) => base.map((o) => {
+      const sold = !!o.sold, poor = !!o.poor && !sold, live = !sold && !poor;
+      return Object.assign({}, o, {
+        cls: 'card r-' + o.r + ' e-Fire' + (sold ? ' sold' : ''),
+        sold: sold, poor: poor, short: o.short || 0,
+        tag: mode === 'A' && !sold,
+        ribbon: mode === 'C' && !sold,
+        ribbonGap: mode === 'C' && sold,
+        btnA: mode === 'A' && live, btnB: mode === 'B' && live, btnC: mode === 'C' && live,
+        pct: Math.min(100, Math.round(o.have / o.need * 100)) + '%',
+        fc: '买下后 ' + (o.have + o.qty) + '/' + o.need + ' 张'
+      });
+    });
+    return {
+      rows: [
+        { key: 'A', name: '价签挂顶', pick: true, line: '朱砂签骑在牌框上沿正中 · 钮里折后价 + 划线原价', slots: build('A') },
+        { key: 'B', name: '钮内并排', pick: false, line: '现实现:钮里「折后价 · 几折」,牌面不动', slots: build('B') },
+        { key: 'C', name: '钮上横条', pick: false, line: '钮上加一条「今日几折 · 原价」,钮只写折后价', slots: build('C') }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

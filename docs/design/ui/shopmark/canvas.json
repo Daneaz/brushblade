@@ -1,0 +1,15 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-01T12:00:00Z"},
+  "title": "商城折扣与捆数标记",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 932, "h": 430, "title": "整屏 · 推荐方案(1:1 pt)"},
+    "Discount.dc.html": {"x": 0, "y": 550, "w": 1240, "h": 1060, "title": "字摊格 · 折扣标记三案(2× 放大)"},
+    "Bundle.dc.html": {"x": 1320, "y": 550, "w": 1600, "h": 1060, "title": "宝箱位 · 捆数与折扣三案(2× 放大)"}
+  },
+  "order": ["Main.dc.html", "Discount.dc.html", "Bundle.dc.html"],
+  "notes": {},
+  "designSystems": []
+}
