@@ -194,8 +194,8 @@ namespace Brushblade.Core
         /// <summary>泉的层数上限(水脉 L4)。**缺省 10 = 现值**。见 <see cref="HeftCap"/> 的警告。</summary>
         public int WellspringCap { get; set; } = BaseWellspringCap;
 
-        /// <summary>灼烧每层结算伤害的**起始值**(火脉 L4)。**缺省 20 = 现值**;
-        /// 局内的 BurnPotency 照旧在其上累加。</summary>
+        /// <summary>灼烧每层伤害的**基础值**(我方侧/敌人侧共用),不再由 perk 写入(2026-10-02)。
+        /// 局内的 BurnPotency/蓄热只在敌人侧于其上累加。</summary>
         public int BurnPerStack { get; set; } = BaseBurnPerStack;
 
         /// <summary>木脉 L4「择伐」:场上**全部**召唤物出手时按生克三档择敌
@@ -231,6 +231,8 @@ namespace Brushblade.Core
         public int SummonHpPercent { get; set; }   // 深根:木系字召唤物生命 +N%
         public int HealPercent { get; set; }       // 甘霖:水系字治疗量 +N%
         public int ShieldPercent { get; set; }     // 筑垒:土系字护盾量 +N%
+        /// <summary>添薪(火 L1,2026-10-02):敌人身上灼烧每层伤害 +N,仅敌人侧结算与引爆读取。</summary>
+        public int EnemyBurnPerStackBonus { get; set; }
 
         /// <summary>土脉 L2「反震」:被护盾吸掉的伤害按 N% 反弹给攻击者。0 = 未点亮。
         /// **不并入「镜」的 60% 总量钳**:镜按打过来的总伤害折返,反震按被护盾吸掉的量
@@ -549,8 +551,14 @@ namespace Brushblade.Core
 
         private ForgeState _forge;
         private readonly IReadOnlyDictionary<string, int> _cardLevels; // 局外卡等级(19.3.2;null = 全 1 级)
-        private int _burnPerStack;     // 灼烧每层结算伤害(10.2;BurnPotency 可叠加;2026-08-12 随全表量级 ×10)
-                                        // 初值来自 config.BurnPerStack(火脉 L4),由构造函数设置
+        private int _burnPerStack;     // 敌人侧灼烧每层局内基数(10.2;BurnPotency/蓄热可叠加;2026-08-12 随全表量级 ×10)
+                                        // 初值来自 config.BurnPerStack,由构造函数设置
+        /// <summary>敌人身上的灼烧每层伤害 = 局内基数(基础 + BurnPotency + 蓄热)+ 添薪。</summary>
+        private int EnemyBurnPerStack => _burnPerStack + (_config?.EnemyBurnPerStackBonus ?? 0);
+
+        /// <summary>我方(玩家/召唤物)身上的灼烧每层伤害:恒为基础值(2026-10-02 用户拍板)——
+        /// 局内灼烧加成与添薪都是「玩家点的火」的增威,敌人给我方上的灼烧不享有。</summary>
+        private int OurSideBurnPerStack => _config?.BurnPerStack ?? BattleConfig.BaseBurnPerStack;
         private int _shieldNormal;          // 普通护盾:关间/段间都延续,整场爬塔通吃(2026-07-26)
         private int _shieldPersist;         // 豁免桶护盾(堡):吸伤时垫在普通桶之后
         private int _shieldAccum;           // 厚的余数:不足一层的护盾量(2026-09-02)
@@ -1955,7 +1963,7 @@ namespace Brushblade.Core
             var playerBurn = _playerStatuses.Find(StatusKind.Burn);
             if (playerBurn != null && playerBurn.Magnitude > 0)
             {
-                int playerTick = playerBurn.Magnitude * _burnPerStack;
+                int playerTick = playerBurn.Magnitude * OurSideBurnPerStack;
                 PlayerHp = Math.Max(0, PlayerHp - playerTick);
                 playerBurn.Magnitude -= 1;
                 if (playerBurn.Magnitude <= 0) _playerStatuses.Remove(StatusKind.Burn);
@@ -2046,7 +2054,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>召唤物自身的灼烧结算(2026-08-26)。口径**照抄玩家侧**
-        /// <see cref="SettlePlayerBurn"/>:层数 × <c>_burnPerStack</c>,结算后自减一层。
+        /// <see cref="SettlePlayerBurn"/>:层数 × <see cref="OurSideBurnPerStack"/>(恒为基础值,不吃 BurnPotency/蓄热/添薪,2026-10-02),结算后自减一层。
         ///
         /// ⚠ 不吃攻击力、不吃生克 —— 敌人侧的 <see cref="SettleBurnOn"/> 两样都吃,那是
         /// 「玩家点的火」的口径;烧在我方身上的火是敌人点的,与玩家攻击力无关。
@@ -2057,7 +2065,7 @@ namespace Brushblade.Core
             var burn = summon.Statuses.Find(StatusKind.Burn);
             if (burn == null || burn.Magnitude <= 0) return;
 
-            int tick = burn.Magnitude * _burnPerStack;
+            int tick = burn.Magnitude * OurSideBurnPerStack;
             summon.Hp = Math.Max(0, summon.Hp - tick);
             burn.Magnitude -= 1;
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
@@ -3350,7 +3358,7 @@ namespace Brushblade.Core
             float burnWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
             bool burnKe = burnWuxing > 1f;
             bool burnCountered = burnWuxing < 1f;
-            int tick = (int)Math.Floor(burn.Magnitude * _burnPerStack
+            int tick = (int)Math.Floor(burn.Magnitude * EnemyBurnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Hp = Math.Max(0, enemy.Hp - tick);
@@ -3413,7 +3421,7 @@ namespace Brushblade.Core
             float detonateWuxing = WuxingResolver.KeMultiplier(Element.Fire, enemy.Element);
             bool detonateKe = detonateWuxing > 1f;
             bool detonateCountered = detonateWuxing < 1f;
-            int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * _burnPerStack
+            int damage = (int)Math.Floor(stacks * (stacks + 1) / 2.0 * EnemyBurnPerStack
                 * (EffectiveAttack / (double)BattleConfig.AttackBaseline)
                 * WuxingResolver.KeMultiplier(Element.Fire, enemy.Element));
             enemy.Statuses.Remove(StatusKind.Burn);

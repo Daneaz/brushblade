@@ -270,5 +270,19 @@ namespace Brushblade.Core.Tests
             Assert.That(cfg.ShieldPercent, Is.EqualTo(10));
             Assert.That(cfg.PlayerCritChance, Is.EqualTo(0), "砺刃不进全局暴击");
         }
+
+        [Test]
+        public void FireTierOne_InjectsEnemyBurnBonus_NotBasePerStack()
+        {
+            var meta = new MetaState();
+            meta.UnlockedPerks.Add("fire_1_s1");
+            Assert.That(Build(meta).EnemyBurnPerStackBonus, Is.EqualTo(3));
+            meta.UnlockedPerks.Add("fire_1_s2");
+            Assert.That(Build(meta).EnemyBurnPerStackBonus, Is.EqualTo(6));
+            meta.UnlockedPerks.Add("fire_1_s3");
+            var cfg = Build(meta);
+            Assert.That(cfg.EnemyBurnPerStackBonus, Is.EqualTo(10), "添薪 3+3+4");
+            Assert.That(cfg.BurnPerStack, Is.EqualTo(BattleConfig.BaseBurnPerStack), "基础值不再由 perk 写入");
+        }
     }
 }
