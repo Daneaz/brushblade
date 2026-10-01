@@ -101,5 +101,68 @@ namespace Brushblade.Core.Tests
             Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(3), out _, RarityGraph()), Is.False);
             Assert.That(meta.Stats.ChestsOpened.Count, Is.EqualTo(0));
         }
+
+        [Test]
+        public void FoldTally_MergesAndClears()
+        {
+            var meta = new MetaState();
+            meta.Stats.CardPlays["爆"] = 2;
+            meta.Stats.MaxHit = 50;
+            var tally = new BattleTally { Composes = 3, Dismantles = 1, MaxHit = 40 };
+            tally.Plays["爆"] = 5; tally.Plays["冷"] = 1;
+
+            StatsRules.FoldTally(meta, tally);
+            StatsRules.FoldTally(meta, tally); // 第二次:已清空,不重复计
+
+            Assert.That(meta.Stats.CardPlays["爆"], Is.EqualTo(7));
+            Assert.That(meta.Stats.CardPlays["冷"], Is.EqualTo(1));
+            Assert.That(meta.Stats.Composes, Is.EqualTo(3));
+            Assert.That(meta.Stats.Dismantles, Is.EqualTo(1));
+            Assert.That(meta.Stats.MaxHit, Is.EqualTo(50), "取 max,不是覆盖");
+            Assert.That(tally.Plays.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ClimbFloorDeathAd_Counters()
+        {
+            var meta = new MetaState();
+            StatsRules.RecordClimbStart(meta);
+            StatsRules.RecordFloorCleared(meta, isBoss: false);
+            StatsRules.RecordFloorCleared(meta, isBoss: true);
+            StatsRules.RecordDeath(meta);
+            StatsRules.RecordAdReward(meta);
+            Assert.That(meta.Stats.Climbs, Is.EqualTo(1));
+            Assert.That(meta.Stats.FloorsCleared, Is.EqualTo(2));
+            Assert.That(meta.Stats.BossesDefeated, Is.EqualTo(1));
+            Assert.That(meta.Stats.Deaths, Is.EqualTo(1));
+            Assert.That(meta.Stats.AdRewards, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TopPlays_SortedDesc_TieByOrdinalId_SkipsUnknownIds()
+        {
+            var graph = RarityGraph();
+            var meta = new MetaState();
+            meta.Stats.CardPlays["g1"] = 5;
+            meta.Stats.CardPlays["b1"] = 5;
+            meta.Stats.CardPlays["w1"] = 9;
+            meta.Stats.CardPlays["幽灵"] = 99; // 字表里删掉的字
+
+            var top = StatsRules.TopPlays(meta, graph, 10);
+
+            Assert.That(top.Count, Is.EqualTo(3));
+            Assert.That(top[0].Id, Is.EqualTo("w1"));
+            Assert.That(top[1].Id, Is.EqualTo("b1"));
+            Assert.That(top[2].Id, Is.EqualTo("g1"));
+        }
+
+        [Test]
+        public void TopPlays_RespectsCount()
+        {
+            var graph = RarityGraph();
+            var meta = new MetaState();
+            meta.Stats.CardPlays["w1"] = 1; meta.Stats.CardPlays["g1"] = 2; meta.Stats.CardPlays["b1"] = 3;
+            Assert.That(StatsRules.TopPlays(meta, graph, 2).Count, Is.EqualTo(2));
+        }
     }
 }

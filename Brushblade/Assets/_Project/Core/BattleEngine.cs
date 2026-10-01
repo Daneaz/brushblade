@@ -231,6 +231,10 @@ namespace Brushblade.Core
         /// 折返,基数不同不能并轴;反震自己被护盾存量天然限制住。</summary>
         public int ShieldReflectPercent { get; set; }
 
+        /// <summary>统计计数器(2026-10-02 角色页)。null = 不计(测试与仿真工装的缺省)。
+        /// 引用类型:<see cref="WithPlayerMaxHp"/> 浅拷贝会把它带过去,同一段的每场共用一个。</summary>
+        public BattleTally Tally { get; set; }
+
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
         public BattleConfig WithPlayerMaxHp(int playerMaxHp)
@@ -1266,6 +1270,7 @@ namespace Brushblade.Core
                 return BattleError.ForgeFailed;
             }
             _forge = result.State;
+            if (_config.Tally != null) _config.Tally.Dismantles++;
             return BattleError.None;
         }
 
@@ -1284,6 +1289,7 @@ namespace Brushblade.Core
             }
             _forge = result.State;
             Ap -= 1;
+            if (_config.Tally != null) _config.Tally.Composes++;
             return BattleError.None;
         }
 
@@ -1373,6 +1379,11 @@ namespace Brushblade.Core
             }
 
             ApplyEffects(def, targetIndex, replaceSummon, attackMode, summonSlots, allySlot);
+            if (_config.Tally != null)
+            {
+                _config.Tally.Plays.TryGetValue(charId, out int plays);
+                _config.Tally.Plays[charId] = plays + 1;
+            }
             // 终审修复项 4(2026-09-06):战意/厚会因这一次 Cast 而变化(剿/盾等),但
             // RefreshSummonAura 此前只在召唤/死亡/复活/落位/该召唤物出手前调用——玩家出的
             // 这些非召唤类字不会触发那几处调用点,于是 SummonState.EffectiveAttack(详情
@@ -3927,6 +3938,7 @@ namespace Brushblade.Core
             int absorbed = Math.Min(enemy.Shield, damage);
             enemy.Shield -= absorbed;
             enemy.Hp = Math.Max(0, enemy.Hp - (damage - absorbed));
+            if (_config.Tally != null && damage > _config.Tally.MaxHit) _config.Tally.MaxHit = damage;
             // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
             // Absorbed = 其中被盾吃掉的部分,两者相减 = 实际掉血。
             // 刻意不新增 BattleEventKind —— 既有的 ShieldBroken 是「倾覆清空玩家护盾」
