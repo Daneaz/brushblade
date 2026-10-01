@@ -459,7 +459,7 @@ namespace Brushblade.Presentation
             public RectTransform Tank;
             public bool Spikes;
             public RectTransform Shield;
-            public Image ShieldImage;
+            public ShieldGraphic ShieldGraphic;
             public Color Tint;
         }
 
@@ -482,13 +482,32 @@ namespace Brushblade.Presentation
             }
             if (!guard.Spikes)
             {
+                // 一面立着的骑士盾(ShieldGraphic):挡在柘身前、偏向来敌那一侧;从下往上抬起、放大到位,
+                // 一道高光斜扫过盾面。不跟着来敌方向转 —— 转歪了的盾一眼认不出是盾(一版就是那样)
                 float w = SizeOf(tank);
                 Vector2 dir = (-d).normalized;
-                guard.Shield = Bit(null, new Vector2(w * 1.05f, w * 0.34f), ShieldGold, b + dir * w * 0.45f, out guard.ShieldImage);
-                guard.ShieldImage.sprite = Theme.Rounded(Mathf.RoundToInt(w * 0.17f));
-                guard.Shield.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg + 90f);
+                Vector2 at = b + dir * w * 0.32f;
+                var go = new GameObject("Shield", typeof(RectTransform));
+                go.transform.SetParent(_shakeTarget, false);
+                guard.Shield = (RectTransform)go.transform;
+                guard.Shield.sizeDelta = new Vector2(w * 1.05f, w * 1.2f);
+                guard.Shield.localPosition = at;
+                guard.ShieldGraphic = go.AddComponent<ShieldGraphic>();
+                guard.ShieldGraphic.raycastTarget = false;
                 var shield = guard.Shield;
-                yield return Tween(0.14f, k => { if (shield != null) shield.localScale = Vector3.one * Mathf.Lerp(0.3f, 1f, k); });
+                Vector2 rise = at + Vector2.down * w * 0.35f;
+                PlayClip(_shieldClip, 0.6f, 0.9f);
+                yield return Tween(0.16f, k =>
+                {
+                    if (shield == null) return;
+                    float e = 1f - (1f - k) * (1f - k);
+                    shield.localPosition = Vector2.Lerp(rise, at, e);
+                    shield.localScale = Vector3.one * Mathf.Lerp(0.4f, 1f, e);
+                });
+                // 高光:一道白条斜扫过盾面
+                var gleam = Bit(null, new Vector2(w * 0.16f, w * 1.3f), new Color(1f, 1f, 1f, 0.75f), at + Vector2.left * w * 0.45f, out var gleamImg);
+                gleam.localRotation = Quaternion.Euler(0f, 0f, -20f);
+                StartCoroutine(Sweep(gleam, gleamImg, at + Vector2.left * w * 0.45f, at + Vector2.right * w * 0.45f));
             }
             else
             {
@@ -539,18 +558,27 @@ namespace Brushblade.Presentation
             if (spike != null) Destroy(spike.gameObject);
         }
 
+        /// <summary>盾面迎击:整面白闪、往后一仰再回正;停一拍后缩小淡出。</summary>
         private IEnumerator ShieldFlash(Guard guard)
         {
             var shield = guard.Shield;
-            var img = guard.ShieldImage;
-            yield return Tween(0.26f, k =>
+            var graphic = guard.ShieldGraphic;
+            yield return Tween(0.28f, k =>
             {
                 if (shield == null) return;
-                img.color = Color.Lerp(Color.white, ShieldGold, k);
+                graphic.Flash = 1f - k;
+                shield.localRotation = Quaternion.Euler(0f, 0f, 9f * Mathf.Sin(k * Mathf.PI));
                 shield.localScale = Vector3.one * (1f + 0.08f * Mathf.Sin(k * Mathf.PI));
             });
             yield return Beat(0.35f);
-            if (shield != null) StartCoroutine(FadeAndKill(shield, img, 0.24f, -0.2f));
+            if (shield == null) yield break;
+            yield return Tween(0.24f, k =>
+            {
+                if (shield == null) return;
+                shield.localScale = Vector3.one * (1f - 0.25f * k);
+                graphic.color = new Color(1f, 1f, 1f, 1f - k);
+            });
+            if (shield != null) Destroy(shield.gameObject);
         }
 
         /// <summary>③ 反伤:柘的一道金色回弹波沿原路打回;其余(荆及带荆棘的召唤物)五根荆刺错开射回攻击者。命中那一刻返回。</summary>
