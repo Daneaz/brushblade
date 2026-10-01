@@ -250,6 +250,11 @@ namespace Brushblade.Core
         /// 土脉 L3「固本」在其上 +25。整数除向下取整,50 时与旧的 /2 逐值相同。</summary>
         public int ShieldCarryPercent { get; set; } = 50;
 
+        /// <summary>战后/补给选字的候选数(慧眼 +1)。缺省 5 = 改前常量。</summary>
+        public int RewardOptionCount { get; set; } = 5;
+        /// <summary>每一轮选字可整组重抽的次数(明察)。缺省 0。</summary>
+        public int RewardRerolls { get; set; }
+
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
         public BattleConfig WithPlayerMaxHp(int playerMaxHp)

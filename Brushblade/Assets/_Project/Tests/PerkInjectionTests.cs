@@ -331,5 +331,17 @@ namespace Brushblade.Core.Tests
             meta.UnlockedPerks.Add("fire_4");
             Assert.That(Build(meta).BurnSpreadAdjacent, Is.True);
         }
+
+        [Test]
+        public void Insight_RaisesOptionCountAndGrantsReroll()
+        {
+            var meta = new MetaState();
+            Assert.That(Build(meta).RewardOptionCount, Is.EqualTo(5));
+            Assert.That(Build(meta).RewardRerolls, Is.EqualTo(0));
+            meta.UnlockedPerks.Add("insight_1");
+            Assert.That(Build(meta).RewardOptionCount, Is.EqualTo(6), "慧眼");
+            meta.UnlockedPerks.Add("insight_2");
+            Assert.That(Build(meta).RewardRerolls, Is.EqualTo(1), "明察");
+        }
     }
 }
