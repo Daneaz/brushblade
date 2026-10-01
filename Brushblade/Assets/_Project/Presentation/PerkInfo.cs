@@ -127,8 +127,8 @@ namespace Brushblade.Presentation
         ///
         /// 40 个节点按 <see cref="PerkEffect"/> 分类只写 21 条——同一种效果(如三枝被动树
         /// 各自的三层)结构完全相同、只是数值不同,共用一条说明比 40 条各写各的**更不容易过时**
-        /// (卡面那句机械描述才需要每节点各写各的,这里不需要)。两条五行 L1/L3
-        /// (<see cref="PerkEffect.ElementDrawRolls"/> 等)横跨五个元素,
+        /// (卡面那句机械描述才需要每节点各写各的,这里不需要)。五行本系效果值
+        /// (<see cref="PerkEffect.ElementEffectPercent"/>)横跨五个元素,
         /// 用 {element} 占位符填该系名词;**五行 L2 自 2026-09-13 起五枝各不相同**,
         /// 各占一条 PerkEffect,不共用模板。
         ///
@@ -156,19 +156,10 @@ namespace Brushblade.Presentation
             PerkEffect.Defense => Strings.T("perk.detail.defense", ("value", def.Value),
                 ("percent", StatusText.DefenseToReductionPercent(def.Value))),
             PerkEffect.LibraryCapacity => Strings.T("perk.detail.library_capacity"),
-            PerkEffect.StartingCards => Strings.T("perk.detail.starting_cards"),
             PerkEffect.DrawRolls => Strings.T("perk.detail.draw_rolls", ("value", def.Value)),
-            PerkEffect.LootDrawRolls => Strings.T("perk.detail.loot_draw_rolls", ("value", def.Value)),
-            PerkEffect.Ap => Strings.T("perk.detail.ap", ("value", def.Value)),
-            PerkEffect.ElementDrawRolls => Strings.T("perk.detail.element_draw_rolls",
-                ("element", ElementNameOf(def)), ("value", def.Value)),
             PerkEffect.ElementEffectPercent => Strings.T("perk.detail.element_effect_percent",
                 ("element", ElementNameOf(def)), ("value", def.Value)),
-            PerkEffect.MoraleCap => MoraleCapText(def),
             PerkEffect.CounterTargeting => Strings.T("perk.detail.counter_targeting"),
-            PerkEffect.WellspringCap => WellspringCapText(def),
-            PerkEffect.BurnPerStack => BurnPerStackText(def),
-            PerkEffect.HeftCap => HeftCapText(def),
             // 五行 L2:五条各系专属机制(spec 2026-09-13)。**逐条字面量 key**,
             // 不要拼 $"perk.detail.{...}" —— 拼出来的会被 StringsTableTests 判成孤儿。
             PerkEffect.OverhealDamagePercent =>
@@ -178,54 +169,10 @@ namespace Brushblade.Presentation
                 Strings.T("perk.detail.morale_on_crit", ("value", def.Value)),
             PerkEffect.SummonDeathHealPercent =>
                 Strings.T("perk.detail.summon_death_heal", ("value", def.Value)),
-            PerkEffect.ShieldReflectPercent =>
-                Strings.T("perk.detail.shield_reflect", ("value", def.Value)),
-            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底,理论不可达(21 个 case 已穷举 PerkEffect 全部成员)
+            _ => Strings.T("perk.info.effect.generic", ("value", def.Value)), // 兜底:2026-10-02 新增的效果说明尚未补齐,暂落这里
         };
 
         private static string ElementNameOf(PerkNodeDef def) =>
             def.Element is { } el ? CharInfo.ElementName(el) : "";
-
-        // 下面四个:「加成前 → 加成后」的每一个数字都从 BattleConfig 的常量 + def.Value 现算,
-        // 不手算焊死(2026-09-07 收尾波修复项——review 抓到旧版把换算结果焊成字面文本,
-        // 策划调 Core/Perk.cs 里 AddWuxing 的数值会被弹窗静默显示旧数字)。
-
-        private static string MoraleCapText(PerkNodeDef def)
-        {
-            int b = BattleConfig.BaseMoraleCap;
-            int after = b + def.Value;
-            int rate = BattleConfig.MoralePercentPerStack;
-            return Strings.T("perk.detail.morale_cap",
-                ("rate", rate), ("base", b), ("after", after),
-                ("basePct", b * rate), ("afterPct", after * rate));
-        }
-
-        private static string HeftCapText(PerkNodeDef def)
-        {
-            int b = BattleConfig.BaseHeftCap;
-            int after = b + def.Value;
-            int rate = BattleConfig.HeftPercentPerStack;
-            return Strings.T("perk.detail.heft_cap",
-                ("base", b), ("after", after), ("basePct", b * rate), ("afterPct", after * rate));
-        }
-
-        private static string WellspringCapText(PerkNodeDef def)
-        {
-            int b = BattleConfig.BaseWellspringCap;
-            int after = b + def.Value;
-            int rate = BattleConfig.WellspringPercentPerStack;
-            return Strings.T("perk.detail.wellspring_cap",
-                ("base", b), ("after", after), ("basePct", b * rate), ("afterPct", after * rate));
-        }
-
-        private static string BurnPerStackText(PerkNodeDef def)
-        {
-            int b = BattleConfig.BaseBurnPerStack;
-            int after = b + def.Value;
-            double multiplier = (double)after / b;
-            return Strings.T("perk.detail.burn_per_stack",
-                ("base", b), ("after", after), ("value", def.Value),
-                ("multiplier", multiplier.ToString("0.0")));
-        }
     }
 }

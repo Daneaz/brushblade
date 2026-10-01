@@ -32,21 +32,21 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 0 };
             int baseline = Build(meta).PlayerMaxHp;
-            meta.UnlockedPerks.Add("vigor_1"); // +100
-            meta.UnlockedPerks.Add("vigor_2"); // +200
-            Assert.That(Build(meta).PlayerMaxHp, Is.EqualTo(baseline + 300));
+            meta.UnlockedPerks.Add("vigor_1"); // 300
+            meta.UnlockedPerks.Add("vigor_2"); // 500(不叠加,取最高档)
+            Assert.That(Build(meta).PlayerMaxHp, Is.EqualTo(baseline + 500));
         }
 
-        /// <summary>满点三层 = +600,与被换掉的「养元」6 级持平 —— 平衡锚点没动。</summary>
+        /// <summary>被动树不叠加(2026-10-02 用户拍板):满点三层 = 最高档 +1000,不是三层之和。</summary>
         [Test]
-        public void VigorBranch_FullyOwnedMatchesTheOldYangyuanTotal()
+        public void VigorBranch_FullyOwnedTakesTheTopTier()
         {
             var meta = new MetaState { CharacterXp = 0 };
             int baseline = Build(meta).PlayerMaxHp;
             meta.UnlockedPerks.Add("vigor_1");
             meta.UnlockedPerks.Add("vigor_2");
             meta.UnlockedPerks.Add("vigor_3");
-            Assert.That(Build(meta).PlayerMaxHp, Is.EqualTo(baseline + 600));
+            Assert.That(Build(meta).PlayerMaxHp, Is.EqualTo(baseline + 1000));
         }
 
         /// <summary>暴击率只能靠技能与字给 —— MetaRules 没有 CritFor 曲线(2026-08-12 用户裁定)。</summary>
@@ -58,7 +58,7 @@ namespace Brushblade.Core.Tests
             meta.UnlockedPerks.Add("edge_1");
             meta.UnlockedPerks.Add("edge_2");
             meta.UnlockedPerks.Add("edge_3");
-            Assert.That(Build(meta).PlayerCritChance, Is.EqualTo(30));
+            Assert.That(Build(meta).PlayerCritChance, Is.EqualTo(15), "不叠加,取最高档");
         }
 
         [Test]
@@ -66,40 +66,20 @@ namespace Brushblade.Core.Tests
         {
             var meta = new MetaState { CharacterXp = 0 };
             int baseline = Build(meta).PlayerDefense;
-            meta.UnlockedPerks.Add("guard_1"); // +10
-            meta.UnlockedPerks.Add("guard_2"); // +15
-            meta.UnlockedPerks.Add("guard_3"); // +25
-            Assert.That(Build(meta).PlayerDefense, Is.EqualTo(baseline + 50));
+            meta.UnlockedPerks.Add("guard_1"); // 10
+            meta.UnlockedPerks.Add("guard_2"); // 15
+            meta.UnlockedPerks.Add("guard_3"); // 25(不叠加,取最高档)
+            Assert.That(Build(meta).PlayerDefense, Is.EqualTo(baseline + 25));
         }
 
-        /// <summary>2026-09-16 随护甲百分比化抬升:guard 三层累计 50 点 = DR 33%。</summary>
+        /// <summary>一气(AP)2026-10-02 起改为调息(胜利回血),qi 枝不再动 AP。</summary>
         [Test]
-        public void GuardBranch_TotalsFiftyPoints()
-        {
-            int total = 0;
-            foreach (var n in PerkRules.Nodes)
-                if (n.Branch == "guard") total += n.Value;
-            Assert.That(total, Is.EqualTo(50), "guard 三层累计 50 点 = 33% 减伤");
-        }
-
-        [Test]
-        public void QiBranch_RaisesApPerTurn()
+        public void QiBranch_NoLongerRaisesApPerTurn()
         {
             var meta = new MetaState { CharacterXp = 0 };
             meta.UnlockedPerks.Add("qi_1");
-            Assert.That(Build(meta).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn + 1));
             meta.UnlockedPerks.Add("qi_2");
-            Assert.That(Build(meta).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn + 2));
-        }
-
-        /// <summary>一气封顶 2 层是硬平衡线:表里不许出现第三层。</summary>
-        [Test]
-        public void QiBranch_IsCappedAtTwoNodes()
-        {
-            int qiNodes = 0;
-            foreach (var def in PerkRules.Nodes)
-                if (def.Branch == "qi") qiNodes++;
-            Assert.That(qiNodes, Is.EqualTo(2), "AP 上限 2 是硬平衡线(19.2.3)");
+            Assert.That(Build(meta).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn));
         }
 
         /// <summary>金汤已废止:表里不许再有产出护盾的节点。</summary>
@@ -121,19 +101,21 @@ namespace Brushblade.Core.Tests
             int baseCap = MetaRules.LibraryCapacityFor(meta);
             meta.UnlockedPerks.Add("lore_1");
             Assert.That(MetaRules.LibraryCapacityFor(meta), Is.EqualTo(baseCap + 1));
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.StartingCards), Is.EqualTo(0),
+            Assert.That(MetaRules.StartingHandSizeFor(meta), Is.EqualTo(MetaRules.StartingLibrarySize),
                 "博闻不该动起手张数");
         }
 
-        /// <summary>「广纳」只加起手张数。</summary>
+        /// <summary>「广纳」2026-10-02 起改为空库掉字 +1,不再动起手张数与字库容量。</summary>
         [Test]
-        public void WideBranch_RaisesStartingCardsOnly()
+        public void WideBranch_GivesEmptyLibraryDrawsOnly()
         {
             var meta = new MetaState { CharacterXp = 0 };
+            int baseCap = MetaRules.LibraryCapacityFor(meta);
             meta.UnlockedPerks.Add("wide_1");
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.StartingCards), Is.EqualTo(1));
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.LibraryCapacity), Is.EqualTo(0),
-                "广纳不该动字库容量");
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.EmptyLibraryDraws), Is.EqualTo(1));
+            Assert.That(MetaRules.StartingHandSizeFor(meta), Is.EqualTo(MetaRules.StartingLibrarySize),
+                "广纳不再加起手");
+            Assert.That(MetaRules.LibraryCapacityFor(meta), Is.EqualTo(baseCap), "广纳不该动字库容量");
         }
 
         // ---- 被动树:力枝 ----
@@ -145,26 +127,13 @@ namespace Brushblade.Core.Tests
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(100), "夹具自检");
             meta.UnlockedPerks.Add("power_1"); // +5%
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(105));
-            meta.UnlockedPerks.Add("power_2"); // 累计 +15%
+            meta.UnlockedPerks.Add("power_2"); // 不叠加:取最高档 +10%
+            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(110));
+            meta.UnlockedPerks.Add("power_3"); // +15%
             Assert.That(Build(meta).PlayerAttack, Is.EqualTo(115));
-            meta.UnlockedPerks.Add("power_3"); // 累计 +30%
-            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(130));
         }
 
-        /// <summary>百分比是加算后一次性乘,不是逐层复利 —— 1.05×1.10×1.15 = 1.328 ≠ 1.30。
-        /// 复利会让第三层悄悄比标称值强,而没有任何断言会红。</summary>
-        [Test]
-        public void PowerBranch_IsAdditiveNotCompounding()
-        {
-            var meta = new MetaState { CharacterXp = 0 };
-            meta.UnlockedPerks.Add("power_1");
-            meta.UnlockedPerks.Add("power_2");
-            meta.UnlockedPerks.Add("power_3");
-            Assert.That(Build(meta).PlayerAttack, Is.EqualTo(130));
-            Assert.That(Build(meta).PlayerAttack, Is.Not.EqualTo(132));
-        }
-
-        // ---- 五行 L4:四个天花板 ----
+        // ---- 五行 L4:2026-10-02 起不再抬四个上限(断金/涌泉/燎原/积土改为新机制)----
 
         [Test]
         public void EmptySave_KeepsEveryCapAtItsCurrentValue()
@@ -177,125 +146,93 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void MetalTierFour_RaisesMoraleCapOnly()
+        public void TierFourNodes_NoLongerRaiseAnyCap()
         {
             var meta = new MetaState();
             meta.UnlockedPerks.Add("metal_4");
-            var cfg = Build(meta);
-            Assert.That(cfg.MoraleCap, Is.EqualTo(7));
-            Assert.That(cfg.HeftCap, Is.EqualTo(10));
-            Assert.That(cfg.WellspringCap, Is.EqualTo(10));
-            Assert.That(cfg.BurnPerStack, Is.EqualTo(20));
-        }
-
-        /// <summary>厚与泉共用 MaxResourceStacks 与 GainStacks —— 这两条守着那个陷阱。
-        /// 点水脉不许抬高厚的上限,点土脉不许抬高泉的上限。</summary>
-        [Test]
-        public void WaterTierFour_DoesNotRaiseTheHeftCap()
-        {
-            var meta = new MetaState();
             meta.UnlockedPerks.Add("water_4");
-            var cfg = Build(meta);
-            Assert.That(cfg.WellspringCap, Is.EqualTo(14));
-            Assert.That(cfg.HeftCap, Is.EqualTo(10), "厚与泉共用常量,拆分没做干净");
-        }
-
-        [Test]
-        public void EarthTierFour_DoesNotRaiseTheWellspringCap()
-        {
-            var meta = new MetaState();
+            meta.UnlockedPerks.Add("fire_4");
             meta.UnlockedPerks.Add("earth_4");
             var cfg = Build(meta);
-            Assert.That(cfg.HeftCap, Is.EqualTo(14));
-            Assert.That(cfg.WellspringCap, Is.EqualTo(10), "厚与泉共用常量,拆分没做干净");
-        }
-
-        [Test]
-        public void FireTierFour_RaisesBurnPerStack()
-        {
-            var meta = new MetaState();
-            meta.UnlockedPerks.Add("fire_4");
-            Assert.That(Build(meta).BurnPerStack, Is.EqualTo(28));
+            Assert.That(cfg.MoraleCap, Is.EqualTo(5), "断金不再抬战意上限");
+            Assert.That(cfg.HeftCap, Is.EqualTo(10), "积土不再抬厚上限");
+            Assert.That(cfg.WellspringCap, Is.EqualTo(10), "涌泉不再抬泉上限");
+            Assert.That(cfg.BurnPerStack, Is.EqualTo(20), "燎原不再抬灼烧每层");
         }
 
         // 木脉 L4(择伐,2026-09-13)的三条注入守卫搬去了 CounterTargetingTests ——
         // 那边还顺带钉住了「配置有没有被引擎读走」这一段。
 
-        // ---- 五行 L2:五条各系专属机制(spec 2026-09-13 §3.3)----
+        // ---- 五行 L3:各系专属机制(spec 2026-09-13 §3.3;2026-10-02 由 L2 挪到 L3)----
         // 每条两侧都断:本系点亮 → 本字段变;别系点亮 → 本字段不变。
         // ElementBonus 的第三个参数传错系既不会编译错、也不会有别的测试自然变红,
         // 这一组是唯一的守卫。
 
         [Test]
-        public void EmptySave_LeavesAllFiveTierTwoFieldsAtZero()
+        public void EmptySave_LeavesTierThreeFieldsAtZero()
         {
             var cfg = Build(new MetaState());
-            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "水脉 L2 未点");
-            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "火脉 L2 未点");
-            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "金脉 L2 未点");
-            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "木脉 L2 未点");
-            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "土脉 L2 未点");
+            Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "水脉 L3 未点");
+            Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "火脉 L3 未点");
+            Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "金脉 L3 未点");
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "木脉 L3 未点");
         }
 
         [Test]
-        public void WaterTierTwo_SetsOverhealDamageOnly()
+        public void WaterTierThree_SetsOverhealDamageOnly()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("water_2");
+            meta.UnlockedPerks.Add("water_3");
             var cfg = Build(meta);
             Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(50));
             Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
             Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "串系了");
-            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
         }
 
         [Test]
-        public void FireTierTwo_SetsBurnSpreadOnly()
+        public void FireTierThree_SetsBurnSpreadOnly()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("fire_2");
+            meta.UnlockedPerks.Add("fire_3");
             var cfg = Build(meta);
             Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(100));
             Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
             Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "串系了");
-            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
         }
 
         [Test]
-        public void MetalTierTwo_SetsMoraleOnCritOnly()
+        public void MetalTierThree_SetsMoraleOnCritOnly()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("metal_2");
+            meta.UnlockedPerks.Add("metal_3");
             var cfg = Build(meta);
             Assert.That(cfg.MoraleOnCrit, Is.EqualTo(1));
             Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "串系了");
-            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
         }
 
         [Test]
-        public void WoodTierTwo_SetsSummonDeathHealOnly()
+        public void WoodTierThree_SetsSummonDeathHealOnly()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("wood_2");
+            meta.UnlockedPerks.Add("wood_3");
             var cfg = Build(meta);
-            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(20));
+            Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(30));
             Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
-            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(0), "串系了");
         }
 
         [Test]
-        public void EarthTierTwo_SetsShieldReflectOnly()
+        public void EarthTierThree_DoesNotLeakIntoOtherBranches()
         {
+            // 固本(ShieldCarryPercent)的注入断言在 Task 7 补;这里只守串系
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("earth_2");
+            meta.UnlockedPerks.Add("earth_3");
             var cfg = Build(meta);
-            Assert.That(cfg.ShieldReflectPercent, Is.EqualTo(20));
             Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");
@@ -303,14 +240,14 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void TierTwoNodes_DoNotDisturbTierFourFields()
+        public void TierThreeNodes_DoNotDisturbCapsOrCounterTargeting()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("metal_2");
-            meta.UnlockedPerks.Add("wood_2");
-            meta.UnlockedPerks.Add("water_2");
-            meta.UnlockedPerks.Add("fire_2");
-            meta.UnlockedPerks.Add("earth_2");
+            meta.UnlockedPerks.Add("metal_3");
+            meta.UnlockedPerks.Add("wood_3");
+            meta.UnlockedPerks.Add("water_3");
+            meta.UnlockedPerks.Add("fire_3");
+            meta.UnlockedPerks.Add("earth_3");
             var cfg = Build(meta);
             Assert.That(cfg.MoraleCap, Is.EqualTo(5), "战意上限仍是现值");
             Assert.That(cfg.HeftCap, Is.EqualTo(10), "厚上限仍是现值");

@@ -145,7 +145,7 @@ namespace Brushblade.Presentation
                 Name = Strings.T("player.detail.perk_ap_name"),
                 Desc = Strings.T("player.detail.perk_ap_desc",
                     ("level", BranchLevel(meta, "qi")),
-                    ("value", MetaRules.BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap))),
+                    ("value", MetaRules.BaseApPerTurn)),
             });
             list.Add(new AbilityEntry
             {

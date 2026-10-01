@@ -29,7 +29,9 @@ namespace Brushblade.Core.Tests
         public void BuildBattleConfig_FillsOnlyTheOwnedElement()
         {
             var meta = new MetaState();
-            meta.UnlockedPerks.Add("fire_3"); // 火系字效果 +15%
+            meta.UnlockedPerks.Add("fire_2_s1"); // 火系字效果 +5%
+            meta.UnlockedPerks.Add("fire_2_s2"); // +5%
+            meta.UnlockedPerks.Add("fire_2_s3"); // +5%(合计 +15%)
             var cfg = MetaRules.BuildBattleConfig(meta, System.Array.Empty<string>());
             Assert.That(cfg.ElementEffectPercent[(int)Element.Fire], Is.EqualTo(15));
             Assert.That(cfg.ElementEffectPercent[(int)Element.Water], Is.EqualTo(0),

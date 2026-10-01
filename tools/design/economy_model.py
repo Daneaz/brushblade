@@ -70,11 +70,12 @@ INK_MUL = arr("InkMultiplier", "Meta.cs")
 
 def perk_total():
     w, p, m = (arr(n, "Perk.cs") for n in ("WuxingCosts", "PassiveCosts", "MechanicCosts"))
+    staged = table("StagedCosts =", "Perk.cs")  # 带 " =" 定位声明,注释里也出现过这个名字
     src = _src("Perk.cs")
-    fixed = [int(x) for x in re.findall(r"MechanicGates\[\d\],\s*(\d+),\s*PerkEffect\.Ap", src)]  # 一气
     cross = [int(x) for x in re.findall(r"inkCost:\s*(\d+)", src)]
-    # 五行 5 枝 × 4 层、被动 4 枝 × 3 层、机制 lore/wide/insight 三枝走 MechanicCosts
-    return 5 * sum(w) + 4 * sum(p) + 3 * sum(m) + sum(fixed) + sum(cross)
+    # 2026-10-02:五行 5 枝 = L1/L2 三段(StagedCosts)+ L3/L4 单段(WuxingCosts[2:]);
+    # 被动 4 枝 × 3 层;机制四枝统一走 MechanicCosts(一气特价随 AP 取消)
+    return 5 * (sum(map(sum, staged)) + sum(w[2:])) + 4 * sum(p) + 4 * sum(m) + sum(cross)
 
 
 PERK_TOTAL = perk_total()

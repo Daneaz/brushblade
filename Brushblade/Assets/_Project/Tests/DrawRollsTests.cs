@@ -96,48 +96,14 @@ namespace Brushblade.Core.Tests
                     $"下标 {i}:空存档下必须与旧实现选出同一张字");
         }
 
-        /// <summary>金脉 L1 只抬高**金**那一格的抽取次数,其余四系仍是 1 次。
-        ///
-        /// ⚠ 这里刻意**不**断言「其余四格选出同一张字」——那在既有架构下不可能成立:
-        /// 五格共用同一根顺序推进的 GameRandom,金格多摇一次会把后面几格的流位置整体挪位。
-        /// 但那几格仍然是「该系按 RarityWeights 抽一张」,**分布一字未变**,变的只是同一分布下
-        /// 取到的样本 —— 那是共享随机流的正常性质,不是串系。真正守「没点技能就什么都没变」的
-        /// 是 <see cref="StartingLibrary_IsUnchangedOnAnEmptySave"/>。</summary>
+        /// <summary>慧眼 2026-10-02 起改为战利品候选 +1,不再给起手抽取次数(DrawRolls 只剩博采)。</summary>
         [Test]
-        public void MetalTierOne_GivesOnlyTheMetalSlotAnExtraRoll()
-        {
-            var meta = new MetaState();
-            meta.UnlockedPerks.Add("metal_1");
-            int global = PerkRules.Bonus(meta, PerkEffect.DrawRolls);
-            Assert.That(global, Is.EqualTo(0), "金脉 L1 不是全局加成");
-
-            Assert.That(1 + global + PerkRules.ElementBonus(
-                meta, PerkEffect.ElementDrawRolls, Element.Metal), Is.EqualTo(2), "金");
-            foreach (var element in new[] { Element.Wood, Element.Water,
-                                            Element.Fire, Element.Earth })
-                Assert.That(1 + global + PerkRules.ElementBonus(
-                    meta, PerkEffect.ElementDrawRolls, element), Is.EqualTo(1),
-                    $"{element} 不该被金脉影响");
-        }
-
-        [Test]
-        public void Insight_AffectsEverySlot()
+        public void Insight_NoLongerGivesDrawRolls()
         {
             var meta = new MetaState();
             meta.UnlockedPerks.Add("insight_1");
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.DrawRolls), Is.EqualTo(1));
-        }
-
-        /// <summary>专精 + 全局叠加 = 抽 3 次(1 基础 + 1 五行 L1 + 1 慧眼)。</summary>
-        [Test]
-        public void ElementAndGlobalRolls_Stack()
-        {
-            var meta = new MetaState();
-            meta.UnlockedPerks.Add("metal_1");
-            meta.UnlockedPerks.Add("insight_1");
-            int rolls = 1 + PerkRules.Bonus(meta, PerkEffect.DrawRolls)
-                + PerkRules.ElementBonus(meta, PerkEffect.ElementDrawRolls, Element.Metal);
-            Assert.That(rolls, Is.EqualTo(3));
+            meta.UnlockedPerks.Add("insight_2");
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.DrawRolls), Is.EqualTo(0));
         }
     }
 }
