@@ -107,11 +107,11 @@ namespace Brushblade.Presentation
             go.name = "Afterimage";
             foreach (Transform child in go.transform) if (child.name == "Chip") Destroy(child.gameObject);
             foreach (var g in go.GetComponentsInChildren<Graphic>(true)) g.raycastTarget = false;
-            var layout = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
+            var layout = go.TryGetComponent<LayoutElement>(out var existingLayout) ? existingLayout : go.AddComponent<LayoutElement>();
             layout.ignoreLayout = true;
             var canvas = go.GetComponent<Canvas>();
             if (canvas != null) Destroy(canvas);   // 冲刺置顶那个临时 Canvas 别跟着复制过来
-            var group = go.GetComponent<CanvasGroup>() ?? go.AddComponent<CanvasGroup>();
+            var group = go.TryGetComponent<CanvasGroup>(out var existingGroup) ? existingGroup : go.AddComponent<CanvasGroup>();
             group.alpha = 0.35f;
             group.blocksRaycasts = false;
             StartCoroutine(FadeGroup(go, group, 0.26f));

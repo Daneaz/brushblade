@@ -334,9 +334,9 @@ namespace Brushblade.Presentation
             var ghost = Instantiate(attacker.gameObject, _shakeTarget, true);
             ghost.name = "EchoGhost";
             foreach (var g in ghost.GetComponentsInChildren<Graphic>(true)) g.raycastTarget = false;
-            var layout = ghost.GetComponent<LayoutElement>() ?? ghost.AddComponent<LayoutElement>();
+            var layout = ghost.TryGetComponent<LayoutElement>(out var existingLayout) ? existingLayout : ghost.AddComponent<LayoutElement>();
             layout.ignoreLayout = true;
-            var group = ghost.GetComponent<CanvasGroup>() ?? ghost.AddComponent<CanvasGroup>();
+            var group = ghost.TryGetComponent<CanvasGroup>(out var existingGroup) ? existingGroup : ghost.AddComponent<CanvasGroup>();
             group.alpha = 0.45f;
             group.blocksRaycasts = false;
             var gr = (RectTransform)ghost.transform;
