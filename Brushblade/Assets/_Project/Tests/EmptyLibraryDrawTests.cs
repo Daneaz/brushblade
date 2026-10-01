@@ -27,7 +27,7 @@ namespace Brushblade.Core.Tests
         public void EmptyLibrary_DrawsExtra(int extra, int expected)
         {
             var e = Engine(extra, new[] { "刀" });
-            while (e.Library.Count > 0) e.Cast("刀", 0); // 打空(构造时的开局掉字也算在内)
+            for (int i = 0; i < 20 && e.Library.Count > 0; i++) e.Cast("刀", 0); // 打空(构造时的开局掉字也算在内)
             Assert.That(e.Library.Count, Is.EqualTo(0));
             e.EndTurn();
             Assert.That(e.Library.Count, Is.EqualTo(expected));
