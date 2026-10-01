@@ -74,7 +74,8 @@ namespace Brushblade.Core
         public static IReadOnlyList<string> GetOrCreateOffer(MetaState meta, int level,
             IReadOnlyList<string> cardPool, RecipeGraph graph, GameRandom random)
         {
-            if (meta.MilestoneOffers.TryGetValue(level, out var existing)) return existing;
+            if (!IsClaimable(meta, level)) return new List<string>();
+            if (meta.MilestoneOffers.TryGetValue(level, out var existing) && existing.Count > 0) return existing;
             var def = ForLevel(level);
             var offer = new List<string>();
             if (def.HasValue)
@@ -90,7 +91,7 @@ namespace Brushblade.Core
                     candidates.RemoveAt(i);
                 }
             }
-            meta.MilestoneOffers[level] = offer;
+            if (offer.Count > 0) meta.MilestoneOffers[level] = offer; // 空候选不落档,否则红点永亮
             return offer;
         }
 

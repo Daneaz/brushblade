@@ -75,6 +75,36 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Offer_NoCardOfRarity_NotStored_ThenRegeneratesWhenPoolHasOne()
+        {
+            var meta = AtLevel(5); // Lv.5 = 蓝
+            var empty = MilestoneRules.GetOrCreateOffer(meta, 5, new[] { "p1", "g1" }, Graph(), new GameRandom(1));
+            Assert.That(empty.Count, Is.EqualTo(0));
+            Assert.That(meta.MilestoneOffers.ContainsKey(5), Is.False);
+
+            var later = MilestoneRules.GetOrCreateOffer(meta, 5, new[] { "b1" }, Graph(), new GameRandom(1));
+            Assert.That(later, Is.EqualTo(new List<string> { "b1" }));
+        }
+
+        [Test]
+        public void Offer_StoredEmpty_IsTreatedAsMissing()
+        {
+            var meta = AtLevel(5);
+            meta.MilestoneOffers[5] = new List<string>();
+            var offer = MilestoneRules.GetOrCreateOffer(meta, 5, Pool, Graph(), new GameRandom(7));
+            Assert.That(offer.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Offer_UnreachedLevel_EmptyAndNotStored()
+        {
+            var meta = AtLevel(4);
+            var offer = MilestoneRules.GetOrCreateOffer(meta, 5, Pool, Graph(), new GameRandom(7));
+            Assert.That(offer.Count, Is.EqualTo(0));
+            Assert.That(meta.MilestoneOffers.ContainsKey(5), Is.False);
+        }
+
+        [Test]
         public void Offer_SecondCall_SameAndNoRandomUse()
         {
             var meta = AtLevel(5);
