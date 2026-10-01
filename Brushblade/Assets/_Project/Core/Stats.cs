@@ -21,4 +21,21 @@ namespace Brushblade.Core
         public int InkSpent { get; set; }
         public int AdRewards { get; set; }
     }
+
+    /// <summary>统计累加(spec 2026-10-02 §4)。纯函数,状态进出。</summary>
+    public static class StatsRules
+    {
+        public static void RecordChestOpened(MetaState meta, ChestTier tier,
+            IReadOnlyList<CardRarity> rarities, IReadOnlyList<int> counts)
+        {
+            var stats = meta.Stats;
+            stats.ChestsOpened.TryGetValue(tier, out int opened);
+            stats.ChestsOpened[tier] = opened + 1;
+            for (int i = 0; i < rarities.Count; i++)
+            {
+                stats.CardsFromChests.TryGetValue(rarities[i], out int n);
+                stats.CardsFromChests[rarities[i]] = n + counts[i];
+            }
+        }
+    }
 }

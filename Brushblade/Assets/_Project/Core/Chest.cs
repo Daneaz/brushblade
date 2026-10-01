@@ -254,6 +254,16 @@ namespace Brushblade.Core
                 MetaRules.AcquireCard(meta, cards[i]);
                 if (counts[i] > 1) MetaRules.AddCardCopies(meta, cards[i], counts[i] - 1);
             }
+            // 开箱统计(2026-10-02 角色页):graph 为 null 的老调用点查不到稀有度,只记箱数
+            var rarities = new List<CardRarity>(cards.Count);
+            var rarityCounts = new List<int>(cards.Count);
+            if (graph != null)
+                for (int i = 0; i < cards.Count; i++)
+                {
+                    rarities.Add(graph.Get(cards[i]).Rarity);
+                    rarityCounts.Add(counts[i]);
+                }
+            StatsRules.RecordChestOpened(meta, chest.Tier, rarities, rarityCounts);
             meta.Chests.RemoveAt(index);
 
             rewards = new ChestRewards(ink, cards, counts);

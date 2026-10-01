@@ -55,5 +55,51 @@ namespace Brushblade.Core.Tests
             Assert.That(back.LastSeenLevel, Is.EqualTo(0));
             Assert.That(back.Stats.Climbs, Is.EqualTo(0));
         }
+
+        private sealed class FakeTime : ITimeSource
+        {
+            public long NowUnixSeconds { get; set; } = 1_000_000;
+        }
+
+        private static RecipeGraph RarityGraph() => new(new[]
+        {
+            new CharDef("c1", Element.Fire),
+            new CharDef("c2", Element.Water),
+            new CharDef("w1", Element.Fire, new[] { "c1", "c2" }, rarity: CardRarity.White),
+            new CharDef("g1", Element.Fire, new[] { "c1", "c2" }, rarity: CardRarity.Green),
+            new CharDef("b1", Element.Fire, new[] { "c1", "c2" }, rarity: CardRarity.Blue),
+        });
+
+        [Test]
+        public void TryOpen_RecordsTierAndCardCountsByRarity()
+        {
+            var time = new FakeTime();
+            var meta = new MetaState();
+            var graph = RarityGraph();
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, new[] { "w1", "g1", "b1" }, time);
+            ChestRules.TryStartOpening(meta, 0, time);
+            time.NowUnixSeconds += ChestRules.DurationSeconds[(int)ChestTier.Bamboo - 1];
+
+            Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(3), out var rewards, graph), Is.True);
+
+            Assert.That(meta.Stats.ChestsOpened[ChestTier.Bamboo], Is.EqualTo(1));
+            int total = 0;
+            foreach (var kv in meta.Stats.CardsFromChests) total += kv.Value;
+            int expected = 0;
+            foreach (var c in rewards.Counts) expected += c;
+            Assert.That(total, Is.EqualTo(expected), "按张数计,不是按捆数");
+            for (int i = 0; i < rewards.Cards.Count; i++)
+                Assert.That(meta.Stats.CardsFromChests.ContainsKey(graph.Get(rewards.Cards[i]).Rarity), Is.True);
+        }
+
+        [Test]
+        public void TryOpen_NotReady_RecordsNothing()
+        {
+            var time = new FakeTime();
+            var meta = new MetaState();
+            ChestRules.TryAwardChest(meta, ChestTier.Bamboo, new[] { "w1" }, time);
+            Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(3), out _, RarityGraph()), Is.False);
+            Assert.That(meta.Stats.ChestsOpened.Count, Is.EqualTo(0));
+        }
     }
 }
