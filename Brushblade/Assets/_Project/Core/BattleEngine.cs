@@ -226,6 +226,12 @@ namespace Brushblade.Core
         /// <summary>木脉 L2「归根」:召唤物阵亡时,玩家回复该召唤物最大生命的 N%。0 = 未点亮。</summary>
         public int SummonDeathHealPercent { get; set; }
 
+        /// <summary>五行 L1(2026-10-02)。只对打出那张字的元素 = 本系生效,缺省 0 = 逐字节恒等。</summary>
+        public int MetalCritChance { get; set; }   // 砺刃:金系字暴击率 +N 百分点
+        public int SummonHpPercent { get; set; }   // 深根:木系字召唤物生命 +N%
+        public int HealPercent { get; set; }       // 甘霖:水系字治疗量 +N%
+        public int ShieldPercent { get; set; }     // 筑垒:土系字护盾量 +N%
+
         /// <summary>土脉 L2「反震」:被护盾吸掉的伤害按 N% 反弹给攻击者。0 = 未点亮。
         /// **不并入「镜」的 60% 总量钳**:镜按打过来的总伤害折返,反震按被护盾吸掉的量
         /// 折返,基数不同不能并轴;反震自己被护盾存量天然限制住。</summary>
@@ -571,6 +577,23 @@ namespace Brushblade.Core
         /// 存档边界(spec §3.4)。</summary>
         private bool _critMoraleGrantedThisCast;
 
+        // 砺刃:本次出字的额外暴击率。ApplyEffects 进门时按字的元素设置、出门清零 ——
+        // 不进快照,它只活在一次 Cast 的同步调用里。
+        private int _castCritBonus;
+
+        private int ApplySpecialtyPercent(int value, Element attacker, EffectKind kind)
+        {
+            if (_config == null) return value;
+            int pct = (attacker, kind) switch
+            {
+                (Element.Water, EffectKind.HealSelf or EffectKind.HealAll or EffectKind.HealOverTime) => _config.HealPercent,
+                (Element.Earth, EffectKind.Shield or EffectKind.ShieldAll) => _config.ShieldPercent,
+                (Element.Wood, EffectKind.Summon) => _config.SummonHpPercent,
+                _ => 0,
+            };
+            return pct == 0 ? value : value * (100 + pct) / 100;
+        }
+
         /// <summary>玩家侧状态容器(HoT / 减伤,2026-08-04 统一迁入状态容器)。减伤 SourceId = 字
         /// ID,同字覆盖 = 只刷新不叠加;TurnsLeft = -1 段内持久,跨战斗携带见 RunEngine._carriedStatuses。</summary>
         private readonly StatusBag _playerStatuses = new();
@@ -721,7 +744,7 @@ namespace Brushblade.Core
         /// 暴击袋子,把它算进玩家战意会让木+金 build 白拿双份(spec §2.3)。</summary>
         private bool RollCrit()
         {
-            bool crit = RollCritWith(EffectiveCrit);
+            bool crit = RollCritWith(Math.Clamp(EffectiveCrit + _castCritBonus, 0, 100));
             if (crit) GrantMoraleFromCrit();
             return crit;
         }
@@ -2504,6 +2527,7 @@ namespace Brushblade.Core
         {
             _critMoraleGrantedThisCast = false;   // 金脉 L2「锋芒」:每张字至多兑现一层
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
+            _castCritBonus = attacker == Element.Metal ? (_config?.MetalCritChance ?? 0) : 0;
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
@@ -2533,12 +2557,15 @@ namespace Brushblade.Core
                 reviveTargetPending = true;
             }
 
+            try
+            {
             foreach (var effect in EffectsOf(def, attackMode))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
+                value = ApplySpecialtyPercent(value, attacker, effect.Kind);
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
@@ -3182,6 +3209,8 @@ namespace Brushblade.Core
                         break;
                 }
             }
+            }
+            finally { _castCritBonus = 0; }
         }
 
         /// <summary>玩家侧的「累加型计数器」状态(战意 / AP 上限加成,2026-08-12):

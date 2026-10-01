@@ -255,5 +255,20 @@ namespace Brushblade.Core.Tests
             Assert.That(cfg.BurnPerStack, Is.EqualTo(20), "灼烧每层仍是现值");
             Assert.That(cfg.CounterTargeting, Is.False, "择伐仍是关的");
         }
+    
+        [Test]
+        public void TierOneSpecialties_InjectPerElement()
+        {
+            var meta = new MetaState();
+            foreach (var id in new[] { "metal_1_s1", "metal_1_s2", "metal_1_s3", "wood_1_s1",
+                                       "water_1_s1", "water_1_s2", "earth_1_s1" })
+                meta.UnlockedPerks.Add(id);
+            var cfg = Build(meta);
+            Assert.That(cfg.MetalCritChance, Is.EqualTo(15));
+            Assert.That(cfg.SummonHpPercent, Is.EqualTo(10));
+            Assert.That(cfg.HealPercent, Is.EqualTo(20));
+            Assert.That(cfg.ShieldPercent, Is.EqualTo(10));
+            Assert.That(cfg.PlayerCritChance, Is.EqualTo(0), "砺刃不进全局暴击");
+        }
     }
 }
