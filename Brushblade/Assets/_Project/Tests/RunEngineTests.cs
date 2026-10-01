@@ -939,6 +939,27 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void ShieldCarry_PerkKeepsThreeQuarters()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, ShieldCarryPercent = 75 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: null,
+                startingNormalShield: 8);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(6), "8 × 75% = 6");
+        }
+
+        [Test]
+        public void ShieldCarry_DefaultMatchesOldHalving()
+        {
+            Assert.That(new BattleConfig().ShieldCarryPercent, Is.EqualTo(50));
+            Assert.That(5 * new BattleConfig().ShieldCarryPercent / 100, Is.EqualTo(5 / 2));
+        }
+
+        [Test]
         public void Shield_PerFloor_AddsEachBattle() // 金汤每关补盾:叠加上关剩余
         {
             var run = new RunEngine(Graph(), TwoBattles(),

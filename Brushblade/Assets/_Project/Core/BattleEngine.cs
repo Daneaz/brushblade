@@ -245,10 +245,9 @@ namespace Brushblade.Core
         /// <summary>燎原(火 L4,2026-10-02):敌人自己结算灼烧后仍有层数,向上下左右相邻存活敌人各 +1 层。缺省 false。</summary>
         public bool BurnSpreadAdjacent { get; set; }
 
-        /// <summary>土脉 L2「反震」:被护盾吸掉的伤害按 N% 反弹给攻击者。0 = 未点亮。
-        /// **不并入「镜」的 60% 总量钳**:镜按打过来的总伤害折返,反震按被护盾吸掉的量
-        /// 折返,基数不同不能并轴;反震自己被护盾存量天然限制住。</summary>
-        public int ShieldReflectPercent { get; set; }
+        /// <summary>战斗结束时护盾保留的百分比(玩家两桶与召唤物一致)。缺省 50 = 2026-09-05 的「打对折」;
+        /// 土脉 L3「固本」在其上 +25。整数除向下取整,50 时与旧的 /2 逐值相同。</summary>
+        public int ShieldCarryPercent { get; set; } = 50;
 
         /// <summary>同配置、只换血量上限的副本(局内上限奇遇用,2026-08-04)。
         /// 浅拷贝:调用方拿到独立实例,改它不会波及传进来的那份。</summary>
@@ -337,7 +336,6 @@ namespace Brushblade.Core
         Overheal,       // 水脉 L2「溢流」:治疗溢出折伤害
         Thorns,         // 召唤物被动反伤(荆/桂 的荆棘)
         Reflect,        // 反弹(镜/壁/圭 挂的 StatusKind.Reflect,玩家侧与召唤物侧两条管道)
-        ShieldReflect,  // 土脉 L2「反震」:护盾吸掉的量折返
         ArmorStrike,    // 镇压:按玩家有效护甲加码
         Embers,         // 火脉 L2「余烬」:Burn 事件,SecondIndex = 死者下标
         SummonDeathHeal,// 木脉 L2「归根」:Heal 事件,TargetIndex = 阵亡召唤物槽位
@@ -4285,25 +4283,6 @@ namespace Brushblade.Core
                         allowBarb: false,      // 同理也不算挥击:不触发铁画的反噬
                         source: EffectSource.Reflect);
             }
-
-            // 土脉 L2「反震」(2026-09-13):按**护盾实际吸掉的量**折返,与上面的「镜」
-            // (按打过来的总伤害折返)是两个基数,所以**不并进 MaxReflectPercent 那根
-            // 60% 总量钳** —— 并轴会把两个不同基数的百分比当成同一根轴相加。反震自己被
-            // 护盾存量天然限制住:吸不了就反不了。
-            //
-            // 跟着 allowReflect 一起 gate:false 的那条路径(铁画的反噬)本就不是敌人的
-            // 挥击,不该触发反震。
-            if (allowReflect && absorbed > 0
-                && _config != null && _config.ShieldReflectPercent > 0
-                && _enemies[enemyIndex].Alive)
-            {
-                int bouncedByShield = absorbed * _config.ShieldReflectPercent / 100;
-                if (bouncedByShield > 0)
-                    DamageEnemy(enemyIndex, bouncedByShield, Element.Heart,
-                        bypassDefense: true,   // 折返不是挥击,不吃敌人护甲
-                        allowBarb: false,      // 同理不算挥击,不触发铁画的反噬
-                        source: EffectSource.ShieldReflect);
-            }
             return true;
         }
 
@@ -4441,21 +4420,6 @@ namespace Brushblade.Core
                         source: EffectSource.Reflect);
             }
 
-            // 土脉 L2「反震」召唤物侧(2026-09-18 用户裁定「反震也要接召唤物身上」):前排有召唤物时
-            // 敌人打的是召唤物,玩家本人的盾吸不到伤害 —— 只接玩家那一路,带召唤物的土系 build 里反震
-            // 等于没点(与上面「镜」2026-08-08 接进这条路是同一条理由)。口径逐条照抄玩家侧
-            // DamagePlayerDirect:基数 = **护盾实际吸掉的量**、不进 MaxReflectPercent 那根钳、
-            // 排在镜之后、不吃护甲、不算挥击。SourceSlot 带这只召唤物,表现层从它身上砸回去。
-            if (absorbed > 0 && _config != null && _config.ShieldReflectPercent > 0
-                && _enemies[enemyIndex].Alive)
-            {
-                int bouncedByShield = absorbed * _config.ShieldReflectPercent / 100;
-                if (bouncedByShield > 0)
-                    DamageEnemy(enemyIndex, bouncedByShield, Element.Heart,
-                        bypassDefense: true,
-                        allowBarb: false,
-                        source: EffectSource.ShieldReflect, sourceSlot: summonIndex);
-            }
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。
             if (!summon.Alive) OnSummonDeath(summonIndex);

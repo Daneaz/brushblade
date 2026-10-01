@@ -200,6 +200,7 @@ namespace Brushblade.Core.Tests
             Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "火脉 L3 未点");
             Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "金脉 L3 未点");
             Assert.That(cfg.SummonDeathHealPercent, Is.EqualTo(0), "木脉 L3 未点");
+            Assert.That(cfg.ShieldCarryPercent, Is.EqualTo(50), "土脉 L3 未点");
         }
 
         [Test]
@@ -253,10 +254,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void EarthTierThree_DoesNotLeakIntoOtherBranches()
         {
-            // 固本(ShieldCarryPercent)的注入断言在 Task 7 补;这里只守串系
             var meta = new MetaState();
             meta.UnlockedPerks.Add("earth_3");
             var cfg = Build(meta);
+            Assert.That(cfg.ShieldCarryPercent, Is.EqualTo(75), "固本:50 + 25");
             Assert.That(cfg.OverhealDamagePercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.BurnSpreadPercent, Is.EqualTo(0), "串系了");
             Assert.That(cfg.MoraleOnCrit, Is.EqualTo(0), "串系了");

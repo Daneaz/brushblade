@@ -249,41 +249,10 @@ namespace Brushblade.Presentation
                         // 它不是挥击,和召唤物/字卡那一记挤在同帧就读不出先后。
                         // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
                         // 这里先停一拍 → 水飞过去 → 落地飘「溢流 N」+ 水花 + 掉血;之后召唤物出手再停一拍。
-                        // 反震(2026-09-18):敌人那一击砸在护盾上 → 停一拍 → 碎石从挡刀者处砸回攻击者。
-                        // TargetIndex 就是攻击者(反震只打出手的那只);SecondIndex ≥0 = 挡刀的召唤物槽位,
-                        // −1 = 玩家本人。
                         // 荆棘反伤(防守三拍的第三拍):先从挨打的召唤物身上射回攻击者,到了再飘字掉血
                         if (e.Source == EffectSource.Thorns && lastTank != null)
                             yield return ThornsFly(lastTank, enemyAnchor(e.TargetIndex),
                                 shieldWave: IsGuardian(lastTankState) && lastTankState.Char != "荆");
-                        if (e.Source == EffectSource.ShieldReflect)
-                        {
-                            if (serialPending) yield return Beat(StepGap);
-                            var quakeTarget = enemyAnchor(e.TargetIndex);
-                            if (quakeTarget != null)
-                            {
-                                FlyOrb(AnchorPoint(e.SecondIndex >= 0 ? summonAnchor?.Invoke(e.SecondIndex) : null),
-                                    quakeTarget.position,
-                                    Theme.GlyphColor(Element.Earth), RockPalette[1], 30f, square: true);
-                                yield return Beat(ProcFlyDuration);
-                            }
-                            Popup(DamageText(e), Theme.GlyphColor(Element.Earth), quakeTarget,
-                                sizeScale: Mathf.Clamp(1f + e.Amount / 50f, 1f, 1.9f));
-                            RockBurst(quakeTarget);
-                            Ring(quakeTarget, Theme.GlyphColor(Element.Earth));
-                            if (!kills) HitReact(quakeTarget, 0.8f);
-                            PlayClip(_thudClip, 0.8f, 0.85f); // 闷而沉:土
-                            HitStop(HitStopLight);
-                            if (quakeTarget != null) StartCoroutine(Shake(9f, AttackDir(quakeTarget)));
-                            onImpact?.Invoke(e);
-                            // ⚠ 清掉而不是记成 e.TargetIndex(2026-09-18 修):lastDamageTarget 是给
-                            // **多段**拉拍用的,记上的话,紧接着同一目标的召唤物攻击会被当成第二段,
-                            // 飞字落地后先干等一个 StepGap 才飘字掉血(用户报「林 的攻击落地后卡一下」)。
-                            // 这一记是独立的串行单位,自己的节拍由 serialPending 管。
-                            lastDamageTarget = int.MinValue;
-                            serialPending = true;
-                            break;
-                        }
                         if (e.Source == EffectSource.Overheal)
                         {
                             if (serialPending) yield return Beat(StepGap);
@@ -1290,7 +1259,6 @@ namespace Brushblade.Presentation
                 case EffectSource.Overheal: return Strings.T("juice.popup.source.overheal", ("amount", e.Amount));
                 case EffectSource.Thorns: return Strings.T("juice.popup.source.thorns", ("amount", e.Amount));
                 case EffectSource.Reflect: return Strings.T("juice.popup.source.reflect", ("amount", e.Amount));
-                case EffectSource.ShieldReflect: return Strings.T("juice.popup.source.shield_reflect", ("amount", e.Amount));
                 case EffectSource.ArmorStrike: return Strings.T("juice.popup.source.armor_strike", ("amount", e.Amount));
             }
             if (e.Crit && e.Ke) return Strings.T("juice.popup.ke_crit_damage", ("amount", e.Amount));
