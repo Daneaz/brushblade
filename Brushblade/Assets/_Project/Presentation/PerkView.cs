@@ -41,6 +41,8 @@ namespace Brushblade.Presentation
         private const int NodeRadius = 20;
         private const float NodeIconSize = 22f;
         private const int NodeNameSize = 13;
+        private const float StagePipSize = 5f;
+        private const float StagePipGap = 2f;
 
         private const float LineWidth = 3f;
         private const float DashRun = 10f;
@@ -155,8 +157,10 @@ namespace Brushblade.Presentation
             BuildHub(canvas.transform);
             BuildRoots(canvas.transform);
             int charLevel = MetaRules.CharacterLevel(_meta.CharacterXp);
-            foreach (var def in PerkRules.Nodes)
-                BuildNode(canvas.transform, def, charLevel);   // 节点在上
+            // 按节点画一次(2026-10-02):三段节点只画它的「当前段」(第一个未点亮的段,
+            // 全点亮则末段),StateOf / 详情弹窗 / 解锁都对着这一段 —— 段位点另画在名字下面。
+            foreach (var face in PerkRules.Faces)
+                BuildNode(canvas.transform, PerkRules.CurrentStage(_meta, face.NodeKey), charLevel);   // 节点在上
 
             _detailShown = _zoom >= DetailZoom;
             ApplyDetail(_detailShown);
@@ -242,7 +246,7 @@ namespace Brushblade.Presentation
         /// 连到某个具体节点是撒谎。</summary>
         private void BuildConnectors(Transform parent)
         {
-            foreach (var def in PerkRules.Nodes)
+            foreach (var def in PerkRules.Faces)
             {
                 var to = PerkLayout.Place(def);
                 // 跨树节点**一条连线都不画**(2026-09-08 用户裁定)。此前是从它所连两棵树的
@@ -260,13 +264,17 @@ namespace Brushblade.Presentation
                 if (def.Depth <= 1)
                 {
                     from = PerkLayout.RootPlace(def.Tree);
-                    lit = PerkRules.IsUnlocked(_meta, def.Id);
+                    lit = PerkRules.OwnedStageCount(_meta, def.NodeKey) > 0;
                 }
                 else
                 {
-                    var prev = PerkRules.Get($"{def.Branch}_{def.Depth - 1}");
+                    // ⚠ 上一层可能是三段节点(id 是 {branch}_{depth}_s1..s3,没有 {branch}_{depth}
+                    // 这个 id),按 NodeKey 取它的首段定位、按「已点亮任意一段」判亮 ——
+                    // 与 PerkRules.PrereqMet 的同枝推导同一口径(2026-10-02)。
+                    var prevKey = $"{def.Branch}_{def.Depth - 1}";
+                    var prev = PerkRules.StagesOf(prevKey)[0];
                     from = PerkLayout.Place(prev);
-                    lit = PerkRules.IsUnlocked(_meta, prev.Id);
+                    lit = PerkRules.OwnedStageCount(_meta, prevKey) > 0;
                 }
                 DrawLine(parent, from, to, lit ? BranchColor(def) : Theme.PanelBorder, dashed: false);
             }
@@ -349,13 +357,13 @@ namespace Brushblade.Presentation
             switch (state)
             {
                 case NodeState.Owned:
-                    var ownedOuter = Ui.OutlinedPanel(parent, $"Node_{def.Id}", soft, main, NodeRadius, 2f, out face);
+                    var ownedOuter = Ui.OutlinedPanel(parent, $"Node_{def.NodeKey}", soft, main, NodeRadius, 2f, out face);
                     cell = clickTarget = ownedOuter.gameObject;
                     break;
                 case NodeState.CanUnlock:
                     // 主色外发光(设计规格「白底 + 2px 主色描边 + 主色外发光」):
                     // Halo 贴一层比节点本体大 HaloPad 的光晕,再叠一张常规描边卡。
-                    var glowHost = Ui.Panel(parent, $"Node_{def.Id}");
+                    var glowHost = Ui.Panel(parent, $"Node_{def.NodeKey}");
                     var glow = Ui.Panel(glowHost.transform, "Glow");
                     var glowImage = glow.AddComponent<Image>();
                     glowImage.sprite = Theme.Halo(NodeRadius);
@@ -376,7 +384,7 @@ namespace Brushblade.Presentation
                 // (等级差几级、还差多少墨、缺哪一侧前置)。那是一次点击的距离,而画布要的是
                 // 「能点 / 不能点 / 已经点了」这一眼的层次。
                 default: // 未解锁(PoorInk / GatedPrereq / GatedLevel):纯灰底,不描边
-                    var levelPanel = Ui.CardPanel(parent, $"Node_{def.Id}", Theme.LockedBg, NodeRadius);
+                    var levelPanel = Ui.CardPanel(parent, $"Node_{def.NodeKey}", Theme.LockedBg, NodeRadius);
                     cell = clickTarget = levelPanel.gameObject;
                     face = levelPanel;
                     break;
@@ -406,6 +414,28 @@ namespace Brushblade.Presentation
 
             AddIcon(content.transform, PerkNodeIcons.KeyFor(def), gated ? Theme.LockGray : main);
             AddName(content.transform, PerkInfo.Name(def), gated ? Theme.LockGray : Theme.TextMain);
+            if (def.StageCount > 1)
+                AddStagePips(content.transform, PerkRules.OwnedStageCount(_meta, def.NodeKey), def.StageCount,
+                    gated ? Theme.LockGray : main);
+        }
+
+        /// <summary>三段节点的段位点(2026-10-02):实心 = 已点亮段,暗色 = 未点。
+        /// 点径 5、间距 2:节点内容区只有 48px 高,图标 22 + 名字一行之后剩得不多。
+        /// 与图标/名字一样进 <see cref="_detailBits"/>,缩到看不清时一起隐藏。</summary>
+        private void AddStagePips(Transform parent, int owned, int total, Color color)
+        {
+            var row = Ui.Row(parent, "Pips", StagePipGap);
+            Ui.Sized(row, height: StagePipSize);
+            for (int i = 0; i < total; i++)
+            {
+                var pip = Ui.Panel(row.transform, $"Pip{i}");
+                Ui.Sized(pip, width: StagePipSize, height: StagePipSize);
+                var image = pip.AddComponent<Image>();
+                image.sprite = Theme.Circle;
+                image.color = i < owned ? color : Theme.PaperDim;
+                image.raycastTarget = false;
+            }
+            _detailBits.Add(row);
         }
 
         /// <summary>节点里的那枚图标。PNG 取不到就回落成汉字徽章(<see cref="Icons.Fallback"/>)——
@@ -541,12 +571,13 @@ namespace Brushblade.Presentation
             go.AddComponent<RectMask2D>();
 
             float k = MinimapSize / PerkLayout.CanvasSize;
-            foreach (var def in PerkRules.Nodes)
+            // 一个节点一个点(三段节点不画三个点叠在同一处),点亮任意一段即上色
+            foreach (var def in PerkRules.Faces)
             {
-                var dot = Ui.Panel(go.transform, $"Dot_{def.Id}");
+                var dot = Ui.Panel(go.transform, $"Dot_{def.NodeKey}");
                 var image = dot.AddComponent<Image>();
                 image.sprite = Theme.Circle;
-                image.color = PerkRules.IsUnlocked(_meta, def.Id) ? BranchColor(def) : Theme.PaperDim;
+                image.color = PerkRules.OwnedStageCount(_meta, def.NodeKey) > 0 ? BranchColor(def) : Theme.PaperDim;
                 image.raycastTarget = false;
                 var dotRect = (RectTransform)dot.transform;
                 dotRect.anchorMin = dotRect.anchorMax = new Vector2(0.5f, 0.5f);

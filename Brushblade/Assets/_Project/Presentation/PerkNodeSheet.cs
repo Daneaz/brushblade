@@ -51,7 +51,11 @@ namespace Brushblade.Presentation
         ///
         /// 只在 footer 前塞一个 <c>flexibleHeight = 1</c> 的 spring **只解决普通节点那一半**:
         /// flexible 只撑不压,跨树的溢出照旧。滚动一次解决两头 —— 内容短就整段贴顶不滚,
-        /// 内容长就滚,而 footer 是内容容器的直接子物体,不在滚动区里,永远贴底可点。</summary>
+        /// 内容长就滚,而 footer 是内容容器的直接子物体,不在滚动区里,永远贴底可点。
+        ///
+        /// 三段节点(2026-10-02):<paramref name="def"/> 就是该节点的**当前段**(画布传进来的
+        /// <c>PerkRules.CurrentStage</c>),门槛 / 价格 / 解锁钮都对着这一段;效果段落印累计到
+        /// 本段的值(<see cref="PerkInfo.Desc"/>)。</summary>
         public static GameObject Show(Transform root, MetaState meta, PerkNodeDef def, Action onChanged)
         {
             // 高度传 0:紧接着这次 Anchor 会把卡片改锚成「右缘 SheetW 宽、上下铺满」,
@@ -65,7 +69,7 @@ namespace Brushblade.Presentation
             var scroll = Ui.ScrollList(content, "Body", Ui.SheetSpacing, out var body);
             Ui.Sized(scroll, flexWidth: 1, flexHeight: 1);
 
-            BuildHeader(body, def);
+            BuildHeader(body, meta, def);
 
             SectionLabel(body, Strings.T("perk.detail.section.effect"));
             BuildParagraph(body, PerkInfo.Desc(def), 18, Theme.TextMain);
@@ -94,7 +98,7 @@ namespace Brushblade.Presentation
         /// (「专属」只给五行树的节点——被动/机制树的效果本就不分系,挂这个 chip 反而是在
         /// 说一件表里没有的事;「Lv.{UnlockLevel}」五态都挂,已点亮的节点也在告诉玩家
         /// 「这条原本是几级门槛」)。</summary>
-        private static void BuildHeader(Transform parent, PerkNodeDef def)
+        private static void BuildHeader(Transform parent, MetaState meta, PerkNodeDef def)
         {
             var header = Ui.Panel(parent, "Header");
             var bg = header.AddComponent<Image>();
@@ -122,12 +126,18 @@ namespace Brushblade.Presentation
 
             // 跨树节点的 Depth 恒为 1,但它不在任何一条直链上 —— 印「第1层」是在说一件
             // 表里没有的事。两条 key 都写成字面量(动态拼后缀会被 EveryTableKey_IsUsed 判成孤儿)。
-            var crumb = Ui.ThemedLabel(info.transform, def.Tree == PerkTree.Cross
+            string crumbText = def.Tree == PerkTree.Cross
                 ? Strings.T("perk.detail.breadcrumb.cross",
                     ("tree", PerkView.TreeName(def.Tree)), ("branch", PerkView.BranchName(def.Branch)))
                 : Strings.T("perk.detail.breadcrumb",
                     ("tree", PerkView.TreeName(def.Tree)), ("branch", PerkView.BranchName(def.Branch)),
-                    ("depth", def.Depth)), 13, Theme.TextDim);
+                    ("depth", def.Depth));
+            // 三段节点(2026-10-02):面包屑后追加「第 k/3 段」,全点亮改印「已满段」
+            if (def.StageCount > 1)
+                crumbText += " · " + (PerkRules.OwnedStageCount(meta, def.NodeKey) >= def.StageCount
+                    ? Strings.T("perk.detail.stage.max")
+                    : Strings.T("perk.detail.stage", ("stage", def.Stage), ("total", def.StageCount)));
+            var crumb = Ui.ThemedLabel(info.transform, crumbText, 13, Theme.TextDim);
             crumb.alignment = TextAnchor.MiddleLeft;
             Ui.Sized(crumb.gameObject, flexWidth: 1, height: 18);
 
@@ -264,8 +274,11 @@ namespace Brushblade.Presentation
 
             for (int d = 1; d <= maxDepth; d++)
             {
-                var node = PerkRules.Get($"{def.Branch}_{d}");
-                bool unlocked = PerkRules.IsUnlocked(meta, node.Id);
+                // ⚠ 按 NodeKey 取,不按 id:三段节点没有 {branch}_{depth} 这个 id(2026-10-02)。
+                // 「已点亮」= 任意一段已点,与 PrereqMet 的同枝推导同一口径。
+                var nodeKey = $"{def.Branch}_{d}";
+                var node = PerkRules.CurrentStage(meta, nodeKey);
+                bool unlocked = PerkRules.OwnedStageCount(meta, nodeKey) > 0;
                 bool current = d == def.Depth;
 
                 var cell = Ui.VStack(row.transform, $"Step_{d}", 4);
@@ -433,8 +446,13 @@ namespace Brushblade.Presentation
             var primary = Ui.PillButton(row.transform, FooterButtonText(state, def), () =>
             {
                 if (!PerkRules.TryUnlock(meta, def.Id)) return; // 五态可能在弹窗开着时被别处改变,双保险
+                var root = overlay.transform.parent;
                 UnityEngine.Object.Destroy(overlay);
                 onChanged();
+                // 三段节点还有下一段:按新的当前段重开(2026-10-02)。onChanged 会整页重建、
+                // 清掉挂在视图根上的旧弹窗,所以这次 Show 必须在它之后。
+                if (def.Stage < def.StageCount)
+                    Show(root, meta, PerkRules.CurrentStage(meta, def.NodeKey), onChanged);
             }, canUnlock ? Theme.Gold : Theme.LockedBg, canUnlock ? Theme.GoldText : Theme.LockGray,
                 18, new Vector2(primaryW, FooterH));
             primary.interactable = canUnlock;

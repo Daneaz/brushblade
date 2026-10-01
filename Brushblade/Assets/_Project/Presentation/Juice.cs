@@ -569,7 +569,7 @@ namespace Brushblade.Presentation
                             yield return Beat(ProcFlyDuration);
                             Popup(e.Amount > 0
                                     ? Strings.T("juice.popup.source.summon_death_heal", ("amount", e.Amount))
-                                    : Strings.T("perk.node.wood_2.name"),
+                                    : Strings.T("perk.node.wood_3.name"),   // 归根(2026-10-02 起是木脉 L3)
                                 Theme.GlyphColor(Element.Wood), null);
                             HealBloom(playerPoint);
                             PlayClip(_healClip, 0.8f, 0.9f);
