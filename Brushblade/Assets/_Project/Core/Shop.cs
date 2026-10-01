@@ -243,7 +243,7 @@ namespace Brushblade.Core
             int price = CardPrice(meta, slotIndex, rarity);
             if (meta.Shop.CardSold[slotIndex] || meta.Ink < price)
                 return false;
-            meta.Ink -= price;
+            MetaRules.SpendInk(meta, price);
             Grant(meta, meta.Shop.CardSlots[slotIndex], BundleSizeFor(rarity));
             meta.Shop.CardSold[slotIndex] = true;
             return true;
@@ -275,7 +275,7 @@ namespace Brushblade.Core
                 return false;
             if (!ChestRules.TryAwardChest(meta, meta.Shop.ChestSlot, unlockedPool, time))
                 return false;
-            meta.Ink -= price;
+            MetaRules.SpendInk(meta, price);
             meta.Shop.ChestSold = true;
             return true;
         }
@@ -285,7 +285,7 @@ namespace Brushblade.Core
         {
             if (meta.Shop.InkAdClaimed)
                 return false;
-            meta.Ink += meta.Shop.InkAdAmount;
+            MetaRules.GainInk(meta, meta.Shop.InkAdAmount);
             meta.Shop.InkAdClaimed = true;
             return true;
         }

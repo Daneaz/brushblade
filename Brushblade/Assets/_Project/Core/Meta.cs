@@ -467,6 +467,30 @@ namespace Brushblade.Core
         public static int CardLevel(MetaState meta, string cardId) =>
             meta.CardLevels.TryGetValue(cardId, out var level) ? level : 1;
 
+        /// <summary>墨锭入账的唯一入口(2026-10-02):同时累计 Stats.InkEarned。
+        /// ⚠ 新增任何给墨锭的地方都走这里,tools/monetization/tests/test_ink_ledger.py 扫源码盯着。</summary>
+        public static void GainInk(MetaState meta, int amount)
+        {
+            if (amount <= 0) return;
+            meta.Ink += amount; // INK-LEDGER
+            meta.Stats.InkEarned += amount;
+        }
+
+        /// <summary>墨锭扣款的唯一入口:同时累计 Stats.InkSpent。不查余额 —— 调用方已查过。</summary>
+        public static void SpendInk(MetaState meta, int amount)
+        {
+            if (amount <= 0) return;
+            meta.Ink -= amount; // INK-LEDGER
+            meta.Stats.InkSpent += amount;
+        }
+
+        /// <summary>按正负号分流(局内字摊净额结算用,GameRoot.CommitEventInk)。</summary>
+        public static void ApplyInkDelta(MetaState meta, int delta)
+        {
+            if (delta > 0) GainInk(meta, delta);
+            else SpendInk(meta, -delta);
+        }
+
         public static void AddCardCopies(MetaState meta, string cardId, int count)
         {
             meta.CardCopies.TryGetValue(cardId, out var current);
@@ -497,7 +521,7 @@ namespace Brushblade.Core
                 return false;
 
             meta.CardCopies[cardId] = copies - copiesNeeded;
-            meta.Ink -= inkNeeded;
+            SpendInk(meta, inkNeeded);
             meta.CardLevels[cardId] = level + 1;
             return true;
         }

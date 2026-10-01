@@ -349,7 +349,7 @@ namespace Brushblade.Presentation
         private static void CommitEventInk(RunEngine run)
         {
             int delta = run.EarnedInk - _committedEventInk;
-            if (delta != 0) _meta.Ink += delta;
+            MetaRules.ApplyInkDelta(_meta, delta);
             _committedEventInk = run.EarnedInk;
         }
 

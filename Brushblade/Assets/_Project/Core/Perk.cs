@@ -358,7 +358,7 @@ namespace Brushblade.Core
         {
             if (!CanUnlock(meta, id)) return false;
             var def = Get(id);
-            meta.Ink -= def.InkCost;
+            MetaRules.SpendInk(meta, def.InkCost);
             meta.UnlockedPerks.Add(id);
             return true;
         }

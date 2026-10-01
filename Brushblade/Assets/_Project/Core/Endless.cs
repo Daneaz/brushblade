@@ -449,7 +449,7 @@ namespace Brushblade.Core
             if (meta.BandMilestones.Contains(band.Name))
                 return false;
             meta.BandMilestones.Add(band.Name);
-            meta.Ink += band.MilestoneInk;
+            MetaRules.GainInk(meta, band.MilestoneInk);
             return true;
         }
     }

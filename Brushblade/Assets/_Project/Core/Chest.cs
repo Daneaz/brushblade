@@ -220,7 +220,7 @@ namespace Brushblade.Core
             int cost = InkCostToSkip(remaining);
             if (meta.Ink < cost)
                 return false;
-            meta.Ink -= cost;
+            MetaRules.SpendInk(meta, cost);
             chest.ReducedSeconds += remaining;
             return true;
         }
@@ -248,7 +248,7 @@ namespace Brushblade.Core
             foreach (var card in cards)
                 counts.Add(graph == null ? 1 : ShopRules.BundleSizeFor(graph.Get(card).Rarity));
 
-            meta.Ink += ink;
+            MetaRules.GainInk(meta, ink);
             for (int i = 0; i < cards.Count; i++)
             {
                 MetaRules.AcquireCard(meta, cards[i]);

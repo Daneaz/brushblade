@@ -39,7 +39,7 @@ namespace Brushblade.Core
                 return 0;
             meta.ClaimedBestiary.Add(def.Id);
             int bounty = def.Phases.Count > 0 ? BossBounty : MinionBounty;
-            meta.Ink += bounty;
+            MetaRules.GainInk(meta, bounty);
             return bounty;
         }
     }
