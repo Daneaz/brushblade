@@ -335,6 +335,7 @@ namespace Brushblade.Core
                 MoraleOnCrit           = PerkRules.ElementBonus(meta, PerkEffect.MoraleOnCrit,           Element.Metal),
                 SummonDeathHealPercent = PerkRules.ElementBonus(meta, PerkEffect.SummonDeathHealPercent, Element.Wood),
                 // 五行 L1 专精(2026-10-02),各按本系读
+                MoraleReleasePercent = PerkRules.ElementBonus(meta, PerkEffect.MoraleRelease, Element.Metal),
                 MetalCritChance = PerkRules.ElementBonus(meta, PerkEffect.ElementCritChance, Element.Metal),
                 EnemyBurnPerStackBonus = PerkRules.ElementBonus(meta, PerkEffect.EnemyBurnBonus, Element.Fire),
                 BurnSpreadAdjacent = PerkRules.ElementBonus(meta, PerkEffect.BurnSpreadAdjacent, Element.Fire) > 0,

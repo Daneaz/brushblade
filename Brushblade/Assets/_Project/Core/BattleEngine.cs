@@ -227,6 +227,8 @@ namespace Brushblade.Core
         public int SummonDeathHealPercent { get; set; }
 
         /// <summary>五行 L1(2026-10-02)。只对打出那张字的元素 = 本系生效,缺省 0 = 逐字节恒等。</summary>
+        /// <summary>断金(金脉 L4):战意 ≥ MoraleCap 时,金系**字**本张伤害 +N%,结算后清空战意;部件不算。</summary>
+        public int MoraleReleasePercent { get; set; }
         public int MetalCritChance { get; set; }   // 砺刃:金系字暴击率 +N 百分点
         public int SummonHpPercent { get; set; }   // 深根:木系字召唤物生命 +N%
         public int HealPercent { get; set; }       // 甘霖:水系字治疗量 +N%
@@ -2538,6 +2540,12 @@ namespace Brushblade.Core
             _critMoraleGrantedThisCast = false;   // 金脉 L2「锋芒」:每张字至多兑现一层
             var attacker = def.Element ?? Element.Heart; // 中性字视作心(全 1.0x)
             _castCritBonus = attacker == Element.Metal ? (_config?.MetalCritChance ?? 0) : 0;
+            // 断金(2026-10-02):进门时判定,同一张字结算途中暴击涨满的不算本张。
+            // 只认金系「字」(部件直出不算)且本张字带伤害效果;纯 buff 金字不消耗战意。
+            bool moraleRelease = _config != null && _config.MoraleReleasePercent > 0
+                && def.Element == Element.Metal && !def.IsComponent
+                && _playerStatuses.TotalMagnitude(StatusKind.Morale) >= _config.MoraleCap
+                && HasDamageEffect(def, attackMode);
             int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
@@ -2576,6 +2584,8 @@ namespace Brushblade.Core
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
                 value = ApplySpecialtyPercent(value, attacker, effect.Kind);
+                if (moraleRelease && effect.Kind is EffectKind.DamageSingle or EffectKind.DamageAll)
+                    value = value * (100 + _config.MoraleReleasePercent) / 100;
                 switch (effect.Kind)
                 {
                     case EffectKind.DamageSingle:
@@ -3219,8 +3229,16 @@ namespace Brushblade.Core
                         break;
                 }
             }
+            if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
             }
             finally { _castCritBonus = 0; }
+        }
+
+        private bool HasDamageEffect(CharDef def, bool attackMode)
+        {
+            foreach (var e in EffectsOf(def, attackMode))
+                if (e.Kind is EffectKind.DamageSingle or EffectKind.DamageAll) return true;
+            return false;
         }
 
         /// <summary>玩家侧的「累加型计数器」状态(战意 / AP 上限加成,2026-08-12):
