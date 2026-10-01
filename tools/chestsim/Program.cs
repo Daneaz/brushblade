@@ -100,10 +100,11 @@ namespace Brushblade.ChestSim
                     throw new InvalidOperationException("开箱失败 —— 箱应当恒为就绪态");
 
                 Array.Clear(seen, 0, seen.Length);
-                foreach (var card in rewards.Cards)
+                // 2026-10-01 宝箱成捆:一项一捆,计的是张数(捆 × 每捆张数)
+                for (int c = 0; c < rewards.Cards.Count; c++)
                 {
-                    int index = (int)graph.Get(card).Rarity - 1;
-                    totals[index]++;
+                    int index = (int)graph.Get(rewards.Cards[c]).Rarity - 1;
+                    totals[index] += rewards.Counts[c];
                     seen[index] = true;
                 }
                 for (int i = 0; i < seen.Length; i++)

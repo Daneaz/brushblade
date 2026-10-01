@@ -241,12 +241,14 @@ namespace Brushblade.Presentation
             string card = _meta.Shop.CardSlots[index];
             bool sold = _meta.Shop.CardSold[index];
             var def = _graph.Get(card);
-            int price = ShopRules.BundlePriceFor(def.Rarity);
+            int price = ShopRules.CardPrice(_meta, index, def.Rarity);   // 当日折后价(2026-10-01)
             int bundle = ShopRules.BundleSizeFor(def.Rarity);   // 一份几张(2026-09-30 按稀有度打包)
+            int discount = ShopRules.DiscountPercent(ShopRules.IsPremium(def.Rarity),
+                index < _meta.Shop.CardDiscountRoll.Count ? _meta.Shop.CardDiscountRoll[index] : 0);
 
             var cell = CardFace(parent, $"Slot{index}", card, bundle, sold, Strings.T("shop.slot.sold"));
             BuyButton(cell, CardSize.x, sold, price,
-                sold ? Strings.T("shop.slot.sold_today") : price.ToString(),
+                sold ? Strings.T("shop.slot.sold_today") : DiscountedLabel(price, discount),
                 () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
                     Strings.T("shop.card.buy_success", ("card", card), ("count", bundle)),
                     Strings.T("shop.card.buy_fail_title"),
@@ -325,6 +327,10 @@ namespace Brushblade.Presentation
 
         /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 「差 N」;
         /// 已售 = 锁灰底 + 「今日已购」。差多少写出来,玩家才知道要不要去看那条领墨锭的广告。</summary>
+        /// <summary>价格钮文案:折后价 + 几折(2026-10-01 每日随机打折)。</summary>
+        private static string DiscountedLabel(int price, int discountPercent) =>
+            Strings.T("shop.price_discounted", ("price", price), ("zhe", discountPercent / 10));
+
         private void BuyButton(Transform parent, float width, bool sold, int price, string label, Action onClick)
         {
             bool poor = !sold && _meta.Ink < price;
@@ -414,7 +420,8 @@ namespace Brushblade.Presentation
         {
             var tier = _meta.Shop.ChestSlot;
             int tierIndex = (int)tier - 1;
-            int price = ShopRules.ChestPrice[tierIndex];
+            int price = ShopRules.ChestPrice(_meta);   // 当日折后价(2026-10-01)
+            int discount = ShopRules.DiscountPercent(ShopRules.IsPremium(tier), Math.Max(0, _meta.Shop.ChestDiscountRoll));
             string chestName = ChestRules.TierName(tier);
             bool sold = _meta.Shop.ChestSold;
             bool slotsFull = _meta.Chests.Count >= ChestRules.SlotLimit;
@@ -432,11 +439,11 @@ namespace Brushblade.Presentation
             ChestArt.Draw(stack.transform, tier, ChestView.State.Idle, 84f);
             Ui.ThemedLabel(stack.transform, chestName, 23, Theme.TextMain, Theme.TitleFont);
 
-            // 两枚事实 chip:张数 · 开启时长。都是「买之前该知道的事实」,不是促销话术。
+            // 两枚事实 chip:捆数 · 开启时长。都是「买之前该知道的事实」,不是促销话术。
             // 「箱位 N/4」那枚 2026-09-30 按用户要求撤掉 —— 满位时下面的按钮本来就写着「箱位已满」
             var facts = Ui.Row(stack.transform, "Facts", 7);
             facts.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.Chip(facts.transform, Strings.T("shop.chest.cards_chip", ("count", ChestRules.CardCount[tierIndex])),
+            Ui.Chip(facts.transform, Strings.T("shop.chest.cards_chip", ("count", ChestRules.StackCount[tierIndex])),
                 Theme.PanelInset, Theme.TextDim, 18);
             // 不满 1 小时按分钟写(2026-09-30 用户报:素纸匣 5 分钟曾显示成「0.0833333 小时」)
             long seconds = ChestRules.DurationSeconds[tierIndex];
@@ -448,7 +455,7 @@ namespace Brushblade.Presentation
             // 箱位满时不可买:按钮直接写清楚为什么,别让玩家点了才弹窗
             string label = sold ? Strings.T("shop.slot.sold_today")
                 : slotsFull ? Strings.T("shop.chest.slots_full_label")
-                : price.ToString();
+                : DiscountedLabel(price, discount);
             var buy = Ui.RoundButton(stack.transform, label,
                 () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time),
                     Strings.T("shop.chest.buy_success", ("chestName", chestName)),
@@ -472,7 +479,7 @@ namespace Brushblade.Presentation
             var inkAd = Ui.AdBadge(parent,
                 _meta.Shop.InkAdClaimed
                     ? Strings.T("shop.supply.used_label")
-                    : Strings.T("shop.ink_ad.claim_label", ("amount", ShopRules.InkAdAmount)),
+                    : Strings.T("shop.ink_ad.claim_label", ("amount", _meta.Shop.InkAdAmount)),
                 () => AdGate.Watch(AdPlacement.ShopInk,
                     () => Do(() => ShopRules.TryClaimInkAd(_meta), Strings.T("shop.ink_ad.claim_success"),
                         Strings.T("shop.ink_ad.already_claimed_title"), Strings.T("shop.ink_ad.already_claimed_body"))),

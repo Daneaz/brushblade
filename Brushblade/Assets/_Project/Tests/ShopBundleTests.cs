@@ -73,9 +73,10 @@ namespace Brushblade.Core.Tests
             var meta = Meta(1, "绿甲");
             ShopRules.EnsureShelf(meta, new[] { "绿甲" }, new FakeTime(), new GameRandom(1));
             int ink = meta.Ink;
+            int price = ShopRules.CardPrice(meta, 0, CardRarity.Green);
             Assert.That(ShopRules.TryBuyCard(meta, 0, CardRarity.Green), Is.True);
             Assert.That(meta.CardCopies["绿甲"], Is.EqualTo(10), "绿卡 10 张一份");
-            Assert.That(ink - meta.Ink, Is.EqualTo(240));
+            Assert.That(ink - meta.Ink, Is.EqualTo(price));
         }
 
         [Test]
@@ -93,11 +94,12 @@ namespace Brushblade.Core.Tests
         public void BuyCard_NotEnoughInk_ChangesNothing()
         {
             var meta = Meta(1, "绿甲");
-            meta.Ink = 239;
             ShopRules.EnsureShelf(meta, new[] { "绿甲" }, new FakeTime(), new GameRandom(1));
+            int short1 = ShopRules.CardPrice(meta, 0, CardRarity.Green) - 1;
+            meta.Ink = short1;
             Assert.That(ShopRules.TryBuyCard(meta, 0, CardRarity.Green), Is.False);
             Assert.That(meta.CardCopies.ContainsKey("绿甲"), Is.False);
-            Assert.That(meta.Ink, Is.EqualTo(239));
+            Assert.That(meta.Ink, Is.EqualTo(short1));
         }
 
         // ---- 槽位随等级解锁 ----

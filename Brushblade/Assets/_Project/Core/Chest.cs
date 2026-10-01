@@ -46,12 +46,16 @@ namespace Brushblade.Core
     public readonly struct ChestRewards
     {
         public int Ink { get; }
+        /// <summary>每捆一项(同一个字可能出现在两捆里,不合并)。</summary>
         public IReadOnlyList<string> Cards { get; }
+        /// <summary>与 <see cref="Cards"/> 一一对应:这一捆的张数(字摊同档每份张数,2026-10-01)。</summary>
+        public IReadOnlyList<int> Counts { get; }
 
-        public ChestRewards(int ink, IReadOnlyList<string> cards)
+        public ChestRewards(int ink, IReadOnlyList<string> cards, IReadOnlyList<int> counts)
         {
             Ink = ink;
             Cards = cards;
+            Counts = counts;
         }
     }
 
@@ -65,8 +69,11 @@ namespace Brushblade.Core
         /// <summary>各级单次广告缩短(秒):即开/即开/40m/60m/90m/105m/120m。</summary>
         public static readonly long[] AdReductionSeconds = { 300, 1800, 2400, 3600, 5400, 6300, 7200 };
 
-        /// <summary>各级产出卡数:3/4/6/8/12/14/16(19.5.1)。</summary>
-        public static readonly int[] CardCount = { 3, 4, 6, 8, 12, 14, 16 };
+        /// <summary>各级开出的捆数(2026-10-01,原「卡数 3/4/6/8/12/14/16」)。每捆一个字,
+        /// 张数 = 商城字摊同档每份张数(<see cref="ShopRules.BundleSizeFor"/>):白 20 / 绿 10 / 蓝 5 /
+        /// 紫 2 / 金橙红 1。高档捆数陡增是为了让后期卡量跟上后期墨锭收入
+        /// (tools/design/economy_model.py:白~紫「攒卡天数 ≈ 攒墨锭天数」)。</summary>
+        public static readonly int[] StackCount = { 1, 2, 3, 5, 12, 16, 20 };
 
         /// <summary>各级产出墨锭(首版基准)。</summary>
         public static readonly int[] InkReward = { 15, 30, 60, 120, 250, 320, 400 };
@@ -234,15 +241,22 @@ namespace Brushblade.Core
             // 无从查配方,跳过过滤保持旧行为。
             var eligible = EligiblePool(chest.CardPool, graph, meta.OwnedCards);
             var cards = graph == null
-                ? DrawUniform(eligible, random, CardCount[tierIndex])
-                : DrawWeighted(meta, eligible, chest.Tier, random, CardCount[tierIndex], graph);
+                ? DrawUniform(eligible, random, StackCount[tierIndex])
+                : DrawWeighted(meta, eligible, chest.Tier, random, StackCount[tierIndex], graph);
+            // 每捆张数按稀有度走字摊那张表;graph 为 null 的老调用点无从查稀有度,一捆一张
+            var counts = new List<int>(cards.Count);
+            foreach (var card in cards)
+                counts.Add(graph == null ? 1 : ShopRules.BundleSizeFor(graph.Get(card).Rarity));
 
             meta.Ink += ink;
-            foreach (var card in cards)
-                MetaRules.AcquireCard(meta, card);
+            for (int i = 0; i < cards.Count; i++)
+            {
+                MetaRules.AcquireCard(meta, cards[i]);
+                if (counts[i] > 1) MetaRules.AddCardCopies(meta, cards[i], counts[i] - 1);
+            }
             meta.Chests.RemoveAt(index);
 
-            rewards = new ChestRewards(ink, cards);
+            rewards = new ChestRewards(ink, cards, counts);
             return true;
         }
 
@@ -252,18 +266,23 @@ namespace Brushblade.Core
         // 各箱等级的卡稀有度权重(行 = tier−1,列 = rarity−1 白→绿→蓝→紫→金→橙→红),每行合计 1000‰。
         // 2026-08-29 重写:此前白/金/橙/红四列写死 0,而 8-25 字表重构后这四档共 37 个字
         // (占可收集字的一半)—— 白字整档掉不出来,金橙红只能从保底口子漏。
-        // 加粗的九个数是用户拍板值:金 青瓷 10‰ / 紫檀 20‰ / 鎏金 50‰;
-        // 橙 紫檀 5‰ / 鎏金 10‰ / 朱漆 20‰;红 鎏金 1‰ / 朱漆 5‰ / 赤霄 10‰。
+        //
+        // 2026-10-01 改「成捆」(权重抽的是**每捆**的稀有度):
+        // · 金/橙/红三列按「每箱期望张数不变」反推(用户拍板「保持不变」):新权重 = 旧卡数 × 旧权重 ÷ 捆数。
+        //   旧拍板值(金 青瓷 10 / 紫檀 20 / 鎏金 50,橙 紫檀 5 / 鎏金 10 / 朱漆 20,红 鎏金 1 / 朱漆 5 /
+        //   赤霄 10)对应的期望张数由 ChestBundleTests.HighRarityExpectationPerChest_Unchanged 钉着。
+        // · 白~紫按「攒卡天数 ≈ 攒墨锭天数」配比,**高档箱也出白/绿**(白卡升满要 1081 张,
+        //   此前鎏金以上白权重为 0,后期白字根本升不动)。
         private static readonly int[][] CardRarityWeights =
         {
             //       白    绿    蓝    紫    金   橙  红
-            new[] { 400, 500, 100,   0,   0,  0,  0 },  // 素纸
-            new[] { 250, 500, 220,  30,   0,  0,  0 },  // 竹简
-            new[] { 120, 450, 330,  90,  10,  0,  0 },  // 青瓷
-            new[] {  50, 330, 380, 215,  20,  5,  0 },  // 紫檀
-            new[] {   0, 219, 360, 360,  50, 10,  1 },  // 鎏金
-            new[] {   0, 150, 320, 435,  70, 20,  5 },  // 朱漆
-            new[] {   0, 100, 260, 500, 100, 30, 10 },  // 赤霄
+            new[] { 400, 400, 200,   0,   0,  0,  0 },  // 素纸
+            new[] { 300, 350, 250, 100,   0,  0,  0 },  // 竹简
+            new[] { 227, 258, 289, 206,  20,  0,  0 },  // 青瓷
+            new[] { 217, 171, 263, 309,  32,  8,  0 },  // 紫檀
+            new[] { 197, 162, 255, 325,  50, 10,  1 },  // 鎏金
+            new[] { 186, 151, 244, 336,  61, 18,  4 },  // 朱漆
+            new[] { 173, 138, 231, 346,  80, 24,  8 },  // 赤霄
         };
 
         /// <summary>该档宝箱的卡稀有度权重(千分比,索引 = rarity−1)。</summary>
