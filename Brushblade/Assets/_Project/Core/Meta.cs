@@ -321,6 +321,7 @@ namespace Brushblade.Core
                 PlayerCritChance = PerkRules.Bonus(meta, PerkEffect.CritChance),
                 UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
                 ApPerTurn = BaseApPerTurn, // 一气(AP)2026-10-02 取消
+                EmptyLibraryExtraDraws = PerkRules.Bonus(meta, PerkEffect.EmptyLibraryDraws), // 广纳/兼收
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
                 ElementEffectPercent = ElementEffectTable(meta), // 五行 L2(三段,spec 2026-10-02)
                 // 木脉 L4「择伐」:节点在木枝上、按木系读,但读出的值当**全局开关**用

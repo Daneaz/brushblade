@@ -118,6 +118,19 @@ namespace Brushblade.Core.Tests
             Assert.That(MetaRules.LibraryCapacityFor(meta), Is.EqualTo(baseCap), "广纳不该动字库容量");
         }
 
+        /// <summary>广纳+兼收合计 +2,并真的注入 BattleConfig。</summary>
+        [Test]
+        public void WideBranch_InjectsEmptyLibraryExtraDraws()
+        {
+            var meta = new MetaState { CharacterXp = 0 };
+            Assert.That(MetaRules.BuildBattleConfig(meta, new[] { "金" }).EmptyLibraryExtraDraws, Is.EqualTo(0));
+            meta.UnlockedPerks.Add("wide_1");
+            Assert.That(MetaRules.BuildBattleConfig(meta, new[] { "金" }).EmptyLibraryExtraDraws, Is.EqualTo(1));
+            meta.UnlockedPerks.Add("wide_2");
+            Assert.That(MetaRules.BuildBattleConfig(meta, new[] { "金" }).EmptyLibraryExtraDraws, Is.EqualTo(2));
+            Assert.That(MetaRules.StartingHandSizeFor(meta), Is.EqualTo(MetaRules.StartingLibrarySize));
+        }
+
         // ---- 被动树:力枝 ----
 
         [Test]

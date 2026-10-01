@@ -149,6 +149,7 @@ namespace Brushblade.Core
         public int LibraryCapacity { get; set; } = 6;  // 2026-07-06 拍板;局内广告可 +2
         public int PoolCapacity { get; set; } = 10;    // 同上
         public int DropsPerTurn { get; set; } = 1; // 回合掉字数(2026-08-04:由「掉 2 部件」改为「掉 1 字」)
+        public int EmptyLibraryExtraDraws { get; set; } // 广纳/兼收(2026-10-02):回合开始字库为空时掉字数 +N
         public int BossPhaseJitterPercent { get; set; } = 8; // Boss 换阶阈值浮动幅度(±总血%,2026-07-19)
         // 阶段内第 N 个敌方回合进入蓄力,下回合释放(计数每阶段重开,见 EnemyState.ApplyPhaseStats)。
         // 2 = 普攻、蓄力、释放 —— 阶段撑满 3 个敌方回合才吃得到大招(2026-07-29)
@@ -2521,7 +2522,10 @@ namespace Brushblade.Core
             if (_config.UnlockedChars != null && _config.UnlockedChars.Count > 0)
             {
                 var deck = new List<string>(_config.UnlockedChars);
-                for (int i = 0; i < _config.DropsPerTurn; i++)
+                // 广纳/兼收(2026-10-02):判在掉字之前 —— 回合开始时字库为空才多掉
+                int drops = _config.DropsPerTurn
+                    + (_forge.Library.Count == 0 ? _config.EmptyLibraryExtraDraws : 0);
+                for (int i = 0; i < drops; i++)
                 {
                     string pick = deck[_random.Next(deck.Count)];
                     if (_forge.Library.Count >= _config.LibraryCapacity)
