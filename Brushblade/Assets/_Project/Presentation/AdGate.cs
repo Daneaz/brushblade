@@ -21,12 +21,18 @@ namespace Brushblade.Presentation
         /// <summary>播一条奖励式广告;只有玩家看完才执行 <paramref name="onRewarded"/>。
         /// 中途退出/失败都静默放过 —— 第 14 章的口径是「多给」,不是「解锁」,
         /// 没看成就维持原状,不该弹报错骂玩家。</summary>
+        /// <summary>每次真领到广告奖励后触发(2026-10-02 角色页「看广告领奖」统计)。
+        /// 由 GameRoot.Boot 挂上;这里不认识 MetaState。</summary>
+        public static event Action OnRewarded;
+
         public static void Watch(AdPlacement placement, Action onRewarded)
         {
             if (onRewarded == null) return;
             Monetization.Ads.ShowRewarded(placement, result =>
             {
-                if (result == AdResult.Rewarded) onRewarded();
+                if (result != AdResult.Rewarded) return;
+                onRewarded();
+                OnRewarded?.Invoke();
             });
         }
     }
