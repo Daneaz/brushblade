@@ -42,7 +42,8 @@ def table(name, file):
 
 # ---- 源码数值表 ----
 CHEST_INK = arr("InkReward", "Chest.cs")
-CHEST_STACKS = arr("StackCount", "Chest.cs")  # 2026-10-01 起每箱开 S 捆,每捆张数 = 字摊同档一份
+CHEST_KINDS = arr("KindCount", "Chest.cs")  # 2026-10-02 起每箱开 N 种、共 M 张(ChestRules.SplitCopies)
+CHEST_TOTAL = arr("TotalCards", "Chest.cs")
 CHEST_SECONDS = arr("DurationSeconds", "Chest.cs")
 CHEST_AD_SECONDS = arr("AdReductionSeconds", "Chest.cs")
 TIER_BANDS = table("TierWeightBands", "Chest.cs")
@@ -161,14 +162,62 @@ def level_dist(level):
     return [x / s for x in w]
 
 
+def _split_copies(rarities, total):
+    """照抄 ChestRules.SplitCopies:金橙红各 1;白~紫先各 1,余下按字摊每份张数的份额,最大余数法。"""
+    counts = [1] * len(rarities)
+    low = [i for i, r in enumerate(rarities) if r < 4]
+    remaining = total - len(rarities)
+    if not low or remaining <= 0:
+        return counts
+    share = sum(BUNDLE_SIZE[rarities[i]] for i in low)
+    rems = []
+    for i in low:
+        scaled = remaining * BUNDLE_SIZE[rarities[i]]
+        counts[i] += scaled // share
+        rems.append((-(scaled % share), rarities[i], i))
+    for _, _, i in sorted(rems)[:remaining - sum(counts[i] - 1 for i in low)]:
+        counts[i] += 1
+    return counts
+
+
+def _compositions(k, n=7):
+    if n == 1:
+        yield (k,)
+        return
+    for a in range(k + 1):
+        for rest in _compositions(k - a, n - 1):
+            yield (a,) + rest
+
+
+_COPIES = {}
+
+
+def chest_copies(tier_index):
+    """该档每箱各稀有度的精确期望张数(保底前):枚举 N 种字的稀有度组合,按多项分布加权。"""
+    if tier_index not in _COPIES:
+        k, w = CHEST_KINDS[tier_index], CARD_RARITY_W[tier_index]
+        out = [0.0] * 7
+        for c in _compositions(k):
+            if any(c[r] and w[r] == 0 for r in range(7)):
+                continue
+            p = math.factorial(k)
+            for r in range(7):
+                p = p / math.factorial(c[r]) * (w[r] / 1000) ** c[r]
+            rs = [r for r in range(7) for _ in range(c[r])]
+            for r, n in zip(rs, _split_copies(rs, CHEST_TOTAL[tier_index])):
+                out[r] += p * n
+        _COPIES[tier_index] = out
+    return _COPIES[tier_index]
+
+
 def chest_value(dist):
     ink = sum(p * CHEST_INK[i] for i, p in enumerate(dist))
     cards = [0.0] * 7
     hours = 0.0
     for i, p in enumerate(dist):
         hours += p * max(0, CHEST_SECONDS[i] - CHEST_AD_SECONDS[i]) / 3600  # 每箱看一次加速广告
-        for r in range(7):
-            cards[r] += p * CHEST_STACKS[i] * CARD_RARITY_W[i][r] / 1000 * BUNDLE_SIZE[r]
+        for r, n in enumerate(chest_copies(i)):
+            cards[r] += p * n
     return ink, cards, hours
 
 

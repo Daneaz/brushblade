@@ -998,10 +998,10 @@ namespace Brushblade.Presentation
         private const float HelpBadge = 40f;    // 栏头「?」的直径
         private const float HelpTextW = 520f;   // 右栏(机制说明)定宽,左栏表格吃余量
         private const float HelpRowH = 40f;     // 表格行高
-        // 表格列宽:档名 / 时长 / 卡数 / 墨锭 / 保底,再加七档稀有度各一列
+        // 表格列宽:档名 / 时长 / 种数·张数 / 墨锭 / 保底,再加七档稀有度各一列
         private const float HelpTierColW = 108f;
         private const float HelpTimeColW = 84f;
-        private const float HelpCountColW = 62f;
+        private const float HelpCountColW = 72f;   // 最宽「16/136」
         private const float HelpInkColW = 78f;
         private const float HelpGuardColW = 70f;
         private const float HelpRarityColW = 76f;
@@ -1114,7 +1114,8 @@ namespace Brushblade.Presentation
                 HelpCell(row.transform, ChestRules.TierName(tier), HelpTierColW, Theme.ChestColor(tier));
                 HelpCell(row.transform, HelpDuration(ChestRules.DurationSeconds[tierIndex - 1]),
                     HelpTimeColW, Theme.TextDim);
-                HelpCell(row.transform, ChestRules.StackCount[tierIndex - 1].ToString(),
+                HelpCell(row.transform,
+                    $"{ChestRules.KindCount[tierIndex - 1]}/{ChestRules.TotalCards[tierIndex - 1]}",
                     HelpCountColW, Theme.TextMain);
                 HelpCell(row.transform, ChestRules.InkReward[tierIndex - 1].ToString(),
                     HelpInkColW, Theme.GoldDeep);

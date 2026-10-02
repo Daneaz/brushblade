@@ -468,11 +468,11 @@ namespace Brushblade.Presentation
             ChestArt.Draw(stack.transform, tier, ChestView.State.Idle, 84f);
             Ui.ThemedLabel(stack.transform, chestName, 23, Theme.TextMain, Theme.TitleFont);
 
-            // 两枚事实 chip:捆数 · 开启时长。都是「买之前该知道的事实」,不是促销话术。
+            // 两枚事实 chip:种数与张数 · 开启时长。都是「买之前该知道的事实」,不是促销话术。
             // 「箱位 N/4」那枚 2026-09-30 按用户要求撤掉 —— 满位时下面的按钮本来就写着「箱位已满」
             var facts = Ui.Row(stack.transform, "Facts", 7);
             facts.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.Chip(facts.transform, Strings.T("shop.chest.cards_chip", ("count", ChestRules.StackCount[tierIndex]), ("cards", ChestRules.ExpectedCards(tier))),
+            Ui.Chip(facts.transform, Strings.T("shop.chest.cards_chip", ("count", ChestRules.KindCount[tierIndex]), ("cards", ChestRules.ExpectedCards(tier))),
                 Theme.PanelInset, Theme.TextDim, 18);
             // 不满 1 小时按分钟写(2026-09-30 用户报:素纸匣 5 分钟曾显示成「0.0833333 小时」)
             long seconds = ChestRules.DurationSeconds[tierIndex];

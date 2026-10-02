@@ -288,13 +288,13 @@ namespace Brushblade.Core.Tests
         public void Open_GrantsInkAndCards_RemovesChest()
         {
             var time = new FakeTime();
-            var meta = Award(time, ChestTier.Paper); // 1 捆 + 15 墨锭
+            var meta = Award(time, ChestTier.Paper); // 3 种 + 15 墨锭
             ChestRules.TryStartOpening(meta, 0, time);
             time.NowUnixSeconds += 300;
 
             Assert.That(ChestRules.TryOpen(meta, 0, time, new GameRandom(1), out var rewards), Is.True);
             Assert.That(rewards.Ink, Is.EqualTo(15));
-            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.StackCount[0]));
+            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.KindCount[0]));
             Assert.That(rewards.Cards, // 有放回抽取,重复=升级材料;Unity 版 NUnit 无 AnyOf
                 Has.All.Matches<string>(c => System.Array.IndexOf(Pool, c) >= 0));
             Assert.That(meta.Ink, Is.EqualTo(15));
@@ -411,7 +411,7 @@ namespace Brushblade.Core.Tests
             var rewards = OpenWith(new[] { "垚", "桂", "㙓" }, Array.Empty<string>(),
                 ChestTier.Paper, 7, graph);
 
-            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.StackCount[0]),
+            Assert.That(rewards.Cards.Count, Is.EqualTo(ChestRules.KindCount[0]),
                 "滤空也要出满数——这是隐藏限制存在的前提,出 0 张比限制失效更像 bug");
             Assert.That(rewards.Cards, Has.All.Matches<string>(c =>
                 !MetaRules.PrerequisitesMet(c, graph, Array.Empty<string>())),
