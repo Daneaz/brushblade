@@ -76,25 +76,47 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Grant_StopsWhenLost_ThenResumes()
+        public void Grant_StopsWhenSlotsFull_ThenResumes()
         {
             var time = new FakeTime();
-            var meta = AtLevel(8); // 欠 Lv.2..8 共 7 只;箱位 4 + 暂存 1 = 5
+            var meta = AtLevel(8); // 欠 Lv.2..8 共 7 只;只填空箱位(4 格),从不占暂存
             var grants = LevelRewardRules.GrantLevelChests(meta, Pool, time);
 
-            Assert.That(grants.Count, Is.EqualTo(ChestRules.SlotLimit + ChestRules.PendingLimit));
-            Assert.That(grants.TrueForAll(g => g.Award != ChestAward.Lost), Is.True, "Lost 的那只不该出现在结果里");
+            Assert.That(grants.Count, Is.EqualTo(ChestRules.SlotLimit));
+            Assert.That(meta.Chests.Count, Is.EqualTo(ChestRules.SlotLimit));
+            Assert.That(meta.PendingChests.Count, Is.EqualTo(0), "每级宝箱不许占暂存位");
             Assert.That(meta.LevelRewardGranted, Is.EqualTo(1 + grants.Count));
-            Assert.That(LevelRewardRules.OwedChests(meta), Is.EqualTo(2));
+            Assert.That(LevelRewardRules.OwedChests(meta), Is.EqualTo(3));
 
-            // 腾两只位:清掉一只箱位 + 暂存进位
+            // 腾两只位
             meta.Chests.RemoveAt(0);
-            ChestRules.DrainPendingChests(meta, Pool, time);
             meta.Chests.RemoveAt(0);
             var more = LevelRewardRules.GrantLevelChests(meta, Pool, time);
             Assert.That(more.Count, Is.EqualTo(2));
-            Assert.That(LevelRewardRules.OwedChests(meta), Is.EqualTo(0));
+            Assert.That(LevelRewardRules.OwedChests(meta), Is.EqualTo(1));
             Assert.That(more[0].Level, Is.EqualTo(meta.LevelRewardGranted - 1));
+            Assert.That(meta.PendingChests.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Grant_SlotsFull_NeverTakesPendingSlot()
+        {
+            // 暂存位留给爬塔结算箱:每级宝箱占了它,结算箱就会作废(终审 C1)
+            var time = new FakeTime();
+            var meta = AtLevel(5);
+            for (int i = 0; i < ChestRules.SlotLimit; i++)
+                ChestRules.TryAwardChest(meta, ChestTier.Bamboo, Pool, time);
+
+            var first = LevelRewardRules.GrantLevelChests(meta, Pool, time);
+            var second = LevelRewardRules.GrantLevelChests(meta, Pool, time);
+
+            Assert.That(first.Count, Is.EqualTo(0));
+            Assert.That(second.Count, Is.EqualTo(0));
+            Assert.That(meta.PendingChests.Count, Is.EqualTo(0));
+            Assert.That(meta.LevelRewardGranted, Is.EqualTo(1));
+            Assert.That(LevelRewardRules.OwedChests(meta), Is.EqualTo(4));
+            Assert.That(ChestRules.AwardOrHold(meta, ChestTier.Gilded, Pool, time), Is.EqualTo(ChestAward.Held),
+                "结算箱仍能拿到暂存位");
         }
 
         [Test]

@@ -3,15 +3,15 @@ using System.Collections.Generic;
 
 namespace Brushblade.Core
 {
+    /// <summary>一只真正入了箱位的每级宝箱。</summary>
     public readonly struct LevelChestGrant
     {
         public int Level { get; }
         public ChestTier Tier { get; }
-        public ChestAward Award { get; }
 
-        public LevelChestGrant(int level, ChestTier tier, ChestAward award)
+        public LevelChestGrant(int level, ChestTier tier)
         {
-            Level = level; Tier = tier; Award = award;
+            Level = level; Tier = tier;
         }
     }
 
@@ -36,21 +36,20 @@ namespace Brushblade.Core
             _ => ChestTier.Crimson,
         };
 
-        /// <summary>把 LevelRewardGranted+1 .. 当前等级的宝箱逐只发出。箱位与暂存都满(Lost)时
-        /// **停住、不推进账目** —— 那一级及之后欠着,下次调用再补。与战后掉箱「满了就作废」刻意不同:
-        /// 升级奖励是确定的事。返回本次真正发出的那几只(不含 Lost)。</summary>
+        /// <summary>把 LevelRewardGranted+1 .. 当前等级的宝箱逐只发出,**只填空箱位、从不占暂存位**
+        /// —— 暂存位留给爬塔结算箱(结算箱优先;每级箱占了它,结算箱就会作废)。箱位满了就
+        /// **停住、不推进账目**,那一级及之后欠着,下次调用再补。与战后掉箱「满了就作废」刻意不同:
+        /// 升级奖励是确定的事。返回本次真正发出的那几只。</summary>
         public static List<LevelChestGrant> GrantLevelChests(MetaState meta,
             IReadOnlyList<string> cardPool, ITimeSource time)
         {
             var grants = new List<LevelChestGrant>();
             int level = MetaRules.CharacterLevel(meta.CharacterXp);
-            for (int lv = meta.LevelRewardGranted + 1; lv <= level; lv++)
+            for (int lv = meta.LevelRewardGranted + 1; lv <= level && meta.Chests.Count < ChestRules.SlotLimit; lv++)
             {
                 var tier = TierForLevel(lv);
-                if (meta.Chests.Count >= ChestRules.SlotLimit && meta.PendingChests.Count >= ChestRules.PendingLimit)
-                    break; // 先判再发:AwardOrHold 返回 Lost 时不会改状态,但这里提前停更直白
-                var award = ChestRules.AwardOrHold(meta, tier, cardPool, time);
-                grants.Add(new LevelChestGrant(lv, tier, award));
+                ChestRules.TryAwardChest(meta, tier, cardPool, time); // 循环条件已保证有空位,必成功
+                grants.Add(new LevelChestGrant(lv, tier));
                 meta.LevelRewardGranted = lv;
             }
             return grants;
