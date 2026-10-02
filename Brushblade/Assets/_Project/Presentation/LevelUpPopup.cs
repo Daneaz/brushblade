@@ -13,8 +13,7 @@ namespace Brushblade.Presentation
         private const float W = 1256f, H = 745f; // 稿 600×356pt
         private const int CapProbe = 1000;   // 远超任何属性封顶等级,取曲线终值当「封顶值」
 
-        public static void Show(Transform root, MetaState meta, LevelUpSummary summary,
-            IReadOnlyList<LevelChestGrant> grants)
+        public static void Show(Transform root, MetaState meta, LevelUpSummary summary)
         {
             if (summary == null) return;
             var sheet = Ui.Sheet(root, "LevelUp", W, H, dismissable: false, replaceSameName: true,
@@ -35,7 +34,7 @@ namespace Brushblade.Presentation
             cols.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = true;
 
             BuildStats(cols.transform, summary.FromLevel, summary.ToLevel);
-            BuildChests(cols.transform, grants, LevelRewardRules.OwedChests(meta));
+            BuildChests(cols.transform, summary.FromLevel, summary.ToLevel, LevelRewardRules.OwedChests(meta));
 
             foreach (int lv in summary.Milestones)
                 Ui.Chip(content, Strings.T("levelup.milestone", ("level", lv)),
@@ -75,8 +74,9 @@ namespace Brushblade.Presentation
                 20, now > was ? Theme.UpgradeText : Theme.TextDim, null, TextAnchor.MiddleRight);
         }
 
-        /// <summary>同档合并成一行「×N」(稿 MultiLevel 的读法),档位再多也不撑破。</summary>
-        private static void BuildChests(Transform parent, IReadOnlyList<LevelChestGrant> grants, int owed)
+        /// <summary>按「Lv.from → Lv.to」这一段逐级查档,与标题同源(本次调用前已静默补发过的也算在内);
+        /// 同档合并成一行「×N」(稿 MultiLevel 的读法),档位再多也不撑破。没发出的那几只由 owed 另行提示。</summary>
+        private static void BuildChests(Transform parent, int from, int to, int owed)
         {
             var col = Ui.VStack(parent, "Chests", 10);
             col.AddComponent<LayoutElement>().preferredWidth = 456; // 稿 218pt
@@ -84,10 +84,11 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(col.transform, Strings.T("levelup.reward_title"), 21, Theme.TextDim, Theme.TitleFont,
                 TextAnchor.MiddleLeft);
             var counts = new SortedDictionary<ChestTier, int>();
-            foreach (var g in grants)
+            for (int lv = from + 1; lv <= to; lv++)
             {
-                counts.TryGetValue(g.Tier, out int n);
-                counts[g.Tier] = n + 1;
+                var tier = LevelRewardRules.TierForLevel(lv);
+                counts.TryGetValue(tier, out int n);
+                counts[tier] = n + 1;
             }
             foreach (var kv in counts)
             {

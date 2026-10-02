@@ -128,6 +128,27 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void SeedLastSeenLevel_FirstRun_SetsCurrentLevel()
+        {
+            var meta = AtLevel(12);
+            LevelRewardRules.SeedLastSeenLevel(meta);
+            Assert.That(meta.LastSeenLevel, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void SeedLastSeenLevel_AlreadySeeded_KeepsUnshownLevelUp()
+        {
+            // 升级后弹窗还没弹就被杀进程:重启不能把这次升级静默吞掉(终审 I2)
+            var meta = AtLevel(9);
+            meta.LastSeenLevel = 7;
+            LevelRewardRules.SeedLastSeenLevel(meta);
+            Assert.That(meta.LastSeenLevel, Is.EqualTo(7));
+            var summary = LevelRewardRules.TakeLevelUpSummary(meta);
+            Assert.That(summary.FromLevel, Is.EqualTo(7));
+            Assert.That(summary.ToLevel, Is.EqualTo(9));
+        }
+
+        [Test]
         public void Summary_ReportsRangeAndCrossedMilestones_ThenEmpty()
         {
             var meta = AtLevel(19);

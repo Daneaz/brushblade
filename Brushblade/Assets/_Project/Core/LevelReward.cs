@@ -58,6 +58,14 @@ namespace Brushblade.Core
         public static int OwedChests(MetaState meta) =>
             Math.Max(0, MetaRules.CharacterLevel(meta.CharacterXp) - meta.LevelRewardGranted);
 
+        /// <summary>启动时调用:只在 LastSeenLevel 尚未初始化(0,老存档 / 新号)时对齐到当前等级;
+        /// 已初始化则不动 —— 升级后弹窗没来得及弹就被挂起/杀进程,那次升级要留到下次弹窗再说。</summary>
+        public static void SeedLastSeenLevel(MetaState meta)
+        {
+            if (meta.LastSeenLevel == 0)
+                meta.LastSeenLevel = MetaRules.CharacterLevel(meta.CharacterXp);
+        }
+
         public static LevelUpSummary TakeLevelUpSummary(MetaState meta)
         {
             int level = MetaRules.CharacterLevel(meta.CharacterXp);

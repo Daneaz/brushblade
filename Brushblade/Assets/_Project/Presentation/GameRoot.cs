@@ -17,8 +17,7 @@ namespace Brushblade.Presentation
         private static CampaignConfig _campaign;
         private static MetaState _meta;
         private static readonly BattleTally _tally = new();
-        /// <summary>本次结算点发出的每级宝箱与升级摘要,供升级弹窗读一次后清空(Task 9)。</summary>
-        private static System.Collections.Generic.List<LevelChestGrant> _levelGrants = new();
+        /// <summary>本次结算点的升级摘要,供升级弹窗读一次后清空(Task 9)。</summary>
         private static LevelUpSummary _pendingLevelUp;
         // 本段已即时结进账户的净额;防重复入账(2026-07-24)。2026-08-30 起「净额」= 字摊/奇遇
         // 收支 + 爬塔层清算 —— 半额结算取消后两本账合一,塔内再没有等到结算才入账的钱。
@@ -65,7 +64,7 @@ namespace Brushblade.Presentation
             new GameObject("Music").AddComponent<MusicPlayer>();
             GameSettings.Bind(_meta.Settings);
             AdGate.OnRewarded += () => { StatsRules.RecordAdReward(_meta); MetaStore.Save(_meta); };
-            LevelRewardRules.TakeLevelUpSummary(_meta); // 老存档首次启动:静默对齐 LastSeenLevel,不弹窗
+            LevelRewardRules.SeedLastSeenLevel(_meta); // 老存档 / 新号首次启动:静默对齐;已初始化则留着没弹的升级
 
             ShowMap();
         }
@@ -490,7 +489,7 @@ namespace Brushblade.Presentation
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
-            _levelGrants = LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
+            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned, milestone);
@@ -606,9 +605,8 @@ namespace Brushblade.Presentation
                     Strings.T("root.safelayer.milestone_title", ("bandName", milestone.Name)),
                     Strings.T("root.safelayer.milestone_body", ("ink", milestone.MilestoneInk)),
                     (Strings.T("common.ok"), null, Theme.Cinnabar, Color.white));
-            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp, _levelGrants);
+            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
             _pendingLevelUp = null;
-            _levelGrants = new System.Collections.Generic.List<LevelChestGrant>();
             MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹
         }
 
@@ -678,7 +676,7 @@ namespace Brushblade.Presentation
                 : died
                     ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", ink))
                     : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", ink));
-            _levelGrants = LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
+            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowTowerSettle(headline, ink, chestTitle, chestDesc, chestTier, previousBest, clearedDepth);
@@ -746,9 +744,8 @@ namespace Brushblade.Presentation
 
             Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(),
                 Theme.Cinnabar, Color.white, 31, new Vector2(544, 84));   // 稿 .pill 15pt / 260×40pt
-            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp, _levelGrants);
+            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
             _pendingLevelUp = null;
-            _levelGrants = new System.Collections.Generic.List<LevelChestGrant>();
             MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹
         }
 
