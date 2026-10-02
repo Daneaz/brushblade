@@ -1151,7 +1151,7 @@
   "character.cap_note": "属性 Lv.50 封顶 · 之后升级只给宝箱与里程碑",
   "character.ms_title": "等级里程碑",
   "character.ms_progress": "已领 {claimed} / {total} · 每 5 级一档",
-  "character.ms_after": "Lv.50 之后每 10 级 · {ink} 墨 + 橙字 3 选 1",
+  "character.ms_after": "Lv.50 之后每 10 级 · {ink} 墨 + {rarity}字 3 选 1",
   "character.ms_level": "Lv.{level}",
   "character.ms_pick": "{rarity}字 3 选 1",
   "character.ms_claim": "领 取",

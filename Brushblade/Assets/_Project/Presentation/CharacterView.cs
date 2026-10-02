@@ -200,8 +200,9 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(ttl, Strings.T("character.ms_progress", ("claimed", claimed), ("total", window.Count)),
                 19, Theme.LockGray);
             Rule(ttl);
-            int afterInk = MilestoneRules.ForLevel(MilestoneRules.TableEnd + MilestoneRules.AfterStep).Value.Ink;
-            Ui.ThemedLabel(ttl, Strings.T("character.ms_after", ("ink", afterInk.ToString("N0", Inv))),
+            var after = MilestoneRules.ForLevel(MilestoneRules.TableEnd + MilestoneRules.AfterStep).Value;
+            Ui.ThemedLabel(ttl, Strings.T("character.ms_after", ("ink", after.Ink.ToString("N0", Inv)),
+                    ("rarity", CharInfo.RarityName(after.Rarity))),
                 19, Theme.LockGray);
 
             var track = Ui.Row(stack, "Track", 13);
