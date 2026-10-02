@@ -1122,5 +1122,22 @@
   "collection.modal.delta": "+{delta}",
   "collection.modal.no_numbers": "这一级没有数值变化",
   "collection.modal.no_traits": "这一级没有层数或特性变化",
-  "collection.modal.unchanged": "不变:{list}"
+  "collection.modal.unchanged": "不变:{list}",
+  "levelup.kicker": "升 级",
+  "levelup.level_range": "Lv.{from} → Lv.{to}",
+  "levelup.stats_title": "属性",
+  "levelup.stats_note": "下一段开打时生效",
+  "levelup.stat.hp": "生命",
+  "levelup.stat.attack": "攻击",
+  "levelup.stat.defense": "护甲",
+  "levelup.stat.dodge": "闪避",
+  "levelup.stat.speed": "速度",
+  "levelup.stat_delta": "+{value}",
+  "levelup.stat_capped": "已封顶",
+  "levelup.reward_title": "升级奖励",
+  "levelup.chest_row": "{tierName} × {count}",
+  "levelup.chest_band": "Lv.{level}",
+  "levelup.owed": "箱位已满 · 还欠 {count} 只,开箱腾位后补发",
+  "levelup.milestone": "Lv.{level} 里程碑已解锁 · 回主界面后在角色页领取",
+  "levelup.ok": "知道了"
 }
