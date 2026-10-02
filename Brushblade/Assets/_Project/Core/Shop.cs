@@ -71,7 +71,7 @@ namespace Brushblade.Core
         public static readonly int[] AdOfferCards = { 10, 5, 1 };
         private static readonly bool[] AdOfferNeedsOwned = { true, true, false };
 
-        /// <summary>宝箱位底价(索引 = tier−1;2026-10-01)= 该箱期望开出的捆按字摊每份价折算,
+        /// <summary>宝箱位底价(索引 = tier−1;2026-10-01)= 该箱开出的张数按字摊单张价(每份价 ÷ 每份张数)折算,
         /// 取整到十位(ShopDiscountTests 对账)。实付 = 底价 × 当日折扣。</summary>
         public static readonly int[] ChestBasePrice = { 230, 460, 700, 1180, 2850, 3850, 4870 };
 

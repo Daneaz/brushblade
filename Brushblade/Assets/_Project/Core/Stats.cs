@@ -7,7 +7,7 @@ namespace Brushblade.Core
     public sealed class StatsState
     {
         public Dictionary<ChestTier, int> ChestsOpened { get; set; } = new();
-        /// <summary>按**张数**(捆 × 每捆张数),不是捆数。</summary>
+        /// <summary>按**张数**(每种的张数之和),不是种数。</summary>
         public Dictionary<CardRarity, int> CardsFromChests { get; set; } = new();
         public int Climbs { get; set; }          // 开新塔次数,续爬不算
         public int FloorsCleared { get; set; }

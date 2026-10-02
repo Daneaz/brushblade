@@ -46,9 +46,9 @@ namespace Brushblade.Core
     public readonly struct ChestRewards
     {
         public int Ink { get; }
-        /// <summary>每捆一项(同一个字可能出现在两捆里,不合并)。</summary>
+        /// <summary>每种一项(同一个字可能被抽中两次,不合并)。</summary>
         public IReadOnlyList<string> Cards { get; }
-        /// <summary>与 <see cref="Cards"/> 一一对应:这一捆的张数(字摊同档每份张数,2026-10-01)。</summary>
+        /// <summary>与 <see cref="Cards"/> 一一对应:这一种的张数(<see cref="ChestRules.SplitCopies"/>,2026-10-02)。</summary>
         public IReadOnlyList<int> Counts { get; }
 
         public ChestRewards(int ink, IReadOnlyList<string> cards, IReadOnlyList<int> counts)
@@ -69,11 +69,14 @@ namespace Brushblade.Core
         /// <summary>各级单次广告缩短(秒):即开/即开/40m/60m/90m/105m/120m。</summary>
         public static readonly long[] AdReductionSeconds = { 300, 1800, 2400, 3600, 5400, 6300, 7200 };
 
-        /// <summary>各级开出的捆数(2026-10-01,原「卡数 3/4/6/8/12/14/16」)。每捆一个字,
-        /// 张数 = 商城字摊同档每份张数(<see cref="ShopRules.BundleSizeFor"/>):白 20 / 绿 10 / 蓝 5 /
-        /// 紫 2 / 金橙红 1。高档捆数陡增是为了让后期卡量跟上后期墨锭收入
-        /// (tools/design/economy_model.py:白~紫「攒卡天数 ≈ 攒墨锭天数」)。</summary>
-        public static readonly int[] StackCount = { 1, 2, 3, 5, 12, 16, 20 };
+        /// <summary>各级开出几种字(2026-10-02 回到 19.5.1 的 3/4/6/8/12/14/16)。每种的稀有度按
+        /// <see cref="CardRarityWeights"/> 掷,张数见 <see cref="TotalCards"/> 与 <see cref="SplitCopies"/>。</summary>
+        public static readonly int[] KindCount = { 3, 4, 6, 8, 12, 14, 16 };
+
+        /// <summary>各级开出的总张数(2026-10-02)= 10-01 成捆版的每箱期望张数,高档陡增是为了让
+        /// 后期卡量跟上后期墨锭收入(tools/design/economy_model.py:白~紫「攒卡天数 ≈ 攒墨锭天数」)。
+        /// 只有掷出的全是金橙红时会不足(那几种各 1 张,不凑数)。</summary>
+        public static readonly int[] TotalCards = { 13, 22, 27, 40, 91, 115, 136 };
 
         /// <summary>各级产出墨锭(首版基准)。</summary>
         public static readonly int[] InkReward = { 15, 30, 60, 120, 250, 320, 400 };
@@ -241,12 +244,21 @@ namespace Brushblade.Core
             // 无从查配方,跳过过滤保持旧行为。
             var eligible = EligiblePool(chest.CardPool, graph, meta.OwnedCards);
             var cards = graph == null
-                ? DrawUniform(eligible, random, StackCount[tierIndex])
-                : DrawWeighted(meta, eligible, chest.Tier, random, StackCount[tierIndex], graph);
-            // 每捆张数按稀有度走字摊那张表;graph 为 null 的老调用点无从查稀有度,一捆一张
-            var counts = new List<int>(cards.Count);
-            foreach (var card in cards)
-                counts.Add(graph == null ? 1 : ShopRules.BundleSizeFor(graph.Get(card).Rarity));
+                ? DrawUniform(eligible, random, KindCount[tierIndex])
+                : DrawWeighted(meta, eligible, chest.Tier, random, KindCount[tierIndex], graph);
+            // 张数按(保底替换后的)最终稀有度分;graph 为 null 的老调用点无从查稀有度,每种一张
+            List<int> counts;
+            if (graph == null)
+            {
+                counts = new List<int>(cards.Count);
+                foreach (var _ in cards) counts.Add(1);
+            }
+            else
+            {
+                var drawn = new List<CardRarity>(cards.Count);
+                foreach (var card in cards) drawn.Add(graph.Get(card).Rarity);
+                counts = SplitCopies(drawn, TotalCards[tierIndex]);
+            }
 
             MetaRules.GainInk(meta, ink);
             for (int i = 0; i < cards.Count; i++)
@@ -277,33 +289,67 @@ namespace Brushblade.Core
         // 2026-08-29 重写:此前白/金/橙/红四列写死 0,而 8-25 字表重构后这四档共 37 个字
         // (占可收集字的一半)—— 白字整档掉不出来,金橙红只能从保底口子漏。
         //
-        // 2026-10-01 改「成捆」(权重抽的是**每捆**的稀有度):
-        // · 金/橙/红三列按「每箱期望张数不变」反推(用户拍板「保持不变」):新权重 = 旧卡数 × 旧权重 ÷ 捆数。
-        //   旧拍板值(金 青瓷 10 / 紫檀 20 / 鎏金 50,橙 紫檀 5 / 鎏金 10 / 朱漆 20,红 鎏金 1 / 朱漆 5 /
-        //   赤霄 10)对应的期望张数由 ChestBundleTests.HighRarityExpectationPerChest_Unchanged 钉着。
-        // · 白~紫按「攒卡天数 ≈ 攒墨锭天数」配比,**高档箱也出白/绿**(白卡升满要 1081 张,
-        //   此前鎏金以上白权重为 0,后期白字根本升不动)。
+        // 2026-10-02 改「每箱 N 种、共 M 张」(权重抽的是**每种**的稀有度):
+        // · 金/橙/红三列回到 08-29 拍板原值(金 青瓷 10 / 紫檀 20 / 鎏金 50,橙 紫檀 5 / 鎏金 10 / 朱漆 20,
+        //   红 鎏金 1 / 朱漆 5 / 赤霄 10)—— 种数回到 3/4/6/8/12/14/16,每种 1 张,期望张数与当年一致。
+        // · 白~紫按「每箱各稀有度期望张数 ≈ 10-01 成捆版」反推(用户拍板:改开法不改产出)。
+        //   每种至少 1 张会让抽中的蓝紫多拿,所以蓝紫的每种出率比成捆版低、白高;
+        //   对账见 ChestBundleTests.LowRarityExpectationPerChest_MatchesBundleEra。
+        // · **高档箱也出白/绿**(白卡升满要 1081 张,后期白字靠这个升得动)。
         private static readonly int[][] CardRarityWeights =
         {
             //       白    绿    蓝    紫    金   橙  红
-            new[] { 400, 400, 200,   0,   0,  0,  0 },  // 素纸
-            new[] { 300, 350, 250, 100,   0,  0,  0 },  // 竹简
-            new[] { 227, 258, 289, 206,  20,  0,  0 },  // 青瓷
-            new[] { 217, 171, 263, 309,  32,  8,  0 },  // 紫檀
-            new[] { 197, 162, 255, 325,  50, 10,  1 },  // 鎏金
-            new[] { 186, 151, 244, 336,  61, 18,  4 },  // 朱漆
-            new[] { 173, 138, 231, 346,  80, 24,  8 },  // 赤霄
+            new[] { 505, 356, 139,   0,   0,  0,  0 },  // 素纸
+            new[] { 406, 353, 191,  50,   0,  0,  0 },  // 竹简
+            new[] { 334, 294, 251, 111,  10,  0,  0 },  // 青瓷
+            new[] { 325, 206, 249, 195,  20,  5,  0 },  // 紫檀
+            new[] { 261, 184, 250, 244,  50, 10,  1 },  // 鎏金
+            new[] { 240, 169, 240, 256,  70, 20,  5 },  // 朱漆
+            new[] { 216, 152, 225, 267, 100, 30, 10 },  // 赤霄
         };
 
-        /// <summary>该档宝箱平均开出几张(保底前):捆数 × Σ 每捆权重 × 每捆张数,四舍五入。
-        /// 商城宝箱位「5 捆 约 40 张」的后半句(2026-10-01)—— 「捆」是新概念,不说张数玩家没法和字摊比价。</summary>
-        public static int ExpectedCards(ChestTier tier)
+        /// <summary>该档宝箱开出几张 = <see cref="TotalCards"/>(商城宝箱位「8 种 共 40 张」的后半句)。</summary>
+        public static int ExpectedCards(ChestTier tier) => TotalCards[(int)tier - 1];
+
+        /// <summary>把总张数分给掷出的几种字(2026-10-02,取代「每捆张数 = 字摊一份」):
+        /// 金/橙/红每种 1 张;其余每种先给 1 张,剩下的按 白20 : 绿10 : 蓝5 : 紫2(字摊每份张数,
+        /// <see cref="ShopRules.BundleSizeFor"/>)的份额分,最大余数法取整。余数平局先给低稀有度,
+        /// 同稀有度按抽出先后 —— 各稀有度拿到的张数只由组合决定。没有白~紫时不凑数。</summary>
+        public static List<int> SplitCopies(IReadOnlyList<CardRarity> rarities, int total)
         {
-            var weights = CardRarityWeights[(int)tier - 1];
-            double perStack = 0;
-            for (int r = 0; r < weights.Length; r++)
-                perStack += weights[r] * ShopRules.BundleSizeFor((CardRarity)(r + 1));
-            return (int)Math.Round(StackCount[(int)tier - 1] * perStack / RarityWeightTotal);
+            var counts = new List<int>(rarities.Count);
+            var low = new List<int>();
+            int shareSum = 0;
+            for (int i = 0; i < rarities.Count; i++)
+            {
+                counts.Add(1);
+                if (rarities[i] >= CardRarity.Gold) continue;
+                low.Add(i);
+                shareSum += ShopRules.BundleSizeFor(rarities[i]);
+            }
+            int remaining = total - rarities.Count;
+            if (low.Count == 0 || remaining <= 0)
+                return counts;
+
+            // 整数运算求份额:q_i = remaining × share_i / shareSum,商入账、余数排序
+            var remainders = new List<(int Index, int Rem)>(low.Count);
+            int given = 0;
+            foreach (int i in low)
+            {
+                int scaled = remaining * ShopRules.BundleSizeFor(rarities[i]);
+                counts[i] += scaled / shareSum;
+                given += scaled / shareSum;
+                remainders.Add((i, scaled % shareSum));
+            }
+            remainders.Sort((a, b) =>
+            {
+                if (a.Rem != b.Rem) return b.Rem.CompareTo(a.Rem);
+                if (rarities[a.Index] != rarities[b.Index]) return rarities[a.Index].CompareTo(rarities[b.Index]);
+                return a.Index.CompareTo(b.Index);
+            });
+            for (int k = 0; k < remaining - given; k++)
+                counts[remainders[k].Index]++;
+            return counts;
         }
 
         /// <summary>该档宝箱的卡稀有度权重(千分比,索引 = rarity−1)。</summary>

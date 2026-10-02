@@ -28,18 +28,20 @@ namespace Brushblade.Core.Tests
             Assert.That(ShopRules.ChestBasePrice, Is.EqualTo(new[] { 230, 460, 700, 1180, 2850, 3850, 4870 }));
         }
 
-        /// <summary>底价 = 该箱期望开出的捆按字摊每份价折算(误差 ≤ 3%,底价取整到十位)。
-        /// 改了捆数或权重而不改底价,这条会红。</summary>
+        /// <summary>底价 = 该箱期望开出的张数按字摊单张价(每份价 ÷ 每份张数)折算(误差 ≤ 3%,底价取整到十位)。
+        /// 改了种数、总张数或权重而不改底价,这条会红。</summary>
         [Test]
         public void ChestBasePrice_MatchesBundleEquivalentValue()
         {
             for (int tier = 1; tier <= 7; tier++)
             {
-                var w = ChestRules.CardRarityWeightsFor((ChestTier)tier);
+                var copies = ChestBundleTests.ExpectedCopies((ChestTier)tier);
                 double value = 0;
                 for (int r = 0; r < 7; r++)
-                    value += w[r] / 1000.0 * ShopRules.BundlePriceFor((CardRarity)(r + 1));
-                value *= ChestRules.StackCount[tier - 1];
+                {
+                    var rarity = (CardRarity)(r + 1);
+                    value += copies[r] * ShopRules.BundlePriceFor(rarity) / ShopRules.BundleSizeFor(rarity);
+                }
                 Assert.That(ShopRules.ChestBasePrice[tier - 1], Is.EqualTo(value).Within(value * 0.03), $"tier {tier}");
             }
         }
