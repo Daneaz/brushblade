@@ -347,6 +347,12 @@ namespace Brushblade.Presentation
         private void BuildNode(Transform parent, PerkNodeDef def, int charLevel)
         {
             var state = StateOf(_meta, def, charLevel);
+            int ownedStages = def.StageCount > 1 ? PerkRules.OwnedStageCount(_meta, def.NodeKey) : 0;
+            // 三段节点已点亮过至少一段(2026-10-02):StateOf 判的是「下一段」,下一段卡在
+            // 等级/墨锭时会落进灰底分支 —— 已付过钱的节点画成未解锁、两侧连线却是亮的。
+            // 卡面按已点亮画;下一段可点时保留 CanUnlock 的外发光。只改画法,
+            // StateOf 原样(PerkNodeSheet 的解锁钮仍按下一段判)。
+            if (ownedStages > 0 && state != NodeState.CanUnlock) state = NodeState.Owned;
             var main = BranchColor(def);
             var soft = BranchSoft(def);
 
@@ -415,7 +421,7 @@ namespace Brushblade.Presentation
             AddIcon(content.transform, PerkNodeIcons.KeyFor(def), gated ? Theme.LockGray : main);
             AddName(content.transform, PerkInfo.Name(def), gated ? Theme.LockGray : Theme.TextMain);
             if (def.StageCount > 1)
-                AddStagePips(content.transform, PerkRules.OwnedStageCount(_meta, def.NodeKey), def.StageCount,
+                AddStagePips(content.transform, ownedStages, def.StageCount,
                     gated ? Theme.LockGray : main);
         }
 
