@@ -1134,9 +1134,9 @@
   "levelup.stat.speed": "速度",
   "levelup.stat_delta": "+{value}",
   "levelup.stat_capped": "已封顶",
+  "levelup.stat_same": "—",
   "levelup.reward_title": "升级奖励",
   "levelup.chest_row": "{tierName} × {count}",
-  "levelup.chest_band": "Lv.{level}",
   "levelup.owed": "箱位已满 · 还欠 {count} 只,开箱腾位后补发",
   "levelup.milestone": "Lv.{level} 里程碑已解锁 · 回主界面后在角色页领取",
   "levelup.ok": "知道了"

@@ -11,6 +11,7 @@ namespace Brushblade.Presentation
     public static class LevelUpPopup
     {
         private const float W = 1256f, H = 745f; // 稿 600×356pt
+        private const int CapProbe = 1000;   // 远超任何属性封顶等级,取曲线终值当「封顶值」
 
         public static void Show(Transform root, MetaState meta, LevelUpSummary summary,
             IReadOnlyList<LevelChestGrant> grants)
@@ -18,19 +19,18 @@ namespace Brushblade.Presentation
             if (summary == null) return;
             var sheet = Ui.Sheet(root, "LevelUp", W, H, dismissable: false, replaceSameName: true,
                 Theme.Scrim, out var content);
-            var stack = Ui.VStack(content, "Stack", 21);
-            Ui.Stretch((RectTransform)stack.transform);
-            var layout = stack.GetComponent<VerticalLayoutGroup>();
-            layout.childAlignment = TextAnchor.UpperCenter;
+            // content 已是 Sheet 给的带内边距 VStack,直接在里面排,不再套一层
+            var layout = content.GetComponent<VerticalLayoutGroup>();
+            layout.spacing = 21;
             layout.childForceExpandWidth = true;
             layout.padding = new RectOffset(38, 38, 29, 29);
 
-            Ui.ThemedLabel(stack.transform, Strings.T("levelup.kicker"), 25, Theme.CinnabarDark, Theme.TitleFont);
-            Ui.ThemedLabel(stack.transform,
+            Ui.ThemedLabel(content, Strings.T("levelup.kicker"), 25, Theme.CinnabarDark, Theme.TitleFont);
+            Ui.ThemedLabel(content,
                 Strings.T("levelup.level_range", ("from", summary.FromLevel), ("to", summary.ToLevel)),
                 50, Theme.TextMain, Theme.TitleFont);
 
-            var cols = Ui.Row(stack.transform, "Cols", 29);
+            var cols = Ui.Row(content, "Cols", 29);
             cols.AddComponent<LayoutElement>().flexibleHeight = 1;
             cols.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = true;
 
@@ -38,10 +38,10 @@ namespace Brushblade.Presentation
             BuildChests(cols.transform, grants, LevelRewardRules.OwedChests(meta));
 
             foreach (int lv in summary.Milestones)
-                Ui.Chip(stack.transform, Strings.T("levelup.milestone", ("level", lv)),
+                Ui.Chip(content, Strings.T("levelup.milestone", ("level", lv)),
                     Theme.GoldSoft, Theme.GoldText, 21, border: Theme.GoldBorder);
 
-            Ui.PillButton(stack.transform, Strings.T("levelup.ok"), () => Object.Destroy(sheet),
+            Ui.PillButton(content, Strings.T("levelup.ok"), () => Object.Destroy(sheet),
                 Theme.Cinnabar, Color.white, 31, new Vector2(335, 84));
         }
 
@@ -52,15 +52,15 @@ namespace Brushblade.Presentation
             col.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
             Ui.ThemedLabel(col.transform, Strings.T("levelup.stats_title") + " · " + Strings.T("levelup.stats_note"),
                 21, Theme.TextDim, Theme.TitleFont, TextAnchor.MiddleLeft);
-            StatRow(col.transform, Strings.T("levelup.stat.hp"), MetaRules.MaxHpFor(from), MetaRules.MaxHpFor(to), "");
-            StatRow(col.transform, Strings.T("levelup.stat.attack"), MetaRules.AttackFor(from), MetaRules.AttackFor(to), "");
-            StatRow(col.transform, Strings.T("levelup.stat.defense"), MetaRules.DefenseFor(from), MetaRules.DefenseFor(to), "");
-            StatRow(col.transform, Strings.T("levelup.stat.dodge"), MetaRules.DodgeFor(from), MetaRules.DodgeFor(to), "%");
-            StatRow(col.transform, Strings.T("levelup.stat.speed"), MetaRules.SpeedFor(from), MetaRules.SpeedFor(to), "");
+            StatRow(col.transform, Strings.T("levelup.stat.hp"), MetaRules.MaxHpFor(from), MetaRules.MaxHpFor(to), MetaRules.MaxHpFor(CapProbe), "");
+            StatRow(col.transform, Strings.T("levelup.stat.attack"), MetaRules.AttackFor(from), MetaRules.AttackFor(to), MetaRules.AttackFor(CapProbe), "");
+            StatRow(col.transform, Strings.T("levelup.stat.defense"), MetaRules.DefenseFor(from), MetaRules.DefenseFor(to), MetaRules.DefenseFor(CapProbe), "");
+            StatRow(col.transform, Strings.T("levelup.stat.dodge"), MetaRules.DodgeFor(from), MetaRules.DodgeFor(to), MetaRules.DodgeFor(CapProbe), "%");
+            StatRow(col.transform, Strings.T("levelup.stat.speed"), MetaRules.SpeedFor(from), MetaRules.SpeedFor(to), MetaRules.SpeedFor(CapProbe), "");
         }
 
-        /// <summary>一行「名 旧 → 新 +差」;没涨的行照列(写「已封顶」),藏了玩家会以为属性丢了。</summary>
-        private static void StatRow(Transform parent, string name, int was, int now, string unit)
+        /// <summary>一行「名 旧 → 新 +差」;没涨的行照列:真封顶写「已封顶」,只是这一段没跨档写「—」。</summary>
+        private static void StatRow(Transform parent, string name, int was, int now, int cap, string unit)
         {
             var row = Ui.Row(parent, "Stat", 15);
             row.AddComponent<LayoutElement>().preferredHeight = 50;
@@ -70,7 +70,8 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(row.transform, $"{was}{unit} → {now}{unit}", 27, Theme.TextMain, Theme.TitleFont,
                 TextAnchor.MiddleLeft).gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
             Ui.ThemedLabel(row.transform,
-                now > was ? Strings.T("levelup.stat_delta", ("value", $"{now - was}{unit}")) : Strings.T("levelup.stat_capped"),
+                now > was ? Strings.T("levelup.stat_delta", ("value", $"{now - was}{unit}"))
+                    : now == cap ? Strings.T("levelup.stat_capped") : Strings.T("levelup.stat_same"),
                 20, now > was ? Theme.UpgradeText : Theme.TextDim, null, TextAnchor.MiddleRight);
         }
 
