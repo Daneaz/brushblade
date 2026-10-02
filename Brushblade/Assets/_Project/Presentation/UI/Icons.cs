@@ -62,6 +62,9 @@ namespace Brushblade.Presentation
             { "thorns", "刺" },
             { "ranged", "远" },
             { "melee", "近" },
+            // 角色页里程碑(2026-10-02)
+            { "chevron", "进" },
+            { "check", "领" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

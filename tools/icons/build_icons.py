@@ -187,6 +187,9 @@ ICONS = {
         f'<path {STROKE} d="M14 50L50 14M50 50L14 14"/>'
         f'<path {STROKE} d="M18 39l7 7M46 39l-7 7"/>'
     ),
+    # 角色页里程碑进度箭头(2026-10-02)
+    "chevron": f'<path {STROKE} d="M24 14L42 32L24 50"/>',
+    "check": f'<path {STROKE} d="M14 34L27 46L50 19"/>',
     "focus": (
         f'<circle cx="32" cy="32" r="17" {STROKE}/>'
         f'<path {STROKE} d="M32 5v10M32 49v10M5 32h10M49 32h10"/>'

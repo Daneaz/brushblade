@@ -220,7 +220,7 @@ namespace Brushblade.Core
             int cost = InkCostToSkip(remaining);
             if (meta.Ink < cost)
                 return false;
-            meta.Ink -= cost;
+            MetaRules.SpendInk(meta, cost);
             chest.ReducedSeconds += remaining;
             return true;
         }
@@ -248,12 +248,22 @@ namespace Brushblade.Core
             foreach (var card in cards)
                 counts.Add(graph == null ? 1 : ShopRules.BundleSizeFor(graph.Get(card).Rarity));
 
-            meta.Ink += ink;
+            MetaRules.GainInk(meta, ink);
             for (int i = 0; i < cards.Count; i++)
             {
                 MetaRules.AcquireCard(meta, cards[i]);
                 if (counts[i] > 1) MetaRules.AddCardCopies(meta, cards[i], counts[i] - 1);
             }
+            // 开箱统计(2026-10-02 角色页):graph 为 null 的老调用点查不到稀有度,只记箱数
+            var rarities = new List<CardRarity>(cards.Count);
+            var rarityCounts = new List<int>(cards.Count);
+            if (graph != null)
+                for (int i = 0; i < cards.Count; i++)
+                {
+                    rarities.Add(graph.Get(cards[i]).Rarity);
+                    rarityCounts.Add(counts[i]);
+                }
+            StatsRules.RecordChestOpened(meta, chest.Tier, rarities, rarityCounts);
             meta.Chests.RemoveAt(index);
 
             rewards = new ChestRewards(ink, cards, counts);

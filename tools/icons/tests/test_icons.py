@@ -39,6 +39,8 @@ EXPECTED = {
     # 正是 build_icons.ICONS 开头那条「图形一律白色,底色由 C# 上色」的约定。
     "perk_draw", "perk_loot", "perk_amplify", "perk_wellspring", "perk_heft",
     "perk_hp", "perk_library", "perk_hand", "perk_ap",
+    # 角色页 —— 里程碑标记与进度箭头
+    "chevron", "check",
 }
 
 

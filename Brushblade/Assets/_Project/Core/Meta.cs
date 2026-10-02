@@ -48,6 +48,18 @@ namespace Brushblade.Core
         /// <summary>玩家设置(2026-09-24)。旧存档没有这一项,反序列化后留缺省值,
         /// 所以初值必须是「开箱即用」的那一套(音效音乐开、加速关)。</summary>
         public SettingsState Settings { get; set; } = new();
+        /// <summary>跨局统计(2026-10-02 角色页)。</summary>
+        public StatsState Stats { get; set; } = new();
+        /// <summary>每级宝箱已发到第几级(1 = 一只都没发)。只在宝箱真正入位后才前进 ——
+        /// 箱位满时停住、欠着(从不占暂存位),见 <see cref="LevelRewardRules.GrantLevelChests"/>。</summary>
+        public int LevelRewardGranted { get; set; } = 1;
+        /// <summary>升级弹窗上次展示到的等级。0 = 尚未初始化(老存档 / 新号首次启动),
+        /// 首次读取时静默对齐到当前等级,不弹「Lv.1 → N」。</summary>
+        public int LastSeenLevel { get; set; }
+        /// <summary>已领取的等级里程碑(等级)。</summary>
+        public List<int> ClaimedMilestones { get; set; } = new();
+        /// <summary>已生成、未领取的里程碑 3 选 1 候选(等级 → 字 id)。第一次打开领取弹窗时生成并落档,防刷。</summary>
+        public Dictionary<int, List<string>> MilestoneOffers { get; set; } = new();
     }
 
     /// <summary>养成规则(19.2/19.3 首版基准)。纯函数,状态进出。</summary>
@@ -221,6 +233,18 @@ namespace Brushblade.Core
             intoLevel = xp;
             toNextLevel = cost;
             return level;
+        }
+
+        /// <summary>达到 <paramref name="level"/> 级所需的累计经验(与 <see cref="CharacterLevel"/> 同一条曲线)。</summary>
+        public static int XpToReach(int level)
+        {
+            int xp = 0, cost = 100;
+            for (int lv = 1; lv < level; lv++)
+            {
+                xp += cost;
+                cost += 50;
+            }
+            return xp;
         }
 
         /// <summary>生命成长:500 + 20×(等级−1),上限 1480(50 级)。
@@ -464,6 +488,30 @@ namespace Brushblade.Core
         public static int CardLevel(MetaState meta, string cardId) =>
             meta.CardLevels.TryGetValue(cardId, out var level) ? level : 1;
 
+        /// <summary>墨锭入账的唯一入口(2026-10-02):同时累计 Stats.InkEarned。
+        /// ⚠ 新增任何给墨锭的地方都走这里,tools/monetization/tests/test_ink_ledger.py 扫源码盯着。</summary>
+        public static void GainInk(MetaState meta, int amount)
+        {
+            if (amount <= 0) return;
+            meta.Ink += amount; // INK-LEDGER
+            meta.Stats.InkEarned += amount;
+        }
+
+        /// <summary>墨锭扣款的唯一入口:同时累计 Stats.InkSpent。不查余额 —— 调用方已查过。</summary>
+        public static void SpendInk(MetaState meta, int amount)
+        {
+            if (amount <= 0) return;
+            meta.Ink -= amount; // INK-LEDGER
+            meta.Stats.InkSpent += amount;
+        }
+
+        /// <summary>按正负号分流(局内字摊净额结算用,GameRoot.CommitEventInk)。</summary>
+        public static void ApplyInkDelta(MetaState meta, int delta)
+        {
+            if (delta > 0) GainInk(meta, delta);
+            else SpendInk(meta, -delta);
+        }
+
         public static void AddCardCopies(MetaState meta, string cardId, int count)
         {
             meta.CardCopies.TryGetValue(cardId, out var current);
@@ -494,7 +542,7 @@ namespace Brushblade.Core
                 return false;
 
             meta.CardCopies[cardId] = copies - copiesNeeded;
-            meta.Ink -= inkNeeded;
+            SpendInk(meta, inkNeeded);
             meta.CardLevels[cardId] = level + 1;
             return true;
         }
@@ -712,6 +760,14 @@ namespace Brushblade.Core
                 meta.EndlessV2.Library.RemoveAll(id => !Known(id));
                 meta.EndlessV2.Pool.RemoveAll(id => !Known(id));
             }
+
+            // 里程碑候选含下架字 → 整条作废,下次打开领取弹窗重生成(否则弹窗空、红点常亮)
+            var staleOffers = new List<int>();
+            foreach (var kv in meta.MilestoneOffers)
+                if (kv.Value.Exists(id => !Known(id)))
+                    staleOffers.Add(kv.Key);
+            foreach (var lv in staleOffers)
+                meta.MilestoneOffers.Remove(lv);
         }
 
         private static void RemoveUnknownKeys(Dictionary<string, int> map, Func<string, bool> known)

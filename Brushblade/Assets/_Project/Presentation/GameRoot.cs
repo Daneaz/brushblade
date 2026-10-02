@@ -16,6 +16,9 @@ namespace Brushblade.Presentation
         private static RecipeGraph _graph;
         private static CampaignConfig _campaign;
         private static MetaState _meta;
+        private static readonly BattleTally _tally = new();
+        /// <summary>本次结算点的升级摘要,供升级弹窗读一次后清空(Task 9)。</summary>
+        private static LevelUpSummary _pendingLevelUp;
         // 本段已即时结进账户的净额;防重复入账(2026-07-24)。2026-08-30 起「净额」= 字摊/奇遇
         // 收支 + 爬塔层清算 —— 半额结算取消后两本账合一,塔内再没有等到结算才入账的钱。
         private static int _committedEventInk;
@@ -60,6 +63,8 @@ namespace Brushblade.Presentation
             // 设置跟着存档走,Bind 之前 GameSettings 用的是一份缺省值
             new GameObject("Music").AddComponent<MusicPlayer>();
             GameSettings.Bind(_meta.Settings);
+            AdGate.OnRewarded += () => { StatsRules.RecordAdReward(_meta); MetaStore.Save(_meta); };
+            LevelRewardRules.SeedLastSeenLevel(_meta); // 老存档 / 新号首次启动:静默对齐;已初始化则留着没弹的升级
 
             ShowMap();
         }
@@ -93,10 +98,19 @@ namespace Brushblade.Presentation
 
         public static void ShowMap(string message = null)
         {
+            if (LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time).Count > 0)
+                MetaStore.Save(_meta);
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
                 onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary,
-                onOpenPerks: ShowPerks, onOpenSettings: ShowSettings);
+                onOpenPerks: ShowPerks, onOpenSettings: ShowSettings, onOpenCharacter: ShowCharacter);
+        }
+
+        private static void ShowCharacter()
+        {
+            var view = NewView("CharacterView");
+            view.AddComponent<CharacterView>().Init(_graph, _campaign, _meta, ChestCardPool(),
+                () => MetaStore.Save(_meta), () => ShowMap());
         }
 
         private static void ShowCollection()
@@ -189,6 +203,7 @@ namespace Brushblade.Presentation
                     // 到结算时 _meta.BestDepth 已经是本次成绩了(见 EndlessSaveState 的注释)
                     BestDepthBeforeRun = _meta.BestDepth,
                 };
+                StatsRules.RecordClimbStart(_meta);
                 MetaStore.Save(_meta);
             }
             StartSegment(firstTower);
@@ -220,6 +235,8 @@ namespace Brushblade.Presentation
             // 测试全绿、零编译错)。整段映射下沉进 MetaRules.BuildBattleConfig,由
             // MetaRulesBattleConfigTests 逐条盯着 —— 新属性加在那边,不要加回这里。
             var battleConfig = MetaRules.BuildBattleConfig(_meta, _campaign.DropTable);
+            _tally.Clear();               // 上一段没折完的(杀进程残留)不跨段累计
+            battleConfig.Tally = _tally;  // 每场 BattleConfigForRun 浅拷贝,引用随之带过去
             RunEngine run = null;
             if (resume != null)
             {
@@ -307,6 +324,7 @@ namespace Brushblade.Presentation
                     // 先结账再走(2026-08-30):离塔那一刻账户必须与塔内预算对齐,否则地图顶栏
                     // 显示的是没结的旧余额 —— 墨锭飘字会当场飘出一个凭空的差额
                     CommitEventInk(run);
+                    StatsRules.FoldTally(_meta, _tally);
                     SaveNow();
                     ShowMap(Strings.T("root.map.tower_suspended_message"));
                 },
@@ -315,6 +333,7 @@ namespace Brushblade.Presentation
                 onAbandon: () => // 弃塔:纪录保留,墨锭一分不少(半额结算已于 2026-08-30 取消)
                 {
                     CommitEventInk(run);
+                    StatsRules.FoldTally(_meta, _tally);
                     ClearProgress(); // 弃塔:断点作废
                     // 已清最深层同样看 ClearedBattleIndex:在战利品/奇遇页弃塔时
                     // BattleIndex 还停在刚打完那层,用它减一会把这层的纪录抹掉
@@ -348,7 +367,7 @@ namespace Brushblade.Presentation
         private static void CommitEventInk(RunEngine run)
         {
             int delta = run.EarnedInk - _committedEventInk;
-            if (delta != 0) _meta.Ink += delta;
+            MetaRules.ApplyInkDelta(_meta, delta);
             _committedEventInk = run.EarnedInk;
         }
 
@@ -367,12 +386,14 @@ namespace Brushblade.Presentation
             if (snapshot.Depth <= cleared)             // 幂等:同一层只记一次账
             {
                 _meta.CharacterXp += EndlessRules.XpFor(_campaign.Endless, cleared);
+                StatsRules.RecordFloorCleared(_meta, isBoss: false);
                 // 层墨锭记进本段账目(2026-08-30):与字摊收支同一本账 —— 下面 CommitEventInk
                 // 当场就把它结进账户,顶栏因此能在打完这一层时飘出 +N,也当场能在字摊花掉
                 run.AddInk(EndlessRules.FloorInk(_campaign.Endless, cleared));
                 snapshot.Depth = cleared + 1;          // 推进后挂起不会重打本层(也就刷不出重复战利品)
             }
             CommitEventInk(run); // 本段净额(层清算 + 字摊)即时结进账户
+            StatsRules.FoldTally(_meta, _tally);
             WriteCarriedSnapshot(run, snapshot, carriedInk + run.EarnedInk);
             MetaStore.Save(_meta);
         }
@@ -423,6 +444,7 @@ namespace Brushblade.Presentation
             {
                 // 阵亡:先把本段没结完的净额结掉(墨锭一分不少,半额已取消),再弹结算
                 CommitEventInk(run);
+                StatsRules.FoldTally(_meta, _tally);
                 int clearedDepth = fromDepth + run.ClearedBattleIndex; // 同上:已清最深层
                 SettleTower(died: true, clearedDepth, carriedInk + run.EarnedInk);
                 return;
@@ -432,6 +454,8 @@ namespace Brushblade.Presentation
             // 此处只记录已破的最高 Boss 层
             SyncBestiary(run); // Boss 层走 RunWon,不经过 OnFloorCleared
             _meta.CharacterXp += EndlessRules.XpFor(endless, segmentEnd);
+            StatsRules.RecordFloorCleared(_meta, isBoss: true);
+            StatsRules.FoldTally(_meta, _tally);
             // Boss 层墨锭(普通层的层清算走 OnFloorCleared,段末不经手)。先记账再 CommitEventInk,
             // 这一笔才能跟着进账户 —— 安全层顶栏因此在打完 Boss 的当下就把它飘出来
             run.AddInk(EndlessRules.FloorInk(endless, segmentEnd));
@@ -464,6 +488,8 @@ namespace Brushblade.Presentation
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
+            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
+            _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowSafeLayer(segmentEnd, totalEarned, milestone);
         }
@@ -578,6 +604,9 @@ namespace Brushblade.Presentation
                     Strings.T("root.safelayer.milestone_title", ("bandName", milestone.Name)),
                     Strings.T("root.safelayer.milestone_body", ("ink", milestone.MilestoneInk)),
                     (Strings.T("common.ok"), null, Theme.Cinnabar, Color.white));
+            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
+            _pendingLevelUp = null;
+            MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹
         }
 
         /// <summary>安全层的一条岔路:钮 + 钮**下面**那句取舍说明(稿 SafeLayer.dc.html 的 .fork)。
@@ -605,6 +634,7 @@ namespace Brushblade.Presentation
         /// `died` 也只剩挑文案的用处 —— 撤退、阵亡、弃塔拿到的墨锭完全一样。</summary>
         private static void SettleTower(bool died, int clearedDepth, int totalEarned, bool abandoned = false)
         {
+            if (died && !abandoned) StatsRules.RecordDeath(_meta);
             int chestDepth = EndlessRules.SettleChestDepth(_meta.EndlessV2?.TopBossDepth ?? 0);
             // 旧纪录读快照里登塔那一刻存下的那份,**不能**在这里现读 _meta.BestDepth:
             // 段末告捷早在弹安全层之前就跑过 UpdateBest(OnSegmentEnded),从安全层点「收官撤退」
@@ -645,6 +675,8 @@ namespace Brushblade.Presentation
                 : died
                     ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", ink))
                     : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", ink));
+            LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
+            _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
             ShowTowerSettle(headline, ink, chestTitle, chestDesc, chestTier, previousBest, clearedDepth);
         }
@@ -711,6 +743,9 @@ namespace Brushblade.Presentation
 
             Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(),
                 Theme.Cinnabar, Color.white, 31, new Vector2(544, 84));   // 稿 .pill 15pt / 260×40pt
+            LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
+            _pendingLevelUp = null;
+            MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹
         }
 
         /// <summary>结算页的宝箱行(稿 Settle.dc.html 的 .chestrow):色块图标 + 标题 + 说明。
