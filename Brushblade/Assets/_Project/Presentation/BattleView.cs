@@ -1170,7 +1170,11 @@ namespace Brushblade.Presentation
                 && !(_run.ReviveCharPicksLeft > 0 && _run.RewardOptions.Count > 0))
                 _run.SkipReviveReward();
 
-            if (enteredReviving && _run.Phase == RunPhase.InBattle && !Animating)
+            // 只有**复活**补给要补跑被打断的循环。字库补给(Restock)发生在玩家自己的回合里,
+            // 玩家没被打断任何一拍 —— 照跑 AdvanceRoutine 等于把回合让了出去
+            // (2026-10-02 用户报:看广告领完字卡回合直接结束)。
+            if (enteredReviving && _run.Phase == RunPhase.InBattle && !Animating
+                && _run.CurrentSupply == SupplyKind.Revive)
             {
                 // 复活流程刚结束(三条出口任一条),接着跑被打断的循环:满格未动的敌人先补完
                 // 那一拍(不是因为敌人优先——反转后玩家的优先级最小,而是玩家的计量器停在

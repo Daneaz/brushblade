@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>字库补给(2026-09-23 用户拍板):持有字跌破 3 张时,看一次广告补一轮 5 选 2,
-    /// 整次登塔一次。
+    /// 每场战斗一次(2026-10-02 起;原为整次登塔一次)。
     ///
     /// 它与复活补给**共用** <see cref="RunPhase.Reviving"/> 和整套选字 API
     /// (ReviveCharPicksLeft / PickReviveChar / SkipReviveReward)—— 选字 UI 一行不用重写。
@@ -55,22 +55,78 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void OncePerTowerClimb()
+        public void OncePerBattle()
         {
             var run = Run(1);
             Assert.That(run.TryRestock(), Is.True);
             run.SkipReviveReward();                       // 挑完/跳过,回到战斗
-            Assert.That(run.RestockAvailable, Is.False, "同一次登塔不该再给第二次");
+            Assert.That(run.RestockAvailable, Is.False, "同一场战斗不该再给第二次");
             Assert.That(run.TryRestock(), Is.False);
         }
 
+        /// <summary>每场战斗一次(2026-10-02 用户拍板,原「整次登塔一次」):打赢进下一场,额度重置。</summary>
         [Test]
-        public void MarkRestocked_BlocksASecondClaimAfterResume()
+        public void NextBattle_OffersRestockAgain()
+        {
+            var config = new RunConfig
+            {
+                Encounters = new[]
+                {
+                    new[] { new EnemyDef("靶", Element.Heart, 1, 0) },
+                    new[] { new EnemyDef("靶", Element.Heart, 500, 0) },
+                },
+                RewardPool = new[] { "乙", "丙", "丁", "戊", "己", "庚" },
+            };
+            var run = new RunEngine(Graph(), config, new BattleConfig { DropTable = new[] { "甲" } },
+                startingLibrary: new[] { "甲", "甲" }, startingPool: Array.Empty<string>(), seed: 7);
+            Assert.That(run.TryRestock(), Is.True);
+            run.SkipReviveReward();
+            Assert.That(run.Battle.Cast("甲"), Is.EqualTo(BattleError.None));
+            run.AdvanceAfterBattle();
+            run.SkipReward();                             // 开下一层
+            Assert.That(run.BattleIndex, Is.EqualTo(1), "前提:已进第二场");
+            Assert.That(run.RestockAvailable, Is.True, "新的一场,补给额度重置");
+        }
+
+        /// <summary>2026-10-02 用户报:领过补给后回主界面再续爬,本场又能看一次广告 ——
+        /// 段中快照漏存了这个标记。走真实的 Capture/Restore 入口。</summary>
+        [Test]
+        public void Restocked_SurvivesMidBattleSnapshot()
         {
             var run = Run(1);
-            run.MarkRestocked();                          // 模拟从快照恢复
-            Assert.That(run.RestockAvailable, Is.False);
-            Assert.That(run.TryRestock(), Is.False);
+            Assert.That(run.TryRestock(), Is.True);
+            run.SkipReviveReward();
+            var restored = RunEngine.Restore(run.Capture(), Graph(), Config(),
+                new BattleConfig { DropTable = new[] { "甲" } }, null);
+            Assert.That(restored.RestockAvailable, Is.False, "续爬回来同一场不能再领");
+        }
+
+        /// <summary>停在补给选字页挂起再续爬,来源标记不能回落成缺省的 Revive ——
+        /// 表现层按它决定收尾时要不要补跑敌人那一拍,读错就是「领完字回合被让掉」。</summary>
+        [Test]
+        public void CurrentSupply_SurvivesSnapshot()
+        {
+            var run = Run(1);
+            run.TryRestock();
+            var restored = RunEngine.Restore(run.Capture(), Graph(), Config(),
+                new BattleConfig { DropTable = new[] { "甲" } }, null);
+            Assert.That(restored.Phase, Is.EqualTo(RunPhase.Reviving), "前提:停在选字页");
+            Assert.That(restored.CurrentSupply, Is.EqualTo(SupplyKind.Restock));
+        }
+
+        /// <summary>2026-10-02 用户报:领完字卡回合直接结束。补给发生在玩家自己的回合里,
+        /// 回到战斗后必须仍是玩家回合、AP 不动(引擎侧的守卫;表现层那一支见 BattleView.Refresh)。</summary>
+        [Test]
+        public void AfterRestock_StillPlayerTurn_ApUnchanged()
+        {
+            var run = Run(1);
+            int ap = run.Battle.Ap;
+            run.TryRestock();
+            run.PickReviveChar(0);
+            run.PickReviveChar(0);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.InBattle));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.PlayerTurn), "补完字仍是玩家回合");
+            Assert.That(run.Battle.Ap, Is.EqualTo(ap), "补给不扣 AP");
         }
 
         [Test]

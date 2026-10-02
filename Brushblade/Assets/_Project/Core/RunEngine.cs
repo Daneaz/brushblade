@@ -179,6 +179,8 @@ namespace Brushblade.Core
                 LibraryExpanded = LibraryExpanded,
                 PoolExpanded = PoolExpanded,
                 Revived = Revived,
+                Restocked = Restocked,
+                CurrentSupply = CurrentSupply,
                 ReviveCharPicksLeft = ReviveCharPicksLeft,
                 ReviveRoundsLeft = ReviveRoundsLeft,
                 DefeatedEnemyIds = new List<string>(_defeatedEnemyIds),
@@ -215,6 +217,8 @@ namespace Brushblade.Core
                 LibraryExpanded = snapshot.LibraryExpanded,
                 PoolExpanded = snapshot.PoolExpanded,
                 Revived = snapshot.Revived,
+                Restocked = snapshot.Restocked, // 段中挂起再续爬,本场已领过的不能再领(2026-10-02)
+                CurrentSupply = snapshot.CurrentSupply, // 停在补给选字页挂起:来源不能回落成复活
                 ReviveCharPicksLeft = snapshot.ReviveCharPicksLeft,
                 ReviveRoundsLeft = snapshot.ReviveRoundsLeft,
             };
@@ -545,14 +549,15 @@ namespace Brushblade.Core
         /// <summary>断点续爬恢复:标记本次登塔已复活过(防重进本层二次复活)。</summary>
         public void MarkRevived() => Revived = true;
 
-        // ---- 字库补给(2026-09-23):持有字跌破下限时,看一次广告补 5 选 2 ----
+        // ---- 字库补给(2026-09-23):持有字跌破下限时,看一次广告补 5 选 2;
+        //      2026-10-02 起每场战斗一次(原整次登塔一次),标记随段中快照走 ----
 
         /// <summary>触发线:字库**低于**这个数才给补给(即 0/1/2 张时可领,3 张不给)。</summary>
         public const int RestockThreshold = 3;
 
         private const int RestockRounds = 1;  // 一轮 5 选 2(复活补给是两轮,那是败北的补偿)
 
-        /// <summary>本次登塔是否已用过字库补给(一次性;进快照,断点续爬恢复)。</summary>
+        /// <summary>本场战斗是否已用过字库补给(每场一次,开下一场清零;进段中快照,断点续爬恢复)。</summary>
         public bool Restocked { get; private set; }
 
         /// <summary><see cref="RunPhase.Reviving"/> 这一阶段当前是哪一种补给。
@@ -563,7 +568,7 @@ namespace Brushblade.Core
         /// (目前只有弹窗标题)一律读它,别再去猜 <see cref="Battle"/> 的阶段。</summary>
         public SupplyKind CurrentSupply { get; private set; } = SupplyKind.Revive;
 
-        /// <summary>可补给:战斗进行中、轮到玩家、字库跌破下限,且本次登塔还没用过。
+        /// <summary>可补给:战斗进行中、轮到玩家、字库跌破下限,且本场还没用过。
         ///
         /// 不含「败北」那一支 —— 那是复活补给的场景,两者互不重叠。</summary>
         public bool RestockAvailable =>
@@ -571,7 +576,7 @@ namespace Brushblade.Core
             && Battle != null && Battle.Phase == BattlePhase.PlayerTurn
             && Battle.Library.Count < RestockThreshold;
 
-        /// <summary>看广告补给:抽一轮候选注入当前战斗字库(5 选 2),整次登塔一次。</summary>
+        /// <summary>看广告补给:抽一轮候选注入当前战斗字库(5 选 2),每场战斗一次。</summary>
         public bool TryRestock()
         {
             if (!RestockAvailable) return false;
@@ -583,9 +588,6 @@ namespace Brushblade.Core
             Phase = RunPhase.Reviving;
             return true;
         }
-
-        /// <summary>断点续爬恢复:标记本次登塔已补给过(防重进本层二次领取)。</summary>
-        public void MarkRestocked() => Restocked = true;
 
         private void MaybeFinishRevive()
         {
@@ -873,6 +875,7 @@ namespace Brushblade.Core
             _carriedNormalShield += _perFloorNormalShield; // 金汤每关补盾,叠加上关剩余
             Battle = NewBattle(_carriedLibrary, _carriedPool, _carriedHp);
             _killInkCredited.Clear();
+            Restocked = false; // 字库补给每场战斗一次(2026-10-02)
             Phase = RunPhase.InBattle;
         }
 

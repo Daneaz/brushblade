@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Brushblade.Core
 {
     /// <summary>引导节拍(11.2.2 分层教学,首局剧本:3.9 拆合链战例)。
@@ -30,8 +32,16 @@ namespace Brushblade.Core
     {
         /// <summary>首局演示字:配方是「部件+部件」——拆开就能原地合回,不依赖别的字。
         /// 2026-09-05:刺 移出字表,换成同为金系蓝档纯直伤的 剿(配方 巢 + 刂)。
-        /// ⚠ 出阵废止后(2026-09-06)起手已无「必在起手字库里」的保证,见 MetaTests 里的 TODO。</summary>
+        /// 首塔起手固定为 <see cref="StartingLibrary"/>,保证它在手(2026-10-02)。</summary>
         public const string DemoChar = "剿";
+
+        /// <summary>引导起手(2026-10-02 用户拍板):首塔不走随机抽,固定发这 6 张 ——
+        /// 五系各一 + 最高档(蓝)保底一,与随机起手同形状;全部出自初始收藏,首塔时一定已拥有。
+        /// 随机起手下金系那格可能抽到 利、保底那张可能是 碎,演示字不在手,引导第一步就卡死。</summary>
+        public static readonly IReadOnlyList<string> StartingLibrary = new[]
+        {
+            DemoChar, "花", "冷", "热", "碉", "碎",
+        };
 
         private static readonly (TutorialStep step, TutorialAction action, string charId)[] Script =
         {
