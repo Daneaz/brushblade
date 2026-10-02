@@ -42,6 +42,7 @@ namespace Brushblade.Presentation
         private Action _onOpenBestiary;
         private Action _onOpenPerks;
         private Action _onOpenSettings;
+        private Action _onOpenCharacter;
         private string _message;
         private System.Collections.Generic.List<EnemyDef> _enemies; // 图鉴全集(页签计数用),口径与图鉴页同源
 
@@ -53,7 +54,8 @@ namespace Brushblade.Presentation
 
         public void Init(RecipeGraph graph, CampaignConfig campaign, MetaState meta, ITimeSource time,
             Action onStartTower, Action save, string message, Action onOpenCollection, Action onOpenShop,
-            Action onOpenBestiary, Action onOpenPerks, Action onOpenSettings)
+            Action onOpenBestiary, Action onOpenPerks, Action onOpenSettings,
+            Action onOpenCharacter)
         {
             _graph = graph;
             _onOpenShop = onOpenShop;
@@ -66,6 +68,7 @@ namespace Brushblade.Presentation
             _onOpenBestiary = onOpenBestiary;
             _onOpenPerks = onOpenPerks;
             _onOpenSettings = onOpenSettings;
+            _onOpenCharacter = onOpenCharacter;
             _message = message ?? "";
             _enemies = BestiaryView.CollectEnemies(campaign);
             Rebuild();
@@ -169,6 +172,29 @@ namespace Brushblade.Presentation
             element.preferredWidth = HeroW;
             element.flexibleWidth = 0;
 
+            // 整块是一个按钮(2026-10-02):点哪都进角色页。右上角 chevron 是唯一的可点提示,红点 = 有里程碑可领
+            var button = panel.gameObject.AddComponent<Button>();
+            button.targetGraphic = panel;
+            button.onClick.AddListener(() => _onOpenCharacter());
+            var chevron = Icons.Get("chevron");
+            if (chevron != null)
+            {
+                var chevronGo = Ui.Panel(panel.transform, "Chevron");
+                var img = chevronGo.AddComponent<Image>();
+                img.sprite = chevron;
+                img.color = Theme.TextDim;
+                img.raycastTarget = false;
+                Ui.Anchor((RectTransform)chevronGo.transform, Vector2.one, Vector2.one,
+                    new Vector2(-41, -41), new Vector2(-14, -14));
+            }
+            if (MilestoneRules.HasClaimable(_meta))
+            {
+                RedDot(panel.transform);
+                // RedDot 默认钉在角上;这里让到 chevron 左侧,不压它
+                Ui.Anchor((RectTransform)panel.transform.Find("Dot"), Vector2.one, Vector2.one,
+                    new Vector2(-64, -34), new Vector2(-50, -20));
+            }
+
             var stack = Ui.VStack(panel.transform, "Stack", 19);
             var layout = stack.GetComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
@@ -215,8 +241,8 @@ namespace Brushblade.Presentation
                 (Strings.T("map.hero.stat.speed"), stats.PlayerSpeed.ToString(), Theme.TextMain),
                 (Strings.T("map.hero.stat.ap"), stats.ApPerTurn.ToString(), Theme.TextMain));
 
-            Spring(stack.transform, vertical: true); // 卡池摘要钉在面板底(稿上 margin-top:auto)
-            BuildPoolMini(stack.transform);
+            Spring(stack.transform, vertical: true); // 出手 Top10 钉在面板底(稿上 margin-top:auto)
+            BuildTopPlays(stack.transform);
         }
 
         private static void StatRow(Transform parent,
@@ -242,45 +268,41 @@ namespace Brushblade.Presentation
             Ui.Stretch(value.rectTransform);
         }
 
-        /// <summary>角色栏里的卡池摘要(2026-09-06,取代出阵表小牌墙):
-        /// 出阵废止后这里没有「玩家编好的名单」可展示,改成「卡池多大 + 顶上那一档长什么样」。
-        /// 顶档那几张正是起手第 6 格保底会抽到的池子。</summary>
-        private void BuildPoolMini(Transform parent)
+        /// <summary>出手最多 Top10(2026-10-02,取代卡池摘要):5 列 × 2 行,牌 0.8 竖版。
+        /// ⚠ 1600×900 下实测挤不下时,把 Rows 改成 1(只画前 5),完整 10 张在角色页(用户已认可的兜底)。</summary>
+        private void BuildTopPlays(Transform parent)
         {
-            const int PerRow = 6;
-            const float TileW = 50f;
-            const float TileH = 62f;
+            const int PerRow = 5;
+            const int Rows = 2;
+            const float TileW = 54f, TileH = 67f;   // 稿 26×32pt
 
-            var playable = MetaRules.PlayableCards(_meta, _graph);
-            Ui.ThemedLabel(parent,
-                Strings.T("map.hero.pool_title", ("count", playable.Count)),
-                19, Theme.LockGray, null, TextAnchor.MiddleLeft);
+            var head = Ui.Row(parent, "TopHead", 8);
+            head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.ThemedLabel(head.transform, Strings.T("map.hero.top_title"), 19, Theme.LockGray, null, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
+            Ui.ThemedLabel(head.transform, Strings.T("map.hero.top_unit"), 17, Theme.LockGray, null, TextAnchor.MiddleRight);
 
-            // 只画最高档那几张,最多一行
-            CardRarity best = 0;
-            foreach (var id in playable)
+            var top = StatsRules.TopPlays(_meta, _graph, PerRow * Rows);
+            if (top.Count == 0)
             {
-                var rarity = _graph.Get(id).Rarity;
-                if (rarity > best) best = rarity;
+                Ui.ThemedLabel(parent, Strings.T("map.hero.top_empty"), 17, Theme.LockGray, null, TextAnchor.MiddleLeft);
+                return;
             }
-
-            var rows = Ui.VStack(parent, "PoolRows", 8);
+            var rows = Ui.VStack(parent, "TopRows", 8);
             rows.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
-
             Transform row = null;
-            int shown = 0;
-            foreach (string id in playable)
+            for (int i = 0; i < top.Count; i++)
             {
-                if (shown >= PerRow) break;
-                if (!_graph.TryGet(id, out var def) || def.Rarity != best) continue;
-                if (shown % PerRow == 0)
+                if (i % PerRow == 0)
                 {
-                    var rowGo = Ui.Row(rows.transform, "PoolRow0", 8);
+                    var rowGo = Ui.Row(rows.transform, "TopRow", 10);
                     rowGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                     row = rowGo.transform;
                 }
-                Ui.MiniGlyphTile(row, def, new Vector2(TileW, TileH));
-                shown++;
+                var cell = Ui.VStack(row, "Cell", 2);
+                cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+                Ui.MiniGlyphTile(cell.transform, _graph.Get(top[i].Id), new Vector2(TileW, TileH));
+                Ui.ThemedLabel(cell.transform, top[i].Plays.ToString(), 17, Theme.TextDim);
             }
         }
 

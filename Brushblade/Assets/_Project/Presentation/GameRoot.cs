@@ -104,7 +104,12 @@ namespace Brushblade.Presentation
             var view = NewView("MapView");
             view.AddComponent<MapView>().Init(_graph, _campaign, _meta, Time, StartTower, () => MetaStore.Save(_meta), message,
                 onOpenCollection: ShowCollection, onOpenShop: ShowShop, onOpenBestiary: ShowBestiary,
-                onOpenPerks: ShowPerks, onOpenSettings: ShowSettings);
+                onOpenPerks: ShowPerks, onOpenSettings: ShowSettings, onOpenCharacter: ShowCharacter);
+        }
+
+        private static void ShowCharacter()
+        {
+            ShowMap(); // Task 11 换成真正的角色页
         }
 
         private static void ShowCollection()
