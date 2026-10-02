@@ -107,5 +107,80 @@ namespace Brushblade.Core.Tests
             Assert.That(e.Enemies[0].Alive, Is.False);
             for (int i = 1; i < 4; i++) Assert.That(Burn(e, i), Is.EqualTo(0));
         }
+            // 不灭:层数不衰减,1 层结算后仍是 1 层 → 有层即扩散(spec §2.4)。
+        [Test]
+        public void BurnNoDecay_OneStack_StillSpreads()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("燃", Element.Fire, effects: new[]
+                {
+                    new EffectDef(EffectKind.BurnSingle, 1),
+                    new EffectDef(EffectKind.BurnNoDecay, 1),
+                }),
+            });
+            var e = new BattleEngine(graph, new BattleConfig
+                {
+                    DropTable = new[] { "火" }, PlayerMaxHp = 5000, ApPerTurn = 20,
+                    BurnSpreadAdjacent = true,
+                },
+                new[] { "燃" }, Array.Empty<string>(),
+                new[]
+                {
+                    new EnemyDef("甲", Element.Heart, 90000, 0),
+                    new EnemyDef("乙", Element.Heart, 90000, 0),
+                    new EnemyDef("丙", Element.Heart, 90000, 0),
+                    new EnemyDef("丁", Element.Heart, 90000, 0, row: EnemyRow.Back),
+                }, seed: 1);
+            e.Cast("燃", 0);
+            Assert.That(e.Enemies[0].Statuses.Has(StatusKind.BurnNoDecay), Is.True, "前提:挂上不灭");
+            e.EndTurn();
+            Assert.That(Burn(e, 0), Is.EqualTo(1), "不灭:1 层结算后不衰减");
+            var adj = Targeting.AdjacentEnemies(e.Enemies, 0);
+            Assert.That(adj.Count, Is.EqualTo(3));
+            foreach (int n in adj)
+                Assert.That(e.LastEvents.Count(x => x.Kind == BattleEventKind.Burn && x.TargetIndex == n),
+                    Is.EqualTo(1), $"邻居 {n} 收到一次扩散");
+        }
+
+        // 跨两列 Boss 占前排列 1–2:同排首尾相接的列 0、列 3 是左右邻;
+        // 后排列 1、列 2 与它的列区间有交集 → 都是上下邻;后排列 0 不相交 → 不是。
+        [Test]
+        public void AdjacentEnemies_TwoColumnBoss_UsesColumnIntervals()
+        {
+            var e = new BattleEngine(Graph(1), new BattleConfig
+                {
+                    DropTable = new[] { "火" }, PlayerMaxHp = 5000, ApPerTurn = 20,
+                    BurnSpreadAdjacent = true,
+                },
+                new[] { "燃" }, Array.Empty<string>(),
+                new[]
+                {
+                    new EnemyDef("王", Element.Heart, 90000, 0, columnSpan: 2),
+                    new EnemyDef("甲", Element.Heart, 90000, 0),
+                    new EnemyDef("乙", Element.Heart, 90000, 0),
+                    new EnemyDef("丙", Element.Heart, 90000, 0, row: EnemyRow.Back),
+                    new EnemyDef("丁", Element.Heart, 90000, 0, row: EnemyRow.Back),
+                    new EnemyDef("戊", Element.Heart, 90000, 0, row: EnemyRow.Back),
+                }, seed: 1);
+            int At(EnemyRow row, int col) => Enumerable.Range(0, e.Enemies.Count).Single(i =>
+                e.Enemies[i].Row == row && e.Enemies[i].Column == col);
+            Assert.That(e.Enemies[0].Row, Is.EqualTo(EnemyRow.Front));
+            Assert.That(e.Enemies[0].Column, Is.EqualTo(1), "前提:Boss 占前排列 1–2");
+            Assert.That(e.Enemies[0].ColumnSpan, Is.EqualTo(2));
+
+            var adj = Targeting.AdjacentEnemies(e.Enemies, 0);
+            var expected = new[]
+            {
+                At(EnemyRow.Front, 0), At(EnemyRow.Front, 3),
+                At(EnemyRow.Back, 1), At(EnemyRow.Back, 2),
+            }.OrderBy(i => i).ToList();
+            Assert.That(adj, Is.EqualTo(expected));
+            Assert.That(adj.Contains(At(EnemyRow.Back, 0)), Is.False, "后排列 0 与 Boss 列区间不相交");
+
+            // 反向:前排列 0 的随从左右邻只有 Boss(列 1 首端相接),上方后排列 0
+            var leftAdj = Targeting.AdjacentEnemies(e.Enemies, At(EnemyRow.Front, 0));
+            Assert.That(leftAdj, Is.EqualTo(new[] { 0, At(EnemyRow.Back, 0) }.OrderBy(i => i).ToList()));
+        }
     }
 }

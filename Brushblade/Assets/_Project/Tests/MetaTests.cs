@@ -517,8 +517,9 @@ namespace Brushblade.Core.Tests
                 Is.EqualTo(6), "广纳不再追加起手");
         }
 
-        /// <summary>点满广纳(起手 8)而不点博闻(容量 7)时,容量必须钳到起手张数 ——
-        /// 否则开局即溢出、第一回合必弹 DropChoice(spec §5.1)。</summary>
+        /// <summary>守不变量「容量 ≥ 起手张数」(否则开局即溢出、第一回合必弹 DropChoice)。
+        /// 2026-10-02 起广纳改为空库掉字、不再影响起手,这里点满广纳只是确认它仍不破坏
+        /// 该不变量;今后若有养成重新加起手,这条会先红。</summary>
         [Test]
         public void Capacity_IsClampedUpToTheStartingHandSize()
         {

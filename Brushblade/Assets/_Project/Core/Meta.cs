@@ -136,9 +136,9 @@ namespace Brushblade.Core
         /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻。「容量比起手多一格」这个关系
         /// 只在这一处定义 —— GameRoot 接线时调这个,不要在那边散写 +1。
         ///
-        /// ⚠ **下限钳到起手实际张数**(spec §5.1):拆分前 bowen 一条同时驱动两条公式、
-        /// 二者恒同步;拆开后这个不变量消失,点满广纳(起手 8)而不点博闻(容量 7)就会
-        /// 开局即溢出、第一回合必弹 DropChoice —— 静默的坏体验。</summary>
+        /// ⚠ **下限钳到起手实际张数**(防御性不变量):容量一旦低于起手张数就会开局即溢出、
+        /// 第一回合必弹 DropChoice —— 静默的坏体验。2026-10-02 起广纳改为空库掉字、不再影响
+        /// 起手,当前公式下这道钳不会生效;留着是为了今后若有养成重新加起手时不变量仍成立。</summary>
         public static int LibraryCapacityFor(MetaState meta)
         {
             int declared = StartingLibrarySize + LibraryCapacitySlack
