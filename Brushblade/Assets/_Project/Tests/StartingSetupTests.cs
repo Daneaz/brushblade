@@ -123,11 +123,8 @@ namespace Brushblade.Core.Tests
         /// <summary>用真实 chars.json + enemies.json 跑首层。ConfigLoaderTests 里那条同名守卫
         /// 引了 UnityEngine.Application 被工装排除,这里用不依赖引擎的路径再守一遍。
         ///
-        /// ⚠ 起手随机化后(2026-09-06,出阵废止),字库不再是固定的 <c>StartingDeck</c>,
-        /// 这条只验**种子 1** 下(演示字「剿」被抽进起手字库)打得过首层 —— 不再是
-        /// 「任意起手都打得过」的全局保证。种子 1-300 里含演示字的 141 个种子实测全部能清首层,
-        /// 没有出现「含演示字但打不过」的种子,所以固定种子非硬凑。测试要的是确定性结果,
-        /// 固定种子而不取随机,正是为此。</summary>
+        /// 首塔起手是固定的 <see cref="Tutorial.StartingLibrary"/>(2026-10-02;此前随机抽,
+        /// 这条只能挑一颗恰好抽到演示字的种子来验)。</summary>
         [Test]
         public void ShippedConfig_StartingCollection_ClearsFirstFloor()
         {
@@ -142,8 +139,8 @@ namespace Brushblade.Core.Tests
 
             var meta = new MetaState();
             MetaRules.EnsureStartingCollection(meta);
-            var random = new GameRandom(1); // 固定种子:抽出的起手字库含演示字「剿」
-            var library = MetaRules.StartingLibrary(meta, graph, random);
+            var random = new GameRandom(1);
+            var library = Tutorial.StartingLibrary;
 
             var battle = new BattleEngine(graph,
                 new BattleConfig

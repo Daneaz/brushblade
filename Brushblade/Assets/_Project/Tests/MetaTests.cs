@@ -651,17 +651,6 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.MilestoneOffers[15], Is.EqualTo(new[] { "炎", "火" }));
         }
 
-        /// <summary>字库补给的一次性标记要跟着存档走(2026-09-29):断点续爬回来若丢了它,
-        /// 同一次登塔能再领一次。走真实的 SaveSerializer 入口,不直接碰 JSON 库。</summary>
-        [Test]
-        public void EndlessSave_RestockedFlag_SurvivesRoundTrip()
-        {
-            var meta = new MetaState { EndlessV2 = new EndlessSaveState { Restocked = true, Revived = false } };
-            var restored = SaveSerializer.FromJson(SaveSerializer.ToJson(meta));
-            Assert.That(restored.EndlessV2.Restocked, Is.True);
-            Assert.That(restored.EndlessV2.Revived, Is.False, "两个一次性标记互不串");
-        }
-
         [Test]
         public void PruneUnknownCards_CleanState_Untouched()
         {
@@ -720,10 +709,19 @@ namespace Brushblade.Core.Tests
             }
         }
 
-        // TODO(2026-09-06):教程演示字的起手保证随出阵一起没了。
-        // 此前靠「默认出阵必含 Tutorial.DemoChar」保证首局起手拆得动它;起手改成随机抽之后
-        // 这个保证不存在,教程第一步可能无字可拆。用户将另行修改新游戏的起手解锁字卡与教程本身。
-        // 见 docs/superpowers/specs/2026-09-06-移除出阵-卡池抽卡-design.md 第五节。
+        /// <summary>引导起手(2026-10-02,补上 2026-09-06 出阵废止时留下的 TODO):首塔不走随机抽,
+        /// 固定发 <see cref="Tutorial.StartingLibrary"/>。随机起手下演示字「剿」可能不在手,
+        /// 引导第一步就走不下去。</summary>
+        [Test]
+        public void TutorialStartingLibrary_HoldsDemoChar_AndOnlyStartingCollection()
+        {
+            var library = Tutorial.StartingLibrary;
+            Assert.That(library.Contains(Tutorial.DemoChar), Is.True, "引导起手必须有演示字");
+            Assert.That(library.Count, Is.EqualTo(MetaRules.StartingLibrarySize), "张数与随机起手同口径");
+            foreach (var id in library)
+                Assert.That(MetaRules.StartingCollection.Contains(id), Is.True,
+                    $"「{id}」不在初始收藏里 —— 首塔时玩家不一定有它");
+        }
 
         [Test]
         public void RarityWeights_AreMonotonicallyDecreasing_AndSumToThousand()

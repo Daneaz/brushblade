@@ -333,20 +333,21 @@ namespace Brushblade.Presentation
         private static string DiscountTag(int discountPercent) =>
             Strings.T("shop.discount_tag", ("zhe", discountPercent / 10));
 
-        /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 「差 N」;
-        /// 已售 = 锁灰底 + 「今日已购」。差多少写出来,玩家才知道要不要去看那条领墨锭的广告。
-        /// <paramref name="original"/> 高于 price 时,买得起那一态在折后价后面跟一个划线原价。</summary>
+        /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 朱砂字的价格;
+        /// 已售 = 锁灰底 + 「今日已购」。
+        /// 墨锭不足时不再写「差 N 墨」(2026-10-02 用户拍板):照常显示价格、标红即可,与宝箱位同款。
+        /// <paramref name="original"/> 高于 price 时,未售的两态都在折后价后面跟一个划线原价。</summary>
         private void BuyButton(Transform parent, float width, bool sold, int price, string label, Action onClick,
             int original = 0)
         {
             bool poor = !sold && _meta.Ink < price;
-            var button = Ui.RoundButton(parent, poor ? Strings.T("shop.slot.short_by", ("amount", price - _meta.Ink)) : label,
+            var button = Ui.RoundButton(parent, label,
                 onClick,
                 sold ? Theme.LockedBg : poor ? Theme.PanelInset : Theme.Ink,
                 sold ? Theme.LockGray : poor ? Theme.CinnabarDark : Color.white,
                 19, new Vector2(width, BuyH), 14);
             button.interactable = !sold && !poor;
-            if (!sold && !poor && original > price) StrikePrice(button, original, Color.white);
+            if (!sold && original > price) StrikePrice(button, original, poor ? Theme.CinnabarDark : Color.white);
         }
 
         /// <summary>把钮上那行「折后价」改成「折后价 + 划线原价」并排居中。

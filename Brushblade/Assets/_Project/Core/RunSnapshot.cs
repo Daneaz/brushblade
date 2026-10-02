@@ -143,7 +143,8 @@ namespace Brushblade.Core
         public bool LibraryExpanded { get; set; }
         public bool PoolExpanded { get; set; }
         public bool Revived { get; set; }
-        public bool Restocked { get; set; } // 字库补给已用(整次登塔一次,2026-09-23)
+        public bool Restocked { get; set; } // 本场已领字库补给(每场一次,2026-10-02;段中挂起靠它防二次领取)
+        public SupplyKind CurrentSupply { get; set; } = SupplyKind.Revive; // 选字页挂起时是哪种补给(2026-10-02)
         public int ReviveCharPicksLeft { get; set; } // 复活补给本轮剩余选字次数(2026-08-04)
         public int RewardRerollsLeft { get; set; } // 本轮剩余整组重抽次数(明察)
         public int ReviveRoundsLeft { get; set; } // 复活补给剩余重抽轮数(2026-08-04)
