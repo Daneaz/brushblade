@@ -44,6 +44,47 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void VictoryHeal_RestoresPercentOfMaxHp()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 500);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(600), "500 + 1000 × 10%");
+        }
+
+        [Test]
+        public void VictoryHeal_ClampsAtMaxHp()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 980);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.PlayerHp, Is.EqualTo(1000));
+        }
+
+        [Test]
+        public void VictoryHeal_AppliesOnFinalBattle_CarriedHp()
+        {
+            var run = new RunEngine(Graph(),
+                new RunConfig { Encounters = new[] { new[] { Weak() } }, RewardPool = new[] { "灯", "焚", "林" } },
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 1000, VictoryHealPercent = 10 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: 500);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            if (run.Phase == RunPhase.Reward) run.SkipReward();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.RunWon));
+            Assert.That(run.CarriedHp, Is.EqualTo(600));
+        }
+
+        [Test]
         public void Run_StartsInFirstBattle()
         {
             var run = Run();
@@ -939,6 +980,56 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void ShieldCarry_PerkKeepsThreeQuarters()
+        {
+            var run = new RunEngine(Graph(), TwoBattles(),
+                new BattleConfig { DropTable = new[] { "木" }, ShieldCarryPercent = 75 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7,
+                cardLevels: null, startingInk: 0, startingHp: null,
+                startingNormalShield: 8);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.PlayerShield, Is.EqualTo(6), "8 × 75% = 6");
+        }
+
+        [Test]
+        public void ShieldCarry_DefaultIsFifty()
+        {
+            Assert.That(new BattleConfig().ShieldCarryPercent, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void ShieldCarry_SummonShield_KeepsConfiguredPercent()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("兵", Element.Heart,
+                    effects: new[] { new EffectDef(EffectKind.Summon, 1, summonCount: 1, summonAttack: 0, summonChar: "木") }),
+                new CharDef("壁", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
+                new CharDef("焚", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+            });
+            var run = new RunEngine(graph,
+                new RunConfig
+                {
+                    Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+                    RewardPool = new[] { "焚" },
+                    FromDepth = 31,
+                },
+                new BattleConfig { DropTable = new[] { "木" }, ShieldCarryPercent = 75, ApPerTurn = 20 },
+                startingLibrary: new[] { "兵", "壁", "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+            Assert.That(run.Battle.Cast("兵", summonSlots: new[] { 0 }), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Cast("壁", allySlot: 0), Is.EqualTo(BattleError.None));
+            int shield = run.Battle.Summons[0].Shield;
+            Assert.That(shield, Is.GreaterThan(0), "前提:召唤物确实挂上了盾");
+            Assert.That(run.Battle.Cast("焚"), Is.EqualTo(BattleError.None));
+            Assert.That(run.Battle.Phase, Is.EqualTo(BattlePhase.Won));
+            run.AdvanceAfterBattle();
+            run.SkipReward();
+            Assert.That(run.Battle.Summons[0].Shield, Is.EqualTo(shield * 75 / 100));
+        }
+
+        [Test]
         public void Shield_PerFloor_AddsEachBattle() // 金汤每关补盾:叠加上关剩余
         {
             var run = new RunEngine(Graph(), TwoBattles(),
@@ -1125,6 +1216,99 @@ namespace Brushblade.Core.Tests
                 "开场只推进一次,行动者是玩家");
             Assert.That(run.Battle.OpeningSteps[0].Actor, Is.EqualTo(ActorRef.Player),
                 "同速下玩家 priority 最小 —— 召唤物若带着满格进场就会抢在它前面");
+        }
+
+        // ---- 慧眼 / 明察(2026-10-02):候选数来自配置、每轮可整组重抽 ----
+
+        private static RunConfig RarityRunConfig() => new()
+        {
+            Encounters = new[] { new[] { Weak() }, new[] { Weak() } },
+            RewardPool = RarityPool,
+        };
+
+        private static RunEngine RewardRoundRun(BattleConfig cfg)
+        {
+            var run = new RunEngine(RarityGraph(), RarityRunConfig(), cfg,
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            return run;
+        }
+
+        [Test]
+        public void RewardOptionCount_ComesFromConfig()
+        {
+            var run = RewardRoundRun(new BattleConfig { DropTable = new[] { "木" }, RewardOptionCount = 6 });
+            Assert.That(run.RewardOptions.Count, Is.EqualTo(6));
+            Assert.That(new BattleConfig().RewardOptionCount, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void Reroll_OncePerRound_ReplacesOptions()
+        {
+            var run = RewardRoundRun(new BattleConfig { DropTable = new[] { "木" }, RewardRerolls = 1 });
+            Assert.That(run.RewardRerollsLeft, Is.EqualTo(1));
+            int count = run.RewardOptions.Count;
+            Assert.That(run.RerollRewards(), Is.True);
+            Assert.That(run.RewardOptions.Count, Is.EqualTo(count), "重抽后候选数不变");
+            Assert.That(run.RewardRerollsLeft, Is.EqualTo(0));
+            Assert.That(run.RerollRewards(), Is.False, "本轮只能一次");
+        }
+
+        [Test]
+        public void Reroll_WithoutPerk_IsRefused()
+        {
+            var run = RewardRoundRun(new BattleConfig { DropTable = new[] { "木" } });
+            Assert.That(run.RerollRewards(), Is.False);
+        }
+
+        [Test]
+        public void Reroll_DoesNotRefundPicks()
+        {
+            var run = RewardRoundRun(new BattleConfig { DropTable = new[] { "木" }, RewardRerolls = 1 });
+            run.PickReward(0);
+            int left = run.CharPicksLeft;
+            Assert.That(run.RerollRewards(), Is.True);
+            Assert.That(run.CharPicksLeft, Is.EqualTo(left));
+        }
+
+        [Test]
+        public void Reroll_UsedState_SurvivesSnapshot()
+        {
+            var cfg = new BattleConfig { DropTable = new[] { "木" }, RewardRerolls = 1 };
+            var run = RewardRoundRun(cfg);
+            run.RerollRewards();
+            var restored = RunEngine.Restore(run.Capture(), RarityGraph(), RarityRunConfig(), cfg, null, 0, 0);
+            Assert.That(restored.RewardRerollsLeft, Is.EqualTo(0), "读档不白送重抽");
+        }
+
+        [Test]
+        public void Reroll_RefreshedOnNextRound()
+        {
+            var cfg = new BattleConfig { DropTable = new[] { "木" }, RewardRerolls = 1 };
+            var run = new RunEngine(RarityGraph(), RarityRunConfig(), cfg,
+                startingLibrary: new[] { "焚", "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            run.RerollRewards();
+            run.SkipReward();
+            WinCurrentBattle(run);
+            run.AdvanceAfterBattle();
+            Assert.That(run.RewardRerollsLeft, Is.EqualTo(1), "新一轮重置");
+        }
+
+        [Test]
+        public void Reroll_WorksInReviveSupplyRound()
+        {
+            var run = new RunEngine(Graph(),
+                new RunConfig { Encounters = new[] { new[] { Strong() } }, RewardPool = new[] { "灯", "焚", "林" } },
+                new BattleConfig { DropTable = new[] { "木" }, RewardRerolls = 1 },
+                startingLibrary: new[] { "焚" }, startingPool: Array.Empty<string>(), seed: 7);
+            run.Battle.EndTurn();
+            Assert.That(run.TryRevive(), Is.True);
+            Assert.That(run.RewardRerollsLeft, Is.EqualTo(1));
+            Assert.That(run.RerollRewards(), Is.True);
+            Assert.That(run.RewardRerollsLeft, Is.EqualTo(0));
         }
     }
 }

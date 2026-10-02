@@ -4296,6 +4296,7 @@ namespace Brushblade.Presentation
             DrawAdExpandBadge(footRow);
             var spacer = Ui.Panel(footRow, "Spacer");
             Ui.Sized(spacer, flexWidth: 1f);
+            DrawRerollButton(footRow);
             Ui.RoundButton(footRow, Strings.T("battle.btn.reward_skip"), () =>
             {
                 // 同上一个成功分支:立即置空,不依赖 Unity 假 null 的下帧时序。
@@ -4365,6 +4366,25 @@ namespace Brushblade.Presentation
 
         private int _pendingReviveIndex = -1; // 满库待替换:已选中的候选字下标(-1 = 未进替换子步)
 
+        /// <summary>明察(2026-10-02):整组重抽当前候选。战利品选字与复活/字库补给选字共用 ——
+        /// 两页读的是同一份 <c>_run.RewardOptions</c>。
+        ///
+        /// ⚠ 重抽后候选整组换掉,三个指向候选的下标(预览 / 两条满库替换子步)全部清掉:
+        /// 留着任何一个,下一次重绘就会对着新候选里的同一位置预览或替换,玩家看到的不是他点的那张。
+        /// 按钮只画在选字步(替换子步提前 return 不画),两个替换下标此时本应为 -1,清它们是兜底。</summary>
+        private void DrawRerollButton(Transform footRow)
+        {
+            if (_run.RewardRerollsLeft <= 0) return;
+            Ui.RoundButton(footRow, Strings.T("battle.reward.reroll", ("left", _run.RewardRerollsLeft)), () =>
+            {
+                _previewRewardIndex = -1;
+                _pendingRewardIndex = -1;
+                _pendingReviveIndex = -1;
+                if (_run.RerollRewards()) _message = Strings.T("battle.reward.reroll_msg");
+                Refresh();
+            }, Theme.LockedBg, Theme.TextMain, 25, new Vector2(220, 63));
+        }
+
         private void DrawReviveCharStep()
         {
             // 同 DrawReward:复活补给页也画着字库行与 +2 徽章,扩容后满库前提不再成立
@@ -4426,6 +4446,7 @@ namespace Brushblade.Presentation
             DrawAdExpandBadge(footRow);   // 2026-09-21 补:战利品选字页一直有,这页漏着
             var spacer = Ui.Panel(footRow, "Spacer");
             Ui.Sized(spacer, flexWidth: 1f);
+            DrawRerollButton(footRow);
             Ui.RoundButton(footRow, Strings.T("battle.btn.revive_skip"), () =>
             {
                 if (_sheet != null) { Object.Destroy(_sheet); _sheet = null; }

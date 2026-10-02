@@ -23,8 +23,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CountOwned_CountsNodesAtOrDeeperThanMinDepth()
         {
-            // 金脉点满 4 层 → L3/L4 两个够深
-            var meta = MetaWith("metal_1", "metal_2", "metal_3", "metal_4");
+            // 金脉四层各点一段 → L3/L4 两个够深(L1/L2 三段式,按段计数)
+            var meta = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "metal_4");
             Assert.That(PerkRules.CountOwned(meta, PerkTree.Wuxing, 3), Is.EqualTo(2),
                 "PerDeepWuxingNode 数的是**节点**:一系点满 4 层算 2(L3、L4 各一个)");
             Assert.That(PerkRules.CountOwned(meta, PerkTree.Wuxing, 1), Is.EqualTo(4));
@@ -33,8 +33,8 @@ namespace Brushblade.Core.Tests
         [Test]
         public void CountOwned_IsIndifferentToInsertionOrder()
         {
-            var forward = MetaWith("metal_1", "metal_2", "metal_3");
-            var backward = MetaWith("metal_3", "metal_2", "metal_1");
+            var forward = MetaWith("metal_1_s1", "metal_2_s1", "metal_3");
+            var backward = MetaWith("metal_3", "metal_2_s1", "metal_1_s1");
             Assert.That(PerkRules.CountOwned(backward, PerkTree.Wuxing, 3),
                 Is.EqualTo(PerkRules.CountOwned(forward, PerkTree.Wuxing, 3)),
                 "必须遍历固定顺序的 Nodes,不是 meta.UnlockedPerks");
@@ -60,16 +60,16 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PerDeepWuxingNode_CountsOnlyDepthThreeAndDeeper()
         {
-            var meta = MetaWith("metal_1", "metal_2", "wood_1", "wood_2");
+            var meta = MetaWith("metal_1_s1", "metal_2_s1", "wood_1_s1", "wood_2_s1");
             var def = Scaler(PerkEffect.AttackPercent, PerkScaling.PerDeepWuxingNode, 8, 3);
             Assert.That(PerkRules.ScaleCountOf(meta, def), Is.EqualTo(0),
-                "L1/L2 是供给不是强化,不计入");
+                "L1/L2(三段式)不计入,只数 L3/L4");
         }
 
         [Test]
         public void PerDeepElement_CountsElementsNotNodes()
         {
-            var meta = MetaWith("metal_1", "metal_2", "metal_3", "metal_4");
+            var meta = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "metal_4");
             var def = Scaler(PerkEffect.DrawRolls, PerkScaling.PerDeepElement, 1, 1);
             Assert.That(PerkRules.ScaleCountOf(meta, def), Is.EqualTo(1),
                 "一系点满 4 层只算 1 个系(与 PerDeepWuxingNode 的 2 刻意不同)");
@@ -79,11 +79,11 @@ namespace Brushblade.Core.Tests
         public void PerDeepElement_ClampsAtTwo()
         {
             var meta = MetaWith(
-                "metal_1", "metal_2", "metal_3",
-                "wood_1", "wood_2", "wood_3",
-                "water_1", "water_2", "water_3",
-                "fire_1", "fire_2", "fire_3",
-                "earth_1", "earth_2", "earth_3");
+                "metal_1_s1", "metal_2_s1", "metal_3",
+                "wood_1_s1", "wood_2_s1", "wood_3",
+                "water_1_s1", "water_2_s1", "water_3",
+                "fire_1_s1", "fire_2_s1", "fire_3",
+                "earth_1_s1", "earth_2_s1", "earth_3");
             var def = Scaler(PerkEffect.DrawRolls, PerkScaling.PerDeepElement, 1, 1);
             Assert.That(PerkRules.ScaleCountOf(meta, def), Is.EqualTo(2),
                 "上限 2 夹在 ScaleCount 里,不是夹在调用点");
@@ -122,9 +122,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void UnscaledBonus_IsBitIdenticalToPlainSum()
         {
-            var meta = MetaWith("power_1", "power_2", "power_3");
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.AttackPercent), Is.EqualTo(30),
-                "5 + 10 + 15 —— Scaling == None 时走的还是 sum += def.Value");
+            // 被动树 2026-10-02 起按枝取最高档,这里用机制树守「非缩放 = 原样求和」
+            var meta = MetaWith("lore_1", "lore_2");
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.LibraryCapacity), Is.EqualTo(2),
+                "1 + 1 —— Scaling == None 时走的还是 sum += def.Value");
         }
     }
 }

@@ -437,5 +437,25 @@ namespace Brushblade.Core
                 if (summons[s] != null && summons[s].Alive) return s;
             return -1;
         }
+
+        /// <summary>燎原的「上下左右」(2026-10-02):同排左右相邻(列区间首尾相接)+ 异排上下
+        /// (列区间有交集)。跨列/跨排 Boss 按区间与 Occupies 判,Span = 1 时就是字面的四邻格。
+        /// 只返回存活者,不含自己;顺序按下标升序(同种子同结果)。</summary>
+        public static List<int> AdjacentEnemies(IReadOnlyList<EnemyState> enemies, int index)
+        {
+            var self = enemies[index];
+            var result = new List<int>();
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                if (i == index || !enemies[i].Alive) continue;
+                var other = enemies[i];
+                bool overlap = other.Column < self.ColumnEnd && self.Column < other.ColumnEnd;
+                bool touch = other.ColumnEnd == self.Column || self.ColumnEnd == other.Column;
+                bool sameRow = self.SharesRow(other);
+                bool vertical = !sameRow && overlap;
+                if ((sameRow && touch) || vertical) result.Add(i);
+            }
+            return result;
+        }
     }
 }

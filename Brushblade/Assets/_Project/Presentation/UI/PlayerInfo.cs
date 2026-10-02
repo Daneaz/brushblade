@@ -143,9 +143,9 @@ namespace Brushblade.Presentation
             {
                 IconKey = null, ChipColor = UnitDetailChip.Ability, Section = growthSection,
                 Name = Strings.T("player.detail.perk_ap_name"),
+                // AP 无养成成长(2026-10-02:气枝改为调息/吐纳),不带枝等级,只显示固定值。
                 Desc = Strings.T("player.detail.perk_ap_desc",
-                    ("level", BranchLevel(meta, "qi")),
-                    ("value", MetaRules.BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap))),
+                    ("value", MetaRules.BaseApPerTurn)),
             });
             list.Add(new AbilityEntry
             {

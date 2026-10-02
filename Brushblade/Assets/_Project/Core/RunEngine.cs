@@ -59,7 +59,6 @@ namespace Brushblade.Core
     /// 跨战斗规则:HP 保留(第 9 章)、部件池保留(3.8.2)、出字即消耗不回归(3.8.1 v0.7 拍板)。</summary>
     public sealed class RunEngine
     {
-        private const int RewardOptionCount = 5; // 战利品字候选数(普通战斗 5 选 2,2026-08-04 起)
         private const int RewardPicks = 2;       // 普通战斗 5 选 2(2026-08-04;Boss 层奖励走宝箱,不经此)
 
         /// <summary>奇遇随机部件的候选(2026-09-06):从**已解锁卡池所需的部件**里取。
@@ -171,6 +170,7 @@ namespace Brushblade.Core
                 CarriedSummons = new List<SummonSnapshot>(_carriedSummons),
                 CarriedStatuses = _carriedStatuses.Select(s => s.Clone()).ToList(),
                 CharPicksLeft = CharPicksLeft,
+                RewardRerollsLeft = RewardRerollsLeft,
                 RewardOptions = new List<string>(_rewardOptions),
                 ComponentOptions = new List<string>(_componentOptions),
                 CurrentEventId = CurrentEvent?.Id,
@@ -210,6 +210,7 @@ namespace Brushblade.Core
                 _carriedSummons = new List<SummonSnapshot>(snapshot.CarriedSummons),
                 _carriedStatuses = snapshot.CarriedStatuses.Select(s => s.Clone()).ToList(),
                 CharPicksLeft = snapshot.CharPicksLeft,
+                RewardRerollsLeft = snapshot.RewardRerollsLeft,
                 EarnedInk = snapshot.EarnedInk,
                 LibraryExpanded = snapshot.LibraryExpanded,
                 PoolExpanded = snapshot.PoolExpanded,
@@ -628,14 +629,16 @@ namespace Brushblade.Core
             // 捕获携带状态:出过的字已消耗不回归(v0.7),池与 HP 延续
             _carriedLibrary = new List<string>(Battle.Library);
             _carriedPool = new List<string>(Battle.Pool);
-            _carriedHp = Battle.PlayerHp;
-            // 护盾战斗结束衰减 50%(2026-09-05):护盾此前只加不减、整场爬塔通吃,
+            // 调息/吐纳(2026-10-02):胜利后按本关生效上限回血,夹上限
+            _carriedHp = Math.Min(EffectiveMaxHp,
+                Battle.PlayerHp + EffectiveMaxHp * _battleConfig.VictoryHealPercent / 100);
+            // 护盾战斗结束按 ShieldCarryPercent 保留(2026-10-02;缺省 50 = 2026-09-05 的衰减 50%):护盾此前只加不减、整场爬塔通吃,
             // 是第二条血条而不是临时保护 —— 玩家一旦有一回合「获得 > 承伤」,那份盾
             // 就永久留在身上,战斗不会输也打不死怪(中层刮痧)。整数除、向下取整。
             // ⚠ 只衰减护盾,不动 _carriedShieldAccum / _carriedHealAccum:
             // 那两个是厚/泉的攒层余数,不是护盾。
-            _carriedNormalShield = Battle.ShieldNormal / 2;
-            _carriedPersistShield = Battle.ShieldPersist / 2;
+            _carriedNormalShield = Battle.ShieldNormal * _battleConfig.ShieldCarryPercent / 100;
+            _carriedPersistShield = Battle.ShieldPersist * _battleConfig.ShieldCarryPercent / 100;
             _carriedShieldAccum = Battle.ShieldAccum;
             _carriedHealAccum = Battle.HealAccum;
             _carriedSummons = CaptureAliveSummons();
@@ -754,7 +757,26 @@ namespace Brushblade.Core
         private static int[] RewardRarityWeights => MetaRules.RarityWeights;
         private static CardRarity[] RarityOrder => MetaRules.RarityOrder;
 
+        /// <summary>本轮还能重抽几次(明察)。每次开新一轮候选时重置;进快照,读档不白送。</summary>
+        public int RewardRerollsLeft { get; private set; }
+
+        /// <summary>整组重抽当前候选(明察)。只在有候选可选的阶段可用;已取的字不退还。</summary>
+        public bool RerollRewards()
+        {
+            if (RewardRerollsLeft <= 0 || _rewardOptions.Count == 0) return false;
+            if (Phase != RunPhase.Reward && Phase != RunPhase.Reviving) return false;
+            RewardRerollsLeft--;
+            FillRewardOptions();
+            return true;
+        }
+
         private void RollRewardOptions()
+        {
+            RewardRerollsLeft = _battleConfig.RewardRerolls;
+            FillRewardOptions();
+        }
+
+        private void FillRewardOptions()
         {
             _rewardOptions.Clear();
 
@@ -770,7 +792,7 @@ namespace Brushblade.Core
                     group.Add(id);
             }
 
-            while (_rewardOptions.Count < RewardOptionCount)
+            while (_rewardOptions.Count < _battleConfig.RewardOptionCount)
             {
                 var pick = DrawBestReward(byRarity, _runConfig.RewardDrawRolls);
                 if (pick == null) break; // 候选枯竭
@@ -875,7 +897,7 @@ namespace Brushblade.Core
                 if (summon == null || !summon.Alive) continue;   // null = 空槽(2026-08-20)
                 var snapshot = summon.Capture(s);   // 槽位随之带走
                 snapshot.ActionMeter = 0;
-                snapshot.Shield /= 2;   // 战后护盾衰减对我方所有持盾单位一致(2026-09-30),同玩家
+                snapshot.Shield = snapshot.Shield * _battleConfig.ShieldCarryPercent / 100;   // 战后护盾保留对我方所有持盾单位一致(2026-09-30),同玩家
                 alive.Add(snapshot);
             }
             return alive;

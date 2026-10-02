@@ -4,40 +4,55 @@ namespace Brushblade.Core
 {
     /// <summary>三棵技能树(spec 2026-09-07)+ 跨树节点(spec 2026-09-08 §3.0)。
     ///
-    /// ⚠ 「机制树」= 改玩法交互逻辑(字库/起手/稀有度/AP),「被动树」= 被动数值强化
+    /// ⚠ 「机制树」= 改玩法交互逻辑(字库/掉字/战利品/胜利回血,2026-10-02),「被动树」= 被动数值强化
     /// (生命/攻击/暴击/护甲)。用户 2026-09-07 明确对调过一次命名,勿按字面直觉互换。
     ///
     /// Cross 不是第四棵树,是**不属于任何一棵树**的三个咬合节点。它们的 Depth 恒为 1、
     /// Branch 各自独立,前置走 PerkNodeDef.Prereq 的显式谓词而不是同枝推导。</summary>
     public enum PerkTree { Wuxing, Passive, Mechanic, Cross }
 
-    /// <summary>节点效果类别。前四条落在既有 BattleConfig 字段上;Element* 三条按元素筛选;
-    /// 末尾五条对应五行 L4 —— 四条是各系专属天花板,木系那条(择伐)是择敌规则的开关。</summary>
+    /// <summary>节点效果类别。被动树四条落在既有 BattleConfig 字段上;五行树各条按元素筛选
+    /// (走 <see cref="PerkRules.ElementBonus"/>);机制树各条全局。
+    ///
+    /// ⚠ 删枚举成员在 PerkEffect 上是安全的:它**从不进存档**(存的是 UnlockedPerks 里的
+    /// 节点 id 字符串),序号变动不影响任何已有存档。这与 StatusKind / EffectKind 那两条
+    /// 「序号锁存档兼容」的纪律不同源,别混用。2026-09-13 删过 ElementLootGuarantee;
+    /// 2026-10-02 删了 StartingCards / LootDrawRolls / Ap / ElementDrawRolls / MoraleCap /
+    /// WellspringCap / BurnPerStack / HeftCap / ShieldReflectPercent。</summary>
     public enum PerkEffect
     {
-        // 被动树:落在既有 BattleConfig 字段
+        // 被动树:落在既有 BattleConfig 字段(2026-10-02 起每枝不叠加,取最高档)
         MaxHp, AttackPercent, CritChance, Defense,
-        // 机制树
-        LibraryCapacity, StartingCards, DrawRolls, LootDrawRolls, Ap,
-        // 五行树 L1/L3(按元素筛选)
-        ElementDrawRolls, ElementEffectPercent,
-        // 五行树 L4(四条各系专属天花板 + 木系的择敌开关)
-        MoraleCap, CounterTargeting, WellspringCap, BurnPerStack, HeftCap,
-        // 五行树 L2(各系专属机制,spec 2026-09-13)。同样按元素筛选,走
-        // PerkRules.ElementBonus 而不是 Bonus —— 作用域是单系。
-        //
-        // ⚠ 这里删掉了 ElementLootGuarantee(五枝共用的战利品保底)。删枚举成员在
-        // PerkEffect 上是安全的:它**从不进存档**(存的是 UnlockedPerks 里的节点 id
-        // 字符串),序号变动不影响任何已有存档。这与 StatusKind / EffectKind 那两条
-        // 「序号锁存档兼容」的纪律不同源,别混用。
+        // 机制树(全局)
+        LibraryCapacity,            // 博闻:字库容量 +N
+        DrawRolls,                  // 起手每格抽取次数 +N(2026-10-02 起只剩跨树博采在用)
+        EmptyLibraryDraws,          // 广纳/兼收:回合开始掉字时字库为空,本回合掉字 +N
+        RewardOptions,              // 慧眼:战利品候选 +N
+        RewardRerolls,              // 明察:每轮选字可整组重抽 N 次
+        VictoryHealPercent,         // 调息/吐纳:每场战斗胜利后回复最大生命 N%
+        // 五行树 L2(三段):本系字效果值 +N%
+        ElementEffectPercent,
+        // 五行树 L1(三段,2026-10-02):只对打出那张字的元素 = 本系生效
+        ElementCritChance,          // 金:金系字暴击率 +N 百分点
+        SummonHpPercent,            // 木:木系字召唤物最大生命 +N%
+        HealPercent,                // 水:水系字治疗量 +N%
+        ShieldPercent,              // 土:土系字护盾量 +N%
+        EnemyBurnBonus,             // 火:敌人身上的灼烧每层伤害 +N(只作用于敌人侧结算)
+        // 五行树 L3(单段,各系专属机制,spec 2026-09-13;2026-10-02 由 L2 挪到 L3)
         OverhealDamagePercent,      // 水:治疗溢出 ×N% 转伤害
         BurnSpreadPercent,          // 火:敌人死亡时转移剩余灼烧层数的 N%
         MoraleOnCrit,               // 金:暴击 +N 层战意(每张字至多兑现一次)
         SummonDeathHealPercent,     // 木:召唤物阵亡时玩家回复其最大生命的 N%
-        ShieldReflectPercent,       // 土:被护盾吸掉的伤害按 N% 反弹
+        ShieldCarryPercent,         // 土:战后护盾保留比例 +N 百分点(50% → 75%)
+        // 五行树 L4(单段,各系天花板)
+        MoraleRelease,              // 金 断金:战意满层时下一张金系字伤害 +N%
+        CounterTargeting,           // 木 择伐:召唤物优先打自己克得动的敌人(开关)
+        WellspringSpendPercent,     // 水 涌泉:释放泉的威力 +N%,返还所耗层数 50%
+        BurnSpreadAdjacent,         // 火 燎原:灼烧结算后仍有层数则向上下左右扩散(开关)
+        HeftSpendPercent,           // 土 积土:释放厚的威力 +N%,返还所耗层数 50%
     }
 
-    /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 40 个普通节点)。
+    /// <summary>效果值的缩放方式(spec 2026-09-08 §5)。None = 值就是 Value(全部 60 个普通段)。
     /// 其余三种:值 = BaseValue + Value × 计数,计数由本枚举决定。
     ///
     /// ⚠ PerDeepWuxingNode 数**节点**,PerDeepElement 数**系** —— 两者都叫 "deep" 但口径不同:
@@ -69,10 +84,12 @@ namespace Brushblade.Core
         }
     }
 
-    /// <summary>一个技能节点。**单级** —— 点一次即满,没有等级维度。
+    /// <summary>一个技能节点的**一段**。单段节点点一次即满;五行 L1/L2 是三段节点
+    /// (2026-10-02,spec §1 方案 A):每段一个独立的 PerkNodeDef,同节点三段共用
+    /// <see cref="NodeKey"/>,<see cref="Value"/> 存本段增量 —— 点满三段 = 最终值。
     ///
-    /// 前置关系不存字段:同 <see cref="Tree"/> 同 <see cref="Branch"/> 的
-    /// <c>Depth − 1</c> 即前置。每枝是一条直链、无交叉,显式依赖图是给任意 DAG 用的
+    /// 前置关系不存字段:三段节点第 k 段(k ≥ 2)要同节点第 k−1 段;某层第 1 段要同枝
+    /// 上一层任意 ≥1 段。每枝是一条直链、无交叉,显式依赖图是给任意 DAG 用的
     /// 抽象,此处是给单次使用造抽象。</summary>
     public sealed class PerkNodeDef
     {
@@ -95,9 +112,19 @@ namespace Brushblade.Core
 
         public PerkScaling Scaling { get; }
 
-        /// <summary>显式前置谓词;**null = 走「同枝 Depth−1」的隐式推导**(40 个普通节点)。
+        /// <summary>显式前置谓词;**null = 走同枝/同节点的隐式推导**(60 个普通段,见 PrereqMet)。
         /// 空列表 ≠ null:空列表表示「显式声明了没有前置」。</summary>
         public IReadOnlyList<PerkRequirement> Prereq { get; }
+
+        /// <summary>第几段(1 起);单段节点恒为 1。</summary>
+        public int Stage { get; }
+
+        /// <summary>该节点共几段:1 或 3。</summary>
+        public int StageCount { get; }
+
+        /// <summary>同节点各段共用的键(如 <c>metal_1</c>),用于字符串表 key、画布布局、图标。
+        /// 单段节点 <c>NodeKey == Id</c>。</summary>
+        public string NodeKey { get; }
 
         public PerkNodeDef(string id, PerkTree tree, string branch, Element? element,
             int depth, int unlockLevel, int inkCost, PerkEffect effect, int value)
@@ -108,12 +135,14 @@ namespace Brushblade.Core
 
         public PerkNodeDef(string id, PerkTree tree, string branch, Element? element,
             int depth, int unlockLevel, int inkCost, PerkEffect effect, int value,
-            int baseValue, PerkScaling scaling, IReadOnlyList<PerkRequirement> prereq)
+            int baseValue, PerkScaling scaling, IReadOnlyList<PerkRequirement> prereq,
+            int stage = 1, int stageCount = 1, string nodeKey = null)
         {
             Id = id; Tree = tree; Branch = branch; Element = element;
             Depth = depth; UnlockLevel = unlockLevel; InkCost = inkCost;
             Effect = effect; Value = value;
             BaseValue = baseValue; Scaling = scaling; Prereq = prereq;
+            Stage = stage; StageCount = stageCount; NodeKey = nodeKey ?? id;
         }
     }
 
@@ -122,6 +151,8 @@ namespace Brushblade.Core
     {
         // 门槛:步长统一 6,三树错开 2 级。被动 Lv2/8/14、五行 Lv4/10/16/22、机制 Lv6/12。
         // 每 2 级亮一批新节点;Lv22 全开,留 4 级余量到 Lv26 的属性封顶。
+        // 五行 L1/L2 自 2026-10-02 起是三段节点,门槛/定价走下面的 StagedGates/StagedCosts,
+        // WuxingGates/WuxingCosts 只用下标 2/3(L3/L4)。
         private static readonly int[] WuxingGates = { 4, 10, 16, 22 };
         private static readonly int[] PassiveGates = { 2, 8, 14 };
         private static readonly int[] MechanicGates = { 6, 12 };
@@ -132,61 +163,57 @@ namespace Brushblade.Core
         private static readonly int[] PassiveCosts = { 300, 600, 1200 };
         private static readonly int[] MechanicCosts = { 800, 1600 };
 
+        // 五行 L1/L2 三段:L1 Lv4/6/8、墨 100/200/300;L2 Lv10/12/14、墨 200/400/600(spec 2026-10-02 §2)
+        private static readonly int[][] StagedGates = { new[] { 4, 6, 8 }, new[] { 10, 12, 14 } };
+        private static readonly int[][] StagedCosts = { new[] { 100, 200, 300 }, new[] { 200, 400, 600 } };
+
         public static readonly IReadOnlyList<PerkNodeDef> Nodes = BuildNodes();
 
         private static List<PerkNodeDef> BuildNodes()
         {
             var list = new List<PerkNodeDef>();
 
-            // ---- 五行树:5 枝 × 4 层 ----
-            // 每枝结构对称:L1/L2 治供给(改造抽卡随机)、L3/L4 谈强化。
-            // 这个顺序是必须的 —— 起手强制五系各一张、战利品不筛元素,直接加成「某系字」
-            // 覆盖率只有 1/5 且玩家不可控(spec §1.3)。
-            // L2 与 L4 都按枝传入(spec 2026-09-13:L2 从五枝共用的战利品保底
-            // 拆成五条各不相同的机制);只有 L1/L3 还是五枝同构。
-            AddWuxing(list, "metal", Element.Metal,
-                PerkEffect.MoraleOnCrit, 1,            // 锋芒:暴击 +1 层战意
-                PerkEffect.MoraleCap, 2);              // 鏖战:战意上限 5→7
-            AddWuxing(list, "wood",  Element.Wood,
-                PerkEffect.SummonDeathHealPercent, 20, // 归根:召唤物阵亡回复其最大生命 20%
-                PerkEffect.CounterTargeting, 1);       // 择伐:召唤物优先打自己克得动的敌人
-            AddWuxing(list, "water", Element.Water,
-                PerkEffect.OverhealDamagePercent, 50,  // 溢流:治疗溢出 ×50% 转伤害
-                PerkEffect.WellspringCap, 4);          // 涌泉:泉上限 10→14
-            AddWuxing(list, "fire",  Element.Fire,
+            // ---- 五行树:5 枝 × 4 层(2026-10-02 起 L1/L2 各三段,共 8 段)----
+            // L1 三段(新专精)、L2 三段(原 L3:本系效果值)、L3 单段(原 L2 专属机制)、L4 单段。
+            // 原 L1「该系起手格额外抽 1 次」已删除。
+            AddWuxing(list, "metal", Element.Metal, PerkEffect.ElementCritChance, new[] { 5, 5, 5 },
+                PerkEffect.MoraleOnCrit, 1,                // 锋芒:暴击 +1 层战意
+                PerkEffect.MoraleRelease, 300);            // 断金:战意满 5 层,下一张金系字伤害 +300%
+            AddWuxing(list, "wood", Element.Wood, PerkEffect.SummonHpPercent, new[] { 10, 10, 10 },
+                PerkEffect.SummonDeathHealPercent, 30,     // 归根:召唤物阵亡回复其最大生命 30%
+                PerkEffect.CounterTargeting, 1);           // 择伐:召唤物优先打自己克得动的敌人
+            AddWuxing(list, "water", Element.Water, PerkEffect.HealPercent, new[] { 10, 10, 10 },
+                PerkEffect.OverhealDamagePercent, 50,      // 溢流:治疗溢出 ×50% 转伤害
+                PerkEffect.WellspringSpendPercent, 150);   // 涌泉:释放威力 +150%,返还所耗层数 50%
+            AddWuxing(list, "fire", Element.Fire, PerkEffect.EnemyBurnBonus, new[] { 3, 3, 4 },
                 // 余烬:死亡时全额转移剩余灼烧层数。⚠ 改这个数值(或改成非 100)要同步改
-                // 字符串表的 perk.detail.burn_spread 与 perk.node.fire_2.desc 两条文案 ——
+                // 字符串表的 perk.detail.burn_spread 与 perk.node.fire_3.desc 两条文案 ——
                 // 它们都写死了「全部/原样转移给一名随机敌人」的口径,没有任何测试能抓到
                 // 文案与数值不同步(2026-09-13 review 发现过一次「转移给下一个」的旧文案)。
                 PerkEffect.BurnSpreadPercent, 100,
-                PerkEffect.BurnPerStack, 8);           // 燎原:灼烧每层 20→28
-            AddWuxing(list, "earth", Element.Earth,
-                PerkEffect.ShieldReflectPercent, 20,   // 反震:护盾吸收量的 20% 反弹
-                PerkEffect.HeftCap, 4);                // 磐固:厚上限 10→14
+                PerkEffect.BurnSpreadAdjacent, 1);         // 燎原:灼烧结算后仍有层数则向上下左右扩散
+            AddWuxing(list, "earth", Element.Earth, PerkEffect.ShieldPercent, new[] { 10, 10, 10 },
+                PerkEffect.ShieldCarryPercent, 25,         // 固本:战后护盾保留 50% → 75%
+                PerkEffect.HeftSpendPercent, 150);         // 积土:释放威力 +150%,返还所耗层数 50%
 
             // ---- 被动树:4 枝 × 3 层 ----
-            // 数值锚点:不压过等级曲线(Lv1→26 给 HP +500、ATK +50%)。
-            // 2026-09-16:御枝随护甲百分比化抬升,不再受这条锚点约束 —— 累计 50 点已高于
-            // 等级曲线的 30 点封顶,见 guard 那行与 Meta.cs 的 DefenseFor 注释。
-            AddPassive(list, "vigor", PerkEffect.MaxHp,         100, 200, 300); // 累计 +600 HP
-            AddPassive(list, "power", PerkEffect.AttackPercent,   5,  10,  15); // 累计 +30%
-            AddPassive(list, "edge",  PerkEffect.CritChance,      5,  10,  15); // 累计 +30 百分点
-            AddPassive(list, "guard", PerkEffect.Defense,        10,  15,  25); // 累计 +50 点(DR 33%)
+            // 2026-10-02 用户拍板:被动树**不叠加**,每枝取已点亮的最高一档(见 Bonus)。
+            // 元枝点满 +1000 超出旧「不压过等级曲线 +500」锚点 —— 同日用户拍板放开,锚点作废;
+            // 力/锋/御的点满值因不叠加而减半,是有意的削弱。
+            AddPassive(list, "vigor", PerkEffect.MaxHp,         300, 500, 1000); // 不叠加,取最高档 1000 HP
+            AddPassive(list, "power", PerkEffect.AttackPercent,   5,  10,  15); // 不叠加,取最高档 15%
+            AddPassive(list, "edge",  PerkEffect.CritChance,      5,  10,  15); // 不叠加,取最高档 15 百分点
+            AddPassive(list, "guard", PerkEffect.Defense,        10,  15,  25); // 不叠加,取最高档 25 点
 
             // ---- 机制树:4 枝 × 2 层 ----
-            AddMechanic(list, "lore",    PerkEffect.LibraryCapacity, 1, 1); // 容量 7→9
-            AddMechanic(list, "wide",    PerkEffect.StartingCards,   1, 1); // 起手 6→8
-            // 慧眼:L1 给起手全部格 +1 次抽取,L2 给战利品候选 +1 次 —— 两层是**不同**效果。
+            AddMechanic(list, "lore",    PerkEffect.LibraryCapacity,   1, 1); // 容量 7→9
+            AddMechanic(list, "wide",    PerkEffect.EmptyLibraryDraws, 1, 1); // 广纳/兼收:空库掉字 +1/+2
+            // 慧眼:L1 战利品候选 +1(5→6),L2 明察每轮整组重抽 1 次 —— 两层是**不同**效果。
             list.Add(new PerkNodeDef("insight_1", PerkTree.Mechanic, "insight", null,
-                1, MechanicGates[0], MechanicCosts[0], PerkEffect.DrawRolls, 1));
+                1, MechanicGates[0], MechanicCosts[0], PerkEffect.RewardOptions, 1));
             list.Add(new PerkNodeDef("insight_2", PerkTree.Mechanic, "insight", null,
-                2, MechanicGates[1], MechanicCosts[1], PerkEffect.LootDrawRolls, 1));
-            // 一气单列定价 1500/4000(沿用 19.2.3 的现价):AP 是全局资源,+2 相当于每回合
-            // 多打两张牌,它的贵是既有的硬平衡线,不因改版变便宜。封顶 2 层同样是硬线。
-            list.Add(new PerkNodeDef("qi_1", PerkTree.Mechanic, "qi", null,
-                1, MechanicGates[0], 1500, PerkEffect.Ap, 1));
-            list.Add(new PerkNodeDef("qi_2", PerkTree.Mechanic, "qi", null,
-                2, MechanicGates[1], 4000, PerkEffect.Ap, 1));
+                2, MechanicGates[1], MechanicCosts[1], PerkEffect.RewardRerolls, 1));
+            AddMechanic(list, "qi",      PerkEffect.VictoryHealPercent, 5, 5); // 调息/吐纳:胜利回血 5%/10%
 
             // ---- 跨树节点:3 个(spec 2026-09-08 §3)----
             // 各在两棵树的扇区交界上,要两侧各一个前置才开。效果是**缩放器**:
@@ -231,23 +258,32 @@ namespace Brushblade.Core
             return list;
         }
 
-        /// <summary>一条五行枝:L1 该系起手格抽取次数 +1、**L2 该系专属机制**、
-        /// L3 该系字效果值 +15%、L4 该系专属天花板。
+        /// <summary>一条五行枝(2026-10-02 层序):L1 专精三段 / L2 本系效果值三段(每段 +5%)/
+        /// L3 该系专属机制 / L4 该系天花板。原 L1「该系起手格抽取次数 +1」已删除。
         ///
-        /// ⚠ L2 在 2026-09-13 之前是五枝共用的「战利品保底 1 张该系」,所以是写死的;
-        /// 现在它和 L4 一样按枝传入。改这里时两个参数要成对给,别只改一个。</summary>
+        /// ⚠ L1、L3、L4 都按枝传入,只有 L2 五枝同构。改这里时各层参数要成对给,别只改一个。</summary>
         private static void AddWuxing(List<PerkNodeDef> list, string branch, Element element,
-            PerkEffect tierTwoEffect, int tierTwoValue, PerkEffect topEffect, int topValue)
+            PerkEffect tierOneEffect, int[] tierOneStages,
+            PerkEffect tierThreeEffect, int tierThreeValue, PerkEffect topEffect, int topValue)
         {
-            var effects = new[]
-            {
-                PerkEffect.ElementDrawRolls, tierTwoEffect,
-                PerkEffect.ElementEffectPercent, topEffect,
-            };
-            var values = new[] { 1, tierTwoValue, 15, topValue };
-            for (int i = 0; i < 4; i++)
-                list.Add(new PerkNodeDef($"{branch}_{i + 1}", PerkTree.Wuxing, branch, element,
-                    i + 1, WuxingGates[i], WuxingCosts[i], effects[i], values[i]));
+            AddStaged(list, branch, element, 1, tierOneEffect, tierOneStages);
+            AddStaged(list, branch, element, 2, PerkEffect.ElementEffectPercent, new[] { 5, 5, 5 });
+            list.Add(new PerkNodeDef($"{branch}_3", PerkTree.Wuxing, branch, element,
+                3, WuxingGates[2], WuxingCosts[2], tierThreeEffect, tierThreeValue));
+            list.Add(new PerkNodeDef($"{branch}_4", PerkTree.Wuxing, branch, element,
+                4, WuxingGates[3], WuxingCosts[3], topEffect, topValue));
+        }
+
+        /// <summary>一个三段节点:id <c>{branch}_{depth}_s{k}</c>,NodeKey <c>{branch}_{depth}</c>,
+        /// Value 存本段增量。按 Stage 升序加入 —— <see cref="StagesOf"/> 依赖这个顺序。</summary>
+        private static void AddStaged(List<PerkNodeDef> list, string branch, Element element,
+            int depth, PerkEffect effect, int[] stageValues)
+        {
+            for (int s = 0; s < 3; s++)
+                list.Add(new PerkNodeDef($"{branch}_{depth}_s{s + 1}", PerkTree.Wuxing, branch, element,
+                    depth, StagedGates[depth - 1][s], StagedCosts[depth - 1][s], effect, stageValues[s],
+                    baseValue: 0, scaling: PerkScaling.None, prereq: null,
+                    stage: s + 1, stageCount: 3, nodeKey: $"{branch}_{depth}"));
         }
 
         private static void AddPassive(List<PerkNodeDef> list, string branch, PerkEffect effect,
@@ -281,9 +317,48 @@ namespace Brushblade.Core
 
         public static bool IsUnlocked(MetaState meta, string id) => meta.UnlockedPerks.Contains(id);
 
-        /// <summary>同枝上一层的 id;第一层返回 null。仅用于隐式前置的节点。</summary>
-        private static string PrerequisiteOf(PerkNodeDef def) =>
-            def.Depth <= 1 ? null : $"{def.Branch}_{def.Depth - 1}";
+        /// <summary>每个 NodeKey 一个「面」(取 Stage == 1 那段),顺序同 <see cref="Nodes"/>。
+        /// 画布/计数这类按「节点」而不是按「段」看的地方用它。</summary>
+        public static readonly IReadOnlyList<PerkNodeDef> Faces = BuildFaces();
+
+        private static List<PerkNodeDef> BuildFaces()
+        {
+            var faces = new List<PerkNodeDef>();
+            foreach (var n in Nodes) if (n.Stage == 1) faces.Add(n);
+            return faces;
+        }
+
+        /// <summary>同一 NodeKey 的全部段,按 Stage 升序(Nodes 内即按此顺序加入)。</summary>
+        public static IReadOnlyList<PerkNodeDef> StagesOf(string nodeKey)
+        {
+            var stages = new List<PerkNodeDef>();
+            foreach (var n in Nodes) if (n.NodeKey == nodeKey) stages.Add(n);
+            return stages;
+        }
+
+        /// <summary>该节点已点亮几段。</summary>
+        public static int OwnedStageCount(MetaState meta, string nodeKey)
+        {
+            int n = 0;
+            foreach (var def in StagesOf(nodeKey)) if (IsUnlocked(meta, def.Id)) n++;
+            return n;
+        }
+
+        /// <summary>该节点的「当前段」:第一个未点亮的段;全点亮则返回末段。</summary>
+        public static PerkNodeDef CurrentStage(MetaState meta, string nodeKey)
+        {
+            var stages = StagesOf(nodeKey);
+            foreach (var def in stages) if (!IsUnlocked(meta, def.Id)) return def;
+            return stages[stages.Count - 1];
+        }
+
+        /// <summary>同节点 Stage ≤ def.Stage 的各段 Value 之和(点到这一段时的累计值)。</summary>
+        public static int CumulativeValue(PerkNodeDef def)
+        {
+            int sum = 0;
+            foreach (var s in StagesOf(def.NodeKey)) if (s.Stage <= def.Stage) sum += s.Value;
+            return sum;
+        }
 
         /// <summary>该节点的前置是否已满足(spec 2026-09-08 §4.1)。
         ///
@@ -294,8 +369,10 @@ namespace Brushblade.Core
         {
             if (def.Prereq == null)
             {
-                var prereq = PrerequisiteOf(def);
-                return prereq == null || IsUnlocked(meta, prereq);
+                // 三段节点第 k 段要同节点第 k−1 段;某层第 1 段要同枝上一层任意 ≥1 段
+                if (def.Stage > 1) return IsUnlocked(meta, $"{def.NodeKey}_s{def.Stage - 1}");
+                if (def.Depth <= 1) return true;
+                return OwnedStageCount(meta, $"{def.Branch}_{def.Depth - 1}") > 0;
             }
             foreach (var req in def.Prereq)
                 if (CountOwned(meta, req.Tree, req.MinDepth) < req.Count) return false;
@@ -365,16 +442,28 @@ namespace Brushblade.Core
 
         /// <summary>已点节点里该效果的值之和(不分元素)。
         ///
-        /// ⚠ Scaling == None 那一支与改前**逐字相同**(sum += def.Value)—— 恒等性硬线
-        /// 就靠这一行:40 个普通节点走的还是原来那条路。</summary>
+        /// 被动树不叠加(2026-10-02 用户拍板):每枝只取已点亮的最高一档,再与其余节点
+        /// (含跨树相济/融会)之和相加。其余节点 Scaling == None 那一支仍是 sum += def.Value。</summary>
         public static int Bonus(MetaState meta, PerkEffect effect)
         {
             int sum = 0;
+            Dictionary<string, int> passiveBest = null;
             foreach (var id in meta.UnlockedPerks)
-                if (ById.TryGetValue(id, out var def) && def.Effect == effect)
-                    sum += def.Scaling == PerkScaling.None
-                        ? def.Value
-                        : def.BaseValue + def.Value * ScaleCountOf(meta, def);
+            {
+                if (!ById.TryGetValue(id, out var def) || def.Effect != effect) continue;
+                if (def.Tree == PerkTree.Passive)
+                {
+                    // 被动树不叠加(2026-10-02):每枝取已点亮的最高一档
+                    passiveBest ??= new Dictionary<string, int>();
+                    passiveBest[def.Branch] = passiveBest.TryGetValue(def.Branch, out var cur)
+                        ? System.Math.Max(cur, def.Value) : def.Value;
+                    continue;
+                }
+                sum += def.Scaling == PerkScaling.None
+                    ? def.Value
+                    : def.BaseValue + def.Value * ScaleCountOf(meta, def);
+            }
+            if (passiveBest != null) foreach (var v in passiveBest.Values) sum += v;
             return sum;
         }
 
@@ -384,19 +473,19 @@ namespace Brushblade.Core
         /// 得拿到分量。**别让 Presentation 自己重算一遍计数** —— 那就是同一份逻辑两条路径。</summary>
         public static int ScaleCountOf(MetaState meta, PerkNodeDef def) => def.Scaling switch
         {
-            // 已点亮的五行 L3/L4 **节点**个数(只数深层,L1/L2 是供给不是强化)
+            // 已点亮的五行 L3/L4 **节点**个数(只数深层;L3/L4 都是单段,按段数即按节点数)
             PerkScaling.PerDeepWuxingNode => CountOwned(meta, PerkTree.Wuxing, 3),
             // 已点亮的机制树节点个数(该树只有两层,全算)
             PerkScaling.PerMechanicNode => CountOwned(meta, PerkTree.Mechanic, 1),
             // 点到 L3 或更深的五行**系**数,夹上限 2。
-            // ⚠ 上限夹在这里而不是调用点:起手抽取次数有四个来源(基础 1 + 慧眼 +
-            // 该系五行 L1 + 博采),夹在调用点会漏掉其中几条。
+            // ⚠ 上限夹在这里而不是调用点(2026-10-02 起起手抽取次数只剩基础 1 + 博采)。
             PerkScaling.PerDeepElement => System.Math.Min(2, CountDeepElements(meta)),
             _ => 1,
         };
 
-        /// <summary>已点节点里该效果**且属于该元素**的值之和。五行树 L1/L2/L3 与
-        /// 五个 L4 都走这条 —— 它们的作用域是单系,拿 <see cref="Bonus"/> 求和会串系。
+        /// <summary>已点节点里该效果**且属于该元素**的值之和。五行树四层都走这条 ——
+        /// 它们的作用域是单系,拿 <see cref="Bonus"/> 求和会串系。三段节点各段 Value 是增量,
+        /// 求和即累计值。
         ///
         /// ⚠ <c>ById.TryGetValue</c> 而不是索引器:存档里可能留着已删除节点的 id
         /// (改表后旧档),索引器会抛 KeyNotFoundException 让整个存档读不出来。</summary>

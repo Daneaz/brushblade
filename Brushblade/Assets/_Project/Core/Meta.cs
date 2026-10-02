@@ -129,17 +129,16 @@ namespace Brushblade.Core
 
         public const int StartingPoolSize = 2; // 登塔起手部件数(沿用旧的两个)
 
-        /// <summary>登塔起手实际发几张字 = 五行各一 + 最高档保底一 + 广纳。
-        /// 「广纳」与「博闻」是两条独立的轴 —— 改前它们共用同一个 LibraryBonus。</summary>
-        public static int StartingHandSizeFor(MetaState meta) =>
-            StartingLibrarySize + PerkRules.Bonus(meta, PerkEffect.StartingCards);
+        /// <summary>登塔起手实际发几张字 = 五行各一 + 最高档保底一。
+        /// 广纳 2026-10-02 起改为空库掉字,不再影响起手。</summary>
+        public static int StartingHandSizeFor(MetaState meta) => StartingLibrarySize;
 
         /// <summary>战斗字库容量 = 起手数量 + 掉字缓冲 + 博闻。「容量比起手多一格」这个关系
         /// 只在这一处定义 —— GameRoot 接线时调这个,不要在那边散写 +1。
         ///
-        /// ⚠ **下限钳到起手实际张数**(spec §5.1):拆分前 bowen 一条同时驱动两条公式、
-        /// 二者恒同步;拆开后这个不变量消失,点满广纳(起手 8)而不点博闻(容量 7)就会
-        /// 开局即溢出、第一回合必弹 DropChoice —— 静默的坏体验。</summary>
+        /// ⚠ **下限钳到起手实际张数**(防御性不变量):容量一旦低于起手张数就会开局即溢出、
+        /// 第一回合必弹 DropChoice —— 静默的坏体验。2026-10-02 起广纳改为空库掉字、不再影响
+        /// 起手,当前公式下这道钳不会生效;留着是为了今后若有养成重新加起手时不变量仍成立。</summary>
         public static int LibraryCapacityFor(MetaState meta)
         {
             int declared = StartingLibrarySize + LibraryCapacitySlack
@@ -321,29 +320,39 @@ namespace Brushblade.Core
                 // 缺省 0 让 RollCrit 短路、一次随机都不摇 —— 那是 E-b2 的验收硬线。
                 PlayerCritChance = PerkRules.Bonus(meta, PerkEffect.CritChance),
                 UnlockedChars = meta.OwnedCards, // 可合成集 = 整个已解锁卡池(2026-09-06;与战利品同源)
-                ApPerTurn = BaseApPerTurn + PerkRules.Bonus(meta, PerkEffect.Ap), // 一气
+                ApPerTurn = BaseApPerTurn, // 一气(AP)2026-10-02 取消
+                EmptyLibraryExtraDraws = PerkRules.Bonus(meta, PerkEffect.EmptyLibraryDraws), // 广纳/兼收
                 LibraryCapacity = LibraryCapacityFor(meta), // 起手 + 掉字缓冲 + 博闻(广告 +2 在其上叠加)
-                ElementEffectPercent = ElementEffectTable(meta), // 五行 L3(spec §3.3)
-                // 五行 L4 的四个天花板(spec §3.4)。缺省即现值 —— 一条没点时逐字节恒等。
-                MoraleCap = 5 + PerkRules.ElementBonus(meta, PerkEffect.MoraleCap, Element.Metal),
-                HeftCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.HeftCap, Element.Earth),
-                WellspringCap = 10 + PerkRules.ElementBonus(meta, PerkEffect.WellspringCap, Element.Water),
-                BurnPerStack = 20 + PerkRules.ElementBonus(meta, PerkEffect.BurnPerStack, Element.Fire),
+                ElementEffectPercent = ElementEffectTable(meta), // 五行 L2(三段,spec 2026-10-02)
                 // 木脉 L4「择伐」:节点在木枝上、按木系读,但读出的值当**全局开关**用
                 // (作用域是全量召唤物,用户 2026-09-13 拍板)。
                 CounterTargeting = PerkRules.ElementBonus(meta, PerkEffect.CounterTargeting, Element.Wood) > 0,
-                // 五行 L2 的五条专属机制(spec 2026-09-13 §3.3)。缺省 0 = 关 —— 一条没点时逐字节恒等。
+                // 五行 L3 的专属机制(spec 2026-09-13 §3.3;2026-10-02 由 L2 挪到 L3)。
+                // 缺省 0 = 关 —— 一条没点时逐字节恒等。
                 // ⚠ 第三个参数传错系不会编译错、也不会有测试自然变红,守卫在
-                // PerkInjectionTests 的 *TierTwo_Sets*Only 那五条串系隔离断言。
+                // PerkInjectionTests 的 *TierThree_* 那几条串系隔离断言。
                 OverhealDamagePercent  = PerkRules.ElementBonus(meta, PerkEffect.OverhealDamagePercent,  Element.Water),
                 BurnSpreadPercent      = PerkRules.ElementBonus(meta, PerkEffect.BurnSpreadPercent,      Element.Fire),
                 MoraleOnCrit           = PerkRules.ElementBonus(meta, PerkEffect.MoraleOnCrit,           Element.Metal),
                 SummonDeathHealPercent = PerkRules.ElementBonus(meta, PerkEffect.SummonDeathHealPercent, Element.Wood),
-                ShieldReflectPercent   = PerkRules.ElementBonus(meta, PerkEffect.ShieldReflectPercent,   Element.Earth),
+                ShieldCarryPercent = 50 + PerkRules.ElementBonus(meta, PerkEffect.ShieldCarryPercent, Element.Earth),
+                RewardOptionCount = 5 + PerkRules.Bonus(meta, PerkEffect.RewardOptions),   // 慧眼
+                RewardRerolls = PerkRules.Bonus(meta, PerkEffect.RewardRerolls),           // 明察
+                VictoryHealPercent = PerkRules.Bonus(meta, PerkEffect.VictoryHealPercent), // 调息/吐纳
+                // 五行 L1 专精(2026-10-02),各按本系读
+                MoraleReleasePercent = PerkRules.ElementBonus(meta, PerkEffect.MoraleRelease, Element.Metal),
+                HeftSpendPercent = PerkRules.ElementBonus(meta, PerkEffect.HeftSpendPercent, Element.Earth),
+                WellspringSpendPercent = PerkRules.ElementBonus(meta, PerkEffect.WellspringSpendPercent, Element.Water),
+                MetalCritChance = PerkRules.ElementBonus(meta, PerkEffect.ElementCritChance, Element.Metal),
+                EnemyBurnPerStackBonus = PerkRules.ElementBonus(meta, PerkEffect.EnemyBurnBonus, Element.Fire),
+                BurnSpreadAdjacent = PerkRules.ElementBonus(meta, PerkEffect.BurnSpreadAdjacent, Element.Fire) > 0,
+                SummonHpPercent = PerkRules.ElementBonus(meta, PerkEffect.SummonHpPercent, Element.Wood),
+                HealPercent     = PerkRules.ElementBonus(meta, PerkEffect.HealPercent,     Element.Water),
+                ShieldPercent   = PerkRules.ElementBonus(meta, PerkEffect.ShieldPercent,   Element.Earth),
             };
         }
 
-        /// <summary>五行 L3 的按元素加成表(spec §3.3)。一条都没点时返回 null ——
+        /// <summary>五行 L2(三段,原 L3)的按元素加成表(spec §3.3)。一条都没点时返回 null ——
         /// BattleEngine 对 null 直接返回 0,省掉一次数组分配,也让「没点技能 = 什么都没变」
         /// 在调试器里一眼可见。</summary>
         private static int[] ElementEffectTable(MetaState meta)
@@ -644,10 +653,11 @@ namespace Brushblade.Core
         ///         起手不足 6 是合法状态,不做补齐。</item>
         ///   <item>第 6 张:候选里**实际存在的最高稀有度档**中均匀抽一张。卡池最高只到蓝,
         ///         就从蓝里抽。</item>
-        ///   <item>博闻技能每级追加一张全池自由加权抽。</item>
         /// </list>
         ///
-        /// ⚠ **全程不去重。** 第 6 张撞上前 5 张里的字,就是同一张字拿两份;博闻那几张同理。
+        /// (2026-10-02 起广纳不再追加起手张数,改为空库掉字。)
+        ///
+        /// ⚠ **全程不去重。** 第 6 张撞上前 5 张里的字,就是同一张字拿两份。
         /// 字库本来就允许重复条目(见 <see cref="BattleEngine"/> 里「同字多张也不会认错卡位」
         /// 那条注释),消耗按下标走,不需要额外改造。</summary>
         public static IReadOnlyList<string> StartingLibrary(MetaState meta, RecipeGraph graph,
@@ -657,29 +667,20 @@ namespace Brushblade.Core
             var library = new List<string>();
             if (candidates.Count == 0) return library;
 
-            int globalRolls = PerkRules.Bonus(meta, PerkEffect.DrawRolls); // 慧眼:全部格 +1
+            int globalRolls = PerkRules.Bonus(meta, PerkEffect.DrawRolls); // 博采:全部格
             foreach (var element in StartingElements)
             {
                 var ofElement = new List<string>();
                 foreach (var id in candidates)
                     if (graph.Get(id).Element == element) ofElement.Add(id);
-                // 该系那一格的抽取次数 = 1 + 慧眼 + 该系五行 L1
-                int rolls = 1 + globalRolls
-                    + PerkRules.ElementBonus(meta, PerkEffect.ElementDrawRolls, element);
+                // 该系那一格的抽取次数 = 1 + 博采(五行 L1 起手多抽 2026-10-02 删除)
+                int rolls = 1 + globalRolls;
                 var pick = DrawBest(ofElement, graph, random, rolls);
                 if (pick != null) library.Add(pick);
             }
 
             var top = TopRarityCards(candidates, graph);
             if (top.Count > 0) library.Add(top[random.Next(top.Count)]);
-
-            for (int i = StartingLibrarySize; i < StartingHandSizeFor(meta); i++)
-            {
-                // 广纳追加的那几张是全池自由抽,吃慧眼但不吃任何单系加成
-                var extra = DrawBest(candidates, graph, random, 1 + globalRolls);
-                if (extra == null) break;
-                library.Add(extra);
-            }
 
             return library;
         }

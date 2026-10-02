@@ -145,6 +145,7 @@ namespace Brushblade.Core
         public bool Revived { get; set; }
         public bool Restocked { get; set; } // 字库补给已用(整次登塔一次,2026-09-23)
         public int ReviveCharPicksLeft { get; set; } // 复活补给本轮剩余选字次数(2026-08-04)
+        public int RewardRerollsLeft { get; set; } // 本轮剩余整组重抽次数(明察)
         public int ReviveRoundsLeft { get; set; } // 复活补给剩余重抽轮数(2026-08-04)
         public List<string> DefeatedEnemyIds { get; set; } = new();
         public BattleSnapshot Battle { get; set; }

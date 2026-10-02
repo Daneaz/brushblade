@@ -72,13 +72,13 @@ namespace Brushblade.Core.Tests
         {
             var def = PerkRules.Get("cross_vigor");
 
-            var onlyWuxing = MetaWith("metal_1", "metal_2", "metal_3");
+            var onlyWuxing = MetaWith("metal_1_s1", "metal_2_s1", "metal_3");
             Assert.That(PerkRules.PrereqMet(onlyWuxing, def), Is.False, "缺被动侧");
 
             var onlyPassive = MetaWith("power_1", "power_2");
             Assert.That(PerkRules.PrereqMet(onlyPassive, def), Is.False, "缺五行侧");
 
-            var both = MetaWith("metal_1", "metal_2", "metal_3", "power_1", "power_2");
+            var both = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1", "power_2");
             Assert.That(PerkRules.PrereqMet(both, def), Is.True, "两侧齐了");
         }
 
@@ -86,8 +86,8 @@ namespace Brushblade.Core.Tests
         public void Xvigor_PrereqIsAPredicateNotASpecificBranch()
         {
             var def = PerkRules.Get("cross_vigor");
-            var viaMetal = MetaWith("metal_1", "metal_2", "metal_3", "power_1", "power_2");
-            var viaFire = MetaWith("fire_1", "fire_2", "fire_3", "guard_1", "guard_2");
+            var viaMetal = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1", "power_2");
+            var viaFire = MetaWith("fire_1_s1", "fire_2_s1", "fire_3", "guard_1", "guard_2");
             Assert.That(PerkRules.PrereqMet(viaMetal, def), Is.True);
             Assert.That(PerkRules.PrereqMet(viaFire, def), Is.True,
                 "「五行任一 L3」不是「金脉 L3」;被动侧同理");
@@ -108,19 +108,19 @@ namespace Brushblade.Core.Tests
         public void Xdraw_NeedsMechanicL1AndWuxingL2()
         {
             var def = PerkRules.Get("cross_draw");
-            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1", "water_1"), def), Is.False,
+            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1", "water_1_s1"), def), Is.False,
                 "五行只到 L1 不够");
-            Assert.That(PerkRules.PrereqMet(MetaWith("water_1", "water_2"), def), Is.False,
+            Assert.That(PerkRules.PrereqMet(MetaWith("water_1_s1", "water_2_s1"), def), Is.False,
                 "缺机制侧");
-            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1", "water_1", "water_2"), def), Is.True);
+            Assert.That(PerkRules.PrereqMet(MetaWith("qi_1", "water_1_s1", "water_2_s1"), def), Is.True);
         }
 
         [Test]
         public void PrereqMet_IsIndifferentToUnlockOrder()
         {
             var def = PerkRules.Get("cross_vigor");
-            var forward = MetaWith("metal_1", "metal_2", "metal_3", "power_1", "power_2");
-            var backward = MetaWith("power_2", "power_1", "metal_3", "metal_2", "metal_1");
+            var forward = MetaWith("metal_1_s1", "metal_2_s1", "metal_3", "power_1", "power_2");
+            var backward = MetaWith("power_2", "power_1", "metal_3", "metal_2_s1", "metal_1_s1");
             Assert.That(PerkRules.PrereqMet(backward, def),
                 Is.EqualTo(PerkRules.PrereqMet(forward, def)));
         }
@@ -131,7 +131,7 @@ namespace Brushblade.Core.Tests
         public void Xdraw_PaysTheBaseValueWhenNoElementIsDeep()
         {
             // 前置只要五行 L2,缩放却数 L3 —— 这是唯一真会落在基础档的节点(spec §3.4)
-            var meta = MetaWith("qi_1", "water_1", "water_2", "cross_draw");
+            var meta = MetaWith("qi_1", "water_1_s1", "water_2_s1", "cross_draw");
             Assert.That(PerkRules.ScaleCountOf(meta, PerkRules.Get("cross_draw")), Is.EqualTo(0));
             Assert.That(PerkRules.Bonus(meta, PerkEffect.DrawRolls), Is.EqualTo(1),
                 "缩放计数为 0 时给保底 1,不是 0");
@@ -141,12 +141,12 @@ namespace Brushblade.Core.Tests
         public void BaseValue_IsAddedOnceNotPerCount()
         {
             var meta = MetaWith(
-                "metal_1", "metal_2", "metal_3", "metal_4",   // 深层 ×2
+                "metal_1_s1", "metal_2_s1", "metal_3", "metal_4",   // 深层 ×2
                 "power_1", "power_2",
                 "cross_vigor");
             Assert.That(PerkRules.ScaleCountOf(meta, PerkRules.Get("cross_vigor")), Is.EqualTo(2));
-            // 力 L1+L2 = 5 + 10 = 15;相济 = 8 + 3×2 = 14
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.AttackPercent), Is.EqualTo(29),
+            // 力 L1+L2 不叠加取最高档 = 10(2026-10-02);相济 = 8 + 3×2 = 14
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.AttackPercent), Is.EqualTo(24),
                 "8 + 3×2 = 14,不是 (8+3)×2 = 22");
         }
 
@@ -154,8 +154,8 @@ namespace Brushblade.Core.Tests
         public void Xedge_ScalesWithMechanicNodes()
         {
             var meta = MetaWith("edge_1", "edge_2", "lore_1", "lore_2", "qi_1", "cross_edge");
-            // 锋 L1+L2 = 5 + 10 = 15;融会 = 6 + 3×3 = 15
-            Assert.That(PerkRules.Bonus(meta, PerkEffect.CritChance), Is.EqualTo(30));
+            // 锋 L1+L2 不叠加取最高档 = 10(2026-10-02);融会 = 6 + 3×3 = 15
+            Assert.That(PerkRules.Bonus(meta, PerkEffect.CritChance), Is.EqualTo(25));
         }
 
         // ---- 与既有守卫的衔接 ----
@@ -171,9 +171,8 @@ namespace Brushblade.Core.Tests
         /// <summary>烟雾测试:三个跨树节点在两侧前置都齐了时,真的点得亮。
         ///
         /// ⚠ 这条守不住「Prereq 被误改回 null」的回归 —— 它只断言 True 分支,而那个回归下
-        /// 这里依然是 True。跨树节点 Depth 恒为 1,Prereq 一旦变 null,<c>PrerequisiteOf</c>
-        /// 会因 <c>Depth &lt;= 1</c> 短路直接返回 null(根本走不到 "xvigor_0" 这种不存在的 id),
-        /// <c>PrereqMet</c> 的 <c>prereq == null</c> 分支随即恒真 —— 后果是前置被整个绕过、
+        /// 这里依然是 True。跨树节点 Depth 恒为 1、Stage 恒为 1,Prereq 一旦变 null,
+        /// <c>PrereqMet</c> 的隐式分支会因 <c>Depth &lt;= 1</c> 直接返回 true —— 后果是前置被整个绕过、
         /// 节点随时可点(过度放行),而不是永远点不亮。真正兜住这个回归的是断了 False 分支的
         /// <see cref="Xvigor_NeedsBothSides"/>、<see cref="Xedge_NeedsPassiveDepthTwoAndAnyMechanic"/>、
         /// <see cref="Xdraw_NeedsMechanicL1AndWuxingL2"/> 那三条 —— 改表时别把它们删了只留这条当哨兵。</summary>
@@ -181,10 +180,10 @@ namespace Brushblade.Core.Tests
         public void CrossNodes_AreReachableAtAll()
         {
             var meta = MetaWith(
-                "metal_1", "metal_2", "metal_3",
+                "metal_1_s1", "metal_2_s1", "metal_3",
                 "power_1", "power_2",
                 "lore_1",
-                "water_1", "water_2");
+                "water_1_s1", "water_2_s1");
             Assert.That(PerkRules.CanUnlock(meta, "cross_vigor"), Is.True);
             Assert.That(PerkRules.CanUnlock(meta, "cross_edge"), Is.True);
             Assert.That(PerkRules.CanUnlock(meta, "cross_draw"), Is.True);

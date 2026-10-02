@@ -31,10 +31,8 @@ namespace Brushblade.Core.Tests
         private static MetaState LevelElevenWithPerks()
         {
             var meta = new MetaState { CharacterXp = XpForLevel(11) };
-            meta.UnlockedPerks.Add("vigor_1"); // 元 L1:+100 HP
-            meta.UnlockedPerks.Add("vigor_2"); // 元 L2:+200 HP(合计 +300)
-            meta.UnlockedPerks.Add("qi_1");    // 一气 L1:+1 AP
-            meta.UnlockedPerks.Add("qi_2");    // 一气 L2:+1 AP(合计 +2)
+            meta.UnlockedPerks.Add("vigor_1"); // 元 L1:300 HP
+            meta.UnlockedPerks.Add("vigor_2"); // 元 L2:500 HP(不叠加,取最高档 +500)
             meta.UnlockedPerks.Add("lore_1");  // 博闻 L1:+1 字库格
             meta.UnlockedPerks.Add("lore_2");  // 博闻 L2:+1 字库格(合计 +2)
             return meta;
@@ -55,10 +53,10 @@ namespace Brushblade.Core.Tests
         [Test]
         public void PlayerMaxHp_IsLevelCurvePlusYangyuan()
         {
-            // 生命是唯一吃技能加成的角色属性:700(11 级曲线)+ 300(元 L1+L2)
+            // 生命是唯一吃技能加成的角色属性:700(11 级曲线)+ 500(元 L2,不叠加)
             Assert.That(Build(LevelElevenWithPerks()).PlayerMaxHp,
-                Is.EqualTo(MetaRules.MaxHpFor(11) + 300));
-            Assert.That(Build(LevelElevenWithPerks()).PlayerMaxHp, Is.EqualTo(1000));
+                Is.EqualTo(MetaRules.MaxHpFor(11) + 500));
+            Assert.That(Build(LevelElevenWithPerks()).PlayerMaxHp, Is.EqualTo(1200));
         }
 
         [Test]
@@ -116,11 +114,13 @@ namespace Brushblade.Core.Tests
         // ---- 其余四个字段(不是角色属性,但同在那个洞里) ----
 
         [Test]
-        public void ApPerTurn_IsBasePlusYiqi()
+        public void ApPerTurn_IsBase()
         {
-            Assert.That(Build(LevelElevenWithPerks()).ApPerTurn,
-                Is.EqualTo(MetaRules.BaseApPerTurn + 2));
-            Assert.That(Build(new MetaState()).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn));
+            // 一气(AP)2026-10-02 取消,qi 枝改为调息 —— AP 恒为基础值
+            var meta = LevelElevenWithPerks();
+            meta.UnlockedPerks.Add("qi_1");
+            meta.UnlockedPerks.Add("qi_2");
+            Assert.That(Build(meta).ApPerTurn, Is.EqualTo(MetaRules.BaseApPerTurn));
         }
 
         [Test]
@@ -163,7 +163,6 @@ namespace Brushblade.Core.Tests
             Assert.That(config.PlayerDefense, Is.Not.EqualTo(fresh.PlayerDefense));
             Assert.That(config.PlayerDodge, Is.Not.EqualTo(fresh.PlayerDodge));
             Assert.That(config.PlayerSpeed, Is.Not.EqualTo(fresh.PlayerSpeed));
-            Assert.That(config.ApPerTurn, Is.Not.EqualTo(fresh.ApPerTurn));
             Assert.That(config.LibraryCapacity, Is.Not.EqualTo(fresh.LibraryCapacity));
             Assert.That(config.UnlockedChars, Is.Not.Null);   // 缺省 null = 不限合成
             Assert.That(config.DropTable, Is.Not.Empty);      // 缺省空表
@@ -180,7 +179,7 @@ namespace Brushblade.Core.Tests
             // 第二个 Bonus 项,改一处漏一处不会有任何东西报错。现在两处同源,这条钉住同源。
             var meta = LevelElevenWithPerks();
             Assert.That(MetaRules.PlayerMaxHpFor(meta), Is.EqualTo(Build(meta).PlayerMaxHp));
-            Assert.That(MetaRules.PlayerMaxHpFor(meta), Is.EqualTo(1000));
+            Assert.That(MetaRules.PlayerMaxHpFor(meta), Is.EqualTo(1200));
         }
     }
 }
