@@ -15,8 +15,10 @@ namespace Brushblade.Presentation
     /// 二、**减半版档位**(召唤物每回合自动出手、频率高,所以**不顿帧、不写大字**):
     ///     紫起落点一圈稀有度色光环;金起冲刺留光尾;橙起再加两道残影、粒子 ×1.5,
     ///     并照四木的套路多一个小蓄势和一个收尾;红(四木)粒子 ×2 + 光环脉冲。
-    /// 三、**防守型**(柘 / 荆:攻 0、嘲讽 + 反伤,从不主动出手):在敌人打它们那一支演
-    ///     嘲讽 → 挨打 → 反伤三拍(<see cref="GuardBegin"/> / <see cref="GuardHit"/> / <see cref="ThornsFly"/>)。</summary>
+    /// 三、**防守型**:在敌人打召唤物那一支演 嘲讽 → 挨打 → 盾反 三拍
+    ///     (<see cref="GuardBegin"/> / <see cref="GuardHit"/> / <see cref="ThornsFly"/>)。
+    ///     嘲讽那一拍看 Taunt(柘 / 荆);举盾、盾面迎击、回弹波看「盾反」(Thorns,2026-10-02 起
+    ///     不再是柘独有 —— 𣛧 / 森 / 荆 / 桂 / 柘 凡带盾反的都举盾)。</summary>
     public sealed partial class Juice
     {
         /// <summary>字 → 稀有度(召唤物的档位按召出它的那张字算)。BattleView 初始化时注入;
@@ -451,38 +453,44 @@ namespace Brushblade.Presentation
             if (leaf != null) Destroy(leaf.gameObject);
         }
 
-        // ---- 防守型(柘 / 荆):嘲讽 → 挨打 → 反伤 ----
+        // ---- 防守型:嘲讽 → 挨打 → 盾反 ----
 
-        /// <summary>防守动效的状态:柘举的盾(荆没有盾,挨打时炸刺)。</summary>
+        /// <summary>防守动效的状态:带盾反的召唤物举起的盾(只嘲讽、无盾反的没有盾)。</summary>
         private sealed class Guard
         {
             public RectTransform Tank;
-            public bool Spikes;
             public RectTransform Shield;
             public ShieldGraphic ShieldGraphic;
             public Color Tint;
         }
 
-        /// <summary>这只召唤物算不算防守型(嘲讽)。柘 / 荆 之外,将来谁带了嘲讽也走这一套。</summary>
+        /// <summary>这只召唤物带不带嘲讽(柘 / 荆;将来谁带了嘲讽也走这一套)。</summary>
         private static bool IsGuardian(SummonState s) => s != null && (s.Passive?.Taunt ?? false);
 
-        /// <summary>① 嘲讽:挑衅光环 + 飘「嘲讽」+ 敌人到召唤物之间闪一道锁定虚线;柘举盾挡在身前。</summary>
+        /// <summary>这只召唤物带不带盾反(Thorns > 0):挨打时举盾,反弹时打回金色回弹波。</summary>
+        private static bool HasShieldCounter(SummonState s) => s != null && (s.Passive?.Thorns ?? 0) > 0;
+
+        /// <summary>① 嘲讽(Taunt):挑衅光环 + 飘「嘲讽」+ 敌人到召唤物之间闪一道锁定虚线;
+        /// 盾反(Thorns):举盾挡在身前。两样各看各的,都带就两样都演。</summary>
         private IEnumerator GuardBegin(SummonState state, RectTransform tank, RectTransform attacker, Action<Guard> ready)
         {
-            var guard = new Guard { Tank = tank, Spikes = state?.Char == "荆", Tint = Theme.RarityColor(RarityOfSummon(state)) };
+            var guard = new Guard { Tank = tank, Tint = Theme.RarityColor(RarityOfSummon(state)) };
             if (tank == null || attacker == null || _shakeTarget == null) { ready(guard); yield break; }
-            Ring(tank, TauntRed);
-            Popup(Strings.T("juice.popup.taunt"), TauntRed, tank, small: true);
             Vector2 a = Local(attacker.position), b = Local(tank.position), d = b - a;
-            for (int i = 1; i < 10; i += 2)   // 锁定虚线:一截截短线
+            if (IsGuardian(state))
             {
-                var dash = Bit(null, new Vector2(d.magnitude / 12f, 3f), TauntRed, a + d * (i / 10f), out var img);
-                dash.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                StartCoroutine(FadeAndKill(dash, img, 0.5f));
+                Ring(tank, TauntRed);
+                Popup(Strings.T("juice.popup.taunt"), TauntRed, tank, small: true);
+                for (int i = 1; i < 10; i += 2)   // 锁定虚线:一截截短线
+                {
+                    var dash = Bit(null, new Vector2(d.magnitude / 12f, 3f), TauntRed, a + d * (i / 10f), out var img);
+                    dash.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+                    StartCoroutine(FadeAndKill(dash, img, 0.5f));
+                }
             }
-            if (!guard.Spikes)
+            if (HasShieldCounter(state))
             {
-                // 一面立着的骑士盾(ShieldGraphic):挡在柘身前、偏向来敌那一侧;从下往上抬起、放大到位,
+                // 一面立着的骑士盾(ShieldGraphic):挡在召唤物身前、偏向来敌那一侧;从下往上抬起、放大到位,
                 // 一道高光斜扫过盾面。不跟着来敌方向转 —— 转歪了的盾一眼认不出是盾(一版就是那样)
                 float w = SizeOf(tank);
                 Vector2 dir = (-d).normalized;
@@ -511,31 +519,17 @@ namespace Brushblade.Presentation
             }
             else
             {
-                HitReact(tank, 0.4f);   // 荆:刺竖起、整丛一抖
+                HitReact(tank, 0.4f);   // 只嘲讽、无盾反:整只一抖
                 yield return Beat(0.14f);
             }
             ready(guard);
         }
 
-        /// <summary>② 挨打:柘的盾面迎击(白闪 + 火花两侧弹开 + 金环);荆一圈尖刺向四周炸出。</summary>
+        /// <summary>② 挨打:盾面迎击(白闪 + 火花两侧弹开)+ 稀有度色环。</summary>
         private void GuardHit(Guard guard)
         {
             if (guard?.Tank == null) return;
-            Vector2 b = Local(guard.Tank.position);
-            float w = SizeOf(guard.Tank);
-            if (guard.Spikes)
-            {
-                for (int i = 0; i < 14; i++)
-                {
-                    float ang = i / 14f * 360f + UnityEngine.Random.Range(-6f, 6f);
-                    var spike = Bit(null, new Vector2(4f, 6f), new Color(0.18f, 0.37f, 0.18f), b, out var img);
-                    spike.pivot = new Vector2(0f, 0.5f);
-                    spike.localPosition = b + (Vector2)(Quaternion.Euler(0f, 0f, ang) * Vector3.right) * w * 0.32f;
-                    spike.localRotation = Quaternion.Euler(0f, 0f, ang);
-                    StartCoroutine(SpikeOut(spike, img, w * 0.42f));
-                }
-            }
-            else if (guard.Shield != null)
+            if (guard.Shield != null)
             {
                 StartCoroutine(ShieldFlash(guard));
                 Vector2 at = guard.Shield.localPosition;
@@ -543,19 +537,6 @@ namespace Brushblade.Presentation
                 Shards(at, 6, new Color(1f, 0.88f, 0.54f), new Vector2(4f, 7f), 140f, 220f, 120f, 240f, 300f, circle: true);
             }
             Ring(guard.Tank, guard.Tint);
-        }
-
-        private IEnumerator SpikeOut(RectTransform spike, Image image, float length)
-        {
-            Color c = image.color;
-            yield return Tween(0.36f, k =>
-            {
-                if (spike == null) return;
-                float grow = k < 0.35f ? k / 0.35f : 1f;
-                spike.sizeDelta = new Vector2(Mathf.Lerp(4f, length, grow), 6f);
-                image.color = new Color(c.r, c.g, c.b, k < 0.5f ? 1f : 1f - (k - 0.5f) / 0.5f);
-            });
-            if (spike != null) Destroy(spike.gameObject);
         }
 
         /// <summary>盾面迎击:整面白闪、往后一仰再回正;停一拍后缩小淡出。</summary>
@@ -581,41 +562,18 @@ namespace Brushblade.Presentation
             if (shield != null) Destroy(shield.gameObject);
         }
 
-        /// <summary>③ 反伤:柘的一道金色回弹波沿原路打回;其余(荆及带荆棘的召唤物)五根荆刺错开射回攻击者。命中那一刻返回。</summary>
-        private IEnumerator ThornsFly(RectTransform tank, RectTransform attacker, bool shieldWave)
+        /// <summary>③ 盾反:一道金色回弹波从挨打的召唤物沿原路打回攻击者。命中那一刻返回。</summary>
+        private IEnumerator ThornsFly(RectTransform tank, RectTransform attacker)
         {
             if (tank == null || attacker == null || _shakeTarget == null) yield break;
             Vector2 a = Local(tank.position), b = Local(attacker.position), d = b - a;
             float ang = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
-            if (shieldWave)
-            {
-                float size = Mathf.Clamp(SizeOf(tank) * 1.1f, 80f, 150f);
-                var wave = Bit("slash", new Vector2(size, size), ShieldGold, a, out _);
-                wave.localRotation = Quaternion.Euler(0f, 0f, ang + 90f);
-                yield return Tween(0.22f, k => { if (wave != null) { wave.localPosition = Vector2.Lerp(a, b, k * k); wave.localScale = new Vector3(Mathf.Lerp(0.6f, 1.2f, k), 0.85f, 1f); } });
-                if (wave != null) Destroy(wave.gameObject);
-                Ring(attacker, ShieldGold);
-            }
-            else
-            {
-                var thorns = new List<(RectTransform rect, Vector2 from, Vector2 to, float delay)>();
-                float w = SizeOf(tank);
-                for (int i = 0; i < 5; i++)
-                {
-                    Vector2 from = a + new Vector2((i - 2) * w * 0.12f, w * 0.2f);
-                    Vector2 to = b + new Vector2(UnityEngine.Random.Range(-0.2f, 0.2f), UnityEngine.Random.Range(-0.15f, 0.15f)) * SizeOf(attacker);
-                    var th = Bit(null, new Vector2(w * 0.28f, 5f), new Color(0.15f, 0.33f, 0.15f), from, out _);
-                    th.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2((to - from).y, (to - from).x) * Mathf.Rad2Deg);
-                    thorns.Add((th, from, to, i * 0.035f));
-                }
-                yield return Tween(0.2f + 4 * 0.035f, k =>
-                {
-                    float t = k * (0.2f + 4 * 0.035f);
-                    foreach (var th in thorns)
-                        if (th.rect != null) th.rect.localPosition = Vector2.Lerp(th.from, th.to, Mathf.Clamp01((t - th.delay) / 0.2f));
-                });
-                foreach (var th in thorns) if (th.rect != null) Destroy(th.rect.gameObject);
-            }
+            float size = Mathf.Clamp(SizeOf(tank) * 1.1f, 80f, 150f);
+            var wave = Bit("slash", new Vector2(size, size), ShieldGold, a, out _);
+            wave.localRotation = Quaternion.Euler(0f, 0f, ang + 90f);
+            yield return Tween(0.22f, k => { if (wave != null) { wave.localPosition = Vector2.Lerp(a, b, k * k); wave.localScale = new Vector3(Mathf.Lerp(0.6f, 1.2f, k), 0.85f, 1f); } });
+            if (wave != null) Destroy(wave.gameObject);
+            Ring(attacker, ShieldGold);
             PlayClip(_hitClip, 0.6f, 1.3f);
         }
     }

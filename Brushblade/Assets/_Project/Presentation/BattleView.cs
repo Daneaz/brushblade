@@ -5798,6 +5798,14 @@ namespace Brushblade.Presentation
             // Draw* 建条时读的是开场**结束后**的计量器,按回全 0 只是近似起点——携带满格
             // 召唤物时不准(它当前值就是 Threshold),但该拍会在下面播放前单独按满,见下。
             PaintActionBars(pre);
+            // 进段标题卡(GameRoot 在 Init 之后同帧挂到本视图下)播完再开演(2026-10-01 修):
+            // 不等的话回放与标题卡同时起跑,快召唤物在卡片还没淡出时就已经出手了。
+            // 战场先按开场前的样子画好,卡片淡出时露出来的是「还没动」的局面。
+            // ⚠ 先让一帧再查:Init 末尾同步 Refresh → 本协程同步跑到这里,此刻 GameRoot
+            // 还没来得及挂卡片,直接查必然落空。
+            yield return null;
+            while (GetComponentInChildren<BandTitleCard>(true) != null)
+                yield return null;
 
             foreach (var step in steps)
             {

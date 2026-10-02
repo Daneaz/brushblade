@@ -974,7 +974,7 @@ namespace Brushblade.Presentation
         // (GuaranteedRarityFor 就是为这一屏才从 private 提上来的,见 Chest.cs 那条注释。)
 
         private const float HelpBadge = 40f;    // 栏头「?」的直径
-        private const float HelpLeftW = 520f;   // 左栏(机制说明)定宽,右栏吃余量
+        private const float HelpTextW = 520f;   // 右栏(机制说明)定宽,左栏表格吃余量
         private const float HelpRowH = 40f;     // 表格行高
         // 表格列宽:档名 / 时长 / 卡数 / 墨锭 / 保底,再加七档稀有度各一列
         private const float HelpTierColW = 108f;
@@ -1002,21 +1002,21 @@ namespace Brushblade.Presentation
             columnsLayout.padding = new RectOffset((int)ResultPad, (int)ResultPad, (int)ResultPad, (int)ResultPad);
             Ui.Stretch((RectTransform)columns.transform);
 
-            BuildHelpText(columns.transform);
-            ColumnRule(columns.transform);
             BuildHelpTable(columns.transform);
+            ColumnRule(columns.transform);
+            BuildHelpText(columns.transform);
         }
 
-        /// <summary>左栏:箱子从哪来 / 怎么开 / 保底怎么玩,外加关掉这一屏的按钮。</summary>
+        /// <summary>右栏:箱子从哪来 / 怎么开 / 保底怎么玩,外加关掉这一屏的按钮。</summary>
         private void BuildHelpText(Transform parent)
         {
-            var left = Ui.VStack(parent, "Left", 9);
+            var left = Ui.VStack(parent, "Right", 9);
             var leftLayout = left.GetComponent<VerticalLayoutGroup>();
             leftLayout.childAlignment = TextAnchor.UpperLeft;
             // 正文要按栏宽换行,所以定宽 + childForceExpandWidth:Text 拿不到宽度就算不出
             // 该在哪断行(与 BattleView 那条「效果说明 Wrap 依赖这个」同一个坑)。
             leftLayout.childForceExpandWidth = true;
-            Ui.Sized(left, width: HelpLeftW);
+            Ui.Sized(left, width: HelpTextW);
 
             Ui.ThemedLabel(left.transform, Strings.T("map.chest.help.title"), 26, Theme.TextMain,
                 Theme.TitleFont, TextAnchor.UpperLeft);
@@ -1041,7 +1041,7 @@ namespace Brushblade.Presentation
             HelpBody(left.transform, Strings.T("map.chest.help.pity_note"));
 
             var spacer = Ui.Panel(left.transform, "Spacer");
-            spacer.AddComponent<LayoutElement>().flexibleHeight = 1; // 按钮贴左栏底
+            spacer.AddComponent<LayoutElement>().flexibleHeight = 1; // 按钮贴右栏底
             Ui.PillButton(left.transform, Strings.T("map.chest.help.close"), () =>
             {
                 Destroy(_helpPanel);
@@ -1063,10 +1063,10 @@ namespace Brushblade.Presentation
             label.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
-        /// <summary>右栏:七档 × (时长 / 卡数 / 墨锭 / 单箱保底 / 七色出货权重)。</summary>
+        /// <summary>左栏:七档 × (时长 / 卡数 / 墨锭 / 单箱保底 / 七色出货权重)。</summary>
         private void BuildHelpTable(Transform parent)
         {
-            var right = Ui.VStack(parent, "Right", 8);
+            var right = Ui.VStack(parent, "Left", 8);
             var rightLayout = right.GetComponent<VerticalLayoutGroup>();
             rightLayout.childAlignment = TextAnchor.UpperLeft;
             Ui.Sized(right, flexWidth: 1);

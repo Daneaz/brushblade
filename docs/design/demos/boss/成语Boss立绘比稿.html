@@ -1,0 +1,304 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>成语 Boss 立绘比稿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;900&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* 布局:标题 + 设定一句话 + 三张并排比稿卡(窄屏一列),卡内「宣纸舞台 + 阶段条 + 说明」 */
+:root {
+  --bg: #EFE9DC; --panel: #F8F4EA; --stage: #F6F1E7; --ink: #111622; --ink-soft: #3D4E69;
+  --muted: #5E6573; --rule: #D9D0BD; --accent: #C53637; --page-fg: #111622;
+  --wood: #348F4F; --fire: #C53637; --earth: #8F7332; --metal: #B3A382; --water: #0F74C4; --heart: #974FA7;
+  --display: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15181F; --panel: #1D212B; --stage: #EDE6D6; --muted: #A3A9B6; --rule: #2E3442; --accent: #E0605F; --page-fg: #E9E4D8; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #15181F; --panel: #1D212B; --stage: #EDE6D6; --muted: #A3A9B6; --rule: #2E3442; --accent: #E0605F; --page-fg: #E9E4D8; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--page-fg); font-family: var(--body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; display: grid; gap: 26px; }
+header { display: grid; gap: 10px; }
+h1 { font-family: var(--display); font-weight: 900; font-size: clamp(28px, 4vw, 40px); letter-spacing: .04em; margin: 0; text-wrap: balance; }
+.lede { margin: 0; max-width: 66ch; color: var(--muted); }
+.lore { margin: 0; max-width: 66ch; font-family: var(--display); font-size: 17px; border-left: 3px solid var(--accent); padding-left: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.controls .label { font-size: 12px; letter-spacing: .12em; color: var(--muted); }
+button { font-family: var(--body); font-size: 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--panel); color: var(--page-fg); padding: 7px 16px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--page-fg); color: var(--bg); border-color: var(--page-fg); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 980px) { .grid { grid-template-columns: 1fr; max-width: 520px; } }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.card h2 { margin: 0; font-family: var(--display); font-weight: 900; font-size: 22px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.card h2 .tag { font-family: var(--body); font-weight: 700; font-size: 12px; letter-spacing: .1em; color: var(--accent); }
+.card p { margin: 0; color: var(--muted); font-size: 14px; }
+.stage { position: relative; background: var(--stage); border-radius: 10px; aspect-ratio: 1; max-width: 100%; overflow: hidden; }
+.stage svg { width: 100%; height: 100%; display: block; }
+.chip { position: absolute; left: 50%; top: 12px; transform: translate(-50%, -8px); opacity: 0; pointer-events: none;
+  background: rgba(17,22,34,.88); color: #F6F1E7; border-radius: 999px; padding: 6px 14px; font-size: 14px; white-space: nowrap;
+  transition: opacity .25s, transform .25s; display: flex; gap: 8px; align-items: center; }
+.chip.show { opacity: 1; transform: translate(-50%, 0); }
+.chip b { font-family: var(--display); font-weight: 900; font-size: 18px; }
+.chip .arrow { opacity: .6; }
+.chip .hint { font-size: 12px; opacity: .75; }
+.phases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.phase { border-radius: 8px; border: 1px solid var(--rule); padding: 4px 0; text-align: center; font-size: 12px; color: var(--muted); }
+.phase b { display: block; font-family: var(--display); font-size: 20px; font-weight: 900; color: var(--page-fg); line-height: 1.3; }
+.phase.on { border-color: var(--c); box-shadow: inset 0 -3px 0 var(--c); }
+.phase.done { opacity: .5; }
+.phase.done::after { content: "已正"; display: block; font-size: 11px; color: var(--accent); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pros { display: grid; gap: 4px; font-size: 13px; color: var(--muted); padding-left: 18px; margin: 0; }
+.pros li::marker { color: var(--accent); }
+.rec { border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; background: var(--panel); }
+.rec h3 { margin: 0; font-family: var(--display); font-size: 18px; }
+.rec p { margin: 0; color: var(--muted); max-width: 72ch; }
+
+/* 舞台:字与字用正片叠底叠在一起,重叠处墨色更浓,像几层墨洇在一张纸上 */
+.mass { mix-blend-mode: multiply; }
+.part { transition: transform .7s cubic-bezier(.3,1.3,.5,1), opacity .6s; }
+.part path { fill: var(--ink); opacity: .86; transition: fill .45s, opacity .45s; }
+.part.on path { fill: var(--c); opacity: .95; }
+.part.done { opacity: 0; }
+.deco { transition: opacity .6s; }
+.aura { transition: fill .6s; filter: blur(36px); opacity: .4; }
+.ring { fill: none; stroke-width: 10; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.ring.go { animation: ring .9s ease-out; }
+@keyframes ring { 0% { opacity: .9; transform: scale(.2); stroke-width: 18; } 100% { opacity: 0; transform: scale(2.6); stroke-width: 2; } }
+.crack { stroke: var(--accent); stroke-width: 5; fill: none; stroke-linecap: round; stroke-dasharray: 260; stroke-dashoffset: 260; opacity: 0; }
+.crack.go { animation: crack .45s ease-out forwards; }
+@keyframes crack { 0% { opacity: 1; stroke-dashoffset: 260; } 70% { opacity: 1; stroke-dashoffset: 0; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+/* 「正」出来的字:从团块里挣出、摆正、变回干净的墨字,飞离后淡出 */
+.freed path { fill: #111622; }
+.freed { animation: freed 1.1s cubic-bezier(.2,.8,.3,1) forwards; }
+@keyframes freed { 0% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+.eyes { transition: transform .7s cubic-bezier(.3,1.3,.5,1); }
+.breathe { animation: breathe 3.1s ease-in-out infinite; transform-origin: 256px 300px; }
+@keyframes breathe { 50% { transform: scale(1.02) translateY(-3px); } }
+.shake { animation: shake .35s; }
+@keyframes shake { 20% { transform: translate(6px,-2px); } 40% { transform: translate(-5px,3px); } 60% { transform: translate(4px,1px); } 80% { transform: translate(-2px,-1px); } }
+@media (prefers-reduced-motion: reduce) {
+  .breathe, .ring.go, .crack.go, .shake, .freed { animation: none; }
+  .part, .eyes, .aura, .deco { transition: none; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>成语 Boss 立绘比稿</h1>
+    <p class="lore">讹把一整条成语熔成了一只怪:四个字粘连、交叠,只认得出个大概。正字者每破一个阶段,就把一个字从它身上「正」出来,Boss 随之缩小一圈。</p>
+    <p class="lede">三个方案都是一个成语一张立绘,字与字重叠。点「下一阶段」看切阶段效果:当前的字被划开、挣出团块并变回干净的墨字飞走;下一个字亮起本属性色,顶部弹出属性变化和克制提示。</p>
+    <div class="controls">
+      <span class="label">示例成语</span>
+      <button type="button" id="idiom-0" aria-pressed="true">草木皆兵</button>
+      <button type="button" id="idiom-1" aria-pressed="false">惊涛骇浪</button>
+      <button type="button" class="primary" id="all-next">三个方案一起切到下一阶段</button>
+    </div>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <section class="rec">
+    <h3>我的推荐:A「讹熔」打底,主题段的 8 只 Boss 再加上 B 的意象</h3>
+    <p>A 对任何成语都成立,13 只能用一套模板出齐,「字被正出来、Boss 越打越小」这个过程和世界观严丝合缝。B 最贴成语本身的画面(草木里藏着兵、浪头卷成一只手),但要逐只构图。折中做法:13 只都用 A 的熔团做底,再按成语意象加一层配饰(草木皆兵加枪尖、惊涛骇浪加浪沫)。C 是民间「合文」的做法,可读性最好,但重叠少,讹变的感觉弱一些。</p>
+  </section>
+</div>
+
+<script>
+const GLYPHS = {"草": "M51.3 102.7H161.4V51.2L231.8 57.3Q231.4 61.7 228.5 64.5Q225.6 67.4 216.9 68.7V102.7H290.0V51.2L362.0 56.9Q361.5 61.3 358.4 64.4Q355.3 67.4 346.7 68.7V102.7H383.9L411.1 66.6Q411.1 66.6 416.1 70.6Q421.1 74.5 428.7 80.9Q436.4 87.3 444.7 94.6Q453.0 101.8 459.6 108.1Q458.0 114.9 447.6 114.9H346.7V142.8Q346.7 146.0 332.8 150.3Q318.9 154.6 299.1 154.7H290.0V114.9H216.9V144.9Q216.9 148.2 203.0 152.4Q189.2 156.7 170.4 156.7H161.4V114.9H54.3ZM145.4 234.3H363.9V246.5H145.4ZM145.4 298.4H363.9V310.6H145.4ZM340.6 172.9H336.3L361.2 146.3L411.9 184.4Q410.2 186.6 406.4 189.2Q402.6 191.7 396.5 192.6V315.2Q396.5 317.2 388.8 321.1Q381.1 324.9 370.4 327.9Q359.8 330.9 350.4 330.9H340.6ZM113.9 172.9V149.9L172.4 172.9H362.0V185.1H169.1V322.6Q169.1 325.3 162.0 329.5Q154.9 333.6 144.1 336.8Q133.3 340.0 121.9 340.0H113.9ZM51.2 362.1H379.2L408.4 324.1Q408.4 324.1 413.8 328.2Q419.1 332.4 427.2 339.0Q435.2 345.6 444.3 353.2Q453.3 360.8 460.8 367.5Q459.1 374.4 448.4 374.4H54.7ZM225.9 298.4H283.0V447.4Q282.6 449.1 270.5 454.9Q258.5 460.8 236.4 460.8H225.9Z", "木": "M284.3 154.5Q296.4 190.1 315.2 221.0Q334.1 252.0 357.4 277.5Q380.7 303.0 407.0 322.4Q433.2 341.7 460.8 354.2L459.1 359.2Q442.1 362.2 428.6 375.6Q415.1 389.0 408.4 409.8Q374.6 383.9 349.5 347.6Q324.4 311.3 307.3 263.6Q290.2 216.0 279.5 156.1ZM267.7 161.4Q251.9 214.8 222.7 261.9Q193.6 308.9 151.9 347.5Q110.2 386.1 55.4 415.2L51.2 411.1Q88.2 379.2 117.9 336.7Q147.6 294.2 168.5 247.1Q189.4 200.1 200.2 154.5H267.7ZM298.6 59.6Q298.1 63.9 294.9 67.3Q291.7 70.7 282.7 72.0V439.5Q282.7 442.3 275.5 447.1Q268.3 451.9 257.4 455.8Q246.5 459.7 235.1 459.7H224.1V52.3ZM397.7 112.9Q397.7 112.9 403.8 117.5Q409.9 122.2 419.2 129.3Q428.6 136.4 438.7 144.6Q448.8 152.8 457.4 159.8Q455.7 166.7 444.7 166.7H61.1L57.6 154.5H364.9Z", "皆": "M158.8 58.2Q158.4 62.9 154.8 66.2Q151.3 69.4 142.7 70.7V84.5H87.9V58.6V51.2ZM129.3 70.0 142.7 78.2V224.5L96.4 234.8L119.3 215.6Q123.6 231.4 121.8 243.4Q120.1 255.5 114.9 263.1Q109.7 270.7 104.2 274.3L68.8 220.4Q81.2 212.4 84.6 207.7Q87.9 203.0 87.9 196.0V70.0ZM81.9 218.6Q95.9 216.5 120.7 211.5Q145.4 206.5 177.0 199.7Q208.5 193.0 241.5 185.6L242.5 190.8Q222.7 203.4 187.3 224.5Q151.9 245.5 105.9 269.0ZM197.7 90.3Q197.7 90.3 202.7 94.6Q207.6 98.9 215.4 105.4Q223.2 111.9 231.7 119.3Q240.1 126.7 246.7 133.4Q245.0 140.3 234.4 140.3H120.0V128.0H170.6ZM430.2 113.0Q427.3 116.5 421.6 117.8Q415.8 119.1 405.1 117.3Q391.1 125.3 372.6 133.7Q354.1 142.0 332.4 149.4Q310.7 156.9 287.8 162.6L285.8 157.9Q301.4 147.0 317.2 132.6Q333.0 118.3 346.2 103.2Q359.3 88.1 367.3 76.2ZM320.4 57.8Q319.6 67.3 306.7 69.0V187.5Q306.7 192.0 309.4 193.9Q312.1 195.9 321.2 195.9H357.3Q366.1 195.9 374.1 195.9Q382.2 195.9 386.2 195.4Q394.2 195.4 398.5 190.6Q402.2 185.9 407.5 174.6Q412.7 163.3 418.4 148.0H422.8L424.5 191.9Q435.5 196.3 439.4 201.2Q443.2 206.2 443.2 213.3Q443.2 224.5 434.9 231.5Q426.6 238.4 406.6 241.4Q386.6 244.4 351.1 244.4H308.1Q285.0 244.4 272.8 240.6Q260.6 236.7 256.1 226.6Q251.5 216.5 251.5 198.8V52.0ZM280.6 243.6Q277.9 254.1 262.6 254.7Q251.9 262.1 236.3 272.2Q220.7 282.3 209.9 288.9H187.8Q189.8 281.1 192.4 270.5Q194.9 260.0 197.4 248.8Q200.0 237.7 201.6 228.6ZM164.9 442.6Q164.9 445.3 157.8 449.7Q150.8 454.1 140.0 457.4Q129.2 460.8 117.3 460.8H109.0V282.6V259.3L168.2 282.6H349.0V294.8H164.9ZM316.7 282.6 342.1 254.4 395.2 294.6Q393.4 297.2 389.1 300.0Q384.9 302.7 378.0 304.0V445.0Q378.0 446.7 369.9 449.9Q361.8 453.2 351.0 455.8Q340.2 458.5 330.7 458.5H321.0V282.6ZM351.3 415.7V428.0H141.5V415.7ZM351.3 347.5V359.7H141.5V347.5Z", "兵": "M51.5 315.3H373.1L404.1 275.9Q404.1 275.9 409.8 280.2Q415.5 284.5 424.3 291.4Q433.1 298.4 442.9 306.0Q452.7 313.6 460.5 320.6Q458.8 327.5 447.7 327.5H55.0ZM288.4 346.4Q336.3 349.9 367.5 360.8Q398.8 371.7 416.1 386.2Q433.4 400.7 438.9 415.4Q444.5 430.1 440.6 441.7Q436.8 453.3 425.9 457.9Q415.0 462.6 399.4 456.6Q390.4 442.3 377.4 427.5Q364.3 412.7 348.7 398.5Q333.2 384.2 316.8 371.7Q300.4 359.2 285.2 350.1ZM180.6 332.0 243.2 370.6Q241.4 373.6 237.6 375.1Q233.8 376.5 226.4 375.1Q207.9 392.1 181.7 408.7Q155.4 425.2 124.0 438.7Q92.6 452.2 58.1 460.8L54.9 455.8Q81.6 439.9 105.9 418.8Q130.1 397.6 149.6 374.8Q169.0 352.0 180.6 332.0ZM162.1 183.2H357.4L387.8 144.7Q387.8 144.7 393.5 149.0Q399.2 153.3 407.8 159.8Q416.3 166.4 425.9 174.0Q435.5 181.6 443.2 188.5Q442.3 192.0 439.0 193.7Q435.7 195.4 430.9 195.4H162.1ZM295.6 183.2H352.6V320.1H295.6ZM137.1 89.3 208.3 114.6Q205.7 120.2 192.8 122.3V319.6Q192.0 319.6 182.0 319.6Q172.0 319.6 143.0 319.6H137.1ZM340.2 51.2 393.9 101.5Q385.5 109.0 364.6 101.1Q337.6 106.8 301.4 112.1Q265.3 117.3 226.0 120.8Q186.6 124.2 149.3 125.4L148.3 119.4Q173.1 113.6 200.2 105.3Q227.2 97.0 253.3 87.9Q279.4 78.7 301.9 69.1Q324.5 59.6 340.2 51.2Z", "惊": "M360.5 311.6Q396.2 320.8 417.3 334.6Q438.5 348.3 447.7 363.5Q457.0 378.7 457.0 392.2Q457.1 405.6 450.1 414.4Q443.1 423.1 431.8 424.2Q420.6 425.3 407.3 415.5Q404.1 398.0 396.1 379.8Q388.1 361.5 377.9 344.5Q367.7 327.4 356.8 313.9ZM296.5 325.3Q294.9 329.4 290.6 331.6Q286.4 333.9 279.3 333.4Q260.2 368.3 234.3 392.4Q208.4 416.5 178.6 431.1L174.1 427.5Q191.5 405.1 206.9 371.9Q222.4 338.6 230.2 301.8ZM347.8 396.2Q347.8 413.1 343.5 425.8Q339.1 438.6 325.5 446.4Q311.9 454.2 284.2 456.3Q283.8 444.7 282.3 435.7Q280.8 426.7 276.3 421.1Q272.4 416.0 265.3 411.9Q258.3 407.8 243.8 405.4V399.7Q243.8 399.7 249.3 400.2Q254.9 400.6 262.7 400.8Q270.6 401.1 277.6 401.5Q284.6 401.9 287.5 401.9Q292.3 401.9 293.8 400.0Q295.3 398.2 295.3 395.0V268.6H347.8ZM219.3 157.6 275.5 179.0H370.7L395.3 151.2L442.4 186.2Q440.7 189.1 437.2 191.1Q433.8 193.2 426.7 194.5V284.3Q426.7 286.0 414.8 290.4Q402.9 294.8 381.9 294.8H372.4V191.0H271.1V286.6Q271.1 289.0 259.9 293.7Q248.6 298.3 228.5 298.3H219.3V179.0ZM385.2 266.1V278.1H250.4V266.1ZM276.7 55.6Q306.7 57.9 322.9 65.8Q339.1 73.6 344.8 83.5Q350.5 93.4 347.9 103.0Q345.2 112.5 337.0 118.7Q328.7 124.8 317.6 124.7Q306.5 124.7 294.7 115.4Q294.3 99.5 288.0 83.9Q281.8 68.4 273.5 57.9ZM407.0 85.5Q407.0 85.5 412.5 89.9Q418.1 94.3 426.4 101.3Q434.8 108.2 444.0 116.0Q453.2 123.8 460.8 130.6Q460.3 134.0 456.8 135.7Q453.3 137.4 448.6 137.4H191.5L188.1 125.4H376.7ZM166.8 130.6Q190.9 142.7 201.5 156.1Q212.1 169.6 212.8 181.7Q213.5 193.7 207.8 201.2Q202.1 208.7 193.0 209.5Q183.8 210.2 174.9 200.7Q176.2 183.4 172.1 164.9Q167.9 146.3 161.9 132.5ZM87.7 135.5Q102.6 171.8 102.5 199.2Q102.5 226.5 93.4 241.0Q89.0 247.5 81.5 250.3Q74.0 253.1 66.6 251.4Q59.2 249.6 54.7 243.3Q49.4 234.2 52.2 225.2Q55.0 216.1 63.0 209.5Q68.1 203.0 73.0 190.9Q77.8 178.9 80.4 164.2Q83.0 149.6 81.4 135.5ZM178.4 62.3Q177.9 66.5 174.7 69.9Q171.5 73.2 162.7 74.5V441.4Q162.7 443.9 156.3 447.5Q150.0 451.1 140.3 453.8Q130.7 456.5 120.6 456.5H110.1V55.5Z", "涛": "M339.4 64.2Q339.0 68.2 335.5 71.1Q332.0 74.0 322.9 75.2Q318.4 108.7 311.2 144.7Q304.1 180.7 292.1 216.9Q280.1 253.1 261.9 287.1Q243.8 321.1 217.4 351.1Q191.0 381.1 154.2 405.0L149.7 401.4Q181.9 367.1 203.0 325.0Q224.1 282.8 236.6 236.8Q249.0 190.7 255.0 144.2Q260.9 97.6 262.5 54.6ZM250.9 320.6Q278.2 324.7 293.2 332.9Q308.2 341.1 313.5 351.0Q318.8 360.8 316.5 369.5Q314.1 378.1 306.7 383.7Q299.3 389.3 289.1 389.1Q278.9 388.9 268.6 380.3Q268.2 370.1 264.8 359.7Q261.5 349.3 256.8 339.6Q252.2 329.9 247.3 322.6ZM405.1 252.9Q403.7 262.2 390.9 263.8V397.2Q390.9 415.0 386.1 427.4Q381.4 439.7 366.8 447.2Q352.3 454.6 322.0 457.1Q321.1 445.1 319.0 436.3Q316.8 427.5 311.5 421.6Q306.0 416.0 297.9 411.9Q289.8 407.7 272.7 404.9V399.2Q272.7 399.2 280.0 399.6Q287.2 400.0 297.3 400.7Q307.3 401.4 316.3 401.8Q325.2 402.2 328.6 402.2Q333.6 402.2 335.3 400.7Q337.1 399.1 337.1 395.1V247.1ZM383.8 142.2Q383.8 142.2 391.5 148.3Q399.3 154.4 409.9 163.0Q420.5 171.6 428.7 179.4Q427.0 186.2 417.0 186.2H190.6L187.2 174.2H359.0ZM419.2 268.3Q419.2 268.3 425.7 274.0Q432.1 279.7 440.7 288.0Q449.3 296.2 456.0 303.7Q454.4 310.5 444.9 310.5H261.3L257.9 298.4H398.5ZM413.3 194.0Q413.3 194.0 418.2 197.8Q423.0 201.7 430.5 207.9Q438.0 214.2 446.2 221.1Q454.3 228.0 460.8 234.2Q459.1 241.0 449.0 241.0H163.0L159.6 228.9H387.0ZM398.8 83.4Q398.8 83.4 406.7 89.9Q414.7 96.4 425.5 105.7Q436.3 115.1 444.8 123.2Q443.2 130.0 433.0 130.0H178.9L175.5 118.0H373.7ZM75.4 326.4Q80.3 326.4 82.7 325.3Q85.2 324.3 88.9 317.8Q91.8 313.2 94.2 308.8Q96.7 304.3 101.1 295.5Q105.4 286.6 113.5 269.2Q121.5 251.7 135.4 221.8Q149.3 191.8 171.3 144.2L177.6 145.7Q173.2 159.8 168.1 178.0Q162.9 196.2 157.5 215.2Q152.0 234.3 147.1 251.8Q142.1 269.3 138.5 282.9Q134.9 296.4 133.6 303.1Q131.0 313.5 129.1 324.3Q127.2 335.1 127.6 343.1Q127.9 352.0 130.9 359.9Q133.9 367.7 137.6 376.0Q141.4 384.4 144.0 395.0Q146.5 405.7 146.0 420.2Q145.6 437.1 134.6 447.3Q123.6 457.4 107.3 457.4Q99.6 457.4 92.1 452.4Q84.6 447.4 81.6 435.5Q86.0 412.6 86.9 392.5Q87.9 372.3 85.7 358.5Q83.6 344.7 78.2 341.4Q73.9 338.0 68.5 336.4Q63.1 334.8 56.3 334.3V326.4Q56.3 326.4 60.1 326.4Q63.9 326.4 68.6 326.4Q73.2 326.4 75.4 326.4ZM54.7 157.4Q84.0 160.4 100.5 168.5Q117.0 176.7 123.5 187.2Q130.0 197.7 128.6 207.5Q127.3 217.2 120.2 223.7Q113.2 230.3 102.8 230.7Q92.4 231.1 80.8 222.9Q79.3 211.5 74.6 199.9Q70.0 188.4 63.9 177.9Q57.7 167.5 51.2 159.8ZM84.0 60.4Q115.3 62.7 133.6 70.8Q151.9 78.8 159.4 89.6Q166.9 100.4 166.0 111.0Q165.0 121.5 158.0 128.8Q151.0 136.2 140.1 137.1Q129.1 138.1 116.8 130.0Q114.1 117.7 108.2 105.5Q102.4 93.2 95.1 82.3Q87.8 71.3 80.9 62.9Z", "骇": "M364.4 157.0Q362.7 161.1 356.9 163.8Q351.2 166.5 339.9 163.3L354.3 160.4Q342.9 173.1 325.3 187.1Q307.8 201.0 288.8 213.1Q269.8 225.1 252.8 233.0L252.7 227.9H275.6Q273.6 250.6 266.1 262.7Q258.7 274.9 249.6 277.7L232.6 221.5Q232.6 221.5 237.7 220.3Q242.7 219.1 245.8 217.5Q253.0 212.4 260.8 202.7Q268.5 193.0 275.9 180.9Q283.2 168.8 288.6 156.9Q294.0 145.1 296.4 136.5ZM290.5 54.2Q320.2 56.8 336.6 64.9Q352.9 73.1 359.0 83.5Q365.1 94.0 363.2 103.8Q361.2 113.7 353.7 120.3Q346.2 126.9 335.1 127.1Q324.0 127.4 312.3 118.4Q310.8 101.6 303.5 84.8Q296.1 68.1 287.2 56.4ZM242.4 223.7Q253.8 224.0 274.4 223.9Q294.9 223.8 320.5 223.2Q346.1 222.7 373.0 221.9L373.1 227.7Q361.6 232.1 343.1 239.0Q324.7 246.0 301.9 253.9Q279.2 261.8 254.1 269.7ZM359.9 356.9Q392.6 362.0 412.1 372.0Q431.6 382.1 440.2 394.4Q448.9 406.7 448.9 417.9Q448.8 429.1 442.4 437.1Q435.9 445.1 425.3 446.5Q414.7 447.8 402.4 439.9Q398.7 425.8 391.1 411.3Q383.5 396.7 374.3 383.2Q365.1 369.7 356.3 359.2ZM427.4 206.0Q425.7 209.7 421.8 211.0Q417.8 212.2 410.2 211.4Q376.7 263.8 333.1 300.3Q289.6 336.7 233.7 359.8L230.9 354.0Q275.2 322.8 308.4 278.7Q341.6 234.6 365.4 175.7ZM460.8 273.8Q458.7 277.6 454.6 278.8Q450.4 280.1 442.3 279.1Q411.3 326.1 375.0 360.2Q338.8 394.3 296.3 418.0Q253.9 441.6 203.6 457.8L200.8 451.6Q263.0 417.9 312.6 368.2Q362.1 318.4 397.2 241.5ZM410.6 90.9Q410.6 90.9 415.5 94.9Q420.3 99.0 427.8 105.2Q435.2 111.4 443.3 118.5Q451.4 125.5 457.9 131.6Q456.2 138.4 446.1 138.4H226.1L222.7 126.4H384.8ZM161.5 89.8 180.7 65.6 228.9 101.7Q226.8 104.3 222.2 106.5Q217.7 108.7 211.3 109.9Q210.5 128.1 208.7 154.2Q207.0 180.4 204.6 208.1Q202.3 235.9 199.7 258.6Q183.7 267.9 152.2 263.3Q155.7 235.3 158.5 203.2Q161.3 171.0 163.1 141.2Q164.8 111.3 165.7 89.8ZM51.2 332.7Q62.4 331.2 82.9 327.8Q103.4 324.5 129.2 319.7Q155.0 315.0 181.5 309.7L182.5 313.8Q168.0 325.2 144.5 342.2Q121.0 359.3 87.4 380.8Q86.2 385.0 83.0 388.1Q79.8 391.2 76.1 392.1ZM185.3 89.8V101.7H66.8L63.0 89.8ZM142.5 142.1Q141.5 146.3 137.4 149.4Q133.4 152.5 123.6 152.0L127.6 143.0Q127.1 153.7 125.8 169.9Q124.4 186.2 122.7 204.6Q120.9 223.1 119.1 240.2Q117.4 257.2 115.6 269.6H119.1L102.0 290.7L58.3 264.7Q63.0 260.6 69.7 256.6Q76.4 252.7 82.2 250.3L71.0 266.2Q73.1 254.5 75.1 236.2Q77.0 218.0 78.8 198.0Q80.6 178.0 81.8 160.1Q82.9 142.2 83.0 130.9ZM172.9 258.1 198.0 233.4 241.9 270.1Q237.0 275.5 224.6 277.9Q222.9 331.8 219.1 364.6Q215.3 397.5 208.8 415.3Q202.3 433.1 191.7 441.6Q182.0 449.4 169.9 453.2Q157.7 457.0 142.5 457.0Q142.5 446.1 141.4 437.9Q140.3 429.7 136.5 424.6Q132.7 419.5 126.1 415.7Q119.6 412.0 110.0 409.6L110.0 404.1Q115.4 404.5 122.1 404.8Q128.9 405.1 135.1 405.4Q141.3 405.7 145.1 405.7Q153.8 405.7 157.8 401.7Q165.5 394.8 170.2 361.0Q174.9 327.3 177.5 258.1ZM207.7 258.1V270.0H88.4V258.1Z", "浪": "M200.3 96.5 258.4 118.3H253.3V143.8Q253.3 143.8 240.7 143.8Q228.1 143.8 200.3 143.8V118.3ZM194.1 394.7Q204.4 392.4 223.1 388.0Q241.8 383.5 265.1 377.3Q288.5 371.1 312.7 364.6L313.8 368.8Q305.3 377.0 290.9 389.9Q276.6 402.7 258.0 418.0Q239.4 433.3 217.7 449.5ZM240.2 128.5 253.7 136.5V395.6L205.5 415.2L231.5 394.6Q236.2 412.1 234.0 425.0Q231.7 438.0 226.0 446.1Q220.2 454.3 214.0 457.8L178.7 397.0Q192.8 389.1 196.5 384.1Q200.3 379.2 200.3 371.4V128.5ZM270.1 54.2Q298.9 54.7 315.2 61.1Q331.5 67.5 338.3 76.8Q345.1 86.1 343.9 95.4Q342.6 104.7 335.7 111.5Q328.8 118.4 318.5 119.6Q308.1 120.8 296.4 113.3Q293.4 97.5 284.5 82.2Q275.7 66.9 266.8 56.5ZM454.9 318.4Q452.0 321.7 447.7 322.4Q443.4 323.2 435.2 320.3Q410.3 334.2 384.2 344.3Q358.1 354.5 336.4 359.6L333.4 354.3Q348.4 340.2 367.1 318.0Q385.9 295.8 401.4 273.2ZM295.6 254.2Q304.1 288.5 320.1 313.2Q336.1 337.9 357.9 355.3Q379.7 372.7 405.8 384.5Q432.0 396.2 460.8 404.3L460.3 409.2Q425.5 416.7 413.2 457.5Q387.6 443.0 367.2 425.5Q346.8 408.0 331.7 384.7Q316.6 361.4 306.3 330.0Q296.0 298.6 290.1 256.6ZM362.5 118.3 386.7 91.8 437.0 130.2Q435.3 132.7 430.9 135.2Q426.5 137.7 419.8 139.0V266.1Q419.8 267.4 412.2 270.3Q404.7 273.3 394.6 275.9Q384.5 278.5 375.6 278.5H366.8V118.3ZM402.1 254.2V266.3H233.3V254.2ZM400.3 186.9V198.9H233.4V186.9ZM401.1 118.3V130.4H234.2V118.3ZM79.8 329.2Q85.1 329.2 87.3 328.1Q89.6 327.0 93.3 320.2Q95.8 316.1 98.0 312.3Q100.3 308.5 103.6 302.0Q106.9 295.5 112.6 283.5Q118.2 271.5 127.6 251.7Q137.1 231.9 151.6 201.3Q166.1 170.7 187.1 126.4L193.7 128.2Q188.5 144.0 182.1 164.3Q175.7 184.7 169.0 206.0Q162.4 227.2 156.4 246.9Q150.4 266.6 146.0 281.6Q141.6 296.5 139.8 303.6Q136.8 314.8 134.7 326.0Q132.6 337.1 133.0 345.5Q133.4 354.4 136.3 362.0Q139.3 369.7 142.8 377.7Q146.4 385.7 149.1 395.9Q151.9 406.1 151.4 420.4Q151.0 436.8 140.2 447.0Q129.5 457.1 112.0 457.1Q104.4 457.1 96.9 452.3Q89.4 447.5 86.5 435.2Q90.9 413.1 91.6 393.5Q92.3 373.9 90.2 360.7Q88.0 347.5 82.6 344.1Q78.4 340.8 72.8 339.2Q67.2 337.5 60.0 337.1V329.2Q60.0 329.2 64.0 329.2Q67.9 329.2 72.8 329.2Q77.7 329.2 79.8 329.2ZM54.4 158.9Q84.2 160.7 101.5 168.2Q118.9 175.8 125.8 186.0Q132.8 196.2 132.0 206.2Q131.3 216.2 124.4 223.1Q117.6 229.9 107.2 230.9Q96.9 231.9 85.0 224.1Q83.2 212.6 77.9 201.1Q72.6 189.6 65.5 179.2Q58.5 168.7 51.2 161.3ZM87.3 64.3Q118.3 64.8 136.8 71.8Q155.3 78.7 163.7 88.8Q172.1 98.9 172.0 109.3Q172.0 119.7 165.8 127.2Q159.7 134.7 149.3 136.7Q138.9 138.7 126.3 131.7Q122.8 120.1 115.8 108.1Q108.8 96.2 100.5 85.4Q92.1 74.6 84.1 67.1Z"};
+const EL = {
+  Wood: { name: "木", color: "var(--wood)", beatenBy: "金" },
+  Fire: { name: "火", color: "var(--fire)", beatenBy: "水" },
+  Earth: { name: "土", color: "var(--earth)", beatenBy: "木" },
+  Metal: { name: "金", color: "var(--metal)", beatenBy: "火" },
+  Water: { name: "水", color: "var(--water)", beatenBy: "土" },
+  Heart: { name: "心", color: "var(--heart)", beatenBy: null },
+};
+const IDIOMS = [
+  { chars: "草木皆兵", elements: ["Wood", "Wood", "Heart", "Metal"] },
+  { chars: "惊涛骇浪", elements: ["Water", "Water", "Heart", "Water"] },
+];
+
+// 摆位 [中心 x, 中心 y, 横缩放, 纵缩放, 旋转°];字形本身在 512 框内居中
+const SCHEMES = [
+  {
+    id: "A", name: "讹熔", tag: "通用模板",
+    desc: "四字挤在一处熔成一团墨,彼此压叠、轻微错位,像被讹搅在一起的一坨字。眼睛长在团块中心。所有成语用同一种挤法,只随字形自然变化。",
+    pros: ["一套模板出齐 13 只", "字越正越少,Boss 肉眼可见地缩小", "只认得个大概,讹变感最强"],
+    layout: () => [[208, 214, .6, .6, -9], [308, 228, .58, .58, 8], [214, 320, .56, .56, 5], [312, 318, .58, .58, -7]],
+    eyes: () => [258, 262],
+    deco: () => "",
+  },
+  {
+    id: "B", name: "意象成形", tag: "最贴成语",
+    desc: "按成语的画面去摆字:「草木皆兵」是一片拉长如树的字林,「兵」伏在林前,枝头冒出枪尖;「惊涛骇浪」四字沿一道卷起的浪头排开。眼睛落在最吓人的那个字上。",
+    pros: ["一看就懂这只 Boss 是哪条成语", "故事感最强", "每只成语要单独构图"],
+    layout: (k) => k === 0
+      ? [[134, 232, .44, .7, -4], [258, 214, .5, .76, 1], [380, 238, .42, .66, 5], [256, 392, .62, .42, 0]]
+      : [[128, 366, .42, .42, -28], [184, 224, .5, .5, -12], [320, 152, .5, .5, 14], [388, 302, .46, .46, 58]],
+    eyes: (k) => k === 0 ? [256, 384] : [320, 152],
+    deco: (k) => k === 0
+      ? [[124, 78], [196, 60], [262, 50], [330, 62], [396, 82]].map(([x, y]) =>
+          `<path d="M${x} ${y + 60} L${x} ${y}" stroke="#111622" stroke-width="5" stroke-linecap="round"/><path d="M${x - 8} ${y + 14} L${x} ${y - 8} L${x + 8} ${y + 14} Z" fill="#6B6449"/>`).join("")
+      : [[60, 300], [90, 250], [470, 230], [490, 280], [440, 190], [250, 470], [300, 480]].map(([x, y], i) =>
+          `<circle cx="${x}" cy="${y}" r="${6 + (i % 3) * 3}" fill="#0F74C4" opacity=".45"/>`).join("")
+          + `<path d="M40 470 Q 150 420 250 460 T 470 450" fill="none" stroke="#0F74C4" stroke-width="6" opacity=".35" stroke-linecap="round"/>`,
+  },
+  {
+    id: "C", name: "合文", tag: "可读性最好",
+    desc: "借民间「招财进宝」那种合文写法:四字压扁挤进一个方块,笔画互相借用、边缘交叠,整体看像一个从没见过的大字。眼睛开在这个大字的中宫。",
+    pros: ["四个字都还能辨认", "有真实的民俗出处", "重叠少,讹变感偏弱"],
+    layout: () => [[184, 186, .5, .5, 0], [328, 186, .5, .5, 0], [184, 330, .5, .5, 0], [328, 330, .5, .5, 0]],
+    eyes: () => [256, 258],
+    deco: () => "",
+  },
+];
+
+const state = { idiom: 0, phase: [0, 0, 0] };
+const grid = document.getElementById("grid");
+const tf = ([x, y, sx, sy, r]) => `translate(${x} ${y}) rotate(${r}) scale(${sx} ${sy}) translate(-256 -256)`;
+
+function buildCard(scheme, si) {
+  const card = document.createElement("article");
+  card.className = "card";
+  card.innerHTML = `
+    <h2>${scheme.id} · ${scheme.name}<span class="tag">${scheme.tag}</span></h2>
+    <div class="stage" id="stage-${si}">
+      <svg viewBox="0 0 512 512" role="img" aria-label="方案 ${scheme.id} ${scheme.name} 的 Boss 立绘">
+        <defs>
+          <filter id="rough-${si}" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="${7 + si}" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="7"/>
+          </filter>
+        </defs>
+        <circle class="aura" cx="256" cy="270" r="170"/>
+        <g class="shaker"><g class="breathe" filter="url(#rough-${si})">
+          <g class="deco"></g>
+          <g class="mass"></g>
+          <g class="eyes"></g>
+        </g></g>
+        <g class="fly" filter="url(#rough-${si})"></g>
+        <circle class="ring" cx="256" cy="256" r="80"/>
+        <path class="crack" d=""/>
+      </svg>
+      <div class="chip" aria-live="polite"></div>
+    </div>
+    <div class="phases" id="phases-${si}"></div>
+    <div class="row"><button type="button" id="next-${si}">下一阶段</button><button type="button" id="reset-${si}">重来</button></div>
+    <p>${scheme.desc}</p>
+    <ul class="pros">${scheme.pros.map(p => `<li>${p}</li>`).join("")}</ul>`;
+  grid.appendChild(card);
+  card.querySelector(`#next-${si}`).addEventListener("click", () => advance(si));
+  card.querySelector(`#reset-${si}`).addEventListener("click", () => { state.phase[si] = 0; render(si, true); });
+}
+
+function eyeSvg(color) {
+  const e = (cx, s) => `<g><ellipse cx="${cx}" cy="0" rx="${16 * s}" ry="${14 * s}" fill="#111622"/>
+    <circle cx="${cx + .5}" cy=".5" r="${9 * s}" fill="${color}"/><circle cx="${cx + .5}" cy=".5" r="${3.4 * s}" fill="#111622"/>
+    <circle cx="${cx - 6 * s}" cy="${-6 * s}" r="${2.5 * s}" fill="#F6F1E7" opacity=".9"/></g>`;
+  return e(-30, 1) + e(30, .92);
+}
+
+// 剩下的字往团块中心收拢一点:Boss 越打越小
+function shrinkToward(t, remaining) {
+  const k = 1 - (4 - remaining) * 0.07;
+  return [256 + (t[0] - 256) * k, 270 + (t[1] - 270) * k, t[2] * k, t[3] * k, t[4]];
+}
+
+function render(si, rebuild) {
+  const scheme = SCHEMES[si];
+  const k = state.idiom;
+  const idiom = IDIOMS[k];
+  const a = state.phase[si];
+  const stage = document.getElementById(`stage-${si}`);
+  const mass = stage.querySelector(".mass");
+  const layout = scheme.layout(k);
+  if (rebuild || !mass.children.length) {
+    mass.innerHTML = [...idiom.chars].map((c, i) => `<g class="part" data-i="${i}"><path d="${GLYPHS[c]}"/></g>`).join("");
+    stage.querySelector(".deco").innerHTML = scheme.deco(k);
+    stage.querySelector(".fly").innerHTML = "";
+  }
+  const remaining = 4 - a;
+  [...mass.children].forEach((g, i) => {
+    g.classList.toggle("on", i === a);
+    g.classList.toggle("done", i < a);
+    g.style.setProperty("--c", EL[idiom.elements[i]].color);
+    g.setAttribute("transform", tf(scheme.id === "A" ? shrinkToward(layout[i], remaining) : layout[i]));
+  });
+  const [ex, ey] = scheme.eyes(k);
+  const eyes = stage.querySelector(".eyes");
+  eyes.innerHTML = eyeSvg(EL[idiom.elements[a]].color);
+  eyes.setAttribute("transform", `translate(${ex} ${ey})`);
+  stage.querySelector(".deco").style.opacity = String(.35 + .65 * remaining / 4);
+  stage.querySelector(".aura").style.fill = EL[idiom.elements[a]].color;
+  document.getElementById(`phases-${si}`).innerHTML = [...idiom.chars].map((c, i) => {
+    const el = EL[idiom.elements[i]];
+    return `<div class="phase ${i === a ? "on" : ""} ${i < a ? "done" : ""}" style="--c:${el.color}"><b>${c}</b>${el.name}</div>`;
+  }).join("");
+}
+
+function advance(si) {
+  const scheme = SCHEMES[si];
+  const k = state.idiom;
+  const idiom = IDIOMS[k];
+  const from = state.phase[si];
+  if (from >= 3) { state.phase[si] = 0; render(si, true); return; }
+  const stage = document.getElementById(`stage-${si}`);
+  const t = scheme.layout(k)[from];
+  const r = 150 * t[2];
+  const crack = stage.querySelector(".crack");
+  crack.setAttribute("d", `M${t[0] - r} ${t[1] - r * .7} L${t[0] - r * .2} ${t[1] - r * .1} L${t[0] + r * .1} ${t[1] - r * .4} L${t[0] + r * .8} ${t[1] + r * .6}`);
+  restart(crack, "go");
+  restart(stage.querySelector(".shaker"), "shake");
+  setTimeout(() => {
+    // 被「正」出来的字:从原位挣出、摆正、放大一点飞向上方
+    const fly = stage.querySelector(".fly");
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", "freed");
+    g.innerHTML = `<path d="${GLYPHS[idiom.chars[from]]}"/>`;
+    g.setAttribute("transform", tf(t));
+    fly.appendChild(g);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      g.style.transition = "transform 1s cubic-bezier(.2,.8,.3,1)";
+      g.setAttribute("transform", tf([256, 120, .34, .34, 0]));
+    }));
+    setTimeout(() => g.remove(), 1200);
+
+    state.phase[si] = from + 1;
+    render(si, false);
+    const q = scheme.layout(k)[from + 1];
+    const ring = stage.querySelector(".ring");
+    ring.setAttribute("cx", q[0]);
+    ring.setAttribute("cy", q[1]);
+    ring.style.stroke = EL[idiom.elements[from + 1]].color;
+    restart(ring, "go");
+    const a = EL[idiom.elements[from]], b = EL[idiom.elements[from + 1]];
+    const hint = b.beatenBy ? `用「${b.beatenBy}」克之` : "心相中立,无克无被克";
+    const chip = stage.querySelector(".chip");
+    chip.innerHTML = a === b
+      ? `<span>「${idiom.chars[from]}」已正</span><b style="color:${b.color}">仍是${b.name}相</b><span class="hint">${hint}</span>`
+      : `<span>「${idiom.chars[from]}」已正</span><span>${a.name}</span><span class="arrow">→</span><b style="color:${b.color}">${b.name}</b><span class="hint">${hint}</span>`;
+    chip.classList.add("show");
+    clearTimeout(chip._t);
+    chip._t = setTimeout(() => chip.classList.remove("show"), 1900);
+  }, 380);
+}
+
+function restart(el, cls) { el.classList.remove(cls); void el.getBoundingClientRect(); el.classList.add(cls); }
+
+SCHEMES.forEach(buildCard);
+SCHEMES.forEach((_, si) => render(si, true));
+document.getElementById("all-next").addEventListener("click", () => SCHEMES.forEach((_, si) => advance(si)));
+[0, 1].forEach(k => document.getElementById(`idiom-${k}`).addEventListener("click", () => {
+  state.idiom = k; state.phase = [0, 0, 0];
+  [0, 1].forEach(j => document.getElementById(`idiom-${j}`).setAttribute("aria-pressed", String(j === k)));
+  SCHEMES.forEach((_, si) => render(si, true));
+}));
+</script>
+
+</body></html>

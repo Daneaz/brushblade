@@ -226,9 +226,9 @@ namespace Brushblade.Presentation
                         enemyRanged?.Invoke(attacker) ?? false, slash);
 
             bool anyParallel = false;
-            // 上一记挨打的召唤物:紧随其后的荆棘反伤(Source = Thorns)从它身上射回攻击者
+            // 上一记挨打的召唤物:紧随其后的盾反(Source = Thorns)从它身上打回攻击者
             RectTransform lastTank = null;
-            SummonState lastTankState = null;   // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
+            // 全体攻击:多个 Damage 同帧齐出,组末只停一拍
             // 五行 L2 里会发生在群攻**中途**的两条(余烬、锋芒)挪到这批演完之后再播(2026-09-18):
             // 当场播就得在群攻飘字中间停一拍,把「同帧齐出」拆成两截。
             var deferred = new List<BattleEvent>();
@@ -249,10 +249,9 @@ namespace Brushblade.Presentation
                         // 它不是挥击,和召唤物/字卡那一记挤在同帧就读不出先后。
                         // 次序:前面那条治疗事件(Overflow > 0)已播回血动效并置 serialPending,
                         // 这里先停一拍 → 水飞过去 → 落地飘「溢流 N」+ 水花 + 掉血;之后召唤物出手再停一拍。
-                        // 荆棘反伤(防守三拍的第三拍):先从挨打的召唤物身上射回攻击者,到了再飘字掉血
+                        // 盾反(防守三拍的第三拍):先从挨打的召唤物身上打回攻击者,到了再飘字掉血
                         if (e.Source == EffectSource.Thorns && lastTank != null)
-                            yield return ThornsFly(lastTank, enemyAnchor(e.TargetIndex),
-                                shieldWave: IsGuardian(lastTankState) && lastTankState.Char != "荆");
+                            yield return ThornsFly(lastTank, enemyAnchor(e.TargetIndex));
                         if (e.Source == EffectSource.Overheal)
                         {
                             if (serialPending) yield return Beat(StepGap);
@@ -412,7 +411,7 @@ namespace Brushblade.Presentation
                             // 招牌召唤物各有专属出手(2026-09-30,JuiceSummons):藤缠绕、楸甩叶、森砸树干、
                             // 桂花雨、藻双鞭、四木合围生根;其余近战走冲脸,远程射箭。全部叠召唤物减半档。
                             // (荆 / 柘 攻 0、没有出手时触发的被动,引擎从不发它们的 SummonAttack ——
-                            //  它们的表现在 SummonHit 那一支:嘲讽 → 挨打 → 反伤)
+                            //  它们的表现在 SummonHit 那一支:嘲讽 → 举盾 → 盾反)
                             yield return SummonSignature(attacker, from, toRect, element);
                         }
                         break;
@@ -451,14 +450,13 @@ namespace Brushblade.Presentation
                         if (serialPending) yield return Beat(StepGap);
                         var tank = summonAnchor?.Invoke(e.SecondIndex); // 承伤者(坦克死后前移到下一个)
                         var tankState = summonInfo?.Invoke(e.SecondIndex);
-                        // 防守型(嘲讽:柘 / 荆)三拍的前两拍:嘲讽(举盾 / 竖刺)→ 挨打(盾面迎击 / 炸刺),JuiceSummons
+                        // 防守型三拍的前两拍:嘲讽 / 举盾(盾反)→ 挨打(盾面迎击),JuiceSummons
                         Guard guard = null;
-                        if (IsGuardian(tankState))
+                        if (IsGuardian(tankState) || HasShieldCounter(tankState))
                             yield return GuardBegin(tankState, tank, enemyAnchor(e.TargetIndex), g => guard = g);
-                        yield return Swing(e.TargetIndex, tank, slash: guard == null);
+                        yield return Swing(e.TargetIndex, tank, slash: guard?.Shield == null);
                         if (guard != null) GuardHit(guard);
                         lastTank = tank;
-                        lastTankState = tankState;
                         // 敌方那一记同样按**攻击者**的五行上色(2026-08-30):这两类事件的 TargetIndex
                         // 就是攻击者下标,属性顺着它查得到,所以 Core 侧刻意没给它们加 Attacker 字段。
                         // 查不到(伪装怪未现形)时回落中性色 —— 玩家本来就还不知道它是什么属性。
