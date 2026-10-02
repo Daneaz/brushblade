@@ -19,6 +19,14 @@ namespace Brushblade.Core.Tests
             new(Graph(), new BattleConfig { Tally = tally }, library, pool ?? Array.Empty<string>(),
                 new[] { new EnemyDef("锈", Element.Metal, 500, 1) }, seed: 1);
 
+        /// <summary>RunEngine 每场都走 WithPlayerMaxHp 拷配置:Tally 必须原引用带过去,否则计数落进孤儿实例。</summary>
+        [Test]
+        public void WithPlayerMaxHp_KeepsSameTallyReference()
+        {
+            var tally = new BattleTally();
+            Assert.That(new BattleConfig { Tally = tally }.WithPlayerMaxHp(5).Tally, Is.SameAs(tally));
+        }
+
         [Test]
         public void Cast_Success_CountsPlayAndMaxHit()
         {

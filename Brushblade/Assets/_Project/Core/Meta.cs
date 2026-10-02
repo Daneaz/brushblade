@@ -759,6 +759,14 @@ namespace Brushblade.Core
                 meta.EndlessV2.Library.RemoveAll(id => !Known(id));
                 meta.EndlessV2.Pool.RemoveAll(id => !Known(id));
             }
+
+            // 里程碑候选含下架字 → 整条作废,下次打开领取弹窗重生成(否则弹窗空、红点常亮)
+            var staleOffers = new List<int>();
+            foreach (var kv in meta.MilestoneOffers)
+                if (kv.Value.Exists(id => !Known(id)))
+                    staleOffers.Add(kv.Key);
+            foreach (var lv in staleOffers)
+                meta.MilestoneOffers.Remove(lv);
         }
 
         private static void RemoveUnknownKeys(Dictionary<string, int> map, Func<string, bool> known)

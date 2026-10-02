@@ -627,6 +627,27 @@ namespace Brushblade.Core.Tests
             Assert.That(meta.EndlessV2.Pool, Is.EqualTo(new[] { "火" }));
         }
 
+        /// <summary>里程碑候选含下架字 → 整条作废(下次打开领取弹窗重生成);否则弹窗空、红点常亮(终审 I4)。</summary>
+        [Test]
+        public void PruneUnknownCards_DropsMilestoneOffersWithRetiredIds()
+        {
+            var graph = new RecipeGraph(new[]
+            {
+                new CharDef("火", Element.Fire),
+                new CharDef("炎", Element.Fire, new[] { "火", "火" }),
+            });
+            var meta = new MetaState();
+            meta.MilestoneOffers[5] = new List<string> { "灯", "丁" };
+            meta.MilestoneOffers[10] = new List<string> { "炎", "灯" };
+            meta.MilestoneOffers[15] = new List<string> { "炎", "火" };
+
+            MetaRules.PruneUnknownCards(meta, graph);
+
+            Assert.That(meta.MilestoneOffers.ContainsKey(5), Is.False);
+            Assert.That(meta.MilestoneOffers.ContainsKey(10), Is.False, "混了一个下架字也整条作废");
+            Assert.That(meta.MilestoneOffers[15], Is.EqualTo(new[] { "炎", "火" }));
+        }
+
         /// <summary>字库补给的一次性标记要跟着存档走(2026-09-29):断点续爬回来若丢了它,
         /// 同一次登塔能再领一次。走真实的 SaveSerializer 入口,不直接碰 JSON 库。</summary>
         [Test]
