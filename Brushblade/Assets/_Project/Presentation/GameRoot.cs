@@ -109,7 +109,9 @@ namespace Brushblade.Presentation
 
         private static void ShowCharacter()
         {
-            ShowMap(); // Task 11 换成真正的角色页
+            var view = NewView("CharacterView");
+            view.AddComponent<CharacterView>().Init(_graph, _campaign, _meta, ChestCardPool(),
+                () => MetaStore.Save(_meta), () => ShowMap());
         }
 
         private static void ShowCollection()
