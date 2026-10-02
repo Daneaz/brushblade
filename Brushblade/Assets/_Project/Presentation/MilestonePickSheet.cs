@@ -21,9 +21,10 @@ namespace Brushblade.Presentation
         {
             var def = MilestoneRules.ForLevel(level);
             if (!def.HasValue || !MilestoneRules.IsClaimable(meta, level)) return;
+            bool hadOffer = meta.MilestoneOffers.ContainsKey(level);
             var offer = MilestoneRules.GetOrCreateOffer(meta, level, cardPool, graph,
                 new GameRandom(Environment.TickCount));
-            save(); // 候选落档:关掉重进不变
+            if (!hadOffer && offer.Count > 0) save(); // 新生成的候选立刻落档:关掉重进不变
 
             var sheet = Ui.Sheet(root, "MilestonePick", W, H, dismissable: true, replaceSameName: true,
                 Theme.Scrim, out var content, out var card);
@@ -34,7 +35,7 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(42, 42, 29, 29);
 
             // 右上 ×(稿 .x):点遮罩也能关,这颗是给「不知道能点遮罩」的人的显式出口
-            var close = Ui.RoundButton(card, "×", () => UnityEngine.Object.Destroy(sheet),
+            var close = Ui.RoundButton(card, Strings.T("common.close"), () => UnityEngine.Object.Destroy(sheet),
                 Color.clear, Theme.TextDim, 42, new Vector2(92, 92));
             close.GetComponent<LayoutElement>().ignoreLayout = true;
             Ui.Anchor((RectTransform)close.transform, Vector2.one, Vector2.one,
@@ -60,6 +61,9 @@ namespace Brushblade.Presentation
             string picked = null;
             Image okFace = null;
             Text okLabel = null;
+            // 这一档稀有度没有可发的字:给一句说明,不画空排(Core 不落档空候选,稍后再开会重抽)
+            if (offer.Count == 0)
+                Ui.ThemedLabel(content, Strings.T("milestone.no_candidates"), 23, Theme.TextDim);
             var picks = Ui.Row(content, "Picks", 38);
             picks.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             var rings = new List<(string id, Image ring)>();

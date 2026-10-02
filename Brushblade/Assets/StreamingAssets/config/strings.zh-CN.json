@@ -493,7 +493,6 @@
   "map.hero.top_title": "出手最多",
   "map.hero.top_unit": "累计 · 次",
   "map.hero.top_empty": "登一次塔,这里会记下你最常出手的字",
-  "map.hero.open_character": "执笔人",
   "map.hero.stat.ap": "每回合 AP",
   "map.hero.stat.attack": "攻击",
   "map.hero.stat.defense": "护甲",
@@ -1189,5 +1188,6 @@
   "milestone.tag_new": "新字",
   "milestone.tag_dup": "已有 · 重复卡 +1",
   "milestone.foot": "候选在第一次打开时就定了,关掉再进还是这几张。已拥有的字照样能选,算一张重复卡。",
-  "milestone.ok": "收下"
+  "milestone.ok": "收下",
+  "milestone.no_candidates": "这一档的字还没有可选的,稍后再来"
 }

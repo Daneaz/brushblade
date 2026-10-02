@@ -294,14 +294,20 @@ namespace Brushblade.Presentation
         }
 
         /// <summary>轨道上显示哪 10 档(纯计算)。Lv.50 及以内:表内十档。之后:从最早一个未领的那档起
-        /// 往后 10 档;都领完取最后 10 档;不足 10 档向前补。窗口只在已达成的档里取。</summary>
+        /// 往后 10 档;都领完取最后 10 档;不足 10 档向前补。候选含当前等级之后的下一档。</summary>
         private static List<int> Window(MetaState meta)
         {
             int level = MetaRules.CharacterLevel(meta.CharacterXp);
             var levels = new List<int>();
-            foreach (var m in MilestoneRules.MilestonesUpTo(Math.Max(level, MilestoneRules.TableEnd)))
+            if (level <= MilestoneRules.TableEnd)
+            {
+                foreach (var m in MilestoneRules.MilestonesUpTo(MilestoneRules.TableEnd))
+                    levels.Add(m.Level);
+                return levels;
+            }
+            // 多取一个步长:恰好露出当前等级之后的下一档(写「差 N 级」)
+            foreach (var m in MilestoneRules.MilestonesUpTo(level + MilestoneRules.AfterStep))
                 levels.Add(m.Level);
-            if (level <= MilestoneRules.TableEnd) return levels;
 
             int start = levels.Count;
             for (int i = 0; i < levels.Count; i++)
