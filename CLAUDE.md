@@ -1,6 +1,6 @@
 # CLAUDE.md — 《字·斗》(Brushblade)
 
-汉字拆合养成卡牌(局内肉鸽),Unity,海外移动优先(iOS+Google Play),F2P + 奖励式广告 + 单一月订阅(第14章 v0.6)。中文沟通。
+汉字拆合养成卡牌(局内肉鸽),Unity,海外移动优先(iOS+Google Play),F2P + 奖励式广告 + 单一月订阅(第14章 v0.6)。
 
 ## 架构(详见 docs/architecture.md,硬规则勿破)
 
@@ -24,7 +24,7 @@
 - `tools/pipeline/` — Python 数据管线(IDS → 候选字表);产出 `out/` 与原始数据 `data/raw/` 不入 git。
 - `docs/design/` — GDD 全 18 章 + 五行规格;`docs/architecture.md` — 代码架构。
 
-## 测试与验证(先测试后实现,TDD)
+## 测试与验证
 
 ```bash
 # 管线(pytest)。⚠ 六个目录都要跑:漏掉 tools/icons/ 会让「手写了一张 PNG、
@@ -62,7 +62,7 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   `svg/*.svg`,仓库里那份也在对账)。`.meta` 脚本不生成,从同目录别的 `icon_*.png.meta`
   复制并换掉 `guid:`。(2026-09-04 加 icon_melee 时手写过一张 PNG,三处对账一处都没接。)
 
-- Core/Data 每个模块:先写失败测试再实现;Presentation 不强求自动化测试,**但改完必须过离线编译**
+- TDD 的项目范围:Core/Data 每个模块必须走;Presentation 不强求自动化测试,**但改完必须过离线编译**
   ——工装只编译 Core/Data,Presentation 的编译错会一路漏到用户打开 Unity 才炸(已发生过两次)。
   离线编译依赖 `Brushblade/Library/ScriptAssemblies/`(Unity 至少打开过本工程一次)。
   只看 `error CS`,`warning MSB3245` 是 Unity 程序集自带的无关引用,忽略。
@@ -95,9 +95,6 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 - ⚠️ **worktree 与主检出共享同一个 stash 栈**:`git stash pop` 会弹出别人未提交的改动。
   要对比改动前后用 `git show HEAD:<path>` 或 `git diff`,**别用 stash**(2026-09-02 有两个
   agent 各踩一次,其中一次在 BattleView.cs 上留下了别的分支的冲突标记)。
-- ⚠️ **合并回 main 得先退出 worktree**:main 正被主检出 checkout 着,从 worktree 往它 push
-  会被 git 拒(`branch is currently checked out`),`cd`/`-C` 指向主检出也会被会话隔离拦下。
-  用 `ExitWorktree` 回到主检出再 merge —— 那是唯一一条通路。
 - ⚠️ 测试断言只用 Unity 版 NUnit 也支持的 API:**禁用 `Is.AnyOf`/`Is.All.AnyOf`**(dotnet 工装的
   NUnit 3.14 有、Unity 自带 NUnit 没有,工装绿≠编辑器绿)。多选一用 `Is.EqualTo(a).Or.EqualTo(b)`,
   集合子集用 `Has.All.Matches<T>`。
