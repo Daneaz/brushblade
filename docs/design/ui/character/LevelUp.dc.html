@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>升级弹窗</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;display=swap">
+<style>
+body { margin: 0; }
+a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+.dev { position: relative; width: 932px; height: 430px; box-sizing: border-box; background: #EFE9DA; color: #161B22; overflow: hidden; font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+.homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; z-index: 60; }
+.homebar > span { width: 128px; border-radius: 2px; background: rgba(255,255,255,.4); }
+.mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 300px; font-weight: 600; line-height: 1; color: rgba(94,74,49,.075); }
+.scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); z-index: 50; }
+.pop { position: absolute; left: 166px; top: 26px; width: 600px; height: 356px; box-sizing: border-box; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 11px; padding: 14px 18px 14px; box-shadow: 0 12px 38px rgba(22,27,34,.42); display: flex; flex-direction: column; gap: 10px; z-index: 51; }
+.hd { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.kick { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; letter-spacing: 8px; color: #9B1E22; }
+.kick::before, .kick::after { content: ""; width: 34px; height: 1px; background: #DED7C9; }
+.lvrow { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+.lvrow .was { font-size: 18px; font-weight: 600; color: #696151; }
+.lvrow .arw { font-size: 14px; color: #7A3F5C; }
+.lvrow .now { font-size: 38px; font-weight: 700; line-height: 1; }
+.lvrow .now i { font-style: normal; font-size: 16px; font-weight: 600; color: #5D646F; margin-right: 2px; }
+.mods { flex: 1; min-height: 0; display: flex; gap: 14px; }
+.mod { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ttl { display: flex; align-items: center; gap: 6px; }
+.ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; color: #5D646F; }
+.ttl span { font-size: 9px; color: #696151; white-space: nowrap; }
+.ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+.num { display: flex; align-items: center; gap: 7px; height: 24px; padding: 0 8px; border-radius: 7px; background: #F2EEE4; font-variant-numeric: tabular-nums; }
+.num .k { font-size: 9.5px; color: #5D646F; width: 50px; }
+.num .was { font-family: "Noto Serif SC", serif; font-size: 12px; color: #696151; }
+.num .arw { font-size: 9px; color: #696151; }
+.num .now { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; }
+.num.hp .now { color: #B02D2E; }
+.num .dlt { margin-left: auto; font-size: 9.5px; font-weight: 700; color: #1B552C; }
+.num.same .now { color: #5D646F; }
+.num.same .dlt { color: #696151; font-weight: 400; }
+.box { position: relative; flex: 1; min-height: 0; box-sizing: border-box; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 10px; padding: 6px 10px 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.box .nm { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+.dot { width: 8px; height: 8px; border-radius: 3px; background: #7945AB; display: block; }
+.band { height: 16px; padding: 0 6px; border-radius: 8px; background: #EFEADF; border: 1px solid #DED7C9; font-size: 8.5px; color: #5D646F; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; }
+.box .yield { font-size: 9.5px; color: #696151; font-variant-numeric: tabular-nums; }
+.box .slot { font-size: 9px; color: #676F7A; }
+.box .slot b { color: #1B552C; }
+/* 里程碑提示:局内到不了角色页,只说「回去领」,不放跳转钮(只说做得到的事) */
+.mile { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 8px; background: #F6EDD5; border: 1px solid rgba(201,169,74,.55); font-size: 10px; color: #402900; }
+.mile b { font-family: "Noto Serif SC", serif; font-size: 11px; color: #8A6600; }
+.mile span { margin-left: auto; font-size: 9px; color: #8A6600; }
+.foot { display: flex; justify-content: center; }
+.pill { height: 40px; width: 160px; border: none; border-radius: 20px; background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 2px; }
+</style>
+</helmet>
+<div class="dev">
+<div class="mark serif">安</div>
+<div class="scrim"></div>
+<div class="pop">
+<div class="hd">
+<div class="kick serif">升 级</div>
+<div class="lvrow serif"><span class="was">Lv.19</span><span class="arw">→</span><span class="now"><i>Lv.</i>20</span></div>
+</div>
+<div class="mods">
+<div class="mod" style="flex: 1;">
+<div class="ttl"><b>属性</b><span>下一段开打时生效</span><span class="rule"></span></div>
+<div class="num hp"><span class="k">生命</span><span class="was">860</span><span class="arw">→</span><span class="now">880</span><span class="dlt">+20</span></div>
+<div class="num"><span class="k">攻击</span><span class="was">136</span><span class="arw">→</span><span class="now">138</span><span class="dlt">+2</span></div>
+<div class="num"><span class="k">护甲</span><span class="was">9</span><span class="arw">→</span><span class="now">12</span><span class="dlt">+3</span></div>
+<div class="num"><span class="k">闪避</span><span class="was">9%</span><span class="arw">→</span><span class="now">10%</span><span class="dlt">+1%</span></div>
+<div class="num"><span class="k">速度</span><span class="was">109</span><span class="arw">→</span><span class="now">110</span><span class="dlt">+1</span></div>
+</div>
+<div class="mod" style="width: 218px; flex: none;">
+<div class="ttl"><b>升级奖励</b><span class="rule"></span></div>
+<div class="box">
+<svg width="86" height="86" viewBox="0 0 120 120" aria-hidden="true">
+<rect x="22" y="50" width="76" height="44" rx="6" fill="#7945AB" stroke="#111622" stroke-width="3"></rect>
+<path d="M18 50 Q60 22 102 50 Z" fill="#9B6FC4" stroke="#111622" stroke-width="3" stroke-linejoin="round"></path>
+<rect x="52" y="58" width="16" height="14" rx="3" fill="#F6EDD5" stroke="#111622" stroke-width="2.5"></rect>
+</svg>
+<div class="nm serif"><i class="dot"></i>紫檀匣</div>
+<span class="band">Lv.11–20</span>
+<div class="yield">5 捆 · 120 墨 · 4 小时</div>
+<div class="slot">已放进箱位 <b>3 / 4</b></div>
+</div>
+</div>
+</div>
+<div class="mile"><b>Lv.20 里程碑</b>1,200 墨 + 金字 3 选 1 已解锁<span>回主界面后在角色页领取</span></div>
+<div class="foot"><button class="pill">知道了</button></div>
+</div>
+<div class="homebar"><span></span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":932,"height":430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
