@@ -1,0 +1,419 @@
+<!-- @dsCard group="整屏" height=430 width=932 subtitle="实现 · MapView.cs · 三栏 + 四格导航" -->
+<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../components/bundle.css"><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
+
+    /* iPhone 16 Pro Max 横屏 932×430pt。安全区 左右 59 / 下 21(Home Indicator)。
+       Unity 逻辑单位换算 ×2.093(CanvasScaler 1600×900 按高匹配 → 实际画布 1950×900)。
+       本卡所有尺寸 = MapView.cs / Ui.cs 的常量 ÷ 2.093,文案 = strings.zh-CN.json 的取值。
+
+       ⚠ 稿上的 letter-spacing 一律不再出现:Unity 的 UI.Text 没有字距设置,实现里恒为 0。
+       标题里的间隔是**写进字符串**的空格(「字 · 斗」「续 爬」「登 塔」),不是排版属性。 */
+    .dev {
+      position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: var(--paper); color: var(--text-main); overflow: hidden;
+      /* bundle.css 的 .zd-tab__sub / .zd-bar--band-off 读 --lock-gray,而 tokens.json 里
+         没有这支名字 —— Theme.LockGray 就是 #676F7A,即 --text-faint(2026-09-18 调深那一批)。
+         在这里喂给它,免得回落到 --text-dim(#5D646F,偏深)或硬编码的 #888F9C(旧值,2.9:1)。 */
+      --lock-gray: var(--text-faint);
+    }
+    .safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px; display: flex; flex-direction: column; }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+    .grow { flex: 1; }
+
+    /* 顶栏(BuildTopBar):高 80、行间距 21;游戏名 40 宋体、段位副文 23 TextDim。 */
+    .top { height: 38.22px; flex: none; display: flex; align-items: center; gap: 10.03px; }
+    .top h1 { margin: 0; font-family: var(--font-serif); font-size: 19.11px; font-weight: 600; }
+    .top .sub { font-size: 10.99px; color: var(--text-dim); }
+
+    .body { flex: 1; display: flex; gap: 10.03px; min-height: 0; padding-bottom: 10.03px; }
+    /* 三栏一律 border-box:.who / .chests 的 width 是**含内边距与描边的总宽**,与实现里
+       HeroW(392) / ChestW(486) 是同一个数。OutlinedPanel 默认描边 2 → 0.96pt、圆角 21 → 10.03pt。 */
+    .panel { box-sizing: border-box; background: var(--panel-paper);
+      border: 0.96px solid var(--panel-border); border-radius: 10.03px; }
+
+    /* 角色栏(BuildHeroPanel):HeroW 392 → 187.30;内边距 20 → 9.56;竖排间距 19 → 9.08 */
+    .who { width: 187.30px; flex: none; padding: 9.56px; display: flex; flex-direction: column; gap: 9.08px; }
+    .avatar { display: flex; align-items: center; gap: 9.08px; }
+    /* Ui.CircleGlyph(88):字号 = 直径 × 0.44 → 39 */
+    .face { width: 42.04px; height: 42.04px; flex: none; border-radius: 50%; background: var(--ink);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-serif); font-size: 18.63px; font-weight: 600; color: var(--paper); }
+    .names { display: flex; flex-direction: column; gap: 1.91px; }
+    .who .nm { font-family: var(--font-serif); font-size: 15.77px; font-weight: 600; }
+    .who .rk { font-size: 10.03px; color: var(--text-dim); }
+    .xp { display: flex; align-items: center; gap: 5.73px; font-size: 9.08px; color: var(--text-dim); }
+    .xp .zd-bar { flex: 1; }
+    /* 六项属性两格一行(StatRow/StatCell):格高 30、行距 6、列距 17;
+       名 21 TextDim 靠左、值 27 宋体靠右(生命朱砂)。两条标签都铺满整格,靠对齐分左右。 */
+    .attrs { display: flex; flex-direction: column; gap: 2.87px; }
+    .arow { display: flex; gap: 8.12px; }
+    .at { flex: 1; position: relative; height: 14.33px; font-size: 10.03px; color: var(--text-dim);
+      display: flex; align-items: center; }
+    .at b { margin-left: auto; font-family: var(--font-serif); font-size: 12.90px; font-weight: 600;
+      color: var(--text-main); font-variant-numeric: tabular-nums; }
+    .at.hp b { color: var(--cinnabar); }
+    /* 卡池摘要(BuildPoolMini,2026-09-06 取代已废止的出阵表):
+       标题 19 LockGray +「最高那一档」的 MiniGlyphTile 一行,每行 6 张、超出不换行。 */
+    .pool { margin-top: auto; }
+    .pool .h { font-size: 9.08px; color: var(--lock-gray); margin-bottom: 3.82px; }
+    .poolrow { display: flex; gap: 3.82px; }
+
+    /* 书塔(BuildTowerPanel):弹性宽;内边距 34/25/29、竖排间距 14;内容整体居中 */
+    .tower { flex: 1; min-width: 0; position: relative; overflow: hidden;
+      box-sizing: border-box; background: var(--panel-paper);
+      border: 0.96px solid var(--panel-border); border-radius: 10.03px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6.69px; padding: 11.94px 16.24px 13.86px; }
+    /* 巨字水印:字号 500 → 238.89;色 = Theme.BandWatermark(bandIndex) = 该段基色 ×0.55 @ 10%。
+       取的是层段名的**末字**(bandName.Substring(len-1)):文山 → 山。
+       ⚠ 水印铺满面板垫在底层、内容另起一叠 —— 把它拽回文档流会顶掉底下三行。 */
+    .mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      font-family: var(--font-serif); font-size: 238.89px; font-weight: 600; line-height: 1;
+      color: rgba(93,73,48,.10); pointer-events: none; user-select: none; }
+    .tower > *:not(.mark) { position: relative; }
+    .tower h2 { margin: 0; font-family: var(--font-serif); font-size: 21.02px; font-weight: 600; }
+    /* 一整行是**一个** Ui.ThemedLabel(23, TextDim):Unity 的 Text 不分段着色,
+       稿上把段位挑出来放大加朱砂的那一版实现里没有。 */
+    .rank { font-size: 10.99px; color: var(--text-dim); }
+    /* 层段进度(BuildBands):行距 6、格内距 4;名 19 / 条 13 / 起始层 17 */
+    .bands { display: flex; gap: 2.87px; width: 100%; }
+    .bd { flex: 1; display: flex; flex-direction: column; gap: 1.91px; }
+    .bd .bn { font-size: 9.08px; color: var(--lock-gray); text-align: center; }
+    .bd.done .bn { color: var(--text-dim); }
+    .bd.now .bn { color: var(--text-main); font-family: var(--font-serif); font-weight: 600; }
+    .bd .df { font-size: 8.12px; color: var(--lock-gray); text-align: center; font-variant-numeric: tabular-nums; }
+    /* 按钮上只放动作;层段与层数是详情,放在钮下(523 的钮里排不下整句) */
+    .resumedetail { font-family: var(--font-serif); font-size: 11.94px; font-weight: 600; color: var(--text-main); }
+    .runstate { display: flex; gap: 11.94px; font-size: 10.03px; color: var(--text-dim);
+      font-variant-numeric: tabular-nums; }
+    .resumehint { font-size: 10.03px; color: var(--lock-gray); }
+
+    /* 宝箱栏(BuildChestPanel):ChestW 486 → 232.20;内边距 17/16、竖排间距 15 */
+    .chests { width: 232.20px; flex: none; padding: 7.64px 8.12px; display: flex; flex-direction: column; gap: 7.17px; }
+    .ch { font-family: var(--font-serif); font-size: 9.08px; color: var(--lock-gray);
+      display: flex; align-items: center; gap: 6.21px; }
+    /* 栏头「?」:Ui.RoundButton(40×40,radius 20,字号 20,PanelInset 底 / TextDim 字) */
+    .ch .help { margin-left: auto; width: 19.11px; height: 19.11px; border: none; border-radius: 50%;
+      cursor: pointer; background: var(--panel-inset); color: var(--text-dim);
+      font-family: var(--font-sans); font-size: 9.56px; }
+    .cgrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6.21px; }
+    /* 一格 = OutlinedPanel(CardWhite, PanelBorder, 17):圆角 8.12、描边 0.96;内边距 11/12、间距 6 */
+    .box { box-sizing: border-box; background: var(--card-face); border: 0.96px solid var(--panel-border);
+      border-radius: 8.12px; padding: 5.73px 5.26px; display: flex; flex-direction: column;
+      align-items: center; gap: 2.87px; }
+    /* 立绘 ChestArtSize 84 → 40.13。七档是七种材质,不是七种颜色;三态只换叠加层、不换底图。 */
+    .box .art { width: 40.13px; height: 40.13px; display: block; }
+    /* 「已就绪」是主界面唯一的常驻动效(ChestView.Update,周期 1.6s、三段同相):
+       光晕 alpha 0.45↔1、盖缝 0.55↔1、箱身起伏 = 边长 × 2.5/120 → 40.13 × 2.5/120 = 0.84px。
+       ⚠ 稿上写的 2.5px 是 120 画布里的量,不是屏幕上的量。 */
+    @keyframes chestGlow { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+    @keyframes chestBob  { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.84px); } }
+    @keyframes chestSeam { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    .box.ready .halo { animation: chestGlow 1.6s ease-in-out infinite; }
+    .box.ready .bob  { animation: chestBob 1.6s ease-in-out infinite; }
+    .box.ready .beam { animation: chestSeam 1.6s ease-in-out infinite; }
+    .box .bn { font-size: 10.03px; font-family: var(--font-serif); font-weight: 600; }
+    .box .cd { font-size: 10.99px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .box .cd.idle  { color: var(--lock-gray); }
+    .box .cd.ready { color: var(--upgrade-text); font-family: var(--font-serif); font-weight: 600; }
+    /* 按钮行:Ui.Row(spacing 7) + childForceExpandWidth = true。
+       ⚠ 150 / 72 是 **preferredWidth**,不是定宽 —— 行开了 force-expand,余量按 flexible 均分,
+       所以单钮铺满整行、双钮各占一半。稿上的 flex:1 在这一点上反而是对的。 */
+    .acts { display: flex; gap: 3.34px; width: 100%; }
+    .acts > * { flex: 1; }
+    /* 空箱位:Ui.CardPanel(LockedBg, 14) —— 是**实心** locked-bg 圆角卡,没有虚线描边。 */
+    .box.empty { background: var(--locked-bg); border: none; border-radius: 6.69px; justify-content: center; }
+    .box.empty .t { font-size: 10.03px; color: var(--lock-gray); }
+
+    /* 底部导航(BuildNavBar):NavH 92 → 43.96、格距 17 → 8.12 */
+    .nav { height: 43.96px; flex: none; display: flex; gap: 8.12px; }
+
+    /* ============ 本卡就地覆盖 bundle.css(根因在共用文件里,待统一修) ============
+
+       ⚠ **bundle.css 尾部 208–255 行是一整块过期的旧稿样式**,与文件开头 74–133 行的
+       实现版同名同特异度而排在后面 —— 于是 Dialog / NavTab / InkCounter / ProgressBar
+       四组全站取到的是**旧稿值**,不是 2026-09-20 对齐过的实现值。实测差异:
+         .zd-ink   → 旧块把胶囊底加了回来(26 高 + ink-bar 底 + 1px 描边 + radius-pill),
+                     而 Ui.InkCounter 根本没有胶囊;字号也被按回 12px。
+         .zd-bar   → 旧块 height 4px / 轨道 var(--quiet) / 填充 var(--rarity-gold),
+                     实现是轨道恒 paper-dim、圆角 10→4.78,高度与填充色由调用点给。
+                     .zd-bar--band / --band-off 只在新块里有,被旧块的 `.zd-bar > span` 压掉,
+                     四条层段进度条全都画成了赭金。
+         .zd-tab   → 旧块 44 高 / 1px 描边 / radius-card / 图标 20 / 名 14+字距 2px。
+       下面按 `.dev .zd-*` 提一级特异度把实现值拿回来。**删掉 bundle.css 那一块之后,
+       这整段都可以删。** */
+    .dev .zd-ink { gap: 2.87px; height: auto; padding: 0; background: none; border: none;
+      border-radius: 0; font-weight: 500; }
+    .dev .zd-ink--top { font-size: 11.94px; }
+    .dev .zd-ink--top .zd-ink__ingot { width: 16.72px; height: 10.15px; }
+    .dev .zd-bar { height: auto; border-radius: 4.78px; background: var(--paper-dim); }
+    .dev .zd-bar > span { border-radius: 4.78px; }
+    .dev .zd-bar--xp   { height: 4.30px; } .dev .zd-bar--xp > span   { background: var(--gold); }
+    .dev .zd-bar--run  { height: 4.78px; } .dev .zd-bar--run > span  { background: var(--cinnabar-dark); }
+    .dev .zd-bar--band { height: 6.21px; } .dev .zd-bar--band > span { background: var(--cinnabar); }
+    .dev .zd-bar--band-off > span { background: var(--lock-gray); }
+    .dev .zd-tab { height: 43.96px; border-width: 0.96px; border-radius: 9.08px; }
+    .dev .zd-tab svg { width: 17.20px; height: 17.20px; }
+    .dev .zd-tab__name { font-size: 13.86px; letter-spacing: 0; }
+    .dev .zd-tab__sub { font-size: 9.08px; color: var(--lock-gray); }
+    .dev .zd-tab .zd-reddot { top: 7.64px; right: 7.64px; }
+    /* 主钮的字距同理:Unity 没有字距,「续 爬」的间隔是字符串里的空格 */
+    .dev .zd-btn--cta { letter-spacing: 0; }
+
+    /* ---- 另外三处:同名类在 bundle.css 里只有一份,但那一份与实现对不上 ---- */
+    /* Ui.Chip 用 Theme.Rounded(14) → 6.69pt 的圆角矩形,不是胶囊 */
+    .zd-chip { border-radius: 6.69px; }
+    /* Ui.AdBadge 的字号/圆角/描边/间距按高度相对稿基准 63 缩放:72×46 的这枚 scale = 46/63 = 0.730
+       → 字号 round(21×.73)=15 → 7.17pt、圆角 round(31×.73)=23 → 10.99pt、间距 10×.73 → 3.49pt、
+       播放三角 15×17 ×.73 → 5.23×5.93pt、描边 1.5 → 0.72pt,字走宋体。 */
+    .zd-btn--ad { font-size: 7.17px; border-radius: 10.99px; gap: 3.49px;
+      box-shadow: inset 0 0 0 0.72px var(--ad-green); font-family: var(--font-serif); }
+    .zd-btn--ad svg { width: 5.23px; height: 5.93px; }
+    /* Button.interactable = false:uGUI 只把 disabledColor(0.78,0.78,0.78,0.5) 乘在
+       targetGraphic(底图)上,**子节点的 Text 不受影响** —— 底色淡成半透,白字仍是纯白。 */
+    .zd-btn--ink[disabled] { background: rgba(48,60,81,.5); color: #fff; }
+
+</style></head><body>
+<div class="zd-root dev">
+  <!-- 宝箱立绘 = tools/design/chests/svg/ 出的真素材(ChestAssets 按 slug 取 body / seam 两层,
+       另有与箱型无关的 chest_fx_ready / chest_fx_timing 两张叠加层)。
+       --c 即 Theme.ChestColor(tier) = RarityColor(RarityOf(tier)),2026-08-30 箱色与卡色并成一套。 -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <radialGradient id="g-ready" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFD470" stop-opacity=".9"/>
+        <stop offset="52%" stop-color="#FFCF5E" stop-opacity=".38"/>
+        <stop offset="100%" stop-color="#FFCF5E" stop-opacity="0"/>
+      </radialGradient>
+      <symbol id="chest-bamboo" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="32" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M26 32 h68 v60 h-68 z" fill="var(--c)" fill-opacity=".30" stroke="#111622" stroke-width="2.6"/>
+        <path d="M26 32 h68 v12 h-68 z" fill="var(--c)" fill-opacity=".72" stroke="#111622" stroke-width="2"/>
+        <path d="M34.5 44 v48 M43 44 v48 M51.5 44 v48 M60 44 v48 M68.5 44 v48 M77 44 v48 M85.5 44 v48"
+              stroke="#111622" stroke-width="1.5" opacity=".34"/>
+        <path d="M30 60 h8 M47 60 h8 M64 60 h8 M81 60 h8" stroke="#111622" stroke-width="1.5" opacity=".3"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#6B5B3E" stroke-width="3.6" stroke-linecap="round"/>
+        <path d="M22 54 h76 M22 80 h76" stroke="#111622" stroke-width="1" opacity=".35"/>
+        <circle cx="60" cy="80" r="4.4" fill="#EFE7D2" stroke="#111622" stroke-width="1.8"/>
+      </symbol>
+      <symbol id="chest-celadon" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="31" ry="4" fill="#111622" opacity=".10"/>
+        <path d="M28 58 h64 v26 a7 7 0 0 1 -7 7 h-50 a7 7 0 0 1 -7 -7 z"
+              fill="var(--c)" fill-opacity=".13" stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M28 58 a32 26 0 0 1 64 0 z" fill="var(--c)" fill-opacity=".52" stroke="#111622" stroke-width="2.6"/>
+        <path d="M52 32 h16 v5 h-16 z" fill="var(--c)" fill-opacity=".6" stroke="#111622" stroke-width="1.8"/>
+        <path d="M40 56 l6 -14 M56 50 l-4 -12 M72 56 l-3 -16 M84 54 l-8 -9" stroke="#111622"
+              stroke-width="1.2" opacity=".28" fill="none"/>
+        <path d="M38 66 l9 8 M62 64 l-6 12 M76 68 l8 6" stroke="#111622" stroke-width="1.2" opacity=".24" fill="none"/>
+        <path d="M28 58 h64" stroke="#111622" stroke-width="2.2"/>
+        <path d="M36 91 h48" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M40 50 a24 20 0 0 1 12 -14" fill="none" stroke="#FFFFFF" stroke-width="3.4"
+              stroke-linecap="round" opacity=".75"/>
+      </symbol>
+      <symbol id="chest-gilded" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="102" rx="34" ry="4" fill="#111622" opacity=".10"/>
+        <rect x="27" y="52" width="66" height="40" rx="2" fill="var(--c)" fill-opacity=".32"
+              stroke="#111622" stroke-width="2.6"/>
+        <path d="M36 28 h48 l10 22 h-68 z" fill="var(--c)" fill-opacity=".70"
+              stroke="#111622" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M26 50 h68" stroke="#111622" stroke-width="2.4"/>
+        <circle cx="44" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="54" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="66" cy="36" r="1.7" fill="#111622" opacity=".45"/>
+        <circle cx="76" cy="40" r="1.7" fill="#111622" opacity=".45"/>
+        <path d="M53 52 h14 v13 a7 7 0 0 1 -14 0 z" fill="#F6EDD5" stroke="#111622" stroke-width="1.9"/>
+        <path d="M60 58 v5" stroke="#111622" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="60" cy="56" r="2.4" fill="#111622"/>
+        <path d="M33 84 h54" stroke="#C9A94A" stroke-width="2.4" opacity=".9"/>
+        <path d="M27 92 h66" stroke="#111622" stroke-width="2.6" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="fx-ready" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="60" rx="46" ry="44" fill="url(#g-ready)"/>
+        <g stroke="#C9A94A" stroke-width="3" stroke-linecap="round">
+          <path d="M60 20 v-7"/><path d="M33 29 l-5 -6"/><path d="M87 29 l5 -6"/>
+          <path d="M21 57 h-7"/><path d="M99 57 h7"/><path d="M27 85 l-6 5"/><path d="M93 85 l6 5"/>
+        </g>
+        <g fill="#FFF3CF" stroke="#C9A94A" stroke-width="1.2">
+          <path d="M30 38 l2.6 5.4 5.4 2.6 -5.4 2.6 -2.6 5.4 -2.6 -5.4 -5.4 -2.6 5.4 -2.6z"/>
+          <path d="M92 70 l2.2 4.6 4.6 2.2 -4.6 2.2 -2.2 4.6 -2.2 -4.6 -4.6 -2.2 4.6 -2.2z"/>
+        </g>
+      </symbol>
+      <symbol id="fx-timing" viewBox="0 0 120 120">
+        <circle cx="92" cy="90" r="15" fill="#EFEADF" stroke="#111622" stroke-width="2.4"/>
+        <g transform="translate(80 78) scale(0.75)" fill="none" stroke="#111622" stroke-width="3" stroke-linecap="round">
+          <path d="M9 5h14M9 27h14"/>
+          <path d="M11 5c0 7 5 9 5 11s-5 4-5 11M21 5c0 7-5 9-5 11s5 4 5 11"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="safe">
+
+    <!-- 顶栏。墨锭没有胶囊底(Ui.InkCounter = 六边形墨锭 + 数字,图标宽 = 字号×1.4、高 = 字号×0.85)。
+         设置界面尚未实现:这颗是占位钮,点了弹 map.settings.soon_* 的说明,不留死按钮。 -->
+    <div class="top">
+      <h1>字 · 斗</h1>
+      <span class="sub">秀才 · 最高 43 层</span>
+      <div class="grow"></div>
+      <span class="zd-ink zd-ink--top"><i class="zd-ink__ingot"></i>2480</span>
+      <button class="zd-btn zd-btn--top zd-btn--plum">设置</button>
+    </div>
+
+    <div class="body">
+
+      <!-- 角色栏。六项属性读的是 MetaRules.BuildBattleConfig(与局内同源,屏上不另算一遍);
+           暴击不上屏(基准恒 0 且不随等级成长)。示例 = Lv.12 未点技能:
+           生命 MaxHpFor(12)=720 / 攻击 AttackFor(12)=122 / 护甲 DefenseFor(12)=6 /
+           闪避 DodgeFor(12)=6 / 速度 SpeedFor(12)=106 / AP BaseApPerTurn=3。 -->
+      <div class="panel who">
+        <div class="avatar">
+          <div class="face">墨</div>
+          <div class="names">
+            <div class="nm">执笔人</div>
+            <div class="rk">Lv.12 · 秀才</div>
+          </div>
+        </div>
+        <div class="xp">
+          <span>经验</span>
+          <span class="zd-bar zd-bar--xp"><span style="width:58%"></span></span>
+          <span class="zd-num">380 / 650</span>
+        </div>
+        <div class="attrs">
+          <div class="arow"><div class="at hp"><span>生命</span><b>720</b></div><div class="at"><span>攻击</span><b>122</b></div></div>
+          <div class="arow"><div class="at"><span>护甲</span><b>6</b></div><div class="at"><span>闪避</span><b>6%</b></div></div>
+          <div class="arow"><div class="at"><span>速度</span><b>106</b></div><div class="at"><span>每回合 AP</span><b>3</b></div></div>
+        </div>
+        <!-- 卡池 = MetaRules.PlayableCards(已拥有的非部件字),只画**最高那一档**、最多一行 6 张。
+             顶档那几张正是起手第 6 格保底会抽到的池子。 -->
+        <div class="pool">
+          <div class="h">卡池 41 字</div>
+          <div class="poolrow">
+            <span class="zd-mini zd-r-purple zd-e-fire"><span class="zd-mini__g">烈</span></span>
+            <span class="zd-mini zd-r-purple zd-e-fire"><span class="zd-mini__g">燥</span></span>
+            <span class="zd-mini zd-r-purple zd-e-fire"><span class="zd-mini__g">蒸</span></span>
+            <span class="zd-mini zd-r-purple zd-e-wood"><span class="zd-mini__g">楸</span></span>
+            <span class="zd-mini zd-r-purple zd-e-wood"><span class="zd-mini__g">荆</span></span>
+            <span class="zd-mini zd-r-purple zd-e-water"><span class="zd-mini__g">湮</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 书塔。示例 = 有断点存档(snapshot.Depth = 44,落在「文山」26~50 段,段内 18/25 = 72%)。
+           没有存档时:主钮文案换成「登 塔」(map.tower.start_button),钮下只有一行
+           map.tower.hint,**不出**血条、账目与断点说明。 -->
+      <div class="tower">
+        <div class="mark">山</div>
+        <h2>无尽书塔</h2>
+        <div class="rank">当前段位 秀才 · 历史最高 43 层</div>
+        <div class="bands">
+          <div class="bd done"><div class="bn">字林</div><div class="zd-bar zd-bar--band zd-bar--band-off"><span style="width:100%"></span></div><div class="df">1</div></div>
+          <div class="bd done"><div class="bn">词渊</div><div class="zd-bar zd-bar--band zd-bar--band-off"><span style="width:100%"></span></div><div class="df">11</div></div>
+          <div class="bd now"><div class="bn">文山</div><div class="zd-bar zd-bar--band"><span style="width:72%"></span></div><div class="df">26</div></div>
+          <div class="bd"><div class="bn">墨海</div><div class="zd-bar zd-bar--band zd-bar--band-off"><span style="width:0"></span></div><div class="df">51</div></div>
+        </div>
+        <button class="zd-btn zd-btn--cta zd-btn--cinnabar">续 爬</button>
+        <div class="resumedetail">「文山」第 44 层</div>
+        <div class="zd-bar zd-bar--run" style="width:249.88px"><span style="width:66%"></span></div>
+        <div class="runstate">
+          <span>生命 478 / 720</span>
+          <span>本趟已得 340 墨</span>
+          <span>字库 6 / 7</span>
+        </div>
+        <div class="resumehint">断点续爬 · 接着上次停下的那层打</div>
+      </div>
+
+      <!-- 宝箱栏。四格状态机:空位 / 未开始 / 计时中 / 已就绪。
+           同一时间只有一只箱在计时 —— 鎏金匣在计时,所以竹简匣的「开始开启」置灰
+           (start.interactable = !AnyChestTiming())。 -->
+      <div class="panel chests">
+        <div class="ch">
+          <span>宝箱 3 / 4</span>
+          <span class="zd-chip" style="height:12.90px;width:73.10px;font-size:7.17px;background:var(--cinnabar);color:#fff">暂存 1·开箱腾位</span>
+          <button class="help">?</button>
+        </div>
+        <div class="cgrid">
+          <!-- 计时中:底图压到 45% + 沙漏角标;倒计时 Format(8048) = 2:14:08;
+               广告缩短 AdReductionSeconds[Gilded−1] = AdReductionSeconds[4] = 5400 → -90m(⚠ 这行文案硬编码在
+               MapView.cs,没走字符串表);墨锭价 InkCostToSkip(8048) = ⌈8048/120⌉ = 68。 -->
+          <div class="box" style="--c:var(--rarity-gold)">
+            <svg class="art" viewBox="0 0 120 120" aria-hidden="true">
+              <g opacity=".45"><use href="#chest-gilded"></use></g>
+              <use href="#fx-timing"></use>
+            </svg>
+            <div class="bn">鎏金匣</div>
+            <div class="cd zd-num">2:14:08</div>
+            <div class="acts">
+              <button class="zd-btn zd-btn--ad"><svg viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="var(--ad-green)"></path></svg>-90m</button>
+              <button class="zd-btn zd-btn--chest-sm zd-btn--gold">68墨</button>
+            </div>
+          </div>
+          <!-- 已就绪:光晕在箱身之下(从箱后透出来)、盖缝透光与箱身一起起伏 -->
+          <div class="box ready" style="--c:var(--rarity-blue)">
+            <svg class="art" viewBox="0 0 120 120" aria-hidden="true">
+              <use class="halo" href="#fx-ready"></use>
+              <g class="bob">
+                <use href="#chest-celadon"></use>
+                <g class="beam">
+                  <path d="M28 58 h64" stroke="#FFD470" stroke-width="9" opacity=".55"></path>
+                  <path d="M28 58 h64" stroke="#FFF3CF" stroke-width="3.4"></path>
+                </g>
+              </g>
+            </svg>
+            <div class="bn">青瓷匣</div>
+            <div class="cd ready">已就绪</div>
+            <div class="acts"><button class="zd-btn zd-btn--chest-open zd-btn--gold">开箱!</button></div>
+          </div>
+          <!-- 未开始:先亮出这一档要等多久 —— Format(DurationSeconds[Bamboo−1]) = Format(1800) = 30:00 -->
+          <div class="box" style="--c:var(--rarity-green)">
+            <svg class="art" viewBox="0 0 120 120" aria-hidden="true"><use href="#chest-bamboo"></use></svg>
+            <div class="bn">竹简匣</div>
+            <div class="cd idle zd-num">30:00</div>
+            <div class="acts"><button class="zd-btn zd-btn--chest zd-btn--ink" disabled>开始开启</button></div>
+          </div>
+          <div class="box empty"><div class="t">空位</div></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 导航。四格各有各的红点判据,都问 Core:
+         收集 = 有字能升 或 有没看过的新字;图鉴 = 有已解锁未查阅的条目;
+         技能 = 有技能现在就能升;商城 = ShopRules.HasRedDot。
+         图标 PNG 缺失时**什么都不画**(名字就在旁边),不补兜底汉字。 -->
+    <div class="nav">
+      <div class="zd-tab zd-tab--deck" style="flex:1">
+        <span class="zd-tab__face"></span>
+        <svg viewBox="0 0 64 64"><g transform="scale(2.667)" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="15" rx="2"/><path d="M17 7 L20.5 8.2 A1.5 1.5 0 0 1 21.4 10 L18 19.5"/></g></svg>
+        <span class="zd-tab__name">收集</span><span class="zd-tab__sub">74 张</span>
+        <span class="zd-reddot"></span>
+      </div>
+      <div class="zd-tab zd-tab--bestiary" style="flex:1">
+        <span class="zd-tab__face"></span>
+        <svg viewBox="0 0 64 64"><g transform="scale(2.667)" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5 A1.5 1.5 0 0 1 5.5 3 H19 v18 H5.5 A1.5 1.5 0 0 1 4 19.5 Z"/><path d="M4 17.5 A1.5 1.5 0 0 1 5.5 16 H19"/></g></svg>
+        <span class="zd-tab__name">图鉴</span><span class="zd-tab__sub">19 / 28</span>
+        <span class="zd-reddot"></span>
+      </div>
+      <div class="zd-tab zd-tab--perks" style="flex:1">
+        <span class="zd-tab__face"></span>
+        <svg viewBox="0 0 64 64"><g transform="scale(2.667)" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L14.6 9.4 L21 12 L14.6 14.6 L12 21 L9.4 14.6 L3 12 L9.4 9.4 Z"/></g></svg>
+        <span class="zd-tab__name">技能</span><span class="zd-tab__sub">12 / 43</span>
+      </div>
+      <div class="zd-tab zd-tab--shop" style="flex:1">
+        <span class="zd-tab__face"></span>
+        <svg viewBox="0 0 64 64"><g transform="scale(2.667)" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8 h17 l-1.3 11.2 A1.5 1.5 0 0 1 17.7 20.5 H6.3 A1.5 1.5 0 0 1 4.8 19.2 Z"/><path d="M8.5 8 V6 a3.5 3.5 0 0 1 7 0 v2"/></g></svg>
+        <span class="zd-tab__name">商城</span><span class="zd-tab__sub">每日刷新</span>
+        <span class="zd-reddot"></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="homebar"><span></span></div>
+</div>
+</body></html>

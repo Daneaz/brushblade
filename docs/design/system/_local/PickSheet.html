@@ -1,0 +1,67 @@
+<!-- @dsCard group="局内流程" height=456 subtitle="实现 · BattleView.DrawPickSheet · 首点预览、再点确认" -->
+<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../components/bundle.css"><meta charset="utf-8"><style>
+html,body{margin:0;background:var(--paper)}
+.wrap{padding:14px 16px}
+.two{display:flex;gap:14px;flex-wrap:wrap}
+.col{display:flex;flex-direction:column}
+.scrim{background:var(--scrim-soft);border-radius:6px;padding:9px}
+/* Ui.Sheet 1298×520 → 620×248pt;此卡按 0.50 缩放 */
+.sheet{width:310px;box-sizing:border-box;background:var(--panel-paper);
+  border:.72px solid var(--panel-border);border-radius:8.60px;padding:11.47px;
+  display:flex;flex-direction:column;align-items:center;gap:6.69px}
+.h{font-family:var(--font-serif);font-weight:600;font-size:7.88px;color:var(--text-main);white-space:nowrap}
+.hint{font-size:5.02px;color:var(--text-dim);white-space:nowrap}
+.picks{display:flex;gap:5.02px;justify-content:center}
+.pick{display:flex;flex-direction:column;align-items:center;gap:2px}
+.pick .el{font-size:4.54px;color:var(--text-dim);white-space:nowrap}
+/* detail 横条:定高 30pt,未选中也撑住 —— 选中前后不跳版 */
+.detail{width:100%;box-sizing:border-box;height:15.05px;display:flex;align-items:center;
+  padding:0 5.49px;gap:2.87px;background:var(--panel-inset);
+  border:.96px solid var(--panel-border);border-radius:8.12px;font-size:5.02px;color:var(--text-main)}
+.detail .again{margin-left:auto;color:var(--cinnabar-dark);white-space:nowrap}
+.detail.empty{color:transparent}
+.foot{width:100%;display:flex;align-items:center;gap:5.02px}
+.ad{display:flex;align-items:center;gap:2px;border-radius:5.49px;font-size:3.58px;padding:2.5px 5px;white-space:nowrap;
+  background:var(--ad-green-bg);color:var(--ad-green-text);box-shadow:inset 0 0 0 .36px var(--ad-green)}
+.sp{flex:1}
+.skip{border-radius:11.47px;background:var(--locked-bg);color:var(--text-main);
+  font-size:6.5px;padding:0 10px;height:15.05px;display:flex;align-items:center;white-space:nowrap}
+.lbl{font-size:9px;color:var(--text-dim);margin-top:6px;text-align:center}
+.note{font-size:8.5px;color:var(--text-faint);line-height:1.55;margin-top:10px}
+.note b{color:var(--cinnabar-dark)}
+</style></head><body>
+<div class="zd-root wrap">
+<div class="two">
+
+  <div class="col"><div class="scrim"><div class="sheet">
+    <div class="h">收 下 一 张</div>
+    <div class="hint">点一下看它做什么，再点一次收下</div>
+    <div class="picks">
+      <div class="pick"><div class="zd-tile zd-r-white zd-e-fire" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div></div><span class="el">火 · 白</span></div>
+      <div class="pick"><div class="zd-tile zd-r-blue zd-e-water" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">海</span><span class="zd-tile__py">hǎi</span></div></div></div><span class="el">水 · 蓝</span></div>
+      <div class="pick"><div class="zd-tile zd-r-green zd-e-metal" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">刀</span><span class="zd-tile__py">dāo</span></div></div></div><span class="el">金 · 绿</span></div>
+      <div class="pick"><div class="zd-tile zd-r-white zd-e-wood" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">林</span><span class="zd-tile__py">lín</span></div></div></div><span class="el">木 · 白</span></div>
+      <div class="pick"><div class="zd-tile zd-r-purple zd-e-earth" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">垒</span><span class="zd-tile__py">lěi</span></div></div></div><span class="el">土 · 紫</span></div>
+    </div>
+    <div class="detail empty">占位</div>
+    <div class="foot"><span class="ad">▶ 看广告 · 字库 +2</span><span class="sp"></span><span class="skip">跳过</span></div>
+  </div></div><div class="lbl">未选中 · detail 空着但撑住高度</div></div>
+
+  <div class="col"><div class="scrim"><div class="sheet">
+    <div class="h">收 下 一 张</div>
+    <div class="hint">点一下看它做什么，再点一次收下</div>
+    <div class="picks">
+      <div class="pick"><div class="zd-tile zd-r-white zd-e-fire" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div></div><span class="el">火 · 白</span></div>
+      <div class="pick"><div class="zd-tile zd-r-blue zd-e-water zd-tile--sel" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">海</span><span class="zd-tile__py">hǎi</span></div></div></div><span class="el">水 · 蓝</span></div>
+      <div class="pick"><div class="zd-tile zd-r-green zd-e-metal" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">刀</span><span class="zd-tile__py">dāo</span></div></div></div><span class="el">金 · 绿</span></div>
+      <div class="pick"><div class="zd-tile zd-r-white zd-e-wood" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">林</span><span class="zd-tile__py">lín</span></div></div></div><span class="el">木 · 白</span></div>
+      <div class="pick"><div class="zd-tile zd-r-purple zd-e-earth" style="--w:31.03px;--h:38.92px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">垒</span><span class="zd-tile__py">lěi</span></div></div></div><span class="el">土 · 紫</span></div>
+    </div>
+    <div class="detail"><span>「海」水 · 120 伤害 · 远程 · 打火系 ×1.5</span><span class="again">再点一次收下</span></div>
+    <div class="foot"><span class="ad">▶ 看广告 · 字库 +2</span><span class="sp"></span><span class="skip">跳过</span></div>
+  </div></div><div class="lbl">首点 · 效果进 detail，版面不动</div></div>
+
+</div>
+<div class="note"><b>detail 横条定高是有理由的</b>：玩家的手指正停在牌上，选中前后版面一动就点错。代价是这一行不换行，文案上限约 30 字。底色必须是 <b style="color:var(--text-dim)">panel-inset</b> —— 用 paper-dim 会与描边色撞成同一个 #DED7C9，渲出来是一块没有描边的灰褐板。</div>
+</div>
+</body></html>
