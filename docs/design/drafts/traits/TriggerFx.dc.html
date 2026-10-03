@@ -1,0 +1,203 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    /* 触发反馈。三种飘出物,各有各的样子,一眼分得开:
+       ① 特性名 —— 纸底小签 + 面印 + 宋体名(字形色)。「这是你那张字的特性」。
+       ② 状态名 —— chip 色实底 + 图标 + 名。「目标身上多了这个状态」。冰滞与减速在这一层就分开了。
+       ③ 数字 —— 现状不变:裸字加粗,攻击方五行色(Juice.Popup)。
+       被动触发时,**载体先闪**(chip / 护盾角标 / 木灵格),特性名从载体上飘出 —— 说的是「是它在起作用」。 */
+    .wrap { position: relative; width: 932px; height: 516px; background: var(--paper); }
+    .lbl { position: absolute; z-index: 80; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap; animation: lb 1.3s ease-out forwards; }
+    @keyframes lb { 0% { opacity: 0; transform: translate(-50%, -80%) scale(.7); } 14% { opacity: 1; transform: translate(-50%, -100%) scale(1.08); }
+      24% { transform: translate(-50%, -100%) scale(1); } 78% { opacity: 1; transform: translate(-50%, -130%); } 100% { opacity: 0; transform: translate(-50%, -150%); } }
+    .lbl.trait { display: inline-flex; align-items: center; gap: 3px; height: 16px; padding: 0 6px 0 2.5px; border-radius: 4px; background: rgba(251,248,241,.96);
+      box-shadow: 0 1px 4px rgba(22,27,34,.28); font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 700; color: var(--glyph); }
+    .lbl.status { display: inline-flex; align-items: center; gap: 3px; height: 15px; padding: 0 6px 0 4px; border-radius: 7.5px; color: #fff; font-size: 9px; font-weight: 700; }
+    .lbl.status svg { width: 10px; height: 10px; }
+    .lbl.status.frost { background: var(--water-glyph); } .lbl.status.ctrl { background: var(--ink-soft); }
+    .lbl.num { font-size: 13px; font-weight: 700; -webkit-text-stroke: .5px rgba(251,248,241,.9); animation-duration: 1s; }
+    /* 载体闪:亮一下 + 胀一下,0.45s。只动它自己,不动格子(一排格子跟着挤是现有规范禁止的) */
+    .flash { animation: fl .45s ease-out; position: relative; z-index: 5; }
+    @keyframes fl { 0% { transform: scale(1); filter: none; } 25% { transform: scale(1.4); filter: brightness(1.55); box-shadow: 0 0 0 1.5px #fff, 0 0 8px 2px rgba(201,169,74,.7); } 100% { transform: scale(1); filter: none; } }
+    .pt.flash { animation: flp .45s ease-out; }
+    @keyframes flp { 0% { filter: none; } 30% { filter: brightness(1.5) drop-shadow(0 0 6px rgba(201,169,74,.9)); } 100% { filter: none; } }
+    .atb .back { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(10,94,158,.55) 0 2px, rgba(10,94,158,.18) 2px 4px); }
+    .atb.frost { background: var(--water-soft); }
+    .atb > span { transition: width .25s cubic-bezier(.2,.9,.2,1); }
+    .atb.snap { animation: snap .35s ease-out; }
+    @keyframes snap { 0% { box-shadow: none; } 30% { box-shadow: 0 0 0 1.5px var(--water-glyph), 0 0 8px 2px rgba(10,94,158,.45); } 100% { box-shadow: none; } }
+    .cell.boss .hd .nm::after { content: "首领"; margin-left: 3px; font-family: "Noto Sans SC", sans-serif; font-size: 6.5px; font-weight: 400; color: #fff; background: var(--cinnabar-dark); border-radius: 3px; padding: 0 2px; }
+
+    .ctl { position: absolute; left: 0; right: 0; top: 430px; height: 46px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 6px;
+      background: #E9E3D6; border-top: 1px dashed #C9BFAC; font-size: 10px; color: var(--text-dim); }
+    .ctl .lb { margin-right: 4px; letter-spacing: 1px; }
+    .ctl button { height: 24px; padding: 0 8px; border-radius: 5px; border: 1px solid #C9BFAC; background: var(--panel-paper); font-size: 10.5px; cursor: pointer; white-space: nowrap; }
+    .legend { position: absolute; left: 0; right: 0; top: 476px; height: 40px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 22px; font-size: 9.5px; color: var(--text-dim); }
+    .legend .eg { display: inline-flex; align-items: center; gap: 6px; }
+    .legend .lbl { position: static; transform: none; animation: none; }
+  </style>
+</helmet>
+<div class="wrap">
+<div class="dev">
+  <div class="safe">
+    <div class="tbar"><span class="lvn">「文山」第 41~50 层 · 首领战</span><span>第 50 层</span><div class="grow"></div><span class="turn">回合 4</span><span class="quit">退出</span></div>
+    <div class="arena">
+      <div class="rail"></div>
+      <div class="mid">
+        <sc-for list="{{ erows }}" as="row">
+          <div class="erow">
+            <sc-for list="{{ row }}" as="e">
+              <div class="{{ e.cls }}">
+                <div class="{{ e.ptCls }}" data-a="{{ e.a }}"><img src="{{ e.img }}" alt=""></div>
+                <div class="inf">
+                  <div class="hd"><span class="nm">{{ e.n }}</span><span class="eb">{{ e.en }}</span></div>
+                  <div class="scs"><sc-for list="{{ e.chips }}" as="c"><span class="{{ c.cls }}" data-a="{{ c.a }}"><svg><use href="{{ c.ic }}"></use></svg>{{ c.t }}</span></sc-for></div>
+                  <div class="hpb"><span style="{{ e.hp }}"></span></div>
+                  <div class="{{ e.atbCls }}" data-a="{{ e.atbA }}"><span style="{{ e.atb }}"></span><i class="back" style="{{ e.back }}"></i></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div class="divider"></div>
+        <div class="srow">
+          <div class="cell ally sfront e-Wood"><div class="pt"><span class="gface">林</span></div>
+            <div class="inf"><div class="hd"><span class="nm">林灵</span><span class="eb">木</span></div><div class="scs"></div><div class="hpb"><span style="width:87%"></span></div><div class="atb"><span style="width:40%"></span></div></div></div>
+          <div class="cell sfront" style="visibility:hidden"></div><div class="cell sfront" style="visibility:hidden"></div><div class="cell sfront" style="visibility:hidden"></div>
+        </div>
+        <div class="pl">
+          <div class="pt" data-a="p">墨<span class="{{ shCls }}" data-a="p-shield"><svg><use href="#ic-shield"></use></svg>120</span></div>
+          <div class="inf"><div class="who">执笔人<span>血 {{ php }}/920</span></div><div class="hpb"><span style="{{ phpW }}"></span></div><div class="atb"><span style="width:30%"></span></div></div>
+          <div class="ap">AP<i class="on"></i><i class="on"></i><i></i></div>
+          <div class="stt"><span class="{{ blkCls }}" data-a="p-block"><svg><use href="#ic-block"></use></svg>{{ blk }}</span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span></div>
+        </div>
+        <div class="handrow"><span class="hl">字库 5/8</span>
+          <sc-for list="{{ hand }}" as="h"><div class="{{ h.cls }}"><span class="g">{{ h.g }}</span><span class="seal xs main">{{ h.s }}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  <sc-for list="{{ pops }}" as="p">
+    <div class="{{ p.cls }}" style="{{ p.style }}">
+      <sc-if value="{{ p.seal }}" hint-placeholder-val="{{ false }}"><span class="{{ p.sealCls }}">{{ p.seal }}</span></sc-if>
+      <sc-if value="{{ p.ic }}" hint-placeholder-val="{{ false }}"><svg><use href="{{ p.ic }}"></use></svg></sc-if>{{ p.t }}
+    </div>
+  </sc-for>
+  <div class="homebar"><span></span></div>
+</div>
+<div class="ctl">
+  <span class="lb">评审控件 · 播放</span>
+  <sc-for list="{{ demos }}" as="d"><button onClick="{{ d.go }}">{{ d.n }}</button></sc-for>
+  <button onClick="{{ reset }}">复位</button>
+</div>
+<div class="legend">
+  <span class="eg"><span class="lbl trait e-Fire"><span class="seal s main">燃</span>炎炎</span>特性名:纸底 + 面印 + 宋体</span>
+  <span class="eg"><span class="lbl status frost"><svg><use href="#ic-chill"></use></svg>冰滞</span><span class="lbl status ctrl"><svg><use href="#ic-slow"></use></svg>减速</span>状态名:chip 色底 + 图标</span>
+  <span class="eg"><span class="lbl num" style="color: var(--fire-glyph);">灼 ×2</span>数字:现状不变</span>
+</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 516}}'>
+var Z = window.ZD;
+var IMG = function (k) { return '../scenes/mob_' + k + '.png'; };
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = this.fresh(); this.seq = 0; this.timers = []; }
+  fresh() { return { burn: 4, blk: 2, php: 612, bossAtb: 72, chill: false, slow: false, flash: '', pops: [] }; }
+  at(a) {
+    var el = document.querySelector('[data-a="' + a + '"]'); if (!el) return { x: 0, y: 0 };
+    var dev = el.closest('.dev').getBoundingClientRect(), r = el.getBoundingClientRect();
+    return { x: r.left - dev.left + r.width / 2, y: r.top - dev.top };
+  }
+  pop(a, o, dy) {
+    var p = this.at(a), key = ++this.seq, self = this;
+    o.key = key; o.x = p.x; o.y = p.y - (dy || 2);
+    this.setState({ pops: this.state.pops.concat([o]) });
+    this.timers.push(setTimeout(function () { self.setState({ pops: self.state.pops.filter(function (q) { return q.key !== key; }) }); }, 1400));
+  }
+  flash(a) { var self = this; this.setState({ flash: '' }); setTimeout(function () { self.setState({ flash: a }); }, 20); }
+  later(ms, fn) { this.timers.push(setTimeout(fn.bind(this), ms)); }
+  run(name) {
+    this.timers.forEach(clearTimeout); this.timers = [];
+    this.setState({ pops: [], flash: '' });
+    var self = this;
+    if (name === 'A') { // 主动:出字那一刻飘特性名,250ms 后效果落地
+      this.pop('jh', { kind: 'trait', el: 'Fire', seal: '燃', main: true, t: '炎炎' }, 4);
+      this.later(260, function () { var b = self.state.burn; self.setState({ burn: b * 2 }); self.flash('jh-burn'); self.pop('jh-burn', { kind: 'num', color: 'var(--fire-glyph)', t: '灼 ×2' }, 4); });
+    }
+    if (name === 'B') { // 被动 · 附在格挡上:受击 → 格挡 chip 闪 → 特性名从 chip 飘出 → 反击落在攻击者身上
+      this.pop('p', { kind: 'num', color: 'var(--metal-glyph)', t: '−54' }, -22); this.setState({ php: self.state.php - 54 });
+      this.later(120, function () { self.flash('p-block'); self.setState({ blk: Math.max(0, self.state.blk - 1) }); self.pop('p-block', { kind: 'trait', el: 'Metal', seal: '铠', main: true, t: '回锋' }, 4); });
+      this.later(420, function () { self.pop('xz', { kind: 'num', color: 'var(--metal-glyph)', t: '反击 85' }, -30); });
+    }
+    if (name === 'C') { // 被动 · 附在护盾上
+      this.pop('p', { kind: 'num', color: 'var(--water-glyph)', t: '盾 −60' }, -22);
+      this.later(120, function () { self.flash('p-shield'); self.pop('p-shield', { kind: 'trait', el: 'Earth', seal: '固', main: true, t: '反震' }, 4); });
+      this.later(420, function () { self.pop('mj', { kind: 'num', color: 'var(--earth-glyph)', t: '18' }, -30); });
+    }
+    if (name === 'D') { // 被动 · 附在状态上:回合开始,灼 chip 自己闪、自己 +1
+      this.flash('jh-burn'); this.setState({ burn: self.state.burn + 1 });
+      this.pop('jh-burn', { kind: 'trait', el: 'Fire', seal: '燃', main: true, t: '上炎' }, 4);
+    }
+    if (name === 'E') { // 冰滞:行动条往回退一半并结霜,chip 出现时闪
+      this.setState({ chill: true, bossAtb: Math.round(self.state.bossAtb / 2) }); this.flash('boss-atb');
+      this.pop('boss', { kind: 'status', cls: 'frost', ic: '#ic-chill', t: '冰滞' }, 4);
+      this.later(60, function () { self.flash('boss-chill'); });
+    }
+    if (name === 'F') { // 减速:只出 chip 与状态名,行动条不加任何标记
+      this.setState({ slow: true });
+      this.pop('dh', { kind: 'status', cls: 'ctrl', ic: '#ic-slow', t: '减速' }, 4);
+      this.later(60, function () { self.flash('dh-slow'); });
+    }
+  }
+  renderVals() {
+    var self = this, s = this.state, fl = s.flash;
+    function chip(cls, ic, t, a) { return { cls: 'sc ' + cls + (fl === a ? ' flash' : ''), ic: '#ic-' + ic, t: t, a: a }; }
+    var front = [
+      { n: '焦痕', el: 'Fire', img: 'jiaohen', a: 'jh', hp: 46, chips: [chip('k-atk', 'attack', '120', ''), chip('k-dot', 'burn', String(s.burn), 'jh-burn')], atb: 40 },
+      { n: '窑变', el: 'Earth', img: 'yaobian', a: 'boss', boss: true, hp: 82, chips: [chip('k-atk', 'attack', '360', '')].concat(s.chill ? [chip('k-frost', 'chill', '', 'boss-chill')] : []), atb: s.bossAtb },
+      { n: '灯花', el: 'Fire', img: 'denghua', a: 'dh', hp: 80, chips: [chip('k-atk', 'attack', '90', '')].concat(s.slow ? [chip('k-ctrl', 'slow', '', 'dh-slow')] : []), atb: 55 },
+      { n: '宿墨', el: 'Water', img: 'sumo', a: 'mj', hp: 64, chips: [chip('k-atk', 'attack', '90', '')], atb: 20 }
+    ];
+    var rear = [
+      { n: '墨溅', el: 'Water', img: 'mojian', a: '', hp: 74, chips: [chip('k-atk', 'attack', '90', '')], atb: 30 },
+      { n: '悬针', el: 'Metal', img: 'xuanzhen', a: 'xz', hp: 100, chips: [chip('k-atk', 'attack', '135', '')], atb: 88 }
+    ];
+    function cell(e, isFront) {
+      var frost = e.boss && s.chill;
+      return { n: e.n, en: Z.EL[e.el], img: IMG(e.img), a: e.a, chips: e.chips,
+        cls: 'cell ' + (isFront ? 'front' : 'rear') + ' e-' + e.el + (e.boss ? ' boss' : ''), ptCls: 'pt' + (fl === e.a ? ' flash' : ''),
+        hp: 'width:' + e.hp + '%', atb: 'width:' + e.atb + '%', atbA: e.boss ? 'boss-atb' : '',
+        atbCls: 'atb' + (frost ? ' frost' : '') + (e.boss && fl === 'boss-atb' ? ' snap' : ''),
+        back: frost ? 'left:' + e.atb + '%;width:' + e.atb + '%' : 'display:none' };
+    }
+    return {
+      erows: [rear.map(function (e) { return cell(e, false); }), front.map(function (e) { return cell(e, true); })],
+      shCls: 'sbadge' + (fl === 'p-shield' ? ' flash' : ''), blkCls: 'sc k-heal' + (fl === 'p-block' ? ' flash' : ''), blk: String(s.blk),
+      php: s.php, phpW: 'width:' + Math.round(s.php / 920 * 100) + '%',
+      hand: ['炎', '剑', '林', '冷', '㙓'].map(function (k) { var c = Z.CHARS[k]; return { g: k, s: c.faces[c.main].s, cls: 'htile e-' + c.el + ' r-' + c.rar }; }),
+      pops: s.pops.map(function (p) {
+        var base = 'left:' + p.x + 'px;top:' + p.y + 'px;';
+        if (p.kind === 'trait') return { cls: 'lbl trait e-' + p.el, style: base, seal: p.seal, sealCls: 'seal s ' + (p.main ? 'main' : 'sub'), ic: '', t: p.t };
+        if (p.kind === 'status') return { cls: 'lbl status ' + p.cls, style: base, seal: '', ic: p.ic, t: p.t };
+        return { cls: 'lbl num', style: base + 'color:' + p.color, seal: '', ic: '', t: p.t };
+      }),
+      demos: [['A', '主动 · 炎炎'], ['B', '被动·格挡 · 回锋'], ['C', '被动·护盾 · 反震'], ['D', '被动·灼 · 上炎'], ['E', '冰滞(首领)'], ['F', '减速']].map(function (d) {
+        return { n: d[1], go: function () { self.run(d[0]); } };
+      }),
+      reset: function () { self.timers.forEach(clearTimeout); self.timers = []; self.setState(self.fresh()); }
+    };
+  }
+}
+</script>
+</body>
+</html>

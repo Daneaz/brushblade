@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 700px; display: flex; flex-direction: column; gap: 14px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1180px; }
+    .lede b { color: var(--text-main); }
+    .cols { flex: 1; min-height: 0; display: flex; gap: 26px; }
+    h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+    .left { width: 470px; display: flex; flex-direction: column; gap: 10px; }
+    .ex { position: relative; border-radius: 10px; background: var(--panel-paper); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 12px 12px 0; }
+    .ex .cap { font-size: 9.5px; color: var(--text-faint); margin-bottom: 6px; }
+    .tr { position: relative; box-sizing: border-box; width: 270px; border-radius: 7px; padding: 5px 8px; background: var(--card-face); box-shadow: inset 0 0 0 1.5px var(--ink-soft); }
+    .th { display: flex; align-items: center; gap: 5px; height: 14px; }
+    .lvt { height: 12px; padding: 0 4px; border-radius: 6px; background: var(--ink); color: #fff; font-size: 7.5px; display: inline-flex; align-items: center; }
+    .tn { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; }
+    .tk { font-size: 8px; color: var(--text-dim); }
+    .tx { margin-top: 3px; font-size: 9.5px; line-height: 1.5; color: var(--text-dim); }
+    .bubble.st { position: relative; margin: 9px 0 12px 0; }
+    .tap { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: rgba(22,27,34,.18); box-shadow: 0 0 0 4px rgba(22,27,34,.08); }
+    .rules { font-size: 10.5px; line-height: 1.7; color: var(--text-dim); margin: 0; padding-left: 16px; }
+    .rules b { color: var(--text-main); }
+
+    .gl { flex: 1; min-width: 0; display: flex; gap: 22px; }
+    .gcol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .gk { font-size: 9px; color: var(--text-faint); letter-spacing: 2px; margin: 8px 0 3px; padding-bottom: 3px; border-bottom: 1px solid var(--paper-dim); }
+    .gk:first-child { margin-top: 0; }
+    .gr { display: flex; gap: 8px; align-items: baseline; font-size: 10px; line-height: 1.5; color: var(--text-dim); }
+    .gr b { flex: none; width: 52px; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--text-main); }
+    .gr.add b { color: var(--cinnabar-dark); }
+    .gr .ic { flex: none; width: 13px; display: inline-flex; }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>词 条 说 明</h2>
+    <div class="lede">术语在正文里只做一件事:<b>加粗 + 墨蓝</b>(<code>ink-soft</code>),数字加粗 + 正文色 —— Unity 旧版 Text 的富文本只有 <code>&lt;b&gt;</code> 与 <code>&lt;color&gt;</code>,
+      不做下划线。<b>点的是整行,不是单字</b>:9.5pt 的一个字只有 10pt 宽,远低于 44pt 触控下限;气泡把这一行里出现的术语按原顺序全列出来。</div>
+  </div>
+  <div class="cols">
+    <div class="left">
+      <h3>气泡 <small>同一时刻只开一个;点任意处关闭</small></h3>
+      <div class="ex e-Fire">
+        <div class="cap">一行两个术语(详情页 · 主面「燃」的 Lv8)</div>
+        <div class="tr"><div class="th"><span class="lvt">Lv8</span><span class="tn">炎炎</span><span class="tk">主动</span></div>
+          <div class="tx"><span class="term">灼</span>层数 ×<span class="n">2</span>；<span class="term">跨场</span>：下一场开局全体 +<span class="term">灼</span> <span class="n">2</span></div>
+          <i class="tap" style="left: 120px; top: 16px;"></i></div>
+        <div class="bubble st" style="--ax: 40px;">
+          <div class="bk">炎炎 · 词条</div>
+          <div class="bt"><b>灼</b><span>每回合受到 20×层数 伤害，然后少 1 层。最多 10 层</span></div>
+          <div class="bt"><b>跨场</b><span>持续之后的 N 场</span></div>
+        </div>
+      </div>
+      <div class="ex e-Metal">
+        <div class="cap">范围词也是术语(主面「斩」的 Lv8)· 数值格只有一个术语时,点格子即开</div>
+        <div class="tr"><div class="th"><span class="lvt">Lv8</span><span class="tn">横扫千军</span><span class="tk">主动</span></div>
+          <div class="tx">改为<span class="term">横扫</span>；每多命中 1 名敌人，<span class="term">战意</span> +<span class="n">1</span></div></div>
+        <div class="bubble st" style="--ax: 40px;">
+          <div class="bk">横扫千军 · 词条</div>
+          <div class="bt"><b>横扫</b><span>打一整排；目标 100%，其余 50%</span></div>
+          <div class="bt"><b>战意</b><span>每层攻击 +10%，最多 5 层，本场保留</span></div>
+        </div>
+      </div>
+      <ul class="rules">
+        <li><b>落位</b>:默认挂在被点那一行的下方,箭头对准行首;下方放不下(离屏底 &lt; 气泡高)就翻到上方。宽 248pt 定宽,左右夹在安全区内。</li>
+        <li><b>没有术语的行</b>(如「先声」「克敌」这类纯数值)点了不开气泡,也不给按下态 —— 不让玩家点了没反应。</li>
+        <li>战斗长按出来的详情也能点;那是只读弹窗,点行只开气泡、不出字。</li>
+        <li>文案的唯一来源是 spec §3,字符串表每条一个 key(建议 <code>term.&lt;词&gt;.desc</code>);气泡不另写。</li>
+      </ul>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+      <h3>词条表 <small>取自 spec §3(去掉了括注里的设计备注);朱色两条是本稿为状态 chip 补的,待 spec 收录</small></h3>
+      <div class="gl">
+        <sc-for list="{{ cols }}" as="col">
+          <div class="gcol">
+            <sc-for list="{{ col }}" as="g">
+              <sc-if value="{{ g.head }}" hint-placeholder-val="{{ false }}"><div class="gk">{{ g.head }}</div></sc-if>
+              <sc-if value="{{ g.k }}" hint-placeholder-val="{{ true }}"><div class="{{ g.cls }}"><b>{{ g.k }}</b><span>{{ g.v }}</span></div></sc-if>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 700}}'>
+var Z = window.ZD;
+class Component extends DCLogic {
+  renderVals() {
+    var kw = [], rg = [], du = [];
+    Object.keys(Z.GLOSS).forEach(function (k) {
+      var kind = Z.GLOSS_KIND[k], item = { k: k, v: Z.GLOSS[k], cls: 'gr' + (k === '标记' || k === '减攻' ? ' add' : ''), head: '' };
+      (kind === '范围' ? rg : kind === '存续' ? du : kw).push(item);
+    });
+    var half = Math.ceil(kw.length / 2);
+    var c1 = [{ head: '关键词' }].concat(kw.slice(0, half));
+    var c2 = [{ head: '关键词(续)' }].concat(kw.slice(half), [{ head: '范围' }], rg, [{ head: '存续' }], du);
+    return { cols: [c1, c2] };
+  }
+}
+</script>
+</body>
+</html>

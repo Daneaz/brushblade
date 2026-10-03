@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 700px; display: flex; flex-direction: column; gap: 12px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1180px; }
+    .lede b { color: var(--text-main); }
+    .cols { flex: 1; min-height: 0; display: flex; gap: 24px; }
+    h3 { margin: 0 0 6px; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+
+    .tbl { width: 780px; display: grid; grid-template-columns: 50px 46px 60px 70px 62px 58px 1fr 116px; column-gap: 10px; align-items: center; font-size: 10px; }
+    .tbl .h { font-size: 9px; color: var(--text-faint); padding-bottom: 4px; border-bottom: 1px solid var(--paper-dim); }
+    .tbl .c { padding: 3px 0; border-bottom: 1px solid #ECE6D9; color: var(--text-dim); line-height: 1.35; min-height: 22px; display: flex; align-items: center; }
+    .tbl .nm { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: var(--text-main); }
+    .tbl .z { height: 24px; overflow: visible; }
+    .tbl .z .sc { transform: scale(2.4); transform-origin: 0 50%; }
+    .tbl .ic b { color: var(--cinnabar-dark); font-weight: 700; }
+    .tbl .ic i { font-style: normal; color: var(--text-faint); }
+    .tbl .gl { font-size: 9.5px; color: var(--text-dim); }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+    .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+    .cmp { display: flex; gap: 10px; }
+    .cbox { flex: 1; border-radius: 9px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 9px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .cbox .t { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .cbox .d { font-size: 9.5px; color: var(--text-dim); line-height: 1.55; }
+    .cbox .d b { color: var(--text-main); }
+    /* 2× 的单位格片段:chip 一行 + 血条 + 行动条 */
+    .frag { width: 104px; display: flex; flex-direction: column; gap: 3px; transform: scale(1.25); transform-origin: 0 0; margin-bottom: 10px; }
+    .frag .scs { display: flex; gap: 2px; }
+    .frag .atb { height: 4px; }
+    .atb.frost { background: var(--water-soft); }
+    .atb .back { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(10,94,158,.55) 0 2px, rgba(10,94,158,.18) 2px 4px); }
+    .atb.stop > span { background: var(--locked-bg); }
+    .hpb .notch { position: absolute; top: -1px; bottom: -1px; width: 1.5px; background: var(--ink); }
+    .note { font-size: 10px; color: var(--text-dim); line-height: 1.65; margin: 0; padding-left: 16px; }
+    .note b { color: var(--text-main); }
+    .note code { font-family: inherit; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; font-size: 9.5px; color: var(--text-quiet); }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>状 态 chip</h2>
+    <div class="lede">十四枚,全部落在现有 <b>单位格档</b>(字 7.17 / padX 4.78 / 高 9.56pt)与现有四类底色里,不造新色:
+      朱砂 = 持续伤害与威胁,墨蓝 <code>ink-soft</code> = 控制与减益,翠玉 = 恢复与防御,赭金 = 攻击类增益(压 <code>gold-text</code>)。
+      唯一的新做法是 <b>冰滞</b> —— 用水字形色实底,并给行动条结一层霜,好让它和减速、冻结一眼分开。数字只给「攒得起来的量」(层数、次数、留存量),回合数留在详情里。</div>
+  </div>
+  <div class="cols">
+    <div>
+      <h3>十四枚 <small>左列原大,右列 ×2.4</small></h3>
+      <div class="tbl">
+        <span class="h">词</span><span class="h">原大</span><span class="h">×2.4</span><span class="h">底色</span><span class="h">数字</span><span class="h">落在</span><span class="h">词条(spec §3)</span><span class="h">图标 · 兜底字</span>
+        <sc-for list="{{ rows }}" as="r">
+          <span class="c nm">{{ r.k }}</span>
+          <span class="c"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+          <span class="c z"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+          <span class="c"><i class="sw" style="{{ r.sw }}"></i>{{ r.bg }}</span>
+          <span class="c">{{ r.num }}</span>
+          <span class="c">{{ r.on }}</span>
+          <span class="c gl">{{ r.gl }}</span>
+          <span class="c ic"><b>{{ r.isNew }}</b><i>{{ r.icTxt }}</i></span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div class="right">
+      <div>
+        <h3>冰滞 · 冻结 · 减速 <small>三件事,三种样子</small></h3>
+        <div class="cmp">
+          <div class="cbox">
+            <div class="t">冰滞 <span class="sc k-frost"><svg><use href="#ic-chill"></use></svg></span></div>
+            <div class="frag e-Fire"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>240</span><span class="sc k-frost"><svg><use href="#ic-chill"></use></svg></span></div>
+              <div class="hpb"><span style="width:70%"></span></div><div class="atb frost"><span style="width:28%"></span><i class="back" style="left:28%;width:28%"></i></div></div>
+            <div class="d"><b>只有 Boss 会有</b>。水字形色实底 + 行动条结霜(轨道换 <code>water-soft</code>,被推回的那一半画斜纹),霜在它下一次行动时化掉 —— 正好是「受伤 +15%」的时限。</div>
+          </div>
+          <div class="cbox">
+            <div class="t">冻结 <span class="sc k-ctrl"><svg><use href="#ic-freeze"></use></svg></span></div>
+            <div class="frag e-Wood"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>90</span><span class="sc k-ctrl"><svg><use href="#ic-freeze"></use></svg></span></div>
+              <div class="hpb"><span style="width:55%"></span></div><div class="atb stop"><span style="width:62%"></span></div></div>
+            <div class="d">chip 现状不变:墨蓝底雪花。本稿另建议行动条<b>停住并压灰</b>(可选,不做也能与冰滞分开)。结束后换成霜抗(描边雪花环)。</div>
+          </div>
+          <div class="cbox">
+            <div class="t">减速 <span class="sc k-ctrl"><svg><use href="#ic-slow"></use></svg></span></div>
+            <div class="frag e-Earth"><div class="scs"><span class="sc k-atk"><svg><use href="#ic-attack"></use></svg>90</span><span class="sc k-ctrl"><svg><use href="#ic-slow"></use></svg></span></div>
+              <div class="hpb"><span style="width:90%"></span></div><div class="atb"><span style="width:40%"></span></div></div>
+            <div class="d">现状不变:墨蓝底下箭头。行动条<b>照常走,只是慢</b> —— 条本身不加任何标记。</div>
+          </div>
+        </div>
+      </div>
+      <div class="cmp">
+        <div class="cbox">
+          <div class="t">致命 <span class="sc k-dot"><svg><use href="#ic-mortal"></use></svg></span></div>
+          <div class="frag e-Metal" style="margin-bottom: 18px;"><div class="hpb"><span style="width:44%"></span><i class="notch" style="left:30%"></i><u>211/480</u></div></div>
+          <div class="d">血条在 30% 处<b>刻一道墨线</b>:玩家要算的就是「还差多少打到线下」。致命结束,刻线一起消失。</div>
+        </div>
+        <div class="cbox">
+          <div class="t">战意 <span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>5/5</span></div>
+          <div class="d">数字由「3」改成「<b>3/5</b>」—— 技能树「断金」在满 5 层时触发,玩家要看见离满还差几层。上限固定 5,不会变成别的分母。</div>
+        </div>
+      </div>
+      <ul class="note">
+        <li><b>新图标 8 枚</b>(格挡 种 霜抗 冰滞 致命 标记 嘲讽 留存护盾):按「图标三处对账」进管线 ——
+          <code>build_icons.ICONS</code>、<code>test_icons.EXPECTED</code>、<code>Icons.Glyphs</code> 兜底字(新字要重跑字体子集)。SVG 就是本板用的那几条路径,见 <code>traits-data.js</code>。</li>
+        <li><b>泉 / 厚</b> 现在是无图标的文字 chip;技能树已有 <code>perk_wellspring</code> / <code>perk_heft</code> 两枚,直接复用为状态图标。</li>
+        <li><b>改名两处</b>:持续治疗 → 润泽、诅咒 → 减攻(spec 的词;机制与图标不变,只改字符串表)。</li>
+        <li><b>chip 顺序</b>(从前往后,溢出从尾部丢):敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗;我方与木灵 嘲讽 · 留存护盾 · 格挡 · 战意 · 厚 · 泉 · 润泽。威胁在前,霜抗这类「不能被怎样」的说明垫底。</li>
+        <li>三处同接:<code>StatusText.Of</code> 的 case、<code>BattleView</code> 的 chip 列表、<code>CharInfo</code> 的效果文案(CLAUDE.md 那条 ⚠)。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 700}}'>
+var Z = window.ZD;
+var BG = {
+  'k-dot': ['朱砂', 'var(--cinnabar)'], 'k-ctrl': ['墨蓝', 'var(--ink-soft)'], 'k-heal': ['翠玉', 'var(--jade)'],
+  'k-gold': ['赭金', 'var(--gold)'], 'k-frost': ['水字形色', 'var(--water-glyph)'], 'k-ring': ['描边', 'var(--panel-paper);box-shadow:inset 0 0 0 1px var(--water-glyph)']
+};
+var ROWS = [
+  ['灼', 'k-dot', 'burn', '4', '层数', '敌', '', '现有 · 炎'],
+  ['战意', 'k-gold', 'morale', '3/5', '层数/上限', '我 · 木灵', '', '现有 · 意'],
+  ['格挡', 'k-heal', 'block', '2', '剩余次数', '我 · 木灵', 'NEW', 'block · 挡'],
+  ['泉', 'k-heal', 'wellspring', '6', '层数', '我', '', '复用技能树 · 泉'],
+  ['厚', 'k-gold', 'heft', '4', '层数', '我', '', '复用技能树 · 厚'],
+  ['润泽', 'k-heal', 'heal', '', '—', '我 · 木灵', '', '现有 heal · 愈'],
+  ['种', 'k-heal', 'seed', '', '—', '敌', 'NEW', 'seed · 种'],
+  ['霜抗', 'k-ring', 'frostguard', '', '—', '敌', 'NEW', 'frostguard · 霜'],
+  ['冰滞', 'k-frost', 'chill', '', '—', 'Boss', 'NEW', 'chill · 滞'],
+  ['致命', 'k-dot', 'mortal', '', '—', '敌', 'NEW', 'mortal · 危'],
+  ['标记', 'k-dot', 'mark', '', '—', '敌', 'NEW', 'mark · 标'],
+  ['嘲讽', 'k-ctrl', 'taunt', '', '—', '我 · 木灵', 'NEW', 'taunt · 嘲'],
+  ['留存护盾', 'k-heal', 'keepshield', '120', '留存量', '我 · 木灵', 'NEW', 'keepshield · 留'],
+  ['减攻', 'k-ctrl', 'curse', '', '—', '敌', '', '现有 curse · 咒']
+];
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rows: ROWS.map(function (r) {
+        return { k: r[0], cls: 'sc ' + r[1], ic: '#ic-' + r[2], n: r[3], bg: BG[r[1]][0], sw: 'background:' + BG[r[1]][1], num: r[4], on: r[5],
+          gl: Z.GLOSS[r[0]] || '', isNew: r[6] ? r[6] + ' ' : '', icTxt: r[7] };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    /* 字卡详情 · 战斗长按版。外壳同现行 CharPreview 战斗入口:760 × 320pt、顶边 12(卡心上抬 43pt),
+       把被长按的那张牌留在下面看得见。与卡组版的差别只有四处:
+       ① 头上不印升级成本(局内不能升级);② 右栏换成「此刻的场面」;
+       ③ 标出手牌上**此刻朝上**的那一面;④ 未解锁的特性收成一行(局内读的是「现在能做什么」)。 */
+    .wrap { position: relative; width: 932px; height: 476px; background: var(--paper); }
+    .hopen { border-color: var(--cinnabar) !important; box-shadow: 0 0 0 2px rgba(197,54,55,.35) !important; }
+
+    .sheet { position: absolute; left: 86px; top: 12px; width: 760px; height: 320px; box-sizing: border-box; z-index: 51;
+      background: var(--panel-paper); border: 1px solid var(--panel-border); border-radius: 11px;
+      padding: 10px 14px 9px; box-shadow: 0 12px 38px rgba(22,27,34,.42); display: flex; flex-direction: column; gap: 7px; }
+    .hdr { flex: none; display: flex; gap: 10px; height: 60px; }
+    .btile { position: relative; flex: none; width: 48px; height: 60px; box-sizing: border-box; border-radius: 6px;
+      border: 2px solid var(--rar); background: var(--card-face); display: flex; flex-direction: column; align-items: center; }
+    .btile.back { background: var(--elSoft); }
+    .btile.back::after { content: ""; position: absolute; right: -2px; top: -2px; border-top: 11px solid var(--glyph); border-left: 11px solid transparent; border-top-right-radius: 5px; }
+    .btile .g { margin-top: 8px; font-family: "Noto Serif SC", serif; font-size: 24px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .btile .seal { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); }
+    .hi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .nmrow { display: flex; align-items: center; gap: 7px; }
+    .nm { font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+    .pyx { font-size: 10px; color: var(--text-dim); }
+    .flav { font-size: 9.5px; color: var(--text-warm); }
+    .lvrow { margin-top: auto; display: flex; align-items: flex-end; gap: 9px; }
+    .lvbig { font-size: 9px; color: var(--text-dim); white-space: nowrap; }
+    .lvbig b { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; color: var(--text-main); margin-left: 3px; }
+    .ladder { display: flex; gap: 3px; }
+    .pip { width: 17px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .pip .bar { width: 17px; height: 4px; border-radius: 2px; background: var(--paper-dim); }
+    .pip.done .bar { background: var(--ink-soft); }
+    .pip .mk { width: 6px; height: 6px; box-sizing: border-box; border-radius: 1.5px; }
+    .pip .mk.none { visibility: hidden; } .pip .mk.both { background: var(--ink-soft); } .pip .mk.main { background: var(--glyph); }
+    .pip .mk.sub { background: var(--tint); box-shadow: inset 0 0 0 1px var(--glyph); } .pip .mk.off { opacity: .35; }
+
+    .body { flex: 1; min-height: 0; display: flex; gap: 10px; }
+    .faces { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .pair { flex: 1; min-height: 0; display: flex; gap: 9px; }
+    .face { position: relative; min-width: 0; box-sizing: border-box; border-radius: 9px; padding: 7px 10px 7px; display: flex; flex-direction: column; gap: 5px; }
+    .face.main { flex: 1.16; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border), inset 3px 0 0 var(--glyph); padding-left: 13px; }
+    .face.sub  { flex: 1; background: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glyph) 22%, transparent); }
+    /* 朝上:与手牌「选中」同一种墨色描环,说的是同一件事 —— 这张牌现在拖出去,用的是这一面 */
+    .face.up { box-shadow: inset 0 0 0 1.5px var(--ink), inset 3px 0 0 var(--glyph); }
+    .face.sub.up { box-shadow: inset 0 0 0 1.5px var(--ink); }
+    .fh { display: flex; align-items: center; gap: 6px; height: 20px; }
+    .role { font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; letter-spacing: 1px; }
+    .tgs { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
+    .mtag { height: 14px; padding: 0 5px; border-radius: 7px; display: inline-flex; align-items: center; font-size: 8px; white-space: nowrap; }
+    .mtag.main { background: var(--glyph); color: #fff; }
+    .mtag.sub  { background: var(--card-face); color: var(--elFg); box-shadow: inset 0 0 0 1px var(--glyph); }
+    .uptag { height: 14px; padding: 0 5px; border-radius: 7px; background: var(--ink); color: #fff; font-size: 8px; display: inline-flex; align-items: center; white-space: nowrap; }
+    .stats { display: flex; gap: 5px; }
+    .sb { flex: 1; min-width: 0; height: 31px; box-sizing: border-box; border-radius: 6px; padding: 3px 6px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .face.main .sb { background: var(--panel-paper); }
+    .sb .k { font-size: 7.5px; color: var(--text-dim); white-space: nowrap; }
+    .sb.t .k { font-weight: 700; color: var(--ink-soft); }
+    .sb .v { white-space: nowrap; margin-top: 1px; }
+    .sb .v b { font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+    .sb .v i { font-style: normal; font-size: 8px; color: var(--text-dim); margin-left: 2px; }
+    .tl { display: flex; flex-direction: column; gap: 4px; }
+    .tr { border-radius: 6px; padding: 4px 7px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); cursor: pointer; }
+    .face.main .tr { background: var(--panel-paper); }
+    .th { display: flex; align-items: center; gap: 5px; height: 12px; }
+    .lvt { height: 11px; padding: 0 3.5px; border-radius: 5.5px; background: var(--ink); color: #fff; font-size: 7px; display: inline-flex; align-items: center; flex: none; }
+    .tn { font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+    .tk { font-size: 7.5px; color: var(--text-dim); }
+    .tx { margin-top: 2px; font-size: 9px; line-height: 1.45; color: var(--text-dim); }
+    .lockln { margin-top: auto; display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-faint); white-space: nowrap; }
+    .face.sub .lockln { color: var(--text-dim); }
+    .lockln svg { width: 8px; height: 8px; }
+    .lockln b { font-family: "Noto Serif SC", serif; font-weight: 600; }
+
+    .shared { flex: none; display: flex; gap: 8px; }
+    .shl { flex: none; width: 30px; border-radius: 6px; background: var(--panel-inset); display: flex; align-items: center; justify-content: center; }
+    .shl b { font-family: "Noto Serif SC", serif; font-size: 9.5px; font-weight: 600; color: var(--text-dim); writing-mode: vertical-rl; letter-spacing: 2px; }
+    .shared .tr { flex: 1; min-width: 0; }
+
+    .side { flex: none; width: 146px; display: flex; flex-direction: column; gap: 4px; }
+    .wxr { display: flex; align-items: center; gap: 5px; height: 21px; padding: 0 6px; border-radius: 6px; background: var(--panel-inset); }
+    .wxr .dot { width: 14px; height: 14px; flex: none; border-radius: 4px; background: var(--glyph); color: #fff; font-family: "Noto Serif SC", serif; font-size: 8.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+    .wxr .who { flex: 1; font-size: 9px; color: var(--text-quiet); white-space: nowrap; }
+    .wxr .mul { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .wxr .tag { width: 24px; text-align: right; font-size: 8px; }
+    .wxr.up { background: #FBE9E7; } .wxr.up .mul, .wxr.up .tag { color: var(--cinnabar-dark); }
+    .wxr.down .mul, .wxr.down .tag { color: var(--text-dim); }
+    .wxr.flat .mul { color: var(--text-dim); } .wxr.flat .tag { color: var(--text-warm); }
+    .wxnote { font-size: 8px; color: var(--text-warm); line-height: 1.5; }
+    .foot { flex: none; height: 13px; font-size: 8.5px; color: var(--text-warm); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .foot b { font-weight: 500; color: var(--text-dim); }
+
+    .ctl { position: absolute; left: 0; right: 0; top: 430px; height: 46px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 6px;
+      background: #E9E3D6; border-top: 1px dashed #C9BFAC; font-size: 10px; color: var(--text-dim); }
+    .ctl .lb { margin-right: 4px; letter-spacing: 1px; } .ctl .sp { width: 12px; }
+    .ctl button { height: 24px; min-width: 24px; padding: 0 7px; border-radius: 5px; border: 1px solid #C9BFAC; background: var(--panel-paper); font-size: 11px; cursor: pointer; }
+    .ctl button.on { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+    .ctl .g { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; }
+  </style>
+</helmet>
+
+<div class="wrap">
+<div class="dev">
+  <div class="safe">
+    <div class="tbar"><span class="lvn">「文山」第 41~50 层 · 战斗 2</span><span>第 44 层</span><div class="grow"></div><span class="turn">回合 6</span><span class="quit">退出</span></div>
+    <div class="arena">
+      <div class="rail"></div>
+      <div class="mid">
+        <div class="erow">
+          <sc-for list="{{ foes }}" as="e">
+            <div class="{{ e.cls }}"><div class="pt"><span class="gface">{{ e.g }}</span></div>
+              <div class="inf"><div class="hd"><span class="nm">{{ e.n }}</span><span class="eb">{{ e.en }}</span></div><div class="scs"></div><div class="hpb"><span style="{{ e.hp }}"></span></div><div class="atb"><span style="width:40%"></span></div></div></div>
+          </sc-for>
+        </div>
+        <div class="handrow">
+          <span class="hl">字库 5/8</span>
+          <sc-for list="{{ hand }}" as="h">
+            <div class="{{ h.cls }}"><span class="g">{{ h.g }}</span><span class="{{ h.sealCls }}">{{ h.s }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+
+  <div class="{{ sheetCls }}">
+    <div class="hdr">
+      <div class="{{ btileCls }}"><span class="g">{{ id }}</span><span class="{{ upSealCls }}">{{ upSeal }}</span></div>
+      <div class="hi">
+        <div class="nmrow">
+          <span class="nm">{{ id }}</span><span class="pyx">{{ py }}</span>
+          <span class="chip rar">{{ rarName }}</span><span class="chip elm">{{ elName }}系</span><span class="chip ap">AP 1</span><span class="chip src">字库</span>
+          <div class="grow"></div><button class="xbtn" aria-label="关闭">×</button>
+        </div>
+        <div class="flav">{{ gloss }}</div>
+        <div class="lvrow">
+          <div class="lvbig">本场等级<b>Lv.{{ L }}</b></div>
+          <div class="ladder"><sc-for list="{{ pips }}" as="p"><div class="{{ p.cls }}"><i class="{{ p.mk }}"></i><span class="bar"></span></div></sc-for></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="faces">
+        <div class="pair">
+          <sc-for list="{{ faces }}" as="f">
+            <div class="{{ f.cls }}">
+              <div class="fh">
+                <span class="{{ f.sealCls }}">{{ f.s }}</span><span class="role">{{ f.role }}</span><span class="tgs">{{ f.tgtLine }}</span>
+                <div class="grow"></div>
+                <sc-if value="{{ f.up }}" hint-placeholder-val="{{ false }}"><span class="uptag">朝上</span></sc-if>
+                <span class="{{ f.tagCls }}">{{ f.tag }}</span>
+              </div>
+              <div class="stats">
+                <sc-for list="{{ f.stats }}" as="st"><div class="{{ st.cls }}"><div class="k">{{ st.k }}</div><div class="v"><b>{{ st.v }}</b><i>{{ st.u }}</i></div></div></sc-for>
+              </div>
+              <div class="tl">
+                <sc-for list="{{ f.traits }}" as="t">
+                  <div class="tr"><div class="th"><span class="lvt">Lv{{ t.lv }}</span><span class="tn">{{ t.name }}</span><span class="tk">{{ t.kind }}</span></div>
+                    <div class="tx"><sc-for list="{{ t.segs }}" as="s"><span class="{{ s.cls }}">{{ s.t }}</span></sc-for></div></div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ f.hasLocked }}" hint-placeholder-val="{{ false }}">
+                <div class="lockln"><svg viewBox="0 0 64 64"><path fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" d="M21 30v-8a11 11 0 0 1 22 0v8"/><path fill="currentColor" d="M15 30h34v24H15z"/></svg>{{ f.lockedTxt }}</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div class="shared">
+          <div class="shl"><b>两面</b></div>
+          <sc-for list="{{ shared }}" as="t">
+            <div class="tr"><div class="th"><span class="lvt">Lv{{ t.lv }}</span><span class="tn">{{ t.name }}</span><span class="tk">{{ t.kind }}</span></div>
+              <div class="tx"><sc-for list="{{ t.segs }}" as="s"><span class="{{ s.cls }}">{{ s.t }}</span></sc-for></div></div>
+          </sc-for>
+        </div>
+      </div>
+      <div class="side">
+        <div class="ttl"><b>此刻的场面</b><i class="rule"></i></div>
+        <sc-for list="{{ wx }}" as="w"><div class="{{ w.cls }}"><span class="dot">{{ w.en }}</span><span class="who">{{ w.n }}</span><span class="mul">{{ w.mul }}</span><span class="tag">{{ w.tag }}</span></div></sc-for>
+        <div class="wxnote">{{ wxNote }}</div>
+      </div>
+    </div>
+    <div class="foot"><b>长按看详情，不耗 AP</b> · 点已选中的牌翻面，拖出时用朝上的那一面</div>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+
+<div class="ctl">
+  <span class="lb">评审控件 · 字</span>
+  <sc-for list="{{ charBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}"><span class="g">{{ c.id }}</span></button></sc-for>
+  <span class="sp"></span><span class="lb">手牌朝上</span>
+  <sc-for list="{{ upBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+  <span class="sp"></span><span class="lb">等级</span>
+  <sc-for list="{{ lvBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+</div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 476}}'>
+var Z = window.ZD;
+var FOES = [['悬', '悬针', 'Metal', 100], ['焦', '焦痕', 'Fire', 46], ['叠', '叠字怪', 'Wood', 88], ['墨', '墨溅', 'Water', 74]];
+
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { id: '炎', L: 6, sub: true }; }
+  renderVals() {
+    var self = this, s = this.state, id = s.id, L = s.L, c = Z.CHARS[id];
+    var upFi = s.sub ? 1 - c.main : c.main;
+    var all = Z.traitsOf(id, L);
+    function row(t) { return { lv: t.lv, name: t.name + (t.tag ? '（' + t.tag + '）' : ''), kind: t.kind || '两面', segs: Z.segs(t.text) }; }
+    var faces = [c.main, 1 - c.main].map(function (fi) {
+      var f = Z.faceOf(id, fi, L), m = f.isMain;
+      var mine = all.filter(function (t) { return t.fi === fi; });
+      var locked = mine.filter(function (t) { return !t.on; });
+      return {
+        cls: 'face ' + (m ? 'main' : 'sub') + (fi === upFi ? ' up' : ''), up: fi === upFi,
+        s: f.s, role: f.role, sealCls: 'seal m ' + (m ? 'main' : 'sub'),
+        tgtLine: Z.TGT[f.tgt] + (f.tgt === 'summon' ? '' : ' · ' + f.area),
+        tagCls: 'mtag ' + (m ? 'main' : 'sub'), tag: m ? '主面 100%' : '副面 60%',
+        stats: f.stats.map(function (st) { return { k: st.k, v: st.v, u: st.u || '', cls: 'sb' + (st.t ? ' t' : '') }; }),
+        traits: mine.filter(function (t) { return t.on; }).map(row),
+        hasLocked: locked.length > 0,
+        lockedTxt: locked.map(function (t) { return 'Lv' + t.lv + ' ' + t.name; }).join(' · ') + ' 未解锁'
+      };
+    });
+    var shared = all.filter(function (t) { return t.face === 'both' && t.on; }).map(row);
+    var marks = {}; all.forEach(function (t) { marks[t.lv] = t; }); marks[1] = { face: 'both' };
+    var pips = [];
+    for (var i = 1; i <= 10; i++) {
+      var mm = marks[i];
+      pips.push({ cls: 'pip' + (i <= L ? ' done' : ''), mk: 'mk ' + (mm ? (mm.face === 'both' ? 'both' : (mm.fi === c.main ? 'main' : 'sub')) : 'none') + (mm && i > L ? ' off' : '') });
+    }
+    var upFace = c.faces[upFi];
+    var isAllyUp = upFace.tgt !== 'enemy';
+    var wx = FOES.map(function (e) {
+      var k = Z.KE[c.el] === e[2] ? 'up' : Z.KE_BY[c.el] === e[2] ? 'down' : 'flat';
+      return { cls: 'wxr ' + k + ' e-' + e[2], en: Z.EL[e[2]], n: e[1], mul: k === 'up' ? '×1.5' : k === 'down' ? '×0.5' : '×1.0', tag: k === 'up' ? '克' : k === 'down' ? '被克' : '平' };
+    });
+    var hand = ['剑', id === '剑' ? '冷' : id, '林', '冷', '㙓'].filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 5).map(function (k) {
+      var cc = Z.CHARS[k], open = k === id, back = open && s.sub;
+      var fi = back ? 1 - cc.main : cc.main;
+      return { g: k, s: cc.faces[fi].s, cls: 'htile e-' + cc.el + ' r-' + cc.rar + (back ? ' back' : '') + (open ? ' hopen' : ''), sealCls: 'seal xs ' + (back ? 'sub' : 'main') };
+    });
+    return {
+      foes: FOES.map(function (e) { return { g: e[0], n: e[1], en: Z.EL[e[2]], cls: 'cell front e-' + e[2], hp: 'width:' + e[3] + '%' }; }),
+      hand: hand,
+      sheetCls: 'sheet e-' + c.el + ' r-' + c.rar, btileCls: 'btile' + (s.sub ? ' back' : ''),
+      upSeal: upFace.s, upSealCls: 'seal s ' + (s.sub ? 'sub' : 'main'),
+      id: id, py: c.py, gloss: c.gloss, L: L, rarName: Z.RAR[c.rar], elName: Z.EL[c.el],
+      pips: pips, faces: faces, shared: shared, wx: wx,
+      wxNote: isAllyUp ? '朝上的「' + upFace.s + '」作用于我方：护盾、治疗、召唤不吃生克倍率。' : '朝上的「' + upFace.s + '」打敌人：' + (c.el === 'Fire' ? '伤害与灼伤' : '伤害') + '都按上表倍率结算。',
+      charBtns: Z.ORDER.map(function (k) { return { id: k, cls: k === id ? 'on' : '', pick: function () { self.setState({ id: k }); } }; }),
+      upBtns: [['主面', false], ['副面', true]].map(function (b) { return { n: b[0], cls: s.sub === b[1] ? 'on' : '', pick: function () { self.setState({ sub: b[1] }); } }; }),
+      lvBtns: [1, 3, 5, 6, 8, 10].map(function (n) { return { n: 'Lv' + n, cls: n === L ? 'on' : '', pick: function () { self.setState({ L: n }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

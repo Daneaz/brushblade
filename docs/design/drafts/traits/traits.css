@@ -1,0 +1,222 @@
+/* 字卡五特性体系 · 设计稿共用样式。
+   :root 段按 docs/design/system/tokens.json 原值抄录(去掉标「草稿期遗留」的几支),token 名一一对应,实现时按名取值。
+   单位:稿面 pt(CSS px = pt);Unity 逻辑单位 = pt × 2.093。 */
+:root {
+  --paper: #F6F1E7; --panel-paper: #FBF8F1; --panel-inset: #F1EBDE; --card-face: #FFFDF7;
+  --paper-card: rgba(255,254,249,0.62); --paper-dim: #DED7C9; --panel-border: #DED7C9; --quiet: #E4DDCE;
+  --ink-bar: #EFEADF; --locked-bg: #DAD7D0; --locked-paper: #EFEAE0; --locked-glyph: #8E8675;
+  --node-rail: #E0D9CB; --text-main: #161B22; --text-quiet: #2C333D; --text-dim: #5D646F;
+  --text-faint: #676F7A; --text-mute: #928B7B; --text-warm: #696151; --ink: #11161F;
+  --ink-soft: #3D4E69; --neutral-part: #4F5661; --ingot-dark: #1A1F2B; --cinnabar: #C53637;
+  --cinnabar-dark: #9B1E22; --warn-bg: #FBE3E2; --warn-text: #9B1E22; --jade: #34864B;
+  --done-green: #298646; --ad-green: #3B9555; --ad-green-bg: #E3F4E6; --ad-green-text: #0B5D2A;
+  --upgrade-text: #1B552C; --gold: #CA9D33; --gold-border: #8F6B09; --gold-text: #402900;
+  --gold-soft: #F6EDD5; --gold-deep: #8A6600; --ingot-gold: #9D7B2A; --silver: #A9AFB8;
+  --exit-pink: #7A3F5C; --shop-nav: #A05337; --split-blue: #194F81; --shield-blue: #19507F;
+  --scrim: rgba(22,27,34,0.55); --scrim-soft: rgba(22,27,34,0.42); --scrim-paper: rgba(246,241,231,0.72); --shadow-ink: rgba(22,27,34,0.08);
+  --metal: #B3A381; --metal-soft: #EEE3CF; --metal-fg: #64532C; --metal-glyph: #6B6449;
+  --wood: #348F4F; --wood-soft: #CCE6D0; --wood-fg: #195C2E; --wood-glyph: #1F6333;
+  --water: #0F74C5; --water-soft: #C8E1FB; --water-fg: #0E4F86; --water-glyph: #0A5E9E;
+  --fire: #C53637; --fire-soft: #FED2CE; --fire-fg: #862726; --fire-glyph: #B02D2E;
+  --earth: #8F7332; --earth-soft: #ECDCBD; --earth-fg: #634800; --earth-glyph: #82552A;
+  --heart: #9750A7; --heart-soft: #ECD5F1; --heart-fg: #673672; --heart-glyph: #7E4190;
+  --rarity-white: #A19E97; --rarity-white-soft: #EDEAE3; --rarity-green: #2E9E52; --rarity-green-soft: #E2F2E7;
+  --rarity-blue: #0F74C5; --rarity-blue-soft: #DEEAF7; --rarity-purple: #7945AB; --rarity-purple-soft: #EBE2F5;
+  --rarity-gold: #C9A94A; --rarity-gold-soft: #F6EDD5; --rarity-orange: #E1791B; --rarity-orange-soft: #FAE7D3;
+  --rarity-red: #CD272E; --rarity-red-soft: #F9DFDF; --tab-deck-bg: #E9F0F5; --tab-deck-border: #9FC1E2;
+  --tab-deck-fg: #0E4F86; --tab-bestiary-bg: #EBF2E6; --tab-bestiary-border: #A5C8AD; --tab-bestiary-fg: #195C2E;
+  --tab-perks-bg: #F6ECF1; --tab-perks-border: #CFB2D5; --tab-perks-fg: #673672; --tab-shop-bg: #F1E6DC;
+  --tab-shop-border: #D0AB9A; --tab-shop-fg: #A05337; --band-zilin: #6B9461; --band-ciyuan: #5C7AA3;
+  --band-wenshan: #A88557; --band-mohai: #47526B;
+  --radius-bar: 2px; --radius-mini: 5px; --radius-tile: 7px; --radius-box: 8px; --radius-card: 9px; --radius-panel: 10px; --radius-sheet: 12px;
+  --shadow-card: 0 2px 6px rgba(22,27,34,0.08); --shadow-cta: 0 3px 10px rgba(155,30,34,0.26); --shadow-cta-lg: 0 4px 12px rgba(155,30,34,0.28); --ring-selected: 0 0 0 2px rgba(22,27,34,0.18); --halo-new: 0 0 0 2px rgba(201,169,74,0.5), 0 0 12px 3px rgba(201,169,74,0.34); --ring-reddot: 0 0 0 1.5px #F6F1E7;
+}
+
+/* ================= 基础 ================= */
+body { margin: 0; }
+sc-for, sc-if { display: contents; }
+.dev {
+  position: relative; width: 932px; height: 430px; box-sizing: border-box; overflow: hidden;
+  background: var(--paper); color: var(--text-main);
+  font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+}
+.board {
+  position: relative; box-sizing: border-box; overflow: hidden; padding: 24px 28px;
+  background: var(--paper); color: var(--text-main);
+  font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+}
+.serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+.num { font-variant-numeric: tabular-nums; }
+.grow { flex: 1; }
+button { font-family: inherit; color: inherit; }
+/* 安全区参考线(标注,不是 UI) */
+.guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+.guide i { position: absolute; background: rgba(197,54,55,.20); }
+.guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+.guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+.guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+.homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; z-index: 91; pointer-events: none; }
+.homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+
+/* 五行四支 + 「背面纸」两档:
+   --elSoft(属性淡底原值)给小物件 —— 手牌背面、面印副印底;
+   --tint = <el>-soft 34% 混 card-face,给大面积 —— 详情里的副面整块。
+   --tint 上 text-faint 4.52–4.63、text-dim 5.30–5.44、<el>-fg ≥6.8,全部过 AA。 */
+.e-Metal { --el: var(--metal); --elSoft: var(--metal-soft); --elFg: var(--metal-fg); --glyph: var(--metal-glyph); --tint: #F9F4E9; }
+.e-Wood  { --el: var(--wood);  --elSoft: var(--wood-soft);  --elFg: var(--wood-fg);  --glyph: var(--wood-glyph);  --tint: #EEF5EA; }
+.e-Water { --el: var(--water); --elSoft: var(--water-soft); --elFg: var(--water-fg); --glyph: var(--water-glyph); --tint: #ECF3F8; }
+.e-Fire  { --el: var(--fire);  --elSoft: var(--fire-soft);  --elFg: var(--fire-fg);  --glyph: var(--fire-glyph);  --tint: #FFEEE9; }
+.e-Earth { --el: var(--earth); --elSoft: var(--earth-soft); --elFg: var(--earth-fg); --glyph: var(--earth-glyph); --tint: #F9F2E3; }
+.r-White  { --rar: var(--rarity-white);  --rarSoft: var(--rarity-white-soft); }
+.r-Green  { --rar: var(--rarity-green);  --rarSoft: var(--rarity-green-soft); }
+.r-Blue   { --rar: var(--rarity-blue);   --rarSoft: var(--rarity-blue-soft); }
+.r-Purple { --rar: var(--rarity-purple); --rarSoft: var(--rarity-purple-soft); }
+.r-Gold   { --rar: var(--rarity-gold);   --rarSoft: var(--rarity-gold-soft); }
+.r-Orange { --rar: var(--rarity-orange); --rarSoft: var(--rarity-orange-soft); }
+.r-Red    { --rar: var(--rarity-red);    --rarSoft: var(--rarity-red-soft); }
+
+/* ================= 面印(本稿的核心记号) =================
+   一面 = 一枚方印,印文是该面的单字(焚燃斩铠涛润震固刺生)。
+   主面:字形色实底 + 白字(朱文印);副面:背面纸底 + 字形色 1pt 边 + 深前景字(白文印的反相)。
+   同一枚印出现在手牌、详情、升级预览、飘字四处 —— 玩家只认这一个记号。 */
+.seal { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  font-family: "Noto Serif SC", "Songti SC", serif; font-weight: 700; line-height: 1; border-radius: 2.5px; }
+.seal.main { background: var(--glyph); color: #fff; }
+.seal.sub  { background: var(--card-face); color: var(--elFg); box-shadow: inset 0 0 0 1px var(--glyph); }
+.seal.both { background: var(--ink-soft); color: #fff; }
+.seal.xs { width: 10px; height: 10px; font-size: 7px; border-radius: 2px; }
+.seal.s  { width: 13px; height: 13px; font-size: 9px; }
+.seal.m  { width: 17px; height: 17px; font-size: 11.5px; border-radius: 3px; }
+.seal.l  { width: 24px; height: 24px; font-size: 16px; border-radius: 4px; }
+
+/* ================= 手牌(实现尺寸 96×117 → 45.87×55.90pt) =================
+   正面 = 主面朝上:牌面纸白;背面 = 翻到副面:牌面换背面纸。底部原拼音位换成面印。 */
+.htile { position: relative; width: 45.87px; height: 55.9px; flex: none; box-sizing: border-box; padding: 0;
+  border-radius: 6px; border: 1.5px solid var(--rar); background: var(--card-face); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  transition: transform .08s linear, background-color 0s; touch-action: none; user-select: none; }
+.htile::before { content: ""; position: absolute; inset: 2.5px; border-radius: 4px; pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--rar) 30%, transparent); }
+.htile .g { margin-top: 7px; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 19.11px; font-weight: 600; line-height: 1; color: var(--glyph); pointer-events: none; }
+.htile .seal { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); pointer-events: none; }
+.htile.back { background: var(--elSoft); }
+/* 折角:背面的第三个记号(底色、印式之外)。金系淡底与纸白只差一线,光靠底色不够一眼认出。
+   实现可用 Theme.Triangle 旋转 45°,色 = <el>-glyph。 */
+.htile.back::after { content: ""; position: absolute; right: -1.5px; top: -1.5px; width: 0; height: 0;
+  border-top: 9px solid var(--glyph); border-left: 9px solid transparent; border-top-right-radius: 5px; pointer-events: none; }
+.htile.sel { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); }
+.htile.flipping { animation: flip .18s ease-in-out; }
+@keyframes flip { 0% { transform: scaleX(1); } 50% { transform: scaleX(0.04); } 100% { transform: scaleX(1); } }
+.htile.lifted { opacity: .35; }
+
+/* ================= chip(单位格档 15/10/5 → 字 7.17 / padX 4.78 / 高 9.56pt) ================= */
+.sc { flex: none; box-sizing: border-box; height: 9.56px; padding: 0 2.39px; border-radius: 6.69px;
+  display: inline-flex; align-items: center; gap: 1.43px; color: #fff; font-size: 7.17px; line-height: 1;
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sc svg { width: 8.6px; height: 8.6px; flex: none; }
+.sc.k-dot   { background: var(--cinnabar); }
+.sc.k-ctrl  { background: var(--ink-soft); }
+.sc.k-heal  { background: var(--jade); }
+.sc.k-gold  { background: var(--gold); color: var(--gold-text); }
+.sc.k-frost { background: var(--water-glyph); }
+.sc.k-ring  { background: var(--panel-paper); color: var(--water-glyph); box-shadow: inset 0 0 0 1px var(--water-glyph); }
+.sc.k-atk   { background: var(--paper-dim); color: var(--text-main); }
+/* 放大档(规格板用,×3) */
+.zoom3 { transform: scale(3); transform-origin: left center; }
+
+/* ================= 通用小件 ================= */
+.chip { height: 18px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 9px;
+  font-size: 9.5px; letter-spacing: .5px; white-space: nowrap; box-sizing: border-box; }
+.chip.rar { background: var(--rarSoft); color: color-mix(in srgb, var(--rar) 70%, #161B22);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rar) 40%, transparent); }
+.chip.elm { background: var(--elSoft); color: var(--elFg); }
+.chip.ap  { background: #E4E8EF; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.chip.src { background: var(--ink-bar); color: var(--text-warm); }
+.xbtn { position: relative; flex: none; width: 22px; height: 22px; border: none; border-radius: 11px; padding: 0;
+  background: var(--ink-bar); color: var(--text-dim); font-size: 11px; line-height: 1; cursor: pointer; }
+.xbtn::after { content: ""; position: absolute; inset: -11px; }
+.btn { position: relative; height: 26px; padding: 0 16px; border: none; border-radius: 11.47px; cursor: pointer;
+  font-family: "Noto Serif SC", "Songti SC", serif; font-size: 12px; font-weight: 600; letter-spacing: 2px; white-space: nowrap; }
+.btn.gold { background: var(--gold); color: var(--gold-text); }
+.btn.quiet { background: var(--locked-bg); color: var(--text-quiet); }
+.btn.cin { background: var(--cinnabar); color: #fff; box-shadow: var(--shadow-cta); }
+.btn.off { background: var(--locked-bg); color: var(--text-faint); cursor: default; }
+.ttl { flex: none; display: flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 1px; color: var(--text-faint); }
+.ttl b { font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; }
+.ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
+.scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 50; }
+
+/* ================= 术语 =================
+   Unity 侧是旧版 Text,富文本只有 <b>/<color>:术语 = 加粗 + ink-soft。
+   9.5pt 的单字远小于 44pt 触控下限,所以**点的是整行**,气泡里列出这一行的全部术语。 */
+.term { font-weight: 700; color: var(--ink-soft); }
+.n { font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+
+/* ================= 词条气泡 ================= */
+.bubble { position: absolute; z-index: 70; box-sizing: border-box; width: 248px; padding: 8px 10px 8px;
+  background: var(--panel-paper); border: 1px solid var(--panel-border); border-radius: 9px;
+  box-shadow: 0 6px 18px rgba(22,27,34,.22); display: flex; flex-direction: column; gap: 6px; }
+.bubble::before { content: ""; position: absolute; top: -5px; left: var(--ax, 24px); width: 8px; height: 8px;
+  background: var(--panel-paper); border-left: 1px solid var(--panel-border); border-top: 1px solid var(--panel-border);
+  transform: rotate(45deg); }
+.bubble.up::before { top: auto; bottom: -5px; transform: rotate(225deg); }
+.bubble .bt { display: flex; align-items: baseline; gap: 6px; }
+.bubble .bt b { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+.bubble .bt span { font-size: 9.5px; line-height: 1.55; color: var(--text-dim); }
+.bubble .bk { font-size: 8px; color: var(--text-faint); letter-spacing: 1px; }
+
+/* ================= 战场(简化再现,尺寸取 current/BattleScreen 的实现值) ================= */
+.safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px; display: flex; flex-direction: column; }
+.tbar { height: 22px; flex: none; display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--text-dim); }
+.tbar .lvn { font-family: "Noto Serif SC", serif; font-size: 9.5px; font-weight: 600; color: var(--text-main); letter-spacing: .5px; }
+.tbar .turn { font-size: 8.6px; color: var(--text-main); }
+.tbar .quit { height: 18px; padding: 0 8px; border-radius: 9px; background: var(--exit-pink); color: #fff; font-size: 7.2px; display: inline-flex; align-items: center; }
+.arena { flex: 1; min-height: 0; display: flex; gap: 8px; }
+.rail { width: 62px; flex: none; }
+.mid { width: 584px; flex: none; display: flex; flex-direction: column; gap: 3px; }
+.erow, .srow { display: flex; gap: 8px; justify-content: center; }
+.cell { position: relative; flex: none; width: 140px; display: flex; align-items: center; gap: 5px; border-radius: 8px; box-sizing: border-box; padding: 1px 3px; }
+.cell.front { height: 64px; } .cell.rear { height: 50px; } .cell.sfront { width: 138px; height: 52px; } .cell.srear { width: 138px; height: 42px; }
+.cell .pt { position: relative; flex: none; display: flex; align-items: center; justify-content: center; }
+.cell.front .pt { width: 58px; height: 58px; } .cell.rear .pt { width: 44px; height: 44px; }
+.cell.sfront .pt { width: 44px; height: 44px; } .cell.srear .pt { width: 36px; height: 36px; }
+.cell .pt img { width: 100%; height: 100%; object-fit: contain; }
+.cell .pt .gface { font-family: "Noto Serif SC", serif; font-weight: 600; color: var(--glyph); font-size: 30px; line-height: 1; }
+.cell.sfront .pt, .cell.srear .pt { border-radius: 7px; background: var(--elSoft); }
+.cell.sfront .pt .gface, .cell.srear .pt .gface { font-family: "Noto Sans SC", sans-serif; font-weight: 500; color: var(--elFg); font-size: 20px; }
+.cell .inf { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cell .hd { display: flex; align-items: center; gap: 3px; height: 11px; }
+.cell .hd .nm { font-family: "Noto Serif SC", serif; font-size: 8.8px; font-weight: 600; white-space: nowrap; }
+.cell .hd .eb { height: 9.5px; padding: 0 2.5px; border-radius: 3px; background: var(--glyph); color: #fff; font-size: 7px; display: inline-flex; align-items: center; }
+.cell .scs { display: flex; flex-wrap: wrap; gap: 2px; min-height: 9.56px; }
+.hpb { position: relative; height: 9px; border-radius: 4.8px; background: var(--paper-dim); overflow: hidden; }
+.hpb > span { display: block; height: 100%; background: var(--cinnabar); }
+.hpb > u { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-decoration: none;
+  font-size: 6.2px; color: #fff; font-weight: 700; -webkit-text-stroke: .35px rgba(22,27,34,.6); font-variant-numeric: tabular-nums; }
+.ally .hpb > span { background: var(--done-green); }
+.atb { position: relative; height: 3.5px; border-radius: 2px; background: var(--paper-dim); overflow: hidden; }
+.atb > span { display: block; height: 100%; background: var(--ink-soft); }
+.ally .atb { height: 6px; }
+.atb.soon > span { background: var(--cinnabar); }
+.sbadge { position: absolute; left: -2px; bottom: -2px; height: 10px; padding: 0 2.5px 0 1.5px; border-radius: 5px; background: var(--gold); color: var(--gold-text);
+  font-size: 6.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 1px; font-variant-numeric: tabular-nums; }
+.sbadge svg { width: 7px; height: 7px; }
+.divider { height: 1px; background: var(--paper-dim); margin: 1px 40px; }
+.pl { position: relative; height: 38px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 4px; border-radius: 8px; box-sizing: border-box; }
+.pl .pt { position: relative; width: 34px; height: 34px; flex: none; border-radius: 7px; background: var(--ink); display: flex; align-items: center; justify-content: center;
+  font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; color: #F3EEE2; }
+.pl .inf { width: 220px; flex: none; display: flex; flex-direction: column; gap: 2px; }
+.pl .who { display: flex; justify-content: space-between; font-family: "Noto Serif SC", serif; font-size: 8.8px; font-weight: 600; }
+.pl .who span { font-family: "Noto Sans SC", sans-serif; font-weight: 400; font-size: 7.2px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.pl .ap { display: flex; align-items: center; gap: 3px; font-size: 7px; color: var(--text-dim); }
+.pl .ap i { width: 5px; height: 16px; border-radius: 2.5px; background: var(--paper-dim); }
+.pl .ap i.on { background: var(--ink-soft); }
+.pl .stt { width: 120px; display: flex; flex-wrap: wrap; gap: 2px; }
+.handrow { height: 58px; flex: none; display: flex; align-items: flex-end; gap: 5px; margin-top: auto; }
+.handrow .hl { width: 45.87px; flex: none; font-size: 6.7px; color: var(--text-main); padding-bottom: 4px; }
+.poolrow { height: 40px; flex: none; display: flex; align-items: flex-end; gap: 5px; }
+.poolrow .hl { width: 45.87px; flex: none; font-size: 6.7px; color: var(--text-main); padding-bottom: 4px; }
+.ptile { width: 32px; height: 38px; flex: none; border-radius: 5.7px; background: var(--elSoft); color: var(--elFg); display: flex; align-items: center; justify-content: center;
+  font-family: "Noto Serif SC", serif; font-size: 14.3px; font-weight: 600; }
+.bench { width: 131.87px; flex: none; box-sizing: border-box; border-radius: 9.56px; background: var(--paper-card); padding: 7px; display: flex; flex-direction: column; gap: 5px; }
+.bench .bt { font-family: "Noto Serif SC", serif; font-size: 6.2px; color: var(--text-dim); letter-spacing: 2px; }
