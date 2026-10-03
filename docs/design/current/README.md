@@ -1,4 +1,7 @@
-# 整屏成品卡
+# 现状(current)
+
+游戏**现在**的样子,和 Unity 实现对齐;实现改了可见 UI,同一个提交里更新这里(设计验收的最后一步)。
+设计稿与回填记录在 `../drafts/`。
 
 七张整屏卡,按 Unity 实现再现(932×430pt 横屏):`BattleScreen` `BestiaryScreen` `CollectionScreen`
 `HomeScreen` `PerksScreen` `SafeLayerScreen` `ShopScreen`。每张一个子目录:`README.md` + `preview.html`。

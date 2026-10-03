@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>字牌角标族(基线 <c>docs/design/ui/scenes/CardStates.dc.html</c>)。
+    /// <summary>字牌角标族(基线 <c>docs/design/drafts/scenes/CardStates.dc.html</c>)。
     ///
     /// 牌面只承载「一眼要认出的四件事」:等级、稀有度、能不能升、在不在阵上;
     /// 未拥有再加一档锁态。其余全部让给右栏详情。

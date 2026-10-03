@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>字卡详情弹窗。版式基线 = <c>docs/design/ui/scenes/CharSheet.dc.html</c>
+    /// <summary>字卡详情弹窗。版式基线 = <c>docs/design/drafts/scenes/CharSheet.dc.html</c>
     /// (及同族的 <c>CharSheetDual</c> / <c>CharSheetPart</c>)。
     ///
     /// 六个入口共用:战斗里长按字库牌 / 部件池牌 / 战利品候选牌,开箱结果、商城的字卡,

@@ -1,4 +1,4 @@
-/* 字·斗 组件样式 —— docs/design/ui/scenes/*.dc.html 的静态再现。
+/* 字·斗 组件样式 —— docs/design/drafts/scenes/*.dc.html 的静态再现。
    尺寸单位是稿面 pt（932×430 横屏）；Unity 逻辑单位 = pt × 2.093。
    类名一律 zd- 前缀，避免与 tokens.css 生成的字样类（.title/.chip…）撞名。 */
 

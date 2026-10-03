@@ -122,30 +122,41 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   1. 先 `ListAgents` 查找名为 `designer` 的 session;
   2. 存在 → 用 `SendMessage` 把需求(界面、场景、约束、要落库的路径)发给它,等它交稿;
   3. 不存在 → **停下**,提示用户开启或恢复 `designer` session,不要自己代为设计。
-- **设计稿按层落库到 `docs/design/` 下**,实现时以这里已通过的稿为准:
+- **一个界面从设计到上线走六步**,每步的产物落在下表对应目录:
+  1. **出稿**:`designer` 出稿,落 `drafts/<功能>/`,在 `drafts/README.md` 登记一行,状态 `待审`。
+  2. **拍板**:用户确认 → 状态改 `已拍板 · 待实现`。未拍板不开工。
+  3. **实现**:尺寸、颜色、文案取自拍板稿与 `system/`(稿上 pt × 2.093 = 逻辑单位),不自己发明新值;
+     需要新 token / 新组件 → 先补进 `system/` / `component/`。
+  4. **设计验收(硬性,不做不算完工)**:实机或编辑器截图与拍板稿**逐条**并排比对,列出全部差异。
+  5. **差异分流**,每条只有两个去向:
+     - **实现走样**(漏做、尺寸算错、用错色)→ 改代码,稿不动;
+     - **稿子不成立**(技术做不到、真机放不下、试玩后改主意)→ **回填**:改稿,并在该稿目录的
+       `README.md` 记一条「改了什么 · 为什么」。回填只写在稿旁边,不散落到别处。
+  6. **归档**:稿状态改 `已落地`;同一个提交里把 `current/` 对应的现状卡按代码更新;被新稿替代的旧稿
+     状态改 `已取代` 并移入 `deprecated/`(用户确认后删)。
+  **同一屏任何时刻只有一份算数**:实现前是拍板稿,实现后是 `current/`。两边冲突以 `current/` 为准。
 
-  | 层 | 目录 | 放什么 |
+  | 层 | 目录(`docs/design/` 下) | 放什么 |
   | --- | --- | --- |
   | 规范 | `system/` | 原则、文案、颜色与对比度、字体等规则;`tokens.json`(token 唯一出处)、字体、资产规格 |
   | 组件 | `component/<名>/` | 可复用件的卡(`README.md` + `preview.html`);共用样式 `component/bundle.css` |
-  | 成品 | `screens/<名>/` | 整屏卡(`README.md` + `preview.html`) |
-  | 画布 | `ui/<界面或场景>/` | 画布稿 `canvas.json` + `*.dc.html`,沿用 `scenes/`、`levelup/` 等结构 |
+  | 现状 | `current/<名>/` | 游戏现在的样子,与实现对齐(`README.md` + `preview.html`) |
+  | 设计稿 | `drafts/<功能>/` | 画布稿 `canvas.json` + `*.dc.html` + 回填记录 `README.md`;索引与状态见 `drafts/README.md` |
 
-  规范只放规则与 token,不放画好的东西;规范改了,组件与成品跟着改;组件或成品里出现规范没写的新值,
-  先补进规范再用。单文件 HTML 演示放 `demos/<主题>/`;废弃的稿移入 `deprecated/`,用户确认后再删。
+  规范只放规则与 token,不放画好的东西。单文件 HTML 演示放 `demos/<主题>/`。
 - **落盘的稿必须附带「本地直接打开就能看」的版本**,只存源稿不算落盘完成。
   `preview.html` 与 `*.dc.html` 离开 artifact 运行时是裸 HTML —— 类型注入的 tokens、`bundle.css`、
   `support.js` 都不在源稿里,本地看与线上差很多(2026-10-03 栽过)。
   1. 本地预览页由脚本从源稿生成、不手写,并配对账测试(每份源稿都有本地页、`var(--x)` 全有定义、
      产物可再生)。现成范例:`tools/design/build_ds_preview.py` → `docs/design/_preview/`
-     (规范 / 组件 / 成品三层 + 每个画布一页 `canvas-<目录>.html`),测试 `tools/design/tests/test_ds_preview.py`。
+     (规范 / 组件 / 现状三层 + 每份设计稿画布一页 `canvas-<目录>.html`),测试 `tools/design/tests/test_ds_preview.py`。
      改了 `tokens.json`、任何 `preview.html` 或 `canvas.json` 后重跑脚本。
-     画布 `*.dc.html` 写死 `<script src="./support.js">`:本地由 `docs/design/ui/dc-runtime.js`(从 Design 类型
-     原样取下的运行时)顶上,**新建画布目录时要加软链接** `ln -s ../dc-runtime.js docs/design/ui/<目录>/support.js`
+     画布 `*.dc.html` 写死 `<script src="./support.js">`:本地由 `docs/design/drafts/dc-runtime.js`(从 Design 类型
+     原样取下的运行时)顶上,**新建画布目录时要加软链接** `ln -s ../dc-runtime.js docs/design/drafts/<目录>/support.js`
      (测试会查)。画布稿直接打开即可交互。
   2. 验收要在浏览器里实看,不能只比 sha256(sha256 只证明源稿一致,不证明看得到)。用
      `python3 -m http.server` 起本地服务再打开;预览面板直接开 `file://` 会变成静态快照,相对路径的 CSS 不加载。
-  3. `.gitignore` 忽略 `docs/design/ui/**/*.html`(只放行 `*.dc.html`),别把 `preview.html` 或单文件 HTML 放进 `ui/`。
+  3. `.gitignore` 忽略 `docs/design/drafts/**/*.html`(只放行 `*.dc.html`),别把 `preview.html` 或单文件 HTML 放进 `drafts/`。
 
 ## 当前阶段
 

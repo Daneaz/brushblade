@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>卡组(收集与卡池概览,19.3)。版式基线 = <c>docs/design/ui/scenes/Main.dc.html</c>:
+    /// <summary>卡组(收集与卡池概览,19.3)。版式基线 = <c>docs/design/drafts/scenes/Main.dc.html</c>:
     /// 顶栏 / 六系筛选栏 / 左网格右详情。
     ///
     /// ⚠ 尺寸常量都是**逻辑单位**,由稿子的 pt 换算而来(1pt = 2.093,见 Device.dc.html)。
@@ -591,7 +591,7 @@ namespace Brushblade.Presentation
 
         // ================= 动作 =================
 
-        /// <summary>升级确认弹窗(稿 <c>docs/design/ui/scenes/Upgrade.dc.html</c>)。
+        /// <summary>升级确认弹窗(稿 <c>docs/design/drafts/scenes/Upgrade.dc.html</c>)。
         ///
         /// 2026-09-04 重写。原来是「Lv.1 → Lv.2」一行,加上前后两句 <see cref="CharInfo.EffectsText"/>
         /// 全文对着看 —— 玩家得自己在两串长句子里找哪个数变了。现在拆成两段:

@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>卡组详情的数值格(口径 = <c>docs/design/ui/scenes/StatMapping.dc.html</c>)。
+    /// <summary>卡组详情的数值格(口径 = <c>docs/design/drafts/scenes/StatMapping.dc.html</c>)。
     ///
     /// 字表里字卡本身**没有攻/血字段**,只有效果 —— 四格数值全是从 effects 现算的。
     /// 有则出、无则整格不占位:绝不显示「攻击 —」。焦(只有灼烧)这类字一格都不出,

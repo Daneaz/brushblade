@@ -8,7 +8,7 @@ using UnityEngine.UI;
 namespace Brushblade.Presentation
 {
     /// <summary>怪物图鉴(2026-07-22 起;2026-09-03 按稿重写)。版式基线 =
-    /// <c>docs/design/ui/scenes/Bestiary.dc.html</c>:顶栏统计 / 层段+Boss 筛选栏 / 左网格右详情 / 底部领赏。
+    /// <c>docs/design/drafts/scenes/Bestiary.dc.html</c>:顶栏统计 / 层段+Boss 筛选栏 / 左网格右详情 / 底部领赏。
     ///
     /// ⚠ 尺寸常量都是**逻辑单位**,由稿子的 pt 换算而来(1pt = 2.093,见 Device.dc.html)。
     /// 与 <see cref="CollectionView"/> 同一套骨架 —— 两屏的稿子本来就是照着彼此画的。
