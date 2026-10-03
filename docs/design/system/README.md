@@ -44,7 +44,7 @@
 - **五行**：每系四支 —— `<el>` 色块、`<el>-soft` 淡底、`<el>-fg` 淡底上的前景、`<el>-glyph` 字形。**字形必须用 `-glyph`**：金系原色 `metal` 对白只有 2.5:1，`-glyph` 在白、宣纸、淡底上均 ≥4.5:1。金偏冷灰、土偏红褐是刻意的，好让「桂」这类组合字左右两半分得开。
 - **生克**：倍率以 `docs/design/wuxing-reference.md` 为准；稿上不画相生（已取消）。
 - **稀有度**：`rarity-<白绿蓝紫金橙红>` 做 2pt 牌框与色点，`-soft` 做小字牌底。宝箱七档与卡牌七档**同一套色**。
-- **层段**：`band-zilin` / `band-ciyuan` / `band-wenshan` / `band-mohai` 以 9%–22% 混入 `paper` 作该段背景（每 5 层加深一档），并以 10% 透明度作面板巨字水印。
+- **层段**：六段按序 `band-zilin`（字林）/ `band-zhusha`（朱砂）/ `band-wenshan`（文山）/ `band-jinshi`（金石）/ `band-mohai`（墨海）/ `band-ciyuan`（词渊）以 9%–22% 混入 `paper` 作该段背景（每 5 层加深一档），并以 10% 透明度作面板巨字水印。
 - **遮罩**：模态 `scrim`（55%）；局内浮层 `scrim-soft`（42%，要看得见底下的战场）；胜负横幅 `scrim-paper`（纸色，不压暗战场）；新手引导弹层 38%。
 
 ## 对比度
@@ -119,5 +119,5 @@
 ## 技能树
 
 - 树的结构与版面（环形星域、节点数、扇区）是现状，见 `current/PerksScreen`。
-- 枝色复用既有语义色，不新造：五行脉 = 该系色；被动树 元 `cinnabar`、力 `shop-nav`、锋 `gold`、御 `ink-soft`；机制树 博闻 `split-blue`、广纳 `water`、慧眼 `gold`、一气 `jade`；跨树节点统一 `heart`（同类同色，靠虚线外环与图标区分）。
+- 枝色复用既有语义色，不新造：五行脉 = 该系色；被动树 元 `cinnabar`、力 `shop-nav`、锋 `gold`、御 `ink-soft`；机制树 博闻 `split-blue`、广纳 `water`、慧眼 `gold`、调息 `jade`；跨树节点统一 `heart`（同类同色，靠虚线外环与图标区分）。
 - 画布上的节点只分三类：已点亮 / 可解锁 / 未解锁；差几级、差多少墨只在详情弹窗里说。可解锁态必须是全屏最亮的那一格。见 SkillNode。

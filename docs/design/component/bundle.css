@@ -45,11 +45,12 @@
 .zd-btn--gold     { background: var(--gold); color: var(--gold-text); }
 .zd-btn--plum     { background: var(--exit-pink); }
 .zd-btn--quiet    { background: var(--locked-bg); color: var(--text-main); }
-.zd-btn[disabled] { background: var(--locked-bg); color: var(--text-dim); cursor: default; }
+/* uGUI 置灰 = ColorTint disabledColor(0.78,0.78,0.78,0.5) 乘在原底色上,不换底色 */
+.zd-btn[disabled] { filter: brightness(.78); opacity: .5; cursor: default; }
 /* 看广告(Ui.AdBadge):浅绿面 + 绿描边 + 深绿字,72×46 */
-.zd-btn--ad { width: 34.40px; height: 21.98px; border-radius: 6.69px; font-size: 9.08px;
+.zd-btn--ad { width: 34.40px; height: 21.98px; border-radius: 10.99px; font-size: 7.17px;   /* AdBadge 按高 46/63 缩:圆角 23、字 15、描边 1.5 */
   font-family: var(--font-serif); font-weight: 600;   /* Ui.AdBadge 是全站唯一走宋体 TitleFont 的钮 */
-  background: var(--ad-green-bg); color: var(--ad-green-text); box-shadow: inset 0 0 0 0.96px var(--ad-green); }
+  background: var(--ad-green-bg); color: var(--ad-green-text); box-shadow: inset 0 0 0 0.72px var(--ad-green); }
 
 /* ---- Chip:Ui.Chip —— 宽 = 字数×字号 + padX(+ 图标 18 + 间距 3),高 = 字号 + padY。
    默认 padX 18 / padY 12;战斗单位格收到 10 / 5。图标左贴 padX/2、竖直居中,随前景色染。 ---- */
