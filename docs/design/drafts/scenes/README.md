@@ -54,8 +54,10 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `SkillOrbitMap.dc.html` | 技能树 · 俯瞰全图 | 同上 |
 | `SkillOrbitCross.dc.html` | 技能树 · 跨树节点 | 同上 |
 
-画布上另有 `LevelUp` / `LevelUpMulti` / `LevelUpCapped` / `LevelUpChest` 四块(局内流程页),
-与 `../levelup/` 的 `Main` / `MultiLevel` / `Capped` / `LevelChest` 逐字节相同,只在那边存一份。
+画布上另有 `LevelUp` / `LevelUpMulti` / `LevelUpCapped` 三块(局内流程页),
+与 `../levelup/` 的 `Main` / `MultiLevel` / `Capped` 逐字节相同,只在那边存一份。
+原第四块 `LevelUpChest`(= `levelup/LevelChest`,等级区间 → 宝箱草案)被 2026-10-02 角色页 spec 取代,
+2026-10-03 已从本目录与 `levelup/` 的 `canvas.json` 摘除,文件移入 `../../deprecated/drafts/levelup/`。
 `mob_*.png` 是怪物设计页三块板引用的立绘(`mob_jiaohen.png` 之外的十四张是 2026-10-03 从画布落盘的)。
 
 `canvas.json` 是画布布局（位置、分页、便签）。**分页按「屏」组织**（2026-08-29 在画布上重排）：
@@ -88,12 +90,12 @@ node <skill>/seed-canvas.mjs \
   --artboard MobArt.dc.html --artboard MobScale.dc.html --artboard MobLayers.dc.html \
   --artboard SkillOrbit.dc.html --artboard SkillOrbitMap.dc.html --artboard SkillOrbitCross.dc.html \
   --artboard LevelUp.dc.html --artboard LevelUpMulti.dc.html \
-  --artboard LevelUpCapped.dc.html --artboard LevelUpChest.dc.html \
+  --artboard LevelUpCapped.dc.html \
   $(for f in mob_*.png; do printf -- '--image %s ' "$f"; done) \
   --canvas canvas.json
 ```
 
-`LevelUp*.dc.html` 四块出图前先从 `../levelup/` 改名拷进来(对应关系见上),出完删掉。
+`LevelUp*.dc.html` 三块出图前先从 `../levelup/` 改名拷进来(对应关系见上),出完删掉。
 
 产出的 `.html` 内联了整个编辑器 payload（2.7MB），**不入 git**（见 `.gitignore`）。
 浏览器里首次渲染要 30 秒以上，不是卡住了。

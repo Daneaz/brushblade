@@ -31,11 +31,10 @@ BUNDLE = COMPONENT / "bundle.css"
 OUT = DESIGN / "_preview"
 DRAFTS = DESIGN / "drafts"
 DC_RUNTIME = DRAFTS / "dc-runtime.js"
-# scenes 画布上的四块升级弹窗只在 levelup/ 存一份(改了名),见 drafts/scenes/README.md
+# scenes 画布上的三块升级弹窗只在 levelup/ 存一份(改了名),见 drafts/scenes/README.md
 _ALIASES = {("scenes", "LevelUp.dc.html"): "levelup/Main.dc.html",
             ("scenes", "LevelUpMulti.dc.html"): "levelup/MultiLevel.dc.html",
-            ("scenes", "LevelUpCapped.dc.html"): "levelup/Capped.dc.html",
-            ("scenes", "LevelUpChest.dc.html"): "levelup/LevelChest.dc.html"}
+            ("scenes", "LevelUpCapped.dc.html"): "levelup/Capped.dc.html"}
 
 _LINKS = '<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css">'
 _CAMEL = {"fontSize": "font-size", "lineHeight": "line-height",

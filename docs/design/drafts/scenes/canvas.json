@@ -331,15 +331,6 @@
       "h": 430,
       "title": "升级弹窗 · 升到 Lv.50 · 属性封顶",
       "page": "page-inrun"
-    },
-    {
-      "file": "LevelUpChest.dc.html",
-      "x": 0,
-      "y": 1790,
-      "w": 1180,
-      "h": 740,
-      "title": "升级奖励 · 等级区间 → 宝箱(草案)",
-      "page": "page-inrun"
     }
   ],
   "annotations": [
