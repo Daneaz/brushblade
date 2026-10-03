@@ -22,7 +22,7 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `Main.dc.html` | 卡组（可交互） | `CollectionView.cs` |
 | `Battle.dc.html` | 战斗（可交互） | `BattleView.cs` |
 | `Bestiary.dc.html` | 怪物图鉴（可交互） | `BestiaryView.cs` |
-| `Perks.dc.html` | 技能(旧扁平四条) | 已不在画布上 —— 2026-09-08 按用户要求删页,由下方技能树星域取代;文件留作历史 |
+| `../../deprecated/ui/scenes/Perks.dc.html` | 技能(旧扁平四条) | 已不在画布上 —— 2026-09-08 按用户要求删页,由下方技能树星域取代;2026-10-03 移入 deprecated |
 | `Shop.dc.html` | 商城 | `ShopView.cs` |
 | `RunEnd.dc.html` | 段末 · 告捷/败北 | `BattleView.DrawRunEnd` |
 | `SafeLayer.dc.html` | 安全层 | `GameRoot.ShowSafeLayer` |
