@@ -53,7 +53,7 @@
 
 ## ⚠ 共用文件的问题（本卡就地绕开，根因待统一修）
 
-`components/bundle.css` **尾部 208–255 行是一整块过期的旧稿样式**，与文件开头 74–133 行的实现版同名同特异度而排在后面，于是 **Dialog / NavTab / InkCounter / ProgressBar 四组全站取到的都是旧稿值**：
+`component/bundle.css` **尾部 208–255 行是一整块过期的旧稿样式**，与文件开头 74–133 行的实现版同名同特异度而排在后面，于是 **Dialog / NavTab / InkCounter / ProgressBar 四组全站取到的都是旧稿值**：
 
 | 类 | 实际生效（旧块） | 应该是（实现） |
 | --- | --- | --- |

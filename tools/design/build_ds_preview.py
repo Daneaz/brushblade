@@ -1,9 +1,13 @@
-"""设计系统本地预览:docs/design/system/ → docs/design/system/_local/。
+"""设计稿本地预览:规范 / 组件 / 成品三层的 preview.html → docs/design/_preview/。
+
+- 规范 docs/design/system/(tokens.json、字体、封面卡 Cover)
+- 组件 docs/design/component/<名>/preview.html(共用样式 component/bundle.css)
+- 成品 docs/design/ui/screens/<名>/preview.html
 
 preview.html 在 artifact 上由 Design System 类型注入 tokens 与 bundle.css,
 本地直接打开两样都没有。这里补上那层外壳:
 - tokens.css:tokens.json 的全部 token 转成 :root 变量 + 字体 @font-face + 字样类
-- <组件>.html:preview 原文,只在 <head> 里插两条 <link>
+- <名>.html:preview 原文,只在 <head> 里插两条 <link>
 - index.html:按 @dsCard 分组铺开全部卡
 
 改了 tokens.json 或任何 preview 后重跑:python3 tools/design/build_ds_preview.py
@@ -14,10 +18,14 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SYSTEM = ROOT / "docs/design/system"
-LOCAL = SYSTEM / "_local"
+DESIGN = ROOT / "docs/design"
+SYSTEM = DESIGN / "system"
+COMPONENT = DESIGN / "component"
+SCREENS = DESIGN / "ui/screens"
+BUNDLE = COMPONENT / "bundle.css"
+OUT = DESIGN / "_preview"
 
-_LINKS = '<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../components/bundle.css">'
+_LINKS = '<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css">'
 _CAMEL = {"fontSize": "font-size", "lineHeight": "line-height",
           "fontWeight": "font-weight", "letterSpacing": "letter-spacing"}
 
@@ -27,7 +35,7 @@ def tokens_css() -> str:
     fam = t["type"]["families"]
     out = ["/* 由 tools/design/build_ds_preview.py 从 tokens.json 生成,勿手改 */"]
     for f in t["type"]["fonts"]:
-        out.append(f'@font-face {{ font-family: "{f["family"]}"; src: url("../{f["file"]}"); '
+        out.append(f'@font-face {{ font-family: "{f["family"]}"; src: url("../system/{f["file"]}"); '
                    f'font-weight: {f["weight"]}; font-style: {f["style"]}; }}')
     out.append(":root {")
     out.append(f"  --font-serif: {fam['serif']};")
@@ -44,13 +52,14 @@ def tokens_css() -> str:
     return "\n".join(out) + "\n"
 
 
-def _previews():
-    return sorted(SYSTEM.glob("components/*/preview.html"))
+def sources():
+    return (sorted(SYSTEM.glob("*/preview.html")) + sorted(COMPONENT.glob("*/preview.html"))
+            + sorted(SCREENS.glob("*/preview.html")))
 
 
 def pages() -> dict:
     res = {}
-    for p in _previews():
+    for p in sources():
         src = p.read_text(encoding="utf-8")
         i = src.index("<head>") + len("<head>")
         res[p.parent.name] = src[:i] + _LINKS + src[i:]
@@ -66,7 +75,7 @@ def _card_meta(src: str) -> dict:
 
 def index_html() -> str:
     groups = {}
-    for p in _previews():
+    for p in sources():
         groups.setdefault(_card_meta(p.read_text(encoding="utf-8"))["group"], []).append(p)
     body = []
     for g, ps in groups.items():
@@ -84,19 +93,19 @@ def index_html() -> str:
             "small{font-weight:400;color:var(--text-dim);margin-left:8px}"
             "iframe{width:100%;border:1px solid var(--panel-border);border-radius:8px;background:var(--paper)}"
             "</style></head><body><h1>字·斗 设计系统 · 本地预览</h1>"
-            "<p>由 tools/design/build_ds_preview.py 生成;内容以上级目录的 README.md 与各组件 README 为准。</p>"
+            "<p>由 tools/design/build_ds_preview.py 生成;规范见 system/README.md,组件见 component/,成品见 ui/screens/。</p>"
             + "".join(body) + "</body></html>\n")
 
 
 def main():
-    LOCAL.mkdir(exist_ok=True)
-    for f in LOCAL.glob("*"):
+    OUT.mkdir(exist_ok=True)
+    for f in OUT.glob("*"):
         f.unlink()
-    (LOCAL / "tokens.css").write_text(tokens_css(), encoding="utf-8")
-    (LOCAL / "index.html").write_text(index_html(), encoding="utf-8")
+    (OUT / "tokens.css").write_text(tokens_css(), encoding="utf-8")
+    (OUT / "index.html").write_text(index_html(), encoding="utf-8")
     for name, text in pages().items():
-        (LOCAL / f"{name}.html").write_text(text, encoding="utf-8")
-    print(f"wrote {len(pages())} pages → {LOCAL.relative_to(ROOT)}")
+        (OUT / f"{name}.html").write_text(text, encoding="utf-8")
+    print(f"wrote {len(pages())} pages → {OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

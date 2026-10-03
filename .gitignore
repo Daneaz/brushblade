@@ -57,6 +57,8 @@ Brushblade/Builds/
 #     --out <名字>.html --title "..." --artboard Main.dc.html ... --canvas canvas.json
 docs/design/ui/**/*.html
 !docs/design/ui/**/*.dc.html
+# 整屏成品卡的源稿(设计系统拆出来的,不是 seed 产物)
+!docs/design/ui/screens/*/preview.html
 
 # SDD 过程报告(subagent 的逐任务执行报告与协调账本):不入 git。
 # 正式溯源已经在 docs/superpowers/{specs,plans}/ 与 commit message 里,这些是过程记录,
