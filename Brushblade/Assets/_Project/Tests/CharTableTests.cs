@@ -229,10 +229,10 @@ namespace Brushblade.Core.Tests
             // Skewer 断言随枪一起从 RealConfig_SummonPassiveChars_CarryTheirPassive 删除。
             var carriers = RealGraph().All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
                     .Concat(c.AttackEffects ?? Array.Empty<EffectDef>())
-                    .Where(e => e.Shape == TargetShape.Skewer).Select(e => c.Id))
+                    .Where(e => e.Shape == TargetArea.Column).Select(e => c.Id))
                 .ToList();
             Assert.That(carriers, Is.EquivalentTo(new[] { "锥" }), "字卡攻击面 Skewer 的全集就是 锥");
-            var zhui = RealGraph().Get("锥").Effects.First(e => e.Shape == TargetShape.Skewer);
+            var zhui = RealGraph().Get("锥").Effects.First(e => e.Shape == TargetArea.Column);
             Assert.That(zhui.ShapePercent, Is.EqualTo(70));
         }
 
@@ -277,7 +277,7 @@ namespace Brushblade.Core.Tests
             // 2026-09-16(土水系机制重做,spec §6):召唤被动 Shape 全表无载体,钉住空集。
             Assert.That(graph.All.SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>()))
                 .Where(e => e.Kind == EffectKind.Summon && e.Passive != null)
-                .Any(e => e.Passive.Shape != TargetShape.Single), Is.False,
+                .Any(e => e.Passive.Shape != TargetArea.Single), Is.False,
                 "召唤被动 Shape 当前应无载体(枪 已移出字表)");
 
             // 碉/堡(2026-09-16 土水系机制重做):土系交出召唤位,彻底改成 dual_s 双方向字,

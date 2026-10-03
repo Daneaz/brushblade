@@ -77,9 +77,9 @@ namespace Brushblade.Core.Tests
         public void CrossRowBoss_TakesTwoHitsFromSweepInEitherRow()
         {
             var engine = Engine(CrossRowBoss(), Mob("前卒"), Mob("后卒", EnemyRow.Back));
-            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 1, TargetShape.Sweep, 0), 0),
+            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 1, TargetArea.Row, 0), 0),
                 Is.EqualTo(2), "扫前排:Boss 占那一排的 2 列");
-            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 2, TargetShape.Sweep, 0), 0),
+            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 2, TargetArea.Row, 0), 0),
                 Is.EqualTo(2), "扫后排:同理");
         }
 
@@ -89,7 +89,7 @@ namespace Brushblade.Core.Tests
         public void CrossRowBoss_TakesTwoHitsFromSkewer()
         {
             var engine = Engine(CrossRowBoss());
-            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 0, TargetShape.Skewer, 0), 0),
+            Assert.That(CountHits(Targeting.ExpandTargets(engine.Enemies, 0, TargetArea.Column, 0), 0),
                 Is.EqualTo(2));
         }
 
@@ -107,7 +107,7 @@ namespace Brushblade.Core.Tests
                 new CharDef("木", Element.Wood),
                 // 横扫一记:主目标之外同排全扫,对跨排 Boss 覆盖两格
                 new CharDef("扫", Element.Metal, new[] { "木", "木" },
-                    new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Sweep) }),
+                    new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.Row) }),
             });
             var engine = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 500 },
                 new[] { "扫" }, System.Array.Empty<string>(),
@@ -140,7 +140,7 @@ namespace Brushblade.Core.Tests
                 new CharDef("剑", Element.Metal, new[] { "木", "木" },
                     new[] { new EffectDef(EffectKind.Summon, 50, summonCount: 1, summonAttack: 20,
                         summonChar: "木", passive: new SummonPassive
-                        { Shape = TargetShape.Sweep, ShapePercent = 50 }) }),
+                        { Shape = TargetArea.Row, ShapePercent = 50 }) }),
             });
             var engine = new BattleEngine(graph, new BattleConfig { PlayerMaxHp = 500 },
                 new[] { "剑" }, System.Array.Empty<string>(),
@@ -164,7 +164,7 @@ namespace Brushblade.Core.Tests
         public void NormalEnemy_StillTakesOneHitFromSweep()
         {
             var engine = Engine(Mob("甲"), Mob("乙"));
-            var targets = Targeting.ExpandTargets(engine.Enemies, 0, TargetShape.Sweep, 0);
+            var targets = Targeting.ExpandTargets(engine.Enemies, 0, TargetArea.Row, 0);
             Assert.That(CountHits(targets, 0), Is.EqualTo(1));
             Assert.That(CountHits(targets, 1), Is.EqualTo(1));
         }
@@ -186,7 +186,7 @@ namespace Brushblade.Core.Tests
         {
             var engine = Engine(CrossRowBoss(), Mob("卒"));
             // 4 发、场上 2 只:去重后候选是 [Boss, 卒],循环两轮 → 各 2 发
-            var targets = Targeting.ExpandTargets(engine.Enemies, -1, TargetShape.Volley, 4);
+            var targets = Targeting.ExpandTargets(engine.Enemies, -1, TargetArea.Scatter, 4);
             int bossHits = 0;
             foreach (int index in targets) if (index == 0) bossHits++;
             Assert.That(bossHits, Is.EqualTo(2), "4 发均分给 2 只,Boss 不该因为跨排被多打");

@@ -874,9 +874,9 @@ namespace Brushblade.Core.Tests
         public void AttackShapeOf_EffectsOnly_ReturnsItsShape() // 只有 Effects 的形状字:非攻击模式也读得到
         {
             var def = new CharDef("横", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Sweep) });
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.Row) });
             var (shape, shots) = BattleEngine.AttackShapeOf(def);
-            Assert.That(shape, Is.EqualTo(TargetShape.Sweep));
+            Assert.That(shape, Is.EqualTo(TargetArea.Row));
             Assert.That(shots, Is.EqualTo(0));
         }
 
@@ -884,10 +884,10 @@ namespace Brushblade.Core.Tests
         public void AttackShapeOf_AttackMode_SwitchesBetweenTheTwoLists() // attackMode:true 取 AttackEffects,false 取 Effects
         {
             var def = new CharDef("双", Element.Water,
-                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Sweep) },
-                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetShape.Skewer) });
-            Assert.That(BattleEngine.AttackShapeOf(def, attackMode: false).Shape, Is.EqualTo(TargetShape.Sweep));
-            Assert.That(BattleEngine.AttackShapeOf(def, attackMode: true).Shape, Is.EqualTo(TargetShape.Skewer));
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.Row) },
+                attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.Column) });
+            Assert.That(BattleEngine.AttackShapeOf(def, attackMode: false).Shape, Is.EqualTo(TargetArea.Row));
+            Assert.That(BattleEngine.AttackShapeOf(def, attackMode: true).Shape, Is.EqualTo(TargetArea.Column));
         }
 
         [Test]
@@ -895,7 +895,7 @@ namespace Brushblade.Core.Tests
         {
             var def = new CharDef("空", Element.Heart);
             var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
-            Assert.That(shape, Is.EqualTo(TargetShape.Single));
+            Assert.That(shape, Is.EqualTo(TargetArea.Single));
             Assert.That(shots, Is.EqualTo(0));
         }
 

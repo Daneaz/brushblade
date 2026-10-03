@@ -149,24 +149,24 @@ namespace Brushblade.Presentation
             if (seen.Add(mode.Name)) modes.Add(mode);
         }
 
-        private static string ShapeName(TargetShape shape) => shape switch
+        private static string ShapeName(TargetArea shape) => shape switch
         {
-            TargetShape.Sweep => Strings.T("char.shape.sweep"),
-            TargetShape.Cleave => Strings.T("char.shape.cleave"),
-            TargetShape.Skewer => Strings.T("char.shape.skewer"),
-            TargetShape.Volley => Strings.T("char.shape.volley"),
-            TargetShape.Chain => Strings.T("char.shape.chain"),
+            TargetArea.Row => Strings.T("char.shape.sweep"),
+            TargetArea.Adjacent => Strings.T("char.shape.cleave"),
+            TargetArea.Column => Strings.T("char.shape.skewer"),
+            TargetArea.Scatter => Strings.T("char.shape.volley"),
+            TargetArea.Chain => Strings.T("char.shape.chain"),
             _ => Strings.T("char.shape.single"),
         };
 
-        private static string ShapeNote(TargetShape shape, int percent, int shots)
+        private static string ShapeNote(TargetArea shape, int percent, int shots)
         {
             if (percent <= 0) percent = 100;
             return shape switch
             {
-                TargetShape.Volley => Strings.T("char.shape.suffix.volley", ("shots", shots)),
-                TargetShape.Chain => Strings.T("char.shape.suffix.chain", ("shots", shots), ("percent", percent)),
-                TargetShape.Sweep or TargetShape.Cleave or TargetShape.Skewer when percent != 100
+                TargetArea.Scatter => Strings.T("char.shape.suffix.volley", ("shots", shots)),
+                TargetArea.Chain => Strings.T("char.shape.suffix.chain", ("shots", shots), ("percent", percent)),
+                TargetArea.Row or TargetArea.Adjacent or TargetArea.Column when percent != 100
                     => Strings.T("char.shape.suffix.splash", ("percent", percent)),
                 _ => "",
             };
@@ -175,9 +175,9 @@ namespace Brushblade.Presentation
         /// <summary>目标形状(贯穿 / 横扫 / 溅射 / 连发 / 弹射)算特性技能,不算攻击模式
         /// (见设计稿 §0,2026-09-06 裁定)。单体不算形状,不建卡。名字与后缀复用
         /// <see cref="ShapeName"/> / <see cref="ShapeNote"/> ——两个渲染器保持不动,这里只是换了个挂载点。</summary>
-        private static void AddShapeTrait(List<Trait> traits, TargetShape shape, int percent, int shots)
+        private static void AddShapeTrait(List<Trait> traits, TargetArea shape, int percent, int shots)
         {
-            if (shape == TargetShape.Single) return;
+            if (shape == TargetArea.Single) return;
             var name = ShapeName(shape);
             AddWord(traits, name, name, ShapeNote(shape, percent, shots));
         }

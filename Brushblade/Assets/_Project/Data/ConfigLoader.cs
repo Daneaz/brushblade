@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Brushblade.Core;
 using Newtonsoft.Json;
 
@@ -20,8 +21,19 @@ namespace Brushblade.Data
             public List<CharDto> Chars { get; set; }
         }
 
+        private sealed class TraitDto
+        {
+            public string Slot { get; set; }
+            public string Face { get; set; }     // null = Both
+            public string Form { get; set; }     // null = Active
+            public string Replaces { get; set; } // null = 不替换
+            public string Name { get; set; }
+            public List<EffectDto> Effects { get; set; }
+        }
+
         private sealed class CharDto
         {
+            public List<TraitDto> Traits { get; set; } // 字卡特性(spec v6)
             public string Id { get; set; }
             public string Element { get; set; }
             public List<string> Recipe { get; set; }
@@ -31,6 +43,7 @@ namespace Brushblade.Data
             public string Pinyin { get; set; }
             public string Gloss { get; set; }
             public bool? Component { get; set; } // 部件标记(2026-09-01):→ CharDef.IsComponent
+            public string MainFace { get; set; } // 主面(spec v6 §2.1):null = 未指定
         }
 
         private sealed class EffectDto
@@ -495,9 +508,12 @@ namespace Brushblade.Data
                 if (!ids.Add(dto.Id))
                     throw new ConfigException($"重复的字 id:{dto.Id}");
 
-                defs.Add(new CharDef(dto.Id, ParseElement(dto),
+                var def = new CharDef(dto.Id, ParseElement(dto),
                     dto.Recipe, ParseEffects(dto, dto.Effects), ParseRarity(dto),
-                    dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component));
+                    dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component,
+                    ParseMainFace(dto), ParseTraits(dto));
+                ValidateTraitTargets(def);
+                defs.Add(def);
             }
 
             // fail fast 二次校验:配方引用必须已定义(完整校验在管线侧,4.9.6)
@@ -507,6 +523,14 @@ namespace Brushblade.Data
                         throw new ConfigException($"字「{def.Id}」的配方引用了未定义的「{ingredient}」");
 
             return new RecipeGraph(defs);
+        }
+
+        private static CardFace? ParseMainFace(CharDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.MainFace)) return null;
+            if (!Enum.TryParse<CardFace>(dto.MainFace, out var face) || !Enum.IsDefined(typeof(CardFace), face))
+                throw new ConfigException($"字「{dto.Id}」的主面未知:{dto.MainFace}");
+            return face;
         }
 
         private static CardRarity ParseRarity(CharDto dto)
@@ -527,6 +551,58 @@ namespace Brushblade.Data
             return element;
         }
 
+        private static T ParseEnum<T>(string raw, T fallback, string charId, string what) where T : struct, Enum
+        {
+            if (string.IsNullOrEmpty(raw)) return fallback;
+            if (!Enum.TryParse<T>(raw, out var v) || !Enum.IsDefined(typeof(T), v))
+                throw new ConfigException($"字「{charId}」的{what}未知:{raw}");
+            return v;
+        }
+
+        private static IReadOnlyList<TraitDef> ParseTraits(CharDto dto)
+        {
+            if (dto.Traits == null) return null;
+            var traits = new List<TraitDef>();
+            var slots = new HashSet<TraitSlot>();
+            foreach (var t in dto.Traits)
+            {
+                if (string.IsNullOrEmpty(t.Slot))
+                    throw new ConfigException($"字「{dto.Id}」有特性缺少 slot");
+                var slot = ParseEnum(t.Slot, TraitSlot.Lv1, dto.Id, "特性槽位");
+                if (!slots.Add(slot))
+                    throw new ConfigException($"字「{dto.Id}」的特性槽位重复:{t.Slot}");
+                var face = ParseEnum(t.Face, TraitFace.Both, dto.Id, "特性作用面");
+                var form = ParseEnum(t.Form, TraitForm.Active, dto.Id, "特性形态");
+                TraitSlot? replaces = string.IsNullOrEmpty(t.Replaces)
+                    ? (TraitSlot?)null
+                    : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name ?? "", ParseEffects(dto, t.Effects ?? new List<EffectDto>())));
+            }
+            foreach (var t in traits)
+                if (t.Replaces.HasValue && (!slots.Contains(t.Replaces.Value) || (int)t.Replaces.Value >= (int)t.Slot))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」替换了不存在或更高的槽位:{t.Replaces}");
+            return traits;
+        }
+
+        /// <summary>主动特性若需要(敌方/友方)目标,它所作用的面的本体也必须选同类目标 ——
+        /// 否则出手时 targetIndex / allySlot 停在缺省值,特性悄悄空转(与 NeedsTarget 注释里 C1 那次同型)。</summary>
+        private static void ValidateTraitTargets(CharDef def)
+        {
+            foreach (var t in def.Traits)
+            {
+                if (t.Form != TraitForm.Active) continue;
+                foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
+                {
+                    if (!t.AppliesTo(face)) continue;
+                    bool attackMode = face == CardFace.Attack;
+                    if (t.Effects.Any(BattleEngine.EffectNeedsTarget) && !BattleEngine.NeedsTarget(def, attackMode))
+                        throw new ConfigException($"字「{def.Id}」的特性「{t.Name}」需要敌方目标,但该面本体不选敌方目标");
+                    if (t.Effects.Any(BattleEngine.EffectNeedsAllyTarget) && !BattleEngine.NeedsAllyTarget(def, attackMode))
+                        throw new ConfigException($"字「{def.Id}」的特性「{t.Name}」需要友方目标,但该面本体不选友方目标");
+                }
+            }
+        }
+
         private static IReadOnlyList<EffectDef> ParseEffects(CharDto dto, List<EffectDto> source)
         {
             if (source == null)
@@ -536,20 +612,20 @@ namespace Brushblade.Data
             {
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
-                var shape = TargetShape.Single;
+                var shape = TargetArea.Single;
                 // Enum.TryParse 单独用会放数字字符串过关(如 "3" 解析成 Skewer、"99" 解析成
                 // 越界值),下游 Targeting.ExpandTargets 的 switch 对任何未定义的值都落到
                 // `_ => false`——整张字会静默退化成单体、零报错。必须叠加 IsDefined 才拦得住。
                 if (!string.IsNullOrEmpty(effect.Shape)
                     && (!Enum.TryParse(effect.Shape, out shape)
-                        || !Enum.IsDefined(typeof(TargetShape), shape)))
+                        || !Enum.IsDefined(typeof(TargetArea), shape)))
                     throw new ConfigException($"字「{dto.Id}」的目标形状未知:{effect.Shape}");
-                // 召唤被动的 Shape 是 Core 的 SummonPassive.Shape(TargetShape 枚举),不是上面这个
+                // 召唤被动的 Shape 是 Core 的 SummonPassive.Shape(TargetArea 枚举),不是上面这个
                 // string 字段,走 Newtonsoft 整体反序列化——数字型越界值(如 "shape": 99)会被
                 // Newtonsoft 直接接住塞进枚举底层 int,不报错,与上面这条 string 校验是同一个坑,
                 // 只是入口不同(2026-08-22)。ExpandTargets 对任何未定义值都落到 `_ => false`,
                 // 悄悄退化成单体——正是上面那条 player 侧校验存在的理由,这里补齐 summon 侧。
-                if (effect.Passive != null && !Enum.IsDefined(typeof(TargetShape), effect.Passive.Shape))
+                if (effect.Passive != null && !Enum.IsDefined(typeof(TargetArea), effect.Passive.Shape))
                     throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,

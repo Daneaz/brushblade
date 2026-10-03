@@ -18,8 +18,8 @@ namespace Brushblade.Presentation
     ///   建第二套是同一内容两份、必然漂;这两族还被图鉴/EnemyPreview 用着,不能碰。
     ///   代价:详情里这两类的措辞不会与 glossary 逐字一致,但内容口径相同。
     /// - **复用既有 `char.shape.&lt;x&gt;`当 name**,新写 `char.shape.&lt;x&gt;.desc`:
-    ///   TargetShape 六个值稿子只画了 Sweep/Skewer 两个,Cleave/Volley/Chain 从
-    ///   TargetShape.cs 自己的注释外推(代码是它们的真相源,算不上发明)。Sweep/Cleave/
+    ///   TargetArea 六个值稿子只画了 Sweep/Skewer 两个,Cleave/Volley/Chain 从
+    ///   TargetArea.cs 自己的注释外推(代码是它们的真相源,算不上发明)。Sweep/Cleave/
     ///   Skewer 三条 desc 统一用「非主目标」而不是「溅射」/「后续目标」这两个词 ——
     ///   「溅射」是 Cleave 的正式显示名,塞进别的形状会让人以为在说另一个形状;
     ///   「后续目标」暗示时序先后,而这三个形状命中的非主目标之间并没有先后关系,
@@ -55,7 +55,7 @@ namespace Brushblade.Presentation
             => armor <= 0 ? 0 : armor * 100 / (armor + 100);
 
         /// <summary>一条状态/能力/攻击模式的展示四元组。IconKey 为 null 表示这条没有图标
-        /// (稿上「四条不出图标」的那几条,以及没有对应 icon 资产的 TargetShape 值);
+        /// (稿上「四条不出图标」的那几条,以及没有对应 icon 资产的 TargetArea 值);
         /// 四个字段全 null 表示这条压根不该出现在详情列表里(护盾式的「跳过」信号)。</summary>
         public readonly struct Info
         {
@@ -296,7 +296,7 @@ namespace Brushblade.Presentation
 
         /// <summary>够得着玩家时打谁。`enemy.focus.*` 是本任务新写的(AttackFocus 全项目没有
         /// 既有文案),命名跟 `enemy.range.*` 同一个家族。Default 是均匀随机的默认行为,不是
-        /// 一个值得说明的特性——与 <see cref="TargetShape.Single"/> 同一处理,不出条目
+        /// 一个值得说明的特性——与 <see cref="TargetArea.Single"/> 同一处理,不出条目
         /// (返回 <see cref="None"/>);只有 Player(死盯玩家)值得列一条。</summary>
         public static Info OfFocus(AttackFocus focus) => focus == AttackFocus.Player
             ? new Info("focus", Strings.T("enemy.focus.player.name"),
@@ -305,24 +305,24 @@ namespace Brushblade.Presentation
 
         /// <summary>召唤物出手的目标形状。Name 复用既有 `char.shape.&lt;x&gt;`(CharInfo.cs 卡面
         /// 文案同一套简称),Desc 是本任务新写的详情说明。Sweep/Skewer 有稿子出处也有既有 icon;
-        /// Cleave/Volley/Chain 稿子没画,从 TargetShape.cs 自己的注释外推,也没有对应 icon 资产,
+        /// Cleave/Volley/Chain 稿子没画,从 TargetArea.cs 自己的注释外推,也没有对应 icon 资产,
         /// IconKey 一律给 null。
         ///
         /// Single(只打一个,缺省值)不出条目——与 <see cref="OfFocus"/> 的 Default 同一条规则:
         /// 只有偏离默认的才出条目,「打谁」的默认不出、「打几个」的默认也不出,下一个新增的
-        /// TargetShape 值该往哪边走由这条规则直接判断,不必逐个碰运气。这也是为什么每一只
+        /// TargetArea 值该往哪边走由这条规则直接判断,不必逐个碰运气。这也是为什么每一只
         /// 普通近战单体怪不会在详情里挂一条「单体」——真正该被看见的是那几个偏离默认的。</summary>
-        public static Info OfShape(TargetShape shape) => shape switch
+        public static Info OfShape(TargetArea shape) => shape switch
         {
-            TargetShape.Sweep => new Info("sweep", Strings.T("char.shape.sweep"),
+            TargetArea.Row => new Info("sweep", Strings.T("char.shape.sweep"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.sweep.desc")),
-            TargetShape.Skewer => new Info("skewer", Strings.T("char.shape.skewer"),
+            TargetArea.Column => new Info("skewer", Strings.T("char.shape.skewer"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.skewer.desc")),
-            TargetShape.Cleave => new Info(null, Strings.T("char.shape.cleave"),
+            TargetArea.Adjacent => new Info(null, Strings.T("char.shape.cleave"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.cleave.desc")),
-            TargetShape.Volley => new Info(null, Strings.T("char.shape.volley"),
+            TargetArea.Scatter => new Info(null, Strings.T("char.shape.volley"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.volley.desc")),
-            TargetShape.Chain => new Info(null, Strings.T("char.shape.chain"),
+            TargetArea.Chain => new Info(null, Strings.T("char.shape.chain"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.chain.desc")),
             _ => None, // Single
         };

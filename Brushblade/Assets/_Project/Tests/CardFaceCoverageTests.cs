@@ -176,17 +176,17 @@ namespace Brushblade.Core.Tests
         public void EveryTargetShape_HasLabelAndSuffixCase()
         {
             var src = CharInfoSource();
-            // 认「只吃 TargetShape」的那两个重载 —— 它们是形状文案的唯一出处,
+            // 认「只吃 TargetArea」的那两个重载 —— 它们是形状文案的唯一出处,
             // 吃 EffectDef 的重载只是转发(表达式体,没有自己的方法体可抠)
-            var label = MethodBody(src, "string ShapeLabel(TargetShape");
-            var suffix = MethodBody(src, "string ShapeSuffix(TargetShape");
-            var missing = Enum.GetNames(typeof(TargetShape))
-                .Where(n => n != nameof(TargetShape.Single))   // Single 是 ShapeLabel 的 _ 兜底
+            var label = MethodBody(src, "string ShapeLabel(TargetArea");
+            var suffix = MethodBody(src, "string ShapeSuffix(TargetArea");
+            var missing = Enum.GetNames(typeof(TargetArea))
+                .Where(n => n != nameof(TargetArea.Single))   // Single 是 ShapeLabel 的 _ 兜底
                 .Where(n => !label.Contains(n) || !suffix.Contains(n))
                 .OrderBy(n => n)
                 .ToArray();
             Assert.That(missing, Is.Empty,
-                "TargetShape 有取值在 ShapeLabel / ShapeSuffix 里没有分支:\n  "
+                "TargetArea 有取值在 ShapeLabel / ShapeSuffix 里没有分支:\n  "
                 + string.Join("\n  ", missing)
                 + "\n没有分支不会编译报错,只会静默显示成「单体」。");
         }

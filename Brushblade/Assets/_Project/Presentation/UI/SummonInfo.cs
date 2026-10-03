@@ -151,7 +151,7 @@ namespace Brushblade.Presentation
             // 但初版漏接,5 条 char.shape.*.desc 文案因此没有入口显示)。OfShape(Single) 返回
             // 全 null 的 None——与 EnemyInfo.BuildAbilities 消费 OfFocus 同一条规则,没有特殊
             // 形状的召唤物(绝大多数)不出这一条,只有横扫/溅射/贯穿/连发/弹射才挂。
-            var shape = StatusText.OfShape(summon.Passive?.Shape ?? TargetShape.Single);
+            var shape = StatusText.OfShape(summon.Passive?.Shape ?? TargetArea.Single);
             if (shape.Name != null)
                 list.Add(new AbilityEntry
                 {

@@ -55,6 +55,9 @@ namespace Brushblade.Core.Tests
                           $"sp{e.HasSplit},ht{e.HitsTaken},row{e.Row})");
             foreach (var s in b.Summons)
                 if (s != null) sb.Append($"|S({s.Char},{s.Element},{s.Hp}/{s.MaxHp},atk{s.Attack})");
+            // R5 跌破 50% 标记(spec v6):引擎不对外暴露,经 Capture() 读 —— 读档漏读会在这里现形
+            var snap = b.Capture();
+            sb.Append($"|thr{snap.PlayerThresholdCrossed},{string.Join(",", snap.SummonThresholdCrossed.OrderBy(x => x))}");
             return sb.ToString();
         }
 

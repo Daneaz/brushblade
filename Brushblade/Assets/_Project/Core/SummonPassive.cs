@@ -108,7 +108,7 @@ namespace Brushblade.Core
         /// 与 <see cref="Ranged"/> **正交**:Ranged 管「能不能越过前排」,Shape 管「打几个」。
         /// 合并成一个枚举会让「远程的溅射」这种合理组合表达不出来 ——
         /// 与 EnemyAbility 当年把 Range 塞进去的教训同型(EnemyDef.cs 的注释)。</summary>
-        public TargetShape Shape { get; set; }
+        public TargetArea Shape { get; set; }
 
         /// <summary>非主目标的伤害百分比。≤0 视为 100。</summary>
         public int ShapePercent { get; set; }
