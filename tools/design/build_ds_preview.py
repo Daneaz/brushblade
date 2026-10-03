@@ -1,6 +1,6 @@
 """设计稿本地预览:规范 / 组件 / 现状三层的 preview.html → docs/design/_preview/。
 
-- 规范 docs/design/system/(tokens.json、字体、封面卡 Cover)
+- 规范 docs/design/system/(tokens.json);封面卡 docs/design/artifact/Cover
 - 组件 docs/design/component/<名>/preview.html(共用样式 component/bundle.css)
 - 现状 docs/design/current/<名>/preview.html
 
@@ -18,6 +18,7 @@ docs/design/drafts/dc-runtime.js(从 Design 类型取下的运行时,原样)顶�
 改了 tokens.json 或任何 preview 后重跑:python3 tools/design/build_ds_preview.py
 """
 import html
+import os
 import json
 import re
 from pathlib import Path
@@ -25,6 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DESIGN = ROOT / "docs/design"
 SYSTEM = DESIGN / "system"
+ARTIFACT = DESIGN / "artifact"
 COMPONENT = DESIGN / "component"
 CURRENT = DESIGN / "current"
 BUNDLE = COMPONENT / "bundle.css"
@@ -42,7 +44,7 @@ def tokens_css() -> str:
     fam = t["type"]["families"]
     out = ["/* 由 tools/design/build_ds_preview.py 从 tokens.json 生成,勿手改 */"]
     for f in t["type"]["fonts"]:
-        out.append(f'@font-face {{ font-family: "{f["family"]}"; src: url("../system/{f["file"]}"); '
+        out.append(f'@font-face {{ font-family: "{f["family"]}"; src: url("{os.path.relpath(ROOT / f["file"], OUT)}"); '
                    f'font-weight: {f["weight"]}; font-style: {f["style"]}; }}')
     out.append(":root {")
     out.append(f"  --font-serif: {fam['serif']};")
@@ -60,7 +62,7 @@ def tokens_css() -> str:
 
 
 def sources():
-    return (sorted(SYSTEM.glob("*/preview.html")) + sorted(COMPONENT.glob("*/preview.html"))
+    return (sorted(ARTIFACT.glob("*/preview.html")) + sorted(COMPONENT.glob("*/preview.html"))
             + sorted(CURRENT.glob("*/preview.html")))
 
 

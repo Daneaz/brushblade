@@ -1,6 +1,6 @@
 /* 由 tools/design/build_ds_preview.py 从 tokens.json 生成,勿手改 */
-@font-face { font-family: "Noto Serif SC"; src: url("../system/fonts/NotoSerifSC-Subset.ttf"); font-weight: 700; font-style: normal; }
-@font-face { font-family: "Noto Sans SC"; src: url("../system/fonts/NotoSansSC-Subset.ttf"); font-weight: 500; font-style: normal; }
+@font-face { font-family: "Noto Serif SC"; src: url("../../../Brushblade/Assets/_Project/Presentation/Fonts/Resources/NotoSerifSC-Subset.ttf"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Noto Sans SC"; src: url("../../../Brushblade/Assets/_Project/Presentation/Fonts/Resources/NotoSansSC-Subset.ttf"); font-weight: 500; font-style: normal; }
 :root {
   --font-serif: "Noto Serif SC", "Songti SC", serif;
   --font-sans: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;

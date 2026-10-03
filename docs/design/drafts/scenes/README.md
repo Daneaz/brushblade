@@ -55,6 +55,10 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 
 画布上原有的 `LevelUp` / `LevelUpMulti` / `LevelUpCapped` / `LevelUpChest` 四块升级弹窗早期稿已被
 `../character/LevelUp.dc.html` 取代,2026-10-03 从 `canvas.json` 摘除,连同 `levelup/` 目录一并删除。
+
+`MobArt.dc.html` / `MobScale.dc.html` 只带 2026-09-03 那批 12 张（灯花 墨溅 悬针 败笔 枯笔 火漆
+砚台 铜钤 版牍 窑变 宿墨 + 焦痕）的压平预览，不是全量；`MobLayers.dc.html` 是窑变的三层拆解示例。
+稿上标的血 / 攻 / 护甲数字已过时（护甲那三组差得最远），一律以 `enemies.json` 为准。
 `mob_*.png` 是怪物设计页三块板引用的立绘(`mob_jiaohen.png` 之外的十四张是 2026-10-03 从画布落盘的)。
 
 `canvas.json` 是画布布局（位置、分页、便签）。**分页按「屏」组织**（2026-08-29 在画布上重排）：

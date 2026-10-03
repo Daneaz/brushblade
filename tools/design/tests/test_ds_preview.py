@@ -20,9 +20,10 @@ def test_every_preview_has_a_local_page():
 
 
 def test_spec_layer_holds_no_components_or_screens():
-    """规范层只放规则与 token;组件进 component/,整屏现状进 current/。"""
-    stray = [p.parent.name for p in b.SYSTEM.rglob("preview.html") if p.parent.name != "Cover"]
-    assert not stray, f"system/ 里混进了成品或组件:{stray}"
+    """规范层只放规则(README.md)与 token(tokens.json);组件进 component/,整屏现状进 current/,artifact 外壳进 artifact/。"""
+    stray = [str(p.relative_to(b.SYSTEM)) for p in b.SYSTEM.rglob("*") if p.is_file()
+             and p.name not in ("README.md", "tokens.json")]
+    assert not stray, f"system/ 里混进了规范以外的东西:{stray}"
     assert not list(b.COMPONENT.glob("*Screen")), "整屏卡应在 current/"
 
 
