@@ -187,6 +187,9 @@ namespace Brushblade.Core
         /// <summary>战意层数上限(五行金脉 L4,spec §3.4)。**缺省 5 = 现值**,逐字节恒等。</summary>
         public int MoraleCap { get; set; } = BaseMoraleCap;
 
+        /// <summary>副面本体的连续量百分比(spec v6 §2.1,待仿真定标)。只作用于 MainFace 已指定的字。</summary>
+        public int SideFacePercent { get; set; } = 60;
+
         /// <summary>厚的层数上限(土脉 L4)。**缺省 10 = 现值**。
         /// ⚠ 与 <see cref="WellspringCap"/> 是两个独立字段,不可合并回一个常量 ——
         /// 合着会让点水脉的玩家顺手拿到厚的上限,反之亦然(spec §7.1)。</summary>
@@ -1548,6 +1551,19 @@ namespace Brushblade.Core
             return def.Effects.Count > 0 ? def.Effects : FallbackEffects;
         }
 
+        /// <summary>本次出手落在哪一面:攻击模式且有攻击面效果 = Attack,否则 Feature(与 EffectsOf 同口径)。</summary>
+        public static CardFace FaceOf(CharDef def, bool attackMode) =>
+            attackMode && def.AttackEffects.Count > 0 ? CardFace.Attack : CardFace.Feature;
+
+        /// <summary>副面缩放(spec v6 §2.1):只缩放连续量(复用五行 L3 的白名单 TakesElementPercent),
+        /// 离散的层数/回合不动。MainFace 为 null 或出手面就是主面时原样返回 —— 恒等。</summary>
+        public static int ApplySideFacePercent(int value, CharDef def, bool attackMode, EffectKind kind, int sideFacePercent)
+        {
+            if (def.MainFace == null || FaceOf(def, attackMode) == def.MainFace.Value) return value;
+            if (!TakesElementPercent(kind)) return value;
+            return value * sideFacePercent / 100;
+        }
+
         /// <summary>这张字的**单体直伤形状**(2026-08-22,供表现层预览覆盖范围用)。
         /// 建在 <see cref="EffectsOf"/> 之上而不是让表现层自己挑效果列表 —— 与 CanTarget 同一条
         /// 理由:玩家看到会打到哪几格、和引擎实际打到哪几格,一旦分头推导迟早失配。尤其是
@@ -2608,6 +2624,7 @@ namespace Brushblade.Core
             foreach (var effect in EffectsOf(def, attackMode))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
+                value = ApplySideFacePercent(value, def, attackMode, effect.Kind, _config?.SideFacePercent ?? 100);
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);

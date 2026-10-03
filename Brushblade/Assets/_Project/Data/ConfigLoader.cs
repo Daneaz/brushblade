@@ -31,6 +31,7 @@ namespace Brushblade.Data
             public string Pinyin { get; set; }
             public string Gloss { get; set; }
             public bool? Component { get; set; } // 部件标记(2026-09-01):→ CharDef.IsComponent
+            public string MainFace { get; set; } // 主面(spec v6 §2.1):null = 未指定
         }
 
         private sealed class EffectDto
@@ -497,7 +498,8 @@ namespace Brushblade.Data
 
                 defs.Add(new CharDef(dto.Id, ParseElement(dto),
                     dto.Recipe, ParseEffects(dto, dto.Effects), ParseRarity(dto),
-                    dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component));
+                    dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component,
+                    ParseMainFace(dto)));
             }
 
             // fail fast 二次校验:配方引用必须已定义(完整校验在管线侧,4.9.6)
@@ -507,6 +509,14 @@ namespace Brushblade.Data
                         throw new ConfigException($"字「{def.Id}」的配方引用了未定义的「{ingredient}」");
 
             return new RecipeGraph(defs);
+        }
+
+        private static CardFace? ParseMainFace(CharDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.MainFace)) return null;
+            if (!Enum.TryParse<CardFace>(dto.MainFace, out var face) || !Enum.IsDefined(typeof(CardFace), face))
+                throw new ConfigException($"字「{dto.Id}」的主面未知:{dto.MainFace}");
+            return face;
         }
 
         private static CardRarity ParseRarity(CharDto dto)
