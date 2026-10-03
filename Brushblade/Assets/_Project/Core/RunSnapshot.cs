@@ -49,6 +49,7 @@ namespace Brushblade.Core
 
         public bool PlayerThresholdCrossed { get; set; }              // R5 跌破 50% 已触发(spec v6)
         public List<int> SummonThresholdCrossed { get; set; } = new(); // 同上,召唤物槽位
+        public List<OpeningEffect> PendingOpenings { get; set; } = new(); // 本场登记、留给之后几场的开局效果
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>
@@ -133,6 +134,7 @@ namespace Brushblade.Core
         public int CarriedShieldAccum { get; set; }
         public int CarriedHealAccum { get; set; }
         public List<SummonSnapshot> CarriedSummons { get; set; } = new(); // 召唤物延续(2026-08-03)
+        public List<OpeningEffect> CarriedOpenings { get; set; } = new(); // 跨场开局效果(spec v6 §5.1)
 
         /// <summary>护甲增益跨战斗延续(2026-08-04):段内持久,段末清空;只承载 DefenseBuff,
         /// HoT 不跨战斗(见 RunEngine.AdvanceAfterBattle 的过滤)。</summary>

@@ -960,7 +960,8 @@ namespace Brushblade.Core
             int startingNormalShield = 0, int startingPersistShield = 0,
             IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null,
-            int startingShieldAccum = 0, int startingHealAccum = 0)
+            int startingShieldAccum = 0, int startingHealAccum = 0,
+            IReadOnlyList<OpeningEffect> startingOpenings = null)
         {
             _graph = graph;
             _config = config;
@@ -1008,6 +1009,14 @@ namespace Brushblade.Core
             // ⚠ 这个循环可能让战斗在构造函数返回前就分出胜负(携带满格召唤物秒掉弱敌),
             // Phase 会是 Won —— 表现层必须兜住(spec §5.7)。
             foreach (var enemy in _enemies) _openingPreEnemyHp.Add(enemy.Hp);
+            // 跨场开局效果(spec v6 §5.1):在开场调度之前对全场结算
+            if (startingOpenings != null && startingOpenings.Count > 0)
+            {
+                foreach (var opening in startingOpenings)
+                    ApplyDetachedEffects(opening.SourceCharId, opening.Element, new[] { opening.ToEffect() });
+                _openingSteps.Add(CaptureOpeningStep());   // 让表现层看得到开局效果的事件
+                _events.Clear();
+            }
             bool more;
             do
             {
@@ -1051,6 +1060,7 @@ namespace Brushblade.Core
                 PlayerActionMeter = PlayerActionMeter,
                 ShieldAccum = _shieldAccum,
                 HealAccum = _healAccum,
+                PendingOpenings = _pendingOpenings.Select(o => o.Clone()).ToList(),
                 PlayerThresholdCrossed = _playerThresholdCrossed,
                 SummonThresholdCrossed = _summonThresholdCrossed.ToList(),
             };
@@ -1084,6 +1094,8 @@ namespace Brushblade.Core
                 _healAccum = snapshot.HealAccum,
                 _playerThresholdCrossed = snapshot.PlayerThresholdCrossed,
             };
+            foreach (var o in snapshot.PendingOpenings ?? new List<OpeningEffect>())
+                engine._pendingOpenings.Add(o.Clone());
             foreach (int slot in snapshot.SummonThresholdCrossed ?? new List<int>())
                 engine._summonThresholdCrossed.Add(slot);
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
@@ -3594,6 +3606,28 @@ namespace Brushblade.Core
         /// <summary>触发深度(R4):特性运行时进入/退出触发结算时增减。不进快照 —— 只在一次结算内部非 0。</summary>
         public int TriggerDepth { get; private set; }
         internal void EnterTrigger() => TriggerDepth++;
+
+        private readonly List<OpeningEffect> _pendingOpenings = new List<OpeningEffect>();
+        /// <summary>本场登记、留给之后几场开局生效的效果(RunEngine 战后收走)。</summary>
+        public IReadOnlyList<OpeningEffect> PendingOpenings => _pendingOpenings;
+
+        internal void RegisterOpening(OpeningEffect effect)
+        {
+            if (EffectNeedsTarget(effect.ToEffect()) || EffectNeedsAllyTarget(effect.ToEffect()))
+                throw new ArgumentException($"开局效果不能选目标:{effect.Kind}", nameof(effect));
+            _pendingOpenings.Add(effect.Clone());
+        }
+
+        /// <summary>脱离出字执行一组效果(特性运行时 / 开局效果),深度 +1(R4)。
+        /// isComponent: true —— 让断金(只认金系「字」)不在独立效果上触发。
+        /// 已核对:ApplyEffects 内 IsComponent 仅用于断金判定(另一处读取在拆合路径,不经此)。</summary>
+        internal void ApplyDetachedEffects(string sourceCharId, Element element, IReadOnlyList<EffectDef> effects, int targetIndex = -1)
+        {
+            var def = new CharDef(sourceCharId, element, effects: effects, isComponent: true);
+            EnterTrigger();
+            try { ApplyEffects(def, targetIndex); }
+            finally { ExitTrigger(); }
+        }
         internal void ExitTrigger() => TriggerDepth--;
 
         internal void AddHookListener(IBattleHookListener listener) => _hookListeners.Add(listener);
