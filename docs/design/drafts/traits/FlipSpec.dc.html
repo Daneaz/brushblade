@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    .board { width: 1320px; height: 700px; display: flex; flex-direction: column; gap: 16px; }
+    h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
+    .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.75; max-width: 1040px; }
+    .lede b { color: var(--text-main); }
+    .cols { flex: 1; min-height: 0; display: flex; gap: 22px; }
+    .col { display: flex; flex-direction: column; gap: 10px; }
+    h3 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 8px; }
+    h3 small { font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 400; color: var(--text-faint); letter-spacing: 0; }
+    .stage { border-radius: 10px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); padding: 16px 14px 12px; }
+    .tiles { display: flex; gap: 14px; align-items: flex-end; }
+    .tcell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .z3 { width: 137.6px; height: 167.7px; display: flex; align-items: flex-start; justify-content: flex-start; }
+    .z3 .htile { transform: scale(3); transform-origin: 0 0; cursor: default; }
+    .cap { font-size: 10px; color: var(--text-dim); text-align: center; line-height: 1.5; }
+    .cap b { color: var(--text-main); font-weight: 700; }
+    .real { display: flex; gap: 5px; align-items: flex-end; padding: 10px 12px; border-radius: 8px; background: var(--paper); margin-top: 12px; }
+    .real .lb { font-size: 9px; color: var(--text-faint); margin-right: 6px; align-self: center; }
+    .spec { font-size: 10.5px; line-height: 1.7; color: var(--text-dim); margin: 0; padding-left: 16px; }
+    .spec b { color: var(--text-main); font-weight: 700; }
+    .spec code { font-family: inherit; font-size: 10px; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; color: var(--text-quiet); }
+
+    table { border-collapse: collapse; font-size: 10.5px; width: 100%; }
+    th { text-align: left; font-weight: 500; color: var(--text-faint); font-size: 9.5px; padding: 0 8px 5px 0; border-bottom: 1px solid var(--paper-dim); }
+    td { padding: 7px 8px 7px 0; border-bottom: 1px solid #ECE6D9; color: var(--text-dim); vertical-align: top; line-height: 1.5; }
+    td:first-child { color: var(--text-main); white-space: nowrap; }
+    td.chg { color: var(--text-main); }
+    td.chg b { color: var(--cinnabar-dark); }
+    .flag { margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-text); font-size: 10.5px; line-height: 1.6; }
+    .flag b { font-weight: 700; }
+
+    .mini { display: flex; flex-direction: column; gap: 3px; padding: 8px; border-radius: 8px; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); width: 158px; box-sizing: border-box; }
+    .mini .r { display: flex; gap: 4px; justify-content: center; }
+    .mini i { width: 32px; height: 14px; border-radius: 5px; background: var(--locked-bg); display: block; box-sizing: border-box; }
+    .mini i.f { background: #E7DCCB; }
+    .mini i.s { background: var(--wood-soft); }
+    .mini i.p { width: 140px; background: #DCD5C8; }
+    .mini i.e { background: transparent; box-shadow: inset 0 0 0 1px #D9D1C1; }
+    .mini i.ok { box-shadow: 0 0 0 1.5px var(--hl); }
+    .mini i.hov { box-shadow: 0 0 0 2.5px var(--hl); background-color: #D6CCBA; }
+    .mini i.no { opacity: .42; }
+    .mini i.slot { background: rgba(52,134,75,.12); box-shadow: 0 0 0 1.5px var(--hl); }
+    .mini .lb { font-size: 9.5px; color: var(--text-main); display: flex; flex-direction: column; gap: 1px; margin-bottom: 3px; }
+    .mini .lb span { color: var(--text-faint); }
+    .legend { display: flex; gap: 12px; font-size: 9.5px; color: var(--text-dim); align-items: center; flex-wrap: wrap; }
+    .legend i { display: inline-block; width: 18px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; background: var(--locked-bg); }
+  </style>
+</helmet>
+<div class="board">
+  <div>
+    <h2>翻 面 · 规 格</h2>
+    <div class="lede">一张字两面:<b>主面朝上是纸白,翻到副面是该系的淡底纸</b>。每一面一枚方印(焚燃斩铠涛润震固刺生),
+      主面朱文(实底白字)、副面白文(描边)。同一枚印出现在手牌、详情、升级预览、出手飘字四处 —— 玩家只需要认这一个记号。
+      可交互版本见 <b>HandFlip</b>。</div>
+  </div>
+  <div class="cols">
+    <div class="col" style="width: 486px;">
+      <h3>手牌两面 <small>实现尺寸 45.87 × 55.90pt,此处 ×3</small></h3>
+      <div class="stage">
+        <div class="tiles">
+          <sc-for list="{{ big }}" as="t">
+            <div class="tcell">
+              <div class="z3"><div class="{{ t.cls }}"><span class="g">{{ t.g }}</span><span class="{{ t.sealCls }}">{{ t.s }}</span></div></div>
+              <div class="cap"><b>{{ t.k }}</b><br>{{ t.d }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div class="real"><span class="lb">原大</span>
+          <sc-for list="{{ small }}" as="t"><div class="{{ t.cls }}"><span class="g">{{ t.g }}</span><span class="{{ t.sealCls }}">{{ t.s }}</span></div></sc-for>
+        </div>
+      </div>
+      <ul class="spec">
+        <li><b>三个记号同时变</b>:牌面 <code>card-face</code> → <code>&lt;el&gt;-soft</code>;面印朱文 → 白文;右上角出折角(9pt 三角,<code>&lt;el&gt;-glyph</code>)。
+          金系淡底与纸白只差一线(右二),折角是给它兜底的。</li>
+        <li><b>面印</b> 10pt 方(21 逻辑单位),印文 7pt 宋体 700,占原拼音位(锚 0.06–0.30)。
+          拼音 5.73pt 在手牌上本来读不清,详情页里照旧有。</li>
+        <li><b>翻面动效</b> 0.18s:横向压扁到 4% 再展开,底色与面印在中点换。不耗 AP,不进行动记录。</li>
+      </ul>
+    </div>
+
+    <div class="col" style="width: 400px;">
+      <h3>手势 <small>改的只有一处:点已选中的牌</small></h3>
+      <table>
+        <tr><th style="width: 92px;">手势</th><th>现在</th><th>本稿</th></tr>
+        <tr><td>点未选中的牌</td><td>选中,拆合台显示</td><td>不变(只选中,不翻)</td></tr>
+        <tr><td>点已选中的牌</td><td>直接出字</td><td class="chg"><b>翻面</b></td></tr>
+        <tr><td>拆合台翻面钮</td><td>—</td><td class="chg">新增:两格「特色 主 / 攻击 60%」,点另一格即翻</td></tr>
+        <tr><td>拆合台「出」</td><td>出字</td><td>按朝上的那一面出字</td></tr>
+        <tr><td>拖出</td><td>出字;双向字靠落点定方向</td><td class="chg">按朝上的那一面出字;<b>只点亮这一面能落的目标</b></td></tr>
+        <tr><td>长按</td><td>详情</td><td>详情,标出「朝上」的那一面</td></tr>
+      </table>
+      <div class="flag"><b>需拍板:</b>spec §2.1 写的是「点一下翻面」,而现在「点」已经有两个意思(点未选中=选中,点已选中=出字)。
+        本稿保留第一个、把第二个换成翻面。代价:习惯「连点两下出字」的玩家第二下会变成翻面 —— 不耗 AP、看得见、可再点翻回,
+        是安全的失败;出字仍有拖出与「出」钮两条路。另一个做法是只在拆合台放翻面钮、手牌上不能翻,能保住旧手势,但翻面藏得深。</div>
+      <ul class="spec">
+        <li><b>朝上的面跟着这张牌</b>,直到出手;出手后回到主面。回合结束不重置 —— 刚翻好的牌下回合又翻回去,是在替玩家做决定。</li>
+        <li>火字两面都打敌人,<b>落点分不出面</b>,所以必须先翻再拖;这也是双向字那套「靠落点定方向」不能沿用的原因。</li>
+      </ul>
+    </div>
+
+    <div class="col" style="flex: 1;">
+      <h3>落点高亮 <small>拖起那一刻就亮,不等悬停</small></h3>
+      <div class="legend">
+        <span><i style="box-shadow: 0 0 0 1.5px var(--fire-glyph);"></i>可落:1.5pt 描环(朝上那面的字形色)+ 5% 墨</span>
+        <span><i style="box-shadow: 0 0 0 2.5px var(--fire-glyph); background: #D6CCBA;"></i>悬停:2.5pt + 墨底预估标签</span>
+        <span><i style="opacity: .42;"></i>不可落:整格 opacity-dim</span>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div class="mini" style="--hl: var(--fire-glyph);">
+          <div class="lb">攻击面 · 燃 <span>敌人</span></div>
+          <div class="r"><i class="f ok"></i><i class="f ok"></i><i class="f ok"></i><i class="e"></i></div>
+          <div class="r"><i class="f hov"></i><i class="f ok"></i><i class="f ok"></i><i class="f ok"></i></div>
+          <div class="r" style="margin-top: 4px;"><i class="s no"></i><i class="s no"></i><i class="e no"></i><i class="e no"></i></div>
+          <div class="r"><i class="p no"></i></div>
+        </div>
+        <div class="mini" style="--hl: var(--earth-glyph);">
+          <div class="lb">攻击面 · 震 <span>全体:悬停任一只,全排一起亮</span></div>
+          <div class="r"><i class="f hov"></i><i class="f hov"></i><i class="f hov"></i><i class="e"></i></div>
+          <div class="r"><i class="f hov"></i><i class="f hov"></i><i class="f hov"></i><i class="f hov"></i></div>
+          <div class="r" style="margin-top: 4px;"><i class="s no"></i><i class="s no"></i><i class="e no"></i><i class="e no"></i></div>
+          <div class="r"><i class="p no"></i></div>
+        </div>
+        <div class="mini" style="--hl: var(--water-glyph);">
+          <div class="lb">特色面 · 润 / 固 / 铠 <span>自己与木灵</span></div>
+          <div class="r"><i class="f no"></i><i class="f no"></i><i class="f no"></i><i class="e no"></i></div>
+          <div class="r"><i class="f no"></i><i class="f no"></i><i class="f no"></i><i class="f no"></i></div>
+          <div class="r" style="margin-top: 4px;"><i class="s ok"></i><i class="s ok"></i><i class="e"></i><i class="e"></i></div>
+          <div class="r"><i class="p hov"></i></div>
+        </div>
+        <div class="mini" style="--hl: var(--wood-glyph);">
+          <div class="lb">特色面 · 生 <span>空位 = 召唤,木灵 = 嫁接</span></div>
+          <div class="r"><i class="f no"></i><i class="f no"></i><i class="f no"></i><i class="e no"></i></div>
+          <div class="r"><i class="f no"></i><i class="f no"></i><i class="f no"></i><i class="f no"></i></div>
+          <div class="r" style="margin-top: 4px;"><i class="s ok"></i><i class="s ok"></i><i class="slot"></i><i class="slot"></i></div>
+          <div class="r"><i class="p no"></i></div>
+        </div>
+      </div>
+      <ul class="spec">
+        <li><b>预估标签</b>只写数字:「伤 197 ×1.5 · 灼 +4」「护盾 334」「嫁接」「召唤林灵」。倍率不为 1 时才写倍率。</li>
+        <li>空召唤位平时不画(现状如此),只在「生」面拖起时铺翠玉淡底 + 「召唤到这里」。</li>
+        <li>实现落点:沿用 <code>DragToAttack.onBeginDrag</code> 点亮、<code>onDragMove</code> 就地改色 —— 两条都<b>不许重绘</b>(组件注释里的那条 ⚠)。</li>
+        <li>双向态(<code>_targeting</code> 与 <code>_allyTargeting</code> 同真)对两面字<b>不再出现</b>:一次只有一面,一次只亮一类目标。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 700}}'>
+var Z = window.ZD;
+function tile(id, back) {
+  var c = Z.CHARS[id], fi = back ? 1 - c.main : c.main;
+  return { g: id, s: c.faces[fi].s, cls: 'htile e-' + c.el + ' r-' + c.rar + (back ? ' back' : ''), sealCls: 'seal xs ' + (back ? 'sub' : 'main') };
+}
+class Component extends DCLogic {
+  renderVals() {
+    var big = [['炎', false, '炎 · 正面', '主面「燃」'], ['炎', true, '炎 · 背面', '副面「焚」'], ['剑', true, '剑 · 背面', '金系:淡底只差一线']].map(function (x) {
+      return Object.assign(tile(x[0], x[1]), { k: x[2], d: x[3] });
+    });
+    var small = [];
+    ['炎', '剑', '林', '冷'].forEach(function (id) { small.push(tile(id, false)); small.push(tile(id, true)); });
+    return { big: big, small: small };
+  }
+}
+</script>
+</body>
+</html>

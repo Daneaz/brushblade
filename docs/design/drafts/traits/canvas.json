@@ -1,0 +1,18 @@
+{
+  "title": "字卡五特性 · 两面制",
+  "artboards": [
+    { "file": "CardSheet.dc.html", "x": 0, "y": 0, "w": 932, "h": 476, "title": "字卡详情 · 卡组入口(可切字/等级,点行开词条)" },
+    { "file": "CardSheetBattle.dc.html", "x": 1012, "y": 0, "w": 932, "h": 476, "title": "字卡详情 · 战斗长按(标朝上的面)" },
+    { "file": "UpgradePreview.dc.html", "x": 2024, "y": 0, "w": 932, "h": 476, "title": "升级预览 · 新解锁标明属于哪一面" },
+    { "file": "HandFlip.dc.html", "x": 0, "y": 600, "w": 932, "h": 430, "title": "手牌翻面 + 按面高亮落点(可拖)" },
+    { "file": "FlipSpec.dc.html", "x": 1012, "y": 600, "w": 1320, "h": 700, "title": "翻面 · 规格(面印 / 背面 / 手势 / 落点)" },
+    { "file": "StatusChips.dc.html", "x": 0, "y": 1420, "w": 1320, "h": 700, "title": "状态 chip 十四枚 · 冰滞与减速之别" },
+    { "file": "TriggerFx.dc.html", "x": 1420, "y": 1420, "w": 932, "h": 516, "title": "触发反馈 · 特性名 / 状态名 / 载体闪" },
+    { "file": "CarryOver.dc.html", "x": 2452, "y": 1420, "w": 932, "h": 476, "title": "跨场效果 · 开局三拍" },
+    { "file": "Glossary.dc.html", "x": 0, "y": 2240, "w": 1320, "h": 700, "title": "词条说明 · 气泡与词条表" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -150, "w": 520, "text": "依据:docs/superpowers/specs/2026-10-03-字卡五特性体系-design.md §2 §3 §12。\n一张字两面:主面纸白 + 朱文面印,副面属性淡底 + 白文面印 + 折角。同一枚面印贯穿手牌、详情、升级、飘字。" }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    /* 升级预览 = 现行 UpgradeDialog(520×320pt,CollectionView.ShowUpgradePreview)的改版。
+       骨架、DeltaRow 读法、「不变」收尾、赭金主钮全部不动;只改右栏:
+       「层数与特性」→ 有新特性时换成「新解锁」卡(标它挂在哪一面),没有时预告下一个。 */
+    .wrap { position: relative; width: 932px; height: 476px; background: var(--paper); }
+    .bgdeck { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px; }
+    .bgdeck .grid { display: grid; grid-template-columns: repeat(10, 62px); gap: 10px 9px; margin-top: 44px; }
+    .bgdeck .mt { width: 62px; height: 78px; border-radius: 7px; background: var(--card-face); box-shadow: inset 0 0 0 2px var(--panel-border); }
+    .dlg { position: absolute; left: 206px; top: 55px; width: 520px; height: 320px; box-sizing: border-box; z-index: 51;
+      background: var(--panel-paper); border: 1px solid var(--panel-border); border-radius: 8.6px; padding: 12px 15px 12px;
+      box-shadow: 0 12px 38px rgba(22,27,34,.42); display: flex; flex-direction: column; gap: 9px; }
+    .hd { display: flex; align-items: baseline; gap: 10px; }
+    .hd h4 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 16.2px; font-weight: 600; letter-spacing: 1px; }
+    .hd .warn { margin-left: auto; font-size: 9.1px; color: var(--text-faint); }
+    .cards { display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .ct { position: relative; width: 50px; height: 62px; box-sizing: border-box; border-radius: 6px; border: 2px solid var(--rar); background: var(--card-face);
+      display: flex; flex-direction: column; align-items: center; }
+    .ct.old { background: var(--locked-paper); }
+    .ct .g { margin-top: 8px; font-family: "Noto Serif SC", serif; font-size: 24px; font-weight: 600; line-height: 1; color: var(--glyph); }
+    .ct .lv { position: absolute; left: 3px; top: 3px; height: 11px; padding: 0 3px; border-radius: 5.5px; background: var(--ink); color: #fff; font-size: 6.5px; display: inline-flex; align-items: center; }
+    .ct .seal { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); }
+    .arrow { font-size: 14px; color: var(--exit-pink); }
+    .upchip { height: 20px; padding: 0 9px; border-radius: 10px; background: var(--jade); color: #fff; font-size: 10px; display: inline-flex; align-items: center; }
+    .bd { flex: 1; min-height: 0; display: flex; gap: 12px; }
+    .colm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .colm h5 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; }
+    .dr { height: 25.8px; border-radius: 5.7px; background: var(--panel-inset); display: flex; align-items: center; gap: 6px; padding: 0 8px; }
+    .dr .nm { flex: 1; font-size: 9.1px; color: var(--text-dim); white-space: nowrap; }
+    .dr .o { font-family: "Noto Serif SC", serif; font-size: 11.9px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+    .dr .ar { font-size: 8.6px; color: var(--text-faint); }
+    .dr .nw { font-family: "Noto Serif SC", serif; font-size: 13.9px; font-weight: 600; color: var(--upgrade-text); font-variant-numeric: tabular-nums; }
+    .dr .dl { font-size: 9.1px; color: var(--upgrade-text); font-variant-numeric: tabular-nums; }
+    .empty { font-size: 9.5px; color: var(--text-faint); padding: 6px 2px; }
+
+    /* 新解锁卡:墨晕(halo-new)+ 面印大号 + 「挂在哪一面」。只此一张卡带呼吸,是整窗唯一会动的东西 */
+    .nu { position: relative; border-radius: 8px; background: var(--card-face); padding: 8px 10px 9px; display: flex; flex-direction: column; gap: 5px;
+      box-shadow: var(--halo-new); animation: breathe 2.6s ease-in-out infinite; }
+    @keyframes breathe { 0%, 100% { box-shadow: 0 0 0 2px rgba(201,169,74,.5), 0 0 12px 3px rgba(201,169,74,.34); } 50% { box-shadow: 0 0 0 2px rgba(201,169,74,.32), 0 0 6px 1px rgba(201,169,74,.18); } }
+    .nu .where { display: flex; align-items: center; gap: 6px; }
+    .nu .where .wb { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--text-main); }
+    .nu .where .ws { font-size: 8.5px; color: var(--text-dim); }
+    .nu .newtag { margin-left: auto; height: 14px; padding: 0 6px; border-radius: 7px; background: var(--gold); color: var(--gold-text); font-size: 8px; display: inline-flex; align-items: center; }
+    .nu .tn { display: flex; align-items: baseline; gap: 6px; }
+    .nu .tn .tb { font-family: "Noto Serif SC", serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+    .nu .tn .tk { font-size: 8.5px; color: var(--text-dim); }
+    .nu .tx { font-size: 10px; line-height: 1.55; color: var(--text-dim); }
+    .next { border-radius: 8px; background: var(--panel-inset); padding: 7px 9px; display: flex; flex-direction: column; gap: 4px; }
+    .next .k { font-size: 8.5px; color: var(--text-dim); }
+    .next .r { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--text-dim); }
+    .next .r b { font-family: "Noto Serif SC", serif; font-size: 11px; color: var(--text-main); font-weight: 600; }
+    .same { font-size: 8.6px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btns { display: flex; gap: 10px; }
+    .btns .ok { flex: 1; height: 34px; border-radius: 11.47px; background: var(--gold); color: var(--gold-text); display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; letter-spacing: 2px; }
+    .btns .no { width: 119px; height: 34px; border-radius: 11.47px; background: var(--locked-bg); color: var(--text-quiet); display: flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 11.5px; font-weight: 600; letter-spacing: 2px; }
+
+    .ctl { position: absolute; left: 0; right: 0; top: 430px; height: 46px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 6px;
+      background: #E9E3D6; border-top: 1px dashed #C9BFAC; font-size: 10px; color: var(--text-dim); }
+    .ctl .lb { margin-right: 4px; letter-spacing: 1px; } .ctl .sp { width: 12px; }
+    .ctl button { height: 24px; min-width: 24px; padding: 0 7px; border-radius: 5px; border: 1px solid #C9BFAC; background: var(--panel-paper); font-size: 11px; cursor: pointer; white-space: nowrap; }
+    .ctl button.on { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+    .ctl .g { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; }
+  </style>
+</helmet>
+<div class="wrap">
+<div class="dev">
+  <div class="bgdeck"><div class="grid"><sc-for list="{{ bg }}" as="b"><div class="mt"></div></sc-for></div></div>
+  <div class="scrim"></div>
+  <div class="{{ dlgCls }}">
+    <div class="hd"><h4>升级「{{ id }}」</h4><span class="warn">墨锭与重复卡扣除后不退还</span></div>
+    <div class="cards">
+      <div class="ct old"><span class="lv">Lv.{{ L }}</span><span class="g">{{ id }}</span><span class="seal xs main">{{ mainSeal }}</span></div>
+      <span class="arrow">→</span>
+      <div class="ct"><span class="lv">Lv.{{ L2 }}</span><span class="g">{{ id }}</span><span class="seal xs main">{{ mainSeal }}</span></div>
+      <span class="upchip">升到 Lv.{{ L2 }}</span>
+    </div>
+    <div class="bd">
+      <div class="colm">
+        <h5>数值提升</h5>
+        <sc-for list="{{ deltas }}" as="d">
+          <div class="dr"><span class="{{ d.sealCls }}">{{ d.s }}</span><span class="nm">{{ d.k }}</span><span class="o">{{ d.o }}</span><span class="ar">→</span><span class="nw">{{ d.n }}</span><span class="dl">{{ d.dl }}</span></div>
+        </sc-for>
+        <sc-if value="{{ noDelta }}" hint-placeholder-val="{{ false }}"><div class="empty">这一级没有数值变化</div></sc-if>
+      </div>
+      <div class="colm">
+        <h5>{{ rightTitle }}</h5>
+        <sc-if value="{{ hasNew }}" hint-placeholder-val="{{ true }}">
+          <div class="nu">
+            <div class="where"><span class="{{ nuSealCls }}">{{ nuSeal }}</span><b class="wb">{{ nuWhere }}</b><span class="ws">{{ nuWhereSub }}</span><span class="newtag">新</span></div>
+            <div class="tn"><b class="tb">{{ nuName }}</b><span class="tk">Lv{{ L2 }} · {{ nuKind }}</span></div>
+            <div class="tx"><sc-for list="{{ nuSegs }}" as="s"><span class="{{ s.cls }}">{{ s.t }}</span></sc-for></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noNew }}" hint-placeholder-val="{{ false }}">
+          <div class="empty">这一级没有新特性</div>
+          <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ true }}">
+            <div class="next"><span class="k">下一个在 Lv{{ nxLv }}</span>
+              <div class="r"><span class="{{ nxSealCls }}">{{ nxSeal }}</span><b>{{ nxName }}</b>{{ nxWhere }}</div></div>
+          </sc-if>
+        </sc-if>
+      </div>
+    </div>
+    <div class="same">{{ same }}</div>
+    <div class="btns"><span class="ok">确认升级</span><span class="no">再想想</span></div>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+<div class="ctl">
+  <span class="lb">评审控件 · 字</span>
+  <sc-for list="{{ charBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}"><span class="g">{{ c.id }}</span></button></sc-for>
+  <span class="sp"></span><span class="lb">升级</span>
+  <sc-for list="{{ lvBtns }}" as="c"><button class="{{ c.cls }}" onClick="{{ c.pick }}">{{ c.n }}</button></sc-for>
+</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 476}}'>
+var Z = window.ZD;
+function whereOf(c, t) {
+  if (t.face === 'both') return { seal: '两', cls: 'seal l both', w: '两面', sub: t.lv === 4 ? '修饰本字' : '两面同时强化' };
+  var f = c.faces[t.fi], m = t.fi === c.main;
+  return { seal: f.s, cls: 'seal l ' + (m ? 'main' : 'sub'), w: (m ? '主面' : '副面') + '「' + f.s + '」', sub: f.role + (m ? '' : ' · 60%') };
+}
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { id: '炎', L: 4 }; }
+  renderVals() {
+    var self = this, s = this.state, id = s.id, L = s.L, L2 = L + 1, c = Z.CHARS[id];
+    var deltas = [];
+    [c.main, 1 - c.main].forEach(function (fi) {
+      var a = Z.faceOf(id, fi, L), b = Z.faceOf(id, fi, L2), m = fi === c.main;
+      a.stats.forEach(function (st, i) {
+        var o = st.v, n = b.stats[i].v;
+        if (o === n) return;
+        var on = parseFloat(String(o).replace('+', '')), nn = parseFloat(String(n).replace('+', ''));
+        deltas.push({ s: a.s, sealCls: 'seal xs ' + (m ? 'main' : 'sub'), k: st.k, o: o, n: n, dl: isNaN(on) || isNaN(nn) ? '' : '(+' + (nn - on) + ')' });
+      });
+    });
+    var all = Z.traitsOf(id, L2);
+    var nu = all.filter(function (t) { return t.lv === L2; })[0];
+    var nx = all.filter(function (t) { return t.lv > L2; })[0];
+    var same = all.filter(function (t) { return t.lv <= L; }).map(function (t) { return t.name; });
+    var w = nu ? whereOf(c, nu) : null, wn = nx ? whereOf(c, nx) : null;
+    return {
+      bg: new Array(20).fill(0),
+      dlgCls: 'dlg e-' + c.el + ' r-' + c.rar, id: id, L: L, L2: L2, mainSeal: c.faces[c.main].s,
+      deltas: deltas.slice(0, 4), noDelta: deltas.length === 0,
+      rightTitle: nu ? '新解锁' : '特性',
+      hasNew: !!nu, noNew: !nu,
+      nuSeal: w ? w.seal : '', nuSealCls: w ? w.cls : '', nuWhere: w ? w.w : '', nuWhereSub: w ? w.sub : '',
+      nuName: nu ? nu.name + (nu.tag ? '（' + nu.tag + '）' : '') : '', nuKind: nu ? (nu.kind || '强化') : '', nuSegs: nu ? Z.segs(nu.text) : [],
+      hasNext: !!nx, nxLv: nx ? nx.lv : '', nxSeal: wn ? wn.seal : '', nxSealCls: wn ? wn.cls.replace(' l ', ' s ') : '', nxName: nx ? nx.name : '', nxWhere: wn ? ' · ' + wn.w : '',
+      same: same.length ? '不变：' + same.join(' · ') : '不变：两面本体的层数与回合',
+      charBtns: Z.ORDER.map(function (k) { return { id: k, cls: k === id ? 'on' : '', pick: function () { self.setState({ id: k }); } }; }),
+      lvBtns: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return { n: n + '→' + (n + 1), cls: n === L ? 'on' : '', pick: function () { self.setState({ L: n }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

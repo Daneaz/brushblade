@@ -1,0 +1,350 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./traits-data.js"></script>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="./traits.css">
+  <style>
+    /* 手牌翻面 + 拖拽落点(可交互)。战场骨架与尺寸照 current/BattleScreen(实现值);
+       本稿只改三处:手牌(面印 + 背面)、拆合台选中区(翻面钮)、拖拽时的落点高亮。 */
+    .dev { touch-action: none; user-select: none; }
+    .bench .sel { display: flex; flex-direction: column; gap: 5px; }
+    .bhead { display: flex; align-items: center; gap: 6px; }
+    .mt { position: relative; width: 30px; height: 37px; flex: none; box-sizing: border-box; border-radius: 4px; border: 1px solid var(--rar);
+      background: var(--card-face); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+    .mt.back { background: var(--elSoft); }
+    .mt.back::after { content: ""; position: absolute; right: -1px; top: -1px; border-top: 7px solid var(--glyph); border-left: 7px solid transparent; border-top-right-radius: 3px; }
+    .mt .g { margin-top: 4px; font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: var(--glyph); line-height: 1; }
+    .mt .seal { position: absolute; bottom: 2.5px; }
+    .bname { display: flex; flex-direction: column; gap: 1px; }
+    .bname b { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; }
+    .bname span { font-size: 6.5px; color: var(--text-dim); }
+    /* 翻面钮:两格并排,选中的那格就是「朝上的面」。视觉 22 高,触控靠透明扩边补到 44 */
+    .flipsw { display: flex; gap: 3px; }
+    .fsw { position: relative; flex: 1; min-width: 0; height: 22px; white-space: nowrap; box-sizing: border-box; border: none; border-radius: 6px; padding: 0 4px; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; background: var(--panel-inset); font-size: 6.8px; color: var(--text-dim); }
+    .fsw::after { content: ""; position: absolute; left: 0; right: 0; top: -11px; bottom: -11px; }
+    .fsw.on { background: var(--card-face); color: var(--text-main); box-shadow: inset 0 0 0 1.2px var(--ink); }
+    .fsw.on.sub { background: var(--elSoft); }
+    .fsw .r { font-size: 6.2px; color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+    .finfo { font-size: 6.6px; line-height: 1.55; color: var(--text-main); }
+    .finfo .tgl { color: var(--text-dim); }
+    .finfo .term { color: var(--ink-soft); }
+    .tchips { display: flex; flex-wrap: wrap; gap: 3px; }
+    .tchip { height: 12px; padding: 0 4px; border-radius: 6px; display: inline-flex; align-items: center; gap: 2px; font-size: 6.4px; white-space: nowrap;
+      background: var(--panel-inset); color: var(--text-dim); }
+    .tchip b { font-family: "Noto Serif SC", serif; font-weight: 600; color: var(--text-main); }
+    .acts { display: flex; gap: 4px; }
+    .acts span { width: 36.31px; height: 24.84px; border-radius: 11.47px; display: inline-flex; align-items: center; justify-content: center;
+      font-family: "Noto Serif SC", serif; font-size: 8.1px; font-weight: 600; color: #fff; }
+    .acts .a1 { background: var(--cinnabar); } .acts .a2 { background: var(--split-blue); } .acts .a3 { background: var(--exit-pink); }
+    .bhint { font-size: 6.2px; color: var(--text-dim); line-height: 1.5; }
+    .bhint b { color: var(--text-main); font-weight: 700; }
+    .craft { height: 23.89px; border-radius: 4.78px; background: var(--ad-green-bg); display: flex; align-items: center; gap: 4px; padding: 0 6px;
+      font-size: 7.17px; color: var(--text-main); }
+    .craft b { margin-left: auto; font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 600; color: var(--glyph); }
+    .endt { margin-top: auto; align-self: center; width: 90.78px; height: 24.84px; border-radius: 11.47px; background: var(--cinnabar); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 600; letter-spacing: 1px; }
+
+    /* ---- 落点高亮(拖拽时) ----
+       可落:单位格外圈 1.5pt 朝上那面的字形色 + 7% 墨;悬停:描环加粗 + 预估标签;不可落:整格压到 opacity-dim。
+       空召唤位只在「生」面朝上时出现可落态(召唤),已有木灵格在「生」面下读作「嫁接」。 */
+    [data-tgt] { transition: opacity .12s; }
+    .tg-ok { box-shadow: 0 0 0 1.5px var(--hl); background: rgba(22,27,34,.05); }
+    .tg-hover { box-shadow: 0 0 0 2.5px var(--hl); background: rgba(22,27,34,.09); }
+    .tg-no { opacity: .42; }
+    .tg-lbl { position: absolute; z-index: 90; left: 50%; top: -9px; transform: translateX(-50%); height: 13px; padding: 0 5px; border-radius: 6.5px;
+      background: var(--ink); color: #fff; font-size: 7.2px; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; pointer-events: none; }
+    .slot { position: relative; flex: none; border-radius: 8px; box-sizing: border-box; }
+    .slot.sfront { width: 138px; height: 52px; } .slot.srear { width: 138px; height: 42px; }
+    .slot.tg-ok, .slot.tg-hover { background: rgba(52,134,75,.10); }
+    .slot .ghost-lbl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 7.5px; color: var(--wood-fg); }
+    .efoe.empty { width: 140px; }
+
+    .ghost { position: absolute; z-index: 80; pointer-events: none; transform: translate(-50%, -60%) scale(1.12); box-shadow: 0 6px 14px rgba(22,27,34,.28); }
+
+    /* 出手反馈(预演 TriggerFx 稿):面印 + 特性名先飘,数字后到 */
+    .pop { position: absolute; z-index: 85; pointer-events: none; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px;
+      animation: popup 1.4s ease-out forwards; }
+    .pop .tname { display: inline-flex; align-items: center; gap: 3px; height: 15px; padding: 0 5px 0 2px; border-radius: 4px; background: rgba(251,248,241,.94);
+      box-shadow: 0 1px 4px rgba(22,27,34,.25); font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 700; color: var(--glyph); white-space: nowrap; }
+    .pop .pnum { font-size: 15px; font-weight: 700; color: var(--glyph); -webkit-text-stroke: .6px rgba(251,248,241,.9); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    @keyframes popup { 0% { opacity: 0; transform: translate(-50%, 6px) scale(.7); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+      25% { transform: translate(-50%, 0) scale(1); } 75% { opacity: 1; transform: translate(-50%, -10px); } 100% { opacity: 0; transform: translate(-50%, -18px); } }
+    .msg { position: absolute; left: 0; right: 0; bottom: 3px; text-align: center; font-size: 8px; color: var(--text-dim); pointer-events: none; z-index: 60; }
+  </style>
+</helmet>
+
+<div class="dev" onPointerMove="{{ move }}" onPointerUp="{{ up }}" onPointerLeave="{{ leave }}">
+  <div class="safe">
+    <div class="tbar"><span class="lvn">「文山」第 41~50 层 · 战斗 2</span><span>第 44 层</span><div class="grow"></div><span class="turn">回合 6</span><span class="quit">退出</span></div>
+    <div class="arena">
+      <div class="rail"></div>
+      <div class="mid">
+        <sc-for list="{{ erows }}" as="row">
+          <div class="erow">
+            <sc-for list="{{ row }}" as="e">
+              <div class="{{ e.cls }}" data-tgt="{{ e.id }}" style="{{ e.style }}">
+                <sc-if value="{{ e.filled }}" hint-placeholder-val="{{ true }}">
+                  <div class="pt"><sc-if value="{{ e.img }}" hint-placeholder-val="{{ false }}"><img src="{{ e.img }}" alt=""></sc-if><sc-if value="{{ e.noImg }}" hint-placeholder-val="{{ true }}"><span class="gface">{{ e.g }}</span></sc-if></div>
+                  <div class="inf">
+                    <div class="hd"><span class="nm">{{ e.n }}</span><span class="eb">{{ e.en }}</span></div>
+                    <div class="scs"><sc-for list="{{ e.chips }}" as="c"><span class="{{ c.cls }}"><svg><use href="{{ c.ic }}"></use></svg>{{ c.t }}</span></sc-for></div>
+                    <div class="hpb"><span style="{{ e.hp }}"></span><u>{{ e.hpt }}</u></div>
+                    <div class="atb"><span style="{{ e.atb }}"></span></div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.lbl }}" hint-placeholder-val="{{ false }}"><span class="tg-lbl">{{ e.lbl }}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div class="divider"></div>
+        <sc-for list="{{ srows }}" as="row">
+          <div class="srow">
+            <sc-for list="{{ row }}" as="e">
+              <div class="{{ e.cls }}" data-tgt="{{ e.id }}" style="{{ e.style }}">
+                <sc-if value="{{ e.filled }}" hint-placeholder-val="{{ true }}">
+                  <div class="pt"><span class="gface">{{ e.g }}</span></div>
+                  <div class="inf">
+                    <div class="hd"><span class="nm">{{ e.n }}</span><span class="eb">木</span></div>
+                    <div class="scs"></div>
+                    <div class="hpb"><span style="{{ e.hp }}"></span><u>{{ e.hpt }}</u></div>
+                    <div class="atb"><span style="{{ e.atb }}"></span></div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.emptyLbl }}" hint-placeholder-val="{{ false }}"><span class="ghost-lbl">{{ e.emptyLbl }}</span></sc-if>
+                <sc-if value="{{ e.lbl }}" hint-placeholder-val="{{ false }}"><span class="tg-lbl">{{ e.lbl }}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div class="{{ plCls }}" data-tgt="p" style="{{ plStyle }}">
+          <div class="pt">墨</div>
+          <div class="inf"><div class="who">执笔人<span>血 612/920</span></div><div class="hpb"><span style="width:67%"></span></div><div class="atb"><span style="width:64%"></span></div></div>
+          <div class="ap">AP<i class="on"></i><i class="on"></i><i></i></div>
+          <div class="stt"><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>2/5</span></div>
+          <sc-if value="{{ plLbl }}" hint-placeholder-val="{{ false }}"><span class="tg-lbl">{{ plLbl }}</span></sc-if>
+        </div>
+        <div class="handrow">
+          <span class="hl">字库 5/8</span>
+          <sc-for list="{{ hand }}" as="h">
+            <div class="{{ h.cls }}" onPointerDown="{{ h.down }}"><span class="g">{{ h.g }}</span><span class="{{ h.sealCls }}">{{ h.s }}</span></div>
+          </sc-for>
+        </div>
+        <div class="poolrow">
+          <span class="hl">部件池 5/10</span>
+          <span class="ptile e-Fire">火</span><span class="ptile e-Wood">木</span><span class="ptile e-Water">冫</span><span class="ptile e-Metal">刂</span><span class="ptile e-Earth">土</span>
+        </div>
+      </div>
+
+      <div class="bench">
+        <div class="bt">拆 合 台</div>
+        <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+          <div class="{{ selCls }}">
+            <div class="bhead">
+              <div class="{{ selTileCls }}"><span class="g">{{ selG }}</span><span class="{{ selSealCls }}">{{ selSeal }}</span></div>
+              <div class="bname"><b>{{ selG }}</b><span>{{ selMeta }}</span></div>
+            </div>
+            <div class="flipsw">
+              <sc-for list="{{ selFaces }}" as="f">
+                <button class="{{ f.cls }}" onClick="{{ f.pick }}"><span class="{{ f.sealCls }}">{{ f.s }}</span>{{ f.role }}<span class="r">{{ f.pct }}</span></button>
+              </sc-for>
+            </div>
+            <div class="finfo">
+              <div class="tgl">{{ selTgt }}</div>
+              <div><sc-for list="{{ selLv1 }}" as="s"><span class="{{ s.cls }}">{{ s.t }}</span></sc-for></div>
+            </div>
+            <div class="tchips"><sc-for list="{{ selTraits }}" as="t"><span class="tchip"><span>Lv{{ t.lv }}</span><b>{{ t.name }}</b></span></sc-for></div>
+            <div class="acts"><span class="a1">出</span><span class="a2">拆</span><span class="a3">弃</span></div>
+            <div class="bhint"><b>再点这张牌</b>：翻面<br><b>拖出</b>：按朝上的那一面出手</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noSel }}" hint-placeholder-val="{{ false }}">
+          <div class="bhint">点一张牌：选中<br>再点一次：翻面<br>直接拖：按朝上的面出手</div>
+          <div class="bt" style="margin-top: 4px;">可 合 成</div>
+          <div class="craft e-Fire">火+火 →<b>炎</b></div>
+          <div class="craft e-Wood">木+木 →<b>林</b></div>
+        </sc-if>
+        <div class="endt">结束回合</div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ dragOn }}" hint-placeholder-val="{{ false }}">
+    <div class="ghost" style="{{ ghostStyle }}"><div class="{{ ghostCls }}"><span class="g">{{ ghostG }}</span><span class="{{ ghostSealCls }}">{{ ghostSeal }}</span></div></div>
+  </sc-if>
+  <sc-for list="{{ pops }}" as="p">
+    <div class="{{ p.cls }}" style="{{ p.style }}">
+      <sc-if value="{{ p.tn }}" hint-placeholder-val="{{ false }}"><span class="tname"><span class="{{ p.sealCls }}">{{ p.seal }}</span>{{ p.tn }}</span></sc-if>
+      <span class="pnum">{{ p.num }}</span>
+    </div>
+  </sc-for>
+  <div class="msg">{{ msg }}</div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+var Z = window.ZD;
+var IMG = function (k) { return '../scenes/mob_' + k + '.png'; };
+var FOES = {
+  e0: { n: '墨溅', el: 'Water', img: 'mojian', hp: [222, 300] }, e1: { n: '悬针', el: 'Metal', img: 'xuanzhen', hp: [270, 270] },
+  e2: { n: '败笔', el: 'Fire', img: 'baibi', hp: [450, 450] },
+  e4: { n: '焦痕', el: 'Fire', img: 'jiaohen', hp: [221, 480], burn: 3 }, e5: { n: '叠字怪', el: 'Wood', g: '叠', hp: [422, 480] },
+  e6: { n: '夯土妖', el: 'Earth', g: '夯', hp: [480, 480] }, e7: { n: '灯花', el: 'Fire', img: 'denghua', hp: [288, 360] }
+};
+var SUMS = { s0: { n: '林灵', g: '林', hp: [300, 346] }, s1: { n: '藤灵', g: '藤', hp: [104, 104] }, s4: { n: '箭灵', g: '箭', hp: [98, 141] } };
+var HAND = [['炎', 6], ['剑', 8], ['林', 6], ['冷', 5], ['㙓', 8]];
+
+function mulOf(el, foeEl) { return Z.KE[el] === foeEl ? 1.5 : Z.KE_BY[el] === foeEl ? 0.5 : 1; }
+// 悬停预估标签:说「这一下落在这儿会怎样」,只写数字
+function hoverLbl(id, f, L, tid) {
+  var st = {}; f.stats.forEach(function (x) { st[x.k] = x.v; });
+  if (f.tgt === 'enemy') {
+    var foe = FOES[tid], m = mulOf(Z.CHARS[id].el, foe.el), mt = m === 1 ? '' : ' ×' + m;
+    if (f.s === '燃') return '灼 +' + st['灼'] + ' · 攻 −15%' + mt;
+    var extra = st['灼'] ? ' · 灼 +' + st['灼'] : st['战意'] ? ' · 战意 ' + st['战意'] : st['种'] ? ' · 种' : st['减速'] ? ' · 减速' : st['破甲'] ? ' · 破甲' : '';
+    var dmg = Math.round(st['伤害'] * m * (f.s === '焚' && foe.burn && L >= 5 ? 2 : 1));
+    return '伤 ' + dmg + mt + extra;
+  }
+  if (f.tgt === 'summon') return SUMS[tid] ? '嫁接' : '召唤林灵';
+  if (f.s === '铠') return '战意 ' + st['战意'] + ' · 格挡 ' + st['格挡'];
+  if (f.s === '润') return '治疗 ' + st['治疗'] + ' · 润泽';
+  if (f.s === '固') return '护盾 ' + st['护盾'];
+  return '';
+}
+function validFor(f, tid) {
+  if (!tid) return false;
+  if (f.tgt === 'enemy') return !!FOES[tid];
+  if (f.tgt === 'ally') return tid === 'p' || !!SUMS[tid];
+  return tid[0] === 's';
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 0, faces: [0, 0, 0, 0, 0], flipping: -1, drag: null, pops: [], msg: '' };
+    this.press = null; this.popSeq = 0;
+  }
+  devRect(e) { return e.currentTarget.closest ? (e.currentTarget.closest('.dev') || e.currentTarget).getBoundingClientRect() : e.currentTarget.getBoundingClientRect(); }
+  flip(i) {
+    var faces = this.state.faces.slice(); faces[i] = 1 - faces[i];
+    var self = this;
+    this.setState({ faces: faces, flipping: i, msg: '' });
+    setTimeout(function () { self.setState({ flipping: -1 }); }, 200);
+  }
+  faceIdx(i) { var c = Z.CHARS[HAND[i][0]]; return this.state.faces[i] ? 1 - c.main : c.main; }
+  cast(i, tid, el) {
+    var id = HAND[i][0], L = HAND[i][1], c = Z.CHARS[id], fi = this.faceIdx(i), f = Z.faceOf(id, fi, L), isMain = fi === c.main;
+    var act = Z.traitsOf(id, L).filter(function (t) { return t.fi === fi && t.on && t.kind === '主动'; })[0];
+    if (act && act.lv === 5 && id === '炎' && !(FOES[tid] && FOES[tid].burn)) act = null; // 火上浇油:目标带灼才触发
+    var dev = el.closest('.dev').getBoundingClientRect(), r = el.getBoundingClientRect();
+    var self = this, key = ++this.popSeq;
+    var pop = { key: key, x: r.left - dev.left + Math.min(r.width / 2, 40), y: r.top - dev.top + r.height / 2 - 8, el: c.el, tn: act ? act.name : '', seal: f.s, isMain: isMain, num: hoverLbl(id, f, L, tid) };
+    var faces = this.state.faces.slice(); faces[i] = 0; // 出手后回到主面
+    this.setState({ pops: this.state.pops.concat([pop]), faces: faces, sel: -1,
+      msg: '「' + id + '」以「' + f.s + '」面出手' + (act ? '，主动特性「' + act.name + '」触发' : '') + ' —— 出手后这张牌回到主面（演示里留在手上）' });
+    setTimeout(function () { self.setState({ pops: self.state.pops.filter(function (p) { return p.key !== key; }) }); }, 1500);
+  }
+  renderVals() {
+    var self = this, s = this.state, drag = s.drag;
+    var dragFace = null, dragId = null, dragL = 0;
+    if (drag) { dragId = HAND[drag.i][0]; dragL = HAND[drag.i][1]; dragFace = Z.faceOf(dragId, this.faceIdx(drag.i), dragL); }
+    var hl = dragFace ? 'var(--' + Z.CHARS[dragId].el.toLowerCase() + '-glyph)' : 'transparent';
+    var aoe = dragFace && dragFace.area === '全体';
+    var hoverIsFoe = drag && drag.over && FOES[drag.over];
+    function tgState(tid) {
+      if (!dragFace) return { cls: '', lbl: '' };
+      var ok = validFor(dragFace, tid);
+      if (!ok) return { cls: ' tg-no', lbl: '' };
+      var hov = drag.over === tid || (aoe && hoverIsFoe && FOES[tid]);
+      return { cls: hov ? ' tg-hover' : ' tg-ok', lbl: drag.over === tid ? hoverLbl(dragId, dragFace, dragL, tid) : '' };
+    }
+    function foeCell(id, front) {
+      var e = FOES[id], t = tgState(id);
+      if (!e) return { id: '', filled: false, cls: 'cell efoe empty ' + (front ? 'front' : 'rear'), style: '' };
+      var chips = [{ cls: 'sc k-atk', ic: '#ic-attack', t: '90' }];
+      if (e.burn) chips.push({ cls: 'sc k-dot', ic: '#ic-burn', t: String(e.burn) });
+      return { id: id, filled: true, img: e.img ? IMG(e.img) : '', noImg: !e.img, g: e.g, n: e.n, en: Z.EL[e.el],
+        cls: 'cell ' + (front ? 'front' : 'rear') + ' e-' + e.el + t.cls, style: '--hl:' + hl, chips: chips,
+        hp: 'width:' + Math.round(e.hp[0] / e.hp[1] * 100) + '%', hpt: e.hp[0] + '/' + e.hp[1], atb: 'width:' + (30 + (id.charCodeAt(1) * 7) % 60) + '%', lbl: t.lbl };
+    }
+    function sumCell(id, front) {
+      var e = SUMS[id], t = tgState(id);
+      var base = { id: id, style: '--hl:' + hl, lbl: t.lbl };
+      if (!e) return Object.assign(base, { filled: false, cls: 'slot ' + (front ? 'sfront' : 'srear') + (t.cls === ' tg-no' ? '' : t.cls),
+        emptyLbl: dragFace && dragFace.tgt === 'summon' ? '召唤到这里' : '' });
+      return Object.assign(base, { filled: true, g: e.g, n: e.n, cls: 'cell ally ' + (front ? 'sfront' : 'srear') + ' e-Wood' + t.cls,
+        hp: 'width:' + Math.round(e.hp[0] / e.hp[1] * 100) + '%', hpt: e.hp[0] + '/' + e.hp[1], atb: 'width:45%' });
+    }
+    var pt = tgState('p');
+    var hand = HAND.map(function (h, i) {
+      var c = Z.CHARS[h[0]], back = !!s.faces[i], fi = back ? 1 - c.main : c.main;
+      return { g: h[0], s: c.faces[fi].s, sealCls: 'seal xs ' + (back ? 'sub' : 'main'),
+        cls: 'htile e-' + c.el + ' r-' + c.rar + (back ? ' back' : '') + (s.sel === i ? ' sel' : '') + (s.flipping === i ? ' flipping' : '') + (drag && drag.i === i ? ' lifted' : ''),
+        down: function (e) { var r = self.devRect(e); self.press = { i: i, x0: e.clientX, y0: e.clientY, ox: r.left, oy: r.top, moved: false }; } };
+    });
+    var si = s.sel, sel = si >= 0 ? HAND[si] : null, selC = sel ? Z.CHARS[sel[0]] : null;
+    var selFi = sel ? this.faceIdx(si) : 0, selF = sel ? Z.faceOf(sel[0], selFi, sel[1]) : null, selBack = sel ? !!s.faces[si] : false;
+    var g = drag ? HAND[drag.i] : null, gc = g ? Z.CHARS[g[0]] : null, gBack = drag ? !!s.faces[drag.i] : false;
+    return {
+      erows: [['e0', 'e1', 'e2', 'e3'].map(function (k) { return foeCell(k, false); }), ['e4', 'e5', 'e6', 'e7'].map(function (k) { return foeCell(k, true); })],
+      srows: [['s0', 's1', 's2', 's3'].map(function (k) { return sumCell(k, true); }), ['s4', 's5', 's6', 's7'].map(function (k) { return sumCell(k, false); })],
+      plCls: 'pl' + pt.cls, plLbl: pt.lbl, plStyle: '--hl:' + hl,
+      hand: hand,
+      hasSel: !!sel, noSel: !sel,
+      selCls: 'sel e-' + (selC ? selC.el : 'Fire') + ' r-' + (selC ? selC.rar : 'Gold'),
+      selTileCls: 'mt' + (selBack ? ' back' : ''), selG: sel ? sel[0] : '', selSeal: selF ? selF.s : '', selSealCls: 'seal xs ' + (selBack ? 'sub' : 'main'),
+      selMeta: sel ? Z.RAR[selC.rar] + ' · ' + Z.EL[selC.el] + ' · Lv.' + sel[1] : '',
+      selFaces: sel ? [selC.main, 1 - selC.main].map(function (fi) {
+        var m = fi === selC.main, on = fi === selFi;
+        return { s: selC.faces[fi].s, role: selC.faces[fi].role.slice(0, 2), pct: m ? '主' : '60%', sealCls: 'seal xs ' + (m ? 'main' : 'sub'),
+          cls: 'fsw' + (on ? ' on' : '') + (m ? '' : ' sub'), pick: function () { if (!on) self.flip(si); } };
+      }) : [],
+      selTgt: selF ? Z.TGT[selF.tgt] + (selF.tgt === 'summon' ? '' : ' · ' + selF.area) : '',
+      selLv1: selF ? Z.segs(selF.lv1) : [],
+      selTraits: sel ? Z.traitsOf(sel[0], sel[1]).filter(function (t) { return t.fi === selFi && t.on; }).map(function (t) { return { lv: t.lv, name: t.name }; }) : [],
+      dragOn: !!drag,
+      ghostStyle: drag ? 'left:' + drag.x + 'px;top:' + drag.y + 'px' : '',
+      ghostCls: g ? 'htile e-' + gc.el + ' r-' + gc.rar + (gBack ? ' back' : '') : 'htile', ghostG: g ? g[0] : '',
+      ghostSeal: g ? gc.faces[gBack ? 1 - gc.main : gc.main].s : '', ghostSealCls: 'seal xs ' + (gBack ? 'sub' : 'main'),
+      pops: s.pops.map(function (p) { return { cls: 'pop e-' + p.el, style: 'left:' + p.x + 'px;top:' + (p.y - 20) + 'px', tn: p.tn, seal: p.seal, sealCls: 'seal s ' + (p.isMain ? 'main' : 'sub'), num: p.num }; }),
+      msg: s.msg || (drag ? '松手出手 · 拖回手牌行取消' : ''),
+      move: function (e) {
+        var p = self.press; if (!p) return;
+        var dx = e.clientX - p.x0, dy = e.clientY - p.y0;
+        if (!p.moved && dx * dx + dy * dy < 36) return;
+        p.moved = true;
+        var hit = document.elementFromPoint(e.clientX, e.clientY);
+        var tg = hit && hit.closest ? hit.closest('[data-tgt]') : null;
+        self.setState({ drag: { i: p.i, x: e.clientX - p.ox, y: e.clientY - p.oy, over: tg ? tg.getAttribute('data-tgt') : '' }, msg: '' });
+      },
+      up: function (e) {
+        var p = self.press; self.press = null; if (!p) return;
+        if (!p.moved) {
+          if (self.state.sel === p.i) self.flip(p.i);
+          else self.setState({ sel: p.i, msg: '' });
+          return;
+        }
+        var d = self.state.drag; self.setState({ drag: null });
+        if (!d) return;
+        var f = Z.faceOf(HAND[d.i][0], self.faceIdx(d.i), HAND[d.i][1]);
+        var hit = document.elementFromPoint(e.clientX, e.clientY);
+        var tg = hit && hit.closest ? hit.closest('[data-tgt]') : null;
+        var tid = tg ? tg.getAttribute('data-tgt') : '';
+        if (validFor(f, tid)) self.cast(d.i, tid, tg);
+      },
+      leave: function () { self.press = null; if (self.state.drag) self.setState({ drag: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
