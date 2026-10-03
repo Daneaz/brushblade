@@ -1,0 +1,78 @@
+<!-- @dsCard group="字牌" height=298 subtitle="实现 · CollectionView.ShowUpgradePreview · 旧 → 新 (+差) 一条读法" -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:var(--paper)}
+.wrap{padding:14px 16px}
+.scrim{background:var(--scrim);border-radius:6px;padding:11px}
+/* Ui.Sheet 1088×670 → 520×320pt;此卡按 0.60 缩放 */
+.sheet{width:312px;box-sizing:border-box;margin:0 auto;background:var(--panel-paper);
+  border:.72px solid var(--panel-border);border-radius:8.60px;padding:11.47px;
+  display:flex;flex-direction:column;gap:6.69px}
+.head{display:flex;align-items:flex-end;gap:4.30px}
+.head .t{font-family:var(--font-serif);font-weight:600;font-size:9.75px;color:var(--text-main);white-space:nowrap}
+.head .w{font-size:5.45px;color:var(--text-faint);white-space:nowrap}
+.step{display:flex;align-items:center;justify-content:center;gap:8.31px}
+.step .ar{font-size:8.31px;color:var(--exit-pink)}
+.body{display:flex;gap:7.17px;align-items:flex-start}
+.col{flex:1;display:flex;flex-direction:column;gap:3.15px;min-width:0}
+.sec{font-family:var(--font-serif);font-weight:600;font-size:5.73px;color:var(--text-main);
+  padding-bottom:2px;border-bottom:.6px solid var(--panel-border);white-space:nowrap}
+/* DeltaRow:定高 25.8pt、panel-inset 底、圆角 12 */
+.dr{display:flex;align-items:center;gap:3.15px;height:15.48px;box-sizing:border-box;
+  padding:0 4.87px;background:var(--panel-inset);border-radius:5.73px}
+.dr .nm{flex:1;font-size:5.45px;color:var(--text-dim);white-space:nowrap;overflow:hidden}
+.dr .was{font-family:var(--font-serif);font-size:7.17px;color:var(--text-faint);font-variant-numeric:tabular-nums}
+.dr .ar{font-size:5.16px;color:var(--text-faint)}
+.dr .now{font-family:var(--font-serif);font-size:8.31px;color:var(--upgrade-text);font-variant-numeric:tabular-nums}
+.dr .dl{font-size:5.45px;color:var(--upgrade-text);white-space:nowrap}
+.keep{font-size:5.16px;color:var(--text-faint);line-height:1.4}
+.btns{display:flex;gap:6.02px;margin-top:2px}
+.btns .b{height:20.35px;border-radius:11.47px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-serif);font-size:6.88px;white-space:nowrap}
+.note{font-size:8.5px;color:var(--text-faint);line-height:1.55;margin-top:10px}
+.note b{color:var(--upgrade-text)}
+</style></head><body>
+<svg style="position:absolute;width:0;height:0"><defs><symbol id="i-freeze" viewBox="0 0 64 64"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" d="M32 8v48M11 20l42 24M53 20L11 44"/></symbol></defs></svg>
+<div class="zd-root wrap">
+  <div class="scrim"><div class="sheet">
+
+    <div class="head"><span class="t">升级「冰」</span><span class="w">确认后立刻扣除材料，不可撤销</span></div>
+
+    <div class="step">
+      <div class="zd-tile zd-r-blue zd-e-water" style="--w:37.24px;--h:46.71px;filter:saturate(.35) brightness(1.04)">
+        <div class="zd-tile__face"><span class="zd-tile__glow"></span>
+          <div class="zd-tile__content"><span class="zd-tile__g">冰</span><span class="zd-tile__py">bīng</span></div></div></div>
+      <span class="ar">→</span>
+      <div class="zd-tile zd-r-blue zd-e-water" style="--w:37.24px;--h:46.71px">
+        <div class="zd-tile__face"><span class="zd-tile__glow"></span>
+          <div class="zd-tile__content"><span class="zd-tile__g">冰</span><span class="zd-tile__py">bīng</span></div></div></div>
+      <span class="zd-chip" style="width:auto;padding:0 6px;height:9.56px;font-size:6.02px;background:var(--jade);color:#fff">升到 Lv.4</span>
+    </div>
+
+    <div class="body">
+      <div class="col">
+        <div class="sec">数值提升</div>
+        <div class="dr"><span class="nm">伤害</span><span class="was">96</span><span class="ar">→</span><span class="now">122</span><span class="dl">+26</span></div>
+        <div class="dr"><span class="nm">冻结几率</span><span class="was">25</span><span class="ar">→</span><span class="now">30</span><span class="dl">+5</span></div>
+      </div>
+      <div class="col">
+        <div class="sec">层数与特性</div>
+        <div class="dr">
+          <span class="zd-chip zd-chip--list" style="width:8.60px;background:var(--water-glyph);color:#fff"><svg class="ic"><use href="#i-freeze"></use></svg></span>
+          <span class="nm">冻结</span><span class="was">1 回合</span><span class="ar">→</span><span class="now">2 回合</span></div>
+        <div class="dr">
+          <span class="zd-chip" style="width:auto;padding:0 4px;height:8.60px;font-size:5.16px;background:var(--locked-bg);color:var(--text-main)">分 2 段</span>
+          <span class="nm">分段</span><span class="was">2</span><span class="ar">→</span><span class="now">3</span></div>
+      </div>
+    </div>
+
+    <div class="keep">不变：远程 · 溅射 60%</div>
+
+    <div class="btns">
+      <span class="b" style="flex:1;background:var(--gold);color:var(--gold-text)">确认升级</span>
+      <span class="b" style="width:71.67px;background:var(--locked-bg);color:var(--text-main)">再想想</span>
+    </div>
+
+  </div></div>
+  <div class="note">一条读法贯穿两栏：<b>旧 → 新 (+差)</b>。新值比旧值大一号、且是全行唯一的深绿 —— 一眼扫下去就是「变了的那一列」。<b>不印重复卡与墨锭消耗</b>（2026-09-04 拍板）：不够根本走不到这一页，详情页那颗按钮就是灰的。底下那行「不变」回答的是「我会不会丢掉什么」，不是凑字数。主钮用赭金 + <b>gold-text</b>（5.47:1）—— 赭金是「花墨锭」的语义。</div>
+</div>
+</body></html>

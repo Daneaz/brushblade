@@ -1,0 +1,27 @@
+<!-- @dsCard group="状态" height=330 subtitle="实现 · Ui.Bar · 轨道恒为 paper-dim、圆角 10" -->
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
+/* bundle.css 里 .zd-bar* 有两套规则，靠后那套是旧稿值（quiet / track-battle 轨道、radius-bar 2、
+   fire-glyph / jade-deep / rarity-gold 填充），会盖掉前面按实现换算的那套 —— 不加这段，除了 run/hp
+   几条以外全会渲染成赭金。这里用更高优先级的选择器把实现值钉回来（见报告的 bundle.css 清单）。 */
+.zd-root .zd-bar { border-radius: 4.78px; background: var(--paper-dim); }
+.zd-root .zd-bar > span { border-radius: 4.78px; }
+.zd-root .zd-bar u { font-size: 6.21px; font-family: var(--font-serif); font-weight: 600;
+  text-shadow: .6px .6px 0 var(--ink), -.6px -.6px 0 var(--ink), .6px -.6px 0 var(--ink), -.6px .6px 0 var(--ink); }
+.zd-root .zd-bar--xp      { height: 4.30px; } .zd-root .zd-bar--xp > span      { background: var(--gold); }
+.zd-root .zd-bar--run     { height: 4.78px; } .zd-root .zd-bar--run > span     { background: var(--cinnabar-dark); }
+.zd-root .zd-bar--band    { height: 6.21px; } .zd-root .zd-bar--band > span    { background: var(--cinnabar); }
+.zd-root .zd-bar--band-off > span { background: var(--text-faint); }
+.zd-root .zd-bar--collect { height: 7.17px; } .zd-root .zd-bar--collect > span { background: var(--wood); }
+.zd-root .zd-bar--hp-foe  { height: 9.08px; } .zd-root .zd-bar--hp-foe > span  { background: var(--cinnabar); }
+.zd-root .zd-bar--hp-ally { height: 8.12px; } .zd-root .zd-bar--hp-ally > span { background: var(--done-green); }
+.zd-root .zd-bar--hp-me   { height: 8.12px; } .zd-root .zd-bar--hp-me > span   { background: var(--cinnabar); }
+.zd-root .zd-bar--atb-foe { height: 2.87px; } .zd-root .zd-bar--atb-foe > span { background: var(--ink-soft); }
+.zd-root .zd-bar--atb     { height: 7.17px; } .zd-root .zd-bar--atb > span     { background: var(--ink-soft); }
+.zd-root .zd-bar--soon > span     { background: var(--done-green); }
+.zd-root .zd-bar--soon-foe > span { background: var(--cinnabar); }
+.zd-root .zd-bar--sheet-hp     { height: 5.73px; } .zd-root .zd-bar--sheet-hp > span     { background: var(--cinnabar); }
+.zd-root .zd-bar--sheet-shield { height: 2.39px; } .zd-root .zd-bar--sheet-shield > span { background: var(--rarity-gold); }
+.zd-root .zd-bar--sheet-atb    { height: 2.39px; } .zd-root .zd-bar--sheet-atb > span    { background: var(--ink-soft); }
+</style></head><body>
+<div class="zd-root" style="padding:16px;display:grid;grid-template-columns:132px 240px;gap:9px 12px;align-items:center;font-size:9px;color:var(--text-dim)"><span>经验 · 角色栏</span><div class="zd-bar zd-bar--xp"><span style="width:62%"></span></div><span>本趟血量 · 书塔</span><div class="zd-bar zd-bar--run"><span style="width:48%"></span></div><span>层段进度 · 当前段</span><div class="zd-bar zd-bar--band"><span style="width:40%"></span></div><span>层段进度 · 未到达</span><div class="zd-bar zd-bar--band zd-bar--band-off"><span style="width:0%"></span></div><span>图鉴收集 · 该段属性色</span><div class="zd-bar zd-bar--collect"><span style="width:76%"></span></div><span>敌人血条</span><div class="zd-bar zd-bar--hp-foe"><span style="width:46%"></span><u class="hp">221/480</u></div><span>召唤物血条</span><div class="zd-bar zd-bar--hp-ally"><span style="width:86%"></span><u class="hp">300/346</u></div><span>执笔人血条 · 不叠字</span><div class="zd-bar zd-bar--hp-me"><span style="width:67%"></span></div><span>行动条 · 敌人(裸条)</span><div class="zd-bar zd-bar--atb-foe"><span style="width:40%"></span></div><span>行动条 · 敌人 &gt;80%</span><div class="zd-bar zd-bar--atb-foe zd-bar--soon-foe"><span style="width:88%"></span></div><span>行动条 · 我方</span><div class="zd-bar zd-bar--atb"><span style="width:64%"></span><u class="atb">64%</u></div><span>行动条 · 我方 &gt;80%</span><div class="zd-bar zd-bar--atb zd-bar--soon"><span style="width:86%"></span><u class="atb">86%</u></div><span>详情弹窗 · 血 12</span><div class="zd-bar zd-bar--sheet-hp"><span style="width:58%"></span></div><span>详情弹窗 · 盾 5</span><div class="zd-bar zd-bar--sheet-shield"><span style="width:34%"></span></div><span>详情弹窗 · 行动 5</span><div class="zd-bar zd-bar--sheet-atb"><span style="width:72%"></span></div></div>
+</body></html>

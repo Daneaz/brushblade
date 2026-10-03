@@ -1,0 +1,106 @@
+<!-- @dsCard group="整屏" height=430 width=932 subtitle="实现 · ShopView.cs · 字摊四摊位 + 右栏箱位与补给" -->
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
+
+.scr { position: relative; width: 932px; height: 430px; overflow: hidden; background: var(--paper);
+  font-family: var(--font-sans); color: var(--text-main); -webkit-font-smoothing: antialiased; }
+.scr * { box-sizing: border-box; }
+.safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px; }
+.top { position: absolute; left: 0; right: 0; top: 0; height: 38.22px; display: flex; align-items: center; gap: 10.03px; }
+.top h1 { margin: 0; font: 600 19.11px/1 var(--font-serif); color: var(--text-main); letter-spacing: 1px; }
+.top .sub { font-size: 10.99px; color: var(--text-dim); }
+.top .grow { flex: 1; }
+.inkc { display: flex; align-items: center; gap: 2.87px; font-size: 11.94px; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pill { display: inline-flex; align-items: center; justify-content: center; border-radius: 11.47px; border: 0;
+  font-family: var(--font-sans); white-space: nowrap; }
+.back { width: 62.11px; height: 30.1px; background: var(--exit-pink); color: #fff; font-size: 11.94px; }
+.panel { position: absolute; background: var(--panel-paper); border: 0.96px solid var(--panel-border); border-radius: 10.03px; overflow: hidden; }
+.phead { height: 25.8px; display: flex; align-items: center; gap: 5.73px; padding: 0 8.12px;
+  border-bottom: 0.96px solid var(--panel-border); font-size: 9.08px; color: var(--text-faint); }
+.zd-ingot { display: block; flex: none; }
+
+/* 主区:顶栏 80 + 行距 13 = 93 → 44.43 */
+.main { position: absolute; left: 0; right: 0; bottom: 0; top: 44.43px; }
+
+/* ---- 左:今日字摊(Shelf 占满主区减右栏 527 + 间距 19)---- */
+.left { position: absolute; left: 0; top: 0; bottom: 0; right: 260.87px; }
+/* 段头是一行小字,没有横线、没有副标题(Ui.Row 13 里只有一个 ThemedLabel 19 LockGray) */
+.shead { position: absolute; left: 0; right: 0; top: 0; height: 25.8px;
+  display: flex; align-items: center; gap: 6.21px; font-size: 9.08px; color: var(--text-faint); white-space: nowrap; }
+/* 摊位行:定宽 144 的四格靠左排,不铺满 —— 右侧留白是实现现状,不是再现误差 */
+.shelf { position: absolute; left: 0; right: 0; top: 32.01px; height: 137.6px;
+  display: flex; align-items: flex-start; justify-content: flex-start; gap: 10.03px; }
+.stall { --w: 68.8px; --h: 86px; width: 68.8px; flex: none;
+  display: flex; flex-direction: column; align-items: center; gap: 3.82px; }
+.hint { font-size: 9.08px; line-height: 1.15; white-space: nowrap; }
+.hint.up { color: var(--upgrade-text); }
+.hint.dim { color: var(--text-dim); }
+/* 价格钮:Ui.RoundButton 144×46 radius 14,字号 19 黑体(不是宋体、没有墨锭图标) */
+.buy { width: 68.8px; height: 21.98px; border-radius: 6.69px; font-size: 9.08px;
+  display: flex; align-items: center; justify-content: center; white-space: nowrap;
+  font-family: var(--font-sans); font-variant-numeric: tabular-nums;
+  background: var(--ink); color: #fff; }
+.buy.poor { background: var(--panel-inset); color: var(--cinnabar-dark); }
+.buy.sold { background: var(--locked-bg); color: var(--text-faint); }
+/* 已售印:正放的一枚 Ui.Chip(朱砂实底白字),不旋转 —— uGUI 旋转会连带转裁剪矩形 */
+.seal { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 28.67px; height: 15.77px; border-radius: 6.69px; background: var(--cinnabar); color: #fff;
+  font-size: 10.03px; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+/* 月订阅条:Ui.CardPanel(gold-soft, radius 15),无描边、无价格、无按钮;整条可点 */
+.subs { position: absolute; left: 0; right: 0; bottom: 0; height: 45.87px; border-radius: 7.17px;
+  background: var(--gold-soft); padding: 4.78px 10.03px;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2.87px; }
+.subs b { font: 600 10.99px/1 var(--font-serif); color: var(--gold-deep); white-space: nowrap; }
+.subs span { font-size: 9.08px; line-height: 1; color: var(--text-dim); white-space: nowrap; }
+
+/* ---- 右栏 527(与收集/图鉴同宽同款)---- */
+.side { right: 0; top: 0; bottom: 0; width: 251.79px; }
+.sbody { position: absolute; left: 0; right: 0; top: 26.76px; bottom: 0; padding: 0 10.03px 10.03px;
+  display: flex; flex-direction: column; justify-content: center; gap: 7.17px; }
+/* 今日箱位卡:Ui.OutlinedPanel(CardWhite=#fff, radius 17, 边 2),固定高 258 */
+.cbox { height: 123.27px; flex: none; background: #fff; border: 0.96px solid var(--panel-border);
+  border-radius: 8.12px; padding: 6.21px; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start; gap: 3.82px; }
+.cbox img { width: 40.13px; height: 40.13px; flex: none; display: block; }
+.cname { font: 600 10.99px/1 var(--font-serif); color: var(--rarity-purple); white-space: nowrap; }
+.cfacts { display: flex; justify-content: center; gap: 3.34px; }
+.cfacts span { height: 14.33px; padding: 0 4.3px; border-radius: 6.69px; font-size: 8.6px;
+  background: var(--panel-inset); color: var(--text-dim);
+  display: flex; align-items: center; white-space: nowrap; }
+.cfacts span.full { background: var(--warn-bg); color: var(--warn-text); }
+.cbox .buy { width: 100%; }
+/* 「免费补给」也只是一行小字,同样没有横线 */
+.sec { height: 10.51px; flex: none; display: flex; align-items: center;
+  font-size: 9.08px; color: var(--text-faint); white-space: nowrap; }
+/* Ui.AdBadge:圆角/字号/图标由高度派生(scale = 高 64 ÷ 稿基准 63) */
+.ad { height: 30.58px; flex: none; position: relative; border-radius: 14.81px; background: var(--ad-green);
+  display: flex; align-items: center; justify-content: center; }
+.ad .face { position: absolute; inset: 0.72px; border-radius: 14.81px; background: var(--ad-green-bg); }
+.ad .row { position: relative; display: flex; align-items: center; justify-content: center; gap: 4.85px; }
+.ad .row svg { width: 7.28px; height: 8.25px; display: block; flex: none; }
+.ad b { font: 600 10.03px/1 var(--font-serif); color: var(--ad-green-text); white-space: nowrap; }
+/* 用完只换文案:代码没有改任何颜色,变灰的只是 uGUI Button 对 face 的禁用乘色 */
+.ad.done .face { opacity: .5; }
+
+/* 成交 toast:Ui.Chip(ink, 字号 21, padX 29 / padY 17),顶部居中、顶边贴在顶栏下沿 */
+.toast { position: absolute; left: 50%; top: 38.22px; transform: translateX(-50%); z-index: 5;
+  width: 74.06px; height: 18.16px; border-radius: 6.69px; background: var(--ink); color: #fff;
+  font-size: 10.03px; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+</style></head><body>
+<div class="zd-root scr"><div class="safe">
+<div class="top"><h1>每日商城</h1><span class="sub">7:42 后刷新</span><div class="grow"></div><div class="inkc"><svg class="zd-ingot" viewBox="0 0 56 34" style="width:16.72px;height:10.15px"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="var(--ingot-dark)"/></svg>350</div><span class="pill back">返回地图</span></div>
+<div class="main">
+<div class="left">
+<div class="shead">今日字摊</div>
+<div class="shelf"><div class="stall"><div class="zd-tile zd-r-white zd-e-water" style="--w:68.8px;--h:86px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">冷</span><span class="zd-tile__py">lěng</span></div></div><span class="zd-bdg zd-bdg--lv">Lv.3</span><span class="zd-rdot"></span></div><div class="zd-foot"><span class="zd-foot__bar"><i style="width:67%;background:var(--text-faint)"></i></span><span class="zd-foot__t" style="color:var(--text-dim)">2/3</span></div><div class="hint up">买下即可升 Lv.4</div><span class="buy ">40</span></div><div class="stall"><div class="zd-tile zd-r-green zd-e-fire" style="--w:68.8px;--h:86px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">爆</span><span class="zd-tile__py">bào</span></div></div><span class="zd-bdg zd-bdg--lv">Lv.4</span><span class="zd-rdot"></span></div><div class="zd-foot"><span class="zd-foot__bar"><i style="width:50%;background:var(--text-faint)"></i></span><span class="zd-foot__t" style="color:var(--text-dim)">2/4</span></div><div class="hint dim">买下后 3/4 张</div><span class="buy ">60</span></div><div class="stall"><div class="zd-tile zd-r-orange zd-e-fire" style="--w:68.8px;--h:86px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">焚</span><span class="zd-tile__py">fén</span></div></div><span class="zd-bdg zd-bdg--lv">Lv.1</span><span class="zd-rdot"></span></div><div class="zd-foot"><span class="zd-foot__bar"><i style="width:0%;background:var(--text-faint)"></i></span><span class="zd-foot__t" style="color:var(--text-dim)">0/1</span></div><div class="hint up">买下即可升 Lv.2</div><span class="buy poor">差 50 墨</span></div><div class="stall"><div class="zd-tile zd-r-blue zd-e-metal" style="--w:68.8px;--h:86px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">剑</span><span class="zd-tile__py">jiàn</span></div></div><span class="seal">已售</span><span class="zd-bdg zd-bdg--lv">Lv.3</span><span class="zd-rdot"></span></div><div class="zd-foot"><span class="zd-foot__bar"><i style="width:50%;background:var(--text-faint)"></i></span><span class="zd-foot__t" style="color:var(--text-dim)">1/2</span></div><div class="hint up">买下即可升 Lv.4</div><span class="buy sold">今日已购</span></div></div>
+<div class="subs"><b>月订阅</b><span>广告位免看直领 · 箱位 4→5 · 每日墨锭礼包 · 开箱时长 −25%</span><span>不卖数值、不卖卡、不卖抽数</span></div>
+</div>
+<div class="panel side"><div class="phead">今日箱位</div><div class="sbody">
+<div class="cbox"><img src="data:image/png;base64,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" alt=""><div class="cname">紫檀匣</div><div class="cfacts"><span>8 张</span><span>4 小时</span><span>箱位 3/4</span></div><span class="buy poor">400</span></div>
+<div class="sec">免费补给</div>
+<div class="ad"><span class="face"></span><span class="row"><svg viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="var(--ad-green)"/></svg><b>看广告领 30</b></span></div>
+<div class="ad done"><span class="face"></span><span class="row"><svg viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="var(--ad-green)"/></svg><b>已用完</b></span></div>
+</div></div>
+</div>
+<div class="toast">购入「剑」!</div>
+</div></div>
+</body></html>

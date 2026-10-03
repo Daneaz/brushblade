@@ -1,0 +1,29 @@
+<!-- @dsCard height=288 -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0}
+.cover{position:relative;width:960px;height:288px;overflow:hidden;background:var(--paper)}
+.cover svg{position:absolute;inset:0}
+.ink{fill:var(--ink)} .cin{fill:var(--cinnabar)} .gold{fill:var(--rarity-gold)} .water{fill:var(--water)} .wood{fill:var(--wood)}
+.cut{fill:var(--paper);font-family:var(--font-serif);font-weight:600}
+.r-panel{rx:var(--radius-panel)} .r-card{rx:var(--radius-card)} .r-tile{rx:var(--radius-tile)}
+.name{position:absolute;left:48px;bottom:38px;max-width:440px}
+.name h1{margin:0;font-family:var(--font-serif);font-weight:600;font-size:120px;line-height:.95;color:var(--text-main)}
+.name p{margin:13px 0 0;font-family:var(--font-sans);font-size:14px;letter-spacing:1px;color:var(--text-dim)}
+</style></head><body>
+<div class="cover">
+<!-- 色块：ink 200×244 竖板 · cinnabar 92 方印 · rarity-gold 84×120 · water / wood 各一张 62×78 字牌（0.8 竖版比例）
+     排布：一块墨板从顶边垂下，朱砂印压住它右下角，金块出血右边缘，两张属性小牌错位立在左侧 —— 砚台上的墨、印与字
+     图案：「巨字作形」一行 —— 本系统的根是「字即画」，墨板上挖出一个宋体「字」，被墨板裁切
+     刻度：radius-panel(10) 墨板 · radius-card(9) 印 · radius-tile(7) 字牌与金块；间距取 space-22 / space-13 -->
+<svg width="960" height="288" viewBox="0 0 960 288" aria-hidden="true">
+  <defs><clipPath id="slab"><rect x="640" y="-12" width="200" height="244" rx="10"/></clipPath></defs>
+  <rect class="gold r-tile" x="876" y="22" width="84" height="120"/>
+  <rect class="ink r-panel" x="640" y="-12" width="200" height="244"/>
+  <text class="cut" x="740" y="196" font-size="210" text-anchor="middle" clip-path="url(#slab)">字</text>
+  <rect class="cin r-card" x="806" y="174" width="92" height="92"/>
+  <rect class="water r-tile" x="540" y="58" width="62" height="78"/>
+  <rect class="wood r-tile" x="562" y="158" width="62" height="78"/>
+</svg>
+<div class="name"><h1>字·斗</h1><p>字即画 —— 纸与墨为地，色只给字</p></div>
+</div>
+</body></html>
