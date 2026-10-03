@@ -37,4 +37,3 @@
 - **层段首破里程碑墨锭不计入这个数字。** `EndlessRules.TryAwardMilestone` 直接 `meta.Ink +=`，不进 `run.EarnedInk` —— 进了账户却不出现在大金数字与结算页 headline 里，玩家对账会差一笔。
 - 「返回地图」用的是跨屏共用的 `common.back_to_map`（「返回地图」，无字间空格），与本屏「安 全 层」这类标题式按钮的字距处理不一致。
 - **角色升级弹窗已实现**（2026-10-02，`LevelUpPopup.cs`，稿 `drafts/character/LevelUp.dc.html`），叠在本屏与登塔结算之上；现状层还没有它的卡，待补。
-  - 更早的 `drafts/levelup/` 三张稿已被上面那张取代，稿上的护甲数字是 `⌊(L−2)/4⌋, ≤12` 的旧草案；实现走 `MetaRules.DefenseFor`（`min(30, ⌊L/5⌋×3)`），不受影响。

@@ -53,10 +53,8 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `SkillOrbitMap.dc.html` | 技能树 · 俯瞰全图 | 同上 |
 | `SkillOrbitCross.dc.html` | 技能树 · 跨树节点 | 同上 |
 
-画布上另有 `LevelUp` / `LevelUpMulti` / `LevelUpCapped` 三块(局内流程页),
-与 `../levelup/` 的 `Main` / `MultiLevel` / `Capped` 逐字节相同,只在那边存一份。
-原第四块 `LevelUpChest`(= `levelup/LevelChest`,等级区间 → 宝箱草案)被 2026-10-02 角色页 spec 取代,
-2026-10-03 已从本目录与 `levelup/` 的 `canvas.json` 摘除,文件已删除。
+画布上原有的 `LevelUp` / `LevelUpMulti` / `LevelUpCapped` / `LevelUpChest` 四块升级弹窗早期稿已被
+`../character/LevelUp.dc.html` 取代,2026-10-03 从 `canvas.json` 摘除,连同 `levelup/` 目录一并删除。
 `mob_*.png` 是怪物设计页三块板引用的立绘(`mob_jiaohen.png` 之外的十四张是 2026-10-03 从画布落盘的)。
 
 `canvas.json` 是画布布局（位置、分页、便签）。**分页按「屏」组织**（2026-08-29 在画布上重排）：

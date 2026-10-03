@@ -304,33 +304,6 @@
       "w": 932,
       "h": 430,
       "page": "page-skilltree"
-    },
-    {
-      "file": "LevelUp.dc.html",
-      "x": 0,
-      "y": 1240,
-      "w": 932,
-      "h": 430,
-      "title": "升级弹窗 · 升一级",
-      "page": "page-inrun"
-    },
-    {
-      "file": "LevelUpMulti.dc.html",
-      "x": 1052,
-      "y": 1240,
-      "w": 932,
-      "h": 430,
-      "title": "升级弹窗 · 连升 3 级 · 箱位已满",
-      "page": "page-inrun"
-    },
-    {
-      "file": "LevelUpCapped.dc.html",
-      "x": 2104,
-      "y": 1240,
-      "w": 932,
-      "h": 430,
-      "title": "升级弹窗 · 升到 Lv.50 · 属性封顶",
-      "page": "page-inrun"
     }
   ],
   "annotations": [
