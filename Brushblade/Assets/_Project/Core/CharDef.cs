@@ -68,6 +68,9 @@ namespace Brushblade.Core
         /// null = 未指定(旧数据),两面都按 100%,保证恒等。</summary>
         public CardFace? MainFace { get; }
 
+        /// <summary>字卡特性(spec v6),缺省空。</summary>
+        public IReadOnlyList<TraitDef> Traits { get; }
+
         public bool IsLeaf => Recipe.Count == 0;
 
         /// <summary>出字 AP:一律 1(2026-08-03 拍板,与稀有度解耦)。
@@ -77,7 +80,8 @@ namespace Brushblade.Core
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
             IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
             string pinyin = null, string gloss = null, IReadOnlyList<EffectDef> attackEffects = null,
-            bool? isComponent = null, CardFace? mainFace = null)
+            bool? isComponent = null, CardFace? mainFace = null,
+            IReadOnlyList<TraitDef> traits = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Element = element;
@@ -90,6 +94,7 @@ namespace Brushblade.Core
             Gloss = gloss;
             IsComponent = isComponent ?? IsLeaf;
             MainFace = mainFace;
+            Traits = traits ?? Array.Empty<TraitDef>();
         }
     }
 }

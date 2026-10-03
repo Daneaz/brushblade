@@ -1551,6 +1551,17 @@ namespace Brushblade.Core
             return def.Effects.Count > 0 ? def.Effects : FallbackEffects;
         }
 
+        /// <summary>本次出字实际结算的效果:本体在前,已解锁且面匹配的主动特性按槽位在后(spec v6 R3)。
+        /// 没有特性时与 EffectsOf 逐项相同 —— 恒等。</summary>
+        private static List<(EffectDef Effect, bool IsBody)> CastEffectsOf(CharDef def, bool attackMode, int cardLevel)
+        {
+            var list = new List<(EffectDef, bool)>();
+            foreach (var e in EffectsOf(def, attackMode)) list.Add((e, true));
+            foreach (var t in TraitRules.ActiveTraits(def, FaceOf(def, attackMode), cardLevel))
+                foreach (var e in t.Effects) list.Add((e, false));
+            return list;
+        }
+
         /// <summary>本次出手落在哪一面:攻击模式且有攻击面效果 = Attack,否则 Feature(与 EffectsOf 同口径)。</summary>
         public static CardFace FaceOf(CharDef def, bool attackMode) =>
             attackMode && def.AttackEffects.Count > 0 ? CardFace.Attack : CardFace.Feature;
@@ -1682,6 +1693,13 @@ namespace Brushblade.Core
         public static bool NeedsTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
+                if (EffectNeedsTarget(effect)) return true;
+            return false;
+        }
+
+        /// <summary>单条效果是否需要敌方目标(NeedsTarget 的逐条判据;特性校验也用它)。</summary>
+        public static bool EffectNeedsTarget(EffectDef effect)
+        {
                 if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter)
                     || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
@@ -1714,6 +1732,13 @@ namespace Brushblade.Core
         public static bool NeedsAllyTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
+                if (EffectNeedsAllyTarget(effect)) return true;
+            return false;
+        }
+
+        /// <summary>单条效果是否需要友方目标(NeedsAllyTarget 的逐条判据;特性校验也用它)。</summary>
+        public static bool EffectNeedsAllyTarget(EffectDef effect)
+        {
                 if (effect.Kind == EffectKind.HealSelf || effect.Kind == EffectKind.HealOverTime
                     || effect.Kind == EffectKind.Shield
                     // 增益改单体(2026-08-28 用户拍板):净化与免疫也要选给谁。
@@ -2621,10 +2646,10 @@ namespace Brushblade.Core
 
             try
             {
-            foreach (var effect in EffectsOf(def, attackMode))
+            foreach (var (effect, isBody) in CastEffectsOf(def, attackMode, cardLevel))
             {
                 int value = MetaRules.ScaleByCardLevel(effect.Value, cardLevel); // 19.3.2:等级先作用于基础值
-                value = ApplySideFacePercent(value, def, attackMode, effect.Kind, _config?.SideFacePercent ?? 100);
+                if (isBody) value = ApplySideFacePercent(value, def, attackMode, effect.Kind, _config?.SideFacePercent ?? 100);
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
