@@ -54,9 +54,10 @@
     .pip.next .bar { background: var(--jade); }
     .pip .mk { width: 7px; height: 7px; box-sizing: border-box; border-radius: 1.5px; }
     .pip .mk.none { visibility: hidden; }
-    .pip .mk.both { background: var(--ink-soft); }
-    .pip .mk.main { background: var(--glyph); }
-    .pip .mk.sub  { background: var(--tint); box-shadow: inset 0 0 0 1px var(--glyph); }
+    .pip .mk.both { background: transparent; box-shadow: inset 0 0 0 1.2px var(--ink-soft); }
+    /* 记号按「挂在哪一面」着色:墨实 = 攻击,本系色实 = 五行面,空心 = 两面 */
+    .pip .mk.atk { background: var(--ink); }
+    .pip .mk.el  { background: var(--glyph); }
     .pip .mk.off  { opacity: .35; }
     .pip .ln { font-size: 7px; color: var(--text-faint); line-height: 1; height: 7px; font-variant-numeric: tabular-nums; }
     .costs { margin-left: auto; display: flex; gap: 6px; }
@@ -71,25 +72,27 @@
     .faces { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
     .pair { flex: 1; min-height: 0; display: flex; gap: 9px; }
 
-    /* 一面 = 一张纸。主面:纸白、宽一档;副面:背面纸(--tint)。两面的左右顺序恒为「主左副右」。 */
-    .face { min-width: 0; box-sizing: border-box; border-radius: 9px; padding: 8px 10px 9px;
+    /* 一面 = 一张纸,左右恒为「正左背右」:正面 = 攻击(纸白),背面 = 五行面(背面纸 --tint)。
+       主面不再加宽、不再挂色条 —— 只在 Lv8 招牌所在那一面挂一枚「主面 · Lv8 招牌」签(spec v6.2 §12)。 */
+    .face { flex: 1; min-width: 0; box-sizing: border-box; border-radius: 9px; padding: 8px 10px 9px;
       display: flex; flex-direction: column; gap: 6px; }
-    .face.main { flex: 1.16; background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border), inset 3px 0 0 var(--glyph); padding-left: 13px; }
-    .face.sub  { flex: 1; background: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glyph) 22%, transparent); }
+    .face.front { background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
+    .face.back  { background: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glyph) 22%, transparent); }
     .fh { display: flex; align-items: center; gap: 7px; height: 24px; }
     .fn { font-size: 14px; font-weight: 600; letter-spacing: 1px; }
     .role { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: var(--text-main); letter-spacing: 1px; }
     .mtag { height: 15px; padding: 0 6px; border-radius: 7.5px; display: inline-flex; align-items: center; font-size: 8.5px;
       letter-spacing: .5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .mtag.main { background: var(--glyph); color: #fff; }
-    .mtag.sub  { background: var(--card-face); color: var(--elFg); box-shadow: inset 0 0 0 1px var(--glyph); }
+    /* 主面签:赭金淡底压 gold-deep(4.52:1)—— 赭金在本系统里是「这一项最值钱」的语义 */
+    .mtag.lv8 { background: var(--gold-soft); color: var(--gold-deep); box-shadow: inset 0 0 0 1px rgba(201,169,74,.55); }
+    .mtag.none { display: none; }
     .tg { font-size: 9px; color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
     .tg svg { width: 10px; height: 10px; flex: none; }
 
     .stats { display: flex; gap: 6px; }
     .sb { flex: 1; min-width: 0; height: 37px; box-sizing: border-box; border-radius: 7px; padding: 4px 7px;
       background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
-    .face.main .sb { background: var(--panel-paper); }
+    .face.front .sb { background: var(--panel-paper); }
     .sb.t { cursor: pointer; }
     .sb .k { font-size: 8px; color: var(--text-dim); letter-spacing: .5px; white-space: nowrap; }
     .sb.t .k span { font-weight: 700; color: var(--ink-soft); }
@@ -101,7 +104,7 @@
     .tl { display: flex; flex-direction: column; gap: 4px; }
     .tr { position: relative; box-sizing: border-box; border-radius: 7px; padding: 5px 8px 5px; cursor: pointer;
       background: var(--card-face); box-shadow: inset 0 0 0 1px var(--panel-border); }
-    .face.main .tr { background: var(--panel-paper); }
+    .face.front .tr { background: var(--panel-paper); }
     .tr.open { box-shadow: inset 0 0 0 1.5px var(--ink-soft); }
     .th { display: flex; align-items: center; gap: 5px; height: 14px; }
     .lvt { height: 12px; padding: 0 4px; border-radius: 6px; background: var(--ink); color: #fff; font-size: 7.5px;
@@ -116,7 +119,7 @@
     .tr.off .lvt { background: transparent; color: var(--text-faint); box-shadow: inset 0 0 0 1px var(--text-faint); }
     .tr.off .tn, .tr.off .tx, .tr.off .tk { color: var(--text-faint); }
     .tr.off .term, .tr.off .n { color: var(--text-faint); }
-    .face.sub .tr.off .tn, .face.sub .tr.off .tx, .face.sub .tr.off .term, .face.sub .tr.off .n { color: var(--text-dim); opacity: .78; }
+    .face.back .tr.off .tn, .face.back .tr.off .tx, .face.back .tr.off .term, .face.back .tr.off .n { color: var(--text-dim); opacity: .78; }
 
     .shared { flex: none; display: flex; gap: 8px; align-items: stretch; }
     .shl { flex: none; width: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
@@ -317,18 +320,18 @@ class Component extends DCLogic {
     function row(t) {
       var key = 'lv' + t.lv;
       return {
-        lv: t.lv, name: t.name + (t.tag ? '（' + t.tag + '）' : ''), kind: t.kind || (t.face === 'both' ? '两面' : ''),
+        lv: t.lv, name: t.name + (t.tag ? '（' + t.tag + '）' : ''), kind: (t.kind || (t.face === 'both' ? '两面' : '')) + (t.lv === 8 ? ' · 招牌' : ''),
         segs: Z.segs(t.text), locked: !t.on,
         cls: 'tr' + (t.on ? '' : ' off') + (bubKey === key ? ' open' : ''),
         pick: function (e) { self.openBub(e, key, t.name + ' · 词条', Z.terms(t.text)); }
       };
     }
-    var faces = [c.main, 1 - c.main].map(function (fi) {
+    var faces = [0, 1].map(function (fi) {
       var f = Z.faceOf(id, fi, L), m = f.isMain;
       return {
-        cls: 'face ' + (m ? 'main' : 'sub'), s: f.s, role: f.role,
-        sealCls: Z.seal(f.s, m, 'l'),
-        tagCls: 'mtag ' + (m ? 'main' : 'sub'), tag: m ? '主面' : '副面',
+        cls: 'face ' + (fi === 0 ? 'front' : 'back'), s: f.s, role: f.role,
+        sealCls: Z.seal(f.s, 'l'),
+        tagCls: 'mtag ' + (m ? 'lv8' : 'none'), tag: '主面 · Lv8 招牌',
         tgtLine: Z.TGT[f.tgt] + (f.tgt === 'summon' ? '' : ' · ' + f.area),
         stats: f.stats.map(function (st, i) {
           var key = 'st' + fi + i;
@@ -345,7 +348,7 @@ class Component extends DCLogic {
     var pips = [];
     for (var i = 1; i <= 10; i++) {
       var m = marks[i];
-      var mk = m ? (m.face === 'both' ? 'both' : (m.fi === c.main ? 'main' : 'sub')) : 'none';
+      var mk = m ? (m.face === 'both' ? 'both' : (m.fi === 0 ? 'atk' : 'el')) : 'none';
       pips.push({ cls: 'pip' + (i <= L ? ' done' : (i === L + 1 && canUp ? ' next' : '')),
         mk: 'mk ' + mk + (m && i > L ? ' off' : ''), ln: m ? i : '' });
     }
@@ -355,7 +358,7 @@ class Component extends DCLogic {
       bgTiles: BG.map(function (b) { return { g: b[0], cls: 'mt e-' + b[1] + ' r-' + b[2] }; }),
       sheetCls: 'sheet e-' + c.el + ' r-' + c.rar,
       id: id, py: c.py, gloss: c.gloss, L: L,
-      rarName: Z.RAR[c.rar], elName: EL[c.el], mainSeal: c.faces[c.main].s, mainSealCls: Z.seal(c.faces[c.main].s, true, 'm'),
+      rarName: Z.RAR[c.rar], elName: EL[c.el], mainSeal: c.faces[0].s, mainSealCls: Z.seal(c.faces[0].s, 'm'),
       pips: pips,
       copyCls: 'cost' + (c.copies[0] >= c.copies[1] ? ' ok' : ''), copyTxt: c.copies[0] + ' / ' + c.copies[1],
       inkCls: 'cost' + (c.ink[0] >= c.ink[1] ? ' ok' : ''), inkTxt: c.ink[0].toLocaleString() + ' / ' + c.ink[1].toLocaleString(),

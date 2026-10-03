@@ -63,7 +63,8 @@ window.ZD = (function () {
   function sc(L) { return 1 + 0.06 * (L - 1); }
   function r(x) { return Math.round(x); }
 
-  // faces[0] = 攻击(统一记号「攻」),faces[1] = 五行面(本系面印);main = 主面下标。
+  // faces[0] = 攻击 = 正面(白底,默认朝上,墨色「攻」印);faces[1] = 五行面 = 背面(本系淡底 + 本系面印)。
+  // main = 主面下标:只表示 Lv8 招牌挂在哪一面(Lv5 挂另一面),不决定朝上(v6.2)。
   // stats(L, p) 里 p = 副面系数,v6.1 起两面都是 SIDE = 1。
   // traits.face:'both' | 'main' | 'sub'
   var CHARS = {
@@ -175,8 +176,8 @@ window.ZD = (function () {
     var c = CHARS[id], f = c.faces[fi], isMain = fi === c.main;
     return Object.assign({}, f, { fi: fi, isMain: isMain, stats: f.stats(L, isMain ? 1 : SIDE) });
   }
-  // 面印的 class:五行面印吃所在元素的 --glyph;「攻」印加 .atk 换成墨色
-  function seal(s, isMain, size) { return 'seal ' + size + ' ' + (isMain ? 'main' : 'sub') + (s === '攻' ? ' atk' : ''); }
+  // 面印的 class:五行面印吃所在元素的 --glyph;「攻」印加 .atk 换成墨色。只有一式,不分主副。
+  function seal(s, size) { return 'seal ' + size + ' main' + (s === '攻' ? ' atk' : ''); }
   return { seal: seal, EL: EL, RAR: RAR, KE: KE, KE_BY: KE_BY, GLOSS: GLOSS, GLOSS_KIND: GLOSS_KIND, TGT: TGT, CHARS: CHARS,
     segs: segs, terms: terms, plain: plain, traitsOf: traitsOf, faceOf: faceOf, sc: sc, ORDER: ['炎', '剑', '林', '冷', '㙓'] };
 })();

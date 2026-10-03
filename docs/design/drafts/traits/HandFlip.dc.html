@@ -19,7 +19,6 @@
     .mt { position: relative; width: 30px; height: 37px; flex: none; box-sizing: border-box; border-radius: 4px; border: 1px solid var(--rar);
       background: var(--card-face); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
     .mt.back { background: var(--elSoft); }
-    .mt.back::after { content: ""; position: absolute; right: -1px; top: -1px; border-top: 7px solid var(--glyph); border-left: 7px solid transparent; border-top-right-radius: 3px; }
     .mt .g { margin-top: 4px; font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; color: var(--glyph); line-height: 1; }
     .mt .seal { position: absolute; bottom: 2.5px; }
     .bname { display: flex; flex-direction: column; gap: 1px; }
@@ -31,7 +30,7 @@
       display: flex; align-items: center; gap: 4px; background: var(--panel-inset); font-size: 6.8px; color: var(--text-dim); }
     .fsw::after { content: ""; position: absolute; left: 0; right: 0; top: -11px; bottom: -11px; }
     .fsw.on { background: var(--card-face); color: var(--text-main); box-shadow: inset 0 0 0 1.2px var(--ink); }
-    .fsw.on.sub { background: var(--elSoft); }
+    .fsw.on.back { background: var(--elSoft); }
     .fsw .r { font-size: 6.2px; color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
     .finfo { font-size: 6.6px; line-height: 1.55; color: var(--text-main); }
     .finfo .tgl { color: var(--text-dim); }
@@ -240,7 +239,7 @@ class Component extends DCLogic {
     this.setState({ faces: faces, flipping: i, msg: '' });
     setTimeout(function () { self.setState({ flipping: -1 }); }, 200);
   }
-  faceIdx(i) { var c = Z.CHARS[HAND[i][0]]; return this.state.faces[i] ? 1 - c.main : c.main; }
+  faceIdx(i) { return this.state.faces[i] ? 1 : 0; } // 0 = 正面攻击,1 = 背面五行面
   cast(i, tid, el) {
     var id = HAND[i][0], L = HAND[i][1], c = Z.CHARS[id], fi = this.faceIdx(i), f = Z.faceOf(id, fi, L), isMain = fi === c.main;
     var act = Z.traitsOf(id, L).filter(function (t) { return t.fi === fi && t.on && t.kind === '主动'; })[0];
@@ -248,9 +247,9 @@ class Component extends DCLogic {
     var dev = el.closest('.dev').getBoundingClientRect(), r = el.getBoundingClientRect();
     var self = this, key = ++this.popSeq;
     var pop = { key: key, x: r.left - dev.left + Math.min(r.width / 2, 40), y: r.top - dev.top + r.height / 2 - 8, el: c.el, tn: act ? act.name : '', seal: f.s, isMain: isMain, num: hoverLbl(id, f, L, tid) };
-    var faces = this.state.faces.slice(); faces[i] = 0; // 出手后回到主面
+    var faces = this.state.faces.slice(); faces[i] = 0; // 出手后回到正面(攻击)
     this.setState({ pops: this.state.pops.concat([pop]), faces: faces, sel: -1,
-      msg: '「' + id + '」以' + (f.s === '攻' ? '攻击' : '「' + f.s + '」面') + '出手' + (act ? '，主动特性「' + act.name + '」触发' : '') + ' —— 出手后这张牌回到主面（演示里留在手上）' });
+      msg: '「' + id + '」以' + (f.s === '攻' ? '攻击' : '「' + f.s + '」面') + '出手' + (act ? '，主动特性「' + act.name + '」触发' : '') + ' —— 出手后这张牌回到正面（演示里留在手上）' });
     setTimeout(function () { self.setState({ pops: self.state.pops.filter(function (p) { return p.key !== key; }) }); }, 1500);
   }
   renderVals() {
@@ -286,8 +285,8 @@ class Component extends DCLogic {
     }
     var pt = tgState('p');
     var hand = HAND.map(function (h, i) {
-      var c = Z.CHARS[h[0]], back = !!s.faces[i], fi = back ? 1 - c.main : c.main;
-      return { g: h[0], s: c.faces[fi].s, sealCls: Z.seal(c.faces[fi].s, !back, 'xs'),
+      var c = Z.CHARS[h[0]], back = !!s.faces[i], fi = back ? 1 : 0;
+      return { g: h[0], s: c.faces[fi].s, sealCls: Z.seal(c.faces[fi].s, 'xs'),
         cls: 'htile e-' + c.el + ' r-' + c.rar + (back ? ' back' : '') + (s.sel === i ? ' sel' : '') + (s.flipping === i ? ' flipping' : '') + (drag && drag.i === i ? ' lifted' : ''),
         down: function (e) { var r = self.devRect(e); self.press = { i: i, x0: e.clientX, y0: e.clientY, ox: r.left, oy: r.top, moved: false }; } };
     });
@@ -301,12 +300,12 @@ class Component extends DCLogic {
       hand: hand,
       hasSel: !!sel, noSel: !sel,
       selCls: 'sel e-' + (selC ? selC.el : 'Fire') + ' r-' + (selC ? selC.rar : 'Gold'),
-      selTileCls: 'mt' + (selBack ? ' back' : ''), selG: sel ? sel[0] : '', selSeal: selF ? selF.s : '', selSealCls: Z.seal(selF ? selF.s : '', !selBack, 'xs'),
+      selTileCls: 'mt' + (selBack ? ' back' : ''), selG: sel ? sel[0] : '', selSeal: selF ? selF.s : '', selSealCls: Z.seal(selF ? selF.s : '', 'xs'),
       selMeta: sel ? Z.RAR[selC.rar] + ' · ' + Z.EL[selC.el] + ' · Lv.' + sel[1] : '',
-      selFaces: sel ? [selC.main, 1 - selC.main].map(function (fi) {
-        var m = fi === selC.main, on = fi === selFi;
-        return { s: selC.faces[fi].s, role: selC.faces[fi].role.slice(0, 2), pct: m ? '主' : '副', sealCls: Z.seal(selC.faces[fi].s, m, 'xs'),
-          cls: 'fsw' + (on ? ' on' : '') + (m ? '' : ' sub'), pick: function () { if (!on) self.flip(si); } };
+      selFaces: sel ? [0, 1].map(function (fi) {
+        var on = fi === selFi;
+        return { s: selC.faces[fi].s, role: fi === 0 ? '攻击' : '五行面', pct: fi === 0 ? '正' : '背', sealCls: Z.seal(selC.faces[fi].s, 'xs'),
+          cls: 'fsw' + (on ? ' on' : '') + (fi === 1 ? ' back' : ''), pick: function () { if (!on) self.flip(si); } };
       }) : [],
       selTgt: selF ? Z.TGT[selF.tgt] + (selF.tgt === 'summon' ? '' : ' · ' + selF.area) : '',
       selLv1: selF ? Z.segs(selF.lv1) : [],
@@ -314,8 +313,8 @@ class Component extends DCLogic {
       dragOn: !!drag,
       ghostStyle: drag ? 'left:' + drag.x + 'px;top:' + drag.y + 'px' : '',
       ghostCls: g ? 'htile e-' + gc.el + ' r-' + gc.rar + (gBack ? ' back' : '') : 'htile', ghostG: g ? g[0] : '',
-      ghostSeal: g ? gc.faces[gBack ? 1 - gc.main : gc.main].s : '', ghostSealCls: Z.seal(g ? gc.faces[gBack ? 1 - gc.main : gc.main].s : '', !gBack, 'xs'),
-      pops: s.pops.map(function (p) { return { cls: 'pop e-' + p.el, style: 'left:' + p.x + 'px;top:' + (p.y - 20) + 'px', tn: p.tn, seal: p.seal, sealCls: Z.seal(p.seal, p.isMain, 's'), num: p.num }; }),
+      ghostSeal: g ? gc.faces[gBack ? 1 : 0].s : '', ghostSealCls: Z.seal(g ? gc.faces[gBack ? 1 : 0].s : '', 'xs'),
+      pops: s.pops.map(function (p) { return { cls: 'pop e-' + p.el, style: 'left:' + p.x + 'px;top:' + (p.y - 20) + 'px', tn: p.tn, seal: p.seal, sealCls: Z.seal(p.seal, 's'), num: p.num }; }),
       msg: s.msg || (drag ? '松手出手 · 拖回手牌行取消' : ''),
       move: function (e) {
         var p = self.press; if (!p) return;

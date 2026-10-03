@@ -76,23 +76,22 @@ button { font-family: inherit; color: inherit; }
 .r-Red    { --rar: var(--rarity-red);    --rarSoft: var(--rarity-red-soft); }
 
 /* ================= 面印(本稿的核心记号) =================
-   五行面 = 本系方印(燃铠润固生),攻击 = 统一的墨色「攻」印(.atk)。
-   主面:字形色实底 + 白字(朱文印);副面:背面纸底 + 字形色 1pt 边 + 深前景字(白文印的反相)。
+   v6.2:正面恒为攻击 = 墨色「攻」印(.atk);背面恒为五行面 = 本系方印(燃铠润固生),本系字形色。
+   印只有一式(实底白字)—— 主面 / 副面只说特性挂在哪一面,不上印、不上手牌。
    同一枚印出现在手牌、详情、升级预览、飘字四处 —— 玩家只认这一个记号。 */
 .seal { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
   font-family: "Noto Serif SC", "Songti SC", serif; font-weight: 700; line-height: 1; border-radius: 2.5px; }
 .seal.main { background: var(--glyph); color: #fff; }
-.seal.sub  { background: var(--card-face); color: var(--elFg); box-shadow: inset 0 0 0 1px var(--glyph); }
 .seal.both { background: var(--ink-soft); color: #fff; }
-/* 攻击一律用「攻」印(v6.1):不分五行,墨色。主 = 墨底白字,副 = 纸底墨边墨字 —— 与本系彩色的五行面印一眼分开 */
-.seal.atk { --glyph: var(--ink); --elFg: var(--ink); }
+/* 攻击一律用「攻」印:不分五行,墨底白字 —— 与本系彩色的五行面印一眼分开 */
+.seal.atk { --glyph: var(--ink); }
 .seal.xs { width: 10px; height: 10px; font-size: 7px; border-radius: 2px; }
 .seal.s  { width: 13px; height: 13px; font-size: 9px; }
 .seal.m  { width: 17px; height: 17px; font-size: 11.5px; border-radius: 3px; }
 .seal.l  { width: 24px; height: 24px; font-size: 16px; border-radius: 4px; }
 
 /* ================= 手牌(实现尺寸 96×117 → 45.87×55.90pt) =================
-   正面 = 主面朝上:牌面纸白;背面 = 翻到副面:牌面换背面纸。底部原拼音位换成面印。 */
+   正面 = 攻击:牌面纸白 +「攻」印;背面 = 五行面:牌面换本系淡底 + 本系面印。底部原拼音位换成面印。 */
 .htile { position: relative; width: 45.87px; height: 55.9px; flex: none; box-sizing: border-box; padding: 0;
   border-radius: 6px; border: 1.5px solid var(--rar); background: var(--card-face); cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
@@ -102,10 +101,6 @@ button { font-family: inherit; color: inherit; }
 .htile .g { margin-top: 7px; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 19.11px; font-weight: 600; line-height: 1; color: var(--glyph); pointer-events: none; }
 .htile .seal { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); pointer-events: none; }
 .htile.back { background: var(--elSoft); }
-/* 折角:背面的第三个记号(底色、印式之外)。金系淡底与纸白只差一线,光靠底色不够一眼认出。
-   实现可用 Theme.Triangle 旋转 45°,色 = <el>-glyph。 */
-.htile.back::after { content: ""; position: absolute; right: -1.5px; top: -1.5px; width: 0; height: 0;
-  border-top: 9px solid var(--glyph); border-left: 9px solid transparent; border-top-right-radius: 5px; pointer-events: none; }
 .htile.sel { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); }
 .htile.flipping { animation: flip .18s ease-in-out; }
 @keyframes flip { 0% { transform: scaleX(1); } 50% { transform: scaleX(0.04); } 100% { transform: scaleX(1); } }

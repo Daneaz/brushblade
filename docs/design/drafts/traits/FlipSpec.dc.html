@@ -61,8 +61,8 @@
 <div class="board">
   <div>
     <h2>翻 面 · 规 格</h2>
-    <div class="lede">一张字两面:<b>攻击</b>与<b>五行面</b>。主面朝上是纸白,翻到副面是该系的淡底纸。五行面一枚本系方印(燃铠润固生),
-      攻击一律用墨色「攻」印;主面朱文(实底白字)、副面白文(描边)。同一枚印出现在手牌、详情、升级预览、出手飘字四处。
+    <div class="lede">所有字<b>正面都是攻击</b>:纸白底 + 墨色「攻」印,默认朝上。<b>背面都是五行面</b>:本系淡底 + 本系面印(燃铠润固生)。
+      主面 / 副面只说 Lv8 招牌与 Lv5 挂在哪一面,<b>不上手牌</b>,只在详情里标。同一枚印出现在手牌、详情、升级预览、出手飘字四处。
       可交互版本见 <b>HandFlip</b>。</div>
   </div>
   <div class="cols">
@@ -82,8 +82,8 @@
         </div>
       </div>
       <ul class="spec">
-        <li><b>三个记号同时变</b>:牌面 <code>card-face</code> → <code>&lt;el&gt;-soft</code>;面印朱文 → 白文(「攻」印同理,只是墨色);右上角出折角(9pt 三角,<code>&lt;el&gt;-glyph</code>)。
-          金系淡底与纸白只差一线(右二),折角是给它兜底的。</li>
+        <li><b>两个记号同时变</b>:牌面 <code>card-face</code> → <code>&lt;el&gt;-soft</code>;墨色「攻」印 → 本系色面印。
+          金系淡底与纸白最接近(右二),但印从墨换成金字形色、字也从「攻」换成「铠」,两样叠起来足够分开。</li>
         <li><b>面印</b> 10pt 方(21 逻辑单位),印文 7pt 宋体 700,占原拼音位(锚 0.06–0.30)。
           拼音 5.73pt 在手牌上本来读不清,详情页里照旧有。</li>
         <li><b>翻面动效</b> 0.18s:横向压扁到 4% 再展开,底色与面印在中点换。不耗 AP,不进行动记录。</li>
@@ -96,15 +96,15 @@
         <tr><th style="width: 92px;">手势</th><th>现在</th><th>本稿</th></tr>
         <tr><td>点未选中的牌</td><td>选中,拆合台显示</td><td>不变(只选中,不翻)</td></tr>
         <tr><td>点已选中的牌</td><td>直接出字</td><td class="chg"><b>翻面</b></td></tr>
-        <tr><td>拆合台翻面钮</td><td>—</td><td class="chg">新增:两格「五行 主 / 攻击 副」,点另一格即翻</td></tr>
+        <tr><td>拆合台翻面钮</td><td>—</td><td class="chg">新增:两格「攻击 / 五行面」(正左背右),点另一格即翻</td></tr>
         <tr><td>拆合台「出」</td><td>出字</td><td>按朝上的那一面出字</td></tr>
         <tr><td>拖出</td><td>出字;双向字靠落点定方向</td><td class="chg">按朝上的那一面出字;<b>只点亮这一面能落的目标</b></td></tr>
         <tr><td>长按</td><td>详情</td><td>详情,标出「朝上」的那一面</td></tr>
       </table>
-      <div class="flag"><b>已拍板(2026-10-04):</b>点一下 = 翻面,取代原来的「点已选中的牌 = 出字」;出字走拖出或「出」钮。
+      <div class="flag"><b>已拍板(2026-10-04,v6.1/v6.2):</b>点一下 = 翻面,取代原来的「点已选中的牌 = 出字」;出字走拖出或「出」钮。
         <b>第一下仍是选中</b>(拆、弃都要先选中),翻面作用在已选中的那张上 —— 所以对一张新牌,是「点选中,再点翻」。</div>
       <ul class="spec">
-        <li><b>朝上的面跟着这张牌</b>,直到出手;出手后回到主面。回合结束不重置 —— 刚翻好的牌下回合又翻回去,是在替玩家做决定。</li>
+        <li><b>朝上的面跟着这张牌</b>,直到出手;出手后回到正面(攻击)。回合结束不重置 —— 刚翻好的牌下回合又翻回去,是在替玩家做决定。</li>
         <li>火字的攻击与「燃」都打敌人,<b>落点分不出面</b>,所以必须先翻再拖;这也是双向字那套「靠落点定方向」不能沿用的原因。</li>
       </ul>
     </div>
@@ -159,12 +159,12 @@
 <script data-dc-script data-props='{"$preview": {"width": 1320, "height": 700}}'>
 var Z = window.ZD;
 function tile(id, back) {
-  var c = Z.CHARS[id], fi = back ? 1 - c.main : c.main;
-  return { g: id, s: c.faces[fi].s, cls: 'htile e-' + c.el + ' r-' + c.rar + (back ? ' back' : ''), sealCls: Z.seal(c.faces[fi].s, !back, 'xs') };
+  var c = Z.CHARS[id], fi = back ? 1 : 0;
+  return { g: id, s: c.faces[fi].s, cls: 'htile e-' + c.el + ' r-' + c.rar + (back ? ' back' : ''), sealCls: Z.seal(c.faces[fi].s, 'xs') };
 }
 class Component extends DCLogic {
   renderVals() {
-    var big = [['炎', false, '炎 · 正面', '主面「燃」'], ['炎', true, '炎 · 背面', '副面:攻击'], ['剑', true, '剑 · 背面', '金系:淡底只差一线']].map(function (x) {
+    var big = [['炎', false, '炎 · 正面', '攻击 ·「攻」印'], ['炎', true, '炎 · 背面', '五行面 ·「燃」印'], ['剑', true, '剑 · 背面', '五行面 ·「铠」印(金系)']].map(function (x) {
       return Object.assign(tile(x[0], x[1]), { k: x[2], d: x[3] });
     });
     var small = [];
