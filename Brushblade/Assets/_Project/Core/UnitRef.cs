@@ -28,9 +28,13 @@ namespace Brushblade.Core
         public static UnitRef Summon(int slot) => new UnitRef(UnitSide.Summon, slot);
         public static UnitRef Enemy(int index) => new UnitRef(UnitSide.Enemy, index);
 
-        public bool Equals(UnitRef other) => Side == other.Side && Index == other.Index;
+        /// <summary>只有 Summon/Enemy 比较 Index:None/Player 的 Index 无意义,
+        /// 这样 default(UnitRef)(Index = 0)与 UnitRef.None(Index = −1)相等。</summary>
+        public bool Equals(UnitRef other) =>
+            Side == other.Side && (!HasIndex || Index == other.Index);
         public override bool Equals(object obj) => obj is UnitRef o && Equals(o);
-        public override int GetHashCode() => ((int)Side * 397) ^ Index;
+        public override int GetHashCode() => HasIndex ? ((int)Side * 397) ^ Index : (int)Side * 397;
+        private bool HasIndex => Side == UnitSide.Summon || Side == UnitSide.Enemy;
         public static bool operator ==(UnitRef a, UnitRef b) => a.Equals(b);
         public static bool operator !=(UnitRef a, UnitRef b) => !a.Equals(b);
         public override string ToString() => Side == UnitSide.Player || Side == UnitSide.None ? Side.ToString() : $"{Side}#{Index}";

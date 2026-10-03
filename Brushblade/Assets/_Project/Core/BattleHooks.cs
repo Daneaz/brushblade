@@ -5,10 +5,12 @@ namespace Brushblade.Core
     {
         PlayerHit,          // 玩家被命中(含被护盾/免疫吃掉的)
         SummonHit,          // 召唤物被命中
-        EnemyHit,           // 敌人受到直接伤害(DamageEnemy;不含灼烧/流血结算)
+        EnemyHit,           // 敌人受到直接伤害(DamageEnemy);Amount = 实际掉血(不含盾吸收与过量伤害)。
+                            // 灼烧/流血结算、引爆、斩杀**不发**本钩子 —— 它们致死时只发 EnemyKilled(Source 区分)
         EnemyKilled,        // 敌人死亡(Other = 击杀者,Source = 致死来源)
         SummonDied,         // 召唤物阵亡
-        StatusApplied,      // 状态施加(Subject = 承受者,Other = 施加者)
+        StatusApplied,      // 状态施加(Subject = 承受者,Other = 施加者);Amount = 施加**之后**该条状态的
+                            // Magnitude —— 灼烧是叠加后的总层数,不是本次新增的层数
         TurnStarted,        // 单位那一拍开始(Subject = 行动者)
         TurnEnded,          // 单位那一拍结束;玩家 = 让出行动权
         HpThresholdCrossed, // 生命从 ≥50% 跌到 <50%,每单位每场一次,复活不重置(R5)

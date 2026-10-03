@@ -1189,7 +1189,7 @@ namespace Brushblade.Core
             var summon = _summons[slot];
             if (summon == null || !summon.Alive) return;
             summon.Hp = 0;
-            OnSummonDeath(slot);
+            OnSummonDeath(slot, UnitRef.None);
         }
 
         /// <summary>把一只阵亡召唤物救回半血(2026-09-13):与 EffectKind.Revive 同口径。
@@ -2158,7 +2158,7 @@ namespace Brushblade.Core
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
             CheckThreshold(UnitRef.Summon(slot), hpBefore, summon.Hp, summon.MaxHp);
-            if (!summon.Alive) OnSummonDeath(slot);   // 自焚死亡:摘光环份额 + 木脉 L2 归根
+            if (!summon.Alive) OnSummonDeath(slot, UnitRef.None);   // 自焚死亡:摘光环份额 + 木脉 L2 归根
         }
 
         /// <summary>注入给召唤物的攻击百分比乘区(2026-09-05)= 100 + 战意层×10 + 厚层×5。
@@ -2193,9 +2193,10 @@ namespace Brushblade.Core
         ///
         /// 顺序:先治疗、后刷光环。两种顺序结果相同(治疗只影响玩家与敌人,
         /// 光环只读召唤物存活集合),固定成这一种是为了测试可断言。</summary>
-        private void OnSummonDeath(int slot)
+        /// <param name="killer">击杀者(spec v6 §11.4):挨打/吞噬 = 出手的敌人;自焚与测试入口 = None。</param>
+        private void OnSummonDeath(int slot, UnitRef killer)
         {
-            Raise(HookKind.SummonDied, UnitRef.Summon(slot), UnitRef.None);
+            Raise(HookKind.SummonDied, UnitRef.Summon(slot), killer);
             HealFromSummonDeath(slot);
             RefreshSummonAura();
         }
@@ -4167,6 +4168,7 @@ namespace Brushblade.Core
             // 盾是一层临时血,照常要打空 —— 连盾一起穿会让护盾对带对属性的玩家形同虚设。
             int absorbed = Math.Min(enemy.Shield, damage);
             enemy.Shield -= absorbed;
+            int hpBefore = enemy.Hp;
             enemy.Hp = Math.Max(0, enemy.Hp - (damage - absorbed));
             if (_config.Tally != null && damage > _config.Tally.MaxHit) _config.Tally.MaxHit = damage;
             // Absorbed 复用玩家侧 EnemyAttack 那个字段的口径:Amount = 打出去的总伤,
@@ -4176,7 +4178,8 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, sourceSlot,
                 absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,
                 countered: countered, sameSwing: sameSwing, source: source));
-            Raise(HookKind.EnemyHit, UnitRef.Enemy(enemyIndex), attackerRef, damage - absorbed, source: source);
+            // Amount = 实际掉的血(不含过量伤害),盾吃掉的与溢出的都不算
+            Raise(HookKind.EnemyHit, UnitRef.Enemy(enemyIndex), attackerRef, hpBefore - enemy.Hp, source: source);
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
@@ -4590,7 +4593,7 @@ namespace Brushblade.Core
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
             // 光环只影响召唤物攻击,上面几路反弹都是定额伤害,不受这一挪的影响。
-            if (!summon.Alive) OnSummonDeath(summonIndex);
+            if (!summon.Alive) OnSummonDeath(summonIndex, UnitRef.Enemy(enemyIndex));
             return true;
         }
 
@@ -4691,11 +4694,14 @@ namespace Brushblade.Core
                         int lost = victim.Hp;
                         victim.Hp = 0;
                         _events.Add(new BattleEvent(BattleEventKind.SummonHit, index, lost, front));
+                        // 钩子(spec v6 §11.4):吞噬绕开了 DamageSummon,受击与跌破 50% 在这里补发
+                        Raise(HookKind.SummonHit, UnitRef.Summon(front), UnitRef.Enemy(index), lost);
+                        CheckThreshold(UnitRef.Summon(front), lost, 0, victim.MaxHp);
                         // 吞噬完全绕开 DamageSummon(2026-09-05):它是自己的一条死亡路径,
                         // 死者的光环份额、木脉 L2「归根」都要跟着接上,否则全场光环总和会停在
                         // 旧数上直到下次真正触发刷新才纠正,归根也会在 Boss 吞噬时静默失效
                         // (2026-09-13:补接 OnSummonDeath)。
-                        OnSummonDeath(front);
+                        OnSummonDeath(front, UnitRef.Enemy(index));
                     }
                     else
                     {
