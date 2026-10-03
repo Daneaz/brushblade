@@ -138,8 +138,11 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   `support.js` 都不在源稿里,本地看与线上差很多(2026-10-03 栽过)。
   1. 本地预览页由脚本从源稿生成、不手写,并配对账测试(每份源稿都有本地页、`var(--x)` 全有定义、
      产物可再生)。现成范例:`tools/design/build_ds_preview.py` → `docs/design/_preview/`
-     (规范 / 组件 / 成品三层合一个画廊),测试 `tools/design/tests/test_ds_preview.py`。
-     改了 `tokens.json` 或任何 `preview.html` 后重跑脚本。画布 `*.dc.html` 的本地外壳还没做(缺 `dc-runtime.js`)。
+     (规范 / 组件 / 成品三层 + 每个画布一页 `canvas-<目录>.html`),测试 `tools/design/tests/test_ds_preview.py`。
+     改了 `tokens.json`、任何 `preview.html` 或 `canvas.json` 后重跑脚本。
+     画布 `*.dc.html` 写死 `<script src="./support.js">`:本地由 `docs/design/ui/dc-runtime.js`(从 Design 类型
+     原样取下的运行时)顶上,**新建画布目录时要加软链接** `ln -s ../dc-runtime.js docs/design/ui/<目录>/support.js`
+     (测试会查)。画布稿直接打开即可交互。
   2. 验收要在浏览器里实看,不能只比 sha256(sha256 只证明源稿一致,不证明看得到)。用
      `python3 -m http.server` 起本地服务再打开;预览面板直接开 `file://` 会变成静态快照,相对路径的 CSS 不加载。
   3. `.gitignore` 忽略 `docs/design/ui/**/*.html`(只放行 `*.dc.html`),别把 `preview.html` 或单文件 HTML 放进 `ui/`。
