@@ -1,0 +1,208 @@
+<!-- @dsCard group="整屏" height=430 width=932 subtitle="实现 · MilestonePickSheet · 墨锭 + 字卡 3 选 1,由角色页「领 取」打开" -->
+<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
+
+.cs { position: relative; width: 932px; height: 430px; box-sizing: border-box; overflow: hidden;
+  background: var(--paper); color: var(--text-main); line-height: 1.3; }
+.cs * { box-sizing: border-box; }
+.cs .safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px; }
+.cs .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+.cs .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+.cs .serif { font-family: var(--font-serif); font-weight: 600; }
+.cs .num { font-variant-numeric: tabular-nums; }
+/* 顶栏(BuildTopBar):高 80、行距 21;标题 40 宋体 / 副标 23 TextDim / 墨锭 25 / 返回 25 + 130×63 */
+.cs .top { position: absolute; left: 0; right: 0; top: 0; height: 38.22px; display: flex; align-items: center; gap: 10.03px; white-space: nowrap; }
+.cs .top h1 { margin: 0; font-family: var(--font-serif); font-weight: 600; font-size: 19.11px; }
+.cs .top .sub { font-size: 10.99px; color: var(--text-dim); }
+.cs .top .grow { flex: 1; }
+/* PillButton 恒圆角 24 → 11.47,不是 RoundButton 的 16 */
+.cs .back { width: 62.11px; height: 30.1px; border-radius: 11.47px; font-size: 11.94px; }
+/* 正文:底边距 17、顶让出顶栏;左档案 419 定宽,右列弹性,栏距 21 */
+.cs .body { position: absolute; left: 0; right: 0; top: 38.22px; bottom: 8.12px; display: flex; gap: 10.03px; }
+.cs .panel { background: var(--panel-paper); border: 0.96px solid var(--panel-border); border-radius: 10.03px; }
+.cs .ttl { display: flex; align-items: center; gap: 6.21px; white-space: nowrap; }
+.cs .ttl b { font-family: var(--font-serif); font-weight: 600; font-size: 11.94px; color: var(--text-main); }
+.cs .ttl span { font-size: 9.08px; color: var(--text-faint); }
+.cs .ttl .rule { flex: 1; height: 0.96px; background: var(--panel-border); }
+
+/* 左:执笔人档案 —— 内边距 25、竖排间距 19 */
+.cs .prof { width: 200.19px; flex: none; padding: 11.94px; display: flex; flex-direction: column; gap: 9.08px; }
+.cs .avatar { display: flex; align-items: center; gap: 10.03px; }
+/* Ui.CircleGlyph(100):字号 = 直径 × 0.44 = 44 */
+.cs .face { width: 47.78px; height: 47.78px; flex: none; border-radius: 50%; background: var(--ink); color: var(--paper);
+  display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-weight: 600; font-size: 21.02px; }
+.cs .names { display: flex; flex-direction: column; gap: 1.91px; white-space: nowrap; }
+.cs .names .nm { font-family: var(--font-serif); font-weight: 600; font-size: 17.2px; }
+.cs .names .rk { font-size: 10.03px; color: var(--text-dim); }
+.cs .xp { display: flex; flex-direction: column; gap: 2.87px; }
+.cs .xp .row { display: flex; gap: 3.82px; font-size: 9.08px; color: var(--text-faint); white-space: nowrap; }
+.cs .xp .row span:first-child { flex: 1; }
+.cs .bar { position: relative; border-radius: 4.78px; background: var(--paper-dim); overflow: hidden; }
+.cs .bar > i { display: block; height: 100%; border-radius: 4.78px; }
+.cs .attrs { display: flex; flex-direction: column; gap: 2.87px; }
+/* AttrRow:PanelInset 圆角 12、高 44;行内左右 15、间距 12;名 21 / 值 27 宋体 / 增量 18 定宽 54 */
+.cs .at { height: 21.02px; border-radius: 5.73px; background: var(--panel-inset); padding: 0 7.17px;
+  display: flex; align-items: center; gap: 5.73px; white-space: nowrap; }
+.cs .at span { flex: 1; font-size: 10.03px; color: var(--text-dim); }
+.cs .at b { font-family: var(--font-serif); font-weight: 600; font-size: 12.9px; font-variant-numeric: tabular-nums; }
+.cs .at u { width: 25.8px; text-align: right; text-decoration: none; font-size: 8.6px; color: var(--upgrade-text); font-variant-numeric: tabular-nums; }
+.cs .at u.cap { color: var(--text-faint); }
+.cs .note { margin-top: auto; font-size: 9.08px; color: var(--text-faint); }
+
+.cs .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10.03px; }
+/* 右上:里程碑轨道 —— 定高 327,内边距 21/21/21/19,竖排 17 */
+.cs .ms { height: 156.24px; flex: none; padding: 10.03px 10.03px 9.08px; display: flex; flex-direction: column; gap: 8.12px; }
+.cs .track { position: relative; flex: 1; display: flex; gap: 6.21px; }
+/* 轨道底线:Ui.Bar 高 6,横跨 5%–95%,竖直中心 = 钉的中心(距轨道顶 21) */
+.cs .rail { position: absolute; left: 5%; right: 5%; top: 8.6px; height: 2.87px; }
+.cs .node { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3.82px; }
+.cs .pin { position: relative; width: 20.07px; height: 20.07px; flex: none; border-radius: 50%; background: var(--gold); }
+.cs .pin img { position: absolute; left: 4.78px; top: 4.78px; width: 10.51px; height: 10.51px; display: block; }
+.cs .todo .pin { background: var(--panel-border); }
+.cs .todo .pin::after { content: ""; position: absolute; inset: 1.43px; border-radius: 50%; background: var(--panel-paper); }
+/* 卡:OutlinedPanel 圆角 17;已领 PanelInset / 可领 GoldSoft + Gold 3 描边 / 未达 CardWhite */
+.cs .mc { flex: 1; width: 100%; border-radius: 8.12px; border: 0.96px solid var(--panel-border); background: var(--card-face);
+  padding: 4.78px 2.87px; display: flex; flex-direction: column; align-items: center; gap: 2.87px; white-space: nowrap; }
+.cs .done .mc { background: var(--panel-inset); }
+.cs .ready .mc { background: var(--gold-soft); border: 1.43px solid var(--gold); }
+.cs .mc .lv { font-family: var(--font-serif); font-weight: 600; font-size: 12.9px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.cs .ready .mc .lv { color: var(--text-main); }
+.cs .ingot { display: flex; align-items: center; gap: 2.87px; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.cs .ingot i { display: block; background: var(--ingot-dark); clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%); }
+.cs .mc .ingot { font-size: 9.56px; }
+.cs .mc .ingot i { width: 13.38px; height: 8.12px; }
+/* 色点 + 「X字 3 选 1」17:格内宽只有 ~47pt,这一行估算 ~49pt,居中两头各探出一点(Unity Text 不折行) */
+.cs .mc .pick { display: flex; align-items: center; justify-content: center; gap: 2.39px; width: 100%; font-size: 8.12px; color: var(--text-dim); }
+.cs .dot { display: block; flex: none; border-radius: 2.87px; }
+.cs .mc .st { margin-top: auto; font-size: 8.6px; color: var(--text-faint); }
+.cs .claim { margin-top: auto; width: 100%; height: 21.02px; border-radius: 11.47px; font-size: 10.03px;
+  background: var(--gold); color: var(--gold-text); }
+
+/* 右下:统计 —— 弹性高,内边距 21/21/19/21,竖排 17 */
+.cs .stats { flex: 1; min-height: 0; padding: 9.08px 10.03px 10.03px; display: flex; flex-direction: column; gap: 8.12px; }
+.cs .tabs { display: flex; gap: 6.21px; flex: none; }
+/* 页签:OutlinedPanel 圆角 25、描边 2;宽 = 字数×23+58、高 50;字 23 **宋体**(TitleFont) */
+.cs .tab { width: 49.69px; height: 23.89px; border-radius: 11.94px; border: 0.96px solid var(--panel-border);
+  background: var(--panel-paper); color: var(--text-dim); display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 600; font-size: 10.99px; }
+.cs .tab.on { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+.cs .pane { flex: 1; min-height: 0; display: flex; gap: 13.86px; }
+.cs .vsep { width: 0.96px; flex: none; background: var(--panel-border); }
+.cs .col { flex: none; display: flex; flex-direction: column; gap: 1.91px; }
+.cs .h { font-size: 9.08px; color: var(--text-faint); white-space: nowrap; }
+.cs .li { height: 15.77px; display: flex; align-items: center; gap: 5.73px; font-size: 10.03px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cs .li span { flex: 1; }
+.cs .li.zero { color: var(--text-faint); }
+.cs .pity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7.17px; }
+/* 推算:三块保底的首选高合计超出页高约 14pt,uGUI 按比例压缩子项高(间距不压),行会略挤 */
+.cs .pr { min-height: 0; display: flex; flex-direction: column; gap: 2.87px; }
+.cs .pr .row { display: flex; align-items: center; gap: 5.73px; white-space: nowrap; }
+.cs .pr .row span { flex: 1; font-size: 10.03px; }
+.cs .pr .row b { font-family: var(--font-serif); font-weight: 600; font-size: 12.9px; font-variant-numeric: tabular-nums; }
+.cs .pr .bar { flex-shrink: 0; }
+.cs .pr .hint { font-size: 8.6px; color: var(--text-faint); white-space: nowrap; }
+/* StatTile:CardWhite 圆角 17、高 130;内边距 21/19、间距 8;标签 20 TextDim、数值 46 宋体千分位 */
+.cs .tiles { flex: 1; min-width: 0; display: flex; gap: 8.12px; align-items: flex-start; }
+.cs .tile { flex: 1; min-width: 0; height: 62.11px; border-radius: 8.12px; border: 0.96px solid var(--panel-border);
+  background: var(--card-face); padding: 9.08px 10.03px; display: flex; flex-direction: column; justify-content: center; gap: 3.82px; white-space: nowrap; }
+.cs .tile .k { font-size: 9.56px; color: var(--text-dim); }
+.cs .tile .v { font-family: var(--font-serif); font-weight: 600; font-size: 21.98px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+/* 出手 Top10:5 × 2,格 = MiniGlyphTile 64×80 + 间距 10 + 次数 21 定宽 50;行内格距 21、行距 10 */
+.cs .top10 { flex: none; display: flex; flex-direction: column; gap: 4.78px; }
+.cs .trow { display: flex; gap: 10.03px; }
+.cs .tc { display: flex; align-items: center; gap: 4.78px; }
+.cs .tc .n { width: 23.89px; font-size: 10.03px; font-variant-numeric: tabular-nums; }
+/* Ui.RankBadge(tile, i+1, 27, 10, 17):ink-soft 圆 27、探出牌外 10、白色粗体 17(37e70f97) */
+.cs .rank { position: absolute; z-index: 2; left: -4.78px; top: -4.78px; width: 12.9px; height: 12.9px; border-radius: 50%;
+  background: var(--ink-soft); color: #fff; font-weight: 700; font-size: 8.12px; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.cs .bt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8.12px; }
+.cs .bt .pair { display: flex; gap: 8.12px; }
+
+.stage { position: relative; width: 932px; height: 430px; overflow: hidden; line-height: 1.3; }
+.stage * { box-sizing: border-box; }
+.scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 50; }
+/* Ui.Sheet:卡 1256×745 → 600.10×355.95,屏幕正中;圆角 18、描边 1.5 PanelBorder、面 PanelPaper;没有投影 */
+.sheet { position: absolute; z-index: 51; left: 50%; top: 50%; width: 600.1px; height: 355.95px; transform: translate(-50%, -50%);
+  background: var(--panel-paper); border: 0.72px solid var(--panel-border); border-radius: 8.6px;
+  display: flex; flex-direction: column; align-items: stretch; color: var(--text-main); }
+.sheet .c { text-align: center; white-space: nowrap; }
+.serif { font-family: var(--font-serif); font-weight: 600; }
+.stage .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; z-index: 60; }
+.stage .homebar > span { width: 128px; border-radius: 2px; background: rgba(255,255,255,.4); }
+.ingot { display: flex; align-items: center; justify-content: center; gap: 2.87px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ingot i { display: block; background: var(--ingot-dark); clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%); }
+.chip { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; border-radius: 6.69px; flex: none; }
+
+.mp { flex: 1; padding: 13.86px 20.07px; display: flex; flex-direction: column; gap: 10.03px; }
+/* 右上 ×:RoundButton 透明底、TextDim、字 42、92×92,钉在卡右上内缩 17 / 13 */
+.x { position: absolute; right: 8.12px; top: 6.21px; width: 43.96px; height: 43.96px; border: none; background: transparent;
+  color: var(--text-dim); font-family: var(--font-sans); font-weight: 500; font-size: 20.07px; line-height: 1; }
+.mp .kick { font-size: 11.94px; color: var(--gold-deep); }
+.mp .lv { font-size: 33.92px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.mp .ingot { font-size: 13.86px; color: var(--text-main); }
+.mp .ingot i { width: 19.4px; height: 11.78px; }
+.mp .sec { display: flex; align-items: center; gap: 6.21px; white-space: nowrap; }
+.mp .sec b { font-family: var(--font-serif); font-weight: 600; font-size: 10.99px; }
+.mp .sec span { font-size: 9.08px; color: var(--text-faint); }
+.mp .sec .rule { flex: 1; height: 0.96px; background: var(--panel-border); }
+.mp .picks { display: flex; justify-content: center; gap: 18.16px; }
+.mp .cand { display: flex; flex-direction: column; align-items: center; gap: 4.78px; }
+/* 选中环:牌外一圈 Rounded(18) 的实心底,外扩 RingPad 8;未选 = 透明 */
+.mp .ring { position: relative; width: 111.8px; height: 137.6px; border-radius: 8.6px; padding: 3.82px; }
+.mp .ring.on { background: var(--ink-soft); }
+.mp .foot { margin-top: auto; display: flex; align-items: center; gap: 11.94px; }
+.mp .foot .note { flex: 1; font-size: 9.08px; color: var(--text-faint); }
+.mp .ok { width: 150.02px; height: 40.13px; border-radius: 11.47px; font-size: 14.81px; flex: none; }
+
+</style></head><body>
+<div class="zd-root">
+<!-- 示例:Lv.20 里程碑 = 1,200 墨 + 金字 3 选 1(MilestoneRules.Table)。候选只从可掉落池里该稀有度的字抽,
+     炎 / 林 / 圭 都是金档;炎已拥有 → 「已有 · 重复卡 +1」。已点选第二张(林):选中环亮、「收下」由灰转朱砂。
+     底下是角色页本身(Sheet 挂在 CharacterView 根上),遮罩盖满整屏。 -->
+<div class="stage">
+  <div class="cs">
+  <div class="safe">
+    <div class="top">
+      <h1>执 笔 人</h1><span class="sub">Lv.20 · 秀才 · 最高 43 层</span><span class="grow"></span>
+      <span class="zd-ink zd-ink--top"><i class="zd-ink__ingot"></i>2480</span>
+      <button class="zd-btn zd-btn--plum back">返回地图</button>
+    </div>
+    <div class="body">
+      <div class="panel prof">
+        <div class="avatar"><div class="face">墨</div>
+          <div class="names"><div class="nm">执笔人</div><div class="rk">Lv.20 · 秀才</div></div></div>
+        <div class="xp"><div class="row"><span>经验 · 距 Lv.21</span><span class="num">420 / 1050</span></div>
+          <div class="bar" style="height:4.78px"><i style="width:40%;background:var(--gold)"></i></div></div>
+        <div class="ttl"><b>属性</b><span>下一级</span><span class="rule"></span></div>
+        <div class="attrs"><div class="at"><span>生命</span><b style="color:var(--cinnabar)">880</b><u>+20</u></div><div class="at"><span>攻击</span><b style="color:var(--text-main)">138</b><u>+2</u></div><div class="at"><span>护甲</span><b style="color:var(--text-main)">12</b><u class=cap>—</u></div><div class="at"><span>闪避</span><b style="color:var(--text-main)">10%</b><u class=cap>—</u></div><div class="at"><span>速度</span><b style="color:var(--text-main)">110</b><u class=cap>—</u></div><div class="at"><span>每回合 AP</span><b style="color:var(--text-main)">3</b><u class=cap>—</u></div></div>
+        <div class="note">属性 Lv.50 封顶 · 之后升级只给宝箱与里程碑</div>
+      </div>
+      <div class="right">
+        <div class="panel ms">
+          <div class="ttl"><b>等级里程碑</b><span>已领 3 / 10 · 每 5 级一档</span><span class="rule"></span><span>Lv.50 之后每 10 级 · 3,000 墨 + 橙字 3 选 1</span></div>
+          <div class="track">
+            <div class="bar rail"><i style="width:33.3%;background:var(--gold)"></i></div>
+            <div class="node done"><div class="pin"><img alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTQgMzRMMjcgNDZMNTAgMTkiLz48L3N2Zz4="></div><div class="mc"><div class="lv">Lv.5</div><div class="ingot"><i></i>300</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-blue)"></i>蓝字 3 选 1</div><div class="st">已领</div></div></div><div class="node done"><div class="pin"><img alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTQgMzRMMjcgNDZMNTAgMTkiLz48L3N2Zz4="></div><div class="mc"><div class="lv">Lv.10</div><div class="ingot"><i></i>500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-purple)"></i>紫字 3 选 1</div><div class="st">已领</div></div></div><div class="node done"><div class="pin"><img alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTQgMzRMMjcgNDZMNTAgMTkiLz48L3N2Zz4="></div><div class="mc"><div class="lv">Lv.15</div><div class="ingot"><i></i>800</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-purple)"></i>紫字 3 选 1</div><div class="st">已领</div></div></div><div class="node ready"><div class="pin"></div><div class="mc"><div class="lv">Lv.20</div><div class="ingot"><i></i>1,200</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-gold)"></i>金字 3 选 1</div><button class="zd-btn claim">领 取</button></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.25</div><div class="ingot"><i></i>1,500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-gold)"></i>金字 3 选 1</div><div class="st">差 5 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.30</div><div class="ingot"><i></i>2,000</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-gold)"></i>金字 3 选 1</div><div class="st">差 10 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.35</div><div class="ingot"><i></i>2,500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-orange)"></i>橙字 3 选 1</div><div class="st">差 15 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.40</div><div class="ingot"><i></i>3,000</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-orange)"></i>橙字 3 选 1</div><div class="st">差 20 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.45</div><div class="ingot"><i></i>3,500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-orange)"></i>橙字 3 选 1</div><div class="st">差 25 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.50</div><div class="ingot"><i></i>5,000</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-red)"></i>红字 3 选 1</div><div class="st">差 30 级</div></div></div>
+          </div>
+        </div>
+        <div class="panel stats"><div class="tabs"><span class="tab on">宝箱</span><span class="tab">登塔</span><span class="tab">战斗</span><span class="tab">经济</span></div><div class="pane"><div class="col" style="width:128.05px"><div class="h">开箱 · 共 90 只</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-white)"></i><span>素纸匣</span>4</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-green)"></i><span>竹简匣</span>21</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-blue)"></i><span>青瓷匣</span>27</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-purple)"></i><span>紫檀匣</span>19</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-gold)"></i><span>鎏金匣</span>11</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-orange)"></i><span>朱漆匣</span>6</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-red)"></i><span>赤霄匣</span>2</div></div><div class="vsep"></div><div class="col" style="width:111.8px"><div class="h">开出字卡 · 共 407 张</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-white)"></i><span>白字</span>131</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-green)"></i><span>绿字</span>118</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-blue)"></i><span>蓝字</span>82</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-purple)"></i><span>紫字</span>51</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-gold)"></i><span>金字</span>22</div><div class="li"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-orange)"></i><span>橙字</span>3</div><div class="li zero"><i class="dot" style="width:8.12px;height:8.12px;background:var(--text-faint)"></i><span>红字</span>0</div></div><div class="vsep"></div><div class="pity"><div class="h">保底进度 · 出了就归零,自然开出的也算</div><div class="pr"><div class="row"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-gold)"></i><span>金字 · 鎏金匣及以上</span><b>3 / 5</b></div><div class="bar" style="height:4.78px"><i style="width:60%;background:var(--rarity-gold)"></i></div><div class="hint">再开 2 只鎏金匣及以上必出金字</div></div><div class="pr"><div class="row"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-orange)"></i><span>橙字 · 朱漆匣及以上</span><b>5 / 10</b></div><div class="bar" style="height:4.78px"><i style="width:50%;background:var(--rarity-orange)"></i></div><div class="hint">再开 5 只朱漆匣及以上必出橙字</div></div><div class="pr"><div class="row"><i class="dot" style="width:8.12px;height:8.12px;background:var(--rarity-red)"></i><span>红字 · 赤霄匣及以上</span><b>2 / 20</b></div><div class="bar" style="height:4.78px"><i style="width:10%;background:var(--rarity-red)"></i></div><div class="hint">再开 18 只赤霄匣及以上必出红字</div></div></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <button class="x">×</button>
+    <div class="mp">
+      <div class="c serif kick">里 程 碑</div>
+      <div class="c serif lv">Lv.20</div>
+      <div class="ingot"><i></i>墨锭 +1,200</div>
+      <div class="sec"><b>金字 · 3 选 1</b><span>挑一张收下,另两张不再出现</span><span class="rule"></span></div>
+      <div class="picks"><div class="cand"><div class="ring"><div class="zd-tile zd-r-gold zd-e-fire" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div></div></div><span class="chip" style="width:108.46px;height:14.81px;font-size:9.08px;background:var(--panel-inset);color:var(--text-dim);box-shadow:inset 0 0 0 0.48px var(--panel-border)">已有 · 重复卡 +1</span></div><div class="cand"><div class="ring on"><div class="zd-tile zd-r-gold zd-e-wood" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">林</span><span class="zd-tile__py">lín</span></div></div></div></div><span class="chip" style="width:26.76px;height:14.81px;font-size:9.08px;background:var(--gold-soft);color:var(--gold-deep);box-shadow:inset 0 0 0 0.48px var(--gold)">新字</span></div><div class="cand"><div class="ring"><div class="zd-tile zd-r-gold zd-e-earth" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">圭</span><span class="zd-tile__py">guī</span></div></div></div></div><span class="chip" style="width:26.76px;height:14.81px;font-size:9.08px;background:var(--gold-soft);color:var(--gold-deep);box-shadow:inset 0 0 0 0.48px var(--gold)">新字</span></div></div>
+      <div class="foot"><div class="note">候选在第一次打开时就定了,关掉再进还是这几张。已拥有的字照样能选,算一张重复卡。</div>
+        <button class="zd-btn ok" style="background:var(--cinnabar);color:#fff">收下</button></div>
+    </div>
+  </div>
+</div>
+</div>
+</body></html>
