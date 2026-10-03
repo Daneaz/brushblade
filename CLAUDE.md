@@ -122,8 +122,27 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   1. 先 `ListAgents` 查找名为 `designer` 的 session;
   2. 存在 → 用 `SendMessage` 把需求(界面、场景、约束、要落库的路径)发给它,等它交稿;
   3. 不存在 → **停下**,提示用户开启或恢复 `designer` session,不要自己代为设计。
-- **设计稿一律落库到 `docs/design/ui/`**(按界面/场景分子目录,沿用现有 `scenes/`、`levelup/` 等结构)。
-  实现时以该目录下已通过的稿为准。
+- **设计稿按层落库到 `docs/design/` 下**,实现时以这里已通过的稿为准:
+
+  | 层 | 目录 | 放什么 |
+  | --- | --- | --- |
+  | 规范 | `system/` | 原则、文案、颜色与对比度、字体等规则;`tokens.json`(token 唯一出处)、字体、资产规格 |
+  | 组件 | `component/<名>/` | 可复用件的卡(`README.md` + `preview.html`);共用样式 `component/bundle.css` |
+  | 成品 | `screens/<名>/` | 整屏卡(`README.md` + `preview.html`) |
+  | 画布 | `ui/<界面或场景>/` | 画布稿 `canvas.json` + `*.dc.html`,沿用 `scenes/`、`levelup/` 等结构 |
+
+  规范只放规则与 token,不放画好的东西;规范改了,组件与成品跟着改;组件或成品里出现规范没写的新值,
+  先补进规范再用。单文件 HTML 演示放 `demos/<主题>/`;废弃的稿移入 `deprecated/`,用户确认后再删。
+- **落盘的稿必须附带「本地直接打开就能看」的版本**,只存源稿不算落盘完成。
+  `preview.html` 与 `*.dc.html` 离开 artifact 运行时是裸 HTML —— 类型注入的 tokens、`bundle.css`、
+  `support.js` 都不在源稿里,本地看与线上差很多(2026-10-03 栽过)。
+  1. 本地预览页由脚本从源稿生成、不手写,并配对账测试(每份源稿都有本地页、`var(--x)` 全有定义、
+     产物可再生)。现成范例:`tools/design/build_ds_preview.py` → `docs/design/_preview/`
+     (规范 / 组件 / 成品三层合一个画廊),测试 `tools/design/tests/test_ds_preview.py`。
+     改了 `tokens.json` 或任何 `preview.html` 后重跑脚本。画布 `*.dc.html` 的本地外壳还没做(缺 `dc-runtime.js`)。
+  2. 验收要在浏览器里实看,不能只比 sha256(sha256 只证明源稿一致,不证明看得到)。用
+     `python3 -m http.server` 起本地服务再打开;预览面板直接开 `file://` 会变成静态快照,相对路径的 CSS 不加载。
+  3. `.gitignore` 忽略 `docs/design/ui/**/*.html`(只放行 `*.dc.html`),别把 `preview.html` 或单文件 HTML 放进 `ui/`。
 
 ## 当前阶段
 
