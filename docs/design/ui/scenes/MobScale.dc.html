@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .sheet { box-sizing: border-box; background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .h { margin: 0; font-family: "Noto Serif SC", serif; font-weight: 600; letter-spacing: 4px; }
+  </style>
+</helmet>
+<div class="sheet" style="width: 1120px; padding: 40px;">
+  <h1 class="h" style="font-size: 26px;">实机尺寸对照</h1>
+  <p style="margin: 12px 0 32px; font-size: 13px; line-height: 1.9; color: #5D646F; max-width: 900px;">
+    立绘出稿是 512×512，但玩家真正看它的地方要小得多。这一板把它们缩到实际尺寸再看一遍 —— 唯一要答的问题是：<b style="color:#161B22;">这么小还认得出是哪个字吗？</b>
+  </p>
+
+  <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;">
+    <h2 class="h" style="font-size: 17px;">怪物图鉴 · 网格</h2>
+    <span style="font-size: 12px; color: #676F7A;">80 × 80 pt（Unity 逻辑 167，BestiaryView.BlockSize）· 立绘占 82%</span>
+    <span style="flex: 1; height: 1px; background: #DED7C9;"></span>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 40px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_denghua.png" alt="灯花" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #B02D2E; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">火</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">灯花</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #C8E1FB; border: 1.5px solid #0F74C4; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_mojian.png" alt="墨溅" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #0A5E9E; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">水</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">墨溅</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #EEE3CF; border: 1.5px solid #B3A382; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_xuanzhen.png" alt="悬针" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #6B6449; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">金</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">悬针</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_baibi.png" alt="败笔" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #B02D2E; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">火</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">败笔</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #CCE6D0; border: 1.5px solid #348F4F; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_kubi.png" alt="枯笔" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #1F6333; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">木</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">枯笔</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_huoqi.png" alt="火漆" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #B02D2E; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">火</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">火漆</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #ECDCBD; border: 1.5px solid #8F7332; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_yantai.png" alt="砚台" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #82552A; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">土</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">砚台</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #EEE3CF; border: 1.5px solid #B3A382; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_tongqian.png" alt="铜钤" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #6B6449; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">金</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">铜钤</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #CCE6D0; border: 1.5px solid #348F4F; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_bandu.png" alt="版牍" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #1F6333; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">木</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">版牍</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_yaobian.png" alt="窑变" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #B02D2E; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">火</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">窑变</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 80px; height: 80px; background: #C8E1FB; border: 1.5px solid #0F74C4; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_sumo.png" alt="宿墨" style="display: block; width: 69px; height: 69px;">
+          <span class="serif" style="position:absolute; top:4px; left:4px; width:15px; height:15px; border-radius:4px; background: #0A5E9E; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center;">水</span>
+        </div>
+        <span style="font-size: 10px; color: #2C333D;">宿墨</span>
+      </div>
+  </div>
+
+  <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;">
+    <h2 class="h" style="font-size: 17px;">压力测试 · 48 pt</h2>
+    <span style="font-size: 12px; color: #676F7A;">比任何实机位置都小；这一行糊掉不算问题，糊到分不清彼此才算</span>
+    <span style="flex: 1; height: 1px; background: #DED7C9;"></span>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_denghua.png" alt="灯花" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">灯花</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #C8E1FB; border: 1.5px solid #0F74C4; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_mojian.png" alt="墨溅" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">墨溅</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #EEE3CF; border: 1.5px solid #B3A382; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_xuanzhen.png" alt="悬针" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">悬针</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_baibi.png" alt="败笔" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">败笔</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #CCE6D0; border: 1.5px solid #348F4F; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_kubi.png" alt="枯笔" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">枯笔</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_huoqi.png" alt="火漆" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">火漆</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #ECDCBD; border: 1.5px solid #8F7332; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_yantai.png" alt="砚台" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">砚台</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #EEE3CF; border: 1.5px solid #B3A382; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_tongqian.png" alt="铜钤" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">铜钤</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #CCE6D0; border: 1.5px solid #348F4F; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_bandu.png" alt="版牍" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">版牍</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #FED2CE; border: 1.5px solid #C53637; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_yaobian.png" alt="窑变" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">窑变</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div style="position: relative; width: 48px; height: 48px; background: #C8E1FB; border: 1.5px solid #0F74C4; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <img src="mob_sumo.png" alt="宿墨" style="display: block; width: 41px; height: 41px;">
+          
+        </div>
+        <span style="font-size: 9px; color: #2C333D;">宿墨</span>
+      </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-02T10:00:00Z"},
+  "title": "字·斗 角色页",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 932, "h": 430, "title": "主界面 · 左栏可点 + 出手 Top10"},
+    "Character.dc.html": {"x": 1012, "y": 0, "w": 932, "h": 430, "title": "角色页 · 里程碑 + 统计", "is_interactive": true},
+    "MilestonePick.dc.html": {"x": 0, "y": 550, "w": 932, "h": 430, "title": "领取里程碑 · 金字 3 选 1", "is_interactive": true},
+    "LevelUp.dc.html": {"x": 1012, "y": 550, "w": 932, "h": 430, "title": "升级弹窗 · 每级宝箱(升一档)"},
+    "RewardTable.dc.html": {"x": 0, "y": 1100, "w": 932, "h": 380, "title": "奖励表 · 每级宝箱 / 里程碑(草案)"}
+  },
+  "order": ["Main.dc.html", "Character.dc.html", "MilestonePick.dc.html", "LevelUp.dc.html", "RewardTable.dc.html"],
+  "notes": {},
+  "designSystems": [
+    {"title": "字·斗", "namespace": "zidou", "artifact": "https://claude.ai/artifact/G75R5WLQduncr5DT1sTtCz", "version": null, "copiedAt": "2026-10-02T10:00:00Z"}
+  ]
+}

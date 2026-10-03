@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>主界面 · 角色栏</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;display=swap">
+<style>
+body { margin: 0; }
+sc-for, sc-if { display: contents; }
+a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+.dev { position: relative; width: 932px; height: 430px; box-sizing: border-box; background: #F6F1E7; color: #161B22; overflow: hidden; font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.safe { position: absolute; left: 59px; right: 59px; top: 0; bottom: 21px; display: flex; flex-direction: column; }
+.serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+.homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; }
+.homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+.e-Metal { --elSoft: #EEE3CF; --glyph: #6B6449; }
+.e-Wood { --elSoft: #CCE6D0; --glyph: #1F6333; }
+.e-Water { --elSoft: #C8E1FB; --glyph: #0A5E9E; }
+.e-Fire { --elSoft: #FED2CE; --glyph: #B02D2E; }
+.e-Earth { --elSoft: #ECDCBD; --glyph: #82552A; }
+.r-White { --rar: #A19E97; } .r-Green { --rar: #2E9E52; } .r-Blue { --rar: #0F74C5; } .r-Purple { --rar: #7945AB; } .r-Gold { --rar: #C9A94A; } .r-Orange { --rar: #E1791B; } .r-Red { --rar: #CD272E; }
+.top { height: 38px; flex: none; display: flex; align-items: center; gap: 10px; }
+.top h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+.top .sub { font-size: 11px; color: #5D646F; }
+.top .sub b { color: #161B22; }
+.inkc { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.btn-back { height: 30px; padding: 0 14px; border: none; border-radius: 15px; background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px; }
+.body { flex: 1; display: flex; gap: 10px; min-height: 0; padding-bottom: 8px; }
+.panel { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; box-sizing: border-box; }
+.reddot { width: 7px; height: 7px; border-radius: 50%; background: #C53637; box-shadow: 0 0 0 1.5px #FBF8F1; }
+
+/* 左栏整块是一个按钮(2026-10-02):点哪都进角色页。右上角 › 是唯一的可点提示,红点 = 有里程碑可领 */
+.who { position: relative; width: 187px; flex: none; padding: 10px; display: flex; flex-direction: column; gap: 9px; text-align: left; font-family: inherit; color: inherit; cursor: pointer; }
+.who:active { background: #F1EBDE; }
+.who .go { position: absolute; right: 9px; top: 9px; display: flex; align-items: center; gap: 4px; font-size: 13px; color: #5D646F; }
+.avatar { display: flex; align-items: center; gap: 9px; }
+.face { width: 42px; height: 42px; flex: none; border-radius: 50%; background: #11161F; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; color: #F6F1E7; }
+.who .nm { font-size: 16px; font-weight: 600; letter-spacing: 1px; }
+.who .rk { font-size: 10px; color: #5D646F; margin-top: 2px; letter-spacing: 1px; }
+.xp { display: flex; align-items: center; gap: 6px; font-size: 9px; color: #676F7A; font-variant-numeric: tabular-nums; }
+.xp .t { flex: 1; height: 4px; border-radius: 2px; background: #E4DDCE; overflow: hidden; }
+.xp .t span { display: block; height: 100%; background: #C9A94A; }
+.attrs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 8px; }
+.at { display: flex; align-items: baseline; gap: 5px; font-size: 10px; color: #5D646F; }
+.at b { font-size: 13px; font-weight: 700; color: #161B22; font-variant-numeric: tabular-nums; margin-left: auto; }
+.at.hp b { color: #B02D2E; }
+
+/* 出手 Top10:取代「卡池 N 字」摘要。5 列 × 2 行,牌 0.8 竖版比例(26×32),次数在牌下 */
+.top10 { margin-top: auto; }
+.top10 .h { display: flex; align-items: baseline; font-size: 9px; color: #676F7A; letter-spacing: 1px; margin-bottom: 5px; }
+.top10 .h span { margin-left: auto; letter-spacing: 0; }
+.tg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px 5px; }
+.tc { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.tl { position: relative; width: 26px; height: 32px; box-sizing: border-box; border-radius: 5px; background: var(--elSoft); border: 1.5px solid var(--rar); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; color: var(--glyph); }
+.tl i { position: absolute; left: -4px; top: -4px; width: 11px; height: 11px; border-radius: 50%; background: #3D4E69; color: #fff; font-style: normal; font-family: "Noto Sans SC", sans-serif; font-size: 7px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.tc .n { font-size: 8px; color: #5D646F; font-variant-numeric: tabular-nums; }
+
+/* 中栏 / 右栏只留轮廓 */
+.tower { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #676F7A; font-size: 11px; position: relative; }
+.tower h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 4px; color: #161B22; }
+.resume { height: 46px; width: 200px; border: none; border-radius: 23px; background: #C53637; color: #fff; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 6px; box-shadow: 0 4px 12px rgba(155,30,34,.28); }
+.chests { width: 232px; flex: none; padding: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.chests div { border-radius: 9px; background: #FFFDF7; border: 1px solid #E7E1D4; }
+.nav { height: 44px; flex: none; display: flex; gap: 8px; }
+.tab { flex: 1; border-radius: 9px; border: 1px solid; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.tab span { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 400; color: #5D646F; }
+</style>
+</helmet>
+<div class="dev">
+<div class="safe">
+<div class="top">
+<h1 class="serif">字·斗</h1>
+<span class="sub">秀才 · 最高 <b>43</b> 层</span>
+<div style="flex: 1"></div>
+<div class="inkc">
+<svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path><path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="2.5"></path></svg>
+2,480
+</div>
+<button class="btn-back">设置</button>
+</div>
+<div class="body">
+<button class="panel who" aria-label="打开角色页">
+<span class="go"><span class="reddot"></span>›</span>
+<div class="avatar">
+<div class="face serif">墨</div>
+<div>
+<div class="nm serif">执笔人</div>
+<div class="rk">Lv.20 · 秀才</div>
+</div>
+</div>
+<div class="xp"><span>经验</span><span class="t"><span style="width: 41%"></span></span><span>420 / 1050</span></div>
+<div class="attrs">
+<div class="at hp"><span>生命</span><b>880</b></div>
+<div class="at"><span>攻击</span><b>138</b></div>
+<div class="at"><span>护甲</span><b>12</b></div>
+<div class="at"><span>闪避</span><b>10%</b></div>
+<div class="at"><span>速度</span><b>110</b></div>
+<div class="at"><span>每回合 AP</span><b>3</b></div>
+</div>
+<div class="top10">
+<div class="h">出手最多<span>累计 · 次</span></div>
+<div class="tg">
+<sc-for list="{{ top }}" as="c" hint-placeholder-count="10">
+<div class="tc"><div class="{{ c.cls }}"><i>{{ c.rank }}</i>{{ c.g }}</div><span class="n">{{ c.n }}</span></div>
+</sc-for>
+</div>
+</div>
+</button>
+<div class="tower">
+<h2 class="serif">无尽书塔</h2>
+<div>当前段位 秀才 · 历史最高 43 层</div>
+<button class="resume">续 爬</button>
+</div>
+<div class="panel chests"><div></div><div></div><div></div><div></div></div>
+</div>
+<div class="nav">
+<div class="tab serif" style="background: #E9F0F5; border-color: #9FC1E2; color: #0E4F86;">卡组<span>74 张</span></div>
+<div class="tab serif" style="background: #EBF2E6; border-color: #A5C8AD; color: #195C2E;">图鉴<span>11 / 16</span></div>
+<div class="tab serif" style="background: #F6ECF1; border-color: #CFB2D5; color: #673672;">技能<span>3 / 16</span></div>
+<div class="tab serif" style="background: #F1E6DC; border-color: #D0AB9A; color: #A05337;">商城<span>每日刷新</span></div>
+</div>
+</div>
+<div class="homebar"><span></span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":932,"height":430}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = [
+      ['爆','Fire','Green',412],['冷','Water','White',388],['剑','Metal','Blue',301],['藤','Wood','Green',276],['碎','Earth','Blue',240],
+      ['炎','Fire','Gold',198],['海','Water','Blue',161],['荆','Wood','Purple',140],['垒','Earth','Green',122],['利','Metal','White',97]
+    ];
+    return { top: raw.map((r, i) => ({ g: r[0], cls: 'tl serif e-' + r[1] + ' r-' + r[2], n: r[3], rank: i + 1 })) };
+  }
+}
+</script>
+</body>
+</html>

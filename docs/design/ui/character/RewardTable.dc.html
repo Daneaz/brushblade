@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>等级奖励表</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;display=swap">
+<style>
+body { margin: 0; }
+sc-for, sc-if { display: contents; }
+a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+.sheet { width: 932px; height: 380px; box-sizing: border-box; padding: 22px 26px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; gap: 14px; }
+.serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+h2 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+.draft { height: 20px; padding: 0 8px; border-radius: 10px; background: #FBE3E2; color: #9B1E22; font-family: "Noto Sans SC", sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1px; display: inline-flex; align-items: center; }
+.cols { flex: 1; display: flex; gap: 16px; min-height: 0; }
+.card { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.card h3 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; letter-spacing: 2px; color: #2C333D; }
+.card p { margin: 0; font-size: 10px; color: #5D646F; line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; font-size: 11px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #EDE7DA; white-space: nowrap; }
+th { font-size: 9.5px; font-weight: 500; color: #676F7A; letter-spacing: 1px; border-bottom-color: #696151; }
+td.k { font-family: "Noto Serif SC", serif; font-weight: 600; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 5px; vertical-align: 0; }
+.old { color: #676F7A; text-decoration: line-through; }
+</style>
+</helmet>
+<div class="sheet">
+<h2 class="serif">等级奖励 · 每级宝箱 + 里程碑<span class="draft">草案 · 数值待调</span></h2>
+<div class="cols">
+<div class="card" style="width: 330px; flex: none;">
+<h3>每级宝箱 · 自动发</h3>
+<p>升到的那一级落在哪个区间就给哪档,不掷随机。较旧草案整体升一档、去掉素纸匣;赤霄匣从 Lv.41 起封顶。</p>
+<table>
+<tr><th>升到</th><th>宝箱</th><th>旧草案</th></tr>
+<tr><td class="k">Lv.2–5</td><td><i class="dot" style="background:#2E9E52"></i>竹简匣</td><td class="old">素纸匣</td></tr>
+<tr><td class="k">Lv.6–10</td><td><i class="dot" style="background:#0F74C5"></i>青瓷匣</td><td class="old">竹简匣</td></tr>
+<tr><td class="k">Lv.11–20</td><td><i class="dot" style="background:#7945AB"></i>紫檀匣</td><td class="old">青瓷匣</td></tr>
+<tr><td class="k">Lv.21–30</td><td><i class="dot" style="background:#C9A94A"></i>鎏金匣</td><td class="old">紫檀匣</td></tr>
+<tr><td class="k">Lv.31–40</td><td><i class="dot" style="background:#E1791B"></i>朱漆匣</td><td class="old">鎏金匣</td></tr>
+<tr><td class="k">Lv.41+</td><td><i class="dot" style="background:#CD272E"></i>赤霄匣</td><td class="old">朱漆 / 赤霄</td></tr>
+</table>
+</div>
+<div class="card" style="flex: 1;">
+<h3>等级里程碑 · 角色页手动领</h3>
+<p>每 5 级一档到 Lv.50(属性封顶),之后每 10 级一档无限延续。3 选 1 不走开箱、不推进保底计数。</p>
+<table>
+<tr><th>等级</th><th>墨锭</th><th>字卡 3 选 1</th><th>等级</th><th>墨锭</th><th>字卡 3 选 1</th></tr>
+<tr><td class="k">Lv.5</td><td>300</td><td><i class="dot" style="background:#0F74C5"></i>蓝</td><td class="k">Lv.30</td><td>2,000</td><td><i class="dot" style="background:#C9A94A"></i>金</td></tr>
+<tr><td class="k">Lv.10</td><td>500</td><td><i class="dot" style="background:#7945AB"></i>紫</td><td class="k">Lv.35</td><td>2,500</td><td><i class="dot" style="background:#E1791B"></i>橙</td></tr>
+<tr><td class="k">Lv.15</td><td>800</td><td><i class="dot" style="background:#7945AB"></i>紫</td><td class="k">Lv.40</td><td>3,000</td><td><i class="dot" style="background:#E1791B"></i>橙</td></tr>
+<tr><td class="k">Lv.20</td><td>1,200</td><td><i class="dot" style="background:#C9A94A"></i>金</td><td class="k">Lv.45</td><td>3,500</td><td><i class="dot" style="background:#E1791B"></i>橙</td></tr>
+<tr><td class="k">Lv.25</td><td>1,500</td><td><i class="dot" style="background:#C9A94A"></i>金</td><td class="k">Lv.50</td><td>5,000</td><td><i class="dot" style="background:#CD272E"></i>红</td></tr>
+<tr><td class="k" colspan="3" style="color:#676F7A;font-family:inherit;font-weight:400;">逢 5 的等级两份都拿</td><td class="k">Lv.60 起每 10 级</td><td>3,000</td><td><i class="dot" style="background:#E1791B"></i>橙</td></tr>
+</table>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":932,"height":380}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

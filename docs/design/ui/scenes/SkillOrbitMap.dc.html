@@ -1,0 +1,359 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    sc-for, sc-if { display: contents; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .dev { position: relative; width: 932px; height: 430px; box-sizing: border-box;
+      background: #F6F1E7; color: #161B22; overflow: hidden;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    .stage { position: absolute; inset: 0; overflow: hidden; }
+    .stage svg { width: 100%; height: 100%; display: block; }
+    .veil { position: absolute; left: 0; right: 0; top: 0; height: 76px;
+      background: linear-gradient(#F6F1E7 32%, rgba(246,241,231,0)); pointer-events: none; z-index: 10; }
+    .guide { position: absolute; inset: 0; pointer-events: none; z-index: 90; }
+    .guide i { position: absolute; background: rgba(197,54,55,.20); }
+    .guide .gl { left: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gr { right: 59px; top: 0; bottom: 0; width: 1px; }
+    .guide .gb { left: 0; right: 0; bottom: 21px; height: 1px; }
+    .guide u { position: absolute; font-size: 8px; font-style: normal; letter-spacing: .5px;
+      color: rgba(155,30,34,.5); text-decoration: none; }
+    .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px;
+      display: flex; justify-content: center; }
+    .homebar > span { width: 128px; border-radius: 2px; background: rgba(22,27,34,.28); }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .grow { flex: 1; }
+    .tap { position: relative; }
+    .tap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: 44px; transform: translateY(-50%); }
+    .top { position: absolute; left: 59px; right: 59px; top: 0; height: 36px;
+      display: flex; align-items: center; gap: 10px; z-index: 20; }
+    .top h1 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 19px;
+      font-weight: 600; letter-spacing: 3px; }
+    .top .sub { font-size: 11px; color: #5D646F; letter-spacing: .5px; }
+    .top .sub b { color: #161B22; font-weight: 700; }
+    .ink { display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 7px;
+      background: rgba(239,234,223,.92); border: 1px solid #DED7C9; border-radius: 13px;
+      font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .btn-back { height: 30px; padding: 0 14px; border: none; border-radius: 15px; cursor: pointer;
+      background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px; }
+    .jump { position: absolute; left: 59px; bottom: 27px; display: flex; gap: 6px; z-index: 20; }
+    .jump button { height: 32px; padding: 0 13px; border-radius: 16px; cursor: pointer;
+      background: rgba(251,248,241,.94); border: 1px solid #DED7C9; color: #5D646F;
+      font-family: inherit; font-size: 11.5px; letter-spacing: 1px;
+      display: flex; align-items: center; gap: 6px; }
+    .jump button.on { background: #161B22; border-color: #161B22; color: #F6F1E7; }
+    .jump button .n { font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 12.5px; }
+    .jump button .c { font-size: 9.5px; opacity: .72; font-variant-numeric: tabular-nums; }
+    .jump .dot { width: 6px; height: 6px; border-radius: 50%; background: #C53637; }
+    .mini { position: absolute; right: 59px; bottom: 27px; width: 100px; height: 100px;
+      border-radius: 50%; background: rgba(251,248,241,.9); border: 1px solid #DED7C9;
+      z-index: 20; overflow: hidden; }
+    .mini svg { width: 100%; height: 100%; display: block; }
+    .hint { position: absolute; right: 59px; bottom: 136px; font-size: 9.5px; color: #696151;
+      letter-spacing: .4px; z-index: 20; text-align: right; line-height: 1.65; }
+    .sheet { position: absolute; right: 0; top: 0; bottom: 0; width: 396px;
+      background: #FBF8F1; border-left: 1px solid #DED7C9; z-index: 40;
+      box-shadow: -14px 0 34px rgba(20,20,19,.10);
+      display: flex; flex-direction: column; overflow: hidden; }
+    .shead { padding: 13px 16px 12px; border-bottom: 1px solid #E7E1D4; position: relative;
+      overflow: hidden; }
+    .shead .wm { position: absolute; right: -8px; bottom: -30px;
+      font-family: "Noto Serif SC", serif; font-size: 92px; font-weight: 600;
+      line-height: 1; opacity: .14; }
+    .shead > * { position: relative; }
+    .spath { font-size: 9.5px; letter-spacing: 1px; }
+    .sname { font-family: "Noto Serif SC", serif; font-size: 26px; font-weight: 600;
+      letter-spacing: 4px; margin-top: 3px; line-height: 1.1; }
+    .schips { position: absolute; right: 16px; top: 14px; display: flex; gap: 5px; }
+    .schips span { height: 20px; padding: 0 9px; display: inline-flex; align-items: center;
+      border-radius: 10px; font-size: 9.5px; letter-spacing: .5px;
+      background: rgba(255,255,255,.68); }
+    .sbody { flex: 1; padding: 13px 16px; display: flex; flex-direction: column; gap: 11px;
+      min-height: 0; }
+    .row { display: flex; align-items: baseline; gap: 8px; }
+    .row .k { font-size: 9.5px; color: #676F7A; letter-spacing: 1px; width: 42px; flex: none; }
+    .row .v { font-family: "Noto Serif SC", serif; font-size: 17px; font-weight: 600;
+      color: #161B22; font-variant-numeric: tabular-nums; }
+    .row .v em { font-style: normal; color: #696151; font-size: 14px; }
+    .note { font-size: 10.5px; color: #5D646F; line-height: 1.75; letter-spacing: .2px; }
+    .note b { color: #161B22; font-weight: 500; }
+    .req { display: flex; gap: 7px; }
+    .req .c { flex: 1; background: #FFFDF7; border: 1px solid #E7E1D4; border-radius: 8px;
+      padding: 7px 9px; display: flex; flex-direction: column; gap: 2px; }
+    .req .c .k { font-size: 9px; color: #676F7A; letter-spacing: 1px; }
+    .req .c .v { display: flex; align-items: center; gap: 4px;
+      font-family: "Noto Serif SC", serif; font-size: 14.5px; font-weight: 600;
+      font-variant-numeric: tabular-nums; }
+    .req .c.ok .v { color: #1B552C; }
+    .req .c.no .v { color: #7A3F5C; }
+    .req .c .m { font-size: 8.5px; color: #696151; }
+    .sfoot { flex: none; padding: 0 16px 14px; display: flex; gap: 7px; }
+    .sbtn { flex: 1; height: 40px; border: none; border-radius: 9px; cursor: pointer;
+      font-family: inherit; font-size: 13px; letter-spacing: 1px; font-weight: 500;
+      display: flex; align-items: center; justify-content: center; gap: 6px; color: #fff; }
+    .sbtn.no { background: #DAD7D0; color: #5D646F; cursor: not-allowed; }
+    .sbtn.ghost { flex: none; width: 74px; background: transparent; color: #5D646F;
+      border: 1px solid #DED7C9; }
+  </style>
+</helmet>
+
+<div class="dev">
+  <div class="stage">
+    <svg viewBox="-100 -24 1320 1168" preserveAspectRatio="xMidYMid slice">
+<path d="M 370 555 A 190.0 190.0 0 0 1 750 555" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 275 553 A 285.0 285.0 0 0 1 845 553" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 180 550 A 380.0 380.0 0 0 1 940 550" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 85 548 A 475.0 475.0 0 0 1 1035 548" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 760 565 A 200.0 200.0 0 0 1 503 752" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 897 569 A 337.5 337.5 0 0 1 464 884" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 1035 572 A 475.0 475.0 0 0 1 425 1015" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 467 824 A 280.0 280.0 0 0 1 280 567" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<path d="M 401 1008 A 475.0 475.0 0 0 1 85 572" fill="none" stroke="#DED7C9" stroke-width="1.5" stroke-dasharray="3 9" opacity=".65"></path>
+<line x1="560" y1="514" x2="560" y2="460" stroke="#5D646F" stroke-width="4.0" opacity=".6"></line>
+<line x1="587" y1="597" x2="619" y2="641" stroke="#5D646F" stroke-width="4.0" opacity=".6"></line>
+<line x1="523" y1="587" x2="479" y2="619" stroke="#5D646F" stroke-width="4.0" opacity=".6"></line>
+<line x1="560" y1="460" x2="379" y2="501" stroke="#DED7C9" stroke-width="2.2" opacity="0.85"></line>
+<line x1="560" y1="460" x2="448" y2="406" stroke="#DED7C9" stroke-width="2.2" opacity="0.85"></line>
+<line x1="560" y1="460" x2="560" y2="370" stroke="#0F74C4" stroke-width="3.4" opacity="1"></line>
+<line x1="560" y1="460" x2="672" y2="406" stroke="#C53637" stroke-width="3.4" opacity="1"></line>
+<line x1="560" y1="460" x2="741" y2="501" stroke="#8F7332" stroke-width="3.4" opacity="1"></line>
+<line x1="619" y1="641" x2="754" y2="607" stroke="#C53637" stroke-width="3.4" opacity="1"></line>
+<line x1="619" y1="641" x2="712" y2="690" stroke="#A05337" stroke-width="3.4" opacity="1"></line>
+<line x1="619" y1="641" x2="637" y2="745" stroke="#DED7C9" stroke-width="2.2" opacity="0.85"></line>
+<line x1="619" y1="641" x2="544" y2="759" stroke="#DED7C9" stroke-width="2.2" opacity="0.85"></line>
+<line x1="479" y1="619" x2="433" y2="809" stroke="#19507F" stroke-width="3.4" opacity="1"></line>
+<line x1="479" y1="619" x2="362" y2="758" stroke="#DED7C9" stroke-width="2.2" opacity="0.85"></line>
+<line x1="479" y1="619" x2="311" y2="687" stroke="#DED7C9" stroke-width="2.2" opacity="0.85"></line>
+<line x1="479" y1="619" x2="283" y2="604" stroke="#DED7C9" stroke-width="2.2" opacity="0.85"></line>
+<line x1="379" y1="501" x2="289" y2="472" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="289" y1="472" x2="199" y2="443" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="199" y1="443" x2="108" y2="413" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="448" y1="406" x2="392" y2="329" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="392" y1="329" x2="337" y2="253" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="337" y1="253" x2="281" y2="176" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="560" y1="370" x2="560" y2="275" stroke="#0F74C4" stroke-width="2.2" opacity="0.5"></line>
+<line x1="560" y1="275" x2="560" y2="180" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="560" y1="180" x2="560" y2="85" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="672" y1="406" x2="728" y2="329" stroke="#C53637" stroke-width="3.6" opacity="1"></line>
+<line x1="728" y1="329" x2="783" y2="253" stroke="#C53637" stroke-width="2.2" opacity="0.5"></line>
+<line x1="783" y1="253" x2="839" y2="176" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="741" y1="501" x2="831" y2="472" stroke="#8F7332" stroke-width="2.2" opacity="0.5"></line>
+<line x1="831" y1="472" x2="921" y2="443" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="921" y1="443" x2="1012" y2="413" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="754" y1="607" x2="888" y2="639" stroke="#C53637" stroke-width="3.6" opacity="1"></line>
+<line x1="888" y1="639" x2="1022" y2="671" stroke="#C53637" stroke-width="2.2" opacity="0.5"></line>
+<line x1="712" y1="690" x2="817" y2="779" stroke="#A05337" stroke-width="2.2" opacity="0.5"></line>
+<line x1="817" y1="779" x2="921" y2="868" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="637" y1="745" x2="689" y2="872" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="689" y1="872" x2="742" y2="999" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="544" y1="759" x2="534" y2="896" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="534" y1="896" x2="523" y2="1034" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="433" y1="809" x2="344" y2="983" stroke="#19507F" stroke-width="2.2" opacity="0.5"></line>
+<line x1="362" y1="758" x2="224" y2="896" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="311" y1="687" x2="137" y2="776" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<line x1="283" y1="604" x2="91" y2="634" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="5 5" opacity="0.85"></line>
+<path d="M 831 472 Q 979 534 1090 560" fill="none" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="6 5"></path>
+<path d="M 888 639 Q 1007 617 1090 560" fill="none" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="6 5"></path>
+<path d="M 534 896 Q 483 998 396 1064" fill="none" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="6 5"></path>
+<path d="M 344 983 Q 388 1042 396 1064" fill="none" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="6 5"></path>
+<path d="M 289 472 Q 177 534 30 560" fill="none" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="6 5"></path>
+<path d="M 91 634 Q 78 615 30 560" fill="none" stroke="#DED7C9" stroke-width="2.2" stroke-dasharray="6 5"></path>
+<circle cx="379" cy="501" r="30" fill="none" stroke="#B3A382" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="379" cy="501" r="26" fill="#FFFDF7" stroke="#B3A382" stroke-width="4.0"></circle>
+<g transform="translate(365.8 487.8) scale(0.422)" color="#B3A382" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="379" y="549" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#B3A382">披沙</text>
+<circle cx="289" cy="472" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(275.4 458.4) scale(0.422)" color="#8E8675" opacity="0.62"><circle cx="14" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="40" r="9" fill="currentColor"/><circle cx="50" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 10v12"/></g>
+<text x="289" y="517" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">敛金</text>
+<circle cx="199" cy="443" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(185.1 429.1) scale(0.422)" color="#8E8675" opacity="0.62"><circle cx="32" cy="32" r="9" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M46 18a20 20 0 0 1 0 28M18 46a20 20 0 0 1 0-28"/></g>
+<text x="199" y="488" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">锐锋</text>
+<circle cx="108" cy="413" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(94.7 399.7) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 46l12-14M32 50V22M50 46L38 32"/><path fill="currentColor" d="M32 8l8 13H24z"/></g>
+<text x="108" y="458" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">鏖战</text>
+<circle cx="448" cy="406" r="30" fill="none" stroke="#348F4F" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="448" cy="406" r="26" fill="#FFFDF7" stroke="#348F4F" stroke-width="4.0"></circle>
+<g transform="translate(434.8 392.8) scale(0.422)" color="#348F4F" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="448" y="454" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#348F4F">抽枝</text>
+<circle cx="392" cy="329" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(379.0 315.9) scale(0.422)" color="#8E8675" opacity="0.62"><circle cx="14" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="40" r="9" fill="currentColor"/><circle cx="50" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 10v12"/></g>
+<text x="392" y="374" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">植林</text>
+<circle cx="337" cy="253" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(323.1 239.1) scale(0.422)" color="#8E8675" opacity="0.62"><circle cx="32" cy="32" r="9" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M46 18a20 20 0 0 1 0 28M18 46a20 20 0 0 1 0-28"/></g>
+<text x="337" y="298" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">荣木</text>
+<circle cx="281" cy="176" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(267.3 162.2) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 8L16 34h12L26 56l22-28H36z"/></g>
+<text x="281" y="221" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">蕃息</text>
+<circle cx="560" cy="370" r="26" fill="#C8E1FB" stroke="#0F74C4" stroke-width="3.4"></circle>
+<g transform="translate(546.5 356.5) scale(0.422)" color="#0E4F86" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="560" y="418" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#0E4F86">探源</text>
+<circle cx="560" cy="275" r="27" fill="none" stroke="#0F74C4" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="560" cy="275" r="23" fill="#FFFDF7" stroke="#0F74C4" stroke-width="4.0"></circle>
+<g transform="translate(546.5 261.5) scale(0.422)" color="#0F74C4" opacity="1"><circle cx="14" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="40" r="9" fill="currentColor"/><circle cx="50" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 10v12"/></g>
+<text x="560" y="320" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#0F74C4">汲流</text>
+<circle cx="560" cy="180" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(546.5 166.5) scale(0.422)" color="#8E8675" opacity="0.62"><circle cx="32" cy="32" r="9" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M46 18a20 20 0 0 1 0 28M18 46a20 20 0 0 1 0-28"/></g>
+<text x="560" y="225" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">润下</text>
+<circle cx="560" cy="85" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(546.5 71.5) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M12 38a20 20 0 0 0 40 0"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 30V10M22 24l4-8M42 24l-4-8"/></g>
+<text x="560" y="130" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">涌泉</text>
+<circle cx="672" cy="406" r="26" fill="#FED2CE" stroke="#C53637" stroke-width="3.4"></circle>
+<g transform="translate(658.2 392.8) scale(0.422)" color="#862726" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="672" y="454" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#862726">取燧</text>
+<circle cx="728" cy="329" r="23" fill="#FED2CE" stroke="#C53637" stroke-width="3.4"></circle>
+<g transform="translate(714.0 315.9) scale(0.422)" color="#862726" opacity="1"><circle cx="14" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="40" r="9" fill="currentColor"/><circle cx="50" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 10v12"/></g>
+<text x="728" y="374" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#862726">积薪</text>
+<circle cx="783" cy="253" r="27" fill="none" stroke="#C53637" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="783" cy="253" r="23" fill="#FFFDF7" stroke="#C53637" stroke-width="4.0"></circle>
+<g transform="translate(769.9 239.1) scale(0.422)" color="#C53637" opacity="1"><circle cx="32" cy="32" r="9" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M46 18a20 20 0 0 1 0 28M18 46a20 20 0 0 1 0-28"/></g>
+<text x="783" y="298" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#C53637">炎上</text>
+<circle cx="839" cy="176" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(825.7 162.2) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="currentColor" d="M33 5c11 13 17 21 17 30a18 18 0 0 1-36 0c0-6 3-11 7-14-1 5 1 9 4 11 3-9-2-16-5-21 5 1 9-1 13-6z"/></g>
+<text x="839" y="221" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">燎原</text>
+<circle cx="741" cy="501" r="26" fill="#ECDCBD" stroke="#8F7332" stroke-width="3.4"></circle>
+<g transform="translate(727.2 487.8) scale(0.422)" color="#634800" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="741" y="549" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#634800">采壤</text>
+<circle cx="831" cy="472" r="27" fill="none" stroke="#8F7332" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="831" cy="472" r="23" fill="#FFFDF7" stroke="#8F7332" stroke-width="4.0"></circle>
+<g transform="translate(817.6 458.4) scale(0.422)" color="#8F7332" opacity="1"><circle cx="14" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="40" r="9" fill="currentColor"/><circle cx="50" cy="40" r="6" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 10v12"/></g>
+<text x="831" y="517" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8F7332">培土</text>
+<circle cx="921" cy="443" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(907.9 429.1) scale(0.422)" color="#8E8675" opacity="0.62"><circle cx="32" cy="32" r="9" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M46 18a20 20 0 0 1 0 28M18 46a20 20 0 0 1 0-28"/></g>
+<text x="921" y="488" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">敦厚</text>
+<circle cx="1012" cy="413" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(998.3 399.7) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M10 50h44M15 36h34M21 22h22"/></g>
+<text x="1012" y="458" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">磐固</text>
+<circle cx="754" cy="607" r="26" fill="#FED2CE" stroke="#C53637" stroke-width="3.4"></circle>
+<g transform="translate(741.0 593.2) scale(0.422)" color="#862726" opacity="1"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M16 22v24a16 16 0 0 0 32 0V22"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M17 38h30"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 8v10M27 13h10"/></g>
+<text x="754" y="655" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#862726">养元</text>
+<circle cx="888" cy="639" r="23" fill="#FED2CE" stroke="#C53637" stroke-width="3.4"></circle>
+<g transform="translate(874.7 625.3) scale(0.422)" color="#862726" opacity="1"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M16 22v24a16 16 0 0 0 32 0V22"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M17 38h30"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 8v10M27 13h10"/></g>
+<text x="888" y="684" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#862726">固元</text>
+<circle cx="1022" cy="671" r="27" fill="none" stroke="#C53637" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="1022" cy="671" r="23" fill="#FFFDF7" stroke="#C53637" stroke-width="4.0"></circle>
+<g transform="translate(1008.4 657.4) scale(0.422)" color="#C53637" opacity="1"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M16 22v24a16 16 0 0 0 32 0V22"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M17 38h30"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M32 8v10M27 13h10"/></g>
+<text x="1022" y="716" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#C53637">还元</text>
+<circle cx="712" cy="690" r="26" fill="#F5DDD2" stroke="#A05337" stroke-width="3.4"></circle>
+<g transform="translate(698.6 676.4) scale(0.422)" color="#7A3D26" opacity="1"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 54V16"/><path fill="currentColor" d="M32 6l9 14H23z"/></g>
+<text x="712" y="738" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#7A3D26">运力</text>
+<circle cx="817" cy="779" r="27" fill="none" stroke="#A05337" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="817" cy="779" r="23" fill="#FFFDF7" stroke="#A05337" stroke-width="4.0"></circle>
+<g transform="translate(803.1 765.7) scale(0.422)" color="#A05337" opacity="1"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 54V16"/><path fill="currentColor" d="M32 6l9 14H23z"/></g>
+<text x="817" y="824" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#A05337">蓄力</text>
+<circle cx="921" cy="868" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(907.7 855.0) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 54V16"/><path fill="currentColor" d="M32 6l9 14H23z"/></g>
+<text x="921" y="913" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">极力</text>
+<circle cx="637" cy="745" r="30" fill="none" stroke="#C99E33" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="637" cy="745" r="26" fill="#FFFDF7" stroke="#C99E33" stroke-width="4.0"></circle>
+<g transform="translate(623.0 731.3) scale(0.422)" color="#C99E33" opacity="1"><path fill="currentColor" d="M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z"/></g>
+<text x="637" y="793" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#C99E33">藏锋</text>
+<circle cx="689" cy="872" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(675.7 858.3) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="currentColor" d="M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z"/></g>
+<text x="689" y="917" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">露锋</text>
+<circle cx="742" cy="999" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(728.3 985.3) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="currentColor" d="M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z"/></g>
+<text x="742" y="1044" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">破锋</text>
+<circle cx="544" cy="759" r="30" fill="none" stroke="#3D4E69" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="544" cy="759" r="26" fill="#FFFDF7" stroke="#3D4E69" stroke-width="4.0"></circle>
+<g transform="translate(530.8 745.9) scale(0.422)" color="#3D4E69" opacity="1"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 8l20 7v16c0 12-8 20-20 25-12-5-20-13-20-25V15z"/></g>
+<text x="544" y="807" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#3D4E69">披甲</text>
+<circle cx="534" cy="896" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(520.0 883.0) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 8l20 7v16c0 12-8 20-20 25-12-5-20-13-20-25V15z"/></g>
+<text x="534" y="941" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">重铠</text>
+<circle cx="523" cy="1034" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(509.2 1020.0) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 8l20 7v16c0 12-8 20-20 25-12-5-20-13-20-25V15z"/></g>
+<text x="523" y="1079" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">金城</text>
+<circle cx="433" cy="809" r="26" fill="#D6E2EE" stroke="#19507F" stroke-width="3.4"></circle>
+<g transform="translate(419.4 796.0) scale(0.422)" color="#123A5C" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M12 12h18v18H12zM34 12h18v18H34zM12 34h18v18H12z"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 5" d="M34 34h18v18H34z"/></g>
+<text x="433" y="857" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#123A5C">博闻</text>
+<circle cx="344" cy="983" r="27" fill="none" stroke="#19507F" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="344" cy="983" r="23" fill="#FFFDF7" stroke="#19507F" stroke-width="4.0"></circle>
+<g transform="translate(330.9 969.7) scale(0.422)" color="#19507F" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M12 12h18v18H12zM34 12h18v18H34zM12 34h18v18H12z"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 5" d="M34 34h18v18H34z"/></g>
+<text x="344" y="1028" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#19507F">强识</text>
+<circle cx="362" cy="758" r="30" fill="none" stroke="#0F74C4" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="362" cy="758" r="26" fill="#FFFDF7" stroke="#0F74C4" stroke-width="4.0"></circle>
+<g transform="translate(348.5 744.5) scale(0.422)" color="#0F74C4" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M26 54V20h12v34" transform="rotate(-22 32 54)"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M26 54V20h12v34" transform="rotate(22 32 54)"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M25 52V16h14v36z"/></g>
+<text x="362" y="806" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#0F74C4">广纳</text>
+<circle cx="224" cy="896" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(210.6 882.4) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M26 54V20h12v34" transform="rotate(-22 32 54)"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M26 54V20h12v34" transform="rotate(22 32 54)"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M25 52V16h14v36z"/></g>
+<text x="224" y="941" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">兼收</text>
+<circle cx="311" cy="687" r="30" fill="none" stroke="#C99E33" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="311" cy="687" r="26" fill="#FFFDF7" stroke="#C99E33" stroke-width="4.0"></circle>
+<g transform="translate(297.0 673.6) scale(0.422)" color="#C99E33" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="311" y="735" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#C99E33">慧眼</text>
+<circle cx="137" cy="776" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(123.3 762.1) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="137" y="821" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">明察</text>
+<circle cx="283" cy="604" r="30" fill="none" stroke="#34864B" stroke-width="2.0" opacity=".28"></circle>
+<circle cx="283" cy="604" r="26" fill="#FFFDF7" stroke="#34864B" stroke-width="4.0"></circle>
+<g transform="translate(269.9 590.3) scale(0.422)" color="#34864B" opacity="1"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M10 24h44v16H10z"/><path fill="currentColor" d="M14 28h10v8H14zM27 28h10v8H27z"/></g>
+<text x="283" y="652" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#34864B">一气</text>
+<circle cx="91" cy="634" r="23" fill="#EFEAE0" stroke="#DED7C9" stroke-width="2.0" stroke-dasharray="5 4"></circle>
+<g transform="translate(77.3 620.8) scale(0.422)" color="#8E8675" opacity="0.62"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M10 24h44v16H10z"/><path fill="currentColor" d="M14 28h10v8H14zM27 28h10v8H27z"/></g>
+<text x="91" y="679" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#8E8675">贯通</text>
+<circle cx="1090" cy="560" r="34" fill="none" stroke="#7A3F5C" stroke-width="2.0" stroke-dasharray="5 6" opacity=".55"></circle>
+<circle cx="1090" cy="560" r="27" fill="#FBF8F1" stroke="#7A3F5C" stroke-width="3.6"></circle>
+<g transform="translate(1075.5 545.5) scale(0.453)" color="#7A3F5C"><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M32 54V16"/><path fill="currentColor" d="M32 6l9 14H23z"/></g>
+<text x="1090" y="612" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#7A3F5C">相济</text>
+<circle cx="396" cy="1064" r="34" fill="none" stroke="#7A3F5C" stroke-width="2.0" stroke-dasharray="5 6" opacity=".55"></circle>
+<circle cx="396" cy="1064" r="27" fill="#FBF8F1" stroke="#7A3F5C" stroke-width="3.6"></circle>
+<g transform="translate(381.7 1049.6) scale(0.453)" color="#7A3F5C"><path fill="currentColor" d="M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z"/></g>
+<text x="396" y="1116" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#7A3F5C">融会</text>
+<circle cx="30" cy="560" r="34" fill="none" stroke="#7A3F5C" stroke-width="2.0" stroke-dasharray="5 6" opacity=".55"></circle>
+<circle cx="30" cy="560" r="27" fill="#FBF8F1" stroke="#7A3F5C" stroke-width="3.6"></circle>
+<g transform="translate(15.5 545.5) scale(0.453)" color="#7A3F5C"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M14 22h16v34H14z"/><path fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M36 18h14v38H36z"/><path fill="currentColor" d="M43 6l7 11H36z"/></g>
+<text x="30" y="612" text-anchor="middle" font-size="17" font-family="Noto Serif SC, serif" font-weight="600" fill="#7A3F5C">博采</text>
+<circle cx="560" cy="460" r="34" fill="#FBF8F1" stroke="#5D646F" stroke-width="3.0"></circle>
+<text x="560" y="467" text-anchor="middle" font-size="18" font-family="Noto Serif SC, serif" font-weight="600" letter-spacing="1" fill="#5D646F">五行</text>
+<circle cx="619" cy="641" r="34" fill="#FBF8F1" stroke="#5D646F" stroke-width="3.0"></circle>
+<text x="619" y="648" text-anchor="middle" font-size="18" font-family="Noto Serif SC, serif" font-weight="600" letter-spacing="1" fill="#5D646F">被动</text>
+<circle cx="479" cy="619" r="34" fill="#FBF8F1" stroke="#5D646F" stroke-width="3.0"></circle>
+<text x="479" y="626" text-anchor="middle" font-size="18" font-family="Noto Serif SC, serif" font-weight="600" letter-spacing="1" fill="#5D646F">机制</text>
+<circle cx="560" cy="560" r="44" fill="#161B22"></circle>
+<text x="560" y="572" text-anchor="middle" font-size="32" font-family="Noto Serif SC, serif" font-weight="600" fill="#F6F1E7">斗</text>
+    </svg>
+  </div>
+  <div class="veil"></div>
+  <div class="top">
+    <h1 class="serif">技能</h1>
+    <span class="sub">墨锭买断 · 局外永久生效 · 角色 <b>Lv.16</b></span>
+    <div class="grow"></div>
+    <div class="ink">
+      <svg width="18" height="11" viewBox="0 0 56 34"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>
+      980
+    </div>
+    <button class="btn-back tap">返回</button>
+  </div>
+  <div class="jump">
+    <button class="tap "><span class="n">五行</span><span class="c">3/20</span></button>
+    <button class="tap "><span class="n">被动</span><span class="c">3/12</span><span class="dot"></span></button>
+    <button class="tap "><span class="n">机制</span><span class="c">1/8</span></button>
+    <button class="tap "><span class="n">跨树</span><span class="c">0/3</span></button>
+  </div>
+  <div class="hint">捏合到底 = 俯瞰全貌<br>43 个节点一屏看完</div>
+  
+
+  <div class="guide">
+    <i class="gl"></i><i class="gr"></i><i class="gb"></i>
+    <u style="left: 6px; top: 6px;">59pt</u>
+    <u style="right: 6px; top: 6px;">59pt</u>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview": {"width": 932, "height": 430}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

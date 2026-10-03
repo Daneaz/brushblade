@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .sheet { box-sizing: border-box; background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+    .h { margin: 0; font-family: "Noto Serif SC", serif; font-weight: 600; letter-spacing: 4px; }
+  </style>
+</helmet>
+<div class="sheet" style="width: 1160px; padding: 40px;">
+  <h1 class="h" style="font-size: 26px;">分层拆解 · 窑变</h1>
+  <p style="margin: 12px 0 30px; font-size: 13px; line-height: 1.9; color: #5D646F; max-width: 940px;">
+    三层各跑各的周期、相位错开，合起来才像活物而不是一坨在缩放。构图上有两条硬约束：<b style="color:#161B22;">wisp 不能与 body 相接</b>（它要能独立飘出去），<b style="color:#161B22;">face 不能画进 body</b>（body 对应位置只留一个浅墨窝）。
+  </p>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 26px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+        <img src="mob_yaobian_body.png" alt="body" style="display: block; width: 100%; height: auto;">
+      </div>
+      <div class="serif" style="font-size: 18px; font-weight: 600; letter-spacing: 2px;">L1 · body</div>
+      <div style="font-size: 12px; line-height: 1.75; color: #5D646F;">字形骨架 + 墨肉，含刮在墨面上的开片裂纹与两个浅墨窝。呼吸缩放 3.1s，受击抖动。<br><b style="color:#2C333D;">轮廓要经得起 ±4.5% 缩放</b> —— 精细到一缩就糊的细节不要画。</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+        <img src="mob_yaobian_face.png" alt="face" style="display: block; width: 100%; height: auto;">
+      </div>
+      <div class="serif" style="font-size: 18px; font-weight: 600; letter-spacing: 2px;">L2 · face</div>
+      <div style="font-size: 12px; line-height: 1.75; color: #5D646F;">两只眼，独立于主体。漂移 2.3s、眨眼、受击瞬间瞪大。<br><b style="color:#2C333D;">属性色的主要落点</b> —— 虹膜是朱砂的三段渐变，瞳是浓墨，高光是宣纸色。</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+        <img src="mob_yaobian_wisp.png" alt="wisp" style="display: block; width: 100%; height: auto;">
+      </div>
+      <div class="serif" style="font-size: 18px; font-weight: 600; letter-spacing: 2px;">L3 · wisp</div>
+      <div style="font-size: 12px; line-height: 1.75; color: #5D646F;">飘动部件：窑顶飘起的余烬。独立飘浮 3.8–5.6s，受击甩尾。<br><b style="color:#2C333D;">单独抽掉一层不能显得残缺</b> —— 所以它是余烬，不是身体的一部分。</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+        <img src="mob_yaobian.png" alt="合成" style="display: block; width: 100%; height: auto;">
+      </div>
+      <div class="serif" style="font-size: 18px; font-weight: 600; letter-spacing: 2px;">合成</div>
+      <div style="font-size: 12px; line-height: 1.75; color: #5D646F;">工程侧按 body → face → wisp 叠放，同一画布同一构图位置，不需要任何锚点配置。<br><b style="color:#2C333D;">L4 state 层只有「机制本来就有状态字段」的怪才配</b>，窑变没有，所以只有三层。</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
