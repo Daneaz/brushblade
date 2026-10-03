@@ -50,8 +50,8 @@ window.ZD = (function () {
     '本场': '这场战斗结束就消失',
     '跨场': '持续之后的 N 场',
     '跨段': '持续之后的 5 场',
-    '标记': '被标记的敌人受到的伤害增加',
-    '减攻': '攻击降低，同类只取最强的一份'
+    '标记': '受到的所有伤害提高，数值见特性',
+    '减攻': '攻击力降低，数值见特性'
   };
   var GLOSS_KIND = {};
   ['单体', '溅射', '横扫', '贯穿', '散射', '弹射', '全体'].forEach(function (k) { GLOSS_KIND[k] = '范围'; });
@@ -108,8 +108,8 @@ window.ZD = (function () {
       traits: [
         { lv: 3, face: 'both', name: '强化', text: '[种]改为 {3} 回合；[本命]强化' },
         { lv: 4, face: 'both', name: '双木', tag: '拆字', kind: '被动', text: '拆林时召唤 {2} 只[幼苗]' },
-        { lv: 5, face: 'sub', name: '成林', kind: '主动', text: '伤害 + 每只[木灵] {10%}' },
-        { lv: 6, face: 'main', name: '林荫', kind: '被动', text: '林灵在场时，每只[木灵]让我方受伤 −{5%}（最多 −{20%}）' },
+        { lv: 5, face: 'sub', name: '众木', kind: '主动', text: '伤害 + 每只[木灵] {10%}' },
+        { lv: 6, face: 'main', name: '林荫', kind: '被动', text: '林灵在场时，每只[木灵]使我方减伤 {5%}（≤{20%}）' },
         { lv: 8, face: 'main', name: '林立', kind: '主动', text: '召唤 {2} 只林灵（各 {60%}）；{3} 回合内全部[木灵]攻击 +{20%}' }
       ]
     },
@@ -126,7 +126,7 @@ window.ZD = (function () {
         { lv: 4, face: 'both', name: '克敌', tag: '通用', kind: '被动', text: '本字克制目标时，效果 +{15%}' },
         { lv: 5, face: 'sub', name: '涓流', kind: '主动', text: '额外清除 {1} 个减益' },
         { lv: 6, face: 'sub', name: '护持', kind: '被动', text: '治疗时，额外给治疗量 {20%} 的[护盾]' },
-        { lv: 8, face: 'main', name: '冷却', kind: '主动', text: 'Boss 蓄力推迟 {1} 拍（每场 {1} 次）；普通敌人下次攻击 −{50%}' }
+        { lv: 8, face: 'main', name: '冷却', kind: '主动', text: 'Boss 蓄力推迟 {1} 拍；小怪下次攻击 −{50%}' }
       ]
     },
     '㙓': {

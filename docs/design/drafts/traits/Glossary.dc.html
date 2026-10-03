@@ -38,7 +38,6 @@
     .gk:first-child { margin-top: 0; }
     .gr { display: flex; gap: 8px; align-items: baseline; font-size: 10px; line-height: 1.5; color: var(--text-dim); }
     .gr b { flex: none; width: 52px; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: var(--text-main); }
-    .gr.add b { color: var(--cinnabar-dark); }
     .gr .ic { flex: none; width: 13px; display: inline-flex; }
   </style>
 </helmet>
@@ -81,7 +80,7 @@
     </div>
 
     <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
-      <h3>词条表 <small>取自 spec §3(去掉了括注里的设计备注);朱色两条是本稿为状态 chip 补的,待 spec 收录</small></h3>
+      <h3>词条表 <small>取自 spec §3(去掉了括注里的设计备注)</small></h3>
       <div class="gl">
         <sc-for list="{{ cols }}" as="col">
           <div class="gcol">
@@ -102,7 +101,7 @@ class Component extends DCLogic {
   renderVals() {
     var kw = [], rg = [], du = [];
     Object.keys(Z.GLOSS).forEach(function (k) {
-      var kind = Z.GLOSS_KIND[k], item = { k: k, v: Z.GLOSS[k], cls: 'gr' + (k === '标记' || k === '减攻' ? ' add' : ''), head: '' };
+      var kind = Z.GLOSS_KIND[k], item = { k: k, v: Z.GLOSS[k], cls: 'gr', head: '' };
       (kind === '范围' ? rg : kind === '存续' ? du : kw).push(item);
     });
     var half = Math.ceil(kw.length / 2);
