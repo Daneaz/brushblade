@@ -96,5 +96,73 @@ namespace Brushblade.Core.Tests
             while (restored.Phase == RunPhase.Reward) restored.SkipReward();
             Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(0), "1 场后到期(读档后依然正确递减)");
         }
+
+        [Test]
+        public void RegisterOpening_AllyKind_Shield_AppliesToPlayerInNextBattle()
+        {
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { RebalanceFixture.Mob(hp: 20) }, new[] { RebalanceFixture.Mob(hp: 20) } },
+                RewardPool = new[] { "甲" },
+            };
+            var run = new RunEngine(RebalanceFixture.Graph(), config,
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
+                new[] { "甲", "甲", "甲" }, Array.Empty<string>(), seed: 1);
+            run.Battle.RegisterOpening(new OpeningEffect
+                { SourceCharId = "甲", Element = Element.Metal, Kind = EffectKind.Shield, Value = 50, BattlesLeft = 1 });
+            run.Battle.Cast("甲", 0);
+            run.AdvanceAfterBattle();
+            while (run.Phase == RunPhase.Reward) run.SkipReward();
+            Assert.That(run.Battle.PlayerShield, Is.GreaterThan(0), "友方类开局效果作用于玩家");
+        }
+
+        [Test]
+        public void Run_Openings_SurviveRunSnapshot_AndKeepCounting()
+        {
+            var config = new RunConfig
+            {
+                Encounters = new[] { new[] { RebalanceFixture.Mob(hp: 20) }, new[] { RebalanceFixture.Mob(hp: 20) },
+                    new[] { RebalanceFixture.Mob(hp: 20) }, new[] { RebalanceFixture.Mob(hp: 20) } },
+                RewardPool = new[] { "甲" },
+            };
+            var bc = new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 };
+            var run = new RunEngine(RebalanceFixture.Graph(), config, bc,
+                new[] { "甲", "甲", "甲", "甲", "甲" }, Array.Empty<string>(), seed: 1);
+            run.Battle.RegisterOpening(new OpeningEffect
+                { SourceCharId = "甲", Element = Element.Metal, Kind = EffectKind.Morale, Value = 2, BattlesLeft = 2 });
+            run.Battle.Cast("甲", 0);
+            run.AdvanceAfterBattle();
+            while (run.Phase == RunPhase.Reward) run.SkipReward();
+            Assert.That(run.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2), "第 2 场");
+
+            var restored = RunEngine.Restore(run.Capture(), RebalanceFixture.Graph(), config, bc, null);
+            restored.Battle.Cast("甲", 0);
+            restored.AdvanceAfterBattle();
+            while (restored.Phase == RunPhase.Reward) restored.SkipReward();
+            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(2), "读档后第 3 场仍生效");
+
+            restored.Battle.Cast("甲", 0);
+            restored.AdvanceAfterBattle();
+            while (restored.Phase == RunPhase.Reward) restored.SkipReward();
+            Assert.That(restored.Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(0), "第 4 场到期");
+        }
+
+        [Test]
+        public void BattleSnapshot_PendingOpenings_RoundTrip()
+        {
+            var graph = RebalanceFixture.Graph();
+            var b = RebalanceFixture.Battle(graph, new[] { "甲" }, RebalanceFixture.Mob());
+            b.RegisterOpening(new OpeningEffect
+                { SourceCharId = "甲", Element = Element.Metal, Kind = EffectKind.Morale, Value = 3, BattlesLeft = 2 });
+            var restored = BattleEngine.Restore(b.Capture(), graph,
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100 }, null,
+                new Dictionary<string, EnemyDef> { ["怔"] = RebalanceFixture.Mob() });
+            Assert.That(restored.PendingOpenings.Count, Is.EqualTo(1));
+            var o = restored.PendingOpenings[0];
+            Assert.That(o.SourceCharId, Is.EqualTo("甲"));
+            Assert.That(o.Kind, Is.EqualTo(EffectKind.Morale));
+            Assert.That(o.Value, Is.EqualTo(3));
+            Assert.That(o.BattlesLeft, Is.EqualTo(2));
+        }
     }
 }

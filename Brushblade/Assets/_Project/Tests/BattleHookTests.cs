@@ -253,5 +253,28 @@ namespace Brushblade.Core.Tests
             a.Cast("甲", 0); a.EndTurn();
             Assert.That(a.TriggerDepth, Is.EqualTo(0));
         }
+
+        [Test]
+        public void SummonThresholdFlag_SurvivesSnapshot()
+        {
+            var graph = RebalanceFixture.Graph(Summoner());
+            var (b, r) = Battle(graph, new[] { "召" }, RebalanceFixture.Mob(attack: 30));
+            Assert.That(b.Cast("召"), Is.EqualTo(BattleError.None));
+            int slot = OnlySummonSlot(b);
+            var unit = UnitRef.Summon(slot);
+            b.EndTurn(); b.EndTurn();   // 100 → 70 → 40,跌破 50%
+            Assert.That(b.Summons[slot].Alive, Is.True);
+            Assert.That(ThresholdCount(r, unit), Is.EqualTo(1));
+            Assert.That(b.Capture().SummonThresholdCrossed.Contains(slot), Is.True, "标记进快照");
+
+            var restored = BattleEngine.Restore(b.Capture(), graph,
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100 }, null,
+                new Dictionary<string, EnemyDef> { ["怔"] = RebalanceFixture.Mob(attack: 30) });
+            var r2 = new Recorder();
+            restored.AddHookListener(r2);
+            restored.EndTurn();   // 40 → 10,仍活
+            Assert.That(restored.Summons[slot].Alive, Is.True);
+            Assert.That(ThresholdCount(r2, unit), Is.EqualTo(0), "读档后不重复触发");
+        }
     }
 }

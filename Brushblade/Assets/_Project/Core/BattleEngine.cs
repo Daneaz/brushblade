@@ -3612,10 +3612,11 @@ namespace Brushblade.Core
         /// <summary>本场登记、留给之后几场开局生效的效果(RunEngine 战后收走)。</summary>
         public IReadOnlyList<OpeningEffect> PendingOpenings => _pendingOpenings;
 
+        /// <summary>登记开局效果。开局效果不能选敌方目标;友方类效果(护盾/防御/持续回复…)作用于玩家。</summary>
         internal void RegisterOpening(OpeningEffect effect)
         {
-            if (EffectNeedsTarget(effect.ToEffect()) || EffectNeedsAllyTarget(effect.ToEffect()))
-                throw new ArgumentException($"开局效果不能选目标:{effect.Kind}", nameof(effect));
+            if (EffectNeedsTarget(effect.ToEffect()))
+                throw new ArgumentException($"开局效果不能选敌方目标:{effect.Kind}", nameof(effect));
             _pendingOpenings.Add(effect.Clone());
         }
 
