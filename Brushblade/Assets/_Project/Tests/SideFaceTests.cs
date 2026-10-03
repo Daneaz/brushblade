@@ -13,9 +13,14 @@ namespace Brushblade.Core.Tests
             attackEffects: new[] { new EffectDef(EffectKind.DamageSingle, 100) },
             mainFace: main);
 
-        private static BattleEngine Battle(CharDef def) =>
-            RebalanceFixture.Battle(RebalanceFixture.Graph(def), new[] { def.Id, def.Id },
-                RebalanceFixture.Mob());
+        private static BattleEngine Battle(CharDef def, int sideFacePercent = 100) =>
+            new(RebalanceFixture.Graph(def),
+                new BattleConfig
+                {
+                    PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100,
+                    SideFacePercent = sideFacePercent
+                },
+                new[] { def.Id, def.Id }, Array.Empty<string>(), new[] { RebalanceFixture.Mob() }, seed: 1);
 
         [Test]
         public void NoMainFace_IsIdentity()
@@ -36,9 +41,21 @@ namespace Brushblade.Core.Tests
         [Test]
         public void SideFace_ContinuousValue_ScaledTo60Percent()
         {
-            var b = Battle(Dual(CardFace.Feature));
+            var b = Battle(Dual(CardFace.Feature), sideFacePercent: 60);
             b.Cast("沙", 0, attackMode: true);
             Assert.That(b.Enemies[0].Hp, Is.EqualTo(100000 - 60));
+        }
+
+        [Test]
+        public void SideFace_DefaultConfig_NotDiscounted()
+        {
+            Assert.That(new BattleConfig().SideFacePercent, Is.EqualTo(100));
+            var def = Dual(CardFace.Feature);
+            var b = new BattleEngine(RebalanceFixture.Graph(def),
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100 },
+                new[] { def.Id, def.Id }, Array.Empty<string>(), new[] { RebalanceFixture.Mob() }, seed: 1);
+            b.Cast("沙", 0, attackMode: true);
+            Assert.That(b.Enemies[0].Hp, Is.EqualTo(100000 - 100));
         }
 
         [Test]

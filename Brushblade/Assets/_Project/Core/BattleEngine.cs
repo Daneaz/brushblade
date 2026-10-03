@@ -187,8 +187,9 @@ namespace Brushblade.Core
         /// <summary>战意层数上限(五行金脉 L4,spec §3.4)。**缺省 5 = 现值**,逐字节恒等。</summary>
         public int MoraleCap { get; set; } = BaseMoraleCap;
 
-        /// <summary>副面本体的连续量百分比(spec v6 §2.1,待仿真定标)。只作用于 MainFace 已指定的字。</summary>
-        public int SideFacePercent { get; set; } = 60;
+        /// <summary>副面本体的连续量百分比;缺省 100 = 不打折(2026-10-04 用户决定,平衡阶段再定),
+        /// 只作用于 MainFace 已指定的字。</summary>
+        public int SideFacePercent { get; set; } = 100;
 
         /// <summary>厚的层数上限(土脉 L4)。**缺省 10 = 现值**。
         /// ⚠ 与 <see cref="WellspringCap"/> 是两个独立字段,不可合并回一个常量 ——
