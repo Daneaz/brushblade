@@ -1,18 +1,18 @@
-"""设计稿本地预览:规范 / 组件 / 成品三层的 preview.html → docs/design/_preview/。
+"""设计稿本地预览:规范 / 组件 / 现状三层的 preview.html → docs/design/_preview/。
 
 - 规范 docs/design/system/(tokens.json、字体、封面卡 Cover)
 - 组件 docs/design/component/<名>/preview.html(共用样式 component/bundle.css)
-- 成品 docs/design/screens/<名>/preview.html
+- 现状 docs/design/current/<名>/preview.html
 
 preview.html 在 artifact 上由 Design System 类型注入 tokens 与 bundle.css,
 本地直接打开两样都没有。这里补上那层外壳:
 - tokens.css:tokens.json 的全部 token 转成 :root 变量 + 字体 @font-face + 字样类
 - <名>.html:preview 原文,只在 <head> 里插两条 <link>
 - index.html:按 @dsCard 分组铺开全部卡,并链到各画布画廊
-- canvas-<目录>.html:画布 docs/design/ui/<目录>/ 按 canvas.json 的分页与标题铺开全部画板
+- canvas-<目录>.html:设计稿画布 docs/design/drafts/<目录>/ 按 canvas.json 的分页与标题铺开全部画板
 
 画布的 *.dc.html 写死 <script src="./support.js">,线上由 Design 类型提供。本地由
-docs/design/ui/dc-runtime.js(从 Design 类型取下的运行时,原样)顶上:每个画布目录放一个
+docs/design/drafts/dc-runtime.js(从 Design 类型取下的运行时,原样)顶上:每个画布目录放一个
 指向它的软链接 support.js,源稿不改,直接打开即可。
 
 改了 tokens.json 或任何 preview 后重跑:python3 tools/design/build_ds_preview.py
@@ -26,12 +26,12 @@ ROOT = Path(__file__).resolve().parents[2]
 DESIGN = ROOT / "docs/design"
 SYSTEM = DESIGN / "system"
 COMPONENT = DESIGN / "component"
-SCREENS = DESIGN / "screens"
+CURRENT = DESIGN / "current"
 BUNDLE = COMPONENT / "bundle.css"
 OUT = DESIGN / "_preview"
-UI = DESIGN / "ui"
-DC_RUNTIME = UI / "dc-runtime.js"
-# scenes 画布上的四块升级弹窗只在 levelup/ 存一份(改了名),见 ui/scenes/README.md
+DRAFTS = DESIGN / "drafts"
+DC_RUNTIME = DRAFTS / "dc-runtime.js"
+# scenes 画布上的四块升级弹窗只在 levelup/ 存一份(改了名),见 drafts/scenes/README.md
 _ALIASES = {("scenes", "LevelUp.dc.html"): "levelup/Main.dc.html",
             ("scenes", "LevelUpMulti.dc.html"): "levelup/MultiLevel.dc.html",
             ("scenes", "LevelUpCapped.dc.html"): "levelup/Capped.dc.html",
@@ -66,7 +66,7 @@ def tokens_css() -> str:
 
 def sources():
     return (sorted(SYSTEM.glob("*/preview.html")) + sorted(COMPONENT.glob("*/preview.html"))
-            + sorted(SCREENS.glob("*/preview.html")))
+            + sorted(CURRENT.glob("*/preview.html")))
 
 
 def pages() -> dict:
@@ -86,7 +86,7 @@ def _card_meta(src: str) -> dict:
 
 
 def canvas_dirs():
-    return sorted(p.parent for p in UI.glob("*/canvas.json"))
+    return sorted(p.parent for p in DRAFTS.glob("*/canvas.json"))
 
 
 def canvas_boards(d: Path) -> list:
@@ -100,7 +100,7 @@ def canvas_boards(d: Path) -> list:
     for a in raw:
         rel = _ALIASES.get((d.name, a["file"]), f"{d.name}/{a['file']}")
         out.append({"file": a["file"], "title": a.get("title") or a["file"], "page": a.get("page"),
-                    "w": a.get("w", 932), "h": a.get("h", 430), "src": UI / rel, "href": f"../ui/{rel}"})
+                    "w": a.get("w", 932), "h": a.get("h", 430), "src": DRAFTS / rel, "href": f"../drafts/{rel}"})
     return out
 
 
@@ -128,7 +128,7 @@ def _canvas_gallery(d: Path) -> str:
             "small{font-weight:400;color:var(--text-dim);margin-left:8px}"
             "iframe{display:block;border:1px solid var(--panel-border);border-radius:8px;background:#fff}"
             f"</style></head><body><p><a href=\"index.html\">← 总览</a></p><h1>画布 · {html.escape(title)}</h1>"
-            f"<p>源稿 docs/design/ui/{d.name}/;由 tools/design/build_ds_preview.py 生成。画板可交互。</p>"
+            f"<p>源稿 docs/design/drafts/{d.name}/;由 tools/design/build_ds_preview.py 生成。画板可交互。</p>"
             + "".join(body) + "</body></html>\n")
 
 
@@ -156,7 +156,7 @@ def index_html() -> str:
             "small{font-weight:400;color:var(--text-dim);margin-left:8px}"
             "iframe{width:100%;border:1px solid var(--panel-border);border-radius:8px;background:var(--paper)}"
             "</style></head><body><h1>字·斗 设计系统 · 本地预览</h1>"
-            "<p>由 tools/design/build_ds_preview.py 生成;规范见 system/README.md,组件见 component/,成品见 screens/。</p>"
+            "<p>由 tools/design/build_ds_preview.py 生成;规范见 system/README.md,组件见 component/,现状见 current/,设计稿见 drafts/。</p>"
             + "<h2>画布</h2><ul>" + "".join(f'<li><a href="canvas-{d.name}.html">{d.name}</a></li>' for d in canvas_dirs())
             + "</ul>" + "".join(body) + "</body></html>\n")
 

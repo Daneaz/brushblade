@@ -107,7 +107,7 @@ ICONS = {
     ),
 
     # ---- 主界面底部导航 4(2026-08-28)----
-    # 路径**逐字取自** docs/design/ui/scenes/Home.dc.html 的四枚页签 SVG,
+    # 路径**逐字取自** docs/design/drafts/scenes/Home.dc.html 的四枚页签 SVG,
     # 只用一层 scale 把稿上的 24 viewBox 撑到 64 画布(见 NAV_* 的注释)。
     # 改稿就重抄一遍,别在这里手改坐标 —— 手改必然和稿漂开。
     # 卡组:一张正牌 + 一张斜插的牌
@@ -139,7 +139,7 @@ ICONS = {
     ),
 
     # ---- 战斗稿补齐 11(2026-08-30)----
-    # 逐字抄自 docs/design/ui/scenes/Battle.dc.html 的 <svg class="icdefs">,
+    # 逐字抄自 docs/design/drafts/scenes/Battle.dc.html 的 <svg class="icdefs">,
     # 每枚是一个 <symbol id="ic-KEY">;坐标一个字不改 —— 与 nav_* 同一条戒律。
     # 状态类 —— 破甲 / 流血
     "armorbreak": (

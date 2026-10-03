@@ -55,8 +55,8 @@ Brushblade/Builds/
 # 重新出图(在稿子所在目录跑):
 #   node <design skill>/seed-canvas.mjs --template <skill>/payload.template.html \
 #     --out <名字>.html --title "..." --artboard Main.dc.html ... --canvas canvas.json
-docs/design/ui/**/*.html
-!docs/design/ui/**/*.dc.html
+docs/design/drafts/**/*.html
+!docs/design/drafts/**/*.dc.html
 
 # SDD 过程报告(subagent 的逐任务执行报告与协调账本):不入 git。
 # 正式溯源已经在 docs/superpowers/{specs,plans}/ 与 commit message 里,这些是过程记录,

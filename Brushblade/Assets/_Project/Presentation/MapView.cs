@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>主界面(20.2 无尽外层)。版式基线 = <c>docs/design/ui/scenes/Home.dc.html</c>:
+    /// <summary>主界面(20.2 无尽外层)。版式基线 = <c>docs/design/drafts/scenes/Home.dc.html</c>:
     /// 顶栏 / 三栏主体(角色 · 书塔 · 宝箱)/ 底部四页签导航。
     ///
     /// ⚠ 尺寸常量都是**逻辑单位**,由稿子的 pt 换算而来(CanvasScaler 1600×900 按高匹配,

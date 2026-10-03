@@ -4,7 +4,7 @@
 用法: python3 tools/design/build_chests.py
 前置: rsvg-convert(macOS: brew install librsvg)——与 tools/icons/build_icons.py 同款。
 
-底稿是 `docs/design/ui/scenes/Chests.dc.html`(七档宝箱立绘)。那一页自己写着
+底稿是 `docs/design/drafts/scenes/Chests.dc.html`(七档宝箱立绘)。那一页自己写着
 「本页的 SVG 可以直接当素材用 —— 箱子是器物不是活物,矢量墨线画得住,还省一套 512 方图」,
 所以这里**逐字抄稿上的 path**,只把 `var(--c)` 换成 Theme.ChestColor 的实色。
 改稿就重抄一遍,别在这里手改坐标 —— 手改必然和稿漂开(与 build_icons.py 的 nav_* 同一条戒律)。

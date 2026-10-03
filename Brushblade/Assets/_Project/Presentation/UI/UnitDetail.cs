@@ -66,7 +66,7 @@ namespace Brushblade.Presentation
     /// 独立成一个内部类而不是三处各写一份:StatusEntry 的 chip 底色/文案只该有一份口径,
     /// 三个 Info 类分别对着敌人/召唤物/玩家的 StatusBag 抄三遍只会越改越漂。
     ///
-    /// 颜色分组抄自 <c>docs/design/ui/scenes/StatusGlossary.dc.html</c> 的六个 --gc 分组
+    /// 颜色分组抄自 <c>docs/design/drafts/scenes/StatusGlossary.dc.html</c> 的六个 --gc 分组
     /// (唯一权威;那份稿本身就是给这 20 个 StatusKind 定颜色用的):
     ///   #C53637 持续伤害与增长的威胁(= Theme.Cinnabar,数值核对过,逐位相同)
     ///   #19507F 控制类 debuff(Theme 里没有现成的,新增一个字面量)

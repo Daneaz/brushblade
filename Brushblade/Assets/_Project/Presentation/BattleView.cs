@@ -13,7 +13,7 @@ namespace Brushblade.Presentation
     /// 战斗内交互:点字库字 → 出字/拆;点部件 → 直出;可合成列表一键合;单体效果进入选目标模式。</summary>
     public sealed class BattleView : MonoBehaviour
     {
-        // ===== 稿上的骨架尺寸(docs/design/ui/scenes/Battle.dc.html)=====
+        // ===== 稿上的骨架尺寸(docs/design/drafts/scenes/Battle.dc.html)=====
         // 都是**逻辑单位**,由稿子的 pt 换算而来:CanvasScaler 1600×900 按高匹配,
         // iPhone 16 Pro Max 932×430pt → 实际画布 1950×900,1pt = 2.093 逻辑单位。
         // SafeAreaFitter(GameRoot.NewView)在真机上会让出刘海;编辑器 16:9 下它是空操作,

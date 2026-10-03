@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>字卡详情的「攻击模式」与「特性 · 技能」两段(稿 <c>docs/design/ui/scenes/CardDetail.dc.html</c>)。
+    /// <summary>字卡详情的「攻击模式」与「特性 · 技能」两段(稿 <c>docs/design/drafts/scenes/CardDetail.dc.html</c>)。
     ///
     /// 此前这两段都压在 <see cref="CharInfo.EffectsText"/> 那一整串里 —— 一句话把打谁、叠几层、
     /// 带什么被动全说完,玩家要在分号之间自己找。现在拆成两张表:

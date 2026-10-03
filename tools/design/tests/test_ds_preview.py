@@ -20,10 +20,10 @@ def test_every_preview_has_a_local_page():
 
 
 def test_spec_layer_holds_no_components_or_screens():
-    """规范层只放规则与 token;组件进 component/,整屏进 screens/。"""
+    """规范层只放规则与 token;组件进 component/,整屏现状进 current/。"""
     stray = [p.parent.name for p in b.SYSTEM.rglob("preview.html") if p.parent.name != "Cover"]
     assert not stray, f"system/ 里混进了成品或组件:{stray}"
-    assert not list(b.COMPONENT.glob("*Screen")), "整屏卡应在 screens/"
+    assert not list(b.COMPONENT.glob("*Screen")), "整屏卡应在 current/"
 
 
 def test_every_css_var_used_is_defined():
@@ -60,7 +60,7 @@ def test_committed_output_is_regenerable():
             f"{fname} 过期,重跑 python3 tools/design/build_ds_preview.py"
 
 
-# ---- 画布 docs/design/ui/<目录>/*.dc.html ----
+# ---- 画布 docs/design/drafts/<目录>/*.dc.html ----
 
 def test_every_canvas_dir_has_support_js_pointing_at_runtime():
     """*.dc.html 都写死 <script src="./support.js">;缺了这个文件,本地打开是没跑模板的裸 HTML。"""

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Brushblade.Presentation
 {
-    /// <summary>宝箱立绘的查找与加载(<c>docs/design/ui/scenes/Chests.dc.html</c>)。
+    /// <summary>宝箱立绘的查找与加载(<c>docs/design/drafts/scenes/Chests.dc.html</c>)。
     /// 与 <see cref="MobAssets"/> 同构:前缀表 + 分层 + 缓存,取不到就返回 null 让调用方回落。
     ///
     /// 七只箱是**七种材质**不是七种颜色 —— 此前格子里画的是一个 <c>Theme.ChestColor</c> 色块
