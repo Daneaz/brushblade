@@ -14,5 +14,10 @@
 | `字选型/技能四类判定-评分版.md` | 重构前的判类与评分稿;所引的 `技能四类判定.md` 早已不在库里 | `字选型/技能机制详表.md` |
 | `字选型/五行共享字.md` | 同部件五系字族的头脑风暴清单,未被任何文档或工具采用 | — |
 | `字选型/五行基础字/`(7 张) | 2026-07-31 由 `tools/pipeline/report_pool_candidates.py` 出的卡池候选筛选表,筛选已结束 | `chars.json` / `字表功能解析.md` |
+| `glyph-refs/png/`(42 张) | `tools/fonts/glyph_refs.py --png` 出的位图底稿,给只吃位图的出图工具(ControlNet)用;字怪已全部改走 SVG 管线,没有工具或测试读它 | `glyph-refs/svg/` → `svg-done/` → `tools/design/` 字怪管线 |
+| `wuxing/五行相生.svg` | 相生环图 2026-08-31 已从战斗屏撤掉,相生 ×3 于 2026-09-02 取消 | `wuxing/五行相克.svg`(战斗屏相克图的源) |
+| `demos/review/实现对齐稿.html` | 2026-09-18 的稿与实现对齐快照,其后 09-21 的三方对账已把结论收进各现状卡与组件卡 | `current/`、`component/` 各卡的「与实现的差异」段 |
+| `drafts/levelup/LevelChest.dc.html` | 「等级区间 → 宝箱」草案,被 2026-10-02 角色页 spec 取代(整体升一档、去掉素纸匣) | `drafts/character/`(`LevelUp.dc.html`、`RewardTable.dc.html`) |
 
+`glyph_refs.py --png` 重跑会把位图写回 `docs/design/glyph-refs/png/`(不是这里)。
 `report_pool_candidates.py` 仍在库里,重跑会把筛选表写回 `docs/design/字选型/`(不是这里)。
