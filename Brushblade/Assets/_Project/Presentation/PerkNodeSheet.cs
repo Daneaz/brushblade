@@ -441,6 +441,8 @@ namespace Brushblade.Presentation
             int charLevel = MetaRules.CharacterLevel(meta.CharacterXp);
             var state = PerkView.StateOf(meta, def, charLevel);
             bool canUnlock = state == PerkView.NodeState.CanUnlock;
+            // 墨锭不足:照印原价、标红,不印差额 —— 与商城 / 宝箱位同款(2026-10-03 用户拍板)
+            bool poor = state == PerkView.NodeState.PoorInk;
 
             float primaryW = ContentW - 14f - CloseW;
             var primary = Ui.PillButton(row.transform, FooterButtonText(state, def), () =>
@@ -453,7 +455,8 @@ namespace Brushblade.Presentation
                 // 清掉挂在视图根上的旧弹窗,所以这次 Show 必须在它之后。
                 if (def.Stage < def.StageCount)
                     Show(root, meta, PerkRules.CurrentStage(meta, def.NodeKey), onChanged);
-            }, canUnlock ? Theme.Gold : Theme.LockedBg, canUnlock ? Theme.GoldText : Theme.LockGray,
+            }, canUnlock ? Theme.Gold : poor ? Theme.PanelInset : Theme.LockedBg,
+                canUnlock ? Theme.GoldText : poor ? Theme.CinnabarDark : Theme.LockGray,
                 18, new Vector2(primaryW, FooterH));
             primary.interactable = canUnlock;
 
@@ -465,8 +468,8 @@ namespace Brushblade.Presentation
         private static string FooterButtonText(PerkView.NodeState state, PerkNodeDef def) => state switch
         {
             PerkView.NodeState.Owned => Strings.T("perk.node.badge.owned"),
-            PerkView.NodeState.CanUnlock => Strings.T("perk.view.unlock_button", ("cost", def.InkCost)),
-            PerkView.NodeState.PoorInk => Strings.T("perk.detail.footer.poor_ink", ("cost", def.InkCost)),
+            PerkView.NodeState.CanUnlock or PerkView.NodeState.PoorInk =>
+                Strings.T("perk.view.unlock_button", ("cost", def.InkCost)),
             // 「需先点上一层」对跨树节点是错的 —— 它不在任何一条直链上,卡住它的是两侧谓词。
             PerkView.NodeState.GatedPrereq => def.Tree == PerkTree.Cross
                 ? Strings.T("perk.node.badge.gated_cross")

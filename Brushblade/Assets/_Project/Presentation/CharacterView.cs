@@ -475,7 +475,8 @@ namespace Brushblade.Presentation
                 }
                 var cell = Ui.Row(row, "Cell", 10);
                 cell.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-                Ui.MiniGlyphTile(cell.transform, _graph.Get(top[i].Id), new Vector2(64, 80));
+                var tile = Ui.MiniGlyphTile(cell.transform, _graph.Get(top[i].Id), new Vector2(64, 80));
+                Ui.RankBadge(tile, i + 1, 27f, 10f, 17);  // 稿 13pt 圆、探出 5pt、8pt 字
                 var count = Ui.ThemedLabel(cell.transform, top[i].Plays.ToString("N0", Inv), 21, Theme.TextMain,
                     null, TextAnchor.MiddleLeft);
                 count.gameObject.AddComponent<LayoutElement>().preferredWidth = 50;

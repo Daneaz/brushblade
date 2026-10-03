@@ -863,6 +863,25 @@ namespace Brushblade.Presentation
             return go;
         }
 
+        /// <summary>名次圆标:压在牌左上角、一半探出牌外的 <c>ink-soft</c> 圆 + 白色粗体数字
+        /// (出手 Top10,稿 drafts/character/Main.dc.html 与 Character.dc.html 的 <c>.tl i</c>)。
+        /// 不进布局:牌在 Row 里排,圆标挂在牌上 ignoreLayout,不挤动邻格。</summary>
+        public static void RankBadge(GameObject tile, int rank, float diameter, float overhang, int fontSize)
+        {
+            var go = Panel(tile.transform, "Rank");
+            go.AddComponent<LayoutElement>().ignoreLayout = true;
+            var image = go.AddComponent<Image>();
+            image.sprite = Theme.Circle;
+            image.color = Theme.InkSoft;
+            image.raycastTarget = false;
+            Anchor((RectTransform)go.transform, new Vector2(0, 1), new Vector2(0, 1),
+                new Vector2(-overhang, overhang - diameter), new Vector2(diameter - overhang, overhang));
+            var label = ThemedLabel(go.transform, rank.ToString(), fontSize, Color.white);
+            label.fontStyle = FontStyle.Bold;
+            label.raycastTarget = false;
+            Stretch(label.rectTransform);
+        }
+
         /// <summary>圆形字头像:实色圆底 + 居中单字。战斗怪物与图鉴怪牌共用,保证形象一致。</summary>
         public static GameObject CircleGlyph(Transform parent, string face, Color faceColor, Color glyphColor, float diameter)
         {

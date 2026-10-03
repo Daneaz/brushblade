@@ -632,7 +632,6 @@
   "perk.detail.req.ink.gap": "{cost}墨 · 还差{gap}墨",
   "perk.detail.stage": "第{stage}/{total}段",
   "perk.detail.stage.max": "已满段",
-  "perk.detail.footer.poor_ink": "墨锭不足(还需 {cost} 墨)",
   "perk.detail.max_hp": "生命上限直接叠加,与角色等级自身的生命成长走同一条曲线,不额外挤压其它数值。同枝三层不叠加,取已点最高档。",
   "perk.detail.attack_percent": "攻击力按百分比加成,乘算生效——角色等级越高、基础攻击越大,这条换算出的绝对值也随之变大。同枝三层不叠加,取已点最高档。",
   "perk.detail.crit_chance": "暴击率按百分点直接叠加,与字牌自身的暴击效果(如「锋」字)一起结算,合计封顶 100%。同枝三层不叠加,取已点最高档。",
