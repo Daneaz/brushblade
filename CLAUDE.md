@@ -113,6 +113,18 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
   同理:测试只能用 Tests asmdef references 列出的程序集(Core / Data)。
 - 提交信息用 conventional commits(feat/fix/docs/chore + 范围)。
 
+## UI 设计流程(硬规则)
+
+- **先设计、后实现**:任何玩家可见的 UI 界面(新增或改版)都必须先经 Claude Design 出稿,
+  用户确认通过后才能动 Presentation 代码。设计稿未通过 = 不开工。
+- **本项目全流程不发布 artifact**(`.claude/settings.json` 已设 `enableArtifact: false`)。
+- **设计统一由常驻 session `designer` 完成**,本 session 不自己出稿:
+  1. 先 `ListAgents` 查找名为 `designer` 的 session;
+  2. 存在 → 用 `SendMessage` 把需求(界面、场景、约束、要落库的路径)发给它,等它交稿;
+  3. 不存在 → **停下**,提示用户开启或恢复 `designer` session,不要自己代为设计。
+- **设计稿一律落库到 `docs/design/ui/`**(按界面/场景分子目录,沿用现有 `scenes/`、`levelup/` 等结构)。
+  实现时以该目录下已通过的稿为准。
+
 ## 当前阶段
 
 v0.7(2026-07-13 拍板):**层段化无尽为唯一核心玩法**(第 20 章),章节关卡制废止。局内拆合战斗/宝箱/商城/收集不变;实现顺序:Core 无尽引擎(层段/缩放/遭遇生成/结算)→ 断点续爬存档 → 无尽 UI 替换章节地图。后端分期 P0 校时(就绪)→ P1 云存档 → P2 排行。
