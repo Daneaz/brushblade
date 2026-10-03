@@ -20,10 +20,10 @@ def test_every_preview_has_a_local_page():
 
 
 def test_spec_layer_holds_no_components_or_screens():
-    """规范层只放规则与 token;组件进 component/,整屏进 ui/screens/。"""
+    """规范层只放规则与 token;组件进 component/,整屏进 screens/。"""
     stray = [p.parent.name for p in b.SYSTEM.rglob("preview.html") if p.parent.name != "Cover"]
     assert not stray, f"system/ 里混进了成品或组件:{stray}"
-    assert not list(b.COMPONENT.glob("*Screen")), "整屏卡应在 ui/screens/"
+    assert not list(b.COMPONENT.glob("*Screen")), "整屏卡应在 screens/"
 
 
 def test_every_css_var_used_is_defined():

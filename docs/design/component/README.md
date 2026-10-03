@@ -2,7 +2,7 @@
 
 可复用件的卡,每个子目录一张:`README.md`(规格与调用点)+ `preview.html`(静态再现)。
 样式统一在 `bundle.css`(类名 `zd-` 前缀),token 见 `../system/tokens.json`,
-整屏成品卡在 `../ui/screens/`。下面「来源口径」对组件卡与整屏卡都适用。
+整屏成品卡在 `../screens/`。下面「来源口径」对组件卡与整屏卡都适用。
 
 ## 来源口径
 

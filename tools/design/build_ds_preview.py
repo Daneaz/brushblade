@@ -2,7 +2,7 @@
 
 - 规范 docs/design/system/(tokens.json、字体、封面卡 Cover)
 - 组件 docs/design/component/<名>/preview.html(共用样式 component/bundle.css)
-- 成品 docs/design/ui/screens/<名>/preview.html
+- 成品 docs/design/screens/<名>/preview.html
 
 preview.html 在 artifact 上由 Design System 类型注入 tokens 与 bundle.css,
 本地直接打开两样都没有。这里补上那层外壳:
@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DESIGN = ROOT / "docs/design"
 SYSTEM = DESIGN / "system"
 COMPONENT = DESIGN / "component"
-SCREENS = DESIGN / "ui/screens"
+SCREENS = DESIGN / "screens"
 BUNDLE = COMPONENT / "bundle.css"
 OUT = DESIGN / "_preview"
 
@@ -93,7 +93,7 @@ def index_html() -> str:
             "small{font-weight:400;color:var(--text-dim);margin-left:8px}"
             "iframe{width:100%;border:1px solid var(--panel-border);border-radius:8px;background:var(--paper)}"
             "</style></head><body><h1>字·斗 设计系统 · 本地预览</h1>"
-            "<p>由 tools/design/build_ds_preview.py 生成;规范见 system/README.md,组件见 component/,成品见 ui/screens/。</p>"
+            "<p>由 tools/design/build_ds_preview.py 生成;规范见 system/README.md,组件见 component/,成品见 screens/。</p>"
             + "".join(body) + "</body></html>\n")
 
 
