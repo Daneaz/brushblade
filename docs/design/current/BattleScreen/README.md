@@ -36,7 +36,7 @@
 
 ## 左窄栏（`WuxingChart.Mount` + `BattleView.DrawNearMissHints`）
 - **两块都没有卡片底**：相克图与配字表都是裸 `VStack`，直接坐在 `paper` 上；稿的半透宣纸底没落地。
-- 相克图是 `docs/design/wuxing/*.svg` 的**光栅 PNG**（131×120 → 62.59×57.33pt），不是内联 SVG；
+- 相克图是一张**光栅 PNG**(`Presentation/UI/Resources/`,源 SVG 已退役)（131×120 → 62.59×57.33pt），不是内联 SVG；
   相生环图 2026-08-31 整个撤掉，左栏只剩相克这一张。标题字面是「相 克」（带空格）。
 - 两条小标题都是 16 → 7.64pt 的 `TextMain` 宋体，不是 `text-faint`。
 - 配字表一行「字 缺 N」：字形 20 → 9.56pt 属性字形色；**「缺 X」是一个 Text、整句同色同号**
