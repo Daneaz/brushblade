@@ -1,23 +1,37 @@
-<!-- @dsCard group="局内流程" height=212 subtitle="实现 · BattleView.DrawReplaceSheet · 四入口共用的唯一一处永久删除" -->
+<!-- @dsCard group="局内流程" height=340 subtitle="实现 · BattleView.DrawReplaceSheet · 四入口共用的唯一一处永久删除" -->
 <!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;background:var(--paper)}
 .stage{position:relative;padding:14px 16px}
+/* 全卡统一按 0.5 缩放:px = 逻辑单位 ÷ 2.093 × 0.5 */
 /* 遮罩 scrim-soft(42%)——局内浮层要看得见底下的战场 */
-.scrim{position:relative;border-radius:6px;background:var(--scrim-soft);padding:10px;overflow:hidden}
+.scrim{position:relative;border-radius:3px;background:var(--scrim-soft);padding:10px;overflow:hidden;margin-bottom:4px}
 /* 底下透出的战场示意,只为说明「为什么用浅遮罩」 */
 .field{position:absolute;inset:0;background:var(--paper);z-index:0}
 .field i{position:absolute;display:block;border-radius:3px;background:var(--ink);opacity:.10}
-/* Ui.Sheet 1633×460 → 780×220pt;此卡按 1/2 缩放展示 */
-.sheet{position:relative;z-index:1;width:390px;box-sizing:border-box;margin:0 auto;
-  background:var(--panel-paper);border:.72px solid var(--panel-border);border-radius:8.60px;
-  padding:11.47px;display:flex;flex-direction:column;align-items:center;gap:6.69px}
-.h{font-family:var(--font-serif);font-weight:600;font-size:7.88px;color:var(--text-main);white-space:nowrap}
-.row{display:flex;align-items:center;gap:4.54px}
-.arrow{width:10.99px;text-align:center;font-size:8px;color:var(--text-faint)}
+/* Ui.Sheet 1633×460 · 圆角 18 · 描边 1.5 · 内边距 24 · 行距 14 · UpperCenter */
+.sheet{position:relative;z-index:1;width:390.11px;height:109.89px;box-sizing:border-box;margin:0 auto;
+  background:var(--panel-paper);border:.36px solid var(--panel-border);border-radius:4.30px;
+  padding:5.73px;display:flex;flex-direction:column;align-items:center;gap:3.34px}
+.h{font-family:var(--font-serif);font-weight:600;font-size:7.88px;line-height:1;color:var(--text-main);white-space:nowrap;flex:none}
+/* 告警条:Ui.Chip 21 / padX 23(两侧合计)/ 定高 46,圆角 14 */
+.warn{flex:none;height:10.99px;padding:0 2.75px;border-radius:3.34px;font-size:5.02px}
+.row{display:flex;align-items:center;gap:4.54px;flex:none}
+.arrow{width:10.99px;height:6.93px;display:flex;align-items:center;justify-content:center;font-size:9.56px;line-height:1;color:var(--text-faint)}
 .lib{display:flex;align-items:center;gap:3.58px}
-.cap{font-size:5.73px;color:var(--text-dim);white-space:nowrap;margin-left:2px}
-.lbl{font-size:9px;color:var(--text-dim);letter-spacing:.5px;margin:10px 0 4px;text-align:center}
-.note{font-size:8.5px;color:var(--text-faint);line-height:1.5;margin-top:8px}
+/* 牌内部件在 bundle 里按 1× 写死,这里同比折半;拼音恒 12 号,不随牌缩 */
+.stage .zd-tile{border-radius:3.34px}
+.stage .zd-tile__face{inset:.75px .60px}
+.stage .zd-tile__py{font-size:2.87px}
+/* 取消钮:PillButton 300×63 · 圆角 24 · 字号 25 · locked-bg */
+.cancel{flex:none;width:71.67px;height:15.05px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+  border-radius:5.73px;background:var(--locked-bg);color:var(--text-main);font-size:5.97px;white-space:nowrap}
+/* Ui.AdBadge 280×63:圆角 31、字号 21 宋体、播放三角 15×17 */
+.ad{flex:none;width:66.89px;height:15.05px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:2.39px;
+  border-radius:7.41px;background:var(--ad-green-bg);box-shadow:inset 0 0 0 .36px var(--ad-green);
+  font-family:var(--font-serif);font-weight:600;font-size:5.02px;color:var(--ad-green-text);white-space:nowrap}
+.ad i{width:0;height:0;border-style:solid;border-width:2.03px 0 2.03px 3.58px;border-color:transparent transparent transparent var(--ad-green)}
+.lbl{font-size:9px;color:var(--text-dim);letter-spacing:.5px;margin:4px 0 10px;text-align:center}
+.note{font-size:8.5px;color:var(--text-faint);line-height:1.5;margin-top:4px}
 .note b{color:var(--warn-text);font-weight:700}
 </style></head><body>
 <div class="zd-root stage">
@@ -28,35 +42,58 @@ html,body{margin:0;background:var(--paper)}
       <i style="left:6%;top:74%;width:10%;height:12%"></i><i style="left:20%;top:74%;width:10%;height:12%"></i>
     </div>
     <div class="sheet">
-      <div class="h">换掉哪一张？</div>
-
-      <!-- 告警条:warn-bg 底 warn-text 字,定高 22pt。不是可选项 -->
-      <span class="zd-chip zd-chip--warn" style="width:auto;padding:0 10.99px;height:10.99px;font-size:5.02px">字库 9/9——被换掉的字永久失去</span>
-
+      <div class="h">字库已满 · 用掉落的「焚」换掉哪一张?</div>
+      <span class="zd-chip zd-chip--warn warn">字库 9/9——被换掉的字永久失去</span>
       <div class="row">
-        <!-- 来牌 -->
-        <div class="zd-tile zd-r-purple zd-e-fire" style="--w:31.03px;--h:38.92px">
-          <div class="zd-tile__face"><span class="zd-tile__glow"></span>
-            <div class="zd-tile__content"><span class="zd-tile__g">焚</span><span class="zd-tile__py">fén</span></div></div>
-        </div>
+        <div class="zd-tile zd-r-orange zd-e-fire zd-tile--sel" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">焚</span><span class="zd-tile__py">fén</span></div></div></div>
         <span class="arrow">→</span>
-        <!-- 字库 9 张,一横排不折行 -->
         <div class="lib">
-          <div class="zd-tile zd-r-white zd-e-water" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">冷</span></div></div></div>
-          <div class="zd-tile zd-r-white zd-e-wood" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">林</span></div></div></div>
-          <div class="zd-tile zd-r-green zd-e-metal" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">刀</span></div></div></div>
-          <div class="zd-tile zd-r-blue zd-e-water" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">海</span></div></div></div>
-          <div class="zd-tile zd-r-white zd-e-earth" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">土</span></div></div></div>
-          <div class="zd-tile zd-r-green zd-e-fire" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">炎</span></div></div></div>
-          <div class="zd-tile zd-r-white zd-e-metal" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">针</span></div></div></div>
-          <div class="zd-tile zd-r-purple zd-e-heart" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">心</span></div></div></div>
-          <div class="zd-tile zd-r-white zd-e-wood" style="--w:22.5px;--h:28.2px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">桤</span></div></div></div>
+          <div class="zd-tile zd-r-white zd-e-water" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">冷</span><span class="zd-tile__py">lěng</span></div></div></div>
+          <div class="zd-tile zd-r-white zd-e-wood" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">花</span><span class="zd-tile__py">huā</span></div></div></div>
+          <div class="zd-tile zd-r-blue zd-e-metal" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">剑</span><span class="zd-tile__py">jiàn</span></div></div></div>
+          <div class="zd-tile zd-r-blue zd-e-water" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">海</span><span class="zd-tile__py">hǎi</span></div></div></div>
+          <div class="zd-tile zd-r-green zd-e-earth" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">垒</span><span class="zd-tile__py">lěi</span></div></div></div>
+          <div class="zd-tile zd-r-gold zd-e-fire" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div></div>
+          <div class="zd-tile zd-r-white zd-e-fire" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">热</span><span class="zd-tile__py">rè</span></div></div></div>
+          <div class="zd-tile zd-r-white zd-e-earth" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">碉</span><span class="zd-tile__py">diāo</span></div></div></div>
+          <div class="zd-tile zd-r-green zd-e-metal" style="--w:31.06px;--h:38.94px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">锋</span><span class="zd-tile__py">fēng</span></div></div></div>
         </div>
       </div>
-
-      <button class="zd-btn zd-btn--quiet" style="height:15.05px;min-width:71.67px;border-radius:11.47px;font-size:6.5px">算了，不换</button>
+      <span class="cancel">不要,跳过</span>
+      <span class="ad"><i></i>看广告 · 字库 +2</span>
     </div>
   </div>
-  <div class="note">遮罩是 <b style="color:var(--text-dim)">scrim-soft</b>（42%）而不是模态的 55% —— 玩家要能看见底下的战场再决定换掉哪一张。告警条<b>必现</b>：没有它，这张面板就跟战利品选字长得一样，而它做的是相反的事。</div>
+  <div class="lbl">回合掉字 · 字库 9/9 未扩容:牌按原尺寸 130×163,取消钮下方还有 +2 徽章</div>
+
+  <div class="scrim">
+    <div class="field">
+      <i style="left:6%;top:12%;width:12%;height:14%"></i><i style="left:64%;top:12%;width:12%;height:14%"></i>
+    </div>
+    <div class="sheet">
+      <div class="h">字库已满 · 用「焚」换掉哪一个?</div>
+      <span class="zd-chip zd-chip--warn warn">字库 11/11——被换掉的字永久失去</span>
+      <div class="row">
+        <div class="zd-tile zd-r-orange zd-e-fire zd-tile--sel" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">焚</span><span class="zd-tile__py">fén</span></div></div></div>
+        <span class="arrow">→</span>
+        <div class="lib">
+          <div class="zd-tile zd-r-white zd-e-water" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">冷</span><span class="zd-tile__py">lěng</span></div></div></div>
+          <div class="zd-tile zd-r-white zd-e-wood" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">花</span><span class="zd-tile__py">huā</span></div></div></div>
+          <div class="zd-tile zd-r-blue zd-e-metal" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">剑</span><span class="zd-tile__py">jiàn</span></div></div></div>
+          <div class="zd-tile zd-r-blue zd-e-water" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">海</span><span class="zd-tile__py">hǎi</span></div></div></div>
+          <div class="zd-tile zd-r-green zd-e-earth" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">垒</span><span class="zd-tile__py">lěi</span></div></div></div>
+          <div class="zd-tile zd-r-gold zd-e-fire" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div></div>
+          <div class="zd-tile zd-r-white zd-e-fire" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">热</span><span class="zd-tile__py">rè</span></div></div></div>
+          <div class="zd-tile zd-r-white zd-e-earth" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">碉</span><span class="zd-tile__py">diāo</span></div></div></div>
+          <div class="zd-tile zd-r-green zd-e-metal" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">锋</span><span class="zd-tile__py">fēng</span></div></div></div>
+          <div class="zd-tile zd-r-purple zd-e-earth" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">塔</span><span class="zd-tile__py">tǎ</span></div></div></div>
+          <div class="zd-tile zd-r-green zd-e-water" style="--w:26.45px;--h:33.16px"><div class="zd-tile__face"><div class="zd-tile__content"><span class="zd-tile__g">冻</span><span class="zd-tile__py">dòng</span></div></div></div>
+        </div>
+      </div>
+      <span class="cancel">算了,不换</span>
+    </div>
+  </div>
+  <div class="lbl">战利品 · 字库 11/11(上限,已扩容):牌两维同比缩到 110.7×138.8,徽章不再画</div>
+
+  <div class="note">遮罩是 <b style="color:var(--text-dim)">scrim-soft</b>(42%)而不是模态的 55% —— 玩家要能看见底下的战场再决定换掉哪一张。告警条<b>必现</b>:没有它,这张面板就跟战利品选字长得一样,而它做的是相反的事。</div>
 </div>
 </body></html>

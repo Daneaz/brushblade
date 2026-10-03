@@ -1,33 +1,43 @@
-字库已满时的换字面板；四个入口共用同一版，是「凡是不可逆的，都要在按下去之前说清楚」这条品牌规则在局内的唯一落点。实现是 `BattleView.DrawReplaceSheet`。
+字库已满时的换字面板；四个入口共用同一版，是「凡是不可逆的，都要在按下去之前说清楚」这条品牌规则在局内的唯一落点。实现是 `BattleView.DrawReplaceSheet`，满库广告扩容口由各入口在它返回后补画（`BattleView.DrawAdExpandBadge`）。
 
 ## 为什么单独立一张卡
 这是局内**唯一一处永久删除**。四个入口（回合掉字、战利品、奇遇成交、广告复活补给）都走这一个方法，改一处等于改四处；而它的版面规矩（告警条必现、一横排不折行、牌宽按张数反算）不写下来，下一个人接手时会各写各的。
 
 ## 版面（逻辑单位 → 稿面 pt，1pt = 2.093）
-- 外壳 `Ui.Sheet`：1633×460（780×220pt），遮罩 `scrim-soft`（42%，要看得见底下的战场），`dismissable: false`。
-- 自上而下：标题 33（15.8pt，宋体）→ **告警条** → 一横排「来牌 → `→` → 字库 N 张」→ 取消钮。
-- 告警条：`Ui.Chip`，`warn-bg` 底 `warn-text` 字，字号 21（10pt）、padX 23、padY 12，**定高 46（22pt）**。文案是「字库 {N}/{M}——被换掉的字永久失去」。
-- 来牌与字库牌之间：gap 19（9pt），箭头宽 46（22pt）。
-- 牌基准 `GlyphTile` 130×163（62×78pt），牌间 gap 15（7pt）。
-- 取消钮 300×63（143×30pt）。
+- 外壳 `Ui.Sheet`：1633×460（780×220pt），圆角 18、描边 1.5、内边距 24、行距 14，内容 `UpperCenter`；遮罩 `scrim-soft`（42%，要看得见底下的战场），`dismissable: false`。
+- 自上而下（一列居中）：标题 33（15.8pt，宋体 `text-main`）→ **告警条** → 一横排「来牌 → `→` → 字库 N 张」→ 取消钮 → **「看广告 · 字库 +2」徽章**（未扩容时）。
+- 告警条：`Ui.Chip`，`warn-bg` 底 `warn-text` 字，字号 21（10pt，黑体、不加粗）、padX 23（**两侧合计**，宽 = 字数×21 + 23）、padY 12，再用 `Ui.Sized` **定高 46（22pt）**；圆角 14。
+- 来牌与字库牌之间：gap 19（9pt），箭头「→」字号 40、`text-faint`（`Theme.LockGray`），占 46×29。
+- 牌基准 `GlyphTile` 130×163（62×78pt），牌间 gap 15（7pt），每张都印拼音。来牌是选中态（墨色镶边、不可点）。
+- 取消钮 `Ui.PillButton` 300×63（143×30pt）、圆角 24、字号 25、`locked-bg` 底 `text-main` 字。
+- 广告徽章 `Ui.AdBadge` 280×63、圆角 31、字号 21 宋体（同 PickSheet）；`_run.LibraryExpanded` 后不画。看完广告就销毁面板，交给各入口的容量复核退回选字步 / 当场收下。
 
 ## 硬规则
 - **告警条不是可选项。** 没有它这张面板就只是个选择器，与战利品选字长得一样 —— 而它做的是相反的事。
-- **一横排不折行。** 张数 > 9 时按 `min(TileW, (可用宽 − gap×(n−1)) / n)` 反算牌宽，并且**两维同比缩**。只压宽会把 0.8 的牌面压成 0.65，而稀有度框素材是 `Image.Type.Simple`，会直接拉伸变形。字库真实上限是 12。
+- **一横排不折行。** 净宽 1582 = 1633 − 描边 1.5×2 − 内边距 24×2；扣掉来牌区 214（130 + 46 + 19×2）后字库可用 1368。每张宽 `min(130, (1368 − 15×(n−1)) / n)`，高按 163/130 **两维同比缩**。只压宽会把 0.8 的牌面压成 0.65，而稀有度框素材是 `Image.Type.Simple`，会直接拉伸变形。来牌用同一个尺寸。
+- 字库真实上限是 **11**：起手 6 + 掉字缓冲 1 + 博闻两层各 +1（`MetaRules.LibraryCapacityFor`）= 9，再 + 广告扩容 2（`RunEngine.ExpandBonus`）。实算：9 张及以下不缩（130×163）；10 张 123.3×154.6；11 张 110.7×138.8。到 10、11 张时一定已经扩过容，徽章不再出现。
 - **进面板先销毁 `_modal`。** 掉字步由 `BeginPlayerTurn` 自动触发、不等玩家松手；此刻若正好有长按预览开着，这条 `dismissable: false` 的强制决策不该让预览继续叠在上面挡着。战利品/复活那种「预览可以叠在流程浮层之上」的放行只对可选流程成立。
-- 取消钮永远在最右，文案明写退路（「算了，不换」），不是一个光秃秃的「取消」。
+- 取消钮文案明写退路（「算了,不换」一类），不是一个光秃秃的「取消」。它排在牌行**下方**居中，不与牌同行。
+
+## 文案（`strings.zh-CN.json` 原文）
+| 位置 | key | 原文 |
+| --- | --- | --- |
+| 告警条 | `battle.reward.replace_hint` | `字库 {count}/{capacity}——被换掉的字永久失去` |
+| 广告徽章 | `battle.btn.ad_expand_library` | `看广告 · 字库 +2` |
 
 ## 四个入口
-| 入口 | 方法 | 标题 key | 取消钮 key |
+| 入口 | 方法 | 标题 key · 原文 | 取消钮 key · 原文 |
 | --- | --- | --- | --- |
-| 回合掉字 | `DrawDropChoiceStep` | `battle.drop.replace_title` | `drop_skip` |
-| 战利品 | `DrawRewardReplaceStep` | `battle.reward.replace_title` | `replace_cancel` |
-| 奇遇成交 | `DrawEventReplaceStep` | `battle.event.replace_title` | `replace_cancel` |
-| 广告复活补给 | `DrawReviveReplaceStep` | `battle.revive.replace_title` | `revive_replace_cancel` |
+| 回合掉字 | `DrawDropChoiceStep` | `battle.drop.replace_title` · `字库已满 · 用掉落的「{charId}」换掉哪一张?` | `battle.btn.drop_skip` · `不要,跳过` |
+| 战利品 | `DrawRewardReplaceStep` | `battle.reward.replace_title` · `字库已满 · 用「{charId}」换掉哪一个?` | `battle.btn.replace_cancel` · `算了,不换` |
+| 奇遇成交 | `DrawEventReplaceStep` | `battle.event.replace_title` · `字库已满 · 用「{charId}」换掉哪一张?` | `battle.btn.replace_cancel` · `算了,不换` |
+| 广告复活补给 | `DrawReviveReplaceStep` | `battle.revive.replace_title` · `字库已满 · 用补给的「{charId}」换掉哪一张?` | `battle.btn.revive_replace_cancel` · `算了,换个字` |
+
+四个入口都在 `DrawReplaceSheet` 返回后调 `DrawAdExpandBadge(content)`。
 
 ## 使用方提供
-换进来的那张字、当前字库全表、容量上限、选中回调、取消回调与取消钮文案。
+换进来的那张字、当前字库全表、选中回调、取消回调与取消钮文案（容量读 `Battle.LibraryCapacity`）。
 
-## 变更记录
-- ~~「看广告 · 字库 +2」的逃生口四缺二~~ **2026-09-21 已补齐**（原文留档）： `DrawAdExpandBadge` 只画在回合掉字（`BattleView.cs:3730`）与战利品（`:4112`）两条路上；奇遇成交（`:4424`）与复活补给（`:4213`）没有。`Ui.Sheet` 铺满遮罩，主界面背后那枚 +2 徽章被完全盖住 —— 走这两条路的玩家够不着扩容，只能被迫永久删字。徽章应当四处都画。
+## 已知问题
 - 标题文案四家不齐：战利品那条写「换掉哪一**个**」，其余三条写「换掉哪一**张**」。共用一版的面板，文案也该共用。
+- 内容总高约 472（24 + 33 + 14 + 46 + 14 + 163 + 14 + 63 + 14 + 63 + 24），比面板 460 多 12：徽章出现时会吃掉底部内边距的一半。不压缩、也不溢出卡外，此卡照此画。
