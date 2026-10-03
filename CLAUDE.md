@@ -138,12 +138,13 @@ cd tools/prescompile && /Applications/Unity/Hub/Editor/6000.5.2f1/Unity.app/Cont
 
   | 层 | 目录(`docs/design/` 下) | 放什么 |
   | --- | --- | --- |
-  | 规范 | `system/` | 原则、文案、颜色与对比度、字体等规则;`tokens.json`(token 唯一出处)、字体、资产规格 |
+  | 规范 | `system/` | 只有两个文件:`README.md`(原则、文案、颜色与对比度、字体、布局、素材规格等规则)与 `tokens.json`(token 唯一出处) |
   | 组件 | `component/<名>/` | 可复用件的卡(`README.md` + `preview.html`);共用样式 `component/bundle.css` |
   | 现状 | `current/<名>/` | 游戏现在的样子,与实现对齐(`README.md` + `preview.html`) |
   | 设计稿 | `drafts/<功能>/` | 画布稿 `canvas.json` + `*.dc.html` + 回填记录 `README.md`;索引与状态见 `drafts/README.md` |
 
-  规范只放规则与 token,不放画好的东西。单文件 HTML 演示放 `demos/<主题>/`。
+  规范只放规则与 token,不放画好的东西、现状清单或修订经过(现状进 `current/`,经过看 git log)。单文件 HTML 演示放 `demos/<主题>/`;
+  与 claude.ai 设计系统 artifact 的往返映射、封面卡放 `artifact/`。
 - **落盘的稿必须附带「本地直接打开就能看」的版本**,只存源稿不算落盘完成。
   `preview.html` 与 `*.dc.html` 离开 artifact 运行时是裸 HTML —— 类型注入的 tokens、`bundle.css`、
   `support.js` 都不在源稿里,本地看与线上差很多(2026-10-03 栽过)。

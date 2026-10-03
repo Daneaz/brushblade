@@ -1,7 +1,7 @@
 # 设计系统「字·斗」本地副本
 
 来源:https://claude.ai/artifact/G75R5WLQduncr5DT1sTtCz(Design System 类型),
-版本 `1791020230-08ab`,2026-10-03 落盘。本目录 = 该 artifact 的 `project/` 目录原样,sha256 逐个与线上一致。
+版本 `1791020230-08ab`,2026-10-03 落盘。本目录记录该 artifact 的 `project/` 在仓库里拆到了哪里,回写 artifact 时按下表映射回去。
 
 没有落进来的:
 - **类型自带的文件**(`SKILL.md`、`index.html`、`artifact-type/**`):是 Design System 类型的外壳,不是本项目内容。
@@ -9,11 +9,12 @@
   都是仓库里已有文件的上传副本 —— `tools/icons/svg/`、`tools/design/chests/svg/`、
   `Brushblade/Assets/_Project/Presentation/` 下的牌框与字怪 PNG。PNG 逐字节相同;SVG 只差
   序列化写法(`<path …></path>` 与 `<path …/>`),内容相同。
-- `fonts/*.ttf` 是 2026-09 上传时的子集字体,比仓库现行子集旧,仅供本副本的 preview 渲染用。
+- **`fonts/*.ttf`**:是 2026-09 上传时的子集字体,比仓库现行子集旧;2026-10-03 删除,`tokens.json` 的字体路径改指仓库现行子集
+  (`Brushblade/Assets/_Project/Presentation/Fonts/Resources/`),回写时要换回 `fonts/<名>`。
 
 ## 2026-10-03 拆层后的位置
 
-artifact 里规范、组件、整屏卡都挤在 `project/` 下;落盘后按「规范 / 组件 / 成品」拆开,内容未改:
+artifact 里规范、组件、整屏卡都挤在 `project/` 下;落盘后按「规范 / 组件 / 现状」拆开:
 
 | artifact 路径 | 仓库位置 |
 | --- | --- |
@@ -21,8 +22,10 @@ artifact 里规范、组件、整屏卡都挤在 `project/` 下;落盘后按「�
 | `project/components/bundle.css` | `docs/design/component/bundle.css` |
 | `project/components/<组件>/` (14 个) | `docs/design/component/<组件>/` |
 | `project/components/*Screen/` (7 个) | `docs/design/current/<名>/` |
-| `project/components/Cover/` | `docs/design/system/Cover/` |
-| 其余(tokens、design-system.json、fonts、assets) | 本目录原位 |
+| `project/components/Cover/` | `docs/design/artifact/Cover/`(设计系统封面,不是规范也不是组件) |
+| `project/tokens.json` | `docs/design/system/tokens.json` |
+| `project/design-system.json`(artifact 清单) | 本目录 |
+| `project/assets/<组>/README.md` | 并进 `docs/design/system/README.md` 的「图标 / 宝箱 / 字牌素材 / 字怪形象」;Mobs 的库存与缺口进 `current/BestiaryScreen/README.md`,画布说明进 `drafts/scenes/README.md` |
 
 因此本目录不再与 artifact 逐字节对应;回写 artifact 时按上表映射回去。
 
