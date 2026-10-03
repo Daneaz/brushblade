@@ -158,7 +158,7 @@ namespace Brushblade.Core
         /// 候选只有一个时不摇随机数(<see cref="PickOne"/>),与 PickAllyTarget 同一条纪律。</summary>
         public static int PickEnemyTargetForSummon(IReadOnlyList<EnemyState> enemies, bool ranged,
             GameRandom random,
-            TargetShape shape = TargetShape.Single,
+            TargetArea shape = TargetArea.Single,
             bool preferUnfrozen = false, bool preferUnslowed = false,
             Element? counterTargeting = null)
         {
@@ -176,7 +176,7 @@ namespace Brushblade.Core
                 // 「已减速」= 速度修正为负,与 DamageCondition.Controlled 的减速那一半同判据。
                 // 不看是谁挂的:别人挂的减速同样让这一下失去意义。
                 pool = Prefer(enemies, pool, e => e.Statuses.TotalMagnitude(StatusKind.SpeedModifier) >= 0);
-            if (shape == TargetShape.Skewer)
+            if (shape == TargetArea.Column)
                 // 贯穿打的是整列。优先挑**前后排都有人**的那一列 —— 挑到空对位的列
                 // 只会中一只,贯穿就白给了。挑不出来(没有任何列是满的)就不挑。
                 pool = Prefer(enemies, pool, e => HasBothRowsInColumn(enemies, e.Column));
@@ -281,15 +281,15 @@ namespace Brushblade.Core
         /// 其余发数从它在候选序列里的位置起接着轮;没指(−1)或指的已死,退回老序列。
         /// 召唤物普攻不传:它的 primaryIndex 是自己挑的,连发召唤物一直按「后排优先」打,不改。</summary>
         public static IReadOnlyList<int> ExpandTargets(IReadOnlyList<EnemyState> enemies,
-            int primaryIndex, TargetShape shape, int shots, bool volleyLeadsWithPrimary = false)
+            int primaryIndex, TargetArea shape, int shots, bool volleyLeadsWithPrimary = false)
         {
-            if (shape == TargetShape.Volley)
+            if (shape == TargetArea.Scatter)
                 return VolleyTargets(enemies, shots, volleyLeadsWithPrimary ? primaryIndex : -1);
-            if (shape == TargetShape.Chain) return ChainTargets(enemies, primaryIndex, shots);
+            if (shape == TargetArea.Chain) return ChainTargets(enemies, primaryIndex, shots);
             if (primaryIndex < 0 || primaryIndex >= enemies.Count) return System.Array.Empty<int>();
 
             var result = new List<int>();
-            if (shape == TargetShape.Single) { result.Add(primaryIndex); return result; }
+            if (shape == TargetArea.Single) { result.Add(primaryIndex); return result; }
 
             var primary = enemies[primaryIndex];
             AddHits(result, primaryIndex, enemies[primaryIndex]);   // 首项恒为主目标
@@ -298,14 +298,14 @@ namespace Brushblade.Core
                 if (i == primaryIndex || !enemies[i].Alive) continue;
                 bool hit = shape switch
                 {
-                    TargetShape.Sweep => enemies[i].SharesRow(primary),
+                    TargetArea.Row => enemies[i].SharesRow(primary),
                     // 相邻 = 一方的右开端正好顶着另一方的起始列(2026-08-30 列区间)。
                     // Span 全 1 时 ⟺ |ΔColumn| == 1,与旧写法逐字节相同。
-                    TargetShape.Cleave => enemies[i].SharesRow(primary)
+                    TargetArea.Adjacent => enemies[i].SharesRow(primary)
                         && (enemies[i].ColumnEnd == primary.Column
                             || primary.ColumnEnd == enemies[i].Column),
                     // 同列 = 两个列区间相交。Span 全 1 时 ⟺ Column 相等。
-                    TargetShape.Skewer => enemies[i].Column < primary.ColumnEnd
+                    TargetArea.Column => enemies[i].Column < primary.ColumnEnd
                         && primary.Column < enemies[i].ColumnEnd,
                     _ => false,
                 };

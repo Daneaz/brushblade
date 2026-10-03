@@ -291,7 +291,7 @@ def _parse_effects(config, char):
         # Chain/ShapePercent/Shots 这三个带数值的 token 不会被下面的通用循环二次吞掉
         # (2026-09-07,P2 Task 2 之后本分支不再提前 return,但通用循环本身已把
         # SHOTS_TOKEN/SHAPE_PERCENT_TOKEN/CHAIN_TOKEN 挂了白名单跳过,见那三行 continue)。
-        for token in ("Sweep", "Cleave", "Skewer"):
+        for token in ("Row", "Adjacent", "Column"):
             if f"`{token}`" in config:
                 passive["shape"] = token
                 consumed.add(token)
@@ -307,7 +307,7 @@ def _parse_effects(config, char):
             consumed.add(SHAPE_PERCENT_TOKEN)
         shots = re.search(rf"`{SHOTS_TOKEN} (\d+)`", config)
         if shots:
-            passive.setdefault("shape", "Volley")   # 同上:Chain 也用 Shots
+            passive.setdefault("shape", "Scatter")   # 同上:Chain 也用 Shots
             passive["shots"] = int(shots.group(1))
             consumed.add(SHOTS_TOKEN)
         if passive:
@@ -360,14 +360,14 @@ def _parse_effects(config, char):
             effect["trueDamage"] = True
             consumed.add(TRUE_DAMAGE_TOKEN)
         # 目标形状(2026-08-22,spec §9.1):修饰单体直伤,与 Backline / Pierce / HitCount 同为**修饰位**。
-        # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Sweep" 的独立效果,
+        # ⚠ 绝不能进 VALUELESS_EFFECTS:那会让它落成一条 kind="Row" 的独立效果,
         #   而 EffectKind 里没有这个值,ConfigLoader 会在加载期直接抛 ConfigException
         #   (与 PIERCE_TOKEN / Backline 头上那两条注释同一个坑)。
         # HealSelf 也认(2026-09-16,水,治疗弹射「海/澡」对偶):此前这里只判 DamageSingle,
         # 治疗面写 `Chain N` + `ShapePercent N` 会被上面的通用循环吞进 consumed、却从没被
         # 挂到 HealSelf 这条 effect 上——config 里的 token 静默消失,不报错也看不出来。
         if kind in ("DamageSingle", "HealSelf"):
-            for token in ("Sweep", "Cleave", "Skewer"):
+            for token in ("Row", "Adjacent", "Column"):
                 if f"`{token}`" in config:
                     effect["shape"] = token
                     consumed.add(token)
@@ -383,9 +383,9 @@ def _parse_effects(config, char):
                 consumed.add(SHAPE_PERCENT_TOKEN)
             shots = re.search(rf"`{SHOTS_TOKEN} (\d+)`", config)
             if shots:
-                # 2026-08-25:Chain 也用 Shots 表示跳数,所以 Shots 不再无条件蕴含 Volley ——
+                # 2026-08-25:Chain 也用 Shots 表示跳数,所以 Shots 不再无条件蕴含 Scatter ——
                 # 只有没显式写形状时才当连发(保住 `Shots N` 单写即连发的旧口径)
-                effect.setdefault("shape", "Volley")
+                effect.setdefault("shape", "Scatter")
                 effect["shots"] = int(shots.group(1))
                 consumed.add(SHOTS_TOKEN)
         # 群体护盾(2026-09-05)也认这个修饰:引擎侧 ShieldAll 与 Shield 走同一个豁免桶判断,

@@ -79,42 +79,42 @@ namespace Brushblade.Core.Tests
             // 劈:溅射,两侧 50%
             new CharDef("劈", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Cleave, shapePercent: 50) }),
+                    shape: TargetArea.Adjacent, shapePercent: 50) }),
             // 扫:横扫整排,两侧全额
             new CharDef("扫", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Sweep) }),
+                    shape: TargetArea.Row) }),
             // 连:连发 3 发
             new CharDef("连", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Volley, shots: 3) }),
+                    shape: TargetArea.Scatter, shots: 3) }),
             // 劈斩:溅射 + 斩杀,钉「斩杀只作用主目标」
             new CharDef("劈斩", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Cleave, shapePercent: 50,
+                    shape: TargetArea.Adjacent, shapePercent: 50,
                     executeBelowPercent: 90, executeKills: true) }),
             // 劈锐:溅射 + 穿透 10,钉「穿透只作用主目标」(不带斩杀/多段,否则测不出穿透那一项)
             new CharDef("劈锐", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Cleave, shapePercent: 50, pierce: 10) }),
+                    shape: TargetArea.Adjacent, shapePercent: 50, pierce: 10) }),
             // 劈段:溅射 + 多段 2,钉「多段只作用主目标」
             new CharDef("劈段", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Cleave, shapePercent: 50, hitCount: 2) }),
+                    shape: TargetArea.Adjacent, shapePercent: 50, hitCount: 2) }),
 
             // ---- 召唤物普攻的目标形状(2026-08-22,spec §7)----
             // 扫兵:召唤物横扫整排(攻 6,能打出可读的血量差)
             new CharDef("扫兵", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
-                    summonChar: "木", passive: new SummonPassive { Shape = TargetShape.Sweep }) }),
+                    summonChar: "木", passive: new SummonPassive { Shape = TargetArea.Row }) }),
             // 链:弹射 3 跳,每跳 ×50%(主 100 → 50 → 25)
             new CharDef("链", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 100,
-                    shape: TargetShape.Chain, shapePercent: 50, shots: 3) }),
+                    shape: TargetArea.Chain, shapePercent: 50, shots: 3) }),
             // 连兵:召唤物连发 3 发
             new CharDef("连兵", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
-                    summonChar: "木", passive: new SummonPassive { Shape = TargetShape.Volley, Shots = 3 }) }),
+                    summonChar: "木", passive: new SummonPassive { Shape = TargetArea.Scatter, Shots = 3 }) }),
         });
 
         private static BattleEngine Engine(string[] library, EnemyDef[] enemies,
@@ -1218,12 +1218,12 @@ namespace Brushblade.Core.Tests
         {
             var volley = new CharDef("连测", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Volley, shots: 3) });
+                    shape: TargetArea.Scatter, shots: 3) });
             Assert.That(BattleEngine.NeedsTarget(volley), Is.False, "连发目标全自动,不进选目标态");
 
             var sweep = new CharDef("扫测", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40,
-                    shape: TargetShape.Sweep) });
+                    shape: TargetArea.Row) });
             Assert.That(BattleEngine.NeedsTarget(sweep), Is.True);
         }
 
@@ -1269,7 +1269,7 @@ namespace Brushblade.Core.Tests
                     effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 6,
                         summonChar: "木", passive: new SummonPassive
                         {
-                            Ranged = true, Shape = TargetShape.Cleave, ShapePercent = 50,
+                            Ranged = true, Shape = TargetArea.Adjacent, ShapePercent = 50,
                         }) }),
             });
             var frontDef = new EnemyDef("前", Element.Heart, 200, 0);
@@ -1308,7 +1308,7 @@ namespace Brushblade.Core.Tests
                 Array.Empty<string>(), Array.Empty<string>(),
                 new[] { Attacker(attack: 0) }, seed: 1,
                 startingSummons: restored.EndlessV2.CarriedSummons);
-            Assert.That(revived.Summons[0].Passive.Shape, Is.EqualTo(TargetShape.Volley));
+            Assert.That(revived.Summons[0].Passive.Shape, Is.EqualTo(TargetArea.Scatter));
             Assert.That(revived.Summons[0].Passive.Shots, Is.EqualTo(3));
         }
     }

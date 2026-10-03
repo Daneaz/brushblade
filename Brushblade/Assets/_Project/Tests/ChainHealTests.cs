@@ -4,7 +4,7 @@ using NUnit.Framework;
 namespace Brushblade.Core.Tests
 {
     /// <summary>治疗弹射(2026-09-16,水,海/澡对偶攻面「弹射」的那一条)。HealSelf 配
-    /// <see cref="TargetShape.Chain"/>:主目标满额治疗,再弹给至多 Shots-1 个 HP 不满的我方
+    /// <see cref="TargetArea.Chain"/>:主目标满额治疗,再弹给至多 Shots-1 个 HP 不满的我方
     /// 召唤物,各按 ShapePercent 打一次折(不像伤害弹射那样逐跳累乘衰减)。落点按槽位升序、
     /// 不摇随机数——同种子同结果。</summary>
     public class ChainHealTests
@@ -21,7 +21,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 300, summonCount: 1, summonAttack: 0) }),
             new CharDef("海", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.HealSelf, 100,
-                    shape: TargetShape.Chain, shots: 3, shapePercent: 50) }),
+                    shape: TargetArea.Chain, shots: 3, shapePercent: 50) }),
         });
 
         /// <summary>攻 0 的靶子:敌人不还手,血量变化只可能来自玩家出字。</summary>

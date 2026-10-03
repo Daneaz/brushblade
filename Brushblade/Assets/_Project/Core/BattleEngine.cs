@@ -1557,12 +1557,12 @@ namespace Brushblade.Core
         /// 只取**第一条** DamageSingle 的 Shape/Shots——与 NeedsTarget
         /// 一样只看首条,不聚合多条直伤(混合多形状直伤字眼下不存在,真出现时预览会只显示
         /// 第一发,是已知的当前局限而非本次改动引入的新账)。没有单体直伤则返回 (Single, 0)。</summary>
-        public static (TargetShape Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false)
+        public static (TargetArea Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
                 if (effect.Kind == EffectKind.DamageSingle)
                     return (effect.Shape, effect.Shots);
-            return (TargetShape.Single, 0);
+            return (TargetArea.Single, 0);
         }
 
         /// <summary>玩家选定起始槽后,这次召唤实际的落位表。
@@ -1666,7 +1666,7 @@ namespace Brushblade.Core
         public static bool NeedsTarget(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
-                if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetShape.Volley)
+                if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter)
                     || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
@@ -2284,7 +2284,7 @@ namespace Brushblade.Core
             var passive = summon.Passive;
             // 近战打敌方前排、远程优先打后排(2026-08-20);2026-09-13 起同排内均匀随机,
             // 走 _targetRandom。敌人只剩一只时短路不摇随机数,那一档仍与改前逐位等价。
-            var shape = passive?.Shape ?? TargetShape.Single;
+            var shape = passive?.Shape ?? TargetArea.Single;
             int target = Targeting.PickEnemyTargetForSummon(_enemies, passive?.Ranged ?? false,
                 _targetRandom, shape,
                 preferUnfrozen: (passive?.OnHitFreezeChance ?? 0) > 0,
@@ -2299,7 +2299,7 @@ namespace Brushblade.Core
                 // 原样不动,这一行的口径也就第一次变得可测(UnsealTests 钉的正是这条)。
                 counterTargeting: (_config?.CounterTargeting ?? false) ? summon.Element : null);
             // 连发没有主目标,选不到主目标也照打(它自己会排候选);其余形状要有主目标
-            if (target < 0 && shape != TargetShape.Volley) return;
+            if (target < 0 && shape != TargetArea.Scatter) return;
 
             // 形状展开(2026-08-22,spec §7):与玩家侧共用同一个几何函数,不写第二份
             var hits = Targeting.ExpandTargets(_enemies, target, shape, passive?.Shots ?? 0);
@@ -2310,10 +2310,10 @@ namespace Brushblade.Core
                 if (!_enemies[tgt].Alive) continue;
                 // 同一次挥击的第二格(2026-09-05),判据同玩家侧:AddHits 把跨排 Boss 的
                 // 下标连着记两次;连发的重复是「多发」,不算。
-                bool sameSwing = t > 0 && shape != TargetShape.Volley && hits[t - 1] == tgt;
+                bool sameSwing = t > 0 && shape != TargetArea.Scatter && hits[t - 1] == tgt;
                 int damage = summon.EffectiveAttack;
                 // 连发每发全额;形状类的非主目标按 ShapePercent 折算
-                if (t > 0 && shape != TargetShape.Volley && percent != 100)
+                if (t > 0 && shape != TargetArea.Scatter && percent != 100)
                     damage = damage * percent / 100;
                 // 出手事件**一次挥击只发一条**(2026-09-05):它在表现层触发的是「召唤物的字
                 // 飞向目标」那段动作 + 一拍等待,而跨排 Boss 的第二格是同一次挥击的另一半 ——
@@ -2634,9 +2634,9 @@ namespace Brushblade.Core
                             // 弹射逐跳**累乘**(第 t 跳 = ShapePercent^t),其余形状一律
                             // 「主目标全额、非主目标一次 ShapePercent」。连发每发全额:
                             // 它没有「主目标 + 溅射」的结构,N 发是发数不是衰减(spec §3.3)
-                            int percent = primary || effect.Shape == TargetShape.Volley
+                            int percent = primary || effect.Shape == TargetArea.Scatter
                                 ? 100
-                                : effect.Shape == TargetShape.Chain
+                                : effect.Shape == TargetArea.Chain
                                     ? ChainPercent(effect.ShapePercent, t)
                                     : effect.ShapePercent;
                             int hits = primary ? effect.HitCount : 1;
@@ -2644,7 +2644,7 @@ namespace Brushblade.Core
                             // **连着**记两次,所以「与上一项同下标」就是它。
                             // 连发排除在外 —— 它的重复下标是「多发」(场上只剩一只时 [0,0,0,0]),
                             // 那本来就该一发一拍。
-                            bool sameSwing = t > 0 && effect.Shape != TargetShape.Volley
+                            bool sameSwing = t > 0 && effect.Shape != TargetArea.Scatter
                                 && shapeTargets[t - 1] == tgt;
                             // 多段(2026-08-07,剁):每段完全独立 —— 各自判存活、各自过斩杀阈值、
                             // 各自过生克与破甲。目标中途死了就停,不对尸体发事件
@@ -3113,7 +3113,7 @@ namespace Brushblade.Core
                         // 不像伤害弹射(ChainPercent)那样逐跳累乘衰减,治疗本就靠满血溢出兜底,
                         // 不需要再用衰减去限制价值。落点交给 Targeting.PickChainHealTargets
                         // (按槽位升序、不摇随机数,同种子同结果)。
-                        if (effect.Shape == TargetShape.Chain && effect.Shots > 1)
+                        if (effect.Shape == TargetArea.Chain && effect.Shots > 1)
                         {
                             var bounceSlots = Targeting.PickChainHealTargets(
                                 _summons, effect.Shots - 1, allySlot);

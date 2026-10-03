@@ -536,20 +536,20 @@ namespace Brushblade.Data
             {
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
-                var shape = TargetShape.Single;
+                var shape = TargetArea.Single;
                 // Enum.TryParse 单独用会放数字字符串过关(如 "3" 解析成 Skewer、"99" 解析成
                 // 越界值),下游 Targeting.ExpandTargets 的 switch 对任何未定义的值都落到
                 // `_ => false`——整张字会静默退化成单体、零报错。必须叠加 IsDefined 才拦得住。
                 if (!string.IsNullOrEmpty(effect.Shape)
                     && (!Enum.TryParse(effect.Shape, out shape)
-                        || !Enum.IsDefined(typeof(TargetShape), shape)))
+                        || !Enum.IsDefined(typeof(TargetArea), shape)))
                     throw new ConfigException($"字「{dto.Id}」的目标形状未知:{effect.Shape}");
-                // 召唤被动的 Shape 是 Core 的 SummonPassive.Shape(TargetShape 枚举),不是上面这个
+                // 召唤被动的 Shape 是 Core 的 SummonPassive.Shape(TargetArea 枚举),不是上面这个
                 // string 字段,走 Newtonsoft 整体反序列化——数字型越界值(如 "shape": 99)会被
                 // Newtonsoft 直接接住塞进枚举底层 int,不报错,与上面这条 string 校验是同一个坑,
                 // 只是入口不同(2026-08-22)。ExpandTargets 对任何未定义值都落到 `_ => false`,
                 // 悄悄退化成单体——正是上面那条 player 侧校验存在的理由,这里补齐 summon 侧。
-                if (effect.Passive != null && !Enum.IsDefined(typeof(TargetShape), effect.Passive.Shape))
+                if (effect.Passive != null && !Enum.IsDefined(typeof(TargetArea), effect.Passive.Shape))
                     throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
                 effects.Add(new EffectDef(kind, effect.Value,
                     ParseCondition(effect.DoubleVs, dto.Id), effect.PersistOnce,

@@ -16,7 +16,7 @@ namespace Brushblade.Core.Tests
     /// 而 **11 轮任务评审 + 一次全分支终审都没抓到**,离线编译也是绿的。
     /// 根因:C# 的 switch 对未覆盖的枚举值不报编译错,相关 switch 又都带 default
     /// 兜底,连警告都没有;而仓库里从来没有一条测试枚举这两个 Kind 要求它们被渲染。
-    /// CardFaceCoverageTests 覆盖的是 EffectDef 的**字段**与 TargetShape 的**枚举值**,
+    /// CardFaceCoverageTests 覆盖的是 EffectDef 的**字段**与 TargetArea 的**枚举值**,
     /// 盖不到这两个。
     ///
     /// ⚠ **2026-09-06 review 打回一次**:初版判据是裸 `src.Contains($"Xxx.{n}")`,被三个

@@ -164,22 +164,22 @@ namespace Brushblade.Core
         /// 是真会发生的涌现,不是 bug。</summary>
         public int HitCount { get; }
 
-        /// <summary>目标形状(2026-08-22,spec §3)。缺省 <see cref="TargetShape.Single"/> ——
+        /// <summary>目标形状(2026-08-22,spec §3)。缺省 <see cref="TargetArea.Single"/> ——
         /// 缺省值即恒等性:现有 87 张伤害字不写这个字段,展开后目标表长度恒为 1,
         /// 结算路径与改造前逐位相同。对 <see cref="EffectKind.DamageSingle"/> 有意义;
-        /// 2026-09-16 起 <see cref="EffectKind.HealSelf"/> 配 <see cref="TargetShape.Chain"/>
+        /// 2026-09-16 起 <see cref="EffectKind.HealSelf"/> 配 <see cref="TargetArea.Chain"/>
         /// 也有意义(治疗弹射,见 BattleEngine 的 HealSelf 分支)。</summary>
-        public TargetShape Shape { get; }
+        public TargetArea Shape { get; }
 
         /// <summary>非主目标的伤害百分比(2026-08-22)。主目标恒 100%。
-        /// 横扫/贯穿建议配 100,溅射建议 50。<see cref="TargetShape.Volley"/> **不吃这个值**
+        /// 横扫/贯穿建议配 100,溅射建议 50。<see cref="TargetArea.Scatter"/> **不吃这个值**
         /// ——连发每一发都是全额(spec §5)。
         ///
         /// ≤0 兜回 100:配置漏写时 JSON 会填 0,那会让两侧一分不伤,静默失效比报错更难查
         /// (与 <see cref="HitCount"/> 的 `≤0 → 1` 同型)。</summary>
         public int ShapePercent { get; }
 
-        /// <summary>连发的发数(2026-08-22)。只对 <see cref="TargetShape.Volley"/> 有意义。</summary>
+        /// <summary>连发的发数(2026-08-22)。只对 <see cref="TargetArea.Scatter"/> 有意义。</summary>
         public int Shots { get; }
 
         /// <summary>碾(2026-09-16,土):本次伤害**完全跳过目标的护甲减伤**;仍吃护盾。
@@ -209,7 +209,7 @@ namespace Brushblade.Core
             SummonPassive passive = null, int summonShield = 0, int summonDefense = 0,
             int executeBelowPercent = 0, bool executeKills = false,
             int hitCount = 1, int pierce = 0,
-            TargetShape shape = TargetShape.Single, int shapePercent = 100, int shots = 0,
+            TargetArea shape = TargetArea.Single, int shapePercent = 100, int shots = 0,
             bool trueDamage = false, int armorStrikePercent = 0)
         {
             Kind = kind;

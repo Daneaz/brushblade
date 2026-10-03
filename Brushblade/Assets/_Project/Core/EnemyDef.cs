@@ -46,7 +46,7 @@ namespace Brushblade.Core
         None,
         Deluge, // 淹没:玩家 + 全部召唤物各挨一下(群攻)
         Impale, // 洞穿:最前召唤物挨一下 + 玩家挨双倍(穿透)
-                // 2026-08-22 从 Pierce 改名 —— 「贯穿」这个中文名让给了 TargetShape.Skewer,
+                // 2026-08-22 从 Pierce 改名 —— 「贯穿」这个中文名让给了 TargetArea.Column,
                 // 而代码名 Pierce 同时还是 EffectDef.Pierce(护甲穿透点数),一名三用读不清
         Topple, // 倾覆:伤害 + 清空护盾 + 下回合 AP −1(剥夺)
         Devour, // 吞噬:消灭最前召唤物(不回血);无召唤物则普攻玩家
@@ -361,7 +361,7 @@ namespace Brushblade.Core
         /// **进快照** —— 与 <see cref="Row"/> 同一条理由:同一个 Id 的两只怪可能站不同列,
         /// 而 Restore 是按 Id 查 Def 的,不存就会在读档时被合并。
         ///
-        /// 贯穿形状(<see cref="TargetShape.Skewer"/>)按它取「同一列的前后两只」,
+        /// 贯穿形状(<see cref="TargetArea.Column"/>)按它取「同一列的前后两只」,
         /// 表现层按它决定画进哪一格。
         ///
         /// 2026-08-30 起语义收紧为「**起始列(左端)**」——占几列由 <see cref="ColumnSpan"/>

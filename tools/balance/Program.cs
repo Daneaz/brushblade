@@ -493,7 +493,7 @@ namespace Brushblade.Balance
                 // (镇压30 边际 0.10 ≈ 15、镇压50 边际 0.05 ≈ 8)取 N÷4 就近折算,只求非零、同量级。
                 if (e.ArmorStrikePercent > 0) sum += e.ArmorStrikePercent / 4;
                 // 治疗弹射(海,弹射3+治疗弹射3 0.35 vs 弹射3 0.25,边际 0.10 ≈ 15 分)
-                if ((e.Kind == EffectKind.HealSelf || e.Kind == EffectKind.HealAll) && e.Shape == TargetShape.Chain)
+                if ((e.Kind == EffectKind.HealSelf || e.Kind == EffectKind.HealAll) && e.Shape == TargetArea.Chain)
                     sum += 15;
             }
             return sum;

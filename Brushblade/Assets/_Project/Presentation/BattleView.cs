@@ -3316,7 +3316,7 @@ namespace Brushblade.Presentation
             // 连发不强制选目标(点「出字」时自动),但拖到哪只首发就打哪只(2026-09-27),
             // 所以拖拽时照样要把能落的敌人标出来。
             if (!BattleEngine.NeedsTarget(def, attackMode: true)
-                && BattleEngine.AttackShapeOf(def, attackMode: true).Shape != TargetShape.Volley) return;
+                && BattleEngine.AttackShapeOf(def, attackMode: true).Shape != TargetArea.Scatter) return;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
                 if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode: true)) continue;

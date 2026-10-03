@@ -99,7 +99,7 @@ namespace Brushblade.Presentation
                     // 治疗弹射(2026-09-16,水,海/澡):Shape 只在配 Chain 时才有意义,
                     // 缺省 Single 时这两截都要吐空串——不然全体既有治疗字都会平白多出「单体」
                     // 前缀(与 DamageSingle 那份「单体也印」的既有口径不同,这里不能照抄)。
-                    EffectKind.HealSelf => (e.Shape == TargetShape.Single ? "" : ShapeLabel(e))
+                    EffectKind.HealSelf => (e.Shape == TargetArea.Single ? "" : ShapeLabel(e))
                         + Strings.T("char.effect.healself", ("value", shown))
                         + ShapeSuffix(e),
                     // 召唤物字形归位后(2026-08-15)绝大多数字召的就是自己,写成「梅:召1×「梅」」
@@ -231,7 +231,7 @@ namespace Brushblade.Presentation
             // ShapeSuffix,措辞因此天然一致 —— 此前这三只召唤物的形状卡面上一个字都没有,
             // 剑(血48攻64,横扫整排)与一只同数值的单体召唤物在卡面上完全无法区分。
             // 与 Ranged 正交:那条管越不越得过前排,这条管一次打几个(SummonPassive.Shape 的注释)
-            if (p.Shape != TargetShape.Single)
+            if (p.Shape != TargetArea.Single)
                 parts.Add(ShapeLabel(p.Shape) + ShapeSuffix(p.Shape, p.ShapePercent, p.Shots));
             if (p.Taunt) parts.Add(Strings.T("char.passive.taunt"));
             // 入场冻结(2026-08-25,藤):写在最后 —— 它不是这只召唤物的持续能力,
@@ -300,18 +300,18 @@ namespace Brushblade.Presentation
         /// <summary>目标形状前缀(2026-08-22,spec §7)。Single 沿用原「单体」——87 张既有
         /// DamageSingle 卡面因此逐字节不变。
         ///
-        /// 拆出**只吃 TargetShape 的重载**(2026-08-29):召唤物被动也有形状(剑横扫/枪贯穿/
+        /// 拆出**只吃 TargetArea 的重载**(2026-08-29):召唤物被动也有形状(剑横扫/枪贯穿/
         /// 锥连发),此前 PassiveText 自己不印、这两个函数又只认 EffectDef,三只召唤物的形状
         /// 在卡面上一个字都没有。共用同一张表 = 加新形状时两侧不可能再各自漏。</summary>
         private static string ShapeLabel(EffectDef e) => ShapeLabel(e.Shape);
 
-        private static string ShapeLabel(TargetShape shape) => shape switch
+        private static string ShapeLabel(TargetArea shape) => shape switch
         {
-            TargetShape.Sweep => Strings.T("char.shape.sweep"),
-            TargetShape.Cleave => Strings.T("char.shape.cleave"),
-            TargetShape.Skewer => Strings.T("char.shape.skewer"),
-            TargetShape.Volley => Strings.T("char.shape.volley"),
-            TargetShape.Chain => Strings.T("char.shape.chain"),
+            TargetArea.Row => Strings.T("char.shape.sweep"),
+            TargetArea.Adjacent => Strings.T("char.shape.cleave"),
+            TargetArea.Column => Strings.T("char.shape.skewer"),
+            TargetArea.Scatter => Strings.T("char.shape.volley"),
+            TargetArea.Chain => Strings.T("char.shape.chain"),
             _ => Strings.T("char.shape.single"),
         };
 
@@ -327,15 +327,15 @@ namespace Brushblade.Presentation
 
         /// <summary>≤0 的 percent 兜回 100:EffectDef 在构造里已兜过,SummonPassive 没有
         /// (引擎侧 BattleEngine.cs:1514 每次现兜),漏配时会写出「(溅 0%)」。</summary>
-        private static string ShapeSuffix(TargetShape shape, int percent, int shots)
+        private static string ShapeSuffix(TargetArea shape, int percent, int shots)
         {
             if (percent <= 0) percent = 100;
             return shape switch
             {
-                TargetShape.Volley => Strings.T("char.shape.suffix.volley", ("shots", shots)),
-                TargetShape.Chain => Strings.T("char.shape.suffix.chain",
+                TargetArea.Scatter => Strings.T("char.shape.suffix.volley", ("shots", shots)),
+                TargetArea.Chain => Strings.T("char.shape.suffix.chain",
                     ("shots", shots), ("percent", percent)),
-                TargetShape.Sweep or TargetShape.Cleave or TargetShape.Skewer when percent != 100
+                TargetArea.Row or TargetArea.Adjacent or TargetArea.Column when percent != 100
                     => Strings.T("char.shape.suffix.splash", ("percent", percent)),
                 _ => "",
             };

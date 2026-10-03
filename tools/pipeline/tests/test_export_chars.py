@@ -467,7 +467,7 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     # 2026-09-05:碾 移出字表,字卡侧的 Sweep 载体没了,改验召唤物侧(剑)仍在。
     # 2026-09-07(P2 Task 4a):剑 改攻击字,横扫改验直伤效果自身的 shape 字段。
     assert by_id["剑"]["effects"][0]["kind"] == "DamageSingle", "剑 已改攻击字,不再是 Summon"
-    assert by_id["剑"]["effects"][0]["shape"] == "Sweep"
+    assert by_id["剑"]["effects"][0]["shape"] == "Row"
     assert by_id["剑"]["effects"][0]["shapePercent"] == 50
     # 2026-09-16(土水系机制重做 Task 12):枪(唯一的召唤被动 Skewer 载体)移出字表,
     # 召唤侧的 Skewer 通道自此无载体、休眠;贯穿这个形状语义转移给 锥(攻击侧,见下一断言)。
@@ -475,7 +475,7 @@ def test_shipped_chars_json_carries_the_new_row_fields():
     assert by_id["锥"]["effects"][0]["kind"] == "DamageSingle", "锥 已改攻击字,不再是 Summon"
     assert "passive" not in by_id["锥"]["effects"][0]
     # 2026-09-16(土水系机制重做):锥 破甲 → 贯穿(spec §7.4),攻击侧接住 枪 让出的 Skewer 形状。
-    assert by_id["锥"]["effects"][0]["shape"] == "Skewer"
+    assert by_id["锥"]["effects"][0]["shape"] == "Column"
     assert by_id["锥"]["effects"][0]["shapePercent"] == 70
     assert by_id["藤"]["effects"][0]["passive"] == {"onHitFreezeChance": 10, "onHitFreezeTurns": 1}
 

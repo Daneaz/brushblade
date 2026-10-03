@@ -305,7 +305,7 @@ namespace Brushblade.CoreTests
             {
                 new CharDef("塔", Element.Heart, effects: new[]
                 {
-                    new EffectDef(EffectKind.DamageSingle, 100, shape: TargetShape.Volley, shots: 2,
+                    new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.Scatter, shots: 2,
                         armorStrikePercent: 50),
                 }),
             });
@@ -326,7 +326,7 @@ namespace Brushblade.CoreTests
             {
                 new CharDef("塔", Element.Heart, effects: new[]
                 {
-                    new EffectDef(EffectKind.DamageSingle, 100, shape: TargetShape.Volley, shots: 2),
+                    new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.Scatter, shots: 2),
                 }),
             });
             // 三只同排的靶:老序列按列序从 0 起,打 [0, 1];指定 2 之后应打 [2, 0]
@@ -339,7 +339,7 @@ namespace Brushblade.CoreTests
                     new EnemyDef("丙", Element.Heart, 1000, 0),
                 }, seed: 1);
             // 选老序列里**排在最后**的那只:两发的老口径根本轮不到它,修之前这条必红
-            var oldOrder = Targeting.ExpandTargets(engine.Enemies, -1, TargetShape.Volley, 3);
+            var oldOrder = Targeting.ExpandTargets(engine.Enemies, -1, TargetArea.Scatter, 3);
             int chosen = oldOrder[2];
             int bystander = oldOrder[1];
             Assert.That(engine.Cast("塔", chosen), Is.EqualTo(BattleError.None));

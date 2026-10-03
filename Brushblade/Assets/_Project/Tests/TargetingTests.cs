@@ -240,7 +240,7 @@ namespace Brushblade.Core.Tests
             {
                 new CharDef("砸", Element.Heart, effects: new[] {
                     new EffectDef(EffectKind.DamageSingle, 50,
-                        shape: TargetShape.Cleave, shapePercent: 50) }),
+                        shape: TargetArea.Adjacent, shapePercent: 50) }),
             });
             var engine = new BattleEngine(graph,
                 new BattleConfig { PlayerMaxHp = MetaRules.MaxHpFor(1) },
@@ -502,9 +502,9 @@ namespace Brushblade.Core.Tests
             // Boss 占满前排 4 列;后排三只各站一列 —— 贯穿从任意一只打上去都串到 Boss
             var grid = SpanGrid((EnemyRow.Front, 0, 4), (EnemyRow.Back, 0, 1),
                 (EnemyRow.Back, 2, 1), (EnemyRow.Back, 3, 1));
-            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Skewer, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetArea.Column, 0),
                 Is.EquivalentTo(new[] { 0, 1 }), "后排第 0 列 + 跨列 Boss");
-            Assert.That(Targeting.ExpandTargets(grid, 3, TargetShape.Skewer, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 3, TargetArea.Column, 0),
                 Is.EquivalentTo(new[] { 0, 3 }), "后排第 3 列同样串到 Boss");
         }
 
@@ -514,9 +514,9 @@ namespace Brushblade.Core.Tests
             // Boss 占前排 0..1,小怪站前排 2、3:只有第 2 列贴着 Boss 的右缘
             var grid = SpanGrid((EnemyRow.Front, 0, 2), (EnemyRow.Front, 2, 1),
                 (EnemyRow.Front, 3, 1));
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Cleave, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Adjacent, 0),
                 Is.EquivalentTo(new[] { 0, 1 }), "Boss 只溅到贴着它右缘的那只");
-            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Cleave, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetArea.Adjacent, 0),
                 Is.EquivalentTo(new[] { 0, 1, 2 }), "夹在中间那只:左邻 Boss、右邻小怪");
         }
 
@@ -527,7 +527,7 @@ namespace Brushblade.Core.Tests
             // 到 Boss 的中心距分别是 1.5 与 0.5 —— 第 2 列更近,先跳
             var grid = SpanGrid((EnemyRow.Front, 0, 4), (EnemyRow.Back, 0, 1),
                 (EnemyRow.Back, 2, 1));
-            var hit = Targeting.ExpandTargets(grid, 0, TargetShape.Chain, 2);
+            var hit = Targeting.ExpandTargets(grid, 0, TargetArea.Chain, 2);
             Assert.That(hit[0], Is.EqualTo(0), "首项恒为主目标");
             Assert.That(hit[1], Is.EqualTo(2), "第 2 列离 Boss 中心更近");
         }
@@ -537,7 +537,7 @@ namespace Brushblade.Core.Tests
         {
             var grid = SpanGrid((EnemyRow.Front, 0, 2), (EnemyRow.Front, 2, 1),
                 (EnemyRow.Back, 0, 1));
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Row, 0),
                 Is.EquivalentTo(new[] { 0, 1 }), "整排,与占几列无关;后排那只不中");
         }
 
@@ -545,7 +545,7 @@ namespace Brushblade.Core.Tests
         public void Expand_Single_ReturnsOnlyPrimary()
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1));
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Single, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Single, 0),
                 Is.EqualTo(new[] { 0 }));
         }
 
@@ -554,7 +554,7 @@ namespace Brushblade.Core.Tests
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1),
                 (EnemyRow.Front, 2), (EnemyRow.Back, 0));
-            var hit = Targeting.ExpandTargets(grid, 1, TargetShape.Sweep, 0);
+            var hit = Targeting.ExpandTargets(grid, 1, TargetArea.Row, 0);
             Assert.That(hit[0], Is.EqualTo(1), "首项恒为主目标");
             Assert.That(hit, Is.EquivalentTo(new[] { 0, 1, 2 }), "整排三只,后排那只不中");
         }
@@ -563,9 +563,9 @@ namespace Brushblade.Core.Tests
         public void Expand_Cleave_TakesAdjacentColumnsOnly()
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Front, 2));
-            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Cleave, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetArea.Adjacent, 0),
                 Is.EquivalentTo(new[] { 0, 1, 2 }), "打中间:两侧都溅到");
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Cleave, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Adjacent, 0),
                 Is.EquivalentTo(new[] { 0, 1 }), "打边格:只溅一侧,不递补");
         }
 
@@ -574,7 +574,7 @@ namespace Brushblade.Core.Tests
         {
             // 1 号列空着:0 号打不到 2 号 —— 形状是几何,不是「保证打满 K 个」
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 2));
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Cleave, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Adjacent, 0),
                 Is.EqualTo(new[] { 0 }));
         }
 
@@ -582,7 +582,7 @@ namespace Brushblade.Core.Tests
         public void Expand_Skewer_TakesColumnAcrossRows()
         {
             var grid = Grid((EnemyRow.Front, 1), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Skewer, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Column, 0),
                 Is.EquivalentTo(new[] { 0, 1 }), "同列的前后两只,别的列不中");
         }
 
@@ -591,7 +591,7 @@ namespace Brushblade.Core.Tests
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Front, 2));
             grid[2].Hp = 0;
-            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Sweep, 0),
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetArea.Row, 0),
                 Is.EquivalentTo(new[] { 0, 1 }), "尸体不吃形状伤害");
         }
 
@@ -599,7 +599,7 @@ namespace Brushblade.Core.Tests
         public void Expand_Volley_PrefersBackRowByColumn()
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
-            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3),
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetArea.Scatter, 3),
                 Is.EqualTo(new[] { 2, 1, 0 }), "后排按列序在先(列 0 的下标 2、列 1 的下标 1),再轮到前排");
         }
 
@@ -607,7 +607,7 @@ namespace Brushblade.Core.Tests
         public void Expand_Volley_CyclesWhenTargetsFewerThanShots()
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1));
-            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 4),
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetArea.Scatter, 4),
                 Is.EqualTo(new[] { 0, 1, 0, 1 }), "不足 N 循环补足,表里允许重复下标");
         }
 
@@ -616,7 +616,7 @@ namespace Brushblade.Core.Tests
         {
             // 单敌 Boss 战:连发退化为满额 N 倍单体(spec §3.3 的已知后果,配值时按 N 发全中定基础值)
             var grid = Grid((EnemyRow.Front, 0));
-            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3),
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetArea.Scatter, 3),
                 Is.EqualTo(new[] { 0, 0, 0 }));
         }
 
@@ -625,7 +625,7 @@ namespace Brushblade.Core.Tests
         {
             var grid = Grid((EnemyRow.Front, 0));
             grid[0].Hp = 0;
-            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3), Is.Empty);
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetArea.Scatter, 3), Is.Empty);
         }
 
         /// <summary>玩家指定了目标的连发(2026-09-27,「塔」拖到敌人身上却没打到那只):
@@ -636,9 +636,9 @@ namespace Brushblade.Core.Tests
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
             // 老序列是 [2, 1, 0];选中前排的 0 → 首发打 0,再从序列头接着轮
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Volley, 2, volleyLeadsWithPrimary: true),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Scatter, 2, volleyLeadsWithPrimary: true),
                 Is.EqualTo(new[] { 0, 2 }), "首发必中选中的目标");
-            Assert.That(Targeting.ExpandTargets(grid, 1, TargetShape.Volley, 4, volleyLeadsWithPrimary: true),
+            Assert.That(Targeting.ExpandTargets(grid, 1, TargetArea.Scatter, 4, volleyLeadsWithPrimary: true),
                 Is.EqualTo(new[] { 1, 0, 2, 1 }), "从选中那只起沿原序列循环");
         }
 
@@ -647,7 +647,7 @@ namespace Brushblade.Core.Tests
         {
             // 召唤物普攻那条路径(不传旗标)的老口径不能被这次改动带跑
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Volley, 3),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Scatter, 3),
                 Is.EqualTo(new[] { 2, 1, 0 }));
         }
 
@@ -655,10 +655,10 @@ namespace Brushblade.Core.Tests
         public void Expand_Volley_LeadFlag_WithDeadOrMissingPrimary_FallsBackToOldOrder()
         {
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Back, 1), (EnemyRow.Back, 0));
-            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 3, volleyLeadsWithPrimary: true),
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetArea.Scatter, 3, volleyLeadsWithPrimary: true),
                 Is.EqualTo(new[] { 2, 1, 0 }), "没选目标(点「出字」自动施放)照旧");
             grid[0].Hp = 0;
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Volley, 2, volleyLeadsWithPrimary: true),
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Scatter, 2, volleyLeadsWithPrimary: true),
                 Is.EqualTo(new[] { 2, 1 }), "选中的已经死了:退回老序列,不打尸体");
         }
 
@@ -671,10 +671,10 @@ namespace Brushblade.Core.Tests
             // 「既有全量测试一条不红」—— 那才跑得出差别,不是这一层能断言的东西。
             var grid = Grid((EnemyRow.Front, 0), (EnemyRow.Front, 1), (EnemyRow.Back, 0));
 
-            Assert.That(Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0),
-                Is.EqualTo(Targeting.ExpandTargets(grid, 0, TargetShape.Sweep, 0)));
-            Assert.That(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5),
-                Is.EqualTo(Targeting.ExpandTargets(grid, -1, TargetShape.Volley, 5)));
+            Assert.That(Targeting.ExpandTargets(grid, 0, TargetArea.Row, 0),
+                Is.EqualTo(Targeting.ExpandTargets(grid, 0, TargetArea.Row, 0)));
+            Assert.That(Targeting.ExpandTargets(grid, -1, TargetArea.Scatter, 5),
+                Is.EqualTo(Targeting.ExpandTargets(grid, -1, TargetArea.Scatter, 5)));
         }
     
         // ---- 列号分配顺序(2026-08-30):居中往外,与 RowCapacity 的守卫 ----

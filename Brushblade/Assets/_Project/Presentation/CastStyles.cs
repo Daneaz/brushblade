@@ -53,7 +53,7 @@ namespace Brushblade.Presentation
             var effects = attackMode && def.AttackEffects.Count > 0 ? def.AttackEffects : def.Effects;
             bool single = false, all = false, freeze = false, slow = false, silence = false;
             int hitCount = 1;
-            TargetShape shape = TargetShape.Single;
+            TargetArea shape = TargetArea.Single;
             foreach (var e in effects)
             {
                 switch (e.Kind)
@@ -73,10 +73,10 @@ namespace Brushblade.Presentation
 
             // 形状比属性更能说明「这一下长什么样」:两段就是两刀,横扫就是一排
             if (single && hitCount > 1) return CastStyle.DoubleChop;
-            if (single && shape == TargetShape.Sweep) return CastStyle.Sweep;
-            if (single && shape == TargetShape.Skewer) return CastStyle.Thrust;
-            if (single && shape == TargetShape.Chain) return CastStyle.WaterChain;
-            if (single && shape == TargetShape.Volley) return CastStyle.RockVolley;
+            if (single && shape == TargetArea.Row) return CastStyle.Sweep;
+            if (single && shape == TargetArea.Column) return CastStyle.Thrust;
+            if (single && shape == TargetArea.Chain) return CastStyle.WaterChain;
+            if (single && shape == TargetArea.Scatter) return CastStyle.RockVolley;
 
             switch (def.Element)
             {

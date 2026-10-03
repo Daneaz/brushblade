@@ -13,28 +13,28 @@ from extract_values import _parse_effects, extract
 
 
 def test_sweep_token_becomes_shape_field():
-    assert _parse_effects("`DamageSingle 10` + `Sweep`", "金") == [
-        {"kind": "DamageSingle", "value": 10, "shape": "Sweep"}]
+    assert _parse_effects("`DamageSingle 10` + `Row`", "金") == [
+        {"kind": "DamageSingle", "value": 10, "shape": "Row"}]
 
 
 def test_cleave_token_becomes_shape_field():
-    assert _parse_effects("`DamageSingle 10` + `Cleave`", "金") == [
-        {"kind": "DamageSingle", "value": 10, "shape": "Cleave"}]
+    assert _parse_effects("`DamageSingle 10` + `Adjacent`", "金") == [
+        {"kind": "DamageSingle", "value": 10, "shape": "Adjacent"}]
 
 
 def test_skewer_token_becomes_shape_field():
-    assert _parse_effects("`DamageSingle 10` + `Skewer`", "金") == [
-        {"kind": "DamageSingle", "value": 10, "shape": "Skewer"}]
+    assert _parse_effects("`DamageSingle 10` + `Column`", "金") == [
+        {"kind": "DamageSingle", "value": 10, "shape": "Column"}]
 
 
 def test_shape_percent_token_becomes_shape_percent_field():
-    assert _parse_effects("`DamageSingle 10` + `Sweep` + `ShapePercent 50`", "金") == [
-        {"kind": "DamageSingle", "value": 10, "shape": "Sweep", "shapePercent": 50}]
+    assert _parse_effects("`DamageSingle 10` + `Row` + `ShapePercent 50`", "金") == [
+        {"kind": "DamageSingle", "value": 10, "shape": "Row", "shapePercent": 50}]
 
 
 def test_shots_token_becomes_volley_shape_plus_shots():
     assert _parse_effects("`DamageSingle 10` + `Shots 3`", "金") == [
-        {"kind": "DamageSingle", "value": 10, "shape": "Volley", "shots": 3}]
+        {"kind": "DamageSingle", "value": 10, "shape": "Scatter", "shots": 3}]
 
 
 def test_no_shape_marker_leaves_shape_field_absent():
@@ -122,33 +122,33 @@ def test_no_shape_marker_leaves_shape_field_absent_on_heal_self():
 # 而不是独立 effect —— BattleEngine.cs:1276-1284 读的就是 passive 上这三个字段。
 
 def test_summon_sweep_token_becomes_passive_shape_field():
-    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Sweep`", "刀")
+    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Row`", "刀")
     assert effects == [{"kind": "Summon", "value": 10, "count": 1, "attack": 3,
-                         "summonChar": "刀", "passive": {"shape": "Sweep"}}]
+                         "summonChar": "刀", "passive": {"shape": "Row"}}]
 
 
 def test_summon_cleave_token_becomes_passive_shape_field():
-    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Cleave`", "刀")
+    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Adjacent`", "刀")
     assert effects == [{"kind": "Summon", "value": 10, "count": 1, "attack": 3,
-                         "summonChar": "刀", "passive": {"shape": "Cleave"}}]
+                         "summonChar": "刀", "passive": {"shape": "Adjacent"}}]
 
 
 def test_summon_skewer_token_becomes_passive_shape_field():
-    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Skewer`", "刀")
+    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Column`", "刀")
     assert effects == [{"kind": "Summon", "value": 10, "count": 1, "attack": 3,
-                         "summonChar": "刀", "passive": {"shape": "Skewer"}}]
+                         "summonChar": "刀", "passive": {"shape": "Column"}}]
 
 
 def test_summon_shots_token_becomes_passive_volley_shape_plus_shots():
     effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Shots 3`", "刀")
     assert effects == [{"kind": "Summon", "value": 10, "count": 1, "attack": 3,
-                         "summonChar": "刀", "passive": {"shape": "Volley", "shots": 3}}]
+                         "summonChar": "刀", "passive": {"shape": "Scatter", "shots": 3}}]
 
 
 def test_summon_shape_percent_token_becomes_passive_field():
-    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Sweep` + `ShapePercent 50`", "刀")
+    effects = _parse_effects("`Summon 1`(10 血/攻 3) + `Row` + `ShapePercent 50`", "刀")
     assert effects == [{"kind": "Summon", "value": 10, "count": 1, "attack": 3,
-                         "summonChar": "刀", "passive": {"shape": "Sweep", "shapePercent": 50}}]
+                         "summonChar": "刀", "passive": {"shape": "Row", "shapePercent": 50}}]
 
 
 def test_summon_no_shape_marker_leaves_passive_without_shape_keys():

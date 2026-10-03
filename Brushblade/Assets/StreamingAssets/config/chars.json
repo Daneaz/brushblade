@@ -200,7 +200,7 @@
         {
           "kind": "DamageSingle",
           "value": 216,
-          "shape": "Cleave",
+          "shape": "Adjacent",
           "shapePercent": 50
         },
         {
@@ -1010,7 +1010,7 @@
         {
           "kind": "DamageSingle",
           "value": 297,
-          "shape": "Sweep",
+          "shape": "Row",
           "shapePercent": 50
         },
         {
@@ -1134,7 +1134,7 @@
         {
           "kind": "DamageSingle",
           "value": 94,
-          "shape": "Sweep",
+          "shape": "Row",
           "shapePercent": 50
         },
         {
@@ -1157,7 +1157,7 @@
         {
           "kind": "DamageSingle",
           "value": 106,
-          "shape": "Skewer",
+          "shape": "Column",
           "shapePercent": 70
         },
         {
@@ -1366,7 +1366,7 @@
         {
           "kind": "DamageSingle",
           "value": 106,
-          "shape": "Volley",
+          "shape": "Scatter",
           "shots": 2,
           "armorStrikePercent": 50
         }

@@ -210,8 +210,8 @@ PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge':
 
 # 召唤物的攻击形状(2026-08-22 引擎侧落地,2026-08-25 起字表里才有载体:剑 / 枪 / 蕉)。
 # 不用括号作注 —— 整串被动会被外层「召唤 N 只(…)」括住,再嵌一层括号读起来是套娃。
-SHAPE = {'Sweep': '横扫:整排', 'Cleave': '溅射:相邻',
-         'Skewer': '贯穿:同列前后排', 'Volley': '连发', 'Chain': '弹射'}
+SHAPE = {'Row': '横扫:整排', 'Adjacent': '溅射:相邻',
+         'Column': '贯穿:同列前后排', 'Scatter': '连发', 'Chain': '弹射'}
 
 def cname(c): return PUA.get(c['id'], c['id'])
 
@@ -295,7 +295,7 @@ def passive_txt(p):
         out.append(n if v is True else f"{n} {v}")
     if p.get('shape'):
         shape = SHAPE.get(p['shape'], p['shape'])
-        if p['shape'] == 'Volley' and p.get('shots'):
+        if p['shape'] == 'Scatter' and p.get('shots'):
             shape += f" {p['shots']} 发"
         if p.get('shape') == 'Chain' and p.get('shots'):
             shape += f" {p['shots']} 跳"
@@ -345,7 +345,7 @@ def desc(e):
     # 此前只有召唤物带形状,伤害字一个都没有,所以这一段从来没被渲染过。
     if e.get('shape') and e['shape'] != 'Single':
         label = SHAPE.get(e['shape'], e['shape'])
-        if e['shape'] == 'Volley' and e.get('shots'): label += f" {e['shots']} 发"
+        if e['shape'] == 'Scatter' and e.get('shots'): label += f" {e['shots']} 发"
         if e['shape'] == 'Chain' and e.get('shots'): label += f" {e['shots']} 跳"
         pct = e.get('shapePercent')
         suffix = (f",每跳 ×{pct}%" if e["shape"] == "Chain" else f",非主目标 {pct}%") if pct and pct != 100 else ""
@@ -451,7 +451,7 @@ def _shape_trait(shape, shots=None, pct=None):
     """目标形状的特性文案(贯穿/横扫/溅射/连发/弹射,2026-09-06 见设计稿 §0 改判为特性)。
     与 `desc()` 伤害侧的形状渲染共用同一份 `SHAPE` 表与后缀规则,别再另写一份。"""
     label = SHAPE.get(shape, shape)
-    if shape == 'Volley' and shots: label += f" {shots} 发"
+    if shape == 'Scatter' and shots: label += f" {shots} 发"
     if shape == 'Chain' and shots: label += f" {shots} 跳"
     if pct and pct != 100:
         label += (f",每跳 ×{pct}%" if shape == 'Chain' else f",非主目标 {pct}%")
