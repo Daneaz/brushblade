@@ -1,0 +1,713 @@
+{
+ "v": 3,
+ "layout": "files",
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-09-17T17:07:46Z"
+ },
+ "title": "字·斗",
+ "namespace": "ZiDou",
+ "libraries": [],
+ "sections": {},
+ "groups": [
+  "Icons",
+  "Chests",
+  "CardFrames",
+  "Mobs"
+ ],
+ "assetGroups": {
+  "Icons": {
+   "name": "Icons",
+   "tile": "s",
+   "order": [
+    "icon_armorbreak.svg",
+    "icon_attack.svg",
+    "icon_bleed.svg",
+    "icon_blind.svg",
+    "icon_burn.svg",
+    "icon_burn_nodecay.svg",
+    "icon_crit.svg",
+    "icon_curse.svg",
+    "icon_defense.svg",
+    "icon_dodge.svg",
+    "icon_focus.svg",
+    "icon_freeze.svg",
+    "icon_heal.svg",
+    "icon_immunity.svg",
+    "icon_melee.svg",
+    "icon_morale.svg",
+    "icon_nav_bestiary.svg",
+    "icon_nav_deck.svg",
+    "icon_nav_perks.svg",
+    "icon_nav_shop.svg",
+    "icon_obscure.svg",
+    "icon_perk_amplify.svg",
+    "icon_perk_ap.svg",
+    "icon_perk_draw.svg",
+    "icon_perk_hand.svg",
+    "icon_perk_heft.svg",
+    "icon_perk_hp.svg",
+    "icon_perk_library.svg",
+    "icon_perk_loot.svg",
+    "icon_perk_wellspring.svg",
+    "icon_pierce.svg",
+    "icon_ranged.svg",
+    "icon_reflect.svg",
+    "icon_scorch.svg",
+    "icon_seal.svg",
+    "icon_sear.svg",
+    "icon_shield.svg",
+    "icon_silence.svg",
+    "icon_skewer.svg",
+    "icon_slow.svg",
+    "icon_speed.svg",
+    "icon_split.svg",
+    "icon_sweep.svg",
+    "icon_thorns.svg"
+   ],
+   "files": {
+    "icon_armorbreak.svg": {
+     "name": "icon_armorbreak.svg",
+     "blob": "64ee5389056d07b0149788eecde3396d",
+     "size": 379,
+     "type": "image/svg+xml"
+    },
+    "icon_attack.svg": {
+     "name": "icon_attack.svg",
+     "blob": "70a3394f7c1a7277e43a4af5d58cce65",
+     "size": 266,
+     "type": "image/svg+xml"
+    },
+    "icon_bleed.svg": {
+     "name": "icon_bleed.svg",
+     "blob": "e3a78c1fe05da20917f3218dcbc35119",
+     "size": 276,
+     "type": "image/svg+xml"
+    },
+    "icon_blind.svg": {
+     "name": "icon_blind.svg",
+     "blob": "03eb86f9a8273c0f904f69914de15dc3",
+     "size": 408,
+     "type": "image/svg+xml"
+    },
+    "icon_burn.svg": {
+     "name": "icon_burn.svg",
+     "blob": "f1e257e3b7f49772e751548fd03bda62",
+     "size": 214,
+     "type": "image/svg+xml"
+    },
+    "icon_burn_nodecay.svg": {
+     "name": "icon_burn_nodecay.svg",
+     "blob": "42ced47b9b98251b79de46fa6645314c",
+     "size": 328,
+     "type": "image/svg+xml"
+    },
+    "icon_crit.svg": {
+     "name": "icon_crit.svg",
+     "blob": "b8a43014fd98aedf2a5ccc94dfc98791",
+     "size": 180,
+     "type": "image/svg+xml"
+    },
+    "icon_curse.svg": {
+     "name": "icon_curse.svg",
+     "blob": "5bca165c84e6ec1dbcead67f885c709d",
+     "size": 135,
+     "type": "image/svg+xml"
+    },
+    "icon_defense.svg": {
+     "name": "icon_defense.svg",
+     "blob": "d26ef8bd0ccd918344ec6dbc6a0d7933",
+     "size": 170,
+     "type": "image/svg+xml"
+    },
+    "icon_dodge.svg": {
+     "name": "icon_dodge.svg",
+     "blob": "db5dffe5c0efeedc2b6cc3dd5ad9d15b",
+     "size": 265,
+     "type": "image/svg+xml"
+    },
+    "icon_focus.svg": {
+     "name": "icon_focus.svg",
+     "blob": "ddf383a4ebdabfbeab9403622090f50b",
+     "size": 361,
+     "type": "image/svg+xml"
+    },
+    "icon_freeze.svg": {
+     "name": "icon_freeze.svg",
+     "blob": "b411dda6196f545fee222d994759d079",
+     "size": 229,
+     "type": "image/svg+xml"
+    },
+    "icon_heal.svg": {
+     "name": "icon_heal.svg",
+     "blob": "6a02355fe7d8151b79ba623c84ec6d39",
+     "size": 159,
+     "type": "image/svg+xml"
+    },
+    "icon_immunity.svg": {
+     "name": "icon_immunity.svg",
+     "blob": "630d64b3e2625e77adc3360aca2b8779",
+     "size": 372,
+     "type": "image/svg+xml"
+    },
+    "icon_melee.svg": {
+     "name": "icon_melee.svg",
+     "blob": "d511b5072035c3083afc266fc37d5232",
+     "size": 350,
+     "type": "image/svg+xml"
+    },
+    "icon_morale.svg": {
+     "name": "icon_morale.svg",
+     "blob": "a1ef99d59e749cbaa81c3d992444e36a",
+     "size": 259,
+     "type": "image/svg+xml"
+    },
+    "icon_nav_bestiary.svg": {
+     "name": "icon_nav_bestiary.svg",
+     "blob": "d5c8dfff406e17a92ad7d88f85b231de",
+     "size": 359,
+     "type": "image/svg+xml"
+    },
+    "icon_nav_deck.svg": {
+     "name": "icon_nav_deck.svg",
+     "blob": "d471dabc3cbd190c969b5ac4f53eecaa",
+     "size": 346,
+     "type": "image/svg+xml"
+    },
+    "icon_nav_perks.svg": {
+     "name": "icon_nav_perks.svg",
+     "blob": "c8fd3fca825ebdde0d634cabd705aff0",
+     "size": 311,
+     "type": "image/svg+xml"
+    },
+    "icon_nav_shop.svg": {
+     "name": "icon_nav_shop.svg",
+     "blob": "84453c5f705bd63de83ab07d23cc58e9",
+     "size": 370,
+     "type": "image/svg+xml"
+    },
+    "icon_obscure.svg": {
+     "name": "icon_obscure.svg",
+     "blob": "3c676931d77b51732929ddcd18dd1425",
+     "size": 279,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_amplify.svg": {
+     "name": "icon_perk_amplify.svg",
+     "blob": "1f6514fbd017df5d41a701fa5809d1a7",
+     "size": 296,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_ap.svg": {
+     "name": "icon_perk_ap.svg",
+     "blob": "2a4ad19322b4c5736684142a87a433da",
+     "size": 275,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_draw.svg": {
+     "name": "icon_perk_draw.svg",
+     "blob": "44adb0a05dff4ab92cb0fea67fe82886",
+     "size": 383,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_hand.svg": {
+     "name": "icon_perk_hand.svg",
+     "blob": "851cf7bed01ccdd206b9744240ac18ac",
+     "size": 522,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_heft.svg": {
+     "name": "icon_perk_heft.svg",
+     "blob": "32ec88df067c2471d731f64eccba1ef6",
+     "size": 224,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_hp.svg": {
+     "name": "icon_perk_hp.svg",
+     "blob": "994c7e559b732a790e942a4e9c9dcda0",
+     "size": 472,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_library.svg": {
+     "name": "icon_perk_library.svg",
+     "blob": "91f5b75c61e987ddd1436243691acdbe",
+     "size": 396,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_loot.svg": {
+     "name": "icon_perk_loot.svg",
+     "blob": "497051ee7f70eb659d5af2e1feb28723",
+     "size": 521,
+     "type": "image/svg+xml"
+    },
+    "icon_perk_wellspring.svg": {
+     "name": "icon_perk_wellspring.svg",
+     "blob": "2c3bf58b8db3cc4124cd71e4245e4e43",
+     "size": 358,
+     "type": "image/svg+xml"
+    },
+    "icon_pierce.svg": {
+     "name": "icon_pierce.svg",
+     "blob": "5085d8622daaed2c5f12938e53652df3",
+     "size": 340,
+     "type": "image/svg+xml"
+    },
+    "icon_ranged.svg": {
+     "name": "icon_ranged.svg",
+     "blob": "ded0c1178b601cbb7958757604f6abb0",
+     "size": 354,
+     "type": "image/svg+xml"
+    },
+    "icon_reflect.svg": {
+     "name": "icon_reflect.svg",
+     "blob": "a5afc996f357f9744dfcad12cb53bbb7",
+     "size": 242,
+     "type": "image/svg+xml"
+    },
+    "icon_scorch.svg": {
+     "name": "icon_scorch.svg",
+     "blob": "dd8154255cf7f62e9bc5f594acb6ea4d",
+     "size": 341,
+     "type": "image/svg+xml"
+    },
+    "icon_seal.svg": {
+     "name": "icon_seal.svg",
+     "blob": "f40c3cc81b300d5101bb264acbc3474a",
+     "size": 271,
+     "type": "image/svg+xml"
+    },
+    "icon_sear.svg": {
+     "name": "icon_sear.svg",
+     "blob": "0d534fdcf8ec3c92b02925176f8c87ac",
+     "size": 356,
+     "type": "image/svg+xml"
+    },
+    "icon_shield.svg": {
+     "name": "icon_shield.svg",
+     "blob": "fa3f779103c4d8d56c315d3f1286d323",
+     "size": 248,
+     "type": "image/svg+xml"
+    },
+    "icon_silence.svg": {
+     "name": "icon_silence.svg",
+     "blob": "5058ef19da77111b14b614c1559bf1c1",
+     "size": 344,
+     "type": "image/svg+xml"
+    },
+    "icon_skewer.svg": {
+     "name": "icon_skewer.svg",
+     "blob": "f09430ece082a3b00972b940068852aa",
+     "size": 387,
+     "type": "image/svg+xml"
+    },
+    "icon_slow.svg": {
+     "name": "icon_slow.svg",
+     "blob": "0750f8ed8b661f3e8521cd2c9edfd2c0",
+     "size": 224,
+     "type": "image/svg+xml"
+    },
+    "icon_speed.svg": {
+     "name": "icon_speed.svg",
+     "blob": "7dd4a655d6668073c985f882f2aad59f",
+     "size": 347,
+     "type": "image/svg+xml"
+    },
+    "icon_split.svg": {
+     "name": "icon_split.svg",
+     "blob": "5bf589c902f3f24b3952a5083e8fd7e0",
+     "size": 195,
+     "type": "image/svg+xml"
+    },
+    "icon_sweep.svg": {
+     "name": "icon_sweep.svg",
+     "blob": "113ab897ad778ce547a365caeabf9200",
+     "size": 353,
+     "type": "image/svg+xml"
+    },
+    "icon_thorns.svg": {
+     "name": "icon_thorns.svg",
+     "blob": "4922d53d382d173eb8594329c7dde4db",
+     "size": 399,
+     "type": "image/svg+xml"
+    }
+   }
+  },
+  "Chests": {
+   "name": "Chests",
+   "tile": "m",
+   "order": [
+    "chest_paper_body.svg",
+    "chest_paper_seam.svg",
+    "chest_bamboo_body.svg",
+    "chest_bamboo_seam.svg",
+    "chest_celadon_body.svg",
+    "chest_celadon_seam.svg",
+    "chest_rosewood_body.svg",
+    "chest_rosewood_seam.svg",
+    "chest_gilded_body.svg",
+    "chest_gilded_seam.svg",
+    "chest_vermilion_body.svg",
+    "chest_vermilion_seam.svg",
+    "chest_crimson_body.svg",
+    "chest_crimson_seam.svg",
+    "chest_fx_ready.svg",
+    "chest_fx_timing.svg"
+   ],
+   "files": {
+    "chest_paper_body.svg": {
+     "name": "chest_paper_body.svg",
+     "blob": "b87f40539b676232af84d19aa70f51ac",
+     "size": 1132,
+     "type": "image/svg+xml"
+    },
+    "chest_paper_seam.svg": {
+     "name": "chest_paper_seam.svg",
+     "blob": "2d225200ff07e7bb9de97efc7b8a7dc6",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "chest_bamboo_body.svg": {
+     "name": "chest_bamboo_body.svg",
+     "blob": "50b48bd3834de03d5944728d4d32f135",
+     "size": 924,
+     "type": "image/svg+xml"
+    },
+    "chest_bamboo_seam.svg": {
+     "name": "chest_bamboo_seam.svg",
+     "blob": "4d405804cf02325495a67584e1054e03",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "chest_celadon_body.svg": {
+     "name": "chest_celadon_body.svg",
+     "blob": "714c7dbee6e0f6676f21c0d562fb155c",
+     "size": 1094,
+     "type": "image/svg+xml"
+    },
+    "chest_celadon_seam.svg": {
+     "name": "chest_celadon_seam.svg",
+     "blob": "6ae377d90014428353adb33c91da6c7f",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "chest_rosewood_body.svg": {
+     "name": "chest_rosewood_body.svg",
+     "blob": "319b08fdd1378347cadda0ca4b92ac78",
+     "size": 888,
+     "type": "image/svg+xml"
+    },
+    "chest_rosewood_seam.svg": {
+     "name": "chest_rosewood_seam.svg",
+     "blob": "a67feb77f960e57b12de9b7724888900",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "chest_gilded_body.svg": {
+     "name": "chest_gilded_body.svg",
+     "blob": "958517a17bfab0c6721b8a2a9fbda3fd",
+     "size": 1188,
+     "type": "image/svg+xml"
+    },
+    "chest_gilded_seam.svg": {
+     "name": "chest_gilded_seam.svg",
+     "blob": "39c29528940d8cae4fc6e0ab7f930620",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "chest_vermilion_body.svg": {
+     "name": "chest_vermilion_body.svg",
+     "blob": "e83cb09cd6f24513ee9440514b07de0b",
+     "size": 1299,
+     "type": "image/svg+xml"
+    },
+    "chest_vermilion_seam.svg": {
+     "name": "chest_vermilion_seam.svg",
+     "blob": "af6e1e84517d4e86590c8ce9bddf238c",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "chest_crimson_body.svg": {
+     "name": "chest_crimson_body.svg",
+     "blob": "2b5a5e567324d9f89d47bc54bb2a02b5",
+     "size": 1255,
+     "type": "image/svg+xml"
+    },
+    "chest_crimson_seam.svg": {
+     "name": "chest_crimson_seam.svg",
+     "blob": "1b4122830f91c28b31856c756bab7a82",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "chest_fx_ready.svg": {
+     "name": "chest_fx_ready.svg",
+     "blob": "082850b7479b4897a9e774066ede7cbf",
+     "size": 948,
+     "type": "image/svg+xml"
+    },
+    "chest_fx_timing.svg": {
+     "name": "chest_fx_timing.svg",
+     "blob": "b3f8b2c86a11e9f21f8f4c503bc65012",
+     "size": 407,
+     "type": "image/svg+xml"
+    }
+   }
+  },
+  "CardFrames": {
+   "name": "CardFrames",
+   "tile": "m",
+   "order": [
+    "card_white_frame.png",
+    "card_green_frame.png",
+    "card_blue_frame.png",
+    "card_blue_glow.png",
+    "card_purple_frame.png",
+    "card_purple_glow.png",
+    "card_gold_frame.png",
+    "card_gold_glow.png",
+    "card_orange_frame.png",
+    "card_orange_glow.png",
+    "card_red_frame.png",
+    "card_red_glow.png",
+    "elem_metal.png",
+    "elem_wood.png",
+    "elem_water.png",
+    "elem_fire.png",
+    "elem_earth.png",
+    "elem_heart.png"
+   ],
+   "files": {
+    "card_white_frame.png": {
+     "name": "card_white_frame.png",
+     "blob": "beb83a32b8d70986d5a0756f0a35a9e7",
+     "size": 7815,
+     "type": "image/png"
+    },
+    "card_green_frame.png": {
+     "name": "card_green_frame.png",
+     "blob": "8e9b1c2de69db51744e8ce45379e0f9b",
+     "size": 3783,
+     "type": "image/png"
+    },
+    "card_blue_frame.png": {
+     "name": "card_blue_frame.png",
+     "blob": "028f20e46706de49fe69941236132b12",
+     "size": 4898,
+     "type": "image/png"
+    },
+    "card_blue_glow.png": {
+     "name": "card_blue_glow.png",
+     "blob": "ae2cd45f4ac93e2a6332d358f6d4dee3",
+     "size": 9057,
+     "type": "image/png"
+    },
+    "card_purple_frame.png": {
+     "name": "card_purple_frame.png",
+     "blob": "3cb0005eba09c6bb75314d5906b6aa2c",
+     "size": 9853,
+     "type": "image/png"
+    },
+    "card_purple_glow.png": {
+     "name": "card_purple_glow.png",
+     "blob": "373bb7b18f1c8f76cc2e2fed398e14e6",
+     "size": 4566,
+     "type": "image/png"
+    },
+    "card_gold_frame.png": {
+     "name": "card_gold_frame.png",
+     "blob": "fc05de9f6b6e29f1c1a45f9ed5989a49",
+     "size": 14473,
+     "type": "image/png"
+    },
+    "card_gold_glow.png": {
+     "name": "card_gold_glow.png",
+     "blob": "1b93284c0dfb735864a729ce2fb62f7c",
+     "size": 2988,
+     "type": "image/png"
+    },
+    "card_orange_frame.png": {
+     "name": "card_orange_frame.png",
+     "blob": "75b1e0221f41756fd87e42a740ee7c35",
+     "size": 17005,
+     "type": "image/png"
+    },
+    "card_orange_glow.png": {
+     "name": "card_orange_glow.png",
+     "blob": "0174cbbdc18e0a0751aee0744b3b1e42",
+     "size": 1220,
+     "type": "image/png"
+    },
+    "card_red_frame.png": {
+     "name": "card_red_frame.png",
+     "blob": "7e40061fd610eae04e5f8e7683b70c15",
+     "size": 12399,
+     "type": "image/png"
+    },
+    "card_red_glow.png": {
+     "name": "card_red_glow.png",
+     "blob": "01e88cdfdfea5b94d691812940f09b26",
+     "size": 1897,
+     "type": "image/png"
+    },
+    "elem_metal.png": {
+     "name": "elem_metal.png",
+     "blob": "8ff40029507dcab117902a9fd966674c",
+     "size": 1547,
+     "type": "image/png"
+    },
+    "elem_wood.png": {
+     "name": "elem_wood.png",
+     "blob": "4c7b3283556cc4a4d8cd0698580f14e9",
+     "size": 2988,
+     "type": "image/png"
+    },
+    "elem_water.png": {
+     "name": "elem_water.png",
+     "blob": "5662208c4cbdd0f85f580530b2a4faff",
+     "size": 3492,
+     "type": "image/png"
+    },
+    "elem_fire.png": {
+     "name": "elem_fire.png",
+     "blob": "e08b95cc52ef7dccbf5ac952bbf245ab",
+     "size": 3835,
+     "type": "image/png"
+    },
+    "elem_earth.png": {
+     "name": "elem_earth.png",
+     "blob": "1d67748b206b1ff0a5e6095a2667d421",
+     "size": 2129,
+     "type": "image/png"
+    },
+    "elem_heart.png": {
+     "name": "elem_heart.png",
+     "blob": "72e7feee99d41b8b8445f2986d5e2507",
+     "size": 6402,
+     "type": "image/png"
+    }
+   }
+  },
+  "Mobs": {
+   "name": "Mobs",
+   "tile": "l",
+   "order": [
+    "mob_denghua.png",
+    "mob_mojian.png",
+    "mob_xuanzhen.png",
+    "mob_baibi.png",
+    "mob_kubi.png",
+    "mob_huoqi.png",
+    "mob_yantai.png",
+    "mob_tongqian.png",
+    "mob_bandu.png",
+    "mob_yaobian.png",
+    "mob_sumo.png",
+    "mob_jiaohen.png",
+    "mob_yaobian_body.png",
+    "mob_yaobian_face.png",
+    "mob_yaobian_wisp.png"
+   ],
+   "files": {
+    "mob_denghua.png": {
+     "name": "mob_denghua.png",
+     "blob": "3c012b2cc9942a2d8ed54b7cb9da3890",
+     "size": 35456,
+     "type": "image/png"
+    },
+    "mob_mojian.png": {
+     "name": "mob_mojian.png",
+     "blob": "c9d1457066d9229517bb72f82d9c6108",
+     "size": 60092,
+     "type": "image/png"
+    },
+    "mob_xuanzhen.png": {
+     "name": "mob_xuanzhen.png",
+     "blob": "0b7308a619ceca5046970e9bc0fffc22",
+     "size": 38684,
+     "type": "image/png"
+    },
+    "mob_baibi.png": {
+     "name": "mob_baibi.png",
+     "blob": "37ec247266942fc4ac50a4169859e5b2",
+     "size": 52057,
+     "type": "image/png"
+    },
+    "mob_kubi.png": {
+     "name": "mob_kubi.png",
+     "blob": "b6d1bbdd9892ee234195fb2f9e6ebdf5",
+     "size": 44929,
+     "type": "image/png"
+    },
+    "mob_huoqi.png": {
+     "name": "mob_huoqi.png",
+     "blob": "96ce8f1badcb3f155374c6e9831029c9",
+     "size": 57360,
+     "type": "image/png"
+    },
+    "mob_yantai.png": {
+     "name": "mob_yantai.png",
+     "blob": "1574279e40f5bcc45c7795cdc75d0cc4",
+     "size": 50913,
+     "type": "image/png"
+    },
+    "mob_tongqian.png": {
+     "name": "mob_tongqian.png",
+     "blob": "6699210762f975e655e893823adecef9",
+     "size": 45100,
+     "type": "image/png"
+    },
+    "mob_bandu.png": {
+     "name": "mob_bandu.png",
+     "blob": "eaa684270ad4064d9ad2214c96ef7f06",
+     "size": 53135,
+     "type": "image/png"
+    },
+    "mob_yaobian.png": {
+     "name": "mob_yaobian.png",
+     "blob": "ced48d0384a4e2009840d71c252f39a3",
+     "size": 48070,
+     "type": "image/png"
+    },
+    "mob_sumo.png": {
+     "name": "mob_sumo.png",
+     "blob": "c98c380963abaf4f1e24c869109a3fcc",
+     "size": 48700,
+     "type": "image/png"
+    },
+    "mob_jiaohen.png": {
+     "name": "mob_jiaohen.png",
+     "blob": "025046c244c6dc7794ca94725f4844e4",
+     "size": 48393,
+     "type": "image/png"
+    },
+    "mob_yaobian_body.png": {
+     "name": "mob_yaobian_body.png",
+     "blob": "127ce6e3e3f3337a8942ef33dc11357a",
+     "size": 46076,
+     "type": "image/png"
+    },
+    "mob_yaobian_face.png": {
+     "name": "mob_yaobian_face.png",
+     "blob": "1a0fe5d00d40f946b74cd1344ea78258",
+     "size": 2215,
+     "type": "image/png"
+    },
+    "mob_yaobian_wisp.png": {
+     "name": "mob_yaobian_wisp.png",
+     "blob": "86e7c9c16bfbdc05a9be4306c089c0e3",
+     "size": 1344,
+     "type": "image/png"
+    }
+   }
+  }
+ },
+ "blobs": {},
+ "docs": {
+  "sections": []
+ },
+ "lastChange": {
+  "by": "Eugene",
+  "at": "2026-09-21T13:24:58Z",
+  "via": "Claude Code",
+  "note": "Ui.Chip 加可选描边，「浅卡压浅底必须带描边」这条规则终于有实现；收集页与图鉴的计数 chip 不再与页签底糊成一片"
+ }
+}

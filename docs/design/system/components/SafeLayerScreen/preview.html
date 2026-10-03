@@ -1,0 +1,65 @@
+<!-- @dsCard group="局内流程" height=342 subtitle="实现 · GameRoot.ShowSafeLayer · 取舍写在钮下面，不藏在小字里" -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:var(--paper)}
+.wrap{padding:14px 16px}
+/* 整屏 932×430pt,此卡按 0.62 缩放 */
+.screen{position:relative;width:578px;height:267px;border-radius:6px;overflow:hidden;
+  /* 层段染色底:文山赭石以约 16% 混入 paper(第三档) */
+  background:color-mix(in srgb, var(--band-wenshan) 16%, var(--paper));
+  border:.72px solid var(--panel-border)}
+/* 巨字水印:层段名末字,10% 透明度 */
+.mark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-family:var(--font-serif);font-weight:600;font-size:150px;line-height:1;
+  color:var(--band-wenshan);opacity:.10;pointer-events:none;user-select:none}
+/* 右上 BalanceCorner */
+.bal{position:absolute;right:9px;top:8px;display:flex;align-items:center;gap:3px;
+  font-size:7.4px;color:var(--text-main);font-variant-numeric:tabular-nums}
+.bal i{display:block;width:10.4px;height:6.3px;background:var(--ingot-dark);
+  clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%)}
+/* 宣纸卡 1340×620 → 640×296pt */
+.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:397px;box-sizing:border-box;background:var(--panel-paper);
+  border:1.24px solid var(--panel-border);border-radius:7.4px;
+  padding:14px 33px;display:flex;flex-direction:column;align-items:center;gap:5.6px}
+.t{font-family:var(--font-serif);font-weight:600;font-size:13.6px;color:var(--text-main);white-space:nowrap}
+.band{font-size:6.5px;color:var(--text-dim);white-space:nowrap}
+/* 滚存大数字:刻意不用 InkCounter —— 没有墨锭图标 */
+.roll{display:flex;align-items:baseline;gap:3px;white-space:nowrap}
+.roll b{font-family:var(--font-serif);font-size:21px;line-height:1;color:var(--gold-deep);font-variant-numeric:tabular-nums}
+.roll span{font-size:6.2px;color:var(--text-faint)}
+.state{font-size:6.2px;color:var(--text-dim);white-space:nowrap}
+.forks{display:flex;gap:8.6px;width:100%;margin-top:2px}
+.fork{flex:1;display:flex;flex-direction:column;align-items:center;gap:3.8px}
+.fork .pill{width:100%;box-sizing:border-box;height:24.9px;border-radius:12.4px;color:#fff;
+  font-family:var(--font-serif);font-size:9.2px;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+/* 取舍句:钮下面,不是 tooltip、不是小字 */
+.fork .why{font-size:5.9px;line-height:1.45;color:var(--text-dim);text-align:center}
+.risk{font-size:5.6px;color:var(--text-faint);white-space:nowrap;margin-top:1px}
+.note{font-size:8.5px;color:var(--text-faint);line-height:1.55;margin-top:10px}
+.note b{color:var(--cinnabar-dark)}
+</style></head><body>
+<div class="zd-root wrap">
+  <div class="screen">
+    <div class="mark">山</div>
+    <div class="bal"><i></i>340</div>
+    <div class="card">
+      <div class="t">安 全 层</div>
+      <div class="band">文山 · 第 30 层告捷</div>
+      <div class="roll"><b>340</b><span>墨锭 · 本趟已挣</span></div>
+      <div class="state">血 128/210 · 字库 7/9 · 召唤物 2</div>
+      <div class="forks">
+        <div class="fork">
+          <span class="pill" style="background:var(--cinnabar)">深入墨海 · 31–35 层</span>
+          <span class="why">越往上越值钱，但半路倒下<br>这一趟的字库与召唤物全清</span>
+        </div>
+        <div class="fork">
+          <span class="pill" style="background:var(--ink-soft)">收官撤退</span>
+          <span class="why">立即收官，本趟到此为止<br>层数纪录保留，下次从第 1 层重来</span>
+        </div>
+      </div>
+      <div class="risk">墨锭早已随赚随入账，无论走哪条都不会退回去</div>
+    </div>
+  </div>
+  <div class="note"><b>取舍句写在钮下面</b>，不是 tooltip、不是一行小字 —— 这一屏存在的唯一理由就是让人做这个取舍，把取舍写小了它就白存在。朱砂给<b style="color:var(--text-dim)">默认推进项</b>（深入），ink-soft 给撤退；不可逆的份量由钮下那句话承担，不由颜色喊。大金数字刻意<b>不用 InkCounter</b>（无墨锭图标）——它报的是本趟战绩，可花的余额在右上角标里。</div>
+</div>
+</body></html>
