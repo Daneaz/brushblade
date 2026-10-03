@@ -86,13 +86,9 @@ node <skill>/seed-canvas.mjs \
   --artboard Upgrade.dc.html --artboard CardDetail.dc.html \
   --artboard MobArt.dc.html --artboard MobScale.dc.html --artboard MobLayers.dc.html \
   --artboard SkillOrbit.dc.html --artboard SkillOrbitMap.dc.html --artboard SkillOrbitCross.dc.html \
-  --artboard LevelUp.dc.html --artboard LevelUpMulti.dc.html \
-  --artboard LevelUpCapped.dc.html \
   $(for f in mob_*.png; do printf -- '--image %s ' "$f"; done) \
   --canvas canvas.json
 ```
-
-`LevelUp*.dc.html` 三块出图前先从 `../levelup/` 改名拷进来(对应关系见上),出完删掉。
 
 产出的 `.html` 内联了整个编辑器 payload（2.7MB），**不入 git**（见 `.gitignore`）。
 浏览器里首次渲染要 30 秒以上，不是卡住了。

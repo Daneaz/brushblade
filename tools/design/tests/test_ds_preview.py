@@ -71,7 +71,7 @@ def test_every_canvas_dir_has_support_js_pointing_at_runtime():
 
 
 def test_every_canvas_board_resolves_to_a_file():
-    """canvas.json 里登记的画板必须找得到文件(含 scenes 里改名存在 levelup/ 的那几块)。"""
+    """canvas.json 里登记的画板必须找得到文件。"""
     for d in b.canvas_dirs():
         for board in b.canvas_boards(d):
             assert board["src"].exists(), f"{d.name}: {board['file']} → {board['src']} 不存在"
