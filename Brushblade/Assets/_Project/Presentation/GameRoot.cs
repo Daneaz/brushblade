@@ -457,7 +457,6 @@ namespace Brushblade.Presentation
             // 这一笔才能跟着进账户 —— 安全层顶栏因此在打完 Boss 的当下就把它飘出来
             run.AddInk(EndlessRules.FloorInk(endless, segmentEnd));
             CommitEventInk(run);
-            int totalEarned = carriedInk + run.EarnedInk; // 整趟已挣(展示用;钱已在账户里)
             EndlessRules.UpdateBest(_meta, segmentEnd);
             // 层段首破(20.3,2026-09-30 改):打赢本段第 10 层主题 Boss 时发,一次性,撤退也照拿。
             // 直接进账户(与此前同一条 TryAwardMilestone);下面 MetaStore.Save 一并落盘,
@@ -466,6 +465,10 @@ namespace Brushblade.Presentation
             BandDef milestone = EndlessRules.IsThemeBossDepth(endless, segmentEnd)
                 && EndlessRules.TryAwardMilestone(_meta, clearedBand) && clearedBand.MilestoneInk > 0
                 ? clearedBand : null;
+            // 整趟已挣(展示用;钱已在账户里)。首破墨锭不走 run.EarnedInk(那条会被 CommitEventInk
+            // 再记一次账),但要算进这个数 —— 否则安全层大数字与结算 headline 对不上账户(2026-10-03 修)。
+            // 写进 snapshot.EarnedInk 后,下一段的 carriedInk 自然带上它
+            int totalEarned = carriedInk + run.EarnedInk + (milestone?.MilestoneInk ?? 0);
             var snapshot = _meta.EndlessV2;
             snapshot.TopBossDepth = segmentEnd; // 逐段递增,即本次已破最高 Boss 层
             snapshot.Depth = segmentEnd + 1;

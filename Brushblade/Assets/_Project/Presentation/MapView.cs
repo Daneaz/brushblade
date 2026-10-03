@@ -301,7 +301,8 @@ namespace Brushblade.Presentation
                 }
                 var cell = Ui.VStack(row, "Cell", 2);
                 cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
-                Ui.MiniGlyphTile(cell.transform, _graph.Get(top[i].Id), new Vector2(TileW, TileH));
+                var tile = Ui.MiniGlyphTile(cell.transform, _graph.Get(top[i].Id), new Vector2(TileW, TileH));
+                Ui.RankBadge(tile, i + 1, 23f, 8f, 15);   // 稿 11pt 圆、探出 4pt、7pt 字
                 Ui.ThemedLabel(cell.transform, top[i].Plays.ToString(), 17, Theme.TextDim);
             }
         }

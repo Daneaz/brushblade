@@ -145,12 +145,12 @@
 .tile-glyph { font-family: var(--font-serif); font-size: 28px; line-height: 1; font-weight: 600; }
 .title { font-family: var(--font-serif); font-size: 21px; line-height: 1.2; font-weight: 600; letter-spacing: 6px; }
 .screen-title { font-family: var(--font-serif); font-size: 19px; line-height: 1.2; font-weight: 600; letter-spacing: 3px; }
-.cta { font-family: var(--font-serif); font-size: 18px; line-height: 1; font-weight: 600; letter-spacing: 3px; }
-.popup { font-family: var(--font-serif); font-size: 17px; line-height: 1; font-weight: 600; letter-spacing: 0.5px; }
-.pill { font-family: var(--font-serif); font-size: 15px; line-height: 1; font-weight: 600; letter-spacing: 2px; }
 .tab { font-family: var(--font-serif); font-size: 14px; line-height: 1; font-weight: 600; letter-spacing: 2px; }
 .dialog-title { font-family: var(--font-serif); font-size: 13px; line-height: 1.3; font-weight: 600; letter-spacing: 1px; }
-.button { font-family: var(--font-serif); font-size: 11px; line-height: 1; font-weight: 600; letter-spacing: 1px; }
+.cta { font-family: var(--font-sans); font-size: 18px; line-height: 1; font-weight: 500; }
+.pill { font-family: var(--font-sans); font-size: 15px; line-height: 1; font-weight: 500; }
+.button { font-family: var(--font-sans); font-size: 11px; line-height: 1; font-weight: 500; }
+.popup { font-family: var(--font-sans); font-size: 17px; line-height: 1; font-weight: 700; }
 .body-strong { font-family: var(--font-sans); font-size: 12px; line-height: 1.4; font-weight: 700; }
 .body { font-family: var(--font-sans); font-size: 11px; line-height: 1.7; font-weight: 400; }
 .dialog-body { font-family: var(--font-sans); font-size: 10px; line-height: 1.6; font-weight: 400; }

@@ -60,7 +60,8 @@
 
 ## 字体
 
-- 两支字体：**思源宋体**（`serif`，Noto Serif SC）给字形、标题、按钮、页签；**思源黑体**（`sans`，Noto Sans SC）给正文、数值、chip、角标。战斗飘字走系统黑体粗体（不在子集里）。
+- 两支字体：**思源宋体**（`serif`，Noto Serif SC）给字形、标题、页签；**思源黑体**（`sans`，Noto Sans SC）给按钮、正文、数值、chip、角标、战斗飘字（粗体）。
+- 按钮一律黑体、不加粗（`Ui.RoundButton` / `PillButton` 走 `BodyFont`）；唯一例外是广告徽章 `Ui.AdBadge`，宋体。字间那一格靠文案里的空格（「续 爬」），Unity `Text` 没有字距。
 - 打包的是子集字体（宋体 700、黑体 500，各约 1,225 字，只含游戏里实际出现的字）。网页里缺字会落到 Songti SC / PingFang SC；游戏里缺字就是豆腐块 —— 新文案上线前必须重跑子集。
 - 字号阶梯（稿面 pt）：字牌字形 `card-glyph` 46 / `tile-glyph` 28；标题 `title` 21、`screen-title` 19；主钮 `cta` 18、`pill` 15、`button` 11；页签 `tab` 14；弹窗标题 `dialog-title` 13；正文 `body` 11、`dialog-body` 10；`chip` 10；`caption` 9；角标 `badge` 8.5；拼音 `pinyin` 8。
 - 数字一律 `font-variant-numeric: tabular-nums`。
