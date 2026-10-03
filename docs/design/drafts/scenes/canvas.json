@@ -539,7 +539,7 @@
       "x": 0,
       "y": 1620,
       "w": 520,
-      "text": "落地路径（已跑通，产物都在仓库里）\n\nglyph_refs.py 出字形底稿 → docs/design/glyph-refs/svg-done/mob_*.svg（本页这批稿）→ split_layers.py 拆成 body/face/wisp → rasterize_mobs.py 光栅化进 Unity Resources → MobAssets / rasterize_mobs 两张 slug 表登记。\n\n⚠ 2026-10-03 起合并稿与拆层两步退役：源图以 tools/design/mobs/svg/ 的分层图为准，改形象直接改分层图再跑 rasterize_mobs.py；合并稿、build_mob_drafts.py、split_layers.py 已移入 docs/design/deprecated/。补齐后 enemies.json 的 25 只杂兵全部有立绘，战斗与图鉴里不再有回落到字牌格的怪。",
+      "text": "落地路径（已跑通，产物都在仓库里）\n\nglyph_refs.py 出字形底稿 → docs/design/glyph-refs/svg-done/mob_*.svg（本页这批稿）→ split_layers.py 拆成 body/face/wisp → rasterize_mobs.py 光栅化进 Unity Resources → MobAssets / rasterize_mobs 两张 slug 表登记。\n\n⚠ 2026-10-03 起合并稿与拆层两步退役：源图以 tools/design/mobs/svg/ 的分层图为准，改形象直接改分层图再跑 rasterize_mobs.py；合并稿、build_mob_drafts.py、split_layers.py 已于 2026-10-03 删除。补齐后 enemies.json 的 25 只杂兵全部有立绘，战斗与图鉴里不再有回落到字牌格的怪。",
       "page": "page-mobs"
     },
     {

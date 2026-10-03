@@ -1,7 +1,7 @@
 """字怪立绘的三方对账:enemies.json ↔ 两张 slug 表 ↔ Unity Resources。
 
 (2026-10-03 起设计侧合并稿 docs/design/glyph-refs/svg-done 退役,源图以 tools/design/mobs/svg/ 为准,
-原第四方「每只怪都有合并稿」那条随之移入 docs/design/deprecated/。)
+原第四方「每只怪都有合并稿」那条随之删除。)
 
 为什么要这条:字怪形象经手四个地方,而它们**没有任何一个是从另一个生成的** ——
 `rasterize_mobs.MINION_SLUGS`(中文 id → 拼音)、`MobAssets.MINION_SLUGS`(同一张表,C# 侧)、

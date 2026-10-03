@@ -6,7 +6,7 @@ using UnityEngine.UI;
 namespace Brushblade.Presentation
 {
     /// <summary>五行速查(2026-07-22;2026-07-29 由小按钮+弹窗改为常驻环图):战斗页两角直接摆图。
-    /// 图是 UI/Resources 下的光栅 PNG(原 SVG 已于 2026-10-03 退役,见 docs/design/deprecated/wuxing/)。
+    /// 图是 UI/Resources 下的光栅 PNG(原 SVG 已于 2026-10-03 删除,见 git 历史)。
     /// 数值口径同 WuxingResolver(docs/design/wuxing-reference.md)。</summary>
     public static class WuxingChart
     {
