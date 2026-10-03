@@ -47,7 +47,7 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `CharSheet.dc.html` | 字卡详情 · 字库牌 | `CharPreview.Show`(战斗长按) |
 | `CharSheetDual.dc.html` | 字卡详情 · 双方向字 | 同上,水/土 两面 |
 | `CharSheetPart.dc.html` | 字卡详情 · 部件 | 同上,部件池入口 |
-| `MobArt.dc.html` | 怪物设计 · 十一只形象与设计意图 | `docs/design/glyph-refs/svg-done/` → `Mobs/`(管线见便签 note-mob-pipe) |
+| `MobArt.dc.html` | 怪物设计 · 十一只形象与设计意图 | 源图 `tools/design/mobs/svg/` → `rasterize_mobs.py` → `Mobs/`(合并稿一段 2026-10-03 退役,见便签 note-mob-pipe) |
 | `MobScale.dc.html` | 怪物设计 · 实机尺寸对照 | 同上 |
 | `MobLayers.dc.html` | 怪物设计 · 分层拆解(窑变) | 同上,body/face/wisp 三层 |
 | `SkillOrbit.dc.html` | 技能树 · 环形星域 | `PerkView.cs` · `PerkLayout.cs` |

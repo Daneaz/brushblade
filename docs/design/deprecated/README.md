@@ -18,6 +18,13 @@
 | `wuxing/五行相生.svg` | 相生环图 2026-08-31 已从战斗屏撤掉,相生 ×3 于 2026-09-02 取消 | `wuxing/五行相克.svg`(战斗屏相克图的源) |
 | `demos/review/实现对齐稿.html` | 2026-09-18 的稿与实现对齐快照,其后 09-21 的三方对账已把结论收进各现状卡与组件卡 | `current/`、`component/` 各卡的「与实现的差异」段 |
 | `drafts/levelup/LevelChest.dc.html` | 「等级区间 → 宝箱」草案,被 2026-10-02 角色页 spec 取代(整体升一档、去掉素纸匣) | `drafts/character/`(`LevelUp.dc.html`、`RewardTable.dc.html`) |
+| `card-refs/`(牌框 12 + 属性元件 6) | 用户确认素材已在项目内(`Brushblade/.../Cards/Resources/*.png`);出图脚本随之退役 | `Cards/Resources/` 的 PNG |
+| `glyph-refs/svg/`、`svg-done/`、`manifest.json`、`_contact-sheet.svg` | 字怪字形底稿与合并稿;用户确认已在项目内,改形象直接改分层图 | `tools/design/mobs/svg/` → `rasterize_mobs.py` |
+| `wuxing/五行相克.svg` | 用户确认已在项目内 | `Presentation/UI/Resources/` 的相克图 PNG |
+| `tools/design/build_mob_drafts.py`、`split_layers.py`、`rasterize_cards.py` | 上面三组源图的出图脚本,输入已退役 | — |
+| `tools/design/tests/test_split_layers.py`、`test_mob_assets_design_source.py` | 拆层测试,及从 `test_mob_assets.py` 摘出的「每只怪都有合并稿」一条 | `test_mob_assets.py` 其余三方对账 |
 
+`tools/fonts/glyph_refs.py` **没退役**:`build_boss_art.py` 拿它从字体渲染 Boss 字形;它的命令行出稿仍写到
+`docs/design/glyph-refs/`,别再用那个出口。
 `glyph_refs.py --png` 重跑会把位图写回 `docs/design/glyph-refs/png/`(不是这里)。
 `report_pool_candidates.py` 仍在库里,重跑会把筛选表写回 `docs/design/字选型/`(不是这里)。
