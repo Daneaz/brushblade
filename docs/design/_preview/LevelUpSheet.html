@@ -1,0 +1,73 @@
+<!-- @dsCard group="整屏" height=458 width=932 subtitle="实现 · LevelUpPopup · 叠在安全层 / 登塔结算之上,一次说清这一段升了几级" -->
+<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}
+
+.stage { position: relative; width: 932px; height: 430px; overflow: hidden; line-height: 1.3; }
+.stage * { box-sizing: border-box; }
+.scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 50; }
+/* Ui.Sheet:卡 1256×745 → 600.10×355.95,屏幕正中;圆角 18、描边 1.5 PanelBorder、面 PanelPaper;没有投影 */
+.sheet { position: absolute; z-index: 51; left: 50%; top: 50%; width: 600.1px; height: 355.95px; transform: translate(-50%, -50%);
+  background: var(--panel-paper); border: 0.72px solid var(--panel-border); border-radius: 8.6px;
+  display: flex; flex-direction: column; align-items: stretch; color: var(--text-main); }
+.sheet .c { text-align: center; white-space: nowrap; }
+.serif { font-family: var(--font-serif); font-weight: 600; }
+.stage .homebar { position: absolute; left: 0; right: 0; bottom: 5px; height: 4px; display: flex; justify-content: center; z-index: 60; }
+.stage .homebar > span { width: 128px; border-radius: 2px; background: rgba(255,255,255,.4); }
+.ingot { display: flex; align-items: center; justify-content: center; gap: 2.87px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ingot i { display: block; background: var(--ingot-dark); clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%); }
+.chip { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; border-radius: 6.69px; flex: none; }
+
+/* 底屏:安全层(示意轮廓)—— 弹窗挂在安全层 / 登塔结算的 view 根上,遮罩盖满整屏 */
+.under { position: absolute; inset: 0; background: color-mix(in srgb, var(--band-wenshan) 16%, var(--paper)); }
+.under .mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--font-serif);
+  font-weight: 600; font-size: 240px; line-height: 1; color: var(--band-wenshan); opacity: .10; }
+.under .card { position: absolute; left: 50%; top: 50%; width: 640.23px; height: 296.23px; transform: translate(-50%, -50%);
+  background: var(--panel-paper); border: 0.96px solid var(--panel-border); border-radius: 11.94px; }
+.under .card i { position: absolute; height: 40.13px; width: 286.67px; bottom: 71.67px; border-radius: 11.47px; }
+/* 内容:Sheet 的 VStack,内边距 38/38/29/29、行距 21、子项横向撑满(childForceExpandWidth) */
+.lu { flex: 1; padding: 13.86px 18.16px; display: flex; flex-direction: column; gap: 10.03px; }
+.lu .kick { font-size: 11.94px; color: var(--cinnabar-dark); }
+.lu .lvr { font-size: 23.89px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.lu .cols { flex: 1; min-height: 0; display: flex; gap: 13.86px; }
+.lu .st { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4.78px; }
+.lu .h { font-family: var(--font-serif); font-weight: 600; font-size: 10.03px; color: var(--text-dim); white-space: nowrap; }
+/* StatRow:高 50、间距 15;名 20 定宽 105 / 「旧 → 新」27 宋体弹性 / 增量 20 靠右。没有底色 */
+.lu .sr { height: 23.89px; display: flex; align-items: center; gap: 7.17px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lu .sr .k { width: 50.17px; font-size: 9.56px; color: var(--text-dim); }
+.lu .sr .v { flex: 1; font-family: var(--font-serif); font-weight: 600; font-size: 12.9px; }
+.lu .sr .d { font-size: 9.56px; color: var(--upgrade-text); }
+.lu .ch { width: 217.87px; flex: none; display: flex; flex-direction: column; gap: 4.78px; }
+.lu .crow { display: flex; align-items: center; gap: 5.73px; }
+.lu .crow img { width: 40.13px; height: 40.13px; display: block; }
+.lu .ok { height: 40.13px; border-radius: 11.47px; font-size: 14.81px; background: var(--cinnabar); color: #fff; width: 100%; }
+
+</style></head><body>
+<div class="zd-root">
+<!-- 示例:Lv.19 → Lv.20(段末安全层)。一段最多 4 层 ×10 + Boss 50 = 90 经验,而 Lv.19 升 20 要 1000 ——
+     一段只升一级是常态。属性 = MaxHpFor / AttackFor / DefenseFor / DodgeFor / SpeedFor 在 19 与 20 的值;
+     宝箱 = TierForLevel(20) = 紫檀匣(≤20);跨过 Lv.20 里程碑 → 一条提示 chip。箱位有空,没有欠箱。 -->
+<div class="stage">
+  <div class="under"><div class="mark">山</div><div class="card">
+    <i style="left:25.8px;background:var(--cinnabar);opacity:.85"></i><i style="right:25.8px;background:var(--ink-soft);opacity:.85"></i></div></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="lu">
+      <div class="c serif kick">升 级</div>
+      <div class="c serif lvr">Lv.19 → Lv.20</div>
+      <div class="cols">
+        <div class="st"><div class="h">属性 · 下一段开打时生效</div><div class="sr"><span class="k">生命</span><span class="v">860 → 880</span><span class="d">+20</span></div><div class="sr"><span class="k">攻击</span><span class="v">136 → 138</span><span class="d">+2</span></div><div class="sr"><span class="k">护甲</span><span class="v">9 → 12</span><span class="d">+3</span></div><div class="sr"><span class="k">闪避</span><span class="v">9% → 10%</span><span class="d">+1%</span></div><div class="sr"><span class="k">速度</span><span class="v">109 → 110</span><span class="d">+1</span></div></div>
+        <div class="ch"><div class="h">升级奖励</div>
+          <div class="crow"><img alt="" src="data:image/png;base64,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">
+            <span class="chip" style="width:104.16px;height:17.68px;font-size:11.94px;background:var(--card-face);color:var(--text-main);box-shadow:inset 0 0 0 1.43px var(--rarity-purple)">紫檀匣 × 1</span></div>
+        </div>
+      </div>
+      <span class="chip" style="width:100%;height:15.77px;font-size:10.03px;background:var(--gold-soft);color:var(--gold-text);box-shadow:inset 0 0 0 0.48px var(--gold-border)">Lv.20 里程碑已解锁 · 回主界面后在角色页领取</span>
+      <button class="zd-btn ok">知道了</button>
+    </div>
+  </div>
+  <div class="homebar"><span></span></div>
+</div>
+<div style="font-size:8.5px;color:var(--text-faint);line-height:1.55;padding:8px 16px 0;max-width:900px">
+  里程碑 chip 与「知道了」都被内容容器的 <b>childForceExpandWidth</b> 拉成整行宽(钮请求的是 335×84,实际 ≈ 562×40pt)。
+  属性行没有底色;「旧 → 新」是一整条宋体标签,旧值与新值同色同号。</div>
+</div>
+</body></html>

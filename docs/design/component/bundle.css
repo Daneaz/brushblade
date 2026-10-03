@@ -45,16 +45,17 @@
 .zd-btn--gold     { background: var(--gold); color: var(--gold-text); }
 .zd-btn--plum     { background: var(--exit-pink); }
 .zd-btn--quiet    { background: var(--locked-bg); color: var(--text-main); }
-.zd-btn[disabled] { background: var(--locked-bg); color: var(--text-dim); cursor: default; }
+/* uGUI 置灰 = ColorTint disabledColor(0.78,0.78,0.78,0.5) 乘在原底色上,不换底色 */
+.zd-btn[disabled] { filter: brightness(.78); opacity: .5; cursor: default; }
 /* 看广告(Ui.AdBadge):浅绿面 + 绿描边 + 深绿字,72×46 */
-.zd-btn--ad { width: 34.40px; height: 21.98px; border-radius: 6.69px; font-size: 9.08px;
+.zd-btn--ad { width: 34.40px; height: 21.98px; border-radius: 10.99px; font-size: 7.17px;   /* AdBadge 按高 46/63 缩:圆角 23、字 15、描边 1.5 */
   font-family: var(--font-serif); font-weight: 600;   /* Ui.AdBadge 是全站唯一走宋体 TitleFont 的钮 */
-  background: var(--ad-green-bg); color: var(--ad-green-text); box-shadow: inset 0 0 0 0.96px var(--ad-green); }
+  background: var(--ad-green-bg); color: var(--ad-green-text); box-shadow: inset 0 0 0 0.72px var(--ad-green); }
 
 /* ---- Chip:Ui.Chip —— 宽 = 字数×字号 + padX(+ 图标 18 + 间距 3),高 = 字号 + padY。
    默认 padX 18 / padY 12;战斗单位格收到 10 / 5。图标左贴 padX/2、竖直居中,随前景色染。 ---- */
 .zd-chip { position: relative; display: inline-flex; align-items: center; justify-content: center;
-  box-sizing: border-box; border-radius: 9999px; white-space: nowrap;
+  box-sizing: border-box; border-radius: 6.69px; white-space: nowrap;   /* Theme.Rounded(14),不是胶囊 */
   font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
 .zd-chip .ic { position: absolute; top: 50%; width: 8.60px; height: 8.60px; transform: translateY(-50%); }
 .zd-chip .t  { position: absolute; top: 0; bottom: 0; left: 10.03px; right: 0;
@@ -65,7 +66,7 @@
 .zd-chip--list .ic { left: 4.30px; }
 .zd-chip--head { height: 15.29px; font-size: 9.56px; }       /* 页头计数:20 */
 .zd-chip--head .ic { left: 4.30px; }
-.zd-chip--warn { height: 15.77px; font-size: 10.03px; font-weight: 700;
+.zd-chip--warn { height: 15.77px; font-size: 10.03px;
   background: var(--warn-bg); color: var(--warn-text); }         /* 不可逆告警:21 / 23 / 12 */
 .zd-reddot { display: inline-block; width: 6.69px; height: 6.69px; border-radius: 50%; background: var(--cinnabar); }
 
@@ -88,7 +89,7 @@
 .zd-tab__face { position: absolute; inset: 0.96px; border-radius: 8.12px; }
 .zd-tab svg { position: relative; width: 17.20px; height: 17.20px; display: block; }
 .zd-tab__name { position: relative; font-family: var(--font-serif); font-weight: 600; font-size: 13.86px; }
-.zd-tab__sub { position: relative; font-size: 9.08px; color: var(--text-faint); }
+.zd-tab__sub { position: relative; font-size: 9.08px; color: var(--text-dim); }
 .zd-tab .zd-reddot { position: absolute; top: 7.64px; right: 7.64px; }
 .zd-tab--deck     { background: var(--tab-deck-border);     color: var(--tab-deck-fg); }
 .zd-tab--deck .zd-tab__face     { background: var(--tab-deck-bg); }
@@ -150,7 +151,7 @@
 .zd-r-red .zd-tile__glow { background-image: url(data:image/png;base64,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); opacity: 0.72; }
 .zd-tile { --w: 45.87px; --h: 57.33px; position: relative; display: inline-block; flex: none; vertical-align: top;
   width: var(--w); height: var(--h); border-radius: 6.69px; background: var(--shadow-ink); }
-.zd-tile__face { position: absolute; inset: 2.6%; background: var(--frame) center / 100% 100% no-repeat; }
+.zd-tile__face { position: absolute; inset: 1.49px 1.19px;   /* Ui.cs 绝对内缩 2.5 / 3.125 逻辑单位,不随牌大小 */ background: var(--frame) center / 100% 100% no-repeat; }
 .zd-tile__glow { position: absolute; inset: 0; background: center / 100% 100% no-repeat; pointer-events: none; }
 .zd-tile__content { position: absolute; left: var(--ix); right: var(--ix); top: var(--iy); bottom: var(--iy); }
 .zd-tile__g { position: absolute; left: 0; right: 0; top: 5%; bottom: 30%; display: flex; align-items: center; justify-content: center;
@@ -190,7 +191,7 @@
 .zd-bdg--up { left: calc(var(--h) * 5 / 128); bottom: calc(var(--h) * 5 / 128); background: var(--jade); }
 .zd-bdg--new { right: 0; top: 0; height: calc(var(--w) * 17 / 103); background: var(--cinnabar); }
 .zd-bdg--lock { left: calc(var(--h) * 5 / 128); top: calc(var(--h) * 5 / 128); width: calc(var(--h) * 17.25 / 128); height: calc(var(--h) * 17.25 / 128);
-  padding: 0; border-radius: 50%; background: rgba(103,111,122,.16); color: var(--text-faint); font-size: calc(var(--h) * 10.7 / 128); }
+  padding: 0; border-radius: 50%; background: rgba(103,111,122,.16); color: var(--ink-soft); font-size: calc(var(--h) * 10.7 / 128); }
 .zd-rdot { position: absolute; z-index: 2; right: calc(var(--h) * 5 / 128); top: calc(var(--h) * 5 / 128);
   width: calc(var(--w) * 13 / 103); height: calc(var(--w) * 13 / 103); border-radius: 50%; background: var(--rar); }
 .zd-rdot--dim { background: color-mix(in srgb, var(--rar) 42%, var(--locked-bg)); }

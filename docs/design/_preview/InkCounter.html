@@ -1,16 +1,14 @@
-<!-- @dsCard group="状态" height=120 subtitle="实现 · Ui.InkCounter / Ui.IngotLabel · 没有胶囊底" -->
-<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}.wrap{padding:16px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}.lbl{font-size:9px;color:var(--text-dim);letter-spacing:1px;margin-top:6px;text-align:center}.col{display:flex;flex-direction:column;align-items:center}
-/* bundle.css 里 .zd-ink 有两套规则，靠后那套是旧稿的**胶囊**（ink-bar 底 + 1px 描边 + 26 高 + 12 字号），
-   实现里根本没有那层底。这里用更高优先级的选择器把它去掉（见报告的 bundle.css 清单）。 */
-.zd-root .zd-ink { height: auto; padding: 0; background: none; border: none; border-radius: 0; gap: 2.87px; font-size: inherit; }
-.zd-root .zd-ink--top   { font-size: 11.94px; }
-.zd-root .zd-ink--battle{ font-size: 8.60px; }
+<!-- @dsCard group="状态" height=170 subtitle="实现 · Ui.InkCounter / Ui.IngotLabel · 没有胶囊底" -->
+<!doctype html><html><head><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css"><meta charset="utf-8"><style>html,body{margin:0;background:var(--paper)}.wrap{padding:16px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}.lbl{font-size:9px;color:var(--text-dim);margin-top:6px;text-align:center}.col{display:flex;flex-direction:column;align-items:center}
+/* .zd-ink / --top / --price 取 bundle.css;下面只补 bundle 没有的字号档(墨锭宽 = 字号×1.4、高 = 字号×0.85,÷2.093)。 */
+.zd-root .zd-ink--battle { font-size: 8.60px; }                                   /* 18 */
 .zd-root .zd-ink--battle .zd-ink__ingot { width: 12.04px; height: 7.31px; }
-.zd-root .zd-ink--price { font-size: 10.51px; }
-/* 唯一带底的那处：开箱结果面板的 gold-soft 卡 190×63 圆角 15，是调用点给的壳 */
+.zd-root .zd-ink--ms { font-size: 9.56px; }                                       /* 20 */
+.zd-root .zd-ink--ms .zd-ink__ingot { width: 13.38px; height: 8.12px; }
+/* 唯一带底的那处:开箱结果面板的 gold-soft 卡 190×63 圆角 15,是调用点给的壳 */
 .claim { width: 90.78px; height: 30.10px; border-radius: 7.17px; background: var(--gold-soft);
   display: flex; align-items: center; justify-content: center; }
 .claim .zd-ink { color: var(--gold-deep); }
 </style></head><body>
-<div class="zd-root wrap"><div class="col"><span class="zd-ink zd-ink--top"><i class="zd-ink__ingot"></i>2480</span><div class="lbl">外层顶栏余额 · 25</div></div><div class="col"><span class="zd-ink zd-ink--battle"><i class="zd-ink__ingot"></i>1240</span><div class="lbl">局内右上余额 · 18</div></div><div class="col"><div class="claim"><span class="zd-ink zd-ink--price"><i class="zd-ink__ingot zd-ink__ingot--gold"></i>+120</span></div><div class="lbl">开箱入账 · 金锭 22 + gold-soft 壳</div></div></div>
+<div class="zd-root wrap"><div class="col"><span class="zd-ink zd-ink--top"><i class="zd-ink__ingot"></i>2480</span><div class="lbl">外层顶栏余额 · InkCounter 25</div></div><div class="col"><span class="zd-ink zd-ink--battle"><i class="zd-ink__ingot"></i>1240</span><div class="lbl">局内右上余额 · InkCounter 18</div></div><div class="col"><div class="claim"><span class="zd-ink zd-ink--price"><i class="zd-ink__ingot zd-ink__ingot--gold"></i>+120</span></div><div class="lbl">开箱入账 · 金锭 22 + gold-soft 壳</div></div><div class="col"><span class="zd-ink zd-ink--ms"><i class="zd-ink__ingot"></i>1,200</span><div class="lbl">里程碑墨锭额 · IngotLabel 20 · N0 千分位</div></div></div>
 </body></html>
