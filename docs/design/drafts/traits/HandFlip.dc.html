@@ -211,7 +211,7 @@ function hoverLbl(id, f, L, tid) {
     var foe = FOES[tid], m = mulOf(Z.CHARS[id].el, foe.el), mt = m === 1 ? '' : ' ×' + m;
     if (f.s === '燃') return '灼 +' + st['灼'] + ' · 攻 −15%' + mt;
     var extra = st['灼'] ? ' · 灼 +' + st['灼'] : st['战意'] ? ' · 战意 ' + st['战意'] : st['种'] ? ' · 种' : st['减速'] ? ' · 减速' : st['破甲'] ? ' · 破甲' : '';
-    var dmg = Math.round(st['伤害'] * m * (f.s === '焚' && foe.burn && L >= 5 ? 2 : 1));
+    var dmg = Math.round(st['伤害'] * m * (id === '炎' && f.s === '攻' && foe.burn && L >= 5 ? 2 : 1)); // 火上浇油
     return '伤 ' + dmg + mt + extra;
   }
   if (f.tgt === 'summon') return SUMS[tid] ? '嫁接' : '召唤林灵';
@@ -250,7 +250,7 @@ class Component extends DCLogic {
     var pop = { key: key, x: r.left - dev.left + Math.min(r.width / 2, 40), y: r.top - dev.top + r.height / 2 - 8, el: c.el, tn: act ? act.name : '', seal: f.s, isMain: isMain, num: hoverLbl(id, f, L, tid) };
     var faces = this.state.faces.slice(); faces[i] = 0; // 出手后回到主面
     this.setState({ pops: this.state.pops.concat([pop]), faces: faces, sel: -1,
-      msg: '「' + id + '」以「' + f.s + '」面出手' + (act ? '，主动特性「' + act.name + '」触发' : '') + ' —— 出手后这张牌回到主面（演示里留在手上）' });
+      msg: '「' + id + '」以' + (f.s === '攻' ? '攻击' : '「' + f.s + '」面') + '出手' + (act ? '，主动特性「' + act.name + '」触发' : '') + ' —— 出手后这张牌回到主面（演示里留在手上）' });
     setTimeout(function () { self.setState({ pops: self.state.pops.filter(function (p) { return p.key !== key; }) }); }, 1500);
   }
   renderVals() {
@@ -287,7 +287,7 @@ class Component extends DCLogic {
     var pt = tgState('p');
     var hand = HAND.map(function (h, i) {
       var c = Z.CHARS[h[0]], back = !!s.faces[i], fi = back ? 1 - c.main : c.main;
-      return { g: h[0], s: c.faces[fi].s, sealCls: 'seal xs ' + (back ? 'sub' : 'main'),
+      return { g: h[0], s: c.faces[fi].s, sealCls: Z.seal(c.faces[fi].s, !back, 'xs'),
         cls: 'htile e-' + c.el + ' r-' + c.rar + (back ? ' back' : '') + (s.sel === i ? ' sel' : '') + (s.flipping === i ? ' flipping' : '') + (drag && drag.i === i ? ' lifted' : ''),
         down: function (e) { var r = self.devRect(e); self.press = { i: i, x0: e.clientX, y0: e.clientY, ox: r.left, oy: r.top, moved: false }; } };
     });
@@ -301,11 +301,11 @@ class Component extends DCLogic {
       hand: hand,
       hasSel: !!sel, noSel: !sel,
       selCls: 'sel e-' + (selC ? selC.el : 'Fire') + ' r-' + (selC ? selC.rar : 'Gold'),
-      selTileCls: 'mt' + (selBack ? ' back' : ''), selG: sel ? sel[0] : '', selSeal: selF ? selF.s : '', selSealCls: 'seal xs ' + (selBack ? 'sub' : 'main'),
+      selTileCls: 'mt' + (selBack ? ' back' : ''), selG: sel ? sel[0] : '', selSeal: selF ? selF.s : '', selSealCls: Z.seal(selF ? selF.s : '', !selBack, 'xs'),
       selMeta: sel ? Z.RAR[selC.rar] + ' · ' + Z.EL[selC.el] + ' · Lv.' + sel[1] : '',
       selFaces: sel ? [selC.main, 1 - selC.main].map(function (fi) {
         var m = fi === selC.main, on = fi === selFi;
-        return { s: selC.faces[fi].s, role: selC.faces[fi].role.slice(0, 2), pct: m ? '主' : '60%', sealCls: 'seal xs ' + (m ? 'main' : 'sub'),
+        return { s: selC.faces[fi].s, role: selC.faces[fi].role.slice(0, 2), pct: m ? '主' : '副', sealCls: Z.seal(selC.faces[fi].s, m, 'xs'),
           cls: 'fsw' + (on ? ' on' : '') + (m ? '' : ' sub'), pick: function () { if (!on) self.flip(si); } };
       }) : [],
       selTgt: selF ? Z.TGT[selF.tgt] + (selF.tgt === 'summon' ? '' : ' · ' + selF.area) : '',
@@ -314,8 +314,8 @@ class Component extends DCLogic {
       dragOn: !!drag,
       ghostStyle: drag ? 'left:' + drag.x + 'px;top:' + drag.y + 'px' : '',
       ghostCls: g ? 'htile e-' + gc.el + ' r-' + gc.rar + (gBack ? ' back' : '') : 'htile', ghostG: g ? g[0] : '',
-      ghostSeal: g ? gc.faces[gBack ? 1 - gc.main : gc.main].s : '', ghostSealCls: 'seal xs ' + (gBack ? 'sub' : 'main'),
-      pops: s.pops.map(function (p) { return { cls: 'pop e-' + p.el, style: 'left:' + p.x + 'px;top:' + (p.y - 20) + 'px', tn: p.tn, seal: p.seal, sealCls: 'seal s ' + (p.isMain ? 'main' : 'sub'), num: p.num }; }),
+      ghostSeal: g ? gc.faces[gBack ? 1 - gc.main : gc.main].s : '', ghostSealCls: Z.seal(g ? gc.faces[gBack ? 1 - gc.main : gc.main].s : '', !gBack, 'xs'),
+      pops: s.pops.map(function (p) { return { cls: 'pop e-' + p.el, style: 'left:' + p.x + 'px;top:' + (p.y - 20) + 'px', tn: p.tn, seal: p.seal, sealCls: Z.seal(p.seal, p.isMain, 's'), num: p.num }; }),
       msg: s.msg || (drag ? '松手出手 · 拖回手牌行取消' : ''),
       move: function (e) {
         var p = self.press; if (!p) return;

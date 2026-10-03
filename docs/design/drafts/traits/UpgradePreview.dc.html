@@ -82,9 +82,9 @@
   <div class="{{ dlgCls }}">
     <div class="hd"><h4>升级「{{ id }}」</h4><span class="warn">墨锭与重复卡扣除后不退还</span></div>
     <div class="cards">
-      <div class="ct old"><span class="lv">Lv.{{ L }}</span><span class="g">{{ id }}</span><span class="seal xs main">{{ mainSeal }}</span></div>
+      <div class="ct old"><span class="lv">Lv.{{ L }}</span><span class="g">{{ id }}</span><span class="{{ mainSealCls }}">{{ mainSeal }}</span></div>
       <span class="arrow">→</span>
-      <div class="ct"><span class="lv">Lv.{{ L2 }}</span><span class="g">{{ id }}</span><span class="seal xs main">{{ mainSeal }}</span></div>
+      <div class="ct"><span class="lv">Lv.{{ L2 }}</span><span class="g">{{ id }}</span><span class="{{ mainSealCls }}">{{ mainSeal }}</span></div>
       <span class="upchip">升到 Lv.{{ L2 }}</span>
     </div>
     <div class="bd">
@@ -131,7 +131,7 @@ var Z = window.ZD;
 function whereOf(c, t) {
   if (t.face === 'both') return { seal: '两', cls: 'seal l both', w: '两面', sub: t.lv === 4 ? '修饰本字' : '两面同时强化' };
   var f = c.faces[t.fi], m = t.fi === c.main;
-  return { seal: f.s, cls: 'seal l ' + (m ? 'main' : 'sub'), w: (m ? '主面' : '副面') + '「' + f.s + '」', sub: f.role + (m ? '' : ' · 60%') };
+  return { seal: f.s, cls: Z.seal(f.s, m, 'l'), w: (m ? '主面' : '副面') + (f.s === '攻' ? ' · 攻击' : '「' + f.s + '」'), sub: f.s === '攻' ? '' : f.role };
 }
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { id: '炎', L: 4 }; }
@@ -144,7 +144,7 @@ class Component extends DCLogic {
         var o = st.v, n = b.stats[i].v;
         if (o === n) return;
         var on = parseFloat(String(o).replace('+', '')), nn = parseFloat(String(n).replace('+', ''));
-        deltas.push({ s: a.s, sealCls: 'seal xs ' + (m ? 'main' : 'sub'), k: st.k, o: o, n: n, dl: isNaN(on) || isNaN(nn) ? '' : '(+' + (nn - on) + ')' });
+        deltas.push({ s: a.s, sealCls: Z.seal(a.s, m, 'xs'), k: st.k, o: o, n: n, dl: isNaN(on) || isNaN(nn) ? '' : '(+' + (nn - on) + ')' });
       });
     });
     var all = Z.traitsOf(id, L2);
@@ -154,7 +154,7 @@ class Component extends DCLogic {
     var w = nu ? whereOf(c, nu) : null, wn = nx ? whereOf(c, nx) : null;
     return {
       bg: new Array(20).fill(0),
-      dlgCls: 'dlg e-' + c.el + ' r-' + c.rar, id: id, L: L, L2: L2, mainSeal: c.faces[c.main].s,
+      dlgCls: 'dlg e-' + c.el + ' r-' + c.rar, id: id, L: L, L2: L2, mainSeal: c.faces[c.main].s, mainSealCls: Z.seal(c.faces[c.main].s, true, 'xs'),
       deltas: deltas.slice(0, 4), noDelta: deltas.length === 0,
       rightTitle: nu ? '新解锁' : '特性',
       hasNew: !!nu, noNew: !nu,

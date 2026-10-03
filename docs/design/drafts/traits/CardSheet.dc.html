@@ -169,7 +169,7 @@
 
   <div class="{{ sheetCls }}">
     <div class="hdr">
-      <div class="btile"><span class="g">{{ id }}</span><span class="seal main m">{{ mainSeal }}</span></div>
+      <div class="btile"><span class="g">{{ id }}</span><span class="{{ mainSealCls }}">{{ mainSeal }}</span></div>
       <div class="hi">
         <div class="nmrow">
           <span class="nm">{{ id }}</span><span class="pyx">{{ py }}</span>
@@ -327,8 +327,8 @@ class Component extends DCLogic {
       var f = Z.faceOf(id, fi, L), m = f.isMain;
       return {
         cls: 'face ' + (m ? 'main' : 'sub'), s: f.s, role: f.role,
-        sealCls: 'seal l ' + (m ? 'main' : 'sub'),
-        tagCls: 'mtag ' + (m ? 'main' : 'sub'), tag: m ? '主面 · 100%' : '副面 · 60%',
+        sealCls: Z.seal(f.s, m, 'l'),
+        tagCls: 'mtag ' + (m ? 'main' : 'sub'), tag: m ? '主面' : '副面',
         tgtLine: Z.TGT[f.tgt] + (f.tgt === 'summon' ? '' : ' · ' + f.area),
         stats: f.stats.map(function (st, i) {
           var key = 'st' + fi + i;
@@ -355,7 +355,7 @@ class Component extends DCLogic {
       bgTiles: BG.map(function (b) { return { g: b[0], cls: 'mt e-' + b[1] + ' r-' + b[2] }; }),
       sheetCls: 'sheet e-' + c.el + ' r-' + c.rar,
       id: id, py: c.py, gloss: c.gloss, L: L,
-      rarName: Z.RAR[c.rar], elName: EL[c.el], mainSeal: c.faces[c.main].s,
+      rarName: Z.RAR[c.rar], elName: EL[c.el], mainSeal: c.faces[c.main].s, mainSealCls: Z.seal(c.faces[c.main].s, true, 'm'),
       pips: pips,
       copyCls: 'cost' + (c.copies[0] >= c.copies[1] ? ' ok' : ''), copyTxt: c.copies[0] + ' / ' + c.copies[1],
       inkCls: 'cost' + (c.ink[0] >= c.ink[1] ? ' ok' : ''), inkTxt: c.ink[0].toLocaleString() + ' / ' + c.ink[1].toLocaleString(),

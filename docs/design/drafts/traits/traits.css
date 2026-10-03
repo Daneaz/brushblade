@@ -76,7 +76,7 @@ button { font-family: inherit; color: inherit; }
 .r-Red    { --rar: var(--rarity-red);    --rarSoft: var(--rarity-red-soft); }
 
 /* ================= 面印(本稿的核心记号) =================
-   一面 = 一枚方印,印文是该面的单字(焚燃斩铠涛润震固刺生)。
+   五行面 = 本系方印(燃铠润固生),攻击 = 统一的墨色「攻」印(.atk)。
    主面:字形色实底 + 白字(朱文印);副面:背面纸底 + 字形色 1pt 边 + 深前景字(白文印的反相)。
    同一枚印出现在手牌、详情、升级预览、飘字四处 —— 玩家只认这一个记号。 */
 .seal { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
@@ -84,6 +84,8 @@ button { font-family: inherit; color: inherit; }
 .seal.main { background: var(--glyph); color: #fff; }
 .seal.sub  { background: var(--card-face); color: var(--elFg); box-shadow: inset 0 0 0 1px var(--glyph); }
 .seal.both { background: var(--ink-soft); color: #fff; }
+/* 攻击一律用「攻」印(v6.1):不分五行,墨色。主 = 墨底白字,副 = 纸底墨边墨字 —— 与本系彩色的五行面印一眼分开 */
+.seal.atk { --glyph: var(--ink); --elFg: var(--ink); }
 .seal.xs { width: 10px; height: 10px; font-size: 7px; border-radius: 2px; }
 .seal.s  { width: 13px; height: 13px; font-size: 9px; }
 .seal.m  { width: 17px; height: 17px; font-size: 11.5px; border-radius: 3px; }

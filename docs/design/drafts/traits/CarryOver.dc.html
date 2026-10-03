@@ -103,7 +103,7 @@
           <div class="stt"><sc-for list="{{ pchips }}" as="c"><span class="{{ c.cls }}"><svg><use href="{{ c.ic }}"></use></svg>{{ c.t }}</span></sc-for></div>
         </div>
         <div class="handrow"><span class="hl">字库 6/8</span>
-          <sc-for list="{{ hand }}" as="h"><div class="{{ h.cls }}"><span class="g">{{ h.g }}</span><span class="seal xs main">{{ h.s }}</span></div></sc-for>
+          <sc-for list="{{ hand }}" as="h"><div class="{{ h.cls }}"><span class="g">{{ h.g }}</span><span class="{{ h.sealCls }}">{{ h.s }}</span></div></sc-for>
         </div>
       </div>
     </div>
@@ -185,7 +185,7 @@ class Component extends DCLogic {
           chips: burned ? [{ cls: 'sc k-dot', ic: '#ic-burn', t: '2' }] : [] };
       }); }),
       pchips: pchips,
-      hand: ['剑', '林', '冷', '㙓', '炎'].map(function (k) { var c = Z.CHARS[k]; return { g: k, s: c.faces[c.main].s, cls: 'htile e-' + c.el + ' r-' + c.rar }; }),
+      hand: ['剑', '林', '冷', '㙓', '炎'].map(function (k) { var c = Z.CHARS[k]; return { g: k, s: c.faces[c.main].s, sealCls: Z.seal(c.faces[c.main].s, true, 'xs'), cls: 'htile e-' + c.el + ' r-' + c.rar }; }),
       showScroll: step < 2, showChip: step === 2, showPop: step === 2 && s.pop,
       scrollSub: step === 0 ? '本场开局 · ' + CO.length + ' 条' : '已结算,场数减一',
       rows: rows, live: live, activeN: live.length, fpops: fpops,

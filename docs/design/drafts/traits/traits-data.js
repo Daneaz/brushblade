@@ -2,8 +2,8 @@
    来源:docs/superpowers/specs/2026-10-03-字卡五特性体系-design.md §1 §3 §4 §9;
    本体基础值取自 Brushblade/Assets/StreamingAssets/config/chars.json(仿真定标前的现值)。
    口径(稿内假设,待实现侧确认):
-   · 数值每级 +6%(§1);副面按 60%(§2.1)—— 只乘伤害/护盾/治疗/召唤属性这类量,
-     层数、回合、次数、百分比不打折(§1「层数、回合、次数、击数不随等级涨」的延伸)。
+   · 数值每级 +6%(§1);副面暂不打折(v6.1,2026-10-04 用户拍板):两面都按 100% 结算,
+     Core 保留 BattleConfig.SideFacePercent(缺省 100),平衡阶段再定。
    文案标记:[词] = 术语(可查词条);{数} = 数字(加粗)。 */
 window.ZD = (function () {
   var EL = { Fire: '火', Metal: '金', Water: '水', Earth: '土', Wood: '木' };
@@ -21,8 +21,8 @@ window.ZD = (function () {
     '减速': '速度 −50%',
     '战意': '每层攻击 +10%，最多 5 层，本场保留',
     '格挡': '下一次受到的伤害 −40%，并反击攻击者',
-    '泉': '治疗时自动积累，最多 10 层。部分水字的攻击面会全部释放',
-    '厚': '获得护盾时自动积累，最多 10 层。部分土字的攻击面会全部释放',
+    '泉': '治疗时自动积累，最多 10 层。部分水字的攻击会全部释放',
+    '厚': '获得护盾时自动积累，最多 10 层。部分土字的攻击会全部释放',
     '护盾': '先于生命扣除。回合结束时清空；战斗结束保留一部分',
     '留存护盾': '回合结束时不清空的护盾',
     '护甲': '按比例减少受到的伤害',
@@ -59,18 +59,20 @@ window.ZD = (function () {
 
   var TGT = { enemy: '拖到敌人', ally: '拖到自己或木灵', summon: '拖到空位召唤 · 拖到木灵上嫁接' };
 
+  var SIDE = 1; // 副面系数 = SideFacePercent / 100
   function sc(L) { return 1 + 0.06 * (L - 1); }
   function r(x) { return Math.round(x); }
 
-  // faces[0] = 攻击面,faces[1] = 特色面;main = 主面下标。stats(L, p) 里 p = 1(主面)或 0.6(副面)。
+  // faces[0] = 攻击(统一记号「攻」),faces[1] = 五行面(本系面印);main = 主面下标。
+  // stats(L, p) 里 p = 副面系数,v6.1 起两面都是 SIDE = 1。
   // traits.face:'both' | 'main' | 'sub'
   var CHARS = {
     '炎': {
       el: 'Fire', rar: 'Gold', py: 'yán', gloss: '火苗上炎', rec: ['火', '火'], main: 1, copies: [4, 4], ink: [2480, 2000],
       faces: [
-        { s: '焚', role: '攻击面', tgt: 'enemy', area: '单体', lv1: '伤害 + [灼] {3}',
+        { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [灼] {3}',
           stats: function (L, p) { return [{ k: '伤害', v: r(168 * sc(L) * p) }, { k: '灼', v: L >= 3 ? 4 : 3, u: '层', t: '灼' }]; } },
-        { s: '燃', role: '特色面', tgt: 'enemy', area: '单体', lv1: '[灼] {3}，目标攻击 −{15%}，{2} 回合',
+        { s: '燃', role: '五行面', tgt: 'enemy', area: '单体', lv1: '[灼] {3}，目标攻击 −{15%}，{2} 回合',
           stats: function (L) { return [{ k: '灼', v: L >= 3 ? 4 : 3, u: '层', t: '灼' }, { k: '目标攻击', v: '−15%', t: '减攻' }, { k: '持续', v: L >= 3 ? 3 : 2, u: '回合' }]; } }
       ],
       traits: [
@@ -84,9 +86,9 @@ window.ZD = (function () {
     '剑': {
       el: 'Metal', rar: 'Blue', py: 'jiàn', gloss: '两刃长兵', rec: ['佥', '刂'], main: 0, copies: [6, 6], ink: [3400, 2600],
       faces: [
-        { s: '斩', role: '攻击面', tgt: 'enemy', area: '单体', lv1: '伤害 + [战意] {1}',
+        { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [战意] {1}',
           stats: function (L, p) { return [{ k: '伤害', v: r(94 * sc(L) * p) }, { k: '战意', v: L >= 3 ? '+2' : '+1', u: '层', t: '战意' }]; } },
-        { s: '铠', role: '特色面', tgt: 'ally', area: '单体', lv1: '[战意] {1}，[格挡] {1} 次（反击本体 {30%}）',
+        { s: '铠', role: '五行面', tgt: 'ally', area: '单体', lv1: '[战意] {1}，[格挡] {1} 次（反击本体 {30%}）',
           stats: function (L, p) { return [{ k: '战意', v: L >= 3 ? '+2' : '+1', u: '层', t: '战意' }, { k: '格挡', v: L >= 3 ? 2 : 1, u: '次', t: '格挡' }, { k: '反击', v: r(94 * sc(L) * p * (L >= 5 ? 0.5 : 0.3)) }]; } }
       ],
       traits: [
@@ -100,9 +102,9 @@ window.ZD = (function () {
     '林': {
       el: 'Wood', rar: 'Gold', py: 'lín', gloss: '成片的树', rec: ['木', '木'], main: 1, copies: [1, 4], ink: [800, 2000],
       faces: [
-        { s: '刺', role: '攻击面', tgt: 'enemy', area: '单体', lv1: '伤害 + [种] {2} 回合',
+        { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [种] {2} 回合',
           stats: function (L, p) { return [{ k: '伤害', v: r(233 * sc(L) * p) }, { k: '种', v: L >= 3 ? 3 : 2, u: '回合', t: '种' }]; } },
-        { s: '生', role: '特色面', tgt: 'summon', area: '召唤', lv1: '召唤林灵（带[本命]「成林」）',
+        { s: '生', role: '五行面', tgt: 'summon', area: '召唤', lv1: '召唤林灵（带[本命]「成林」）',
           stats: function (L, p) { return [{ k: '林灵生命', v: r(346 * sc(L) * p), t: '木灵' }, { k: '攻击', v: r(73 * sc(L) * p) }, { k: '本命', v: '成林', t: '本命' }]; } }
       ],
       traits: [
@@ -116,9 +118,9 @@ window.ZD = (function () {
     '冷': {
       el: 'Water', rar: 'White', py: 'lěng', gloss: '寒而不温', rec: ['冫', '令'], main: 0, copies: [9, 12], ink: [600, 900],
       faces: [
-        { s: '涛', role: '攻击面', tgt: 'enemy', area: '单体', lv1: '伤害 + [减速] {1} 回合',
+        { s: '攻', role: '攻击', tgt: 'enemy', area: '单体', lv1: '伤害 + [减速] {1} 回合',
           stats: function (L, p) { return [{ k: '伤害', v: r(45 * sc(L) * p) }, { k: '减速', v: L >= 3 ? 2 : 1, u: '回合', t: '减速' }]; } },
-        { s: '润', role: '特色面', tgt: 'ally', area: '单体', lv1: '治疗，并附[润泽] {2} 回合',
+        { s: '润', role: '五行面', tgt: 'ally', area: '单体', lv1: '治疗，并附[润泽] {2} 回合',
           stats: function (L, p) { return [{ k: '治疗', v: r(45 * sc(L) * p) }, { k: '润泽', v: L >= 3 ? 3 : 2, u: '回合', t: '润泽' }]; } }
       ],
       traits: [
@@ -132,9 +134,9 @@ window.ZD = (function () {
     '㙓': {
       el: 'Earth', rar: 'Red', py: 'lěi', gloss: '土垒极厚', rec: ['土', '垚'], main: 1, copies: [2, 2], ink: [5200, 8000],
       faces: [
-        { s: '震', role: '攻击面', tgt: 'enemy', area: '全体', lv1: '伤害 + [破甲] {2} 回合；释放[厚]',
+        { s: '攻', role: '攻击', tgt: 'enemy', area: '全体', lv1: '伤害 + [破甲] {2} 回合；释放[厚]',
           stats: function (L, p) { return [{ k: '伤害', v: r(235 * sc(L) * p) }, { k: '破甲', v: L >= 3 ? 4 : 2, u: '回合', t: '破甲' }]; } },
-        { s: '固', role: '特色面', tgt: 'ally', area: '单体', lv1: '[护盾] + [护甲] {2} 回合',
+        { s: '固', role: '五行面', tgt: 'ally', area: '单体', lv1: '[护盾] + [护甲] {2} 回合',
           stats: function (L, p) { return [{ k: '护盾', v: r(235 * sc(L) * p), t: '护盾' }, { k: '护甲', v: '+' + r(100 * sc(L) * p), t: '护甲' }, { k: '持续', v: (L >= 3 ? 4 : 2) * (L >= 4 ? 2 : 1), u: '回合' }]; } }
       ],
       traits: [
@@ -171,9 +173,11 @@ window.ZD = (function () {
   }
   function faceOf(id, fi, L) {
     var c = CHARS[id], f = c.faces[fi], isMain = fi === c.main;
-    return Object.assign({}, f, { fi: fi, isMain: isMain, pct: isMain ? 100 : 60, stats: f.stats(L, isMain ? 1 : 0.6) });
+    return Object.assign({}, f, { fi: fi, isMain: isMain, stats: f.stats(L, isMain ? 1 : SIDE) });
   }
-  return { EL: EL, RAR: RAR, KE: KE, KE_BY: KE_BY, GLOSS: GLOSS, GLOSS_KIND: GLOSS_KIND, TGT: TGT, CHARS: CHARS,
+  // 面印的 class:五行面印吃所在元素的 --glyph;「攻」印加 .atk 换成墨色
+  function seal(s, isMain, size) { return 'seal ' + size + ' ' + (isMain ? 'main' : 'sub') + (s === '攻' ? ' atk' : ''); }
+  return { seal: seal, EL: EL, RAR: RAR, KE: KE, KE_BY: KE_BY, GLOSS: GLOSS, GLOSS_KIND: GLOSS_KIND, TGT: TGT, CHARS: CHARS,
     segs: segs, terms: terms, plain: plain, traitsOf: traitsOf, faceOf: faceOf, sc: sc, ORDER: ['炎', '剑', '林', '冷', '㙓'] };
 })();
 

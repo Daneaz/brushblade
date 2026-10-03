@@ -222,9 +222,9 @@ class Component extends DCLogic {
       var locked = mine.filter(function (t) { return !t.on; });
       return {
         cls: 'face ' + (m ? 'main' : 'sub') + (fi === upFi ? ' up' : ''), up: fi === upFi,
-        s: f.s, role: f.role, sealCls: 'seal m ' + (m ? 'main' : 'sub'),
+        s: f.s, role: f.role, sealCls: Z.seal(f.s, m, 'm'),
         tgtLine: Z.TGT[f.tgt] + (f.tgt === 'summon' ? '' : ' · ' + f.area),
-        tagCls: 'mtag ' + (m ? 'main' : 'sub'), tag: m ? '主面 100%' : '副面 60%',
+        tagCls: 'mtag ' + (m ? 'main' : 'sub'), tag: m ? '主面' : '副面',
         stats: f.stats.map(function (st) { return { k: st.k, v: st.v, u: st.u || '', cls: 'sb' + (st.t ? ' t' : '') }; }),
         traits: mine.filter(function (t) { return t.on; }).map(row),
         hasLocked: locked.length > 0,
@@ -247,16 +247,16 @@ class Component extends DCLogic {
     var hand = ['剑', id === '剑' ? '冷' : id, '林', '冷', '㙓'].filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 5).map(function (k) {
       var cc = Z.CHARS[k], open = k === id, back = open && s.sub;
       var fi = back ? 1 - cc.main : cc.main;
-      return { g: k, s: cc.faces[fi].s, cls: 'htile e-' + cc.el + ' r-' + cc.rar + (back ? ' back' : '') + (open ? ' hopen' : ''), sealCls: 'seal xs ' + (back ? 'sub' : 'main') };
+      return { g: k, s: cc.faces[fi].s, cls: 'htile e-' + cc.el + ' r-' + cc.rar + (back ? ' back' : '') + (open ? ' hopen' : ''), sealCls: Z.seal(cc.faces[fi].s, !back, 'xs') };
     });
     return {
       foes: FOES.map(function (e) { return { g: e[0], n: e[1], en: Z.EL[e[2]], cls: 'cell front e-' + e[2], hp: 'width:' + e[3] + '%' }; }),
       hand: hand,
       sheetCls: 'sheet e-' + c.el + ' r-' + c.rar, btileCls: 'btile' + (s.sub ? ' back' : ''),
-      upSeal: upFace.s, upSealCls: 'seal s ' + (s.sub ? 'sub' : 'main'),
+      upSeal: upFace.s, upSealCls: Z.seal(upFace.s, !s.sub, 's'),
       id: id, py: c.py, gloss: c.gloss, L: L, rarName: Z.RAR[c.rar], elName: Z.EL[c.el],
       pips: pips, faces: faces, shared: shared, wx: wx,
-      wxNote: isAllyUp ? '朝上的「' + upFace.s + '」作用于我方：护盾、治疗、召唤不吃生克倍率。' : '朝上的「' + upFace.s + '」打敌人：' + (c.el === 'Fire' ? '伤害与灼伤' : '伤害') + '都按上表倍率结算。',
+      wxNote: isAllyUp ? '朝上的「' + upFace.s + '」作用于我方：护盾、治疗、召唤不吃生克倍率。' : (upFace.s === '攻' ? '朝上的是攻击：' : '朝上的「' + upFace.s + '」打敌人：') + (c.el === 'Fire' ? '伤害与灼伤' : '伤害') + '都按上表倍率结算。',
       charBtns: Z.ORDER.map(function (k) { return { id: k, cls: k === id ? 'on' : '', pick: function () { self.setState({ id: k }); } }; }),
       upBtns: [['主面', false], ['副面', true]].map(function (b) { return { n: b[0], cls: s.sub === b[1] ? 'on' : '', pick: function () { self.setState({ sub: b[1] }); } }; }),
       lvBtns: [1, 3, 5, 6, 8, 10].map(function (n) { return { n: 'Lv' + n, cls: n === L ? 'on' : '', pick: function () { self.setState({ L: n }); } }; })

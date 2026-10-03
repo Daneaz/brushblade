@@ -82,7 +82,7 @@
           <div class="stt"><span class="{{ blkCls }}" data-a="p-block"><svg><use href="#ic-block"></use></svg>{{ blk }}</span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span></div>
         </div>
         <div class="handrow"><span class="hl">字库 5/8</span>
-          <sc-for list="{{ hand }}" as="h"><div class="{{ h.cls }}"><span class="g">{{ h.g }}</span><span class="seal xs main">{{ h.s }}</span></div></sc-for>
+          <sc-for list="{{ hand }}" as="h"><div class="{{ h.cls }}"><span class="g">{{ h.g }}</span><span class="{{ h.sealCls }}">{{ h.s }}</span></div></sc-for>
         </div>
       </div>
     </div>
@@ -184,7 +184,7 @@ class Component extends DCLogic {
       erows: [rear.map(function (e) { return cell(e, false); }), front.map(function (e) { return cell(e, true); })],
       shCls: 'sbadge' + (fl === 'p-shield' ? ' flash' : ''), blkCls: 'sc k-heal' + (fl === 'p-block' ? ' flash' : ''), blk: String(s.blk),
       php: s.php, phpW: 'width:' + Math.round(s.php / 920 * 100) + '%',
-      hand: ['炎', '剑', '林', '冷', '㙓'].map(function (k) { var c = Z.CHARS[k]; return { g: k, s: c.faces[c.main].s, cls: 'htile e-' + c.el + ' r-' + c.rar }; }),
+      hand: ['炎', '剑', '林', '冷', '㙓'].map(function (k) { var c = Z.CHARS[k]; return { g: k, s: c.faces[c.main].s, sealCls: Z.seal(c.faces[c.main].s, true, 'xs'), cls: 'htile e-' + c.el + ' r-' + c.rar }; }),
       pops: s.pops.map(function (p) {
         var base = 'left:' + p.x + 'px;top:' + p.y + 'px;';
         if (p.kind === 'trait') return { cls: 'lbl trait e-' + p.el, style: base, seal: p.seal, sealCls: 'seal s ' + (p.main ? 'main' : 'sub'), ic: '', t: p.t };
