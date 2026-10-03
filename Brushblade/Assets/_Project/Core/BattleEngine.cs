@@ -834,12 +834,12 @@ namespace Brushblade.Core
         /// 不给唯一 id 的话第二次挂增益会覆盖第一次而不是叠加。</summary>
         internal void ApplyPlayerAttackBuff(int amount)
         {
-            _playerStatuses.Apply(new StatusEffect
+            ApplyStatus(_playerStatuses, new StatusEffect
             {
                 Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                 Magnitude = amount, TurnsLeft = -1,
                 SourceId = $"debug-atk#{_statusSerial++}",
-            });
+            }, UnitRef.Player, UnitRef.None);
         }
 
         /// <summary>这一记挥击面对的敌人有效护甲(点数,2026-08-12,E-b4)。
@@ -1217,14 +1217,14 @@ namespace Brushblade.Core
             }
             if (stacks >= cap) accum = 0; // 攒到顶,余数清掉
 
-            _playerStatuses.Apply(new StatusEffect
+            ApplyStatus(_playerStatuses, new StatusEffect
             {
                 Kind = kind,
                 Polarity = StatusPolarity.Buff,
                 Magnitude = stacks,
                 TurnsLeft = -1,        // 持久,不随回合递减
                 SourceId = sourceId,   // 单一来源:Apply() 走覆盖刷新而非叠加
-            });
+            }, UnitRef.Player, UnitRef.Player);
         }
 
         public int ShieldNormal => _shieldNormal;
@@ -2370,7 +2370,7 @@ namespace Brushblade.Core
                     DamageEnemy(tgt, damage, summon.Element,
                         crit: RollCritForSummon(summon), attackerBag: summon.Statuses,
                         sameSwing: sameSwing);
-                ApplySummonOnHit(summon, tgt);
+                ApplySummonOnHit(summon, tgt, summonIndex);
             }
         }
 
@@ -2403,12 +2403,12 @@ namespace Brushblade.Core
                 // 加成本场累计、回合末不回滚(既有语义)。SourceId 必须每次唯一——用回合数做
                 // 后缀不够:场上若有两只同字标点小妖同回合各给同一目标加一次,回合数后缀会撞车
                 // 变成互相覆盖而非累加(与 Task 4 的 HoT SourceId 教训同型)。
-                other.Statuses.Apply(new StatusEffect
+                ApplyStatus(other.Statuses, new StatusEffect
                 {
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                     Magnitude = PunctuationBuffPercent, TurnsLeft = -1,
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                });
+                }, UnitRef.Enemy(j), UnitRef.Enemy(enemyIndex));
                 _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, j, PunctuationBuffPercent));
             }
         }
@@ -2497,12 +2497,12 @@ namespace Brushblade.Core
                 {
                     if (tankIdx == Targeting.PlayerTarget)
                     {
-                        RefreshBurn(_playerStatuses, SearStacks);
+                        RefreshBurn(_playerStatuses, SearStacks, UnitRef.Player, UnitRef.Enemy(enemyIndex));
                         _events.Add(new BattleEvent(BattleEventKind.Burn, -1, SearStacks)); // −1 = 玩家
                     }
                     else
                     {
-                        RefreshBurn(_summons[tankIdx].Statuses, SearStacks);
+                        RefreshBurn(_summons[tankIdx].Statuses, SearStacks, UnitRef.Summon(tankIdx), UnitRef.Enemy(enemyIndex));
                         _events.Add(new BattleEvent(BattleEventKind.SummonBurn, tankIdx, SearStacks));
                     }
                 }
@@ -2759,39 +2759,39 @@ namespace Brushblade.Core
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
                         {
-                            ApplyBurn(targetIndex, value);
+                            ApplyBurn(targetIndex, value, UnitRef.Player);
                             _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, value));
                         }
                         break;
                     case EffectKind.Bleed:
                         if (_enemies[targetIndex].Alive)
                         {
-                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Bleed, Polarity = StatusPolarity.Debuff,
                                 // 出牌时吃攻击力:Magnitude 本来就是施加时定死的,套上即为快照语义
                                 Magnitude = ScaleByAttack(value), TurnsLeft = 3,   // 固定 3 回合
-                            });
+                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
                         }
                         break;
                     case EffectKind.Freeze:
                         if (_enemies[targetIndex].Alive)
-                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
                                 // Magnitude 不赋值(2026-08-05 M1):全代码库没有任何地方读它,
                                 // 赋了反而是语义为空的垃圾值,TotalMagnitude(Freeze) 会返回它。
                                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
                                 TurnsLeft = value,
-                            });
+                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
                         break;
                     case EffectKind.Slow:
                         if (_enemies[targetIndex].Alive)
                         {
-                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
                                 Magnitude = -50, TurnsLeft = value, SourceId = def.Id,
-                            });
+                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
                         }
                         break;
                     case EffectKind.Charm:
@@ -2802,13 +2802,13 @@ namespace Brushblade.Core
                         // ScaleTurnsByCardLevel。Math.Max(1, …) 保留:字表若漏填 turns(=0)
                         // 时兜底给 1 回合,而不是让魅惑当场到期。
                         if (targetIndex >= 0)
-                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Charm, Polarity = StatusPolarity.Debuff,
                                 Magnitude = 1,
                                 TurnsLeft = Math.Max(1, effect.Turns),
                                 SourceId = def.Id,
-                            });
+                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
                         break;
                     case EffectKind.ArmorBreak:
                         // 破甲 = 削目标护甲 Value **点**(2026-08-12,E-b4 T3 复原原始设计)。
@@ -2819,14 +2819,14 @@ namespace Brushblade.Core
                         // SourceId 铸唯一序号 → **可叠加**且**各自计时**:不叠只刷新的话六个破甲字
                         // 互相排斥,先出削 20 的再出削 10 的会变弱,而战例二的「三张接力削光坚壁 Boss」
                         // 整套玩法就建立在叠加上。上限由 EffectiveEnemyDefense 的 max(0,…) 天然给出。
-                        _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                        ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                         {
                             Kind = StatusKind.ArmorBreak,
                             Polarity = StatusPolarity.Debuff,
                             Magnitude = value,
                             TurnsLeft = Math.Max(1, effect.Turns),
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        });
+                        }, UnitRef.Enemy(targetIndex), UnitRef.Player);
                         break;
                     case EffectKind.Dispel:
                         // 条数用 effect.Value 而不是 value —— 驱散条数不吃卡等级(与召唤被动同口径:
@@ -2861,11 +2861,11 @@ namespace Brushblade.Core
                         // 不同字之间可叠(塞 1 + 杜 2 = 3 次),因为它们是不同来源。
                         // 不发事件(2026-08-06 M2):没有任何消费方读 Immunity 事件,理由同 Cleanse。
                         // 2026-08-28:改单体,挂在 allySlot 指的那一方身上。
-                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.Immunity, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1, SourceId = def.Id,
-                        });
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.Revive:
                         // 玩家点了尸体(见方法头):那一具已经救过,算第一只
@@ -2899,11 +2899,11 @@ namespace Brushblade.Core
                     case EffectKind.Silence:
                         if (targetIndex >= 0 && _enemies[targetIndex].Alive)
                         {
-                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.Silence, Polarity = StatusPolarity.Debuff,
                                 Magnitude = 1, TurnsLeft = effect.Turns, SourceId = def.Id,
-                            });
+                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
                             // 封禁(2026-09-05):取代了 2026-08-08 评审 Important 1 那条「挂上
                             // 当下就打断蓄力」的旧处理 —— 那条打断的正是 Boss 的 IsCharging/
                             // ChargeCounter(全代码库只有 ResolveBossTurn 会把它们置真,只有 Boss
@@ -2918,20 +2918,20 @@ namespace Brushblade.Core
                         // 2026-08-28:改单体。玩家身上那份在召唤物顶前排时本来就会结算
                         // (2026-08-08,镜 × 召唤物),召唤物自己挂一份时**两份都反** ——
                         // 它们是两个不同来源,见 DamageSummon 末尾。
-                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.Reflect, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = effect.Turns, SourceId = def.Id,
-                        });
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.BurnNoDecay:
                         // SourceId 用字 ID:同字再出只刷新,不挂两条
                         if (targetIndex >= 0 && _enemies[targetIndex].Alive)
-                            _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                            ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
                                 Kind = StatusKind.BurnNoDecay, Polarity = StatusPolarity.Debuff,
                                 Magnitude = 1, TurnsLeft = -1, SourceId = def.Id,
-                            });
+                            }, UnitRef.Enemy(targetIndex), UnitRef.Player);
                         break;
                     case EffectKind.BurnSettleNow:
                         // 复用回合末那一套(SettleBurnOn 自带存活与空层守卫),不留两份实现
@@ -2981,7 +2981,7 @@ namespace Brushblade.Core
                         // 覆盖第一张,静默退化成刷新。
                         // 2026-08-28:改单体,挂在 allySlot 指的那一方身上;召唤物侧由
                         // SummonState.EffectiveAttack 读走。
-                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
@@ -2993,7 +2993,7 @@ namespace Brushblade.Core
                                 ? MetaRules.ScaleTurnsByCardLevel(effect.Turns, cardLevel)
                                 : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        });
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.Morale:
                         // 战/戮(2026-08-12):战意是一条**带上限的计数器**,战与戮往同一条上加。
@@ -3009,7 +3009,7 @@ namespace Brushblade.Core
                         // 不在这里钳上限,由 EffectiveCrit 的 Clamp 统一负责:钳在施加处的话
                         // 「90 + 20」会被存成 100,后来驱散掉一条反而看不出原本该剩多少。
                         // 2026-08-28:改单体;召唤物侧由 RollCritForSummon 读走(它自己钳)。
-                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.CritBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value,
@@ -3021,7 +3021,7 @@ namespace Brushblade.Core
                                 ? MetaRules.ScaleTurnsByCardLevel(effect.Turns, cardLevel)
                                 : -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        });
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.ApBoost:
                         // 利(2026-08-12):AP 是「节奏/经济」不是「资源」,与驱散条数、
@@ -3040,12 +3040,12 @@ namespace Brushblade.Core
                         // SourceId 铸唯一序号 → **同字也可叠加**(2026-09-16,与 ArmorBreak 同款):
                         // 护甲改百分比减伤(DR = 甲/(甲+100))之后 DR 永远到不了 100%,「同字不叠」
                         // 这条约束当初只是为了防止点数减法叠满即无敌,理由随之消失。
-                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = Math.Max(1, effect.Turns),
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        });
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.PierceBuff:
                         // 锐(2026-08-12,E-b4 T5):本场穿透 +Value 点,由 EffectiveEnemyDefense 读走。
@@ -3054,12 +3054,12 @@ namespace Brushblade.Core
                         // 不在这里钳上限:穿过头由 EffectiveEnemyDefense 的 max(0, …) 兜住,
                         // 钳在施加处会让「穿透 50 打 DEF 10」把多出来的 40 也存丢,换个敌人就亏了。
                         // 2026-08-28:改单体;召唤物出手时 EffectiveEnemyDefense 收它自己的袋子。
-                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.PierceBuff, Polarity = StatusPolarity.Buff,
                             Magnitude = value, TurnsLeft = -1,
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        });
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.Haste:
                         // 加速/急速(2026-09-16,水):落在被治疗的那个目标身上,与 HealSelf
@@ -3068,13 +3068,13 @@ namespace Brushblade.Core
                         // (AllyBaseSpeed),不是固定数,所以同一个 Value 挂在不同底速的召唤物上
                         // 点数不同(150 底速 +75、100 底速 +50)。
                         // SourceId 铸唯一序号(与 DefenseBuff/PierceBuff 同款,用法 2)才能叠。
-                        AllyStatuses(allySlot).Apply(new StatusEffect
+                        ApplyStatus(AllyStatuses(allySlot), new StatusEffect
                         {
                             Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Buff,
                             Magnitude = AllyBaseSpeed(allySlot) * value / 100,
                             TurnsLeft = Math.Max(1, effect.Turns),
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        });
+                        }, AllyRef(allySlot), UnitRef.Player);
                         break;
                     case EffectKind.Unseal:
                         // 解封(2026-09-16,水):落在被治疗的那个目标身上,与 Haste 同一张名单
@@ -3100,7 +3100,7 @@ namespace Brushblade.Core
                         for (int i = 0; i < _enemies.Count; i++)
                             if (_enemies[i].Alive)
                             {
-                                ApplyBurn(i, value);
+                                ApplyBurn(i, value, UnitRef.Player);
                                 _events.Add(new BattleEvent(BattleEventKind.Burn, i, value));
                             }
                         break;
@@ -3198,14 +3198,14 @@ namespace Brushblade.Core
                         else HealAlly(allySlot, amplifiedPerTurn);
                         int remainingTicks = Math.Max(1, effect.Turns) - 1;
                         if (remainingTicks <= 0) break;
-                        _playerStatuses.Apply(new StatusEffect
+                        ApplyStatus(_playerStatuses, new StatusEffect
                         {
                             Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
                             Magnitude = amplifiedPerTurn,   // 每回合量,已吃泉放大
                             TurnsLeft = remainingTicks, TargetAll = effect.TargetAll,
                             TargetSlot = allySlot,
                             SourceId = $"{def.Id}#{_statusSerial++}",
-                        });
+                        }, UnitRef.Player, UnitRef.Player);
                         break;
                     }
                     case EffectKind.Summon: // 木系主召唤(2026-07-19 拍板):前排抗伤+回合末反击
@@ -3238,13 +3238,9 @@ namespace Brushblade.Core
                             // 只给本次召出的这几只(与发给全场的 SummonShield 不同,见 EffectDef 注释)。
                             // TurnsLeft = -1 是刻意的:它随单位存在,不是场上飘着的玩家 buff。
                             // 吃卡等级 —— 与玩家侧 DefenseBuff 同口径(护甲点数是「资源」)。
-                            if (effect.SummonDefense > 0)
-                                newborn.Statuses.Apply(new StatusEffect
-                                {
-                                    Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
-                                    Magnitude = MetaRules.ScaleByCardLevel(effect.SummonDefense, cardLevel),
-                                    TurnsLeft = -1, SourceId = def.Id,
-                                });
+                            // (施加点挪到下面落位之后:ApplyStatus 要带上新召唤物的槽位,
+                            // 而槽位要等落位判定通过才知道;落位失败 break 时被丢弃的 newborn
+                            // 本来就无人可见,挂不挂都没有可观察差别。)
 
                             // 落位:玩家指定优先,未指定退回最小空槽(与 Task 1 等价)。
                             // 下标取 summonCursor 而非内层的 n —— 见方法头部那条注释
@@ -3272,6 +3268,13 @@ namespace Brushblade.Core
                             // SecondIndex 一律报落位槽:新增与顶替都要让表现层知道画哪一格。
                             // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
                             _summons[slot] = newborn;
+                            if (effect.SummonDefense > 0)
+                                ApplyStatus(newborn.Statuses, new StatusEffect
+                                {
+                                    Kind = StatusKind.DefenseBuff, Polarity = StatusPolarity.Buff,
+                                    Magnitude = MetaRules.ScaleByCardLevel(effect.SummonDefense, cardLevel),
+                                    TurnsLeft = -1, SourceId = def.Id,
+                                }, UnitRef.Summon(slot), UnitRef.Player);
                             summonCursor++; // 每落一只推进一格,跨 effect 持续累加
                             _events.Add(new BattleEvent(BattleEventKind.Summon, -1, value, slot));
                         }
@@ -3325,11 +3328,11 @@ namespace Brushblade.Core
                 existing.Magnitude = Math.Min(existing.Magnitude + amount, cap);
                 return;
             }
-            _playerStatuses.Apply(new StatusEffect
+            ApplyStatus(_playerStatuses, new StatusEffect
             {
                 Kind = kind, Polarity = StatusPolarity.Buff,
                 Magnitude = Math.Min(amount, cap), TurnsLeft = -1, SourceId = null,
-            });
+            }, UnitRef.Player, UnitRef.Player);
         }
 
         /// <summary>把随卡等级成长的召唤被动折算好,写进一份拷贝(2026-08-25)。
@@ -3386,12 +3389,12 @@ namespace Brushblade.Core
         {
             int pick = PickRandomLivingEnemy();
             if (pick < 0) return;
-            _enemies[pick].Statuses.Apply(new StatusEffect
+            ApplyStatus(_enemies[pick].Statuses, new StatusEffect
             {
                 // Magnitude 不赋值:与 EffectKind.Freeze 分支同口径(没有任何读取方)
                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
                 TurnsLeft = turns,
-            });
+            }, UnitRef.Enemy(pick), UnitRef.Player);
         }
 
         /// <summary>驱散一名敌人的增益:count &lt; 0 清全部,否则从头清至多 count 条。
@@ -3482,7 +3485,7 @@ namespace Brushblade.Core
                 if (remaining > 0)
                     foreach (int n in Targeting.AdjacentEnemies(_enemies, enemyIndex))
                     {
-                        ApplyBurn(n, 1);
+                        ApplyBurn(n, 1, UnitRef.None);
                         _events.Add(new BattleEvent(BattleEventKind.Burn, n, 1));
                     }
             }
@@ -3547,28 +3550,43 @@ namespace Brushblade.Core
                 CheckBossPhase(enemyIndex);
         }
 
+        /// <summary>状态施加的唯一入口(spec v6 §11.4)。目前只转调 bag.Apply(恒等);
+        /// Plan A Task 5 在此发 StatusApplied 钩子,Plan C 在此拦截霜抗/杜绝。</summary>
+        private void ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier)
+        {
+            bag.Apply(effect);
+        }
+
+        /// <summary>allySlot 对应的 UnitRef,与 <c>AllyStatuses(allySlot)</c> 同口径:
+        /// 槽位无效 / 空槽 / 已阵亡都回落到玩家。</summary>
+        private UnitRef AllyRef(int allySlot) =>
+            allySlot == Targeting.PlayerTarget || allySlot < 0 || allySlot >= SummonCap
+                || _summons[allySlot] == null || !_summons[allySlot].Alive
+                ? UnitRef.Player
+                : UnitRef.Summon(allySlot);
+
         /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
         /// 出字的灼烧字用这条:一次性施加,层数自然衰减到 0,累加是既有语义,不受光环影响。</summary>
-        private void ApplyBurn(int enemyIndex, int value)
+        private void ApplyBurn(int enemyIndex, int value, UnitRef applier = default)
         {
             var enemy = _enemies[enemyIndex];
             int newBurn = (enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0) + value;
-            enemy.Statuses.Apply(new StatusEffect
+            ApplyStatus(enemy.Statuses, new StatusEffect
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = newBurn, TurnsLeft = -1,
-            });
+            }, UnitRef.Enemy(enemyIndex), applier);
         }
 
         /// <summary>给一名敌人挂致盲。TurnsLeft 直接用配置的回合数 —— 致盲是玩家在自己回合
         /// 挂上的,不像 Boss 倾覆那样在敌方段挂(那种要 +1 才能熬过同回合的状态递减)。</summary>
         private void ApplyBlind(int enemyIndex, int percent, int turns, string sourceId)
         {
-            _enemies[enemyIndex].Statuses.Apply(new StatusEffect
+            ApplyStatus(_enemies[enemyIndex].Statuses, new StatusEffect
             {
                 Kind = StatusKind.Blind, Polarity = StatusPolarity.Debuff,
                 Magnitude = percent, TurnsLeft = turns, SourceId = sourceId,
-            });
+            }, UnitRef.Enemy(enemyIndex), UnitRef.Player);
         }
 
         /// <summary>刷新灼烧层数到 N 层(取现有层数与 N 的较大值,而非像 ApplyBurn 那样累加,
@@ -3581,14 +3599,14 @@ namespace Brushblade.Core
         /// 没有任何手段拆开这个雪球。
         /// Math.Max 保证:①连续多回合刷新不会累积;②不会削低别处已经堆起来的更高层数。
         /// 接 <see cref="StatusBag"/> 而非敌人下标 —— 玩家与召唤物两侧共用同一份实现。</summary>
-        private static void RefreshBurn(StatusBag statuses, int stacks)
+        private void RefreshBurn(StatusBag statuses, int stacks, UnitRef target, UnitRef applier)
         {
             int current = statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
-            statuses.Apply(new StatusEffect
+            ApplyStatus(statuses, new StatusEffect
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
                 Magnitude = Math.Max(current, stacks), TurnsLeft = -1,
-            });
+            }, target, applier);
         }
 
         /// <summary>召唤物出手的附带效果(2026-08-05,子项目 C):挂灼烧 / 挂诅咒。
@@ -3608,7 +3626,7 @@ namespace Brushblade.Core
         /// 真实字表里带 OnHitBurn 的只剩单体 1 层的 楸;OnHitBurnAll 这一支眼下**没有配置在用**,
         /// 保持与单体同语义,将来谁要配全场光环得自己重新算这笔账。
         /// 敌人侧的灯花(Sear)不在本方法内,仍走 RefreshBurn,理由见那边的注释。</summary>
-        private void ApplySummonOnHit(SummonState summon, int targetIndex)
+        private void ApplySummonOnHit(SummonState summon, int targetIndex, int summonIndex)
         {
             var passive = summon.Passive;
             if (passive == null) return;
@@ -3622,13 +3640,13 @@ namespace Brushblade.Core
                     for (int i = 0; i < _enemies.Count; i++)
                     {
                         if (!_enemies[i].Alive) continue;
-                        ApplyBurn(i, passive.OnHitBurn); // 累加(2026-09-04,见方法头注释)
+                        ApplyBurn(i, passive.OnHitBurn, UnitRef.Summon(summonIndex)); // 累加(2026-09-04,见方法头注释)
                         _events.Add(new BattleEvent(BattleEventKind.Burn, i, passive.OnHitBurn));
                     }
                 }
                 else if (_enemies[targetIndex].Alive)
                 {
-                    ApplyBurn(targetIndex, passive.OnHitBurn); // 累加(2026-09-04,见方法头注释)
+                    ApplyBurn(targetIndex, passive.OnHitBurn, UnitRef.Summon(summonIndex)); // 累加(2026-09-04,见方法头注释)
                     _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, passive.OnHitBurn));
                 }
             }
@@ -3638,34 +3656,34 @@ namespace Brushblade.Core
             if (passive.OnHitFreezeChance > 0 && _enemies[targetIndex].Alive
                 && _random.Next(100) < passive.OnHitFreezeChance)
             {
-                _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                 {
                     Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
                     TurnsLeft = Math.Max(1, passive.OnHitFreezeTurns),
-                });
+                }, UnitRef.Enemy(targetIndex), UnitRef.Summon(summonIndex));
             }
 
             // 出手减速(2026-08-25,蕉)。SourceId 用固定串 = 同一只召唤物反复打不叠加、只刷新;
             // 叠加会让一只 蕉 打三回合把速度削到 −150,那不是减速是二次冻结。
             if (passive.OnHitSlowPercent > 0 && _enemies[targetIndex].Alive)
             {
-                _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                 {
                     Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Debuff,
                     Magnitude = -passive.OnHitSlowPercent,
                     TurnsLeft = Math.Max(1, passive.OnHitSlowTurns),
                     SourceId = SummonSlowSourceId,
-                });
+                }, UnitRef.Enemy(targetIndex), UnitRef.Summon(summonIndex));
             }
 
             if (passive.OnHitCurse > 0 && _enemies[targetIndex].Alive)
             {
-                _enemies[targetIndex].Statuses.Apply(new StatusEffect
+                ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                 {
                     Kind = StatusKind.Curse, Polarity = StatusPolarity.Debuff,
                     Magnitude = passive.OnHitCurse, TurnsLeft = CurseTurns,
                     SourceId = CurseSourceId,
-                });
+                }, UnitRef.Enemy(targetIndex), UnitRef.Summon(summonIndex));
             }
         }
 
@@ -4116,12 +4134,12 @@ namespace Brushblade.Core
             {
                 // 一回合内可能连续多次命中同一目标(玩家多张牌接力打同一敌人),SourceId 必须
                 // 每次唯一,否则同回合第二次自燃会覆盖第一次而非叠加(Task 4 的 HoT 教训同型)。
-                enemy.Statuses.Apply(new StatusEffect
+                ApplyStatus(enemy.Statuses, new StatusEffect
                 {
                     Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff,
                     Magnitude = ScorchGain, TurnsLeft = -1,
                     SourceId = $"{enemy.Def.Id}#{_statusSerial++}",
-                });
+                }, UnitRef.Enemy(enemyIndex), UnitRef.Enemy(enemyIndex));
                 _events.Add(new BattleEvent(BattleEventKind.EnemyBuff, enemyIndex, ScorchGain));
             }
 
@@ -4242,7 +4260,7 @@ namespace Brushblade.Core
             if (moved <= 0) return;
             int target = PickRandomLivingEnemy();
             if (target < 0) return;   // 场上没有别人可以接手,层数就此消散
-            ApplyBurn(target, moved);
+            ApplyBurn(target, moved, UnitRef.None);
             // spec 用词是「转移」不是「复制」:死者身上不该再留一份。今天无害
             // (SettleBurnOn 先判 Alive、敌人不会复活),但留着是快照里的死数据 ——
             // 只摘这具尸体自己的,不碰 target 刚接手的那份。
@@ -4572,11 +4590,11 @@ namespace Brushblade.Core
                     // 上一拍 YieldTurn 里,导致本条要多续一轮,已修正)——挂上后紧接着的
                     // BeginPlayerTurn 就会把它减到 1、StartTurn 读到仍非零而扣 1 点 AP,
                     // 下一次 BeginPlayerTurn 再减到 0 移除,AP 罚满整整一个玩家回合。
-                    _playerStatuses.Apply(new StatusEffect
+                    ApplyStatus(_playerStatuses, new StatusEffect
                     {
                         Kind = StatusKind.Seal, Polarity = StatusPolarity.Debuff,
                         Magnitude = 1, TurnsLeft = 2, SourceId = "倾覆",
-                    });
+                    }, UnitRef.Player, UnitRef.Enemy(index));
                     break;
                 }
 
