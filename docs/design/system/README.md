@@ -8,7 +8,7 @@
 > | --- | --- | --- |
 > | 规范 | `docs/design/system/` | 规则与 token(本目录) |
 > | 组件 | `docs/design/component/` | 可复用件的卡:按钮、chip、字牌、弹窗、局内面板…;共用样式 `bundle.css` |
-> | 成品 | `docs/design/ui/` | 整屏与画布稿:`screens/` 七张整屏卡、`scenes/` 等画布 |
+> | 成品 | `docs/design/screens/` | 七张整屏卡(画布稿另在 `docs/design/ui/`) |
 >
 > 规范改了 → 组件与成品跟着改;组件/成品里出现规范没写的新值 → 先补进规范再用。
 > 本地预览:`docs/design/_preview/index.html`(`python3 tools/design/build_ds_preview.py` 生成)。
