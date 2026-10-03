@@ -31,10 +31,6 @@ BUNDLE = COMPONENT / "bundle.css"
 OUT = DESIGN / "_preview"
 DRAFTS = DESIGN / "drafts"
 DC_RUNTIME = DRAFTS / "dc-runtime.js"
-# scenes 画布上的三块升级弹窗只在 levelup/ 存一份(改了名),见 drafts/scenes/README.md
-_ALIASES = {("scenes", "LevelUp.dc.html"): "levelup/Main.dc.html",
-            ("scenes", "LevelUpMulti.dc.html"): "levelup/MultiLevel.dc.html",
-            ("scenes", "LevelUpCapped.dc.html"): "levelup/Capped.dc.html"}
 
 _LINKS = '<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../component/bundle.css">'
 _CAMEL = {"fontSize": "font-size", "lineHeight": "line-height",
@@ -97,7 +93,7 @@ def canvas_boards(d: Path) -> list:
         raw = [dict(c["boards"][f], file=f) for f in c.get("order", c["boards"])]
     out = []
     for a in raw:
-        rel = _ALIASES.get((d.name, a["file"]), f"{d.name}/{a['file']}")
+        rel = f"{d.name}/{a['file']}"
         out.append({"file": a["file"], "title": a.get("title") or a["file"], "page": a.get("page"),
                     "w": a.get("w", 932), "h": a.get("h", 430), "src": DRAFTS / rel, "href": f"../drafts/{rel}"})
     return out
