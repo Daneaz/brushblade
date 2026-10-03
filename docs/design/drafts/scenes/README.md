@@ -22,7 +22,6 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `Main.dc.html` | 卡组（可交互） | `CollectionView.cs` |
 | `Battle.dc.html` | 战斗（可交互） | `BattleView.cs` |
 | `Bestiary.dc.html` | 怪物图鉴（可交互） | `BestiaryView.cs` |
-| `../../deprecated/ui/scenes/Perks.dc.html` | 技能(旧扁平四条) | 已不在画布上 —— 2026-09-08 按用户要求删页,由下方技能树星域取代;2026-10-03 移入 deprecated |
 | `Shop.dc.html` | 商城 | `ShopView.cs` |
 | `RunEnd.dc.html` | 段末 · 告捷/败北 | `BattleView.DrawRunEnd` |
 | `SafeLayer.dc.html` | 安全层 | `GameRoot.ShowSafeLayer` |
@@ -57,7 +56,7 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 画布上另有 `LevelUp` / `LevelUpMulti` / `LevelUpCapped` 三块(局内流程页),
 与 `../levelup/` 的 `Main` / `MultiLevel` / `Capped` 逐字节相同,只在那边存一份。
 原第四块 `LevelUpChest`(= `levelup/LevelChest`,等级区间 → 宝箱草案)被 2026-10-02 角色页 spec 取代,
-2026-10-03 已从本目录与 `levelup/` 的 `canvas.json` 摘除,文件移入 `../../deprecated/drafts/levelup/`。
+2026-10-03 已从本目录与 `levelup/` 的 `canvas.json` 摘除,文件已删除。
 `mob_*.png` 是怪物设计页三块板引用的立绘(`mob_jiaohen.png` 之外的十四张是 2026-10-03 从画布落盘的)。
 
 `canvas.json` 是画布布局（位置、分页、便签）。**分页按「屏」组织**（2026-08-29 在画布上重排）：
