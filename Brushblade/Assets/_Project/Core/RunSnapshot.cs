@@ -46,6 +46,9 @@ namespace Brushblade.Core
 
         /// <summary>泉的余数:不足一层的治疗名义值(2026-09-02)。同上,漏存静默。</summary>
         public int HealAccum { get; set; }
+
+        public bool PlayerThresholdCrossed { get; set; }              // R5 跌破 50% 已触发(spec v6)
+        public List<int> SummonThresholdCrossed { get; set; } = new(); // 同上,召唤物槽位
     }
 
     /// <summary>字怪的战中状态。DefId 用来找回配置侧的 EnemyDef(分裂出的克隆共用同一个 Def)。</summary>

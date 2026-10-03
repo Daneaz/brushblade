@@ -356,6 +356,10 @@ namespace Brushblade.Core
         Embers,         // 火脉 L2「余烬」:Burn 事件,SecondIndex = 死者下标
         SummonDeathHeal,// 木脉 L2「归根」:Heal 事件,TargetIndex = 阵亡召唤物槽位
         CritMorale,     // 金脉 L2「锋芒」:MoraleGain 事件,TargetIndex = 那记暴击的落点
+        Burn,     // 钩子用:灼烧结算致死(不进 BattleEvent)
+        Bleed,    // 钩子用:流血结算致死
+        Detonate, // 钩子用:引爆致死
+        Execute,  // 钩子用:斩杀
     }
 
     public readonly struct BattleEvent
@@ -1047,6 +1051,8 @@ namespace Brushblade.Core
                 PlayerActionMeter = PlayerActionMeter,
                 ShieldAccum = _shieldAccum,
                 HealAccum = _healAccum,
+                PlayerThresholdCrossed = _playerThresholdCrossed,
+                SummonThresholdCrossed = _summonThresholdCrossed.ToList(),
             };
             foreach (var enemy in _enemies) snapshot.Enemies.Add(enemy.Capture());
             for (int s = 0; s < SummonCap; s++)
@@ -1076,7 +1082,10 @@ namespace Brushblade.Core
                 PlayerActionMeter = snapshot.PlayerActionMeter,
                 _shieldAccum = snapshot.ShieldAccum,
                 _healAccum = snapshot.HealAccum,
+                _playerThresholdCrossed = snapshot.PlayerThresholdCrossed,
             };
+            foreach (int slot in snapshot.SummonThresholdCrossed ?? new List<int>())
+                engine._summonThresholdCrossed.Add(slot);
             engine._forge = new ForgeState(new List<string>(snapshot.Library), new List<string>(snapshot.Pool));
             foreach (var enemy in snapshot.Enemies)
             {
@@ -1323,6 +1332,7 @@ namespace Brushblade.Core
             }
             _forge = result.State;
             if (_config.Tally != null) _config.Tally.Dismantles++;
+            Raise(HookKind.Dismantled, UnitRef.Player, UnitRef.None, charId: charId);
             return BattleError.None;
         }
 
@@ -1342,6 +1352,7 @@ namespace Brushblade.Core
             _forge = result.State;
             Ap -= 1;
             if (_config.Tally != null) _config.Tally.Composes++;
+            Raise(HookKind.Composed, UnitRef.Player, UnitRef.None, charId: charId);
             return BattleError.None;
         }
 
@@ -1953,6 +1964,7 @@ namespace Brushblade.Core
         {
             if (Phase != BattlePhase.PlayerTurn) return;
             _events.Clear();
+            Raise(HookKind.TurnEnded, UnitRef.Player, UnitRef.None);
         }
 
         /// <summary>推进并执行**一个**非玩家行动者。轮到玩家时不执行,改为跑 BeginPlayerTurn()、
@@ -2034,10 +2046,12 @@ namespace Brushblade.Core
             if (playerBurn != null && playerBurn.Magnitude > 0)
             {
                 int playerTick = playerBurn.Magnitude * OurSideBurnPerStack;
+                int hpBefore = PlayerHp;
                 PlayerHp = Math.Max(0, PlayerHp - playerTick);
                 playerBurn.Magnitude -= 1;
                 if (playerBurn.Magnitude <= 0) _playerStatuses.Remove(StatusKind.Burn);
                 _events.Add(new BattleEvent(BattleEventKind.BurnTick, -1, playerTick)); // −1 = 玩家
+                CheckThreshold(UnitRef.Player, hpBefore, PlayerHp, _config.PlayerMaxHp);
             }
 
             // 玩家灼烧是这里第一个能把 PlayerHp 归零的点,必须在这里立刻收口
@@ -2095,6 +2109,7 @@ namespace Brushblade.Core
         {
             var summon = _summons[s];
             if (summon == null || !summon.Alive) return;
+            Raise(HookKind.TurnStarted, UnitRef.Summon(s), UnitRef.None);
 
             // 战意/厚会在回合中途变化(玩家出一张金系字就 +1 层战意),只在召唤/死亡时刷
             // 不够 —— 每只召唤物出手前都要重读一次当前乘区(2026-09-05)。
@@ -2120,6 +2135,7 @@ namespace Brushblade.Core
 
             if (_enemies.Any(e => e.Alive)) StrikeOnceWithSummon(s);
             summon.Statuses.TickTurns();
+            Raise(HookKind.TurnEnded, UnitRef.Summon(s), UnitRef.None);
             CheckWin();
         }
 
@@ -2136,10 +2152,12 @@ namespace Brushblade.Core
             if (burn == null || burn.Magnitude <= 0) return;
 
             int tick = burn.Magnitude * OurSideBurnPerStack;
+            int hpBefore = summon.Hp;
             summon.Hp = Math.Max(0, summon.Hp - tick);
             burn.Magnitude -= 1;
             if (burn.Magnitude <= 0) summon.Statuses.Remove(StatusKind.Burn);
             _events.Add(new BattleEvent(BattleEventKind.SummonBurnTick, slot, tick));
+            CheckThreshold(UnitRef.Summon(slot), hpBefore, summon.Hp, summon.MaxHp);
             if (!summon.Alive) OnSummonDeath(slot);   // 自焚死亡:摘光环份额 + 木脉 L2 归根
         }
 
@@ -2177,6 +2195,7 @@ namespace Brushblade.Core
         /// 光环只读召唤物存活集合),固定成这一种是为了测试可断言。</summary>
         private void OnSummonDeath(int slot)
         {
+            Raise(HookKind.SummonDied, UnitRef.Summon(slot), UnitRef.None);
             HealFromSummonDeath(slot);
             RefreshSummonAura();
         }
@@ -2208,6 +2227,7 @@ namespace Brushblade.Core
         {
             var enemy = _enemies[enemyIndex];
             if (!enemy.Alive) return;
+            Raise(HookKind.TurnStarted, UnitRef.Enemy(enemyIndex), UnitRef.None);
 
             SettleBurnOn(enemyIndex);
             if (!enemy.Alive) { CheckWin(); return; }
@@ -2229,6 +2249,7 @@ namespace Brushblade.Core
             if (enemy.Statuses.Has(StatusKind.Freeze))
             {
                 enemy.Statuses.TickTurns();
+                Raise(HookKind.TurnEnded, UnitRef.Enemy(enemyIndex), UnitRef.None);
                 return;
             }
 
@@ -2251,11 +2272,12 @@ namespace Brushblade.Core
                     // 袋子,与「敌人打敌人不读玩家袋子」的语义一致(它目前没有 PierceBuff
                     // 来源,读到的就是 0,行为上等价于「不吃玩家穿透」)。
                     DamageEnemy(victim, enemy.Attack, enemy.Element, crit: false,
-                        attackerBag: enemy.Statuses, allowBarb: false);
+                        attackerBag: enemy.Statuses, allowBarb: false, attackerRef: UnitRef.Enemy(enemyIndex));
                 }
                 // 状态回合递减不能漏——与 Freeze 分支同一条理由:提前 return 就跳过了方法
                 // 末尾那句 enemy.Statuses.TickTurns(),魅惑会因此永远不到期。
                 enemy.Statuses.TickTurns();
+                Raise(HookKind.TurnEnded, UnitRef.Enemy(enemyIndex), UnitRef.None);
                 return;   // 这一拍用掉了,不再走正常攻击流程
             }
 
@@ -2274,6 +2296,7 @@ namespace Brushblade.Core
             // 真正需要早退的是「剩余敌人不再出手」——那由 AdvanceOnce 末尾的
             // `Phase == BattlePhase.PlayerTurn` 早退天然覆盖,不需要在这里重复拦一次。
             enemy.Statuses.TickTurns();
+            Raise(HookKind.TurnEnded, UnitRef.Enemy(enemyIndex), UnitRef.None);
         }
 
         /// <summary>轮到玩家(2026-08-16,ATB 时序归属搬迁,spec §4.3 玩家那一拍):玩家灼烧 →
@@ -2293,6 +2316,7 @@ namespace Brushblade.Core
         /// 玩家未被灼烧烧死时才跑——死人不用治。</summary>
         private void BeginPlayerTurn()
         {
+            Raise(HookKind.TurnStarted, UnitRef.Player, UnitRef.None);
             SettlePlayerBurn();
             if (Phase != BattlePhase.Lost)
             {
@@ -2369,7 +2393,7 @@ namespace Brushblade.Core
                     // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
                     DamageEnemy(tgt, damage, summon.Element,
                         crit: RollCritForSummon(summon), attackerBag: summon.Statuses,
-                        sameSwing: sameSwing);
+                        sameSwing: sameSwing, attackerRef: UnitRef.Summon(summonIndex));
                 ApplySummonOnHit(summon, tgt, summonIndex);
             }
         }
@@ -2714,7 +2738,8 @@ namespace Brushblade.Core
                                     // 多段的第 2 段起也算同一次挥击的延续?**不算** ——
                                     // 剁的两段本来就该看出是两下(那条拉拍就是为它加的),
                                     // 只有跨排造成的重复才传 true。
-                                    sameSwing: sameSwing && hit == 0);
+                                    sameSwing: sameSwing && hit == 0,
+                                    attackerRef: UnitRef.Player);
                             }
                         }
                         // 镇压(2026-09-16,土):排在主伤害**之后**追加一发,基数是玩家当前的
@@ -2735,7 +2760,8 @@ namespace Brushblade.Core
                                 // 的调用)同口径——折返/加码都不是挥击。
                                 DamageEnemy(shapeTargets[0], armorStrikeBonus, Element.Heart,
                                     bypassDefense: true, // 镇压不吃目标护甲
-                                    source: EffectSource.ArmorStrike);
+                                    source: EffectSource.ArmorStrike,
+                                    attackerRef: UnitRef.Player);
                         }
                         break;
                     }
@@ -2753,7 +2779,8 @@ namespace Brushblade.Core
                                 ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
                                 attacker, crit: RollCrit(),
                                 pierce: effect.Pierce,
-                                bypassDefense: effect.TrueDamage); // 碾:AOE 每个目标都跳过整条 DR
+                                bypassDefense: effect.TrueDamage, // 碾:AOE 每个目标都跳过整条 DR
+                                attackerRef: UnitRef.Player);
                         }
                         break;
                     case EffectKind.BurnSingle:
@@ -3268,6 +3295,7 @@ namespace Brushblade.Core
                             // SecondIndex 一律报落位槽:新增与顶替都要让表现层知道画哪一格。
                             // 「是不是顶替」表现层自己看该槽原来有没有活着的召唤物,不靠事件区分。
                             _summons[slot] = newborn;
+                            _summonThresholdCrossed.Remove(slot);   // R5:新单位不继承旧单位的跌破标记
                             if (effect.SummonDefense > 0)
                                 ApplyStatus(newborn.Statuses, new StatusEffect
                                 {
@@ -3431,7 +3459,7 @@ namespace Brushblade.Core
             int count = _enemies.Count;
             for (int i = 0; i < count; i++)
                 if (_enemies[i].Alive)
-                    DamageEnemy(i, damage, attacker, crit: RollCrit());
+                    DamageEnemy(i, damage, attacker, crit: RollCrit(), attackerRef: UnitRef.Player);
 
             // 积土/涌泉(2026-10-02):返还发生在清空与伤害之后 —— 返还的层数不参与本次伤害。
             // 走 AddPlayerCounter 直接加层(不经 GainHeft 的护盾折算,不触发「获盾攒厚」)。
@@ -3490,7 +3518,7 @@ namespace Brushblade.Core
                     }
             }
             if (!enemy.Alive)
-                ResolveDefeat(enemyIndex);
+                ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Burn);
             else
                 CheckBossPhase(enemyIndex);
         }
@@ -3512,7 +3540,7 @@ namespace Brushblade.Core
             RevealDisguise(enemyIndex); // 通假字:流血扣血也算挨打(2026-08-15 口径 7)
             _events.Add(new BattleEvent(BattleEventKind.BleedTick, enemyIndex, bleed));
             if (!enemy.Alive)
-                ResolveDefeat(enemyIndex);
+                ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Bleed);
             else
                 CheckBossPhase(enemyIndex);
         }
@@ -3545,7 +3573,7 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.Detonate, enemyIndex, damage, ke: detonateKe,
                 attacker: Element.Fire, countered: detonateCountered));
             if (!enemy.Alive)
-                ResolveDefeat(enemyIndex);
+                ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Detonate);
             else
                 CheckBossPhase(enemyIndex);
         }
@@ -3555,6 +3583,50 @@ namespace Brushblade.Core
         private void ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier)
         {
             bag.Apply(effect);
+            Raise(HookKind.StatusApplied, target, applier, effect.Magnitude, status: effect.Kind);
+        }
+
+        // ── 战斗钩子总线(spec v6 §5 / §10 R4 R5 / §11.4) ──
+
+        private readonly List<IBattleHookListener> _hookListeners = new List<IBattleHookListener>();
+
+        /// <summary>触发深度(R4):特性运行时进入/退出触发结算时增减。不进快照 —— 只在一次结算内部非 0。</summary>
+        public int TriggerDepth { get; private set; }
+        internal void EnterTrigger() => TriggerDepth++;
+        internal void ExitTrigger() => TriggerDepth--;
+
+        internal void AddHookListener(IBattleHookListener listener) => _hookListeners.Add(listener);
+
+        /// <summary>无监听器时直接返回(恒等)。遍历副本:监听器可在回调里增删监听器。</summary>
+        private void Raise(HookKind kind, UnitRef subject, UnitRef other, int amount = 0,
+            StatusKind status = default, string charId = null, EffectSource source = EffectSource.None)
+        {
+            if (_hookListeners.Count == 0) return;
+            var args = new HookArgs(kind, subject, other, amount, status, charId, source, TriggerDepth);
+            foreach (var listener in _hookListeners.ToArray()) listener.OnHook(this, args);
+        }
+
+        public const int HpThresholdPercent = 50;
+        private bool _playerThresholdCrossed;
+        private readonly HashSet<int> _summonThresholdCrossed = new HashSet<int>();
+
+        /// <summary>R5:生命从 ≥50% 跌到 &lt;50% 时触发,每单位每场一次;复活不清标记。</summary>
+        private void CheckThreshold(UnitRef unit, int hpBefore, int hpAfter, int maxHp)
+        {
+            if (maxHp <= 0) return;
+            bool crossed = hpBefore * 100 >= maxHp * HpThresholdPercent && hpAfter * 100 < maxHp * HpThresholdPercent;
+            if (!crossed) return;
+            if (unit.Side == UnitSide.Player)
+            {
+                if (_playerThresholdCrossed) return;
+                _playerThresholdCrossed = true;
+            }
+            else if (unit.Side == UnitSide.Summon)
+            {
+                if (!_summonThresholdCrossed.Add(unit.Index)) return;
+            }
+            else return;
+            Raise(HookKind.HpThresholdCrossed, unit, UnitRef.None, HpThresholdPercent);
         }
 
         /// <summary>allySlot 对应的 UnitRef,与 <c>AllyStatuses(allySlot)</c> 同口径:
@@ -3714,7 +3786,8 @@ namespace Brushblade.Core
             DamageEnemy(target, damage, Element.Heart,   // 心对全属性 1.0x = 不走生克
                 bypassDefense: true,                      // 折返/溢出不是挥击,不吃护甲
                 allowBarb: false,                         // 同理不算挥击,不触发铁画的反噬
-                source: EffectSource.Overheal, sourceSlot: sourceSlot);
+                source: EffectSource.Overheal, sourceSlot: sourceSlot,
+                attackerRef: sourceSlot >= 0 ? UnitRef.Summon(sourceSlot) : UnitRef.Player);
             return true;
         }
 
@@ -3985,7 +4058,7 @@ namespace Brushblade.Core
             int lost = enemy.Hp;              // 报实际抹掉的血量,别报 0 —— 0 会让表现层飘「-0」
             enemy.Hp = 0;
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, lost));
-            ResolveDefeat(enemyIndex);
+            ResolveDefeat(enemyIndex, UnitRef.Player, EffectSource.Execute);
             return true;
         }
 
@@ -4027,7 +4100,7 @@ namespace Brushblade.Core
         private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
-            EffectSource source = EffectSource.None, int sourceSlot = -1)
+            EffectSource source = EffectSource.None, int sourceSlot = -1, UnitRef attackerRef = default)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
@@ -4103,6 +4176,7 @@ namespace Brushblade.Core
             _events.Add(new BattleEvent(BattleEventKind.Damage, enemyIndex, damage, sourceSlot,
                 absorbed: absorbed, crit: crit, ke: counters, attacker: attacker,
                 countered: countered, sameSwing: sameSwing, source: source));
+            Raise(HookKind.EnemyHit, UnitRef.Enemy(enemyIndex), attackerRef, damage - absorbed, source: source);
 
             enemy.HitsTaken += 1;
             RevealDisguise(enemyIndex); // 通假字:挨打也现形(2026-08-15 口径 7),先到先触发
@@ -4111,7 +4185,7 @@ namespace Brushblade.Core
             // (击杀不白闪、让位给置灰)。中间插任何事件都会打断判定 → 白闪抢色 + 置灰错拍
             if (!enemy.Alive)
             {
-                ResolveDefeat(enemyIndex);
+                ResolveDefeat(enemyIndex, attackerRef, source);
                 FlushCritMorale(enemyIndex);
                 // 立即判胜(Task 12):这一记(含反弹/反伤这类回敬)可能就是清场的最后一击,
                 // 不等到下一次 BeginPlayerTurn 才收口。CheckWin() 内部会挡住「玩家同时也死了」
@@ -4230,9 +4304,10 @@ namespace Brushblade.Core
             return true;
         }
 
-        private void ResolveDefeat(int enemyIndex)
+        private void ResolveDefeat(int enemyIndex, UnitRef killer, EffectSource source)
         {
             _events.Add(new BattleEvent(BattleEventKind.EnemyDied, enemyIndex, 0));
+            Raise(HookKind.EnemyKilled, UnitRef.Enemy(enemyIndex), killer, source: source);
             SpreadEmbers(enemyIndex);
         }
 
@@ -4307,7 +4382,8 @@ namespace Brushblade.Core
         // allowReflect(2026-08-29):false = 这一记不触发玩家的「镜」。眼下只有铁画的反噬走
         // 这一支 —— 那不是敌人的挥击,是玩家自己撞上去的,镜反射不了自己的动作;顺带切断了
         // 「反噬 → 反弹 → 反噬」的互激环(见 DamageEnemy 的 allowBarb)。
-        private bool DamagePlayerDirect(int enemyIndex, int damage, bool allowReflect = true)
+        private bool DamagePlayerDirect(int enemyIndex, int damage, bool allowReflect = true,
+            EffectSource source = EffectSource.None)
         {
             // 命中判定(2026-08-07):打空则什么都不发生 —— 免疫不消耗、护盾不掉、反弹不触发。
             // 命中率 = 100 − 攻击者致盲 − 玩家闪避(2026-08-12,E-b4 T4:闪避从写死的 0 接进来)。
@@ -4326,6 +4402,7 @@ namespace Brushblade.Core
             // 下方的反弹按**折算后实际打过来的伤害**折返,与「护盾吸掉的也照样反」同口径 ——
             // 反的是落到我身上的量,不是敌人名义上的攻击力。
             damage = ApplyDefense(damage, EffectivePlayerDefense);
+            int hpBefore = PlayerHp;
 
             // 免疫(2026-08-06):先于护盾消耗 —— 免疫是稀缺的一次性资源,让它去挡一记小伤
             // 而把护盾留着更亏;玩家的预期是「免疫牌打出去,下一记不管多重都不疼」。
@@ -4334,6 +4411,7 @@ namespace Brushblade.Core
             if (ConsumeImmunity(_playerStatuses))
             {
                 _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, damage));
+                Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), 0, source: source);
                 return true;
             }
 
@@ -4348,6 +4426,8 @@ namespace Brushblade.Core
             // 立即判负(Task 12,spec §4.3.1):归零即当场收口,不推迟到下一次 BeginPlayerTurn ——
             // 逐格驱动下,推迟意味着已经死了还要陪剩下的怪把动画读完才弹结算。
             if (PlayerHp <= 0) Phase = BattlePhase.Lost;
+            Raise(HookKind.PlayerHit, UnitRef.Player, UnitRef.Enemy(enemyIndex), damage, source: source);
+            CheckThreshold(UnitRef.Player, hpBefore, PlayerHp, _config.PlayerMaxHp);
 
             // 反弹(2026-08-07,镜):按**打过来的总伤害**照回去,不是按实际掉血 ——
             // 护盾吸掉的那部分也照样反。「镜」是把东西原样反射,不管你挡没挡住,
@@ -4365,7 +4445,7 @@ namespace Brushblade.Core
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
                         allowBarb: false,      // 同理也不算挥击:不触发铁画的反噬
-                        source: EffectSource.Reflect);
+                        source: EffectSource.Reflect, attackerRef: UnitRef.Player);
             }
             return true;
         }
@@ -4414,6 +4494,7 @@ namespace Brushblade.Core
             // 「甲厚过攻击力」这种口径随点数减法一起作废。位置在生克**之后**,与 DamageEnemy 那边
             // (生克 → 暴击 → 折算护甲)同序:折的是实际打到身上的量,不是敌人名义上的攻击力。
             taken = ApplyDefense(taken, summon.EffectiveDefense);
+            int hpBefore = summon.Hp;
 
             // 免疫(2026-08-28,杜 可以挂给召唤物了):完全挡下这一记,排在护甲之后、护盾之前 ——
             // 与玩家侧 DamagePlayerDirect 逐步同序。读的是**召唤物自己的**袋子,与玩家的
@@ -4426,6 +4507,7 @@ namespace Brushblade.Core
                 // 「免」字飘在谁头上。Amount 报被挡掉的伤害(过完生克与护甲的实际量,
                 // 与玩家侧同口径)。
                 _events.Add(new BattleEvent(BattleEventKind.ImmunityBlocked, enemyIndex, taken, summonIndex));
+                Raise(HookKind.SummonHit, UnitRef.Summon(summonIndex), UnitRef.Enemy(enemyIndex), 0);
                 return true;
             }
 
@@ -4434,6 +4516,8 @@ namespace Brushblade.Core
             summon.Hp = Math.Max(0, summon.Hp - (taken - absorbed));
             _events.Add(new BattleEvent(BattleEventKind.SummonHit, enemyIndex, taken, summonIndex, absorbed,
                 ke: summonWuxing > 1f, countered: summonWuxing < 1f));
+            Raise(HookKind.SummonHit, UnitRef.Summon(summonIndex), UnitRef.Enemy(enemyIndex), taken);
+            CheckThreshold(UnitRef.Summon(summonIndex), hpBefore, summon.Hp, summon.MaxHp);
             // ⚠ 挨打死亡的 OnSummonDeath(归根)挪到本方法末尾(2026-09-30 用户报):荆棘/镜/反震
             // 是**这一记攻击**的反应,归根是死后的事 —— 写在这里的话归根先出、反震后出,次序是反的。
 
@@ -4466,7 +4550,7 @@ namespace Brushblade.Core
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反伤不吃敌人护甲(spec §4.2),与不走生克同一条口径
                         allowBarb: false,      // 也不算挥击:荆棘扎上去不该再被铁画反噬一次
-                        source: EffectSource.Thorns);
+                        source: EffectSource.Thorns, attackerRef: UnitRef.Summon(summonIndex));
             }
 
             // 反弹(2026-08-08,修复波 Important:镜 × 召唤物顶前排):用户裁定——挡在前排的
@@ -4501,7 +4585,7 @@ namespace Brushblade.Core
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 同玩家侧:反弹不吃敌人护甲(spec §4.2)
                         allowBarb: false,      // 同玩家侧:折返不算挥击,不触发铁画的反噬
-                        source: EffectSource.Reflect);
+                        source: EffectSource.Reflect, attackerRef: UnitRef.Summon(summonIndex));
             }
 
             // 挨打死亡:摘光环份额 + 木脉 L2 归根。排在全部挨打反应之后(见上面 SummonHit 处的注释);
