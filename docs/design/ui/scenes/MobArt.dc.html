@@ -1,0 +1,241 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #9B1E22; } a:hover { color: #7A3F5C; }
+    .sheet {
+      box-sizing: border-box; background: #F6F1E7; color: #161B22;
+      font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+  </style>
+</helmet>
+<div class="sheet" style="width: 1160px; padding: 44px 44px 20px;">
+  <div style="display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px;">
+    <h1 class="serif" style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: 6px;">字怪形象 · 补齐的十一只</h1>
+    <span style="font-size: 13px; color: #5D646F; letter-spacing: 1px;">分层水墨 · 512×512 · body / face / wisp</span>
+  </div>
+  <p style="margin: 0 0 34px; font-size: 13px; line-height: 1.9; color: #5D646F; max-width: 860px;">
+    字形由 Noto Serif SC 供给（<span class="serif">glyph_refs.py</span> 出底稿），墨的浓淡、边缘毛糙与飞白全部由 SVG 滤镜生成，一笔没改字形 —— 「一眼认出是哪个字，再看出它是活物」。属性色只落在眼睛与要害，占比不超过两成。补齐后 enemies.json 的 25 只杂兵全部有立绘，战斗与图鉴里不再有回落到字牌格的怪。
+  </p>
+    <div style="display: flex; align-items: baseline; gap: 12px; margin: 0 0 18px;">
+      <h2 class="serif" style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 3px;">旧欠账 · 四只</h2>
+      <span style="font-size: 12px; color: #676F7A; letter-spacing: .5px;">实装已久却从没进过形象表，2026-09-03 补齐</span>
+      <span style="flex: 1; height: 1px; background: #DED7C9;"></span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px 26px; margin-bottom: 44px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+          <img src="mob_denghua.png" alt="灯花" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #B02D2E; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">火</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">灯花</span>
+          <span class="serif" style="font-size: 15px; color: #862726;">灯</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #B02D2E; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 120 / 30</span>
+          
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">灼身:每次攻击给你挂 1 层灼烧</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #C53637; padding-left: 10px;">火旁那两点就是眼睛;钩尖爆开一朵灯花，火星斜着飞出去 —— 那是落在你身上的那 1 层。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #C8E1FB; border: 2px solid #0F74C4; border-radius: 14px; padding: 6px;">
+          <img src="mob_mojian.png" alt="墨溅" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #0A5E9E; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">水</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">墨溅</span>
+          <span class="serif" style="font-size: 15px; color: #0E4F86;">溅</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #0A5E9E; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 100 / 30</span>
+          
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">后排远程</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">无能力，站后排</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #0F74C4; padding-left: 10px;">三点水化成将被弹开的墨；右下一串墨点逐粒变小 —— 前排拦不住的就是这串。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #EEE3CF; border: 2px solid #B3A382; border-radius: 14px; padding: 6px;">
+          <img src="mob_xuanzhen.png" alt="悬针" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #6B6449; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">金</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">悬针</span>
+          <span class="serif" style="font-size: 15px; color: #64532C;">针</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #6B6449; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 90 / 45</span>
+          
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">后排远程 · 锁人</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">无能力，全表最脆</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #B3A382; padding-left: 10px;">悬针竖出锋垂下、伸出字外；独眼 —— 它只认一个目标，第二只眼是多余的。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+          <img src="mob_baibi.png" alt="败笔" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #B02D2E; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">火</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">败笔</span>
+          <span class="serif" style="font-size: 15px; color: #862726;">败</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #B02D2E; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 150 / 55</span>
+          
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战 · 锁人</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">无能力，攻击全段最高</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #C53637; padding-left: 10px;">两眼不同高 —— 写坏的字连五官都没对齐；捺脚溃开，墨甩到字外。</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 12px; margin: 0 0 18px;">
+      <h2 class="serif" style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 3px;">低阶护甲 · 四只</h2>
+      <span style="font-size: 12px; color: #676F7A; letter-spacing: .5px;">字林 6 层起 · 护甲 18–22 · 五行低阶位</span>
+      <span style="flex: 1; height: 1px; background: #DED7C9;"></span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px 26px; margin-bottom: 44px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #CCE6D0; border: 2px solid #348F4F; border-radius: 14px; padding: 6px;">
+          <img src="mob_kubi.png" alt="枯笔" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #1F6333; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">木</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">枯笔</span>
+          <span class="serif" style="font-size: 15px; color: #185C2E;">枯</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #1F6333; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 150 / 30</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #E7E1D4; color: #5D646F; font-size: 11px; letter-spacing: .5px;">护甲 18</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">低阶护甲 · 木</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #348F4F; padding-left: 10px;">飞白最多的一只：苔绿干笔横刮过墨面。甲不画壳，靠干硬的木质说服人。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+          <img src="mob_huoqi.png" alt="火漆" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #B02D2E; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">火</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">火漆</span>
+          <span class="serif" style="font-size: 15px; color: #862726;">漆</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #B02D2E; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 140 / 35</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #E7E1D4; color: #5D646F; font-size: 11px; letter-spacing: .5px;">护甲 18</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">低阶护甲 · 火</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #C53637; padding-left: 10px;">字脚下凝住一滩朱砂漆，边缘钝圆 —— 它是冷凝出来的，不是洇出来的。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #ECDCBD; border: 2px solid #8F7332; border-radius: 14px; padding: 6px;">
+          <img src="mob_yantai.png" alt="砚台" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #82552A; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">土</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">砚台</span>
+          <span class="serif" style="font-size: 15px; color: #634800;">砚</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #82552A; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 200 / 22</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #E7E1D4; color: #5D646F; font-size: 11px; letter-spacing: .5px;">护甲 22</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">低阶护甲 · 土，攻击全表最低</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #8F7332; padding-left: 10px;">眼深陷、木然；石旁凹处存着一汪墨，那是砚池。它只是杵在那里。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #EEE3CF; border: 2px solid #B3A382; border-radius: 14px; padding: 6px;">
+          <img src="mob_tongqian.png" alt="铜钤" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #6B6449; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">金</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">铜钤</span>
+          <span class="serif" style="font-size: 15px; color: #64532C;">钤</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #6B6449; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 130 / 40</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #E7E1D4; color: #5D646F; font-size: 11px; letter-spacing: .5px;">护甲 20</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">低阶护甲 · 金</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #B3A382; padding-left: 10px;">笔画方正像铸出来的；印面留着没磨掉的范线。印章端正，它的怪也端正。</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 12px; margin: 0 0 18px;">
+      <h2 class="serif" style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 3px;">高阶护甲 · 三只</h2>
+      <span style="font-size: 12px; color: #676F7A; letter-spacing: .5px;">文山 26 层起 · 护甲 42–45 · 五行高阶位</span>
+      <span style="flex: 1; height: 1px; background: #DED7C9;"></span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px 26px; margin-bottom: 44px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #CCE6D0; border: 2px solid #348F4F; border-radius: 14px; padding: 6px;">
+          <img src="mob_bandu.png" alt="版牍" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #1F6333; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">木</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">版牍</span>
+          <span class="serif" style="font-size: 15px; color: #185C2E;">牍</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #1F6333; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 260 / 40</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #E7E1D4; color: #5D646F; font-size: 11px; letter-spacing: .5px;">护甲 45</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">高阶护甲 · 木，血量全表第二厚</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #348F4F; padding-left: 10px;">三条木纹横贯整只、上密下疏 —— 一层层压着的简；眼藏在版缝里。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #FED2CE; border: 2px solid #C53637; border-radius: 14px; padding: 6px;">
+          <img src="mob_yaobian.png" alt="窑变" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #B02D2E; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">火</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">窑变</span>
+          <span class="serif" style="font-size: 15px; color: #862726;">窑</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #B02D2E; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 220 / 50</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #E7E1D4; color: #5D646F; font-size: 11px; letter-spacing: .5px;">护甲 42</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">高阶护甲 · 火</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #C53637; padding-left: 10px;">釉面开片，裂缝里透火；眼在窑口之下 —— 从窑里看出来的两点火。</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="position: relative; background: #C8E1FB; border: 2px solid #0F74C4; border-radius: 14px; padding: 6px;">
+          <img src="mob_sumo.png" alt="宿墨" style="display: block; width: 100%; height: auto;">
+          <span class="serif" style="position: absolute; top: 10px; left: 10px; width: 26px; height: 26px; border-radius: 7px; background: #0A5E9E; color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">水</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: 2px;">宿墨</span>
+          <span class="serif" style="font-size: 15px; color: #0E4F86;">宿</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #0A5E9E; color: #fff; font-size: 11px; letter-spacing: .5px;">血 / 攻 240 / 38</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #E7E1D4; color: #5D646F; font-size: 11px; letter-spacing: .5px;">护甲 45</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: #3D4E69; color: #fff; font-size: 11px; letter-spacing: .5px;">前排近战</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7; color: #5D646F;">高阶护甲 · 水</div>
+        <div style="font-size: 12px; line-height: 1.75; color: #2C333D; border-left: 3px solid #0F74C4; padding-left: 10px;">结壳的龟裂把墨面分成一片一片；壳下渗出两滴稠墨 —— 与墨渍的「洇」相反。</div>
+      </div>
+    </div>
+</div>
+</x-dc>
+</body>
+</html>

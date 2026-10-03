@@ -22,7 +22,7 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `Main.dc.html` | 卡组（可交互） | `CollectionView.cs` |
 | `Battle.dc.html` | 战斗（可交互） | `BattleView.cs` |
 | `Bestiary.dc.html` | 怪物图鉴（可交互） | `BestiaryView.cs` |
-| `Perks.dc.html` | 技能 | `PerkView.cs` |
+| `Perks.dc.html` | 技能(旧扁平四条) | 已不在画布上 —— 2026-09-08 按用户要求删页,由下方技能树星域取代;文件留作历史 |
 | `Shop.dc.html` | 商城 | `ShopView.cs` |
 | `RunEnd.dc.html` | 段末 · 告捷/败北 | `BattleView.DrawRunEnd` |
 | `SafeLayer.dc.html` | 安全层 | `GameRoot.ShowSafeLayer` |
@@ -47,9 +47,19 @@ iPhone 16 Pro Max 横屏 **932 × 430pt**（@3x = 2796 × 1290px），锁横屏�
 | `CharSheet.dc.html` | 字卡详情 · 字库牌 | `CharPreview.Show`(战斗长按) |
 | `CharSheetDual.dc.html` | 字卡详情 · 双方向字 | 同上,水/土 两面 |
 | `CharSheetPart.dc.html` | 字卡详情 · 部件 | 同上,部件池入口 |
+| `MobArt.dc.html` | 怪物设计 · 十一只形象与设计意图 | `docs/design/glyph-refs/svg-done/` → `Mobs/`(管线见便签 note-mob-pipe) |
+| `MobScale.dc.html` | 怪物设计 · 实机尺寸对照 | 同上 |
+| `MobLayers.dc.html` | 怪物设计 · 分层拆解(窑变) | 同上,body/face/wisp 三层 |
+| `SkillOrbit.dc.html` | 技能树 · 环形星域 | `PerkView.cs` · `PerkLayout.cs` |
+| `SkillOrbitMap.dc.html` | 技能树 · 俯瞰全图 | 同上 |
+| `SkillOrbitCross.dc.html` | 技能树 · 跨树节点 | 同上 |
+
+画布上另有 `LevelUp` / `LevelUpMulti` / `LevelUpCapped` / `LevelUpChest` 四块(局内流程页),
+与 `../levelup/` 的 `Main` / `MultiLevel` / `Capped` / `LevelChest` 逐字节相同,只在那边存一份。
+`mob_*.png` 是怪物设计页三块板引用的立绘(`mob_jiaohen.png` 之外的十四张是 2026-10-03 从画布落盘的)。
 
 `canvas.json` 是画布布局（位置、分页、便签）。**分页按「屏」组织**（2026-08-29 在画布上重排）：
-主界面 / 卡组 / 战斗 / 局内流程 / 怪物图鉴 / 技能 / 商城 / 公共 —— 按「哪一屏用得着」找图，
+主界面 / 卡组 / 战斗 / 局内流程 / 怪物图鉴 / 商城 / 公共 / 怪物设计 / 技能树 —— 按「哪一屏用得着」找图，
 而不是按「哪一轮加的」。便签里记着每处改动的理由与待办，
 **别只看画面不看便签**。`base.css` 是六屏共用的令牌（色板取自 `Theme.cs`，
 安全区、触控与字号阶梯）。`cards.min.json` 是从 `chars.json` 生成的字表快照，
@@ -64,7 +74,7 @@ node <skill>/seed-canvas.mjs \
   --template <skill>/payload.template.html \
   --out brushblade-card-collection.html --title "字·斗 界面重设计" \
   --artboard Main.dc.html --artboard Home.dc.html --artboard Battle.dc.html \
-  --artboard Bestiary.dc.html --artboard Perks.dc.html --artboard Shop.dc.html \
+  --artboard Bestiary.dc.html --artboard Shop.dc.html \
   --artboard Device.dc.html --artboard CardStates.dc.html --artboard StatMapping.dc.html \
   --artboard RunEnd.dc.html --artboard SafeLayer.dc.html --artboard Settle.dc.html \
   --artboard Event.dc.html --artboard Reward.dc.html --artboard Replace.dc.html \
@@ -74,9 +84,16 @@ node <skill>/seed-canvas.mjs \
   --artboard Chests.dc.html --artboard ChestOpen.dc.html \
   --artboard CharSheet.dc.html --artboard CharSheetDual.dc.html \
   --artboard CharSheetPart.dc.html \
-  --image mob_jiaohen.png \
+  --artboard Upgrade.dc.html --artboard CardDetail.dc.html \
+  --artboard MobArt.dc.html --artboard MobScale.dc.html --artboard MobLayers.dc.html \
+  --artboard SkillOrbit.dc.html --artboard SkillOrbitMap.dc.html --artboard SkillOrbitCross.dc.html \
+  --artboard LevelUp.dc.html --artboard LevelUpMulti.dc.html \
+  --artboard LevelUpCapped.dc.html --artboard LevelUpChest.dc.html \
+  $(for f in mob_*.png; do printf -- '--image %s ' "$f"; done) \
   --canvas canvas.json
 ```
+
+`LevelUp*.dc.html` 四块出图前先从 `../levelup/` 改名拷进来(对应关系见上),出完删掉。
 
 产出的 `.html` 内联了整个编辑器 payload（2.7MB），**不入 git**（见 `.gitignore`）。
 浏览器里首次渲染要 30 秒以上，不是卡住了。
