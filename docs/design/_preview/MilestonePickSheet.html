@@ -63,6 +63,7 @@
 .cs .mc { flex: 1; width: 100%; border-radius: 8.12px; border: 0.96px solid var(--panel-border); background: var(--card-face);
   padding: 4.78px 2.87px; display: flex; flex-direction: column; align-items: center; gap: 2.87px; white-space: nowrap; }
 .cs .done .mc { background: var(--panel-inset); }
+.cs .ready .pin { box-shadow: 0 0 0 2.87px var(--gold-soft); }
 .cs .ready .mc { background: var(--gold-soft); border: 1.43px solid var(--gold); }
 .cs .mc .lv { font-family: var(--font-serif); font-weight: 600; font-size: 12.9px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .cs .ready .mc .lv { color: var(--text-main); }
@@ -136,19 +137,31 @@
 /* 右上 ×:RoundButton 透明底、TextDim、字 42、92×92,钉在卡右上内缩 17 / 13 */
 .x { position: absolute; right: 8.12px; top: 6.21px; width: 43.96px; height: 43.96px; border: none; background: transparent;
   color: var(--text-dim); font-family: var(--font-sans); font-weight: 500; font-size: 20.07px; line-height: 1; }
-.mp .kick { font-size: 11.94px; color: var(--gold-deep); }
+/* Ui.KickerRow:字两侧各一条 71×2(33.92×0.96)panel-border 短横线,间距 21(10.03) */
+.mp .kick { display: flex; align-items: center; justify-content: center; gap: 10.03px; font-size: 11.94px; color: var(--gold-deep); }
+.mp .kick::before, .mp .kick::after { content: ""; width: 33.92px; height: 0.96px; background: var(--panel-border); }
 .mp .lv { font-size: 33.92px; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.mp .ingot { font-size: 13.86px; color: var(--text-main); }
-.mp .ingot i { width: 19.4px; height: 11.78px; }
+/* InkCapsule:ink-bar 底、2(0.96)panel-border 描边、高 59(28.19)、圆角半高、左右内边距 29(13.86)、间距 17(8.12);
+   墨锭 38×23(18.16×10.99)、字 23(10.99)「墨锭」常规 +「+1,200」粗体(两个 Text,间距 6 → 2.87) */
+.mp .inkline { align-self: center; height: 28.19px; padding: 0 13.86px; gap: 8.12px; border-radius: 14.1px; background: var(--ink-bar);
+  box-shadow: inset 0 0 0 0.96px var(--panel-border); font-size: 10.99px; color: var(--text-main); }
+.mp .inkline i { width: 18.16px; height: 10.99px; }
+.mp .inkline span { display: flex; gap: 2.87px; }
 .mp .sec { display: flex; align-items: center; gap: 6.21px; white-space: nowrap; }
 .mp .sec b { font-family: var(--font-serif); font-weight: 600; font-size: 10.99px; }
 .mp .sec span { font-size: 9.08px; color: var(--text-faint); }
 .mp .sec .rule { flex: 1; height: 0.96px; background: var(--panel-border); }
-.mp .picks { display: flex; justify-content: center; gap: 18.16px; }
+/* 候选排:顶上让出 6(2.87)给上抬;格 = 牌 218×272 + 10 + chip,环不占布局 */
+.mp .picks { display: flex; justify-content: center; gap: 18.16px; padding-top: 2.87px; }
 .mp .cand { display: flex; flex-direction: column; align-items: center; gap: 4.78px; }
-/* 选中环:牌外一圈 Rounded(18) 的实心底,外扩 RingPad 8;未选 = 透明 */
-.mp .ring { position: relative; width: 111.8px; height: 137.6px; border-radius: 8.6px; padding: 3.82px; }
-.mp .ring.on { background: var(--ink-soft); }
+/* 选中:整格(牌 + 环 + 圆标 + chip)上抬 6(2.87);牌外 6(2.87)panel-paper 间隙 + 4(1.91)ink-soft 外环 */
+.mp .cand.on { transform: translateY(-2.87px); }
+.mp .slot { position: relative; width: 104.16px; height: 129.96px; }
+.mp .cand.on .zd-tile { box-shadow: 0 0 0 2.87px var(--panel-paper), 0 0 0 4.78px var(--ink-soft); border-radius: 6.69px; }
+/* 五行圆标:38(18.16)圆、距牌边 13(6.21)、底 = 属性字形色、白色宋体粗 21(10.03) */
+.mp .el { position: absolute; z-index: 3; left: 6.21px; top: 6.21px; width: 18.16px; height: 18.16px; border-radius: 50%;
+  background: var(--glyph); color: #fff; font-family: var(--font-serif); font-weight: 700; font-size: 10.03px;
+  display: flex; align-items: center; justify-content: center; line-height: 1; }
 .mp .foot { margin-top: auto; display: flex; align-items: center; gap: 11.94px; }
 .mp .foot .note { flex: 1; font-size: 9.08px; color: var(--text-faint); }
 .mp .ok { width: 150.02px; height: 40.13px; border-radius: 11.47px; font-size: 14.81px; flex: none; }
@@ -196,9 +209,9 @@
     <div class="mp">
       <div class="c serif kick">里 程 碑</div>
       <div class="c serif lv">Lv.20</div>
-      <div class="ingot"><i></i>墨锭 +1,200</div>
+      <div class="ingot inkline"><i></i><span>墨锭<b>+1,200</b></span></div>
       <div class="sec"><b>金字 · 3 选 1</b><span>挑一张收下,另两张不再出现</span><span class="rule"></span></div>
-      <div class="picks"><div class="cand"><div class="ring"><div class="zd-tile zd-r-gold zd-e-fire" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div></div></div><span class="chip" style="width:108.46px;height:14.81px;font-size:9.08px;background:var(--panel-inset);color:var(--text-dim);box-shadow:inset 0 0 0 0.48px var(--panel-border)">已有 · 重复卡 +1</span></div><div class="cand"><div class="ring on"><div class="zd-tile zd-r-gold zd-e-wood" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">林</span><span class="zd-tile__py">lín</span></div></div></div></div><span class="chip" style="width:26.76px;height:14.81px;font-size:9.08px;background:var(--gold-soft);color:var(--gold-deep);box-shadow:inset 0 0 0 0.48px var(--gold)">新字</span></div><div class="cand"><div class="ring"><div class="zd-tile zd-r-gold zd-e-earth" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">圭</span><span class="zd-tile__py">guī</span></div></div></div></div><span class="chip" style="width:26.76px;height:14.81px;font-size:9.08px;background:var(--gold-soft);color:var(--gold-deep);box-shadow:inset 0 0 0 0.48px var(--gold)">新字</span></div></div>
+      <div class="picks"><div class="cand"><div class="slot zd-e-fire"><span class="el">火</span><div class="zd-tile zd-r-gold zd-e-fire" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div></div></div><span class="chip" style="width:108.46px;height:14.81px;font-size:9.08px;background:var(--panel-inset);color:var(--text-dim);box-shadow:inset 0 0 0 0.48px var(--panel-border)">已有 · 重复卡 +1</span></div><div class="cand on"><div class="slot zd-e-wood"><span class="el">木</span><div class="zd-tile zd-r-gold zd-e-wood" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">林</span><span class="zd-tile__py">lín</span></div></div></div></div><span class="chip" style="width:26.76px;height:14.81px;font-size:9.08px;background:var(--gold-soft);color:var(--gold-deep);box-shadow:inset 0 0 0 0.48px var(--gold)">新字</span></div><div class="cand"><div class="slot zd-e-earth"><span class="el">土</span><div class="zd-tile zd-r-gold zd-e-earth" style="--w:104.16px;--h:129.96px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">圭</span><span class="zd-tile__py">guī</span></div></div></div></div><span class="chip" style="width:26.76px;height:14.81px;font-size:9.08px;background:var(--gold-soft);color:var(--gold-deep);box-shadow:inset 0 0 0 0.48px var(--gold)">新字</span></div></div>
       <div class="foot"><div class="note">候选在第一次打开时就定了,关掉再进还是这几张。已拥有的字照样能选,算一张重复卡。</div>
         <button class="zd-btn ok" style="background:var(--cinnabar);color:#fff">收下</button></div>
     </div>

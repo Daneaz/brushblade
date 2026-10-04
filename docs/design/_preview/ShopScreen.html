@@ -35,6 +35,7 @@
 .hint.up { color: var(--upgrade-text); }
 .hint.dim { color: var(--text-dim); }
 .hint.gold { color: var(--gold-deep); }
+.hint.fit18 { font-size: 8.60px; } /* FitCaption 降到 18 号:基准机单行宽须 ≤ 列距 − 10 */
 
 /* CardBadges 补两枚(bundle.css 只有等级/可升/新字/锁/色点):
    右下数量角标「N张」= 与等级带同高同字号,ink 底;上沿正中折扣价签 = 字号 ×1.2、高 ×1.3、圆角 4,一半出框 */
@@ -144,7 +145,7 @@
 <!-- 摊位 3:橙 ×1(6~8 折档),400 × 8折 = 320 > 260 → 缺墨:凹槽底 + 朱砂字价格 -->
 <div class="col"><div class="cell"><div class="zd-tile zd-r-orange zd-e-fire" style="--w:68.8px;--h:86px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">焚</span><span class="zd-tile__py">fén</span></div></div><span class="disc">8折</span><span class="zd-bdg zd-bdg--lv">Lv.2</span><span class="zd-rdot"></span><span class="zd-bdg zd-bdg--qty">1张</span></div><div class="zd-foot" style="--w:68.8px;--h:86px"><span class="zd-foot__bar"><i style="width:0%;background:var(--text-faint)"></i></span><span class="zd-foot__t dim">0/1</span></div><div class="hint up">买下即可升 Lv.3</div><span class="buy poor">320<s>400</s></span></div></div>
 <!-- 摊位 4:金 ×1 满级,260 × 4折 = 104 -->
-<div class="col"><div class="cell"><div class="zd-tile zd-r-gold zd-e-fire" style="--w:68.8px;--h:86px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div><span class="disc">4折</span><span class="zd-bdg zd-bdg--lv zd-bdg--max">MAX</span><span class="zd-rdot"></span><span class="zd-bdg zd-bdg--qty">1张</span></div><div class="zd-foot" style="--w:68.8px;--h:86px"><span class="zd-foot__bar"><i style="width:100%;background:var(--text-faint)"></i></span><span class="zd-foot__t max">满级</span></div><div class="hint dim">已满级,买了只进重复卡</div><span class="buy">104<s>260</s></span></div></div>
+<div class="col"><div class="cell"><div class="zd-tile zd-r-gold zd-e-fire" style="--w:68.8px;--h:86px"><div class="zd-tile__face"><span class="zd-tile__glow"></span><div class="zd-tile__content"><span class="zd-tile__g">炎</span><span class="zd-tile__py">yán</span></div></div><span class="disc">4折</span><span class="zd-bdg zd-bdg--lv zd-bdg--max">MAX</span><span class="zd-rdot"></span><span class="zd-bdg zd-bdg--qty">1张</span></div><div class="zd-foot" style="--w:68.8px;--h:86px"><span class="zd-foot__bar"><i style="width:100%;background:var(--text-faint)"></i></span><span class="zd-foot__t max">满级</span></div><div class="hint dim fit18">已满级,买了只进重复卡</div><span class="buy">104<s>260</s></span></div></div>
 <!-- 锁位:第 6 格 Lv15 解锁(下一格,描金边 + 还差 N 级);其后三格淡一档 -->
 <div class="col"><div class="cell"><div class="well next"><div class="in"><b>Lv.15</b><span>解锁</span></div></div><div class="hint gold">还差 6 级</div></div></div>
 <div class="col"><div class="cell"><div class="well"><div class="in"><b>Lv.25</b><span>解锁</span></div></div></div></div>
