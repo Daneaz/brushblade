@@ -336,7 +336,7 @@
         </div>
         <div class="cgrid">
           <!-- 计时中:底图压到 45% + 沙漏角标;倒计时 Format(8048) = 2:14:08(鎏金匣全程 28800 秒);
-               广告缩短 AdReductionSeconds[4] = 5400 → -90m(⚠ 这行文案硬编码在 DrawChest,没走字符串表);
+               广告缩短 AdReductionSeconds[4] = 5400 → −90m(字符串表 map.chest.ad_cut);
                墨锭价 InkCostToSkip(8048) = ⌈8048/120⌉ = 68。 -->
           <div class="box" style="--c:var(--rarity-gold)">
             <svg class="art" viewBox="0 0 120 120" aria-hidden="true">
@@ -346,7 +346,7 @@
             <div class="bn">鎏金匣</div>
             <div class="cd zd-num">2:14:08</div>
             <div class="acts">
-              <button class="zd-btn zd-btn--ad"><svg viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="var(--ad-green)"></path></svg>-90m</button>
+              <button class="zd-btn zd-btn--ad"><svg viewBox="0 0 24 28"><path d="M0 0 L24 14 L0 28 Z" fill="var(--ad-green)"></path></svg>−90m</button>
               <button class="zd-btn zd-btn--chest-sm zd-btn--gold">68墨</button>
             </div>
           </div>

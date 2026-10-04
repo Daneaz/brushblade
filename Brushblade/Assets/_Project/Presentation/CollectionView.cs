@@ -14,7 +14,7 @@ namespace Brushblade.Presentation
     /// 改稿子就同步改这里 —— 两边都可能过时,但任何一边动了都要留痕(scenes/README.md)。
     ///
     /// 2026-09-03 按稿重写。此前是每页 12 张的翻页网格,只列**已拥有**的字;现在:
-    /// · 74 张可收集字全列出来,没拿到的走锁态沉底 —— 收集页的另一半是「还差什么」;
+    /// · 全部可收集字(字表里非部件、口径同宝箱池)都列出来,没拿到的走锁态沉底 —— 收集页的另一半是「还差什么」;
     /// · 网格内部滚动,不再翻页;
     /// · 右栏常驻卡池概览(2026-09-06,取代出阵编组:出阵概念随抽卡池化一并废止)。
     ///   栏底原有一个「去升级 N 张」钮,2026-09-05 用户拍板移除:升级是**某一张字**的事,
@@ -143,7 +143,7 @@ namespace Brushblade.Presentation
             Ui.Anchor((RectTransform)top.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -TopH), Vector2.zero);
 
-            int owned = _meta.OwnedCards.Count;
+            int owned = OwnedCount();
             int locked = _all.Count - owned;
             int unseen = MetaRules.UnseenCount(_meta);
 
@@ -165,6 +165,17 @@ namespace Brushblade.Presentation
                 Theme.ExitPink, Color.white, 25, new Vector2(130, 63));
         }
 
+        /// <summary>已拥有的可收集字数:逐条遍历 <see cref="_all"/> 算,顶栏「收集 N/总数」与
+        /// 筛选栏「已拥有 / 未拥有」共用这一个数。不能用 <c>OwnedCards.Count</c> ——
+        /// 存档里混进部件或已下架的幽灵字时它会多算,同一屏就会出现两个不一样的数。</summary>
+        private int OwnedCount()
+        {
+            int owned = 0;
+            foreach (var def in _all)
+                if (_meta.OwnedCards.Contains(def.Id)) owned++;
+            return owned;
+        }
+
         private void BuildFilters(Transform parent)
         {
             var bar = Ui.Row(parent, "Filters", 4);
@@ -178,14 +189,14 @@ namespace Brushblade.Presentation
             separator.AddComponent<Image>().color = Theme.PanelBorder;
             Ui.Sized(separator, 2, FilterH * 0.5f);
 
-            int upgradable = 0, fresh = 0, owned = 0;
+            int upgradable = 0, fresh = 0;
             foreach (var def in _all)
             {
                 if (!_meta.OwnedCards.Contains(def.Id)) continue;
-                owned++;
                 if (MetaRules.CanUpgradeCard(_meta, def.Id, def.Rarity)) upgradable++;
                 if (MetaRules.IsCardUnseen(_meta, def.Id)) fresh++;
             }
+            int owned = OwnedCount();
             int wanted = _all.Count - owned;
 
             // 拥有态筛选(见 OwnFilter 的注释):与排序并排,各管一件事。

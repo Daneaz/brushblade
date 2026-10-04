@@ -19,9 +19,11 @@ namespace Brushblade.Presentation
     /// 左下角那两块是多余的解释)。画布始终是同一张,靠拖拽 / 捏合 / 右下缩略图导航。
     ///
     /// 节点五态(与设计规格 §8 一致):已点亮 / 可解锁 / 墨锭不足 / 前置未点 / 等级未到——
-    /// 逐态给不同的底色/描边,判据全部走 <see cref="PerkRules"/> 现成的 <c>IsUnlocked</c>/
-    /// <c>PrereqMet</c>,不在这一层另起一套解锁逻辑。点任意状态的节点一律先开
-    /// <see cref="PerkNodeSheet"/> 详情弹窗,解锁动作在弹窗里 —— 43 个节点、单次不可撤销地
+    /// 判据全部走 <see cref="PerkRules"/> 现成的 <c>IsUnlocked</c>/<c>PrereqMet</c>,不在这一层
+    /// 另起一套解锁逻辑。但画布上只画三类:已点亮(枝色浅底 + 枝色边)、可解锁(白底 + 枝色边
+    /// + 外发光)、其余三态统一 locked-bg 纯灰底不描边(前置/等级未到再把图标与名压成
+    /// text-faint);差几级、差多少墨只在详情弹窗里说(2026-09-08 定)。点任意状态的节点一律先开
+    /// <see cref="PerkNodeSheet"/> 详情弹窗,解锁动作在弹窗里 —— 43 个节点(63 段)、单次不可撤销地
     /// 花几百到几千墨锭,卡面误触代价太高。
     ///
     /// <see cref="NodeState"/>/<see cref="StateOf"/>/<see cref="BranchColor"/>/

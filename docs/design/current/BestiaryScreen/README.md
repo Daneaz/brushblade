@@ -24,7 +24,7 @@
   - 角标：左上属性（`<el>-glyph` 底白字）、左下「远程」（`scrim`）、右上「可领 N」（朱砂）、「四相」Boss 标（墨底金字，与可领旗冲突时让到右下）。精英、主题、成语 Boss 都算 Boss，一律挂「四相」。
 - 右栏 240pt，三态：
   - **未选中 = 收录总览**：六条层段进度条 + 一条 Boss 进度条，条与段名同色 —— 层段取该段的属性色（`Theme.ElementColor(BandTint[b])`），Boss 行用 `gold`；满格的计数转 `done-green`。下面是「赏钱」与「怎么用」两段说明。
-  - **选中已录 = 条目详情**：大立绘 76pt + 名 + 属性（`<el>-glyph` 底白字「火系」）/远程/锁人/护甲 chip + 出没 → Boss 四相切换 → 数值三格（按**首现层**缩放，注明基准值）→ 能力（左侧属性色粗边 + 朱砂能力 chip）→ 克制两格（打它 ×1.5 的一系 `ad-green-bg`，它克的一系 `warn-bg`；属性圆点 `<el>-glyph`）。
+  - **选中已录 = 条目详情**：大立绘 76pt + 名 + 属性（`<el>-glyph` 底白字「火系」）/远程/锁人/护甲 chip + 出没 → Boss 四相切换 → 数值三格（按**首现层**缩放，注明基准值）→ 能力（左侧属性色粗边 + 能力 chip，底色走 `Theme.AbilityChipColor` / `Theme.BossSkillChipColor`：恢复类 `jade`、信息类与 Boss 坚壁 `ink-soft`、其余 `cinnabar`，与战斗详情、怪物预览同一套）→ 克制两格（打它 ×1.5 的一系 `ad-green-bg`，它克的一系 `warn-bg`；属性圆点 `<el>-glyph`）。
     - 出没：小怪「出没：{段} · 第 N 层起」+「该层段的杂兵池。」；Boss「出没：{段} · 第 N 层 Boss」+「每段第 5 层是精英，第 10 层是主题 Boss；词渊起各路 Boss 轮替出场。」
   - **选中未遭遇**：栏头转「条目详情 · 未遭遇」，名字是「未遭遇的条目」，不出 chip，出没那行的第二句改成「还没在这一段撞见过它。」，三格数值全是「?」，能力与克制两节整节不画。
 - 栏底主钮四态：「领取赏钱 N」（朱砂，小怪 20、Boss 50）/「赏钱已领 · N 墨」（`panel-inset` 置灰）/「击败它才会解锁」（置灰，未遭遇时）；总览下是「一键领取 N 条赏钱」，没有待领时转「没有待领的赏钱」置灰。
@@ -54,10 +54,3 @@
 - `衍文`（Regrow）、`洇痕`（Split）、`拓片`（Split）有机制却没有 `state` 层：`衍文` 的 `Regrow` 分支照常算出数值，
   但 `MobView._stateImage` 是 null，`SetStateAmount` 空转 —— 不报错，也看不见。缺笔妖有、衍文没有，同一个能力两种表现。
 
-## 已知问题（设计系统与实现不符处）
-- 能力 chip 底色写死成 `cinnabar`（`BestiaryView.BuildAbility`，当前 `:864`），没走 `Theme.AbilityChipColor` / `Theme.BossSkillChipColor`。
-  战斗详情（`BattleView.cs:2883`、`EnemyInfo`）与怪物预览（`EnemyPreview.cs:47/59`）走的是后者，于是：
-  - 恢复类（`jade`）：缺笔妖 / 衍文（Regrow）、涂改 / 晕染（Mend）；
-  - 信息类（`ink-soft`）：叠字怪 / 洇痕 / 拓片（Split）、标点小妖（Buff）、通假字（Disguise）、生僻字 / 铭文（Obscure），以及 Boss 的坚壁（Bulwark）
-  
-  在图鉴里一律印成朱砂。本卡按实现画（焦痕的自燃本来就是朱砂，正好看不出来）。
