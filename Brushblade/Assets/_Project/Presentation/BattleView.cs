@@ -870,12 +870,12 @@ namespace Brushblade.Presentation
 
             // 中区被左右两栏夹到 1260 逻辑单位(稿 602pt),而玩家条 / 字库带 / 部件池
             // 三行进一步收窄到 FieldContentWidth = 1223 并居中(见该常量的说明)。
-            // 手牌行满员时**装不下**:12 张牌 96 + 13 个间距 8 + 计数标题 96 + 广告位 88
-            // = 1440,溢出约 217(18%)。HorizontalLayoutGroup 会等比压窄每格(既有行为,
-            // 与旧版面同),压扁而不是溢出 —— 压后牌约 82 单位,仍比旧版的 68 大两成。
-            // 别为这一成八改牌宽:稿上的 46×56pt 是量出来的,改它会让整屏比例跟稿漂开。
-            // (2026-09-01 收窄对齐前是溢出 10%、压后 87;标题从竖排单字改横排定宽
-            //  也吃掉了一部分,两笔加起来就是从 87 到 82。)
+            // 手牌行的账(字库上限 11 = 起手 6 + 缓冲 1 + 博闻两层 2 + 广告扩容 2):
+            // 未扩容满员 9 张 + 广告位 = 计数标题 96 + 9×96 + 广告位 88 + 10 个间距 8 = 1128,装得下;
+            // 扩容后满员 11 张(扩容位随之撤掉)= 96 + 11×96 + 11 个间距 8 = 1240,溢出约 17(1.4%)。
+            // HorizontalLayoutGroup 会等比压窄每格,压扁而不是溢出 —— 压后牌约 94 单位,肉眼几乎看不出。
+            // 别为这一点改牌宽:稿上的 46×56pt 是量出来的,改它会让整屏比例跟稿漂开。
+            // (2026-10-04 按上限 11 重算;旧账按 12 张 + 广告位算出溢出 18%,那个组合不存在。)
             //
             // 收窄居中槽:Mid 的 childForceExpandWidth 会把直接子物体一律撑满 1260,所以
             // 「收窄再居中」只能靠一层通栏的槽 —— 槽照旧铺满 1260,真正那一件建在槽里、
@@ -2989,7 +2989,7 @@ namespace Brushblade.Presentation
         ///
         /// **扩容之后整个撤掉,不留灰槽**(2026-09-02 用户拍板,推翻稿上的 `.adslot.used` 持续态)。
         /// 稿原本的口径是「用过后转灰而不是消失」,理由是留一条「已经扩过容了」的反馈;
-        /// 但字库行本来就挤(满员 12 张时已经要靠等比压缩才排得下,见 BuildSkeleton 中区那段),
+        /// 但字库行本来就挤(未扩容满员 9 张加上它是 1128,只比 1223 宽的槽少 95,见 BuildSkeleton 中区那段),
         /// 一个点不动、只说「已扩容」的灰槽白占一格宽度,而扩容这件事**在容量数字上已经写着**
         /// (标题就是「字库 5/11」),不需要第二处反馈。稿已同步改掉。
         ///
@@ -3037,8 +3037,8 @@ namespace Brushblade.Presentation
                     if (rewardPhase) OnRewardLibraryClicked(charId);
                     else OnLibraryCharClicked(charId, index);
                 };
-                // 2026-08-31 接稿:68×85 → 96×117(稿 46×56pt,比改前大约四成)。满员 12 张
-                // 时装不下是预期的(见 BuildSkeleton 里 Mid 那段账),HorizontalLayoutGroup
+                // 2026-08-31 接稿:68×85 → 96×117(稿 46×56pt,比改前大约四成)。扩容后满员 11 张
+                // 时略装不下是预期的(溢出 1.4%,见 BuildSkeleton 里 Mid 那段账),HorizontalLayoutGroup
                 // 会等比压窄每格,不会溢出到左右两栏底下——别为这个再改牌宽。
                 var tile = Ui.GlyphTile(_libraryRow, def, selected, tap,
                     new Vector2(HandTileW, HandTileH));
@@ -5680,7 +5680,7 @@ namespace Brushblade.Presentation
             if (error == BattleError.None)
             {
                 _tutorial?.Notify(TutorialAction.Compose, charId);
-                // 合出来的字持续高亮,与拆字同一套:满库 12 张牌里新多出来的那张要能一眼认出。
+                // 合出来的字持续高亮,与拆字同一套:满库 11 张牌里新多出来的那张要能一眼认出。
                 // 同样必须记在下面 CancelSelection() 的重绘之前
                 MarkFresh(charId);
             }
