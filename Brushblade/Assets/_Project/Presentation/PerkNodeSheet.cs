@@ -455,8 +455,8 @@ namespace Brushblade.Presentation
                 // 清掉挂在视图根上的旧弹窗,所以这次 Show 必须在它之后。
                 if (def.Stage < def.StageCount)
                     Show(root, meta, PerkRules.CurrentStage(meta, def.NodeKey), onChanged);
-            }, canUnlock ? Theme.Gold : poor ? Theme.PanelInset : Theme.LockedBg,
-                canUnlock ? Theme.GoldText : poor ? Theme.CinnabarDark : Theme.LockGray,
+            }, canUnlock ? Theme.Primary : poor ? Theme.PanelInset : Theme.LockedBg,
+                canUnlock ? Color.white : poor ? Theme.CinnabarDark : Theme.LockGray,
                 18, new Vector2(primaryW, FooterH));
             primary.interactable = canUnlock;
 

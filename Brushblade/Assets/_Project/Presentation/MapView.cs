@@ -554,7 +554,7 @@ namespace Brushblade.Presentation
                 var actions = Ui.Row(stack.transform, "Acts", 7);
                 actions.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = true;
                 Ui.RoundButton(actions.transform, Strings.T("map.chest.open_button"), () => OpenChest(index),
-                    Theme.Gold, Theme.GoldText, 22, new Vector2(150, 50), 14);
+                    Theme.Primary, Color.white, 22, new Vector2(150, 50), 14);
             }
             else
             {
@@ -574,7 +574,7 @@ namespace Brushblade.Presentation
                         Strings.T("map.chest.skip_fail_body",
                             ("needed", Ui.InkText(ChestRules.InkCostToSkip(ChestRules.RemainingSeconds(chest, _time)))),
                             ("ink", Ui.InkText(_meta.Ink)))),
-                    Theme.Gold, Theme.GoldText, 19, new Vector2(72, 46), 14);
+                    Theme.Primary, Color.white, 19, new Vector2(72, 46), 14);
                 _countdowns.Add((index, countdown, skip.GetComponentInChildren<Text>()));
             }
         }

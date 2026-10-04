@@ -705,7 +705,7 @@ namespace Brushblade.Presentation
             {
                 Destroy(overlay); // 先关弹窗:Upgrade 会 Rebuild 清根,顺序反了会留残影
                 Upgrade(cardId);
-            }, Theme.Gold, Theme.GoldText, 24, new Vector2(0, 71));
+            }, Theme.Primary, Color.white, 24, new Vector2(0, 71));
             confirm.GetComponent<LayoutElement>().flexibleWidth = 1;
             Ui.PillButton(buttons.transform, Strings.T("common.reconsider"), () => Destroy(overlay),
                 Theme.LockedBg, Theme.TextMain, 24, new Vector2(250, 71));

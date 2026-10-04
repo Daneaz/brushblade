@@ -27,6 +27,12 @@ namespace Brushblade.Presentation
         // 2026-09-18 对比度调整(设计系统「字·斗」WCAG AA):六个色调深,原值写在各行注释里
         public static readonly Color Jade = new(0.204f, 0.525f, 0.294f);        // 翠玉 #34864B(原 #439458:「可升」白字 3.7 → 4.5:1)
         public static readonly Color Gold = new(0.791f, 0.617f, 0.199f);        // 赭金
+        // 五个语义色(2026-10-04 拍板,docs/design/system/README.md「设计原则」五色表):按语义取色用这几个别名
+        public static Color Primary => Cta;       // 石青:主推进钮(含花墨锭主钮)
+        public static Color Success => Jade;      // 铜绿:完成/恢复/增益
+        public static Color Warning => Gold;      // 赭金:需留意的提示
+        public static Color Danger => Cinnabar;   // 朱砂:危险/威胁/错误
+        public static Color Info => InkSoft;      // 浓墨:中性信息
         public static readonly Color GoldBorder = new(0.56f, 0.421f, 0.037f);
         public static readonly Color GoldText = new(0.251f, 0.161f, 0.0f);
         public static readonly Color GoldSoft = new(0.965f, 0.929f, 0.835f);    // 金系浅底(墨锭条/满级牌脚)
