@@ -366,6 +366,8 @@ namespace Brushblade.Core
         /// (墨锭/卡等级/图鉴全丢)。改名后旧键变成未知键,Newtonsoft 直接忽略,
         /// 存档降级为「减伤丢失」而非「全清」。</summary>
         public List<StatusEffect> CarriedStatuses { get; set; } = new();
+        /// <summary>跨场开局效果表(spec v7 §5.1),跨段延续;段末与清层时由 GameRoot 写入。</summary>
+        public List<OpeningEffect> CarriedOpenings { get; set; } = new();
 
         /// <summary>段中断点(2026-07-27):非空即「上次退出时正打到一半」,读档直接接着打。
         /// 段末结算/塔结算时清空 —— 留着会让下次登塔从旧段中间开始。</summary>

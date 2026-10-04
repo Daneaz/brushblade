@@ -33,7 +33,7 @@ namespace Brushblade.Data
 
         private sealed class CharDto
         {
-            public List<TraitDto> Traits { get; set; } // 字卡特性(spec v6)
+            public List<TraitDto> Traits { get; set; } // 字卡特性(spec v7)
             public string Id { get; set; }
             public string Element { get; set; }
             public List<string> Recipe { get; set; }
@@ -43,7 +43,6 @@ namespace Brushblade.Data
             public string Pinyin { get; set; }
             public string Gloss { get; set; }
             public bool? Component { get; set; } // 部件标记(2026-09-01):→ CharDef.IsComponent
-            public string MainFace { get; set; } // 主面(spec v6 §2.1):null = 未指定
         }
 
         private sealed class EffectDto
@@ -511,7 +510,7 @@ namespace Brushblade.Data
                 var def = new CharDef(dto.Id, ParseElement(dto),
                     dto.Recipe, ParseEffects(dto, dto.Effects), ParseRarity(dto),
                     dto.Pinyin, dto.Gloss, ParseEffects(dto, dto.AttackEffects), dto.Component,
-                    ParseMainFace(dto), ParseTraits(dto));
+                    traits: ParseTraits(dto));
                 ValidateTraitTargets(def);
                 defs.Add(def);
             }
@@ -523,14 +522,6 @@ namespace Brushblade.Data
                         throw new ConfigException($"字「{def.Id}」的配方引用了未定义的「{ingredient}」");
 
             return new RecipeGraph(defs);
-        }
-
-        private static CardFace? ParseMainFace(CharDto dto)
-        {
-            if (string.IsNullOrEmpty(dto.MainFace)) return null;
-            if (!Enum.TryParse<CardFace>(dto.MainFace, out var face) || !Enum.IsDefined(typeof(CardFace), face))
-                throw new ConfigException($"字「{dto.Id}」的主面未知:{dto.MainFace}");
-            return face;
         }
 
         private static CardRarity ParseRarity(CharDto dto)
@@ -563,24 +554,29 @@ namespace Brushblade.Data
         {
             if (dto.Traits == null) return null;
             var traits = new List<TraitDef>();
-            var slots = new HashSet<TraitSlot>();
+            var keys = new HashSet<(TraitSlot, TraitFace)>();
             foreach (var t in dto.Traits)
             {
                 if (string.IsNullOrEmpty(t.Slot))
                     throw new ConfigException($"字「{dto.Id}」有特性缺少 slot");
+                if (string.IsNullOrWhiteSpace(t.Name))
+                    throw new ConfigException($"字「{dto.Id}」有特性缺少名称(slot {t.Slot})");
                 var slot = ParseEnum(t.Slot, TraitSlot.Lv1, dto.Id, "特性槽位");
-                if (!slots.Add(slot))
-                    throw new ConfigException($"字「{dto.Id}」的特性槽位重复:{t.Slot}");
                 var face = ParseEnum(t.Face, TraitFace.Both, dto.Id, "特性作用面");
+                if (!keys.Add((slot, face)))
+                    throw new ConfigException($"字「{dto.Id}」的特性重复:{t.Slot}/{face}(同一槽位每个作用面只能有一条)");
                 var form = ParseEnum(t.Form, TraitForm.Active, dto.Id, "特性形态");
                 TraitSlot? replaces = string.IsNullOrEmpty(t.Replaces)
                     ? (TraitSlot?)null
                     : ParseEnum(t.Replaces, TraitSlot.Lv1, dto.Id, "特性替换槽位");
-                traits.Add(new TraitDef(slot, face, form, replaces, t.Name ?? "", ParseEffects(dto, t.Effects ?? new List<EffectDto>())));
+                traits.Add(new TraitDef(slot, face, form, replaces, t.Name, ParseEffects(dto, t.Effects ?? new List<EffectDto>())));
             }
             foreach (var t in traits)
-                if (t.Replaces.HasValue && (!slots.Contains(t.Replaces.Value) || (int)t.Replaces.Value >= (int)t.Slot))
-                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」替换了不存在或更高的槽位:{t.Replaces}");
+                if (t.Face == TraitFace.Both && traits.Any(o => o.Slot == t.Slot && o.Face != TraitFace.Both))
+                    throw new ConfigException($"字「{dto.Id}」的槽位 {t.Slot} 同时有两面特性与单面特性(spec v7 不混用)");
+            foreach (var t in traits)
+                if (t.Replaces.HasValue && (!keys.Contains((t.Replaces.Value, t.Face)) || (int)t.Replaces.Value >= (int)t.Slot))
+                    throw new ConfigException($"字「{dto.Id}」的特性「{t.Name}」替换了同一作用面上不存在或更高的槽位:{t.Replaces}");
             return traits;
         }
 
@@ -590,6 +586,8 @@ namespace Brushblade.Data
         {
             foreach (var t in def.Traits)
             {
+                if (t.Face == TraitFace.Attack && def.AttackEffects.Count == 0)
+                    throw new ConfigException($"字「{def.Id}」的特性「{t.Name}」作用于攻击,但该字没有攻击效果(attackEffects)");
                 if (t.Form != TraitForm.Active) continue;
                 foreach (var face in new[] { CardFace.Feature, CardFace.Attack })
                 {

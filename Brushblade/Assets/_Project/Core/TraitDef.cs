@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Brushblade.Core
 {
-    /// <summary>特性槽位(spec v6 §1):枚举值即解锁等级。Lv2/7/9/10 只涨数值,没有槽位。</summary>
+    /// <summary>特性槽位(spec v7 §1):枚举值即解锁等级。Lv2/7/9/10 只涨数值,没有槽位。</summary>
     public enum TraitSlot
     {
         Lv1 = 1,
@@ -29,7 +29,7 @@ namespace Brushblade.Core
         Passive,
     }
 
-    /// <summary>一条字卡特性(spec v6 §1 / §11.1)。名称是游戏数据(随字表),不进字符串表。</summary>
+    /// <summary>一条字卡特性(spec v7 §1 / §11.1)。名称是游戏数据(随字表),不进字符串表。</summary>
     public sealed class TraitDef
     {
         public TraitSlot Slot { get; }

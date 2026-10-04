@@ -287,7 +287,8 @@ namespace Brushblade.Presentation
                 libraryExpanded: resume == null && snapshot.LibraryExpanded,
                 poolExpanded: resume == null && snapshot.PoolExpanded,
                 // 奇遇上限加成本次登塔生效(2026-09-18):与 PlayerHp 同一次落盘,一起传回
-                maxHpBonus: snapshot.MaxHpBonus);
+                maxHpBonus: snapshot.MaxHpBonus,
+                startingOpenings: snapshot.CarriedOpenings);
             if (resume == null && snapshot.Revived)
                 run.MarkRevived(); // 防重进本层二次复活(2026-07-24)
 
@@ -401,6 +402,7 @@ namespace Brushblade.Presentation
         /// 层经验与 Depth 推进已在 OnFloorCleared 记过账,这里不再重复。</summary>
         private static void OnFloorAdvanced(RunEngine run, int carriedInk)
         {
+            // 有意不写 CarriedOpenings:开局效果只在 AdvanceAfterBattle 变化,OnFloorCleared/WriteCarriedSnapshot 已写最新值;段内续玩走 InProgress.Run。
             var snapshot = _meta.EndlessV2;
             if (snapshot == null) return;
             CommitEventInk(run); // 本段净额(层清算 + 字摊)即时结进账户
@@ -431,6 +433,7 @@ namespace Brushblade.Presentation
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
+            snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);
         }
 
         private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int carriedInk, bool won)
@@ -487,6 +490,7 @@ namespace Brushblade.Presentation
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
+            snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);
             LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
