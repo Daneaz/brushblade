@@ -4,7 +4,8 @@ namespace Brushblade.Core
     public enum EffectKind
     {
         DamageSingle, // 伤害(打谁由 EffectDef.Shape 定;全体 = Shape All。原 DamageAll 已于
-                      // spec v7 §11.6 退役 —— EffectKind 只按名字从 chars.json 解析、不进存档,删值不留占位)
+                      // spec v7 §11.6 退役 —— 字表按名字解析,但 OpeningEffect.Kind 以 int 进存档,
+                      // 所以删值/改序会让旧存档的序号错位;删值不留占位是因为项目未上线、存档不需兼容)
         BurnSingle,   // 单体灼烧(叠层)
         BurnAll,      // 全体灼烧(叠层)
         Shield,       // 护盾:自身或指定一只召唤物(2026-08-26 起目标可选)

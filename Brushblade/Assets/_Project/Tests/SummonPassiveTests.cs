@@ -815,7 +815,7 @@ namespace Brushblade.Core.Tests
                 new[] { "霜" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
                 cardLevels: new Dictionary<string, int> { ["霜"] = 3 });
             engine.Cast("霜");
-            // 100 × (1 + 0.117×2) = 124 → 钳回 100(概率不该超过必中)
+            // 100 × 1.12 = 112 → 钳回 100(概率不该超过必中)
             Assert.That(engine.Summons[0].Passive.OnHitFreezeChance, Is.EqualTo(100));
             Assert.That(engine.Summons[0].Passive.OnHitFreezeTurns, Is.EqualTo(3), "回合数不吃等级");
 

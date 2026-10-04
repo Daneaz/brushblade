@@ -4,8 +4,13 @@ namespace Brushblade.Core
     /// 新上限由使用它的任务各自追加到这里,不在引擎里散落字面量。</summary>
     public static class CombatCaps
     {
+        /// <summary>士气层数上限(spec v7 §5.2.2)。</summary>
         public const int MoraleStacks = 5;
+
+        /// <summary>厚层数上限(spec v7 §5.2.2)。</summary>
         public const int HeftStacks = 10;
+
+        /// <summary>泉层数上限(spec v7 §5.2.2)。</summary>
         public const int WellspringStacks = 10;
 
         /// <summary>灼烧层数上限(spec v7 §5.2.2)。在 ApplyStatus 钳叠加后的总层数。</summary>

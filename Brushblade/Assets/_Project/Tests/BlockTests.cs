@@ -151,5 +151,35 @@ namespace Brushblade.Core.Tests
             Assert.That(b.PlayerHp, Is.EqualTo(hp), "免疫挡下");
             Assert.That(b.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(1), "免疫挡下不消耗格挡");
         }
+
+        [Test]
+        public void DodgedAttack_DoesNotConsumeBlock()
+        {
+            var b = new BattleEngine(RebalanceFixture.Graph(Guard()),
+                new BattleConfig { PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, PlayerDodge = 100 },
+                new[] { "铠", "铠", "铠" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob(attack: 100) }, seed: 1);
+            b.Cast("铠", -1, attackMode: false);
+            int hp = b.PlayerHp;
+            b.EndTurn();
+            Assert.That(b.PlayerHp, Is.EqualTo(hp), "闪避 100%:攻击打空");
+            Assert.That(b.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(1), "打空不消耗格挡");
+            Assert.That(b.Enemies[0].Hp, Is.EqualTo(100000), "没挨到打也就没有反击");
+        }
+
+        [Test]
+        public void BlindedAttackerMissing_DoesNotConsumeBlock()
+        {
+            var b = Battle(100);
+            b.Enemies[0].Statuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.Blind, Polarity = StatusPolarity.Debuff, Magnitude = 100, TurnsLeft = -1,
+            });
+            b.Cast("铠", -1, attackMode: false);
+            int hp = b.PlayerHp;
+            b.EndTurn();
+            Assert.That(b.PlayerHp, Is.EqualTo(hp), "致盲 100%:攻击打空");
+            Assert.That(b.PlayerStatuses.Find(StatusKind.Block).Magnitude, Is.EqualTo(1), "致盲打空不消耗格挡");
+        }
     }
 }

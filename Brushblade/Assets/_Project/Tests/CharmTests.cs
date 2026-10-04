@@ -68,8 +68,8 @@ namespace Brushblade.Core.Tests
         }
 
         /// <summary>终审修复项 2(2026-09-06):回合数不吃卡等级。此前用
-        /// <c>MetaRules.ScaleTurnsByCardLevel</c> 缩放,10 级卡会把 1 回合的魅惑
-        /// 缩成 1+10/5=3 回合,打穿 spec §2.3 的封禁定价梯度(卡 10 级的绿档「花」
+        /// 一条按卡等级缩放回合数的函数(已删除),10 级卡会把 1 回合的魅惑
+        /// 缩成 3 回合,打穿 spec §2.3 的封禁定价梯度(卡 10 级的绿档「花」
         /// 会比橙档「淋」买的 2 回合封禁还长)。改法与 Silence/Blind/Freeze 同口径:
         /// 直接读 <c>effect.Turns</c>,卡等级只影响数值(Value),不影响回合数。</summary>
         [Test]

@@ -157,5 +157,40 @@ namespace Brushblade.Core.Tests
             b.EndTurn();
             Assert.That(b.Enemies[1].Statuses.Has(StatusKind.Freeze), Is.True, "该打没霜抗的那只");
         }
+
+        [Test]
+        public void PositiveSpeedModifier_IsNotMergedAsSlow()
+        {
+            var b = Battle("缓");
+            Bag(b).Apply(new StatusEffect
+            {
+                Kind = StatusKind.SpeedModifier, Polarity = StatusPolarity.Buff, Magnitude = 30,
+                TurnsLeft = 2, SourceId = "加速",
+            });
+            b.Cast("缓", 0);
+            var speeds = Bag(b).All.Where(s => s.Kind == StatusKind.SpeedModifier).ToList();
+            Assert.That(speeds.Count, Is.EqualTo(2), "加速与减速各留一条,减速合并不吞正值");
+            Assert.That(speeds.Any(s => s.Magnitude == 30 && s.TurnsLeft == 2), Is.True, "加速原样保留");
+            Assert.That(speeds.Any(s => s.Magnitude == -50), Is.True, "减速照常施加");
+        }
+
+        [Test]
+        public void SameSummon_RepeatedSlow_OnlyRefreshes()
+        {
+            var banana = new CharDef("蕉", Element.Wood,
+                effects: new[] { new EffectDef(EffectKind.Summon, 10, summonCount: 1, summonAttack: 3, summonChar: "木",
+                    passive: new SummonPassive { OnHitSlowPercent = 50, OnHitSlowTurns = 2 }) });
+            var b = new BattleEngine(RebalanceFixture.Graph(banana, new CharDef("木", Element.Wood)),
+                new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 500 },
+                new[] { "蕉" }, Array.Empty<string>(),
+                new[] { RebalanceFixture.Mob() }, seed: 1);
+            b.Cast("蕉");
+            b.EndTurn();
+            b.EndTurn();
+            b.EndTurn();
+            var slows = Bag(b).All.Where(s => s.Kind == StatusKind.SpeedModifier && s.Magnitude < 0).ToList();
+            Assert.That(slows.Count, Is.EqualTo(1), "同一召唤物反复出手只刷新,不叠条");
+            Assert.That(slows[0].Magnitude, Is.EqualTo(-50), "不叠成 -100 / -150");
+        }
     }
 }
