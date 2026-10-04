@@ -98,7 +98,8 @@ namespace Brushblade.Core
             int? startingHp = null, int startingNormalShield = 0, int startingPersistShield = 0,
             int perFloorNormalShield = 0, IReadOnlyList<SummonSnapshot> startingSummons = null,
             IReadOnlyList<StatusEffect> startingStatuses = null,
-            bool libraryExpanded = false, bool poolExpanded = false, int maxHpBonus = 0)
+            bool libraryExpanded = false, bool poolExpanded = false, int maxHpBonus = 0,
+            IReadOnlyList<OpeningEffect> startingOpenings = null)
         {
             _startingInk = startingInk;
             _maxHpBonus = maxHpBonus; // 奇遇上限加成跨段延续(2026-09-18):必须赶在开第一场之前
@@ -129,6 +130,8 @@ namespace Brushblade.Core
             if (startingSummons != null) _carriedSummons = new List<SummonSnapshot>(startingSummons);
             if (startingStatuses != null)
                 _carriedStatuses = startingStatuses.Select(s => s.Clone()).ToList();
+            if (startingOpenings != null) // 必须在 NewBattle 之前:开场推进里就会消费
+                _carriedOpenings = startingOpenings.Select(o => o.Clone()).ToList();
             // 携带态一开始就等于开打时的状态,而不是 null:第一场打完前挂起也有东西可存,
             // 且省掉一处 null 陷阱(AdvanceAfterBattle 会照常整体覆盖)
             _carriedLibrary = new List<string>(startingLibrary);
@@ -136,6 +139,9 @@ namespace Brushblade.Core
             _carriedHp = startingHp ?? EffectiveMaxHp;
             Battle = NewBattle(startingLibrary, startingPool, startingHp); // 断点续爬恢复血量(20.6)
         }
+
+        /// <summary>跨场开局效果表(spec v7 §5.1):供无尽跨段写入 EndlessSaveState。返回深拷贝 —— run 内战后会原地递减 BattlesLeft。</summary>
+        public IReadOnlyList<OpeningEffect> CarriedOpenings => _carriedOpenings.Select(o => o.Clone()).ToList();
 
         /// <summary>断点存档专用构造:不开第一场,状态由 <see cref="Restore"/> 灌入。</summary>
         private RunEngine(RecipeGraph graph, RunConfig runConfig, BattleConfig battleConfig,

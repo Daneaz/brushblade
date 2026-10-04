@@ -287,7 +287,8 @@ namespace Brushblade.Presentation
                 libraryExpanded: resume == null && snapshot.LibraryExpanded,
                 poolExpanded: resume == null && snapshot.PoolExpanded,
                 // 奇遇上限加成本次登塔生效(2026-09-18):与 PlayerHp 同一次落盘,一起传回
-                maxHpBonus: snapshot.MaxHpBonus);
+                maxHpBonus: snapshot.MaxHpBonus,
+                startingOpenings: snapshot.CarriedOpenings);
             if (resume == null && snapshot.Revived)
                 run.MarkRevived(); // 防重进本层二次复活(2026-07-24)
 
@@ -431,6 +432,7 @@ namespace Brushblade.Presentation
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
+            snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);
         }
 
         private static void OnSegmentEnded(RunEngine run, int fromDepth, int segmentEnd, int carriedInk, bool won)
@@ -487,6 +489,7 @@ namespace Brushblade.Presentation
             snapshot.PersistShield = run.CarriedPersistShield;
             snapshot.CarriedSummons = new System.Collections.Generic.List<SummonSnapshot>(run.CarriedSummons);
             snapshot.CarriedStatuses = new System.Collections.Generic.List<StatusEffect>(run.CarriedStatuses);
+            snapshot.CarriedOpenings = new System.Collections.Generic.List<OpeningEffect>(run.CarriedOpenings);
             LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
