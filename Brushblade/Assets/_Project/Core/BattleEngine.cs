@@ -1073,6 +1073,8 @@ namespace Brushblade.Core
         /// 配置侧(字表/敌表定义/卡等级)不进快照,复原时由外层照原样传回。</summary>
         public BattleSnapshot Capture()
         {
+            // 反应队列不进快照:所有安全点都在动作末尾,能存档的时刻队列必然为空
+            System.Diagnostics.Debug.Assert(_reactions.Count == 0, "存档时特性反应队列必须为空:有安全点没有排空");
             var snapshot = new BattleSnapshot
             {
                 PlayerHp = PlayerHp,
@@ -2167,6 +2169,8 @@ namespace Brushblade.Core
             var summon = _summons[s];
             if (summon == null || !summon.Alive) return;
             Raise(HookKind.TurnStarted, UnitRef.Summon(s), UnitRef.None);
+            DrainReactions();   // 安全点:「回合开始时」类反应在它出手前兑现(与玩家侧对称)
+            if (!summon.Alive) { EndBeat(UnitRef.Summon(s)); return; }   // 被反应打死
 
             // 战意/厚会在回合中途变化(玩家出一张金系字就 +1 层战意),只在召唤/死亡时刷
             // 不够 —— 每只召唤物出手前都要重读一次当前乘区(2026-09-05)。
@@ -2300,6 +2304,8 @@ namespace Brushblade.Core
             var enemy = _enemies[enemyIndex];
             if (!enemy.Alive) return;
             Raise(HookKind.TurnStarted, UnitRef.Enemy(enemyIndex), UnitRef.None);
+            DrainReactions();   // 安全点:「回合开始时」类反应在它出手前兑现(与玩家侧对称)
+            if (!enemy.Alive) { CheckWin(); EndBeat(UnitRef.Enemy(enemyIndex)); return; }   // 被反应打死
 
             // 冰滞到此为止(R1b):Boss 这一拍照常行动,易伤窗口关闭,挂霜抗 N+1(本拍末尾 TickTurns 会减 1)
             var stall = enemy.Statuses.Find(StatusKind.IceStall);
@@ -2417,6 +2423,9 @@ namespace Brushblade.Core
             }
 
             TickPlayerStatuses();
+            // 安全点:玩家灼烧(跌破阈值)/ HoT 溢流(EnemyHit / EnemyKilled)触发的反应在这里兑现,
+            // 不能带进 PlayerTurn —— 那时可以存档,而队列不进快照。
+            DrainReactions();
             if (Phase == BattlePhase.Lost) return;
 
             // 反伤可能在敌方段里打死最后一只敌人(2026-08-05):敌方段以前从不杀敌,
@@ -3737,6 +3746,9 @@ namespace Brushblade.Core
                 // 灼烧总层数上限(spec v7 §5.2.2)。调用方(ApplyBurn / RefreshBurn)传的 Magnitude
                 // 已是叠加后的总层数,bag.Apply 同源覆盖,所以钳 Magnitude 即钳总层数。
                 effect.Magnitude = Math.Min(effect.Magnitude, CombatCaps.BurnStacks);
+                // 钩子口径:钳位后总层数没涨(满层再施加 / 灯花刷新到不高于现有层数)不发 StatusApplied。
+                // 照常写袋子、返回值不变(与 GainStacks 的 raiseHook 同口径)。
+                if (effect.Magnitude <= (bag.Find(StatusKind.Burn)?.Magnitude ?? 0)) raiseHook = false;
             }
             bag.Apply(effect);
             if (raiseHook) Raise(HookKind.StatusApplied, target, applier, effect.Magnitude, status: effect.Kind);

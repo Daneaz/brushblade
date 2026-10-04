@@ -78,7 +78,89 @@ namespace Brushblade.Core.Tests
             var b = RebalanceFixture.Battle(RebalanceFixture.Graph(Hit), new[] { "击" },
                 RebalanceFixture.Mob(attack: 1, hp: 1_000_000));
             b.AddHookListener(new Forever());
-            Assert.Throws<InvalidOperationException>(() => b.Cast("击", 0));
+            var ex = Assert.Throws<InvalidOperationException>(() => b.Cast("击", 0));
+            Assert.That(ex.Message, Does.Contain(BattleEngine.MaxReactionsPerDrain.ToString()), "是排空上限,不是重入守卫");
+            Assert.That(ex.Message, Does.Contain("排空超过"));
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0), "抛出前清空队列,不留残余");
+        }
+
+        // ── 修复第 1 轮 ──
+
+        /// <summary>收到指定条件的深度 0 钩子时入队一条「打 0 号敌人 10」,并记下全部钩子。</summary>
+        private sealed class EnqueueWhen : IBattleHookListener
+        {
+            private readonly Func<HookArgs, bool> _when;
+            public readonly List<HookArgs> Log = new();
+            public EnqueueWhen(Func<HookArgs, bool> when) => _when = when;
+            public void OnHook(BattleEngine b, in HookArgs a)
+            {
+                Log.Add(a);
+                if (a.Depth > 0 || !_when(a)) return;
+                b.Enqueue(new BattleEngine.Reaction("回", Element.Heart,
+                    new[] { new EffectDef(EffectKind.DamageSingle, 10) }, 0, a.Depth + 1));
+            }
+        }
+
+        [Test]
+        public void HotOverflowReaction_ResolvedBeforePlayerTurnOpens()
+        {
+            var b = new BattleEngine(RebalanceFixture.Graph(),
+                new BattleConfig { PlayerMaxHp = 500, PlayerAttack = 100, OverhealDamagePercent = 100 },
+                new[] { "甲" }, Array.Empty<string>(), new[] { RebalanceFixture.Mob() }, seed: 1);
+            b.PlayerStatuses.Apply(new StatusEffect
+            {
+                Kind = StatusKind.HealOverTime, Polarity = StatusPolarity.Buff,
+                Magnitude = 50, TurnsLeft = 3, SourceId = "滋",
+            });
+            var l = new EnqueueWhen(a => a.Kind == HookKind.EnemyHit && a.Source == EffectSource.Overheal);
+            b.AddHookListener(l);
+            b.EndTurn();   // 满血 → 下一个玩家回合开头 HoT 全额溢流 → EnemyHit
+            Assert.That(l.Log.Any(a => a.Kind == HookKind.EnemyHit && a.Source == EffectSource.Overheal), Is.True,
+                "前提:溢流打出了 EnemyHit");
+            Assert.That(b.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+            Assert.That(b.PendingReactionCount, Is.EqualTo(0), "进入玩家回合时队列已排空(否则存档会丢)");
+            Assert.That(l.Log.Any(a => a.Kind == HookKind.EnemyHit && a.Depth == 1), Is.True, "反应兑现了");
+        }
+
+        [Test]
+        public void EnemyTurnStartedReaction_ResolvesBeforeItActs()
+        {
+            var b = RebalanceFixture.Battle(RebalanceFixture.Graph(), new[] { "甲" }, RebalanceFixture.Mob(attack: 10));
+            var l = new EnqueueWhen(a => a.Kind == HookKind.TurnStarted && a.Subject == UnitRef.Enemy(0));
+            b.AddHookListener(l);
+            b.EndTurn();
+            int reaction = l.Log.FindIndex(a => a.Kind == HookKind.EnemyHit && a.Depth == 1);
+            int attack = l.Log.FindIndex(a => a.Kind == HookKind.PlayerHit);
+            Assert.That(reaction, Is.GreaterThanOrEqualTo(0), "前提:反应兑现了");
+            Assert.That(attack, Is.GreaterThanOrEqualTo(0), "前提:敌人出手了");
+            Assert.That(reaction, Is.LessThan(attack), "「回合开始时」反应在它出手之前兑现");
+        }
+
+        [Test]
+        public void BurnAtCap_ReapplyRaisesNoStatusApplied()
+        {
+            var burner = RebalanceFixture.Char("燃", new EffectDef(EffectKind.BurnSingle, CombatCaps.BurnStacks));
+            var b = RebalanceFixture.Battle(RebalanceFixture.Graph(burner), new[] { "燃", "燃" }, RebalanceFixture.Mob());
+            var r = new Recorder();
+            b.AddHookListener(r);
+            b.Cast("燃", 0);
+            Assert.That(r.Log.Count(a => a.Kind == HookKind.StatusApplied && a.Status == StatusKind.Burn), Is.EqualTo(1));
+            b.Cast("燃", 0);
+            Assert.That(r.Log.Count(a => a.Kind == HookKind.StatusApplied && a.Status == StatusKind.Burn), Is.EqualTo(1),
+                "满层再施加,总层数没涨,不发");
+            Assert.That(b.Enemies[0].Statuses.Find(StatusKind.Burn).Magnitude, Is.EqualTo(CombatCaps.BurnStacks));
+        }
+
+        [Test]
+        public void IronBarbRecoil_PlayerHitSourceIsIronBarb()
+        {
+            var b = RebalanceFixture.Battle(RebalanceFixture.Graph(Hit), new[] { "击" },
+                RebalanceFixture.Mob(ability: EnemyAbility.Barb));
+            var r = new Recorder();
+            b.AddHookListener(r);
+            b.Cast("击", 0);
+            var hit = r.Log.Single(a => a.Kind == HookKind.PlayerHit);
+            Assert.That(hit.Source, Is.EqualTo(EffectSource.IronBarb));
         }
 
         [Test]
