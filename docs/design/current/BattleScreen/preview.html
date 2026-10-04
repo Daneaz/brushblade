@@ -37,10 +37,11 @@ html,body{margin:0;background:var(--paper)}
 
 /* ---------- 顶栏(DrawTopBar)定高 46 → 22pt ---------- */
 .bar { height: 22px; flex: none; display: flex; align-items: center; justify-content: space-between; }
-/* 左组 Ui.Row 间距 10 → 4.78pt,锚 0~0.26 宽。标题 = "{title} · 战斗 {index}",
+/* 左组 Ui.Row 间距 10 → 4.78pt,锚 0~0.50 宽、MiddleLeft 左起排(2026-10-04 从 0.26 放宽:
+   16:9 的 Frame 1354 × 0.26 = 352 装不下标题 + 层数 ≈ 355~395)。标题 = "{title} · 战斗 {index}",
    title = root.battleview.segment_title「「{段名}」第 {段首}~{段末} 层」(每 5 层一段);
    20 → 9.56pt TitleFont TextMain;「第 N 层」另起一条 13 → 6.21pt TextDim。 */
-.bar .left { width: 26%; display: flex; align-items: center; gap: 4.78px; white-space: nowrap; }
+.bar .left { width: 50%; display: flex; align-items: center; gap: 4.78px; white-space: nowrap; }
 .bar .lv { font-family: var(--font-serif); font-weight: 600; font-size: 9.56px; color: var(--text-main); }
 .bar .seg { font-size: 6.21px; color: var(--text-dim); }
 /* 右组 Ui.Row 间距 14 → 6.69pt,MiddleRight 靠右,左沿锚 0.50:
