@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>推进色比稿</title>
+<link rel="stylesheet" href="../../_preview/tokens.css">
+<style>
+body{margin:0;padding:20px 24px;background:var(--paper);color:var(--text-main);font-family:var(--font-sans)}
+h1{font-family:var(--font-serif);margin:0 0 4px;font-size:24px}
+.lead{color:var(--text-dim);font-size:13px;margin:0 0 18px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.col{background:var(--panel-paper);border:1px solid var(--panel-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:12px}
+.col h2{font-family:var(--font-serif);font-size:16px;margin:0}
+.col .meta{font-size:11px;color:var(--text-dim);line-height:1.5}
+.card{background:var(--paper);border:1px solid var(--panel-border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;align-items:center}
+.cap{align-self:flex-start;font-size:10px;color:var(--text-faint)}
+.btn{font-family:var(--font-sans);font-weight:500;border:none;border-radius:11px;height:30px;padding:0 14px;font-size:12px;white-space:nowrap}
+.big{height:40px;font-size:16px;width:100%;border-radius:11px}
+.row{display:flex;gap:6px;width:100%}
+.row .btn{flex:1}
+.neutral{background:var(--locked-bg);color:var(--text-main)}
+.inksoft{background:var(--ink-soft);color:#fff}
+.danger-outline{background:transparent;color:var(--cinnabar-dark);box-shadow:inset 0 0 0 1.5px var(--cinnabar)}
+.body{font-size:11px;color:var(--text-dim);text-align:center;line-height:1.5}
+.body b{color:var(--fire-glyph)}
+.chips{display:flex;gap:4px;align-self:flex-start;align-items:center}
+.chip{font-size:10px;height:16px;line-height:16px;padding:0 6px;border-radius:6.69px;color:#fff}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--cinnabar);display:inline-block}
+.tile{width:40px;height:50px;border-radius:6px;border:2px solid var(--rarity-gold);background:var(--card-face);display:flex;align-items:center;justify-content:center;font-family:var(--font-serif);font-weight:700;font-size:22px;color:var(--wood-glyph)}
+.tiles{display:flex;gap:8px}
+.verdict{font-size:11px;line-height:1.55;color:var(--text-main)}
+.verdict .p{color:var(--upgrade-text)} .verdict .c{color:var(--cinnabar-dark)}
+</style></head><body>
+<h1>推进色比稿</h1>
+<p class="lead">主推进钮(续爬、挂起离塔、深入、结束回合、收下)换色;朱砂改作<b>危险 / 威胁色</b>:DoT、威胁 chip、红点,以及不可逆操作(弃塔)——不可逆钮用朱砂描边 + 深朱砂字,不做实底,不抢主钮。<br>
+每列同一组场景,只换推进色。第一列是现状(朱砂既推进又警示),作对照。按钮黑体 500;对比度按 WCAG 计算。</p>
+<div class="grid" id="grid"></div>
+<script>
+const opts=[
+ {name:"现状 · 朱砂",bg:"var(--cinnabar)",fg:"#fff",meta:"#C53637 白字 5.31:1",neutral:"inksoft",danger:"inksoft",
+  pro:"品牌一致,不用改",con:"红=危险的常识冲突;弃塔只能退成灰蓝"},
+ {name:"赭金",bg:"var(--gold)",fg:"var(--gold-text)",meta:"#CA9D33 底 gold-text 字 5.47:1",neutral:"neutral",danger:"danger-outline",
+  pro:"与解锁/升级/领取同一主钮色,全站一个主钮色;暖、正向;不撞五行",con:"与金字稀有度框、赭金新字光近"},
+ {name:"浓墨",bg:"var(--ink)",fg:"#fff",meta:"#11161F 白字 18:1",neutral:"neutral",danger:"danger-outline",
+  pro:"最贴「纸与墨为地」;对比最强;不撞五行",con:"偏沉,主钮存在感靠体量;中性钮须改浅色"},
+ {name:"石青(新增)",bg:"#2E5E8C",fg:"#fff",meta:"#2E5E8C 白字 6.78:1",neutral:"neutral",danger:"danger-outline",
+  pro:"蓝=前进/安全常识;传统矿物色",con:"与水系蓝、ink-soft 灰蓝近"},
+ {name:"铜绿(新增)",bg:"#1F6F6B",fg:"#fff",meta:"#1F6F6B 白字 5.92:1",neutral:"neutral",danger:"danger-outline",
+  pro:"青绿=通行",con:"与木系绿、jade「可升/达成」近"},
+];
+const g=document.getElementById("grid");
+for(const o of opts){
+ const p=`style="background:${o.bg};color:${o.fg}"`;
+ g.insertAdjacentHTML("beforeend",`<div class="col"><h2>${o.name}</h2><div class="meta">${o.meta}</div>
+ <div class="card"><span class="cap">主界面 · 书塔</span><div style="font-family:var(--font-serif);font-size:15px">无尽书塔</div><button class="btn big" ${p}>续 爬</button></div>
+ <div class="card"><span class="cap">离塔弹窗(不可逆)</span><div class="body">弃塔:本次登塔<b>立即结算</b>,层数纪录保留</div>
+  <div class="row"><button class="btn" ${p}>挂起离塔</button><button class="btn ${o.danger}">弃塔</button><button class="btn neutral">继续战斗</button></div></div>
+ <div class="card"><span class="cap">战斗 · 威胁与推进同屏</span><div class="chips"><span class="chip" style="background:var(--cinnabar)">灼烧 3</span><span class="chip" style="background:var(--cinnabar)">嘲讽</span><span class="dot"></span></div><button class="btn" ${p} style="background:${o.bg};color:${o.fg};width:70%">结束回合</button></div>
+ <div class="card"><span class="cap">安全层岔路</span><div class="row"><button class="btn" ${p}>深入「墨海」</button><button class="btn ${o.neutral}">撤退结算</button></div></div>
+ <div class="card"><span class="cap">里程碑三选一(金字牌同屏)</span><div class="tiles"><div class="tile">林</div><div class="tile" style="color:var(--fire-glyph)">炎</div></div><button class="btn" ${p} style="background:${o.bg};color:${o.fg};width:60%">收 下</button></div>
+ <div class="verdict"><span class="p">＋ ${o.pro}</span><br><span class="c">− ${o.con}</span></div></div>`);
+}
+</script>
+</body></html>
