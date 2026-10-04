@@ -25,11 +25,11 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .e-Earth { --elSoft: #ECDCBD; --glyph: #82552A; }
 .r-White { --rar: #A19E97; } .r-Green { --rar: #2E9E52; } .r-Blue { --rar: #0F74C5; } .r-Purple { --rar: #7945AB; } .r-Gold { --rar: #C9A94A; } .r-Orange { --rar: #E1791B; } .r-Red { --rar: #CD272E; }
 .top { height: 38px; flex: none; display: flex; align-items: center; gap: 10px; }
-.top h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+.top h1 { margin: 0; font-size: 19px; font-weight: 600; }
 .top .sub { font-size: 11px; color: #5D646F; }
 .top .sub b { color: #161B22; }
 .inkc { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.btn-back { height: 30px; padding: 0 14px; border: none; border-radius: 15px; background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px; }
+.btn-back { height: 30px; padding: 0 14px; border: none; border-radius: 15px; background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; }
 .body { flex: 1; display: flex; gap: 10px; min-height: 0; padding-bottom: 8px; }
 .panel { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; box-sizing: border-box; }
 .reddot { width: 7px; height: 7px; border-radius: 50%; background: #C53637; box-shadow: 0 0 0 1.5px #FBF8F1; }
@@ -40,8 +40,8 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .who .go { position: absolute; right: 9px; top: 9px; display: flex; align-items: center; gap: 4px; font-size: 13px; color: #5D646F; }
 .avatar { display: flex; align-items: center; gap: 9px; }
 .face { width: 42px; height: 42px; flex: none; border-radius: 50%; background: #11161F; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; color: #F6F1E7; }
-.who .nm { font-size: 16px; font-weight: 600; letter-spacing: 1px; }
-.who .rk { font-size: 10px; color: #5D646F; margin-top: 2px; letter-spacing: 1px; }
+.who .nm { font-size: 16px; font-weight: 600; }
+.who .rk { font-size: 10px; color: #5D646F; margin-top: 2px; }
 .xp { display: flex; align-items: center; gap: 6px; font-size: 9px; color: #676F7A; font-variant-numeric: tabular-nums; }
 .xp .t { flex: 1; height: 4px; border-radius: 2px; background: #E4DDCE; overflow: hidden; }
 .xp .t span { display: block; height: 100%; background: #C9A94A; }
@@ -52,18 +52,18 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 
 /* 出手 Top10:取代「卡池 N 字」摘要。5 列 × 2 行,牌 0.8 竖版比例(26×32),次数在牌下 */
 .top10 { margin-top: auto; }
-.top10 .h { display: flex; align-items: baseline; font-size: 9px; color: #676F7A; letter-spacing: 1px; margin-bottom: 5px; }
-.top10 .h span { margin-left: auto; letter-spacing: 0; }
+.top10 .h { display: flex; align-items: baseline; font-size: 9px; color: #676F7A; margin-bottom: 5px; }
+.top10 .h span { margin-left: auto; }
 .tg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px 5px; }
 .tc { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .tl { position: relative; width: 26px; height: 32px; box-sizing: border-box; border-radius: 5px; background: var(--elSoft); border: 1.5px solid var(--rar); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; color: var(--glyph); }
-.tl i { position: absolute; left: -4px; top: -4px; width: 11px; height: 11px; border-radius: 50%; background: #3D4E69; color: #fff; font-style: normal; font-family: "Noto Sans SC", sans-serif; font-size: 7px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.tl i { position: absolute; left: -3.8px; top: -3.8px; width: 11px; height: 11px; border-radius: 50%; background: #3D4E69; color: #fff; font-style: normal; font-family: "Noto Sans SC", sans-serif; font-size: 7px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .tc .n { font-size: 8px; color: #5D646F; font-variant-numeric: tabular-nums; }
 
 /* 中栏 / 右栏只留轮廓 */
 .tower { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #676F7A; font-size: 11px; position: relative; }
-.tower h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 4px; color: #161B22; }
-.resume { height: 46px; width: 200px; border: none; border-radius: 23px; background: #C53637; color: #fff; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; letter-spacing: 6px; box-shadow: 0 4px 12px rgba(155,30,34,.28); }
+.tower h2 { margin: 0; font-size: 22px; font-weight: 600; color: #161B22; }
+.resume { height: 46px; width: 200px; border: none; border-radius: 23px; background: #C53637; color: #fff; font-family: "Noto Serif SC", serif; font-size: 18px; font-weight: 600; box-shadow: 0 4px 12px rgba(155,30,34,.28); }
 .chests { width: 232px; flex: none; padding: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .chests div { border-radius: 9px; background: #FFFDF7; border: 1px solid #E7E1D4; }
 .nav { height: 44px; flex: none; display: flex; gap: 8px; }
@@ -74,7 +74,7 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="dev">
 <div class="safe">
 <div class="top">
-<h1 class="serif">字·斗</h1>
+<h1 class="serif">字 · 斗</h1>
 <span class="sub">秀才 · 最高 <b>43</b> 层</span>
 <div style="flex: 1"></div>
 <div class="inkc">

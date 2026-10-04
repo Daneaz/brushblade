@@ -34,15 +34,12 @@ Lv.20 里程碑 = 1,200 墨 + 金字 3 选 1（`MilestoneRules.Table`）。候�
 ## 与拍板稿的差异（`drafts/character/MilestonePick.dc.html`，按代码画）
 
 A / B / D 类差异已于 2026-10-04 回填进稿（字距、分段着色 / 局部加粗、弹窗居中无投影、按钮黑体 500、颜色与细节、文案），逐条见 `drafts/character/README.md`「回填」。已回填的有：卡高 375 居中、圆角 8.6、无投影、行距 6.7；「里 程 碑」去字距；「Lv.20」一条；墨锭行不再单独加粗、图标去金框、
-字色 `text-main`；小节标题色 `text-main`；拼音去字距；脚注一段；「收下」黑体 500、灰态字 `text-dim`。剩下：
+字色 `text-main`；小节标题色 `text-main`；拼音去字距；脚注一段；「收下」黑体 500、灰态字 `text-dim`；候选牌改成正式 `Ui.GlyphTile` 金档框（牌框素材 + 光效层，拼音 5.73）、「新字 / 重复卡」chip 挪到牌下方 4.78 处、高 14.81、常规字重（第二批 B 类）。剩下：
 
 1. **墨锭胶囊**（C，待实现）：稿墨锭行是 `ink-bar` 底的 28 高胶囊（描边）；代码 `Ui.IngotLabel` 没有胶囊（`MilestonePickSheet.cs:47–48`）。
    字号仍不同：稿 11，代码 13.86。
 2. **选中上抬**（C，待实现）：稿 = 3pt 宣纸间隙 + 2pt `ink-soft` 外环、整张上抬 3pt；代码 = 牌背后一块外扩 3.82 的 `ink-soft` 圆角底，
    不上抬（`MilestonePickSheet.cs:75–84`）。
 3. **五行圆标**（C，待实现）：稿候选牌左上角一枚五行圆标；代码没有（`MilestonePickSheet.cs:81–89`）。
-4. **候选牌样式**（未分类）：稿是 104×130 的素卡（`card-face` + 2pt 金框）、拼音 9；代码是正式 `Ui.GlyphTile`（金档牌框素材 + 光效动效，
-   104.16×129.96），拼音固定 12 → 5.73。
-5. **抬头短横线**（未分类）：稿「里 程 碑」两侧短横线；代码一条无装饰标签（`MilestonePickSheet.cs:44`）。
-6. **新字 / 重复 chip**（未分类）：稿压在牌下沿（一半在牌里）、17 高、粗体；代码在牌下方 4.78 处、14.81 高、常规字重（`MilestonePickSheet.cs:90–94`）。
-7. **空候选**（代码独有）：代码有 `milestone.no_candidates` 一行说明（`MilestonePickSheet.cs:65–66`）；稿没有这一态。
+4. **抬头短横线**（C，待实现）：稿「里 程 碑」两侧短横线；代码一条无装饰标签（`MilestonePickSheet.cs:44`）。
+5. **空候选**（代码独有）：代码有 `milestone.no_candidates` 一行说明（`MilestonePickSheet.cs:65–66`）；稿没有这一态。
