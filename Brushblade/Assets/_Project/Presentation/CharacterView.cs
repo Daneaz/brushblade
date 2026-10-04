@@ -160,7 +160,7 @@ namespace Brushblade.Presentation
             FlexLabel(xpRow.transform, Strings.T("character.xp_line", ("next", level + 1)), 19, Theme.LockGray);
             Ui.ThemedLabel(xpRow.transform, Strings.T("map.hero.xp_value", ("into", into), ("need", need)),
                 19, Theme.LockGray, null, TextAnchor.MiddleRight);
-            Ui.Bar(xp.transform, need > 0 ? (float)into / need : 0f, Theme.Gold, new Vector2(370, 10));
+            Ui.Bar(xp.transform, need > 0 ? (float)into / need : 0f, Theme.Info, new Vector2(370, 10));
 
             var ttl = TitleRow(stack, Strings.T("character.attrs_title"));
             Ui.ThemedLabel(ttl, Strings.T("character.attrs_next"), 19, Theme.LockGray);
@@ -192,7 +192,7 @@ namespace Brushblade.Presentation
 
             int owed = LevelRewardRules.OwedChests(_meta);
             if (owed > 0)
-                Ui.Chip(stack, Strings.T("character.owed", ("count", owed)), Theme.WarnBg, Theme.WarnText, 19);
+                Ui.Chip(stack, Strings.T("character.owed", ("count", owed)), Theme.WarningBg, Theme.WarningText, 19);
         }
 
         /// <summary>一行属性:名靠左、值靠右、下一级增量在最右一小列;增量为 0 写「—」。</summary>
@@ -253,7 +253,7 @@ namespace Brushblade.Presentation
                 if (window[i] <= level) lastReached = i;
             var rail = Ui.Bar(track.transform,
                 window.Count > 1 && lastReached > 0 ? (float)lastReached / (window.Count - 1) : 0f,
-                Theme.Gold, new Vector2(0, 6));
+                Theme.Success, new Vector2(0, 6));
             rail.GetComponent<LayoutElement>().ignoreLayout = true;
             float half = window.Count > 0 ? 0.5f / window.Count : 0f;
             Ui.Anchor((RectTransform)rail.transform, new Vector2(half, 1f), new Vector2(1f - half, 1f),
@@ -276,8 +276,8 @@ namespace Brushblade.Presentation
             nodeLayout.childAlignment = TextAnchor.UpperCenter;
             nodeLayout.childForceExpandWidth = false;
 
-            // 钉:已领 = 金底白勾;可领 = 金底;未达 = 宣纸底描边
-            var pin = Ui.CircleGlyph(node.transform, "", done || ready ? Theme.Gold : Theme.PanelBorder,
+            // 钉:已领 = 铜绿底白勾;可领 = 石青底;未达 = 宣纸底描边(2026-10-04 五色语义)
+            var pin = Ui.CircleGlyph(node.transform, "", done ? Theme.Success : ready ? Theme.Primary : Theme.PanelBorder,
                 Color.white, 42);
             if (!done && !ready)
             {
@@ -288,17 +288,17 @@ namespace Brushblade.Presentation
             }
             else if (ready)
             {
-                // 可领:钉外一圈 3pt `gold-soft` 光环(稿 .ready .pin box-shadow 0 0 0 3px)→ 外扩 6。
+                // 可领:钉外一圈 3pt 石青 22% 光环(稿 .ready .pin box-shadow 0 0 0 3px)→ 外扩 6。
                 // 子节点画在父图之上,所以钉本身改透明,光环在下、金色实心圆在上;光环不进布局。
                 pin.GetComponent<Image>().color = Color.clear;
                 var halo = Ui.Panel(pin.transform, "Halo").AddComponent<Image>();
                 halo.sprite = Theme.Circle;
-                halo.color = Theme.GoldSoft;
+                halo.color = new Color(Theme.Primary.r, Theme.Primary.g, Theme.Primary.b, 0.22f);
                 halo.raycastTarget = false;
                 Ui.Anchor(halo.rectTransform, Vector2.zero, Vector2.one, new Vector2(-6, -6), new Vector2(6, 6));
                 var face = Ui.Panel(pin.transform, "Face").AddComponent<Image>();
                 face.sprite = Theme.Circle;
-                face.color = Theme.Gold;
+                face.color = Theme.Primary;
                 face.raycastTarget = false;
                 Ui.Stretch(face.rectTransform);
             }
@@ -312,8 +312,8 @@ namespace Brushblade.Presentation
             }
 
             var card = Ui.OutlinedPanel(node.transform, "Card",
-                done ? Theme.PanelInset : ready ? Theme.GoldSoft : Theme.CardWhite,
-                ready ? Theme.Gold : Theme.PanelBorder, 17, ready ? 3f : 2f);
+                done ? Theme.PanelInset : Theme.CardWhite,
+                ready ? Theme.Primary : Theme.PanelBorder, 17, ready ? 3f : 2f);
             var cardElement = card.gameObject.AddComponent<LayoutElement>();
             cardElement.flexibleWidth = 1;
             cardElement.flexibleHeight = 1;
@@ -337,7 +337,7 @@ namespace Brushblade.Presentation
                 int claimLevel = lv;
                 var claim = Ui.PillButton(cell, Strings.T("character.ms_claim"),
                     () => MilestonePickSheet.Show(transform, _graph, _meta, claimLevel, _cardPool, _save, Rebuild),
-                    Theme.Gold, Theme.GoldText, 21, new Vector2(100, 44));
+                    Theme.Primary, Color.white, 21, new Vector2(100, 44));
                 claim.GetComponent<LayoutElement>().flexibleWidth = 1;   // 稿 width:100%
             }
             else if (done)

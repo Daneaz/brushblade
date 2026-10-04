@@ -126,7 +126,7 @@ namespace Brushblade.Presentation
             if (shield > 0)
                 list.Add(new AbilityEntry
                 {
-                    IconKey = "shield", ChipColor = Theme.RarityColor(CardRarity.Gold),
+                    IconKey = "shield", ChipColor = Theme.Info,
                     Name = Strings.T("player.detail.shield_name", ("value", shield)),
                     Desc = Strings.T("player.detail.shield_desc"),
                 });

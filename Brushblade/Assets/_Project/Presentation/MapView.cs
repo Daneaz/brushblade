@@ -221,7 +221,7 @@ namespace Brushblade.Presentation
             var xp = Ui.Row(stack.transform, "Xp", 12);
             xp.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.ThemedLabel(xp.transform, Strings.T("map.hero.xp"), 19, Theme.TextDim);
-            var xpBar = Ui.Bar(xp.transform, need > 0 ? (float)into / need : 0f, Theme.Gold, new Vector2(120, 9));
+            var xpBar = Ui.Bar(xp.transform, need > 0 ? (float)into / need : 0f, Theme.Info, new Vector2(120, 9));
             xpBar.GetComponent<LayoutElement>().flexibleWidth = 1;
             Ui.ThemedLabel(xp.transform, Strings.T("map.hero.xp_value", ("into", into), ("need", need)), 19, Theme.TextDim);
 
@@ -451,7 +451,7 @@ namespace Brushblade.Presentation
                 Ui.ThemedLabel(cell.transform, band.Name, 19,
                     now ? Theme.TextMain : done ? Theme.TextDim : Theme.LockGray,
                     now ? Theme.TitleFont : null);
-                var bar = Ui.Bar(cell.transform, frac, now ? Theme.Cinnabar : Theme.LockGray, new Vector2(60, 13));
+                var bar = Ui.Bar(cell.transform, frac, now ? Theme.Primary : Theme.LockGray, new Vector2(60, 13));
                 bar.GetComponent<LayoutElement>().flexibleWidth = 1;
                 Ui.ThemedLabel(cell.transform, band.FromDepth.ToString(), 17, Theme.LockGray);
             }

@@ -199,7 +199,7 @@ namespace Brushblade.Presentation
                 var image = row.AddComponent<Image>();
                 image.sprite = Theme.Rounded(12);
                 image.type = Image.Type.Sliced;
-                image.color = mode.Attack ? Theme.WarnBg : Theme.AdGreenBg;
+                image.color = mode.Attack ? Theme.DangerBg : Theme.AdGreenBg;
                 Ui.Sized(row, 0, 54, flexWidth: 1);
 
                 var dot = Ui.CardPanel(row.transform, "Dir",
@@ -309,7 +309,7 @@ namespace Brushblade.Presentation
             var victim = WuxingResolver.Victim(element);
             var counter = WuxingResolver.Counter(element);
             if (victim is { } v)
-                WuxingBox(row.transform, v, Theme.WarnBg, Theme.WarnText,
+                WuxingBox(row.transform, v, Theme.DangerBg, Theme.DangerText,
                     Strings.T("collection.side.ke", ("element", CharInfo.ElementName(v))));
             if (counter is { } c)
                 WuxingBox(row.transform, c, Theme.PanelInset, Theme.TextDim,

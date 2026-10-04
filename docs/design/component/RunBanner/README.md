@@ -11,7 +11,7 @@
 | 大字 | 92（44pt）宋体 | 胜 `text-main`、负 `cinnabar-dark`；`boss-win` 也用 `cinnabar-dark` |
 | msg | 23（11pt）`text-dim` | 只有 `battle-lost`（及塔外 `run-won`）有 |
 | 复活徽章 | `Ui.AdBadge` 300×67（宋体） | 只有 `battle-lost` 有，且仅塔内、本次登塔还没复活过 |
-| 主钮 | `Ui.PillButton` 400×100（191×48pt）、圆角 24、字号 36（17.2pt）、黑体 | 负 `ink-soft`；塔外 `run-won` 用 `jade` |
+| 主钮 | `Ui.PillButton` 400×100（191×48pt）、圆角 24、字号 36（17.2pt）、黑体 | 负 `ink-soft`；塔外 `run-won` 用 `cta` |
 
 ## 三态（文案均为字符串表原文）
 | 态 | 大字 | 配套 | 钮 | 拦截 |

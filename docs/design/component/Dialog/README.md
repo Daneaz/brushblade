@@ -53,7 +53,7 @@
 
 ⚠ **「不可逆后果标红加粗」是拍板的规则，实现里还没有**：字符串表里 0 条富文本，
 `Ui.Modal` 把整段正文画成单色 `text-dim`。实现侧现有的不可逆提示是
-`warn-bg` / `warn-text` 的告警 chip（`BattleView.DrawReplaceSheet` 里那条），不是正文内标红。
+`danger-bg` / `danger-text` 的告警 chip（`BattleView.DrawReplaceSheet` 里那条），不是正文内标红。
 
 ## 使用方提供
 标题（两字标题字间加空格）、正文（多行走 `\n`）、1–3 个按钮（文案 + 底色 + 字色 + 回调）。

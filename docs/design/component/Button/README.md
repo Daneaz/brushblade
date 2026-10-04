@@ -21,8 +21,8 @@ Unity `Text` 没有字距：「续 爬」「登 塔」字间那一格是文案�
 | 宝箱「开始开启」 | 150×46 · 14 · 19 | `ink-soft` / 白 | `MapView.DrawChest` |
 | 宝箱「开箱!」 | 150×50 · 14 · 22 | `cta` / 白 | `MapView.DrawChest` |
 | 宝箱「{cost}墨」花墨加速 | 72×46 · 14 · 19 | `cta` / 白 | `MapView.DrawChest` |
-| 段末横幅钮 | 400×100 · 24 · 36 | 过关 `jade` / 其余 `ink-soft`，白字 | `BattleView.DrawRunEnd` · `DrawBattleSettle` |
-| 卡组底部整行钮 | 弹性宽×75 · 24 · 24 | 可升 `jade`/白 · 材料不足 `panel-inset`/`text-faint` · 满级 `gold-soft`/`gold-deep` · 未拥有 `shop-nav`/白 | `CollectionView.SheetActions` |
+| 段末横幅钮 | 400×100 · 24 · 36 | 过关 `cta` / 其余 `ink-soft`，白字 | `BattleView.DrawRunEnd` · `DrawBattleSettle` |
+| 卡组底部整行钮 | 弹性宽×75 · 24 · 24 | 可升 `cta`/白 · 材料不足 `panel-inset`/`text-faint` · 满级 `gold-soft`/`gold-deep` · 未拥有 `shop-nav`/白 | `CollectionView.SheetActions` |
 | 图鉴底部整行钮 | 弹性宽×71 · 24 · 24（未解锁 22） | 可领 `cta`/白 · 其余 `panel-inset`/`text-faint` | `BestiaryView.BuildSideFoot` |
 | 技能节点「解锁 · {cost}墨」 | 211×56（内容宽 345 − 14 − 120）· 24 · 18 | 可解锁 `cta`/白 · 否则 `locked-bg`/`text-faint` | `PerkNodeSheet.BuildFooter` |
 | 技能节点关闭 | 120×56 · 24 · 18 | `panel-inset` / `text-dim` | `PerkNodeSheet.BuildFooter` |

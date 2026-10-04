@@ -22,8 +22,9 @@ namespace Brushblade.Presentation
         // 朱砂(2026-10-04 起只表示危险/威胁:DoT、威胁 chip、红点、伤害、血条;不再做推进钮底)
         public static readonly Color Cinnabar = new(0.772f, 0.211f, 0.215f);
         public static readonly Color CinnabarDark = new(0.607f, 0.117f, 0.135f);
-        public static readonly Color WarnBg = new(0.984f, 0.890f, 0.886f);   // 稿 #FBE3E2:不可逆告警条底
-        public static readonly Color WarnText = new(0.607f, 0.117f, 0.133f); // 稿 #9B1E22:告警条字色
+        // Danger 浅底 + 字(2026-10-04 由 WarnBg/WarnText 改名:红色只表示危险,「被克」框、不可逆告警条用)
+        public static readonly Color DangerBg = new(0.984f, 0.890f, 0.886f);   // 稿 #FBE3E2
+        public static readonly Color DangerText = new(0.607f, 0.117f, 0.133f); // 稿 #9B1E22
         // 2026-09-18 对比度调整(设计系统「字·斗」WCAG AA):六个色调深,原值写在各行注释里
         public static readonly Color Jade = new(0.204f, 0.525f, 0.294f);        // 翠玉 #34864B(原 #439458:「可升」白字 3.7 → 4.5:1)
         public static readonly Color Gold = new(0.791f, 0.617f, 0.199f);        // 赭金
@@ -33,6 +34,10 @@ namespace Brushblade.Presentation
         public static Color Warning => Gold;      // 赭金:需留意的提示
         public static Color Danger => Cinnabar;   // 朱砂:危险/威胁/错误
         public static Color Info => InkSoft;      // 浓墨:中性信息
+        public static Color WarningBg => GoldSoft;  // Warning 浅底提示条(箱位已满 · 还欠 N 只)
+        public static Color WarningText => GoldDeep;
+        /// 稀有 / 珍贵的身份金(MAX 角标、新字光晕、Boss 标、引导卡):取稀有度金,不是 Warning 的赭金
+        public static Color RarityGold => RarityColor(CardRarity.Gold);
         public static readonly Color GoldBorder = new(0.56f, 0.421f, 0.037f);
         public static readonly Color GoldText = new(0.251f, 0.161f, 0.0f);
         public static readonly Color GoldSoft = new(0.965f, 0.929f, 0.835f);    // 金系浅底(墨锭条/满级牌脚)
@@ -65,7 +70,6 @@ namespace Brushblade.Presentation
         public static readonly Color TextWarm = new(0.412f, 0.380f, 0.318f);
         /// <summary>token `ink-bar` #EFEADF:墨锭计数胶囊的底(稿 .ink / .inkline)。</summary>
         public static readonly Color InkBar = new(0.937f, 0.918f, 0.875f);
-        public static readonly Color DoneGreen = new(0.161f, 0.525f, 0.276f);
         public static readonly Color NeutralPart = new(0.309f, 0.336f, 0.379f); // 中性部件底
         public static readonly Color IngotDark = new(0.1f, 0.122f, 0.17f);      // 墨锭图标
         public static readonly Color IngotGold = new(0.615f, 0.481f, 0.166f);   // 金锭图标(价格)

@@ -94,7 +94,7 @@ namespace Brushblade.Presentation
             // 左上:等级。满级转金底 —— 那是终点,不该与「Lv.3」同一个视觉重量
             string levelText = spec.Maxed ? Strings.T("common.maxed_short") : $"Lv.{spec.Level}";
             var level = Badge(tile.transform, "Level", levelText, font, chipH,
-                spec.Maxed ? Theme.Gold : Theme.Ink, spec.Maxed ? Theme.GoldText : Color.white);
+                spec.Maxed ? Theme.RarityGold : Theme.Ink, spec.Maxed ? Theme.GoldText : Color.white);
             Ui.Anchor(level, new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(pad, -levelTop - chipH), new Vector2(pad + Ui.ChipWidth(levelText, font), -levelTop));
 
@@ -160,7 +160,7 @@ namespace Brushblade.Presentation
             rect.anchorMax = Vector2.one;
             rect.offsetMin = new Vector2(-Theme.HaloPad, -Theme.HaloPad);
             rect.offsetMax = new Vector2(Theme.HaloPad, Theme.HaloPad);
-            halo.AddComponent<CardHalo>().Init(image, Theme.Gold);
+            halo.AddComponent<CardHalo>().Init(image, Theme.RarityGold);
 
             string text = Strings.T("collection.card.new_flag");
             var flag = Badge(parent, "NewFlag", text, font, side * 0.5f, Theme.Cinnabar, Color.white);

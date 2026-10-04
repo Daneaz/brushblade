@@ -114,7 +114,7 @@ namespace Brushblade.Presentation
                     owned ? Strings.T("milestone.tag_dup") : Strings.T("milestone.tag_new"),
                     owned ? Theme.PanelInset : Theme.GoldSoft,
                     owned ? Theme.TextDim : Theme.GoldDeep, 19,
-                    border: owned ? Theme.PanelBorder : Theme.Gold);
+                    border: owned ? Theme.PanelBorder : Theme.RarityGold);
                 cands.Add((id, (RectTransform)lift.transform, ring));
             }
 

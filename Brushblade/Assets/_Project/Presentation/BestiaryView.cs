@@ -317,13 +317,13 @@ namespace Brushblade.Presentation
             row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(16, 16, 0, 0);
             Ui.Stretch((RectTransform)row.transform);
             Color fg = isBossTab
-                ? (on ? Theme.Gold : Theme.GoldDeep)
+                ? (on ? Theme.RarityGold : Theme.GoldDeep)
                 : (on ? (tint is { } t2 ? Theme.ElementSoftFg(t2) : Theme.TextMain) : Theme.TextDim);
             Ui.ThemedLabel(row.transform, name, 29, fg, Theme.TitleFont);
             // 同 CollectionView:选中的「全部」页签底也是 PanelInset,不带描边就看不见 chip。
             // 层段页签铺 <el>-soft、Boss 页签铺 ink,两者都分得开,不用描边。
             Ui.Chip(row.transform, countText,
-                isBossTab && on ? Theme.Gold : Theme.PanelInset,
+                isBossTab && on ? Theme.RarityGold : Theme.PanelInset,
                 isBossTab && on ? Theme.GoldText : Theme.TextDim, 18,
                 border: on && !isBossTab && tint == null ? Theme.PanelBorder : null);
 
@@ -331,7 +331,7 @@ namespace Brushblade.Presentation
             {
                 var underline = Ui.Panel(go.transform, "Underline");
                 underline.AddComponent<Image>().color = isBossTab
-                    ? Theme.Gold
+                    ? Theme.RarityGold
                     : (tint is { } t3 ? Theme.ElementColor(t3) : Theme.InkSoft);
                 Ui.Anchor((RectTransform)underline.transform, Vector2.zero, new Vector2(1, 0),
                     Vector2.zero, new Vector2(0, 4));
@@ -494,7 +494,7 @@ namespace Brushblade.Presentation
                     Theme.Cinnabar, Color.white, Vector2.one, new Vector2(-8, -8));
             if (known && IsBoss(def))
                 Corner(block.transform, "Boss", Strings.T("bestiary.card.boss_badge"), 16,
-                    Theme.Ink, Theme.Gold,
+                    Theme.Ink, Theme.RarityGold,
                     claimable ? new Vector2(1, 0) : Vector2.one,
                     claimable ? new Vector2(-8, 8) : new Vector2(-8, -8));
             return block;
@@ -660,7 +660,7 @@ namespace Brushblade.Presentation
             for (int b = 0; b < BandCount; b++)
                 BuildProgressBar(progress, _endless.Bands[b].Name,
                     b < BandTint.Length ? Theme.ElementColor(BandTint[b]) : Theme.InkSoft, b);
-            BuildProgressBar(progress, Strings.T("bestiary.filter.boss"), Theme.Gold, FilterBoss);
+            BuildProgressBar(progress, Strings.T("bestiary.filter.boss"), Theme.RarityGold, FilterBoss);
 
             var bounty = Section(parent, Strings.T("bestiary.side.section.bounty"));
             Tip(bounty, Strings.T("bestiary.side.bounty_tip",
@@ -689,7 +689,7 @@ namespace Brushblade.Presentation
             var bar = Ui.Bar(row.transform, (float)known / total, color, new Vector2(0, 15));
             bar.GetComponent<LayoutElement>().flexibleWidth = 1;
             Ui.ThemedLabel(row.transform, $"{known}/{total}", 20,
-                known == total ? Theme.DoneGreen : Theme.TextDim);
+                known == total ? Theme.Success : Theme.TextDim);
         }
 
         // ---- 右栏 · 选中:条目详情 ----
@@ -938,7 +938,7 @@ namespace Brushblade.Presentation
                 WuxingBox(row.transform, c, Theme.AdGreenBg, Theme.UpgradeText,
                     Strings.T("bestiary.side.ke", ("element", CharInfo.ElementName(c))));
             if (victim is { } v)
-                WuxingBox(row.transform, v, Theme.WarnBg, Theme.WarnText,
+                WuxingBox(row.transform, v, Theme.DangerBg, Theme.DangerText,
                     Strings.T("bestiary.side.bei", ("element", CharInfo.ElementName(v))));
         }
 

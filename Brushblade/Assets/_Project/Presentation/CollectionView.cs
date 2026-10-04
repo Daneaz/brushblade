@@ -578,7 +578,7 @@ namespace Brushblade.Presentation
                               : Strings.T("collection.button.upgrade_short"));
             var upButton = Ui.PillButton(parent, upText,
                 () => ShowUpgradePreview(def.Id),
-                maxed ? Theme.GoldSoft : (canUpgrade ? Theme.Jade : Theme.PanelInset),
+                maxed ? Theme.GoldSoft : (canUpgrade ? Theme.Primary : Theme.PanelInset),
                 maxed ? Theme.GoldDeep : (canUpgrade ? Color.white : Theme.LockGray),
                 24, new Vector2(0, 75));
             upButton.GetComponent<LayoutElement>().flexibleWidth = 1;

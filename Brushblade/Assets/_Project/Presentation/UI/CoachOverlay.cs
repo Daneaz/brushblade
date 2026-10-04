@@ -83,7 +83,7 @@ namespace Brushblade.Presentation
             // 不挂 Button:Image.raycastTarget 默认开着已经挡住了底下的点击——弹层显示期间
             // 不许穿透去点场上的牌/怪,遮罩压到 38% 只是为了「看得见」,不是为了「点得到」。
 
-            var card = Ui.OutlinedPanel(scrim.transform, "Coach", CardBg, Theme.Gold, 16, BorderThickness, out var face);
+            var card = Ui.OutlinedPanel(scrim.transform, "Coach", CardBg, Theme.RarityGold, 16, BorderThickness, out var face);
             var cardRect = (RectTransform)card.transform;
             cardRect.anchorMin = cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.pivot = new Vector2(0.5f, 0.5f);
@@ -98,7 +98,7 @@ namespace Brushblade.Presentation
             // 画在它之后(后加入的兄弟排在上层)。card 自己没有布局组,RectTransform 可以
             // 随便摆,不受兄弟节点影响。
             string sealText = Strings.T("battle.coach.step", ("no", stepNo), ("total", stepTotal));
-            var seal = Ui.Chip(card.transform, sealText, Theme.Gold, Theme.GoldText, SealFontSize, 21, 23);
+            var seal = Ui.Chip(card.transform, sealText, Theme.RarityGold, Theme.GoldText, SealFontSize, 21, 23);
             var sealRect = (RectTransform)seal.transform;
             sealRect.anchorMin = sealRect.anchorMax = new Vector2(1f, 1f);
             sealRect.pivot = new Vector2(1f, 1f);
@@ -164,7 +164,7 @@ namespace Brushblade.Presentation
                 var dotImage = dot.AddComponent<Image>();
                 dotImage.sprite = Theme.Rounded((int)(DotSize / 2f));
                 dotImage.type = Image.Type.Sliced;
-                dotImage.color = i + 1 == stepNo ? Theme.Gold : i + 1 < stepNo ? DotDone : DotOff;
+                dotImage.color = i + 1 == stepNo ? Theme.RarityGold : i + 1 < stepNo ? DotDone : DotOff;
                 Ui.Sized(dot, width: DotSize, height: DotSize);
             }
 
