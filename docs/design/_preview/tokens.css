@@ -29,6 +29,7 @@
   --ink-soft: #3D4E69;
   --neutral-part: #4F5661;
   --ingot-dark: #1A1F2B;
+  --cta: #2E5E8C;
   --cinnabar: #C53637;
   --cinnabar-dark: #9B1E22;
   --warn-bg: #FBE3E2;
@@ -133,8 +134,8 @@
   --radius-sheet: 12px;
   --radius-pill: 9999px;
   --shadow-card: 0 2px 6px rgba(22,27,34,0.08);
-  --shadow-cta: 0 3px 10px rgba(155,30,34,0.26);
-  --shadow-cta-lg: 0 4px 12px rgba(155,30,34,0.28);
+  --shadow-cta: 0 3px 10px rgba(46,94,140,0.26);
+  --shadow-cta-lg: 0 4px 12px rgba(46,94,140,0.28);
   --ring-selected: 0 0 0 2px rgba(22,27,34,0.18);
   --halo-new: 0 0 0 2px rgba(201,169,74,0.5), 0 0 12px 3px rgba(201,169,74,0.34);
   --ring-reddot: 0 0 0 1.5px #F6F1E7;

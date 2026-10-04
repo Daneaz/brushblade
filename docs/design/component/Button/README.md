@@ -6,15 +6,15 @@ Unity `Text` 没有字距：「续 爬」「登 塔」字间那一格是文案�
 ## 尺寸取自真实调用点（逻辑单位；pt = 逻辑单位 ÷ 2.093）
 | 用处 | 尺寸 · 圆角 · 字号 | 底色 / 字色 | 调用点 |
 | --- | --- | --- | --- |
-| 主界面「续 爬 / 登 塔」 | 523×109 · 24 · 38 | `cinnabar` / 白 | `MapView.BuildTowerPanel` |
+| 主界面「续 爬 / 登 塔」 | 523×109 · 24 · 38 | `cta` 石青 / 白 | `MapView.BuildTowerPanel` |
 | 外层页顶栏「返回地图」（卡组/图鉴/技能/商城/角色） | 130×63 · 24 · 25 | `exit-pink` / 白 | 各页 `BuildTopBar` |
 | 主界面顶栏「设置」 | 130×63 · **16**（RoundButton） · 25 | `exit-pink` / 白 | `MapView.BuildTopBar` |
 | 战斗顶栏「设置」 | 72×38 · 24 · 15 | `ink-soft` / 白 | `BattleView.DrawTopBar` |
 | 战斗顶栏「退出」 | 90×38 · 24 · 15 | `exit-pink` / 白 | `BattleView.DrawTopBar` |
 | 战斗顶栏倍速开关 | 96×38 · 24 · 15 | `locked-bg` 起（开关态另染） | `BattleView.DrawSpeedToggle` |
-| 弹窗按钮行（`Ui.Modal`） | 150×52 · 24 · 18 | 按语义；取消档 `locked-bg` / `text-main` | `Ui.Modal` |
-| 战斗行动钮（出 / 拆 / 弃） | 76×52 · **10**（RoundButton 默认） · 17 | `cinnabar` / `split-blue` / `exit-pink`，白字 | `BattleView.DrawActions` |
-| 结束回合 | 190×52 · 24 · 21 | `cinnabar` / 白 | `BattleView.DrawEndTurn` |
+| 弹窗按钮行（`Ui.Modal`） | 150×52 · 24 · 18 | 按语义；取消档 `locked-bg` / `text-main`；不可逆档朱砂描边 3 + `cinnabar-dark` 字 + `panel-paper` 底 | `Ui.Modal` |
+| 战斗行动钮（出 / 拆 / 弃） | 76×52 · **10**（RoundButton 默认） · 17 | `cta` / `split-blue` / `exit-pink`，白字 | `BattleView.DrawActions` |
+| 结束回合 | 190×52 · 24 · 21 | `cta` / 白 | `BattleView.DrawEndTurn` |
 | 选字页「跳过」 | 280×63 · **10**（RoundButton） · 25 | `locked-bg` / `text-main` | `BattleView.DrawRewardCharStep` / `DrawReviveCharStep` |
 | 选字页「重抽(N)」 | 220×63 · **10**（RoundButton） · 25 | `locked-bg` / `text-main` | `BattleView.DrawRerollButton` |
 | 换字页取消 | 300×63 · 24 · 25 | `locked-bg` / `text-main` | `BattleView.DrawReplaceSheet` |
@@ -23,7 +23,7 @@ Unity `Text` 没有字距：「续 爬」「登 塔」字间那一格是文案�
 | 宝箱「{cost}墨」花墨加速 | 72×46 · 14 · 19 | `gold` / `gold-text` | `MapView.DrawChest` |
 | 段末横幅钮 | 400×100 · 24 · 36 | 过关 `jade` / 其余 `ink-soft`，白字 | `BattleView.DrawRunEnd` · `DrawBattleSettle` |
 | 卡组底部整行钮 | 弹性宽×75 · 24 · 24 | 可升 `jade`/白 · 材料不足 `panel-inset`/`text-faint` · 满级 `gold-soft`/`gold-deep` · 未拥有 `shop-nav`/白 | `CollectionView.SheetActions` |
-| 图鉴底部整行钮 | 弹性宽×71 · 24 · 24（未解锁 22） | 可领 `cinnabar`/白 · 其余 `panel-inset`/`text-faint` | `BestiaryView.BuildSideFoot` |
+| 图鉴底部整行钮 | 弹性宽×71 · 24 · 24（未解锁 22） | 可领 `cta`/白 · 其余 `panel-inset`/`text-faint` | `BestiaryView.BuildSideFoot` |
 | 技能节点「解锁 · {cost}墨」 | 211×56（内容宽 345 − 14 − 120）· 24 · 18 | 可解锁 `gold`/`gold-text` · 否则 `locked-bg`/`text-faint` | `PerkNodeSheet.BuildFooter` |
 | 技能节点关闭 | 120×56 · 24 · 18 | `panel-inset` / `text-dim` | `PerkNodeSheet.BuildFooter` |
 | 弹窗关闭「×」 | 28×28 · 14 · 14 | `paper-dim` / `text-dim` | `UnitSheet.BuildNameRow` |
@@ -47,7 +47,7 @@ Unity `Text` 没有字距：「续 爬」「登 塔」字间那一格是文案�
 代码不换底色：`interactable = false` 走 Unity `Button` 默认的 ColorTint，`disabledColor` = (0.78, 0.78, 0.78, 0.5)，即**原底色压暗到 78% 再半透明**（如「开始开启」在已有宝箱计时时）。需要「看起来是灰钮」的地方由调用点自己传 `panel-inset` / `locked-bg` 底（卡组、图鉴、技能节点）。
 
 ## 配色语义
-`cinnabar` 推进或不可逆 · `ink-soft` 中性但改变状态 · `gold` 花钱 · `locked-bg` 取消（同一行时排最右）· `exit-pink` 顶栏功能钮与「弃」。
+`cta` 石青 = 推进（一屏一颗实底主钮）· 朱砂描边 `Ui.DangerButton`（`Ui.Modal` 元组传 `Ui.DangerOutline`）= 不可逆（弃塔、确认退出）· `ink-soft` 中性但改变状态 · `gold` 花钱 · `locked-bg` 取消（同一行时排最右）· `exit-pink` 顶栏功能钮与「弃」。
 
 ⚠ **赭金底一律压 `gold-text`**（白字只有 2.5:1）。宝箱两枚钮、技能「解锁」主钮与护盾角标都按这条做。
 
@@ -58,4 +58,4 @@ Unity `Text` 没有字距：「续 爬」「登 塔」字间那一格是文案�
 （＝92 逻辑单位），与实现现状差一个量级 —— 这条口径待拍板，不要拿它当已达成。
 
 ## 不要
-一行里放两个朱砂钮；给两字文案加空格以外的装饰（只有标题式按钮「续 爬」才字间加空格）。
+一行里放两个石青钮；把朱砂做成按钮实底（朱砂只表示危险 / 威胁）；给两字文案加空格以外的装饰（只有标题式按钮「续 爬」才字间加空格）。

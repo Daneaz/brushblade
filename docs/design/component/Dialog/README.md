@@ -20,10 +20,10 @@
 ## 现有调用里的几种组合（preview 三例取自这里）
 | 弹窗 | 钮（左 → 右） | 调用点 |
 | --- | --- | --- |
-| 离塔「离 塔」 | 挂起离塔 `cinnabar` · 弃塔 `ink-soft` · 继续战斗 `locked-bg` | `BattleView.DrawTopBar` 的退出钮（塔内） |
-| 退出确认（塔外） | 确认退出 `cinnabar` · 继续战斗 `locked-bg` | 同上 |
-| AP 不够 / 还有 AP 未用 | 结束回合 `cinnabar` · 再想想 `locked-bg` | `BattleView.MaybeModalError` / `ConfirmEndTurn` |
-| 首破「首破 · {段名}」 | 知道了 `cinnabar` | `GameRoot.ShowSafeLayer` |
+| 离塔「离 塔」 | 挂起离塔 `cta` · 弃塔朱砂描边（`Ui.DangerOutline`）· 继续战斗 `locked-bg` | `BattleView.DrawTopBar` 的退出钮（塔内） |
+| 退出确认（塔外） | 确认退出朱砂描边（`Ui.DangerOutline`）· 继续战斗 `locked-bg` | 同上 |
+| AP 不够 / 还有 AP 未用 | 结束回合 `cta` · 再想想 `locked-bg` | `BattleView.MaybeModalError` / `ConfirmEndTurn` |
+| 首破「首破 · {段名}」 | 知道了 `cta` | `GameRoot.ShowSafeLayer` |
 | 各类被拒提示 | 知道了 `locked-bg`（`Ui.Alert`） | 商城 / 战斗 / 卡组等 |
 
 ## 同一套外壳的大浮层（都走 `Ui.Sheet`，尺寸各自定）

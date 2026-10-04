@@ -41,9 +41,8 @@
 /* 顶栏设置(130×63,radius 16) */
 .zd-btn--top   { width: 62.11px; height: 30.10px; border-radius: 7.64px; font-size: 11.94px; }
 /* 推进色(2026-10-04 拍板):石青底白字 = Theme.Cta。
-   ⚠ .zd-btn--cta 上面那条同时是「主行动尺寸」;这条只补底色,写在各颜色类之前,
-   旧稿里 .zd-btn--cta.zd-btn--cinnabar 的组合仍按后写的颜色类出色,等下一步逐卡改。 */
-.zd-btn--cta      { background: var(--cta); color: #fff; }
+   .zd-btn--cta 同时是「主行动尺寸」(上面那条);别的尺寸的推进钮用纯颜色类 .zd-btn--shiqing。 */
+.zd-btn--cta, .zd-btn--shiqing { background: var(--cta); color: #fff; }
 /* 危险色,勿用于推进(推进用 .zd-btn--cta;不可逆钮用 .zd-btn--danger) */
 .zd-btn--cinnabar { background: var(--cinnabar); }
 /* 不可逆操作钮 = Ui.DangerButton:朱砂描边(稿 1.5pt)+ 深朱砂字 + 宣纸底,不做实底 */

@@ -284,12 +284,12 @@ html,body{margin:0;background:var(--paper)}
 .picked .pn { font-size: 5.73px; color: var(--text-dim); }
 .picked .pv { font-size: 6.21px; color: var(--text-main); line-height: 1.35; }
 /* 出 / 拆 / 弃:Ui.RoundButton 定宽 76×52 → 36.31×24.84pt、圆角 10 → 4.78pt,标签 BodyFont 黑体 17 → 8.12pt;
-   出 Cinnabar、拆 SplitBlue(只对非独体字出)、弃 ExitPink,一律白字;Row 间距 8 → 3.82pt 居中 */
+   出 Cta 石青、拆 SplitBlue(只对非独体字出)、弃 ExitPink,一律白字;Row 间距 8 → 3.82pt 居中 */
 .acts { display: flex; gap: 3.82px; flex: none; justify-content: center; }
 .act { flex: none; width: 36.31px; height: 24.84px; border: none; border-radius: 4.78px; cursor: pointer; padding: 0;
   font-family: var(--font-sans); font-weight: 500; font-size: 8.12px; color: #fff;
   display: flex; align-items: center; justify-content: center; }
-.act.cast { background: var(--cinnabar); }
+.act.cast { background: var(--cta); }
 .act.split { background: var(--split-blue); }
 .act.drop { background: var(--exit-pink); }
 /* 可合成:ScrollList 行距 8 → 3.82pt;一行 = Ui.CardPanel(AdGreenBg,圆角 10)定高 50 → 23.89pt、无描边,
@@ -300,11 +300,11 @@ html,body{margin:0;background:var(--paper)}
 .cr .src { font-family: var(--font-serif); font-weight: 600; font-size: 7.17px; color: var(--text-dim); }
 .cr .ar { font-family: var(--font-sans); font-size: 6.21px; color: var(--text-dim); }
 .cr .out { font-family: var(--font-serif); font-weight: 600; font-size: 10.51px; color: var(--glyph); }
-/* 结束回合:Ui.PillButton 190×52 → 90.78×24.84pt、圆角 24 → 11.47pt,Cinnabar 实底,BodyFont 黑体 21 → 10.03pt,
+/* 结束回合:Ui.PillButton 190×52 → 90.78×24.84pt、圆角 24 → 11.47pt,Cta 石青实底,BodyFont 黑体 21 → 10.03pt,
    在栏底那一行居中 */
 .endrow { flex: none; display: flex; justify-content: center; }
 .endturn { width: 90.78px; height: 24.84px; border: none; border-radius: 11.47px; cursor: pointer; padding: 0;
-  background: var(--cinnabar); color: #fff; font-family: var(--font-sans); font-weight: 500; font-size: 10.03px; }
+  background: var(--cta); color: #fff; font-family: var(--font-sans); font-weight: 500; font-size: 10.03px; }
 
 </style></head><body>
 <div class="dev">
