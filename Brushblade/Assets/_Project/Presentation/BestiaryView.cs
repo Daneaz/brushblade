@@ -219,7 +219,7 @@ namespace Brushblade.Presentation
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
             Ui.InkCounter(top.transform, _meta.Ink, 25);
             Ui.PillButton(top.transform, Strings.T("common.back_to_map"), () => _onBack(),
-                Theme.ExitPink, Color.white, 25, new Vector2(130, 63));
+                Theme.Info, Color.white, 25, new Vector2(130, 63)); // 返回地图 = Info 浓墨(2026-10-04 五色语义)
         }
 
         private void BuildFilters(Transform parent)

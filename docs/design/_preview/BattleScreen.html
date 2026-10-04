@@ -57,13 +57,13 @@ html,body{margin:0;background:var(--paper)}
 .pill { height: 18.16px; border: none; border-radius: 9.08px; padding: 0; cursor: pointer;
   font-family: var(--font-sans); font-weight: 500; font-size: 7.17px; line-height: 1; color: #fff;
   display: flex; align-items: center; justify-content: center; white-space: nowrap; }
-/* 速度开关 96×38:关 = LockedBg 底 TextMain 字「速度 ×1」;开 = Jade 底白字「速度 ×2」(订阅 ×3) */
+/* 速度开关 96×38:关 = LockedBg 底 TextMain 字「速度 ×1」;开 = InkSoft 底白字「速度 ×2」(订阅 ×3) */
 .pill.speed { width: 45.87px; background: var(--locked-bg); color: var(--text-main); }
 .pill.speed.on { background: var(--jade); color: #fff; }
 /* 设置 72×38,InkSoft 实底白字;点开是全屏遮罩里的 SettingsView */
 .pill.settings { width: 34.40px; background: var(--ink-soft); }
-/* 退出 90×38,ExitPink 实底白字 */
-.pill.quit { width: 43.00px; background: var(--exit-pink); }
+/* 退出 90×38,InkSoft 实底白字 */
+.pill.quit { width: 43.00px; background: var(--ink-soft); }
 /* 「?」引导钮 CoachBtnSize 46 → 21.98pt,GoldSoft 底、GoldDeep 宋体 22 → 10.51pt;
    命中区另一层 92 → 44pt 高的透明子节点,溢出顶栏 */
 .coachbtn { position: relative; width: 21.98px; height: 21.98px; border: none; border-radius: 10.99px; padding: 0;
@@ -284,14 +284,14 @@ html,body{margin:0;background:var(--paper)}
 .picked .pn { font-size: 5.73px; color: var(--text-dim); }
 .picked .pv { font-size: 6.21px; color: var(--text-main); line-height: 1.35; }
 /* 出 / 拆 / 弃:Ui.RoundButton 定宽 76×52 → 36.31×24.84pt、圆角 10 → 4.78pt,标签 BodyFont 黑体 17 → 8.12pt;
-   出 Cta 石青、拆 SplitBlue(只对非独体字出)、弃 ExitPink,一律白字;Row 间距 8 → 3.82pt 居中 */
+   出 Cta 石青白字、拆 InkSoft 白字(只对非独体字出)、弃 朱砂描边 + CinnabarDark 字 + 宣纸底;Row 间距 8 → 3.82pt 居中 */
 .acts { display: flex; gap: 3.82px; flex: none; justify-content: center; }
 .act { flex: none; width: 36.31px; height: 24.84px; border: none; border-radius: 4.78px; cursor: pointer; padding: 0;
   font-family: var(--font-sans); font-weight: 500; font-size: 8.12px; color: #fff;
   display: flex; align-items: center; justify-content: center; }
 .act.cast { background: var(--cta); }
-.act.split { background: var(--split-blue); }
-.act.drop { background: var(--exit-pink); }
+.act.split { background: var(--ink-soft); }
+.act.drop { background: var(--panel-paper); color: var(--cinnabar-dark); box-shadow: inset 0 0 0 1.43px var(--cinnabar); }
 /* 可合成:ScrollList 行距 8 → 3.82pt;一行 = Ui.CardPanel(AdGreenBg,圆角 10)定高 50 → 23.89pt、无描边,
    「部件+部件」(ASCII +,TitleFont 15 → 7.17pt TextDim)·「→」13 → 6.21pt · 出字 TitleFont 22 → 10.51pt GlyphColor */
 .craft { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 3.82px; }
@@ -300,11 +300,11 @@ html,body{margin:0;background:var(--paper)}
 .cr .src { font-family: var(--font-serif); font-weight: 600; font-size: 7.17px; color: var(--text-dim); }
 .cr .ar { font-family: var(--font-sans); font-size: 6.21px; color: var(--text-dim); }
 .cr .out { font-family: var(--font-serif); font-weight: 600; font-size: 10.51px; color: var(--glyph); }
-/* 结束回合:Ui.PillButton 190×52 → 90.78×24.84pt、圆角 24 → 11.47pt,Cta 石青实底,BodyFont 黑体 21 → 10.03pt,
+/* 结束回合:Ui.PillButton 190×52 → 90.78×24.84pt、圆角 24 → 11.47pt,Cinnabar 朱砂实底(2026-10-04 拍板),BodyFont 黑体 21 → 10.03pt,
    在栏底那一行居中 */
 .endrow { flex: none; display: flex; justify-content: center; }
 .endturn { width: 90.78px; height: 24.84px; border: none; border-radius: 11.47px; cursor: pointer; padding: 0;
-  background: var(--cta); color: #fff; font-family: var(--font-sans); font-weight: 500; font-size: 10.03px; }
+  background: var(--cinnabar); color: #fff; font-family: var(--font-sans); font-weight: 500; font-size: 10.03px; }
 
 </style></head><body>
 <div class="dev">

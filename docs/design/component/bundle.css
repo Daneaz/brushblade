@@ -49,7 +49,7 @@
 .zd-btn--danger   { background: var(--panel-paper); color: var(--cinnabar-dark); box-shadow: inset 0 0 0 1.5px var(--cinnabar); }
 .zd-btn--ink      { background: var(--ink-soft); }
 .zd-btn--gold     { background: var(--gold); color: var(--gold-text); }
-.zd-btn--plum     { background: var(--exit-pink); }
+.zd-btn--plum     { background: var(--exit-pink); } /* 2026-10-04 起不做按钮底,仅存档 */
 .zd-btn--quiet    { background: var(--locked-bg); color: var(--text-main); }
 /* uGUI 置灰 = ColorTint disabledColor(0.78,0.78,0.78,0.5) 乘在原底色上,不换底色 */
 .zd-btn[disabled] { filter: brightness(.78); opacity: .5; cursor: default; }

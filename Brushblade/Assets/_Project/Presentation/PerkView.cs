@@ -548,7 +548,7 @@ namespace Brushblade.Presentation
             // 图鉴 / 收藏 / 地图都是 InkCounter 25,图鉴 / 收藏的返回键都是 25 + (130, 63)。
             Ui.InkCounter(top.transform, _meta.Ink, 25);
             Ui.PillButton(top.transform, Strings.T("common.back_to_map"), () => _onBack(),
-                Theme.ExitPink, Color.white, 25, new Vector2(130, 63));
+                Theme.Info, Color.white, 25, new Vector2(130, 63)); // 返回地图 = Info 浓墨(2026-10-04 五色语义)
         }
 
         private static void Fade(Transform parent, float alpha, float anchorMinY, float anchorMaxY)
