@@ -284,9 +284,8 @@ namespace Brushblade.Presentation
         /// ⚠ 2026-09-02 review 修:对 <see cref="Sheet"/> 传 <c>replaceSameName: false</c>——
         /// 所有调用点共用同一个 name("Modal"),但互相之间并不是「同族排队」关系
         /// (战利品弹窗与长按预览要同屏共存),按名互斥会把其中一个误杀,详见 Sheet 的文档。
-        /// 数目:出问题那会儿(53ee2bf)直连本方法的是 11 处;轮三把战斗流程浮层(选字/换字)
-        /// 全迁去 Ui.Sheet 之后,今天只剩 5 处(PerkView / CollectionView / CharPreview /
-        /// EnemyPreview / 本文件的 Ui.Modal)。原注释写的「13」两处都不对(2026-09-02 收尾波)。</summary>
+        /// 数目:出问题那会儿(53ee2bf)直连本方法的是 11 处;现在只剩 2 处 ——
+        /// 本文件的 Ui.Modal 与 EnemyPreview.Show(2026-10-04 grep 核实)。</summary>
         public static GameObject ModalShell(Transform root, string title, Vector2 halfSize,
             bool dismissable, out Transform content)
         {
@@ -704,13 +703,19 @@ namespace Brushblade.Presentation
             return ThemedLabel(row.transform, text, fontSize, Theme.TextMain);
         }
 
+        /// <summary>墨锭余额的唯一格式:千分位(2026-10-04 拍板,如「2,480」)。InvariantCulture ——
+        /// 跟系统区域走会在德语等区域印成「2.480」。<see cref="InkPulse"/> 翻回正面时也走这里,
+        /// 不然翻牌结束那一下会闪成不带千分位的数,直到下次重绘。</summary>
+        internal static string InkBalanceText(int ink) =>
+            ink.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+
         /// <summary>玩家余额计数器 = 墨锭 + 数字 + 增减翻牌动效(2026-08-29;08-30 由飘字改翻牌)。
         /// 外层五个页签的顶栏与局内右上都走它(2026-08-30:半额取消后塔内预算与账户同源)。
         /// <b>只传余额</b> —— 结算面板上的「这趟挣了 N」、安全层累计、商品价签仍走 IngotLabel,
         /// 那些数字不是同一个账本,混进来会翻出凭空的增减(InkPulse 的注释)。</summary>
         public static GameObject InkCounter(Transform parent, int ink, int fontSize = 20)
         {
-            var label = IngotLabelText(parent, ink.ToString(), fontSize);
+            var label = IngotLabelText(parent, InkBalanceText(ink), fontSize);
             InkPulse.Observe(label, ink);
             return label.transform.parent.gameObject;
         }

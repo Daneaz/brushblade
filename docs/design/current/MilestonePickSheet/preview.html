@@ -51,7 +51,7 @@
 .cs .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10.03px; }
 /* 右上:里程碑轨道 —— 定高 327,内边距 21/21/21/19,竖排 17 */
 .cs .ms { height: 156.24px; flex: none; padding: 10.03px 10.03px 9.08px; display: flex; flex-direction: column; gap: 8.12px; }
-.cs .track { position: relative; flex: 1; display: flex; gap: 6.21px; }
+.cs .track { position: relative; flex: 1; display: flex; gap: 3.82px; }
 /* 轨道底线:Ui.Bar 高 6,横跨 5%–95%,竖直中心 = 钉的中心(距轨道顶 21) */
 .cs .rail { position: absolute; left: 5%; right: 5%; top: 8.6px; height: 2.87px; }
 .cs .node { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3.82px; }
@@ -92,7 +92,7 @@
 .cs .li { height: 15.77px; display: flex; align-items: center; gap: 5.73px; font-size: 10.03px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cs .li span { flex: 1; }
 .cs .li.zero { color: var(--text-faint); }
-.cs .pity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7.17px; }
+.cs .pity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3.82px; }
 /* 推算:三块保底的首选高合计超出页高约 14pt,uGUI 按比例压缩子项高(间距不压),行会略挤 */
 .cs .pr { min-height: 0; display: flex; flex-direction: column; gap: 2.87px; }
 .cs .pr .row { display: flex; align-items: center; gap: 5.73px; white-space: nowrap; }
@@ -120,8 +120,8 @@
 .stage { position: relative; width: 932px; height: 430px; overflow: hidden; line-height: 1.3; }
 .stage * { box-sizing: border-box; }
 .scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 50; }
-/* Ui.Sheet:卡 1256×745 → 600.10×355.95,屏幕正中;圆角 18、描边 1.5 PanelBorder、面 PanelPaper;没有投影 */
-.sheet { position: absolute; z-index: 51; left: 50%; top: 50%; width: 600.1px; height: 355.95px; transform: translate(-50%, -50%);
+/* Ui.Sheet:卡 1256×785 → 600.10×375.06,屏幕正中(高比稿多 40,见 README);圆角 18、描边 1.5 PanelBorder、面 PanelPaper;没有投影 */
+.sheet { position: absolute; z-index: 51; left: 50%; top: 50%; width: 600.1px; height: 375.06px; transform: translate(-50%, -50%);
   background: var(--panel-paper); border: 0.72px solid var(--panel-border); border-radius: 8.6px;
   display: flex; flex-direction: column; align-items: stretch; color: var(--text-main); }
 .sheet .c { text-align: center; white-space: nowrap; }
@@ -132,7 +132,7 @@
 .ingot i { display: block; background: var(--ingot-dark); clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%); }
 .chip { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; border-radius: 6.69px; flex: none; }
 
-.mp { flex: 1; padding: 13.86px 20.07px; display: flex; flex-direction: column; gap: 10.03px; }
+.mp { flex: 1; padding: 13.86px 20.07px; display: flex; flex-direction: column; gap: 6.69px; }
 /* 右上 ×:RoundButton 透明底、TextDim、字 42、92×92,钉在卡右上内缩 17 / 13 */
 .x { position: absolute; right: 8.12px; top: 6.21px; width: 43.96px; height: 43.96px; border: none; background: transparent;
   color: var(--text-dim); font-family: var(--font-sans); font-weight: 500; font-size: 20.07px; line-height: 1; }
@@ -163,7 +163,7 @@
   <div class="safe">
     <div class="top">
       <h1>执 笔 人</h1><span class="sub">Lv.20 · 秀才 · 最高 43 层</span><span class="grow"></span>
-      <span class="zd-ink zd-ink--top"><i class="zd-ink__ingot"></i>2480</span>
+      <span class="zd-ink zd-ink--top"><i class="zd-ink__ingot"></i>2,480</span>
       <button class="zd-btn zd-btn--plum back">返回地图</button>
     </div>
     <div class="body">

@@ -15,7 +15,7 @@
 - 正文多行的弹窗传更大的 `halfSize`（`EnemyPreview.Show` 传 420×340 / Boss 420×400）。
 - `Ui.Modal` 一律 `dismissable: true`（点遮罩即关）。
 
-直连 `ModalShell` 的只剩 2 处：`Ui.Modal` 本身与 `EnemyPreview.Show`。（`Ui.cs` 里 `ModalShell` 的注释还写着「5 处」，是代码注释过时。）
+直连 `ModalShell` 的只剩 2 处：`Ui.Modal` 本身与 `EnemyPreview.Show`（`Ui.cs` 里 `ModalShell` 的注释已同步）。
 
 ## 现有调用里的几种组合（preview 三例取自这里）
 | 弹窗 | 钮（左 → 右） | 调用点 |
@@ -35,7 +35,7 @@
 | 字卡详情 | 1591×670（高版按屏算） | `scrim` | 是 | `CharPreview.Show` |
 | 升级前后对比 | 1088×670 | `scrim` | 是 | `CollectionView.ShowUpgradePreview` |
 | 技能节点（贴右缘） | 宽 396，上下铺满 | `scrim` | 是 | `PerkNodeSheet.Show` |
-| 里程碑领取（墨锭 + 字卡 3 选 1） | 1256×745 | `scrim` | 是 | `MilestonePickSheet.Show` |
+| 里程碑领取（墨锭 + 字卡 3 选 1） | 1256×785（内边距 42/29、行距 14） | `scrim` | 是 | `MilestonePickSheet.Show` |
 | 角色升级 | 1256×745（内边距改 38/29、行距 21） | `scrim` | 否 | `LevelUpPopup.Show` |
 
 ## 规则

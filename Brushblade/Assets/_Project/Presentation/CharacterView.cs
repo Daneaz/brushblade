@@ -9,7 +9,8 @@ using UnityEngine.UI;
 namespace Brushblade.Presentation
 {
     /// <summary>角色页(spec 2026-10-02 §6.2;稿 Character.dc.html):左档案、右上里程碑轨道、右下统计四页签。
-    /// 与稿的唯一偏差:顶栏按全站惯例「标题在左、墨锭 + 返回在右」(PerkView.BuildTopBar)。</summary>
+    /// 与稿的差异不止一条(顶栏排布、字距、若干色值与尺寸),逐条见 docs/design/current/CharacterScreen/README.md
+    /// 的「与拍板稿的差异」节。</summary>
     public sealed class CharacterView : MonoBehaviour
     {
         private enum Tab { Chest, Tower, Battle, Econ }
@@ -205,7 +206,9 @@ namespace Brushblade.Presentation
                     ("rarity", CharInfo.RarityName(after.Rarity))),
                 19, Theme.LockGray);
 
-            var track = Ui.Row(stack, "Track", 13);
+            // 格距 8(space-4 = 4pt):原 13 时每格卡内净宽 98.6,而「色点 13 + 5 + 『金字 3 选 1』17 号」
+            // 按 Noto 字宽实算 99.9,Text 不折行,两头探出贴边。8 → 净宽 103.1(932pt 宽屏)。
+            var track = Ui.Row(stack, "Track", 8);
             track.AddComponent<LayoutElement>().flexibleHeight = 1;
             var trackLayout = track.GetComponent<HorizontalLayoutGroup>();
             trackLayout.childForceExpandWidth = true;
@@ -398,7 +401,8 @@ namespace Brushblade.Presentation
             VSep(pane);
 
             // ③ 保底进度:读真实保底计数(与 ChestRules 同源);规则表是红→橙→金,展示倒过来金→橙→红
-            var pity = Ui.VStack(pane, "Pity", 15);
+            // 行距 8(space-4):原 15 时这一栏首选高 333 > 页面区 304(932×430 下),竖排按比例压扁各行
+            var pity = Ui.VStack(pane, "Pity", 8);
             pity.AddComponent<LayoutElement>().flexibleWidth = 1;
             var pityLayout = pity.GetComponent<VerticalLayoutGroup>();
             pityLayout.childAlignment = TextAnchor.UpperLeft;
@@ -429,8 +433,11 @@ namespace Brushblade.Presentation
             Dot(row.transform, Theme.RarityColor(rarity), 17);
             FlexLabel(row.transform,
                 Strings.T("character.pity.row", ("rarity", rarityName), ("tierName", tierName)), 21, Theme.TextMain);
+            // 27 号宋体的行高 38.8 比同行 21 号黑体(30.4)高出一截、全是字身上下的空白。布局盒按同行
+            // 正文行高给 30,数字仍以盒心居中画出(verticalOverflow = Overflow),看起来不变,每块省 8.8
             Ui.ThemedLabel(row.transform, Strings.T("character.pity.value", ("now", now), ("max", max)),
-                27, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleRight);
+                27, Theme.TextMain, Theme.TitleFont, TextAnchor.MiddleRight)
+                .gameObject.AddComponent<LayoutElement>().preferredHeight = 30;
             Ui.Bar(block.transform, max > 0 ? (float)now / max : 0f, Theme.RarityColor(rarity), new Vector2(0, 10));
             Ui.ThemedLabel(block.transform,
                 Strings.T("character.pity.hint", ("left", Math.Max(0, max - now)), ("tierName", tierName),
