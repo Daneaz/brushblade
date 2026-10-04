@@ -15,7 +15,7 @@
      牌 = `Ui.GlyphTile` 218×272（104.16×129.96：稀有度牌框素材 + 字形 92 → 43.96 + 拼音 12 → 5.73，带材质光效动效）。
      选中环画在牌后、**不进布局**：`ink-soft` 圆角板外扩 10（4.78，圆角 24）上叠 `panel-paper` 圆角板外扩 6（2.87，圆角 20）→ 3pt 宣纸间隙 + 2pt `ink-soft` 外环（稿 box-shadow 0 0 0 3px / 5px）。
      左上角五行圆标：直径 38（18.16）、距牌边 13（6.21）、底 = `GlyphColor(属性)`、白色宋体粗 21（10.03）`CharInfo.ElementName`；无属性的字不画。
-     牌下间距 10（4.78）一枚 chip（字号 19 → 9.08、高 31 → 14.81、圆角 6.69）：没拥有 =「新字」`gold-soft` 底 `gold-deep` 字 `gold` 边；已拥有 =「已有 · 重复卡 +1」`panel-inset` 底 `text-dim` 字 `panel-border` 边。
+     牌下间距 10（4.78）一枚 chip（字号 19 → 9.08、高 31 → 14.81、圆角 6.69）：没拥有 =「新字」`gold-soft` 底 `gold-deep` 字 `rarity-gold` 边；已拥有 =「已有 · 重复卡 +1」`panel-inset` 底 `text-dim` 字 `panel-border` 边。
   6. 弹簧。
   7. 脚行（间距 25 → 11.94）：说明 19（9.08）`text-faint` 开 Wrap、弹性宽；「收下」`Ui.PillButton` 314×84（150.02×40.13）、圆角 11.47、字号 31（14.81）。
 

@@ -55,17 +55,19 @@
 /* 轨道底线:Ui.Bar 高 6,横跨 5%–95%,竖直中心 = 钉的中心(距轨道顶 21) */
 .cs .rail { position: absolute; left: 5%; right: 5%; top: 8.6px; height: 2.87px; }
 .cs .node { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3.82px; }
-.cs .pin { position: relative; width: 20.07px; height: 20.07px; flex: none; border-radius: 50%; background: var(--gold); }
+.cs .pin { position: relative; width: 20.07px; height: 20.07px; flex: none; border-radius: 50%; background: var(--panel-border); }
+.cs .done .pin { background: var(--jade); }
+.cs .ready .pin { background: var(--cta); }
 .cs .pin img { position: absolute; left: 4.78px; top: 4.78px; width: 10.51px; height: 10.51px; display: block; }
 .cs .todo .pin { background: var(--panel-border); }
 .cs .todo .pin::after { content: ""; position: absolute; inset: 1.43px; border-radius: 50%; background: var(--panel-paper); }
-/* 卡:OutlinedPanel 圆角 17;已领 PanelInset / 可领 GoldSoft + Gold 3 描边 / 未达 CardWhite */
+/* 卡:OutlinedPanel 圆角 17;已领 PanelInset / 可领 CardWhite + Primary 3 描边 / 未达 CardWhite */
 .cs .mc { flex: 1; width: 100%; border-radius: 8.12px; border: 0.96px solid var(--panel-border); background: var(--card-face);
   padding: 4.78px 2.87px; display: flex; flex-direction: column; align-items: center; gap: 2.87px; white-space: nowrap; }
 .cs .done .mc { background: var(--panel-inset); }
-/* 可领钉外一圈 6(2.87)gold-soft 光环,不占布局 */
-.cs .ready .pin { box-shadow: 0 0 0 2.87px var(--gold-soft); }
-.cs .ready .mc { background: var(--gold-soft); border: 1.43px solid var(--gold); }
+/* 可领钉外一圈 6(2.87)石青 22% 光环,不占布局 */
+.cs .ready .pin { box-shadow: 0 0 0 2.87px color-mix(in srgb, var(--cta) 22%, transparent); }
+.cs .ready .mc { background: #fff; border: 1.43px solid var(--cta); }
 .cs .mc .lv { font-family: var(--font-serif); font-weight: 600; font-size: 12.9px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .cs .ready .mc .lv { color: var(--text-main); }
 .cs .ingot { display: flex; align-items: center; gap: 2.87px; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-main); }
@@ -77,7 +79,7 @@
 .cs .dot { display: block; flex: none; border-radius: 2.87px; }
 .cs .mc .st { margin-top: auto; font-size: 8.6px; color: var(--text-faint); }
 .cs .claim { margin-top: auto; width: 100%; height: 21.02px; border-radius: 11.47px; font-size: 10.03px;
-  background: var(--gold); color: var(--gold-text); }
+  background: var(--cta); color: #fff; }
 
 /* 右下:统计 —— 弹性高,内边距 21/21/19/21,竖排 17 */
 .cs .stats { flex: 1; min-height: 0; padding: 9.08px 10.03px 10.03px; display: flex; flex-direction: column; gap: 8.12px; }
@@ -151,7 +153,7 @@
         <div class="avatar"><div class="face">墨</div>
           <div class="names"><div class="nm">执笔人</div><div class="rk">Lv.20 · 秀才</div></div></div>
         <div class="xp"><div class="row"><span>经验 · 距 Lv.21</span><span class="num">420 / 1050</span></div>
-          <div class="bar" style="height:4.78px"><i style="width:40%;background:var(--gold)"></i></div></div>
+          <div class="bar" style="height:4.78px"><i style="width:40%;background:var(--ink-soft)"></i></div></div>
         <div class="ttl"><b>属性</b><span>下一级</span><span class="rule"></span></div>
         <div class="attrs"><div class="at"><span>生命</span><b style="color:var(--cinnabar)">880</b><u>+20</u></div><div class="at"><span>攻击</span><b style="color:var(--text-main)">138</b><u>+2</u></div><div class="at"><span>护甲</span><b style="color:var(--text-main)">12</b><u class=cap>—</u></div><div class="at"><span>闪避</span><b style="color:var(--text-main)">10%</b><u class=cap>—</u></div><div class="at"><span>速度</span><b style="color:var(--text-main)">110</b><u class=cap>—</u></div><div class="at"><span>每回合 AP</span><b style="color:var(--text-main)">3</b><u class=cap>—</u></div></div>
         <div class="note">属性 Lv.50 封顶 · 之后升级只给宝箱与里程碑</div>
@@ -160,7 +162,7 @@
         <div class="panel ms">
           <div class="ttl"><b>等级里程碑</b><span>已领 3 / 10 · 每 5 级一档</span><span class="rule"></span><span>Lv.50 之后每 10 级 · 3,000 墨 + 橙字 3 选 1</span></div>
           <div class="track">
-            <div class="bar rail"><i style="width:33.3%;background:var(--gold)"></i></div>
+            <div class="bar rail"><i style="width:33.3%;background:var(--jade)"></i></div>
             <div class="node done"><div class="pin"><img alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTQgMzRMMjcgNDZMNTAgMTkiLz48L3N2Zz4="></div><div class="mc"><div class="lv">Lv.5</div><div class="ingot"><i></i>300</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-blue)"></i>蓝字 3 选 1</div><div class="st">已领</div></div></div><div class="node done"><div class="pin"><img alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTQgMzRMMjcgNDZMNTAgMTkiLz48L3N2Zz4="></div><div class="mc"><div class="lv">Lv.10</div><div class="ingot"><i></i>500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-purple)"></i>紫字 3 选 1</div><div class="st">已领</div></div></div><div class="node done"><div class="pin"><img alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTQgMzRMMjcgNDZMNTAgMTkiLz48L3N2Zz4="></div><div class="mc"><div class="lv">Lv.15</div><div class="ingot"><i></i>800</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-purple)"></i>紫字 3 选 1</div><div class="st">已领</div></div></div><div class="node ready"><div class="pin"></div><div class="mc"><div class="lv">Lv.20</div><div class="ingot"><i></i>1,200</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-gold)"></i>金字 3 选 1</div><button class="zd-btn claim">领 取</button></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.25</div><div class="ingot"><i></i>1,500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-gold)"></i>金字 3 选 1</div><div class="st">差 5 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.30</div><div class="ingot"><i></i>2,000</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-gold)"></i>金字 3 选 1</div><div class="st">差 10 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.35</div><div class="ingot"><i></i>2,500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-orange)"></i>橙字 3 选 1</div><div class="st">差 15 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.40</div><div class="ingot"><i></i>3,000</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-orange)"></i>橙字 3 选 1</div><div class="st">差 20 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.45</div><div class="ingot"><i></i>3,500</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-orange)"></i>橙字 3 选 1</div><div class="st">差 25 级</div></div></div><div class="node todo"><div class="pin"></div><div class="mc"><div class="lv">Lv.50</div><div class="ingot"><i></i>5,000</div><div class="pick"><i class="dot" style="width:6.21px;height:6.21px;background:var(--rarity-red)"></i>红字 3 选 1</div><div class="st">差 30 级</div></div></div>
           </div>
         </div>

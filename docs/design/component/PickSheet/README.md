@@ -41,7 +41,7 @@
 ## 硬规则
 - **detail 横条定高，未选中时靠 `minHeight` 撑住空着。** 定高是为了选中前后**不跳版** —— 玩家的手指正停在牌上，版面一动就点错。代价是这行不开 Wrap，文案长度上限约 30 字，再长会静默溢出、压住右端的「再点一次收下」。
 - **底色是 `panel-inset` 不是 `paper-dim`。** `paper-dim` 与描边色 `panel-border` 撞成同一个 `#DED7C9`，渲出来是一块没有描边的灰褐实心板。这两支不要互换。
-- 「再点一次收下」右浮（`flexWidth:1` 的 spacer 顶开），色 `cinnabar-dark`。
+- 「再点一次收下」右浮（`flexWidth:1` 的 spacer 顶开），色 `cta`（2026-10-04 起：它是推进提示，不是危险）。
 - 这三个入口**放行长按预览叠在浮层之上**（候选牌挂 `HoldToPreview`，`DrawPickSheet` 不销毁 `_modal`）—— 它们是可选流程。掉字/换字那条不可逆决策要更保守，进面板先销毁预览（见 ReplaceSheet）。
 - 重抽会把候选整组换掉，所以同时清掉预览下标与两条满库替换下标（`DrawRerollButton`）。
 

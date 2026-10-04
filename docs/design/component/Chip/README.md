@@ -7,17 +7,17 @@
 | 档 | 字号 / padX / padY | 用在哪 | 调用点 |
 | --- | --- | --- | --- |
 | 单位格 | 15 / 10 / 5 | 战斗里敌人格、召唤物格、执笔人状态栏 | `BattleView` 常数 `UnitChipFontSize/PadX/PadY`；用于执笔人状态 `ChipFlow`、召唤物与敌人格的 `ChipFlow` 与单枚 chip |
-| 护盾角标 | 14 / 4 / 3 + `shield` 图标 | 执笔人、召唤物、敌人立绘上的护盾数，`gold` 底 `gold-text` | `BattleView` 常数 `ShieldBadgeFontSize/PadX/PadY`（三种单位共用） |
+| 护盾角标 | 14 / 4 / 3 + `shield` 图标 | 执笔人、召唤物、敌人立绘上的护盾数，`ink-soft` 底白字 | `BattleView` 常数 `ShieldBadgeFontSize/PadX/PadY`（三种单位共用） |
 | 列表 | 18 / 18 / 12 | 卡组详情的特性与词组、筛选页签计数、升级弹窗差异行的 chip、商城宝箱的「几种 · 几张」「几小时」 | `CollectionView.BuildFilterTab` / `DeltaRow`、`CharSheetSections`（特性段）、`ShopView`（宝箱格） |
 | 图鉴列表 | 16 / 18 / 12 | 图鉴行内的射程/锁定/护甲 | `BestiaryView`（行内 `ChipFlow`） |
 | 页头 | 20 / 18 / 12 | 收集页「未拥有 N」「新字 N」、图鉴「N 条待领赏」 | `CollectionView.BuildTopBar`、`BestiaryView`（顶栏） |
 | 升级弹窗等级 | 21 / 18 / 12 | 「升到 Lv.N」，`jade` 底白字 | `CollectionView.ShowUpgradePreview` |
 | 告警 | 21 / 23 / 12 | 不可逆后果，`danger-bg` 底 `danger-text` 字（不加粗），如换字弹窗「字库 {count}/{capacity}——被换掉的字永久失去」 | `BattleView` 换字弹窗（另定高 46） |
-| 已售印 | 21 / 18 / 12 | 商城牌面正中「已售」「已领」，`cinnabar` 底白字 | `ShopView.SoldSeal` |
+| 已售印 | 21 / 18 / 12 | 商城牌面正中「已售」「已领」，`ink-soft` 底白字 | `ShopView.SoldSeal` |
 | Toast | 21 / 29 / 17 | 商城成交提示，`ink` 底白字 | `ShopView.ShowToast` |
-| 引导印章 | 21 / 21 / 23 | 新手引导卡右上的「印」，`gold` + `gold-text` | `CoachOverlay`（`SealFontSize`） |
+| 引导印章 | 21 / 21 / 23 | 新手引导卡右上的「印」，`rarity-gold` 底 `gold-text` 字 | `CoachOverlay`（`SealFontSize`） |
 | 引导「这样做」 | 19 / 13 / 4 | 新手引导卡的动作标，`gold-soft` 底 `gold-deep` 字 | `CoachOverlay`（`DoitKFontSize`） |
-| 里程碑标签 | 19 / 18 / 12，**带描边** | 里程碑三选一牌下「新字」（`gold-soft` 底 `gold-deep` 字、`gold` 边）/「已有 · 重复卡 +1」（`panel-inset` 底 `text-dim` 字、`panel-border` 边） | `MilestonePickSheet` |
+| 里程碑标签 | 19 / 18 / 12，**带描边** | 里程碑三选一牌下「新字」（`gold-soft` 底 `gold-deep` 字、`rarity-gold` 边）/「已有 · 重复卡 +1」（`panel-inset` 底 `text-dim` 字、`panel-border` 边） | `MilestonePickSheet` |
 | 角色升级 | 21 / 18 / 12 或 25 / 18 / 12，**带描边** | 「Lv.{level} 里程碑已解锁 · …」（`gold-soft` 底 `gold-text`、`gold-border` 边）；宝箱行「{tierName} × {count}」（`Theme.CardWhite` 纯白底 `text-main`、宝箱色 **3 单位**边） | `LevelUpPopup` |
 | 图鉴详情头 | 24 / 18 / 12 + 图标 | 怪物能力名，`cinnabar` 底白字 | `BestiaryView`（能力详情头） |
 | 单位详情属性 | 13 / 8 / 4 | 详情弹窗头行的属性标 | `UnitSheet`（头行） |
@@ -27,7 +27,7 @@
 | 「+N」计数 | 同本行 / **4** / 同本行 | `ChipFlow` 截断时自己补的标记，`paper-dim` 底 `text-main`，比真 chip 紧得多 | `Ui.ChipCountPadX` |
 
 ## 配色
-- 战斗状态：朱砂 = 持续伤害与威胁；`ink-soft` = 控制与减益（冻结、减速、致盲、沉默、破甲）；铜绿 = 恢复与防御增益；赭金 = 攻击类增益，**赭金底一律压 `gold-text`**（白字只有 2.5:1）。
+- 战斗状态（2026-10-04 五色语义）：朱砂 = 持续伤害与威胁；`ink-soft` 浓墨 = 控制与减益（冻结、减速、致盲、沉默、破甲）；`jade` 铜绿 = 一切增益（恢复、守，以及攻 / 战意 / 暴 / 锐 / 重）。三种底**一律白字**；赭金是 Warning，不再做状态 chip 底。护盾角标走 `ink-soft` 白字。
 - 单位格的属性徽章压的是 **`<el>-glyph` 字形色**，不是 `<el>` 原色（`BattleView` 召唤物格与敌人格两处，今天在 `2010` `2798`，2026-09-19 改）。
 - 卡组详情的特性 chip 走 `CardTraits.ChipColor`：灼烧族朱砂、冻结族水字形色、控制族心字形色、护盾族土字形色、荆棘族木字形色、其余 `ink-soft`。
 - 页头计数：`panel-inset` 底配 **`text-dim`**（2026-09-21 从 `text-faint` 压深，4.29 → 5.05:1），或朱砂底白字。
@@ -48,7 +48,7 @@
 起因是「浅卡压浅底」：收集页与图鉴的筛选栏在选中「全部」页签时传 `panel-border`（`CollectionView.BuildFilterTab`、`BestiaryView` 筛选页签）——那一格的页签底正是 `panel-inset`，与 chip 自己的底同色，不描边就整个糊掉。属性页签铺 `<el>-soft`、Boss 页签铺 `ink`，本来就分得开，不传。
 
 此后又有三处把描边当强调用（2026-10-02 起），一共五个调用点：
-- `MilestonePickSheet`：「新字」`gold-soft` 底配 `gold` 边，「已有 · 重复卡 +1」`panel-inset` 底配 `panel-border` 边；
+- `MilestonePickSheet`：「新字」`gold-soft` 底配 `rarity-gold` 边，「已有 · 重复卡 +1」`panel-inset` 底配 `panel-border` 边；
 - `LevelUpPopup`：里程碑解锁行 `gold-soft` 底配 `gold-border` 边；宝箱行 `Theme.CardWhite` 纯白底配该档宝箱色边，**边宽 3**（`borderThickness: 3f`，唯一不用默认 1 的地方）。
 
 两条不变式：

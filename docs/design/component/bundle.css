@@ -125,9 +125,9 @@
   font-style: normal; text-decoration: none; font-family: var(--font-serif); font-weight: 600; color: #fff;
   text-shadow: .6px .6px 0 var(--ink), -.6px -.6px 0 var(--ink), .6px -.6px 0 var(--ink), -.6px .6px 0 var(--ink);
   font-variant-numeric: tabular-nums; }
-.zd-bar--xp      { height: 4.30px;  } .zd-bar--xp > span      { background: var(--gold); }
+.zd-bar--xp      { height: 4.30px;  } .zd-bar--xp > span      { background: var(--ink-soft); }
 .zd-bar--run     { height: 4.78px; } .zd-bar--run > span     { background: var(--cinnabar-dark); }
-.zd-bar--band    { height: 6.21px; } .zd-bar--band > span    { background: var(--cinnabar); }
+.zd-bar--band    { height: 6.21px; } .zd-bar--band > span    { background: var(--cta); }
 .zd-bar--band-off > span { background: var(--text-faint); }
 .zd-bar--collect { height: 7.17px; }
 .zd-bar--hp-foe  { height: 9.08px; } .zd-bar--hp-foe > span  { background: var(--cinnabar); }
@@ -193,7 +193,7 @@
   display: flex; align-items: center; justify-content: center; white-space: nowrap;
   font-size: max(4.78px, calc(var(--h) * 8.5 / 128)); line-height: 1; color: #fff; }
 .zd-bdg--lv { left: calc(var(--h) * 5 / 128); top: calc(var(--h) * 5 / 128); background: var(--ink); }
-.zd-bdg--max { background: var(--gold); color: var(--gold-text); }
+.zd-bdg--max { background: var(--rarity-gold); color: var(--gold-text); }
 .zd-bdg--up { left: calc(var(--h) * 5 / 128); bottom: calc(var(--h) * 5 / 128); background: var(--jade); }
 .zd-bdg--new { right: 0; top: 0; height: calc(var(--w) * 17 / 103); background: var(--cinnabar); }
 .zd-bdg--lock { left: calc(var(--h) * 5 / 128); top: calc(var(--h) * 5 / 128); width: calc(var(--h) * 17.25 / 128); height: calc(var(--h) * 17.25 / 128);
@@ -201,9 +201,9 @@
 .zd-rdot { position: absolute; z-index: 2; right: calc(var(--h) * 5 / 128); top: calc(var(--h) * 5 / 128);
   width: calc(var(--w) * 13 / 103); height: calc(var(--w) * 13 / 103); border-radius: 50%; background: var(--rar); }
 .zd-rdot--dim { background: color-mix(in srgb, var(--rar) 42%, var(--locked-bg)); }
-/* 新字：牌外一圈赭金墨晕（Theme.Halo，外扩 10 逻辑单位），2.6s 呼吸 */
+/* 新字：牌外一圈稀有度金墨晕（Theme.Halo，外扩 10 逻辑单位），2.6s 呼吸 */
 .zd-halo { position: absolute; inset: 0; border-radius: 6.69px; pointer-events: none;
-  box-shadow: 0 0 0 1px var(--gold), 0 0 4.78px 1.43px rgba(202,157,51,.55); animation: zd-halo 2.6s ease-in-out infinite; }
+  box-shadow: 0 0 0 1px var(--rarity-gold), 0 0 4.78px 1.43px rgba(201,169,74,.55); animation: zd-halo 2.6s ease-in-out infinite; }
 @keyframes zd-halo { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .zd-halo { animation: none; } }
 /* 牌脚：升级材料进度条 + 张数；不进牌面 */
