@@ -40,7 +40,14 @@
 .zd-btn--chest-sm { width: 34.40px; height: 21.98px; border-radius: 6.69px; font-size: 9.08px; }
 /* 顶栏设置(130×63,radius 16) */
 .zd-btn--top   { width: 62.11px; height: 30.10px; border-radius: 7.64px; font-size: 11.94px; }
+/* 推进色(2026-10-04 拍板):石青底白字 = Theme.Cta。
+   ⚠ .zd-btn--cta 上面那条同时是「主行动尺寸」;这条只补底色,写在各颜色类之前,
+   旧稿里 .zd-btn--cta.zd-btn--cinnabar 的组合仍按后写的颜色类出色,等下一步逐卡改。 */
+.zd-btn--cta      { background: var(--cta); color: #fff; }
+/* 危险色,勿用于推进(推进用 .zd-btn--cta;不可逆钮用 .zd-btn--danger) */
 .zd-btn--cinnabar { background: var(--cinnabar); }
+/* 不可逆操作钮 = Ui.DangerButton:朱砂描边(稿 1.5pt)+ 深朱砂字 + 宣纸底,不做实底 */
+.zd-btn--danger   { background: var(--panel-paper); color: var(--cinnabar-dark); box-shadow: inset 0 0 0 1.5px var(--cinnabar); }
 .zd-btn--ink      { background: var(--ink-soft); }
 .zd-btn--gold     { background: var(--gold); color: var(--gold-text); }
 .zd-btn--plum     { background: var(--exit-pink); }

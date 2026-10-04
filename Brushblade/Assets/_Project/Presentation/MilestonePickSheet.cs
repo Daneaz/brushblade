@@ -104,7 +104,7 @@ namespace Brushblade.Presentation
                         r.SetActive(on);
                         l.anchoredPosition = new Vector2(0f, on ? Lift : 0f);
                     }
-                    okFace.color = Theme.Cinnabar;
+                    okFace.color = Theme.Cta;
                     okLabel.color = Color.white;
                 }, TileSize);
                 Ui.Stretch((RectTransform)tile.transform);
@@ -134,7 +134,7 @@ namespace Brushblade.Presentation
                 UnityEngine.Object.Destroy(sheet);
                 onClaimed();
             }, Theme.LockedBg, Theme.TextDim, 31, new Vector2(314, 84));
-            // 没选之前是灰钮(稿 .pill.off),点了也不动;选了一张才换成朱砂主钮
+            // 没选之前是灰钮(稿 .pill.off),点了也不动;选了一张才换成石青主钮(Theme.Cta)
             okFace = (Image)ok.targetGraphic;
             okLabel = ok.GetComponentInChildren<Text>();
         }

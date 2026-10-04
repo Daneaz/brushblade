@@ -592,7 +592,7 @@ namespace Brushblade.Presentation
             Fork(forks.transform,
                 Strings.T("root.safelayer.descend_button",
                     ("nextBandName", nextBand.Name), ("from", depth + 1), ("to", depth + endless.BossEvery)),
-                Strings.T("root.safelayer.descend_why"), Theme.Cinnabar,
+                Strings.T("root.safelayer.descend_why"), Theme.Cta,
                 () => StartSegment(firstTower: false));
             Fork(forks.transform,
                 Strings.T("root.safelayer.retreat_button"),
@@ -606,7 +606,7 @@ namespace Brushblade.Presentation
                 Ui.Modal(view.transform,
                     Strings.T("root.safelayer.milestone_title", ("bandName", milestone.Name)),
                     Strings.T("root.safelayer.milestone_body", ("ink", Ui.InkText(milestone.MilestoneInk))),
-                    (Strings.T("common.ok"), null, Theme.Cinnabar, Color.white));
+                    (Strings.T("common.ok"), null, Theme.Cta, Color.white));
             LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
             _pendingLevelUp = null;
             MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹
@@ -745,7 +745,7 @@ namespace Brushblade.Presentation
             ChestRow(stack.transform, chestTitle, chestDesc, chestTier, PanelW - 118f); // 118 = 稿 .panel 左右各 28pt 内边距
 
             Ui.PillButton(stack.transform, Strings.T("common.back_to_map"), () => ShowMap(),
-                Theme.Cinnabar, Color.white, 31, new Vector2(544, 84));   // 稿 .pill 15pt / 260×40pt
+                Theme.Cta, Color.white, 31, new Vector2(544, 84));   // 稿 .pill 15pt / 260×40pt
             LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
             _pendingLevelUp = null;
             MetaStore.Save(_meta); // LastSeenLevel 已在 TakeLevelUpSummary 里推进,落盘防重复弹

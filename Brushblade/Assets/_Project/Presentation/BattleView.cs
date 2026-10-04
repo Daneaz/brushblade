@@ -1586,12 +1586,12 @@ namespace Brushblade.Presentation
                 if (suspend)
                     ShowModal(Strings.T("battle.dialog.suspend_tower.title"),
                         Strings.T("battle.dialog.suspend_tower.body"),
-                        (Strings.T("battle.btn.suspend"), _onExit, Theme.Cinnabar, Color.white),
-                        (Strings.T("battle.btn.abandon"), () => _onAbandon?.Invoke(), Theme.InkSoft, Color.white),
+                        (Strings.T("battle.btn.suspend"), _onExit, Theme.Cta, Color.white),
+                        (Strings.T("battle.btn.abandon"), () => _onAbandon?.Invoke(), Ui.DangerOutline, Theme.CinnabarDark),
                         (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
                 else
                     ShowModal(Strings.T("battle.dialog.exit_confirm.title"), Strings.T("battle.dialog.exit_confirm.body"),
-                        (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Theme.Cinnabar, Color.white),
+                        (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Ui.DangerOutline, Theme.CinnabarDark),
                         (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
             }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
         }
@@ -3951,7 +3951,7 @@ namespace Brushblade.Presentation
             // 而三种「出」的差别(库里出 / 部件直出 / 无效果字的兜底一击)属于结算细节,
             // 玩家在按钮上分不分得清都不影响他要点的那一下。
             // 动作按钮 ≥50 高(2026-07-19 iOS 反馈:手指可点性)
-            Ui.RoundButton(_actionRow, Strings.T("battle.btn.cast"), () => OnCastPressed(def), Theme.Cinnabar, Color.white, 17, new Vector2(76, 52));
+            Ui.RoundButton(_actionRow, Strings.T("battle.btn.cast"), () => OnCastPressed(def), Theme.Cta, Color.white, 17, new Vector2(76, 52));
             // 2026-09-01 二级拆解:去掉「必须在字库里」的前提 —— 部件池里带配方的部件
             // (烝 = 丞 + 灬)同样该给拆按钮,ForgeEngine.TryDismantle 认两种来源。
             if (!def.IsLeaf)
@@ -3963,7 +3963,7 @@ namespace Brushblade.Presentation
 
         private void DrawEndTurn()
         {
-            Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Cinnabar, Color.white, 21, new Vector2(190, 52));
+            Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Cta, Color.white, 21, new Vector2(190, 52));
         }
 
         /// <summary>「字库已满,换掉哪一张」的唯一一版(2026-09-01,轮三 Task 2)。
@@ -4100,7 +4100,7 @@ namespace Brushblade.Presentation
             }
             ShowModal(Strings.T("battle.dialog.ap_left.title"),
                 Strings.T("battle.dialog.ap_left.body", ("ap", Battle.Ap)),
-                (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
+                (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cta, Color.white),
                 (Strings.T("common.reconsider"), null, Theme.LockedBg, Theme.TextMain));
         }
 
@@ -4826,7 +4826,7 @@ namespace Brushblade.Presentation
                         ? Strings.T("battle.dialog.event_unaffordable.body_ink",
                             ("label", option.Label), ("cost", Ui.InkText(option.InkCost)), ("available", Ui.InkText(_run.AvailableInk)))
                         : Strings.T("battle.dialog.event_unaffordable.body_failed", ("label", option.Label)));
-                }, !affordable ? Theme.LockedBg : index == _previewEventOption ? Theme.Cinnabar : Theme.InkSoft,
+                }, !affordable ? Theme.LockedBg : index == _previewEventOption ? Theme.Cta : Theme.InkSoft,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(EventOptW, EventOptH));
                 button.interactable = affordable;
             }
@@ -5567,7 +5567,7 @@ namespace Brushblade.Presentation
                     ReplaceSummonBody(def, attackMode, summonSlots),
                     (Strings.T("battle.btn.confirm_replace_summon", ("count", replaceCount)),
                         () => ExecuteCast(charId, target, replaceSummon: true, attackMode, libraryIndex, summonSlots, allySlot),
-                        Theme.Cinnabar, Color.white),
+                        Theme.Cta, Color.white),
                     (Strings.T("battle.btn.cancel"), null, Theme.LockedBg, Theme.TextMain));
                 _message = Strings.T("battle.msg.slot_occupied_pending");
                 CancelSelection();
@@ -6225,7 +6225,7 @@ namespace Brushblade.Presentation
                 ShowModal(Strings.T("battle.dialog.not_enough_ap.title"),
                     Strings.T("battle.dialog.not_enough_ap.body",
                         ("charId", charId), ("neededAp", neededAp), ("ap", Battle.Ap), ("apPerTurn", Battle.ApPerTurn)),
-                    (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cinnabar, Color.white),
+                    (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cta, Color.white),
                     (Strings.T("common.reconsider"), null, Theme.LockedBg, Theme.TextMain));
             else if (error == BattleError.ForgeFailed)
                 ShowModal(Strings.T("battle.common.rejected"), Describe(error),

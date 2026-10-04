@@ -318,11 +318,13 @@ namespace Brushblade.Presentation
             foreach (var (label, onClick, bg, fg) in buttons)
             {
                 var action = onClick;
-                PillButton(row.transform, label, () =>
+                Action click = () =>
                 {
                     UnityEngine.Object.Destroy(overlay);
                     action?.Invoke();
-                }, bg, fg, 18, new Vector2(150, 52));
+                };
+                if (bg == DangerOutline) DangerButton(row.transform, label, click, 18, new Vector2(150, 52));
+                else PillButton(row.transform, label, click, bg, fg, 18, new Vector2(150, 52));
             }
             return overlay;
         }
@@ -355,6 +357,26 @@ namespace Brushblade.Presentation
         public static Button PillButton(Transform parent, string text, Action onClick,
             Color bg, Color fg, int fontSize = 22, Vector2? size = null) =>
             RoundButton(parent, text, onClick, bg, fg, fontSize, size, 24);
+
+        /// <summary><see cref="Modal"/> 按钮元组里的哨兵底色:传它当 bg = 画 <see cref="DangerButton"/>
+        /// (fg 被忽略)。不是真颜色,别拿去填任何 Image。</summary>
+        public static readonly Color DangerOutline = new(1f, 0f, 1f, 0f);
+
+        /// <summary>不可逆操作钮(2026-10-04 推进色拍板):朱砂描边 + 深朱砂字 + 宣纸底,不做实底,
+        /// 不抢一屏的主推进钮(石青 <see cref="Theme.Cta"/>)。描边 3 = 稿 1.5pt × 2.093。
+        /// 做法同 <see cref="OutlinedPanel"/>:外层铺描边色、内层宣纸面内缩。</summary>
+        public static Button DangerButton(Transform parent, string text, Action onClick,
+            int fontSize = 22, Vector2? size = null)
+        {
+            const float thickness = 3f;
+            var button = PillButton(parent, text, onClick, Theme.Cinnabar, Theme.CinnabarDark, fontSize, size);
+            var face = CardPanel(button.transform, "Face", Theme.PanelPaper, 22);
+            face.raycastTarget = false;
+            face.transform.SetAsFirstSibling(); // 垫在文字下面
+            Anchor((RectTransform)face.transform, Vector2.zero, Vector2.one,
+                new Vector2(thickness, thickness), new Vector2(-thickness, -thickness));
+            return button;
+        }
 
         /// <summary>胶囊小标签(宽度按 CJK 字宽估算)。padX/padY 只给挤不下的地方调窄用
         /// (敌人格 chip 行),默认值即原尺寸,其余 20 多个调用点不受影响。

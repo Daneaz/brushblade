@@ -624,7 +624,7 @@ namespace Brushblade.Presentation
                     pending > 0 ? Strings.T("bestiary.button.claim_all", ("count", pending))
                                 : Strings.T("bestiary.button.claim_all_none"),
                     ClaimAll,
-                    pending > 0 ? Theme.Cinnabar : Theme.PanelInset,
+                    pending > 0 ? Theme.Cta : Theme.PanelInset,
                     pending > 0 ? Color.white : Theme.LockGray, 24, new Vector2(0, 71));
                 all.GetComponent<LayoutElement>().flexibleWidth = 1;
                 all.interactable = pending > 0;
@@ -646,7 +646,7 @@ namespace Brushblade.Presentation
                     ? Strings.T("bestiary.button.claim", ("bounty", Ui.InkText(BountyOf(selected))))
                     : Strings.T("bestiary.button.claimed", ("bounty", Ui.InkText(BountyOf(selected)))),
                 () => Claim(selected),
-                claimable ? Theme.Cinnabar : Theme.PanelInset,
+                claimable ? Theme.Cta : Theme.PanelInset,
                 claimable ? Color.white : Theme.LockGray, 24, new Vector2(0, 71));
             button.GetComponent<LayoutElement>().flexibleWidth = 1;
             button.interactable = claimable;

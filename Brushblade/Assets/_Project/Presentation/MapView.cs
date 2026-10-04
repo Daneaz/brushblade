@@ -369,7 +369,7 @@ namespace Brushblade.Presentation
                 : Strings.T("map.tower.resume_button");
             var resumeRow = Ui.Row(stack.transform, "Resume");
             Ui.PillButton(resumeRow.transform, label, () => _onStartTower(),
-                Theme.Cinnabar, Color.white, 38, new Vector2(523, 109));
+                Theme.Cta, Color.white, 38, new Vector2(523, 109));
 
             if (snapshot == null)
             {
@@ -945,7 +945,7 @@ namespace Brushblade.Presentation
                 Destroy(_resultPanel);
                 _resultPanel = null;
                 Rebuild(); // 面板期间押后的就绪跃迁在此补上
-            }, Theme.Cinnabar, Color.white, 20, new Vector2(180, 50));
+            }, Theme.Cta, Color.white, 20, new Vector2(180, 50));
 
             return tiles;
         }
@@ -1107,7 +1107,7 @@ namespace Brushblade.Presentation
                 Destroy(_helpPanel);
                 _helpPanel = null;
                 Rebuild(); // 弹窗期间押后的就绪跃迁在此补上(同结果面板)
-            }, Theme.Cinnabar, Color.white, 20, new Vector2(180, 50));
+            }, Theme.Cta, Color.white, 20, new Vector2(180, 50));
         }
 
         private static void HelpSection(Transform parent, string title, string body)
