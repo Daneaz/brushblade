@@ -26,15 +26,41 @@ namespace Brushblade.Core
     /// <summary>每级宝箱(spec 2026-10-02 §2.1 / §5.1)。升到的那一级落在哪个区间就给哪档,不掷随机。</summary>
     public static class LevelRewardRules
     {
-        public static ChestTier TierForLevel(int level) => level switch
+        /// <summary>各档的等级上限(含),按档位升序;末档开放到无穷。TierForLevel 与 TryGetLevelBand 同读这张表。</summary>
+        private static readonly (ChestTier Tier, int MaxLevel)[] Bands =
         {
-            <= 5 => ChestTier.Bamboo,
-            <= 10 => ChestTier.Celadon,
-            <= 20 => ChestTier.Rosewood,
-            <= 30 => ChestTier.Gilded,
-            <= 40 => ChestTier.Vermilion,
-            _ => ChestTier.Crimson,
+            (ChestTier.Bamboo, 5),
+            (ChestTier.Celadon, 10),
+            (ChestTier.Rosewood, 20),
+            (ChestTier.Gilded, 30),
+            (ChestTier.Vermilion, 40),
+            (ChestTier.Crimson, int.MaxValue),
         };
+
+        public static ChestTier TierForLevel(int level)
+        {
+            foreach (var band in Bands)
+                if (level <= band.MaxLevel) return band.Tier;
+            return Bands[Bands.Length - 1].Tier; // 不可达:末档上限是 int.MaxValue
+        }
+
+        /// <summary>这一档每级宝箱对应的等级区间(升级弹窗的「Lv.11–20」chip)。末档 max = int.MaxValue
+        /// (开放);不作每级宝箱的档(素纸匣)返回 false。</summary>
+        public static bool TryGetLevelBand(ChestTier tier, out int min, out int max)
+        {
+            min = 1;
+            foreach (var band in Bands)
+            {
+                if (band.Tier == tier)
+                {
+                    max = band.MaxLevel;
+                    return true;
+                }
+                min = band.MaxLevel + 1;
+            }
+            min = max = 0;
+            return false;
+        }
 
         /// <summary>把 LevelRewardGranted+1 .. 当前等级的宝箱逐只发出,**只填空箱位、从不占暂存位**
         /// —— 暂存位留给爬塔结算箱(结算箱优先;每级箱占了它,结算箱就会作废)。箱位满了就
