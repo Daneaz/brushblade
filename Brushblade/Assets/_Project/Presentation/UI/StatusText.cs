@@ -215,6 +215,11 @@ namespace Brushblade.Presentation
                     return new Info(null, Strings.T("status.charm.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),
                         Strings.T("status.charm.desc"));
+                case StatusKind.FrostResist:
+                    // 霜抗(spec v7 R1,Task 9):冻结结束后挂在敌人身上,期间冻不上。时长行用回合数。
+                    return new Info("frostguard", Strings.T("status.frostresist.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.frostresist.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句

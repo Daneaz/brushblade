@@ -492,18 +492,26 @@ namespace Brushblade.Presentation
             /// 「+N」长得像普通 chip,靠字符串猜迟早会误伤真 chip。</summary>
             internal readonly bool IsCount;
 
+            /// <summary>非空则给 chip 留一条 1 单位的描边(与 <see cref="Chip"/> 的 border 参数同义)。
+            /// 缺省 null = 实底,与从前逐字节相同。用于霜抗(宣纸底 + 水字形色描边,traits 稿 k-ring)。</summary>
+            public readonly Color? Border;
+
             public ChipSpec(string text, Color bg, Color fg) : this(text, bg, fg, null, false) { }
 
             public ChipSpec(string text, Color bg, Color fg, string iconKey)
                 : this(text, bg, fg, iconKey, false) { }
 
-            internal ChipSpec(string text, Color bg, Color fg, string iconKey, bool isCount)
+            public ChipSpec(string text, Color bg, Color fg, string iconKey, Color? border)
+                : this(text, bg, fg, iconKey, false, border) { }
+
+            internal ChipSpec(string text, Color bg, Color fg, string iconKey, bool isCount, Color? border = null)
             {
                 Text = text;
                 Bg = bg;
                 Fg = fg;
                 IconKey = iconKey;
                 IsCount = isCount;
+                Border = border;
             }
         }
 
@@ -544,7 +552,7 @@ namespace Brushblade.Presentation
                 var row = Row(stack.transform, "Line", spacing);
                 foreach (var chip in line)
                     Chip(row.transform, chip.Text, chip.Bg, chip.Fg, fontSize,
-                        chip.IsCount ? ChipCountPadX : padX, padY, chip.IconKey);
+                        chip.IsCount ? ChipCountPadX : padX, padY, chip.IconKey, border: chip.Border);
             }
             return stack;
         }

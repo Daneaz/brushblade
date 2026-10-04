@@ -93,7 +93,7 @@ namespace Brushblade.Presentation
         {
             StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed => Theme.Cinnabar,
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
-                or StatusKind.ArmorBreak or StatusKind.Seal => Control,
+                or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist => Control,
             StatusKind.SpeedModifier => magnitude < 0 ? Control : Guard,
             StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect or StatusKind.Block
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime => Guard,
@@ -122,7 +122,7 @@ namespace Brushblade.Presentation
             StatusKind.Burn or StatusKind.Bleed or StatusKind.Immunity or StatusKind.Block
                 or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak =>
                 Strings.T("detail.chip.plain", ("value", magnitude)),
-            StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence => "",
+            StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist => "",
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),

@@ -59,6 +59,8 @@ namespace Brushblade.Core
         Charm,            // 魅惑:持有者攻击自己阵营(2026-09-05,花)。Magnitude 不用,只看 TurnsLeft。
         Block,            // 格挡(spec v7 §3.1,铠):Magnitude = **剩余次数**,CounterDamage = 每次反击的伤害,
                           // TurnsLeft = -1(本场有效,用完为止)。下一次敌人挥击 −40% 并反击;同类取最强不叠加。
+        FrostResist,      // 霜抗(spec v7 R1,仅敌人):冻结结束后挂上,TurnsLeft = 刚结束那次冻结的回合数,按敌人行动递减;
+                          // 期间不能被冻结。Freeze 的 Magnitude 同时记下冻结时长(= 施加时的 TurnsLeft),供结束时发霜抗。
     }
 
     public enum StatusPolarity { Buff, Debuff }

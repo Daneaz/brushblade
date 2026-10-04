@@ -51,6 +51,9 @@
 - `MilestonePickSheet`：「新字」`gold-soft` 底配 `gold` 边，「已有 · 重复卡 +1」`panel-inset` 底配 `panel-border` 边；
 - `LevelUpPopup`：里程碑解锁行 `gold-soft` 底配 `gold-border` 边；宝箱行 `Theme.CardWhite` 纯白底配该档宝箱色边，**边宽 3**（`borderThickness: 3f`，唯一不用默认 1 的地方）。
 
+第六个调用点（2026-10-04，spec v7 R1）：
+- `BattleView.DrawEnemies`：战斗敌人状态·霜抗，`panel-paper` 底、`water-glyph` 字/图标（`frostguard`）与 1 单位 `water-glyph` 描边，无数字。经 `Ui.ChipSpec.Border` 传入（缺省 `null` = 实底），`ChipFlow` 转给 `Ui.Chip(border:)`。设计稿：`drafts/traits` 的 `k-ring`。
+
 两条不变式：
 - **描边不吃宽高。** 尺寸仍是下面那两个纯函数算出来的，边线画在原尺寸之内 —— `ChipFlow` 要在建对象之前把行排好，靠的就是它们。
 - **默认值即原行为。** `border` 缺省 `null`，走原来的单 Image 分支；新参数排在 `iconKey` 之后，既有的位置实参不受影响。

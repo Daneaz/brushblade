@@ -2286,7 +2286,14 @@ namespace Brushblade.Core
             // 照常走,不需要再暂停。
             if (enemy.Statuses.Has(StatusKind.Freeze))
             {
+                int frozeFor = enemy.Statuses.Find(StatusKind.Freeze).Magnitude;
                 enemy.Statuses.TickTurns();
+                // 霜抗(R1):冻结在这一拍到期 → 挂上等长霜抗。挂在 tick 之后,完整覆盖之后 N 次行动。
+                if (!enemy.Statuses.Has(StatusKind.Freeze) && frozeFor > 0)
+                    ApplyStatus(enemy.Statuses, new StatusEffect
+                    {
+                        Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = frozeFor,
+                    }, UnitRef.Enemy(enemyIndex), UnitRef.None);
                 Raise(HookKind.TurnEnded, UnitRef.Enemy(enemyIndex), UnitRef.None);
                 return;
             }
@@ -2831,8 +2838,7 @@ namespace Brushblade.Core
                         if (_enemies[targetIndex].Alive)
                             ApplyStatus(_enemies[targetIndex].Statuses, new StatusEffect
                             {
-                                // Magnitude 不赋值(2026-08-05 M1):全代码库没有任何地方读它,
-                                // 赋了反而是语义为空的垃圾值,TotalMagnitude(Freeze) 会返回它。
+                                // Magnitude 不在这里赋:ApplyStatus 会把冻结时长记进去(R1,结束时据此发霜抗)。
                                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
                                 TurnsLeft = value,
                             }, UnitRef.Enemy(targetIndex), UnitRef.Player);
@@ -3449,7 +3455,7 @@ namespace Brushblade.Core
             if (pick < 0) return;
             ApplyStatus(_enemies[pick].Statuses, new StatusEffect
             {
-                // Magnitude 不赋值:与 EffectKind.Freeze 分支同口径(没有任何读取方)
+                // Magnitude 由 ApplyStatus 记冻结时长(R1),与 EffectKind.Freeze 分支同口径
                 Kind = StatusKind.Freeze, Polarity = StatusPolarity.Debuff,
                 TurnsLeft = turns,
             }, UnitRef.Enemy(pick), UnitRef.Player);
@@ -3608,12 +3614,28 @@ namespace Brushblade.Core
                 CheckBossPhase(enemyIndex);
         }
 
-        /// <summary>状态施加的唯一入口(spec v6 §11.4)。目前只转调 bag.Apply(恒等);
-        /// Plan A Task 5 在此发 StatusApplied 钩子,Plan C 在此拦截霜抗/杜绝。</summary>
-        private void ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier)
+        /// <summary>状态施加的唯一入口(spec v7 §11.4)。返回是否生效;被拦截时不发 StatusApplied。
+        /// 拦截:冻结(已冻结 / 霜抗中不得再冻,R1;Boss 改冰滞见 Task 10)、减速合并(R1)、
+        /// 格挡同类取最强(§5.2.1)。</summary>
+        private bool ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier)
         {
+            if (effect.Kind == StatusKind.Freeze && target.Side == UnitSide.Enemy)
+            {
+                if (bag.Has(StatusKind.Freeze) || bag.Has(StatusKind.FrostResist)) return false;
+                effect.Magnitude = effect.TurnsLeft;   // 记下冻结时长,结束时发等长霜抗
+            }
+            else if (effect.Kind == StatusKind.SpeedModifier && effect.Magnitude < 0)
+            {
+                // 减速不叠加只刷新(R1):取最强、取最长,不论来源
+                foreach (var old in bag.All.Where(s => s.Kind == StatusKind.SpeedModifier && s.Magnitude < 0).ToList())
+                {
+                    effect.Magnitude = Math.Min(effect.Magnitude, old.Magnitude);
+                    effect.TurnsLeft = Math.Max(effect.TurnsLeft, old.TurnsLeft);
+                    bag.RemoveEntry(old);
+                }
+            }
             // 格挡同类取最强(spec v7 §5.2.1):次数、反击各取较大值,不累加
-            if (effect.Kind == StatusKind.Block)
+            else if (effect.Kind == StatusKind.Block)
             {
                 var existing = bag.Find(StatusKind.Block);
                 if (existing != null)
@@ -3624,6 +3646,7 @@ namespace Brushblade.Core
             }
             bag.Apply(effect);
             Raise(HookKind.StatusApplied, target, applier, effect.Magnitude, status: effect.Kind);
+            return true;
         }
 
         // ── 战斗钩子总线(spec v6 §5 / §10 R4 R5 / §11.4) ──

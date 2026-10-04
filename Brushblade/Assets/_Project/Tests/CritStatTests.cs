@@ -539,6 +539,7 @@ namespace Brushblade.CoreTests
             Assert.That((int)StatusKind.Heft, Is.EqualTo(21), "新值必须追加在末尾");
             Assert.That((int)StatusKind.Wellspring, Is.EqualTo(22), "新值必须追加在末尾");
             Assert.That((int)StatusKind.Block, Is.EqualTo(24), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.FrostResist, Is.EqualTo(25), "新值必须追加在末尾");
         }
     }
 }

@@ -842,6 +842,8 @@
   "status.charm.name": "魅惑",
   "status.charm.desc": "它本回合改为攻击自己阵营；场上只剩它一个时空转，不会自伤也不会打玩家。",
   "status.charm.chip": "魅惑",
+  "status.frostresist.name": "霜抗",
+  "status.frostresist.desc": "这几回合内不能被冻结。",
   "status.duration.turns": "剩 {value} 回合",
   "status.duration.stacks": "{value} 层",
   "status.duration.charges": "{value} 次",

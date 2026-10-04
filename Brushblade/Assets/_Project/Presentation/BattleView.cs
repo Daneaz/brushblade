@@ -2871,6 +2871,11 @@ namespace Brushblade.Presentation
                 // 它生没生效(EnumRenderCoverageTests 收紧判据范围后抓到的真实缺陷)。
                 if (enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak) > 0)
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "armorbreak"));
+                // 霜抗(spec v7 R1):描边样式(traits 稿 k-ring)—— 宣纸面板底、水字形色图标与 1 单位描边、
+                // 无数字(它是「这几回合冻不上」的免疫窗口,不是随回合变小的量)。排在冻结之后的控制类里。
+                if (enemy.Statuses.Has(StatusKind.FrostResist))
+                    chipSpecs.Add(new("", Theme.PanelPaper, Theme.GlyphColor(Element.Water), "frostguard",
+                        Theme.GlyphColor(Element.Water)));
                 // 魅惑(2026-09-05,花):无图标资产,暂时保留文字(与缺笔/标点/通假同处理)——
                 // 与冻结/减速当年零显示是同一个坑,这条不能漏。
                 if (enemy.Statuses.Has(StatusKind.Charm))
