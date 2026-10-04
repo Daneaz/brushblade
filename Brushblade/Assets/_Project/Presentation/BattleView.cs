@@ -4004,7 +4004,7 @@ namespace Brushblade.Presentation
 
             var warn = Ui.Chip(content, Strings.T("battle.reward.replace_hint",
                 ("count", library.Count), ("capacity", Battle.LibraryCapacity)),
-                Theme.WarningBg, Theme.WarningText, 21, padX: 23, padY: 12);
+                Theme.DangerBg, Theme.DangerText, 21, padX: 23, padY: 12);
             Ui.Sized(warn, height: 46);   // 稿 .warn 22pt
 
             const float incomingGap = 19f;   // 稿 .incoming gap 9pt

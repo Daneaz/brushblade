@@ -11,10 +11,10 @@
 | 角色页 · 保底进度 | 10 | 该档的稀有度色 `rarity-*` | `CharacterView.PityBlock` |
 | 图鉴收集进度 | 15 | **该层段的属性色**（Boss 行 `gold`） | `BestiaryView.BuildProgressBar`，色由 `BuildOverview` 传入 |
 | 敌人血条 | 19 | `cinnabar`，叠 13 号血值白字 + `ink` 描边 | `BattleView.DrawEnemies` → `HpBar` |
-| 召唤物血条 | 17 | `done-green`（友军不用红），同样叠血值 13 | `BattleView.DrawSummons` → `HpBar` |
+| 召唤物血条 | 17 | `jade`（友军不用红），同样叠血值 13 | `BattleView.DrawSummons` → `HpBar` |
 | 执笔人血条 | 17 | `cinnabar`，**不叠字**（数字在头行） | `BattleView.DrawPlayerStats` |
 | 行动条 · 敌人 | 6 | `ink-soft`，>80% 转 `cinnabar`，不叠字 | `BattleView.DrawEnemies`（直调 `Ui.Bar`） |
-| 行动条 · 召唤物与执笔人 | 15 | `ink-soft`，>80% 转 `done-green`，叠 13 号百分比 | `BattleView.DrawSummons` / `DrawPlayerStats` → `ActionBar` |
+| 行动条 · 召唤物与执笔人 | 15 | `ink-soft`，>80% 转 `jade`，叠 13 号百分比 | `BattleView.DrawSummons` / `DrawPlayerStats` → `ActionBar` |
 | 单位详情弹窗 · 血 / 盾 / 行动 | 12 / 5 / 5 | `cinnabar` / `rarity-gold` / `ink-soft` | `UnitSheet.BuildBars` |
 | 字牌牌脚 · 升级材料 | 牌高 × 4/128 | 可升 `jade`，否则 `text-faint` | `CardBadges.Foot`（属 CardFace 卡） |
 

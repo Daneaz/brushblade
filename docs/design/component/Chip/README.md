@@ -12,7 +12,7 @@
 | 图鉴列表 | 16 / 18 / 12 | 图鉴行内的射程/锁定/护甲 | `BestiaryView`（行内 `ChipFlow`） |
 | 页头 | 20 / 18 / 12 | 收集页「未拥有 N」「新字 N」、图鉴「N 条待领赏」 | `CollectionView.BuildTopBar`、`BestiaryView`（顶栏） |
 | 升级弹窗等级 | 21 / 18 / 12 | 「升到 Lv.N」，`jade` 底白字 | `CollectionView.ShowUpgradePreview` |
-| 告警 | 21 / 23 / 12 | 不可逆后果，`warn-bg` 底 `warn-text` 字（不加粗），如换字弹窗「字库 {count}/{capacity}——被换掉的字永久失去」 | `BattleView` 换字弹窗（另定高 46） |
+| 告警 | 21 / 23 / 12 | 不可逆后果，`danger-bg` 底 `danger-text` 字（不加粗），如换字弹窗「字库 {count}/{capacity}——被换掉的字永久失去」 | `BattleView` 换字弹窗（另定高 46） |
 | 已售印 | 21 / 18 / 12 | 商城牌面正中「已售」「已领」，`cinnabar` 底白字 | `ShopView.SoldSeal` |
 | Toast | 21 / 29 / 17 | 商城成交提示，`ink` 底白字 | `ShopView.ShowToast` |
 | 引导印章 | 21 / 21 / 23 | 新手引导卡右上的「印」，`gold` + `gold-text` | `CoachOverlay`（`SealFontSize`） |
@@ -27,7 +27,7 @@
 | 「+N」计数 | 同本行 / **4** / 同本行 | `ChipFlow` 截断时自己补的标记，`paper-dim` 底 `text-main`，比真 chip 紧得多 | `Ui.ChipCountPadX` |
 
 ## 配色
-- 战斗状态：朱砂 = 持续伤害与威胁；`ink-soft` = 控制与减益（冻结、减速、致盲、沉默、破甲）；翠玉 = 恢复与防御增益；赭金 = 攻击类增益，**赭金底一律压 `gold-text`**（白字只有 2.5:1）。
+- 战斗状态：朱砂 = 持续伤害与威胁；`ink-soft` = 控制与减益（冻结、减速、致盲、沉默、破甲）；铜绿 = 恢复与防御增益；赭金 = 攻击类增益，**赭金底一律压 `gold-text`**（白字只有 2.5:1）。
 - 单位格的属性徽章压的是 **`<el>-glyph` 字形色**，不是 `<el>` 原色（`BattleView` 召唤物格与敌人格两处，今天在 `2010` `2798`，2026-09-19 改）。
 - 卡组详情的特性 chip 走 `CardTraits.ChipColor`：灼烧族朱砂、冻结族水字形色、控制族心字形色、护盾族土字形色、荆棘族木字形色、其余 `ink-soft`。
 - 页头计数：`panel-inset` 底配 **`text-dim`**（2026-09-21 从 `text-faint` 压深，4.29 → 5.05:1），或朱砂底白字。

@@ -24,8 +24,8 @@
   未遭遇是 `locked-paper` 底 + `locked-bg` 边 + `locked-glyph` 的「?」+ 右下锁标（`locked-bg` 圆底压 `text-faint` 的 seal 图标），名字「未遭遇」。
   - 角标：左上属性（`<el>-glyph` 底白字）、左下「远程」（`scrim`）、右上「可领 N」（朱砂）、「四相」Boss 标（墨底金字，与可领旗冲突时让到右下）。精英、主题、成语 Boss 都算 Boss，一律挂「四相」。
 - 右栏 240pt，三态：
-  - **未选中 = 收录总览**：六条层段进度条 + 一条 Boss 进度条，条与段名同色 —— 层段取该段的属性色（`Theme.ElementColor(BandTint[b])`），Boss 行用 `gold`；满格的计数转 `done-green`。下面是「赏钱」与「怎么用」两段说明。
-  - **选中已录 = 条目详情**：大立绘 76pt + 名 + 属性（`<el>-glyph` 底白字「火系」）/远程/锁人/护甲 chip + 出没 → Boss 四相切换 → 数值三格（按**首现层**缩放，注明基准值）→ 能力（左侧属性色粗边 + 能力 chip，底色走 `Theme.AbilityChipColor` / `Theme.BossSkillChipColor`：恢复类 `jade`、信息类与 Boss 坚壁 `ink-soft`、其余 `cinnabar`，与战斗详情、怪物预览同一套）→ 克制两格（打它 ×1.5 的一系 `ad-green-bg`，它克的一系 `warn-bg`；属性圆点 `<el>-glyph`）。
+  - **未选中 = 收录总览**：六条层段进度条 + 一条 Boss 进度条，条与段名同色 —— 层段取该段的属性色（`Theme.ElementColor(BandTint[b])`），Boss 行用 `gold`；满格的计数转 `jade`。下面是「赏钱」与「怎么用」两段说明。
+  - **选中已录 = 条目详情**：大立绘 76pt + 名 + 属性（`<el>-glyph` 底白字「火系」）/远程/锁人/护甲 chip + 出没 → Boss 四相切换 → 数值三格（按**首现层**缩放，注明基准值）→ 能力（左侧属性色粗边 + 能力 chip，底色走 `Theme.AbilityChipColor` / `Theme.BossSkillChipColor`：恢复类 `jade`、信息类与 Boss 坚壁 `ink-soft`、其余 `cinnabar`，与战斗详情、怪物预览同一套）→ 克制两格（打它 ×1.5 的一系 `ad-green-bg`，它克的一系 `danger-bg`；属性圆点 `<el>-glyph`）。
     - 出没：小怪「出没：{段} · 第 N 层起」+「该层段的杂兵池。」；Boss「出没：{段} · 第 N 层 Boss」+「每段第 5 层是精英，第 10 层是主题 Boss；词渊起各路 Boss 轮替出场。」
   - **选中未遭遇**：栏头转「条目详情 · 未遭遇」，名字是「未遭遇的条目」，不出 chip，出没那行的第二句改成「还没在这一段撞见过它。」，三格数值全是「?」，能力与克制两节整节不画。
 - 栏底主钮四态：「领取赏钱 N」（石青 `cta`，小怪 20、Boss 50）/「赏钱已领 · N 墨」（`panel-inset` 置灰）/「击败它才会解锁」（置灰，未遭遇时）；总览下是「一键领取 N 条赏钱」（石青），没有待领时转「没有待领的赏钱」置灰。

@@ -34,7 +34,7 @@ namespace Brushblade.Presentation
         public static Color Warning => Gold;      // 赭金:需留意的提示
         public static Color Danger => Cinnabar;   // 朱砂:危险/威胁/错误
         public static Color Info => InkSoft;      // 浓墨:中性信息
-        public static Color WarningBg => GoldSoft;  // Warning 浅底提示条(箱位已满、满库替换)
+        public static Color WarningBg => GoldSoft;  // Warning 浅底提示条(箱位已满 · 还欠 N 只)
         public static Color WarningText => GoldDeep;
         /// 稀有 / 珍贵的身份金(MAX 角标、新字光晕、Boss 标、引导卡):取稀有度金,不是 Warning 的赭金
         public static Color RarityGold => RarityColor(CardRarity.Gold);
