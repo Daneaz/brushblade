@@ -756,7 +756,6 @@
   "shop.refresh.success": "货架焕然一新!",
   "shop.shelf.title": "今日字摊",
   "shop.side.title": "今日补给",
-  "shop.slot.component_note": "合成材料,不占卡池",
   "shop.slot.copies_after": "买下后 {copies}/{needed} 张",
   "shop.slot.bundle_count": "{count}张",
   "shop.slot.claimed": "已领",

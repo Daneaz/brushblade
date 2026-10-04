@@ -34,7 +34,13 @@ namespace Brushblade.Presentation
         private const float CardMaxW = 144f, CardMinW = 96f, CardAspect = 1.25f;
         private Vector2 CardSize = new(CardMaxW, CardMaxW * CardAspect);
         private const float SlotGap = 21f;
-        private const float SlotRowH = 280f;   // 一行 = 字牌 180 + 牌脚 + 预告 + 价格钮 46 + 间距
+        // 一格竖排 = 字牌 180 + 牌脚 16.9(牌高 × 12/128)+ 预告 ≈27.5(19 号 Noto Sans SC 行高 1.448)
+        // + 钮 46 + 3 段间距 = 270.4 + 3 × CellGap。2026-10-04 实算:原先间距 8、行高 280 时
+        // 需要 ≈294.4,超出的那截被竖排布局按比例压扁(字牌连带变矮)。行高又不能单独加 ——
+        // 两行 + 订阅条在 900 高下只剩 600(行 0 顶 67 → 订阅条顶 667),行高 ≤ 287。
+        // 所以间距收到 4、行高 284(留 ≈1.6 余量):行 1 底 648,离订阅条 19。
+        private const float CellGap = 4f;
+        private const float SlotRowH = 284f;
         private const float BuyH = 46f;        // 价格钮高(宝箱格同款)
         private const float SubBarH = 96f;     // 订阅条
 
@@ -47,6 +53,7 @@ namespace Brushblade.Presentation
         private Action _onBack;
         private GameObject _modal; // 当前弹窗(同屏仅一个)
         private string _toast;     // 成交反馈:画一次就清,不再是常驻消息行
+        private Text _countdown;   // 顶栏副标题:刷新倒计时,Tick 每秒改字
 
         public void Init(RecipeGraph graph, MetaState meta, IReadOnlyList<string> cardPool,
             IReadOnlyList<string> chestPool, ITimeSource time, Action save, Action onBack)
@@ -59,6 +66,26 @@ namespace Brushblade.Presentation
             _save = save;
             _onBack = onBack;
             Rebuild();
+            InvokeRepeating(nameof(Tick), 1f, 1f); // 倒计时刷新(与 MapView 箱位倒计时同一种写法)
+        }
+
+        /// <summary>每秒:同日内只改倒计时那行字;跨 UTC 日则重摆货架并整页重建。
+        /// 跨日但有弹窗(字卡详情 / 告知)开着时押后到关闭 —— Rebuild 会 Ui.Clear 掉挂在根上的弹窗;
+        /// 押后期间倒计时**不改字**(停在 0:00),免得货架还是昨天的、倒计时却跳回 23:xx。</summary>
+        private void Tick()
+        {
+            if (_time.NowUnixSeconds / 86400 != _meta.Shop.DayStamp)
+            {
+                if (_modal != null) return;
+                ShopRules.EnsureShelf(_meta, _cardPool, _time, new GameRandom(Environment.TickCount),
+                    id => _graph.Get(id).Rarity, _chestPool); // 与 GameRoot.ShowShop 同一组参数
+                ShopRules.MarkVisited(_meta, _time); // 人就在商城里,新一天的红点不该再亮
+                _save();
+                Rebuild();
+                return;
+            }
+            if (_countdown != null)
+                _countdown.text = Strings.T("shop.header.refresh_in", ("time", RefreshCountdown()));
         }
 
         private void Rebuild()
@@ -86,7 +113,7 @@ namespace Brushblade.Presentation
             BuildShelf(main.transform);
             BuildSide(main.transform);
 
-            if (!string.IsNullOrEmpty(_toast)) ShowToast(frame, _toast);
+            if (!string.IsNullOrEmpty(_toast)) StartCoroutine(ToastRoutine(ShowToast(frame, _toast)));
             _toast = null; // 一次性:下次 Rebuild 不再复现
         }
 
@@ -101,7 +128,7 @@ namespace Brushblade.Presentation
 
             Ui.ThemedLabel(top.transform, Strings.T("shop.header.title"), 40, Theme.TextMain, Theme.TitleFont);
             // 副标题是刷新倒计时(UTC 0 点重掷),不是那句常驻说明 —— 玩家真正要的是「还有多久换货」
-            Ui.ThemedLabel(top.transform,
+            _countdown = Ui.ThemedLabel(top.transform,
                 Strings.T("shop.header.refresh_in", ("time", RefreshCountdown())), 23, Theme.TextDim);
 
             var spring = Ui.Panel(top.transform, "Spring");
@@ -172,48 +199,39 @@ namespace Brushblade.Presentation
         {
             var def = _graph.Get(card);
             bool owned = _meta.OwnedCards.Contains(card);
-            bool component = def.IsComponent;
 
-            var cell = Ui.VStack(parent, name, 8);
+            var cell = Ui.VStack(parent, name, CellGap);
             cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
             Ui.Sized(cell, width: CardSize.x, flexWidth: 0);
 
             var tile = Ui.GlyphTile(cell.transform, def, false, () => ShowPreview(def), CardSize,
-                locked: !owned && !component);
+                locked: !owned);
             int level = MetaRules.CardLevel(_meta, card);
             bool maxed = level >= MetaRules.MaxCardLevel;
             _meta.CardCopies.TryGetValue(card, out int copies);
             int needed = maxed ? 0 : MetaRules.CopiesRequired(level, def.Rarity);
-            if (!component)
+            // 一份几张 → 右下角数量角标「10张」(2026-09-30)。数量属于这份货,不写在钮上
+            // (「看广告 ×5」读起来像要看 5 次广告);走 CardBadges 与等级/可升同一套尺寸
+            CardBadges.Apply(tile.gameObject, CardSize, new CardBadges.Spec
             {
-                // 一份几张 → 右下角数量角标「10张」(2026-09-30)。数量属于这份货,不写在钮上
-                // (「看广告 ×5」读起来像要看 5 次广告);走 CardBadges 与等级/可升同一套尺寸
-                CardBadges.Apply(tile.gameObject, CardSize, new CardBadges.Spec
-                {
-                    QuantityText = Strings.T("shop.slot.bundle_count", ("count", bundle)),
-                    DiscountText = done ? null : discountText, // 已售/已领不挂价签
-                    Rarity = def.Rarity,
-                    Level = level,
-                    Maxed = maxed,
-                    CanUpgrade = MetaRules.CanUpgradeCard(_meta, card, def.Rarity),
-                    IsNew = false, // 货架上的牌不是「新到手」,那枚角旗只属于卡组页
-                    Locked = !owned,
-                });
-                CardBadges.Foot(cell.transform, CardSize, owned, copies, needed, maxed,
-                    MetaRules.CanUpgradeCard(_meta, card, def.Rarity));
-            }
+                QuantityText = Strings.T("shop.slot.bundle_count", ("count", bundle)),
+                DiscountText = done ? null : discountText, // 已售/已领不挂价签
+                Rarity = def.Rarity,
+                Level = level,
+                Maxed = maxed,
+                CanUpgrade = MetaRules.CanUpgradeCard(_meta, card, def.Rarity),
+                IsNew = false, // 货架上的牌不是「新到手」,那枚角旗只属于卡组页
+                Locked = !owned,
+            });
+            CardBadges.Foot(cell.transform, CardSize, owned, copies, needed, maxed,
+                MetaRules.CanUpgradeCard(_meta, card, def.Rarity));
             // 已售 / 已领:牌面盖一枚朱砂印,看得出哪格今天已经拿走了
             if (done) SoldSeal(tile.gameObject, doneSeal);
 
             // 进度预告:拿下这一份之后会怎样。没拥有的字(紫档广告位)第一张是解锁,不写进度
             string forecast;
             Color forecastColor;
-            if (component)
-            {
-                forecast = Strings.T("shop.slot.component_note");
-                forecastColor = Theme.TextDim;
-            }
-            else if (!owned)
+            if (!owned)
             {
                 forecast = Strings.T("shop.slot.new_card_note");
                 forecastColor = Theme.UpgradeText;
@@ -300,7 +318,7 @@ namespace Brushblade.Presentation
         private void LockedSlot(Transform parent, int index, bool next)
         {
             int unlockLevel = ShopRules.UnlockLevelForSlot(index);
-            var cell = Ui.VStack(parent, $"Locked{index}", 8);
+            var cell = Ui.VStack(parent, $"Locked{index}", CellGap);
             cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
             Ui.Sized(cell, width: CardSize.x, flexWidth: 0);
 
@@ -557,15 +575,40 @@ namespace Brushblade.Presentation
 
         // ---- 反馈 ----
 
-        /// <summary>成交反馈:顶部居中的墨色 toast,画一次就随下次 Rebuild 消失。
+        /// <summary>成交反馈:顶部居中的墨色 toast,停 <see cref="ToastHold"/> 秒后淡出销毁(ToastRoutine)。
         /// 取代旧版那条常驻消息行 —— 那行占掉整整一行版面,只为显示一句「购入成功」。</summary>
-        private static void ShowToast(Transform parent, string text)
+        private static GameObject ShowToast(Transform parent, string text)
         {
             var toast = Ui.Chip(parent, text, Theme.Ink, Color.white, 21, padX: 29, padY: 17);
             var element = toast.GetComponent<LayoutElement>();
             Ui.Anchor((RectTransform)toast.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(-element.preferredWidth / 2f, -(TopH + element.preferredHeight)),
                 new Vector2(element.preferredWidth / 2f, -TopH));
+            return toast;
+        }
+
+        // 停留 / 淡出时长取战斗胜利横幅那一组(BattleView.VictoryBannerRoutine:Boss 1.8 + 淡出 0.3)——
+        // toast 是一整句带字名的话,取两档里长的那档
+        private const float ToastHold = 1.8f, ToastFade = 0.3f;
+
+        /// <summary>toast 停留后淡出并销毁。下一笔交易的 Rebuild 会先 Ui.Clear 掉它 ——
+        /// 每帧先判假 null 再碰 CanvasGroup,否则就是 BattleView 那条注释说的 MissingReferenceException。</summary>
+        private System.Collections.IEnumerator ToastRoutine(GameObject toast)
+        {
+            var group = toast.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false; // 只是提示,不拦点击
+            for (float t = 0; t < ToastHold; t += Time.unscaledDeltaTime)
+            {
+                if (toast == null) yield break;
+                yield return null;
+            }
+            for (float t = 0; t < ToastFade; t += Time.unscaledDeltaTime)
+            {
+                if (toast == null) yield break;
+                group.alpha = 1f - t / ToastFade;
+                yield return null;
+            }
+            if (toast != null) Destroy(toast);
         }
 
         /// <summary>执行一笔交易:成功出 toast,失败弹窗给具体原因(2026-07-19 提示统一弹窗)。</summary>
