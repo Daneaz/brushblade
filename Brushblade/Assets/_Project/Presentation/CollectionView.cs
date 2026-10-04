@@ -39,7 +39,13 @@ namespace Brushblade.Presentation
         private const float SideHeadH = 54f;    // 右栏头 26pt
         private const float SidePad = 21f;      // 右栏内边距 10pt
 
-        // 网格:5 列,每张 103×128pt;列距 8pt、行距 14pt
+        // 网格:稿上 5 列,每张 103×128pt;列距 8pt、行距 14pt。
+        // ⚠ 5 是**上限**,实际列数按网格可用宽算(见 GridColumnsFor),牌宽不缩。两档宽的账:
+        //   基准机 932×430pt:画布宽 ≈1951,安全区两侧各 123 → 内容区 1705,网格 = 1705 − 527 − 19 = 1159
+        //       ≥ 5×216 + 4×17 = 1148 → 5 列,与稿一致;
+        //   16:9(画布宽 1600,无刘海机 MissingInset 两侧各补 123)→ 内容区 1354,网格 = 808,
+        //       5 列要 1148、4 列要 915 都放不下 → 3 列(682),右侧余 126。
+        // 此前恒 5 列:横排布局组把 216 宽的牌压到约 150 宽而高不变,整格变形(2026-10-04 实机反馈)。
         private const int GridColumns = 5;
         private const float GridGapX = 17f;
         private const float GridGapY = 29f;
@@ -92,6 +98,11 @@ namespace Brushblade.Presentation
         /// 只在筛选变了时才归顶 —— 那时列表内容本来就换了一批。</summary>
         private float _gridScroll = 1f;
         private ScrollRect _grid;
+        /// <summary>筛选栏横向滚动位置(Content.anchoredPosition.x)。点筛选/排序钮都会整页重建,
+        /// 不记着的话点完右端的排序钮,筛选栏就弹回最左、刚点的钮滚出视口。</summary>
+        private float _filterScrollX;
+        private ScrollRect _filterScroll;
+        private int _columns = GridColumns;
 
         public void Init(RecipeGraph graph, MetaState meta, Action save, Action onBack)
         {
@@ -115,11 +126,13 @@ namespace Brushblade.Presentation
             _gridScroll = keepScroll && _grid != null && !float.IsNaN(_grid.verticalNormalizedPosition)
                 ? _grid.verticalNormalizedPosition
                 : 1f;
+            if (_filterScroll != null) _filterScrollX = _filterScroll.content.anchoredPosition.x;
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
             // 稿上 .safe 的内缩;弹窗仍挂在 transform 上,铺满整屏
             var (padSide, padBottom) = SafeArea.MissingInset();
+            _columns = GridColumnsFor(ContentWidth(padSide) - SideW - MainGap);
             var content = Ui.Panel(transform, "Content");
             Ui.Anchor((RectTransform)content.transform, Vector2.zero, Vector2.one,
                 new Vector2(padSide, padBottom), new Vector2(-padSide, 0));
@@ -135,6 +148,21 @@ namespace Brushblade.Presentation
             BuildGrid(main.transform);
             BuildSide(main.transform);
         }
+
+        /// <summary>Content 的逻辑宽:视图挂在 SafeAreaFitter 里(宽 = safeArea),再减两侧补的
+        /// MissingInset。按 Screen 算而不读 RectTransform.rect —— 首次 Init 与建画布同一帧,
+        /// 那时 CanvasScaler 还没把画布尺寸定下来;换算口径与 <see cref="SafeArea.MissingInset"/> 同
+        /// (按高匹配,1 逻辑单位 = Screen.height / 900 像素)。</summary>
+        private static float ContentWidth(float padSide)
+        {
+            float scale = Screen.height / 900f;
+            if (scale <= 0f) return 1600f - 2 * padSide;
+            return Screen.safeArea.width / scale - 2 * padSide;
+        }
+
+        /// <summary>网格放得下几列(牌宽不变,最多稿上的 5 列,至少 1 列)。两档宽的账见 GridColumns。</summary>
+        private static int GridColumnsFor(float gridWidth) =>
+            Mathf.Clamp(Mathf.FloorToInt((gridWidth + GridGapX) / (CardSize.x + GridGapX)), 1, GridColumns);
 
         private void BuildTopBar(Transform parent)
         {
@@ -176,12 +204,25 @@ namespace Brushblade.Presentation
             return owned;
         }
 
+        /// <summary>筛选栏。**横向滚动**(<see cref="Ui.HScrollFill"/>,2026-10-04):整条按首选宽排,
+        /// 放不下的部分横向滚出来,宽屏上铺满视口、拖不动。
+        ///
+        /// 两档宽的账(逻辑单位;页签宽 = 46 + 名字数×29 + 10 + 计数 chip,chip = 字数×18 + 18;
+        /// 切换钮 = 字数×20 + 38;间距 15×4):六页签 1079–1187 + 七个切换钮/小字 746–826 + 竖线 4 + 间距 60
+        /// = **约 1890–2080**。可用宽:基准机 1705、16:9 1354 —— **两档都放不下**。
+        /// 此前是固定宽的横排布局组,放不下时把每个子物件按比例压窄(16:9 下压到约 68%),
+        /// 而 Text 不折行,字就探出页签与按钮外、互相叠上。改成滚动不动任何视觉规格;
+        /// 最小排版宽不手算,而是建完后量布局组的首选宽 —— 计数位数变了也跟得上。</summary>
         private void BuildFilters(Transform parent)
         {
-            var bar = Ui.Row(parent, "Filters", 4);
-            bar.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 1), Vector2.one,
+            var scroll = Ui.HScrollFill(parent, "FilterScroll", 0f, out var barContent);
+            Ui.Anchor((RectTransform)scroll.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -(TopH + FilterH)), new Vector2(0, -TopH));
+            _filterScroll = scroll.GetComponent<ScrollRect>();
+
+            var bar = Ui.Row(barContent, "Filters", 4);
+            bar.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Stretch((RectTransform)bar.transform);
 
             foreach (var tab in FilterTabs) BuildFilterTab(bar.transform, tab);
 
@@ -224,6 +265,14 @@ namespace Brushblade.Presentation
 
             var spring = Ui.Panel(bar.transform, "Spring");
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
+
+            // 量出整条的首选宽(Spring 只有 flex、不占首选宽),作为滚动区的最小排版宽
+            var barRect = (RectTransform)bar.transform;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(barRect);
+            float minWidth = LayoutUtility.GetPreferredWidth(barRect);
+            barContent.GetComponent<FillViewportWidth>().MinWidth = minWidth;
+            barContent.sizeDelta = new Vector2(minWidth, 0f);
+            barContent.anchoredPosition = new Vector2(_filterScrollX, 0f); // 越界由 Clamped 收回
         }
 
         /// <summary>一个属性页签:名 + 「已收集/总数」+ 未看过的红点。</summary>
@@ -397,9 +446,9 @@ namespace Brushblade.Presentation
             Transform row = null;
             for (int i = 0; i < list.Count; i++)
             {
-                if (i % GridColumns == 0)
+                if (i % _columns == 0)
                 {
-                    var rowGo = Ui.Row(content, $"Row{i / GridColumns}", GridGapX);
+                    var rowGo = Ui.Row(content, $"Row{i / _columns}", GridGapX);
                     rowGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
                     row = rowGo.transform;
                 }
