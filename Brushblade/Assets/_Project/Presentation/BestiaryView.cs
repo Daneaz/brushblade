@@ -445,7 +445,7 @@ namespace Brushblade.Presentation
             // 右上是一个槽位:待领赏的角旗优先占,四相标让到右下 —— 两个都钉在右上会叠住
             if (claimable)
                 Corner(block.transform, "Flag",
-                    Strings.T("bestiary.card.bounty_chip", ("bounty", BountyOf(def))), 16,
+                    Strings.T("bestiary.card.bounty_chip", ("bounty", Ui.InkText(BountyOf(def)))), 16,
                     Theme.Cinnabar, Color.white, Vector2.one, new Vector2(-8, -8));
             if (known && IsBoss(def))
                 Corner(block.transform, "Boss", Strings.T("bestiary.card.boss_badge"), 16,
@@ -598,8 +598,8 @@ namespace Brushblade.Presentation
             bool claimable = CanClaim(selected);
             var button = Ui.PillButton(foot.transform,
                 claimable
-                    ? Strings.T("bestiary.button.claim", ("bounty", BountyOf(selected)))
-                    : Strings.T("bestiary.button.claimed", ("bounty", BountyOf(selected))),
+                    ? Strings.T("bestiary.button.claim", ("bounty", Ui.InkText(BountyOf(selected))))
+                    : Strings.T("bestiary.button.claimed", ("bounty", Ui.InkText(BountyOf(selected)))),
                 () => Claim(selected),
                 claimable ? Theme.Cinnabar : Theme.PanelInset,
                 claimable ? Color.white : Theme.LockGray, 24, new Vector2(0, 71));
@@ -619,7 +619,7 @@ namespace Brushblade.Presentation
 
             var bounty = Section(parent, Strings.T("bestiary.side.section.bounty"));
             Tip(bounty, Strings.T("bestiary.side.bounty_tip",
-                ("minion", BestiaryRules.MinionBounty), ("boss", BestiaryRules.BossBounty)));
+                ("minion", Ui.InkText(BestiaryRules.MinionBounty)), ("boss", Ui.InkText(BestiaryRules.BossBounty))));
 
             var howto = Section(parent, Strings.T("bestiary.side.section.howto"));
             Tip(howto, Strings.T("bestiary.side.howto_tip"));

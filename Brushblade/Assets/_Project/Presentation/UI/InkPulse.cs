@@ -55,8 +55,8 @@ namespace Brushblade.Presentation
             var restColor = label.color;
             // 两条各自写全 —— key 传三元表达式会被 StringsTableTests 当成孤儿(它只认字面量)
             string deltaText = delta > 0
-                ? Strings.T("ui.ink_pulse.gain", ("delta", delta))
-                : Strings.T("ui.ink_pulse.spend", ("delta", -delta));
+                ? Strings.T("ui.ink_pulse.gain", ("delta", Ui.InkText(delta)))
+                : Strings.T("ui.ink_pulse.spend", ("delta", Ui.InkText(-delta)));
             var deltaColor = delta > 0 ? Theme.Jade : Theme.Cinnabar;
 
             yield return HalfFlip(rect, 1f, 0f, 1f, 1f);       // 立起来:旧值转到看不见
@@ -75,7 +75,7 @@ namespace Brushblade.Presentation
 
             yield return HalfFlip(rect, 1f, 0f, DeltaScale, DeltaScale);
             if (label == null) yield break;
-            label.text = Ui.InkBalanceText(finalInk);           // 翻回正面:新余额(与 InkCounter 同一格式)
+            label.text = Ui.InkText(finalInk);           // 翻回正面:新余额(与 InkCounter 同一格式)
             label.color = restColor;
             yield return HalfFlip(rect, 0f, 1f, DeltaScale, 1f);
 

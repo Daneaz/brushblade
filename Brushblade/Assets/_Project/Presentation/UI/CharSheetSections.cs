@@ -143,7 +143,7 @@ namespace Brushblade.Presentation
             CostBox(costs.transform, Strings.T("collection.side.cost.copies"),
                 $"{copies} / {needed}", copies >= needed);
             CostBox(costs.transform, Strings.T("collection.side.cost.ink"),
-                $"{meta.Ink} / {ink}", meta.Ink >= ink);
+                $"{Ui.InkText(meta.Ink)} / {Ui.InkText(ink)}", meta.Ink >= ink);
         }
 
         private static void CostBox(Transform parent, string key, string value, bool ok)

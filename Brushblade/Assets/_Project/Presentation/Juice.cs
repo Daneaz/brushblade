@@ -441,7 +441,7 @@ namespace Brushblade.Presentation
                         InkBurst(dead, enemyElement?.Invoke(e.TargetIndex)); // 墨散:一团墨炸开又收(2026-08-30)
                         int killInk = KillInkAt?.Invoke(e.TargetIndex) ?? 0;   // 击杀掉墨锭(2026-09-30)
                         if (killInk > 0)
-                            Popup(Strings.T("juice.popup.kill_ink", ("amount", killInk)), Theme.GoldDeep, dead, small: true);
+                            Popup(Strings.T("juice.popup.kill_ink", ("amount", Ui.InkText(killInk))), Theme.GoldDeep, dead, small: true);
                         HitStop(HitStopBig);                 // 击杀值一记最重的顿帧
                         PlayClip(_killClip, 0.9f); // 下行收束音
                         ScreenFlash(0.16f, Color.white);     // 致命全屏微闪

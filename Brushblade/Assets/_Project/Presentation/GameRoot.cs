@@ -553,7 +553,7 @@ namespace Brushblade.Presentation
             // 稿上这一处没有墨锭图标,数字本身就是主角
             var roll = Ui.Row(stack.transform, "Roll", 15);        // 稿 .roll gap 7pt
             roll.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.ThemedLabel(roll.transform, totalEarned.ToString(), 71, Theme.GoldDeep, Theme.TitleFont); // 稿 .roll .n 34pt
+            Ui.ThemedLabel(roll.transform, Ui.InkText(totalEarned), 71, Theme.GoldDeep, Theme.TitleFont); // 稿 .roll .n 34pt
             Ui.ThemedLabel(roll.transform, Strings.T("root.safelayer.rollover_unit"), 21, Theme.LockGray); // 稿 .roll .u 10pt
 
             // 三项状态(稿 .state)
@@ -605,7 +605,7 @@ namespace Brushblade.Presentation
             if (milestone != null)
                 Ui.Modal(view.transform,
                     Strings.T("root.safelayer.milestone_title", ("bandName", milestone.Name)),
-                    Strings.T("root.safelayer.milestone_body", ("ink", milestone.MilestoneInk)),
+                    Strings.T("root.safelayer.milestone_body", ("ink", Ui.InkText(milestone.MilestoneInk))),
                     (Strings.T("common.ok"), null, Theme.Cinnabar, Color.white));
             LevelUpPopup.Show(view.transform, _meta, _pendingLevelUp);
             _pendingLevelUp = null;
@@ -674,10 +674,10 @@ namespace Brushblade.Presentation
             }
 
             string headline = abandoned
-                ? Strings.T("root.settle.headline_abandoned", ("depth", clearedDepth + 1), ("ink", ink))
+                ? Strings.T("root.settle.headline_abandoned", ("depth", clearedDepth + 1), ("ink", Ui.InkText(ink)))
                 : died
-                    ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", ink))
-                    : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", ink));
+                    ? Strings.T("root.settle.headline_died", ("depth", clearedDepth + 1), ("ink", Ui.InkText(ink)))
+                    : Strings.T("root.settle.headline_cleared", ("depth", clearedDepth), ("ink", Ui.InkText(ink)));
             LevelRewardRules.GrantLevelChests(_meta, ChestCardPool(), Time);
             _pendingLevelUp = LevelRewardRules.TakeLevelUpSummary(_meta);
             MetaStore.Save(_meta);
@@ -731,7 +731,7 @@ namespace Brushblade.Presentation
             Ui.ThemedLabel(stack.transform, Strings.T("root.towersettle.title"),
                 46, Theme.TextMain, Theme.TitleFont);              // 稿 .h 22pt
             Ui.ThemedLabel(stack.transform, headline, 23, Theme.TextDim);   // 稿 .head 11pt
-            Ui.IngotLabel(stack.transform, ink.ToString(), 84);    // 稿 .amount .n 40pt
+            Ui.IngotLabel(stack.transform, Ui.InkText(ink), 84);    // 稿 .amount .n 40pt
 
             // 新纪录 chip 只在真破纪录时出现(稿 .rec)。previousBest 是 UpdateBest 之前留的那份,
             // 所以这里比的是「这趟 vs 上一次的最好」,不是自己跟自己比

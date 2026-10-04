@@ -783,7 +783,7 @@ namespace Brushblade.Presentation
             ShowAlert(Strings.T("collection.alert.upgrade_insufficient_title"),
                 Strings.T("collection.alert.upgrade_insufficient_body", ("cardId", cardId), ("nextLevel", level + 1),
                     ("copies", copies), ("needed", MetaRules.CopiesRequired(level, def.Rarity)),
-                    ("ink", _meta.Ink), ("inkNeeded", MetaRules.InkRequired(level, def.Rarity))));
+                    ("ink", Ui.InkText(_meta.Ink)), ("inkNeeded", Ui.InkText(MetaRules.InkRequired(level, def.Rarity)))));
         }
 
         /// <summary>被拒提示统一弹窗(2026-07-19);须在 Rebuild 之后调用——Rebuild 会清空根节点。</summary>

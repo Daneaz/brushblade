@@ -4658,7 +4658,7 @@ namespace Brushblade.Presentation
                     {
                         _message = option.InkChancePercent > 0 // 赌注:按墨锭变化播报输赢
                             ? (_run.AvailableInk > inkBefore
-                                ? Strings.T("battle.event.gamble_win", ("ink", option.Ink))
+                                ? Strings.T("battle.event.gamble_win", ("ink", Ui.InkText(option.Ink)))
                                 : Strings.T("battle.event.gamble_lose"))
                             : $"{evt.Id}:{option.Label}";
                         MarkFreshSince(beforeHoldings); // 拿到的字/部件高亮,与战利品同一套读法
@@ -4689,7 +4689,7 @@ namespace Brushblade.Presentation
                     CancelSelection();
                     ShowAlert(Strings.T("battle.dialog.event_unaffordable.title"), option.InkCost > _run.AvailableInk
                         ? Strings.T("battle.dialog.event_unaffordable.body_ink",
-                            ("label", option.Label), ("cost", option.InkCost), ("available", _run.AvailableInk))
+                            ("label", option.Label), ("cost", Ui.InkText(option.InkCost)), ("available", Ui.InkText(_run.AvailableInk)))
                         : Strings.T("battle.dialog.event_unaffordable.body_failed", ("label", option.Label)));
                 }, !affordable ? Theme.LockedBg : index == _previewEventOption ? Theme.Cinnabar : Theme.InkSoft,
                     affordable ? Color.white : Theme.TextDim, 22, new Vector2(EventOptW, EventOptH));
