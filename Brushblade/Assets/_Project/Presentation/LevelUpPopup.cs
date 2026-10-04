@@ -28,8 +28,7 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(38, 38, (int)PadV, (int)PadV);
 
             // 抬头两行给定高(= 字号 × 1.45,Noto 的行高),两栏的高要按它们反算,见 ColsHeight
-            Ui.Sized(Ui.ThemedLabel(content, Strings.T("levelup.kicker"), 25, Theme.CinnabarDark, Theme.TitleFont)
-                .gameObject, height: KickerH);
+            Ui.Sized(Ui.KickerRow(content, Strings.T("levelup.kicker"), 25, Theme.CinnabarDark), height: KickerH);
             Ui.Sized(Ui.ThemedLabel(content,
                 Strings.T("levelup.level_range", ("from", summary.FromLevel), ("to", summary.ToLevel)),
                 50, Theme.TextMain, Theme.TitleFont).gameObject, height: LevelH);
@@ -96,27 +95,43 @@ namespace Brushblade.Presentation
             col.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = true;
             Ui.ThemedLabel(col.transform, Strings.T("levelup.stats_title") + " · " + Strings.T("levelup.stats_note"),
                 21, Theme.TextDim, Theme.TitleFont, TextAnchor.MiddleLeft);
-            StatRow(col.transform, Strings.T("levelup.stat.hp"), MetaRules.MaxHpFor(from), MetaRules.MaxHpFor(to), MetaRules.MaxHpFor(CapProbe), "");
+            StatRow(col.transform, Strings.T("levelup.stat.hp"), MetaRules.MaxHpFor(from), MetaRules.MaxHpFor(to), MetaRules.MaxHpFor(CapProbe), "", hp: true);
             StatRow(col.transform, Strings.T("levelup.stat.attack"), MetaRules.AttackFor(from), MetaRules.AttackFor(to), MetaRules.AttackFor(CapProbe), "");
             StatRow(col.transform, Strings.T("levelup.stat.defense"), MetaRules.DefenseFor(from), MetaRules.DefenseFor(to), MetaRules.DefenseFor(CapProbe), "");
             StatRow(col.transform, Strings.T("levelup.stat.dodge"), MetaRules.DodgeFor(from), MetaRules.DodgeFor(to), MetaRules.DodgeFor(CapProbe), "%");
             StatRow(col.transform, Strings.T("levelup.stat.speed"), MetaRules.SpeedFor(from), MetaRules.SpeedFor(to), MetaRules.SpeedFor(CapProbe), "");
         }
 
-        /// <summary>一行「名 旧 → 新 +差」;没涨的行照列:真封顶写「已封顶」,只是这一段没跨档写「—」。</summary>
-        private static void StatRow(Transform parent, string name, int was, int now, int cap, string unit)
+        /// <summary>一行「名 旧 → 新 +差」;没涨的行照列:真封顶写「已封顶」,只是这一段没跨档写「—」。
+        /// 稿 .num:`panel-inset` 底条(稿 #F2EEE4 不在 tokens,取最近的 panel-inset)圆角 7pt,
+        /// 旧值宋体 12pt `text-warm` → 箭头 9pt `text-warm` → 新值宋体 14pt 粗(生命 `fire-glyph`,
+        /// 没涨 `text-dim`)→ 增量 9.5pt 粗 `upgrade-text` 靠右(没涨常规字重 `text-warm`)。
+        /// Unity 一个 Text 只有一种字号字色,所以拆成四个 Text 横排;行高 50 不变,两栏的竖向预算不受影响。</summary>
+        private static void StatRow(Transform parent, string name, int was, int now, int cap, string unit,
+            bool hp = false)
         {
-            var row = Ui.Row(parent, "Stat", 15);
-            row.AddComponent<LayoutElement>().preferredHeight = 50;
-            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            bool up = now > was;
+            var bg = Ui.CardPanel(parent, "Stat", Theme.PanelInset, 15);   // 稿圆角 7pt
+            bg.gameObject.AddComponent<LayoutElement>().preferredHeight = 50;
+            var row = Ui.Row(bg.transform, "Row", 15);
+            Ui.Stretch((RectTransform)row.transform);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.padding = new RectOffset(17, 17, 0, 0);                // 稿 0 8pt
             Ui.ThemedLabel(row.transform, name, 20, Theme.TextDim, null, TextAnchor.MiddleLeft)
                 .gameObject.AddComponent<LayoutElement>().preferredWidth = 105;
-            Ui.ThemedLabel(row.transform, $"{was}{unit} → {now}{unit}", 27, Theme.TextMain, Theme.TitleFont,
-                TextAnchor.MiddleLeft).gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
-            Ui.ThemedLabel(row.transform,
-                now > was ? Strings.T("levelup.stat_delta", ("value", $"{now - was}{unit}"))
+            Ui.ThemedLabel(row.transform, $"{was}{unit}", 25, Theme.TextWarm, Theme.TitleFont, TextAnchor.MiddleLeft);
+            Ui.ThemedLabel(row.transform, "→", 19, Theme.TextWarm, null, TextAnchor.MiddleLeft);
+            Ui.ThemedLabel(row.transform, $"{now}{unit}", 29,
+                    !up ? Theme.TextDim : hp ? Theme.GlyphColor(Element.Fire) : Theme.TextMain,
+                    Theme.TitleFont, TextAnchor.MiddleLeft)
+                .fontStyle = FontStyle.Bold;
+            Ui.Sized(Ui.Panel(row.transform, "Spacer"), flexWidth: 1);
+            var delta = Ui.ThemedLabel(row.transform,
+                up ? Strings.T("levelup.stat_delta", ("value", $"{now - was}{unit}"))
                     : now == cap ? Strings.T("levelup.stat_capped") : Strings.T("levelup.stat_same"),
-                20, now > was ? Theme.UpgradeText : Theme.TextDim, null, TextAnchor.MiddleRight);
+                20, up ? Theme.UpgradeText : Theme.TextWarm, null, TextAnchor.MiddleRight);
+            if (up) delta.fontStyle = FontStyle.Bold;
         }
 
         // ---- 升级奖励卡(稿 .box:pt × 2.093) ----
