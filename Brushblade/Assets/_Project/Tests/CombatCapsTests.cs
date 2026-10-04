@@ -13,6 +13,8 @@ namespace Brushblade.Core.Tests
             Assert.That(CombatCaps.HeftStacks, Is.EqualTo(10));
             Assert.That(CombatCaps.WellspringStacks, Is.EqualTo(10));
             Assert.That(CombatCaps.ReflectPercent, Is.EqualTo(60));
+            Assert.That(CombatCaps.BurnStacks, Is.EqualTo(10));
+            Assert.That(CombatCaps.ShieldPercentOfMaxHp, Is.EqualTo(100));
         }
 
         [Test]

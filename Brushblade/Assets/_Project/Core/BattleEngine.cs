@@ -2834,8 +2834,8 @@ namespace Brushblade.Core
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
                         {
-                            ApplyBurn(targetIndex, value, UnitRef.Player);
-                            _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, value));
+                            int burnGain = ApplyBurn(targetIndex, value, UnitRef.Player);
+                            if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, burnGain));
                         }
                         break;
                     case EffectKind.Bleed:
@@ -3180,8 +3180,8 @@ namespace Brushblade.Core
                         for (int i = 0; i < _enemies.Count; i++)
                             if (_enemies[i].Alive)
                             {
-                                ApplyBurn(i, value, UnitRef.Player);
-                                _events.Add(new BattleEvent(BattleEventKind.Burn, i, value));
+                                int burnGain = ApplyBurn(i, value, UnitRef.Player);
+                                if (burnGain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, i, burnGain));
                             }
                         break;
                     case EffectKind.Shield:
@@ -3189,21 +3189,20 @@ namespace Brushblade.Core
                         // 配方内部的元素关系,与盾加给谁无关 —— 加召唤物与加玩家同值。
                         int shield = ScaleByBaseAttack(
                             WuxingResolver.ResolveEffect(value));
+                        int shieldGranted;
                         if (allySlot == Targeting.PlayerTarget)
-                        {
-                            if (effect.PersistOnce) _shieldPersist += shield;
-                            else _shieldNormal += shield;
-                        }
+                            shieldGranted = AddPlayerShield(shield, effect.PersistOnce);
                         else
                         {
                             // 召唤物只有一个盾桶:豁免桶是玩家侧「倾覆清盾」的对策,召唤物不吃倾覆,
                             // 分两桶存也没有任何一处读得出区别。PersistOnce 在这一支被有意忽略。
-                            _summons[allySlot].Shield += shield;
+                            shieldGranted = AddSummonShield(allySlot, shield);
                         }
                         // 攒厚(2026-09-02):按获得量算,加给谁都一样 ——
-                        // 给召唤物的盾同样是「你堆了防御」。
+                        // 给召唤物的盾同样是「你堆了防御」。按**请求量**不按入账量(spec v7 §5.2.2:
+                        // 厚有自己的 10 层上限,被护盾上限截掉的部分照样算「堆了防御」)。
                         GainHeft(shield);
-                        _events.Add(new BattleEvent(BattleEventKind.Shield, allySlot, shield));
+                        _events.Add(new BattleEvent(BattleEventKind.Shield, allySlot, shieldGranted));
                         break;
                     case EffectKind.ShieldAll:
                     {
@@ -3365,8 +3364,8 @@ namespace Brushblade.Core
                         if (effect.SummonShield > 0)
                         {
                             int shieldGrant = MetaRules.ScaleByCardLevel(effect.SummonShield, cardLevel);
-                            foreach (var summon in _summons)
-                                if (summon != null && summon.Alive) summon.Shield += shieldGrant;
+                            for (int slot = 0; slot < _summons.Length; slot++)
+                                if (_summons[slot] != null && _summons[slot].Alive) AddSummonShield(slot, shieldGrant);
                             // 桂 的全场加盾同样攒厚(2026-09-02):它与 EffectKind.Shield
                             // 一样是玩家出字换来的护盾,只是发给召唤物。不接就是同类不同待遇。
                             // 按**单只量**而不是发出的总量攒:厚衡量的是这张字提供了多厚的一层
@@ -3564,8 +3563,8 @@ namespace Brushblade.Core
                 if (remaining > 0)
                     foreach (int n in Targeting.AdjacentEnemies(_enemies, enemyIndex))
                     {
-                        ApplyBurn(n, 1, UnitRef.None);
-                        _events.Add(new BattleEvent(BattleEventKind.Burn, n, 1));
+                        int gain = ApplyBurn(n, 1, UnitRef.None);
+                        if (gain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, n, gain));
                     }
             }
             if (!enemy.Alive)
@@ -3631,7 +3630,7 @@ namespace Brushblade.Core
 
         /// <summary>状态施加的唯一入口(spec v7 §11.4)。返回是否生效;被拦截时不发 StatusApplied。
         /// 拦截:冻结(已冻结 / 霜抗中 / 冰滞中不得再冻,R1;Boss 改挂冰滞,R1b)、减速合并(R1)、
-        /// 格挡同类取最强(§5.2.1)。</summary>
+        /// 格挡同类取最强(§5.2.1)、灼烧钳到 CombatCaps.BurnStacks(§5.2.2)。</summary>
         private bool ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier)
         {
             if (effect.Kind == StatusKind.Freeze && target.Side == UnitSide.Enemy)
@@ -3670,6 +3669,12 @@ namespace Brushblade.Core
                     effect.Magnitude = Math.Max(effect.Magnitude, existing.Magnitude);
                     effect.CounterDamage = Math.Max(effect.CounterDamage, existing.CounterDamage);
                 }
+            }
+            else if (effect.Kind == StatusKind.Burn)
+            {
+                // 灼烧总层数上限(spec v7 §5.2.2)。调用方(ApplyBurn / RefreshBurn)传的 Magnitude
+                // 已是叠加后的总层数,bag.Apply 同源覆盖,所以钳 Magnitude 即钳总层数。
+                effect.Magnitude = Math.Min(effect.Magnitude, CombatCaps.BurnStacks);
             }
             bag.Apply(effect);
             Raise(HookKind.StatusApplied, target, applier, effect.Magnitude, status: effect.Kind);
@@ -3750,17 +3755,19 @@ namespace Brushblade.Core
                 ? UnitRef.Player
                 : UnitRef.Summon(allySlot);
 
-        /// <summary>叠加灼烧层数(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
+        /// <summary>叠加灼烧层数,返回**实际增加**的层数(满层时为 0;调用方据此决定发不发 Burn 事件)。(TurnsLeft = -1:段内持久,靠结算段自减 Magnitude,不受 TickTurns 影响)。
         /// 出字的灼烧字用这条:一次性施加,层数自然衰减到 0,累加是既有语义,不受光环影响。</summary>
-        private void ApplyBurn(int enemyIndex, int value, UnitRef applier = default)
+        private int ApplyBurn(int enemyIndex, int value, UnitRef applier = default)
         {
             var enemy = _enemies[enemyIndex];
-            int newBurn = (enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0) + value;
+            int before = enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0;
             ApplyStatus(enemy.Statuses, new StatusEffect
             {
                 Kind = StatusKind.Burn, Polarity = StatusPolarity.Debuff,
-                Magnitude = newBurn, TurnsLeft = -1,
+                Magnitude = before + value, TurnsLeft = -1,
             }, UnitRef.Enemy(enemyIndex), applier);
+            // 实际增量:ApplyStatus 会把总层数钳到 CombatCaps.BurnStacks(spec v7 §5.2.2)
+            return Math.Max(0, (enemy.Statuses.Find(StatusKind.Burn)?.Magnitude ?? 0) - before);
         }
 
         /// <summary>给一名敌人挂致盲。TurnsLeft 直接用配置的回合数 —— 致盲是玩家在自己回合
@@ -3825,14 +3832,14 @@ namespace Brushblade.Core
                     for (int i = 0; i < _enemies.Count; i++)
                     {
                         if (!_enemies[i].Alive) continue;
-                        ApplyBurn(i, passive.OnHitBurn, UnitRef.Summon(summonIndex)); // 累加(2026-09-04,见方法头注释)
-                        _events.Add(new BattleEvent(BattleEventKind.Burn, i, passive.OnHitBurn));
+                        int gain = ApplyBurn(i, passive.OnHitBurn, UnitRef.Summon(summonIndex)); // 累加(2026-09-04,见方法头注释)
+                        if (gain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, i, gain));
                     }
                 }
                 else if (_enemies[targetIndex].Alive)
                 {
-                    ApplyBurn(targetIndex, passive.OnHitBurn, UnitRef.Summon(summonIndex)); // 累加(2026-09-04,见方法头注释)
-                    _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, passive.OnHitBurn));
+                    int gain = ApplyBurn(targetIndex, passive.OnHitBurn, UnitRef.Summon(summonIndex)); // 累加(2026-09-04,见方法头注释)
+                    if (gain > 0) _events.Add(new BattleEvent(BattleEventKind.Burn, targetIndex, gain));
                 }
             }
 
@@ -3957,15 +3964,36 @@ namespace Brushblade.Core
         /// 一个桶(见 Shield 那一支的注释:豁免桶是玩家侧「倾覆清盾」的对策,召唤物不吃倾覆)。</summary>
         private void ShieldPlayerAndSummons(int shield, bool persistOnce)
         {
-            if (persistOnce) _shieldPersist += shield;
-            else _shieldNormal += shield;
-            _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, shield));
+            int playerGranted = AddPlayerShield(shield, persistOnce);
+            _events.Add(new BattleEvent(BattleEventKind.Shield, Targeting.PlayerTarget, playerGranted));
             for (int slot = 0; slot < _summons.Length; slot++)
             {
                 if (_summons[slot] == null || !_summons[slot].Alive) continue;
-                _summons[slot].Shield += shield;
-                _events.Add(new BattleEvent(BattleEventKind.Shield, slot, shield));
+                int granted = AddSummonShield(slot, shield);
+                _events.Add(new BattleEvent(BattleEventKind.Shield, slot, granted));
             }
+        }
+
+        /// <summary>给玩家加盾的唯一入口(spec v7 §5.2.2):两桶之和 ≤ 最大生命 × ShieldPercentOfMaxHp%。
+        /// 返回实际入账量(可为 0)。跨场携带走构造函数直接赋值,不经这里(上一场已在上限内,
+        /// 带入的只是其中一部分)。</summary>
+        private int AddPlayerShield(int amount, bool persist)
+        {
+            int cap = _config.PlayerMaxHp * CombatCaps.ShieldPercentOfMaxHp / 100;
+            int granted = Math.Max(0, Math.Min(amount, cap - (_shieldNormal + _shieldPersist)));
+            if (persist) _shieldPersist += granted;
+            else _shieldNormal += granted;
+            return granted;
+        }
+
+        /// <summary>给召唤物加盾的唯一入口:Shield ≤ 该召唤物 MaxHp × ShieldPercentOfMaxHp%。返回实际入账量。</summary>
+        private int AddSummonShield(int slot, int amount)
+        {
+            var summon = _summons[slot];
+            int cap = summon.MaxHp * CombatCaps.ShieldPercentOfMaxHp / 100;
+            int granted = Math.Max(0, Math.Min(amount, cap - summon.Shield));
+            summon.Shield += granted;
+            return granted;
         }
 
         /// <summary>把治疗打到一个友方目标上(2026-08-22)。slot = −1 治玩家,否则治该槽召唤物。
@@ -4454,13 +4482,14 @@ namespace Brushblade.Core
             if (moved <= 0) return;
             int target = PickRandomLivingEnemy();
             if (target < 0) return;   // 场上没有别人可以接手,层数就此消散
-            ApplyBurn(target, moved, UnitRef.None);
+            int gained = ApplyBurn(target, moved, UnitRef.None);
             // spec 用词是「转移」不是「复制」:死者身上不该再留一份。今天无害
             // (SettleBurnOn 先判 Alive、敌人不会复活),但留着是快照里的死数据 ——
             // 只摘这具尸体自己的,不碰 target 刚接手的那份。
             _enemies[enemyIndex].Statuses.Remove(StatusKind.Burn);
-            _events.Add(new BattleEvent(BattleEventKind.Burn, target, moved, enemyIndex,
-                source: EffectSource.Embers));
+            if (gained > 0)
+                _events.Add(new BattleEvent(BattleEventKind.Burn, target, gained, enemyIndex,
+                    source: EffectSource.Embers));
         }
 
         /// <summary>命中判定(2026-08-07):命中率 = 100 − 攻击者致盲 − 目标闪避,钳到 [0,100]。

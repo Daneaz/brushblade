@@ -8,6 +8,12 @@ namespace Brushblade.Core
         public const int HeftStacks = 10;
         public const int WellspringStacks = 10;
 
+        /// <summary>灼烧层数上限(spec v7 §5.2.2)。在 ApplyStatus 钳叠加后的总层数。</summary>
+        public const int BurnStacks = 10;
+
+        /// <summary>护盾上限占最大生命的百分比(spec v7 §5.2.2)。玩家两桶之和、召唤物单桶各自按自己的 MaxHp 算。</summary>
+        public const int ShieldPercentOfMaxHp = 100;
+
         /// <summary>非护甲减伤合计上限(百分点,spec v7 §5.2.4)。格挡的 −40% 取 min(40, 本值)。</summary>
         public const int NonArmorReductionPercent = 60;
 
