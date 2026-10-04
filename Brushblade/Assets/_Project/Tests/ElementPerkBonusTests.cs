@@ -142,7 +142,7 @@ namespace Brushblade.Core.Tests
         {
             var takes = new System.Collections.Generic.HashSet<EffectKind>
             {
-                EffectKind.DamageSingle, EffectKind.DamageAll,
+                EffectKind.DamageSingle,
                 EffectKind.HealSelf, EffectKind.HealAll, EffectKind.HealOverTime,
                 EffectKind.Shield, EffectKind.ShieldAll,
                 EffectKind.Bleed,

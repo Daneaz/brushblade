@@ -324,6 +324,9 @@ namespace Brushblade.Presentation
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.volley.desc")),
             TargetArea.Chain => new Info(null, Strings.T("char.shape.chain"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.chain.desc")),
+            // 全体(spec v7 §3.2)目前只挂在字的伤害效果上,召唤物被动没有全体载体;
+            // 真有召唤物配全体时,在这里补一条带 desc 的条目(要新写文案)
+            TargetArea.All => None,
             _ => None, // Single
         };
     }

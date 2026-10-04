@@ -97,7 +97,8 @@ def test_extract_pulls_60_implementable_chars():
     # 2026-09-07(P2 Task 4a):补对灼烧(灼烧梯队·高),预算扣除 + DOT 当量扣除后 120 → 108。
     # 2026-09-11(档位统一 G=1.468,T3):橙档全体锚点 240 → 204,预算与 DOT 当量 D99 都没动,
     # (108+99)×(204/240)−99 = 76.95 → 108 → 77。
-    fen = next(e for e in values["焚"]["effects"] if e["kind"] == "DamageAll")
+    fen = next(e for e in values["焚"]["effects"]
+               if e["kind"] == "DamageSingle" and e.get("shape") == "All")
     assert fen["value"] == 77
     assert fen["doubleVs"] == "Burning"
     assert values["焚"]["rarity"] == "Orange"
@@ -246,8 +247,8 @@ def test_detonate_all_carries_target_all():
     # 炸 = 全体 50 + 引爆全部剩余灼烧(2026-08-26)。`DetonateAll` 与 `Detonate`
     # 共用 Kind,只差 targetAll —— 两个 token 必须互不吞
     from extract_values import _parse_effects
-    assert _parse_effects("`DamageAll 50` + `DetonateAll`", "火") == [
-        {"kind": "DamageAll", "value": 50},
+    assert _parse_effects("`DamageSingle 50` + `All` + `DetonateAll`", "火") == [
+        {"kind": "DamageSingle", "value": 50, "shape": "All"},
         {"kind": "Detonate", "value": 0, "targetAll": True}]
 
 
@@ -274,8 +275,8 @@ def test_valueless_effect_tokens():
 
 def test_dispel_each_becomes_target_all():
     from extract_values import _parse_effects
-    effects = _parse_effects("`DamageAll 20` + `DispelEach 1`", "水")
-    assert effects[0] == {"kind": "DamageAll", "value": 20}
+    effects = _parse_effects("`DamageSingle 20` + `All` + `DispelEach 1`", "水")
+    assert effects[0] == {"kind": "DamageSingle", "value": 20, "shape": "All"}
     assert effects[1] == {"kind": "Dispel", "value": 1, "targetAll": True}
 
 
@@ -362,8 +363,8 @@ def test_turns_and_target_all_do_not_leak_to_non_duration_kinds():
     assert _parse_effects("`DamageSingle 16` + `Blind 50`(turns 2)", "火") == [
         {"kind": "DamageSingle", "value": 16},
         {"kind": "Blind", "value": 50, "turns": 2}]
-    assert _parse_effects("`DamageAll 20` + `HealOverTime 3`(turns 2, targetAll)", "水") == [
-        {"kind": "DamageAll", "value": 20},
+    assert _parse_effects("`DamageSingle 20` + `All` + `HealOverTime 3`(turns 2, targetAll)", "水") == [
+        {"kind": "DamageSingle", "value": 20, "shape": "All"},
         {"kind": "HealOverTime", "value": 3, "turns": 2, "targetAll": True}]
     # Silence 在 DURATION_KINDS 里但不在 TARGET_ALL_KINDS 里——拿 turns 但不该拿 targetAll。
     assert _parse_effects("`Silence 0`(turns 1, targetAll)", "金") == [

@@ -12,7 +12,7 @@ namespace Brushblade.Core.Tests
             new CharDef("火", Element.Fire),
             new CharDef("林", Element.Wood, new[] { "木", "木" }),
             new CharDef("燃", Element.Fire, new[] { "火", "火" },
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 10) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.All) }),
         });
 
         private static BattleEngine Engine(BattleTally tally, string[] library, string[] pool = null) =>

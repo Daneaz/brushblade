@@ -27,7 +27,7 @@ namespace Brushblade.CoreTests
             new CharDef("甲", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 100) }),
             new CharDef("乙", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 50) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 50, shape: TargetArea.All) }),
             // 丙 = 50 伤 ×2 段(剁 的形状):每段各减一次护甲
             new CharDef("丙", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 50, hitCount: 2) }),

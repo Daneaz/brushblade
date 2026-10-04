@@ -35,7 +35,7 @@ namespace Brushblade.Core.Tests
                 new[] { RebalanceFixture.Mob() }, seed: 1,
                 startingStatuses: new[] { new StatusEffect { Kind = StatusKind.Morale, Polarity = StatusPolarity.Buff,
                     Magnitude = config.MoraleCap, TurnsLeft = -1 } });
-            b.ApplyDetachedEffects("甲", Element.Metal, new[] { new EffectDef(EffectKind.DamageAll, 100) });
+            b.ApplyDetachedEffects("甲", Element.Metal, new[] { new EffectDef(EffectKind.DamageSingle, 100, shape: TargetArea.All) });
             // 战意本身给攻击加成(满层 ×1.5 左右),所以伤害 > 100;断金 +300% 会让它 ≥ 400
             Assert.That(100000 - b.Enemies[0].Hp, Is.LessThan(400), "独立效果不吃断金 +300%");
             Assert.That(b.PlayerStatuses.TotalMagnitude(StatusKind.Morale), Is.EqualTo(config.MoraleCap), "战意不被清空");

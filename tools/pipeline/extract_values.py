@@ -239,7 +239,7 @@ def _parse_row(line, element):
 
 
 def _parse_effects(config, char):
-    """「`DamageAll 30` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
+    """「`DamageSingle 30` + `All` + `BurnAll 4`」→ [{kind, value}, …];召唤单独处理。
 
     char 只被召唤分支用到(当 summonChar),其余 kind 一概不看第二个参数。"""
     # 消费记账(2026-09-07,P2 Task 1):本函数是一串 re.search 找已知 token,
@@ -338,6 +338,12 @@ def _parse_effects(config, char):
             continue  # 镇压百分比是修饰而非效果,下面统一挂到伤害上
         if kind in (SHOTS_TOKEN, SHAPE_PERCENT_TOKEN, CHAIN_TOKEN):
             continue  # 目标形状的修饰,下面统一挂到伤害上
+        # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
+        # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
+        if kind == "DamageAll":
+            raise ValueError(
+                f"{char}:`DamageAll {value}` 已退役(spec v7 §11.6),"
+                f"改写成 `DamageSingle {value}` + `All`。")
         effect = {"kind": kind, "value": int(value)}
         if kind == "DispelEach":       # 全体各驱散 N 条(淡)
             effect["kind"] = "Dispel"
@@ -353,9 +359,8 @@ def _parse_effects(config, char):
         # 偷袭(`Backline`)2026-09-30 取消:我方字卡不再有前后排限制,这个修饰位随之删除。
         # 不留解析分支是刻意的 —— 详表里再写 `Backline` 会落进 _raise_unconsumed_tokens 大声报错,
         # 而不是被悄悄吞掉、生成一张「以为能偷袭」的字。
-        # 碾(2026-09-16,土):跳过整条 DR,单体/AOE 两种伤害都能挂(BattleEngine 的
-        # DamageSingle/DamageAll 两个分支都已接了
-        # effect.TrueDamage → bypassDefense)。
+        # 碾(2026-09-16,土):跳过整条 DR,单体/全体两种伤害都能挂(BattleEngine 的
+        # DamageSingle 分支对形状展开的每个目标都接了 effect.TrueDamage → bypassDefense)。
         if kind.startswith("Damage") and f"`{TRUE_DAMAGE_TOKEN}`" in config:
             effect["trueDamage"] = True
             consumed.add(TRUE_DAMAGE_TOKEN)
@@ -366,8 +371,9 @@ def _parse_effects(config, char):
         # HealSelf 也认(2026-09-16,水,治疗弹射「海/澡」对偶):此前这里只判 DamageSingle,
         # 治疗面写 `Chain N` + `ShapePercent N` 会被上面的通用循环吞进 consumed、却从没被
         # 挂到 HealSelf 这条 effect 上——config 里的 token 静默消失,不报错也看不出来。
+        # 全体 `All`(spec v7 §3.2 / §11.6)同为形状修饰:原 `DamageAll N` 改写成 `DamageSingle N` + `All`。
         if kind in ("DamageSingle", "HealSelf"):
-            for token in ("Row", "Adjacent", "Column"):
+            for token in ("Row", "Adjacent", "Column", "All"):
                 if f"`{token}`" in config:
                     effect["shape"] = token
                     consumed.add(token)

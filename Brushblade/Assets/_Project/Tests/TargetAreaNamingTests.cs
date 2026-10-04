@@ -17,7 +17,9 @@ namespace Brushblade.Core.Tests
             Assert.That((int)TargetArea.Column, Is.EqualTo(3));
             Assert.That((int)TargetArea.Scatter, Is.EqualTo(4));
             Assert.That((int)TargetArea.Chain, Is.EqualTo(5));
-            Assert.That(Enum.GetNames(typeof(TargetArea)).Length, Is.EqualTo(6));
+            // spec v7 §11.6:全体并进来,尾部追加
+            Assert.That((int)TargetArea.All, Is.EqualTo(6));
+            Assert.That(Enum.GetNames(typeof(TargetArea)).Length, Is.EqualTo(7));
         }
 
         [Test]

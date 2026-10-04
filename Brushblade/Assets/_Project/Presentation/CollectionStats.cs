@@ -64,17 +64,15 @@ namespace Brushblade.Presentation
                 if (stats.Count >= MaxBoxes) return;
                 switch (effect.Kind)
                 {
+                    // 全体(spec v7 §11.6:原 DamageAll)注脚仍是「全体,每个目标」
                     case EffectKind.DamageSingle:
                         Add(stats, seen, "collection.stat.attack",
                             Strings.T("collection.stat.attack"),
                             MetaRules.ScaleByCardLevel(effect.Value, cardLevel),
-                            Strings.T("collection.stat.note.single"), Theme.GlyphColor(Element.Fire));
-                        break;
-                    case EffectKind.DamageAll:
-                        Add(stats, seen, "collection.stat.attack",
-                            Strings.T("collection.stat.attack"),
-                            MetaRules.ScaleByCardLevel(effect.Value, cardLevel),
-                            Strings.T("collection.stat.note.all"), Theme.GlyphColor(Element.Fire));
+                            effect.Shape == TargetArea.All
+                                ? Strings.T("collection.stat.note.all")
+                                : Strings.T("collection.stat.note.single"),
+                            Theme.GlyphColor(Element.Fire));
                         break;
                     case EffectKind.Summon:
                         // 召唤字是唯一同时有攻和血的一类,两格必然成对出现

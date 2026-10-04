@@ -9,8 +9,6 @@ namespace Brushblade.Core
     /// 三处白名单要各加一笔 —— 2026-08-06 单体驱散漏在白名单外导致 _enemies[-1] 越界崩溃,
     /// 记的就是这类账(BattleEngine.cs 的 NeedsTarget 注释)。
     ///
-    /// ⚠ 没有 All:「全体」是 <see cref="EffectKind.DamageAll"/> 这个独立 kind,不并进来。
-    /// 21 张全体字因此一个字节不改,改造期间「现有伤害逐位不变」这条守卫才始终可断言。
     /// ⚠ 序数不可变(存档里存整数)。</summary>
     public enum TargetArea
     {
@@ -24,5 +22,8 @@ namespace Brushblade.Core
         Chain,    // 弹射:主目标 + 按格子距离依次跳到**不重复**的其它敌人,最多 Shots 个。
                   // 与 Scatter 的分界:散射可重复目标且每发全额,弹射不重复且**逐跳累乘衰减**
                   // (衰减率用 ShapePercent,第 k 跳 = ShapePercent^k)。目标不够就少跳,不循环回头
+        /// <summary>全体(spec v7 §3.2):打全部存活敌人。每个目标都按主目标结算
+        /// (斩杀、穿透、多段、100%),不读 ShapePercent;不需要选目标。</summary>
+        All,
     }
 }

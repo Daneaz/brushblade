@@ -266,6 +266,7 @@ namespace Brushblade.Core
         /// **首项恒为主目标**(Volley 除外——它没有主目标;玩家指定了目标时首发落在它身上,
         /// 见 volleyLeadsWithPrimary),调用方靠这一条区分
         /// 「吃斩杀/多段/穿透的那一发」与「只吃 ShapePercent 的溅射」。
+        /// All 也除外:它不看主目标,表内**每一项**都按主目标结算(调用方自己判 Shape)。
         ///
         /// **表内可含重复下标**:Volley 循环补足时同一只怪会出现多次,调用方按
         /// 「每项一次结算」处理即可,不去重。形状类返回的表恒不重复。
@@ -286,6 +287,16 @@ namespace Brushblade.Core
             if (shape == TargetArea.Scatter)
                 return VolleyTargets(enemies, shots, volleyLeadsWithPrimary ? primaryIndex : -1);
             if (shape == TargetArea.Chain) return ChainTargets(enemies, primaryIndex, shots);
+            // 全体(spec v7 §3.2):不看主目标(可以是 −1),按下标升序取**此刻**全部存活敌人。
+            // 跨排 Boss 只记一次,不走 AddHits 的双记 —— 与退役的 DamageAll 逐目标各打一下同口径。
+            // 返回的是快照:出字途中分裂出的新怪不吃这一发(同 DamageAll 的 aoeCount)。
+            if (shape == TargetArea.All)
+            {
+                var all = new List<int>();
+                for (int i = 0; i < enemies.Count; i++)
+                    if (enemies[i].Alive) all.Add(i);
+                return all;
+            }
             if (primaryIndex < 0 || primaryIndex >= enemies.Count) return System.Array.Empty<int>();
 
             var result = new List<int>();

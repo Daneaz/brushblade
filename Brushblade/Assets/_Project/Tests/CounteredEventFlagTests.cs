@@ -22,7 +22,7 @@ namespace Brushblade.CoreTests
             new CharDef("丙", Element.Earth, effects: new[] { new EffectDef(EffectKind.DamageSingle, 20) }),
             new CharDef("丁", Element.Fire, effects: new[] { new EffectDef(EffectKind.BurnSingle, 3) }),
             new CharDef("戊", Element.Heart, effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
-            new CharDef("己", Element.Wood, effects: new[] { new EffectDef(EffectKind.DamageAll, 10) }),
+            new CharDef("己", Element.Wood, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.All) }),
         });
 
         private static EnemyDef Mob(Element element, int hp = 500) => new("怔", element, hp, 0);
@@ -90,7 +90,7 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void DamageAll_MarksCounteredPerTarget()
+        public void AllShape_MarksCounteredPerTarget()
         {
             // 群攻:各目标各判各的 —— 木打土是占便宜,木打金是吃亏,同一记里两种都有
             var engine = Battle(new[] { Mob(Element.Earth), Mob(Element.Metal) }, "己");

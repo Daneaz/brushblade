@@ -17,7 +17,7 @@ namespace Brushblade.Core.Tests
             new CharDef("炎", Element.Fire, new[] { "火", "火" },
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 12) }),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All) }),
         });
 
         private static EventDef Fortune() => new()

@@ -3,8 +3,8 @@ namespace Brushblade.Core
     /// <summary>出字效果类型(第 3 章 3.2.1;按流派需要逐步扩展)。</summary>
     public enum EffectKind
     {
-        DamageSingle, // 单体伤害
-        DamageAll,    // 全体伤害(AOE)
+        DamageSingle, // 伤害(打谁由 EffectDef.Shape 定;全体 = Shape All。原 DamageAll 已于
+                      // spec v7 §11.6 退役 —— EffectKind 只按名字从 chars.json 解析、不进存档,删值不留占位)
         BurnSingle,   // 单体灼烧(叠层)
         BurnAll,      // 全体灼烧(叠层)
         Shield,       // 护盾:自身或指定一只召唤物(2026-08-26 起目标可选)
@@ -173,7 +173,7 @@ namespace Brushblade.Core
 
         /// <summary>非主目标的伤害百分比(2026-08-22)。主目标恒 100%。
         /// 横扫/贯穿建议配 100,溅射建议 50。<see cref="TargetArea.Scatter"/> **不吃这个值**
-        /// ——连发每一发都是全额(spec §5)。
+        /// ——连发每一发都是全额(spec §5)。<see cref="TargetArea.All"/> 同样不吃:全体每个目标都是主目标。
         ///
         /// ≤0 兜回 100:配置漏写时 JSON 会填 0,那会让两侧一分不伤,静默失效比报错更难查
         /// (与 <see cref="HitCount"/> 的 `≤0 → 1` 同型)。</summary>

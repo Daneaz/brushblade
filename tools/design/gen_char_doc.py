@@ -213,6 +213,12 @@ PASSIVE = {'healAlly': '治疗友军', 'onHitCurse': '命中施诅咒', 'dodge':
 SHAPE = {'Row': '横扫:整排', 'Adjacent': '溅射:相邻',
          'Column': '贯穿:同列前后排', 'Scatter': '连发', 'Chain': '弹射'}
 
+
+def is_all(e):
+    """全体伤害(spec v7 §11.6):原 `DamageAll` 并入 `DamageSingle` + shape `All`。
+    文档仍按「全体伤害」印,不当成形状修饰另挂一条 —— 与改造前逐字一致。"""
+    return e['kind'] == 'DamageSingle' and e.get('shape') == 'All'
+
 def cname(c): return PUA.get(c['id'], c['id'])
 
 def lv1(c):
@@ -308,7 +314,7 @@ def desc(e):
     k, t, all_ = e['kind'], e.get('turns', 0), e.get('targetAll')
     v = e.get('value', 0)
     s = {
-        'DamageSingle': f"单体伤害 {v}", 'DamageAll': f"全体伤害 {v}",
+        'DamageSingle': f"全体伤害 {v}" if is_all(e) else f"单体伤害 {v}",
         'BurnSingle': f"灼烧 {v} 层", 'BurnAll': f"全体灼烧 {v} 层",
         'BurnPotency': f"灼烧威力 +{v}/层(本场)", 'BurnNoDecay': "本场灼烧不衰减",
         'BurnSettleNow': "立即结算一次灼烧", 'Detonate': "引爆全部剩余灼烧",
@@ -343,7 +349,7 @@ def desc(e):
     mods = []
     # 伤害侧的目标形状(2026-08-25 装配到 碾/砸/刺):与召唤被动侧共用 SHAPE 表。
     # 此前只有召唤物带形状,伤害字一个都没有,所以这一段从来没被渲染过。
-    if e.get('shape') and e['shape'] != 'Single':
+    if e.get('shape') and e['shape'] not in ('Single', 'All'):
         label = SHAPE.get(e['shape'], e['shape'])
         if e['shape'] == 'Scatter' and e.get('shots'): label += f" {e['shots']} 发"
         if e['shape'] == 'Chain' and e.get('shots'): label += f" {e['shots']} 跳"
@@ -409,7 +415,7 @@ TRAITS = {
                                                                           # 未缩放基础值 ≥100 记急速
     'Unseal': lambda e, v: "解封",
     # 有数值/有去向、但本身不是特性的:各归各列
-    'DamageSingle': None, 'DamageAll': None, 'Shield': None, 'ShieldAll': None,
+    'DamageSingle': None, 'Shield': None, 'ShieldAll': None,
     'HealSelf': None, 'HealAll': None, 'HealOverTime': None, 'Revive': None, 'Summon': None,
 }
 
@@ -479,14 +485,14 @@ def traits(c):
 
     for e in c.get('attackEffects', []) + c['effects']:
         k, v = e['kind'], e.get('value', 0)
-        if e.get('shape') and e['shape'] != 'Single':
+        if e.get('shape') and e['shape'] not in ('Single', 'All'):
             add(_shape_trait(e['shape'], e.get('shots'), e.get('shapePercent')))
         if k in TRAITS:
             fn = TRAITS[k]
             if fn: add(fn(e, v))
         else:
             add(f"{k} {v}")
-        if k in ('DamageSingle', 'DamageAll'):
+        if k == 'DamageSingle':
             for m in _dmg_mods(e): add(m)
         # 免一次清盾(㙓):挂在护盾上的修饰字段,不是独立 kind,所以 TRAITS 那张
         # 按 kind 索引的表接不到它 —— 此前只在「功能」列露过面,特性技能列一直漏
@@ -507,10 +513,10 @@ def atk(c):
     effects = c.get('attackEffects') or c['effects']
     parts = []
     for e in effects:
-        if e['kind'] in ('DamageSingle', 'DamageAll'):
+        if e['kind'] == 'DamageSingle':
             n = e.get('hitCount', 1)
             parts.append(f"{e['value']}" + (f"×{n} 段" if n > 1 else "")
-                         + ("(AOE)" if e['kind'] == 'DamageAll' else ""))
+                         + ("(AOE)" if is_all(e) else ""))
     if parts: return '+'.join(parts)
     for e in effects:
         if e['kind'] == 'Summon': return f"召 {e.get('attack',0)}×{e.get('count',1)}"
@@ -529,7 +535,7 @@ CATS = [
     ('破甲 / 穿透', {'ArmorBreak', 'PierceBuff'}),
     ('状态操作(驱散 / 净化 / 致盲 / 沉默)', {'Dispel', 'Cleanse', 'Blind', 'Silence'}),
     ('自强增益(攻 / 暴击 / AP / 战意 / 闪避)', {'Empower', 'Morale', 'ApBoost', 'CritBuff', 'DodgeBuff'}),
-    ('纯伤害', {'DamageSingle', 'DamageAll'}),
+    ('纯伤害', {'DamageSingle'}),
 ]
 
 def cat_of(c):
@@ -634,8 +640,8 @@ A("| 五行 | " + " / ".join(f"{EL[e]} {ec[e]}" for e in EORDER if ec[e]) + f" /
 # 枚举总数是手动同步的字面量(EffectDef.cs 的 EffectKind 不在本脚本的解析范围内)——
 # 2026-09-02 发现这里已经飘了(SpendMomentum/SpendWaterPower 上线后枚举实际是 32),
 # 顺手修正;2026-09-16 Task 11 新增 Quench/Haste/Unseal 后实际是 37,一并订正;
-# 以后新增 Kind 记得同步这个数。
-A(f"| 效果条目 | {sum(kc.values())} 条,覆盖 {len(kc)} 种 `EffectKind`(枚举共 37 种) |")
+# 以后新增 Kind 记得同步这个数。2026-10-04(spec v7 §11.6)DamageAll 退役,37 → 36。
+A(f"| 效果条目 | {sum(kc.values())} 条,覆盖 {len(kc)} 种 `EffectKind`(枚举共 36 种) |")
 A("| 单效果 / 双效果 / 三效果字 | " + " / ".join(str(collections.Counter(len(all_effects(c)) for c in playable)[n]) for n in (1, 2, 3)) + " |")
 A("")
 A("**心系 0 字** —— 第 5 章摄心流在字表侧没有任何载体。")

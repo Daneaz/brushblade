@@ -9,7 +9,7 @@ namespace Brushblade.CoreTests
     /// <summary>暴击(E-b2,2026-08-12):玩家属性集里第一条**带随机性**的轴。
     ///
     /// 用户裁定(与设计草案的推荐不同):暴击率**不随等级成长**,基准恒 0,
-    /// 只靠字(锋)与将来的养成技能给;倍率 ×1.5;只有 DamageSingle / DamageAll 吃;
+    /// 只靠字(锋)与将来的养成技能给;倍率 ×1.5;只有 DamageSingle(含全体 All)吃;
     /// 敌人没有暴击;每记伤害独立摇,且摇点排在 TryExecuteKill 之后。
     ///
     /// 测试字一律用 <see cref="Element.Heart"/> 且不给配方,理由同 AttackStatTests:
@@ -29,7 +29,7 @@ namespace Brushblade.CoreTests
             new CharDef("甲", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 20) }),
             new CharDef("乙", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 10) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.All) }),
             new CharDef("丙", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Shield, 7) }),
             new CharDef("丁", Element.Heart,

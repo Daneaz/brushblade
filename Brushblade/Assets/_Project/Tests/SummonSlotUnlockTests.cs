@@ -100,7 +100,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.Summon, 100, summonCount: 3, summonAttack: 3, summonChar: "木") }),
             // 扫:一发清场,用来在层间推进(与 RunEngineTests 的 焚 同一个用途)
             new CharDef("扫", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 999) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 999, shape: TargetArea.All) }),
         });
 
         /// <summary>按**层**建引擎:槽位开放集合由解锁表现算,与生产侧同一条路径。

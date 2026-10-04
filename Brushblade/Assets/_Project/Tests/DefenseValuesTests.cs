@@ -270,8 +270,8 @@ namespace Brushblade.CoreTests
             //
             // ⚠ 这个查询的取值范围是**字面意义上的最低**——只扫 CharDef.Effects(支援/主效果
             // 面)里的 DamageSingle,不扫 AttackEffects(双方向字的攻击面,如 冷 的 49)、
-            // 也不扫 DamageAll(如 灭 的 19)。2026-09-07 字表重做 P2 复核过这条范围是否
-            // 该扩大 —— 结论是不用扩:实测(见 task-4b 报告)灭(DamageAll 19,火)打
+            // 也不扫全体伤害(如 灭 的 19)。2026-09-07 字表重做 P2 复核过这条范围是否
+            // 该扩大 —— 结论是不用扩:实测(见 task-4b 报告)灭(全体 19,火)打
             // 水系墨渍会先用自己的 Silence 把目标护甲清零(封禁在同一次施放内先结算),
             // 深度 1~25 全程稳定打出 15 点,不受护甲缩放影响,不是「破不动」的隐患;
             // 真正的隐患是 AttackEffects 里的伤害值(双方向字的攻击面,如 冷 49)在离色
@@ -280,7 +280,7 @@ namespace Brushblade.CoreTests
             var realGraph = RealGraph();
             int lowestTier = realGraph.All
                 .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
-                    .Where(e => e.Kind == EffectKind.DamageSingle && e.Pierce == 0)
+                    .Where(e => e.Kind == EffectKind.DamageSingle && e.Shape != TargetArea.All && e.Pierce == 0)
                     .Select(e => e.Value))
                 .Min();
             // 2026-09-08(P4)45 → 54:原先的最低档是 利 的 45,而 利 随「不能既加攻又能攻击、

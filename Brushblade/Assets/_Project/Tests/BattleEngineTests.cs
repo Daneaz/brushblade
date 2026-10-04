@@ -25,7 +25,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.BurnAll, 3) }),
             new CharDef("然", null),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All), new EffectDef(EffectKind.BurnAll, 1) }),
             // 壁(土系,辟金+土):盾 8(相生 ×3 已取消,元素与配方不再影响倍率)
             new CharDef("壁", Element.Earth, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
@@ -1139,7 +1139,7 @@ namespace Brushblade.Core.Tests
                 new CharDef("丙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 2, summonAttack: 0, summonChar: "C") }),
                 new CharDef("丁", Element.Wood, effects: new[]
                 {
-                    new EffectDef(EffectKind.DamageAll, 5),
+                    new EffectDef(EffectKind.DamageSingle, 5, shape: TargetArea.All),
                     new EffectDef(EffectKind.Summon, 5, summonCount: 4, summonAttack: 0, summonChar: "D"),
                     new EffectDef(EffectKind.Summon, 5, summonCount: 4, summonAttack: 0, summonChar: "D"),
                 }),

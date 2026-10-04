@@ -89,7 +89,7 @@ namespace Brushblade.Core.Tests
             // 焚 橙档全体 240→204(108→77)、蒸 紫档单攻 200→190(120→112)、
             // 刲 橙档单攻 480→409(单段 154→131)。不变量仍是同一条:存的是实战值。
             // 2026-09-30:偷袭取消,刲 的 0.25 × K 预算回流数值,单段 131→159(共 318)。
-            Assert.That(graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll).Value,
+            Assert.That(graph.Get("焚").Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value,
                 Is.EqualTo(77));
             Assert.That(graph.Get("蒸").Effects.First(e => e.Kind == EffectKind.DamageSingle).Value,
                 Is.EqualTo(112));

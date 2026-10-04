@@ -592,7 +592,7 @@ namespace Brushblade.Core
         /// <summary>金脉 L2「锋芒」的**每张字一次**闸门(2026-09-13)。<see cref="ApplyEffects"/>
         /// 进门时置 false,<see cref="RollCrit"/> 首次摇到暴击时兑现并置 true。
         ///
-        /// 为什么要这道闸:DamageAll 分支对每个目标各摇一次暴击,不限制的话一张群攻字
+        /// 为什么要这道闸:全体伤害(DamageSingle + All)对每个目标各摇一次暴击,不限制的话一张群攻字
         /// 暴击 5 个目标就能顶满战意上限,战意从「维持型资源」退化成「开局一张群攻就满」。
         ///
         /// **不进快照**:生命周期只有一次 ApplyEffects 调用,跨不出一张字,更跨不出
@@ -702,7 +702,7 @@ namespace Brushblade.Core
         /// (毫无变化),7 层 → 8(凭空跳一级)。玩家看到的是「有时候有用有时候没用」。</summary>
         public static bool TakesElementPercent(EffectKind kind) => kind switch
         {
-            EffectKind.DamageSingle or EffectKind.DamageAll
+            EffectKind.DamageSingle
                 or EffectKind.HealSelf or EffectKind.HealAll or EffectKind.HealOverTime
                 or EffectKind.Shield or EffectKind.ShieldAll
                 or EffectKind.Bleed
@@ -1581,7 +1581,8 @@ namespace Brushblade.Core
         ///
         /// 只取**第一条** DamageSingle 的 Shape/Shots——与 NeedsTarget
         /// 一样只看首条,不聚合多条直伤(混合多形状直伤字眼下不存在,真出现时预览会只显示
-        /// 第一发,是已知的当前局限而非本次改动引入的新账)。没有单体直伤则返回 (Single, 0)。</summary>
+        /// 第一发,是已知的当前局限而非本次改动引入的新账)。没有单体直伤则返回 (Single, 0)。
+        /// 全体字(DamageSingle + All,spec v7 §11.6)返回 (All, 0)。</summary>
         public static (TargetArea Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false)
         {
             foreach (var effect in EffectsOf(def, attackMode))
@@ -1698,7 +1699,9 @@ namespace Brushblade.Core
         /// <summary>单条效果是否需要敌方目标(NeedsTarget 的逐条判据;特性校验也用它)。</summary>
         public static bool EffectNeedsTarget(EffectDef effect)
         {
-                if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter)
+                // 全体(All)与连发一样不选目标(spec v7 §3.2)
+                if ((effect.Kind == EffectKind.DamageSingle && effect.Shape != TargetArea.Scatter
+                        && effect.Shape != TargetArea.All)
                     || effect.Kind == EffectKind.BurnSingle
                     || effect.Kind == EffectKind.Bleed || effect.Kind == EffectKind.Freeze
                     || effect.Kind == EffectKind.Slow || effect.Kind == EffectKind.ArmorBreak
@@ -2377,7 +2380,7 @@ namespace Brushblade.Core
                 if (!sameSwing)
                     _events.Add(new BattleEvent(BattleEventKind.SummonAttack, tgt, damage, summonIndex));
                 if (damage > 0)
-                    // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle / DamageAll 两处
+                    // 暴击**逐个目标独立摇**,与玩家侧同粒度(见 DamageSingle 分支里
                     // RollCrit 的调用)。attackerBag 让护甲那一步读召唤物自己的穿透而不是玩家的。
                     DamageEnemy(tgt, damage, summon.Element,
                         crit: RollCritForSummon(summon), attackerBag: summon.Statuses,
@@ -2665,7 +2668,7 @@ namespace Brushblade.Core
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
                 value = ApplySpecialtyPercent(value, attacker, effect.Kind);
-                if (moraleRelease && effect.Kind is EffectKind.DamageSingle or EffectKind.DamageAll)
+                if (moraleRelease && effect.Kind == EffectKind.DamageSingle)
                     value = value * (100 + _config.MoraleReleasePercent) / 100;
                 switch (effect.Kind)
                 {
@@ -2681,7 +2684,11 @@ namespace Brushblade.Core
                         for (int t = 0; t < shapeTargets.Count; t++)
                         {
                             int tgt = shapeTargets[t];
-                            bool primary = t == 0;
+                            // All(spec v7 §3.2):每个目标都是主目标 —— 与退役的 DamageAll 逐位一致。
+                            // 因此全体也是逐目标各减各自的护甲(spec §4.4(a)),不是总量只减一次 ——
+                            // 「把总量摊成多份」对点数甲天然有惩罚,这正是「AOE 清杂兵、单体破装甲」
+                            // 那条战术分工的具体形状;代价靠配置口径(带甲怪不成群)兜
+                            bool primary = t == 0 || effect.Shape == TargetArea.All;
                             // 连发每一发都是全额:它没有「主目标 + 溅射」的结构,
                             // N 发是发数不是衰减(spec §3.3)
                             // 弹射逐跳**累乘**(第 t 跳 = ShapePercent^t),其余形状一律
@@ -2752,24 +2759,6 @@ namespace Brushblade.Core
                         }
                         break;
                     }
-                    case EffectKind.DamageAll:
-                        int aoeCount = _enemies.Count; // 分裂产生的新怪不吃同一发 AOE
-                        for (int i = 0; i < aoeCount; i++)
-                        {
-                            if (!_enemies[i].Alive) continue;
-                            if (TryExecuteKill(effect, i)) continue; // 斩杀对每个目标分别判定
-                            // 暴击逐个目标独立摇(2026-08-12),同样排在存活/处决两条守卫之后
-                            // AOE:逐目标各减各自的护甲(spec §4.4(a)),不是总量只减一次 ——
-                            // 「把总量摊成多份」对点数甲天然有惩罚,这正是「AOE 清杂兵、单体破装甲」
-                            // 那条战术分工的具体形状;代价靠配置口径(带甲怪不成群)兜
-                            DamageEnemy(i,
-                                ScaleByAttack(ExecuteBonus(effect, i, BaseValue(effect, value, _enemies[i]))),
-                                attacker, crit: RollCrit(),
-                                pierce: effect.Pierce,
-                                bypassDefense: effect.TrueDamage, // 碾:AOE 每个目标都跳过整条 DR
-                                attackerRef: UnitRef.Player);
-                        }
-                        break;
                     case EffectKind.BurnSingle:
                         if (_enemies[targetIndex].Alive)
                         {
@@ -2847,7 +2836,7 @@ namespace Brushblade.Core
                         // 「资源」随等级涨,「节奏」不涨),而且 −1 这个哨兵值过 ScaleByCardLevel 会算歪
                         if (effect.TargetAll)
                         {
-                            // 与 DamageAll 那句注释不同:这里取值点在本次 ApplyEffects 调用里前面的
+                            // 与全体伤害(All)那句注释不同:这里取值点在本次 ApplyEffects 调用里前面的
                             // 伤害效果已经触发过分裂之后(如湮:DamageSingle 20 + 驱散全部)——分裂
                             // 产生的新怪这时已经在列表里,会被这发驱散扫到。行为上无差别(克隆的
                             // Statuses 是空袋,没有可驱散的增益),纯粹是旧注释说反了(2026-08-06 M8)。
@@ -2901,7 +2890,7 @@ namespace Brushblade.Core
                         // SourceId 用字 ID:同字再出只刷新,不无限叠命中惩罚
                         if (effect.TargetAll)
                         {
-                            int blindCount = _enemies.Count; // 分裂产生的新怪不吃同一发(与 DamageAll 同口径)
+                            int blindCount = _enemies.Count; // 分裂产生的新怪不吃同一发(与全体伤害 All 同口径)
                             for (int i = 0; i < blindCount; i++)
                                 if (_enemies[i].Alive) ApplyBlind(i, value, effect.Turns, def.Id);
                         }
@@ -2953,7 +2942,7 @@ namespace Brushblade.Core
                         break;
                     case EffectKind.Detonate:
                         // 全体引爆(2026-08-26,炸):逐只各爆各的,不选目标。
-                        // 与 DamageAll 同一条纪律:先取表长快照,引爆致死若牵出分裂,
+                        // 与全体伤害(All)同一条纪律:先取表长快照,引爆致死若牵出分裂,
                         // 新怪不进这一发。
                         if (effect.TargetAll)
                         {
@@ -3325,7 +3314,7 @@ namespace Brushblade.Core
         private bool HasDamageEffect(CharDef def, bool attackMode)
         {
             foreach (var e in EffectsOf(def, attackMode))
-                if (e.Kind is EffectKind.DamageSingle or EffectKind.DamageAll) return true;
+                if (e.Kind == EffectKind.DamageSingle) return true;
             return false;
         }
 
@@ -3442,7 +3431,7 @@ namespace Brushblade.Core
                 : kind == StatusKind.Heft ? _config.HeftSpendPercent : _config.WellspringSpendPercent;
             int damage = ScaleByAttack(stacks * perStack * (100 + spendPercent) / 100);
             // 取 Count 快照:分裂(叠字怪)会在循环里往 _enemies 追加,
-            // 新生成的克隆不该被同一发引爆再打一次(与 DamageAll 同口径)。
+            // 新生成的克隆不该被同一发引爆再打一次(与全体伤害 All 同口径)。
             int count = _enemies.Count;
             for (int i = 0; i < count; i++)
                 if (_enemies[i].Alive)
@@ -4086,7 +4075,7 @@ namespace Brushblade.Core
         /// <summary>对敌人结算一记伤害。
         ///
         /// <paramref name="crit"/> 默认 false 是刻意的(2026-08-12,E-b2):本方法有 6 个调用点,
-        /// 只有出牌那两记(DamageSingle / DamageAll)该暴击,另外 4 个 —— 召唤物反击、
+        /// 只有出牌那记(DamageSingle,含全体 All;DamageAll 已并入)该暴击,另外 4 个 —— 召唤物反击、
         /// DamagePlayerDirect 的镜反弹、DamageSummon 的荆反伤与镜反弹 —— 都不是「玩家的一次挥击」。
         /// 所以暴击判定**绝不能写进本方法内部**(那样 6 条全会暴),只能由调用点显式传进来;
         /// 默认 false 让另外 4 个调用点一个字都不用改,这本身也是恒等性的一部分。

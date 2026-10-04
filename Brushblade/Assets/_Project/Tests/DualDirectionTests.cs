@@ -268,7 +268,7 @@ namespace Brushblade.Core.Tests
         public void EveryWaterChar_AttackSideDealsDamage()
         {
             var graph = LoadRealGraph();
-            var damageKinds = new[] { EffectKind.DamageSingle, EffectKind.DamageAll };
+            var damageKinds = new[] { EffectKind.DamageSingle };
             foreach (var id in WaterChars)
             {
                 var def = graph.Get(id);
@@ -375,7 +375,7 @@ namespace Brushblade.Core.Tests
             Assert.That(ShieldAllValueOf(graph, "㙓"),
                 Is.EqualTo(ExpectedGroupShield(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
                 "红档:护盾锚点600 × SHIELD_F × GROUP_F × (1 − (免一次清盾+护甲)×K红);终极技不计价");
-            Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageAll).Value,
+            Assert.That(graph.Get("㙓").AttackEffects.Single(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value,
                 Is.EqualTo(ExpectedAllAttack(CardRarity.Red, "终极技", "免一次清盾", "护甲")),
                 "攻面走全体锚点,与护盾面同一个 ratio");
             Assert.That(ShieldValueOf(graph, "杜"), Is.EqualTo(ExpectedShield(CardRarity.Gold, "免疫1+碾", "护甲")),
@@ -435,10 +435,10 @@ namespace Brushblade.Core.Tests
         /// 2026-09-07 字表重做 P2:焱/燚/焚 现在带的灼烧层数各不相同(焱 3 层 + 灼烧增威、
         /// 燚 5 层 + 全体引爆、焚 4 层),灼烧层数越多、当面直接伤害的预算就被扣得越多
         /// (design §1.4:每层灼烧按三角数折成等价伤害、从直接伤害预算里倒扣)——于是三张字
-        /// 的 DamageAll 数字本身**不再可比**:红档 燚 的当面数字反而比橙档 焱 低,这不是
+        /// 的全体伤害数字本身**不再可比**:红档 燚 的当面数字反而比橙档 焱 低,这不是
         /// 倒挂,是它把强度大头压在灼烧总当量上而不是当面数字上。
         ///
-        /// 继续钉「DamageAll 必须红 > 橙」会把这条测试变成谎言,得换成
+        /// 继续钉「全体伤害必须红 > 橙」会把这条测试变成谎言,得换成
         /// tools/design/rebalance_2026_09_05.py 的 total() 用的口径:总当量 = 直接伤害 +
         /// 灼烧层数按三角数(dot_equiv)折算的等价伤害。这才是这条测试原本想守住的
         /// 不变量本身。</summary>
@@ -449,9 +449,9 @@ namespace Brushblade.Core.Tests
             var yanDef = graph.Get("焱");
             var yiDef = graph.Get("燚");
             var fenDef = graph.Get("焚");
-            int yan = yanDef.Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
-            int yi = yiDef.Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
-            int fen = fenDef.Effects.First(e => e.Kind == EffectKind.DamageAll).Value;
+            int yan = yanDef.Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
+            int yi = yiDef.Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
+            int fen = fenDef.Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All).Value;
             int yanBurn = yanDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
             int yiBurn = yiDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;
             int fenBurn = fenDef.Effects.First(e => e.Kind == EffectKind.BurnAll).Value;

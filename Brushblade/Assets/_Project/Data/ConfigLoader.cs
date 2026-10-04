@@ -608,6 +608,11 @@ namespace Brushblade.Data
             var effects = new List<EffectDef>();
             foreach (var effect in source)
             {
+                // spec v7 §11.6:DamageAll 已退役。单独拦下并写明改法,而不是落进下面那句
+                // 「效果类型未知」—— 旧字表/旧夹具撞上时一眼就知道该怎么改。
+                if (effect.Kind == "DamageAll")
+                    throw new ConfigException(
+                        $"字「{dto.Id}」的效果类型 DamageAll 已退役,用 DamageSingle + shape All");
                 if (!Enum.TryParse<EffectKind>(effect.Kind, out var kind))
                     throw new ConfigException($"字「{dto.Id}」的效果类型未知:{effect.Kind}");
                 var shape = TargetArea.Single;

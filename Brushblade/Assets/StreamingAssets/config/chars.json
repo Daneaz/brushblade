@@ -37,9 +37,10 @@
       "gloss": "火势极盛",
       "effects": [
         {
-          "kind": "DamageAll",
+          "kind": "DamageSingle",
           "value": 86,
-          "doubleVs": "Burning"
+          "doubleVs": "Burning",
+          "shape": "All"
         },
         {
           "kind": "BurnAll",
@@ -64,9 +65,10 @@
       "gloss": "烧毁",
       "effects": [
         {
-          "kind": "DamageAll",
+          "kind": "DamageSingle",
           "value": 77,
-          "doubleVs": "Burning"
+          "doubleVs": "Burning",
+          "shape": "All"
         },
         {
           "kind": "BurnAll",
@@ -86,8 +88,9 @@
       "gloss": "火花飞迸",
       "effects": [
         {
-          "kind": "DamageAll",
-          "value": 99
+          "kind": "DamageSingle",
+          "value": 99,
+          "shape": "All"
         },
         {
           "kind": "BurnAll",
@@ -133,8 +136,9 @@
       "gloss": "迸裂炸开",
       "effects": [
         {
-          "kind": "DamageAll",
-          "value": 4
+          "kind": "DamageSingle",
+          "value": 4,
+          "shape": "All"
         },
         {
           "kind": "BurnAll",
@@ -154,8 +158,9 @@
       "gloss": "骤然爆开",
       "effects": [
         {
-          "kind": "DamageAll",
-          "value": 42
+          "kind": "DamageSingle",
+          "value": 42,
+          "shape": "All"
         },
         {
           "kind": "Detonate",
@@ -176,9 +181,10 @@
       "gloss": "火猛、气盛",
       "effects": [
         {
-          "kind": "DamageAll",
+          "kind": "DamageSingle",
           "value": 44,
-          "doubleVs": "Burning"
+          "doubleVs": "Burning",
+          "shape": "All"
         },
         {
           "kind": "BurnAll",
@@ -624,9 +630,10 @@
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
+          "kind": "DamageSingle",
           "value": 174,
-          "doubleVs": "Controlled"
+          "doubleVs": "Controlled",
+          "shape": "All"
         },
         {
           "kind": "Freeze",
@@ -751,8 +758,9 @@
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 65
+          "kind": "DamageSingle",
+          "value": 65,
+          "shape": "All"
         },
         {
           "kind": "SpendWellspring",
@@ -884,8 +892,9 @@
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 90
+          "kind": "DamageSingle",
+          "value": 90,
+          "shape": "All"
         },
         {
           "kind": "Silence",
@@ -1269,8 +1278,9 @@
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 235
+          "kind": "DamageSingle",
+          "value": 235,
+          "shape": "All"
         },
         {
           "kind": "SpendHeft",
@@ -1536,8 +1546,9 @@
       ],
       "attackEffects": [
         {
-          "kind": "DamageAll",
-          "value": 65
+          "kind": "DamageSingle",
+          "value": 65,
+          "shape": "All"
         },
         {
           "kind": "SpendHeft",
