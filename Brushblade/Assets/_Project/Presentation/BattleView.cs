@@ -46,17 +46,21 @@ namespace Brushblade.Presentation
         // 内边距 → 756,取 780。窄一档就会折行,最后一张孤零零掉到第二排,读起来像
         // 「还有别的选项」。
         // ⚠ 更正(2026-09-02 收尾波):上面那个 9 **不是**字库满员数,只是稿宽倒推出来的
-        // 「不压缩能排下几张」。字库真实上限是 12 ——
+        // 「不压缩能排下几张」。字库真实上限是 11 ——
         //   MetaRules.LibraryCapacityFor = StartingLibrarySize(6) + LibraryCapacitySlack(1)
-        //   + 博闻满级(+3) = 10,再 + RunEngine.ExpandBonus(2,局内广告扩容) = 12。
-        // 10~12 张时按 TileW 铺会溢出净宽,HorizontalLayoutGroup 会按 min…preferred 只压**宽**
+        //   + 博闻两层(+1 +1,Perk.cs lore) = 9,再 + RunEngine.ExpandBonus(2,局内广告扩容) = 11。
+        // 10~11 张时按 TileW 铺会溢出净宽,HorizontalLayoutGroup 会按 min…preferred 只压**宽**
         // 不压高,牌面比例从 0.8 掉到 0.65,而稀有度框是 Image.Type.Simple 直接拉伸 ——
         // 正是 Ui.GlyphTile 自己注释里警告的「牌面被压扁、四角纹样跟着变形」。
         // 面板宽度不改(稿定死了),改成在 DrawReplaceSheet 里按张数反算牌宽、两个维度同比缩。
         private const float ReplaceSheetW = 1633f;   // 稿 780pt
-        private const float ReplaceSheetH = 460f;    // 非稿上 pt 换算:稿 .sheet 只定死了宽,高度是
-                                                      // flex 自适应撑出来的,没有可换算的数;这里是配合
-                                                      // Ui.Sheet 内边距估的容器高度。
+        // 非稿上 pt 换算:稿 .sheet 只定死了宽,高度是 flex 自适应撑出来的,没有可换算的数。
+        // 按内容逐项加(2026-10-04 核算;原 460 比内容矮 12,广告徽章出现时吃掉一半底内边距):
+        //   内边距 24 + 标题 48 + 告警条 46 + 牌行 163 + 取消钮 63 + 广告徽章 63 + 内边距 24
+        //   + 5 道行距 14×5 = 70 → 487,再加 Ui.SheetBorder 上下各 1.5 = 490。
+        //   标题按 33 号 Noto Serif SC 的 hhea 行高 (1151+286)/1000 ≈ 1.44 倍字号算(比
+        //   Ui.WrappedTextHeight 的 1.35 口径保守)。取 500,留 10 余量。
+        private const float ReplaceSheetH = 500f;
         private const float TileW = 130f;            // 稿 .tile 62pt
         private const float TileH = 163f;            // 稿 .tile 78pt
         private const float TileGap = 15f;           // 稿 7pt
@@ -275,13 +279,9 @@ namespace Brushblade.Presentation
         //   · 点「看广告复活」→ RunEngine.TryRevive() 把 Phase 直接改成 RunPhase.Reviving
         //     (不是 InBattle),下一次 Refresh 走 DrawReviveCharStep(),DrawBattleSettle
         //     再也不会被调用;
-        //   · 点「结算」→ AdvanceAfterBattle() 把 Phase 改成 RunPhase.RunLost,下一次
-        //     Refresh 走 DrawRunEnd(),不会再回到 DrawBattleSettle——写这条论证时(轮三
-        //     Task 2)DrawRunEnd 还是老办法,进来只 Find+Destroy 自己的 "RunEndBanner",
-        //     认不得 "SettleBanner" 这个名字;DrawRunEnd 后来也改成了常驻容器(同下面
-        //     _runEndBanner 那段的办法),但结论没变——这条路径本来就不会再进
-        //     DrawBattleSettle,「建前销毁」那句代码不管改成认哪个名字都没有第二次执行
-        //     的机会。
+        //   · 点「结算」→ SettleDefeat():AdvanceAfterBattle() 把 Phase 改成 RunPhase.RunLost
+        //     后直接 _onRunEnded(false) 进塔结算(2026-10-04 败北两屏合一,不再经 DrawRunEnd
+        //     那一屏中转),同样不会再回到 DrawBattleSettle。
         // 两条路径都是「建前销毁那句代码再也没有机会执行第二次」的场景,横幅会原地变成
         // 一层永久拦点击的孤儿全屏罩。按 _eventBody 的办法(常驻 + Refresh 开头 Ui.Clear,
         // 见 Refresh 里对应那行)才对:清空这一步与「当前是不是败北结算」完全解耦。
@@ -3490,8 +3490,9 @@ namespace Brushblade.Presentation
         /// 卡面上一行「≈氵冫」取代,2026-09-01 用户拍板还原四角设计)。
         /// corner:0=右上、1=右下、2=左下、3=左上,从右上起顺时针填。
         ///
-        /// 四个角全部可用。同组最大是金系 5 个(金钅戈刂刀),除自己外 4 个 —— 刚好占满
-        /// 四角,再加成员就得换设计。
+        /// 四个角全部可用。同组最大 3 个(Core/ComponentKin.cs:水氵冫 / 木艹竹 / 金钅刂 /
+        /// 土山石),除自己外最多 2 个,四角绰绰有余;组员涨到 5 个以上(除自己外超 4 个)
+        /// 才得换设计。
         ///
         /// 尺寸 24×14(font 10 / pad 4):窄边距是刻意的(spec §1.6b「小胶囊」),默认
         /// padX=18/padY=12 单个就占掉大半卡宽,四个角一起画会把字形埋掉。传进
@@ -3761,7 +3762,7 @@ namespace Brushblade.Presentation
             effectLabel.verticalOverflow = VerticalWrapMode.Overflow;
 
             // 转位提示(2026-08-15 用户裁定,2026-09-01 用户拍板还原):选中五系部件时,把
-            // **同组全部**可互换的成员列出来 —— 选 氵 显示「⇄ 水 冫」,选 刂 显示「⇄ 金 钅 戈」。
+            // **同组全部**可互换的成员列出来 —— 选 氵 显示「⇄ 水 冫」,选 刂 显示「⇄ 金 钅」。
             //
             // 这与部件卡四角的 ≈X 徽标是**两条不同的口径**,别互相「对齐」:徽标要在一张
             // 67×80 的卡上用最小面积回答「这张能顶谁」,这里是选中后的详情,空间够、给全量,
@@ -3776,8 +3777,9 @@ namespace Brushblade.Presentation
             {
                 if (ComponentKin.TryGetGroup(_selectedChar, out var kinGroup))
                 {
-                    // 拆合台内宽 246(BenchW 276 − 两侧 BenchPad 15)。金系除自己外 4 个是上限:
-                    // 「⇄」20 + 4×38 + 5 个间距×6 = 202,放得下。
+                    // 拆合台内宽 246(BenchW 276 − 两侧 BenchPad 15)。同组最大 3 个(ComponentKin),
+                    // 除自己外 2 个是上限:「⇄」20 + 2×38 + 2 个间距×6 = 108,放得下;
+                    // 宽度上限是除自己外 4 个(20 + 4×38 + 4×6 = 196)。
                     var kinRow = Ui.Row(_suggestRow, "KinVariants", 6).transform;
                     Ui.ThemedLabel(kinRow, "⇄", 16, Theme.TextDim);
                     foreach (var kin in kinGroup)
@@ -3879,7 +3881,7 @@ namespace Brushblade.Presentation
             const float arrowW = 46f;        // 稿 .arrow 22pt
 
             // 牌宽按**张数反算**(2026-09-02 收尾波):稿宽 780pt 只排得下 9 张原尺寸牌,
-            // 而字库真实上限是 12(见 ReplaceSheetW 常量处那笔账)。10 张起铺不下,
+            // 而字库真实上限是 11(见 ReplaceSheetW 常量处那笔账)。10 张起铺不下,
             // HorizontalLayoutGroup 会照 min…preferred 等比压回去 —— 而 Ui.GlyphTile 的
             // LayoutElement 只设了 preferredWidth/Height、minWidth 是 0,布局组压的只有**宽**,
             // 高度照给,牌面比例从 0.8 掉到 0.65;稀有度框素材是 Image.Type.Simple,
@@ -3894,11 +3896,11 @@ namespace Brushblade.Presentation
             //   每张高   = 每张宽 × TileH/TileW   ← 130:163 ≈ 0.8,同比缩才不变形
             //
             // 实算(n = 字库张数):9 → 130.0×163.0(不缩);10 → 123.3×154.6;
-            // 11 → 110.7×138.8;12 → 100.3×125.7。四档总占宽依次 1504 / 1575 / 1563 / 1552,
+            // 11 → 110.7×138.8。三档总占宽依次 1504 / 1575 / 1563,
             // 都在 1582 以内,布局组不会再触发压缩。
             //
             // ⚠ 来牌那张(左边不可点的那张)必须用**同一个** tileSize:它若留在 130 而字库
-            // 缩到 100,一行里两种大小,读起来像两类东西。
+            // 缩到 110,一行里两种大小,读起来像两类东西。
             float netW = ReplaceSheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
             float libAvail = netW - (TileW + arrowW + incomingGap * 2f);
             int tileCount = Mathf.Max(library.Count, 1);   // 防 0 除;实际调用时字库必满
@@ -4009,9 +4011,16 @@ namespace Brushblade.Presentation
             var wrap = Ui.VStack(overlay.transform, "Wrap", 31);   // 稿 .wrap gap 15pt
             Ui.Stretch((RectTransform)wrap.transform);
             wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.ThemedLabel(wrap.transform, Strings.T("battle.phase.defeat_ellipsis"), BannerFont, Theme.CinnabarDark, Theme.TitleFont);
+            // 败北两屏合一(2026-10-04 用户拍板):此前这里先出「败北……」+ 结算钮,点了再进
+            // DrawRunEnd 的「败北」+ msg + 结算钮,同一件事连按两次。现在大字/msg 直接用
+            // DrawRunEnd 败北支那一版,复活徽章夹在 msg 与钮之间,钮一按就走塔结算(SettleDefeat)。
+            bool tower = _onExit != null;
+            Ui.ThemedLabel(wrap.transform, Strings.T("battle.phase.defeat_banner"), BannerFont, Theme.CinnabarDark, Theme.TitleFont);
+            Ui.ThemedLabel(wrap.transform,
+                tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg"),
+                BannerMsgFont, Theme.TextDim);
             // 无尽塔:整次登塔一次广告复活——满血续战 + 补给,让空手也有再战之力(2026-07-24)
-            if (_onExit != null && _run.ReviveAvailable)
+            if (tower && _run.ReviveAvailable)
                 Ui.AdBadge(wrap.transform, Strings.T("battle.btn.ad_revive"),
                     () => AdGate.Watch(AdPlacement.Revive, () =>
                 {
@@ -4021,11 +4030,19 @@ namespace Brushblade.Presentation
                     _message = Strings.T("battle.revive.full_hp_msg");
                     Refresh();
                 }), new Vector2(300, 67)); // 稿 .revive 32pt;宽度非换算值,内容自适应宽度估的
-            Ui.PillButton(wrap.transform, Strings.T("battle.btn.settle"), AdvanceAfterSettle,
-                Theme.InkSoft, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill.ink;
-            // 与 DrawRunEnd 同语境的钮已改成 InkSoft(稿 RunEnd.dc.html 败北支是 .pill.ink,
-            // 不是绿色)——这里原来还是 Jade,两屏连续的败北画面一绿一蓝,读感不一致,
-            // 收尾批次一并改对(2026-09-02)。字号/宽度换算同上一行不变。
+            Ui.PillButton(wrap.transform,
+                tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"), SettleDefeat,
+                Theme.InkSoft, Color.white, 36, new Vector2(400, BannerPillH)); // 稿 .pill.ink 17pt→36
+            _message = "";   // 那句话已经画在横幅里,底部提示行不再重复一遍(同 DrawRunEnd)
+        }
+
+        /// <summary>败北屏「结算」(2026-10-04 两屏合一):不再经 RunLost 那一屏中转。
+        /// 仍先调 <c>AdvanceAfterBattle()</c>——它做 SyncKillInk(最后一击的墨锭)并把 Phase
+        /// 置 RunLost,与旧路径到达 <c>_onRunEnded(false)</c> 时的引擎状态完全一致。</summary>
+        private void SettleDefeat()
+        {
+            _run.AdvanceAfterBattle();
+            _onRunEnded(false);
         }
 
         private bool _bannerRunning; // 横幅协程已起:Refresh 会反复走到这里,防重复
@@ -4139,9 +4156,12 @@ namespace Brushblade.Presentation
             // 没有描边的灰褐实心板。圆角/描边 17,2f 换算见下。
             var detail = Ui.OutlinedPanel(content, "Detail", Theme.PanelInset, Theme.PanelBorder,
                 17, 2f, out var face);    // 稿 .detail 圆角 8pt / 描边 1pt
-            // PickSheetW - 48f:48 = Ui.Sheet 内部 SheetPad(24,private,不能公开引用那个常量)
-            // 的两侧——detail 横条与 foot 行都要贴平 Sheet 内容区的左右边缘,减掉这一圈内边距。
-            Ui.Sized(detail.gameObject, width: PickSheetW - 48f, height: PickDetailH).minHeight = PickDetailH;
+            // 内容区净宽 = PickSheetW − 描边内缩(Ui.SheetBorder×2) − 内边距(Ui.SheetPad×2)
+            // = 1298 − 3 − 48 = 1247 ——detail 横条与 foot 行都要贴平 Sheet 内容区的左右边缘。
+            // (2026-10-04 修:此前写死 PickSheetW − 48,没扣描边,比内容区宽 3。算法同
+            // DrawReplaceSheet 的 netW。)
+            float pickNetW = PickSheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
+            Ui.Sized(detail.gameObject, width: pickNetW, height: PickDetailH).minHeight = PickDetailH;
             var detailStack = Ui.Row(face.transform, "DetailRow", 12);   // 稿上没有对应 gap
             // (.again 是 float:right,不占正常流的 gap),12 是新造的间距,给右浮"再点一次
             // 收下"和效果文本之间留一点呼吸感。
@@ -4156,7 +4176,7 @@ namespace Brushblade.Presentation
 
             var foot = Ui.Row(content, "Foot", 21);   // 稿 .foot gap 10pt
             foot.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Sized(foot, width: PickSheetW - 48f);   // 同上,减掉 Ui.Sheet 内边距的两侧
+            Ui.Sized(foot, width: pickNetW);   // 同上,贴平内容区
             footRow = foot.transform;
         }
 
@@ -5051,6 +5071,8 @@ namespace Brushblade.Presentation
             bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
 
             // 稿 RunEnd.dc.html:整屏纸罩 + 横幅 + 一句 msg + 一个大钮,胜负只换文案与色。
+            // 败北正常已不走这里(2026-10-04 两屏合一,DrawBattleSettle 的钮直接进塔结算);
+            // 败北支留作 Phase 停在 RunLost 时的兜底,版式与 DrawBattleSettle 败北屏一致。
             // 挂在常驻的 _runEndBanner(与 DrawBattleSettle 的 _settleBanner 同一套办法,
             // 没有照抄任务书「建前 transform.Find 销毁」的原方案)——理由见该字段声明处:
             // RunWon/RunLost 虽是终态、_onRunEnded 最终总会经 GameRoot.NewView() 把整个
