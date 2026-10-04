@@ -64,3 +64,4 @@ docs/design/drafts/**/*.html
 # ⚠ 2026-09-08 发现:此前**根本没有这条规则**,于是每个 agent 各自判断要不要 git add ——
 # P2 那批四份没入库、P3 那批四份入了库,同一类文件两种命运。加规则统一掉。
 .superpowers/
+tools/fonts/out/
