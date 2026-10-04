@@ -1027,5 +1027,59 @@ namespace Brushblade.Presentation
             content = contentGo.transform;
             return root;
         }
+
+        /// <summary>横向可滚动区(2026-10-04,角色页右栏首用):结构与 <see cref="ScrollList"/> 同一套
+        /// 三层(ScrollRect → Viewport + RectMask2D + 透明接射线底 → Content),区别只在 Content 的宽:
+        /// <b>宽 = max(视口宽, <paramref name="minWidth"/>)</b>,由 <see cref="FillViewportWidth"/> 维持。
+        /// 宽屏上它就是铺满视口、拖不动(Clamped);窄屏(16:9 的 1600 逻辑宽)上按 minWidth 排版、
+        /// 多出的部分横向滚出来 —— 排版只需按一个宽度验算,不用为每种屏宽各调一套间距。
+        /// Content 竖向铺满视口,调用方往里放一个 Stretch 的布局组即可。</summary>
+        public static GameObject HScrollFill(Transform parent, string name, float minWidth, out RectTransform content)
+        {
+            var root = Panel(parent, name);
+            var scroll = root.AddComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var viewport = Panel(root.transform, "Viewport");
+            var viewportRect = (RectTransform)viewport.transform;
+            Stretch(viewportRect);
+            viewport.AddComponent<RectMask2D>();
+            viewport.AddComponent<Image>().color = new Color(0, 0, 0, 0); // 空白处也能拖,见 ScrollList
+
+            var contentGo = Panel(viewport.transform, "Content");
+            var contentRect = (RectTransform)contentGo.transform;
+            contentRect.anchorMin = Vector2.zero;           // 锚左、竖向铺满
+            contentRect.anchorMax = new Vector2(0f, 1f);
+            contentRect.pivot = new Vector2(0f, 0.5f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = new Vector2(minWidth, 0f);
+            var fill = contentGo.AddComponent<FillViewportWidth>();
+            fill.MinWidth = minWidth;
+            fill.Viewport = viewportRect;
+
+            scroll.viewport = viewportRect;
+            scroll.content = contentRect;
+            content = contentRect;
+            return root;
+        }
+    }
+
+    /// <summary><see cref="Ui.HScrollFill"/> 的 Content 宽 = max(视口宽, MinWidth)。放在 LateUpdate:
+    /// 视口宽要等布局算完才有,而 LateUpdate 之后、渲染之前 Canvas 还会再跑一轮布局,改宽不闪。</summary>
+    public sealed class FillViewportWidth : MonoBehaviour
+    {
+        public float MinWidth;
+        public RectTransform Viewport;
+
+        private void LateUpdate()
+        {
+            if (Viewport == null) return;
+            var rect = (RectTransform)transform;
+            float width = Mathf.Max(MinWidth, Viewport.rect.width);
+            if (!Mathf.Approximately(rect.sizeDelta.x, width))
+                rect.sizeDelta = new Vector2(width, rect.sizeDelta.y);
+        }
     }
 }
