@@ -1838,7 +1838,7 @@ namespace Brushblade.Presentation
             // 读 shownShield 而不是 Battle.PlayerShield:动画期间画出手前值,与血条同一口径。
             if (shownShield > 0)
             {
-                var shieldBadge = Ui.Chip(portrait, shownShield.ToString(), Theme.Info, Color.white,
+                var shieldBadge = Ui.Chip(portrait, shownShield.ToString(), Theme.Gold, Theme.GoldText,
                     ShieldBadgeFontSize, ShieldBadgePadX, ShieldBadgePadY, "shield");
                 var shieldBadgeElement = shieldBadge.GetComponent<LayoutElement>();
                 Ui.Anchor((RectTransform)shieldBadge.transform, Vector2.zero, Vector2.zero,
@@ -1916,17 +1916,17 @@ namespace Brushblade.Presentation
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.AttackBuff) > 0)
-                statusChips.Add(new("", Theme.Success, Color.white, "attack"));
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "attack"));
             // 战意带数字:数字是层数(2026-09-30 起本场保留不衰减、战斗结束清零,不再是倒计时),
             // 层数直接决定攻击乘区,玩家要看「叠到几层了」—— 和旁边那排平量增益不同。
             int morale = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Morale);
-            if (morale > 0) statusChips.Add(new($"{morale}", Theme.Success, Color.white, "morale"));
+            if (morale > 0) statusChips.Add(new($"{morale}", Theme.Gold, Theme.GoldText, "morale"));
             // 暴击(2026-08-12,锋):判据仍读 EffectiveCrit(已钳到 100)而不是状态总量 ——
             // 数字虽然不显示了,但「叠满没叠满」的口径要与详情一致
             if (Battle.EffectiveCrit > 0)
-                statusChips.Add(new("", Theme.Success, Color.white, "crit"));
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "crit"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.PierceBuff) > 0)
-                statusChips.Add(new("", Theme.Success, Color.white, "pierce"));
+                statusChips.Add(new("", Theme.Gold, Theme.GoldText, "pierce"));
             // 护甲 / 闪避 / 速度(2026-08-17 改口径):只在**有增益**时出,不再常驻——
             // 基础值仍能在养成界面看到,局内只报「我从字上攒到了什么」(与穿透同口径)。
             // speed 取 != 0 而非 > 0、正负都只出图标,减了多少与加了多少同样是持续期间的
@@ -1958,7 +1958,7 @@ namespace Brushblade.Presentation
             // 层数为 0 不占格,与其余增益类 chip 同口径。
             int heft = Battle.HeftStacks;
             if (heft > 0)
-                statusChips.Add(new($"{Strings.T("status.heft.chip")}{heft}", Theme.Success, Color.white, null));
+                statusChips.Add(new($"{Strings.T("status.heft.chip")}{heft}", Theme.Gold, Theme.GoldText, null));
             int waterPower = Battle.WellspringStacks;
             if (waterPower > 0)
                 statusChips.Add(new($"{Strings.T("status.wellspring.chip")}{waterPower}", Theme.Jade, Color.white, null));
@@ -2065,7 +2065,7 @@ namespace Brushblade.Presentation
                 // 护盾角标(稿 .ally .sh,与敌人格同一判据):叠在立绘左下角,Shield > 0 才画
                 if (summon.Shield > 0)
                 {
-                    var badge = Ui.Chip(glyph.transform, summon.Shield.ToString(), Theme.Info, Color.white,
+                    var badge = Ui.Chip(glyph.transform, summon.Shield.ToString(), Theme.Gold, Theme.GoldText,
                         ShieldBadgeFontSize, ShieldBadgePadX, ShieldBadgePadY, "shield");
                     var badgeElement = badge.GetComponent<LayoutElement>();
                     Ui.Anchor((RectTransform)badge.transform, Vector2.zero, Vector2.zero,
@@ -2543,8 +2543,8 @@ namespace Brushblade.Presentation
             //     诅咒、破甲、减速、致盲、封字,以及全部平量增益(甲/闪/弹/攻/暴/锐)。
             //
             // 加新状态时按这条分:问「玩家盯着这个数字看,是在等它变小吗?」
-            // 前景:2026-10-04 起状态 chip 底只剩朱砂 / 浓墨 / 铜绿,一律白字(原赭金底压 GoldText)
-            Color Fg(Color bg) => Color.white;
+            // 前景跟底色走:赭金底上白字/白图标只有 2.3:1,改压 GoldText(2026-09-19)
+            Color Fg(Color bg) => bg == Theme.Gold ? Theme.GoldText : Color.white;
             void Decaying(StatusKind kind, string icon, Color bg)  // 量随回合变小,带数字
             {
                 int n = st.TotalMagnitude(kind);
@@ -2574,10 +2574,10 @@ namespace Brushblade.Presentation
             Flag(StatusKind.DefenseBuff, "defense", Theme.Jade);
             Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
             Flag(StatusKind.Reflect, "reflect", Theme.Jade);
-            Flag(StatusKind.AttackBuff, "attack", Theme.Success);
-            Decaying(StatusKind.Morale, "morale", Theme.Success);   // 战意:数字是层数(本场不衰减)
-            Flag(StatusKind.CritBuff, "crit", Theme.Success);
-            Flag(StatusKind.PierceBuff, "pierce", Theme.Success); // 锐:用户点名要看见的那一条
+            Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
+            Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
+            Flag(StatusKind.CritBuff, "crit", Theme.Gold);
+            Flag(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
             if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)
                 chips.Add(new("", Theme.Jade, Color.white, "speed"));
         }
@@ -2862,7 +2862,7 @@ namespace Brushblade.Presentation
                 // 护盾角标(稿 .sh):叠在立绘左下角,Shield > 0 才画(与护盾条同一判据)
                 if (enemy.Shield > 0)
                 {
-                    var badge = Ui.Chip(portrait.transform, enemy.Shield.ToString(), Theme.Info, Color.white,
+                    var badge = Ui.Chip(portrait.transform, enemy.Shield.ToString(), Theme.Gold, Theme.GoldText,
                         ShieldBadgeFontSize, ShieldBadgePadX, ShieldBadgePadY, "shield");
                     var badgeElement = badge.GetComponent<LayoutElement>();
                     Ui.Anchor((RectTransform)badge.transform, Vector2.zero, Vector2.zero,

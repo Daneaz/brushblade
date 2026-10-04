@@ -144,7 +144,7 @@ html,body{margin:0;background:var(--paper)}
 .sc.inf { background: var(--ink-soft); }                               /* 冻结 / 减速 / 致盲 / 沉默 / 诅咒 / 破甲(只图标) */
 .sc.pas { background: var(--cinnabar); }                               /* 召唤物被动特性(只图标) */
 .sc.buff-jade { background: var(--jade); }                             /* 恢复类正面状态 */
-.sc.buff-gold { background: var(--jade); color: #fff; }               /* 攻 / 战意 / 暴 / 锐 / 重:2026-10-04 起同为铜绿白字 */
+.sc.buff-gold { background: var(--gold); color: var(--gold-text); }    /* 攻 / 战意 / 暴 / 锐:赭金底压 GoldText */
 /* ChipFlow:按**行数**截断 —— 敌人格与前排召唤格最多 2 行、后排召唤格 1 行,从尾部丢、补「+N」 */
 .scs { display: flex; flex-wrap: wrap; gap: 1.43px 1.91px; width: 100%; }
 .sc.more { background: var(--text-mute); }
@@ -159,9 +159,9 @@ html,body{margin:0;background:var(--paper)}
 .foe .atb { height: 2.87px; width: 100%; border-radius: 1.43px; background: var(--paper-dim); overflow: hidden; }
 .foe .atb > span { display: block; height: 100%; background: var(--ink-soft); }
 .foe .atb.soon > span { background: var(--cinnabar); }
-/* 护盾角标(三种单位同一枚):Ui.Chip 字 14 / padX 4 / padY 3,Info(ink-soft)底白字,贴立绘左下、边距 4 */
+/* 护盾角标(三种单位同一枚):Ui.Chip 字 14 / padX 4 / padY 3,Gold 底 GoldText,贴立绘左下、边距 4 */
 .sb { position: absolute; left: 1.91px; bottom: 1.91px; height: 8.12px; box-sizing: border-box; border-radius: 9999px;
-  background: var(--ink-soft); color: #fff; font-family: var(--font-sans); font-size: 6.69px; z-index: 3;
+  background: var(--gold); color: var(--gold-text); font-family: var(--font-sans); font-size: 6.69px; z-index: 3;
   font-variant-numeric: tabular-nums; }
 .sb .ic { position: absolute; left: 0.96px; top: 50%; width: 8.60px; height: 8.60px; transform: translateY(-50%); }
 .sb .t { position: absolute; top: 0; bottom: 0; left: 10.03px; right: 0; display: flex; align-items: center; justify-content: center; }

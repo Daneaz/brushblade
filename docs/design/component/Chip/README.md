@@ -7,7 +7,7 @@
 | 档 | 字号 / padX / padY | 用在哪 | 调用点 |
 | --- | --- | --- | --- |
 | 单位格 | 15 / 10 / 5 | 战斗里敌人格、召唤物格、执笔人状态栏 | `BattleView` 常数 `UnitChipFontSize/PadX/PadY`；用于执笔人状态 `ChipFlow`、召唤物与敌人格的 `ChipFlow` 与单枚 chip |
-| 护盾角标 | 14 / 4 / 3 + `shield` 图标 | 执笔人、召唤物、敌人立绘上的护盾数，`ink-soft` 底白字 | `BattleView` 常数 `ShieldBadgeFontSize/PadX/PadY`（三种单位共用） |
+| 护盾角标 | 14 / 4 / 3 + `shield` 图标 | 执笔人、召唤物、敌人立绘上的护盾数，`gold` 底 `gold-text` | `BattleView` 常数 `ShieldBadgeFontSize/PadX/PadY`（三种单位共用） |
 | 列表 | 18 / 18 / 12 | 卡组详情的特性与词组、筛选页签计数、升级弹窗差异行的 chip、商城宝箱的「几种 · 几张」「几小时」 | `CollectionView.BuildFilterTab` / `DeltaRow`、`CharSheetSections`（特性段）、`ShopView`（宝箱格） |
 | 图鉴列表 | 16 / 18 / 12 | 图鉴行内的射程/锁定/护甲 | `BestiaryView`（行内 `ChipFlow`） |
 | 页头 | 20 / 18 / 12 | 收集页「未拥有 N」「新字 N」、图鉴「N 条待领赏」 | `CollectionView.BuildTopBar`、`BestiaryView`（顶栏） |
@@ -27,7 +27,7 @@
 | 「+N」计数 | 同本行 / **4** / 同本行 | `ChipFlow` 截断时自己补的标记，`paper-dim` 底 `text-main`，比真 chip 紧得多 | `Ui.ChipCountPadX` |
 
 ## 配色
-- 战斗状态（2026-10-04 五色语义）：朱砂 = 持续伤害与威胁；`ink-soft` 浓墨 = 控制与减益（冻结、减速、致盲、沉默、破甲）；`jade` 铜绿 = 一切增益（恢复、守，以及攻 / 战意 / 暴 / 锐 / 重）。三种底**一律白字**；赭金是 Warning，不再做状态 chip 底。护盾角标走 `ink-soft` 白字。
+- 战斗状态（自成一套身份色，不套五色语义，2026-10-04 用户拍板保留）：朱砂 = 持续伤害与威胁；`ink-soft` = 控制与减益（冻结、减速、致盲、沉默、破甲）；铜绿 = 恢复与防御增益；赭金 = 攻击类增益与护盾，**赭金底一律压 `gold-text`**（白字只有 2.5:1）。
 - 单位格的属性徽章压的是 **`<el>-glyph` 字形色**，不是 `<el>` 原色（`BattleView` 召唤物格与敌人格两处，今天在 `2010` `2798`，2026-09-19 改）。
 - 卡组详情的特性 chip 走 `CardTraits.ChipColor`：灼烧族朱砂、冻结族水字形色、控制族心字形色、护盾族土字形色、荆棘族木字形色、其余 `ink-soft`。
 - 页头计数：`panel-inset` 底配 **`text-dim`**（2026-09-21 从 `text-faint` 压深，4.29 → 5.05:1），或朱砂底白字。
