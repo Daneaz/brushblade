@@ -539,7 +539,7 @@ namespace Brushblade.Presentation
                 if (!chest.AdUsed)
                 {
                     long cut = ChestRules.AdReductionSeconds[(int)chest.Tier - 1];
-                    Ui.AdBadge(actions.transform, $"-{cut / 60}m",
+                    Ui.AdBadge(actions.transform, Strings.T("map.chest.ad_cut", ("minutes", cut / 60)),
                         () => AdGate.Watch(AdPlacement.ChestBoost,
                             () => Do(() => ChestRules.TryApplyAdBoost(chest))), new Vector2(72, 46));
                 }

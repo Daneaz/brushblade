@@ -32,7 +32,7 @@
 - 按钮行开了 `childForceExpandWidth`：**150 / 72 是 preferredWidth 不是定宽**，余量按 flexible 均分 —— 单钮铺满整行、双钮各占一半。
 - 宝箱同时只能开一只：`start.interactable = !AnyChestTiming()`，其余格的「开始开启」置灰。uGUI 只把 disabledColor(0.78,0.78,0.78,0.5) 乘在**底图**上，子节点的 `Text` 不受影响 —— 底色淡成半透、白字仍是纯白。
 - `Ui.AdBadge` 的字号/圆角/间距按高度相对稿基准 63 缩放：72×46 这枚 scale 0.730 → 字号 15（7.17）、圆角 23（10.99）、间距 3.49、播放三角 5.23×5.93、描边 1.5（0.72）。
-- 广告缩短的量是 `AdReductionSeconds[tier-1] / 60`：素纸 5m / 竹简 30m / 青瓷 40m / 紫檀 60m / 鎏金 90m / 朱漆 105m / 赤霄 120m；卡片示例的鎏金匣是 `-90m`。墨锭价 = `InkCostToSkip` = `⌈剩余秒 / 120⌉`（最少 1）。
+- 广告缩短的量是 `AdReductionSeconds[tier-1] / 60`：素纸 5m / 竹简 30m / 青瓷 40m / 紫檀 60m / 鎏金 90m / 朱漆 105m / 赤霄 120m；卡片示例的鎏金匣是 `−90m`（字符串表 `map.chest.ad_cut`「−{minutes}m」，负号是 U+2212）。墨锭价 = `InkCostToSkip` = `⌈剩余秒 / 120⌉`（最少 1）。
 - 「已就绪」是主界面唯一的常驻动效（`ChestView.Update`，周期 1.6s、三段同相）：光晕 alpha 0.45↔1、盖缝 0.55↔1、箱身起伏 = **边长 × 2.5/120**（84 的立绘上是 1.75 逻辑单位 ≈ 0.84pt）。
 - 三态**只换叠加层、不换底图**：一只箱一张 `body` 素材 + 一张 `seam`，另有与箱型无关的 `chest_fx_ready` / `chest_fx_timing` 两张。箱色 `Theme.ChestColor(tier)` = `RarityColor(RarityOf(tier))`，与卡牌七档同一套色。
 - 暂存箱只在四格占满时存在：`Rebuild` 开头的 `ChestRules.DrainPendingChests` 会把暂存箱补进空位，所以「有空位 + 有暂存 chip」不会同时出现（本卡示例有空位，因此不画 chip）。
@@ -65,5 +65,4 @@
 
 - **Unity 的 `UI.Text` 没有字距设置**：稿上所有 `letter-spacing` 在实现里恒为 0。标题里的间隔是**写进字符串**的空格（「字 · 斗」「续 爬」「登 塔」），不是排版属性。
 - 段位行与本趟账目在稿上把数字挑出来放大加朱砂，实现里各是**一个** `Ui.ThemedLabel`、一种颜色 —— Unity 的 `Text` 不分段着色。
-- 广告钮上的「-90m」这行文案**硬编码在 `DrawChest`**（`MapView.cs:542`，`$"-{cut / 60}m"`），没走字符串表；用的是 ASCII `-`，不是设计系统规定的 `−`（U+2212）。
 - `component/bundle.css` 的 `.zd-btn--ad` 照抄了宝箱钮的字号 9.08 / 圆角 6.69，与 72×46 这枚 `AdBadge` 的缩放值对不上；本卡 `preview.html` 用 `.dev .zd-btn--ad` 就地覆盖成实现值。通用的 `.zd-btn[disabled]`（`locked-bg` 底、`text-dim` 字）也不是 uGUI 的置灰路径，本卡同样就地覆盖。

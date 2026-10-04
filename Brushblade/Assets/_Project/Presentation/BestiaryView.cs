@@ -813,10 +813,12 @@ namespace Brushblade.Presentation
         {
             var section = Section(parent, Strings.T("bestiary.side.section.ability"));
             string name, text, iconKey = null;
+            Color chipColor;
             if (IsBoss(def))
             {
                 var phase = def.Phases[_phase];
                 name = EnemyInfo.BossSkillName(phase.Skill);
+                chipColor = Theme.BossSkillChipColor(phase.Skill);
                 // 大招说明后面必须跟蓄力节拍:光说「放大招」答不了「隔几回合放一次」,
                 // 而那是玩家排 Boss 战节奏时唯一要算的东西(旧的图鉴弹窗一直印着这句)
                 text = EnemyInfo.BossSkillText(phase.Skill) + "\n" + EnemyInfo.ChargeRuleText();
@@ -827,6 +829,7 @@ namespace Brushblade.Presentation
                 name = info.Name;
                 text = info.Desc;
                 iconKey = info.IconKey;
+                chipColor = Theme.AbilityChipColor(def.Ability);
             }
 
             if (string.IsNullOrEmpty(name))
@@ -861,7 +864,8 @@ namespace Brushblade.Presentation
             var head = Ui.Row(stack.transform, "Head", 8);
             head.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Sized(head, 0, 34, flexWidth: 1);
-            Ui.Chip(head.transform, name, Theme.Cinnabar, Color.white, 24, iconKey: iconKey);
+            // chip 底色与战斗详情 / 怪物预览同一套(恢复类 jade、信息类 ink-soft、其余朱砂)
+            Ui.Chip(head.transform, name, chipColor, Color.white, 24, iconKey: iconKey);
 
             var label = Ui.ThemedLabel(stack.transform, text, 21, Theme.TextMain);
             label.alignment = TextAnchor.UpperLeft;

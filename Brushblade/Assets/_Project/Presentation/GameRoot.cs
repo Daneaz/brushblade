@@ -520,12 +520,12 @@ namespace Brushblade.Presentation
             BalanceCorner(view.transform); // Boss 层那笔墨锭的飘字落点
 
             // 稿 SafeLayer.dc.html。宣纸卡居中,内容自上而下:
-            // 标题 → 段位 → 滚存 → 三项状态 → 两条路(各占一半,取舍写在钮下面) → risk 行。
+            // 标题 → 段位 → 本趟已挣墨锭 → 三项状态 → 两条路(各占一半,取舍写在钮下面) → risk 行。
             // 换算 1pt = 2.093 逻辑单位(稿头注:932×430pt 对 1950×900 画布)。
             const float PanelW = 1340f;   // 稿 .panel 640pt
             // 估:稿上 .panel 高度由内容撑开,没有标称值。按仓库自己的行高口径
             // (Ui.WrappedTextHeight 的 1.35 倍字号)逐项加:内边距 80 + 标题 62 + 段位 30
-            // + 滚存行 96 + 状态行 28 + forks 151 + risk 26 + 5 段 gap 95 = 568,
+            // + 本趟已挣行 96 + 状态行 28 + forks 151 + risk 26 + 5 段 gap 95 = 568,
             // 再加 OutlinedPanel 上下各 2 的描边内缩 = 572。620 留 48 的余量(上下各 24)。
             const float PanelH = 620f;
             var card = Ui.OutlinedPanel(view.transform, "Panel", Theme.PanelPaper, Theme.PanelBorder,
@@ -545,7 +545,7 @@ namespace Brushblade.Presentation
                     ("rank", EndlessRules.RankTitle(_meta.BestDepth)), ("depth", _meta.BestDepth)),
                 22, Theme.TextDim);                                // 稿 .sub 10.5pt
 
-            // 滚存:大金数字 + 单位小字(稿 .roll)。这里刻意不用 IngotLabel ——
+            // 本趟已挣墨锭:大金数字 + 单位小字(稿 .roll)。这里刻意不用 IngotLabel ——
             // 稿上这一处没有墨锭图标,数字本身就是主角
             var roll = Ui.Row(stack.transform, "Roll", 15);        // 稿 .roll gap 7pt
             roll.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
@@ -683,7 +683,7 @@ namespace Brushblade.Presentation
         /// <summary>账户余额角标(2026-08-30):安全层与结算页这两个过场页本来没有余额栏,
         /// 于是打完 Boss 那笔墨锭入账时飘字没有落点 —— 得等回到主界面才补飘一次,
         /// 而那正是玩家最想当场看见它的时刻。位置与其余页签的顶栏余额同侧,读作「账户」,
-        /// 与卡片里的「本趟已挣 / 这趟收成」是两个数,不会混。</summary>
+        /// 与卡片里的「本趟已挣墨锭」是两个数,不会混。</summary>
         private static void BalanceCorner(Transform parent)
         {
             var row = Ui.Row(parent, "Balance", 8);
