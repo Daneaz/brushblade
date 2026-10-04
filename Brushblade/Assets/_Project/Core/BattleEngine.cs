@@ -690,8 +690,7 @@ namespace Brushblade.Core
         }
 
         /// <summary>技能树专精的百分比(甘霖 HealPercent / 筑垒 ShieldPercent / 深根 SummonHpPercent)。
-        /// 也是 Amplify 的「同轴项」(spec v7 §6.1.3,Ruling 5):本字 +X% 与它相加而不是相乘。
-        /// 伤害目前没有专精项 —— 返回 0,Amplify 对伤害退化为 (100 + Σ)/100。</summary>
+        /// 伤害没有专精项,返回 0。Amplify 的同轴项见 <see cref="AmpAxisPercent"/>。</summary>
         private int SpecialtyPercentOf(Element attacker, EffectKind kind)
         {
             if (_config == null) return 0;
@@ -814,6 +813,12 @@ namespace Brushblade.Core
             if (percent == 0 || !TakesElementPercent(kind)) return value;
             return value * (100 + percent) / 100;
         }
+
+        /// <summary>Amplify 的同轴项 P(spec v7 §6.1.3,Ruling 5/6):技能树对本系字的同类加成之和 ——
+        /// 五行 L3(与 <see cref="ApplyElementPercent"/> 同一来源与白名单)+ 专精(<see cref="SpecialtyPercentOf"/>)。
+        /// 伤害 = L3;治疗 = L3 + 甘霖;护盾 = L3 + 筑垒。攻击力缩放与断金是独立乘区,不在内。</summary>
+        private int AmpAxisPercent(Element attacker, EffectKind kind) =>
+            (TakesElementPercent(kind) ? ElementPercentOf(attacker) : 0) + SpecialtyPercentOf(attacker, kind);
 
         /// <summary>该元素的五行 L3 加成(百分点);没有配置表或索引越界一律 0。</summary>
         private int ElementPercentOf(Element element)
@@ -2882,11 +2887,11 @@ namespace Brushblade.Core
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
                 value = ApplySpecialtyPercent(value, attacker, effect.Kind);
-                // Amplify(D1 Task 3 / Ruling 5):与专精同轴相加,紧跟专精之后并进它那一项。
+                // Amplify(D1 Task 3 / Ruling 5、6):与 L3 + 专精同轴相加,紧跟专精之后并进那一项。
                 // 伤害按每一击的目标在 BaseValue 里求和(目标相关条件);格挡的加成落在反击量上(Block 分支)。
                 // 无加成项时整句跳过。
                 if (effect.AmpTerms.Count > 0 && effect.Kind != EffectKind.DamageSingle && effect.Kind != EffectKind.Block)
-                    value = Amplified(value, AmpPercent(effect, targetIndex), SpecialtyPercentOf(attacker, effect.Kind));
+                    value = Amplified(value, AmpPercent(effect, targetIndex), AmpAxisPercent(attacker, effect.Kind));
                 if (moraleRelease && effect.Kind == EffectKind.DamageSingle)
                     value = value * (100 + _config.MoraleReleasePercent) / 100;
                 switch (effect.Kind)
@@ -4348,10 +4353,10 @@ namespace Brushblade.Core
         /// <see cref="DamageCondition"/>),再进生克结算 —— 翻倍与相生 ×3 是**相乘**关系。</summary>
         private int BaseValue(EffectDef effect, int scaledValue, int enemyIndex, Element attacker)
         {
-            // Amplify(D1 Task 3 / Ruling 5):按这一击的目标对满足条件的加成项求和,并进专精同轴项一次乘入
-            // (spec §6.1.3)。同轴项在这里按 attacker 现读(scaledValue 已乘过它);伤害当前没有专精项,读出 0。
+            // Amplify(D1 Task 3 / Ruling 5、6):按这一击的目标对满足条件的加成项求和,并进同轴项一次乘入
+            // (spec §6.1.3)。同轴项按 attacker 现读(scaledValue 已乘过它);伤害的同轴项 = 五行 L3。
             if (effect.AmpTerms.Count > 0)
-                scaledValue = Amplified(scaledValue, AmpPercent(effect, enemyIndex), SpecialtyPercentOf(attacker, effect.Kind));
+                scaledValue = Amplified(scaledValue, AmpPercent(effect, enemyIndex), AmpAxisPercent(attacker, effect.Kind));
             return PreCastConditionMet(effect.DoubleVs, enemyIndex) ? scaledValue * 2 : scaledValue;
         }
 

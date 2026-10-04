@@ -417,18 +417,71 @@ namespace Brushblade.Core.Tests
             Assert.That(Healed(Def(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30, AmpScope.Heal)))), Is.EqualTo(177));
         }
 
-        [Test]
-        public void Amplify_Damage_HasNoSpecialtyAxis_PlainPercent()
+        /// <summary>五行 L3 加成表:只给指定元素配 percent,其余 0(下标 = (int)Element)。</summary>
+        private static int[] L3(Element element, int percent)
         {
-            // 伤害当前没有技能树专精项(SpecialtyPercentOf 对 DamageSingle 恒 0):即便配了 Heal/ShieldPercent,
-            // 伤害 Amplify 仍是 (100+Σ)/100 —— 118 × 130/100 = 153.4 → 154
+            var table = new int[6];
+            table[(int)element] = percent;
+            return table;
+        }
+
+        [Test]
+        public void Amplify_Damage_AxisIsElementL3()
+        {
+            // 修复第 2 轮(Ruling 6):伤害的同轴项 P = 五行 L3。心系字 L3 +20,Amplify +30,Lv4
             var config = new BattleConfig
             {
-                PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100, HealPercent = 20, ShieldPercent = 20,
+                PlayerMaxHp = RebalanceFixture.BaseMaxHp, PlayerAttack = 100,
+                ElementEffectPercent = L3(Element.Heart, 20),
             };
-            var b = Battle(Dmg(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30))), 4, config);
-            b.Cast("试", 0);
-            Assert.That(Hp - b.Enemies[0].Hp, Is.EqualTo(154));
+            var plain = Battle(Dmg(), 4, config);
+            plain.Cast("试", 0);
+            // 118 × 120/100 = 141.6 → 141
+            Assert.That(Hp - plain.Enemies[0].Hp, Is.EqualTo(141));
+
+            var amp = Battle(Dmg(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30))), 4, config);
+            amp.Cast("试", 0);
+            // 141 × (100+20+30)/(100+20) = 176.25 → 177 = 118 × 1.50(连乘 ⌈141 × 1.3⌉ = 184)
+            Assert.That(Hp - amp.Enemies[0].Hp, Is.EqualTo(177));
+        }
+
+        [Test]
+        public void Amplify_HealAndShield_AxisIsL3PlusSpecialty()
+        {
+            // 治疗:水系 L3 +10、甘霖 HealPercent +10 → P = 20;Amplify Heal +30,Lv4
+            var healConfig = new BattleConfig
+            {
+                PlayerMaxHp = 1000, PlayerAttack = 100, HealPercent = 10,
+                ElementEffectPercent = L3(Element.Water, 10),
+            };
+            int Healed(params TraitDef[] traits)
+            {
+                var b = Battle(new CharDef("试", Element.Water,
+                    effects: new[] { new EffectDef(EffectKind.HealSelf, 100) }, traits: traits), 4, healConfig);
+                b.DamagePlayerForTest(800);
+                int before = b.PlayerHp;
+                b.Cast("试", -1);
+                return b.PlayerHp - before;
+            }
+            // 118 → L3 ×110/100 = 129.8 → 129 → 甘霖 ×110/100 = 141.9 → 141
+            Assert.That(Healed(), Is.EqualTo(141));
+            // 141 × (100+20+30)/(100+20) = 176.25 → 177。只算专精(P=10)会是 141×140/110 = 179.5 → 180
+            Assert.That(Healed(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30, AmpScope.Heal))), Is.EqualTo(177));
+
+            // 护盾:土系 L3 +10、筑垒 ShieldPercent +10 → P = 20;Amplify Shield +30,Lv4。数字同上
+            var shieldConfig = new BattleConfig
+            {
+                PlayerMaxHp = 1000, PlayerAttack = 100, ShieldPercent = 10,
+                ElementEffectPercent = L3(Element.Earth, 10),
+            };
+            CharDef Wall(params TraitDef[] traits) => new("试", Element.Earth,
+                effects: new[] { new EffectDef(EffectKind.Shield, 100) }, traits: traits);
+            var plain = Battle(Wall(), 4, shieldConfig);
+            plain.Cast("试", -1);
+            Assert.That(plain.PlayerShield, Is.EqualTo(141));
+            var amp = Battle(Wall(Trait(TraitSlot.Lv4, TraitForm.Passive, Amp(30, AmpScope.Shield))), 4, shieldConfig);
+            amp.Cast("试", -1);
+            Assert.That(amp.PlayerShield, Is.EqualTo(177));
         }
 
         [Test]
