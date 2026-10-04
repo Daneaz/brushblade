@@ -418,7 +418,7 @@ namespace Brushblade.Presentation
             Ui.Sized(labelText.gameObject, flexWidth: 1);
 
             var statusText = Ui.ThemedLabel(stack.transform, status, 16,
-                met ? Theme.DoneGreen : Theme.ExitPink, Theme.TitleFont);
+                met ? Theme.Success : Theme.CinnabarDark, Theme.TitleFont);
             statusText.alignment = TextAnchor.MiddleLeft;
             statusText.horizontalOverflow = HorizontalWrapMode.Wrap;
             Ui.Sized(statusText.gameObject, flexWidth: 1, flexHeight: 1);

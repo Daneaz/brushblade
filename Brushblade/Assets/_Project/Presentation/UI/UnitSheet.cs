@@ -173,8 +173,8 @@ namespace Brushblade.Presentation
             if (detail.Shield > 0)
             {
                 string shieldText = detail.Shield.ToString();
-                var badge = Ui.Chip(mount, shieldText, Theme.RarityColor(CardRarity.Gold),
-                    Theme.GoldText, 11, 6, 4, "shield");
+                var badge = Ui.Chip(mount, shieldText, Theme.Info,
+                    Color.white, 11, 6, 4, "shield");
                 // 手动摆位(mount 不是布局组的托管子物体),尺寸要照抄 Chip 内部的算法——
                 // 图标(Icons.Size)+ 间隙(Icons.Gap)+ 文字宽,和 Chip 自己挂的 LayoutElement
                 // 用的是同一条公式,否则命中区/可见区会和画出来的胶囊对不上。
@@ -237,7 +237,7 @@ namespace Brushblade.Presentation
             hpText.alignment = TextAnchor.MiddleRight;
 
             float shieldFrac = detail.MaxHp > 0 ? Mathf.Min(1f, detail.Shield * 4f / detail.MaxHp) : 0f;
-            Ui.Bar(bars.transform, shieldFrac, Theme.RarityColor(CardRarity.Gold), new Vector2(InfoWidth, 5));
+            Ui.Bar(bars.transform, shieldFrac, Theme.Info, new Vector2(InfoWidth, 5));
 
             float actionFrac = Mathf.Clamp01(detail.ActionMeter / (float)TurnScheduler.Threshold);
             Ui.Bar(bars.transform, actionFrac, Theme.InkSoft, new Vector2(InfoWidth, 5));

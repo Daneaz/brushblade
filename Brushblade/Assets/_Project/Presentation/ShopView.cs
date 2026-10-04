@@ -378,7 +378,7 @@ namespace Brushblade.Presentation
             cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
             Ui.Sized(cell, width: CardSize.x, flexWidth: 0);
 
-            var face = EmptyWell(cell.transform, "Well", next ? Theme.Gold : Theme.PanelBorder);
+            var face = EmptyWell(cell.transform, "Well", next ? Theme.RarityGold : Theme.PanelBorder);
             var stack = Ui.VStack(face, "Stack", 2);
             Ui.Stretch((RectTransform)stack.transform);
             Ui.ThemedLabel(stack.transform, Strings.T("shop.slot.locked_title", ("level", unlockLevel)),
@@ -417,7 +417,7 @@ namespace Brushblade.Presentation
             bool poor = !sold && _meta.Ink < price;
             var button = Ui.RoundButton(parent, label,
                 onClick,
-                sold ? Theme.LockedBg : poor ? Theme.PanelInset : Theme.Ink,
+                sold ? Theme.LockedBg : poor ? Theme.PanelInset : Theme.Info,
                 sold ? Theme.LockGray : poor ? Theme.CinnabarDark : Color.white,
                 19, new Vector2(width, BuyH), 14);
             button.interactable = !sold && !poor;
@@ -448,7 +448,7 @@ namespace Brushblade.Presentation
         /// (与 CardBadges 那枚角旗同一个坑,见该处说明)。</summary>
         private static void SoldSeal(GameObject tile, string text)
         {
-            var seal = Ui.Chip(tile.transform, text, Theme.Cinnabar, Color.white, 21);
+            var seal = Ui.Chip(tile.transform, text, Theme.Info, Color.white, 21);
             var element = seal.GetComponent<LayoutElement>();
             Ui.Anchor((RectTransform)seal.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(-element.preferredWidth / 2f, -element.preferredHeight / 2f),
@@ -566,7 +566,7 @@ namespace Brushblade.Presentation
                     slotsFull
                         ? Strings.T("shop.chest.slot_full_body", ("count", ChestRules.SlotLimit), ("limit", ChestRules.SlotLimit))
                         : Strings.T("shop.chest.buy_fail_body", ("chestName", chestName), ("price", Ui.InkText(price)), ("ink", Ui.InkText(_meta.Ink)))),
-                sold || slotsFull ? Theme.LockedBg : _meta.Ink < price ? Theme.PanelInset : Theme.Ink,
+                sold || slotsFull ? Theme.LockedBg : _meta.Ink < price ? Theme.PanelInset : Theme.Info,
                 sold || slotsFull ? Theme.LockGray : _meta.Ink < price ? Theme.CinnabarDark : Color.white,
                 19, new Vector2(0, BuyH), 14);
             buy.GetComponent<LayoutElement>().flexibleWidth = 1;

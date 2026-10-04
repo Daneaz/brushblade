@@ -28,7 +28,7 @@ namespace Brushblade.Presentation
             layout.padding = new RectOffset(38, 38, (int)PadV, (int)PadV);
 
             // 抬头两行给定高(= 字号 × 1.45,Noto 的行高),两栏的高要按它们反算,见 ColsHeight
-            Ui.Sized(Ui.KickerRow(content, Strings.T("levelup.kicker"), 25, Theme.CinnabarDark), height: KickerH);
+            Ui.Sized(Ui.KickerRow(content, Strings.T("levelup.kicker"), 25, Theme.Primary), height: KickerH);
             Ui.Sized(Ui.ThemedLabel(content,
                 Strings.T("levelup.level_range", ("from", summary.FromLevel), ("to", summary.ToLevel)),
                 50, Theme.TextMain, Theme.TitleFont).gameObject, height: LevelH);
@@ -180,7 +180,7 @@ namespace Brushblade.Presentation
                 ChestCard(listContent, kv.Key, kv.Value, art, cardH, showSlots: last, meta);
             }
             if (owed > 0)
-                Ui.Chip(col.transform, Strings.T("levelup.owed", ("count", owed)), Theme.WarnBg, Theme.WarnText, OwedFont);
+                Ui.Chip(col.transform, Strings.T("levelup.owed", ("count", owed)), Theme.WarningBg, Theme.WarningText, OwedFont);
         }
 
         private const int OwedFont = 19;

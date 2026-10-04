@@ -599,7 +599,7 @@ namespace Brushblade.Presentation
             frameImage.sprite = Theme.Rounded(4);
             frameImage.type = Image.Type.Sliced;
             frameImage.fillCenter = false;   // 空心 = 只剩一圈边,正好当视口框
-            frameImage.color = Theme.Cinnabar;
+            frameImage.color = Theme.Info;
             frameImage.raycastTarget = false;
             _minimapFrame = (RectTransform)frame.transform;
             _minimapFrame.anchorMin = _minimapFrame.anchorMax = new Vector2(0.5f, 0.5f);

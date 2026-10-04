@@ -69,16 +69,15 @@ namespace Brushblade.Presentation
     /// 颜色分组抄自 <c>docs/design/drafts/scenes/StatusGlossary.dc.html</c> 的六个 --gc 分组
     /// (唯一权威;那份稿本身就是给这 20 个 StatusKind 定颜色用的):
     ///   #C53637 持续伤害与增长的威胁(= Theme.Cinnabar,数值核对过,逐位相同)
-    ///   #19507F 控制类 debuff(Theme 里没有现成的,新增一个字面量)
-    ///   #2E7D46 我方增益 · 守(Theme 里没有精确匹配,新增一个字面量;DoneGreen 是另一支近似色,
-    ///            数值对不上,不能借)
-    ///   #C9A94A 我方增益 · 攻(= Theme.RarityColor(CardRarity.Gold),核对过)
+    ///   控制类 debuff → Theme.Info(2026-10-04 五色语义,原稿 #19507F)
+    ///   我方增益 · 守 / 攻 → Theme.Success(2026-10-04 合并,原稿 #2E7D46 / #C9A94A)
     ///   #8F7332 攻击模式与站位(= Theme.ElementColor(Element.Earth);稿原为 #997C3C,2026-09-18 两边一起为白字对比度调深)
     ///   #3D4E69 能力与被动(= Theme.InkSoft,核对过;与 Theme.AbilityChipColor 的默认分支同色)</summary>
     internal static class UnitDetailChip
     {
-        private static readonly Color Control = new(0.098f, 0.314f, 0.498f); // #19507F
-        private static readonly Color Guard = new(0.180f, 0.490f, 0.275f);   // #2E7D46
+        // 2026-10-04 五色语义:控制类减益 = Info 浓墨,我方增益(守 / 攻)= Success 铜绿,与战斗 chip 同一口径
+        private static readonly Color Control = Theme.Info;
+        private static readonly Color Guard = Theme.Success;
 
         /// <summary>攻击模式与站位(远程/横扫/穿刺/锁人……)这一类词条的底色,OfRange/OfShape/
         /// OfFocus 的调用方直接读这个常量,不必逐个 switch。</summary>
@@ -98,10 +97,10 @@ namespace Brushblade.Presentation
             StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime => Guard,
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
-                or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
+                or StatusKind.PierceBuff => Theme.Success,
             // AP 上限稿上没有归组(它在文字 chip 那份「两处待拍板」清单里,不在六色分组表里)——
             // 与 morale/attack/pierce 同属「我方增益」大类,按气质就近归到金,而不是新开一支色。
-            StatusKind.ApBoost => Theme.RarityColor(CardRarity.Gold),
+            StatusKind.ApBoost => Theme.Success,
             _ => Theme.InkSoft, // Obsolete 等占位值:StatusText.Of 已对它们返回 None,调用方会
                                  // 在 Name == null 时跳过整条,这里的颜色实际上不会被用到。
         };

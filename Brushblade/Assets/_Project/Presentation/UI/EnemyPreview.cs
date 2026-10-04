@@ -139,7 +139,7 @@ namespace Brushblade.Presentation
             var frame = go.AddComponent<Image>();
             frame.sprite = Theme.Rounded(14);
             frame.type = Image.Type.Sliced;
-            frame.color = def.Phases.Count > 0 ? Theme.Gold : Theme.Shadow;
+            frame.color = def.Phases.Count > 0 ? Theme.RarityGold : Theme.Shadow;
             var element = go.AddComponent<LayoutElement>();
             element.preferredWidth = size.x;
             element.preferredHeight = size.y;
