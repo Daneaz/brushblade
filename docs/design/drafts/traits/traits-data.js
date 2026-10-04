@@ -192,7 +192,7 @@ window.ZD = (function () {
 })();
 
 /* 图标精灵:现有 44 枚里用得到的几枚(路径逐字取自 tools/icons/svg/,fill/stroke 换成 currentColor 以便着色)
-   + 本稿新增 8 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
+   + 本稿新增 8 枚 + 10-04 补 3 枚(标 NEW,要按 CLAUDE.md「图标三处对账」进管线)。用法:<svg><use href="#ic-burn"></use></svg> */
 (function () {
   var S = 'fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"';
   var S5 = 'fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"';
@@ -222,6 +222,13 @@ window.ZD = (function () {
     mark: '<path ' + S + ' d="M32 6l26 26-26 26L6 32z"/><circle cx="32" cy="32" r="7" ' + F + '/>',
     taunt: '<path ' + S + ' d="M8 25h12l24-13v40L20 39H8z"/><path ' + S + ' d="M52 24c4 5 4 11 0 16"/>',
     keepshield: '<path ' + S + ' d="' + SHIELD + '"/><path ' + F + ' d="M25 19h14v23l-7-6-7 6z"/>',
+    // —— NEW · 10-04 补(待审):池词条坚壁 / 反戈 / 扎根挂在我方的三种状态 ——
+    // 减伤:城垛实心墙 + 镂空城门(evenodd);与五种盾形刻意不像
+    bulwark: '<path ' + F + ' fill-rule="evenodd" d="M8 56V18h10v10h9V18h10v10h9V18h10v38zM26 56V47a6 6 0 0 1 12 0v9z"/>',
+    // 反击加倍:格挡图标里那道回击尖括号,叠成两道
+    riposte: '<path ' + S + ' d="M30 16L14 32l16 16M50 16L34 32l16 16"/>',
+    // 保命:描边心 + 心尖一小截实心(只剩一点,但还在);根形缩小后像「木」字,弃用
+    lastlife: '<path ' + S + ' d="M32 54C14 42 8 32 8 23a12 12 0 0 1 24-3 12 12 0 0 1 24 3c0 9-6 19-24 31z"/><path ' + F + ' d="M32 54c-8-5.5-12.5-10-15-14h30c-2.5 4-7 8.5-15 14z"/>',
     chevron: '<path ' + S + ' d="M24 14L42 32L24 50"/>'
   };
   window.ZD.ICONS = ICONS;

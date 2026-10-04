@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="./traits.css">
   <style>
-    .board { width: 1320px; height: 700px; display: flex; flex-direction: column; gap: 12px; }
+    .board { width: 1320px; height: 900px; display: flex; flex-direction: column; gap: 12px; }
     h2 { margin: 0; font-family: "Noto Serif SC", serif; font-size: 21px; font-weight: 600; letter-spacing: 3px; }
     .lede { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.7; max-width: 1180px; }
     .lede b { color: var(--text-main); }
@@ -28,6 +28,8 @@
     .tbl .ic b { color: var(--cinnabar-dark); font-weight: 700; }
     .tbl .ic i { font-style: normal; color: var(--text-faint); }
     .tbl .gl { font-size: 9.5px; color: var(--text-dim); }
+    .tbl .c.add { background: var(--warn-bg); }
+    .tag { font-family: "Noto Sans SC", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0; color: var(--warn-text); background: var(--warn-bg); padding: 1px 6px; border-radius: 3px; }
     .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
 
     .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
@@ -44,6 +46,21 @@
     .atb .back { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(10,94,158,.55) 0 2px, rgba(10,94,158,.18) 2px 4px); }
     .atb.stop > span { background: var(--locked-bg); }
     .hpb .notch { position: absolute; top: -1px; bottom: -1px; width: 1.5px; background: var(--ink); }
+    /* 10-04 补三枚:插入位置示意(chip 按单位格档原样,整体 ×1.6) */
+    .lanes { flex: none; display: flex; flex-direction: column; gap: 6px; }
+    .add3 { width: 780px; box-sizing: border-box; margin-top: 12px; }
+    .add3-body { display: flex; gap: 18px; align-items: flex-start; }
+    .add3-body .d { flex: 1; }
+    .lane { display: flex; align-items: flex-end; gap: 14px; }
+    .lane .who { width: 96px; flex: none; padding-bottom: 6px; }
+    .lane .who { font-size: 9.5px; color: var(--text-faint); line-height: 1.4; }
+    .z16 { zoom: 1.6; display: flex; flex-direction: column; gap: 3px; }
+    .z16 .scs { display: flex; gap: 2px; }
+    .z16 .hpb { width: 70px; }
+    .step { display: flex; align-items: flex-end; gap: 10px; }
+    .step .ar { font-size: 10px; color: var(--text-faint); padding-bottom: 5px; white-space: nowrap; }
+    .slbl { position: relative; align-self: flex-start; display: inline-flex; align-items: center; gap: 3px; height: 16px; padding: 0 6px 0 2.5px; border-radius: 4px;
+      background: rgba(251,248,241,.96); box-shadow: 0 1px 4px rgba(22,27,34,.28); font-family: "Noto Serif SC", serif; font-size: 10.5px; font-weight: 700; color: var(--glyph); }
     .note { font-size: 10px; color: var(--text-dim); line-height: 1.65; margin: 0; padding-left: 16px; }
     .note b { color: var(--text-main); }
     .note code { font-family: inherit; background: var(--panel-inset); padding: 0 4px; border-radius: 3px; font-size: 9.5px; color: var(--text-quiet); }
@@ -52,25 +69,49 @@
 <div class="board">
   <div>
     <h2>状 态 chip</h2>
-    <div class="lede">十四枚,全部落在现有 <b>单位格档</b>(字 7.17 / padX 4.78 / 高 9.56pt)与现有四类底色里,不造新色:
+    <div class="lede">十七枚 —— 前十四枚已拍板;<b>后三枚(减伤、反击加倍、保命)10-04 补,待审</b>,表里浅红底那三行。全部落在现有 <b>单位格档</b>(字 7.17 / padX 4.78 / 高 9.56pt)与现有四类底色里,不造新色:
       朱砂 = 持续伤害与威胁,墨蓝 <code>ink-soft</code> = 控制与减益,翠玉 = 恢复与防御,赭金 = 攻击类增益(压 <code>gold-text</code>)。
       唯一的新做法是 <b>冰滞</b> —— 用水字形色实底,并给行动条结一层霜,好让它和减速、冻结一眼分开。数字只给「攒得起来的量」(层数、次数、留存量),回合数留在详情里。</div>
   </div>
   <div class="cols">
     <div>
-      <h3>十四枚 <small>左列原大,右列 ×2.4</small></h3>
+      <h3>十七枚 <small>左列原大,右列 ×2.4;浅红底 = 10-04 补、待审</small></h3>
       <div class="tbl">
         <span class="h">词</span><span class="h">原大</span><span class="h">×2.4</span><span class="h">底色</span><span class="h">数字</span><span class="h">落在</span><span class="h">词条(spec §3)</span><span class="h">图标 · 兜底字</span>
         <sc-for list="{{ rows }}" as="r">
-          <span class="c nm">{{ r.k }}</span>
-          <span class="c"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
-          <span class="c z"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
-          <span class="c"><i class="sw" style="{{ r.sw }}"></i>{{ r.bg }}</span>
-          <span class="c">{{ r.num }}</span>
-          <span class="c">{{ r.on }}</span>
-          <span class="c gl">{{ r.gl }}</span>
-          <span class="c ic"><b>{{ r.isNew }}</b><i>{{ r.icTxt }}</i></span>
+          <span class="c nm {{ r.rc }}">{{ r.k }}</span>
+          <span class="c {{ r.rc }}"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+          <span class="c z {{ r.rc }}"><span class="{{ r.cls }}"><svg><use href="{{ r.ic }}"></use></svg>{{ r.n }}</span></span>
+          <span class="c {{ r.rc }}"><i class="sw" style="{{ r.sw }}"></i>{{ r.bg }}</span>
+          <span class="c {{ r.rc }}">{{ r.num }}</span>
+          <span class="c {{ r.rc }}">{{ r.on }}</span>
+          <span class="c gl {{ r.rc }}">{{ r.gl }}</span>
+          <span class="c ic {{ r.rc }}"><b>{{ r.isNew }}</b><i>{{ r.icTxt }}</i></span>
         </sc-for>
+      </div>
+      <div class="cbox add3">
+        <div class="t">10-04 补三枚 · 插在哪 <span class="tag">待审</span></div>
+        <div class="add3-body">
+        <div class="lanes">
+          <div class="lane"><div class="who">玩家 · 同回合打出<br>坚壁与反戈</div>
+            <div class="step">
+              <div class="z16"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-keepshield"></use></svg>120</span><span class="sc k-heal"><svg><use href="#ic-bulwark"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>2</span><span class="sc k-gold"><svg><use href="#ic-riposte"></use></svg></span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span></div></div>
+              <span class="ar">格挡用完 →</span>
+              <div class="z16"><div class="scs"><span class="sc k-heal"><svg><use href="#ic-keepshield"></use></svg>120</span><span class="sc k-heal"><svg><use href="#ic-bulwark"></use></svg></span><span class="sc k-gold"><svg><use href="#ic-morale"></use></svg>3/5</span></div></div>
+            </div>
+          </div>
+          <div class="lane"><div class="who">木灵 · 扎根召唤的,<br>挨下将要阵亡的一击</div>
+            <div class="step">
+              <div class="z16 ally"><div class="scs"><span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-lastlife"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span></div><div class="hpb"><span style="width:18%"></span><u>32/180</u></div></div>
+              <span class="ar">→</span>
+              <div class="z16 ally"><span class="slbl e-Wood"><span class="seal xs main">生</span>扎根</span><div class="scs"><span class="sc k-ctrl"><svg><use href="#ic-taunt"></use></svg></span><span class="sc k-heal"><svg><use href="#ic-block"></use></svg>1</span></div><div class="hpb"><span style="width:1.5%"></span><u>1/180</u></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="d"><b>减伤</b>:挨着格挡 —— 两者同受「护甲以外减伤 ≤60%」管;同类取最强、不叠加,所以<b>不带数字</b>(−20% 在详情里)。本回合结束消失。<br>
+          <b>反击加倍</b>:赭金(加的是伤害),紧跟格挡,图标是格挡里那道回击尖括号叠两道;<b>格挡用完即隐藏</b>,回合结束消失。<br>
+          <b>保命</b>:只挂木灵,排嘲讽后。一次性,不带数字;触发时 chip 闪、「扎根」从 chip 飘出(同触发反馈稿),血停在 1,chip 消失。</div>
+        </div>
       </div>
     </div>
 
@@ -110,18 +151,18 @@
         </div>
       </div>
       <ul class="note">
-        <li><b>新图标 8 枚</b>(格挡 种 霜抗 冰滞 致命 标记 嘲讽 留存护盾):按「图标三处对账」进管线 ——
+        <li><b>新图标 8 枚 + 补 3 枚</b>(格挡 种 霜抗 冰滞 致命 标记 嘲讽 留存护盾;补:减伤 <code>bulwark</code>·壁、反击加倍 <code>riposte</code>·反、保命 <code>lastlife</code>·保):按「图标三处对账」进管线 ——
           <code>build_icons.ICONS</code>、<code>test_icons.EXPECTED</code>、<code>Icons.Glyphs</code> 兜底字(新字要重跑字体子集)。SVG 就是本板用的那几条路径,见 <code>traits-data.js</code>。</li>
         <li><b>泉 / 厚</b> 现在是无图标的文字 chip;技能树已有 <code>perk_wellspring</code> / <code>perk_heft</code> 两枚,直接复用为状态图标。</li>
         <li><b>改名两处</b>:持续治疗 → 润泽、诅咒 → 减攻(spec 的词;机制与图标不变,只改字符串表)。</li>
-        <li><b>chip 顺序</b>(从前往后,溢出从尾部丢):敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗;我方与木灵 嘲讽 · 留存护盾 · 格挡 · 战意 · 厚 · 泉 · 润泽。威胁在前,霜抗这类「不能被怎样」的说明垫底。</li>
+        <li><b>chip 顺序</b>(从前往后,溢出从尾部丢):敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗;我方与木灵 嘲讽 · <b>保命</b> · 留存护盾 · <b>减伤</b> · 格挡 · <b>反击加倍</b> · 战意 · 厚 · 泉 · 润泽(加粗为 10-04 补)。威胁在前,霜抗这类「不能被怎样」的说明垫底。</li>
         <li>三处同接:<code>StatusText.Of</code> 的 case、<code>BattleView</code> 的 chip 列表、<code>CharInfo</code> 的效果文案(CLAUDE.md 那条 ⚠)。</li>
       </ul>
     </div>
   </div>
 </div>
 </x-dc>
-<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 700}}'>
+<script data-dc-script data-props='{"$preview": {"width": 1320, "height": 900}}'>
 var Z = window.ZD;
 var BG = {
   'k-dot': ['朱砂', 'var(--cinnabar)'], 'k-ctrl': ['墨蓝', 'var(--ink-soft)'], 'k-heal': ['翠玉', 'var(--jade)'],
@@ -141,14 +182,18 @@ var ROWS = [
   ['标记', 'k-dot', 'mark', '', '—', '敌', 'NEW', 'mark · 标'],
   ['嘲讽', 'k-ctrl', 'taunt', '', '—', '我 · 木灵', 'NEW', 'taunt · 嘲'],
   ['留存护盾', 'k-heal', 'keepshield', '120', '留存量', '我 · 木灵', 'NEW', 'keepshield · 留'],
-  ['减攻', 'k-ctrl', 'curse', '', '—', '敌', '', '现有 curse · 咒']
+  ['减攻', 'k-ctrl', 'curse', '', '—', '敌', '', '现有 curse · 咒'],
+  // 10-04 补(待审):池词条坚壁 / 反戈 / 扎根。说明句尚未进 spec §3.1,先写在这里
+  ['减伤', 'k-heal', 'bulwark', '', '—', '我 · 木灵', 'NEW', 'bulwark · 壁', '受到的伤害降低，数值见特性', 1],
+  ['反击加倍', 'k-gold', 'riposte', '', '—', '我(随格挡)', 'NEW', 'riposte · 反', '格挡的反击伤害 ×2，本回合有效', 1],
+  ['保命', 'k-heal', 'lastlife', '', '—', '木灵', 'NEW', 'lastlife · 保', '第一次将要阵亡时，保留 1 点生命，然后消失', 1]
 ];
 class Component extends DCLogic {
   renderVals() {
     return {
       rows: ROWS.map(function (r) {
         return { k: r[0], cls: 'sc ' + r[1], ic: '#ic-' + r[2], n: r[3], bg: BG[r[1]][0], sw: 'background:' + BG[r[1]][1], num: r[4], on: r[5],
-          gl: Z.GLOSS[r[0]] || '', isNew: r[6] ? r[6] + ' ' : '', icTxt: r[7] };
+          gl: r[8] || Z.GLOSS[r[0]] || '', isNew: r[6] ? r[6] + ' ' : '', icTxt: r[7], rc: r[9] ? 'add' : '' };
       })
     };
   }
