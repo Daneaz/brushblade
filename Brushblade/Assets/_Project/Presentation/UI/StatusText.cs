@@ -220,6 +220,12 @@ namespace Brushblade.Presentation
                     return new Info("frostguard", Strings.T("status.frostresist.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),
                         Strings.T("status.frostresist.desc"));
+                case StatusKind.IceStall:
+                    // 冰滞(spec v7 R1b,Task 10):Boss 被冻结的替身,水字形色实底,无数字。时长行不用回合数
+                    // (TurnsLeft = -1),写「直到下次行动」。
+                    return new Info("chill", Strings.T("status.icestall.name"),
+                        Strings.T("status.duration.until_next_action"),
+                        Strings.T("status.icestall.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句

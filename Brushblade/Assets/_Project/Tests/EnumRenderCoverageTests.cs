@@ -76,6 +76,7 @@ namespace Brushblade.Core.Tests
             nameof(StatusKind.BurnNoDecay),
             nameof(StatusKind.Charm),
             nameof(StatusKind.FrostResist),
+            nameof(StatusKind.IceStall),
         };
 
         private static string Root()

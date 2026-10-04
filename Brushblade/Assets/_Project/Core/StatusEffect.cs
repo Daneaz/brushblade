@@ -61,6 +61,9 @@ namespace Brushblade.Core
                           // TurnsLeft = -1(本场有效,用完为止)。下一次敌人挥击 −40% 并反击;同类取最强不叠加。
         FrostResist,      // 霜抗(spec v7 R1,仅敌人):冻结结束后挂上,TurnsLeft = 刚结束那次冻结的回合数,按敌人行动递减;
                           // 期间不能被冻结。Freeze 的 Magnitude 同时记下冻结时长(= 施加时的 TurnsLeft),供结束时发霜抗。
+        IceStall,         // 冰滞(spec v7 R1b,仅 Boss):Boss 被冻结时改挂本状态 —— 行动条后退半格(可为负)、
+                          // 下次行动前受伤 +15%。Magnitude = 本该冻结的回合数 N,TurnsLeft = -1;
+                          // Boss 下次行动开始时移除并挂霜抗 N+1(本拍末尾 TickTurns 减 1)。
     }
 
     public enum StatusPolarity { Buff, Debuff }

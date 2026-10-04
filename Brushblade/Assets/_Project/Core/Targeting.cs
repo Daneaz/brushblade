@@ -171,7 +171,8 @@ namespace Brushblade.Core
             if (counterTargeting.HasValue) pool = TopKeTier(enemies, pool, counterTargeting.Value);
 
             if (preferUnfrozen)
-                pool = Prefer(enemies, pool, e => !e.Statuses.Has(StatusKind.Freeze) && !e.Statuses.Has(StatusKind.FrostResist));
+                pool = Prefer(enemies, pool, e => !e.Statuses.Has(StatusKind.Freeze) && !e.Statuses.Has(StatusKind.FrostResist)
+                    && !e.Statuses.Has(StatusKind.IceStall));
             if (preferUnslowed)
                 // 「已减速」= 速度修正为负,与 DamageCondition.Controlled 的减速那一半同判据。
                 // 不看是谁挂的:别人挂的减速同样让这一下失去意义。

@@ -2831,6 +2831,11 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
                             ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
+                // 冰滞(spec v7 R1b):Boss 被冻结的替身 —— 水字形色实底、chill 图标、无数字。
+                // 顺序按 StatusChips 稿「敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗,
+                // 威胁在前,溢出从尾部丢」:冰滞排在灼之前(致命尚未实现)。
+                if (enemy.Statuses.Has(StatusKind.IceStall))
+                    chipSpecs.Add(new("", Theme.GlyphColor(Element.Water), Color.white, "chill"));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0)
                     chipSpecs.Add(new($"{burnStacks}", Theme.Cinnabar, Color.white, "burn"));
@@ -2871,11 +2876,6 @@ namespace Brushblade.Presentation
                 // 它生没生效(EnumRenderCoverageTests 收紧判据范围后抓到的真实缺陷)。
                 if (enemy.Statuses.TotalMagnitude(StatusKind.ArmorBreak) > 0)
                     chipSpecs.Add(new("", Theme.InkSoft, Color.white, "armorbreak"));
-                // 霜抗(spec v7 R1):描边样式(traits 稿 k-ring)—— 宣纸面板底、水字形色图标与 1 单位描边、
-                // 无数字(它是「这几回合冻不上」的免疫窗口,不是随回合变小的量)。排在冻结之后的控制类里。
-                if (enemy.Statuses.Has(StatusKind.FrostResist))
-                    chipSpecs.Add(new("", Theme.PanelPaper, Theme.GlyphColor(Element.Water), "frostguard",
-                        Theme.GlyphColor(Element.Water)));
                 // 魅惑(2026-09-05,花):无图标资产,暂时保留文字(与缺笔/标点/通假同处理)——
                 // 与冻结/减速当年零显示是同一个坑,这条不能漏。
                 if (enemy.Statuses.Has(StatusKind.Charm))
@@ -2891,6 +2891,12 @@ namespace Brushblade.Presentation
                         chipSpecs.Add(new(abilityText,
                             Theme.AbilityChipColor(enemy.Def.Ability), Color.white, abilityIcon));
                 }
+                // 霜抗(spec v7 R1):描边样式(traits 稿 k-ring)—— 宣纸面板底、水字形色图标与 1 单位描边、
+                // 无数字(它是「这几回合冻不上」的免疫窗口,不是随回合变小的量)。
+                // 顺序按 StatusChips 稿:「霜抗这类『不能被怎样』的说明垫底」,所以排在整串最后(能力 chip 之后)。
+                if (enemy.Statuses.Has(StatusKind.FrostResist))
+                    chipSpecs.Add(new("", Theme.PanelPaper, Theme.GlyphColor(Element.Water), "frostguard",
+                        Theme.GlyphColor(Element.Water)));
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
                     ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);

@@ -65,6 +65,10 @@ namespace Brushblade.Core
         public const int BlockReductionPercent = 40;
         /// <summary>格挡反击占攻击面伤害的百分比(spec v7 §4)。</summary>
         public const int BlockCounterPercent = 30;
+        /// <summary>冰滞(spec v7 R1b):Boss 被冻结时行动条后退的百分比(占一个行动条满值,可退到负值)。</summary>
+        public const int IceStallPushPercent = 50;
+        /// <summary>冰滞期间 Boss 受到字牌/召唤物直接伤害的加成百分点(灼烧/流血/引爆/斩杀不吃)。</summary>
+        public const int IceStallDamageTakenPercent = 15;
 
         /// ⚠ 缺省 50 是**旧量级**的遗留,与 <c>MetaRules.MaxHpFor(1) = 500</c> 差一个数量级
         /// (2026-08-12 T1 量级 ×10 时刻意没跟着抬)。生产侧 <c>GameRoot</c> 与两个工装
@@ -2267,6 +2271,17 @@ namespace Brushblade.Core
             if (!enemy.Alive) return;
             Raise(HookKind.TurnStarted, UnitRef.Enemy(enemyIndex), UnitRef.None);
 
+            // 冰滞到此为止(R1b):Boss 这一拍照常行动,易伤窗口关闭,挂霜抗 N+1(本拍末尾 TickTurns 会减 1)
+            var stall = enemy.Statuses.Find(StatusKind.IceStall);
+            if (stall != null)
+            {
+                enemy.Statuses.RemoveEntry(stall);
+                ApplyStatus(enemy.Statuses, new StatusEffect
+                {
+                    Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = stall.Magnitude + 1,
+                }, UnitRef.Enemy(enemyIndex), UnitRef.None);
+            }
+
             SettleBurnOn(enemyIndex);
             if (!enemy.Alive) { CheckWin(); return; }
 
@@ -3615,14 +3630,26 @@ namespace Brushblade.Core
         }
 
         /// <summary>状态施加的唯一入口(spec v7 §11.4)。返回是否生效;被拦截时不发 StatusApplied。
-        /// 拦截:冻结(已冻结 / 霜抗中不得再冻,R1;Boss 改冰滞见 Task 10)、减速合并(R1)、
+        /// 拦截:冻结(已冻结 / 霜抗中 / 冰滞中不得再冻,R1;Boss 改挂冰滞,R1b)、减速合并(R1)、
         /// 格挡同类取最强(§5.2.1)。</summary>
         private bool ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier)
         {
             if (effect.Kind == StatusKind.Freeze && target.Side == UnitSide.Enemy)
             {
-                if (bag.Has(StatusKind.Freeze) || bag.Has(StatusKind.FrostResist)) return false;
-                effect.Magnitude = effect.TurnsLeft;   // 记下冻结时长,结束时发等长霜抗
+                if (bag.Has(StatusKind.Freeze) || bag.Has(StatusKind.FrostResist) || bag.Has(StatusKind.IceStall))
+                    return false;
+                var frozen = _enemies[target.Index];
+                if (frozen.IsBoss)
+                {
+                    // 冰滞(R1b):Boss 不会被真正冻结。行动条后退半格(可为负),下次行动前受伤 +15%。
+                    frozen.ActionMeter -= TurnScheduler.Threshold * BattleConfig.IceStallPushPercent / 100;
+                    effect = new StatusEffect
+                    {
+                        Kind = StatusKind.IceStall, Polarity = StatusPolarity.Debuff,
+                        Magnitude = effect.TurnsLeft, TurnsLeft = -1,
+                    };
+                }
+                else effect.Magnitude = effect.TurnsLeft;   // 记下冻结时长,结束时发等长霜抗
             }
             else if (effect.Kind == StatusKind.SpeedModifier && effect.Magnitude < 0)
             {
@@ -4118,6 +4145,7 @@ namespace Brushblade.Core
             DamageCondition.Burning => target.Statuses.Has(StatusKind.Burn),
             DamageCondition.Bleeding => target.Statuses.Has(StatusKind.Bleed),
             DamageCondition.Controlled => target.Statuses.Has(StatusKind.Freeze)
+                || target.Statuses.Has(StatusKind.IceStall)   // 冰滞 = Boss 的冻结(R1b)
                 || target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
             DamageCondition.ArmorBroken => target.Statuses.Has(StatusKind.ArmorBreak),
             _ => false,
@@ -4210,6 +4238,9 @@ namespace Brushblade.Core
             // 浮点系数在这条链上出过事:EnemyState.Attack 的诅咒算式因为 1 − 0.1f = 0.89999997
             // 被 floor 拉低过 1 点(2026-08-06 M1)。暴击落在直接伤害链上,就跟直接伤害的口径。
             if (crit) damage = damage * BattleConfig.CritMultiplierPercent / 100;
+            // 冰滞易伤(R1b):暴击之后、护甲之前,整数乘除。灼烧/流血/引爆/斩杀直杀不走本方法,不吃。
+            if (enemy.Statuses.Has(StatusKind.IceStall))
+                damage = damage * (100 + BattleConfig.IceStallDamageTakenPercent) / 100;
             // 护甲(2026-08-12 E-b4 T2 接线,2026-09-16 改百分比减伤):**全部乘法算完之后,最后折**。
             // 结算式 = floor(基础 × 生克 × 暴击) × 100 ÷ (100 + max(0, 护甲 − 破甲 − 穿透))。
             // 护甲是**百分比减伤**(2026-09-16,推翻 E-b4 的点数减法):DR = 甲/(甲+100),
