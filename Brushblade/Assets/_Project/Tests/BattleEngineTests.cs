@@ -96,6 +96,21 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
+        public void Constructor_CarriedShield_ClampedToMaxHp()
+        {
+            // Config().PlayerMaxHp 下带入的护盾超上限:两桶之和钳到最大生命,豁免桶(persist)优先保留。
+            var cfg = Config();
+            int max = cfg.PlayerMaxHp;
+            var engine = new BattleEngine(Graph(), cfg,
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { MetalBoss() }, seed: 42, startingHp: null, cardLevels: null,
+                startingNormalShield: max + 30, startingPersistShield: 3);
+            Assert.That(engine.PlayerShield, Is.EqualTo(max));
+            Assert.That(engine.ShieldPersist, Is.EqualTo(3), "persist 桶优先保留");
+            Assert.That(engine.ShieldNormal, Is.EqualTo(max - 3));
+        }
+
+        [Test]
         public void Shield_PersistsThroughEnemyTurn() // 段内持久:普通护盾不再回合末全清
         {
             // 单敌攻击 3;玩家不出手,EndTurn 后敌方攻击被护盾吸收

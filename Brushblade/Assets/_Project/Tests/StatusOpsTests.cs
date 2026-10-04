@@ -336,6 +336,37 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(191), "伤害照打");
         }
 
+        private static void GiveFrostResistFirst(EnemyState enemy)
+        {
+            // 霜抗在前、AttackBuff 在后:计数驱散「从头清」时若不跳过霜抗,就会白耗一次。
+            var list = new[]
+            {
+                new StatusEffect { Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = 2, SourceId = "霜抗" },
+                new StatusEffect { Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff, Magnitude = 50, TurnsLeft = -1, SourceId = "妖#0" },
+            };
+            enemy.Statuses.CopyFrom(list);
+        }
+
+        [Test]
+        public void Dispel_Counted_SkipsFrostResist()
+        {
+            var engine = Engine(new[] { "剐" }, new[] { Dummy() });
+            GiveFrostResistFirst(engine.Enemies[0]);
+            engine.Cast("剐", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0), "AttackBuff 被清");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.FrostResist), Is.True, "霜抗不可驱散(Ruling 8)");
+        }
+
+        [Test]
+        public void Dispel_All_SkipsFrostResist()
+        {
+            var engine = Engine(new[] { "扫" }, new[] { Dummy() });
+            GiveFrostResistFirst(engine.Enemies[0]);
+            engine.Cast("扫", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.FrostResist), Is.True);
+        }
+
         [Test]
         public void Dispel_TargetAll_HitsEveryLivingEnemy()
         {

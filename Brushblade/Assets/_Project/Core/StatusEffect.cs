@@ -176,21 +176,21 @@ namespace Brushblade.Core
 
         public void Remove(StatusKind kind) => _list.RemoveAll(e => e.Kind == kind);
 
-        /// <summary>按极性批量清除,返回移除条数(驱散/净化用)。</summary>
-        public int RemoveAll(StatusPolarity polarity)
+        /// <summary>按极性批量清除,返回移除条数(驱散/净化用)。<paramref name="except"/> 可选豁免一个种类。</summary>
+        public int RemoveAll(StatusPolarity polarity, StatusKind? except = null)
         {
             int before = _list.Count;
-            _list.RemoveAll(e => e.Polarity == polarity);
+            _list.RemoveAll(e => e.Polarity == polarity && !(except.HasValue && e.Kind == except.Value));
             return before - _list.Count;
         }
 
-        /// <summary>按极性从头移除至多 count 条,返回实际移除条数(计数式驱散用)。</summary>
-        public int RemoveFirst(StatusPolarity polarity, int count)
+        /// <summary>按极性从头移除至多 count 条,返回实际移除条数(计数式驱散用)。<paramref name="except"/> 可选豁免一个种类。</summary>
+        public int RemoveFirst(StatusPolarity polarity, int count, StatusKind? except = null)
         {
             int removed = 0;
             for (int i = 0; i < _list.Count && removed < count; )
             {
-                if (_list[i].Polarity != polarity) { i++; continue; }
+                if (_list[i].Polarity != polarity || (except.HasValue && _list[i].Kind == except.Value)) { i++; continue; }
                 _list.RemoveAt(i);
                 removed++;
             }

@@ -67,7 +67,8 @@ namespace Brushblade.Core
         public const int BlockCounterPercent = 30;
         /// <summary>冰滞(spec v7 R1b):Boss 被冻结时行动条后退的百分比(占一个行动条满值,可退到负值)。</summary>
         public const int IceStallPushPercent = 50;
-        /// <summary>冰滞期间 Boss 受到字牌/召唤物直接伤害的加成百分点(灼烧/流血/引爆/斩杀不吃)。</summary>
+        /// <summary>冰滞期间 Boss 受到的伤害加成百分点:所有经 DamageEnemy 的伤害都吃(含镜反弹、荆棘、格挡反击、厚/泉引爆);
+        /// 灼烧/流血/灼引爆/斩杀直杀不吃。</summary>
         public const int IceStallDamageTakenPercent = 15;
 
         /// ⚠ 缺省 50 是**旧量级**的遗留,与 <c>MetaRules.MaxHpFor(1) = 500</c> 差一个数量级
@@ -625,6 +626,7 @@ namespace Brushblade.Core
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 5 种),新增枚举值前先核这一条。
                     if (ConditionMet(c, _enemies[i])) masks[i] |= 1 << (int)c;
             return masks;
         }
@@ -636,7 +638,7 @@ namespace Brushblade.Core
             if (condition == DamageCondition.None) return false;
             if (_preCastConditions == null) return ConditionMet(condition, _enemies[enemyIndex]);
             if (enemyIndex >= _preCastConditions.Length) return false;
-            return (_preCastConditions[enemyIndex] & (1 << (int)condition)) != 0;
+            return (_preCastConditions[enemyIndex] & (1 << (int)condition)) != 0; // 同上:int 掩码,枚举 < 32 种
         }
 
         // 砺刃:本次出字的额外暴击率。ApplyEffects 进门时按字的元素设置、出门清零 ——
@@ -1000,8 +1002,10 @@ namespace Brushblade.Core
             AssignSlots();
 
             PlayerHp = startingHp ?? config.PlayerMaxHp;
-            _shieldNormal = startingNormalShield;
-            _shieldPersist = startingPersistShield;
+            // 带入/起始护盾两桶之和 ≤ 最大生命(spec v7 §5.2);超出时 persist 桶优先保留,普通桶吃缺口。
+            // 快照恢复(FromSnapshot)直接还原、不钳:快照来自引擎自己的出口,本就守着上限。
+            _shieldPersist = Math.Min(startingPersistShield, config.PlayerMaxHp);
+            _shieldNormal = Math.Min(startingNormalShield, config.PlayerMaxHp - _shieldPersist);
             _slotMask = ClampSlotMask(config);
             // 召唤物跨战斗保留(2026-08-03):与普通盾同口径,上一层活下来的原样入场(残血不回满)。
             // 携带的召唤物按原槽位落位(2026-08-20)。Slot 越界或撞车一律回落到最小空槽 ——
@@ -2869,8 +2873,8 @@ namespace Brushblade.Core
                         }
                         break;
                     case EffectKind.Charm:
-                        // 回合数不吃卡等级(2026-09-06 终审修复项 2):spec §4.2 明写利/锋是
-                        // 养成侧**唯二**吃 turns 随卡等级成长的字;魅惑白拿回合数会打穿 §2.3
+                        // 回合数不吃卡等级(2026-09-06 终审修复项 2):spec v7 §1 起回合数
+                        // 一律不吃卡等级(原 spec §4.2 利/锋随等级成长的例外已取消);魅惑若吃等级会打穿 §2.3
                         // 的封禁定价梯度(卡 10 级的绿档「花」会魅惑到比橙档「淋」买的封禁还久)。
                         // 直接用 effect.Turns(判据见 MetaRules.ScalesWithCardLevel)。Math.Max(1, …) 保留:字表若漏填 turns(=0)
                         // 时兜底给 1 回合,而不是让魅惑当场到期。
@@ -3482,8 +3486,9 @@ namespace Brushblade.Core
         private void DispelFrom(int enemyIndex, int count)
         {
             var statuses = _enemies[enemyIndex].Statuses;
-            if (count < 0) statuses.RemoveAll(StatusPolarity.Buff);
-            else statuses.RemoveFirst(StatusPolarity.Buff, count);
+            // 霜抗不可驱散(Ruling 8):R1 靠它挡冻结连锁,极性仍是 Buff 只为 UI 配色。
+            if (count < 0) statuses.RemoveAll(StatusPolarity.Buff, StatusKind.FrostResist);
+            else statuses.RemoveFirst(StatusPolarity.Buff, count, StatusKind.FrostResist);
         }
 
         /// <summary>引爆一条资源(2026-09-02):清空层数,对全体存活敌人造成
