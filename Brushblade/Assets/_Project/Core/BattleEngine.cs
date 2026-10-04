@@ -167,9 +167,9 @@ namespace Brushblade.Core
         /// 是因为 <see cref="PerkInfo.DetailText"/>(Presentation)要把「加成前 → 加成后」的
         /// 具体数字摊开给玩家看——属性缺省与 UI 换算各写一份字面量必然分叉(2026-09-07 收尾波
         /// review 抓到:UI 那份就真的焊死过)。下面四个属性的缺省直接引用同一批常量。</summary>
-        public const int BaseMoraleCap = 5;
-        public const int BaseHeftCap = 10;
-        public const int BaseWellspringCap = 10;
+        public const int BaseMoraleCap = CombatCaps.MoraleStacks;
+        public const int BaseHeftCap = CombatCaps.HeftStacks;
+        public const int BaseWellspringCap = CombatCaps.WellspringStacks;
         public const int BaseBurnPerStack = 20;
 
         /// <summary>战意/厚/泉每层的百分比乘区。与 <see cref="BattleEngine"/> 内
@@ -557,20 +557,8 @@ namespace Brushblade.Core
         ///
         /// 缺省下 CapFor(Heft) == CapFor(Wellspring) == 10,与改前逐字节相同。</summary>
         private int CapFor(StatusKind kind) => kind == StatusKind.Heft
-            ? _config?.HeftCap ?? 10
-            : _config?.WellspringCap ?? 10;
-
-        /// <summary>反伤总量上限(百分点,2026-09-05;2026-09-06 纳入荆棘 Thorns)。
-        ///
-        /// 此前刻意不钳位,理由是「字表只有一个 Reflect 字,多来源叠加现实不可达」;
-        /// P2 让 壁(绿 30%)与 圭(金 50%)同时存在,那条前提失效。
-        /// 60 的依据:30 层一轮敌方总伤 936,×60% = 562 ≈ 红档单攻锚点 600 ——
-        /// 「站着挨满一整轮」的反伤收益约等于一张红档输出字(设计稿 §1.6)。
-        ///
-        /// 2026-09-06 前只钳了 Reflect,漏了召唤物的荆棘(DamageSummon 里独立的第二次弹射)——
-        /// 「玩家壁 + 召唤物壁(钳到 60)+ 荆棘 50%」这条打召唤物的管道仍能反弹 > 100%。
-        /// 现在两者合占同一份 60%,分配顺序「荆棘先扣满,反弹拿剩余」见 DamageSummon 里的注释。</summary>
-        private const int MaxReflectPercent = 60;
+            ? _config?.HeftCap ?? CombatCaps.HeftStacks
+            : _config?.WellspringCap ?? CombatCaps.WellspringStacks;
 
         /// <summary>召唤物减速的 SourceId(2026-08-25,蕉):固定串 = 不叠加只刷新。</summary>
         private const string SummonSlowSourceId = "summon.slow";
@@ -3026,7 +3014,7 @@ namespace Brushblade.Core
                         // 所以既不能铸唯一序号(各挂各的会绕开上限),也不能走 Apply() 的
                         // 同源覆盖(那是刷新,出两张战还是 3 层)—— 只能就地累加再钳。
                         // 满层(缺省 5)+50 攻击,刚好追平剡单张的量;上限可由金脉 L4 抬到 7。
-                        AddPlayerCounter(StatusKind.Morale, value, _config?.MoraleCap ?? 5);
+                        AddPlayerCounter(StatusKind.Morale, value, _config?.MoraleCap ?? CombatCaps.MoraleStacks);
                         break;
                     case EffectKind.CritBuff:
                         // 锋(2026-08-12,E-b2):本场暴击率 +Value 个百分点。
@@ -4458,9 +4446,9 @@ namespace Brushblade.Core
             // 与召唤物 荆 的反伤同口径(被打死的那一击也照样扎)。
             // 命中判定打空与免疫完全挡下都在方法更早处 return 了,走不到这里 —— 没吃到就没得反。
             // attacker 传 Element.Heart:心对全属性都是 1.0x,等价于「不走生克」。
-            // 总量钳 60%(2026-09-05,任务 6):见 MaxReflectPercent 注释。
+            // 总量钳 60%(2026-09-05,任务 6):见 CombatCaps.ReflectPercent 注释。
             int reflect = allowReflect
-                ? Math.Min(MaxReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect))
+                ? Math.Min(CombatCaps.ReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect))
                 : 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
@@ -4557,14 +4545,14 @@ namespace Brushblade.Core
             //
             // 总量钳 60%,荆棘与下面的反弹**合占同一份额**(2026-09-06,用户裁定):此前只钳了
             // Reflect,漏了荆棘 —— 「玩家壁(30%)+ 召唤物壁(50%)+ 荆棘 50%」这条打召唤物的
-            // 管道仍能反弹 > 100%,MaxReflectPercent 注释描述的危险状态没被完全消灭。
+            // 管道仍能反弹 > 100%,CombatCaps.ReflectPercent 注释描述的危险状态没被完全消灭。
             // 分配顺序是「荆棘先扣满,反弹拿剩余」而不是按比例缩放:荆 这类字的设计定位就是
             // 「攻 0,反伤是它唯一的输出手段」(见 SummonPassive.Thorns 注释),按比例缩放会让
             // 后挂的 壁/圭 把荆的本体机制挤掉一部分 —— 一张字的固有能力不该被另一张字的 buff
             // 稀释;反过来(反伤先扣)又会让荆在有 buff 时几乎打不出东西。且两次弹射本来就是
             // 分开结算的,顺序分配比按比例缩放算出来的零碎数字更好解释、实现也更直白。
             int thornsRaw = summon.Passive?.Thorns ?? 0;
-            int thornsEffective = Math.Min(MaxReflectPercent, thornsRaw);
+            int thornsEffective = Math.Min(CombatCaps.ReflectPercent, thornsRaw);
             if (thornsEffective > 0 && _enemies[enemyIndex].Alive)
             {
                 // bounced > 0 守卫与下面 Reflect 那段同理:0 伤反弹会白白推进 enemy.HitsTaken,
@@ -4594,11 +4582,11 @@ namespace Brushblade.Core
             // 两份反弹都算(2026-08-28,壁 可以挂给召唤物了):玩家身上那份管「我方挨的打」
             // (上面那段 2026-08-08 的裁定),召唤物自己那份管「它自己挨的打」。它们是两个
             // 不同来源,不是同一条的重复 —— 各按自己的百分比反,基数同为 taken。
-            // 总量钳 60%(2026-09-05,任务 6;2026-09-06 纳入荆棘):见 MaxReflectPercent 注释。
+            // 总量钳 60%(2026-09-05,任务 6;2026-09-06 纳入荆棘):见 CombatCaps.ReflectPercent 注释。
             // 这一支的钳位与玩家侧 DamagePlayerDirect 那支各自独立结算 —— 两条是分开的伤害
             // 管道,合起来钳会让「打召唤物」意外吃到玩家身上的层数上限。
             // 反弹只能拿荆棘扣完之后剩下的额度(reflectBudget)—— 分配顺序见上面荆棘那段注释。
-            int reflectBudget = MaxReflectPercent - thornsEffective;
+            int reflectBudget = CombatCaps.ReflectPercent - thornsEffective;
             int reflect = Math.Min(reflectBudget,
                 _playerStatuses.TotalMagnitude(StatusKind.Reflect)
                 + summon.Statuses.TotalMagnitude(StatusKind.Reflect));
