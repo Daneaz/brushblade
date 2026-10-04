@@ -24,13 +24,13 @@
 .left { position: absolute; left: 0; top: 0; bottom: 0; right: 260.87px; }
 .shead { position: absolute; left: 0; right: 0; top: 0; height: 25.8px;
   display: flex; align-items: center; font-size: 9.08px; color: var(--text-faint); white-space: nowrap; }
-/* 一行 = 6 列弹性等分(间距 21),行高 280;第 0 行 top 67、第 1 行 top 360 */
-.row { position: absolute; left: 0; right: 0; height: 133.78px; display: flex; gap: 10.03px; }
+/* 一行 = 6 列弹性等分(间距 21),行高 284;第 0 行 top 67、第 1 行 top 364 */
+.row { position: absolute; left: 0; right: 0; height: 135.69px; display: flex; gap: 10.03px; }
 .row.r0 { top: 32.01px; }
-.row.r1 { top: 172.0px; }
+.row.r1 { top: 173.91px; }
 .col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
-/* 一格:VStack 间距 8;牌 144×180(按左栏宽 6 列等分,夹在 96–144) */
-.cell { width: 68.8px; display: flex; flex-direction: column; align-items: center; gap: 3.82px; }
+/* 一格:VStack 间距 4(CellGap);牌 144×180(按左栏宽 6 列等分,夹在 96–144) */
+.cell { width: 68.8px; display: flex; flex-direction: column; align-items: center; gap: 1.91px; }
 .hint { font-size: 9.08px; line-height: 1.15; white-space: nowrap; }
 .hint.up { color: var(--upgrade-text); }
 .hint.dim { color: var(--text-dim); }
@@ -114,7 +114,7 @@
   display: flex; align-items: center; justify-content: center; white-space: nowrap; }
 .sec { flex: none; font-size: 9.08px; line-height: 1.15; color: var(--text-faint); white-space: nowrap; }
 
-/* 成交 toast:Ui.Chip(ink, 字号 21, padX 29 / padY 17),顶部居中、顶边贴在顶栏下沿 */
+/* 成交 toast:Ui.Chip(ink, 字号 21, padX 29 / padY 17),顶部居中、顶边贴在顶栏下沿;停 1.8s 后淡出 0.3s 自毁(本页画的是刚成交那一刻) */
 .toast { position: absolute; left: 50%; top: 38.22px; transform: translateX(-50%); z-index: 5;
   width: 104.16px; height: 18.16px; border-radius: 6.69px; background: var(--ink); color: #fff;
   font-size: 10.03px; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
