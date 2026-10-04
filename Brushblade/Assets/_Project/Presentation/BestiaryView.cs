@@ -36,6 +36,9 @@ namespace Brushblade.Presentation
         private const float SidePad = 21f;     // 右栏内边距 10pt
 
         // 网格:4 列,立绘块 80×80pt(mob 素材是 1:1);列距 8pt、行距 12pt
+        // 屏比账(2026-10-04):一行 = 4×195 + 3×17 = 831;网格宽 = 内容区 − 右栏 502 − 19。
+        // 基准机 1705 → 1184(右侧空 353),16:9 的 1354 → 833 —— **只余 2**,
+        // 格宽/列距/右栏宽任何一项再加宽,16:9 上第 4 列就会被网格视口裁掉。
         private const int GridColumns = 4;
         private const float GridGapX = 17f;
         private const float GridGapY = 25f;
@@ -73,6 +76,11 @@ namespace Brushblade.Presentation
         /// 会当场弹回顶部(卡组页 2026-09-03 实机反馈,同一个坑)。</summary>
         private float _gridScroll = 1f;
         private ScrollRect _grid;
+        /// <summary>筛选栏横向滚动位置(0 = 最左)。16:9 上筛选栏会横滚(见 BuildFilters),
+        /// 点页签就整页重建 —— 不记着的话点了被挤到右边的「Boss」页签,栏会弹回最左、
+        /// 刚选中的页签反而看不见了。与网格不同,换筛选**不归位**:页签本身没换。</summary>
+        private float _filterScroll;
+        private ScrollRect _filterBar;
 
         public void Init(CampaignConfig campaign, MetaState meta, Action save, Action onBack)
         {
@@ -162,6 +170,8 @@ namespace Brushblade.Presentation
             _gridScroll = keepScroll && _grid != null && !float.IsNaN(_grid.verticalNormalizedPosition)
                 ? _grid.verticalNormalizedPosition
                 : 1f;
+            if (_filterBar != null && !float.IsNaN(_filterBar.horizontalNormalizedPosition))
+                _filterScroll = _filterBar.horizontalNormalizedPosition;
             Ui.Clear(transform);
             Ui.Stretch((RectTransform)transform);
 
@@ -214,22 +224,54 @@ namespace Brushblade.Presentation
 
         private void BuildFilters(Transform parent)
         {
-            var bar = Ui.Row(parent, "Filters", 4);
-            bar.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Ui.Anchor((RectTransform)bar.transform, new Vector2(0, 1), Vector2.one,
+            // 屏比溢出(2026-10-04 按两档宽验算):页签宽是写死的(BuildFilterTab),八个页签
+            // 全部 208 + 字林 208 + 朱砂/文山/金石/墨海/词渊 各 172 + Boss 266 + 间距 7×4 = 1570
+            // (各段已录过 10 时的最宽档;开局全个位数是 1516)。可用宽 = 画布宽 − 两侧安全区 123×2:
+            //   基准机 1951 → 1705,放得下(余 135~189,弹簧吃掉);
+            //   16:9  1600 → 1354,差 162~216 —— 横排布局组会把每个页签按比例压到 ~86%,
+            //   页签名与计数 chip 叠在一起、探出页签边。
+            // 所以整条放进 HScrollFill:内容宽 = max(视口, 页签总宽),基准机铺满拖不动、
+            // 16:9 按原尺寸排版并横向滚出来。页签尺寸与字号一律不动。
+            var scroll = Ui.HScrollFill(parent, "Filters", 0f, out var content);
+            Ui.Anchor((RectTransform)scroll.transform, new Vector2(0, 1), Vector2.one,
                 new Vector2(0, -(TopH + FilterH)), new Vector2(0, -TopH));
+            _filterBar = scroll.GetComponent<ScrollRect>();
 
-            BuildFilterTab(bar.transform, FilterAll, Strings.T("bestiary.filter.all"));
+            const float spacing = 4f;
+            var bar = Ui.Row(content, "Row", spacing);
+            bar.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Stretch((RectTransform)bar.transform);
+
+            var widths = new List<float>
+            {
+                BuildFilterTab(bar.transform, FilterAll, Strings.T("bestiary.filter.all")),
+            };
             for (int b = 0; b < BandCount; b++)
-                BuildFilterTab(bar.transform, b, _endless.Bands[b].Name);
-            BuildFilterTab(bar.transform, FilterBoss, Strings.T("bestiary.filter.boss"));
+                widths.Add(BuildFilterTab(bar.transform, b, _endless.Bands[b].Name));
+            widths.Add(BuildFilterTab(bar.transform, FilterBoss, Strings.T("bestiary.filter.boss")));
 
             var spring = Ui.Panel(bar.transform, "Spring");
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
-            // 2026-09-30 层段 4 → 6 段:全部 + 6 段 + Boss 八个页签(每个约 160)已占满 1600 宽,
-            // 排序提示再挤进来会溢出屏幕右缘 —— 段多时让位给页签。
+            // 2026-09-30 层段 4 → 6 段:八个页签在基准机上也只剩 135 余量,排序提示(约 285)
+            // 放不下 —— 段多时让位给页签。段少时它也算进最小排版宽,窄屏一起滚。
             if (BandCount <= 4)
-                Ui.ThemedLabel(bar.transform, Strings.T("bestiary.sort_hint"), 19, Theme.LockGray);
+            {
+                string hint = Strings.T("bestiary.sort_hint");
+                Ui.ThemedLabel(bar.transform, hint, 19, Theme.LockGray);
+                widths.Add(Ui.ChipWidth(hint, 19, 0));
+            }
+
+            float minWidth = 0f;
+            int shown = 0;
+            foreach (float w in widths)
+                if (w > 0f) { minWidth += w; shown++; }
+            minWidth += spacing * Mathf.Max(0, shown - 1);
+            // HScrollFill 建的时候还不知道页签总宽,这里补上。content 宽当场就写成终值
+            // (不等 FillViewportWidth 下一帧再改),下面还原滚动位置才有正确的边界可夹。
+            content.GetComponent<FillViewportWidth>().MinWidth = minWidth;
+            var viewport = _filterBar.viewport;
+            content.sizeDelta = new Vector2(Mathf.Max(minWidth, viewport.rect.width), content.sizeDelta.y);
+            _filterBar.horizontalNormalizedPosition = _filterScroll;
         }
 
         /// <summary>一个筛选页签:名 + 「已录/总数」+ 有待领赏时的红点。
@@ -238,7 +280,8 @@ namespace Brushblade.Presentation
         /// 一只怪也没有的层段**不出页签**:层段的 enemyPool 是累积的,深段完全可能一只新怪
         /// 都不引进(眼下的墨海就与文山同池)。硬画一个「0/0」的空页签既没内容也说不清为什么空,
         /// 那一段真配上专属怪的当天它自己就会长回来。</summary>
-        private void BuildFilterTab(Transform parent, int filter, string name)
+        /// <returns>页签宽(逻辑单位);不出页签时返回 0 —— 筛选栏拿它算最小排版宽。</returns>
+        private float BuildFilterTab(Transform parent, int filter, string name)
         {
             bool on = _filter == filter;
             bool isBossTab = filter == FilterBoss;
@@ -252,7 +295,7 @@ namespace Brushblade.Presentation
                 known++;
                 if (!Claimed(def)) hasBounty = true;
             }
-            if (total == 0 && filter >= 0) return;
+            if (total == 0 && filter >= 0) return 0f;
 
             Element? tint = filter >= 0 && filter < BandTint.Length ? BandTint[filter] : null;
             var go = Ui.Panel(parent, $"Tab_{filter}");
@@ -264,7 +307,8 @@ namespace Brushblade.Presentation
                 : new Color(0, 0, 0, 0);
             // 宽度自己算:横排布局组不会替按钮量文字,给 0 就是 0 宽
             string countText = $"{known}/{total}";
-            Ui.Sized(go, 32 + name.Length * 29 + 10 + Ui.ChipWidth(countText, 18), FilterH);
+            float width = 32 + name.Length * 29 + 10 + Ui.ChipWidth(countText, 18);
+            Ui.Sized(go, width, FilterH);
             var button = go.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(() => { _filter = filter; Rebuild(keepScroll: false); });
@@ -302,6 +346,7 @@ namespace Brushblade.Presentation
                 Ui.Anchor((RectTransform)dot.transform, Vector2.one, Vector2.one,
                     new Vector2(-16, -18), new Vector2(-4, -6));
             }
+            return width;
         }
 
         // ================= 左:怪物网格 =================
