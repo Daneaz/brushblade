@@ -63,7 +63,7 @@ namespace Brushblade.Presentation
         /// 全遮死就成了「不知从哪冒出来的窗」(Reward.dc.html / Replace.dc.html 的原话)。</summary>
         public static readonly Color ScrimSoft = new(0.086f, 0.106f, 0.133f, 0.42f);
         /// <summary>段末横幅的**纸色**罩(稿 rgba(246,241,231,.72))。胜负横幅压的是自家宣纸底,
-        /// 不是墨色 —— 墨罩会把战场压成深色,与「本段告捷」的明快读感相反(RunEnd.dc.html)。</summary>
+        /// 不是墨色 —— 墨罩会把战场压成深色,与胜利横幅的明快读感相反(RunEnd.dc.html;「本段告捷」一屏 2026-10-04 已去掉)。</summary>
         public static readonly Color ScrimPaper = new(0.965f, 0.945f, 0.906f, 0.72f);
 
         // 层段背景基色(20.2 每段换景;2026-09-30 十层一主题,按段属性取色):
