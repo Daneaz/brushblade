@@ -198,31 +198,33 @@ namespace Brushblade.Core.Tests
         }
 
         [TestCase(10, 1, 10)]
-        [TestCase(18, 3, 23)]   // 18 × 1.234 = 22.212 → 23(向上取整)
-        [TestCase(18, 10, 37)]  // 18 × 2.053 = 36.954 → 37
+        [TestCase(18, 3, 21)]   // 18 × 1.12 = 20.16 → 21(向上取整)
+        [TestCase(18, 10, 28)]  // 18 × 1.54 = 27.72 → 28
         [TestCase(6, 2, 7)]     // 低数值字升 1 级即 +1 可感(2026-07-19:floor 吞增幅的修正)
         [TestCase(3, 2, 4)]
-        [TestCase(100, 5, 147)] // 5 级 = ×1.468 = 档位倍率 G(2026-09-11:升到 5 级 ≈ 下一档 1 级)
-        public void ScaleByCardLevel_ElevenPointSevenPercentPerLevel_Ceiled(
+        [TestCase(100, 5, 124)] // 5 级 = ×1.24(v7 取消「Lv5 = 档位倍率 G」不变量)
+        public void ScaleByCardLevel_SixPercentPerLevel_Ceiled(
             int baseValue, int level, int expected)
         {
             Assert.That(MetaRules.ScaleByCardLevel(baseValue, level), Is.EqualTo(expected));
         }
 
-        /// <summary>2026-09-11(档位差距与升级替代,拍板第 2 条):系数 0.1 → 0.117,
-        /// 使 5 级系数 = 1 + 0.117×4 = 1.468 = 档位倍率 G = 10^(1/6)。
-        /// 规则表述:**升到 5 级 ≈ 下一档 1 级**。这条守的是那个等式本身 ——
-        /// 只有上面那张 TestCase 表的话,把系数改回 0.1 再顺手改期望值就不会有任何东西变红。</summary>
+        [TestCase(100, 3, 112)]   // double 下是 112.00000000000001 → Ceiling 得 113 的陷阱
+        [TestCase(25, 3, 28)]
+        [TestCase(50, 3, 56)]
+        [TestCase(200, 3, 224)]
+        [TestCase(100, 8, 142)]
+        [TestCase(100, 10, 154)]
+        [TestCase(7, 2, 8)]       // 7 × 1.06 = 7.42 → 8:低数值升 1 级仍 +1
+        [TestCase(0, 10, 0)]
+        public void ScaleByCardLevel_SixPercentPerLevel_IntegerCeiling(int baseValue, int level, int expected) =>
+            Assert.That(MetaRules.ScaleByCardLevel(baseValue, level), Is.EqualTo(expected));
+
         [Test]
-        public void ScaleByCardLevel_AtLevelFive_MatchesOneTierGap()
+        public void ScaleByCardLevel_Level8And10_MatchSpec()
         {
-            const double tierGap = 1.4678; // 10^(1/6)
-            for (int baseValue = 40; baseValue <= 600; baseValue += 40)
-            {
-                int scaled = MetaRules.ScaleByCardLevel(baseValue, 5);
-                Assert.That(scaled / (double)baseValue, Is.EqualTo(tierGap).Within(0.02),
-                    $"基础值 {baseValue}:5 级应约等于跨一档");
-            }
+            Assert.That(MetaRules.ScaleByCardLevel(10000, 8), Is.EqualTo(14200));
+            Assert.That(MetaRules.ScaleByCardLevel(10000, 10), Is.EqualTo(15400));
         }
 
         [TestCase(1, 100)]   // 1 级 = 基准,伤害与引入攻击力之前逐字节相同
@@ -317,8 +319,8 @@ namespace Brushblade.Core.Tests
                 new[] { new EnemyDef("怔", Element.Heart, 200, 3) }, seed: 1,
                 cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["焚"] = 3 });
             engine.Cast("焚");
-            // 基础 18 → 3 级 ×1.234 = 22.212 → 向上取整 23(相生 ×3 已取消,不再乘 3)
-            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 23));
+            // 基础 18 → 3 级 ×1.12 = 20.16 → 向上取整 21(相生 ×3 已取消,不再乘 3)
+            Assert.That(engine.Enemies[0].Hp, Is.EqualTo(200 - 21));
         }
 
         // ---- 收集(19.3.4) ----
@@ -548,8 +550,8 @@ namespace Brushblade.Core.Tests
                 new BattleConfig(), new string[0], new[] { "火" }, seed: 1,
                 cardLevels: new System.Collections.Generic.Dictionary<string, int> { ["火"] = 6 });
             run.Battle.Cast("火", 0);
-            // 10 × (1 + 0.117×5) = 15.85 → 向上取整 16
-            Assert.That(run.Battle.Enemies[0].Hp, Is.EqualTo(84));
+            // 10 × (1 + 0.06×5) = 13.0 → 13(整数算式 10×130/100)
+            Assert.That(run.Battle.Enemies[0].Hp, Is.EqualTo(87));
         }
 
         // ---- 存档序列化 ----

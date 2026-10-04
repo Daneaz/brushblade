@@ -780,17 +780,18 @@ namespace Brushblade.Core
                 map.Remove(key);
         }
 
-        /// <summary>卡等级数值系数:基础值 × (1 + 0.117 × (等级 − 1)),向上取整(19.3.2;
-        /// 2026-07-19 floor→ceiling:低数值字升 1 级即 +1,升级可感)。
+        /// <summary>卡等级数值系数(spec v7 §1,2026-10-04):基础值 × (1 + 6% × (等级 − 1)),向上取整。
+        /// Lv8 = ×1.42,Lv10 = ×1.54。只作用于连续数值;层数/回合/次数见 <see cref="ScalesWithCardLevel"/>。
         ///
-        /// 2026-09-11(档位差距与升级替代,拍板第 2 条)系数 0.1 → 0.117:档位倍率统一为
-        /// G = 10^(1/6) = 1.4678 之后,0.117 让 **5 级系数 = 1 + 0.117×4 = 1.468 = G**,
-        /// 即规则表述「**升到 5 级 ≈ 下一档 1 级**」。满级(10)由 1.9 变 2.05。
-        /// 离散量(层数/回合/次数)不走这条曲线,见 <see cref="ScalesWithCardLevel"/>。</summary>
+        /// ⚠ 全程整数:double 下 1 + 0.06×2 = 1.1200000000000001,100 × 它再 Ceiling 得 113 而不是 112
+        /// (base 1..3000 × Lv2..10 共 97 处偏差)。Unity Mono 与 .NET 的中间精度也不同,整数算式两边一致。
+        ///
+        /// 沿革:0.1(2026-07)→ 0.117(2026-09-11,Lv5 = 档位倍率 G)→ 0.06(v7:特性接管成长,G 不变量取消)。</summary>
         public static int ScaleByCardLevel(int baseValue, int cardLevel)
         {
-            if (cardLevel <= 1) return baseValue;
-            return (int)Math.Ceiling(baseValue * (1 + 0.117 * (cardLevel - 1)));
+            if (cardLevel <= 1 || baseValue <= 0) return baseValue;
+            long scaled = (long)baseValue * (100 + 6 * (cardLevel - 1));
+            return (int)((scaled + 99) / 100);
         }
 
         /// <summary>spec v7 §1:这个效果的 Value 是否随卡等级缩放。层数、回合、次数、击数不缩放

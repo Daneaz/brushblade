@@ -219,7 +219,7 @@ namespace Brushblade.Presentation
             // 拿 10000 当基数取整误差 < 0.01%,够印一位小数。
             Ui.ThemedLabel(lvRow.transform,
                 Strings.T("charsheet.lv.scale",
-                    ("mult", (MetaRules.ScaleByCardLevel(10000, cardLevel) / 10000.0).ToString("0.#"))),
+                    ("mult", (MetaRules.ScaleByCardLevel(10000, cardLevel) / 10000.0).ToString("0.##"))),
                 19, Theme.LockGray);
             Ui.ThemedLabel(lvRow.transform,
                 dual ? Strings.T("charsheet.lv.note_dual") : Strings.T("charsheet.lv.note"),

@@ -73,11 +73,11 @@ namespace Brushblade.Core.Tests
                 new[] { RebalanceFixture.Mob() }, seed: 1, cardLevels: cardLevels);
 
             battle.Cast("增");
-            // Magnitude 仍吃卡等级(Empower 是数值类,现行曲线;Task 7 才改曲线):5 级 → ceil(30 × 1.468) = 45,基准 100 + 45 = 145。
-            Assert.That(battle.EffectiveAttack, Is.EqualTo(145), "基准 100 + ScaleByCardLevel(30, 5)=45");
+            // Magnitude 仍吃卡等级(Empower 是数值类):5 级 → 30 × 124 / 100 = 37.2 → 38,基准 100 + 38 = 138。
+            Assert.That(battle.EffectiveAttack, Is.EqualTo(138), "基准 100 + ScaleByCardLevel(30, 5)=38");
 
             battle.EndTurn();
-            Assert.That(battle.EffectiveAttack, Is.EqualTo(145), "第 1 个回合末未到期");
+            Assert.That(battle.EffectiveAttack, Is.EqualTo(138), "第 1 个回合末未到期");
 
             battle.EndTurn();
             Assert.That(battle.EffectiveAttack, Is.EqualTo(100), "回合数不吃等级:第 2 个回合末到期");
