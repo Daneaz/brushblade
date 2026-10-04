@@ -15,12 +15,12 @@
 | 执笔人血条 | 17 | `cinnabar`，**不叠字**（数字在头行） | `BattleView.DrawPlayerStats` |
 | 行动条 · 敌人 | 6 | `ink-soft`，>80% 转 `cinnabar`，不叠字 | `BattleView.DrawEnemies`（直调 `Ui.Bar`） |
 | 行动条 · 召唤物与执笔人 | 15 | `ink-soft`，>80% 转 `jade`，叠 13 号百分比 | `BattleView.DrawSummons` / `DrawPlayerStats` → `ActionBar` |
-| 单位详情弹窗 · 血 / 盾 / 行动 | 12 / 5 / 5 | `cinnabar` / `ink-soft` / `ink-soft` | `UnitSheet.BuildBars` |
+| 单位详情弹窗 · 血 / 盾 / 行动 | 12 / 5 / 5 | `cinnabar` / `rarity-gold` / `ink-soft` | `UnitSheet.BuildBars` |
 | 字牌牌脚 · 升级材料 | 牌高 × 4/128 | 可升 `jade`，否则 `text-faint` | `CardBadges.Foot`（属 CardFace 卡） |
 
 叠字：`Theme.TitleFont` 宋体白字，`Outline` 色 `ink`、偏移 1.2。血条字号默认 `clamp(高×0.7, 10, 13)`，召唤格与行动条显式传 13（`UnitBarLabelFontSize`）。
 
-战场上的护盾条 2026-09-05 整体移除：盾量只在立绘左下角的 `ink-soft` 角标上（`DrawPlayerStats` / `DrawSummons` 的盾角标）。
+战场上的护盾条 2026-09-05 整体移除：盾量只在立绘左下角的金色角标上（`DrawPlayerStats` / `DrawSummons` 的盾角标）。
 **详情弹窗那条 5 高的盾条是留下来的**（`UnitSheet.BuildBars`），它是另一套更细的读数条，不受那次移除影响。
 
 ⚠ 敌人/召唤物/行动条那三条叠的白字，只在**填充段**上达标（5.3 / 4.6 / 8.4:1）；
