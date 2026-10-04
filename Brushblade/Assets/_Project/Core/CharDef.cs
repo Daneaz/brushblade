@@ -64,10 +64,6 @@ namespace Brushblade.Core
         /// RealConfig_PlayableCharsAndComponentsDoNotOverlap 守住。</summary>
         public bool IsComponent { get; }
 
-        /// <summary>主面(spec v6 §2.1):按 100% 结算;另一面为副面,按 BattleConfig.SideFacePercent 结算连续量。
-        /// null = 未指定(旧数据),两面都按 100%,保证恒等。</summary>
-        public CardFace? MainFace { get; }
-
         /// <summary>字卡特性(spec v6),缺省空。</summary>
         public IReadOnlyList<TraitDef> Traits { get; }
 
@@ -80,7 +76,7 @@ namespace Brushblade.Core
         public CharDef(string id, Element? element, IReadOnlyList<string> recipe = null,
             IReadOnlyList<EffectDef> effects = null, CardRarity rarity = CardRarity.White,
             string pinyin = null, string gloss = null, IReadOnlyList<EffectDef> attackEffects = null,
-            bool? isComponent = null, CardFace? mainFace = null,
+            bool? isComponent = null,
             IReadOnlyList<TraitDef> traits = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
@@ -93,7 +89,6 @@ namespace Brushblade.Core
             Pinyin = pinyin;
             Gloss = gloss;
             IsComponent = isComponent ?? IsLeaf;
-            MainFace = mainFace;
             Traits = traits ?? Array.Empty<TraitDef>();
         }
     }
