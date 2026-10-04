@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>字卡弹窗 · 买后效果四种口径</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;display=swap">
+<style>
+/* 2× 放大:只画弹窗信息栏的「名 / 一捆 / 重复卡 + 预告」三行,其余行四态相同 */
+body { margin: 0; }
+sc-for, sc-if { display: contents; }
+.serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+.wrap { width: 1240px; box-sizing: border-box; padding: 40px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; display: grid; grid-template-columns: 1fr 1fr; gap: 36px; white-space: nowrap; }
+.case { display: flex; flex-direction: column; gap: 14px; }
+.hd { display: flex; align-items: baseline; gap: 10px; }
+.hd b { font-family: "Noto Serif SC", serif; font-size: 22px; font-weight: 700; }
+.hd span { font-size: 15px; color: #4F5661; }
+.hd em { font-style: normal; height: 24px; padding: 0 10px; border-radius: 12px; background: #FBE3E2; color: #9B1E22; font-size: 13px; display: flex; align-items: center; }
+.pane { width: 540px; box-sizing: border-box; background: #FBF8F1; border: 1.44px solid #DED7C9; border-radius: 17.2px; padding: 22px; display: flex; gap: 27.7px; }
+.tile { position: relative; width: 137.6px; height: 172px; flex: none; box-sizing: border-box; border-radius: 13.4px; background: #FFFDF7; border: 3px solid var(--rar); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.tile.locked { background: #EFEAE0; }
+.tile .g { font-size: 58.5px; font-weight: 600; line-height: 1; color: var(--glyph); }
+.tile .p { font-size: 11.5px; color: #5D646F; margin-top: 8px; }
+.tile.locked .g, .tile.locked .p { color: #8E8675; }
+.tile .lv { position: absolute; top: 6px; left: 6px; height: 19px; padding: 0 6px; border-radius: 9px; background: #11161F; color: #fff; font-size: 12.4px; display: flex; align-items: center; }
+.tile .lv.max { background: #CA9D33; }
+.tile .qty { position: absolute; bottom: 6px; right: 6px; height: 19px; padding: 0 6px; border-radius: 9px; background: #11161F; color: #fff; font-size: 12.4px; display: flex; align-items: center; }
+.tile .tag { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); height: 26.2px; padding: 0 7px; border-radius: 3.8px; background: #C53637; color: #fff; font-size: 13.4px; display: flex; align-items: center; }
+.info { display: flex; flex-direction: column; gap: 7.64px; }
+.nm { height: 38.2px; display: flex; align-items: center; gap: 12.4px; }
+.nm b { font-size: 32.5px; font-weight: 600; }
+.sq { width: 16.2px; height: 16.2px; border-radius: 5.7px; display: block; }
+.nm span { font-size: 19.1px; color: #5D646F; }
+.row { height: 42px; display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+.row .k { width: 100.3px; font-size: 19.1px; color: #5D646F; }
+.row .v { font-size: 22.9px; }
+.row .v.dim { color: #5D646F; }
+.row .v.up { color: #1B552C; }
+.note { height: 26.8px; margin-top: -7.64px; padding-left: 100.3px; font-size: 18.2px; color: #1B552C; display: flex; align-items: center; }
+.line { width: 540px; font-size: 15px; line-height: 1.6; color: #4F5661; white-space: normal; }
+</style>
+</helmet>
+<div class="wrap">
+<sc-for list="{{cases}}" as="c" hint-placeholder-count="4">
+<div class="case">
+<div class="hd"><b>{{c.key}}</b><span>{{c.name}}</span><sc-if value="{{c.unreachable}}" hint-placeholder-val="{{false}}"><em>当前到不了</em></sc-if></div>
+<div class="pane">
+<div class="{{c.tileCls}}" style="{{c.tileStyle}}">
+<span class="g serif">{{c.glyph}}</span><span class="p">{{c.py}}</span>
+<sc-if value="{{c.lv}}" hint-placeholder-val="{{true}}"><span class="{{c.lvCls}}">{{c.lv}}</span></sc-if>
+<span class="qty">{{c.qty}}张</span><span class="tag">{{c.zhe}}折</span>
+</div>
+<div class="info">
+<div class="nm"><b class="serif">{{c.glyph}}</b><i class="sq" style="{{c.dot}}"></i><span>{{c.rarity}}字</span></div>
+<div class="row"><span class="k">一捆</span><span class="v">{{c.qty}} 张</span></div>
+<div class="row"><span class="k">重复卡</span><span class="{{c.vCls}}">{{c.value}}</span></div>
+<sc-if value="{{c.note}}" hint-placeholder-val="{{true}}"><div class="note">{{c.note}}</div></sc-if>
+</div>
+</div>
+<div class="line">{{c.line}}</div>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1240,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      cases: [
+        { key: '① 凑够可升', name: '「燥」紫 Lv.5 · 8/10,一捆 2 张', glyph: '燥', py: 'zào', rarity: '紫', qty: 2, zhe: 6,
+          tileCls: 'tile', tileStyle: '--rar: #7945AB; --glyph: #B02D2E', dot: 'background: #7945AB',
+          lv: 'Lv.5', lvCls: 'lv', vCls: 'v', value: '8/10 → 10/10', note: '买下即可升 Lv.6',
+          line: '「重复卡」行写「现有/所需 → 买后/所需」(text-main);下面另起一行预告 `shop.slot.unlocks_upgrade`(upgrade-text)。两段是两个 Text,不在同一个 Text 里分色。' },
+        { key: '② 没凑够', name: '「剑」蓝 Lv.5 · 7/16,一捆 5 张', glyph: '剑', py: 'jiàn', rarity: '蓝', qty: 5, zhe: 7,
+          tileCls: 'tile', tileStyle: '--rar: #0F74C5; --glyph: #6B6449', dot: 'background: #0F74C5',
+          lv: 'Lv.5', lvCls: 'lv', vCls: 'v', value: '7/16 → 12/16', note: '',
+          line: '货架上的预告「买下后 12/16 张」与这一行说的是同一件事,弹窗里不再重复,只留这一行。' },
+        { key: '③ 已满级', name: '「炎」金 MAX,一捆 1 张', glyph: '炎', py: 'yán', rarity: '金', qty: 1, zhe: 4,
+          tileCls: 'tile', tileStyle: '--rar: #C9A94A; --glyph: #B02D2E', dot: 'background: #C9A94A',
+          lv: 'MAX', lvCls: 'lv max', vCls: 'v dim', value: '已满级,买了只进重复卡', note: '',
+          line: '值换成 `shop.slot.maxed_note`(text-dim),没有「→」,也不写预告。买是允许的,只是说清楚买了没用处。' },
+        { key: '④ 新字', name: '「荆」紫 未拥有,一捆 2 张', glyph: '荆', py: 'jīng', rarity: '紫', qty: 2, zhe: 5, unreachable: true,
+          tileCls: 'tile locked', tileStyle: '--rar: #7945AB; --glyph: #8E8675', dot: 'background: #7945AB; opacity: .5',
+          lv: '', lvCls: 'lv', vCls: 'v up', value: '新字,拿到即解锁', note: '',
+          line: '值换成 `shop.slot.new_card_note`(upgrade-text),牌走 locked 态。⚠ 墨锭摊位只上架已拥有的字(未拥有只出现在紫档广告位,那条走广告、不弹本窗),所以这一态现在到不了 —— 画出来备用,实现时可不接。' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

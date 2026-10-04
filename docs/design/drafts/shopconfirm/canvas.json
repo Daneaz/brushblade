@@ -1,0 +1,18 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-04T12:00:00Z"},
+  "title": "商城 · 确认购买弹窗",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Card.dc.html": {"x": 0, "y": 0, "w": 932, "h": 430, "title": "买字卡 · 确认(1:1 pt)"},
+    "Chest.dc.html": {"x": 1012, "y": 0, "w": 932, "h": 430, "title": "买宝箱 · 确认(1:1 pt)"},
+    "CardPoor.dc.html": {"x": 0, "y": 550, "w": 932, "h": 430, "title": "买字卡 · 墨锭不足"},
+    "ChestPoor.dc.html": {"x": 1012, "y": 550, "w": 932, "h": 430, "title": "买宝箱 · 墨锭不足"},
+    "Forecast.dc.html": {"x": 0, "y": 1100, "w": 1240, "h": 900, "title": "字卡 · 买后效果四种口径(2× 放大)"},
+    "Notes.dc.html": {"x": 1320, "y": 1100, "w": 1240, "h": 1000, "title": "规格 · 屏比验算 · 待拍板"}
+  },
+  "order": ["Card.dc.html", "Chest.dc.html", "CardPoor.dc.html", "ChestPoor.dc.html", "Forecast.dc.html", "Notes.dc.html"],
+  "notes": {},
+  "designSystems": []
+}
