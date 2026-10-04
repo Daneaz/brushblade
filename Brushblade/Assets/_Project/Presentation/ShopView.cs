@@ -312,10 +312,7 @@ namespace Brushblade.Presentation
                 DiscountTag(discount));
             BuyButton(cell, CardSize.x, sold, price,
                 sold ? Strings.T("shop.slot.sold_today") : Ui.InkText(price),
-                () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
-                    Strings.T("shop.card.buy_success", ("card", card), ("count", bundle)),
-                    Strings.T("shop.card.buy_fail_title"),
-                    Strings.T("shop.card.buy_fail_body", ("card", card), ("price", Ui.InkText(price)), ("ink", Ui.InkText(_meta.Ink)))),
+                () => ShowCardConfirm(index),
                 original: ShopRules.BundlePriceFor(def.Rarity));
         }
 
@@ -410,6 +407,8 @@ namespace Brushblade.Presentation
         /// <summary>价格钮三态(稿):买得起 = 墨色底白字;墨锭不足 = 凹槽底 + 朱砂字的价格;
         /// 已售 = 锁灰底 + 「今日已购」。
         /// 墨锭不足时不再写「差 N 墨」(2026-10-02 用户拍板):照常显示价格、标红即可,与宝箱位同款。
+        /// 墨锭不足**仍可点**(2026-10-04 确认购买弹窗拍板):点开确认窗的不足态,差额写在窗里 ——
+        /// 点红价没反应是哑操作。宝箱位不同,不足时钮不可点(前置拦截,见 BuildChestOffer)。
         /// <paramref name="original"/> 高于 price 时,未售的两态都在折后价后面跟一个划线原价。</summary>
         private void BuyButton(Transform parent, float width, bool sold, int price, string label, Action onClick,
             int original = 0)
@@ -420,7 +419,7 @@ namespace Brushblade.Presentation
                 sold ? Theme.LockedBg : poor ? Theme.PanelInset : Theme.Info,
                 sold ? Theme.LockGray : poor ? Theme.CinnabarDark : Color.white,
                 19, new Vector2(width, BuyH), 14);
-            button.interactable = !sold && !poor;
+            button.interactable = !sold;
             if (!sold && original > price) StrikePrice(button, original, poor ? Theme.CinnabarDark : Color.white);
         }
 
@@ -559,13 +558,8 @@ namespace Brushblade.Presentation
             string label = sold ? Strings.T("shop.slot.sold_today")
                 : slotsFull ? Strings.T("shop.chest.slots_full_label")
                 : Ui.InkText(price);
-            var buy = Ui.RoundButton(stack.transform, label,
-                () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time),
-                    Strings.T("shop.chest.buy_success", ("chestName", chestName)),
-                    Strings.T("shop.chest.buy_fail_title"),
-                    slotsFull
-                        ? Strings.T("shop.chest.slot_full_body", ("count", ChestRules.SlotLimit), ("limit", ChestRules.SlotLimit))
-                        : Strings.T("shop.chest.buy_fail_body", ("chestName", chestName), ("price", Ui.InkText(price)), ("ink", Ui.InkText(_meta.Ink)))),
+            // 墨锭不足 / 箱位满 / 已售都不可点(前置拦截,2026-10-04 拍板),所以确认窗只有买得起一态
+            var buy = Ui.RoundButton(stack.transform, label, ShowChestConfirm,
                 sold || slotsFull ? Theme.LockedBg : _meta.Ink < price ? Theme.PanelInset : Theme.Info,
                 sold || slotsFull ? Theme.LockGray : _meta.Ink < price ? Theme.CinnabarDark : Color.white,
                 19, new Vector2(0, BuyH), 14);
@@ -627,6 +621,258 @@ namespace Brushblade.Presentation
             refresh.GetComponent<LayoutElement>().flexibleWidth = 1;
             refresh.interactable = !_meta.Shop.AdRefreshUsed;
 
+        }
+
+        // ---- 确认购买弹窗(稿 drafts/shopconfirm,2026-10-04 拍板) ----
+        //
+        // 点价格钮不再直接成交:先把「买到什么、花多少、买完怎样」说清。880×520 定宽,
+        // 16:9 最窄档 1354 与基准机 ≈1951 都放得下(稿 Notes 板验算),不随屏宽变。
+        // 点遮罩 = 再想想;点任一钮先关窗再执行。
+
+        private const float ConfirmW = 880f, ConfirmH = 520f;
+        private const int ConfirmPad = 29;
+        private const float ConfirmArtW = 180f, ConfirmColGap = 29f;
+        private const float ConfirmNameH = 40f, ConfirmRowH = 44f, ConfirmNoteH = 28f;
+        private const float ConfirmLabelW = 105f, ConfirmLabelGap = 10f;
+        private const int ConfirmValueFont = 24;
+
+        /// <summary>弹窗外壳 + 标题 + 左右两栏,交出左栏(牌 / 箱卡)与右栏(信息行)。</summary>
+        private Transform ConfirmShell(out GameObject overlay, out Transform art, out Transform info)
+        {
+            if (_modal != null) Destroy(_modal);
+            overlay = Ui.Sheet(transform, "ShopConfirm", ConfirmW, ConfirmH,
+                dismissable: true, replaceSameName: true, Theme.Scrim, out var content);
+            _modal = overlay;
+            var layout = content.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.padding = new RectOffset(ConfirmPad, ConfirmPad, ConfirmPad, ConfirmPad);
+            Ui.Sized(Ui.ThemedLabel(content, Strings.T("shop.confirm.title"), 24, Theme.TextMain, Theme.TitleFont)
+                .gameObject, height: 36);
+
+            var body = Ui.Row(content, "Body", ConfirmColGap);
+            body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            Ui.Sized(body, width: ConfirmW - 2 * ConfirmPad);
+            var left = Ui.VStack(body.transform, "Art", 0);
+            left.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+            Ui.Sized(left, width: ConfirmArtW);
+            var right = Ui.VStack(body.transform, "Info", 8);
+            var rightLayout = right.GetComponent<VerticalLayoutGroup>();
+            rightLayout.childAlignment = TextAnchor.UpperLeft;
+            rightLayout.childForceExpandWidth = true;
+            Ui.Sized(right, flexWidth: 1);
+            art = left.transform;
+            info = right.transform;
+            return content;
+        }
+
+        /// <summary>一行信息:标签(20 text-dim,定宽 105)→ 值区。返回值区那一排,调用方往里放东西。</summary>
+        private static Transform ConfirmRow(Transform info, string label)
+        {
+            var row = Ui.Row(info, "Row", ConfirmLabelGap);
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Sized(row, height: ConfirmRowH);
+            Ui.Sized(Ui.ThemedLabel(row.transform, label, 20, Theme.TextDim, null, TextAnchor.MiddleLeft).gameObject,
+                width: ConfirmLabelW);
+            return row.transform;
+        }
+
+        /// <summary>墨锭图标 + 数额(与 <see cref="Ui.IngotLabel"/> 同比例),字色由调用点给。</summary>
+        private static Text ConfirmInk(Transform parent, string text, Color color)
+        {
+            var group = Ui.Row(parent, "Ingot", 6);
+            var icon = Ui.Panel(group.transform, "Icon");
+            var image = icon.AddComponent<Image>();
+            image.sprite = Theme.Ingot;
+            image.color = Theme.IngotDark;
+            Ui.Sized(icon, ConfirmValueFont * 1.4f, ConfirmValueFont * 0.85f);
+            return Ui.ThemedLabel(group.transform, text, ConfirmValueFont, color);
+        }
+
+        /// <summary>价格行:折后价 + 划线原价(做法同 <see cref="StrikePrice"/>:17 号、前景 60%、横贯细线)。</summary>
+        private static void ConfirmPrice(Transform info, int price, int original, bool poor)
+        {
+            var row = ConfirmRow(info, Strings.T("shop.confirm.price_label"));
+            var fg = poor ? Theme.CinnabarDark : Theme.TextMain;
+            ConfirmInk(row, Ui.InkText(price), fg);
+            if (original <= price) return;
+            var dim = new Color(fg.r, fg.g, fg.b, 0.6f);
+            var orig = Ui.ThemedLabel(row, Ui.InkText(original), Mathf.RoundToInt(ConfirmValueFont * 0.7f), dim);
+            var line = Ui.Panel(orig.transform, "Strike");
+            var image = line.AddComponent<Image>();
+            image.color = dim;
+            image.raycastTarget = false;
+            Ui.Anchor((RectTransform)line.transform, new Vector2(0, 0.5f), new Vector2(1, 0.5f),
+                new Vector2(-1, -1), new Vector2(1, 1));
+        }
+
+        /// <summary>余额行:买得起写「现有 → 买后」;不足只写现有 +「还差 N」(深朱砂,独立 Text)。</summary>
+        private void ConfirmBalance(Transform info, int price)
+        {
+            var row = ConfirmRow(info, Strings.T("shop.confirm.balance_label"));
+            if (_meta.Ink >= price)
+            {
+                ConfirmInk(row, Strings.T("shop.confirm.balance_value",
+                    ("from", Ui.InkText(_meta.Ink)), ("to", Ui.InkText(_meta.Ink - price))), Theme.TextMain);
+                return;
+            }
+            ConfirmInk(row, Ui.InkText(_meta.Ink), Theme.TextMain);
+            Ui.ThemedLabel(row, Strings.T("shop.confirm.shortfall", ("ink", Ui.InkText(price - _meta.Ink))),
+                20, Theme.CinnabarDark);
+        }
+
+        /// <summary>告知行 + 按钮行。不足时主钮置灰「墨锭不足」、取消改「知道了」。</summary>
+        private void ConfirmFooter(Transform content, GameObject overlay, string note, bool poor, Action buy)
+        {
+            Ui.Sized(Ui.ThemedLabel(content, note, 19, Theme.TextDim).gameObject, height: ConfirmNoteH);
+            var row = Ui.Row(content, "Buttons", 14);
+            var primary = Ui.PillButton(row.transform,
+                poor ? Strings.T("shop.confirm.poor") : Strings.T("shop.confirm.buy"),
+                () => { Destroy(overlay); buy(); },
+                poor ? Theme.LockedBg : Theme.Primary, poor ? Theme.LockGray : Color.white,
+                18, new Vector2(150, 52));
+            primary.interactable = !poor;
+            Ui.PillButton(row.transform, poor ? Strings.T("common.ok") : Strings.T("common.reconsider"),
+                () => Destroy(overlay), Theme.LockedBg, Theme.TextMain, 18, new Vector2(150, 52));
+        }
+
+        /// <summary>名行:大字(宋体 34)+ 稀有度方点 17 +「紫字」20;箱是方点在前、箱名在后。</summary>
+        private static void ConfirmName(Transform info, string name, Color dot, string tag, bool dotFirst)
+        {
+            var row = Ui.Row(info, "Name", 13);
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Sized(row, height: ConfirmNameH);
+            void Dot()
+            {
+                var go = Ui.Panel(row.transform, "Dot");
+                var image = go.AddComponent<Image>();
+                image.sprite = Theme.Rounded(6);
+                image.type = Image.Type.Sliced;
+                image.color = dot;
+                Ui.Sized(go, 17, 17);
+            }
+            if (dotFirst) Dot();
+            Ui.ThemedLabel(row.transform, name, 34, Theme.TextMain, Theme.TitleFont);
+            if (!dotFirst) Dot();
+            if (tag != null) Ui.ThemedLabel(row.transform, tag, 20, Theme.TextDim);
+        }
+
+        /// <summary>买字卡确认窗。墨锭不足也能打开(不足态);已售的钮本身不可点,进不来。</summary>
+        private void ShowCardConfirm(int index)
+        {
+            string card = _meta.Shop.CardSlots[index];
+            var def = _graph.Get(card);
+            int price = ShopRules.CardPrice(_meta, index, def.Rarity);
+            int original = ShopRules.BundlePriceFor(def.Rarity);
+            int bundle = ShopRules.BundleSizeFor(def.Rarity);
+            int discount = ShopRules.DiscountPercent(ShopRules.IsPremium(def.Rarity),
+                index < _meta.Shop.CardDiscountRoll.Count ? _meta.Shop.CardDiscountRoll[index] : 0);
+            bool poor = _meta.Ink < price;
+            bool owned = _meta.OwnedCards.Contains(card);
+            int level = MetaRules.CardLevel(_meta, card);
+            bool maxed = level >= MetaRules.MaxCardLevel;
+            _meta.CardCopies.TryGetValue(card, out int copies);
+            int needed = maxed ? 0 : MetaRules.CopiesRequired(level, def.Rarity);
+
+            var content = ConfirmShell(out var overlay, out var art, out var info);
+
+            // 左栏:货架同一张字牌(144×180)+ 同一套角标
+            var tileSize = new Vector2(CardMaxW, CardMaxW * CardAspect);
+            var tile = Ui.GlyphTile(art, def, false, null, tileSize, locked: !owned);
+            CardBadges.Apply(tile.gameObject, tileSize, new CardBadges.Spec
+            {
+                QuantityText = Strings.T("shop.slot.bundle_count", ("count", bundle)),
+                DiscountText = DiscountTag(discount),
+                Rarity = def.Rarity,
+                Level = level,
+                Maxed = maxed,
+                CanUpgrade = MetaRules.CanUpgradeCard(_meta, card, def.Rarity),
+                IsNew = false,
+                Locked = !owned,
+            });
+
+            ConfirmName(info, card, Theme.RarityColor(def.Rarity),
+                Strings.T("shop.confirm.rarity", ("rarity", CharInfo.RarityName(def.Rarity))), dotFirst: false);
+            var bundleRow = ConfirmRow(info, Strings.T("shop.confirm.bundle_label"));
+            Ui.ThemedLabel(bundleRow, Strings.T("shop.confirm.bundle_value", ("count", bundle)),
+                ConfirmValueFont, Theme.TextMain);
+
+            // 重复卡:四种口径与货架预告同一套判断(稿 Forecast 板)
+            var copiesRow = ConfirmRow(info, Strings.T("shop.confirm.copies_label"));
+            string upgradeNote = null;
+            if (!owned)
+                Ui.ThemedLabel(copiesRow, Strings.T("shop.slot.new_card_note"), ConfirmValueFont, Theme.UpgradeText);
+            else if (maxed)
+                Ui.ThemedLabel(copiesRow, Strings.T("shop.slot.maxed_note"), ConfirmValueFont, Theme.TextDim);
+            else
+            {
+                Ui.ThemedLabel(copiesRow, Strings.T("shop.confirm.copies_value",
+                    ("have", copies), ("after", copies + bundle), ("needed", needed)), ConfirmValueFont, Theme.TextMain);
+                if (copies + bundle >= needed)
+                    upgradeNote = Strings.T("shop.slot.unlocks_upgrade", ("level", level + 1));
+            }
+            if (upgradeNote != null)
+            {
+                // 预告行缩进到值列(标签 105 + 间距 10)
+                var noteRow = Ui.Row(info, "Forecast", 0);
+                noteRow.GetComponent<HorizontalLayoutGroup>().padding =
+                    new RectOffset((int)(ConfirmLabelW + ConfirmLabelGap), 0, 0, 0);
+                noteRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                Ui.Sized(noteRow, height: ConfirmNoteH);
+                Ui.ThemedLabel(noteRow.transform, upgradeNote, 19, Theme.UpgradeText);
+            }
+
+            ConfirmPrice(info, price, original, poor);
+            ConfirmBalance(info, price);
+            ConfirmFooter(content, overlay, Strings.T("shop.confirm.note_card"), poor,
+                () => Do(() => ShopRules.TryBuyCard(_meta, index, def.Rarity),
+                    Strings.T("shop.card.buy_success", ("card", card), ("count", bundle)),
+                    Strings.T("shop.card.buy_fail_title"),
+                    Strings.T("shop.card.buy_fail_body", ("card", card), ("price", Ui.InkText(price)), ("ink", Ui.InkText(_meta.Ink)))));
+        }
+
+        /// <summary>买宝箱确认窗。只有买得起一态 —— 不足 / 箱位满 / 已售时价格钮不可点。</summary>
+        private void ShowChestConfirm()
+        {
+            var tier = _meta.Shop.ChestSlot;
+            int t = (int)tier - 1;
+            int price = ShopRules.ChestPrice(_meta);
+            int original = ShopRules.ChestBasePrice[t];
+            int discount = ShopRules.DiscountPercent(ShopRules.IsPremium(tier), Math.Max(0, _meta.Shop.ChestDiscountRoll));
+            string chestName = ChestRules.TierName(tier);
+
+            var content = ConfirmShell(out var overlay, out var art, out var info);
+
+            // 左栏:右栏箱卡同款白卡 180×180,立绘 Idle 150,右上折扣垂旗
+            var card = Ui.OutlinedPanel(art, "ChestCard", Theme.CardWhite, Theme.PanelBorder, 17, 2);
+            Ui.Sized(card.gameObject, ConfirmArtW, ConfirmArtW);
+            var holder = Ui.VStack(card.transform, "Art", 0);
+            Ui.Stretch((RectTransform)holder.transform);
+            ChestArt.Draw(holder.transform, tier, ChestView.State.Idle, 150f);
+            if (original > price) ChestDiscountFlag(card.transform, DiscountTag(discount));
+
+            ConfirmName(info, chestName, Theme.ChestColor(tier), null, dotFirst: true);
+            long seconds = ChestRules.DurationSeconds[t];
+            string duration = seconds % 3600 == 0
+                ? Strings.T("levelup.duration_hours", ("hours", seconds / 3600))
+                : Strings.T("levelup.duration_minutes", ("minutes", seconds / 60));
+            var yieldRow = ConfirmRow(info, Strings.T("shop.confirm.yield_label"));
+            // 产出与升级弹窗奖励卡同一口径(levelup.chest_yield)
+            Ui.ThemedLabel(yieldRow, Strings.T("levelup.chest_yield",
+                    ("kinds", ChestRules.KindCount[t]), ("cards", ChestRules.ExpectedCards(tier)),
+                    ("ink", Ui.InkText(ChestRules.InkReward[t])), ("duration", duration)),
+                ConfirmValueFont, Theme.TextMain);
+            ConfirmPrice(info, price, original, poor: false);
+            ConfirmBalance(info, price);
+            var slotRow = ConfirmRow(info, Strings.T("shop.confirm.slots_label"));
+            Ui.ThemedLabel(slotRow, Strings.T("shop.confirm.slots_value",
+                    ("from", _meta.Chests.Count), ("to", _meta.Chests.Count + 1), ("limit", ChestRules.SlotLimit)),
+                ConfirmValueFont, Theme.TextMain);
+
+            ConfirmFooter(content, overlay, Strings.T("shop.confirm.note_chest"), poor: false,
+                () => Do(() => ShopRules.TryBuyChest(_meta, _chestPool, _time),
+                    Strings.T("shop.chest.buy_success", ("chestName", chestName)),
+                    Strings.T("shop.chest.buy_fail_title"),
+                    Strings.T("shop.chest.buy_fail_body", ("chestName", chestName), ("price", Ui.InkText(price)), ("ink", Ui.InkText(_meta.Ink)))));
         }
 
         // ---- 反馈 ----
