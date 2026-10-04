@@ -56,6 +56,9 @@ VALUELESS_EFFECTS = {
     # 6 类纯随机重掷召唤物属性、永久,不带数值。本任务只造机制不配字,这里先补上
     # token 映射,免得 Task 10/11 配字时才发现这张表漏了它。
     "Unseal": {"kind": "Unseal", "value": 0},
+    # 改形修饰器(D1 Task 3,附录 M2):不带数值;改什么由同格的 `shape X` / `hits N` 等小写 token 给出,
+    # 见 _attach_modifier_tokens。
+    "Reshape": {"kind": "Reshape", "value": 0},
 }
 
 # 斩杀是**伤害的修饰**,不是独立效果:抽出来挂到同一行的伤害效果上。
@@ -132,6 +135,82 @@ CHAIN_TOKEN = "Chain"
 
 SHOTS_TOKEN = "Shots"
 SHAPE_PERCENT_TOKEN = "ShapePercent"
+
+# ---- D1 Task 3:本字修饰器(附录 M1–M3)的修饰 token ----
+# 写法:`Amplify 30` + `scope Damage` + `if Burning`;`Reshape` + `shape Row` + `shapePercent 50` + `hits 2`
+# + `hitPercent 60` + `forceCrit` + `armorIgnore 50` + `shieldStrike 40` + `armorStrike 300`。
+# 小写开头是刻意的:与既有的大写修饰位(`ShapePercent N` / `ArmorStrike N`)区分,两套互不吞。
+# 带数值的那几个必须挂进通用循环的跳过名单,否则会被 `(\w+) (\d+)` 当成独立效果 kind="hits" 落进字表
+# (与 PIERCE_TOKEN 头上那条注释同一个坑)。
+AMP_SCOPE_TOKEN = "scope"
+ONLY_IF_TOKEN = "if"
+RESHAPE_SHAPE_TOKEN = "shape"
+FORCE_CRIT_TOKEN = "forceCrit"
+# token → chars.json 字段
+DAMAGE_MARKER_VALUE_TOKENS = {
+    "shapePercent": "shapePercent",
+    "hits": "hitCount",
+    "hitPercent": "hitPercent",
+    "armorIgnore": "armorIgnorePercent",
+    "shieldStrike": "shieldStrikePercent",
+    "armorStrike": "armorStrikePercent",
+}
+# 与 Core 的 AmpScope / DamageCondition / TargetArea 枚举名一致;写错直接报错,不静默落成缺省
+AMP_SCOPES = {"Damage", "Heal", "Shield", "Seed", "Counter", "All"}
+CONDITIONS = {"Burning", "Bleeding", "Controlled", "ArmorBroken", "Slowed", "Frozen",
+              "TargetHpAbove70", "TargetHpBelow30", "PlayerHpBelow50", "PlayerHasArmor",
+              "FirstCastThisTurn", "Countering"}
+RESHAPE_SHAPES = {"Row", "Adjacent", "Column", "Scatter", "Chain", "All"}
+
+
+def _attach_modifier_tokens(config, char, effects, consumed):
+    """D1 Task 3:把修饰 token 挂到同格的修饰器上(与 `turns` / `Pierce` 同一套「挂在本格效果上」的机制)。
+
+    - `scope X` / `if X` → 本格的 Amplify(没有 Amplify 就报错:那个条件会静默消失)。
+    - `shape X`、DAMAGE_MARKER_VALUE_TOKENS、`forceCrit` → 本格的 Reshape;本格没有 Reshape 时
+      挂到 DamageSingle 上(伤害标记也可以直接写在本体伤害上);两者都没有就报错。
+    - 名字不在枚举表里的值(`scope Bogus` / `if Nope` / `shape Ring`)报错。"""
+    amps = [e for e in effects if e["kind"] == "Amplify"]
+    hosts = [e for e in effects if e["kind"] == "Reshape"] or \
+        [e for e in effects if e["kind"] == "DamageSingle"]
+
+    def need(host_list, token, what):
+        if not host_list:
+            raise ValueError(f"{char}:配置格「{config}」写了修饰 token `{token}`,但本格没有{what} —— 它会静默消失。")
+
+    for token, field, allowed in ((AMP_SCOPE_TOKEN, "scope", AMP_SCOPES),
+                                  (ONLY_IF_TOKEN, "onlyIf", CONDITIONS)):
+        found = re.search(rf"`{token} (\w+)`", config)
+        if not found:
+            continue
+        consumed.add(token)
+        if found.group(1) not in allowed:
+            raise ValueError(f"{char}:`{token} {found.group(1)}` 的取值未知,只认 {sorted(allowed)}")
+        need(amps, token, " Amplify")
+        for e in amps:
+            e[field] = found.group(1)
+
+    shape = re.search(rf"`{RESHAPE_SHAPE_TOKEN} (\w+)`", config)
+    if shape:
+        consumed.add(RESHAPE_SHAPE_TOKEN)
+        if shape.group(1) not in RESHAPE_SHAPES:
+            raise ValueError(f"{char}:`shape {shape.group(1)}` 的形状未知,只认 {sorted(RESHAPE_SHAPES)}")
+        need(hosts, RESHAPE_SHAPE_TOKEN, " Reshape 或 DamageSingle")
+        for e in hosts:
+            e["shape"] = shape.group(1)
+    for token, field in DAMAGE_MARKER_VALUE_TOKENS.items():
+        found = re.search(rf"`{token} (\d+)`", config)
+        if not found:
+            continue
+        consumed.add(token)
+        need(hosts, token, " Reshape 或 DamageSingle")
+        for e in hosts:
+            e[field] = int(found.group(1))
+    if f"`{FORCE_CRIT_TOKEN}`" in config:
+        consumed.add(FORCE_CRIT_TOKEN)
+        need(hosts, FORCE_CRIT_TOKEN, " Reshape 或 DamageSingle")
+        for e in hosts:
+            e["forceCrit"] = True
 
 
 def _raise_unconsumed_tokens(char, config, unknown):
@@ -337,6 +416,8 @@ def _parse_effects(config, char):
             continue  # 镇压百分比是修饰而非效果,下面统一挂到伤害上
         if kind in (SHOTS_TOKEN, SHAPE_PERCENT_TOKEN, CHAIN_TOKEN):
             continue  # 目标形状的修饰,下面统一挂到伤害上
+        if kind in DAMAGE_MARKER_VALUE_TOKENS:
+            continue  # 修饰器 / 伤害标记的数值(D1 Task 3),由 _attach_modifier_tokens 挂
         # 全体伤害(spec v7 §11.6):DamageAll 已退役,EffectKind 里没有这个值了 ——
         # 落进 chars.json 会让 ConfigLoader 加载期报错,这里先在管线大声拦下并给出改法。
         if kind == "DamageAll":
@@ -435,6 +516,8 @@ def _parse_effects(config, char):
         for effect in effects:
             if effect["kind"].startswith("Damage"):
                 effect["armorStrikePercent"] = int(armor_strike.group(1))
+
+    _attach_modifier_tokens(config, char, effects, consumed)
 
     turns = re.search(r"turns (\d+)", config)
     for effect in effects:

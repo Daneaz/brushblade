@@ -803,6 +803,9 @@ namespace Brushblade.Core
                 or EffectKind.BurnSingle or EffectKind.BurnAll
                 or EffectKind.Morale or EffectKind.Immunity or EffectKind.Revive
                 or EffectKind.Block or EffectKind.Dispel or EffectKind.ApBoost or EffectKind.Charm => false,
+            // 修饰器(D1 Task 3):Value 是加成百分点,按池档位定值、不随卡等级涨(spec D7);
+            // 它们在出字前被 TraitRules.Fold 折叠掉,本来也走不到 ScaleEffectValue —— 归这里只为口径明确。
+            EffectKind.Amplify or EffectKind.Reshape => false,
             _ => true,
         };
 

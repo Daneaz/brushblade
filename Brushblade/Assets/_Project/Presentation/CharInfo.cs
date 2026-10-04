@@ -84,12 +84,13 @@ namespace Brushblade.Presentation
                     EffectKind.DamageSingle when e.Shape == TargetArea.All
                         => Strings.T("char.effect.damageall", ("value", shown))
                         + DoubleVsText(e)
-                        + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e),
+                        + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e)
+                        + ShapeSuffix(e) + MarkerText(e),
                     EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
                             ("shape", ShapeLabel(e)), ("value", shown))
                         + DoubleVsText(e)
                         + PierceText(e) + HitCountText(e) + ExecuteText(e)
-                        + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e),
+                        + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e) + MarkerText(e),
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
@@ -183,6 +184,9 @@ namespace Brushblade.Presentation
                         : Strings.T("char.effect.haste", ("value", shown), ("turns", e.Turns)),
                     // 解封(2026-09-16,水):6 类纯随机重掷,永久,Value 不用(与 Cleanse 同口径)。
                     EffectKind.Unseal => Strings.T("char.effect.unseal"),
+                    // 修饰器(D1 Task 3):不是独立效果,印「改了本字什么」。百分点不吃卡等级(shown == e.Value)。
+                    EffectKind.Amplify => AmplifyText(e) + OnlyIfText(e.OnlyIf),
+                    EffectKind.Reshape => ReshapeText(e),
                     _ => e.Kind.ToString(),
                 });
             }
@@ -282,6 +286,49 @@ namespace Brushblade.Presentation
             _ => "",
         };
 
+        /// <summary>Amplify 的作用范围 + 百分点(D1 Task 3)。每个范围一条完整句子的 key。</summary>
+        private static string AmplifyText(EffectDef e) => e.Scope switch
+        {
+            AmpScope.Heal => Strings.T("char.effect.amplify.heal", ("value", e.Value)),
+            AmpScope.Shield => Strings.T("char.effect.amplify.shield", ("value", e.Value)),
+            AmpScope.Seed => Strings.T("char.effect.amplify.seed", ("value", e.Value)),
+            AmpScope.Counter => Strings.T("char.effect.amplify.counter", ("value", e.Value)),
+            AmpScope.All => Strings.T("char.effect.amplify.all", ("value", e.Value)),
+            _ => Strings.T("char.effect.amplify.damage", ("value", e.Value)),
+        };
+
+        /// <summary>条件门后缀(D1 Task 3,e.OnlyIf)。与 DoubleVsText 一样每个条件一条 key,
+        /// 不拼「对 + 状态名」—— 翻译者要拿到完整句子。</summary>
+        private static string OnlyIfText(DamageCondition condition) => condition switch
+        {
+            DamageCondition.Burning => Strings.T("char.effect.onlyif.burning"),
+            DamageCondition.Bleeding => Strings.T("char.effect.onlyif.bleeding"),
+            DamageCondition.Controlled => Strings.T("char.effect.onlyif.controlled"),
+            DamageCondition.ArmorBroken => Strings.T("char.effect.onlyif.armorbroken"),
+            DamageCondition.Slowed => Strings.T("char.effect.onlyif.slowed"),
+            DamageCondition.Frozen => Strings.T("char.effect.onlyif.frozen"),
+            DamageCondition.TargetHpAbove70 => Strings.T("char.effect.onlyif.targethpabove70"),
+            DamageCondition.TargetHpBelow30 => Strings.T("char.effect.onlyif.targethpbelow30"),
+            DamageCondition.PlayerHpBelow50 => Strings.T("char.effect.onlyif.playerhpbelow50"),
+            DamageCondition.PlayerHasArmor => Strings.T("char.effect.onlyif.playerhasarmor"),
+            DamageCondition.FirstCastThisTurn => Strings.T("char.effect.onlyif.firstcastthisturn"),
+            DamageCondition.Countering => Strings.T("char.effect.onlyif.countering"),
+            _ => "",
+        };
+
+        /// <summary>Reshape(D1 Task 3):「伤害改为 + 形状 + 改动的修饰」。只印 Reshape 上非缺省的字段,
+        /// 与引擎 TraitRules.Fold 的覆盖口径一致。</summary>
+        private static string ReshapeText(EffectDef e) =>
+            Strings.T("char.effect.reshape", ("shape", e.Shape == TargetArea.Single ? "" : ShapeLabel(e)))
+            + ShapeSuffix(e) + HitCountText(e) + ArmorStrikeText(e) + MarkerText(e);
+
+        /// <summary>伤害标记后缀(D1 Task 3):每段百分比 / 必暴 / 无视 N% 护甲 / 按护盾加伤。缺省全空。</summary>
+        private static string MarkerText(EffectDef e) =>
+            (e.HitPercent != 100 ? Strings.T("char.effect.hitpercent", ("percent", e.HitPercent)) : "")
+            + (e.ForceCrit ? Strings.T("char.effect.forcecrit") : "")
+            + (e.ArmorIgnorePercent > 0 ? Strings.T("char.effect.armorignore", ("percent", e.ArmorIgnorePercent)) : "")
+            + (e.ShieldStrikePercent > 0 ? Strings.T("char.effect.shieldstrike", ("percent", e.ShieldStrikePercent)) : "");
+
         private static string PierceText(EffectDef e) =>
             e.Pierce > 0 ? Strings.T("char.effect.piercetext", ("pierce", e.Pierce)) : "";
 
@@ -343,7 +390,9 @@ namespace Brushblade.Presentation
                     ("shots", shots), ("percent", percent)),
                 TargetArea.Row or TargetArea.Adjacent or TargetArea.Column when percent != 100
                     => Strings.T("char.shape.suffix.splash", ("percent", percent)),
-                // 全体每个目标都按主目标满额结算,没有溅射比例可报
+                // 全体每个目标都按主目标满额结算,没有溅射比例可报;
+                // 例外是带百分比的全体(D1 Task 3,怒涛「全体各 60%」):每个目标都打折
+                TargetArea.All when percent < 100 => Strings.T("char.shape.suffix.all", ("percent", percent)),
                 TargetArea.All => "",
                 _ => "",
             };

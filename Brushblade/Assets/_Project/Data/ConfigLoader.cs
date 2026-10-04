@@ -71,6 +71,13 @@ namespace Brushblade.Data
             public int Shots { get; set; }         // 连发发数
             public bool TrueDamage { get; set; }   // 碾:本次伤害完全跳过护甲(2026-09-16,土)
             public int ArmorStrikePercent { get; set; } // 镇压:额外打出自己有效护甲 N%(2026-09-16,土)
+            // D1 Task 3:修饰器与伤害标记
+            public string Scope { get; set; }          // Amplify 的作用范围:null = Damage
+            public string OnlyIf { get; set; }         // 条件门(目前只有 Amplify 用):null = 无条件
+            public int HitPercent { get; set; } = 100; // 多段时每段百分比
+            public bool ForceCrit { get; set; }        // 必定暴击
+            public int ArmorIgnorePercent { get; set; } // 无视目标 N% 护甲
+            public int ShieldStrikePercent { get; set; } // 额外 + 我方护盾 N%
         }
 
         private sealed class CampaignFileDto
@@ -597,7 +604,7 @@ namespace Brushblade.Data
                 {
                     if (!t.AppliesTo(face)) continue;
                     bool attackMode = face == CardFace.Attack;
-                    if (t.Effects.Any(BattleEngine.EffectNeedsTarget) && !BattleEngine.NeedsTarget(def, attackMode))
+                    if (t.Effects.Any(BattleEngine.EffectNeedsTarget) && !BattleEngine.BodyNeedsTarget(def, attackMode))
                         throw new ConfigException($"字「{def.Id}」的特性「{t.Name}」需要敌方目标,但该面本体不选敌方目标");
                     if (t.Effects.Any(BattleEngine.EffectNeedsAllyTarget) && !BattleEngine.NeedsAllyTarget(def, attackMode))
                         throw new ConfigException($"字「{def.Id}」的特性「{t.Name}」需要友方目标,但该面本体不选友方目标");
@@ -635,12 +642,22 @@ namespace Brushblade.Data
                 if (effect.Passive != null && !Enum.IsDefined(typeof(TargetArea), effect.Passive.Shape))
                     throw new ConfigException($"字「{dto.Id}」的召唤被动目标形状未知:{effect.Passive.Shape}");
                 // spec v7 §3.2:All 只对玩家出字的 DamageSingle 有定义;别处写 All 引擎会静默忽略或语义错乱。
-                if (shape == TargetArea.All && kind != EffectKind.DamageSingle)
+                // Reshape 写 shape All 是「把首条伤害改成全体」,它本身不是带形状的效果 —— 放行
+                if (shape == TargetArea.All && kind != EffectKind.DamageSingle && kind != EffectKind.Reshape)
                     throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能用全体(All)形状,只有 DamageSingle 可以");
                 if (effect.Passive != null && effect.Passive.Shape == TargetArea.All)
                     throw new ConfigException($"字「{dto.Id}」的召唤被动不能用全体(All)形状");
                 if (shape == TargetArea.All && effect.ArmorStrikePercent > 0)
                     throw new ConfigException($"字「{dto.Id}」的全体(All)伤害不能同时配镇压(armorStrikePercent)");
+                if (!string.IsNullOrEmpty(effect.Scope) && kind != EffectKind.Amplify)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 scope(只有 Amplify 读它)");
+                var scope = AmpScope.Damage;
+                if (!string.IsNullOrEmpty(effect.Scope)
+                    && (!Enum.TryParse(effect.Scope, out scope) || !Enum.IsDefined(typeof(AmpScope), scope)))
+                    throw new ConfigException($"字「{dto.Id}」的 Amplify scope 未知:{effect.Scope}");
+                // OnlyIf 目前只有 Amplify 读;写在别的效果上会被引擎静默忽略 —— 先拦下(条件门 M24 落地时放开)
+                if (!string.IsNullOrEmpty(effect.OnlyIf) && kind != EffectKind.Amplify)
+                    throw new ConfigException($"字「{dto.Id}」的 {kind} 效果不能写 onlyIf(目前只有 Amplify 能带条件)");
                 if (kind == EffectKind.Block && effect.Value < 1)
                     throw new ConfigException($"字「{dto.Id}」的格挡(Block)次数至少为 1,当前:{effect.Value}");
                 effects.Add(new EffectDef(kind, effect.Value,
@@ -651,7 +668,9 @@ namespace Brushblade.Data
                     effect.ExecuteBelowPercent, effect.ExecuteKills,
                     effect.HitCount, effect.Pierce,
                     shape, effect.ShapePercent, effect.Shots, effect.TrueDamage,
-                    effect.ArmorStrikePercent));
+                    effect.ArmorStrikePercent,
+                    scope, ParseCondition(effect.OnlyIf, dto.Id),
+                    effect.HitPercent, effect.ForceCrit, effect.ArmorIgnorePercent, effect.ShieldStrikePercent));
             }
             return effects;
         }

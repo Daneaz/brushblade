@@ -620,26 +620,59 @@ namespace Brushblade.Core
         {
             DamageCondition.Burning, DamageCondition.Bleeding,
             DamageCondition.Controlled, DamageCondition.ArmorBroken,
+            // D1 Task 3:修饰器条件(附录 M1)
+            DamageCondition.Slowed, DamageCondition.Frozen,
+            DamageCondition.TargetHpAbove70, DamageCondition.TargetHpBelow30,
+            DamageCondition.PlayerHpBelow50, DamageCondition.PlayerHasArmor,
+            DamageCondition.FirstCastThisTurn, DamageCondition.Countering,
         };
 
-        private int[] CapturePreCastConditions()
+        /// <summary>attacker = 本字元素(Countering 用)。只读状态、不摇号 —— 多快照几个条件不影响随机流。</summary>
+        private int[] CapturePreCastConditions(Element attacker)
         {
             var masks = new int[_enemies.Count];
             for (int i = 0; i < _enemies.Count; i++)
                 foreach (var c in SnapshotConditions)
-                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 5 种),新增枚举值前先核这一条。
-                    if (ConditionMet(c, _enemies[i])) masks[i] |= 1 << (int)c;
+                    // 位掩码用 int:依赖 DamageCondition 少于 32 种(现 13 种),新增枚举值前先核这一条。
+                    if (ConditionMet(c, _enemies[i], attacker)) masks[i] |= 1 << (int)c;
             return masks;
         }
 
         /// <summary>条件判据的唯一入口:出字中读出字前快照,不在出字中读现值。
-        /// 出字途中才出现的敌人(分裂)出字前不存在,条件视为不满足。</summary>
+        /// 出字途中才出现的敌人(分裂)出字前不存在,条件视为不满足。
+        /// enemyIndex &lt; 0(不选敌的效果,如治疗 / 护盾):与目标无关的条件(我方生命 / 护甲 / 本回合第一张)
+        /// 照常判定(快照里每个下标同值,读 0 号);目标相关的条件视为不满足。</summary>
         private bool PreCastConditionMet(DamageCondition condition, int enemyIndex)
         {
             if (condition == DamageCondition.None) return false;
-            if (_preCastConditions == null) return ConditionMet(condition, _enemies[enemyIndex]);
+            if (enemyIndex < 0)
+            {
+                if (!IsTargetIndependent(condition) || _enemies.Count == 0) return false;
+                enemyIndex = 0;
+            }
+            if (_preCastConditions == null) return ConditionMet(condition, _enemies[enemyIndex], Element.Heart);
             if (enemyIndex >= _preCastConditions.Length) return false;
             return (_preCastConditions[enemyIndex] & (1 << (int)condition)) != 0; // 同上:int 掩码,枚举 < 32 种
+        }
+
+        private static bool IsTargetIndependent(DamageCondition c) =>
+            c == DamageCondition.PlayerHpBelow50 || c == DamageCondition.PlayerHasArmor
+            || c == DamageCondition.FirstCastThisTurn;
+
+        /// <summary>这条效果上满足条件的 Amplify 加成百分点之和(D1 Task 3)。无加成项时 0。</summary>
+        private int AmpPercent(EffectDef effect, int enemyIndex)
+        {
+            int sum = 0;
+            foreach (var (percent, onlyIf) in effect.AmpTerms)
+                if (onlyIf == DamageCondition.None || PreCastConditionMet(onlyIf, enemyIndex)) sum += percent;
+            return sum;
+        }
+
+        /// <summary>乘 (100 + 百分点)/100,向上取整(与 MetaRules.ScaleByCardLevel 同一写法)。0 原样返回 —— 恒等。</summary>
+        private static int Amplified(int value, int percent)
+        {
+            if (percent == 0 || value <= 0) return value;
+            return (int)(((long)value * (100 + percent) + 99) / 100);
         }
 
         // 砺刃:本次出字的额外暴击率。ApplyEffects 进门时按字的元素设置、出门清零 ——
@@ -807,9 +840,10 @@ namespace Brushblade.Core
         ///
         /// ⚠ 召唤物侧的 <see cref="RollCritForSummon"/> **一字不动**:召唤物读自己的
         /// 暴击袋子,把它算进玩家战意会让木+金 build 白拿双份(spec §2.3)。</summary>
-        private bool RollCrit()
+        private bool RollCrit(bool force = false)
         {
-            bool crit = RollCritWith(Math.Clamp(EffectiveCrit + _castCritBonus, 0, 100));
+            // 必暴(ForceCrit,D1 Task 3):chance 100 走 RollCritWith 的上端短路,不摇号;锋芒照常兑现
+            bool crit = RollCritWith(force ? 100 : Math.Clamp(EffectiveCrit + _castCritBonus, 0, 100));
             if (crit) GrantMoraleFromCrit();
             return crit;
         }
@@ -1456,7 +1490,7 @@ namespace Brushblade.Core
             // 单体效果需要有效的存活目标;未指定或不合法时,存活目标恰好一个则自动锁定(3.8.3 单敌免选)。
             // 2026-09-30 取消「偷袭」:**只有召唤物和敌人有前后排的概念**,我方字卡不受排位限制,
             // 合法目标 = 存活目标(2026-08-20 的「前排阻挡单体直伤」一并废止)。
-            if (NeedsTarget(def, attackMode))
+            if (NeedsTarget(def, attackMode, CardLevelOf(def.Id)))
             {
                 bool legal = targetIndex >= 0 && targetIndex < _enemies.Count && _enemies[targetIndex].Alive;
                 if (!legal)
@@ -1641,14 +1675,10 @@ namespace Brushblade.Core
         }
 
         /// <summary>本次出字实际结算的效果:本体在前,已解锁且面匹配的主动特性按槽位在后(spec v7 R3)。
-        /// 没有特性时与 EffectsOf 逐项相同 —— 恒等。</summary>
-        private static List<EffectDef> CastEffectsOf(CharDef def, bool attackMode, int cardLevel)
-        {
-            var list = new List<EffectDef>(EffectsOf(def, attackMode));
-            foreach (var t in TraitRules.ActiveTraits(def, FaceOf(def, attackMode), cardLevel))
-                list.AddRange(t.Effects);
-            return list;
-        }
+        /// 没有特性时与 EffectsOf 逐项相同 —— 恒等。
+        /// 修饰器(Amplify / Reshape)由 TraitRules.Fold 折叠进去,不进结算循环(D1 Task 3)。</summary>
+        private static List<EffectDef> CastEffectsOf(CharDef def, bool attackMode, int cardLevel) =>
+            TraitRules.Fold(EffectsOf(def, attackMode), def, FaceOf(def, attackMode), cardLevel);
 
         /// <summary>本次出手落在哪一面:攻击模式且有攻击面效果 = Attack,否则 Feature(与 EffectsOf 同口径)。</summary>
         public static CardFace FaceOf(CharDef def, bool attackMode) =>
@@ -1664,9 +1694,14 @@ namespace Brushblade.Core
         /// 一样只看首条,不聚合多条直伤(混合多形状直伤字眼下不存在,真出现时预览会只显示
         /// 第一发,是已知的当前局限而非本次改动引入的新账)。没有单体直伤则返回 (Single, 0)。
         /// 全体字(DamageSingle + All,spec v7 §11.6)返回 (All, 0)。</summary>
-        public static (TargetArea Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false)
+        public static (TargetArea Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode = false) =>
+            AttackShapeOf(def, attackMode, 1);
+
+        /// <summary>带卡等级的版本(D1 Task 3):读**折叠后**的效果,Reshape 改出来的形状预览看得到。
+        /// 旧签名等价于 cardLevel = 1。</summary>
+        public static (TargetArea Shape, int Shots) AttackShapeOf(CharDef def, bool attackMode, int cardLevel)
         {
-            foreach (var effect in EffectsOf(def, attackMode))
+            foreach (var effect in CastEffectsOf(def, attackMode, cardLevel))
                 if (effect.Kind == EffectKind.DamageSingle)
                     return (effect.Shape, effect.Shots);
             return (TargetArea.Single, 0);
@@ -1770,7 +1805,20 @@ namespace Brushblade.Core
         /// primaryIndex 越界(含 −1)时它直接返回空表,循环体一次不进,不再抛异常。也就是说
         /// 这条白名单如果将来又漏了哪个新 Kind,不会再有响亮的崩溃把它带回评审台面,只会悄悄
         /// 变成「点了没反应」。别以为「没崩就是漏判已经堵上了」。</summary>
-        public static bool NeedsTarget(CharDef def, bool attackMode = false)
+        public static bool NeedsTarget(CharDef def, bool attackMode = false) => NeedsTarget(def, attackMode, 1);
+
+        /// <summary>带卡等级的版本(D1 Task 3):读**折叠后**的整张出字效果表(本体 + 已解锁的主动特性,
+        /// 修饰器已折进去)。Reshape 改成全体 / 连发后不再选目标。旧签名等价于 cardLevel = 1。</summary>
+        public static bool NeedsTarget(CharDef def, bool attackMode, int cardLevel)
+        {
+            foreach (var effect in CastEffectsOf(def, attackMode, cardLevel))
+                if (EffectNeedsTarget(effect)) return true;
+            return false;
+        }
+
+        /// <summary>只看**本体**(不含特性、不折叠)是否选敌方目标 —— ConfigLoader 的特性目标校验用:
+        /// 「特性要目标、本体却不选」的判据不能把特性自己算进去。</summary>
+        public static bool BodyNeedsTarget(CharDef def, bool attackMode)
         {
             foreach (var effect in EffectsOf(def, attackMode))
                 if (EffectNeedsTarget(effect)) return true;
@@ -2784,7 +2832,7 @@ namespace Brushblade.Core
                 && def.Element == Element.Metal && !def.IsComponent
                 && _playerStatuses.TotalMagnitude(StatusKind.Morale) >= _config.MoraleCap
                 && HasDamageEffect(def, attackMode);
-            int cardLevel = _cardLevels != null && _cardLevels.TryGetValue(def.Id, out var level) ? level : 1;
+            int cardLevel = CardLevelOf(def.Id);
             // 未指定槽位(summonSlots == null)且顶替时的旧口径兜底:从最前一只存活起逐只
             // 后移,一次召多只不会重复顶掉刚进场的自己。只有真没空位/尸体槽可占(NextEmptySlot()
             // 返回 −1)才会用到 —— 指定槽位的路径不吃这个游标。
@@ -2814,10 +2862,14 @@ namespace Brushblade.Core
             }
 
             // R3:快照在复活(前置动作)之后、第一个效果之前取;外层已有快照时沿用外层(外层快照优先)
-            _preCastConditions = outerConditions ?? CapturePreCastConditions();
+            _preCastConditions = outerConditions ?? CapturePreCastConditions(attacker);
             foreach (var effect in CastEffectsOf(def, attackMode, cardLevel))
             {
                 int value = MetaRules.ScaleEffectValue(effect.Kind, effect.Value, cardLevel); // 19.3.2:等级先作用于基础值;离散量不缩放(spec v7 §1)
+                // Amplify(D1 Task 3):卡等级之后乘 (100 + Σ)/100。伤害按每一击的目标在 BaseValue 里求和
+                // (目标相关条件);格挡的加成落在反击量上(Block 分支)。无加成项时 AmpPercent = 0,整句跳过。
+                if (effect.AmpTerms.Count > 0 && effect.Kind != EffectKind.DamageSingle && effect.Kind != EffectKind.Block)
+                    value = Amplified(value, AmpPercent(effect, targetIndex));
                 // 五行 L3(spec §3.3):套在最内层 value 上,先于生克与攻击力缩放。
                 // 未点时 percent = 0,ApplyElementPercent 直接返回 value —— 逐字节恒等。
                 value = ApplyElementPercent(value, ElementPercentOf(attacker), effect.Kind);
@@ -2848,7 +2900,11 @@ namespace Brushblade.Core
                             // 弹射逐跳**累乘**(第 t 跳 = ShapePercent^t),其余形状一律
                             // 「主目标全额、非主目标一次 ShapePercent」。连发每发全额:
                             // 它没有「主目标 + 溅射」的结构,N 发是发数不是衰减(spec §3.3)
-                            int percent = primary || effect.Shape == TargetArea.Scatter
+                            // 全体带百分比(D1 Task 3,怒涛「全体各 60%」):每个目标都吃这个百分比。
+                            // 字表里的全体字 ShapePercent 恒为缺省 100,走 primary 那支,逐位不变。
+                            int percent = effect.Shape == TargetArea.All && effect.ShapePercent < 100
+                                ? effect.ShapePercent
+                                : primary || effect.Shape == TargetArea.Scatter
                                 ? 100
                                 : effect.Shape == TargetArea.Chain
                                     ? ChainPercent(effect.ShapePercent, t)
@@ -2877,12 +2933,19 @@ namespace Brushblade.Core
                                 // percent == 100 时**不做乘除**:x * 100 / 100 在整数下虽然等于 x,
                                 // 但跳过它才能让「缺省路径与改前逐字节相同」成为结构性保证而非算术巧合
                                 if (percent != 100) damage = damage * percent / 100;
+                                // 每击百分比(D1 Task 3,连斩):只作用于吃多段的主目标;缺省 100 不做乘除
+                                if (primary && effect.HitPercent != 100) damage = damage * effect.HitPercent / 100;
+                                // 按护盾加伤(D1 Task 3,崩岩):主目标第一段额外 + 我方当前护盾 × N%,
+                                // 随这一击一起过生克 / 暴击 / 护甲
+                                if (primary && hit == 0 && effect.ShieldStrikePercent > 0)
+                                    damage += (_shieldNormal + _shieldPersist) * effect.ShieldStrikePercent / 100;
                                 DamageEnemy(tgt, damage, attacker,
-                                    crit: RollCrit(),
+                                    crit: RollCrit(effect.ForceCrit),
                                     pierce: primary ? effect.Pierce : 0, // 多段:每段各减一次护甲(裁定 4)
                                     // 碾(2026-09-16,土):跳过整条 DR,与穿透是两档 —— 对这一效果
                                     // 打中的每个目标(含形状展开的非主目标)都生效,不像 Pierce 只给主目标。
                                     bypassDefense: effect.TrueDamage,
+                                    armorIgnorePercent: effect.ArmorIgnorePercent,
                                     // 多段的第 2 段起也算同一次挥击的延续?**不算** ——
                                     // 剁的两段本来就该看出是两下(那条拉拍就是为它加的),
                                     // 只有跨排造成的重复才传 true。
@@ -3085,6 +3148,8 @@ namespace Brushblade.Core
                         // 反击 = 攻击面本体伤害(吃等级)× 30%,出字时定死,不吃攻击力(与反弹同口径)。
                         int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel)
                             * BattleConfig.BlockCounterPercent / 100;
+                        // Amplify Counter(D1 Task 3,回锋):反击量 × (100 + Σ)/100;无加成项时原样
+                        counter = Amplified(counter, AmpPercent(effect, -1));
                         ApplyStatus(_playerStatuses, new StatusEffect
                         {
                             Kind = StatusKind.Block, Polarity = StatusPolarity.Buff,
@@ -3474,6 +3539,10 @@ namespace Brushblade.Core
                 _inApplyEffects = false;
             }
         }
+
+        /// <summary>局外卡等级;没配等级表或表里没有这张字 = 1。</summary>
+        private int CardLevelOf(string charId) =>
+            _cardLevels != null && _cardLevels.TryGetValue(charId, out var level) ? level : 1;
 
         private bool HasDamageEffect(CharDef def, bool attackMode)
         {
@@ -4265,12 +4334,15 @@ namespace Brushblade.Core
         /// <see cref="DamageCondition"/>),再进生克结算 —— 翻倍与相生 ×3 是**相乘**关系。</summary>
         private int BaseValue(EffectDef effect, int scaledValue, int enemyIndex)
         {
+            // Amplify(D1 Task 3):按这一击的目标对满足条件的加成项求和,同轴相加后一次乘入(spec §6.1.3)
+            if (effect.AmpTerms.Count > 0) scaledValue = Amplified(scaledValue, AmpPercent(effect, enemyIndex));
             return PreCastConditionMet(effect.DoubleVs, enemyIndex) ? scaledValue * 2 : scaledValue;
         }
 
         /// <summary>目标是否满足条件加成。Controlled 把冻结与减速合成一条 ——
-        /// 减速只认**负的** SpeedModifier:加速状态(若将来有)不该让敌人反而吃双倍。</summary>
-        private static bool ConditionMet(DamageCondition condition, EnemyState target) => condition switch
+        /// 减速只认**负的** SpeedModifier:加速状态(若将来有)不该让敌人反而吃双倍。
+        /// attacker = 本字元素,只有 Countering 读。</summary>
+        private bool ConditionMet(DamageCondition condition, EnemyState target, Element attacker) => condition switch
         {
             DamageCondition.Burning => target.Statuses.Has(StatusKind.Burn),
             DamageCondition.Bleeding => target.Statuses.Has(StatusKind.Bleed),
@@ -4278,6 +4350,14 @@ namespace Brushblade.Core
                 || target.Statuses.Has(StatusKind.IceStall)   // 冰滞 = Boss 的冻结(R1b)
                 || target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
             DamageCondition.ArmorBroken => target.Statuses.Has(StatusKind.ArmorBreak),
+            DamageCondition.Slowed => target.Statuses.TotalMagnitude(StatusKind.SpeedModifier) < 0,
+            DamageCondition.Frozen => target.Statuses.Has(StatusKind.Freeze) || target.Statuses.Has(StatusKind.IceStall),
+            DamageCondition.TargetHpAbove70 => target.Hp * 100L > target.MaxHp * 70L,
+            DamageCondition.TargetHpBelow30 => target.Hp * 100L < target.MaxHp * 30L,
+            DamageCondition.PlayerHpBelow50 => PlayerHp * 100L < _config.PlayerMaxHp * (long)HpThresholdPercent,
+            DamageCondition.PlayerHasArmor => _playerStatuses.TotalMagnitude(StatusKind.DefenseBuff) > 0,
+            DamageCondition.FirstCastThisTurn => CastsThisTurn == 0,
+            DamageCondition.Countering => WuxingResolver.KeMultiplier(attacker, target.Element) > 1f,
             _ => false,
         };
 
@@ -4344,7 +4424,8 @@ namespace Brushblade.Core
         private void DamageEnemy(int enemyIndex, int baseValue, Element attacker,
             bool crit = false, int pierce = 0, bool bypassDefense = false,
             StatusBag attackerBag = null, bool allowBarb = true, bool sameSwing = false,
-            EffectSource source = EffectSource.None, int sourceSlot = -1, UnitRef attackerRef = default)
+            EffectSource source = EffectSource.None, int sourceSlot = -1, UnitRef attackerRef = default,
+            int armorIgnorePercent = 0)
         {
             var enemy = _enemies[enemyIndex];
             int damage = WuxingResolver.ResolveEffect(baseValue, attacker, enemy.Element);
@@ -4406,7 +4487,12 @@ namespace Brushblade.Core
             bool counters = wuxing > 1f;
             bool countered = wuxing < 1f; // 吃亏的那一头(0.5x):与 counters 同源、互斥
             if (!bypassDefense && !counters)
-                damage = ApplyDefense(damage, EffectiveEnemyDefense(enemy, pierce, attackerBag));
+            {
+                int armor = EffectiveEnemyDefense(enemy, pierce, attackerBag);
+                // 无视 N% 护甲(D1 Task 3,重斩):破甲 / 穿透扣完之后剩下的甲再打折;0 时不做乘除
+                if (armorIgnorePercent > 0) armor = armor * (100 - Math.Min(100, armorIgnorePercent)) / 100;
+                damage = ApplyDefense(damage, armor);
+            }
             // counters 在上面为「相克即破甲」算过了,直接复用:相克标记与破甲判据是同一件事,
             // 分头再算一次就有走岔的余地(表现层说相克、结算却吃了护甲)
             // 护盾吸收(2026-08-30):护甲折算之后、扣血之前。

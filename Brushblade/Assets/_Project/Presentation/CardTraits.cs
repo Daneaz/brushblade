@@ -406,6 +406,11 @@ namespace Brushblade.Presentation
                             Strings.T("collection.trait.unseal.name"),
                             Strings.T("collection.trait.unseal.desc"));
                         break;
+                    case EffectKind.Amplify:
+                    case EffectKind.Reshape:
+                        // 修饰器(D1 Task 3):只出现在特性里、出字前折叠进本体,本身不是独立效果,
+                        // 不出 chip;它改了什么由 CharInfo 的卡面文案印。
+                        break;
                     default:
                         // 兜底:新加的 Kind 忘了接线时,至少在屏上看得见
                         AddUnique(traits, new Trait(null, e.Kind.ToString(), "", e.Kind.ToString(), ""));

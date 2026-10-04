@@ -170,6 +170,8 @@ namespace Brushblade.Core.Tests
                 EffectKind.Unseal,
                 // 格挡(spec v7 §3.1):次数是离散量,不吃五行 L3 百分比。
                 EffectKind.Block,
+                // 修饰器(D1 Task 3):出字前被 TraitRules.Fold 折叠掉,不进结算、没有量值可放大。
+                EffectKind.Amplify, EffectKind.Reshape,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

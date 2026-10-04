@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Brushblade.Core
 {
     /// <summary>出字效果类型(第 3 章 3.2.1;按流派需要逐步扩展)。</summary>
@@ -94,6 +96,23 @@ namespace Brushblade.Core
                       // 别假设只有这三条。
         Block,        // 格挡(spec v7 §3.1,铠):Value = 次数(离散量,不吃卡等级);下一次敌人挥击 −40% 并反击。
                       // 反击伤害 = 本字攻击面首条 DamageSingle(吃等级)× 30%,出字时定死。
+        Amplify,      // 本字修饰器(D1 Task 3,附录 M1):Value = 百分点,作用范围 EffectDef.Scope,
+                      // 可带条件 EffectDef.OnlyIf。出字前由 TraitRules.Fold 折叠成目标效果上的 AmpTerms,
+                      // **不进结算循环**;同轴多条相加(spec §6.1.3)。百分点不吃卡等级。
+        Reshape,      // 本字修饰器(D1 Task 3,附录 M2/M3):改本面**第一条** DamageSingle 的形状 /
+                      // 击数 / 每击百分比 / 伤害标记 —— Reshape 上非缺省的字段覆盖原值。本面没有
+                      // DamageSingle 时空转。同样由 Fold 折叠,不进结算循环。
+    }
+
+    /// <summary><see cref="EffectKind.Amplify"/> 的作用范围。Damage 缺省。</summary>
+    public enum AmpScope
+    {
+        Damage,   // DamageSingle
+        Heal,     // HealSelf / HealAll / HealOverTime
+        Shield,   // Shield / ShieldAll
+        Seed,     // 种(M6 落地后接上;D1 Task 3 时还没有种的 EffectKind,空转)
+        Counter,  // 格挡反击量(Block 写 CounterDamage 时乘)
+        All,      // 以上全部
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
@@ -205,6 +224,34 @@ namespace Brushblade.Core
         /// **不是**角色基础护甲 —— 「越肥打得越疼」这条流派靠的正是局内堆起来的那部分。</summary>
         public int ArmorStrikePercent { get; }
 
+        /// <summary>Amplify 的作用范围(D1 Task 3)。其余 kind 不读。</summary>
+        public AmpScope Scope { get; }
+
+        /// <summary>条件门(D1 Task 3,附录 M1/M24)。目前只有 Amplify 读:条件满足时这一条加成才算。
+        /// 按 R3 出字前快照判定;目标相关的条件按「这一击的目标」判定。None = 无条件。</summary>
+        public DamageCondition OnlyIf { get; }
+
+        /// <summary>多段时每一段的伤害百分比(D1 Task 3,连斩「2 击各 60%」)。缺省 100 = 不折算;
+        /// ≤0 兜回 100(与 ShapePercent 同型)。</summary>
+        public int HitPercent { get; }
+
+        /// <summary>必定暴击(D1 Task 3,附录 M3):暴击判定走 chance 100 短路,不摇号。</summary>
+        public bool ForceCrit { get; }
+
+        /// <summary>无视目标有效护甲的百分比(D1 Task 3,重斩 50)。0 = 不启用。
+        /// 作用在 <c>EffectiveEnemyDefense</c> 算完(含破甲 / 穿透)之后:剩下的甲再打 (100 − N)% 折。</summary>
+        public int ArmorIgnorePercent { get; }
+
+        /// <summary>按我方当前护盾加伤(D1 Task 3,崩岩 40):主目标第一段额外 + 玩家护盾(两桶之和)× N%。
+        /// 0 = 不启用。</summary>
+        public int ShieldStrikePercent { get; }
+
+        /// <summary>Fold 挂上来的加成项:(百分点, 条件)。字表对象恒为空表;只有 Fold 产出的副本非空。
+        /// internal:表现层不读它(卡面读的是 Amplify 效果本身)。</summary>
+        internal IReadOnlyList<(int Percent, DamageCondition If)> AmpTerms { get; private set; } = NoAmpTerms;
+
+        private static readonly (int, DamageCondition)[] NoAmpTerms = new (int, DamageCondition)[0];
+
         public EffectDef(EffectKind kind, int value,
             DamageCondition doubleVs = DamageCondition.None, bool persistOnce = false,
             int summonCount = 1, int summonAttack = 0, string summonChar = "木",
@@ -213,7 +260,9 @@ namespace Brushblade.Core
             int executeBelowPercent = 0, bool executeKills = false,
             int hitCount = 1, int pierce = 0,
             TargetArea shape = TargetArea.Single, int shapePercent = 100, int shots = 0,
-            bool trueDamage = false, int armorStrikePercent = 0)
+            bool trueDamage = false, int armorStrikePercent = 0,
+            AmpScope scope = AmpScope.Damage, DamageCondition onlyIf = DamageCondition.None,
+            int hitPercent = 100, bool forceCrit = false, int armorIgnorePercent = 0, int shieldStrikePercent = 0)
         {
             Kind = kind;
             Value = value;
@@ -236,6 +285,28 @@ namespace Brushblade.Core
             Shots = shots;
             TrueDamage = trueDamage;
             ArmorStrikePercent = armorStrikePercent;
+            Scope = scope;
+            OnlyIf = onlyIf;
+            HitPercent = hitPercent <= 0 ? 100 : hitPercent;
+            ForceCrit = forceCrit;
+            ArmorIgnorePercent = armorIgnorePercent;
+            ShieldStrikePercent = shieldStrikePercent;
         }
+
+        /// <summary>带覆盖字段的复制(只给 <see cref="TraitRules.Fold"/> 用):字表里的 EffectDef 是多张字 / 多场战斗
+        /// 共享的不可变对象,折叠一律产出新对象,绝不改原件。null = 沿用原值。</summary>
+        internal EffectDef With(TargetArea? shape = null, int? shapePercent = null, int? shots = null,
+            int? hitCount = null, int? hitPercent = null, bool? forceCrit = null,
+            int? armorIgnorePercent = null, int? shieldStrikePercent = null, int? armorStrikePercent = null,
+            IReadOnlyList<(int Percent, DamageCondition If)> ampTerms = null) =>
+            new EffectDef(Kind, Value, DoubleVs, PersistOnce, SummonCount, SummonAttack, SummonChar,
+                Turns, TargetAll, Passive, SummonShield, SummonDefense, ExecuteBelowPercent, ExecuteKills,
+                hitCount ?? HitCount, Pierce, shape ?? Shape, shapePercent ?? ShapePercent, shots ?? Shots,
+                TrueDamage, armorStrikePercent ?? ArmorStrikePercent, Scope, OnlyIf,
+                hitPercent ?? HitPercent, forceCrit ?? ForceCrit,
+                armorIgnorePercent ?? ArmorIgnorePercent, shieldStrikePercent ?? ShieldStrikePercent)
+            {
+                AmpTerms = ampTerms ?? AmpTerms,
+            };
     }
 }

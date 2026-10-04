@@ -34,5 +34,32 @@ namespace Brushblade.Core
         /// <summary>目标已被破甲(2026-08-25,垚)。看的是**状态在不在**,不看削了多少点 ——
         /// 按点数分档会让「削 10 的 溃」和「削 20 的 碎」触发出不同结果,那是第二条隐藏规则。</summary>
         ArmorBroken = 4,
+
+        // ---- D1 Task 3(附录 M1):修饰器条件。只在末尾追加;BattleEngine 的条件快照是 int 位掩码,
+        // 依赖本枚举少于 32 种。9–11 与目标无关,快照里每个敌人下标同值。----
+
+        /// <summary>目标被减速(负的 SpeedModifier)。与 <see cref="Controlled"/> 不同:不含冻结。</summary>
+        Slowed = 5,
+
+        /// <summary>目标被冻结(含 Boss 的冰滞)。不含减速。</summary>
+        Frozen = 6,
+
+        /// <summary>目标生命 &gt; 70%(出字前)。</summary>
+        TargetHpAbove70 = 7,
+
+        /// <summary>目标生命 &lt; 30%(出字前)。</summary>
+        TargetHpBelow30 = 8,
+
+        /// <summary>我方生命 &lt; 50%(出字前;阈值与 BattleEngine.HpThresholdPercent 一致)。</summary>
+        PlayerHpBelow50 = 9,
+
+        /// <summary>我方身上有护甲增益(DefenseBuff)。</summary>
+        PlayerHasArmor = 10,
+
+        /// <summary>本回合第一张出手(CastsThisTurn == 0)。</summary>
+        FirstCastThisTurn = 11,
+
+        /// <summary>本字克制目标(WuxingResolver.KeMultiplier(本字元素, 目标元素) &gt; 1)。</summary>
+        Countering = 12,
     }
 }

@@ -3238,7 +3238,7 @@ namespace Brushblade.Presentation
             //   · **既要敌人又要友方**的(沝/澡/沐/垚/圭/垒):照旧拖到敌人身上,松手后进第二段
             //     点友方 —— 与点「出字」那条路径同一个状态机,不写第二套。
             bool allyOnly = BattleEngine.NeedsAllyTarget(def, attackMode: true)
-                && !BattleEngine.NeedsTarget(def, attackMode: true);
+                && !BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id));
             // 双方向字(2026-09-03):起拖时**敌我两边一起点亮**,与双击那条路径同构 ——
             // 拖到哪边就是哪边,可落点必须在起拖那一刻就看得见,否则玩家得靠猜。
             // 排在 allyOnly 之后判:纯友方字(㵘/淼 这类没有单体攻击面的)仍走它自己那一支,
@@ -3397,7 +3397,7 @@ namespace Brushblade.Presentation
 
             if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
 
-            var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
+            var (shape, shots) = BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id));
             // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):改造前 AttackShapeOf
             // 对全体字返回 Single,预览只标悬停那只。本次是恒等重构,预览沿用旧样子;
             // 要改成「标出全场」是另一件视觉改动,不在这里顺手做。
@@ -3445,8 +3445,8 @@ namespace Brushblade.Presentation
             ClearDragTargets();
             // 连发不强制选目标(点「出字」时自动),但拖到哪只首发就打哪只(2026-09-27),
             // 所以拖拽时照样要把能落的敌人标出来。
-            if (!BattleEngine.NeedsTarget(def, attackMode: true)
-                && BattleEngine.AttackShapeOf(def, attackMode: true).Shape != TargetArea.Scatter) return;
+            if (!BattleEngine.NeedsTarget(def, true, _run.CardLevel(def.Id))
+                && BattleEngine.AttackShapeOf(def, true, _run.CardLevel(def.Id)).Shape != TargetArea.Scatter) return;
             for (int i = 0; i < _enemyHitAreas.Count && i < Battle.Enemies.Count; i++)
             {
                 if (_enemyHitAreas[i] == null || !Battle.CanTarget(def, i, attackMode: true)) continue;
@@ -5353,7 +5353,7 @@ namespace Brushblade.Presentation
             // 免选的判据是**合法目标**而不是存活敌人(2026-08-20):前排只剩一只时,
             // 出一张够不到后排的字本就没得选,还弹一次选目标纯属让玩家白点一下。
             // 与 Core 的 Cast 同口径 —— 那边合法目标恰好一个时会自动锁定。
-            if (BattleEngine.NeedsTarget(def, attackMode) && LegalTargetCount(def, attackMode) > 1)
+            if (BattleEngine.NeedsTarget(def, attackMode, _run.CardLevel(def.Id)) && LegalTargetCount(def, attackMode) > 1)
             {
                 _targeting = true;
                 _pendingAttackMode = attackMode;

@@ -352,3 +352,45 @@ def test_summon_row_unknown_token_still_raises():
     with pytest.raises(Exception) as err:
         _parse_effects("`Summon 1`(100 血/攻 0) + `TotallyBogus`", "测")
     assert "TotallyBogus" in str(err.value)
+
+
+# ---- D1 Task 3:本字修饰器 Amplify / Reshape 与伤害标记的修饰 token ----
+
+def test_amplify_with_scope_and_condition():
+    assert _parse_effects("`Amplify 30` + `scope Damage` + `if Burning`", "火") == [
+        {"kind": "Amplify", "value": 30, "scope": "Damage", "onlyIf": "Burning"}]
+
+
+def test_reshape_collects_all_modifier_tokens():
+    effects = _parse_effects(
+        "`Reshape` + `shape Row` + `shapePercent 50` + `hits 2` + `hitPercent 60` + `forceCrit`"
+        " + `armorIgnore 50` + `shieldStrike 40` + `armorStrike 300`", "土")
+    assert effects == [{"kind": "Reshape", "value": 0, "shape": "Row", "shapePercent": 50,
+                        "hitCount": 2, "hitPercent": 60, "forceCrit": True,
+                        "armorIgnorePercent": 50, "shieldStrikePercent": 40,
+                        "armorStrikePercent": 300}]
+
+
+def test_damage_markers_attach_to_damage_single_without_reshape():
+    assert _parse_effects("`DamageSingle 100` + `armorIgnore 50` + `forceCrit`", "金") == [
+        {"kind": "DamageSingle", "value": 100, "armorIgnorePercent": 50, "forceCrit": True}]
+
+
+@pytest.mark.parametrize("config, needle", [
+    ("`Amplify 30` + `scope Bogus`", "Bogus"),
+    ("`Amplify 30` + `if Nope`", "Nope"),
+    ("`Reshape` + `shape Ring`", "Ring"),
+    ("`Shield 30` + `scope Shield`", "scope"),     # scope 没有 Amplify 可挂
+    ("`Shield 30` + `hits 2`", "hits"),            # 标记没有 Reshape / DamageSingle 可挂
+])
+def test_modifier_token_errors(config, needle):
+    with pytest.raises(ValueError) as err:
+        _parse_effects(config, "测")
+    assert needle in str(err.value)
+
+
+def test_unknown_lowercase_modifier_token_raises():
+    """拼错的无数值修饰 token(`forcecrit`)落进消费记账,不能静默过关。"""
+    with pytest.raises(Exception) as err:
+        _parse_effects("`Reshape` + `forcecrit`", "测")
+    assert "forcecrit" in str(err.value)
