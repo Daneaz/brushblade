@@ -599,6 +599,36 @@ namespace Brushblade.Core
         /// 存档边界(spec §3.4)。</summary>
         private bool _critMoraleGrantedThisCast;
 
+        /// <summary>R3(spec v7 §10):本次出字**之前**每个敌人满足哪些 <see cref="DamageCondition"/>,
+        /// 按敌人下标存位掩码。只在 ApplyEffects 的同步调用栈内非 null;不进快照存档
+        /// (与 _critMoraleGrantedThisCast 同类的瞬时量)。</summary>
+        private int[] _preCastConditions;
+
+        private static readonly DamageCondition[] SnapshotConditions =
+        {
+            DamageCondition.Burning, DamageCondition.Bleeding,
+            DamageCondition.Controlled, DamageCondition.ArmorBroken,
+        };
+
+        private int[] CapturePreCastConditions()
+        {
+            var masks = new int[_enemies.Count];
+            for (int i = 0; i < _enemies.Count; i++)
+                foreach (var c in SnapshotConditions)
+                    if (ConditionMet(c, _enemies[i])) masks[i] |= 1 << (int)c;
+            return masks;
+        }
+
+        /// <summary>条件判据的唯一入口:出字中读出字前快照,不在出字中读现值。
+        /// 出字途中才出现的敌人(分裂)出字前不存在,条件视为不满足。</summary>
+        private bool PreCastConditionMet(DamageCondition condition, int enemyIndex)
+        {
+            if (condition == DamageCondition.None) return false;
+            if (_preCastConditions == null) return ConditionMet(condition, _enemies[enemyIndex]);
+            if (enemyIndex >= _preCastConditions.Length) return false;
+            return (_preCastConditions[enemyIndex] & (1 << (int)condition)) != 0;
+        }
+
         // 砺刃:本次出字的额外暴击率。ApplyEffects 进门时按字的元素设置、出门清零 ——
         // 不进快照,它只活在一次 Cast 的同步调用里。
         private int _castCritBonus;
@@ -2659,6 +2689,9 @@ namespace Brushblade.Core
                 reviveTargetPending = true;
             }
 
+            // R3:快照在复活(前置动作)之后、第一个效果之前取;嵌套 ApplyEffects 退出时恢复外层
+            var outerConditions = _preCastConditions;
+            _preCastConditions = CapturePreCastConditions();
             try
             {
             foreach (var effect in CastEffectsOf(def, attackMode, cardLevel))
@@ -2717,7 +2750,7 @@ namespace Brushblade.Core
                                 // 暴击每段独立摇(2026-08-12),且摇点排在上面两条守卫**之后** ——
                                 // 目标死了 / 被处决了都不该白摇一次,否则「这一发消耗几个随机数」
                                 // 会取决于目标的血量,复现与调试都会变成噩梦
-                                int baseValue = BaseValue(effect, value, _enemies[tgt]);
+                                int baseValue = BaseValue(effect, value, tgt);
                                 if (primary) baseValue = ExecuteBonus(effect, tgt, baseValue);
                                 int damage = ScaleByAttack(baseValue);
                                 // percent == 100 时**不做乘除**:x * 100 / 100 在整数下虽然等于 x,
@@ -3308,7 +3341,7 @@ namespace Brushblade.Core
             }
             if (moraleRelease) _playerStatuses.Remove(StatusKind.Morale);
             }
-            finally { _castCritBonus = 0; }
+            finally { _castCritBonus = 0; _preCastConditions = outerConditions; }
         }
 
         private bool HasDamageEffect(CharDef def, bool attackMode)
@@ -4019,9 +4052,9 @@ namespace Brushblade.Core
 
         /// <summary>条件基础值:目标带指定状态时翻倍(10.3.1;2026-08-25 泛化成
         /// <see cref="DamageCondition"/>),再进生克结算 —— 翻倍与相生 ×3 是**相乘**关系。</summary>
-        private static int BaseValue(EffectDef effect, int scaledValue, EnemyState target)
+        private int BaseValue(EffectDef effect, int scaledValue, int enemyIndex)
         {
-            return ConditionMet(effect.DoubleVs, target) ? scaledValue * 2 : scaledValue;
+            return PreCastConditionMet(effect.DoubleVs, enemyIndex) ? scaledValue * 2 : scaledValue;
         }
 
         /// <summary>目标是否满足条件加成。Controlled 把冻结与减速合成一条 ——
