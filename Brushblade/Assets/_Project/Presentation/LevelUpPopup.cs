@@ -21,7 +21,10 @@ namespace Brushblade.Presentation
             // content 已是 Sheet 给的带内边距 VStack,直接在里面排,不再套一层
             var layout = content.GetComponent<VerticalLayoutGroup>();
             layout.spacing = 21;
-            layout.childForceExpandWidth = true;
+            // 不强制撑满:开了 childForceExpandWidth,uGUI 会把每个子项的 flexible 抬成 1,
+            // 里程碑 chip 的定宽与「知道了」请求的 335 全被拉成整行宽(稿上钮 160pt 居中)。
+            // 只有两栏该撑满,由 Cols 自己声明 flexibleWidth;其余按首选宽、随 UpperCenter 居中。
+            layout.childForceExpandWidth = false;
             layout.padding = new RectOffset(38, 38, 29, 29);
 
             Ui.ThemedLabel(content, Strings.T("levelup.kicker"), 25, Theme.CinnabarDark, Theme.TitleFont);
@@ -30,7 +33,9 @@ namespace Brushblade.Presentation
                 50, Theme.TextMain, Theme.TitleFont);
 
             var cols = Ui.Row(content, "Cols", 29);
-            cols.AddComponent<LayoutElement>().flexibleHeight = 1;
+            var colsElement = cols.AddComponent<LayoutElement>();
+            colsElement.flexibleWidth = 1;
+            colsElement.flexibleHeight = 1;
             cols.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = true;
 
             BuildStats(cols.transform, summary.FromLevel, summary.ToLevel);

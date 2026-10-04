@@ -75,7 +75,7 @@ namespace Brushblade.Presentation
 
             yield return HalfFlip(rect, 1f, 0f, DeltaScale, DeltaScale);
             if (label == null) yield break;
-            label.text = finalInk.ToString();                   // 翻回正面:新余额
+            label.text = Ui.InkBalanceText(finalInk);           // 翻回正面:新余额(与 InkCounter 同一格式)
             label.color = restColor;
             yield return HalfFlip(rect, 0f, 1f, DeltaScale, 1f);
 

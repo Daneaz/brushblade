@@ -28,5 +28,8 @@
   `Ui.IngotLabel`，那些不是同一个账本，混进来会翻出凭空的增减（见 `InkCounter` 的注释）。
 - 余额变化时 `InkPulse` 做一次翻牌（2026-08-30 由飘字改翻牌）：数字沿竖轴翻过去亮出增量（进账翠玉 / 支出朱砂），再翻回新余额；转的是数字本身而不是整行。
 - 局内右上与外层顶栏同源：2026-08-30 半额取消后塔内预算与账户是同一本账。
-- 千分位：余额（`InkCounter`）与开箱入账、登塔结算都**不加**千分位，直接 `ToString()`；
-  里程碑那两处（`CharacterView` 里程碑卡、`MilestonePickSheet` 的「墨锭 +{ink}」）是调用点自己用 `ToString("N0")` 格式化，**带**千分位（如「1,200」「墨锭 +1,200」）。
+- 千分位：**余额统一 `N0` 千分位**（2026-10-04 拍板，如「2,480」）—— `Ui.InkCounter` 与 `InkPulse` 翻回正面的那一帧
+  都走 `Ui.InkBalanceText`（`InvariantCulture`），所以外层六屏顶栏、局内右上、结算页右上一处不落。
+  翻牌背面的增量（「+N」/「−N」，`ui.ink_pulse.*`）不是余额，仍是裸数。
+  `IngotLabel` 由调用点自己格式化：里程碑那两处（`CharacterView` 里程碑卡、`MilestonePickSheet` 的「墨锭 +{ink}」）用 `ToString("N0")`，
+  **带**千分位（「1,200」「墨锭 +1,200」）；开箱入账、登塔结算仍是 `ToString()`，不带。

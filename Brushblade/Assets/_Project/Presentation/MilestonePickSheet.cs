@@ -12,7 +12,12 @@ namespace Brushblade.Presentation
     /// 候选第一次打开时生成并立刻落盘;× 关闭不丢候选。</summary>
     public static class MilestonePickSheet
     {
-        private const float W = 1256f, H = 745f;           // 稿 600×356pt
+        // 高比稿(356pt)多 40:按 uGUI 实算(Noto 行高 宋 1.437 / 黑 1.448),子项首选高合计
+        // 抬头 36 + Lv 102 + 墨锭行 42 + 小节行 33 + 候选排 329(环 288 + 10 + chip 31)+ 脚行 84
+        // = 626,加 6 个行距。原来行距 21、卡高 745 → 752 > 卡内净高 684,竖排按比例把子项往 0 收,
+        // 候选牌高被压到 ≈ 239 而宽不变,0.8 竖版牌框被拉胖。现在行距回到 Sheet 默认 14、卡高 785
+        // → 710 ≤ 724,余下的交给弹簧。785 在 900 高的画布(按高匹配)里扣掉底部安全区仍有余量。
+        private const float W = 1256f, H = 785f;           // 稿 600×356pt,高见上
         private static readonly Vector2 TileSize = new(218f, 272f); // 稿 104×130pt
         private const float RingPad = 8f;                  // 选中环比牌外扩一圈(稿 box-shadow 3+2pt)
 
@@ -30,8 +35,7 @@ namespace Brushblade.Presentation
                 Theme.Scrim, out var content, out var card);
             // content 已是 Sheet 给的带内边距 VStack,直接在里面排,不再套一层(同 LevelUpPopup)
             var layout = content.GetComponent<VerticalLayoutGroup>();
-            layout.spacing = 21;
-            layout.childForceExpandWidth = true;
+            layout.childForceExpandWidth = true;             // 行距用 Sheet 默认的 SheetSpacing(14),见 H 的注释
             layout.padding = new RectOffset(42, 42, 29, 29);
 
             // 右上 ×(稿 .x):点遮罩也能关,这颗是给「不知道能点遮罩」的人的显式出口
