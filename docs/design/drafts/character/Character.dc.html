@@ -25,15 +25,15 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .e-Earth { --elSoft: #ECDCBD; --glyph: #82552A; }
 .r-White { --rar: #A19E97; } .r-Green { --rar: #2E9E52; } .r-Blue { --rar: #0F74C5; } .r-Purple { --rar: #7945AB; } .r-Gold { --rar: #C9A94A; } .r-Orange { --rar: #E1791B; } .r-Red { --rar: #CD272E; }
 .top { height: 38px; flex: none; display: flex; align-items: center; gap: 10px; }
-.top h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: 3px; }
+.top h1 { margin: 0; font-size: 19px; font-weight: 600; }
 .top .sub { font-size: 11px; color: #5D646F; }
-.inkc { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.btn-back { position: relative; height: 30px; padding: 0 14px; border: none; border-radius: 15px; background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 1px; cursor: pointer; }
+.inkc { display: flex; align-items: center; gap: 3px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.btn-back { position: relative; height: 30px; width: 62px; padding: 0; border: none; border-radius: 11.5px; background: #7A3F5C; color: #fff; font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
 .btn-back::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 .body { flex: 1; display: flex; gap: 10px; min-height: 0; padding-bottom: 8px; }
 .panel { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; box-sizing: border-box; }
 .ttl { display: flex; align-items: center; gap: 6px; flex: none; }
-.ttl b { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: #2C333D; letter-spacing: 1px; }
+.ttl b { font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: #161B22; }
 .ttl span { font-size: 9px; color: #676F7A; white-space: nowrap; }
 .ttl .rule { flex: 1; height: 1px; background: #EDE7DA; }
 
@@ -41,43 +41,42 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .prof { width: 200px; flex: none; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
 .avatar { display: flex; align-items: center; gap: 10px; }
 .face { width: 48px; height: 48px; flex: none; border-radius: 50%; background: #11161F; display: flex; align-items: center; justify-content: center; font-size: 25px; font-weight: 600; color: #F6F1E7; }
-.prof .nm { font-size: 17px; font-weight: 600; letter-spacing: 1px; }
-.prof .rk { font-size: 10px; color: #5D646F; margin-top: 2px; letter-spacing: 1px; }
+.prof .nm { font-size: 17px; font-weight: 600; }
+.prof .rk { font-size: 10px; color: #5D646F; margin-top: 2px; }
 .xp { display: flex; flex-direction: column; gap: 3px; font-size: 9px; color: #676F7A; font-variant-numeric: tabular-nums; }
 .xp .row { display: flex; justify-content: space-between; }
-.xp .t { height: 5px; border-radius: 3px; background: #E4DDCE; overflow: hidden; }
-.xp .t span { display: block; height: 100%; background: #C9A94A; }
+.xp .t { height: 4.8px; border-radius: 2.4px; background: #DED7C9; overflow: hidden; }
+.xp .t span { display: block; height: 100%; background: #CA9D33; }
 .attrs { display: flex; flex-direction: column; gap: 3px; }
-.at { display: flex; align-items: baseline; gap: 6px; height: 21px; padding: 0 7px; border-radius: 6px; background: #F2EEE4; font-size: 10px; color: #5D646F; }
+.at { display: flex; align-items: baseline; gap: 6px; height: 21px; padding: 0 7px; border-radius: 6px; background: #F1EBDE; font-size: 10px; color: #5D646F; }
 .at b { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 600; color: #161B22; font-variant-numeric: tabular-nums; margin-left: auto; align-self: center; }
-.at.hp b { color: #B02D2E; }
+.at.hp b { color: #C53637; }
 .at u { text-decoration: none; font-size: 8.5px; color: #1B552C; width: 26px; text-align: right; align-self: center; font-variant-numeric: tabular-nums; }
 .at u.cap { color: #676F7A; }
 .next { margin-top: auto; font-size: 9px; color: #676F7A; line-height: 1.6; }
-.next b { color: #161B22; font-weight: 500; }
 
 .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 
 /* 中上:等级里程碑轨道 */
 .ms { flex: none; height: 156px; padding: 10px 10px 9px; display: flex; flex-direction: column; gap: 8px; }
-.track { position: relative; flex: 1; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
-.rail { position: absolute; left: 4%; right: 4%; top: 9px; height: 3px; border-radius: 2px; background: #E4DDCE; }
-.rail span { display: block; height: 100%; width: 34%; border-radius: 2px; background: #C9A94A; }
+.track { position: relative; flex: 1; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3.8px; }
+.rail { position: absolute; left: 5%; right: 5%; top: 8.6px; height: 2.9px; border-radius: 1.5px; background: #DED7C9; }
+.rail span { display: block; height: 100%; width: 33.3%; border-radius: 1.5px; background: #CA9D33; }
 .node { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .pin { width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; z-index: 1; }
-.mc { width: 100%; flex: 1; box-sizing: border-box; border-radius: 8px; padding: 5px 3px 5px; display: flex; flex-direction: column; align-items: center; gap: 3px; border: 1px solid #E7E1D4; background: #FFFDF7; }
+.mc { width: 100%; flex: 1; box-sizing: border-box; border-radius: 8px; padding: 5px 3px 5px; display: flex; flex-direction: column; align-items: center; gap: 3px; border: 1px solid #DED7C9; background: #FFFDF7; }
 .mc .lv { font-family: "Noto Serif SC", serif; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.mc .ink { display: flex; align-items: center; gap: 2px; font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mc .ink { display: flex; align-items: center; gap: 3px; font-size: 9.5px; font-variant-numeric: tabular-nums; }
 .mc .pick { display: flex; align-items: center; gap: 3px; font-size: 8.5px; color: #5D646F; white-space: nowrap; }
-.mc .pick i { width: 7px; height: 7px; border-radius: 2px; background: var(--rar); display: block; }
+.mc .pick i { width: 6.2px; height: 6.2px; border-radius: 2.9px; background: var(--rar); display: block; }
 .mc .st { margin-top: auto; font-size: 8.5px; color: #676F7A; }
 /* 三态:已领(压浅)/ 可领(全条最亮,赭金底压 gold-text,同技能解锁主钮)/ 未达 */
-.done .pin { background: #C9A94A; color: #fff; }
+.done .pin { background: #CA9D33; color: #fff; }
 .done .mc { background: #F2EEE4; }
-.done .mc .lv, .done .mc .ink { color: #696151; }
-.ready .pin { background: #C9A94A; color: #fff; box-shadow: 0 0 0 3px #F6EDD5; }
-.ready .mc { background: #F6EDD5; border: 1.5px solid #C9A94A; }
-.claim { position: relative; margin-top: auto; height: 20px; width: 100%; border: none; border-radius: 10px; background: #CA9D33; color: #402900; font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 700; letter-spacing: 2px; cursor: pointer; }
+.done .mc .lv { color: #5D646F; }
+.ready .pin { background: #CA9D33; color: #fff; box-shadow: 0 0 0 3px #F6EDD5; }
+.ready .mc { background: #F6EDD5; border: 1.4px solid #CA9D33; }
+.claim { position: relative; margin-top: auto; height: 21px; width: 100%; border: none; border-radius: 11.5px; background: #CA9D33; color: #402900; font-family: inherit; font-size: 10px; font-weight: 500; cursor: pointer; }
 .claim::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 44px; transform: translateY(-50%); }
 .todo .pin { background: #FBF8F1; border: 1.5px solid #DED7C9; color: #928B7B; }
 .todo .mc .lv { color: #5D646F; }
@@ -85,24 +84,24 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 /* 中下:统计 */
 .stats { flex: 1; min-height: 0; padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
 .tabs { display: flex; gap: 6px; align-items: center; flex: none; }
-.tabbtn { position: relative; height: 24px; padding: 0 14px; border-radius: 12px; border: 1px solid #DED7C9; background: #FBF8F1; color: #5D646F; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+.tabbtn { position: relative; height: 24px; padding: 0 14px; border-radius: 12px; border: 1px solid #DED7C9; background: #FBF8F1; color: #5D646F; font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; cursor: pointer; }
 .tabbtn::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 .tabbtn.on { background: #3D4E69; border-color: #3D4E69; color: #fff; }
 .tabs .since { margin-left: auto; font-size: 9px; color: #676F7A; }
 .pane { flex: 1; min-height: 0; display: flex; gap: 14px; }
 .col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.col .h { font-size: 9px; color: #676F7A; letter-spacing: 1px; margin-bottom: 2px; white-space: nowrap; }
-.col .h b { color: #161B22; font-weight: 700; letter-spacing: 0; }
+.col .h { font-size: 9px; color: #676F7A; margin-bottom: 2px; white-space: nowrap; }
 .li { display: flex; align-items: center; gap: 6px; height: 16px; font-size: 10px; color: #2C333D; white-space: nowrap; }
 .li i { width: 8px; height: 8px; border-radius: 3px; background: var(--rar); display: block; flex: none; }
-.li b { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 700; }
-.li.zero { color: #928B7B; }
-.pity { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.li b { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 400; }
+.li.zero { color: #676F7A; }
+.li.zero i { background: #676F7A; }
+.pity { flex: 1; display: flex; flex-direction: column; gap: 3.8px; }
 .pr { display: flex; flex-direction: column; gap: 3px; }
 .pr .row { display: flex; align-items: baseline; gap: 6px; font-size: 10px; color: #2C333D; white-space: nowrap; }
 .pr .row i { width: 8px; height: 8px; border-radius: 3px; background: var(--rar); display: block; align-self: center; }
-.pr .row b { margin-left: auto; font-family: "Noto Serif SC", serif; font-size: 13px; font-variant-numeric: tabular-nums; }
-.pr .bar { height: 5px; border-radius: 3px; background: #E4DDCE; overflow: hidden; }
+.pr .row b { margin-left: auto; font-family: "Noto Serif SC", serif; font-size: 13px; line-height: 14.3px; font-variant-numeric: tabular-nums; }
+.pr .bar { height: 4.8px; border-radius: 2.4px; background: #DED7C9; overflow: hidden; }
 .pr .bar span { display: block; height: 100%; background: var(--rar); }
 .pr .hint { font-size: 8.5px; color: #676F7A; white-space: nowrap; }
 .tiles { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-content: start; }
@@ -123,14 +122,14 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="dev">
 <div class="safe">
 <div class="top">
-<button class="btn-back">返回</button>
 <h1 class="serif">执 笔 人</h1>
 <span class="sub">Lv.20 · 秀才 · 最高 43 层</span>
 <div style="flex: 1"></div>
 <div class="inkc">
-<svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path><path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="2.5"></path></svg>
+<svg width="17" height="10" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>
 2,480
 </div>
+<button class="btn-back">返回地图</button>
 </div>
 <div class="body">
 
@@ -155,7 +154,7 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="at"><span>速度</span><b>110</b><u class="cap">—</u></div>
 <div class="at"><span>每回合 AP</span><b>3</b><u class="cap">—</u></div>
 </div>
-<div class="next">属性 <b>Lv.50</b> 封顶 · 之后升级只给宝箱与里程碑</div>
+<div class="next">属性 Lv.50 封顶 · 之后升级只给宝箱与里程碑</div>
 </div>
 
 <div class="right">
@@ -168,7 +167,7 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="pin"><sc-if value="{{ m.isDone }}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 L5 9 L10 3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if></div>
 <div class="mc">
 <div class="lv">Lv.{{ m.lv }}</div>
-<div class="ink"><svg width="13" height="8" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path><path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="3"></path></svg>{{ m.ink }}</div>
+<div class="ink"><svg width="13" height="8" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>{{ m.ink }}</div>
 <div class="{{ m.pickCls }}"><i></i>{{ m.rar }}字 3 选 1</div>
 <sc-if value="{{ m.isReady }}" hint-placeholder-val="{{ false }}"><button class="claim">领 取</button></sc-if>
 <sc-if value="{{ m.showSt }}" hint-placeholder-val="{{ true }}"><div class="st">{{ m.st }}</div></sc-if>
@@ -188,20 +187,20 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <sc-if value="{{ isChest }}" hint-placeholder-val="{{ true }}">
 <div class="pane">
 <div class="col" style="width: 128px;">
-<div class="h">开箱 · 共 <b>86</b> 只</div>
+<div class="h">开箱 · 共 90 只</div>
 <sc-for list="{{ chests }}" as="c" hint-placeholder-count="7"><div class="{{ c.cls }}"><i></i>{{ c.k }}<b>{{ c.v }}</b></div></sc-for>
 </div>
 <div class="vsep"></div>
 <div class="col" style="width: 112px;">
-<div class="h">开出字卡 · 共 <b>412</b> 张</div>
+<div class="h">开出字卡 · 共 407 张</div>
 <sc-for list="{{ cards }}" as="c" hint-placeholder-count="7"><div class="{{ c.cls }}"><i></i>{{ c.k }}<b>{{ c.v }}</b></div></sc-for>
 </div>
 <div class="vsep"></div>
 <div class="pity">
-<div class="h" style="font-size: 9px; color: #676F7A; letter-spacing: 1px;">保底进度 · 出了就归零,自然开出的也算</div>
-<div class="pr r-Gold"><div class="row"><i></i>金字 · 鎏金匣及以上<b>3 / 5</b></div><div class="bar"><span style="width: 60%"></span></div><div class="hint">再开 2 只鎏金匣及以上,下一只必出金字</div></div>
-<div class="pr r-Orange"><div class="row"><i></i>橙字 · 朱漆匣及以上<b>7 / 10</b></div><div class="bar"><span style="width: 70%"></span></div><div class="hint">再开 3 只朱漆匣及以上必出橙字</div></div>
-<div class="pr r-Red"><div class="row"><i></i>红字 · 赤霄匣<b>12 / 20</b></div><div class="bar"><span style="width: 60%"></span></div><div class="hint">再开 8 只赤霄匣必出红字</div></div>
+<div class="h" style="font-size: 9px; color: #676F7A;">保底进度 · 出了就归零,自然开出的也算</div>
+<div class="pr r-Gold"><div class="row"><i></i>金字 · 鎏金匣及以上<b>3 / 5</b></div><div class="bar"><span style="width: 60%"></span></div><div class="hint">再开 2 只鎏金匣及以上必出金字</div></div>
+<div class="pr r-Orange"><div class="row"><i></i>橙字 · 朱漆匣及以上<b>5 / 10</b></div><div class="bar"><span style="width: 50%"></span></div><div class="hint">再开 5 只朱漆匣及以上必出橙字</div></div>
+<div class="pr r-Red"><div class="row"><i></i>红字 · 赤霄匣及以上<b>2 / 20</b></div><div class="bar"><span style="width: 10%"></span></div><div class="hint">再开 18 只赤霄匣及以上必出红字</div></div>
 </div>
 </div>
 </sc-if>
@@ -270,9 +269,9 @@ class Component extends DCLogic {
       return { lv, ink, rar, cls: 'node ' + state, pickCls: 'pick ' + rarCls[rar], isReady: ready, showSt: !ready,
         isDone: done, st: done ? '已领' : '差 ' + (lv - level) + ' 级' };
     });
-    const chests = [['素纸匣', 'r-White', 4], ['竹简匣', 'r-Green', 21], ['青瓷匣', 'r-Blue', 27], ['紫檀匣', 'r-Purple', 19], ['鎏金匣', 'r-Gold', 11], ['朱漆匣', 'r-Orange', 4], ['赤霄匣', 'r-Red', 0]]
+    const chests = [['素纸匣', 'r-White', 4], ['竹简匣', 'r-Green', 21], ['青瓷匣', 'r-Blue', 27], ['紫檀匣', 'r-Purple', 19], ['鎏金匣', 'r-Gold', 11], ['朱漆匣', 'r-Orange', 6], ['赤霄匣', 'r-Red', 2]]
       .map(([k, r, v]) => ({ k, v, cls: 'li ' + r + (v === 0 ? ' zero' : '') }));
-    const cards = [['白', 'r-White', 131], ['绿', 'r-Green', 118], ['蓝', 'r-Blue', 82], ['紫', 'r-Purple', 51], ['金', 'r-Gold', 22], ['橙', 'r-Orange', 8], ['红', 'r-Red', 0]]
+    const cards = [['白', 'r-White', 131], ['绿', 'r-Green', 118], ['蓝', 'r-Blue', 82], ['紫', 'r-Purple', 51], ['金', 'r-Gold', 22], ['橙', 'r-Orange', 3], ['红', 'r-Red', 0]]
       .map(([k, r, v]) => ({ k: k + '字', v, cls: 'li ' + r + (v === 0 ? ' zero' : '') }));
     const raw = [['爆','Fire','Green',412],['冷','Water','White',388],['剑','Metal','Blue',301],['藤','Wood','Green',276],['碎','Earth','Blue',240],['炎','Fire','Gold',198],['海','Water','Blue',161],['荆','Wood','Purple',140],['垒','Earth','Green',122],['利','Metal','White',97]];
     const top = raw.map((r, i) => ({ g: r[0], cls: 'tl serif e-' + r[1] + ' r-' + r[2], n: r[3], rank: i + 1 }));

@@ -27,17 +27,14 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .bg div { background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 10px; }
 .scrim { position: absolute; inset: 0; background: rgba(22,27,34,.55); z-index: 50; }
 
-.pop { position: absolute; left: 166px; top: 26px; width: 600px; height: 356px; box-sizing: border-box; background: #FBF8F1; border: 1px solid #DED7C9; border-radius: 11px; padding: 14px 20px 14px; box-shadow: 0 12px 38px rgba(22,27,34,.42); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 51; }
+.pop { position: absolute; left: 166px; top: 27.5px; width: 600px; height: 375px; box-sizing: border-box; background: #FBF8F1; border: 0.72px solid #DED7C9; border-radius: 8.6px; padding: 14px 20px 14px; display: flex; flex-direction: column; align-items: center; gap: 6.7px; z-index: 51; }
 .x { position: absolute; right: 8px; top: 6px; width: 44px; height: 44px; border: none; background: transparent; font-size: 20px; color: #5D646F; cursor: pointer; }
-.kick { display: flex; align-items: center; gap: 10px; font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; letter-spacing: 8px; color: #8A6600; }
+.kick { display: flex; align-items: center; gap: 10px; font-family: "Noto Serif SC", serif; font-size: 12px; font-weight: 600; color: #8A6600; }
 .kick::before, .kick::after { content: ""; width: 34px; height: 1px; background: #DED7C9; }
 .lv { font-family: "Noto Serif SC", serif; font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.lv i { font-style: normal; font-size: 15px; font-weight: 600; color: #5D646F; margin-right: 2px; }
-.inkline { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 14px; border-radius: 14px; background: #EFEADF; border: 1px solid #DED7C9; font-size: 11px; color: #5D646F; }
-.inkline b { font-size: 14px; color: #161B22; font-variant-numeric: tabular-nums; }
-.inkline .ok { font-size: 9.5px; color: #1B552C; font-weight: 700; }
+.inkline { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 14px; border-radius: 14px; background: #EFEADF; border: 1px solid #DED7C9; font-size: 11px; color: #161B22; }
 .sec { width: 100%; display: flex; align-items: center; gap: 6px; }
-.sec b { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #2C333D; }
+.sec b { font-family: "Noto Serif SC", serif; font-size: 11px; font-weight: 600; color: #161B22; }
 .sec span { font-size: 9px; color: #676F7A; white-space: nowrap; }
 .sec .rule { flex: 1; height: 1px; background: #EDE7DA; }
 .picks { display: flex; gap: 18px; justify-content: center; }
@@ -45,16 +42,16 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 .cand { position: relative; width: 104px; height: 130px; box-sizing: border-box; border-radius: 10px; background: #FFFDF7; border: 2px solid #C9A94A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; font-family: inherit; color: inherit; padding: 0; }
 .cand.on { box-shadow: 0 0 0 3px #FBF8F1, 0 0 0 5px #3D4E69; transform: translateY(-3px); }
 .cand .g { font-family: "Noto Serif SC", serif; font-size: 50px; font-weight: 700; line-height: 1.05; color: var(--glyph); }
-.cand .py { font-size: 9px; color: #676F7A; letter-spacing: 1px; }
+.cand .py { font-size: 9px; color: #676F7A; }
 .cand .el { position: absolute; left: 6px; top: 6px; width: 18px; height: 18px; border-radius: 50%; background: var(--glyph); color: #fff; font-family: "Noto Serif SC", serif; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .cand .tag { position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%); height: 17px; padding: 0 8px; border-radius: 9px; font-size: 9px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; }
 .tag.new { background: #F6EDD5; color: #8A6600; border: 1px solid rgba(201,169,74,.6); }
 .tag.dup { background: #EFEADF; color: #5D646F; border: 1px solid #DED7C9; }
 .foot { margin-top: auto; width: 100%; display: flex; align-items: center; gap: 12px; }
 .foot .note { flex: 1; font-size: 9px; color: #676F7A; line-height: 1.5; }
-.pill { position: relative; height: 40px; width: 150px; border: none; border-radius: 20px; cursor: pointer; font-family: "Noto Serif SC", serif; font-size: 15px; font-weight: 600; letter-spacing: 2px; }
+.pill { position: relative; height: 40px; width: 150px; border: none; border-radius: 20px; cursor: pointer; font-family: "Noto Sans SC", sans-serif; font-size: 15px; font-weight: 500; }
 .pill.cin { background: #C53637; color: #fff; box-shadow: 0 3px 10px rgba(155,30,34,.26); }
-.pill.off { background: #DAD7D0; color: #676F7A; box-shadow: none; cursor: default; }
+.pill.off { background: #DAD7D0; color: #5D646F; box-shadow: none; cursor: default; }
 </style>
 </helmet>
 <div class="dev">
@@ -63,10 +60,10 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 <div class="pop">
 <button class="x" aria-label="关闭">×</button>
 <div class="kick serif">里 程 碑</div>
-<div class="lv"><i>Lv.</i>20</div>
+<div class="lv">Lv.20</div>
 <div class="inkline">
-<svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path><path d="M14 8 H42 L47 17 L42 26 H14 L9 17 Z" fill="none" stroke="#9D7B2A" stroke-width="2.5"></path></svg>
-墨锭 <b>+1,200</b>
+<svg width="18" height="11" viewBox="0 0 56 34" aria-hidden="true"><path d="M8 0 H48 L56 17 L48 34 H8 L0 17 Z" fill="#1A1F2B"></path></svg>
+墨锭 +1,200
 </div>
 <div class="sec"><b>金字 · 3 选 1</b><span>挑一张收下,另两张不再出现</span><span class="rule"></span></div>
 <div class="picks">
@@ -80,7 +77,7 @@ a { color: #9B1E22; } a:hover { color: #7A3F5C; }
 </sc-for>
 </div>
 <div class="foot">
-<div class="note">候选在第一次打开时就定了,关掉再进还是这三张。<br>已拥有的字照样能选,算一张重复卡,留作升级材料。</div>
+<div class="note">候选在第一次打开时就定了,关掉再进还是这几张。已拥有的字照样能选,算一张重复卡。</div>
 <button class="{{ okCls }}">收下</button>
 </div>
 </div>
