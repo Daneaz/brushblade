@@ -165,6 +165,11 @@ namespace Brushblade.Presentation
                     return new Info("immunity", Strings.T("status.immunity.name"),
                         Strings.T("status.duration.charges", ("value", magnitude)),
                         Strings.T("status.immunity.desc", ("magnitude", magnitude)));
+                case StatusKind.Block:
+                    // 格挡(spec v7 §3.1):Magnitude = 剩余次数,时长行报次数(与免疫同口径)。
+                    return new Info("block", Strings.T("status.block.name"),
+                        Strings.T("status.duration.charges", ("value", magnitude)),
+                        Strings.T("status.block.desc"));
                 case StatusKind.Reflect:
                     return new Info("reflect", Strings.T("status.reflect.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),

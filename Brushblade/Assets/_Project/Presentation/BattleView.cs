@@ -1822,6 +1822,9 @@ namespace Brushblade.Presentation
                 statusChips.Add(new("", Theme.Jade, Color.white, "immunity"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "reflect"));
+            // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
+            int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
+            if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
@@ -2481,6 +2484,7 @@ namespace Brushblade.Presentation
             Flag(StatusKind.DefenseBuff, "defense", Theme.Jade);
             Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
             Flag(StatusKind.Reflect, "reflect", Theme.Jade);
+            Decaying(StatusKind.Block, "block", Theme.Jade);     // 格挡:数字是剩余次数(Plan D 才有数据)
             Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
             Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
             Flag(StatusKind.CritBuff, "crit", Theme.Gold);

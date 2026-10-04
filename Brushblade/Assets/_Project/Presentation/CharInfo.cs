@@ -136,6 +136,8 @@ namespace Brushblade.Presentation
                         : (e.TargetAll ? Strings.T("char.effect.dispel.all.count", ("count", e.Value)) : Strings.T("char.effect.dispel.single.count", ("count", e.Value))),
                     EffectKind.Cleanse => Strings.T("char.effect.cleanse"),
                     EffectKind.Immunity => Strings.T("char.effect.immunity", ("value", shown)),
+                    // 格挡(spec v7 §3.1):次数是离散量,不吃等级 —— 读 e.Value,不读缩放后的 shown。
+                    EffectKind.Block => Strings.T("char.effect.block", ("value", e.Value)),
                     EffectKind.Revive => Strings.T("char.effect.revive", ("value", shown)),
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
                     // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动

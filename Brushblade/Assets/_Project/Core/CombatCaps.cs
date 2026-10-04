@@ -8,6 +8,9 @@ namespace Brushblade.Core
         public const int HeftStacks = 10;
         public const int WellspringStacks = 10;
 
+        /// <summary>非护甲减伤合计上限(百分点,spec v7 §5.2.4)。格挡的 −40% 取 min(40, 本值)。</summary>
+        public const int NonArmorReductionPercent = 60;
+
         /// <summary>反伤总量上限(百分点,2026-09-05;2026-09-06 纳入荆棘 Thorns)。
         ///
         /// 此前刻意不钳位,理由是「字表只有一个 Reflect 字,多来源叠加现实不可达」;

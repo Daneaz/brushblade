@@ -61,6 +61,11 @@ namespace Brushblade.Core
     /// <summary>战斗规则参数(基准值来自第 10 章 10.1)。</summary>
     public sealed class BattleConfig
     {
+        /// <summary>格挡减伤百分点(spec v7 §3.1);实际生效值再与 CombatCaps.NonArmorReductionPercent 取小。</summary>
+        public const int BlockReductionPercent = 40;
+        /// <summary>格挡反击占攻击面伤害的百分比(spec v7 §4)。</summary>
+        public const int BlockCounterPercent = 30;
+
         /// ⚠ 缺省 50 是**旧量级**的遗留,与 <c>MetaRules.MaxHpFor(1) = 500</c> 差一个数量级
         /// (2026-08-12 T1 量级 ×10 时刻意没跟着抬)。生产侧 <c>GameRoot</c> 与两个工装
         /// 都显式注入,缺省只服务测试夹具 —— 那些夹具的怪攻也还是旧量级的合成值,与 50 自洽,
@@ -357,6 +362,7 @@ namespace Brushblade.Core
         Bleed,    // 钩子用:流血结算致死
         Detonate, // 钩子用:引爆致死
         Execute,  // 钩子用:斩杀
+        BlockCounter, // 格挡反击(spec v7 §3.1,R4:特性伤害,受击/死亡类被动据此跳过)
     }
 
     public readonly struct BattleEvent
@@ -1754,6 +1760,17 @@ namespace Brushblade.Core
             return false;
         }
 
+        /// <summary>格挡反击的基数:攻击面首条 DamageSingle 的 Value;无攻击面读 Effects;都没有为 0。</summary>
+        private static int AttackBaseOf(CharDef def)
+        {
+            foreach (var e in def.AttackEffects)
+                if (e.Kind == EffectKind.DamageSingle) return e.Value;
+            if (def.AttackEffects.Count > 0) return 0;
+            foreach (var e in def.Effects)
+                if (e.Kind == EffectKind.DamageSingle) return e.Value;
+            return 0;
+        }
+
         /// <summary>该字是否需要指定**友方**目标(2026-08-22,spec §8.1)。
         /// 单体治疗(HealSelf / HealOverTime)从此可以选治玩家还是某只召唤物;
         /// 2026-08-26 起护盾(Shield)同理 —— 土系 5 张护盾字都能加给召唤物。
@@ -2960,6 +2977,19 @@ namespace Brushblade.Core
                             Magnitude = value, TurnsLeft = effect.Turns, SourceId = def.Id,
                         }, AllyRef(allySlot), UnitRef.Player);
                         break;
+                    case EffectKind.Block:
+                    {
+                        // 格挡(spec v7 §3.1/§4):次数是离散量,读 effect.Value 不吃等级;
+                        // 反击 = 攻击面本体伤害(吃等级)× 30%,出字时定死,不吃攻击力(与反弹同口径)。
+                        int counter = MetaRules.ScaleByCardLevel(AttackBaseOf(def), cardLevel)
+                            * BattleConfig.BlockCounterPercent / 100;
+                        ApplyStatus(_playerStatuses, new StatusEffect
+                        {
+                            Kind = StatusKind.Block, Polarity = StatusPolarity.Buff,
+                            Magnitude = effect.Value, CounterDamage = counter, TurnsLeft = -1,
+                        }, UnitRef.Player, UnitRef.Player);
+                        break;
+                    }
                     case EffectKind.BurnNoDecay:
                         // SourceId 用字 ID:同字再出只刷新,不挂两条
                         if (targetIndex >= 0 && _enemies[targetIndex].Alive)
@@ -3591,6 +3621,16 @@ namespace Brushblade.Core
         /// Plan A Task 5 在此发 StatusApplied 钩子,Plan C 在此拦截霜抗/杜绝。</summary>
         private void ApplyStatus(StatusBag bag, StatusEffect effect, UnitRef target, UnitRef applier)
         {
+            // 格挡同类取最强(spec v7 §5.2.1):次数、反击各取较大值,不累加
+            if (effect.Kind == StatusKind.Block)
+            {
+                var existing = bag.Find(StatusKind.Block);
+                if (existing != null)
+                {
+                    effect.Magnitude = Math.Max(effect.Magnitude, existing.Magnitude);
+                    effect.CounterDamage = Math.Max(effect.CounterDamage, existing.CounterDamage);
+                }
+            }
             bag.Apply(effect);
             Raise(HookKind.StatusApplied, target, applier, effect.Magnitude, status: effect.Kind);
         }
@@ -4449,6 +4489,19 @@ namespace Brushblade.Core
                 return true;
             }
 
+            // 格挡(spec v7 §3.1):只挡敌人的挥击(allowReflect = 挥击;铁画反噬不算)。
+            // 减伤计入 §5.2.4 的非护甲减伤封顶。打空与免疫都在上面 return 了,不消耗格挡。
+            StatusEffect block = allowReflect ? _playerStatuses.Find(StatusKind.Block) : null;
+            int counter = 0;
+            if (block != null && block.Magnitude > 0)
+            {
+                int cut = Math.Min(BattleConfig.BlockReductionPercent, CombatCaps.NonArmorReductionPercent);
+                damage = damage * (100 - cut) / 100;
+                counter = block.CounterDamage;
+                block.Magnitude--;
+                if (block.Magnitude <= 0) _playerStatuses.RemoveEntry(block);
+            }
+
             int fromNormal = Math.Min(_shieldNormal, damage);
             _shieldNormal -= fromNormal;
             int fromPersist = Math.Min(_shieldPersist, damage - fromNormal);
@@ -4472,14 +4525,25 @@ namespace Brushblade.Core
             int reflect = allowReflect
                 ? Math.Min(CombatCaps.ReflectPercent, _playerStatuses.TotalMagnitude(StatusKind.Reflect))
                 : 0;
+            int bounced = 0;
             if (reflect > 0 && _enemies[enemyIndex].Alive)
             {
-                int bounced = damage * reflect / 100;
+                bounced = damage * reflect / 100;
                 if (bounced > 0)
                     DamageEnemy(enemyIndex, bounced, Element.Heart,
                         bypassDefense: true,   // 反弹不吃敌人护甲(spec §4.2):折返不是挥击
                         allowBarb: false,      // 同理也不算挥击:不触发铁画的反噬
                         source: EffectSource.Reflect, attackerRef: UnitRef.Player);
+            }
+            // 格挡反击:与镜共用 60% 反伤预算(§5.2.3),镜先用,反击拿剩下的
+            if (counter > 0 && _enemies[enemyIndex].Alive)
+            {
+                int budget = damage * CombatCaps.ReflectPercent / 100 - bounced;
+                int dealt = Math.Min(counter, budget);
+                if (dealt > 0)
+                    DamageEnemy(enemyIndex, dealt, Element.Heart,
+                        bypassDefense: true, allowBarb: false,
+                        source: EffectSource.BlockCounter, attackerRef: UnitRef.Player);
             }
             return true;
         }

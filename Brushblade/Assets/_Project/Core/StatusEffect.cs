@@ -57,6 +57,8 @@ namespace Brushblade.Core
                           // 来源是治疗的**名义值**(不是实际回血)——满血溢出照样攒,
                           // 这正是「满血奶自己不亏」那条诉求的落点。
         Charm,            // 魅惑:持有者攻击自己阵营(2026-09-05,花)。Magnitude 不用,只看 TurnsLeft。
+        Block,            // 格挡(spec v7 §3.1,铠):Magnitude = **剩余次数**,CounterDamage = 每次反击的伤害,
+                          // TurnsLeft = -1(本场有效,用完为止)。下一次敌人挥击 −40% 并反击;同类取最强不叠加。
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -104,6 +106,9 @@ namespace Brushblade.Core
         public string SourceId { get; set; }
         public bool TargetAll { get; set; }  // 仅 HealOverTime 用
 
+        /// <summary>格挡每次反击的伤害(spec v7 §4,仅 <see cref="StatusKind.Block"/> 用;出字时定死,不吃攻击力)。</summary>
+        public int CounterDamage { get; set; }
+
         /// <summary>持续治疗的落点槽位(2026-08-22,spec §8.3)。−1 = 玩家,0..5 = 召唤物槽。
         /// 与 <see cref="TargetAll"/> 同构:HoT 始终挂在**玩家的** StatusBag 上,
         /// 结算时按这个槽位分发。
@@ -117,7 +122,7 @@ namespace Brushblade.Core
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
-            TargetSlot = TargetSlot,
+            TargetSlot = TargetSlot, CounterDamage = CounterDamage,
         };
     }
 

@@ -538,6 +538,7 @@ namespace Brushblade.CoreTests
             // 2026-09-02(水土双方向):厚与泉。追加在末尾,DodgeBuff(20) 之后。
             Assert.That((int)StatusKind.Heft, Is.EqualTo(21), "新值必须追加在末尾");
             Assert.That((int)StatusKind.Wellspring, Is.EqualTo(22), "新值必须追加在末尾");
+            Assert.That((int)StatusKind.Block, Is.EqualTo(24), "新值必须追加在末尾");
         }
     }
 }

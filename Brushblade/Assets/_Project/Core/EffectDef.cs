@@ -91,6 +91,8 @@ namespace Brushblade.Core
                       // KeMultiplier 系)、UI 显色(BattleView.DrawSummons / SummonInfo)三条路径
                       // 全部现读 SummonState.Element,不需要各自接线——但改完要 grep 复查,
                       // 别假设只有这三条。
+        Block,        // 格挡(spec v7 §3.1,铠):Value = 次数(离散量,不吃卡等级);下一次敌人挥击 −40% 并反击。
+                      // 反击伤害 = 本字攻击面首条 DamageSingle(吃等级)× 30%,出字时定死。
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>

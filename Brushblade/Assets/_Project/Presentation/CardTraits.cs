@@ -137,6 +137,9 @@ namespace Brushblade.Presentation
                     case EffectKind.Immunity:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_immunity")));
                         break;
+                    case EffectKind.Block:
+                        Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_block")));
+                        break;
                     case EffectKind.Reflect:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_reflect")));
                         break;
@@ -295,6 +298,12 @@ namespace Brushblade.Presentation
                         AddTrait(traits, "immunity", v.ToString(),
                             Strings.T("collection.trait.immunity.name"),
                             Strings.T("collection.trait.immunity.desc", ("value", v)));
+                        break;
+                    case EffectKind.Block:
+                        // 次数是离散量,不吃等级:读 e.Value 而不是缩放后的 v
+                        AddTrait(traits, "block", e.Value.ToString(),
+                            Strings.T("collection.trait.block.name"),
+                            Strings.T("collection.trait.block.desc", ("value", e.Value)));
                         break;
                     case EffectKind.Reflect:
                         AddTrait(traits, "reflect", v + "%",
