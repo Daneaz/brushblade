@@ -1,4 +1,4 @@
-<!-- @dsCard group="局内流程" height=582 subtitle="实现 · DrawRunEnd / DrawBattleSettle / ShowVictoryBanner · 四态共用一版" -->
+<!-- @dsCard group="局内流程" height=582 subtitle="实现 · DrawRunEnd / DrawBattleSettle / ShowVictoryBanner · 三态共用一版" -->
 <!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;background:var(--paper)}
 .wrap{padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px}
@@ -58,15 +58,6 @@ html,body{margin:0;background:var(--paper)}
     </div>
   </div><div class="lbl">battle-lost</div><div class="tag" style="color:var(--cinnabar-dark)">罩子让开顶栏 ↑ · 「结算」直进登塔结算</div></div>
 
-  <div class="col"><div class="screen">
-    <div class="field"><i style="left:8%;top:20%;width:9%;height:16%"></i></div>
-    <div class="scrim full">
-      <div class="big" style="color:var(--text-main)">本段告捷——字正!</div>
-      <div class="msg">Boss 已破,安全层可收官或深入。</div>
-      <span class="pill" style="background:var(--jade)">前往安全层</span>
-    </div>
-  </div><div class="lbl">run-won</div><div class="tag">整屏拦截</div></div>
-
-  <div class="note">罩子是 <b style="color:var(--text-dim)">scrim-paper</b>（纸色 72%），<b>不压暗战场</b> —— 玩家看得见自己是怎么死的。<b>battle-lost 的罩子必须让开顶栏</b>：那颗「退出」是阵亡后唯一的离塔出口，罩住它人就卡在这一屏。败北只有这一屏（2026-10-04 两屏合一），点「结算」直接进登塔结算页。</div>
+  <div class="note">罩子是 <b style="color:var(--text-dim)">scrim-paper</b>（纸色 72%），<b>不压暗战场</b> —— 玩家看得见自己是怎么死的。<b>battle-lost 的罩子必须让开顶栏</b>：那颗「退出」是阵亡后唯一的离塔出口，罩住它人就卡在这一屏。败北只有这一屏（2026-10-04 两屏合一），点「结算」直接进登塔结算页；告捷侧也已合并 —— boss-win 之后选完战利品直接进安全层，没有「本段告捷」那一屏。</div>
 </div>
 </body></html>

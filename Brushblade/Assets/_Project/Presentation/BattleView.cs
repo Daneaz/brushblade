@@ -322,6 +322,7 @@ namespace Brushblade.Presentation
         // 换一场战斗就自然重置,不必找地方清标记。−1 = 还没播过任何一场。
         private int _openingPlayedForBattle = -1;
         private RunPhase _lastPhase;    // 上一帧的阶段:用于检测「战利品阶段结束」这一次转换
+        private bool _segmentWonSettled; // 塔内段末告捷已交给外层结算(告捷两屏合一,见 Refresh)
         private int _pendingRewardIndex = -1;   // 满库替换:已选中待替换入库的奖励下标(3.8.1)
         private int _previewRewardIndex = -1;   // 字奖励预览:首点看简述,再点确认(新手友好)
 
@@ -1162,6 +1163,29 @@ namespace Brushblade.Presentation
             //     这次"的瞬间转换,得在收尾检查跑完之后再看一眼当前 _run.Phase 才抓得到。
             bool enteredReviving = _lastPhase == RunPhase.Reviving || _run.Phase == RunPhase.Reviving;
             _lastPhase = _run.Phase;
+
+            // 告捷两屏合一(2026-10-04 用户拍板,对称于败北侧的 SettleDefeat):Boss 层战利品
+            // 取完/跳过/换字后 Phase 落到 RunWon,塔内不再画「本段告捷」那一屏让玩家再点一次
+            // 「前往安全层」——安全层标题「安全层 · 第 N 层告捷」已经说清了,直接交给外层结算。
+            // 塔外(_onExit == null)没有安全层,仍走 DrawRunEnd 的「关卡通过」+「返回地图」。
+            // · 放在 Refresh 而不是各个选字回调里:选完/跳过/换字三条出口都汇到这里,断点续爬
+            //   时若旧档停在 RunWon,Init 的首次 Refresh 也会直接进安全层。
+            // · 只触发一次:_onRunEnded 会经 GameRoot.NewView() 销毁本视图,但 Destroy 要到帧末
+            //   才生效——同一帧里选字回调在 CancelSelection() 之后还会调 FlyIntoLibrary,之后
+            //   再有任何 Refresh 都不能把段末结算(经验/墨锭/首破)再跑一遍。
+            // · 清掉 _tileRects 再 return:原先 RunWon 那次 Refresh 会清空它,FlyIntoLibrary
+            //   因找不到目标而直接返回;提前 return 也要保住这一点,别往将销毁的字库上飞字。
+            // · 不走末尾的 SaveProgressIfChanged:OnSegmentEnded 已 ClearProgress,断点作废。
+            if (_run.Phase == RunPhase.RunWon && _onExit != null)
+            {
+                _tileRects.Clear();
+                if (!_segmentWonSettled)
+                {
+                    _segmentWonSettled = true;
+                    _onRunEnded(true);
+                }
+                return;
+            }
 
             // 复活补给额度取尽或候选枯竭 → 收尾。
             // 满库**不再**收尾(2026-08-04):看了广告却因满库一无所得是白看,现在转入替换子步,
@@ -5068,11 +5092,13 @@ namespace Brushblade.Presentation
         private void DrawRunEnd()
         {
             bool won = _run.Phase == RunPhase.RunWon;
-            bool tower = _onExit != null; // 无尽:胜=Boss 层告捷进安全层,负=塔结算
+            bool tower = _onExit != null; // 无尽:负=塔结算(胜不会走到这里,见下)
 
             // 稿 RunEnd.dc.html:整屏纸罩 + 横幅 + 一句 msg + 一个大钮,胜负只换文案与色。
             // 败北正常已不走这里(2026-10-04 两屏合一,DrawBattleSettle 的钮直接进塔结算);
             // 败北支留作 Phase 停在 RunLost 时的兜底,版式与 DrawBattleSettle 败北屏一致。
+            // 塔内告捷也不走这里(2026-10-04 告捷两屏合一,Refresh 开头直接进安全层);
+            // 胜利支只剩塔外的「关卡通过」+「返回地图」。
             // 挂在常驻的 _runEndBanner(与 DrawBattleSettle 的 _settleBanner 同一套办法,
             // 没有照抄任务书「建前 transform.Find 销毁」的原方案)——理由见该字段声明处:
             // RunWon/RunLost 虽是终态、_onRunEnded 最终总会经 GameRoot.NewView() 把整个
@@ -5086,16 +5112,15 @@ namespace Brushblade.Presentation
             wrap.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
 
             Ui.ThemedLabel(wrap.transform, won
-                    ? (tower ? Strings.T("battle.phase.run_won_tower_banner") : Strings.T("battle.phase.run_won_stage_banner"))
+                    ? Strings.T("battle.phase.run_won_stage_banner")
                     : Strings.T("battle.phase.defeat_banner"),
                 BannerFont, won ? Theme.TextMain : Theme.CinnabarDark, Theme.TitleFont);
             Ui.ThemedLabel(wrap.transform, won
-                    ? (tower ? Strings.T("battle.phase.run_won_tower_msg") : Strings.T("battle.phase.run_won_stage_msg"))
+                    ? Strings.T("battle.phase.run_won_stage_msg")
                     : (tower ? Strings.T("battle.phase.run_lost_tower_msg") : Strings.T("battle.phase.run_lost_stage_msg")),
                 BannerMsgFont, Theme.TextDim);
             Ui.PillButton(wrap.transform,
-                won && tower ? Strings.T("battle.btn.to_safe_floor")
-                    : tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"),
+                tower ? Strings.T("battle.btn.settle") : Strings.T("common.back_to_map"),
                 () => _onRunEnded(won), won ? Theme.Jade : Theme.InkSoft, Color.white, 36, // 稿 .pill font-size 17pt→36
                 new Vector2(400, BannerPillH)); // 稿 .pill 48pt;宽度非换算值,估的
             _message = "";   // 那句话已经画在横幅里,底部提示行不再重复一遍
