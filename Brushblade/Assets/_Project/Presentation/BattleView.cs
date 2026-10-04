@@ -40,7 +40,11 @@ namespace Brushblade.Presentation
         // 战场网格的实际内容宽:一排 4 格 × 293 + 3 个间距 × 17(稿 4×140 + 3×8 = 584pt)。
         // 中区本身是 1260(稿 602pt),两侧各富余 18 —— 玩家条 / 字库带 / 部件池原先都铺满
         // 1260,比上方的战场网格两边各宽出一圈,竖着看边缘不齐(2026-09-01 用户拍板收窄对齐)。
+        // ⚠ 这是**上限**(基准机的宽),不是实际宽 —— 实际宽读 _fieldWidth,见 FrameWidth 的账。
         private const float FieldContentWidth = EnemyCellWidth * 4 + RowGap * 3;
+        // 触控下限:tokens.json tap-min 44pt × 2.093。牌按屏宽缩小后视觉高度可能跌破它,
+        // 由 PadTapHeight 垫透明命中区补足(与「?」钮 CoachBtnTapH 同一手法)。
+        private const float TapMin = 92f;
         // 换字面板(稿 Replace.dc.html)。780pt 是算出来的不是拍的:按**9 张**字牌 ×62
         // + 8 道 7pt 间隙 = 614,加来牌 62 + 箭头 22 + 两道 9pt 间隙 = 102,再加左右各 20
         // 内边距 → 756,取 780。窄一档就会折行,最后一张孤零零掉到第二排,读起来像
@@ -270,6 +274,53 @@ namespace Brushblade.Presentation
         // 生命周期于是和 _centerRow / _poolRow 完全同构,不需要任何人记得销毁它。
         // 它没有 Image、清空后也没有子物件,非奇遇阶段既不绘制也不拦点击,不必再 SetActive。
         private Transform _eventBody;
+
+        // ---- 屏比:中区实际宽(2026-10-04 按 1600 宽验算后加) ----
+        //
+        // CanvasScaler 按高匹配 → 画布高恒 900、宽随屏比变。三栏里左栏 142、拆合台 276 定宽,
+        // 只有中区吃余量,所以屏比的差额**全落在中区**:
+        //   基准机(932×430pt,安全区左右各 ~59~62pt 由 SafeAreaFitter 让出、MissingInset 补 0):
+        //     Frame ≈ 1691~1705 → 中区 = Frame − 142 − 276 − 13×2 ≈ 1247~1261 ≥ 1223,原样不缩;
+        //   16:9 无刘海机(1600 宽,MissingInset 两侧各补 123):
+        //     Frame = 1600 − 246 = 1354 → 中区 = 910,比 1223 窄 313(−26%)。
+        // 此前战场四排、玩家条、字库带、部件池全按 1223 定宽,16:9 上被布局组只压**宽**:
+        // 敌人立绘挤成椭圆、chip 流按 154 宽排却只剩 75、字库牌压扁 —— 全部探出格外。
+        // 现在一律按 _fieldWidth = min(1223, 中区实际宽) 排,基准机上逐值不变。
+        private float _fieldWidth = FieldContentWidth;
+
+        /// <summary>版面主干(Frame)的实际宽,逻辑单位。BattleView 根节点 = Screen.safeArea
+        /// (SafeAreaFitter),Frame 再两侧各缩 MissingInset —— 与 BuildSkeleton 同一笔账。
+        /// 浮层(换字/选字)也用它当可用宽的上限:浮层挂在根节点下,但要守住稿上的 .safe 框。</summary>
+        private static float FrameWidth()
+        {
+            float scale = Screen.height / 900f; // CanvasScaler 1600×900,match = 1(按高)
+            if (scale <= 0f) return float.MaxValue;
+            var (padSide, _) = SafeArea.MissingInset();
+            return Screen.safeArea.width / scale - padSide * 2f;
+        }
+
+        /// <summary>敌人格宽:一排恒 4 格 + 3 道 RowGap 铺满 _fieldWidth。基准机 = 293(稿 140pt)。</summary>
+        private float EnemyCellW => (_fieldWidth - RowGap * 3f) / 4f;
+
+        /// <summary>战场格的缩放比(≤1):单列敌人立绘、召唤格宽跟着它等比缩,字号不缩。</summary>
+        private float FieldScale => EnemyCellW / EnemyCellWidth;
+
+        /// <summary>召唤格宽:与敌人格同比缩(基准机 289,稿 138pt)。立绘**不缩** —— 召唤物的
+        /// 点击目标就是立绘那颗钮(后排 75 已低于 tap-min,不能再小),缩的只是信息列。</summary>
+        private float SummonCellW => SummonCellWidth * FieldScale;
+
+        /// <summary>视觉高度不足 <see cref="TapMin"/> 的可点牌:垫一层透明子节点把触控高度撑到
+        /// TapMin(竖向居中、横向与牌同宽)。点击/拖拽/长按都会从命中的子节点冒泡到牌本身的
+        /// Button / DragToAttack / HoldToPreview。排第一个子节点:画在牌面之下,不挡任何东西。</summary>
+        private static void PadTapHeight(GameObject tile, float visualH)
+        {
+            if (visualH >= TapMin) return;
+            var pad = Ui.Panel(tile.transform, "TapPad");
+            pad.transform.SetAsFirstSibling();
+            pad.AddComponent<Image>().color = new Color(0, 0, 0, 0);
+            Ui.Anchor((RectTransform)pad.transform, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(0f, -TapMin / 2f), new Vector2(0f, TapMin / 2f));
+        }
 
         // 段末横幅(稿 RunEnd.dc.html)的整屏纸罩容器:DrawBattleSettle 败北支专用。
         //
@@ -768,6 +819,10 @@ namespace Brushblade.Presentation
             var (padSide, padBottom) = SafeArea.MissingInset();
             Ui.Anchor((RectTransform)frame.transform, Vector2.zero, Vector2.one,
                 new Vector2(padSide, padBottom), new Vector2(-padSide, 0));
+            // 中区实际宽 → 战场行宽(见 _fieldWidth 的账)。Floor 再减 1:布局组按浮点分宽,
+            // 首选宽之和贴着可用宽时差一丝就会触发压缩,留 1 个单位的余量。
+            float midWidth = FrameWidth() - RailW - BenchW - ArenaGap * 2f;
+            _fieldWidth = Mathf.Min(FieldContentWidth, Mathf.Floor(midWidth) - 1f);
             var frameLayout = frame.GetComponent<VerticalLayoutGroup>();
             frameLayout.childForceExpandWidth = true;   // 顶栏与三栏都通栏
             frameLayout.childAlignment = TextAnchor.UpperCenter;
@@ -778,7 +833,15 @@ namespace Brushblade.Presentation
             var topBar = Ui.Panel(frame.transform, "TopBar");
             Ui.Sized(topBar, height: TopBarH);
             _topLeft = Ui.Row(topBar.transform, "Left", 10).transform;
-            Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.26f, 1), Vector2.zero, Vector2.zero);
+            // 右沿 0.26 → 0.50(2026-10-04 屏比验算):左组「「墨海」第 46~50 层 · 战斗 3」20 号
+            // 约 280 + 间距 10 +「第 50 层」13 号约 65 ≈ 355,三位层数/两位场次再 +40 ≈ 395。
+            // 0.26 在基准机 Frame 1705 上是 443 装得下,16:9 的 1354 上只剩 352 —— 布局组把标题
+            // 压窄、Text 不折行,标题就叠到「第 N 层」上。中段本来腾空(右组左沿也是 0.50),
+            // 直接让到 0.50:16:9 上 677、基准机 852,两档都有余量,且与右组的槽不重叠。
+            // 槽放宽后必须改左对齐:Ui.Row 缺省 MiddleCenter 会把标题组推到左半屏中间。
+            // (现状卡 .bar .left 本来就是左起排,0.26 时居中只差 ~44,一直没被看出来。)
+            _topLeft.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Anchor((RectTransform)_topLeft, new Vector2(0, 0), new Vector2(0.50f, 1), Vector2.zero, Vector2.zero);
             // 提示行:屏幕**最底部**通栏(2026-08-27 用户拍板)。「结算中……」也并进本行
             // (见 Refresh 末尾),所以它与 _statusRow 的教程指引不会叠字。
             // 挂在 transform 下而不是 _statusRow 里:_statusRow 每次 Refresh 都被 Ui.Clear 清空,
@@ -827,7 +890,9 @@ namespace Brushblade.Presentation
             Ui.Stretch((RectTransform)_runEndBanner);
 
             // 2026-09-30:右段多了「速度」「设置」两颗钮,0.70 起放不下 —— 左沿放到 0.50
-            // (中段本来就腾空,见上),改靠右排,退出钮仍贴最右
+            // (中段本来就腾空,见上),改靠右排,退出钮仍贴最右。
+            // 屏比验算(2026-10-04):墨锭 ~95 + 「回合 12」63 + 速度 96 + 设置 72 + ? 46 + 退出 90
+            // + 间距 14×5 ≈ 532;槽宽 16:9 677 / 基准机 852,都装得下。
             _topRight = Ui.Row(topBar.transform, "Right", 14).transform;
             _topRight.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
             Ui.Anchor((RectTransform)_topRight, new Vector2(0.50f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
@@ -869,18 +934,19 @@ namespace Brushblade.Presentation
             midLayout.childAlignment = TextAnchor.UpperCenter;
             Ui.Sized(mid, flexWidth: 1f);
 
-            // 中区被左右两栏夹到 1260 逻辑单位(稿 602pt),而玩家条 / 字库带 / 部件池
-            // 三行进一步收窄到 FieldContentWidth = 1223 并居中(见该常量的说明)。
+            // 中区被左右两栏夹到 1260 逻辑单位(稿 602pt,基准机;16:9 只剩 910),而玩家条 / 字库带 /
+            // 部件池三行进一步收窄到 _fieldWidth(基准机 = FieldContentWidth 1223)并居中。
             // 手牌行的账(字库上限 11 = 起手 6 + 缓冲 1 + 博闻两层 2 + 广告扩容 2):
             // 未扩容满员 9 张 + 广告位 = 计数标题 96 + 9×96 + 广告位 88 + 10 个间距 8 = 1128,装得下;
             // 扩容后满员 11 张(扩容位随之撤掉)= 96 + 11×96 + 11 个间距 8 = 1240,溢出约 17(1.4%)。
-            // HorizontalLayoutGroup 会等比压窄每格,压扁而不是溢出 —— 压后牌约 94 单位,肉眼几乎看不出。
-            // 别为这一点改牌宽:稿上的 46×56pt 是量出来的,改它会让整屏比例跟稿漂开。
+            // 牌宽由 DrawLibrary 按张数与 _fieldWidth 反算、**宽高同比**缩(基准机 11 张 → 94.5×115;
+            // 16:9 的 910 上 11 张 → 66×80),不再交给 HorizontalLayoutGroup 只压宽。
+            // 稿上的 46×56pt 仍是上限,放得下就不缩。
             // (2026-10-04 按上限 11 重算;旧账按 12 张 + 广告位算出溢出 18%,那个组合不存在。)
             //
             // 收窄居中槽:Mid 的 childForceExpandWidth 会把直接子物体一律撑满 1260,所以
             // 「收窄再居中」只能靠一层通栏的槽 —— 槽照旧铺满 1260,真正那一件建在槽里、
-            // 自己按 FieldContentWidth 定宽,由槽的 MiddleCenter 居中。槽不设 LayoutElement:
+            // 自己按 _fieldWidth 定宽,由槽的 MiddleCenter 居中。槽不设 LayoutElement:
             // 高度跟着里面那件的 preferredHeight 走,部件池那种「高度由内容撑」的行才不会
             // 被钉死成某个数。
             GameObject NarrowSlot(string name) => Ui.Row(mid.transform, name + "Slot");
@@ -934,7 +1000,7 @@ namespace Brushblade.Presentation
 
             // 玩家条(稿 .me):定高,不跟着 field 伸缩
             var bottomGo = Ui.Row(NarrowSlot("PlayerStats").transform, "PlayerStats");
-            Ui.Sized(bottomGo, width: FieldContentWidth, height: PlayerBarH);
+            Ui.Sized(bottomGo, width: _fieldWidth, height: PlayerBarH);
             _bottomRow = bottomGo.transform;
             // 执笔人详情入口(2026-09-01,单位详情轮二 Task 5):挂在 _bottomRow 自己身上,
             // 只挂一次——DrawPlayerStats 每次 Refresh 只 Ui.Clear 它的子物件,不动它本身
@@ -953,7 +1019,7 @@ namespace Brushblade.Presentation
             // 部件超限/跑图结束)与那三个阶段互斥。做成上下两行会让这条带占双倍高度,
             // 把战场四排挤扁 —— 所以是两个铺满同一个槽的叠放层,各自 Ui.Clear / 绘制。
             var band = Ui.Panel(NarrowSlot("Band").transform, "Band");
-            Ui.Sized(band, width: FieldContentWidth, height: HandBandH);
+            Ui.Sized(band, width: _fieldWidth, height: HandBandH);
 
             // 字库行左对齐(2026-09-01 用户拍板):稿 .hand 是 justify-content:center,
             // 但计数标题在行首 —— 整组居中会让标题的 x 随牌数左右漂,与下面同样带标题的
@@ -970,7 +1036,7 @@ namespace Brushblade.Presentation
             // 部件池与底部提示行:高度由内容撑(Mid 的 childForceExpandHeight 已关,
             // 它们不会去分 field 的富余)
             var poolGo = Ui.Row(NarrowSlot("Pool").transform, "Pool");
-            Ui.Sized(poolGo, width: FieldContentWidth);
+            Ui.Sized(poolGo, width: _fieldWidth);
             poolGo.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             _poolRow = poolGo.transform;
             _statusRow = Ui.Row(mid.transform, "Status").transform;
@@ -1972,12 +2038,15 @@ namespace Brushblade.Presentation
 
                 var cell = Ui.Panel(front ? _summonFrontRow : _summonBackRow, $"Summon{i}");
                 var cellElement = cell.AddComponent<LayoutElement>();
-                cellElement.preferredWidth = SummonCellWidth;
+                cellElement.preferredWidth = SummonCellW;
                 cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
                 _summonCellByCore[i] = (RectTransform)cell.transform;
 
+                // 格宽随屏宽缩(SummonCellW:基准机 289,16:9 ≈ 212),立绘不缩(它就是点击目标),
+                // 缩的是信息列:16:9 前排 212 − 100 − 10 ≈ 102、后排 ≈ 127。账:头行 名字 19 + 6 +
+                // 属性徽章 25 = 50;三位数「射程+攻」chip 76;血值叠字「1234/1234」13 号约 64 —— 都装得下。
                 float portraitSize = front ? SummonPortraitFront : SummonPortraitBack;
-                float infoWidth = SummonCellWidth - portraitSize - SummonBlkInfoGap;
+                float infoWidth = SummonCellW - portraitSize - SummonBlkInfoGap;
                 int summonIndex = i; // 闭包捕获:直接用 i 会全都指向循环终值
 
                 // 立绘在左、信息列在右(2026-08-31 收口,与敌人格/玩家条同一套 Ui.UnitBlock)
@@ -2127,7 +2196,7 @@ namespace Brushblade.Presentation
             var cell = Ui.VStack(front ? _summonFrontRow : _summonBackRow, $"SummonLocked{slot}",
                 SummonStackSpacing);
             var cellElement = cell.AddComponent<LayoutElement>();
-            cellElement.preferredWidth = SummonCellWidth;
+            cellElement.preferredWidth = SummonCellW;
             cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
             _summonCellByCore[slot] = (RectTransform)cell.transform;
 
@@ -2139,7 +2208,7 @@ namespace Brushblade.Presentation
             image.color = new Color(Theme.InkSoft.r, Theme.InkSoft.g, Theme.InkSoft.b, 0.08f);
             image.raycastTarget = false;
             var plateElement = plate.AddComponent<LayoutElement>();
-            plateElement.preferredWidth = SummonCellWidth;
+            plateElement.preferredWidth = SummonCellW;
             plateElement.preferredHeight = glyphSize;
 
             // 锁图标 + 层数分两行:一行放不下「[封] 30 关解锁」而不挤(格宽 289,字号 11)
@@ -2165,7 +2234,7 @@ namespace Brushblade.Presentation
         {
             var cell = Ui.Panel(front ? _summonFrontRow : _summonBackRow, $"SummonEmpty{slot}");
             var cellElement = cell.AddComponent<LayoutElement>();
-            cellElement.preferredWidth = SummonCellWidth;
+            cellElement.preferredWidth = SummonCellW;
             cellElement.preferredHeight = front ? SummonCellHeightFront : SummonCellHeightBack;
             _summonCellByCore[slot] = (RectTransform)cell.transform;
             // 占位块**只在选位态出现**(2026-08-21 用户两次拍板的合并结果):
@@ -2636,12 +2705,12 @@ namespace Brushblade.Presentation
             for (int c = 0; c < frontCells.Length; c++)
             {
                 frontCells[c] = Ui.Panel(_enemyFrontRow, $"EnemySlotFront{c}");
-                Ui.Sized(frontCells[c], width: EnemyCellWidth, height: EnemyCellHeightFront);
+                Ui.Sized(frontCells[c], width: EnemyCellW, height: EnemyCellHeightFront);
             }
             for (int c = 0; c < backCells.Length; c++)
             {
                 backCells[c] = Ui.Panel(_enemyBackRow, $"EnemySlotBack{c}");
-                Ui.Sized(backCells[c], width: EnemyCellWidth, height: EnemyCellHeightBack);
+                Ui.Sized(backCells[c], width: EnemyCellW, height: EnemyCellHeightBack);
             }
             // 本次绘制里每排格位是否已被占用(2026-08-22 评审加固)。按**本次绘制**已用掉的
             // 格位算,不读 Transform.childCount —— 预建的空格位本来就在那儿,child 数恒为
@@ -2742,9 +2811,14 @@ namespace Brushblade.Presentation
                 }
                 // 宽度按 span 算,把被它吞掉的那几条格间距也算进去,否则会比整排窄
                 // (span-1) 个 RowGap
-                cellElement.preferredWidth = EnemyCellWidth * span + RowGap * (span - 1);
+                cellElement.preferredWidth = EnemyCellW * span + RowGap * (span - 1);
+                // 单列格的立绘随格宽同比缩(FieldScale,基准机 = 1;16:9 ≈ 0.73 → 前排 92 / 后排 70),
+                // 字号不缩。不缩立绘的话 16:9 前排信息列只剩 214.5 − 126 − 13 ≈ 75,一枚三位数的
+                // 「射程+攻」chip(76)就放不下;缩后前排 109 / 后排 131,攻 + 甲两枚分两行排得下,
+                // 其余战况收「+N」(全量在详情弹窗)。点击目标是整格(≥ 214×109),不受立绘大小影响。
+                // Boss 不缩:跨两列 2×214.5 + 17 = 446,扣 220 立绘仍余 213 给信息列。
                 float portraitSize = crossRow ? BossPortraitSize
-                    : (front ? EnemyPortraitFront : EnemyPortraitBack);
+                    : (front ? EnemyPortraitFront : EnemyPortraitBack) * FieldScale;
                 float infoWidth = cellElement.preferredWidth - portraitSize - EnemyBlkInfoGap;
                 // 立绘在左、信息列在右(稿:横排格高由立绘单独决定,比竖排省 24px/排),
                 // 2026-08-31 收口成 Ui.UnitBlock,与召唤格/玩家条同一套写法。
@@ -3049,6 +3123,19 @@ namespace Brushblade.Presentation
                 ("count", library.Count), ("capacity", Battle.LibraryCapacity)), 14, Theme.TextDim);
             if (library.Count == 0)
                 Ui.ThemedLabel(_libraryRow, Strings.T("battle.label.library_empty"), 16, Theme.TextDim);
+            // 牌宽按张数与行宽反算、宽高同比缩(2026-10-04 屏比验算):
+            //   每张宽 = min(HandTileW, (_fieldWidth − 计数标题 96 − 广告位 88×k − 间距 8×(n+k)) / n)
+            //   基准机 1223:未扩容 9 张 + 广告位 → 106 → 取 96 不缩;扩容 11 张 → 94.5×115;
+            //   16:9 的 909:9 张 + 广告位 → 71.7×87;扩容 11 张 → 66.0×80。
+            // 广告位个数 k 的两个条件与 DrawHandAdSlot / DrawRestockAdSlot 开头的守卫一致 —— 改那边
+            // 的显隐条件要同步这里,否则少算一格会让整行再被布局组只压宽。
+            // 视觉高度跌破 TapMin 时由 PadTapHeight 把命中区撑回 92(字库带本身高 117,不越界)。
+            int adSlots = (_run.LibraryExpanded ? 0 : 1) + (_run.RestockAvailable ? 1 : 0);
+            float spacing = _libraryRow.GetComponent<HorizontalLayoutGroup>().spacing;
+            float tileW = library.Count == 0 ? HandTileW
+                : Mathf.Min(HandTileW, (_fieldWidth - CountCaptionW - adSlots * HandAdSlotW
+                    - (library.Count + adSlots) * spacing) / library.Count);
+            var tileSize = new Vector2(tileW, tileW * (HandTileH / HandTileW));
             for (int i = 0; i < library.Count; i++)
             {
                 int index = i;
@@ -3061,11 +3148,10 @@ namespace Brushblade.Presentation
                     if (rewardPhase) OnRewardLibraryClicked(charId);
                     else OnLibraryCharClicked(charId, index);
                 };
-                // 2026-08-31 接稿:68×85 → 96×117(稿 46×56pt,比改前大约四成)。扩容后满员 11 张
-                // 时略装不下是预期的(溢出 1.4%,见 BuildSkeleton 里 Mid 那段账),HorizontalLayoutGroup
-                // 会等比压窄每格,不会溢出到左右两栏底下——别为这个再改牌宽。
-                var tile = Ui.GlyphTile(_libraryRow, def, selected, tap,
-                    new Vector2(HandTileW, HandTileH));
+                // 2026-08-31 接稿:68×85 → 96×117(稿 46×56pt,比改前大约四成)。放不下时按上面
+                // 反算的 tileSize 同比缩(2026-10-04),不再让 HorizontalLayoutGroup 只压宽。
+                var tile = Ui.GlyphTile(_libraryRow, def, selected, tap, tileSize);
+                PadTapHeight(tile.gameObject, tileSize.y);
                 // AP 不够就去饱和压暗、属性动效停(原《字牌形象关键词包》(已删,见 git 349c3cf5^)§4.4):
                 // 「用不了」要在点下去之前就看得出来,不能等弹窗告诉你
                 if (!rewardPhase)
@@ -3438,8 +3524,7 @@ namespace Brushblade.Presentation
         private const float PartTileW = 67f;          // 稿 .part { width: 32pt }
         private const float PartTileH = 80f;          // 稿 .part { height: 38pt }
         private const int PartGlyphFontSize = 30;     // 稿 .part .pg { font-size: 17pt } 附近
-        private const float PoolAdSlotW = 67f;        // 稿 .adpart { width: 32pt },与部件卡同宽
-        private const float PoolAdSlotH = 80f;        // 稿 .adpart { height: 38pt },与部件卡同高
+        // 部件池广告位(稿 .adpart 32×38pt)与部件卡同宽同高,尺寸随部件卡一起由 DrawPool 反算。
 
         private const float PartRimThickness = 3f;    // 银边宽:67 宽的卡上再粗就压到字形了
 
@@ -3453,8 +3538,10 @@ namespace Brushblade.Presentation
         /// 不能拿一张子 Image 当边:uGUI 里父级的图先画、子物体一律盖在它之上,
         /// 而 9-slice 的 fillCenter=false 那条路边宽 = radius+2 = 14,这么小的卡会被吃掉大半
         /// (Theme.Halo 的注释里记着同一笔账)。</param>
+        /// <param name="size">卡的实际尺寸(2026-10-04):部件池按行宽同比缩,见 <see cref="DrawPool"/>;
+        /// 字形字号跟着卡高同比缩。</param>
         private static Button PartTile(Transform parent, string glyph,
-            System.Action onClick, Color bg, Color fg, Color? rim = null)
+            System.Action onClick, Color bg, Color fg, Vector2 size, Color? rim = null)
         {
             var go = new GameObject($"Part_{glyph}", typeof(RectTransform));
             go.transform.SetParent(parent, false);
@@ -3466,8 +3553,8 @@ namespace Brushblade.Presentation
             button.targetGraphic = image;
             if (onClick != null) button.onClick.AddListener(() => onClick());
             var element = go.AddComponent<LayoutElement>();
-            element.preferredWidth = PartTileW;
-            element.preferredHeight = PartTileH;
+            element.preferredWidth = size.x;
+            element.preferredHeight = size.y;
 
             if (rim is { })
             {
@@ -3478,7 +3565,8 @@ namespace Brushblade.Presentation
                     new Vector2(-PartRimThickness, -PartRimThickness));
             }
 
-            var label = Ui.ThemedLabel(go.transform, glyph, PartGlyphFontSize, fg, Theme.TitleFont);
+            var label = Ui.ThemedLabel(go.transform, glyph,
+                Mathf.RoundToInt(PartGlyphFontSize * size.y / PartTileH), fg, Theme.TitleFont);
             Ui.Stretch(label.rectTransform);
             return button;
         }
@@ -3546,12 +3634,13 @@ namespace Brushblade.Presentation
 
         /// <summary>部件池行末尾的广告扩容位(稿 .adpart):扩容之后整个撤掉、不留灰槽,
         /// 与 <see cref="DrawHandAdSlot"/> 同一个理由、同一套取舍(实线近似虚线边框)。</summary>
-        private void DrawPoolAdSlot()
+        private void DrawPoolAdSlot(Vector2 size)
         {
             if (_run.PoolExpanded) return; // 扩过容就没这一格了,同 DrawHandAdSlot
             var outer = Ui.OutlinedPanel(_poolRow, "PoolAdSlot",
                 Theme.AdGreenBg, Theme.AdGreen, 10, 1.5f, out var face);
-            Ui.Sized(outer.gameObject, width: PoolAdSlotW, height: PoolAdSlotH);
+            Ui.Sized(outer.gameObject, width: size.x, height: size.y);
+            PadTapHeight(outer.gameObject, size.y);
             var stack = Ui.VStack(face.transform, "Stack", 2);
             Ui.Stretch((RectTransform)stack.transform);
             Ui.ThemedLabel(stack.transform, Strings.T("battle.btn.pool_ad_slot"), 11, Theme.AdGreenText);
@@ -3573,6 +3662,18 @@ namespace Brushblade.Presentation
             var poolChars = rewardPhase ? _run.CarriedPool : Battle.Pool;
             CountCaption(_poolRow, Strings.T("battle.label.pool_count",
                 ("count", poolChars.Count), ("capacity", Battle.PoolCapacity)), 14, Theme.TextDim);
+            // 卡宽按格数与行宽反算、宽高同比缩(2026-10-04 屏比验算;广告位与部件卡同宽,一起算):
+            //   每格宽 = min(PartTileW, (_fieldWidth − 计数标题 96 − 间距 8×m) / m),m = 部件数 + 广告位
+            //   部件池上限 10,广告扩容 +2(RunEngine.ExpandBonus)。基准机 1223:12 格 → 85.9 → 取 67 不缩;
+            //   16:9 的 909:未扩容 10 + 广告位 → 65.9×78.7;扩容 12 → 59.8×71.4。
+            // 稿上 67×80 本就低于 TapMin 92,命中区一律由 PadTapHeight 竖向撑到 92
+            // (上下各探出 ~6~10,落在与字库带的 MidGap 与底部提示行上,那两处都不可点)。
+            // 广告位显隐条件与 DrawPoolAdSlot 开头的守卫一致,改那边要同步这里。
+            int poolSlots = poolChars.Count + (_run.PoolExpanded ? 0 : 1);
+            float poolSpacing = _poolRow.GetComponent<HorizontalLayoutGroup>().spacing;
+            float partW = poolSlots == 0 ? PartTileW
+                : Mathf.Min(PartTileW, (_fieldWidth - CountCaptionW - poolSlots * poolSpacing) / poolSlots);
+            var partSize = new Vector2(partW, partW * (PartTileH / PartTileW));
             foreach (var id in poolChars)
             {
                 string charId = id;
@@ -3590,7 +3691,8 @@ namespace Brushblade.Presentation
                 var tile = PartTile(_poolRow, charId, tap,
                     selected ? Theme.ElementColor(def.Element) : Theme.ElementSoft(def.Element),
                     selected ? Color.white : Theme.ElementSoftFg(def.Element),
-                    splittable ? Theme.Silver : (Color?)null);
+                    partSize, splittable ? Theme.Silver : (Color?)null);
+                PadTapHeight(tile.gameObject, partSize.y);
                 if (splittable) AttachSplittableGlow(tile.transform);
                 // 同源徽标(2026-08-15,部件五系通用;2026-09-01 用户拍板从卡面一行文字
                 // 还原回四角):同组**其他全部**成员各占一个角。判据用 TryGetGroup 而不是
@@ -3614,7 +3716,7 @@ namespace Brushblade.Presentation
             // (BattleEngine.cs:1784「部件不再掉落——五行部件只能靠拆字获得」),掉的是字、
             // 落进字库,不是部件、落进这个池。稿这句是规则改动前的旧文案,原样搬过来会让
             // 玩家看着一句不成立的承诺,故略去,不新造一句话去描述不存在的机制。
-            DrawPoolAdSlot();
+            DrawPoolAdSlot(partSize);
         }
 
         /// <summary>拆合台选中详情或空态两行说明(稿 .picked / .empty)。可合成列表已经拆去
@@ -3892,7 +3994,11 @@ namespace Brushblade.Presentation
             // 叠在上面挡着;Reward/Revive 选字页那种「预览可以叠在流程浮层之上」的放行
             // (见 DrawPickSheet)只对那两个可选流程成立,掉字/换字这条不可逆决策要更保守。
             if (_modal != null) Object.Destroy(_modal);
-            _sheet = Ui.Sheet(transform, "BattleSheet", ReplaceSheetW, ReplaceSheetH,
+            // 面板宽 = min(稿宽 1633, Frame 宽)(2026-10-04 屏比验算):基准机 Frame ≈ 1691~1705,
+            // 原样 1633;16:9 的 1600 画布上 1633 比整屏还宽,两侧各探出 17 —— 收到 Frame 的 1354,
+            // 刚好落在稿 .safe 框里。牌宽照下面那条反算公式跟着 netW 缩,两个维度同比。
+            float sheetW = Mathf.Min(ReplaceSheetW, FrameWidth());
+            _sheet = Ui.Sheet(transform, "BattleSheet", sheetW, ReplaceSheetH,
                 dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
             Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);
 
@@ -3912,8 +4018,8 @@ namespace Brushblade.Presentation
             // 直接跟着拉伸变形。压扁的根源就是「只压宽不压高」,所以这里自己把两个维度
             // 同比缩小,布局组便再无可压之处。
             //
-            //   净宽     = ReplaceSheetW − 描边内缩(Ui.SheetBorder×2) − 内边距(Ui.SheetPad×2)
-            //            = 1633 − 3 − 48 = 1582
+            //   净宽     = sheetW − 描边内缩(Ui.SheetBorder×2) − 内边距(Ui.SheetPad×2)
+            //            = 1633 − 3 − 48 = 1582(基准机);16:9 = 1354 − 51 = 1303
             //   来牌区   = 牌 130 + 箭头 46 + 两道间距 19×2 = 214(按原尺寸记账,留一点富余)
             //   字库可用 = 1582 − 214 = 1368
             //   每张宽   = min(TileW, (字库可用 − TileGap×(n−1)) / n)
@@ -3922,10 +4028,12 @@ namespace Brushblade.Presentation
             // 实算(n = 字库张数):9 → 130.0×163.0(不缩);10 → 123.3×154.6;
             // 11 → 110.7×138.8。三档总占宽依次 1504 / 1575 / 1563,
             // 都在 1582 以内,布局组不会再触发压缩。
+            // 16:9(净宽 1303,字库可用 1089):9 → 107.7×135.0;10 → 95.4×119.6;11 → 85.4×107.1,
+            // 总占宽 1281 / 1268 / 1259 ≤ 1303;最小一档牌高 107 仍 ≥ TapMin 92。
             //
             // ⚠ 来牌那张(左边不可点的那张)必须用**同一个** tileSize:它若留在 130 而字库
             // 缩到 110,一行里两种大小,读起来像两类东西。
-            float netW = ReplaceSheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
+            float netW = sheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
             float libAvail = netW - (TileW + arrowW + incomingGap * 2f);
             int tileCount = Mathf.Max(library.Count, 1);   // 防 0 除;实际调用时字库必满
             float tileW = Mathf.Min(TileW, (libAvail - TileGap * (tileCount - 1)) / tileCount);
@@ -4166,7 +4274,10 @@ namespace Brushblade.Presentation
             out Transform picksRow, out Transform detailBar, out Transform footRow)
         {
             if (_sheet != null) Object.Destroy(_sheet);
-            _sheet = Ui.Sheet(transform, "BattleSheet", PickSheetW, PickSheetH,
+            // 面板宽 = min(稿宽 1298, Frame 宽)(2026-10-04 屏比验算):两档都是 1298 原样 ——
+            // 16:9 Frame 1354 仍宽出 56。夹取只为与换字面板同一口径,防更窄的屏。
+            float sheetW = Mathf.Min(PickSheetW, FrameWidth());
+            _sheet = Ui.Sheet(transform, "BattleSheet", sheetW, PickSheetH,
                 dismissable: false, replaceSameName: true, Theme.ScrimSoft, out var content);
             Ui.ThemedLabel(content, title, 33, Theme.TextMain, Theme.TitleFont);       // 稿 .h 16pt
             Ui.ThemedLabel(content, hint, 21, Theme.TextDim);                          // 稿 .hint 10pt
@@ -4184,7 +4295,7 @@ namespace Brushblade.Presentation
             // = 1298 − 3 − 48 = 1247 ——detail 横条与 foot 行都要贴平 Sheet 内容区的左右边缘。
             // (2026-10-04 修:此前写死 PickSheetW − 48,没扣描边,比内容区宽 3。算法同
             // DrawReplaceSheet 的 netW。)
-            float pickNetW = PickSheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
+            float pickNetW = sheetW - Ui.SheetBorder * 2f - Ui.SheetPad * 2f;
             Ui.Sized(detail.gameObject, width: pickNetW, height: PickDetailH).minHeight = PickDetailH;
             var detailStack = Ui.Row(face.transform, "DetailRow", 12);   // 稿上没有对应 gap
             // (.again 是 float:right,不占正常流的 gap),12 是新造的间距,给右浮"再点一次

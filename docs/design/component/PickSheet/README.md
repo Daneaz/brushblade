@@ -15,6 +15,14 @@
   3. 「重抽({left})」`Ui.RoundButton` 220×63、圆角 10、字号 25、`locked-bg` 底 `text-main` 字 —— 只在 `RewardRerollsLeft > 0` 时画（技能「慧眼」L2 明察，2026-10-02）；
   4. 跳过钮 `Ui.RoundButton` 280×63、圆角 10、字号 25、`locked-bg` 底 `text-main` 字。
 
+## 屏比（2026-10-04 验算）
+- 面板宽 = `min(1298, Frame 宽)`，Frame 宽 = 安全区宽 − 两侧 `SafeArea.MissingInset()`（`BattleView.FrameWidth`）。
+  - 基准机（932×430pt）：Frame ≈ 1691~1705 → **1298 原样**。
+  - 16:9（1600 宽、无刘海，两侧各补 123）：Frame = 1354 → **仍是 1298**，两侧各余 28。
+  - 夹取只为与 ReplaceSheet 同一口径、防更窄的屏；两档版面完全一样。
+- 内容行在 1247 净宽里的首选宽：候选 6 张 885；detail 一行（约 30 字 × 21 ≈ 630 + 「再点一次收下」114 + 内边距 46 + gap 24）≈ 814；
+  foot 行 徽章 280 + 重抽 220 + 跳过 280 + gap 21×3 = 843。两档都不溢出。
+
 ## 文案（`strings.zh-CN.json` 原文）
 | 位置 | key | 原文 |
 | --- | --- | --- |
