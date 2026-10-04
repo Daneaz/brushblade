@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>确认购买 · 规格与屏比验算</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;600;700&amp;display=swap">
+<style>
+body { margin: 0; }
+.serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+.wrap { width: 1240px; box-sizing: border-box; padding: 40px; background: #F6F1E7; color: #161B22; font-family: "Noto Sans SC", "PingFang SC", system-ui, sans-serif; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; font-size: 15px; line-height: 1.65; }
+.note { background: #F6EDD5; border: 1px solid rgba(201,169,74,.55); border-radius: 10px; padding: 18px 22px; }
+.note.plain { background: #FBF8F1; border-color: #DED7C9; }
+.note h3 { margin: 0 0 8px; font-family: "Noto Serif SC", serif; font-size: 19px; font-weight: 700; color: #8A6600; }
+.note.plain h3 { color: #161B22; }
+.note ul { margin: 0; padding-left: 20px; }
+.note li { margin: 2px 0; }
+.note code { font-size: 13px; background: rgba(22,27,34,.06); padding: 0 4px; border-radius: 3px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 14px; }
+td, th { text-align: left; padding: 3px 8px 3px 0; border-bottom: 1px solid rgba(22,27,34,.08); }
+th { color: #4F5661; font-weight: 500; }
+.ok { color: #1B552C; font-weight: 700; }
+</style>
+</helmet>
+<div class="wrap">
+
+<div class="note">
+<h3>便签 · 屏比验算</h3>
+<table>
+<tr><th>项</th><th>逻辑单位</th><th>16:9 最窄档</th><th>基准机</th></tr>
+<tr><td>可用宽</td><td></td><td>1600 − 2×123 = 1354</td><td>≈ 1951</td></tr>
+<tr><td>弹窗宽</td><td>880</td><td class="ok">880 ≤ 1354</td><td class="ok">880 ≤ 1951</td></tr>
+<tr><td>弹窗高</td><td>520</td><td colspan="2" class="ok">画布高恒 900,与屏比无关</td></tr>
+<tr><td>卡内净宽</td><td>880 − 2×29 = 822</td><td colspan="2">弹窗定宽,内部排版与屏宽无关,两档相同</td></tr>
+<tr><td>左栏(牌 / 箱卡)</td><td>180 + 栏间 29</td><td colspan="2"></td></tr>
+<tr><td>右栏信息</td><td>822 − 209 = 613</td><td colspan="2"></td></tr>
+<tr><td>右栏最长一行</td><td>标签 105 + 图标/间距 ≈ 34 + 值</td><td colspan="2">赤霄匣产出「16 种 136 张 · 400 墨 · 12 小时」24 号 ≈ 400 → 合计 ≈ 539 <span class="ok">≤ 613</span></td></tr>
+<tr><td>按钮行</td><td>150 + 14 + 150 = 314</td><td colspan="2" class="ok">≤ 822</td></tr>
+<tr><td>竖向</td><td>29 + 36 + 14 + 276 + 14 + 28 + 14 + 52 + 29 = 492</td><td colspan="2" class="ok">≤ 520(字卡五行最高;箱四行更矮)</td></tr>
+</table>
+<p style="margin: 10px 0 0;">结论:两档都放得下,不需要 <code>Ui.HScrollFill</code>。字宽按 Noto Sans SC 汉字 1em、数字与空格 ≈ 0.55em 保守估。</p>
+</div>
+
+<div class="note plain">
+<h3>规格(逻辑单位 → 稿面 pt,÷ 2.093)</h3>
+<ul>
+<li>外壳 <code>Ui.Sheet(root, "ShopConfirm", 880, 520, dismissable: true, replaceSameName: true, Theme.Scrim)</code>:420.45×248.45pt 屏幕正中,圆角 18、描边 1.5 <code>panel-border</code>、面 <code>panel-paper</code>,无投影;内边距 29、行距 14,内容竖直居中。点遮罩 = 再想想。</li>
+<li>标题「确 认 购 买」宋体 24 <code>text-main</code>(同 <code>Ui.Modal</code> 标题),定高 36。</li>
+<li>主体横排、栏间 29:左栏 180 宽 —— 字卡 = 货架同一张 <code>Ui.GlyphTile</code> 144×180 + <code>CardBadges</code>(等级、稀有度点、「N张」、折扣价签);宝箱 = 右栏箱卡同款白卡 180×180、立绘 Idle 150、右上折扣垂旗。</li>
+<li>右栏竖排、行距 8:名行高 40(字名宋体 34 + 稀有度方点 17 + 「紫字」20 <code>text-dim</code>;箱是方点在前、箱名宋体 34);信息行高 44:标签 20 <code>text-dim</code> 定宽 105 → 值 24 <code>text-main</code>。价格 / 余额值前一枚墨锭图标(<code>Ui.IngotLabel</code> 同款,24 × 14.6)。</li>
+<li>划线原价 = 现成 <code>StrikePrice</code> 的做法:单独一个 17 号 Text(0.7 × 24)、前景 60%、一条横贯细 Image。</li>
+<li>预告行 19 <code>upgrade-text</code>、高 28,左缩进对齐值列(115)。</li>
+<li>告知行 19 <code>text-dim</code>,居中,高 28。</li>
+<li>按钮 <code>Ui.PillButton</code> 150×52、字号 18、黑体 500、间距 14,主行动在左、取消在右;点任一钮先关弹窗再执行。</li>
+<li>墨锭不足:价格值与划线原价 → <code>cinnabar-dark</code>(原价 60%);余额只写现有 + 「还差 N」20 <code>cinnabar-dark</code>(独立 Text);主钮 <code>locked-bg</code> + <code>text-faint</code>「墨锭不足」、不可点;取消钮改「知道了」。</li>
+<li>文案全部走字符串表;新增 key 后重跑字体子集(新字:确、认、退、另、差 等以子集测试为准)。</li>
+</ul>
+</div>
+
+<div class="note plain">
+<h3>待拍板的取舍</h3>
+<ul>
+<li><b>① 主钮用墨色 <code>ink</code>,不用朱砂。</b>买是不可逆的花费;规范「不可逆项不做成朱砂钮」+「禁止氪金感」。墨色正好接上你刚点的那颗墨色价格钮。若要与其他 <code>Ui.Modal</code> 统一成朱砂,只改这一处。</li>
+<li><b>② 不可逆怎么说:一行 <code>text-dim</code> 告知「墨锭付出后不退回」</b>,没标红、没上 <code>warn-bg</code> 告警条。规范写的是「标红或告警条」,但这里价格很小、每天都在买,红条会把日常操作说成危险操作;且实现侧本没有正文内标红(见 <code>component/Dialog</code>)。要更重就换成 <code>warn-bg</code> chip。</li>
+<li><b>③ 墨锭不足这一态怎么进来。</b>现在价格钮在墨锭不足时 <code>interactable = false</code>,点了没反应,弹窗根本打不开。要这一态,就得让红价钮可点、点开即本窗(顺带把那条走不到的「买不起」<code>Ui.Alert</code> 换掉)。否则这两块板作废。推荐可点:点红价没反应是哑操作。</li>
+<li><b>④ 墨锭不足时写「还差 N」。</b>10-02 拍板把价格钮上的「差 N 墨」撤了(钮上放不下、读着像催),弹窗里有地方,写出来省得玩家心算。不要就只留余额。</li>
+<li><b>⑤ 箱位写「2 / 4 → 3 / 4」</b>,与余额行同一种「前 → 后」写法;需求原话是「买后箱位 3 / 4」,要那种就改成单值。</li>
+<li><b>⑥ 字卡「新字」口径到不了</b>:墨锭摊位只从已拥有的字里摆(<code>GameRoot.ShopCardPool</code>),新字只出现在紫档广告位,走广告不弹本窗。见「买后效果四种口径」板 ④。</li>
+<li><b>⑦ 字卡「可升」只说凑够了张数</b>:升级本身还要墨锭(<code>MetaRules.InkRequired</code>),买完未必升得起。沿用货架预告口径,不在弹窗里另算升级墨锭;要不要加一行「升级还需 N 墨」由你定。</li>
+</ul>
+</div>
+
+<div class="note plain">
+<h3>示例数据(与规则自洽)</h3>
+<ul>
+<li>字卡:「燥」紫 Lv.5,重复卡 8 / 10(<code>CopiesRequired(5, 紫)</code> = ⌈40 × 0.25⌉ = 10),一捆 2 张,捆价 240 × 6 折 = 144;余额 2,480 → 2,336。</li>
+<li>字卡不足:余额 120,还差 24。</li>
+<li>宝箱:紫檀匣 8 种 40 张 · 120 墨 · 4 小时,底价 1,180 × 6 折 = 708;余额 2,480 → 1,772;箱位 2 / 4 → 3 / 4。</li>
+<li>宝箱不足:余额 520,还差 188。</li>
+<li>箱位满时价格钮本来就写「箱位已满」不可点,不画。已售同理。</li>
+</ul>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1240,"height":1000}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
