@@ -162,7 +162,7 @@ namespace Brushblade.Presentation
             // 设置页 2026-09-24 落地(战斗加速 / 音效 / 音乐三个开关),占位弹窗撤掉
             Ui.RoundButton(top.transform, Strings.T("map.header.settings"),
                 () => _onOpenSettings(),
-                Theme.ExitPink, Color.white, 25, new Vector2(130, 63), 16);
+                Theme.Info, Color.white, 25, new Vector2(130, 63), 16); // 设置 = Info 浓墨(2026-10-04)
         }
 
         // ---- 左栏:角色 ----

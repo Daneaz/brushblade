@@ -7,14 +7,14 @@ Unity `Text` 没有字距：「续 爬」「登 塔」字间那一格是文案�
 | 用处 | 尺寸 · 圆角 · 字号 | 底色 / 字色 | 调用点 |
 | --- | --- | --- | --- |
 | 主界面「续 爬 / 登 塔」 | 523×109 · 24 · 38 | `cta` 石青 / 白 | `MapView.BuildTowerPanel` |
-| 外层页顶栏「返回地图」（卡组/图鉴/技能/商城/角色） | 130×63 · 24 · 25 | `exit-pink` / 白 | 各页 `BuildTopBar` |
-| 主界面顶栏「设置」 | 130×63 · **16**（RoundButton） · 25 | `exit-pink` / 白 | `MapView.BuildTopBar` |
+| 外层页顶栏「返回地图」（卡组/图鉴/技能/商城/角色） | 130×63 · 24 · 25 | `ink-soft` / 白 | 各页 `BuildTopBar` |
+| 主界面顶栏「设置」 | 130×63 · **16**（RoundButton） · 25 | `ink-soft` / 白 | `MapView.BuildTopBar` |
 | 战斗顶栏「设置」 | 72×38 · 24 · 15 | `ink-soft` / 白 | `BattleView.DrawTopBar` |
-| 战斗顶栏「退出」 | 90×38 · 24 · 15 | `exit-pink` / 白 | `BattleView.DrawTopBar` |
-| 战斗顶栏倍速开关 | 96×38 · 24 · 15 | `locked-bg` 起（开关态另染） | `BattleView.DrawSpeedToggle` |
+| 战斗顶栏「退出」 | 90×38 · 24 · 15 | `ink-soft` / 白 | `BattleView.DrawTopBar` |
+| 战斗顶栏倍速开关 | 96×38 · 24 · 15 | 关 `locked-bg` / 开 `ink-soft` | `BattleView.DrawSpeedToggle` |
 | 弹窗按钮行（`Ui.Modal`） | 150×52 · 24 · 18 | 按语义；取消档 `locked-bg` / `text-main`；不可逆档朱砂描边 3 + `cinnabar-dark` 字 + `panel-paper` 底 | `Ui.Modal` |
-| 战斗行动钮（出 / 拆 / 弃） | 76×52 · **10**（RoundButton 默认） · 17 | `cta` / `split-blue` / `exit-pink`，白字 | `BattleView.DrawActions` |
-| 结束回合 | 190×52 · 24 · 21 | `cta` / 白 | `BattleView.DrawEndTurn` |
+| 战斗行动钮（出 / 拆 / 弃） | 76×52 · **10**（RoundButton 默认） · 17 | `cta` / `ink-soft` 白字；「弃」朱砂描边（`Ui.DangerButton` 圆角 10） | `BattleView.DrawActions` |
+| 结束回合 | 190×52 · 24 · 21 | `cinnabar` / 白（例外，见规范） | `BattleView.DrawEndTurn` |
 | 选字页「跳过」 | 280×63 · **10**（RoundButton） · 25 | `locked-bg` / `text-main` | `BattleView.DrawRewardCharStep` / `DrawReviveCharStep` |
 | 选字页「重抽(N)」 | 220×63 · **10**（RoundButton） · 25 | `locked-bg` / `text-main` | `BattleView.DrawRerollButton` |
 | 换字页取消 | 300×63 · 24 · 25 | `locked-bg` / `text-main` | `BattleView.DrawReplaceSheet` |
@@ -47,7 +47,7 @@ Unity `Text` 没有字距：「续 爬」「登 塔」字间那一格是文案�
 代码不换底色：`interactable = false` 走 Unity `Button` 默认的 ColorTint，`disabledColor` = (0.78, 0.78, 0.78, 0.5)，即**原底色压暗到 78% 再半透明**（如「开始开启」在已有宝箱计时时）。需要「看起来是灰钮」的地方由调用点自己传 `panel-inset` / `locked-bg` 底（卡组、图鉴、技能节点）。
 
 ## 配色语义
-`cta` 石青 = Primary 推进（一屏一颗实底主钮，含花墨锭主钮）· 朱砂描边 `Ui.DangerButton`（`Ui.Modal` 元组传 `Ui.DangerOutline`）= 不可逆（弃塔、确认退出）· `ink-soft` 中性但改变状态 · `locked-bg` 取消（同一行时排最右）· `exit-pink` 顶栏功能钮与「弃」。
+`cta` 石青 = Primary 推进（一屏一颗实底主钮，含花墨锭主钮）· 朱砂描边 `Ui.DangerButton`（`Ui.Modal` 元组传 `Ui.DangerOutline`）= 不可逆（弃塔、确认退出）· `ink-soft` 中性但改变状态 · `locked-bg` 取消（同一行时排最右）· `ink-soft` 也管导航（返回地图、设置、退出）· 结束回合朱砂实底（例外）。
 
 ⚠ **赭金底一律压 `gold-text`**（白字只有 2.5:1）。2026-10-04 起赭金是 Warning，不再做按钮底（宝箱两枚钮与技能「解锁」已改石青）。
 

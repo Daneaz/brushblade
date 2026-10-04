@@ -190,7 +190,7 @@ namespace Brushblade.Presentation
             spring.AddComponent<LayoutElement>().flexibleWidth = 1;
             Ui.InkCounter(top.transform, _meta.Ink, 25);
             Ui.PillButton(top.transform, Strings.T("common.back_to_map"), () => _onBack(),
-                Theme.ExitPink, Color.white, 25, new Vector2(130, 63));
+                Theme.Info, Color.white, 25, new Vector2(130, 63)); // 返回地图 = Info 浓墨(2026-10-04 五色语义)
         }
 
         /// <summary>已拥有的可收集字数:逐条遍历 <see cref="_all"/> 算,顶栏「收集 N/总数」与

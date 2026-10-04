@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | 离塔「离 塔」 | 挂起离塔 `cta` · 弃塔朱砂描边（`Ui.DangerOutline`）· 继续战斗 `locked-bg` | `BattleView.DrawTopBar` 的退出钮（塔内） |
 | 退出确认（塔外） | 确认退出朱砂描边（`Ui.DangerOutline`）· 继续战斗 `locked-bg` | 同上 |
-| AP 不够 / 还有 AP 未用 | 结束回合 `cta` · 再想想 `locked-bg` | `BattleView.MaybeModalError` / `ConfirmEndTurn` |
+| AP 不够 / 还有 AP 未用 | 结束回合 `cinnabar`（例外）· 再想想 `locked-bg` | `BattleView.MaybeModalError` / `ConfirmEndTurn` |
 | 首破「首破 · {段名}」 | 知道了 `cta` | `GameRoot.ShowSafeLayer` |
 | 各类被拒提示 | 知道了 `locked-bg`（`Ui.Alert`） | 商城 / 战斗 / 卡组等 |
 

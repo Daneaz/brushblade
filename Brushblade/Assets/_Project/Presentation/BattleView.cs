@@ -1593,7 +1593,7 @@ namespace Brushblade.Presentation
                     ShowModal(Strings.T("battle.dialog.exit_confirm.title"), Strings.T("battle.dialog.exit_confirm.body"),
                         (Strings.T("battle.btn.confirm_exit"), () => _onRunEnded(false), Ui.DangerOutline, Theme.CinnabarDark),
                         (Strings.T("battle.btn.continue_fight"), null, Theme.LockedBg, Theme.TextMain));
-            }, Theme.ExitPink, Color.white, 15, new Vector2(90, 38));
+            }, Theme.Info, Color.white, 15, new Vector2(90, 38)); // 退出 = Info 浓墨;不可逆的弃塔在弹窗里走朱砂描边
         }
 
         /// <summary>顶栏「速度 ×N」开关(2026-09-30):与设置页「战斗加速」读写同一个
@@ -1616,7 +1616,7 @@ namespace Brushblade.Presentation
             UpdateSpeedToggle();
         }
 
-        /// <summary>开=翠玉 + 「×2」,关=灰底 + 「×1」:字面写明当前倍率,不只靠颜色。</summary>
+        /// <summary>开=浓墨 Info + 「×2」,关=灰底 + 「×1」:字面写明当前倍率,不只靠颜色。</summary>
         private void UpdateSpeedToggle()
         {
             if (_speedToggleBg == null || _speedToggleLabel == null) return;
@@ -1624,7 +1624,7 @@ namespace Brushblade.Presentation
             float rate = on ? SpeedRules.FastRate(GameSettings.Subscribed) : SpeedRules.NormalRate;
             _speedToggleLabel.text = Strings.T("battle.btn.speed", ("rate", rate.ToString("0.#")));
             _speedToggleLabel.color = on ? Color.white : Theme.TextMain;
-            _speedToggleBg.color = on ? Theme.Jade : Theme.LockedBg;
+            _speedToggleBg.color = on ? Theme.Info : Theme.LockedBg;
         }
 
         /// <summary>局内打开设置(2026-09-30):同一个 <see cref="SettingsView"/>,挂在一层全屏遮罩里
@@ -3955,15 +3955,16 @@ namespace Brushblade.Presentation
             // 2026-09-01 二级拆解:去掉「必须在字库里」的前提 —— 部件池里带配方的部件
             // (烝 = 丞 + 灬)同样该给拆按钮,ForgeEngine.TryDismantle 认两种来源。
             if (!def.IsLeaf)
-                Ui.RoundButton(_actionRow, Strings.T("battle.btn.dismantle"), () => OnDismantle(def.Id), Theme.SplitBlue, Color.white, 17, new Vector2(76, 52));
-            Ui.RoundButton(_actionRow, Strings.T("battle.btn.discard"), () => OnDiscard(def.Id), Theme.ExitPink, Color.white, 17, new Vector2(76, 52));
+                Ui.RoundButton(_actionRow, Strings.T("battle.btn.dismantle"), () => OnDismantle(def.Id), Theme.Info, Color.white, 17, new Vector2(76, 52));
+            // 五色语义(2026-10-04):出 = Primary 石青、拆 = Info 浓墨、弃 = 不可逆 → 朱砂描边
+            Ui.DangerButton(_actionRow, Strings.T("battle.btn.discard"), () => OnDiscard(def.Id), 17, new Vector2(76, 52), radius: 10);
             // 「取消」整排移除(2026-08-21 用户拍板):点屏幕空白处本来就取消选中
             // (BuildSkeleton 最先建的 Backdrop 全屏透明层),按钮是同一功能的第二个入口。
         }
 
         private void DrawEndTurn()
         {
-            Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Cta, Color.white, 21, new Vector2(190, 52));
+            Ui.PillButton(_endTurnRow, Strings.T("battle.btn.end_turn"), ConfirmEndTurn, Theme.Danger, Color.white, 21, new Vector2(190, 52)); // 朱砂实底(2026-10-04 用户拍板)
         }
 
         /// <summary>「字库已满,换掉哪一张」的唯一一版(2026-09-01,轮三 Task 2)。
@@ -4100,7 +4101,7 @@ namespace Brushblade.Presentation
             }
             ShowModal(Strings.T("battle.dialog.ap_left.title"),
                 Strings.T("battle.dialog.ap_left.body", ("ap", Battle.Ap)),
-                (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cta, Color.white),
+                (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Danger, Color.white),
                 (Strings.T("common.reconsider"), null, Theme.LockedBg, Theme.TextMain));
         }
 
@@ -6225,7 +6226,7 @@ namespace Brushblade.Presentation
                 ShowModal(Strings.T("battle.dialog.not_enough_ap.title"),
                     Strings.T("battle.dialog.not_enough_ap.body",
                         ("charId", charId), ("neededAp", neededAp), ("ap", Battle.Ap), ("apPerTurn", Battle.ApPerTurn)),
-                    (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Cta, Color.white),
+                    (Strings.T("battle.btn.end_turn"), OnEndTurn, Theme.Danger, Color.white),
                     (Strings.T("common.reconsider"), null, Theme.LockedBg, Theme.TextMain));
             else if (error == BattleError.ForgeFailed)
                 ShowModal(Strings.T("battle.common.rejected"), Describe(error),

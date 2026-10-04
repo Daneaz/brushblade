@@ -365,12 +365,13 @@ namespace Brushblade.Presentation
         /// <summary>不可逆操作钮(2026-10-04 推进色拍板):朱砂描边 + 深朱砂字 + 宣纸底,不做实底,
         /// 不抢一屏的主推进钮(石青 <see cref="Theme.Cta"/>)。描边 3 = 稿 1.5pt × 2.093。
         /// 做法同 <see cref="OutlinedPanel"/>:外层铺描边色、内层宣纸面内缩。</summary>
+        /// <paramref name="radius"/> 默认 24 = PillButton;战斗动作行的「弃」与邻钮同为圆角 10。
         public static Button DangerButton(Transform parent, string text, Action onClick,
-            int fontSize = 22, Vector2? size = null)
+            int fontSize = 22, Vector2? size = null, int radius = 24)
         {
             const float thickness = 3f;
-            var button = PillButton(parent, text, onClick, Theme.Cinnabar, Theme.CinnabarDark, fontSize, size);
-            var face = CardPanel(button.transform, "Face", Theme.PanelPaper, 22);
+            var button = RoundButton(parent, text, onClick, Theme.Cinnabar, Theme.CinnabarDark, fontSize, size, radius);
+            var face = CardPanel(button.transform, "Face", Theme.PanelPaper, Mathf.Max(radius - 2, 0));
             face.raycastTarget = false;
             face.transform.SetAsFirstSibling(); // 垫在文字下面
             Anchor((RectTransform)face.transform, Vector2.zero, Vector2.one,
