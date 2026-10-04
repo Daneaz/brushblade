@@ -257,8 +257,8 @@ namespace Brushblade.CoreTests
         [Test]
         public void LowestTierChar_StillDentsArmoredMobAtDepth20()
         {
-            // 典型玩家画像(spec §6.3.2):角色 12 级 → ATK 122;卡等级 4 → ×1.351
-            // (2026-09-11:卡等级系数 0.1 → 0.117,4 级由 ×1.3 变 ×1.351)
+            // 典型玩家画像(spec §6.3.2):角色 12 级 → ATK 122;卡等级 4 → ×1.18
+            // (2026-10-04 spec v7 §1:卡等级系数 0.117 → 0.06,4 级由 ×1.351 变 ×1.18)
             const int playerLevel = 12;
             const int cardLevel = 4;
 
@@ -270,8 +270,8 @@ namespace Brushblade.CoreTests
             //
             // ⚠ 这个查询的取值范围是**字面意义上的最低**——只扫 CharDef.Effects(支援/主效果
             // 面)里的 DamageSingle,不扫 AttackEffects(双方向字的攻击面,如 冷 的 49)、
-            // 也不扫 DamageAll(如 灭 的 19)。2026-09-07 字表重做 P2 复核过这条范围是否
-            // 该扩大 —— 结论是不用扩:实测(见 task-4b 报告)灭(DamageAll 19,火)打
+            // 也不扫全体伤害(如 灭 的 19)。2026-09-07 字表重做 P2 复核过这条范围是否
+            // 该扩大 —— 结论是不用扩:实测(见 task-4b 报告)灭(全体 19,火)打
             // 水系墨渍会先用自己的 Silence 把目标护甲清零(封禁在同一次施放内先结算),
             // 深度 1~25 全程稳定打出 15 点,不受护甲缩放影响,不是「破不动」的隐患;
             // 真正的隐患是 AttackEffects 里的伤害值(双方向字的攻击面,如 冷 49)在离色
@@ -280,7 +280,7 @@ namespace Brushblade.CoreTests
             var realGraph = RealGraph();
             int lowestTier = realGraph.All
                 .SelectMany(c => (c.Effects ?? Array.Empty<EffectDef>())
-                    .Where(e => e.Kind == EffectKind.DamageSingle && e.Pierce == 0)
+                    .Where(e => e.Kind == EffectKind.DamageSingle && e.Shape != TargetArea.All && e.Pierce == 0)
                     .Select(e => e.Value))
                 .Min();
             // 2026-09-08(P4)45 → 54:原先的最低档是 利 的 45,而 利 随「不能既加攻又能攻击、
@@ -319,8 +319,9 @@ namespace Brushblade.CoreTests
                 "深度 20 的带甲小怪必须还能被最低档的字磨动 —— 归零就等于护甲把字库掐死了");
             // 2026-09-16 护甲改百分比减伤(DR = 甲/(甲+100)),末一步由「− 39」改为「× 100 ÷ 161」
             // 2026-09-16(土水系机制重做):花 绿→白,53 → 36,整条链路重算。
-            Assert.That(dealt, Is.EqualTo(36),
-                "ceil(36×1.351) = 49 → 49×122/100 = 59 → 59×100/161 = 36(spec §6.3.2 的推导;"
+            Assert.That(dealt, Is.EqualTo(32),
+                "ceil(36×1.18) = 43 → 43×122/100 = 52 → 52×100/161 = 32(spec §6.3.2 的推导;"
+                + "2026-10-04 卡等级曲线 0.117 → 0.06:4 级 ×1.351 → ×1.18,49 → 43、59 → 52、36 → 32;"
                 + "2026-09-08 最低档由 利 45 换成 花 54,见上方注释;"
                 + "2026-09-11 卡等级系数 0.1 → 0.117、锚点统一后 花 54 → 53;"
                 + "2026-09-16 护甲百分比化,墨渍 20 → 31、深度 20 缩放后 39 → 61;"

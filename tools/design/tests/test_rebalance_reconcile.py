@@ -73,7 +73,7 @@ def _target():
 def _target_rows():
     """目标表的结构化形态 —— 直接从脚本的 `rows`(内部计算结果)取,不再重新解析
     打印出来的文本。这样能拿到 form/traits 等打印表里没有的字段(判断攻击列该对
-    应 DamageSingle 还是 DamageAll 需要它),也避免我方再实现一遍格式化/取整逻辑。
+    应单体还是全体需要它),也避免我方再实现一遍格式化/取整逻辑。
 
     脚本没有 `if __name__ == '__main__'` 保护,import 会连带跑一遍它的诊断 print——
     用 redirect_stdout 吞掉,不弄脏测试输出;不影响它产出的 rows 内容。
@@ -97,6 +97,11 @@ def _effects(c):
 
 def _sum(effects, kinds):
     return sum(e["value"] for e in effects if e["kind"] in kinds)
+
+
+def _is_all(e):
+    """全体伤害(spec v7 §11.6):原 `DamageAll` 并入 `DamageSingle` + shape `All`。"""
+    return e["kind"] == "DamageSingle" and e.get("shape") == "All"
 
 
 def test_roster_matches_target():
@@ -132,13 +137,13 @@ def test_element_matches_target():
 
 def _atk_expected_kind(r):
     """spec §6.0「攻击模式口径」:atk→单体;aoe→全体;dual_s/dual_h 带群盾/群疗→全体,
-    不带→单体。"""
+    不带→单体。返回 "All"(DamageSingle + shape All)或 "Single"。"""
     is_group = r["form"] == "aoe" or ({"群疗", "群盾"} & set(r["traits"]))
-    return "DamageAll" if is_group else "DamageSingle"
+    return "All" if is_group else "Single"
 
 
 def test_atk_total_matches_target():
-    """攻击列:只比总量(DamageSingle + DamageAll 之和),不管落在哪个 kind ——
+    """攻击列:只比总量(全部 DamageSingle 之和,含全体 All),不管是单体还是全体 ——
     模式对不对由 test_atk_mode_matches_target 另管。
 
     分 N 段(hitCount)按总伤害折算 —— 目标列是折算前的总量,不是单段。
@@ -149,7 +154,7 @@ def test_atk_total_matches_target():
         r, c = target[k], actual[k]
         want = r["atk"] if isinstance(r["atk"], int) else 0
         got = sum(e["value"] * e.get("hitCount", 1) for e in _effects(c)
-                  if e["kind"] in ("DamageSingle", "DamageAll"))
+                  if e["kind"] == "DamageSingle")
         if got != want:
             bad.append((k, got, want))
     assert not bad, "攻击列(总量)不符(字, 实际, 目标):\n  " + "\n  ".join(map(str, bad))
@@ -167,9 +172,10 @@ def test_atk_mode_matches_target():
             continue
         effects = _effects(c)
         want_kind = _atk_expected_kind(r)
-        want = (r["atk"], 0) if want_kind == "DamageSingle" else (0, r["atk"])
-        got_single = sum(e["value"] * e.get("hitCount", 1) for e in effects if e["kind"] == "DamageSingle")
-        got_all = sum(e["value"] * e.get("hitCount", 1) for e in effects if e["kind"] == "DamageAll")
+        want = (r["atk"], 0) if want_kind == "Single" else (0, r["atk"])
+        got_single = sum(e["value"] * e.get("hitCount", 1) for e in effects
+                         if e["kind"] == "DamageSingle" and not _is_all(e))
+        got_all = sum(e["value"] * e.get("hitCount", 1) for e in effects if _is_all(e))
         if (got_single, got_all) != want:
             bad.append((k, (got_single, got_all), want))
     assert not bad, "攻击列(模式)不符(字, 实际(单体,全体), 目标):\n  " + "\n  ".join(map(str, bad))

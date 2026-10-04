@@ -364,8 +364,8 @@ namespace Brushblade.Balance
             {
                 switch (e.Kind)
                 {
-                    case EffectKind.DamageSingle: sum += e.Value; break;
-                    case EffectKind.DamageAll: sum += e.Value * 3 / 2; break;
+                    // 全体(spec v7 §11.6:原 DamageAll)仍记 ×1.5,评分逐位不变
+                    case EffectKind.DamageSingle: sum += e.Shape == TargetArea.All ? e.Value * 3 / 2 : e.Value; break;
                     case EffectKind.BurnSingle: sum += e.Value * 2; break;
                     case EffectKind.BurnAll: sum += e.Value * 3; break;
                     // 2026-09-02:护盾/治疗改记全额 —— 它们现在攒势/水势,

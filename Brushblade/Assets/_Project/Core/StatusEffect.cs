@@ -57,6 +57,13 @@ namespace Brushblade.Core
                           // 来源是治疗的**名义值**(不是实际回血)——满血溢出照样攒,
                           // 这正是「满血奶自己不亏」那条诉求的落点。
         Charm,            // 魅惑:持有者攻击自己阵营(2026-09-05,花)。Magnitude 不用,只看 TurnsLeft。
+        Block,            // 格挡(spec v7 §3.1,铠):Magnitude = **剩余次数**,CounterDamage = 每次反击的伤害,
+                          // TurnsLeft = -1(本场有效,用完为止)。下一次敌人挥击 −40% 并反击;同类取最强不叠加。
+        FrostResist,      // 霜抗(spec v7 R1,仅敌人):冻结结束后挂上,TurnsLeft = 刚结束那次冻结的回合数,按敌人行动递减;
+                          // 期间不能被冻结。Freeze 的 Magnitude 同时记下冻结时长(= 施加时的 TurnsLeft),供结束时发霜抗。
+        IceStall,         // 冰滞(spec v7 R1b,仅 Boss):Boss 被冻结时改挂本状态 —— 行动条后退半格(可为负)、
+                          // 下次行动前受伤 +15%。Magnitude = 本该冻结的回合数 N,TurnsLeft = -1;
+                          // Boss 下次行动开始时移除并挂霜抗 N+1(本拍末尾 TickTurns 减 1)。
     }
 
     public enum StatusPolarity { Buff, Debuff }
@@ -104,6 +111,9 @@ namespace Brushblade.Core
         public string SourceId { get; set; }
         public bool TargetAll { get; set; }  // 仅 HealOverTime 用
 
+        /// <summary>格挡每次反击的伤害(spec v7 §4,仅 <see cref="StatusKind.Block"/> 用;出字时定死,不吃攻击力)。</summary>
+        public int CounterDamage { get; set; }
+
         /// <summary>持续治疗的落点槽位(2026-08-22,spec §8.3)。−1 = 玩家,0..5 = 召唤物槽。
         /// 与 <see cref="TargetAll"/> 同构:HoT 始终挂在**玩家的** StatusBag 上,
         /// 结算时按这个槽位分发。
@@ -117,7 +127,7 @@ namespace Brushblade.Core
         {
             Kind = Kind, Polarity = Polarity, Magnitude = Magnitude,
             TurnsLeft = TurnsLeft, SourceId = SourceId, TargetAll = TargetAll,
-            TargetSlot = TargetSlot,
+            TargetSlot = TargetSlot, CounterDamage = CounterDamage,
         };
     }
 
@@ -166,21 +176,21 @@ namespace Brushblade.Core
 
         public void Remove(StatusKind kind) => _list.RemoveAll(e => e.Kind == kind);
 
-        /// <summary>按极性批量清除,返回移除条数(驱散/净化用)。</summary>
-        public int RemoveAll(StatusPolarity polarity)
+        /// <summary>按极性批量清除,返回移除条数(驱散/净化用)。<paramref name="except"/> 可选豁免一个种类。</summary>
+        public int RemoveAll(StatusPolarity polarity, StatusKind? except = null)
         {
             int before = _list.Count;
-            _list.RemoveAll(e => e.Polarity == polarity);
+            _list.RemoveAll(e => e.Polarity == polarity && !(except.HasValue && e.Kind == except.Value));
             return before - _list.Count;
         }
 
-        /// <summary>按极性从头移除至多 count 条,返回实际移除条数(计数式驱散用)。</summary>
-        public int RemoveFirst(StatusPolarity polarity, int count)
+        /// <summary>按极性从头移除至多 count 条,返回实际移除条数(计数式驱散用)。<paramref name="except"/> 可选豁免一个种类。</summary>
+        public int RemoveFirst(StatusPolarity polarity, int count, StatusKind? except = null)
         {
             int removed = 0;
             for (int i = 0; i < _list.Count && removed < count; )
             {
-                if (_list[i].Polarity != polarity) { i++; continue; }
+                if (_list[i].Polarity != polarity || (except.HasValue && _list[i].Kind == except.Value)) { i++; continue; }
                 _list.RemoveAt(i);
                 removed++;
             }

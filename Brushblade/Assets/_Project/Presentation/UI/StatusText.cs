@@ -165,6 +165,11 @@ namespace Brushblade.Presentation
                     return new Info("immunity", Strings.T("status.immunity.name"),
                         Strings.T("status.duration.charges", ("value", magnitude)),
                         Strings.T("status.immunity.desc", ("magnitude", magnitude)));
+                case StatusKind.Block:
+                    // 格挡(spec v7 §3.1):Magnitude = 剩余次数,时长行报次数(与免疫同口径)。
+                    return new Info("block", Strings.T("status.block.name"),
+                        Strings.T("status.duration.charges", ("value", magnitude)),
+                        Strings.T("status.block.desc"));
                 case StatusKind.Reflect:
                     return new Info("reflect", Strings.T("status.reflect.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),
@@ -210,6 +215,17 @@ namespace Brushblade.Presentation
                     return new Info(null, Strings.T("status.charm.name"),
                         Strings.T("status.duration.turns", ("value", turnsLeft)),
                         Strings.T("status.charm.desc"));
+                case StatusKind.FrostResist:
+                    // 霜抗(spec v7 R1,Task 9):冻结结束后挂在敌人身上,期间冻不上。时长行用回合数。
+                    return new Info("frostguard", Strings.T("status.frostresist.name"),
+                        Strings.T("status.duration.turns", ("value", turnsLeft)),
+                        Strings.T("status.frostresist.desc"));
+                case StatusKind.IceStall:
+                    // 冰滞(spec v7 R1b,Task 10):Boss 被冻结的替身,水字形色实底,无数字。时长行不用回合数
+                    // (TurnsLeft = -1),写「直到下次行动」。
+                    return new Info("chill", Strings.T("status.icestall.name"),
+                        Strings.T("status.duration.until_next_action"),
+                        Strings.T("status.icestall.desc"));
                 case StatusKind.ApBoost:
                     // 稿明写「刻意不出 chip」说的是战场格子上的 chip 行(战斗屏,底栏 AP 格子
                     // 多一格已是反馈);但详情弹窗的全部意义就是「身上的状态逐条列出并附一句
@@ -324,6 +340,9 @@ namespace Brushblade.Presentation
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.volley.desc")),
             TargetArea.Chain => new Info(null, Strings.T("char.shape.chain"),
                 Strings.T("status.duration.persistent_trait"), Strings.T("char.shape.chain.desc")),
+            // 全体(spec v7 §3.2)目前只挂在字的伤害效果上,召唤物被动没有全体载体;
+            // 真有召唤物配全体时,在这里补一条带 desc 的条目(要新写文案)
+            TargetArea.All => None,
             _ => None, // Single
         };
     }

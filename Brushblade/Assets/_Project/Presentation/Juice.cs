@@ -281,7 +281,7 @@ namespace Brushblade.Presentation
                         // 否则一拍打完两段,玩家看不出是两段。用「上一记 Damage 的目标」而不是
                         // 「events[idx-1] 是否紧邻」判断 —— DamageEnemy 在两记伤害之间可能插
                         // EnemyRevealed/EnemyBuff/EnemySplit 这些伴随事件(焦痕/生僻字/叠字怪),
-                        // 紧邻判据会被这些事件打断,漏掉本该拉开的一拍。跨目标的全体攻击(DamageAll)
+                        // 紧邻判据会被这些事件打断,漏掉本该拉开的一拍。跨目标的全体攻击(TargetArea.All)
                         // 各条 TargetIndex 不同,lastDamageTarget 逐个变化,仍并行不受影响
                         // e.SameSwing(2026-09-05):跨排 Boss 被形状覆盖两格 —— 那是**一次出手、
                         // 两份伤害**,不是打了两下,所以不拉这一拍。两个飘字照样各出一个

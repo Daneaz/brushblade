@@ -780,35 +780,34 @@ namespace Brushblade.Core
                 map.Remove(key);
         }
 
-        /// <summary>卡等级数值系数:基础值 × (1 + 0.117 × (等级 − 1)),向上取整(19.3.2;
-        /// 2026-07-19 floor→ceiling:低数值字升 1 级即 +1,升级可感)。
+        /// <summary>卡等级数值系数(spec v7 §1,2026-10-04):基础值 × (1 + 6% × (等级 − 1)),向上取整。
+        /// Lv8 = ×1.42,Lv10 = ×1.54。只作用于连续数值;层数/回合/次数见 <see cref="ScalesWithCardLevel"/>。
         ///
-        /// 2026-09-11(档位差距与升级替代,拍板第 2 条)系数 0.1 → 0.117:档位倍率统一为
-        /// G = 10^(1/6) = 1.4678 之后,0.117 让 **5 级系数 = 1 + 0.117×4 = 1.468 = G**,
-        /// 即规则表述「**升到 5 级 ≈ 下一档 1 级**」。满级(10)由 1.9 变 2.05。
+        /// ⚠ 全程整数:double 下 1 + 0.06×2 = 1.1200000000000001,100 × 它再 Ceiling 得 113 而不是 112
+        /// (base 1..3000 × Lv2..10 共 97 处偏差)。Unity Mono 与 .NET 的中间精度也不同,整数算式两边一致。
         ///
-        /// ⚠ **不要顺手把 <see cref="ScaleTurnsByCardLevel"/> 一起改**:回合数是「每满 5 级
-        /// +1」的整数阶梯,与这条数值曲线刻意不共用公式(理由见那边的注释)。</summary>
+        /// 沿革:0.1(2026-07)→ 0.117(2026-09-11,Lv5 = 档位倍率 G)→ 0.06(v7:特性接管成长,G 不变量取消)。</summary>
         public static int ScaleByCardLevel(int baseValue, int cardLevel)
         {
-            if (cardLevel <= 1) return baseValue;
-            return (int)Math.Ceiling(baseValue * (1 + 0.117 * (cardLevel - 1)));
+            if (cardLevel <= 1 || baseValue <= 0) return baseValue;
+            long scaled = (long)baseValue * (100 + 6 * (cardLevel - 1));
+            return (int)((scaled + 99) / 100);
         }
 
-        /// <summary>卡等级回合数系数(2026-09-05):**每满 5 级 +1 回合**(5/10/15/…级门槛),
-        /// 1~4 级恒等。
-        ///
-        /// 刻意**不复用** <see cref="ScaleByCardLevel"/> 的 ×(1 + 0.117×(级−1)) + ceiling ——
-        /// 那条对回合数太快:2 回合的字 6 级就变 3、11 级变 4。回合数是节奏不是数值,
-        /// 一张限时增攻字在满级变成半永久会把「限时」这个设计整个抹掉。
-        ///
-        /// `baseTurns == 0` 原样返回 —— 0 在效果侧的语义是「本场持久」(见
-        /// BattleEngine 的 Empower/CritBuff case),被抬成 1 会把持久字改成 1 回合字。</summary>
-        public static int ScaleTurnsByCardLevel(int baseTurns, int cardLevel)
+        /// <summary>spec v7 §1:这个效果的 Value 是否随卡等级缩放。层数、回合、次数、击数不缩放
+        /// (只在 Lv3 由特性提升);伤害、护盾、治疗、护甲点数、百分比等数值缩放。
+        /// 引擎(ApplyEffects)与卡面(CharInfo / CardTraits)共用这一份判据。</summary>
+        public static bool ScalesWithCardLevel(EffectKind kind) => kind switch
         {
-            if (baseTurns <= 0) return baseTurns;
-            return baseTurns + Math.Max(cardLevel, 1) / 5;
-        }
+            EffectKind.Freeze or EffectKind.Slow
+                or EffectKind.BurnSingle or EffectKind.BurnAll
+                or EffectKind.Morale or EffectKind.Immunity or EffectKind.Revive
+                or EffectKind.Block or EffectKind.Dispel or EffectKind.ApBoost or EffectKind.Charm => false,
+            _ => true,
+        };
+
+        public static int ScaleEffectValue(EffectKind kind, int baseValue, int cardLevel) =>
+            ScalesWithCardLevel(kind) ? ScaleByCardLevel(baseValue, cardLevel) : baseValue;
 
         /// <summary>叠字前置(spec 2026-08-15 Part 2):配方里的**非部件**原料必须都已收集。
         ///

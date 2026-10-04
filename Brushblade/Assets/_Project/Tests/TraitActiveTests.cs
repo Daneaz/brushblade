@@ -55,7 +55,7 @@ namespace Brushblade.Core.Tests
         {
             var b = Battle(3);
             b.Cast("试", 0, attackMode: true);
-            Assert.That(Burn(b), Is.EqualTo(MetaRules.ScaleByCardLevel(2, 3)), "只有 Lv3 的 2 层(按现行等级缩放),Lv1 被替换");
+            Assert.That(Burn(b), Is.EqualTo(2), "只有 Lv3 的 2 层(灼层数不吃等级,spec v7 §1),Lv1 被替换");
         }
 
         [Test]

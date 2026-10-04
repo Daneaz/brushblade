@@ -25,7 +25,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.BurnAll, 3) }),
             new CharDef("然", null),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All), new EffectDef(EffectKind.BurnAll, 1) }),
             // 壁(土系,辟金+土):盾 8(相生 ×3 已取消,元素与配方不再影响倍率)
             new CharDef("壁", Element.Earth, new[] { "辟", "土" },
                 effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
@@ -93,6 +93,21 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.ShieldNormal, Is.EqualTo(5));
             Assert.That(engine.ShieldPersist, Is.EqualTo(2));
             Assert.That(engine.PlayerShield, Is.EqualTo(7));
+        }
+
+        [Test]
+        public void Constructor_CarriedShield_ClampedToMaxHp()
+        {
+            // Config().PlayerMaxHp 下带入的护盾超上限:两桶之和钳到最大生命,豁免桶(persist)优先保留。
+            var cfg = Config();
+            int max = cfg.PlayerMaxHp;
+            var engine = new BattleEngine(Graph(), cfg,
+                Array.Empty<string>(), Array.Empty<string>(),
+                new[] { MetalBoss() }, seed: 42, startingHp: null, cardLevels: null,
+                startingNormalShield: max + 30, startingPersistShield: 3);
+            Assert.That(engine.PlayerShield, Is.EqualTo(max));
+            Assert.That(engine.ShieldPersist, Is.EqualTo(3), "persist 桶优先保留");
+            Assert.That(engine.ShieldNormal, Is.EqualTo(max - 3));
         }
 
         [Test]
@@ -1139,7 +1154,7 @@ namespace Brushblade.Core.Tests
                 new CharDef("丙", Element.Wood, effects: new[] { new EffectDef(EffectKind.Summon, 30, summonCount: 2, summonAttack: 0, summonChar: "C") }),
                 new CharDef("丁", Element.Wood, effects: new[]
                 {
-                    new EffectDef(EffectKind.DamageAll, 5),
+                    new EffectDef(EffectKind.DamageSingle, 5, shape: TargetArea.All),
                     new EffectDef(EffectKind.Summon, 5, summonCount: 4, summonAttack: 0, summonChar: "D"),
                     new EffectDef(EffectKind.Summon, 5, summonCount: 4, summonAttack: 0, summonChar: "D"),
                 }),

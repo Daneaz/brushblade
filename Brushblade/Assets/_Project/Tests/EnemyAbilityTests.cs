@@ -14,7 +14,7 @@ namespace Brushblade.Core.Tests
             new CharDef("火", Element.Fire,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 40) }),
             new CharDef("烧", Element.Fire,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 50) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 50, shape: TargetArea.All) }),
         });
 
         private static EnemyDef Regrower(int hp = 300) =>

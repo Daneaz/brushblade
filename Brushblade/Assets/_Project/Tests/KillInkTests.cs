@@ -13,7 +13,7 @@ namespace Brushblade.Core.Tests
         {
             new CharDef("木", Element.Wood),
             new CharDef("焚", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All) }),
             new CharDef("凿", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 18) }),
         });

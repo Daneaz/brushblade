@@ -8,7 +8,7 @@ namespace Brushblade.Core.Tests
     /// <summary>金脉 L2「锋芒」(spec 2026-09-13 §2.3):玩家暴击时战意 +1 层。
     ///
     /// 两条限制各有守卫:
-    /// ① **每张字至多 +1 层** —— DamageAll 对每个目标各摇一次暴击,不限制的话一张群攻字
+    /// ① **每张字至多 +1 层** —— 全体伤害(All)对每个目标各摇一次暴击,不限制的话一张群攻字
     ///    就能顶满上限,战意从「维持型资源」退化成「开局一张群攻就满」。
     /// ② **召唤物的暴击不算** —— 它们读自己的暴击袋子(RollCritForSummon),
     ///    算进来会让木+金 build 白拿双份。
@@ -22,7 +22,7 @@ namespace Brushblade.Core.Tests
             new CharDef("刺", Element.Metal,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 10) }),
             new CharDef("扫", Element.Metal,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 10) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.All) }),
         });
 
         private static BattleEngine Engine(int moraleOnCrit, int playerCrit = 100,

@@ -46,6 +46,18 @@ def test_no_shape_marker_leaves_shape_field_absent():
     assert "shots" not in effects[0]
 
 
+def test_all_shape_token_on_damage_single():
+    """全体(spec v7 §3.2 / §11.6):`All` 是 DamageSingle 的形状修饰,不是独立效果。"""
+    effects = _parse_effects("`DamageSingle 30` `All`", "火")
+    assert effects == [{"kind": "DamageSingle", "value": 30, "shape": "All"}]
+
+
+def test_damage_all_token_is_retired():
+    """`DamageAll` 已退役:详表里再写它要大声报错,并指明改写成 DamageSingle + All。"""
+    with pytest.raises(ValueError, match="DamageSingle"):
+        _parse_effects("`DamageAll 30`", "火")
+
+
 def test_shots_and_shape_percent_do_not_become_standalone_effects():
     """坑 2:通用正则 `(\\w+) (\\d+)` 会把 `Shots 3` / `ShapePercent 50` 当成独立效果收走 ——
     EffectKind 里没有这两个值,落成独立条目会让 ConfigLoader 在加载期直接抛 ConfigException。"""
@@ -62,8 +74,8 @@ def test_true_damage_token_becomes_true_damage_field_on_damage_single():
 
 
 def test_true_damage_token_becomes_true_damage_field_on_damage_all():
-    assert _parse_effects("`DamageAll 10` + `TrueDamage`", "土") == [
-        {"kind": "DamageAll", "value": 10, "trueDamage": True}]
+    assert _parse_effects("`DamageSingle 10` + `All` + `TrueDamage`", "土") == [
+        {"kind": "DamageSingle", "value": 10, "trueDamage": True, "shape": "All"}]
 
 
 def test_no_true_damage_marker_leaves_field_absent():
@@ -279,8 +291,8 @@ def test_freeze_value_is_the_turn_count_directly():
 
 
 def test_empower_with_turns_attaches_turns():
-    """限时增攻(利):`Empower 30`(turns 2)——回合数随卡等级成长(§4.2),但管线层
-    只管把 turns 原样落进 effect,缩放是引擎的事。"""
+    """限时增攻(利):`Empower 30`(turns 2)——管线层只管把 turns 原样落进 effect
+    (回合数不随卡等级,spec v7 §1)。"""
     assert _parse_effects("`Empower 30`(turns 2)", "利") == [
         {"kind": "Empower", "value": 30, "turns": 2}]
 

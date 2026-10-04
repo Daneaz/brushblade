@@ -815,7 +815,7 @@ namespace Brushblade.Core.Tests
                 new[] { "霜" }, Array.Empty<string>(), new[] { Dummy() }, seed: 1,
                 cardLevels: new Dictionary<string, int> { ["霜"] = 3 });
             engine.Cast("霜");
-            // 100 × (1 + 0.117×2) = 124 → 钳回 100(概率不该超过必中)
+            // 100 × 1.12 = 112 → 钳回 100(概率不该超过必中)
             Assert.That(engine.Summons[0].Passive.OnHitFreezeChance, Is.EqualTo(100));
             Assert.That(engine.Summons[0].Passive.OnHitFreezeTurns, Is.EqualTo(3), "回合数不吃等级");
 
@@ -840,7 +840,7 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void OnHitSlow_ScalesBothPercentAndTurnsWithCardLevel()
+        public void OnHitSlow_PercentScales_TurnsDoNot()
         {
             var engine = new BattleEngine(Graph(),
                 new BattleConfig { DropTable = new[] { "木" }, PlayerMaxHp = 50 },
@@ -848,8 +848,8 @@ namespace Brushblade.Core.Tests
                 cardLevels: new Dictionary<string, int> { ["缓"] = 3 });
             engine.Cast("缓");
             var p = engine.Summons[0].Passive;
-            Assert.That(p.OnHitSlowPercent, Is.EqualTo(62), "ceil(50 × 1.234)");
-            Assert.That(p.OnHitSlowTurns, Is.EqualTo(3), "ceil(2 × 1.234)");
+            Assert.That(p.OnHitSlowPercent, Is.EqualTo(56), "50 × 1.12 = 56");
+            Assert.That(p.OnHitSlowTurns, Is.EqualTo(2), "回合数不吃卡等级(spec v7 §1),基础 2 回合");
         }
 
         [Test]

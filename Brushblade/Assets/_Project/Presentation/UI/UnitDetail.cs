@@ -93,9 +93,9 @@ namespace Brushblade.Presentation
         {
             StatusKind.Burn or StatusKind.BurnNoDecay or StatusKind.Bleed => Theme.Cinnabar,
             StatusKind.Freeze or StatusKind.Blind or StatusKind.Silence or StatusKind.Curse
-                or StatusKind.ArmorBreak or StatusKind.Seal => Control,
+                or StatusKind.ArmorBreak or StatusKind.Seal or StatusKind.FrostResist or StatusKind.IceStall => Control,
             StatusKind.SpeedModifier => magnitude < 0 ? Control : Guard,
-            StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect
+            StatusKind.DefenseBuff or StatusKind.Immunity or StatusKind.Reflect or StatusKind.Block
                 or StatusKind.DodgeBuff or StatusKind.HealOverTime => Guard,
             StatusKind.AttackBuff or StatusKind.Morale or StatusKind.CritBuff
                 or StatusKind.PierceBuff => Theme.RarityColor(CardRarity.Gold),
@@ -119,10 +119,11 @@ namespace Brushblade.Presentation
             // (不是「+50%」)、CritBuff 稿上是「20%」不带 +(不是「+20%」)。Seal 特例保留
             // UnitMe.dc.html 的「−1AP」而不是 glossary 的「−1」——具体屏稿优先于分类图鉴,
             // 这条不改。
-            StatusKind.Burn or StatusKind.Bleed or StatusKind.Immunity
+            StatusKind.Burn or StatusKind.Bleed or StatusKind.Immunity or StatusKind.Block
                 or StatusKind.Morale or StatusKind.HealOverTime or StatusKind.ArmorBreak =>
                 Strings.T("detail.chip.plain", ("value", magnitude)),
-            StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence => "",
+            StatusKind.BurnNoDecay or StatusKind.Freeze or StatusKind.Silence or StatusKind.FrostResist
+                or StatusKind.IceStall => "",
             StatusKind.SpeedModifier => magnitude < 0
                 ? Strings.T("detail.chip.negative", ("value", -magnitude))
                 : Strings.T("detail.chip.positive", ("value", magnitude)),

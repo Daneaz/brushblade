@@ -581,8 +581,10 @@ namespace Brushblade.Core.Tests
         }
 
         [Test]
-        public void Silence_OnBoss_DoesNotCancelChargeEvenThroughFreeze()
+        public void Silence_OnBoss_DoesNotCancelCharge()
         {
+            // R1b(2026-10-04):Boss 不再能被冻结(改挂冰滞,不跳过行动),原先靠「冻 2 回合盖住封禁窗口」
+            // 的行动序列不复存在。意图不变——封禁不打断蓄力,倾覆照常放出——去掉冻结,直接让封禁窗口走完。
             // 2026-09-05(封禁,平衡重做 P0 任务 9):原名 Silence_CancelsBossChargeEvenThroughFreeze,
             // 断言「沉默取消蓄力的效果不受冻结影响,解冻后倾覆不会补放」。封禁对 Boss 现在根本
             // 不取消蓄力,冻结与否都一样——蓄力保留到解冻,倾覆照常放出来。
@@ -594,12 +596,9 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].IsCharging, Is.True);
 
             engine.Cast("禁", 0);                    // 封禁 2 回合
-            engine.Cast("冻", 0);                    // 冻结 2 回合,盖住封禁的整个窗口
-            engine.EndTurn();                       // 冻结中不行动(第 1 个被挡的敌方回合)
-            engine.EndTurn();                       // 冻结中不行动(第 2 个被挡的敌方回合,封禁也在这期间到期)
-            engine.EndTurn();                       // 冻结解开,该释放大招了
+            engine.EndTurn();                       // 封禁窗口内 Boss 行动:蓄力已满,该释放大招了
 
-            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.True, "倾覆照常放出来 —— 大招不受封禁/冻结影响");
+            Assert.That(engine.PlayerStatuses.Has(StatusKind.Seal), Is.True, "倾覆照常放出来 —— 大招不受封禁影响");
         }
 
         [Test]

@@ -126,5 +126,29 @@ namespace Brushblade.Core.Tests
             Assert.That(new CharDef("烝", null, new[] { "丞", "灬" }, isComponent: true).IsComponent,
                 Is.True, "显式 true 压过回退");
         }
+
+        // ---- 终审 fix wave:加载期拒绝 All 误用与零次格挡(只吃内联 JSON,coretests 能跑) ----
+
+        [TestCase(@"{""kind"":""Shield"",""value"":5,""shape"":""All""}", "全体")]
+        [TestCase(@"{""kind"":""DamageSingle"",""value"":5,""shape"":""All"",""armorStrikePercent"":50}", "镇压")]
+        [TestCase(@"{""kind"":""Summon"",""value"":5,""summonChar"":""木"",""passive"":{""shape"":6}}", "召唤被动")]
+        [TestCase(@"{""kind"":""Block"",""value"":0}", "格挡")]
+        public void LoadGraph_RejectsMisusedAllAndZeroBlock(string effectJson, string expectInMessage)
+        {
+            var json = @"{""chars"":[{""id"":""木"",""element"":""Wood""},
+                {""id"":""甲"",""element"":""Metal"",""effects"":[" + effectJson + @"]}]}";
+            var ex = Assert.Throws<ConfigException>(() => ConfigLoader.LoadGraph(json));
+            Assert.That(ex.Message, Does.Contain("甲"));
+            Assert.That(ex.Message, Does.Contain(expectInMessage));
+        }
+
+        [Test]
+        public void LoadGraph_AllShape_OnDamageSingle_AndBlockOne_Accepted()
+        {
+            var json = @"{""chars"":[{""id"":""甲"",""element"":""Metal"",""effects"":[
+                {""kind"":""DamageSingle"",""value"":5,""shape"":""All""},
+                {""kind"":""Block"",""value"":1}]}]}";
+            Assert.DoesNotThrow(() => ConfigLoader.LoadGraph(json));
+        }
     }
 }

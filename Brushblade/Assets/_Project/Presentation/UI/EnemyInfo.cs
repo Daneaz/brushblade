@@ -303,7 +303,7 @@ namespace Brushblade.Presentation
                 // ActionMeter 是刻度值不是百分比(2026-09-03 Threshold 100 → 10000 之后
                 // 两者不再巧合相等),要换算 —— 与 UnitSheet 画那条行动条同一个除数。
                 actionValue = Strings.T("detail.chip.plain_pct",
-                    ("value", enemy.ActionMeter * 100 / TurnScheduler.Threshold));
+                    ("value", System.Math.Max(0, enemy.ActionMeter) * 100 / TurnScheduler.Threshold)); // 冰滞会把条推成负值,读数钳 0
                 // 魅惑(2026-09-05,花):不像冻结那样跳过行动——它照常出手,只是目标换成
                 // 自己阵营,所以 actionValue 仍要算,只是附一句提示(与蓄力同款,叠加在计量条上)。
                 actionNote = enemy.Statuses.Has(StatusKind.Charm)

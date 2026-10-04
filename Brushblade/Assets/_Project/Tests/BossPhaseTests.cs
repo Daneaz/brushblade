@@ -222,31 +222,26 @@ namespace Brushblade.Core.Tests
             phases: new[] { new BossPhaseDef("甲", Element.Heart, 100, 5, skill: BossSkill.Deluge) });
 
         [Test]
-        public void Freeze_PausesBossChargeAndSkillRelease()
+        public void Freeze_OnBoss_BecomesIceStall_ChargeContinues()
         {
+            // R1b(2026-10-04,Task 10):Boss 不再被真正冻结,冻结改挂冰滞。旧版断言「冻结盖住整个蓄力周期、
+            // 大招放不出来」不再成立;新语义:冰滞只把行动条后推半格,Boss 下一次行动照常累计蓄力,
+            // 行动后冰滞移除、挂霜抗。
             var engine = new BattleEngine(FreezeGraph(),
                 new BattleConfig { BossPhaseJitterPercent = 0 },
                 new[] { "冻" }, Array.Empty<string>(), new[] { SkillBoss() }, seed: 1);
             engine.Cast("冻", 0);
+            var bag = engine.Enemies[0].Statuses;
+            Assert.That(bag.Has(StatusKind.Freeze), Is.False, "Boss 不会被真正冻结");
+            Assert.That(bag.Find(StatusKind.IceStall).Magnitude, Is.EqualTo(3));
             int hp0 = engine.PlayerHp;
 
-            engine.EndTurn(); // 冻结回合 1:本应普攻+计数,冻结后不出手
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
-            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(0), "冻结中不蓄力计数");
-            Assert.That(engine.Enemies[0].IsCharging, Is.False);
-
-            engine.EndTurn(); // 冻结回合 2:本应计数达标进入蓄力,冻结后仍不出手
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0));
-            Assert.That(engine.Enemies[0].IsCharging, Is.False, "冻结中不会进入蓄力状态");
-
-            engine.EndTurn(); // 冻结回合 3:本应释放大招,冻结后仍不出手
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0), "冻结覆盖了整个蓄力周期,大招没放出来");
-            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossSkillCast), Is.False);
-            Assert.That(engine.LastEvents.Any(e => e.Kind == BattleEventKind.BossCharging), Is.False);
-
-            engine.EndTurn(); // 解冻后第 1 个敌方回合:恢复普攻,重新计数
-            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 5), "解冻后恢复普攻");
-            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(1));
+            engine.EndTurn(); // Boss 的下一次行动:照常普攻并计数
+            Assert.That(engine.PlayerHp, Is.EqualTo(hp0 - 5), "冰滞不跳过行动,照常普攻");
+            Assert.That(engine.Enemies[0].ChargeCounter, Is.EqualTo(1), "蓄力计数照常累计");
+            Assert.That(bag.Has(StatusKind.IceStall), Is.False, "行动后冰滞移除");
+            Assert.That(bag.Find(StatusKind.FrostResist).TurnsLeft, Is.EqualTo(3),
+                "N+1 = 4 挂上,本拍末尾 TickTurns 减 1");
         }
     }
 }

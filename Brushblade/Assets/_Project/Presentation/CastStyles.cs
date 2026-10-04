@@ -59,10 +59,11 @@ namespace Brushblade.Presentation
                 switch (e.Kind)
                 {
                     case EffectKind.DamageSingle:
+                        // 全体(spec v7 §11.6:原 DamageAll)走原来 all 那一支,招式不变
+                        if (e.Shape == TargetArea.All) { all = true; break; }
                         if (!single) { shape = e.Shape; hitCount = e.HitCount; }
                         single = true;
                         break;
-                    case EffectKind.DamageAll: all = true; break;
                     case EffectKind.Freeze: freeze = true; break;
                     case EffectKind.Slow: slow = true; break;
                     case EffectKind.Silence: silence = true; break;

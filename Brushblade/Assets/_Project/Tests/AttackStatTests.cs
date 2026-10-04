@@ -16,7 +16,7 @@ namespace Brushblade.CoreTests
             new CharDef("甲", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 20) }),
             new CharDef("乙", Element.Heart,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 10) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.All) }),
             new CharDef("丙", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Shield, 7) }),
             new CharDef("丁", Element.Heart,

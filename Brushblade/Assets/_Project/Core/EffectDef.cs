@@ -3,8 +3,9 @@ namespace Brushblade.Core
     /// <summary>出字效果类型(第 3 章 3.2.1;按流派需要逐步扩展)。</summary>
     public enum EffectKind
     {
-        DamageSingle, // 单体伤害
-        DamageAll,    // 全体伤害(AOE)
+        DamageSingle, // 伤害(打谁由 EffectDef.Shape 定;全体 = Shape All。原 DamageAll 已于
+                      // spec v7 §11.6 退役 —— 字表按名字解析,但 OpeningEffect.Kind 以 int 进存档,
+                      // 所以删值/改序会让旧存档的序号错位;删值不留占位是因为项目未上线、存档不需兼容)
         BurnSingle,   // 单体灼烧(叠层)
         BurnAll,      // 全体灼烧(叠层)
         Shield,       // 护盾:自身或指定一只召唤物(2026-08-26 起目标可选)
@@ -91,6 +92,8 @@ namespace Brushblade.Core
                       // KeMultiplier 系)、UI 显色(BattleView.DrawSummons / SummonInfo)三条路径
                       // 全部现读 SummonState.Element,不需要各自接线——但改完要 grep 复查,
                       // 别假设只有这三条。
+        Block,        // 格挡(spec v7 §3.1,铠):Value = 次数(离散量,不吃卡等级);下一次敌人挥击 −40% 并反击。
+                      // 反击伤害 = 本字攻击面首条 DamageSingle(吃等级)× 30%,出字时定死。
     }
 
     /// <summary>单条效果:伤害/护盾/治疗走生克结算,灼烧层数为平值。</summary>
@@ -173,7 +176,7 @@ namespace Brushblade.Core
 
         /// <summary>非主目标的伤害百分比(2026-08-22)。主目标恒 100%。
         /// 横扫/贯穿建议配 100,溅射建议 50。<see cref="TargetArea.Scatter"/> **不吃这个值**
-        /// ——连发每一发都是全额(spec §5)。
+        /// ——连发每一发都是全额(spec §5)。<see cref="TargetArea.All"/> 同样不吃:全体每个目标都是主目标。
         ///
         /// ≤0 兜回 100:配置漏写时 JSON 会填 0,那会让两侧一分不伤,静默失效比报错更难查
         /// (与 <see cref="HitCount"/> 的 `≤0 → 1` 同型)。</summary>

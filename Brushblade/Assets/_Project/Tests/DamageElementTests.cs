@@ -20,7 +20,7 @@ namespace Brushblade.CoreTests
         {
             new CharDef("甲", Element.Wood, effects: new[] { new EffectDef(EffectKind.DamageSingle, 20) }),
             new CharDef("乙", Element.Water, effects: new[] { new EffectDef(EffectKind.DamageSingle, 20) }),
-            new CharDef("丙", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageAll, 10) }),
+            new CharDef("丙", Element.Heart, effects: new[] { new EffectDef(EffectKind.DamageSingle, 10, shape: TargetArea.All) }),
             new CharDef("丁", Element.Fire, effects: new[] { new EffectDef(EffectKind.BurnSingle, 3) }),
             new CharDef("戊", Element.Heart, effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
             new CharDef("己", Element.Metal, effects: new[] { new EffectDef(EffectKind.Shield, 7) }),
@@ -65,7 +65,7 @@ namespace Brushblade.CoreTests
         }
 
         [Test]
-        public void DamageAll_EveryEventCarriesTheSameCaster()
+        public void AllShape_EveryEventCarriesTheSameCaster()
         {
             // 群攻:三条事件都出自同一张牌,属性也就都一样(与 Ke 不同 —— 那个是各判各的)
             var engine = Battle(new[] { Mob(), Mob(), Mob() }, "丙");

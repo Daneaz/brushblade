@@ -23,7 +23,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 9),
                                  new EffectDef(EffectKind.Dispel, 1) }),
             new CharDef("荡", Element.Heart,   // 淡:全体伤 + 全体各驱散 1 条
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 5),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 5, shape: TargetArea.All),
                                  new EffectDef(EffectKind.Dispel, 1, targetAll: true) }),
             new CharDef("涤", Element.Heart,   // 浴:纯净化
                 effects: new[] { new EffectDef(EffectKind.Cleanse, 0) }),
@@ -43,8 +43,8 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 9,
                     executeBelowPercent: 30) }),
             new CharDef("扫荡", Element.Heart, // 剿:全体伤 6,对 HP<30% 的目标 ×2
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 6,
-                    executeBelowPercent: 30) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 6,
+                    executeBelowPercent: 30, shape: TargetArea.All) }),
             new CharDef("凿", Element.Heart,   // 1 点伤害,用来把敌人精确磨到目标血线
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 1) }),
             new CharDef("苏", Element.Heart,   // 活:复活一名阵亡召唤物
@@ -334,6 +334,37 @@ namespace Brushblade.Core.Tests
             Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(50),
                 "只清一条,剩一条");
             Assert.That(engine.Enemies[0].Hp, Is.EqualTo(191), "伤害照打");
+        }
+
+        private static void GiveFrostResistFirst(EnemyState enemy)
+        {
+            // 霜抗在前、AttackBuff 在后:计数驱散「从头清」时若不跳过霜抗,就会白耗一次。
+            var list = new[]
+            {
+                new StatusEffect { Kind = StatusKind.FrostResist, Polarity = StatusPolarity.Buff, TurnsLeft = 2, SourceId = "霜抗" },
+                new StatusEffect { Kind = StatusKind.AttackBuff, Polarity = StatusPolarity.Buff, Magnitude = 50, TurnsLeft = -1, SourceId = "妖#0" },
+            };
+            enemy.Statuses.CopyFrom(list);
+        }
+
+        [Test]
+        public void Dispel_Counted_SkipsFrostResist()
+        {
+            var engine = Engine(new[] { "剐" }, new[] { Dummy() });
+            GiveFrostResistFirst(engine.Enemies[0]);
+            engine.Cast("剐", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0), "AttackBuff 被清");
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.FrostResist), Is.True, "霜抗不可驱散(Ruling 8)");
+        }
+
+        [Test]
+        public void Dispel_All_SkipsFrostResist()
+        {
+            var engine = Engine(new[] { "扫" }, new[] { Dummy() });
+            GiveFrostResistFirst(engine.Enemies[0]);
+            engine.Cast("扫", 0);
+            Assert.That(engine.Enemies[0].Statuses.TotalMagnitude(StatusKind.AttackBuff), Is.EqualTo(0));
+            Assert.That(engine.Enemies[0].Statuses.Has(StatusKind.FrostResist), Is.True);
         }
 
         [Test]

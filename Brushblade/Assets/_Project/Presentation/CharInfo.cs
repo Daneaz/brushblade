@@ -75,18 +75,21 @@ namespace Brushblade.Presentation
                 // 所以各分支内部照常写逗号即可,不必再逐个改文案。
                 if (i > 0) parts.Append(';');
                 var e = effects[i];
-                int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
+                int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
                 string shown = v.ToString();
                 parts.Append(e.Kind switch
                 {
+                    // 全体(spec v7 §11.6:DamageAll 并入 DamageSingle + All):沿用原「全体N伤」那句,
+                    // 卡面逐字不变。必须排在下面那条之前 —— 落进它会印成「{ShapeLabel}N伤」。
+                    EffectKind.DamageSingle when e.Shape == TargetArea.All
+                        => Strings.T("char.effect.damageall", ("value", shown))
+                        + DoubleVsText(e)
+                        + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e),
                     EffectKind.DamageSingle => Strings.T("char.effect.damagesingle",
                             ("shape", ShapeLabel(e)), ("value", shown))
                         + DoubleVsText(e)
                         + PierceText(e) + HitCountText(e) + ExecuteText(e)
                         + TrueDamageText(e) + ArmorStrikeText(e) + ShapeSuffix(e),
-                    EffectKind.DamageAll => Strings.T("char.effect.damageall", ("value", shown))
-                        + DoubleVsText(e)
-                        + PierceText(e) + HitCountText(e) + ExecuteText(e) + TrueDamageText(e),
                     EffectKind.BurnSingle => Strings.T("char.effect.burnsingle", ("value", shown)),
                     EffectKind.BurnAll => Strings.T("char.effect.burnall", ("value", shown)),
                     EffectKind.Shield => Strings.T("char.effect.shield", ("value", shown))
@@ -133,6 +136,8 @@ namespace Brushblade.Presentation
                         : (e.TargetAll ? Strings.T("char.effect.dispel.all.count", ("count", e.Value)) : Strings.T("char.effect.dispel.single.count", ("count", e.Value))),
                     EffectKind.Cleanse => Strings.T("char.effect.cleanse"),
                     EffectKind.Immunity => Strings.T("char.effect.immunity", ("value", shown)),
+                    // 格挡(spec v7 §3.1):次数是离散量,不吃等级 —— 读 e.Value,不读缩放后的 shown。
+                    EffectKind.Block => Strings.T("char.effect.block", ("value", e.Value)),
                     EffectKind.Revive => Strings.T("char.effect.revive", ("value", shown)),
                     // 熣(DamageSingle + Blind)曾被读成三段,当时改成空格治标(与 ArmorBreak 的
                     // 「破甲 {shown} 回合」同款);根因已由上面的分号分隔符解决,这里保留空格写法不再动
@@ -312,6 +317,7 @@ namespace Brushblade.Presentation
             TargetArea.Column => Strings.T("char.shape.skewer"),
             TargetArea.Scatter => Strings.T("char.shape.volley"),
             TargetArea.Chain => Strings.T("char.shape.chain"),
+            TargetArea.All => Strings.T("char.shape.all"),
             _ => Strings.T("char.shape.single"),
         };
 
@@ -337,6 +343,8 @@ namespace Brushblade.Presentation
                     ("shots", shots), ("percent", percent)),
                 TargetArea.Row or TargetArea.Adjacent or TargetArea.Column when percent != 100
                     => Strings.T("char.shape.suffix.splash", ("percent", percent)),
+                // 全体每个目标都按主目标满额结算,没有溅射比例可报
+                TargetArea.All => "",
                 _ => "",
             };
         }

@@ -45,7 +45,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.BurnSingle, 4),
                                  new EffectDef(EffectKind.Detonate, 0) }),
             // 煸:只有引爆、不带灼烧 —— 专门用来给 NeedsTarget 白名单提供判别力。
-            // 刻意避开真实字表里已有的「爆」(那是 DamageAll 7),免得读者以为是同一个字
+            // 刻意避开真实字表里已有的「爆」(那是全体伤害 7),免得读者以为是同一个字
             new CharDef("煸", Element.Heart,
                 effects: new[] { new EffectDef(EffectKind.Detonate, 0) }),
             // 煿:只有**全体**引爆(炸 的等价配置,2026-08-26)。与 煸 成对:
@@ -830,7 +830,8 @@ namespace Brushblade.Core.Tests
 
             int beforeDetonate = enemy.Hp;
             engine.Cast("焌", 0);
-            Assert.That(enemy.Hp, Is.EqualTo(beforeDetonate - 2340), "12 层 → 12×13/2 × 30 = 2340");
+            // spec v7 §5.2.2:灼 ≤ 10 层,焌 的 +4 只加得进 2 层(8→10),不是 12
+            Assert.That(enemy.Hp, Is.EqualTo(beforeDetonate - 1650), "10 层 → 10×11/2 × 30 = 1650");
 
             Assert.That(enemy.Statuses.Has(StatusKind.Burn), Is.False, "引爆后清空");
         }

@@ -119,12 +119,13 @@ namespace Brushblade.Core.Tests
         [Test]
         public void Shield_PersistOnceGoesIntoTheSummonsSingleBucket()
         {
-            // 召唤物没有豁免桶,㙓 的 450 并进同一个 Shield
+            // 召唤物没有豁免桶,㙓 的 450 并进同一个 Shield;
+            // spec v7 §5.2.2 起 ≤ 召唤物 MaxHp(100),450 被钳到 100
             var engine = Engine(new[] { "兵", "㙓" });
             engine.Cast("兵");
             engine.Cast("㙓", allySlot: 0);
 
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(450));
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(100));
             Assert.That(engine.ShieldPersist, Is.EqualTo(0));
             Assert.That(engine.ShieldNormal, Is.EqualTo(0));
         }
@@ -193,7 +194,8 @@ namespace Brushblade.Core.Tests
 
             engine.Cast("圭", targetIndex: 0, allySlot: 0);
 
-            Assert.That(engine.Summons[0].Shield, Is.EqualTo(200));
+            // 200 被召唤物 MaxHp(100)钳到 100(spec v7 §5.2.2)
+            Assert.That(engine.Summons[0].Shield, Is.EqualTo(100));
             Assert.That(engine.Enemies[0].Hp, Is.LessThan(enemyHp));
             Assert.That(engine.PlayerShield, Is.EqualTo(0));
         }

@@ -1912,6 +1912,9 @@ namespace Brushblade.Presentation
                 statusChips.Add(new("", Theme.Jade, Color.white, "immunity"));
             if (Battle.PlayerStatuses.TotalMagnitude(StatusKind.Reflect) > 0)
                 statusChips.Add(new("", Theme.Jade, Color.white, "reflect"));
+            // 格挡(spec v7 §3.1,稿 StatusChips):翠玉底,数字 = 剩余次数(用一次少一次)
+            int playerBlock = Battle.PlayerStatuses.TotalMagnitude(StatusKind.Block);
+            if (playerBlock > 0) statusChips.Add(new($"{playerBlock}", Theme.Jade, Color.white, "block"));
             // 攻击增益 / 战意(2026-08-12,剡 / 战 / 戮):两者都只改 EffectiveAttack,
             // 而战斗界面不显示攻击力 —— 不出这一格的话这三个字打出去毫无反馈。
             // ApBoost(利)不出格:AP 格子数直接读 Battle.ApPerTurn,多一格就是它的反馈。
@@ -2569,17 +2572,19 @@ namespace Brushblade.Presentation
                 chips.Add(new("", Theme.InkSoft, Color.white, "slow"));
 
             // ---- 正面 ----
-            Decaying(StatusKind.HealOverTime, "heal", Theme.Jade); // HOT:每回合回多少
             Flag(StatusKind.Immunity, "immunity", Theme.Jade);
             Flag(StatusKind.DefenseBuff, "defense", Theme.Jade);
             Flag(StatusKind.DodgeBuff, "dodge", Theme.Jade);
             Flag(StatusKind.Reflect, "reflect", Theme.Jade);
+            Decaying(StatusKind.Block, "block", Theme.Jade);     // 格挡:数字是剩余次数(Plan D 才有数据)
             Flag(StatusKind.AttackBuff, "attack", Theme.Gold);
             Decaying(StatusKind.Morale, "morale", Theme.Gold);   // 战意:数字是层数(本场不衰减)
             Flag(StatusKind.CritBuff, "crit", Theme.Gold);
             Flag(StatusKind.PierceBuff, "pierce", Theme.Gold); // 锐:用户点名要看见的那一条
             if (st.TotalMagnitude(StatusKind.SpeedModifier) > 0)
                 chips.Add(new("", Theme.Jade, Color.white, "speed"));
+            // 润泽(HOT)垫底:StatusChips 稿「嘲讽·留存护盾·格挡·战意·厚·泉·润泽」,溢出从尾部丢
+            Decaying(StatusKind.HealOverTime, "heal", Theme.Jade); // HOT:每回合回多少
         }
 
         // 敌人格尺寸(2026-08-30 横排复原,用户拍板)。竖排(2026-08-21~2026-08-30)期间
@@ -2925,6 +2930,11 @@ namespace Brushblade.Presentation
                     chipSpecs.Add(new(Strings.T("battle.label.charging_next_turn",
                             ("skillName", EnemyInfo.BossSkillName(enemy.ChargingSkill))),
                         Theme.Cinnabar, Color.white));
+                // 冰滞(spec v7 R1b):Boss 被冻结的替身 —— 水字形色实底、chill 图标、无数字。
+                // 顺序按 StatusChips 稿「敌方 致命 · 冰滞 · 灼 · 标记 · 冻结 · 种 · 减速 · 减攻 · 霜抗,
+                // 威胁在前,溢出从尾部丢」:冰滞排在灼之前(致命尚未实现)。
+                if (enemy.Statuses.Has(StatusKind.IceStall))
+                    chipSpecs.Add(new("", Theme.GlyphColor(Element.Water), Color.white, "chill"));
                 int burnStacks = enemy.Statuses.TotalMagnitude(StatusKind.Burn);
                 if (burnStacks > 0)
                     chipSpecs.Add(new($"{burnStacks}", Theme.Cinnabar, Color.white, "burn"));
@@ -2980,6 +2990,12 @@ namespace Brushblade.Presentation
                         chipSpecs.Add(new(abilityText,
                             Theme.AbilityChipColor(enemy.Def.Ability), Color.white, abilityIcon));
                 }
+                // 霜抗(spec v7 R1):描边样式(traits 稿 k-ring)—— 宣纸面板底、水字形色图标与 1 单位描边、
+                // 无数字(它是「这几回合冻不上」的免疫窗口,不是随回合变小的量)。
+                // 顺序按 StatusChips 稿:「霜抗这类『不能被怎样』的说明垫底」,所以排在整串最后(能力 chip 之后)。
+                if (enemy.Statuses.Has(StatusKind.FrostResist))
+                    chipSpecs.Add(new("", Theme.PanelPaper, Theme.GlyphColor(Element.Water), "frostguard",
+                        Theme.GlyphColor(Element.Water)));
                 // 左右各留 2px:贴着列宽排会让最后一个 chip 卡在边界上,浮点抖一下就换行。
                 Ui.ChipFlow(info.transform, "Chips", chipSpecs, infoWidth - 4f, UnitChipFontSize,
                     ChipMaxLines, UnitChipPadX, UnitChipPadY, ChipSpacing, ChipLineSpacing);
@@ -3382,6 +3398,10 @@ namespace Brushblade.Presentation
             if (target < 0 || !Battle.CanTarget(def, target, attackMode: true)) return;
 
             var (shape, shots) = BattleEngine.AttackShapeOf(def, attackMode: true);
+            // 全体(spec v7 §11.6:原 DamageAll 并入 DamageSingle + All):改造前 AttackShapeOf
+            // 对全体字返回 Single,预览只标悬停那只。本次是恒等重构,预览沿用旧样子;
+            // 要改成「标出全场」是另一件视觉改动,不在这里顺手做。
+            if (shape == TargetArea.All) shape = TargetArea.Single;
             // 连发(2026-09-27):松手时引擎让首发落在这只身上(volleyLeadsWithPrimary),
             // 预览必须走同一个口径 —— 此前这里传 −1,预览与实际落点双双无视玩家指的那只。
             var hits = Targeting.ExpandTargets(Battle.Enemies, target, shape, shots,

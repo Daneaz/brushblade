@@ -92,11 +92,11 @@ namespace Brushblade.Presentation
             {
                 switch (e.Kind)
                 {
+                    // 全体(spec v7 §11.6:DamageAll 并入 DamageSingle + All)仍报「全体攻击」
                     case EffectKind.DamageSingle:
-                        Add(modes, seen, new Mode(true, Strings.T("collection.mode.single_attack")));
-                        break;
-                    case EffectKind.DamageAll:
-                        Add(modes, seen, new Mode(true, Strings.T("collection.mode.all_attack")));
+                        Add(modes, seen, new Mode(true, e.Shape == TargetArea.All
+                            ? Strings.T("collection.mode.all_attack")
+                            : Strings.T("collection.mode.single_attack")));
                         break;
                     case EffectKind.Shield:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_shield"),
@@ -137,6 +137,9 @@ namespace Brushblade.Presentation
                     case EffectKind.Immunity:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_immunity")));
                         break;
+                    case EffectKind.Block:
+                        Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_block")));
+                        break;
                     case EffectKind.Reflect:
                         Add(modes, seen, new Mode(false, Strings.T("collection.mode.self_reflect")));
                         break;
@@ -156,6 +159,7 @@ namespace Brushblade.Presentation
             TargetArea.Column => Strings.T("char.shape.skewer"),
             TargetArea.Scatter => Strings.T("char.shape.volley"),
             TargetArea.Chain => Strings.T("char.shape.chain"),
+            TargetArea.All => Strings.T("char.shape.all"),
             _ => Strings.T("char.shape.single"),
         };
 
@@ -178,6 +182,9 @@ namespace Brushblade.Presentation
         private static void AddShapeTrait(List<Trait> traits, TargetArea shape, int percent, int shots)
         {
             if (shape == TargetArea.Single) return;
+            // 全体不建形状卡:它在「打谁」那一段已经报成「全体攻击」(ScanModes),
+            // 与 DamageAll 时代的卡面一致,这里再挂一张就重复了
+            if (shape == TargetArea.All) return;
             var name = ShapeName(shape);
             AddWord(traits, name, name, ShapeNote(shape, percent, shots));
         }
@@ -210,12 +217,11 @@ namespace Brushblade.Presentation
         {
             foreach (var e in effects)
             {
-                int v = MetaRules.ScaleByCardLevel(e.Value, cardLevel);
+                int v = MetaRules.ScaleEffectValue(e.Kind, e.Value, cardLevel);
                 switch (e.Kind)
                 {
                     // 伤害与护/治本身不是特性 —— 它们的量级在「数值」、去向在「攻击模式」
                     case EffectKind.DamageSingle:
-                    case EffectKind.DamageAll:
                     case EffectKind.Shield:
                     case EffectKind.ShieldAll:
                     case EffectKind.HealSelf:
@@ -292,6 +298,12 @@ namespace Brushblade.Presentation
                         AddTrait(traits, "immunity", v.ToString(),
                             Strings.T("collection.trait.immunity.name"),
                             Strings.T("collection.trait.immunity.desc", ("value", v)));
+                        break;
+                    case EffectKind.Block:
+                        // 次数是离散量,不吃等级:读 e.Value 而不是缩放后的 v
+                        AddTrait(traits, "block", e.Value.ToString(),
+                            Strings.T("collection.trait.block.name"),
+                            Strings.T("collection.trait.block.desc", ("value", e.Value)));
                         break;
                     case EffectKind.Reflect:
                         AddTrait(traits, "reflect", v + "%",
@@ -401,13 +413,12 @@ namespace Brushblade.Presentation
                 }
 
                 // 伤害上的修饰(穿透 / 分段 / 斩杀 / 条件翻倍):挂在这一击上,不是独立效果
-                if (e.Kind == EffectKind.DamageSingle || e.Kind == EffectKind.DamageAll)
+                if (e.Kind == EffectKind.DamageSingle)
                     DamageModifiers(traits, e);
                 // 形状特性(2026-09-16 起 HealSelf 也认):治疗弹射(海/澡)配 Chain 的那一支,
                 // AddShapeTrait 内部对 Single 早退,既有 HealSelf 字(Shape 恒 Single)因此
                 // 不受影响。
-                if (e.Kind == EffectKind.DamageSingle || e.Kind == EffectKind.DamageAll
-                    || e.Kind == EffectKind.HealSelf)
+                if (e.Kind == EffectKind.DamageSingle || e.Kind == EffectKind.HealSelf)
                     AddShapeTrait(traits, e.Shape, e.ShapePercent, e.Shots);
                 if (e.SummonShield > 0)
                     AddTrait(traits, "shield", e.SummonShield.ToString(),

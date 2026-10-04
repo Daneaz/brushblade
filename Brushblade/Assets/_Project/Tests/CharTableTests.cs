@@ -137,7 +137,7 @@ namespace Brushblade.Core.Tests
             // 对灼烧特性,预算里扣掉了这条价目,见 RealConfig_ArmorBreakChars_CarryTheirPoints
             // 一带同批改动的口径)。
             Assert.That(RealGraph().Get("焚").Rarity, Is.EqualTo(CardRarity.Orange));
-            var aoe = RealGraph().Get("焚").Effects.First(e => e.Kind == EffectKind.DamageAll);
+            var aoe = RealGraph().Get("焚").Effects.First(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All);
             // 2026-09-11(档位统一 G=1.468,T3):橙档全体锚点 240 → 204,预算与 DOT 当量 D99 都没动,108 → 77。
             Assert.That(aoe.Value, Is.EqualTo(77), "相生取消后,配置值必须等于实战值");
         }
@@ -441,7 +441,7 @@ namespace Brushblade.Core.Tests
             // (1 − 残血加伤 0.15) = 130 × 0.865 ≈ 112(spec §1.4/§2 公式,
             // tools/design/rebalance_2026_09_05.py 的 PRICE['残血加伤']=0.15)。
             Assert.That(jiao.Value, Is.EqualTo(112), "蓝档单攻锚点减去残血加伤的计价");
-            Assert.That(graph.Get("剿").Effects.Any(e => e.Kind == EffectKind.DamageAll), Is.False,
+            Assert.That(graph.Get("剿").Effects.Any(e => e.Kind == EffectKind.DamageSingle && e.Shape == TargetArea.All), Is.False,
                 "改单体后不该还留着全体那条");
 
             // 铡 同时接了「对流血目标翻倍」——与 劈 的流血组成金系的铺/收一对
@@ -692,8 +692,9 @@ namespace Brushblade.Core.Tests
             var effects = RealGraph().Get("炸").Effects;
             Assert.That(effects.Select(e => e.Kind), Is.EqualTo(new[]
             {
-                EffectKind.DamageAll, EffectKind.Detonate,
+                EffectKind.DamageSingle, EffectKind.Detonate,
             }), "多一条效果就是超模——数组顺序即结算顺序");
+            Assert.That(effects[0].Shape, Is.EqualTo(TargetArea.All), "全体 = DamageSingle + All(spec v7 §11.6)");
             // 2026-09-11(档位统一 G=1.468,T3):蓝档全体锚点 70 → 65,预算 0.36 不变:65×0.64 = 41.6 → 42。
             Assert.That(effects[0].Value, Is.EqualTo(42));
             // 2026-08-26:引爆必须是**全体**(详表:「引爆全部剩余灼烧」)。落成单体会让

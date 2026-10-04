@@ -142,7 +142,7 @@ namespace Brushblade.Core.Tests
         {
             var takes = new System.Collections.Generic.HashSet<EffectKind>
             {
-                EffectKind.DamageSingle, EffectKind.DamageAll,
+                EffectKind.DamageSingle,
                 EffectKind.HealSelf, EffectKind.HealAll, EffectKind.HealOverTime,
                 EffectKind.Shield, EffectKind.ShieldAll,
                 EffectKind.Bleed,
@@ -168,6 +168,8 @@ namespace Brushblade.Core.Tests
                 // 解封(2026-09-16,水):Value 不用(纯随机重掷属性,无量值可放大),
                 // 与 Cleanse/BurnSettleNow 那批「Value 不用」的独立效果同口径。
                 EffectKind.Unseal,
+                // 格挡(spec v7 §3.1):次数是离散量,不吃五行 L3 百分比。
+                EffectKind.Block,
             };
 
             foreach (EffectKind kind in System.Enum.GetValues(typeof(EffectKind)))

@@ -65,6 +65,10 @@ namespace Brushblade.Presentation
             // 角色页里程碑(2026-10-02)
             { "chevron", "进" },
             { "check", "领" },
+            // 字卡特性 Plan C
+            { "block", "挡" },
+            { "frostguard", "霜" },
+            { "chill", "滞" },
             { "focus", "盯" },
             { "sweep", "扫" },
             { "skewer", "贯" },

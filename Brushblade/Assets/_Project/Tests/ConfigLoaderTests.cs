@@ -330,7 +330,7 @@ namespace Brushblade.Core.Tests
                     {""kind"":""DamageSingle"",""value"":9,""executeBelowPercent"":30}]},
                 {""id"":""丙"",""element"":""Fire"",""effects"":[{""kind"":""Dispel"",""value"":-1}]},
                 {""id"":""丁"",""element"":""Water"",""effects"":[
-                    {""kind"":""DamageAll"",""value"":20},
+                    {""kind"":""DamageSingle"",""value"":20,""shape"":""All""},
                     {""kind"":""Dispel"",""value"":1,""targetAll"":true}]},
                 {""id"":""戊"",""element"":""Water"",""effects"":[{""kind"":""Cleanse"",""value"":0}]},
                 {""id"":""己"",""element"":""Earth"",""effects"":[{""kind"":""Immunity"",""value"":2}]},

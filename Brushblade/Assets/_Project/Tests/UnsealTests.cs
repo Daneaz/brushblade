@@ -124,7 +124,7 @@ namespace Brushblade.Core.Tests
             }),
             new CharDef("解", Element.Water, effects: new[] { new EffectDef(EffectKind.Unseal, 0) }),
             // 焚:AOE 只打敌人,不碰召唤物(与 RunEngineTests.SummonGraph 的「焚」同一条理由)。
-            new CharDef("焚", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageAll, 999) }),
+            new CharDef("焚", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 999, shape: TargetArea.All) }),
         });
 
         private static EnemyDef WeakTarget() => new("靶", Element.Wood, 1, 0);

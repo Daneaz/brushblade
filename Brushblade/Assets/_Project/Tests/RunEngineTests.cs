@@ -15,7 +15,7 @@ namespace Brushblade.Core.Tests
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
             new CharDef("林", Element.Wood, new[] { "木", "木" }),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 18), new EffectDef(EffectKind.BurnAll, 1) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All), new EffectDef(EffectKind.BurnAll, 1) }),
             new CharDef("灯", Element.Fire, new[] { "火", "丁" },
                 effects: new[] { new EffectDef(EffectKind.DamageSingle, 6), new EffectDef(EffectKind.BurnSingle, 1) }),
             new CharDef("丁", null),
@@ -554,7 +554,7 @@ namespace Brushblade.Core.Tests
                 new("木", Element.Wood),
                 new("火", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 4) }),
                 new("焚", Element.Fire, new[] { "木", "火" }, rarity: CardRarity.Purple,
-                    effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+                    effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All) }),
             };
             foreach (var (prefix, rarity) in new[]
                      { ("绿", CardRarity.Green), ("蓝", CardRarity.Blue), ("紫", CardRarity.Purple) })
@@ -1007,7 +1007,7 @@ namespace Brushblade.Core.Tests
                 new CharDef("兵", Element.Heart,
                     effects: new[] { new EffectDef(EffectKind.Summon, 1, summonCount: 1, summonAttack: 0, summonChar: "木") }),
                 new CharDef("壁", Element.Earth, effects: new[] { new EffectDef(EffectKind.Shield, 8) }),
-                new CharDef("焚", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+                new CharDef("焚", Element.Fire, effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All) }),
             });
             var run = new RunEngine(graph,
                 new RunConfig
@@ -1080,7 +1080,7 @@ namespace Brushblade.Core.Tests
             new CharDef("森", Element.Wood, new[] { "林", "木" },
                 effects: new[] { new EffectDef(EffectKind.Summon, 6, summonCount: 4, summonAttack: 2, summonChar: "木") }),
             new CharDef("焚", Element.Fire, new[] { "林", "火" }, rarity: CardRarity.Purple,
-                effects: new[] { new EffectDef(EffectKind.DamageAll, 18) }),
+                effects: new[] { new EffectDef(EffectKind.DamageSingle, 18, shape: TargetArea.All) }),
         });
 
         /// <summary>两层同一只敌人的召唤物专用跑图;<paramref name="secondEnemy"/> 可单独指定
